@@ -448,7 +448,7 @@ if (nl%initial == 1) then
         msgmax="Increase maxsndg in max_dims.f90 if more levels are needed." )
 
    call ichk_bnds( nl%ipsflg,  "IPSFLG",  0, 1, 0, nfatal, nwarn )
-   call ichk_bnds( nl%itsflg,  "ITSFLG",  0, 2, 0, nfatal, nwarn )
+   call ichk_bnds( nl%itsflg,  "ITSFLG",  0, 3, 0, nfatal, nwarn )
    call ichk_bnds( nl%irtsflg, "IRTSFLG", 0, 4, 0, nfatal, nwarn )
    call ichk_bnds( nl%iusflg,  "IUSFLG",  0, 1, 0, nfatal, nwarn )
 
@@ -456,8 +456,8 @@ if (nl%initial == 1) then
         call rchk_bnds( nl%hs, "HS", -1.e3, 1.e5, 0, nfatal, nwarn )
 
    if (nl%ipsflg == 1) then
-      r_min = 0.2 * p00/100.0 
-      r_max = 1.5 * p00/100.0 
+      r_min = 0.2 * p00/100.0
+      r_max = 1.5 * p00/100.0
       call rchk_bnds( nl%p_sfc, "P_SFC", r_min, r_max, 0, nfatal, nwarn )
    endif
 

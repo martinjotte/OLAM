@@ -357,6 +357,7 @@
                         !    0 = temp(C)
                         !    1 = temp(K)
                         !    2 = pot. temp(K)
+                        !    3 = ice-liquid pot. temp(K)
 
    NL%IRTSFLG = 3       ! Specifies what is in RTS array:
                         !    0 = dew pnt.(C)

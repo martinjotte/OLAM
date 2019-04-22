@@ -32,188 +32,489 @@
 !===============================================================================
 subroutine inithh()
 
-! Horizontally-homogeneous initialization of model fields
+  ! Horizontally-homogeneous initialization of model fields
 
+  use misc_coms, only: itsflg
   implicit none
 
-  call arrsnd()  !  Arrange the input sounding.
-  call refs1d()  !  Compute the 1-D reference state variables 
-  call fldshhi() !  Initialize the 3-D model fields.
+  ! Arrange the input sounding
+
+  if (itsflg == 3) then
+     call arrsnd_thil()
+  elseif (itsflg == 2) then
+     call arrsnd_theta()
+  else
+     call arrsnd_tair()
+  endif
+
+  ! Compute the 1-D reference state variables
+  call refs1d()
+
+  ! Initialize the 3-D model fields
+  call fldshhi()
 
 end subroutine inithh
 
 !===============================================================================
 
-subroutine arrsnd()
+subroutine arrsnd_thil()
 
-use consts_coms, only: pio180, eps_virt, grav, rdry, p00k, rocp, cp, cpor,  &
-                       p00i, p00, eps_vap
-use misc_coms,   only: io6, nsndg, ipsflg, itsflg, irtsflg, iusflg,  &
-                       ps, ts, rts, us, vs, hs, thds, p_sfc
+use consts_coms, only: pio180, eps_virt, p00k, rocp, cpor, p00i, &
+                       t00, eps_vap, rdryog, alvlocp, gocp
+use misc_coms,   only: nsndg, ipsflg, irtsflg, iusflg, ps, ts, rts, us, vs, &
+                       hs, thds, p_sfc
 use therm_lib,   only: eslf
 
 implicit none
 
-integer :: ksndg
-real :: toffset,dir,spd,zold2,zold1,tavg,rtss,wt,ssh_sndg,vapor_press
-real :: tvirt(nsndg)  ! automatic array
+integer :: ksndg, iterate
+real    :: dir, spd, thavg, esat
+real    :: tvirt1, tvirt2, press, theta, tair, qt, qv, qc, qsat
+real    :: qvap(nsndg)
 
-! +----------------------------------------------------------------------+
-! RTS and RT01D now defined as specific humidity instead of mixing ratio
-! +----------------------------------------------------------------------+
+real, external :: rts2qt
 
-!     Arrange the input sounding
+! Convert winds from spd/direction to U and V components
 
-if (itsflg == 0) then
-   toffset = 273.15
-elseif (itsflg == 1) then
-   toffset = 0.
-endif
-
-do ksndg = 1,nsndg
-
-   if (iusflg /= 0) then
+if (iusflg /= 0) then
+   do ksndg = 1, nsndg
       dir = us(ksndg)
       spd = vs(ksndg)
       us(ksndg) = -spd * sin(pio180*dir)
       vs(ksndg) = -spd * cos(pio180*dir)
-   endif
+   enddo
+endif
 
-   if (ipsflg == 0) then
-!     PS array is pressure in millibars with HS(1) = height of lowest sounding level
+if (ipsflg == 0) then
+
+   ! PS array is pressure in mb with HS(1) = height of lowest sounding level
+
+   do ksndg = 1, nsndg
       ps(ksndg) = ps(ksndg) * 100.
-      
-   elseif (ipsflg == 1) then
-!     PS array is height in meters with P_SFC = surface pressure
+   enddo
 
-!     If sounding moisture is expressed as a mixing ratio (IRTSFLG=2),
-!     take advantage of knowing virtual temperature effect when
-!     integrating hydrostatically to get sounding pressure.
-!
-      if (irtsflg == 2) then
-         tvirt(ksndg) = (1. + eps_virt * rts(ksndg) * 1.e-3)
-      else
-         tvirt(ksndg) = 1.
-      endif
+   ! Compute temperature and humidity. Need to iterate in case of saturation
+   do ksndg = 1, nsndg
 
-      if (ksndg == 1) then
-         zold2 = ps(ksndg)
-         ps(ksndg) = p_sfc * 100.
-      else
-         zold1 = zold2
-         zold2 = ps(ksndg)
-         if (itsflg == 0 .or. itsflg == 1) then
-            tavg = .5 * ( (ts(ksndg) + toffset) * tvirt(ksndg)  &
-                 +        ts(ksndg-1) * tvirt(ksndg-1) )
-            ps(ksndg) = ps(ksndg-1) * exp(-grav * (zold2 - zold1) / (rdry * tavg))
-         elseif (itsflg == 2) then
-            tavg = (ts(ksndg) * tvirt(ksndg)  &
-                + ts(ksndg-1) * tvirt(ksndg-1) * p00k / ps(ksndg-1)**rocp) * .5
-            ps(ksndg) = (ps(ksndg-1)**rocp - grav * (zold2 - zold1) * p00k  &
-               / (cp * tavg))**cpor
-         endif
-      endif
-   endif
+      theta = ts(ksndg)
+      tair  = theta * (ps(ksndg) * p00i) ** rocp
+      qt    = rts2qt(irtsflg, rts(ksndg), tair, ps(ksndg))
+      qv    = qt
+      qc    = 0.0
 
-   if (itsflg == 0) then
-!     Temperature in degrees celsius
-      ts(ksndg) = ts(ksndg) + 273.15
-   elseif (itsflg == 1) then
-!     Temperature in degrees kelvin
-   elseif (itsflg == 2) then
-!     Temperature is potential temperature in kelvin
-      ts(ksndg) = (ps(ksndg) * p00i)**rocp * ts(ksndg)
-   endif
+      do iterate = 1, 20
+         theta = 0.7 * theta &
+               + 0.3 * ts(ksndg) * (1. + alvlocp * qc / max(tair,253.))
 
-   if (irtsflg == 0) then
+         tair  = theta * (ps(ksndg) * p00i) ** rocp
 
-! RTS is given as dew point in degrees celsius
-! Compute ambient vapor pressure
+         qt    = rts2qt(irtsflg, rts(ksndg), tair, ps(ksndg))
+         esat  = eslf(tair - t00)
+         qsat  = eps_vap * esat / (ps(ksndg) - esat * (1. - eps_vap))
 
-      vapor_press = eslf(rts(ksndg))
+         qc    = max(0., qt - qsat)
+         qv    = qt - qc
+      enddo
 
-! Do not allow vapor pressure to exceed ambient pressure
+      rts (ksndg) = qt
+      ts  (ksndg) = tair
+      thds(ksndg) = theta
+      qvap(ksndg) = qv
+   enddo
 
-      vapor_press = min(ps(ksndg),vapor_press)
+   do ksndg = 2, nsndg
+      hs(ksndg) = hs(ksndg-1) - rdryog * 0.5  &
+           * ( ts(ksndg)   * (1. + eps_virt * qvap(ksndg  ))   &
+             + ts(ksndg-1) * (1. + eps_virt * qvap(ksndg-1)))  &
+           * log( ps(ksndg) / ps(ksndg-1) )
+   enddo
 
-! Compute specific humidity (pcol_rt) from vapor pressure and ambient pressure
+elseif (ipsflg == 1) then
 
-      rts(ksndg) = eps_vap * vapor_press  &
-                 / (ps(ksndg) + vapor_press * (eps_vap - 1.))
+   ! PS array is height in meters with P_SFC = surface pressure
 
-   elseif (irtsflg == 1) then
+   hs(1:nsndg) = ps(1:nsndg)
+   ps(1)       = p_sfc * 100.
 
-! RTS is given as dew point in degrees kelvin
-! Compute ambient vapor pressure
+   ! We know pressure at the surface; compute temperature and humidity
 
-      vapor_press = eslf(rts(ksndg)-273.15)
+   ksndg = 1
 
-! Do not allow vapor pressure to exceed ambient pressure
+   theta = ts(ksndg)
+   tair  = theta * (ps(ksndg) * p00i) ** rocp
 
-      vapor_press = min(ps(ksndg),vapor_press)
+   qt    = rts2qt(irtsflg, rts(ksndg), tair, ps(ksndg))
+   qv    = qt
+   qc    = 0.0
 
-! Compute specific humidity (pcol_rt) from vapor pressure and ambient pressure
+   do iterate = 1, 20
+      theta = 0.7 * theta &
+            + 0.3 * ts(ksndg) * (1. + alvlocp * qc / max(tair,253.))
 
-      rts(ksndg) = eps_vap * vapor_press  &
-                 / (ps(ksndg) + vapor_press * (eps_vap - 1.))
+      tair  = theta * (ps(ksndg) * p00i) ** rocp
 
-   elseif (irtsflg == 2) then
+      qt    = rts2qt(irtsflg, rts(ksndg), tair, ps(ksndg))
+      esat  = eslf(tair - t00)
+      qsat  = eps_vap * esat / (ps(ksndg) - esat * (1. - eps_vap))
 
-! RTS is given as specific humidity in g/kg
+      qc    = max(0., qt - qsat)
+      qv    = qt - qc
+   enddo
 
-      rts(ksndg) = rts(ksndg) * 1.e-3
+   rts (ksndg) = qt
+   ts  (ksndg) = tair
+   thds(ksndg) = theta
+   qvap(ksndg) = qv
 
-   elseif (irtsflg == 3) then
+   ! Above surface, we need to compute temperature, humidity, and pressure.
+   ! Need to iterate in case of saturation
 
-! RTS is given as relative humidity in percent
-! Compute ambient vapor pressure based on relative humidity (pcol_r)
-! and saturation vapor pressure
+   do ksndg = 2, nsndg
 
-      vapor_press = .01 * rts(ksndg) * eslf(ts(ksndg)-273.15)
+      ! virtual temp correction from layer below
+      tvirt2 = 1. + eps_virt * qvap(ksndg-1)
 
-! Do not allow vapor pressure to exceed ambient pressure
+      theta = ts(ksndg)
+      thavg = 0.5 * (theta + thds(ksndg-1) * tvirt2)
+      press = ( ps(ksndg-1) ** rocp &
+              + gocp * (hs(ksndg-1) - hs(ksndg)) * p00k / thavg ) ** cpor
+      tair  = theta * (press * p00i) ** rocp
+      qt    = rts2qt(irtsflg, rts(ksndg), tair, press)
+      qv    = qt
+      qc    = 0.0
 
-      vapor_press = min(ps(ksndg),vapor_press)
+      do iterate = 1, 20
 
-! Compute specific humidity from vapor pressure and ambient pressure
+         tvirt1 = 1. + eps_virt * qv
+         thavg  = 0.5 * (theta * tvirt1 + thds(ksndg-1) * tvirt2)
 
-      rts(ksndg) = eps_vap * vapor_press  &
-                 / (ps(ksndg) + vapor_press * (eps_vap - 1.))
+         press  = ( ps(ksndg-1) ** rocp &
+                  + gocp * (hs(ksndg-1) - hs(ksndg)) * p00k / thavg ) ** cpor
 
-   elseif (irtsflg == 4) then
+         tair   = theta * (press * p00i)**rocp
 
-! RTS is given as dew point depression in kelvin
-! Compute ambient vapor pressure
+         qt     = rts2qt(irtsflg, rts(ksndg), tair, press)
+         esat   = eslf(tair - t00)
+         qsat   = eps_vap * esat / (press - esat * (1. - eps_vap))
 
-      vapor_press = eslf(ts(ksndg)-rts(ksndg)-273.15)
+         qc     = max(0., qt - qsat)
+         qv     = qt - qc
 
-! Do not allow vapor pressure to exceed ambient pressure
+         theta = 0.7 * theta &
+               + 0.3 * ts(ksndg) * (1. + alvlocp * qc / max(tair,253.))
 
-      vapor_press = min(ps(ksndg),vapor_press)
+      enddo
 
-! Compute specific humidity (pcol_rt) from vapor pressure and ambient pressure
+      rts (ksndg) = qt
+      ts  (ksndg) = tair
+      thds(ksndg) = theta
+      ps  (ksndg) = press
+      qvap(ksndg) = qv
+   enddo
 
-      rts(ksndg) = eps_vap * vapor_press  &
-                 / (ps(ksndg) + vapor_press * (eps_vap - 1.))
+endif
 
-   endif
-enddo
+end subroutine arrsnd_thil
 
-!     compute height levels of input sounding.
+!===============================================================================
 
-do ksndg = 2,nsndg
-   hs(ksndg) = hs(ksndg-1) - rdry * .5  &
-      * (ts(ksndg) * (1. + eps_virt * rts(ksndg))   &
-      + ts(ksndg-1) * (1. + eps_virt * rts(ksndg-1)))  &
-      * (log(ps(ksndg)) - log(ps(ksndg-1))) / grav
-enddo
+subroutine arrsnd_theta()
 
-do ksndg = 1,nsndg
-   thds(ksndg) = ts(ksndg) * (p00 / ps(ksndg))**rocp
-enddo
+use consts_coms, only: pio180, eps_virt, p00k, rocp, cpor, p00i, &
+                       t00, eps_vap, rdryog, gocp
+use misc_coms,   only: nsndg, ipsflg, irtsflg, iusflg, ps, ts, rts, us, vs, &
+                       hs, thds, p_sfc
+use therm_lib,   only: eslf
 
-return
-end subroutine arrsnd
+implicit none
+
+integer :: ksndg, iterate
+real    :: dir, spd, thavg, esat
+real    :: tvirt1, tvirt2, press, theta, tair, qt, qv, qc, qsat
+real    :: qvap(nsndg)
+
+real, external :: rts2qt
+
+! Convert winds from spd/direction to U and V components
+
+if (iusflg /= 0) then
+   do ksndg = 1, nsndg
+      dir = us(ksndg)
+      spd = vs(ksndg)
+      us(ksndg) = -spd * sin(pio180*dir)
+      vs(ksndg) = -spd * cos(pio180*dir)
+   enddo
+endif
+
+if (ipsflg == 0) then
+
+   ! PS array is pressure in mb with HS(1) = height of lowest sounding level
+   ! Compute temperature and humidity
+
+   do ksndg = 1, nsndg
+      ps  (ksndg) = ps(ksndg) * 100.
+      thds(ksndg) = ts(ksndg)
+      ts  (ksndg) = ts(ksndg) * (ps(ksndg) * p00i) ** rocp
+      rts (ksndg) = rts2qt(irtsflg, (rts(ksndg)), ts(ksndg), ps(ksndg))
+
+      esat        = eslf(ts(ksndg) - t00)
+      qsat        = eps_vap * esat / (ps(ksndg) - esat * (1. - eps_vap))
+      qvap(ksndg) = rts(ksndg) - max(0., rts(ksndg) - qsat)
+   enddo
+
+   do ksndg = 2, nsndg
+      hs(ksndg) = hs(ksndg-1) - rdryog * 0.5  &
+           * ( ts(ksndg)   * (1. + eps_virt * qvap(ksndg  ))   &
+             + ts(ksndg-1) * (1. + eps_virt * qvap(ksndg-1)))  &
+           * log( ps(ksndg) / ps(ksndg-1) )
+   enddo
+
+
+elseif (ipsflg == 1) then
+
+   ! PS array is height in meters with P_SFC = surface pressure
+
+   hs(1:nsndg) = ps(1:nsndg)
+   ps(1)       = p_sfc * 100.
+
+   ! We know pressure at the surface; compute temperature and humidity
+
+   ksndg = 1
+
+   thds(ksndg) = ts(ksndg)
+   ts  (ksndg) = ts(ksndg) * (ps(ksndg) * p00i) ** rocp
+   rts (ksndg) = rts2qt(irtsflg, (rts(ksndg)), ts(ksndg), ps(ksndg))
+
+   esat        = eslf(ts(ksndg) - t00)
+   qsat        = eps_vap * esat / (ps(ksndg) - esat * (1. - eps_vap))
+   qvap(ksndg) = rts(ksndg) - max(0., rts(ksndg) - qsat)
+
+   ! Above surface, we need to compute temperature, humidity, and pressure.
+   ! Need to iterate in case of saturation
+
+   do ksndg = 2, nsndg
+
+      ! virtual temp correction from layer below
+      tvirt2 = 1. + eps_virt * qvap(ksndg-1)
+
+      theta = ts(ksndg)
+      thavg = 0.5 * (theta + thds(ksndg-1) * tvirt2)
+      press = ( ps(ksndg-1) ** rocp &
+              + gocp * (hs(ksndg-1) - hs(ksndg)) * p00k / thavg ) ** cpor
+      tair  = theta * (press * p00i) ** rocp
+      qt    = rts2qt(irtsflg, rts(ksndg), tair, press)
+      qv    = qt
+      qc    = 0.0
+
+      do iterate = 1, 20
+
+         tvirt1 = 1. + eps_virt * qv
+         thavg  = 0.5 * (theta * tvirt1 + thds(ksndg-1) * tvirt2)
+         press  = ( ps(ksndg-1) ** rocp &
+                + gocp * (hs(ksndg-1) + hs(ksndg)) * p00k / thavg ) ** cpor
+
+         tair   = theta * (press * p00i)**rocp
+
+         qt     = rts2qt(irtsflg, rts(ksndg), tair, press)
+         esat   = eslf(tair - t00)
+         qsat   = eps_vap * esat / (press - esat * (1. - eps_vap))
+
+         qc     = max(0., qt - qsat)
+         qv     = qt - qc
+
+      enddo
+
+      rts (ksndg) = qt
+      ts  (ksndg) = tair
+      thds(ksndg) = theta
+      ps  (ksndg) = press
+      qvap(ksndg) = qv
+   enddo
+
+endif
+
+end subroutine arrsnd_theta
+
+!===============================================================================
+
+subroutine arrsnd_tair()
+
+use consts_coms, only: pio180, eps_virt, p00k, rocp, p00, t00, &
+                       eps_vap, rdryog, gordry
+use misc_coms,   only: nsndg, ipsflg, irtsflg, iusflg, ps, ts, rts, &
+                       us, vs, hs, thds, p_sfc
+use therm_lib,   only: eslf
+
+implicit none
+
+integer :: ksndg, iterate
+real    :: dir, spd, tavg, esat
+real    :: tvirt1, tvirt2, press, qt, qv, qc, qsat
+real    :: qvap(nsndg)
+
+real, external :: rts2qt
+
+! Convert winds from spd/direction to U and V components
+
+if (iusflg /= 0) then
+   do ksndg = 1, nsndg
+      dir = us(ksndg)
+      spd = vs(ksndg)
+      us(ksndg) = -spd * sin(pio180*dir)
+      vs(ksndg) = -spd * cos(pio180*dir)
+   enddo
+endif
+
+! Convert temperature to Kelvin
+
+if (irtsflg == 0) then
+   do ksndg = 1, nsndg
+      ts(ksndg) = ts(ksndg) + t00
+   enddo
+endif
+
+if (ipsflg == 0) then
+
+   ! PS array is pressure in mb with HS(1) = height of lowest sounding level
+   ! Compute potential temperature and humidity
+
+   do ksndg = 1, nsndg
+      ps  (ksndg) = ps(ksndg) * 100.
+      thds(ksndg) = ts(ksndg) * (p00 / ps(ksndg)) * rocp
+      rts (ksndg) = rts2qt(irtsflg, (rts(ksndg)), ts(ksndg), ps(ksndg))
+
+      esat        = eslf(ts(ksndg) - t00)
+      qsat        = eps_vap * esat / (ps(ksndg) - esat * (1. - eps_vap))
+      qvap(ksndg) = rts(ksndg) - max(0., rts(ksndg) - qsat)
+   enddo
+
+   do ksndg = 2, nsndg
+      hs(ksndg) = hs(ksndg-1) - rdryog * 0.5  &
+           * ( ts(ksndg)   * (1. + eps_virt * qvap(ksndg  ))   &
+             + ts(ksndg-1) * (1. + eps_virt * qvap(ksndg-1)))  &
+           * log( ps(ksndg) / ps(ksndg-1) )
+   enddo
+
+elseif (ipsflg == 1) then
+
+   ! PS array is height in meters with P_SFC = surface pressure
+
+   hs(1:nsndg) = ps(1:nsndg)
+   ps(1)       = p_sfc * 100.
+
+   ! We know pressure at the surface; compute potential temperature and humidity
+
+   ksndg = 1
+
+   thds(ksndg) = ts(ksndg) * (p00 / ps(ksndg)) ** rocp
+   rts (ksndg) = rts2qt(irtsflg, (rts(ksndg)), ts(ksndg), ps(ksndg))
+
+   esat        = eslf(ts(ksndg) - t00)
+   qsat        = eps_vap * esat / (ps(ksndg) - esat * (1. - eps_vap))
+   qvap(ksndg) = rts(ksndg) - max(0., rts(ksndg) - qsat)
+
+   ! Above surface, we need to compute potential temperature, humidity,
+   ! and pressure. Need to iterate in case of saturation
+
+   do ksndg = 2, nsndg
+
+      ! virtual temp correction from layer below
+      tvirt2 = 1. + eps_virt * qvap(ksndg-1)
+
+      tavg  = 0.5 * (ts(ksndg) + ts(ksndg-1) * tvirt2)
+      press = ps(ksndg-1) * exp(gordry * (hs(ksndg-1) - hs(ksndg)) / tavg)
+
+      qt    = rts2qt(irtsflg, rts(ksndg), ts(ksndg), press)
+      qv    = qt
+      qc    = 0.0
+
+      do iterate = 1, 20
+
+         tvirt1 = 1. + eps_virt * qv
+
+         tavg  = 0.5 * (ts(ksndg) * tvirt1 + ts(ksndg-1) * tvirt2)
+         press = ps(ksndg-1) * exp(gordry * (hs(ksndg-1) - hs(ksndg)) / tavg)
+
+         qt     = rts2qt(irtsflg, rts(ksndg), ts(ksndg), press)
+         esat   = eslf(ts(ksndg) - t00)
+         qsat   = eps_vap * esat / (press - esat * (1. - eps_vap))
+
+         qc     = max(0., qt - qsat)
+         qv     = qt - qc
+
+      enddo
+
+      rts (ksndg) = qt
+      thds(ksndg) = ts(ksndg) * (p00 / press) ** rocp
+      ps  (ksndg) = press
+      qvap(ksndg) = qv
+
+   enddo
+
+endif
+
+end subroutine arrsnd_tair
+
+!===============================================================================
+
+real function rts2qt(irtsflg, rts, tair, press)
+
+  use therm_lib,   only: eslf
+  use consts_coms, only: eps_vap, t00
+
+  implicit none
+
+  integer, intent(in) :: irtsflg
+  real,    intent(in) :: rts
+  real,    intent(in) :: tair
+  real,    intent(in) :: press
+  real                :: vapor_press
+
+  if (irtsflg == 2) then
+
+     ! RTS is given as specific humidity in g/kg
+     rts2qt = rts * 1.e-3
+
+  else
+
+     if (irtsflg == 0) then
+
+        ! RTS is dew point in degrees C
+        vapor_press = eslf(rts)
+
+     elseif (irtsflg == 1) then
+
+        ! RTS is Dew point in Kelvin
+        vapor_press = eslf(rts - t00)
+
+     elseif (irtsflg == 3) then
+
+        ! RTS is given as relative humidity in percent
+        vapor_press = .01 * rts * eslf(tair - t00)
+
+     elseif (irtsflg == 4) then
+
+        ! RTS is given as dew point depression in Kelvin
+        vapor_press = eslf(tair - rts - t00)
+
+     elseif (irtsflg /= 2) then
+
+        write(*,*) irtsflg
+        stop 'illegal value of irtsflg'
+
+     endif
+
+     ! Do not allow vapor pressure to exceed ambient pressure
+
+     vapor_press = min(press, vapor_press)
+
+     ! Compute specific humidity from vapor pressure and ambient pressure
+
+     rts2qt = eps_vap * vapor_press  / (press - vapor_press * (1.0 - eps_vap))
+
+  endif
+
+end function rts2qt
 
 !===============================================================================
 
@@ -223,16 +524,19 @@ subroutine refs1d()
 ! \     levels from input sounding defined on pressure levels.
 ! +---------------------------------------------------------------------
 
-use misc_coms,   only: io6, nsndg, hs, thds, us, vs, rts, ps,  &
+use misc_coms,   only: io6, nsndg, hs, thds, us, vs, ts, rts, ps, &
                        pr01d, dn01d, rt01d, th01d, u01d, v01d
-use consts_coms, only: cvocp, p00k, rdry, eps_virt, grav, gravo2, p00, rocp
+use consts_coms, only: cvocp, p00k, rdry, eps_virt, grav, gravo2, p00, &
+                       rocp, t00, p00i, eps_vap
 use mem_grid,    only: mza, zm, zt, dzt_top, dzt_bot
 use micro_coms,  only: miclevel
+use therm_lib,   only: eslf
 
 implicit none
 
-integer :: k,kk,iter
-real :: dens1, exner, temp
+integer :: k, iter
+real    :: dens1, exner, temp
+real    :: esat, qsat, qv, tair
 
 write(io6,*) 'Beginning refs1d '
 
@@ -255,29 +559,46 @@ endif
 ! New interpolation of pressure prior to iterative hydrostatic integration
 
 call htint(nsndg,ps,hs,mza,pr01d,zt)
-dens1 = ps(1) ** cvocp * p00k / (rdry * thds(1) * (1. + eps_virt * rts(1)))
 
-! Use iterative method for hydrostatic integration (assume no condensate)
+esat  = eslf(ts(1) - t00)
+qsat  = eps_vap * esat / (ps(1) - esat * (1. - eps_vap))
+qv    = rts(1) - max(0., rts(1) - qsat)
+dens1 = ps(1) ** cvocp * p00k / (rdry * thds(1) * (1. + eps_virt * qv))
+
+! Use iterative method for hydrostatic integration
 
 do iter = 1,100
+
+   tair  = th01d(1) * (pr01d(1) * p00i) ** rocp
+   esat  = eslf(tair - t00)
+   qsat  = eps_vap * esat / (pr01d(1) - esat * (1. - eps_vap))
+   qv    = rt01d(1) - max(0., rt01d(1) - qsat)
+
    dn01d(1) = pr01d(1) ** cvocp * p00k  &
-            / (rdry * th01d(1) * (1. + eps_virt * rt01d(1)))
-   pr01d(1) = ps(1) - gravo2 * (dens1 + dn01d(1)) * (zt(1) - hs(1)) 
+            / (rdry * th01d(1) * (1. + eps_virt * qv))
+   pr01d(1) = ps(1) - gravo2 * (dens1 + dn01d(1)) * (zt(1) - hs(1))
 
    do k = 2,mza
+
+      tair  = th01d(k) * (pr01d(k) * p00i) ** rocp
+      esat  = eslf(tair - t00)
+      qsat  = eps_vap * esat / (pr01d(k) - esat * (1. - eps_vap))
+      qv    = rt01d(k) - max(0., rt01d(k) - qsat)
+
       dn01d(k) = pr01d(k) ** cvocp * p00k  &
-               / (rdry * th01d(k) * (1. + eps_virt * rt01d(k)))
-! Impose minimum value of 1 Pa to avoid overshoot to negative values 
-! during iteration
+               / (rdry * th01d(k) * (1. + eps_virt * qv))
+
+      ! Impose minimum value of 1 Pa to avoid overshoot to negative values
+      ! during iteration
       pr01d(k) = max(1.,  &
-         pr01d(k-1) - grav * (dn01d(k-1) * dzt_top(k-1) + dn01d(k) * dzt_bot(k)))
+           pr01d(k-1) - grav * (dn01d(k-1) * dzt_top(k-1) + dn01d(k) * dzt_bot(k)))
    enddo
 enddo
 
 rt01d(1) = rt01d(2)
 th01d(1) = th01d(2)
 
-! Print out initial state column 
+! Print out initial state column
 
 write(io6,*) ' '
 write(io6,*) '============================================================================'
@@ -291,48 +612,44 @@ do k = mza,2,-1
 
    exner = (pr01d(k) / p00) ** rocp  ! exner WITHOUT CP factor
    temp  = th01d(k) * exner
- 
+
    write(io6, '(f10.2,1x,6(''-----------''))') zm(k)
    write(io6, '(10x,i5,f10.2,f10.2,f10.4,2f10.2,f10.4)')  &
        k,zt(k),pr01d(k),dn01d(k),th01d(k),temp,rt01d(k)*1.e3
 enddo
-   
+
 write(io6, '(f10.2,1x,9(''-------''))') zm(1)
 write(io6,*) ' '
 
-return
 end subroutine refs1d
 
 !===============================================================================
 
 subroutine fldshhi()
-   
+
 use mem_basic,   only: theta, thil, tair, press, rho, wc, wmc, &
                        vc, vp, vmp, vmc, sh_w, sh_v
 use mem_micro,   only: sh_c
 use micro_coms,  only: miclevel
-use mem_ijtabs,  only: jtab_w, jtab_v, itab_w, itab_v, &
-                       jtv_init, jtw_init, jtv_wall
-use misc_coms,   only: io6, mdomain, th01d, pr01d, dn01d, rt01d, u01d, v01d, &
+use mem_ijtabs,  only: jtab_w, jtab_v, itab_v, jtv_init, jtw_init, jtv_wall
+use misc_coms,   only: mdomain, th01d, pr01d, dn01d, rt01d, u01d, v01d, &
                        iparallel
-use consts_coms, only: cvocp, p00k, rdry, rvap, p00, p00i, rocp, alvl, cp, &
+use consts_coms, only: cvocp, p00k, rdry, rvap, p00, p00i, rocp, alvlocp, &
                        grav, erad
-use mem_grid,    only: mza, mva, lpv, lpw, &
-                       unx, uny, unz, vnx, vny, vnz, &
-                       xev, yev, zev, arv, volt, &
-                       xew, yew, zew, dzt_top, dzt_bot
+use mem_grid,    only: mza, lpv, lpw, vnx, vny, vnz, xev, yev, zev, &
+                       dzt_top, dzt_bot
 use olam_mpi_atm,only: mpi_send_w, mpi_recv_w, &
-                       mpi_send_v, mpi_recv_v 
+                       mpi_send_v, mpi_recv_v
 use obnd,        only: lbcopy_v, lbcopy_w
 use therm_lib,   only: rhovsl
 
-implicit none   
+implicit none
 
-integer :: j,iw,k,ka,iu,iv,iter,iw1,iw2,iup,ivp,im1,im2,iwp,kbc,mrl
+integer :: j,iw,k,ka,iv,iter,iw1,iw2,kbc,mrl
 
-real :: rcloud,dummy,temp,rvls,exner
-real :: uv01dx,uv01dy,uv01dz,uv01dr,raxis,rhovs
-real :: pkhyd, qhydm
+real :: temp, exner
+real :: uv01dx, uv01dy, uv01dz, uv01dr, raxis, rhovs
+real :: pkhyd
 
 ! Choose as an internal pressure boundary condition the pressure level at or
 ! below (in elevation) the 49900 Pa surface.  Find the k index of this level.
@@ -353,17 +670,17 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
    wc (1:mza,iw) = 0.
    wmc(1:mza,iw) = 0.
 
-   do k = ka,mza
+   do k = ka, mza
       theta(k,iw) = th01d(k)
       thil(k,iw)  = theta(k,iw)
       press(k,iw) = pr01d(k)
       rho(k,iw)   = dn01d(k)
-      
+
       if (miclevel == 0) then
          sh_w(k,iw) = 0.
          sh_v(k,iw) = 0.
       elseif (miclevel == 1) then
-         sh_w(k,iw) = rt01d(k) 
+         sh_w(k,iw) = rt01d(k)
          sh_v(k,iw) = rt01d(k)
       else
          sh_w(k,iw) = rt01d(k)
@@ -375,7 +692,7 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 
 !  Compute density for all grid levels
 
-      do k = ka,mza
+      do k = ka, mza
 
          if (miclevel == 0) then
             rho(k,iw) = press(k,iw) ** cvocp * p00k / (rdry * theta(k,iw))
@@ -387,21 +704,19 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
             temp = exner * theta(k,iw)
             rhovs = rhovsl(temp-273.15)
 
-            sh_c(k,iw) = sh_w(k,iw) - rhovs/real(rho(k,iw))
-            sh_c(k,iw) = max(0.,sh_c(k,iw))
+            sh_c(k,iw) = max(0., sh_w(k,iw) - rhovs/real(rho(k,iw)))
             sh_v(k,iw) = sh_w(k,iw) - sh_c(k,iw)
 
             rho(k,iw) = press(k,iw) ** cvocp * p00k &
                / (theta(k,iw) * (rdry * (1. - sh_w(k,iw)) + rvap * sh_v(k,iw)))
 
-            qhydm = alvl * sh_c(k,iw)
-            thil(k,iw) = theta(k,iw) / (1. + qhydm / (cp * max(temp,253.)))
+            thil(k,iw) = theta(k,iw) / (1. + alvlocp * sh_c(k,iw) / max(temp,253.))
          endif
 
       enddo
 
 ! Integrate hydrostatic equation upward and downward from kbc level
-! Impose minimum value of 0.1 Pa to avoid overshoot to negative values 
+! Impose minimum value of 0.1 Pa to avoid overshoot to negative values
 ! during iteration.  Use weighting to damp oscillations
 
       do k = kbc+1,mza
@@ -453,7 +768,7 @@ do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)
 
    ka = lpv(iv)
 
-! If sounding winds are to be interpreted as eastward (U) and 
+! If sounding winds are to be interpreted as eastward (U) and
 ! northward (V) components, rotate winds from geographic to
 ! polar stereographic orientation
 
@@ -467,9 +782,9 @@ do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)
          if (raxis > 1.e3) then
             uv01dr = -v01d(k) * zev(iv) / erad  ! radially outward from axis
 
-            uv01dx = (-u01d(k) * yev(iv) + uv01dr * xev(iv)) / raxis 
-            uv01dy = ( u01d(k) * xev(iv) + uv01dr * yev(iv)) / raxis 
-            uv01dz =   v01d(k) * raxis / erad 
+            uv01dx = (-u01d(k) * yev(iv) + uv01dr * xev(iv)) / raxis
+            uv01dy = ( u01d(k) * xev(iv) + uv01dr * yev(iv)) / raxis
+            uv01dz =   v01d(k) * raxis / erad
 
             vc(k,iv) = uv01dx * vnx(iv) + uv01dy * vny(iv) + uv01dz * vnz(iv)
          else
@@ -482,7 +797,7 @@ do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)
 
       vmc(k,iv) = vc(k,iv) * .5 * (rho(k,iw1) + rho(k,iw2))
 
-   enddo      
+   enddo
 
 ! For below-ground points, set VC to 0
 
