@@ -36,15 +36,12 @@ subroutine pbl_driver(mrl,rhot)
   use mem_grid,       only: mza, mwa, lpw, lsw, volti, xew, yew, zew
   use misc_coms,      only: idiffk, dtlm, mdomain
   use mem_tend,       only: thilt, sh_wt
-  use mem_basic,      only: vxe, vye, vze, thil, theta, tair, sh_w, sh_v, rho
-  use mem_turb,       only: vkm, vkh, sxfer_rk, ustar, wstar, wtv0, ue, ve, &
-                            frac_sfc, pblh, kpblh, fqtpbl, fthpbl, moli
+  use mem_basic,      only: vxe, vye, vze, rho
+  use mem_turb,       only: vkm, vkh, sxfer_rk, ue, ve, fqtpbl, fthpbl
   use consts_coms,    only: grav, vonk, eps_virt, alvlocp, r8, eradi
   use mem_ijtabs,     only: jtab_w, itab_w, jtw_prog, mrls
-  use mem_radiate,    only: pbl_cld_forc
-  use module_bl_acm2, only: acm2_pblhgt, acm2_eddyx, acm2_scalars, acm2_momentum
+  use module_bl_acm2, only: acm2_pblhgt, acm2_driver
   use smagorinsky,    only: turb_k
-  use mem_micro,      only: sh_c
 
   implicit none
 
@@ -52,9 +49,6 @@ subroutine pbl_driver(mrl,rhot)
   real,    intent(inout) :: rhot(mza,mwa)
 
   integer :: j, k, ka, iw, mrlw, ks
-
-  real    :: qc(mza)
-  real    :: thlv(mza)
   real    :: dtli, raxis, raxisi
 
   ! Compute zonal and meridional wind components
@@ -92,8 +86,7 @@ subroutine pbl_driver(mrl,rhot)
 ! Loop over all W/T points where PBL parameterization may be done
 
 !----------------------------------------------------------------------
-  !$omp parallel private(qc,thlv)
-  !$omp do private(iw,mrlw,ka,k,ks,dtli)
+  !$omp parallel do private(iw,mrlw,ka,k,ks,dtli)
   do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 
@@ -109,26 +102,9 @@ subroutine pbl_driver(mrl,rhot)
         fqtpbl(k,iw) = sh_wt(k,iw)
      enddo
 
-     ! Define a cloud-liquid-water virtual potential temperature for diagnosing buoyancy
-
-     if (allocated(sh_c)) then
-        do k = ka, mza
-           qc  (k) = max( sh_w(k,iw) - sh_v(k,iw), 0.0 )
-           thlv(k) = theta(k,iw) * (1.0 + eps_virt * sh_v(k,iw) - qc(k)) &
-                   / ( 1.0 + alvlocp * sh_c(k,iw) / max(tair(k,iw), 253.0) )
-        enddo
-     else
-        do k = ka, mza
-           qc  (k) = 0.0
-           thlv(k) = theta(k,iw) * (1.0 + eps_virt * sh_v(k,iw))
-        enddo
-     endif
-
      ! Diagnose PBL height regardless of scheme
 
-     call acm2_pblhgt( ustar(iw), wstar(iw), wtv0(iw), ka, mza-1, lsw(iw),    &
-                       frac_sfc(:,iw), thlv, vxe(:,iw), vye(:,iw), vze(:,iw), &
-                       kpblh(iw), pblh(iw) )
+     call acm2_pblhgt(iw)
 
      ! Apply temperature and scalar surface fluxes and emissions
 
@@ -140,20 +116,13 @@ subroutine pbl_driver(mrl,rhot)
 
         ! ACM2 non-local convective tranport scheme
 
-        call acm2_eddyx( iw, moli(iw), ustar(iw), wstar(iw), pblh(iw),        &
-                         kpblh(iw), ka, mza, vkm(:,iw), vkh(:,iw),            &
-                         vxe(:,iw), vye(:,iw), vze(:,iw),                     &
-                         sh_w(:,iw), sh_v(:,iw), qc, thil(:,iw), theta(:,iw), &
-                         thlv, tair(:,iw), pbl_cld_forc(iw), rho(:,iw)        )
-
-        call acm2_scalars ( iw, moli(iw), pblh(iw), kpblh(iw), vkh(:,iw) )
-        call acm2_momentum( iw, vkm(:,iw) )
+        call acm2_driver( iw )
 
      else if (idiffk(mrlw) == 2 .or. idiffk(mrlw) == 3) then
 
         ! Smagorinsky scheme
 
-        call turb_k(iw, mrlw, thlv, vkh(:,iw), vkm(:,iw))
+        call turb_k(iw, mrlw)
 
      else
 
@@ -167,7 +136,7 @@ subroutine pbl_driver(mrl,rhot)
 
      ! Add surface vapor flux to total density tendency
 
-     dtli = 1.0 / dtlm(mrlw)
+     dtli = 1.0 / real(dtlm(mrlw))
 
      do ks = 1, lsw(iw)
         k = lpw(iw) + ks - 1
@@ -182,14 +151,11 @@ subroutine pbl_driver(mrl,rhot)
      enddo
 
   enddo
-  !$omp end do
-  !$omp end parallel
+  !$omp end parallel do
 
 end subroutine pbl_driver
 
-
 !===============================================================================
-
 
 subroutine comp_horiz_k(mrl)
 
@@ -199,7 +165,7 @@ subroutine comp_horiz_k(mrl)
   use mem_ijtabs,  only: jtab_v, jtv_wadj, itab_v, itab_w
   use mem_turb,    only: vkm, vkh, akmodx, akhodx
   use mem_basic,   only: rho
-  use mem_cuparm,  only: kcutop, kcubot, cbmf, iactcu
+! use mem_cuparm,  only: kcutop, kcubot, cbmf, iactcu
 
   implicit none
 
@@ -208,14 +174,14 @@ subroutine comp_horiz_k(mrl)
   real                :: bkmin, dens
   real                :: hkm, hkh, tempm, temph, stab1, stab2
   real(r8)            :: fact1, fact2
-  real                :: hcm, hch, hkc1(mza), hkc2(mza), eta
+! real                :: hcm, hch, hkc1(mza), hkc2(mza), eta
 
   ! Loop over V columns to compute ARV * K / DX, and make sure
   ! horizontal diffusion is stable over the long timestep
 
   !$omp parallel do private(iv,iw1,iw2,fact1,fact2,bkmin,k,km,&
-  !$omp                     dens,hkm,hkh,tempm,temph,stab1,stab2,&
-  !$omp                     hcm,hch,hkc1,hkc2,eta)
+  !$omp                     dens,hkm,hkh,tempm,temph,stab1,stab2)
+!!!!omp                     hcm,hch,hkc1,hkc2,eta)
   do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
 
      iw1 = itab_v(iv)%iw(1)
@@ -282,14 +248,12 @@ end subroutine comp_horiz_k
 
 subroutine pbl_init()
 
-  use mem_grid,      only: lsw, lpw, mza, mwa, arw, arw0, zfacim2
+  use mem_grid,      only: lsw, lpw, mwa, arw, arw0, zfacim2
   use mem_ijtabs,    only: jtab_w, jtw_prog, itabg_w
   use mem_turb,      only: frac_urb, frac_land, frac_sea, frac_lake, frac_sfc, &
-                           ustar, wstar, wtv0, pblh, kpblh, fthpbl, fqtpbl, moli, &
-                           frac_sfck
+                           ustar, wstar, wtv0, fthpbl, fqtpbl, moli, frac_sfck
   use mem_leaf,      only: land, itab_wl
   use mem_sea,       only: sea, itab_ws
-  use mem_basic,     only: vxe, vye, vze, theta, sh_v
   use misc_coms,     only: isubdomain, runtype, iparallel
   use module_bl_acm2,only: acm2_pblhgt
   use leaf_coms,     only: mwl, isfcl
@@ -301,13 +265,12 @@ subroutine pbl_init()
   implicit none
 
   integer :: j, iw, iwl, iws, k, km, ks
-  real    :: thlv(mza)
 
   if (allocated(fthpbl)) fthpbl(:,:) = 0.0
   if (allocated(fqtpbl)) fqtpbl(:,:) = 0.0
 
 ! Populate urban and land, sea, and lake fraction arrays
-  
+
   frac_urb (:) = 0.0
   frac_land(:) = 0.0
   frac_sea (:) = 0.0
@@ -320,11 +283,11 @@ subroutine pbl_init()
         if (isubdomain == 1) then
            iw = itabg_w(iw)%iw_myrank  ! local index
         endif
-   
+
         if (any(land%leaf_class(iwl) == (/ 19, 21 /))) then
            frac_urb(iw) = frac_urb(iw) + itab_wl(iwl)%arf_iw
         endif
-       
+
         frac_land(iw) = frac_land(iw) + itab_wl(iwl)%arf_iw
      enddo
 
@@ -333,7 +296,7 @@ subroutine pbl_init()
         if (isubdomain == 1) then
            iw  = itabg_w(iw)%iw_myrank  ! local index
         endif
-   
+
         if (sea%leaf_class(iws) == 0) then
            frac_sea (iw) = frac_sea (iw) + itab_ws(iws)%arf_iw
         else
@@ -349,7 +312,7 @@ subroutine pbl_init()
      endif
 
      call lbcopy_w1d(1, a1=frac_urb, a2=frac_land, a3=frac_sea, a4=frac_lake)
-     
+
   endif
 
   !$omp parallel do private(ks,k,km)
@@ -367,7 +330,7 @@ subroutine pbl_init()
                 max(arw(k,iw) * zfacim2(k) - arw(km,iw) * zfacim2(km),0.) / arw0(iw)
         enddo
      endif
-     
+
      ! Store the fraction of the current cell that intersects with the surface
 
      frac_sfck(1,iw) = 1.0
@@ -385,9 +348,8 @@ subroutine pbl_init()
   if (runtype /= 'INITIAL') return
 
 ! Initialize PBL height and some PBL quantities
-    
-  !$omp parallel private(thlv)
-  !$omp do private(k,iw)
+
+  !$omp parallel do private(iw)
   do j = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
 
      ustar(iw) = 0.2
@@ -395,16 +357,10 @@ subroutine pbl_init()
      wtv0 (iw) = 0.0
      moli (iw) = 0.0
 
-     do k = lpw(iw), mza
-        thlv(k) = theta(k,iw) * (1.0 + eps_virt * sh_v(k,iw))
-     enddo
+     call acm2_pblhgt( iw )
 
-    call acm2_pblhgt( ustar(iw), wstar(iw), wtv0(iw), lpw(iw), mza-1, lsw(iw), &
-                      frac_sfc(:,iw), thlv, vxe(:,iw), vye(:,iw), vze(:,iw),   &
-                      kpblh(iw), pblh(iw)                                      )
   enddo
-  !$omp end do
-  !$omp end parallel
+  !$omp end parallel do
 
 end subroutine pbl_init
 
@@ -466,7 +422,7 @@ subroutine apply_surface_fluxes( iw )
                                      + real(rho(k,iw)) * scalar_tab(n)%emis(k,iw)
         enddo
      enddo
-     
+
   endif
 
 end subroutine apply_surface_fluxes
@@ -478,7 +434,6 @@ subroutine apply_momentum_fluxes( iw )
   use mem_grid,    only: lpw, lsw, volti, arw, dzim
   use mem_tend,    only: vmxet, vmyet, vmzet
   use mem_basic,   only: vxe, vye, vze
-  use mem_ijtabs,  only: itab_w
   use mem_turb,    only: vkm_sfc
 
   implicit none
@@ -498,3 +453,5 @@ subroutine apply_momentum_fluxes( iw )
   enddo
 
 end subroutine apply_momentum_fluxes
+
+!===============================================================================

@@ -65,7 +65,7 @@ use mem_grid,    only: lsw, lpw, dzt_bot, arw
 use mem_sea,     only: sea, itab_ws
 use mem_leaf,    only: land, itab_wl
 use mem_turb,    only: vkm_sfc, sfluxt, sfluxr, sxfer_tk, sxfer_rk, &
-                       ustar, wstar, wtv0, pblh, moli
+                       ustar, wstar, wtv0, pblh, moli, wtv0_k, ustar_k
 use mem_basic,   only: press, rho, theta, tair, sh_v, vxe, vye, vze
 use mem_micro,   only: sh_c
 use consts_coms, only: grav, p00, rocp, cp, alvl, eps_virt, vonk
@@ -164,6 +164,8 @@ do j = 1,jtab_w(jtw_wstn)%jend(mrl); iw = jtab_w(jtw_wstn)%iw(j)
    ! for now, zero out surface transfer arrays at the start
    ! of each long timestep:
    vkm_sfc (:,iw) = 0.
+   ustar_k (:,iw) = 0.
+   wtv0_k  (:,iw) = 0.
    sxfer_tk(:,iw) = 0.
    sxfer_rk(:,iw) = 0.
 !  sxfer_ck(:,iw) = 0.  ! placeholder for CO2
@@ -363,11 +365,14 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
 ! Add flux contributions to IW atmospheric column
 
-      ustar      (iw) = ustar      (iw) + arf_iw  * sea%ustar (iws) 
+      ustar      (iw) = ustar      (iw) + arf_iw  * sea%ustar (iws)
       wtv0       (iw) = wtv0       (iw) + arf_iw  * sea%wthv  (iws)
       sfluxt     (iw) = sfluxt     (iw) + arf_iw  * sea%sfluxt(iws)
       sfluxr     (iw) = sfluxr     (iw) + arf_iw  * sea%sfluxr(iws)
+
       vkm_sfc (ks,iw) = vkm_sfc (ks,iw) + arf_kw  * sea%vkmsfc(iws)
+      ustar_k (ks,iw) = ustar_k (ks,iw) + arf_kw  * sea%ustar (iws)
+      wtv0_k  (ks,iw) = wtv0_k  (ks,iw) + arf_kw  * sea%wthv  (iws)
       sxfer_tk(ks,iw) = sxfer_tk(ks,iw) + area_dt * sea%sfluxt(iws)
       sxfer_rk(ks,iw) = sxfer_rk(ks,iw) + area_dt * sea%sfluxr(iws)
    enddo
@@ -502,14 +507,16 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
 ! Add flux contributions to IW atmospheric column
 
-      ustar      (iw) = ustar      (iw) + arf_iw  * land%ustar (iwl) 
+      ustar      (iw) = ustar      (iw) + arf_iw  * land%ustar (iwl)
       wtv0       (iw) = wtv0       (iw) + arf_iw  * land%wthv  (iwl)
       sfluxt     (iw) = sfluxt     (iw) + arf_iw  * land%sfluxt(iwl)
       sfluxr     (iw) = sfluxr     (iw) + arf_iw  * land%sfluxr(iwl)
+
       vkm_sfc (ks,iw) = vkm_sfc (ks,iw) + arf_kw  * land%vkmsfc(iwl) * land%slope_fact(iwl)
+      ustar_k (ks,iw) = ustar_k (ks,iw) + arf_kw  * land%ustar (iwl)
+      wtv0_k  (ks,iw) = wtv0_k  (ks,iw) + arf_kw  * land%wthv  (iwl)
       sxfer_tk(ks,iw) = sxfer_tk(ks,iw) + area_dt * land%sfluxt(iwl)
       sxfer_rk(ks,iw) = sxfer_rk(ks,iw) + area_dt * land%sfluxr(iwl)
-
    enddo
 enddo
 !$omp end parallel do

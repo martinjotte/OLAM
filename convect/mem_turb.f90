@@ -40,6 +40,8 @@ Module mem_turb
   real,    allocatable :: sxfer_tk(:,:)
   real,    allocatable :: sxfer_rk(:,:)
   real,    allocatable :: vkm_sfc (:,:)
+  real,    allocatable :: ustar_k (:,:)
+  real,    allocatable :: wtv0_k  (:,:)
 
   real,    allocatable :: sfluxt(:)
   real,    allocatable :: sfluxr(:)
@@ -82,12 +84,15 @@ Contains
     allocate (sxfer_tk(nsw_max,mwa)) ; sxfer_tk = 0.0
     allocate (sxfer_rk(nsw_max,mwa)) ; sxfer_rk = 0.0
 
-    allocate (vkm_sfc  (nsw_max,mwa)) ; vkm_sfc   = 0.0
+    allocate (vkm_sfc  (nsw_max,mwa)) ; vkm_sfc  = 0.0
+    allocate (ustar_k  (nsw_max,mwa)) ; ustar_k  = 0.0
+    allocate (wtv0_k   (nsw_max,mwa)) ; wtv0_k   = 0.0
+
     allocate (frac_sfc (nsw_max,mwa)) ; frac_sfc  = 0.0
     allocate (frac_sfck(nsw_max,mwa)) ; frac_sfck = 0.0
 
-    allocate (vkm   (mza,mwa)) ; vkm       = rinit
-    allocate (vkh   (mza,mwa)) ; vkh       = rinit
+    allocate (vkm   (mza,mwa)) ; vkm       = 0.0
+    allocate (vkh   (mza,mwa)) ; vkh       = 0.0
     allocate (fthpbl(mza,mwa)) ; fthpbl    = 0.0
     allocate (fqtpbl(mza,mwa)) ; fqtpbl    = 0.0
 
@@ -125,6 +130,8 @@ Contains
     if (allocated(vkm))     deallocate (vkm)
     if (allocated(vkh))     deallocate (vkh)
     if (allocated(vkm_sfc)) deallocate (vkm_sfc)
+    if (allocated(ustar_k)) deallocate (ustar_k)
+    if (allocated(wtv0_k))  deallocate (wtv0_k)
     if (allocated(sfluxt))  deallocate (sfluxt)
     if (allocated(sfluxr))  deallocate (sfluxr)
     if (allocated(ustar))   deallocate (ustar)

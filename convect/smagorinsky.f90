@@ -32,37 +32,33 @@
 !===============================================================================
 
 module smagorinsky
-  
+
 contains
 
   ! THIS IS SMAGORINSKY-LILLY-HILL TURBULENCE PARAMETERIZATION
 
   ! EDDY DIFFUSIVITIES AND TENDENCIES DUE TO VERTICAL MIXING
-  ! (INCLUDING THE CONTRIBUTION OF SURFACE FLUXES) ARE COMPUTED. 
+  ! (INCLUDING THE CONTRIBUTION OF SURFACE FLUXES) ARE COMPUTED.
 
-  subroutine turb_k(iw, mrlw, thetav, vkh, vkm)
+  subroutine turb_k(iw, mrlw)
 
-    use mem_turb,    only: vkm_sfc, ue, ve
+    use mem_turb,    only: vkm_sfc, ue, ve, vkm, vkh, wtv0_k, ustar_k, frac_sfc
     use mem_ijtabs,  only: itab_w
     use mem_grid,    only: mza, lpv, lpw, dzim, dzit, zm, volt, arw, lsw, volti, zm, &
                            arw0, dzm, dzimsq, gxps_coef, gyps_coef, dzt_bot
     use misc_coms,   only: idiffk, csx, csz, dtlm
-    use mem_basic,   only: rho, vxe, vye, vze, thil, wc,  theta, tair, sh_w, sh_v
-    use mem_micro,   only: sh_c
-    use consts_coms, only: vonk, grav2,   eps_virt, alvlocp, cpio2
+    use mem_basic,   only: rho, vxe, vye, vze, thil, wc, theta, tair, sh_w, sh_v
+    use consts_coms, only: vonk, grav, grav2, eps_virt, cpio2
     use mem_tend,    only: vmxet, vmyet, vmzet, thilt
     use var_tables,  only: num_scalar, scalar_tab
     use tridiag,     only: tridv
     use oname_coms,  only: nl
-
+    use buoyancy,    only: comp_buoy
     use supercell_testm, only: vxe_init, vye_init, vze_init, thil_init, sh_w_init
 
     implicit none
 
-    integer, intent(in)    :: iw, mrlw
-    real,    intent(in)    :: thetav(mza)
-    real,    intent(inout) :: vkh(mza)
-    real,    intent(inout) :: vkm(mza)
+    integer, intent(in) :: iw, mrlw
 
     integer :: jw1, iw1, iv1, n, k, ka, ks
 
@@ -74,32 +70,35 @@ contains
     real :: bvfreq2
     real :: vkz2
     real :: dtl
-    real :: vels2
+    real :: vels2, usfc, ufree
 
+    real :: zkm(mza), zkh(mza)
     real :: akodz(mza), dtomass(mza)
     real :: vctr3(mza),vctr5(mza),vctr6(mza),vctr7(mza)
 
     real :: rhs(mza,max(3,num_scalar+1)), soln(mza,max(3,num_scalar+1))
     real :: varp(mza)
     real :: vctr2(mza,3)
-    real :: du, dv, dw, vi4
+    real :: du, dv, dw, vi4, ql
     real :: dudx(mza), dudy(mza), dudz
     real :: dvdx(mza), dvdy(mza), dvdz
     real :: dwdx(mza), dwdy(mza), dwdz(mza)
+    real :: buoy(mza), thetav(mza)
 
-    real, parameter :: rchmax =    3.   ! Test with new asympt vert scale length
-    real, parameter :: rmin   = -100.
-    real, parameter :: rmax   = 1. / 3. ! Critical Ri number
-    real, parameter :: rmaxi  = 1. / rmax
-
-    real, parameter :: pri0   = 1.43    ! Inverse Prandtl number at neutral
-    real, parameter :: fact   = (pri0 - 1.0) / rmax
+    real, parameter :: asym_len =  400.
+    real, parameter :: rchmax   =    3.   ! Test with new asympt vert scale length
+    real, parameter :: rmin     = -100.
+    real, parameter :: rmax     = 1. / 3. ! Critical Ri number
+    real, parameter :: rmaxi    = 1. / rmax
+    real, parameter :: pri0     = 1.43    ! Inverse Prandtl number at neutral
+    real, parameter :: fact     = (pri0 - 1.0) / rmax
+    real, parameter :: onethird = 1. / 3.
 
     ka  = lpw(iw)
     dtl = dtlm(itab_w(iw)%mrlw)
 
     scalen_horiz  = csx(mrlw) * sqrt(arw0(iw))  ! change this later?
-    scalen_asympt = csx(mrlw) * 300.
+    scalen_asympt = csx(mrlw) * asym_len
 
     if (idiffk(mrlw) == 3) then
 
@@ -192,14 +191,36 @@ contains
 
     endif ! (idiffk(mrlw) == 3)
 
+    ! Virtual potential temperature
+
+    do k = ka, mza
+       ql = sh_w(k,iw) - sh_v(k,iw)
+       thetav(k) = theta(k,iw) * (1.0 + eps_virt * sh_v(k,iw) - ql)
+    enddo
+
+    ! Include surface shear at first level?
+
+    do ks = 1, lsw(iw)
+       k  = ks + lpw(iw) - 1
+
+       ufree = (grav * max(wtv0_k(ks,iw),0.) * dzt_bot(k) / thetav(k)) ** onethird
+       usfc  = max(ustar_k(ks,iw), ufree)
+
+       strain2(k) = (1. - frac_sfc(ks,iw)) * strain2(k) &
+                  +       frac_sfc(ks,iw)  * max(strain2(k), (usfc * dzit(k))**2)
+    enddo
+
+    ! Compute buoyancy variable
+
+    call comp_buoy(iw, buoy=buoy)
+
     ! Loop over W levels: Compute diffusivities for momentum and scalars
 
     do k = ka, mza-1
 
        ! Compute buoyancy frequency
 
-       bvfreq2 = grav2 * dzim(k)  &
-               * (thetav(k+1) - thetav(k)) / (thetav(k+1) + thetav(k))
+       bvfreq2 = grav2 * buoy(k) / (thetav(k+1) + thetav(k))
 
        !  Compute Richardson number and Lilly Richardson-number term
 
@@ -209,7 +230,10 @@ contains
        ! Compute vertical and net scale lengths: scalen_vert & ambda
 
        scalen_vert = csz(mrlw) * dzm(k)
-       ambda = max(scalen_vert,min(scalen_asympt,scalen_horiz))
+
+!      ambda = max(scalen_vert,min(scalen_asympt,scalen_horiz))
+       ambda = (scalen_vert * min(scalen_asympt,scalen_horiz)**2)**onethird
+
        ambda2 = ambda ** 2
 
        vkz2 = (vonk * min( zm(k) - zm(ka-1), 1.e5)) ** 2
@@ -222,7 +246,7 @@ contains
 
        ! Eddy diffusivity for momentum
 
-       vkm(k) = .5 * real(rho(k,iw) + rho(k+1,iw))  & ! density factor
+       zkm(k) = .5 * real(rho(k,iw) + rho(k+1,iw))  & ! density factor
               * vkz2 * ambda2 / (vkz2 + ambda2)     & ! lengthscale^2 factor
               * (sqrt(strain2(k)) + hill_term)      & ! strain rate + Hill term
               * richnum_term                          ! Lilly Richnum term
@@ -237,11 +261,11 @@ contains
 
        ! Eddy diffusivity for heat/scalars
 
-       vkh(k) = vkm(k) * prinv
+       zkh(k) = zkm(k) * prinv
 
        ! Dissipation due to mechanical strain (applies at W points)
 
-       dissipation(k) = strain2(k) * vkm(k)
+       dissipation(k) = strain2(k) * zkm(k)
 
     enddo
 
@@ -249,17 +273,17 @@ contains
 
     vels2             = vxe(ka,iw)**2 + vye(ka,iw)**2 + vze(ka,iw)**2
     dissipation(ka-1) = vkm_sfc(1,iw) * vels2 / dzt_bot(ka)**2
-    dissipation(mza)  = 0.0 
+    dissipation(mza)  = 0.0
 
     ! Zero values for top and bottom boundaries
 
-    vkm(ka-1) = 0.
-    vkh(ka-1) = 0.
-    vkm(mza)  = 0.
-    vkh(mza)  = 0.
+    zkm(ka-1) = 0.
+    zkh(ka-1) = 0.
+    zkm(mza)  = 0.
+    zkh(mza)  = 0.
 
     ! For DCMIP 2015 baroclinic and tropical cyclone tests, return here so that
-    ! vertical mixing is not done by standard OLAM code; instead it will 
+    ! vertical mixing is not done by standard OLAM code; instead it will
     ! (optionally) be done in dcmip_physics routine.
 
     if (nl%test_case == 110 .or. &
@@ -274,15 +298,15 @@ contains
 
     if (nl%test_case == 131) then
        do k = ka, mza-1
-          vkm(k) =  500. * .5 * real(rho(k,iw) + rho(k+1,iw))
-          vkh(k) = 1500. * .5 * real(rho(k,iw) + rho(k+1,iw))
+          zkm(k) =  500. * .5 * real(rho(k,iw) + rho(k+1,iw))
+          zkh(k) = 1500. * .5 * real(rho(k,iw) + rho(k+1,iw))
        enddo
     endif
 
     ! Vertical loop over W levels
 
     do k = ka,mza-1
-       akodz(k) = arw(k,iw) * vkm(k) * dzim(k)
+       akodz(k) = arw(k,iw) * (zkm(k) + vkm(k,iw)) * dzim(k) * 0.5
     enddo
 
     akodz(ka-1) = 0.
@@ -292,7 +316,7 @@ contains
 
     vctr3 = 0.
 
-    if (nl%test_case /= 131) then 
+    if (nl%test_case /= 131) then
        do k = ka, ka + lsw(iw) - 1
           ks = k - ka + 1
           vctr3(k) = 2.0 * dzim(k-1) * (arw(k,iw) - arw(k-1,iw)) * vkm_sfc(ks,iw)
@@ -303,9 +327,9 @@ contains
 
     ! Vertical loop over T levels
     do k = ka, mza
-       
+
        ! Mass in t control volume and its inverse times dtl
-       
+
        dtomass(k) = dtl / real( rho(k,iw) * volt(k,iw) )
 
        ! Fill tri-diagonal matrix coefficients
@@ -349,7 +373,7 @@ contains
     enddo
 
     ! Set bottom and top internal fluxes to zero
-    
+
     vctr2(ka-1, 1:3) = 0.
     vctr2(mza , 1:3) = 0.
 
@@ -373,7 +397,7 @@ contains
     ! Vertical loop over W levels: fill tri-diagonal matrix coefficients and r.h.s.
 
     do k = ka, mza-1
-       akodz(k) = arw(k,iw) * vkh(k) * dzim(k)
+       akodz(k) = arw(k,iw) * (zkh(k) + vkh(k,iw)) * dzim(k) * 0.5
        vctr5(k) = -akodz(k) * dtomass(k)
        vctr7(k) = -akodz(k) * dtomass(k+1)
        vctr6(k) = 1. - vctr5(k) - vctr7(k)
@@ -452,6 +476,9 @@ contains
        thilt(k,iw) = thilt(k,iw) + real(volti(k,iw)) * (soln(k-1,n) - soln(k,n)) &
                    + (dissipation(k) + dissipation(k-1)) * cpio2 * theta(k,iw) / tair(k,iw)
     enddo
+
+    vkm(ka-1:mza,iw) = zkm(ka-1:mza)
+    vkh(ka-1:mza,iw) = zkh(ka-1:mza)
 
   end subroutine turb_k
 
