@@ -57,7 +57,7 @@ subroutine divh_damp(mrl)
      call lbcopy_w(1, v1=aoc)
 
      cd = nl%akmin_div2d * 0.075
-     
+
      !$omp parallel do private(iv,iw1,iw2)
      do j = 1,jtab_v(jtv_prog)%jend(1); iv = jtab_v(jtv_prog)%iv(j)
 
@@ -71,7 +71,7 @@ subroutine divh_damp(mrl)
 
   endif  ! firstime
 
-  !$omp parallel 
+  !$omp parallel
   !$omp do private(iv,iw1,iw2,k)
   do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
 
@@ -79,9 +79,9 @@ subroutine divh_damp(mrl)
      iw2 = itab_v(iv)%iw(2)
 
      do k = lpv(iv), mza
-        vc_ec(k,iv) = vnxo2(iv) * (vxe(k,iw1)  + vxe(k,iw2)) &
-                    + vnyo2(iv) * (vye(k,iw1)  + vye(k,iw2)) &
-                    + vnzo2(iv) * (vze(k,iw1)  + vze(k,iw2))
+        vc_ec(k,iv) = vc(k,iv) - vnxo2(iv) * (vxe(k,iw1) + vxe(k,iw2)) &
+                               - vnyo2(iv) * (vye(k,iw1) + vye(k,iw2)) &
+                               - vnzo2(iv) * (vze(k,iw1) + vze(k,iw2))
      enddo
   enddo
   !$omp end do
@@ -94,11 +94,10 @@ subroutine divh_damp(mrl)
      do jv = 1, itab_w(iw)%npoly
         iv = itab_w(iw)%iv(jv)
 
-        dnufac = dnu(iv) / arw0(iw)
+        dnufac = dnu(iv) * arw0i(iw) * itab_w(iw)%dirv(jv)
 
         do k = lpv(iv), mza
-           div2d_ex(k,iw) = div2d_ex(k,iw) - itab_w(iw)%dirv(jv) &
-                          * dnufac * (vc(k,iv) - vc_ec(k,iv))
+           div2d_ex(k,iw) = div2d_ex(k,iw) - dnufac * vc_ec(k,iv)
         enddo
 
      enddo

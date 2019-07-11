@@ -122,7 +122,9 @@ Module mem_grid
 
         voa0,                 & ! ratio of cell volume to bottom area w/o terrain
 
-        gdzm_top, gdzm_bot      ! g dz_top(k), g dz_bot(k+1)
+        gdzm_top, gdzm_bot,   & ! g dz_top(k), g dz_bot(k+1)
+
+        arw0i                   ! 1 / arw0
 
    ! double precision weights for interpolating T levels to W
 
@@ -354,6 +356,7 @@ Contains
      allocate(volti(mza,mwa))
      allocate(gxps_coef(mwa,7))
      allocate(gyps_coef(mwa,7))
+     allocate(arw0i    (mwa))
 
      wnxo2  (1) = 0.0
      wnyo2  (1) = 0.0
@@ -369,6 +372,8 @@ Contains
 
         volti(1:lpw(iw)-1,iw) = 0.0_r8
         volti(lpw(iw):mza,iw) = 1.0_r8 / volt(lpw(iw):mza,iw)
+
+        arw0i(iw) = 1.0 / arw0(iw)
 
         do n1 = 1, itab_w(iw)%npoly
            if (n1 == 1) then

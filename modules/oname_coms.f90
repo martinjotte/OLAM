@@ -191,11 +191,11 @@ Module oname_coms
 
 !!    CUMULUS PARAMETERIZATION PARAMETERS
 
-      integer :: nqparm(maxgrds) = 0
-      integer :: conv_uv_mix     = 0
-      integer :: conv_tracer_mix = 0
-
-      real(r8) :: confrq          = 1800.0_r8
+      integer  :: nqparm(maxgrds)     = 0
+      integer  :: conv_uv_mix         = 0
+      integer  :: conv_tracer_mix     = 0
+      real(r8) :: confrq              = 1800.0_r8
+      real     :: conv_akmin(maxgrds) = 0.0
 
 !!    EDDY DIFFUSION PARAMETERS
 
@@ -203,10 +203,11 @@ Module oname_coms
       real    :: csx   (maxgrds) = 0.2
       real    :: csz   (maxgrds) = 0.2
       real    :: akmin (maxgrds) = 0.0
+      integer :: moist_buoy      = 1
 
 !!    MICROPHYSICS PARAMETERS
 
-      integer :: miclevel  = 1
+      integer :: miclevel  = 3
       integer :: icloud = 4
       integer :: idriz  = 5
       integer :: ipris  = 5

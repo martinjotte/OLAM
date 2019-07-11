@@ -134,6 +134,9 @@ subroutine pbl_driver(mrl,rhot)
 
      endif
 
+     vkm(lpw(iw)-1,iw) = vkm(lpw(iw),iw)
+     vkh(lpw(iw)-1,iw) = vkh(lpw(iw),iw)
+
      ! Add surface vapor flux to total density tendency
 
      dtli = 1.0 / real(dtlm(mrlw))
@@ -159,90 +162,103 @@ end subroutine pbl_driver
 
 subroutine comp_horiz_k(mrl)
 
-  use consts_coms, only: r8
-  use mem_grid,    only: arw0, lpv, mza, arv, volt, dniv, zm, zt
-  use misc_coms,   only: dtlm, akmin
-  use mem_ijtabs,  only: jtab_v, jtv_wadj, itab_v, itab_w
-  use mem_turb,    only: vkm, vkh, akmodx, akhodx
-  use mem_basic,   only: rho
-! use mem_cuparm,  only: kcutop, kcubot, cbmf, iactcu
-
+  use mem_ijtabs, only: jtab_v, jtv_wadj
   implicit none
 
   integer, intent(in) :: mrl
-  integer             :: j, iv, iw1, iw2, k, km
-  real                :: bkmin, dens
-  real                :: hkm, hkh, tempm, temph, stab1, stab2
-  real(r8)            :: fact1, fact2
-! real                :: hcm, hch, hkc1(mza), hkc2(mza), eta
+  integer             :: j, iv
 
-  ! Loop over V columns to compute ARV * K / DX, and make sure
-  ! horizontal diffusion is stable over the long timestep
-
-  !$omp parallel do private(iv,iw1,iw2,fact1,fact2,bkmin,k,km,&
-  !$omp                     dens,hkm,hkh,tempm,temph,stab1,stab2)
-!!!!omp                     hcm,hch,hkc1,hkc2,eta)
+  !$omp parallel do private(iv)
   do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
-
-     iw1 = itab_v(iv)%iw(1)
-     iw2 = itab_v(iv)%iw(2)
-
-     fact1 = 0.95_r8 / ( dtlm(itab_w(iw1)%mrlw) * itab_w(iw1)%npoly )
-     fact2 = 0.95_r8 / ( dtlm(itab_w(iw2)%mrlw) * itab_w(iw2)%npoly )
-
-     bkmin = akmin(itab_v(iv)%mrlv) * .075 * min(arw0(iw1),arw0(iw2)) ** .66666666
-
-!   ! Extra mixing around convection???
-!    hkc1(:) = 0.0
-!    hkc2(:) = 0.0
-!
-!    if (iactcu(iw1)) then
-!       do k = kcubot(iw1), kcutop(iw1)
-!          eta = ( zt(k) - zm(kcubot(iw1)-1) ) / ( zm(kcutop(iw1)) - zm(kcubot(iw1)-1) )
-!          hkc1(k) = cbmf(iw1) * 2200.0 * eta * (1.0-eta)**2 * rho(k,iw1)
-!       enddo
-!    endif
-!
-!    if (iactcu(iw2)) then
-!       do k = kcubot(iw2), kcutop(iw2)
-!          eta = ( zt(k) - zm(kcubot(iw2)-1) ) / ( zm(kcutop(iw2)) - zm(kcubot(iw2)-1) )
-!          hkc2(k) = cbmf(iw2) * 2200.0 * eta * (1.0-eta)**2 * rho(k,iw1)
-!       enddo
-!    endif
-
-     do k = lpv(iv), mza
-
-        if (k == lpv(iv)) then
-           km = lpv(iv)
-        else
-           km = k - 1
-        endif
-
-        dens = 0.5 * (rho(k,iw1) + rho(k,iw2))
-
-!       ! Extra mixing around convection???
-!       hch = 0.5 * ( hkc1(k)+hkc2(k) )
-!       hcm = 0.5 * hch
-!       hkm = max(0.25 * (vkm(k,iw1) + vkm(k,iw2) + vkm(km,iw1) + vkm(km,iw2)) + hcm, bkmin * dens)
-!       hkh = max(0.25 * (vkh(k,iw1) + vkh(k,iw2) + vkh(km,iw1) + vkh(km,iw2)) + hch, bkmin * dens)
-
-        hkm = max(0.25 * (vkm(k,iw1) + vkm(k,iw2) + vkm(km,iw1) + vkm(km,iw2)), bkmin * dens)
-        hkh = max(0.25 * (vkh(k,iw1) + vkh(k,iw2) + vkh(km,iw1) + vkh(km,iw2)), bkmin * dens)
-
-        tempm = dniv(iv) * arv(k,iv) * hkm
-        temph = dniv(iv) * arv(k,iv) * hkh
-
-        stab1 = rho(k,iw1) * volt(k,iw1) * fact1
-        stab2 = rho(k,iw2) * volt(k,iw2) * fact2
-
-        akmodx(k,iv) = min( tempm, stab1, stab2 )
-        akhodx(k,iv) = min( temph, stab1, stab2 )
-     enddo
-
+     call comp_horiz_k_column(iv)
   enddo
   !$omp end parallel do
 
 end subroutine comp_horiz_k
+
+
+
+subroutine comp_horiz_k_column(iv)
+
+  use consts_coms, only: r8
+  use mem_grid,    only: arw0, lpv, mza, arv, volt, dniv, zm, zt
+  use misc_coms,   only: dtlm, akmin
+  use mem_ijtabs,  only: itab_v, itab_w
+  use mem_turb,    only: vkm, vkh, akmodx, akhodx
+  use mem_basic,   only: rho
+  use mem_cuparm,  only: kcutop, kcubot, cbmf, iactcu, conprr
+  use oname_coms,  only: nl
+
+  implicit none
+
+  integer, intent(in) :: iv
+  integer             :: iw1, iw2, k, km, mrl
+  real                :: bkmin, dens
+  real                :: hkm, hkh, tempm, temph, stab1, stab2
+  real(r8)            :: fact1, fact2
+  real                :: hcm, hkc(mza)
+  real, parameter     :: cbmf0 = 0.066
+
+  ! Compute ARV * K / DX, and ensure that horizontal
+  ! diffusion is stable over the long timestep
+
+  iw1 = itab_v(iv)%iw(1)
+  iw2 = itab_v(iv)%iw(2)
+  mrl = itab_v(iv)%mrlv
+
+  fact1 = 0.95_r8 / ( dtlm(itab_w(iw1)%mrlw) * itab_w(iw1)%npoly )
+  fact2 = 0.95_r8 / ( dtlm(itab_w(iw2)%mrlw) * itab_w(iw2)%npoly )
+
+  bkmin = akmin(mrl) * .075 * min(arw0(iw1),arw0(iw2)) ** .66666666
+
+  hkc(:) = 0.0
+
+  ! Extra mixing around deep convection???
+
+  if (nl%conv_akmin(mrl) > 1.e-7) then
+
+     if (iactcu(iw1) .and. conprr(iw1) > 1.e-8) then
+        hcm = 0.0375 * nl%conv_akmin(mrl) * arw0(iw1) ** .66666666 &
+                     * cbmf(iw1) / cbmf0
+
+        do k = lpv(iv), min(kcutop(iw1) + 1, mza)
+           hkc(k) = hkc(k) + hcm
+        enddo
+     endif
+
+     if (iactcu(iw2) .and. conprr(iw2) > 1.e-8) then
+        hcm = 0.0375 * nl%conv_akmin(mrl) * arw0(iw2) ** .66666666 &
+                     * cbmf(iw2) / cbmf0
+
+        do k = lpv(iv), min(kcutop(iw2) + 1, mza)
+           hkc(k) = hkc(k) + hcm
+        enddo
+     endif
+
+  endif
+
+  do k = lpv(iv), mza-1
+    dens = 0.5 * real(rho(k,iw1) + rho(k,iw2))
+
+    hkm = max(0.25 * (vkm(k,iw1) + vkm(k,iw2) + vkm(k-1,iw1) + vkm(k-1,iw2)), &
+              hkc(k) * dens, bkmin * dens)
+    hkh = max(0.25 * (vkh(k,iw1) + vkh(k,iw2) + vkh(k-1,iw1) + vkh(k-1,iw2)), &
+              hkc(k) * dens, bkmin * dens)
+
+    tempm = dniv(iv) * arv(k,iv) * hkm
+    temph = dniv(iv) * arv(k,iv) * hkh
+
+    stab1 = rho(k,iw1) * volt(k,iw1) * fact1
+    stab2 = rho(k,iw2) * volt(k,iw2) * fact2
+
+    akmodx(k,iv) = min( tempm, stab1, stab2 )
+    akhodx(k,iv) = min( temph, stab1, stab2 )
+ enddo
+
+ akmodx(mza,iv) = akmodx(mza-1,iv)
+ akhodx(mza,iv) = akhodx(mza-1,iv)
+
+end subroutine comp_horiz_k_column
 
 !===============================================================================
 

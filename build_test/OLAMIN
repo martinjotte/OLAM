@@ -192,11 +192,11 @@
    NL%ICOMPRESS = 3             ! 0 (no compres, fast) <-> 9 (max compres, slow)
    NL%LATLONPLOT = 0            ! 1 = plot generated lat/lon fields too
 
-   NL%IBLOCKSIZE = -1           ! File system block size for parallel I/O
-                                ! Setting this can speed up parallel writes
-                                ! Ignored if 0 or negative
+   NL%IBLOCKSIZE = -1         ! File system block size for parallel I/O. Setting
+                              ! this can speed up parallel I/O. Use stat command
+                              ! to get blocksize. Ignored if 0 or negative.
 
-   NL%FRQSTATE  = 86400.       ! Time interval between history files
+   NL%FRQSTATE  = 86400.0      ! Time interval between history files
    NL%FRQLITE   =  3600.0      ! Time interval between lite files
    NL%FRQLATLON =  3600.0      ! Time interval between lat/lon output files
 
@@ -278,12 +278,15 @@
  !--------------------------------------------------------------------------
  ! Cumulus parameterization parameters
  !--------------------------------------------------------------------------
-  
+
    NL%NQPARM = 2,2,2,2,2,2,2,2,2   ! Cumulus parameterization scheme for each MRL
                                    ! 0 = off, 1 = Tiedtke, 2 = Grell, 3 = KF_eta,
                                    ! 4 = Emanuel, 5 = Grell-Freitas
 
    NL%CONFRQ = 1200.   ! Time interval (s) between cumulus param updates
+
+   NL%CONV_AKMIN = 1.0  ! Extra horizontal mixing around convection?
+                        ! Value is ratio to typical Smagorinki K.
 
    NL%CONV_UV_MIX     = 1  ! Vertical momentum mixing due to convection?
    NL%CONV_TRACER_MIX = 1  ! Vertical tracer mixing due to convection?
@@ -292,7 +295,7 @@
  !--------------------------------------------------------------------------
  ! Eddy diffusion coefficient parameters (one value for each MRL)
  !--------------------------------------------------------------------------
- 
+
    NL%IDIFFK = 2,2,2,2,2,2,2,2    ! Turbulent parameterization scheme:
                                   !  0 = off
                                   !  1 = ACM2 non-local PBL
@@ -302,8 +305,14 @@
    NL%CSX    = .2,.2,.2,.2,.2,.2,.2,.2,.2  ! Horizontal length scale coefficient
    NL%CSZ    = .2,.2,.2,.2,.2,.2,.2,.2,.2  ! Vertical length scale coefficient
    NL%AKMIN  = 0.,0.,0.,0.,0.,0.,0.,0.,0.  ! Ratio of minimum horizontal eddy
-                                           !  viscosity coefficient to typical
-                                           !  value from deformation K
+                                           !   viscosity coefficient to typical
+                                           !   value from deformation K
+
+   NL%MOIST_BUOY = 1   ! Determines how subgrid buoyancy is computed:
+                       ! 0 - Subgrid buoyancy is not affected by condensate
+                       ! 1 - Reslvd cld drops affect SGS buoyancy
+                       ! 2 - Reslvd cld drops and pristine ice
+                       ! 3 - Reslvd cld drops and pristine ice and subgrid Cu
 
  !--------------------------------------------------------------------------
  ! Microphysics
@@ -313,8 +322,8 @@
                     !  0 = no moisture
                     !  1 = vapor only
                     !  2 = vapor and diagnosed cloud only
-                    !  3 = use bulk microphysics 
- 
+                    !  3 = use bulk microphysics
+
                   ! Options !
                   !---------!
    NL%ICLOUD = 4  !  0,4,5  ! 0 = category off

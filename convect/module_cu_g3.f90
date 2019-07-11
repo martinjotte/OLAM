@@ -151,7 +151,7 @@ CONTAINS
      gsw   = rshort(iw)
      psur  = 0.01 * (press(ka,iw) + (zt(ka)-zm(ka-1))*rho(ka,iw)*grav)
      z1    = zm(ka-1)
-     
+
      ! one if by land, two if by sea
      if (allocated(frac_land)) then
         xland = 2.0 - frac_land(iw)
@@ -175,12 +175,12 @@ CONTAINS
         vflux_the(k) = vm * theta(k,iw) + vp * theta(k+1,iw)
      enddo
 
-     vflux    (ka-1)  = 0.
-     vflux    (mza) = 0.
-     vflux_the(ka-1)  = 0.
-     vflux_the(mza) = 0.
-     vflux_vap(ka-1)  = 0.
-     vflux_vap(mza) = 0.
+     vflux    (ka-1) = 0.
+     vflux    (mza)  = 0.
+     vflux_the(ka-1) = 0.
+     vflux_the(mza)  = 0.
+     vflux_vap(ka-1) = 0.
+     vflux_vap(mza)  = 0.
 
      ! Loop over T levels
 
@@ -201,7 +201,7 @@ CONTAINS
         hflux     = 0.
         hflux_the = 0.
         hflux_vap = 0.
-      
+
         !dir$ loop count max=7, min=5, avg=6
         do jv = 1, npoly
            iv  = itab_w(iw)%iv(jv)
@@ -226,11 +226,11 @@ CONTAINS
 
         fthadv = ((vflux_the(k-1) - vflux_the(k) + hflux_the) &
                - (vflux(k-1) - vflux(k) + hflux) * theta(k,iw)) &
-               / (volt(k,iw) * rho(k,iw))
+               / real(volt(k,iw) * rho(k,iw))
 
         fqvadv = ((vflux_vap(k-1) - vflux_vap(k) + hflux_vap) &
                - (vflux(k-1) - vflux(k) + hflux) * sh_v(k,iw)) &
-               / (volt(k,iw) * rho(k,iw))
+               / real(volt(k,iw) * rho(k,iw))
 
         ! "forced" temp, water vapor, and pressure
         dtemp = (fthrd_lw(k,iw) + fthrd_sw(k,iw) + &
@@ -263,7 +263,7 @@ CONTAINS
         tshall(1,kc) = t(1,kc) + fthpbl(k,iw) * dtlong * exner(k)
         qshall(1,kc) = q(1,kc) + fqtpbl(k,iw) * dtlong
         dhdt  (1,kc) = cp * exner(k) * fthpbl(k,iw) + alvl * fqtpbl(k,iw)
-        
+
         ! Set area ensembles of omega, T, and Q
         !dir$ loop count max=7, min=5, avg=6
         do n = 1, npoly
@@ -273,7 +273,7 @@ CONTAINS
            else
               iwn = iw
            endif
-        
+
            tx  (1,kc,n+1) = max( tair(k,iwn) + dtemp, 200.0 )
            qx  (1,kc,n+1) = max( sh_v(k,iwn) + dsh_v, 1.e-8 )
            omeg(1,kc,n+1) = -grav * wmc(k,iwn)
@@ -381,11 +381,11 @@ CONTAINS
            k  = kc + ka - 1
 
            ! Total water tendency
-           rtsrc(k,iw) = (outq(1,kc) + subq(1,kc) + 0.*outqc(1,kc)) * rho(k,iw)
+           rtsrc(k,iw) = (outq(1,kc) + subq(1,kc) + outqc(1,kc)) * real(rho(k,iw))
 
            ! Any cloud condensate is evaporated since we do not feed back
            ! to resolved microphysics
-           thsrc(k,iw) = (outt(1,kc) + subt(1,kc) - alvlocp * outqc(1,kc)) * rho(k,iw)
+           thsrc(k,iw) = (outt(1,kc) + subt(1,kc) - alvlocp * outqc(1,kc)) * real(rho(k,iw))
 
            ! Cloud water
            qwcon(k,iw) = cupclw(1,kc)
@@ -405,8 +405,8 @@ CONTAINS
 
         do kc = 1, ktf
            k  = kc + ka - 1
-           rtsrc(k,iw) = outqs(1,kc) * rho(k,iw)
-           thsrc(k,iw) = outts(1,kc) * rho(k,iw)
+           rtsrc(k,iw) = outqs(1,kc) * real(rho(k,iw))
+           thsrc(k,iw) = outts(1,kc) * real(rho(k,iw))
            qwcon(k,iw) = cupclws(1,kc)
         enddo
 

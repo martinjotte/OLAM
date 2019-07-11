@@ -33,10 +33,14 @@ subroutine comp_buoy(iw, buoy, a, b, adry, bdry, awet, bwet)
 
   use mem_grid,    only: mza, dzim, lpw
   use mem_basic,   only: thil, theta, tair, sh_v, sh_w, rho
-  use consts_coms, only: t00, eps_vapi, eps_virt, alvl, rdry, rvap, alvlocp
+  use consts_coms, only: t00, eps_vapi, eps_virt, alvl, rdry, rvap, &
+                         alvlocp, alviocp
   use therm_lib,   only: rhovsl
   use mem_radiate, only: cloud_frac
   use mem_cuparm,  only: iactcu, qwcon
+  use mem_micro,   only: sh_c
+  use micro_coms,  only: miclevel
+  use oname_coms,  only: nl
 
   implicit none
 
@@ -51,38 +55,69 @@ subroutine comp_buoy(iw, buoy, a, b, adry, bdry, awet, bwet)
   real, parameter      :: alvlorvap = alvl / rvap
   real, parameter      :: c_aw      = alvlocp * alvlorvap
 
-  integer              :: k
-  real                 :: qsat(mza), qliq(mza), frac(mza)
+  real                 :: qsat(mza), qliq(mza), frac(mza), thlo(mza), qto(mza)
   real                 :: qt, qs, qc, aa, bb, ad, bd, aw, bw
   real                 :: th, ta, dthl, dqw, thl, xsat, fracm
+  integer              :: k
 
-  ! loop over T layers
+!  moist_buoy = 0  buoyancy does not take into account condensate
+!               1  resolved cloud droplets only
+!               2  resolved could droplets and pristine ice
+!               3  resolved and convective could droplets and pristine ice
+
+  qliq(:) = 0.
+  qice(:) = 0.
+
+  if (nl%moist_buoy >= 1) then
+     if (miclevel < 3) then
+        do k = lpw(iw), mza
+           qliq(k) = sh_w(k,iw) - sh_v(k,iw)
+        enddo
+     else
+        if (allocated(sh_c)) then
+           do k = lpw(iw), mza
+              qliq(k) = sh_c(k,iw)
+           enddo
+        endif
+        if (nl%moist_buoy >= 2 .and. allocated(sh_p)) then
+           do k = lpw(iw), mza
+              qice(k) = sh_p(k,iw)
+           enddo
+        endif
+     endif
+
+     if (nl%moist_buoy >= 3 .and. iactcu(iw)) then
+        do k = kcubot(iw), kcutop(iw)
+           qliq(k) = qliq(k) + qwcon(k,iw)
+        enddo
+     endif
+  endif
+
+  ! loop over T levels
   do k = lpw(iw), mza
      qsat(k) = rhovsl(tair(k,iw)-t00) / real(rho(k,iw))
-
-     qliq(k) = sh_w(k,iw) - sh_v(k,iw)
-     if (iactcu(iw) > 0) qliq(k) = qliq(k) + qwcon(k,iw)
 
      if (qliq(k) < 1.e-8) then
         frac(k) = 0.0
      else
         frac(k) = max(0.1, cloud_frac(k,iw))
      endif
+
+     thlo(k) = theta(k,iw) / ( 1.0 + (alvlocp * qliq(k) + alviocp * qice(k)) / max(tair(k,iw),253.0))
+     qto (k) = sh_v(k,iw) + qliq(k) + qice(k)
   enddo
 
   ! loop over W levels
   do k = lpw(iw), mza-1
 
-     ! Values at flux levels
-
-     qt  = 0.5 * (sh_w (k,iw) + sh_w (k+1,iw))
+     thl = 0.5 * (thlo(k) + thlo(k+1))
+     qs  = 0.5 * (qsat(k) + qsat(k+1))
+     qt  = 0.5 * (qto (k) + qto (k+1))
      th  = 0.5 * (theta(k,iw) + theta(k+1,iw))
-     thl = 0.5 * (thil (k,iw) + thil (k+1,iw))
-     qc  = 0.5 * (qliq (k)    + qliq (k+1)   )
-     qs  = 0.5 * (qsat (k)    + qsat (k+1)   )
+     qc  = 0.5 * (qliq(k) + qice(k) + qliq(k+1) + qice(k+1))
 
-     dthl = thil(k+1,iw) - thil(k,iw)
-     dqw  = sh_w(k+1,iw) - sh_w(k,iw)
+     dthl = thlo(k+1) - thlo(k)
+     dqw  = qto (k+1) - qto (k)
 
      ta = 0.5 * ( tair(k  ,iw) / theta(k  ,iw) &
                 + tair(k+1,iw) / theta(k+1,iw) ) * th
@@ -100,19 +135,26 @@ subroutine comp_buoy(iw, buoy, a, b, adry, bdry, awet, bwet)
 
      ! Is the mixture of air between the adjacent layers saturated?
 
-     xsat = qc * (ad * alvlocp - eps_vapi * thl) &
-          / max(abs( (ad - aw) * dthl + (bd - bw) * dqw ), 1.e-7)
+     aa = ad
+     bb = bd
 
-     if (xsat > 0.5) then
-        fracm = max( frac(k), frac(k+1) )
-     else
-        fracm = min( frac(k), frac(k+1) )
+     if (qc > 1.e-7) then
+        xsat = qc * (ad * alvlocp - eps_vapi * thl) &
+             / max(abs( (ad - aw) * dthl + (bd - bw) * dqw ), 1.e-7)
+
+        if (xsat > 0.5) then
+           fracm = max( frac(k), frac(k+1) )
+        else
+           fracm = min( frac(k), frac(k+1) )
+        endif
+
+        ! Weight the wet and dry coefficients to get the total buoyancy
+
+        aa = fracm * aw + (1. - fracm) * ad
+        bb = fracm * bw + (1. - fracm) * bd
      endif
 
-     ! Weight the wet and dry coefficients to get the total buoyancy
-
-     aa = fracm * aw + (1. - fracm) * ad
-     bb = fracm * bw + (1. - fracm) * bd
+     ! Output variables
 
      if (present(a)) a(k) = aa
      if (present(b)) b(k) = bb
@@ -123,9 +165,7 @@ subroutine comp_buoy(iw, buoy, a, b, adry, bdry, awet, bwet)
      if (present(adry)) adry(k) = ad
      if (present(bdry)) bdry(k) = bd
 
-     if (present(buoy)) then
-        buoy(k) = ( aa * dthl + bb * dqw ) * dzim(k)
-     endif
+     if (present(buoy)) buoy(k) = (aa * dthl + bb * dqw) * dzim(k)
 
   enddo
 
