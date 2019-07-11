@@ -5,8 +5,9 @@ module hdf5_f2f
 
   implicit none
 
-  integer, parameter, private :: r8 = selected_real_kind(13,300)
-  integer, parameter, private :: i1 = selected_int_kind(2)
+  integer, parameter :: r8 = selected_real_kind(13,300)
+  integer, parameter :: i1 = selected_int_kind(2)
+  logical, parameter :: bigendian = ichar(transfer(1,'a')) == 0
 
   integer(HID_T)   :: fileid
   integer(HID_T)   :: xferid
@@ -81,6 +82,13 @@ module hdf5_f2f
           fh5_read_real_array4,       &
           fh5_read_real8_array4
   end interface fh5_read
+
+  private
+  public :: fh5f_open, fh5f_close, fh5f_create, fh5_prepare_write, fh5_write, &
+            fh5_close_write, fh5_close_write1, fh5_close_write2, fh5d_open, &
+            fh5s_get_ndims, fh5s_get_dims, fh5d_close, fh5_prepare_read, &
+            fh5_read, fh5_close_read, fh5f_write_attribute, &
+            fh5f_create_dim, fh5f_attach_dims, fh5f_write_global_attribute
 
 contains
 
@@ -354,19 +362,30 @@ contains
     type(c_ptr)      :: cptr
     integer, pointer :: fptr(:)
 
+    ! This is to remain compatible with both HDF5 1.8 and 1.10.
+    ! In hdf5 1.8 and older, fortran integer*1 is H5T_NATIVE_INTEGER_1,
+    ! but in hdf5 1.10 and newer it is H5T_NATIVE_INTEGER_KIND(1)
+    integer(HID_T) :: FORTRAN_INT1_TYPE
+
+    if (bigendian) then
+       FORTRAN_INT1_TYPE = H5T_STD_I8BE
+    else
+       FORTRAN_INT1_TYPE = H5T_STD_I8LE
+    endif
+
     create = .true.
     if (present(n)) then
        if (n > 1) create = .false.
     endif
 
     if (create) then
-       call h5dcreate_f(fileid, dname, H5T_NATIVE_INTEGER_1, fspcid, dsetid, hdferr, propid)
+       call h5dcreate_f(fileid, dname, FORTRAN_INT1_TYPE, fspcid, dsetid, hdferr, propid)
     endif
 
     cptr = c_loc(buf_integer1(1))
     call c_f_pointer(cptr, fptr, (/1/))
 
-    call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER_1, fptr, dimsf, hdferr, mspcid, dspcid, xferid)
+    call h5dwrite_f(dsetid, FORTRAN_INT1_TYPE, fptr, dimsf, hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_write_byte_array1
 
@@ -386,19 +405,30 @@ contains
     type(c_ptr)      :: cptr
     integer, pointer :: fptr(:,:)
 
+    ! This is to remain compatible with both HDF5 1.8 and 1.10.
+    ! In hdf5 1.8 and older, fortran integer*1 is H5T_NATIVE_INTEGER_1,
+    ! but in hdf5 1.10 and newer it is H5T_NATIVE_INTEGER_KIND(1)
+    integer(HID_T) :: FORTRAN_INT1_TYPE
+
+    if (bigendian) then
+       FORTRAN_INT1_TYPE = H5T_STD_I8BE
+    else
+       FORTRAN_INT1_TYPE = H5T_STD_I8LE
+    endif
+
     create = .true.
     if (present(n)) then
        if (n > 1) create = .false.
     endif
 
     if (create) then
-       call h5dcreate_f(fileid, dname, H5T_NATIVE_INTEGER_1, fspcid, dsetid, hdferr, propid)
+       call h5dcreate_f(fileid, dname, FORTRAN_INT1_TYPE, fspcid, dsetid, hdferr, propid)
     endif
 
     cptr = c_loc(buf_integer1(1,1))
     call c_f_pointer(cptr, fptr, (/1,1/))
 
-    call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER_1, fptr, dimsf, hdferr, mspcid, dspcid, xferid)
+    call h5dwrite_f(dsetid, FORTRAN_INT1_TYPE, fptr, dimsf, hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_write_byte_array2
 
@@ -418,19 +448,30 @@ contains
     type(c_ptr)      :: cptr
     integer, pointer :: fptr(:,:,:)
 
+    ! This is to remain compatible with both HDF5 1.8 and 1.10.
+    ! In hdf5 1.8 and older, fortran integer*1 is H5T_NATIVE_INTEGER_1,
+    ! but in hdf5 1.10 and newer it is H5T_NATIVE_INTEGER_KIND(1)
+    integer(HID_T) :: FORTRAN_INT1_TYPE
+
+    if (bigendian) then
+       FORTRAN_INT1_TYPE = H5T_STD_I8BE
+    else
+       FORTRAN_INT1_TYPE = H5T_STD_I8LE
+    endif
+
     create = .true.
     if (present(n)) then
        if (n > 1) create = .false.
     endif
 
     if (create) then
-       call h5dcreate_f(fileid, dname, H5T_NATIVE_INTEGER_1, fspcid, dsetid, hdferr, propid)
+       call h5dcreate_f(fileid, dname, FORTRAN_INT1_TYPE, fspcid, dsetid, hdferr, propid)
     endif
 
     cptr = c_loc(buf_integer1(1,1,1))
     call c_f_pointer(cptr, fptr, (/1,1,1/))
 
-    call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER_1, fptr, dimsf, hdferr, mspcid, dspcid, xferid)
+    call h5dwrite_f(dsetid, FORTRAN_INT1_TYPE, fptr, dimsf, hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_write_byte_array3
 
@@ -450,19 +491,30 @@ contains
     type(c_ptr)      :: cptr
     integer, pointer :: fptr(:,:,:,:)
 
+    ! This is to remain compatible with both HDF5 1.8 and 1.10.
+    ! In hdf5 1.8 and older, fortran integer*1 is H5T_NATIVE_INTEGER_1,
+    ! but in hdf5 1.10 and newer it is H5T_NATIVE_INTEGER_KIND(1)
+    integer(HID_T) :: FORTRAN_INT1_TYPE
+
+    if (bigendian) then
+       FORTRAN_INT1_TYPE = H5T_STD_I8BE
+    else
+       FORTRAN_INT1_TYPE = H5T_STD_I8LE
+    endif
+
     create = .true.
     if (present(n)) then
        if (n > 1) create = .false.
     endif
 
     if (create) then
-       call h5dcreate_f(fileid, dname, H5T_NATIVE_INTEGER_1, fspcid, dsetid, hdferr, propid)
+       call h5dcreate_f(fileid, dname, FORTRAN_INT1_TYPE, fspcid, dsetid, hdferr, propid)
     endif
 
     cptr = c_loc(buf_integer1(1,1,1,1))
     call c_f_pointer(cptr, fptr, (/1,1,1,1/))
 
-    call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER_1, fptr, dimsf, hdferr, mspcid, dspcid, xferid)
+    call h5dwrite_f(dsetid, FORTRAN_INT1_TYPE, fptr, dimsf, hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_write_byte_array4
 
@@ -741,16 +793,27 @@ contains
     integer, optional, intent(in) :: n
     logical :: create
 
+    ! This is to remain compatible with both HDF5 1.8 and 1.10.
+    ! In hdf5 1.8 and older, fortran real*8 is H5T_NATIVE_REAL_8
+    ! but this is removed in 1.10 and later
+    integer(HID_T) :: FORTRAN_REAL8_TYPE
+
+    if (bigendian) then
+       FORTRAN_REAL8_TYPE = H5T_IEEE_F64BE
+    else
+       FORTRAN_REAL8_TYPE = H5T_IEEE_F64LE
+    endif
+
     create = .true.
     if (present(n)) then
        if (n > 1) create = .false.
     endif
 
     if (create) then
-       call h5dcreate_f(fileid, dname, H5T_NATIVE_REAL_8, fspcid, dsetid, hdferr, propid)
+       call h5dcreate_f(fileid, dname, FORTRAN_REAL8_TYPE, fspcid, dsetid, hdferr, propid)
     endif
 
-    call h5dwrite_f(dsetid, H5T_NATIVE_REAL_8, buf_real8, dimsf, hdferr, mspcid, dspcid, xferid)
+    call h5dwrite_f(dsetid, FORTRAN_REAL8_TYPE, buf_real8, dimsf, hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_write_real8_array1
 
@@ -765,16 +828,27 @@ contains
     integer, optional, intent(in) :: n
     logical :: create
 
+    ! This is to remain compatible with both HDF5 1.8 and 1.10.
+    ! In hdf5 1.8 and older, fortran real*8 is H5T_NATIVE_REAL_8
+    ! but this is removed in 1.10 and later
+    integer(HID_T) :: FORTRAN_REAL8_TYPE
+
+    if (bigendian) then
+       FORTRAN_REAL8_TYPE = H5T_IEEE_F64BE
+    else
+       FORTRAN_REAL8_TYPE = H5T_IEEE_F64LE
+    endif
+
     create = .true.
     if (present(n)) then
        if (n > 1) create = .false.
     endif
 
     if (create) then
-       call h5dcreate_f(fileid, dname, H5T_NATIVE_REAL_8, fspcid, dsetid, hdferr, propid)
+       call h5dcreate_f(fileid, dname, FORTRAN_REAL8_TYPE, fspcid, dsetid, hdferr, propid)
     endif
 
-    call h5dwrite_f(dsetid, H5T_NATIVE_REAL_8, buf_real8, dimsf, hdferr, mspcid, dspcid, xferid)
+    call h5dwrite_f(dsetid, FORTRAN_REAL8_TYPE, buf_real8, dimsf, hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_write_real8_array2
 
@@ -789,16 +863,27 @@ contains
     integer, optional, intent(in) :: n
     logical :: create
 
+    ! This is to remain compatible with both HDF5 1.8 and 1.10.
+    ! In hdf5 1.8 and older, fortran real*8 is H5T_NATIVE_REAL_8
+    ! but this is removed in 1.10 and later
+    integer(HID_T) :: FORTRAN_REAL8_TYPE
+
+    if (bigendian) then
+       FORTRAN_REAL8_TYPE = H5T_IEEE_F64BE
+    else
+       FORTRAN_REAL8_TYPE = H5T_IEEE_F64LE
+    endif
+
     create = .true.
     if (present(n)) then
        if (n > 1) create = .false.
     endif
 
     if (create) then
-       call h5dcreate_f(fileid, dname, H5T_NATIVE_REAL_8, fspcid, dsetid, hdferr, propid)
+       call h5dcreate_f(fileid, dname, FORTRAN_REAL8_TYPE, fspcid, dsetid, hdferr, propid)
     endif
 
-    call h5dwrite_f(dsetid, H5T_NATIVE_REAL_8, buf_real8, dimsf, hdferr, mspcid, dspcid, xferid)
+    call h5dwrite_f(dsetid, FORTRAN_REAL8_TYPE, buf_real8, dimsf, hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_write_real8_array3
 
@@ -813,16 +898,27 @@ contains
     integer, optional, intent(in) :: n
     logical :: create
 
+    ! This is to remain compatible with both HDF5 1.8 and 1.10.
+    ! In hdf5 1.8 and older, fortran real*8 is H5T_NATIVE_REAL_8
+    ! but this is removed in 1.10 and later
+    integer(HID_T) :: FORTRAN_REAL8_TYPE
+
+    if (bigendian) then
+       FORTRAN_REAL8_TYPE = H5T_IEEE_F64BE
+    else
+       FORTRAN_REAL8_TYPE = H5T_IEEE_F64LE
+    endif
+
     create = .true.
     if (present(n)) then
        if (n > 1) create = .false.
     endif
 
     if (create) then
-       call h5dcreate_f(fileid, dname, H5T_NATIVE_REAL_8, fspcid, dsetid, hdferr, propid)
+       call h5dcreate_f(fileid, dname, FORTRAN_REAL8_TYPE, fspcid, dsetid, hdferr, propid)
     endif
 
-    call h5dwrite_f(dsetid, H5T_NATIVE_REAL_8, buf_real8, dimsf, hdferr, mspcid, dspcid, xferid)
+    call h5dwrite_f(dsetid, FORTRAN_REAL8_TYPE, buf_real8, dimsf, hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_write_real8_array4
 
@@ -974,12 +1070,23 @@ contains
     type(c_ptr)      :: cptr
     integer, pointer :: fptr
 
+    ! This is to remain compatible with both HDF5 1.8 and 1.10.
+    ! In hdf5 1.8 and older, fortran integer*1 is H5T_NATIVE_INTEGER_1,
+    ! but in hdf5 1.10 and newer it is H5T_NATIVE_INTEGER_KIND(1)
+    integer(HID_T) :: FORTRAN_INT1_TYPE
+
+    if (bigendian) then
+       FORTRAN_INT1_TYPE = H5T_STD_I8BE
+    else
+       FORTRAN_INT1_TYPE = H5T_STD_I8LE
+    endif
+
     cptr = c_loc(buf_integer1)
     call c_f_pointer(cptr, fptr)
 
-    call h5dcreate_f(fileid, dname, H5T_NATIVE_INTEGER_1, fspcid, dsetid, hdferr, propid)
+    call h5dcreate_f(fileid, dname, FORTRAN_INT1_TYPE, fspcid, dsetid, hdferr, propid)
 
-    call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER_1, fptr, dimsf, hdferr, mspcid, dspcid, xferid)
+    call h5dwrite_f(dsetid, FORTRAN_INT1_TYPE, fptr, dimsf, hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_write_byte_scalar
 
@@ -1037,9 +1144,20 @@ contains
     character(*), intent(IN)  :: dname
     integer,      intent(OUT) :: hdferr
 
-    call h5dcreate_f(fileid, dname, H5T_NATIVE_REAL_8, fspcid, dsetid, hdferr, propid)
+    ! This is to remain compatible with both HDF5 1.8 and 1.10.
+    ! In hdf5 1.8 and older, fortran real*8 is H5T_NATIVE_REAL_8
+    ! but this is removed in 1.10 and later
+    integer(HID_T) :: FORTRAN_REAL8_TYPE
 
-    call h5dwrite_f(dsetid, H5T_NATIVE_REAL_8, buf_real8, dimsf, hdferr, mspcid, dspcid, xferid)
+    if (bigendian) then
+       FORTRAN_REAL8_TYPE = H5T_IEEE_F64BE
+    else
+       FORTRAN_REAL8_TYPE = H5T_IEEE_F64LE
+    endif
+
+    call h5dcreate_f(fileid, dname, FORTRAN_REAL8_TYPE, fspcid, dsetid, hdferr, propid)
+
+    call h5dwrite_f(dsetid, FORTRAN_REAL8_TYPE, buf_real8, dimsf, hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_write_real8_scalar
 
@@ -1184,10 +1302,21 @@ contains
     integer(i1), intent(INOUT) :: buf_integer1(:)
     integer,     intent(OUT)   :: hdferr
 
+    ! This is to remain compatible with both HDF5 1.8 and 1.10.
+    ! In hdf5 1.8 and older, fortran integer*1 is H5T_NATIVE_INTEGER_1,
+    ! but in hdf5 1.10 and newer it is H5T_NATIVE_INTEGER_KIND(1)
+    integer(HID_T) :: FORTRAN_INT1_TYPE
+
+    if (bigendian) then
+       FORTRAN_INT1_TYPE = H5T_STD_I8BE
+    else
+       FORTRAN_INT1_TYPE = H5T_STD_I8LE
+    endif
+
     cptr = c_loc(buf_integer1(1))
     call c_f_pointer(cptr, fptr, (/1/))
 
-    call h5dread_f(dsetid, H5T_NATIVE_INTEGER_1, fptr, dimsf, &
+    call h5dread_f(dsetid, FORTRAN_INT1_TYPE, fptr, dimsf, &
          hdferr, file_space_id=dspcid, mem_space_id=mspcid)
 
   end subroutine fh5_read_byte_array1
@@ -1205,10 +1334,21 @@ contains
     integer(i1), intent(INOUT) :: buf_integer1(:,:)
     integer,     intent(OUT)   :: hdferr
 
+    ! This is to remain compatible with both HDF5 1.8 and 1.10.
+    ! In hdf5 1.8 and older, fortran integer*1 is H5T_NATIVE_INTEGER_1,
+    ! but in hdf5 1.10 and newer it is H5T_NATIVE_INTEGER_KIND(1)
+    integer(HID_T) :: FORTRAN_INT1_TYPE
+
+    if (bigendian) then
+       FORTRAN_INT1_TYPE = H5T_STD_I8BE
+    else
+       FORTRAN_INT1_TYPE = H5T_STD_I8LE
+    endif
+
     cptr = c_loc(buf_integer1(1,1))
     call c_f_pointer(cptr, fptr, (/1,1/))
 
-    call h5dread_f(dsetid, H5T_NATIVE_INTEGER_1, fptr, dimsf, &
+    call h5dread_f(dsetid, FORTRAN_INT1_TYPE, fptr, dimsf, &
          hdferr, file_space_id=dspcid, mem_space_id=mspcid)
 
   end subroutine fh5_read_byte_array2
@@ -1226,10 +1366,21 @@ contains
     integer(i1), intent(INOUT) :: buf_integer1(:,:,:)
     integer,     intent(OUT)   :: hdferr
 
+    ! This is to remain compatible with both HDF5 1.8 and 1.10.
+    ! In hdf5 1.8 and older, fortran integer*1 is H5T_NATIVE_INTEGER_1,
+    ! but in hdf5 1.10 and newer it is H5T_NATIVE_INTEGER_KIND(1)
+    integer(HID_T) :: FORTRAN_INT1_TYPE
+
+    if (bigendian) then
+       FORTRAN_INT1_TYPE = H5T_STD_I8BE
+    else
+       FORTRAN_INT1_TYPE = H5T_STD_I8LE
+    endif
+
     cptr = c_loc(buf_integer1(1,1,1))
     call c_f_pointer(cptr, fptr, (/1,1,1/))
 
-    call h5dread_f(dsetid, H5T_NATIVE_INTEGER_1, fptr, dimsf, &
+    call h5dread_f(dsetid, FORTRAN_INT1_TYPE, fptr, dimsf, &
          hdferr, file_space_id=dspcid, mem_space_id=mspcid)
 
   end subroutine fh5_read_byte_array3
@@ -1247,10 +1398,21 @@ contains
     integer(i1), intent(INOUT) :: buf_integer1(:,:,:,:)
     integer,     intent(OUT)   :: hdferr
 
+    ! This is to remain compatible with both HDF5 1.8 and 1.10.
+    ! In hdf5 1.8 and older, fortran integer*1 is H5T_NATIVE_INTEGER_1,
+    ! but in hdf5 1.10 and newer it is H5T_NATIVE_INTEGER_KIND(1)
+    integer(HID_T) :: FORTRAN_INT1_TYPE
+
+    if (bigendian) then
+       FORTRAN_INT1_TYPE = H5T_STD_I8BE
+    else
+       FORTRAN_INT1_TYPE = H5T_STD_I8LE
+    endif
+
     cptr = c_loc(buf_integer1(1,1,1,1))
     call c_f_pointer(cptr, fptr, (/1,1,1,1/))
 
-    call h5dread_f(dsetid, H5T_NATIVE_INTEGER_1, fptr, dimsf, &
+    call h5dread_f(dsetid, FORTRAN_INT1_TYPE, fptr, dimsf, &
          hdferr, file_space_id=dspcid, mem_space_id=mspcid)
 
   end subroutine fh5_read_byte_array4
@@ -1406,7 +1568,18 @@ contains
     real(r8), intent(INOUT) :: buf_real8(:)
     integer,  intent(OUT)   :: hdferr
 
-    call h5dread_f(dsetid, H5T_NATIVE_REAL_8, buf_real8, dimsf, &
+    ! This is to remain compatible with both HDF5 1.8 and 1.10.
+    ! In hdf5 1.8 and older, fortran real*8 is H5T_NATIVE_REAL_8
+    ! but this is removed in 1.10 and later
+    integer(HID_T) :: FORTRAN_REAL8_TYPE
+
+    if (bigendian) then
+       FORTRAN_REAL8_TYPE = H5T_IEEE_F64BE
+    else
+       FORTRAN_REAL8_TYPE = H5T_IEEE_F64LE
+    endif
+
+    call h5dread_f(dsetid, FORTRAN_REAL8_TYPE, buf_real8, dimsf, &
          hdferr, file_space_id=dspcid, mem_space_id=mspcid)
 
   end subroutine fh5_read_real8_array1
@@ -1419,7 +1592,18 @@ contains
     real(r8), intent(INOUT) :: buf_real8(:,:)
     integer,  intent(OUT)   :: hdferr
 
-    call h5dread_f(dsetid, H5T_NATIVE_REAL_8, buf_real8, dimsf, &
+    ! This is to remain compatible with both HDF5 1.8 and 1.10.
+    ! In hdf5 1.8 and older, fortran real*8 is H5T_NATIVE_REAL_8
+    ! but this is removed in 1.10 and later
+    integer(HID_T) :: FORTRAN_REAL8_TYPE
+
+    if (bigendian) then
+       FORTRAN_REAL8_TYPE = H5T_IEEE_F64BE
+    else
+       FORTRAN_REAL8_TYPE = H5T_IEEE_F64LE
+    endif
+
+    call h5dread_f(dsetid, FORTRAN_REAL8_TYPE, buf_real8, dimsf, &
          hdferr, file_space_id=dspcid, mem_space_id=mspcid)
 
   end subroutine fh5_read_real8_array2
@@ -1432,7 +1616,18 @@ contains
     real(r8), intent(INOUT) :: buf_real8(:,:,:)
     integer,  intent(OUT)   :: hdferr
 
-    call h5dread_f(dsetid, H5T_NATIVE_REAL_8, buf_real8, dimsf, &
+    ! This is to remain compatible with both HDF5 1.8 and 1.10.
+    ! In hdf5 1.8 and older, fortran real*8 is H5T_NATIVE_REAL_8
+    ! but this is removed in 1.10 and later
+    integer(HID_T) :: FORTRAN_REAL8_TYPE
+
+    if (bigendian) then
+       FORTRAN_REAL8_TYPE = H5T_IEEE_F64BE
+    else
+       FORTRAN_REAL8_TYPE = H5T_IEEE_F64LE
+    endif
+
+    call h5dread_f(dsetid, FORTRAN_REAL8_TYPE, buf_real8, dimsf, &
          hdferr, file_space_id=dspcid, mem_space_id=mspcid)
 
   end subroutine fh5_read_real8_array3
@@ -1445,7 +1640,18 @@ contains
     real(r8), intent(INOUT) :: buf_real8(:,:,:,:)
     integer,  intent(OUT)   :: hdferr
 
-    call h5dread_f(dsetid, H5T_NATIVE_REAL_8, buf_real8, dimsf, &
+    ! This is to remain compatible with both HDF5 1.8 and 1.10.
+    ! In hdf5 1.8 and older, fortran real*8 is H5T_NATIVE_REAL_8
+    ! but this is removed in 1.10 and later
+    integer(HID_T) :: FORTRAN_REAL8_TYPE
+
+    if (bigendian) then
+       FORTRAN_REAL8_TYPE = H5T_IEEE_F64BE
+    else
+       FORTRAN_REAL8_TYPE = H5T_IEEE_F64LE
+    endif
+
+    call h5dread_f(dsetid, FORTRAN_REAL8_TYPE, buf_real8, dimsf, &
          hdferr, file_space_id=dspcid, mem_space_id=mspcid)
 
   end subroutine fh5_read_real8_array4
@@ -1570,10 +1776,21 @@ contains
     integer(i1), intent(INOUT) :: buf_integer1
     integer,     intent(OUT)   :: hdferr
 
+    ! This is to remain compatible with both HDF5 1.8 and 1.10.
+    ! In hdf5 1.8 and older, fortran integer*1 is H5T_NATIVE_INTEGER_1,
+    ! but in hdf5 1.10 and newer it is H5T_NATIVE_INTEGER_KIND(1)
+    integer(HID_T) :: FORTRAN_INT1_TYPE
+
+    if (bigendian) then
+       FORTRAN_INT1_TYPE = H5T_STD_I8BE
+    else
+       FORTRAN_INT1_TYPE = H5T_STD_I8LE
+    endif
+
     cptr = c_loc(buf_integer1)
     call c_f_pointer(cptr, fptr)
 
-    call h5dread_f(dsetid, H5T_NATIVE_INTEGER_1, fptr, dimsf, hdferr)
+    call h5dread_f(dsetid, FORTRAN_INT1_TYPE, fptr, dimsf, hdferr)
 
   end subroutine fh5_read_byte_scalar
 
@@ -1621,7 +1838,18 @@ contains
     real(r8), intent(INOUT) :: buf_real8
     integer,  intent(OUT)   :: hdferr
 
-    call h5dread_f(dsetid, H5T_NATIVE_REAL_8, buf_real8, dimsf, hdferr)
+    ! This is to remain compatible with both HDF5 1.8 and 1.10.
+    ! In hdf5 1.8 and older, fortran real*8 is H5T_NATIVE_REAL_8
+    ! but this is removed in 1.10 and later
+    integer(HID_T) :: FORTRAN_REAL8_TYPE
+
+    if (bigendian) then
+       FORTRAN_REAL8_TYPE = H5T_IEEE_F64BE
+    else
+       FORTRAN_REAL8_TYPE = H5T_IEEE_F64LE
+    endif
+
+    call h5dread_f(dsetid, FORTRAN_REAL8_TYPE, buf_real8, dimsf, hdferr)
 
   end subroutine fh5_read_real8_scalar
 
@@ -1798,6 +2026,17 @@ contains
     integer          :: ndims
     integer          :: hdferr
 
+    ! This is to remain compatible with both HDF5 1.8 and 1.10.
+    ! In hdf5 1.8 and older, fortran real*8 is H5T_NATIVE_REAL_8
+    ! but this is removed in 1.10 and later
+    integer(HID_T) :: FORTRAN_REAL8_TYPE
+
+    if (bigendian) then
+       FORTRAN_REAL8_TYPE = H5T_IEEE_F64BE
+    else
+       FORTRAN_REAL8_TYPE = H5T_IEEE_F64LE
+    endif
+
     if ( (.not. present(ivalue))  .and. &
          (.not. present(rvalue))  .and. &
          (.not. present(dvalue))  .and. &
@@ -1828,10 +2067,10 @@ contains
     elseif (present(dvalue)) then
 
        ! Create an attribute for this dataset
-       call H5Acreate_f(dsetid, name, H5T_NATIVE_REAL_8, space_id, attr_id, hdferr)
+       call H5Acreate_f(dsetid, name, FORTRAN_REAL8_TYPE, space_id, attr_id, hdferr)
 
        ! write attribute to file
-       call H5Awrite_f(attr_id, H5T_NATIVE_REAL_8, dvalue, dims, hdferr)
+       call H5Awrite_f(attr_id, FORTRAN_REAL8_TYPE, dvalue, dims, hdferr)
 
     elseif (present(cvalue)) then
 
@@ -1911,6 +2150,17 @@ contains
     integer          :: ndims
     integer          :: hdferr
 
+    ! This is to remain compatible with both HDF5 1.8 and 1.10.
+    ! In hdf5 1.8 and older, fortran real*8 is H5T_NATIVE_REAL_8
+    ! but this is removed in 1.10 and later
+    integer(HID_T) :: FORTRAN_REAL8_TYPE
+
+    if (bigendian) then
+       FORTRAN_REAL8_TYPE = H5T_IEEE_F64BE
+    else
+       FORTRAN_REAL8_TYPE = H5T_IEEE_F64LE
+    endif
+
     if ( (.not. present(ivalue))  .and. &
          (.not. present(rvalue))  .and. &
          (.not. present(dvalue))  .and. &
@@ -1944,10 +2194,10 @@ contains
     elseif (present(dvalue)) then
 
        ! Create an attribute for this dataset
-       call H5Acreate_f(grp_id, name, H5T_NATIVE_REAL_8, space_id, attr_id, hdferr)
+       call H5Acreate_f(grp_id, name, FORTRAN_REAL8_TYPE, space_id, attr_id, hdferr)
 
        ! write attribute to file
-       call H5Awrite_f(attr_id, H5T_NATIVE_REAL_8, dvalue, dims, hdferr)
+       call H5Awrite_f(attr_id, FORTRAN_REAL8_TYPE, dvalue, dims, hdferr)
 
     elseif (present(cvalue)) then
 

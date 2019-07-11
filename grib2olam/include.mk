@@ -1,8 +1,8 @@
 F_COMP=h5fc
-
 F_OPTS=-O3
 
-C_COMP=cc
+# C_COMP=gcc
+C_COMP=icc
 C_OPTS=-O3
 
 JASPER_INCS=-I/usr/local/include
