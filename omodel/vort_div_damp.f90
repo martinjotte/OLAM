@@ -3,7 +3,7 @@ subroutine divh_damp(mrl)
   use mem_ijtabs,   only: jtab_v, jtab_w, itab_v, itab_w, jtv_wadj, &
                           jtv_prog, jtw_prog
   use mem_grid,     only: lpv, mza, mva, mwa, vnxo2, vnyo2, vnzo2, dnu, &
-                          arw0, dniv
+                          arw0, arw0i, dniv
   use olam_mpi_atm, only: mpi_send_w, mpi_recv_w
   use mem_basic,    only: vc, vxe, vye, vze, rho
   use mem_tend,     only: vmt

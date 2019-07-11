@@ -32,13 +32,13 @@ contains
 subroutine comp_buoy(iw, buoy, a, b, adry, bdry, awet, bwet)
 
   use mem_grid,    only: mza, dzim, lpw
-  use mem_basic,   only: thil, theta, tair, sh_v, sh_w, rho
+  use mem_basic,   only: theta, tair, sh_v, sh_w, rho
   use consts_coms, only: t00, eps_vapi, eps_virt, alvl, rdry, rvap, &
                          alvlocp, alviocp
   use therm_lib,   only: rhovsl
   use mem_radiate, only: cloud_frac
-  use mem_cuparm,  only: iactcu, qwcon
-  use mem_micro,   only: sh_c
+  use mem_cuparm,  only: iactcu, qwcon, kcutop, kcubot
+  use mem_micro,   only: sh_c, sh_p
   use micro_coms,  only: miclevel
   use oname_coms,  only: nl
 
@@ -55,7 +55,8 @@ subroutine comp_buoy(iw, buoy, a, b, adry, bdry, awet, bwet)
   real, parameter      :: alvlorvap = alvl / rvap
   real, parameter      :: c_aw      = alvlocp * alvlorvap
 
-  real                 :: qsat(mza), qliq(mza), frac(mza), thlo(mza), qto(mza)
+  real                 :: qsat(mza), qliq(mza), qice(mza), frac(mza)
+  real                 :: thlo(mza), qto(mza)
   real                 :: qt, qs, qc, aa, bb, ad, bd, aw, bw
   real                 :: th, ta, dthl, dqw, thl, xsat, fracm
   integer              :: k
@@ -86,7 +87,7 @@ subroutine comp_buoy(iw, buoy, a, b, adry, bdry, awet, bwet)
         endif
      endif
 
-     if (nl%moist_buoy >= 3 .and. iactcu(iw)) then
+     if (nl%moist_buoy >= 3 .and. iactcu(iw) > 0) then
         do k = kcubot(iw), kcutop(iw)
            qliq(k) = qliq(k) + qwcon(k,iw)
         enddo

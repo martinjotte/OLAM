@@ -217,7 +217,7 @@ subroutine comp_horiz_k_column(iv)
 
   if (nl%conv_akmin(mrl) > 1.e-7) then
 
-     if (iactcu(iw1) .and. conprr(iw1) > 1.e-8) then
+     if (iactcu(iw1) > 0 .and. conprr(iw1) > 1.e-8) then
         hcm = 0.0375 * nl%conv_akmin(mrl) * arw0(iw1) ** .66666666 &
                      * cbmf(iw1) / cbmf0
 
@@ -226,7 +226,7 @@ subroutine comp_horiz_k_column(iv)
         enddo
      endif
 
-     if (iactcu(iw2) .and. conprr(iw2) > 1.e-8) then
+     if (iactcu(iw2) > 0 .and. conprr(iw2) > 1.e-8) then
         hcm = 0.0375 * nl%conv_akmin(mrl) * arw0(iw2) ** .66666666 &
                      * cbmf(iw2) / cbmf0
 
