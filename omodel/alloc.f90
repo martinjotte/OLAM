@@ -119,7 +119,7 @@ subroutine olam_mem_alloc()
       call filltab_nudge()
   endif
 
-! Allocate any added Scalar types 
+! Allocate any added Scalar types
 
   write(io6,*) 'start addsc alloc'
 
@@ -134,11 +134,12 @@ subroutine olam_mem_alloc()
   write(io6,*) 'start tendency alloc'
 
   call alloc_tend(mza,mva,mwa,naddsc,nccntyp)
-  call filltab_tend(naddsc,nccntyp) 
+  call filltab_tend(naddsc,nccntyp)
 
 ! Extra memory for Thuburn's monotonic advection or positive definite scheme
 
-  call alloc_thuburn(nl%iscal_monot, nl%ithil_monot, mza, mwa)
+  call alloc_thuburn( nl%iscal_monot, nl%ithil_monot, nl%ivelc_monot, &
+                      mza, mwa, mva )
 
 ! Extra memory if nudging ozone. Must be called after scalar tables are set up
 
@@ -152,7 +153,6 @@ subroutine olam_mem_alloc()
 
   write(io6,*) 'end alloc'
 
-  return
 end subroutine olam_mem_alloc
 
 !===============================================================================

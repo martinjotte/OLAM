@@ -84,6 +84,7 @@ Contains
    use mem_micro,  only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h,        &
                          con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h,&
                          ccntyp, con_ifn, con_gccn, q2, q6, q7
+   use micro_coms, only: miclevel
    use misc_coms,  only: io6
    use mem_co2,    only: sh_co2
    
@@ -106,7 +107,10 @@ Contains
    if (allocated(thil))    allocate (thilt(lza,lwa)) ; thilt = 0.
    if (allocated(sh_w))    allocate (sh_wt(lza,lwa)) ; sh_wt = 0.
 
-   if (allocated(sh_c))    allocate (sh_ct(lza,lwa))
+   if (miclevel > 2) then
+      if (allocated(sh_c)) allocate (sh_ct(lza,lwa))
+   endif
+
    if (allocated(sh_r))    allocate (sh_rt(lza,lwa))
    if (allocated(sh_p))    allocate (sh_pt(lza,lwa))
    if (allocated(sh_s))    allocate (sh_st(lza,lwa))

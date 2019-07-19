@@ -42,25 +42,26 @@ contains
 
   subroutine turb_k(iw, mrlw)
 
-    use mem_turb,    only: vkm_sfc, ue, ve, vkm, vkh, wtv0_k, ustar_k, frac_sfc
+    use mem_turb,    only: vkm_sfc, vkm, vkh, wtv0_k, ustar_k, frac_sfc
     use mem_ijtabs,  only: itab_w
-    use mem_grid,    only: mza, lpv, lpw, dzim, dzit, zm, volt, arw, lsw, volti, zm, &
-                           arw0, dzm, dzimsq, gxps_coef, gyps_coef, dzt_bot
+    use mem_grid,    only: mza, lpw, dzim, dzit, zm, volt, arw, lsw, volti, zm, &
+                           arw0, dzm, dzimsq, dzt_bot
     use misc_coms,   only: idiffk, csx, csz, dtlm
-    use mem_basic,   only: rho, vxe, vye, vze, thil, wc, theta, tair, sh_w, sh_v
+    use mem_basic,   only: rho, vxe, vye, vze, thil, theta, tair, sh_w, sh_v
     use consts_coms, only: vonk, grav, grav2, eps_virt, cpio2
     use mem_tend,    only: vmxet, vmyet, vmzet, thilt
     use var_tables,  only: num_scalar, scalar_tab
     use tridiag,     only: tridv
     use oname_coms,  only: nl
     use buoyancy,    only: comp_buoy
+    use grad_lib,    only: comp_vel_grads_ec
     use supercell_testm, only: vxe_init, vye_init, vze_init, thil_init, sh_w_init
 
     implicit none
 
     integer, intent(in) :: iw, mrlw
 
-    integer :: jw1, iw1, iv1, n, k, ka, ks
+    integer :: n, k, ka, ks
 
     real :: richnum,ambda,ambda2,hill_term,richnum_term
     real :: scalen_asympt,scalen_vert,scalen_horiz
@@ -79,9 +80,9 @@ contains
     real :: rhs(mza,max(3,num_scalar+1)), soln(mza,max(3,num_scalar+1))
     real :: varp(mza)
     real :: vctr2(mza,3)
-    real :: du, dv, dw, vi4, ql
-    real :: dudx(mza), dudy(mza), dudz
-    real :: dvdx(mza), dvdy(mza), dvdz
+    real :: vi4, ql
+    real :: dudx(mza), dudy(mza), dudz(mza)
+    real :: dvdx(mza), dvdy(mza), dvdz(mza)
     real :: dwdx(mza), dwdy(mza), dwdz(mza)
     real :: buoy(mza), thetav(mza)
 
@@ -102,81 +103,25 @@ contains
 
     if (idiffk(mrlw) == 3) then
 
-       ! Compute full strain rate on a local planar projection
+       ! Compute earth-cartesian velocity gradients at cell centers
 
-       ! Loop over W neighbors of this W cell
-       do jw1 = 1, itab_w(iw)%npoly
+       call comp_vel_grads_ec(iw, dudx, dudy, dudz, &
+                                  dvdx, dvdy, dvdz, &
+                                  dwdx, dwdy, dwdz  )
 
-          iw1 = itab_w(iw)%iw(jw1)
-          iv1 = itab_w(iw)%iv(jw1)
-
-          if (jw1 == 1) then
-
-             dudx(ka:lpv(iv1)-1) = 0.
-             dudy(ka:lpv(iv1)-1) = 0.
-
-             dvdx(ka:lpv(iv1)-1) = 0.
-             dvdy(ka:lpv(iv1)-1) = 0.
-
-             dwdx(ka:lpv(iv1)-1) = 0.
-             dwdy(ka:lpv(iv1)-1) = 0.
-
-             do k = lpv(iv1), mza
-                du = ue(k,iw1) - ue(k,iw)
-                dv = ve(k,iw1) - ve(k,iw)
-                dw = wc(k,iw1) - wc(k,iw)
-
-                dudx(k) = gxps_coef(iw,jw1) * du
-                dudy(k) = gyps_coef(iw,jw1) * du
-
-                dvdx(k) = gxps_coef(iw,jw1) * dv
-                dvdy(k) = gyps_coef(iw,jw1) * dv
-
-                dwdx(k) = gxps_coef(iw,jw1) * dw
-                dwdy(k) = gyps_coef(iw,jw1) * dw
-             enddo
-
-          else
-
-             do k = lpv(iv1), mza
-                du = ue(k,iw1) - ue(k,iw)
-                dv = ve(k,iw1) - ve(k,iw)
-                dw = wc(k,iw1) - wc(k,iw)
-
-                dudx(k) = dudx(k) + gxps_coef(iw,jw1) * du
-                dudy(k) = dudy(k) + gyps_coef(iw,jw1) * du
-
-                dvdx(k) = dvdx(k) + gxps_coef(iw,jw1) * dv
-                dvdy(k) = dvdy(k) + gyps_coef(iw,jw1) * dv
-
-                dwdx(k) = dwdx(k) + gxps_coef(iw,jw1) * dw
-                dwdy(k) = dwdy(k) + gyps_coef(iw,jw1) * dw
-             enddo
-
-          endif
-
-       enddo
-
-       do k = ka, mza
-          dwdz(k) = (wc(k,iw1) - wc(k-1,iw1)) * dzit(k)
-       enddo
-
-       ! strain components at T levels
+       ! Strain rate squared at cell centers (T levels)
 
        do k = ka, mza
           strain_t(k) = 2.0 * (dudx(k)**2 + dvdy(k)**2 + dwdz(k)**2) &
-                      + (dudy(k) + dvdx(k))**2
+                      + (dudy(k) + dvdx(k))**2 &
+                      + (dudz(k) + dwdx(k))**2 &
+                      + (dvdz(k) + dwdy(k))**2
        enddo
 
-       ! full strain at W levels
+       ! Strain rate squared at W levels
 
        do k = ka, mza-1
-
-          dudz = (ue(k+1,iw) - ue(k,iw)) * dzim(k)
-          dvdz = (ve(k+1,iw) - ve(k,iw)) * dzim(k)
-
-          strain2(k) = (dudz + dwdx(k))**2 + (dvdz + dwdy(k))**2 &
-                     + 0.5 * (strain_t(k+1) + strain_t(k))
+          strain2(k) = 0.5 * (strain_t(k) + strain_t(k+1))
        enddo
 
     else

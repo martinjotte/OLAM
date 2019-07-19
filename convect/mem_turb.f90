@@ -65,8 +65,6 @@ Module mem_turb
   real,    allocatable :: akmodx(:,:)
   real,    allocatable :: akhodx(:,:)
 
-  real,    allocatable :: ue(:,:)
-  real,    allocatable :: ve(:,:)
 Contains
 
 !===============================================================================
@@ -112,11 +110,6 @@ Contains
     allocate (akmodx(mza,mva)) ; akmodx    = 0.0
     allocate (akhodx(mza,mva)) ; akhodx    = 0.0
 
-    if (any(idiffk(1:mrls) == 3)) then
-       allocate(ue(mza,mwa)) ; ue = rinit
-       allocate(ve(mza,mwa)) ; ve = rinit
-    endif
-
   end subroutine alloc_turb
   
   !===============================================================================
@@ -144,8 +137,6 @@ Contains
     if (allocated(fqtpbl))  deallocate (fqtpbl)
     if (allocated(akmodx))  deallocate (akmodx)
     if (allocated(akhodx))  deallocate (akhodx)
-    if (allocated(ue))      deallocate (ue)
-    if (allocated(ve))      deallocate (ve)
 
   end subroutine dealloc_turb
 
@@ -181,7 +172,7 @@ Contains
     if (allocated(wtv0))     call increment_vtable('WTV0',    'AW', rvar1=wtv0)
 
     if (allocated(pblh))     call increment_vtable('PBLH',    'AW', rvar1=pblh)
-    
+
     if (allocated(kpblh))    call increment_vtable('KPBLH',   'AW', ivar1=kpblh)
 
     if (allocated(fthpbl))   call increment_vtable('FTHPBL',  'AW', rvar2=fthpbl)

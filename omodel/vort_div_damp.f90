@@ -113,7 +113,13 @@ subroutine divh_damp(mrl)
   endif
   call lbcopy_w(mrl, a1=div2d_ex)
 
-  !$omp parallel do private(iv,iw1,iw2,k)
+  if (dorayfdiv) then
+     ktop = krayfdiv_bot - 1
+  else
+     ktop = mza
+  endif
+
+  !$omp parallel do private(iv,iw1,iw2,k,f1,f2)
   do j = 1,jtab_v(jtv_prog)%jend(mrl); iv = jtab_v(jtv_prog)%iv(j)
 
      iw1 = itab_v(iv)%iw(1)
@@ -122,9 +128,6 @@ subroutine divh_damp(mrl)
      ! Upper atmosphere layers (rayfdiv)
 
      if (dorayfdiv) then
-
-        ktop = krayfdiv_bot - 1
-
         do k = krayfdiv_bot, mza
 
            f1 = max( rayf_cofdiv(k) * aoc(iw1), c1(iv) )
@@ -133,14 +136,9 @@ subroutine divh_damp(mrl)
            vmt(k,iv) = vmt(k,iv) + real(rho(k,iw2)) * f2 * div2d_ex(k,iw2) &
                                  - real(rho(k,iw1)) * f1 * div2d_ex(k,iw1)
         enddo
-
-     else
-
-        ktop = mza
-
      endif
 
-     ! All atmosphere layers (new)
+     ! All atmosphere layers
 
      do k = lpv(iv), ktop
         vmt(k,iv) = vmt(k,iv) + real(rho(k,iw2)) * c2(iv) * div2d_ex(k,iw2) &

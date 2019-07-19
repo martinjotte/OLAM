@@ -37,7 +37,7 @@ subroutine pbl_driver(mrl,rhot)
   use misc_coms,      only: idiffk, dtlm, mdomain
   use mem_tend,       only: thilt, sh_wt
   use mem_basic,      only: vxe, vye, vze, rho
-  use mem_turb,       only: vkm, vkh, sxfer_rk, ue, ve, fqtpbl, fthpbl
+  use mem_turb,       only: vkm, vkh, sxfer_rk, fqtpbl, fthpbl
   use consts_coms,    only: grav, vonk, eps_virt, alvlocp, r8, eradi
   use mem_ijtabs,     only: jtab_w, itab_w, jtw_prog, mrls
   use module_bl_acm2, only: acm2_pblhgt, acm2_driver
@@ -49,39 +49,7 @@ subroutine pbl_driver(mrl,rhot)
   real,    intent(inout) :: rhot(mza,mwa)
 
   integer :: j, k, ka, iw, mrlw, ks
-  real    :: dtli, raxis, raxisi
-
-  ! Compute zonal and meridional wind components
-
-  if (any(idiffk(1:mrls) == 3)) then
-
-     !$omp parallel do private(iw,raxis,raxisi,k)
-     do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
-
-        raxis  = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis
-        raxisi = 1.0 / max(raxis, 1.e-12)
-
-        if (mdomain <= 1 .and. raxis > 1.e3) then
-
-           do k = lpw(iw), mza
-              ue(k,iw) = (vye(k,iw) * xew(iw) - vxe(k,iw) * yew(iw)) * raxisi
-              ve(k,iw) = vze(k,iw) * raxis * eradi  &
-                       - (vxe(k,iw) * xew(iw) + vye(k,iw) * yew(iw)) &
-                         * zew(iw) * raxisi * eradi
-           enddo
-
-        else
-
-           do k = lpw(iw), mza
-              ue(k,iw) = vxe(k,iw)
-              ve(k,iw) = vye(k,iw)
-           enddo
-
-        endif
-
-     enddo
-     !$omp end parallel do
-  endif
+  real    :: dtli
 
 ! Loop over all W/T points where PBL parameterization may be done
 
@@ -170,13 +138,15 @@ subroutine comp_horiz_k(mrl)
 
   !$omp parallel do private(iv)
   do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
+
      call comp_horiz_k_column(iv)
+
   enddo
   !$omp end parallel do
 
 end subroutine comp_horiz_k
 
-
+!===============================================================================
 
 subroutine comp_horiz_k_column(iv)
 

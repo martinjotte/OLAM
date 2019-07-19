@@ -128,7 +128,7 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
    do k = ka-1,1,-1
       sclr(k,iw) = sclr(ka,iw)
    enddo
-   
+
 enddo
 !$omp end parallel do
 
@@ -167,7 +167,7 @@ end subroutine lbcopy_m
 
 !===============================================================================
 
-subroutine lbcopy_v(mrl, vmc, vc)
+subroutine lbcopy_v(mrl, vmc, vc, iv1, iv2)
 
 use mem_ijtabs, only: jtab_v, itab_v, jtv_lbcp
 use mem_grid,   only: mza, mva
@@ -178,6 +178,9 @@ integer, intent(in) :: mrl
 
 real, optional, intent(inout) :: vmc(mza,mva)
 real, optional, intent(inout) :: vc (mza,mva)
+
+integer, optional, intent(inout) :: iv1(mva)
+integer, optional, intent(inout) :: iv2(mva)
 
 integer :: j,iv,ivp
 
@@ -191,9 +194,11 @@ do j = 1,jtab_v(jtv_lbcp)%jend(mrl); iv = jtab_v(jtv_lbcp)%iv(j)
    ivp = itab_v(iv)%ivp
 !----------------------------------------------------------------------
 
-   if (present(vmc)) vmc(:,iv) = vmc(:,ivp) 
-   if (present(vc))  vc (:,iv) = vc (:,ivp) 
+   if (present(vmc)) vmc(:,iv) = vmc(:,ivp)
+   if (present(vc))  vc (:,iv) = vc (:,ivp)
 
+   if (present(iv1)) iv1(iv) = iv1(ivp)
+   if (present(iv2)) iv2(iv) = iv2(ivp)
 enddo
 
 end subroutine lbcopy_v

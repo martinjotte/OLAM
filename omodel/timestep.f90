@@ -33,14 +33,14 @@
 subroutine timestep()
 
 use misc_coms,   only: io6, time8, time_istp8, time_istp8p, time_bias, &
-                       nqparm, initial, ilwrtyp, iswrtyp, dtsm, dtlm, i_o3, &
+                       nqparm, initial, ilwrtyp, iswrtyp, dtsm, i_o3, &
                        iparallel, isubdomain, s1900_init, s1900_sim, do_chem
 use mem_ijtabs,  only: nstp, istp, mrls, leafstep, mrl_begl, mrl_endl, mrl_ends
 use mem_nudge,   only: nudflag, nudnxp, o3nudflag
 use mem_grid,    only: mza, mva, mwa
 use micro_coms,  only: miclevel
 use leaf_coms,   only: isfcl
-use mem_basic,   only: vmc, vc, vxe, vye, vze, thil, rho, wmc, wc
+use mem_basic,   only: thil, rho, wmc, wc, vmc
 use olam_mpi_atm,only: mpi_send_w, mpi_recv_w, mpi_send_v, mpi_recv_v
 use var_tables,  only: nvar_par, vtab_r, nptonv
 use obnd,        only: trsets, lbcopy_v, lbcopy_w, botset, latsett
@@ -48,7 +48,7 @@ use oplot_coms,  only: op
 use oname_coms,  only: nl
 use mem_flux_accum, only: flux_accum
 use consts_coms, only: r8
-use vel_t3d,     only: diagvel_t3d
+use vel_t3d,     only: diag_earth_vels
 use var_tables,  only: num_scalar, scalar_tab
 use mem_megan,   only: megan_avg_temp
 use emis_defn,   only: get_emis
@@ -233,7 +233,14 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
        nl%test_case == 13) go to 33
    !--------------------------------------
 
-   call prog_wrtv(vmsc,wmsc,vxesc,vyesc,vzesc,alpha_press,rhot)
+   call prog_wrtv(vmsc,wmsc,alpha_press,rhot)
+
+    ! Update earth-cartesian velocities (including time-averaged scalar velocities)
+ 
+   mrl = mrl_endl(istp)
+   if (mrl > 0) then
+      call diag_earth_vels(mrl, vxesc, vyesc, vzesc)
+   endif
 
    33 continue
 
@@ -290,7 +297,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    mrl = mrl_endl(istp)
    if (mrl > 0) then
       call scalar_transport(mrl,vmsc,wmsc,vxesc,vyesc,vzesc,rho_old)
-      if (nl%split_scalars > 0) call scalar_hdiff_split(mrl, rho_old)
+      if (nl%split_scalars > 0) call scalar_hdiff_split(mrl)
    endif
 
    ! call check_nans(14,rvara1=rhot,rvara2=alpha_press)
@@ -404,32 +411,19 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
       if (iparallel == 1) call mpi_recv_w(mrl, scalars='S')  ! Recv scalars
 
+      call mpi_send_v(mrl, rvara1=vmc)
+
       do n = 1, nvar_par
          call lbcopy_w(mrl, a1=vtab_r(nptonv(n))%rvar2_p)
       enddo
 
-      ! call check_pos(3)
+      call mpi_recv_v(mrl, rvara1=vmc)
+      call lbcopy_v(mrl, vmc=vmc)
+
    endif
 
+   ! call check_pos(3)
    ! call check_nans(20,rvara1=rhot,rvara2=alpha_press)
-
-   ! MPI send/recv and lbc copy of VMC, VC
-
-   mrl = mrl_ends(istp)
-
-   if (iparallel == 1) then
-      call mpi_send_v(mrl, rvara1=vmc, rvara2=vc)
-      call mpi_recv_v(mrl, rvara1=vmc, rvara2=vc)
-   endif
-   call lbcopy_v(1, vmc=vmc, vc=vc)
-
-   ! Compute earth cartesian velocities
-
-   if (mrl > 0) then
-      call diagvel_t3d(mrl)
-   endif
-
-   ! call check_nans(21,rvara1=rhot,rvara2=alpha_press)
 
    if (leafstep(istp) > 0) then
       call leaf4()
@@ -437,7 +431,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
       if (do_chem == 1) call megan_avg_temp()
    endif
 
-   ! call check_nans(22,rvara1=rhot,rvara2=alpha_press)
+   ! call check_nans(21,rvara1=rhot,rvara2=alpha_press)
 
    1312 continue
 
@@ -731,7 +725,7 @@ subroutine comp_alpha_press(mrl, alpha_press)
 
 ! Evaluate alpha coefficient for pressure
 
-  !$omp parallel do private(iw,k) 
+  !$omp parallel do private(iw,k)
   do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
      do k = lpw(iw), mza
@@ -747,13 +741,13 @@ end subroutine comp_alpha_press
 !==========================================================================
 
 subroutine omic_update_v_mom(mrl)
-  
+
   use mem_grid,    only: lpv, mza
   use mem_ijtabs,  only: jtab_v, jtv_prog, itab_v
   use mem_basic,   only: vmc, vc, rho
 
   implicit none
-  
+
   integer, intent(in) :: mrl
   integer             :: j, iv, iw1, iw2, k
 
@@ -765,7 +759,7 @@ subroutine omic_update_v_mom(mrl)
      iw2 = itab_v(iv)%iw(2)
 
      do k = lpv(iv), mza
-        vmc(k,iv) = 0.5 * vc(k,iv) * (rho(k,iw1) + rho(k,iw2))
+        vmc(k,iv) = 0.5 * vc(k,iv) * real( rho(k,iw1) + rho(k,iw2) )
      enddo
   enddo
   !$omp end parallel do

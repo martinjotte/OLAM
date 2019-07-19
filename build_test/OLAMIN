@@ -214,6 +214,9 @@
    NL%ITHIL_MONOT = 0     ! Monotonic advection for temperature (THIL)
                           ! 0 = off, 1 = monotonic, 2 = positive-definite
    
+   NL%IVELC_MONOT = 0     ! Monotonic advection for momentum (VXE,VYE,VZE)
+                          ! 0 = off, 1 = monotonic
+
    NL%ISCAL_MONOT = 0     ! Monotonic advection for scalars (including moisture)
                           ! 0 = off, 1 = monotonic, 2 = positive-definite
 
@@ -221,7 +224,6 @@
                           ! (ensures scalars remain bounded/postive-definite)
                           ! 0 = off, 1 = on
 
-   NL%VERT_ADV_ORDER  = 3 ! Vertical advection order (2 or 3)
    NL%HORIZ_ADV_ORDER = 2 ! Horizontal advection order (2 or 3)
 
    NL%AKMIN_VORT  = 0.8   ! Scaling factor for vorticity and divergence

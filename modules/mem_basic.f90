@@ -59,15 +59,11 @@ Module mem_basic
   real, allocatable :: vye2 (:,:) ! earth-relative y velocity at T point [m/s]
   real, allocatable :: vze2 (:,:) ! earth-relative z velocity at T point [m/s]
 
+  real, allocatable :: ue   (:,:) ! easterly wind
+  real, allocatable :: ve   (:,:) ! northerly wind
+
   real(r8), allocatable :: press(:,:) ! air pressure [Pa]
   real(r8), allocatable :: rho  (:,:) ! total air density [kg/m^3]
-
-  ! If false, use current earth-cartesian velocities to compute the w, v, and t
-  ! donor point locations, which saves some computation, memory, and communication.
-  ! If true, compute half-forward earth-cartesian velocities, which is more
-  ! exact for the time differencing scheme:
-
-  logical, parameter :: strict_wvt_donorpoint = .false.
 
 Contains
 
@@ -87,11 +83,7 @@ Contains
     allocate (vmp(mza,mva)) ; vmp = rinit
     allocate (vmc(mza,mva)) ; vmc = rinit
     allocate (vc (mza,mva)) ; vc  = rinit
-
-    if (strict_wvt_donorpoint) then
-       ! needed for half-forward earth-cartesian velocities:
-       allocate (vp (mza,mva)) ; vp  = rinit
-    endif
+!   allocate (vp (mza,mva)) ; vp  = rinit
 
     allocate (rho  (mza,mwa)) ; rho   = rinit8
     allocate (press(mza,mwa)) ; press = rinit8
@@ -110,6 +102,9 @@ Contains
     allocate (vxe2 (nve2_max,mwa)) ; vxe2 = rinit
     allocate (vye2 (nve2_max,mwa)) ; vye2 = rinit
     allocate (vze2 (nve2_max,mwa)) ; vze2 = rinit
+
+!   allocate(ue(mza,mwa)) ; ue = rinit
+!   allocate(ve(mza,mwa)) ; ve = rinit
 
   end subroutine alloc_basic
 
@@ -137,6 +132,8 @@ Contains
     if (allocated(vxe2))  deallocate (vxe2)
     if (allocated(vye2))  deallocate (vye2)
     if (allocated(vze2))  deallocate (vze2)
+    if (allocated(ue))    deallocate (ue)
+    if (allocated(ve))    deallocate (ve)
 
   end subroutine dealloc_basic
 
@@ -178,6 +175,10 @@ Contains
     if (allocated(vye2))  call increment_vtable('VYE2', 'AW', rvar2=vye2)
 
     if (allocated(vze2))  call increment_vtable('VZE2', 'AW', rvar2=vze2)
+
+    if (allocated(ue))    call increment_vtable('UE',   'AW', rvar2=ue)
+
+    if (allocated(ve))    call increment_vtable('VE',   'AW', rvar2=ve)
 
   end subroutine filltab_basic
 

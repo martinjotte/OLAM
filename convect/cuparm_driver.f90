@@ -227,19 +227,17 @@ subroutine cuparm_driver(rhot)
            iwqmax, " K=", kqmax, " IS ", dthmax*86400., " K/DAY"
 
      if (iparallel == 1) then
-        call mpi_send_w(1, i1dvara1=kcutop, i1dvara2=kcubot, i1dvara3=iactcu, r1dvara1=cbmf)
+        call mpi_send_w(1, i1dvara1=kcutop, i1dvara2=kcubot, i1dvara3=iactcu, &
+                           r1dvara1=cbmf, r1dvara2=conprr)
      endif
 
      ! Update cloud fraction if convection was updated
-
-     if ( any(nqparm(1:mrls) > 0) ) then
-        call calc_3d_cloud_fraction(1)
-     endif
+     call calc_3d_cloud_fraction(1)
 
   endif
 
 ! Add current value of convective tendencies to thilt and sh_wt arrays
-! every long timestep (whether cumulus parameterization is updated 
+! every long timestep (whether cumulus parameterization is updated
 ! this timestep or not)
 
 !----------------------------------------------------------------------
@@ -256,7 +254,7 @@ subroutine cuparm_driver(rhot)
         if (iactcu(iw) /= 1) cycle
 
         ! Skip if not doing convection on this mrl
-        
+
         if (nqparm(itab_w(iw)%mrlw) == 0) then
            iactcu(iw) = 0
            conprr(iw) = 0.0
@@ -355,12 +353,12 @@ subroutine cuparm_driver(rhot)
 
   endif
 
-  
   if (iparallel == 1) then
      if ((istp == 1 .and. mod(time_istp8p, confrq) < dtlong) .or. &
          (istp == 1 .and. mstp == 0 .and. runtype == 'HISTADDGRID')) then
 
-        call mpi_recv_w(1, i1dvara1=kcutop, i1dvara2=kcubot, i1dvara3=iactcu, r1dvara1=cbmf)
+        call mpi_recv_w(1, i1dvara1=kcutop, i1dvara2=kcubot, i1dvara3=iactcu, &
+                           r1dvara1=cbmf, r1dvara2=conprr)
 
      endif
   endif

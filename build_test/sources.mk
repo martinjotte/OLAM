@@ -75,6 +75,7 @@ SOURCE_FILES= \
              $(OMODEL)/contslab.F90 \
              $(OMODEL)/fields2_ll.F90 \
              $(OMODEL)/fill_itabs.f90 \
+	     $(OMODEL)/grad_lib.f90 \
              $(OMODEL)/hex_grid.f90 \
              $(OMODEL)/history_start.f90 \
              $(OMODEL)/history_write.f90 \

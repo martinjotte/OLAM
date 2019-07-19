@@ -473,7 +473,8 @@ end subroutine olam_alloc_mpi
 
 !===============================================================================
 
-subroutine mpi_send_v(mrl, rvara1, rvara2, rvara3, rvara4)
+subroutine mpi_send_v(mrl, rvara1, rvara2, rvara3, rvara4, &
+                           i1dvara1, i1dvara2)
 
 ! Subroutine to perform a parallel MPI send of a "V group" of field variables
 
@@ -493,6 +494,9 @@ real, optional, intent(in) :: rvara1(mza,mva)
 real, optional, intent(in) :: rvara2(mza,mva)
 real, optional, intent(in) :: rvara3(mza,mva)
 real, optional, intent(in) :: rvara4(mza,mva)
+
+integer, optional, intent(in) :: i1dvara1(mva)
+integer, optional, intent(in) :: i1dvara2(mva)
 
 #ifdef OLAM_MPI
 
@@ -561,6 +565,16 @@ do jsend = 1,nsends_v(mrl)
       if (present(rvara4)) then
          call MPI_Pack(rvara4(1,iv),mza,MPI_REAL, &
          send_v(jsend)%buff,send_v(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+      endif
+
+      if (present(i1dvara1)) then
+         call MPI_Pack(i1dvara1(iv),1,MPI_INTEGER, &
+            send_v(jsend)%buff,send_v(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+      endif
+
+      if (present(i1dvara2)) then
+         call MPI_Pack(i1dvara2(iv),1,MPI_INTEGER, &
+              send_v(jsend)%buff,send_v(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
       endif
 
       if (j == 1) then
@@ -651,7 +665,7 @@ subroutine mpi_send_m(mrl, rvara1, rvara2)
         im = jtab_m(mloops+jsend)%im(j)
         imglobe = itab_m(im)%imglobe
 !----------------------------------------------------------------
-        
+
         call MPI_Pack(imglobe,1,MPI_INTEGER, &
              send_m(jsend)%buff,send_m(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
 
@@ -1125,7 +1139,8 @@ end subroutine mpi_send_wnud
 
 !=============================================================================
 
-subroutine mpi_recv_v(mrl, rvara1, rvara2, rvara3, rvara4)
+subroutine mpi_recv_v(mrl, rvara1, rvara2, rvara3, rvara4, &
+                           i1dvara1, i1dvara2)
 
 ! Subroutine to perform a parallel MPI receive of a "V group"
 ! of field variables
@@ -1146,6 +1161,9 @@ real, optional, intent(inout) :: rvara1(mza,mva)
 real, optional, intent(inout) :: rvara2(mza,mva)
 real, optional, intent(inout) :: rvara3(mza,mva)
 real, optional, intent(inout) :: rvara4(mza,mva)
+
+integer, optional, intent(in) :: i1dvara1(mva)
+integer, optional, intent(in) :: i1dvara2(mva)
 
 #ifdef OLAM_MPI
 
@@ -1207,6 +1225,16 @@ do jtmp = 1,nrecvs_v(mrl)
       if (present(rvara4)) then
          call MPI_Unpack(recv_v(jrecv)%buff,recv_v(jrecv)%nbytes,ipos, &
          rvara4(1,iv),mza,MPI_REAL,MPI_COMM_WORLD,ierr)
+      endif
+
+      if (present(i1dvara1)) then
+         call MPI_Unpack(recv_v(jrecv)%buff,recv_v(jrecv)%nbytes,ipos, &
+            i1dvara1(iv),1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
+      endif
+
+      if (present(i1dvara2)) then
+         call MPI_Unpack(recv_v(jrecv)%buff,recv_v(jrecv)%nbytes,ipos, &
+            i1dvara2(iv),1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
       endif
 
    enddo

@@ -45,6 +45,7 @@ integer iw,j,mrl
 !-------------------------------------------------------------------------
 mrl = mrl_endl(istp)
 if (mrl > 0) then
+
 !$omp parallel do private (iw)
 do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !-------------------------------------------------------------------------
@@ -63,7 +64,6 @@ enddo
 !$omp end parallel do
 endif
 
-return
 end subroutine thermo
 
 !===============================================================================
@@ -87,7 +87,7 @@ integer k
 
 do k = lpw(iw),mza
    theta(k,iw) = thil(k,iw)
-   tair (k,iw) = thil(k,iw) * (press(k,iw) * p00i) ** rocp
+   tair (k,iw) = thil(k,iw) * (real(press(k,iw)) * p00i) ** rocp
 enddo
 
 if (miclevel == 1) then
@@ -96,7 +96,6 @@ if (miclevel == 1) then
    enddo
 endif
 
-return
 end subroutine drythrm
 
 !===============================================================================
@@ -120,7 +119,7 @@ integer :: iterate,k
 real :: temp,rlvs,rt,rc,t_il,rvls,exner,rhovs
 
 do k = lpw(iw),mza
-   exner = (press(k,iw) * p00i) ** rocp  ! Defined WITHOUT CP factor
+   exner = (real(press(k,iw)) * p00i) ** rocp  ! Defined WITHOUT CP factor
    t_il = thil(k,iw) * exner
    temp = t_il
 
@@ -136,7 +135,6 @@ do k = lpw(iw),mza
    tair (k,iw) = temp
 enddo
 
-return
 end subroutine satadjst
 
 !===============================================================================
@@ -150,7 +148,7 @@ subroutine wetthrm3(iw)
 use mem_basic,   only: press, theta, thil, tair, sh_v, sh_w
 use mem_micro,   only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, q6, q7
 use micro_coms,  only: jnmb, rxmin
-use consts_coms, only: p00, rocp, alvl, alvi, cpi4, cp253i
+use consts_coms, only: p00i, rocp, alvl, alvi, cpi4, cp253i
 use mem_grid,    only: mza, lpw
 use misc_coms,   only: io6
 use therm_lib,   only: qtc
@@ -170,7 +168,7 @@ real :: totice  (mza)  ! automatic array
 real :: qhydm   (mza)  ! automatic array
 
 do k = lpw(iw),mza
-   exner(k) = (press(k,iw) / p00) ** rocp  ! exner WITHOUT CP factor
+   exner(k) = (real(press(k,iw)) * p00i) ** rocp  ! exner WITHOUT CP factor
    til(k) = thil(k,iw) * exner(k)          ! ice-liquid temperature T_il
    totliq(k) = 0.                          ! total liquid spec. density
    totice(k) = 0.                          ! total ice mixing ratio

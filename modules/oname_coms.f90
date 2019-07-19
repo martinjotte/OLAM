@@ -147,11 +147,12 @@ Module oname_coms
       integer :: naddsc      = 0
 
       integer :: ithil_monot = 0
+      integer :: ivelc_monot = 0
       integer :: iscal_monot = 0
 
       integer :: split_scalars = 0
 
-      integer :: vert_adv_order  = 2
+      integer :: vert_adv_order  = 3
       integer :: horiz_adv_order = 2
 
       real    :: akmin_vort  = 0.8
