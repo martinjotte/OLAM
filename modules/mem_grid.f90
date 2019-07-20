@@ -129,7 +129,7 @@ Module mem_grid
    ! double precision weights for interpolating T levels to W
 
    real(r8), allocatable :: zwgt_top8(:), zwgt_bot8(:)
-   real(r8), allocatable :: gdz_top8 (:), gdz_bot8 (:)
+   real(r8), allocatable :: gdz_belo8(:), gdz_abov8(:)
 
    real, allocatable, dimension(:,:) ::  &
 
@@ -300,25 +300,28 @@ Contains
 
      ! Allocate and define 1D variables defined at W levels
 
+     ! weights for averaging T variables to W levels
      allocate(zwgt_top(mza))
      allocate(zwgt_bot(mza))
 
+     ! double-precision 
      allocate(zwgt_top8(mza))
      allocate(zwgt_bot8(mza))
 
-     allocate(gdz_top8(mza))
-     allocate(gdz_bot8(mza))
+     ! double-precision weights for hydrostatic integration at W level
+     allocate(gdz_belo8(mza))
+     allocate(gdz_abov8(mza))
 
      ! Loop over W levels
      do k = 1, mza-1
         zwgt_top8(k) = dzt_top(k)   * dzim(k)
         zwgt_bot8(k) = dzt_bot(k+1) * dzim(k)
 
-        zwgt_top(k) = dzt_top(k)   * dzim(k)
-        zwgt_bot(k) = dzt_bot(k+1) * dzim(k)
+        zwgt_top(k) = real(zwgt_top8(k))
+        zwgt_bot(k) = real(zwgt_bot8(k))
 
-        gdz_top8(k) = dzt_top(k)   * gravm(k)
-        gdz_bot8(k) = dzt_bot(k+1) * gravm(k)
+        gdz_abov8(k) = dzt_bot(k+1) * gravm(k)
+        gdz_belo8(k) = dzt_top(k)   * gravm(k)
      enddo
 
      zwgt_top8(mza) = zwgt_top8(mza-1)
@@ -327,8 +330,8 @@ Contains
      zwgt_top(mza) = zwgt_top(mza-1)
      zwgt_bot(mza) = zwgt_bot(mza-1)
 
-     gdz_top8(mza) = gdz_top8(mza-1)
-     gdz_bot8(mza) = gdz_bot8(mza-1)
+     gdz_abov8(mza) = gdz_abov8(mza-1)
+     gdz_belo8(mza) = gdz_belo8(mza-1)
 
      ! Allocate and define variables defined at V faces
 

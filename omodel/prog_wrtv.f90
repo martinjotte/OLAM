@@ -580,7 +580,7 @@ subroutine prog_wrt_begs( iw, vmcfa, wmsc, alpha_press, rhot,   &
                          vnx, vny, vnz, wnx, wny, wnz, wnxo2, wnyo2, wnzo2, &
                          dzim, volt, volti, glatw, glonw, &
                          dzt_top, dzt_bot, zwgt_top, zwgt_bot, gravm, &
-                         zwgt_top8, zwgt_bot8, gdz_bot8, gdz_top8
+                         zwgt_top8, zwgt_bot8, gdz_abov8, gdz_belo8
   use tridiag,     only: tridiffo
   use oname_coms,  only: nl
   use mem_turb,    only: akmodx, akhodx
@@ -864,7 +864,7 @@ subroutine prog_wrt_begs( iw, vmcfa, wmsc, alpha_press, rhot,   &
 
           + dzim(k) * real( press_t(k) - press_t(k+1) &
 
-          - gdz_bot8(k) * rho(k,iw) - gdz_top8(k) * rho(k+1,iw) ) &
+          - gdz_belo8(k) * rho(k,iw) - gdz_abov8(k) * rho(k+1,iw) ) &
 
           ! Average Coriolis force in vertical between T levels
 
