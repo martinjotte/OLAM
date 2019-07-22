@@ -411,13 +411,13 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
       if (iparallel == 1) call mpi_recv_w(mrl, scalars='S')  ! Recv scalars
 
-      call mpi_send_v(mrl, rvara1=vmc)
+      if (iparallel == 1) call mpi_send_v(mrl, rvara1=vmc)
 
       do n = 1, nvar_par
          call lbcopy_w(mrl, a1=vtab_r(nptonv(n))%rvar2_p)
       enddo
 
-      call mpi_recv_v(mrl, rvara1=vmc)
+      if (iparallel == 1) call mpi_recv_v(mrl, rvara1=vmc)
       call lbcopy_v(mrl, vmc=vmc)
 
    endif
