@@ -42,16 +42,18 @@ module wrtv_mem
   real, allocatable :: wmca    (:,:)
 
   logical, save     :: rotational = .false.
-  logical, save     :: firstime   = .true.
+  integer, save     :: iflag      = 0
+
+  real, allocatable :: alpha_press(:,:)
 
   private
-  public prog_wrtv
+  public alloc_prog_wrtv_mem, prog_wrtv, comp_alpha_press, alpha_press
 
 contains
 
 !===============================================================================
 
-subroutine init_prog_wrtv_mem()
+subroutine alloc_prog_wrtv_mem()
 
   use mem_grid,   only: mma, mwa, mva, mza
   use misc_coms,  only: rinit
@@ -71,24 +73,32 @@ subroutine init_prog_wrtv_mem()
      allocate(vortn  (mza,mva)) ; vortn   = rinit
   endif
 
-  allocate(thil_old(mza,mwa))
+  allocate(thil_old   (mza,mwa))
+  allocate(alpha_press(mza,mwa)) ; alpha_press = rinit
 
   if (nl%ithil_monot + nl%ivelc_monot > 0) then
      allocate(wmca(mza,mwa)) ; wmca(:,:) = 0.0
   endif
 
-end subroutine init_prog_wrtv_mem
+  if (nl%ithil_monot == 1 .or. nl%ivelc_monot == 1) then
+     iflag = 1
+  else
+     iflag = 2
+  endif
+
+
+end subroutine alloc_prog_wrtv_mem
 
 !===============================================================================
 
-subroutine prog_wrtv(vmsc, wmsc, alpha_press, rhot)
+subroutine prog_wrtv(vmsc, wmsc)
 
 ! This dynamic core version for hexagonal cells combines the Perot (2002)
 ! finite-volume method for evaluating momentum advective and diffusive flux
 ! convergences in T cells, the Miura (2007) piecewise-linear advection algorithm,
 ! and the Walko and Avissar (2008a,b) time differencing method.
 
-  use mem_ijtabs,   only: jtab_v, jtab_w, istp, mrl_begl, &
+  use mem_ijtabs,   only: jtab_v, jtab_w, istp, &
                           mrl_ends, jtw_wadj, jtm_vadj, jtv_prog, &
                           jtv_wadj, jtv_lbcp, jtw_prog, jtw_lbcp, &
                           itab_w, itab_v
@@ -122,10 +132,8 @@ subroutine prog_wrtv(vmsc, wmsc, alpha_press, rhot)
 
   real, intent(inout) :: vmsc(mza,mva)
   real, intent(inout) :: wmsc(mza,mwa)
-  real, intent(in)    :: alpha_press(mza,mwa)
-  real, intent(inout) :: rhot       (mza,mwa)
 
-  integer :: j, iv, iw, k, mrl, kd, iwd, iw1, iw2, flag
+  integer :: j, iv, iw, k, mrl, kd, iwd, iw1, iw2
 
 ! automatic arrays
 
@@ -158,97 +166,64 @@ subroutine prog_wrtv(vmsc, wmsc, alpha_press, rhot)
   real :: vmyet_short(mza,mwa)
   real :: vmzet_short(mza,mwa)
 
-! IF FIRST CALL, ALLOCATE ANY EXTRA MEMORY DEPENDING ON MODEL OPTIONS
-
-  if (firstime) then
-     call init_prog_wrtv_mem()
-     firstime = .false.
-  endif
-
-! MPI COMMUNICATION OF RHOT NEEDED FOR V MOMENTUM
-
-  mrl = mrl_begl(istp)
-  if (mrl > 0) then
-     call mpi_send_w(mrl, rvara1=rhot)
-  endif
-
-! INCLUDE THE LONG TIMESTEP THIL AND MOMENTUM TENDENCIES IN EACH SHORT TIMESTEP
-
-  mrl = mrl_ends(istp)
-  if (mrl > 0) then
-
-     !$omp parallel private(vcf)
-     !$omp do private(iw,dt,k)
-     do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
-
-        dt = dtsm(itab_w(iw)%mrlw)
-
-        do k = lpw(iw), mza
-           thilt_short(k,iw) = thilt(k,iw)
-           vmxet_short(k,iw) = vmxet(k,iw)
-           vmyet_short(k,iw) = vmyet(k,iw)
-           vmzet_short(k,iw) = vmzet(k,iw)
-        enddo
-
-        if (nl%ithil_monot + nl%ivelc_monot > 0) then
-           do k = lpw(iw), mza-1
-              wmca(k,iw) = wmc(k,iw) * arw(k,iw)
-           enddo
-        endif
-
-        call donorpointw(iw, dt, wc(:,iw), vxe(:,iw), vye(:,iw), vze(:,iw), kdepw(:,iw))
-
-     enddo
-     !$omp end do nowait
-
-     !$omp do private(iv,iw1,iw2,k,dt,vmcf)
-     do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
-
-        ! Extrapolate VM to time T + 1/2; update VMP
-
-        iw1 = itab_v(iv)%iw(1)
-        iw2 = itab_v(iv)%iw(2)
-
-        do k = lpv(iv), mza
-           vmcf        = 1.5 * vmc(k,iv) - 0.5 * vmp(k,iv)
-           vmcfa(k,iv) = vmcf * arv(k,iv)
-           vmp  (k,iv) = vmc (k,iv)
-           vcf  (k)    = 2.0 * vmcf / real( rho(k,iw1) + rho(k,iw2) )
-        enddo
-
-        dt = dtsm(itab_v(iv)%mrlv)
-
-        call donorpointv(iv, dt, vcf, vxe, vye, vze, iwdepv(:,iv))
-
-     enddo
-     !$omp end do nowait
-     !$omp end parallel
-
-  endif
-
-! FINISH PARALLEL COMMUNICATION OF RHOT
-
-  mrl = mrl_begl(istp)
-  if (mrl > 0 .and. iparallel == 1) then
-     call mpi_recv_w(mrl, rvara1=rhot)
-  endif
-  call lbcopy_w(mrl, a1=rhot)
-
-! THE REST OF THIS ROUTINE IS PERFORMED AT THE END OF EACH SMALL TIMESTEP.
+! THIS ROUTINE IS PERFORMED AT THE END OF EACH SMALL TIMESTEP
 
   mrl = mrl_ends(istp)
   if (mrl == 0) return
 
-  if (nl%ithil_monot + nl%ivelc_monot > 0) then
+! INCLUDE THE LONG TIMESTEP THIL AND MOMENTUM TENDENCIES IN EACH SHORT TIMESTEP
 
-     if (nl%ithil_monot == 1 .or. nl%ivelc_monot == 1) then
-        flag = 1
-     else
-        flag = 2
+  !$omp parallel private(vcf)
+  !$omp do private(iw,dt,k)
+  do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+
+     dt = dtsm(itab_w(iw)%mrlw)
+
+     do k = lpw(iw), mza
+        thilt_short(k,iw) = thilt(k,iw)
+        vmxet_short(k,iw) = vmxet(k,iw)
+        vmyet_short(k,iw) = vmyet(k,iw)
+        vmzet_short(k,iw) = vmzet(k,iw)
+     enddo
+
+     if (nl%ithil_monot + nl%ivelc_monot > 0) then
+        do k = lpw(iw), mza-1
+           wmca(k,iw) = wmc(k,iw) * arw(k,iw)
+        enddo
      endif
 
+     call donorpointw(iw, dt, wc(:,iw), vxe(:,iw), vye(:,iw), vze(:,iw), kdepw(:,iw))
+
+  enddo
+  !$omp end do nowait
+
+  !$omp do private(iv,iw1,iw2,k,dt,vmcf)
+  do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
+
+     ! Extrapolate VM to time T + 1/2; update VMP
+
+     iw1 = itab_v(iv)%iw(1)
+     iw2 = itab_v(iv)%iw(2)
+
+     do k = lpv(iv), mza
+        vmcf        = 1.5 * vmc(k,iv) - 0.5 * vmp(k,iv)
+        vmcfa(k,iv) = vmcf * arv(k,iv)
+        vmp  (k,iv) = vmc (k,iv)
+        vcf  (k)    = 2.0 * vmcf / real( rho(k,iw1) + rho(k,iw2) )
+     enddo
+
+     dt = dtsm(itab_v(iv)%mrlv)
+
+     call donorpointv(iv, dt, vcf, vxe, vye, vze, iwdepv(:,iv))
+
+  enddo
+  !$omp end do nowait
+  !$omp end parallel
+
+  if (nl%ithil_monot + nl%ivelc_monot > 0) then
+
       ! Compute CFL numbers needed by Thuburn monotonic scheme
-      call comp_cfls( mrl, dtsm, vmcfa, wmca, rho, flag, do_check=.false. )
+      call comp_cfls( mrl, dtsm, vmcfa, wmca, rho, iflag, do_check=.false. )
 
   endif
 
@@ -496,7 +471,7 @@ subroutine prog_wrtv(vmsc, wmsc, alpha_press, rhot)
   do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
      ! Prognose vertical velocity, density, thil, and diagnose pressure
-     call prog_wrt_begs( iw, vmcfa, wmsc, alpha_press, rhot,   &
+     call prog_wrt_begs( iw, vmcfa, wmsc,                      &
                          thil_upv, vxe_upv, vye_upv, vze_upv,  &
                          thil_upw, vxe_upw, vye_upw, vze_upw,  &
                          vmxet_volt, vmyet_volt, vmzet_volt,   &
@@ -533,8 +508,8 @@ subroutine prog_wrtv(vmsc, wmsc, alpha_press, rhot)
   !$omp parallel do private(iv)
   do j = 1,jtab_v(jtv_prog)%jend(mrl); iv = jtab_v(jtv_prog)%iv(j)
 
-     call prog_v_begs( iv, vmxet_volt, vmyet_volt, vmzet_volt,         &
-                           vmxet_short, vmyet_short, vmzet_short, rhot )
+     call prog_v_begs( iv, vmxet_volt, vmyet_volt, vmzet_volt,   &
+                           vmxet_short, vmyet_short, vmzet_short )
 
   enddo
 
@@ -565,27 +540,27 @@ end subroutine prog_wrtv
 
 !=========================================================================
 
-subroutine prog_wrt_begs( iw, vmcfa, wmsc, alpha_press, rhot,   &
+subroutine prog_wrt_begs( iw, vmcfa, wmsc,                      &
                           thil_upv, vxe_upv, vye_upv, vze_upv,  &
                           thil_upw, vxe_upw, vye_upw, vze_upw,  &
                           vmxet_volt, vmyet_volt, vmzet_volt,   &
                           thilt_short, vmxet_short, vmyet_short, vmzet_short )
 
   use mem_ijtabs,  only: itab_w
-  use mem_basic,   only: wmc, rho, thil, wc, press, &
+  use mem_basic,   only: wmc, rho, thil, wc, press, rr_w, &
                          vxe, vye, vze, vxe2, vye2, vze2
   use misc_coms,   only: dtsm, deltax, nxp, initial, dn01d, th01d
   use consts_coms, only: cpocv, omega2, pi1, pio180, r8
-  use mem_grid,    only: mza, mva, mwa, lpv, lpw, lve2, arw, &
+  use mem_grid,    only: mza, mva, mwa, lpv, lpw, lve2, arw, dzim, gdzim, &
                          vnx, vny, vnz, wnx, wny, wnz, wnxo2, wnyo2, wnzo2, &
-                         dzim, volt, volti, glatw, glonw, &
-                         dzt_top, dzt_bot, zwgt_top, zwgt_bot, gravm, &
+                         volti, volwi, glatw, glonw, dzt_top, dzt_bot, &
                          zwgt_top8, zwgt_bot8, gdz_abov8, gdz_belo8
   use tridiag,     only: tridiffo
   use oname_coms,  only: nl
   use mem_turb,    only: akmodx, akhodx
   use mem_rayf,    only: dorayfw, rayf_cofw, krayfw_bot, &
                          dorayf, rayf_cof, krayf_bot
+  use mem_nudge,   only: rhot_nud, nudflag
 
   implicit none
 
@@ -593,9 +568,6 @@ subroutine prog_wrt_begs( iw, vmcfa, wmsc, alpha_press, rhot,   &
 
   real, intent(in)    :: vmcfa(mza,mva)
   real, intent(inout) :: wmsc(mza,mwa)
-  real, intent(in)    :: alpha_press(mza,mwa)
-  real, intent(in)    :: rhot(mza,mwa)
-
   real, intent(in)    :: thil_upv(mza,mva)
   real, intent(in)    :: vxe_upv (mza,mva)
   real, intent(in)    :: vye_upv (mza,mva)
@@ -620,7 +592,7 @@ subroutine prog_wrt_begs( iw, vmcfa, wmsc, alpha_press, rhot,   &
   integer :: npoly
 
   real :: dts
-  real :: c6, c7, c8, c9, c10
+  real :: c6, c8, c9, c10
   real :: dirv, vmarv
   real :: del_rhothil, vmt1
   real :: rad0_swtc, rad_swtc, topo_swtc
@@ -641,6 +613,7 @@ subroutine prog_wrt_begs( iw, vmcfa, wmsc, alpha_press, rhot,   &
   real(r8) :: delex_rho(mza)
   real(r8) :: rhothil  (mza)
   real(r8) :: press_t  (mza)
+  real(r8) :: rho_tot  (mza)
 
   real :: delex_wm     (mza)
   real :: delex_rhothil(mza)
@@ -663,7 +636,7 @@ subroutine prog_wrt_begs( iw, vmcfa, wmsc, alpha_press, rhot,   &
   real :: vflux_vye(mza)
   real :: vflux_vze(mza)
 
-  real(r8) :: b1(mza),b2(mza),b3(mza),b5(mza),b6(mza),b10(mza)
+  real(r8) :: b1(mza),b2(mza),b5(mza),b6(mza),b10(mza)
   real(r8) :: b7(mza),b8(mza),b9(mza),b11(mza),b12(mza),b13(mza),b14(mza)
   real(r8) :: b20(mza),b21(mza),b22(mza),b23(mza),b24(mza),b25(mza),b26(mza)
   real     :: b31(mza),b32(mza),b33(mza),b34(mza)
@@ -793,7 +766,7 @@ subroutine prog_wrt_begs( iw, vmcfa, wmsc, alpha_press, rhot,   &
      ! rayfx = .2 * (-2. + 3. * fracx) * rayf_cof(mza)
      ! rayfx = 0.   ! Default: no extra RAYF
      ! do k = ka, mza
-     !    thilt(k,iw) = thilt(k,iw) + max(rayf_cof(k),rayfx)  & 
+     !    thilt(k,iw) = thilt(k,iw) + max(rayf_cof(k),rayfx)  &
      !                * dn01d(k) * (th01d(k) - thil(k,iw))
      ! enddo
 
@@ -805,41 +778,46 @@ subroutine prog_wrt_begs( iw, vmcfa, wmsc, alpha_press, rhot,   &
 
      ! Explicit density tendency
 
-     delex_rho(k) = dts * (rhot(k,iw) &
-                  + volti(k,iw) * (hflux_rho(k) + wmarw(k-1) - wmarw(k)))
+     delex_rho(k) = dts * volti(k,iw) * (hflux_rho(k) + wmarw(k-1) - wmarw(k))
 
      ! Explicit density-thil tendency
 
-     delex_rhothil(k) = dts * (thilt_short(k,iw) + thil(k,iw) * rhot(k,iw) &
-                      + volti(k,iw) * (hflux_thil(k) + vflux_thil(k-1) - vflux_thil(k)))
+     delex_rhothil(k) = dts * ( thilt_short(k,iw) &
+                              + volti(k,iw) * (hflux_thil(k) + vflux_thil(k-1) - vflux_thil(k)) )
 
      ! RHOTHIL(t) and PRESS(t)
 
      rhothil(k) = rho(k,iw) * thil(k,iw)
      press_t(k) = alpha_press(k,iw) * rhothil(k) ** cpocv
 
+     ! Total mass in grid box
+
+     rho_tot(k) = rho(k,iw) * real(1. + rr_w(k,iw),r8)
+
   enddo
 
+! NUDGING TENDENCY ON RHO
+
+  if (nudflag == 1) then
+     do k = ka, mza
+        delex_rho(k) = delex_rho(k) + dts * rhot_nud(k,iw)
+     enddo
+  endif
+
   c6  = dts * .50 * fw
-  c7  = dts * .25 * fw
   c8  = dts * pc2
   c9  =-dts * fr
   c10 = dts * fw
 
-  ! Long-timestep density tendencies on W momentum
-
-  do k = ka, mza-1
-     wmt_other(k) = wc(k,iw) * (zwgt_bot(k) * rhot(k,iw) + zwgt_top(k) * rhot(k+1,iw))
-  enddo
-
   ! Rayleigh friction on W
 
-  b20(:) = 1.0
+  b20      (:) = 1.0
+  wmt_other(:) = 0.0
 
   if (dorayfw) then
 
      do k = krayfw_bot, mza-1
-        wmt_other(k) = wmt_other(k) - rayf_cofw(k) * wmc(k,iw)
+        wmt_other(k) = - rayf_cofw(k) * wmc(k,iw)
         b20      (k) = b20(k) + c10 * rayf_cofw(k)
      enddo
 
@@ -860,11 +838,11 @@ subroutine prog_wrt_begs( iw, vmcfa, wmsc, alpha_press, rhot,   &
 
      ! Explicit vertical momentum tendency
 
-     delex_wm(k) = dts * (wmt_other(k) &
+     delex_wm(k) = dts * ( wmt_other(k) &
 
           + dzim(k) * real( press_t(k) - press_t(k+1) &
 
-          - gdz_belo8(k) * rho(k,iw) - gdz_abov8(k) * rho(k+1,iw) ) &
+          - gdz_belo8(k) * rho_tot(k) - gdz_abov8(k) * rho_tot(k+1) ) &
 
           ! Average Coriolis force in vertical between T levels
 
@@ -877,45 +855,50 @@ subroutine prog_wrt_begs( iw, vmcfa, wmsc, alpha_press, rhot,   &
 
           + ( wnx(iw) * (vmxet_volt(k,iw) + vmxet_volt(k+1,iw)) &
             + wny(iw) * (vmyet_volt(k,iw) + vmyet_volt(k+1,iw)) &
-            + wnz(iw) * (vmzet_volt(k,iw) + vmzet_volt(k+1,iw)) ) &
-            / real(volt(k,iw) + volt(k+1,iw)) )
+            + wnz(iw) * (vmzet_volt(k,iw) + vmzet_volt(k+1,iw)) &
+            ) * real(volwi(k,iw)) )
 
   enddo
 
   ! Fill matrix coefficients for implicit update of WM
 
+  ! Loop over W pts
   do k = ka, mza-1
-     b2(k)  = thil(k,iw) + thil(k+1,iw)        ! W pts
-     b3(k)  = 2. / (volt(k,iw) + volt(k+1,iw)) ! W pts [b3 replaces volwi]
+     b2(k)  = thil(k,iw) + thil(k+1,iw)
   enddo
 
   b2(ka-1)= 2. * thil(ka,iw)
   b2(mza) = 2. * thil(mza,iw)
-  b3(ka)  = 1. / (volt(ka,iw) + .5 * volt(min(ka+1,mza),iw))
 
+  ! Loop over T pts
   do k = ka, mza
-     b1(k)  = wc(k,iw) + wc(k-1,iw)           ! T pts
-     b5(k)  = press_t(k) / rhothil(k)         ! T pts
-     b6(k)  = c6 * volti(k,iw)                ! T pts
-     b10(k) = c10 * volti(k,iw)               ! T pts
+     b1(k)  = wc(k,iw) + wc(k-1,iw)
+     b5(k)  = press_t(k) / rhothil(k)
+     b6(k)  = c6  * volti(k,iw)
+     b10(k) = c10 * volti(k,iw)
   enddo
 
-  do k = ka,mza-1
+  ! Loop over W pts
+  do k = ka, mza-1
 
-     b7(k)  = c7     * b3(k)        ! W pts
-     b8(k)  = c8     * dzim(k)      ! W pts
-     b9(k)  = c9     * dzim(k) * gravm(k) ! W pts
-     b11(k) = b8(k)  * b5(k)        ! W pts
-     b12(k) = b8(k)  * b5(k+1)      ! W pts
-     b13(k) = b9(k)  * dzt_top(k)   ! W pts
-     b14(k) = b9(k)  * dzt_bot(k+1) ! W pts
+     b7(k)  = c6     * volwi(k,iw)
+     b8(k)  = c8     *  dzim(k)
+     b9(k)  = c9     * gdzim(k) * (1. + rr_w(k,iw))
 
-     b21(k) = b7(k)  * b1(k)    ! W pts
-     b22(k) = b7(k)  * b1(k+1)  ! W pts
-     b23(k) = b11(k) * b6(k)    ! W pts
-     b24(k) = b12(k) * b6(k+1)  ! W pts
-     b25(k) = b13(k) * b10(k)   ! W pts
-     b26(k) = b14(k) * b10(k+1) ! W pts
+     b11(k) = b8(k)  * b5(k)
+     b12(k) = b8(k)  * b5(k+1)
+
+     b13(k) = b9(k)  * dzt_top(k)
+     b14(k) = b9(k)  * dzt_bot(k+1)
+
+     b21(k) = b7(k)  * b1(k)
+     b22(k) = b7(k)  * b1(k+1)
+
+     b23(k) = b11(k) * b6(k)
+     b24(k) = b12(k) * b6(k+1)
+
+     b25(k) = b13(k) * b10(k)
+     b26(k) = b14(k) * b10(k+1)
 
      b32(k) = b20(k) + arw(k,iw) &
             * (b22(k) - b21(k) + b2(k) * (b23(k) + b24(k)) + b25(k) - b26(k))
@@ -1078,10 +1061,39 @@ subroutine prog_wrt_begs( iw, vmcfa, wmsc, alpha_press, rhot,   &
 
 end subroutine prog_wrt_begs
 
+!==========================================================================
+
+subroutine comp_alpha_press(mrl)
+
+  use mem_grid,    only: lpw, mza
+  use mem_ijtabs,  only: jtab_w, jtw_prog
+  use consts_coms, only: pc1, rdry, rvap, cpocv
+  use mem_basic,   only: rr_v, theta, thil
+
+  implicit none
+
+  integer, intent(in)  :: mrl
+  integer              :: j, iw, k
+
+! Evaluate alpha coefficient for pressure
+
+  !$omp parallel do private(iw,k)
+  do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+
+     do k = lpw(iw), mza
+        alpha_press(k,iw) = pc1 * ( (rdry + rvap * rr_v(k,iw)) &
+                                  * theta(k,iw) / thil(k,iw) ) ** cpocv
+     enddo
+
+  enddo
+  !$omp end parallel do
+
+end subroutine comp_alpha_press
+
 !============================================================================
 
-subroutine prog_v_begs( iv, vmxet_volt, vmyet_volt, vmzet_volt,         &
-                            vmxet_short, vmyet_short, vmzet_short, rhot )
+subroutine prog_v_begs( iv, vmxet_volt, vmyet_volt, vmzet_volt,   &
+                            vmxet_short, vmyet_short, vmzet_short )
 
   use mem_ijtabs,  only: itab_v
   use mem_basic,   only: vc, press, vmc, rho, vxe, vye, vze
@@ -1104,7 +1116,6 @@ subroutine prog_v_begs( iv, vmxet_volt, vmyet_volt, vmzet_volt,         &
   real, intent(in) :: vmxet_short(mza,mwa)
   real, intent(in) :: vmyet_short(mza,mwa)
   real, intent(in) :: vmzet_short(mza,mwa)
-  real, intent(in) :: rhot       (mza,mwa)
 
   integer :: k, kb
   integer :: iw1,iw2,im1,im2
@@ -1171,8 +1182,6 @@ subroutine prog_v_begs( iv, vmxet_volt, vmyet_volt, vmzet_volt,         &
      do k = kb,mza
         vmc(k,iv) = vmc(k,iv) + dts * (vmt_rayf(k) + vmt(k,iv) + pgf(k) &
 
-                  + .5 * vc(k,iv) * (rhot(k,iw1) + rhot(k,iw2))              &
-
                   + vnxo2(iv) * (vmxet_short(k,iw1) + vmxet_short(k,iw2))    &
                   + vnyo2(iv) * (vmyet_short(k,iw1) + vmyet_short(k,iw2))    &
                   + vnzo2(iv) * (vmzet_short(k,iw1) + vmzet_short(k,iw2))    &
@@ -1213,8 +1222,6 @@ subroutine prog_v_begs( iv, vmxet_volt, vmyet_volt, vmzet_volt,         &
         !@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@A2
 
         vmc(k,iv) = vmc(k,iv) + dts * (vmt_rayf(k) + vmt(k,iv) + pgf(k) &
-
-                  + .5 * vc(k,iv) * (rhot(k,iw1) + rhot(k,iw2))              &
 
                   + vnxo2(iv) * (vmxet_short(k,iw1) + vmxet_short(k,iw2))    &
                   + vnyo2(iv) * (vmyet_short(k,iw1) + vmyet_short(k,iw2))    &

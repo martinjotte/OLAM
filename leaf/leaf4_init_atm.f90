@@ -35,22 +35,19 @@ subroutine leaf4_init_atm()
 
   use mem_leaf,    only: land, itab_wl
 
-  use leaf_coms,   only: mwl, nzg, nzs, slzt, veg_ht, slcpd, soil_rough, &
-                         iupdndvi, s1900_ndvi, indvifile, nndvifiles, &
-                         dt_leaf, isoilstateinit, iwatertabflg, watertab_db
-
-  use mem_basic,    only: rho, press, vxe, vye, vze, tair, sh_v, theta
-  use misc_coms,    only: io6, time8, s1900_sim, iparallel, isubdomain, &
-                          runtype, initial
+  use leaf_coms,    only: mwl, nzg, nzs, slzt, veg_ht, slcpd, soil_rough, &
+                          iupdndvi, s1900_ndvi, indvifile, nndvifiles, &
+                          dt_leaf, isoilstateinit, iwatertabflg, watertab_db
+  use mem_basic,    only: rho, press, rr_v, rr_w, theta
+  use misc_coms,    only: s1900_sim, isubdomain, runtype, initial
   use mem_ijtabs,   only: itabg_w
   use consts_coms,  only: cliq, cice, alli, cliq1000, cice1000, alli1000, &
-                          grav, p00i, rocp, t00
-  use mem_para,     only: myrank
+                          p00i, rocp, t00
   use leaf4_canopy, only: vegndvi
   use land_db,      only: land_database_read
   use leaf4_soil,   only: soil_pot2wat
   use oname_coms,   only: nl
-  use mem_grid,     only: dzt_bot
+  use mem_grid,     only: gdz_abov8
 
   implicit none
 
@@ -64,7 +61,6 @@ subroutine leaf4_init_atm()
 
   real :: timefac_ndvi
   real :: wq, wq_added, snowdens
-  real :: psi
   real :: wcap_min   ! minimum surface water water [kg/m^2]
   real :: water_frac_ul
 
@@ -73,8 +69,6 @@ subroutine leaf4_init_atm()
   real :: wtd(mwl)             ! watertable depth from database
   real :: rhos
   real :: prss
-
-  real, external :: rhovsl
 
   ! Leaf quantities that get initialized at the start of any model run
 
@@ -231,9 +225,9 @@ subroutine leaf4_init_atm()
 
      ! Transfer atmospheric properties to each land cell
 
-     prss                = press(kw,iw) + dzt_bot(kw) * rho(kw,iw) * grav
+     prss                = press(kw,iw) + gdz_abov8(kw-1) * rho(kw,iw) * (1. + rr_w(kw,iw))
      land%cantemp  (iwl) = theta(kw,iw) * (prss * p00i)**rocp
-     land%canshv   (iwl) = sh_v(kw,iw)
+     land%canshv   (iwl) = rr_v(kw,iw) / (1. + rr_v(kw,iw))
      land%veg_temp (iwl) = land%cantemp(iwl)
      land%veg_water(iwl) = 0.
      land%ustar    (iwl) = 0.1
@@ -390,7 +384,7 @@ subroutine leaf4_init_atm()
      ! Determine active number of surface water levels
 
      wcap_min = dt_leaf * 1.e-6  ! same as in leaf4_sfcwater
-   
+
      land%nlev_sfcwater(iwl) = 0
 
      do k = 1,nzs
@@ -407,8 +401,8 @@ subroutine leaf4_init_atm()
      ! Initialize ground (soil) and surface vapor specific humidity
 
      nlsw1 = max(1,land%nlev_sfcwater(iwl))
-   
-     rhos = rho(kw,iw)
+
+     rhos = real(rho(kw,iw)) * (1. + rr_v(kw,iw))
 
      call grndvap(iwl,                             &
                   land%nlev_sfcwater        (iwl), &

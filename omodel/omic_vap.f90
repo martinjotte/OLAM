@@ -34,10 +34,9 @@ subroutine thrmstr(iw0,lpw0,k1,k2, &
    press0,thil0,rhow,rhoi,exner0,tair,theta0,qliq,qice,sa1,rhov,rhovstr,rx,qx,sa)
 
 use micro_coms,  only: mza0, ncat
-use consts_coms, only: r8, p00i, rocp, alvl, alvi, cpi4, cpi, cp253i
+use consts_coms, only: p00i, rocp, alvl, alvi, cpi4, cpi, cp253i
 use misc_coms,   only: io6
 use therm_lib,   only: qtc, rhovsl
-use oname_coms,  only: nl
 
 implicit none
 
@@ -46,27 +45,23 @@ integer, intent(in) :: iw0,lpw0
 integer, intent(in) :: k1(11)
 integer, intent(in) :: k2(11)
 
-real, intent(in)    :: press0  (mza0)
-real, intent(in)    :: thil0   (mza0)
-real, intent(in)    :: rhoi    (mza0)
-real, intent(in)    :: exner0  (mza0)
-real, intent(out)   :: tair    (mza0)
-real, intent(inout) :: theta0  (mza0)
-real, intent(out)   :: qliq    (mza0)
-real, intent(out)   :: qice    (mza0)
-real, intent(out)   :: sa1     (mza0)
-real, intent(inout) :: rhov    (mza0)
-real, intent(out)   :: rhovstr (mza0)
+real, intent(in)    :: press0 (mza0)
+real, intent(in)    :: thil0  (mza0)
+real, intent(in)    :: rhow   (mza0)
+real, intent(in)    :: rhoi   (mza0)
+real, intent(in)    :: exner0 (mza0)
+real, intent(out)   :: tair   (mza0)
+real, intent(inout) :: theta0 (mza0)
+real, intent(out)   :: qliq   (mza0)
+real, intent(out)   :: qice   (mza0)
+real, intent(out)   :: sa1    (mza0)
+real, intent(inout) :: rhov   (mza0)
+real, intent(out)   :: rhovstr(mza0)
+real, intent(in)    :: rx     (mza0,ncat)
+real, intent(in)    :: qx     (mza0,ncat)
+real, intent(out)   :: sa     (mza0,9)
 
-!real(r8), intent(in) :: rhow(mza0)
-real(r8) :: rhow(mza0)
-
-real, intent(in) :: rx(mza0,ncat)
-real, intent(in) :: qx(mza0,ncat)
-
-real, intent(out) :: sa(mza0,9)
-
-integer :: k,lcat, ITER
+integer :: k,lcat
 real    :: fracliq, fracliq6, fracliq7, tcoal, tairstr, til, qhydm
 real    :: tairc, rhovslair, frac, lbar
 
@@ -132,7 +127,6 @@ subroutine diffprep(iw0,lcat,k1,k2, &
 use micro_coms,  only: rxmin, frefac1, pwmasi, frefac2, cdp1, sl, sj, sc, sk, &
                        mza0, ncat
 use misc_coms,   only: io6
-use consts_coms, only: r8
 
 implicit none
 
@@ -170,8 +164,7 @@ real, intent(in) :: rhovsrefp(mza0,2)
 real, intent(in) :: rdynvsci (mza0)
 real, intent(in) :: vapdif   (mza0)
 real, intent(in) :: thrmcon  (mza0)
-
-real(r8), intent(in) :: rhoa(mza0)
+real, intent(in) :: rhoa     (mza0)
 
 real, intent(inout) :: sumuy(mza0)
 real, intent(inout) :: sumuz(mza0)

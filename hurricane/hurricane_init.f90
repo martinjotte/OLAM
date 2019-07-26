@@ -55,7 +55,7 @@ implicit none
 !
 ! Each cycle is performed as a separate OLAM run, and the user should compare
 ! plots from each run against in-situ hurricane measurements in order to
-! determine how to construct or modify the perturbation to be added in the 
+! determine how to construct or modify the perturbation to be added in the
 ! subsequent cycle.  For each of these runs, or to run simulations without
 ! dynamic initialization, the parameter INIT_HURR_STEP must be set as follows:
 !
@@ -63,7 +63,7 @@ implicit none
 !
 ! 1 = For FIRST CYCLE of dynamic initialization procedure.
 !     OLAM initial fields are interpolated from CFSR (or other) dataset.
-!     An axisymmetric perturbation tangential wind field is added by the user.   
+!     An axisymmetric perturbation tangential wind field is added by the user.
 !     OLAM runs short (e.g. 6 hrs) forward integration while tracking hurricane location every timestep.
 !     Axisymmetric hurricane fields are diagnosed and plotted at hourly intervals.
 !     3D hurricane fields are remapped at hourly intervals from grid cells at present
@@ -73,7 +73,7 @@ implicit none
 !     OLAM initial fields are interpolated from CFSR (or other) dataset.
 !     Remapped 3D prognostic fields from previous cycle are read from files and
 !     replace fields interpolated from CFSR where the hurricane is located.
-!     An axisymmetric perturbation tangential wind field is added by the user.   
+!     An axisymmetric perturbation tangential wind field is added by the user.
 !     OLAM runs short (e.g. 6 hrs) forward integration while tracking hurricane location every timestep.
 !     Axisymmetric hurricane fields are diagnosed and plotted at hourly intervals.
 !     3D hurricane fields are remapped at hourly intervals from grid cells at present
@@ -83,7 +83,7 @@ implicit none
 !     OLAM initial fields are interpolated from CFSR (or other) dataset.
 !     Remapped 3D prognostic fields from previous cycle are read from files and
 !     replace fields interpolated from CFSR where the hurricane is located.
-!     OLAM simulation proceeds normally except that hurricane tracking is 
+!     OLAM simulation proceeds normally except that hurricane tracking is
 !     performed each timestep, and vortex is periodically diagnosed and plotted.
 !     The tracking and periodic diagnosis and plotting are for informational
 !     purposes only and have no impact on the model solution.  This is the only
@@ -135,17 +135,17 @@ real :: radius_ax(nr) = (/ &
 
 ! The following 6 parameters define the strength and radial-height distribution
 ! of an axisymmetric tangential wind field that is added as a perturbation to
-! model fields in subroutine hurricane_add_pert in order to boost a tropical 
+! model fields in subroutine hurricane_add_pert in order to boost a tropical
 ! cyclone to the structure and intensity that are represented in in-situ
 ! observations but lacking in reanalysis fields used for model initialization.
-! A perturbation vortex is normally added only on the first forward cycle of 
+! A perturbation vortex is normally added only on the first forward cycle of
 ! the dynamic initialization procedure, but may be added (at weaker intensities)
 ! on subsequent cycles as well.
- 
-! HARVEY HISTORY (SIMULATION BEGUN 6 NOV 2018): FIRST, WITH INIT_HURR_STEP = 1, USED 
+
+! HARVEY HISTORY (SIMULATION BEGUN 6 NOV 2018): FIRST, WITH INIT_HURR_STEP = 1, USED
 !   DELV_EYW = 30.  SECOND, WITH INIT_HURR_STEP = 2, USED DELV_EYW = 10.
 
-  real,    parameter :: delv_eyw = 30. ! 10.  ! Maximum tangential wind speed perturbation 
+  real,    parameter :: delv_eyw = 30. ! 10.  ! Maximum tangential wind speed perturbation
   real,    parameter :: zmax_delv = 12000.   ! Maximum height of perturbation vortex
   real,    parameter :: zexpon_delv = 1.5    ! Vertical power law of perturbation magnitude
   integer, parameter :: ir_eyw = 8    ! radial index (of radius_ax array) where delv_eyw applies
@@ -182,7 +182,7 @@ real :: radius_ax(nr) = (/ &
 ! Relocation fields for I/O
 
   integer, parameter :: nfld = 28   ! number of fields transferred
-  integer, parameter :: nwi = 300000 ! Horizontal # of W points filled 
+  integer, parameter :: nwi = 300000 ! Horizontal # of W points filled
                                     ! by interpolation
 Contains
 
@@ -191,7 +191,7 @@ Contains
   subroutine hurricane_init()
 
   use mem_grid,  only: mza, zt
-  use misc_coms, only: iparallel, runtype
+  use misc_coms, only: runtype
 
   implicit none
 
@@ -229,7 +229,7 @@ Contains
 
   if (runtype /= 'INITIAL') return
 
-  ! Each cycle of a hurricane dynamic initialization procedure is performed 
+  ! Each cycle of a hurricane dynamic initialization procedure is performed
   ! as a separate run of the model, with RUNTYPE set to 'INITIAL'.  At this
   ! stage of each run, OLAM fields have been interpolated from CFSR or other
   ! gridded data, and they contain that dataset's low resolution representation
@@ -237,7 +237,7 @@ Contains
 
   if (init_hurr_step == 1) then
 
-     ! For the first cycle of the dynamic initialization procedure, 
+     ! For the first cycle of the dynamic initialization procedure,
      ! init_hurr_step is set to 1.
 
      ! Diagnose vortex center location as it is represented on the OLAM grid
@@ -259,11 +259,11 @@ Contains
 
   elseif (init_hurr_step == 2 .or. init_hurr_step == 3 .or. init_hurr_step == 4) then
 
-     ! For the second and subsequent dynamic initialization cycles, 
+     ! For the second and subsequent dynamic initialization cycles,
      ! init_hurr_step is set to 2, while for the beginning of the model
      ! simulation after all cycles are completed, init_hurr_step is set to 3.
 
-     ! Read interpolated 3D hurricane fields from one of the files that were 
+     ! Read interpolated 3D hurricane fields from one of the files that were
      ! written during the forward integration of the previous dynamic
      ! initialization cycle, and relocate the fields to the initial position
      ! of the hurricane, specified by hlat0 and hlon0 which are also read from
@@ -277,7 +277,7 @@ Contains
      hlat = hlat0
      hlon = hlon0
 
-  endif  
+  endif
 
   if (init_hurr_step == 1 .or. init_hurr_step == 2) then
 
@@ -306,11 +306,11 @@ Contains
      ! Based on what is seen in the plotted azimuthally-averaged fields and
      ! how they compare to in-situ measurements of the hurricane, the user
      ! may want to re-run the current cycle of the dynamic initialization
-     ! procedure with a different wind perturbation profile in subroutine 
+     ! procedure with a different wind perturbation profile in subroutine
      ! hurricane_add_pert.  If the user sets timmax = 0., the model will stop
      ! at this point, allowing this comparison and decision to be made.
 
-     ! Otherwise, if timmax is set to a positive value (typically 6 hours), 
+     ! Otherwise, if timmax is set to a positive value (typically 6 hours),
      ! the model will proceed next with the forward integration phase of
      ! the current dynamic initialization cycle, during which it will track
      ! the hurricane location and, at regular intervals (usually chosen to be
@@ -325,11 +325,9 @@ Contains
 
   subroutine vortex_center_diagnose()
 
-  use mem_ijtabs
-  use mem_basic
-  use misc_coms
-  use mem_grid
-  use consts_coms
+  use mem_basic,   only: press
+  use mem_grid,    only: mza, mwa, glatw, glonw, xew, yew, zew, lpw, zt, arw0
+  use consts_coms, only: erad, pio180
 
   implicit none
 
@@ -353,7 +351,7 @@ Contains
 
 ! Initialize quantities
 
-  lpwmax = 2 
+  lpwmax = 2
 
   area_tot (1:mza) = 0.
   press_min(1:mza) = 2.e5
@@ -469,7 +467,7 @@ Contains
         endif
 
      enddo  ! k
-   
+
   enddo  ! iw
 
 ! Vertical loop over T levels
@@ -506,10 +504,10 @@ Contains
 ! CONSIDER USING THE FOLLOWING CODE FROM FIELDS2_LL.F90 FOR SLP AT HURRICANE CENTER:
 
 !------------------------------------------------------------
-! Compute temperature on OLAM grid and copy its value at 
+! Compute temperature on OLAM grid and copy its value at
 ! lowest prognosed model level to separate array.
 ! Compute sea level pressure based on values at lowest
-! prognosed model level. 
+! prognosed model level.
 !------------------------------------------------------------
 
 !F     do iw = 2, mwa
@@ -525,25 +523,9 @@ Contains
 
   subroutine vortex_diagnose()
 
-  use mem_ijtabs
-  use mem_basic
-  use misc_coms
-  use mem_grid
-  use consts_coms
-  use max_dims,   only: pathlen
-  use mem_para,   only: myrank
+  use mem_para, only: myrank
 
   implicit none
-
-  integer :: iw,i,j,k,ngr,iu,iv,iw1,iw2
-  integer :: irad,ir
-
-  integer, save :: ipert = 0
-
-  real :: rad,rrad,wrad1,wrad2,vtan_pert0,shw_pert0
-  real :: zero = 0.
-
-  real :: circ(nr)
 
   ! Only works on node 0 until cplot is parallelized
   if (myrank /= 0) return
@@ -553,7 +535,7 @@ Contains
   call vortex_diagnose0h(thil_ax1, theta_ax1, shw_ax1, shv_ax1, vtan_ax1, &
                          vrad_ax1,     w_ax1)
 
-!  call plotback; call cplot(nz,nr, thil_ax1 , 58,'thil1'  ); call o_frame
+! call plotback; call cplot(nz,nr, thil_ax1 , 58,'thil1'  ); call o_frame
   call plotback; call cplot(nz,nr,theta_ax1 , 58,'theta1' ); call o_frame
   call plotback; call cplot(nz,nr,  shw_ax1 ,  5,'shw1'   ); call o_frame
   call plotback; call cplot(nz,nr,  shv_ax1 ,  5,'shv1'   ); call o_frame
@@ -563,7 +545,6 @@ Contains
 
   call o_clswk()
 
-  return
   end subroutine vortex_diagnose
 
 !==================================================================================
@@ -571,12 +552,10 @@ Contains
   subroutine vortex_diagnose0h(thil_ax, theta_ax, shw_ax, shv_ax, vtan_ax, &
                                vrad_ax,     w_ax)
 
-  use mem_ijtabs
-  use mem_basic
-  use mem_micro
-  use misc_coms
-  use mem_grid
-  use consts_coms
+  use mem_ijtabs,  only: jtw_init, jtab_w
+  use mem_basic,   only: thil, theta, rr_w, rr_v, wc, vxe, vye, vze
+  use mem_grid,    only: xew, yew, zew, lpw
+  use consts_coms, only: erad, pio180
 
   implicit none
 
@@ -588,15 +567,13 @@ Contains
   real, intent(out) ::  vrad_ax(nz,nr) ! radial wind (m/s)
   real, intent(out) ::     w_ax(nz,nr) ! vertical wind (m/s)
 
-  integer :: iw,i,j,k,ngr,iu,iv,iw1,iw2
+  integer :: iw,j,k,irad
   real :: zeh,reh,xeh,yeh
   real :: wnxh,wnyh,wnzh
   real :: wnxrad,wnyrad,wnzrad,wnxtan,wnytan,wnztan
 
-  real :: rad,rrad,wrad1,wrad2
+  real :: rad,wrad1,wrad2
   real :: vtan_ax0,vrad_ax0
-
-  integer :: irad,ir
 
   real :: weight_t(nz,nr)   ! weight array for T points
 
@@ -676,11 +653,11 @@ Contains
         theta_ax(k,irad)   = theta_ax(k,irad)   + wrad1 * theta(k,iw)
         theta_ax(k,irad+1) = theta_ax(k,irad+1) + wrad2 * theta(k,iw)
 
-          shw_ax(k,irad)   =   shw_ax(k,irad)   + wrad1 *  sh_w(k,iw)
-          shw_ax(k,irad+1) =   shw_ax(k,irad+1) + wrad2 *  sh_w(k,iw)
+          shw_ax(k,irad)   =   shw_ax(k,irad)   + wrad1 *  rr_w(k,iw)
+          shw_ax(k,irad+1) =   shw_ax(k,irad+1) + wrad2 *  rr_w(k,iw)
 
-          shv_ax(k,irad)   =   shv_ax(k,irad)   + wrad1 *  sh_v(k,iw)
-          shv_ax(k,irad+1) =   shv_ax(k,irad+1) + wrad2 *  sh_v(k,iw)
+          shv_ax(k,irad)   =   shv_ax(k,irad)   + wrad1 *  rr_v(k,iw)
+          shv_ax(k,irad+1) =   shv_ax(k,irad+1) + wrad2 *  rr_v(k,iw)
 
             w_ax(k,irad)   =     w_ax(k,irad)   + wrad1 *    wc(k,iw)
             w_ax(k,irad+1) =     w_ax(k,irad+1) + wrad2 *    wc(k,iw)
@@ -750,7 +727,6 @@ Contains
   vtan_ax(:,1) = 0.
   vrad_ax(:,1) = 0.
 
-  return
   end subroutine vortex_diagnose0h
 
 !==============================================================================
@@ -765,7 +741,7 @@ Contains
 ! axysymmetric vortex whose peak value and vertical and radial profiles are
 ! determined by 6 user-specified parameters.  A secondary axisymmetric
 ! perturbation field of potential temperature is computed in this subroutine
-! that, when added to the background potential temperature field will maintain 
+! that, when added to the background potential temperature field will maintain
 ! approximate gradient wind balance with the enhanced tangential winds.  A
 ! hydrostatic balance procedure is carried out following the addition of these
 ! perturbations in order to adjust pressure and density to the new potential
@@ -775,33 +751,37 @@ Contains
 ! cycle.  Optionally, it may also be called at the beginning of subsequent cycles,
 ! although in such cases the added perturbation should be relatively weak.  The
 ! preferred application of the dynamic initialization procedure is to choose
-! (perhaps by trial and error) a perturbation on the first cycle that will 
+! (perhaps by trial and error) a perturbation on the first cycle that will
 ! eliminate the need for any perturbations to be added on subsequent cycles.
 
-  use mem_ijtabs
-  use mem_basic
-  use misc_coms
-  use mem_grid
-  use consts_coms
+  use mem_ijtabs,   only: jtw_init, jtab_w, jtv_init, jtab_v, itab_v
+  use mem_basic,    only: thil, theta, tair, rho, press, rr_v, rr_w, &
+                          wc, wmc, vc, vmc, vp, vmp
+  use misc_coms,    only: iparallel
+  use mem_grid,     only: mza, lpw, lpv, xew, yew, zew, xev, yev, zev, &
+                          zt, gdz_belo8, gdz_abov8, dzim, vnx, vny, vnz
+  use consts_coms,  only: r8, erad, pio180, pi2, omega, omega2, grav, cvocp, &
+                          p00kord, eps_vapi, p00i, rocp, alvlocp, eps_vapi
+  use therm_lib,    only: rhovsl
+  use mem_micro,    only: rr_c, con_c, cldnum
+  use micro_coms,   only: miclevel, ccnparm, jnmb, rxmin, zfactor_ccn
   use vel_t3d,      only: diagvel_t3d
   use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, &
-                          mpi_send_v, mpi_recv_v 
-
+                          mpi_send_v, mpi_recv_v
   use obnd,         only: lbcopy_v, lbcopy_w
 
 ! Define initial perturbation using analytical functions
 
   implicit none
 
-  integer :: iw,i,j,k,ngr,iu,iv,iw1,iw2,kbc,iter
+  integer :: iw,j,k,iv,iw1,iw2,iter
   integer :: ir
-  real :: pkhyd,exner,deltheta
+  real :: exner,temp,ccn
   real :: zeh,reh,xeh,yeh
   real :: wnxh,wnyh,wnzh
-  real :: unxrad,unyrad,unzrad,unxtan,unytan,unztan
   real :: vnxrad,vnyrad,vnzrad,vnxtan,vnytan,vnztan
 
-  real :: rad,rrad,vtan_pert0,shw_pert0,zdif
+  real :: rad,vtan_pert0
 
   real :: vpert_rad, vpert_vert
 
@@ -817,6 +797,8 @@ Contains
   integer :: irad, mrl
   real :: theta_tot0, theta_tot1, theta_pert0, dbdz, dri
   real :: b(nz)
+
+  real(r8) :: pkhyd, rho_tot(mza)
 
   print*, 'IN HURRICANE_INIT1 ',hlat,hlon
 
@@ -867,16 +849,16 @@ Contains
   do ir = ir_eyw,ir_env
 
      circ(ir) = circ_eyw + (circ_env - circ_eyw) &
-              * ((radius_ax(ir) - rad_eyw) / (rad_env - rad_eyw)) ** rexpon_delc 
-      
+              * ((radius_ax(ir) - rad_eyw) / (rad_env - rad_eyw)) ** rexpon_delc
+
      del_circ(ir) = max(0., circ(ir) - circ_avg(ir))
-      
+
      ! print*, 'hi2 ',ir,1.e-6*circ(ir),1.e-6*circ_avg(ir),1.e-6*del_circ(ir)
 
-  enddo   
+  enddo
 
 ! Average theta_ax1 vertically to W levels; result is theta_totw, which
-! will be used to compute thermal wind for gradient wind balance 
+! will be used to compute thermal wind for gradient wind balance
 
   do ir = 1,nr
      do k = 2,nz-2
@@ -935,7 +917,7 @@ Contains
                          / (.5 * dbdz + grav * dri)
 
      enddo
-     theta_totw(1,ir) = theta_totw(2,ir) 
+     theta_totw(1,ir) = theta_totw(2,ir)
   enddo
 
 ! Add perturbation to thermodynamic fields
@@ -947,7 +929,7 @@ Contains
 ! Distance of this IW point from eye center
 
      rad = sqrt((xew(iw)-xeh)**2 + (yew(iw)-yeh)**2 + (zew(iw)-zeh)**2)
-   
+
 ! Skip hurricane assimilation for all points outside limiting perturbation radius
 
      if (rad >= radius_ax(nr) - 1) cycle
@@ -961,7 +943,7 @@ Contains
 
      wrad2 = (rad - radius_ax(irad)) / (radius_ax(irad+1) - radius_ax(irad))
      wrad1 = 1. - wrad2
-   
+
 ! Vertical loop over T levels
 
      do k = lpw(iw),nzz
@@ -982,7 +964,8 @@ Contains
 
          thil(k,iw) =  thil(k,iw) + theta_pert0
         theta(k,iw) = theta(k,iw) + theta_pert0
-
+          rho(k,iw) = press(k,iw) ** cvocp * p00kord / &
+                      ( theta(k,iw) * (1.0 + eps_vapi * rr_v(k,iw)) )
      enddo
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -990,24 +973,47 @@ Contains
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 ! Use nzz level as top boundary condition for hydrostatic integration:
-! Profile remains unchanged at and above this level 
+! Profile remains unchanged at and above this level
 
 ! Carry out iterative hydrostatic balance procedure
+
+     if (miclevel == 0) then
+        rho_tot(nzz) = rho(nzz,iw)
+     else
+        rho_tot(nzz) = rho(nzz,iw) * (1. + rr_w(k,iw))
+     endif
 
      do iter = 1,100
 
         do k = nzz-1,1,-1
 
-!  Compute density - (ASSUME MICLEVEL = 1 FOR NOW)
+!  Compute density
 
-           rho(k,iw) = press(k,iw) ** cvocp * p00k  &
-              / (theta(k,iw) * (rdry * (1. - sh_w(k,iw)) + rvap * sh_v(k,iw)))
+           if (miclevel == 0) then
+              rho(k,iw) = press(k,iw) ** cvocp * p00kord / theta(k,iw)
+              rho_tot(k) = rho(k,iw)
+           elseif (miclevel == 1) then
+              rho(k,iw) = press(k,iw) ** cvocp * p00kord / &
+                          ( theta(k,iw) * (1.0 + eps_vapi * rr_v(k,iw)) )
+              rho_tot(k) = rho(k,iw) * (1. + rr_v(k,iw))
+           else
+              exner = (real(press(k,iw)) * p00i) ** rocp   ! Defined WITHOUT CP factor
+              temp  = exner * theta(k,iw)
+
+              rr_c(k,iw) = max(0., rr_w(k,iw) - rhovsl(temp-273.15) / real(rho(k,iw)))
+              rr_v(k,iw) = rr_w(k,iw) - rr_c(k,iw)
+
+              rho(k,iw) = press(k,iw) ** cvocp * p00kord / &
+                          ( theta(k,iw) * (1.0 + eps_vapi * rr_v(k,iw)) )
+
+              rho_tot(k) = rho(k,iw) * (1. + rr_w(k,iw))
+           endif
 
 ! Hydrostatically integrate downward using weighting to damp oscillations
 
-           pkhyd = press(k+1,iw)  &
-                 + grav * (rho(k+1,iw) * dzt_bot(k+1) + rho(k,iw) * dzt_top(k))
-           press(k,iw) = .05 * press(k,iw) + .95 * pkhyd
+           pkhyd = press(k+1,iw) &
+                 + gdz_belo8(k) * rho_tot(k) + gdz_abov8(k) * rho_tot(k+1)
+           press(k,iw) = .05_r8 * press(k,iw) + .95_r8 * max(.1_r8, pkhyd)
 
         enddo
      enddo
@@ -1015,12 +1021,36 @@ Contains
 ! Vertical loop over T levels
 
      do k = lpw(iw), nzz
-        tair(k,iw) = theta(k,iw) * (press(k,iw) * p00i) ** rocp
+        tair(k,iw) = theta(k,iw) * (real(press(k,iw)) * p00i) ** rocp
+        if (miclevel <= 1) then
+           thil(k,iw) = theta(k,iw)
+        else
+           thil(k,iw) = theta(k,iw) / (1. + alvlocp * rr_c(k,iw) / &
+                                          ((1.0 + rr_c(k,iw)) * max(temp,253.)))
+        endif
      enddo
 
      do k = 1, lpw(iw)-1
         thil(k,iw) = thil(lpw(iw),iw)
      enddo
+
+   ! If there is condensate, initialize con_c if prognosed
+
+     if (miclevel == 3 .and. jnmb(1) == 5) then
+        if (ccnparm > 1.e6) then
+           ccn = ccnparm
+        else
+           ccn = cldnum(iw)
+        endif
+
+        do k = lpw(iw), mza
+           if (rr_c(k,iw) > rxmin(1)) then
+              con_c(k,iw) = ccn * real(rho(k,iw)) * zfactor_ccn(k)
+           else
+              con_c(k,iw) = 0.0
+           endif
+        enddo
+     endif
 
   enddo
 
@@ -1043,7 +1073,7 @@ Contains
   do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)  ! jend(1) = hardwired for mrl 1
      iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
 !----------------------------------------------------------------------
- 
+
 ! Distance of this point from eye center
 
      rad = sqrt((xev(iv)-xeh)**2 + (yev(iv)-yeh)**2 + (zev(iv)-zeh)**2)
@@ -1061,7 +1091,7 @@ Contains
 
      wrad2 = (rad - radius_ax(ir)) / (radius_ax(ir+1) - radius_ax(ir))
      wrad1 = 1. - wrad2
-   
+
 ! Interpolate circulation perturbation table values to rad
 
      dcirc = wrad1 * del_circ(ir  ) &
@@ -1142,16 +1172,15 @@ Contains
 
   subroutine vortex_reloc3d()
 
-  use mem_basic,   only: vc, wc, thil, theta, sh_w, sh_v, rho, press, &
+  use mem_basic,   only: wc, thil, theta, rr_w, rr_v, rho, press, &
                          vxe, vye, vze
-  use mem_micro,   only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, &
+  use mem_micro,   only: rr_c, rr_d, rr_r, rr_p, rr_s, rr_a, rr_g, rr_h, &
                          q2, q6, q7, &
                          con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h
-  use mem_ijtabs,  only: itab_m, itab_w, jtab_w, jtw_init
-  use misc_coms,   only: io6
-  use mem_grid,    only: mza, mma, mwa, lpw, xem, yem, zem, xew, yew, zew
+  use mem_ijtabs,  only: itab_m, jtab_w, jtw_init
+  use mem_grid,    only: mza, mma, mwa, xem, yem, zem, xew, yew, zew
   use consts_coms, only: erad,piu180,pio180
-  use max_dims,   only: pathlen
+  use max_dims,    only: pathlen
 
   implicit none
 
@@ -1170,7 +1199,7 @@ Contains
 
   integer :: iwiflag(mwa), iwout(mwa)
 
-  integer :: im,iw,i,j,k,jnext,iwnext,ips,jps,npoly,ipt,jpt,lpt
+  integer :: im,iw,j,k,jnext,iwnext,ips,jps,npoly,ipt,jpt,lpt
   integer :: ifld, nout, iwi
 
   integer, save :: ipert = 0
@@ -1216,7 +1245,7 @@ print*, 'hlat0,hlon0 ',hlat0,hlon0,xeh,yeh,zeh
 ! Distance of this IW point from initial eye center
 
      rad = sqrt((xew(iw)-xeh)**2 + (yew(iw)-yeh)**2 + (zew(iw)-zeh)**2)
-   
+
 ! Skip hurricane assimilation for all points outside specified radius
 
      if (rad >= 450.e3) cycle
@@ -1271,7 +1300,7 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
 ! Distance of this IM point from current eye center
 
      rad = sqrt((xem(im)-xeh)**2 + (yem(im)-yeh)**2 + (zem(im)-zeh)**2)
-   
+
 ! Skip hurricane assimilation for all points outside specified radius
 
      if (rad >= 420.e3) cycle
@@ -1326,16 +1355,16 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
            field(k,j, 3) =    wc(k,iw)
            field(k,j, 4) =  thil(k,iw)
            field(k,j, 5) = theta(k,iw)
-           field(k,j, 6) =  sh_w(k,iw)
-           field(k,j, 7) =  sh_v(k,iw)
-           if (allocated(sh_c))  field(k,j, 8) =  sh_c(k,iw)
-           if (allocated(sh_d))  field(k,j, 9) =  sh_d(k,iw)
-           if (allocated(sh_r))  field(k,j,10) =  sh_r(k,iw)
-           if (allocated(sh_p))  field(k,j,11) =  sh_p(k,iw)
-           if (allocated(sh_s))  field(k,j,12) =  sh_s(k,iw)
-           if (allocated(sh_a))  field(k,j,13) =  sh_a(k,iw)
-           if (allocated(sh_g))  field(k,j,14) =  sh_g(k,iw)
-           if (allocated(sh_h))  field(k,j,15) =  sh_h(k,iw)
+           field(k,j, 6) =  rr_w(k,iw)
+           field(k,j, 7) =  rr_v(k,iw)
+           if (allocated(rr_c))  field(k,j, 8) =  rr_c(k,iw)
+           if (allocated(rr_d))  field(k,j, 9) =  rr_d(k,iw)
+           if (allocated(rr_r))  field(k,j,10) =  rr_r(k,iw)
+           if (allocated(rr_p))  field(k,j,11) =  rr_p(k,iw)
+           if (allocated(rr_s))  field(k,j,12) =  rr_s(k,iw)
+           if (allocated(rr_a))  field(k,j,13) =  rr_a(k,iw)
+           if (allocated(rr_g))  field(k,j,14) =  rr_g(k,iw)
+           if (allocated(rr_h))  field(k,j,15) =  rr_h(k,iw)
            if (allocated(con_c)) field(k,j,16) = con_c(k,iw)
            if (allocated(con_d)) field(k,j,17) = con_d(k,iw)
            if (allocated(con_r)) field(k,j,18) = con_r(k,iw)
@@ -1497,7 +1526,6 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
      close(32)
   endif
 
-  return
   end subroutine vortex_reloc3d
 
 !=======================================================================================
@@ -1506,29 +1534,31 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
 
 ! This subroutine replaces a model initial state that contains a poorly-resolved
 ! tropical cyclone from a GFS or other analysis with a cyclone that was
-! simulated in a previous model run and was relocated to the position 
+! simulated in a previous model run and was relocated to the position
 ! inferred in the initial GFS fields.
 
-!! The perturbation fields that are added in this subroutine are generated 
+!! The perturbation fields that are added in this subroutine are generated
 !! by a dynamic initialization cycle, performed by previous integrations of OLAM.
 !! The cycle should be repeated whenever major changes are made to the model
 !! configuration, such as a change in grid resolution, or for a new vortex
 !! initialization time and location.
 
   use mem_basic,   only: vc, vp, vmc, vmp, wc, wmc, thil, theta, tair, &
-                         sh_w, sh_v, rho, press, vxe, vye, vze
-  use mem_micro,   only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, &
-                         q2, q6, q7, &
+                         rr_w, rr_v, rho, press, vxe, vye, vze
+  use mem_micro,   only: rr_c, rr_d, rr_r, rr_p, rr_s, rr_a, rr_g, rr_h, &
+                         q2, q6, q7, cldnum, &
                          con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h
-  use mem_ijtabs,  only: itab_m, itab_v, itab_w, jtab_v, jtv_init
-  use misc_coms,   only: io6, iparallel
-  use mem_grid,    only: mza, mma, mwa, lpw, xev, yev, zev, xew, yew, zew, &
-                         vnx, vny, vnz, zt, dzt_top, dzt_bot
-  use consts_coms, only: erad, piu180, pio180, grav, rvap, rdry, &
-                         cvocp, rocp, p00k, p00i
+  use micro_coms,  only: miclevel, ccnparm, jnmb, rxmin, zfactor_ccn
+  use therm_lib,   only: rhovsl
+  use mem_ijtabs,  only: itab_v, jtab_v, jtv_init
+  use misc_coms,   only: iparallel
+  use mem_grid,    only: mza, mwa, lpw, xev, yev, zev, xew, yew, zew, &
+                         vnx, vny, vnz, zt, gdz_belo8, gdz_abov8
+  use consts_coms, only: erad, piu180, pio180, grav, rvap, rdry, alvlocp, &
+                         cvocp, rocp, p00k, p00i, r8, eps_vapi, p00kord
   use max_dims,    only: pathlen
   use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, &
-                          mpi_send_v, mpi_recv_v 
+                          mpi_send_v, mpi_recv_v
   use obnd,         only: lbcopy_v, lbcopy_w
   use vel_t3d,      only: diagvel_t3d
 
@@ -1537,19 +1567,18 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
   integer :: iwout(mwa)
   integer :: nout, iout
 
-  integer :: iw,i,j,k,ngr,iu,iv,iw1,iw2,kbc,iter
-  real :: pkhyd,exner,deltheta
+  integer :: iw,j,k,iv,iw1,iw2,iter
+
+  real :: exner,temp,ccn
   real :: zeh,reh,xeh,yeh
   real :: wnxh,wnyh,wnzh
-  real :: unxrad,unyrad,unzrad,unxtan,unytan,unztan
   real :: vnxrad,vnyrad,vnzrad,vnxtan,vnytan,vnztan
   real :: wt1, wt2, wt2c, vtan0, vrad0
-
   real :: rad, vreloc
 
-  character(10) :: cstr
-  integer :: istr, mrl
-  real :: rstr
+  real(r8) :: pkhyd, rho_tot(mza)
+
+  integer :: mrl
 
   real :: reloc_field(mza,nwi,nfld)
 
@@ -1595,7 +1624,7 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
   wnyh = yeh / erad
   wnzh = zeh / erad
 
-! Horizontal loop over all active W points in file data 
+! Horizontal loop over all active W points in file data
 
   do iout = 1,nout
 
@@ -1639,24 +1668,24 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
            wc(k,iw) =    wc(k,iw) * wt2c + reloc_field(k,iout, 3) * wt2 ! applies at W level
          thil(k,iw) =  thil(k,iw) * wt2c + reloc_field(k,iout, 4) * wt2
         theta(k,iw) = theta(k,iw) * wt2c + reloc_field(k,iout, 5) * wt2
-         sh_w(k,iw) =  sh_w(k,iw) * wt2c + reloc_field(k,iout, 6) * wt2
-         sh_v(k,iw) =  sh_v(k,iw) * wt2c + reloc_field(k,iout, 7) * wt2
-        if (allocated(sh_c)) &
-         sh_c(k,iw) =  sh_c(k,iw) * wt2c + reloc_field(k,iout, 8) * wt2
-        if (allocated(sh_d)) &
-         sh_d(k,iw) =  sh_d(k,iw) * wt2c + reloc_field(k,iout, 9) * wt2
-        if (allocated(sh_r)) &
-         sh_r(k,iw) =  sh_r(k,iw) * wt2c + reloc_field(k,iout,10) * wt2
-        if (allocated(sh_p)) &
-         sh_p(k,iw) =  sh_p(k,iw) * wt2c + reloc_field(k,iout,11) * wt2
-        if (allocated(sh_s)) &
-         sh_s(k,iw) =  sh_s(k,iw) * wt2c + reloc_field(k,iout,12) * wt2
-        if (allocated(sh_a)) &
-         sh_a(k,iw) =  sh_a(k,iw) * wt2c + reloc_field(k,iout,13) * wt2
-        if (allocated(sh_g)) &
-         sh_g(k,iw) =  sh_g(k,iw) * wt2c + reloc_field(k,iout,14) * wt2
-        if (allocated(sh_h)) &
-         sh_h(k,iw) =  sh_h(k,iw) * wt2c + reloc_field(k,iout,15) * wt2
+         rr_w(k,iw) =  rr_w(k,iw) * wt2c + reloc_field(k,iout, 6) * wt2
+         rr_v(k,iw) =  rr_v(k,iw) * wt2c + reloc_field(k,iout, 7) * wt2
+        if (allocated(rr_c)) &
+         rr_c(k,iw) =  rr_c(k,iw) * wt2c + reloc_field(k,iout, 8) * wt2
+        if (allocated(rr_d)) &
+         rr_d(k,iw) =  rr_d(k,iw) * wt2c + reloc_field(k,iout, 9) * wt2
+        if (allocated(rr_r)) &
+         rr_r(k,iw) =  rr_r(k,iw) * wt2c + reloc_field(k,iout,10) * wt2
+        if (allocated(rr_p)) &
+         rr_p(k,iw) =  rr_p(k,iw) * wt2c + reloc_field(k,iout,11) * wt2
+        if (allocated(rr_s)) &
+         rr_s(k,iw) =  rr_s(k,iw) * wt2c + reloc_field(k,iout,12) * wt2
+        if (allocated(rr_a)) &
+         rr_a(k,iw) =  rr_a(k,iw) * wt2c + reloc_field(k,iout,13) * wt2
+        if (allocated(rr_g)) &
+         rr_g(k,iw) =  rr_g(k,iw) * wt2c + reloc_field(k,iout,14) * wt2
+        if (allocated(rr_h)) &
+         rr_h(k,iw) =  rr_h(k,iw) * wt2c + reloc_field(k,iout,15) * wt2
         if (allocated(con_c)) &
         con_c(k,iw) = con_c(k,iw) * wt2c + reloc_field(k,iout,16) * wt2
         if (allocated(con_d)) &
@@ -1688,24 +1717,47 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 ! Use nzz level as top boundary condition for hydrostatic integration:
-! Profile remains unchanged at and above this level 
+! Profile remains unchanged at and above this level
 
 ! Carry out iterative hydrostatic balance procedure
+
+     if (miclevel == 0) then
+        rho_tot(nzz) = rho(nzz,iw)
+     else
+        rho_tot(nzz) = rho(nzz,iw) * (1. + rr_w(k,iw))
+     endif
 
      do iter = 1,100
 
         do k = nzz-1,1,-1
 
-!  Compute density - (ASSUME MICLEVEL = 1 FOR NOW)
+!  Compute density
 
-           rho(k,iw) = press(k,iw) ** cvocp * p00k  &
-              / (theta(k,iw) * (rdry * (1. - sh_w(k,iw)) + rvap * sh_v(k,iw)))
+           if (miclevel == 0) then
+              rho(k,iw) = press(k,iw) ** cvocp * p00kord / theta(k,iw)
+              rho_tot(k) = rho(k,iw)
+           elseif (miclevel == 1) then
+              rho(k,iw) = press(k,iw) ** cvocp * p00kord / &
+                          ( theta(k,iw) * (1.0 + eps_vapi * rr_v(k,iw)) )
+              rho_tot(k) = rho(k,iw) * (1. + rr_v(k,iw))
+           else
+              exner = (real(press(k,iw)) * p00i) ** rocp   ! Defined WITHOUT CP factor
+              temp  = exner * theta(k,iw)
+
+              rr_c(k,iw) = max(0., rr_w(k,iw) - rhovsl(temp-273.15) / real(rho(k,iw)))
+              rr_v(k,iw) = rr_w(k,iw) - rr_c(k,iw)
+
+              rho(k,iw) = press(k,iw) ** cvocp * p00kord / &
+                          ( theta(k,iw) * (1.0 + eps_vapi * rr_v(k,iw)) )
+
+              rho_tot(k) = rho(k,iw) * (1. + rr_w(k,iw))
+           endif
 
 ! Hydrostatically integrate downward using weighting to damp oscillations
 
-           pkhyd = press(k+1,iw)  &
-              + grav * (rho(k+1,iw) * dzt_bot(k+1) + rho(k,iw) * dzt_top(k))
-           press(k,iw) = .05 * press(k,iw) + .95 * pkhyd
+           pkhyd = press(k+1,iw) &
+                 + gdz_belo8(k) * rho_tot(k) + gdz_abov8(k) * rho_tot(k+1)
+           press(k,iw) = .05_r8 * press(k,iw) + .95_r8 * max(.1_r8, pkhyd)
 
         enddo
      enddo
@@ -1715,7 +1767,31 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
      do k = lpw(iw),nzz
         wmc(k,iw) = wc(k,iw) * .5 * (rho(k,iw) + rho(k+1,iw))
         tair(k,iw) = theta(k,iw) * (press(k,iw) * p00i) ** rocp
+        if (miclevel <= 1) then
+           thil(k,iw) = theta(k,iw)
+        else
+           thil(k,iw) = theta(k,iw) / (1. + alvlocp * rr_c(k,iw) / &
+                                          ((1.0 + rr_c(k,iw)) * max(temp,253.)))
+        endif
      enddo
+
+   ! If there is condensate, initialize con_c if prognosed
+
+     if (miclevel == 3 .and. jnmb(1) == 5) then
+        if (ccnparm > 1.e6) then
+           ccn = ccnparm
+        else
+           ccn = cldnum(iw)
+        endif
+
+        do k = lpw(iw), mza
+           if (rr_c(k,iw) > rxmin(1)) then
+              con_c(k,iw) = ccn * real(rho(k,iw)) * zfactor_ccn(k)
+           else
+              con_c(k,iw) = 0.0
+           endif
+        enddo
+     endif
 
   enddo
 
@@ -1740,7 +1816,7 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
   do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)  ! jend(1) = hardwired for mrl 1
      iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
 !----------------------------------------------------------------------
- 
+
 ! Distance of this point from eye center
 
      rad = sqrt((xev(iv)-xeh)**2 + (yev(iv)-yeh)**2 + (zev(iv)-zeh)**2)
@@ -1831,7 +1907,6 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
 
   call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
 
-  return
   end subroutine hurricane_init_relocated
 
 !==============================================================================
@@ -1840,7 +1915,7 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
 
   use oplot_coms, only: op
   use plotcolors, only: clrtab
-  use mem_grid,   only: zm, zt, lpw
+  use mem_grid,   only: zm, zt
   use misc_coms,  only: time8
 
   implicit none
@@ -1851,10 +1926,10 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
 
   character(len=*), intent(in) :: fldname
 
-  real :: hcpn(4),vcpn(4),fldvals(4),dst(6),ind(8)
+  real :: hcpn(4),vcpn(4),fldvals(4)
   integer :: iasf(18)
 
-  integer :: k,km,i,ival,icolor,ibox,ln,nnn
+  integer :: k,km,i,ibox,ln
   real :: bsize,yinc
 
   character(8)  :: number,numbr
@@ -1938,7 +2013,7 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
      vcpn(2) = vcpn(1)
      vcpn(3) = vcpn(2) + yinc
      vcpn(4) = vcpn(3)
-      
+
      write (number,'(f7.1)') clrtab(itab)%vals(ibox)
 
      numbr = adjustl(number)
@@ -1974,7 +2049,6 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
 
   call o_sflush()
 
-  return
   end subroutine cplot
 
 end module hcane_rz

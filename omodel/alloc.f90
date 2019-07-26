@@ -46,13 +46,14 @@ subroutine olam_mem_alloc()
   use mem_ijtabs,  only: mrls
   use oname_coms,  only: nl
   use mem_thuburn, only: alloc_thuburn
+  use wrtv_mem,    only: alloc_prog_wrtv_mem
 
   use misc_coms,   only: io6, naddsc, initial, idiffk, ilwrtyp, iswrtyp,  &
                          nqparm, do_chem
 
   use micro_coms,  only: miclevel, ncat, jnmb, iccn, igccn, iifn
   use ccnbin_coms, only: nccntyp
-                       
+
   use leaf_coms,   only: mwl, isfcl
   use sea_coms,    only: mws
 
@@ -65,7 +66,7 @@ subroutine olam_mem_alloc()
   use mem_megan,   only: alloc_megan, filltab_megan
   use soil_nox,    only: alloc_soil_nox, filltab_soil_nox
 
-  implicit none 
+  implicit none
 
 ! Allocate basic memory and fill variable tables
 
@@ -75,7 +76,7 @@ subroutine olam_mem_alloc()
   call filltab_basic()
 
   call alloc_cuparm(mza, mwa, mrls, nqparm)
-  call filltab_cuparm() 
+  call filltab_cuparm()
 
   call alloc_micro(mza,mwa,miclevel,ncat,nccntyp,iccn,igccn,iifn,jnmb)
   call filltab_micro(nccntyp)
@@ -115,7 +116,7 @@ subroutine olam_mem_alloc()
 
       if (nudnxp == 0) mwnud = mwa
 
-      call alloc_nudge2(mza)
+      call alloc_nudge2(mza,mwa)
       call filltab_nudge()
   endif
 
@@ -135,6 +136,10 @@ subroutine olam_mem_alloc()
 
   call alloc_tend(mza,mva,mwa,naddsc,nccntyp)
   call filltab_tend(naddsc,nccntyp)
+
+! Extra memory for prog_wrtv
+
+  call alloc_prog_wrtv_mem()
 
 ! Extra memory for Thuburn's monotonic advection or positive definite scheme
 

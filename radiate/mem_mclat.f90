@@ -449,14 +449,14 @@ Contains
   subroutine mclat_copy(jday)
 
     implicit none
-   
+
     integer, intent(in) :: jday
 
     integer :: lv
     integer :: lf
 
     real :: fjday
-   
+
 ! Interpolate arctic, sub-arctic, mid-latitude, and subtropical, Mclatchy
 ! soundings between summer and winter values by time of year using cosine
 ! function.  Assume that extreme values occur on January 16 and 1/2 year later.
@@ -491,7 +491,7 @@ Contains
   subroutine mclat_spline(jday)
 
     implicit none
-    
+
     integer, intent(in) :: jday
 
     integer :: lv, lf, ii
@@ -552,7 +552,7 @@ Contains
     ! Local array
     real :: mcol(33,6)
 
-    integer :: lv, lf, k, kadd
+    integer :: k, kadd
     real    :: deltaz, tavg
     logical :: do_o3col
 
@@ -595,8 +595,8 @@ Contains
     else
        do_o3col = .true.
     endif
-    
-    ! If we want ozone column, interpolate O3 from Mclatchy sounding 
+
+    ! If we want ozone column, interpolate O3 from Mclatchy sounding
     ! to all levels in the radiation column.
 
     if (do_o3col) then
@@ -619,7 +619,7 @@ Contains
        endif
 
        ! Compute pressure and density added levels by hydrostatic integration.
-   
+
        do k = kadd, nrad
           tavg = 0.5 * (tl(k)+tl(k-1))
           pl(k) = pl(k-1) * exp( -gordry * (ztl(k) - ztl(k-1)) / tavg )

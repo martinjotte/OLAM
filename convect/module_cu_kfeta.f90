@@ -51,7 +51,7 @@ CONTAINS
    use misc_coms,   only: io6
    use mem_cuparm,  only: thsrc, rtsrc, conprr, kcutop, kcubot, cbmf, &
                           qwcon, iactcu, kddtop, cddf, rdsrc
-   use mem_basic,   only: tair, press, rho, vxe, vye, vze, sh_v, wc, theta
+   use mem_basic,   only: tair, press, rho, vxe, vye, vze, rr_v, wc, theta
    use mem_ijtabs,  only: itab_w
    use consts_coms, only: erad
 
@@ -116,7 +116,7 @@ CONTAINS
 
       t1d  (kt) = tair (k,iw)
       rho1d(kt) = rho  (k,iw)
-      qv1d (kt) = sh_v (k,iw)
+      qv1d (kt) = rr_v (k,iw)
       p1d  (kt) = press(k,iw)
       dz1d (kt) = dzt  (k)
       mass (kt) = volt (k,iw) * rho(k,iw)

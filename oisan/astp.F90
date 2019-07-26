@@ -143,7 +143,7 @@ elseif (fform == 'HD5') then
       call shdf5_irec(ndims, idims, 'dy'     ,rvars=gdatdy)
       call shdf5_irec(ndims, idims, 'reflat1',rvars=cntlat)
       call shdf5_irec(ndims, idims, 'reflat2',rvars=secondlat)
-      
+
       idims(1) = nprz
       call shdf5_irec(ndims, idims, 'levels' ,ivar1=levpr)
 
@@ -208,7 +208,7 @@ elseif (fform == 'HD5') then
          call MPI_Unpack(buffer, isize, bytes, gdatdy    , 1, MPI_REAL   , MPI_COMM_WORLD, ier)
          call MPI_Unpack(buffer, isize, bytes, cntlat    , 1, MPI_REAL   , MPI_COMM_WORLD, ier)
          call MPI_Unpack(buffer, isize, bytes, secondlat , 1, MPI_REAL   , MPI_COMM_WORLD, ier)
-         
+
       endif
 
       call MPI_Bcast(levpr, nprz, MPI_INTEGER, 0, MPI_COMM_WORLD, ier)
@@ -375,7 +375,7 @@ real, intent(inout) :: p_prsfc(nprx+4,npry+4)
 real, intent(inout) :: p_tsfc (nprx+4,npry+4)
 real, intent(inout) :: p_shsfc(nprx+4,npry+4)
 
-real :: thmax,thmin,vapor_press,qmax
+real :: thmax,thmin,vapor_press,qmax,fac,rr
 integer :: i,j,k,iunit
 logical :: isrh, doconvert
 
@@ -405,8 +405,8 @@ if (.not. isrh) then
 
    ! Old RALPH files should have specific humidity in g/kg
    doconvert = .true.
-   
-   ! New HDF files should also be in g/kg, but if the grib file had a 
+
+   ! New HDF files should also be in g/kg, but if the grib file had a
    ! nonstandard name for humidity, grib2olam might not have converted
    ! the units properly. Check the magnitude of humdity to guess the units.
    ! This will be changed when we write the units to the degribbed file!
@@ -424,28 +424,41 @@ if (.not. isrh) then
 
    if (doconvert) then
 
-      ! Convert specific humidity to kg/kg units
+      ! Convert g/kg specific humidity to kg/kg mixing ratio
+      fac = 0.001
 
       write(io6, *) ''
-      write(io6, *) 'Converting specific humidity to kg/kg'
+      write(io6, *) 'Converting g/kg specific humidity to kg/kg mixing ratio'
 
-      do k = 1,nprz
-         do j = 1,npry+4
-            do i = 1,nprx+4
-               p_r(i,j,k) = .001 * p_r(i,j,k)
-            enddo
-         enddo
-      enddo
+   else
+
+      ! convert specific humiity to mixing ratio
+      fac = 1.0
+
+      write(io6, *) ''
+      write(io6, *) 'Converting specific humidity to mixing ratio'
 
    endif
+
+   !$omp parallel do private(j,i,rr)
+   do k = 1,nprz
+      do j = 1,npry+4
+         do i = 1,nprx+4
+            rr = fac * p_r(i,j,k)
+            p_r(i,j,k) = rr / (1. - rr)
+         enddo
+      enddo
+   enddo
+   !$omp end parallel do
 
 else
 
    ! Convert R.H. to specific humidity
 
    write(io6, *) ''
-   write(io6, *) 'Converting relative humidity to specific humidity'
+   write(io6, *) 'Converting relative humidity to mixing ratio'
 
+   !$omp parallel do private(j,i,vapor_press)
    do k = 1,nprz
       do j = 1,npry+4
          do i = 1,nprx+4
@@ -457,16 +470,16 @@ else
 
             ! Do not allow vapor pressure to exceed ambient pressure
 
-            vapor_press = min(pnpr(k),vapor_press)
+            vapor_press = min( 0.9*pnpr(k), vapor_press )
 
-            ! Compute specific humidity from vapor press and ambient press
+            ! Compute mixing ratio from vapor press and ambient press
 
             p_r(i,j,k) = eps_vap * vapor_press &
-                 / (pnpr(k) + vapor_press * (eps_vap - 1.))
-
+                       / ( pnpr(k) - vapor_press )
          enddo
       enddo
    enddo
+   !$omp end parallel do
 
 endif
 
@@ -724,7 +737,7 @@ elseif (fform == 'HD5') then
       call prfill3(nprx,npry,nprz,as3,p_v,gdatdy,xswlat,ipoffset,inproj)
 
    endif
-   
+
 #ifdef OLAM_MPI
    if (iparallel == 1) then
       call MPI_Bcast( p_v, (nprx+4)*(npry+4)*nprz, MPI_REAL, 0, MPI_COMM_WORLD, ier )
@@ -771,10 +784,10 @@ elseif (fform == 'HD5') then
          isrh = .false.
          call shdf5_irec(ndims, idims,'SHV',rvar3 = as3)
          call prfill3(nprx,npry,nprz,as3,p_r,gdatdy,xswlat,ipoffset,inproj)
-     
+
       else
-      
-   ! Read relative humidity if we don't have specific humidity, 
+
+   ! Read relative humidity if we don't have specific humidity,
    ! It may be called RELHUM or RH
 
          varname = 'RH'
@@ -818,7 +831,7 @@ elseif (fform == 'HD5') then
 #ifdef OLAM_MPI
    if (iparallel == 1) then
       call MPI_Bcast( haso3, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ier )
-         
+
       if (haso3) then
          call MPI_Bcast( p_o, (nprx+4)*(npry+4)*nprz, MPI_REAL, 0, MPI_COMM_WORLD, ier )
       endif
@@ -862,8 +875,8 @@ enddo
 
 ! Special for GDF text files:
 ! The old ralph format does not differentiate between specific humidity
-! and relative humidity. We assume that if the maximum of the humidity 
-! variable is greater than 1.1 (which allows for some machine roundoff), 
+! and relative humidity. We assume that if the maximum of the humidity
+! variable is greater than 1.1 (which allows for some machine roundoff),
 ! it is specific humidity (in g/kg), else it is relative humidity
 
 if (fform == 'GDF') then
@@ -888,7 +901,7 @@ if (haso3) then
          exit
       endif
    enddo
-   
+
    if (nbot_o3 == 0) haso3 = .false.
 endif
 

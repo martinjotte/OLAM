@@ -31,10 +31,10 @@
 
 !===============================================================================
 
-subroutine nudge_prep_obs(iaction, o_rho, o_theta, o_shv, o_uzonal, o_umerid)
+subroutine nudge_prep_obs(iaction, o_rho, o_theta, o_rrw, o_uzonal, o_umerid)
 
-use mem_nudge,   only: rho_obsp, theta_obsp, shw_obsp, &
-                       rho_obsf, theta_obsf, shw_obsf, &
+use mem_nudge,   only: rho_obsp, theta_obsp, rrw_obsp, &
+                       rho_obsf, theta_obsf, rrw_obsf, &
                        uzonal_obsp, umerid_obsp,       &
                        uzonal_obsf, umerid_obsf
 
@@ -47,7 +47,7 @@ implicit none
 integer,  intent(in) :: iaction
 real(r8), intent(in) :: o_rho   (mza,mwa)
 real,     intent(in) :: o_theta (mza,mwa)
-real,     intent(in) :: o_shv   (mza,mwa)
+real,     intent(in) :: o_rrw   (mza,mwa)
 real,     intent(in) :: o_uzonal(mza,mwa)
 real,     intent(in) :: o_umerid(mza,mwa)
 integer              :: j,iw,k
@@ -66,7 +66,7 @@ if (iaction == 1) then
       do k = lpw(iw), mza
             rho_obsp(k,iw) =    rho_obsf(k,iw)
           theta_obsp(k,iw) =  theta_obsf(k,iw)
-            shw_obsp(k,iw) =    shw_obsf(k,iw)
+            rrw_obsp(k,iw) =    rrw_obsf(k,iw)
          uzonal_obsp(k,iw) = uzonal_obsf(k,iw)
          umerid_obsp(k,iw) = umerid_obsf(k,iw)
 
@@ -89,7 +89,7 @@ do j = 1, jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
    do k = lpw(iw), mza
          rho_obsf(k,iw) = o_rho   (k,iw)
        theta_obsf(k,iw) = o_theta (k,iw)
-         shw_obsf(k,iw) = o_shv   (k,iw)
+         rrw_obsf(k,iw) = o_rrw   (k,iw)
       uzonal_obsf(k,iw) = o_uzonal(k,iw)
       umerid_obsf(k,iw) = o_umerid(k,iw)
    enddo
@@ -104,40 +104,38 @@ end subroutine nudge_prep_obs
 
 !===========================================================================
 
-subroutine obs_nudge(rhot)
+subroutine obs_nudge()
 
-use mem_nudge, only:   tnudcent,                                       &
+use mem_nudge, only:   tnudcent, rhot_nud,                 &
                         rho_obs, rho_obsp,    rho_obsf,    &
                       theta_obs, theta_obsp,  theta_obsf,  &
-                        shw_obs, shw_obsp,    shw_obsf,    &
+                        rrw_obs, rrw_obsp,    rrw_obsf,    &
                      uzonal_obs, uzonal_obsp, uzonal_obsf, &
                      umerid_obs, umerid_obsp, umerid_obsf
 
-use mem_basic,   only: rho, theta, sh_w, vxe, vye, vze
-use mem_grid,    only: mza, mwa, lpw, xew, yew, zew
+use mem_basic,   only: rho, theta, rr_w, vxe, vye, vze
+use mem_grid,    only: mza, lpw, xew, yew, zew
 use misc_coms,   only: s1900_sim, dtlm
 use mem_ijtabs,  only: istp, itab_w, jtab_w, mrl_begl, jtw_prog
 use consts_coms, only: eradi
-use mem_tend,    only: thilt, sh_wt, vmxet, vmyet, vmzet
+use mem_tend,    only: thilt, rr_wt, vmxet, vmyet, vmzet
 use isan_coms,   only: ifgfile, s1900_fg
 use olam_mpi_atm,only: mpi_send_w, mpi_recv_w
 use oname_coms,  only: nl
+use var_tables,  only: num_scalar, scalar_tab
 
 implicit none
 
-! Nudge selected model fields (rho, thil, sh_w, vmc) to observed data
-! using polygon filtering
+! Nudge selected model fields (rho, thil, rr_w, vmc) to observed data
 
-real, intent(inout) :: rhot(mza,mwa)
-
-integer :: j, iw, k, mrl
+integer :: j, iw, k, mrl, n
 
 real :: umzonalt(mza)
 real :: ummeridt(mza)
 real :: uzonal  (mza)
 real :: umerid  (mza)
 
-real :: tp,tf,tnudi,tnudirho
+real :: tp,tf,tnudi,rho4,dti,rrw_nudget
 real :: raxis,raxisi,uvtr
 
 !----------------------------------------------------------------------
@@ -148,9 +146,9 @@ real :: raxis,raxisi,uvtr
 !
 !if (icall /= 1) then
 !   icall = 1
-!   
+!
 !   allocate (wtnud(mwa))
-!   
+!
 !! Horizontal loop over T points
 !
 !   do iw = 2, mwa
@@ -160,10 +158,10 @@ real :: raxis,raxisi,uvtr
 !      wtnud(iw) = 1.
 !
 !! Sample code for modifying nudging weight
-!      
+!
 !! Transform current IW point to polar stereographic coordinates using specified
 !! pole point location (pole point lat/lon = 4th & 5th arguments of e_ps)
-!   
+!
 !      call e_ps(xew(iw),yew(iw),zew(iw),37.,-117.,xw,yw)
 !
 !      dist = sqrt(xw ** 2 + yw ** 2)
@@ -197,7 +195,7 @@ tp = 1. - tf
 
 !----------------------------------------------------------------------
 !$omp parallel private(uzonal,umerid,umzonalt,ummeridt)
-!$omp do private(iw,raxis,raxisi,k,tnudi,tnudirho,uvtr)
+!$omp do private(iw,raxis,raxisi,k,tnudi,uvtr,rho4,dti,rrw_nudget,n)
 do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !---------------------------------------------------------------------
 
@@ -230,7 +228,7 @@ do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
    do k = lpw(iw), mza
          rho_obs(k,iw) = tp *    rho_obsp(k,iw) + tf *    rho_obsf(k,iw)
        theta_obs(k,iw) = tp *  theta_obsp(k,iw) + tf *  theta_obsf(k,iw)
-         shw_obs(k,iw) = tp *    shw_obsp(k,iw) + tf *    shw_obsf(k,iw)
+         rrw_obs(k,iw) = tp *    rrw_obsp(k,iw) + tf *    rrw_obsf(k,iw)
       uzonal_obs(k,iw) = tp * uzonal_obsp(k,iw) + tf * uzonal_obsf(k,iw)
       umerid_obs(k,iw) = tp * umerid_obsp(k,iw) + tf * umerid_obsf(k,iw)
    enddo
@@ -241,30 +239,29 @@ do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !  tnudi = wtnud(iw) / tnudcent
    tnudi = 1.0 / tnudcent
 
+   dti = 1.0 / real(dtlm(itab_w(iw)%mrlw))
+
 ! Compute nudging tendencies, interpolating observational fields in time
 
    do k = lpw(iw), mza
 
-      tnudirho = tnudi * rho(k,iw)
+      ! single precision density
+      rho4 = rho(k,iw)
 
-          rhot(k,iw) = rhot(k,iw) &
-                     + tnudi * (rho_obs(k,iw) - rho(k,iw))
+      rhot_nud(k,iw) = tnudi * (rho_obs(k,iw) - rho4)
 
-         thilt(k,iw) = thilt(k,iw) &
-                     + tnudirho * (theta_obs(k,iw) - theta(k,iw))
-                 
-         sh_wt(k,iw) = sh_wt(k,iw) &
-                     + tnudirho * (shw_obs(k,iw) - sh_w(k,iw))
+      thilt(k,iw) = thilt(k,iw) &
+                  + tnudi * (rho_obs(k,iw) *  theta_obs(k,iw) - rho4 * theta(k,iw))
 
-      umzonalt(k)    = tnudirho * (uzonal_obs(k,iw) - uzonal(k))
+      umzonalt(k) = tnudi * (rho_obs(k,iw) * uzonal_obs(k,iw) - rho4 * uzonal(k))
 
-      ummeridt(k)    = tnudirho * (umerid_obs(k,iw) - umerid(k))
+      ummeridt(k) = tnudi * (rho_obs(k,iw) * umerid_obs(k,iw) - rho4 * umerid(k))
 
-      ! With nudging, scalar mass is no longer conserved. Make sure the long timestep
-      ! tendency does not drive humidity negative when nudging is included:
+      rrw_nudget  = tnudi * rho4 * (rrw_obs(k,iw) - rr_w(k,iw))
 
-      sh_wt(k,iw) = max( sh_wt(k,iw), &
-           -0.999 * max(sh_w(k,iw), 0.0) * real( rho(k,iw) / dtlm(itab_w(iw)%mrlw) ) )
+      rrw_nudget  = max(rrw_nudget, -.99 * max(rr_w(k,iw) * rho4 * dti + rr_wt(k,iw), 0.))
+
+      rr_wt(k,iw) = rr_wt(k,iw) + rrw_nudget
 
    enddo
 
@@ -273,7 +270,21 @@ do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
          uvtr = -ummeridt(k) * zew(iw) * eradi
          vmxet(k,iw) = vmxet(k,iw) + (-umzonalt(k) * yew(iw) + uvtr * xew(iw)) * raxisi
          vmyet(k,iw) = vmyet(k,iw) + ( umzonalt(k) * xew(iw) + uvtr * yew(iw)) * raxisi
-         vmzet(k,iw) = vmzet(k,iw) +   ummeridt(k) * raxis * eradi 
+         vmzet(k,iw) = vmzet(k,iw) +   ummeridt(k) * raxis * eradi
+      enddo
+   endif
+
+! If we want to preserve scalar mixing ratios, compensate for the density nudging by
+! addings/subtracting a comparable amount of scalar mass
+
+   if (nl%nud_preserve_mix_ratio) then
+      do n = 1, num_scalar
+
+         do k = lpw(iw), mza
+            scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
+                                      + scalar_tab(n)%var_p(k,iw) * rhot_nud(k,iw)
+         enddo
+
       enddo
    endif
 

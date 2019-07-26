@@ -36,7 +36,7 @@ Module mem_cuparm
    use consts_coms, only: r8
 
    real,    allocatable :: thsrc (:,:) ! heat / cp  tend ( rho X temp )
-   real,    allocatable :: rtsrc (:,:) ! water mass tend ( rho X sh_w )
+   real,    allocatable :: rtsrc (:,:) ! water mass tend ( rho X rr_w )
    real,    allocatable :: rdsrc (:,:) ! density tend (water loss from precip)
    real(r8),allocatable :: aconpr  (:)
    real,    allocatable :: conprr  (:)

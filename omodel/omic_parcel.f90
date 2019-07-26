@@ -35,9 +35,9 @@ subroutine parcel_env(iw)
 ! This subroutine specifies environmental parameters (pressure, etc.) as
 ! a function of time for parcel simulations
 
-  use mem_basic,   only: thil, press, wc, rho, sh_w, sh_v, theta
+  use mem_basic,   only: thil, press, wc, rho, rr_w, rr_v, theta
 
-  use mem_micro,   only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, &
+  use mem_micro,   only: rr_c, rr_d, rr_r, rr_p, rr_s, rr_a, rr_g, rr_h, &
                          q2, q6, q7
 
   use misc_coms,   only: time8, timmax8, dtlm
@@ -79,8 +79,8 @@ subroutine parcel_env(iw)
      press(k,iw) = press(k,iw) * (1. - dtlm(1) * .0005)
 
      rho(k,iw) = press(k,iw) ** cvocp * p00k &
-               / (theta(k,iw) * (1. - sh_c(k,iw)) &
-               * (rdry * (1. - sh_w(k,iw)) + rvap * sh_v(k,iw)))
+               / (theta(k,iw) * (1. - rr_c(k,iw)) &
+               * (rdry * (1. - rr_w(k,iw)) + rvap * rr_v(k,iw)))
 
   elseif (nl%test_case == 902) then
 
@@ -112,12 +112,12 @@ subroutine parcel_env(iw)
      addrain = .006
 
      if (real(time8) < .1) then
-        sh_w(k,iw) = sh_w(k,iw) + addrain
-        sh_r(k,iw) = sh_r(k,iw) + addrain
+        rr_w(k,iw) = rr_w(k,iw) + addrain
+        rr_r(k,iw) = rr_r(k,iw) + addrain
         q2(k,iw) = 334000. ! + 24. * 4186.
 
         thildif = - thil(k,iw) * thil(k,iw) &
-                * (2820. * addrain - cpi * (q2(k,iw) * sh_r(k,iw) ))  &
+                * (2820. * addrain - cpi * (q2(k,iw) * rr_r(k,iw) ))  &
                 / (max(tairk, 253.) * theta(k,iw))
 
         thil(k,iw) = thil(k,iw) + thildif
@@ -126,12 +126,12 @@ subroutine parcel_env(iw)
      addhail = .006
 
      if (real(time8) >= 1499. .and. real(time8) <= 1505.) then
-        sh_w(k,iw) = sh_w(k,iw) + addhail
-        sh_h(k,iw) = sh_h(k,iw) + addhail
+        rr_w(k,iw) = rr_w(k,iw) + addhail
+        rr_h(k,iw) = rr_h(k,iw) + addhail
         q7(k,iw) = 0.
 
         thildif = - thil(k,iw) * thil(k,iw) &
-           * (2820. * addhail - cpi * (q7(k,iw) * sh_h(k,iw) )) &
+           * (2820. * addhail - cpi * (q7(k,iw) * rr_h(k,iw) )) &
            / (max(tairk, 253.) * theta(k,iw))
  
         thil(k,iw) = thil(k,iw) + thildif
@@ -145,32 +145,32 @@ subroutine parcel_env(iw)
      press(k,iw) = press(k,iw) * (1. - dtlm(1) * .0001) ! This represents approximately 0.8 m/s ascent rate
 
      rho(k,iw) = press(k,iw) ** cvocp * p00k &
-               / (theta(k,iw) * (1. - sh_c(k,iw)) &
-               * (rdry * (1. - sh_w(k,iw)) + rvap * sh_v(k,iw)))
+               / (theta(k,iw) * (1. - rr_c(k,iw)) &
+               * (rdry * (1. - rr_w(k,iw)) + rvap * rr_v(k,iw)))
 
   elseif (nl%test_case == 904) then
 
      press(k,iw) = press(k,iw) * (1. - dtlm(1) * .0002) ! This represents approximately 1.6 m/s ascent rate
 
      rho(k,iw) = press(k,iw) ** cvocp * p00k &
-               / (theta(k,iw) * (1. - sh_c(k,iw)) &
-               * (rdry * (1. - sh_w(k,iw)) + rvap * sh_v(k,iw)))
+               / (theta(k,iw) * (1. - rr_c(k,iw)) &
+               * (rdry * (1. - rr_w(k,iw)) + rvap * rr_v(k,iw)))
 
   elseif (nl%test_case == 905) then
 
      press(k,iw) = press(k,iw) * (1. - dtlm(1) * .0005) ! This represents approximately 4 m/s ascent rate
 
      rho(k,iw) = press(k,iw) ** cvocp * p00k &
-               / (theta(k,iw) * (1. - sh_c(k,iw)) &
-               * (rdry * (1. - sh_w(k,iw)) + rvap * sh_v(k,iw)))
+               / (theta(k,iw) * (1. - rr_c(k,iw)) &
+               * (rdry * (1. - rr_w(k,iw)) + rvap * rr_v(k,iw)))
 
   elseif (nl%test_case == 906) then
 
      press(k,iw) = press(k,iw) * (1. - dtlm(1) * .0015) ! This represents approximately 12 m/s ascent rate
 
      rho(k,iw) = press(k,iw) ** cvocp * p00k &
-               / (theta(k,iw) * (1. - sh_c(k,iw)) &
-               * (rdry * (1. - sh_w(k,iw)) + rvap * sh_v(k,iw)))
+               / (theta(k,iw) * (1. - rr_c(k,iw)) &
+               * (rdry * (1. - rr_w(k,iw)) + rvap * rr_v(k,iw)))
 
   endif
 
@@ -232,8 +232,8 @@ subroutine parcel_plot(k,kend,mza0,iw0,ncat,dtli0,jhcat,rx,cx,emb,qx,tx,vap, &
   real, intent(in) :: rhov     (mza0)
   real, intent(in) :: rhoi     (mza0)
 
-  real(r8), intent(in) :: rhoa(mza0)
-  real(r8), intent(in) :: rhow(mza0)
+  real, intent(in) :: rhoa(mza0)
+  real, intent(in) :: rhow(mza0)
 
   real, intent(in) :: rnuc_vc       (mza0)
   real, intent(in) :: rnuc_vd       (mza0)

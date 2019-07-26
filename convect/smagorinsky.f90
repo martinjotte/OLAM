@@ -47,7 +47,7 @@ contains
     use mem_grid,    only: mza, lpw, dzim, dzit, zm, volt, arw, lsw, volti, zm, &
                            arw0, dzm, dzimsq, dzt_bot
     use misc_coms,   only: idiffk, csx, csz, dtlm
-    use mem_basic,   only: rho, vxe, vye, vze, thil, theta, tair, sh_w, sh_v
+    use mem_basic,   only: rho, vxe, vye, vze, thil, theta, tair, rr_w, rr_v
     use consts_coms, only: vonk, grav, grav2, eps_virt, cpio2
     use mem_tend,    only: vmxet, vmyet, vmzet, thilt
     use var_tables,  only: num_scalar, scalar_tab
@@ -55,7 +55,7 @@ contains
     use oname_coms,  only: nl
     use buoyancy,    only: comp_buoy
     use grad_lib,    only: comp_vel_grads_ec
-    use supercell_testm, only: vxe_init, vye_init, vze_init, thil_init, sh_w_init
+    use supercell_testm, only: vxe_init, vye_init, vze_init, thil_init, rr_w_init
 
     implicit none
 
@@ -139,8 +139,8 @@ contains
     ! Virtual potential temperature
 
     do k = ka, mza
-       ql = sh_w(k,iw) - sh_v(k,iw)
-       thetav(k) = theta(k,iw) * (1.0 + eps_virt * sh_v(k,iw) - ql)
+       ql = rr_w(k,iw) - rr_v(k,iw)
+       thetav(k) = theta(k,iw) * (1.0 + eps_virt * rr_v(k,iw) - ql)
     enddo
 
     ! Include surface shear at first level?
@@ -360,12 +360,12 @@ contains
           rhs(k,n) = akodz(k) * (varp(k) - varp(k+1))
        enddo
 
-       ! For supercell test case, for sh_w, subtract gradient of initial field
+       ! For supercell test case, for rr_w, subtract gradient of initial field
 
        if (nl%test_case == 131) then
-          if (scalar_tab(n)%name == 'SH_W') then
+          if (scalar_tab(n)%name == 'RR_W') then
              do k = ka, mza-1
-                rhs(k,n) = rhs(k,n) - akodz(k) * (sh_w_init(k,iw) - sh_w_init(k+1,iw))
+                rhs(k,n) = rhs(k,n) - akodz(k) * (rr_w_init(k,iw) - rr_w_init(k+1,iw))
              enddo
           endif
        endif

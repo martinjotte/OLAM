@@ -328,7 +328,7 @@ C-----------------------------------------------------------------------
       USE CONST_DATA
       use GETPAR_MOD, only: getpar
       USE SOA_DEFN,   only: n_vapor, soa_aeroMap
-      use mem_basic,  only: tair, rho, press, sh_v
+      use mem_basic,  only: tair, rho, press, rr_v
       use mem_grid,   only: mza, lpw
       use cgrid_defn, only: cgrid
       use therm_lib,  only: rhovsl
@@ -720,7 +720,7 @@ C     also converts dry surface area to wet second moment
                AIRTEMP   = tair(k,iw)
                tairc     = tair(k,iw) - 273.15
                rhovslair = rhovsl(tairc)
-               airrh     = max( 0.005, min( 0.99, sh_v(k,iw) * real(rho(k,iw)) / rhovslair ) )
+               airrh     = max( 0.005, min( 0.99, rr_v(k,iw) * real(rho(k,iw)) / rhovslair ) )
                sqrt_tair = sqrt(tair(k,iw))
 
 C *** to compute molecular kinetic factors

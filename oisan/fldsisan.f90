@@ -30,31 +30,35 @@
    !----------------------------------------------------------------------------
 
 !===============================================================================
-subroutine fldsisan(o_rho, o_theta, o_shv, o_vc, o_ozone)
+subroutine fldsisan(o_press, o_rho, o_theta, o_rrw, o_uzonal, o_umerid, o_ozone)
 
-use mem_basic,   only: vmc, vmp, vc, vp, thil, sh_w, sh_v, &
+use mem_basic,   only: vmc, vmp, vc, vp, thil, rr_w, rr_v, &
                        wmc, wc, theta, tair, rho, press
-use mem_grid,    only: mza, mva, mwa, lpv, lpw, zm, zt
-use misc_coms,   only: io6, deltax, iparallel, runtype
-use mem_micro,   only: sh_c
-use micro_coms,  only: miclevel
-use mem_ijtabs,  only: jtab_v, jtab_w, itab_v, itab_w, jtv_init, jtw_init
-use consts_coms, only: r8, pc1, rdry, rvap, cpocv, rocp, p00i
+use mem_grid,    only: mza, mwa, lpv, lpw, zm, zt, xev, yev, zev, &
+                       vnx, vny, vnz
+use misc_coms,   only: io6, iparallel
+use mem_micro,   only: rr_c, con_c, cldnum
+use micro_coms,  only: miclevel, ccnparm, jnmb, rxmin, zfactor_ccn
+use mem_ijtabs,  only: jtab_v, jtab_w, itab_v, jtv_init, jtw_init
+use consts_coms, only: r8, rocp, t00, p00i, alvlocp, eradi
 use var_tables,  only: num_var, vtab_r
 use olam_mpi_atm,only: mpi_send_w, mpi_recv_w, mpi_send_v, mpi_recv_v
-
-use obnd,         only: lbcopy_v, lbcopy_w
+use obnd,        only: lbcopy_v, lbcopy_w
+use therm_lib,   only: rhovsl
 
 implicit none
 
+real(r8), intent(in) :: o_press (mza,mwa)
 real(r8), intent(in) :: o_rho   (mza,mwa)
 real,     intent(in) :: o_theta (mza,mwa)
-real,     intent(in) :: o_shv   (mza,mwa)
-real,     intent(in) :: o_vc    (mza,mva)
+real,     intent(in) :: o_rrw   (mza,mwa)
+real,     intent(in) :: o_uzonal(mza,mwa)
+real,     intent(in) :: o_umerid(mza,mwa)
 real,     intent(in) :: o_ozone (mza,mwa)
 
 integer :: j,iw,k,ka,iv,iw1,iw2,mrl,n
-real    :: alph_p
+real    :: ccn
+real    :: raxis,raxisi,ug,vg,uvgr,uvgx,uvgy,uvgz
 
 ! If initializing the model, fill the main model arrays
 ! and initialize related arrays
@@ -65,32 +69,34 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 
    ka = lpw(iw)
 
-   wc (1:ka-1,iw) = 0.0
-   wmc(1:ka-1,iw) = 0.0
+   wc (1:mza,iw) = 0.0
+   wmc(1:mza,iw) = 0.0
 
-   do k = ka,mza
-
-      rho  (k,iw) = o_rho(k,iw)
-      theta(k,iw) = o_theta(k,iw)
-      sh_v (k,iw) = o_shv(k,iw)
-
-      thil(k,iw) = theta(k,iw)
-      sh_w(k,iw) = sh_v(k,iw)   ! no condensate considered here
-      if (miclevel > 1) then
-         sh_c(k,iw) = 0.        ! no condensate considered here
+   if (miclevel == 3 .and. jnmb(1) == 5) then
+      if (ccnparm > 1.e6) then
+         ccn = ccnparm
+      else
+         ccn = cldnum(iw)
       endif
+   endif
 
-! alph_p is like alpha_press except that the (theta/thil) factor is excluded
-! here (it's equal to 1)
+   do k = ka, mza
 
-      alph_p = pc1 * (((1. - sh_w(k,iw)) * rdry + sh_v(k,iw) * rvap)) ** cpocv
+      rho  (k,iw) = o_rho  (k,iw)
+      rr_w (k,iw) = o_rrw  (k,iw)
+      theta(k,iw) = o_theta(k,iw)
+      press(k,iw) = o_press(k,iw)
+      tair (k,iw) = o_theta(k,iw) * (real(press(k,iw)) * p00i) ** rocp
 
-      press(k,iw) = alph_p * (rho(k,iw) * thil(k,iw)) ** cpocv
-
-      tair(k,iw) = theta(k,iw) * (press(k,iw) * p00i) ** rocp
-
-      wc(k,iw) = 0.
-      wmc(k,iw) = 0.
+      if (miclevel <= 1) then
+         rr_v(k,iw) = o_rrw(k,iw)
+         thil(k,iw) = theta(k,iw)
+      else
+         rr_c(k,iw) = max(0., o_rrw(k,iw) - rhovsl(tair(k,iw)-t00) / real(rho(k,iw)))
+         rr_v(k,iw) = o_rrw(k,iw) - rr_c(k,iw)
+         thil(k,iw) = theta(k,iw) / (1. + alvlocp * rr_c(k,iw) / &
+                                        ((1.0 + rr_c(k,iw)) * max(tair(k,iw),253.)))
+      endif
 
    enddo
 
@@ -111,6 +117,26 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
       thil(k,iw) = thil(ka,iw)
    enddo
 
+   ! If there is initial cloud water and we are prognosing cloud number,
+   ! initialize con_c based on default CCN. This can be overwriten later
+   ! if we read in geos-chem or CMAQ CCN.
+
+   if (miclevel == 3 .and. jnmb(1) == 5) then
+      if (ccnparm > 1.e6) then
+         ccn = ccnparm
+      else
+         ccn = cldnum(iw)
+      endif
+
+      do k = ka, mza
+         if (rr_c(k,iw) > rxmin(1)) then
+            con_c(k,iw) = ccn * real(rho(k,iw)) * zfactor_ccn(k)
+         else
+            con_c(k,iw) = 0.0
+         endif
+      enddo
+   endif
+
 enddo
 
 ! LBC copy (THETA and TAIR and OZONE will be copied later with the scalars)
@@ -129,16 +155,37 @@ call lbcopy_w(1, a1=wc, a2=wmc, a3=thil, d1=press, d2=rho)
 ! Initialize VMC, VC
 
 !----------------------------------------------------------------------
+!$omp parallel do private(iv,iw1,iw2,ka,raxis,raxisi,k,ug,vg,uvgr,uvgx,uvgy,uvgz)
 do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)
    iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
 !----------------------------------------------------------------------
 
    ka = lpv(iv)
 
-   do k = ka,mza
-      vc(k,iv) = o_vc(k,iv)
-      vmc(k,iv) = vc(k,iv) * .5 * (rho(k,iw1) + rho(k,iw2))
-   enddo
+   raxis = sqrt(xev(iv) ** 2 + yev(iv) ** 2)  ! dist from earth axis
+
+! Average winds to V point and rotate at V point
+
+   if (raxis > 1.e3) then
+      raxisi = 1. / raxis
+
+      do k = ka, mza
+         ug = .5 * (o_uzonal(k,iw1) + o_uzonal(k,iw2))
+         vg = .5 * (o_umerid(k,iw1) + o_umerid(k,iw2))
+
+         uvgr = -vg * zev(iv) * eradi  ! radially outward from axis
+
+         uvgx = (-ug * yev(iv) + uvgr * xev(iv)) * raxisi
+         uvgy = ( ug * xev(iv) + uvgr * yev(iv)) * raxisi
+         uvgz =   vg * raxis * eradi
+
+         vc (k,iv) = uvgx * vnx(iv) + uvgy * vny(iv) + uvgz * vnz(iv)
+         vmc(k,iv) = vc(k,iv) * 0.5 * real(rho(k,iw1) + rho(k,iw2))
+      enddo
+   else
+      vc (ka,iv) = 0.
+      vmc(ka,iw) = 0.
+   endif
 
 ! For below-ground points, set VC to 0
 
@@ -146,7 +193,8 @@ do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)
    vmc(1:ka-1,iv) = 0.
 
 enddo
-   
+!$omp end parallel do
+
 ! MPI parallel send/recv of V group
 
 if (iparallel == 1) then
@@ -172,18 +220,17 @@ write(io6,*)' '
 write(io6,*)'========================================================================'
 write(io6,*)'                    OLAM INITIAL STATE COLUMN (vari)'
 write(io6,*)'========================================================================'
-write(io6,*)'   zm(m)    k     zt(m)   press(Pa)   rho(kg/m3)   theta(K)   sh_w(g/kg)'
+write(io6,*)'   zm(m)    k     zt(m)   press(Pa)   rho(kg/m3)   theta(K)   rr_w(g/kg)'
 write(io6,*)'========================================================================'
 write(io6,*)' '
 
 do k = mza,lpw(iw),-1
    write(io6, '(f10.2,1x,9(''-------''))') zm(k)
    write(io6, '(10x,i5,f10.2,f11.2,f11.4,f12.2,f11.4)') &
-       k,zt(k),press(k,iw),rho(k,iw),theta(k,iw),sh_w(k,iw)*1.e3
+       k,zt(k),press(k,iw),rho(k,iw),theta(k,iw),rr_w(k,iw)*1.e3
 enddo
 
 write(io6, '(f10.2,1x,9(''-------''))') zm(1)
 write(io6,*)' '
 
-return
 end subroutine fldsisan

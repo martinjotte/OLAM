@@ -52,7 +52,7 @@ subroutine fields2_ll()
 ! disabled by commenting out lines of code.
 
   use mem_ijtabs,  only: itab_w, itab_v, itabg_w
-  use mem_basic,   only: vc, wc, rho, press, theta, sh_w, sh_v, &
+  use mem_basic,   only: vc, wc, rho, press, theta, rr_w, rr_v, &
                          vxe, vye, vze, tair
 
   use mem_grid,    only: mza, mva, mwa, lpv, lpw, &
@@ -94,7 +94,7 @@ subroutine fields2_ll()
 
   use mem_micro,  only: accpd, accpr, accpp, accps, accpa, accpg, accph, &
                         pcprd, pcprr, pcprp, pcprs, pcpra, pcprg, pcprh, &
-                        sh_c, sh_r
+                        rr_c, rr_r
 
   use mem_cuparm, only: aconpr
 
@@ -109,7 +109,7 @@ subroutine fields2_ll()
                               sfluxt_accum,           sfluxr_accum, &
                                   vc_accum,               wc_accum, &
                                press_accum,             tair_accum, &
-                                sh_v_accum,                         &
+                                rr_v_accum,                         &
                               vels_l_accum,                         &
                            airtemp_l_accum,         airshv_l_accum, &
                            cantemp_l_accum,         canshv_l_accum, &
@@ -705,8 +705,8 @@ subroutine fields2_ll()
         scr2a(k,iw) = 0.5 * (wc(k,iw) + wc(k-1,iw))
      enddo
 
-     scr1a(iw) = sh_v(kb,iw)
-     scr1b(iw) = sh_v(kb,iw) * rho(kb,iw) * rvap * tair(kb,iw)
+     scr1a(iw) = rr_v(kb,iw)
+     scr1b(iw) = rr_v(kb,iw) * rho(kb,iw) * rvap * tair(kb,iw)
   enddo
 
 !------------------------------------------------------------
@@ -715,9 +715,9 @@ subroutine fields2_ll()
 !------------------------------------------------------------
 
   if (allocated(w_ll))        call interp_htw_ll(npts,iws_loc,wts_loc,mza,mza-1,scr2a,w_ll)
-  if (allocated(shv_ll))      call interp_htw_ll(npts,iws_loc,wts_loc,mza,mza-1,sh_v,shv_ll)
-  if (allocated(shc_ll))      call interp_htw_ll(npts,iws_loc,wts_loc,mza,mza-1,sh_c,shc_ll)
-  if (allocated(shr_ll))      call interp_htw_ll(npts,iws_loc,wts_loc,mza,mza-1,sh_r,shr_ll)
+  if (allocated(shv_ll))      call interp_htw_ll(npts,iws_loc,wts_loc,mza,mza-1,rr_v,shv_ll)
+  if (allocated(shc_ll))      call interp_htw_ll(npts,iws_loc,wts_loc,mza,mza-1,rr_c,shc_ll)
+  if (allocated(shr_ll))      call interp_htw_ll(npts,iws_loc,wts_loc,mza,mza-1,rr_r,shr_ll)
   if (allocated(shv_lpw_ll))  call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,shv_lpw_ll)
   if (allocated(pvap_lpw_ll)) call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1b,pvap_lpw_ll)
 
@@ -1067,7 +1067,7 @@ subroutine fields2_ll()
 
         do k = kb,mza
            scr2a(k,iw) = real(tair_accum(k,iw))
-           scr2b(k,iw) = real(sh_v_accum(k,iw))
+           scr2b(k,iw) = real(rr_v_accum(k,iw))
         enddo
      enddo
 

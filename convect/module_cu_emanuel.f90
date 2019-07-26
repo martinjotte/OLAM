@@ -24,7 +24,7 @@ CONTAINS
 SUBROUTINE cuparm_emanuel(iw, dtlong)
 
   use mem_grid,    only: lpw, zm, zt, xew, yew, zew, dzt, volt, volti, arw0
-  use mem_basic,   only: tair, press, rho, sh_v, vxe, vye, vze, theta
+  use mem_basic,   only: tair, press, rho, rr_v, vxe, vye, vze, theta
   use consts_coms, only: t00, grav, eradi
   use mem_cuparm , only: thsrc, rtsrc, conprr, cbmf, vxsrc, vysrc, vzsrc, &
                          kcutop, kcubot, qwcon, iactcu, kddtop, cddf, rdsrc
@@ -71,7 +71,7 @@ SUBROUTINE cuparm_emanuel(iw, dtlong)
 
      gz (kc) = grav * (zt(k) - zt(ka)) ! geopotential height relative to 1st level
      tc (kc) = tair(k,iw)
-     qc (kc) = max(sh_v(k,iw), 1.e-10)
+     qc (kc) = max(rr_v(k,iw), 1.e-10)
      pc (kc) = 0.01  *  press(k,iw)
      pfc(kp) = 0.005 * (press(k,iw) + press(k+1,iw))
      den(kc) = rho(k,iw)

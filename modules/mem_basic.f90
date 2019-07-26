@@ -45,8 +45,8 @@ Module mem_basic
 
   real, allocatable :: wmc  (:,:) ! current vert momentum [kg/(m^2 s)]
   real, allocatable :: wc   (:,:) ! current vert velocity [m/s]
-  real, allocatable :: sh_w (:,:) ! tot water spec dens [kg_wat/kg_air]
-  real, allocatable :: sh_v (:,:) ! spec hum [kg_vap/kg_air]
+  real, allocatable :: rr_w (:,:) ! tot water spec dens [kg_wat/kg_air]
+  real, allocatable :: rr_v (:,:) ! spec hum [kg_vap/kg_air]
   real, allocatable :: thil (:,:) ! ice-liquid pot temp [K]
   real, allocatable :: theta(:,:) ! pot temp [K]
   real, allocatable :: tair (:,:)  ! temperature [K]
@@ -92,8 +92,8 @@ Contains
     allocate (thil (mza,mwa)) ; thil  = rinit
     allocate (theta(mza,mwa)) ; theta = rinit
     allocate (tair (mza,mwa)) ; tair  = rinit
-    allocate (sh_w (mza,mwa)) ; sh_w  = rinit
-    allocate (sh_v (mza,mwa)) ; sh_v  = rinit
+    allocate (rr_w (mza,mwa)) ; rr_w  = rinit
+    allocate (rr_v (mza,mwa)) ; rr_v  = rinit
 
     allocate (vxe  (mza,mwa)) ; vxe   = rinit
     allocate (vye  (mza,mwa)) ; vye   = rinit
@@ -120,8 +120,8 @@ Contains
     if (allocated(wmc))   deallocate (wmc)
     if (allocated(wc))    deallocate (wc)
     if (allocated(rho))   deallocate (rho)
-    if (allocated(sh_w))  deallocate (sh_w)
-    if (allocated(sh_v))  deallocate (sh_v)
+    if (allocated(rr_w))  deallocate (rr_w)
+    if (allocated(rr_v))  deallocate (rr_v)
     if (allocated(press)) deallocate (press)
     if (allocated(thil))  deallocate (thil)
     if (allocated(theta)) deallocate (theta)
@@ -156,9 +156,9 @@ Contains
 
     if (allocated(wc))    call increment_vtable('WC',   'AW', rvar2=wc)
 
-    if (allocated(sh_w))  call increment_vtable('SH_W', 'AW', rvar2=sh_w,  mpt1=.true.)
+    if (allocated(rr_w))  call increment_vtable('RR_W', 'AW', rvar2=rr_w,  mpt1=.true.)
 
-    if (allocated(sh_v))  call increment_vtable('SH_V', 'AW', rvar2=sh_v,  mpt1=.true.)
+    if (allocated(rr_v))  call increment_vtable('RR_V', 'AW', rvar2=rr_v,  mpt1=.true.)
 
     if (allocated(thil))  call increment_vtable('THIL', 'AW', rvar2=thil)
 

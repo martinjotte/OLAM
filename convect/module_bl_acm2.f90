@@ -374,7 +374,7 @@ contains
     use mem_grid,    only: mza, zm, zt, dzm, dzt, dzimsq, lpw, lsw
     use consts_coms, only: vonk, grav, grav2, alvl, rvap, alvlocp, eps_virt
     use mem_radiate, only: cloud_frac, pbl_cld_forc
-    use mem_basic,   only: vxe, vye, vze, sh_w, sh_v, thil, tair, theta, rho
+    use mem_basic,   only: vxe, vye, vze, rr_w, rr_v, thil, tair, theta, rho
     use mem_turb,    only: frac_sfck, ustar_k, wtv0_k, pblh, kpblh, &
                            ustar, wstar, moli
     use therm_lib,   only: rhovsl
@@ -445,8 +445,8 @@ contains
     ! Virtual potential temperature
 
     do k = lpw(iw), mza
-       ql = sh_w(k,iw) - sh_v(k,iw)
-       thetav(k) = theta(k,iw) * (1.0 + eps_virt * sh_v(k,iw) - ql)
+       ql = rr_w(k,iw) - rr_v(k,iw)
+       thetav(k) = theta(k,iw) * (1.0 + eps_virt * rr_v(k,iw) - ql)
     enddo
 
 !! Compute buoyancy terms
@@ -511,15 +511,15 @@ contains
 
     if (pbl_cld_forc(iw) > 1.e-7 .or. moli(iw) <= 0.0) then
 
-       ql = max( sh_w(kpbl, iw) - sh_v(kpbl ,iw), &
-                 sh_w(kpblm,iw) - sh_v(kpblm,iw))
+       ql = max( rr_w(kpbl, iw) - rr_v(kpbl ,iw), &
+                 rr_w(kpblm,iw) - rr_v(kpblm,iw))
        if (iactcu(iw) > 0) ql = ql + max(qwcon(kpbl,iw), qwcon(kpblm,iw))
 
        dthl = max(thil(kpbl,iw), thil(kpblp,iw), thil(kpblpp,iw)) &
             - min(thil(kpbl,iw), thil(kpblm,iw), thil(kpblmm,iw))
 
-       dqt  = min(sh_w(kpbl,iw), sh_w(kpblp,iw), sh_w(kpblpp,iw)) &
-            - max(sh_w(kpbl,iw), sh_w(kpblm,iw), sh_w(kpblmm,iw))
+       dqt  = min(rr_w(kpbl,iw), rr_w(kpblp,iw), rr_w(kpblpp,iw)) &
+            - max(rr_w(kpbl,iw), rr_w(kpblm,iw), rr_w(kpblmm,iw))
 
        dthl = max(dthl, 0.2)
        dqt  = min(dqt, -1.e-8)
@@ -646,7 +646,7 @@ contains
     use mem_grid,    only: mza, dzm, dzt, zm, zt, lpw, lsw
     use consts_coms, only: grav, grav2, eps_virt
     use mem_turb,    only: ustar, wstar, wtv0, kpblh, pblh, frac_sfc
-    use mem_basic,   only: thil, vxe, vye, vze, sh_w, sh_v
+    use mem_basic,   only: thil, vxe, vye, vze, rr_w, rr_v
     use mem_cuparm,  only: iactcu, qwcon
     use mem_radiate, only: pbl_cld_forc
 
@@ -683,10 +683,10 @@ contains
     endif
 
     do k = kbot, ktop
-       ql = sh_w(k,iw) - sh_v(k,iw)
+       ql = rr_w(k,iw) - rr_v(k,iw)
        if (iactcu(iw) > 0) ql = ql + qwcon(k,iw)
 
-       thlv(k) = thil (k,iw) * (1.0 + eps_virt * sh_v(k,iw) - ql)
+       thlv(k) = thil (k,iw) * (1.0 + eps_virt * rr_v(k,iw) - ql)
     enddo
 
     ! COMPUTE AN AVERAGE NEAR-SURFACE VIRTUAL POTENTIAL TEMPERATURE

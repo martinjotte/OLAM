@@ -28,7 +28,7 @@ CONTAINS
      use mem_grid,    only: mza, lpw, arw0, zm, zt, xew, yew, zew, &
                             dzt, arw, lpv, arv, volt, volti
      use mem_ijtabs,  only: itab_w
-     use mem_basic,   only: wmc, vmc, theta, tair, press, rho, sh_v, &
+     use mem_basic,   only: wmc, vmc, theta, tair, press, rho, rr_v, &
                             vxe, vye, vze
      use mem_cuparm,  only: thsrc, rtsrc, conprr, kcutop, kcubot, cbmf, &
                             qwcon, iactcu, kddtop, cddf, rdsrc
@@ -121,7 +121,7 @@ CONTAINS
      real    :: hflux, hflux_the, hflux_vap
      real    :: fqvadv, fthadv
      real(r8):: qsum, qav, tsum, tav
-     real    :: dtemp, dsh_v, fens4m
+     real    :: dtemp, drr_v, fens4m
      real    :: v, vp, vm
 
      ka    = lpw(iw)
@@ -171,7 +171,7 @@ CONTAINS
 
         ! upwinded fluxes
         vflux    (k) = v
-        vflux_vap(k) = vm * sh_v (k,iw) + vp * sh_v (k+1,iw)
+        vflux_vap(k) = vm * rr_v (k,iw) + vp * rr_v (k+1,iw)
         vflux_the(k) = vm * theta(k,iw) + vp * theta(k+1,iw)
      enddo
 
@@ -193,7 +193,7 @@ CONTAINS
         ! Current temp, water vapor, and pressure
 
         t(1,kc)  = max( tair(k,iw), 200.0 )
-        q(1,kc)  = max( sh_v(k,iw), 1.e-8 )
+        q(1,kc)  = max( rr_v(k,iw), 1.e-8 )
         p(1,kc)  = 0.01 * press(k,iw)
 
         ! Horizontal advective mass and water vapor fluxes
@@ -215,10 +215,10 @@ CONTAINS
 
               ! upwinded
               if (flx >= 0.0) then
-                 hflux_vap = hflux_vap + flx * sh_v (k,iwn)
+                 hflux_vap = hflux_vap + flx * rr_v (k,iwn)
                  hflux_the = hflux_the + flx * theta(k,iwn)
               else
-                 hflux_vap = hflux_vap + flx * sh_v (k,iw)
+                 hflux_vap = hflux_vap + flx * rr_v (k,iw)
                  hflux_the = hflux_the + flx * theta(k,iw)
               endif
            endif
@@ -229,16 +229,16 @@ CONTAINS
                / real(volt(k,iw) * rho(k,iw))
 
         fqvadv = ((vflux_vap(k-1) - vflux_vap(k) + hflux_vap) &
-               - (vflux(k-1) - vflux(k) + hflux) * sh_v(k,iw)) &
+               - (vflux(k-1) - vflux(k) + hflux) * rr_v(k,iw)) &
                / real(volt(k,iw) * rho(k,iw))
 
         ! "forced" temp, water vapor, and pressure
         dtemp = (fthrd_lw(k,iw) + fthrd_sw(k,iw) + &
                  fthpbl(k,iw) + fthadv) * dtlong * exner(k)
-        dsh_v = (fqtpbl(k,iw) + fqvadv) * dtlong
+        drr_v = (fqtpbl(k,iw) + fqvadv) * dtlong
 
         tn(1,kc) = tair(k,iw) + dtemp
-        qo(1,kc) = sh_v(k,iw) + dsh_v
+        qo(1,kc) = rr_v(k,iw) + drr_v
         tn(1,kc) = max( tn(1,kc), 200.0 )
         qo(1,kc) = max( qo(1,kc), 1.e-8 )
         po(1,kc) = p(1,kc)
@@ -275,7 +275,7 @@ CONTAINS
            endif
 
            tx  (1,kc,n+1) = max( tair(k,iwn) + dtemp, 200.0 )
-           qx  (1,kc,n+1) = max( sh_v(k,iwn) + dsh_v, 1.e-8 )
+           qx  (1,kc,n+1) = max( rr_v(k,iwn) + drr_v, 1.e-8 )
            omeg(1,kc,n+1) = -grav * wmc(k,iwn)
         enddo
      enddo
@@ -287,13 +287,13 @@ CONTAINS
      do kc = 1, ktf
         k  = kc + ka - 1
         omega_ave = sum(omeg(1,kc,1:ens4)) * fens4m
-        mconv(1,1) = mconv(1,1) + omega_ave * (sh_v(k+1,iw) - sh_v(k,iw)) * gravi
+        mconv(1,1) = mconv(1,1) + omega_ave * (rr_v(k+1,iw) - rr_v(k,iw)) * gravi
 
         do n = 1, npoly
            iwn = itab_w(iw)%iw(n)
 
            if (k >= lpw(iwn)) then
-              mconv(1,n+1) = mconv(1,n+1) + omega_ave * (sh_v(k+1,iwn) - sh_v(k,iwn)) * gravi
+              mconv(1,n+1) = mconv(1,n+1) + omega_ave * (rr_v(k+1,iwn) - rr_v(k,iwn)) * gravi
            endif
         enddo
      enddo

@@ -34,7 +34,7 @@ subroutine timestep()
 
 use misc_coms,   only: io6, time8, time_istp8, time_istp8p, time_bias, &
                        nqparm, initial, ilwrtyp, iswrtyp, dtsm, i_o3, &
-                       iparallel, isubdomain, s1900_init, s1900_sim, do_chem
+                       iparallel, s1900_init, s1900_sim, do_chem
 use mem_ijtabs,  only: nstp, istp, mrls, leafstep, mrl_begl, mrl_endl, mrl_ends
 use mem_nudge,   only: nudflag, nudnxp, o3nudflag
 use mem_grid,    only: mza, mva, mwa
@@ -53,7 +53,7 @@ use var_tables,  only: num_scalar, scalar_tab
 use mem_megan,   only: megan_avg_temp
 use emis_defn,   only: get_emis
 use depv_defn,   only: get_depv
-use wrtv_mem,    only: prog_wrtv
+use wrtv_mem,    only: prog_wrtv, comp_alpha_press
 use mem_turb,    only: vkm, vkh
 use check_nan,   only: check_nans, compute_mass_sums
 
@@ -64,8 +64,6 @@ integer :: jstp, mrl, n
 real     :: vmsc       (mza,mva) ! V face momentum for scalar advection
 real     :: wmsc       (mza,mwa) ! W face momentum for scalar advection
 real(r8) :: rho_old    (mza,mwa) ! density at beginning of long timestep [kg/m^3]
-real     :: alpha_press(mza,mwa) ! coefficient for computing pressure
-real     :: rhot       (mza,mwa) ! grid-cell total mass tendency [kg/s]
 real     :: vxesc      (mza,mwa)
 real     :: vyesc      (mza,mwa)
 real     :: vzesc      (mza,mwa)
@@ -99,26 +97,26 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
    if (nl%test_case >= 901 .and. nl%test_case <= 950) go to 1311
 
-   call tend0(rhot)
+   call tend0()
 
    mrl = mrl_begl(istp)
    if (mrl > 0) then
-      call comp_alpha_press(mrl, alpha_press)
+      call comp_alpha_press(mrl)
       call surface_turb_flux(mrl)
       call sea_spray(mrl)
       call dust_src(mrl)
    endif
 
-   ! call check_nans(1,rvara1=rhot,rvara2=alpha_press)
+   ! call check_nans(1,rvara1=alpha_press)
 
    if (any( nqparm(1:mrls) > 0 )) then
-      call cuparm_driver(rhot)
+      call cuparm_driver()
       if (isfcl == 1) then
          call surface_cuparm_flux()
       endif
    endif
 
-   ! call check_nans(2,rvara1=rhot,rvara2=alpha_press)
+   ! call check_nans(2,rvara1=alpha_press)
 
    if (ilwrtyp + iswrtyp > 0) then
       call radiate()
@@ -136,9 +134,9 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
    if (initial == 2 .and. nudflag == 1) then
       if (nudnxp == 0) then
-         call  obs_nudge(rhot)
+         call  obs_nudge()
       else
-         call spec_nudge(rhot)
+         call spec_nudge()
       endif
    endif
 
@@ -148,7 +146,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
       call obs_nudge_o3()
    endif
 
-   ! Long timestep PBL tendencies (computation of K's, scalar diffusion, 
+   ! Long timestep PBL tendencies (computation of K's, scalar diffusion,
    ! CMAQ emissions and deposition, and lateral friction with shaved cells)
 
    mrl = mrl_begl(istp)
@@ -159,7 +157,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
          call get_depv ( mrl )
       endif
 
-      call pbl_driver(mrl,rhot)
+      call pbl_driver(mrl)
 
       ! MPI send of computed K's
       if (iparallel == 1) then
@@ -178,11 +176,11 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
    endif
 
-   ! call check_nans(5,rvara1=rhot,rvara2=alpha_press)
+   ! call check_nans(5,rvara1=alpha_press)
 
    call zero_momsc(vmsc,wmsc,vxesc,vyesc,vzesc,rho_old)
 
-   ! call check_nans(11,rvara1=rhot,rvara2=alpha_press)
+   ! call check_nans(11,rvara1=alpha_press)
 
    ! Call olam_dcmip_phys, which is the OLAM interface to DCMIP auxiliary
    ! physics subroutine that provides tendencies to some model fields
@@ -201,7 +199,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
           nl%test_case == 122 .or. &
           nl%test_case == 131) then
       !--------------------------------------
-         call olam_dcmip2016_phys(rhot)
+         call olam_dcmip2016_phys()
       endif
    endif
 
@@ -221,7 +219,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
       endif
    endif
 
-   ! call check_nans(11,rvara1=rhot,rvara2=alpha_press)
+   ! call check_nans(11,rvara1=alpha_press)
 
    !    write(*,'(a)') ' calling mass_sums2 '
    !    call compute_mass_sums()
@@ -233,10 +231,10 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
        nl%test_case == 13) go to 33
    !--------------------------------------
 
-   call prog_wrtv(vmsc,wmsc,alpha_press,rhot)
+   call prog_wrtv(vmsc,wmsc)
 
     ! Update earth-cartesian velocities (including time-averaged scalar velocities)
- 
+
    mrl = mrl_endl(istp)
    if (mrl > 0) then
       call diag_earth_vels(mrl, vxesc, vyesc, vzesc)
@@ -263,7 +261,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    endif
    !--------------------------------------
 
-   ! call check_nans(12,rvara1=rhot,rvara2=alpha_press)
+   ! call check_nans(12,rvara1=alpha_press)
 
    mrl = mrl_endl(istp)
    if (nl%split_scalars > 0 .and. mrl > 0) then
@@ -287,7 +285,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
    34 continue
 
-   ! call check_nans(13,rvara1=rhot,rvara2=alpha_press)
+   ! call check_nans(13,rvara1=alpha_press)
 
    mrl = mrl_endl(istp)
    if (nl%split_scalars > 0 .and. mrl > 0) then
@@ -300,11 +298,11 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
       if (nl%split_scalars > 0) call scalar_hdiff_split(mrl)
    endif
 
-   ! call check_nans(14,rvara1=rhot,rvara2=alpha_press)
+   ! call check_nans(14,rvara1=alpha_press)
 
    call predtr(rho_old)
 
-   ! call check_nans(15,rvara1=rhot,rvara2=alpha_press)
+   ! call check_nans(15,rvara1=alpha_press)
 
    ! Special diagnosis of water vapor for DCMIP tests; thil is dry theta in that case
    !---------------------------------------------------------------------------------
@@ -345,15 +343,15 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    !   deallocate (op%extfld)
    !
    !   allocate (op%extfld(mza,mwa))
-   !   op%extfld(:,:) = (sh_w(:,:) - sh_v(:,:)) * 1.e3
-   !   op%extfldname = 'SH_TOTCOND'
+   !   op%extfld(:,:) = (rr_w(:,:) - rr_v(:,:)) * 1.e3
+   !   op%extfldname = 'RR_TOTCOND'
    !   call plot_fields(3)
    !   deallocate (op%extfld)
    !
    !endif
    ! END SPECIAL PLOT SECTION - - - - - - - - - - - - - - - - - -
 
-   ! call check_nans(16,rvara1=rhot,rvara2=alpha_press)
+   ! call check_nans(16,rvara1=alpha_press)
 
    1311 continue
 
@@ -372,7 +370,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
    if (nl%test_case >= 901 .and. nl%test_case <= 950) go to 1312
 
-   ! call check_nans(17,rvara1=rhot,rvara2=alpha_press)
+   ! call check_nans(17,rvara1=alpha_press)
 
    ! Call atmospheric chemistry here
 
@@ -382,7 +380,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
    call trsets(mrl)
 
-   ! call check_nans(18,rvara1=rhot,rvara2=alpha_press)
+   ! call check_nans(18,rvara1=alpha_press)
 
    mrl = mrl_ends(istp)
 
@@ -400,30 +398,23 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
       call lbcopy_w(mrl, a1=thil, a2=wmc, a3=wc)
    endif
 
-   ! call check_nans(19,rvara1=rhot,rvara2=alpha_press)
+   ! call check_nans(19,rvara1=alpha_press)
 
    mrl = mrl_endl(istp)
    if (mrl > 0) then
 
       if (iparallel == 1) call mpi_send_w(mrl, scalars='S')  ! Send scalars
 
-      if (miclevel == 3) call omic_update_v_mom(mrl)
-
       if (iparallel == 1) call mpi_recv_w(mrl, scalars='S')  ! Recv scalars
-
-      if (iparallel == 1) call mpi_send_v(mrl, rvara1=vmc)
 
       do n = 1, nvar_par
          call lbcopy_w(mrl, a1=vtab_r(nptonv(n))%rvar2_p)
       enddo
 
-      if (iparallel == 1) call mpi_recv_v(mrl, rvara1=vmc)
-      call lbcopy_v(mrl, vmc=vmc)
-
    endif
 
    ! call check_pos(3)
-   ! call check_nans(20,rvara1=rhot,rvara2=alpha_press)
+   ! call check_nans(20,rvara1=alpha_press)
 
    if (leafstep(istp) > 0) then
       call leaf4()
@@ -431,7 +422,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
       if (do_chem == 1) call megan_avg_temp()
    endif
 
-   ! call check_nans(21,rvara1=rhot,rvara2=alpha_press)
+   ! call check_nans(21,rvara1=alpha_press)
 
    1312 continue
 
@@ -449,7 +440,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
 enddo
 
-! For ncar dcmip test cases, compute error norms 
+! For ncar dcmip test cases, compute error norms
 
 if (nl%test_case >= 10 .and. nl%test_case < 900) then
    call diagn_global_dcmip()
@@ -519,7 +510,7 @@ enddo
 
 dt_leaf = dtlm(1)
 mrl_leaf = 1
-   
+
 ! Allocate mrl-schedule arrays
 
 allocate (mrl_begl(nstp))
@@ -530,7 +521,7 @@ allocate (mrl_ends(nstp))
 allocate (leafstep(nstp))
 
 leafstep(1:nstp) = 0
-   
+
 ! Fill mrl-table values
 
 do jstp = 1,nstp
@@ -586,16 +577,14 @@ end subroutine modsched
 
 !==========================================================================
 
-subroutine tend0(rhot)
+subroutine tend0()
 
 use mem_ijtabs, only: jtab_w, istp, mrl_begl, jtw_wstn, jtab_v, jtv_prog
 use var_tables, only: scalar_tab, num_scalar
-use mem_grid,   only: mza, mwa, lpw, lpv
+use mem_grid,   only: mza, lpw, lpv
 use mem_tend,   only: thilt, vmxet, vmyet, vmzet, vmt
 
 implicit none
-
-real, intent(inout) :: rhot(mza,mwa)
 
 integer :: n,mrl,j,k,iw,iv
 
@@ -613,7 +602,6 @@ if (mrl > 0) then
          vmyet(k,iw) = 0.0
          vmzet(k,iw) = 0.0
          thilt(k,iw) = 0.0
-         rhot (k,iw) = 0.0
       enddo
 
       do n = 1,num_scalar
@@ -695,8 +683,8 @@ if (mrl > 0) then
             endif
 
             ! Without monotonic advection and splitting, negative concentrations
-            ! can be produced that are significant. If we set those to zero, we 
-            ! will no longer conserve mass. 
+            ! can be produced that are significant. If we set those to zero, we
+            ! will no longer conserve mass.
 
          enddo
 
@@ -707,64 +695,6 @@ if (mrl > 0) then
 endif
 
 end subroutine predtr
-
-!==========================================================================
-
-subroutine comp_alpha_press(mrl, alpha_press)
-
-  use mem_grid,    only: lpw, mza, mwa
-  use mem_ijtabs,  only: jtab_w, jtw_prog
-  use consts_coms, only: pc1, rdry, rvap, cpocv
-  use mem_basic,   only: sh_w, sh_v, theta, thil
-
-  implicit none
-
-  integer, intent(in)  :: mrl
-  real,    intent(out) :: alpha_press(mza,mwa)
-  integer              :: j, iw, k
-
-! Evaluate alpha coefficient for pressure
-
-  !$omp parallel do private(iw,k)
-  do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
-
-     do k = lpw(iw), mza
-        alpha_press(k,iw) = pc1 * (((1. - sh_w(k,iw)) * rdry + sh_v(k,iw) * rvap) &
-                          * theta(k,iw) / thil(k,iw)) ** cpocv
-     enddo
-
-  enddo
-  !$omp end parallel do
-
-end subroutine comp_alpha_press
-
-!==========================================================================
-
-subroutine omic_update_v_mom(mrl)
-
-  use mem_grid,    only: lpv, mza
-  use mem_ijtabs,  only: jtab_v, jtv_prog, itab_v
-  use mem_basic,   only: vmc, vc, rho
-
-  implicit none
-
-  integer, intent(in) :: mrl
-  integer             :: j, iv, iw1, iw2, k
-
-! Update V momentum after microphysics update of rho
-
-  !$omp parallel do private(iv,iw1,iw2,k)
-  do j = 1, jtab_v(jtv_prog)%jend(mrl); iv = jtab_v(jtv_prog)%iv(j)
-     iw1 = itab_v(iv)%iw(1)
-     iw2 = itab_v(iv)%iw(2)
-
-     do k = lpv(iv), mza
-        vmc(k,iv) = 0.5 * vc(k,iv) * real( rho(k,iw1) + rho(k,iw2) )
-     enddo
-  enddo
-  !$omp end parallel do
-
-end subroutine omic_update_v_mom
 
 !==========================================================================
 
@@ -779,23 +709,23 @@ implicit none
 integer :: k
 
    do k = 2,2
-      thil(k,17328) = thil(k,17328) + 5. 
-      theta(k,17328) = theta(k,17328) + 5. 
+      thil(k,17328) = thil(k,17328) + 5.
+      theta(k,17328) = theta(k,17328) + 5.
 
-      thil(k,17329) = thil(k,17329) + 5. 
-      theta(k,17329) = theta(k,17329) + 5. 
+      thil(k,17329) = thil(k,17329) + 5.
+      theta(k,17329) = theta(k,17329) + 5.
 
-      thil(k,17333) = thil(k,17333) + 5. 
-      theta(k,17333) = theta(k,17333) + 5. 
+      thil(k,17333) = thil(k,17333) + 5.
+      theta(k,17333) = theta(k,17333) + 5.
 
-      thil(k,17334) = thil(k,17334) + 5. 
-      theta(k,17334) = theta(k,17334) + 5. 
+      thil(k,17334) = thil(k,17334) + 5.
+      theta(k,17334) = theta(k,17334) + 5.
 
-      thil(k,17335) = thil(k,17335) + 5. 
-      theta(k,17335) = theta(k,17335) + 5. 
+      thil(k,17335) = thil(k,17335) + 5.
+      theta(k,17335) = theta(k,17335) + 5.
 
-      thil(k,17336) = thil(k,17336) + 5. 
-      theta(k,17336) = theta(k,17336) + 5. 
+      thil(k,17336) = thil(k,17336) + 5.
+      theta(k,17336) = theta(k,17336) + 5.
    enddo
 
 end subroutine bubble

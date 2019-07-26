@@ -1,7 +1,7 @@
 subroutine timeseries_plots()
 
   use mem_basic,  only: vze
-  use mem_micro,  only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, &
+  use mem_micro,  only: rr_c, rr_d, rr_r, rr_p, rr_s, rr_a, rr_g, rr_h, &
                         accpd, accpr, accpp, accps, accpa, accpg, accph
   use mem_ijtabs, only: jtab_w, jtw_prog
   use misc_coms,  only: io6, time_istp8, timmax8, dtlong, runtype, time8
@@ -127,14 +127,14 @@ subroutine timeseries_plots()
           he2(kh,ncall) = he2(kh,ncall) + vze(k,iw)**2
        endif
 
-       lwc = 1000. * (sh_c(k,iw) + sh_d(k,iw))
+       lwc = 1000. * (rr_c(k,iw) + rr_d(k,iw))
 
        if (he3(kh,ncall) < lwc) &
            he3(kh,ncall) = lwc
 
        he4(kh,ncall) = he4(kh,ncall) + lwc**2
 
-       pcp = 1000. * (sh_r(k,iw) + sh_h(k,iw))
+       pcp = 1000. * (rr_r(k,iw) + rr_h(k,iw))
 
        if (he5(kh,ncall) < pcp) &
            he5(kh,ncall) = pcp

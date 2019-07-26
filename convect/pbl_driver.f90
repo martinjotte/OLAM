@@ -31,30 +31,28 @@
 
 !===============================================================================
 
-subroutine pbl_driver(mrl,rhot)
+subroutine pbl_driver(mrl)
 
-  use mem_grid,       only: mza, mwa, lpw, lsw, volti, xew, yew, zew
-  use misc_coms,      only: idiffk, dtlm, mdomain
-  use mem_tend,       only: thilt, sh_wt
-  use mem_basic,      only: vxe, vye, vze, rho
-  use mem_turb,       only: vkm, vkh, sxfer_rk, fqtpbl, fthpbl
-  use consts_coms,    only: grav, vonk, eps_virt, alvlocp, r8, eradi
-  use mem_ijtabs,     only: jtab_w, itab_w, jtw_prog, mrls
+  use mem_grid,       only: mza, lpw
+  use misc_coms,      only: idiffk
+  use mem_tend,       only: thilt, rr_wt
+  use mem_basic,      only: rho
+  use mem_turb,       only: vkm, vkh, fqtpbl, fthpbl
+  use consts_coms,    only: grav, vonk, eps_virt, alvlocp, r8
+  use mem_ijtabs,     only: jtab_w, itab_w, jtw_prog
   use module_bl_acm2, only: acm2_pblhgt, acm2_driver
   use smagorinsky,    only: turb_k
 
   implicit none
 
   integer, intent(in)    :: mrl
-  real,    intent(inout) :: rhot(mza,mwa)
 
   integer :: j, k, ka, iw, mrlw, ks
-  real    :: dtli
 
 ! Loop over all W/T points where PBL parameterization may be done
 
 !----------------------------------------------------------------------
-  !$omp parallel do private(iw,mrlw,ka,k,ks,dtli)
+  !$omp parallel do private(iw,mrlw,ka,k,ks)
   do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 
@@ -67,7 +65,7 @@ subroutine pbl_driver(mrl,rhot)
 
      do k = ka, mza
         fthpbl(k,iw) = thilt(k,iw)
-        fqtpbl(k,iw) = sh_wt(k,iw)
+        fqtpbl(k,iw) = rr_wt(k,iw)
      enddo
 
      ! Diagnose PBL height regardless of scheme
@@ -105,19 +103,10 @@ subroutine pbl_driver(mrl,rhot)
      vkm(lpw(iw)-1,iw) = vkm(lpw(iw),iw)
      vkh(lpw(iw)-1,iw) = vkh(lpw(iw),iw)
 
-     ! Add surface vapor flux to total density tendency
-
-     dtli = 1.0 / real(dtlm(mrlw))
-
-     do ks = 1, lsw(iw)
-        k = lpw(iw) + ks - 1
-        rhot(k,iw) = rhot(k,iw) + dtli * volti(k,iw) * sxfer_rk(ks,iw)
-     enddo
-
      ! Save PBL tendencies of qt needed by some convective schemes
 
      do k = lpw(iw), mza
-        fqtpbl(k,iw) = (sh_wt(k,iw) - fqtpbl(k,iw)) / real(rho(k,iw))
+        fqtpbl(k,iw) = (rr_wt(k,iw) - fqtpbl(k,iw)) / real(rho(k,iw))
         fthpbl(k,iw) = (thilt(k,iw) - fthpbl(k,iw)) / real(rho(k,iw))
      enddo
 
@@ -151,18 +140,18 @@ end subroutine comp_horiz_k
 subroutine comp_horiz_k_column(iv)
 
   use consts_coms, only: r8
-  use mem_grid,    only: arw0, lpv, mza, arv, volt, dniv, zm, zt
+  use mem_grid,    only: arw0, lpv, mza, arv, volt, dniv
   use misc_coms,   only: dtlm, akmin
   use mem_ijtabs,  only: itab_v, itab_w
   use mem_turb,    only: vkm, vkh, akmodx, akhodx
   use mem_basic,   only: rho
-  use mem_cuparm,  only: kcutop, kcubot, cbmf, iactcu, conprr
+  use mem_cuparm,  only: kcutop, cbmf, iactcu, conprr
   use oname_coms,  only: nl
 
   implicit none
 
   integer, intent(in) :: iv
-  integer             :: iw1, iw2, k, km, mrl
+  integer             :: iw1, iw2, k, mrl
   real                :: bkmin, dens
   real                :: hkm, hkh, tempm, temph, stab1, stab2
   real(r8)            :: fact1, fact2

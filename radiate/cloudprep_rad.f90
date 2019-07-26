@@ -41,16 +41,12 @@ subroutine cloudprep_rad(iw,ka,mcat,jhcat,rhov,rx,cx,emb)
 
 use micro_coms, only: ncat, jnmb, rxmin, jhabtab, miclevel,  &
                       emb0, emb1, emb2, zfactor_ccn
-
-use mem_micro,  only: sh_c, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, sh_d,  &
+use mem_micro,  only: rr_c, rr_r, rr_p, rr_s, rr_a, rr_g, rr_h, rr_d,  &
                       con_c, con_r, con_p, con_s, con_a, con_g, con_h, con_d, &
                       cldnum
-
 use mem_basic,  only: tair
-
 use mem_grid,   only: mza
-
-use therm_lib,  only: rhovsl
+use therm_lib,  only: rhovsl_inv
 
 implicit none
 
@@ -73,10 +69,8 @@ integer :: icat
 integer :: ihcat
 integer :: ns
 integer :: nt
-
-real :: rhovslair
-real :: relhum
-real :: tairc
+real    :: relhum
+real    :: tairc
 
 ! If miclevel <= 1, there is no condensate of any type in this simulation.
 
@@ -104,7 +98,7 @@ if (miclevel == 2) then
 ! Diagnose cloud droplet mean mass.
 
    do k = ka,mza
-      rx(k,1) = sh_c(k,iw)
+      rx(k,1) = rr_c(k,iw)
       cx(k,1) = cldnum(iw) * zfactor_ccn(k)
       emb(k,1) = rx(k,1) / cx(k,1)
 
@@ -137,11 +131,11 @@ if (miclevel == 3) then
 
    if (jnmb(1) >= 1) then
       do k = ka,mza
-         if (sh_c(k,iw) >= rxmin(1)) then
+         if (rr_c(k,iw) >= rxmin(1)) then
 
 ! If cloud bulk density is sufficiently abundant, copy to rx.
 
-            rx(k,1) = sh_c(k,iw)
+            rx(k,1) = rr_c(k,iw)
 
 ! If cloud water number concentration is prognosed, copy to cx.
 
@@ -155,11 +149,11 @@ if (miclevel == 3) then
 
    if (jnmb(2) >= 1) then
       do k = ka,mza
-         if (sh_r(k,iw) >= rxmin(2)) then
+         if (rr_r(k,iw) >= rxmin(2)) then
 
 ! If rain bulk density is sufficiently abundant, copy to rx,
 
-            rx(k,2) = sh_r(k,iw)
+            rx(k,2) = rr_r(k,iw)
 
 ! If rain water number concentration is prognosed, copy to cx.
 
@@ -173,11 +167,11 @@ if (miclevel == 3) then
 
    if (jnmb(3) >= 1) then
       do k = ka,mza
-         if (sh_p(k,iw) >= rxmin(3)) then
+         if (rr_p(k,iw) >= rxmin(3)) then
 
 ! If pristine ice bulk density is sufficiently abundant, copy to rx.
 
-            rx(k,3) = sh_p(k,iw)
+            rx(k,3) = rr_p(k,iw)
 
 ! If pristine ice number concentration is prognosed, copy to cx.
 
@@ -191,11 +185,11 @@ if (miclevel == 3) then
 
    if (jnmb(4) >= 1) then
       do k = ka,mza
-         if (sh_s(k,iw) >= rxmin(4)) then
+         if (rr_s(k,iw) >= rxmin(4)) then
 
 ! If snow bulk density is sufficiently abundant, copy to rx.
 
-            rx(k,4) = sh_s(k,iw)
+            rx(k,4) = rr_s(k,iw)
 
 ! If snow number concentration is prognosed, copy to cx.
 
@@ -209,11 +203,11 @@ if (miclevel == 3) then
 
    if (jnmb(5) >= 1) then
       do k = ka,mza
-         if (sh_a(k,iw) >= rxmin(5)) then
+         if (rr_a(k,iw) >= rxmin(5)) then
 
 ! If aggregates bulk density is sufficiently abundant, copy to rx.
 
-            rx(k,5) = sh_a(k,iw)
+            rx(k,5) = rr_a(k,iw)
 
 ! If aggregates number concentration is prognosed, copy to cx.
 
@@ -227,11 +221,11 @@ if (miclevel == 3) then
 
    if (jnmb(6) >= 1) then
       do k = ka,mza
-         if (sh_g(k,iw) >= rxmin(6)) then
+         if (rr_g(k,iw) >= rxmin(6)) then
 
 ! If graupel bulk density is sufficiently abundant, copy to rx,
 
-            rx(k,6) = sh_g(k,iw)
+            rx(k,6) = rr_g(k,iw)
 
 ! If graupel number concentration is prognosed, copy to cx.
 
@@ -245,11 +239,11 @@ if (miclevel == 3) then
 
    if (jnmb(7) >= 1) then
       do k = ka,mza
-         if (sh_h(k,iw) >= rxmin(7)) then
+         if (rr_h(k,iw) >= rxmin(7)) then
 
 ! If hail bulk density is sufficiently abundant, copy to rx,
 
-            rx(k,7) = sh_h(k,iw)
+            rx(k,7) = rr_h(k,iw)
 
 ! If hail number concentration is prognosed, copy to cx.
 
@@ -263,11 +257,11 @@ if (miclevel == 3) then
 
    if (jnmb(8) >= 1) then
       do k = ka,mza
-         if (sh_d(k,iw) >= rxmin(8)) then
+         if (rr_d(k,iw) >= rxmin(8)) then
 
 ! If drizzle bulk density is sufficiently abundant, copy to rx,
 
-            rx(k,8) = sh_d(k,iw)
+            rx(k,8) = rr_d(k,iw)
 
 ! If drizzle number concentration is prognosed, copy to cx.
 
@@ -282,9 +276,8 @@ if (miclevel == 3) then
 ! and EACH_COLUMN in omic_misc.f90
 
    do k = ka,mza
-      tairc = tair(k,iw) - 273.15
-      rhovslair = rhovsl(tairc)
-      relhum = min(1.,rhov(k) / rhovslair)
+      tairc  = tair(k,iw) - 273.15
+      relhum = min(1., rhov(k) * rhovsl_inv(tairc))
 
       ns = max(1,nint(100. * relhum))
       nt = max(1,min(31,-nint(tairc)))

@@ -2,7 +2,7 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
                          rlongup_ks, rlong_albedo_ks, albedt_ks, albedt_diffuse_ks )
 
   use mem_grid,    only: mza, zm, zt, glatw, dzt, dzit, dzt_bot
-  use mem_basic,   only: rho, press, theta, tair, sh_w, sh_v
+  use mem_basic,   only: rho, press, theta, tair, rr_w, rr_v
   use misc_coms,   only: iswrtyp, ilwrtyp, time8, dtlm, io6, i_o3
   use consts_coms, only: stefan, eps_virt, eps_vapi, grav, solar, cp, pi1, &
                          t00, r8, cpi
@@ -25,7 +25,7 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
   use mem_ijtabs,  only: itab_w
   use mem_micro,   only: cldnum
   use therm_lib,   only: rhovsl
-  use mem_co2,     only: sh_co2, i_co2, co2_initppm, co2_sh2ppm
+  use mem_co2,     only: rr_co2, i_co2, co2_initppm, co2_sh2ppm
   use var_tables,  only: scalar_tab
 
   use parrrtm,             only: nbndlw, ngptlw
@@ -95,7 +95,7 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
   real :: plev(ncol, nrad+1)
   real :: tlev(ncol, nrad+1)
 
-  real :: coldry(nrad)
+! real :: coldry(nrad)
 
   real :: play    (ncol, nrad)
   real :: tlay    (ncol, nrad)
@@ -139,8 +139,9 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
   real :: clwpmcl_lw(ngptlw, ncol, nrad)
   real :: ciwpmcl_lw(ngptlw, ncol, nrad)
 
-  real :: dl    (nrad)
+  real :: dl_wet(nrad)
   real :: dl_dry(nrad)
+  real :: dl_vap(nrad)
   real :: zml   (nrad)
   real :: ztl   (nrad)
   real :: dzl   (nrad)
@@ -267,28 +268,27 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
   do k = ka, mza
      krad = k - koff
 
-     dl      (krad) = rho(k,iw)
-     dl_dry  (krad) = dl(krad) * (1.0 - sh_w(k,iw))
+     dl_dry(krad) = rho(k,iw)
+     rhov  (k)    = max(0., rr_v(k,iw) * dl_dry(krad))
+     dl_vap(krad) = rhov(k)
+     dl_wet(krad) = dl_dry(krad) + dl_vap(krad)
 
-     play  (1,krad) = press(k,iw)
-     tlay  (1,krad) = tair (k,iw)
-     zml     (krad) = zm   (k)
-     ztl     (krad) = zt   (k)
-     dzl     (krad) = dzt  (k)
-
-     rhov    (k)    = max(0.,sh_v(k,iw)) * dl(krad)
-     h2ovmr(1,krad) = rhov(k)
-     coldry  (krad) = dl_dry(krad) * dzt(k) * dn2col
+     play(1,krad) = press(k,iw)
+     tlay(1,krad) = tair (k,iw)
+     zml   (krad) = zm   (k)
+     ztl   (krad) = zt   (k)
+     dzl   (krad) = dzt  (k)
+!    coldry(krad) = dl_dry(krad) * dzt(k) * dn2col
   enddo
 
 ! Fill ozone column and any extra radiation layers at model top
 
-  call rad_mclat(iw,nrad,koff,glatw(iw),dl,play,h2ovmr,tlay,o3vmr,zml,ztl,dzl)
+  call rad_mclat(iw,nrad,koff,glatw(iw),dl_wet,play,dl_vap,tlay,o3vmr,zml,ztl,dzl)
 
   ! dry density above model top
   do krad = mza-koff+1, nrad
-     dl_dry(krad) = dl(krad) - h2ovmr(1,krad)
-     coldry(krad) = dl_dry(krad) * (zml(krad) - zml(krad-1)) * dn2col
+     dl_dry(krad) = dl_wet(krad) - dl_vap(krad)
+!    coldry(krad) = dl_dry(krad) * (zml(krad) - zml(krad-1)) * dn2col
   enddo
 
 ! Convert water vapor and ozone from density to (dry) molar mixing ratio
@@ -296,7 +296,7 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
 
   do krad = 1, nrad
      k = krad + koff
-     h2ovmr(1,krad) = h2ovmr(1,krad) * eps_vapi / dl_dry(krad)
+     h2ovmr(1,krad) = dl_vap(krad) * eps_vapi / dl_dry(krad)
      o3vmr (1,krad) = o3vmr (1,krad) * amdryo3  / dl_dry(krad)
      play  (1,krad) = play  (1,krad) * 0.01
   enddo
@@ -319,7 +319,7 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
   if (i_co2 > 0) then
      do k = ka, mza
         krad = k - koff
-        co2vmr(1,krad) = sh_co2(k,iw) / (1.0 - sh_w(k,iw)) * co2_sh2ppm * 1.e-6
+        co2vmr(1,krad) = rr_co2(k,iw) * co2_sh2ppm * 1.e-6
      enddo
   endif
 
@@ -328,27 +328,27 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
   if (i_o3 > 0) then
      do k = ka, mza
         krad = k - koff
-        o3vmr(1,krad) = scalar_tab(i_o3)%var_p(k,iw) / (1.0 - sh_w(k,iw)) * 1.e-6
+        o3vmr(1,krad) = scalar_tab(i_o3)%var_p(k,iw) * 1.e-6
      enddo
   endif
 
 ! surface pressure and temperature
 
-  plev(ncol,1) = play(ncol,1) + dzt_bot(ka) * dl(1) * grav * 0.01
+  plev(ncol,1) = play(ncol,1) + dzt_bot(ka) * dl_wet(1) * grav * 0.01
   tlev(ncol,1) = tsfc(ncol)
 
 ! pressure and temperature at intermediate levels
 
   do krad = 2, nrad
-     p1 = play(ncol,krad-1) + (ztl(krad-1)-zml(krad-1)) * dl(krad-1) * grav * 0.01
-     p2 = play(ncol,krad)   + (ztl(krad)  -zml(krad-1)) * dl(krad)   * grav * 0.01
+     p1 = play(ncol,krad-1) + (ztl(krad-1)-zml(krad-1)) * dl_wet(krad-1) * grav * 0.01
+     p2 = play(ncol,krad)   + (ztl(krad)  -zml(krad-1)) * dl_wet(krad)   * grav * 0.01
      plev(ncol,krad) = 0.5 * ( p1 + p2 )
      tlev(ncol,krad) = 0.5 * ( tlay(ncol,krad-1) + tlay(ncol,krad) )
   enddo
   
 ! pressure and temperature at top level
 
-  plev(ncol,nrad+1) = play(ncol,nrad) + (ztl(nrad) - zml(nrad)) * dl(nrad) * grav * 0.01
+  plev(ncol,nrad+1) = play(ncol,nrad) + (ztl(nrad) - zml(nrad)) * dl_wet(nrad) * grav * 0.01
   tlev(ncol,nrad+1) = tlay(ncol,nrad)
 
 ! initialize cloud properties to 0
@@ -388,7 +388,7 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
            r_ef = 1.e6 * reffcof(ih) * emb(k,mc) ** pwmasi(ih)
 
            ! ice or liquid water path in g/m^2
-           watp = rx(k,mc) * dl(krad) * 1000. * dzt(k)
+           watp = rx(k,mc) * dl_dry(krad) * 1000. * dzt(k)
            watp = watp / cldfr(1,krad)
 
            call lookup_rrtmg_cld_optics( l, r_ef, watp, krad )
@@ -408,7 +408,7 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
         cldfr(1,krad) = max(cloud_frac(k,iw), 0.1)
 
         ! water path in g/m^2
-        watp = qwcon(k,iw) * dl(krad) * 1000. * dzt(k)
+        watp = qwcon(k,iw) * dl_dry(krad) * 1000. * dzt(k)
         watp = watp / cldfr(1,krad)
 
         tc = tair(k,iw) - t00

@@ -177,6 +177,11 @@
 
    NL%TNUDCENT = 43200.0 ! 4DDA nudging time scale (s)
 
+   NL%NUD_PRESERVE_MIX_RATIO = .TRUE.  !  TRUE: nudging density preserves scalar
+                                       !        mixing ratios
+                                       ! FALSE: nudging density preserves scalar
+                                       !        mass
+
  !--------------------------------------------------------------------------
  ! History file, Month-average, and Day-average I/O
  !--------------------------------------------------------------------------
@@ -203,7 +208,7 @@
    NL%HFILIN   = 'hist/sampleA-H-2000-01-01-000000.h5'      ! History file intput
 
    ! Variables output in lite files:
-   NL%LITE_VARS = 'TAIR', 'WC', 'SH_V', 'PRESS', 'RHO', 'RSHORT', 'RLONG'
+   NL%LITE_VARS = 'TAIR', 'WC', 'RR_V', 'PRESS', 'RHO', 'RSHORT', 'RLONG'
 
  !--------------------------------------------------------------------------
  ! Model options / Numerical schemes
@@ -686,16 +691,16 @@
  !-------------------------------------------------------------------------------
  'RSHORT'           ,'L',417,'Fmcit',         0.,  0.,    1000.,    4000.e3,    0.
  'CLDNUM'           ,'L', 67,'Fmcit',         0.,  0.,    1000.,    4000.e3,    0.
- 'SH_W'             ,'C',  5,'FGcitW',      -86.,-10.,    90.,      4000.e3,  270.
- 'SH_V'             ,'C',  5,'FGcitW',      -86.,-10.,    90.,      4000.e3,  270.
- 'SH_C'             ,'C',201,'FGcitW',      -86.,-10.,    90.,      4000.e3,  270.
- 'SH_D'             ,'C',201,'FGcitW',      -86.,-10.,    90.,      4000.e3,  270.
- 'SH_R'             ,'C',201,'FGcitW',      -86.,-10.,    90.,      4000.e3,  270.
- 'SH_P'             ,'C',201,'FGcitW',      -86.,-10.,    90.,      4000.e3,  270.
- 'SH_S'             ,'C',201,'FGcitW',      -86.,-10.,    90.,      4000.e3,  270.
- 'SH_A'             ,'C',201,'FGcitW',      -86.,-10.,    90.,      4000.e3,  270.
- 'SH_G'             ,'C',201,'FGcitW',      -86.,-10.,    90.,      4000.e3,  270.
- 'SH_H'             ,'C',201,'FGcitW',      -86.,-10.,    90.,      4000.e3,  270.
+ 'RR_W'             ,'C',  5,'FGcitW',      -86.,-10.,    90.,      4000.e3,  270.
+ 'RR_V'             ,'C',  5,'FGcitW',      -86.,-10.,    90.,      4000.e3,  270.
+ 'RR_C'             ,'C',201,'FGcitW',      -86.,-10.,    90.,      4000.e3,  270.
+ 'RR_D'             ,'C',201,'FGcitW',      -86.,-10.,    90.,      4000.e3,  270.
+ 'RR_R'             ,'C',201,'FGcitW',      -86.,-10.,    90.,      4000.e3,  270.
+ 'RR_P'             ,'C',201,'FGcitW',      -86.,-10.,    90.,      4000.e3,  270.
+ 'RR_S'             ,'C',201,'FGcitW',      -86.,-10.,    90.,      4000.e3,  270.
+ 'RR_A'             ,'C',201,'FGcitW',      -86.,-10.,    90.,      4000.e3,  270.
+ 'RR_G'             ,'C',201,'FGcitW',      -86.,-10.,    90.,      4000.e3,  270.
+ 'RR_H'             ,'C',201,'FGcitW',      -86.,-10.,    90.,      4000.e3,  270.
  'QWCON'            ,'C',  7,'FGcitW',      -86.,-10.,    90.,      4000.e3,  270.
 
  'VOLT'              ,'C',202,'TGPmcitW', -116.,39.,      90.,   2000.e3,    0.
@@ -730,18 +735,18 @@
  'THETA'            ,'O',413,
  'AIRTEMPK'         ,'O',  4,
  'AIRTEMPC'         ,'O',112,
- 'SH_W'             ,'O',  5,
- 'SH_V'             ,'O',  5,
- 'SH_C'             ,'O',  5,
- 'SH_D'             ,'O',  5,
- 'SH_R'             ,'O',  5,
- 'SH_P'             ,'O',  5,
- 'SH_S'             ,'O',  5,
- 'SH_A'             ,'O',  5,
- 'SH_G'             ,'O',  5,
- 'SH_H'             ,'O',  5,
- 'SH_CP'            ,'O',  5,
- 'SH_TOTCOND'       ,'O',  5,
+ 'RR_W'             ,'O',  5,
+ 'RR_V'             ,'O',  5,
+ 'RR_C'             ,'O',  5,
+ 'RR_D'             ,'O',  5,
+ 'RR_R'             ,'O',  5,
+ 'RR_P'             ,'O',  5,
+ 'RR_S'             ,'O',  5,
+ 'RR_A'             ,'O',  5,
+ 'RR_G'             ,'O',  5,
+ 'RR_H'             ,'O',  5,
+ 'RR_CP'            ,'O',  5,
+ 'RR_TOTCOND'       ,'O',  5,
  'CON_C'            ,'O',200,
  'CON_D'            ,'O',200,
  'CON_R'            ,'O',200,
@@ -819,7 +824,7 @@
  'WC_DIF2'          ,'O',125,
  'PRESS_DIF2'       ,'O',415,
  'AIRTEMPK_DIF2'    ,'O',  4,
- 'SH_V_DIF2'        ,'O',  5,
+ 'RR_V_DIF2'        ,'O',  5,
  'PCPMIC_DIF2'      ,'O',418,
  'PCPCON_DIF2'      ,'O',418,
  'PCPBOTH_DIF2'     ,'O',418,
@@ -1016,8 +1021,8 @@
  'PRESS_MAVG'       ,'O',415,
  'RHO_MAVG'         ,'O',414,
  'TEMPK_MAVG'       ,'O',  4,
- 'SH_V_MAVG'        ,'O',  5,
- 'SH_W_MAVG'        ,'O',  5,
+ 'RR_V_MAVG'        ,'O',  5,
+ 'RR_W_MAVG'        ,'O',  5,
  'WC_MAVG'          ,'O',300,
  'ZONAL_WINDW_MAVG' ,'O',309,
  'MERID_WINDW_MAVG' ,'O',309,

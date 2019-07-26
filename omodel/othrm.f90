@@ -73,7 +73,7 @@ subroutine drythrm(iw)
 ! This routine calculates theta and rv for the case where no condensate is
 ! allowed.
 
-use mem_basic,  only: theta, thil, tair, sh_v, sh_w, press
+use mem_basic,  only: theta, thil, tair, rr_v, rr_w, press
 use micro_coms, only: miclevel
 use mem_grid,   only: lpw, mza
 use misc_coms,  only: io6
@@ -92,7 +92,7 @@ enddo
 
 if (miclevel == 1) then
    do k = lpw(iw),mza
-      sh_v(k,iw) = sh_w(k,iw)
+      rr_v(k,iw) = rr_w(k,iw)
    enddo
 endif
 
@@ -102,11 +102,11 @@ end subroutine drythrm
 
 subroutine satadjst(iw)
 
-! This routine diagnoses theta, sh_v, and sh_c using a saturation adjustment
-! for the case when sh_c is the only allowed condensate
+! This routine diagnoses theta, rr_v, and rr_c using a saturation adjustment
+! for the case when rr_c is the only allowed condensate
 
-use mem_basic,   only: thil, theta, tair, rho, sh_w, sh_v, press
-use mem_micro,   only: sh_c
+use mem_basic,   only: thil, theta, tair, rho, rr_w, rr_v, press
+use mem_micro,   only: rr_c
 use consts_coms, only: p00i, cp, alvl, rocp
 use mem_grid,    only: lpw, mza
 use misc_coms,   only: io6
@@ -125,10 +125,10 @@ do k = lpw(iw),mza
 
    do iterate = 1,20
       rhovs = rhovsl(temp-273.15)
-      sh_c(k,iw) = max(0.,sh_w(k,iw)-rhovs/real(rho(k,iw)))
-      sh_v(k,iw) = sh_w(k,iw) - sh_c(k,iw)
+      rr_c(k,iw) = max(0.,rr_w(k,iw)-rhovs/real(rho(k,iw)))
+      rr_v(k,iw) = rr_w(k,iw) - rr_c(k,iw)
       temp = 0.7 * temp  &
-           + 0.3 * t_il * (1. + alvl * sh_c(k,iw) / (cp * max(temp,253.)))
+           + 0.3 * t_il * (1. + alvl * rr_c(k,iw) / (cp * max(temp,253.)))
    enddo
 
    theta(k,iw) = temp / exner
@@ -141,12 +141,12 @@ end subroutine satadjst
 
 subroutine wetthrm3(iw)
 
-! This routine calculates theta and sh_v for "miclevel 3 microphysics"
+! This routine calculates theta and rr_v for "miclevel 3 microphysics"
 ! given prognosed theta_il, cloud, drizzle, rain, pristine ice, snow, 
 ! aggregates, graupel, hail, q6, and q7.
 
-use mem_basic,   only: press, theta, thil, tair, sh_v, sh_w
-use mem_micro,   only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, q6, q7
+use mem_basic,   only: press, theta, thil, tair, rr_v, rr_w
+use mem_micro,   only: rr_c, rr_d, rr_r, rr_p, rr_s, rr_a, rr_g, rr_h, q6, q7
 use micro_coms,  only: jnmb, rxmin
 use consts_coms, only: p00i, rocp, alvl, alvi, cpi4, cp253i
 use mem_grid,    only: mza, lpw
@@ -176,63 +176,63 @@ enddo
 
 if (jnmb(1) >= 1) then
    do k = lpw(iw),mza
-      totliq(k) = totliq(k) + sh_c(k,iw)
+      totliq(k) = totliq(k) + rr_c(k,iw)
    enddo
 endif
 
 if (jnmb(2) >= 1) then
    do k = lpw(iw),mza
-      totliq(k) = totliq(k) + sh_r(k,iw)
+      totliq(k) = totliq(k) + rr_r(k,iw)
    enddo
 endif
 
 if (jnmb(3) >= 1) then
    do k = lpw(iw),mza
-      totice(k) = totice(k) + sh_p(k,iw)
+      totice(k) = totice(k) + rr_p(k,iw)
    enddo
 endif
 
 if (jnmb(4) >= 1) then
    do k = lpw(iw),mza
-      totice(k) = totice(k) + sh_s(k,iw)
+      totice(k) = totice(k) + rr_s(k,iw)
    enddo
 endif
 
 if (jnmb(5) >= 1) then
    do k = lpw(iw),mza
-      totice(k) = totice(k) + sh_a(k,iw)
+      totice(k) = totice(k) + rr_a(k,iw)
    enddo
 endif
 
 if (jnmb(6) >= 1) then
    do k = lpw(iw),mza
-      if (sh_g(k,iw) > rxmin(6)) then
-         call qtc(q6(k,iw)/sh_g(k,iw),tcoal,fracliq)
-         totliq(k) = totliq(k) + sh_g(k,iw) * fracliq
-         totice(k) = totice(k) + sh_g(k,iw) * (1. - fracliq)
+      if (rr_g(k,iw) > rxmin(6)) then
+         call qtc(q6(k,iw)/rr_g(k,iw),tcoal,fracliq)
+         totliq(k) = totliq(k) + rr_g(k,iw) * fracliq
+         totice(k) = totice(k) + rr_g(k,iw) * (1. - fracliq)
       endif
    enddo
 endif
 
 if (jnmb(7) >= 1) then
    do k = lpw(iw),mza
-      if (sh_h(k,iw) > rxmin(7)) then
-         call qtc(q7(k,iw)/sh_g(k,iw),tcoal,fracliq)
-         totliq(k) = totliq(k) + sh_h(k,iw) * fracliq
-         totice(k) = totice(k) + sh_h(k,iw) * (1. - fracliq)
+      if (rr_h(k,iw) > rxmin(7)) then
+         call qtc(q7(k,iw)/rr_g(k,iw),tcoal,fracliq)
+         totliq(k) = totliq(k) + rr_h(k,iw) * fracliq
+         totice(k) = totice(k) + rr_h(k,iw) * (1. - fracliq)
       endif
    enddo
 endif
 
 if (jnmb(8) >= 1) then
    do k = lpw(iw),mza
-      totliq(k) = totliq(k) + sh_d(k,iw)
+      totliq(k) = totliq(k) + rr_d(k,iw)
    enddo
 endif
 
 do k = lpw(iw),mza
    qhydm(k) = alvl * totliq(k) + alvi * totice(k)
-   sh_v(k,iw) = sh_w(k,iw) - totliq(k) - totice(k)
+   rr_v(k,iw) = rr_w(k,iw) - totliq(k) - totice(k)
 enddo
 
 do k = lpw(iw),mza

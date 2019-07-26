@@ -38,16 +38,16 @@ Module mem_tend
    real, allocatable :: vmt  (:,:) ! V momentum tend [kg/(m^2 s^2)]
 
    real, allocatable :: thilt   (:,:) ! (rho * thil) tend [kg_air K / (m^3 s)]
-   real, allocatable :: sh_wt   (:,:) ! water mass tend [kg_wat/(m^3 s)]
+   real, allocatable :: rr_wt   (:,:) ! water mass tend [kg_wat/(m^3 s)]
 
-   real, allocatable :: sh_ct   (:,:) ! cloud mass tend [kg_cld/(m^3 s)]
-   real, allocatable :: sh_rt   (:,:) ! rain mass tend [kg_rain/(m^3 s)]
-   real, allocatable :: sh_pt   (:,:) ! pristine ice mass tend [kg_pris/(m^3 s)]
-   real, allocatable :: sh_st   (:,:) ! snow mass tend [kg_snow/(m^3 s)]
-   real, allocatable :: sh_at   (:,:) ! aggregates mass tend [kg_agg/(m^3 s)]
-   real, allocatable :: sh_gt   (:,:) ! graupel mass tend [kg_grp/(m^3 s)]
-   real, allocatable :: sh_ht   (:,:) ! hail mass tend [kg_hail/(m^3 s)]
-   real, allocatable :: sh_dt   (:,:) ! drizzle mass tend [kg_drz/(m^3 s)]
+   real, allocatable :: rr_ct   (:,:) ! cloud mass tend [kg_cld/(m^3 s)]
+   real, allocatable :: rr_rt   (:,:) ! rain mass tend [kg_rain/(m^3 s)]
+   real, allocatable :: rr_pt   (:,:) ! pristine ice mass tend [kg_pris/(m^3 s)]
+   real, allocatable :: rr_st   (:,:) ! snow mass tend [kg_snow/(m^3 s)]
+   real, allocatable :: rr_at   (:,:) ! aggregates mass tend [kg_agg/(m^3 s)]
+   real, allocatable :: rr_gt   (:,:) ! graupel mass tend [kg_grp/(m^3 s)]
+   real, allocatable :: rr_ht   (:,:) ! hail mass tend [kg_hail/(m^3 s)]
+   real, allocatable :: rr_dt   (:,:) ! drizzle mass tend [kg_drz/(m^3 s)]
 
    real, allocatable :: con_ct  (:,:) ! cloud number tend [#/(m^3 s)]]
    real, allocatable :: con_rt  (:,:) ! rain number tend [#/(m^3 s)]]
@@ -68,7 +68,7 @@ Module mem_tend
    real, allocatable :: tket    (:,:) ! subgrid-scale turb KE tend [m^2/s^3]
    real, allocatable :: epst    (:,:) ! subgrid dissipation rate tend [m^2/s^4]
 
-   real, allocatable :: sh_co2t (:,:) ! CO2 mass tend [kg_CO2/(m^3 s)] 
+   real, allocatable :: rr_co2t (:,:) ! CO2 mass tend [kg_CO2/(m^3 s)] 
 
    integer :: num_omic = 0
    
@@ -79,14 +79,14 @@ Contains
    subroutine alloc_tend(lza,lva,lwa,naddsc,nccntyp)
 
    use mem_turb,   only: tkep, epsp
-   use mem_basic,  only: thil, sh_w, vxe, vye, vze, vc
+   use mem_basic,  only: thil, rr_w, vxe, vye, vze, vc
    use mem_addsc,  only: addsc
-   use mem_micro,  only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h,        &
+   use mem_micro,  only: rr_c, rr_d, rr_r, rr_p, rr_s, rr_a, rr_g, rr_h,        &
                          con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h,&
                          ccntyp, con_ifn, con_gccn, q2, q6, q7
    use micro_coms, only: miclevel
    use misc_coms,  only: io6
-   use mem_co2,    only: sh_co2
+   use mem_co2,    only: rr_co2
    
    implicit none
 
@@ -105,19 +105,19 @@ Contains
    if (allocated(vc))      allocate (vmt(lza,lva))
 
    if (allocated(thil))    allocate (thilt(lza,lwa)) ; thilt = 0.
-   if (allocated(sh_w))    allocate (sh_wt(lza,lwa)) ; sh_wt = 0.
+   if (allocated(rr_w))    allocate (rr_wt(lza,lwa)) ; rr_wt = 0.
 
    if (miclevel > 2) then
-      if (allocated(sh_c)) allocate (sh_ct(lza,lwa))
+      if (allocated(rr_c)) allocate (rr_ct(lza,lwa))
    endif
 
-   if (allocated(sh_r))    allocate (sh_rt(lza,lwa))
-   if (allocated(sh_p))    allocate (sh_pt(lza,lwa))
-   if (allocated(sh_s))    allocate (sh_st(lza,lwa))
-   if (allocated(sh_a))    allocate (sh_at(lza,lwa))
-   if (allocated(sh_g))    allocate (sh_gt(lza,lwa))
-   if (allocated(sh_h))    allocate (sh_ht(lza,lwa))
-   if (allocated(sh_d))    allocate (sh_dt(lza,lwa))
+   if (allocated(rr_r))    allocate (rr_rt(lza,lwa))
+   if (allocated(rr_p))    allocate (rr_pt(lza,lwa))
+   if (allocated(rr_s))    allocate (rr_st(lza,lwa))
+   if (allocated(rr_a))    allocate (rr_at(lza,lwa))
+   if (allocated(rr_g))    allocate (rr_gt(lza,lwa))
+   if (allocated(rr_h))    allocate (rr_ht(lza,lwa))
+   if (allocated(rr_d))    allocate (rr_dt(lza,lwa))
 
    if (allocated(con_c))   allocate (con_ct(lza,lwa))
    if (allocated(con_r))   allocate (con_rt(lza,lwa))
@@ -152,7 +152,7 @@ Contains
                 allocate (addsc(iaddsc)%sclt(lza,lwa))
    enddo
 
-   if (allocated(sh_co2)) allocate (sh_co2t(lza,lwa))
+   if (allocated(rr_co2)) allocate (rr_co2t(lza,lwa))
 
    end subroutine alloc_tend
 
@@ -178,16 +178,16 @@ Contains
    if (allocated(vmt))      deallocate (vmt)
 
    if (allocated(thilt))    deallocate (thilt)
-   if (allocated(sh_wt))    deallocate (sh_wt)
+   if (allocated(rr_wt))    deallocate (rr_wt)
 
-   if (allocated(sh_ct))    deallocate (sh_ct)
-   if (allocated(sh_rt))    deallocate (sh_rt)
-   if (allocated(sh_pt))    deallocate (sh_pt)
-   if (allocated(sh_st))    deallocate (sh_st)
-   if (allocated(sh_at))    deallocate (sh_at)
-   if (allocated(sh_gt))    deallocate (sh_gt)
-   if (allocated(sh_ht))    deallocate (sh_ht)
-   if (allocated(sh_dt))    deallocate (sh_dt)
+   if (allocated(rr_ct))    deallocate (rr_ct)
+   if (allocated(rr_rt))    deallocate (rr_rt)
+   if (allocated(rr_pt))    deallocate (rr_pt)
+   if (allocated(rr_st))    deallocate (rr_st)
+   if (allocated(rr_at))    deallocate (rr_at)
+   if (allocated(rr_gt))    deallocate (rr_gt)
+   if (allocated(rr_ht))    deallocate (rr_ht)
+   if (allocated(rr_dt))    deallocate (rr_dt)
 
    if (allocated(con_ct))   deallocate (con_ct)
    if (allocated(con_rt))   deallocate (con_rt)
@@ -218,7 +218,7 @@ Contains
       if (allocated(addsc(iaddsc)%sclt)) deallocate (addsc(iaddsc)%sclt)
    enddo
 
-   if (allocated(sh_co2t)) deallocate(sh_co2t)
+   if (allocated(rr_co2t)) deallocate(rr_co2t)
 
    end subroutine dealloc_tend
 
@@ -227,15 +227,15 @@ Contains
    subroutine filltab_tend(naddsc,nccntyp)
 
    use mem_turb,   only: tkep, epsp, sxfer_rk
-   use mem_basic,  only: sh_w
+   use mem_basic,  only: rr_w
    use mem_addsc,  only: addsc
-   use mem_micro,  only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h,        &
+   use mem_micro,  only: rr_c, rr_d, rr_r, rr_p, rr_s, rr_a, rr_g, rr_h,        &
                          con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h,&
                          ccntyp, con_ifn, con_gccn, q2, q6, q7
    use var_tables, only: vtables_scalar, num_scalar, scalar_tab
    use misc_coms,  only: do_chem, i_o3
    use cgrid_defn, only: cgrid_scalar_tabs
-   use mem_co2,    only: sh_co2, i_co2
+   use mem_co2,    only: rr_co2, i_co2
 
    implicit none
 
@@ -246,16 +246,16 @@ Contains
 
 ! Fill pointers to scalar arrays into scalar tables
 
-   if (allocated(sh_wt))    call vtables_scalar (sh_w,sh_wt, 'SH_W', sxfer=sxfer_rk)
+   if (allocated(rr_wt))    call vtables_scalar (rr_w,rr_wt, 'RR_W', sxfer=sxfer_rk)
 
-   if (allocated(sh_ct))    call vtables_scalar (sh_c, sh_ct, 'SH_C')
-   if (allocated(sh_rt))    call vtables_scalar (sh_r, sh_rt, 'SH_R')
-   if (allocated(sh_pt))    call vtables_scalar (sh_p, sh_pt, 'SH_P')
-   if (allocated(sh_st))    call vtables_scalar (sh_s, sh_st, 'SH_S')
-   if (allocated(sh_at))    call vtables_scalar (sh_a, sh_at, 'SH_A')
-   if (allocated(sh_gt))    call vtables_scalar (sh_g, sh_gt, 'SH_G')
-   if (allocated(sh_ht))    call vtables_scalar (sh_h, sh_ht, 'SH_H')
-   if (allocated(sh_dt))    call vtables_scalar (sh_d, sh_dt, 'SH_D')
+   if (allocated(rr_ct))    call vtables_scalar (rr_c, rr_ct, 'RR_C')
+   if (allocated(rr_rt))    call vtables_scalar (rr_r, rr_rt, 'RR_R')
+   if (allocated(rr_pt))    call vtables_scalar (rr_p, rr_pt, 'RR_P')
+   if (allocated(rr_st))    call vtables_scalar (rr_s, rr_st, 'RR_S')
+   if (allocated(rr_at))    call vtables_scalar (rr_a, rr_at, 'RR_A')
+   if (allocated(rr_gt))    call vtables_scalar (rr_g, rr_gt, 'RR_G')
+   if (allocated(rr_ht))    call vtables_scalar (rr_h, rr_ht, 'RR_H')
+   if (allocated(rr_dt))    call vtables_scalar (rr_d, rr_dt, 'RR_D')
 
    if (allocated(con_ct))   call vtables_scalar (con_c, con_ct, 'CON_C')
    if (allocated(con_rt))   call vtables_scalar (con_r, con_rt, 'CON_R')
@@ -297,8 +297,8 @@ Contains
       endif
    enddo
 
-   if (allocated(sh_co2t)) then
-      call vtables_scalar (sh_co2, sh_co2t, 'SH_CO2', cu_mix=.true.)
+   if (allocated(rr_co2t)) then
+      call vtables_scalar (rr_co2, rr_co2t, 'RR_CO2', cu_mix=.true.)
       i_co2 = num_scalar  ! save index of co2 in scalar table
    endif
 

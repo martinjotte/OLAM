@@ -30,7 +30,7 @@
    !----------------------------------------------------------------------------
 
 !===============================================================================
-subroutine cuparm_driver(rhot)
+subroutine cuparm_driver()
 
   use mem_grid,         only: mwa, mza, lpw, volt, arw0
   use module_cu_g3,     only: grell_driver
@@ -44,8 +44,8 @@ subroutine cuparm_driver(rhot)
   use mem_cuparm,       only: thsrc, rtsrc, aconpr, conprr, vxsrc, vysrc, vzsrc, &
                               kcutop, kcubot, qwcon, iactcu, cbmf, cddf, kddtop, &
                               rdsrc
-  use mem_tend,         only: thilt, sh_wt, vmxet, vmyet, vmzet
-  use mem_basic,        only: rho, sh_w, theta, tair, thil
+  use mem_tend,         only: thilt, rr_wt, vmxet, vmyet, vmzet
+  use mem_basic,        only: rho, rr_w, theta, tair, thil
   use olam_mpi_atm,     only: mpi_send_w, mpi_recv_w
   use oname_coms,       only: nl
   use var_tables,       only: num_cumix
@@ -53,8 +53,6 @@ subroutine cuparm_driver(rhot)
   use olam_mpi_atm,     only: mpi_recv_w, mpi_send_w
 
   implicit none
-
-  real, intent(inout) :: rhot(mza,mwa)
 
   integer, save :: init_kf = 0
   integer       :: j, iw, k, mrl, mrlw
@@ -236,7 +234,7 @@ subroutine cuparm_driver(rhot)
 
   endif
 
-! Add current value of convective tendencies to thilt and sh_wt arrays
+! Add current value of convective tendencies to thilt and rr_wt arrays
 ! every long timestep (whether cumulus parameterization is updated
 ! this timestep or not)
 
@@ -264,11 +262,11 @@ subroutine cuparm_driver(rhot)
         dtlong4 = dtlm(itab_w(iw)%mrlw)
 
         ! Slight adjustment of water vapor tendencies to ensure that
-        ! convection does not produce negative sh_w. This may happen
+        ! convection does not produce negative rr_w. This may happen
         ! since we usually do not call convection every timestep.
 
         ! First modify humidity tendencies so that we don't create negative
-        ! sh_w's, and keep track of how much water we added in variable qadd
+        ! rr_w's, and keep track of how much water we added in variable qadd
 
         qadd = 0.0_r8
         
@@ -279,7 +277,7 @@ subroutine cuparm_driver(rhot)
         do k = lpw(iw), mza
 
            if (rtsrc(k,iw) < 0.) then
-              qtest = max(sh_w(k,iw),0.0) * rho(k,iw) + rtsrc(k,iw) * dtlong4
+              qtest = max(rr_w(k,iw),0.0) * rho(k,iw) + rtsrc(k,iw) * dtlong4
 
               if (qtest < 0.) then
                  dq = qtest / dtlong4 * 1.000001
@@ -328,9 +326,7 @@ subroutine cuparm_driver(rhot)
               thilt(k,iw) = thilt(k,iw) + thsrc(k,iw) * thil(k,iw) / tair(k,iw)
            endif
 
-           sh_wt(k,iw) = sh_wt(k,iw) + rt2(k)
-           rhot (k,iw) = rhot (k,iw) + rdsrc(k,iw)
-
+           rr_wt(k,iw) = rr_wt(k,iw) + rt2(k)
         enddo
 
         if (nl%conv_uv_mix > 0) then

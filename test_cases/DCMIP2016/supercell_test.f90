@@ -111,7 +111,7 @@ MODULE supercell_testm
   real, allocatable :: vye_init(:,:)
   real, allocatable :: vze_init(:,:)
   real, allocatable :: thil_init(:,:)
-  real, allocatable :: sh_w_init(:,:)
+  real, allocatable :: rr_w_init(:,:)
 
 CONTAINS
 

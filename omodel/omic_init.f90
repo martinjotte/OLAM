@@ -410,7 +410,7 @@ subroutine micinit_fields()
 
 use mem_basic,   only: rho
 
-use mem_micro,   only: sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, &
+use mem_micro,   only: rr_d, rr_r, rr_p, rr_s, rr_a, rr_g, rr_h, &
                        accpd, accpr, accpp, accps, accpa, accpg, accph, &
                        pcprd, pcprr, pcprp, pcprs, pcpra, pcprg, pcprh, &
                        con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h, &
@@ -515,46 +515,46 @@ if (runtype == 'INITIAL') then
    do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 !----------------------------------------------------------------------
 
-      if (allocated(sh_d))  then
-         sh_d(1:mza,iw) = 0.
+      if (allocated(rr_d))  then
+         rr_d(1:mza,iw) = 0.
          accpd(iw) = 0._r8
          pcprd(iw) = 0.
       endif
 
-      if (allocated(sh_r))  then
-         sh_r(1:mza,iw) = 0.
+      if (allocated(rr_r))  then
+         rr_r(1:mza,iw) = 0.
          accpr(iw) = 0._r8
          pcprr(iw) = 0.
          q2(1:mza,iw) = 0.
       endif
 
-      if (allocated(sh_p))  then
-         sh_p(1:mza,iw) = 0.
+      if (allocated(rr_p))  then
+         rr_p(1:mza,iw) = 0.
          accpp(iw) = 0._r8
          pcprp(iw) = 0.
       endif
 
-      if (allocated(sh_s))  then
-         sh_s(1:mza,iw) = 0.
+      if (allocated(rr_s))  then
+         rr_s(1:mza,iw) = 0.
          accps(iw) = 0._r8
          pcprs(iw) = 0.
       endif
 
-      if (allocated(sh_a))  then
-         sh_a(1:mza,iw) = 0.
+      if (allocated(rr_a))  then
+         rr_a(1:mza,iw) = 0.
          accpa(iw) = 0._r8
          pcpra(iw) = 0.
       endif
 
-      if (allocated(sh_g)) then
-         sh_g(1:mza,iw) = 0.
+      if (allocated(rr_g)) then
+         rr_g(1:mza,iw) = 0.
          accpg(iw) = 0._r8
          pcprg(iw) = 0.
          q6(1:mza,iw) = 0.
       endif
 
-      if (allocated(sh_h))  then
-         sh_h(1:mza,iw) = 0.
+      if (allocated(rr_h))  then
+         rr_h(1:mza,iw) = 0.
          accph(iw) = 0._r8
          pcprh(iw) = 0.
          q7(1:mza,iw) = 0.

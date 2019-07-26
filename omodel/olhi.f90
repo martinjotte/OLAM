@@ -32,40 +32,38 @@
 !===============================================================================
 subroutine fldslhi()
 
-use mem_basic,   only: theta, thil, tair, rho, press, sh_w, sh_v,  &
+use mem_basic,   only: theta, thil, tair, rho, press, rr_w, rr_v,  &
                        wc, wmc, vc, vp, vmc, vmp
-use mem_micro,   only: sh_c
-use micro_coms,  only: miclevel
+use mem_micro,   only: rr_c, con_c, cldnum
+use micro_coms,  only: miclevel, ccnparm, jnmb, rxmin, zfactor_ccn
 use mem_ijtabs,  only: jtab_w, jtab_v, itab_v, &
                        jtv_init, jtw_init
-use consts_coms, only: p00, p00i, rocp, cvocp, p00k, rdry, rvap, alvl, cp, grav
-use mem_grid,    only: mza, mva, mwa, lpv, lpw, zt, zm, dzt_top, dzt_bot, &
-                       xev, yev, zev, unx, uny, vnx, vny, glatw, arv
+use consts_coms, only: p00, p00i, rocp, cvocp, p00kord, rdry, alvlocp, &
+                       eps_vapi, r8
+use mem_grid,    only: mza, mwa, lpv, lpw, zt, zm, gdz_belo8, gdz_abov8, &
+                       xev, yev, vnx, vny, glatw
 use mem_zonavg,  only: zonz_vect, zonu_vect, zont_vect, zonr_vect,  &
                        zonp_vect, zonz, zonu, zont, zonr, zonavg_init
 use misc_coms,   only: io6, iparallel, idate1, imonth1, iyear1
 use therm_lib,   only: rhovsl
+use olam_mpi_atm,only: mpi_send_w, mpi_recv_w,  &
+                       mpi_send_v, mpi_recv_v
+use obnd,        only: lbcopy_v, lbcopy_w
 
-use olam_mpi_atm, only: mpi_send_w, mpi_recv_w,  &
-                        mpi_send_v, mpi_recv_v 
-    
-use obnd,         only: lbcopy_v, lbcopy_w
+implicit none
 
-implicit none   
-
-integer :: j,iw,k,ka,iu,iv,iter,iw1,iw2,iup,ivp,llat,mrl
-integer :: im,iplev,ilat,im1,im2,ilatn,ilats
+integer :: j,iw,k,ka,iv,iter,iw1,iw2,mrl,ilat
 integer :: kpbc, kbc, kother, khi, klo
 
-real :: rcloud,temp,rvls,exner
-real :: ugx,ugy,raxis,raxisi,pnorth,psouth,ug,ug1,ug2,wt1
-real :: alat,dyo2g,fcorn,fcors,pilo,pihi,thetavlo,thetavhi,rlat,wt2,cpo2g,rhovs
-real :: extrap, pkhyd, pressnew, qhydm
-
-character(len=1) :: line
+real :: temp,exner,ccn
+real :: ugx,ugy,raxis,raxisi,ug
+real :: rlat,wt2
+real :: extrap
 
 real :: vctr1(mza), vctr2(mza), vctr3(mza)
 real :: uzonal(mza,mwa)
+
+real(r8) :: pressnew, pkhyd, rho_tot(mza)
 
 ! Choose as an internal pressure boundary condition the pressure level
 ! zonp_vect(3), whose pressure is 46415.89 Pa.
@@ -80,7 +78,7 @@ call zonavg_init(idate1,imonth1,iyear1)
 do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 !----------------------------------------------------------------------
 
-! Linearly interpolate zonavg arrays by latitude to current IW column 
+! Linearly interpolate zonavg arrays by latitude to current IW column
 ! and K level
 
    ka = lpw(iw)
@@ -88,12 +86,12 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
    rlat = .4 * (glatw(iw) + 93.75)
    ilat = int(rlat)
    wt2 = rlat - float(ilat)
-   
+
    zonz_vect(1:22) = (1. - wt2) * zonz(ilat,1:22) + wt2 * zonz(ilat+1,1:22)
    zont_vect(1:22) = (1. - wt2) * zont(ilat,1:22) + wt2 * zont(ilat+1,1:22)
    zonu_vect(1:22) = (1. - wt2) * zonu(ilat,1:22) + wt2 * zonu(ilat+1,1:22)
    zonr_vect(1:22) = (1. - wt2) * zonr(ilat,1:22) + wt2 * zonr(ilat+1,1:22)
-   
+
 ! Interpolate zonavg vector arrays in height to model levels
 
 ! Fill pressure, theta, air density, and vapor density arrays from zonavg
@@ -106,12 +104,19 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 
    press(1:mza,iw) = vctr1(1:mza)
    theta(1:mza,iw) = vctr2(1:mza) * (p00 / vctr1(1:mza)) ** rocp  ! temp to theta
-   thil(1:mza,iw) = theta(1:mza,iw)
-   rho(1:mza,iw)  = press(1:mza,iw) ** cvocp * p00k / (rdry * theta(1:mza,iw))
-   sh_v(1:mza,iw) = vctr3(1:mza)  ! spec hum
-   sh_w(1:mza,iw) = sh_v(1:mza,iw)
-   wc(1:mza,iw)   = 0.
-   wmc(1:mza,iw)  = 0.
+   thil (1:mza,iw) = theta(1:mza,iw)
+   rho  (1:mza,iw) = press(1:mza,iw) ** cvocp * p00kord / theta(1:mza,iw)
+   rr_v (1:mza,iw) = vctr3(1:mza)  ! mixing ratio
+   rr_w (1:mza,iw) = rr_v(1:mza,iw)
+   wc   (1:mza,iw) = 0.
+   wmc  (1:mza,iw) = 0.
+
+   if (miclevel == 0) then
+      rho(1:mza,iw) = press(1:mza,iw) ** cvocp * p00kord / theta(1:mza,iw)
+   else
+      rho(1:mza,iw) = press(1:mza,iw) ** cvocp * p00kord &
+                    / (theta(1:mza,iw) * (1.0 + eps_vapi * rr_w(1:mza,iw)))
+   endif
 
 ! Determine which two model zt levels bracket zonz_vect(kpbc) in this column
 
@@ -137,69 +142,91 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 ! Iterative hydrostatic integration
 
    do iter = 1,100
-   
+
 ! Adjust pressure at k = kbc.  Use temporal weighting for damping
 
       pressnew = press(kother,iw) * (zonp_vect(kpbc) / press(kother,iw)) ** extrap
-      press(kbc,iw) = .1 * press(kbc,iw) + .9 * pressnew
+      press(kbc,iw) = .1_r8 * press(kbc,iw) + .9_r8 * pressnew
 
 !  Compute density for all levels
 
       do k = ka,mza
 
 ! Try this: hold Mclatchy temp (vctr2) constant during iterations
-      
-         theta(k,iw) = vctr2(k) * (p00 / press(k,iw)) ** rocp
-         thil(k,iw) = theta(k,iw)
+
+         theta(k,iw) = vctr2(k) * (p00 / real(press(k,iw))) ** rocp
 
          if (miclevel == 0) then
-            rho(k,iw) = press(k,iw) ** cvocp * p00k / (rdry * theta(k,iw))
+            rho (k,iw) = press(k,iw) ** cvocp * p00kord / theta(k,iw)
+            rho_tot(k) = rho(k,iw)
          elseif (miclevel == 1) then
-            rho(k,iw) = press(k,iw) ** cvocp * p00k  &
-               / (theta(k,iw) * (rdry * (1. - sh_w(k,iw)) + rvap * sh_v(k,iw)))
+            rho (k,iw) = press(k,iw) ** cvocp * p00kord / &
+                 ( theta(k,iw) * (1.0 + eps_vapi * rr_v(k,iw)) )
+            rho_tot(k) = rho(k,iw) * (1. + rr_v(k,iw))
          else
-            exner = (press(k,iw) * p00i) ** rocp  ! Defined WITHOUT CP factor
+            exner = (real(press(k,iw)) * p00i) ** rocp  ! Defined WITHOUT CP factor
             temp = exner * theta(k,iw)
-            rhovs = rhovsl(temp-273.15)
 
-            sh_c(k,iw) = sh_w(k,iw) - rhovs/real(rho(k,iw))
-            sh_c(k,iw) = max(0.,sh_c(k,iw))
-            sh_v(k,iw) = sh_w(k,iw) - sh_c(k,iw)
+            rr_c(k,iw) = max(0., rr_w(k,iw) - rhovsl(temp-273.15) / real(rho(k,iw)))
+            rr_v(k,iw) = rr_w(k,iw) - rr_c(k,iw)
 
-            rho(k,iw) = press(k,iw) ** cvocp * p00k &
-               / (theta(k,iw) * (rdry * (1. - sh_w(k,iw)) + rvap * sh_v(k,iw)))
+            rho (k,iw) = press(k,iw) ** cvocp * p00kord / &
+                 ( theta(k,iw) * (1.0 + eps_vapi * rr_v(k,iw)) )
 
-            qhydm = alvl * sh_c(k,iw)
-            thil(k,iw) = theta(k,iw) / (1. + qhydm / (cp * max(temp,253.)))
+            rho_tot(k) = rho(k,iw) * (1. + rr_v(k,iw))
          endif
 
       enddo
 
 ! Integrate hydrostatic equation upward and downward from kbc level
-! Impose minimum value of 0.1 Pa to avoid overshoot to negative values 
+! Impose minimum value of 0.1 Pa to avoid overshoot to negative values
 ! during iteration.  Use weighting to damp oscillations
 
       do k = kbc+1,mza
          pkhyd = press(k-1,iw) &
-               - grav * (rho(k-1,iw) * dzt_top(k-1) + rho(k,iw) * dzt_bot(k))
-         press(k,iw) = .05 * press(k,iw) + .95 * max(.1,pkhyd)
+               - gdz_belo8(k-1) * rho_tot(k-1) - gdz_abov8(k-1) * rho_tot(k)
+         press(k,iw) = .05_r8 * press(k,iw) + .95_r8 * max(.1_r8, pkhyd)
       enddo
 
       do k = kbc-1,ka,-1
          pkhyd = press(k+1,iw) &
-               + grav * (rho(k+1,iw) * dzt_bot(k+1) + rho(k,iw) * dzt_top(k))
-         press(k,iw) = .05 * press(k,iw) + .95 * max(.1,pkhyd)
+               + gdz_belo8(k) * rho_tot(k) + gdz_abov8(k) * rho_tot(k+1)
+         press(k,iw) = .05_r8 * press(k,iw) + .95_r8 * max(.1_r8, pkhyd)
       enddo
 
    enddo
 
    do k = ka, mza
-      tair(k,iw) = theta(k,iw) * (press(k,iw) * p00i) ** rocp
+      tair(k,iw) = theta(k,iw) * (real(press(k,iw)) * p00i) ** rocp
+      if (miclevel <= 1) then
+         thil(k,iw) = theta(k,iw)
+      else
+         thil(k,iw) = theta(k,iw) / (1. + alvlocp * rr_c(k,iw) / &
+                                        ((1.0 + rr_c(k,iw)) * max(temp,253.)))
+      endif
    enddo
 
    do k = 1, ka-1
       thil(k,iw) = thil(ka,iw)
    enddo
+
+   ! If there is condensate, initialize con_c if prognosed
+
+   if (miclevel == 3 .and. jnmb(1) == 5) then
+      if (ccnparm > 1.e6) then
+         ccn = ccnparm
+      else
+         ccn = cldnum(iw)
+      endif
+
+      do k = ka, mza
+         if (rr_c(k,iw) > rxmin(1)) then
+            con_c(k,iw) = ccn * real(rho(k,iw)) * zfactor_ccn(k)
+         else
+            con_c(k,iw) = 0.0
+         endif
+      enddo
+   endif
 
 enddo
 
@@ -239,7 +266,7 @@ do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)
       do k = ka,mza
          ug = .5 * (uzonal(k,iw1) + uzonal(k,iw2))
 
-         ugx = -ug * yev(iv) * raxisi 
+         ugx = -ug * yev(iv) * raxisi
          ugy =  ug * xev(iv) * raxisi
 
          vc(k,iv) = ugx * vnx(iv) + ugy * vny(iv)
@@ -282,18 +309,17 @@ write(io6,*) ' '
 write(io6,*) '========================================================================='
 write(io6,*) '                    OLAM INITIAL STATE COLUMN (lhi)'
 write(io6,*) '========================================================================='
-write(io6,*) '   zm(m)    k     zt(m)   press(Pa)   rho(kg/m3)   theta(K)   sh_w(g/kg)'
+write(io6,*) '   zm(m)    k     zt(m)   press(Pa)   rho(kg/m3)   theta(K)   rr_w(g/kg)'
 write(io6,*) '========================================================================='
 write(io6,*) ' '
 
 do k = mza,2,-1
    write(io6, '(f10.2,1x,9(''-------''))') zm(k)
    write(io6, '(10x,i5,f10.2,f11.2,f11.4,f12.2,f11.4)')  &
-       k,zt(k),press(k,iw),rho(k,iw),theta(k,iw),sh_w(k,iw)*1.e3
+       k,zt(k),press(k,iw),rho(k,iw),theta(k,iw),rr_w(k,iw)*1.e3
 enddo
-   
+
 write(io6, '(f10.2,1x,9(''-------''))') zm(1)
 write(io6,*) ' '
 
-return
 end subroutine fldslhi

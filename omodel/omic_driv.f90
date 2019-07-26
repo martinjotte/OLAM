@@ -34,19 +34,19 @@ subroutine micro()
 
 use mem_ijtabs, only: jtab_w, istp, mrl_endl, jtw_prog
 use micro_coms, only: miclevel
-use misc_coms,  only: io6, time8
 use oname_coms, only: nl
-use mem_grid,   only: mwa, glatw, glonw
+use mem_grid,   only: mwa
 
 implicit none
 
-integer :: j,iw,mrl,nbc
+integer :: j,iw,mrl
 
 ! The nbincall array stores the number of grid levels where subroutine ccnbin
 ! is called for each IW.  It is for informational (printing) purposes only and
 ! can be removed from the model once the performance of ccnbin is better
 ! understood.
 
+!integer :: nbc
 integer :: nbincall(mwa)
 
 if (miclevel /= 3) return
@@ -91,12 +91,12 @@ end subroutine micro
 
 subroutine micphys(iw,nbincall)
 
-use micro_coms,     only: mza0, ncat, nhcat, neff, cfvt, jnmb, emb2, rxmin, emb1
+use micro_coms,     only: mza0, ncat, nhcat, neff, cfvt, jnmb, rxmin
 use ccnbin_coms,    only: nccntyp, nnuc
-use consts_coms,    only: r8, pi4
-use misc_coms,      only: io6, dtlm, time_istp8, timmax8
+use consts_coms,    only: pi4
+use misc_coms,      only: dtlm, time_istp8
 use mem_ijtabs,     only: itab_w
-use mem_grid,       only: lpw,glatw,glonw
+use mem_grid,       only: lpw, glatw, glonw
 use oname_coms,     only: nl
 use mem_flux_accum, only: latheat_liq_accum, latheat_ice_accum
 
@@ -105,14 +105,14 @@ implicit none
 integer, intent(in) :: iw
 integer, intent(inout) :: nbincall
 
-integer :: k,jflag,jcat,lcat,j1,j2
+integer :: k,jflag,lcat
 
 integer :: j12,j14,j15,j16,j17,j18,j23,j24,j25,j26,j27
 integer :: j35,j36,j37,j45,j46,j47,j56,j57,j67,j82,j84,j85,j86,j87
 integer :: k12,k14,k15,k16,k17,k18,k23,k24,k25,k26,k27
 integer :: k35,k36,k37,k45,k46,k47,k56,k57,k67,k82,k84,k85,k86,k87
 
-integer :: lpw0,iw0,mrl0,kend,kadj
+integer :: lpw0,iw0,mrl0,kend
 
 real :: dtl0,dtli0
 
@@ -266,9 +266,9 @@ real :: &
   e2557(mza0),e2622(mza0),e2627(mza0),e2666(mza0),e2667(mza0), &
   e2722(mza0),e2727(mza0),e2777(mza0),e0000(mza0),e1882(mza0)
 
-real(r8) :: rhoa(mza0)
-real(r8) :: rhow(mza0)
-real(r8) :: totcond
+real :: rhoa(mza0)
+real :: rhow(mza0)
+real :: totcond
 
 real :: rhovsrefp(mza0,2)
 real :: sa(mza0,9)
@@ -434,7 +434,6 @@ accpx(:) = 0.
 
 ! Loop over all vertical levels
 
-kadj = lpw0 - 1
 do k = lpw0,mza0
 
 ! Compute total condensate in k level
@@ -446,22 +445,13 @@ do k = lpw0,mza0
 
    if (rhow(k) > totcond) cycle
 
-! If total water density is negative, increase to zero and increase total air density
-! rhoa by same amount to preserve dry-air content
-
-   if (rhow(k) < 0._r8) then
-      rhoa(k) = rhoa(k) - rhow(k)
-      rhow(k) = 0._r8
-      kadj    = k
-   endif
-
 ! Adjust condensate amounts downward if their sum exceeds rhow
 
    if (totcond > rhow(k)) then
 
-      frac = real( rhow(k) / totcond )
+      frac = rhow(k) / totcond
 
-      do lcat = 1,ncat
+      do lcat = 1, ncat
          rx(k,lcat) = rx(k,lcat) * frac
          cx(k,lcat) = cx(k,lcat) * frac
          qr(k,lcat) = qr(k,lcat) * frac
@@ -1202,9 +1192,9 @@ endif
 ! Copy hydrometeor bulk mass and number concentration and surface precipitation
 ! from microphysics column arrays to main model arrays
 
- call mic_copyback(iw0,lpw0,k1,k2,k3,kadj, &
-    dtli0,accpx,pcprx,thil0,theta0,tair,rhoa,rhow,rhov, &
-    con_ccnx,con_gccnx,con_ifnx,rx,cx,qx,qr)
+ call mic_copyback(iw0,lpw0, &
+    accpx,pcprx,thil0,theta0,tair,rhow,rhov, &
+    con_ccnx,con_gccnx,con_ifnx,rx,cx,qr)
 
 end subroutine micphys
 
@@ -1221,9 +1211,9 @@ use ccnbin_coms, only: nccntyp
 
 use mem_grid,   only: zfacm2, zfacim2, arw, volt, lsw, voa0
 
-use mem_basic,  only: thil, press, wc, rho, sh_w
+use mem_basic,  only: thil, press, wc, rho, rr_w
 
-use mem_micro,  only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, &
+use mem_micro,  only: rr_c, rr_d, rr_r, rr_p, rr_s, rr_a, rr_g, rr_h, &
                       q2, q6, q7, ccntyp, con_gccn, con_ifn, &
                       con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h, &
                       cldnum
@@ -1245,8 +1235,8 @@ real, intent(inout) :: con_ccnx (mza0,nccntyp)
 real, intent(inout) :: con_gccnx(mza0)
 real, intent(inout) :: con_ifnx (mza0)
 
-real(r8), intent(inout) :: rhoa(mza0)
-real(r8), intent(inout) :: rhow(mza0)
+real, intent(inout) :: rhoa(mza0)
+real, intent(inout) :: rhow(mza0)
 
 real, intent(inout) :: rx(mza0,ncat)
 real, intent(inout) :: cx(mza0,ncat)
@@ -1254,7 +1244,7 @@ real, intent(inout) :: qx(mza0,ncat)
 real, intent(inout) :: qr(mza0,ncat)
 
 integer :: k, ic
-real    :: rho4(mza0), rxx
+real    :: rhod(mza0), rxx
 
 ! Ratio of grid cell volume to top horizontal area arw projected onto W(k-1) level
 
@@ -1269,13 +1259,14 @@ enddo
 ! Copy atmospheric variables to micphys column vectors
 
 do k = lpw0, mza0
+   rhod  (k) = rho  (k,iw0)
    thil0 (k) = thil (k,iw0)
    press0(k) = press(k,iw0)
    wc0   (k) = wc   (k,iw0)
-   rhoa  (k) = rho  (k,iw0)
-   rhow  (k) = sh_w (k,iw0) * rho(k,iw0)
-   rho4  (k) = rho  (k,iw0)
-   rhoi  (k) = 1. / rho4(k)
+
+   rhoa  (k) = rhod (k) * (1. + rr_w(k,iw0))
+   rhow  (k) = max(rr_w(k,iw0) * rhod(k), 0.0)
+   rhoi  (k) = 1. / rhoa(k)
    exner0(k) = (press0(k) * p00i) ** rocp  ! defined WITHOUT CP factor
 enddo
 
@@ -1284,10 +1275,10 @@ enddo
 if (jnmb(1) >= 1) then
 
    do k = lpw0, mza0
-      rxx = sh_c(k,iw0) * rho4(k)
+      rxx = rr_c(k,iw0) * rhod(k)
       if (rxx > rxmin(1)) then
          rx(k,1) = rxx
-         if (jnmb(1) == 5) cx(k,1) = max(con_c(k,iw0) * rho4(k), 0.0)
+         if (jnmb(1) == 5) cx(k,1) = max(con_c(k,iw0) * rhod(k), 0.0)
       endif
    enddo
 
@@ -1298,13 +1289,13 @@ endif
 if (jnmb(2) >= 1) then
 
    do k = lpw0, mza0
-      rxx = sh_r(k,iw0) * rho4(k)
+      rxx = rr_r(k,iw0) * rhod(k)
       if (rxx > rxmin(2)) then
          rx(k,2) = rxx
-         qx(k,2) = max(-20000., min(500000., q2(k,iw0) / sh_r(k,iw0))) ! Limits -10C to 40C
+         qx(k,2) = max(-20000., min(500000., q2(k,iw0) / rr_r(k,iw0))) ! Limits -10C to 40C
          qr(k,2) = qx(k,2) * rx(k,2)
 
-         if (jnmb(2) == 5) cx(k,2) = max(con_r(k,iw0) * rho4(k), 0.0)
+         if (jnmb(2) == 5) cx(k,2) = max(con_r(k,iw0) * rhod(k), 0.0)
       endif
    enddo
 
@@ -1315,10 +1306,10 @@ endif
 if (jnmb(3) == 5) then
 
    do k = lpw0, mza0
-      rxx = sh_p(k,iw0) * rho4(k)
+      rxx = rr_p(k,iw0) * rhod(k)
       if (rxx > rxmin(3)) then
          rx(k,3) = rxx
-         cx(k,3) = max(con_p(k,iw0) * rho4(k), 0.0)
+         cx(k,3) = max(con_p(k,iw0) * rhod(k), 0.0)
       endif
    enddo
 
@@ -1329,10 +1320,10 @@ endif
 if (jnmb(4) >= 1) then
 
    do k = lpw0, mza0
-      rxx = sh_s(k,iw0) * rho4(k)
+      rxx = rr_s(k,iw0) * rhod(k)
       if (rxx > rxmin(4)) then
          rx(k,4) = rxx
-         if (jnmb(4) == 5) cx(k,4) = max(con_s(k,iw0) * rho4(k), 0.0)
+         if (jnmb(4) == 5) cx(k,4) = max(con_s(k,iw0) * rhod(k), 0.0)
       endif
    enddo
 
@@ -1343,10 +1334,10 @@ endif
 if (jnmb(5) >= 1) then
 
    do k = lpw0, mza0
-      rxx = sh_a(k,iw0) * rho4(k)
+      rxx = rr_a(k,iw0) * rhod(k)
       if (rxx > rxmin(5)) then
          rx(k,5) = rxx
-         if (jnmb(5) == 5) cx(k,5) = max(con_a(k,iw0) * rho4(k), 0.0)
+         if (jnmb(5) == 5) cx(k,5) = max(con_a(k,iw0) * rhod(k), 0.0)
       endif
    enddo
 
@@ -1357,13 +1348,13 @@ endif
 if (jnmb(6) >= 1) then
 
    do k = lpw0, mza0
-      rxx = sh_g(k,iw0) * rho4(k)
+      rxx = rr_g(k,iw0) * rhod(k)
       if (rxx > rxmin(6)) then
          rx(k,6) = rxx
-         qx(k,6) = max(-100000., min(334000., q6(k,iw0) / sh_g(k,iw0))) ! Limits -50C to 0C
+         qx(k,6) = max(-100000., min(334000., q6(k,iw0) / rr_g(k,iw0))) ! Limits -50C to 0C
          qr(k,6) = qx(k,6) * rx(k,6)
 
-         if (jnmb(5) == 6) cx(k,6) = max(con_g(k,iw0) * rho4(k), 0.0)
+         if (jnmb(5) == 6) cx(k,6) = max(con_g(k,iw0) * rhod(k), 0.0)
       endif
    enddo
 
@@ -1374,13 +1365,13 @@ endif
 if (jnmb(7) >= 1) then
 
    do k = lpw0, mza0
-      rxx = sh_h(k,iw0) * rho4(k)
+      rxx = rr_h(k,iw0) * rhod(k)
       if (rxx > rxmin(7)) then
          rx(k,7) = rxx
-         qx(k,7) = max(-100000., min(334000., q7(k,iw0) / sh_h(k,iw0))) ! Limits -50C to 0C
+         qx(k,7) = max(-100000., min(334000., q7(k,iw0) / rr_h(k,iw0))) ! Limits -50C to 0C
          qr(k,7) = qx(k,7) * rx(k,7)
 
-         if (jnmb(5) == 6) cx(k,7) = max(con_h(k,iw0) * rho4(k), 0.0)
+         if (jnmb(5) == 6) cx(k,7) = max(con_h(k,iw0) * rhod(k), 0.0)
       endif
    enddo
 
@@ -1391,10 +1382,10 @@ endif
 if (jnmb(8) == 5) then
 
    do k = lpw0, mza0
-      rxx = sh_d(k,iw0) * rho4(k)
+      rxx = rr_d(k,iw0) * rhod(k)
       if (rxx > rxmin(8)) then
          rx(k,8) = rxx
-         cx(k,8) = max(con_d(k,iw0) * rho4(k), 0.0)
+         cx(k,8) = max(con_d(k,iw0) * rhod(k), 0.0)
       endif
    enddo
 
@@ -1405,17 +1396,17 @@ endif
 if (iccn == 1) then
    if (ccnparm > 1.e6) then
       do k = lpw0,mza0
-         con_ccnx(k,1) = ccnparm * rho4(k) * zfactor_ccn(k)
+         con_ccnx(k,1) = ccnparm * rhod(k) * zfactor_ccn(k)
       enddo
    else
       do k = lpw0, mza0
-         con_ccnx(k,1) = cldnum(iw0) * rho4(k) * zfactor_ccn(k)
+         con_ccnx(k,1) = cldnum(iw0) * rhod(k) * zfactor_ccn(k)
       enddo
    endif
 else
    do ic = 1,nccntyp
       do k = lpw0, mza0
-         con_ccnx(k,ic) = max(0., ccntyp(ic)%con_ccn(k,iw0)) * rho4(k)
+         con_ccnx(k,ic) = max(0., ccntyp(ic)%con_ccn(k,iw0)) * rhod(k)
       enddo
    enddo
 endif
@@ -1424,11 +1415,11 @@ endif
 
 if (igccn == 1) then
    do k = lpw0, mza0
-      con_gccnx(k) = gccnparm * zfactor_gccn(k) * rho4(k)
+      con_gccnx(k) = gccnparm * zfactor_gccn(k) * rhod(k)
    enddo
 else
    do k = lpw0, mza0
-      con_gccnx(k) = max(0., con_gccn(k,iw0)) * rho4(k)
+      con_gccnx(k) = max(0., con_gccn(k,iw0)) * rhod(k)
    enddo
 endif
 
@@ -1436,11 +1427,11 @@ endif
 
 if (iifn == 1) then
    do k = lpw0, mza0
-      con_ifnx(k) = ifnparm * zfactor_ifn(k) * rho4(k)
+      con_ifnx(k) = ifnparm * zfactor_ifn(k) * rhod(k)
    enddo
 else
    do k = lpw0, mza0
-      con_ifnx(k) = max(0., con_ifn(k,iw0)) * rho4(k)
+      con_ifnx(k) = max(0., con_ifn(k,iw0)) * rhod(k)
    enddo
 endif
 
@@ -1448,36 +1439,25 @@ end subroutine mic_copy
 
 !===============================================================================
 
-subroutine mic_copyback(iw0,lpw0,k1,k2,k3,kadj, &
-   dtli0,accpx,pcprx,thil0,theta0,tair0,rhoa,rhow,rhov, &
-   con_ccnx,con_gccnx,con_ifnx,rx,cx,qx,qr)
+subroutine mic_copyback(iw0,lpw0, &
+   accpx,pcprx,thil0,theta0,tair0,rhow,rhov, &
+   con_ccnx,con_gccnx,con_ifnx,rx,cx,qr)
 
 use micro_coms, only: mza0, ncat, jnmb, iccn, igccn, iifn, rxmin
 use ccnbin_coms, only: nccntyp
-use mem_basic,  only: thil, theta, tair, rho, sh_w, sh_v, wmc, wc
-use mem_micro,  only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, &
+use mem_basic,  only: thil, theta, tair, rho, rr_w, rr_v
+use mem_micro,  only: rr_c, rr_d, rr_r, rr_p, rr_s, rr_a, rr_g, rr_h, &
                       q2, q6, q7, &
                       con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h, &
                       accpd, accpr, accpp, accps, accpa, accpg, accph, &
                       pcprd, pcprr, pcprp, pcprs, pcpra, pcprg, pcprh, &
                       ccntyp, con_gccn, con_ifn
-use misc_coms,  only: io6
 use consts_coms,only: r8, p00i, rocp, alvl, alvi, cpi4, cp253i
-use mem_grid,   only: zwgt_bot8, zwgt_top8
-use mem_tend,   only: num_omic
-use var_tables, only: num_scalar, scalar_tab
 
 implicit none
 
 integer, intent(in) :: iw0
 integer, intent(in) :: lpw0
-
-integer, intent(in) :: k1(11)
-integer, intent(in) :: k2(11)
-integer, intent(in) :: k3(11)
-integer, intent(in) :: kadj
-
-real, intent(in) :: dtli0
 
 real, intent(in) :: accpx(ncat)
 real, intent(in) :: pcprx(ncat)
@@ -1487,8 +1467,7 @@ real, intent(in)  :: theta0(mza0)
 real, intent(in)  :: tair0(mza0)
 real, intent(in)  :: rhov(mza0)
 
-real(r8), intent(in) :: rhoa(mza0)
-real(r8), intent(in) :: rhow(mza0)
+real, intent(in) :: rhow(mza0)
 
 real, intent(in) :: con_ccnx (mza0,nccntyp)
 real, intent(in) :: con_gccnx(mza0)
@@ -1496,44 +1475,22 @@ real, intent(in) :: con_ifnx (mza0)
 
 real, intent(in) :: rx(mza0,ncat)
 real, intent(in) :: cx(mza0,ncat)
-real, intent(in) :: qx(mza0,ncat)
 real, intent(in) :: qr(mza0,ncat)
 
-real    :: rfact(mza0)
 real    :: rhoi (mza0)
-integer :: k, n, ic, ktop
+integer :: k, ic
 
 ! Copy base thermodynamic variables
 
 do k = lpw0,mza0
+   rhoi (k)     = 1. / real(rho(k,iw0))
+
    thil (k,iw0) = thil0 (k)
    theta(k,iw0) = theta0(k)
    tair (k,iw0) = tair0 (k)
-   rho  (k,iw0) = rhoa  (k)
-   rfact(k)     = rho   (k,iw0) / rhoa(k)
-   rhoi (k)     = 1._r8 / rhoa(k)
-   sh_w (k,iw0) = rhow  (k) / rhoa(k)
-   sh_v (k,iw0) = sh_w  (k,iw0)
+   rr_w (k,iw0) = rhow  (k) * rhoi(k)
+   rr_v (k,iw0) = rr_w  (k,iw0)
 enddo
-
-ktop = max(k2(11), k3(1), k3(3), k3(8), kadj)
-if (ktop >= lpw0) then
-
-! Adjust scalar specific densities to conserve mass when air density changes
-
-   do n = num_omic+1, num_scalar
-      do k = lpw0, ktop
-         scalar_tab(n)%var_p(k,iw0) = scalar_tab(n)%var_p(k,iw0) * rfact(k)
-      enddo
-   enddo
-
-! Conserve vertical momentum when air density changes
-
-   do k = lpw0, min(ktop,mza0-1)
-      wmc(k,iw0) = wc(k,iw0) * real(zwgt_bot8(k) * rho(k,iw0) + zwgt_top8(k) * rho(k+1,iw0))
-   enddo
-
-endif
 
 ! Copy cloud water number and bulk density back to main array
 
@@ -1542,13 +1499,13 @@ if (jnmb(1) >= 1) then
    do k = lpw0, mza0
       if (rx(k,1) > rxmin(1)) then
 
-         sh_c(k,iw0) = rx(k,1) * rhoi(k)
-         sh_v(k,iw0) = sh_v(k,iw0) - sh_c(k,iw0)
+         rr_c(k,iw0) = rx(k,1) * rhoi(k)
+         rr_v(k,iw0) = rr_v(k,iw0) - rr_c(k,iw0)
          if (jnmb(1) == 5) con_c(k,iw0) = cx(k,1) * rhoi(k)
 
       else
 
-         sh_c(k,iw0) = 0.0
+         rr_c(k,iw0) = 0.0
          if (jnmb(1) == 5) con_c(k,iw0) = 0.0
 
       endif
@@ -1565,14 +1522,14 @@ if (jnmb(2) >= 1) then
    do k = lpw0, mza0
       if (rx(k,2) > rxmin(2)) then
 
-         sh_r(k,iw0) = rx(k,2) * rhoi(k)
-         sh_v(k,iw0) = sh_v(k,iw0) - sh_r(k,iw0)
+         rr_r(k,iw0) = rx(k,2) * rhoi(k)
+         rr_v(k,iw0) = rr_v(k,iw0) - rr_r(k,iw0)
          q2  (k,iw0) = qr(k,2) * rhoi(k)
          if (jnmb(2) == 5) con_r(k,iw0) = cx(k,2) * rhoi(k)
 
       else
 
-         sh_r(k,iw0) = 0.0
+         rr_r(k,iw0) = 0.0
          q2  (k,iw0) = 0.0
          if (jnmb(2) == 5) con_r(k,iw0) = 0.0
 
@@ -1589,11 +1546,11 @@ if (jnmb(3) == 5) then
 
    do k = lpw0, mza0
       if (rx(k,3) > rxmin(3)) then
-         sh_p (k,iw0) = rx(k,3) * rhoi(k)
-         sh_v(k,iw0) = sh_v(k,iw0) - sh_p(k,iw0)
+         rr_p (k,iw0) = rx(k,3) * rhoi(k)
+         rr_v(k,iw0) = rr_v(k,iw0) - rr_p(k,iw0)
          con_p(k,iw0) = cx(k,3) * rhoi(k)
       else
-         sh_p (k,iw0) = 0.0
+         rr_p (k,iw0) = 0.0
          con_p(k,iw0) = 0.0
       endif
    enddo
@@ -1609,13 +1566,13 @@ if (jnmb(4) >= 1) then
    do k = lpw0, mza0
       if (rx(k,4) > rxmin(4)) then
 
-         sh_s(k,iw0) = rx(k,4) * rhoi(k)
-         sh_v(k,iw0) = sh_v(k,iw0) - sh_s(k,iw0)
+         rr_s(k,iw0) = rx(k,4) * rhoi(k)
+         rr_v(k,iw0) = rr_v(k,iw0) - rr_s(k,iw0)
          if (jnmb(4) == 5) con_s(k,iw0) = cx(k,4) * rhoi(k)
 
       else
 
-         sh_s(k,iw0) = 0.0
+         rr_s(k,iw0) = 0.0
          if (jnmb(4) == 5) con_s(k,iw0) = 0.0
 
       endif
@@ -1632,13 +1589,13 @@ if (jnmb(5) >= 1) then
    do k = lpw0, mza0
       if (rx(k,5) > rxmin(5)) then
 
-         sh_a(k,iw0) = rx(k,5) * rhoi(k)
-         sh_v(k,iw0) = sh_v(k,iw0) - sh_a(k,iw0)
+         rr_a(k,iw0) = rx(k,5) * rhoi(k)
+         rr_v(k,iw0) = rr_v(k,iw0) - rr_a(k,iw0)
          if (jnmb(5) == 5) con_a(k,iw0) = cx(k,5) * rhoi(k)
 
       else
 
-         sh_a(k,iw0) = 0.0
+         rr_a(k,iw0) = 0.0
          if (jnmb(5) == 5) con_a(k,iw0) = 0.0
 
       endif
@@ -1655,14 +1612,14 @@ if (jnmb(6) >= 1) then
    do k = lpw0, mza0
       if (rx(k,6) > rxmin(6)) then
 
-         sh_g(k,iw0) = rx(k,6) * rhoi(k)
-         sh_v(k,iw0) = sh_v(k,iw0) - sh_g(k,iw0)
+         rr_g(k,iw0) = rx(k,6) * rhoi(k)
+         rr_v(k,iw0) = rr_v(k,iw0) - rr_g(k,iw0)
          q6  (k,iw0) = qr(k,6) * rhoi(k)
          if (jnmb(6) == 5) con_g(k,iw0) = cx(k,6) * rhoi(k)
 
       else
 
-         sh_g(k,iw0) = 0.0
+         rr_g(k,iw0) = 0.0
          q6  (k,iw0) = 0.0
          if (jnmb(6) == 5) con_g(k,iw0) = 0.0
 
@@ -1680,14 +1637,14 @@ if (jnmb(7) >= 1) then
    do k = lpw0, mza0
       if (rx(k,7) > rxmin(7)) then
 
-         sh_h(k,iw0) = rx(k,7) * rhoi(k)
-         sh_v(k,iw0) = sh_v(k,iw0) - sh_h(k,iw0)
+         rr_h(k,iw0) = rx(k,7) * rhoi(k)
+         rr_v(k,iw0) = rr_v(k,iw0) - rr_h(k,iw0)
          q7  (k,iw0) = qr(k,7) * rhoi(k)
          if (jnmb(7) == 5) con_h(k,iw0) = cx(k,7) * rhoi(k)
 
       else
 
-         sh_h(k,iw0) = 0.0
+         rr_h(k,iw0) = 0.0
          q7  (k,iw0) = 0.0
          if (jnmb(7) == 5) con_h(k,iw0) = 0.0
 
@@ -1704,11 +1661,11 @@ if (jnmb(8) == 5) then
 
    do k = lpw0, mza0
       if (rx(k,8) > rxmin(8)) then
-         sh_d (k,iw0) = rx(k,8) * rhoi(k)
-         sh_v (k,iw0) = sh_v(k,iw0) - sh_d(k,iw0)
+         rr_d (k,iw0) = rx(k,8) * rhoi(k)
+         rr_v (k,iw0) = rr_v(k,iw0) - rr_d(k,iw0)
          con_d(k,iw0) = cx(k,8) * rhoi(k)
       else
-         sh_d (k,iw0) = 0.0
+         rr_d (k,iw0) = 0.0
          con_d(k,iw0) = 0.0
       endif
    enddo

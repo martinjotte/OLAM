@@ -2,7 +2,7 @@ subroutine diagn_global_dcmip()
 
 ! This subroutine computes error norms for some NCAR DCMIP test cases
      
-use mem_basic,   only: rho, wc, press, sh_w
+use mem_basic,   only: rho, wc, press, rr_w
 use mem_ijtabs,  only: jtab_w, jtw_prog
 use misc_coms,   only: time_istp8, timmax8, naddsc, dtlong, iparallel
 use consts_coms, only: r8, grav
@@ -283,7 +283,7 @@ do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
       vy = vy + (q1 + 2. * q2) * dzt(k) * rho(k,iw)
 
       tmass_sum =  tmass_sum + rho(k,iw) * volt(k,iw)
-      wmass_sum =  wmass_sum + rho(k,iw) * volt(k,iw) * sh_w(k,iw)
+      wmass_sum =  wmass_sum + rho(k,iw) * volt(k,iw) * rr_w(k,iw)
 
       q1mass_sum = q1mass_sum + q1 * rho(k,iw) * volt(k,iw)
       q2mass_sum = q2mass_sum + q2 * rho(k,iw) * volt(k,iw)

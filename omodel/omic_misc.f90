@@ -41,7 +41,7 @@ subroutine each_column(lpw0,iw0,k1,k2,dtl0,                    &
    tx,sh,sm,sa,rhovsrefp)
 
 use micro_coms,  only: mza0, ncat, jhabtab
-use consts_coms, only: r8, alvl, alvi
+use consts_coms, only: alvl, alvi
 use misc_coms,   only: io6
 use therm_lib,   only: rhovsl, rhovsi
 
@@ -75,8 +75,7 @@ real, intent(out) :: colfac2  (mza0)
 real, intent(out) :: sumuy    (mza0)
 real, intent(out) :: sumuz    (mza0)
 real, intent(out) :: sumvr    (mza0)
-
-real(r8), intent(in) :: rhoa(mza0)
+real, intent(in)  :: rhoa(mza0)
 
 real, intent(out) :: tx(mza0,ncat)
 real, intent(out) :: sh(mza0,ncat)
@@ -200,7 +199,6 @@ use micro_coms,  only: mza0, ncat, jnmb, emb2, emb0, emb1, rxmin, &
                        dict, emb0log, rictmin, rictmax
 use ccnbin_coms, only: nccntyp
 use misc_coms,   only: io6
-use consts_coms, only: r8
 
 implicit none
 
@@ -282,7 +280,7 @@ subroutine x02(iw0,lpw0,lcat,k1,k2,con_ccnx, &
 use micro_coms,  only: mza0, ncat, rxmin, enmlttab, dnfac, pwmasi, &
                        gnu, shedtab
 use ccnbin_coms, only: nccntyp
-use consts_coms, only: r8, alli
+use consts_coms, only: alli
 use misc_coms,   only: io6
 use therm_lib,   only: qtc
 
@@ -564,7 +562,7 @@ subroutine sedim2(iw0,lpw0,k1,k2,jhcat,dtl0, &
    cx, rx, qx, qr, emb, dmb, pcpvel, pcpfluxc, pcpfluxr, pcpfluxq, accpx, pcprx)
 
 use micro_coms,  only: mza0, ncat, rxmin, cfmasi, pwmasi, cfvt, pwvt, jnmb, emb1
-use consts_coms, only: r8, cpi, alviocp
+use consts_coms, only: cpi, alviocp
 use misc_coms,   only: io6
 use mem_grid,    only: zm, zfacm2, zfacim2, arw, volti
 use mem_ijtabs,  only: itab_w
@@ -583,16 +581,15 @@ integer, intent(in) :: jhcat(mza0,ncat)
 
 real, intent(in) :: dtl0
 
-real, intent(in)    :: voa   (mza0)
-real, intent(in)    :: denfac(mza0)
+real, intent(in)    :: voa      (mza0)
+real, intent(in)    :: denfac   (mza0)
 real, intent(in)    :: tair     (mza0)
 real, intent(in)    :: thil0    (mza0)
 real, intent(in)    :: theta0   (mza0)
 real, intent(inout) :: dsed_thil(mza0)
 real, intent(in)    :: rhoi     (mza0)
-
-real(r8), intent(inout) :: rhoa(mza0)
-real(r8), intent(inout) :: rhow(mza0)
+real, intent(inout) :: rhoa     (mza0)
+real, intent(inout) :: rhow     (mza0)
 
 real, intent(inout) :: cx      (mza0,ncat)
 real, intent(inout) :: rx      (mza0,ncat)

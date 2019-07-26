@@ -34,7 +34,7 @@ subroutine inc_mavg_vars()
 
   use mem_average_vars, only: &
      npoints_mavg, npoints_avg24, nz_avg, &
-     press_mavg, rho_mavg, tempk_mavg, sh_v_mavg, sh_w_mavg, wc_mavg, &
+     press_mavg, rho_mavg, tempk_mavg, rr_v_mavg, rr_w_mavg, wc_mavg, &
      vxe_mavg, vye_mavg, vze_mavg, &
      rshort_mavg, rshort_top_mavg, rshortup_mavg, rshortup_top_mavg, &
      rlong_mavg, rlongup_mavg, rlongup_top_mavg, &
@@ -47,7 +47,7 @@ subroutine inc_mavg_vars()
      accpmic_tot24, accpcon_tot24
 
   use mem_grid,    only: mwa, lpw, zt, zm, mza, dzim, lpv, mva
-  use mem_basic,   only: wc, sh_v, sh_w, tair, press, rho, vxe, vye, vze
+  use mem_basic,   only: wc, rr_v, rr_w, tair, press, rho, vxe, vye, vze
   use consts_coms, only: alvl, cp
   use mem_turb,    only: sfluxr, sfluxt
   use misc_coms,   only: io6, dtlong, time8, isubdomain
@@ -87,8 +87,8 @@ subroutine inc_mavg_vars()
         press_mavg(k,iw) = press_mavg(k,iw) + real(press(kll,iw))
           rho_mavg(k,iw) =   rho_mavg(k,iw) + real(rho  (kll,iw))
         tempk_mavg(k,iw) = tempk_mavg(k,iw) + tair(kll,iw)
-         sh_v_mavg(k,iw) =  sh_v_mavg(k,iw) + sh_v(kll,iw)
-         sh_w_mavg(k,iw) =  sh_w_mavg(k,iw) + sh_w(kll,iw)
+         rr_v_mavg(k,iw) =  rr_v_mavg(k,iw) + rr_v(kll,iw)
+         rr_w_mavg(k,iw) =  rr_w_mavg(k,iw) + rr_w(kll,iw)
            wc_mavg(k,iw) =    wc_mavg(k,iw) + wc  (kll,iw) 
           vxe_mavg(k,iw) =   vxe_mavg(k,iw) + vxe (kll,iw) 
           vye_mavg(k,iw) =   vye_mavg(k,iw) + vye (kll,iw) 
@@ -122,7 +122,7 @@ subroutine inc_mavg_vars()
 
      press_avg24(dhr,iw) = press_avg24(dhr,iw) + real(press(k,iw))
      tempk_avg24(dhr,iw) = tempk_avg24(dhr,iw) + tair(k,iw)
-      shum_avg24(dhr,iw) =  shum_avg24(dhr,iw) + sh_v(k,iw)
+      shum_avg24(dhr,iw) =  shum_avg24(dhr,iw) + rr_v(k,iw)
        vxe_avg24(dhr,iw) =   vxe_avg24(dhr,iw) + vxe(k,iw)
        vye_avg24(dhr,iw) =   vye_avg24(dhr,iw) + vye(k,iw)
        vze_avg24(dhr,iw) =   vze_avg24(dhr,iw) + vze(k,iw)
@@ -166,7 +166,7 @@ subroutine inc_davg_vars()
 
   use mem_ijtabs,  only: itabg_w, jtab_w, jtw_prog
   use mem_grid,    only: mwa, lpw, zt, zm, mza, dzim
-  use mem_basic,   only: wc, sh_v, sh_w, tair, press, rho, vxe, vye, vze
+  use mem_basic,   only: wc, rr_v, rr_w, tair, press, rho, vxe, vye, vze
   use consts_coms, only: alvl, cp
   use mem_turb,    only: sfluxr, sfluxt
   use misc_coms,   only: io6, dtlong, time8, isubdomain
@@ -302,7 +302,7 @@ subroutine norm_mavg_vars()
 
   use mem_average_vars, only: &
      npoints_mavg, npoints_avg24, &
-     press_mavg, rho_mavg, tempk_mavg, sh_v_mavg, sh_w_mavg, wc_mavg, &
+     press_mavg, rho_mavg, tempk_mavg, rr_v_mavg, rr_w_mavg, wc_mavg, &
      vxe_mavg, vye_mavg, vze_mavg, &
      rshort_mavg, rshort_top_mavg, rshortup_mavg, rshortup_top_mavg, &
      rlong_mavg, rlongup_mavg, rlongup_top_mavg, &
@@ -328,8 +328,8 @@ subroutine norm_mavg_vars()
   press_mavg = press_mavg * ni
     rho_mavg =   rho_mavg * ni
   tempk_mavg = tempk_mavg * ni
-   sh_v_mavg =  sh_v_mavg * ni
-   sh_w_mavg =  sh_w_mavg * ni
+   rr_v_mavg =  rr_v_mavg * ni
+   rr_w_mavg =  rr_w_mavg * ni
      wc_mavg =    wc_mavg * ni
     vxe_mavg =   vxe_mavg * ni
     vye_mavg =   vye_mavg * ni
@@ -447,7 +447,7 @@ subroutine write_mavg_vars(outyear,outmonth)
   
   use mem_average_vars, only: &
      nz_avg, &
-     press_mavg, rho_mavg, tempk_mavg, sh_v_mavg, sh_w_mavg, wc_mavg, &
+     press_mavg, rho_mavg, tempk_mavg, rr_v_mavg, rr_w_mavg, wc_mavg, &
      vxe_mavg, vye_mavg, vze_mavg, &
      rshort_mavg, rshort_top_mavg, rshortup_mavg, rshortup_top_mavg, &
      rlong_mavg, rlongup_mavg, rlongup_top_mavg, &
@@ -549,9 +549,9 @@ subroutine write_mavg_vars(outyear,outmonth)
        lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
   call shdf5_orec(ndims,idims,'TEMPK_MAVG',rvar2=tempk_mavg, &
        lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-  call shdf5_orec(ndims,idims, 'SH_V_MAVG',rvar2= sh_v_mavg, &
+  call shdf5_orec(ndims,idims, 'RR_V_MAVG',rvar2= rr_v_mavg, &
        lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-  call shdf5_orec(ndims,idims, 'SH_W_MAVG',rvar2= sh_w_mavg, &
+  call shdf5_orec(ndims,idims, 'RR_W_MAVG',rvar2= rr_w_mavg, &
        lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
   call shdf5_orec(ndims,idims,   'WC_MAVG',rvar2=   wc_mavg, &
        lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
@@ -838,7 +838,7 @@ subroutine read_mavg_vars(mavgfile)
 
   use mem_average_vars, only: &
      nz_avg, &
-     press_mavg, rho_mavg, tempk_mavg, sh_v_mavg, sh_w_mavg, wc_mavg, &
+     press_mavg, rho_mavg, tempk_mavg, rr_v_mavg, rr_w_mavg, wc_mavg, &
      vxe_mavg, vye_mavg, vze_mavg, &
      rshort_mavg, rshort_top_mavg, rshortup_mavg, rshortup_top_mavg, &
      rlong_mavg, rlongup_mavg, rlongup_top_mavg, &
@@ -887,8 +887,8 @@ subroutine read_mavg_vars(mavgfile)
      call shdf5_irec(ndims,idims,'PRESS_MAVG',rvar2=press_mavg, points=ilocal)
      call shdf5_irec(ndims,idims,  'RHO_MAVG',rvar2=  rho_mavg, points=ilocal)
      call shdf5_irec(ndims,idims,'TEMPK_MAVG',rvar2=tempk_mavg, points=ilocal)
-     call shdf5_irec(ndims,idims, 'SH_V_MAVG',rvar2= sh_v_mavg, points=ilocal)
-     call shdf5_irec(ndims,idims, 'SH_W_MAVG',rvar2= sh_w_mavg, points=ilocal)
+     call shdf5_irec(ndims,idims, 'RR_V_MAVG',rvar2= rr_v_mavg, points=ilocal)
+     call shdf5_irec(ndims,idims, 'RR_W_MAVG',rvar2= rr_w_mavg, points=ilocal)
      call shdf5_irec(ndims,idims,   'WC_MAVG',rvar2=   wc_mavg, points=ilocal)
      call shdf5_irec(ndims,idims,  'VXE_MAVG',rvar2=  vxe_mavg, points=ilocal)
      call shdf5_irec(ndims,idims,  'VYE_MAVG',rvar2=  vye_mavg, points=ilocal)

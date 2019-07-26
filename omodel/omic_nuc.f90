@@ -1537,7 +1537,7 @@ use micro_coms,  only: jnmb, emb0, emb1, mza0, ncat, &
                        igccn, rxmin
 use ccnbin_coms, only: nccntyp
 use misc_coms,   only: io6, dtlm
-use consts_coms, only: r8, rvap, grav, alvl, cp, cliq, alli, eps_vapi
+use consts_coms, only: rvap, grav, alvl, cp, cliq, alli, eps_vapi
 use therm_lib,   only: rhovsl
 
 implicit none
@@ -1570,7 +1570,7 @@ real, intent(inout) :: cnuc_vd(mza0)
 real, intent(inout) :: rnuc_vc(mza0)
 real, intent(inout) :: rnuc_vd(mza0)
 
-real(r8), intent(in) :: rhoa(mza0)
+real, intent(in) :: rhoa(mza0)
 
 integer :: k
 
@@ -1776,7 +1776,7 @@ real :: cactivated, rx_wbc
         !par    pressA  = pressB
         !par    rhoaA   = rhoaB
         !par    rhovA   = rhovB
-        !par    sh_vA   = sh_vB
+        !par    rr_vA   = rr_vB
         !par    satenvA = satenvB
 
      endif ! (jnmb(1) == 5)
@@ -1796,7 +1796,7 @@ subroutine icenuc(k1,k2,lpw0,mrl0,iw0, &
   use micro_coms,  only: mza0, ncat, dnfac, pwmasi, rxmin, ndnc, ddnc, dtc, &
                          fracc, drhhz, dthz, frachz, emb0, jnmb, iccn, igccn
   use ccnbin_coms, only: nccntyp, ccntyp_alpha
-  use consts_coms, only: r8, cice, cliq, alli
+  use consts_coms, only: cice, cliq, alli
   use misc_coms,   only: io6
 
   implicit none
@@ -1837,7 +1837,7 @@ subroutine icenuc(k1,k2,lpw0,mrl0,iw0, &
   real, intent(inout) :: cnuc_vp_haze  (mza0)
   real, intent(inout) :: cnuc_vp_immers(mza0)
 
-  real(r8), intent(in) :: rhoa(mza0)
+  real, intent(in) :: rhoa(mza0)
 
   real, intent(in) :: dtl0
 

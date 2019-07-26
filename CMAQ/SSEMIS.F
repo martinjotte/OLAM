@@ -656,7 +656,7 @@
             use mem_ijtabs, only: itabg_w
             use misc_coms,  only: isubdomain
             use mem_grid,   only: volti
-            use mem_basic,  only: press, tair, sh_v, rho, vxe, vye, vze
+            use mem_basic,  only: press, tair, rr_v, rho, vxe, vye, vze
             use therm_lib,  only: rhovsl
 
             IMPLICIT NONE
@@ -768,7 +768,7 @@
 
                BLKPRS  = press(kw,iw)
                BLKTA   = tair(kw,iw)
-               blkrh   = sh_v(kw,iw) * rho(kw,iw) / rhovsl(blkta - 273.15)
+               blkrh   = rr_v(kw,iw) * rho(kw,iw) / rhovsl(blkta - 273.15)
                U10     = sqrt(vxe(kw,iw)**2 + vye(kw,iw)**2 + vze(kw,iw)**2)
                SST     = max( sea%seatc(iws) - 273.15, 0.0 )
                RLAY1HT = sea%area(iws) * volti(kw,iw)

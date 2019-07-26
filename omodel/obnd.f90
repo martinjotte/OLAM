@@ -37,7 +37,7 @@ Contains
 subroutine trsets(mrl)
 
 use var_tables, only: num_scalar, scalar_tab
-use mem_basic,  only: theta, tair, sh_v
+use mem_basic,  only: theta, tair, rr_v
 use micro_coms, only: miclevel
 
 implicit none
@@ -56,7 +56,7 @@ do n = 1, num_scalar
    call botset (mrl,scalar_tab(n)%var_p)
 enddo
 
-! THETA, TAIR, and SH_V
+! THETA, TAIR, and RR_V
 
 call latsett(mrl,theta)
 call botset (mrl,theta)
@@ -65,8 +65,8 @@ call latsett(mrl,tair)
 call botset (mrl,tair)
 
 if (miclevel >= 1) then
-   call latsett(mrl,sh_v)
-   call botset (mrl,sh_v)
+   call latsett(mrl,rr_v)
+   call botset (mrl,rr_v)
 endif
 
 end subroutine trsets

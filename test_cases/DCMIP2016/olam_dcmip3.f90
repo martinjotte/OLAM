@@ -1,16 +1,16 @@
 subroutine olam_dcmip_init()
 
-use mem_basic,  only: vc, vmc, vp, vmp, wc, wmc, rho, thil, theta, tair, &
-                      press, sh_w, sh_v
-use mem_ijtabs,   only: jtab_v, jtab_w, itab_v, jtv_init, jtw_init
-use mem_grid,   only: mza, mva, mwa, zt, dzt, xev, yev, zev, vnx, vny, vnz, lpw, &
-                      glatw, glonw, lpv, zm, glatv, glonv, dzt_top, dzt_bot, gravm
-use mem_addsc,  only: addsc
+use mem_basic,   only: vc, vmc, vp, vmp, wc, wmc, rho, thil, theta, tair, &
+                       press, rr_w, rr_v
+use mem_ijtabs,  only: jtab_v, jtab_w, itab_v, jtv_init, jtw_init
+use mem_grid,    only: mza, mva, mwa, zt, dzt, xev, yev, zev, vnx, vny, vnz, lpw, &
+                       glatw, glonw, lpv, zm, glatv, glonv, gdz_belo8, gdz_abov8
+use mem_addsc,   only: addsc
 use misc_coms,   only: io6, iparallel
-use consts_coms, only: p00, p00i, p00k, rocp, alvl, cp, cvocp, rdry, rvap, &
-                       xscale, pio180, erad
-use mem_micro,   only: sh_c
-use micro_coms,  only: miclevel
+use consts_coms, only: p00, p00i, p00kord, rocp, alvlocp, cvocp, eps_vapi, &
+                       xscale, pio180, erad, r8
+use mem_micro,   only: rr_c, con_c, cldnum
+use micro_coms,  only: miclevel, ccnparm, jnmb, rxmin, zfactor_ccn
 
 use dcmip_initial_conditions_test_1_2_3, only: &
    test1_advection_deformation, &
@@ -28,7 +28,7 @@ use dcmip_initial_conditions_test_4, only: &
    test4_baroclinic_wave
 
 use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, &
-                        mpi_send_v, mpi_recv_v 
+                        mpi_send_v, mpi_recv_v
 
 use obnd,         only: lbcopy_v, lbcopy_w
 
@@ -54,12 +54,14 @@ real(8) :: hyam, hybm, gc, xscal, cl, cl2
 
 real(8) :: zm0, zt0, rhom0, rhot0, u0, v0, wm0, wt0, rm0, rt0, thetav
 
+real(8) :: rho_tot(mza), pkhyd
+
 integer :: mrl,j,iw,k,iv,iw1,iw2,zcoords,rcoords,cfv,shear,moist,iter,ka,kbc, &
            subtest, deep, pertt, pert
 
 logical :: hybrid_eta
 
-real :: exner, temp, rhovs, pkhyd, qhydm, thet0
+real :: exner, temp, ccn
 
 ! In case standard OLAM hydrostatic balance is carried out, choose the middle
 ! level of the model (as counted by vertical index) to be an internal pressure
@@ -321,8 +323,6 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
          call baroclinic_wave_test(deep,moist,pertt,Xscal,lonrad,latrad,p,zt0,zcoords, &
                                    u0,v0,t,thetav,phis,ps,rhot0,q)
 
-         thet0 = thetav / (1. + 0.608 * q) ! Not needed? (theta computable from t & p)
-
          wm0 = 0.
          rhom0 = rhot0 ! Exact value not needed for this case
 
@@ -335,13 +335,14 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
               nl%test_case == 122) then
 
 !==============================================================================
-! DCMIP-2016 TEST CASE 1-2 - Tropical Cyclone 
+! DCMIP-2016 TEST CASE 1-2 - Tropical Cyclone
 !==============================================================================
 
          call tropical_cyclone_test(lonrad,latrad,p,zt0,zcoords, &
                                     u0,v0,t,thetav,phis,ps,rhot0,q)
 
-         thet0 = thetav / (1. + 0.608 * q) ! Not needed? (theta computable from t & p)
+         ! q is specific humidity. Convert to mixing ratio
+         q = q / (1. - q)
 
          wm0 = 0.
          rhom0 = rhot0 ! Exact value not needed for this case
@@ -356,8 +357,6 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 
          call supercell_test(lonrad,latrad,p,zt0,zcoords,u0,v0,t,thetav,ps,rhot0,q,pert)
 
-         thet0 = thetav / (1. + 0.608 * q) ! Not needed? (theta computable from t & p)
-
          wm0 = 0.
          rhom0 = rhot0 ! Exact value not needed for this case
 
@@ -366,75 +365,102 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
       wc(k,iw) = wm0
       wmc(k,iw) = wm0 * rhom0
 
-      rho(k,iw) = rhot0
+!  Assume: q is mixing ratio, rhot0 include dry air and water vapor
+
+      rho(k,iw) = rhot0 / (1. + q)
       press(k,iw) = p
       tair (k,iw) = t
       theta(k,iw) = t * (p00 / p) ** rocp
       thil(k,iw) = theta(k,iw)
-      sh_w(k,iw) = q
-      sh_v(k,iw) = q
+      rr_w(k,iw) = q
+      rr_v(k,iw) = q
 
    enddo
 
    ! Iterative hydrostatic balance procedure
-   ! Procedure holds THETA and SH_W constant, after THETA is computed above
+   ! Procedure holds THETA and RR_W constant, after THETA is computed above
 
 !   go to 100  ! BYPASS THE HYDROSTATIC BALANCE PROCEDURE
 
    do iter = 1,100
-   
+
 !  Compute density for all levels
 
-      do k = ka,mza
-      
+      do k = ka, mza
+
          if (miclevel == 0) then
-            rho(k,iw) = press(k,iw) ** cvocp * p00k / (rdry * theta(k,iw))
+            rho(k,iw) = press(k,iw) ** cvocp * p00kord / theta(k,iw)
+            rho_tot(k) = rho(k,iw)
          elseif (miclevel == 1) then
-            rho(k,iw) = press(k,iw) ** cvocp * p00k  &
-               / (theta(k,iw) * (rdry * (1. - sh_w(k,iw)) + rvap * sh_v(k,iw)))
+            rho(k,iw) = press(k,iw) ** cvocp * p00kord / &
+                        ( theta(k,iw) * (1.0 + eps_vapi * rr_v(k,iw)) )
+            rho_tot(k) = rho(k,iw) * (1. + rr_v(k,iw))
          else
-            exner = (press(k,iw) / p00) ** rocp   ! Defined WITHOUT CP factor
-            temp = exner * theta(k,iw)
-            rhovs = rhovsl(temp-273.15)
+            exner = (real(press(k,iw)) * p00i) ** rocp   ! Defined WITHOUT CP factor
+            temp  = exner * theta(k,iw)
 
-            sh_c(k,iw) = sh_w(k,iw) - rhovs/real(rho(k,iw))
-            sh_c(k,iw) = max(0.,sh_c(k,iw))
-            sh_v(k,iw) = sh_w(k,iw) - sh_c(k,iw)
+            rr_c(k,iw) = max(0., rr_w(k,iw) - rhovsl(temp-273.15) / real(rho(k,iw)))
+            rr_v(k,iw) = rr_w(k,iw) - rr_c(k,iw)
 
-            rho(k,iw) = press(k,iw) ** cvocp * p00k &
-               / (theta(k,iw) * (rdry * (1. - sh_w(k,iw)) + rvap * sh_v(k,iw)))
+            rho(k,iw) = press(k,iw) ** cvocp * p00kord / &
+                        ( theta(k,iw) * (1.0 + eps_vapi * rr_v(k,iw)) )
 
-            qhydm = alvl * sh_c(k,iw)
-            thil(k,iw) = theta(k,iw) / (1. + qhydm / (cp * max(temp,253.)))
-         endif
-         
+            rho_tot(k) = rho(k,iw) * (1. + rr_w(k,iw))
+        endif
+
       enddo
 
 ! Integrate hydrostatic equation upward and downward from kbc level.
-! Impose minimum value of 0.1 Pa to avoid overshoot to negative values 
+! Impose minimum value of 0.1 Pa to avoid overshoot to negative values
 ! during iteration.  Use weighting to damp oscillations
 
       do k = kbc+1,mza
          pkhyd = press(k-1,iw) &
-               - gravm(k-1) * (rho(k-1,iw) * dzt_top(k-1) + rho(k,iw) * dzt_bot(k))
-         press(k,iw) = .05 * press(k,iw) + .95 * max(.1,pkhyd)
+               - gdz_belo8(k-1) * rho_tot(k-1) - gdz_abov8(k-1) * rho_tot(k)
+         press(k,iw) = .05_r8 * press(k,iw) + .95_r8 * max(.1_r8, pkhyd)
       enddo
 
       do k = kbc-1,ka,-1
          pkhyd = press(k+1,iw) &
-               + gravm(k) * (rho(k+1,iw) * dzt_bot(k+1) + rho(k,iw) * dzt_top(k))
-         press(k,iw) = .05 * press(k,iw) + .95 * max(.1,pkhyd)
+               + gdz_belo8(k) * rho_tot(k) + gdz_abov8(k) * rho_tot(k+1)
+         press(k,iw) = .05_r8 * press(k,iw) + .95_r8 * max(.1_r8, pkhyd)
       enddo
 
    enddo
 
    do k = ka, mza
-      tair(k,iw) = theta(k,iw) * (press(k,iw) * p00i) ** rocp
+      tair(k,iw) = theta(k,iw) * (real(press(k,iw)) * p00i) ** rocp
+      if (miclevel <= 1) then
+         thil(k,iw) = theta(k,iw)
+      else
+         thil(k,iw) = theta(k,iw) / ( 1. + alvlocp * rr_c(k,iw) / &
+                                         ((1.0 + rr_c(k,iw)) * max(temp,253.)) )
+      endif
    enddo
 
-100 continue
+   thil(1:ka-1,iw) = thil(ka,iw)
+
+! If there is cloud condensate, initialize con_c if prognosed
+
+   if (miclevel == 3 .and. jnmb(1) == 5) then
+      if (ccnparm > 1.e6) then
+         ccn = ccnparm
+      else
+         ccn = cldnum(iw)
+      endif
+
+      do k = ka, mza
+         if (rr_c(k,iw) > rxmin(1)) then
+            con_c(k,iw) = ccn * real(rho(k,iw)) * zfactor_ccn(k)
+         else
+            con_c(k,iw) = 0.0
+         endif
+      enddo
+   endif
 
 enddo
+
+100 continue
 
 ! MPI parallel send/recv of W group
 
@@ -679,10 +705,10 @@ end subroutine olam_dcmip_init
 
 subroutine dcmip_save_initfields()
 
-use mem_basic,  only: vxe, vye, vze, thil, sh_w
+use mem_basic,  only: vxe, vye, vze, thil, rr_w
 use mem_grid,   only: mza, mwa
 
-use supercell_testm, only: vxe_init, vye_init, vze_init, thil_init, sh_w_init
+use supercell_testm, only: vxe_init, vye_init, vze_init, thil_init, rr_w_init
 
 implicit none
 
@@ -692,7 +718,7 @@ implicit none
   allocate ( vye_init(mza,mwa))
   allocate ( vze_init(mza,mwa))
   allocate (thil_init(mza,mwa))
-  allocate (sh_w_init(mza,mwa))
+  allocate (rr_w_init(mza,mwa))
 
   ! Store initial values of velocity and thil
 
@@ -700,7 +726,7 @@ implicit none
    vye_init(:,:) =  vye(:,:)
    vze_init(:,:) =  vze(:,:)
   thil_init(:,:) = thil(:,:)
-  sh_w_init(:,:) = sh_w(:,:)
+  rr_w_init(:,:) = rr_w(:,:)
 
 end subroutine dcmip_save_initfields
 
@@ -708,7 +734,7 @@ end subroutine dcmip_save_initfields
 
 subroutine olam_dcmip_prescribedflow(time0,vmsc,wmsc,rho_old,vxesc,vyesc,vzesc )
 
-use mem_basic,  only: vc, vmc, wc, wmc, rho, thil, theta, press, sh_w, sh_v, &
+use mem_basic,  only: vc, vmc, wc, wmc, rho, thil, theta, press, rr_w, rr_v, &
                       vxe, vye, vze
 use mem_ijtabs, only: itab_v, jtab_v, jtab_w, jtw_prog, itab_w
 use mem_grid,   only: mza, mva, mwa, zt, xev, yev, zev, vnx, vny, vnz, lpw, &
@@ -955,28 +981,26 @@ end subroutine olam_dcmip_prescribedflow
 
 !==============================================================================
 
-subroutine olam_dcmip2016_phys(rhot)
+subroutine olam_dcmip2016_phys()
 
 ! Subroutine olam_dcmip2016_phys is called from subroutine timestep and in turn
 ! calls subroutine dcmip2016_physics that provides tendencies or updates to model
 ! prognostic fields for DCMIP2016 test cases.
 
 use mem_basic,   only: vc, vmc, wc, wmc, rho, thil, theta, press, &
-                       sh_w, sh_v, vxe, vye, vze
+                       rr_w, rr_v, vxe, vye, vze
 use mem_ijtabs,  only: itab_v, jtab_v, jtab_w, jtw_prog, jtv_prog
 use mem_grid,    only: mza, mva, mwa, zt, xev, yev, zev, vnx, vny, vnz, lpw, &
                        glatw, glonw, lpv, zm, glatv, glonv, xew, yew, zew, dzt, &
                        gravm, gravt
 use mem_addsc,   only: addsc
-use consts_coms, only: r8, p00, rocp, erad, pio180, p00i
+use consts_coms, only: r8, p00, rocp, erad, eradi, pio180, p00i
 use misc_coms,   only: dtlong, time8p, dtlm, io6, iparallel
-use mem_micro,   only: pcprr, accpr, sh_c, sh_r
-use mem_tend,    only: thilt, sh_wt, sh_ct, sh_rt, vmxet, vmyet, vmzet
+use mem_micro,   only: pcprr, accpr, rr_c, rr_r
+use mem_tend,    only: thilt, rr_wt, rr_ct, rr_rt, vmxet, vmyet, vmzet
 use oname_coms,  only: nl
 
 implicit none
-
-real, intent(inout) :: rhot(mza,mwa)
 
 real(r8) :: rhodrycol(mza)
 real(r8) ::  exnercol(mza)
@@ -1075,7 +1099,7 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
       if (raxis > 1.e3) then
          ucol(k) = (vy * xew(iw) - vx * yew(iw)) / raxis
-         vcol(k) = vz * raxis / erad &
+         vcol(k) = vz * raxis * eradi &
            - (vx * xew(iw) + vy * yew(iw)) * zew(iw) / (raxis * erad)
       else
          ucol(k) = 0.
@@ -1084,17 +1108,17 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
       ! Apply fixer to prevent negative moisture values before calling DCMIP physics
 
-      sh_v(k,iw) = max(sh_v(k,iw), 0.0)
-      sh_c(k,iw) = max(sh_c(k,iw), 0.0)
-      sh_r(k,iw) = max(sh_r(k,iw), 0.0)
+      rr_v(k,iw) = max(rr_v(k,iw), 0.0)
+      rr_c(k,iw) = max(rr_c(k,iw), 0.0)
+      rr_r(k,iw) = max(rr_r(k,iw), 0.0)
 
-       exnercol(k) = (press(k,iw) / p00) ** rocp      ! Defined WITHOUT CP factor
-      rhodrycol(k) =    rho(k,iw) * (1. - sh_w(k,iw))
+       exnercol(k) = (real(press(k,iw)) * p00i) ** rocp      ! Defined WITHOUT CP factor
+      rhodrycol(k) =    rho(k,iw)
        thetacol(k) =   thil(k,iw) ! THIL = THETA for DCMIP 2016 cases; THIL is prognostic
            pcol(k) =  press(k,iw)
-          qvcol(k) =   sh_v(k,iw) * rho(k,iw) / rhodrycol(k)
-          qccol(k) =   sh_c(k,iw) * rho(k,iw) / rhodrycol(k)
-          qrcol(k) =   sh_r(k,iw) * rho(k,iw) / rhodrycol(k)
+          qvcol(k) =   rr_v(k,iw)
+          qccol(k) =   rr_c(k,iw)
+          qrcol(k) =   rr_r(k,iw)
 
       ! Save a copy of quantities that will change in physics update
 
@@ -1121,30 +1145,29 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
       ! Convert mixing ratio changes to density-weighted tendencies used by OLAM
 
-      rhot (k,iw) = rhot (k,iw) + (qnew - qold)                * rhodrycol(k) / dtime
-      sh_wt(k,iw) = sh_wt(k,iw) + (qnew - qold)                * rhodrycol(k) / dtime
-      sh_ct(k,iw) = sh_ct(k,iw) + (qccol(k) - qccol0(k))       * rhodrycol(k) / dtime
-      sh_rt(k,iw) = sh_rt(k,iw) + (qrcol(k) - qrcol0(k))       * rhodrycol(k) / dtime
+      rr_wt(k,iw) = rr_wt(k,iw) + (qnew - qold)                * rhodrycol(k) / dtime
+      rr_ct(k,iw) = rr_ct(k,iw) + (qccol(k) - qccol0(k))       * rhodrycol(k) / dtime
+      rr_rt(k,iw) = rr_rt(k,iw) + (qrcol(k) - qrcol0(k))       * rhodrycol(k) / dtime
       thilt(k,iw) = thilt(k,iw) + (thetacol(k) - thetacol0(k)) * rhodrycol(k) / dtime
 
-      ! Convert velocity change to momentum tendencies used by OLAM 
+      ! Convert velocity change to momentum tendencies used by OLAM
 
       if (raxis > 1.e3) then
          dudt = (ucol(k) - ucol0(k)) / dtime ! Zonal velocity tendency
          dvdt = (vcol(k) - vcol0(k)) / dtime ! Meridional velocity tendency
 
-         dvrdt = -dvdt * zew(iw) / erad  ! radially outward from axis
+         dvrdt = -dvdt * zew(iw) * eradi  ! radially outward from axis
 
-         vmxet(k,iw) = vmxet(k,iw) + rho(k,iw) * (-dudt * yew(iw) + dvrdt * xew(iw)) / raxis 
-         vmyet(k,iw) = vmyet(k,iw) + rho(k,iw) * ( dudt * xew(iw) + dvrdt * yew(iw)) / raxis 
-         vmzet(k,iw) = vmzet(k,iw) + rho(k,iw) *   dvdt * raxis / erad 
+         vmxet(k,iw) = vmxet(k,iw) + rho(k,iw) * (-dudt * yew(iw) + dvrdt * xew(iw)) / raxis
+         vmyet(k,iw) = vmyet(k,iw) + rho(k,iw) * ( dudt * xew(iw) + dvrdt * yew(iw)) / raxis
+         vmzet(k,iw) = vmzet(k,iw) + rho(k,iw) *   dvdt * raxis * eradi
       endif
    enddo
 
 ! Convert precip rate from m/s to mm/s (or equivalent kg/m^2/s.
 ! Add single-timestep contribution to accumulated precipitation
 
-   pcprr(iw) = precl * 1000.  
+   pcprr(iw) = precl * 1000.
    accpr(iw) = accpr(iw) + dtime * pcprr(iw)
 
 enddo
@@ -1158,8 +1181,8 @@ subroutine thermo_dcmip()
 use mem_ijtabs, only: jtab_w, istp, mrl_endl, jtw_prog
 use mem_grid,   only: lpw, mza
 use consts_coms,only: p00i, rocp
-use mem_basic,  only: theta, thil, tair, sh_v, sh_w, press
-use mem_micro,  only: sh_c, sh_r
+use mem_basic,  only: theta, thil, tair, rr_v, rr_w, press
+use mem_micro,  only: rr_c, rr_r
 
 implicit none
 
@@ -1176,8 +1199,8 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
    do k = lpw(iw),mza
       theta(k,iw) = thil(k,iw)
-      tair (k,iw) = thil(k,iw) * (press(k,iw) * p00i) ** rocp
-      sh_v(k,iw) = sh_w(k,iw) - sh_c(k,iw) - sh_r(k,iw)
+      tair (k,iw) = thil(k,iw) * (real(press(k,iw)) * p00i) ** rocp
+      rr_v(k,iw) = rr_w(k,iw) - rr_c(k,iw) - rr_r(k,iw)
    enddo
 
 enddo
@@ -1251,4 +1274,3 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 enddo
 
 end subroutine olam_dcmip_terminator
-

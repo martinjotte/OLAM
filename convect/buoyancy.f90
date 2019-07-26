@@ -32,13 +32,13 @@ contains
 subroutine comp_buoy(iw, buoy, a, b, adry, bdry, awet, bwet)
 
   use mem_grid,    only: mza, dzim, lpw
-  use mem_basic,   only: theta, tair, sh_v, sh_w, rho
+  use mem_basic,   only: theta, tair, rr_v, rr_w, rho
   use consts_coms, only: t00, eps_vapi, eps_virt, alvl, rdry, rvap, &
                          alvlocp, alviocp
   use therm_lib,   only: rhovsl
   use mem_radiate, only: cloud_frac
   use mem_cuparm,  only: iactcu, qwcon, kcutop, kcubot
-  use mem_micro,   only: sh_c, sh_p
+  use mem_micro,   only: rr_c, rr_p
   use micro_coms,  only: miclevel
   use oname_coms,  only: nl
 
@@ -58,7 +58,7 @@ subroutine comp_buoy(iw, buoy, a, b, adry, bdry, awet, bwet)
   real                 :: qsat(mza), qliq(mza), qice(mza), frac(mza)
   real                 :: thlo(mza), qto(mza)
   real                 :: qt, qs, qc, aa, bb, ad, bd, aw, bw
-  real                 :: th, ta, dthl, dqw, thl, xsat, fracm
+  real                 :: th, ta, dthl, dqw, thl, xsat, fracm, fac
   integer              :: k
 
 !  moist_buoy = 0  buoyancy does not take into account condensate
@@ -72,17 +72,17 @@ subroutine comp_buoy(iw, buoy, a, b, adry, bdry, awet, bwet)
   if (nl%moist_buoy >= 1) then
      if (miclevel < 3) then
         do k = lpw(iw), mza
-           qliq(k) = sh_w(k,iw) - sh_v(k,iw)
+           qliq(k) = rr_w(k,iw) - rr_v(k,iw)
         enddo
      else
-        if (allocated(sh_c)) then
+        if (allocated(rr_c)) then
            do k = lpw(iw), mza
-              qliq(k) = sh_c(k,iw)
+              qliq(k) = rr_c(k,iw)
            enddo
         endif
-        if (nl%moist_buoy >= 2 .and. allocated(sh_p)) then
+        if (nl%moist_buoy >= 2 .and. allocated(rr_p)) then
            do k = lpw(iw), mza
-              qice(k) = sh_p(k,iw)
+              qice(k) = rr_p(k,iw)
            enddo
         endif
      endif
@@ -96,16 +96,21 @@ subroutine comp_buoy(iw, buoy, a, b, adry, bdry, awet, bwet)
 
   ! loop over T levels
   do k = lpw(iw), mza
-     qsat(k) = rhovsl(tair(k,iw)-t00) / real(rho(k,iw))
 
-     if (qliq(k) < 1.e-8) then
+     fac = 1.0 / (1.0 + rr_v(k,iw))
+
+     qliq(k) = qliq(k) * fac
+     qice(k) = qice(k) * fac
+     qsat(k) = rhovsl(tair(k,iw)-t00) / real(rho(k,iw)) * fac
+
+     if (qliq(k) + qice(k) < 1.e-8) then
         frac(k) = 0.0
      else
         frac(k) = max(0.1, cloud_frac(k,iw))
      endif
 
      thlo(k) = theta(k,iw) / ( 1.0 + (alvlocp * qliq(k) + alviocp * qice(k)) / max(tair(k,iw),253.0))
-     qto (k) = sh_v(k,iw) + qliq(k) + qice(k)
+     qto (k) = rr_v(k,iw) * fac + qliq(k) + qice(k)
   enddo
 
   ! loop over W levels

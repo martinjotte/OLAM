@@ -296,7 +296,7 @@ C...modules
       use mem_radiate, only: cloud_frac
       use mem_grid,    only: mza, glatw, glonw, zt, zm, lpw, dzt
       use cgrid_defn
-      use mem_basic,   only: tair, press, rho, sh_v
+      use mem_basic,   only: tair, press, rho, rr_v
       use consts_coms, only: r8, t00, alvl, eps_vap, cp
       use mem_mclat,   only: rad_mclat
       use cmaq_cloud
@@ -627,7 +627,7 @@ C...modules
                   BLKO3 ( L ) = max(CGRID( k, iw, LGC_O3  ), 0.0) * MSCALE
                   BLKNO2( L ) = max(CGRID( k, iw, LGC_NO2 ), 0.0) * MSCALE
 
-                  rhov   ( k ) = max(0.,sh_v(k,iw)) * rho(k,iw)
+                  rhov   ( k ) = max(0.,rr_v(k,iw)) * rho(k,iw)
                   
                END DO           ! loop on layers ambient conditions and gases
 

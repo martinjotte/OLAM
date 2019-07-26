@@ -32,21 +32,19 @@
 !===============================================================================
 subroutine isnstage(p_u, p_v, p_t, p_z, p_r, p_o, &
                     p_topo, p_prsfc, p_tsfc, p_shsfc, &
-                    o_rho, o_theta, o_shv, o_uzonal, o_umerid, o_vc, o_ozone)
+                    o_press, o_rho, o_theta, o_rrw, o_uzonal, o_umerid, o_ozone)
 
 use max_dims,     only: maxpr
 use isan_coms,    only: nprz, npry, nprx, nprz_rh, haso3, nbot_o3, &
                         xswlat, xswlon, gdatdx, gdatdy, glat, &
                         npd, kzonoff, levpr, lzon_bot, ipoffset, inproj
-use mem_grid,     only: glatw, glonw, mza, mwa, mva, lpv, &
-                        xev, yev, zev, vnx, vny, vnz
-use mem_ijtabs,   only: jtab_v, jtab_w, itab_v, jtv_init, jtw_init
+use mem_grid,     only: glatw, glonw, mza, mwa
+use mem_ijtabs,   only: jtab_w, jtw_init
 use mem_zonavg,   only: zonp_vect, zont, zonz, zonr, zonu, zono
-use consts_coms,  only: r8, eradi, rocp, p00i, cp
+use consts_coms,  only: r8, rocp, p00i, cp
 use misc_coms,    only: iparallel
 use isan_coms,    only: ihydsfc
-use olam_mpi_atm, only: mpi_send_w, mpi_send_v, mpi_recv_w, mpi_recv_v
-use obnd,         only: lbcopy_v
+use olam_mpi_atm, only: mpi_send_w, mpi_recv_w
 
 implicit none
 
@@ -62,12 +60,12 @@ real, intent(in) :: p_prsfc(nprx+4,npry+4)
 real, intent(in) :: p_tsfc (nprx+4,npry+4)
 real, intent(in) :: p_shsfc(nprx+4,npry+4)
 
+real(r8), intent(inout) :: o_press (mza,mwa)
 real(r8), intent(inout) :: o_rho   (mza,mwa)
 real,     intent(inout) :: o_theta (mza,mwa)
-real,     intent(inout) :: o_shv   (mza,mwa)
+real,     intent(inout) :: o_rrw   (mza,mwa)
 real,     intent(inout) :: o_uzonal(mza,mwa)
 real,     intent(inout) :: o_umerid(mza,mwa)
-real,     intent(inout) :: o_vc    (mza,mva)
 real,     intent(inout) :: o_ozone (mza,mwa)
 
 real :: pcol_p    (maxpr+2)
@@ -83,16 +81,14 @@ real :: plat(npry+4)
 
 real :: pcol_topo, pcol_prsfc, pcol_tsfc, pcol_shsfc, pcol_exnersfc
 
-integer :: k,levp,j,iw,ilat,iv,mrl,ka
-integer :: iw1,iw2,nlevs,kstrt
+integer :: k,levp,j,iw,ilat,mrl
+integer :: nlevs,kstrt
 
-real :: wt2,grx,gry,rlat,ug,vg
-real :: uvgx,uvgy,uvgz,uvgr,raxis,raxisi
-
+real :: wt2,grx,gry,rlat
 real :: r_interp(22)
 
 ! Determine index of lowest ZONAVG pressure level that is at least 1/2
-! ZONAVG pressure level higher than highest input pressure data level 
+! ZONAVG pressure level higher than highest input pressure data level
 ! (i.e., maximum zonp_vect value that is less than 82.5% of levpr(nprz),
 ! which is in hPa)
 
@@ -147,12 +143,12 @@ endif
 do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 !---------------------------------------------------------------------
 
-! fractional x/y indices in pressure data arrays at current iw point location 
+! fractional x/y indices in pressure data arrays at current iw point location
 
    if (inproj == 1) then
 
       gry = (glatw(iw) - xswlat) / gdatdy + 3.
-      grx = (glonw(iw) - xswlon) / gdatdx + 1. + real(ipoffset) 
+      grx = (glonw(iw) - xswlon) / gdatdx + 1. + real(ipoffset)
 
    elseif (inproj == 2) then
 
@@ -173,7 +169,7 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
       endif
 
       gry = (glatw(iw) - plat(ilat)) / (plat(ilat+1) - plat(ilat)) + real(ilat)
-      grx = (glonw(iw) - xswlon) / gdatdx + 1. + real(ipoffset) 
+      grx = (glonw(iw) - xswlon) / gdatdx + 1. + real(ipoffset)
 
    endif
 
@@ -188,7 +184,7 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
    enddo
 
    do k=1,nprz_rh
-      call gdtost(p_r(:,:,k),nprx+4,npry+4,grx,gry,pcol_rt(k+2))    ! s.h.
+      call gdtost(p_r(:,:,k),nprx+4,npry+4,grx,gry,pcol_rt(k+2))   ! mix. ratio
    enddo
 
    if (haso3) then
@@ -249,7 +245,7 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 
    endif
 
-! Linearly interpolate zonavg arrays by latitude to current IW column 
+! Linearly interpolate zonavg arrays by latitude to current IW column
 ! and K level. WIND IS ALL U AND NO V.
 
    do levp = lzon_bot,22
@@ -271,10 +267,10 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
    pcol_temp(1) = pcol_temp(2) + 4.9  ! Uses approx std lapse rate
    pcol_o3(1:2) = pcol_o3(3)
 
-! Vertically interpolate current column to model grid and 
-! perform iterative hydrostatic balance 
+! Vertically interpolate current column to model grid and
+! perform iterative hydrostatic balance
 
-   call vterpp_s(iw,o_rho,o_theta,o_shv,o_uzonal,o_umerid,o_ozone, &
+   call vterpp_s(iw,o_press,o_rho,o_theta,o_rrw,o_uzonal,o_umerid,o_ozone, &
                  pcol_p, pcol_temp, pcol_z, pcol_u, pcol_v, &
                  pcol_rt, pcol_exner, pcol_o3, &
                  pcol_topo, pcol_prsfc, pcol_tsfc, pcol_shsfc, pcol_exnersfc)
@@ -288,94 +284,34 @@ if (iparallel == 1) then
    call mpi_recv_w(mrl, rvara1=o_uzonal, rvara2=o_umerid)
 endif
 
-! Initialize V wind component
-
-!----------------------------------------------------------------------
-
-!$omp parallel do private(iv,iw1,iw2,ka,raxis,raxisi,k,ug,vg,uvgr,uvgx,uvgy,uvgz)
-do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)
-   iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
-!----------------------------------------------------------------------
-
-   if (iw1 < 2) iw1 = iw2
-   if (iw2 < 2) iw2 = iw1
-
-   ka = lpv(iv)
-
-   raxis = sqrt(xev(iv) ** 2 + yev(iv) ** 2)  ! dist from earth axis
-
-! Average winds to V point and rotate at V point
-
-   if (raxis > 1.e3) then
-      raxisi = 1. / raxis
-
-      do k = ka,mza
-         ug = .5 * (o_uzonal(k,iw1) + o_uzonal(k,iw2))
-         vg = .5 * (o_umerid(k,iw1) + o_umerid(k,iw2))
-
-         uvgr = -vg * zev(iv) * eradi  ! radially outward from axis
-
-         uvgx = (-ug * yev(iv) + uvgr * xev(iv)) * raxisi 
-         uvgy = ( ug * xev(iv) + uvgr * yev(iv)) * raxisi 
-         uvgz =   vg * raxis * eradi 
-
-         o_vc(k,iv) = uvgx * vnx(iv) + uvgy * vny(iv) + uvgz * vnz(iv)
-      enddo
-
-   else
-      o_vc(:,iv) = 0.
-   endif
-
-enddo
-!$omp end parallel do
-
-! MPI parallel send/recv of o_vc
-
-if (iparallel == 1) then
-   mrl = 1
-   call mpi_send_v(mrl, rvara1=o_vc)
-   call mpi_recv_v(mrl, rvara1=o_vc)
-endif
-
-! LBC copy of o_uvc
-
-call lbcopy_v(1, vc=o_vc)
-
 end subroutine isnstage
 
 !===============================================================================
 
-subroutine vterpp_s(iw,o_rho,o_theta,o_shv,o_uzonal,o_umerid,o_ozone, &
+subroutine vterpp_s(iw,o_press,o_rho,o_theta,o_rrw,o_uzonal,o_umerid,o_ozone, &
                  pcol_p, pcol_temp, pcol_z, pcol_u, pcol_v, &
                  pcol_rt, pcol_exner, pcol_o3, &
                  pcol_topo, pcol_prsfc, pcol_tsfc, pcol_shsfc, pcol_exnersfc)
 
 use max_dims,    only: maxpr
 use isan_coms,   only: npd, ihydsfc
-use consts_coms, only: r8, grav2, grav, cvocp, p00k, rdry, rvap, p00, &
-                       cp, rocp, gravi, eps_virt, eps_vap
-use mem_grid,    only: mwa, mza, lpw, dzt_top, dzt_bot, zt
+use consts_coms, only: r8, grav2, grav, cvocp, p00kord, rvap, p00, p00i, &
+                       t00, cp, rocp, gravi, eps_virt, eps_vapi
+use mem_grid,    only: mwa, mza, lpw, zt, gdz_belo8, gdz_abov8
+use micro_coms,  only: miclevel
+use therm_lib,   only: rhovsl
 
 implicit none
 
-integer, intent(in) :: iw
+integer,  intent(in)    :: iw
 
 real(r8), intent(inout) :: o_rho   (mza,mwa)
+real(r8), intent(inout) :: o_press (mza,mwa)
 real,     intent(inout) :: o_theta (mza,mwa)
-real,     intent(inout) :: o_shv   (mza,mwa)
+real,     intent(inout) :: o_rrw   (mza,mwa)
 real,     intent(inout) :: o_uzonal(mza,mwa)
 real,     intent(inout) :: o_umerid(mza,mwa)
 real,     intent(inout) :: o_ozone (mza,mwa)
-
-real(r8) :: o_press(mza)  ! automatic array
-real(r8) :: pressnew, pkhyd
-
-real :: vctr1(mza)  ! automatic array
-real :: vctr2(mza)  ! automatic array
-real :: vctr3(mza)  ! automatic array
-real :: vctr4(mza)  ! automatic array
-real :: vctr5(mza)  ! automatic array
-real :: vctr6(mza)  ! automatic array
 
 real, intent(in)    :: pcol_p    (maxpr+2)
 real, intent(in)    :: pcol_temp (maxpr+2)
@@ -388,18 +324,27 @@ real, intent(in)    :: pcol_o3   (maxpr+2)
 
 real, intent(in) :: pcol_topo, pcol_prsfc, pcol_tsfc, pcol_shsfc, pcol_exnersfc
 
+real(r8) :: rho_tot(mza)  ! automatic array
+real(r8) :: pressnew, pkhyd
+
+real :: vctr1(mza)  ! automatic array
+real :: vctr2(mza)  ! automatic array
+real :: vctr3(mza)  ! automatic array
+real :: vctr4(mza)  ! automatic array
+real :: vctr5(mza)  ! automatic array
+real :: vctr6(mza)  ! automatic array
+
 real, parameter :: mwair  = 28.9628             ! molecular weight of air
 real, parameter :: mwo3   = 48.0                ! molecular weight of ozone
 real, parameter :: cnvto3 = mwair / mwo3 * 1.e6 ! ozone mixing ratio to ppmV
 
-real :: pcol_thet (maxpr+2)
-real :: pcol_thv  (maxpr+2)
+real :: pcol_thet(maxpr+2)
+real :: pcol_thv (maxpr+2)
 
 real :: pcol_thetsfc, pcol_thvsfc
 
 integer :: k,kpbc,klo,khi,kbc,kother,iter,ka
-real :: extrap
-real, external :: eslf
+real    :: extrap, exner, tairc, cond, rrv
 
 kpbc = 0
 
@@ -457,19 +402,11 @@ else
 
 endif
 
-!!cpo2g = cp / grav2
-!!
-!!do levp = lzon_bot,22
-!!   k = levp + kzonoff
-!!   pcol_z(k) = pcol_z(k-1) + cpo2g * (pcol_exner(k-1) - pcol_exner(k))   &
-!!      * (pcol_thv(k-1) + pcol_thv(k))
-!!enddo
-
 ! Now all "pcol" arrays are filled; vertically interpolate them to model grid
 
 call hintrp_cc(npd,pcol_p   ,pcol_z,mza,vctr1,zt)  ! pressure
 call hintrp_cc(npd,pcol_thet,pcol_z,mza,vctr2,zt)  ! theta
-call hintrp_cc(npd,pcol_rt  ,pcol_z,mza,vctr3,zt)  ! vapor specific humidity
+call hintrp_cc(npd,pcol_rt  ,pcol_z,mza,vctr3,zt)  ! water mixing ratio
 call hintrp_cc(npd,pcol_u   ,pcol_z,mza,vctr4,zt)  ! zonal wind
 call hintrp_cc(npd,pcol_v   ,pcol_z,mza,vctr5,zt)  ! merid wind
 call hintrp_cc(npd,pcol_o3  ,pcol_z,mza,vctr6,zt)  ! ozone
@@ -477,15 +414,22 @@ call hintrp_cc(npd,pcol_o3  ,pcol_z,mza,vctr6,zt)  ! ozone
 ka = lpw(iw)
 
 do k = ka,mza
-   o_press (k)    = vctr1(k)
+   o_press (k,iw) = vctr1(k)
    o_theta (k,iw) = vctr2(k)
-   o_shv   (k,iw) = max(1.e-8,vctr3(k))
+   o_rrw   (k,iw) = max(1.e-8,vctr3(k))
    o_uzonal(k,iw) = vctr4(k)
    o_umerid(k,iw) = vctr5(k)
-   o_ozone (k,iw) = max( 1.e-30, vctr6(k)*cnvto3) ! s.h. to ppmV
+   o_ozone (k,iw) = max( 1.e-30, vctr6(k)*cnvto3) ! mix ratio to ppmV
 enddo
 
-! Choose as an internal pressure boundary condition the pcol_p pressure level 
+if (miclevel > 2) then
+   do k = ka, mza
+      o_rho(k,iw) = o_press(k,iw) ** cvocp * p00kord / &
+                    ( o_theta(k,iw) * (1.0 + eps_vapi * o_rrw(k,iw)) )
+   enddo
+endif
+
+! Choose as an internal pressure boundary condition the pcol_p pressure level
 ! at or below (in elevation) the 49900 Pa surface.  Find the k index of this level.
 
 kpbc = npd
@@ -514,36 +458,53 @@ endif
 
 extrap = (zt(kbc) - zt(kother)) / (pcol_z(kpbc) - zt(kother))
 
-! Carry out iterative hydrostatic balance procedure
+! Carry out iterative hydrostatic balance procedure keeping theta constant
 
 do iter = 1,100
 
 ! Adjust pressure at k = kbc.  Use temporal weighting for damping
 
-   pressnew = o_press(kother) * (pcol_p(kpbc) / o_press(kother)) ** extrap
-   o_press(kbc) = .1 * o_press(kbc) + .9 * pressnew
+   pressnew = o_press(kother,iw) * (pcol_p(kpbc) / o_press(kother,iw)) ** extrap
+   o_press(kbc,iw) = .1_r8 * o_press(kbc,iw) + .9_r8 * pressnew
 
-! Compute density for all levels (assume micphys level = 1)
+! Compute density for all levels
 
-   do k = ka,mza
-      o_rho(k,iw) = o_press(k) ** cvocp * p00k &
-         / (o_theta(k,iw) * (rdry * (1. - o_shv(k,iw)) + rvap * o_shv(k,iw)))
+   do k = ka, mza
+
+      if (miclevel == 0) then
+         o_rho(k,iw) = o_press(k,iw) ** cvocp * p00kord / o_theta(k,iw)
+         rho_tot(k) = o_rho(k,iw)
+      elseif (miclevel == 1) then
+         o_rho(k,iw) = o_press(k,iw) ** cvocp * p00kord / &
+              ( o_theta(k,iw) * (1.0 + eps_vapi * o_rrw(k,iw)) )
+         rho_tot(k) = o_rho(k,iw) * (1. + o_rrw(k,iw))
+      else
+         exner = (real(o_press(k,iw)) * p00i) ** rocp
+         tairc = exner * o_theta(k,iw) - t00
+         cond  = max(0., o_rrw(k,iw) - rhovsl(tairc) / real(o_rho(k,iw)))
+         rrv   = o_rrw(k,iw) - cond
+
+         o_rho(k,iw) = o_press(k,iw) ** cvocp * p00kord / &
+              ( o_theta(k,iw) * (1.0 + eps_vapi * rrv) )
+         rho_tot(k) = o_rho(k,iw) * (1. + o_rrw(k,iw))
+      endif
+
    enddo
 
 ! Integrate hydrostatic equation upward and downward from kbc level
-! Impose minimum value of 0.1 Pa to avoid overshoot to negative values 
+! Impose minimum value of 0.1 Pa to avoid overshoot to negative values
 ! during iteration.  Use weighting to damp oscillations
 
    do k = kbc+1,mza
-      pkhyd = o_press(k-1) &
-            - grav * (o_rho(k-1,iw) * dzt_top(k-1) + o_rho(k,iw) * dzt_bot(k))
-      o_press(k) = .05 * o_press(k) + .95 * max(.1_r8,pkhyd)
+      pkhyd = o_press(k-1,iw) &
+            - gdz_belo8(k-1) * rho_tot(k-1) - gdz_abov8(k-1) * rho_tot(k)
+      o_press(k,iw) = .05_r8 * o_press(k,iw) + .95_r8 * max(.1_r8,pkhyd)
    enddo
 
    do k = kbc-1,ka,-1
-      pkhyd = o_press(k+1) &
-            + grav * (o_rho(k+1,iw) * dzt_bot(k+1) + o_rho(k,iw) * dzt_top(k))
-      o_press(k) = .05 * o_press(k) + .95 * max(.1_r8,pkhyd)
+      pkhyd = o_press(k+1,iw) &
+            + gdz_belo8(k) * rho_tot(k) + gdz_abov8(k) * rho_tot(k+1)
+      o_press(k,iw) = .05_r8 * o_press(k,iw) + .95_r8 * max(.1_r8,pkhyd)
    enddo
 
 enddo

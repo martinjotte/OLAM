@@ -56,8 +56,8 @@ Module mem_average_vars
   real, allocatable :: press_mavg(:,:)
   real, allocatable ::   rho_mavg(:,:)
   real, allocatable :: tempk_mavg(:,:)
-  real, allocatable ::  sh_v_mavg(:,:)
-  real, allocatable ::  sh_w_mavg(:,:)
+  real, allocatable ::  rr_v_mavg(:,:)
+  real, allocatable ::  rr_w_mavg(:,:)
   real, allocatable ::    wc_mavg(:,:)
   real, allocatable ::   vxe_mavg(:,:)
   real, allocatable ::   vye_mavg(:,:)
@@ -170,8 +170,8 @@ Contains
        allocate(press_mavg(nz_avg,mwa))
        allocate(rho_mavg  (nz_avg,mwa))
        allocate(tempk_mavg(nz_avg,mwa))
-       allocate(sh_v_mavg (nz_avg,mwa))
-       allocate(sh_w_mavg (nz_avg,mwa))
+       allocate(rr_v_mavg (nz_avg,mwa))
+       allocate(rr_w_mavg (nz_avg,mwa))
        allocate(wc_mavg   (nz_avg,mwa))
        allocate(vxe_mavg  (nz_avg,mwa))
        allocate(vye_mavg  (nz_avg,mwa))
@@ -286,8 +286,8 @@ Contains
     press_mavg(:,:) = 0.0
       rho_mavg(:,:) = 0.0
     tempk_mavg(:,:) = 0.0
-     sh_v_mavg(:,:) = 0.0
-     sh_w_mavg(:,:) = 0.0
+     rr_v_mavg(:,:) = 0.0
+     rr_w_mavg(:,:) = 0.0
        wc_mavg(:,:) = 0.0
       vxe_mavg(:,:) = 0.0
       vye_mavg(:,:) = 0.0

@@ -120,6 +120,8 @@ Module oname_coms
       integer :: nudnxp      = 0
       real    :: tnudcent    = 86400.0
 
+      logical :: nud_preserve_mix_ratio = .true.
+
 !!    HISTORY/OUTPUT FILES
 
       integer :: ioutput      = 1

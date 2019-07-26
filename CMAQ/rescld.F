@@ -99,7 +99,7 @@ C-----------------------------------------------------------------------
       USE UTILIO_DEFN
       USE CONST_DATA
       use cgrid_defn, only: cgrid
-      use mem_micro,  only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, q6, q7,
+      use mem_micro,  only: rr_c, rr_d, rr_r, rr_p, rr_s, rr_a, rr_g, rr_h, q6, q7,
      &                       pcprd, pcprr, pcprp, pcprs, pcpra, pcprg, pcprh
       use micro_coms, only: jnmb, rxmin
       use mem_ijtabs, only: itab_w
@@ -277,8 +277,8 @@ C... include layer thickness in the column integration
 
          if (jnmb(1) >= 1) then
             do k = lpw(iw), mza
-               if (sh_c(k,iw) >= rxmin(1)) then
-                  qc(k) = qc(k) + sh_c(k,iw)
+               if (rr_c(k,iw) >= rxmin(1)) then
+                  qc(k) = qc(k) + rr_c(k,iw)
                endif
             enddo
          endif
@@ -287,8 +287,8 @@ C... include layer thickness in the column integration
 
          if (jnmb(2) >= 1) then
             do k = lpw(iw), mza
-               if (sh_r(k,iw) >= rxmin(2)) then
-                  qr(k) = qr(k) + sh_r(k,iw)
+               if (rr_r(k,iw) >= rxmin(2)) then
+                  qr(k) = qr(k) + rr_r(k,iw)
                endif
             enddo
          endif
@@ -297,8 +297,8 @@ C... include layer thickness in the column integration
 
          if (jnmb(3) >= 1) then
             do k = lpw(iw), mza
-               if (sh_p(k,iw) >= rxmin(3)) then
-                  qi(k) = qi(k) + sh_p(k,iw)
+               if (rr_p(k,iw) >= rxmin(3)) then
+                  qi(k) = qi(k) + rr_p(k,iw)
                endif
             enddo
          endif
@@ -307,8 +307,8 @@ C... include layer thickness in the column integration
 
          if (jnmb(4) >= 1) then
             do k = lpw(iw), mza
-               if (sh_s(k,iw) >= rxmin(4)) then
-                  qs(k) = qs(k) + sh_s(k,iw)
+               if (rr_s(k,iw) >= rxmin(4)) then
+                  qs(k) = qs(k) + rr_s(k,iw)
                endif
             enddo
          endif
@@ -317,8 +317,8 @@ C... include layer thickness in the column integration
 
          if (jnmb(5) >= 1) then
             do k = lpw(iw), mza
-               if (sh_a(k,iw) >= rxmin(5)) then
-                  qs(k) = qs(k) + sh_a(k,iw)
+               if (rr_a(k,iw) >= rxmin(5)) then
+                  qs(k) = qs(k) + rr_a(k,iw)
                endif
             enddo
          endif
@@ -327,10 +327,10 @@ C... include layer thickness in the column integration
 
          if (jnmb(6) >= 1) then
             do k = lpw(iw), mza
-               if (sh_g(k,iw) >= rxmin(6)) then
-                  call qtc(q6(k,iw)/sh_g(k,iw),tc,fracliq)
-                  qr(k) = qr(k) + sh_g(k,iw) * fracliq
-                  qs(k) = qs(k) + sh_g(k,iw) * (1. - fracliq)
+               if (rr_g(k,iw) >= rxmin(6)) then
+                  call qtc(q6(k,iw)/rr_g(k,iw),tc,fracliq)
+                  qr(k) = qr(k) + rr_g(k,iw) * fracliq
+                  qs(k) = qs(k) + rr_g(k,iw) * (1. - fracliq)
                endif
             enddo
          endif
@@ -339,10 +339,10 @@ C... include layer thickness in the column integration
 
          if (jnmb(7) >= 1) then
             do k = lpw(iw), mza
-               if (sh_h(k,iw) >= rxmin(7)) then
-                  call qtc(q7(k,iw)/sh_h(k,iw),tc,fracliq)
-                  qr(k) = qr(k) + sh_h(k,iw) * fracliq
-                  qs(k) = qs(k) + sh_h(k,iw) * (1. - fracliq)
+               if (rr_h(k,iw) >= rxmin(7)) then
+                  call qtc(q7(k,iw)/rr_h(k,iw),tc,fracliq)
+                  qr(k) = qr(k) + rr_h(k,iw) * fracliq
+                  qs(k) = qs(k) + rr_h(k,iw) * (1. - fracliq)
                endif
             enddo
          endif
@@ -351,8 +351,8 @@ C... include layer thickness in the column integration
 
          if (jnmb(8) >= 1) then
             do k = lpw(iw), mza
-               if (sh_d(k,iw) >= rxmin(8)) then
-                  qr(k) = qr(k) + sh_d(k,iw)
+               if (rr_d(k,iw) >= rxmin(8)) then
+                  qr(k) = qr(k) + rr_d(k,iw)
                endif
             enddo
          endif

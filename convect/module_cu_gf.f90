@@ -67,7 +67,7 @@ CONTAINS
                            dzt, arw, lpv, arv, volt, volti
     use mem_ijtabs,  only: itab_w
     use mem_micro,   only: cldnum
-    use mem_basic,   only: wmc, vmc, theta, tair, press, rho, sh_v, &
+    use mem_basic,   only: wmc, vmc, theta, tair, press, rho, rr_v, &
                            vxe, vye, vze
     use oname_coms,  only: nl
     use mem_cuparm,  only: thsrc, rtsrc, conprr, kcutop, kcubot, cbmf, &
@@ -186,10 +186,10 @@ CONTAINS
        vflux(k) = arw(k,iw) * wmc(k,iw)
 
        if (wmc(k,iw) >= 0.0) then
-          vflux_vap(k) = vflux(k) * sh_v(k,iw)
+          vflux_vap(k) = vflux(k) * rr_v(k,iw)
           vflux_the(k) = vflux(k) * theta(k,iw)
        else
-          vflux_vap(k) = vflux(k) * sh_v(k+1,iw)
+          vflux_vap(k) = vflux(k) * rr_v(k+1,iw)
           vflux_the(k) = vflux(k) * theta(k+1,iw)
        endif
     enddo
@@ -212,7 +212,7 @@ CONTAINS
        ! Current temp, water vapor, density, and pressure
 
        t(1,kc) = max( tair(k,iw), 200.0 )
-       q(1,kc) = max( sh_v(k,iw), 1.e-8 )
+       q(1,kc) = max( rr_v(k,iw), 1.e-8 )
        r(1,kc) = rho(k,iw)
        p(1,kc) = 0.01 * press(k,iw)
 
@@ -238,10 +238,10 @@ CONTAINS
 
              ! upwinded
              if (flx >= 0.0) then
-                hflux_vap = hflux_vap + flx * sh_v (k,iwn)
+                hflux_vap = hflux_vap + flx * rr_v (k,iwn)
                 hflux_the = hflux_the + flx * theta(k,iwn)
              else
-                hflux_vap = hflux_vap + flx * sh_v (k,iw)
+                hflux_vap = hflux_vap + flx * rr_v (k,iw)
                 hflux_the = hflux_the + flx * theta(k,iw)
              endif
 
@@ -253,14 +253,14 @@ CONTAINS
               / (volt(k,iw) * rho(k,iw))
 
        fqvadv = ((vflux_vap(k-1) - vflux_vap(k) + hflux_vap) &
-              - (vflux(k-1) - vflux(k) + hflux) * sh_v(k,iw)) &
+              - (vflux(k-1) - vflux(k) + hflux) * rr_v(k,iw)) &
               / (volt(k,iw) * rho(k,iw))
 
        ! "forced" temp, water vapor, and pressure
 
        tn(1,kc) = tair(k,iw) + (fthrd_lw(k,iw) + fthrd_sw(k,iw) + &
                                 fthpbl(k,iw) + fthadv) * dtlong * exner(k)
-       qo(1,kc) = sh_v(k,iw) + (fqtpbl(k,iw) + fqvadv) * dtlong
+       qo(1,kc) = rr_v(k,iw) + (fqtpbl(k,iw) + fqvadv) * dtlong
        tn(1,kc) = max( tn(1,kc), 200.0 )
        qo(1,kc) = max( qo(1,kc), 1.e-8 )
        po(1,kc) = p(1,kc)
@@ -282,7 +282,7 @@ CONTAINS
        omeg(1,kc,1) = -grav * wmc(k,iw)
 
        ! moisture convergence
-       mconv(1,1) = mconv(1,1) + omeg(1,kc,1) * (sh_v(k+1,iw) - sh_v(k,iw)) * gravi
+       mconv(1,1) = mconv(1,1) + omeg(1,kc,1) * (rr_v(k+1,iw) - rr_v(k,iw)) * gravi
 
     enddo
 

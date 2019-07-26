@@ -66,8 +66,8 @@ use mem_sea,     only: sea, itab_ws
 use mem_leaf,    only: land, itab_wl
 use mem_turb,    only: vkm_sfc, sfluxt, sfluxr, sxfer_tk, sxfer_rk, &
                        ustar, wstar, wtv0, pblh, moli, wtv0_k, ustar_k
-use mem_basic,   only: press, rho, theta, tair, sh_v, vxe, vye, vze
-use mem_micro,   only: sh_c
+use mem_basic,   only: press, rho, theta, tair, rr_v, vxe, vye, vze
+use mem_micro,   only: rr_c
 use consts_coms, only: grav, p00, rocp, cp, alvl, eps_virt, vonk
 
 implicit none
@@ -194,17 +194,18 @@ do iws = 2,mws
 
 ! Calculate turbulent fluxes between atmosphere and "water canopy"
 
-   if (allocated(sh_c)) then
-      airshv = sh_v(kw,iw) + sh_c(kw,iw)
+   if (allocated(rr_c)) then
+      airshv = rr_v(kw,iw) + rr_c(kw,iw)
    else
-      airshv = sh_v(kw,iw)
+      airshv = rr_v(kw,iw) 
    endif
+   airshv = airshv / (1. + airshv)
 
-   airthetav = theta(kw,iw) * (1.0 + eps_virt * sh_v(kw,iw))
+   airthetav = theta(kw,iw) * (1.0 + eps_virt * rr_v(kw,iw))
    vels      = sqrt( vxe(kw,iw)**2 + vye(kw,iw)**2 + vze(kw,iw)**2 )
    rhos      = rho(kw,iw)
 
-   canpress  = press(kw,iw) + dzt_bot(kw) * rho(kw,iw) * grav
+   canpress  = press(kw,iw) + gdz_abov8(kw-1) * rho(kw,iw)
    canexneri = (p00 / canpress) ** rocp
    cantheta  = sea%sea_cantemp(iws) * canexneri
    canthetav = cantheta * (1.0 + eps_virt * sea%sea_canshv(iws))
@@ -231,7 +232,7 @@ do iws = 2,mws
               sea%sea_rib    (iws), &
               sea%sea_ggaer  (iws)  )
 
-   sea%sea_wthv(iws) = ( sea%sea_sfluxt(iws) * (1.0 + eps_virt * sh_v(kw,iw)) &
+   sea%sea_wthv(iws) = ( sea%sea_sfluxt(iws) * (1.0 + eps_virt * rr_v(kw,iw)) &
                        + sea%sea_sfluxr(iws) * eps_virt * theta(kw,iw) ) / rhos
 
    sea%sea_zeta(iws) = dzt_bot(kw) * grav * vonk * sea%sea_wthv(iws)  &
@@ -268,7 +269,7 @@ do iws = 2,mws
                  sea%ice_rib    (iws), &
                  sea%ice_ggaer  (iws)  )
 
-      sea%ice_wthv(iws) = ( sea%ice_sfluxt(iws) * (1.0 + eps_virt * sh_v(kw,iw)) &
+      sea%ice_wthv(iws) = ( sea%ice_sfluxt(iws) * (1.0 + eps_virt * rr_v(kw,iw)) &
                           + sea%ice_sfluxr(iws) * eps_virt * theta(kw,iw) ) / rhos
 
       sea%ice_zeta(iws) = dzt_bot(kw) * grav * vonk * sea%ice_wthv(iws)  &
@@ -402,17 +403,18 @@ do iwl = 2,mwl
 
 ! Calculate turbulent fluxes between atmosphere and "land canopy"
 
-   if (allocated(sh_c)) then
-      airshv = sh_v(kw,iw) + sh_c(kw,iw)
+   if (allocated(rr_c)) then
+      airshv = rr_v(kw,iw) + rr_c(kw,iw)
    else
-      airshv = sh_v(kw,iw)
+      airshv = rr_v(kw,iw)
    endif
+   airshv = airshv / (1. + airshv)
 
-   airthetav = theta(kw,iw) * (1.0 + eps_virt * sh_v(kw,iw))
+   airthetav = theta(kw,iw) * (1.0 + eps_virt * rr_v(kw,iw))
    vels      = sqrt( vxe(kw,iw)**2 + vye(kw,iw)**2 + vze(kw,iw)**2 )
    rhos      = rho(kw,iw)
 
-   canpress  = press(kw,iw) + dzt_bot(kw) * rho(kw,iw) * grav
+   canpress  = press(kw,iw) + gdz_abov8(kw-1) * rho(kw,iw)
    canexneri = (p00 / canpress) ** rocp
    cantheta  = land%cantemp(iwl) * canexneri
    canthetav = cantheta * (1.0 + eps_virt * land%canshv(iwl))
@@ -440,7 +442,7 @@ do iwl = 2,mwl
                  land%rib    (iwl), &
                  land%ggaer  (iwl)  )
 
-      land%wthv(iwl) = ( land%sfluxt(iwl) * (1.0 + eps_virt * sh_v(kw,iw)) &
+      land%wthv(iwl) = ( land%sfluxt(iwl) * (1.0 + eps_virt * rr_v(kw,iw)) &
                        + land%sfluxr(iwl) * eps_virt * theta(kw,iw) ) / rhos
 
       land%zeta(iwl) = dzt_bot(kw) * grav * vonk * land%wthv(iwl)  &
@@ -529,7 +531,7 @@ do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
    ka = lpw(iw)
 
    moli(iw) = - grav * vonk * wtv0(iw) /  &
-              ( ustar(iw)**3 * theta(ka,iw) * (1.0 + eps_virt * sh_v(ka,iw)) )
+              ( ustar(iw)**3 * theta(ka,iw) * (1.0 + eps_virt * rr_v(ka,iw)) )
 
    if (wtv0(iw) > 0.0) then
       wstar(iw) = (grav * pblh(iw) * wtv0(iw) / theta(ka,iw)) ** onethird
@@ -655,7 +657,7 @@ use mem_leaf,    only: land, itab_wl
 use mem_sea,     only: sea, itab_ws
 use mem_ijtabs,  only: istp, mrl_begl, itabg_w
 use consts_coms, only: cliq, alli, t00
-use mem_basic,   only: tair, rho, sh_v
+use mem_basic,   only: tair, rho, rr_v
 use leaf_coms,   only: mwl, mrl_leaf
 use sea_coms,    only: mws
 use misc_coms,   only: io6, isubdomain, dtlm
@@ -704,7 +706,7 @@ if (mrl > 0) then
 ! Assume that convective precip reaches surface at this wet bulb temp
 
       tempc = airtempc - min(25.,  &
-           700. * (rhovsl(airtempc) / real(rho(kw,iw)) - sh_v(kw,iw)))
+           700. * (rhovsl(airtempc) / real(rho(kw,iw)) - rr_v(kw,iw)))
 
       land%pcpg (iwl) = land%pcpg (iwl) + dtlm(1) * conprr(iw)
       land%qpcpg(iwl) = land%qpcpg(iwl) + dtlm(1) * conprr(iw) * (cliq * tempc + alli)
@@ -739,7 +741,7 @@ if (mrl > 0) then
 ! Assume that convective precip reaches surface at this wet bulb temp
 
       tempc = airtempc - min(25.,  &
-           700. * (rhovsl(airtempc) / real(rho(kw,iw)) - sh_v(kw,iw)))
+           700. * (rhovsl(airtempc) / real(rho(kw,iw)) - rr_v(kw,iw)))
 
       sea%pcpg (iws) = sea%pcpg (iws) + dtlm(1) * conprr(iw)
       sea%qpcpg(iws) = sea%qpcpg(iws) + dtlm(1) * conprr(iw) * (cliq * tempc + alli)

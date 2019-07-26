@@ -153,7 +153,7 @@ C**********************************************************************
       use misc_coms,  only: dtlm
       use mem_grid,   only: lpw, mza
       use mem_ijtabs, only: itab_w
-      use mem_basic,  only: tair, sh_v, press, rho
+      use mem_basic,  only: tair, rr_v, press, rho
       use mem_sea,    only: sea
       use mem_turb,   only: frac_land
       use cgrid_defn, only: cgrid
@@ -254,7 +254,7 @@ C..Scratch Local Variables:
          do k = lpw(iw), kmax
             TEMP    ( k ) = tair(k,iw)
             ATMPRES ( k ) = PA2ATM * press(k,iw)
-            H2O     ( k ) = MAX( MAOMV * sh_v(k,iw), 0.0 )
+            H2O     ( k ) = MAX( MAOMV * rr_v(k,iw), 0.0 )
             inv_dens( k ) = 1.0 / rho(k,iw)
          enddo
 

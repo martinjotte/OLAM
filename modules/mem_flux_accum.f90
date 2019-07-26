@@ -57,7 +57,7 @@ Module mem_flux_accum
   real(r8), allocatable ::          wc_accum(:,:)
   real(r8), allocatable ::       press_accum(:,:)
   real(r8), allocatable ::        tair_accum(:,:)
-  real(r8), allocatable ::        sh_v_accum(:,:)
+  real(r8), allocatable ::        rr_v_accum(:,:)
   real(r8), allocatable :: latheat_liq_accum(:,:) ! filled in omic_driv
   real(r8), allocatable :: latheat_ice_accum(:,:) ! filled in omic_driv
 
@@ -131,7 +131,7 @@ subroutine alloc_flux_accum(mza,mva,mwa,mwl,mws)
      allocate    (wc_accum(mza,mwa)) ;    wc_accum = 0._r8
      allocate (press_accum(mza,mwa)) ; press_accum = 0._r8
      allocate ( tair_accum(mza,mwa)) ;  tair_accum = 0._r8
-     allocate ( sh_v_accum(mza,mwa)) ;  sh_v_accum = 0._r8
+     allocate ( rr_v_accum(mza,mwa)) ;  rr_v_accum = 0._r8
   endif
 
   if (.true.) then
@@ -192,7 +192,7 @@ subroutine filltab_flux_accum()
   if (allocated(              wc_accum)) call increment_vtable(              'WC_ACCUM','AW', dvar2=              wc_accum)
   if (allocated(           press_accum)) call increment_vtable(           'PRESS_ACCUM','AW', dvar2=           press_accum)
   if (allocated(            tair_accum)) call increment_vtable(            'TAIR_ACCUM','AW', dvar2=            tair_accum)
-  if (allocated(            sh_v_accum)) call increment_vtable(            'SH_V_ACCUM','AW', dvar2=            sh_v_accum)
+  if (allocated(            rr_v_accum)) call increment_vtable(            'RR_V_ACCUM','AW', dvar2=            rr_v_accum)
   if (allocated(     latheat_liq_accum)) call increment_vtable(     'LATHEAT_LIQ_ACCUM','AW', dvar2=     latheat_liq_accum)
   if (allocated(     latheat_ice_accum)) call increment_vtable(     'LATHEAT_ICE_ACCUM','AW', dvar2=     latheat_ice_accum)
 
@@ -229,7 +229,7 @@ subroutine flux_accum()
   use mem_ijtabs,  only: istp, itab_v, itab_w, itabg_w, jtab_v, jtab_w, &
                          jtv_prog, jtw_prog, mrl_begl, mrl_begs, mrl_endl
 
-  use mem_basic,   only: vc, wc, press, tair, sh_v, vxe, vye, vze
+  use mem_basic,   only: vc, wc, press, tair, rr_v, vxe, vye, vze
 
   use mem_radiate, only: albedt, rshort, rlong, rlongup, &
                          rshort_top, rshortup_top, rlongup_top, &
@@ -328,9 +328,9 @@ subroutine flux_accum()
            enddo
         endif
 
-        if (allocated(sh_v_accum)) then
+        if (allocated(rr_v_accum)) then
            do k = lpw(iw),mza
-              sh_v_accum(k,iw) = sh_v_accum(k,iw) + dta * real(sh_v(k,iw),r8)
+              rr_v_accum(k,iw) = rr_v_accum(k,iw) + dta * real(rr_v(k,iw),r8)
            enddo
         endif
 
@@ -434,7 +434,7 @@ subroutine flux_accum()
 
            vels_l_accum(iwl) =    vels_l_accum(iwl) + dta * real(wind,r8)
         airtemp_l_accum(iwl) = airtemp_l_accum(iwl) + dta * real(tair(kw,iw),r8)
-         airshv_l_accum(iwl) =  airshv_l_accum(iwl) + dta * real(sh_v(kw,iw),r8)
+         airshv_l_accum(iwl) =  airshv_l_accum(iwl) + dta * real(rr_v(kw,iw),r8)
 
         cantemp_l_accum(iwl) = cantemp_l_accum(iwl) + dta * real(land%cantemp(iwl),r8)
          canshv_l_accum(iwl) =  canshv_l_accum(iwl) + dta * real(land%canshv (iwl),r8)
@@ -490,7 +490,7 @@ subroutine flux_accum()
 
            vels_s_accum(iws) =    vels_s_accum(iws) + dta * real(wind,r8)
         airtemp_s_accum(iws) = airtemp_s_accum(iws) + dta * real(tair(kw,iw),r8)
-         airshv_s_accum(iws) =  airshv_s_accum(iws) + dta * real(sh_v(kw,iw),r8)
+         airshv_s_accum(iws) =  airshv_s_accum(iws) + dta * real(rr_v(kw,iw),r8)
 
         cantemp_s_accum(iws) = cantemp_s_accum(iws) + dta * real(sea%cantemp(iws),r8)
          canshv_s_accum(iws) =  canshv_s_accum(iws) + dta * real(sea%canshv (iws),r8)

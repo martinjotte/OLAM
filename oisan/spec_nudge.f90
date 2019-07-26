@@ -30,11 +30,11 @@
    !----------------------------------------------------------------------------
 
 !===============================================================================
-subroutine nudge_prep_spec(iaction, o_rho, o_theta, o_shv, o_uzonal, o_umerid)
+subroutine nudge_prep_spec(iaction, o_rho, o_theta, o_rrw, o_uzonal, o_umerid)
 
 use mem_nudge,   only: mwnud, volwnudi, &
-                       rho_obsp, theta_obsp, shw_obsp, &
-                       rho_obsf, theta_obsf, shw_obsf, &
+                       rho_obsp, theta_obsp, rrw_obsp, &
+                       rho_obsf, theta_obsf, rrw_obsf, &
                        uzonal_obsp, umerid_obsp, &
                        uzonal_obsf, umerid_obsf
 
@@ -50,7 +50,7 @@ integer, intent(in) :: iaction
 
 real(r8), intent(in) :: o_rho   (mza,mwa)
 real,     intent(in) :: o_theta (mza,mwa)
-real,     intent(in) :: o_shv   (mza,mwa)
+real,     intent(in) :: o_rrw   (mza,mwa)
 real,     intent(in) :: o_uzonal(mza,mwa)
 real,     intent(in) :: o_umerid(mza,mwa)
 
@@ -59,20 +59,20 @@ logical, save :: firsttime = .true.
 
 real(r8) :: drho   (mza,mwnud)
 real(r8) :: dtheta (mza,mwnud)
-real(r8) :: dshw   (mza,mwnud)
+real(r8) :: drrw   (mza,mwnud)
 real(r8) :: duzonal(mza,mwnud)
 real(r8) :: dumerid(mza,mwnud)
 
 if (firsttime) then
    firsttime = .false.
 
-   !$omp parallel 
+   !$omp parallel
    !$omp do
    do iwnud = 2, mwnud
       volwnudi(:,iwnud) = 0.0_r8
    enddo
    !$omp end do
-   
+
    !$omp do private(iw,iwnud1,k) reduction(+:volwnudi)
    do j = 1, jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
       iwnud1 = itab_w(iw)%iwnud(1)
@@ -107,7 +107,7 @@ if (iaction == 1) then
       do k = 2, mza
             rho_obsp(k,iwnud) =    rho_obsf(k,iwnud)
           theta_obsp(k,iwnud) =  theta_obsf(k,iwnud)
-            shw_obsp(k,iwnud) =    shw_obsf(k,iwnud)
+            rrw_obsp(k,iwnud) =    rrw_obsf(k,iwnud)
          uzonal_obsp(k,iwnud) = uzonal_obsf(k,iwnud)
          umerid_obsp(k,iwnud) = umerid_obsf(k,iwnud)
       enddo
@@ -125,7 +125,7 @@ do iwnud = 2, mwnud
    do k = 2, mza
       drho   (k,iwnud) = 0._r8
       dtheta (k,iwnud) = 0._r8
-      dshw   (k,iwnud) = 0._r8
+      drrw   (k,iwnud) = 0._r8
       duzonal(k,iwnud) = 0._r8
       dumerid(k,iwnud) = 0._r8
    enddo
@@ -136,7 +136,7 @@ enddo
 
 !----------------------------------------------------------------------
 !$omp do private(iw,iwnud1,k) reduction(+:drho)  &
-!$omp    reduction(+:dtheta)  reduction(+:dshw)  &
+!$omp    reduction(+:dtheta)  reduction(+:drrw)  &
 !$omp    reduction(+:duzonal) reduction(+:dumerid)
 do j = 1, jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
    iwnud1 = itab_w(iw)%iwnud(1)
@@ -145,7 +145,7 @@ do j = 1, jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
    do k = 2, mza
       drho   (k,iwnud1) =    drho(k,iwnud1) + o_rho   (k,iw) * volt(k,iw)
       dtheta (k,iwnud1) =  dtheta(k,iwnud1) + o_theta (k,iw) * volt(k,iw)
-      dshw   (k,iwnud1) =    dshw(k,iwnud1) + o_shv   (k,iw) * volt(k,iw)
+      drrw   (k,iwnud1) =    drrw(k,iwnud1) + o_rrw   (k,iw) * volt(k,iw)
       duzonal(k,iwnud1) = duzonal(k,iwnud1) + o_uzonal(k,iw) * volt(k,iw)
       dumerid(k,iwnud1) = dumerid(k,iwnud1) + o_umerid(k,iw) * volt(k,iw)
    enddo
@@ -159,10 +159,10 @@ enddo
 if (iparallel == 1) then
 
    call mpi_send_wnud(dvara1=drho, dvara2=dtheta,  &
-                      dvara3=dshw, dvara4=duzonal, dvara5=dumerid)
+                      dvara3=drrw, dvara4=duzonal, dvara5=dumerid)
 
    call mpi_recv_wnud(dvara1=drho, dvara2=dtheta,  &
-                      dvara3=dshw, dvara4=duzonal, dvara5=dumerid)
+                      dvara3=drrw, dvara4=duzonal, dvara5=dumerid)
 
 endif
 
@@ -175,7 +175,7 @@ do iwnud = 2, mwnud
    do k = 2, mza
       rho_obsf   (k,iwnud) =    drho(k,iwnud) * volwnudi(k,iwnud)
       theta_obsf (k,iwnud) =  dtheta(k,iwnud) * volwnudi(k,iwnud)
-      shw_obsf   (k,iwnud) =    dshw(k,iwnud) * volwnudi(k,iwnud)
+      rrw_obsf   (k,iwnud) =    drrw(k,iwnud) * volwnudi(k,iwnud)
       uzonal_obsf(k,iwnud) = duzonal(k,iwnud) * volwnudi(k,iwnud)
       umerid_obsf(k,iwnud) = dumerid(k,iwnud) * volwnudi(k,iwnud)
    enddo
@@ -186,45 +186,45 @@ end subroutine nudge_prep_spec
 
 !===========================================================================
 
-subroutine spec_nudge(rhot)
+subroutine spec_nudge()
 
-use mem_nudge, only:   tnudcent,      mwnud,    volwnudi,              &
+use mem_nudge, only:   tnudcent,      mwnud,    volwnudi,   rhot_nud,  &
                         rho_sim,    rho_obs,    rho_obsp,    rho_obsf, &
                       theta_sim,  theta_obs,  theta_obsp,  theta_obsf, &
-                        shw_sim,    shw_obs,    shw_obsp,    shw_obsf, &
+                        rrw_sim,    rrw_obs,    rrw_obsp,    rrw_obsf, &
                      uzonal_sim, uzonal_obs, uzonal_obsp, uzonal_obsf, &
                      umerid_sim, umerid_obs, umerid_obsp, umerid_obsf
 
-use mem_basic,   only: rho, theta, sh_w, vxe, vye, vze
+use mem_basic,   only: rho, theta, rr_w, vxe, vye, vze
 use mem_grid,    only: mza, mwa, lpw, xew, yew, zew, volt
 use misc_coms,   only: s1900_sim, iparallel, dtlm
 use mem_ijtabs,  only: istp, jtab_w, itab_w, mrl_begl, jtv_prog, jtw_prog
 use consts_coms, only: eradi, r8
-use mem_tend,    only: thilt, sh_wt, vmxet, vmyet, vmzet
+use mem_tend,    only: thilt, rr_wt, vmxet, vmyet, vmzet
 use isan_coms,   only: ifgfile, s1900_fg
 use olam_mpi_atm,only: mpi_send_wnud, mpi_recv_wnud
+use var_tables,  only: num_scalar, scalar_tab
+use oname_coms,  only: nl
 
 implicit none
 
-! Nudge selected model fields (rho, thil, sh_w, vmc) to observed data
+! Nudge selected model fields (rho, thil, rr_w, vmc) to observed data
 ! using polygon filtering
 
-real, intent(inout) :: rhot(mza,mwa)
-
-integer :: iwnud,k,j,iw,iwnud1,iwnud2,iwnud3,mrl,kb
+integer :: iwnud,k,j,iw,iwnud1,iwnud2,iwnud3,mrl,kb,n
 
 real :: umzonalt(mza)
 real :: ummeridt(mza)
 real :: uzonal  (mza)
 real :: umerid  (mza)
 
-real :: tp,tf,tnudi,tnudirho
+real :: tp,tf,tnudi,dti,rrw_nudget,rho4
 real :: raxis,raxisi,uvtr
 real :: fnud1,fnud2,fnud3
 
 real(r8) :: drho   (mza,mwnud)
 real(r8) :: dtheta (mza,mwnud)
-real(r8) :: dshw   (mza,mwnud)
+real(r8) :: drrw   (mza,mwnud)
 real(r8) :: duzonal(mza,mwnud)
 real(r8) :: dumerid(mza,mwnud)
 
@@ -291,7 +291,7 @@ do iwnud = 1,mwnud
    do k = 1,mza
       drho   (k,iwnud) = 0._r8
       dtheta (k,iwnud) = 0._r8
-      dshw   (k,iwnud) = 0._r8
+      drrw   (k,iwnud) = 0._r8
       duzonal(k,iwnud) = 0._r8
       dumerid(k,iwnud) = 0._r8
    enddo
@@ -303,7 +303,7 @@ enddo
 !----------------------------------------------------------------------
 !$omp do private(iw,iwnud1,kb,raxis,raxisi,k)    &
 !$omp    reduction(+:drho)                       &
-!$omp    reduction(+:dtheta)  reduction(+:dshw)  &
+!$omp    reduction(+:dtheta)  reduction(+:drrw)  &
 !$omp    reduction(+:duzonal) reduction(+:dumerid)
 do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
    iwnud1 = itab_w(iw)%iwnud(1)
@@ -334,7 +334,7 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
    do k = kb, mza
       drho   (k,iwnud1) =    drho(k,iwnud1) + rho  (k,iw) * volt(k,iw)
       dtheta (k,iwnud1) =  dtheta(k,iwnud1) + theta(k,iw) * volt(k,iw)
-      dshw   (k,iwnud1) =    dshw(k,iwnud1) + sh_w (k,iw) * volt(k,iw)
+      drrw   (k,iwnud1) =    drrw(k,iwnud1) + rr_w (k,iw) * volt(k,iw)
       duzonal(k,iwnud1) = duzonal(k,iwnud1) + uzonal(k)   * volt(k,iw)
       dumerid(k,iwnud1) = dumerid(k,iwnud1) + umerid(k)   * volt(k,iw)
    enddo
@@ -348,10 +348,10 @@ enddo
 if (iparallel == 1) then
 
    call mpi_send_wnud(dvara1=drho, dvara2=dtheta,  &
-                      dvara3=dshw, dvara4=duzonal, dvara5=dumerid)
+                      dvara3=drrw, dvara4=duzonal, dvara5=dumerid)
 
    call mpi_recv_wnud(dvara1=drho, dvara2=dtheta,  &
-                      dvara3=dshw, dvara4=duzonal, dvara5=dumerid)
+                      dvara3=drrw, dvara4=duzonal, dvara5=dumerid)
 
 endif
 
@@ -368,7 +368,7 @@ do iwnud = 2,mwnud
    do k = 2,mza
          rho_sim(k,iwnud) =    drho(k,iwnud) * volwnudi(k,iwnud)
        theta_sim(k,iwnud) =  dtheta(k,iwnud) * volwnudi(k,iwnud)
-         shw_sim(k,iwnud) =    dshw(k,iwnud) * volwnudi(k,iwnud)
+         rrw_sim(k,iwnud) =    drrw(k,iwnud) * volwnudi(k,iwnud)
       uzonal_sim(k,iwnud) = duzonal(k,iwnud) * volwnudi(k,iwnud)
       umerid_sim(k,iwnud) = dumerid(k,iwnud) * volwnudi(k,iwnud)
    enddo
@@ -381,7 +381,7 @@ do iwnud = 2,mwnud
 
          rho_obs(k,iwnud) = tp *    rho_obsp(k,iwnud) + tf *    rho_obsf(k,iwnud)
        theta_obs(k,iwnud) = tp *  theta_obsp(k,iwnud) + tf *  theta_obsf(k,iwnud)
-         shw_obs(k,iwnud) = tp *    shw_obsp(k,iwnud) + tf *    shw_obsf(k,iwnud)
+         rrw_obs(k,iwnud) = tp *    rrw_obsp(k,iwnud) + tf *    rrw_obsf(k,iwnud)
       uzonal_obs(k,iwnud) = tp * uzonal_obsp(k,iwnud) + tf * uzonal_obsf(k,iwnud)
       umerid_obs(k,iwnud) = tp * umerid_obsp(k,iwnud) + tf * umerid_obsf(k,iwnud)
    enddo
@@ -394,7 +394,7 @@ enddo
 
 !----------------------------------------------------------------------
 !$omp do private(iw,iwnud1,iwnud2,iwnud3,fnud1,fnud2,fnud3,tnudi,&
-!$omp            k,tnudirho,raxis,raxisi,uvtr)
+!$omp            dti,k,rrw_nudget,rho4,raxis,raxisi,uvtr,n)
 do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
    iwnud1 = itab_w(iw)%iwnud(1);  fnud1 = itab_w(iw)%fnud(1)
    iwnud2 = itab_w(iw)%iwnud(2);  fnud2 = itab_w(iw)%fnud(2)
@@ -407,40 +407,40 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !  tnudi = wtnud(iw) / tnudcent
    tnudi = 1.0 / tnudcent
 
+   dti = 1.0 / real(dtlm(itab_w(iw)%mrlw))
+
    do k = lpw(iw), mza
 
-            tnudirho = tnudi * rho(k,iw)
+      rho4 = real(rho(k,iw))
 
-          rhot(k,iw) = rhot(k,iw) + tnudi * ( &
-                       fnud1 * (rho_obs(k,iwnud1) - rho_sim(k,iwnud1)) &
+      rhot_nud(k,iw) = tnudi * &
+                     ( fnud1 * (rho_obs(k,iwnud1) - rho_sim(k,iwnud1)) &
                      + fnud2 * (rho_obs(k,iwnud2) - rho_sim(k,iwnud2)) &
                      + fnud3 * (rho_obs(k,iwnud3) - rho_sim(k,iwnud3)) )
 
-         thilt(k,iw) = thilt(k,iw) + tnudirho * ( &
-                       fnud1 * (theta_obs(k,iwnud1) - theta_sim(k,iwnud1)) &
-                     + fnud2 * (theta_obs(k,iwnud2) - theta_sim(k,iwnud2)) &
-                     + fnud3 * (theta_obs(k,iwnud3) - theta_sim(k,iwnud3)) )
+      thilt(k,iw) = thilt(k,iw) + tnudi * &
+                     ( fnud1 * (rho_obs(k,iwnud1) * theta_obs(k,iwnud1) - rho_sim(k,iwnud1) * theta_sim(k,iwnud1)) &
+                     + fnud2 * (rho_obs(k,iwnud2) * theta_obs(k,iwnud2) - rho_sim(k,iwnud2) * theta_sim(k,iwnud2)) &
+                     + fnud3 * (rho_obs(k,iwnud3) * theta_obs(k,iwnud3) - rho_sim(k,iwnud3) * theta_sim(k,iwnud3)) )
 
-         sh_wt(k,iw) = sh_wt(k,iw) + tnudirho * ( &
-                       fnud1 * (shw_obs(k,iwnud1) - shw_sim(k,iwnud1)) &
-                     + fnud2 * (shw_obs(k,iwnud2) - shw_sim(k,iwnud2)) &
-                     + fnud3 * (shw_obs(k,iwnud3) - shw_sim(k,iwnud3)) )
+      umzonalt(k)    = tnudi * &
+                     ( fnud1 * (rho_obs(k,iwnud1) * uzonal_obs(k,iwnud1) - rho_sim(k,iwnud1) * uzonal_sim(k,iwnud1)) &
+                     + fnud2 * (rho_obs(k,iwnud2) * uzonal_obs(k,iwnud2) - rho_sim(k,iwnud2) * uzonal_sim(k,iwnud2)) &
+                     + fnud3 * (rho_obs(k,iwnud3) * uzonal_obs(k,iwnud3) - rho_sim(k,iwnud3) * uzonal_sim(k,iwnud3)) )
 
-      umzonalt(k)    = tnudirho * ( &
-                       fnud1 * (uzonal_obs(k,iwnud1) - uzonal_sim(k,iwnud1)) &
-                     + fnud2 * (uzonal_obs(k,iwnud2) - uzonal_sim(k,iwnud2)) &
-                     + fnud3 * (uzonal_obs(k,iwnud3) - uzonal_sim(k,iwnud3)) )
+      ummeridt(k)    = tnudi * &
+                     ( fnud1 * (rho_obs(k,iwnud1) * umerid_obs(k,iwnud1) - rho_sim(k,iwnud1) * umerid_sim(k,iwnud1)) &
+                     + fnud2 * (rho_obs(k,iwnud1) * umerid_obs(k,iwnud2) - rho_sim(k,iwnud2) * umerid_sim(k,iwnud2)) &
+                     + fnud3 * (rho_obs(k,iwnud1) * umerid_obs(k,iwnud3) - rho_sim(k,iwnud3) * umerid_sim(k,iwnud3)) )
 
-      ummeridt(k)    = tnudirho * ( &
-                       fnud1 * (umerid_obs(k,iwnud1) - umerid_sim(k,iwnud1)) &
-                     + fnud2 * (umerid_obs(k,iwnud2) - umerid_sim(k,iwnud2)) &
-                     + fnud3 * (umerid_obs(k,iwnud3) - umerid_sim(k,iwnud3)) )
+      rrw_nudget     = tnudi * rho4 * &
+                     ( fnud1 * (rrw_obs(k,iwnud1) - rrw_sim(k,iwnud1)) &
+                     + fnud2 * (rrw_obs(k,iwnud2) - rrw_sim(k,iwnud2)) &
+                     + fnud3 * (rrw_obs(k,iwnud3) - rrw_sim(k,iwnud3)) )
 
-      ! With nudging, scalar mass is no longer conserved. Make sure the long timestep
-      ! tendency does not drive humidity negative when nudging is included:
+      rrw_nudget  = max(rrw_nudget, -.99 * max(rr_w(k,iw) * rho4 * dti + rr_wt(k,iw), 0.))
 
-      sh_wt(k,iw) = max( sh_wt(k,iw), &
-           -0.999 * max(sh_w(k,iw), 0.0) * real( rho(k,iw) / dtlm(itab_w(iw)%mrlw) ) )
+      rr_wt(k,iw) = rr_wt(k,iw) + rrw_nudget
 
    enddo
 
@@ -454,6 +454,20 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
          vmxet(k,iw) = vmxet(k,iw) + (-umzonalt(k) * yew(iw) + uvtr * xew(iw)) * raxisi
          vmyet(k,iw) = vmyet(k,iw) + ( umzonalt(k) * xew(iw) + uvtr * yew(iw)) * raxisi
          vmzet(k,iw) = vmzet(k,iw) +   ummeridt(k) * raxis * eradi
+      enddo
+   endif
+
+! If we want to preserve scalar mixing ratios, compensate for the density nudging by
+! addings/subtracting a comparable amount of scalar mass
+
+   if (nl%nud_preserve_mix_ratio) then
+      do n = 1, num_scalar
+
+         do k = lpw(iw), mza
+            scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
+                                      + scalar_tab(n)%var_p(k,iw) * rhot_nud(k,iw)
+         enddo
+
       enddo
    endif
 

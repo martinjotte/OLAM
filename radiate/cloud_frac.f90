@@ -4,7 +4,7 @@ subroutine calc_3d_cloud_fraction(mrl)
   use mem_grid,    only: mza, lpw
   use mem_radiate, only: cloud_frac
   use mem_cuparm,  only: iactcu, qwcon
-  use mem_basic,   only: sh_w, sh_v
+  use mem_basic,   only: rr_w, rr_v
   use misc_coms,   only: icfrac
 
   implicit none
@@ -34,9 +34,9 @@ subroutine calc_3d_cloud_fraction(mrl)
      do k = ka, mza
 
         if (iactcu(iw) == 1) then
-           cond = sh_w(k,iw) - sh_v(k,iw) + qwcon(k,iw)
+           cond = rr_w(k,iw) - rr_v(k,iw) + qwcon(k,iw)
         else
-           cond = sh_w(k,iw) - sh_v(k,iw)
+           cond = rr_w(k,iw) - rr_v(k,iw)
         endif
 
         if (cond > cond_min) then
@@ -61,10 +61,10 @@ subroutine get_cloud_frac(iw, ka, frac)
   use mem_grid,    only: mza, glatw
   use misc_coms,   only: icfrac, cfracrh1, cfracrh2, cfraccup
   use consts_coms, only: t00
-  use mem_basic,   only: rho, tair, sh_v, sh_w
+  use mem_basic,   only: rho, tair, rr_v, rr_w
   use mem_cuparm,  only: iactcu, kcubot, kcutop, qwcon, conprr
   use mem_turb,    only: frac_land
-  use mem_micro,   only: sh_c, sh_p
+  use mem_micro,   only: rr_c, rr_p
   use clouds_gno,  only: cu_cldfrac
   use therm_lib,   only: rhovsl_inv, rhovsi_inv
 
@@ -96,16 +96,16 @@ subroutine get_cloud_frac(iw, ka, frac)
 
   do k = ka, mza
 
-     rhov(k) = max(0.,sh_v(k,iw)) * real(rho(k,iw))
+     rhov(k) = max(0.,rr_v(k,iw)) * real(rho(k,iw))
 
-     if (allocated(sh_c)) then
-        rhoc(k) = max(0.,sh_c(k,iw)) * real(rho(k,iw))
+     if (allocated(rr_c)) then
+        rhoc(k) = max(0.,rr_c(k,iw)) * real(rho(k,iw))
      else
         rhoc(k) = 0.
      endif
 
-     if (allocated(sh_p)) then
-        rhop(k) = max(0.,sh_p(k,iw)) * real(rho(k,iw))
+     if (allocated(rr_p)) then
+        rhop(k) = max(0.,rr_p(k,iw)) * real(rho(k,iw))
      else
         rhop(k) = 0.
      endif
@@ -233,7 +233,7 @@ subroutine get_cloud_frac(iw, ka, frac)
      do k = kcubot(iw), kcutop(iw)
 
         tc   = tair(k,iw) - t00
-        qw   = max( sh_w(k,iw), 1.e-8 )
+        qw   = max( rr_w(k,iw), 1.e-8 )
         rhow = qw * real(rho(k,iw))
 
         if (tc > -10.0) then

@@ -149,7 +149,7 @@ C         AERO_DATA.F. Moments are wet after extract_aero
          use cgrid_defn, only: cgrid
          use mem_ijtabs, only: jtab_w, jtw_prog
          use mem_grid,   only: mza, lpw, dzt
-         use mem_basic,  only: tair, rho, sh_v
+         use mem_basic,  only: tair, rho, rr_v
          use therm_lib,  only: rhovsl
 
          implicit none
@@ -221,7 +221,7 @@ C         AERO_DATA.F. Moments are wet after extract_aero
 
 ! compute fractional relative humidity
                   
-                  airrh = sh_v(k,iw) * real(rho(k,iw)) / rhovsl(tair(k,iw)-273.15)
+                  airrh = rr_v(k,iw) * real(rho(k,iw)) / rhovsl(tair(k,iw)-273.15)
                   airrh = max( 0.005, min( 0.99, airrh ) )
 
 ! compute extinction, 1/km

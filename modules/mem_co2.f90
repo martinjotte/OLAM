@@ -43,7 +43,7 @@ Module mem_co2
   real, parameter   :: co2_ppm2sh  = co2_mw / mwair  * 1.e-6
   real, parameter   :: co2_sh2ppm  = mwair  / co2_mw * 1.e+6
 
-  real, allocatable :: sh_co2(:,:) ! CO2 specific density [kg_CO2/kg_air]
+  real, allocatable :: rr_co2(:,:) ! CO2 specific density [kg_CO2/kg_air]
 
   integer           :: i_co2 = 0  ! index of co2 in scalar table
 
@@ -56,18 +56,16 @@ Contains
   subroutine alloc_co2(mza,mwa)
 
     use misc_coms, only: rinit
-    use oname_coms, only: nl
 
     implicit none
 
     integer, intent(in) :: mza,mwa
-    integer :: ic
 
     ! Allocate arrays based on options
     ! Initialize arrays to zero
 
     if (co2flag > 0) then
-       allocate (sh_co2(mza,mwa)) ; sh_co2 = rinit
+       allocate (rr_co2(mza,mwa)) ; rr_co2 = rinit
     endif
 
   end subroutine alloc_co2
@@ -78,7 +76,7 @@ Contains
 
     implicit none
 
-    if (allocated(sh_co2)) deallocate (sh_co2)
+    if (allocated(rr_co2)) deallocate (rr_co2)
   end subroutine dealloc_co2
 
 !===============================================================================
@@ -89,7 +87,7 @@ Contains
 
     implicit none
 
-    if (allocated(sh_co2)) call increment_vtable('SH_CO2', 'AW', mpt1=.true., rvar2=sh_co2)
+    if (allocated(rr_co2)) call increment_vtable('RR_CO2', 'AW', mpt1=.true., rvar2=rr_co2)
 
   end subroutine filltab_co2
 
@@ -97,11 +95,11 @@ Contains
 
   subroutine co2init()
 
-  use misc_coms,   only: io6, runtype
+  use misc_coms,   only: runtype
   use mem_ijtabs,  only: jtab_w, jtw_init
   use mem_grid,    only: mza
   use consts_coms, only: r8
-  use mem_basic,   only: sh_w
+  use mem_basic,   only: rr_w
 
   implicit none
 
@@ -110,13 +108,13 @@ Contains
 
   ! Initialize 3D and 2D microphysics fields
 
-  if (runtype == 'INITIAL' .and. allocated(sh_co2) .and. co2flag /= 0) then
+  if (runtype == 'INITIAL' .and. allocated(rr_co2) .and. co2flag /= 0) then
 
      co2_initsh = co2_initppm * co2_ppm2sh
 
      !$omp parallel do
      do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
-        sh_co2(2:mza,iw) = co2_initsh * (1.0 - sh_w(2:mza,iw))
+        rr_co2(2:mza,iw) = co2_initsh * (1.0 - rr_w(2:mza,iw))
      enddo
      !$omp end parallel do
 

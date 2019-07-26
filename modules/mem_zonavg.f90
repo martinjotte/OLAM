@@ -56,10 +56,10 @@ Contains
 
   subroutine zonavg_init(idate,imonth,iyear)
 
-  use misc_coms,   only: io6, zonclim
+  use misc_coms,   only: zonclim
   use consts_coms, only: pio180, cp, rocp, eps_virt, omega, grav2, dlat
 
-  implicit none   
+  implicit none
 
   integer, intent(in) :: idate,imonth,iyear
 
@@ -89,10 +89,10 @@ Contains
   dyo2g = 2.5 * dlat / grav2  ! spacing (m) between zonavg values divided by 2g
 
   do ilatn = 39,74
-     ilats = 75 - ilatn 
+     ilats = 75 - ilatn
 
 ! Coriolis parameter at midpoint between zonavg values (north and south hemispheres)
-   
+
      fcorn = 2. * omega * sin(2.5 * (ilatn-38) * pio180)
      fcors = 2. * omega * sin(2.5 * (ilats-37) * pio180)
 
@@ -121,7 +121,6 @@ Contains
      enddo
   enddo
 
-  return
   end subroutine zonavg_init
 
 !===============================================================================
@@ -140,13 +139,12 @@ Contains
   real :: wt1,wt2
   logical :: fexists
   character(len=1) :: line
-  integer, external :: julday
 
 ! Read ZONCLIM dataset if it has not been read yet
 
   if (iread /= 1) then
      iread = 1
-   
+
      inquire(file=zonclim, exist=fexists)
      if (.not. fexists) then
         write(io6,*) '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
@@ -192,7 +190,7 @@ Contains
      im1 = imonth
      im2 = imonth + 1
   endif
-  
+
   if (im1 == 0) im1 = 12
   if (im2 == 13) im2 = 1
 
@@ -221,20 +219,18 @@ Contains
 
 ! Fill pressure column array
 
-     zonp_vect(iplev) = 10. ** (float(31-iplev)/6.)
+     zonp_vect(iplev) = 10. ** (real(31-iplev)/6.)
   enddo
 
-  return
   end subroutine fill_zonavg
 
 !===============================================================================
 
   subroutine fill_zonr_mclat(idate,imonth,iyear)
 
-  use misc_coms,   only: io6
-  use mem_mclat,   only: sslat, mclat, ypp_mclat, mclat_spline
+  use mem_mclat, only: sslat, mclat, ypp_mclat, mclat_spline
 
-  implicit none   
+  implicit none
 
   integer, intent(in) :: idate,imonth,iyear
 
@@ -246,7 +242,7 @@ Contains
 
   real :: mcol(33,6)
 
-! Subroutine fill_zonr_mclat fills the ZONR array with specific humidity values
+! Subroutine fill_zonr_mclat fills the ZONR array with water vapor mixing ratios
 ! by means of interpolation from the McLatchy sounding.  The ZONR array is 2-D,
 ! defined at 22 vertical pressure levels and 74 latitudes (2.5 degree spacing),
 ! and is required to supplement the zonu and zont arrays which are filled with
@@ -258,7 +254,7 @@ Contains
 
 ! Compute spline coefficients in preparation for interpolation
 
-  call mclat_spline(jday)  
+  call mclat_spline(jday)
 
 ! Loop over latitude columns of zonavg data
 
@@ -269,14 +265,14 @@ Contains
 
      call spline2_vec(13, 33*6, sslat, mclat, ypp_mclat, alat, mcol)
 
-! Compute water vapor and ozone specific humidities by dividing by total density
+! Compute water vapor and ozone mixing ratios by dividing by dry density
 
      do lv = 1,33
-        mcol(lv,4) = mcol(lv,4) / mcol(lv,6)
-        mcol(lv,5) = mcol(lv,5) / mcol(lv,6)
+        mcol(lv,4) = mcol(lv,4) / (mcol(lv,6) - mcol(lv,4))
+        mcol(lv,5) = mcol(lv,5) / (mcol(lv,6) - mcol(lv,4))
      enddo
 
-! Vertically interpolate Mclatchy water vapor and ozone specific humidities
+! Vertically interpolate Mclatchy water vapor and ozone mixing ratios
 ! BY PRESSURE to zonavg data levels
 
      call pintrp_ee(33,mcol(1,4),mcol(1,2),22,zonr_vect,zonp_vect)
@@ -284,10 +280,8 @@ Contains
 
      call pintrp_ee(33,mcol(1,5),mcol(1,2),22,zono_vect,zonp_vect)
      zono(ilat,1:22) = zono_vect(1:22)
-
   enddo
 
-  return
   end subroutine fill_zonr_mclat
 
 End Module mem_zonavg

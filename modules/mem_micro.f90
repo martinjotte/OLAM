@@ -35,14 +35,14 @@ Module mem_micro
 
   use consts_coms, only: r8
 
-  real, allocatable :: sh_c(:,:) ! cloud water spec dens [kg_cld/kg_air]
-  real, allocatable :: sh_d(:,:) ! drizzle spec dens [kg_driz/kg_air]
-  real, allocatable :: sh_r(:,:) ! rain spec dens [kg_rain/kg_air]
-  real, allocatable :: sh_p(:,:) ! pristine ice spec dens [kg_pris/kg_air]
-  real, allocatable :: sh_s(:,:) ! snow spec dens [kg_snow/kg_air]
-  real, allocatable :: sh_a(:,:) ! aggregates spec dens [kg_agg/kg_air]
-  real, allocatable :: sh_g(:,:) ! graupel spec dens [kg_graup/kg_air]
-  real, allocatable :: sh_h(:,:) ! hail spec dens [kg_hail/kg_air]
+  real, allocatable :: rr_c(:,:) ! cloud water spec dens [kg_cld/kg_air]
+  real, allocatable :: rr_d(:,:) ! drizzle spec dens [kg_driz/kg_air]
+  real, allocatable :: rr_r(:,:) ! rain spec dens [kg_rain/kg_air]
+  real, allocatable :: rr_p(:,:) ! pristine ice spec dens [kg_pris/kg_air]
+  real, allocatable :: rr_s(:,:) ! snow spec dens [kg_snow/kg_air]
+  real, allocatable :: rr_a(:,:) ! aggregates spec dens [kg_agg/kg_air]
+  real, allocatable :: rr_g(:,:) ! graupel spec dens [kg_graup/kg_air]
+  real, allocatable :: rr_h(:,:) ! hail spec dens [kg_hail/kg_air]
 
   real, allocatable :: con_c(:,:) ! cloud drop number conc [#_cld/kg_air]
   real, allocatable :: con_d(:,:) ! drizzle number conc [#_driz/kg_air]
@@ -107,7 +107,7 @@ Contains
     allocate(cldnum(mwa)); cldnum = 0.
 
     if (miclevel >= 2) then
-       allocate (sh_c(mza,mwa)) ; sh_c = rinit
+       allocate (rr_c(mza,mwa)) ; rr_c = rinit
     endif
 
     if (miclevel >= 3) then
@@ -118,14 +118,14 @@ Contains
 
        if (jnmb(3) == 5) then
           allocate (con_p(mza,mwa)) ; con_p = rinit
-          allocate (sh_p(mza,mwa)) ; sh_p  = rinit
+          allocate (rr_p(mza,mwa)) ; rr_p  = rinit
           allocate (accpp   (mwa)) ; accpp = 0.0_r8
           allocate (pcprp   (mwa)) ; pcprp = rinit
        endif
 
        if (jnmb(8) == 5) then
           allocate (con_d(mza,mwa)) ; con_d = rinit
-          allocate (sh_d(mza,mwa)) ; sh_d  = rinit
+          allocate (rr_d(mza,mwa)) ; rr_d  = rinit
           allocate (accpd   (mwa)) ; accpd = 0.0_r8
           allocate (pcprd   (mwa)) ; pcprd = rinit
        endif
@@ -134,7 +134,7 @@ Contains
           if (jnmb(2) == 5) then
              allocate (con_r(mza,mwa)) ; con_r = rinit
           endif
-          allocate (sh_r(mza,mwa)) ; sh_r  = rinit
+          allocate (rr_r(mza,mwa)) ; rr_r  = rinit
           allocate (q2  (mza,mwa)) ; q2    = rinit
           allocate (accpr   (mwa)) ; accpr = 0.0_r8
           allocate (pcprr   (mwa)) ; pcprr = rinit
@@ -144,7 +144,7 @@ Contains
           if (jnmb(4) == 5) then
              allocate (con_s(mza,mwa)) ; con_s = rinit
           endif
-          allocate (sh_s(mza,mwa)) ; sh_s  = rinit
+          allocate (rr_s(mza,mwa)) ; rr_s  = rinit
           allocate (accps   (mwa)) ; accps = 0.0_r8
           allocate (pcprs   (mwa)) ; pcprs = rinit
        endif
@@ -153,7 +153,7 @@ Contains
           if (jnmb(5) == 5) then
              allocate (con_a(mza,mwa)) ; con_a = rinit
           endif
-          allocate (sh_a(mza,mwa)) ; sh_a  = rinit
+          allocate (rr_a(mza,mwa)) ; rr_a  = rinit
           allocate (accpa   (mwa)) ; accpa = 0.0_r8
           allocate (pcpra   (mwa)) ; pcpra = rinit
        endif
@@ -162,7 +162,7 @@ Contains
           if (jnmb(6) == 5) then
              allocate (con_g(mza,mwa)) ; con_g = rinit
           endif
-          allocate (sh_g(mza,mwa)) ; sh_g  = rinit
+          allocate (rr_g(mza,mwa)) ; rr_g  = rinit
           allocate (q6  (mza,mwa)) ; q6    = rinit
           allocate (accpg   (mwa)) ; accpg = 0.0_r8
           allocate (pcprg   (mwa)) ; pcprg = rinit
@@ -172,7 +172,7 @@ Contains
           if (jnmb(7) == 5) then
              allocate (con_h(mza,mwa)) ; con_h = rinit
           endif
-          allocate (sh_h(mza,mwa)) ; sh_h  = rinit
+          allocate (rr_h(mza,mwa)) ; rr_h  = rinit
           allocate (q7  (mza,mwa)) ; q7    = rinit
           allocate (accph   (mwa)) ; accph = 0.0_r8
           allocate (pcprh   (mwa)) ; pcprh = rinit
@@ -198,8 +198,8 @@ Contains
 
     if (nl%test_case > 13) then ! Encompasses DCMIP & parcel cases (March/2016)
 
-       if (.not. allocated(sh_c))   allocate (sh_c(mza,mwa)) ; sh_c  = 0.0
-       if (.not. allocated(sh_r))   allocate (sh_r(mza,mwa)) ; sh_r  = 0.0
+       if (.not. allocated(rr_c))   allocate (rr_c(mza,mwa)) ; rr_c  = 0.0
+       if (.not. allocated(rr_r))   allocate (rr_r(mza,mwa)) ; rr_r  = 0.0
        if (.not. allocated(q2))     allocate (q2  (mza,mwa)) ; q2    = 0.0
        if (.not. allocated(accpr))  allocate (accpr   (mwa)) ; accpr = 0.0_r8
        if (.not. allocated(pcprr))  allocate (pcprr   (mwa)) ; pcprr = 0.0
@@ -217,14 +217,14 @@ Contains
     integer, intent(in) :: nccntyp
     integer :: ic
 
-    if (allocated(sh_c))    deallocate (sh_c)
-    if (allocated(sh_d))    deallocate (sh_d)
-    if (allocated(sh_r))    deallocate (sh_r)
-    if (allocated(sh_p))    deallocate (sh_p)
-    if (allocated(sh_s))    deallocate (sh_s)
-    if (allocated(sh_a))    deallocate (sh_a)
-    if (allocated(sh_g))    deallocate (sh_g)
-    if (allocated(sh_h))    deallocate (sh_h)
+    if (allocated(rr_c))    deallocate (rr_c)
+    if (allocated(rr_d))    deallocate (rr_d)
+    if (allocated(rr_r))    deallocate (rr_r)
+    if (allocated(rr_p))    deallocate (rr_p)
+    if (allocated(rr_s))    deallocate (rr_s)
+    if (allocated(rr_a))    deallocate (rr_a)
+    if (allocated(rr_g))    deallocate (rr_g)
+    if (allocated(rr_h))    deallocate (rr_h)
 
     if (allocated(con_c))   deallocate (con_c)
     if (allocated(con_d))   deallocate (con_d)
@@ -281,21 +281,21 @@ Contains
     integer :: ic
     character(10) :: sname
 
-    if (allocated(sh_c)) call increment_vtable('SH_C', 'AW', mpt1=.true., rvar2=sh_c)
+    if (allocated(rr_c)) call increment_vtable('RR_C', 'AW', mpt1=.true., rvar2=rr_c)
 
-    if (allocated(sh_d)) call increment_vtable('SH_D', 'AW', mpt1=.true., rvar2=sh_d)
+    if (allocated(rr_d)) call increment_vtable('RR_D', 'AW', mpt1=.true., rvar2=rr_d)
 
-    if (allocated(sh_r)) call increment_vtable('SH_R', 'AW', mpt1=.true., rvar2=sh_r)
+    if (allocated(rr_r)) call increment_vtable('RR_R', 'AW', mpt1=.true., rvar2=rr_r)
 
-    if (allocated(sh_p)) call increment_vtable('SH_P', 'AW', mpt1=.true., rvar2=sh_p)
+    if (allocated(rr_p)) call increment_vtable('RR_P', 'AW', mpt1=.true., rvar2=rr_p)
 
-    if (allocated(sh_s)) call increment_vtable('SH_S', 'AW', mpt1=.true., rvar2=sh_s)
+    if (allocated(rr_s)) call increment_vtable('RR_S', 'AW', mpt1=.true., rvar2=rr_s)
 
-    if (allocated(sh_a)) call increment_vtable('SH_A', 'AW', mpt1=.true., rvar2=sh_a)
+    if (allocated(rr_a)) call increment_vtable('RR_A', 'AW', mpt1=.true., rvar2=rr_a)
 
-    if (allocated(sh_g)) call increment_vtable('SH_G', 'AW', mpt1=.true., rvar2=sh_g)
+    if (allocated(rr_g)) call increment_vtable('RR_G', 'AW', mpt1=.true., rvar2=rr_g)
 
-    if (allocated(sh_h)) call increment_vtable('SH_H', 'AW', mpt1=.true., rvar2=sh_h)
+    if (allocated(rr_h)) call increment_vtable('RR_H', 'AW', mpt1=.true., rvar2=rr_h)
 
     if (allocated(con_c)) call increment_vtable('CON_C', 'AW', mpt1=.true., rvar2=con_c)
 

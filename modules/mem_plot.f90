@@ -112,8 +112,8 @@ real, allocatable :: press_accum_prev1(:,:)
 real, allocatable :: tair_accum_prev0(:,:)
 real, allocatable :: tair_accum_prev1(:,:)
 
-real, allocatable :: sh_v_accum_prev0(:,:)
-real, allocatable :: sh_v_accum_prev1(:,:)
+real, allocatable :: rr_v_accum_prev0(:,:)
+real, allocatable :: rr_v_accum_prev1(:,:)
 
 real, allocatable :: latheat_liq_accum_prev0(:,:)
 real, allocatable :: latheat_liq_accum_prev1(:,:)
@@ -274,8 +274,8 @@ Contains
   allocate ( tair_accum_prev0(mza,mwa)) ; tair_accum_prev0(:,:) = 0.
   allocate ( tair_accum_prev1(mza,mwa)) ; tair_accum_prev1(:,:) = 0.
 
-  allocate ( sh_v_accum_prev0(mza,mwa)) ; sh_v_accum_prev0(:,:) = 0.
-  allocate ( sh_v_accum_prev1(mza,mwa)) ; sh_v_accum_prev1(:,:) = 0.
+  allocate ( rr_v_accum_prev0(mza,mwa)) ; rr_v_accum_prev0(:,:) = 0.
+  allocate ( rr_v_accum_prev1(mza,mwa)) ; rr_v_accum_prev1(:,:) = 0.
 
   allocate ( latheat_liq_accum_prev0(mza,mwa)) ; latheat_liq_accum_prev0(:,:) = 0.
   allocate ( latheat_liq_accum_prev1(mza,mwa)) ; latheat_liq_accum_prev1(:,:) = 0.
@@ -380,7 +380,7 @@ Contains
                                sfluxt_accum,   sfluxr_accum, &
                                    vc_accum,       wc_accum, &
                                 press_accum,     tair_accum, &
-                                 sh_v_accum,                 &
+                                 rr_v_accum,                 &
                           latheat_liq_accum, latheat_ice_accum, &
                                vels_l_accum,                 &
                             airtemp_l_accum, airshv_l_accum, &
@@ -464,7 +464,7 @@ Contains
              wc_accum_prev1(:,:) =          wc_accum_prev0(:,:)
           press_accum_prev1(:,:) =       press_accum_prev0(:,:)
            tair_accum_prev1(:,:) =        tair_accum_prev0(:,:)
-           sh_v_accum_prev1(:,:) =        sh_v_accum_prev0(:,:)
+           rr_v_accum_prev1(:,:) =        rr_v_accum_prev0(:,:)
     latheat_liq_accum_prev1(:,:) = latheat_liq_accum_prev0(:,:)
     latheat_ice_accum_prev1(:,:) = latheat_ice_accum_prev0(:,:)
 
@@ -534,7 +534,7 @@ Contains
              wc_accum_prev0(:,:) = 0.
           press_accum_prev0(:,:) = 0.
            tair_accum_prev0(:,:) = 0.
-           sh_v_accum_prev0(:,:) = 0.
+           rr_v_accum_prev0(:,:) = 0.
     latheat_liq_accum_prev0(:,:) = 0.
     latheat_ice_accum_prev0(:,:) = 0.
 
@@ -651,9 +651,9 @@ Contains
                              tair_accum_prev0(:,:) + &
                         real(tair_accum(:,:))
 
-  if (allocated(sh_v_accum)) sh_v_accum_prev0(:,:) = &
-                             sh_v_accum_prev0(:,:) + &
-                        real(sh_v_accum(:,:))
+  if (allocated(rr_v_accum)) rr_v_accum_prev0(:,:) = &
+                             rr_v_accum_prev0(:,:) + &
+                        real(rr_v_accum(:,:))
 
   if (allocated(latheat_liq_accum)) latheat_liq_accum_prev0(:,:) = &
                                     latheat_liq_accum_prev0(:,:) + &

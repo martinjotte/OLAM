@@ -38,7 +38,7 @@ Module mem_nudge
   implicit none
 
   private :: r8
-   
+
   integer, parameter :: nloops_wnud = 100 ! # WNUD DO loops for para
 
   Type itab_wnud_vars          ! data structure for WNUD points (individual rank)
@@ -71,30 +71,31 @@ Module mem_nudge
 
   real,    allocatable ::    rho_obsp(:,:)
   real,    allocatable ::  theta_obsp(:,:)
-  real,    allocatable ::    shw_obsp(:,:)
+  real,    allocatable ::    rrw_obsp(:,:)
   real,    allocatable :: uzonal_obsp(:,:)
   real,    allocatable :: umerid_obsp(:,:)
   real,    allocatable ::  ozone_obsp(:,:)
 
   real,    allocatable ::    rho_obsf(:,:)
   real,    allocatable ::  theta_obsf(:,:)
-  real,    allocatable ::    shw_obsf(:,:)
+  real,    allocatable ::    rrw_obsf(:,:)
   real,    allocatable :: uzonal_obsf(:,:)
   real,    allocatable :: umerid_obsf(:,:)
   real,    allocatable ::  ozone_obsf(:,:)
 
   real,    allocatable         ::    rho_obs(:,:)
   real,    allocatable         ::  theta_obs(:,:)
-  real,    allocatable         ::    shw_obs(:,:)
+  real,    allocatable         ::    rrw_obs(:,:)
   real,    allocatable         :: uzonal_obs(:,:)
   real,    allocatable         :: umerid_obs(:,:)
 
   real,    allocatable         ::    rho_sim(:,:)
   real,    allocatable         ::  theta_sim(:,:)
-  real,    allocatable         ::    shw_sim(:,:)
+  real,    allocatable         ::    rrw_sim(:,:)
   real,    allocatable         :: uzonal_sim(:,:)
   real,    allocatable         :: umerid_sim(:,:)
 
+  real,    allocatable         ::   rhot_nud(:,:)
   real(r8),allocatable         ::   volwnudi(:,:)
 
   integer :: nudflag
@@ -132,14 +133,14 @@ Contains
 
 !=========================================================================
 
-  subroutine alloc_nudge2(mza)
+  subroutine alloc_nudge2(mza,mwa)
 
     use misc_coms,   only: io6, rinit
     use consts_coms, only: r8
 
     implicit none
 
-    integer, intent(in) :: mza
+    integer, intent(in) :: mza, mwa
 
 !   Allocate arrays based on options (if necessary)
 
@@ -147,26 +148,28 @@ Contains
 
     allocate (   rho_obsp(mza,mwnud)) ; rho_obsp    = rinit
     allocate ( theta_obsp(mza,mwnud)) ; theta_obsp  = rinit
-    allocate (   shw_obsp(mza,mwnud)) ; shw_obsp    = rinit
+    allocate (   rrw_obsp(mza,mwnud)) ; rrw_obsp    = rinit
     allocate (uzonal_obsp(mza,mwnud)) ; uzonal_obsp = rinit
     allocate (umerid_obsp(mza,mwnud)) ; umerid_obsp = rinit
 
     allocate (   rho_obsf(mza,mwnud)) ; rho_obsf    = rinit
     allocate ( theta_obsf(mza,mwnud)) ; theta_obsf  = rinit
-    allocate (   shw_obsf(mza,mwnud)) ; shw_obsf    = rinit
+    allocate (   rrw_obsf(mza,mwnud)) ; rrw_obsf    = rinit
     allocate (uzonal_obsf(mza,mwnud)) ; uzonal_obsf = rinit
     allocate (umerid_obsf(mza,mwnud)) ; umerid_obsf = rinit
 
     allocate (    rho_obs(mza,mwnud)) ; rho_obs     = rinit
     allocate (  theta_obs(mza,mwnud)) ; theta_obs   = rinit
-    allocate (    shw_obs(mza,mwnud)) ; shw_obs     = rinit
+    allocate (    rrw_obs(mza,mwnud)) ; rrw_obs     = rinit
     allocate ( uzonal_obs(mza,mwnud)) ; uzonal_obs  = rinit
     allocate ( umerid_obs(mza,mwnud)) ; umerid_obs  = rinit
+
+    allocate (   rhot_nud  (mza,mwa)) ; rhot_nud    = 0.0
 
     if (nudnxp /= 0) then
        allocate (    rho_sim(mza,mwnud)) ; rho_sim     = rinit
        allocate (  theta_sim(mza,mwnud)) ; theta_sim   = rinit
-       allocate (    shw_sim(mza,mwnud)) ; shw_sim     = rinit
+       allocate (    rrw_sim(mza,mwnud)) ; rrw_sim     = rinit
        allocate ( uzonal_sim(mza,mwnud)) ; uzonal_sim  = rinit
        allocate ( umerid_sim(mza,mwnud)) ; umerid_sim  = rinit
        allocate (   volwnudi(mza,mwnud)) ; volwnudi    = 0.0_r8
@@ -179,11 +182,9 @@ Contains
   subroutine alloc_nudge_o3(mza,mwa)
 
     use misc_coms,  only: io6, rinit, i_o3
-    use var_tables, only: scalar_tab, num_scalar
     implicit none
 
     integer, intent(in) :: mza, mwa
-    integer             :: n
 
     if (i_o3 /= 0) then
        write(io6,*) 'allocating nudge_o3 ', mza, mwa
@@ -202,7 +203,7 @@ Contains
     implicit none
 
     character(2) :: stagpt
-    
+
     ! obs (point-by-point) nudging is done at W points, while spectral
     ! nudging is done on a separate nudging mesh. Currently, parallel
     ! output on the nudging mesh in not implemented
@@ -217,7 +218,7 @@ Contains
 
     if (allocated(theta_obsp))  call increment_vtable('THETA_OBSP',  stagpt, noread=.true., rvar2=theta_obsp)
 
-    if (allocated(shw_obsp))    call increment_vtable('SHW_OBSP',    stagpt, noread=.true., rvar2=shw_obsp)
+    if (allocated(rrw_obsp))    call increment_vtable('RRW_OBSP',    stagpt, noread=.true., rvar2=rrw_obsp)
 
     if (allocated(uzonal_obsp)) call increment_vtable('UZONAL_OBSP', stagpt, noread=.true., rvar2=uzonal_obsp)
 
@@ -227,7 +228,7 @@ Contains
 
     if (allocated(theta_obsf))  call increment_vtable('THETA_OBSF',  stagpt, noread=.true., rvar2=theta_obsf)
 
-    if (allocated(shw_obsf))    call increment_vtable('SHW_OBSF',    stagpt, noread=.true., rvar2=shw_obsf)
+    if (allocated(rrw_obsf))    call increment_vtable('RRW_OBSF',    stagpt, noread=.true., rvar2=rrw_obsf)
 
     if (allocated(uzonal_obsf)) call increment_vtable('UZONAL_OBSF', stagpt, noread=.true., rvar2=uzonal_obsf)
 
@@ -239,7 +240,7 @@ Contains
 
   subroutine filltab_nudge_o3()
 
-    use var_tables, only: vtab_r, num_var, increment_vtable
+    use var_tables, only: increment_vtable
     implicit none
 
     ! ozone currently only uses non-spectral nudging, which is only

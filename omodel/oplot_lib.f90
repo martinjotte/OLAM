@@ -36,7 +36,7 @@ use mem_ijtabs,  only: itab_w, itab_v, itab_m, itabg_w, &
                        jtab_w, jtab_v, jtab_m, &
                        jtw_prog, jtv_prog, jtm_vadj
 use mem_basic,   only: vmc, wmc, vmp, vc, wc, rho, press, &
-                       thil, theta, tair, sh_w, sh_v, vxe, vye, vze
+                       thil, theta, tair, rr_w, rr_v, vxe, vye, vze
 use mem_cuparm,  only: conprr, aconpr, qwcon
 
 use mem_grid,    only: mza, mva, mwa, lpm, lpv, lpw, lsw, &
@@ -51,7 +51,7 @@ use mem_leaf,    only: land, itab_wl
 
 use mem_sea,     only: sea, itab_ws
 
-use mem_micro,   only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, &
+use mem_micro,   only: rr_c, rr_d, rr_r, rr_p, rr_s, rr_a, rr_g, rr_h, &
                        con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h, &
                        q2, q6, q7, ccntyp, con_gccn, con_ifn, &
                        pcprd, pcprr, pcprp, pcprs, pcpra, pcprg, pcprh, &
@@ -59,7 +59,7 @@ use mem_micro,   only: sh_c, sh_d, sh_r, sh_p, sh_s, sh_a, sh_g, sh_h, &
                        cldnum
 
 use micro_coms,  only: rxmin
-use mem_co2,     only: sh_co2, co2_sh2ppm
+use mem_co2,     only: rr_co2, co2_sh2ppm
 
 use ccnbin_coms, only: nccntyp
 
@@ -69,8 +69,8 @@ use mem_addsc,   only: addsc
 use mem_tend,    only: vmxet, vmyet, vmzet
 use mem_para,    only: myrank
 use mem_turb,    only: vkm_sfc, sfluxt, sfluxr, pblh, vkm, vkh, ustar, wstar
-use mem_nudge,   only: rho_obs, theta_obs, shw_obs, uzonal_obs, umerid_obs, &
-                       rho_sim, theta_sim, shw_sim, uzonal_sim, umerid_sim
+use mem_nudge,   only: rho_obs, theta_obs, rrw_obs, uzonal_obs, umerid_obs, &
+                       rho_sim, theta_sim, rrw_sim, uzonal_sim, umerid_sim
 use therm_lib,   only: qtk, qwtk, rhovsl
 
 use misc_coms,   only: io6, pr01d, dn01d, th01d, time8, isubdomain, &
@@ -90,7 +90,7 @@ use mem_flux_accum, only:     rshort_accum,         rshortup_accum, &
                               sfluxt_accum,           sfluxr_accum, &
                                   vc_accum,               wc_accum, &
                                press_accum,             tair_accum, &
-                                sh_v_accum,      latheat_liq_accum, &
+                                rr_v_accum,      latheat_liq_accum, &
                          latheat_ice_accum,                         &
                               vels_l_accum,                         &
                            airtemp_l_accum,         airshv_l_accum, &
@@ -106,7 +106,7 @@ use mem_flux_accum, only:     rshort_accum,         rshortup_accum, &
 
   use mem_average_vars, only: &
      npoints_mavg, npoints_davg, npoints_avg24, nz_avg, &
-     press_mavg, rho_mavg, tempk_mavg, sh_v_mavg, sh_w_mavg, wc_mavg, &
+     press_mavg, rho_mavg, tempk_mavg, rr_v_mavg, rr_w_mavg, wc_mavg, &
      vxe_mavg, vye_mavg, vze_mavg, &
      rshort_mavg, rshort_top_mavg, rshortup_mavg, rshortup_top_mavg, &
      rlong_mavg, rlongup_mavg, rlongup_top_mavg, &
@@ -158,7 +158,7 @@ use mem_plot, only: &
              wc_accum_prev0,           wc_accum_prev1, &
           press_accum_prev0,        press_accum_prev1, &
            tair_accum_prev0,         tair_accum_prev1, &
-           sh_v_accum_prev0,         sh_v_accum_prev1, &
+           rr_v_accum_prev0,         rr_v_accum_prev1, &
     latheat_liq_accum_prev0,  latheat_liq_accum_prev1, &
     latheat_ice_accum_prev0,  latheat_ice_accum_prev1, &
          vels_l_accum_prev0,       vels_l_accum_prev1, &
@@ -236,20 +236,20 @@ data fldlib(1:4,  1:36)/ &
  'THETA'         ,'T3' ,'THETA',' (K)'                                      ,& !p  9
  'AIRTEMPK'      ,'T3' ,'AIR TEMP',' (K)'                                   ,& !p 10
  'AIRTEMPC'      ,'T3' ,'AIR TEMP',' (C)'                                   ,& !p 11
- 'SH_W'          ,'T3' ,'TOTAL WATER',' (g kg:S2:-1  )'                     ,& !p 12
- 'SH_V'          ,'T3' ,'WATER VAPOR',' (g kg:S2:-1  )'                     ,& !p 13
- 'SH_C'          ,'T3' ,'CLOUD',' (g kg:S2:-1  )'                           ,& !p 14
- 'SH_D'          ,'T3' ,'DRIZZLE',' (g kg:S2:-1  )'                         ,& !p 15
- 'SH_R'          ,'T3' ,'RAIN',' (g kg:S2:-1  )'                            ,& !p 16
- 'SH_P'          ,'T3' ,'PRIS ICE',' (g kg:S2:-1  )'                        ,& !p 17
- 'SH_S'          ,'T3' ,'SNOW',' (g kg:S2:-1  )'                            ,& !p 18
- 'SH_A'          ,'T3' ,'AGGREGATES',' (g kg:S2:-1  )'                      ,& !p 19
- 'SH_G'          ,'T3' ,'GRAUPEL',' (g kg:S2:-1  )'                         ,& !p 20
- 'SH_H'          ,'T3' ,'HAIL',' (g kg:S2:-1  )'                            ,& !p 21
- 'SH_CP'         ,'T3' ,'CLOUD + PRIS ICE',' (g kg:S2:-1  )'                ,& !p 22
- 'SH_TOTLIQ'     ,'T3' ,'LIQUID',' (g kg:S2:-1  )'                          ,& !p 23
- 'SH_TOTICE'     ,'T3' ,'ICE',' (g kg:S2:-1  )'                             ,& !p 24
- 'SH_TOTCOND'    ,'T3' ,'CONDENSATE',' (g kg:S2:-1  )'                      ,& !p 25
+ 'RR_W'          ,'T3' ,'TOTAL WATER',' (g kg:S2:-1  )'                     ,& !p 12
+ 'RR_V'          ,'T3' ,'WATER VAPOR',' (g kg:S2:-1  )'                     ,& !p 13
+ 'RR_C'          ,'T3' ,'CLOUD',' (g kg:S2:-1  )'                           ,& !p 14
+ 'RR_D'          ,'T3' ,'DRIZZLE',' (g kg:S2:-1  )'                         ,& !p 15
+ 'RR_R'          ,'T3' ,'RAIN',' (g kg:S2:-1  )'                            ,& !p 16
+ 'RR_P'          ,'T3' ,'PRIS ICE',' (g kg:S2:-1  )'                        ,& !p 17
+ 'RR_S'          ,'T3' ,'SNOW',' (g kg:S2:-1  )'                            ,& !p 18
+ 'RR_A'          ,'T3' ,'AGGREGATES',' (g kg:S2:-1  )'                      ,& !p 19
+ 'RR_G'          ,'T3' ,'GRAUPEL',' (g kg:S2:-1  )'                         ,& !p 20
+ 'RR_H'          ,'T3' ,'HAIL',' (g kg:S2:-1  )'                            ,& !p 21
+ 'RR_CP'         ,'T3' ,'CLOUD + PRIS ICE',' (g kg:S2:-1  )'                ,& !p 22
+ 'RR_TOTLIQ'     ,'T3' ,'LIQUID',' (g kg:S2:-1  )'                          ,& !p 23
+ 'RR_TOTICE'     ,'T3' ,'ICE',' (g kg:S2:-1  )'                             ,& !p 24
+ 'RR_TOTCOND'    ,'T3' ,'CONDENSATE',' (g kg:S2:-1  )'                      ,& !p 25
  'CON_C'         ,'T3' ,'CLOUD NUM',' (# mg:S2:-1  )'                       ,& !p 26
  'CON_D'         ,'T3' ,'DRIZZLE NUM',' (# g:S2:-1  )'                      ,& !p 27
  'CON_R'         ,'T3' ,'RAIN NUM',' (# kg:S2:-1  )'                        ,& !p 28
@@ -339,7 +339,7 @@ data fldlib(1:4,101:134)/ &
  'WC_DIF2'          ,'T3' ,'ATM VERT VELOCITY DIF2',' (m s:S2:-1  )'        ,& ! 103
  'PRESS_DIF2'       ,'T3' ,'ATM PRESSURE DIF2',' (hPa)'                     ,& ! 104
  'AIRTEMPK_DIF2'    ,'T3' ,'ATM TEMP DIF2',' (K)'                           ,& ! 105
- 'SH_V_DIF2'        ,'T3' ,'ATM VAP SPECIFIC DENSITY DIF2',' (g kg:S2:-1  )',& ! 106
+ 'RR_V_DIF2'        ,'T3' ,'ATM VAP SPECIFIC DENSITY DIF2',' (g kg:S2:-1  )',& ! 106
  'LATHEAT_LIQ_DIF2' ,'T3' ,'ATM LATENT HEAT LIQ DIF2',' (K hr:S2:-1  )'     ,& ! 107
  'LATHEAT_ICE_DIF2' ,'T3' ,'ATM LATENT HEAT ICE DIF2',' (K hr:S2:-1  )'     ,& ! 108
  'PCPMIC_DIF2'      ,'T2' ,'MICPHYS PRECIP DIF2',' (mm/day)'                ,& ! 109
@@ -594,8 +594,8 @@ data fldlib(1:4,401:454)/ &
  'PRESS_MAVG'    ,'T2','MONTH-AVG PRESSURE',' (hPa)'                        ,& ! 401
  'RHO_MAVG'      ,'T2','MONTH-AVG AIR DENSITY',' (kg m:S2:-3  )'            ,& ! 402
  'TEMPK_MAVG'    ,'T2','MONTH-AVG TEMPERATURE',' (K)'                       ,& ! 403
- 'SH_V_MAVG'     ,'T2','MONTH-AVG VAPOR SPEC DENSITY',' (g kg:S2:-1  )'     ,& ! 404
- 'SH_W_MAVG'     ,'T2','MONTH-AVG TOT WATER SPEC DENSITY',' (g kg:S2:-1  )' ,& ! 405
+ 'RR_V_MAVG'     ,'T2','MONTH-AVG VAPOR SPEC DENSITY',' (g kg:S2:-1  )'     ,& ! 404
+ 'RR_W_MAVG'     ,'T2','MONTH-AVG TOT WATER SPEC DENSITY',' (g kg:S2:-1  )' ,& ! 405
  'WC_MAVG'       ,'T2','MONTH-AVG W VELOCITY',' (m s:S2:-1  )'              ,& ! 406
  'ZONAL_WINDW_MAVG' ,'T2','MONTH-AVG ZONAL WIND',' (m s:S2:-1  )'           ,& ! 407
  'MERID_WINDW_MAVG' ,'T2','MONTH-AVG MERID WIND',' (m s:S2:-1  )'           ,& ! 408
@@ -651,17 +651,17 @@ data fldlib(1:4,401:454)/ &
 data fldlib(1:4,471:496)/ &
  'RHO_OBS'       ,'T3' ,'NUDGING OBS AIR DENSITY',' (kg m:S2:-3  )'         ,& ! 471
  'THETA_OBS'     ,'T3' ,'NUDGING OBS THETA',' (K)'                          ,& ! 472
- 'SHW_OBS'       ,'T3' ,'NUDGING OBS VAPOR SPEC DENSITY',' (g kg:S2:-1  )'  ,& ! 473
+ 'RRW_OBS'       ,'T3' ,'NUDGING OBS VAPOR SPEC DENSITY',' (g kg:S2:-1  )'  ,& ! 473
  'UZONAL_OBS'    ,'T3' ,'NUDGING OBS ZONAL WIND',' (m s:S2:-1  )'           ,& ! 474
  'UMERID_OBS'    ,'T3' ,'NUDGING OBS MERID WIND',' (m s:S2:-1  )'           ,& ! 475
  'RHO_SIM'       ,'T3' ,'NUDGING SIM AIR DENSITY',' (kg m:S2:-3  )'         ,& ! 476
  'THETA_SIM'     ,'T3' ,'NUDGING SIM THETA',' (K)'                          ,& ! 477
- 'SHW_SIM'       ,'T3' ,'NUDGING SIM VAPOR SPEC DENSITY',' (g kg:S2:-1  )'  ,& ! 478
+ 'RRW_SIM'       ,'T3' ,'NUDGING SIM VAPOR SPEC DENSITY',' (g kg:S2:-1  )'  ,& ! 478
  'UZONAL_SIM'    ,'T3' ,'NUDGING SIM ZONAL WIND',' (m s:S2:-1  )'           ,& ! 479
  'UMERID_SIM'    ,'T3' ,'NUDGING SIM MERID WIND',' (m s:S2:-1  )'           ,& ! 480
  'RHO_OBS_SIM'   ,'T3' ,'NUDGING DIF AIR DENSITY',' (kg m:S2:-3  )'         ,& ! 481
  'THETA_OBS_SIM' ,'T3' ,'NUDGING DIF THETA',' (K)'                          ,& ! 482
- 'SHW_OBS_SIM'   ,'T3' ,'NUDGING DIF VAPOR SPEC DENSITY',' (g kg:S2:-1  )'  ,& ! 483
+ 'RRW_OBS_SIM'   ,'T3' ,'NUDGING DIF VAPOR SPEC DENSITY',' (g kg:S2:-1  )'  ,& ! 483
  'UZONAL_OBS_SIM','T3' ,'NUDGING DIF ZONAL WIND',' (m s:S2:-1  )'           ,& ! 484
  'UMERID_OBS_SIM','T3' ,'NUDGING DIF MERID WIND',' (m s:S2:-1  )'           ,& ! 485
  'VXE'           ,'T3' ,'EARTH CARTESIAN X WIND',' (m s:S2:-1  )'           ,& ! 486
@@ -669,7 +669,7 @@ data fldlib(1:4,471:496)/ &
  'VZE'           ,'T3' ,'EARTH CARTESIAN Z WIND',' (m s:S2:-1  )'           ,& ! 488
  'PBLH'          ,'T2' ,'PBL HEIGHT',' (m)'                                 ,& ! 489
  'VKH'           ,'T3' ,'EDDY DIFFUSIVITY',' (m:S2:2 s:S2:-1  )'            ,& ! 490
- 'SHW_HCONV'     ,'T2' ,'TOTAL WATER HORIZ CONV',' (kg m:S2:-2   s:S2:-1  )',& ! 491
+ 'RRW_HCONV'     ,'T2' ,'TOTAL WATER HORIZ CONV',' (kg m:S2:-2   s:S2:-1  )',& ! 491
  'SHV_HCONV'     ,'T2' ,'WATER VAPOR HORIZ CONV',' (kg m:S2:-2   s:S2:-1  )',& ! 492
  'CLDNUM'        ,'T2' ,'CLOUD # CONCEN (GEOG)',' (# mg:S2:-1  )'           ,& ! 493
  'ADDSC1_ZINT'   ,'T2' ,'VERTICAL INTEGRAL OF ADDED SCALAR 1',' ( )'        ,& ! 494
@@ -905,158 +905,158 @@ case(11) ! 'AIRTEMPC'
    fldval = wtbot * tair(k ,i) &
           + wttop * tair(kp,i) - 273.15
 
-case(12) ! 'SH_W'
+case(12) ! 'RR_W'
 
-   fldval = (wtbot * sh_w(k ,i) &
-          +  wttop * sh_w(kp,i)) * 1.e3
+   fldval = (wtbot * rr_w(k ,i) &
+          +  wttop * rr_w(kp,i)) * 1.e3
 
-case(13) ! 'SH_V'
+case(13) ! 'RR_V'
 
-   fldval = (wtbot * sh_v(k ,i) &
-          +  wttop * sh_v(kp,i)) * 1.e3
+   fldval = (wtbot * rr_v(k ,i) &
+          +  wttop * rr_v(kp,i)) * 1.e3
 
-case(14) ! 'SH_C'
+case(14) ! 'RR_C'
 
-   if (.not. allocated(sh_c)) go to 1000
+   if (.not. allocated(rr_c)) go to 1000
 
-   fldval = (wtbot * sh_c(k ,i) &
-          +  wttop * sh_c(kp,i)) * 1.e3
+   fldval = (wtbot * rr_c(k ,i) &
+          +  wttop * rr_c(kp,i)) * 1.e3
 
-case(15) ! 'SH_D'
+case(15) ! 'RR_D'
 
-   if (.not. allocated(sh_d)) go to 1000
+   if (.not. allocated(rr_d)) go to 1000
 
-   fldval = (wtbot * sh_d(k ,i) &
-          +  wttop * sh_d(kp,i)) * 1.e3
+   fldval = (wtbot * rr_d(k ,i) &
+          +  wttop * rr_d(kp,i)) * 1.e3
 
-case(16) ! 'SH_R'
+case(16) ! 'RR_R'
 
-   if (.not. allocated(sh_r)) go to 1000
+   if (.not. allocated(rr_r)) go to 1000
 
-   fldval = (wtbot * sh_r(k ,i) &
-          +  wttop * sh_r(kp,i)) * 1.e3
+   fldval = (wtbot * rr_r(k ,i) &
+          +  wttop * rr_r(kp,i)) * 1.e3
 
-case(17) ! 'SH_P'
+case(17) ! 'RR_P'
 
-   if (.not. allocated(sh_p)) go to 1000
+   if (.not. allocated(rr_p)) go to 1000
 
-   fldval = (wtbot * sh_p(k ,i) &
-          +  wttop * sh_p(kp,i)) * 1.e3
+   fldval = (wtbot * rr_p(k ,i) &
+          +  wttop * rr_p(kp,i)) * 1.e3
 
-case(18) ! 'SH_S'
+case(18) ! 'RR_S'
 
-   if (.not. allocated(sh_s)) go to 1000
+   if (.not. allocated(rr_s)) go to 1000
 
-   fldval = (wtbot * sh_s(k ,i) &
-          +  wttop * sh_s(kp,i)) * 1.e3
+   fldval = (wtbot * rr_s(k ,i) &
+          +  wttop * rr_s(kp,i)) * 1.e3
 
-case(19) ! 'SH_A'
+case(19) ! 'RR_A'
 
-   if (.not. allocated(sh_a)) go to 1000
+   if (.not. allocated(rr_a)) go to 1000
 
-   fldval = (wtbot * sh_a(k ,i) &
-          +  wttop * sh_a(kp,i)) * 1.e3
+   fldval = (wtbot * rr_a(k ,i) &
+          +  wttop * rr_a(kp,i)) * 1.e3
 
-case(20) ! 'SH_G'
+case(20) ! 'RR_G'
 
-   if (.not. allocated(sh_g)) go to 1000
+   if (.not. allocated(rr_g)) go to 1000
 
-   fldval = (wtbot * sh_g(k ,i) &
-          +  wttop * sh_g(kp,i)) * 1.e3
+   fldval = (wtbot * rr_g(k ,i) &
+          +  wttop * rr_g(kp,i)) * 1.e3
 
-case(21) ! 'SH_H'
+case(21) ! 'RR_H'
 
-   if (.not. allocated(sh_h)) go to 1000
+   if (.not. allocated(rr_h)) go to 1000
 
-   fldval = (wtbot * sh_h(k ,i) &
-          +  wttop * sh_h(kp,i)) * 1.e3
+   fldval = (wtbot * rr_h(k ,i) &
+          +  wttop * rr_h(kp,i)) * 1.e3
 
-case(22) ! 'SH_CP'
+case(22) ! 'RR_CP'
 
-   if (.not. allocated(sh_c)) go to 1000
-   if (.not. allocated(sh_p)) go to 1000
+   if (.not. allocated(rr_c)) go to 1000
+   if (.not. allocated(rr_p)) go to 1000
 
-   fldval = (wtbot * (sh_c(k ,i) + sh_p(k ,i)) &
-          +  wttop * (sh_c(kp,i) + sh_p(kp,i))) * 1.e3
+   fldval = (wtbot * (rr_c(k ,i) + rr_p(k ,i)) &
+          +  wttop * (rr_c(kp,i) + rr_p(kp,i))) * 1.e3
 
-case(23) ! 'SH_TOTLIQ'
-
-   fldval = 0.
-
-   if (allocated(sh_c)) fldval = fldval + (wtbot * sh_c(k ,i) &
-                                        +  wttop * sh_c(kp,i)) * 1.e3
-
-   if (allocated(sh_d)) fldval = fldval + (wtbot * sh_d(k ,i) &
-                                        +  wttop * sh_d(kp,i)) * 1.e3
-
-   if (allocated(sh_r)) fldval = fldval + (wtbot * sh_r(k ,i) &
-                                        +  wttop * sh_r(kp,i)) * 1.e3
-
-   if (allocated(sh_g)) then
-      if (sh_g(k,i) > rxmin(6)) then
-         call qtk(q6(k,i)/sh_g(k,i),tempk,fracliq)
-         fldval = fldval + wtbot * sh_g(k,i) * fracliq * 1.e3
-      endif
-
-      if (sh_g(kp,i) > rxmin(6)) then
-         call qtk(q6(kp,i)/sh_g(kp,i),tempk,fracliq)
-         fldval = fldval + wttop * sh_g(kp,i) * fracliq * 1.e3
-      endif
-   endif
-
-   if (allocated(sh_h)) then
-      if (sh_h(k,i) > rxmin(7)) then
-         call qtk(q7(k,i)/sh_h(k,i),tempk,fracliq)
-         fldval = fldval + wtbot * sh_h(k,i) * fracliq * 1.e3
-      endif
-
-      if (sh_h(kp,i) > rxmin(7)) then
-         call qtk(q7(kp,i)/sh_h(kp,i),tempk,fracliq)
-         fldval = fldval + wttop * sh_h(kp,i) * fracliq * 1.e3
-      endif
-   endif
-
-case(24) ! 'SH_TOTICE'
+case(23) ! 'RR_TOTLIQ'
 
    fldval = 0.
 
-   if (allocated(sh_p)) fldval = fldval + (wtbot * sh_p(k ,i) &
-                                        +  wttop * sh_p(kp,i)) * 1.e3
+   if (allocated(rr_c)) fldval = fldval + (wtbot * rr_c(k ,i) &
+                                        +  wttop * rr_c(kp,i)) * 1.e3
 
-   if (allocated(sh_s)) fldval = fldval + (wtbot * sh_s(k ,i) &
-                                        +  wttop * sh_s(kp,i)) * 1.e3
+   if (allocated(rr_d)) fldval = fldval + (wtbot * rr_d(k ,i) &
+                                        +  wttop * rr_d(kp,i)) * 1.e3
 
-   if (allocated(sh_a)) fldval = fldval + (wtbot * sh_a(k ,i) &
-                                        +  wttop * sh_a(kp,i)) * 1.e3
+   if (allocated(rr_r)) fldval = fldval + (wtbot * rr_r(k ,i) &
+                                        +  wttop * rr_r(kp,i)) * 1.e3
 
-   if (allocated(sh_g)) then
-      if (sh_g(k,i) > rxmin(6)) then
-         call qtk(q6(k,i)/sh_g(k,i),tempk,fracliq)
-         fldval = fldval + wtbot * sh_g(k,i) * (1.0 -fracliq) * 1.e3
+   if (allocated(rr_g)) then
+      if (rr_g(k,i) > rxmin(6)) then
+         call qtk(q6(k,i)/rr_g(k,i),tempk,fracliq)
+         fldval = fldval + wtbot * rr_g(k,i) * fracliq * 1.e3
       endif
 
-      if (sh_g(kp,i) > rxmin(6)) then
-         call qtk(q6(kp,i)/sh_g(kp,i),tempk,fracliq)
-         fldval = fldval + wttop * sh_g(kp,i) * (1.0 -fracliq) * 1.e3
-      endif
-   endif
-
-   if (allocated(sh_h)) then
-      if (sh_h(k,i) > rxmin(7)) then
-         call qtk(q7(k,i)/sh_h(k,i),tempk,fracliq)
-         fldval = fldval + wtbot * sh_h(k,i) * (1.0 -fracliq) * 1.e3
-      endif
-
-      if (sh_h(kp,i) > rxmin(7)) then
-         call qtk(q7(kp,i)/sh_h(kp,i),tempk,fracliq)
-         fldval = fldval + wttop * sh_h(kp,i) * (1.0 -fracliq) * 1.e3
+      if (rr_g(kp,i) > rxmin(6)) then
+         call qtk(q6(kp,i)/rr_g(kp,i),tempk,fracliq)
+         fldval = fldval + wttop * rr_g(kp,i) * fracliq * 1.e3
       endif
    endif
 
-case(25) ! 'SH_TOTCOND'
+   if (allocated(rr_h)) then
+      if (rr_h(k,i) > rxmin(7)) then
+         call qtk(q7(k,i)/rr_h(k,i),tempk,fracliq)
+         fldval = fldval + wtbot * rr_h(k,i) * fracliq * 1.e3
+      endif
 
-   fldval = (wtbot * (sh_w(k ,i) - sh_v(k ,i)) &
-          +  wttop * (sh_w(kp,i) - sh_v(kp,i))) * 1.e3
+      if (rr_h(kp,i) > rxmin(7)) then
+         call qtk(q7(kp,i)/rr_h(kp,i),tempk,fracliq)
+         fldval = fldval + wttop * rr_h(kp,i) * fracliq * 1.e3
+      endif
+   endif
+
+case(24) ! 'RR_TOTICE'
+
+   fldval = 0.
+
+   if (allocated(rr_p)) fldval = fldval + (wtbot * rr_p(k ,i) &
+                                        +  wttop * rr_p(kp,i)) * 1.e3
+
+   if (allocated(rr_s)) fldval = fldval + (wtbot * rr_s(k ,i) &
+                                        +  wttop * rr_s(kp,i)) * 1.e3
+
+   if (allocated(rr_a)) fldval = fldval + (wtbot * rr_a(k ,i) &
+                                        +  wttop * rr_a(kp,i)) * 1.e3
+
+   if (allocated(rr_g)) then
+      if (rr_g(k,i) > rxmin(6)) then
+         call qtk(q6(k,i)/rr_g(k,i),tempk,fracliq)
+         fldval = fldval + wtbot * rr_g(k,i) * (1.0 -fracliq) * 1.e3
+      endif
+
+      if (rr_g(kp,i) > rxmin(6)) then
+         call qtk(q6(kp,i)/rr_g(kp,i),tempk,fracliq)
+         fldval = fldval + wttop * rr_g(kp,i) * (1.0 -fracliq) * 1.e3
+      endif
+   endif
+
+   if (allocated(rr_h)) then
+      if (rr_h(k,i) > rxmin(7)) then
+         call qtk(q7(k,i)/rr_h(k,i),tempk,fracliq)
+         fldval = fldval + wtbot * rr_h(k,i) * (1.0 -fracliq) * 1.e3
+      endif
+
+      if (rr_h(kp,i) > rxmin(7)) then
+         call qtk(q7(kp,i)/rr_h(kp,i),tempk,fracliq)
+         fldval = fldval + wttop * rr_h(kp,i) * (1.0 -fracliq) * 1.e3
+      endif
+   endif
+
+case(25) ! 'RR_TOTCOND'
+
+   fldval = (wtbot * (rr_w(k ,i) - rr_v(k ,i)) &
+          +  wttop * (rr_w(kp,i) - rr_v(kp,i))) * 1.e3
 
 case(26) ! 'CON_C'
 
@@ -1366,15 +1366,15 @@ case(58) ! 'QWCON'
 
 case(59) ! 'CO2CON'
 
-   if (.not. allocated(sh_co2)) go to 1000
+   if (.not. allocated(rr_co2)) go to 1000
 
-   fldval = (wtbot * sh_co2(k ,i) / (1.0 - sh_w(k ,i)) &
-          +  wttop * sh_co2(kp,i) / (1.0 - sh_w(kp,i))) * co2_sh2ppm
+   fldval = (wtbot * rr_co2(k ,i) / (1.0 - rr_w(k ,i)) &
+          +  wttop * rr_co2(kp,i) / (1.0 - rr_w(kp,i))) * co2_sh2ppm
 
 case(60) ! 'RH_LIQ'
 
-   fldval = (wtbot * sh_v(k ,i) * rho(k ,i) / rhovsl(tair(k ,i)-273.15) &
-          +  wttop * sh_v(kp,i) * rho(kp,i) / rhovsl(tair(kp,i)-273.15)) * 1.e2
+   fldval = (wtbot * rr_v(k ,i) * rho(k ,i) / rhovsl(tair(k ,i)-273.15) &
+          +  wttop * rr_v(kp,i) * rho(kp,i) / rhovsl(tair(kp,i)-273.15)) * 1.e2
 
 case(62) ! 'RSHORT_TOP'
 
@@ -1696,11 +1696,11 @@ case(105) ! 'AIRTEMPK_DIF2'
       fldval = fldval / (time8_prev0 - time8_prev1)
    endif
 
-case(106) ! 'SH_V_DIF2'
+case(106) ! 'RR_V_DIF2'
 
-   if (.not. allocated(sh_v_accum)) go to 1000
+   if (.not. allocated(rr_v_accum)) go to 1000
 
-   fldval = sh_v_accum_prev0(k,i) - sh_v_accum_prev1(k,i)
+   fldval = rr_v_accum_prev0(k,i) - rr_v_accum_prev1(k,i)
 
    if (abs(time8_prev0 - time8_prev1) > .99) then
       fldval = fldval * 1.e3 / (time8_prev0 - time8_prev1)
@@ -2424,7 +2424,7 @@ case(211) ! 'LS_AIRSHV'
    if (isubdomain == 1) then
       iw = itabg_w(iw)%iw_myrank
    endif
-   fldval = sh_v(kw,iw) * 1.e3
+   fldval = rr_v(kw,iw) * 1.e3
 
 case(212) ! 'LS_CANTEMPK'
 
@@ -2702,7 +2702,7 @@ case(261:269) ! 'ALS_VELS',       'ALS_AIRTEMPK', 'ALS_AIRSHV',
       elseif (trim(fldname) == 'ALS_AIRTEMPK') then
          fldval = fldval + tair(kw,i) * land%area(iland) 
       elseif (trim(fldname) == 'ALS_AIRSHV'  ) then
-         fldval = fldval + sh_v(kw,i) * land%area(iland) * 1.e3
+         fldval = fldval + rr_v(kw,i) * land%area(iland) * 1.e3
       elseif (trim(fldname) == 'ALS_CANTEMPK') then
          fldval = fldval + land%cantemp(iland) * land%area(iland)
       elseif (trim(fldname) == 'ALS_CANSHV'  ) then
@@ -2745,7 +2745,7 @@ case(261:269) ! 'ALS_VELS',       'ALS_AIRTEMPK', 'ALS_AIRSHV',
       elseif (trim(fldname) == 'ALS_AIRTEMPK' ) then
          fldval = fldval + tair(kw,i) * sea%area(isea)
       elseif (trim(fldname) == 'ALS_AIRSHV'   ) then
-         fldval = fldval + sh_v(kw,i) * sea%area(isea) * 1.e3
+         fldval = fldval + rr_v(kw,i) * sea%area(isea) * 1.e3
       elseif (trim(fldname) == 'ALS_CANTEMPK' ) then
          fldval = fldval + sea%cantemp(isea) * sea%area(isea)
       elseif (trim(fldname) == 'ALS_CANSHV'   ) then
@@ -3109,17 +3109,17 @@ case(403) !  'TEMPK_MAVG'
 
    fldval = tempk_mavg(indp,i)
 
-case(404) !  'SH_V_MAVG'
+case(404) !  'RR_V_MAVG'
 
-   if (.not. allocated(sh_v_mavg)) go to 1000
+   if (.not. allocated(rr_v_mavg)) go to 1000
 
-   fldval = sh_v_mavg(indp,i) * 1.e3
+   fldval = rr_v_mavg(indp,i) * 1.e3
 
-case(405) !  'SH_W_MAVG'
+case(405) !  'RR_W_MAVG'
 
-   if (.not. allocated(sh_w_mavg)) go to 1000
+   if (.not. allocated(rr_w_mavg)) go to 1000
 
-   fldval = sh_w_mavg(indp,i) * 1.e3
+   fldval = rr_w_mavg(indp,i) * 1.e3
 
 case(406) !  'WC_MAVG'
 
@@ -3571,11 +3571,11 @@ case(472) ! 'THETA_OBS'
 !   fldval = theta_obs(k,itab_w(i)%iwnud(1))
    fldval = theta_obs(k,i)
 
-case(473) ! 'SHW_OBS'
+case(473) ! 'RRW_OBS'
 
-   if (.not. allocated(shw_obs)) go to 1000
+   if (.not. allocated(rrw_obs)) go to 1000
 
-   fldval = shw_obs(k,itab_w(i)%iwnud(1)) * 1.e3
+   fldval = rrw_obs(k,itab_w(i)%iwnud(1)) * 1.e3
 
 case(474) ! 'UZONAL_OBS'
 
@@ -3602,11 +3602,11 @@ case(477) ! 'THETA_SIM'
 !   fldval = theta_sim(k,itab_w(i)%iwnud(1))
    fldval = theta_sim(k,i)
 
-case(478) ! 'SHW_SIM'
+case(478) ! 'RRW_SIM'
 
-   if (.not. allocated(shw_sim)) go to 1000
+   if (.not. allocated(rrw_sim)) go to 1000
 
-   fldval = shw_sim(k,itab_w(i)%iwnud(1)) * 1.e3
+   fldval = rrw_sim(k,itab_w(i)%iwnud(1)) * 1.e3
 
 case(479) ! 'UZONAL_SIM'
 
@@ -3636,12 +3636,12 @@ case(482) ! 'THETA_OBS_SIM'
    fldval = theta_obs(k,i) &
           - theta_sim(k,i)
 
-case(483) ! 'SHW_OBS_SIM'
+case(483) ! 'RRW_OBS_SIM'
 
-   if (.not. allocated(shw_sim)) go to 1000
+   if (.not. allocated(rrw_sim)) go to 1000
 
-   fldval = shw_obs(k,itab_w(i)%iwnud(1)) * 1.e3 &
-          - shw_sim(k,itab_w(i)%iwnud(1)) * 1.e3
+   fldval = rrw_obs(k,itab_w(i)%iwnud(1)) * 1.e3 &
+          - rrw_sim(k,itab_w(i)%iwnud(1)) * 1.e3
 
 case(484) ! 'UZONAL_OBS_SIM'
 
@@ -3691,7 +3691,7 @@ case(490) ! 'VKH'
    fldval = wtbot * vkh(k ,i) / rho(k ,i) &
           + wttop * vkh(kp,i) / rho(kp,i)
 
-case(491) ! 'SHW_HCONV'
+case(491) ! 'RRW_HCONV'
 
    fldval = 0.
 
@@ -3705,13 +3705,13 @@ case(491) ! 'SHW_HCONV'
 
          fldval = fldval &
                 + vmc(klev,iv) * itab_w(i)%dirv(j) * arv(klev,iv) &
-                * 0.5 * (sh_w(klev,i) + sh_w(klev,iw))
+                * 0.5 * (rr_w(klev,i) + rr_w(klev,iw))
       enddo
    enddo
 
    fldval = fldval / arw0(i)
 
-case(492) ! 'SHV_HCONV'
+case(492) ! 'RRV_HCONV'
 
    fldval = 0.
 
@@ -3725,7 +3725,7 @@ case(492) ! 'SHV_HCONV'
 
          fldval = fldval &
                 + vmc(klev,iv) * itab_w(i)%dirv(j) * arv(klev,iv) &
-                * 0.5 * (sh_v(klev,i) + sh_v(klev,iw))
+                * 0.5 * (rr_v(klev,i) + rr_v(klev,iw))
       enddo
    enddo
 

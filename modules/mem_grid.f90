@@ -97,7 +97,8 @@ Module mem_grid
 
    real(r8), allocatable, dimension(:,:) ::  &
 
-      volt, volti         ! Volume of T cell; (1/Volume) of T cell
+      volt, volti,    &  ! Volume of T cell;  1 / (Volume of T cell)
+      volwi              ! 1 / (Volumes of adjacent T cells)
 
    integer :: impent(12)  ! Scratch array for storing 12 pentagonal IM indices
 
@@ -122,7 +123,9 @@ Module mem_grid
 
         voa0,                 & ! ratio of cell volume to bottom area w/o terrain
 
-        gdzm_top, gdzm_bot,   & ! g dz_top(k), g dz_bot(k+1)
+        gdz_belo, gdz_abov,   & ! weights for hydrostatic integration
+
+        gdzim,                & ! gravm / dzm
 
         arw0i                   ! 1 / arw0
 
@@ -158,15 +161,15 @@ Contains
 
    allocate (gravm (mza));  gravm (:) = 0.
    allocate (gravt (mza));  gravt (:) = 0.
-   
+
    end subroutine alloc_gridz
-   
+
 !===============================================================================
 
    subroutine alloc_xyzem(lma)
 
    implicit none
-   
+
    integer, intent(in) :: lma
 
    allocate (xem(lma));  xem(1:lma) = 0.
@@ -174,7 +177,7 @@ Contains
    allocate (zem(lma));  zem(1:lma) = 0.
 
    end subroutine alloc_xyzem
-   
+
 !===============================================================================
 
    subroutine alloc_xyzew(lwa)
@@ -188,7 +191,7 @@ Contains
    allocate (zew(lwa));  zew(1:lwa) = 0.
 
    end subroutine alloc_xyzew
-   
+
 !===============================================================================
 
    subroutine alloc_grid1(lma, lva, lwa)
@@ -196,9 +199,9 @@ Contains
    use misc_coms, only: io6
 
    implicit none
-   
+
    integer, intent(in) :: lma, lva, lwa
-   
+
 ! Allocate and initialize arrays (xem, yem, zem are already allocated)
 
    allocate (lsw (lwa));  lsw (1:lwa) = 0
@@ -210,7 +213,7 @@ Contains
 
    allocate (glatv(lva));  glatv(1:lva) = 0.
    allocate (glonv(lva));  glonv(1:lva) = 0.
-      
+
    allocate (unx(lva));  unx(1:lva) = 0.
    allocate (uny(lva));  uny(1:lva) = 0.
    allocate (unz(lva));  unz(1:lva) = 0.
@@ -240,7 +243,7 @@ Contains
    allocate (glonm(lma));  glonm(1:lma) = 0.
 
    write(io6,*) 'finishing alloc_grid1'
-            
+
    end subroutine alloc_grid1
 
 !===============================================================================
@@ -253,7 +256,7 @@ Contains
    implicit none
 
    integer, intent(in) :: lma, lva, lwa
-   
+
 ! Allocate  and initialize arrays
 
    write(io6,*) 'alloc_grid2 ',lma,lva,lwa
@@ -265,15 +268,15 @@ Contains
    allocate (arv  (mza,lva));  arv  (1:mza,1:lva) = 0.
    allocate (arw  (mza,lwa));  arw  (1:mza,1:lwa) = 0.
    allocate (volt (mza,lwa));  volt (1:mza,1:lwa) = 0._r8
-            
+
    write(io6,*) 'finishing alloc_grid2'
-  
+
    end subroutine alloc_grid2
 
 !===============================================================================
 
    subroutine alloc_grid_other()
-     
+
      ! This routine allocates and defines grid arrays that were not computed
      ! during the MAKEGRID stage
 
@@ -300,15 +303,21 @@ Contains
 
      ! Allocate and define 1D variables defined at W levels
 
+     allocate(gdzim(mza))
+     gdzim = gravm * dzim
+
      ! weights for averaging T variables to W levels
      allocate(zwgt_top(mza))
      allocate(zwgt_bot(mza))
 
-     ! double-precision 
      allocate(zwgt_top8(mza))
      allocate(zwgt_bot8(mza))
 
-     ! double-precision weights for hydrostatic integration at W level
+     ! weights for hydrostatic integration at W level
+
+     allocate(gdz_belo(mza))
+     allocate(gdz_abov(mza))
+
      allocate(gdz_belo8(mza))
      allocate(gdz_abov8(mza))
 
@@ -322,6 +331,9 @@ Contains
 
         gdz_abov8(k) = dzt_bot(k+1) * gravm(k)
         gdz_belo8(k) = dzt_top(k)   * gravm(k)
+
+        gdz_abov(k) = real(gdz_abov8(k))
+        gdz_belo(k) = real(gdz_belo8(k))
      enddo
 
      zwgt_top8(mza) = zwgt_top8(mza-1)
@@ -357,6 +369,7 @@ Contains
      allocate(wnyo2    (mwa))
      allocate(wnzo2    (mwa))
      allocate(volti(mza,mwa))
+     allocate(volwi(mza,mwa))
      allocate(gxps_coef(mwa,7))
      allocate(gyps_coef(mwa,7))
      allocate(arw0i    (mwa))
@@ -365,6 +378,7 @@ Contains
      wnyo2  (1) = 0.0
      wnzo2  (1) = 0.0
      volti(:,1) = 0.0_r8
+     volwi(:,1) = 0.0_r8
 
      !$omp parallel do private(n1,n2)
      do iw = 2, mwa
@@ -375,6 +389,12 @@ Contains
 
         volti(1:lpw(iw)-1,iw) = 0.0_r8
         volti(lpw(iw):mza,iw) = 1.0_r8 / volt(lpw(iw):mza,iw)
+
+        volwi(1:lpw(iw)-1,iw) = 0.0_r8
+        volwi(mza,iw)         = 0.0_r8
+
+        volwi(lpw(iw):mza-1,iw) = 1.0_r8 / &
+             ( volt(lpw(iw):mza-1,iw) + volt(lpw(iw)+1:mza,iw) )
 
         arw0i(iw) = 1.0 / arw0(iw)
 
@@ -403,7 +423,7 @@ Contains
      do k = 1, mza
         dzto2  (k) = dzt  (k) * 0.50
         dzto4  (k) = dzt  (k) * 0.25
-        dztsqo2(k) = dzto2(k) * dzt(k) 
+        dztsqo2(k) = dzto2(k) * dzt(k)
         dztsqo4(k) = dzto4(k) * dzt(k)
         dztsqo6(k) = dzt  (k) * dzt(k) / 6.
         dzimsq (k) = dzim (k) * dzim(k)

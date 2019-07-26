@@ -32,112 +32,109 @@
 !===============================================================================
 subroutine isan_driver(iaction)
 
-use isan_coms,  only: innpr, ihour, idate, imonth, iyear, nfgfiles, ifgfile, &
-                      ctotdate_fg, fnames_fg, s1900_fg
+  use isan_coms,  only: innpr, ihour, idate, imonth, iyear, nfgfiles, ifgfile, &
+                        ctotdate_fg, fnames_fg, s1900_fg
+  use misc_coms,  only: io6, initial, runtype, s1900_init, s1900_sim
+  use mem_zonavg, only: zonavg_init
 
-use misc_coms,  only: io6, initial, runtype, s1900_init, s1900_sim
+  implicit none
 
-use mem_zonavg, only: zonavg_init
+  integer, intent(in) :: iaction
 
-implicit none
+  character(len=3) :: fform
 
-integer, intent(in) :: iaction
+  integer :: i, k, ifileok, nf
 
-character(len=3) :: fform
+  ! Check type of call to isan_driver
 
-integer :: i, k, ifileok, nf
-
-! Check type of call to isan_driver
-
-if (iaction == 0) then
+  if (iaction == 0) then
 
 ! Model run is being started, either for initialization or history restart
 
 ! Do inventory of isan file names and times
 
-   call ISAN_file_inv()
+     call ISAN_file_inv()
 
 ! Loop over isan files and search for the one that corresponds to current
 ! or most recent model time.
 
-   ifgfile = 0
-   do nf = 1,nfgfiles
-      if (s1900_fg(nf) <= s1900_sim) then
-         ifgfile = nf
-      endif
-   enddo
+     ifgfile = 0
+     do nf = 1,nfgfiles
+        if (s1900_fg(nf) <= s1900_sim) then
+           ifgfile = nf
+        endif
+     enddo
 
-   if (ifgfile < 1) then
-      write(io6,*) ' '
-      write(io6,*) 'Unable to find isan file for current model time '
-      write(io6,*) 'Stopping model '
-      stop 'stop: no current isan file'
-   elseif (runtype == 'INITIAL' .and. &
-           s1900_fg(ifgfile) < s1900_init - 1800.d0) then
-      write(io6,*) ' '
-      write(io6,*) 'Available isan file is more than 1800 seconds '
-      write(io6,*) 'prior to simulation initialization time. '
-      write(io6,*) 'Stopping model '
-      stop 'stop: initial isan file'
-   endif
+     if (ifgfile < 1) then
+        write(io6,*) ' '
+        write(io6,*) 'Unable to find isan file for current model time '
+        write(io6,*) 'Stopping model '
+        stop 'stop: no current isan file'
+     elseif (runtype == 'INITIAL' .and. &
+             s1900_fg(ifgfile) < s1900_init - 1800.d0) then
+        write(io6,*) ' '
+        write(io6,*) 'Available isan file is more than 1800 seconds '
+        write(io6,*) 'prior to simulation initialization time. '
+        write(io6,*) 'Stopping model '
+        stop 'stop: initial isan file'
+     endif
 
-elseif (iaction == 1) then
+  elseif (iaction == 1) then
 
 ! Processing next isan file (only called with iaction = 1 if nudflag = 1)
 
-   ifgfile = ifgfile + 1
+     ifgfile = ifgfile + 1
 
-   if (ifgfile > nfgfiles) then
-      write(io6,*) ' '
-      write(io6,*) 'No future isan file is available for nudging '
-      write(io6,*) 'Stopping model '
-      stop 'stop: no future isan file'
-   endif
+     if (ifgfile > nfgfiles) then
+        write(io6,*) ' '
+        write(io6,*) 'No future isan file is available for nudging '
+        write(io6,*) 'Stopping model '
+        stop 'stop: no future isan file'
+     endif
 
-endif
+  endif
 
 ! Process current isan file
-        
-call date_unmake_big(iyear,imonth,idate,ihour,ctotdate_fg(ifgfile))
-ihour = ihour / 100
 
-write(io6,*)
-write(io6,*) 'Reading ISAN file ifgfile = ',ifgfile
-write(io6,*) fnames_fg(ifgfile)
-write(io6,'(a,4i6)') ctotdate_fg(ifgfile),iyear,imonth,idate,ihour
+  call date_unmake_big(iyear,imonth,idate,ihour,ctotdate_fg(ifgfile))
+  ihour = ihour / 100
 
-innpr = fnames_fg(ifgfile)
+  write(io6,*)
+  write(io6,*) 'Reading ISAN file ifgfile = ',ifgfile
+  write(io6,*) fnames_fg(ifgfile)
+  write(io6,'(a,4i6)') ctotdate_fg(ifgfile),iyear,imonth,idate,ihour
+
+  innpr = fnames_fg(ifgfile)
 
 ! Fill zonavg arrays for current time
 
-call zonavg_init(idate,imonth,iyear)
+  call zonavg_init(idate,imonth,iyear)
 
 ! Read header information from gridded pressure-level files for this file time.
 ! This information includes input data array dimensions.
 
-call read_press_header(fform)
+  call read_press_header(fform)
 
 ! Process isan data for this file time.
 
-call isan_singletime(iaction,fform)
+  call isan_singletime(iaction,fform)
 
-return
 end subroutine isan_driver
 
 !=======================================================================
 
 subroutine isan_singletime(iaction,fform)
 
-use isan_coms, only: nprx, npry, nprz
-use mem_grid,  only: mza, mwa, mva
-use misc_coms, only: io6, runtype
-use mem_nudge, only: nudflag, nudnxp, o3nudflag
-use consts_coms, only: r8
+  use isan_coms,  only: nprx, npry, nprz
+  use mem_grid,   only: mza, mwa, mva
+  use misc_coms,  only: io6, runtype
+  use mem_nudge,  only: nudflag, nudnxp, o3nudflag
+  use consts_coms,only: r8
 
-implicit none
+  implicit none
 
-integer, intent(in) :: iaction
-character(len=3), intent(in) :: fform
+  integer, intent(in) :: iaction
+  character(len=3), intent(in) :: fform
 
 ! Define expanded arrays with 2 added rows/colums at N, S, E, and W
 ! boundaries so that overlapping quadratic interpolation (in subroutine gdtost)
@@ -145,65 +142,64 @@ character(len=3), intent(in) :: fform
 ! cell from nodal latitudes and longitudes (e.g., (-180.,-90.)), in which case
 ! all added points would be required.
 
-real :: p_u(nprx+4,npry+4,nprz)
-real :: p_v(nprx+4,npry+4,nprz)
-real :: p_t(nprx+4,npry+4,nprz)
-real :: p_z(nprx+4,npry+4,nprz)
-real :: p_r(nprx+4,npry+4,nprz)
-real :: p_o(nprx+4,npry+4,nprz)
+  real :: p_u(nprx+4,npry+4,nprz)
+  real :: p_v(nprx+4,npry+4,nprz)
+  real :: p_t(nprx+4,npry+4,nprz)
+  real :: p_z(nprx+4,npry+4,nprz)
+  real :: p_r(nprx+4,npry+4,nprz)
+  real :: p_o(nprx+4,npry+4,nprz)
 
-real :: p_topo (nprx+4,npry+4)
-real :: p_prsfc(nprx+4,npry+4)
-real :: p_tsfc (nprx+4,npry+4)
-real :: p_shsfc(nprx+4,npry+4)
+  real :: p_topo (nprx+4,npry+4)
+  real :: p_prsfc(nprx+4,npry+4)
+  real :: p_tsfc (nprx+4,npry+4)
+  real :: p_shsfc(nprx+4,npry+4)
 
-real(r8) :: o_rho   (mza,mwa)
-real     :: o_theta (mza,mwa)
-real     :: o_shv   (mza,mwa)
-real     :: o_uzonal(mza,mwa)
-real     :: o_umerid(mza,mwa)
-real     :: o_vc    (mza,mva) ! vc wind component
-real     :: o_ozone (mza,mwa)
+  real(r8) :: o_rho   (mza,mwa)
+  real(r8) :: o_press (mza,mwa)
+  real     :: o_theta (mza,mwa)
+  real     :: o_rrw   (mza,mwa)
+  real     :: o_uzonal(mza,mwa)
+  real     :: o_umerid(mza,mwa)
+  real     :: o_ozone (mza,mwa)
 
-o_rho    = 0.0_r8
-o_theta  = 0.0
-o_shv    = 0.0
-o_uzonal = 0.0
-o_umerid = 0.0
-o_vc     = 0.0
-o_ozone  = 0.0
+  o_rho    = 0.0_r8
+  o_press  = 0.0_r8
+  o_theta  = 0.0
+  o_rrw    = 0.0
+  o_uzonal = 0.0
+  o_umerid = 0.0
+  o_ozone  = 0.0
 
 ! Read in gridded pressure-level data and copy to isan arrays
 
-call pressure_stage(fform, p_u, p_v, p_t, p_z, p_r, p_o, &
-                    p_topo, p_prsfc, p_tsfc, p_shsfc)
+  call pressure_stage(fform, p_u, p_v, p_t, p_z, p_r, p_o, &
+                      p_topo, p_prsfc, p_tsfc, p_shsfc)
 
 ! Add pressure-level data at higher levels from climatology and interpolate
 ! combined data to OLAM grid
 
-call isnstage(p_u, p_v, p_t, p_z, p_r, p_o, &
-              p_topo, p_prsfc, p_tsfc, p_shsfc, &
-              o_rho, o_theta, o_shv, o_uzonal, o_umerid, o_vc, o_ozone)
+  call isnstage(p_u, p_v, p_t, p_z, p_r, p_o, &
+                p_topo, p_prsfc, p_tsfc, p_shsfc, &
+                o_press, o_rho, o_theta, o_rrw, o_uzonal, o_umerid, o_ozone)
 
 ! If initializing model, fill main model fields
 
-if (iaction == 0 .and. runtype == 'INITIAL') then
-   call fldsisan(o_rho, o_theta, o_shv, o_vc, o_ozone)
-endif
+  if (iaction == 0 .and. runtype == 'INITIAL') then
+     call fldsisan(o_press, o_rho, o_theta, o_rrw, o_uzonal, o_umerid, o_ozone)
+  endif
 
 ! If nudging, prepare observational nudging fields
 
-if (nudflag > 0) then
-   if (nudnxp == 0) then
-      call nudge_prep_obs (iaction, o_rho, o_theta, o_shv, o_uzonal, o_umerid)
-   else
-      call nudge_prep_spec(iaction, o_rho, o_theta, o_shv, o_uzonal, o_umerid)
-   endif
-endif
+  if (nudflag > 0) then
+     if (nudnxp == 0) then
+        call nudge_prep_obs (iaction, o_rho, o_theta, o_rrw, o_uzonal, o_umerid)
+     else
+        call nudge_prep_spec(iaction, o_rho, o_theta, o_rrw, o_uzonal, o_umerid)
+     endif
+  endif
 
-if (o3nudflag == 1) then
-   call nudge_prep_o3(iaction, o_ozone)
-endif
+  if (o3nudflag == 1) then
+     call nudge_prep_o3(iaction, o_ozone)
+  endif
 
-return
 end subroutine isan_singletime

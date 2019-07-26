@@ -131,7 +131,7 @@ C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
       use mem_ijtabs, only: jtab_w, jtw_prog
       use mem_grid,   only: mza, lpw
       use misc_coms,  only: dtlm
-      use mem_basic,  only: tair, rho, press, sh_v
+      use mem_basic,  only: tair, rho, press, rr_v
       use therm_lib,  only: rhovsl
 
       IMPLICIT NONE
@@ -575,7 +575,7 @@ C *** Grid cell meteorological data.
                AIRTEMP  = tair ( k, iw )
                AIRPRES  = press( k, iw )
                AIRDENS  = rho  ( k, iw )
-               AIRRH    = sh_v ( k, iw ) * airdens / rhovsl(airtemp - 273.15)
+               AIRRH    = rr_v ( k, iw ) * airdens / rhovsl(airtemp - 273.15)
                AIRRH    = MAX( 0.005, MIN( 0.99, AIRRH ) )
 
 C *** Extract grid cell concentrations of aero species from CGRID

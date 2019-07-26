@@ -78,7 +78,7 @@ CONTAINS
                           volt, volti
    use mem_cuparm,  only: thsrc, rtsrc, conprr, vxsrc, vysrc, vzsrc, rdsrc, &
                           kcubot, kcutop, cbmf, qwcon, iactcu, cddf, kddtop
-   use mem_basic,   only: theta, tair, press, rho, vxe, vye, vze, sh_v, &
+   use mem_basic,   only: theta, tair, press, rho, vxe, vye, vze, rr_v, &
                           vmc, wmc
    use mem_turb,    only: frac_land, sfluxt, sfluxr, fqtpbl
    use consts_coms, only: eradi, gravo2
@@ -158,13 +158,13 @@ CONTAINS
 
       ! upwinded
       if (wmc(k,iw) >= 0.0) then
-         vflux_vap(k) = vflux(k) * sh_v(k,iw)
+         vflux_vap(k) = vflux(k) * rr_v(k,iw)
       else
-         vflux_vap(k) = vflux(k) * sh_v(k+1,iw)
+         vflux_vap(k) = vflux(k) * rr_v(k+1,iw)
       endif
       
       ! centered
-      ! vflux_vap(k) = vflux(k) * 0.5 * (sh_v(k,iw) + sh_v(k+1,iw))
+      ! vflux_vap(k) = vflux(k) * 0.5 * (rr_v(k,iw) + rr_v(k+1,iw))
    enddo
    vflux(ka-1) = 0.
    vflux(mza) = 0.
@@ -205,13 +205,13 @@ CONTAINS
 
             ! upwinded
             if (flx >= 0.0) then
-               hflux_vap = hflux_vap + flx * sh_v(k,iwn)
+               hflux_vap = hflux_vap + flx * rr_v(k,iwn)
             else
-               hflux_vap = hflux_vap + flx * sh_v(k,iw)
+               hflux_vap = hflux_vap + flx * rr_v(k,iw)
             endif
 
             ! centered
-            ! hflux_vap = hflux_vap + flx * 0.5 * (sh_v(k,iw) + sh_v(k,iwn))
+            ! hflux_vap = hflux_vap + flx * 0.5 * (rr_v(k,iw) + rr_v(k,iwn))
          endif
       enddo
 
@@ -227,7 +227,7 @@ CONTAINS
 
       qsat(kt) = min(0.5, tlucua(t1(kt)) / prst(kt))
       qsat(kt) = qsat(kt) / (1.0 - vtmpc1*qsat(kt))
-      q1  (kt) = min(sh_v(k,iw), qsat(kt))
+      q1  (kt) = min(rr_v(k,iw), qsat(kt))
 
       ! Average vertical velocity from current and surrounding cells
 
@@ -243,7 +243,7 @@ CONTAINS
       ! Tiedtke scheme requires large scale moisture tendency
 
       fqvadv = ((vflux_vap(k-1) - vflux_vap(k) + hflux_vap) &
-               - (vflux(k-1) - vflux(k) + hflux) * sh_v(k,iw)) &
+               - (vflux(k-1) - vflux(k) + hflux) * rr_v(k,iw)) &
                / (volt(k,iw) * rho(k,iw))
 
       dQdt    (kt) = fqtpbl(k,iw) + fqvadv
