@@ -138,7 +138,7 @@ subroutine copy_nl()
 
   implicit none
 
-  integer  :: i,j
+  integer  :: i,j, ihrs, imns
   real(r8) :: tfact
 
 ! The variables in this section are always copied from the namelist for any
@@ -403,13 +403,16 @@ subroutine copy_nl()
 
      slz(1:nzgmax) = nl%slz(1:nzgmax)
 
-     ! set current time to initial time here.  If this is a history run,
-     ! reset current time in subroutine history_start.
-     current_time%year = iyear1
+     ! Set current time to initial time here.  If this is a history run,
+     ! current time will be set in subroutine history_start.
+
+     ihrs = itime1 / 100
+     imns = mod(itime1, 100)
+
+     current_time%year  = iyear1
      current_time%month = imonth1
-     current_time%date = idate1
-     current_time%time = int(itime1 * 0.01) * 3600.0 &
-          + (itime1 * 0.01 - int(itime1*0.01))*100.0*60.0
+     current_time%date  = idate1
+     current_time%time  = ihrs * 3600.0_r8 + imns * 60.0_r8
 
   endif
 
