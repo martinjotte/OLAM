@@ -235,7 +235,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
     ! Update earth-cartesian velocities (including time-averaged scalar velocities)
 
-   mrl = mrl_endl(istp)
+   mrl = mrl_ends(istp)
    if (mrl > 0) then
       call diag_earth_vels(mrl, vxesc, vyesc, vzesc)
    endif

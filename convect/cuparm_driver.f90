@@ -365,7 +365,7 @@ end subroutine cuparm_driver
 
 subroutine reset_cuparm()
 
-  use mem_ijtabs, only: jtab_w, jtw_prog, itab_w
+  use mem_ijtabs, only: jtab_w, jtw_wadj, itab_w
   use mem_cuparm, only: conprr, kcutop, kcubot, iactcu, cbmf
   use misc_coms,  only: nqparm
 
@@ -374,7 +374,7 @@ subroutine reset_cuparm()
   integer :: j, iw, mrlw
 
   !$omp parallel do private(iw,mrlw)
-  do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
+  do j = 1,jtab_w(jtw_wadj)%jend(1); iw = jtab_w(jtw_wadj)%iw(j)
 
      ! MRL for current IW column
      mrlw = itab_w(iw)%mrlw

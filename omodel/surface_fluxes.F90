@@ -61,7 +61,7 @@ use leaf_coms,   only: mwl, isfcl
 use sea_coms,    only: mws
 use mem_ijtabs,  only: itab_w, itabg_w, jtab_w, jtw_prog, jtw_wstn
 use misc_coms,   only: isubdomain, dtlm
-use mem_grid,    only: lsw, lpw, dzt_bot, arw
+use mem_grid,    only: lsw, lpw, dzt_bot, gdz_abov8, arw
 use mem_sea,     only: sea, itab_ws
 use mem_leaf,    only: land, itab_wl
 use mem_turb,    only: vkm_sfc, sfluxt, sfluxr, sxfer_tk, sxfer_rk, &

@@ -47,12 +47,12 @@ subroutine pbl_driver(mrl)
 
   integer, intent(in)    :: mrl
 
-  integer :: j, k, ka, iw, mrlw, ks
+  integer :: j, k, ka, iw, mrlw
 
 ! Loop over all W/T points where PBL parameterization may be done
 
 !----------------------------------------------------------------------
-  !$omp parallel do private(iw,mrlw,ka,k,ks)
+  !$omp parallel do private(iw,mrlw,ka,k)
   do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 
@@ -176,22 +176,26 @@ subroutine comp_horiz_k_column(iv)
 
   if (nl%conv_akmin(mrl) > 1.e-7) then
 
-     if (iactcu(iw1) > 0 .and. conprr(iw1) > 1.e-8) then
-        hcm = 0.0375 * nl%conv_akmin(mrl) * arw0(iw1) ** .66666666 &
-                     * cbmf(iw1) / cbmf0
+     if (iactcu(iw1) > 0) then
+        if (conprr(iw1) > 1.e-9) then
+           hcm = 0.0375 * nl%conv_akmin(mrl) * arw0(iw1) ** .66666666 &
+                        * cbmf(iw1) / cbmf0
 
-        do k = lpv(iv), min(kcutop(iw1) + 1, mza)
-           hkc(k) = hkc(k) + hcm
-        enddo
+           do k = lpv(iv), min(kcutop(iw1) + 1, mza)
+              hkc(k) = hkc(k) + hcm
+           enddo
+        endif
      endif
 
-     if (iactcu(iw2) > 0 .and. conprr(iw2) > 1.e-8) then
-        hcm = 0.0375 * nl%conv_akmin(mrl) * arw0(iw2) ** .66666666 &
-                     * cbmf(iw2) / cbmf0
+     if (iactcu(iw2) > 0) then
+        if (conprr(iw2) > 1.e-9) then
+           hcm = 0.0375 * nl%conv_akmin(mrl) * arw0(iw2) ** .66666666 &
+                        * cbmf(iw2) / cbmf0
 
-        do k = lpv(iv), min(kcutop(iw2) + 1, mza)
-           hkc(k) = hkc(k) + hcm
-        enddo
+           do k = lpv(iv), min(kcutop(iw2) + 1, mza)
+              hkc(k) = hkc(k) + hcm
+           enddo
+        endif
      endif
 
   endif

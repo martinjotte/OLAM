@@ -63,19 +63,17 @@ contains
     real :: upp(mza)
     real :: dtom(mza), dtorho(mza)
 
-    real :: frac_sumi(max(nsw_max,10))
-    real :: aa(mza,max(nsw_max,10))
-    real :: fracs(max(nsw_max,10))
-
-    real :: cbot(mza)
-
+    real :: frac_sumi(nsw_max)
+    real :: fracs(max(nsw_max,2))
+    real :: aa   (mza,nsw_max)
+    real :: cbot (mza)
     real :: aflux(mza,num_scalar+1)
     real :: rhs  (mza,num_scalar+1)
     real :: soln (mza,num_scalar+1)
 
     integer :: k, ks, n, ksm, ksp, kk, ksmax, kpbl
     integer :: kbot, ktop, nsfc, nlev
-    real    :: mbar, dens, zpbl
+    real    :: mbar, dens, zpbl, fsum
     real    :: dtl
 
     kbot = lpw(iw)
@@ -95,18 +93,28 @@ contains
 
     if (cnvct) then
 
-       fracs(nsfc+1) = 0.0
        fracs(1:nsfc) = frac_sfc(1:nsfc,iw)
 
        if (dzt(kbot) < 0.1 * zpbl .and. fracs(1) > 0.7) then
+          if (nsfc < 2) fracs(2) = 0.0
           nsfc = max(2,nsfc)
           fracs(1) = .6 * frac_sfc(1,iw)
           fracs(2) = fracs(2) + .4 * frac_sfc(1,iw)
        endif
 
-       do k = 1, nsfc
-          frac_sumi(k) = 1.0 / sum(fracs(1:k))
-       enddo
+       frac_sumi(nsfc) = 1.0
+
+       if (nsfc > 1) then
+          fsum = fracs(1)
+          frac_sumi(1) = 1.0 / fsum
+       endif
+
+       if (nsfc > 2) then
+          do k = 2, nsfc-1
+             fsum = fsum + fracs(k)
+             frac_sumi(k) = 1.0 / fsum
+          enddo
+       endif
 
        mbar = mflx / (zpbl - dzt(kbot))
 
@@ -421,10 +429,11 @@ contains
     REAL, PARAMETER :: RLAM_unst = 150.0
     REAL, PARAMETER :: GAMH      =  16.0  ! Holtslag and Boville (1993)
     REAL, PARAMETER :: EDYZ0     =   0.0  ! New Min Kz
+    real, parameter :: cs        = 0.2
     real, parameter :: onethird  = 1. / 3.
     real, parameter :: alvlorvap = alvl / rvap
-    real, parameter :: mvonk  =      - vonk
-    real, parameter :: vonk72 = 0.72 * vonk
+    real, parameter :: mvonk     = -vonk
+    real, parameter :: vonk72    = 0.72 * vonk
 
     kzo   = edyz0
     edyzh = 0.0
@@ -509,11 +518,15 @@ contains
 
 !! Explicit inclusion of entrainment
 
-    if (pbl_cld_forc(iw) > 1.e-7 .or. moli(iw) <= 0.0) then
+    if (moli(iw) < 0.0 .or. wcloud > 1.e-7) then
 
        ql = max( rr_w(kpbl, iw) - rr_v(kpbl ,iw), &
                  rr_w(kpblm,iw) - rr_v(kpblm,iw))
+
        if (iactcu(iw) > 0) ql = ql + max(qwcon(kpbl,iw), qwcon(kpblm,iw))
+
+       cfac = max(0.0, max(cloud_frac(kpbl,iw), cloud_frac(kpblm,iw)) &
+                     - min(cloud_frac(kpbl,iw), cloud_frac(kpblp,iw)) )
 
        dthl = max(thil(kpbl,iw), thil(kpblp,iw), thil(kpblpp,iw)) &
             - min(thil(kpbl,iw), thil(kpblm,iw), thil(kpblmm,iw))
@@ -523,12 +536,9 @@ contains
 
        dthl = max(dthl, 0.2)
        dqt  = min(dqt, -1.e-8)
-       dthv = max(bt(kpbl) * dthl + bq(kpbl) * dqt, 0.3)
+       dthv = max(bt(kpbl) * dthl + bq(kpbl) * dqt, 0.0)
 
-       cfac = max(0.0, max(cloud_frac(kpbl,iw), cloud_frac(kpblm,iw)) &
-                     - min(cloud_frac(kpbl,iw), cloud_frac(kpblp,iw)) )
-
-       wboyr3 = 0.0
+       wboyr3 = 0.
 
        if (ql > 1.e-8 .and. cfac > 0.05) then
 
@@ -545,11 +555,14 @@ contains
           dbwet  = grav * (btwet(k) * dthl + bqwet(k) * dqt) / thetav(k)
           db     = grav * dthv / thetav(k)
 
-          wboyr3 = 0.1 * chi_s**2 * max(0., -dbwet) * sqrt(db * pblh(iw)) * pblh(iw) * cfac
+          wboyr3 = 0.1 * chi_s**2 * max(0., -dbwet) &
+                       * sqrt(db * pblh(iw)) * pblh(iw) * cfac
        endif
 
-       we = 0.24 * (wstar(iw)**3 + wcloud**3 + 25.0*ustar(iw)**3 + wboyr3) &
-            * thetav(kpbl) / (grav * pblh(iw) * dthv)
+       zi = max(pblh(iw), zm(ka+1) - zm(ka-1))
+
+       we = 0.24 * (wstar(iw)**3 + wcloud**3 + 15.0*ustar(iw)**3 + wboyr3) &
+                 * thetav(kpblm) / (grav * zi * max(dthv,0.5))
 
        edych(kpbl) =        we * dzm(kpbl)
        edycm(kpbl) = 0.75 * we * dzm(kpbl)
@@ -569,15 +582,14 @@ contains
        ss = ( (vxe(k+1,iw) - vxe(k,iw))**2 &
             + (vye(k+1,iw) - vye(k,iw))**2 &
             + (vze(k+1,iw) - vze(k,iw))**2 ) * dzimsq(k)
-       ss = max(ss, 1.e-6)
 
-       shear = sqrt(ss)
+       ri = grav2 * buoy(k) / ( (thetav(k+1) + thetav(k)) * max(ss,1.e-5) )
 
-       ri = grav2 * buoy(k) / ( (thetav(k+1) + thetav(k)) * ss )
+       shear = max(sqrt(ss), 1.e-6)
 
        if (buoy(k) > 0.0) then
 
-          rlam = min(rlam_stab, dzm(k))
+          rlam = min(rlam_stab, cs * dzm(k))
 
           sql = (zk * rlam / (rlam + zk))**2
 
@@ -590,7 +602,7 @@ contains
 
        else
 
-          rlam = min(rlam_unst, dzm(k))
+          rlam = min(rlam_unst, cs * dzm(k))
 
           sql = (zk * rlam / (rlam + zk))**2
 
@@ -602,6 +614,13 @@ contains
 
        endif
 
+    enddo
+
+    do k = kpblp, mza-1
+       if (buoy(k-1) <= 0.0 .and. buoy(k) > 0.0) then
+          edyrm(k) = max(edyrm(k), 0.1 * edyrm(k-1))
+          edyrh(k) = max(edyrh(k), 0.1 * edyrh(k-1))
+       endif
     enddo
 
 !! Now compute combined eddy diffusivity from surface and cloud K-profiles
@@ -744,10 +763,13 @@ contains
     ! EXISTS), SEARCH UPWARD UNTIL THE BULK RICHARDSON NUMBER EQUALS ITS
     ! CRITICAL VALUE. THIS WILL BE THE PBL HEIGHT
 
-    rib  = 0.0
-    wcld = 0.6 * (grav / thlvsfc * zmix * pbl_cld_forc(iw)) ** onethird
-    wss  = wscale**2 + wcld**2
+    wss = wscale**2
+    if (pbl_cld_forc(iw) > 1.e-10) then
+       wcld = 0.6 * (grav / thlvsfc * zmix * pbl_cld_forc(iw)) ** onethird
+       wss  = wss + wcld**2
+    endif
 
+    rib  = 0.0
     do k = kmix, ktop
        rib_sav = rib
 

@@ -219,7 +219,13 @@ CONTAINS
       ght (kt) = g * zt(k)
 
       prst(kt) = press(k,iw)
-      prsw(kt) = 0.5 * (press(k,iw) + press(k+1,iw))
+
+      if (k == mza) then
+         prsw(kt) = 2. * press(k,iw) - press(k-1,iw)
+      else
+         prsw(kt) = 0.5 * (press(k,iw) + press(k+1,iw))
+      endif
+
       sig1(kt) = (press(k,iw)  - press(mza,iw)) &
                / (press(ka,iw) - press(mza,iw))
 
@@ -295,7 +301,7 @@ CONTAINS
 
 ! Apply convective parameterization results to main model arrays
 
-   if (iact) then
+   if (iact .and. ictop < icbot .and. zmfu(icbot) > 1.1e-10) then
 
       ! convection extends 1 level above ictop
       ictop = ictop - 1

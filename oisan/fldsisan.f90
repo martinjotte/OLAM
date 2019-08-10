@@ -57,13 +57,15 @@ real,     intent(in) :: o_umerid(mza,mwa)
 real,     intent(in) :: o_ozone (mza,mwa)
 
 integer :: j,iw,k,ka,iv,iw1,iw2,mrl,n
-real    :: ccn
+real    :: ccn, cond, sh_c
 real    :: raxis,raxisi,ug,vg,uvgr,uvgx,uvgy,uvgz
 
 ! If initializing the model, fill the main model arrays
 ! and initialize related arrays
 
 !----------------------------------------------------------------------
+
+!$omp parallel do private(iw,ka,k,cond,sh_c,n,ccn)
 do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 !---------------------------------------------------------------------
 
@@ -72,14 +74,6 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
    wc (1:mza,iw) = 0.0
    wmc(1:mza,iw) = 0.0
 
-   if (miclevel == 3 .and. jnmb(1) == 5) then
-      if (ccnparm > 1.e6) then
-         ccn = ccnparm
-      else
-         ccn = cldnum(iw)
-      endif
-   endif
-
    do k = ka, mza
 
       rho  (k,iw) = o_rho  (k,iw)
@@ -87,15 +81,21 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
       theta(k,iw) = o_theta(k,iw)
       press(k,iw) = o_press(k,iw)
       tair (k,iw) = o_theta(k,iw) * (real(press(k,iw)) * p00i) ** rocp
+      rr_v (k,iw) = o_rrw(k,iw)
+      thil (k,iw) = theta(k,iw)
 
-      if (miclevel <= 1) then
-         rr_v(k,iw) = o_rrw(k,iw)
-         thil(k,iw) = theta(k,iw)
-      else
-         rr_c(k,iw) = max(0., o_rrw(k,iw) - rhovsl(tair(k,iw)-t00) / real(rho(k,iw)))
-         rr_v(k,iw) = o_rrw(k,iw) - rr_c(k,iw)
-         thil(k,iw) = theta(k,iw) / (1. + alvlocp * rr_c(k,iw) / &
-                                        ((1.0 + rr_c(k,iw)) * max(tair(k,iw),253.)))
+
+      if (miclevel >= 2) then
+         cond = rr_w(k,iw) * real(rho(k,iw)) - rhovsl(tair(k,iw)-t00)
+
+         if (cond > rxmin(1)) then
+            rr_c(k,iw) = cond / real(rho(k,iw))
+            rr_v(k,iw) = rr_w(k,iw) - rr_c(k,iw)
+            sh_c       = rr_c(k,iw) / (1.0 + rr_v(k,iw))
+            thil(k,iw) = theta(k,iw) / (1. + alvlocp * sh_c / max(tair(k,iw),253.))
+         else
+            rr_c(k,iw) = 0.0
+         endif
       endif
 
    enddo
@@ -129,7 +129,7 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
       endif
 
       do k = ka, mza
-         if (rr_c(k,iw) > rxmin(1)) then
+         if (rr_c(k,iw) * real(rho(k,iw)) > rxmin(1)) then
             con_c(k,iw) = ccn * real(rho(k,iw)) * zfactor_ccn(k)
          else
             con_c(k,iw) = 0.0
@@ -138,6 +138,7 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
    endif
 
 enddo
+!$omp end parallel do
 
 ! LBC copy (THETA and TAIR and OZONE will be copied later with the scalars)
 

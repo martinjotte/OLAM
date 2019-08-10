@@ -53,7 +53,7 @@ subroutine sea_init_atm()
   real :: dum1, dum2
   real :: prss
 
-  ! Initialize sea quantities that do not depend on atmospheric conditions
+  if (runtype /= "INITIAL") return
 
   timefac_sst    = 0.0
   timefac_seaice = 0.0
@@ -68,10 +68,17 @@ subroutine sea_init_atm()
                     / (s1900_seaice(iseaicefile) - s1900_seaice(iseaicefile-1))
   endif
 
-  !$omp parallel do
-  do iws = 2,mws
+  !$omp parallel do private (iw,kw,prss,dum1,dum2)
+  do iws = 2, mws
 
-  ! Initialize sea temperature, sea ice, and canopy depth
+     iw = itab_ws(iws)%iw  ! global index
+     if (isubdomain == 1) then
+        iw = itabg_w(iw)%iw_myrank
+     endif
+     
+     kw = itab_ws(iws)%kw
+
+     ! Initialize sea temperature, sea ice, and canopy depth
 
      sea%seatc(iws) = sea%seatp(iws)  &
                     + (sea%seatf(iws) - sea%seatp(iws)) * timefac_sst
@@ -81,26 +88,8 @@ subroutine sea_init_atm()
 
      sea%can_depth(iws) = 20. * max(1.,.025 * dt_sea)
 
-  enddo  ! iws
-  !$omp end parallel do
+     ! Transfer atmospheric properties to sea cells
 
-  ! End of initialization that does not depend on atmospheric conditions
-
-  if (runtype /= "INITIAL") return
-
-  ! Initialize sea quantities that depend on atmospheric conditions
-
-  !$omp parallel do private (iw,kw,prss,dum1,dum2)
-  do iws = 2,mws
-     
-     iw = itab_ws(iws)%iw  ! global index
-     if (isubdomain == 1) then
-        iw = itabg_w(iw)%iw_myrank
-     endif
-
-     kw = itab_ws(iws)%kw
-
-! Transfer atmospheric properties to sea cells
      prss             = press(kw,iw) + gdz_abov8(kw-1) * rho(kw,iw) * (1. + rr_w(kw,iw))
      sea%cantemp(iws) = theta(kw,iw) * (prss * p00i)**rocp
      sea%canshv (iws) = rr_v(kw,iw) / (1.0 + rr_v(kw,iw))

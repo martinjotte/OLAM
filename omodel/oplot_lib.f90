@@ -71,7 +71,7 @@ use mem_para,    only: myrank
 use mem_turb,    only: vkm_sfc, sfluxt, sfluxr, pblh, vkm, vkh, ustar, wstar
 use mem_nudge,   only: rho_obs, theta_obs, rrw_obs, uzonal_obs, umerid_obs, &
                        rho_sim, theta_sim, rrw_sim, uzonal_sim, umerid_sim
-use therm_lib,   only: qtk, qwtk, rhovsl
+use therm_lib,   only: qtk, qwtk, rhovsl_inv
 
 use misc_coms,   only: io6, pr01d, dn01d, th01d, time8, isubdomain, &
                        naddsc, mdomain
@@ -1368,13 +1368,13 @@ case(59) ! 'CO2CON'
 
    if (.not. allocated(rr_co2)) go to 1000
 
-   fldval = (wtbot * rr_co2(k ,i) / (1.0 - rr_w(k ,i)) &
-          +  wttop * rr_co2(kp,i) / (1.0 - rr_w(kp,i))) * co2_sh2ppm
+   fldval = (wtbot * rr_co2(k ,i) &
+          +  wttop * rr_co2(kp,i) ) * co2_sh2ppm
 
 case(60) ! 'RH_LIQ'
 
-   fldval = (wtbot * rr_v(k ,i) * rho(k ,i) / rhovsl(tair(k ,i)-273.15) &
-          +  wttop * rr_v(kp,i) * rho(kp,i) / rhovsl(tair(kp,i)-273.15)) * 1.e2
+   fldval = (wtbot * rr_v(k ,i) * real(rho(k ,i)) * rhovsl_inv(tair(k ,i)-273.15) &
+          +  wttop * rr_v(kp,i) * real(rho(kp,i)) * rhovsl_inv(tair(kp,i)-273.15)) * 1.e2
 
 case(62) ! 'RSHORT_TOP'
 

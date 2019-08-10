@@ -32,6 +32,8 @@
 !===============================================================================
 
 module wrtv_mem
+
+  use consts_coms, only: r8
   implicit none
 
   real, allocatable :: vortp   (:,:)
@@ -44,7 +46,8 @@ module wrtv_mem
   logical, save     :: rotational = .false.
   integer, save     :: iflag      = 0
 
-  real, allocatable :: alpha_press(:,:)
+  real,     allocatable :: alpha_press(:,:)
+  real(r8), allocatable :: rd_rt_w    (:,:)
 
   private
   public alloc_prog_wrtv_mem, prog_wrtv, comp_alpha_press, alpha_press
@@ -75,6 +78,7 @@ subroutine alloc_prog_wrtv_mem()
 
   allocate(thil_old   (mza,mwa))
   allocate(alpha_press(mza,mwa)) ; alpha_press = rinit
+  allocate(rd_rt_w    (mza,mwa)) ; rd_rt_w     = rinit
 
   if (nl%ithil_monot + nl%ivelc_monot > 0) then
      allocate(wmca(mza,mwa)) ; wmca(:,:) = 0.0
@@ -547,7 +551,7 @@ subroutine prog_wrt_begs( iw, vmcfa, wmsc,                      &
                           thilt_short, vmxet_short, vmyet_short, vmzet_short )
 
   use mem_ijtabs,  only: itab_w
-  use mem_basic,   only: wmc, rho, thil, wc, press, rr_w, &
+  use mem_basic,   only: wmc, rho, thil, wc, press, &
                          vxe, vye, vze, vxe2, vye2, vze2
   use misc_coms,   only: dtsm, deltax, nxp, initial, dn01d, th01d
   use consts_coms, only: cpocv, omega2, pi1, pio180, r8
@@ -613,7 +617,6 @@ subroutine prog_wrt_begs( iw, vmcfa, wmsc,                      &
   real(r8) :: delex_rho(mza)
   real(r8) :: rhothil  (mza)
   real(r8) :: press_t  (mza)
-  real(r8) :: rho_tot  (mza)
 
   real :: delex_wm     (mza)
   real :: delex_rhothil(mza)
@@ -790,10 +793,6 @@ subroutine prog_wrt_begs( iw, vmcfa, wmsc,                      &
      rhothil(k) = rho(k,iw) * thil(k,iw)
      press_t(k) = alpha_press(k,iw) * rhothil(k) ** cpocv
 
-     ! Total mass in grid box
-
-     rho_tot(k) = rho(k,iw) * real(1. + rr_w(k,iw),r8)
-
   enddo
 
 ! NUDGING TENDENCY ON RHO
@@ -840,9 +839,9 @@ subroutine prog_wrt_begs( iw, vmcfa, wmsc,                      &
 
      delex_wm(k) = dts * ( wmt_other(k) &
 
-          + dzim(k) * real( press_t(k) - press_t(k+1) &
+          + dzim(k) * real( (press_t(k) - press_t(k+1)) * rd_rt_w(k,iw) &
 
-          - gdz_belo8(k) * rho_tot(k) - gdz_abov8(k) * rho_tot(k+1) ) &
+          - gdz_belo8(k) * rho(k,iw) - gdz_abov8(k) * rho(k+1,iw) ) &
 
           ! Average Coriolis force in vertical between T levels
 
@@ -881,9 +880,9 @@ subroutine prog_wrt_begs( iw, vmcfa, wmsc,                      &
   ! Loop over W pts
   do k = ka, mza-1
 
-     b7(k)  = c6     * volwi(k,iw)
-     b8(k)  = c8     *  dzim(k)
-     b9(k)  = c9     * gdzim(k) * (1. + rr_w(k,iw))
+     b7(k)  = c6 * volwi(k,iw)
+     b8(k)  = c8 * dzim (k) * rd_rt_w(k,iw)
+     b9(k)  = c9 * gdzim(k)
 
      b11(k) = b8(k)  * b5(k)
      b12(k) = b8(k)  * b5(k+1)
@@ -1065,24 +1064,29 @@ end subroutine prog_wrt_begs
 
 subroutine comp_alpha_press(mrl)
 
-  use mem_grid,    only: lpw, mza
+  use mem_grid,    only: lpw, mza, zwgt_bot, zwgt_top
   use mem_ijtabs,  only: jtab_w, jtw_prog
   use consts_coms, only: pc1, rdry, rvap, cpocv
-  use mem_basic,   only: rr_v, theta, thil
+  use mem_basic,   only: rr_v, rr_w, theta, thil
 
   implicit none
 
   integer, intent(in)  :: mrl
   integer              :: j, iw, k
 
-! Evaluate alpha coefficient for pressure
-
   !$omp parallel do private(iw,k)
   do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
+
+     ! Evaluate alpha coefficient for pressure
      do k = lpw(iw), mza
         alpha_press(k,iw) = pc1 * ( (rdry + rvap * rr_v(k,iw)) &
                                   * theta(k,iw) / thil(k,iw) ) ** cpocv
+     enddo
+
+     do k = lpw(iw), mza-1
+        rd_rt_w(k,iw) = real( zwgt_bot(k) / (1. + rr_w(k  ,iw))     &
+                            + zwgt_top(k) / (1. + rr_w(k+1,iw)), r8 )
      enddo
 
   enddo
@@ -1096,7 +1100,7 @@ subroutine prog_v_begs( iv, vmxet_volt, vmyet_volt, vmzet_volt,   &
                             vmxet_short, vmyet_short, vmzet_short )
 
   use mem_ijtabs,  only: itab_v
-  use mem_basic,   only: vc, press, vmc, rho, vxe, vye, vze
+  use mem_basic,   only: vc, press, vmc, rho, vxe, vye, vze, rr_w
   use mem_tend,    only: vmt
   use misc_coms,   only: dtsm, initial, mdomain, deltax, nxp
   use consts_coms, only: eradi, gravo2
@@ -1162,8 +1166,9 @@ subroutine prog_v_begs( iv, vmxet_volt, vmyet_volt, vmzet_volt,   &
 
   ! Vertical loop over V points to compute pressure gradient force
 
-  do k = kb,mza
-     pgf(k) = dniv(iv) * (press(k,iw1) - press(k,iw2))
+  do k = kb, mza
+     pgf(k) = dniv(iv) * real(press(k,iw1) - press(k,iw2)) &
+            * (1. - 0.5 * (rr_w(k,iw1) + rr_w(k,iw2)))
   enddo
 
   ! For shallow water test cases 2 & 5, rho & press are

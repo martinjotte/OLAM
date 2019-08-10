@@ -381,6 +381,8 @@ subroutine olam_run(name_name)
      mrl = 1
      call diagvel_t3d_init(mrl)
      call diagvel_t3d     (mrl)
+
+     call calc_3d_cloud_fraction(mrl)
   endif
 
   !----------------------------------------------------------------------
