@@ -59,7 +59,7 @@ contains
 subroutine alloc_prog_wrtv_mem()
 
   use mem_grid,   only: mma, mwa, mva, mza
-  use misc_coms,  only: rinit
+  use misc_coms,  only: rinit, rinit8
   use oname_coms, only: nl
 
   implicit none
@@ -78,7 +78,7 @@ subroutine alloc_prog_wrtv_mem()
 
   allocate(thil_old   (mza,mwa))
   allocate(alpha_press(mza,mwa)) ; alpha_press = rinit
-  allocate(rd_rt_w    (mza,mwa)) ; rd_rt_w     = rinit
+  allocate(rd_rt_w    (mza,mwa)) ; rd_rt_w     = rinit8
 
   if (nl%ithil_monot + nl%ivelc_monot > 0) then
      allocate(wmca(mza,mwa)) ; wmca(:,:) = 0.0

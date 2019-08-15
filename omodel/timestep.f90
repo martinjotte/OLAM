@@ -126,8 +126,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
    mrl = mrl_begl(istp)
    if (mrl > 0) then
-      call vort_damp(mrl)
-      call divh_damp(mrl)
+      call vort_div_damp(mrl)
    endif
 
    ! Compute nudging tendencies

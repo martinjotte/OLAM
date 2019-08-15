@@ -157,8 +157,8 @@ Module oname_coms
       integer :: vert_adv_order  = 3
       integer :: horiz_adv_order = 2
 
-      real    :: akmin_vort  = 0.8
-      real    :: akmin_div2d = 0.4
+      real    :: vort_damp_fact = 0.1
+      real    :: divh_damp_fact = 0.1
 
       logical :: debug_fp    = .false.
       logical :: init_nans   = .false.

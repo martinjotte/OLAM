@@ -872,7 +872,8 @@ do iw = 2,nwa
 
       endif
 
-! Earth-grid components of easterly (or cartesian positive x) horizontal unit vector 
+! Earth-grid components of rotated polar stereographic easterly
+! (or cartesian positive x) horizontal unit vector 
 
       if (mdomain <= 1) then
          itab_w(iw)%unx_w = -sin(glonw(iw))
@@ -882,7 +883,8 @@ do iw = 2,nwa
          itab_w(iw)%uny_w = 0.0
       endif
 
-! Earth-grid components of northerly (or cartesian positive y) horizontal unit vector 
+! Earth-grid components of rotated polar stereographic northerly
+! (or cartesian positive y) horizontal unit vector 
 
       if (mdomain <= 1) then
          itab_w(iw)%vnx_w = -sin(glatw(iw)) * cos(glonw(iw))
