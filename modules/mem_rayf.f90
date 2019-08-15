@@ -37,21 +37,20 @@ Module mem_rayf
   real :: rayf_zmin
   real :: rayf_distim
   real :: rayf_expon
+  real :: rayf_fact
 
   real :: rayfw_zmin
   real :: rayfw_distim
-  real :: rayfw_expon  
+  real :: rayfw_expon
+  real :: rayfw_fact
 
   real :: rayfdiv_zmin
-  real :: rayfdiv_distim
-  real :: rayfdiv_expon  
+  real :: rayfdiv_expon
+  real :: rayfdiv_fact
 
   real, allocatable :: rayf_cof(:)
   real, allocatable :: rayf_cofw(:)
   real, allocatable :: rayf_cofdiv(:)
-
-  real, allocatable :: vc03d(:,:)
-  real, allocatable :: dn03d(:,:)
 
   integer :: krayf_bot
   integer :: krayfw_bot
@@ -67,14 +66,14 @@ Contains
 
 ! Initialize Rayleigh friction vertical profile coefficients
 
-    use misc_coms,    only: initial, rinit, iparallel
+    use misc_coms,    only: initial, rinit, iparallel, dtlm
     use mem_grid,     only: lpv, zm, zt
     use mem_ijtabs,   only: jtab_v, jtv_init, itab_v
     use mem_basic,    only: rho, vc
     use olam_mpi_atm, only: mpi_send_v, mpi_recv_v
 
     implicit none
-    
+
     integer, intent(in) :: mva, mwa, mza
 
     integer :: k, j, iv, iu, iw1, iw2, mrl
@@ -92,9 +91,10 @@ Contains
 
     rayf_cof(1:mza) = 0.
 
-    if (rayf_distim > 1.e-6) then
+    if (rayf_fact > 1.e-7) then
 
        dorayf = .true.
+       rayf_distim = real(dtlm(1)) / rayf_fact
        distimi = 1. / rayf_distim
        
        do k = 2, mza
@@ -115,9 +115,10 @@ Contains
 
     rayf_cofw(1:mza) = 0.
 
-    if (rayfw_distim > 1.e-6) then
+    if (rayfw_fact > 1.e-7) then
 
        dorayfw = .true.
+       rayfw_distim = real(dtlm(1)) / rayfw_fact
        distimi = 1. / rayfw_distim
 
        do k = 2, mza
@@ -138,10 +139,9 @@ Contains
 
     rayf_cofdiv(1:mza) = 0.
 
-    if (rayfdiv_distim > 1.e-6) then
+    if (rayfdiv_fact > 1.e-7) then
 
        dorayfdiv = .true.
-       distimi = 1. / rayfdiv_distim
 
        do k = 2, mza
           if (zt(k) > rayfdiv_zmin) then
@@ -151,47 +151,12 @@ Contains
        enddo
 
        do k = krayfdiv_bot, mza
-          rayf_cofdiv(k) = distimi   &
+          rayf_cofdiv(k) = rayfdiv_fact   &
                * ((zt(k) - rayfdiv_zmin) / (zm(mza) - rayfdiv_zmin)) ** rayfdiv_expon
        enddo
 
     endif
 
-! For a horizontally or latitudinally homogeneous run, allocate the arrays
-! to store the momentum values that the model will relax towards
-
-    if (dorayf .and. (initial == 1 .or. initial == 3)) then
-       allocate( vc03d(mza,mva) ) ; vc03d = rinit
-       allocate( dn03d(mza,mva) ) ; dn03d = rinit
-    endif
-
-! For a horizontally homogeneous run, the initial momentum that the model will
-! relax towards can be saved here, after inithh() and before history_read()
-    
-    if (dorayf .and. initial == 1) then
-
-       do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)
-          iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
-          do k = lpv(iv), mza
-             dn03d(k,iv) = 0.5 * (rho(k,iw1) + rho(k,iw2))
-          enddo
-       enddo
-
-       mrl = 1
-
-       if (iparallel == 1) call mpi_send_v(mrl, rvara1=dn03d)
-          
-       do iv = 2, mva
-          do k = lpv(iv), mza
-             vc03d(k,iv) = vc(k,iv)
-          enddo
-       enddo
-          
-       if (iparallel == 1) call mpi_recv_v(mrl, rvara1=dn03d)
-
-    endif ! (dorayf .and. initial)
-
-    return
   end subroutine rayf_init
 
 end module mem_rayf

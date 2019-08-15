@@ -131,9 +131,9 @@ subroutine copy_nl()
   use isan_coms,   only: iapr
   use mem_nudge,   only: tnudcent, nudflag, nudnxp,  &
                          o3nudflag, tnudi_o3, o3nudpress
-  use mem_rayf,    only: rayf_zmin,    rayf_distim,   rayf_expon,    &
-                         rayfw_zmin,   rayfw_distim,   rayfw_expon,  &
-                         rayfdiv_zmin, rayfdiv_distim, rayfdiv_expon
+  use mem_rayf,    only: rayf_zmin,    rayf_fact,    rayf_expon,    &
+                         rayfw_zmin,   rayfw_fact,   rayfw_expon,  &
+                         rayfdiv_zmin, rayfdiv_fact, rayfdiv_expon
   use ed_misc_coms, only: ed2_active, ed2_namelist
 
   implicit none
@@ -201,13 +201,13 @@ subroutine copy_nl()
   debug_fp      = nl%debug_fp
   init_nans     = nl%init_nans
   rayf_zmin     = nl%rayf_zmin
-  rayf_distim   = nl%rayf_distim
+  rayf_fact     = nl%rayf_fact
   rayf_expon    = nl%rayf_expon
   rayfw_zmin    = nl%rayfw_zmin
-  rayfw_distim  = nl%rayfw_distim
+  rayfw_fact    = nl%rayfw_fact
   rayfw_expon   = nl%rayfw_expon
   rayfdiv_zmin  = nl%rayfdiv_zmin
-  rayfdiv_distim= nl%rayfdiv_distim
+  rayfdiv_fact  = nl%rayfdiv_fact
   rayfdiv_expon = nl%rayfdiv_expon
   ilwrtyp       = nl%ilwrtyp
   iswrtyp       = nl%iswrtyp

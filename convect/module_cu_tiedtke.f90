@@ -75,7 +75,7 @@ CONTAINS
    subroutine cuparm_tiedtke(iw,km,km1,dtlong4,confrq4,confrq4i)
 
    use mem_grid,    only: mza, lpv, lpw, zt, xew, yew, zew, arv, arw, arw0, &
-                          volt, volti
+                          volt, volti, vxn_ns, vyn_ns, vzn_ns, vxn_ew, vyn_ew
    use mem_cuparm,  only: thsrc, rtsrc, conprr, vxsrc, vysrc, vzsrc, rdsrc, &
                           kcubot, kcutop, cbmf, qwcon, iactcu, cddf, kddtop
    use mem_basic,   only: theta, tair, press, rho, vxe, vye, vze, rr_v, &
@@ -141,15 +141,12 @@ CONTAINS
 
    integer :: ka, k, kt, jv, iv, iwn, npoly
 
-   real :: raxis, hflux, hflux_vap, dirv, flx, fqvadv
-   real :: uvtr, raxisi, gnpoly1
+   real :: hflux, hflux_vap, dirv, flx, fqvadv
+   real :: gnpoly1
 
    ka = lpw(iw)
    npoly = itab_w(iw)%npoly
    gnpoly1 = gravo2 / real(npoly+1)
-
-   raxis  = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis
-   raxisi = 1.0 / max(raxis, 1.e-12)
 
 ! Vertical advective mass and water vapor fluxes (W levels)
 
@@ -178,15 +175,8 @@ CONTAINS
 
       ! Compute zonal and meridional wind components
 
-      if (raxis > 1.e3) then
-         u1(kt) = (vye(k,iw) * xew(iw) - vxe(k,iw) * yew(iw)) * raxisi
-         v1(kt) = vze(k,iw) * raxis * eradi  &
-                  - (vxe(k,iw) * xew(iw) + vye(k,iw) * yew(iw)) &
-                  * zew(iw) * raxisi * eradi
-      else
-         u1(kt) = vxe(k,iw)
-         v1(kt) = vye(k,iw)
-      endif
+      u1(kt) = vxe(k,iw) * vxn_ew(iw) + vye(k,iw) * vyn_ew(iw)
+      v1(kt) = vxe(k,iw) * vxn_ns(iw) + vye(k,iw) * vyn_ns(iw) + vze(k,iw) * vzn_ns(iw)
 
       ! Horizontal advective mass and water vapor fluxes
 
@@ -351,36 +341,19 @@ CONTAINS
          ! density tendency (water removed per grid cell)
          rdsrc(k,iw) = -(zdmfup(kt) + zdmfdp(kt)) * arw0(iw) * real(volti(k,iw))
 
-         ! convert velocity to momentum
-         dUdt(kt) = dUdt(kt) * real(rho(k,iw))
-         dVdt(kt) = dVdt(kt) * real(rho(k,iw))
       enddo
 
       ! convective momentum transport
 
       if (nl%conv_uv_mix > 0) then
-         
-         if (raxis > 1.e3) then
+         do k = ka, kcutop(iw)
+            kt = mza + 1 - k
 
-            do k = ka, kcutop(iw)
-               kt = mza + 1 - k
-               uvtr = -dVdt(kt) * zew(iw) * eradi
-               vxsrc(k,iw) = (-dUdt(kt) * yew(iw) + uvtr * xew(iw)) * raxisi
-               vysrc(k,iw) = ( dUdt(kt) * xew(iw) + uvtr * yew(iw)) * raxisi
-               vzsrc(k,iw) =   dVdt(kt) * raxis * eradi
-            enddo
-               
-         else
+            vxsrc(k,iw) = real(rho(k,iw)) * (dUdt(kt) * vxn_ew(iw) + dVdt(kt) * vxn_ns(iw))
+            vysrc(k,iw) = real(rho(k,iw)) * (dUdt(kt) * vyn_ew(iw) + dVdt(kt) * vyn_ns(iw))
+            vzsrc(k,iw) = real(rho(k,iw)) * (                        dVdt(kt) * vzn_ns(iw))
 
-            do k = ka, kcutop(iw)
-               kt = mza + 1 - k
-               vxsrc(k,iw) = dUdt(kt)
-               vysrc(k,iw) = dVdt(kt)
-               vzsrc(k,iw) = 0.0
-            enddo
-            
-         endif
-
+         enddo
       endif
 
    endif

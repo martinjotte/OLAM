@@ -231,8 +231,8 @@
 
    NL%HORIZ_ADV_ORDER = 2 ! Horizontal advection order (2 or 3)
 
-   NL%AKMIN_VORT  = 0.8   ! Scaling factor for vorticity and divergence
-   NL%AKMIN_DIV2D = 0.4   ! damping. Set to 0 to disable.
+   NL%VORT_DAMP_FACT = .1   ! Scaling factor for vorticity and divergence
+   NL%DIVH_DAMP_FACT = .1   ! damping. Set to 0 to disable.
 
    NL%DEBUG_FP  = .false. ! Detect floating point errors such as overflows,
                           ! INFs, divide-by-zeros, and NANs (best if code is
@@ -245,17 +245,17 @@
  ! Rayleigh friction parameters
  !--------------------------------------------------------------------------
 
-   NL%RAYF_ZMIN   = 25000.  ! Damping for U, THIL - minimum height (m)
-   NL%RAYF_DISTIM = 0.0     ! Damping for U, THIL - model top disp time (s)
-   NL%RAYF_EXPON  = 1.0     ! Damping for U, THIL - exponent for profile
+   NL%RAYF_ZMIN  = 25000.  ! Damping for U, THIL - minimum height (m)
+   NL%RAYF_FACT  = 0.1     ! Damping for U, THIL - scaling factor
+   NL%RAYF_EXPON = 1.0     ! Damping for U, THIL - exponent for profile
    
-   NL%RAYFW_ZMIN   = 25000. ! Damping for W - minimum height (m)
-   NL%RAYFW_DISTIM = 300.0    ! Damping for W - model top disp time
-   NL%RAYFW_EXPON  = 1.0    ! Damping for W - exponent for profile
+   NL%RAYFW_ZMIN  = 25000. ! Damping for W - minimum height (m)
+   NL%RAYFW_FACT  = 0.1    ! Damping for W - scaling factor
+   NL%RAYFW_EXPON = 1.0    ! Damping for W - exponent for profile
 
-   NL%RAYFDIV_ZMIN   = 25000. ! Damping for horiz. div. - minimum height (m)
-   NL%RAYFDIV_DISTIM = 300.0    ! Damping for horiz. div. - model top disp time
-   NL%RAYFDIV_EXPON  = 1.0    ! Damping for horiz. div. - exponent for profile
+   NL%RAYFDIV_ZMIN  = 25000. ! Damping for horiz. div. - minimum height (m)
+   NL%RAYFDIV_FACT  = 0.2    ! Damping for horiz. div. - scaling factor
+   NL%RAYFDIV_EXPON = 1.0    ! Damping for horiz. div. - exponent for profile
 
  !--------------------------------------------------------------------------
  ! Radiation parameters

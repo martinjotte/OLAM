@@ -166,15 +166,15 @@ Module oname_coms
 !!    RAYLEIGH FRICTION PARAMETERS
 
       real :: rayf_zmin    = 30000.0
-      real :: rayf_distim  = 0.0
+      real :: rayf_fact    = 0.0
       real :: rayf_expon   = 1.0
 
       real :: rayfw_zmin   = 30000.0
-      real :: rayfw_distim = 0.0
+      real :: rayfw_fact   = 0.0
       real :: rayfw_expon  = 1.0
 
       real :: rayfdiv_zmin   = 30000.0
-      real :: rayfdiv_distim = 0.0
+      real :: rayfdiv_fact   = 0.0
       real :: rayfdiv_expon  = 1.0
 
 !!    RADIATION PARAMETERIZATION PARAMETERS

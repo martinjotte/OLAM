@@ -101,8 +101,8 @@ SOURCE_FILES= \
              $(OMODEL)/omic_parcel.f90  \
              $(OMODEL)/omic_tabs.f90 \
              $(OMODEL)/omic_vap.f90 \
-             $(OMODEL)/oname_check.f90 \
              $(OMODEL)/oname.f90 \
+             $(OMODEL)/oname_check.f90 \
              $(OMODEL)/oplot_interface.F90 \
              $(OMODEL)/oplot_lib.f90 \
              $(OMODEL)/othrm.f90 \

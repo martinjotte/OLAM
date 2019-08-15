@@ -1102,12 +1102,11 @@ subroutine prog_v_begs( iv, vmxet_volt, vmyet_volt, vmzet_volt,   &
   use mem_ijtabs,  only: itab_v
   use mem_basic,   only: vc, press, vmc, rho, vxe, vye, vze, rr_w
   use mem_tend,    only: vmt
-  use misc_coms,   only: dtsm, initial, mdomain, deltax, nxp
+  use misc_coms,   only: dtsm
   use consts_coms, only: eradi, gravo2
   use mem_grid,    only: mza, mwa, lpv, volt, xev, yev, zev, &
                          unx, uny, unz, vnx, vny, vnz, vnxo2, vnyo2, vnzo2, &
                          dniu, dniv
-  use mem_rayf,    only: dorayf, rayf_cof, vc03d, dn03d, krayf_bot
   use oname_coms,  only: nl
 
   implicit none
@@ -1125,11 +1124,8 @@ subroutine prog_v_begs( iv, vmxet_volt, vmyet_volt, vmzet_volt,   &
   integer :: iw1,iw2,im1,im2
 
   real :: dts
-  real :: fracx, rayfx
   real :: vx, vy, vz, uc, watv, tke1, tke2, vortp_v, dtso2dnu, dtso2dnv
-
-  real :: vmt_rayf(mza)
-  real :: pgf     (mza)
+  real :: pgf(mza)
 
   ! Extract neighbor indices and coefficients for this point in the U stencil
 
@@ -1139,30 +1135,6 @@ subroutine prog_v_begs( iv, vmxet_volt, vmyet_volt, vmzet_volt,   &
   dts = dtsm(itab_v(iv)%mrlv)
 
   kb = lpv(iv)
-
-  vmt_rayf(:) = 0.
-
-  ! Rayleigh friction on vc: Only for horizontally homogeneous initialization
-
-  if (dorayf .and. initial == 1) then
-
-     ! Vertical loop over V points
-
-     do k = krayf_bot, mza
-        vmt_rayf(k) = vmt_rayf(k) + rayf_cof(k) * dn03d(k,iv) * (vc03d(k,iv) - vc(k,iv))
-     enddo
-
-     ! Alternate form: Extra RAYF at open ends of channel with cyclic end boundary conditions
-     !
-     ! fracx = abs(xev(iv)) / (real(nxp-1) * .866 * deltax)
-     ! rayfx = .2 * (-2. + 3. * fracx) * rayf_cof(mza)
-     ! rayfx = 0.   ! Default: no extra RAYF
-     ! do k = kb, mza
-     !    vmt_rayf(k) = vmt_rayf(k) &
-     !                + max(rayf_cof(k),rayfx) * dn03d(k) *  (vc03d(k,iv) - vc(k,iv))
-     ! enddo
-
-  endif ! (dorayf and initial == 1)
 
   ! Vertical loop over V points to compute pressure gradient force
 
@@ -1185,7 +1157,7 @@ subroutine prog_v_begs( iv, vmxet_volt, vmyet_volt, vmzet_volt,   &
   if (.not. rotational) then
 
      do k = kb,mza
-        vmc(k,iv) = vmc(k,iv) + dts * (vmt_rayf(k) + vmt(k,iv) + pgf(k) &
+        vmc(k,iv) = vmc(k,iv) + dts * (vmt(k,iv) + pgf(k) &
 
                   + vnxo2(iv) * (vmxet_short(k,iw1) + vmxet_short(k,iw2))    &
                   + vnyo2(iv) * (vmyet_short(k,iw1) + vmyet_short(k,iw2))    &
@@ -1226,7 +1198,7 @@ subroutine prog_v_begs( iv, vmxet_volt, vmyet_volt, vmzet_volt,   &
              + dtso2dnv * vc(k,iv) * (vortp_t(k,iw1) - vortp_t(k,iw2))
         !@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@A2
 
-        vmc(k,iv) = vmc(k,iv) + dts * (vmt_rayf(k) + vmt(k,iv) + pgf(k) &
+        vmc(k,iv) = vmc(k,iv) + dts * (vmt(k,iv) + pgf(k) &
 
                   + vnxo2(iv) * (vmxet_short(k,iw1) + vmxet_short(k,iw2))    &
                   + vnyo2(iv) * (vmyet_short(k,iw1) + vmyet_short(k,iw2))    &

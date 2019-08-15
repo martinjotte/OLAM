@@ -138,6 +138,12 @@ Module mem_grid
 
         gxps_coef, gyps_coef    ! combined weights for grad_t2d
 
+   real, allocatable, dimension(:) ::  &
+
+        vxn_ew, vyn_ew, vzn_ew, & ! unit normals of zonal (east-west) direction in earth cartesian coordinates
+        vxn_ns, vyn_ns, vzn_ns, & ! unit normals of meridional (north-south) direction in earth cartesian coordinates
+        vcn_ew, vcn_ns            ! components of zonal and merdional vectors in the direction of VC
+
 Contains
 
 !===============================================================================
@@ -242,6 +248,18 @@ Contains
    allocate (glatm(lma));  glatm(1:lma) = 0.
    allocate (glonm(lma));  glonm(1:lma) = 0.
 
+   allocate (vxn_ew(lwa)) ; vxn_ew = 0.
+   allocate (vyn_ew(lwa)) ; vyn_ew = 0.
+   allocate (vzn_ew(lwa)) ; vzn_ew = 0.
+
+   allocate (vxn_ns(lwa)) ; vxn_ns = 0.
+   allocate (vyn_ns(lwa)) ; vyn_ns = 0.
+   allocate (vzn_ns(lwa)) ; vzn_ns = 0.
+
+   allocate (vcn_ew(lva)) ; vcn_ew = 0.
+   allocate (vcn_ns(lva)) ; vcn_ns = 0.
+
+
    write(io6,*) 'finishing alloc_grid1'
 
    end subroutine alloc_grid1
@@ -280,12 +298,14 @@ Contains
      ! This routine allocates and defines grid arrays that were not computed
      ! during the MAKEGRID stage
 
-     use consts_coms, only: r8
+     use consts_coms, only: r8, eradi
      use mem_ijtabs,  only: itab_w
+     use misc_coms,   only: mdomain
 
      implicit none
 
      integer :: iw, iv, k, n1, n2
+     real    :: raxis, vxn_ewv, vyn_ewv, vxn_nsv, vyn_nsv, vzn_nsv
 
      ! Allocate and define 1D variables defined at T levels
 
@@ -355,11 +375,41 @@ Contains
      vnyo2(1) = 0.0
      vnzo2(1) = 0.0
 
-     !$omp parallel do
+     !$omp parallel do private(vxn_ewv,vyn_ewv,vxn_nsv,vyn_nsv,vzn_nsv)
      do iv = 2, mva
+
         vnxo2(iv) = vnx(iv) * 0.5
         vnyo2(iv) = vny(iv) * 0.5
         vnzo2(iv) = vnz(iv) * 0.5
+
+        if (mdomain > 1) then
+
+           vcn_ew(iv) = vnx(iv)
+           vcn_ns(iv) = vny(iv)
+
+        else
+           
+           raxis = sqrt(xev(iv)**2 + yev(iv)**2)
+           if (raxis > 1.e3) then
+
+              vxn_ewv = -yev(iv) / raxis
+              vyn_ewv =  xev(iv) / raxis
+
+              vxn_nsv = -xev(iv) * zev(iv) * eradi / raxis
+              vyn_nsv = -yev(iv) * zev(iv) * eradi / raxis
+              vzn_nsv =  raxis * eradi
+
+              vcn_ew(iv) = vxn_ewv * vnx(iv) + vyn_ewv * vny(iv)
+              vcn_ns(iv) = vxn_nsv * vnx(iv) + vyn_nsv * vny(iv) + vzn_nsv * vnz(iv)
+
+           else
+
+              vcn_ew(iv) = 0.
+              vcn_ns(iv) = 0.
+
+           endif
+        endif
+
      enddo
      !$omp end parallel do
 
@@ -380,7 +430,7 @@ Contains
      volti(:,1) = 0.0_r8
      volwi(:,1) = 0.0_r8
 
-     !$omp parallel do private(n1,n2)
+     !$omp parallel do private(n1,n2,raxis)
      do iw = 2, mwa
 
         wnxo2(iw) = wnx(iw) * 0.5
@@ -408,6 +458,28 @@ Contains
            gxps_coef(iw,n1) = itab_w(iw)%gxps1(n1) + itab_w(iw)%gxps2(n2)
            gyps_coef(iw,n1) = itab_w(iw)%gyps1(n1) + itab_w(iw)%gyps2(n2)
         enddo
+
+        raxis = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis
+
+        if (mdomain < 2 .and. raxis > 1.e3) then
+
+           vxn_ew(iw) = -yew(iw) / raxis
+           vyn_ew(iw) =  xew(iw) / raxis
+           vzn_ew(iw) =  0.0
+
+           vxn_ns(iw) = -xew(iw) * zew(iw) * eradi / raxis
+           vyn_ns(iw) = -yew(iw) * zew(iw) * eradi / raxis
+           vzn_ns(iw) =  raxis * eradi
+
+        else
+           vxn_ew(iw) = 1.0
+           vyn_ew(iw) = 0.0
+           vzn_ew(iw) = 0.0
+
+           vxn_ns(iw) = 0.0
+           vyn_ns(iw) = 1.0
+           vzn_ns(iw) = 0.0
+        endif
 
      enddo
      !$omp end parallel do

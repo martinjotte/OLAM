@@ -1,9 +1,8 @@
 module mem_adv
 
   real, allocatable :: a_v(:,:,:), zz0(:)
-  real, allocatable :: a_h(:,:,:)
 
-  real, allocatable :: xx0(:), xy0(:), yy0(:), xy_h(:,:,:)
+  real, allocatable :: xx0(:), xy0(:), yy0(:), xy_h(:,:,:), xx_yy(:,:)
 
   real, allocatable :: dxps_m1(:,:), dxps_m2(:,:)
   real, allocatable :: dyps_m1(:,:), dyps_m2(:,:)
@@ -22,11 +21,10 @@ module mem_adv
   real, allocatable :: gxps_vze (:,:), gyps_vze (:,:), gzps_vze (:,:)
   real, allocatable :: gxxps_vze(:,:), gxyps_vze(:,:), gyyps_vze(:,:), gzzps_vze(:,:)
 
-  real, allocatable :: dxps_w (:,:), dyps_w (:,:), dzps_w (:,:)
-  real, allocatable :: dxxps_w(:,:), dxyps_w(:,:), dyyps_w(:,:), dzzps_w(:,:)
+  real, allocatable :: dxps_w(:,:), dyps_w(:,:), dzps_w(:,:), dzzps_w(:,:)
 
-  real, allocatable :: dxps_v (:,:), dyps_v (:,:), dzps_v (:,:)
-  real, allocatable :: dxxps_v(:,:), dxyps_v(:,:), dyyps_v(:,:), dzzps_v(:,:)
+  real, allocatable ::  dxps_v(:,:),  dyps_v(:,:),  dzps_v(:,:)
+  real, allocatable :: dxxps_v(:,:), dxyps_v(:,:), dyyps_v(:,:)
 
 contains
 
@@ -40,277 +38,277 @@ contains
     use oname_coms,  only: nl
     use olam_mpi_atm,only: mpi_send_w, mpi_recv_w
     use obnd,        only: lbcopy_w
-    
+
     implicit none
 
-    integer  :: k, j, iw, iwn, np, n, iv, iw1, iw2, im1, im2, km
+    integer  :: k, j, iw, iwn, ivn, np, n, iv, iw1, iw2, im1, im2, km
     real     :: xw(7), yw(7), at(5,5)
     real(r8) :: fint
-    real     :: z1(2), z2(2), az1(2,2), az2(2,2)
+    real     :: z1(2), z2(2), az1(2,2), az2(2,2), a_h(5,5)
 
-    allocate(gxps_scp(mza,mwa)) ; gxps_scp = rinit 
+    allocate(gxps_scp(mza,mwa)) ; gxps_scp = rinit
     allocate(gyps_scp(mza,mwa)) ; gyps_scp = rinit
     allocate(gzps_scp(mza,mwa)) ; gzps_scp = rinit
 
-    allocate(gxps_vxe(mza,mwa)) ; gxps_vxe = rinit 
+    allocate(gxps_vxe(mza,mwa)) ; gxps_vxe = rinit
     allocate(gyps_vxe(mza,mwa)) ; gyps_vxe = rinit
     allocate(gzps_vxe(mza,mwa)) ; gzps_vxe = rinit
 
-    allocate(gxps_vye(mza,mwa)) ; gxps_vye = rinit 
+    allocate(gxps_vye(mza,mwa)) ; gxps_vye = rinit
     allocate(gyps_vye(mza,mwa)) ; gyps_vye = rinit
     allocate(gzps_vye(mza,mwa)) ; gzps_vye = rinit
 
-    allocate(gxps_vze(mza,mwa)) ; gxps_vze = rinit 
+    allocate(gxps_vze(mza,mwa)) ; gxps_vze = rinit
     allocate(gyps_vze(mza,mwa)) ; gyps_vze = rinit
     allocate(gzps_vze(mza,mwa)) ; gzps_vze = rinit
 
     if (nl%horiz_adv_order == 3) then
-       allocate(gxxps_scp(mza,mwa)) ; gxxps_scp = rinit 
+       allocate(gxxps_scp(mza,mwa)) ; gxxps_scp = rinit
        allocate(gxyps_scp(mza,mwa)) ; gxyps_scp = rinit
        allocate(gyyps_scp(mza,mwa)) ; gyyps_scp = rinit
 
-       allocate(gxxps_vxe(mza,mwa)) ; gxxps_vxe = rinit 
+       allocate(gxxps_vxe(mza,mwa)) ; gxxps_vxe = rinit
        allocate(gxyps_vxe(mza,mwa)) ; gxyps_vxe = rinit
        allocate(gyyps_vxe(mza,mwa)) ; gyyps_vxe = rinit
 
-       allocate(gxxps_vye(mza,mwa)) ; gxxps_vye = rinit 
+       allocate(gxxps_vye(mza,mwa)) ; gxxps_vye = rinit
        allocate(gxyps_vye(mza,mwa)) ; gxyps_vye = rinit
        allocate(gyyps_vye(mza,mwa)) ; gyyps_vye = rinit
 
-       allocate(gxxps_vze(mza,mwa)) ; gxxps_vze = rinit 
+       allocate(gxxps_vze(mza,mwa)) ; gxxps_vze = rinit
        allocate(gxyps_vze(mza,mwa)) ; gxyps_vze = rinit
        allocate(gyyps_vze(mza,mwa)) ; gyyps_vze = rinit
     endif
 
-    if (nl%vert_adv_order == 3) then
-       allocate(gzzps_scp(mza,mwa)) ; gzzps_scp = rinit
-       allocate(gzzps_vxe(mza,mwa)) ; gzzps_vxe = rinit
-       allocate(gzzps_vye(mza,mwa)) ; gzzps_vye = rinit
-       allocate(gzzps_vze(mza,mwa)) ; gzzps_vze = rinit
-    endif
-    
-    allocate(dxps_w(mza,mwa)) ; dxps_w = rinit
-    allocate(dyps_w(mza,mwa)) ; dyps_w = rinit
-    allocate(dzps_w(mza,mwa)) ; dzps_w = rinit
+    allocate(gzzps_scp(mza,mwa)) ; gzzps_scp = rinit
+    allocate(gzzps_vxe(mza,mwa)) ; gzzps_vxe = rinit
+    allocate(gzzps_vye(mza,mwa)) ; gzzps_vye = rinit
+    allocate(gzzps_vze(mza,mwa)) ; gzzps_vze = rinit
+
+    allocate( dxps_w(mza,mwa)) ;  dxps_w = rinit
+    allocate( dyps_w(mza,mwa)) ;  dyps_w = rinit
+    allocate( dzps_w(mza,mwa)) ;  dzps_w = rinit
+    allocate(dzzps_w(mza,mwa)) ; dzzps_w = rinit
 
     allocate(dxps_v(mza,mva)) ; dxps_v = rinit
     allocate(dyps_v(mza,mva)) ; dyps_v = rinit
     allocate(dzps_v(mza,mva)) ; dzps_v = rinit
 
-    if (nl%horiz_adv_order == 3) then
-       allocate(dxxps_w(mza,mwa)) ; dxxps_w = rinit
-       allocate(dxyps_w(mza,mwa)) ; dxyps_w = rinit
-       allocate(dyyps_w(mza,mwa)) ; dyyps_w = rinit
+    allocate(xx_yy(7,mwa)) ; xx_yy = rinit
 
+    if (nl%horiz_adv_order == 3) then
        allocate(dxxps_v(mza,mva)) ; dxxps_v = rinit
        allocate(dxyps_v(mza,mva)) ; dxyps_v = rinit
        allocate(dyyps_v(mza,mva)) ; dyyps_v = rinit
-    endif
-    
-    if (nl%vert_adv_order == 3) then
-       allocate(dzzps_w(mza,mwa)) ; dzzps_w = rinit
-       allocate(dzzps_v(mza,mva)) ; dzzps_v = rinit
-    endif
-    
-    ! Arrays for finding the vertical cubic polynomial representation
 
-    if (nl%vert_adv_order == 3) then
+       allocate(xy_h(5,7,mwa)) ; xy_h = rinit
 
-       allocate(a_v(mza,2,2))
-       allocate(zz0(mza))
+       allocate(xx0(mwa)) ; xx0 = rinit
+       allocate(xy0(mwa)) ; xy0 = rinit
+       allocate(yy0(mwa)) ; yy0 = rinit
 
-       do k = 1, mza
-          zz0(k) = dzt(k) * dzt(k) / 12.
+       allocate(dxps_m1(2,mva)) ; dxps_m1 = rinit
+       allocate(dyps_m1(2,mva)) ; dyps_m1 = rinit
 
-          km = merge(k-1,k,k>1)
+       allocate(dxps_m2(2,mva)) ; dxps_m2 = rinit
+       allocate(dyps_m2(2,mva)) ; dyps_m2 = rinit
 
-          z1 = (/ -dzm(km), dzm(k) /)
-          z2 = z1 * z1 - dzt(k) * dzt(k) / 12.
-
-          az1(1:2,1) = z1
-          az1(1:2,2) = z2
-          az2 = matmul(transpose(az1), az1)
-          call ludcmp(az2, 2)
-
-          a_v(k,2,1) =  (z2(2) * dzim(k ) - az2(2,1)) * az2(2,2)
-          a_v(k,2,2) = -(z2(1) * dzim(km) + az2(2,1)) * az2(2,2)
-
-          a_v(k,1,1) = az2(1,1) * (1.0 - az2(1,2) * a_v(k,2,1))
-          a_v(k,1,2) = az2(1,1) * (1.0 - az2(1,2) * a_v(k,2,2))
-
-       enddo
-
+       allocate(xx0_v(2,mva)) ; xx0_v = rinit
+       allocate(xy0_v(2,mva)) ; xy0_v = rinit
+       allocate(yy0_v(2,mva)) ; yy0_v = rinit
     endif
 
-    ! Arrays for finding the horizontal cubic polynomial representation
+    ! Arrays for finding the vertical quadratic polynomial representation
 
-    if (nl%horiz_adv_order /= 3) return
+    allocate(a_v(mza,2,2))
+    allocate(zz0(mza))
 
-    allocate( a_h(5,5,mwa)) ;  a_h = rinit
-    allocate(xy_h(5,7,mwa)) ; xy_h = rinit
+    do k = 1, mza
+       zz0(k) = dzt(k) * dzt(k) / 12.
 
-    allocate(xx0(mwa)) ; xx0 = rinit
-    allocate(xy0(mwa)) ; xy0 = rinit
-    allocate(yy0(mwa)) ; yy0 = rinit
-    
-    allocate(dxps_m1(2,mva)) ; dxps_m1 = rinit
-    allocate(dyps_m1(2,mva)) ; dyps_m1 = rinit
+       km = merge(k-1,k,k>1)
 
-    allocate(dxps_m2(2,mva)) ; dxps_m2 = rinit
-    allocate(dyps_m2(2,mva)) ; dyps_m2 = rinit
+       z1 = (/ -dzm(km), dzm(k) /)
+       z2 = z1 * z1 - dzt(k) * dzt(k) / 12.
 
-    allocate(xx0_v(2,mva)) ; xx0_v = rinit
-    allocate(xy0_v(2,mva)) ; xy0_v = rinit
-    allocate(yy0_v(2,mva)) ; yy0_v = rinit
+       az1(1:2,1) = z1
+       az1(1:2,2) = z2
+       az2 = matmul(transpose(az1), az1)
+       call ludcmp(az2, 2)
 
-    !$omp parallel do private(iw,fint)
+       a_v(k,2,1) =  (z2(2) * dzim(k ) - az2(2,1)) * az2(2,2)
+       a_v(k,2,2) = -(z2(1) * dzim(km) + az2(2,1)) * az2(2,2)
+
+       a_v(k,1,1) = az2(1,1) * (1.0 - az2(1,2) * a_v(k,2,1))
+       a_v(k,1,2) = az2(1,1) * (1.0 - az2(1,2) * a_v(k,2,2))
+    enddo
+
+    ! Coefficients for horizontal Laplacian
+
+    !$omp parallel do private(iw,n,ivn)
     do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
-       call hex_quad(iw, 2, fint, fxx)
-       xx0(iw) = fint / arw0(iw)
-
-       call hex_quad(iw, 2, fint, fxy)
-       xy0(iw) = fint / arw0(iw)
-
-       call hex_quad(iw, 2, fint, fyy)
-       yy0(iw) = fint / arw0(iw)
+       do n = 1, itab_w(iw)%npoly
+          ivn = itab_w(iw)%iv(n)
+          xx_yy(n,iw) = dniv(ivn) * dnu(ivn) * arw0i(iw)
+       enddo
     enddo
     !$omp end parallel do
 
     if (iparallel == 1) then
-       call mpi_send_w(1, r1dvara1=xx0, r1dvara2=xy0, r1dvara3=yy0)
-       call mpi_recv_w(1, r1dvara1=xx0, r1dvara2=xy0, r1dvara3=yy0)
+       call mpi_send_w(1, svara1=xx_yy)
+       call mpi_recv_w(1, svara1=xx_yy)
     endif
-    call lbcopy_w(1, v1=xx0, v2=xy0, v3=yy0)
+    call lbcopy_w(1, s1=xx_yy)
 
-    !$omp parallel
-    !$omp do private(iw,np,n,iwn,xw,yw,at)
-    do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
-       np  = itab_w(iw)%npoly
+    ! Coefficients for quadratic interpolating polynomical for advection
 
-       do n = 1, np
-          iwn = itab_w(iw)%iw(n)
+    if (nl%horiz_adv_order == 3) then
+
+       !$omp parallel do private(iw,np,n,iwn,xw,yw,at,a_h,fint)
+       do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
+          np  = itab_w(iw)%npoly
+
+          do n = 1, np
+             iwn = itab_w(iw)%iw(n)
+             if (mdomain <= 1) then
+                call e_ps( xew(iwn), yew(iwn), zew(iwn), glatw(iw), glonw(iw), &
+                           xw(n), yw(n) )
+             else
+                xw(n) = xew(iwn) - xew(iw)
+                yw(n) = yew(iwn) - yew(iw)
+             endif
+          enddo
+
+          call hex_quad(iw, 2, fint, fxx)
+          xx0(iw) = fint / arw0(iw)
+
+          call hex_quad(iw, 2, fint, fxy)
+          xy0(iw) = fint / arw0(iw)
+
+          call hex_quad(iw, 2, fint, fyy)
+          yy0(iw) = fint / arw0(iw)
+
+          xy_h(1,1:np,iw) = xw(1:np)
+          xy_h(2,1:np,iw) = yw(1:np)
+          xy_h(3,1:np,iw) = xw(1:np) * xw(1:np) - xx0(iw)
+          xy_h(4,1:np,iw) = xw(1:np) * yw(1:np) - xy0(iw)
+          xy_h(5,1:np,iw) = yw(1:np) * yw(1:np) - yy0(iw)
+
+          at = matmul( xy_h(:,1:np,iw), transpose(xy_h(:,1:np,iw)) )
+          call ludcmp(at, 5)
+
+          a_h = transpose(at)
+
+          xy_h(5,1:np,iw) = xy_h(5,1:np,iw) * a_h(5,5)
+          xy_h(4,1:np,iw) = xy_h(4,1:np,iw) * a_h(4,4)
+          xy_h(3,1:np,iw) = xy_h(3,1:np,iw) * a_h(3,3)
+          xy_h(2,1:np,iw) = xy_h(2,1:np,iw) * a_h(2,2)
+          xy_h(1,1:np,iw) = xy_h(1,1:np,iw) * a_h(1,1)
+
+          a_h(1:4,5) = a_h(1:4,5) * a_h(5,5)
+
+          a_h(5  ,4) = a_h(5  ,4) * a_h(4,4)
+          a_h(1:3,4) = a_h(1:3,4) * a_h(4,4)
+          a_h(4,5  ) = a_h(4,5  ) / a_h(4,4)
+
+          a_h(4:5,3) = a_h(4:5,3) * a_h(3,3)
+          a_h(1:2,3) = a_h(1:2,3) * a_h(3,3)
+          a_h(3,4:5) = a_h(3,4:5) / a_h(3,3)
+
+          a_h(3:5,2) = a_h(3:5,2) * a_h(2,2)
+          a_h(1,  2) = a_h(1  ,2) * a_h(2,2)
+          a_h(2,3:5) = a_h(2,3:5) / a_h(2,2)
+
+          a_h(2:5,1) = a_h(2:5,1) * a_h(1,1)
+          a_h(1,2:5) = a_h(1,2:5) / a_h(1,1)
+
+          xy_h(2,1:np,iw) = xy_h(2,1:np,iw) - a_h(1,2) * xy_h(1,1:np,iw)
+
+          xy_h(3,1:np,iw) = xy_h(3,1:np,iw) - a_h(1,3) * xy_h(1,1:np,iw) &
+                                            - a_h(2,3) * xy_h(2,1:np,iw)
+
+          xy_h(4,1:np,iw) = xy_h(4,1:np,iw) - a_h(1,4) * xy_h(1,1:np,iw) &
+                                            - a_h(2,4) * xy_h(2,1:np,iw) &
+                                            - a_h(3,4) * xy_h(3,1:np,iw)
+
+          xy_h(5,1:np,iw) = xy_h(5,1:np,iw) - a_h(1,5) * xy_h(1,1:np,iw) &
+                                            - a_h(2,5) * xy_h(2,1:np,iw) &
+                                            - a_h(3,5) * xy_h(3,1:np,iw) &
+                                            - a_h(4,5) * xy_h(4,1:np,iw)
+
+          xy_h(4,1:np,iw) = xy_h(4,1:np,iw) - a_h(5,4) * xy_h(5,1:np,iw)
+
+          xy_h(3,1:np,iw) = xy_h(3,1:np,iw) - a_h(5,3) * xy_h(5,1:np,iw) &
+                                            - a_h(4,3) * xy_h(4,1:np,iw)
+
+          xy_h(2,1:np,iw) = xy_h(2,1:np,iw) - a_h(5,2) * xy_h(5,1:np,iw) &
+                                            - a_h(4,2) * xy_h(4,1:np,iw) &
+                                            - a_h(3,2) * xy_h(3,1:np,iw)
+
+          xy_h(1,1:np,iw) = xy_h(1,1:np,iw) - a_h(5,1) * xy_h(5,1:np,iw) &
+                                            - a_h(4,1) * xy_h(4,1:np,iw) &
+                                            - a_h(3,1) * xy_h(3,1:np,iw) &
+                                            - a_h(2,1) * xy_h(2,1:np,iw)
+       enddo
+       !$omp end parallel do
+
+       if (iparallel == 1) then
+          call mpi_send_w(1, r1dvara1=xx0, r1dvara2=xy0, r1dvara3=yy0)
+          call mpi_recv_w(1, r1dvara1=xx0, r1dvara2=xy0, r1dvara3=yy0)
+       endif
+       call lbcopy_w(1, v1=xx0, v2=xy0, v3=yy0)
+
+       !$omp parallel do private(iv,iw1,iw2,im1,im2)
+       do j = 1,jtab_v(jtv_wadj)%jend(1); iv = jtab_v(jtv_wadj)%iv(j)
+          iw1 = itab_v(iv)%iw(1)
+          iw2 = itab_v(iv)%iw(2)
+
+          im1 = itab_v(iv)%im(1)
+          im2 = itab_v(iv)%im(2)
 
           if (mdomain <= 1) then
-             call e_ps( xew(iwn), yew(iwn), zew(iwn), glatw(iw), glonw(iw), &
-                        xw(n), yw(n) )
+
+             call e_ps( xem(im1),  yem(im1),  zem(im1),  glatw(iw1), glonw(iw1), &
+                        dxps_m1(1,iv), dyps_m1(1,iv) )
+
+             call e_ps( xem(im2),  yem(im2),  zem(im2),  glatw(iw1), glonw(iw1), &
+                        dxps_m2(1,iv), dyps_m2(1,iv) )
+
+             call e_ps( xem(im1),  yem(im1),  zem(im1),  glatw(iw2), glonw(iw2), &
+                        dxps_m1(2,iv), dyps_m1(2,iv) )
+
+             call e_ps( xem(im2),  yem(im2),  zem(im2),  glatw(iw2), glonw(iw2), &
+                        dxps_m2(2,iv), dyps_m2(2,iv) )
+
           else
-             xw(n) = xew(iwn) - xew(iw)
-             yw(n) = yew(iwn) - yew(iw)
+
+             dxps_m1(1,iv) = xem(im1) - xew(iw1)
+             dyps_m1(1,iv) = yem(im1) - yew(iw1)
+
+             dxps_m2(1,iv) = xem(im2) - xew(iw1)
+             dyps_m2(1,iv) = yem(im2) - yew(iw1)
+
+             dxps_m1(2,iv) = xem(im1) - xew(iw2)
+             dyps_m1(2,iv) = yem(im1) - yew(iw2)
+
+             dxps_m2(2,iv) = xem(im2) - xew(iw2)
+             dyps_m2(2,iv) = yem(im2) - yew(iw2)
+
           endif
+
+          xx0_v(1,iv) = (dxps_m1(1,iv) * dxps_m1(1,iv) + dxps_m2(1,iv) * dxps_m2(1,iv))/12. - xx0(iw1)
+          xx0_v(2,iv) = (dxps_m1(2,iv) * dxps_m1(2,iv) + dxps_m2(2,iv) * dxps_m2(2,iv))/12. - xx0(iw2)
+
+          xy0_v(1,iv) = (dxps_m1(1,iv) * dyps_m1(1,iv) + dxps_m2(1,iv) * dyps_m2(1,iv))/12. - xy0(iw1)
+          xy0_v(2,iv) = (dxps_m1(2,iv) * dyps_m1(2,iv) + dxps_m2(2,iv) * dyps_m2(2,iv))/12. - xy0(iw2)
+
+          yy0_v(1,iv) = (dyps_m1(1,iv) * dyps_m1(1,iv) + dyps_m2(1,iv) * dyps_m2(1,iv))/12. - yy0(iw1)
+          yy0_v(2,iv) = (dyps_m1(2,iv) * dyps_m1(2,iv) + dyps_m2(2,iv) * dyps_m2(2,iv))/12. - yy0(iw2)
+
        enddo
+       !$omp end parallel do
 
-       xy_h(1,1:np,iw) = xw(1:np)
-       xy_h(2,1:np,iw) = yw(1:np)
-       xy_h(3,1:np,iw) = xw(1:np) * xw(1:np) - xx0(iw)
-       xy_h(4,1:np,iw) = xw(1:np) * yw(1:np) - xy0(iw)
-       xy_h(5,1:np,iw) = yw(1:np) * yw(1:np) - yy0(iw)
-
-       at = matmul( xy_h(:,1:np,iw), transpose(xy_h(:,1:np,iw)) )
-       call ludcmp(at, 5)
-
-       a_h(:,:,iw) = transpose(at)
-
-       xy_h(5,1:np,iw) = xy_h(5,1:np,iw) * a_h(5,5,iw)
-       xy_h(4,1:np,iw) = xy_h(4,1:np,iw) * a_h(4,4,iw)
-       xy_h(3,1:np,iw) = xy_h(3,1:np,iw) * a_h(3,3,iw)
-       xy_h(2,1:np,iw) = xy_h(2,1:np,iw) * a_h(2,2,iw)
-       xy_h(1,1:np,iw) = xy_h(1,1:np,iw) * a_h(1,1,iw)
-
-       a_h(1:4,5,iw) = a_h(1:4,5,iw) * a_h(5,5,iw)
-
-       a_h(5  ,4,iw) = a_h(5  ,4,iw) * a_h(4,4,iw)
-       a_h(1:3,4,iw) = a_h(1:3,4,iw) * a_h(4,4,iw)
-       a_h(4,5  ,iw) = a_h(4,5  ,iw) / a_h(4,4,iw)
-
-       a_h(4:5,3,iw) = a_h(4:5,3,iw) * a_h(3,3,iw)
-       a_h(1:2,3,iw) = a_h(1:2,3,iw) * a_h(3,3,iw)
-       a_h(3,4:5,iw) = a_h(3,4:5,iw) / a_h(3,3,iw)
-
-       a_h(3:5,2,iw) = a_h(3:5,2,iw) * a_h(2,2,iw)
-       a_h(1,  2,iw) = a_h(1  ,2,iw) * a_h(2,2,iw)
-       a_h(2,3:5,iw) = a_h(2,3:5,iw) / a_h(2,2,iw)
-
-       a_h(2:5,1,iw) = a_h(2:5,1,iw) * a_h(1,1,iw)
-       a_h(1,2:5,iw) = a_h(1,2:5,iw) / a_h(1,1,iw)
- 
-       xy_h(2,1:np,iw) = xy_h(2,1:np,iw) - a_h(1,2,iw) * xy_h(1,1:np,iw)
-
-       xy_h(3,1:np,iw) = xy_h(3,1:np,iw) - a_h(1,3,iw) * xy_h(1,1:np,iw) &
-                                         - a_h(2,3,iw) * xy_h(2,1:np,iw)
-
-       xy_h(4,1:np,iw) = xy_h(4,1:np,iw) - a_h(1,4,iw) * xy_h(1,1:np,iw) &
-                                         - a_h(2,4,iw) * xy_h(2,1:np,iw) &
-                                         - a_h(3,4,iw) * xy_h(3,1:np,iw)
-
-       xy_h(5,1:np,iw) = xy_h(5,1:np,iw) - a_h(1,5,iw) * xy_h(1,1:np,iw) &
-                                         - a_h(2,5,iw) * xy_h(2,1:np,iw) &
-                                         - a_h(3,5,iw) * xy_h(3,1:np,iw) &
-                                         - a_h(4,5,iw) * xy_h(4,1:np,iw)
-
-       xy_h(4,1:np,iw) = xy_h(4,1:np,iw) - a_h(5,4,iw) * xy_h(5,1:np,iw)
-       xy_h(3,1:np,iw) = xy_h(3,1:np,iw) - a_h(5,3,iw) * xy_h(5,1:np,iw) &
-                                         - a_h(4,3,iw) * xy_h(4,1:np,iw)
-       xy_h(2,1:np,iw) = xy_h(2,1:np,iw) - a_h(5,2,iw) * xy_h(5,1:np,iw) &
-                                         - a_h(4,2,iw) * xy_h(4,1:np,iw) &
-                                         - a_h(3,2,iw) * xy_h(3,1:np,iw)
-
-       xy_h(1,1:np,iw) = xy_h(1,1:np,iw) - a_h(5,1,iw) * xy_h(5,1:np,iw) &
-                                         - a_h(4,1,iw) * xy_h(4,1:np,iw) &
-                                         - a_h(3,1,iw) * xy_h(3,1:np,iw) &
-                                         - a_h(2,1,iw) * xy_h(2,1:np,iw)
-    enddo
-    !$omp end do
-
-    !$omp do private(iv,iw1,iw2,im1,im2)
-    do j = 1,jtab_v(jtv_wadj)%jend(1); iv = jtab_v(jtv_wadj)%iv(j)
-       iw1 = itab_v(iv)%iw(1)
-       iw2 = itab_v(iv)%iw(2)
-
-       im1 = itab_v(iv)%im(1)
-       im2 = itab_v(iv)%im(2)
-
-       if (mdomain <= 1) then
-
-          call e_ps( xem(im1),  yem(im1),  zem(im1),  glatw(iw1), glonw(iw1), &
-                     dxps_m1(1,iv), dyps_m1(1,iv) )
-
-          call e_ps( xem(im2),  yem(im2),  zem(im2),  glatw(iw1), glonw(iw1), &
-                     dxps_m2(1,iv), dyps_m2(1,iv) )
-
-          call e_ps( xem(im1),  yem(im1),  zem(im1),  glatw(iw2), glonw(iw2), &
-                     dxps_m1(2,iv), dyps_m1(2,iv) )
-
-          call e_ps( xem(im2),  yem(im2),  zem(im2),  glatw(iw2), glonw(iw2), &
-                     dxps_m2(2,iv), dyps_m2(2,iv) )
-
-       else
-          
-          dxps_m1(1,iv) = xem(im1) - xew(iw1)
-          dyps_m1(1,iv) = yem(im1) - yew(iw1)
-
-          dxps_m2(1,iv) = xem(im2) - xew(iw1)
-          dyps_m2(1,iv) = yem(im2) - yew(iw1)
-
-          dxps_m1(2,iv) = xem(im1) - xew(iw2)
-          dyps_m1(2,iv) = yem(im1) - yew(iw2)
-
-          dxps_m2(2,iv) = xem(im2) - xew(iw2)
-          dyps_m2(2,iv) = yem(im2) - yew(iw2)
-
-       endif
-
-       xx0_v(1,iv) = (dxps_m1(1,iv) * dxps_m1(1,iv) + dxps_m2(1,iv) * dxps_m2(1,iv))/12. - xx0(iw1)
-       xx0_v(2,iv) = (dxps_m1(2,iv) * dxps_m1(2,iv) + dxps_m2(2,iv) * dxps_m2(2,iv))/12. - xx0(iw2)
-
-       xy0_v(1,iv) = (dxps_m1(1,iv) * dyps_m1(1,iv) + dxps_m2(1,iv) * dyps_m2(1,iv))/12. - xy0(iw1)
-       xy0_v(2,iv) = (dxps_m1(2,iv) * dyps_m1(2,iv) + dxps_m2(2,iv) * dyps_m2(2,iv))/12. - xy0(iw2)
-
-       yy0_v(1,iv) = (dyps_m1(1,iv) * dyps_m1(1,iv) + dyps_m2(1,iv) * dyps_m2(1,iv))/12. - yy0(iw1)
-       yy0_v(2,iv) = (dyps_m1(2,iv) * dyps_m1(2,iv) + dyps_m2(2,iv) * dyps_m2(2,iv))/12. - yy0(iw2)
-
-    enddo
-    !$omp end do
-    !$omp end parallel
+    endif
 
   end subroutine alloc_adv
 
@@ -360,7 +358,7 @@ contains
        do i = 1, j-1
           sum = a(i,j)
           do k = 1, i-1
-             sum = sum - a(i,k)*a(k,j) 
+             sum = sum - a(i,k)*a(k,j)
           enddo
           a(i,j) = sum
        enddo
@@ -368,11 +366,11 @@ contains
        do i = j, n
           sum = a(i,j)
           do k = 1, j-1
-             sum = sum - a(i,k)*a(k,j) 
+             sum = sum - a(i,k)*a(k,j)
           enddo
           a(i,j) = sum
        enddo
-   
+
        if (j /= n) then
           dum = 1.0 / a(j,j)
           do i=j+1,n

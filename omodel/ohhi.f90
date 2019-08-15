@@ -619,23 +619,17 @@ use mem_basic,   only: theta, thil, tair, press, rho, wc, wmc, &
 use mem_micro,   only: rr_c, con_c, cldnum
 use micro_coms,  only: miclevel, ccnparm, jnmb, rxmin, zfactor_ccn
 use mem_ijtabs,  only: jtab_w, jtab_v, itab_v, jtv_init, jtw_init, jtv_wall
-use misc_coms,   only: mdomain, th01d, pr01d, dn01d, rt01d, u01d, v01d, &
-                       iparallel
-use consts_coms, only: cvocp, p00kord, p00i, rocp, alvlocp, eps_vapi, erad, r8
-use mem_grid,    only: mza, lpv, lpw, vnx, vny, vnz, xev, yev, zev, &
-                       gdz_abov8, gdz_belo8
-use olam_mpi_atm,only: mpi_send_w, mpi_recv_w, &
-                       mpi_send_v, mpi_recv_v
+use misc_coms,   only: th01d, pr01d, dn01d, rt01d, u01d, v01d, iparallel
+use consts_coms, only: cvocp, p00kord, p00i, rocp, alvlocp, eps_vapi, r8
+use mem_grid,    only: mza, lpv, lpw, gdz_abov8, gdz_belo8, vcn_ew, vcn_ns
+use olam_mpi_atm,only: mpi_send_w, mpi_recv_w, mpi_send_v, mpi_recv_v
 use obnd,        only: lbcopy_v, lbcopy_w
 use therm_lib,   only: rhovsl
 
 implicit none
 
-integer :: j,iw,k,ka,iv,iter,iw1,iw2,kbc,mrl
-
-real :: temp, exner, ccn
-real :: uv01dx, uv01dy, uv01dz, uv01dr, raxis
-
+integer  :: j,iw,k,ka,iv,iter,iw1,iw2,kbc
+real     :: temp, exner, ccn
 real(r8) :: pkhyd, rho_tot(mza)
 
 ! Choose as an internal pressure boundary condition the pressure level at or
@@ -647,6 +641,8 @@ do while (pr01d(kbc) < 49900.)
 enddo
 
 !----------------------------------------------------------------------
+!$omp parallel private(rho_tot)
+!$omp do private(iw,ka,k,iter,temp,exner,ccn,pkhyd)
 do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 !---------------------------------------------------------------------
 
@@ -741,15 +737,15 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
    endif
 
 enddo
+!$omp end do
+!$omp end parallel
 
 ! LBC copy (THETA and TAIR will be copied later with the scalars)
 
-mrl = 1
-
 if (iparallel == 1) then
-   call mpi_send_w(mrl, dvara1=press, dvara2=rho, &
+   call mpi_send_w(1, dvara1=press, dvara2=rho, &
                    rvara1=wc,rvara2=wmc,rvara3=thil)
-   call mpi_recv_w(mrl, dvara1=press, dvara2=rho, &
+   call mpi_recv_w(1, dvara1=press, dvara2=rho, &
                    rvara1=wc,rvara2=wmc,rvara3=thil)
 endif
 
@@ -758,6 +754,7 @@ call lbcopy_w(1, a1=wc, a2=wmc, a3=thil, d1=press, d2=rho)
 ! Initialize VMC, VC
 
 !----------------------------------------------------------------------
+!$omp parallel do private(iv,iw1,iw2,ka,k)
 do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)
    iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
 !----------------------------------------------------------------------
@@ -773,29 +770,9 @@ do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)
 
 ! V point coordinates and normal vector components
 
-   do k = ka,mza
-
-      if (mdomain <= 1) then  ! Model uses "earth" coordinates
-         raxis = sqrt(xev(iv) ** 2 + yev(iv) ** 2)  ! dist from earth axis
-
-         if (raxis > 1.e3) then
-            uv01dr = -v01d(k) * zev(iv) / erad  ! radially outward from axis
-
-            uv01dx = (-u01d(k) * yev(iv) + uv01dr * xev(iv)) / raxis
-            uv01dy = ( u01d(k) * xev(iv) + uv01dr * yev(iv)) / raxis
-            uv01dz =   v01d(k) * raxis / erad
-
-            vc(k,iv) = uv01dx * vnx(iv) + uv01dy * vny(iv) + uv01dz * vnz(iv)
-         else
-            vc(k,iv) = 0.
-         endif
-
-      else
-         vc(k,iv) = u01d(k) * vnx(iv) + v01d(k) * vny(iv)
-      endif
-
+   do k = ka, mza
+      vc( k,iv) = u01d(k) * vcn_ew(iv) + v01d(k) * vcn_ns(iv)
       vmc(k,iv) = vc(k,iv) * .5 * (rho(k,iw1) + rho(k,iw2))
-
    enddo
 
 ! For below-ground points, set VC to 0
@@ -819,8 +796,8 @@ enddo
 ! MPI parallel send/recv of V group
 
 if (iparallel == 1) then
-   call mpi_send_v(mrl, rvara1=vmc, rvara2=vc)
-   call mpi_recv_v(mrl, rvara1=vmc, rvara2=vc)
+   call mpi_send_v(1, rvara1=vmc, rvara2=vc)
+   call mpi_recv_v(1, rvara1=vmc, rvara2=vc)
 endif
 
 ! LBC copy of VMC, VC
