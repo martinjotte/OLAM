@@ -124,6 +124,8 @@ Module oname_coms
 
 !!    HISTORY/OUTPUT FILES
 
+      logical :: save_node_logs = .true.
+
       integer :: ioutput      = 1
       integer :: ioutput_mavg = 1
       integer :: ioutput_davg = 1

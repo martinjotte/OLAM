@@ -34,11 +34,15 @@ program main
 
 use misc_coms,    only: io6, iparallel
 use mem_para,     only: myrank, mgroupsize
-use olam_mpi_atm, only: olam_mpi_init, olam_mpi_finalize
+use olam_mpi_atm, only: olam_mpi_init, olam_mpi_finalize, olam_mpi_barrier
 use misc_coms,    only: tmpdir
 use max_dims,     only: pathlen
 use hdf5,         only: h5open_f, h5close_f
-use oname_coms,   only: cmdlne_runtype, cmdlne_fields, numcf, maxcf
+use oname_coms,   only: cmdlne_runtype, cmdlne_fields, numcf, maxcf, nl
+
+#ifdef OLAM_MPI
+use mpi
+#endif
 
 implicit none
 
@@ -50,39 +54,16 @@ integer :: i,n
 integer :: bad = 0
 integer :: hdferr
 
+! If run is sequential, default choice is to set io6 to standard output unit 6.
+
+io6 = 6
+
 ! Determine if this run is parallel, and determine myrank and mgroupsize
 
 call olam_mpi_init()
 
 iparallel = 0
 if (mgroupsize > 1) iparallel = 1
-
-! If run is sequential, default choice is to set io6 to standard output unit 6.
-
-io6 = 6
-
-if (iparallel == 1 .and. myrank > 0) then
-
-! If run is parallel, default choice is to attach output unit io6 to separate files
-
-   io6 = 20
-   
-   write (io6file,'(i10)') myrank
-   io6file = 'o.io6_r'//trim(adjustl(io6file))
-
-! Output file is replaced if it exists
-   open(unit=io6, file=io6file, status='replace', form='formatted')
-
-#ifdef __PGI
-   ! Prevent Portland Group compiler from buffering io6
-   call setvbuf3f(io6,1,1024)
-#endif
-
-endif
-
-write(io6,'(/,a,i6)') ' myrank     = ',myrank
-write(io6,'(  a,i6)') ' mgroupsize = ',mgroupsize
-write(io6,'(  a,i6)') ' iparallel  = ',iparallel
 
 ! initialize HDF5 library
 
@@ -91,7 +72,7 @@ call h5open_f(hdferr)
 ! Parse the command line arguments
 
 numarg = command_argument_count()
-write(io6,*) 'numarg:', numarg
+if (myrank == 0) write(*,*) 'numarg:', numarg
 
 i = 1
 do while (i <= numarg)
@@ -126,28 +107,62 @@ do while (i <= numarg)
          else
 
             numcf = maxcf
-            write(io6,*) "OLAM too many 'z' arguments"
+            if (myrank == 0) write(*,*) "OLAM too many 'z' arguments"
 
          endif
          i = i + 2
 
       else
-         ! write(io6,*) 'OLAM unknown option: ', cargv
          i = i + 1
       endif
    else
-      ! write(io6,*) 'OLAM unknown option: ', cargv
       i = i + 1
    endif
 enddo
 
 if (bad > 0) then
-   write(io6,*) 'OLAM usage: ''exec name'' '
-   write(io6,*) '  [-f ''Namelist file''] '
-   stop 'bad command line arguments'
+   if (myrank == 0) write(*,*) 'OLAM usage: ''exec name'' '
+   if (myrank == 0) write(*,*) '  [-f ''Namelist file''] '
+   if (iparallel == 1) call olam_mpi_barrier()
+   if (myrank == 0) then
+      stop 'Bad command line arguments'
+   else
+      stop
+   endif
 endif
 
-write(io6,*) 'OLAM input namelist file: ',trim(name_name)
+! Read Fortran namelist
+
+if (myrank == 0) write(*,*) 'OLAM input namelist file: ',trim(name_name)
+if (myrank == 0) write(*,'(/,a)') 'olammain calling namelist read'
+call read_nl(name_name)
+
+! If run is parallel, default choice is to attach output unit io6 to separate files
+
+if (iparallel == 1 .and. myrank > 0) then
+
+   io6 = 20
+   
+   if (nl%save_node_logs) then
+      write (io6file,'(i10)') myrank
+      io6file = 'o.io6_r'//trim(adjustl(io6file))
+   else
+      io6file = '/dev/null'
+   endif
+
+! Output file is replaced if it exists
+   open(unit=io6, file=io6file, status='replace', form='formatted')
+
+#ifdef __PGI
+   ! Prevent Portland Group compiler from buffering io6
+   call setvbuf3f(io6,1,1024)
+#endif
+
+endif
+
+write(io6,'(/,a,i6)') ' myrank     = ',myrank
+write(io6,'(  a,i6)') ' mgroupsize = ',mgroupsize
+write(io6,'(  a,i6)') ' iparallel  = ',iparallel
 
 ! Get unix tmp directory
 

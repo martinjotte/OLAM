@@ -115,8 +115,8 @@ subroutine olam_run(name_name)
 
   ! Read namelist variables
 
-  write(io6,'(/,a)') 'olam_run calling namelist read'
-  call read_nl(name_name)
+!  write(io6,'(/,a)') 'olam_run calling namelist read'
+!  call read_nl(name_name)
 
   ! Set remaining physical constants
 

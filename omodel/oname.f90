@@ -33,9 +33,10 @@
 
 subroutine read_nl(file)
 
-use oname_coms, only: nl, cmdlne_runtype, cmdlne_fields, numcf
-use misc_coms,  only: io6
-use max_dims,   only: pathlen
+use oname_coms,   only: nl, cmdlne_runtype, cmdlne_fields, numcf
+use mem_para,     only: myrank
+use max_dims,     only: pathlen
+use olam_mpi_atm, only: olam_mpi_barrier
 
 implicit none
 
@@ -50,7 +51,7 @@ namelist /OLAMIN/ nl
 
 inquire(file=file, exist=fexists)
 if (.not. fexists) then
-   write(io6,*) "The namelist file "//trim(file)//" is missing."
+   write(*,*) "The namelist file "//trim(file)//" is missing."
    stop "Stopping model run."
 endif
 open(10, status='OLD', file=file)
@@ -67,20 +68,25 @@ fexists = .false.
 do il = 1, numcf
    fs = "&OLAMIN NL%" // adjustl(trim(cmdlne_fields(il))) // " /"
 
-   write(io6,*) trim(fs)
+   if (myrank == 0) write(*,*) trim(fs)
 
    read(fs, nml=OLAMIN, iostat=ios)
 
    if (ios /= 0) then
       fexists = .true.
-      write(io6,*)
-      write(io6,*) "Error setting name list values from command line:"
-      write(io6,*) trim(cmdlne_fields(il))
-      write(io6,*) ios
-      write(io6,*) trim(fs)
+      if (myrank == 0) then
+         write(*,*)
+         write(*,*) "Error setting name list values from command line:"
+         write(*,*) trim(cmdlne_fields(il))
+         write(*,*) ios
+         write(*,*) trim(fs)
+         write(*,*) "Stopping model run."
+      endif
    endif
 enddo
-if (fexists) stop "Stopping model run."
+
+call olam_mpi_barrier()
+if (fexists) stop
 
 ! OVERWRITE NAMELIST WITH COMMAND LINE RUNTYPE
 

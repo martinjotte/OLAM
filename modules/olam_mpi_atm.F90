@@ -1914,4 +1914,21 @@ subroutine olam_stop(message)
 
 end subroutine olam_stop
 
+!================================================================================
+
+subroutine olam_mpi_barrier()
+
+#ifdef OLAM_MPI
+  use mpi
+#endif
+  implicit none
+  
+#ifdef OLAM_MPI
+  integer :: ierr
+  call mpi_barrier(MPI_COMM_WORLD, ierr)
+#endif
+
+end subroutine olam_mpi_barrier
+
+
 End Module olam_mpi_atm
