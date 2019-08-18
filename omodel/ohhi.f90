@@ -341,8 +341,8 @@ subroutine arrsnd_tair()
 
 use consts_coms, only: pio180, eps_virt, p00k, rocp, p00, t00, &
                        eps_vap, rdryog, gordry
-use misc_coms,   only: nsndg, ipsflg, irtsflg, iusflg, ps, ts, rts, &
-                       us, vs, hs, thds, p_sfc
+use misc_coms,   only: nsndg, ipsflg, irtsflg, iusflg, itsflg, &
+                       ps, ts, rts, us, vs, hs, thds, p_sfc
 use therm_lib,   only: eslf
 
 implicit none
@@ -367,7 +367,7 @@ endif
 
 ! Convert temperature to Kelvin
 
-if (irtsflg == 0) then
+if (itsflg == 0) then
    do ksndg = 1, nsndg
       ts(ksndg) = ts(ksndg) + t00
    enddo

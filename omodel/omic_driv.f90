@@ -1363,7 +1363,7 @@ if (jnmb(6) >= 1) then
          qx(k,6) = max(-100000., min(334000., q6(k,iw0) / sh_g(k,iw0))) ! Limits -50C to 0C
          qr(k,6) = qx(k,6) * rx(k,6)
 
-         if (jnmb(5) == 6) cx(k,6) = max(con_g(k,iw0) * rho4(k), 0.0)
+         if (jnmb(6) == 5) cx(k,6) = max(con_g(k,iw0) * rho4(k), 0.0)
       endif
    enddo
 
@@ -1380,7 +1380,7 @@ if (jnmb(7) >= 1) then
          qx(k,7) = max(-100000., min(334000., q7(k,iw0) / sh_h(k,iw0))) ! Limits -50C to 0C
          qr(k,7) = qx(k,7) * rx(k,7)
 
-         if (jnmb(5) == 6) cx(k,7) = max(con_h(k,iw0) * rho4(k), 0.0)
+         if (jnmb(7) == 5) cx(k,7) = max(con_h(k,iw0) * rho4(k), 0.0)
       endif
    enddo
 
