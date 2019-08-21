@@ -192,9 +192,7 @@ real :: con_ifnx (mza0)
 ! New arrays (3/24/2019) for double diagnosis of air temperature (before and
 ! after phase-change microphysics processes) for the evaluation of latent heating/cooling
 
-real :: theta1(mza0)
 real :: tair0 (mza0)
-real :: tair1 (mza0)
 real :: qliq0 (mza0)
 real :: qliq1 (mza0)
 real :: qice0 (mza0)
@@ -268,7 +266,7 @@ real :: &
 
 real :: rhoa(mza0)
 real :: rhow(mza0)
-real :: totcond
+real :: totcond(mza0)
 
 real :: rhovsrefp(mza0,2)
 real :: sa(mza0,9)
@@ -359,9 +357,6 @@ con_ccnx (:,:) = 0.
 con_gccnx(:) = 0.
 con_ifnx (:) = 0.
 
-theta1(:) = 0.
-tair0 (:) = 0.
-tair1 (:) = 0.
 qliq0 (:) = 0.
 qliq1 (:) = 0.
 qice0 (:) = 0.
@@ -434,22 +429,17 @@ accpx(:) = 0.
 
 ! Loop over all vertical levels
 
-do k = lpw0,mza0
+do k = lpw0, mza0
 
 ! Compute total condensate in k level
 
-   totcond = rx(k,1) + rx(k,2) + rx(k,3) + rx(k,4) &
-           + rx(k,5) + rx(k,6) + rx(k,7) + rx(k,8)
-
-! If total water exceeds condensate, no corrections are necessary
-
-   if (rhow(k) > totcond) cycle
+   totcond(k) = sum(rx(k,1:ncat))
 
 ! Adjust condensate amounts downward if their sum exceeds rhow
 
-   if (totcond > rhow(k)) then
+   if (totcond(k) > 0.99 * rhow(k)) then
 
-      frac = rhow(k) / totcond
+      frac = 0.99 * rhow(k) / totcond(k)
 
       do lcat = 1, ncat
          rx(k,lcat) = rx(k,lcat) * frac
@@ -457,6 +447,7 @@ do k = lpw0,mza0
          qr(k,lcat) = qr(k,lcat) * frac
       enddo
 
+      totcond(k) = totcond(k) * frac
    endif
 enddo
 
@@ -484,12 +475,6 @@ do lcat = 1,ncat
 
 enddo
 
-! Save initial k2 values in k3 for copyback
-
-k3(1) = k2(1)
-k3(3) = k2(3)
-k3(8) = k2(8)
-
 ! Min/max heights for any liquid, any ice, and any of either
 
 k1(9)  = min(k1(1),k1(2),k1(8))
@@ -499,8 +484,15 @@ k2(10) = max(k2(3),k2(4),k2(5),k2(6),k2(7))
 k1(11) = min(k1(9),k1(10))
 k2(11) = max(k2(9),k2(10))
 
- call thrmstr(iw0,lpw0,k1,k2, &
-   press0,thil0,rhow,rhoi,exner0,tair,theta0,qliq0,qice0,sa0,rhov,rhovstr,rx,qx,sa)
+! Save initial k2 values in k3 for copyback
+
+k3(1) = k2(1)
+k3(3) = k2(3)
+k3(8) = k2(8)
+k3(11)= k2(11)
+
+call thrmstr(iw0,lpw0,totcond, &
+   thil0,rhow,rhoi,exner0,tair,theta0,qliq0,qice0,sa0,rhov,rhovstr,rx,qx,sa)
 
 tair0(:) = tair(:) ! Used for latheat diagnosis
 
@@ -1037,6 +1029,7 @@ k1(3) = k
 k2(9)  = max(k2(1),k2(2),k2(8))
 k2(10) = max(k2(3),k2(4),k2(5),k2(6),k2(7))
 k2(11) = max(k2(9),k2(10))
+k3(11) = max(k2(11),k3(11))
 
 ! Do not change order of the following x02 calls
 
@@ -1077,10 +1070,11 @@ if (jnmb(2) >= 1) &
 
 if (allocated(latheat_liq_accum) .and. allocated(latheat_ice_accum)) then
 
-   call thrmstr(iw0,lpw0,k1,k2, &
-      press0,thil0,rhow,rhoi,exner0,tair1,theta1,qliq1,qice1,sa1,rhov,rhovstr,rx,qx,sa)
+   call thrmstr2(iw0,lpw0,k3(11), &
+      thil0,rhoi,exner0,tair,qliq1,qice1,sa1,rx,qx)
 
-   do k = lpw0,mza0
+   do k = lpw0, k3(11)
+      
       ! Compute individual liquid-change and ice-change contributions to latent heating
 
       dtemp_liq = 0.5 * (sa0(k) + sa1(k)) * (qliq1(k) - qliq0(k))
@@ -1090,7 +1084,7 @@ if (allocated(latheat_liq_accum) .and. allocated(latheat_ice_accum)) then
       ! are not identical to actual diagnosed temperature change, adjust them
       ! with (small) offset
 
-      offset = (tair1(k) - tair0(k)) - (dtemp_liq + dtemp_ice)
+      offset = (tair(k) - tair0(k)) - (dtemp_liq + dtemp_ice)
 
       ! Add half of offset to individual contributions
 
@@ -1107,15 +1101,15 @@ if (nl%test_case >= 901 .and. nl%test_case <= 999) go to 1412
 
 ! Compute sedimentation for all 7 precipitating categories
 
-  call sedim2(iw0,lpw0,k1,k2,jhcat,dtl0, &
-   voa, denfac, tair, thil0, theta0, dsed_thil, rhoi, rhoa, rhow, &
-   cx, rx, qx, qr, emb, dmb, pcpvel, pcpfluxc, pcpfluxr, pcpfluxq, accpx, pcprx)
+  call sedim2(iw0,lpw0,k1,k2,jhcat,dtl0,dtli0, &
+   voa, denfac, dsed_thil, rhoi, rhoa, rhow, cx, rx, qx, qr, &
+   emb, dmb, pcpvel, pcpfluxc, pcpfluxr, pcpfluxq, accpx, pcprx)
 
   ! Apply change to thil from sedim of all categories
 
   do k = lpw0, maxval(k2(2:8))
-     thil0(k) = thil0(k) + dsed_thil(k) * thil0(k)* thil0(k) &
-                         / ( max(tair(k), 253.) * theta0(k) * real(rhoa(k)) )
+     thil0(k) = thil0(k) + dsed_thil(k) * thil0(k) * thil0(k) * rhoi(k) &
+                         / ( max(tair(k), 253.) * theta0(k) )
   enddo
 
   if (nnuc > 0) &
@@ -1244,7 +1238,7 @@ real, intent(inout) :: qx(mza0,ncat)
 real, intent(inout) :: qr(mza0,ncat)
 
 integer :: k, ic
-real    :: rhod(mza0), rxx
+real    :: rhod(mza0)
 
 ! Ratio of grid cell volume to top horizontal area arw projected onto W(k-1) level
 
@@ -1259,136 +1253,94 @@ enddo
 ! Copy atmospheric variables to micphys column vectors
 
 do k = lpw0, mza0
-   rhod  (k) = rho  (k,iw0)
    thil0 (k) = thil (k,iw0)
    press0(k) = press(k,iw0)
    wc0   (k) = wc   (k,iw0)
+   rhod  (k) = rho  (k,iw0)
 
-   rhoa  (k) = rhod (k) * (1. + rr_w(k,iw0))
    rhow  (k) = max(rr_w(k,iw0) * rhod(k), 0.0)
+   rhoa  (k) = rhod(k) + rhow(k)
    rhoi  (k) = 1. / rhoa(k)
+
    exner0(k) = (press0(k) * p00i) ** rocp  ! defined WITHOUT CP factor
 enddo
 
 ! Cloud water
 
 if (jnmb(1) >= 1) then
-
    do k = lpw0, mza0
-      rxx = rr_c(k,iw0) * rhod(k)
-      if (rxx > rxmin(1)) then
-         rx(k,1) = rxx
-         if (jnmb(1) == 5) cx(k,1) = max(con_c(k,iw0) * rhod(k), 0.0)
-      endif
+      rx(k,1) = max(rr_c(k,iw0) * rhod(k), 0.0)
+      if (jnmb(1) == 5) cx(k,1) = max(con_c(k,iw0) * rhod(k), 0.0)
    enddo
-
 endif
 
 ! Rain
 
 if (jnmb(2) >= 1) then
-
    do k = lpw0, mza0
-      rxx = rr_r(k,iw0) * rhod(k)
-      if (rxx > rxmin(2)) then
-         rx(k,2) = rxx
-         qx(k,2) = max(-20000., min(500000., q2(k,iw0) / rr_r(k,iw0))) ! Limits -10C to 40C
-         qr(k,2) = qx(k,2) * rx(k,2)
-
-         if (jnmb(2) == 5) cx(k,2) = max(con_r(k,iw0) * rhod(k), 0.0)
-      endif
+      rx(k,2) = max(rr_r(k,iw0) * rhod(k), 0.0)
+      qx(k,2) = max(-20000., min(500000., q2(k,iw0) * rhod(k) / max(rxmin(2),rx(k,2))))! Limits -10C to 40C
+      qr(k,2) = qx(k,2) * rx(k,2)
+      if (jnmb(2) == 5) cx(k,2) = max(con_r(k,iw0) * rhod(k), 0.0)
    enddo
-
 endif
 
 ! Pristine ice
 
 if (jnmb(3) == 5) then
-
    do k = lpw0, mza0
-      rxx = rr_p(k,iw0) * rhod(k)
-      if (rxx > rxmin(3)) then
-         rx(k,3) = rxx
-         cx(k,3) = max(con_p(k,iw0) * rhod(k), 0.0)
-      endif
+      rx(k,3) = max(rr_p (k,iw0) * rhod(k), 0.0)
+      cx(k,3) = max(con_p(k,iw0) * rhod(k), 0.0)
    enddo
-
 endif
 
 ! Snow
 
 if (jnmb(4) >= 1) then
-
    do k = lpw0, mza0
-      rxx = rr_s(k,iw0) * rhod(k)
-      if (rxx > rxmin(4)) then
-         rx(k,4) = rxx
-         if (jnmb(4) == 5) cx(k,4) = max(con_s(k,iw0) * rhod(k), 0.0)
-      endif
+      rx(k,4) = max(rr_s(k,iw0) * rhod(k), 0.0)
+      if (jnmb(4) == 5) cx(k,4) = max(con_s(k,iw0) * rhod(k), 0.0)
    enddo
-
 endif
 
 ! Aggregates
 
 if (jnmb(5) >= 1) then
-
    do k = lpw0, mza0
-      rxx = rr_a(k,iw0) * rhod(k)
-      if (rxx > rxmin(5)) then
-         rx(k,5) = rxx
-         if (jnmb(5) == 5) cx(k,5) = max(con_a(k,iw0) * rhod(k), 0.0)
-      endif
+      rx(k,5) = max(rr_a(k,iw0) * rhod(k), 0.0)
+      if (jnmb(5) == 5) cx(k,5) = max(con_a(k,iw0) * rhod(k), 0.0)
    enddo
-
 endif
 
 ! Graupel
 
 if (jnmb(6) >= 1) then
-
    do k = lpw0, mza0
-      rxx = rr_g(k,iw0) * rhod(k)
-      if (rxx > rxmin(6)) then
-         rx(k,6) = rxx
-         qx(k,6) = max(-100000., min(334000., q6(k,iw0) / rr_g(k,iw0))) ! Limits -50C to 0C
-         qr(k,6) = qx(k,6) * rx(k,6)
-
-         if (jnmb(5) == 6) cx(k,6) = max(con_g(k,iw0) * rhod(k), 0.0)
-      endif
+      rx(k,6) = max(rr_g(k,iw0) * rhod(k), 0.0)
+      qx(k,6) = max(-100000., min(334000., q6(k,iw0) * rhod(k) / max(rxmin(6),rx(k,6)))) ! Limits -50C to 0C
+      qr(k,6) = qx(k,6) * rx(k,6)
+      if (jnmb(6) == 5) cx(k,6) = max(con_g(k,iw0) * rhod(k), 0.0)
    enddo
-
 endif
 
 ! Hail
 
 if (jnmb(7) >= 1) then
-
    do k = lpw0, mza0
-      rxx = rr_h(k,iw0) * rhod(k)
-      if (rxx > rxmin(7)) then
-         rx(k,7) = rxx
-         qx(k,7) = max(-100000., min(334000., q7(k,iw0) / rr_h(k,iw0))) ! Limits -50C to 0C
-         qr(k,7) = qx(k,7) * rx(k,7)
-
-         if (jnmb(5) == 6) cx(k,7) = max(con_h(k,iw0) * rhod(k), 0.0)
-      endif
+      rx(k,7) = max(rr_h(k,iw0) * rhod(k), 0.0)
+      qx(k,7) = max(-100000., min(334000., q7(k,iw0) * rhod(k) / max(rxmin(7),rx(k,7)))) ! Limits -50C to 0C
+      qr(k,7) = qx(k,7) * rx(k,7)
+      if (jnmb(7) == 5) cx(k,7) = max(con_h(k,iw0) * rhod(k), 0.0)
    enddo
-
 endif
 
 ! Drizzle
 
 if (jnmb(8) == 5) then
-
    do k = lpw0, mza0
-      rxx = rr_d(k,iw0) * rhod(k)
-      if (rxx > rxmin(8)) then
-         rx(k,8) = rxx
-         cx(k,8) = max(con_d(k,iw0) * rhod(k), 0.0)
-      endif
+      rx(k,8) = max(rr_d (k,iw0) * rhod(k), 0.0)
+      cx(k,8) = max(con_d(k,iw0) * rhod(k), 0.0)
    enddo
-
 endif
 
 ! Fill column CCN values [#/m^3]
@@ -1452,8 +1404,6 @@ use mem_micro,  only: rr_c, rr_d, rr_r, rr_p, rr_s, rr_a, rr_g, rr_h, &
                       accpd, accpr, accpp, accps, accpa, accpg, accph, &
                       pcprd, pcprr, pcprp, pcprs, pcpra, pcprg, pcprh, &
                       ccntyp, con_gccn, con_ifn
-use consts_coms,only: r8, p00i, rocp, alvl, alvi, cpi4, cp253i
-
 implicit none
 
 integer, intent(in) :: iw0
@@ -1482,7 +1432,7 @@ integer :: k, ic
 
 ! Copy base thermodynamic variables
 
-do k = lpw0,mza0
+do k = lpw0, mza0
    rhoi (k)     = 1. / real(rho(k,iw0))
 
    thil (k,iw0) = thil0 (k)
@@ -1516,7 +1466,7 @@ endif
 ! Copy rain number, bulk density, internal energy, and surface precip back to main arrays
 
 if (jnmb(2) >= 1) then
-   accpr(iw0) = accpr(iw0) + real(accpx(2),r8)
+   accpr(iw0) = accpr(iw0) + accpx(2)
    pcprr(iw0) = pcprx(2)
 
    do k = lpw0, mza0
@@ -1541,7 +1491,7 @@ endif
 ! Copy pristine ice number, bulk density, and surface precip back to main arrays
 
 if (jnmb(3) == 5) then
-   accpp(iw0) = accpp(iw0) + real(accpx(3),r8)
+   accpp(iw0) = accpp(iw0) + accpx(3)
    pcprp(iw0) = pcprx(3)
 
    do k = lpw0, mza0
@@ -1560,7 +1510,7 @@ endif
 ! Copy snow number, bulk density, and surface precip back to main arrays
 
 if (jnmb(4) >= 1) then
-   accps(iw0) = accps(iw0) + real(accpx(4),r8)
+   accps(iw0) = accps(iw0) + accpx(4)
    pcprs(iw0) = pcprx(4)
 
    do k = lpw0, mza0
@@ -1583,7 +1533,7 @@ endif
 ! Copy aggregates number, bulk density, and surface precip back to main arrays
 
 if (jnmb(5) >= 1) then
-   accpa(iw0) = accpa(iw0) + real(accpx(5),r8)
+   accpa(iw0) = accpa(iw0) + accpx(5)
    pcpra(iw0) = pcprx(5)
 
    do k = lpw0, mza0
@@ -1606,7 +1556,7 @@ endif
 ! Copy graupel number, bulk density, internal energy, and surface precip back to main arrays
 
 if (jnmb(6) >= 1) then
-   accpg(iw0) = accpg(iw0) + real(accpx(6),r8)
+   accpg(iw0) = accpg(iw0) + accpx(6)
    pcprg(iw0) = pcprx(6)
 
    do k = lpw0, mza0
@@ -1631,7 +1581,7 @@ endif
 ! Copy hail number, bulk density, internal energy, and surface precip back to main arrays
 
 if (jnmb(7) >= 1) then
-   accph(iw0) = accph(iw0) + real(accpx(7),r8)
+   accph(iw0) = accph(iw0) + accpx(7)
    pcprh(iw0) = pcprx(7)
 
    do k = lpw0, mza0
@@ -1656,7 +1606,7 @@ endif
 ! Copy drizzle number, bulk density, and surface precip back to main arrays
 
 if (jnmb(8) == 5) then
-   accpd(iw0) = accpd(iw0) + real(accpx(8),r8)
+   accpd(iw0) = accpd(iw0) + accpx(8)
    pcprd(iw0) = pcprx(8)
 
    do k = lpw0, mza0

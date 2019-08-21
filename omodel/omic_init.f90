@@ -232,7 +232,7 @@ subroutine micinit_gam()
 
 use micro_coms,  only: nhcat, shapefac, cfmas, pwmas, cfvt, pwvt, &
                        ncat, dmb0, dmb1, emb0, emb1, gnu, rxmin, miclevel, sl, sc, sj, &
-                       rparm, sparm, aparm, gparm, hparm, &
+                       rparm, sparm, aparm, gparm, hparm, emb0i, emb1i, &
                        sk, dps, dps2, rictmin, rictmax, nembc, lcat_lhcat, &
                        emb0log, emb1log, emb2, cfmasi, pwmasi, pwen0, &
                        pwemb0, ch3, cdp1, pwvtmasi, cfemb0, cfen0, &
@@ -289,7 +289,10 @@ do lcat = 1,ncat
    emb2 (lcat) = 0.
    gnu  (lcat) = dstprms(8,lcat)
    rxmin(lcat) = dstprms(9,lcat)
+   emb0i(lcat) = 1.0 / emb0(lcat)
+   emb1i(lcat) = 1.0 / emb1(lcat)
 enddo
+
 emb2(2) = cfmas(2) * rparm ** pwmas(2)
 emb2(4) = cfmas(4) * sparm ** pwmas(4)
 emb2(5) = cfmas(5) * aparm ** pwmas(5)

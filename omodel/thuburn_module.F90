@@ -270,6 +270,7 @@ Contains
           inode  = 1
           iwnode = 1
 
+#ifdef OLAM_MPI
           if (iparallel == 1) then
 
              if (any( rbuf(1,:) /= rbuf(1,:) )) then
@@ -302,6 +303,7 @@ Contains
                 iwmax(:,mlocw) = nint(rbuf(5:6,iwnode))
              endif
           endif
+#endif
 
           write(*,'(5x,A,f0.3,3(A,I0))') "Max CFL = ", cfl_max(mlocc),  &
                " at node ", inode-1, ", iwglobe=", imax(2,mlocc), ", k=", imax(1,mlocc)

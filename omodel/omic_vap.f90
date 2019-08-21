@@ -30,90 +30,104 @@
    !----------------------------------------------------------------------------
 
 !===============================================================================
-subroutine thrmstr(iw0,lpw0,k1,k2, &
-   press0,thil0,rhow,rhoi,exner0,tair,theta0,qliq,qice,sa1,rhov,rhovstr,rx,qx,sa)
+subroutine thrmstr(iw0,lpw0,totcond, &
+   thil0,rhow,rhoi,exner0,tair,theta0,qliq,qice,sa1,rhov,rhovstr,rx,qx,sa)
 
-use micro_coms,  only: mza0, ncat
-use consts_coms, only: p00i, rocp, alvl, alvi, cpi4, cpi, cp253i
+use micro_coms,  only: mza0, ncat, rxmin
+use consts_coms, only: alvl, alvi, cpi4, cpi, cp253i, alvlocp, alviocp
 use misc_coms,   only: io6
-use therm_lib,   only: qtc, rhovsl
+use therm_lib,   only: qtc
 
 implicit none
 
 integer, intent(in) :: iw0,lpw0
 
-integer, intent(in) :: k1(11)
-integer, intent(in) :: k2(11)
-
-real, intent(in)    :: press0 (mza0)
+real, intent(in)    :: totcond(mza0)
 real, intent(in)    :: thil0  (mza0)
 real, intent(in)    :: rhow   (mza0)
 real, intent(in)    :: rhoi   (mza0)
 real, intent(in)    :: exner0 (mza0)
 real, intent(out)   :: tair   (mza0)
-real, intent(inout) :: theta0 (mza0)
+real, intent(out)   :: theta0 (mza0)
 real, intent(out)   :: qliq   (mza0)
 real, intent(out)   :: qice   (mza0)
 real, intent(out)   :: sa1    (mza0)
-real, intent(inout) :: rhov   (mza0)
+real, intent(out)   :: rhov   (mza0)
 real, intent(out)   :: rhovstr(mza0)
 real, intent(in)    :: rx     (mza0,ncat)
 real, intent(in)    :: qx     (mza0,ncat)
 real, intent(out)   :: sa     (mza0,9)
 
-integer :: k,lcat
+integer :: k
 real    :: fracliq, fracliq6, fracliq7, tcoal, tairstr, til, qhydm
-real    :: tairc, rhovslair, frac, lbar
-
-! automatic arrays
-
-real :: rholiq(mza0)
-real :: rhoice(mza0)
+real    :: lbar, rholiq, rhoice
 
 ! Loop over all vertical levels
 
 do k = lpw0, mza0
-   call qtc(qx(k,6),tcoal,fracliq6)
-   call qtc(qx(k,7),tcoal,fracliq7)
 
-   rholiq(k) = rx(k,1) + rx(k,8) + rx(k,2) + rx(k,6) * fracliq6 &
+   if (totcond(k) >= rxmin(1)) then
+
+      call qtc(qx(k,6),tcoal,fracliq6)
+      call qtc(qx(k,7),tcoal,fracliq7)
+
+      rholiq = rx(k,1) + rx(k,8) + rx(k,2) + rx(k,6) * fracliq6 &
                                            + rx(k,7) * fracliq7
 
-   rhoice(k) = rx(k,3) + rx(k,4) + rx(k,5) + rx(k,6) * (1.0 - fracliq6) &
+      rhoice = rx(k,3) + rx(k,4) + rx(k,5) + rx(k,6) * (1.0 - fracliq6) &
                                            + rx(k,7) * (1.0 - fracliq7)
 
-   til = thil0(k) * exner0(k)
+      til = thil0(k) * exner0(k)
 
-   qliq(k) = alvl * rholiq(k)
-   qice(k) = alvi * rhoice(k)
+      qliq(k) = alvl * rholiq
+      qice(k) = alvi * rhoice
 
-   ! qhydm is now J/m^3 instead of J/kg:
-   qhydm = qliq(k) + qice(k)
+      ! qhydm is now J/m^3 instead of J/kg:
+      qhydm = qliq(k) + qice(k)
 
-   rhovstr(k) = rhow(k) - rholiq(k) - rhoice(k)
-   rhov   (k) = rhovstr(k)
+      rhovstr(k) = rhow(k) - totcond(k)
+      rhov   (k) = rhovstr(k)
 
-   fracliq = rholiq(k) / max(1.e-12, rholiq(k) + rhoice(k))
+      fracliq = rholiq / max(1.e-12, rholiq + rhoice)
 
-   lbar = alvl * fracliq + alvi * (1.0 - fracliq)
+      lbar = alvl * fracliq + alvi * (1.0 - fracliq)
 
-   tairstr = .5 * (til + sqrt(til * (til + cpi4 * qhydm * rhoi(k))))
+      tairstr = .5 * (til + sqrt(til * (til + cpi4 * qhydm * rhoi(k))))
 
-   if (tairstr > 253.) then
+      if (tairstr > 253.) then
 
-      tair(k) = tairstr
-      sa(k,1) = til * lbar    * cpi / (2. * tairstr - til) ! stays the same
-      sa1(k)  = til * rhoi(k) * cpi / (2. * tairstr - til)
+         tair(k) = tairstr
+         sa(k,1) = til * lbar    * cpi / (2. * tairstr - til) ! stays the same
+         sa1(k)  = til * rhoi(k) * cpi / (2. * tairstr - til)
 
-   else
+      else
 
-      tair(k) = til * (1. + qhydm * rhoi(k) * cp253i)
-      sa(k,1) = til * lbar    * cp253i ! stays the same
-      sa1(k)  = til * rhoi(k) * cp253i
+         tair(k) = til * (1. + qhydm * rhoi(k) * cp253i)
+         sa(k,1) = til * lbar    * cp253i ! stays the same
+         sa1(k)  = til * rhoi(k) * cp253i
+
+      endif
+
+      theta0(k) = tair(k) / exner0(k)
+
+   else   ! totcond < rxmin
+
+      qliq  (k) = 0.0
+      qice  (k) = 0.0
+      rhov  (k) = rhow(k) - totcond(k)
+      theta0(k) = thil0(k)
+      tair  (k) = theta0(k) * exner0(k)
+   
+      if (tair(k) > 253.) then
+         sa(k,1) = alvlocp
+         sa1(k)  = rhoi(k) * cpi
+      else
+         sa(k,1) = alviocp
+         sa1(k)  = tair(k) * rhoi(k) * cp253i
+      endif
 
    endif
 
-   theta0(k) = tair(k) / exner0(k)
 enddo
 
 end subroutine thrmstr
@@ -169,7 +183,7 @@ real, intent(in) :: rhoa     (mza0)
 real, intent(inout) :: sumuy(mza0)
 real, intent(inout) :: sumuz(mza0)
 
-integer :: k,mynum,if1,if4,if6,if8,lhcat
+integer :: k,if1,if4,if6,if8,lhcat
 real :: fre,scdei
 
 real, dimension(mza0) :: ttest ! automatic array
@@ -340,63 +354,65 @@ else
    if4 = 5
 endif
 
-do k = k1(lcat),k2(lcat)
+do k = k1(lcat), k2(lcat)
 
-   if (rx(k,lcat) < rxmin(lcat)) cycle
+   if (rx(k,lcat) > rxmin(lcat)) then
 
-   tx(k,lcat) = (ss(k,lcat) * rhov(k) + sw(k,lcat)) * sm(k,lcat)
-   vap(k,lcat) = su(k,lcat) * (rhov(k) + sa(k,if4) - rhovsrefp(k,if1) * tx(k,lcat))
+      tx(k,lcat) = (ss(k,lcat) * rhov(k) + sw(k,lcat)) * sm(k,lcat)
+      vap(k,lcat) = su(k,lcat) * (rhov(k) + sa(k,if4) - rhovsrefp(k,if1) * tx(k,lcat))
 
 ! Do this section if vapor transfer does NOT deplete all of LCAT category
 
-   if (vap(k,lcat) > -rx(k,lcat)) then
+      if (vap(k,lcat) > -rx(k,lcat)) then
 
-      rxx = rx(k,lcat) + vap(k,lcat)
+         rxx = rx(k,lcat) + vap(k,lcat)
 
-      if (sm(k,lcat) > .5) then
-         qx(k,lcat) = sc(if1) * tx(k,lcat) + sk(if1)
-         qr(k,lcat) = qx(k,lcat) * rxx
-      else
-         qx(k,lcat) = (rhov(k) * sf(k,lcat) + sg(k,lcat) &
-                    - tx(k,lcat) * se(k,lcat)) / sd(k,lcat)
-         qx(k,lcat) = min(350000.,max(-100000.,qx(k,lcat)))
-         qr(k,lcat) = qx(k,lcat) * rxx
+         if (sm(k,lcat) > .5) then
+            qx(k,lcat) = sc(if1) * tx(k,lcat) + sk(if1)
+            qr(k,lcat) = qx(k,lcat) * rxx
+         else
+            qx(k,lcat) = (rhov(k) * sf(k,lcat) + sg(k,lcat) &
+                       - tx(k,lcat) * se(k,lcat)) / sd(k,lcat)
+            qx(k,lcat) = min(350000.,max(-100000.,qx(k,lcat)))
+            qr(k,lcat) = qx(k,lcat) * rxx
+         endif
+
       endif
-
-   endif
 
 ! Do this section if vapor transfer DOES deplete all of LCAT category
 
 ! Also do this section if LCAT is pristine ice and it totally melts:
 ! (evaporate it too).
 
-   if ((vap(k,lcat) <= -rx(k,lcat)) .or. &
-       (lcat == 3 .and. qx(k,lcat) > 330000.)) then
+      if ((vap(k,lcat) <= -rx(k,lcat)) .or. &
+           (lcat == 3 .and. qx(k,lcat) > 330000.)) then
 
-      sumuy(k) = sumuy(k) - su(k,lcat) * sy(k,lcat)
-      sumuz(k) = sumuz(k) - su(k,lcat) * sz(k,lcat)
-      sumvr(k) = sumvr(k) + rx(k,lcat)
+         sumuy(k) = sumuy(k) - su(k,lcat) * sy(k,lcat)
+         sumuz(k) = sumuz(k) - su(k,lcat) * sz(k,lcat)
+         sumvr(k) = sumvr(k) + rx(k,lcat)
 
-      rhov(k) = (rhovstr(k) + sumuy(k) + sumvr(k)) / (1.0 + sumuz(k))
+         rhov(k) = (rhovstr(k) + sumuy(k) + sumvr(k)) / (1.0 + sumuz(k))
 
-      vap(k,lcat) = - rx(k,lcat)
-      tx(k,lcat) = 0.
-      cx(k,lcat) = 0.
-      rx(k,lcat) = 0.
-      qx(k,lcat) = 0.
-      qr(k,lcat) = 0.
+         vap(k,lcat) = - rx(k,lcat)
+         tx(k,lcat) = 0.
+         cx(k,lcat) = 0.
+         rx(k,lcat) = 0.
+         qx(k,lcat) = 0.
+         qr(k,lcat) = 0.
 
-   else
+      else
 
-      if (vap(k,lcat) < 0.) then
-         fracmass = min(1.,-vap(k,lcat) / rx(k,lcat))
-         cxloss = cx(k,lcat) * enmlttab( int(200.*fracmass)+1, jhcat(k,lcat) )
-         cx(k,lcat) = cx(k,lcat) - cxloss
+         if (vap(k,lcat) < 0.) then
+            fracmass = min(1.,-vap(k,lcat) / rx(k,lcat))
+            cxloss = cx(k,lcat) * enmlttab( int(200.*fracmass)+1, jhcat(k,lcat) )
+            cx(k,lcat) = cx(k,lcat) - cxloss
+         endif
+
+         rx(k,lcat) = rxx
+
       endif
 
-      rx(k,lcat) = rxx
-
-   endif
+   endif  ! rx > rxmin
 
 enddo
 
@@ -406,7 +422,7 @@ end subroutine vapflux
 
 subroutine psxfer(iw0,k1,k2,vap,rpsxfer,epsxfer,rx,cx,qx,qr)
 
-use micro_coms, only: mza0, ncat, emb0, emb1
+use micro_coms, only: mza0, ncat, emb1, emb1i, emb0i, rxmin
 use misc_coms,  only: io6
 
 implicit none
@@ -422,7 +438,7 @@ real, intent(in)    :: qx (mza0,ncat)
 real, intent(inout) :: qr (mza0,ncat)
 
 integer :: k
-real :: f3, f4, dqr, embi
+real :: f3, dqr, embi
 
 ! The basic function of subroutine psxfer is to transfer bulk mixing ratio
 ! and number between pristine ice and snow categories when vapor flux causes
@@ -457,15 +473,15 @@ real, parameter :: f3lo = .1, f3hi = .8, df3i = 1. / (f3hi - f3lo)
 ! for snow, so that this transfer does not risk pushing either category outside
 ! its size limits.
 
-embi = 1. / max(emb1(3),emb0(4))
+embi = min( emb1i(3), emb0i(4) )
 
 ! Loop over vertical model levels that may contain pristine ice
 
-do k = k1,k2
+do k = k1, k2
 
 ! Check if vapor mass was deposited onto pristine ice (it was already added)
 
-   if (vap(k,3) > 0.) then
+   if (vap(k,3) > 0. .and. rx(k,3) > rxmin(3)) then
 
 ! Compute ratio of mean particle mass of pristine ice to its maximum limit emb1(3)
 
@@ -475,25 +491,27 @@ do k = k1,k2
 ! of mass, as a fraction of new vapor deposition mass, to transfer from
 ! pristine ice to snow.
 
-      if (f3 < f3lo) then
-         cycle
-      elseif (f3 > f3hi) then
-         rpsxfer(k) = vap(k,3)
+      if     (f3 > f3hi) then
+         rpsxfer(k) = min(vap(k,3), rx(k,3))
+      elseif (f3 > f3lo) then
+         rpsxfer(k) = min(vap(k,3) * (f3 - f3lo) * df3i, rx(k,3))
       else
-         rpsxfer(k) = vap(k,3) * (f3 - f3lo) * df3i
+         rpsxfer(k) = 0.0
       endif
 
 ! rpsxfer(k) here is always positive
 
-      epsxfer(k) = rpsxfer(k) * embi ! x rhoa
-      dqr = rpsxfer(k) * qx(k,3)     ! x rhoa
+      if (f3 > f3lo) then
+         epsxfer(k) = rpsxfer(k) * embi ! x rhoa
+         dqr = rpsxfer(k) * qx(k,3)     ! x rhoa
 
-      rx(k,3) = rx(k,3) - rpsxfer(k)
-      cx(k,3) = cx(k,3) - epsxfer(k)
-      qr(k,3) = qr(k,3) - dqr
-      rx(k,4) = rx(k,4) + rpsxfer(k)
-      cx(k,4) = cx(k,4) + epsxfer(k)
-      qr(k,4) = qr(k,4) + dqr
+         rx(k,3) = rx(k,3) - rpsxfer(k)
+         cx(k,3) = cx(k,3) - epsxfer(k)
+         qr(k,3) = qr(k,3) - dqr
+         rx(k,4) = rx(k,4) + rpsxfer(k)
+         cx(k,4) = cx(k,4) + epsxfer(k)
+         qr(k,4) = qr(k,4) + dqr
+      endif
 
    endif
 
@@ -528,7 +546,7 @@ real, intent(in)  :: sa       (mza0,9)
 
 integer :: k
 
-do k = j1,j2
+do k = j1, j2
    tairc(k) = tairc(k) + sa(k,1) * rhoi(k) * (rhovstr(k) - rhov(k)) ! rhoi inserted
    tair(k)  = tairc(k) + 273.15
    theta0(k) = tair(k) / exner0(k)
@@ -537,3 +555,59 @@ do k = j1,j2
 enddo
 
 end subroutine newtemp
+
+!===============================================================================
+
+subroutine thrmstr2(iw0,lpw0,k3, &
+   thil0,rhoi,exner0,tair,qliq,qice,sa1,rx,qx)
+
+use micro_coms,  only: mza0, ncat
+use consts_coms, only: alvl, alvi, cpi4, cpi, cp253i, alvlocp, alviocp
+use misc_coms,   only: io6
+use therm_lib,   only: qtc
+
+implicit none
+
+integer, intent(in) :: iw0, lpw0, k3
+
+real, intent(in)    :: thil0  (mza0)
+real, intent(in)    :: rhoi   (mza0)
+real, intent(in)    :: exner0 (mza0)
+real, intent(in)    :: tair   (mza0)
+real, intent(out)   :: qliq   (mza0)
+real, intent(out)   :: qice   (mza0)
+real, intent(out)   :: sa1    (mza0)
+real, intent(in)    :: rx     (mza0,ncat)
+real, intent(in)    :: qx     (mza0,ncat)
+
+integer :: k
+real    :: fracliq6, fracliq7, tcoal, til
+real    :: rholiq, rhoice
+
+! Loop over all vertical levels
+
+do k = lpw0, k3
+
+   call qtc(qx(k,6),tcoal,fracliq6)
+   call qtc(qx(k,7),tcoal,fracliq7)
+
+   rholiq = rx(k,1) + rx(k,8) + rx(k,2) + rx(k,6) * fracliq6 &
+                                        + rx(k,7) * fracliq7
+
+   rhoice = rx(k,3) + rx(k,4) + rx(k,5) + rx(k,6) * (1.0 - fracliq6) &
+                                        + rx(k,7) * (1.0 - fracliq7)
+   til = thil0(k) * exner0(k)
+
+   qliq(k) = alvl * rholiq
+   qice(k) = alvi * rhoice
+
+   if (tair(k) > 253.) then
+      sa1(k)  = til * rhoi(k) * cpi / (2. * tair(k) - til)
+   else
+      sa1(k)  = til * rhoi(k) * cp253i
+   endif
+
+enddo
+
+end subroutine thrmstr2
+

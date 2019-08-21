@@ -121,6 +121,8 @@ real :: dmb0     (ncat) ! minimum mean-mass diameter for each category
 real :: dmb1     (ncat) ! maximum mean-mass diameter for each category
 real :: emb0     (ncat) ! minimum mean mass for each category
 real :: emb1     (ncat) ! maximum mean mass for each category
+real :: emb0i    (ncat) ! 1 / (minimum mean mass for each category)
+real :: emb1i    (ncat) ! 1 / (maximum mean mass for each category)
 real :: emb2     (ncat) ! mean hydrometeor mass for each category for case when jnmb(lcat) = 2
 real :: gnu      (ncat) ! gamma distribution width parameter for each category
 real :: emb0log  (ncat) ! log of emb0

@@ -195,7 +195,7 @@ end subroutine each_column
 
 subroutine enemb(lcat,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb)
 
-use micro_coms,  only: mza0, ncat, jnmb, emb2, emb0, emb1, rxmin, &
+use micro_coms,  only: mza0, ncat, jnmb, emb2, emb0, emb1, &
                        dict, emb0log, rictmin, rictmax
 use ccnbin_coms, only: nccntyp
 use misc_coms,   only: io6
@@ -256,17 +256,13 @@ elseif (jnmb(lcat) == 5) then
 endif
 
 if (jflag == 2) then
-   do k = k1(lcat),k2(lcat)
-
-      if (rx(k,lcat) < rxmin(lcat)) cycle
-
+   do k = k1(lcat), k2(lcat)
       rict = dict(lcat) * (log(emb(k,lcat)) - emb0log(lcat)) + 1.
       rictmm = max(rictmin,min(rictmax,rict))
       ict1(k,lcat) = int(rictmm)
       ict2(k,lcat) = ict1(k,lcat) + 1
       wct2(k,lcat) = rictmm - float(ict1(k,lcat))
       wct1(k,lcat) = 1.0 - wct2(k,lcat)
-
    enddo
 endif
 
@@ -557,11 +553,11 @@ end subroutine x02
 
 !===============================================================================
 
-subroutine sedim2(iw0,lpw0,k1,k2,jhcat,dtl0, &
-   voa, denfac, tair, thil0, theta0, dsed_thil, rhoi, rhoa, rhow, &
-   cx, rx, qx, qr, emb, dmb, pcpvel, pcpfluxc, pcpfluxr, pcpfluxq, accpx, pcprx)
+subroutine sedim2(iw0,lpw0,k1,k2,jhcat,dtl0,dtli0, &
+   voa, denfac, dsed_thil, rhoi, rhoa, rhow, cx, rx, qx, qr, &
+   emb, dmb, pcpvel, pcpfluxc, pcpfluxr, pcpfluxq, accpx, pcprx)
 
-use micro_coms,  only: mza0, ncat, rxmin, cfmasi, pwmasi, cfvt, pwvt, jnmb, emb1
+use micro_coms,  only: mza0, ncat, rxmin, cfmasi, pwmasi, cfvt, pwvt, emb1i
 use consts_coms, only: cpi, alviocp
 use misc_coms,   only: io6
 use mem_grid,    only: zm, zfacm2, zfacim2, arw, volti
@@ -579,13 +575,10 @@ integer, intent(in) :: k2(11)
 
 integer, intent(in) :: jhcat(mza0,ncat)
 
-real, intent(in) :: dtl0
+real, intent(in) :: dtl0, dtli0
 
 real, intent(in)    :: voa      (mza0)
 real, intent(in)    :: denfac   (mza0)
-real, intent(in)    :: tair     (mza0)
-real, intent(in)    :: thil0    (mza0)
-real, intent(in)    :: theta0   (mza0)
 real, intent(inout) :: dsed_thil(mza0)
 real, intent(in)    :: rhoi     (mza0)
 real, intent(inout) :: rhoa     (mza0)
@@ -701,7 +694,7 @@ real :: qrnew(mza0)
            rxnew(kw) = rxnew(kw) - volti(kw,iw0) * pcpfluxr(kw-1,lcat) * sea%area(iws)
            qrnew(kw) = qrnew(kw) - volti(kw,iw0) * pcpfluxq(kw-1,lcat) * sea%area(iws)
 
-           pcprx(lcat) = pcprx(lcat) + pcpfluxr(kw-1,lcat) * itab_ws(iws)%arf_iw / dtl0
+           pcprx(lcat) = pcprx(lcat) + pcpfluxr(kw-1,lcat) * itab_ws(iws)%arf_iw * dtli0
            accpx(lcat) = accpx(lcat) + pcpfluxr(kw-1,lcat) * itab_ws(iws)%arf_iw
 
            sea%pcpg (iws) = sea%pcpg (iws) + pcpfluxr(kw-1,lcat)
@@ -729,7 +722,7 @@ real :: qrnew(mza0)
            rxnew(kw) = rxnew(kw) - volti(kw,iw0) * pcpfluxr(kw-1,lcat) * land%area(iwl)
            qrnew(kw) = qrnew(kw) - volti(kw,iw0) * pcpfluxq(kw-1,lcat) * land%area(iwl)
 
-           pcprx(lcat) = pcprx(lcat) + pcpfluxr(kw-1,lcat) * itab_wl(iwl)%arf_iw / dtl0
+           pcprx(lcat) = pcprx(lcat) + pcpfluxr(kw-1,lcat) * itab_wl(iwl)%arf_iw * dtli0
            accpx(lcat) = accpx(lcat) + pcpfluxr(kw-1,lcat) * itab_wl(iwl)%arf_iw
 
            land%pcpg (iwl) = land%pcpg (iwl) + pcpfluxr(kw-1,lcat)
@@ -739,39 +732,29 @@ real :: qrnew(mza0)
 
      endif
 
-     ! Loop over precipation source levels
+     ! Loop over precipation destination levels
 
-     do k = lpw0,k2(lcat)
+     do k = lpw0, k2(lcat)
 
-        if (rxnew(k) < rxmin(lcat)) then
-           rxnew(k) = 0.
-           cxnew(k) = 0.
-           qrnew(k) = 0.
-        elseif (jnmb(lcat) == 5) then
-           cxnew(k) = max(cxnew(k), rxnew(k) / emb1(lcat))
-        endif
+        rxnew(k) = max(rxnew(k), 0.0)
+        cxnew(k) = max(cxnew(k), rxnew(k) * emb1i(lcat))
 
-        rhoa(k) = rhoa(k) + rxnew(k) - rx(k,lcat)
+!       mjo: not needed for dry model
+!       rhoa(k) = rhoa(k) + rxnew(k) - rx(k,lcat)
         rhow(k) = rhow(k) + rxnew(k) - rx(k,lcat)
 
         dsed_thil(k) = dsed_thil(k) - alviocp * (rxnew(k) - rx(k,lcat)) &
                                     + cpi     * (qrnew(k) - qr(k,lcat))
 
-!        dsed_thil(k) = dsed_thil(k) - thil0(k) * thil0(k)  &
-!           * (alviocp * (rxnew(k) - rx(k,lcat))  &
-!           - cpi * (qrnew(k) - qr(k,lcat)))  &
-!           / (max(tair(k), 253.) * theta0(k))
-
         ! Transfer "new" amounts to category arrays
 
         rx(k,lcat) = rxnew(k)
         cx(k,lcat) = cxnew(k)
-        qr(k,lcat) = qrnew(k)
         qx(k,lcat) = qrnew(k) / max(rxmin(lcat),rxnew(k))
+        qr(k,lcat) = qx(k,lcat) * rxnew(k)
 
      enddo
 
   enddo ! lcat
 
 end subroutine sedim2
-

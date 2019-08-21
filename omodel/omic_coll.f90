@@ -326,7 +326,7 @@ subroutine col1882(mx,my,mz,meff,j1,j2, &
    jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,rxyxy,rxyxz,rxyyz,exyxx,exyyz)
 
 use micro_coms, only: mza0, ncat, rxmin, ipair, jnmb, neff, &
-                      coltabc, coltabx, coltaby, driz_gammq, emb1
+                      coltabc, coltabx, coltaby, driz_gammq
 use misc_coms,  only: io6
 
 implicit none
@@ -702,7 +702,7 @@ subroutine col2(mx,my,mz,meff,j1,j2, &
    rxyx3,rxyxz,rxyxy,rxyyz,exyx3,exyxx,exyyz)
 
 use micro_coms, only: mza0, ncat, rxmin, ipair, coltabx, coltaby, coltabc, &
-                      sipfac, pwmasi, emb1, gamsip13, gamsip24, emb0, neff, &
+                      sipfac, pwmasi, emb1i, gamsip13, gamsip24, emb0, neff, &
                       jnmb, ngam
 use misc_coms,  only: io6
 use therm_lib,  only: qtc
@@ -825,7 +825,7 @@ do k = j1,j2
       (jnmb(mx) == 5 .or. jnmb(my) == 5)) then  ! Steve, why this condition?
 
       area = cx(k,my) * sipfac(jhcaty) * emb(k,my) ** (2.*pwmasi(jhcaty)) ! remd rhoa
-      it = max(1,nint(emb(k,mx) / emb1(mx) * ngam))
+      it = max(1,nint(emb(k,mx) * emb1i(mx) * ngam))
 
       cn13 = colc * gamsip13(lx,it) / (area * dtl0)
       cn24 = min(cx(k,mx),colc0) * gamsip24(lx,it)

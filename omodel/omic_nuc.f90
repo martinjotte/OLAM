@@ -1533,7 +1533,7 @@ subroutine cldnuc(iw0,lpw0,dtli0,nbincall, &
                   rx,cx,qr,qx,con_ccnx,con_gccnx,rhov,rhoi,rhoa,press0, &
                   tair,tairc,wc0,rhovslair,rnuc_vc,rnuc_vd,cnuc_vc,cnuc_vd)
 
-use micro_coms,  only: jnmb, emb0, emb1, mza0, ncat, &
+use micro_coms,  only: jnmb, emb0, emb0i, emb1, mza0, ncat, &
                        igccn, rxmin
 use ccnbin_coms, only: nccntyp
 use misc_coms,   only: io6, dtlm
@@ -1576,7 +1576,7 @@ integer :: k
 
 real :: excessrhov, excessnum, rxnuc
 real :: rnuc_vc_min, rnuc_vc_max
-real :: a1inv,w_pseudo
+!real :: a1inv,w_pseudo
 real :: cactivated, rx_wbc
 
 ! CCNBIN variables
@@ -1602,7 +1602,7 @@ real :: cactivated, rx_wbc
 
      excessrhov = rhov(k) - 1.00001 * rhovslair(k) ! x rhoa
      if (excessrhov <= 0.) cycle                   ! x rhoa
-     excessnum = excessrhov / emb0(8)
+     excessnum = excessrhov * emb0i(8)
 
      ! Cotton (2016) pointed out that with GCCN, the solute effect accelerates
      ! droplet growth sufficiently (even at zero supersaturation) to produce
@@ -1664,7 +1664,7 @@ real :: cactivated, rx_wbc
            cnuc_vc(k) = max(0., sum(con_ccnx(k,1:nccntyp)) - cx(k,1))
         endif
 
-        cnuc_vc(k) = min(cnuc_vc(k), excessrhov / emb0(1))
+        cnuc_vc(k) = min(cnuc_vc(k), excessrhov * emb0i(1))
 
         ! Assume that half of available supersaturation vapor is transferred to
         ! newly-nucleated cloud droplets, subject however to limits on cloud 
@@ -1794,7 +1794,8 @@ subroutine icenuc(k1,k2,lpw0,mrl0,iw0, &
    cnuc_cp_hom,cnuc_dp_hom,cnuc_vp_haze,cnuc_vp_immers)
 
   use micro_coms,  only: mza0, ncat, dnfac, pwmasi, rxmin, ndnc, ddnc, dtc, &
-                         fracc, drhhz, dthz, frachz, emb0, jnmb, iccn, igccn
+                         drhhz, dthz, frachz, emb0, emb0i, iccn, igccn, jnmb, &
+                         fracc
   use ccnbin_coms, only: nccntyp, ccntyp_alpha
   use consts_coms, only: cice, cliq, alli
   use misc_coms,   only: io6
@@ -2004,7 +2005,7 @@ subroutine icenuc(k1,k2,lpw0,mrl0,iw0, &
         excessrhov = max(rhov(k) - rhovsiair(k), 0.0)
 
         if (rnuc_vp_immers(k) > excessrhov) then
-           cnuc_vp_immers(k) = excessrhov / emb0(3)
+           cnuc_vp_immers(k) = excessrhov * emb0i(3)
            rnuc_vp_immers(k) = excessrhov
         endif
 
@@ -2077,7 +2078,7 @@ subroutine icenuc(k1,k2,lpw0,mrl0,iw0, &
      excessrhov = max(rhov(k) - rhovsiair(k), 0.0)
 
      if (rnuc_vp_haze(k) > excessrhov) then
-        cnuc_vp_haze(k) = excessrhov / emb0(3)
+        cnuc_vp_haze(k) = excessrhov * emb0i(3)
         rnuc_vp_haze(k) = excessrhov
      endif
 
