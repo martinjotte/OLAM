@@ -114,7 +114,7 @@ Contains
 
      co2_initsh = co2_initppm * co2_ppm2sh
 
-     !$omp parallel do
+     !$omp parallel do private(iw)
      do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
         sh_co2(2:mza,iw) = co2_initsh * (1.0 - sh_w(2:mza,iw))
      enddo

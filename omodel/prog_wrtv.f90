@@ -211,6 +211,7 @@ subroutine prog_wrtv(vmsc, wmsc, alpha_press, rhot)
 
         do k = lpv(iv), mza
            vmcf        = 1.5 * vmc(k,iv) - 0.5 * vmp(k,iv)
+           vmsc (k,iv) = vmsc(k,iv) + vmcf
            vmcfa(k,iv) = vmcf * arv(k,iv)
            vmp  (k,iv) = vmc (k,iv)
            vcf  (k)    = 2.0 * vmcf / real( rho(k,iw1) + rho(k,iw2) )
@@ -545,21 +546,6 @@ subroutine prog_wrtv(vmsc, wmsc, alpha_press, rhot)
      call mpi_recv_v(mrl, rvara1=vmc, rvara2=vc)
   endif
   call lbcopy_v(mrl, vmc=vmc, vc=vc)
-
-! Update Scalar VMSC
-
-  !$omp parallel do private(iv,iw1,iw2,k)
-  do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
-
-     iw1 = itab_v(iv)%iw(1)
-     iw2 = itab_v(iv)%iw(2)
-
-     do k = lpv(iv), mza
-        vmsc(k,iv) = vmsc(k,iv) + 0.5 * (vmc(k,iv) + vmp(k,iv))
-     enddo
-
-  enddo
-  !$omp end parallel do
 
 end subroutine prog_wrtv
 

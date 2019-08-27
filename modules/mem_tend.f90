@@ -278,7 +278,7 @@ Contains
       enddo
    endif
 
-   if (allocated(q2t)) call vtables_scalar (q2, q2t, 'Q2') ! rain is all liquid
+   if (allocated(q2t)) call vtables_scalar (q2, q2t, 'Q2', pos_def=.false.)
    if (allocated(q6t)) call vtables_scalar (q6, q6t, 'Q6', pos_def=.false.)
    if (allocated(q7t)) call vtables_scalar (q7, q7t, 'Q7', pos_def=.false.)
 
