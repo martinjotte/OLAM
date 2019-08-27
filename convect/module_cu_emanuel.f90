@@ -23,7 +23,7 @@ CONTAINS
 
 SUBROUTINE cuparm_emanuel(iw, dtlong)
 
-  use mem_grid,    only: lpw, zm, zt, xew, yew, zew, dzt, volt, volti, arw0
+  use mem_grid,    only: lpw, zm, zt, xew, yew, zew, dzt, volti, arw0
   use mem_basic,   only: tair, press, rho, rr_v, vxe, vye, vze, theta
   use consts_coms, only: t00, grav, eradi
   use mem_cuparm , only: thsrc, rtsrc, conprr, cbmf, vxsrc, vysrc, vzsrc, &
@@ -138,7 +138,7 @@ SUBROUTINE cuparm_emanuel(iw, dtlong)
         thsrc(k,iw) = tt(kc) * den(kc)
         rtsrc(k,iw) = qt(kc) * den(kc)
         qwcon(k,iw) = qcldc(kc)
-        rdsrc(k,iw) = -qce(kc) * arw0(iw) * real(volti(k,iw))
+        rdsrc(k,iw) = -qce(kc) * arw0(iw) * volti(k,iw)
 
         ut(kc) = ut(kc) * den(kc)
         vt(kc) = vt(kc) * den(kc)

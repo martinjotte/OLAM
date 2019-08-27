@@ -64,7 +64,7 @@ CONTAINS
     use consts_coms, only: p00i, eradi, grav, gravi, alvl, alvlocp, vonk, r8
     use mem_radiate, only: fthrd_sw, fthrd_lw
     use mem_grid,    only: mza, lpw, arw0, zm, zt, xew, yew, zew, &
-                           dzt, arw, lpv, arv, volt, volti
+                           dzt, arw, lpv, arv, volti
     use mem_ijtabs,  only: itab_w
     use mem_micro,   only: cldnum
     use mem_basic,   only: wmc, vmc, theta, tair, press, rho, rr_v, &
@@ -250,16 +250,16 @@ CONTAINS
 
        fthadv = ((vflux_the(k-1) - vflux_the(k) + hflux_the) &
               - (vflux(k-1) - vflux(k) + hflux) * theta(k,iw)) &
-              / (volt(k,iw) * rho(k,iw))
+              * volti(k,iw) / real(rho(k,iw))
 
        fqvadv = ((vflux_vap(k-1) - vflux_vap(k) + hflux_vap) &
               - (vflux(k-1) - vflux(k) + hflux) * rr_v(k,iw)) &
-              / (volt(k,iw) * rho(k,iw))
+              * volti(k,iw) / real(rho(k,iw))
 
        ! "forced" temp, water vapor, and pressure
 
-       tn(1,kc) = tair(k,iw) + (fthrd_lw(k,iw) + fthrd_sw(k,iw) + &
-                                fthpbl(k,iw) + fthadv) * dtlong * exner(k)
+       tn(1,kc) = tair(k,iw) + ( (fthrd_lw(k,iw) + fthrd_sw(k,iw)) / real(rho(k,iw)) &
+                               + fthpbl(k,iw) + fthadv ) * dtlong * exner(k)
        qo(1,kc) = rr_v(k,iw) + (fqtpbl(k,iw) + fqvadv) * dtlong
        tn(1,kc) = max( tn(1,kc), 200.0 )
        qo(1,kc) = max( qo(1,kc), 1.e-8 )
@@ -344,7 +344,7 @@ CONTAINS
           qwcon(k,iw) = cupclw(1,kc)
 
           ! Density change (Water removed)
-          rdsrc(k,iw) = -qce(1,kc) * arw0(iw) * real(volti(k,iw))
+          rdsrc(k,iw) = -qce(1,kc) * arw0(iw) * volti(k,iw)
 
           ! Convert velocity to momentum
           outu(1,kc) = outu(1,kc) * r(1,kc)

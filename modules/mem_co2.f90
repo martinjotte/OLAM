@@ -99,7 +99,6 @@ Contains
   use mem_ijtabs,  only: jtab_w, jtw_init
   use mem_grid,    only: mza
   use consts_coms, only: r8
-  use mem_basic,   only: rr_w
 
   implicit none
 
@@ -112,9 +111,9 @@ Contains
 
      co2_initsh = co2_initppm * co2_ppm2sh
 
-     !$omp parallel do
+     !$omp parallel do private(iw)
      do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
-        rr_co2(2:mza,iw) = co2_initsh * (1.0 - rr_w(2:mza,iw))
+        rr_co2(2:mza,iw) = co2_initsh
      enddo
      !$omp end parallel do
 

@@ -44,7 +44,7 @@ contains
 
     use mem_turb,    only: vkm_sfc, vkm, vkh, wtv0_k, ustar_k, frac_sfc
     use mem_ijtabs,  only: itab_w
-    use mem_grid,    only: mza, lpw, dzim, dzit, zm, volt, arw, lsw, volti, zm, &
+    use mem_grid,    only: mza, lpw, dzim, dzit, zm, arw, lsw, volti, zm, &
                            arw0, dzm, dzimsq, dzt_bot
     use misc_coms,   only: idiffk, csx, csz, dtlm
     use mem_basic,   only: rho, vxe, vye, vze, thil, theta, tair, rr_w, rr_v
@@ -80,7 +80,7 @@ contains
     real :: rhs(mza,max(3,num_scalar+1)), soln(mza,max(3,num_scalar+1))
     real :: varp(mza)
     real :: vctr2(mza,3)
-    real :: vi4, ql
+    real :: ql
     real :: dudx(mza), dudy(mza), dudz(mza)
     real :: dvdx(mza), dvdy(mza), dvdz(mza)
     real :: dwdx(mza), dwdy(mza), dwdz(mza)
@@ -275,7 +275,7 @@ contains
 
        ! Mass in t control volume and its inverse times dtl
 
-       dtomass(k) = dtl / real( rho(k,iw) * volt(k,iw) )
+       dtomass(k) = dtl * volti(k,iw) / real(rho(k,iw))
 
        ! Fill tri-diagonal matrix coefficients
 
@@ -325,15 +325,13 @@ contains
     ! Compute momentum tendencies
 
     do k = ka, mza
-       vi4 = real(volti(k,iw))
-
-       vmxet(k,iw) = vmxet(k,iw) + vi4 &
+       vmxet(k,iw) = vmxet(k,iw) + volti(k,iw)  &
                    * (vctr2(k-1,1) - vctr2(k,1) - vctr3(k) * soln(k,1))
 
-       vmyet(k,iw) = vmyet(k,iw) + vi4 &
+       vmyet(k,iw) = vmyet(k,iw) + volti(k,iw)  &
                    * (vctr2(k-1,2) - vctr2(k,2) - vctr3(k) * soln(k,2))
 
-       vmzet(k,iw) = vmzet(k,iw) + vi4 &
+       vmzet(k,iw) = vmzet(k,iw) + volti(k,iw)  &
                    * (vctr2(k-1,3) - vctr2(k,3) - vctr3(k) * soln(k,3))
     enddo
 
@@ -408,7 +406,7 @@ contains
        ! Vertical loop over T levels
        do k = ka, mza
           scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
-                                    + real(volti(k,iw)) * (soln(k-1,n) - soln(k,n))
+                                    + volti(k,iw) * (soln(k-1,n) - soln(k,n))
        enddo
     enddo
 
@@ -418,7 +416,7 @@ contains
 
     ! Vertical loop over T levels
     do k = ka, mza
-       thilt(k,iw) = thilt(k,iw) + real(volti(k,iw)) * (soln(k-1,n) - soln(k,n)) &
+       thilt(k,iw) = thilt(k,iw) + volti(k,iw) * (soln(k-1,n) - soln(k,n)) &
                    + (dissipation(k) + dissipation(k-1)) * cpio2 * theta(k,iw) / tair(k,iw)
     enddo
 

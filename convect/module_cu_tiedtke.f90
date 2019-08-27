@@ -75,7 +75,7 @@ CONTAINS
    subroutine cuparm_tiedtke(iw,km,km1,dtlong4,confrq4,confrq4i)
 
    use mem_grid,    only: mza, lpv, lpw, zt, xew, yew, zew, arv, arw, arw0, &
-                          volt, volti, vxn_ns, vyn_ns, vzn_ns, vxn_ew, vyn_ew
+                          volti, vxn_ns, vyn_ns, vzn_ns, vxn_ew, vyn_ew
    use mem_cuparm,  only: thsrc, rtsrc, conprr, vxsrc, vysrc, vzsrc, rdsrc, &
                           kcubot, kcutop, cbmf, qwcon, iactcu, cddf, kddtop
    use mem_basic,   only: theta, tair, press, rho, vxe, vye, vze, rr_v, &
@@ -240,7 +240,7 @@ CONTAINS
 
       fqvadv = ((vflux_vap(k-1) - vflux_vap(k) + hflux_vap) &
                - (vflux(k-1) - vflux(k) + hflux) * rr_v(k,iw)) &
-               / (volt(k,iw) * rho(k,iw))
+               * volti(k,iw) / real(rho(k,iw))
 
       dQdt    (kt) = fqtpbl(k,iw) + fqvadv
       dQdt_sav(kt) = dQdt(kt)
@@ -339,7 +339,7 @@ CONTAINS
          qwcon(k,iw) = zlu(kt)
 
          ! density tendency (water removed per grid cell)
-         rdsrc(k,iw) = -(zdmfup(kt) + zdmfdp(kt)) * arw0(iw) * real(volti(k,iw))
+         rdsrc(k,iw) = -(zdmfup(kt) + zdmfdp(kt)) * arw0(iw) * volti(k,iw)
 
       enddo
 

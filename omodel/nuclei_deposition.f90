@@ -254,7 +254,7 @@ implicit none
      ! Loop over T levels in this column and apply fluxes to nucx concentrations
 
      do k = lpw(iw), mza
-        con_nucx(k,inuc) = con_nucx(k,inuc) + (xfernuc(k) - xfernuc(k-1)) * real(volti(k,inuc))
+        con_nucx(k,inuc) = con_nucx(k,inuc) + (xfernuc(k) - xfernuc(k-1)) * volti(k,inuc)
      enddo
 
   enddo ! inuc
@@ -313,7 +313,7 @@ implicit none
            ! Nuclei number transfer [#] to this sea cell this timestep (positive downward)
 
            con_nucx(kw,inuc) = con_nucx(kw,inuc) &
-                             - sourcec(kw,inuc) * fracwkk * sea%area(iws) * real(volti(kw,inuc))
+                             - sourcec(kw,inuc) * fracwkk * sea%area(iws) * volti(kw,inuc)
         enddo ! inuc
 
      enddo ! jws
@@ -381,7 +381,7 @@ implicit none
            ! Nuclei number transfer [#] to this land cell this timestep (positive downward)
 
            con_nucx(kw,inuc) = con_nucx(kw,inuc) &
-                             - sourcec(kw,inuc) * fracwkk * land%area(iwl) * real(volti(kw,inuc))
+                             - sourcec(kw,inuc) * fracwkk * land%area(iwl) * volti(kw,inuc)
         enddo ! inuc
 
      enddo ! jwl

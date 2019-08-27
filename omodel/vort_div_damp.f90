@@ -68,7 +68,7 @@ subroutine divh_damp(mrl)
      enddo
 
      do k = lpw(iw), mza
-        div2d(k,iw) = div2d(k,iw) * real(volti(k,iw))
+        div2d(k,iw) = div2d(k,iw) * volti(k,iw)
      enddo
 
   enddo

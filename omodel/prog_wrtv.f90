@@ -211,6 +211,7 @@ subroutine prog_wrtv(vmsc, wmsc)
 
      do k = lpv(iv), mza
         vmcf        = 1.5 * vmc(k,iv) - 0.5 * vmp(k,iv)
+        vmsc (k,iv) = vmsc(k,iv) + vmcf
         vmcfa(k,iv) = vmcf * arv(k,iv)
         vmp  (k,iv) = vmc (k,iv)
         vcf  (k)    = 2.0 * vmcf / real( rho(k,iw1) + rho(k,iw2) )
@@ -525,21 +526,6 @@ subroutine prog_wrtv(vmsc, wmsc)
   endif
   call lbcopy_v(mrl, vmc=vmc, vc=vc)
 
-! Update Scalar VMSC
-
-  !$omp parallel do private(iv,iw1,iw2,k)
-  do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
-
-     iw1 = itab_v(iv)%iw(1)
-     iw2 = itab_v(iv)%iw(2)
-
-     do k = lpv(iv), mza
-        vmsc(k,iv) = vmsc(k,iv) + 0.5 * (vmc(k,iv) + vmp(k,iv))
-     enddo
-
-  enddo
-  !$omp end parallel do
-
 end subroutine prog_wrtv
 
 !=========================================================================
@@ -740,11 +726,11 @@ subroutine prog_wrt_begs( iw, vmcfa, wmsc,                      &
 
      ! Add horizontal diffusive fluxes and Coriolis to momentum tendencies
 
-     vmxet_short(k,iw) = vmxet_short(k,iw) + hdiff_vxe(k) * real(volti(k,iw)) &
+     vmxet_short(k,iw) = vmxet_short(k,iw) + hdiff_vxe(k) * volti(k,iw) &
                        + omega2 * rho(k,iw) * vye(k,iw)
-     vmyet_short(k,iw) = vmyet_short(k,iw) + hdiff_vye(k) * real(volti(k,iw)) &
+     vmyet_short(k,iw) = vmyet_short(k,iw) + hdiff_vye(k) * volti(k,iw) &
                        - omega2 * rho(k,iw) * vxe(k,iw)
-     vmzet_short(k,iw) = vmzet_short(k,iw) + hdiff_vze(k) * real(volti(k,iw))
+     vmzet_short(k,iw) = vmzet_short(k,iw) + hdiff_vze(k) * volti(k,iw)
 
      ! Explicit momentum tendency from advective transport
      ! (weighted by T cell volume)
@@ -855,7 +841,7 @@ subroutine prog_wrt_begs( iw, vmcfa, wmsc,                      &
           + ( wnx(iw) * (vmxet_volt(k,iw) + vmxet_volt(k+1,iw)) &
             + wny(iw) * (vmyet_volt(k,iw) + vmyet_volt(k+1,iw)) &
             + wnz(iw) * (vmzet_volt(k,iw) + vmzet_volt(k+1,iw)) &
-            ) * real(volwi(k,iw)) )
+            ) * volwi(k,iw) )
 
   enddo
 
@@ -987,9 +973,9 @@ subroutine prog_wrt_begs( iw, vmcfa, wmsc,                      &
         vze2(ksw,iw) = 0.
 
         ! Estimate velocity in T cells at (t+1) by prognostic method
-        vxe1(k) = vxe(k,iw) + dts * (vmxet_short(k,iw) + vmxet_volt(k,iw) * real(volti(k,iw))) / real(rho(k,iw))
-        vye1(k) = vye(k,iw) + dts * (vmyet_short(k,iw) + vmyet_volt(k,iw) * real(volti(k,iw))) / real(rho(k,iw))
-        vze1(k) = vze(k,iw) + dts * (vmzet_short(k,iw) + vmzet_volt(k,iw) * real(volti(k,iw))) / real(rho(k,iw))
+        vxe1(k) = vxe(k,iw) + dts * (vmxet_short(k,iw) + vmxet_volt(k,iw) * volti(k,iw)) / real(rho(k,iw))
+        vye1(k) = vye(k,iw) + dts * (vmyet_short(k,iw) + vmyet_volt(k,iw) * volti(k,iw)) / real(rho(k,iw))
+        vze1(k) = vze(k,iw) + dts * (vmzet_short(k,iw) + vmzet_volt(k,iw) * volti(k,iw)) / real(rho(k,iw))
      enddo
 
      ! Loop over adjacent V faces
@@ -1104,7 +1090,7 @@ subroutine prog_v_begs( iv, vmxet_volt, vmyet_volt, vmzet_volt,   &
   use mem_tend,    only: vmt
   use misc_coms,   only: dtsm
   use consts_coms, only: eradi, gravo2
-  use mem_grid,    only: mza, mwa, lpv, volt, xev, yev, zev, &
+  use mem_grid,    only: mza, mwa, lpv, volvi, xev, yev, zev, &
                          unx, uny, unz, vnx, vny, vnz, vnxo2, vnyo2, vnzo2, &
                          dniu, dniv
   use oname_coms,  only: nl
@@ -1157,7 +1143,7 @@ subroutine prog_v_begs( iv, vmxet_volt, vmyet_volt, vmzet_volt,   &
   if (.not. rotational) then
 
      do k = kb,mza
-        vmc(k,iv) = vmc(k,iv) + dts * (vmt(k,iv) + pgf(k) &
+        vmc(k,iv) = vmc(k,iv) + dts * ( vmt(k,iv) + pgf(k)                   &
 
                   + vnxo2(iv) * (vmxet_short(k,iw1) + vmxet_short(k,iw2))    &
                   + vnyo2(iv) * (vmyet_short(k,iw1) + vmyet_short(k,iw2))    &
@@ -1166,7 +1152,7 @@ subroutine prog_v_begs( iv, vmxet_volt, vmyet_volt, vmzet_volt,   &
                   + ( vnx(iv) * (vmxet_volt(k,iw1) + vmxet_volt(k,iw2))      &
                     + vny(iv) * (vmyet_volt(k,iw1) + vmyet_volt(k,iw2))      &
                     + vnz(iv) * (vmzet_volt(k,iw1) + vmzet_volt(k,iw2)) )    &
-                    / real(volt(k,iw1) + volt(k,iw2)) )
+                  * volvi(k,iv) )
 
         vc(k,iv) = 2.0 * vmc(k,iv) / real( rho(k,iw1) + rho(k,iw2) )
      enddo

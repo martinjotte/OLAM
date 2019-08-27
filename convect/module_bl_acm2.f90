@@ -143,7 +143,7 @@ contains
        ks = k - kbot + 1
 
        dtorho(k) = dtl / real(rho(k,iw))
-       dtom  (k) = dtorho(k) * real(volti(k,iw))
+       dtom  (k) = dtorho(k) * volti(k,iw)
 
        low(ks) = - dtom(k) * akodz(k-1)
        upp(ks) = - dtom(k) * akodz(k  )
@@ -247,14 +247,14 @@ contains
           ! Vertical loop over T levels
           do k = kbot, ktop
              scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
-                                       + real(volti(k,iw)) * (aflux(k-1,n) - aflux(k,n))
+                                       + volti(k,iw) * (aflux(k-1,n) - aflux(k,n))
           enddo
 
        else
 
           ! Vertical loop over T levels
           do k = kbot, ktop
-             thilt(k,iw) = thilt(k,iw) + real(volti(k,iw)) * (aflux(k-1,n) - aflux(k,n))
+             thilt(k,iw) = thilt(k,iw) + volti(k,iw) * (aflux(k-1,n) - aflux(k,n))
           enddo
 
        endif
@@ -266,7 +266,7 @@ contains
 
   subroutine acm2_momentum( iw, zkm )
 
-    use mem_grid,   only: mza, arw, volt, volti, lpw, lsw, nsw_max, dzim
+    use mem_grid,   only: mza, arw, volti, lpw, lsw, nsw_max, dzim
     use mem_turb,   only: vkm_sfc, vkm
     use mem_basic,  only: vxe, vye, vze, rho
     use mem_tend,   only: vmxet, vmyet, vmzet
@@ -290,7 +290,7 @@ contains
     real :: upp(mza)
     real :: dtom(mza)
     real :: fact(nsw_max)
-    real :: dtl, v4i
+    real :: dtl
 
     integer :: k, ks
     integer :: kbot, ktop, nsfc
@@ -311,7 +311,7 @@ contains
     akodz(ktop) = 0.0
 
     do k = kbot, ktop
-       dtom(k)  = dtl / real(volt(k,iw) * rho(k,iw))
+       dtom(k)  = dtl * volti(k,iw) / real(rho(k,iw))
        low(k)   = -dtom(k) * akodz(k-1)
        upp(k)   = -dtom(k) * akodz(k  )
        dia(k)   = 1.0 - low(k) - upp(k)
@@ -350,20 +350,18 @@ contains
     ! Compute tendencies due to internal turbulent fluxes
 
     do k = kbot, mza
-       v4i = real(volti(k,iw))
-       vmxet(k,iw) = vmxet(k,iw) + v4i * (aflux(k-1,1) - aflux(k,1))
-       vmyet(k,iw) = vmyet(k,iw) + v4i * (aflux(k-1,2) - aflux(k,2))
-       vmzet(k,iw) = vmzet(k,iw) + v4i * (aflux(k-1,3) - aflux(k,3))
+       vmxet(k,iw) = vmxet(k,iw) + volti(k,iw) * (aflux(k-1,1) - aflux(k,1))
+       vmyet(k,iw) = vmyet(k,iw) + volti(k,iw) * (aflux(k-1,2) - aflux(k,2))
+       vmzet(k,iw) = vmzet(k,iw) + volti(k,iw) * (aflux(k-1,3) - aflux(k,3))
     enddo
 
     ! Include tendencies due to surface drag
 
     do k = kbot, kbot + nsfc - 1
        ks = k - kbot + 1
-       v4i = real(volti(k,iw))
-       vmxet(k,iw) = vmxet(k,iw) - v4i * fact(ks) * soln(k,1)
-       vmyet(k,iw) = vmyet(k,iw) - v4i * fact(ks) * soln(k,2)
-       vmzet(k,iw) = vmzet(k,iw) - v4i * fact(ks) * soln(k,3)
+       vmxet(k,iw) = vmxet(k,iw) - volti(k,iw) * fact(ks) * soln(k,1)
+       vmyet(k,iw) = vmyet(k,iw) - volti(k,iw) * fact(ks) * soln(k,2)
+       vmzet(k,iw) = vmzet(k,iw) - volti(k,iw) * fact(ks) * soln(k,3)
     enddo
 
   end subroutine acm2_momentum

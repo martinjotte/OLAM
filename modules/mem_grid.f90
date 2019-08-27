@@ -97,8 +97,12 @@ Module mem_grid
 
    real(r8), allocatable, dimension(:,:) ::  &
 
-      volt, volti,    &  ! Volume of T cell;  1 / (Volume of T cell)
-      volwi              ! 1 / (Volumes of adjacent T cells)
+      volt                ! Volume of T cell
+
+   real, allocatable, dimension(:,:) :: &
+        volti, &          ! 1 / (Volume of T cell)
+        volwi, &          ! 1 / (Volumes of adjacent T cells)
+        volvi             ! 1 / (Volumes of adjacent T cells)
 
    integer :: impent(12)  ! Scratch array for storing 12 pentagonal IM indices
 
@@ -299,12 +303,12 @@ Contains
      ! during the MAKEGRID stage
 
      use consts_coms, only: r8, eradi
-     use mem_ijtabs,  only: itab_w
+     use mem_ijtabs,  only: itab_w, itab_v, jtab_v, jtv_wadj
      use misc_coms,   only: mdomain
 
      implicit none
 
-     integer :: iw, iv, k, n1, n2
+     integer :: iw, j, iv, iw1, iw2, k, n1, n2
      real    :: raxis, vxn_ewv, vyn_ewv, vxn_nsv, vyn_nsv, vzn_nsv
 
      ! Allocate and define 1D variables defined at T levels
@@ -375,7 +379,11 @@ Contains
      vnyo2(1) = 0.0
      vnzo2(1) = 0.0
 
-     !$omp parallel do private(vxn_ewv,vyn_ewv,vxn_nsv,vyn_nsv,vzn_nsv)
+     allocate(volvi(mza,mva))
+     volvi(:,1) = 0.0
+
+     !$omp parallel
+     !$omp do private(vxn_ewv,vyn_ewv,vxn_nsv,vyn_nsv,vzn_nsv)
      do iv = 2, mva
 
         vnxo2(iv) = vnx(iv) * 0.5
@@ -411,8 +419,24 @@ Contains
         endif
 
      enddo
-     !$omp end parallel do
+     !$omp end do nowait
 
+     !$omp do private(iv,iw1,iw2,k)
+     do j = 1,jtab_v(jtv_wadj)%jend(1); iv = jtab_v(jtv_wadj)%iv(j)
+        
+        iw1 = itab_v(iv)%iw(1)
+        iw2 = itab_v(iv)%iw(2)
+
+        volvi(1:lpv(iv)-1,iv) = 0.0
+
+        do k = lpv(iv), mza
+           volvi(k,iv) = real( 1.0_r8 / (volt(k,iw1) + volt(k,iw2)) )
+        enddo
+
+     enddo
+     !$omp end do nowait
+     !$omp end parallel
+ 
      ! Allocate and define variables defined at W columns
 
      allocate(wnxo2    (mwa))
@@ -427,8 +451,9 @@ Contains
      wnxo2  (1) = 0.0
      wnyo2  (1) = 0.0
      wnzo2  (1) = 0.0
-     volti(:,1) = 0.0_r8
-     volwi(:,1) = 0.0_r8
+
+     volti(:,1) = 0.0
+     volwi(:,1) = 0.0
 
      !$omp parallel do private(n1,n2,raxis)
      do iw = 2, mwa
@@ -437,15 +462,14 @@ Contains
         wnyo2(iw) = wny(iw) * 0.5
         wnzo2(iw) = wnz(iw) * 0.5
 
-        volti(1:lpw(iw)-1,iw) = 0.0_r8
-        volti(lpw(iw):mza,iw) = 1.0_r8 / volt(lpw(iw):mza,iw)
+        volti(1:lpw(iw)-1,iw) = 0.0
+        volti(lpw(iw):mza,iw) = real( 1.0_r8 / volt(lpw(iw):mza,iw) )
 
-        volwi(1:lpw(iw)-1,iw) = 0.0_r8
-        volwi(mza,iw)         = 0.0_r8
+        volwi(1:lpw(iw)-1,iw) = 0.0
+        volwi(mza,iw)         = 0.0
 
-        volwi(lpw(iw):mza-1,iw) = 1.0_r8 / &
-             ( volt(lpw(iw):mza-1,iw) + volt(lpw(iw)+1:mza,iw) )
-
+        volwi(lpw(iw):mza-1,iw) = real( 1.0_r8 / ( volt(lpw(iw)  :mza-1,iw) &
+                                                 + volt(lpw(iw)+1:mza  ,iw) ) )
         arw0i(iw) = 1.0 / arw0(iw)
 
         do n1 = 1, itab_w(iw)%npoly

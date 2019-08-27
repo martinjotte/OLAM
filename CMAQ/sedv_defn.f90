@@ -211,7 +211,7 @@ contains
           ! Apply fluxes to obtain new aerosol concentrations
 
           do k = lpw(iw), mza
-             cgrid(k,iw,s) = cgrid(k,iw,s) + real(volti(k,iw)) &
+             cgrid(k,iw,s) = cgrid(k,iw,s) + volti(k,iw) &
                   * (aeflux(k) * arw(k,iw) - aeflux(k-1) * arp(k-1))
           enddo
 

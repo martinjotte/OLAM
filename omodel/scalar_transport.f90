@@ -334,8 +334,8 @@ subroutine scalar_transport(mrl,vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
 ! Add contributions to scalar tendency from horizontal and vertical
 ! advection and diffusion
 
-           sct(k,iw) = sct(k,iw) + real(volti(k,iw)) &
-                     * ( hflux(k) + vfluxadv(k-1) - vfluxadv(k) )
+           sct(k,iw) = sct(k,iw) &
+                     + volti(k,iw) * (hflux(k) + vfluxadv(k-1) - vfluxadv(k))
 
         enddo
 
@@ -776,7 +776,7 @@ subroutine scalar_hdiff_split(mrl)
 
      do k = lpw(iw), mza
         scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
-                                  + real(volti(k,iw)) * hflux(k)
+                                  + volti(k,iw) * hflux(k)
      enddo
 
   enddo

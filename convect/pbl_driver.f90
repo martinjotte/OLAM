@@ -139,7 +139,6 @@ end subroutine comp_horiz_k
 
 subroutine comp_horiz_k_column(iv)
 
-  use consts_coms, only: r8
   use mem_grid,    only: arw0, lpv, mza, arv, volt, dniv
   use misc_coms,   only: dtlm, akmin
   use mem_ijtabs,  only: itab_v, itab_w
@@ -152,9 +151,9 @@ subroutine comp_horiz_k_column(iv)
 
   integer, intent(in) :: iv
   integer             :: iw1, iw2, k, mrl
-  real                :: bkmin, dens
+  real                :: bkmin, dens, dtl
   real                :: hkm, hkh, tempm, temph, stab1, stab2
-  real(r8)            :: fact1, fact2
+  real                :: fact1, fact2
   real                :: hcm, hkc(mza)
   real, parameter     :: cbmf0 = 0.066
 
@@ -165,8 +164,10 @@ subroutine comp_horiz_k_column(iv)
   iw2 = itab_v(iv)%iw(2)
   mrl = itab_v(iv)%mrlv
 
-  fact1 = 0.95_r8 / ( dtlm(itab_w(iw1)%mrlw) * itab_w(iw1)%npoly )
-  fact2 = 0.95_r8 / ( dtlm(itab_w(iw2)%mrlw) * itab_w(iw2)%npoly )
+  dtl = dtlm(itab_v(iv)%mrlv)
+
+  fact1 = 0.95 / (dtl * itab_w(iw1)%npoly )
+  fact2 = 0.95 / (dtl * itab_w(iw2)%npoly )
 
   bkmin = akmin(mrl) * .075 * min(arw0(iw1),arw0(iw2)) ** .66666666
 
@@ -211,8 +212,8 @@ subroutine comp_horiz_k_column(iv)
     tempm = dniv(iv) * arv(k,iv) * hkm
     temph = dniv(iv) * arv(k,iv) * hkh
 
-    stab1 = rho(k,iw1) * volt(k,iw1) * fact1
-    stab2 = rho(k,iw2) * volt(k,iw2) * fact2
+    stab1 = real(rho(k,iw1)) * volt(k,iw1) * fact1
+    stab2 = real(rho(k,iw2)) * volt(k,iw2) * fact2
 
     akmodx(k,iv) = min( tempm, stab1, stab2 )
     akhodx(k,iv) = min( temph, stab1, stab2 )
@@ -348,7 +349,6 @@ end subroutine pbl_init
 subroutine apply_surface_fluxes( iw )
 
   use mem_grid,    only: mza, lpw, lsw, volti
-  use consts_coms, only: r8
   use misc_coms,   only: dtlm
   use mem_basic,   only: rho
   use mem_ijtabs,  only: itab_w
@@ -360,9 +360,10 @@ subroutine apply_surface_fluxes( iw )
 
   integer, intent(in) :: iw
   integer             :: ns, n, ks, k
-  real(r8)            :: dtli
+  real                :: dtl, dtli
 
-  dtli = 1.0_r8 / dtlm(itab_w(iw)%mrlw)
+  dtl  = dtlm(itab_w(iw)%mrlw)
+  dtli = 1.0 / dtl
 
   ! Apply surface heat flux directly to thil tendency
 
@@ -424,7 +425,7 @@ subroutine apply_momentum_fluxes( iw )
   do k = lpw(iw), lpw(iw) + lsw(iw) - 1
      ks = k - lpw(iw) + 1
 
-     fact = 2.0 * vkm_sfc(ks,iw) * dzim(k-1) * (arw(k,iw) - arw(k-1,iw)) * real(volti(k,iw))
+     fact = 2.0 * vkm_sfc(ks,iw) * dzim(k-1) * (arw(k,iw) - arw(k-1,iw)) * volti(k,iw)
 
      vmxet(k,iw) = vmxet(k,iw) - fact * vxe(k,iw)
      vmyet(k,iw) = vmyet(k,iw) - fact * vye(k,iw)

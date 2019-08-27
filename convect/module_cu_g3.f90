@@ -233,7 +233,7 @@ CONTAINS
                / real(volt(k,iw) * rho(k,iw))
 
         ! "forced" temp, water vapor, and pressure
-        dtemp = (fthrd_lw(k,iw) + fthrd_sw(k,iw) + &
+        dtemp = ( (fthrd_lw(k,iw) + fthrd_sw(k,iw)) / real(rho(k,iw)) + &
                  fthpbl(k,iw) + fthadv) * dtlong * exner(k)
         drr_v = (fqtpbl(k,iw) + fqvadv) * dtlong
 
