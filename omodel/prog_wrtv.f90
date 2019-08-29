@@ -44,7 +44,6 @@ module wrtv_mem
   real, allocatable :: wmca    (:,:)
 
   logical, save     :: rotational = .false.
-  integer, save     :: iflag      = 0
 
   real,     allocatable :: alpha_press(:,:)
   real(r8), allocatable :: rd_rt_w    (:,:)
@@ -84,13 +83,6 @@ subroutine alloc_prog_wrtv_mem()
      allocate(wmca(mza,mwa)) ; wmca(:,:) = 0.0
   endif
 
-  if (nl%ithil_monot == 1 .or. nl%ivelc_monot == 1) then
-     iflag = 1
-  else
-     iflag = 2
-  endif
-
-
 end subroutine alloc_prog_wrtv_mem
 
 !===============================================================================
@@ -128,8 +120,7 @@ subroutine prog_wrtv(vmsc, wmsc)
                           gxyps_vye, gxxps_vye, gyyps_vye, gzzps_vye, &
                           gxps_vze, gyps_vze, gzps_vze, &
                           gxyps_vze, gxxps_vze, gyyps_vze, gzzps_vze
-  use mem_thuburn,  only: comp_cfls, comp_and_apply_monot_limits, &
-                          comp_and_apply_pd_limits
+  use mem_thuburn,  only: comp_cfls_short, comp_and_apply_monot_limits
   use grad_lib
 
   implicit none
@@ -225,11 +216,10 @@ subroutine prog_wrtv(vmsc, wmsc)
   !$omp end do nowait
   !$omp end parallel
 
+  ! Compute CFL numbers needed by Thuburn monotonic scheme
+
   if (nl%ithil_monot + nl%ivelc_monot > 0) then
-
-      ! Compute CFL numbers needed by Thuburn monotonic scheme
-      call comp_cfls( mrl, dtsm, vmcfa, wmca, rho, iflag, do_check=.false. )
-
+     call comp_cfls_short( mrl, vmcfa, wmca )
   endif
 
 ! SPECIAL PLOT SECTION - - - - - - - - - - - - - - - - - - - -
@@ -459,15 +449,12 @@ subroutine prog_wrtv(vmsc, wmsc)
 ! Compute the monotonic or positive-definite flux limiters and then apply them
 
   if (nl%ithil_monot == 1) then
-     call comp_and_apply_monot_limits(mrl, thil, thil_upw, thil_upv, kdepw, iwdepv)
-  elseif (nl%ithil_monot == 2) then
-     call comp_and_apply_pd_limits(mrl, thil, thil_upw, thil_upv, kdepw, iwdepv)
+     call comp_and_apply_monot_limits(mrl, thil, thil_upw, thil_upv, kdepw, iwdepv, wmca, vmcfa)
   endif
-
   if (nl%ivelc_monot == 1) then
-     call comp_and_apply_monot_limits(mrl, vxe, vxe_upw, vxe_upv, kdepw, iwdepv)
-     call comp_and_apply_monot_limits(mrl, vye, vye_upw, vye_upv, kdepw, iwdepv)
-     call comp_and_apply_monot_limits(mrl, vze, vze_upw, vze_upv, kdepw, iwdepv)
+     call comp_and_apply_monot_limits(mrl, vxe,  vxe_upw,  vxe_upv,  kdepw, iwdepv, wmca, vmcfa)
+     call comp_and_apply_monot_limits(mrl, vye,  vye_upw,  vye_upv,  kdepw, iwdepv, wmca, vmcfa)
+     call comp_and_apply_monot_limits(mrl, vze,  vze_upw,  vze_upv,  kdepw, iwdepv, wmca, vmcfa)
   endif
 
 ! MAIN LOOP OVER W COLUMNS FOR UPDATING WM, WC, RHO, THIL, AND PRESS

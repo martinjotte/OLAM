@@ -41,7 +41,7 @@ subroutine scalar_transport(mrl,vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
   use var_tables,   only: num_scalar, scalar_tab
   use mem_turb,     only: akhodx
   use oname_coms,   only: nl
-  use mem_thuburn,  only: comp_cfls, comp_and_apply_monot_limits, &
+  use mem_thuburn,  only: comp_cfls_long, comp_and_apply_monot_limits, &
                           comp_and_apply_pd_limits
   use olam_mpi_atm, only: mpi_send_w, mpi_recv_w
   use obnd,         only: lbcopy_w
@@ -145,7 +145,7 @@ subroutine scalar_transport(mrl,vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
   ! Compute outflow CFL numbers for long timestep stability check;
   ! also needed by Thuburn monotonic scheme
 
-  call comp_cfls( mrl, dtlm, vmsca, wmsca, rho_old, nl%iscal_monot, do_check=.true. )
+  call comp_cfls_long( mrl, vmsca, wmsca, rho_old, nl%iscal_monot, do_check=.true. )
 
 ! LOOP OVER SCALARS HERE
   do n = 1, num_scalar
@@ -270,9 +270,11 @@ subroutine scalar_transport(mrl,vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
 ! Compute and apply the monotonic or positive-definite flux limiters.
 
      if (nl%iscal_monot == 1) then
-        call comp_and_apply_monot_limits(mrl, scp, scp_upw, scp_upv, kdepw, iwdepv)
+        call comp_and_apply_monot_limits(mrl, scp, scp_upw, scp_upv, kdepw, iwdepv, &
+             wmsca, vmsca)
      elseif (nl%iscal_monot == 2 .and. scalar_tab(n)%pdef) then
-        call comp_and_apply_pd_limits(mrl, scp, scp_upw, scp_upv, kdepw, iwdepv)
+        call comp_and_apply_pd_limits(mrl, scp, scp_upw, scp_upv, kdepw, iwdepv, &
+             wmsca, vmsca)
      endif
 
 ! Horizontal loop over W/T points

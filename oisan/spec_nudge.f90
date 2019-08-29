@@ -184,9 +184,9 @@ enddo
 
 end subroutine nudge_prep_spec
 
-!===========================================================================
+!==============================================================================
 
-subroutine spec_nudge()
+subroutine spec_nudge(mrl)
 
 use mem_nudge, only:   tnudcent,      mwnud,    volwnudi,   rhot_nud,  &
                         rho_sim,    rho_obs,    rho_obsp,    rho_obsf, &
@@ -196,31 +196,28 @@ use mem_nudge, only:   tnudcent,      mwnud,    volwnudi,   rhot_nud,  &
                      umerid_sim, umerid_obs, umerid_obsp, umerid_obsf
 
 use mem_basic,   only: rho, theta, rr_w, vxe, vye, vze
-use mem_grid,    only: mza, mwa, lpw, xew, yew, zew, volt
+use mem_grid,    only: vxn_ew, vyn_ew, vxn_ns, vyn_ns, vzn_ns, &
+                       mza, mwa, lpw, volt
 use misc_coms,   only: s1900_sim, iparallel, dtlm
-use mem_ijtabs,  only: istp, jtab_w, itab_w, mrl_begl, jtv_prog, jtw_prog
-use consts_coms, only: eradi, r8
+use mem_ijtabs,  only: jtab_w, itab_w, jtv_prog, jtw_prog
+use consts_coms, only: r8
 use mem_tend,    only: thilt, rr_wt, vmxet, vmyet, vmzet
 use isan_coms,   only: ifgfile, s1900_fg
 use olam_mpi_atm,only: mpi_send_wnud, mpi_recv_wnud
-use var_tables,  only: num_scalar, scalar_tab
-use oname_coms,  only: nl
 
 implicit none
 
 ! Nudge selected model fields (rho, thil, rr_w, vmc) to observed data
 ! using polygon filtering
 
-integer :: iwnud,k,j,iw,iwnud1,iwnud2,iwnud3,mrl,kb,n
+integer, intent(in) :: mrl
 
-real :: umzonalt(mza)
-real :: ummeridt(mza)
-real :: uzonal  (mza)
-real :: umerid  (mza)
+integer :: iwnud,k,j,iw,iwnud1,iwnud2,iwnud3,kb
 
-real :: tp,tf,tnudi,dti,rrw_nudget,rho4
-real :: raxis,raxisi,uvtr
-real :: fnud1,fnud2,fnud3
+real :: umzonalt, ummeridt
+real :: uzonal, umerid
+real :: tp, tf, tnudi, dti, rrw_nudget, rho4
+real :: fnud1, fnud2, fnud3
 
 real(r8) :: drho   (mza,mwnud)
 real(r8) :: dtheta (mza,mwnud)
@@ -272,7 +269,6 @@ real(r8) :: dumerid(mza,mwnud)
 
 ! Check whether it is time to nudge
 
-mrl = mrl_begl(istp)
 if (mrl < 1) return
 
 ! Time interpolation coefficients
@@ -285,7 +281,7 @@ tp = 1. - tf
 ! If doing spectral nudging, zero out nudging polygon arrays and volume counter
 ! prior to summing
 
-!$omp parallel private(uzonal,umerid)
+!$omp parallel
 !$omp do private (k)
 do iwnud = 1,mwnud
    do k = 1,mza
@@ -299,9 +295,8 @@ enddo
 !$omp end do
 
 ! Horizontal loop over W columns
-
 !----------------------------------------------------------------------
-!$omp do private(iw,iwnud1,kb,raxis,raxisi,k)    &
+!$omp do private(iw,iwnud1,kb,k,uzonal,umerid)   &
 !$omp    reduction(+:drho)                       &
 !$omp    reduction(+:dtheta)  reduction(+:drrw)  &
 !$omp    reduction(+:duzonal) reduction(+:dumerid)
@@ -309,34 +304,19 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
    iwnud1 = itab_w(iw)%iwnud(1)
 !---------------------------------------------------------------------
 
-! Reconstruct UZONAL(k) and UMERID(k) from VXE, VYE, VZE
-
-   kb = lpw(iw)
-   raxis = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis
-
-   if (raxis > 1.e3) then
-      raxisi = 1. / raxis
-
-      do k = kb, mza
-
-         uzonal(k) = (vye(k,iw) * xew(iw) - vxe(k,iw) * yew(iw)) * raxisi
-         umerid(k) = vze(k,iw) * raxis * eradi &
-            - (vxe(k,iw) * xew(iw) + vye(k,iw) * yew(iw)) * zew(iw) * raxisi * eradi
-
-      enddo
-
-   else
-      uzonal(:) = 0.
-      umerid(:) = 0.
-   endif
-
    ! Sum model fields to nudging polygon arrays
+
    do k = kb, mza
+
+      uzonal = vxe(k,iw) * vxn_ew(iw) + vye(k,iw) * vyn_ew(iw)
+      umerid = vxe(k,iw) * vxn_ns(iw) + vye(k,iw) * vyn_ns(iw) &
+             + vze(k,iw) * vzn_ns(iw)
+
       drho   (k,iwnud1) =    drho(k,iwnud1) + rho  (k,iw) * volt(k,iw)
       dtheta (k,iwnud1) =  dtheta(k,iwnud1) + theta(k,iw) * volt(k,iw)
       drrw   (k,iwnud1) =    drrw(k,iwnud1) + rr_w (k,iw) * volt(k,iw)
-      duzonal(k,iwnud1) = duzonal(k,iwnud1) + uzonal(k)   * volt(k,iw)
-      dumerid(k,iwnud1) = dumerid(k,iwnud1) + umerid(k)   * volt(k,iw)
+      duzonal(k,iwnud1) = duzonal(k,iwnud1) + uzonal      * volt(k,iw)
+      dumerid(k,iwnud1) = dumerid(k,iwnud1) + umerid      * volt(k,iw)
    enddo
 
 enddo
@@ -357,7 +337,7 @@ endif
 
 ! Horizontal loop over nudging polygons
 
-!$omp parallel private(umzonalt,ummeridt)
+!$omp parallel
 !$omp do private(k)
 do iwnud = 2,mwnud
 
@@ -393,8 +373,8 @@ enddo
 ! and interpolate (obs - model) differences at each polygon point to the W point
 
 !----------------------------------------------------------------------
-!$omp do private(iw,iwnud1,iwnud2,iwnud3,fnud1,fnud2,fnud3,tnudi,&
-!$omp            dti,k,rrw_nudget,rho4,raxis,raxisi,uvtr,n)
+!$omp do private (iw,iwnud1,iwnud2,iwnud3,fnud1,fnud2,fnud3,tnudi, &
+!$omp             dti,k,rrw_nudget,rho4,umzonalt,ummeridt)
 do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
    iwnud1 = itab_w(iw)%iwnud(1);  fnud1 = itab_w(iw)%fnud(1)
    iwnud2 = itab_w(iw)%iwnud(2);  fnud2 = itab_w(iw)%fnud(2)
@@ -418,58 +398,43 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
                      + fnud2 * (rho_obs(k,iwnud2) - rho_sim(k,iwnud2)) &
                      + fnud3 * (rho_obs(k,iwnud3) - rho_sim(k,iwnud3)) )
 
-      thilt(k,iw) = thilt(k,iw) + tnudi * &
-                     ( fnud1 * (rho_obs(k,iwnud1) * theta_obs(k,iwnud1) - rho_sim(k,iwnud1) * theta_sim(k,iwnud1)) &
-                     + fnud2 * (rho_obs(k,iwnud2) * theta_obs(k,iwnud2) - rho_sim(k,iwnud2) * theta_sim(k,iwnud2)) &
-                     + fnud3 * (rho_obs(k,iwnud3) * theta_obs(k,iwnud3) - rho_sim(k,iwnud3) * theta_sim(k,iwnud3)) )
-
-      umzonalt(k)    = tnudi * &
-                     ( fnud1 * (rho_obs(k,iwnud1) * uzonal_obs(k,iwnud1) - rho_sim(k,iwnud1) * uzonal_sim(k,iwnud1)) &
-                     + fnud2 * (rho_obs(k,iwnud2) * uzonal_obs(k,iwnud2) - rho_sim(k,iwnud2) * uzonal_sim(k,iwnud2)) &
-                     + fnud3 * (rho_obs(k,iwnud3) * uzonal_obs(k,iwnud3) - rho_sim(k,iwnud3) * uzonal_sim(k,iwnud3)) )
-
-      ummeridt(k)    = tnudi * &
-                     ( fnud1 * (rho_obs(k,iwnud1) * umerid_obs(k,iwnud1) - rho_sim(k,iwnud1) * umerid_sim(k,iwnud1)) &
-                     + fnud2 * (rho_obs(k,iwnud1) * umerid_obs(k,iwnud2) - rho_sim(k,iwnud2) * umerid_sim(k,iwnud2)) &
-                     + fnud3 * (rho_obs(k,iwnud1) * umerid_obs(k,iwnud3) - rho_sim(k,iwnud3) * umerid_sim(k,iwnud3)) )
+      thilt(k,iw)    = thilt(k,iw) + tnudi * &
+                     ( fnud1 * ( rho_obs(k,iwnud1) * theta_obs(k,iwnud1) * &
+                               - rho_sim(k,iwnud1) * theta_sim(k,iwnud1) ) &
+                     + fnud2 * ( rho_obs(k,iwnud2) * theta_obs(k,iwnud2) * &
+                               - rho_sim(k,iwnud2) * theta_sim(k,iwnud2) ) &
+                     + fnud3 * ( rho_obs(k,iwnud3) * theta_obs(k,iwnud3) * &
+                               - rho_sim(k,iwnud3) * theta_sim(k,iwnud3) ) )
 
       rrw_nudget     = tnudi * rho4 * &
                      ( fnud1 * (rrw_obs(k,iwnud1) - rrw_sim(k,iwnud1)) &
                      + fnud2 * (rrw_obs(k,iwnud2) - rrw_sim(k,iwnud2)) &
                      + fnud3 * (rrw_obs(k,iwnud3) - rrw_sim(k,iwnud3)) )
 
-      rrw_nudget  = max(rrw_nudget, -.99 * max(rr_w(k,iw) * rho4 * dti + rr_wt(k,iw), 0.))
+      rrw_nudget  = max(rrw_nudget, -.95 * max(rr_w(k,iw) * rho4 * dti + rr_wt(k,iw), 0.))
 
       rr_wt(k,iw) = rr_wt(k,iw) + rrw_nudget
 
+      umzonalt       = tnudi * rho4 * &
+                     ( fnud1 * (uzonal_obs(k,iwnud1) - uzonal_sim(k,iwnud1)) &
+                     + fnud2 * (uzonal_obs(k,iwnud2) - uzonal_sim(k,iwnud2)) &
+                     + fnud3 * (uzonal_obs(k,iwnud3) - uzonal_sim(k,iwnud3)) )
+
+      ummeridt       = tnudi  * rho4 * &
+                     ( fnud1 * (umerid_obs(k,iwnud1) - umerid_sim(k,iwnud1)) &
+                     + fnud2 * (umerid_obs(k,iwnud2) - umerid_sim(k,iwnud2)) &
+                     + fnud3 * (umerid_obs(k,iwnud3) - umerid_sim(k,iwnud3)) )
+
+      vmxet(k,iw) = vmxet(k,iw) + vxn_ew(iw) * umzonalt + vxn_ns(iw) * ummeridt &
+                  + vxe(k,iw) * rhot_nud(k,iw)
+
+      vmyet(k,iw) = vmyet(k,iw) + vyn_ew(iw) * umzonalt + vyn_ns(iw) * ummeridt &
+                  + vye(k,iw) * rhot_nud(k,iw)
+
+      vmzet(k,iw) = vmzet(k,iw) + vzn_ns(iw) * ummeridt &
+                  + vze(k,iw) * rhot_nud(k,iw)
+
    enddo
-
-   raxis = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis
-
-   if (raxis > 1.e3) then
-      raxisi = 1. / raxis
-
-      do k = lpw(iw), mza
-         uvtr = -ummeridt(k) * zew(iw) * eradi
-         vmxet(k,iw) = vmxet(k,iw) + (-umzonalt(k) * yew(iw) + uvtr * xew(iw)) * raxisi
-         vmyet(k,iw) = vmyet(k,iw) + ( umzonalt(k) * xew(iw) + uvtr * yew(iw)) * raxisi
-         vmzet(k,iw) = vmzet(k,iw) +   ummeridt(k) * raxis * eradi
-      enddo
-   endif
-
-! If we want to preserve scalar mixing ratios, compensate for the density nudging by
-! addings/subtracting a comparable amount of scalar mass
-
-   if (nl%nud_preserve_mix_ratio) then
-      do n = 1, num_scalar
-
-         do k = lpw(iw), mza
-            scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
-                                      + scalar_tab(n)%var_p(k,iw) * rhot_nud(k,iw)
-         enddo
-
-      enddo
-   endif
 
 enddo
 !$omp end do

@@ -162,6 +162,8 @@ Module oname_coms
       real    :: vort_damp_fact = 0.1
       real    :: divh_damp_fact = 0.1
 
+      logical :: zero_neg_scalars = .true.
+
       logical :: debug_fp    = .false.
       logical :: init_nans   = .false.
 

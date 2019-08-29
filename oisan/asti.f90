@@ -422,7 +422,7 @@ do k = ka,mza
    o_ozone (k,iw) = max( 1.e-30, vctr6(k)*cnvto3) ! mix ratio to ppmV
 enddo
 
-if (miclevel > 2) then
+if (miclevel > 1) then
    do k = ka, mza
       o_rho(k,iw) = o_press(k,iw) ** cvocp * p00kord / &
                     ( o_theta(k,iw) * (1.0 + eps_vapi * o_rrw(k,iw)) )

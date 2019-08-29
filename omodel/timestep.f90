@@ -40,7 +40,7 @@ use mem_nudge,   only: nudflag, nudnxp, o3nudflag
 use mem_grid,    only: mza, mva, mwa
 use micro_coms,  only: miclevel
 use leaf_coms,   only: isfcl
-use mem_basic,   only: thil, rho, wmc, wc, vmc
+use mem_basic,   only: thil, rho, wmc, wc
 use olam_mpi_atm,only: mpi_send_w, mpi_recv_w, mpi_send_v, mpi_recv_v
 use var_tables,  only: nvar_par, vtab_r, nptonv
 use obnd,        only: trsets, lbcopy_v, lbcopy_w, botset, latsett
@@ -122,56 +122,63 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
       call radiate()
    endif
 
-   ! small-scale divergence/vorticity damping
-
    mrl = mrl_begl(istp)
    if (mrl > 0) then
+
+      ! small-scale divergence/vorticity damping
+
       call divh_damp(mrl)
       call vort_damp(mrl)
+
+      ! Rayleigh friction for velocit at model top
+
       call rayf_vels(mrl)
-   endif
 
-   ! Compute nudging tendencies
+      ! Mudging tendencies
 
-   if (initial == 2 .and. nudflag == 1) then
-      if (nudnxp == 0) then
-         call  obs_nudge()
-      else
-         call spec_nudge()
+      if (initial == 2 .and. nudflag == 1) then
+         if (nudnxp == 0) then
+            call  obs_nudge(mrl)
+         else
+            call spec_nudge(mrl)
+         endif
       endif
-   endif
 
-   ! Nudging of ozone if it is in the scalar table
+      ! Nudging of ozone if it is in the scalar table
 
-   if (initial == 2 .and. o3nudflag == 1 .and. i_o3 > 0) then
-      call obs_nudge_o3()
-   endif
+      if (initial == 2 .and. o3nudflag == 1 .and. i_o3 > 0) then
+         call obs_nudge_o3(mrl)
+      endif
 
-   ! Long timestep PBL tendencies (computation of K's, scalar diffusion,
-   ! CMAQ emissions and deposition, and lateral friction with shaved cells)
-
-   mrl = mrl_begl(istp)
-   if (mrl > 0) then
+      ! CMAQ emissions and deposition
 
       if (do_chem == 1) then
-         call get_emis ( mrl )
-         call get_depv ( mrl )
+         call get_emis (mrl)
+         call get_depv (mrl)
       endif
+
+      ! Long timestep PBL tendencies
 
       call pbl_driver(mrl)
 
       ! MPI send of computed K's
+
       if (iparallel == 1) then
          call mpi_send_w(mrl, rvara1=vkm, rvara2=vkh)
       endif
 
+      ! and lateral friction with terrain with shaved cells
+
       if (isfcl == 1) call lateral_friction(mrl)
 
       ! MPI recv of computed K's
+
       if (iparallel == 1) then
          call mpi_recv_w(mrl, rvara1=vkm, rvara2=vkh)
       endif
       call lbcopy_w(mrl, a1=vkm, a2=vkh)
+
+      ! Computation of horizontal K's
 
       call comp_horiz_k(mrl)
 
@@ -295,15 +302,16 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
    mrl = mrl_endl(istp)
    if (mrl > 0) then
+
       call scalar_transport(mrl,vmsc,wmsc,vxesc,vyesc,vzesc,rho_old)
       if (nl%split_scalars > 0) call scalar_hdiff_split(mrl)
+
+      ! call check_nans(14,rvara1=alpha_press)
+
+      call predtr(mrl,rho_old)
+
+      ! call check_nans(15,rvara1=alpha_press)
    endif
-
-   ! call check_nans(14,rvara1=alpha_press)
-
-   call predtr(rho_old)
-
-   ! call check_nans(15,rvara1=alpha_press)
 
    ! Special diagnosis of water vapor for DCMIP tests; thil is dry theta in that case
    !---------------------------------------------------------------------------------
@@ -631,21 +639,23 @@ end subroutine tend0
 
 !==========================================================================
 
-subroutine predtr(rho_old)
+subroutine predtr(mrl, rho_old)
 
 use var_tables, only: num_scalar, scalar_tab
-use mem_ijtabs, only: istp, mrl_endl, jtab_w, itab_w, jtw_prog
+use mem_ijtabs, only: jtab_w, itab_w, jtw_prog
 use mem_grid,   only: mza, mwa, lpw
 use misc_coms,  only: dtlm
 use consts_coms,only: r8
 use mem_basic,  only: rho
 use oname_coms, only: nl
+use mem_nudge,  only: nudflag, rhot_nud
 
 implicit none
 
+integer,  intent(in) :: mrl
 real(r8), intent(in) :: rho_old(mza,mwa)
 
-integer  :: n,iw,j,k,mrl
+integer  :: n,iw,j,k
 real(r8) :: dtl
 
 !   -  Step thermodynamic variables from  t  to  t+1.
@@ -659,7 +669,6 @@ real(r8) :: dtl
 !     Update the scalars and apply lateral, top, and bottom boundary
 !     conditions.
 
-mrl = mrl_endl(istp)
 if (mrl > 0) then
 
    !$omp parallel do collapse(2) private(n,j,iw,dtl,k)
@@ -668,26 +677,34 @@ if (mrl > 0) then
 
          dtl = dtlm(itab_w(iw)%mrlw)
 
-         do k = lpw(iw),mza
-            scalar_tab(n)%var_p(k,iw) = ( scalar_tab(n)%var_p(k,iw) * rho_old(k,iw)  &
-                                         + dtl * scalar_tab(n)%var_t(k,iw) ) / rho(k,iw)
+         ! If we are nudging, compensate for the added mass to preserve
+         ! scalar mixing ratios
 
-            ! With monotonic advection and splitting, positive-definite scalars
-            ! should remain positive-definite to machine precision. Here we
-            ! ensure that tiny negative concentrations aren't produeced.
+         if ( nudflag > 0 .and. nl%nud_preserve_mix_ratio .and. &
+              itab_w(iw)%mrlw <= nl%max_nud_mrl ) then
 
-            if ( scalar_tab(n)%pdef .and. nl%iscal_monot > 0 .and. &
-                 nl%split_scalars > 0) then
+            !dir$ ivdep
+            do k = lpw(iw), mza
+               scalar_tab(n)%var_p(k,iw) = ( scalar_tab(n)%var_p(k,iw) * rho_old(k,iw)  &
+                                           + dtl * scalar_tab(n)%var_t(k,iw) )          &
+                                         / (rho(k,iw) - dtl * rhot_nud(k,iw))
+            enddo
 
+         else
+
+            !dir$ ivdep
+            do k = lpw(iw), mza
+               scalar_tab(n)%var_p(k,iw) = ( scalar_tab(n)%var_p(k,iw) * rho_old(k,iw)  &
+                                           + dtl * scalar_tab(n)%var_t(k,iw) ) / rho(k,iw)
+            enddo
+
+         endif
+
+         if ( nl%zero_neg_scalars .and. scalar_tab(n)%pdef ) then
+            do k = lpw(iw), mza
                scalar_tab(n)%var_p(k,iw) = max( scalar_tab(n)%var_p(k,iw), 0.0 )
-
-            endif
-
-            ! Without monotonic advection and splitting, negative concentrations
-            ! can be produced that are significant. If we set those to zero, we
-            ! will no longer conserve mass.
-
-         enddo
+            enddo
+         endif
 
       enddo
    enddo
