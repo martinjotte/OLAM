@@ -403,11 +403,13 @@ contains
     ! Apply fluxes to conserved scalars
 
     do n = 1, num_scalar
-       ! Vertical loop over T levels
+
+       !dir$ ivdep
        do k = ka, mza
           scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
                                     + volti(k,iw) * (soln(k-1,n) - soln(k,n))
        enddo
+
     enddo
 
     ! Apply fluxes and dissipative heating to THIL

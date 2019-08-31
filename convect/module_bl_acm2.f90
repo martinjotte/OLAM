@@ -43,10 +43,10 @@ contains
     use mem_basic,  only: rho, thil
     use mem_ijtabs, only: itab_w
     use misc_coms,  only: dtlm
-    use tridiag,    only: tridv, acm_matrix
+    use tridiag,    only: tridv8, acm_matrix
     use var_tables, only: num_scalar, scalar_tab
     use mem_tend,   only: thilt
-    use consts_coms,only: vonk
+    use consts_coms,only: vonk, r8
 
     implicit none
 
@@ -58,23 +58,23 @@ contains
     real :: massflx(mza)
     real :: akodz(mza)
 
-    real :: low(mza)
-    real :: dia(mza)
-    real :: upp(mza)
+    real(r8) :: low(mza)
+    real(r8) :: dia(mza)
+    real(r8) :: upp(mza)
     real :: dtom(mza), dtorho(mza)
 
     real :: frac_sumi(nsw_max)
     real :: fracs(max(nsw_max,2))
-    real :: aa   (mza,nsw_max)
     real :: cbot (mza)
-    real :: aflux(mza,num_scalar+1)
-    real :: rhs  (mza,num_scalar+1)
-    real :: soln (mza,num_scalar+1)
+
+    real(r8) :: aa   (mza,nsw_max)
+    real(r8) :: rhs  (mza,num_scalar+1)
+    real(r8) :: soln (mza,num_scalar+1)
 
     integer :: k, ks, n, ksm, ksp, kk, ksmax, kpbl
     integer :: kbot, ktop, nsfc, nlev
     real    :: mbar, dens, zpbl, fsum
-    real    :: dtl
+    real    :: dtl, dti
 
     kbot = lpw(iw)
     ktop = mza
@@ -84,8 +84,7 @@ contains
 
     nlev = ktop - kbot + 1
     dtl  = dtlm(itab_w(iw)%mrlw)
-
-    massflx = 0.0
+    dti  = 1.0 / dtl
 
     cnvct = (mflx > 1.e-9)
 
@@ -128,6 +127,7 @@ contains
           massflx(k) = arw(kbot+nsfc-1,iw) * mbar * (zpbl - (zm(k) - zm(kbot-1))) * dens
        enddo
 
+       massflx(kpbl) = 0.
     endif
 
     ! EDDY DIFFUSIVITY TERMS FOR SEMI-IMPLICIT SOLVER - SCALARS
@@ -147,7 +147,7 @@ contains
 
        low(ks) = - dtom(k) * akodz(k-1)
        upp(ks) = - dtom(k) * akodz(k  )
-       dia(ks) = 1.0 - low(ks) - upp(ks)
+       dia(ks) = 1._r8 - low(ks) - upp(ks)
     enddo
 
     ! Scalar variables with long-timestep forcing included
@@ -160,7 +160,8 @@ contains
        enddo
     enddo
 
-    n = num_scalar + 1
+    ! Load potential temperature
+
     do k = kbot, ktop
        ks = k - kbot + 1
        rhs(ks,n) = thil(k,iw) + dtorho(k) * thilt(k,iw)
@@ -176,7 +177,7 @@ contains
           upp(ks-1) = upp(ks-1) - dtom(k-1) * massflx(k-1)
        enddo
 
-       aa(:,:) = 0.0
+       aa(:,:) = 0._r8
        ksmax = min(nsfc, kpbl - kbot)
 
        do kk = 1, ksmax
@@ -201,63 +202,23 @@ contains
 
     else
 
-       call tridv(low, dia, upp, rhs, soln, 1, nlev, mza, num_scalar+1)
+       call tridv8(low, dia, upp, rhs, soln, 1, nlev, mza, num_scalar+1)
 
     endif
 
-    ! Now, soln contains future(t+1) values
+    do n = 1, num_scalar
 
-    ! Compute internal vertical turbulent fluxes due to Kh
-
-    do n = 1, num_scalar+1
-       do k = kbot, ktop-1
+       ! Vertical loop over T levels
+       do k = kbot, ktop
           ks = k - kbot + 1
-          aflux(k,n) = akodz(k) * (soln(ks,n) - soln(ks+1,n))
+          scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
+                                    + real(soln(ks,n) - rhs(ks,n)) * dti
        enddo
     enddo
 
-    ! Include internal nonlocal vertical turbulent fluxes
-
-    if (cnvct) then
-       do n = 1, num_scalar+1
-
-          cbot(1) = soln(1,n)
-          do k = 2, nsfc
-             cbot(k) = sum( soln(1:k,n)*fracs(1:k) ) * frac_sumi(k)
-          enddo
-          cbot(nsfc+1:) = cbot(nsfc)
-
-          do k = kbot, kpbl
-             ks = k - kbot + 1
-             aflux(k,n) = aflux(k,n) + massflx(k) * (cbot(ks) - soln(ks+1,n))
-          enddo
-
-       enddo
-
-    endif
-
-    do n = 1, num_scalar + 1
-
-       ! Set bottom and top vertical internal turbulent fluxes to zero
-       aflux(kbot-1, n) = 0.0
-       aflux(ktop  , n) = 0.0
-
-       if (n <= num_scalar) then
-
-          ! Vertical loop over T levels
-          do k = kbot, ktop
-             scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
-                                       + volti(k,iw) * (aflux(k-1,n) - aflux(k,n))
-          enddo
-
-       else
-
-          ! Vertical loop over T levels
-          do k = kbot, ktop
-             thilt(k,iw) = thilt(k,iw) + volti(k,iw) * (aflux(k-1,n) - aflux(k,n))
-          enddo
-
-       endif
+    ! Vertical loop over T levels
+    do k = kbot, ktop
+       thilt(k,iw) = thilt(k,iw) + real(soln(ks,n) - rhs(ks,n)) * dti
     enddo
 
   end subroutine acm2_scalars

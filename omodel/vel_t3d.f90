@@ -39,9 +39,8 @@ subroutine diag_earth_vels(mrl, vxesc, vyesc, vzesc)
 
   use olam_mpi_atm, only: mpi_send_w, mpi_recv_w
   use obnd,         only: lbcopy_w
-  use mem_ijtabs,   only: jtab_w, itab_w, jtw_prog, jtw_wadj, mrl_ends, mrl_endl
+  use mem_ijtabs,   only: jtab_w, jtw_wadj
   use mem_basic,    only: vxe, vye, vze
-  use misc_coms,    only: iparallel
   use mem_grid,     only: mza, mwa
 
   implicit none
@@ -244,5 +243,56 @@ enddo
 !$omp end parallel do
 
 end subroutine diagvel_t3d_init
+
+
+
+
+subroutine diag_uzonal_umerid(mrl)
+
+  use mem_grid, only: mwa
+  implicit none
+
+  integer, intent(in) :: mrl
+  integer             :: j, iw
+
+  if (mrl == 0) return
+
+  !$omp parallel do private(iw)
+  do iw = 2, mwa
+     call diag_uzonal_umerid_1(iw)
+  enddo
+  !$omp end parallel do
+
+end subroutine diag_uzonal_umerid
+
+
+
+
+subroutine diag_uzonal_umerid_1(iw)
+
+  use mem_basic, only: vxe, vye, vze, ue, ve
+  use mem_grid,  only: lpw, mza, vxn_ew, vyn_ew, vxn_ns, vyn_ns, vzn_ns
+
+  implicit none
+
+  integer, intent(in) :: iw
+  integer             :: k
+
+  ! Reconstruct UZONAL and UMERID from VXE, VYE, VZE
+
+  do k = lpw(iw), mza
+     ue(k,iw) = vxe(k,iw) * vxn_ew(iw) + vye(k,iw) * vyn_ew(iw)
+     ve(k,iw) = vxe(k,iw) * vxn_ns(iw) + vye(k,iw) * vyn_ns(iw) &
+              + vze(k,iw) * vzn_ns(iw)
+  enddo
+
+  do k = 2, lpw(iw) - 1
+     ue(k,iw) = ue(lpw(iw),iw)
+     ve(k,iw) = ve(lpw(iw),iw)
+  enddo
+
+end subroutine diag_uzonal_umerid_1
+
+
 
 end module vel_t3d

@@ -48,7 +48,7 @@ use oplot_coms,  only: op
 use oname_coms,  only: nl
 use mem_flux_accum, only: flux_accum
 use consts_coms, only: r8
-use vel_t3d,     only: diag_earth_vels
+use vel_t3d,     only: diag_earth_vels, diag_uzonal_umerid
 use var_tables,  only: num_scalar, scalar_tab
 use mem_megan,   only: megan_avg_temp
 use emis_defn,   only: get_emis
@@ -249,6 +249,11 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    endif
 
    33 continue
+
+   mrl = mrl_endl(istp)
+   if (mrl > 0) then
+      call diag_uzonal_umerid(mrl)
+   endif
 
    !    write(*,'(a)') ' calling mass_sums3 '
    !    call compute_mass_sums()
@@ -757,13 +762,14 @@ subroutine predtr_split(mrl,rho_old)
   use mem_grid,    only: mza, mwa, lpw
   use misc_coms,   only: dtlm
   use consts_coms, only: r8
+  use oname_coms,  only: nl
 
   implicit none
 
   integer,  intent(in) :: mrl
   real(r8), intent(in) :: rho_old(mza,mwa)
   integer              :: iw, j, n, k
-  real(r8)             :: dtl
+  real                 :: dtl
 
   ! Step scalars from t to t+1 in a time-split sub step
 
@@ -775,12 +781,13 @@ subroutine predtr_split(mrl,rho_old)
 
            dtl = dtlm(itab_w(iw)%mrlw)
 
+           !dir$ ivdep
            do k = lpw(iw), mza
               scalar_tab(n)%var_p(k,iw) = scalar_tab(n)%var_p(k,iw)  &
-                                        + dtl * scalar_tab(n)%var_t(k,iw) / rho_old(k,iw)
+                                        + dtl * scalar_tab(n)%var_t(k,iw) / real(rho_old(k,iw))
               scalar_tab(n)%var_t(k,iw) = 0.0
 
-              if (scalar_tab(n)%pdef) then
+              if (nl%zero_neg_scalars .and. scalar_tab(n)%pdef) then
                  scalar_tab(n)%var_p(k,iw) = max( scalar_tab(n)%var_p(k,iw), 0.0)
               endif
            enddo
@@ -790,7 +797,5 @@ subroutine predtr_split(mrl,rho_old)
      !$omp end parallel do
 
   endif
-
-  ! TODO: check if updated scalars are positive-definite??
 
 end subroutine predtr_split

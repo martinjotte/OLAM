@@ -51,18 +51,16 @@ subroutine fields2_ll()
 ! fields, or selected processes such as hdf5 output and plotting, may be
 ! disabled by commenting out lines of code.
 
-  use mem_ijtabs,  only: itab_w, itabg_w
-  use mem_basic,   only: vc, wc, rho, press, theta, rr_w, rr_v, &
-                         vxe, vye, vze, tair
-  use mem_grid,    only: mza, mwa, lpw, xew, yew, zew, topw, zt, &
-                         wnx, wny, wnz, dzt
+  use mem_ijtabs,  only: itab_w
+  use mem_basic,   only: wc, rho, press, theta, rr_w, rr_v, tair, ue, ve
+  use mem_grid,    only: mza, mwa, lpw, topw, zt, &
+                         vxn_ew, vyn_ew, vxn_ns, vyn_ns, vzn_ns
   use mem_leaf,    only: land
   use leaf_coms,   only: dslz
   use mem_sea,     only: sea
   use misc_coms,   only: io6, current_time, hfilepref, iclobber, iparallel, &
-                         mdomain, time8
-  use consts_coms, only: p00, rocp, piu180, erad, eradi, pio180, cp, alvl, &
-                         rvap, r8
+                         time8
+  use consts_coms, only: p00, rocp, piu180, pio180, cp, alvl, rvap, r8
   use hdf5_utils,  only: shdf5_open, shdf5_orec, shdf5_orec_ll, shdf5_close, &
                          shdf5_write_global_attribute
   use max_dims,    only: pathlen
@@ -252,7 +250,7 @@ subroutine fields2_ll()
   integer       :: ndims, idims(3)
   character(30) :: dimnames(3)
 
-  real :: raxis, raxisi, area_land_sum, area_sea_sum
+  real :: area_land_sum, area_sea_sum
   real :: vx, vy, vz
 
   real :: scr1a(mwa), scr1b(mwa), scr1c(mwa), scr1d(mwa)
@@ -521,35 +519,8 @@ subroutine fields2_ll()
 
   do iw = 2, mwa
      kb = lpw(iw)
-
-     if (mdomain < 2) then
-        raxis = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis
-
-! Evaluate zonal and meridional wind components from model
-
-        do k = kb, mza
-           if (raxis > 1.e3) then
-              scr2a(k,iw) = (vye(k,iw) * xew(iw) - vxe(k,iw) * yew(iw)) / raxis
-              scr2b(k,iw) = vze(k,iw) * raxis * eradi &
-                          - (vxe(k,iw) * xew(iw) + vye(k,iw) * yew(iw)) * zew(iw) / (raxis * erad)
-           else
-              scr2a(k,iw) = 0.
-              scr2b(k,iw) = 0.
-           endif
-        enddo
-
-     else
-
-        do k = kb, mza
-           scr2a(k,iw) = vxe(k,iw)
-           scr2b(k,iw) = vye(k,iw)
-        enddo
-
-     endif
-
-     scr1a(iw) = scr2a(kb,iw)
-     scr1b(iw) = scr2b(kb,iw)
-
+     scr1a(iw) = ue(kb,iw)
+     scr1b(iw) = ve(kb,iw)
   enddo
 
 !------------------------------------------------------------
@@ -557,8 +528,8 @@ subroutine fields2_ll()
 ! near-surface values
 !------------------------------------------------------------
 
-  if (do3d)  call interp_htw_ll(npts,iws_loc,wts_loc,mza,mza-1,scr2a,u_ll)
-  if (do3d)  call interp_htw_ll(npts,iws_loc,wts_loc,mza,mza-1,scr2b,v_ll)
+  if (do3d)  call interp_htw_ll(npts,iws_loc,wts_loc,mza,mza-1,ue,u_ll)
+  if (do3d)  call interp_htw_ll(npts,iws_loc,wts_loc,mza,mza-1,ve,v_ll)
 
   if (dosfc) call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,u_lpw_ll)
   if (dosfc) call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1b,v_lpw_ll)
@@ -808,9 +779,9 @@ subroutine fields2_ll()
 
            do k = lpw(iw), mza
 
-              vx = 0.5 * real(wc_accum(k-1,iw) + wc_accum(k,iw)) * wnx(iw)
-              vy = 0.5 * real(wc_accum(k-1,iw) + wc_accum(k,iw)) * wny(iw)
-              vz = 0.5 * real(wc_accum(k-1,iw) + wc_accum(k,iw)) * wnz(iw)
+              vx = 0.0
+              vy = 0.0
+              vz = 0.0
 
               do jv = 1, npoly
                  iv = itab_w(iw)%iv(jv)
@@ -820,23 +791,8 @@ subroutine fields2_ll()
                  vz = vz + itab_w(iw)%ecvec_vz(jv) * real(vc_accum(k,iv))
               enddo
 
-              if (mdomain < 2) then
-
-                 raxis = sqrt(xew(iw)**2 + yew(iw)**2)  ! dist from earth axis
-
-                 if (raxis > 1.e3) then
-                    scr2a(k,iw) = (vy * xew(iw) - vx * yew(iw)) / raxis
-                    scr2b(k,iw) = vz * raxis / erad &
-                       - (vx * xew(iw) + vy * yew(iw)) * zew(iw) / (raxis * erad) 
-                 else
-                    scr2a(k,iw) = 0.
-                    scr2b(k,iw) = 0.
-                 endif
-
-              else
-                 scr2a(k,iw) = vx
-                 scr2b(k,iw) = vy
-              endif
+              scr2a(k,iw) = vx * vxn_ew(iw) + vy * vyn_ew(iw)
+              scr2b(k,iw) = vx * vxn_ns(iw) + vy * vyn_ns(iw) + vz * vzn_ns(iw)
 
            enddo
         enddo

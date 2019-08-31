@@ -33,14 +33,13 @@
 subroutine fldsisan(o_press, o_rho, o_theta, o_rrw, o_uzonal, o_umerid, o_ozone)
 
 use mem_basic,   only: vmc, vmp, vc, vp, thil, rr_w, rr_v, &
-                       wmc, wc, theta, tair, rho, press
-use mem_grid,    only: mza, mwa, lpv, lpw, zm, zt, xev, yev, zev, &
-                       vnx, vny, vnz
+                       wmc, wc, theta, tair, rho, press, ue, ve
+use mem_grid,    only: mza, mwa, lpv, lpw, zm, zt, vcn_ew, vcn_ns
 use misc_coms,   only: io6, iparallel
 use mem_micro,   only: rr_c, con_c, cldnum
 use micro_coms,  only: miclevel, ccnparm, jnmb, rxmin, zfactor_ccn
 use mem_ijtabs,  only: jtab_v, jtab_w, itab_v, jtv_init, jtw_init
-use consts_coms, only: r8, rocp, t00, p00i, alvlocp, eradi
+use consts_coms, only: r8, rocp, t00, p00i, alvlocp
 use var_tables,  only: num_var, vtab_r
 use olam_mpi_atm,only: mpi_send_w, mpi_recv_w, mpi_send_v, mpi_recv_v
 use obnd,        only: lbcopy_v, lbcopy_w
@@ -58,7 +57,7 @@ real,     intent(in) :: o_ozone (mza,mwa)
 
 integer :: j,iw,k,ka,iv,iw1,iw2,mrl,n
 real    :: ccn, cond, sh_c
-real    :: raxis,raxisi,ug,vg,uvgr,uvgx,uvgy,uvgz
+real    :: ug, vg
 
 ! If initializing the model, fill the main model arrays
 ! and initialize related arrays
@@ -76,14 +75,15 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 
    do k = ka, mza
 
-      rho  (k,iw) = o_rho  (k,iw)
-      rr_w (k,iw) = o_rrw  (k,iw)
-      theta(k,iw) = o_theta(k,iw)
-      press(k,iw) = o_press(k,iw)
-      tair (k,iw) = o_theta(k,iw) * (real(press(k,iw)) * p00i) ** rocp
-      rr_v (k,iw) = o_rrw(k,iw)
-      thil (k,iw) = theta(k,iw)
-
+      rho  (k,iw) = o_rho   (k,iw)
+      rr_w (k,iw) = o_rrw   (k,iw)
+      theta(k,iw) = o_theta (k,iw)
+      press(k,iw) = o_press (k,iw)
+      tair (k,iw) = o_theta (k,iw) * (real(press(k,iw)) * p00i) ** rocp
+      rr_v (k,iw) = o_rrw   (k,iw)
+      thil (k,iw) = theta   (k,iw)
+      ue   (k,iw) = o_uzonal(k,iw)
+      ve   (k,iw) = o_umerid(k,iw)
 
       if (miclevel >= 2) then
          cond = rr_w(k,iw) * real(rho(k,iw)) - rhovsl(tair(k,iw)-t00)
@@ -145,53 +145,36 @@ enddo
 if (iparallel == 1) then
    mrl = 1
    call mpi_send_w(mrl, dvara1=press, dvara2=rho, &
-                   rvara1=wc, rvara2=wmc, rvara3=thil)
+                   rvara1=wc, rvara2=wmc, rvara3=thil, &
+                   rvara4=ue, rvara5=ve)
 
    call mpi_recv_w(mrl, dvara1=press, dvara2=rho, &
-                   rvara1=wc, rvara2=wmc, rvara3=thil)
+                   rvara1=wc, rvara2=wmc, rvara3=thil, &
+                   rvara4=ue, rvara5=ve)
 endif
 
-call lbcopy_w(1, a1=wc, a2=wmc, a3=thil, d1=press, d2=rho)
+call lbcopy_w(1, a1=wc, a2=wmc, a3=thil, a4=ue, a5=ve, d1=press, d2=rho)
 
 ! Initialize VMC, VC
 
 !----------------------------------------------------------------------
-!$omp parallel do private(iv,iw1,iw2,ka,raxis,raxisi,k,ug,vg,uvgr,uvgx,uvgy,uvgz)
+!$omp parallel do private(iv,iw1,iw2,k,ug,vg)
 do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)
    iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
 !----------------------------------------------------------------------
 
-   ka = lpv(iv)
+   do k = lpv(iv), mza
+      ug = .5 * (ue(k,iw1) + ue(k,iw2))
+      vg = .5 * (ve(k,iw1) + ve(k,iw2))
 
-   raxis = sqrt(xev(iv) ** 2 + yev(iv) ** 2)  ! dist from earth axis
-
-! Average winds to V point and rotate at V point
-
-   if (raxis > 1.e3) then
-      raxisi = 1. / raxis
-
-      do k = ka, mza
-         ug = .5 * (o_uzonal(k,iw1) + o_uzonal(k,iw2))
-         vg = .5 * (o_umerid(k,iw1) + o_umerid(k,iw2))
-
-         uvgr = -vg * zev(iv) * eradi  ! radially outward from axis
-
-         uvgx = (-ug * yev(iv) + uvgr * xev(iv)) * raxisi
-         uvgy = ( ug * xev(iv) + uvgr * yev(iv)) * raxisi
-         uvgz =   vg * raxis * eradi
-
-         vc (k,iv) = uvgx * vnx(iv) + uvgy * vny(iv) + uvgz * vnz(iv)
-         vmc(k,iv) = vc(k,iv) * 0.5 * real(rho(k,iw1) + rho(k,iw2))
-      enddo
-   else
-      vc (ka,iv) = 0.
-      vmc(ka,iw) = 0.
-   endif
+      vc (k,iv) = ug * vcn_ew(iv) + vg * vcn_ns(iv)
+      vmc(k,iv) = vc(k,iv) * .5 * (rho(k,iw1) + rho(k,iw2))
+   enddo
 
 ! For below-ground points, set VC to 0
 
-   vc (1:ka-1,iv) = 0.
-   vmc(1:ka-1,iv) = 0.
+   vc (1:lpv(iv)-1,iv) = 0.
+   vmc(1:lpv(iv)-1,iv) = 0.
 
 enddo
 !$omp end parallel do

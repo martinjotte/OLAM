@@ -44,11 +44,6 @@ real :: zonz(74,22)
 real :: zono(74,22)
 
 real :: zonp_vect(22)
-real :: zonr_vect(22)
-real :: zonz_vect(22)
-real :: zont_vect(22)
-real :: zonu_vect(22)
-real :: zono_vect(22)
 
 Contains
 
@@ -235,7 +230,7 @@ Contains
   integer, intent(in) :: idate,imonth,iyear
 
   integer :: ilat,lv,jday
-  real :: alat
+  real :: alat, vect(22)
   integer, external :: julday
 
 ! Automatic array
@@ -275,11 +270,11 @@ Contains
 ! Vertically interpolate Mclatchy water vapor and ozone mixing ratios
 ! BY PRESSURE to zonavg data levels
 
-     call pintrp_ee(33,mcol(1,4),mcol(1,2),22,zonr_vect,zonp_vect)
-     zonr(ilat,1:22) = zonr_vect(1:22)
+     call pintrp_ee(33,mcol(1,4),mcol(1,2),22,vect,zonp_vect)
+     zonr(ilat,1:22) = vect(1:22)
 
-     call pintrp_ee(33,mcol(1,5),mcol(1,2),22,zono_vect,zonp_vect)
-     zono(ilat,1:22) = zono_vect(1:22)
+     call pintrp_ee(33,mcol(1,5),mcol(1,2),22,vect,zonp_vect)
+     zono(ilat,1:22) = vect(1:22)
   enddo
 
   end subroutine fill_zonr_mclat

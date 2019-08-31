@@ -44,6 +44,8 @@ Module mem_thuburn
   integer,  allocatable, private :: kbot12(:)
   integer,  allocatable, private :: kbot34(:)
 
+  integer,  allocatable, private :: llv(:)
+
   private :: r8
 
 Contains
@@ -62,6 +64,7 @@ Contains
        allocate( tfact      (mza,mwa)) ; tfact       = rinit8
        allocate( kbot12         (mva)) ; kbot12      = 1
        allocate( kbot34         (mva)) ; kbot34      = 1
+       allocate( llv            (mva)) ; llv         = 1
     endif
 
     if (imonot1 > 0 .or. imonot2 > 0 .or. imonot3 > 0) then
@@ -428,16 +431,18 @@ Contains
           iv3 = itab_v(iv)%iv(3)
           iv4 = itab_v(iv)%iv(4)
 
-          kbot12(iv) = max(lpv(iv), min(lpv(iv1), lpv(iv2))) - 1
-          kbot34(iv) = max(lpv(iv), min(lpv(iv3), lpv(iv4))) - 1
+          kbot12(iv) = max(lpv(iv), min(lpv(iv1), lpv(iv2)))
+          kbot34(iv) = max(lpv(iv), min(lpv(iv3), lpv(iv4)))
+
+          llv(iv) = min(lpv(iv), max(lpv(iv1),lpv(iv2)), max(lpv(iv3),lpv(iv4)))
        enddo
        !$omp end parallel do
 
        if (iparallel == 1) then
-          call mpi_send_v(1, i1dvara1=kbot12, i1dvara2=kbot34)
-          call mpi_recv_v(1, i1dvara1=kbot12, i1dvara2=kbot34)
+          call mpi_send_v(1, i1dvara1=kbot12, i1dvara2=kbot34, i1dvara3=llv)
+          call mpi_recv_v(1, i1dvara1=kbot12, i1dvara2=kbot34, i1dvara3=llv)
        endif
-       call lbcopy_v(1, iv1=kbot12, iv2=kbot34)
+       call lbcopy_v(1, iv1=kbot12, iv2=kbot34, iv3=llv)
 
     endif
 
@@ -452,7 +457,7 @@ Contains
        iw4 = itab_v(iv)%iw(4)
 
        ! Vertical loop over T levels
-       do k = lpv(iv)-1, mza
+       do k = lpv(iv), mza
           scpmin(k) = min(scp(k,iw1),scp(k,iw2))
           scpmax(k) = max(scp(k,iw1),scp(k,iw2))
        enddo
@@ -466,6 +471,9 @@ Contains
           scpmin(k) = min(scpmin(k), scp(k,iw4))
           scpmax(k) = max(scpmax(k), scp(k,iw4))
        enddo
+
+       scpmin(lpv(iv)-1) = scpmin(lpv(iv))
+       scpmax(lpv(iv)-1) = scpmax(lpv(iv))
 
        do k = lpv(iv), mza-1
           smax = max(scpmax(k-1), scpmax(k), scpmax(k+1))
@@ -497,10 +505,12 @@ Contains
           iv  = itab_w(iw)%iv(jv)
           iwn = itab_w(iw)%iw(jv)
 
-          do k = lpv(iv), mza
+          do k = max(ka,llv(iv)), mza
              scpmaxt(k) = max(scpmaxt(k), scp(k,iwn))
              scpmint(k) = min(scpmint(k), scp(k,iwn))
+          enddo
 
+          do k = lpv(iv), mza
              vin = max(itab_w(iw)%dirv(jv) * vmsca(k,iv), 0.0)
 
              c_scp_in_max_sum(k) = c_scp_in_max_sum(k)  &

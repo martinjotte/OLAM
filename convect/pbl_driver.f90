@@ -397,6 +397,7 @@ subroutine apply_surface_fluxes( iw )
      do ns = 1, num_emis
         n = emis_map(ns)
 
+        !dir$ ivdep
         do k = lpw(iw), mza-1
            scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
                                      + real(rho(k,iw)) * scalar_tab(n)%emis(k,iw)

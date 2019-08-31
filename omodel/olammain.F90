@@ -38,7 +38,7 @@ use olam_mpi_atm, only: olam_mpi_init, olam_mpi_finalize, olam_mpi_barrier
 use misc_coms,    only: tmpdir
 use max_dims,     only: pathlen
 use hdf5,         only: h5open_f, h5close_f
-use oname_coms,   only: cmdlne_runtype, cmdlne_fields, numcf, maxcf, nl
+use oname_coms,   only: cmdlne_runtype, cmdlne_fields, numcf, nl
 
 #ifdef OLAM_MPI
 use mpi
@@ -74,6 +74,8 @@ call h5open_f(hdferr)
 numarg = command_argument_count()
 if (myrank == 0) write(*,*) 'numarg:', numarg
 
+allocate(cmdlne_fields(numarg/2 + 2))
+
 i = 1
 do while (i <= numarg)
    call get_command_argument(i,cargv)
@@ -95,18 +97,19 @@ do while (i <= numarg)
 
       elseif (cargv(2:2) == 'z') then
 
-         numcf = numcf + 1
+         if (numcf < size(cmdlne_fields)) then
 
-         if (numcf <= maxcf) then
+            numcf = numcf + 1
+
             call get_command_argument(i+1,cmdlne_fields(numcf))
             if ( len_trim( cmdlne_fields(numcf) ) < 1  .or. &
                  scan( cmdlne_fields(numcf), '=') == 0 ) then
                bad = bad + 1
                numcf = numcf - 1
             endif
+
          else
 
-            numcf = maxcf
             if (myrank == 0) write(*,*) "OLAM too many 'z' arguments"
 
          endif
@@ -142,7 +145,7 @@ call read_nl(name_name)
 if (iparallel == 1 .and. myrank > 0) then
 
    io6 = 20
-   
+
    if (nl%save_node_logs) then
       write (io6file,'(i10)') myrank
       io6file = 'o.io6_r'//trim(adjustl(io6file))

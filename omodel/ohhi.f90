@@ -615,7 +615,7 @@ end subroutine refs1d
 subroutine fldshhi()
 
 use mem_basic,   only: theta, thil, tair, press, rho, wc, wmc, &
-                       vc, vp, vmp, vmc, rr_w, rr_v
+                       vc, vp, vmp, vmc, rr_w, rr_v, ue, ve
 use mem_micro,   only: rr_c, con_c, cldnum
 use micro_coms,  only: miclevel, ccnparm, jnmb, rxmin, zfactor_ccn
 use mem_ijtabs,  only: jtab_w, jtab_v, itab_v, jtv_init, jtw_init, jtv_wall
@@ -660,9 +660,11 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
       rho  (k,iw) = dn01d(k)
       rr_w (k,iw) = rt01d(k)
       rr_v (k,iw) = rt01d(k)
+      ue   (k,iw) =  u01d(k)
+      ve   (k,iw) =  v01d(k)
    enddo
 
-   do iter = 1,100
+   do iter = 1, 100
 
 !  Compute density for all grid levels
 
@@ -744,12 +746,14 @@ enddo
 
 if (iparallel == 1) then
    call mpi_send_w(1, dvara1=press, dvara2=rho, &
-                   rvara1=wc,rvara2=wmc,rvara3=thil)
+                   rvara1=wc,rvara2=wmc,rvara3=thil, &
+                   rvara4=ue,rvara5=ve)
    call mpi_recv_w(1, dvara1=press, dvara2=rho, &
-                   rvara1=wc,rvara2=wmc,rvara3=thil)
+                   rvara1=wc,rvara2=wmc,rvara3=thil, &
+                   rvara4=ue,rvara5=ve)
 endif
 
-call lbcopy_w(1, a1=wc, a2=wmc, a3=thil, d1=press, d2=rho)
+call lbcopy_w(1, a1=wc, a2=wmc, a3=thil, a4=ue, a5=ve, d1=press, d2=rho)
 
 ! Initialize VMC, VC
 
@@ -772,7 +776,7 @@ do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)
 
    do k = ka, mza
       vc( k,iv) = u01d(k) * vcn_ew(iv) + v01d(k) * vcn_ns(iv)
-      vmc(k,iv) = vc(k,iv) * .5 * (rho(k,iw1) + rho(k,iw2))
+      vmc(k,iv) = vc(k,iv) * .5 * real(rho(k,iw1) + rho(k,iw2))
    enddo
 
 ! For below-ground points, set VC to 0
@@ -781,6 +785,7 @@ do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)
    vmc(1:ka-1,iv) = 0.0
 
 enddo
+!$omp end parallel do
 
 ! Set VMC, VC = 0 at channel (non-topo) walls
 

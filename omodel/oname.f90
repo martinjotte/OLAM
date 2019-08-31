@@ -94,6 +94,8 @@ if (len_trim(cmdlne_runtype) > 1) then
    nl%runtype = cmdlne_runtype
 endif
 
+deallocate(cmdlne_fields)
+
 end subroutine read_nl
 
 !===============================================================================

@@ -65,7 +65,7 @@ subroutine olam_run(name_name)
   use mem_addgrid, only: init_addgrid
   use mem_leaf,    only: land
   use mem_sea,     only: sea
-  use vel_t3d,     only: diagvel_t3d, diagvel_t3d_init
+  use vel_t3d,     only: diagvel_t3d, diagvel_t3d_init, diag_uzonal_umerid
   use mem_adv,     only: alloc_adv
   use mem_co2,     only: co2init
 
@@ -379,8 +379,9 @@ subroutine olam_run(name_name)
 
   if (runtype == 'INITIAL') then
      mrl = 1
-     call diagvel_t3d_init(mrl)
-     call diagvel_t3d     (mrl)
+     call diagvel_t3d_init  (mrl)
+     call diagvel_t3d       (mrl)
+     call diag_uzonal_umerid(mrl)
 
      call calc_3d_cloud_fraction(mrl)
   endif

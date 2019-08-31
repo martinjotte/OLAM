@@ -103,8 +103,8 @@ Contains
     allocate (vye2 (nve2_max,mwa)) ; vye2 = rinit
     allocate (vze2 (nve2_max,mwa)) ; vze2 = rinit
 
-!   allocate(ue(mza,mwa)) ; ue = rinit
-!   allocate(ve(mza,mwa)) ; ve = rinit
+    allocate(ue(mza,mwa)) ; ue = rinit
+    allocate(ve(mza,mwa)) ; ve = rinit
 
   end subroutine alloc_basic
 

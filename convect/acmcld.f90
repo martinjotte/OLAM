@@ -12,7 +12,7 @@ subroutine acmcld_uvmix( iw, dtl )
   ! Mixing due to convective updrafts
 
   if (iactcu(iw) > 0 .and. cbmf(iw) > 1.e-6 ) then
-     
+
      call acmcld_uvmix_up( iw, dtl )
 
   endif
@@ -20,7 +20,7 @@ subroutine acmcld_uvmix( iw, dtl )
   ! Mixing due to convective downdrafts
 
   if (iactcu(iw) > 0 .and. cddf(iw) > 1.e-6 ) then
-     
+
      call acmcld_uvmix_dd( iw, dtl )
 
   endif
@@ -43,10 +43,11 @@ subroutine acmcld_uvmix_up( iw, dtl )
 !   realistic gradual subsidence.
 !-----------------------------------------------------------------------
 
-  use mem_grid,    only: mza, zm, zt, xew, yew, zew, arw, volt, volti, lpw
+  use mem_grid,    only: mza, zm, zt, arw, volti, lpw, &
+                         vxn_ew, vyn_ew, vxn_ns, vyn_ns, vzn_ns
   use mem_cuparm,  only: kcutop, kcubot, vxsrc, vysrc, vzsrc, cbmf
-  use mem_basic,   only: vxe, vye, vze, rho
-  use consts_coms, only: eradi
+  use mem_basic,   only: ue, ve, rho
+  use consts_coms, only: r8
   use tridiag,     only: acm_matrix
 
   implicit none
@@ -60,37 +61,27 @@ subroutine acmcld_uvmix_up( iw, dtl )
 
   integer :: k, kt, kb, nlev, kc
 
-  real :: ai(mza,1), bi(mza), ci(mza), ei(mza)
-  real :: di(mza,2), ui(mza,2)
-  real :: aflux(mza,2)
+  real(r8) :: ai(mza,1), bi(mza), ci(mza), ei(mza)
+  real(r8) :: di(mza,2), ui(mza,2)
+
   real :: massflx_acm(mza), massflx_loc(mza), massflx_tot(mza)
   real :: clddepth, massflx0, massflxk
-  real :: raxis, raxisi
-  real :: u(mza), v(mza)
-  real :: ut(mza), vt(mza)
-  real :: dtom
-  real :: uvtr
+  real :: ut, vt, dtom, dti
 
   real, parameter :: ef = 0.333 ! mixing efficiency for momentum
   real, parameter :: fl = 0.5   ! extra local mixing
 
   ! First make sure that there was convection
 
-  if ( kcubot(iw) >= lpw(iw) .and. kcutop(iw) >= kcubot(iw) ) then
+  if ( kcubot(iw) < lpw(iw) .or. kcutop(iw) < kcubot(iw) &
+       .or. cbmf(iw) < 1.e-10 ) return
 
-     kb = max( kcubot(iw) - 1, lpw(iw) )
-     kt = kcutop(iw)
-
-  else
-
-     ! No significant convection
-     return
-
-  endif
-
+  kb = max( kcubot(iw) - 1, lpw(iw) )
+  kt = kcutop(iw)
   nlev = kt - kb + 1
+  dti = 1. / dtl
 
-  ! Assume cloud extends to middle of top layer  
+  ! Assume cloud extends to middle of top layer
 
   clddepth = zt(kt) - zm(kb)
 
@@ -115,25 +106,6 @@ subroutine acmcld_uvmix_up( iw, dtl )
   massflx_tot(kb-1) = 0.0
   massflx_tot(kt)   = 0.0
 
-! Compute zonal and meridional winds
-
-  raxis  = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis
-  raxisi = 1.0 / max(raxis, 1.e-12)
-
-  if (raxis > 1.e3) then
-     do k = kb, kt
-        u(k) = (vye(k,iw) * xew(iw) - vxe(k,iw) * yew(iw)) * raxisi
-        v(k) = vze(k,iw) * raxis * eradi  &
-                - (vxe(k,iw) * xew(iw) + vye(k,iw) * yew(iw)) &
-                * zew(iw) * raxisi * eradi
-     enddo
-  else
-     do k = kb, kt
-        u(k) = vxe(k,iw)
-        v(k) = vye(k,iw)
-     enddo
-  endif
-
 ! Define arrays A,B,E which make up matrix and D which is RHS
 
   ! Loop over T levels
@@ -141,13 +113,13 @@ subroutine acmcld_uvmix_up( iw, dtl )
      kc = k - kb + 1
      dtom = dtl * volti(k,iw) / real(rho(k,iw))
 
-     di(kc,1) = u(k)
-     di(kc,2) = v(k)
+     di(kc,1) = ue(k,iw)
+     di(kc,2) = ve(k,iw)
 
-     bi(kc)   = 1.0 + dtom * (massflx_tot(k-1) + massflx_loc(k))
-     ei(kc)   =     - dtom *  massflx_tot(k)
-     ai(kc,1) =       dtom * (massflx_acm(k) - massflx_acm(k-1))
-     ci(kc)   =     - dtom *  massflx_loc(k-1)
+     bi(kc)   = 1._r8 + dtom * (massflx_tot(k-1) + massflx_loc(k))
+     ei(kc)   =       - dtom *  massflx_tot(k)
+     ai(kc,1) =         dtom * (massflx_acm(k) - massflx_acm(k-1))
+     ci(kc)   =       - dtom *  massflx_loc(k-1)
   enddo
 
   bi(1) = bi(1) + ai(1,1)
@@ -155,51 +127,18 @@ subroutine acmcld_uvmix_up( iw, dtl )
 
   call acm_matrix( ai, bi, ci, di, ei, ui, nlev, mza, 2, 1 )
 
-! Now, soln contains future(t+1) values. Compute fluxes
-  
-  ! Loop over W (flux) levels
-  do k = kb, kt-1
+  ! Convert U,V tendencies to earth cartesian grid
+
+  do k = kb, kt
      kc = k - kb + 1
 
-     aflux(k,1) = massflx_acm(k) * ui(1,1) + massflx_loc(k) * ui(kc,1) &
-                - massflx_tot(k) * ui(kc+1,1)
-     aflux(k,2) = massflx_acm(k) * ui(1,2) + massflx_loc(k) * ui(kc,2) &
-                - massflx_tot(k) * ui(kc+1,2)
+     ut = real( ui(kc,1) - di(kc,1) ) * dti
+     vt = real( ui(kc,2) - di(kc,2) ) * dti
+
+     vxsrc(k,iw) = ut * vxn_ew(iw) + vt * vxn_ns(iw)
+     vysrc(k,iw) = ut * vyn_ew(iw) + vt * vyn_ns(iw)
+     vzsrc(k,iw) =                   vt * vzn_ns(iw)
   enddo
-
-  aflux(kb-1,1) = 0.0
-  aflux(kb-1,2) = 0.0
-
-  aflux(kt,1) = 0.0
-  aflux(kt,2) = 0.0
-
-! Compute tendencies due to internal convective fluxes
-
-  ! Loop over T levels
-  do k = kb, kt
-     ut(k) = (aflux(k-1,1) - aflux(k,1)) * volti(k,iw)
-     vt(k) = (aflux(k-1,2) - aflux(k,2)) * volti(k,iw)
-  enddo
-
-! Convert U,V tendencies to earth cartesian grid
-
-  if (raxis > 1.e3) then
-
-     do k = kb, kt
-        uvtr = -vt(k) * zew(iw) * eradi
-        vxsrc(k,iw) = (-ut(k) * yew(iw) + uvtr * xew(iw)) * raxisi
-        vysrc(k,iw) = ( ut(k) * xew(iw) + uvtr * yew(iw)) * raxisi
-        vzsrc(k,iw) =   vt(k) * raxis * eradi 
-     enddo
-
-  else
-
-     do k = kb, kt
-        vxsrc(k,iw) = ut(k)
-        vysrc(k,iw) = vt(k)
-     enddo
-
-  endif
 
 end subroutine acmcld_uvmix_up
 
@@ -219,10 +158,11 @@ subroutine acmcld_uvmix_dd( iw, dtl )
 !   realistic gradual subsidence.
 !-----------------------------------------------------------------------
 
-  use mem_grid,    only: mza, zm, xew, yew, zew, arw, volt, volti, lpw
+  use mem_grid,    only: mza, zm, arw, volti, lpw, &
+                         vxn_ew, vyn_ew, vxn_ns, vyn_ns, vzn_ns
   use mem_cuparm,  only: kddtop, vxsrc, vysrc, vzsrc, cddf
-  use mem_basic,   only: vxe, vye, vze, rho
-  use consts_coms, only: eradi
+  use mem_basic,   only: ue, ve, rho
+  use consts_coms, only: r8
   use tridiag,     only: acm_matrix
 
   implicit none
@@ -236,34 +176,24 @@ subroutine acmcld_uvmix_dd( iw, dtl )
 
   integer :: k, kt, kb, nlev, kc
 
-  real :: ai(mza,1), bi(mza), ci(mza), ei(mza)
-  real :: di(mza,2), ui(mza,2)
-  real :: aflux(0:mza,2)
+  real(r8) :: ai(mza,1), bi(mza), ci(mza), ei(mza)
+  real(r8) :: di(mza,2), ui(mza,2)
+
   real :: massflx_acm(0:mza), massflx_loc(0:mza), massflx_tot(0:mza)
   real :: clddepth, massflx0, massflxk
-  real :: raxis, raxisi
-  real :: u(mza), v(mza)
-  real :: ut(mza), vt(mza)
-  real :: dtom
-  real :: uvtr
+  real :: ut, vt, dtom, dti
 
   real, parameter :: ef = 0.333 ! mixing efficiency for momentum
   real, parameter :: fl = 0.5   ! extra local mixing
 
   ! First make sure that there was convection
 
-  if ( kddtop(iw) > lpw(iw) ) then
+  if ( kddtop(iw) < lpw(iw) .or. cddf(iw) < 1.e-10) return
 
-     nlev = kddtop(iw) - lpw(iw) + 1
-     kb   = 1
-     kt   = nlev
-
-  else
-
-     ! No significant convection
-     return
-
-  endif
+  nlev = kddtop(iw) - lpw(iw) + 1
+  kb   = 1
+  kt   = nlev
+  dti  = 1.0 / dtl
 
   ! Assume cloud extends to bottom of top layer
 
@@ -292,25 +222,6 @@ subroutine acmcld_uvmix_dd( iw, dtl )
   massflx_tot(kb-1) = 0.0
   massflx_tot(kt)   = 0.0
 
-! Compute zonal and meridional winds
-
-  raxis  = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis
-  raxisi = 1.0 / max(raxis, 1.e-12)
-
-  if (raxis > 1.e3) then
-     do k = lpw(iw), kddtop(iw)
-        u(k) = (vye(k,iw) * xew(iw) - vxe(k,iw) * yew(iw)) * raxisi
-        v(k) = vze(k,iw) * raxis * eradi  &
-                - (vxe(k,iw) * xew(iw) + vye(k,iw) * yew(iw)) &
-                * zew(iw) * raxisi * eradi
-     enddo
-  else
-     do k = lpw(iw), kddtop(iw)
-        u(k) = vxe(k,iw)
-        v(k) = vye(k,iw)
-     enddo
-  endif
-
 ! Define arrays A,B,E which make up matrix and D which is RHS
 
   ! Loop over T levels
@@ -318,13 +229,13 @@ subroutine acmcld_uvmix_dd( iw, dtl )
      k  = kddtop(iw) - kc + 1
      dtom = dtl * volti(k,iw) / real(rho(k,iw))
 
-     di(kc,1) = u(k)
-     di(kc,2) = v(k)
+     di(kc,1) = ue(k,iw)
+     di(kc,2) = ve(k,iw)
 
-     bi(kc)   = 1.0 + dtom * (massflx_tot(kc-1) + massflx_loc(kc))
-     ei(kc)   =     - dtom *  massflx_tot(kc)
-     ai(kc,1) =       dtom * (massflx_acm(kc) - massflx_acm(kc-1))
-     ci(kc)   =     - dtom *  massflx_loc(kc-1)
+     bi(kc)   = 1._r8 + dtom * (massflx_tot(kc-1) + massflx_loc(kc))
+     ei(kc)   =       - dtom *  massflx_tot(kc)
+     ai(kc,1) =         dtom * (massflx_acm(kc) - massflx_acm(kc-1))
+     ci(kc)   =       - dtom *  massflx_loc(kc-1)
   enddo
 
   bi(1) = bi(1) + ai(1,1)
@@ -332,51 +243,18 @@ subroutine acmcld_uvmix_dd( iw, dtl )
 
   call acm_matrix( ai, bi, ci, di, ei, ui, nlev, mza, 2, 1 )
 
-! Now, soln contains future(t+1) values. Compute fluxes
-  
-  ! Loop over W (flux) levels
-  do kc = kb, kt-1
-
-     aflux(kc,1) = massflx_acm(kc) * ui(1,1) + massflx_loc(kc) * ui(kc,1) &
-                 - massflx_tot(kc) * ui(kc+1,1)
-     aflux(kc,2) = massflx_acm(kc) * ui(1,2) + massflx_loc(kc) * ui(kc,2) &
-                 - massflx_tot(kc) * ui(kc+1,2)
-  enddo
-
-  aflux(kb-1,1) = 0.0
-  aflux(kb-1,2) = 0.0
-
-  aflux(kt,1) = 0.0
-  aflux(kt,2) = 0.0
-
-! Compute tendencies due to internal convective fluxes
-
-  ! Loop over T levels
-  do kc = kb, kt
-     k  = kddtop(iw) - kc + 1
-     ut(k) = (aflux(kc-1,1) - aflux(kc,1)) * volti(k,iw)
-     vt(k) = (aflux(kc-1,2) - aflux(kc,2)) * volti(k,iw)
-  enddo
-
 ! Convert U,V tendencies to earth cartesian grid
 
-  if (raxis > 1.e3) then
+  do k = lpw(iw), kddtop(iw)
+     kc = kddtop(iw) - k + 1
 
-     do k = lpw(iw), kddtop(iw)
-        uvtr = -vt(k) * zew(iw) * eradi
-        vxsrc(k,iw) = vxsrc(k,iw) + (-ut(k) * yew(iw) + uvtr * xew(iw)) * raxisi
-        vysrc(k,iw) = vysrc(k,iw) + ( ut(k) * xew(iw) + uvtr * yew(iw)) * raxisi
-        vzsrc(k,iw) = vzsrc(k,iw) +   vt(k) * raxis * eradi 
-     enddo
+     ut = real( ui(kc,1) - di(kc,1) ) * dti
+     vt = real( ui(kc,2) - di(kc,2) ) * dti
 
-  else
-
-     do k = lpw(iw), kddtop(iw)
-        vxsrc(k,iw) = vxsrc(k,iw) + ut(k)
-        vysrc(k,iw) = vysrc(k,iw) + vt(k)
-     enddo
-
-  endif
+     vxsrc(k,iw) = vxsrc(k,iw) + ut * vxn_ew(iw) + vt * vxn_ns(iw)
+     vysrc(k,iw) = vysrc(k,iw) + ut * vyn_ew(iw) + vt * vyn_ns(iw)
+     vzsrc(k,iw) = vzsrc(k,iw)                   + vt * vzn_ns(iw)
+  enddo
 
 end subroutine acmcld_uvmix_dd
 
@@ -400,7 +278,7 @@ subroutine acmcld_tracermix( iw, dtl )
   ! Mixing due to convective updrafts
 
   if (iactcu(iw) > 0 .and. cbmf(iw) > 1.e-6 ) then
-     
+
      call acmcld_tracermix_up( iw, dtl )
 
   endif
@@ -408,7 +286,7 @@ subroutine acmcld_tracermix( iw, dtl )
   ! Mixing due to convective downdrafts
 
   if (iactcu(iw) > 0 .and. cddf(iw) > 1.e-6 ) then
-     
+
      call acmcld_tracermix_dd( iw, dtl )
 
   endif
@@ -434,6 +312,7 @@ subroutine acmcld_tracermix_up( iw, dtl )
   use mem_grid,    only: mza, zm, zt, arw, volti, lpw
   use mem_cuparm,  only: kcutop, kcubot, cbmf
   use mem_basic,   only: rho
+  use consts_coms, only: r8
   use tridiag,     only: acm_matrix
   use var_tables,  only: num_cumix, cumix_map, scalar_tab
 
@@ -448,31 +327,25 @@ subroutine acmcld_tracermix_up( iw, dtl )
 
   integer :: k, kt, kb, nlev, kc, ns, nc
 
-  real :: ai(mza,1), bi(mza), ci(mza), ei(mza)
-  real :: di(mza,num_cumix), ui(mza,num_cumix)
-  real :: aflux(mza)
+  real(r8) :: ai(mza,1), bi(mza), ci(mza), ei(mza)
+  real(r8) :: di(mza,num_cumix), ui(mza,num_cumix)
+
   real :: massflx_acm(mza), massflx_loc(mza), massflx_tot(mza)
   real :: clddepth, massflx0, massflxk
-  real :: dtom
+  real :: dtom, dti
 
   real, parameter :: ef = 1.0  ! mixing efficiency for tracers
   real, parameter :: fl = 0.5  ! extra local mixing
 
   ! First make sure that there was convection
 
-  if ( kcubot(iw) >= lpw(iw) .and. kcutop(iw) >= kcubot(iw) ) then
+  if ( kcubot(iw) < lpw(iw) .or. kcutop(iw) < kcubot(iw) &
+       .or. cbmf(iw) < 1.e-10 ) return
 
-     kb = max( kcubot(iw) - 1, lpw(iw) )
-     kt = kcutop(iw)
-
-  else
-
-     ! No significant convection
-     return
-
-  endif
-
+  kb = max( kcubot(iw) - 1, lpw(iw) )
+  kt = kcutop(iw)
   nlev = kt - kb + 1
+  dti = 1.0 / dtl
 
   ! Assume cloud extends to middle of top layer  
 
@@ -514,10 +387,10 @@ subroutine acmcld_tracermix_up( iw, dtl )
      kc = k - kb + 1
      dtom = dtl * volti(k,iw) / real(rho(k,iw))
 
-     bi(kc)   = 1.0 + dtom * (massflx_tot(k-1) + massflx_loc(k))
-     ei(kc)   =     - dtom *  massflx_tot(k)
-     ai(kc,1) =       dtom * (massflx_acm(k) - massflx_acm(k-1))
-     ci(kc)   =     - dtom *  massflx_loc(k-1)
+     bi(kc)   = 1._r8 + dtom * (massflx_tot(k-1) + massflx_loc(k))
+     ei(kc)   =       - dtom *  massflx_tot(k)
+     ai(kc,1) =         dtom * (massflx_acm(k) - massflx_acm(k-1))
+     ci(kc)   =       - dtom *  massflx_loc(k-1)
   enddo
 
   bi(1) = bi(1) + ai(1,1)
@@ -530,23 +403,11 @@ subroutine acmcld_tracermix_up( iw, dtl )
   do nc = 1, num_cumix
      ns = cumix_map(nc)
 
-     ! Loop over W (flux) levels
-     do k = kb, kt-1
-        kc = k - kb + 1
-
-        aflux(k) = massflx_acm(k) * ui(1,nc) + massflx_loc(k) * ui(kc,nc) &
-                 - massflx_tot(k) * ui(kc+1,nc)
-     enddo
-
-     aflux(kb-1) = 0.0
-     aflux(kt)   = 0.0
-
-! Compute tendencies due to internal convective fluxes
-
      ! Loop over T levels
      do k = kb, kt
+        kc = k - kb + 1
         scalar_tab(ns)%var_t(k,iw) = scalar_tab(ns)%var_t(k,iw) &
-                                   + (aflux(k-1) - aflux(k)) * volti(k,iw)
+                                   + dti * real( ui(kc,nc) - di(kc,nc) )
      enddo
   enddo
 
@@ -572,6 +433,7 @@ subroutine acmcld_tracermix_dd( iw, dtl )
   use mem_grid,    only: mza, zm, arw, volti, lpw
   use mem_cuparm,  only: kddtop, cddf
   use mem_basic,   only: rho
+  use consts_coms, only: r8
   use tridiag,     only: acm_matrix
   use var_tables,  only: num_cumix, cumix_map, scalar_tab
 
@@ -586,32 +448,26 @@ subroutine acmcld_tracermix_dd( iw, dtl )
 
   integer :: k, kt, kb, nlev, kc, ns, nc
 
-  real :: ai(mza,1), bi(mza), ci(mza), ei(mza)
-  real :: di(mza,num_cumix), ui(mza,num_cumix)
-  real :: aflux(0:mza)
+  real(r8) :: ai(mza,1), bi(mza), ci(mza), ei(mza)
+  real(r8) :: di(mza,num_cumix), ui(mza,num_cumix)
+
   real :: massflx_acm(0:mza), massflx_loc(0:mza), massflx_tot(0:mza)
   real :: clddepth, massflx0, massflxk
-  real :: dtom
+  real :: dtom, dti
 
   real, parameter :: ef = 1.0  ! mixing efficiency for tracers
   real, parameter :: fl = 0.5  ! extra local mixing
 
   ! First make sure that there was convection
 
-  if ( kddtop(iw) > lpw(iw) ) then
+  if ( kddtop(iw) < lpw(iw) .or. cddf(iw) < 1.e-10 ) return
 
-     nlev = kddtop(iw) - lpw(iw) + 1
-     kb   = 1
-     kt   = nlev
+  nlev = kddtop(iw) - lpw(iw) + 1
+  kb   = 1
+  kt   = nlev
+  dti  = 1.0 / dtl
 
-  else
-
-     ! No significant convection
-     return
-
-  endif
-
-  ! Assume cloud extends to bottom of top layer
+  ! Assume downdraft extends to surface
 
   clddepth = zm(kddtop(iw) - 1) - zm(lpw(iw) - 1)
 
@@ -653,10 +509,10 @@ subroutine acmcld_tracermix_dd( iw, dtl )
      k  = kddtop(iw) - kc + 1
      dtom = dtl * volti(k,iw) / real(rho(k,iw))
 
-     bi(kc)   = 1.0 + dtom * (massflx_tot(kc-1) + massflx_loc(kc))
-     ei(kc)   =     - dtom *  massflx_tot(kc)
-     ai(kc,1) =       dtom * (massflx_acm(kc) - massflx_acm(kc-1))
-     ci(kc)   =     - dtom *  massflx_loc(kc-1)
+     bi(kc)   = 1._r8 + dtom * (massflx_tot(kc-1) + massflx_loc(kc))
+     ei(kc)   =       - dtom *  massflx_tot(kc)
+     ai(kc,1) =         dtom * (massflx_acm(kc) - massflx_acm(kc-1))
+     ci(kc)   =       - dtom *  massflx_loc(kc-1)
   enddo
 
   bi(1) = bi(1) + ai(1,1)
@@ -664,28 +520,16 @@ subroutine acmcld_tracermix_dd( iw, dtl )
 
   call acm_matrix( ai, bi, ci, di, ei, ui, nlev, mza, num_cumix, 1 )
 
-! Now, soln contains future(t+1) values. Compute fluxes
+! Now, soln contains future(t+1) values. Compute tendencies
 
   do nc = 1, num_cumix
      ns = cumix_map(nc)
 
-     ! Loop over W (flux) levels
-     do kc = kb, kt-1
-        k  = kddtop(iw) - kc
-
-        aflux(k) = massflx_tot(kc) * ui(kc+1,nc) &
-                 - massflx_acm(kc) * ui(1,nc) - massflx_loc(kc) * ui(kc,nc)
-     enddo
-
-     aflux(lpw(iw)-1)  = 0.0
-     aflux(kddtop(iw)) = 0.0
-
-! Compute tendencies due to internal convective fluxes
-
      ! Loop over T levels
      do k = lpw(iw), kddtop(iw)
+        kc = kddtop(iw) - k + 1
         scalar_tab(ns)%var_t(k,iw) = scalar_tab(ns)%var_t(k,iw) &
-                                   + (aflux(k-1) - aflux(k)) * volti(k,iw)
+                                   + dti * real( ui(kc,nc) - di(kc,nc) )
      enddo
   enddo
 

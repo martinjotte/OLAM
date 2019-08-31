@@ -474,7 +474,7 @@ end subroutine olam_alloc_mpi
 !===============================================================================
 
 subroutine mpi_send_v(mrl, rvara1, rvara2, rvara3, rvara4, &
-                           i1dvara1, i1dvara2)
+                           i1dvara1, i1dvara2, i1dvara3)
 
 ! Subroutine to perform a parallel MPI send of a "V group" of field variables
 
@@ -497,6 +497,7 @@ real, optional, intent(in) :: rvara4(mza,mva)
 
 integer, optional, intent(in) :: i1dvara1(mva)
 integer, optional, intent(in) :: i1dvara2(mva)
+integer, optional, intent(in) :: i1dvara3(mva)
 
 #ifdef OLAM_MPI
 
@@ -574,6 +575,11 @@ do jsend = 1,nsends_v(mrl)
 
       if (present(i1dvara2)) then
          call MPI_Pack(i1dvara2(iv),1,MPI_INTEGER, &
+              send_v(jsend)%buff,send_v(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+      endif
+
+      if (present(i1dvara3)) then
+         call MPI_Pack(i1dvara3(iv),1,MPI_INTEGER, &
               send_v(jsend)%buff,send_v(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
       endif
 
@@ -1140,7 +1146,7 @@ end subroutine mpi_send_wnud
 !=============================================================================
 
 subroutine mpi_recv_v(mrl, rvara1, rvara2, rvara3, rvara4, &
-                           i1dvara1, i1dvara2)
+                           i1dvara1, i1dvara2, i1dvara3)
 
 ! Subroutine to perform a parallel MPI receive of a "V group"
 ! of field variables
@@ -1164,6 +1170,7 @@ real, optional, intent(inout) :: rvara4(mza,mva)
 
 integer, optional, intent(in) :: i1dvara1(mva)
 integer, optional, intent(in) :: i1dvara2(mva)
+integer, optional, intent(in) :: i1dvara3(mva)
 
 #ifdef OLAM_MPI
 
@@ -1235,6 +1242,11 @@ do jtmp = 1,nrecvs_v(mrl)
       if (present(i1dvara2)) then
          call MPI_Unpack(recv_v(jrecv)%buff,recv_v(jrecv)%nbytes,ipos, &
             i1dvara2(iv),1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
+      endif
+
+      if (present(i1dvara3)) then
+         call MPI_Unpack(recv_v(jrecv)%buff,recv_v(jrecv)%nbytes,ipos, &
+            i1dvara3(iv),1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
       endif
 
    enddo
