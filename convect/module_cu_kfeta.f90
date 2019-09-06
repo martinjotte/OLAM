@@ -47,20 +47,20 @@ CONTAINS
 
    subroutine cuparm_kfeta(iw,dtlong4)
 
-   use mem_grid,    only: mza, lpw, dzt, xew, yew, zew, arw0, volt, volti
+   use mem_grid,    only: mza, lpw, dzt, arw0, volt, lsw
    use misc_coms,   only: io6
-   use mem_cuparm,  only: thsrc, rtsrc, conprr, kcutop, kcubot, cbmf, &
-                          qwcon, iactcu, kddtop, cddf, rdsrc
-   use mem_basic,   only: tair, press, rho, vxe, vye, vze, rr_v, wc, theta
+   use mem_cuparm,  only: thsrc, rtsrc, conprr, kcutop, kcubot, cbmf, kudbot, &
+                          qwcon, iactcu, kddtop, kddmax, cddf, cu_pcpflx
+   use mem_basic,   only: tair, press, rho, ue, ve, rr_v, wc, theta
    use mem_ijtabs,  only: itab_w
-   use consts_coms, only: erad
+   use mem_turb,    only: frac_sfc
 
    implicit none
 
    integer, intent(in) :: iw
    real,    intent(in) :: dtlong4
 
-   integer :: kte, k, kt, npoly, jwn, iwn
+   integer :: kte, k, kt, ks, npoly, jwn, iwn
    real :: dqvdt(mza),dqcdt(mza),dqidt(mza),dtdt(mza)
    real :: u1d(mza),v1d(mza),t1d(mza),dz1d(mza)
    real :: qv1d(mza),p1d(mza),rho1d(mza),w0avg1d(mza),mass(mza)
@@ -72,12 +72,11 @@ CONTAINS
 ! in the future, possibly redefined as integer variables.
 
    integer :: cubot, cutop
-   real    :: dxsq, dx, dt, raxis, fnpoly1, pratec, lv, ls, cpm
+   real    :: dxsq, dx, dt, fnpoly1, pratec, lv, ls, cpm
 
    dxsq  = arw0(iw)
    dx    = sqrt(dxsq)
    dt    = dtlong4
-   raxis = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis
 
    npoly = itab_w(iw)%npoly
    fnpoly1 = 0.5 / real(npoly+1)
@@ -93,6 +92,7 @@ CONTAINS
    cldice (:) = 0.0
    massflx(:) = 0.0
    ddflx  (:) = 0.0
+   w0avg1d(:) = 0.0
 
    pptliq(:) = 0.0
    pptice(:) = 0.0
@@ -122,30 +122,22 @@ CONTAINS
       mass (kt) = volt (k,iw) * rho(k,iw)
       exn1d(kt) = theta(k,iw) / tair(k,iw)
 
-! Compute zonal and meridional wind components
-
-      if (raxis > 1.e3) then
-         u1d(kt) = (vye(k,iw) * xew(iw) - vxe(k,iw) * yew(iw)) / raxis
-         v1d(kt) = vze(k,iw) * raxis / erad  &
-                 - (vxe(k,iw) * xew(iw) + vye(k,iw) * yew(iw)) &
-                 * zew(iw) / (raxis * erad) 
-      else
-         u1d(kt) = vxe(k,iw)
-         v1d(kt) = vye(k,iw)
-      endif
-
+      u1d(kt) = ue(k,iw)
+      v1d(kt) = ve(k,iw)
    enddo
 
 ! Compute an area-mean vertical velocity
 
+   do jwn = 1, npoly
+      iwn = itab_w(iw)%iw(jwn)
+      do k = max(lpw(iw),lpw(iwn)), kte + lpw(iw) -1
+         w0avg1d(kt) = w0avg1d(kt) + wc(k,iwn) + wc(k+1,iwn)
+      enddo
+   enddo
+
    do kt = 1, kte
       k  = kt + lpw(iw) - 1
-      w0avg1d(kt) = fnpoly1 * (wc(k,iw) + wc(k+1,iw))
-      do jwn = 1,npoly
-         iwn = itab_w(iw)%iw(jwn)
-         if (lpw(iwn) > k) iwn = iw
-         w0avg1d(kt) = w0avg1d(kt) + fnpoly1 * (wc(k,iwn) + wc(k+1,iwn))
-      enddo
+      w0avg1d(kt) = fnpoly1 * (w0avg1d(kt) + wc(k,iw) + wc(k+1,iw))
    enddo
 
    CALL KF_eta_PARA( mza,IW,io6,kte,        &
@@ -163,9 +155,18 @@ CONTAINS
       iactcu(iw) = 1
       cbmf  (iw) = massflx(cubot) / dxsq
 
+      kudbot(iw) = kcubot(iw)
+      do kt = 1, cubot
+         if (massflx(cubot) > 0.001 * cbmf(iw) * dxsq) then
+            kudbot(iw) = kt + lpw(iw) - 1
+            exit
+         endif
+      enddo
+
       do kt = cutop, cubot, -1
          if (ddflx(kt) < -1.e-10 * dxsq) then
             kddtop(iw) = kt + lpw(iw) - 1
+            kddmax(iw) = min(kddtop(iw), kcubot(iw))
             cddf  (iw) = -ddflx(cubot) / dxsq
             exit
          endif
@@ -189,13 +190,19 @@ CONTAINS
 
          ! cloud condensate
          qwcon(k,iw) = max(0.,cldliq(kt)) + max(0.,cldice(kt))
-
-         ! density change (water added/removed at each level from precipitation)
-         rdsrc(k,iw) = (evap(kt) - pptliq(kt) - pptice(kt)) * volti(k,iw)
-
       enddo
 
-      conprr(iw) = pratec
+      ! Convective precipitation flux
+      do kt = cutop, 1, -1
+         k  = kt + lpw(iw) - 1
+         cu_pcpflx(k-1,iw) = cu_pcpflx(k,iw) + (pptliq(kt) + pptice(kt) - evap(kt)) / dxsq
+      enddo
+
+      ! Surface precipitation
+      do ks = 1, lsw(iw)
+         k  = ks + lpw(iw) - 1
+         conprr(iw) = conprr(iw) + frac_sfc(ks,iw) * cu_pcpflx(k-1,iw)
+      enddo
 
    endif
 
@@ -211,7 +218,7 @@ CONTAINS
                       CUTOP,CUBOT,QLIQ,QICE,UMF,DMF,       &
                       pptliq,pptice,evap)
 
-!***** The KF scheme that is currently used in experimental runs of EMCs 
+!***** The KF scheme that is currently used in experimental runs of EMCs
 !***** Eta model....jsk 8/00
 !
       IMPLICIT NONE

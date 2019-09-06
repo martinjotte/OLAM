@@ -110,7 +110,7 @@ end subroutine grad_z_quad
 subroutine grad_t2d(iw, scp, gxps, gyps)
 
   use mem_ijtabs, only: itab_w
-  use mem_grid,   only: mza, mwa, lpw, lpv, gxps_coef, gyps_coef
+  use mem_grid,   only: mza, mwa, lpv, gxps_coef, gyps_coef
 
   implicit none
 
@@ -119,41 +119,26 @@ subroutine grad_t2d(iw, scp, gxps, gyps)
   real,    intent(out) :: gxps(mza)
   real,    intent(out) :: gyps(mza)
 
-  integer :: npoly, jw1, iw1, iv1, k
+  integer :: n, iwn, ivn, k
   real    :: dscp
 
-  npoly = itab_w(iw)%npoly
+  gxps = 0
+  gyps = 0
 
-! Loop over W neighbors of this W cell
+  ! Loop over W neighbors of this W cell
 
-  do jw1 = 1, npoly
+  !dir$ loop count = 6
+  do n = 1, itab_w(iw)%npoly
 
-     iw1 = itab_w(iw)%iw(jw1)
-     iv1 = itab_w(iw)%iv(jw1)
+     iwn = itab_w(iw)%iw(n)
+     ivn = itab_w(iw)%iv(n)
 
-! Vertical loop over T levels
-! Zero-gradient lateral B.C. below lpv(iv1)
-
-     if (jw1 == 1) then
-
-        gxps(lpw(iw):lpv(iv1)-1) = 0.
-        gyps(lpw(iw):lpv(iv1)-1) = 0.
-
-        do k = lpv(iv1), mza
-           dscp    = scp(k,iw1) - scp(k,iw)
-           gxps(k) = gxps_coef(iw,jw1) * dscp
-           gyps(k) = gyps_coef(iw,jw1) * dscp
-        enddo
-
-     else
-
-        do k = lpv(iv1), mza
-           dscp    = scp(k,iw1) - scp(k,iw)
-           gxps(k) = gxps(k) + gxps_coef(iw,jw1) * dscp
-           gyps(k) = gyps(k) + gyps_coef(iw,jw1) * dscp
-        enddo
-
-     endif
+     !dir$ loop count avg(40)
+     do k = lpv(ivn), mza
+        dscp    = scp(k,iwn) - scp(k,iw)
+        gxps(k) = gxps(k) + gxps_coef(iw,n) * dscp
+        gyps(k) = gyps(k) + gyps_coef(iw,n) * dscp
+     enddo
 
   enddo
 
@@ -169,7 +154,7 @@ end subroutine grad_t2d
 subroutine grad_t2d_quad(iw, scp, gxps, gyps, gxxps, gxyps, gyyps)
 
   use mem_ijtabs, only: itab_w
-  use mem_grid,   only: mza, mwa, lpw, lpv
+  use mem_grid,   only: mza, mwa, lpv
   use mem_adv,    only: xy_h
 
   implicit none
@@ -185,47 +170,31 @@ subroutine grad_t2d_quad(iw, scp, gxps, gyps, gxxps, gxyps, gyyps)
   integer :: iwn, ivn, k, n
   real    :: sc
 
-  do k = lpw(iw), lpv(itab_w(iw)%iv(1))-1
-     gxps (k) = 0.
-     gyps (k) = 0.
-     gxxps(k) = 0.
-     gxyps(k) = 0.
-     gyyps(k) = 0.
-  enddo
+  gxps  = 0.
+  gyps  = 0.
+  gxxps = 0.
+  gxyps = 0.
+  gyyps = 0.
 
   ! Loop over neighbors of this W cell
+
+  !dir$ loop count = 6
   do n = 1, itab_w(iw)%npoly
 
      iwn = itab_w(iw)%iw(n)
      ivn = itab_w(iw)%iv(n)
 
-     if (n == 1) then
+     !dir$ loop count avg(40)
+     do k = lpv(ivn), mza
+        sc = scp(k,iwn) - scp(k,iw)
 
-        ! Vertical loop over T levels
-        do k = lpv(ivn), mza
-           sc = scp(k,iwn) - scp(k,iw)
+        gxps (k) = gxps (k) + sc * xy_h(1,n,iw)
+        gyps (k) = gyps (k) + sc * xy_h(2,n,iw)
+        gxxps(k) = gxxps(k) + sc * xy_h(3,n,iw)
+        gxyps(k) = gxyps(k) + sc * xy_h(4,n,iw)
+        gyyps(k) = gyyps(k) + sc * xy_h(5,n,iw)
+     enddo
 
-           gxps (k) = sc * xy_h(1,n,iw)
-           gyps (k) = sc * xy_h(2,n,iw)
-           gxxps(k) = sc * xy_h(3,n,iw)
-           gxyps(k) = sc * xy_h(4,n,iw)
-           gyyps(k) = sc * xy_h(5,n,iw)
-        enddo
-
-     else
-
-        ! Vertical loop over T levels
-        do k = lpv(ivn), mza
-           sc = scp(k,iwn) - scp(k,iw)
-
-           gxps (k) = gxps (k) + sc * xy_h(1,n,iw)
-           gyps (k) = gyps (k) + sc * xy_h(2,n,iw)
-           gxxps(k) = gxxps(k) + sc * xy_h(3,n,iw)
-           gxyps(k) = gxyps(k) + sc * xy_h(4,n,iw)
-           gyyps(k) = gyyps(k) + sc * xy_h(5,n,iw)
-        enddo
-
-     endif
   enddo
 
 end subroutine grad_t2d_quad

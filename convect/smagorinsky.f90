@@ -402,14 +402,12 @@ contains
 
     ! Apply fluxes to conserved scalars
 
+    !dir$ nounroll_and_jam
     do n = 1, num_scalar
-
-       !dir$ ivdep
        do k = ka, mza
           scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
                                     + volti(k,iw) * (soln(k-1,n) - soln(k,n))
        enddo
-
     enddo
 
     ! Apply fluxes and dissipative heating to THIL

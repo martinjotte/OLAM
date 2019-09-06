@@ -68,22 +68,19 @@ MODULE module_cu_tiedtke
   logical, parameter, private :: LMFMID = .TRUE.
   logical, parameter, private :: LMFSCV = .TRUE.
   logical, parameter, private :: LMFDD  = .TRUE.
-  logical, parameter, private :: LMFDUDV= .TRUE.
+  logical, parameter, private :: LMFDUDV= .FALSE.
 
 CONTAINS
 
    subroutine cuparm_tiedtke(iw,km,km1,dtlong4,confrq4,confrq4i)
 
-   use mem_grid,    only: mza, lpv, lpw, zt, xew, yew, zew, arv, arw, arw0, &
-                          volti, vxn_ns, vyn_ns, vzn_ns, vxn_ew, vyn_ew
-   use mem_cuparm,  only: thsrc, rtsrc, conprr, vxsrc, vysrc, vzsrc, rdsrc, &
-                          kcubot, kcutop, cbmf, qwcon, iactcu, cddf, kddtop
-   use mem_basic,   only: theta, tair, press, rho, vxe, vye, vze, rr_v, &
-                          vmc, wmc
-   use mem_turb,    only: frac_land, sfluxt, sfluxr, fqtpbl
-   use consts_coms, only: eradi, gravo2
+   use mem_grid,    only: mza, lpv, lpw, zt, arv, arw, volti, lsw
+   use mem_cuparm,  only: thsrc, rtsrc, conprr, cu_pcpflx, kcubot, kudbot, &
+                          kcutop, cbmf, qwcon, iactcu, cddf, kddtop, kddmax
+   use mem_basic,   only: theta, tair, press, rho, ue, ve, rr_v, vmc, wmc
+   use mem_turb,    only: frac_land, sfluxt, sfluxr, fqtpbl, frac_sfc
+   use consts_coms, only: gravo2
    use mem_ijtabs,  only: itab_w
-   use oname_coms,  only: nl
 
    implicit none
 
@@ -139,7 +136,7 @@ CONTAINS
    real :: dQdt_sav(km)
    real :: vflux(mza), vflux_vap(mza)
 
-   integer :: ka, k, kt, jv, iv, iwn, npoly
+   integer :: ka, k, kt, ks, jv, iv, iwn, npoly
 
    real :: hflux, hflux_vap, dirv, flx, fqvadv
    real :: gnpoly1
@@ -159,10 +156,8 @@ CONTAINS
       else
          vflux_vap(k) = vflux(k) * rr_v(k+1,iw)
       endif
-      
-      ! centered
-      ! vflux_vap(k) = vflux(k) * 0.5 * (rr_v(k,iw) + rr_v(k+1,iw))
    enddo
+
    vflux(ka-1) = 0.
    vflux(mza) = 0.
    vflux_vap(ka-1) = 0.
@@ -170,19 +165,21 @@ CONTAINS
 
 ! Loop over T levels
 
+   !dir$ simd
    do k = ka,mza
-      kt = mza + 1 - k        
+      kt = mza + 1 - k
 
       ! Compute zonal and meridional wind components
 
-      u1(kt) = vxe(k,iw) * vxn_ew(iw) + vye(k,iw) * vyn_ew(iw)
-      v1(kt) = vxe(k,iw) * vxn_ns(iw) + vye(k,iw) * vyn_ns(iw) + vze(k,iw) * vzn_ns(iw)
+      u1(kt) = ue(k,iw)
+      v1(kt) = ve(k,iw)
 
       ! Horizontal advective mass and water vapor fluxes
 
       hflux = 0.
       hflux_vap = 0.
-      
+
+      !dir$ loop count max=7, min=5, avg=6
       do jv = 1, npoly
          iv   = itab_w(iw)%iv(jv)
 
@@ -199,9 +196,6 @@ CONTAINS
             else
                hflux_vap = hflux_vap + flx * rr_v(k,iw)
             endif
-
-            ! centered
-            ! hflux_vap = hflux_vap + flx * 0.5 * (rr_v(k,iw) + rr_v(k,iwn))
          endif
       enddo
 
@@ -281,7 +275,7 @@ CONTAINS
         km,       km1,      km-1,     t1,              &
         q1,       u1,       v1,       omg,     qsat,   &
         evap,     confrq4,  prst,     prsw,    ght,    &
-        dTdt,     dQdt,     dUdt,     dVdt,    prsfc,  & 
+        dTdt,     dQdt,     dUdt,     dVdt,    prsfc,  &
         pssfc,    paprc,    paprsm,   paprs,   iact,   &
         ktype,    icbot,    ictop,    ztu,     zqu,    &
         zlu,      zlde,     zmfu,     zmfd,    zrain,  &
@@ -299,19 +293,31 @@ CONTAINS
       kcutop(iw) = mza - ictop + 1
       kcubot(iw) = mza - icbot + 1
       iactcu(iw) = 1
-      cbmf  (iw) = zmfu(icbot)
 
-      ! precipitation rate
-      conprr(iw) = max(prsfc+pssfc, 0.0)
+      if (ktype == 1) then
+         cbmf(iw) = maxval(zmfu(ictop:icbot))
+      else
+         cbmf(iw) = zmfu(icbot)
+      endif
 
-      do k = kcutop(iw), kcubot(iw), -1
+      kudbot(iw) = kcubot(iw)
+      do k = lpw(iw), kcubot(iw)
          kt = mza + 1 - k
-         if (zmfd(kt) < -1.e-10) then
-            kddtop(iw) = k
-            cddf  (iw) = -zmfd(kt)
+         if (zmfu(kt) > 0.025 * zmfu(icbot)) then
+            kudbot(iw) = k
             exit
          endif
       enddo
+
+      if (zmfd(km) < -1.e-10) then
+         do kt = km-1, ictop, -1
+            if (zmfd(kt) > zmfd(km)) exit
+         enddo
+         kt = kt + 1
+         cddf  (iw) = zmfd(kt)
+         kddtop(iw) = mza + 1 - kt
+         kddmax(iw) = max(kddtop(iw) - 1, lpw(iw))
+      endif
 
       do k = ka, kcutop(iw)
          kt = mza + 1 - k
@@ -323,7 +329,7 @@ CONTAINS
          ! water and evaporate it. Shouldn't be needed with fdbk=0 though.
          !if (dCdt(kt) > 1.e-18) then
          !   dQdt(kt) = dQdt(kt) + dCdt(kt)
-         !   
+         !
          !   if (t1(kt) > tmelt) then
          !      dTdt(kt) = dTdt(kt) - alv * rcpd * dCdt(kt)
          !   else
@@ -338,23 +344,19 @@ CONTAINS
 
          qwcon(k,iw) = zlu(kt)
 
-         ! density tendency (water removed per grid cell)
-         rdsrc(k,iw) = -(zdmfup(kt) + zdmfdp(kt)) * arw0(iw) * volti(k,iw)
-
       enddo
 
-      ! convective momentum transport
+      ! Convective precipitation flux
+      do k  = kcutop(iw), ka, -1
+         kt = mza + 1 - k
+         cu_pcpflx(k-1,iw) = cu_pcpflx(k,iw) + zdmfup(kt) + zdmfdp(kt)
+      enddo
 
-      if (nl%conv_uv_mix > 0) then
-         do k = ka, kcutop(iw)
-            kt = mza + 1 - k
-
-            vxsrc(k,iw) = real(rho(k,iw)) * (dUdt(kt) * vxn_ew(iw) + dVdt(kt) * vxn_ns(iw))
-            vysrc(k,iw) = real(rho(k,iw)) * (dUdt(kt) * vyn_ew(iw) + dVdt(kt) * vyn_ns(iw))
-            vzsrc(k,iw) = real(rho(k,iw)) * (                        dVdt(kt) * vzn_ns(iw))
-
-         enddo
-      endif
+      ! Surface precipitation
+      do ks = 1, lsw(iw)
+         k  = ks + ka - 1
+         conprr(iw) = conprr(iw) + frac_sfc(ks,iw) * cu_pcpflx(k-1,iw)
+      enddo
 
    endif
 
@@ -373,7 +375,7 @@ CONTAINS
           PSSFC,    PAPRC,    PAPRSM,   PAPRS,    LDCUM, &
           KTYPE,    KCBOT,    KCTOP,    PTU,      PQU,   &
           PLU,      PLUDE,    PMFU,     PMFD,     PRAIN, &
-          PSRAIN,   PSEVAP,   PSHEAT,   PSDISS,   PSMELT,& 
+          PSRAIN,   PSEVAP,   PSHEAT,   PSDISS,   PSMELT,&
           PCTE,     PHHFL,    RHO,      sig1,     lndj,  &
           zdmfup,   zdmfdp,   zdpmel                     )
 !
@@ -560,9 +562,6 @@ CONTAINS
 !*             AND DETERMINE CLOUD BASE MASSFLUX IGNORING
 !*             THE EFFECTS OF DOWNDRAFTS AT THIS STAGE
 !              ------------------------------------------
-!        if(ktype .ge. 1 ) then
-!              write(6,*)"ktype=", KTYPE
-!        end if
 
       IKB=KCBOT
       ZQUMQE=PQU(IKB)+PLU(IKB)-ZQENH(IKB)

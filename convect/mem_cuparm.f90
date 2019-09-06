@@ -37,19 +37,21 @@ Module mem_cuparm
 
    real,    allocatable :: thsrc (:,:) ! heat / cp  tend ( rho X temp )
    real,    allocatable :: rtsrc (:,:) ! water mass tend ( rho X rr_w )
-   real,    allocatable :: rdsrc (:,:) ! density tend (water loss from precip)
+
+   real,    allocatable :: cu_pcpflx(:,:)
+
    real(r8),allocatable :: aconpr  (:)
    real,    allocatable :: conprr  (:)
-   real,    allocatable :: vxsrc (:,:) ! xe-momentum tend (rho X vxe )
-   real,    allocatable :: vysrc (:,:) ! ye-momentum tend (rho X vye )
-   real,    allocatable :: vzsrc (:,:) ! ze-momentum tend (rho X vze )
    real,    allocatable :: qwcon (:,:) ! convective cloud water
 
    real,    allocatable :: cbmf    (:) ! updraft mass flux
    real,    allocatable :: cddf    (:) ! downdraft mass flux
    integer, allocatable :: kcutop  (:)
-   integer, allocatable :: kddtop  (:)
    integer, allocatable :: kcubot  (:)
+   integer, allocatable :: kudbot  (:)
+   integer, allocatable :: kddtop  (:)
+   integer, allocatable :: kddmax  (:)
+   integer, allocatable :: kddbot  (:)
    integer, allocatable :: iactcu  (:)
 
    private :: r8
@@ -60,40 +62,37 @@ Contains
 
   subroutine alloc_cuparm(mza, mwa, mrls, nqparm)
 
-    use oname_coms,  only: nl
     use consts_coms, only: r8
 
     implicit none
 
     integer, intent(in) :: mza, mwa, mrls
     integer, intent(in) :: nqparm(:)
-   
-    if ( any(nqparm(1:mrls) > 0) ) then      
-       
+
+    if ( any(nqparm(1:mrls) > 0) ) then
+
        ! Base tendency arrays for all deep convective schemes
-       
+
        allocate (thsrc(mza,mwa)) ; thsrc  = 0.0
        allocate (rtsrc(mza,mwa)) ; rtsrc  = 0.0
-       allocate (rdsrc(mza,mwa)) ; rdsrc  = 0.0
        allocate (aconpr   (mwa)) ; aconpr = 0.0_r8
        allocate (conprr   (mwa)) ; conprr = 0.0
        allocate (qwcon(mza,mwa)) ; qwcon  = 0.0
 
-       ! Extra arrays for momentum mixing
+       ! Do we need to save the convective precipitation flux?
 
-       if (nl%conv_uv_mix > 0) then
-          allocate (vxsrc(mza,mwa)) ; vxsrc = 0.0
-          allocate (vysrc(mza,mwa)) ; vysrc = 0.0
-          allocate (vzsrc(mza,mwa)) ; vzsrc = 0.0
-       endif
+       allocate (cu_pcpflx(mza,mwa)) ; cu_pcpflx = 0.0
 
        ! Diagnostic arrays for clouds/radiation/tracer mixing
 
        allocate(cbmf  (mwa)) ; cbmf   = 0.0
        allocate(cddf  (mwa)) ; cddf   = 0.0
        allocate(kcutop(mwa)) ; kcutop = -1
-       allocate(kddtop(mwa)) ; kddtop = -1
        allocate(kcubot(mwa)) ; kcubot = -1
+       allocate(kudbot(mwa)) ; kudbot = -1
+       allocate(kddtop(mwa)) ; kddtop = -1
+       allocate(kddmax(mwa)) ; kddmax = -1
+       allocate(kddbot(mwa)) ; kddbot = -1
 
     endif
 
@@ -106,21 +105,21 @@ Contains
   subroutine dealloc_cuparm()
     implicit none
 
-    if (allocated(thsrc))   deallocate (thsrc)
-    if (allocated(rtsrc))   deallocate (rtsrc)
-    if (allocated(rdsrc))   deallocate (rdsrc)
-    if (allocated(aconpr))  deallocate (aconpr)
-    if (allocated(conprr))  deallocate (conprr)
-    if (allocated(qwcon))   deallocate (qwcon)
-    if (allocated(cbmf))    deallocate (cbmf)
-    if (allocated(cddf))    deallocate (cddf)
-    if (allocated(kddtop))  deallocate (kddtop)
-    if (allocated(kcutop))  deallocate (kcutop)
-    if (allocated(kcubot))  deallocate (kcubot)
-    if (allocated(iactcu))  deallocate (iactcu)
-    if (allocated(vxsrc))   deallocate (vxsrc)
-    if (allocated(vysrc))   deallocate (vysrc)
-    if (allocated(vzsrc))   deallocate (vzsrc)
+    if (allocated(thsrc))    deallocate (thsrc)
+    if (allocated(rtsrc))    deallocate (rtsrc)
+    if (allocated(cu_pcpflx))deallocate (cu_pcpflx)
+    if (allocated(aconpr))   deallocate (aconpr)
+    if (allocated(conprr))   deallocate (conprr)
+    if (allocated(qwcon))    deallocate (qwcon)
+    if (allocated(cbmf))     deallocate (cbmf)
+    if (allocated(cddf))     deallocate (cddf)
+    if (allocated(kcutop))   deallocate (kcutop)
+    if (allocated(kcubot))   deallocate (kcubot)
+    if (allocated(kudbot))   deallocate (kudbot)
+    if (allocated(kddtop))   deallocate (kddtop)
+    if (allocated(kddmax))   deallocate (kddmax)
+    if (allocated(kddbot))   deallocate (kddbot)
+    if (allocated(iactcu))   deallocate (iactcu)
 
   end subroutine dealloc_cuparm
 
@@ -135,7 +134,7 @@ Contains
 
      if (allocated(rtsrc))  call increment_vtable('RTSRC', 'AW', rvar2=rtsrc)
 
-     if (allocated(rdsrc))  call increment_vtable('RDSRC', 'AW', rvar2=rdsrc)
+     if (allocated(cu_pcpflx)) call increment_vtable('CU_PCPFLX', 'AW', rvar2=cu_pcpflx)
 
      if (allocated(aconpr)) call increment_vtable('ACONPR','AW', dvar1=aconpr)
 
@@ -149,17 +148,17 @@ Contains
 
      if (allocated(kcutop)) call increment_vtable('KCUTOP','AW', ivar1=kcutop)
 
-     if (allocated(kddtop)) call increment_vtable('KDDTOP','AW', ivar1=kddtop)
-
      if (allocated(kcubot)) call increment_vtable('KCUBOT','AW', ivar1=kcubot)
 
+     if (allocated(kudbot)) call increment_vtable('KUDBOT','AW', ivar1=kudbot)
+
+     if (allocated(kddtop)) call increment_vtable('KDDTOP','AW', ivar1=kddtop)
+
+     if (allocated(kddmax)) call increment_vtable('KDDMAX','AW', ivar1=kddmax)
+
+     if (allocated(kddbot)) call increment_vtable('KDDBOT','AW', ivar1=kddbot)
+
      if (allocated(iactcu)) call increment_vtable('IACTCU','AW', ivar1=iactcu)
-
-     if (allocated(vxsrc))  call increment_vtable('VXSRC', 'AW', rvar2=vxsrc)
-
-     if (allocated(vysrc))  call increment_vtable('VYSRC', 'AW', rvar2=vysrc)
-
-     if (allocated(vzsrc))  call increment_vtable('VZSRC', 'AW', rvar2=vzsrc)
 
    end subroutine filltab_cuparm
 

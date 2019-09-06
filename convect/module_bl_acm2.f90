@@ -46,7 +46,7 @@ contains
     use tridiag,    only: tridv8, acm_matrix
     use var_tables, only: num_scalar, scalar_tab
     use mem_tend,   only: thilt
-    use consts_coms,only: vonk, r8
+    use consts_coms,only: r8
 
     implicit none
 
@@ -54,26 +54,25 @@ contains
     real,    intent(in)    :: mflx
     real,    intent(in)    :: zkh(mza)
 
+    real :: akodz(mza), dtom(mza), dtorho(mza)
+
+    real(r8) :: low (mza)
+    real(r8) :: dia (mza)
+    real(r8) :: upp (mza)
+    real(r8) :: rhs (mza,num_scalar+1)
+    real(r8) :: soln(mza,num_scalar+1)
+
+    real(r8), allocatable :: frac_sumi(:)
+    real(r8), allocatable :: massflx  (:)
+    real(r8), allocatable :: aa     (:,:)
+
+    real(r8) :: fracs(nsw_max+1)
+    real(r8) :: fsum
+
     logical :: cnvct
-    real :: massflx(mza)
-    real :: akodz(mza)
-
-    real(r8) :: low(mza)
-    real(r8) :: dia(mza)
-    real(r8) :: upp(mza)
-    real :: dtom(mza), dtorho(mza)
-
-    real :: frac_sumi(nsw_max)
-    real :: fracs(max(nsw_max,2))
-    real :: cbot (mza)
-
-    real(r8) :: aa   (mza,nsw_max)
-    real(r8) :: rhs  (mza,num_scalar+1)
-    real(r8) :: soln (mza,num_scalar+1)
-
-    integer :: k, ks, n, ksm, ksp, kk, ksmax, kpbl
+    integer :: k, ks, n, kk, ksmax, kpbl
     integer :: kbot, ktop, nsfc, nlev
-    real    :: mbar, dens, zpbl, fsum
+    real    :: mbar, dens, zpbl
     real    :: dtl, dti
 
     kbot = lpw(iw)
@@ -86,13 +85,17 @@ contains
     dtl  = dtlm(itab_w(iw)%mrlw)
     dti  = 1.0 / dtl
 
-    cnvct = (mflx > 1.e-9)
+    cnvct = (mflx > 1.e-8 .and. kpbl - kbot > 2)
 
     ! IF CONVECTIVE, COMPUTE NON-LOCAL CONVECTIVE MASS FLUX
 
     if (cnvct) then
 
-       fracs(1:nsfc) = frac_sfc(1:nsfc,iw)
+       if (nsfc == 1) then
+          fracs(1) = 1.0_r8
+       else
+          fracs(1:nsfc) = frac_sfc(1:nsfc,iw)
+       endif
 
        if (dzt(kbot) < 0.1 * zpbl .and. fracs(1) > 0.7) then
           if (nsfc < 2) fracs(2) = 0.0
@@ -101,33 +104,44 @@ contains
           fracs(2) = fracs(2) + .4 * frac_sfc(1,iw)
        endif
 
-       frac_sumi(nsfc) = 1.0
+       if (nsfc > 1) then
+          fracs(nsfc) = 1._r8 - sum(fracs(1:nsfc-1))
+       endif
+
+       allocate(frac_sumi(kpbl - kbot + 1))
+       allocate(massflx  (kpbl - kbot + 1))
 
        if (nsfc > 1) then
           fsum = fracs(1)
-          frac_sumi(1) = 1.0 / fsum
+          frac_sumi(1) = 1._r8 / fsum
        endif
 
        if (nsfc > 2) then
-          do k = 2, nsfc-1
-             fsum = fsum + fracs(k)
-             frac_sumi(k) = 1.0 / fsum
+          do ks = 2, min(nsfc-1, kpbl-kbot+1)
+             fsum = fsum + fracs(ks)
+             frac_sumi(ks) = 1._r8 / fsum
           enddo
        endif
+
+       do ks = nsfc, kpbl-kbot+1
+          frac_sumi(ks) = 1._r8
+       enddo
 
        mbar = mflx / (zpbl - dzt(kbot))
 
        do k = kbot, min(kbot + nsfc - 1, kpbl-1)
+          ks = k - kbot + 1
           dens = 0.5 * (rho(k,iw) + rho(k+1,iw))
-          massflx(k) = arw(k,iw) * mbar * (zpbl - (zm(k) - zm(kbot-1))) * dens
+          massflx(ks) = arw(k,iw) * mbar * (zpbl - (zm(k) - zm(kbot-1))) * dens
        enddo
 
        do k = kbot+nsfc, kpbl-1
+          ks = k - kbot + 1
           dens = 0.5 * (rho(k,iw) + rho(k+1,iw))
-          massflx(k) = arw(kbot+nsfc-1,iw) * mbar * (zpbl - (zm(k) - zm(kbot-1))) * dens
+          massflx(ks) = arw(kbot+nsfc-1,iw) * mbar * (zpbl - (zm(k) - zm(kbot-1))) * dens
        enddo
 
-       massflx(kpbl) = 0.
+       massflx(kpbl-kbot+1) = 0._r8
     endif
 
     ! EDDY DIFFUSIVITY TERMS FOR SEMI-IMPLICIT SOLVER - SCALARS
@@ -139,22 +153,22 @@ contains
     akodz(kbot-1) = 0.0
     akodz(ktop  ) = 0.0
 
-    do k = kbot, ktop
-       ks = k - kbot + 1
+    do ks = 1, nlev
+       k  = ks + kbot - 1
 
        dtorho(k) = dtl / real(rho(k,iw))
-       dtom  (k) = dtorho(k) * volti(k,iw)
+       dtom (ks) = dtorho(k) * volti(k,iw)
 
-       low(ks) = - dtom(k) * akodz(k-1)
-       upp(ks) = - dtom(k) * akodz(k  )
+       low(ks) = - dtom(ks) * akodz(k-1)
+       upp(ks) = - dtom(ks) * akodz(k  )
        dia(ks) = 1._r8 - low(ks) - upp(ks)
     enddo
 
     ! Scalar variables with long-timestep forcing included
 
     do n = 1, num_scalar
-       do k = kbot, ktop
-          ks = k - kbot + 1
+       do ks = 1, nlev
+          k  = ks + kbot - 1
           rhs(ks,n) = scalar_tab(n)%var_p(k,iw)  &
                     + dtorho(k) * scalar_tab(n)%var_t(k,iw)
        enddo
@@ -162,8 +176,8 @@ contains
 
     ! Load potential temperature
 
-    do k = kbot, ktop
-       ks = k - kbot + 1
+    do ks = 1, nlev
+       k  = ks + kbot - 1
        rhs(ks,n) = thil(k,iw) + dtorho(k) * thilt(k,iw)
     enddo
 
@@ -171,34 +185,29 @@ contains
 
     if (cnvct) then
 
-       do k = kbot+1, kpbl
-          ks = k - kbot + 1
-          dia(ks)   = dia(ks)   + dtom(k)   * massflx(k-1)
-          upp(ks-1) = upp(ks-1) - dtom(k-1) * massflx(k-1)
+       ksmax = min(nsfc, kpbl - kbot + 1)
+
+       allocate(aa(mza,ksmax))
+       aa = 0.0_r8
+
+       do ks = 2, kpbl - kbot + 1
+          dia(ks)   = dia(ks)   + dtom(ks)   * massflx(ks-1)
+          upp(ks-1) = upp(ks-1) - dtom(ks-1) * massflx(ks-1)
        enddo
 
-       aa(:,:) = 0._r8
-       ksmax = min(nsfc, kpbl - kbot)
-
        do kk = 1, ksmax
-          do k = kk + kbot, kpbl
-
-             ks  = k - kbot + 1
-             ksp = min(ks,  nsfc)
-             ksm = min(ks-1,nsfc)
-
-             aa(ks,kk) = dtom(k) * fracs(kk) * &
-                       ( massflx(k) * frac_sumi(ksp) - massflx(k-1) * frac_sumi(ksm) )
+          do ks = kk+1, kpbl - kbot + 1
+             aa(ks,kk) = dtom(ks) * fracs(kk) * &
+                       ( massflx(ks) * frac_sumi(ks) - massflx(ks-1) * frac_sumi(ks-1) )
           enddo
        enddo
 
-       do k = kbot, min(kbot + nsfc - 1, kpbl)
-          ks = k - kbot + 1
-          dia(ks) = dia(ks) + dtom(k) * massflx(k) * fracs(ks) * frac_sumi(ks)
+       do ks = 1, ksmax
+          dia(ks)   = dia(ks) + dtom(ks) * massflx(ks) * fracs(ks) * frac_sumi(ks)
           low(ks+1) = low(ks+1) + aa(ks+1,ks)
        enddo
 
-       call acm_matrix(aa, dia, low, rhs, upp, soln, nlev, mza, num_scalar+1, ksmax)
+      call acm_matrix(aa, dia, low, rhs, upp, soln, nlev, mza, num_scalar+1, ksmax)
 
     else
 
@@ -206,19 +215,26 @@ contains
 
     endif
 
+    !dir$ nounroll_and_jam
     do n = 1, num_scalar
 
        ! Vertical loop over T levels
        do k = kbot, ktop
           ks = k - kbot + 1
+
           scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
-                                    + real(soln(ks,n) - rhs(ks,n)) * dti
+                                    + dti * real( (soln(ks,n) - rhs(ks,n)) * rho(k,iw) )
        enddo
+
     enddo
 
+    n = num_scalar + 1
+
     ! Vertical loop over T levels
+
     do k = kbot, ktop
-       thilt(k,iw) = thilt(k,iw) + real(soln(ks,n) - rhs(ks,n)) * dti
+       ks = k - kbot + 1
+       thilt(k,iw) = thilt(k,iw) + dti * real( (soln(ks,n) - rhs(ks,n)) * rho(k,iw) )
     enddo
 
   end subroutine acm2_scalars

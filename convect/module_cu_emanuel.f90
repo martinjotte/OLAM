@@ -23,12 +23,12 @@ CONTAINS
 
 SUBROUTINE cuparm_emanuel(iw, dtlong)
 
-  use mem_grid,    only: lpw, zm, zt, xew, yew, zew, dzt, volti, arw0
-  use mem_basic,   only: tair, press, rho, rr_v, vxe, vye, vze, theta
-  use consts_coms, only: t00, grav, eradi
-  use mem_cuparm , only: thsrc, rtsrc, conprr, cbmf, vxsrc, vysrc, vzsrc, &
-                         kcutop, kcubot, qwcon, iactcu, kddtop, cddf, rdsrc
-  use oname_coms,  only: nl
+  use mem_grid,    only: lpw, zm, zt, dzt, lsw
+  use mem_basic,   only: tair, press, rho, rr_v, ue, ve
+  use consts_coms, only: t00, grav
+  use mem_cuparm , only: thsrc, rtsrc, conprr, cbmf, cu_pcpflx, kudbot, &
+                         kcutop, kcubot, qwcon, iactcu, kddtop, kddmax, cddf
+  use mem_turb,    only: frac_sfc
   use therm_lib,   only: rhovsil
 
   implicit none
@@ -37,12 +37,11 @@ SUBROUTINE cuparm_emanuel(iw, dtlong)
   real,    intent(in)  :: dtlong
 
   real, dimension(mza) :: tc, qc, qsc, u, v, pc, pfc, gz, den, dz
-  real, dimension(mza) :: tt, qt, ut, vt, qcldc, mp, qce
+  real, dimension(mza) :: tt, qt, ut, vt, qcldc, mp, qflux
 
-  integer :: k, ka, kc, kp, nd, na, nm
+  integer :: k, ka, kc, kp, ks, nd, na, nm
   real    :: pcprate, wprime, tprime, qprime
   integer :: iflag, kcbase, kctop, kup
-  real    :: raxis, raxisi, uvtr
 
   ka = lpw(iw)
 
@@ -82,26 +81,11 @@ SUBROUTINE cuparm_emanuel(iw, dtlong)
 
   pfc(1) =  0.01 * (press(ka,iw) + (zt(ka)-zm(ka-1))*rho(ka,iw)*grav)
 
-  ! Compute zonal and meridional winds
-
-  raxis  = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis
-  raxisi = 1.0 / max(raxis, 1.e-12)
-
-  if (raxis > 1.e3) then
-     do kc = 1, nd
-        k  = kc + ka - 1
-        u(kc) = (vye(k,iw) * xew(iw) - vxe(k,iw) * yew(iw)) * raxisi
-        v(kc) = vze(k,iw) * raxis * eradi  &
-                - (vxe(k,iw) * xew(iw) + vye(k,iw) * yew(iw)) &
-                * zew(iw) * raxisi * eradi
-     enddo
-  else
-     do kc = 1, nd
-        k  = kc + ka - 1
-        u(kc) = vxe(k,iw)
-        v(kc) = vye(k,iw)
-     enddo
-  endif
+  do kc = 1, nd
+     k  = kc + ka - 1
+     u(kc) = ue(k,iw)
+     v(kc) = ve(k,iw)
+  enddo
 
   ! Saturated vapor pressure
 
@@ -113,24 +97,28 @@ SUBROUTINE cuparm_emanuel(iw, dtlong)
   call convect43c (     iw,     den,    dz,                                 &
        tc,      qc,     qsc,    u,      v,        pc,    pfc, gz,           &
        nd,      nm,     dtlong, iflag,  tt,       qt,    ut,  vt, mp,       &
-       pcprate, wprime, tprime, qprime, cbmf(iw), qcldc, qce, kup, kcbase, kctop )
+       pcprate, wprime, tprime, qprime, cbmf(iw), qcldc, qflux, kup, kcbase, kctop )
 
   if (iflag == 1 .or. iflag == 4) then
 
      kcutop(iw) = kctop  + ka - 1
      kcubot(iw) = kcbase + ka - 1
+     kudbot(iw) = kup    + ka - 1
      iactcu(iw) = 1
-     conprr(iw) = pcprate
 
      if (mp(kcbase) > 1.e-9) then
         cddf(iw) = mp(kcbase)
 
         do kc = kctop, kcbase, -1
-           if (mp(kc) > 0.33 * cddf(iw)) then
+           if (mp(kc) > 0.2 * cddf(iw)) then
               kddtop(iw) = kc + ka - 1
               exit
            endif
         enddo
+
+        ! temp
+        kddmax(iw) = min(kddtop(iw), kcubot(iw))
+
      endif
 
      do kc = 1, kctop
@@ -138,36 +126,19 @@ SUBROUTINE cuparm_emanuel(iw, dtlong)
         thsrc(k,iw) = tt(kc) * den(kc)
         rtsrc(k,iw) = qt(kc) * den(kc)
         qwcon(k,iw) = qcldc(kc)
-        rdsrc(k,iw) = -qce(kc) * arw0(iw) * volti(k,iw)
-
-        ut(kc) = ut(kc) * den(kc)
-        vt(kc) = vt(kc) * den(kc)
      enddo
 
-     if (nl%conv_uv_mix > 0) then
+     ! Convective precipitation flux
+     do kc = kctop, 1, -1
+        k  = kc + ka - 1
+        cu_pcpflx(k-1,iw) = qflux(kc)
+     enddo
 
-        if (raxis > 1.e3) then
-
-           do kc = 1, kctop
-              k  = kc + ka - 1
-              uvtr = -vt(kc) * zew(iw) * eradi
-              vxsrc(k,iw) = (-ut(kc) * yew(iw) + uvtr * xew(iw)) * raxisi
-              vysrc(k,iw) = ( ut(kc) * xew(iw) + uvtr * yew(iw)) * raxisi
-              vzsrc(k,iw) =   vt(kc) * raxis * eradi
-           enddo
- 
-        else
-
-           do kc = 1, kctop
-              k  = kc + ka - 1
-              vxsrc(k,iw) = ut(kc)
-              vysrc(k,iw) = vt(kc)
-              vzsrc(k,iw) = 0.0
-           enddo
-
-        endif
-
-     endif
+     ! Surface precipitation
+     do ks = 1, lsw(iw)
+        k  = ks + ka - 1
+        conprr(iw) = conprr(iw) + frac_sfc(ks,iw) * cu_pcpflx(k-1,iw)
+     enddo
 
   endif
 
@@ -177,7 +148,7 @@ END SUBROUTINE cuparm_emanuel
 SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
      T,      Q,  QS,     U,      V,    P,      PH, gz,      &
      ND,     NL, DELT,   IFLAG,  FT,   FQ,     FU, FV,  mp, & 
-     PRECIP, WD, TPRIME, QPRIME, CBMF, QCONDC, qce, nk, icb, inb )
+     PRECIP, WD, TPRIME, QPRIME, CBMF, QCONDC, qflux, nk, icb, inb )
   
 !-----------------------------------------------------------------------------
 !    *** On input:      ***
@@ -308,7 +279,7 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
 
   integer, intent(out) :: iflag, icb, inb, nk
   real,    intent(out) :: ft(nd), fq(nd), fu(nd), fv(nd)
-  real,    intent(out) :: qcondc(nd), qce(nd) !, ftra(nd,ntra)
+  real,    intent(out) :: qcondc(nd), qflux(nd) !, ftra(nd,ntra)
   real,    intent(out) :: wd, tprime, qprime, precip
   real,    intent(inout) :: cbmf
   real,    intent(out) :: mp(nd)
@@ -332,7 +303,6 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
   real    ::  sigp(mza), tp(mza), cpn(mza)
   real    ::  lv(mza), lvcp(mza), h(mza), hp(mza), hm(mza)
   real    ::  qcond(mza), nqcond(mza), wa(mza), ma(mza), ax(mza)
-  real    ::  qtemp(mza)
 
   integer :: nkmax
   real    :: dbmax, deltv
@@ -431,8 +401,7 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
      QCOND(I)=0.0
      NQCOND(I)=0.0
      ma(i) = 0.0
-     qtemp(i) = 0.
-     qce(i) = 0.
+     qflux(i) = 0.
 
 !     DO J=1,NTRA
 !        FTRA(I,J)=0.0
@@ -1012,7 +981,7 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
     precip=wt(1)*sigd*water(1)/g
 
     do j = 1, inb
-       qtemp(j) = wt(j)*sigd*water(j)/g
+       qflux(j) = wt(j)*sigd*water(j)/g
     enddo
 
   ENDIF
@@ -1211,10 +1180,6 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
      ft(i) =  ft(i) - tav * abs(ft(i))
      fu(i) = (fu(i) - uav * abs(fu(i))) * (1.-cu)
      fv(i) = (fv(i) - vav * abs(fv(i))) * (1.-cu)
-  enddo
-
-  do i = 1, inb
-     qce(i) = qtemp(i) - qtemp(i+1)
   enddo
 
 !  DO K=1,NTRA

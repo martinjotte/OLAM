@@ -41,10 +41,10 @@ subroutine cuparm_driver()
   use misc_coms,        only: io6, time_istp8, time_istp8p, nqparm, confrq, &
                               dtlong, mstp, runtype, dtlm, iparallel
   use mem_ijtabs,       only: itab_w, jtab_w, mrl_begl, istp, mrls, jtw_prog, jtw_wadj
-  use mem_cuparm,       only: thsrc, rtsrc, aconpr, conprr, vxsrc, vysrc, vzsrc, &
+  use mem_cuparm,       only: thsrc, rtsrc, aconpr, conprr, &
                               kcutop, kcubot, qwcon, iactcu, cbmf, cddf, kddtop, &
-                              rdsrc
-  use mem_tend,         only: thilt, rr_wt, vmxet, vmyet, vmzet
+                              cu_pcpflx, kudbot, kddmax
+  use mem_tend,         only: thilt, rr_wt
   use mem_basic,        only: rho, rr_w, theta, tair, thil
   use olam_mpi_atm,     only: mpi_send_w, mpi_recv_w
   use oname_coms,       only: nl
@@ -56,13 +56,11 @@ subroutine cuparm_driver()
 
   integer, save :: init_kf = 0
   integer       :: j, iw, k, mrl, mrlw
-  real(r8)      :: qpos, qadd, dq
-  real          :: qtest, fact
   real          :: dthmax, dtlong4, confrq4, confrq4i
   integer       :: iwqmax, kqmax, km, km1
   integer       :: ka, kb
   real(r8)      :: qsum, tsum, vtot
-  real          :: rt2(mza)
+  real          :: rt2
 
 ! For KF_eta parameterization, initialize scheme if needed
 
@@ -93,19 +91,16 @@ subroutine cuparm_driver()
      do iw = 1, mwa
         thsrc(:,iw) = 0.0
         rtsrc(:,iw) = 0.0
-        rdsrc(:,iw) = 0.0
         qwcon(:,iw) = 0.0
 
-        if (nl%conv_uv_mix > 0) then
-           vxsrc(:,iw) = 0.0
-           vysrc(:,iw) = 0.0
-           vzsrc(:,iw) = 0.0
-        endif
+        cu_pcpflx(:,iw) = 0.0
 
         conprr(iw) =  0.0
         kcutop(iw) = -1
         kddtop(iw) = -1
         kcubot(iw) = -1
+        kudbot(iw) = -1
+        kddmax(iw) = -1
         iactcu(iw) =  0
         cddf  (iw) = 0.0
      enddo
@@ -114,7 +109,8 @@ subroutine cuparm_driver()
 ! Loop over all IW grid cells where cumulus parameterization may be done
 
 !----------------------------------------------------------------------
-     !$omp parallel do private(iw,mrlw,km,km1,k,ka,kb,qsum,tsum,vtot)
+     !$omp parallel do private(iw,mrlw,km,km1,k,ka,kb,qsum,tsum,vtot) &
+     !$omp             schedule( guided )
      do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j) ! jend(1) for mrl = 1
 !----------------------------------------------------------------------
 
@@ -159,16 +155,6 @@ subroutine cuparm_driver()
 
         endif
 
-! If cumulus scheme does not mix momentum, compute a non-local momentum mixing
-
-        if ( nl%conv_uv_mix > 0 .and. nqparm(mrlw) /= 0 .and. &
-             nqparm(mrlw) /= 1  .and. nqparm(mrlw) /= 4 .and. &
-             nqparm(mrlw) /= 5  .and. iactcu(iw) == 1 ) then
-
-           call acmcld_uvmix(iw, dtlong4)
-
-        endif
-
 ! Specify a minimum value of convective cloud water
 
         if (iactcu(iw) == 1) then
@@ -177,6 +163,7 @@ subroutine cuparm_driver()
            enddo
         else
            cbmf(iw) = 0.0
+           cddf(iw) = 0.0
         endif
 
 ! Make sure convective scheme conserves heat and water
@@ -242,8 +229,7 @@ subroutine cuparm_driver()
   mrl = mrl_begl(istp)
   if (mrl > 0) then
 
-     !$omp parallel private(rt2)
-     !$omp do private(iw,dtlong4,qadd,k,qtest,dq,qpos,fact) schedule(guided)
+     !$omp parallel do private(iw,dtlong4,k,rt2) schedule(guided)
      do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 
@@ -261,91 +247,29 @@ subroutine cuparm_driver()
 
         dtlong4 = dtlm(itab_w(iw)%mrlw)
 
-        ! Slight adjustment of water vapor tendencies to ensure that
-        ! convection does not produce negative rr_w. This may happen
-        ! since we usually do not call convection every timestep.
-
-        ! First modify humidity tendencies so that we don't create negative
-        ! rr_w's, and keep track of how much water we added in variable qadd
-
-        qadd = 0.0_r8
-        
-        do k = lpw(iw), mza
-           rt2(k) = rtsrc(k,iw)
-        enddo
-
-        do k = lpw(iw), mza
-
-           if (rtsrc(k,iw) < 0.) then
-              qtest = max(rr_w(k,iw),0.0) * rho(k,iw) + rtsrc(k,iw) * dtlong4
-
-              if (qtest < 0.) then
-                 dq = qtest / dtlong4 * 1.000001
-                 rt2(k) = rt2(k) - dq
-                 qadd  = qadd - dq * volt(k,iw)
-              endif
-           endif
-
-        enddo
-
-        ! If we added any water, remove it from positive tendency areas so
-        ! that there is no net change over the whole column
-
-        if (qadd > 1.e-20) then
-
-           ! qpos is sum of positive tendencies that we can borrow from
-           qpos = 0.0
-
-           do k = lpw(iw), mza
-              if (rtsrc(k,iw) > 0.) then
-                 qpos = qpos + rtsrc(k,iw) * volt(k,iw)
-              endif
-           enddo
-
-           fact = 1.0 - min(qadd, qpos) / (qpos + 1.e-20)
-           fact = min(fact, 1.0)
-           fact = max(fact, 0.0)
-
-           ! now borrow water from positive tendency areas to balance qadd
-           do k = lpw(iw), mza
-              if (rtsrc(k,iw) > 0.) then
-                 rt2(k) = rtsrc(k,iw) * fact
-              endif
-           enddo
-        endif
-
-        ! Now copy the tendencies
-
         aconpr(iw) = aconpr(iw) + conprr(iw) * dtlong4
 
-        do k = lpw(iw), mza
-
+        do k = lpw(iw), min(kcutop(iw) + 1, mza)
            if (tair(k,iw) > 253.) then
               thilt(k,iw) = thilt(k,iw) + thsrc(k,iw) * theta(k,iw) / tair(k,iw)
            else
               thilt(k,iw) = thilt(k,iw) + thsrc(k,iw) * thil(k,iw) / tair(k,iw)
            endif
 
-           rr_wt(k,iw) = rr_wt(k,iw) + rt2(k)
+           rt2 = max( rtsrc(k,iw), &
+                -0.95 * max(rr_w(k,iw), 0.0) * real(rho(k,iw)) / dtlong4 )
+           rr_wt(k,iw) = rr_wt(k,iw) + rt2
         enddo
-
-        if (nl%conv_uv_mix > 0) then
-           do k = lpw(iw), mza
-              vmxet(k,iw) = vmxet(k,iw) + vxsrc(k,iw)
-              vmyet(k,iw) = vmyet(k,iw) + vysrc(k,iw)
-              vmzet(k,iw) = vmzet(k,iw) + vzsrc(k,iw)
-           enddo
-        endif
 
         ! Compute tracer mixing due to convection
 
-        if (nl%conv_tracer_mix > 0 .and. num_cumix > 0) then
-           call acmcld_tracermix( iw, dtlong4 )
+        if ( (nl%conv_tracer_mix > 0 .and. num_cumix > 0) &
+           .or. (nl%conv_uv_mix > 0) ) then
+           call acmcld_mix( iw, dtlong4 )
         endif
 
      enddo
-     !$omp end do
-     !$omp end parallel
+     !$omp end parallel do
 
   endif
 
@@ -366,7 +290,8 @@ end subroutine cuparm_driver
 subroutine reset_cuparm()
 
   use mem_ijtabs, only: jtab_w, jtw_wadj, itab_w
-  use mem_cuparm, only: conprr, kcutop, kcubot, iactcu, cbmf
+  use mem_cuparm, only: conprr, kcutop, kcubot, iactcu, cbmf, cddf, kudbot, &
+                        kddtop, kddmax
   use misc_coms,  only: nqparm
 
   implicit none
@@ -381,11 +306,16 @@ subroutine reset_cuparm()
 
      if (nqparm(mrlw) == 0) then
 
-                                 iactcu(iw) =  0
+        iactcu(iw) =  0
+
         if (allocated( conprr )) conprr(iw) =  0.0
         if (allocated( kcutop )) kcutop(iw) = -1
         if (allocated( kcubot )) kcubot(iw) = -1
+        if (allocated( kudbot )) kudbot(iw) = -1
+        if (allocated( kddtop )) kddtop(iw) = -1
+        if (allocated( kddmax )) kddmax(iw) = -1
         if (allocated( cbmf   ))   cbmf(iw) =  0.0
+        if (allocated( cddf   ))   cddf(iw) =  0.0
 
      endif
 

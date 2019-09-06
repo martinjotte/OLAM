@@ -21,18 +21,16 @@ CONTAINS
 
   SUBROUTINE grell_driver(iw, dtlong)
 
-     use mem_turb,    only: kpblh, frac_land, fthpbl, fqtpbl
-     use consts_coms, only: cp, alvl, grav, p00i, rocp, rvap, eradi, &
-                            gravi, alvlocp, r8
+     use mem_turb,    only: kpblh, frac_land, fthpbl, fqtpbl, frac_sfc
+     use consts_coms, only: cp, alvl, grav, p00i, rocp, rvap, gravi, alvlocp, r8
      use mem_radiate, only: rshort, fthrd_sw, fthrd_lw
-     use mem_grid,    only: mza, lpw, arw0, zm, zt, xew, yew, zew, &
-                            dzt, arw, lpv, arv, volt, volti
+     use mem_grid,    only: mza, lpw, arw0, zm, zt, dzt, arw, lpv, arv, &
+                            volt, volti, lsw
      use mem_ijtabs,  only: itab_w
-     use mem_basic,   only: wmc, vmc, theta, tair, press, rho, rr_v, &
-                            vxe, vye, vze
+     use mem_basic,   only: wmc, vmc, theta, tair, press, rho, rr_v, ue, ve
      use mem_cuparm,  only: thsrc, rtsrc, conprr, kcutop, kcubot, cbmf, &
-                            qwcon, iactcu, kddtop, cddf, rdsrc
-
+                            qwcon, iactcu, kudbot, cu_pcpflx, cddf, &
+                            kddtop, kddmax, kddbot
      implicit none
 
      integer, intent(in)  :: iw
@@ -89,6 +87,7 @@ CONTAINS
      integer :: kbcon  (1)       ! deep convection LCL
      integer :: ktop   (1)       ! deep convection cloud top
      integer :: jmin   (1)       ! downdraft originating level
+     integer :: kdet   (1)       ! downdraft detraining level
      real    :: xmb    (1)       ! deep convection mass flux
      real    :: cupclw (1,mza)   ! deep convection cloud water
      real    :: xf_ens (1,1,ensdim) ! mass flux ensembles
@@ -99,6 +98,8 @@ CONTAINS
      real    :: subt   (1,mza)   ! temp tendency due to subsidence
      real    :: subq   (1,mza)   ! water vapor tendency due to subsidence
      real    :: cupclws(1,mza)   ! shallow convection cloud water
+     real    :: zu     (1,mza)   ! normalized updraft mass flux
+     real    :: zd     (1,mza)   ! normalized downdraft mass flus
      real    :: xl               ! latent heat of vaporization
      real    :: rv               ! gas constant for water vapor
      real    :: cpd              ! heat capacity of air
@@ -114,8 +115,8 @@ CONTAINS
      integer :: kte              ! max size of k dimensions
 
      ! local variables
-     integer :: k, ka, kc, npoly, n, iwn, jv, iv
-     real    :: raxis, raxisi, omega_ave, dirv, flx
+     integer :: k, ka, kc, ks, npoly, n, iwn, jv, iv
+     real    :: omega_ave, dirv, flx
      real    :: exner(mza)
      real    :: vflux(mza), vflux_the(mza), vflux_vap(mza)
      real    :: hflux, hflux_the, hflux_vap
@@ -159,9 +160,6 @@ CONTAINS
         xland = 1.0
      endif
 
-     raxis  = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis
-     raxisi = 1.0 / max(raxis, 1.e-12)
-
      ! Vertical advective theta and water vapor fluxes (W levels)
 
      do k = ka, mza-1
@@ -183,7 +181,6 @@ CONTAINS
      vflux_vap(mza)  = 0.
 
      ! Loop over T levels
-
      !dir$ simd
      do kc = 1, ktf
         k  = kc + ka - 1
@@ -226,15 +223,15 @@ CONTAINS
 
         fthadv = ((vflux_the(k-1) - vflux_the(k) + hflux_the) &
                - (vflux(k-1) - vflux(k) + hflux) * theta(k,iw)) &
-               / real(volt(k,iw) * rho(k,iw))
+               * volti(k,iw) / real(rho(k,iw))
 
         fqvadv = ((vflux_vap(k-1) - vflux_vap(k) + hflux_vap) &
                - (vflux(k-1) - vflux(k) + hflux) * rr_v(k,iw)) &
-               / real(volt(k,iw) * rho(k,iw))
+               * volti(k,iw) / real(rho(k,iw))
 
         ! "forced" temp, water vapor, and pressure
-        dtemp = ( (fthrd_lw(k,iw) + fthrd_sw(k,iw)) / real(rho(k,iw)) + &
-                 fthpbl(k,iw) + fthadv) * dtlong * exner(k)
+        dtemp = ( (fthrd_lw(k,iw) + fthrd_sw(k,iw)) / real(rho(k,iw)) &
+                + (fthpbl(k,iw) + fthadv) * exner(k) ) * dtlong
         drr_v = (fqtpbl(k,iw) + fqvadv) * dtlong
 
         tn(1,kc) = tair(k,iw) + dtemp
@@ -244,15 +241,8 @@ CONTAINS
         po(1,kc) = p(1,kc)
 
         ! U and V winds
-        if (raxis > 1.e3) then
-           us(1,kc) = (vye(k,iw) * xew(iw) - vxe(k,iw) * yew(iw)) * raxisi
-
-           vs(1,kc) = vze(k,iw) * raxis * eradi  &
-                - (vxe(k,iw) * xew(iw) + vye(k,iw) * yew(iw)) * zew(iw) * eradi * raxisi
-        else
-           us(1,kc) = vxe(k,iw)
-           vs(1,kc) = vye(k,iw)
-        endif
+        us(1,kc) = ue(k,iw)
+        vs(1,kc) = ve(k,iw)
 
         ! Horizontal ensemble members (1st ensemble is current column)
         tx  (1,kc,1) = tn(1,kc)
@@ -352,13 +342,16 @@ CONTAINS
      pr_ens = 0.0
      sub_mas = 0.0
      jmin = 0
+     kdet = 0
+     zu = 0.0
+     zd = 0.0
 
      call  CUP_enss_3d(iw,OUTQC,J,AAEQ,T,Q,Z1,sub_mas,                 &
               TN,QO,PO,PRE,P,OUTT,OUTQ,DTIME,ktau,tkmax,PSUR,US,VS,    &
               TCRIT,tx,qx,                                             &
               tshall,qshall,kpbl,dhdt,outts,outqs,tscl_kf,             &
               k23,kbcon3,ktop3,xmb3,                                   &
-              mconv,omeg,k22,xmb,jmin,                                 &
+              mconv,omeg,k22,xmb,jmin,kdet,zu,zd,                      &
               APR_GR,APR_W,APR_MC,APR_ST,APR_AS,                       &
               APR_CAPMA,APR_CAPME,APR_CAPMI,kbcon,ktop,cupclw,         &
               xf_ens,pr_ens,xland,gsw,edt_out,subt,subq,               &
@@ -370,14 +363,18 @@ CONTAINS
         ! Deep convecton is active
 
         kcutop(iw) = ktop (1) + ka - 1
-        kddtop(iw) = jmin(1) + ka - 1
         kcubot(iw) = kbcon(1) + ka - 1
-        iactcu(iw) = 1
-        cbmf  (iw) = xmb(1)
-        cddf  (iw) = edt_out(1,1) * xmb(1)
-        conprr(iw) = pre(1)
+        kudbot(iw) = k22  (1) + ka - 1
 
-        do kc = 1, ktf
+        kddtop(iw) = jmin(1) + ka - 1
+        kddmax(iw) = min(kdet(1)-1,jmin(1)) + ka - 1
+        kddbot(iw) = ka
+
+        iactcu(iw) = 1
+        cbmf  (iw) = xmb(1) * max(1., maxval(zu(1,1:ktop(1))))
+        cddf  (iw) = edt_out(1,1) * xmb(1)
+
+        do kc = 1, ktop(1)
            k  = kc + ka - 1
 
            ! Total water tendency
@@ -389,9 +386,20 @@ CONTAINS
 
            ! Cloud water
            qwcon(k,iw) = cupclw(1,kc)
+        enddo
 
-           ! Density change (Water removed)
-           rdsrc(k,iw) = -qce(1,kc) * arw0(iw) * volti(k,iw)
+        ! Convective precipitation flux
+        cu_pcpflx( ktop(1) + ka, iw ) = 0.0
+
+        do kc = ktop(1), 1, -1
+           k  = kc + ka - 1
+           cu_pcpflx(k-1,iw) = cu_pcpflx(k,iw) + qce(1,kc)
+        enddo
+
+        ! Surface precipitation
+        do ks = 1, lsw(iw)
+           k  = ks + ka - 1
+           conprr(iw) = conprr(iw) + frac_sfc(ks,iw) * cu_pcpflx(k-1,iw)
         enddo
 
      else if (ishallow_g3 == 1 .and. kbcon3(1) > 0 .and. ktop3(1) >= kbcon3(1)) then
@@ -400,6 +408,8 @@ CONTAINS
 
         kcutop(iw) = ktop3 (1) + ka - 1
         kcubot(iw) = kbcon3(1) + ka - 1
+        kudbot(iw) = k23   (1) + ka - 1
+
         iactcu(iw) = 1
         cbmf  (iw) = xmb3(1)
 
@@ -422,7 +432,7 @@ CONTAINS
               tshall,qshall,kpbl,dhdt,outts,outqs,tscl_kf,             &
               k23,kbcon3,ktop3,xmb3,                                   &
               mconv,                                                   &
-              omeg,k22,xmb,jmin,                                       &
+              omeg,k22,xmb,jmin,kdet,zu,zd,                            &
               APR_GR,APR_W,APR_MC,APR_ST,APR_AS,                       &
               APR_CAPMA,APR_CAPME,APR_CAPMI,kbcon,ktop,cupclw,         &
               xf_ens,pr_ens,xland,gsw,edt_out,subt,subq,               &
@@ -436,9 +446,9 @@ CONTAINS
         iw,ktf,ktau,                                              &
         kts,kte,ipr,jpr,ens4,high_resolution
      integer, intent (in   )              ::                           &
-        j,ishallow_g3,ichoice     
+        j,ishallow_g3,ichoice
   !
-  ! 
+  !
   !
      real,    dimension (its:ite,jts:jte,1:ensdim)                     &
         ,intent (inout)                   ::                           &
@@ -456,13 +466,14 @@ CONTAINS
   ! pre    = output precip
      real,    dimension (its:ite,kts:kte)                              &
         ,intent (inout  )                   ::                         &
-        DHDT,OUTT,OUTQ,OUTQC,subt,subq,sub_mas,cupclw,outts,outqs,cupclws,qce
+        DHDT,OUTT,OUTQ,OUTQC,subt,subq,sub_mas,cupclw,outts,outqs,     &
+        cupclws,qce,zu,zd
      real,    dimension (its:ite)                                      &
         ,intent (out  )                   ::                           &
         pre,xmb3,xmb
      integer,    dimension (its:ite)                                   &
         ,intent (out  )                   ::                           &
-        k22,kbcon,ktop,k23,kbcon3,ktop3,jmin
+        k22,kbcon,ktop,k23,kbcon3,ktop3,jmin,kdet
      integer,    dimension (its:ite)                                   &
         ,intent (in  )                   ::                           &
         kpbl
@@ -592,7 +603,7 @@ CONTAINS
         xqes_cup,xq_cup,xhe_cup,xhes_cup,xz_cup,xp_cup,xgamma_cup,     &
         xt_cup,                                                        &
 
-        dby,qc,qrcd,pwd,pw,hcd,qcd,dbyd,hc,qrc,zu,zd,clw_all,          &
+        dby,qc,qrcd,pwd,pw,hcd,qcd,dbyd,hc,qrc,clw_all,                &
         dbyo,qco,qrcdo,pwdo,pwo,hcdo,qcdo,dbydo,hco,qrco,zuo,zdo,      &
         xdby,xqc,xqrcd,xpwd,xpw,xhcd,xqcd,xhc,xqrc,xzu,xzd,            &
 
@@ -621,7 +632,7 @@ CONTAINS
      real,    dimension (its:ite,1:ens4) ::                            &
         axx
      integer,    dimension (its:ite) ::                                &
-       kzdown,KDET,kstabi,kstabm,K22x,jmin3,kdet3,                     &
+       kzdown,kstabi,kstabm,K22x,jmin3,kdet3,                          &
        KBCONx,ierr,ierr2,ierr3,KBMAX,ierr5,ierr5_0 
 
      integer                              ::                           &
@@ -1515,7 +1526,7 @@ CONTAINS
            APR_GR,APR_W,APR_MC,APR_ST,APR_AS,                &
            APR_CAPMA,APR_CAPME,APR_CAPMI,closure_n,xland1,   &
            ktf,kts,kte)
-      k=1
+!     k=1
       do i=its,itf
           if(ierr(i).eq.0.and.ierr5(i).eq.0.and.kbcon(i).lt.ktop3(i)+1)then
 !            write(0,*)'both ier and ier5=0 at i,j=',i,j,kbcon(i),ktop3(i)
