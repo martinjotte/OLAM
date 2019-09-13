@@ -178,7 +178,7 @@ subroutine isan_singletime(iaction,fform)
 ! Add pressure-level data at higher levels from climatology and interpolate
 ! combined data to OLAM grid
 
-  call isnstage(p_u, p_v, p_t, p_z, p_r, p_o, &
+  call isnstage(iaction, p_u, p_v, p_t, p_z, p_r, p_o, &
                 p_topo, p_prsfc, p_tsfc, p_shsfc, &
                 o_press, o_rho, o_theta, o_rrw, o_uzonal, o_umerid, o_ozone)
 

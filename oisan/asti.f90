@@ -30,7 +30,7 @@
    !----------------------------------------------------------------------------
 
 !===============================================================================
-subroutine isnstage(p_u, p_v, p_t, p_z, p_r, p_o, &
+subroutine isnstage(iaction, p_u, p_v, p_t, p_z, p_r, p_o, &
                     p_topo, p_prsfc, p_tsfc, p_shsfc, &
                     o_press, o_rho, o_theta, o_rrw, o_uzonal, o_umerid, o_ozone)
 
@@ -47,6 +47,8 @@ use isan_coms,    only: ihydsfc
 use olam_mpi_atm, only: mpi_send_w, mpi_recv_w
 
 implicit none
+
+integer, intent(in) :: iaction
 
 real, intent(in) :: p_u(nprx+4,npry+4,nprz)
 real, intent(in) :: p_v(nprx+4,npry+4,nprz)
@@ -270,7 +272,7 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 ! Vertically interpolate current column to model grid and
 ! perform iterative hydrostatic balance
 
-   call vterpp_s(iw,o_press,o_rho,o_theta,o_rrw,o_uzonal,o_umerid,o_ozone, &
+   call vterpp_s(iw,iaction,o_press,o_rho,o_theta,o_rrw,o_uzonal,o_umerid,o_ozone, &
                  pcol_p, pcol_temp, pcol_z, pcol_u, pcol_v, &
                  pcol_rt, pcol_exner, pcol_o3, &
                  pcol_topo, pcol_prsfc, pcol_tsfc, pcol_shsfc, pcol_exnersfc)
@@ -288,7 +290,7 @@ end subroutine isnstage
 
 !===============================================================================
 
-subroutine vterpp_s(iw,o_press,o_rho,o_theta,o_rrw,o_uzonal,o_umerid,o_ozone, &
+subroutine vterpp_s(iw,iaction,o_press,o_rho,o_theta,o_rrw,o_uzonal,o_umerid,o_ozone, &
                  pcol_p, pcol_temp, pcol_z, pcol_u, pcol_v, &
                  pcol_rt, pcol_exner, pcol_o3, &
                  pcol_topo, pcol_prsfc, pcol_tsfc, pcol_shsfc, pcol_exnersfc)
@@ -304,6 +306,7 @@ use therm_lib,   only: rhovsl
 implicit none
 
 integer,  intent(in)    :: iw
+integer,  intent(in)    :: iaction
 
 real(r8), intent(inout) :: o_rho   (mza,mwa)
 real(r8), intent(inout) :: o_press (mza,mwa)
@@ -420,14 +423,14 @@ do k = ka,mza
    o_uzonal(k,iw) = vctr4(k)
    o_umerid(k,iw) = vctr5(k)
    o_ozone (k,iw) = max( 1.e-30, vctr6(k)*cnvto3) ! mix ratio to ppmV
+   o_rho   (k,iw) = o_press(k,iw) ** cvocp * p00kord / &
+                    ( o_theta(k,iw) * (1.0 + eps_vapi * o_rrw(k,iw)) )
 enddo
 
-if (miclevel > 1) then
-   do k = ka, mza
-      o_rho(k,iw) = o_press(k,iw) ** cvocp * p00kord / &
-                    ( o_theta(k,iw) * (1.0 + eps_vapi * o_rrw(k,iw)) )
-   enddo
-endif
+! If we are only nuding, no need for hydrostatic integration
+! to get a balanced pressure field.
+
+if (iaction == 1) return
 
 ! Choose as an internal pressure boundary condition the pcol_p pressure level
 ! at or below (in elevation) the 49900 Pa surface.  Find the k index of this level.

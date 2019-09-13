@@ -925,8 +925,8 @@ subroutine olam_output()
   if (initial == 2 .and. (nudflag == 1 .or. o3nudflag == 1)) then
      if (s1900_sim >= s1900_fg(ifgfile) .and. time8p < timmax8) then
 
-        write(io6,*) ' '
-        write(io6,*) 'olam_output ',time8,s1900_sim,s1900_fg(ifgfile),timmax8
+        write(io6,*) 'Calling isan_driver for next analysis file.'
+        write(io6,*)  time8, s1900_sim, s1900_fg(ifgfile), timmax8
 
         call isan_driver(1)
 
