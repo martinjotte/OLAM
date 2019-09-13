@@ -58,9 +58,10 @@ subroutine acmcldmix_up( iw, dtl )
 
   real(r8) :: bi(mza), ci(mza), ei(mza)
   real(r8) :: di(mza,num_cumix+2), ui(mza,num_cumix+2)
+  real(r8) :: massflx_acm(mza), massflx_loc(mza), massflx_tot(mza)
+  real(r8) :: massflx
 
   real :: dtom(mza)
-  real :: massflx_acm(mza), massflx_loc(mza), massflx_tot(mza)
   real :: massflx0, massflxk, detrain
   real :: ut, vt, dti, frac, fsum, fact
 
@@ -70,7 +71,7 @@ subroutine acmcldmix_up( iw, dtl )
   real,     allocatable :: fracsrc(:)
   real,     allocatable :: depthi (:)
   real(r8), allocatable :: ai   (:,:)
-  real,     allocatable :: temp (:,:)
+  real(r8), allocatable :: temp (:,:)
 
   ! First make sure there is convection
 
@@ -120,7 +121,8 @@ subroutine acmcldmix_up( iw, dtl )
 
   endif
 
-  temp = 0.0
+  temp        = 0.0_r8
+  massflx_loc = 0.0_r8
 
   massflxk = frac * massflx0
 
@@ -128,7 +130,7 @@ subroutine acmcldmix_up( iw, dtl )
   do kk = 1, nsrc
      fact = massflxk * arw(kk+ka-1,iw) * depthi(kk)
      do k = kk + ka - 1, kt-1
-        temp(k,kk) = fact * real(rho(k,iw)) * (zm(kt) - zm(k) + detrain)
+        temp(k,kk) = rho(k,iw) * fact * (zm(kt) - zm(k) + detrain)
      enddo
   enddo
 
@@ -136,24 +138,21 @@ subroutine acmcldmix_up( iw, dtl )
      massflx_acm(k) = sum(temp(k,1:nsrc))
   enddo
 
-  massflx_loc(ka-1:kb-1) = 0.0
-  massflx_loc(kt) = 0.0
-
   do k = kb, kt-1
-     massflxk       = massflx0 * real(rho(k,iw)) * arw(k,iw)
-     massflx_loc(k) = min(massflxk - massflx_acm(k), fl * massflx_acm(k))
+     massflx        = rho(k,iw) * massflx0 * arw(k,iw)
+     massflx_loc(k) = min(massflx - massflx_acm(k), fl * massflx_acm(k))
   enddo
 
   do k = ka, kt-1
-     massflx_loc(k) = max( massflx_loc(k), 0.05 * massflx_acm(k) )
+     massflx_loc(k) = max( massflx_loc(k), 0.05_r8 * massflx_acm(k) )
      massflx_tot(k) = massflx_acm(k) + massflx_loc(k)
   enddo
 
-  massflx_acm(ka-1) = 0.0
-  massflx_acm(kt)   = 0.0
+  massflx_acm(ka-1) = 0.0_r8
+  massflx_acm(kt)   = 0.0_r8
 
-  massflx_tot(ka-1) = 0.0
-  massflx_tot(kt)   = 0.0
+  massflx_tot(ka-1) = 0.0_r8
+  massflx_tot(kt)   = 0.0_r8
 
 ! Define arrays A,B,E which make up matrix and D which is RHS
 
@@ -274,9 +273,10 @@ subroutine acmcldmix_dd( iw, dtl )
 
   real(r8) :: bi(mza), ci(mza), ei(mza)
   real(r8) :: di(mza,num_cumix+2), ui(mza,num_cumix+2)
+  real(r8) :: massflx_acm(mza), massflx_loc(mza), massflx_tot(mza)
+  real(r8) :: massflx
 
   real :: dtom(mza)
-  real :: massflx_acm(mza), massflx_loc(mza), massflx_tot(mza)
   real :: massflx0, massflxk
   real :: ut, vt, dti, fsum, frac, fact
 
@@ -284,9 +284,9 @@ subroutine acmcldmix_dd( iw, dtl )
   real, parameter :: fl  = 0.5  ! extra local mixing
 
   real,     allocatable :: fracsrc(:)
-  real(r8), allocatable :: ai(:,:)
-  real,     allocatable :: temp(:,:)
   real,     allocatable :: depthi(:)
+  real(r8), allocatable :: ai(:,:)
+  real(r8), allocatable :: temp(:,:)
 
   ! First make sure that there was convection
 
@@ -334,7 +334,8 @@ subroutine acmcldmix_dd( iw, dtl )
 
   endif
 
-  temp = 0.0
+  temp        = 0.0_r8
+  massflx_loc = 0.0_r8
 
   massflxk = frac * massflx0
 
@@ -342,7 +343,7 @@ subroutine acmcldmix_dd( iw, dtl )
   do kk = 1, nsrc
      fact = massflxk * depthi(kk)
      do k = kt-kk, ka, -1
-        temp(k,kk) = fact * real(rho(k,iw)) * arw(k,iw) * (zm(k) - zm(ka-1))
+        temp(k,kk) = rho(k,iw) * fact * arw(k,iw) * (zm(k) - zm(ka-1))
      enddo
   enddo
 
@@ -350,24 +351,21 @@ subroutine acmcldmix_dd( iw, dtl )
      massflx_acm(k) = sum(temp(k,1:nsrc))
   enddo
 
-  massflx_loc(ka-1:kb-1) = 0.0
-  massflx_loc(kt) = 0.0
-
   do k = kb-1, ka, -1
-     massflxk        = massflx0 * real(rho(k,iw)) * arw(k,iw)
-     massflx_loc(kc) = min(massflxk - massflx_acm(k), fl * massflx_acm(k))
+     massflx        = rho(k,iw) * massflx0 * arw(k,iw)
+     massflx_loc(k) = min(massflx - massflx_acm(k), fl * massflx_acm(k))
   enddo
 
   do k = kt-1, ka, -1
-     massflx_loc(k) = max( massflx_loc(k), 0.05 * massflx_acm(k) )
+     massflx_loc(k) = max( massflx_loc(k), 0.05_r8 * massflx_acm(k) )
      massflx_tot(k) = massflx_acm(k) + massflx_loc(k)
   enddo
 
-  massflx_acm(kt)   = 0.0
-  massflx_acm(ka-1) = 0.0
+  massflx_acm(kt)   = 0._r8
+  massflx_acm(ka-1) = 0._r8
 
-  massflx_tot(kt)   = 0.0
-  massflx_tot(ka-1) = 0.0
+  massflx_tot(kt)   = 0._r8
+  massflx_tot(ka-1) = 0._r8
 
 ! Define arrays A,B,E which make up matrix and D which is RHS
 
