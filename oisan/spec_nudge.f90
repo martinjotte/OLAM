@@ -197,8 +197,8 @@ use mem_nudge, only:   tnudcent,      mwnud,    volwnudi,   rhot_nud,  &
 
 use mem_basic,   only: rho, theta, rr_w, vxe, vye, vze
 use mem_grid,    only: vxn_ew, vyn_ew, vxn_ns, vyn_ns, vzn_ns, &
-                       mza, mwa, lpw, volt
-use misc_coms,   only: s1900_sim, iparallel, dtlm
+                       mza, lpw, volt
+use misc_coms,   only: s1900_sim, iparallel
 use mem_ijtabs,  only: jtab_w, itab_w, jtv_prog, jtw_prog
 use consts_coms, only: r8
 use mem_tend,    only: thilt, rr_wt, vmxet, vmyet, vmzet
@@ -216,7 +216,7 @@ integer :: iwnud,k,j,iw,iwnud1,iwnud2,iwnud3,kb
 
 real :: umzonalt, ummeridt
 real :: uzonal, umerid
-real :: tp, tf, tnudi, dti, rrw_nudget, rho4
+real :: tp, tf, tnudi, rho4
 real :: fnud1, fnud2, fnud3
 
 real(r8) :: drho   (mza,mwnud)
@@ -374,7 +374,7 @@ enddo
 
 !----------------------------------------------------------------------
 !$omp do private (iw,iwnud1,iwnud2,iwnud3,fnud1,fnud2,fnud3,tnudi, &
-!$omp             dti,k,rrw_nudget,rho4,umzonalt,ummeridt)
+!$omp             rho4,umzonalt,ummeridt)
 do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
    iwnud1 = itab_w(iw)%iwnud(1);  fnud1 = itab_w(iw)%fnud(1)
    iwnud2 = itab_w(iw)%iwnud(2);  fnud2 = itab_w(iw)%fnud(2)
@@ -387,8 +387,6 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !  tnudi = wtnud(iw) / tnudcent
    tnudi = 1.0 / tnudcent
 
-   dti = 1.0 / real(dtlm(itab_w(iw)%mrlw))
-
    do k = lpw(iw), mza
 
       rho4 = real(rho(k,iw))
@@ -399,21 +397,17 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
                      + fnud3 * (rho_obs(k,iwnud3) - rho_sim(k,iwnud3)) )
 
       thilt(k,iw)    = thilt(k,iw) + tnudi * &
-                     ( fnud1 * ( rho_obs(k,iwnud1) * theta_obs(k,iwnud1) * &
+                     ( fnud1 * ( rho_obs(k,iwnud1) * theta_obs(k,iwnud1)   &
                                - rho_sim(k,iwnud1) * theta_sim(k,iwnud1) ) &
-                     + fnud2 * ( rho_obs(k,iwnud2) * theta_obs(k,iwnud2) * &
+                     + fnud2 * ( rho_obs(k,iwnud2) * theta_obs(k,iwnud2)   &
                                - rho_sim(k,iwnud2) * theta_sim(k,iwnud2) ) &
-                     + fnud3 * ( rho_obs(k,iwnud3) * theta_obs(k,iwnud3) * &
+                     + fnud3 * ( rho_obs(k,iwnud3) * theta_obs(k,iwnud3)   &
                                - rho_sim(k,iwnud3) * theta_sim(k,iwnud3) ) )
 
-      rrw_nudget     = tnudi * rho4 * &
+      rr_wt(k,iw)    = tnudi * rho4 * &
                      ( fnud1 * (rrw_obs(k,iwnud1) - rrw_sim(k,iwnud1)) &
                      + fnud2 * (rrw_obs(k,iwnud2) - rrw_sim(k,iwnud2)) &
                      + fnud3 * (rrw_obs(k,iwnud3) - rrw_sim(k,iwnud3)) )
-
-      rrw_nudget  = max(rrw_nudget, -.95 * max(rr_w(k,iw) * rho4 * dti + rr_wt(k,iw), 0.))
-
-      rr_wt(k,iw) = rr_wt(k,iw) + rrw_nudget
 
       umzonalt       = tnudi * rho4 * &
                      ( fnud1 * (uzonal_obs(k,iwnud1) - uzonal_sim(k,iwnud1)) &

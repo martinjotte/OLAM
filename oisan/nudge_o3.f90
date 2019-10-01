@@ -81,9 +81,9 @@ subroutine obs_nudge_o3(mrl)
   use mem_nudge,  only: ozone_obsp, ozone_obsf, o3nudflag, tnudi_o3, o3nudpress
   use mem_basic,  only: rho, press
   use mem_grid,   only: mza, lpw
-  use mem_ijtabs, only: jtab_w, jtw_prog, itab_w
+  use mem_ijtabs, only: jtab_w, jtw_prog
   use isan_coms,  only: ifgfile, s1900_fg
-  use misc_coms,  only: s1900_sim, dtlm, i_o3
+  use misc_coms,  only: s1900_sim, i_o3
   use var_tables, only: scalar_tab
 
   implicit none
@@ -91,7 +91,7 @@ subroutine obs_nudge_o3(mrl)
   integer, intent(in) :: mrl
 
   integer :: k, j, iw, kbot
-  real    :: tp, tf, dtli
+  real    :: tp, tf
 
   ! Skip if we don't nudge
 
@@ -114,10 +114,8 @@ subroutine obs_nudge_o3(mrl)
 
   ! Compute ozone nudging tendency using point-by-point (non-spectral) information
 
-  !$omp parallel do private(iw,dtli,k,kbot)
+  !$omp parallel do private(iw,k,kbot)
   do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
-
-     dtli = 1.0 / real(dtlm(itab_w(iw)%mrlw))
 
      ! Find level above which we nudge ozone
 
@@ -131,12 +129,6 @@ subroutine obs_nudge_o3(mrl)
 
         scalar_tab(i_o3)%var_t(k,iw) = scalar_tab(i_o3)%var_t(k,iw) + tnudi_o3 * real(rho(k,iw)) * &
              ( (tp * ozone_obsp(k,iw) + tf * ozone_obsf(k,iw)) - scalar_tab(i_o3)%var_p(k,iw) )
-
-        ! With nudging, scalar mass is no longer conserved. Make sure the long timestep
-        ! tendency does not drive ozone negative when nudging is included:
-
-        scalar_tab(i_o3)%var_t(k,iw) = max( scalar_tab(i_o3)%var_t(k,iw), &
-             -0.99 * max(scalar_tab(i_o3)%var_p(k,iw), 0.0) * real(rho(k,iw)) * dtli )
 
      enddo
 

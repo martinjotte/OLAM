@@ -115,7 +115,7 @@ use mem_nudge, only:   tnudcent, rhot_nud,                 &
 
 use mem_basic,   only: rho, theta, rr_w, vxe, vye, vze
 use mem_grid,    only: mza, lpw, vxn_ew, vyn_ew, vxn_ns, vyn_ns, vzn_ns
-use misc_coms,   only: s1900_sim, dtlm
+use misc_coms,   only: s1900_sim
 use mem_ijtabs,  only: itab_w, jtab_w, jtw_prog
 use mem_tend,    only: thilt, rr_wt, vmxet, vmyet, vmzet
 use isan_coms,   only: ifgfile, s1900_fg
@@ -131,7 +131,7 @@ integer, intent(in) :: mrl
 integer :: j, iw, k
 real    :: umzonalt, ummeridt
 real    :: uzonal, umerid
-real    :: tp, tf, tnudi, tnudr, rho4, dti, rrw_nudget
+real    :: tp, tf, tnudi, tnudr, rho4
 
 !----------------------------------------------------------------------
 ! EXAMPLE - DEFINE OPTIONAL SPATIAL NUDGING MASK
@@ -187,7 +187,7 @@ tp = 1. - tf
 
 ! Horizontal loop over W columns
 !----------------------------------------------------------------------
-!$omp parallel do private( iw,k,tnudi,dti,rho4,tnudr,uzonal,umerid,rrw_nudget, &
+!$omp parallel do private( iw,k,tnudi,rho4,tnudr,uzonal,umerid, &
 !$omp                      umzonalt,ummeridt )
 do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !---------------------------------------------------------------------
@@ -214,8 +214,6 @@ do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
 ! Compute nudging tendencies, interpolating observational fields in time
 
-   dti = 1.0 / real(dtlm(itab_w(iw)%mrlw))
-
    do k = lpw(iw), mza
 
       rho4  = rho(k,iw)
@@ -235,15 +233,11 @@ do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
       ! Heat (rho Theta) nudging
 
       thilt(k,iw) = thilt(k,iw) &
-                  + tnudi * (rho_obs(k,iw) *  theta_obs(k,iw) - rho4 * theta(k,iw))
+                  + tnudi * (rho_obs(k,iw) * theta_obs(k,iw) - rho4 * theta(k,iw))
 
       ! Total water mixing ratio nudging
 
-      rrw_nudget = tnudr * (rrw_obs(k,iw) - rr_w(k,iw))
-
-      rrw_nudget = max(rrw_nudget, -.95 * max(rr_w(k,iw) * rho4 * dti + rr_wt(k,iw), 0.))
-
-      rr_wt(k,iw) = rr_wt(k,iw) + rrw_nudget
+      rr_wt(k,iw) = tnudr * (rrw_obs(k,iw) - rr_w(k,iw))
 
       ! Momentum nudging (including density change)
 

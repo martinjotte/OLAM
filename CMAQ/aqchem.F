@@ -26,7 +26,7 @@ C %W% %P% %G% %U%
 
 C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
       SUBROUTINE AQCHEM ( JDATE, JTIME, TEMP, PRES_PA, TAUCLD, PRCRATE,
-     &                    WCAVG, WTAVG, AIRM, ALFAC, GAS, AEROSOL, 
+     &                    WCAVG, WTAVG, AIRM, ALFAC, GAS, AEROSOL,
      &                    GASWDEP, AERWDEP, HPWDEP, BETASO4, DARK, cthk1 )
 C-----------------------------------------------------------------------
 C  Description:
@@ -189,12 +189,12 @@ C...........Arguments:
       REAL,      INTENT( IN )  :: TEMP      ! temperature (K)
       REAL,      INTENT( IN )  :: WCAVG     ! liquid water content (kg/m3)
       REAL,      INTENT( IN )  :: WTAVG     ! total water content (kg/m3)
-      REAL( 8 ), INTENT( INOUT ) :: GAS    ( : )   ! gas phase concentrations (mol/molV)
-      REAL( 8 ), INTENT( INOUT ) :: AEROSOL( :,: ) ! aerosol concentrations (mol/molV)
-      REAL( 8 ), INTENT( INOUT ) :: GASWDEP( : )   ! gas phase wet deposition array (mm mol/liter)
-      REAL( 8 ), INTENT( INOUT ) :: AERWDEP( :,: ) ! aerosol wet deposition array (mm mol/liter)
+      REAL( 8 ), INTENT( INOUT ) :: GAS    ( NGAS )   ! gas phase concentrations (mol/molV)
+      REAL( 8 ), INTENT( INOUT ) :: GASWDEP( NGAS )   ! gas phase wet deposition array (mm mol/liter)
+      REAL( 8 ), INTENT( INOUT ) :: AEROSOL( MAX_NAER,NMODES ) ! aerosol concentrations (mol/molV)
+      REAL( 8 ), INTENT( INOUT ) :: AERWDEP( MAX_NAER,NMODES ) ! aerosol wet deposition array (mm mol/liter)
       LOGICAL,   INTENT( IN )    :: DARK           ! DARK = TRUE is night,  DARK = FALSE is day
-      REAL,      INTENT( IN )  :: CTHK1     ! cloud thickness (m)
+      REAL,      INTENT( IN )    :: CTHK1     ! cloud thickness (m)
 
 C...........Local Variables (scalars):
 

@@ -96,7 +96,7 @@ use ccnbin_coms,    only: nccntyp, nnuc
 use consts_coms,    only: pi4
 use misc_coms,      only: dtlm, time_istp8
 use mem_ijtabs,     only: itab_w
-use mem_grid,       only: lpw, glatw, glonw
+use mem_grid,       only: lpw
 use oname_coms,     only: nl
 use mem_flux_accum, only: latheat_liq_accum, latheat_ice_accum
 
@@ -506,7 +506,7 @@ tair0(:) = tair(:) ! Used for latheat diagnosis
 ! MAIN MICROPHYSICS COMPUTATIONS ARE DONE
 
 !if (time_istp8 > 17300.) then
-!   print*, 'micphys1 ',iw0,glatw(iw0),glonw(iw0)
+!   print*, 'micphys1 ',iw0
 
 !if (iw0 == 84702) then
 !   print*, ' '
@@ -537,7 +537,7 @@ tair0(:) = tair(:) ! Used for latheat diagnosis
 !   print*, ' '
 !   do k = lpw0,mza0
 !      print*, ' '
-!      print*, 'micphys1 ',iw0,glatw(iw0),glonw(iw0)
+!      print*, 'micphys1 ',iw0
 
 !      write(6,'(a,i6,10e12.3)') 'env ',k,press0(k),theta0(k),wc0(k),tair(k), &
 !                                tairc(k),rhoa(k),rhow(k),rhov(k)
@@ -1188,7 +1188,7 @@ endif
 
  call mic_copyback(iw0,lpw0, &
     accpx,pcprx,thil0,theta0,tair,rhow,rhov, &
-    con_ccnx,con_gccnx,con_ifnx,rx,cx,qr)
+    con_ccnx,con_gccnx,con_ifnx,rx,cx,qx)
 
 end subroutine micphys
 
@@ -1393,9 +1393,9 @@ end subroutine mic_copy
 
 subroutine mic_copyback(iw0,lpw0, &
    accpx,pcprx,thil0,theta0,tair0,rhow,rhov, &
-   con_ccnx,con_gccnx,con_ifnx,rx,cx,qr)
+   con_ccnx,con_gccnx,con_ifnx,rx,cx,qx)
 
-use micro_coms, only: mza0, ncat, jnmb, iccn, igccn, iifn, rxmin
+use micro_coms, only: mza0, ncat, jnmb, iccn, igccn, iifn, emb0i
 use ccnbin_coms, only: nccntyp
 use mem_basic,  only: thil, theta, tair, rho, rr_w, rr_v
 use mem_micro,  only: rr_c, rr_d, rr_r, rr_p, rr_s, rr_a, rr_g, rr_h, &
@@ -1425,7 +1425,7 @@ real, intent(in) :: con_ifnx (mza0)
 
 real, intent(in) :: rx(mza0,ncat)
 real, intent(in) :: cx(mza0,ncat)
-real, intent(in) :: qr(mza0,ncat)
+real, intent(in) :: qx(mza0,ncat)
 
 real    :: rhoi (mza0)
 integer :: k, ic
@@ -1439,7 +1439,7 @@ do k = lpw0, mza0
    theta(k,iw0) = theta0(k)
    tair (k,iw0) = tair0 (k)
    rr_w (k,iw0) = rhow  (k) * rhoi(k)
-   rr_v (k,iw0) = rr_w  (k,iw0)
+   rr_v (k,iw0) = rhov  (k) * rhoi(k)
 enddo
 
 ! Copy cloud water number and bulk density back to main array
@@ -1447,18 +1447,8 @@ enddo
 if (jnmb(1) >= 1) then
 
    do k = lpw0, mza0
-      if (rx(k,1) > rxmin(1)) then
-
-         rr_c(k,iw0) = rx(k,1) * rhoi(k)
-         rr_v(k,iw0) = rr_v(k,iw0) - rr_c(k,iw0)
-         if (jnmb(1) == 5) con_c(k,iw0) = cx(k,1) * rhoi(k)
-
-      else
-
-         rr_c(k,iw0) = 0.0
-         if (jnmb(1) == 5) con_c(k,iw0) = 0.0
-
-      endif
+      rr_c(k,iw0) = rx(k,1) * rhoi(k)
+      if (jnmb(1) == 5) con_c(k,iw0) = min(cx(k,1), rx(k,1) * emb0i(1)) * rhoi(k)
    enddo
 
 endif
@@ -1470,20 +1460,9 @@ if (jnmb(2) >= 1) then
    pcprr(iw0) = pcprx(2)
 
    do k = lpw0, mza0
-      if (rx(k,2) > rxmin(2)) then
-
-         rr_r(k,iw0) = rx(k,2) * rhoi(k)
-         rr_v(k,iw0) = rr_v(k,iw0) - rr_r(k,iw0)
-         q2  (k,iw0) = qr(k,2) * rhoi(k)
-         if (jnmb(2) == 5) con_r(k,iw0) = cx(k,2) * rhoi(k)
-
-      else
-
-         rr_r(k,iw0) = 0.0
-         q2  (k,iw0) = 0.0
-         if (jnmb(2) == 5) con_r(k,iw0) = 0.0
-
-      endif
+      rr_r(k,iw0) = rx(k,2) * rhoi(k)
+      q2  (k,iw0) = qx(k,2) * rr_r(k,iw0)
+      if (jnmb(2) == 5) con_r(k,iw0) = min(cx(k,2), rx(k,2) * emb0i(2)) * rhoi(k)
    enddo
 
 endif
@@ -1495,14 +1474,8 @@ if (jnmb(3) == 5) then
    pcprp(iw0) = pcprx(3)
 
    do k = lpw0, mza0
-      if (rx(k,3) > rxmin(3)) then
-         rr_p (k,iw0) = rx(k,3) * rhoi(k)
-         rr_v(k,iw0) = rr_v(k,iw0) - rr_p(k,iw0)
-         con_p(k,iw0) = cx(k,3) * rhoi(k)
-      else
-         rr_p (k,iw0) = 0.0
-         con_p(k,iw0) = 0.0
-      endif
+      rr_p (k,iw0) = rx(k,3) * rhoi(k)
+      con_p(k,iw0) = min(cx(k,3), rx(k,3) * emb0i(3)) * rhoi(k)
    enddo
 
 endif
@@ -1514,18 +1487,8 @@ if (jnmb(4) >= 1) then
    pcprs(iw0) = pcprx(4)
 
    do k = lpw0, mza0
-      if (rx(k,4) > rxmin(4)) then
-
-         rr_s(k,iw0) = rx(k,4) * rhoi(k)
-         rr_v(k,iw0) = rr_v(k,iw0) - rr_s(k,iw0)
-         if (jnmb(4) == 5) con_s(k,iw0) = cx(k,4) * rhoi(k)
-
-      else
-
-         rr_s(k,iw0) = 0.0
-         if (jnmb(4) == 5) con_s(k,iw0) = 0.0
-
-      endif
+      rr_s(k,iw0) = rx(k,4) * rhoi(k)
+      if (jnmb(4) == 5) con_s(k,iw0) = min(cx(k,4), rx(k,4) * emb0i(4)) * rhoi(k)
    enddo
 
 endif
@@ -1537,18 +1500,8 @@ if (jnmb(5) >= 1) then
    pcpra(iw0) = pcprx(5)
 
    do k = lpw0, mza0
-      if (rx(k,5) > rxmin(5)) then
-
-         rr_a(k,iw0) = rx(k,5) * rhoi(k)
-         rr_v(k,iw0) = rr_v(k,iw0) - rr_a(k,iw0)
-         if (jnmb(5) == 5) con_a(k,iw0) = cx(k,5) * rhoi(k)
-
-      else
-
-         rr_a(k,iw0) = 0.0
-         if (jnmb(5) == 5) con_a(k,iw0) = 0.0
-
-      endif
+      rr_a(k,iw0) = rx(k,5) * rhoi(k)
+      if (jnmb(5) == 5) con_a(k,iw0) = min(cx(k,5), rx(k,5) * emb0i(5)) * rhoi(k)
    enddo
 
 endif
@@ -1560,20 +1513,9 @@ if (jnmb(6) >= 1) then
    pcprg(iw0) = pcprx(6)
 
    do k = lpw0, mza0
-      if (rx(k,6) > rxmin(6)) then
-
-         rr_g(k,iw0) = rx(k,6) * rhoi(k)
-         rr_v(k,iw0) = rr_v(k,iw0) - rr_g(k,iw0)
-         q6  (k,iw0) = qr(k,6) * rhoi(k)
-         if (jnmb(6) == 5) con_g(k,iw0) = cx(k,6) * rhoi(k)
-
-      else
-
-         rr_g(k,iw0) = 0.0
-         q6  (k,iw0) = 0.0
-         if (jnmb(6) == 5) con_g(k,iw0) = 0.0
-
-      endif
+      rr_g(k,iw0) = rx(k,6) * rhoi(k)
+      q6  (k,iw0) = qx(k,6) * rr_g(k,iw0)
+      if (jnmb(6) == 5) con_g(k,iw0) = min(cx(k,6), rx(k,6) * emb0i(6)) * rhoi(k)
    enddo
 
 endif
@@ -1585,20 +1527,9 @@ if (jnmb(7) >= 1) then
    pcprh(iw0) = pcprx(7)
 
    do k = lpw0, mza0
-      if (rx(k,7) > rxmin(7)) then
-
-         rr_h(k,iw0) = rx(k,7) * rhoi(k)
-         rr_v(k,iw0) = rr_v(k,iw0) - rr_h(k,iw0)
-         q7  (k,iw0) = qr(k,7) * rhoi(k)
-         if (jnmb(7) == 5) con_h(k,iw0) = cx(k,7) * rhoi(k)
-
-      else
-
-         rr_h(k,iw0) = 0.0
-         q7  (k,iw0) = 0.0
-         if (jnmb(7) == 5) con_h(k,iw0) = 0.0
-
-      endif
+      rr_h(k,iw0) = rx(k,7) * rhoi(k)
+      q7  (k,iw0) = qx(k,7) * rr_h(k,iw0)
+      if (jnmb(7) == 5) con_h(k,iw0) = min(cx(k,7), rx(k,7) * emb0i(7)) * rhoi(k)
    enddo
 
 endif
@@ -1610,14 +1541,8 @@ if (jnmb(8) == 5) then
    pcprd(iw0) = pcprx(8)
 
    do k = lpw0, mza0
-      if (rx(k,8) > rxmin(8)) then
-         rr_d (k,iw0) = rx(k,8) * rhoi(k)
-         rr_v (k,iw0) = rr_v(k,iw0) - rr_d(k,iw0)
-         con_d(k,iw0) = cx(k,8) * rhoi(k)
-      else
-         rr_d (k,iw0) = 0.0
-         con_d(k,iw0) = 0.0
-      endif
+      rr_d (k,iw0) = rx(k,8) * rhoi(k)
+      con_d(k,iw0) = min(cx(k,8), rx(k,8) * emb0i(8)) * rhoi(k)
    enddo
 
 endif

@@ -1084,7 +1084,7 @@ C..Parameters:
       Real, Parameter :: cmin = 1.0E-34   ! minimum concentration for most species
 
 C..Arguments:
-      Real, Intent( Out ) :: aeconcmin( : ) ! array of minimum concentrations
+      Real, Intent( Out ) :: aeconcmin( n_ae_spc ) ! array of minimum concentrations
 
 C..Local Variables:
 !     Character( 16 ) :: pname = 'SET_AECONCMIN'   ! program name

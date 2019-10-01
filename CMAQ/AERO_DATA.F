@@ -1211,12 +1211,13 @@ C     Prakash Bhave, Jeff Young, and Sergey Napelenok.
 C     4/2016: Updated for 2nd moment by H. Pye and B. Murphy
 C-----------------------------------------------------------------------
 
-      Use const_data, only : oneovpi, f6piove9  ! fundamental constants, data type definitions, etc.
+      Use const_data, only: oneovpi, f6piove9  ! fundamental constants, data type definitions, etc.
+      Use cgrid_spcs, only: nspcsd
 
       Implicit None
 
 C Arguments:
-      Real,              Intent( In ) :: conc( : )
+      Real,              Intent( In ) :: conc( nspcsd )
       Logical,           Intent( In ) :: minchk
       Logical, Optional, Intent( In ) :: dry
       real,    Optional, Intent( Out) :: dry_m2(n_mode)
@@ -1326,12 +1327,13 @@ C-----------------------------------------------------------------------
 
       Use const_data, only: pi
       Use utilio_defn
+      Use cgrid_spcs, only: nspcsd
 
       Implicit None
 
 C Arguments:
-      Real, Intent( Out ) :: conc( : )
-      Logical, Intent( In ) :: minchk
+      Real,    Intent( Out ) :: conc( nspcsd )
+      Logical, Intent(  In ) :: minchk
 
 C Local variables:
       Character( 80 ) :: xmsg

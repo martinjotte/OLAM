@@ -145,13 +145,13 @@ do iv = 2,nva
    iw2 = itab_v(iv)%iw(2)
 
    if (itab_wd(im1)%npoly < 3) then ! itab_m(im1)%npoly not filled yet
-      xem(im1) = xew(iw1) + xew(iw2) - xem(im2) 
-      yem(im1) = yew(iw1) + yew(iw2) - yem(im2) 
-      zem(im1) = 0. 
+      xem(im1) = xew(iw1) + xew(iw2) - xem(im2)
+      yem(im1) = yew(iw1) + yew(iw2) - yem(im2)
+      zem(im1) = 0.
    elseif (itab_wd(im2)%npoly < 3) then ! itab_m(im2)%npoly not filled yet
-      xem(im2) = xew(iw1) + xew(iw2) - xem(im1) 
-      yem(im2) = yew(iw1) + yew(iw2) - yem(im1) 
-      zem(im2) = 0. 
+      xem(im2) = xew(iw1) + xew(iw2) - xem(im1)
+      yem(im2) = yew(iw1) + yew(iw2) - yem(im1)
+      zem(im2) = 0.
    endif
 
 ! Extract information from IMD1 neighbor
@@ -166,7 +166,7 @@ do iv = 2,nva
       iud1 = itab_md(imd)%iu(j)
       iud2 = itab_md(imd)%iu(j1)
 
-! IW(3) and IW(4) neighbors of IV   
+! IW(3) and IW(4) neighbors of IV
 
       if (iud2 == iv) then
          iw1 = itab_ud(iud1)%im(1)
@@ -190,7 +190,7 @@ do iv = 2,nva
          endif
       endif
 
-   enddo           
+   enddo
 
 enddo
 
@@ -533,6 +533,7 @@ use consts_coms, only: erad, erad2, piu180, eradsq,pio2
 use oplot_coms,  only: op
 use oname_coms,  only: nl
 use mem_para,    only: myrank
+use consts_coms, only: r8
 
 implicit none
 
@@ -552,12 +553,13 @@ integer            :: iskip, iwp, ivp, imp
 logical            :: dops
 real               :: quarter_kite(2,nva)
 character(10)      :: string
-integer, parameter :: lwork = 200
-real               :: work(lwork)
+integer            :: lwork
 integer            :: info
-real               :: vdotw, vmag, fact
-real               :: b(7), fo(7), vnx_ps(7), vny_ps(7), vnz_ps(7), vrot_x(7), vrot_y(7)
-real, allocatable  :: a(:,:)
+
+real(r8)              :: b(7), fo(7), vnx_ps(7), vny_ps(7), vnz_ps(7), vrot_x(7), vrot_y(7)
+real(r8), allocatable :: work(:)
+real(r8), allocatable :: a(:,:)
+real(r8)              :: wsize(1), vdotw, vmag, fact
 
 ! Loop over all M points
 
@@ -671,7 +673,7 @@ do iv = 2,nva
    itab_v(iv)%mrlv = max(itab_w(iw1)%mrlw,itab_w(iw2)%mrlw)
 
 ! Compute IM1 and IM2 values of quarter kite area,
-! and add to ARM0 and ARW0 arrays   
+! and add to ARM0 and ARW0 arrays
 
    dvm1 = sqrt((xev(iv) - xem(im1))**2 &
         +      (yev(iv) - yem(im1))**2 &
@@ -749,7 +751,7 @@ do iw = 2,nwa
 
       glatw(iw) = atan2(zew(iw),raxis)   * piu180
       glonw(iw) = atan2(yew(iw),xew(iw)) * piu180
-      
+
       wnx(iw) = xew(iw) / erad
       wny(iw) = yew(iw) / erad
       wnz(iw) = zew(iw) / erad
@@ -812,7 +814,7 @@ do iw = 2,nwa
          dops = .false.
          npoly1 = itab_w(iw1)%npoly
          npoly2 = itab_w(iw2)%npoly
-      
+
          do np = 1, npoly1
             im1 = itab_w(iw1)%im(np)
             if (im1 == 1) cycle
@@ -873,7 +875,7 @@ do iw = 2,nwa
       endif
 
 ! Earth-grid components of rotated polar stereographic easterly
-! (or cartesian positive x) horizontal unit vector 
+! (or cartesian positive x) horizontal unit vector
 
       if (mdomain <= 1) then
          itab_w(iw)%unx_w = -sin(glonw(iw))
@@ -884,7 +886,7 @@ do iw = 2,nwa
       endif
 
 ! Earth-grid components of rotated polar stereographic northerly
-! (or cartesian positive y) horizontal unit vector 
+! (or cartesian positive y) horizontal unit vector
 
       if (mdomain <= 1) then
          itab_w(iw)%vnx_w = -sin(glatw(iw)) * cos(glonw(iw))
@@ -977,13 +979,13 @@ enddo
 if (mdomain < 2 .or. mdomain == 5) then
 
    !$omp do private(npoly, fo, a, b, work, info, j, iv, vdotw, vmag, fact, &
-   !$omp            vnx_ps, vny_ps, vnz_ps, vrot_x, vrot_y)
+   !$omp            vnx_ps, vny_ps, vnz_ps, vrot_x, vrot_y, wsize, lwork)
    do iw = 2, nwa
-      
+
       npoly = itab_w(iw)%npoly
 
       ! Default coefficients from Perot
-      fo(1:npoly) = 2.0 * itab_w(iw)%farv(1:npoly)
+      fo(1:npoly) = 2.0_r8 * itab_w(iw)%farv(1:npoly)
 
       if (allocated(a)) then
          if (size(a,2) /= npoly) deallocate(a)
@@ -996,7 +998,7 @@ if (mdomain < 2 .or. mdomain == 5) then
          do j = 1, npoly
             iv = itab_w(iw)%iv(j)
 
-            ! Compute the components of the V unit normals perpendicular to W 
+            ! Compute the components of the V unit normals perpendicular to W
 
             vdotw = vnx(iv)*wnx(iw) + vny(iv)*wny(iw) + vnz(iv)*wnz(iw)
 
@@ -1015,7 +1017,7 @@ if (mdomain < 2 .or. mdomain == 5) then
             ! Rotate these new unit normals to a coordinate system with Z aligned with W
 
             if (wnz(iw) >= 0.0) then
-            
+
                fact = ( wny(iw)*vnx_ps(j) - wnx(iw)*vny_ps(j) ) / ( 1.0 + wnz(iw) )
 
                vrot_x(j) = vnx_ps(j)*wnz(iw) - vnz_ps(j)*wnx(iw) + wny(iw)*fact
@@ -1023,7 +1025,7 @@ if (mdomain < 2 .or. mdomain == 5) then
 
             else
 
-               fact = ( wny(iw)*vnx_ps(j) - wnx(iw)*vny_ps(j) ) / ( 1.0 - wnz(iw) )
+               fact = ( wny(iw)*vnx_ps(j) - wnx(iw)*vny_ps(j) ) / ( 1._r8 - wnz(iw) )
 
                vrot_x(j) = -vnx_ps(j)*wnz(iw) + vnz_ps(j)*wnx(iw) + wny(iw)*fact
                vrot_y(j) = -vny_ps(j)*wnz(iw) + vnz_ps(j)*wny(iw) - wnx(iw)*fact
@@ -1039,7 +1041,7 @@ if (mdomain < 2 .or. mdomain == 5) then
 
             vnx_ps(j) = vnx(iv)
             vny_ps(j) = vny(iv)
-            vnz_ps(j) = 0.0
+            vnz_ps(j) = 0._r8
 
             vrot_x(j) = vnx_ps(j)
             vrot_y(j) = vny_ps(j)
@@ -1051,23 +1053,29 @@ if (mdomain < 2 .or. mdomain == 5) then
       a(2,1:npoly) = vrot_y(1:npoly) * vrot_y(1:npoly)
       a(3,1:npoly) = vrot_x(1:npoly) * vrot_y(1:npoly)
 
-      b(1) = 1.0 - sum( fo(1:npoly) * a(1,:) )
-      b(2) = 1.0 - sum( fo(1:npoly) * a(2,:) )
-      b(3) =     - sum( fo(1:npoly) * a(3,:) )
+      b(1) = 1._r8 - sum( fo(1:npoly) * a(1,:) )
+      b(2) = 1._r8 - sum( fo(1:npoly) * a(2,:) )
+      b(3) =       - sum( fo(1:npoly) * a(3,:) )
 
-      call sgels( 'N', 3, npoly, 1, a, 3, b, 7, work, lwork, info )
+      call dgels( 'N', 3, npoly, 1, a, 3, b, 7, wsize, -1, info )
+      lwork = nint(wsize(1)) + 1
+
+      if (allocated(work) .and. size(work) < lwork) deallocate(work)
+      if (.not. allocated(work)) allocate(work(lwork))
+
+      call dgels( 'N', 3, npoly, 1, a, 3, b, 7, work, size(work), info )
 
       ! Vector b is now the correction to the coefficients fo
       b(1:npoly) = b(1:npoly) + fo(1:npoly)
 
-      if (info == 0 .and. all(b(1:npoly) > 0.05) .and. all(b(1:npoly) < 0.7)) then
+      if (info == 0 .and. all(b(1:npoly) > 0.05_r8) .and. all(b(1:npoly) < 0.7_r8)) then
 
          itab_w(iw)%ecvec_vx(1:npoly) = b(1:npoly) * vnx_ps(1:npoly)
          itab_w(iw)%ecvec_vy(1:npoly) = b(1:npoly) * vny_ps(1:npoly)
          itab_w(iw)%ecvec_vz(1:npoly) = b(1:npoly) * vnz_ps(1:npoly)
 
       else
-      
+
          write(*,*) "Problem optimizing vector coefficients for iw = ", iw
          write(*,*) "Using default coefficients."
 
@@ -1079,8 +1087,9 @@ if (mdomain < 2 .or. mdomain == 5) then
 
    enddo
    !omp end do
-   
-   if (allocated(a)) deallocate(a)
+
+   if (allocated(a))    deallocate(a)
+   if (allocated(work)) deallocate(work)
 
 else
 
@@ -1464,7 +1473,7 @@ subroutine ctrlvols_hex()
 ! Set arw = 0 for bottom (k = 1) and wall-on-top (k = nza) levels
 
      arw(1,iw) = 0.
-     arw(nza,iw) = 0. 
+     arw(nza,iw) = 0.
 
   enddo
   !$omp end parallel do
@@ -1553,8 +1562,8 @@ subroutine ctrlvols_hex()
 
 ! Set arw = 0 for bottom (k = 1) and wall-on-top (k = nza) levels
 
-     arw(1,iw) = 0.   
-     arw(nza,iw) = 0.   
+     arw(1,iw) = 0.
+     arw(nza,iw) = 0.
 
 ! Initialize LSW(IW) and LVE2
 
@@ -1574,9 +1583,9 @@ subroutine ctrlvols_hex()
         endif
 
     enddo  ! k
-    
+
 ! Compute number of underground v[xyz]e2 levels in this column
-    
+
     do jv = 1, npoly
        iv = itab_w(iw)%iv(jv)
        lve2(iw) = max(lve2(iw), lpv(iv) - lpw(iw))
@@ -1589,7 +1598,7 @@ subroutine ctrlvols_hex()
 
   enddo
 
-! In case ARW has been reset to 0 anywhere (because it was nearly zero), 
+! In case ARW has been reset to 0 anywhere (because it was nearly zero),
 ! transfer the sea and land cell values to KW = LPW(IW).
 ! Also compute fractional sea and land cell areas per vertical level
 
@@ -1718,10 +1727,10 @@ subroutine ctrlvols_hex()
 
 ! Set arw = 0 for bottom (k = 1) and wall-on-top (k = nza) levels
 
-     arw (1:lpw(iw)-1,iw) = 0.   
+     arw (1:lpw(iw)-1,iw) = 0.
      volt(1:lpw(iw)-1,iw) = 1.e-9
 
-     arw(nza,iw) = 0.   
+     arw(nza,iw) = 0.
   enddo
 
 ! Lateral boundary copy of ARW, VOLT, LPW, and LSW

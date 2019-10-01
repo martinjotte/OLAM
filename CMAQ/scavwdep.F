@@ -102,9 +102,9 @@ C...........Arguments:
       REAL,    INTENT(  IN ) :: TAUCLD  ! cloud lifetime
       REAL,    INTENT( OUT ) :: ALFAC   ! scav coef for aerosol
       REAL,    INTENT( OUT ) :: REMOVAC ! variable storing H+ deposition
-      REAL,    INTENT(  IN ) :: POLC ( : )  ! avg vert conc incloud (moles/mole)
-      REAL,    INTENT( OUT ) :: CEND ( : )  ! ending incloud conc (moles/mole)
-      REAL,    INTENT( OUT ) :: REMOV( : )  ! moles/m2 or mm*mol/lit scavenged
+      REAL,    INTENT(  IN ) :: POLC ( NSPCSD )  ! avg vert conc incloud (moles/mole)
+      REAL,    INTENT( OUT ) :: CEND ( NSPCSD )  ! ending incloud conc (moles/mole)
+      REAL,    INTENT( OUT ) :: REMOV( NSPCSD )  ! moles/m2 or mm*mol/lit scavenged
       REAL,    INTENT(  IN ) :: RHOAIR      ! air density in kg/m3
 
 C...........Local Variables:

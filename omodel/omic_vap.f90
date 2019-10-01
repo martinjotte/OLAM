@@ -112,12 +112,15 @@ do k = lpw0, mza0
 
    else   ! totcond < rxmin
 
-      qliq  (k) = 0.0
-      qice  (k) = 0.0
-      rhov  (k) = rhow(k) - totcond(k)
+      qliq(k) = 0.0
+      qice(k) = 0.0
+
+      rhovstr(k) = rhow(k)
+      rhov   (k) = rhow(k)
+
       theta0(k) = thil0(k)
-      tair  (k) = theta0(k) * exner0(k)
-   
+      tair  (k) = thil0(k) * exner0(k)
+
       if (tair(k) > 253.) then
          sa(k,1) = alvlocp
          sa1(k)  = rhoi(k) * cpi

@@ -101,9 +101,9 @@ C Arguments:
       REAL,    INTENT( IN )    :: AIRM      ! total air mass (moles/m2) in cloudy air
       REAL,    INTENT( IN )    :: PRATE1    ! storm rainfall rate (mm/hr)
       REAL,    INTENT( IN )    :: TAUCLD    ! cloud lifetime
-      REAL,    INTENT( IN )    :: POLC ( : )  ! avg vert conc incloud (moles/mole)
-      REAL,    INTENT( INOUT ) :: CEND ( : )  ! ending incloud conc (moles/mole)
-      REAL,    INTENT( INOUT ) :: REMOV( : )  ! moles/m2 or mm*mol/lit scavenged
+      REAL,    INTENT( IN )    :: POLC ( NSPCSD )  ! avg vert conc incloud (moles/mole)
+      REAL,    INTENT( INOUT ) :: CEND ( NSPCSD )  ! ending incloud conc (moles/mole)
+      REAL,    INTENT( INOUT ) :: REMOV( NSPCSD )  ! moles/m2 or mm*mol/lit scavenged
       REAL,    INTENT( INOUT ) :: REMOVAC   ! variable storing H+ deposition
       REAL,    INTENT( IN )    :: ALFAC     ! scav coef for aerosols
       LOGICAL, INTENT( IN )    :: DARK      ! DARK = TRUE is night,  DARK = FALSE is day
@@ -127,7 +127,7 @@ C Local Variables (scalars):
       REAL       :: M3NEW( NMODES )     ! modal mass at time t
 !     REAL( 8 )  :: SUM
 
-      real       :: airm1                         
+      real       :: airm1
       REAL       :: HPWDEP                        ! hydrogen wet dep (mm mol/liter)
 
       REAL( 8 )  :: GAS    ( NGAS )               ! gas phase conc (mol/mol)

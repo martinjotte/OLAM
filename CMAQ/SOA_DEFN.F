@@ -610,11 +610,12 @@ C              emissions are dominated by compounds smaller than dodecane.
 C-----------------------------------------------------------------------
 
       Use const_data, only: inv_mwairkg, min_gasconc
+      Use cgrid_spcs, only: nspcsd
 
       Implicit None
 
 C Arguments:
-      Real, Intent( In ) :: conc( : )
+      Real, Intent( In ) :: conc( nspcsd )
       Real, Intent( In ) :: airdens
       
 C Local Variables:
@@ -664,13 +665,14 @@ C SH  03/10/11 Renamed met_data to aeromet_data
 C SR  03/25/11 Replaced I/O API include files with UTILIO_DEFN
 C-----------------------------------------------------------------------
 
-      Use const_data,  only: mwairkg, min_gasconc
+      Use const_data, only: mwairkg, min_gasconc
+      Use cgrid_spcs, only: nspcsd
       Use utilio_defn
 
       Implicit None
 
 C Arguments:
-      Real, Intent( Out ) :: conc( : )
+      Real, Intent( Out ) :: conc( nspcsd )
       Real, Intent( In )  :: airdens
 
 C Local Variables:
