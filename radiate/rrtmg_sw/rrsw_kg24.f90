@@ -1,10 +1,10 @@
       module rrsw_kg24
 
-      use parkind ,only : im => kind_im, rb => kind_rb
-      use parrrsw, only : ng24
+      use parkind, only: im => kind_im, rb => kind_rb
+      use parrrsw, only: ng24
 
       implicit none
-      save
+      private :: im, rb
 
 !-----------------------------------------------------------------
 ! rrtmg_sw ORIGINAL abs. coefficients for interval 24
@@ -61,14 +61,12 @@
 ! raylb   : real     
 !-----------------------------------------------------------------
 
-      real(kind=rb) :: ka(9,5,13,ng24), absa(585,ng24)
-      real(kind=rb) :: kb(5,13:59,ng24), absb(235,ng24)
-      real(kind=rb) :: selfref(10,ng24), forref(3,ng24)
-      real(kind=rb) :: sfluxref(ng24,9)
+      real(kind=rb) :: absa(ng24,585)
+      real(kind=rb) :: absb(ng24,235)
+      real(kind=rb) :: selfref(ng24,10), forref(ng24,3)
+      real(kind=rb) :: sfluxref(ng24,9), dsfluxref(ng24,9)
       real(kind=rb) :: abso3a(ng24), abso3b(ng24)
-      real(kind=rb) :: rayla(ng24,9), raylb(ng24)
-
-      equivalence (ka(1,1,1,1),absa(1,1)), (kb(1,13,1),absb(1,1))
+      real(kind=rb) :: rayla(ng24,9), drayla(ng24,9), raylb(ng24)
 
       end module rrsw_kg24
 

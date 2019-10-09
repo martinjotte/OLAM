@@ -300,10 +300,7 @@ C...modules
       use consts_coms, only: r8, t00, alvl, eps_vap, cp
       use mem_mclat,   only: rad_mclat
       use cmaq_cloud
-      use micro_coms,  only: ncat, rxmin, emb0, reffcof, pwmasi,
-     &                       dmncof, jhabtab, emb2, zfactor_ccn
-      use mem_micro,   only: cldnum
-      use mem_cuparm,  only: kcutop, kcubot, qwcon, conprr, iactcu
+      use micro_coms,  only: ncat, rxmin, emb0, reffcof, pwmasi
       use therm_lib,   only: rhovsl
 
       IMPLICIT NONE
@@ -476,21 +473,20 @@ C...modules
       real, parameter :: rliqland  = 14.0
       real, parameter :: rliqocean =  8.0
 
-      integer :: jhcat(mza,ncat) ! hydrom category table with ice habits
+      integer :: jhcat(mza,ncat+1) ! hydrom category table with ice habits
 
-      real :: rhov (mza)        ! vapor density [kg_vap/m^3]
-      real :: rx   (mza,ncat)   ! hydrom bulk spec dens [kg_hyd/kg_air]
-      real :: cx   (mza,ncat)   ! hydrom bulk number [num_hyd/kg_air]
-      real :: emb  (mza,ncat)   ! hydrom mean particle mass [kg/particle]
+      real :: rhov (mza)         ! vapor density [kg_vap/m^3]
+      real :: rx   (mza,ncat+1)  ! hydrom bulk spec dens [kg_hyd/kg_air]
+      real :: emb  (mza,ncat+1)  ! hydrom mean particle mass [kg/particle]
 
-      real :: r_ef, dmean, watp, twc, prate, tc, rh
-      logical :: dosnow
+      integer :: ktop(ncat+1)
+      real :: r_ef, watp
 
       real :: tauclds(nwl, nlays)
       real :: ssaclds(nwl, nlays)
       real :: asmclds(nwl, nlays)
 
-      integer :: mc, mcat, ih, krad, ns, nt, ib
+      integer :: mc, mcat, ih, krad, ib
 
 ! Array kradcat maps RAMS/OLAM microphysics hydrometeor categories to those
 ! represented in the cloud optics tables according to the following numbering:
@@ -668,12 +664,12 @@ C...modules
 
 ! Fill arrays rx, cx, and emb with hydrometeor properties
 
-               call cloudprep_rad(iw,lpw(iw),mcat,jhcat,rhov,rx,cx,emb)
+               call cloudprep_rad(iw,lpw(iw),mcat,jhcat,rhov,rx,emb,ktop)
 
-! Get optical properties of resolved clouds
+! Get optical properties of resolved and subgrid clouds
 
                do mc = 1, mcat
-                  do k = lpw(iw), mza
+                  do k = lpw(iw), ktop(mc)
                      krad = k - koff
 
                      if (rx(k,mc) >= rxmin(mc) .and. emb(k,mc) >= emb0(mc)) then
@@ -698,128 +694,12 @@ C...modules
                   enddo
                enddo
 
-! Include the optical properties of subgrid convective clouds
-
-               if (iactcu(iw) == 1) then
-
-                  do k = kcubot(iw), kcutop(iw)
-                     krad = k - koff
-
-                     ! Set lower bound on cldfrac because there is condensate
-                     cldfrac(krad) = max(cloud_frac(k,iw), 0.1)
-
-                     ! water path in g/m^2
-                     watp = qwcon(k,iw) * real(rho(k,iw)) * 1000. * dzt(k)
-                     watp = watp / cldfrac(krad)
-
-                     tc = tair(k,iw) - t00
-
-                     if (tc > -10.0) then
-
-                        ! Add convective cloud water to cloud drops if warmer then -10C
-                        ih = 1
-                        l  = kradcat(ih)
-
-                        ! effective radius in microns
-                        r_ef = 1.e6 * reffcof(ih)
-     &                       * ( qwcon(k,iw) / (cldnum(iw) * zfactor_ccn(k)) ) ** pwmasi(ih)
-
-                     else
-
-                        ! Add convective cloud water to pristine ice. Diagnose habit
-                        ! from temperature and humidity
-                        rh = min( 1., rhov(k) / rhovsl(tc) )
-                        ns = max( 1, nint(100. * rh) )
-                        nt = max( 1, min(31,-nint(tc)) )
-                        ih = jhabtab(nt,ns,1)
-                        l  = kradcat(ih)
-
-                        ! Mean maximum dimension of ice crystals as a function of T
-                        ! (see Kristjansson et al., 2000, JGR)
-                        dmean = 1030.7 * exp(0.05522*(tair(k,iw)-279.5))
-
-                        ! Convert mean diameter to an effective radius using the
-                        ! microphysics power laws
-                        r_ef = reffcof(ih) / dmncof(ih) * dmean
-
-                     endif
-
-                     call lookup_cmaq_cld_optics( l, r_ef, watp, krad )
-
-                  enddo
-
-! Also include the optical properties of convective rain/snow
-
-                  if (conprr(iw) > 1.e-10) then
-
-                     ! Estimate rain/snow from parameterization used in EPA's CMAQ model
-
-                     prate = conprr(iw) * 3600.0 ! precip rate: mm / hr
-                     twc   = 0.06 * prate**0.846 ! tot wat: g / m3
-
-                     ! if entire cloud is below freezing, map to snow
-                     dosnow = all(tair(kcubot(iw):kcutop(iw),iw) < 273.)
-
-                     do k = lpw(iw), kcutop(iw)
-                        krad = k - koff
-
-                        tc = tair(k,iw) - t00
-
-                        ! Set lower bound on cldfrac because there is condensate
-                        cldfrac(krad) = max(cloud_frac(k,iw), 0.1)
-
-                        ! Water/ice path: g / m^2
-                        watp = twc * dzt(k) / cldfrac(krad)
-
-                        if (dosnow) then
-
-                           if (tc > 0.0) then
-                              ! rain
-                              mc = 2
-                              ih = 2
-                           else
-                              ! snow
-                              mc = 4
-                              rh = min( 1., rhov(k) / rhovsl(tc) )
-                              ns = max( 1, nint(100. * rh) )
-                              nt = max( 1, min(31,-nint(tc)) )
-                              ih = jhabtab(nt,ns,2)
-                           endif
-
-                        else
-
-                           if (tc > -10.) then
-                              ! rain
-                              mc = 2
-                              ih = 2
-                           else
-                              ! hail
-                              mc = 7
-                              ih = 7
-                           endif
-
-                        endif
-
-                        ! cloud optics category
-                        l  = kradcat(ih)
-
-                        ! effective radius of convctive rain/snow
-                        r_ef = 1.e6 * reffcof(ih) * emb2(mc) ** pwmasi(ih)
-
-                        call lookup_cmaq_cld_optics( l, r_ef, watp, krad )
-
-                     enddo
-
-                  endif         ! convective rain/snow
-
-               endif            ! convective clouds
-
 ! Combine cloud optical properties
 
                do k = lpw(iw), mza
                   krad = k - koff
 
-                  if ( all(tauclds(1:nwl,krad) < 2.e-5) ) then
+                  if ( all(tauclds(1:nwl,krad) < 1.e-6) ) then
                      tauclds(1:nwl,krad) = 0.0
                      ssaclds(1:nwl,krad) = 1.0
                      asmclds(1:nwl,krad) = 0.0

@@ -36,9 +36,11 @@
       integer(kind=im), parameter :: maxinpx= 38
       integer(kind=im), parameter :: nmol   = 7
 ! Use for 140 g-point model 
-      integer(kind=im), parameter :: ngptlw = 140
+      integer(kind=im), parameter :: ngptlw  = 140
+      integer(kind=im), parameter :: ngptlwa = ngptlw-mod(ngptlw-1,8) + 7
 ! Use for 256 g-point model 
-!      integer(kind=im), parameter :: ngptlw = 256
+!      integer(kind=im), parameter :: ngptlw  = 256
+!      integer(kind=im), parameter :: ngptlwa = 256
 
 ! Use for 140 g-point model
       integer(kind=im), parameter :: ng1  = 10

@@ -1,9 +1,10 @@
       module rrlw_kg13
 
-      use parkind ,only : im => kind_im, rb => kind_rb
+      use parkind, only: im => kind_im, rb => kind_rb
 
       implicit none
-      save
+
+      private :: im, rb
 
 !-----------------------------------------------------------------
 ! rrtmg_lw ORIGINAL abs. coefficients for interval 13
@@ -16,13 +17,13 @@
 !
 !  name     type     purpose
 !  ----   : ----   : ---------------------------------------------
-!fracrefao: real    
-! kao     : real     
-! kao_mco2: real     
-! kao_mco : real     
-! kbo_mo3 : real     
-! selfrefo: real     
-! forrefo : real     
+!fracrefao: real
+! kao     : real
+! kao_mco2: real
+! kao_mco : real
+! kbo_mo3 : real
+! selfrefo: real
+! forrefo : real
 !-----------------------------------------------------------------
 
       integer(kind=im), parameter :: no13 = 16
@@ -48,13 +49,13 @@
 !
 !  name     type     purpose
 !  ----   : ----   : ---------------------------------------------
-!fracrefa : real    
-! ka      : real     
-! ka_mco2 : real     
-! ka_mco  : real     
-! kb_mo3  : real     
-! selfref : real     
-! forref  : real     
+!fracrefa : real
+! ka      : real
+! ka_mco2 : real
+! ka_mco  : real
+! kb_mo3  : real
+! selfref : real
+! forref  : real
 !
 ! absa    : real
 !-----------------------------------------------------------------
@@ -64,13 +65,15 @@
       real(kind=rb) , dimension(ng13) :: fracrefb
 
       real(kind=rb) :: fracrefa(ng13,9)
-      real(kind=rb) :: ka(9,5,13,ng13) ,absa(585,ng13)
-      real(kind=rb) :: ka_mco2(9,19,ng13)
-      real(kind=rb) :: ka_mco(9,19,ng13)
-      real(kind=rb) :: kb_mo3(19,ng13)
-      real(kind=rb) :: selfref(10,ng13)
-      real(kind=rb) :: forref(4,ng13)
-
-      equivalence (ka(1,1,1,1),absa(1,1))
+      real(kind=rb) :: dfracrefa(ng13,9)
+      real(kind=rb) :: absa(ng13,585)
+      real(kind=rb) :: ka_mco2(ng13,9,19)
+      real(kind=rb) :: ka_mco(ng13,9,19)
+      real(kind=rb) :: kb_mo3(ng13,19)
+      real(kind=rb) :: dka_mco2(ng13,9,19)
+      real(kind=rb) :: dka_mco(ng13,9,19)
+      real(kind=rb) :: dkb_mo3(ng13,19)
+      real(kind=rb) :: selfref(ng13,10)
+      real(kind=rb) :: forref(ng13,4)
 
       end module rrlw_kg13

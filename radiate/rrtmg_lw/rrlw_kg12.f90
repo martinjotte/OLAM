@@ -1,9 +1,10 @@
       module rrlw_kg12
 
-      use parkind ,only : im => kind_im, rb => kind_rb
+      use parkind, only: im => kind_im, rb => kind_rb
 
       implicit none
-      save
+
+      private :: im, rb
 
 !-----------------------------------------------------------------
 ! rrtmg_lw ORIGINAL abs. coefficients for interval 12
@@ -16,10 +17,10 @@
 !
 !  name     type     purpose
 !  ----   : ----   : ---------------------------------------------
-!fracrefao: real    
-! kao     : real     
-! selfrefo: real     
-! forrefo : real     
+!fracrefao: real
+! kao     : real
+! selfrefo: real
+! forrefo : real
 !-----------------------------------------------------------------
 
       integer(kind=im), parameter :: no12 = 16
@@ -40,10 +41,10 @@
 !
 !  name     type     purpose
 !  ----   : ----   : ---------------------------------------------
-!fracrefa : real    
-! ka      : real     
-! selfref : real     
-! forref  : real     
+!fracrefa : real
+! ka      : real
+! selfref : real
+! forref  : real
 !
 ! absa    : real
 !-----------------------------------------------------------------
@@ -51,10 +52,9 @@
       integer(kind=im), parameter :: ng12 = 8
 
       real(kind=rb) :: fracrefa(ng12,9)
-      real(kind=rb) :: ka(9,5,13,ng12) ,absa(585,ng12)
-      real(kind=rb) :: selfref(10,ng12)
-      real(kind=rb) :: forref(4,ng12)
-
-      equivalence (ka(1,1,1,1),absa(1,1))
+      real(kind=rb) :: dfracrefa(ng12,9)
+      real(kind=rb) :: absa(ng12,585)
+      real(kind=rb) :: selfref(ng12,10)
+      real(kind=rb) :: forref(ng12,4)
 
       end module rrlw_kg12

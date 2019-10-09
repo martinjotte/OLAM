@@ -64,7 +64,7 @@ contains
     call shdf5_close()
 
   contains
-    
+
     subroutine read_sw_file(num, start, end, delr, extsw, ssasw, asysw, name)
       use parrrsw,    only: nbndsw
       use hdf5_utils, only: shdf5_irec
@@ -140,7 +140,7 @@ contains
     call shdf5_close()
 
   contains
-    
+
     subroutine read_lw_file(num, start, end, delr, abslw, name)
       use parrrtm,    only: nbndlw
       use hdf5_utils, only: shdf5_irec

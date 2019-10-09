@@ -1,7 +1,6 @@
       module parkind
 
       implicit none
-      save
 
 !------------------------------------------------------------------
 ! rrtmg kinds
@@ -11,7 +10,6 @@
 ! Revised: MJIacono, AER, aug2008
 !------------------------------------------------------------------
 
-!
 !     integer kinds
 !     -------------
 !
@@ -30,5 +28,11 @@
       integer, parameter :: kind_rn = kind(1.0)              ! native real
       integer, parameter :: kind_rm = kind(1.0)              ! native real
       integer, parameter :: kind_rb = kind(1.0)              ! native real
+
+      ! min cloud fraction below which clouds are not considered
+      real, parameter :: cldmin = 0.025
+
+      ! max cloud fraction above which layer is considers completely clouds
+      real, parameter :: cldmax = 0.975
 
       end module parkind

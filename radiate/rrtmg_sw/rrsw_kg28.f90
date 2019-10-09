@@ -1,10 +1,10 @@
       module rrsw_kg28
 
-      use parkind ,only : im => kind_im, rb => kind_rb
-      use parrrsw, only : ng28
+      use parkind, only: im => kind_im, rb => kind_rb
+      use parrrsw, only: ng28
 
       implicit none
-      save
+      private :: im, rb
 
 !-----------------------------------------------------------------
 ! rrtmg_sw ORIGINAL abs. coefficients for interval 28
@@ -46,11 +46,9 @@
 ! sfluxref: real     
 !-----------------------------------------------------------------
 
-      real(kind=rb) :: ka(9,5,13,ng28), absa(585,ng28)
-      real(kind=rb) :: kb(5,5,13:59,ng28), absb(1175,ng28)
-      real(kind=rb) :: sfluxref(ng28,5)
-
-      equivalence (ka(1,1,1,1),absa(1,1)), (kb(1,1,13,1),absb(1,1))
+      real(kind=rb) :: absa(ng28,585)
+      real(kind=rb) :: absb(ng28,1175)
+      real(kind=rb) :: sfluxref(ng28,5), dsfluxref(ng28,5)
 
       end module rrsw_kg28
 

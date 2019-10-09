@@ -4,7 +4,8 @@
       use parrrtm, only : nbndlw, mg, ngptlw, maxinpx, maxxsec
 
       implicit none
-      save
+
+      private :: im, rb, nbndlw, mg, ngptlw, maxinpx, maxxsec, i
 
 !------------------------------------------------------------------
 ! rrtmg_lw spectral information
@@ -77,18 +78,40 @@
             2250._rb,2380._rb,2600._rb,3250._rb/)
 
       real(kind=rb), parameter :: delwave(nbndlw) = &
-           (/340._rb, 150._rb, 130._rb,  70._rb, 120._rb, 160._rb, &
-             100._rb, 100._rb, 210._rb,  90._rb, 320._rb, 280._rb, &
-             170._rb, 130._rb, 220._rb, 650._rb/)
+           (/ 340._rb, 150._rb, 130._rb,  70._rb, 120._rb, 160._rb, &
+              100._rb, 100._rb, 210._rb,  90._rb, 320._rb, 280._rb, &
+              170._rb, 130._rb, 220._rb, 650._rb/)
 
-      real(kind=rb) :: totplnk(181,nbndlw)
-      real(kind=rb) :: totplk16(181)
+      integer :: i
 
-      real(kind=rb) :: totplnkderiv(181,nbndlw)
-      real(kind=rb) :: totplk16deriv(181)
+      real(kind=rb), parameter :: delwaveg(ngptlw) = &
+           (/ (340._rb, i=1,10), &
+              (150._rb, i=1,12), &
+              (130._rb, i=1,16), &
+              ( 70._rb, i=1,14), &
+              (120._rb, i=1,16), &
+              (160._rb, i=1, 8), &
+              (100._rb, i=1,12), &
+              (100._rb, i=1, 8), &
+              (210._rb, i=1,12), &
+              ( 90._rb, i=1, 6), &
+              (320._rb, i=1, 8), &
+              (280._rb, i=1, 8), &
+              (170._rb, i=1, 4), &
+              (130._rb, i=1, 2), &
+              (220._rb, i=1, 2), &
+              (650._rb, i=1, 2) /)
+
+      real(kind=rb) ::  totplnk(nbndlw,181)
+      real(kind=rb) :: dtotplnk(nbndlw,181)
+      !dir$ attributes align:32 ::  totplnk
+      !dir$ attributes align:32 :: dtotplnk
 
       integer(kind=im), parameter :: ngc(nbndlw) = &
            (/10,12,16,14,16,8,12,8,12,6,8,8,4,2,2,2/)
+
+      integer(kind=im), parameter :: ngs1(nbndlw) = &
+           (/1,11,23,39,53,69,77,89,97,109,115,123,131,135,137,139/)
 
       integer(kind=im), parameter :: ngs(nbndlw) = &
            (/10,22,38,52,68,76,88,96,108,114,122,130,134,136,138,140/)

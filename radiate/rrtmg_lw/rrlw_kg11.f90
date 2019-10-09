@@ -1,9 +1,10 @@
       module rrlw_kg11
 
-      use parkind ,only : im => kind_im, rb => kind_rb
+      use parkind, only: im => kind_im, rb => kind_rb
 
       implicit none
-      save
+
+      private :: im, rb
 
 !-----------------------------------------------------------------
 ! rrtmg_lw ORIGINAL abs. coefficients for interval 11
@@ -16,14 +17,14 @@
 !
 !  name     type     purpose
 !  ----   : ----   : ---------------------------------------------
-!fracrefao: real    
-!fracrefbo: real    
-! kao     : real     
-! kbo     : real     
-! kao_mo2 : real     
-! kbo_mo2 : real     
-! selfrefo: real     
-! forrefo : real     
+!fracrefao: real
+!fracrefbo: real
+! kao     : real
+! kbo     : real
+! kao_mo2 : real
+! kbo_mo2 : real
+! selfrefo: real
+! forrefo : real
 !-----------------------------------------------------------------
 
       integer(kind=im), parameter :: no11 = 16
@@ -49,14 +50,14 @@
 !
 !  name     type     purpose
 !  ----   : ----   : ---------------------------------------------
-!fracrefa : real    
-!fracrefb : real    
-! ka      : real     
-! kb      : real     
-! ka_mo2  : real     
-! kb_mo2  : real     
-! selfref : real     
-! forref  : real     
+!fracrefa : real
+!fracrefb : real
+! ka      : real
+! kb      : real
+! ka_mo2  : real
+! kb_mo2  : real
+! selfref : real
+! forref  : real
 !
 ! absa    : real
 ! absb    : real
@@ -67,13 +68,13 @@
       real(kind=rb) , dimension(ng11) :: fracrefa
       real(kind=rb) , dimension(ng11) :: fracrefb
 
-      real(kind=rb) :: ka(5,13,ng11)   , absa(65,ng11)
-      real(kind=rb) :: kb(5,13:59,ng11), absb(235,ng11)
-      real(kind=rb) :: ka_mo2(19,ng11)
-      real(kind=rb) :: kb_mo2(19,ng11)
-      real(kind=rb) :: selfref(10,ng11)
-      real(kind=rb) :: forref(4,ng11)
-
-      equivalence (ka(1,1,1),absa(1,1)),(kb(1,13,1),absb(1,1))
+      real(kind=rb) :: absa(ng11,65)
+      real(kind=rb) :: absb(ng11,235)
+      real(kind=rb) :: ka_mo2(ng11,19)
+      real(kind=rb) :: kb_mo2(ng11,19)
+      real(kind=rb) :: dka_mo2(ng11,19)
+      real(kind=rb) :: dkb_mo2(ng11,19)
+      real(kind=rb) :: selfref(ng11,10)
+      real(kind=rb) :: forref(ng11,4)
 
       end module rrlw_kg11

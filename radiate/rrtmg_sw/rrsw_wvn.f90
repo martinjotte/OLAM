@@ -4,7 +4,8 @@
       use parrrsw, only : nbndsw, mg, ngptsw, jpb1, jpb2
 
       implicit none
-      save
+
+      private :: im, rb, nbndsw, mg, ngptsw, jpb1, jpb2
 
 !------------------------------------------------------------------
 ! rrtmg_sw spectral information
@@ -45,12 +46,23 @@
       integer(kind=im), parameter :: nspb(jpb1:jpb2) = &
            (/1,5,1,1,1,5,1,0,1,0,0,1,5,1/)
 
-      real(kind=rb) :: wavenum1(jpb1:jpb2)
-      real(kind=rb) :: wavenum2(jpb1:jpb2)
-      real(kind=rb) :: delwave(jpb1:jpb2)
+      real(kind=rb), parameter :: wavenum1(jpb1:jpb2) =                                     &
+                   (/ 2600._rb, 3250._rb, 4000._rb, 4650._rb, 5150._rb, 6150._rb, 7700._rb, &
+                      8050._rb,12850._rb,16000._rb,22650._rb,29000._rb,38000._rb,  820._rb /)
+
+      real(kind=rb), parameter :: wavenum2(jpb1:jpb2) =                                     &
+                   (/ 3250._rb, 4000._rb, 4650._rb, 5150._rb, 6150._rb, 7700._rb, 8050._rb, &
+                     12850._rb,16000._rb,22650._rb,29000._rb,38000._rb,50000._rb, 2600._rb /)
+
+      real(kind=rb), parameter :: delwave(jpb1:jpb2) =                                      &
+                   (/  650._rb,  750._rb,  650._rb,  500._rb, 1000._rb, 1550._rb,  350._rb, &
+                      4800._rb, 3150._rb, 6650._rb, 6350._rb, 9000._rb,12000._rb, 1780._rb /)
 
       integer(kind=im), parameter :: ngc(nbndsw) = &
            (/ 6,12, 8, 8,10,10, 2,10, 8, 6, 6, 8, 6,12 /)
+
+      integer(kind=im), parameter :: ngs1(nbndsw) = &
+           (/ 1,7,19,27,35,45,55,57,67,75,81,87,95,101 /)
 
       integer(kind=im), parameter :: ngs(nbndsw) = &
            (/ 6,18,26,34,44,54,56,66,74,80,86,94,100,112 /)
@@ -70,8 +82,8 @@
               1,1,1,1,1,1,4,6, &                           ! band 27
               1,1,2,2,4,6, &                               ! band 28
               1,1,1,1,2,2,2,2,1,1,1,1 /)                   ! band 29
-           
-      integer(kind=im), parameter :: ngb(ngptsw) = &
+
+      integer(kind=im), parameter :: ngbo(ngptsw) = &
            (/ 16,16,16,16,16,16, &                         ! band 16
               17,17,17,17,17,17,17,17,17,17,17,17, &       ! band 17
               18,18,18,18,18,18,18,18, &                   ! band 18
@@ -86,6 +98,8 @@
               27,27,27,27,27,27,27,27, &                   ! band 27
               28,28,28,28,28,28, &                         ! band 28
               29,29,29,29,29,29,29,29,29,29,29,29 /)       ! band 29
+
+      integer(kind=im), parameter :: ngb(ngptsw) = ngbo - 15
 
       integer(kind=im), parameter :: ngm(nbndsw*mg) = &
            (/ 1,1,2,2,3,3,4,4,5,5,5,5,6,6,6,6, &           ! band 16
@@ -112,5 +126,7 @@
               0.0000750000_rb /)
 
       real(kind=rb) :: rwgt(nbndsw*mg)
+
+      real(kind=rb) :: raylt(ngptsw)
 
       end module rrsw_wvn

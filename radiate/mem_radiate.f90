@@ -151,14 +151,14 @@ Contains
        allocate (albedt_diffuse(mwa)) ; albedt_diffuse = rinit
        allocate (cosz          (mwa)) ; cosz           = rinit
 
-       allocate (rshort_clr      (mwa)) ; rshort_clr       = 0.0
-       allocate (rshortup_clr    (mwa)) ; rshortup_clr     = 0.0
-       allocate (rshort_top_clr  (mwa)) ; rshort_top_clr   = 0.0
-       allocate (rshortup_top_clr(mwa)) ; rshortup_top_clr = 0.0
+!      allocate (rshort_clr      (mwa)) ; rshort_clr       = 0.0
+!      allocate (rshortup_clr    (mwa)) ; rshortup_clr     = 0.0
+!      allocate (rshort_top_clr  (mwa)) ; rshort_top_clr   = 0.0
+!      allocate (rshortup_top_clr(mwa)) ; rshortup_top_clr = 0.0
 
-       allocate (rlong_clr      (mwa)) ; rlong_clr       = 0.0
-       allocate (rlongup_clr    (mwa)) ; rlongup_clr     = 0.0
-       allocate (rlongup_top_clr(mwa)) ; rlongup_top_clr = 0.0
+!      allocate (rlong_clr      (mwa)) ; rlong_clr       = 0.0
+!      allocate (rlongup_clr    (mwa)) ; rlongup_clr     = 0.0
+!      allocate (rlongup_top_clr(mwa)) ; rlongup_top_clr = 0.0
 
        allocate (mcica_seed   (4,mwa)) ; mcica_seed = 0
 

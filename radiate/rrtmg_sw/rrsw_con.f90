@@ -3,7 +3,6 @@
       use parkind, only : im => kind_im, rb => kind_rb
 
       implicit none
-      save
 
 !------------------------------------------------------------------
 ! rrtmg_sw constants
@@ -31,7 +30,7 @@
 !  secdy :  real   : seconds per day
 !------------------------------------------------------------------
 
-      real(kind=rb) :: fluxfac, heatfac
+!     real(kind=rb) :: fluxfac, heatfac
 
       real(kind=rb), parameter :: zepsec = 1.e-06_rb
       real(kind=rb), parameter :: zepzen = 1.e-10_rb

@@ -18,7 +18,7 @@ module soil_nox
        0.44, 0.57, 0.57, 0.57  /)
 
   ! Canopy wind extinction coefficients
-  real,  parameter :: soilexc(0:nbiom) = (/                         & 
+  real,  parameter :: soilexc(0:nbiom) = (/                         &
         0.10, 0.50, 0.10, 0.10, 0.10, 0.10, 0.10, 0.10, 0.10, 1.00, &
         1.00, 1.00, 1.00, 2.00, 4.00, 4.00, 4.00, 4.00, 4.00, 4.00, &
         4.00, 2.00, 0.10, 2.00                                      /)
@@ -68,7 +68,7 @@ contains
 
 
   subroutine get_soil_nox(mrl)
-  
+
     use leaf_coms, only: mwl
     implicit none
 
@@ -94,9 +94,10 @@ contains
     use mem_ijtabs,  only: itabg_w
     use consts_coms, only: t00
     use misc_coms,   only: isubdomain, dtlm
-    use mem_radiate, only: cosz, rshort, rshort_clr
+    use mem_radiate, only: cosz, rshort, cloud_frac
     use mem_basic,   only: rho, vxe, vye, vze
     use therm_lib,   only: qtk
+    use mem_grid,    only: mza, lpw
 
     implicit none
 
@@ -124,7 +125,7 @@ contains
        iw = itabg_w(iw)%iw_myrank
     endif
     kw = itab_wl(iwl)%kw
-   
+
     snfac = land%snowfac(iwl)
     lai   = land%veg_lai(iwl) * (1. - snfac)
     tempk = land%cantemp(iwl)
@@ -139,7 +140,7 @@ contains
        sndepth = sum( land%sfcwater_depth(1:nlev_sfcwater,iwl) )
     endif
 
-    ! Get surface biome type 
+    ! Get surface biome type
 
     kb = lbiome(iwl)
 
@@ -193,11 +194,7 @@ contains
 
     ! Compute NOx canopy resistance
 
-    if (cosz(iw) > 1.e-3) then
-       cfrac = 1.0 - rshort(iw) / max(rshort(iw), rshort_clr(iw), 1.e-7)
-    else
-       cfrac = 0.0
-    endif
+    cfrac = maxval( cloud_frac(lpw(iw):mza,iw) )
 
     r_canopy = get_canopy_nox( tempk, rhos, kb, lai,       &
                                rshort(iw), cosz(iw), cfrac )

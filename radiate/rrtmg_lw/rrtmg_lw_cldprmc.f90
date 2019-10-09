@@ -15,25 +15,25 @@
 ! |                                                                          |
 !  --------------------------------------------------------------------------
 
-! --------- Modules ----------
-
-      use parkind, only : im => kind_im, rb => kind_rb
-      use parrrtm, only : ngptlw, nbndlw
-      use rrlw_cld, only: abscld1, absliq0, absliq1, &
-                          absice0, absice1, absice2, absice3
-      use rrlw_wvn, only: ngb
-      use rrlw_vsn, only: hvrclc, hnamclc
-
-      implicit none
+      private
+      public :: cldprmc
 
       contains
 
 ! ------------------------------------------------------------------------------
-      subroutine cldprmc(nlayers, inflag, iceflag, liqflag, cldfmc, &
-                         ciwpmc, clwpmc, reicmc, relqmc, ncbands, taucmc)
+      subroutine cldprmc(nlayers, inflag, iceflag, liqflag, cldf, &
+                         ciwpmc, clwpmc, reicmc, relqmc, taucmc)
 ! ------------------------------------------------------------------------------
 
 ! Purpose:  Compute the cloud optical depth(s) for each cloudy layer.
+
+      use parkind,  only: im => kind_im, rb => kind_rb, cldmin
+      use parrrtm,  only: ngptlw, nbndlw
+      use rrlw_cld, only: abscld1, absliq0, absliq1, &
+                          absice0, absice1, absice2, absice3
+      use rrlw_wvn, only: ngb
+
+      implicit none
 
 ! ------- Input -------
 
@@ -42,16 +42,13 @@
       integer(kind=im), intent(in) :: iceflag         ! see definitions
       integer(kind=im), intent(in) :: liqflag         ! see definitions
 
-      real(kind=rb), intent(in) :: cldfmc(:,:)        ! cloud fraction [mcica]
-                                                      !    Dimensions: (ngptlw,nlayers)
-      real(kind=rb), intent(in) :: ciwpmc(:,:)        ! cloud ice water path [mcica]
-                                                      !    Dimensions: (ngptlw,nlayers)
-      real(kind=rb), intent(in) :: clwpmc(:,:)        ! cloud liquid water path [mcica]
-                                                      !    Dimensions: (ngptlw,nlayers)
-      real(kind=rb), intent(in) :: relqmc(:)          ! liquid particle effective radius (microns)
-                                                      !    Dimensions: (nlayers)
-      real(kind=rb), intent(in) :: reicmc(:)          ! ice particle effective radius (microns)
-                                                      !    Dimensions: (nlayers)
+      real(kind=rb), intent(in) :: cldf(nlayers)      ! mean cloud fraction
+
+      real(kind=rb), intent(in) :: ciwpmc(ngptlw,nlayers)   ! cloud ice water path [mcica]
+      real(kind=rb), intent(in) :: clwpmc(ngptlw,nlayers)   ! cloud liquid water path [mcica]
+
+      real(kind=rb), intent(in) :: relqmc(nlayers)    ! liquid particle effective radius (microns)
+      real(kind=rb), intent(in) :: reicmc(nlayers)    ! ice particle effective radius (microns)
                                                       ! specific definition of reicmc depends on setting of iceflag:
                                                       ! iceflag = 0: ice effective radius, r_ec, (Ebert and Curry, 1992),
                                                       !              r_ec must be >= 10.0 microns
@@ -62,12 +59,9 @@
                                                       ! iceflag = 3: generalized effective size, dge, (Fu, 1996),
                                                       !              dge range is limited to 5.0 to 140.0 microns
                                                       !              [dge = 1.0315 * r_ec]
-
 ! ------- Output -------
 
-      integer(kind=im), intent(out) :: ncbands        ! number of cloud spectral bands
-      real(kind=rb), intent(inout) :: taucmc(:,:)     ! cloud optical depth [mcica]
-                                                      !    Dimensions: (ngptlw,nlayers)
+      real(kind=rb), intent(inout) :: taucmc(ngptlw,nlayers)     ! cloud optical depth [mcica]
 
 ! ------- Local -------
 
@@ -75,17 +69,13 @@
       integer(kind=im) :: ib                          ! spectral band index
       integer(kind=im) :: ig                          ! g-point interval index
       integer(kind=im) :: index 
-      integer(kind=im) :: icb(nbndlw)
 
       real(kind=rb) :: abscoice(ngptlw)               ! ice absorption coefficients
       real(kind=rb) :: abscoliq(ngptlw)               ! liquid absorption coefficients
-      real(kind=rb) :: cwp                            ! cloud water path
       real(kind=rb) :: radice                         ! cloud ice effective size (microns)
-      real(kind=rb) :: factor                         ! 
-      real(kind=rb) :: fint                           ! 
+      real(kind=rb) :: factor                         !
+      real(kind=rb) :: fint                           !
       real(kind=rb) :: radliq                         ! cloud liquid droplet radius (microns)
-      real(kind=rb), parameter :: eps = 1.e-6_rb      ! epsilon
-      real(kind=rb), parameter :: cldmin = 1.e-20_rb  ! minimum value for cloud quantities
 
 ! ------- Definitions -------
 
@@ -142,116 +132,101 @@
 !                     Linear interpolation is used to get the absorption 
 !                     coefficients for the input effective radius.
 
-      data icb /1,2,3,3,3,4,4,4,5, 5, 5, 5, 5, 5, 5, 5/
+      integer(kind=im), parameter :: icb(nbndlw) = (/ 1,2,3,3,3,4,4,4,5,5,5,5,5,5,5,5 /)
 
-      hvrclc = '$Revision: 1.9 $'
+      if (inflag /= 2 ) return
 
-      ncbands = 1
-
-! This initialization is done in rrtmg_lw_subcol.F90.
-!      do lay = 1, nlayers
-!         do ig = 1, ngptlw
-!            taucmc(ig,lay) = 0.0_rb
-!         enddo
-!      enddo
-
-      if (inflag .eq. 0) then
-         ! Cloud optical depth already defined in taucmc, return to main program
-         return
-      endif
-
-! Main layer loop
+      ! Main layer loop
       do lay = 1, nlayers
 
-        do ig = 1, ngptlw
-          cwp = ciwpmc(ig,lay) + clwpmc(ig,lay)
+         if (cldf(lay) >= cldmin) then
 
-          if (cldfmc(ig,lay) .ge. cldmin .and. &
-             (cwp .ge. cldmin .or. taucmc(ig,lay) .ge. cldmin)) then
+            ! Calculation of absorption coefficients due to ice clouds.
+            if (reicmc(lay) > 0.01) then
 
-! Ice clouds and water clouds combined.
+               if (iceflag .le. 0) then
 
-            if (inflag .eq. 1) then 
-                stop 'INFLAG = 1 OPTION NOT AVAILABLE WITH MCICA'
-!               cwp = ciwpmc(ig,lay) + clwpmc(ig,lay)
-!               taucmc(ig,lay) = abscld1 * cwp
-
-! Separate treatement of ice clouds and water clouds.
-            elseif(inflag .eq. 2) then
-               radice = reicmc(lay)
-
-! Calculation of absorption coefficients due to ice clouds.
-               if (ciwpmc(ig,lay) .eq. 0.0_rb) then
-                  abscoice(ig) = 0.0_rb
-
-               elseif (iceflag .eq. 0) then
-                  if (radice .lt. 10.0_rb) stop 'ICE RADIUS TOO SMALL'
-                  abscoice(ig) = absice0(1) + absice0(2)/radice
+                  radice = max(10.0_rb, reicmc(lay))
+                  abscoice(1:ngptlw) = absice0(1) + absice0(2) / radice
 
                elseif (iceflag .eq. 1) then
-                  if (radice .lt. 13.0_rb .or. radice .gt. 130._rb) stop &
-                      'ICE RADIUS OUT OF BOUNDS'
-                  ncbands = 5
-                  ib = icb(ngb(ig))
-                  abscoice(ig) = absice1(1,ib) + absice1(2,ib)/radice
 
-! For iceflag=2 option, ice particle effective radius is limited to 5.0 to 131.0 microns
+                  radice = max(13.0_rb, min(130._rb, reicmc(lay)))
+
+                  do ig = 1, ngptlw
+                     ib     = icb(ngb(ig))
+                     abscoice(ig) = absice1(1,ib) + absice1(2,ib) / radice
+                  enddo
 
                elseif (iceflag .eq. 2) then
-                  if (radice .lt. 5.0_rb .or. radice .gt. 131.0_rb) stop 'ICE RADIUS OUT OF BOUNDS'
-                     ncbands = 16
-                     factor = (radice - 2._rb)/3._rb
-                     index = int(factor)
-                     if (index .eq. 43) index = 42
-                     fint = factor - real(index)
-                     ib = ngb(ig)
-                     abscoice(ig) = &
-                         absice2(index,ib) + fint * &
-                         (absice2(index+1,ib) - (absice2(index,ib))) 
-               
-! For iceflag=3 option, ice particle generalized effective size is limited to 5.0 to 140.0 microns
 
-               elseif (iceflag .eq. 3) then
-                  if (radice .lt. 5.0_rb .or. radice .gt. 140.0_rb) stop 'ICE GENERALIZED EFFECTIVE SIZE OUT OF BOUNDS'
-                     ncbands = 16
-                     factor = (radice - 2._rb)/3._rb
-                     index = int(factor)
-                     if (index .eq. 46) index = 45
-                     fint = factor - real(index)
-                     ib = ngb(ig)
-                     abscoice(ig) = &
-                         absice3(index,ib) + fint * &
-                         (absice3(index+1,ib) - (absice3(index,ib)))
-   
-               endif
-                  
-! Calculation of absorption coefficients due to water clouds.
-               if (clwpmc(ig,lay) .eq. 0.0_rb) then
-                  abscoliq(ig) = 0.0_rb
+                  radice = max(5.0_rb, min(131._rb, reicmc(lay)))
+                  factor = (radice - 2._rb)/3._rb
+                  index  = min(int(factor), 42)
+                  fint   = factor - real(index)
 
-               elseif (liqflag .eq. 0) then
-                   abscoliq(ig) = absliq0
+                  do ig = 1, ngptlw
+                     ib     = ngb(ig)
+                     abscoice(ig) = absice2(index,ib) + fint * &
+                          (absice2(index+1,ib) - (absice2(index,ib)))
+                  enddo
 
-               elseif (liqflag .eq. 1) then
-                  radliq = relqmc(lay)
-                  if (radliq .lt. 2.5_rb .or. radliq .gt. 60._rb) stop &
-                       'LIQUID EFFECTIVE RADIUS OUT OF BOUNDS'
-                  index = int(radliq - 1.5_rb)
-                  if (index .eq. 0) index = 1
-                  if (index .eq. 58) index = 57
-                  fint = radliq - 1.5_rb - real(index)
-                  ib = ngb(ig)
-                  abscoliq(ig) = &
-                        absliq1(index,ib) + fint * &
-                        (absliq1(index+1,ib) - (absliq1(index,ib)))
+               elseif (iceflag .ge. 3) then
+
+                  radice = max(5.0_rb, min(140._rb, reicmc(lay)))
+                  factor = (radice - 2._rb)/3._rb
+                  index  = min(int(factor), 45)
+                  fint   = factor - real(index)
+
+                  do ig = 1, ngptlw
+                     ib     = ngb(ig)
+                     abscoice(ig) = absice3(index,ib) + fint * &
+                          (absice3(index+1,ib) - (absice3(index,ib)))
+                  enddo
+
                endif
 
-               taucmc(ig,lay) = ciwpmc(ig,lay) * abscoice(ig) + &
-                                clwpmc(ig,lay) * abscoliq(ig)
+            else
+
+               abscoice(1:ngptlw) = 0.0
 
             endif
+
+            ! Calculation of absorption coefficients due to water clouds.
+
+            if (relqmc(lay) > 0.01) then
+               
+               if (liqflag .le. 0) then
+
+                  abscoliq(1:ngptlw) = absliq0
+
+               elseif (liqflag .ge. 1) then
+
+                  radliq = max(2.5_rb, min(60._rb, relqmc(lay))) - 1.5_rb
+                  index  = max(1, min(57, int(radliq)))
+                  fint = radliq - real(index)
+
+                  do ig = 1, ngptlw
+                     ib = ngb(ig)
+                     abscoliq(ig) = absliq1(index,ib) + fint * &
+                          (absliq1(index+1,ib) - (absliq1(index,ib)))
+                  enddo
+
+               endif
+
+            else
+
+               abscoliq(1:ngptlw) = 0.0
+
+            endif
+
+            do ig = 1, ngptlw
+
+               taucmc(ig,lay) = ciwpmc(ig,lay) * abscoice(ig) &
+                              + clwpmc(ig,lay) * abscoliq(ig)
+            enddo
+
          endif
-         enddo
       enddo
 
       end subroutine cldprmc

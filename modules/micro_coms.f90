@@ -159,6 +159,7 @@ real :: reffcof  (nhcat) ! constant dependent on gamma function and mass power l
                          ! for computing effective diameter
 real :: dmncof   (nhcat) ! constant dependent on gamma function and mass power law
                          ! for computing mean diameter
+real :: dmncofi  (nhcat) ! 1. / dmncof
 
 real :: coltabc(nembc,nembc,npairc) ! collection table for bulk number
 real :: coltabx(nembc,nembc,npairx) ! collection table for x bulk density

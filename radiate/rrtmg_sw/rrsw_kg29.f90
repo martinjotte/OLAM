@@ -1,10 +1,10 @@
       module rrsw_kg29
 
-      use parkind ,only : im => kind_im, rb => kind_rb
-      use parrrsw, only : ng29
+      use parkind, only: im => kind_im, rb => kind_rb
+      use parrrsw, only: ng29
 
       implicit none
-      save
+      private :: im, rb
 
 !-----------------------------------------------------------------
 ! rrtmg_sw ORIGINAL abs. coefficients for interval 29
@@ -56,13 +56,12 @@
 ! absco2  : real     
 !-----------------------------------------------------------------
 
-      real(kind=rb) :: ka(5,13,ng29), absa(65,ng29)
-      real(kind=rb) :: kb(5,13:59,ng29), absb(235,ng29)
-      real(kind=rb) :: selfref(10,ng29), forref(4,ng29)
+      real(kind=rb) :: absa(ng29,65)
+      real(kind=rb) :: absb(ng29,235)
+
+      real(kind=rb) :: selfref(ng29,10), forref(ng29,4)
       real(kind=rb) :: sfluxref(ng29)
       real(kind=rb) :: absh2o(ng29), absco2(ng29)
-
-      equivalence (ka(1,1,1),absa(1,1)), (kb(1,13,1),absb(1,1))
 
       end module rrsw_kg29
 

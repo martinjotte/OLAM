@@ -231,10 +231,10 @@ if ((istp == 1 .and. mod(time8p, radfrq) < dtlong) .or. &
       rshort_top    (iw) = 0.
       rshortup_top  (iw) = 0.
 
-      rshort_clr      (iw) = 0.
-      rshortup_clr    (iw) = 0.
-      rshort_top_clr  (iw) = 0.
-      rshortup_top_clr(iw) = 0.
+!     rshort_clr      (iw) = 0.
+!     rshortup_clr    (iw) = 0.
+!     rshort_top_clr  (iw) = 0.
+!     rshortup_top_clr(iw) = 0.
 
       fthrd_sw(ka:mza,iw) = 0.
 

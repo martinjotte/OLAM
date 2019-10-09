@@ -87,10 +87,10 @@ subroutine fields2_ll()
                                rlong_accum,          rlongup_accum, &
                           rshort_top_accum,     rshortup_top_accum, &
                          rlongup_top_accum,                         &
-                          rshort_clr_accum,     rshortup_clr_accum, &
-                           rlong_clr_accum,      rlongup_clr_accum, &
-                      rshort_top_clr_accum, rshortup_top_clr_accum, &
-                     rlongup_top_clr_accum,                         &
+!                         rshort_clr_accum,     rshortup_clr_accum, &
+!                          rlong_clr_accum,      rlongup_clr_accum, &
+!                     rshort_top_clr_accum, rshortup_top_clr_accum, &
+!                    rlongup_top_clr_accum,                         &
                               sfluxt_accum,           sfluxr_accum, &
                                   vc_accum,               wc_accum, &
                                press_accum,             tair_accum, &
@@ -192,13 +192,13 @@ subroutine fields2_ll()
   real, allocatable :: rshortup_top_accum_ll(:) ! accum TOA upward s/w rad (J/m^2)
   real, allocatable :: rlongup_top_accum_ll (:) ! accum TOA upward l/w rad (J/m^2)
 
-  real, allocatable :: rshort_clr_accum_ll      (:) ! accum sfc downward s/w rad (J/m^2)
-  real, allocatable :: rshortup_clr_accum_ll    (:) ! accum sfc upward s/w rad (J/m^2)
-  real, allocatable :: rlong_clr_accum_ll       (:) ! accum sfc downward l/w rad (J/m^2)
-  real, allocatable :: rlongup_clr_accum_ll     (:) ! accum sfc upward l/w rad (J/m^2)
-  real, allocatable :: rshort_top_clr_accum_ll  (:) ! accum TOA downward s/w rad (J/m^2)
-  real, allocatable :: rshortup_top_clr_accum_ll(:) ! accum TOA upward s/w rad (J/m^2)
-  real, allocatable :: rlongup_top_clr_accum_ll (:) ! accum TOA upward l/w rad (J/m^2)
+! real, allocatable :: rshort_clr_accum_ll      (:) ! accum sfc downward s/w rad (J/m^2)
+! real, allocatable :: rshortup_clr_accum_ll    (:) ! accum sfc upward s/w rad (J/m^2)
+! real, allocatable :: rlong_clr_accum_ll       (:) ! accum sfc downward l/w rad (J/m^2)
+! real, allocatable :: rlongup_clr_accum_ll     (:) ! accum sfc upward l/w rad (J/m^2)
+! real, allocatable :: rshort_top_clr_accum_ll  (:) ! accum TOA downward s/w rad (J/m^2)
+! real, allocatable :: rshortup_top_clr_accum_ll(:) ! accum TOA upward s/w rad (J/m^2)
+! real, allocatable :: rlongup_top_clr_accum_ll (:) ! accum TOA upward l/w rad (J/m^2)
 
   real, allocatable :: als_vels_accum_ll     (:) ! als wind speed accum (m)
   real, allocatable :: als_airtempk_accum_ll (:) ! als atm temp accum (K s)
@@ -458,13 +458,13 @@ subroutine fields2_ll()
   endif
 
   if (doaccum) then
-     allocate( rshort_clr_accum_ll      (npts) ) ; rshort_clr_accum_ll       = rmissing
-     allocate( rshortup_clr_accum_ll    (npts) ) ; rshortup_clr_accum_ll     = rmissing
-     allocate( rlong_clr_accum_ll       (npts) ) ; rlong_clr_accum_ll        = rmissing
-     allocate( rlongup_clr_accum_ll     (npts) ) ; rlongup_clr_accum_ll      = rmissing
-     allocate( rshort_top_clr_accum_ll  (npts) ) ; rshort_top_clr_accum_ll   = rmissing
-     allocate( rshortup_top_clr_accum_ll(npts) ) ; rshortup_top_clr_accum_ll = rmissing
-     allocate( rlongup_top_clr_accum_ll (npts) ) ; rlongup_top_clr_accum_ll  = rmissing
+!    allocate( rshort_clr_accum_ll      (npts) ) ; rshort_clr_accum_ll       = rmissing
+!    allocate( rshortup_clr_accum_ll    (npts) ) ; rshortup_clr_accum_ll     = rmissing
+!    allocate( rlong_clr_accum_ll       (npts) ) ; rlong_clr_accum_ll        = rmissing
+!    allocate( rlongup_clr_accum_ll     (npts) ) ; rlongup_clr_accum_ll      = rmissing
+!    allocate( rshort_top_clr_accum_ll  (npts) ) ; rshort_top_clr_accum_ll   = rmissing
+!    allocate( rshortup_top_clr_accum_ll(npts) ) ; rshortup_top_clr_accum_ll = rmissing
+!    allocate( rlongup_top_clr_accum_ll (npts) ) ; rlongup_top_clr_accum_ll  = rmissing
 
      allocate( al_sfcwater_tot_ll  (npts) ) ; al_sfcwater_tot_ll   = rmissing
      allocate( al_soil_water_tot_ll(npts) ) ; al_soil_water_tot_ll = rmissing
@@ -661,29 +661,29 @@ subroutine fields2_ll()
 
   if (doaccum) then
 
-     scr1a(:) = real(rshort_clr_accum(:))
-     call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,rshort_clr_accum_ll)
+!    scr1a(:) = real(rshort_clr_accum(:))
+!    call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,rshort_clr_accum_ll)
 
-     scr1a(:) = real(rshortup_clr_accum(:))
-     call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,rshortup_clr_accum_ll)
+!    scr1a(:) = real(rshortup_clr_accum(:))
+!    call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,rshortup_clr_accum_ll)
 
-     scr1a(:) = real(rlong_clr_accum(:))
-     call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,rlong_clr_accum_ll)
+!    scr1a(:) = real(rlong_clr_accum(:))
+!    call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,rlong_clr_accum_ll)
 
-     scr1a(:) = real(rlongup_clr_accum(:))
-     call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,rlongup_clr_accum_ll)
+!    scr1a(:) = real(rlongup_clr_accum(:))
+!    call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,rlongup_clr_accum_ll)
 
-     scr1a(:) = real(rshort_top_clr_accum(:))
-     call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,rshort_top_clr_accum_ll)
+!    scr1a(:) = real(rshort_top_clr_accum(:))
+!    call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,rshort_top_clr_accum_ll)
 
-     scr1a(:) = real(rshortup_top_clr_accum(:))
-     call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,rshortup_top_clr_accum_ll)
+!    scr1a(:) = real(rshortup_top_clr_accum(:))
+!    call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,rshortup_top_clr_accum_ll)
 
-     scr1a(:) = real(rlongup_top_clr_accum(:))
-     call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,rlongup_top_clr_accum_ll)
+!    scr1a(:) = real(rlongup_top_clr_accum(:))
+!    call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,rlongup_top_clr_accum_ll)
 
-     scr1a(:) = real(rlongup_top_clr_accum(:))
-     call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,rlongup_top_clr_accum_ll)
+!    scr1a(:) = real(rlongup_top_clr_accum(:))
+!    call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1a,rlongup_top_clr_accum_ll)
 
      do iw = 2, mwa
         scr1a(iw) = 0.
@@ -1046,57 +1046,57 @@ subroutine fields2_ll()
 
 ! Accumulated longwave and shortwave clear-air radiative fluxes at surface
 
-        CALL shdf5_orec_ll(ndims, idims, 'RSHORT_CLR_ACCUM_LL', rvar1=rshort_clr_accum_ll, gpoints=lls_loc,     &
-                           dimnames = dimnames,                                                                 &
-                           long_name = "Accumulated downwelling clear-air shortwave flux at surface",           &
-                           standard_name = "integral_of_surface_downwelling_clear_air_shortwave_flux_wrt_time", &
-                           units = "J m-2",                                                                     &
-                           rmissing = rmissing                                                                  )
+!       CALL shdf5_orec_ll(ndims, idims, 'RSHORT_CLR_ACCUM_LL', rvar1=rshort_clr_accum_ll, gpoints=lls_loc,     &
+!                          dimnames = dimnames,                                                                 &
+!                          long_name = "Accumulated downwelling clear-air shortwave flux at surface",           &
+!                          standard_name = "integral_of_surface_downwelling_clear_air_shortwave_flux_wrt_time", &
+!                          units = "J m-2",                                                                     &
+!                          rmissing = rmissing                                                                  )
 
-        CALL shdf5_orec_ll(ndims, idims, 'RSHORTUP_CLR_ACCUM_LL', rvar1=rshortup_clr_accum_ll, gpoints=lls_loc, &
-                           dimnames = dimnames,                                                                 &
-                           long_name = "Accumulated upwelling clear-air shortwave flux at surface",             &
-                           standard_name = "integral_of_surface_upwelling_clear_air_shortwave_flux_wrt_time",   &
-                           units = "J m-2",                                                                     &
-                           rmissing = rmissing                                                                  )
-                    
-        CALL shdf5_orec_ll(ndims, idims, 'RLONG_CLR_ACCUM_LL', rvar1=rlong_clr_accum_ll, gpoints=lls_loc,      &
-                           dimnames = dimnames,                                                                &
-                           long_name = "Accumulated downwelling clear-air longwave flux at surface",           &
-                           standard_name = "integral_of_surface_downwelling_clear_air_longwave_flux_wrt_time", &
-                           units = "J m-2",                                                                    &
-                           rmissing = rmissing                                                                 )
+!       CALL shdf5_orec_ll(ndims, idims, 'RSHORTUP_CLR_ACCUM_LL', rvar1=rshortup_clr_accum_ll, gpoints=lls_loc, &
+!                          dimnames = dimnames,                                                                 &
+!                          long_name = "Accumulated upwelling clear-air shortwave flux at surface",             &
+!                          standard_name = "integral_of_surface_upwelling_clear_air_shortwave_flux_wrt_time",   &
+!                          units = "J m-2",                                                                     &
+!                          rmissing = rmissing                                                                  )
 
-        CALL shdf5_orec_ll(ndims, idims, 'RLONGUP_CLR_ACCUM_LL', rvar1=rlongup_clr_accum_ll, gpoints=lls_loc, &
-                           dimnames = dimnames,                                                               &
-                           long_name = "Accumulated upwelling clear-air longwave flux at surface",            &
-                           standard_name = "integral_of_surface_upwelling_clear_air_longwave_flux_wrt_time",  &
-                           units = "J m-2",                                                                   &
-                           rmissing = rmissing                                                                )
+!       CALL shdf5_orec_ll(ndims, idims, 'RLONG_CLR_ACCUM_LL', rvar1=rlong_clr_accum_ll, gpoints=lls_loc,      &
+!                          dimnames = dimnames,                                                                &
+!                          long_name = "Accumulated downwelling clear-air longwave flux at surface",           &
+!                          standard_name = "integral_of_surface_downwelling_clear_air_longwave_flux_wrt_time", &
+!                          units = "J m-2",                                                                    &
+!                          rmissing = rmissing                                                                 )
+
+!       CALL shdf5_orec_ll(ndims, idims, 'RLONGUP_CLR_ACCUM_LL', rvar1=rlongup_clr_accum_ll, gpoints=lls_loc, &
+!                          dimnames = dimnames,                                                               &
+!                          long_name = "Accumulated upwelling clear-air longwave flux at surface",            &
+!                          standard_name = "integral_of_surface_upwelling_clear_air_longwave_flux_wrt_time",  &
+!                          units = "J m-2",                                                                   &
+!                          rmissing = rmissing                                                                )
 
 ! Accumulated longwave and shortwave clear-air radiative fluxes at top-of-atmosphere
 ! Note: at TOA "incoming" and "outgoing" are used in place of "downwelling" and "upwelling"
 
-        CALL shdf5_orec_ll(ndims, idims, 'RSHORT_TOP_CLR_ACCUM_LL', rvar1=rshort_top_clr_accum_ll, gpoints=lls_loc, &
-                           dimnames = dimnames,                                                                     &
-                           long_name = "Accumulated incoming clear-air shortwave flux at TOA",                      &
-                           standard_name = "integral_of_toa_incoming_clear_air_shortwave_flux_wrt_time",            &
-                           units = "J m-2",                                                                         &
-                           rmissing = rmissing                                                                      )
+!       CALL shdf5_orec_ll(ndims, idims, 'RSHORT_TOP_CLR_ACCUM_LL', rvar1=rshort_top_clr_accum_ll, gpoints=lls_loc, &
+!                          dimnames = dimnames,                                                                     &
+!                          long_name = "Accumulated incoming clear-air shortwave flux at TOA",                      &
+!                          standard_name = "integral_of_toa_incoming_clear_air_shortwave_flux_wrt_time",            &
+!                          units = "J m-2",                                                                         &
+!                          rmissing = rmissing                                                                      )
 
-        CALL shdf5_orec_ll(ndims, idims, 'RSHORTUP_TOP_CLR_ACCUM_LL', rvar1=rshortup_top_clr_accum_ll, gpoints=lls_loc, &
-                           dimnames = dimnames,                                                                         &
-                           long_name = "Accumulated outgoing clear-air shortwave flux at TOA",                          &
-                           standard_name = "integral_of_toa_outgoing_clear_air_shortwave_flux_wrt_time",                &
-                           units = "J m-2",                                                                             &
-                           rmissing = rmissing                                                                          )
+!       CALL shdf5_orec_ll(ndims, idims, 'RSHORTUP_TOP_CLR_ACCUM_LL', rvar1=rshortup_top_clr_accum_ll, gpoints=lls_loc, &
+!                          dimnames = dimnames,                                                                         &
+!                          long_name = "Accumulated outgoing clear-air shortwave flux at TOA",                          &
+!                          standard_name = "integral_of_toa_outgoing_clear_air_shortwave_flux_wrt_time",                &
+!                          units = "J m-2",                                                                             &
+!                          rmissing = rmissing                                                                          )
 
-        CALL shdf5_orec_ll(ndims, idims, 'RLONGUP_TOP_CLR_ACCUM_LL' , rvar1=rlongup_top_clr_accum_ll, gpoints=lls_loc, &
-                           dimnames = dimnames,                                                                        &
-                           long_name = "Accumulated outgoing clear-air longwave flux at TOA",                          &
-                           standard_name = "integral_of_toa_outgoing_clear_air_longwave_flux_wrt_time",                &
-                           units = "J m-2",                                                                            &
-                           rmissing = rmissing                                                                         )
+!       CALL shdf5_orec_ll(ndims, idims, 'RLONGUP_TOP_CLR_ACCUM_LL' , rvar1=rlongup_top_clr_accum_ll, gpoints=lls_loc, &
+!                          dimnames = dimnames,                                                                        &
+!                          long_name = "Accumulated outgoing clear-air longwave flux at TOA",                          &
+!                          standard_name = "integral_of_toa_outgoing_clear_air_longwave_flux_wrt_time",                &
+!                          units = "J m-2",                                                                            &
+!                          rmissing = rmissing                                                                         )
 
 ! 'ALS' quantities are area-weighted averages of land & sea cell quantities over a single atmosphere column
 
@@ -1407,26 +1407,26 @@ subroutine fields2_ll()
      call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,rlongup_top_accum_ll,204, &
                       "Accum TOA upward l/w radiation", "(J/m^2)", rmissing)
 
-     call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,rshort_clr_accum_ll,204, &
-                      "Accum surface downward clear-air s/w radiation", "(J/m^2)", rmissing)
+!    call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,rshort_clr_accum_ll,204, &
+!                     "Accum surface downward clear-air s/w radiation", "(J/m^2)", rmissing)
 
-     call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,rshortup_clr_accum_ll,204, &
-                      "Accum surface upward clear-air s/w radiation", "(J/m^2)", rmissing)
+!    call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,rshortup_clr_accum_ll,204, &
+!                     "Accum surface upward clear-air s/w radiation", "(J/m^2)", rmissing)
 
-     call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,rlong_clr_accum_ll,204, &
-                      "Accum surface downward clear-air l/w radiation", "(J/m^2)", rmissing)
+!    call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,rlong_clr_accum_ll,204, &
+!                     "Accum surface downward clear-air l/w radiation", "(J/m^2)", rmissing)
 
-     call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,rlongup_clr_accum_ll,204, &
-                      "Accum surface upward clear-air l/w radiation", "(J/m^2)", rmissing)
+!    call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,rlongup_clr_accum_ll,204, &
+!                     "Accum surface upward clear-air l/w radiation", "(J/m^2)", rmissing)
 
-     call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,rshort_top_clr_accum_ll,204, &
-                      "Accum TOA downward clear-air s/w radiation", "(J/m^2)", rmissing)
+!    call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,rshort_top_clr_accum_ll,204, &
+!                     "Accum TOA downward clear-air s/w radiation", "(J/m^2)", rmissing)
 
-     call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,rshortup_top_clr_accum_ll,204, &
-                      "Accum TOA upward clear-air s/w radiation", "(J/m^2)", rmissing)
+!    call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,rshortup_top_clr_accum_ll,204, &
+!                     "Accum TOA upward clear-air s/w radiation", "(J/m^2)", rmissing)
 
-     call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,rlongup_top_clr_accum_ll,204, &
-                      "Accum TOA upward clear-air l/w radiation", "(J/m^2)", rmissing)
+!    call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,rlongup_top_clr_accum_ll,204, &
+!                     "Accum TOA upward clear-air l/w radiation", "(J/m^2)", rmissing)
 
      call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,als_vels_accum_ll,204, &
                       "als accum wind speed", "(m)", rmissing)

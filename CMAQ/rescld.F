@@ -214,12 +214,13 @@ C...........External Functions:
         SUBROUTINE SCAVWDEP ( JDATE, JTIME, WTBAR, WCBAR, TBARC, PBARC,
      &                        CTHK1, AIRM, PRATE1, TAUCLD, POLC, CEND,
      &                        REMOV, REMOVAC, ALFAC, RHOAIR )
+           USE CGRID_SPCS
            INTEGER, INTENT( IN )  :: JDATE, JTIME
            REAL,    INTENT( IN )  :: WTBAR, WCBAR, TBARC, PBARC,
      &                               CTHK1, AIRM, PRATE1, TAUCLD
-           REAL,    INTENT( IN )  :: POLC ( : )
+           REAL,    INTENT( IN )  :: POLC ( NSPCSD )
            REAL,    INTENT( OUT ) :: REMOVAC
-           REAL,    INTENT( OUT ) :: CEND( : ), REMOV( : )
+           REAL,    INTENT( OUT ) :: CEND( NSPCSD ), REMOV( NSPCSD )
            REAL,    INTENT( OUT ) :: ALFAC
            REAL,    INTENT( IN )  :: RHOAIR
            
@@ -227,12 +228,13 @@ C...........External Functions:
         SUBROUTINE AQ_MAP( JDATE, JTIME, WTBAR, WCBAR, TBARC, PBARC,
      &                     CTHK1, AIRM, PRATE1, TAUCLD, POLC, CEND,
      &                     REMOV, REMOVAC, ALFAC, DARK )
+           USE CGRID_SPCS
            INTEGER, INTENT( IN )    :: JDATE, JTIME
            REAL,    INTENT( IN )    :: WTBAR, WCBAR, TBARC, PBARC,
      &                                 CTHK1, AIRM, PRATE1, TAUCLD
-           REAL,    INTENT( IN )    :: POLC ( : )
+           REAL,    INTENT( IN )    :: POLC ( NSPCSD )
            REAL,    INTENT( INOUT ) :: REMOVAC
-           REAL,    INTENT( INOUT ) :: CEND( : ), REMOV( : )
+           REAL,    INTENT( INOUT ) :: CEND( NSPCSD ), REMOV( NSPCSD )
            REAL,    INTENT( IN )    :: ALFAC
            LOGICAL, INTENT( IN )    :: DARK                                 !Golam Sarwar, July 1, 2011
         END SUBROUTINE AQ_MAP

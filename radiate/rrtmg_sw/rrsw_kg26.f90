@@ -1,10 +1,10 @@
       module rrsw_kg26
 
-      use parkind ,only : im => kind_im, rb => kind_rb
-      use parrrsw, only : ng26
+      use parkind, only: im => kind_im, rb => kind_rb
+      use parrrsw, only: ng26
 
       implicit none
-      save
+      private :: im, rb
 
 !-----------------------------------------------------------------
 ! rrtmg_sw ORIGINAL abs. coefficients for interval 26

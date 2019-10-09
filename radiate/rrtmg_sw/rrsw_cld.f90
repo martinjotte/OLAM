@@ -3,7 +3,8 @@
       use parkind, only : im => kind_im, rb => kind_rb
 
       implicit none
-      save
+
+      private :: im, rb
 
 !------------------------------------------------------------------
 ! rrtmg_sw cloud property coefficients

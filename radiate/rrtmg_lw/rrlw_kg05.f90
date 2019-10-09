@@ -1,9 +1,10 @@
       module rrlw_kg05
 
-      use parkind ,only : im => kind_im, rb => kind_rb
+      use parkind, only: im => kind_im, rb => kind_rb
 
       implicit none
-      save
+
+      private :: im, rb
 
 !-----------------------------------------------------------------
 ! rrtmg_lw ORIGINAL abs. coefficients for interval 5
@@ -16,19 +17,19 @@
 !
 !  name     type     purpose
 !  ----   : ----   : ---------------------------------------------
-!fracrefao: real    
+!fracrefao: real
 !fracrefbo: real
-! kao     : real     
-! kbo     : real     
-! kao_mo3 : real     
-! selfrefo: real     
-! forrefo : real     
+! kao     : real
+! kbo     : real
+! kao_mo3 : real
+! selfrefo: real
+! forrefo : real
 ! ccl4o   : real
 !-----------------------------------------------------------------
 
-      integer(kind=im), parameter :: no5  = 16
+      integer(kind=im), parameter :: no5 = 16
 
-      real(kind=rb) :: fracrefao(no5,9) ,fracrefbo(no5,5)
+      real(kind=rb) :: fracrefao(no5,9) , fracrefbo(no5,5)
       real(kind=rb) :: kao(9,5,13,no5)
       real(kind=rb) :: kbo(5,5,13:59,no5)
       real(kind=rb) :: kao_mo3(9,19,no5)
@@ -47,30 +48,29 @@
 !
 !  name     type     purpose
 !  ----   : ----   : ---------------------------------------------
-!fracrefa : real    
+!fracrefa : real
 !fracrefb : real
-! ka      : real     
-! kb      : real     
-! ka_mo3  : real     
-! selfref : real     
-! forref  : real     
+! ka      : real
+! kb      : real
+! ka_mo3  : real
+! selfref : real
+! forref  : real
 ! ccl4    : real
 !
 ! absa    : real
 ! absb    : real
 !-----------------------------------------------------------------
 
-      integer(kind=im), parameter :: ng5  = 16
+      integer(kind=im), parameter :: ng5 = 16
 
-      real(kind=rb) :: fracrefa(ng5,9) ,fracrefb(ng5,5)
-      real(kind=rb) :: ka(9,5,13,ng5)   ,absa(585,ng5)
-      real(kind=rb) :: kb(5,5,13:59,ng5),absb(1175,ng5)
-      real(kind=rb) :: ka_mo3(9,19,ng5)
-      real(kind=rb) :: selfref(10,ng5)
-      real(kind=rb) :: forref(4,ng5)
+      real(kind=rb) :: fracrefa(ng5,9) , fracrefb(ng5,5)
+      real(kind=rb) :: dfracrefa(ng5,9), dfracrefb(ng5,5)
+      real(kind=rb) :: absa(ng5,585)
+      real(kind=rb) :: absb(ng5,1175)
+      real(kind=rb) :: ka_mo3(ng5,9,19)
+      real(kind=rb) :: selfref(ng5,10)
+      real(kind=rb) :: forref(ng5,4)
       real(kind=rb) :: ccl4(ng5)
-      
-      equivalence (ka(1,1,1,1),absa(1,1)),(kb(1,1,13,1),absb(1,1))
 
       end module rrlw_kg05
 

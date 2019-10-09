@@ -238,8 +238,8 @@ use micro_coms,  only: nhcat, shapefac, cfmas, pwmas, cfvt, pwvt, &
                        pwemb0, ch3, cdp1, pwvtmasi, cfemb0, cfen0, &
                        dnfac, vtfac, frefac1, frefac2, sipfac, cfmasft, &
                        dict, dpsmi, gamm, gamn1, ngam, gam, gaminc, &
-                       gamsip13, gamsip24, ddn_ngam, reffcof, dmncof
-                      
+                       gamsip13, gamsip24, ddn_ngam, reffcof, dmncof, dmncofi
+
 use consts_coms, only: alvl, alvi, alli
 use misc_coms,   only: io6
 
@@ -369,7 +369,8 @@ do lhcat = 1,nhcat
 
    reffcof(lhcat) = 0.5 * (gnu(lcat) + 2.) * dnfac(lhcat)
 
-   dmncof(lhcat) = gnu(lcat) * dnfac(lhcat)
+   dmncof (lhcat) = gnu(lcat) * dnfac(lhcat)
+   dmncofi(lhcat) = 1.0 / dmncof(lhcat)
 
    if (lhcat <= 4) gamm(lhcat) = exp(glg)
    if (lhcat <= 4) gamn1(lhcat) = exp(glg1)

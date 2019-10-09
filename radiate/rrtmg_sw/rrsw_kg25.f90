@@ -1,10 +1,10 @@
       module rrsw_kg25
 
-      use parkind ,only : im => kind_im, rb => kind_rb
-      use parrrsw, only : ng25
+      use parkind, only: im => kind_im, rb => kind_rb
+      use parrrsw, only: ng25
 
       implicit none
-      save
+      private :: im, rb
 
 !-----------------------------------------------------------------
 ! rrtmg_sw ORIGINAL abs. coefficients for interval 25
@@ -50,12 +50,10 @@
 ! rayl    : real     
 !-----------------------------------------------------------------
 
-      real(kind=rb) :: ka(5,13,ng25), absa(65,ng25)
+      real(kind=rb) :: absa(ng25,65)
       real(kind=rb) :: sfluxref(ng25)
       real(kind=rb) :: abso3a(ng25), abso3b(ng25)
       real(kind=rb) :: rayl(ng25)
-
-      equivalence (ka(1,1,1),absa(1,1))
 
       end module rrsw_kg25
 

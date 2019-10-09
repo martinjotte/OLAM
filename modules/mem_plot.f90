@@ -235,26 +235,26 @@ Contains
   allocate ( rlongup_top_accum_prev0(mwa)) ; rlongup_top_accum_prev0(:) = 0.
   allocate ( rlongup_top_accum_prev1(mwa)) ; rlongup_top_accum_prev1(:) = 0.
 
-  allocate ( rshort_clr_accum_prev0(mwa)) ; rshort_clr_accum_prev0(:) = 0.
-  allocate ( rshort_clr_accum_prev1(mwa)) ; rshort_clr_accum_prev1(:) = 0.
+! allocate ( rshort_clr_accum_prev0(mwa)) ; rshort_clr_accum_prev0(:) = 0.
+! allocate ( rshort_clr_accum_prev1(mwa)) ; rshort_clr_accum_prev1(:) = 0.
 
-  allocate ( rshortup_clr_accum_prev0(mwa)) ; rshortup_clr_accum_prev0(:) = 0.
-  allocate ( rshortup_clr_accum_prev1(mwa)) ; rshortup_clr_accum_prev1(:) = 0.
+! allocate ( rshortup_clr_accum_prev0(mwa)) ; rshortup_clr_accum_prev0(:) = 0.
+! allocate ( rshortup_clr_accum_prev1(mwa)) ; rshortup_clr_accum_prev1(:) = 0.
 
-  allocate ( rlong_clr_accum_prev0(mwa)) ; rlong_clr_accum_prev0(:) = 0.
-  allocate ( rlong_clr_accum_prev1(mwa)) ; rlong_clr_accum_prev1(:) = 0.
+! allocate ( rlong_clr_accum_prev0(mwa)) ; rlong_clr_accum_prev0(:) = 0.
+! allocate ( rlong_clr_accum_prev1(mwa)) ; rlong_clr_accum_prev1(:) = 0.
 
-  allocate ( rlongup_clr_accum_prev0(mwa)) ; rlongup_clr_accum_prev0(:) = 0.
-  allocate ( rlongup_clr_accum_prev1(mwa)) ; rlongup_clr_accum_prev1(:) = 0.
+! allocate ( rlongup_clr_accum_prev0(mwa)) ; rlongup_clr_accum_prev0(:) = 0.
+! allocate ( rlongup_clr_accum_prev1(mwa)) ; rlongup_clr_accum_prev1(:) = 0.
 
-  allocate ( rshort_top_clr_accum_prev0(mwa)) ; rshort_top_clr_accum_prev0(:) = 0.
-  allocate ( rshort_top_clr_accum_prev1(mwa)) ; rshort_top_clr_accum_prev1(:) = 0.
+! allocate ( rshort_top_clr_accum_prev0(mwa)) ; rshort_top_clr_accum_prev0(:) = 0.
+! allocate ( rshort_top_clr_accum_prev1(mwa)) ; rshort_top_clr_accum_prev1(:) = 0.
 
-  allocate ( rshortup_top_clr_accum_prev0(mwa)) ; rshortup_top_clr_accum_prev0(:) = 0.
-  allocate ( rshortup_top_clr_accum_prev1(mwa)) ; rshortup_top_clr_accum_prev1(:) = 0.
+! allocate ( rshortup_top_clr_accum_prev0(mwa)) ; rshortup_top_clr_accum_prev0(:) = 0.
+! allocate ( rshortup_top_clr_accum_prev1(mwa)) ; rshortup_top_clr_accum_prev1(:) = 0.
 
-  allocate ( rlongup_top_clr_accum_prev0(mwa)) ; rlongup_top_clr_accum_prev0(:) = 0.
-  allocate ( rlongup_top_clr_accum_prev1(mwa)) ; rlongup_top_clr_accum_prev1(:) = 0.
+! allocate ( rlongup_top_clr_accum_prev0(mwa)) ; rlongup_top_clr_accum_prev0(:) = 0.
+! allocate ( rlongup_top_clr_accum_prev1(mwa)) ; rlongup_top_clr_accum_prev1(:) = 0.
 
   allocate ( sfluxt_accum_prev0(mwa)) ; sfluxt_accum_prev0(:) = 0.
   allocate ( sfluxt_accum_prev1(mwa)) ; sfluxt_accum_prev1(:) = 0.
@@ -450,13 +450,13 @@ Contains
      rshortup_top_accum_prev1(:) = rshortup_top_accum_prev0(:)
       rlongup_top_accum_prev1(:) =  rlongup_top_accum_prev0(:)
 
-           rshort_clr_accum_prev1(:) =       rshort_clr_accum_prev0(:)
-         rshortup_clr_accum_prev1(:) =     rshortup_clr_accum_prev0(:)
-            rlong_clr_accum_prev1(:) =        rlong_clr_accum_prev0(:)
-          rlongup_clr_accum_prev1(:) =      rlongup_clr_accum_prev0(:)
-       rshort_top_clr_accum_prev1(:) =   rshort_top_clr_accum_prev0(:)
-     rshortup_top_clr_accum_prev1(:) = rshortup_top_clr_accum_prev0(:)
-      rlongup_top_clr_accum_prev1(:) =  rlongup_top_clr_accum_prev0(:)
+!          rshort_clr_accum_prev1(:) =       rshort_clr_accum_prev0(:)
+!        rshortup_clr_accum_prev1(:) =     rshortup_clr_accum_prev0(:)
+!           rlong_clr_accum_prev1(:) =        rlong_clr_accum_prev0(:)
+!         rlongup_clr_accum_prev1(:) =      rlongup_clr_accum_prev0(:)
+!      rshort_top_clr_accum_prev1(:) =   rshort_top_clr_accum_prev0(:)
+!    rshortup_top_clr_accum_prev1(:) = rshortup_top_clr_accum_prev0(:)
+!     rlongup_top_clr_accum_prev1(:) =  rlongup_top_clr_accum_prev0(:)
 
            sfluxt_accum_prev1(:) =        sfluxt_accum_prev0(:)
            sfluxr_accum_prev1(:) =        sfluxr_accum_prev0(:)
@@ -520,13 +520,13 @@ Contains
      rshortup_top_accum_prev0(:) = 0.
       rlongup_top_accum_prev0(:) = 0.
 
-           rshort_clr_accum_prev0(:) = 0.
-         rshortup_clr_accum_prev0(:) = 0.
-            rlong_clr_accum_prev0(:) = 0.
-          rlongup_clr_accum_prev0(:) = 0.
-       rshort_top_clr_accum_prev0(:) = 0.
-     rshortup_top_clr_accum_prev0(:) = 0.
-      rlongup_top_clr_accum_prev0(:) = 0.
+!          rshort_clr_accum_prev0(:) = 0.
+!        rshortup_clr_accum_prev0(:) = 0.
+!           rlong_clr_accum_prev0(:) = 0.
+!         rlongup_clr_accum_prev0(:) = 0.
+!      rshort_top_clr_accum_prev0(:) = 0.
+!    rshortup_top_clr_accum_prev0(:) = 0.
+!     rlongup_top_clr_accum_prev0(:) = 0.
 
            sfluxt_accum_prev0(:) = 0.
            sfluxr_accum_prev0(:) = 0.

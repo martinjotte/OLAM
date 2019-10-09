@@ -18,11 +18,14 @@
 ! ------- Modules -------
       use parkind, only : im => kind_im, rb => kind_rb
       use rrlw_wvn
-      use rrtmg_lw_setcoef, only: lwatmref, lwavplank, lwavplankderiv
+      use rrtmg_lw_setcoef, only: lwavplank
 
       implicit none
 
       character(20), parameter :: rrtmg_lw_file = "rrtmg_lw.h5"
+
+      private
+      public :: rrtmg_lw_ini
 
       contains
 
@@ -40,21 +43,20 @@
 !  spectral band are reduced from 256 g-point intervals to 140.
 ! **************************************************************************
 
-      use parrrtm,  only : mg, nbndlw, ngptlw
-      use rrlw_tbl, only: ntbl, tblint, pade, bpade, tau_tbl, exp_tbl, tfn_tbl
-      use rrlw_vsn, only: hvrini, hnamini
-
+      use parrrtm,    only: mg, nbndlw, ngptlw
+      use rrlw_tbl,   only: ntbl, tblint, pade, bpade, tau_tbl, exp_tbl, tfn_tbl
       use hdf5_utils, only: shdf5_open, shdf5_close
       use oname_coms, only: nl
       use max_dims,   only: pathlen
 
+      implicit none
+
       real(kind=rb), intent(in) :: cpdair     ! Specific heat capacity of dry air
                                               ! at constant pressure at 273 K
                                               ! (J kg-1 K-1)
-
 ! ------- Local -------
 
-      integer(kind=im) :: itr, ibnd, igc, ig, ind, ipr 
+      integer(kind=im) :: itr, ibnd, igc, ig, ind, ipr
       integer(kind=im) :: igcsm, iprsm
 
       real(kind=rb) :: wtsum, wtsm(mg)        !
@@ -77,15 +79,9 @@
 !     BPADE   Inverse of the Pade approximation constant
 !
 
-      hvrini = '$Revision: 1.6 $'
-
 ! Initialize model data
-      call lwdatinit(cpdair)
-      call lwcmbdat               ! g-point interval reduction data
       call lwcldpr                ! cloud optical properties
-      call lwatmref               ! reference MLS profile
-      call lwavplank              ! Planck function 
-      call lwavplankderiv         ! Planck function derivative wrt temp
+      call lwavplank              ! Planck function
 
       inputfile = trim(nl%rrtmg_datadir) // "/" // trim(rrtmg_lw_file)
 
@@ -117,11 +113,11 @@
       call shdf5_close()
 
 ! Compute lookup tables for transmittance, tau transition function,
-! and clear sky tau (for the cloudy sky radiative transfer).  Tau is 
-! computed as a function of the tau transition function, transmittance 
-! is calculated as a function of tau, and the tau transition function 
-! is calculated using the linear in tau formulation at values of tau 
-! above 0.01.  TF is approximated as tau/6 for tau < 0.01.  All tables 
+! and clear sky tau (for the cloudy sky radiative transfer).  Tau is
+! computed as a function of the tau transition function, transmittance
+! is calculated as a function of tau, and the tau transition function
+! is calculated using the linear in tau formulation at values of tau
+! above 0.01.  TF is approximated as tau/6 for tau < 0.01.  All tables
 ! are computed at intervals of 0.001.  The inverse of the constant used
 ! in the Pade approximation to the tau transition function is set to b.
 
@@ -153,7 +149,7 @@
       do ibnd = 1,nbndlw
          iprsm = 0
          if (ngc(ibnd).lt.mg) then
-            do igc = 1,ngc(ibnd) 
+            do igc = 1,ngc(ibnd)
                igcsm = igcsm + 1
                wtsum = 0._rb
                do ipr = 1, ngn(igcsm)
@@ -197,194 +193,6 @@
       end subroutine rrtmg_lw_ini
 
 !***************************************************************************
-      subroutine lwdatinit(cpdair)
-!***************************************************************************
-
-! --------- Modules ----------
-
-      use parrrtm, only : maxxsec, maxinpx
-      use rrlw_con, only: heatfac, grav, planck, boltz, &
-                          clight, avogad, alosmt, gascon, radcn1, radcn2, &
-                          sbcnst, secdy 
-      use rrlw_vsn
-
-      save 
- 
-      real(kind=rb), intent(in) :: cpdair      ! Specific heat capacity of dry air
-                                               ! at constant pressure at 273 K
-                                               ! (J kg-1 K-1)
-
-! Longwave spectral band limits (wavenumbers)
-!      wavenum1(:) = (/ 10._rb, 350._rb, 500._rb, 630._rb, 700._rb, 820._rb, &
-!                      980._rb,1080._rb,1180._rb,1390._rb,1480._rb,1800._rb, &
-!                     2080._rb,2250._rb,2380._rb,2600._rb/)
-!      wavenum2(:) = (/350._rb, 500._rb, 630._rb, 700._rb, 820._rb, 980._rb, &
-!                     1080._rb,1180._rb,1390._rb,1480._rb,1800._rb,2080._rb, &
-!                     2250._rb,2380._rb,2600._rb,3250._rb/)
-!      delwave(:) =  (/340._rb, 150._rb, 130._rb,  70._rb, 120._rb, 160._rb, &
-!                      100._rb, 100._rb, 210._rb,  90._rb, 320._rb, 280._rb, &
-!                      170._rb, 130._rb, 220._rb, 650._rb/)
-
-! Spectral band information
-!      ng(:) = (/16,16,16,16,16,16,16,16,16,16,16,16,16,16,16,16/)
-!      nspa(:) = (/1,1,9,9,9,1,9,1,9,1,1,9,9,1,9,9/)
-!      nspb(:) = (/1,1,5,5,5,0,1,1,1,1,1,0,0,1,0,0/)
-
-!     nxmol     - number of cross-sections input by user
-!     ixindx(i) - index of cross-section molecule corresponding to Ith
-!                 cross-section specified by user
-!                 = 0 -- not allowed in rrtm
-!                 = 1 -- ccl4
-!                 = 2 -- cfc11
-!                 = 3 -- cfc12
-!                 = 4 -- cfc22
-!!      nxmol = 4
-!!      ixindx(1) = 1
-!!      ixindx(2) = 2
-!!      ixindx(3) = 3
-!!      ixindx(4) = 4
-!!      ixindx(5:maxinpx) = 0
-
-! Fundamental physical constants from NIST 2002
-
-!     grav = 9.8066_rb                        ! Acceleration of gravity
-!                                             ! (m s-2)
-!     planck = 6.62606876e-27_rb              ! Planck constant
-!                                             ! (ergs s; g cm2 s-1)
-!     boltz = 1.3806503e-16_rb                ! Boltzmann constant
-!                                             ! (ergs K-1; g cm2 s-2 K-1)
-!     clight = 2.99792458e+10_rb              ! Speed of light in a vacuum  
-!                                             ! (cm s-1)
-!     avogad = 6.02214199e+23_rb              ! Avogadro constant
-!                                             ! (mol-1)
-!     alosmt = 2.6867775e+19_rb               ! Loschmidt constant
-!                                             ! (cm-3)
-!     gascon = 8.31447200e+07_rb              ! Molar gas constant
-!                                             ! (ergs mol-1 K-1)
-!     radcn1 = 1.191042722e-12_rb             ! First radiation constant
-!                                             ! (W cm2 sr-1)
-!     radcn2 = 1.4387752_rb                   ! Second radiation constant
-!                                             ! (cm K)
-!     sbcnst = 5.670400e-04_rb                ! Stefan-Boltzmann constant
-!                                             ! (W cm-2 K-4)
-!     secdy = 8.6400e4_rb                     ! Number of seconds per day
-!                                             ! (s d-1)
-!
-!     units are generally cgs
-!
-!     The first and second radiation constants are taken from NIST.
-!     They were previously obtained from the relations:
-!          radcn1 = 2.*planck*clight*clight*1.e-07
-!          radcn2 = planck*clight/boltz
-
-!     Heatfac is the factor by which delta-flux / delta-pressure is
-!     multiplied, with flux in W/m-2 and pressure in mbar, to get 
-!     the heating rate in units of degrees/day.  It is equal to:
-!     Original value:
-!           (g)x(#sec/day)x(1e-5)/(specific heat of air at const. p)
-!           Here, cpdair (1.004) is in units of J g-1 K-1, and the 
-!           constant (1.e-5) converts mb to Pa and g-1 to kg-1.
-!        =  (9.8066)(86400)(1e-5)/(1.004)
-!      heatfac = 8.4391_rb
-!
-!     Modified value for consistency with CAM3:
-!           (g)x(#sec/day)x(1e-5)/(specific heat of air at const. p)
-!           Here, cpdair (1.00464) is in units of J g-1 K-1, and the
-!           constant (1.e-5) converts mb to Pa and g-1 to kg-1.
-!        =  (9.80616)(86400)(1e-5)/(1.00464)
-!      heatfac = 8.43339130434_rb
-!
-!     Calculated value:
-!        (grav) x (#sec/day) / (specific heat of dry air at const. p x 1.e2)
-!           Here, cpdair is in units of J kg-1 K-1, and the constant (1.e2) 
-!           converts mb to Pa when heatfac is multiplied by W m-2 mb-1. 
-!     heatfac = grav * secdy / (cpdair * 1.e2_rb)
-
-      end subroutine lwdatinit
-
-!***************************************************************************
-      subroutine lwcmbdat
-!***************************************************************************
-
-      save
- 
-! ------- Definitions -------
-!     Arrays for the g-point reduction from 256 to 140 for the 16 LW bands:
-!     This mapping from 256 to 140 points has been carefully selected to 
-!     minimize the effect on the resulting fluxes and cooling rates, and
-!     caution should be used if the mapping is modified.  The full 256
-!     g-point set can be restored with ngptlw=256, ngc=16*16, ngn=256*1., etc.
-!     ngptlw  The total number of new g-points
-!     ngc     The number of new g-points in each band
-!     ngs     The cumulative sum of new g-points for each band
-!     ngm     The index of each new g-point relative to the original
-!             16 g-points for each band.  
-!     ngn     The number of original g-points that are combined to make
-!             each new g-point in each band.
-!     ngb     The band index for each new g-point.
-!     wt      RRTM weights for 16 g-points.
-
-! ------- Data statements -------
-!      ngc(:) = (/10,12,16,14,16,8,12,8,12,6,8,8,4,2,2,2/)
-!      ngs(:) = (/10,22,38,52,68,76,88,96,108,114,122,130,134,136,138,140/)
-!!      ngm(:) = (/1,2,3,3,4,4,5,5,6,6,7,7,8,8,9,10, &          ! band 1
-!!                 1,2,3,4,5,6,7,8,9,9,10,10,11,11,12,12, &     ! band 2
-!!                 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16, &    ! band 3
-!!                 1,2,3,4,5,6,7,8,9,10,11,12,13,14,14,14, &    ! band 4
-!!                 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16, &    ! band 5
-!!                 1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8, &           ! band 6
-!!                 1,1,2,2,3,4,5,6,7,8,9,10,11,11,12,12, &      ! band 7
-!!                 1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8, &           ! band 8
-!!                 1,2,3,4,5,6,7,8,9,9,10,10,11,11,12,12, &     ! band 9
-!!                 1,1,2,2,3,3,4,4,5,5,5,5,6,6,6,6, &           ! band 10
-!!                 1,2,3,3,4,4,5,5,6,6,7,7,7,8,8,8, &           ! band 11
-!!                 1,2,3,4,5,5,6,6,7,7,7,7,8,8,8,8, &           ! band 12
-!!                 1,1,1,2,2,2,3,3,3,3,4,4,4,4,4,4, &           ! band 13
-!!                 1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,2, &           ! band 14
-!!                 1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,2, &           ! band 15
-!!                 1,1,1,1,2,2,2,2,2,2,2,2,2,2,2,2/)            ! band 16
-!!      ngn(:) = (/1,1,2,2,2,2,2,2,1,1, &                       ! band 1
-!!                 1,1,1,1,1,1,1,1,2,2,2,2, &                   ! band 2
-!!                 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, &           ! band 3
-!!                 1,1,1,1,1,1,1,1,1,1,1,1,1,3, &               ! band 4
-!!                 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, &           ! band 5
-!!                 2,2,2,2,2,2,2,2, &                           ! band 6
-!!                 2,2,1,1,1,1,1,1,1,1,2,2, &                   ! band 7
-!!                 2,2,2,2,2,2,2,2, &                           ! band 8
-!!                 1,1,1,1,1,1,1,1,2,2,2,2, &                   ! band 9
-!!                 2,2,2,2,4,4, &                               ! band 10
-!!                 1,1,2,2,2,2,3,3, &                           ! band 11
-!!                 1,1,1,1,2,2,4,4, &                           ! band 12
-!!                 3,3,4,6, &                                   ! band 13
-!!                 8,8, &                                       ! band 14
-!!                 8,8, &                                       ! band 15
-!!                 4,12/)                                       ! band 16
-!!      ngb(:) = (/1,1,1,1,1,1,1,1,1,1, &                       ! band 1
-!!                 2,2,2,2,2,2,2,2,2,2,2,2, &                   ! band 2
-!!                 3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3, &           ! band 3
-!!                 4,4,4,4,4,4,4,4,4,4,4,4,4,4, &               ! band 4
-!!                 5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5, &           ! band 5
-!!                 6,6,6,6,6,6,6,6, &                           ! band 6
-!!                 7,7,7,7,7,7,7,7,7,7,7,7, &                   ! band 7
-!!                 8,8,8,8,8,8,8,8, &                           ! band 8
-!!                 9,9,9,9,9,9,9,9,9,9,9,9, &                   ! band 9
-!!                 10,10,10,10,10,10, &                         ! band 10
-!!                 11,11,11,11,11,11,11,11, &                   ! band 11
-!!                 12,12,12,12,12,12,12,12, &                   ! band 12
-!!                 13,13,13,13, &                               ! band 13
-!!                 14,14, &                                     ! band 14
-!!                 15,15, &                                     ! band 15
-!!                 16,16/)                                      ! band 16
-!!      wt(:) = (/ 0.1527534276_rb, 0.1491729617_rb, 0.1420961469_rb, &
-!!                 0.1316886544_rb, 0.1181945205_rb, 0.1019300893_rb, &
-!!                 0.0832767040_rb, 0.0626720116_rb, 0.0424925000_rb, &
-!!                 0.0046269894_rb, 0.0038279891_rb, 0.0030260086_rb, &
-!!                 0.0022199750_rb, 0.0014140010_rb, 0.0005330000_rb, &
-!!                 0.0000750000_rb/)
-
-      end subroutine lwcmbdat
-
-!***************************************************************************
       subroutine cmbgb1
 !***************************************************************************
 !
@@ -402,18 +210,18 @@
 !
 !  band 1:  10-350 cm-1 (low key - h2o; low minor - n2)
 !                       (high key - h2o; high minor - n2)
-!  note: previous versions of rrtm band 1: 
+!  note: previous versions of rrtm band 1:
 !        10-250 cm-1 (low - h2o; high - h2o)
 !***************************************************************************
 
       use parrrtm, only : mg, nbndlw, ngptlw, ng1
       use rrlw_kg01, only: fracrefao, fracrefbo, kao, kbo, kao_mn2, kbo_mn2, &
                            selfrefo, forrefo, &
-                           fracrefa, fracrefb, absa, ka, absb, kb, ka_mn2, kb_mn2, &
-                           selfref, forref
+                           fracrefa, fracrefb, absa, absb, ka_mn2, kb_mn2, &
+                           selfref, forref, dka_mn2, dkb_mn2
 
 ! ------- Local -------
-      integer(kind=im) :: jt, jp, igc, ipr, iprsm 
+      integer(kind=im) :: jt, jp, igc, ipr, iprsm
       real(kind=rb) :: sumk, sumk1, sumk2, sumf1, sumf2
 
 
@@ -426,7 +234,7 @@
                   iprsm = iprsm + 1
                   sumk = sumk + kao(jt,jp,iprsm)*rwgt(iprsm)
                enddo
-               ka(jt,jp,igc) = sumk
+               absa(igc,jt+(jp-1)*5) = sumk
             enddo
          enddo
          do jp = 13,59
@@ -437,7 +245,7 @@
                   iprsm = iprsm + 1
                   sumk = sumk + kbo(jt,jp,iprsm)*rwgt(iprsm)
                enddo
-               kb(jt,jp,igc) = sumk
+               absb(igc, jt+(jp-13)*5) = sumk
             enddo
          enddo
       enddo
@@ -450,7 +258,7 @@
                iprsm = iprsm + 1
                sumk = sumk + selfrefo(jt,iprsm)*rwgt(iprsm)
             enddo
-            selfref(jt,igc) = sumk
+            selfref(igc,jt) = sumk
          enddo
       enddo
 
@@ -462,7 +270,7 @@
                iprsm = iprsm + 1
                sumk = sumk + forrefo(jt,iprsm)*rwgt(iprsm)
             enddo
-            forref(jt,igc) = sumk
+            forref(igc,jt) = sumk
          enddo
       enddo
 
@@ -476,10 +284,17 @@
                sumk1 = sumk1 + kao_mn2(jt,iprsm)*rwgt(iprsm)
                sumk2 = sumk2 + kbo_mn2(jt,iprsm)*rwgt(iprsm)
             enddo
-            ka_mn2(jt,igc) = sumk1
-            kb_mn2(jt,igc) = sumk2
+            ka_mn2(igc,jt) = sumk1
+            kb_mn2(igc,jt) = sumk2
          enddo
       enddo
+
+      do jt = 1, 18
+         dka_mn2(1:ngc(1),jt) = ka_mn2(1:ngc(1),jt+1) -  ka_mn2(1:ngc(1),jt)
+         dkb_mn2(1:ngc(1),jt) = kb_mn2(1:ngc(1),jt+1) -  kb_mn2(1:ngc(1),jt)
+      enddo
+      dka_mn2(1:ngc(1),19) = dka_mn2(1:ngc(1),18)
+      dkb_mn2(1:ngc(1),19) = dkb_mn2(1:ngc(1),18)
 
       iprsm = 0
       do igc = 1,ngc(1)
@@ -502,16 +317,16 @@
 !
 !     band 2:  350-500 cm-1 (low key - h2o; high key - h2o)
 !
-!     note: previous version of rrtm band 2: 
+!     note: previous version of rrtm band 2:
 !           250 - 500 cm-1 (low - h2o; high - h2o)
 !***************************************************************************
 
       use parrrtm, only : mg, nbndlw, ngptlw, ng2
       use rrlw_kg02, only: fracrefao, fracrefbo, kao, kbo, selfrefo, forrefo, &
-                           fracrefa, fracrefb, absa, ka, absb, kb, selfref, forref
+                           fracrefa, fracrefb, absa, absb, selfref, forref
 
 ! ------- Local -------
-      integer(kind=im) :: jt, jp, igc, ipr, iprsm 
+      integer(kind=im) :: jt, jp, igc, ipr, iprsm
       real(kind=rb) :: sumk, sumf1, sumf2
 
 
@@ -524,7 +339,7 @@
                   iprsm = iprsm + 1
                   sumk = sumk + kao(jt,jp,iprsm)*rwgt(iprsm+16)
                enddo
-               ka(jt,jp,igc) = sumk
+               absa(igc,jt+(jp-1)*5) = sumk
             enddo
          enddo
          do jp = 13,59
@@ -535,7 +350,7 @@
                   iprsm = iprsm + 1
                   sumk = sumk + kbo(jt,jp,iprsm)*rwgt(iprsm+16)
                enddo
-               kb(jt,jp,igc) = sumk
+               absb(igc, jt+(jp-13)*5) = sumk
             enddo
          enddo
       enddo
@@ -548,7 +363,7 @@
                iprsm = iprsm + 1
                sumk = sumk + selfrefo(jt,iprsm)*rwgt(iprsm+16)
             enddo
-            selfref(jt,igc) = sumk
+            selfref(igc,jt) = sumk
          enddo
       enddo
 
@@ -560,7 +375,7 @@
                iprsm = iprsm + 1
                sumk = sumk + forrefo(jt,iprsm)*rwgt(iprsm+16)
             enddo
-            forref(jt,igc) = sumk
+            forref(igc,jt) = sumk
          enddo
       enddo
 
@@ -592,11 +407,12 @@
       use parrrtm, only : mg, nbndlw, ngptlw, ng3
       use rrlw_kg03, only: fracrefao, fracrefbo, kao, kbo, kao_mn2o, kbo_mn2o, &
                            selfrefo, forrefo, &
-                           fracrefa, fracrefb, absa, ka, absb, kb, ka_mn2o, kb_mn2o, &
-                           selfref, forref
+                           fracrefa, fracrefb, absa, absb, ka_mn2o, kb_mn2o, &
+                           selfref, forref, dfracrefa, dfracrefb, &
+                           dka_mn2o, dkb_mn2o
 
 ! ------- Local -------
-      integer(kind=im) :: jn, jt, jp, igc, ipr, iprsm 
+      integer(kind=im) :: jn, jt, jp, igc, ipr, iprsm
       real(kind=rb) :: sumk, sumf
 
 
@@ -610,7 +426,7 @@
                      iprsm = iprsm + 1
                      sumk = sumk + kao(jn,jt,jp,iprsm)*rwgt(iprsm+32)
                   enddo
-                  ka(jn,jt,jp,igc) = sumk
+                  absa(igc, jn+(jt-1)*9+(jp-1)*45) = sumk
                enddo
             enddo
          enddo
@@ -625,7 +441,7 @@
                      iprsm = iprsm + 1
                      sumk = sumk + kbo(jn,jt,jp,iprsm)*rwgt(iprsm+32)
                   enddo
-                  kb(jn,jt,jp,igc) = sumk
+                  absb(igc, jn+(jt-1)*5+(jp-13)*25) = sumk
                enddo
             enddo
          enddo
@@ -640,9 +456,16 @@
                   iprsm = iprsm + 1
                   sumk = sumk + kao_mn2o(jn,jt,iprsm)*rwgt(iprsm+32)
                enddo
-               ka_mn2o(jn,jt,igc) = sumk
+               ka_mn2o(igc,jn,jt) = sumk
             enddo
          enddo
+      enddo
+
+      do jt = 1, 19
+         do jn = 1,8
+            dka_mn2o(1:ngc(3),jn,jt) = ka_mn2o(1:ngc(3),jn+1,jt) - ka_mn2o(1:ngc(3),jn,jt)
+         enddo
+         dka_mn2o(1:ngc(3),9,jt) = dka_mn2o(1:ngc(3),8,jt)
       enddo
 
       do jn = 1,5
@@ -654,9 +477,16 @@
                   iprsm = iprsm + 1
                   sumk = sumk + kbo_mn2o(jn,jt,iprsm)*rwgt(iprsm+32)
                enddo
-               kb_mn2o(jn,jt,igc) = sumk
+               kb_mn2o(igc,jn,jt) = sumk
             enddo
          enddo
+      enddo
+
+      do jt = 1, 19
+         do jn = 1,4
+            dkb_mn2o(1:ngc(3),jn,jt) = kb_mn2o(1:ngc(3),jn+1,jt) - kb_mn2o(1:ngc(3),jn,jt)
+         enddo
+         dkb_mn2o(1:ngc(3),5,jt) = dkb_mn2o(1:ngc(3),4,jt)
       enddo
 
       do jt = 1,10
@@ -667,7 +497,7 @@
                iprsm = iprsm + 1
                sumk = sumk + selfrefo(jt,iprsm)*rwgt(iprsm+32)
             enddo
-            selfref(jt,igc) = sumk
+            selfref(igc,jt) = sumk
          enddo
       enddo
 
@@ -679,7 +509,7 @@
                iprsm = iprsm + 1
                sumk = sumk + forrefo(jt,iprsm)*rwgt(iprsm+32)
             enddo
-            forref(jt,igc) = sumk
+            forref(igc,jt) = sumk
          enddo
       enddo
 
@@ -695,6 +525,11 @@
          enddo
       enddo
 
+      do jp = 1, 8
+         dfracrefa(1:ngc(3),jp) = fracrefa(1:ngc(3),jp+1) - fracrefa(1:ngc(3),jp)
+      enddo
+      dfracrefa(1:ngc(3),9) = dfracrefa(1:ngc(3),8)
+
       do jp = 1,5
          iprsm = 0
          do igc = 1,ngc(3)
@@ -706,6 +541,11 @@
             fracrefb(igc,jp) = sumf
          enddo
       enddo
+
+      do jp = 1, 4
+         dfracrefb(1:ngc(3),jp) = fracrefb(1:ngc(3),jp+1) - fracrefb(1:ngc(3),jp)
+      enddo
+      dfracrefb(1:ngc(3),5) = dfracrefb(1:ngc(3),4)
 
       end subroutine cmbgb3
 
@@ -720,10 +560,11 @@
 
       use parrrtm, only : mg, nbndlw, ngptlw, ng4
       use rrlw_kg04, only: fracrefao, fracrefbo, kao, kbo, selfrefo, forrefo, &
-                           fracrefa, fracrefb, absa, ka, absb, kb, selfref, forref
+                           fracrefa, fracrefb, absa, absb, selfref, forref, &
+                           dfracrefa, dfracrefb
 
 ! ------- Local -------
-      integer(kind=im) :: jn, jt, jp, igc, ipr, iprsm 
+      integer(kind=im) :: jn, jt, jp, igc, ipr, iprsm
       real(kind=rb) :: sumk, sumf
 
 
@@ -737,7 +578,7 @@
                      iprsm = iprsm + 1
                      sumk = sumk + kao(jn,jt,jp,iprsm)*rwgt(iprsm+48)
                   enddo
-                  ka(jn,jt,jp,igc) = sumk
+                  absa(igc, jn+(jt-1)*9+(jp-1)*45) = sumk
                enddo
             enddo
          enddo
@@ -752,7 +593,7 @@
                      iprsm = iprsm + 1
                      sumk = sumk + kbo(jn,jt,jp,iprsm)*rwgt(iprsm+48)
                   enddo
-                  kb(jn,jt,jp,igc) = sumk
+                  absb(igc, jn+(jt-1)*5+(jp-13)*25) = sumk
                enddo
             enddo
          enddo
@@ -766,7 +607,7 @@
                iprsm = iprsm + 1
                sumk = sumk + selfrefo(jt,iprsm)*rwgt(iprsm+48)
             enddo
-            selfref(jt,igc) = sumk
+            selfref(igc,jt) = sumk
          enddo
       enddo
 
@@ -778,7 +619,7 @@
                iprsm = iprsm + 1
                sumk = sumk + forrefo(jt,iprsm)*rwgt(iprsm+48)
             enddo
-            forref(jt,igc) = sumk
+            forref(igc,jt) = sumk
          enddo
       enddo
 
@@ -794,6 +635,11 @@
          enddo
       enddo
 
+      do jp = 1, 8
+         dfracrefa(1:ngc(4),jp) = fracrefa(1:ngc(4),jp+1) - fracrefa(1:ngc(4),jp)
+      enddo
+      dfracrefa(1:ngc(4),9) = dfracrefa(1:ngc(4),8)
+
       do jp = 1,5
          iprsm = 0
          do igc = 1,ngc(4)
@@ -805,6 +651,22 @@
             fracrefb(igc,jp) = sumf
          enddo
       enddo
+
+      do jp = 1, 4
+         dfracrefb(1:ngc(4),jp) = fracrefb(1:ngc(4),jp+1) - fracrefb(1:ngc(4),jp)
+      enddo
+      dfracrefb(1:ngc(4),5) = dfracrefb(1:ngc(4),4)
+
+! Empirical modification to code to improve stratospheric cooling rates
+! for co2.  Revised to apply weighting for g-point reduction in this band.
+
+      absb( 8,:)=absb( 8,:)*0.92_rb
+      absb( 9,:)=absb( 9,:)*0.88_rb
+      absb(10,:)=absb(10,:)*1.07_rb
+      absb(11,:)=absb(11,:)*1.10_rb
+      absb(12,:)=absb(12,:)*0.99_rb
+      absb(13,:)=absb(13,:)*0.88_rb
+      absb(14,:)=absb(14,:)*0.943_rb
 
       end subroutine cmbgb4
 
@@ -821,11 +683,11 @@
       use parrrtm, only : mg, nbndlw, ngptlw, ng5
       use rrlw_kg05, only: fracrefao, fracrefbo, kao, kbo, kao_mo3, ccl4o, &
                            selfrefo, forrefo, &
-                           fracrefa, fracrefb, absa, ka, absb, kb, ka_mo3, ccl4, &
-                           selfref, forref
+                           fracrefa, fracrefb, absa, absb, ka_mo3, ccl4, &
+                           selfref, forref, dfracrefa, dfracrefb
 
 ! ------- Local -------
-      integer(kind=im) :: jn, jt, jp, igc, ipr, iprsm 
+      integer(kind=im) :: jn, jt, jp, igc, ipr, iprsm
       real(kind=rb) :: sumk, sumf
 
 
@@ -839,7 +701,7 @@
                      iprsm = iprsm + 1
                      sumk = sumk + kao(jn,jt,jp,iprsm)*rwgt(iprsm+64)
                   enddo
-                  ka(jn,jt,jp,igc) = sumk
+                  absa(igc, jn+(jt-1)*9+(jp-1)*45) = sumk
                enddo
             enddo
          enddo
@@ -854,7 +716,7 @@
                      iprsm = iprsm + 1
                      sumk = sumk + kbo(jn,jt,jp,iprsm)*rwgt(iprsm+64)
                   enddo
-                  kb(jn,jt,jp,igc) = sumk
+                  absb(igc, jn+(jt-1)*5+(jp-13)*25) = sumk
                enddo
             enddo
          enddo
@@ -869,7 +731,7 @@
                   iprsm = iprsm + 1
                   sumk = sumk + kao_mo3(jn,jt,iprsm)*rwgt(iprsm+64)
                enddo
-               ka_mo3(jn,jt,igc) = sumk
+               ka_mo3(igc,jn,jt) = sumk
             enddo
          enddo
       enddo
@@ -882,7 +744,7 @@
                iprsm = iprsm + 1
                sumk = sumk + selfrefo(jt,iprsm)*rwgt(iprsm+64)
             enddo
-            selfref(jt,igc) = sumk
+            selfref(igc,jt) = sumk
          enddo
       enddo
 
@@ -894,7 +756,7 @@
                iprsm = iprsm + 1
                sumk = sumk + forrefo(jt,iprsm)*rwgt(iprsm+64)
             enddo
-            forref(jt,igc) = sumk
+            forref(igc,jt) = sumk
          enddo
       enddo
 
@@ -910,6 +772,11 @@
          enddo
       enddo
 
+      do jp = 1, 8
+         dfracrefa(1:ngc(5),jp) = fracrefa(1:ngc(5),jp+1) - fracrefa(1:ngc(5),jp)
+      enddo
+      dfracrefa(1:ngc(5),9) = dfracrefa(1:ngc(5),8)
+
       do jp = 1,5
          iprsm = 0
          do igc = 1,ngc(5)
@@ -921,6 +788,11 @@
             fracrefb(igc,jp) = sumf
          enddo
       enddo
+
+      do jp = 1, 4
+         dfracrefb(1:ngc(5),jp) = fracrefb(1:ngc(5),jp+1) - fracrefb(1:ngc(5),jp)
+      enddo
+      dfracrefb(1:ngc(5),5) = dfracrefb(1:ngc(5),4)
 
       iprsm = 0
       do igc = 1,ngc(5)
@@ -947,11 +819,11 @@
       use parrrtm, only : mg, nbndlw, ngptlw, ng6
       use rrlw_kg06, only: fracrefao, kao, kao_mco2, cfc11adjo, cfc12o, &
                            selfrefo, forrefo, &
-                           fracrefa, absa, ka, ka_mco2, cfc11adj, cfc12, &
-                           selfref, forref
+                           fracrefa, absa, ka_mco2, cfc11adj, cfc12, &
+                           selfref, forref, dka_mco2
 
 ! ------- Local -------
-      integer(kind=im) :: jt, jp, igc, ipr, iprsm 
+      integer(kind=im) :: jt, jp, igc, ipr, iprsm
       real(kind=rb) :: sumk, sumf, sumk1, sumk2
 
 
@@ -964,7 +836,7 @@
                   iprsm = iprsm + 1
                   sumk = sumk + kao(jt,jp,iprsm)*rwgt(iprsm+80)
                enddo
-               ka(jt,jp,igc) = sumk
+               absa(igc,jt+(jp-1)*5) = sumk
             enddo
          enddo
       enddo
@@ -977,9 +849,14 @@
                iprsm = iprsm + 1
                sumk = sumk + kao_mco2(jt,iprsm)*rwgt(iprsm+80)
             enddo
-            ka_mco2(jt,igc) = sumk
+            ka_mco2(igc,jt) = sumk
          enddo
       enddo
+
+      do jt = 1, 18
+         dka_mco2(1:ngc(6),jt) = ka_mco2(1:ngc(6),jt+1) - ka_mco2(1:ngc(6),jt)
+      enddo
+      dka_mco2(1:ngc(6),19) = dka_mco2(1:ngc(6),18)
 
       do jt = 1,10
          iprsm = 0
@@ -989,7 +866,7 @@
                iprsm = iprsm + 1
                sumk = sumk + selfrefo(jt,iprsm)*rwgt(iprsm+80)
             enddo
-            selfref(jt,igc) = sumk
+            selfref(igc,jt) = sumk
          enddo
       enddo
 
@@ -1001,7 +878,7 @@
                iprsm = iprsm + 1
                sumk = sumk + forrefo(jt,iprsm)*rwgt(iprsm+80)
             enddo
-            forref(jt,igc) = sumk
+            forref(igc,jt) = sumk
          enddo
       enddo
 
@@ -1036,11 +913,11 @@
       use parrrtm, only : mg, nbndlw, ngptlw, ng7
       use rrlw_kg07, only: fracrefao, fracrefbo, kao, kbo, kao_mco2, kbo_mco2, &
                            selfrefo, forrefo, &
-                           fracrefa, fracrefb, absa, ka, absb, kb, ka_mco2, kb_mco2, &
-                           selfref, forref
+                           fracrefa, fracrefb, absa, absb, ka_mco2, kb_mco2, &
+                           selfref, forref, dfracrefa, dka_mco2, dkb_mco2
 
 ! ------- Local -------
-      integer(kind=im) :: jn, jt, jp, igc, ipr, iprsm 
+      integer(kind=im) :: jn, jt, jp, igc, ipr, iprsm
       real(kind=rb) :: sumk, sumf
 
 
@@ -1054,7 +931,7 @@
                      iprsm = iprsm + 1
                      sumk = sumk + kao(jn,jt,jp,iprsm)*rwgt(iprsm+96)
                   enddo
-                  ka(jn,jt,jp,igc) = sumk
+                  absa(igc, jn+(jt-1)*9+(jp-1)*45) = sumk
                enddo
             enddo
          enddo
@@ -1068,7 +945,7 @@
                   iprsm = iprsm + 1
                   sumk = sumk + kbo(jt,jp,iprsm)*rwgt(iprsm+96)
                enddo
-               kb(jt,jp,igc) = sumk
+               absb(igc, jt+(jp-13)*5) = sumk
             enddo
          enddo
       enddo
@@ -1082,9 +959,16 @@
                   iprsm = iprsm + 1
                   sumk = sumk + kao_mco2(jn,jt,iprsm)*rwgt(iprsm+96)
                enddo
-               ka_mco2(jn,jt,igc) = sumk
+               ka_mco2(igc,jn,jt) = sumk
             enddo
          enddo
+      enddo
+
+      do jt = 1, 19
+         do jn = 1, 8
+            dka_mco2(1:ngc(7),jn,jt) = ka_mco2(1:ngc(7),jn+1,jt) - ka_mco2(1:ngc(7),jn,jt)
+         enddo
+         dka_mco2(1:ngc(7),9,jt) = dka_mco2(1:ngc(7),8,jt)
       enddo
 
       do jt = 1,19
@@ -1095,7 +979,7 @@
                iprsm = iprsm + 1
                sumk = sumk + kbo_mco2(jt,iprsm)*rwgt(iprsm+96)
             enddo
-            kb_mco2(jt,igc) = sumk
+            kb_mco2(igc,jt) = sumk
          enddo
       enddo
 
@@ -1107,7 +991,7 @@
                iprsm = iprsm + 1
                sumk = sumk + selfrefo(jt,iprsm)*rwgt(iprsm+96)
             enddo
-            selfref(jt,igc) = sumk
+            selfref(igc,jt) = sumk
          enddo
       enddo
 
@@ -1119,7 +1003,7 @@
                iprsm = iprsm + 1
                sumk = sumk + forrefo(jt,iprsm)*rwgt(iprsm+96)
             enddo
-            forref(jt,igc) = sumk
+            forref(igc,jt) = sumk
          enddo
       enddo
 
@@ -1135,6 +1019,11 @@
          enddo
       enddo
 
+      do jp = 1, 8
+         dfracrefa(1:ngc(7),jp) = fracrefa(1:ngc(7),jp+1) - fracrefa(1:ngc(7),jp)
+      enddo
+      dfracrefa(1:ngc(7),9) = dfracrefa(1:ngc(7),8)
+
       iprsm = 0
       do igc = 1,ngc(7)
          sumf = 0.
@@ -1144,6 +1033,28 @@
          enddo
          fracrefb(igc) = sumf
       enddo
+
+! Empirical modification to code to improve stratospheric cooling rates
+! for o3.  Revised to apply weighting for g-point reduction in this band.
+
+      absb( 6,:)=absb( 6,:)*0.92_rb
+      absb( 7,:)=absb( 7,:)*0.88_rb
+      absb( 8,:)=absb( 8,:)*1.07_rb
+      absb( 9,:)=absb( 9,:)*1.10_rb
+      absb(10,:)=absb(10,:)*0.99_rb
+      absb(11,:)=absb(11,:)*0.855_rb
+
+      kb_mco2( 6,:)=kb_mco2( 6,:)*0.92_rb
+      kb_mco2( 7,:)=kb_mco2( 7,:)*0.88_rb
+      kb_mco2( 8,:)=kb_mco2( 8,:)*1.07_rb
+      kb_mco2( 9,:)=kb_mco2( 9,:)*1.10_rb
+      kb_mco2(10,:)=kb_mco2(10,:)*0.99_rb
+      kb_mco2(11,:)=kb_mco2(11,:)*0.855_rb
+
+      do jt = 1, 18
+         dkb_mco2(1:ngc(7),jt) = kb_mco2(1:ngc(7),jt+1) - kb_mco2(1:ngc(7),jt)
+      enddo
+      dkb_mco2(1:ngc(7),19) = dkb_mco2(1:ngc(7),18)
 
       end subroutine cmbgb7
 
@@ -1161,12 +1072,13 @@
       use rrlw_kg08, only: fracrefao, fracrefbo, kao, kao_mco2, kao_mn2o, &
                            kao_mo3, kbo, kbo_mco2, kbo_mn2o, selfrefo, forrefo, &
                            cfc12o, cfc22adjo, &
-                           fracrefa, fracrefb, absa, ka, ka_mco2, ka_mn2o, &
-                           ka_mo3, absb, kb, kb_mco2, kb_mn2o, selfref, forref, &
-                           cfc12, cfc22adj
+                           fracrefa, fracrefb, absa, ka_mco2, ka_mn2o, &
+                           ka_mo3, absb, kb_mco2, kb_mn2o, selfref, forref, &
+                           cfc12, cfc22adj, dka_mco2, dka_mn2o, &
+                           dka_mo3, dkb_mco2, dkb_mn2o
 
 ! ------- Local -------
-      integer(kind=im) :: jt, jp, igc, ipr, iprsm 
+      integer(kind=im) :: jt, jp, igc, ipr, iprsm
       real(kind=rb) :: sumk, sumk1, sumk2, sumk3, sumk4, sumk5, sumf1, sumf2
 
 
@@ -1179,7 +1091,7 @@
                   iprsm = iprsm + 1
                   sumk = sumk + kao(jt,jp,iprsm)*rwgt(iprsm+112)
                enddo
-               ka(jt,jp,igc) = sumk
+               absa(igc,jt+(jp-1)*5) = sumk
             enddo
          enddo
       enddo
@@ -1192,7 +1104,7 @@
                   iprsm = iprsm + 1
                   sumk = sumk + kbo(jt,jp,iprsm)*rwgt(iprsm+112)
                enddo
-               kb(jt,jp,igc) = sumk
+               absb(igc, jt+(jp-13)*5) = sumk
             enddo
          enddo
       enddo
@@ -1205,7 +1117,7 @@
                iprsm = iprsm + 1
                sumk = sumk + selfrefo(jt,iprsm)*rwgt(iprsm+112)
             enddo
-            selfref(jt,igc) = sumk
+            selfref(igc,jt) = sumk
          enddo
       enddo
 
@@ -1217,7 +1129,7 @@
                iprsm = iprsm + 1
                sumk = sumk + forrefo(jt,iprsm)*rwgt(iprsm+112)
             enddo
-            forref(jt,igc) = sumk
+            forref(igc,jt) = sumk
          enddo
       enddo
 
@@ -1237,13 +1149,26 @@
                sumk4 = sumk4 + kao_mn2o(jt,iprsm)*rwgt(iprsm+112)
                sumk5 = sumk5 + kbo_mn2o(jt,iprsm)*rwgt(iprsm+112)
             enddo
-            ka_mco2(jt,igc) = sumk1
-            kb_mco2(jt,igc) = sumk2
-            ka_mo3(jt,igc) = sumk3
-            ka_mn2o(jt,igc) = sumk4
-            kb_mn2o(jt,igc) = sumk5
+            ka_mco2(igc,jt) = sumk1
+            kb_mco2(igc,jt) = sumk2
+            ka_mo3 (igc,jt) = sumk3
+            ka_mn2o(igc,jt) = sumk4
+            kb_mn2o(igc,jt) = sumk5
          enddo
       enddo
+
+      do jt = 1, 18
+         dka_mco2(1:ngc(8),jt) = ka_mco2(1:ngc(8),jt+1) - ka_mco2(1:ngc(8),jt)
+         dkb_mco2(1:ngc(8),jt) = kb_mco2(1:ngc(8),jt+1) - kb_mco2(1:ngc(8),jt)
+         dka_mo3 (1:ngc(8),jt) = ka_mo3 (1:ngc(8),jt+1) - ka_mo3 (1:ngc(8),jt)
+         dka_mn2o(1:ngc(8),jt) = ka_mn2o(1:ngc(8),jt+1) - ka_mn2o(1:ngc(8),jt)
+         dkb_mn2o(1:ngc(8),jt) = kb_mn2o(1:ngc(8),jt+1) - kb_mn2o(1:ngc(8),jt)
+      enddo
+      dka_mco2(1:ngc(8),19) = dka_mco2(1:ngc(8),18)
+      dkb_mco2(1:ngc(8),19) = dkb_mco2(1:ngc(8),18)
+      dka_mo3 (1:ngc(8),19) = dka_mo3 (1:ngc(8),18)
+      dka_mn2o(1:ngc(8),19) = dka_mn2o(1:ngc(8),18)
+      dkb_mn2o(1:ngc(8),19) = dkb_mn2o(1:ngc(8),18)
 
       iprsm = 0
       do igc = 1,ngc(8)
@@ -1260,7 +1185,7 @@
          enddo
          fracrefa(igc) = sumf1
          fracrefb(igc) = sumf2
-         cfc12(igc) = sumk1
+         cfc12   (igc) = sumk1
          cfc22adj(igc) = sumk2
       enddo
 
@@ -1279,11 +1204,12 @@
       use parrrtm, only : mg, nbndlw, ngptlw, ng9
       use rrlw_kg09, only: fracrefao, fracrefbo, kao, kao_mn2o, &
                            kbo, kbo_mn2o, selfrefo, forrefo, &
-                           fracrefa, fracrefb, absa, ka, ka_mn2o, &
-                           absb, kb, kb_mn2o, selfref, forref
+                           fracrefa, fracrefb, absa, ka_mn2o, &
+                           absb, kb_mn2o, selfref, forref, dfracrefa, &
+                           dka_mn2o, dkb_mn2o
 
 ! ------- Local -------
-      integer(kind=im) :: jn, jt, jp, igc, ipr, iprsm 
+      integer(kind=im) :: jn, jt, jp, igc, ipr, iprsm
       real(kind=rb) :: sumk, sumf
 
 
@@ -1297,7 +1223,7 @@
                      iprsm = iprsm + 1
                      sumk = sumk + kao(jn,jt,jp,iprsm)*rwgt(iprsm+128)
                   enddo
-                  ka(jn,jt,jp,igc) = sumk
+                  absa(igc, jn+(jt-1)*9+(jp-1)*45) = sumk
                enddo
             enddo
          enddo
@@ -1312,7 +1238,7 @@
                   iprsm = iprsm + 1
                   sumk = sumk + kbo(jt,jp,iprsm)*rwgt(iprsm+128)
                enddo
-               kb(jt,jp,igc) = sumk
+               absb(igc, jt+(jp-13)*5) = sumk
             enddo
          enddo
       enddo
@@ -1326,9 +1252,16 @@
                   iprsm = iprsm + 1
                   sumk = sumk + kao_mn2o(jn,jt,iprsm)*rwgt(iprsm+128)
                enddo
-               ka_mn2o(jn,jt,igc) = sumk
+               ka_mn2o(igc,jn,jt) = sumk
             enddo
          enddo
+      enddo
+
+      do jt = 1, 19
+         do jn = 1, 8
+            dka_mn2o(1:ngc(9),jn,jt) = ka_mn2o(1:ngc(9),jn+1,jt) - ka_mn2o(1:ngc(9),jn,jt)
+         enddo
+         dka_mn2o(1:ngc(9),9,jt) = dka_mn2o(1:ngc(9),8,jt)
       enddo
 
       do jt = 1,19
@@ -1339,9 +1272,14 @@
                iprsm = iprsm + 1
                sumk = sumk + kbo_mn2o(jt,iprsm)*rwgt(iprsm+128)
             enddo
-            kb_mn2o(jt,igc) = sumk
+            kb_mn2o(igc,jt) = sumk
          enddo
       enddo
+
+      do jt = 1, 18
+         dkb_mn2o(1:ngc(9),jt) = kb_mn2o(1:ngc(9),jt+1) - kb_mn2o(1:ngc(9),jt)
+      enddo
+      dkb_mn2o(1:ngc(9),19) = dkb_mn2o(1:ngc(9),18)
 
       do jt = 1,10
          iprsm = 0
@@ -1351,7 +1289,7 @@
                iprsm = iprsm + 1
                sumk = sumk + selfrefo(jt,iprsm)*rwgt(iprsm+128)
             enddo
-            selfref(jt,igc) = sumk
+            selfref(igc,jt) = sumk
          enddo
       enddo
 
@@ -1363,7 +1301,7 @@
                iprsm = iprsm + 1
                sumk = sumk + forrefo(jt,iprsm)*rwgt(iprsm+128)
             enddo
-            forref(jt,igc) = sumk
+            forref(igc,jt) = sumk
          enddo
       enddo
 
@@ -1378,6 +1316,11 @@
             fracrefa(igc,jp) = sumf
          enddo
       enddo
+
+      do jp = 1, 8
+         dfracrefa(1:ngc(9),jp) = fracrefa(1:ngc(9),jp+1) - fracrefa(1:ngc(9),jp)
+      enddo
+      dfracrefa(1:ngc(9),9) = dfracrefa(1:ngc(9),8)
 
       iprsm = 0
       do igc = 1,ngc(9)
@@ -1403,11 +1346,11 @@
       use parrrtm, only : mg, nbndlw, ngptlw, ng10
       use rrlw_kg10, only: fracrefao, fracrefbo, kao, kbo, &
                            selfrefo, forrefo, &
-                           fracrefa, fracrefb, absa, ka, absb, kb, &
+                           fracrefa, fracrefb, absa, absb, &
                            selfref, forref
 
 ! ------- Local -------
-      integer(kind=im) :: jt, jp, igc, ipr, iprsm 
+      integer(kind=im) :: jt, jp, igc, ipr, iprsm
       real(kind=rb) :: sumk, sumf1, sumf2
 
 
@@ -1420,7 +1363,7 @@
                   iprsm = iprsm + 1
                   sumk = sumk + kao(jt,jp,iprsm)*rwgt(iprsm+144)
                enddo
-               ka(jt,jp,igc) = sumk
+               absa(igc,jt+(jp-1)*5) = sumk
             enddo
          enddo
       enddo
@@ -1434,7 +1377,7 @@
                   iprsm = iprsm + 1
                   sumk = sumk + kbo(jt,jp,iprsm)*rwgt(iprsm+144)
                enddo
-               kb(jt,jp,igc) = sumk
+               absb(igc, jt+(jp-13)*5) = sumk
             enddo
          enddo
       enddo
@@ -1447,7 +1390,7 @@
                iprsm = iprsm + 1
                sumk = sumk + selfrefo(jt,iprsm)*rwgt(iprsm+144)
             enddo
-            selfref(jt,igc) = sumk
+            selfref(igc,jt) = sumk
          enddo
       enddo
 
@@ -1459,7 +1402,7 @@
                iprsm = iprsm + 1
                sumk = sumk + forrefo(jt,iprsm)*rwgt(iprsm+144)
             enddo
-            forref(jt,igc) = sumk
+            forref(igc,jt) = sumk
          enddo
       enddo
 
@@ -1492,11 +1435,12 @@
       use parrrtm, only : mg, nbndlw, ngptlw, ng11
       use rrlw_kg11, only: fracrefao, fracrefbo, kao, kao_mo2, &
                            kbo, kbo_mo2, selfrefo, forrefo, &
-                           fracrefa, fracrefb, absa, ka, ka_mo2, &
-                           absb, kb, kb_mo2, selfref, forref
+                           fracrefa, fracrefb, absa, ka_mo2, &
+                           absb, kb_mo2, selfref, forref, &
+                           dka_mo2, dkb_mo2
 
 ! ------- Local -------
-      integer(kind=im) :: jt, jp, igc, ipr, iprsm 
+      integer(kind=im) :: jt, jp, igc, ipr, iprsm
       real(kind=rb) :: sumk, sumk1, sumk2, sumf1, sumf2
 
 
@@ -1509,7 +1453,7 @@
                   iprsm = iprsm + 1
                   sumk = sumk + kao(jt,jp,iprsm)*rwgt(iprsm+160)
                enddo
-               ka(jt,jp,igc) = sumk
+               absa(igc,jt+(jp-1)*5) = sumk
             enddo
          enddo
       enddo
@@ -1522,7 +1466,7 @@
                   iprsm = iprsm + 1
                   sumk = sumk + kbo(jt,jp,iprsm)*rwgt(iprsm+160)
                enddo
-               kb(jt,jp,igc) = sumk
+               absb(igc, jt+(jp-13)*5) = sumk
             enddo
          enddo
       enddo
@@ -1537,10 +1481,17 @@
                sumk1 = sumk1 + kao_mo2(jt,iprsm)*rwgt(iprsm+160)
                sumk2 = sumk2 + kbo_mo2(jt,iprsm)*rwgt(iprsm+160)
             enddo
-            ka_mo2(jt,igc) = sumk1
-            kb_mo2(jt,igc) = sumk2
+            ka_mo2(igc,jt) = sumk1
+            kb_mo2(igc,jt) = sumk2
          enddo
       enddo
+
+      do jt = 1, 18
+         dka_mo2(1:ngc(11),jt) = ka_mo2(1:ngc(11),jt+1) - ka_mo2(1:ngc(11),jt)
+         dkb_mo2(1:ngc(11),jt) = kb_mo2(1:ngc(11),jt+1) - kb_mo2(1:ngc(11),jt)
+      enddo
+      dka_mo2(1:ngc(11),19) = dka_mo2(1:ngc(11),18)
+      dkb_mo2(1:ngc(11),19) = dkb_mo2(1:ngc(11),18)
 
       do jt = 1,10
          iprsm = 0
@@ -1550,7 +1501,7 @@
                iprsm = iprsm + 1
                sumk = sumk + selfrefo(jt,iprsm)*rwgt(iprsm+160)
             enddo
-            selfref(jt,igc) = sumk
+            selfref(igc,jt) = sumk
          enddo
       enddo
 
@@ -1562,7 +1513,7 @@
                iprsm = iprsm + 1
                sumk = sumk + forrefo(jt,iprsm)*rwgt(iprsm+160)
             enddo
-            forref(jt,igc) = sumk
+            forref(igc,jt) = sumk
          enddo
       enddo
 
@@ -1592,10 +1543,10 @@
 
       use parrrtm, only : mg, nbndlw, ngptlw, ng12
       use rrlw_kg12, only: fracrefao, kao, selfrefo, forrefo, &
-                           fracrefa, absa, ka, selfref, forref
+                           fracrefa, absa, selfref, forref, dfracrefa
 
 ! ------- Local -------
-      integer(kind=im) :: jn, jt, jp, igc, ipr, iprsm 
+      integer(kind=im) :: jn, jt, jp, igc, ipr, iprsm
       real(kind=rb) :: sumk, sumf
 
 
@@ -1609,7 +1560,7 @@
                      iprsm = iprsm + 1
                      sumk = sumk + kao(jn,jt,jp,iprsm)*rwgt(iprsm+176)
                   enddo
-                  ka(jn,jt,jp,igc) = sumk
+                  absa(igc, jn+(jt-1)*9+(jp-1)*45) = sumk
                enddo
             enddo
          enddo
@@ -1623,7 +1574,7 @@
                iprsm = iprsm + 1
                sumk = sumk + selfrefo(jt,iprsm)*rwgt(iprsm+176)
             enddo
-            selfref(jt,igc) = sumk
+            selfref(igc,jt) = sumk
          enddo
       enddo
 
@@ -1635,7 +1586,7 @@
                iprsm = iprsm + 1
                sumk = sumk + forrefo(jt,iprsm)*rwgt(iprsm+176)
             enddo
-            forref(jt,igc) = sumk
+            forref(igc,jt) = sumk
          enddo
       enddo
 
@@ -1651,6 +1602,11 @@
          enddo
       enddo
 
+      do jp = 1, 8
+         dfracrefa(1:ngc(12),jp) = fracrefa(1:ngc(12),jp+1) - fracrefa(1:ngc(12),jp)
+      enddo
+      dfracrefa(1:ngc(12),9) = dfracrefa(1:ngc(12),8)
+
       end subroutine cmbgb12
 
 !***************************************************************************
@@ -1665,11 +1621,12 @@
       use parrrtm, only : mg, nbndlw, ngptlw, ng13
       use rrlw_kg13, only: fracrefao, fracrefbo, kao, kao_mco2, kao_mco, &
                            kbo_mo3, selfrefo, forrefo, &
-                           fracrefa, fracrefb, absa, ka, ka_mco2, ka_mco, &
-                           kb_mo3, selfref, forref
+                           fracrefa, fracrefb, absa, ka_mco2, ka_mco, &
+                           kb_mo3, selfref, forref, dfracrefa, &
+                           dka_mco2, dka_mco, dkb_mo3
 
 ! ------- Local -------
-      integer(kind=im) :: jn, jt, jp, igc, ipr, iprsm 
+      integer(kind=im) :: jn, jt, jp, igc, ipr, iprsm
       real(kind=rb) :: sumk, sumk1, sumk2, sumf
 
 
@@ -1683,7 +1640,7 @@
                      iprsm = iprsm + 1
                      sumk = sumk + kao(jn,jt,jp,iprsm)*rwgt(iprsm+192)
                   enddo
-                  ka(jn,jt,jp,igc) = sumk
+                  absa(igc, jn+(jt-1)*9+(jp-1)*45) = sumk
                enddo
             enddo
          enddo
@@ -1700,10 +1657,19 @@
                   sumk1 = sumk1 + kao_mco2(jn,jt,iprsm)*rwgt(iprsm+192)
                   sumk2 = sumk2 + kao_mco(jn,jt,iprsm)*rwgt(iprsm+192)
                enddo
-               ka_mco2(jn,jt,igc) = sumk1
-               ka_mco(jn,jt,igc) = sumk2
+               ka_mco2(igc,jn,jt) = sumk1
+               ka_mco (igc,jn,jt) = sumk2
             enddo
          enddo
+      enddo
+
+      do jt = 1, 19
+         do jn = 1, 8
+            dka_mco2(1:ngc(13),jn,jt) = ka_mco2(1:ngc(13),jn+1,jt) - ka_mco2(1:ngc(13),jn,jt)
+            dka_mco (1:ngc(13),jn,jt) = ka_mco (1:ngc(13),jn+1,jt) - ka_mco (1:ngc(13),jn,jt)
+         enddo
+         dka_mco2(1:ngc(13),9,jt) = dka_mco2(1:ngc(13),8,jt)
+         dka_mco (1:ngc(13),9,jt) = dka_mco (1:ngc(13),8,jt)
       enddo
 
       do jt = 1,19
@@ -1714,9 +1680,14 @@
                iprsm = iprsm + 1
                sumk = sumk + kbo_mo3(jt,iprsm)*rwgt(iprsm+192)
             enddo
-            kb_mo3(jt,igc) = sumk
+            kb_mo3(igc,jt) = sumk
          enddo
       enddo
+
+      do jt = 1, 18
+         dkb_mo3(1:ngc(13),jt) = kb_mo3(1:ngc(13),jt+1) - kb_mo3(1:ngc(13),jt)
+      enddo
+      dkb_mo3(1:ngc(13),19) = dkb_mo3(1:ngc(13),18)
 
       do jt = 1,10
          iprsm = 0
@@ -1726,7 +1697,7 @@
                iprsm = iprsm + 1
                sumk = sumk + selfrefo(jt,iprsm)*rwgt(iprsm+192)
             enddo
-            selfref(jt,igc) = sumk
+            selfref(igc,jt) = sumk
          enddo
       enddo
 
@@ -1738,7 +1709,7 @@
                iprsm = iprsm + 1
                sumk = sumk + forrefo(jt,iprsm)*rwgt(iprsm+192)
             enddo
-            forref(jt,igc) = sumk
+            forref(igc,jt) = sumk
          enddo
       enddo
 
@@ -1764,6 +1735,11 @@
          enddo
       enddo
 
+      do jp = 1, 8
+         dfracrefa(1:ngc(13),jp) = fracrefa(1:ngc(13),jp+1) - fracrefa(1:ngc(13),jp)
+      enddo
+      dfracrefa(1:ngc(13),9) = dfracrefa(1:ngc(13),8)
+
       end subroutine cmbgb13
 
 !***************************************************************************
@@ -1778,11 +1754,11 @@
       use parrrtm, only : mg, nbndlw, ngptlw, ng14
       use rrlw_kg14, only: fracrefao, fracrefbo, kao, kbo, &
                            selfrefo, forrefo, &
-                           fracrefa, fracrefb, absa, ka, absb, kb, &
+                           fracrefa, fracrefb, absa, absb, &
                            selfref, forref
 
 ! ------- Local -------
-      integer(kind=im) :: jt, jp, igc, ipr, iprsm 
+      integer(kind=im) :: jt, jp, igc, ipr, iprsm
       real(kind=rb) :: sumk, sumf1, sumf2
 
 
@@ -1795,7 +1771,7 @@
                   iprsm = iprsm + 1
                   sumk = sumk + kao(jt,jp,iprsm)*rwgt(iprsm+208)
                enddo
-               ka(jt,jp,igc) = sumk
+               absa(igc,jt+(jp-1)*5) = sumk
             enddo
          enddo
       enddo
@@ -1809,7 +1785,7 @@
                   iprsm = iprsm + 1
                   sumk = sumk + kbo(jt,jp,iprsm)*rwgt(iprsm+208)
                enddo
-               kb(jt,jp,igc) = sumk
+               absb(igc, jt+(jp-13)*5) = sumk
             enddo
          enddo
       enddo
@@ -1822,7 +1798,7 @@
                iprsm = iprsm + 1
                sumk = sumk + selfrefo(jt,iprsm)*rwgt(iprsm+208)
             enddo
-            selfref(jt,igc) = sumk
+            selfref(igc,jt) = sumk
          enddo
       enddo
 
@@ -1834,7 +1810,7 @@
                iprsm = iprsm + 1
                sumk = sumk + forrefo(jt,iprsm)*rwgt(iprsm+208)
             enddo
-            forref(jt,igc) = sumk
+            forref(igc,jt) = sumk
          enddo
       enddo
 
@@ -1865,10 +1841,11 @@
 
       use parrrtm, only : mg, nbndlw, ngptlw, ng15
       use rrlw_kg15, only: fracrefao, kao, kao_mn2, selfrefo, forrefo, &
-                           fracrefa, absa, ka, ka_mn2, selfref, forref
+                           fracrefa, absa, ka_mn2, selfref, forref, &
+                           dfracrefa, dka_mn2
 
 ! ------- Local -------
-      integer(kind=im) :: jn, jt, jp, igc, ipr, iprsm 
+      integer(kind=im) :: jn, jt, jp, igc, ipr, iprsm
       real(kind=rb) :: sumk, sumf
 
 
@@ -1882,7 +1859,7 @@
                      iprsm = iprsm + 1
                      sumk = sumk + kao(jn,jt,jp,iprsm)*rwgt(iprsm+224)
                   enddo
-                  ka(jn,jt,jp,igc) = sumk
+                  absa(igc, jn+(jt-1)*9+(jp-1)*45) = sumk
                enddo
             enddo
          enddo
@@ -1897,9 +1874,16 @@
                   iprsm = iprsm + 1
                   sumk = sumk + kao_mn2(jn,jt,iprsm)*rwgt(iprsm+224)
                enddo
-               ka_mn2(jn,jt,igc) = sumk
+               ka_mn2(igc,jn,jt) = sumk
             enddo
          enddo
+      enddo
+
+      do jt = 1, 19
+         do jn = 1, 8
+            dka_mn2(1:ngc(15),jn,jt) = ka_mn2(1:ngc(15),jn+1,jt) - ka_mn2(1:ngc(15),jn,jt)
+         enddo
+         dka_mn2(1:ngc(15),9,jt) = dka_mn2(1:ngc(15),8,jt)
       enddo
 
       do jt = 1,10
@@ -1910,7 +1894,7 @@
                iprsm = iprsm + 1
                sumk = sumk + selfrefo(jt,iprsm)*rwgt(iprsm+224)
             enddo
-            selfref(jt,igc) = sumk
+            selfref(igc,jt) = sumk
          enddo
       enddo
 
@@ -1922,7 +1906,7 @@
                iprsm = iprsm + 1
                sumk = sumk + forrefo(jt,iprsm)*rwgt(iprsm+224)
             enddo
-            forref(jt,igc) = sumk
+            forref(igc,jt) = sumk
          enddo
       enddo
 
@@ -1938,6 +1922,11 @@
          enddo
       enddo
 
+      do jp = 1, 8
+         dfracrefa(1:ngc(15),jp) = fracrefa(1:ngc(15),jp+1) - fracrefa(1:ngc(15),jp)
+      enddo
+      dfracrefa(1:ngc(15),9) = dfracrefa(1:ngc(15),8)
+
       end subroutine cmbgb15
 
 !***************************************************************************
@@ -1951,10 +1940,11 @@
 
       use parrrtm, only : mg, nbndlw, ngptlw, ng16
       use rrlw_kg16, only: fracrefao, fracrefbo, kao, kbo, selfrefo, forrefo, &
-                           fracrefa, fracrefb, absa, ka, absb, kb, selfref, forref
+                           fracrefa, fracrefb, absa, absb, selfref, forref, &
+                           dfracrefa
 
 ! ------- Local -------
-      integer(kind=im) :: jn, jt, jp, igc, ipr, iprsm 
+      integer(kind=im) :: jn, jt, jp, igc, ipr, iprsm
       real(kind=rb) :: sumk, sumf
 
 
@@ -1968,7 +1958,7 @@
                      iprsm = iprsm + 1
                      sumk = sumk + kao(jn,jt,jp,iprsm)*rwgt(iprsm+240)
                   enddo
-                  ka(jn,jt,jp,igc) = sumk
+                  absa(igc, jn+(jt-1)*9+(jp-1)*45) = sumk
                enddo
             enddo
          enddo
@@ -1983,7 +1973,7 @@
                   iprsm = iprsm + 1
                   sumk = sumk + kbo(jt,jp,iprsm)*rwgt(iprsm+240)
                enddo
-               kb(jt,jp,igc) = sumk
+               absb(igc, jt+(jp-13)*5) = sumk
             enddo
          enddo
       enddo
@@ -1996,7 +1986,7 @@
                iprsm = iprsm + 1
                sumk = sumk + selfrefo(jt,iprsm)*rwgt(iprsm+240)
             enddo
-            selfref(jt,igc) = sumk
+            selfref(igc,jt) = sumk
          enddo
       enddo
 
@@ -2008,7 +1998,7 @@
                iprsm = iprsm + 1
                sumk = sumk + forrefo(jt,iprsm)*rwgt(iprsm+240)
             enddo
-            forref(jt,igc) = sumk
+            forref(igc,jt) = sumk
          enddo
       enddo
 
@@ -2034,6 +2024,11 @@
          enddo
       enddo
 
+      do jp = 1, 8
+         dfracrefa(1:ngc(16),jp) = fracrefa(1:ngc(16),jp+1) - fracrefa(1:ngc(16),jp)
+      enddo
+      dfracrefa(1:ngc(16),9) = dfracrefa(1:ngc(16),8)
+
       end subroutine cmbgb16
 
 !***************************************************************************
@@ -2044,16 +2039,15 @@
 
       use rrlw_cld, only: abscld1, absliq0, absliq1, &
                           absice0, absice1, absice2, absice3
+      implicit none
 
-      save
-
-! ABSCLDn is the liquid water absorption coefficient (m2/g). 
+! ABSCLDn is the liquid water absorption coefficient (m2/g).
 ! For INFLAG = 1.
       abscld1 = 0.0602410_rb
-!  
+!
 ! Everything below is for INFLAG = 2.
 
-! ABSICEn(J,IB) are the parameters needed to compute the liquid water 
+! ABSICEn(J,IB) are the parameters needed to compute the liquid water
 ! absorption coefficient in spectral region IB for ICEFLAG=n.  The units
 ! of ABSICEn(1,IB) are m2/g and ABSICEn(2,IB) has units (microns (m2/g)).
 ! For ICEFLAG = 0.
@@ -2246,7 +2240,7 @@
        6.854061e-03_rb,6.697986e-03_rb,6.550224e-03_rb,6.410138e-03_rb,6.277153e-03_rb, &
        6.150751e-03_rb,6.030462e-03_rb,5.915860e-03_rb/)
 
-! ICEFLAG = 3; Fu parameterization. Particle size 5 - 140 micron in 
+! ICEFLAG = 3; Fu parameterization. Particle size 5 - 140 micron in
 ! increments of 3 microns.
 ! units = m2/g
 ! Hexagonal Ice Particle Parameterization

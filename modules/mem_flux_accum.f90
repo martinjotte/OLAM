@@ -111,19 +111,19 @@ subroutine alloc_flux_accum(mza,mva,mwa,mwl,mws)
      allocate (  rshort_top_accum(mwa)) ;   rshort_top_accum = 0._r8
      allocate (rshortup_top_accum(mwa)) ; rshortup_top_accum = 0._r8
 
-     allocate (      rshort_clr_accum(mwa)) ;       rshort_clr_accum = 0._r8
-     allocate (    rshortup_clr_accum(mwa)) ;     rshortup_clr_accum = 0._r8
-     allocate (  rshort_top_clr_accum(mwa)) ;   rshort_top_clr_accum = 0._r8
-     allocate (rshortup_top_clr_accum(mwa)) ; rshortup_top_clr_accum = 0._r8
+!    allocate (      rshort_clr_accum(mwa)) ;       rshort_clr_accum = 0._r8
+!    allocate (    rshortup_clr_accum(mwa)) ;     rshortup_clr_accum = 0._r8
+!    allocate (  rshort_top_clr_accum(mwa)) ;   rshort_top_clr_accum = 0._r8
+!    allocate (rshortup_top_clr_accum(mwa)) ; rshortup_top_clr_accum = 0._r8
   endif
 
   if (ilwrtyp > 0) then
      allocate (          rlong_accum(mwa)) ;           rlong_accum = 0._r8
      allocate (        rlongup_accum(mwa)) ;         rlongup_accum = 0._r8
      allocate (    rlongup_top_accum(mwa)) ;     rlongup_top_accum = 0._r8
-     allocate (      rlong_clr_accum(mwa)) ;       rlong_clr_accum = 0._r8
-     allocate (    rlongup_clr_accum(mwa)) ;     rlongup_clr_accum = 0._r8
-     allocate (rlongup_top_clr_accum(mwa)) ; rlongup_top_clr_accum = 0._r8
+!    allocate (      rlong_clr_accum(mwa)) ;       rlong_clr_accum = 0._r8
+!    allocate (    rlongup_clr_accum(mwa)) ;     rlongup_clr_accum = 0._r8
+!    allocate (rlongup_top_clr_accum(mwa)) ; rlongup_top_clr_accum = 0._r8
   endif
 
   if (.false.) then
@@ -386,10 +386,10 @@ subroutine flux_accum()
            rshort_top_accum  (iw) = rshort_top_accum  (iw) + dta * real(rshort_top(iw),r8)
            rshortup_top_accum(iw) = rshortup_top_accum(iw) + dta * real(rshortup_top(iw),r8)
 
-           rshort_clr_accum      (iw) = rshort_clr_accum      (iw) + dta * real(rshort_clr(iw),r8)
-           rshortup_clr_accum    (iw) = rshortup_clr_accum    (iw) + dta * real(rshortup_clr(iw),r8)
-           rshort_top_clr_accum  (iw) = rshort_top_clr_accum  (iw) + dta * real(rshort_top_clr(iw),r8)
-           rshortup_top_clr_accum(iw) = rshortup_top_clr_accum(iw) + dta * real(rshortup_top_clr(iw),r8)
+!          rshort_clr_accum      (iw) = rshort_clr_accum      (iw) + dta * real(rshort_clr(iw),r8)
+!          rshortup_clr_accum    (iw) = rshortup_clr_accum    (iw) + dta * real(rshortup_clr(iw),r8)
+!          rshort_top_clr_accum  (iw) = rshort_top_clr_accum  (iw) + dta * real(rshort_top_clr(iw),r8)
+!          rshortup_top_clr_accum(iw) = rshortup_top_clr_accum(iw) + dta * real(rshortup_top_clr(iw),r8)
         endif
 
         if (ilwrtyp > 0) then
@@ -397,9 +397,9 @@ subroutine flux_accum()
            rlongup_accum    (iw) = rlongup_accum    (iw) + dta * real(rlongup(iw),r8)
            rlongup_top_accum(iw) = rlongup_top_accum(iw) + dta * real(rlongup_top(iw),r8)
 
-           rlong_clr_accum      (iw) = rlong_clr_accum      (iw) + dta * real(rlong_clr(iw),r8)
-           rlongup_clr_accum    (iw) = rlongup_clr_accum    (iw) + dta * real(rlongup_clr(iw),r8)
-           rlongup_top_clr_accum(iw) = rlongup_top_clr_accum(iw) + dta * real(rlongup_top_clr(iw),r8)
+!          rlong_clr_accum      (iw) = rlong_clr_accum      (iw) + dta * real(rlong_clr(iw),r8)
+!          rlongup_clr_accum    (iw) = rlongup_clr_accum    (iw) + dta * real(rlongup_clr(iw),r8)
+!          rlongup_top_clr_accum(iw) = rlongup_top_clr_accum(iw) + dta * real(rlongup_top_clr(iw),r8)
         endif
 
      enddo

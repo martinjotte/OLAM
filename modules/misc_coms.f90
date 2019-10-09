@@ -158,6 +158,8 @@ real(r8) :: time_bias ! A number small compared to the timestep
 
 integer  :: do_chem = 0
 integer  :: i_o3    = 0
+integer  :: i_ch4   = 0
+integer  :: i_co    = 0
 
 Contains
 
@@ -166,7 +168,7 @@ Contains
    subroutine alloc_misc(mza)
 
    implicit none
-   
+
    integer, intent(in) :: mza
 
    allocate (u01d (mza))
@@ -175,10 +177,10 @@ Contains
    allocate (th01d(mza))
    allocate (dn01d(mza))
    allocate (rt01d(mza))
-   
+
    return
    end subroutine alloc_misc
-   
+
 End Module
 
 

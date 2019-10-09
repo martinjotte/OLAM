@@ -267,10 +267,6 @@
    NL%ILWRTYP = 1   ! Longwave  radiation type:
                     !   0=none, 1,2,3=RRTMg
 
-   NL%ICLRSKY = 1   ! 0 = compute only total sky radiative fluxes
-                    ! 1 = compute both clear and total radiative fluxes
-                    !     (for computing climatological cloud forcing)
-
    NL%RADFRQ  = 1800.  ! Time interval between radiation tendency updates (s)
 
    NL%RRTMG_DATADIR = '../etc'  ! Directory containing RRTMg input files

@@ -68,10 +68,10 @@ Module mem_tend
    real, allocatable :: tket    (:,:) ! subgrid-scale turb KE tend [m^2/s^3]
    real, allocatable :: epst    (:,:) ! subgrid dissipation rate tend [m^2/s^4]
 
-   real, allocatable :: rr_co2t (:,:) ! CO2 mass tend [kg_CO2/(m^3 s)] 
+   real, allocatable :: rr_co2t (:,:) ! CO2 mass tend [kg_CO2/(m^3 s)]
 
    integer :: num_omic = 0
-   
+
 Contains
 
 !===============================================================================
@@ -87,7 +87,7 @@ Contains
    use micro_coms, only: miclevel
    use misc_coms,  only: io6
    use mem_co2,    only: rr_co2
-   
+
    implicit none
 
    integer, intent(in) :: lza,lva,lwa,naddsc,nccntyp
@@ -157,20 +157,20 @@ Contains
    end subroutine alloc_tend
 
 !===============================================================================
-               
+
    subroutine dealloc_tend(naddsc,nccntyp)
-   
+
    use mem_addsc, only: addsc
    use mem_micro, only: ccntyp
 
    implicit none
 
    integer, intent(in) :: naddsc, nccntyp
-   
+
    integer :: iaddsc, ic
 
 ! Deallocate all tendency arrays
- 
+
    if (allocated(vmxet))    deallocate (vmxet)
    if (allocated(vmyet))    deallocate (vmyet)
    if (allocated(vmzet))    deallocate (vmzet)
@@ -206,7 +206,7 @@ Contains
          if (allocated(ccntyp(ic)%con_ccn)) deallocate (ccntyp(ic)%con_ccn)
       enddo
    endif
-        
+
    if (allocated(q2t))      deallocate (q2t)
    if (allocated(q6t))      deallocate (q6t)
    if (allocated(q7t))      deallocate (q7t)
@@ -223,7 +223,7 @@ Contains
    end subroutine dealloc_tend
 
 !===============================================================================
-               
+
    subroutine filltab_tend(naddsc,nccntyp)
 
    use mem_turb,   only: tkep, epsp, sxfer_rk
@@ -233,14 +233,14 @@ Contains
                          con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h,&
                          ccntyp, con_ifn, con_gccn, q2, q6, q7
    use var_tables, only: vtables_scalar, num_scalar, scalar_tab
-   use misc_coms,  only: do_chem, i_o3
+   use misc_coms,  only: do_chem, i_o3, i_co, i_ch4
    use cgrid_defn, only: cgrid_scalar_tabs
    use mem_co2,    only: rr_co2, i_co2
 
    implicit none
 
    integer, intent(in) :: naddsc, nccntyp
-   
+
    integer :: iaddsc, ic, n
    character (len=10) :: sname
 
@@ -291,7 +291,7 @@ Contains
 
    do iaddsc = 1,naddsc
       write(sname,'(a4,i3.3)') 'SCLP',iaddsc
-      
+
       if (allocated(addsc(iaddsc)%sclt)) then
          call vtables_scalar (addsc(iaddsc)%sclp, addsc(iaddsc)%sclt, trim(sname), cu_mix=.true.)
       endif
@@ -302,7 +302,7 @@ Contains
       i_co2 = num_scalar  ! save index of co2 in scalar table
    endif
 
-    ! If any prognostic scalars are ozone, save its scalar index
+    ! If any prognostic scalars is ozone, save its scalar index for nudging and radiation
 
     i_o3 = 0
     do n = 1, num_scalar
@@ -311,6 +311,30 @@ Contains
             (scalar_tab(n)%name == 'OZONE') .or. &
             (scalar_tab(n)%name == 'ozone') ) then
           i_o3 = n
+          exit
+       endif
+    enddo
+
+    ! If any prognostic scalars is methane, save its index for radiation
+
+    i_ch4 = 0
+    do n = 1, num_scalar
+       if ( (scalar_tab(n)%name == 'CH4'    ) .or. &
+            (scalar_tab(n)%name == 'ch4'    ) .or. &
+            (scalar_tab(n)%name == 'METHANE') .or. &
+            (scalar_tab(n)%name == 'methane') ) then
+          i_ch4 = n
+          exit
+       endif
+    enddo
+
+    ! If any prognostic scalars is carbon monoxide, save its index for radiation
+
+    i_co = 0
+    do n = 1, num_scalar
+       if ( (scalar_tab(n)%name == 'CO'    ) .or. &
+            (scalar_tab(n)%name == 'co'    ) ) then
+          i_co = n
           exit
        endif
     enddo
