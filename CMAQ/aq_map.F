@@ -121,7 +121,7 @@ C Local Variables (scalars):
       INTEGER       PNTR                ! relative pointer variable
 !     INTEGER       SPC                 ! liquid species loop counter
 
-      REAL( 8 )  :: BETASO4
+      REAL       :: EBETASO4T
       REAL       :: EALFA2T             ! EXP( -ALFAC * TAUCLD )
       REAL       :: M3OLD( NMODES )     ! modal mass at time 0
       REAL       :: M3NEW( NMODES )     ! modal mass at time t
@@ -138,43 +138,13 @@ C Local Variables (scalars):
       REAL( 8 )  :: AERWDEP( MAX_NAER,NMODES )        ! aerosol wet dep array (mm mol/liter)
       REAL( 8 )  :: WSRGAER( MAX_NAER,NMODES,MXSRG )  ! weights for surrogate
       real       :: ratio1, ratio2, ratio3
-C External Functions:
-
-!     INTEGER, EXTERNAL :: INDEXN           ! external func to get species pointers
-
-      INTERFACE
-        SUBROUTINE AQCHEM ( JDATE, JTIME, TEMP, PRES_PA, TAUCLD, PRCRATE,
-     &                      WCAVG, WTAVG, AIRM, ALFAC, GAS,
-     &                      AEROSOL, GASWDEP, AERWDEP, HPWDEP, BETASO4, DARK, cthk1 )
-           INTEGER,   INTENT( IN )  :: JDATE  ! current model date, coded YYYYDDD
-           INTEGER,   INTENT( IN )  :: JTIME  ! current model time, coded HHMMSS
-           REAL,      INTENT( IN )  :: AIRM      ! total air mass in cloudy layers (mol/m2)
-           REAL,      INTENT( IN )  :: ALFAC     ! scav coef
-           REAL,      INTENT( OUT ) :: HPWDEP    ! hydrogen wet deposition (mm mol/liter)
-           REAL( 8 ), INTENT( OUT ) :: BETASO4  
-           REAL,      INTENT( IN )  :: PRCRATE   ! precip rate (mm/hr)
-           REAL,      INTENT( IN )  :: PRES_PA   ! pressure (Pa)
-           REAL,      INTENT( IN )  :: TAUCLD    ! timestep for cloud (s)
-           REAL,      INTENT( IN )  :: TEMP      ! temperature (K)
-           REAL,      INTENT( IN )  :: WCAVG     ! liquid water content (kg/m3)
-           REAL,      INTENT( IN )  :: WTAVG     ! total water content (kg/m3)
-           REAL( 8 ), INTENT( INOUT ) :: GAS    ( : )   ! gas phase concentrations (mol/molV)
-           REAL( 8 ), INTENT( INOUT ) :: AEROSOL( :,: ) ! aerosol concentrations (mol/molV)
-           REAL( 8 ), INTENT( INOUT ) :: GASWDEP( : )   ! gas phase wet deposition array (mm mol/liter)
-           REAL( 8 ), INTENT( INOUT ) :: AERWDEP( :,: ) ! aerosol wet deposition array (mm mol/liter)
-           LOGICAL,   INTENT( IN )    :: DARK ! DARK = TRUE is night,  DARK = FALSE is day
-           real,      intent( in )    :: cthk1
-        END SUBROUTINE AQCHEM
-      END INTERFACE
 
 C-----------------------------------------------------------------------
 
 C...  for subsequent calls, check to make sure some surrogates were
 C...  specified, otherwise there is no need to perform aqueous chemistry
 
-      IF ( SIZE( CGRID2AQ_MAP ) .EQ. 0 ) THEN
-        RETURN
-      END IF
+      IF (N_CGRID2AQ <= 0) RETURN
 
 C...load gas-phase concentrations
 
@@ -242,11 +212,8 @@ C     into aerospc_conc in aero_data module
 C...perform aqueous-phase chemistry calculations
 
       CALL AQCHEM ( JDATE, JTIME, TBARC, PBARC, TAUCLD, PRATE1,
-     &              WCBAR, WTBAR, AIRM, ALFAC, GAS, AEROSOL, 
-     &              GASWDEP, AERWDEP, HPWDEP, BETASO4, DARK, cthk1 )
-
-C...  compute the scavenging coefficient
-      EALFA2T = EXP( -ALFAC * TAUCLD )
+     &              WCBAR, WTBAR, AIRM, ALFAC, GAS, AEROSOL, GASWDEP,
+     &              AERWDEP, HPWDEP, EALFA2T, EBETASO4T, DARK, cthk1 )
 
 C...store the amount of hydrogen deposition
 
@@ -286,13 +253,11 @@ C...Update surface area
       ratio3 = m3new(3) / m3old(3)
 
       CEND( AEROSRF_MAP( 1 ) ) = POLC( AEROSRF_MAP( 1 ) ) * EALFA2T
-      
+
       CEND( AEROSRF_MAP( 2 ) ) = POLC( AEROSRF_MAP( 2 ) )
-     &                         * EXP( -BETASO4 * TAUCLD * ONETHIRD )
-     &                         * ( ratio2**2 ) ** ONETHIRD
+     &                         * ( ebetaso4t * ratio2**2 ) ** ONETHIRD
 
       CEND( AEROSRF_MAP( 3 ) ) = POLC( AEROSRF_MAP( 3 ) )
-     &                         * ( ratio3**2 * ratio1 ) ** ONETHIRD
+     &                         * ( ratio1 * ratio3**2 ) ** ONETHIRD
 
-      RETURN
-      END
+      END SUBROUTINE AQ_MAP

@@ -16,8 +16,8 @@
 !  --------------------------------------------------------------------------
 
 ! ------- Modules -------
-      use parkind, only : im => kind_im, rb => kind_rb
-      use rrsw_wvn
+      use parkind,  only: im => kind_im, rb => kind_rb
+      use rrsw_wvn, only: ngc, ngn, ngm, wt, ng, ngc, ngs, rwgt, raylt
 
       implicit none
 
@@ -174,9 +174,10 @@
       call cmbgb28
       call cmbgb29
 
+      raylt = max(raylt, 1.e-12)
+
       end subroutine rrtmg_sw_ini
 
- 
 !***************************************************************************
       subroutine cmbgb16s
 !***************************************************************************

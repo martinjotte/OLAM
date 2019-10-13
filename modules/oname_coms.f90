@@ -317,8 +317,7 @@ Module oname_coms
       integer :: do_chem               =   0
       integer :: ltng_nox              =   0
       real(r8):: photfrq               = 600.0_r8
-      logical :: core_shell_photolysis = .false.
-      logical :: mie_calc_photolysis   = .false.
+      integer :: aerosol_optics_photol = 0
 
       character(pathlen) :: emis_dir  = '../../olamdatah5/edgar42'
       character(pathlen) :: geia_emis_file = '../etc/geia_emis.nc4'

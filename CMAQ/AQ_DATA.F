@@ -59,6 +59,8 @@ C-----------------------------------------------------------------------
       Integer, Parameter :: acc = 2     ! number for Accumulation mode
       Integer, Parameter :: cor = 3     ! number for Coarse mode
 
+      Integer, Save      :: n_cgrid2aq
+
 CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
 C...Gas surrogates species 
 CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
@@ -397,7 +399,6 @@ C Local Variables:
       Integer :: var
       Logical :: new
       Integer :: lsrg( mxsrg )
-      Integer :: n_cgrid2aq
       Integer :: ios
       Integer :: strt, fini
 

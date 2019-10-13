@@ -30,12 +30,12 @@ C %W% %P% %G% %U%
       use mem_ijtabs, only: jtab_w, jtw_prog
 
       implicit none
-      
+
       integer, intent(in) :: mrl
       integer             :: j, iw
       real                :: COSZEN( mwa )     ! cosine of zenith angle
 
-      ! Compute zenith angle; Golam Sarwar, July 1, 2011 
+      ! Compute zenith angle; Golam Sarwar, July 1, 2011
       CALL CZANGLE ( COSZEN )
 
       !$omp parallel do private(iw) schedule(guided)
@@ -208,48 +208,15 @@ C Latitude and longitude for zenith angle calculation: Golam Sarwar * July 1, 20
       real    :: tc, fracliq, prate, twc, qcu
       integer :: k, mrlw
 
-C...........External Functions:
+      jdate = 0
+      jtime = 0
 
-      INTERFACE
-        SUBROUTINE SCAVWDEP ( JDATE, JTIME, WTBAR, WCBAR, TBARC, PBARC,
-     &                        CTHK1, AIRM, PRATE1, TAUCLD, POLC, CEND,
-     &                        REMOV, REMOVAC, ALFAC, RHOAIR )
-           USE CGRID_SPCS
-           INTEGER, INTENT( IN )  :: JDATE, JTIME
-           REAL,    INTENT( IN )  :: WTBAR, WCBAR, TBARC, PBARC,
-     &                               CTHK1, AIRM, PRATE1, TAUCLD
-           REAL,    INTENT( IN )  :: POLC ( NSPCSD )
-           REAL,    INTENT( OUT ) :: REMOVAC
-           REAL,    INTENT( OUT ) :: CEND( NSPCSD ), REMOV( NSPCSD )
-           REAL,    INTENT( OUT ) :: ALFAC
-           REAL,    INTENT( IN )  :: RHOAIR
-           
-        END SUBROUTINE SCAVWDEP
-        SUBROUTINE AQ_MAP( JDATE, JTIME, WTBAR, WCBAR, TBARC, PBARC,
-     &                     CTHK1, AIRM, PRATE1, TAUCLD, POLC, CEND,
-     &                     REMOV, REMOVAC, ALFAC, DARK )
-           USE CGRID_SPCS
-           INTEGER, INTENT( IN )    :: JDATE, JTIME
-           REAL,    INTENT( IN )    :: WTBAR, WCBAR, TBARC, PBARC,
-     &                                 CTHK1, AIRM, PRATE1, TAUCLD
-           REAL,    INTENT( IN )    :: POLC ( NSPCSD )
-           REAL,    INTENT( INOUT ) :: REMOVAC
-           REAL,    INTENT( INOUT ) :: CEND( NSPCSD ), REMOV( NSPCSD )
-           REAL,    INTENT( IN )    :: ALFAC
-           LOGICAL, INTENT( IN )    :: DARK                                 !Golam Sarwar, July 1, 2011
-        END SUBROUTINE AQ_MAP
-      END INTERFACE
-C-----------------------------------------------------------------------
+      mrlw = itab_w(iw)%mrlw
 
-         jdate = 0
-         jtime = 0
+      ! Set the cloud lifetime (=adv timestep)
+      taucld = dtlm(mrlw)
 
-         mrlw = itab_w(iw)%mrlw
-
-         ! Set the cloud lifetime (=adv timestep)
-         taucld = dtlm(mrlw)
-
-         tot_wdep(iw,:) = 0.0
+      tot_wdep(iw,:) = 0.0
 
 C...Sum microphysics precipitation rate over species and convert from (mm/s) to (mm/hr)
 
@@ -364,39 +331,21 @@ C... include layer thickness in the column integration
          if (iactcu(iw) > 0) then
 
             do k = kcubot(iw), kcutop(iw)
-               if (tair(k,iw) < 255.15) then
-                  fracliq = 0.0
-               elseif (tair(k,iw) < 273.15) then
-                  fracliq = (tair(k,iw) - 273.15) / 18.0
-               else
-                  fracliq = 1.0
-               endif
-
+               fracliq = max(0.0, min(1.0, (tair(k,iw) - 255.15) / 18.0))
                qcu = max( qwcon(k,iw), 1.e-5 )
                qc(k) = qc(k) + qcu * fracliq
                qi(k) = qi(k) + qcu * (1. - fracliq)
             enddo
 
             if (conprr(iw) > 1.e-10) then
-
                prate = conprr(iw) * 3600.0
                rain  = rain + prate
-
                twc = 0.06 * prate**0.846 / 1000.0 ! tot wat cont kg/m3
-
                do k = lpw(iw), kcutop(iw)-1
-                  if (tair(k,iw) < 255.15) then
-                     fracliq = 0.0
-                  elseif (tair(k,iw) < 273.15) then
-                     fracliq = (tair(k,iw) - 273.15) / 18.0
-                  else
-                     fracliq = 1.0
-                  endif
-
+                  fracliq = max(0.0, min(1.0, (tair(k,iw) - 255.15) / 18.0))
                   qr(k) = qr(k) + twc / real(rho(k,iw)) * fracliq
                   qs(k) = qs(k) + twc / real(rho(k,iw)) * (1. - fracliq)
                enddo
-
             endif
 
          endif
@@ -447,7 +396,8 @@ C...loop through layers
 
 C...Compute cloud quantities
 
-               IF ( ( QC( K ) + QR( K ) ) >= 1.e-5 .and. press(k,iw) > 100.d2) THEN
+!               IF ( ( QC( K ) + QR( K ) ) >= 1.e-5 .and. press(k,iw) > 100.d2) THEN
+                IF ( QC( K ) >= 5.e-6 .and. press(k,iw) > 100.d2) THEN
 
                   fract = max(cloud_frac(k,iw), 0.1)
 
@@ -495,7 +445,7 @@ C...  that were scavenged or that participated in cloud chemistry
 
                   CALL SCAVWDEP ( JDATE, JTIME, WTBAR, WCBAR, TBARC,
      &                            PBARC, CTHK1, AIRM, PRATE1, TAUCLD,
-     &                            POLC, CEND, REMOV, REMOVAC, 
+     &                            POLC, CEND, REMOV, REMOVAC,
      &                            ALFAC, RHOAIR )
 
 C...if the liquid water content is above the specified threshold
@@ -515,7 +465,7 @@ C...  calculate cosine of zenith angle for the cell and determine day or night; 
 
                   CALL AQ_MAP ( JDATE, JTIME, WTBAR, WCBAR, TBARC,
      &                          PBARC, CTHK1, AIRM, PRATE1, TAUCLD,
-     &                          POLC, CEND, REMOV, REMOVAC, ALFAC, 
+     &                          POLC, CEND, REMOV, REMOVAC, ALFAC,
      &                          DARK )
 
 C...convert from moles/m**2 to kg/m**2 and kg/m**2 to kg/hectare

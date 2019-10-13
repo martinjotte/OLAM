@@ -563,14 +563,12 @@
 
    NL%PHOTFRQ  = 900.0  ! Time frequency between photolyis rate updates
 
-   NL%CORE_SHELL_PHOTOLYSIS = .FALSE. ! TRUE: Use core-shell model for aerosol
-                                      !       optical properties in photolysis
-                                      ! FALSE: only internal mixing of aerosols
-
-   NL%MIE_CALC_PHOTOLYSIS = .FALSE. ! TRUE: use Mei calculation of internal 
-                                    !       mixing model for photolysis
-                                    ! FALSE: use fast computation of aerosol
-                                    !        properties for photolysis
+   NL%AEROSOL_OPTICS_PHOTOL = 0   ! 0: Don't compute aerosol optical
+                                  !    properties for photolysis
+                                  ! 1: Use internal aerosol mixing model
+                                  !    to get aersosol optical properties
+                                  ! 2: Use core-shell mixing model to get
+                                  !    aersol optical properties
 
    NL%EMIS_DIR       = '../../olamdatah5/edgar42'
    NL%GEIA_EMIS_FILE = '../etc/geia_emis.nc4'

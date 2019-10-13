@@ -26,8 +26,8 @@ C %W% %P% %G% %U%
 
 C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
       SUBROUTINE AQCHEM ( JDATE, JTIME, TEMP, PRES_PA, TAUCLD, PRCRATE,
-     &                    WCAVG, WTAVG, AIRM, ALFAC, GAS, AEROSOL,
-     &                    GASWDEP, AERWDEP, HPWDEP, BETASO4, DARK, cthk1 )
+     &                    WCAVG, WTAVG, AIRM, ALFAC, GAS, AEROSOL, GASWDEP,
+     &                    AERWDEP, HPWDEP, EALFA2T, EBETASO4T, DARK, cthk1 )
 C-----------------------------------------------------------------------
 C  Description:
 C    Compute concentration changes in cloud due to aqueous chemistry,
@@ -182,7 +182,8 @@ C...........Arguments:
       REAL,      INTENT( IN )  :: AIRM      ! total air mass in cloudy layers (mol/m2)
       REAL,      INTENT( IN )  :: ALFAC     ! scav coef for aerosols
       REAL,      INTENT( OUT ) :: HPWDEP    ! hydrogen wet deposition (mm mol/liter)
-      REAL( 8 ), INTENT( OUT ) :: BETASO4
+      REAL,      INTENT( OUT ) :: EBETASO4T
+      REAL,      INTENT( OUT ) :: EALFA2T
       REAL,      INTENT( IN )  :: PRCRATE   ! precip rate (mm/hr)
       REAL,      INTENT( IN )  :: PRES_PA   ! pressure (Pa)
       REAL,      INTENT( IN )  :: TAUCLD    ! timestep for cloud (s)
@@ -220,6 +221,7 @@ C...........Local Variables (scalars):
       REAL( 8 ) :: ACTB            !
       REAL( 8 ) :: AE              ! guess for H+ conc in cloudwater (mol/liter)
       REAL( 8 ) :: B               ! manganese's anion concentration
+      REAL      :: BETASO4
       REAL( 8 ) :: PRES_ATM        ! pressure (Atm)
       REAL( 8 ) :: BB              ! lower limit guess of cloudwater pH
       REAL( 8 ) :: CA              ! Calcium conc in cloudwater (mol/liter)
@@ -244,9 +246,9 @@ C...........Local Variables (scalars):
       REAL( 8 ) :: DMGLY1          ! change due to Rxn. in MGLY for DTW(0) time step
 !     REAL( 8 ) :: DOH1            ! change in OH for DTW(0) time step
       REAL( 8 ) :: DORGC           ! change in ORGC for DTW(0) time step (mol/liter)
-      REAL( 8 ) :: EBETASO4T       ! EXP( -BETASO4 * TAUCLD )
+!     REAL( 8 ) :: EBETASO4T       ! EXP( -BETASO4 * TAUCLD )
       REAL( 8 ) :: EALFA0T         ! EXP( -ALFA0 * TAUCLD )
-      REAL( 8 ) :: EALFA2T         ! EXP( -ALFA2 * TAUCLD )
+!     REAL( 8 ) :: EALFA2T         ! EXP( -ALFA2 * TAUCLD )
       REAL( 8 ) :: EALFA3T         ! EXP( -ALFA3 * TAUCLD )
       REAL( 8 ) :: EC              ! elemental carbon acc+akn aerosol in cloudwater (mol/liter)
       REAL( 8 ) :: FA              ! functional value ??
@@ -1356,11 +1358,11 @@ C...  scavenging aerosol number in the accumulation mode
       DEPSUM = ( WETDEP( LSO4ACCL ) + WETDEP( LHSO4ACCL ) ) * XC1
 
       IF ( ( LOADING( LSO4, ACC ) + LOADING( LSO4, AKN ) - DS4( 0 ) ) .gt. 1.0D-30 ) THEN
-        BETASO4 = DEPSUM / ( ( LOADING( LSO4, ACC ) + LOADING( LSO4, AKN ) - DS4( 0 ) ) * TAUCLD )
+        BETASO4   = DEPSUM / ( ( LOADING( LSO4, ACC ) + LOADING( LSO4, AKN ) - DS4( 0 ) ) * TAUCLD )
         EBETASO4T = EXP( -BETASO4 * TAUCLD )
       ELSE
-        BETASO4   = 0.0D0
-        EBETASO4T = 1.0D0
+        BETASO4   = 0.0
+        EBETASO4T = 1.0
       END IF
 
       EALFA0T   = EXP( -ALFAC * TAUCLD )

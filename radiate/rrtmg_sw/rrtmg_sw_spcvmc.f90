@@ -135,6 +135,8 @@
       real(kind=rb) :: zasya(ngptsw,nlayers)   ! aerosol asymmetry parameter
       real(kind=rb) :: zomga(ngptsw,nlayers)   ! aerosol single scattering albedo
 
+      real(kind=rb), parameter :: onem = 1.0 - 3.0 * epsilon(1.0)
+
       ! Arrays from rrtmg_sw_vrtqdr routine
 
       real(kind=rb) :: zfd(ngptsw,nlayers+1)
@@ -193,7 +195,7 @@
                   ztaur = colmol(ikl) * raylt(ig)
 
                   ztauo(ig) = ztaur + ztaug(ig,ikl)
-                  zomco(ig) = ztaur / ztauo(ig)
+                  zomco(ig) = min(ztaur / ztauo(ig), onem)
                   zggco(ig) = 0._rb
                enddo
 
@@ -205,7 +207,7 @@
                   ztauo(ig) = ztaur + ztaug(ig,ikl) + ztauc(ig,ikl)
                   zom       = ztaur + zomgc(ig,ikl)
                   zggco(ig) = zasyc(ig,ikl) / zom
-                  zomco(ig) = zom / ztauo(ig)
+                  zomco(ig) = min(zom / ztauo(ig), onem)
                enddo
             endif
 
@@ -218,7 +220,7 @@
                   ztauo(ig) = ztaur + ztaug(ig,ikl) + ztaua(ig,ikl)
                   zom       = ztaur + zomga(ig,ikl)
                   zggco(ig) = zasya(ig,ikl) / zom
-                  zomco(ig) = zom / ztauo(ig)
+                  zomco(ig) = min(zom / ztauo(ig), onem)
                enddo
             else
                do ig = 1, ngptsw
@@ -227,7 +229,7 @@
                   ztauo(ig) =  ztaur + ztaug(ig,ikl) + ztaua(ig,ikl) + ztauc(ig,ikl)
                   zom       =  ztaur + zomga(ig,ikl) + zomgc(ig,ikl)
                   zggco(ig) = (zasya(ig,ikl) + zasyc(ig,ikl)) / zom
-                  zomco(ig) = zom / ztauo(ig)
+                  zomco(ig) = min(zom / ztauo(ig), onem)
                enddo
             endif
 
@@ -389,14 +391,13 @@
 
       integer(kind=im) :: ig
 
-      real(kind=rb), parameter :: zsr3 = sqrt(3._rb)
-      real(kind=rb), parameter :: onem = nearest(1.0, -1.0)
+      real(kind=rb), parameter :: zsr3 = 0.5_rb * sqrt(3._rb)
 
       do ig = 1, ngptsw
 
          zto1 = -ptau(ig)
-         zw   = min(pw(ig), onem)
-         zg   = pgg(ig)
+         zw   =  pw  (ig)
+         zg   =  pgg (ig)
 
 ! General two-stream expressions
 
@@ -413,10 +414,9 @@
          zgamma3 = 0.50_rb - zg3 * prmuz
 
          ! kmodts == 3
-!        zg3 = 3._rb * zg
-!        zgamma1 = zsr3 * (2._rb - zw * (1._rb + zg)) * 0.5_rb
-!        zgamma2 = zsr3 * zw * (1._rb - zg ) * 0.5_rb
-!        zgamma3 = (1._rb - zsr3 * zg * prmuz ) * 0.5_rb
+!        zgamma1 = zsr3 * (2._rb - zw * (1._rb + zg))
+!        zgamma2 = zsr3 * zw * (1._rb - zg )
+!        zgamma3 = (0.5_rb - zsr3 * zg * prmuz )
 
          zgamma4 = 1._rb - zgamma3
 
