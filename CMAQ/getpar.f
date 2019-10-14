@@ -26,7 +26,7 @@ C $Header: /project/yoj/arc/CCTM/src/aero/aero5/getpar.f,v 1.7 2012/01/19 13:13:
 
 C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-      Subroutine getpar( limit_sg, noM3 )
+      Subroutine getpar( fixed_sg, noM3 )
 
 C  Calculates the 3rd moments (M3), masses, aerosol densities, and
 C  geometric mean diameters (Dg) of all 3 modes, and the natural logs of
@@ -47,14 +47,14 @@ C  WET_MOMENTS_FLAG.  If, for example, the input M2 value was calculated
 C  for a "dry" aerosol and the WET_MOMENTS_FLAG is .TRUE., GETPAR would
 C  incorrectly adjust the M2 concentrations!
 C
-C  
-C  Outputs: 
-C    moment3_conc
-C    moment2_conc (adjusted if standard dev. hits limit)
-C    aeromode_dens
-C    aeromode_lnsg
-C    aeromode_diam
-C    aeromode_mass
+C  Outputs:
+C    moment3_conc  third moment, porportional to volume [ m3/m3 ]
+C    moment2_conc  second moment, prop. to surface area [ m2/m3 ]
+C                     (adjusted if standard dev. hits limit)
+C    aeromode_dens [ kg/m3 ]
+C    aeromode_lnsg log of geometric standard deviation
+C    aeromode_diam geometric mean diameter [ m ]
+C    aeromode_mass mass concentration: [ ug / m**3 ]
 C
 C SH  03/10/11 Renamed met_data to aeromet_data
 C HP and BM 4/2016: Updated use of wet_moments_flag which is now
@@ -62,13 +62,27 @@ C    available through AERO_DATA consistent with the moments it refers to
 
 C-----------------------------------------------------------------------
 
-      Use aero_data
+      Use aero_data,  only: wet_moments_flag, moment3_conc, moment2_conc, moment0_conc,
+     &                      aeromode_dens, aeromode_lnsg, aeromode_diam, aeromode_mass,
+     &                      min_diam_g, min_sigma_g, max_sigma_g, n_mode, n_aerospc,
+     &                      aerospc, aero_missing, aerospc_conc, aeromode,
+     &                      min_l2sg, max_l2sg, aerospc_m3fac
       Use const_data, only: f6piove9
 
       Implicit None
 
 C Arguments:
-      Logical, Intent( In ) :: limit_sg  ! fix coarse and accum Sg's to the input value?
+      Logical, Intent( In ) :: fixed_sg  ! If TRUE, then the second moment is modified
+                                         ! during each call in order to preserve the
+                                         ! standard deviaiton at the current value.
+                                         !
+                                         ! If FALSE, then the standard deviation is
+                                         ! recalculated to be consistent with the current
+                                         ! combination of the 0th, 2nd and 3rd moments.
+                                         ! During this calculation, standard deviaiton is
+                                         ! limited by parameters in AERO_DATA (min_sigma_g
+                                         ! and max_sigma_g)
+
       Logical, Intent( In ), optional :: noM3  ! no need to recompute 3rd moment?
 
 C Output variables:
@@ -167,11 +181,11 @@ c         below the minimum limit.
 
 C *** Aitken Mode:
 
-      if ( limit_sg ) then
+      if ( fixed_sg ) then
 
          Do n = 1, n_mode
             l2sg = aeromode_lnsg(n) ** 2
-            
+
             xm0_one3 = moment0_conc(n) ** one3
             xm3_one3 = moment3_conc(n) ** one3
 

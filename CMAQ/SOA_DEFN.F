@@ -1070,7 +1070,8 @@ C Key Subroutines/Functions called:  newt, soabisection
       Use aero_data
       Use const_data
       Use utilio_defn
-      Use rxns_data, only : MECHNAME
+      Use rxns_data,  only: MECHNAME
+      Use getpar_mod, only: getpar
 
       Implicit None
 
@@ -1165,6 +1166,8 @@ C resentative compound.
 
 C Compute 3rd moment, 2nd moment. moment_conc arrays are wet
       Call calcmoments ( .true. )
+      Call getpar( FIXED_sg, noM3=.true. )
+
       m3wet_init( : ) = moment3_conc( 1:2 )
       m2wet_init( : ) = moment2_conc( 1:2 )
 

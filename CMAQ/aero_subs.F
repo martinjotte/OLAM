@@ -285,13 +285,11 @@ C *** local variables
       INTEGER      SPC        ! loop counter
       INTEGER      N          ! loop counter
 
-      LOGICAL, parameter :: LIMIT_Sg = .FALSE.
-
 C-----------------------------------------------------------------------
 
 C *** square root of the ambient temperature for later use
       SQRT_TEMP = SQRT( AIRTEMP )
- 
+
 C *** Calculate mean free path [ m ]:
 C     6.6328E-8 is the sea level value given in Table I.2.8
 C     on page 10 of U.S. Standard Atmosphere 1962
@@ -316,8 +314,6 @@ C     partitioning between the particle and vapor phases.  Assume all
 C     SOA resides in the accumulation mode.
 
 C     Aerosol is wet when it enters orgaer
-      CALL GETPAR( LIMIT_Sg, noM3=.true. )
-
       CALL ORGAER( DT, LAYER, airtemp, airpres )
 
 C *** Secondary Inorganics
@@ -330,7 +326,7 @@ C *** Compute H2SO4 diffusivity, correct for temperature and pressure
       DV_SO4 = DIFFSULF * DIFFCORR
 
 C *** Update size parameters (distribution is wet from ORGAER)
-      CALL GETPAR( LIMIT_Sg )
+      CALL GETPAR( FIXED_sg )
 
       CALL VOLINORG( DT, COL, ROW, LAYER, DV_SO4, CGR, airtemp, airrh )
 
@@ -584,7 +580,7 @@ C     diameters, geometric standard deviations, modal mass totals, and
 C     particle densities, based on the new concentrations of M2, M0, and
 C     speciated masses calculated above. This is still the wet
 C     distribution.
-         CALL GETPAR( LIMIT_Sg )
+         CALL GETPAR( FIXED_sg )
 
 C *** Calculate AAA = ln( Dij / DGATK ) / ( SQRT2 * XXLSGAT ), where Dij
 C     is the diameter at which the Aitken-mode and accumulation-mode
@@ -651,7 +647,7 @@ C     standard deviations, modal mass totals, and particle densities,
 C     based on the final concentrations of M2, M0, and speciated masses
 C     after mode merging is complete. This should be done for the wet
 C     distribution.
-      CALL GETPAR( LIMIT_Sg )
+      CALL GETPAR( FIXED_sg )
 
 C *** Set minimum value for all concentrations in the CBLK array
 
@@ -856,7 +852,6 @@ C     mass partitioning between the modes
 !     INTEGER ISTEP                       ! loop index, mass transfer time step loop
       INTEGER ISP                         ! loop index, species loop
       INTEGER, SAVE :: LOGDEV 
-      LOGICAL, PARAMETER :: LIMIT_Sg = .TRUE.   ! fix Sg at current value?
       LOGICAL TrustIso                    ! For negative vap. press., TrustIso = F
 !     CHARACTER( 50 ) :: XMSG
       INTEGER, PARAMETER :: IMOD3 = 3
@@ -1298,8 +1293,8 @@ C     standard deviations, modal mass totals, and modal particle
 C     densities. It is a waste of time updating the aitken and
 C     accumulation modes but the coarse mode does need to be updated
 C     each sub-time step. This should be for the wet distribution
-               
-!        CALL GETPAR( LIMIT_Sg )
+
+!        CALL GETPAR( FIXED_sg )
 
       END IF   ! for 'Hybrid' method
 
@@ -1492,7 +1487,7 @@ C     densities. Note that moment2_conc needs to be up to date when this
 C     routine is called. Moment3_conc does not need to be up to date
 C     because it will be recalculated inside GETPAR as the sum of 
 C     aerospc_conc variables. This should be for the wet distribution.
-      CALL GETPAR( LIMIT_Sg )
+      CALL GETPAR( FIXED_sg )
 
 C *** Update gas-phase concentrations from Aitken and Accumulation Mode Partitioning
       PRECURSOR_CONC( NH3_IDX )  = GNH3R8 + sum( CINORG( KNH4,1:2 )

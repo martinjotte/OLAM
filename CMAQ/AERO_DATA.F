@@ -146,7 +146,7 @@ C 09/17/14 change by Kathleen Fahey - see Revision History, above
       Real,    Parameter :: dgvem     ( n_mode ) = (/ 0.06E-6, 0.28E-6,  6.0E-6   /)
       Real,    Parameter :: def_diam  ( n_mode ) = (/ 15.0E-9, 80.0E-9,  600.0E-9 /)  ! default background mean diameter for each mode
       Real,    Parameter :: min_diam_g( n_mode ) = (/ 1.0E-9,  30.0E-9,  120.0E-9 /)
-      Real,    Parameter :: max_diam_g( n_mode ) = (/ 30.0E-9, 120.0E-9, 100.0E-6 /)
+      Real,    Parameter :: max_diam_g( n_mode ) = (/ 80.0E-9, 500.0E-9, 100.0E-6 /)
 
 C Geometric standard deviation of emitted particles in each mode, as
 C described in paragraph #14 of Binkowski & Roselle (2003)
@@ -176,6 +176,12 @@ C 09/17/14 change by Kathleen Fahey - see Revision History, above
       real,    parameter :: m3_min  ( n_mode ) = f6piove9 * mass_min / (/ 1800., 1800., 2200. /)
       real,    parameter :: m0_min  ( n_mode ) = m3_min * facnum
       real,    parameter :: m2_min  ( n_mode ) = m3_min * facsrf / pi
+
+C If FIXED_sg = T, atkn & accum std. dev. are not changed by GETPAR
+C If FIXED_sg = F, the second moment will be adjusted if the standard
+C                  deviation (sigma_g) is outside of the bounds specified
+C                  by min_sigma_g and max_sigma_g.
+      LOGICAL, PARAMETER :: FIXED_sg = .FALSE.
 
 C Flag to obtain coagulation coefficients
 C by analytical approximation (True) or by Gauss-Hermite quadrature (False)
@@ -614,9 +620,9 @@ C IC/BC Correction Mapping
       !   LBCMASS - Mass Concentration
       !   LBCMODE - Mask for each aerosol mode
       LOGICAL, ALLOCATABLE, SAVE :: LBCNUM(:), LBCSRF(:), LBCMASS(:),
-     &                        LBCMODE(:,:)
-      REAL, ALLOCATABLE, SAVE :: AEROCGRID_RHOINV( : ) !
-      
+     &                        LBCMODE(:,:), LBCDRY(:)
+      REAL, ALLOCATABLE, SAVE :: AEROCGRID_RHOINV( : )
+
 C Private variables for loading from and unloading to CGRID array
       Logical, Private, Save :: mapped = .False.
       Character( 16 ), Private, Save :: pname = 'Aero_Data'
@@ -696,12 +702,13 @@ C Local Variables:
 
       allocate( aerocgrid_rhoinv( n_ae_trns ), lbcnum( n_ae_trns ),
      &          lbcsrf( n_ae_trns ), lbcmass( n_ae_trns ),
-     &          lbcmode( n_mode,n_ae_trns ) )
+     &          lbcmode( n_mode,n_ae_trns ), lbcdry( n_ae_trns ) )
       aerocgrid_rhoinv = 0.
       lbcnum = .False.
       lbcsrf = .False.
       lbcmass= .False.
       lbcmode= .False.
+      lbcdry = .False.
 
 C Build mapping to CGRID for each species in the master AeroList
       Do spc = 1, n_aerolist
@@ -738,6 +745,7 @@ C Build mapping to CGRID for each species in the master AeroList
                   aerolist_map( spc,m ) = ae_strt - 1 + n
                   lbcmode( m,n ) = .True.
                   If ( .Not. aerolist( spc)%tracer ) lbcmass( n ) = .True.
+                  If ( .Not. aerolist( spc)%no_m2wet ) lbcdry( n ) = .True.
                   !Map the CGRID Aerosol Species to their Densities
                   aerocgrid_rhoinv( n ) = 1.0 / aerolist( spc )%density
 

@@ -108,7 +108,7 @@ module const_data
 ! The NIST Reference on Constants, Units, and Uncertainty. US National
 ! Institute of Standards and Technology. June 2015. Retrieved 2017-04-21.
 ! http://physics.nist.gov/cgi-bin/cuu/Value?r
-  REAL, PARAMETER :: DRGASUNIV = 8.314459848D0
+  REAL( 8 ), PARAMETER :: DRGASUNIV = 8.314459848D0
 
   Real( 8 ), Parameter :: boltzmann = drgasuniv / davo  ! [ J/K ]
 

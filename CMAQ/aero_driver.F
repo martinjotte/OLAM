@@ -81,7 +81,7 @@ C   Jim Kelly - Apr 08 - coarse mode updates
 C   - added code to account for new species (ANH4K & SRFCOR) and variable
 C     coarse std. deviation
 C   - removed MW coding now located in AERO_INFO.f
-C   - added LIMIT_Sg flag for call to GETPAR
+C   - added FIXED_sg flag for call to GETPAR
 C   Jeff Young - Aug 10 - convert for Namelist redesign (replace include files)
 C   Steve Howard - Mar 11 - Renamed met_data to aeromet_data
 C   S.Roselle- Mar 11 - replaced I/O API include files with UTILIO_DEFN
@@ -244,9 +244,6 @@ C *** synchronization time step [ s ]
 C *** variables to set up for "dry transport "
 !     REAL M3_WET( N_MODE ), M3_DRY( N_MODE )   ! third moment with and without water
 !     REAL M2_WET( N_MODE ), M2_DRY( N_MODE )   ! second moment with and without water
-
-C *** if LIMIT_Sg = T, atkn & accum std. dev. are not changed by GETPAR
-      LOGICAL, PARAMETER :: LIMIT_Sg = .FALSE.
 
 C *** variables aerosol diagnostic file flag
 !     INTEGER      STATUS            ! ENV... status
@@ -618,8 +615,8 @@ C *** OUTPUT DIAGNOSTIC INFORMATION
                if (writetime) then
 C *** Get wet moment info (dry will be converted to wet)
                CALL calcmoments( .true. )
-               CALL GETPAR( LIMIT_Sg, noM3=.true. ) ! update AEROMODE_DIAM,DENS,SDEV
-                   
+               CALL GETPAR( FIXED_sg, noM3=.true. ) ! update AEROMODE_DIAM,DENS,SDEV
+
 C *** Calculate volume fraction of each mode for measurement applications
                DO N = 1, N_MODE
                   ! Calculate transmission of each mode in aerosol impactors.
@@ -628,14 +625,14 @@ C *** Calculate volume fraction of each mode for measurement applications
                   CALL AERO_INLET ( AEROMODE_DIAM( N ), AEROMODE_LNSG( N ),
      &                              AEROMODE_DENS( N ), fPM1( N ), fPM25( N ),
      &                              fPM10( N ) )
-           
+
                   ! Calculate AMS Transmission Fraction. Aerosol water will
                   ! be excluded from the calculation since AMS standard
                   ! procedures recommend drying particles before they enter
                   ! the intstrument.
                   CALL AERO_AMS ( MOMENT3_CONC( N ), MOMENT2_CONC( N ),
-     &                            MOMENT0_CONC( N ), AEROSPC_CONC( AH2O_IDX,N ), 
-     &                            AEROMODE_DENS( N ),AEROSPC( AH2O_IDX)%DENSITY, 
+     &                            MOMENT0_CONC( N ), AEROSPC_CONC( AH2O_IDX,N ),
+     &                            AEROMODE_DENS( N ),AEROSPC( AH2O_IDX)%DENSITY,
      &                            fAMS( N ) )
                END DO
                endif
@@ -706,7 +703,7 @@ C *** Calculate 2nd and 3rd moments of the "dry" aerosol distribution
 C     NOTE! "dry" aerosol excludes both H2O and SOA  (Jan 2004 --SJR)
 C     EXCEPT!  nonvolatile SOA is part of dry aerosol (Oct 2007 --PVB)
 !              CALL CALCMOMENTS( .FALSE. )
-!              CALL GETPAR( LIMIT_Sg ) ! update AEROMODE_DIAM,DENS,SDEV
+!              CALL GETPAR( FIXED_sg ) ! update AEROMODE_DIAM,DENS,SDEV
 
 !              IF ( PMDIAG .OR. APMDIAG ) THEN
 !                 TEMP_DATA(  1 ) = EXP( AEROMODE_LNSG( 1 ) )
