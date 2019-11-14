@@ -39,6 +39,7 @@ use misc_coms,    only: tmpdir
 use max_dims,     only: pathlen
 use hdf5,         only: h5open_f, h5close_f
 use oname_coms,   only: cmdlne_runtype, cmdlne_fields, numcf, maxcf
+use sys_utils,    only: set_environment_variable
 
 implicit none
 
@@ -83,6 +84,9 @@ endif
 write(io6,'(/,a,i6)') ' myrank     = ',myrank
 write(io6,'(  a,i6)') ' mgroupsize = ',mgroupsize
 write(io6,'(  a,i6)') ' iparallel  = ',iparallel
+
+! Necessary for parallel HDF5
+call set_environment_variable("HDF5_USE_FILE_LOCKING", "FALSE")
 
 ! initialize HDF5 library
 
