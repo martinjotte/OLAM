@@ -39,6 +39,8 @@ use misc_coms,    only: tmpdir
 use max_dims,     only: pathlen
 use hdf5,         only: h5open_f, h5close_f
 use oname_coms,   only: cmdlne_runtype, cmdlne_fields, numcf, nl
+use sys_utils,    only: set_environment_variable
+use sys_utils,    only: set_environment_variable
 
 #ifdef OLAM_MPI
 use mpi
@@ -64,6 +66,12 @@ call olam_mpi_init()
 
 iparallel = 0
 if (mgroupsize > 1) iparallel = 1
+
+! Necessary for parallel HDF5
+call set_environment_variable("HDF5_USE_FILE_LOCKING", "FALSE")
+
+! Necessary for parallel HDF5
+call set_environment_variable("HDF5_USE_FILE_LOCKING", "FALSE")
 
 ! initialize HDF5 library
 

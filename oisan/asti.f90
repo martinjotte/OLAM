@@ -328,7 +328,7 @@ real, intent(in)    :: pcol_o3   (maxpr+2)
 real, intent(in) :: pcol_topo, pcol_prsfc, pcol_tsfc, pcol_shsfc, pcol_exnersfc
 
 real(r8) :: rho_tot(mza)  ! automatic array
-real(r8) :: pressnew, pkhyd
+real(r8) :: pressnew, pkhyd, dp(mza)
 
 real :: vctr1(mza)  ! automatic array
 real :: vctr2(mza)  ! automatic array
@@ -416,7 +416,7 @@ call hintrp_cc(npd,pcol_o3  ,pcol_z,mza,vctr6,zt)  ! ozone
 
 ka = lpw(iw)
 
-do k = ka,mza
+do k = ka, mza
    o_press (k,iw) = vctr1(k)
    o_theta (k,iw) = vctr2(k)
    o_rrw   (k,iw) = max(1.e-8,vctr3(k))
@@ -427,12 +427,16 @@ do k = ka,mza
                     ( o_theta(k,iw) * (1.0 + eps_vapi * o_rrw(k,iw)) )
 enddo
 
+<<<<<<< .working
 ! If we are only nuding, no need for hydrostatic integration
 ! to get a balanced pressure field.
 
 if (iaction == 1) return
 
 ! Choose as an internal pressure boundary condition the pcol_p pressure level
+=======
+! Choose as an internal pressure boundary condition the pcol_p pressure level
+>>>>>>> .merge-right.r805
 ! at or below (in elevation) the 49900 Pa surface.  Find the k index of this level.
 
 kpbc = npd
@@ -440,9 +444,18 @@ do while (pcol_p(kpbc) < 49900.)
    kpbc = kpbc - 1
 enddo
 
+! Make sure we are above the surface though!
+
+k = ka + 1
+if (pcol_p(kpbc) > vctr1(k)) then
+   do while (pcol_p(kpbc) > vctr1(k) .and. kpbc < npd-1)
+      kpbc = kpbc + 1
+   enddo
+endif
+
 ! Determine which two model zt levels bracket pcol_z(kpbc) in this column
 
-khi = 2
+khi = ka + 1
 do while (zt(khi) < pcol_z(kpbc))
    khi = khi + 1
 enddo
@@ -463,11 +476,12 @@ extrap = (zt(kbc) - zt(kother)) / (pcol_z(kpbc) - zt(kother))
 
 ! Carry out iterative hydrostatic balance procedure keeping theta constant
 
-do iter = 1,100
+do iter = 1, 100
 
 ! Adjust pressure at k = kbc.  Use temporal weighting for damping
 
    pressnew = o_press(kother,iw) * (pcol_p(kpbc) / o_press(kother,iw)) ** extrap
+   dp(kbc) = pressnew - o_press(kbc,iw)
    o_press(kbc,iw) = .1_r8 * o_press(kbc,iw) + .9_r8 * pressnew
 
 ! Compute density for all levels
@@ -501,14 +515,22 @@ do iter = 1,100
    do k = kbc+1,mza
       pkhyd = o_press(k-1,iw) &
             - gdz_belo8(k-1) * rho_tot(k-1) - gdz_abov8(k-1) * rho_tot(k)
+      dp(k) = pkhyd - o_press(k,iw)
       o_press(k,iw) = .05_r8 * o_press(k,iw) + .95_r8 * max(.1_r8,pkhyd)
    enddo
 
    do k = kbc-1,ka,-1
       pkhyd = o_press(k+1,iw) &
             + gdz_belo8(k) * rho_tot(k) + gdz_abov8(k) * rho_tot(k+1)
+      dp(k) = pkhyd - o_press(k,iw)
       o_press(k,iw) = .05_r8 * o_press(k,iw) + .95_r8 * max(.1_r8,pkhyd)
    enddo
+
+! Exit if pressure has converged after at least 15 iterations
+
+   if (iter > 15) then
+      if (maxval( abs(dp(ka:mza)) / o_press(ka:mza,iw) ) < 1.d-12) exit
+   endif
 
 enddo
 

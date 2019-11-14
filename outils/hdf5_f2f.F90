@@ -2069,6 +2069,8 @@ contains
        end do
     endif
 
+    ndimsf = max(ndimsf,1)
+
     ! Create a property list for compression/chunking/filters
 
     call h5pcreate_f(H5P_DATASET_CREATE_F, propid, hdferr)
@@ -2113,7 +2115,7 @@ contains
 
     ! Create the local memory space for the data
 
-    call h5screate_simple_f(ndims, dimsf, mspcid, hdferr)
+    call h5screate_simple_f(ndimsf, dimsf, mspcid, hdferr)
 
     ! Select the points that we will output (either all or none for lat/lon output)
 

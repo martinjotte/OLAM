@@ -131,6 +131,7 @@ SOURCE_FILES= \
              $(OUTILS)/read_cdc.f90 \
              $(OUTILS)/quadrature.f90 \
              $(OUTILS)/string_lib.f90 \
+             $(OUTILS)/sys_utils.f90 \
              $(OUTILS)/therm_lib.f90 \
              $(OUTILS)/tridiag_lib.f90 \
              $(RADIATE)/cloudprep_rad.f90 \
