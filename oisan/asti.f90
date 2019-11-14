@@ -427,16 +427,12 @@ do k = ka, mza
                     ( o_theta(k,iw) * (1.0 + eps_vapi * o_rrw(k,iw)) )
 enddo
 
-<<<<<<< .working
 ! If we are only nuding, no need for hydrostatic integration
 ! to get a balanced pressure field.
 
 if (iaction == 1) return
 
 ! Choose as an internal pressure boundary condition the pcol_p pressure level
-=======
-! Choose as an internal pressure boundary condition the pcol_p pressure level
->>>>>>> .merge-right.r805
 ! at or below (in elevation) the 49900 Pa surface.  Find the k index of this level.
 
 kpbc = npd

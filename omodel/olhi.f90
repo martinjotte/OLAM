@@ -88,33 +88,15 @@ do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)
    iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
 !----------------------------------------------------------------------
 
-<<<<<<< .working
    ka = lpv(iv)
-=======
-! Linearly interpolate zonavg arrays by latitude to current IW column
-! and K level
->>>>>>> .merge-right.r805
 
    ! Average winds to V point and rotate at V point (assumed to be global simulation)
 
-<<<<<<< .working
    do k = ka, mza
       ug = .5 * (ue(k,iw1) + ue(k,iw2))
       vc( k,iv) = ug * vcn_ew(iv)
       vmc(k,iv) = vc(k,iv) * .5 * real(rho(k,iw1) + rho(k,iw2))
    enddo
-=======
-   rlat = .4 * (glatw(iw) + 93.75)
-   ilat = int(rlat)
-   wt2 = rlat - float(ilat)
-
-   zonz_vect(1:22) = (1. - wt2) * zonz(ilat,1:22) + wt2 * zonz(ilat+1,1:22)
-   zont_vect(1:22) = (1. - wt2) * zont(ilat,1:22) + wt2 * zont(ilat+1,1:22)
-   zonu_vect(1:22) = (1. - wt2) * zonu(ilat,1:22) + wt2 * zonu(ilat+1,1:22)
-   zonr_vect(1:22) = (1. - wt2) * zonr(ilat,1:22) + wt2 * zonr(ilat+1,1:22)
-
-! Interpolate zonavg vector arrays in height to model levels
->>>>>>> .merge-right.r805
 
    ! For below-ground points, set VC to 0
 
@@ -124,33 +106,12 @@ do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)
 enddo
 !$omp end parallel do
 
-<<<<<<< .working
 ! MPI parallel send/recv of V group
-=======
-! Make sure kpbc is above the surface
 
-   k = ka + 1
-   if (zonp_vect(kpbc) > vctr1(k)) then
-      do while (zonp_vect(kpbc) > vctr1(k))
-         kpbc = kpbc + 1
-      enddo
-   endif
-
-! Determine which two model zt levels bracket zonz_vect(kpbc) in this column
->>>>>>> .merge-right.r805
-
-<<<<<<< .working
 if (iparallel == 1) then
    call mpi_send_v(1, rvara1=vmc, rvara2=vc)
    call mpi_recv_v(1, rvara1=vmc, rvara2=vc)
 endif
-=======
-   khi = ka + 1
-   do while (zt(khi) < zonz_vect(kpbc))
-      khi = khi + 1
-   enddo
-   klo = khi - 1
->>>>>>> .merge-right.r805
 
 ! LBC copy of VMC, VC
 
@@ -161,13 +122,7 @@ call lbcopy_v(1, vmc=vmc, vc=vc)
 if (allocated(vmp)) vmp(:,:) = vmc(:,:)
 if (allocated(vp )) vp (:,:) = vc (:,:)
 
-<<<<<<< .working
 ! print out initial state from 1st jtw_init column
-=======
-   do iter = 1,100
-
-! Adjust pressure at k = kbc.  Use temporal weighting for damping
->>>>>>> .merge-right.r805
 
 iw = jtab_w(jtw_init)%iw(1)
 
@@ -185,15 +140,8 @@ do k = mza,2,-1
        k,zt(k),press(k,iw),rho(k,iw),theta(k,iw),rr_w(k,iw)*1.e3
 enddo
 
-<<<<<<< .working
 write(io6, '(f10.2,1x,9(''-------''))') zm(1)
 write(io6,*) ' '
-=======
-! Try this: hold Mclatchy temp (vctr2) constant during iterations
-
-         theta(k,iw) = vctr2(k) * (p00 / press(k,iw)) ** rocp
-         thil(k,iw) = theta(k,iw)
->>>>>>> .merge-right.r805
 
 end subroutine fldslhi
 
