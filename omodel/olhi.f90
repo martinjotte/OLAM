@@ -80,7 +80,7 @@ call zonavg_init(idate1,imonth1,iyear1)
 do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 !----------------------------------------------------------------------
 
-! Linearly interpolate zonavg arrays by latitude to current IW column 
+! Linearly interpolate zonavg arrays by latitude to current IW column
 ! and K level
 
    ka = lpw(iw)
@@ -88,12 +88,12 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
    rlat = .4 * (glatw(iw) + 93.75)
    ilat = int(rlat)
    wt2 = rlat - float(ilat)
-   
+
    zonz_vect(1:22) = (1. - wt2) * zonz(ilat,1:22) + wt2 * zonz(ilat+1,1:22)
    zont_vect(1:22) = (1. - wt2) * zont(ilat,1:22) + wt2 * zont(ilat+1,1:22)
    zonu_vect(1:22) = (1. - wt2) * zonu(ilat,1:22) + wt2 * zonu(ilat+1,1:22)
    zonr_vect(1:22) = (1. - wt2) * zonr(ilat,1:22) + wt2 * zonr(ilat+1,1:22)
-   
+
 ! Interpolate zonavg vector arrays in height to model levels
 
 ! Fill pressure, theta, air density, and vapor density arrays from zonavg
@@ -113,9 +113,18 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
    wc(1:mza,iw)   = 0.
    wmc(1:mza,iw)  = 0.
 
+! Make sure kpbc is above the surface
+
+   k = ka + 1
+   if (zonp_vect(kpbc) > vctr1(k)) then
+      do while (zonp_vect(kpbc) > vctr1(k))
+         kpbc = kpbc + 1
+      enddo
+   endif
+
 ! Determine which two model zt levels bracket zonz_vect(kpbc) in this column
 
-   khi = 2
+   khi = ka + 1
    do while (zt(khi) < zonz_vect(kpbc))
       khi = khi + 1
    enddo
@@ -137,7 +146,7 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 ! Iterative hydrostatic integration
 
    do iter = 1,100
-   
+
 ! Adjust pressure at k = kbc.  Use temporal weighting for damping
 
       pressnew = press(kother,iw) * (zonp_vect(kpbc) / press(kother,iw)) ** extrap
@@ -148,7 +157,7 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
       do k = ka,mza
 
 ! Try this: hold Mclatchy temp (vctr2) constant during iterations
-      
+
          theta(k,iw) = vctr2(k) * (p00 / press(k,iw)) ** rocp
          thil(k,iw) = theta(k,iw)
 

@@ -485,7 +485,7 @@ do k = ka,mza
    o_ozone (k,iw) = max( 1.e-30, vctr6(k)*cnvto3) ! s.h. to ppmV
 enddo
 
-! Choose as an internal pressure boundary condition the pcol_p pressure level 
+! Choose as an internal pressure boundary condition the pcol_p pressure level
 ! at or below (in elevation) the 49900 Pa surface.  Find the k index of this level.
 
 kpbc = npd
@@ -493,9 +493,18 @@ do while (pcol_p(kpbc) < 49900.)
    kpbc = kpbc - 1
 enddo
 
+! Make sure we are above the surface though!
+
+k = ka + 1
+if (pcol_p(kpbc) > vctr1(k)) then
+   do while (pcol_p(kpbc) > vctr1(k) .and. kpbc < npd-1)
+      kpbc = kpbc + 1
+   enddo
+endif
+
 ! Determine which two model zt levels bracket pcol_z(kpbc) in this column
 
-khi = 2
+khi = ka + 1
 do while (zt(khi) < pcol_z(kpbc))
    khi = khi + 1
 enddo
