@@ -85,8 +85,8 @@ write(io6,'(/,a,i6)') ' myrank     = ',myrank
 write(io6,'(  a,i6)') ' mgroupsize = ',mgroupsize
 write(io6,'(  a,i6)') ' iparallel  = ',iparallel
 
-! Necessary for parallel HDF5
-call set_environment_variable("HDF5_USE_FILE_LOCKING", "FALSE")
+! For parallel HDF5
+! call set_environment_variable("HDF5_USE_FILE_LOCKING", "FALSE")
 
 ! initialize HDF5 library
 

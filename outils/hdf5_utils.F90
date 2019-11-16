@@ -362,7 +362,7 @@ subroutine shdf5_orec2(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar1, 
   integer,      intent(in) :: dims(:)  ! Dataset dimensions.
 
 ! Array and scalar arguments for different types. Only specify one in each call
-  integer,      intent(in), optional :: bvar1(:), bvar2(:,:), bvar3(:,:,:), bvar4(:,:,:,:)
+  integer(i1),  intent(in), optional :: bvar1(:), bvar2(:,:), bvar3(:,:,:), bvar4(:,:,:,:)
   integer,      intent(in), optional :: ivar1(:), ivar2(:,:), ivar3(:,:,:), ivar4(:,:,:,:)
   real,         intent(in), optional :: rvar1(:), rvar2(:,:), rvar3(:,:,:), rvar4(:,:,:,:)
   character,    intent(in), optional :: cvar1(:), cvar2(:,:), cvar3(:,:,:)
@@ -1036,7 +1036,7 @@ subroutine shdf5_orec_ll2(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar
   integer,      intent(in) :: dims(:)  ! Dataset dimensions.
 
 ! Array and scalar arguments for different types. Only specify one in each call
-  integer,      intent(in), optional :: bvar1(:), bvar2(:,:), bvar3(:,:,:)
+  integer(i1),  intent(in), optional :: bvar1(:), bvar2(:,:), bvar3(:,:,:)
   integer,      intent(in), optional :: ivar1(:), ivar2(:,:), ivar3(:,:,:)
   real,         intent(in), optional :: rvar1(:), rvar2(:,:), rvar3(:,:,:)
   character,    intent(in), optional :: cvar1(:), cvar2(:,:), cvar3(:,:,:)
