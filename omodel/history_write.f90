@@ -30,16 +30,17 @@
    !----------------------------------------------------------------------------
 
 !===============================================================================
+
 subroutine history_write(vtype)
 
   use var_tables, only: num_var, vtab_r, get_vtab_dims
   use misc_coms,  only: io6, ioutput, hfilepref, current_time, iclobber, &
                         iparallel
-  use hdf5_utils, only: shdf5_orec, shdf5_open, shdf5_close
+  use hdf5_utils, only: shdf5_orec, shdf5_open, shdf5_close, mpi_does_parallel_io
   use max_dims,   only: pathlen
-  use mem_grid,   only: nma, nva, nwa
-  use leaf_coms,  only: nwl
-  use sea_coms,   only: nws
+  use mem_grid,   only: nma, nva, nwa, mza
+  use leaf_coms,  only: nwl, mwl, nzg
+  use sea_coms,   only: nws, mws, nzi
   use mem_nudge,  only: nwnud
   use mem_para,   only: iva_globe_primary, iva_local_primary, mva_primary, &
                         iwa_globe_primary, iwa_local_primary, mwa_primary, &
@@ -48,6 +49,7 @@ subroutine history_write(vtype)
                         iws_globe_primary, iws_local_primary, mws_primary, &
                         iwnud_globe_primary, iwnud_local_primary, mwnud_primary, &
                         myrank
+  use hdf5_f2f, only: fh5_close_cache
   implicit none
 
 ! This routine writes the chosen variables on the history file.
@@ -58,10 +60,10 @@ subroutine history_write(vtype)
   character(32)      :: varn
   character(2)       :: stagpt
   logical            :: exans
-  integer            :: nv, nvcnt
+  integer            :: nv, nvcnt, hdferr
   integer            :: ndims, idims(3)
   integer, pointer   :: ilpts(:), igpts(:)
-  integer            :: nglobe
+  integer            :: nglobe, id
 
   if (ioutput == 0) return
 
@@ -89,6 +91,12 @@ subroutine history_write(vtype)
 
   call commio('WRITE')
 
+  ! Save parallel I/O file mappings for repeated uses
+
+  if (mpi_does_parallel_io) then
+     call hist_cache_hdf5_writes()
+  endif
+
 ! Loop through the main variable table and write those variables
 ! with the correct flag set
 
@@ -96,6 +104,8 @@ subroutine history_write(vtype)
   do nv = 1, num_var
 
      if (vtab_r(nv)%ihist) then
+
+        id = 1
 
         varn = vtab_r(nv)%name
         call get_vtab_dims(nv, ndims, idims)
@@ -111,10 +121,17 @@ subroutine history_write(vtype)
            ilpts => iwa_local_primary
            igpts => iwa_globe_primary
            nglobe = nwa
+
+           if (ndims == 1) id = 2
+           if (ndims == 2 .and. idims(1) == mza) id = 3
+
         elseif (stagpt == 'AV') then
            ilpts => iva_local_primary
            igpts => iva_globe_primary
            nglobe = nva
+
+           if (ndims == 2 .and. idims(1) == mza) id = 4
+
         elseif (stagpt == 'AM') then
            ilpts => ima_local_primary
            igpts => ima_globe_primary
@@ -123,10 +140,18 @@ subroutine history_write(vtype)
            ilpts => iwl_local_primary
            igpts => iwl_globe_primary
            nglobe = nwl
+
+           if (ndims == 1) id = 5
+           if (ndims == 2 .and. idims(1) == nzg) id = 6
+
         elseif (stagpt == 'SW') then
            ilpts => iws_local_primary
            igpts => iws_globe_primary
            nglobe = nws
+
+           if (ndims == 1) id = 7
+           if (ndims == 2 .and. idims(1) == nzi) id = 8
+
         elseif (stagpt == 'AN') then
            ilpts => iwnud_local_primary
            igpts => iwnud_globe_primary
@@ -138,6 +163,11 @@ subroutine history_write(vtype)
            stop "invalid array size in history_write for parallel output"
         endif
 
+        if (idims(1) == 1 .and. ndims > 1) then
+           idims(1:ndims-1) = idims(2:ndims)
+           ndims = ndims - 1
+        endif
+
         ! Now do the writes
 
         if     (associated(vtab_r(nv)%ivar0_p)) then
@@ -145,23 +175,23 @@ subroutine history_write(vtype)
                            lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
         elseif (associated(vtab_r(nv)%ivar1_p)) then
            call shdf5_orec(ndims, idims, varn, ivar1=vtab_r(nv)%ivar1_p, &
-                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
+                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe, cache_id=id)
         elseif (associated(vtab_r(nv)%ivar2_p)) then
            call shdf5_orec(ndims, idims, varn, ivar2=vtab_r(nv)%ivar2_p, &
-                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
+                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe, cache_id=id)
         elseif (associated(vtab_r(nv)%ivar3_p)) then
            call shdf5_orec(ndims, idims, varn, ivar3=vtab_r(nv)%ivar3_p, &
                            lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
-              
+
         elseif (associated(vtab_r(nv)%rvar0_p)) then
            call shdf5_orec(ndims, idims, varn, rvars=vtab_r(nv)%rvar0_p, &
                            lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
         elseif (associated(vtab_r(nv)%rvar1_p)) then
            call shdf5_orec(ndims, idims, varn, rvar1=vtab_r(nv)%rvar1_p, &
-                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
+                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe, cache_id=id)
         elseif (associated(vtab_r(nv)%rvar2_p)) then
            call shdf5_orec(ndims, idims, varn, rvar2=vtab_r(nv)%rvar2_p, &
-                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
+                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe, cache_id=id)
         elseif (associated(vtab_r(nv)%rvar3_p)) then
            call shdf5_orec(ndims, idims, varn, rvar3=vtab_r(nv)%rvar3_p, &
                            lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
@@ -171,21 +201,100 @@ subroutine history_write(vtype)
                            lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
         elseif (associated(vtab_r(nv)%dvar1_p)) then
            call shdf5_orec(ndims, idims, varn, dvar1=vtab_r(nv)%dvar1_p, &
-                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
+                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe, cache_id=id)
         elseif (associated(vtab_r(nv)%dvar2_p)) then
            call shdf5_orec(ndims, idims, varn, dvar2=vtab_r(nv)%dvar2_p, &
-                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
+                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe, cache_id=id)
         elseif (associated(vtab_r(nv)%dvar3_p)) then
            call shdf5_orec(ndims, idims, varn, dvar3=vtab_r(nv)%dvar3_p, &
                            lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
         endif
-           
+
         nvcnt = nvcnt + 1
 
      endif
 
   enddo
 
+  ! Close parallel I/O file mapping caches
+  if (mpi_does_parallel_io) then
+     do id = 2, 8
+        call fh5_close_cache(id, hdferr)
+     enddo
+  endif
+
   call shdf5_close()
 
 end subroutine history_write
+
+
+
+
+subroutine hist_cache_hdf5_writes()
+
+  use mem_grid,   only: mwa, nwa, mva, nva, mza
+  use leaf_coms,  only: nwl, mwl, nzg
+  use sea_coms,   only: nws, mws, nzi
+  use mem_para,   only: iva_globe_primary, iva_local_primary, mva_primary, &
+                        iwa_globe_primary, iwa_local_primary, mwa_primary, &
+                        ima_globe_primary, ima_local_primary, mma_primary, &
+                        iwl_globe_primary, iwl_local_primary, mwl_primary, &
+                        iws_globe_primary, iws_local_primary, mws_primary, &
+                        iwnud_globe_primary, iwnud_local_primary, mwnud_primary, &
+                        myrank
+  use hdf5_f2f,   only: fh5_cache_write
+
+  implicit none
+
+  integer :: ndims, herr
+  integer :: dims(3)
+
+  dims = 0
+
+  ndims   = 1
+  dims(1) = mwa
+
+  call fh5_cache_write(ndims, dims, 2, herr, mcoords=iwa_local_primary, &
+                                 ifsize=nwa, fcoords=iwa_globe_primary)
+
+  ndims   = 2
+  dims(1) = mza
+  dims(2) = mwa
+
+  call fh5_cache_write(ndims, dims, 3, herr, mcoords=iwa_local_primary, &
+                                 ifsize=nwa, fcoords=iwa_globe_primary)
+
+  ndims   = 2
+  dims(1) = mza
+  dims(2) = mva
+
+  call fh5_cache_write(ndims, dims, 4, herr, mcoords=iva_local_primary, &
+                                 ifsize=nva, fcoords=iva_globe_primary)
+
+  ndims   = 1
+  dims(1) = mwl
+
+  call fh5_cache_write(ndims, dims, 5, herr, mcoords=iwl_local_primary, &
+                                 ifsize=nwl, fcoords=iwl_globe_primary)
+
+  ndims   = 2
+  dims(1) = nzg
+  dims(2) = mwl
+
+  call fh5_cache_write(ndims, dims, 6, herr, mcoords=iwl_local_primary, &
+                                 ifsize=nwl, fcoords=iwl_globe_primary)
+
+  ndims   = 1
+  dims(1) = mws
+
+  call fh5_cache_write(ndims, dims, 7, herr, mcoords=iws_local_primary, &
+                                 ifsize=nws, fcoords=iws_globe_primary)
+
+  ndims   = 2
+  dims(1) = nzi
+  dims(2) = mws
+
+  call fh5_cache_write(ndims, dims, 8, herr, mcoords=iws_local_primary, &
+                                 ifsize=nws, fcoords=iws_globe_primary)
+
+end subroutine hist_cache_hdf5_writes

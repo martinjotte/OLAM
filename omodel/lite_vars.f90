@@ -37,7 +37,7 @@ module lite_vars
   real, allocatable :: ue(:,:)
   real, allocatable :: ve(:,:)
 
-contains  
+contains
 
 !=========================================================================
 
@@ -60,19 +60,19 @@ subroutine calc_lite_vars()
   ! Zonal and meridional wind speeds
 
   if (allocated(ue) .or. allocated(ve)) then
-     
+
      if (mdomain < 2) then
 
         !$omp parallel do private(iw,k,raxis)
         do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
-           
+
            if (allocated(ue)) ue(1:lpw(iw)-1,iw) = 0.
            if (allocated(ve)) ve(1:lpw(iw)-1,iw) = 0.
 
            raxis = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis
 
            if (raxis > 1.e3) then
-              
+
               do k = lpw(iw), mza
 
                  if (allocated(ue)) then
@@ -96,7 +96,7 @@ subroutine calc_lite_vars()
 
         enddo
         !$omp end parallel do
-           
+
      else
         if (allocated(ue)) ue = vxe
         if (allocated(ve)) ve = vye
@@ -147,7 +147,7 @@ subroutine prepare_lite()
 
      enddo
   enddo
-  
+
 end subroutine prepare_lite
 
 !=========================================================================
@@ -165,7 +165,7 @@ subroutine alloc_lite()
 
   ! This routine allocates space and sets the variable tables for any extra
   ! derived quantities that we may want to output in lite files.
-  
+
   do n = 1, maxlite
 
      if (nl%lite_vars(n) == '') exit
@@ -177,7 +177,7 @@ subroutine alloc_lite()
         allocate(ue(mza,mwa))
         call increment_vtable('UE', 'AW', noread=.true., hist=.false., &
                               lite=.true., rvar2=ue)
-           
+
      case('VE')
 
         allocate(ve(mza,mwa))
@@ -187,7 +187,7 @@ subroutine alloc_lite()
      end select
 
   enddo
-  
+
 end subroutine alloc_lite
 
 !=========================================================================
@@ -198,9 +198,9 @@ subroutine lite_write()
   use var_tables, only: num_var, vtab_r, get_vtab_dims, num_lite
   use misc_coms,  only: io6, ioutput, current_time, iclobber, &
                         iparallel
-  use hdf5_utils, only: shdf5_orec, shdf5_open, shdf5_close
+  use hdf5_utils, only: shdf5_orec, shdf5_open, shdf5_close, mpi_does_parallel_io
   use max_dims,   only: pathlen
-  use mem_grid,   only: nma, nua, nva, nwa
+  use mem_grid,   only: nma, nua, nva, nwa, mza
   use leaf_coms,  only: nwl
   use sea_coms,   only: nws
   use mem_nudge,  only: nwnud
@@ -210,6 +210,8 @@ subroutine lite_write()
                         iwl_globe_primary, iwl_local_primary, mwl_primary, &
                         iws_globe_primary, iws_local_primary, mws_primary, &
                         iwnud_globe_primary, iwnud_local_primary, mwnud_primary
+  use hdf5_f2f,   only: fh5_close_cache
+
   implicit none
 
   ! This routine writes the chosen variables to the lite files
@@ -221,7 +223,7 @@ subroutine lite_write()
   integer            :: nv, nvcnt
   integer            :: ndims, idims(3)
   integer, pointer   :: ilpts(:), igpts(:)
-  integer            :: nglobe
+  integer            :: nglobe, id, hdferr
 
   if (nl%ioutput_lite == 0 .or. num_lite < 1) return
 
@@ -253,6 +255,12 @@ subroutine lite_write()
 
   call commio('WRITE')
 
+  ! Store parallel I/O file mappings for repeated use
+
+  if (mpi_does_parallel_io) then
+     call cache_lite_writes()
+  endif
+
   ! Loop through the main variable table and write those variables
   ! with the correct flag set
 
@@ -260,6 +268,8 @@ subroutine lite_write()
   do nv = 1, num_var
 
      if (vtab_r(nv)%ilite) then
+
+        id = 1
 
         varn = vtab_r(nv)%name
         call get_vtab_dims(nv, ndims, idims)
@@ -275,6 +285,10 @@ subroutine lite_write()
            ilpts => iwa_local_primary
            igpts => iwa_globe_primary
            nglobe = nwa
+
+!          if (ndims == 1) id = 2
+           if (ndims == 2 .and. idims(1) == mza) id = 3
+
         elseif (stagpt == 'AV') then
            ilpts => iva_local_primary
            igpts => iva_globe_primary
@@ -312,11 +326,11 @@ subroutine lite_write()
                            lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
         elseif (associated(vtab_r(nv)%ivar2_p)) then
            call shdf5_orec(ndims, idims, varn, ivar2=vtab_r(nv)%ivar2_p, &
-                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
+                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe, cache_id=id)
         elseif (associated(vtab_r(nv)%ivar3_p)) then
            call shdf5_orec(ndims, idims, varn, ivar3=vtab_r(nv)%ivar3_p, &
                            lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
-              
+
         elseif (associated(vtab_r(nv)%rvar0_p)) then
            call shdf5_orec(ndims, idims, varn, rvars=vtab_r(nv)%rvar0_p, &
                            lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
@@ -325,7 +339,7 @@ subroutine lite_write()
                            lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
         elseif (associated(vtab_r(nv)%rvar2_p)) then
            call shdf5_orec(ndims, idims, varn, rvar2=vtab_r(nv)%rvar2_p, &
-                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
+                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe, cache_id=id)
         elseif (associated(vtab_r(nv)%rvar3_p)) then
            call shdf5_orec(ndims, idims, varn, rvar3=vtab_r(nv)%rvar3_p, &
                            lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
@@ -338,20 +352,57 @@ subroutine lite_write()
                            lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
         elseif (associated(vtab_r(nv)%dvar2_p)) then
            call shdf5_orec(ndims, idims, varn, dvar2=vtab_r(nv)%dvar2_p, &
-                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
+                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe, cache_id=id)
         elseif (associated(vtab_r(nv)%dvar3_p)) then
            call shdf5_orec(ndims, idims, varn, dvar3=vtab_r(nv)%dvar3_p, &
                            lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
         endif
-           
+
         nvcnt = nvcnt + 1
 
      endif
 
   enddo
 
+  if (mpi_does_parallel_io) then
+!    call fh5_close_cache(2, hdferr)
+     call fh5_close_cache(3, hdferr)
+  endif
+
   call shdf5_close()
 
 end subroutine lite_write
+
+
+
+subroutine cache_lite_writes()
+
+  use misc_coms,  only: ioutput
+  use mem_grid,   only: mwa, nwa, mva, nva, mza
+  use mem_para,   only: iwa_globe_primary, iwa_local_primary, mwa_primary
+  use hdf5_f2f,   only: fh5_cache_write
+
+  implicit none
+
+  integer :: ndims, herr
+  integer :: dims(3)
+
+  dims = 0
+
+!  ndims   = 1
+!  dims(1) = mwa
+!
+!  call fh5_cache_write(ndims, dims, 2, herr, mcoords=iwa_local_primary, &
+!                                 ifsize=nwa, fcoords=iwa_globe_primary)
+
+  ndims   = 2
+  dims(1) = mza
+  dims(2) = mwa
+
+  call fh5_cache_write(ndims, dims, 3, herr, mcoords=iwa_local_primary, &
+                                 ifsize=nwa, fcoords=iwa_globe_primary)
+
+end subroutine cache_lite_writes
+
 
 end module lite_vars

@@ -39,6 +39,12 @@ Module hdf5_utils
   character(1), save :: prevaccess = ''
   private            :: myrank, r8, i1, prevaccess
 
+#if defined(OLAM_MPI) && !defined(OLAM_PARALLEL_HDF5)
+  logical, parameter :: mpi_does_parallel_io = .false.
+#else
+  logical, parameter :: mpi_does_parallel_io = .true.
+#endif
+
 Contains
 
 subroutine shdf5_open(locfn, access, idelete)
@@ -164,7 +170,7 @@ subroutine shdf5_orec(ndims,dims,dsetname,bvars,ivars,rvars,cvars,dvars,lvars, &
                                           units, long_name, positive,     &
                                           imissing, rmissing, dmissing,   &
                                           isdim, dimnames, standard_name, &
-                                          cell_methods                    )
+                                          cell_methods, cache_id          )
 
   use oname_coms,  only: nl
   use misc_coms,   only: iparallel
@@ -200,8 +206,11 @@ subroutine shdf5_orec(ndims,dims,dsetname,bvars,ivars,rvars,cvars,dvars,lvars, &
 ! Indicate names of each dimension
   character(*), intent(in), optional :: dimnames(:)
 
+! Dataspace cache id
+  integer,      intent(in), optional :: cache_id
+
 ! Local variables
-  integer :: hdferr  ! Error flag
+  integer :: hdferr, ids
 
 ! Check dimensions and set compression chunk size
 
@@ -232,8 +241,11 @@ subroutine shdf5_orec(ndims,dims,dsetname,bvars,ivars,rvars,cvars,dvars,lvars, &
 
 ! Prepare memory and options for the write
 
+  ids = 1
+  if (present(cache_id)) ids = cache_id
+
   call fh5_prepare_write(ndims, dims, hdferr, nl%icompress, &
-       mcoords=lpoints, fcoords=gpoints, ifsize=nglobe)
+       mcoords=lpoints, fcoords=gpoints, ifsize=nglobe, idcache=ids)
 
   if (hdferr /= 0) then
      print*, "shdf5_orec: can't prepare requested field:", trim(dsetname)
@@ -362,7 +374,7 @@ subroutine shdf5_orec2(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar1, 
   integer,      intent(in) :: dims(:)  ! Dataset dimensions.
 
 ! Array and scalar arguments for different types. Only specify one in each call
-  integer,      intent(in), optional :: bvar1(:), bvar2(:,:), bvar3(:,:,:), bvar4(:,:,:,:)
+  integer(i1),  intent(in), optional :: bvar1(:), bvar2(:,:), bvar3(:,:,:), bvar4(:,:,:,:)
   integer,      intent(in), optional :: ivar1(:), ivar2(:,:), ivar3(:,:,:), ivar4(:,:,:,:)
   real,         intent(in), optional :: rvar1(:), rvar2(:,:), rvar3(:,:,:), rvar4(:,:,:,:)
   character,    intent(in), optional :: cvar1(:), cvar2(:,:), cvar3(:,:,:)
@@ -855,7 +867,7 @@ subroutine shdf5_orec_ll(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar1
                                              units, long_name, positive,     &
                                              imissing, rmissing, dmissing,   &
                                              isdim, dimnames, standard_name, &
-                                             cell_methods                    )
+                                             cell_methods, cache_id          )
 
   use oname_coms,  only: nl
   use misc_coms,   only: iparallel
@@ -891,8 +903,11 @@ subroutine shdf5_orec_ll(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar1
 ! Indicate names of each dimension
   character(*), intent(in), optional :: dimnames(:)
 
+! Dataspace cache id
+  integer,      intent(in), optional :: cache_id
+
 ! Local variables
-  integer :: hdferr  ! Error flag
+  integer :: hdferr, ids
 
 ! Check dimensions and set compression chunk size
 
@@ -900,7 +915,7 @@ subroutine shdf5_orec_ll(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar1
      print*, 'Dimension error in shdf5_orec_ll:', ndims, dims(1:ndims)
      stop    'shdf5_orec_ll: bad dims'
   endif
-     
+
 #if defined(OLAM_MPI) && !defined(OLAM_PARALLEL_HDF5)
   if (present(gpoints) .and. iparallel == 1) then
 
@@ -920,7 +935,11 @@ subroutine shdf5_orec_ll(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar1
 
 ! Prepare memory and options for the write
 
-  call fh5_prepare_write_ll(ndims, dims, hdferr, nl%icompress, fcoords=gpoints)
+  ids = 1
+  if (present(cache_id)) ids = cache_id
+
+  call fh5_prepare_write_ll( ndims, dims, hdferr, 0, & !nl%icompress, &
+                             fcoords=gpoints, idcache=ids )
 
   if (hdferr /= 0) then
      print*, "shdf5_orec_ll: can't prepare requested field:", trim(dsetname)
@@ -1036,7 +1055,7 @@ subroutine shdf5_orec_ll2(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar
   integer,      intent(in) :: dims(:)  ! Dataset dimensions.
 
 ! Array and scalar arguments for different types. Only specify one in each call
-  integer,      intent(in), optional :: bvar1(:), bvar2(:,:), bvar3(:,:,:)
+  integer(i1),  intent(in), optional :: bvar1(:), bvar2(:,:), bvar3(:,:,:)
   integer,      intent(in), optional :: ivar1(:), ivar2(:,:), ivar3(:,:,:)
   real,         intent(in), optional :: rvar1(:), rvar2(:,:), rvar3(:,:,:)
   character,    intent(in), optional :: cvar1(:), cvar2(:,:), cvar3(:,:,:)
@@ -1088,7 +1107,7 @@ subroutine shdf5_orec_ll2(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar
   locbuff = nu
   do n = 3, ndims
      maxbuff = maxbuff * dims(n)
-     locbuff = locbuff * dims(n) 
+     locbuff = locbuff * dims(n)
   enddo
 
   if (myrank == 0) then
@@ -1218,7 +1237,7 @@ subroutine shdf5_orec_ll2(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar
   endif
 
 ! Link each variable to its dimensions
-  
+
   if ((present(dimnames)) .and. (.not. present(isdim))) then
      if (size(dimnames) >= ndims) call fh5f_attach_dims(ndims, dimnames, hdferr)
   endif
@@ -1276,6 +1295,10 @@ subroutine shdf5_write_global_attribute(name, ivalue, rvalue, dvalue, cvalue)
   real,         optional, intent(in) :: rvalue
   real(r8),     optional, intent(in) :: dvalue
   character(*), optional, intent(in) :: cvalue
+
+#if defined(OLAM_MPI) && !defined(OLAM_PARALLEL_HDF5)
+  if (myrank /= 0) return
+#endif
 
   if (present(ivalue)) then
      call fh5f_write_global_attribute(name, ivalue=ivalue)
