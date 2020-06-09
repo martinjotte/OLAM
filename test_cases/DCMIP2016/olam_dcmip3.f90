@@ -434,7 +434,7 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
          thil(k,iw) = theta(k,iw)
       else
          thil(k,iw) = theta(k,iw) / ( 1. + alvlocp * rr_c(k,iw) / &
-                                         ((1.0 + rr_c(k,iw)) * max(temp,253.)) )
+                                         ((1.0 + rr_c(k,iw)) * max(tair(k,iw),253.)) )
       endif
    enddo
 

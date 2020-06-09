@@ -1026,7 +1026,7 @@ Contains
            thil(k,iw) = theta(k,iw)
         else
            thil(k,iw) = theta(k,iw) / (1. + alvlocp * rr_c(k,iw) / &
-                                          ((1.0 + rr_c(k,iw)) * max(temp,253.)))
+                                      ((1.0 + rr_v(k,iw)) * max(tair(k,iw),253.)))
         endif
      enddo
 
@@ -1771,7 +1771,7 @@ print*, 'hlat,hlon ',hlat,hlon,xeh,yeh,zeh
            thil(k,iw) = theta(k,iw)
         else
            thil(k,iw) = theta(k,iw) / (1. + alvlocp * rr_c(k,iw) / &
-                                          ((1.0 + rr_c(k,iw)) * max(temp,253.)))
+                                      ((1.0 + rr_v(k,iw)) * max(tair(k,iw),253.)))
         endif
      enddo
 

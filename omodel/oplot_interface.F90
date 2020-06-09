@@ -3085,20 +3085,20 @@ subroutine oplot_set(iplt)
            op%ymax = min(nl%zplot_max, zm(nza))
         endif
 
-        if (op%stagpt == 'A' .or. op%stagpt == 'L') op%ymin = -.2 * op%ymax  
+        if (op%stagpt == 'A' .or. op%stagpt == 'L') op%ymin = -.2 * op%ymax
 
      elseif (op%projectn(iplt) == 'Z') then
 
         op%xmin = minval(xem(2:mma))
         op%xmax = maxval(xem(2:mma))
-        
+
         op%ymin = minval(yem(2:mma))
         op%ymax = maxval(yem(2:mma))
 
 #ifdef OLAM_MPI
         if (iparallel == 1) then
 
-           allocate(buffer(4,mgroupsize))
+           allocate(buffer(4,0:mgroupsize-1))
            buffer(1,myrank) = op%xmin
            buffer(2,myrank) = op%xmax
            buffer(3,myrank) = op%ymin

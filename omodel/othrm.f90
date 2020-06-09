@@ -107,7 +107,7 @@ subroutine satadjst(iw)
 
 use mem_basic,   only: thil, theta, tair, rho, rr_w, rr_v, press
 use mem_micro,   only: rr_c
-use consts_coms, only: p00i, cp, alvl, rocp
+use consts_coms, only: p00i, cp, alvlocp, rocp
 use mem_grid,    only: lpw, mza
 use misc_coms,   only: io6
 use therm_lib,   only: rhovsl
@@ -128,7 +128,7 @@ do k = lpw(iw),mza
       rr_c(k,iw) = max(0.,rr_w(k,iw)-rhovs/real(rho(k,iw)))
       rr_v(k,iw) = rr_w(k,iw) - rr_c(k,iw)
       temp = 0.7 * temp  &
-           + 0.3 * t_il * (1. + alvl * rr_c(k,iw) / (cp * max(temp,253.)))
+           + 0.3 * t_il * (1. + alvlocp * rr_c(k,iw) / ((1.+rr_v(k,iw)) * max(temp,253.)))
    enddo
 
    theta(k,iw) = temp / exner

@@ -32,13 +32,11 @@
 !===============================================================================
 subroutine fldslhi()
 
-use mem_basic,   only: theta, thil, rho, press, rr_w, &
-                       wc, wmc, vc, vp, vmc, vmp, ue, ve
+use mem_basic,   only: theta, thil, rho, press, rr_w, wc, wmc, &
+                       vc, vp, vmc, vmp, ue, ve, vxe, vye, vze
 use mem_ijtabs,  only: jtab_w, jtab_v, itab_v, &
                        jtv_init, jtw_init
-!use consts_coms, only: p00, p00i, rocp, cvocp, p00kord, rdry, alvlocp, &
-!                       eps_vapi, r8
-use mem_grid,    only: mza, lpv, vcn_ew, zm, zt
+use mem_grid,    only: mza, lpv, zm, zt, vnxo2, vnyo2
 use mem_zonavg,  only: zonavg_init
 use misc_coms,   only: io6, iparallel, idate1, imonth1, iyear1
 use olam_mpi_atm,only: mpi_send_w, mpi_recv_w,  &
@@ -48,7 +46,6 @@ use obnd,        only: lbcopy_v, lbcopy_w
 implicit none
 
 integer :: j,iw,k,ka,iv,iw1,iw2
-real    :: ug
 
 ! Fill zonavg arrays for initialization time
 
@@ -71,19 +68,22 @@ enddo
 if (iparallel == 1) then
    call mpi_send_w(1, dvara1=press, dvara2=rho, &
                    rvara1=wc, rvara2=wmc, rvara3=thil, &
-                   rvara4=ue, rvara5=ve)
+                   rvara4=ue, rvara5=ve, &
+                   rvara6=vxe, rvara7=vye, rvara8=vze)
 
    call mpi_recv_w(1, dvara1=press, dvara2=rho, &
                    rvara1=wc, rvara2=wmc, rvara3=thil, &
-                   rvara4=ue, rvara5=ve)
+                   rvara4=ue, rvara5=ve, &
+                   rvara6=vxe, rvara7=vye, rvara8=vze)
 endif
 
-call lbcopy_w(1, a1=wc, a2=wmc, a3=thil, a4=ue, a5=ve, d1=press, d2=rho)
+call lbcopy_w(1, a1=wc,  a2=wmc, a3=thil, a4=ue, a5=ve, &
+                 a6=vxe, a7=vye, a8=vze,  d1=press, d2=rho)
 
 ! Initialize VMC, VC
 
 !----------------------------------------------------------------------
-!$omp parallel do private(iv,iw1,iw2,ka,k,ug)
+!$omp parallel do private(iv,iw1,iw2,ka,k)
 do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)
    iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
 !----------------------------------------------------------------------
@@ -93,9 +93,10 @@ do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)
    ! Average winds to V point and rotate at V point (assumed to be global simulation)
 
    do k = ka, mza
-      ug = .5 * (ue(k,iw1) + ue(k,iw2))
-      vc( k,iv) = ug * vcn_ew(iv)
-      vmc(k,iv) = vc(k,iv) * .5 * real(rho(k,iw1) + rho(k,iw2))
+      vc(k,iv) = vnxo2(iv) * (vxe(k,iw1) + vxe(k,iw2)) &
+               + vnyo2(iv) * (vye(k,iw1) + vye(k,iw2))
+
+      vmc(k,iv) = vc(k,iv) * 0.5 * (rho(k,iw1) + rho(k,iw2))
    enddo
 
    ! For below-ground points, set VC to 0
@@ -150,12 +151,13 @@ end subroutine fldslhi
 subroutine interp_thermo_olhi(iw)
 
   use mem_basic,   only: theta, thil, tair, rho, press, rr_w, rr_v,  &
-                         wc, wmc, ue, ve
+                         wc, wmc, ue, ve, vxe, vye, vze
   use mem_micro,   only: rr_c, con_c, cldnum
   use micro_coms,  only: miclevel, ccnparm, jnmb, rxmin, zfactor_ccn
   use consts_coms, only: p00, p00i, rocp, cvocp, p00kord, rdry, alvlocp, &
                          eps_vapi, r8
-  use mem_grid,    only: mza, lpw, zt, gdz_belo8, gdz_abov8, glatw
+  use mem_grid,    only: mza, lpw, zt, gdz_belo8, gdz_abov8, glatw, &
+                         vxn_ew, vyn_ew
   use mem_zonavg,  only: zonp_vect, zonz, zonu, zont, zonr
   use therm_lib,   only: rhovsl
 
@@ -217,6 +219,9 @@ subroutine interp_thermo_olhi(iw)
   ve   (1:mza,iw) = 0.
   wc   (1:mza,iw) = 0.
   wmc  (1:mza,iw) = 0.
+  vxe  (1:mza,iw) = vxn_ew(iw) * vctr4(1:mza)
+  vye  (1:mza,iw) = vyn_ew(iw) * vctr4(1:mza)
+  vze  (1:mza,iw) = 0.
 
   if (miclevel == 0) then
      rho(1:mza,iw) = press(1:mza,iw) ** cvocp * p00kord / theta(1:mza,iw)
@@ -327,7 +332,7 @@ subroutine interp_thermo_olhi(iw)
         thil(k,iw) = theta(k,iw)
      else
         thil(k,iw) = theta(k,iw) / (1. + alvlocp * rr_c(k,iw) / &
-                                       ((1.0 + rr_c(k,iw)) * max(temp,253.)))
+                                       ((1.0 + rr_v(k,iw)) * max(tair(k,iw),253.)))
      endif
   enddo
 

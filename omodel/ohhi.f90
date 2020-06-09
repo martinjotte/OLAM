@@ -35,7 +35,11 @@ subroutine inithh()
   ! Horizontally-homogeneous initialization of model fields
 
   use misc_coms, only: itsflg
+  use mem_grid,  only: mza
+
   implicit none
+
+  real :: rv01d(mza)
 
   ! Arrange the input sounding
 
@@ -48,10 +52,10 @@ subroutine inithh()
   endif
 
   ! Compute the 1-D reference state variables
-  call refs1d()
+  call refs1d(rv01d)
 
   ! Initialize the 3-D model fields
-  call fldshhi()
+  call fldshhi(rv01d)
 
 end subroutine inithh
 
@@ -501,7 +505,7 @@ end function rts2qt
 
 !===============================================================================
 
-subroutine refs1d()
+subroutine refs1d(rv01d)
 ! +---------------------------------------------------------------------
 ! \   This routine computes the reference state sounding on the model
 ! \     levels from input sounding defined on pressure levels.
@@ -511,11 +515,13 @@ use misc_coms,   only: io6, nsndg, hs, thds, us, vs, ts, rts, ps, &
                        pr01d, dn01d, rt01d, th01d, u01d, v01d
 use consts_coms, only: cvocp, p00kord, rdry, eps_virt, p00, rocp, t00, &
                        p00i, eps_vapi, r8
-use mem_grid,    only: mza, zm, zt, gdz_belo, gdz_abov, gravm
+use mem_grid,    only: mza, zm, zt, gdz_belo, gdz_abov
 use micro_coms,  only: miclevel
 use therm_lib,   only: rslf
 
 implicit none
+
+real, intent(out) :: rv01d(mza)
 
 integer :: k, iter
 real    :: dens1, dens1t, exner, temp
@@ -544,8 +550,14 @@ endif
 
 call htint(nsndg,ps,hs,mza,pr01d,zt)
 
-qsat   = rslf(ps(1), ts(1))
-qv     = rts(1) - max(0., rts(1) - qsat)
+if (miclevel >= 2) then
+   qsat = rslf(ps(1), ts(1))
+   qv   = rts(1) - max(0., rts(1) - qsat)
+else
+   qv = rts(1)
+endif
+
+! surface values
 dens1  = ps(1) ** cvocp * p00kord / (thds(1) * (1.0 + eps_vapi * qv))
 dens1t = dens1 * (1.0 + qv)
 
@@ -553,28 +565,23 @@ dens1t = dens1 * (1.0 + qv)
 
 do iter = 1,100
 
-   tair = th01d(1) * (pr01d(1) * p00i) ** rocp
-   qsat = rslf(pr01d(1), tair)
-   qv   = rt01d(1) - max(0., rt01d(1) - qsat)
-
-   dn01d(1) = pr01d(1) ** cvocp * p00kord / &
-              ( th01d(1) * (1. + eps_vapi * qv) )
-
-   dt01d(1) = dn01d(1) * (1.0 + qv)
-
-   pr01d(1) = ps(1) - 0.5 * gravm(1) * (dens1t + dt01d(1)) * (zt(1) - hs(1))
-
-   do k = 2,mza
-
-      tair  = th01d(k) * (pr01d(k) * p00i) ** rocp
-      qsat  = rslf(pr01d(k), tair)
-      qv    = rt01d(k) - max(0., rt01d(k) - qsat)
+   do k = 2, mza
+      if (miclevel >= 2) then
+         tair = th01d(k) * (pr01d(k) * p00i) ** rocp
+         qsat = rslf(pr01d(k), tair)
+         rv01d(k) = rt01d(k) - max(0., rt01d(k) - qsat)
+      else
+         rv01d(k) = rt01d(k)
+      endif
 
       dn01d(k) = pr01d(k) ** cvocp * p00kord / &
-                 ( th01d(k) * (1. + eps_vapi * qv) )
+                 ( th01d(k) * (1. + eps_vapi * rv01d(k)) )
+      dt01d(k) = dn01d(k) * (1.0 + rv01d(k))
+   enddo
 
-      dt01d(k) = dn01d(k) * (1.0 + qv)
+   pr01d(2) = max(1., ps(1) - gdz_abov(1) * dt01d(2) )
 
+   do k = 3, mza
       ! Impose minimum value of 1 Pa to avoid overshoot to negative values
       ! during iteration
       pr01d(k) = max(1., pr01d(k-1) &
@@ -584,6 +591,7 @@ enddo
 
 rt01d(1) = rt01d(2)
 th01d(1) = th01d(2)
+pr01d(1) = ps(1)
 
 ! Print out initial state column
 
@@ -612,25 +620,26 @@ end subroutine refs1d
 
 !===============================================================================
 
-subroutine fldshhi()
+subroutine fldshhi(rv01d)
 
-use mem_basic,   only: theta, thil, tair, press, rho, wc, wmc, &
-                       vc, vp, vmp, vmc, rr_w, rr_v, ue, ve
+use mem_basic,   only: theta, thil, tair, press, rho, wc, wmc, vc, vp, &
+                       vmp, vmc, rr_w, rr_v, ue, ve, vxe, vye, vze
 use mem_micro,   only: rr_c, con_c, cldnum
 use micro_coms,  only: miclevel, ccnparm, jnmb, rxmin, zfactor_ccn
 use mem_ijtabs,  only: jtab_w, jtab_v, itab_v, jtv_init, jtw_init, jtv_wall
 use misc_coms,   only: th01d, pr01d, dn01d, rt01d, u01d, v01d, iparallel
 use consts_coms, only: cvocp, p00kord, p00i, rocp, alvlocp, eps_vapi, r8
-use mem_grid,    only: mza, lpv, lpw, gdz_abov8, gdz_belo8, vcn_ew, vcn_ns
+use mem_grid,    only: mza, lpv, lpw, vnxo2, vnyo2, vnzo2
 use olam_mpi_atm,only: mpi_send_w, mpi_recv_w, mpi_send_v, mpi_recv_v
 use obnd,        only: lbcopy_v, lbcopy_w
 use therm_lib,   only: rhovsl
 
 implicit none
 
-integer  :: j,iw,k,ka,iv,iter,iw1,iw2,kbc
-real     :: temp, exner, ccn
-real(r8) :: pkhyd, rho_tot(mza)
+real, intent(in) :: rv01d(mza)
+
+integer  :: j,iw,k,ka,iv,iw1,iw2,kbc
+real     :: ccn
 
 ! Choose as an internal pressure boundary condition the pressure level at or
 ! below (in elevation) the 49900 Pa surface.  Find the k index of this level.
@@ -641,8 +650,7 @@ do while (pr01d(kbc) < 49900.)
 enddo
 
 !----------------------------------------------------------------------
-!$omp parallel private(rho_tot)
-!$omp do private(iw,ka,k,iter,temp,exner,ccn,pkhyd)
+!$omp parallel do private(iw,ka,k,ccn)
 do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 !---------------------------------------------------------------------
 
@@ -652,6 +660,7 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 
    wc (1:mza,iw) = 0.
    wmc(1:mza,iw) = 0.
+   vze(1:mza,iw) = 0.
 
    do k = ka, mza
       theta(k,iw) = th01d(k)
@@ -659,63 +668,19 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
       press(k,iw) = pr01d(k)
       rho  (k,iw) = dn01d(k)
       rr_w (k,iw) = rt01d(k)
-      rr_v (k,iw) = rt01d(k)
+      rr_v (k,iw) = rv01d(k)
       ue   (k,iw) =  u01d(k)
       ve   (k,iw) =  v01d(k)
-   enddo
+      vxe  (k,iw) =  u01d(k)
+      vye  (k,iw) =  v01d(k)
+      tair (k,iw) = theta(k,iw) * (real(press(k,iw)) * p00i) ** rocp
 
-   do iter = 1, 100
-
-!  Compute density for all grid levels
-
-      do k = ka, mza
-
-         if (miclevel == 0) then
-            rho (k,iw) = press(k,iw) ** cvocp * p00kord / theta(k,iw)
-            rho_tot(k) = rho(k,iw)
-         elseif (miclevel == 1) then
-            rho (k,iw) = press(k,iw) ** cvocp * p00kord / &
-                 ( theta(k,iw) * (1.0 + eps_vapi * rr_v(k,iw)) )
-            rho_tot(k) = rho(k,iw) * (1. + rr_v(k,iw))
-         else
-            exner = (real(press(k,iw)) * p00i) ** rocp  ! Defined WITHOUT CP factor
-            temp = exner * theta(k,iw)
-
-            rr_c(k,iw) = max(0., rr_w(k,iw) - rhovsl(temp-273.15) / real(rho(k,iw)))
-            rr_v(k,iw) = rr_w(k,iw) - rr_c(k,iw)
-
-            rho (k,iw) = press(k,iw) ** cvocp * p00kord / &
-                 ( theta(k,iw) * (1.0 + eps_vapi * rr_v(k,iw)) )
-
-            rho_tot(k) = rho(k,iw) * (1. + rr_v(k,iw))
-         endif
-
-      enddo
-
-! Integrate hydrostatic equation upward and downward from kbc level
-! Impose minimum value of 0.1 Pa to avoid overshoot to negative values
-! during iteration.  Use weighting to damp oscillations
-
-      do k = kbc+1,mza
-         pkhyd = press(k-1,iw) &
-               - gdz_belo8(k-1) * rho_tot(k-1) - gdz_abov8(k-1) * rho_tot(k)
-         press(k,iw) = .05_r8 * press(k,iw) + .95_r8 * max(.1_r8, pkhyd)
-      enddo
-
-      do k = kbc-1,ka,-1
-         pkhyd = press(k+1,iw) &
-               + gdz_belo8(k) * rho_tot(k) + gdz_abov8(k) * rho_tot(k+1)
-         press(k,iw) = .05_r8 * press(k,iw) + .95_r8 * max(.1_r8, pkhyd)
-      enddo
-
-   enddo
-
-   do k = ka, mza
-      tair(k,iw) = theta(k,iw) * (real(press(k,iw)) * p00i) ** rocp
       if (miclevel > 1) then
+         rr_c(k,iw) = rr_w(k,iw) - rr_v(k,iw)
          thil(k,iw) = theta(k,iw) / (1. + alvlocp * rr_c(k,iw) / &
-                                        ((1.0 + rr_c(k,iw)) * max(temp,253.)))
+                                    ((1.0 + rr_v(k,iw)) * max(tair(k,iw),253.)))
       endif
+
    enddo
 
    do k = 1, ka-1
@@ -739,21 +704,25 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
    endif
 
 enddo
-!$omp end do
-!$omp end parallel
+!$omp end parallel do
 
 ! LBC copy (THETA and TAIR will be copied later with the scalars)
 
 if (iparallel == 1) then
+
    call mpi_send_w(1, dvara1=press, dvara2=rho, &
                    rvara1=wc,rvara2=wmc,rvara3=thil, &
-                   rvara4=ue,rvara5=ve)
+                   rvara4=ue,rvara5=ve, &
+                   rvara6=vxe, rvara7=vye, rvara8=vze)
+
    call mpi_recv_w(1, dvara1=press, dvara2=rho, &
                    rvara1=wc,rvara2=wmc,rvara3=thil, &
-                   rvara4=ue,rvara5=ve)
+                   rvara4=ue,rvara5=ve, &
+                   rvara6=vxe, rvara7=vye, rvara8=vze)
 endif
 
-call lbcopy_w(1, a1=wc, a2=wmc, a3=thil, a4=ue, a5=ve, d1=press, d2=rho)
+call lbcopy_w(1, a1=wc, a2=wmc, a3=thil, a4=ue, a5=ve, a6=vxe, a7=vye, a8=vze, &
+                 d1=press, d2=rho)
 
 ! Initialize VMC, VC
 
@@ -768,16 +737,24 @@ do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)
 
    ka = lpv(iv)
 
-! If sounding winds are to be interpreted as eastward (U) and
-! northward (V) components, rotate winds from geographic to
-! polar stereographic orientation
-
-! V point coordinates and normal vector components
-
    do k = ka, mza
-      vc( k,iv) = u01d(k) * vcn_ew(iv) + v01d(k) * vcn_ns(iv)
-      vmc(k,iv) = vc(k,iv) * .5 * real(rho(k,iw1) + rho(k,iw2))
+      vc(k,iv) = vnxo2(iv) * (vxe(k,iw1) + vxe(k,iw2)) &
+               + vnyo2(iv) * (vye(k,iw1) + vye(k,iw2)) &
+               + vnzo2(iv) * (vze(k,iw1) + vze(k,iw2))
+
+      vmc(k,iv) = vc(k,iv) * 0.5 * (rho(k,iw1) + rho(k,iw2))
    enddo
+
+   ! If sounding winds are to be interpreted as eastward (U) and
+   ! northward (V) components, rotate winds from geographic to
+   ! polar stereographic orientation
+
+   ! V point coordinates and normal vector components
+
+   !do k = ka, mza
+   !   vc( k,iv) = u01d(k) * vcn_ew(iv) + v01d(k) * vcn_ns(iv)
+   !   vmc(k,iv) = vc(k,iv) * .5 * real(rho(k,iw1) + rho(k,iw2))
+   !enddo
 
 ! For below-ground points, set VC to 0
 
