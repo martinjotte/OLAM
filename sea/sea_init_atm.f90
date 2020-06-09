@@ -75,7 +75,7 @@ subroutine sea_init_atm()
      if (isubdomain == 1) then
         iw = itabg_w(iw)%iw_myrank
      endif
-     
+
      kw = itab_ws(iws)%kw
 
      ! Initialize sea temperature, sea ice, and canopy depth
@@ -92,7 +92,7 @@ subroutine sea_init_atm()
 
      prss             = press(kw,iw) + gdz_abov8(kw-1) * rho(kw,iw) * (1. + rr_w(kw,iw))
      sea%cantemp(iws) = theta(kw,iw) * (prss * p00i)**rocp
-     sea%canshv (iws) = rr_v(kw,iw) / (1.0 + rr_v(kw,iw))
+     sea%canshv (iws) = rr_v(kw,iw)
      sea%ustar  (iws) = 0.1
      sea%ggaer  (iws) = 0.0
      sea%wthv   (iws) = 0.0
@@ -104,13 +104,13 @@ subroutine sea_init_atm()
      sea%sea_rough  (iws) = .001
      sea%sea_cantemp(iws) = sea%cantemp(iws)
      sea%sea_canshv (iws) = sea%canshv(iws)
-     sea%sea_sfc_ssh(iws) = rhovsl(sea%seatc(iws)-t00) / (real(rho(kw,iw)) * (1. + rr_v(kw,iw)))
+     sea%sea_sfc_ssh(iws) = rhovsl(sea%seatc(iws)-t00) / real(rho(kw,iw))
      sea%sea_ustar  (iws) = 0.1
      sea%sea_ggaer  (iws) = 0.0
      sea%sea_wthv   (iws) = 0.0
 
      ! Seaice quantities
-   
+
      call prep_seaice(sea%seatc              (iws), &
                       sea%seaicec            (iws), &
                       sea%sea_cantemp        (iws), &
@@ -134,12 +134,12 @@ subroutine sea_init_atm()
                       sea%sea_wthv           (iws), &
                       sea%ice_wthv           (iws), &
                       sea%ice_sxfer_t        (iws), &
-                      sea%ice_sxfer_r        (iws)  )     
+                      sea%ice_sxfer_r        (iws)  )
 
      if (sea%nlev_seaice(iws) > 0) then
 
-        sea%ice_sfc_ssh(iws) = rhovsil(sea%seaice_tempk(sea%nlev_seaice(iws),iws)) &
-                             / (real(rho(kw,iw)) * (1.0 + rr_v(kw,iw)))
+        sea%ice_sfc_ssh(iws) = rhovsil(sea%seaice_tempk(sea%nlev_seaice(iws),iws)-t00) &
+                             / real(rho(kw,iw))
 
         sea%rough      (iws) = (1.0 - sea%seaicec(iws)) * sea%sea_rough  (iws) + &
                                       sea%seaicec(iws)  * sea%ice_rough  (iws)
@@ -152,7 +152,7 @@ subroutine sea_init_atm()
 
         sea%surface_ssh(iws) = (1.0 - sea%seaicec(iws)) * sea%sea_sfc_ssh(iws) + &
                                       sea%seaicec(iws)  * sea%ice_sfc_ssh(iws)
- 
+
      else
 
         sea%rough      (iws) = sea%sea_rough  (iws)

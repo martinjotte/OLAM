@@ -414,7 +414,6 @@ Contains
     integer :: j, iw, ka, k, jv, iv, iwn, kd, iwd, iw1, iw2, iw3, iw4
     integer :: iv1, iv2, iv3, iv4
     real(r8):: c_scp_in_max_sum(mza), c_scp_in_min_sum(mza)
-    real    :: scp_int, scp_inb, scpup
     real    :: smin, smax, vin, wint, winb
     real    :: scpmin(mza), scpmax(mza)
     real    :: scpmint(mza), scpmaxt(mza)
@@ -488,7 +487,7 @@ Contains
     enddo
     !$omp end do
 
-    !$omp do private(iw,ka,k,jv,iv,iwn,scp_int,scp_inb,scpup,smax,smin,vin,wint,winb)
+    !$omp do private(iw,ka,k,jv,iv,iwn,vin,wint,winb,smax,smin,kd)
     do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
        ka = lpw(iw)
@@ -626,10 +625,9 @@ Contains
 
     integer :: j, iw, ka, k, jv, iv, iwn, kd, iwd
     real(r8):: c_scp_in_min_sum(mza)
-    real    :: scpup, scp_int, scp_inb
 
     !$omp parallel private(c_scp_in_min_sum)
-    !$omp do private(iw,ka,k,scp_int,scp_inb,jv,iv,iwn,scpup)
+    !$omp do private(iw,ka,k,jv,iv,iwn)
     do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
        ka = lpw(iw)

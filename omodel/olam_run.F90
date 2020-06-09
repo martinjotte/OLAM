@@ -507,12 +507,13 @@ subroutine olam_run(name_name)
 
   if (do_chem == 1) then
      write(io6,'(/,1x,a)') 'Initializing chemical emissions/deposition'
-     call emis_init()
-     call depv_init()
 
      if (isfcl > 0) then
         call megan_init()
      endif
+
+     call emis_init()
+     call depv_init()
   endif
 
 ! Memory for storing past values for plotting

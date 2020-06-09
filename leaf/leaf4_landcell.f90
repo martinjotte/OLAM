@@ -46,7 +46,7 @@ subroutine landcell(iwl, nlev_sfcwater, leaf_class, ntext_soil,             &
                     cantemp, canshv, stom_resist, veg_ndvip, veg_ndvif,     &
                     veg_ndvic, veg_albedo, rough, head0, head1,             &
                     glatw, glonw, flag_vg, timefac_ndvi                     )
-                              
+
 use leaf_coms,         only: nzg, nzs, soil_rough, snow_rough, slcpd, dt_leaf
 use misc_coms,         only: io6
 use leaf4_canopy,      only: canopy, vegndvi
@@ -214,11 +214,11 @@ call vegndvi(iwl,                        &
              veg_ndvif,    veg_ndvic,    &
              veg_tai,      veg_lai,      &
              veg_fracarea, veg_albedo,   &
-             veg_rough                   ) 
+             veg_rough                   )
 
 ! Compute roughness length based on vegetation and snow.
 
-rough = max(soil_rough,veg_rough) * (1. - snowfac) + snow_rough
+rough = max( max(soil_rough,veg_rough) * (1. - snowfac), snow_rough )
 
 ! Evaluate turbulent exchanges of heat and moisture between vegetation and canopy air
 ! and also between soil or snow surface and canopy air.  Evaluate transfer of
@@ -248,7 +248,7 @@ call canopy(iwl,                   nlsw1,                   &
             snowfac,               vf,                      &
             surface_ssh,           ground_shv,              &
             veg_water,             veg_temp,                &
-            cantemp,               canshv,                  & 
+            cantemp,               canshv,                  &
             transp,                stom_resist,             &
             snowmin_expl,                                   &
             glatw,                 glonw,                   &
@@ -298,7 +298,7 @@ if (nzs > 1) then
                         glatw,            glonw             )
 endif
 
-! Compute surface and ground vap mxrat for next timestep; put into surface_ssh 
+! Compute surface and ground vap mxrat for next timestep; put into surface_ssh
 ! and ground_ssv.
 
 nlsw1 = max(nlev_sfcwater,1)
@@ -309,7 +309,7 @@ call grndvap(iwl,              nlev_sfcwater,          &
              rhos,             canshv,                 &
              surface_ssh,      ground_shv,             &
              flag_vg                                   )
-             
+
 !-----------------------------------------------------------------------------
 ! TEMPORARY UNTIL FULL LEAF-HYDRO MODEL IS COMPLETED WITH STREAM/RIVER RUNOFF:
 ! Simple representation of runoff

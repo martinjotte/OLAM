@@ -35,9 +35,10 @@ subroutine leaf4_init_atm()
 
   use mem_leaf,    only: land, itab_wl
 
-  use leaf_coms,    only: mwl, nzg, nzs, slzt, veg_ht, slcpd, soil_rough, &
+  use leaf_coms,    only: mwl, nzg, nzs, slzt, veg_ht, slcpd, &
+                          soil_rough, snow_rough, dt_leaf, &
                           iupdndvi, s1900_ndvi, indvifile, nndvifiles, &
-                          dt_leaf, isoilstateinit, iwatertabflg, watertab_db
+                          isoilstateinit, iwatertabflg, watertab_db
   use mem_basic,    only: rho, press, rr_v, rr_w, theta
   use misc_coms,    only: s1900_sim, isubdomain, runtype, initial
   use mem_ijtabs,   only: itabg_w
@@ -142,12 +143,12 @@ subroutine leaf4_init_atm()
 
      leaf_class = land%leaf_class(iwl)
 
-     land%rough      (iwl) = soil_rough
      land%veg_rough  (iwl) = .13 * veg_ht(leaf_class)
-     land%veg_height (iwl) = veg_ht(leaf_class)   
+     land%rough      (iwl) = max(soil_rough, land%veg_rough(iwl))
+     land%veg_height (iwl) = veg_ht(leaf_class)
      land%stom_resist(iwl) = 1.e6
 
-     ! For now, choose heat/vapor capacities for stability based on timestep   
+     ! For now, choose heat/vapor capacities for stability based on timestep
 
      land%can_depth(iwl) = 20. * max(1.,.030 * dt_leaf)
      land%hcapveg  (iwl) = 3.e4 * max(1.,.025 * dt_leaf)
@@ -173,7 +174,7 @@ subroutine leaf4_init_atm()
 
         ! For bog, marsh, wetland areas, use head0 = +10 cm; this takes precedence
         ! over using watertable database
- 
+
         land%head0(iwl) = 0.1
 
      elseif (iwatertabflg == 1 .and. wtd(iwl) > -1.e-6) then
@@ -227,7 +228,7 @@ subroutine leaf4_init_atm()
 
      prss                = press(kw,iw) + gdz_abov8(kw-1) * rho(kw,iw) * (1. + rr_w(kw,iw))
      land%cantemp  (iwl) = theta(kw,iw) * (prss * p00i)**rocp
-     land%canshv   (iwl) = rr_v(kw,iw) / (1. + rr_v(kw,iw))
+     land%canshv   (iwl) = rr_v(kw,iw)
      land%veg_temp (iwl) = land%cantemp(iwl)
      land%veg_water(iwl) = 0.
      land%ustar    (iwl) = 0.1
@@ -292,7 +293,7 @@ subroutine leaf4_init_atm()
      ! BASED ON MODEL OBSERVED AND/OR MODEL CLIMATOLOGY
      !--------------------------------------------------------------------------------
 
-     ! If leaf_class of this IWL land cell is ice cap or glacier, assume that 
+     ! If leaf_class of this IWL land cell is ice cap or glacier, assume that
      ! all 'soil' water is in ice phase and that soil_tempc is at or below 0.
      ! (Soil will be replaced by firn model in the future.)
 
@@ -303,9 +304,9 @@ subroutine leaf4_init_atm()
 
      endif
 
-     ! Initialize soil energy [J/m^3] from given soil textural class, temperature, 
-     ! total water content, and liquid fraction (as opposed to ice fraction) of the 
-     ! soil water that is present.  
+     ! Initialize soil energy [J/m^3] from given soil textural class, temperature,
+     ! total water content, and liquid fraction (as opposed to ice fraction) of the
+     ! soil water that is present.
 
      do k = 1,nzg
         nts = land%ntext_soil(k,iwl)
@@ -316,18 +317,18 @@ subroutine leaf4_init_atm()
                = soil_tempc(k,iwl) * slcpd(nts)                         &
                + soil_tempc(k,iwl) * land%soil_water(k,iwl) * cliq1000  &
                + fracliq(k,iwl)    * land%soil_water(k,iwl) * alli1000
-             
+
         else
-      
+
            land%soil_energy(k,iwl)                                       &
               = soil_tempc(k,iwl) * slcpd(nts)                           &
               + soil_tempc(k,iwl) * land%soil_water(k,iwl) * cice1000    &
               + fracliq(k,iwl)    * land%soil_water(k,iwl) * alli1000
-             
+
         endif
      enddo
 
-     ! Leaf classes 17 and 20 represent persistent wetlands (bogs, marshes, 
+     ! Leaf classes 17 and 20 represent persistent wetlands (bogs, marshes,
      ! fens, swamps).  Initialize these areas with 0.1 m of standing surface
      ! water (sfcwater) added to whatever is already present (e.g., from obs).
 
@@ -335,7 +336,7 @@ subroutine leaf4_init_atm()
 
         ! Since sfcwater_energy has units of J/kg, first convert to J/m^2 before adding
         ! wetland sfcwater.
-      
+
         wq = land%sfcwater_mass(1,iwl) * land%sfcwater_energy(1,iwl)
 
         ! Add wetland sfcwater mass and depth
@@ -355,7 +356,7 @@ subroutine leaf4_init_atm()
         ! Diagnose new sfcwater energy
 
         land%sfcwater_energy(1,iwl) = (wq + wq_added) / land%sfcwater_mass(1,iwl)
-      
+
      endif
 
      ! Leaf classes 2 represents persistent ice/snow (icecap, glacier).
@@ -371,7 +372,7 @@ subroutine leaf4_init_atm()
         land%sfcwater_energy(1,iwl) = min(0., (land%cantemp(iwl) - t00) * cice)
 
         ! Snow density calculation comes from CLM3.0 documentation,
-        ! which is based on Anderson 1975 NWS Technical Doc # 19 
+        ! which is based on Anderson 1975 NWS Technical Doc # 19
         if (land%cantemp(iwl) > 258.15) then
            snowdens = 50.0 + 1.5 * (land%cantemp(iwl) - 258.15)**1.5
         else
@@ -425,6 +426,11 @@ subroutine leaf4_init_atm()
      land%snowfac(iwl) = land%snowfac(iwl) / max(.001,land%veg_height(iwl))
      if (land%snowfac(iwl) > 0.9) land%snowfac(iwl) = 1.0
 
+     ! Modify surface roughness based on snowcover
+
+     land%rough(iwl) = max(land%rough(iwl) * (1. - land%snowfac(iwl)), snow_rough)
+
   enddo
+  !$omp end parallel do
 
 end subroutine leaf4_init_atm

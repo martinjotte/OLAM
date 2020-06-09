@@ -258,6 +258,7 @@ contains
        dims_file(ndims) = ifsize
     endif
 
+    hdferr = 0
     propid = H5P_DEFAULT_F
 
     ! Compression does not work with parallel output

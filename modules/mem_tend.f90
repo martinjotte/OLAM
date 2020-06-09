@@ -321,6 +321,8 @@ Contains
     do n = 1, num_scalar
        if ( (scalar_tab(n)%name == 'CH4'    ) .or. &
             (scalar_tab(n)%name == 'ch4'    ) .or. &
+            (scalar_tab(n)%name == 'ECH4'   ) .or. &
+            (scalar_tab(n)%name == 'ech4'   ) .or. &
             (scalar_tab(n)%name == 'METHANE') .or. &
             (scalar_tab(n)%name == 'methane') ) then
           i_ch4 = n

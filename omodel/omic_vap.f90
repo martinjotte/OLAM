@@ -364,31 +364,12 @@ do k = k1(lcat), k2(lcat)
       tx(k,lcat) = (ss(k,lcat) * rhov(k) + sw(k,lcat)) * sm(k,lcat)
       vap(k,lcat) = su(k,lcat) * (rhov(k) + sa(k,if4) - rhovsrefp(k,if1) * tx(k,lcat))
 
-! Do this section if vapor transfer does NOT deplete all of LCAT category
-
-      if (vap(k,lcat) > -rx(k,lcat)) then
-
-         rxx = rx(k,lcat) + vap(k,lcat)
-
-         if (sm(k,lcat) > .5) then
-            qx(k,lcat) = sc(if1) * tx(k,lcat) + sk(if1)
-            qr(k,lcat) = qx(k,lcat) * rxx
-         else
-            qx(k,lcat) = (rhov(k) * sf(k,lcat) + sg(k,lcat) &
-                       - tx(k,lcat) * se(k,lcat)) / sd(k,lcat)
-            qx(k,lcat) = min(350000.,max(-100000.,qx(k,lcat)))
-            qr(k,lcat) = qx(k,lcat) * rxx
-         endif
-
-      endif
-
-! Do this section if vapor transfer DOES deplete all of LCAT category
-
-! Also do this section if LCAT is pristine ice and it totally melts:
-! (evaporate it too).
-
       if ((vap(k,lcat) <= -rx(k,lcat)) .or. &
            (lcat == 3 .and. qx(k,lcat) > 330000.)) then
+
+         ! Do this section if vapor transfer DOES deplete all of LCAT category
+         ! Also do this section if LCAT is pristine ice and it totally melts:
+         ! (evaporate it too).
 
          sumuy(k) = sumuy(k) - su(k,lcat) * sy(k,lcat)
          sumuz(k) = sumuz(k) - su(k,lcat) * sz(k,lcat)
@@ -404,6 +385,20 @@ do k = k1(lcat), k2(lcat)
          qr(k,lcat) = 0.
 
       else
+
+         ! Do this section if vapor transfer does NOT deplete all of LCAT category
+
+         rxx = rx(k,lcat) + vap(k,lcat)
+
+         if (sm(k,lcat) > .5) then
+            qx(k,lcat) = sc(if1) * tx(k,lcat) + sk(if1)
+            qr(k,lcat) = qx(k,lcat) * rxx
+         else
+            qx(k,lcat) = (rhov(k) * sf(k,lcat) + sg(k,lcat) &
+                       - tx(k,lcat) * se(k,lcat)) / sd(k,lcat)
+            qx(k,lcat) = min(350000.,max(-100000.,qx(k,lcat)))
+            qr(k,lcat) = qx(k,lcat) * rxx
+         endif
 
          if (vap(k,lcat) < 0.) then
             fracmass = min(1.,-vap(k,lcat) / rx(k,lcat))
@@ -576,7 +571,7 @@ integer, intent(in) :: iw0, lpw0, k3
 real, intent(in)    :: thil0  (mza0)
 real, intent(in)    :: rhoi   (mza0)
 real, intent(in)    :: exner0 (mza0)
-real, intent(in)    :: tair   (mza0)
+real, intent(out)   :: tair   (mza0)
 real, intent(out)   :: qliq   (mza0)
 real, intent(out)   :: qice   (mza0)
 real, intent(out)   :: sa1    (mza0)
@@ -585,7 +580,7 @@ real, intent(in)    :: qx     (mza0,ncat)
 
 integer :: k
 real    :: fracliq6, fracliq7, tcoal, til
-real    :: rholiq, rhoice
+real    :: rholiq, rhoice, tairstr, qhydm
 
 ! Loop over all vertical levels
 
@@ -603,11 +598,16 @@ do k = lpw0, k3
 
    qliq(k) = alvl * rholiq
    qice(k) = alvi * rhoice
+   qhydm   = qliq(k) + qice(k)
 
-   if (tair(k) > 253.) then
-      sa1(k)  = til * rhoi(k) * cpi / (2. * tair(k) - til)
+   tairstr = .5 * (til + sqrt(til * (til + cpi4 * qhydm * rhoi(k))))
+
+   if (tairstr > 253.) then
+      tair(k) = tairstr
+      sa1 (k) = til * rhoi(k) * cpi / (2. * tairstr - til)
    else
-      sa1(k)  = til * rhoi(k) * cp253i
+      tair(k) = til * (1. + qhydm * rhoi(k) * cp253i)
+      sa1 (k) = til * rhoi(k) * cp253i
    endif
 
 enddo

@@ -197,9 +197,8 @@ do iws = 2,mws
    if (allocated(rr_c)) then
       airshv = rr_v(kw,iw) + rr_c(kw,iw)
    else
-      airshv = rr_v(kw,iw) 
+      airshv = rr_v(kw,iw)
    endif
-   airshv = airshv / (1. + airshv)
 
    airthetav = theta(kw,iw) * (1.0 + eps_virt * rr_v(kw,iw))
    vels      = sqrt( vxe(kw,iw)**2 + vye(kw,iw)**2 + vze(kw,iw)**2 )
@@ -227,7 +226,7 @@ do iws = 2,mws
               sea%sea_canshv (iws), &
               sea%sea_vkmsfc (iws), &
               sea%sea_sfluxt (iws), &
-              sea%sea_sfluxr (iws), & 
+              sea%sea_sfluxr (iws), &
               sea%sea_ustar  (iws), &
               sea%sea_rib    (iws), &
               sea%sea_ggaer  (iws)  )
@@ -408,7 +407,6 @@ do iwl = 2,mwl
    else
       airshv = rr_v(kw,iw)
    endif
-   airshv = airshv / (1. + airshv)
 
    airthetav = theta(kw,iw) * (1.0 + eps_virt * rr_v(kw,iw))
    vels      = sqrt( vxe(kw,iw)**2 + vye(kw,iw)**2 + vze(kw,iw)**2 )
@@ -437,7 +435,7 @@ do iwl = 2,mwl
                  land%canshv (iwl), &
                  land%vkmsfc (iwl), &
                  land%sfluxt (iwl), &
-                 land%sfluxr (iwl), & 
+                 land%sfluxr (iwl), &
                  land%ustar  (iwl), &
                  land%rib    (iwl), &
                  land%ggaer  (iwl)  )
@@ -627,7 +625,7 @@ else                            ! UNSTABLE CASE
    ch = csh * c2
    fm = (1. - 2. * b * ri / (1. + 2. * cm))
    fh = (1. - 3. * b * ri / (1. + 3. * ch))
-   
+
 endif
 
 ustar = max(ustmin,sqrt(c1 * vels0 * fm))
@@ -674,13 +672,13 @@ integer :: kw
 real :: airtempc
 real :: tempc
 
-! Subroutine to transfer atmospheric cumulus parameterization 
+! Subroutine to transfer atmospheric cumulus parameterization
 ! precipitation FLUX to surface cells
 
 ! Set land fluxes to be done for CUPARM
 !    1. for mrl = 0, no fluxes 
 !    2. For mrl > mrl_leaf, no fluxes
-!    3. For mrl <= mrl_leaf, do fluxes at beginning of long timestep 
+!    3. For mrl <= mrl_leaf, do fluxes at beginning of long timestep
 !                            for all points in mrl = 1
 
 mrl = mrl_begl(istp)

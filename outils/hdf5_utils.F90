@@ -143,10 +143,8 @@ subroutine shdf5_info(dsetname, ndims, dims)
   call fh5d_open(dsetname, hdferr)
 
   if (hdferr < 0) then
-     print*, 'In shdf5_info:'
-     print*, 'Variable ', trim(dsetname), ' is not in the currently opened hdf5 file'
-     ndims   = 0
-     dims(1) = 0
+     ndims   = -1
+     dims(1) =  0
      return
   endif
 

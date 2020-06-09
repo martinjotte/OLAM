@@ -93,10 +93,11 @@ if ((istp == 1 .and. mod(time8p, radfrq) < dtlong) .or. &
 
 ! Loop over all SEA cells
 
-   !$omp parallel do private (sea_cosz)
-   do iws = 2,mws
+   !$omp parallel
+   !$omp do private (sea_cosz)
+   do iws = 2, mws
 
-! Get surface radiative properties (albedos and rlongup) for each sea cell. 
+! Get surface radiative properties (albedos and rlongup) for each sea cell.
 ! Compute solar zenith angle for sea cells
 
       sea_cosz = (sea%xew(iws) * sunx  &
@@ -132,7 +133,7 @@ if ((istp == 1 .and. mod(time8p, radfrq) < dtlong) .or. &
                                        sea%seaicec(iws)  * sea%ice_albedo(iws)
 
       else
-         
+
          sea%ice_rlongup(iws) = 0.0
          sea%ice_albedo (iws) = 0.0
 
@@ -145,11 +146,11 @@ if ((istp == 1 .and. mod(time8p, radfrq) < dtlong) .or. &
       sea%albedo_diffuse(iws) = sea%albedo_beam(iws)
 
    enddo
-   !$omp end parallel do
+   !$omp end do nowait
 
 ! Loop over all LAND cells
 
-   !$omp parallel do
+   !$omp do
    do iwl = 2,mwl
 
 ! Get surface radiative properties (albedos and rlongup) for each land cell.
@@ -160,7 +161,7 @@ if ((istp == 1 .and. mod(time8p, radfrq) < dtlong) .or. &
 
          land%rshort(iwl) = 0.
          land%rlong (iwl) = 0.
-         
+
          call sfcrad_land(iwl,                                               &
             land%leaf_class    (      iwl), land%ntext_soil     (  nzg,iwl), &
             land%nlev_sfcwater (      iwl), land%sfcwater_energy(1:nzs,iwl), &
@@ -179,7 +180,7 @@ if ((istp == 1 .and. mod(time8p, radfrq) < dtlong) .or. &
             land%wnx           (      iwl), land%wny            (      iwl), &
             land%wnz           (      iwl), land%flag_vg        (      iwl))
 
-! For LEAF land cells, there is no distinction between beam and 
+! For LEAF land cells, there is no distinction between beam and
 ! diffuse radiation.
 
          land%albedo_diffuse(iwl) = land%albedo_beam(iwl)
@@ -187,7 +188,8 @@ if ((istp == 1 .and. mod(time8p, radfrq) < dtlong) .or. &
       endif
 
    enddo
-   !$omp end parallel do
+   !$omp end do nowait
+   !$omp end parallel
 
 ! Do radiation for all ED grid cells.
 
@@ -201,7 +203,7 @@ if ((istp == 1 .and. mod(time8p, radfrq) < dtlong) .or. &
 
 !----------------------------------------------------------------------
    !$omp parallel private(rlongup_ks,rlong_albedo_ks,albedt_ks,albedt_diffuse_ks)
-   !$omp do private(iw,ka,koff,nrad,nsfc) schedule(guided)
+   !$omp do private(iw,ka,nsfc,jws,iws,arf_iw,arf_kw,kw,ks,jwl,iwl,koff,nrad) schedule(guided)
    do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j) ! jend(1) = hardw for  mrl=1
 !----------------------------------------------------------------------
 
@@ -312,7 +314,7 @@ if ((istp == 1 .and. mod(time8p, radfrq) < dtlong) .or. &
 
 ! Set total surface albedo to surface direct albedo
 ! (LEAF doesn't differentiate between diffuse and direct albedo)
-   
+
       albedt(iw) = albedt_beam(iw)
 
 ! Do RRTMg radiation if specified
@@ -328,64 +330,30 @@ if ((istp == 1 .and. mod(time8p, radfrq) < dtlong) .or. &
       endif
 
    enddo
-!$omp end do
-!$omp end parallel
+   !$omp end do
 
-! If running leaf, loop over SEA cells to transfer downward surface
-! shortwave and longwave fluxes from IW atmospheric column to sea cells
-
-!$omp parallel do private (iw,ks)
-   do iws = 2,mws
+   !$omp do private(iw,ks)
+   do iws = 2, mws
 
       iw = itab_ws(iws)%iw   ! global index
 
-! If run is parallel, get local rank indices
-
+      ! If run is parallel, get local rank indices
       if (isubdomain == 1) then
          iw = itabg_w(iw)%iw_myrank
       endif
 
       ks = itab_ws(iws)%kw - lpw(iw) + 1
 
+      ! Transfer downward surface shortwave and longwave fluxes
+      ! from IW atmospheric column to sea cells
+
       sea%rlong         (iws) = rlong_ks         (ks,iw)
       sea%rshort        (iws) = rshort_ks        (ks,iw)
       sea%rshort_diffuse(iws) = rshort_diffuse_ks(ks,iw)
 
-   enddo
-!$omp end parallel do
 
-! If running leaf, loop over LAND cells to transfer downward surface
-! shortwave and longwave fluxes from IW atmospheric column to land cells
-
-!$omp parallel do private (iw,ks)
-   do iwl = 2,mwl
-
-      iw = itab_wl(iwl)%iw   ! global index
-
-! If run is parallel, get local rank indices
-
-      if (isubdomain == 1) then
-         iw = itabg_w(iw)%iw_myrank
-      endif
-
-      ks = itab_wl(iwl)%kw - lpw(iw) + 1
-
-      land%rlong         (iwl) = rlong_ks         (ks,iw)
-      land%rshort        (iwl) = rshort_ks        (ks,iw)
-      land%rshort_diffuse(iwl) = rshort_diffuse_ks(ks,iw)
-!     land%par           (iwl) = par_ks           (ks,iw)
-!     land%par_diffuse   (iwl) = par_diffuse_ks   (ks,iw)
-      land%ppfd          (iwl) = ppfd_ks          (ks,iw)
-      land%ppfd_diffuse  (iwl) = ppfd_diffuse_ks  (ks,iw)
-
-   enddo   
-!$omp end parallel do
-
-! Loop over all SEA cells to compute radiative fluxes for all 
-! seaice components, given that rshort and rlong are now updated.
-
-   !$omp parallel do
-   do iws = 2, mws
+      ! Compute radiative fluxes for all seaice components,
+      ! given that rshort and rlong are now updated.
 
       call sfcrad_seaice_2( sea%ice_net_rshort(iws), &
                             sea%ice_net_rlong (iws), &
@@ -396,17 +364,35 @@ if ((istp == 1 .and. mod(time8p, radfrq) < dtlong) .or. &
                             sea%ice_albedo    (iws)  )
 
    enddo
-   !$omp end parallel do
+   !$omp end do nowait
 
-! If running leaf, loop over all LAND cells to compute radiative fluxes 
-! for all cell components, given that rshort and rlong are now updated.
+   !$omp do private(iw,ks)
+   do iwl = 2, mwl
 
-!$omp parallel do
-   do iwl = 2,mwl
+      iw = itab_wl(iwl)%iw   ! global index
+
+      ! If run is parallel, get local rank indices
+      if (isubdomain == 1) then
+         iw = itabg_w(iw)%iw_myrank
+      endif
+
+      ks = itab_wl(iwl)%kw - lpw(iw) + 1
+
+      ! Transfer downward surface shortwave and longwave fluxes
+      ! from IW atmospheric column to land cells
+
+      land%rlong         (iwl) = rlong_ks         (ks,iw)
+      land%rshort        (iwl) = rshort_ks        (ks,iw)
+      land%rshort_diffuse(iwl) = rshort_diffuse_ks(ks,iw)
+!     land%par           (iwl) = par_ks           (ks,iw)
+!     land%par_diffuse   (iwl) = par_diffuse_ks   (ks,iw)
+      land%ppfd          (iwl) = ppfd_ks          (ks,iw)
+      land%ppfd_diffuse  (iwl) = ppfd_diffuse_ks  (ks,iw)
 
       if (land%ed_flag(iwl) == 0) then
 
-! THIS IS ONLY FOR CELLS NOT RUNNING ED.
+         ! If running leaf, loop over all LAND cells to compute radiative fluxes
+         ! for all cell components, given that rshort and rlong are now updated.
 
          call sfcrad_land(iwl,                                               &
             land%leaf_class    (      iwl), land%ntext_soil     (  nzg,iwl), &
@@ -429,7 +415,8 @@ if ((istp == 1 .and. mod(time8p, radfrq) < dtlong) .or. &
       endif
 
    enddo
-!$omp end parallel do
+   !$omp end do nowait
+   !$omp end parallel
 
 ! Do radiation for all ED grid cells.
 
@@ -462,7 +449,7 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
    enddo
 
-enddo      
+enddo
 !$omp end parallel do
 endif
 
@@ -579,8 +566,9 @@ end subroutine sunloc
 
 subroutine radinit()
 
-  use mem_radiate,   only: maxadd_rad, nadd_rad, zmrad, mcica_seed
-  use mem_grid,      only: mza, zm, glatw, glonw, nwa
+  use mem_radiate,   only: maxadd_rad, nadd_rad, zmrad, mcica_seed, &
+                           sunx, suny, sunz, cosz
+  use mem_grid,      only: mza, zm, glatw, glonw, nwa, wnx, wny, wnz
   use misc_coms,     only: io6, iswrtyp, ilwrtyp
   use consts_coms,   only: cp
   use rrtmg_sw_init, only: rrtmg_sw_ini
@@ -595,17 +583,17 @@ subroutine radinit()
   integer :: j, iw
 
 ! Compute NADD_RAD, the number of radiation levels to be added above the top
-! model prognostic level.  (Added levels will be filled elsewhere with data 
+! model prognostic level.  (Added levels will be filled elsewhere with data
 ! from Mclatchy soundings.)
 
 ! (3/13/2013) Following recent recommendations that at least one level should
-! always be added, we choose here to always add at least 5 levels AND to always 
+! always be added, we choose here to always add at least 5 levels AND to always
 ! carry the radiation up to at least 45 km.
 
 ! Estimate a reasonable value for the height increment between added levels.
 ! Make it approximately the increment between the two highest model levels,
 ! but no less than allowed by maxadd_rad, the maximum number of added levels.
-   
+
   zmrad = 45.e3
 
   deltaz = max( zm(mza) - zm(mza-1), (zmrad - zm(mza)) / real(maxadd_rad) )
@@ -630,17 +618,27 @@ subroutine radinit()
      call rlw_cloud_optics_init()
   endif
 
-! Seed the random number generator for RRTMg's cloud overlap scheme.
-! This should only be done at initial time, but if we restart a run
-! where the seeds weren't saved we need to re-seed again
+! Initialize solar zenith angle information
+
+  call sunloc()
 
   do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
+
+     ! Seed the random number generator for RRTMg's cloud overlap scheme.
+     ! This should only be done at initial time, but if we restart a run
+     ! where the seeds weren't saved we need to re-seed again
+
      if (all(mcica_seed(1:4,iw) == 0)) then
         mcica_seed(1,iw) = 1 + itab_w(iw)%iwglobe
         mcica_seed(2,iw) = 1 + itab_w(iw)%iwglobe + nwa
         mcica_seed(3,iw) = nint( (glatw(iw) +   1) * 1.e4 )
         mcica_seed(4,iw) = nint( (glonw(iw) + 181) * 1.e4 )
      endif
+
+     ! Compute initial solar zenith angle for atmosphere cells
+
+     cosz(iw) = wnx(iw) * sunx + wny(iw) * suny + wnz(iw) * sunz
+
   enddo
 
 ! Read in the convective cloud fraction lookup table

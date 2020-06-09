@@ -205,5 +205,4 @@ if (iparallel == 1) then
    close(io6)
 endif
 
-stop
 end program main

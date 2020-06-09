@@ -75,12 +75,11 @@ implicit none
   real :: sqrt_re  (mza,ncat) ! Square root of Reynolds number [ ]
   real :: sstar    (mza,ncat) ! parameter used to calculate collection efficient
   real :: pcpodmb  (mza,ncat) ! Ratio of precipitation flux rate to hydrometeor diameter
-
-  real :: sqrt_rhoi_nuc (mza) ! Square root of (rhow / rho_nucx)
+  real :: sqrt_rho_nuc  (mza) ! Square root of (rho_nucx / rhow)
 
   real :: vels          (mza) ! wind speed for all levels
   real :: airmfp        (mza) ! air free path [m]
-  real :: dynvisc_liqwat(mza) ! dynamic viscosity of liquid water [kg/(m s)] 
+  real :: dynvisc_liqwat(mza) ! dynamic viscosity of liquid water [kg/(m s)]
   real :: sqrt_schm     (mza) ! Square root of Schmidt number [ ]
   real :: cbrt_schm     (mza) ! Cube root of Schmidt number [ ]
   real :: scavfrac      (mza) ! scavenging fraction of nuclei this timestep [ ]
@@ -91,7 +90,7 @@ implicit none
   real :: dwetnuc    (mza,nnuc) ! nuclei wet diameter [m]
   real :: rho_wetnuc (mza,nnuc) ! nuclei wet density [kg/m^3]
   real :: slipc      (mza,nnuc) ! slip correction factor
-! real :: diff_nuc   (mza,nnuc) ! Nuclei diffusion coefficient due to Brownian motion
+  real :: diff_nuci             ! Nuclei diffusion coefficient due to Brownian motion
   real :: schm       (mza,nnuc) ! Schmidt number of nuclei [ ]
   real :: tau        (mza,nnuc) ! nuclei inertial relaxation time; tau*g = grav settling vel
   real :: vwetnuc    (mza,nnuc) ! nuclei gravitional settling velocity
@@ -226,10 +225,9 @@ implicit none
         ! Aerosol diffusivity [m2/s], Seinfeld and Pandis (2006) eq. (9.73)
         ! note dp is in unit of microns so we correct with a 1.e6 factor
 
-!       diff_nuc(k,inuc) = boltz * tair(k) * slipc(k,inuc) / (pi3 * dynvisc(k) * dwetnuc(k,inuc))
-!       schm(k,inuc) = dynvisc(k) / (real(rhoa(k)) * diff_nuc(k,inuc))
-
-        schm(k,inuc) = bopi3 * tair(k) * slipc(k,inuc) * rhoi(k) / dwetnuc(k,inuc)
+!       diff_nuc = bopi3 * tair(k) * slipc(k,inuc) / (dynvisc(k) * dwetnuc(k,inuc))
+        diff_nuci    = dynvisc(k) * dwetnuc(k,inuc) / (bopi3 * tair(k) * slipc(k,inuc))
+        schm(k,inuc) = dynvisc(k) * rhoi(k) * diff_nuci
 
         ! Characteristic relaxation time of particle
 
@@ -461,7 +459,7 @@ implicit none
 
         sqrt_schm(k) = sqrt(schm(k,inuc))
         cbrt_schm(k) = schm(k,inuc)**0.33333333
-        sqrt_rhoi_nuc(k) = sqrt(rhow / rho_wetnuc(k,inuc))
+        sqrt_rho_nuc(k) = sqrt(rho_wetnuc(k,inuc) / rhow)
 
         scavfrac(k) = 0.
 
@@ -476,7 +474,7 @@ implicit none
 
         do k = ks1(lcat),ks2(lcat)
 
-           st = 2 * tau(k,inuc) * (pcpvel(k,lcat) - vwetnuc(k,inuc)) / dmb(k,lcat)
+           st = 2. * tau(k,inuc) * (pcpvel(k,lcat) - vwetnuc(k,inuc)) / dmb(k,lcat)
 
            dratio = dwetnuc(k,inuc) / dmb(k,lcat)
 
@@ -490,7 +488,7 @@ implicit none
 
            if (st > sstar(k,lcat)) then
               stcorr = ((st - sstar(k,lcat)) / (st - sstar(k,lcat) + 2. / 3.))**1.5
-              ecollect = ecollect + stcorr * sqrt_rhoi_nuc(k)
+              ecollect = ecollect + stcorr * sqrt_rho_nuc(k)
            endif
            if (ecollect > 1.0) ecollect = 1.0
 
