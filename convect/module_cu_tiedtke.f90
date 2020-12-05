@@ -74,13 +74,14 @@ CONTAINS
 
    subroutine cuparm_tiedtke(iw,km,km1,dtlong4,confrq4,confrq4i)
 
-   use mem_grid,    only: mza, lpv, lpw, zt, arv, arw, volti, lsw
-   use mem_cuparm,  only: thsrc, rtsrc, conprr, cu_pcpflx, kcubot, kudbot, &
-                          kcutop, cbmf, qwcon, iactcu, cddf, kddtop, kddmax
+   use mem_grid,    only: mza, lpv, lpw, zt, zm, dzit, arv, arw, volti, lsw
+   use mem_cuparm,  only: thsrc, rtsrc, conprr, kcubot, kcutop, cbmf, qwcon, &
+                          iactcu, umsrc, vmsrc
    use mem_basic,   only: theta, tair, press, rho, ue, ve, rr_v, vmc, wmc
-   use mem_turb,    only: frac_land, sfluxt, sfluxr, fqtpbl, frac_sfc
+   use mem_turb,    only: frac_land, sfluxt, sfluxr, frac_sfc, kpblh, pblh
    use consts_coms, only: gravo2
    use mem_ijtabs,  only: itab_w
+   use oname_coms,  only: nl
 
    implicit none
 
@@ -179,7 +180,7 @@ CONTAINS
       hflux = 0.
       hflux_vap = 0.
 
-      !dir$ loop count max=7, min=5, avg=6
+      !dir$ loop count max=7
       do jv = 1, npoly
          iv   = itab_w(iw)%iv(jv)
 
@@ -217,7 +218,7 @@ CONTAINS
 
       qsat(kt) = min(0.5, tlucua(t1(kt)) / prst(kt))
       qsat(kt) = qsat(kt) / (1.0 - vtmpc1*qsat(kt))
-      q1  (kt) = min(rr_v(k,iw), qsat(kt))
+      q1  (kt) = min( rr_v(k,iw) / (1.0 + rr_v(k,iw)), qsat(kt) )
 
       ! Average vertical velocity from current and surrounding cells
 
@@ -236,10 +237,26 @@ CONTAINS
                - (vflux(k-1) - vflux(k) + hflux) * rr_v(k,iw)) &
                * volti(k,iw) / real(rho(k,iw))
 
-      dQdt    (kt) = fqtpbl(k,iw) + fqvadv
-      dQdt_sav(kt) = dQdt(kt)
-
+      dQdt(kt) = fqvadv
    enddo
+
+   ! Add surface moisture flux to large scale moisture tendency
+
+   vflux(ka-1)      = sfluxr(iw)
+   vflux(kpblh(iw)) = 0.0
+
+   do k = ka, kpblh(iw)-1
+      vflux(k) = sfluxr(iw) * (pblh(iw) - zm(k) + zm(ka-1)) / pblh(iw)
+   enddo
+
+   do k = ka, kpblh(iw)
+      kt = mza + 1 - k
+      dQdt(kt) = dQdt(kt) + dzit(k) * (vflux(k-1) - vflux(k))
+   enddo
+
+   ! Save moisture tendency
+
+   dQdt_sav = dQdt
 
    ! prsw(1) is press at zm(mza); prsw(km1) is press at zm(ka-1)
 
@@ -300,25 +317,6 @@ CONTAINS
          cbmf(iw) = zmfu(icbot)
       endif
 
-      kudbot(iw) = kcubot(iw)
-      do k = lpw(iw), kcubot(iw)
-         kt = mza + 1 - k
-         if (zmfu(kt) > 0.025 * zmfu(icbot)) then
-            kudbot(iw) = k
-            exit
-         endif
-      enddo
-
-      if (zmfd(km) < -1.e-10) then
-         do kt = km-1, ictop, -1
-            if (zmfd(kt) > zmfd(km)) exit
-         enddo
-         kt = kt + 1
-         cddf  (iw) = zmfd(kt)
-         kddtop(iw) = mza + 1 - kt
-         kddmax(iw) = max(kddtop(iw) - 1, lpw(iw))
-      endif
-
       do k = ka, kcutop(iw)
          kt = mza + 1 - k
 
@@ -341,22 +339,24 @@ CONTAINS
 
          thsrc(k,iw) = dTdt(kt) * real(rho(k,iw))
          rtsrc(k,iw) = dQdt(kt) * real(rho(k,iw))
-
          qwcon(k,iw) = zlu(kt)
 
-      enddo
+         if (nl%conv_uv_mix > 0) then
+            umsrc(k,iw) = dUdt(kt) * real(rho(k,iw))
+            vmsrc(k,iw) = dVdt(kt) * real(rho(k,iw))
+         endif
 
-      ! Convective precipitation flux
-      do k  = kcutop(iw), ka, -1
-         kt = mza + 1 - k
-         cu_pcpflx(k-1,iw) = cu_pcpflx(k,iw) + zdmfup(kt) + zdmfdp(kt)
       enddo
 
       ! Surface precipitation
-      do ks = 1, lsw(iw)
-         k  = ks + ka - 1
-         conprr(iw) = conprr(iw) + frac_sfc(ks,iw) * cu_pcpflx(k-1,iw)
-      enddo
+      conprr(iw) = max(prsfc+pssfc, 0.0)
+
+      ! Convective precipitation flux
+      ! pcpflx(kcutop(iw)) = 0.0
+      ! do k  = kcutop(iw), ka, -1
+      !    kt = mza + 1 - k
+      !    pcpflx(k-1) = pcpflx(k) + zdmfup(kt) + zdmfdp(kt)
+      ! enddo
 
    endif
 
@@ -730,8 +730,7 @@ CONTAINS
        ENDIF
        ENDDO
 !
-       
-       if(cutrigger .eq. 1 ) then 
+       if(cutrigger .eq. 1 ) then
          IF(lndj.EQ.1) then
            CRIRH1=CRIRH*0.8
          ELSE

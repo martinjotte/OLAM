@@ -123,7 +123,8 @@ Module mem_grid
         zwgt_top, zwgt_bot,   & ! weights for interpolating T levels to W
         dzto2,    dzto4,      & ! dzt(k)    / 2, dzt(k)    / 4
         dztsqo2,  dztsqo4,    & ! dzt(k)**2 / 2, dzt(k)**2 / 4
-        dztsqo6,  dzimsq,     & ! dzt(k)**2 / 6, dzim(k)**2
+        dztsqo6,  dztsqo12,   & ! dzt(k)**2 / 6, dzt(k)**2 / 12
+        dzimsq,               & ! dzim(k)**2
 
         voa0,                 & ! ratio of cell volume to bottom area w/o terrain
 
@@ -131,7 +132,8 @@ Module mem_grid
 
         gdzim,                & ! gravm / dzm
 
-        arw0i                   ! 1 / arw0
+        arw0i,                & ! 1 / arw0
+        dnivo2                  ! 1/(2dxy) across V face
 
    ! double precision weights for interpolating T levels to W
 
@@ -347,8 +349,11 @@ Contains
 
      ! Loop over W levels
      do k = 1, mza-1
-        zwgt_top8(k) = dzt_top(k)   * dzim(k)
-        zwgt_bot8(k) = dzt_bot(k+1) * dzim(k)
+!        zwgt_top8(k) = dzt_top(k)   * dzim(k)
+!        zwgt_bot8(k) = dzt_bot(k+1) * dzim(k)
+
+        zwgt_top8(k) = dzt_bot(k+1) * dzim(k)
+        zwgt_bot8(k) = dzt_top(k)   * dzim(k)
 
         zwgt_top(k) = real(zwgt_top8(k))
         zwgt_bot(k) = real(zwgt_bot8(k))
@@ -369,26 +374,49 @@ Contains
      gdz_abov8(mza) = gdz_abov8(mza-1)
      gdz_belo8(mza) = gdz_belo8(mza-1)
 
-     ! Allocate and define variables defined at V faces
+     allocate(vnxo2     (mva))
+     allocate(vnyo2     (mva))
+     allocate(vnzo2     (mva))
+     allocate(dnivo2    (mva))
+     allocate(volvi (mza,mva))
 
-     allocate(vnxo2(mva))
-     allocate(vnyo2(mva))
-     allocate(vnzo2(mva))
-
-     vnxo2(1) = 0.0
-     vnyo2(1) = 0.0
-     vnzo2(1) = 0.0
-
-     allocate(volvi(mza,mva))
+     vnxo2  (1) = 0.0
+     vnyo2  (1) = 0.0
+     vnzo2  (1) = 0.0
+     dnivo2 (1) = 0.0
      volvi(:,1) = 0.0
 
-     !$omp parallel
-     !$omp do private(vxn_ewv,vyn_ewv,vxn_nsv,vyn_nsv,vzn_nsv)
-     do iv = 2, mva
+     allocate(wnxo2    (mwa))
+     allocate(wnyo2    (mwa))
+     allocate(wnzo2    (mwa))
+     allocate(arw0i    (mwa))
+     allocate(volti(mza,mwa))
+     allocate(volwi(mza,mwa))
+     allocate(gxps_coef(mwa,7))
+     allocate(gyps_coef(mwa,7))
 
-        vnxo2(iv) = vnx(iv) * 0.5
-        vnyo2(iv) = vny(iv) * 0.5
-        vnzo2(iv) = vnz(iv) * 0.5
+     wnxo2(1) = 0.0
+     wnyo2(1) = 0.0
+     wnzo2(1) = 0.0
+
+     volti(:,1) = 0.0
+     volwi(:,1) = 0.0
+
+     !$omp parallel
+     !$omp do private(iv,iw1,iw2,k,vxn_ewv,vyn_ewv,vxn_nsv,vyn_nsv,vzn_nsv)
+     do j = 1,jtab_v(jtv_wadj)%jend(1); iv = jtab_v(jtv_wadj)%iv(j)
+        iw1 = itab_v(iv)%iw(1)
+        iw2 = itab_v(iv)%iw(2)
+
+        vnxo2 (iv) = vnx (iv) * 0.5
+        vnyo2 (iv) = vny (iv) * 0.5
+        vnzo2 (iv) = vnz (iv) * 0.5
+        dnivo2(iv) = dniv(iv) * 0.5
+
+        volvi(1:lpv(iv)-1,iv) = 0.0
+        do k = lpv(iv), mza
+           volvi(k,iv) = real( 1.0_r8 / (volt(k,iw1) + volt(k,iw2)) )
+        enddo
 
         if (mdomain > 1) then
 
@@ -396,7 +424,7 @@ Contains
            vcn_ns(iv) = vny(iv)
 
         else
-           
+
            raxis = sqrt(xev(iv)**2 + yev(iv)**2)
            if (raxis > 1.e3) then
 
@@ -421,41 +449,7 @@ Contains
      enddo
      !$omp end do nowait
 
-     !$omp do private(iv,iw1,iw2,k)
-     do j = 1,jtab_v(jtv_wadj)%jend(1); iv = jtab_v(jtv_wadj)%iv(j)
-        
-        iw1 = itab_v(iv)%iw(1)
-        iw2 = itab_v(iv)%iw(2)
-
-        volvi(1:lpv(iv)-1,iv) = 0.0
-
-        do k = lpv(iv), mza
-           volvi(k,iv) = real( 1.0_r8 / (volt(k,iw1) + volt(k,iw2)) )
-        enddo
-
-     enddo
-     !$omp end do nowait
-     !$omp end parallel
- 
-     ! Allocate and define variables defined at W columns
-
-     allocate(wnxo2    (mwa))
-     allocate(wnyo2    (mwa))
-     allocate(wnzo2    (mwa))
-     allocate(volti(mza,mwa))
-     allocate(volwi(mza,mwa))
-     allocate(gxps_coef(mwa,7))
-     allocate(gyps_coef(mwa,7))
-     allocate(arw0i    (mwa))
-
-     wnxo2  (1) = 0.0
-     wnyo2  (1) = 0.0
-     wnzo2  (1) = 0.0
-
-     volti(:,1) = 0.0
-     volwi(:,1) = 0.0
-
-     !$omp parallel do private(n1,n2,raxis)
+     !$omp do private(n1,n2,raxis)
      do iw = 2, mwa
 
         wnxo2(iw) = wnx(iw) * 0.5
@@ -506,23 +500,26 @@ Contains
         endif
 
      enddo
-     !$omp end parallel do
+     !$omp end do
+     !$omp end parallel
 
-     allocate(dzto2  (mza))
-     allocate(dzto4  (mza))
-     allocate(dztsqo2(mza))
-     allocate(dztsqo4(mza))
-     allocate(dztsqo6(mza))
-     allocate(dzimsq (mza))
-     allocate(voa0   (mza))
+     allocate(dzto2   (mza))
+     allocate(dzto4   (mza))
+     allocate(dztsqo2 (mza))
+     allocate(dztsqo4 (mza))
+     allocate(dztsqo6 (mza))
+     allocate(dztsqo12(mza))
+     allocate(dzimsq  (mza))
+     allocate(voa0    (mza))
 
      do k = 1, mza
-        dzto2  (k) = dzt  (k) * 0.50
-        dzto4  (k) = dzt  (k) * 0.25
-        dztsqo2(k) = dzto2(k) * dzt(k)
-        dztsqo4(k) = dzto4(k) * dzt(k)
-        dztsqo6(k) = dzt  (k) * dzt(k) / 6.
-        dzimsq (k) = dzim (k) * dzim(k)
+        dzto2   (k) = dzt    (k) * 0.50
+        dzto4   (k) = dzt    (k) * 0.25
+        dztsqo2 (k) = dzto2  (k) * dzt(k)
+        dztsqo4 (k) = dztsqo2(k) * 0.5
+        dztsqo6 (k) = dztsqo2(k) / 3.0
+        dztsqo12(k) = dztsqo6(k) * 0.5
+        dzimsq  (k) = dzim   (k) * dzim(k)
      enddo
 
      do k = 2, mza

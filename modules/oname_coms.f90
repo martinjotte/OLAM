@@ -154,7 +154,8 @@ Module oname_coms
       integer :: ivelc_monot = 0
       integer :: iscal_monot = 0
 
-      integer :: split_scalars = 0
+      integer :: split_scalars       = 0
+      integer :: split_hdiff_scalars = 0
 
       integer :: vert_adv_order  = 3
       integer :: horiz_adv_order = 2
@@ -318,6 +319,9 @@ Module oname_coms
       integer :: ltng_nox              =   0
       real(r8):: photfrq               = 600.0_r8
       integer :: aerosol_optics_photol = 0
+      integer :: do_emis               = 1
+      integer :: do_drydep             = 1
+      integer :: do_aesedi             = 1
 
       character(pathlen) :: emis_dir  = '../../olamdatah5/edgar42'
       character(pathlen) :: geia_emis_file = '../etc/geia_emis.nc4'

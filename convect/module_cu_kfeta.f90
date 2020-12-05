@@ -49,8 +49,8 @@ CONTAINS
 
    use mem_grid,    only: mza, lpw, dzt, arw0, volt, lsw
    use misc_coms,   only: io6
-   use mem_cuparm,  only: thsrc, rtsrc, conprr, kcutop, kcubot, cbmf, kudbot, &
-                          qwcon, iactcu, kddtop, kddmax, cddf, cu_pcpflx
+   use mem_cuparm,  only: thsrc, rtsrc, conprr, kcutop, kcubot, cbmf, &
+                          qwcon, iactcu
    use mem_basic,   only: tair, press, rho, ue, ve, rr_v, wc, theta
    use mem_ijtabs,  only: itab_w
    use mem_turb,    only: frac_sfc
@@ -60,7 +60,7 @@ CONTAINS
    integer, intent(in) :: iw
    real,    intent(in) :: dtlong4
 
-   integer :: kte, k, kt, ks, npoly, jwn, iwn
+   integer :: kte, k, kt, ks, npoly, jwn, iwn, kmax
    real :: dqvdt(mza),dqcdt(mza),dqidt(mza),dtdt(mza)
    real :: u1d(mza),v1d(mza),t1d(mza),dz1d(mza)
    real :: qv1d(mza),p1d(mza),rho1d(mza),w0avg1d(mza),mass(mza)
@@ -155,23 +155,6 @@ CONTAINS
       iactcu(iw) = 1
       cbmf  (iw) = massflx(cubot) / dxsq
 
-      kudbot(iw) = kcubot(iw)
-      do kt = 1, cubot
-         if (massflx(cubot) > 0.001 * cbmf(iw) * dxsq) then
-            kudbot(iw) = kt + lpw(iw) - 1
-            exit
-         endif
-      enddo
-
-      do kt = cutop, cubot, -1
-         if (ddflx(kt) < -1.e-10 * dxsq) then
-            kddtop(iw) = kt + lpw(iw) - 1
-            kddmax(iw) = min(kddtop(iw), kcubot(iw))
-            cddf  (iw) = -ddflx(cubot) / dxsq
-            exit
-         endif
-      enddo
-
       do kt = 1, cutop
          k  = kt + lpw(iw) - 1
 
@@ -193,16 +176,13 @@ CONTAINS
       enddo
 
       ! Convective precipitation flux
-      do kt = cutop, 1, -1
-         k  = kt + lpw(iw) - 1
-         cu_pcpflx(k-1,iw) = cu_pcpflx(k,iw) + (pptliq(kt) + pptice(kt) - evap(kt)) / dxsq
-      enddo
+      ! pcpflx(cutop+1) = 0.0
+      ! do kt = cutop, 1, -1
+      !    pcpflx(kt) = pcpflx(kt+1) + (pptliq(kt) + pptice(kt) - evap(kt)) / dxsq
+      ! enddo
 
       ! Surface precipitation
-      do ks = 1, lsw(iw)
-         k  = ks + lpw(iw) - 1
-         conprr(iw) = conprr(iw) + frac_sfc(ks,iw) * cu_pcpflx(k-1,iw)
-      enddo
+      conprr(iw) = pratec
 
    endif
 

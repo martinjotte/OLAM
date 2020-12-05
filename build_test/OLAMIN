@@ -227,14 +227,22 @@
    NL%ISCAL_MONOT = 0     ! Monotonic advection for scalars (including moisture)
                           ! 0 = off, 1 = monotonic, 2 = positive-definite
 
-   NL%SPLIT_SCALARS = 0   ! time split scalar physics from advection
+   NL%SPLIT_SCALARS = 0   ! Time split scalar physics from advection
                           ! (ensures scalars remain bounded/postive-definite)
                           ! 0 = off, 1 = on
+
+   NL%SPLIT_HDIFF_SCALARS = 0 ! Include horizontal diffusion in scalar splitting
+                              ! too. Normally horizontal diffusion is performed
+                              ! with advection, but this can also lead to slight
+                              ! monotonicity/positive-definite violations.
+                              ! 0 = off, 1 = on  (requires SPLIT_SCALARS = 1)
 
    NL%HORIZ_ADV_ORDER = 2 ! Horizontal advection order (2 or 3)
 
    NL%VORT_DAMP_FACT = .1   ! Scaling factor for vorticity and divergence
    NL%DIVH_DAMP_FACT = .1   ! damping. Set to 0 to disable.
+
+   NL%ZERO_NEG_SCALARS = .TRUE. ! Force negative scalar concentrations to zero
 
    NL%DEBUG_FP  = .false. ! Detect floating point errors such as overflows,
                           ! INFs, divide-by-zeros, and NANs (best if code is

@@ -32,25 +32,27 @@
 !===============================================================================
 subroutine cuparm_driver()
 
-  use mem_grid,         only: mwa, mza, lpw, volt, arw0
+  use mem_grid,         only: vxn_ew, vxn_ns, vxn_ew, vyn_ns, vyn_ew, vzn_ns, &
+                              mza, lpw
   use module_cu_g3,     only: grell_driver
-  use module_cu_gf,     only: gf_driver
   use module_cu_kfeta,  only: cuparm_kfeta, kf_lutab
   use module_cu_tiedtke,only: cuparm_tiedtke
   use module_cu_emanuel,only: cuparm_emanuel
   use misc_coms,        only: io6, time_istp8, time_istp8p, nqparm, confrq, &
                               dtlong, mstp, runtype, dtlm, iparallel
   use mem_ijtabs,       only: itab_w, jtab_w, mrl_begl, istp, mrls, jtw_prog, jtw_wadj
-  use mem_cuparm,       only: thsrc, rtsrc, aconpr, conprr, &
+  use mem_cuparm,       only: thsrc, rtsrc, aconpr, conprr, kstabi, &
                               kcutop, kcubot, qwcon, iactcu, cbmf, cddf, kddtop, &
-                              cu_pcpflx, kudbot, kddmax
-  use mem_tend,         only: thilt, rr_wt
+                              kudbot, kddmax, cu_pwa, cu_pev, umsrc, vmsrc
+  use mem_tend,         only: thilt, rr_wt, vmxet, vmyet, vmzet
   use mem_basic,        only: rho, rr_w, theta, tair, thil
   use olam_mpi_atm,     only: mpi_send_w, mpi_recv_w
   use oname_coms,       only: nl
   use var_tables,       only: num_cumix
   use consts_coms,      only: alvlocp, r8
   use olam_mpi_atm,     only: mpi_recv_w, mpi_send_w
+
+  use module_cu_g3_tracer, only: grell_mix_driver
 
   implicit none
 
@@ -59,8 +61,7 @@ subroutine cuparm_driver()
   real          :: dthmax, dtlong4, confrq4, confrq4i
   integer       :: iwqmax, kqmax, km, km1
   integer       :: ka, kb
-  real(r8)      :: qsum, tsum, vtot
-  real          :: rt2
+  real          :: rt, ravail
 
 ! For KF_eta parameterization, initialize scheme if needed
 
@@ -87,13 +88,29 @@ subroutine cuparm_driver()
      confrq4  = real(confrq)
      confrq4i = 1. / confrq4
 
-     !$omp parallel do
-     do iw = 1, mwa
+! Loop over all IW grid cells where cumulus parameterization may be done
+
+!----------------------------------------------------------------------
+     !$omp parallel do private(iw,mrlw,km,km1,k,ka,kb) &
+     !$omp    schedule( guided )
+     do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j) ! jend(1) for mrl = 1
+!----------------------------------------------------------------------
+
+! MRL for current IW column
+
+        mrlw = itab_w(iw)%mrlw
+
+! Zero out previous convective terms
+
         thsrc(:,iw) = 0.0
         rtsrc(:,iw) = 0.0
         qwcon(:,iw) = 0.0
 
-        cu_pcpflx(:,iw) = 0.0
+        if (allocated(umsrc)) umsrc(:,iw) = 0.0
+        if (allocated(vmsrc)) vmsrc(:,iw) = 0.0
+
+        if (allocated(cu_pwa)) cu_pwa(:,iw) = 0.0
+        if (allocated(cu_pev)) cu_pev(:,iw) = 0.0
 
         conprr(iw) =  0.0
         kcutop(iw) = -1
@@ -101,22 +118,9 @@ subroutine cuparm_driver()
         kcubot(iw) = -1
         kudbot(iw) = -1
         kddmax(iw) = -1
+        kstabi(iw) = -1
         iactcu(iw) =  0
-        cddf  (iw) = 0.0
-     enddo
-     !$omp end parallel do
-
-! Loop over all IW grid cells where cumulus parameterization may be done
-
-!----------------------------------------------------------------------
-     !$omp parallel do private(iw,mrlw,km,km1,k,ka,kb,qsum,tsum,vtot) &
-     !$omp             schedule( guided )
-     do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j) ! jend(1) for mrl = 1
-!----------------------------------------------------------------------
-
-! MRL for current IW column
-
-        mrlw = itab_w(iw)%mrlw
+        cddf  (iw) =  0.0
 
 ! Select cumulus convection scheme based on MRL of current IW column
 
@@ -129,7 +133,7 @@ subroutine cuparm_driver()
 
            call cuparm_tiedtke(iw,km,km1,dtlong4,confrq4,confrq4i)
 
-        elseif (nqparm(mrlw) == 2) then
+        elseif (nqparm(mrlw) == 2 .or. nqparm(mrlw) == 5) then
 
 ! Grell deep and shallow convection
 
@@ -139,51 +143,25 @@ subroutine cuparm_driver()
 
 ! Kain-Fritsch deep convection
 
-           call cuparm_kfeta(iw,dtlong4)
+           call cuparm_kfeta(iw, dtlong4)
 
         elseif (nqparm(mrlw) == 4) then
 
 ! Emanuel convective parameterization
 
-           call cuparm_emanuel(iw,dtlong4)
-
-        elseif (nqparm(mrlw) == 5) then
-
-! Grell-Freitas deep and shallow convection
-
-           call gf_driver( iw, dtlong4 )
+           call cuparm_emanuel(iw, dtlong4)
 
         endif
 
 ! Specify a minimum value of convective cloud water
 
-        if (iactcu(iw) == 1) then
+        if (iactcu(iw) > 0) then
            do k = kcubot(iw), kcutop(iw)
               qwcon(k,iw) = max(qwcon(k,iw),1.e-5)
            enddo
         else
            cbmf(iw) = 0.0
            cddf(iw) = 0.0
-        endif
-
-! Make sure convective scheme conserves heat and water
-! Add heat/moisture within cloud to balance precipitation
-
-        if (iactcu(iw) == 1) then
-           ka = lpw(iw)
-           kb = min(kcutop(iw) + 1, mza)
-
-           qsum = sum( rtsrc(ka:kb,iw) * volt(ka:kb,iw) ) + conprr(iw) * arw0(iw)
-           tsum = sum( thsrc(ka:kb,iw) * volt(ka:kb,iw) ) - conprr(iw) * arw0(iw) * alvlocp
-           vtot = sum( volt(kcubot(iw):kcutop(iw),iw) )
-
-           qsum = qsum / vtot
-           tsum = tsum / vtot
-
-           do k = kcubot(iw), kcutop(iw)
-              rtsrc(k,iw) = rtsrc(k,iw) - qsum
-              thsrc(k,iw) = thsrc(k,iw) - tsum
-           enddo
         endif
 
      enddo
@@ -197,7 +175,7 @@ subroutine cuparm_driver()
 
      ! this will need to be changed to work with OpenMP
      do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
-        if (iactcu(iw) == 1) then
+        if (iactcu(iw) > 0) then
            do k = lpw(iw), mza
               if (thsrc(k,iw) > dthmax) then
                  dthmax = thsrc(k,iw)
@@ -229,13 +207,13 @@ subroutine cuparm_driver()
   mrl = mrl_begl(istp)
   if (mrl > 0) then
 
-     !$omp parallel do private(iw,dtlong4,k,rt2) schedule(guided)
+     !$omp parallel do private(iw,dtlong4,k,ravail,rt) schedule(guided)
      do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 
         ! Skip if no convection in this column
 
-        if (iactcu(iw) /= 1) cycle
+        if (iactcu(iw) < 1) cycle
 
         ! Skip if not doing convection on this mrl
 
@@ -249,23 +227,39 @@ subroutine cuparm_driver()
 
         aconpr(iw) = aconpr(iw) + conprr(iw) * dtlong4
 
-        do k = lpw(iw), min(kcutop(iw) + 1, mza)
-           if (tair(k,iw) > 253.) then
-              thilt(k,iw) = thilt(k,iw) + thsrc(k,iw) * theta(k,iw) / tair(k,iw)
-           else
-              thilt(k,iw) = thilt(k,iw) + thsrc(k,iw) * thil(k,iw) / tair(k,iw)
-           endif
+        do k = lpw(iw), min(kcutop(iw)+1,mza)
+!          if (tair(k,iw) > 253.) then
+           thilt(k,iw) = thilt(k,iw) + thsrc(k,iw) * theta(k,iw) / tair(k,iw)
+!          else
+!             thilt(k,iw) = thilt(k,iw) + thsrc(k,iw) * thil(k,iw) / tair(k,iw)
+!          endif
 
-           rt2 = max( rtsrc(k,iw), &
-                -0.95 * max(rr_w(k,iw), 0.0) * real(rho(k,iw)) / dtlong4 )
-           rr_wt(k,iw) = rr_wt(k,iw) + rt2
+           ravail = 0.95 * max(rr_w(k,iw), 0.0) * real(rho(k,iw))
+           rt     = max( rtsrc(k,iw), -ravail / dtlong4 )
+
+           rr_wt(k,iw) = rr_wt(k,iw) + rt
         enddo
 
-        ! Compute tracer mixing due to convection
+        if ( any( nqparm(itab_w(iw)%mrlw) == (/1,2,4,5/) ) ) then
+           do k = lpw(iw), min(kcutop(iw)+1,mza)
 
-        if ( (nl%conv_tracer_mix > 0 .and. num_cumix > 0) &
-           .or. (nl%conv_uv_mix > 0) ) then
-           call acmcld_mix( iw, dtlong4 )
+              vmxet(k,iw) = vmxet(k,iw) + umsrc(k,iw) * vxn_ew(iw) &
+                                        + vmsrc(k,iw) * vxn_ns(iw)
+
+              vmyet(k,iw) = vmyet(k,iw) + umsrc(k,iw) * vyn_ew(iw) &
+                                        + vmsrc(k,iw) * vyn_ns(iw)
+
+              vmzet(k,iw) = vmzet(k,iw) + vmsrc(k,iw) * vzn_ns(iw)
+
+           enddo
+        endif
+
+        ! Compute tracer mixing due to convection if using Grell scheme
+
+        if ( (nl%conv_tracer_mix > 0 .and. num_cumix > 0) ) then
+           if (nqparm(itab_w(iw)%mrlw) == 2) then
+              call grell_mix_driver( iw, dtlong4 )
+           endif
         endif
 
      enddo

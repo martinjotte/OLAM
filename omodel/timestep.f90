@@ -105,6 +105,11 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
       call surface_turb_flux(mrl)
       call sea_spray(mrl)
       call dust_src(mrl)
+
+      if (nl%split_hdiff_scalars > 0) then
+         call comp_horiz_k      (mrl)
+         call scalar_hdiff_split(mrl)
+      endif
    endif
 
    ! call check_nans(1,rvara1=alpha_press)
@@ -180,7 +185,9 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
       ! Computation of horizontal K's
 
-      call comp_horiz_k(mrl)
+      if (nl%split_hdiff_scalars == 0) then
+         call comp_horiz_k(mrl)
+      endif
 
    endif
 
@@ -309,7 +316,6 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    if (mrl > 0) then
 
       call scalar_transport(mrl,vmsc,wmsc,vxesc,vyesc,vzesc,rho_old)
-      if (nl%split_scalars > 0) call scalar_hdiff_split(mrl)
 
       ! call check_nans(14,rvara1=alpha_press)
 

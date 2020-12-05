@@ -1,6 +1,6 @@
 module mem_adv
 
-  real, allocatable :: a_v(:,:,:), zz0(:)
+  real, allocatable :: a_v(:,:,:)
 
   real, allocatable :: xx0(:), xy0(:), yy0(:), xy_h(:,:,:), xx_yy(:,:)
 
@@ -41,7 +41,7 @@ contains
 
     implicit none
 
-    integer  :: k, j, iw, iwn, ivn, np, n, iv, iw1, iw2, im1, im2, km
+    integer  :: k, j, iw, iwn, ivn, np, n, iv, iw1, iw2, im1, im2
     real     :: xw(7), yw(7), at(5,5)
     real(r8) :: fint
     real     :: z1(2), z2(2), az1(2,2), az2(2,2), a_h(5,5)
@@ -121,27 +121,24 @@ contains
     ! Arrays for finding the vertical quadratic polynomial representation
 
     allocate(a_v(mza,2,2))
-    allocate(zz0(mza))
 
-    do k = 1, mza
-       zz0(k) = dzt(k) * dzt(k) / 12.
-
-       km = merge(k-1,k,k>1)
-
-       z1 = (/ -dzm(km), dzm(k) /)
-       z2 = z1 * z1 - dzt(k) * dzt(k) / 12.
+    do k = 2, mza
+       z1 = (/ -dzm(k-1), dzm(k) /)
+       z2 = z1 * z1 - dztsqo12(k)
 
        az1(1:2,1) = z1
        az1(1:2,2) = z2
        az2 = matmul(transpose(az1), az1)
        call ludcmp(az2, 2)
 
-       a_v(k,2,1) =  (z2(2) * dzim(k ) - az2(2,1)) * az2(2,2)
-       a_v(k,2,2) = -(z2(1) * dzim(km) + az2(2,1)) * az2(2,2)
+       a_v(k,2,1) =  (z2(2) - dzm(k)   * az2(2,1)) * az2(2,2)
+       a_v(k,2,2) = -(z2(1) + dzm(k-1) * az2(2,1)) * az2(2,2)
 
-       a_v(k,1,1) = az2(1,1) * (1.0 - az2(1,2) * a_v(k,2,1))
-       a_v(k,1,2) = az2(1,1) * (1.0 - az2(1,2) * a_v(k,2,2))
+       a_v(k,1,1) = az2(1,1) * (dzm(k  ) - az2(1,2) * a_v(k,2,1))
+       a_v(k,1,2) = az2(1,1) * (dzm(k-1) - az2(1,2) * a_v(k,2,2))
     enddo
+
+    a_v(1,:,:) = a_v(2,:,:)
 
     ! Coefficients for horizontal Laplacian
 

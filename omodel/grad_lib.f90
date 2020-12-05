@@ -30,11 +30,11 @@ subroutine grad_z(iw, scp, gzps)
   enddo
 
   ! Constant gradient top and bottom:
-  ! gwz(kb-1) = gwz(kb)
+  gwz(kb-1) = gwz(kb)
   ! gwz(mza)  = gwz(mza-1)
 
   ! Zero-gradient top and bottom:
-  gwz(kb-1) = 0.0
+  !gwz(kb-1) = 0.0
   gwz(mza)  = 0.0
 
   ! Vertical loop over T levels
@@ -68,36 +68,31 @@ subroutine grad_z_quad(iw, scp, gzps, gzzps)
   real,    intent(out) :: gzzps(mza)
 
   integer :: k, ka
-  real    :: dsp, dsm
+  real    :: ds(mza)
 
   ka = lpw(iw)
 
-  ! Zero gradient top
-  dsp = scp(ka+1) - scp(ka)
-  gzzps(ka ) = dsp * a_v(ka, 2,1)
-  gzps (ka ) = dsp * a_v(ka, 1,1)
-
-  ! Constant gradient top
-  ! dsp = scp(ka+1) - scp(ka)
-  ! gzzps(ka ) = dsp * (a_v(k,2,1) + a_v(k,2,2))
-  ! gzps (ka ) = dsp * (a_v(k,1,1) + a_v(k,1,2))
+  ! Loop over W levels
+  do k = ka, mza-1
+     ds(k) = scp(k+1) - scp(k)
+  enddo
 
   ! Zero gradient bottom
-  dsm = scp(mza) - scp(mza-1)
-  gzzps(mza) = dsm * a_v(mza,2,2)
-  gzps (mza) = dsm * a_v(mza,1,2)
+  ds(ka-1) = 0.0
 
   ! Constant gradient bottom
-  ! dsm = scp(mza) - scp(mza-1)
-  ! gzzps(mza) = dsm * (a_v(k,2,1) + a_v(k,2,2))
-  ! gzps (mza) = dsm * (a_v(k,1,1) + a_v(k,1,2))
+  ! ds(ka-1) = ds(ka)
 
-  ! Vertical loop over T levels
-  do k = ka+1, mza-1
-     dsp = scp(k+1) - scp(k  )
-     dsm = scp(k  ) - scp(k-1)
-     gzzps(k) = dsp * a_v(k,2,1) + dsm * a_v(k,2,2)
-     gzps (k) = dsp * a_v(k,1,1) + dsm * a_v(k,1,2)
+  ! Zero gradient top
+  ! ds(mza) = 0.0
+
+  ! Constant gradient top
+  ds(mza) = ds(mza-1)
+
+  ! Loop over T levels
+  do k = ka, mza
+     gzzps(k) = ds(k) * a_v(k,2,1) + ds(k-1) * a_v(k,2,2)
+     gzps (k) = ds(k) * a_v(k,1,1) + ds(k-1) * a_v(k,1,2)
   enddo
 
 end subroutine grad_z_quad
@@ -127,13 +122,10 @@ subroutine grad_t2d(iw, scp, gxps, gyps)
 
   ! Loop over W neighbors of this W cell
 
-  !dir$ loop count = 6
   do n = 1, itab_w(iw)%npoly
-
      iwn = itab_w(iw)%iw(n)
      ivn = itab_w(iw)%iv(n)
 
-     !dir$ loop count avg(40)
      do k = lpv(ivn), mza
         dscp    = scp(k,iwn) - scp(k,iw)
         gxps(k) = gxps(k) + gxps_coef(iw,n) * dscp
@@ -178,13 +170,10 @@ subroutine grad_t2d_quad(iw, scp, gxps, gyps, gxxps, gxyps, gyyps)
 
   ! Loop over neighbors of this W cell
 
-  !dir$ loop count = 6
   do n = 1, itab_w(iw)%npoly
-
      iwn = itab_w(iw)%iw(n)
      ivn = itab_w(iw)%iv(n)
 
-     !dir$ loop count avg(40)
      do k = lpv(ivn), mza
         sc = scp(k,iwn) - scp(k,iw)
 
@@ -203,7 +192,7 @@ end subroutine grad_t2d_quad
 
 ! This routine computes gradients of earth-cartesian velocities at each
 ! cell center in earth-cartesian xe-ye-ze ccordinates using a generalized
-! form of the divergence theorum. Cell-centered aarth-cartesian velocities
+! form of the divergence theorum. Cell-centered earth-cartesian velocities
 ! are averaged to each face to perform the integration. Used for computing
 ! 3d velocity strain rates for the SGS model.
 
@@ -224,9 +213,16 @@ end subroutine grad_t2d_quad
     real                 :: dvxe, dvye, dvze, dsoa, nxds, nyds, nzds
 
     do k = lpw(iw), mza-1
-       dvxe = (vxe(k+1,iw) - vxe(k-1,iw)) * dzit(k)
-       dvye = (vye(k+1,iw) - vye(k-1,iw)) * dzit(k)
-       dvze = (vze(k+1,iw) - vze(k-1,iw)) * dzit(k)
+
+       if (k == lpw(iw)) then
+          dvxe = (vxe(k+1,iw) - vxe(k,iw)) * dzit(k) * 2.
+          dvye = (vye(k+1,iw) - vye(k,iw)) * dzit(k) * 2.
+          dvze = (vze(k+1,iw) - vze(k,iw)) * dzit(k) * 2.
+       else
+          dvxe = (vxe(k+1,iw) - vxe(k-1,iw)) * dzit(k)
+          dvye = (vye(k+1,iw) - vye(k-1,iw)) * dzit(k)
+          dvze = (vze(k+1,iw) - vze(k-1,iw)) * dzit(k)
+       endif
 
        DvxeDxe(k) = dvxe * wnxo2(iw)
        DvxeDye(k) = dvxe * wnyo2(iw)
@@ -239,6 +235,7 @@ end subroutine grad_t2d_quad
        DvzeDxe(k) = dvze * wnxo2(iw)
        DvzeDye(k) = dvze * wnyo2(iw)
        DvzeDze(k) = dvze * wnzo2(iw)
+
     enddo
 
     DvxeDxe(mza) = DvxeDxe(mza-1)

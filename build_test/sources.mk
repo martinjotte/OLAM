@@ -250,7 +250,7 @@ SOURCE_FILES= \
              $(CMAQ)/cb05tucl_ae6_aq/RXNS_DATA_MODULE.F90 \
              $(CMAQ)/cb05tucl_ae6_aq/RXNS_FUNC_MODULE.F90 \
              $(CMAQ)/cmaq_cloud_optics.f90 \
-             $(CMAQ)/cmaq_driver.f90 \
+             $(CMAQ)/cmaq_driver.F90 \
              $(CMAQ)/coags.f \
              $(CMAQ)/CONST_DATA.f90 \
              $(CMAQ)/conv_cgrid.f90 \

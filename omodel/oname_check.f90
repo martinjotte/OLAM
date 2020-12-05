@@ -255,6 +255,8 @@ call ichk_bnds( nl%horiz_adv_order, "HORIZ_ADV_ORDER", 2, 3, 2, nfatal, nwarn )
 call rchk_bnds( nl%vort_damp_fact, "vort_damp_fact", 0.0, 0.25, 2, nfatal, nwarn )
 call rchk_bnds( nl%divh_damp_fact, "divh_damp_fact", 0.0, 0.25, 2, nfatal, nwarn )
 
+if (nl%split_scalars == 0) nl%split_hdiff_scalars = 0
+
 !--------------------------------------------------------------------------
 ! RAYLEIGH FRICTION PARAMETERS
 !--------------------------------------------------------------------------

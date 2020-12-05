@@ -37,22 +37,28 @@ Module mem_cuparm
 
    real,    allocatable :: thsrc (:,:) ! heat / cp  tend ( rho X temp )
    real,    allocatable :: rtsrc (:,:) ! water mass tend ( rho X rr_w )
-
-   real,    allocatable :: cu_pcpflx(:,:)
-
+   real,    allocatable :: umsrc (:,:) ! rho * ue tend
+   real,    allocatable :: vmsrc (:,:) ! rho * ve tend
+   real,    allocatable :: qwcon (:,:) ! convective cloud water
    real(r8),allocatable :: aconpr  (:)
    real,    allocatable :: conprr  (:)
-   real,    allocatable :: qwcon (:,:) ! convective cloud water
-
    real,    allocatable :: cbmf    (:) ! updraft mass flux
-   real,    allocatable :: cddf    (:) ! downdraft mass flux
    integer, allocatable :: kcutop  (:)
    integer, allocatable :: kcubot  (:)
+   integer, allocatable :: iactcu  (:)
+
+   ! There are only needed for scalar mixing or subgrid CMAQ aqueous
+   ! chemistry with the Grell scheme:
+   real,    allocatable :: cddf    (:)
    integer, allocatable :: kudbot  (:)
    integer, allocatable :: kddtop  (:)
    integer, allocatable :: kddmax  (:)
-   integer, allocatable :: kddbot  (:)
-   integer, allocatable :: iactcu  (:)
+   integer, allocatable :: kstabi  (:)
+
+   ! Convective precipitation flux and evaporation rate; only
+   ! needed with Grell deep convection and CMAQ chemistry
+   real,    allocatable :: cu_pwa(:,:)
+   real,    allocatable :: cu_pev(:,:)
 
    private :: r8
 
@@ -63,6 +69,7 @@ Contains
   subroutine alloc_cuparm(mza, mwa, mrls, nqparm)
 
     use consts_coms, only: r8
+    use oname_coms,  only: nl
 
     implicit none
 
@@ -78,25 +85,46 @@ Contains
        allocate (aconpr   (mwa)) ; aconpr = 0.0_r8
        allocate (conprr   (mwa)) ; conprr = 0.0
        allocate (qwcon(mza,mwa)) ; qwcon  = 0.0
+       allocate (iactcu   (mwa)) ; iactcu = 0
+       allocate (cbmf     (mwa)) ; cbmf   = 0.0
+       allocate (kcutop   (mwa)) ; kcutop = -1
+       allocate (kcubot   (mwa)) ; kcubot = -1
+
+       ! Momentum tendencies for schemes that mix wind
+       ! (currently Tiedtke, Grell deep, and Emanuel)
+
+       if (nl%conv_uv_mix > 0) then
+          if ( any(nqparm(1:mrls) == 1) .or. &
+               any(nqparm(1:mrls) == 2) .or. &
+               any(nqparm(1:mrls) == 4) ) then
+
+             allocate (umsrc(mza,mwa)) ; umsrc = 0.0
+             allocate (vmsrc(mza,mwa)) ; vmsrc = 0.0
+          endif
+       endif
 
        ! Do we need to save the convective precipitation flux?
+       ! Only needed with CMAQ and Grell deep convection.
 
-       allocate (cu_pcpflx(mza,mwa)) ; cu_pcpflx = 0.0
+       if (nl%do_chem > 0) then
+          if ( any(nqparm(1:mrls) == 2) ) then
+             allocate (cu_pwa(mza,mwa)) ; cu_pwa = 0.0
+             allocate (cu_pev(mza,mwa)) ; cu_pev = 0.0
+          endif
+       endif
 
-       ! Diagnostic arrays for clouds/radiation/tracer mixing
+       ! Arrays for tracer mixing and/or aqueous chemistry with
+       ! the Grell scheme (deep and shallow)
 
-       allocate(cbmf  (mwa)) ; cbmf   = 0.0
-       allocate(cddf  (mwa)) ; cddf   = 0.0
-       allocate(kcutop(mwa)) ; kcutop = -1
-       allocate(kcubot(mwa)) ; kcubot = -1
-       allocate(kudbot(mwa)) ; kudbot = -1
-       allocate(kddtop(mwa)) ; kddtop = -1
-       allocate(kddmax(mwa)) ; kddmax = -1
-       allocate(kddbot(mwa)) ; kddbot = -1
+       if ( any(nqparm(1:mrls) == 2) .or. &
+            any(nqparm(1:mrls) == 5) ) then
 
-    endif
-
-    allocate(iactcu(mwa)) ; iactcu = 0
+          allocate(cddf  (mwa)) ; cddf   = 0.0
+          allocate(kudbot(mwa)) ; kudbot = -1
+          allocate(kddtop(mwa)) ; kddtop = -1
+          allocate(kddmax(mwa)) ; kddmax = -1
+          allocate(kstabi(mwa)) ; kstabi = -1
+       endif
 
   end subroutine alloc_cuparm
 
@@ -107,7 +135,8 @@ Contains
 
     if (allocated(thsrc))    deallocate (thsrc)
     if (allocated(rtsrc))    deallocate (rtsrc)
-    if (allocated(cu_pcpflx))deallocate (cu_pcpflx)
+    if (allocated(umsrc))    deallocate (umsrc)
+    if (allocated(vmsrc))    deallocate (vmsrc)
     if (allocated(aconpr))   deallocate (aconpr)
     if (allocated(conprr))   deallocate (conprr)
     if (allocated(qwcon))    deallocate (qwcon)
@@ -118,8 +147,9 @@ Contains
     if (allocated(kudbot))   deallocate (kudbot)
     if (allocated(kddtop))   deallocate (kddtop)
     if (allocated(kddmax))   deallocate (kddmax)
-    if (allocated(kddbot))   deallocate (kddbot)
     if (allocated(iactcu))   deallocate (iactcu)
+    if (allocated(cu_pwa))   deallocate (cu_pwa)
+    if (allocated(cu_pev))   deallocate (cu_pev)
 
   end subroutine dealloc_cuparm
 
@@ -134,7 +164,9 @@ Contains
 
      if (allocated(rtsrc))  call increment_vtable('RTSRC', 'AW', rvar2=rtsrc)
 
-     if (allocated(cu_pcpflx)) call increment_vtable('CU_PCPFLX', 'AW', rvar2=cu_pcpflx)
+     if (allocated(umsrc))  call increment_vtable('UMSRC', 'AW', rvar2=umsrc)
+
+     if (allocated(vmsrc))  call increment_vtable('VMSRC', 'AW', rvar2=vmsrc)
 
      if (allocated(aconpr)) call increment_vtable('ACONPR','AW', dvar1=aconpr)
 
@@ -156,9 +188,13 @@ Contains
 
      if (allocated(kddmax)) call increment_vtable('KDDMAX','AW', ivar1=kddmax)
 
-     if (allocated(kddbot)) call increment_vtable('KDDBOT','AW', ivar1=kddbot)
+     if (allocated(kstabi)) call increment_vtable('KSTABI','AW', ivar1=kstabi)
 
      if (allocated(iactcu)) call increment_vtable('IACTCU','AW', ivar1=iactcu)
+
+     if (allocated(cu_pwa)) call increment_vtable('CU_PWA','AW', rvar2=cu_pwa)
+
+     if (allocated(cu_pev)) call increment_vtable('CU_PEV','AW', rvar2=cu_pev)
 
    end subroutine filltab_cuparm
 

@@ -33,7 +33,7 @@ subroutine calc_3d_cloud_fraction(mrl)
 
      do k = ka, mza
 
-        if (iactcu(iw) == 1) then
+        if (iactcu(iw) > 0) then
            cond = rr_w(k,iw) - rr_v(k,iw) + qwcon(k,iw)
         else
            cond = rr_w(k,iw) - rr_v(k,iw)
@@ -124,11 +124,13 @@ subroutine get_cloud_frac(iw, ka, frac)
 
      do k = ka, mza
         tc = tair(k,iw) - t00
-        if (tc > -10.0) then
-           rh = rhov(k) * rhovsl_inv(tc)
-        else
-           rh = rhov(k) * rhovsi_inv(tc)
+        rh = rhov(k) * rhovsl_inv(tc)
+
+        if (rhop(k) > 1.e-20) then
+           rhi = rhov(k) * rhovsi_inv(tc)
+           rh  = (rh * rhoc(k) + rhi * rhop(k)) / (rhoc(k) + rhop(k))
         endif
+
         rh = min(rh, 1.0)
         frac(k) = max( 1.0 - sqrt(( 1.0 - rh ) / ( 1.0 - rh00)), 0.0)
      enddo
@@ -224,7 +226,7 @@ subroutine get_cloud_frac(iw, ka, frac)
   ! If there is subgrid convection, modify the estimated cloud fraction to include
   ! the convective clouds from the cumulus scheme
 
-  if (iactcu(iw) == 1) then
+  if (iactcu(iw) > 1) then
 
      ! This section estimates the cloud fraction from subgrid cumulus and
      ! any resolved clouds based on a lookup table of the scheme of

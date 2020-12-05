@@ -295,7 +295,7 @@ subroutine scalar_transport(mrl,vmsc, wmsc, vxesc, vyesc, vzesc, rho_old)
            iwn  = itab_w(iw)%iw(jv)
            dirv = itab_w(iw)%dirv(jv)
 
-           if (nl%split_scalars < 1) then
+           if (nl%split_hdiff_scalars < 1) then
 
               ! Horizontal advective and diffusive scalar fluxes
 

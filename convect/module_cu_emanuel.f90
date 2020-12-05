@@ -26,8 +26,8 @@ SUBROUTINE cuparm_emanuel(iw, dtlong)
   use mem_grid,    only: lpw, zm, zt, dzt, lsw
   use mem_basic,   only: tair, press, rho, rr_v, ue, ve
   use consts_coms, only: t00, grav
-  use mem_cuparm , only: thsrc, rtsrc, conprr, cbmf, cu_pcpflx, kudbot, &
-                         kcutop, kcubot, qwcon, iactcu, kddtop, kddmax, cddf
+  use mem_cuparm , only: thsrc, rtsrc, conprr, cbmf, kcutop, kcubot, &
+                         qwcon, iactcu, umsrc, vmsrc
   use mem_turb,    only: frac_sfc
   use therm_lib,   only: rhovsil
 
@@ -39,7 +39,7 @@ SUBROUTINE cuparm_emanuel(iw, dtlong)
   real, dimension(mza) :: tc, qc, qsc, u, v, pc, pfc, gz, den, dz
   real, dimension(mza) :: tt, qt, ut, vt, qcldc, mp, qflux
 
-  integer :: k, ka, kc, kp, ks, nd, na, nm
+  integer :: k, ka, kc, kp, ks, nd, na, nm, kmax
   real    :: pcprate, wprime, tprime, qprime
   integer :: iflag, kcbase, kctop, kup
 
@@ -101,44 +101,25 @@ SUBROUTINE cuparm_emanuel(iw, dtlong)
 
   if (iflag == 1 .or. iflag == 4) then
 
+     iactcu(iw) = 1
      kcutop(iw) = kctop  + ka - 1
      kcubot(iw) = kcbase + ka - 1
-     kudbot(iw) = kup    + ka - 1
-     iactcu(iw) = 1
-
-     if (mp(kcbase) > 1.e-9) then
-        cddf(iw) = mp(kcbase)
-
-        do kc = kctop, kcbase, -1
-           if (mp(kc) > 0.2 * cddf(iw)) then
-              kddtop(iw) = kc + ka - 1
-              exit
-           endif
-        enddo
-
-        ! temp
-        kddmax(iw) = min(kddtop(iw), kcubot(iw))
-
-     endif
 
      do kc = 1, kctop
         k  = kc + ka - 1
+
         thsrc(k,iw) = tt(kc) * den(kc)
         rtsrc(k,iw) = qt(kc) * den(kc)
         qwcon(k,iw) = qcldc(kc)
-     enddo
 
-     ! Convective precipitation flux
-     do kc = kctop, 1, -1
-        k  = kc + ka - 1
-        cu_pcpflx(k-1,iw) = qflux(kc)
+        if (nl%conv_uv_mix > 0) then
+           umsrc(k,iw) = ut(kc) * den(kc)
+           vmsrc(k,iw) = vt(kc) * den(kc)
+        endif
      enddo
 
      ! Surface precipitation
-     do ks = 1, lsw(iw)
-        k  = ks + ka - 1
-        conprr(iw) = conprr(iw) + frac_sfc(ks,iw) * cu_pcpflx(k-1,iw)
-     enddo
+     conprr(iw) = pcprate
 
   endif
 
@@ -147,9 +128,9 @@ END SUBROUTINE cuparm_emanuel
 
 SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
      T,      Q,  QS,     U,      V,    P,      PH, gz,      &
-     ND,     NL, DELT,   IFLAG,  FT,   FQ,     FU, FV,  mp, & 
+     ND,     NL, DELT,   IFLAG,  FT,   FQ,     FU, FV,  mp, &
      PRECIP, WD, TPRIME, QPRIME, CBMF, QCONDC, qflux, nk, icb, inb )
-  
+
 !-----------------------------------------------------------------------------
 !    *** On input:      ***
 !
