@@ -204,7 +204,7 @@ subroutine shdf5_orec(ndims,dims,dsetname,bvars,ivars,rvars,cvars,dvars,lvars, &
      
 ! Prepare memory and options for the write
 
-  call fh5_prepare_write(ndims, dims, hdferr, 6, &
+  call fh5_prepare_write(ndims, dims, hdferr, 3, &
        mcoords=lpoints, fcoords=gpoints, ifsize=nglobe)
 
   if (hdferr /= 0) then

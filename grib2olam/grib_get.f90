@@ -25,7 +25,7 @@ module grib_get_mod
   integer :: lenout
 
 ! integer, parameter :: lenbuff=20000000,maxrecs=1000000
-  
+
   integer, parameter :: lenbuff = 200000
   integer, parameter :: maxrecs =  10000
 
@@ -318,7 +318,7 @@ contains
 
     integer :: istart, n, iend, nlines, ntok, nc,nr
     character(len=20) :: clevel,chour,stokens(20), sdepths(20)
-    real :: ztop, zbot
+    real :: ztop, zbot, pval
 
     if (grib_ver == 1) then
        cmd = trim(wgrib_exe) // " -s "// trim(filein) // char(0)
@@ -360,15 +360,15 @@ contains
             index(lines(n),':surface:') > 0     .or. &
             index(lines(n),'below ground:') > 0 .or. &
             index(lines(n),' down:') > 0        ) then
-          
+
           nrec=nrec+1
           call tokenize(lines(n),tokens,ntok,':')
 
           irecs(nrec) = tokens(1)
           read(tokens(3)(3:),*) idates(nrec)
-          fields(nrec) = tokens(4) 
-          clevel = tokens(5) 
-          chour = tokens(6) 
+          fields(nrec) = tokens(4)
+          clevel = tokens(5)
+          chour = tokens(6)
 
           ! Skip accumulation or average fields
           if ( (index(chour,'acc') > 0) .or. (index(chour,'ave') > 0) ) then
@@ -406,7 +406,7 @@ contains
              nrec = nrec - 1
              cycle
           endif
-      
+
           if ( index(lines(n),':sfc:') > 0 .or. index(lines(n),':surface:') > 0 ) then
 
              levs(nrec)=0
@@ -422,12 +422,12 @@ contains
                 read(sdepths(2),*) zbot
 
                 if (stokens(2) == 'cm') then
-                
+
                    levs(nrec) = - nint(0.5*(ztop + zbot))
                    !write(*,*) "Found cm", levs(nrec), trim(fields(nrec)), ztop, zbot
 
                 elseif (stokens(2) == 'm') then
-                
+
                    levs(nrec) = - nint(50.0*(ztop + zbot))
                    !write(*,*) "Found m", levs(nrec), trim(fields(nrec))
 
@@ -443,10 +443,20 @@ contains
 
           else
 
-             read(clevel,*) levs(nrec)
+!            read(clevel,*) levs(nrec)
+             read(clevel,*) pval
+
+             ! mjo: skip pressures less than 1 mb since we are
+             ! storing them in integer arrays. This needs to be changed.
+             if (pval < .99) then
+                nrec = nrec - 1
+                cycle
+             endif
+
+             levs(nrec) = nint(pval)
 
           endif
-      
+
           ! Check if this is a duplicate field. We will use the first occurence...
           do nr=1,nrec-1
              if ( idates(nrec) == idates(nr) .and. fields(nrec) == fields(nr) .and. &
@@ -456,11 +466,11 @@ contains
                 exit
              endif
           enddo
-      
+
        endif
-       
+
     enddo
-    
+
   end subroutine grib_get_fields
 
 !**********************************************************************

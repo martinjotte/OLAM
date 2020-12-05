@@ -28,7 +28,7 @@ landmask = 'LAND'
 ! Soil and snow cover fields
 
 soilw_var = 'SOILW'
-soilt_var = 'TMP'
+soilt_var = 'TSOIL'
 snow_var  = 'WEASD'
 
 /
