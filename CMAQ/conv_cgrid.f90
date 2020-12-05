@@ -43,7 +43,7 @@ module cgrid_conv
 
   public :: conv_cgrid, rev_cgrid, conv_cgrid_iw, rev_cgrid_iw, rev_cgrid_sfc_iw
   private
-      
+
 
 contains
 
@@ -51,7 +51,7 @@ contains
   subroutine setup_conv()
 
     use cgrid_spcs
-    use utilio_defn 
+    use utilio_defn
 
     implicit none
 
@@ -129,17 +129,14 @@ contains
     real    :: rhoi(mza)
 
     if ( firstime ) then
-       !$omp barrier
-       !$omp single
        firstime = .false.
        call setup_conv()
-       !$omp end single
     endif
 
     ! Gas and non-reactive - no conversions necessary (always ppmV)
 
     !$omp parallel private(rhoi)
-    !$omp do private(j,iw,k,v,n,fac)
+    !$omp do private(iw,k,v,n,fac)
     do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
        do k = lpw(iw), mza
@@ -183,7 +180,7 @@ contains
              enddo
           enddo
        endif
-      
+
     enddo
     !$omp end do
     !$omp end parallel
@@ -218,16 +215,14 @@ contains
     real    :: rho4(mza)
 
     if ( firstime ) then
-       !$omp barrier
-       !$omp single
        firstime = .false.
        call setup_conv()
-       !$omp end single
     endif
 
     ! Gas and non-reactive - no conversions necessary (always ppmV)
 
-    !$omp parallel do private(j,iw,v,n,fac,k)
+    !$omp parallel private(rho4)
+    !$omp do private(iw,k,v,n,fac)
     do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
        do k = lpw(iw), mza
@@ -247,7 +242,7 @@ contains
              enddo
           enddo
        endif
-     
+
        ! aerosol ppmv -> number/m**3
        ! (Don't multiply by MGPG, etc. See note above)
 
@@ -273,7 +268,8 @@ contains
        endif
 
     enddo
-    !$omp end parallel do
+    !$omp end do
+    !$omp end parallel
 
   end subroutine rev_cgrid
 
@@ -340,7 +336,7 @@ contains
           enddo
        enddo
     endif
-     
+
     ! number/m**3 aerosol -> ppmv
     ! (Don't divide by MGPG, etc. See note above)
 
@@ -436,7 +432,7 @@ contains
           enddo
        enddo
     endif
-     
+
     ! aerosol ppmv -> number/m**3
     ! (Don't multiply by MGPG, etc. See note above)
 
@@ -566,7 +562,7 @@ contains
           enddo
        enddo
     endif
-      
+
     ! Non-reactives - no conversion
 
     if ( n_nr_spc .gt. 0 ) then

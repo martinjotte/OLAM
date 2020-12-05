@@ -250,7 +250,7 @@ C Warn the User if there are No Emissions Species On Any File
       end subroutine emis_init
 
 !-----------------------------------------------------------------------
-         
+
       subroutine get_emis ( mrl )
 
          USE CGRID_SPCS          ! CGRID mechanism species
@@ -315,7 +315,7 @@ C Warn the User if there are No Emissions Species On Any File
             vdemis_ae( :,iw,: ) = 0.0
 
             do k = lpw(iw), mza
-               cnvtc(k) = cnvte * volti(k,iw) / rho(k,iw)
+               cnvtc(k) = cnvte * volti(k,iw) / real(rho(k,iw))
             enddo
 
             ! Apply EDGAR gas chemistry emissions

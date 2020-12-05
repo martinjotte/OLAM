@@ -25,14 +25,14 @@ C what(1) key, module and SID; SCCS file; date and time of last delta:
 C %W% %P% %G% %U%
 
 C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-      SUBROUTINE GETALPHA ( NUMI, MASSI, SURFI, LWC, T, P, RHOAIR, ALFA )
+      SUBROUTINE GETALPHA ( NUMI, MASSI, SURFI, LWC, T, P, ALFA )
 
 C-----------------------------------------------------------------------
 C  Description:
 C    Calculate the in-cloud scavenging coefficients for number (alfa0),
 C    surface area (alfa2) and mass (alfa3). This code combines the RPM
 C    codes getcld.f, and pandkcd.f
- 
+
 C  Revision History:
 C      Date       Who                      What
 C    -------- -------------------------  -------------------------------
@@ -49,8 +49,8 @@ C    08/23/2005  Binkowski               Changed check on MASSI to
 C                                           be 1.0e-6 [ug/M**3] rather than
 C                                           to avoid difficulties causing NAN's
 C                                           as found by Bonyoung Koo
-C                                           I have also commented out some lines 
-C                                           code that are unnecessary in this 
+C                                           I have also commented out some lines
+C                                           code that are unnecessary in this
 C                                           implementation
 C-----------------------------------------------------------------------
 
@@ -80,6 +80,10 @@ C...........Parameters:
 
       REAL, PARAMETER :: RHO_WATER = 1.0E3 ! density of water at 20 C & 1 ATM [ kg/m**3 ]
 
+      REAL, PARAMETER :: TWOPI  = 2.0 * PI
+      REAL, PARAMETER :: CSCAV1 = KBOLTZ / 3. / PI
+      REAL, PARAMETER :: CSCAV2 = GRAV * RHOPART / 18.0
+
 ! log and square of log of SIGC
       REAL, PARAMETER :: LSGC   = LOG( SIGC )
       REAL, PARAMETER :: LSGC2  = LSGC * LSGC
@@ -94,6 +98,13 @@ c *** ranges for acceptable values of LOG( sigma_g).
       REAL, PARAMETER :: MAXL2SG = LOG( MAX_SIGMA_G ) ** 2 ! maximum sigma_g = 2.5  (8.395887e-1)
       REAL, PARAMETER :: DEFL2SG = LOG( DEF_SIGMA_G( 1 ) ) ** 2 ! default sigma_g = 1.7  (2.815663e-1)
 
+      REAL, PARAMETER :: EXPML2SG = EXP(      -DEFL2SG )
+      REAL, PARAMETER :: DEFESG4  = EXP( 0.5 * DEFL2SG )
+      REAL, PARAMETER :: DEFESG16 = EXP( 2.0 * DEFL2SG )
+
+      REAL, PARAMETER :: MINESG8  = EXP( MINL2SG )
+      REAL, PARAMETER :: MAXESG8  = EXP( MAXL2SG )
+
 C...........Arguments:
 
       REAL          NUMI       ! total number concentration for the Aitken mode [ #/m**3 ]
@@ -102,7 +113,7 @@ C...........Arguments:
       REAL          LWC        ! cloud liquid water content [ kg/m**3 ]
       REAL          T          ! average cloud temperature [ K ]
       REAL          P          ! average cloud pressure [ Pa ]
-      REAL          RHOAIR     ! average cloud density [ kg/m**3 ]
+!     REAL          RHOAIR     ! average cloud density [ kg/m**3 ]
       REAL          ALFA       ! scavenging coefficient [ 1/s ]
 
 C...........Local Variables (scalars):
@@ -115,6 +126,7 @@ C...........Local Variables (scalars):
       REAL          NC         ! total cloud droplet number concentration  [ #/m**3 ]
       REAL          DGC        ! geometric mean diameter for cloud droplet [ m ]
       REAL          ESG4       ! exp(0.5 * L2SGI )
+      REAL          ESG8       ! exp(      L2SGI )
       REAL          ESG16      ! exp(2.0 * L2SGI )
       REAL          ESG36      ! exp(4.5 * L2SGI )
       REAL          DG2        ! square of geometic mean diameter
@@ -140,8 +152,8 @@ C...........Local Variables (scalars):
       REAL          COEF4      !
       REAL          VSETTL     ! settling velocity for cloud drops
       REAL          LAMDA      ! mean free path of air [ m ]
-      REAL          MU         ! dynamic viscosity [ kg/(m*s) ]
-      REAL          NU         ! kinematic viscosity [ m**2/s ]
+      REAL          MUI        ! dynamic viscosity [ kg/(m*s) ]
+!     REAL          NU         ! kinematic viscosity [ m**2/s ]
 
 C-----------------------------------------------------------------------
 C     begin body of subroutine GETALPHA
@@ -207,32 +219,45 @@ C...set the 2nd moment value
 C...get square of the log of the geometric standard deviation L2SGI
 C...  The following method is much more robust, even if it uses three log calls.
 
-        L2SGI = ONE3 * LOG( AM0 ) +
-     &          TWO3 * LOG( AM3 ) -
-     &                 LOG( AM2 )
+!        L2SGI = ONE3 * LOG( AM0 ) +
+!     &          TWO3 * LOG( AM3 ) -
+!     &                 LOG( AM2 )
 
-        L2SGI = MAX( MINL2SG, L2SGI )
-        L2SGI = MIN( MAXL2SG, L2SGI )
+!       esg4 = sqrt( (am3**2 * am0)**one3 / am2 )
+
+        esg8  = max(MINESG8, min(MAXESG8, (am3**2 * am0)**one3 / am2 ))
+        esg4  = sqrt(esg8)
+        esg16 = esg8 ** 2
+
+!        L2SGI = MAX( MINL2SG, L2SGI )
+!        L2SGI = MIN( MAXL2SG, L2SGI )
+
+!        ESG4  = EXP( 0.5 * L2SGI )
+!        ESG16 = EXP( 2.0 * L2SGI )
+
 
       ELSE
 
 C...set the standard deviation to a fixed value (e.g. 1.7)
 
-        L2SGI = DEFL2SG
+!       L2SGI = DEFL2SG
 
 C...calculate the 2nd moment based on the fixed standard deviation
 
-        AM2 = EXP( TWO3 * LOG( AM3 ) +
-     &             ONE3 * LOG( AM0 ) -
-     &             L2SGI )
+!       AM2 = EXP( TWO3 * LOG( AM3 ) +
+!    &             ONE3 * LOG( AM0 ) -
+!    &             L2SGI )
+
+        AM2 = EXPML2SG * (AM3**2 * AM0) ** ONE3
+
+        ESG4  = DEFESG4
+        ESG16 = DEFESG16
 
       END IF
 
 C...compute special variables for moments
 C...  of Aitken mode distribution
 
-      ESG4  = EXP( 0.5 * L2SGI )
-      ESG16 = EXP( 2.0 * L2SGI )
       ESG36 = ESG4 * ESG16 * ESG16
 
 C...calculate dgni from numi and m3i
@@ -248,12 +273,10 @@ C...now get other aerosol moments
 
 C...calculate:
 C...  lamda     mean free path of air [ m ]
-C...  mu        dynamic viscosity [ kg/(m*s) ]
-C...  nu        kinematic viscosity [ m**2/s ]
+C...  mui       inverse of dynamic viscosity [ (m*s)/kg ]
 
-      MU = 1.458E-6 * T * SQRT( T ) / ( T + 110.4 )
+      MUI = 6.8587E5 * ( T + 110.4 ) / (T * SQRT( T ) )
       LAMDA = 6.6328E-8 * ( P0 / P ) * ( T / T0 )
-      NU = MU / RHOAIR
 
 C...implement Pruppacher and Klett method for scavenging coefficients
 C...  calculates scavenging coefficients for number and mass
@@ -263,18 +286,18 @@ C...  reference:
 C...      Pruppacher & Klett "Microphysics of Clouds & Precipitation"
 C...                             pp 380 - 384, 1978, D. Reidel
 
-      COEF = KBOLTZ * ( T / ( 3.0 * PI * MU ) )
+      COEF = CSCAV1 * T * MUI
 
 C...get aerosol diffusivities
 
 !cc FSB these values are not used
 !cc      DIFF0 = COEF * ( AMM1 + 2.492 * LAMDA * AMM2 ) / AM0
 !cc      DIFF2 = COEF * ( AM1  + 2.492 * LAMDA * AM0  ) / AM2
-      DIFF3 = COEF * ( ( AM2  + 2.492 * LAMDA * AM1  ) / AM3 )
+      DIFF3 = COEF * ( AM2  + 2.492 * LAMDA * AM1  ) / AM3
 
 C...set up coefficient coef2 for settling velocity of cloud drops
 
-      COEF2 = ( GRAV / ( 18.0 * NU ) ) * ( RHOPART / RHOAIR )
+      COEF2 = CSCAV2 * MUI
 
 C...get settling velocity for cloud drops
 
@@ -286,21 +309,22 @@ C...set up for Peclet numbers
 
 C...calculate Peclet numbers
 
-!cc FSB because these Peclet numbers are not used, I have commented 
+!cc FSB because these Peclet numbers are not used, I have commented
 !cc     these lines of code - Binkowski 08/23/2005
-!cc      PE0 = COEF3 / DIFF0
-!cc      PE2 = COEF3 / DIFF2
-      PE3 = COEF3 / DIFF3
+!cc     PE0 = COEF3 / DIFF0
+!cc     PE2 = COEF3 / DIFF2
+!       PE3 = COEF3 / DIFF3
 
 C...now get in-cloud scavenging coefficients
 C...  including convective enhancement
 
-      COEF4  = 2.0 * PI * M1C
+      COEF4  = TWOPI * M1C
 
 !cc FSB use a common value, that for 3rd moment.
 !cc
 !cc      ALFA0 = COEF4 * DIFF0 * ( 1.0 + 0.5 * CUBRT( PE0 ) )
 !cc      ALFA2 = COEF4 * DIFF2 * ( 1.0 + 0.5 * CUBRT( PE2 ) )
-      ALFA  = COEF4 * DIFF3 * ( 1.0 + 0.5 * PE3**ONE3 )
+
+      ALFA  = COEF4 * ( DIFF3 + 0.5 * (DIFF3**2 * COEF3)**ONE3 )
 
       END

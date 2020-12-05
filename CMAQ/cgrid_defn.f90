@@ -59,13 +59,13 @@ contains
     vdemis_nr = rinit
 
     allocate( sxfer_gc( nsw_max, mwa, n_gc_depv ) )
-    sxfer_gc = rinit
+    sxfer_gc = 0.0
 
     allocate( sxfer_ae( nsw_max, mwa, n_ae_depv ) )
-    sxfer_ae = rinit
+    sxfer_ae = 0.0
 
     allocate( sxfer_nr( nsw_max, mwa, n_nr_depv ) )
-    sxfer_nr = rinit
+    sxfer_nr = 0.0
 
     allocate(cgrid_names(nspcsd))
     cgrid_names = ''

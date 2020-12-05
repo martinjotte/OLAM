@@ -26,27 +26,30 @@ C %W% %P% %G% %U%
       subroutine chem( mrl )
 
       USE RXNS_DATA
-      USE RXNS_FUNCTION
-      USE UTILIO_DEFN 
+      USE UTILIO_DEFN
+      USE AEROSOL_CHEMISTRY
       use hrdata
       use mem_ijtabs, only: jtab_w, jtw_prog
-      use misc_coms,  only: io6
+      use aero_data,  only: aerospc_m3fac, aer_str, spec_map
 
       implicit none
 
       integer, intent(in) :: mrl
       LOGICAL, SAVE       :: LFIRST = .TRUE.
-      integer             :: j, iw
+      integer             :: j, iw, n, v, s
       CHARACTER( 132 )    :: MSG
 
       INTEGER :: MXEBI
       REAL    :: SMEBI
       INTEGER :: NCALL
-!
+
       integer :: maxebi
       real    :: sumebi
       integer :: ncall_ebi
+
+#ifdef EBI_STATS
       integer :: avgebi
+#endif
 
       IF ( NUMB_MECH_SPC .EQ. 0 ) RETURN
 
@@ -56,9 +59,9 @@ C %W% %P% %G% %U%
 
          LOGDEV = INIT3( )
 
-         IF ( MECHNAME .NE. 'CB05TUCL_AE6_AQ' ) THEN
-            MSG = 'This version of the EBI solver can only be used with'
-     &           // ' the CB05TUCL_AE6_AQ chemical mechanism'
+         IF( MECHNAME .NE. 'CB6R3_AE6_AQ' ) THEN
+             MSG = 'This version of the EBI solver can only be used with'
+     &            // ' the CB6R3_AE6_AQ chemical mechanism'
             CALL M3EXIT( 'HRDRIVER', 0, 0, MSG, XSTAT1 )
          END IF
 
@@ -74,6 +77,18 @@ C %W% %P% %G% %U%
             L_AQ_VRSN = .FALSE.
          END IF
 
+         do n = 1, n_spec
+            if (convert_conc(n)) then
+               v = cgrid_index(n) - aer_str + 1
+               s = spec_map(v)
+               m3_conv(n) = reverse_conv(n) * aerospc_m3fac(s)
+            else
+               m3_conv(n) = 1.0
+            endif
+         enddo
+
+         CALL HETCHEM_INIT()
+
          LFIRST = .FALSE.
 
       END IF      ! First time
@@ -81,13 +96,13 @@ C %W% %P% %G% %U%
       maxebi = 0
       sumebi = 0.
       ncall_ebi = 0
-      
+
 !$omp parallel do private(iw,mxebi,smebi,ncall) schedule(guided)
 !$omp&            reduction(+:sumebi,ncall_ebi) reduction(max:maxebi)
       do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
          call chem1(iw,mxebi,smebi,ncall)
-         
+
          maxebi    = max(maxebi,mxebi)
          sumebi    = sumebi + smebi
          ncall_ebi = ncall_ebi + ncall
@@ -109,11 +124,11 @@ C**********************************************************************
 C
 C  FUNCTION: Driver subroutine for Euler Backward Iterative solver
 C
-C  PRECONDITIONS: For the CB05TUCL family of mechanisms
+C  PRECONDITIONS: For the CB6R3 family of mechanisms
 C
 C  KEY SUBROUTINES/FUNCTIONS CALLED:  HRINIT, PHOT, HRCALCKS, HRSOLVER
 C
-C  REVISION HISTORY: Created by EBI solver program, May 26, 2017
+C  REVISION HISTORY: Created by EBI solver program, Mar 10, 2017
 C                       Based on the algorithm in "Test of Two Numerical
 C                       Schemes for Use in Atmospheric Transport-Chemistry
 C                       Models", O. Hertel, R. Berkowicz, J. Christensen,
@@ -148,15 +163,15 @@ C**********************************************************************
       USE RXNS_FUNCTION
       USE HRDATA
       USE CONST_DATA
-      USE AERO_DATA,  ONLY: N_MODE
-      use cgrid_defn, only: cgrid
+      USE AERO_DATA,  ONLY: N_MODE, SRF_STR
+      USE CGRID_DEFN, ONLY: CGRID
+
       use misc_coms,  only: dtlm
       use mem_grid,   only: lpw, mza
       use mem_ijtabs, only: itab_w
       use mem_basic,  only: tair, rr_v, press, rho
       use mem_sea,    only: sea
       use mem_turb,   only: frac_land
-      use cgrid_defn, only: cgrid
 
       IMPLICIT NONE
 
@@ -167,7 +182,8 @@ C..Parameters:
       REAL( 8 ), PARAMETER :: DCONMIN = 1.0D-30               ! minimum species concentration allowed
       REAL,      PARAMETER :: CONCMIN = 1.0E-30               ! minimum species concentration allowed
       REAL,      PARAMETER :: MAOMV   = 1.0E6 * MWAIR / MWWAT ! Mol Wt of air over Mol Wt of water times 1.0E6
-      real( 8 ), parameter :: pa2atm  = 1.0d0 / real(STDATMPA,8)
+      REAL,      PARAMETER :: PA2ATM  = 1.0 / STDATMPA
+      REAL( 8 ), PARAMETER :: MAXPRED = 1.0D+03    ! Upper limit on predicted conc
 
 C..Saved Local Variables:
 
@@ -191,7 +207,7 @@ C..Scratch Local Variables:
 !     INTEGER LEV             ! Layer index
 !     INTEGER MIDDATE         ! Date at time step midpoint
 !     INTEGER MIDTIME         ! Time at time step midpoint
-      INTEGER NPH             ! Index for number of phot. rxns in PHOT
+!     INTEGER NPH             ! Index for number of phot. rxns in PHOT
       INTEGER SPC             ! Species loop index
 
       INTEGER, intent(inout) :: MXEBI           ! Max no. of EBI iterations
@@ -201,24 +217,22 @@ C..Scratch Local Variables:
 
       LOGICAL LSUNLIGHT       ! Flag for sunlight
 
-      REAL    ::      INV_DENS(mza)     ! reciprocal of air mass density, m3/Kg
-      REAL(8) ::      TEMP    (mza)
-      REAL(8) ::      ATMPRES (mza)
-      REAL(8) ::      H2O     (mza)
+      REAL ::      DENS    (mza)
+      REAL ::      INV_DENS(mza)     ! reciprocal of air mass density, m3/Kg
+      REAL ::      TEMP    (mza)
+      REAL ::      ATMPRES (mza)
+      REAL ::      H2O     (mza)
 
       real(8) :: het            ( mza, nhetero )
       real    :: chem_m3dry_init( n_mode,  mza )
-      integer :: kmax
+      integer :: kmax, m
       logical :: land
+      real    :: moment3_conc(n_mode)
 
-      INTERFACE
-        SUBROUTINE HRSOLVER( JDATE, JTIME, C, R, L )
-           IMPLICIT NONE
-           INTEGER, INTENT( IN ) :: JDATE    ! Current date (YYYYDDD)
-           INTEGER, INTENT( IN ) :: JTIME    ! Current time (HHMMSS)
-           INTEGER, INTENT( IN ) :: C, R, L  ! Cell col, row, lev
-        END SUBROUTINE HRSOLVER
-      END INTERFACE
+      real, parameter :: onethird = 1. / 3.
+
+      real(8) :: rki_sav (mza, nrxns)
+      real(8) :: rki_trns(nrxns, mza)
 
 #ifdef hrstats
 !     MNEBI = 1000
@@ -253,9 +267,10 @@ C..Scratch Local Variables:
 
          do k = lpw(iw), kmax
             TEMP    ( k ) = tair(k,iw)
-            ATMPRES ( k ) = PA2ATM * press(k,iw)
+            ATMPRES ( k ) = PA2ATM * real( press(k,iw) )
             H2O     ( k ) = MAX( MAOMV * rr_v(k,iw), 0.0 )
-            inv_dens( k ) = 1.0 / rho(k,iw)
+            DENS    ( k ) = real( rho(k,iw) )
+            inv_dens( k ) = 1.0 / dens(k)
          enddo
 
          ! Is column mostly land or open sea (map seaice to land)
@@ -297,11 +312,14 @@ c..Get rate constants
          rkmax = max( maxval(rki_sav(lpw(iw):kmax,:   )), rkmax )
 #endif
 
+         rki_trns = transpose( rki_sav )
+
 c..Call EBI solver
 
          do k = lpw(iw), kmax
 
             ! Load ICs
+
             do spc = 1, numb_mech_spc
                s = cgrid_index( spc )
 
@@ -312,10 +330,14 @@ c..Call EBI solver
                endif
             enddo
 
+            ! Special for methane
+            yc(ech4) = max(yc(ech4) - ATM_CH4, dconmin)
+
+            yc  = min(yc, maxpred)
+            yc0 = yc
+
             ! Load reaction rates
-            do nph = 1, nrxns
-               rki(nph) = rki_sav(k,nph)
-            enddo
+            rki = rki_trns(:,k)
 
             CALL HRSOLVER( 0, 0, iw, itab_w(iw)%iwglobe, k )
 
@@ -323,7 +345,12 @@ c..Call EBI solver
             SMEBI = SMEBI + REAL( N_EBI_IT )
             NCALL = NCALL + 1
 
-c..Update concentration array
+            ! Special for methane
+
+            yc(ech4) = cgrid(k,iw,cgrid_index(ech4)) + yc(ech4) - yc0(ech4)
+
+            ! Update concentration array
+
             DO SPC = 1, NUMB_MECH_SPC
                S = CGRID_INDEX( SPC )
                IF ( CONVERT_CONC( SPC ) )THEN
@@ -333,10 +360,28 @@ c..Update concentration array
                END IF
             END DO
 
-         enddo
+            ! Update Aerosol Dry Surface Area
 
-         ! Update Aerosol Surface Area
-         CALL HETCHEM_UPDATE_AERO( chem_m3dry_init, iw, lpw(iw), kmax )
+            moment3_conc(1) = chem_m3dry_init(1,k) +
+     &                        real(yc(107) - yc0(107)) * m3_conv(107) * dens(k)
+
+            moment3_conc(2) = chem_m3dry_init(2,k) +
+     &                      ( real(yc(108) - yc0(108)) * m3_conv(108)
+     &                      + real(yc(110) - yc0(110)) * m3_conv(110)
+     &                      + real(yc(111) - yc0(111)) * m3_conv(111)
+     &                      + real(yc(113) - yc0(113)) * m3_conv(113)
+     &                      + real(yc(120) - yc0(120)) * m3_conv(120) ) * dens(k)
+
+            moment3_conc(3) = chem_m3dry_init(3,k) +
+     &                        real(yc(109) - yc0(109)) * m3_conv(109) * dens(k)
+
+            Do m = 1, n_mode
+               s = srf_str + m - 1
+               CGRID( K,IW,s ) = CGRID( K,IW,s )
+     &              * ( (MOMENT3_CONC( m ) / chem_m3dry_init(m,k))**2 ) ** ONETHIRD
+            End Do
+
+         End Do
 
 #ifdef hrstats
 !      AVGEBI = nint( SUMEBI / REAL( NCALL ) )

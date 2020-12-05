@@ -211,7 +211,7 @@ contains
           ! Apply fluxes to obtain new aerosol concentrations
 
           do k = lpw(iw), mza
-             cgrid(k,iw,s) = cgrid(k,iw,s) + volti(k,iw) &
+             cgrid(k,iw,s) = cgrid(k,iw,s) + real(volti(k,iw)) &
                   * (aeflux(k) * arw(k,iw) - aeflux(k-1) * arp(k-1))
           enddo
 
@@ -247,6 +247,7 @@ contains
     use mem_basic,  only: tair, press
     use cgrid_defn, only: cgrid
     use getpar_mod, only: getpar
+    use cgrid_spcs, only: nspcsd, ae_strt, ae_fini
 
     implicit none
 
@@ -275,6 +276,8 @@ contains
     real :: amu       ! dynamic viscosity [ kg/m/s ]
 
     integer :: l      ! loop counters
+
+    real :: conc(nspcsd)
 
     ! modal Knudsen numbers X bhat
 
@@ -328,7 +331,9 @@ contains
        ! into aerospc_conc in aero_data module
        ! Also converts dry surface area to wet 2nd moment
 
-       call extract_aero( cgrid( l,iw,: ), .true. )  ! set minimum floor
+       conc(ae_strt:ae_fini) = cgrid(l,iw,ae_strt:ae_fini)
+
+       call extract_aero( conc, .true. )  ! set minimum floor
 
        ! Get the geometric mean diameters and standard deviations of the
        ! "wet" size distribution

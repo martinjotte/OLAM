@@ -251,7 +251,7 @@
 
 ! *** set up for dust emission processing
          IF ( WB_DUST ) THEN
-            IF ( .NOT. DUST_EMIS_INIT( JDATE, JTIME, TSTEP ) ) THEN
+            IF ( .NOT. DUST_EMIS_INIT( JDATE, JTIME ) ) THEN
                XMSG = 'Failure initializing dust emission processing'
                CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT2 )
             END IF
@@ -545,13 +545,14 @@
          use ssemis,     only: get_ssemis
          use dust_emis,  only: get_dust_emis
          use mem_ijtabs, only: jtab_w, jtw_prog
+         use mem_grid,   only: mwa
 
          implicit none
 
          integer,       intent(in) :: mrl
          integer,       intent(in) :: nvars3d_emis
-         character(24), intent(in) :: vname3d_emis(:)
-         integer,       intent(in) :: edgar_kmax(:)
+         character(24), intent(in) :: vname3d_emis(nvars3d_emis)
+         integer,       intent(in) :: edgar_kmax(mwa)
          integer                   :: j, iw
 
 ! *** Get sea salt emissions
@@ -562,10 +563,10 @@
             CALL GET_DUST_EMIS ( )
          END IF
 
-         !$omp parallel do private(j,iw)
+         !$omp parallel do private(iw)
          do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
-            call get_aero_emis1( iw, nvars3d_emis, vname3d_emis, edgar_kmax )
+            call get_aero_emis1( iw, edgar_kmax(iw) )
 
          enddo
          !$omp end parallel do
@@ -574,7 +575,7 @@
 
 !-----------------------------------------------------------------------
 
-         SUBROUTINE GET_AERO_EMIS1 ( iw, nvars3d_emis, vname3d_emis, edgar_kmax )
+         SUBROUTINE GET_AERO_EMIS1 ( iw, kmax )
 
 !  GET_AERO_EMIS reads PM emissions from gridded input file and
 !  optionally from plume rise calculated point source emissions (via VDEMIS
@@ -606,9 +607,7 @@
 
 ! Arguments:
          integer,       intent(in) :: iw
-         integer,       intent(in) :: nvars3d_emis
-         character(24), intent(in) :: vname3d_emis(:)
-         integer,       intent(in) :: edgar_kmax(:)
+         integer,       intent(in) :: kmax
 
 ! Variables for converting emission rates into molar-mixing-ratio units
          REAL, PARAMETER :: RAVO = 1.E6 / AVO   ! reciprocal of Avogadro
@@ -637,9 +636,10 @@
          INTEGER :: IDX
          real    :: emis
 
-         do k = lpw(iw), edgar_kmax(iw)
+         do k = lpw(iw), kmax
 
 ! *** Store aerosol emission rates for this grid cell in a 1D array
+            !dir$ novector
             DO S = 1, N_EMIS_PM
                PM_EM( S ) = edgar42_emis( k,iw,edgar_ae_map(s) )
             END DO
@@ -649,7 +649,7 @@
 !     Also calculate scaling factors for converting to molar-mixing-ratio units
 !           GSFAC = CONVEM_PM( L ) * Met_Data%RJACM( C,R,L )
             GSFAC = CONVEM_PM_MASS * volti(k,iw) ! [ug/g/m^3]
-            CONVM = MWAIRKG / rho(k,iw)          ! [m3/mol]
+            CONVM = MWAIRKG / real(rho(k,iw))    ! [m3/mol]
             CONVN = CONVM * RAVO                 ! 10^6 * [m3]
             CONVS = CONVM                        ! [m3/mol]
 
@@ -678,7 +678,7 @@
                   END IF
                END DO
 
-               ! Apply Emissions to Coarse Aerosol Mode                    
+               ! Apply Emissions to Coarse Aerosol Mode
                N = N_MODE
                IF ( IDX .EQ. ASO4_IDX ) THEN
                   EM_PART( IDX,N ) = SPFC_ASO4 * EM_RATE( S ) * EM_FAC( IDX,N )
@@ -742,9 +742,9 @@
 !     converted to [ppmv/s].  Surface area emissions are converted to 
 !     [m2/mol/s].  Save results in the VDEMIS_AE array.
 
-            CONVM = MWAIRKG / rho(k,iw)  ! [m3/mol]
-            CONVN = CONVM * RAVO         ! 10^6 * [m3]
-            CONVS = CONVM                ! [m3/mol]
+            CONVM = MWAIRKG / real(rho(k,iw)) ! [m3/mol]
+            CONVN = CONVM * RAVO              ! 10^6 * [m3]
+            CONVS = CONVM                     ! [m3/mol]
 
             DO N = 1, N_MODE
                DO S = 1, N_AEROSPC
@@ -778,9 +778,9 @@
 
             if (dust_em(iwl) > 1.e-25) then
 
-               CONVM = MWAIRKG / rho(k,iw)  ! [m3/mol]
-               CONVN = CONVM * RAVO         ! 10^6 * [m3]
-               CONVS = CONVM                ! [m3/mol]
+               CONVM = MWAIRKG / real(rho(k,iw)) ! [m3/mol]
+               CONVN = CONVM * RAVO              ! 10^6 * [m3]
+               CONVS = CONVM                     ! [m3/mol]
 
                DO N = 2, N_MODE
                   DO S = 1, N_AEROSPC

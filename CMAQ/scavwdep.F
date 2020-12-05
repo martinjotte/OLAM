@@ -27,7 +27,7 @@ C %W% %P% %G% %U%
 C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
       SUBROUTINE SCAVWDEP ( JDATE, JTIME, WTBAR, WCBAR, TBARC, PBARC,
      &                      CTHK1, AIRM, PRATE1, TAUCLD, POLC, CEND,
-     &                      REMOV, REMOVAC, ALFAC, RHOAIR )
+     &                      REMOV, REMOVAC, ALFAC )
 C-----------------------------------------------------------------------
 C  Description: Compute simplistic incloud scavenging and wet removal
  
@@ -82,11 +82,11 @@ C-----------------------------------------------------------------------
 
 C...........Parameters:
 
-      REAL, PARAMETER :: H2ODENS = 1000.0  ! density of water at 20 C
-                                           ! and 1 ATM (kg/m3)
+      REAL, PARAMETER :: H2ODENS   = 1000.0  ! density of water at 20 C
+                                             ! and 1 ATM (kg/m3)
+      REAL, PARAMETER :: H2ODENSI  = 1.0 / H2ODENS
       REAL, PARAMETER :: TWOTHIRDS = 2.0 / 3.0
-
-      REAL, PARAMETER :: KGPG = 1.0E-03   ! kilograms per gram
+      REAL, PARAMETER :: KGPG      = 1.0E-03   ! kilograms per gram
 
 C...........Arguments:
 
@@ -105,7 +105,6 @@ C...........Arguments:
       REAL,    INTENT(  IN ) :: POLC ( NSPCSD )  ! avg vert conc incloud (moles/mole)
       REAL,    INTENT( OUT ) :: CEND ( NSPCSD )  ! ending incloud conc (moles/mole)
       REAL,    INTENT( OUT ) :: REMOV( NSPCSD )  ! moles/m2 or mm*mol/lit scavenged
-      REAL,    INTENT(  IN ) :: RHOAIR      ! air density in kg/m3
 
 C...........Local Variables:
 
@@ -120,20 +119,22 @@ C...........Local Variables:
       INTEGER       VAR                 ! variable loop counter
 
       REAL          ALFA                ! scavenging coefficient (1/s)
-      REAL          KH                  ! Henry's law constant (mol/l/atm)
       REAL          NUMAKN              ! Aitken mode aerosol # (#/m3)
       REAL          MASAKN              ! Total Aitken mode mass (ug/m3)
       REAL          SRFAKN
       REAL          ONE_OVER_TWASH      ! 1 / TWASH
       REAL          RTCH                ! chemical gas const times temp
-!     REAL          TWASH               ! washout time for clouds (sec) with low liq wat content
-      REAL          TWF                 ! washout scaling factor (mol/l/atm)
+      REAL          TWFI                ! washout scaling factor [1/(mol/l/atm)]
 
       REAL, PARAMETER :: HPLUS = 1.0E-4 ! typical value hydrogen ion concentration [mol/l]
+
+      REAL :: KH    (N_GC_SCAV + N_NR_SCAV) ! Henry's law constant (mol/l/atm)
+      REAL :: EALFAG(N_GC_SCAV + N_NR_SCAV)
 
       REAL :: EALFAC
       REAL :: EALFAZ
       REAL :: EALFA
+
       logical :: do_rainout
 
 C-----------------------------------------------------------------------
@@ -141,17 +142,27 @@ C-----------------------------------------------------------------------
 C...for subsequent calls, check to make sure some species were
 C...  specified, otherwise there is no need to perform scavenging
 
-      IF ( N_CGRID_SCAV .LE. 0 ) THEN
-        RETURN
-      END IF
+      IF ( N_CGRID_SCAV .LE. 0 ) RETURN
 
       RTCH = ( MOLVOL / STDTEMP ) * TBARC
       ONE_OVER_TWASH = PRATE1 / (WTBAR * CTHK1 * 3600.0)
       ONE_OVER_TWASH = MIN( ONE_OVER_TWASH, 1.0 / TAUCLD )
-      TWF = H2ODENS / ( WTBAR * RTCH )
+      TWFI = WTBAR * RTCH * H2ODENSI
       REMOVAC = 0.0
 
-      do_rainout = (ONE_OVER_TWASH * taucld > 1.e-7)
+      DO_RAINOUT = (ONE_OVER_TWASH * TAUCLD > 1.E-9)
+
+C...  get Henry's law constants for gases
+
+      IF (DO_RAINOUT) THEN
+         DO SPC = 1, N_GC_SCAV
+            KH(SPC) = HLCONST( TBARC, .TRUE., HPLUS, HLSPC_MAP( SPC ) )
+         ENDDO
+         DO VAR = 1, N_NR_SCAV
+            SPC = N_GC_SCAV + VAR
+            KH(SPC) = HLCONST( TBARC, .TRUE., HPLUS, HLSPC_MAP( SPC ) )
+         ENDDO
+      ENDIF
 
 C...compute total Aitken mode number (#/m3)
 
@@ -185,6 +196,15 @@ C...compute total Aitken mode surface area (m2/m3)
       END DO
       srfakn = srfakn * airm / cthk1
 
+C...compute scavenging coeficiant and loss term for gases
+
+      IF (DO_RAINOUT) THEN
+         DO SPC = 1, N_GC_SCAV + N_NR_SCAV
+            ALFA        = ONE_OVER_TWASH * KH(SPC) * TWFI / ( 1.0 + KH(SPC) * TWFI )
+            EALFAG(SPC) = EXP( -ALFA * TAUCLD )
+         ENDDO
+      ENDIF
+
 C...compute the scavenging coefficients for aitken mode aerosol mass
 C...  and number
 C...  NOTE:  for now, scavenging coefficients are computed for only
@@ -192,18 +212,14 @@ C...         the liquid water content, not on the total water content
 C...         therefore, no ice phase scavenging is considered at this
 C...         time, but it should be added in the future!
 
-      CALL GETALPHA ( NUMAKN, MASAKN, SRFAKN, WCBAR, TBARC, PBARC,
-     &                RHOAIR, ALFAC )
+      CALL GETALPHA ( NUMAKN, MASAKN, SRFAKN, WCBAR, TBARC, PBARC, ALFAC )
 
 C...gas scavenging and wet deposition
 
       IF (DO_RAINOUT) THEN
-         DO VAR = 1, N_GC_SCAV
-            SPC = VAR
+         DO SPC = 1, N_GC_SCAV
             PNTR = CGRID_SCAV_MAP( SPC )
-            KH = HLCONST( TBARC, .TRUE., HPLUS, hlspc_map( spc ) )
-            ALFA = ONE_OVER_TWASH * KH / ( KH + TWF )
-            CEND ( PNTR ) = POLC( PNTR ) * EXP( -ALFA * TAUCLD )
+            CEND ( PNTR ) = POLC( PNTR ) * EALFAG( SPC )
             REMOV( PNTR ) = ( POLC( PNTR ) - CEND( PNTR ) ) * AIRM
          END DO
       ENDIF
@@ -239,9 +255,7 @@ C...non-reactive scavenging and wet deposition
          DO VAR = 1, N_NR_SCAV
             SPC = N_GC_SCAV + N_AE_SCAV + VAR
             PNTR = CGRID_SCAV_MAP( SPC )
-            KH = HLCONST( TBARC, .TRUE., HPLUS, hlspc_map( spc ) )
-            ALFA = ONE_OVER_TWASH * KH / ( KH + TWF )
-            CEND ( PNTR ) = POLC( PNTR ) * EXP( -ALFA * TAUCLD )
+            CEND ( PNTR ) = POLC( PNTR ) * EALFAG( N_GC_SCAV + VAR )
             REMOV( PNTR ) = ( POLC( PNTR ) - CEND( PNTR ) ) * AIRM
          END DO
       ENDIF

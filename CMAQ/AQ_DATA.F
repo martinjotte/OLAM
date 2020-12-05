@@ -314,6 +314,8 @@ C for TX version
       integer, allocatable, save :: wdep_map (:)
       logical, allocatable, save :: isnum_spc(:)
       logical, allocatable, save :: issrf_spc(:)
+      real,    allocatable, save :: convf    (:)
+      real,    allocatable, save :: convb    (:)
 
       ! these come from aqchem:
       CHARACTER( 16 ), SAVE :: MGLYSUR = 'METHYL_GLYOXAL  ' ! Henry's law surrogate for MGLY
@@ -378,6 +380,7 @@ C-----------------------------------------------------------------------
       Use aero_data
       Use mem_grid, only: mwa
       Use hlconst_mod
+      Use const_data, only: avo
 
       Implicit None
 
@@ -401,6 +404,9 @@ C Local Variables:
       Integer :: lsrg( mxsrg )
       Integer :: ios
       Integer :: strt, fini
+
+      REAL, PARAMETER :: CNV4 = 1.E-6 * AVO
+      REAL, PARAMETER :: CNV4I = 1.0 / CNV4
 
 C Local Variable used to determine what optional TX to add to surrogates
 !     Logical :: found_all_modes
@@ -739,8 +745,11 @@ C...For TXHG version
          WDEP_MAP( VAR ) = NR_STRT - 1 + NR_WDEP_MAP( SPC )
       END DO
 
-      allocate(isnum_spc(nspcsd)); isnum_spc(:) = .false.
-      allocate(issrf_spc(nspcsd)); issrf_spc(:) = .false.
+      allocate(isnum_spc(nspcsd)); isnum_spc = .false.
+      allocate(issrf_spc(nspcsd)); issrf_spc = .false.
+
+      allocate(convf(nspcsd)) ; convf = 1.e-6
+      allocate(convb(nspcsd)) ; convb = 1.e+6
 
       SPC = 0
       STRT = AE_STRT
@@ -749,6 +758,11 @@ C...For TXHG version
          SPC = SPC + 1
          isnum_spc( var ) = ( INDEX( AE_SPC( SPC ), 'NUM' ) .GT. 0 )
          issrf_spc( var ) = ( INDEX( AE_SPC( SPC ), 'SRF' ) .GT. 0 )
+
+         if (isnum_spc( var )) then
+            convf( var ) = cnv4
+            convb( var ) = cnv4i
+         endif
       ENDDO
 
       ! these come from aqchem:
@@ -851,7 +865,7 @@ C...  for scavenging, otherwise notify the user and return
          CALL M3EXIT( 'aq_data_init', 0, 0, XMSG, XSTAT1 )
       END IF
 
-      allocate( hlspc_map( N_CGRID_SCAV ) )
+      allocate( hlspc_map( N_GC_SCAV + N_NR_SCAV ) )
       hlspc_map(:) = -1
 
 C...prepare indices for scavenged species
@@ -883,7 +897,7 @@ C...  load the CGRID to scavenged species pointers for the non-reactives
          CGRID_SCAV( SPC ) = NR_SCAV( VAR )
          CGRID_SCAV_MAP( SPC ) = NR_SCAV_MAP( VAR ) + NR_STRT - 1
          CGRID_SCAV_FAC( SPC ) = NR_SCAV_FAC( VAR )
-         call hlconst_spcs_init( cgrid_scav( SPC ), hlspc_map( SPC ) )
+         call hlconst_spcs_init( cgrid_scav( SPC ), hlspc_map( N_GC_SCAV + VAR ) )
       END DO
 
       do spc = 1, n_cgrid_scav

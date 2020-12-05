@@ -4,6 +4,7 @@ module mem_megan
   use EMIS_MAPS_MEGAN
   use consts_coms, only: r8, i1
   use leaf_coms,   only: nstyp, nvtyp
+  use rxns_data,   only: mechname
 
   implicit none
 
@@ -19,9 +20,6 @@ module mem_megan
 
   ! Length of the time between LAI updates (days)
   real, PARAMETER :: TSTLEN = 30.0
-
-  ! hardwire machanism for now
-  character(16), parameter :: mechanism = 'CB05'
 
   integer, save :: ino
   integer, save :: n_scon_spc
@@ -40,6 +38,8 @@ module mem_megan
   real :: norm_fact(nvtyp,16)
 
   logical :: has_pft_dataset = .false.
+
+  real :: ugphr_molpsec(n_spca_spc)
 
 contains
 
@@ -64,7 +64,18 @@ contains
 
     ! Map output mechanism
 
-    if (mechanism == 'CB05') then
+    if (index(mechname,'CB6') > 0) then
+
+       n_scon_spc = n_cb6
+       n_mech_spc = n_cb6_spc
+
+       mech_spc => mech_spc_cb6
+       spmh_map => spmh_map_cb6
+       mech_map => mech_map_cb6
+       conv_fac => conv_fac_cb6
+       mech_mwt => mech_mwt_cb6
+
+    elseif (index(mechname,'CB05') > 0) then
 
        n_scon_spc = n_cb05
        n_mech_spc = n_cb05_spc
@@ -74,8 +85,8 @@ contains
        mech_map => mech_map_cb05
        conv_fac => conv_fac_cb05
        mech_mwt => mech_mwt_cb05
-       
-    elseif (mechanism == 'SAPRC99') then
+
+    elseif (index(mechname,'SAPRC') > 0) then
 
        n_scon_spc = n_saprc99
        n_mech_spc = n_saprc99_spc
@@ -120,13 +131,13 @@ contains
 
   integer function olam2pft( lclass, glat )
     implicit none
-    
+
     integer, intent(in) :: lclass
     real,    intent(in) :: glat
 
-    ! Converts the OLAM land surface types to one of the 16 CAM  
+    ! Converts the OLAM land surface types to one of the 16 CAM
     ! plant funcional types needed by the MEGAN emissions model:
-    !  
+    !
     !  1 Needleaf evergreen temperate tree
     !  2 Needleaf deciduous boreal tree
     !  3 Needleaf evergreen boreal tree
@@ -183,7 +194,7 @@ contains
        else
           olam2pft = 6  ! Broadleaf deciduous tropical tree
        endif
-       
+
     case(7)  ! Evergreen broadleaf tree
 
        if (abs(glat) > 30.0) then
@@ -191,7 +202,7 @@ contains
        else
           olam2pft = 4  ! Broadleaf evergreen tropical tree
        endif
-  
+
     case(8:9)  ! Short and tall grass
 
        if (abs(glat) > 60.0) then
@@ -201,7 +212,7 @@ contains
        else
           olam2pft = 14  ! Warm C3 grass
        endif
-       
+
     case (10)  ! semi-desert
 
        if (abs(glat) > 60.0) then
@@ -225,7 +236,7 @@ contains
        else
           olam2pft = 10  ! Broadleaf deciduous temperate shrub
        endif
-      
+
     case(14)  ! Mixed woodland
 
        if (abs(glat) > 60.0) then
@@ -235,7 +246,7 @@ contains
        else
           olam2pft = 6  ! Broadleaf deciduous tropical tree
        endif
-       
+
     case(15)  ! Crop
 
        olam2pft = 16 ! Other crops
@@ -253,7 +264,7 @@ contains
        else
           olam2pft = 14  ! Warm C3 grass
        endif
-       
+
     case(18)  ! Wooded grassland
 
        if (abs(glat) > 60.0) then
@@ -263,7 +274,7 @@ contains
        else
           olam2pft = 6  ! Broadleaf deciduous tropical tree
        endif
-       
+
     case(19)  ! Urban
 
        if (abs(glat) > 60.0) then
@@ -273,7 +284,7 @@ contains
        else
           olam2pft = 6  ! Broadleaf deciduous tropical tree
        endif
-       
+
     case(20)   ! Wetland evergreen broadleaf
 
        if (abs(glat) > 30.0) then
@@ -283,13 +294,13 @@ contains
        endif
 
     case(21)   ! Very urban
-       
+
        olam2pft = 0
-       
+
     case default
-       
+
        olam2pft = 0
-       
+
     end select
 
   end function olam2pft
@@ -312,7 +323,7 @@ contains
 #endif
 
     implicit none
-    
+
     integer            :: ndims, idims(4)
     character(pathlen) :: filename
     integer, parameter :: nx_pft = 7200
@@ -344,7 +355,7 @@ contains
        else
           has_pft_dataset = .true.
        endif
-    
+
        if (has_pft_dataset) then
           write(*,*) "Reading " // trim(filename)
           call shdf5_open(filename, 'R')
@@ -451,7 +462,7 @@ contains
              else
 
                 gry = (land%glatw(iwl) - xswlat) / gdatdy + 3.
-                grx = (land%glonw(iwl) - xswlon) / gdatdx + 1. + real(ipoffset) 
+                grx = (land%glonw(iwl) - xswlon) / gdatdx + 1. + real(ipoffset)
 
                 call gdtost_int1( pfts_ll, nio, njo, grx, gry, pfts(ip,iwl) )
 
@@ -497,6 +508,9 @@ contains
     real    :: hour, beta, sinbeta
 
     integer, external :: julday
+
+    real, parameter :: ug2g   = 1.e-6       ! convert microgram to metric gram
+    real, parameter :: hr2sec = 1./3600.    ! convert 1/hr to 1/second
 
     real, parameter :: solcon = 1370.0
     real, parameter :: tdiff0 = 5.0
@@ -549,7 +563,7 @@ contains
        endif
 
        ! initialize average temperature based on current temperature modified
-       ! by a simple diurnal variation, and the average radiation to be a 
+       ! by a simple diurnal variation, and the average radiation to be a
        ! fraction of midday clear-sky top-of-atmosphere solar flux
 
        if (runtype == 'INITIAL') then
@@ -578,20 +592,13 @@ contains
 
     do n = 1, n_gc_emis
        mgn_2_gc_map(n) = INDEX1( GC_EMIS(n), n_mech_spc, mech_spc )
-
-       !if ( mgn_2_gc_map(n) > 0) then
-       !   write(io6,*) "MEGAN: ", trim(gc_emis(n)), " is mapped to ", trim(mech_spc(mgn_2_gc_map(n)))
-       !else
-       !   write(io6,*) "MEGAN: ", trim(gc_emis(n)), " is not mapped"
-       !endif
     enddo
-
 
     do n = 1, nstyp
        call soil_pot2wat( 0, n, .true., -153.0, 0.0, &
                           tot, wilting_point_vg(n) )
     enddo
-    
+
     norm_fact( :3,:) = 0.0
     norm_fact(21:,:) = 0.0
 
@@ -629,7 +636,11 @@ contains
                          0.413, 0.413, 0.413, 0.379, 0.379, 0.379, 0.339, 0.339 /)
     norm_fact(20,:) = (/ 0.456, 0.456, 0.456, 0.568, 0.499, 0.568, 0.499, 0.499, &
                          0.456, 0.456, 0.456, 0.418, 0.418, 0.418, 0.374, 0.374 /)
-    
+
+    do n = 1, n_spca_spc
+       ugphr_molpsec(n) = ug2g / spca_mwt(n) * hr2sec
+    enddo
+
   end subroutine megan_init
 
 
@@ -638,7 +649,7 @@ contains
     use leaf_coms,    only: mwl
     use mem_leaf,     only: land
     use leaf4_canopy, only: vegndvi
-    
+
     implicit none
 
     real    :: ta, tb, tc, td, te
@@ -704,7 +715,7 @@ contains
 
   subroutine megan_driver1(iwl)
 
-    use leaf_coms,   only: nvtyp
+    use leaf_coms,   only: nvtyp, veg_frac, tai_max
     use mem_leaf,    only: land
     use misc_coms,   only: isubdomain, current_time
     use mem_ijtabs,  only: itabg_w
@@ -729,7 +740,7 @@ contains
     real :: tmper(n_spca_spc)
     real :: outer(n_mech_spc)
 
-    integer :: kw, iw, s, ip
+    integer :: kw, iw, s, ip, lc
 
     real :: glat, glon, hour
     real :: LAIc, slai
@@ -741,11 +752,7 @@ contains
 
     integer, external :: julday
 
-    real, parameter :: ug2g   = 1.e-6       ! convert microgram to metric gram
-    real, parameter :: hr2sec = 1./3600.    ! convert 1/hr to 1/second
-    real, parameter :: n2no   = 2.142857    ! nitrogen conversion?
-
-    real :: ppfd0, ppfd0_dif, ppfd24, ppfd24_dif, temp24, vegtk, ptot, fact
+    real :: ppfd0, ppfd0_dif, ppfd24, ppfd24_dif, temp24, vegtk, ptot, laimax
 
     jday  = julday( current_time%month, current_time%date, current_time%year )
     jdate = current_time%year*1000 + jday
@@ -765,6 +772,7 @@ contains
        glat = land%glatw(iwl)
        glon = land%glonw(iwl)
        arf  = land%area(iwl)
+       lc   = land%leaf_class(iwl)
 
        ppfd0      = land%ppfd(iwl)
        ppfd0_dif  = land%ppfd_diffuse(iwl)
@@ -775,13 +783,8 @@ contains
        temp24 = avg_temp(iwl)
        vegtk  = land%veg_temp(iwl)
 
-       if (.not. has_pft_dataset) then
-          fact = land%veg_fracarea(iwl) / ptot
-       else
-          fact = 1.0
-       endif
-
-       LAIc = land%veg_lai(iwl) * (1.0 - land%snowfac(iwl)) / max(land%veg_fracarea(iwl), ptot*fact)
+       laimax = tai_max(lc) * land%veg_lai(iwl) / ( land%veg_tai(iwl) * veg_frac(lc) )
+       LAIc   = min( land%veg_lai(iwl) / max(ptot, 0.1), laimax ) * (1.0 - land%snowfac(iwl))
 
        ! compute local solar day/hour
 
@@ -841,24 +844,21 @@ contains
        ! Conversion from MGN 20 to speciated 150
 
        do s = 1, n_smap_spc
-
-          nmpmg = mg20_map(s)
-          nmpsp = spca_map(s)
-
-          tmper(nmpsp) = em(nmpmg) * fact &
-                       * sum(ef_all(1:16,nmpmg) * effs_all(1:16,nmpsp) * pfts(1:16,iwl))
+          nmpmg    = mg20_map(s)
+          tmper(s) = em(nmpmg) &
+                   * sum(ef_all(1:16,nmpmg) * effs_all(1:16,s) * pfts(1:16,iwl))
        enddo
 
-       ! Convert from ug/m^2/hr to mol/m^2/hr using their MW
+       ! Convert from ug/m^2/hr to mol/m^2/sec using their MW
 
        do s = 1, n_spca_spc
-          tmper(s) = tmper(s) / spca_mwt(s) * ug2g
+          tmper(s) = tmper(s) * ugphr_molpsec(s)
        enddo
 
        ! Conversion from speciated species to MECHANISM species,
        ! with units of mol/sec
 
-       outer(:) = 0.0
+       outer = 0.0
 
        do s = 1, n_scon_spc
           nmpsp = spmh_map(s)         ! Mapping value for SPCA
@@ -866,8 +866,9 @@ contains
           outer(nmpmc) = outer(nmpmc) + tmper(nmpsp) * conv_fac(s)
        enddo
 
+       ! Convert to mol/sec
        do s = 1, n_mech_spc
-          megan_emis(iwl,s) = outer(s) * arf * hr2sec
+          megan_emis(iwl,s) = outer(s) * arf
        enddo
 
     else
@@ -1023,12 +1024,12 @@ contains
     REAL,    INTENT(OUT) :: GAM_A(n_mgn_spc)
 
     ! Local variables
-    
+
     INTEGER :: AINDX        ! relative emission activity index
     integer :: s            ! species loop index
     REAL    :: Fnew, Fgro, Fmat, Fold
     REAL    :: ti, tm       ! number of days between budbreak
-                            ! and induction of emission, 
+                            ! and induction of emission,
                             ! initiation of peak emissions rates
 
 !... Calculate foliage fraction
@@ -1042,7 +1043,7 @@ contains
           ti = 2.9
        endif
        tm = 2.3*ti
- 
+
 !      Calculate Fnew and Fmat, then Fgro and Fold
 
        if (ti .GE. tstlen) then
@@ -1050,7 +1051,7 @@ contains
        ELSE
           Fnew = (ti/tstlen) * ( 1.0-(LAIp/LAIc) )
        endif
- 
+
        if (tm .ge. tstlen) then
           fmat = laip/laic
        else
@@ -1059,7 +1060,7 @@ contains
 
        Fgro = 1.0 - Fnew - Fmat
        Fold = 0.0
-         
+
     ELSEIF (LAIp == LAIc) then
 
        Fnew = 0.0
@@ -1067,8 +1068,8 @@ contains
        Fmat = 0.8
        Fold = 0.1
 
-    ELSE ! (LAIp > LAIc) 
- 
+    ELSE ! (LAIp > LAIc)
+
        Fnew = 0.0
        Fgro = 0.0
        Fold = ( LAIp-LAIc ) / LAIp
@@ -1079,9 +1080,9 @@ contains
     do s = 1, n_mgn_spc
 
 !...  Choose relative emission activity
-!--------code by Xuemei Wang 11/04/2007----------------       
+!--------code by Xuemei Wang 11/04/2007----------------
        AINDX = REA_INDEX(S)
-!---------------------------------------------------        
+!---------------------------------------------------
 
 !...Calculate GAMMA_A
        GAM_A(s) = Fnew * Anew(AINDX) + Fgro * Agro(AINDX) &
@@ -1147,7 +1148,7 @@ contains
 
   subroutine gamma_ce( gamma_tld, gamma_tli, sinbeta, temp24, veg_temp, &
                        ppfd, ppfd_dif, ppfd24, ppfd24_dif, cantype, lai, cnorm )
-     
+
     implicit none
 
     ! input
@@ -1178,9 +1179,9 @@ contains
 
        ! LAI depth at this layer
        LAIdepth   = 0.5 * LAI
-  
+
        ! fraction of leaves that are sunlit
-       sunfrac = EXP(-Kb * LAIdepth)  
+       sunfrac = EXP(-Kb * LAIdepth)
 
        sunppfd   = ppfd
        shadeppfd = ppfd_dif
@@ -1197,7 +1198,7 @@ contains
        enddo
 
     else
-     
+
        do s = 1, n_mgn_spc
           gamma_tld(s) = 0.0
        enddo
@@ -1215,7 +1216,7 @@ contains
 !
 !   FUNCTION Ea1t99
 !
-!   Temperature dependence activity factor for emission type 1 
+!   Temperature dependence activity factor for emission type 1
 !          (e.g. isoprene, MBO)
 !
 !ooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo
@@ -1236,13 +1237,13 @@ contains
 
     ELSE
 
-       X = ((1.0 / Topt) - (1.0 / T1)) / 0.00831
+       X = (T1 - Topt) / (Topt * T1 * 0.00831)
 
        Ea1t99 = CLeo(SPCNUM) * Eopt * Ctm2 * Exp(Ctm1(SPCNUM) * X)  &
               / (Ctm2 - Ctm1(SPCNUM) * (1. - EXP(Ctm2 * X)))
 
     ENDIF
-      
+
   END FUNCTION  Ea1t99
 
 
@@ -1250,7 +1251,7 @@ contains
 !
 !   FUNCTION Ea1pp
 !
-! pstd = 200 for sun leaves and 50 for shade leaves 
+! pstd = 200 for sun leaves and 50 for shade leaves
 !
 !ooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo
 
@@ -1292,7 +1293,7 @@ contains
     INTEGER, intent(in) :: spcnum
     real,    intent(in) :: temp
 
-    REAL, PARAMETER :: Ts = 303.15 
+    REAL, PARAMETER :: Ts = 303.15
 
     Ealti99 = exp( tdf_prm(spcnum)*(temp-Ts) )
 

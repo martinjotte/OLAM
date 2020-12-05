@@ -134,9 +134,9 @@ C Local Variables (scalars):
       REAL( 8 )  :: GASWDEP( NGAS )               ! gas phase wet dep array (mm mol/liter)
       REAL( 8 )  :: WSRGGAS( NGAS,MXSRG )         ! weights for surrogate
 
-      REAL( 8 )  :: AEROSOL( MAX_NAER,NMODES )        ! aerosol conc (mol/mol)
-      REAL( 8 )  :: AERWDEP( MAX_NAER,NMODES )        ! aerosol wet dep array (mm mol/liter)
-      REAL( 8 )  :: WSRGAER( MAX_NAER,NMODES,MXSRG )  ! weights for surrogate
+      REAL( 8 )  :: AEROSOL( NAER,NMODES )        ! aerosol conc (mol/mol)
+      REAL( 8 )  :: AERWDEP( NAER,NMODES )        ! aerosol wet dep array (mm mol/liter)
+      REAL( 8 )  :: WSRGAER( NAER,NMODES,MXSRG )  ! weights for surrogate
       real       :: ratio1, ratio2, ratio3
 
 C-----------------------------------------------------------------------

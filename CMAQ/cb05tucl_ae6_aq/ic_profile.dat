@@ -1,8 +1,8 @@
  CB05 gas mechanism with AERO5 species and toxics
  icon profile data converted from RADM2 gas mechanism species
  number of layers, number of species, terrain-following sigma levels:
-    6  101   1.00  0.98  0.93  0.84  0.60  0.30  0.00
- 2011-08-10
+   6  101   
+1.00  0.98  0.93  0.84  0.60  0.30  0.00
 "NO2             " 1.670E-04 1.670E-04 8.400E-05 0.000E+00 0.000E+00 0.000E+00
 "NO              " 8.300E-05 8.300E-05 4.200E-05 0.000E+00 0.000E+00 0.000E+00
 "O3              " 3.500E-02 3.500E-02 4.000E-02 5.000E-02 6.000E-02 7.000E-02

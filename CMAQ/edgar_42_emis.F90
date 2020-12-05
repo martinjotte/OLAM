@@ -1,6 +1,6 @@
 module edgar_42_emis
   implicit none
-  
+
   !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
   !
   !  Based on code from Chris Nolte, US EPA July 2013
@@ -12,8 +12,8 @@ module edgar_42_emis
   !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 
   integer, parameter :: nsec    = 17 ! number of edgar emissions sectors
-  integer, parameter :: nvars3d = 53
-  integer, parameter :: nvoc    = 21 ! number of speciation factors for nmvoc
+  integer, parameter :: nvars3d = 54
+  integer, parameter :: nvoc    = 20 ! number of speciation factors for nmvoc
   integer, parameter :: nevars  =  8 ! number of raw emissions species
   integer, parameter :: npms    = 19 ! number of speciation factors for pm2.5
 
@@ -38,50 +38,52 @@ module edgar_42_emis
   integer, parameter :: IFORM    = 12
   integer, parameter :: IIOLE    = 13
   integer, parameter :: IISOP    = 14
-  integer, parameter :: IMEOH    = 15    
-  integer, parameter :: INVOL    = 16
-  integer, parameter :: IOLE     = 17
-  integer, parameter :: IPAR     = 18
-  integer, parameter :: ITERP    = 19
-  integer, parameter :: ITOL     = 20
-  integer, parameter :: IUNK     = 21
-  integer, parameter :: IUNR     = 22
-  integer, parameter :: IXYLMN   = 23
-  integer, parameter :: IBENZENE = 24
-  integer, parameter :: ISESQ    = 25
-  integer, parameter :: IFACD    = 26
-  integer, parameter :: IAACD    = 27
+  integer, parameter :: IMEOH    = 15
+  integer, parameter :: IOLE     = 16
+  integer, parameter :: IPAR     = 17
+  integer, parameter :: ITERP    = 18
+  integer, parameter :: ITOL     = 19
+  integer, parameter :: IXYLMN   = 20
+  integer, parameter :: IBENZENE = 21
+  integer, parameter :: ISESQ    = 22
+  integer, parameter :: IFACD    = 23
+  integer, parameter :: IAACD    = 24
+
+  ! Added for CB6
+  integer, parameter :: IPRPA  = 25
+  integer, parameter :: IETHY  = 26
+  integer, parameter :: IACET  = 27
+  integer, parameter :: IKET   = 28
 
 ! Other gas species (some not set here)
-
-  integer, parameter :: ICL2   = 28  ! computed from GEIA database
-  integer, parameter :: IHCL   = 29  ! computed from GEIA database
-  integer, parameter :: IHONO  = 30  ! estimated from NOx for vehicle emissions
-  integer, parameter :: INAPH  = 31  ! new in 5.2, estimated from XYLMN
-  integer, parameter :: ISOAALK= 32  ! new in 5.2, estimated from PAR
-  integer, parameter :: ICH4   = 33  ! placeholder, used in CB6
+  integer, parameter :: ICL2   = 29  ! computed from GEIA database
+  integer, parameter :: IHCL   = 30  ! computed from GEIA database
+  integer, parameter :: IHONO  = 31  ! estimated from NOx for vehicle emissions
+  integer, parameter :: INAPH  = 32  ! new in 5.2, estimated from XYLMN
+  integer, parameter :: ISOAALK= 33  ! new in 5.2, estimated from PAR
+  integer, parameter :: ICH4   = 34  ! used in CB6
 
 ! PM species
-  integer, parameter :: IPMC    = 34
-  integer, parameter :: IPEC    = 35
-  integer, parameter :: IPMFINE = 36
-  integer, parameter :: IPNO3   = 37
-  integer, parameter :: IPOC    = 38
-  integer, parameter :: IPSO4   = 39
-  integer, parameter :: IPCL    = 40
-  integer, parameter :: IPNH4   = 41
-  integer, parameter :: IPNA    = 42
-  integer, parameter :: IPMG    = 43
-  integer, parameter :: IPK     = 44
-  integer, parameter :: IPCA    = 45
-  integer, parameter :: IPNCOM  = 46
-  integer, parameter :: IPFE    = 47
-  integer, parameter :: IPAL    = 48
-  integer, parameter :: IPSI    = 49
-  integer, parameter :: IPTI    = 50
-  integer, parameter :: IPMN    = 51
-  integer, parameter :: IPH2O   = 52
-  integer, parameter :: IPMOTHR = 53
+  integer, parameter :: IPMC    = 35
+  integer, parameter :: IPEC    = 36
+  integer, parameter :: IPMFINE = 37
+  integer, parameter :: IPNO3   = 38
+  integer, parameter :: IPOC    = 39
+  integer, parameter :: IPSO4   = 40
+  integer, parameter :: IPCL    = 41
+  integer, parameter :: IPNH4   = 42
+  integer, parameter :: IPNA    = 43
+  integer, parameter :: IPMG    = 44
+  integer, parameter :: IPK     = 45
+  integer, parameter :: IPCA    = 46
+  integer, parameter :: IPNCOM  = 47
+  integer, parameter :: IPFE    = 48
+  integer, parameter :: IPAL    = 49
+  integer, parameter :: IPSI    = 50
+  integer, parameter :: IPTI    = 51
+  integer, parameter :: IPMN    = 52
+  integer, parameter :: IPH2O   = 53
+  integer, parameter :: IPMOTHR = 54
 
   type overlap_vars
      integer              :: ncells = 0
@@ -95,10 +97,10 @@ module edgar_42_emis
   integer, parameter :: nx_e42 = 3600
   integer, parameter :: ny_e42 = 1800
 
-!!  integer, parameter :: n_ch4 = 17
-!!  integer, parameter :: ch4_sects(n_ch4) = &
-!!                 (/ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17 /)
-!!
+  integer, parameter :: n_ch4 = 17
+  integer, parameter :: ch4_sects(n_ch4) = &
+                 (/ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17 /)
+
   integer, parameter :: n_co = 11
   integer, parameter :: co_sects(n_co) = &
                                         (/ 1, 2, 3, 4, 5, 6, 7, 8, 13, 14, 16 /)
@@ -130,7 +132,7 @@ module edgar_42_emis
   integer, save :: year_stored = -1
 
   type edgar_vars_and_sects
-!!   real :: ch4  (n_ch4)
+     real :: ch4  (n_ch4)
      real :: co   (n_co)
      real :: nh3  (n_nh3)
      real :: nmvoc(n_nmvoc)
@@ -166,8 +168,11 @@ contains
 
 
   subroutine edgar_42_init(nvars3d_emis, vname3d_emis, units3d_emis)
+
     use mem_grid,  only: mwa, mza
     use geia_emis, only: geia_init
+    use rxns_data, only: mechname
+
     implicit none
 
     integer,                    intent(inout) :: nvars3d_emis
@@ -177,7 +182,8 @@ contains
     real, parameter :: gpkg = 1.0e3
 
     integer :: i
-    
+    logical :: have_cb6
+
     allocate(emis_w          (mwa))
     allocate(edgar42_vars    (mwa))
     allocate(edgar42_emis(mza,mwa,nvars3d))
@@ -192,6 +198,8 @@ contains
     call comp_vert_facts()
     call geia_init()
 
+    have_cb6 = ( index(mechname, 'CB6') > 0 )
+
     i = ico
     vname3d_emis(i) = 'CO'
     units3d_emis(i) = 'MOLES/S'
@@ -201,11 +209,11 @@ contains
     vname3d_emis(i) = 'NO'
     units3d_emis(i) = 'MOLES/S'
     molwt       (i) =  30.0
-      
+
     i = ino2
     vname3d_emis(i) = 'NO2'
     units3d_emis(i) = 'MOLES/S'
-    molwt       (i) =  46.0  
+    molwt       (i) =  46.0
 
     i = inh3
     vname3d_emis(i) = 'NH3'
@@ -232,7 +240,7 @@ contains
     units3d_emis(i) = 'MOLES/S'
     molwt       (i) =  44.0
 
-    i = ieth 
+    i = ieth
     vname3d_emis(i) = 'ETH'
     units3d_emis(i) = 'MOLES/S'
     molwt       (i) =  28.0
@@ -252,7 +260,7 @@ contains
     units3d_emis(i) = 'MOLES/S'
     molwt       (i) =  30.0
 
-    i = iiole 
+    i = iiole
     vname3d_emis(i) = 'IOLE'
     units3d_emis(i) = 'MOLES/S'
     molwt       (i) =  48.0
@@ -267,17 +275,12 @@ contains
     units3d_emis(i) = 'MOLES/S'
     molwt       (i) =  32.0
 
-    i = invol
-    vname3d_emis(i) = 'NVOL'
-    units3d_emis(i) = 'MOLES/S'
-    molwt       (i) =  16.0
-
-    i = iole 
+    i = iole
     vname3d_emis(i) = 'OLE'
     units3d_emis(i) = 'MOLES/S'
     molwt       (i) =  27.0
 
-    i = ipar 
+    i = ipar
     vname3d_emis(i) = 'PAR'
     units3d_emis(i) = 'MOLES/S'
     molwt       (i) =  44.0
@@ -287,20 +290,10 @@ contains
     units3d_emis(i) = 'MOLES/S'
     molwt       (i) =  136.0
 
-    i = itol 
+    i = itol
     vname3d_emis(i) = 'TOL'
     units3d_emis(i) = 'MOLES/S'
     molwt       (i) =  92.0
-
-    i = iunk
-    vname3d_emis(i) = 'UNK'
-    units3d_emis(i) = 'MOLES/S'
-    molwt       (i) =  352.0
-
-    i = iunr
-    vname3d_emis(i) = 'UNR'
-    units3d_emis(i) = 'MOLES/S'
-    molwt       (i) =  16.0
 
     i = ixylmn
     vname3d_emis(i) = 'XYLMN'
@@ -308,7 +301,11 @@ contains
     molwt       (i) =  106.0
 
     i = ibenzene
-    vname3d_emis(i) = 'BENZENE'
+    if (have_cb6) then
+       vname3d_emis(i) = 'BENZ'
+    else
+       vname3d_emis(i) = 'BENZENE'
+    endif
     units3d_emis(i) = 'MOLES/S'
     molwt       (i) =  78.0
 
@@ -326,6 +323,26 @@ contains
     vname3d_emis(i) = 'AACD'
     units3d_emis(i) = 'MOLES/S'
     molwt       (i) =  60.0
+
+    i = iprpa
+    vname3d_emis(i) = 'PRPA'
+    units3d_emis(i) = 'MOLES/S'
+    molwt       (i) =  44.1
+
+    i = iethy
+    vname3d_emis(i) = 'ETHY'
+    units3d_emis(i) = 'MOLES/S'
+    molwt       (i) =  26.0
+
+    i = iacet
+    vname3d_emis(i) = 'ACET'
+    units3d_emis(i) = 'MOLES/S'
+    molwt       (i) =  58.1
+
+    i = iket
+    vname3d_emis(i) = 'KET'
+    units3d_emis(i) = 'MOLES/S'
+    molwt       (i) =  72.1
 
     i = icl2
     vname3d_emis(i) = 'CL2'
@@ -462,7 +479,7 @@ contains
     enddo
 
     names(:) = vname3d_emis(:)
-    
+
     ! Monthly distribution factors
 
     rawmn( 1,:) = (/ 1.20, 1.15, 1.05, 1.00, 0.90, 0.85, 0.80, 0.88, 0.95, 1.00, 1.08, 1.15 /)
@@ -558,191 +575,191 @@ contains
                      1.00, 1.00, 1.00, 1.00 /)
 
     vocspec( 1,:) = (/ 0.24724e-5, 0.83117e-6, 0.58162e-3, 0.61433e-2, 0.0       ,  &
-                       0.55483e-2, 0.16416e-4, 0.0       , 0.0       , 0.0       ,  &
-                       0.15930e-2, 0.30714e-1, 0.0       , 0.12013e-2, 0.0       ,  &
-                       0.98334e-2, 0.10760e-2, 0.56493e-3, 0.0       , 0.32922e-3,  &
-                       0.50501e-3  /)
- 
+                       0.55483e-2, 0.16416e-4, 0.0       , 0.0       ,              &
+                       0.15930e-2, 0.30714e-1, 0.0       , 0.12013e-2,              &
+                       0.10760e-2, 0.56493e-3, 0.0       , 0.32922e-3, 0.50501e-3,  &
+                       0.95238e-3, 0.65385e-4 /)
+
     vocspec( 2,:) = (/ 0.0       , 0.0       , 0.12065e-3, 0.44364e-3, 0.0       ,  &
-                       0.20907e-1, 0.89703e-5, 0.0       , 0.0       , 0.0       ,  &
-                       0.21292e-3, 0.18985e-1, 0.0       , 0.28711e-3, 0.0       ,  &
-                       0.36421e-2, 0.18305e-3, 0.40610e-3, 0.0       , 0.21507e-3,  &
-                       0.32978e-3  /)
- 
+                       0.20907e-1, 0.89703e-5, 0.0       , 0.0       ,              &
+                       0.21292e-3, 0.18985e-1, 0.0       , 0.28711e-3,              &
+                       0.18305e-3, 0.40610e-3, 0.0       , 0.21507e-3, 0.32978e-3,  &
+                       0.72562E-3, 0.45000e-3 /)
+
     vocspec( 3,:) = (/ 0.37758e-3, 0.18399e-3, 0.20582e-2, 0.72071e-3, 0.11894e-4,  &
-                       0.74435e-3, 0.32335e-3, 0.25169e-4, 0.17082e-4, 0.17634e-4,  &
-                       0.13015e-2, 0.34423e-1, 0.10655e-4, 0.15034e-2, 0.23314e-6,  &
-                       0.47702e-2, 0.12890e-2, 0.50683e-3, 0.17049e-5, 0.0       ,  &
-                       0.0         /)
- 
+                       0.74435e-3, 0.32335e-3, 0.25169e-4, 0.17082e-4,              &
+                       0.13015e-2, 0.34423e-1, 0.10655e-4, 0.15034e-2,              &
+                       0.12890e-2, 0.50683e-3, 0.17049e-5, 0.0       , 0.0       ,  &
+                       0.36281e-3, 0.23077e-4 /)
+
     vocspec( 4,:) = (/ 0.37758e-3, 0.18399e-3, 0.20582e-2, 0.72071e-3, 0.11894e-4,  &
-                       0.74435e-3, 0.32335e-3, 0.25169e-4, 0.17082e-4, 0.17634e-4,  &
-                       0.13015e-2, 0.34423e-1, 0.10655e-4, 0.15034e-2, 0.23314e-6,  &
-                       0.47702e-2, 0.12890e-2, 0.50683e-3, 0.17049e-5, 0.0       ,  &
-                       0.0         /)
- 
+                       0.74435e-3, 0.32335e-3, 0.25169e-4, 0.17082e-4,              &
+                       0.13015e-2, 0.34423e-1, 0.10655e-4, 0.15034e-2,              &
+                       0.12890e-2, 0.50683e-3, 0.17049e-5, 0.0       , 0.0       ,  &
+                       0.45351e-4, 0.66923E-3 /)
+
     vocspec( 5,:) = (/ 0.32275e-2, 0.30807e-2, 0.0       , 0.20430e-4, 0.0       ,  &
-                       0.62666e-2, 0.47299e-6, 0.0       , 0.0       , 0.11461e-4,  &
-                       0.12019e-2, 0.92665e-2, 0.58834e-5, 0.15193e-2, 0.0       ,  &
-                       0.46819e-2, 0.43657e-3, 0.16691e-5, 0.94134e-6, 0.17759e-2,  &
-                       0.27230e-2  /)
- 
+                       0.62666e-2, 0.47299e-6, 0.0       , 0.0       ,              &
+                       0.12019e-2, 0.92665e-2, 0.58834e-5, 0.15193e-2,              &
+                       0.43657e-3, 0.16691e-5, 0.94134e-6, 0.17759e-2, 0.27230e-2,  &
+                       0.15873e-3, 0.76923E-5 /)
+
     vocspec( 6,:) = (/ 0.24724e-5, 0.83117e-6, 0.58162e-3, 0.61433e-2, 0.0       ,  &
-                       0.55483e-2, 0.16416e-4, 0.0       , 0.0       , 0.0       ,  &
-                       0.15930e-2, 0.30714e-1, 0.0       , 0.12013e-2, 0.0       ,  &
-                       0.98334e-2, 0.10760e-2, 0.56493e-3, 0.0,        0.0       ,  &
-                       0.0         /)
- 
+                       0.55483e-2, 0.16416e-4, 0.0       , 0.0       ,              &
+                       0.15930e-2, 0.30714e-1, 0.0       , 0.12013e-2,              &
+                       0.10760e-2, 0.56493e-3, 0.0,        0.0       , 0.0       ,  &
+                       0.95238e-3, 0.18077E-3 /)
+
     vocspec( 7,:) = (/ 0.16257e-3, 0.24866e-3, 0.52832e-3, 0.88840e-2, 0.94085e-3,  &
-                       0.58609e-2, 0.52268e-4, 0.25074e-4, 0.18672e-3, 0.10465e-3,  &
-                       0.10168e-2, 0.27446e-1, 0.29961e-4, 0.41018e-3, 0.0       ,  &
-                       0.13330e-1, 0.20880e-3, 0.28897e-3, 0.47938e-5, 0.0       ,  &
-                       0.0         /)
- 
+                       0.58609e-2, 0.52268e-4, 0.25074e-4, 0.18672e-3,              &
+                       0.10168e-2, 0.27446e-1, 0.29961e-4, 0.41018e-3,              &
+                       0.20880e-3, 0.28897e-3, 0.47938e-5, 0.0       , 0.0       ,  &
+                       0.68027e-4, 0.19231E-4 /)
+
     vocspec( 8,:) = (/ 0.43741e-3, 0.62256e-3, 0.12869e-2, 0.53024e-3, 0.34969e-3,  &
-                       0.60290e-3, 0.13877e-3, 0.67461e-4, 0.50238e-3, 0.28157e-3,  &
-                       0.19828e-2, 0.29057e-1, 0.58069e-4, 0.73368e-3, 0.0       ,  &
-                       0.82535e-2, 0.50463e-3, 0.41431e-3, 0.92910e-5, 0.0       ,  &
-                       0.0         /)
- 
+                       0.60290e-3, 0.13877e-3, 0.67461e-4, 0.50238e-3,              &
+                       0.19828e-2, 0.29057e-1, 0.58069e-4, 0.73368e-3,              &
+                       0.50463e-3, 0.41431e-3, 0.92910e-5, 0.0       , 0.0       ,  &
+                       0.0       , 0.0 /)
+
     vocspec( 9,:) = (/ 0.24539e-3, 0.39357e-3, 0.40283e-2, 0.33265e-3, 0.19618e-3,  &
-                       0.33864e-3, 0.79623e-4, 0.37847e-4, 0.28184e-3, 0.15796e-3,  &
-                       0.20358e-2, 0.31656e-1, 0.54062e-4, 0.71939e-3, 0.0       ,  &
-                       0.84159e-2, 0.31972e-3, 0.64305e-3, 0.86499e-5, 0.0       ,  &
-                       0.0         /)
- 
+                       0.33864e-3, 0.79623e-4, 0.37847e-4, 0.28184e-3,              &
+                       0.20358e-2, 0.31656e-1, 0.54062e-4, 0.71939e-3,              &
+                       0.31972e-3, 0.64305e-3, 0.86499e-5, 0.0       , 0.0       ,  &
+                       0.0       , 0.0 /)
+
     vocspec(10,:) = (/ 0.19595e-4, 0.12467e-3, 0.57465e-4, 0.68298e-5, 0.11234e-2,  &
-                       0.10167e-3, 0.30200e-4, 0.22703e-7, 0.92545e-3, 0.88522e-4,  &
-                       0.34678e-3, 0.40462e-1, 0.16402e-3, 0.12774e-2, 0.0       ,  &
-                       0.58793e-2, 0.79457e-3, 0.27556e-4, 0.26243e-4, 0.0       ,  &
-                       0.0         /)
- 
+                       0.10167e-3, 0.30200e-4, 0.22703e-7, 0.92545e-3,              &
+                       0.34678e-3, 0.40462e-1, 0.16402e-3, 0.12774e-2,              &
+                       0.79457e-3, 0.27556e-4, 0.26243e-4, 0.0       , 0.0       ,  &
+                       0.47619e-3, 0.0 /)
+
     vocspec(11,:) = (/ 0.27735e-2, 0.18805e-2, 0.29772e-2, 0.10280e-3, 0.67794e-4,  &
-                       0.62859e-2, 0.23283e-3, 0.90771e-4, 0.97394e-4, 0.54586e-4,  &
-                       0.20293e-2, 0.18743e-1, 0.13215e-4, 0.42119e-3, 0.0       ,  &
-                       0.37797e-2, 0.17795e-3, 0.27230e-3, 0.21143e-5, 0.0       ,  &
-                       0.0         /)
- 
+                       0.62859e-2, 0.23283e-3, 0.90771e-4, 0.97394e-4,              &
+                       0.20293e-2, 0.18743e-1, 0.13215e-4, 0.42119e-3,              &
+                       0.17795e-3, 0.27230e-3, 0.21143e-5, 0.0       , 0.0       ,  &
+                       0.0       , 0.0 /)
+
     vocspec(12,:) = (/ 0.53115e-3, 0.51103e-3, 0.25429e-2, 0.22169e-2, 0.18121e-3,  &
-                       0.49473e-2, 0.14082e-3, 0.18312e-4, 0.13677e-3, 0.49815e-4,  &
-                       0.14797e-2, 0.28392e-1, 0.44577e-4, 0.79310e-3, 0.31085e-7,  &
-                       0.65904e-2, 0.54441e-3, 0.30820e-3, 0.71323e-5, 0.0       ,  &
-                       0.0         /)
- 
+                       0.49473e-2, 0.14082e-3, 0.18312e-4, 0.13677e-3,              &
+                       0.14797e-2, 0.28392e-1, 0.44577e-4, 0.79310e-3,              &
+                       0.54441e-3, 0.30820e-3, 0.71323e-5, 0.0       , 0.0       ,  &
+                       0.0       , 0.0 /)
+
     vocspec(13,:) = (/ 0.0       , 0.45794e-3, 0.85461e-2, 0.43683e-2, 0.0       ,  &
-                       0.29857e-5, 0.11602e-3, 0.0       , 0.0       , 0.0       ,  &
-                       0.21746e-2, 0.28112e-1, 0.15971e-3, 0.39872e-3, 0.0       ,  &
-                       0.81625e-2, 0.30230e-3, 0.0       , 0.25553e-4, 0.0       ,  &
-                       0.0         /)
- 
+                       0.29857e-5, 0.11602e-3, 0.0       , 0.0       ,              &
+                       0.21746e-2, 0.28112e-1, 0.15971e-3, 0.39872e-3,              &
+                       0.30230e-3, 0.0       , 0.25553e-4, 0.0       , 0.0       ,  &
+                       0.15873e-3, 0.40385e-3/)
+
     vocspec(14,:) = (/ 0.0       , 0.45794e-3, 0.85461e-2, 0.43683e-2, 0.0       ,  &
-                       0.29857e-5, 0.11602e-3, 0.0       , 0.0       , 0.0       ,  &
-                       0.21746e-2, 0.28112e-1, 0.15971e-3, 0.39872e-3, 0.0       ,  &
-                       0.81625e-2, 0.30230e-3, 0.0       , 0.25553e-4, 0.96338e-3,  &
-                       0.41361e-2  /)
- 
+                       0.29857e-5, 0.11602e-3, 0.0       , 0.0       ,              &
+                       0.21746e-2, 0.28112e-1, 0.15971e-3, 0.39872e-3,              &
+                       0.30230e-3, 0.0       , 0.25553e-4, 0.96338e-3, 0.41361e-2,  &
+                       0.0       , 0.0 /)
+
     vocspec(15,:) = (/ 0.34125e-3, 0.29209e-4, 0.66517e-2, 0.24878e-4, 0.16407e-4,  &
-                       0.34901e-3, 0.64866e-3, 0.31652e-5, 0.23571e-4, 0.13211e-4,  &
-                       0.30184e-2, 0.44776e-1, 0.27239e-5, 0.34411e-4, 0.0       ,  &
-                       0.16987e-2, 0.23228e-4, 0.19431e-4, 0.43583e-6, 0.62634e-3,  &
-                       0.96060e-3  /)
- 
+                       0.34901e-3, 0.64866e-3, 0.31652e-5, 0.23571e-4,              &
+                       0.30184e-2, 0.44776e-1, 0.27239e-5, 0.34411e-4,              &
+                       0.23228e-4, 0.19431e-4, 0.43583e-6, 0.62634e-3, 0.96060e-3,  &
+                       0.70295e-3, 0.0 /)
+
     vocspec(16,:) = (/ 0.0       , 0.0       , 0.12065e-3, 0.44364e-3, 0.0       ,  &
-                       0.20907e-1, 0.89703e-5, 0.0       , 0.0       , 0.0       ,  &
-                       0.21292e-3, 0.18985e-1, 0.0       , 0.28711e-3, 0.0       ,  &
-                       0.36421e-2, 0.18305e-3, 0.40610e-3, 0.0       , 0.0       ,  &
-                       0.0         /)
+                       0.20907e-1, 0.89703e-5, 0.0       , 0.0       ,              &
+                       0.21292e-3, 0.18985e-1, 0.0       , 0.28711e-3,              &
+                       0.18305e-3, 0.40610e-3, 0.0       , 0.0       , 0.0       ,  &
+                       0.40816e-3, 0.0 /)
 
     pmspec( 1,:) = (/ 0.5093335E-01, 0.7896125E+00, 0.1130028E-02, 0.4630086E-01, &
                       0.1120233E+00, 0.7211590E-03, 0.3337995E-02, 0.7741310E-04, &
                       0.3904520E-03, 0.4337831E-02, 0.3660728E-01, 0.1848782E-01, &
                       0.2732115E-01, 0.5511979E-01, 0.8349822E-01, 0.4166080E-02, &
                       0.2657730E-03, 0.0000000E+00, 0.5552815E+00  /)
- 
+
     pmspec( 2,:) = (/ 0.9305152E-01, 0.6753209E+00, 0.2679254E-02, 0.8549677E-01, &
                       0.1434515E+00, 0.7028740E-03, 0.2242595E-02, 0.1085700E-06, &
                       0.5534310E-06, 0.3046828E-02, 0.2230610E-01, 0.3394840E-01, &
                       0.1897411E-01, 0.3847033E-01, 0.5918732E-01, 0.2844717E-02, &
                       0.1858590E-03, 0.0000000E+00, 0.4934112E+00  /)
- 
+
     pmspec( 3,:) = (/ 0.6101691E+00, 0.9693286E-01, 0.1155748E-02, 0.2226151E+00, &
                       0.3277256E-02, 0.3359480E-03, 0.1200506E-02, 0.1450480E-03, &
                       0.3722520E-04, 0.4685540E-04, 0.7059460E-03, 0.5582348E-01, &
                       0.4950410E-03, 0.1100320E-03, 0.4725560E-03, 0.1009660E-04, &
                       0.3457080E-05, 0.0000000E+00, 0.3754668E-01 /)
- 
+
     pmspec( 4,:) = (/ 0.6101691E+00, 0.9693286E-01, 0.1155748E-02, 0.2226151E+00, &
                       0.3277256E-02, 0.3359480E-03, 0.1200506E-02, 0.1450480E-03, &
                       0.3722520E-04, 0.4685540E-04, 0.7059460E-03, 0.5582348E-01, &
                       0.4950410E-03, 0.1100320E-03, 0.4725560E-03, 0.1009660E-04, &
                       0.3457080E-05, 0.0000000E+00, 0.3754668E-01 /)
- 
+
     pmspec( 5,:) = (/ 0.5864368E-01, 0.4091476E+00, 0.1990023E-02, 0.5227183E+00, &
                       0.7500431E-02, 0.3031797E-02, 0.1569836E-02, 0.9900380E-03, &
                       0.1294020E-03, 0.9462254E-02, 0.2145300E-03, 0.3636599E+00, &
                       0.1619750E-03, 0.1594740E-03, 0.5064650E-03, 0.6129750E-05, &
                       0.1067850E-05, 0.0000000E+00, 0.2925463E-01 /)
- 
+
     pmspec( 6,:) = (/ 0.5093335E-01, 0.7896125E+00, 0.1130028E-02, 0.4630086E-01, &
                       0.1120233E+00, 0.7211590E-03, 0.3337995E-02, 0.7741310E-04, &
                       0.3904520E-03, 0.4337831E-02, 0.3660728E-01, 0.1848782E-01, &
                       0.2732115E-01, 0.5511979E-01, 0.8349822E-01, 0.4166080E-02, &
                       0.2657730E-03, 0.0000000E+00, 0.5552815E+00 /)
- 
+
     pmspec( 7,:) = (/ 0.4459063E-01, 0.7177606E+00, 0.4337183E-02, 0.1437265E+00, &
                       0.8958507E-01, 0.7313706E-02, 0.6027760E-04, 0.5988345E-02, &
                       0.1362770E-03, 0.6925087E-02, 0.1695260E-02, 0.5749354E-01, &
                       0.3648100E-03, 0.5915320E-03, 0.5089387E-02, 0.2078024E-02, &
                       0.1569250E-03, 0.2083330E-01, 0.6090342E+00 /)
- 
+
     pmspec( 8,:) = (/ 0.5228960E-02, 0.7616066E+00, 0.2224370E-02, 0.4563876E-01, &
                       0.1853013E+00, 0.2118021E+00, 0.0000000E+00, 0.7470303E-01, &
                       0.9194220E-03, 0.1227662E+00, 0.5442225E-02, 0.1824227E-01, &
                       0.7411399E-01, 0.5171750E-03, 0.7125520E-02, 0.0000000E+00, &
                       0.1626227E-02, 0.1055746E-02, 0.2432926E+00 /)
- 
+
     pmspec( 9,:) = (/ 0.1831900E-01, 0.8551678E+00, 0.3498630E-02, 0.9169705E-01, &
                       0.3131752E-01, 0.0000000E+00, 0.0000000E+00, 0.0000000E+00, &
                       0.0000000E+00, 0.0000000E+00, 0.0000000E+00, 0.3669882E-01, &
                       0.0000000E+00, 0.0000000E+00, 0.0000000E+00, 0.0000000E+00, &
                       0.0000000E+00, 0.7504197E-02, 0.8109648E+00 /)
- 
+
     pmspec(10,:) = (/ 0.1736608E-01, 0.7923931E+00, 0.4582310E-03, 0.1743871E+00, &
                       0.1539545E-01, 0.1765447E-02, 0.0000000E+00, 0.0000000E+00, &
                       0.0000000E+00, 0.2125743E-02, 0.2731039E-01, 0.6961630E-01, &
                       0.3602950E-03, 0.2666186E-01, 0.2745451E-01, 0.1837506E+00, &
                       0.0000000E+00, 0.3688202E-02, 0.4496598E+00 /)
- 
+
     pmspec(11,:) = (/ 0.1063594E+00, 0.4947548E+00, 0.3428792E-02, 0.3793308E+00, &
                       0.1612624E-01, 0.8833633E-01, 0.1757649E-01, 0.6425010E-02, &
                       0.8050290E-03, 0.6918893E-01, 0.9166050E-03, 0.2656971E+00, &
                       0.1497949E-02, 0.2462452E-02, 0.6068226E-02, 0.1359610E-03, &
                       0.3155090E-04, 0.9610900E-05, 0.3560352E-01 /)
- 
+
     pmspec(12,:) = (/ 0.1260744E+00, 0.6392629E+00, 0.2052486E-02, 0.1552949E+00, &
                       0.6853534E-01, 0.2105129E-01, 0.2184586E-02, 0.5903437E-02, &
                       0.1897730E-03, 0.1502208E-01, 0.1032118E-01, 0.7554849E-01, &
                       0.1133864E-01, 0.1451952E-01, 0.2217069E-01, 0.1333417E-01, &
                       0.1817300E-03, 0.4846071E-02, 0.4426512E+00 /)
- 
+
     pmspec(13,:) = (/ 0.4410000E-01, 0.8114600E+00, 0.1640000E-02, 0.8770000E-01, &
                       0.5510000E-01, 0.0000000E+00, 0.0000000E+00, 0.0000000E+00, &
                       0.0000000E+00, 0.0000000E+00, 0.0000000E+00, 0.3510000E-01, &
                       0.0000000E+00, 0.0000000E+00, 0.0000000E+00, 0.0000000E+00, &
                       0.0000000E+00, 0.1320000E-01, 0.7631600E+00 /)
- 
+
     pmspec(14,:) = (/ 0.4410000E-01, 0.8114600E+00, 0.1640000E-02, 0.8770000E-01, &
                       0.5510000E-01, 0.0000000E+00, 0.0000000E+00, 0.0000000E+00, &
                       0.0000000E+00, 0.0000000E+00, 0.0000000E+00, 0.3510000E-01, &
                       0.0000000E+00, 0.0000000E+00, 0.0000000E+00, 0.0000000E+00, &
                       0.0000000E+00, 0.1320000E-01, 0.7631600E+00 /)
- 
+
     pmspec(15,:) = (/ 0.4410000E-01, 0.8114600E+00, 0.1640000E-02, 0.8770000E-01, &
                       0.5510000E-01, 0.0000000E+00, 0.0000000E+00, 0.0000000E+00, &
                       0.0000000E+00, 0.0000000E+00, 0.0000000E+00, 0.3510000E-01, &
                       0.0000000E+00, 0.0000000E+00, 0.0000000E+00, 0.0000000E+00, &
                       0.0000000E+00, 0.1320000E-01, 0.7631600E+00 /)
- 
+
     pmspec(16,:) = (/ 0.9305152E-01, 0.6753209E+00, 0.2679254E-02, 0.8549677E-01, &
                       0.1434515E+00, 0.7028740E-03, 0.2242595E-02, 0.1085700E-06, &
                       0.5534310E-06, 0.3046828E-02, 0.2230610E-01, 0.3394840E-01, &
@@ -758,12 +775,14 @@ contains
     use mem_grid,   only: glonw, lsw, lpw
     use mem_turb,   only: frac_sfc
     use geia_emis,  only: cl_emis, hcl_emis
+    use rxns_data,  only: mechname
 
     implicit none
 
     integer :: year, month, hour, day
     integer :: itz, dow, hr00z
-    integer :: jw, iw, j, n, ns, k, ks, ka, v, i
+    integer :: jw, iw, j, n, ns, k, ks, ka, v, i, iend
+    logical :: have_cb6
 
     real :: timefac(nsec)
     real :: fact1, fact2, fact3, emisn
@@ -790,12 +809,14 @@ contains
     dow   = day_of_week(current_time%month, current_time%date, current_time%year)
     hr00z = int( current_time%time / 3600. ) + 1
 
+    have_cb6 = ( index(mechname, 'CB6') > 0 )
+
     !$omp parallel do private(jw,iw,day,itz,hour,timefac,j,n,fact1,fact2,&
     !$omp                     fact3,ns,ka,ks,k,emisn,v,i)
     do jw = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(jw)
 
        edgar42_emis(:,iw,:) = 0.0
-       
+
        day  = dow
        itz  = nint( glonw(iw) / 15.0 )
        hour = hr00z + itz
@@ -807,7 +828,7 @@ contains
           day  = day + 1
           hour = hour - 24
        endif
-       
+
        if (day < 1) day = day + 7
        if (day > 7) day = day - 7
 
@@ -921,6 +942,12 @@ contains
 
 !      if (jw == 1) write(io6,*) "Processing NMVOC..."
 
+       if (have_cb6) then
+          iend = iethy
+       else
+          iend = iaacd
+       endif
+
        do j = 1, n_nmvoc
           n = nmvoc_sects(j)
 
@@ -928,11 +955,11 @@ contains
 
              fact1 = timefac(n) * edgar42_vars(iw)%nmvoc(j) * gpkg
 
-             do v = iald2, iaacd
+             do v = iald2, iend
                 i = v - iald2 + 1
 
                 if (vocspec(n,i) > 1.e-12) then
-                   
+
                    fact2 = fact1 * vocspec(n,i)
 
                    do ns = 1, lsw(iw)
@@ -954,11 +981,25 @@ contains
        ! update for new emissions species in CMAQ 5.2
        ka = lpw(iw) + lsw(iw) - 1
        do k = lpw(iw), maxval( vinterp(1:nsec,ka)%nlevs ) + ka - 1
-          edgar42_emis(k,iw,inaph)   = 0.002 * edgar42_emis(k,iw,ixylmn) 
+          edgar42_emis(k,iw,inaph)   = 0.002 * edgar42_emis(k,iw,ixylmn)
           edgar42_emis(k,iw,ixylmn)  = 0.998 * edgar42_emis(k,iw,ixylmn)
           edgar42_emis(k,iw,isoaalk) = 0.108 * edgar42_emis(k,iw,ipar)
-          edgar42_emis(k,iw,ipar)    = edgar42_emis(k,iw,ipar) - 0.00001 * edgar42_emis(k,iw,inaph)
+
+!         edgar42_emis(k,iw,ipar)    = edgar42_emis(k,iw,ipar) - 0.00001 * edgar42_emis(k,iw,inaph)
+          edgar42_emis(k,iw,ipar)    = edgar42_emis(k,iw,ipar) - 2.0 * edgar42_emis(k,iw,inaph)
        enddo
+
+       ! update for new CB6 species
+
+       if (have_cb6) then
+          edgar42_emis(k,iw,iacet) = 0.06 * edgar42_emis(k,iw,ipar)
+          edgar42_emis(k,iw,iket)  = 0.02 * edgar42_emis(k,iw,ipar)
+          edgar42_emis(k,iw,ipar)  = edgar42_emis(k,iw,ipar) - 3.0 * edgar42_emis(k,iw,iacet)    &
+                                                             - 1.5 * edgar42_emis(k,iw,iprpa)    &
+                                                             -       edgar42_emis(k,iw,ibenzene) &
+                                                             -       edgar42_emis(k,iw,iethy)    &
+                                                             -       edgar42_emis(k,iw,iket)
+       endif
 
 !      if (jw == 1) write(io6,*) "Processing PM10..."
 
@@ -1101,24 +1142,24 @@ contains
                              '16.FOSSIL_FUEL_FIRES                          ', &
                              '17.WASTE_WATER                                ' /)
 
-!!    character(40), parameter :: ch4suf(n_ch4) = (/               &
-!!                                '_IPCC_1A1_1A2.0.1x0.1.nc4    ', &
-!!                                '_IPCC_1B2b.0.1x0.1.nc4       ', &
-!!                                '_IPCC_1A3a_c_d_e.0.1x0.1.nc4 ', &
-!!                                '_IPCC_1A3b.0.1x0.1.nc4       ', &
-!!                                '_IPCC_1A4.0.1x0.1.nc4        ', &
-!!                                '_IPCC_1B2b.0.1x0.1.nc4       ', &
-!!                                '_IPCC_2.0.1x0.1.nc4          ', &
-!!                                '_IPCC_1B1.0.1x0.1.nc4        ', &
-!!                                '_IPCC_1B2b.0.1x0.1.nc4       ', &
-!!                                '_IPCC_4A.0.1x0.1.nc4         ', &
-!!                                '_IPCC_4B.0.1x0.1.nc4         ', &
-!!                                '_IPCC_4C_4D.0.1x0.1.nc4      ', &
-!!                                '_IPCC_4F.0.1x0.1.nc4         ', &
-!!                                '_IPCC_5A_C_D_F_4E.0.1x0.1.nc4', &
-!!                                '_IPCC_6A_6C.0.1x0.1.nc4      ', &
-!!                                '_IPCC_7A.0.1x0.1.nc4         ', &
-!!                                '_IPCC_6B.0.1x0.1.nc4         ' /)
+    character(40), parameter :: ch4suf(n_ch4) = (/               &
+                                '_IPCC_1A1_1A2.0.1x0.1.nc4    ', &
+                                '_IPCC_1B2b.0.1x0.1.nc4       ', &
+                                '_IPCC_1A3a_c_d_e.0.1x0.1.nc4 ', &
+                                '_IPCC_1A3b.0.1x0.1.nc4       ', &
+                                '_IPCC_1A4.0.1x0.1.nc4        ', &
+                                '_IPCC_1B2b.0.1x0.1.nc4       ', &
+                                '_IPCC_2.0.1x0.1.nc4          ', &
+                                '_IPCC_1B1.0.1x0.1.nc4        ', &
+                                '_IPCC_1B2b.0.1x0.1.nc4       ', &
+                                '_IPCC_4A.0.1x0.1.nc4         ', &
+                                '_IPCC_4B.0.1x0.1.nc4         ', &
+                                '_IPCC_4C_4D.0.1x0.1.nc4      ', &
+                                '_IPCC_4F.0.1x0.1.nc4         ', &
+                                '_IPCC_5A_C_D_F_4E.0.1x0.1.nc4', &
+                                '_IPCC_6A_6C.0.1x0.1.nc4      ', &
+                                '_IPCC_7A.0.1x0.1.nc4         ', &
+                                '_IPCC_6B.0.1x0.1.nc4         ' /)
 
     character(40), parameter :: cosuf(n_co) = (/                   &
                                 '_IPCC_1A1a_6.0.1x0.1.nc4       ', &
@@ -1226,7 +1267,7 @@ contains
 
     !$omp parallel do
     do iw = 1, mwa
-!!     edgar42_vars(iw)%ch4  (:) = 0.0
+       edgar42_vars(iw)%ch4  (:) = 0.0
        edgar42_vars(iw)%co   (:) = 0.0
        edgar42_vars(iw)%nh3  (:) = 0.0
        edgar42_vars(iw)%nmvoc(:) = 0.0
@@ -1239,65 +1280,65 @@ contains
 
     year_stored = year
     write(yyear,'(I4)') year
-    
-!!    ! Average CH4 to olam grid
-!!
-!!    do j = 1, n_ch4
-!!       n = ch4_sects(j)
-!!
-!!       if (myrank == 0) then
-!!
-!!          rawdata(:,:) = 0.0
-!!
-!!          filename = trim(nl%emis_dir) // "/" // trim(secname(n)) // "/ch4/v42_CH4_" // &
-!!                     yyear // trim(ch4suf(j))
-!!
-!!          write(*,'(A)') "reading: ", trim(filename)
-!!
-!!          inquire(file=filename, exist=exists)
-!!
-!!          if (.not. exists) then
-!!
-!!             write(*,'(A)') "Cannot find emissions file ", trim(filename)
-!!
-!!          else
-!!
-!!             call shdf5_open(filename, 'R')
-!!
-!!             ndims = 0
-!!             idims = 0
-!!             call shdf5_info('emi_ch4', ndims, idims)
-!!             
-!!             if ( ndims /= 2 .and. idims(1) /= nx_e42 .and. idims(2) /= ny_e42 ) then
-!!                write(*,*) "Cannot find emissions field ", trim(SECNAME(n)), " CH4"
-!!             else
-!!                call shdf5_irec(ndims, idims, 'emi_ch4', rvar2=rawdata)
-!!             endif
-!!
-!!             call shdf5_close()
-!!          endif
-!!       endif
-!!
-!!#ifdef OLAM_MPI
-!!       if (iparallel == 1) then
-!!          call MPI_Bcast( rawdata, nx_e42*ny_e42, MPI_REAL, 0, MPI_COMM_WORLD, ier )
-!!       endif
-!!#endif
-!!
-!!       !$omp parallel do private(jw,iw,n)
-!!       do jw = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(jw)
-!!          
-!!          ! sum the emission overlaps that contribute to this cell and
-!!          ! multiply by area to get emissions in kg/sec
-!!
-!!          do n = 1, emis_w(iw)%ncells
-!!             edgar42_vars(iw)%ch4(j) = edgar42_vars(iw)%ch4(j) + &
-!!                  rawdata(emis_w(iw)%i(n),emis_w(iw)%j(n)) * emis_w(iw)%area(n)
-!!          enddo
-!!
-!!       enddo
-!!       !$omp end parallel do
-!!    enddo
+
+    ! Average CH4 to olam grid
+
+    do j = 1, n_ch4
+       n = ch4_sects(j)
+
+       if (myrank == 0) then
+
+          rawdata(:,:) = 0.0
+
+          filename = trim(nl%emis_dir) // "/" // trim(secname(n)) // "/ch4/v42_CH4_" // &
+                     yyear // trim(ch4suf(j))
+
+          write(*,'(A)') "reading: ", trim(filename)
+
+          inquire(file=filename, exist=exists)
+
+          if (.not. exists) then
+
+             write(*,'(A)') "Cannot find emissions file ", trim(filename)
+
+          else
+
+             call shdf5_open(filename, 'R')
+
+             ndims = 0
+             idims = 0
+             call shdf5_info('emi_ch4', ndims, idims)
+
+             if ( ndims /= 2 .and. idims(1) /= nx_e42 .and. idims(2) /= ny_e42 ) then
+                write(*,*) "Cannot find emissions field ", trim(SECNAME(n)), " CH4"
+             else
+                call shdf5_irec(ndims, idims, 'emi_ch4', rvar2=rawdata)
+             endif
+
+             call shdf5_close()
+          endif
+       endif
+
+#ifdef OLAM_MPI
+       if (iparallel == 1) then
+          call MPI_Bcast( rawdata, nx_e42*ny_e42, MPI_REAL, 0, MPI_COMM_WORLD, ier )
+       endif
+#endif
+
+       !$omp parallel do private(jw,iw,n)
+       do jw = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(jw)
+
+          ! sum the emission overlaps that contribute to this cell and
+          ! multiply by area to get emissions in kg/sec
+
+          do n = 1, emis_w(iw)%ncells
+             edgar42_vars(iw)%ch4(j) = edgar42_vars(iw)%ch4(j) + &
+                  rawdata(emis_w(iw)%i(n),emis_w(iw)%j(n)) * emis_w(iw)%area(n)
+          enddo
+
+       enddo
+       !$omp end parallel do
+    enddo
 
     ! Average CO to olam grid
 
@@ -1326,7 +1367,7 @@ contains
              ndims = 0
              idims = 0
              call shdf5_info('emi_co', ndims, idims)
-             
+
              if ( ndims /= 2 .and. idims(1) /= nx_e42 .and. idims(2) /= ny_e42 ) then
                 write(*,*) "Cannot find emissions field ", trim(SECNAME(n)), " CO"
              else
@@ -1365,7 +1406,7 @@ contains
        n = nh3_sects(j)
 
        if (myrank == 0) then
-          
+
           rawdata(:,:) = 0.0
 
           filename = trim(nl%emis_dir) // "/" // trim(secname(n)) // "/nh3/v42_NH3_" // &
@@ -1386,7 +1427,7 @@ contains
              ndims = 0
              idims = 0
              call shdf5_info('emi_nh3', ndims, idims)
-             
+
              if ( ndims /= 2 .and. idims(1) /= nx_e42 .and. idims(2) /= ny_e42 ) then
                 write(*,*) "Cannot find emissions field ", trim(SECNAME(n)), " NH3"
              else
@@ -1405,7 +1446,7 @@ contains
 
        !$omp parallel do private(jw,iw,n)
        do jw = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(jw)
-          
+
           ! sum the emission overlaps that contribute to this cell and
           ! multiply by area to get emissions in kg/sec
 
@@ -1446,7 +1487,7 @@ contains
              ndims = 0
              idims = 0
              call shdf5_info('emi_nmvoc', ndims, idims)
-             
+
              if ( ndims /= 2 .and. idims(1) /= nx_e42 .and. idims(2) /= ny_e42 ) then
                 write(*,*) "Cannot find emissions field ", trim(SECNAME(n)), " NMVOC"
              else
@@ -1506,7 +1547,7 @@ contains
              ndims = 0
              idims = 0
              call shdf5_info('emi_nox', ndims, idims)
-             
+
              if ( ndims /= 2 .and. idims(1) /= nx_e42 .and. idims(2) /= ny_e42 ) then
                 write(*,*) "Cannot find emissions field ", trim(SECNAME(n)), " NOX"
              else
@@ -1552,7 +1593,7 @@ contains
                      yyear // trim(pm2_5suf(j))
 
           write(io6,'(A)') "reading: ", trim(filename)
-     
+
           inquire(file=filename, exist=exists)
 
           if (.not. exists) then
@@ -1566,7 +1607,7 @@ contains
              ndims = 0
              idims = 0
              call shdf5_info('emi_pm2.5', ndims, idims)
-             
+
              if ( ndims /= 2 .and. idims(1) /= nx_e42 .and. idims(2) /= ny_e42 ) then
                 write(*,*) "Cannot find emissions field ", trim(SECNAME(n)), " PM2.5"
              else
@@ -1585,7 +1626,7 @@ contains
 
        !$omp parallel do private(jw,iw,n)
        do jw = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(jw)
-          
+
           do n = 1, emis_w(iw)%ncells
              edgar42_vars(iw)%pm2_5(j) = edgar42_vars(iw)%pm2_5(j) + &
                   rawdata(emis_w(iw)%i(n),emis_w(iw)%j(n)) * emis_w(iw)%area(n)
@@ -1609,7 +1650,7 @@ contains
                      yyear // trim(pm10suf(j))
 
           write(io6,'(A)') "reading: ", trim(filename)
-     
+
           inquire(file=filename, exist=exists)
 
           if (.not. exists) then
@@ -1623,7 +1664,7 @@ contains
              ndims = 0
              idims = 0
              call shdf5_info('emi_pm10', ndims, idims)
-             
+
              if ( ndims /= 2 .and. idims(1) /= nx_e42 .and. idims(2) /= ny_e42 ) then
                 write(*,*) "Cannot find emissions field ", trim(SECNAME(n)), " PM10"
              else
@@ -1680,7 +1721,7 @@ contains
              ndims = 0
              idims = 0
              call shdf5_info('emi_so2', ndims, idims)
-             
+
              if ( ndims /= 2 .and. idims(1) /= nx_e42 .and. idims(2) /= ny_e42 ) then
                 write(*,*) "Cannot find emissions field ", trim(SECNAME(n)), " SO2"
              else
@@ -1699,7 +1740,7 @@ contains
 
        !$omp parallel do private(jw,iw,n)
        do jw = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(jw)
-          
+
           ! sum the emission overlaps that contribute to this cell and
           ! multiply by area to get emissions in kg/sec
 
@@ -1726,7 +1767,7 @@ contains
     implicit none
 
     integer, intent(in) :: nlon, nlat
-  
+
     integer, parameter :: maxvert = 7
 
     integer :: np, i, j, n, ng, nn, ngrp, jw, iw, im
@@ -1772,7 +1813,7 @@ contains
     do jw = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(jw)
 
        np = itab_w(iw)%npoly
-       
+
        if (mod(jw,1000) == 0) &
             write(io6,*) "Hex cells:", jw, jtab_w(jtw_prog)%jend(1), glatw(iw), glonw(iw)
 
@@ -1854,7 +1895,7 @@ contains
 
                    lons = (/ real(i-1)*dx, real(i-1)*dx,  real(i)*dx, real(i  )*dx /)
                    lats = (/ real(j-1)*dy, real(j  )*dy,  real(j)*dy, real(j-1)*dy /) + lat0
-        
+
                    ! x,y coordinates of emissions cell on tangent plane
 
                    do n = 1, 4
@@ -1863,7 +1904,7 @@ contains
                       xg(n) = x
                       yg(n) = y
                    enddo
-                 
+
                    areaij =  pio180 * erad**2 * abs(sin(lats(2)*pio180)-sin(lats(1)*pio180)) * dx
 
                    alpha(:) = 0.0_r8
@@ -1909,7 +1950,7 @@ contains
                       endif
 
                    endif
-                 
+
                    if (area > tolerance) then
                       ng = ng + 1
                       sumarea = sumarea + area
@@ -1926,7 +1967,7 @@ contains
                          call move_alloc(jtmp, jpoints)
                          call move_alloc(atmp, areafrc)
                       endif
-                   
+
                       ipoints(ng) = i
                       jpoints(ng) = j
                       areafrc(ng) = area
@@ -1951,7 +1992,7 @@ contains
           allocate(emis_w(iw)%i(ng))
           allocate(emis_w(iw)%j(ng))
           allocate(emis_w(iw)%area(ng))
-     
+
           emis_w(iw)%i(1:ng) = ipoints(1:ng)
           emis_w(iw)%j(1:ng) = jpoints(1:ng)
           emis_w(iw)%area(1:ng) = areafrc(1:ng)
@@ -1984,7 +2025,7 @@ contains
 
     integer :: k, n, j, nlvs
     real :: zbot
-    
+
     ! Vertical distribution factors per sector
 
     rawlay(:,1)  = (/ 0.01, 0.01, 0.01, 0.02, 0.04, 0.04, 0.04, 0.09, 0.09, 0.14, &
@@ -2049,9 +2090,9 @@ contains
        rawhgt(:) = zbot + zlays(:) * (ztop - zbot) / ztop
 
        do n = 1, nsec
-          
+
           vinterp(n,k)%facts(:) = 0.0
-          
+
           if (rawlay(1,n) > 0.999 .or. zm(k) > 0.5*ztop) then
 
              ! Put all emissions in bottom layer layer

@@ -96,7 +96,7 @@ contains
     use mem_ijtabs, only: jtab_w, jtw_prog
     use mem_turb,   only: frac_sea
     use consts_coms,only: t00
-    
+
     implicit none
 
     integer, intent(in) :: mrl
@@ -120,36 +120,38 @@ contains
 
        vdemis_lt   (:,iw) = 0.0
        column_ltng_no(iw) = 0.0
-            
+
        ! First make sure that there was deep convection
 
-       if ( iactcu(iw) == 1 .and. conprr(iw) > 1.e-10 ) then
+       if ( iactcu(iw) > 0 ) then
+          if ( conprr(iw) > 1.e-10 ) then
 
-          ! And that the cloud top was sufficiently below freezing to generate
-          ! positive and negative charge areas
+             ! And that the cloud top was sufficiently below freezing to generate
+             ! positive and negative charge areas
 
-          if (tair(kcutop(iw),iw) > tmin) cycle
+             if (tair(kcutop(iw),iw) > tmin) cycle
 
-          ! And that the cloud base temperature is warm enough to have
-          ! water droplets in the cloud
+             ! And that the cloud base temperature is warm enough to have
+             ! water droplets in the cloud
 
-          if (tair(kcubot(iw),iw) < tmax) cycle
+             if (tair(kcubot(iw),iw) < tmax) cycle
 
-          ! Compute lightning flash rate. Scale is the moles of N produced
-          ! per m^2 per mm precip, resulting in moles/sec
+             ! Compute lightning flash rate. Scale is the moles of N produced
+             ! per m^2 per mm precip, resulting in moles/sec
 
-          rate = arw0(iw) * conprr(iw) * scale
+             rate = arw0(iw) * conprr(iw) * scale
 
-          ! Reduce lightning over oceans
-       
-          column_ltng_no(iw) = rate * ( 1.0 - 0.9 * frac_sea(iw) )
+             ! Reduce lightning over oceans
 
-          ! Get the vertical distibution of NOx from lightning
+             column_ltng_no(iw) = rate * ( 1.0 - 0.9 * frac_sea(iw) )
 
-          call lightdist( iw, kcutop(iw), column_ltng_no(iw), vdemis_lt(:,iw) )
+             ! Get the vertical distibution of NOx from lightning
 
+             call lightdist( iw, kcutop(iw), column_ltng_no(iw), vdemis_lt(:,iw) )
+
+          endif
        endif
-               
+
     end do
     !$omp end parallel do
 

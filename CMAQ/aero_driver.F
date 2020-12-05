@@ -287,6 +287,8 @@ C *** Coefficients for the equation, ESATL defining saturation vapor pressure
 
 !     REAL, ALLOCATABLE, SAVE :: TEMP_DATA(:)
 
+      real :: conc(nspcsd)
+
 C *** values of AL, BL, and CL are from:
 C     Alduchov and Eskridge, "Improved Magnus Form Approximations of
 C                            Saturation Vapor Pressure,"
@@ -544,8 +546,9 @@ C *** initialize conc arrays
 !     N_APMDIAG_STEP = N_APMDIAG_STEP + 1
 !     N_VIS_STEP     = N_VIS_STEP + 1 
 
-!$omp parallel do private(iw,k,kmax,c,r,l,n,fpm1,fpm25,fpm10,fams,airtemp,airpres,airdens,airrh)
-!$omp&            schedule(guided)
+!$omp parallel private(conc)
+!$omp do private(iw,k,kmax,c,r,l,n,fpm1,fpm25,fpm10,fams,airtemp,airpres,airdens,airrh)
+!$omp&   schedule(guided)
       do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
          do k = mza-1, lpw(iw), -1
@@ -558,8 +561,12 @@ C *** initialize conc arrays
          ! minimum bounds on aerosols
 
          do k = kmax+1, mza
-            call extract_aero( cgrid( k,iw,: ), .true. )
-            call update_aero ( cgrid( k,iw,: ), .true. )
+            conc(ae_strt:ae_fini) = cgrid(k,iw,ae_strt:ae_fini)
+
+            call extract_aero( conc, .true., dry=.true. )
+            call update_aero ( conc, .true. )
+
+            cgrid(k,iw,ae_strt:ae_fini) = conc(ae_strt:ae_fini)
          enddo
 
          do k = lpw(iw), kmax
@@ -567,6 +574,8 @@ C *** initialize conc arrays
                c = k
                r = iw
                l = 1
+
+!              conc(1:nspcsd) = cgrid(k,iw,1:nspcsd)
 
 C *** Grid cell meteorological data.
                AIRTEMP  = tair ( k, iw )
@@ -577,11 +586,13 @@ C *** Grid cell meteorological data.
 
 C *** Extract grid cell concentrations of aero species from CGRID
 C     into aerospc_conc in aero_data module (set minimum)
-               CALL EXTRACT_AERO( CGRID( C,R,: ), .TRUE. )
+!              CALL EXTRACT_AERO( CONC, .TRUE. )
+               CALL EXTRACT_AERO_CGRID( k, iw, .TRUE. )
 
 C *** Extract grid cell concentrations of gas precursors from CGRID (ppm)
 C     into precursr_conc in precursor_data
-               CALL EXTRACT_PRECURSOR( CGRID( C,R,: ), airdens )
+!              CALL EXTRACT_PRECURSOR( CONC, airdens )
+               CALL EXTRACT_PRECURSOR_CGRID( k, iw, airdens )
 
 C *** Calculate SO4RATE stored in module
                SO4RATE = PRECURSOR_CONC( SULPRD_IDX ) / DT
@@ -595,20 +606,25 @@ C *** Calculate PHG_RATE stored in module
 
 C *** Extract soa concentrations from CGRID and 
 C     convert M2 to wet
-               CALL EXTRACT_SOA( CGRID( C,R,: ), airdens )
+!              CALL EXTRACT_SOA( CONC, airdens )
+               CALL EXTRACT_SOA_CGRID( k, iw, airdens )
 
 C *** Aerosol process routines
                CALL AEROPROC( DT, C, R, L, airtemp, airpres, airdens, airrh)
 
-C *** Update aerosol variables conc back into CGRID (set minimum) 
+C *** Update aerosol variables conc back into CGRID (set minimum)
 C     and convert M2 to dry and save as surface area
-              CALL UPDATE_AERO( CGRID( C,R,: ), .TRUE. )
+!             CALL UPDATE_AERO( CONC, .TRUE. )
+              CALL UPDATE_AERO_CGRID( k, iw, .TRUE. )
 
 C *** Update precursor variables conc back into CGRID
-              CALL UPDATE_PRECURSOR( CGRID( C,R,: ), airdens )
+              CALL UPDATE_PRECURSOR_CGRID( k, iw, airdens )
 
 C *** Update gas soa concentrations back to CGRID
-               CALL UPDATE_SOA( CGRID( C,R,: ), airdens )
+!              CALL UPDATE_SOA( CONC, airdens )
+               CALL UPDATE_SOA_CGRID( k, iw, airdens )
+
+!              cgrid(k,iw,1:nspcsd) = conc(1:nspcsd)
 
 C *** OUTPUT DIAGNOSTIC INFORMATION
 
@@ -743,7 +759,8 @@ C *** Write dry aerosol distribution parameters to aerosol diagnostic array
 
          enddo
       enddo
-      !$omp end parallel do
+      !$omp end do
+      !$omp end parallel
 
       IF ( WRITETIME .AND. AOD ) CALL GET_AOD( mrl )
 

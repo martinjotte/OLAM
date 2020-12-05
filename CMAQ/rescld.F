@@ -107,7 +107,7 @@ C-----------------------------------------------------------------------
       use mem_cuparm, only: kcubot, kcutop, qwcon, conprr, iactcu
       use misc_coms,  only: dtlm
       use mem_basic,  only: tair, rho, press
-      use aq_data,    only: tot_wdep, n_spc_wdep, isnum_spc, issrf_spc, wdep_map
+      use aq_data,    only: tot_wdep, n_spc_wdep, isnum_spc, issrf_spc, wdep_map, convf, convb
       use therm_lib,  only: qtc
       use mem_radiate,only: cloud_frac
 
@@ -350,20 +350,20 @@ C... include layer thickness in the column integration
 
          endif
 
-         QCRCOL   = 0.0
+!        QCRCOL   = 0.0
          QCRISCOL = 0.0
-         QRSCOL   = 0.0
+!        QRSCOL   = 0.0
 
          do k = lpw(iw), mza
 
-            QCRCOL   = QCRCOL   + real( rho( k, iw ) ) * dzt( k )
-     &               * ( QC( K ) + QR( K ) )
+!           QCRCOL   = QCRCOL   + real( rho( k, iw ) ) * dzt( k )
+!    &               * ( QC( K ) + QR( K ) )
 
             QCRISCOL = QCRISCOL + real( rho( k, iw ) ) * dzt( k )
      &               * ( QC( K ) + QR( K ) + QI( K ) + QS( K ) )
 
-            QRSCOL   = QRSCOL   + real( rho( k, iw ) ) * dzt( k )
-     &               * ( QR( K ) + QS( K ) )
+!           QRSCOL   = QRSCOL   + real( rho( k, iw ) ) * dzt( k )
+!    &               * ( QR( K ) + QS( K ) )
 
          end do
 
@@ -385,12 +385,12 @@ C...  path is >= 10 g/m2
 !          IF ( CLOD .GE. 5.0 ) THEN
 !
 !             RESTRANS( COL, ROW ) = ( 5.0 - EXP ( -CLOD ) ) / ( 4.0 + 0.42 * CLOD )
-!              
+!
 !          END IF
 
 C...loop through layers
 
-         IF ( QCRCOL .GT. 1.e-5 ) THEN
+!        IF ( QCRCOL .GT. 1.e-5 ) THEN
 
             DO k = lpw(iw), mza
 
@@ -430,14 +430,11 @@ C...Finally, get in-cloud pollutant concentrations in moles sp
 C...  per mole air
 
                   DO SPC = 1, NSPCSD
-                     if ( isnum_spc(spc) ) then
-                        polc ( spc ) = max( cgrid( k, iw, spc ) * cnv4,  1.e-36 )
-                     else
-                        POLC ( SPC ) = max( CGRID( k, iw, SPC ) * 1.e-6, 1.e-36 )
-                     endif
-                     CEND ( SPC ) = POLC( SPC )
-                     REMOV( SPC ) = 0.0
-                  END DO
+                     POLC( SPC ) = MAX( CGRID( K, IW, SPC ) * convf( spc ),  1.E-36 )
+                  ENDDO
+
+                  CEND  = POLC
+                  REMOV = 0.0
 
 C...perform scavenging and aqueous chemistry within the cloud
 C...  and re-adjust the ending and removed amounts for those species
@@ -445,8 +442,7 @@ C...  that were scavenged or that participated in cloud chemistry
 
                   CALL SCAVWDEP ( JDATE, JTIME, WTBAR, WCBAR, TBARC,
      &                            PBARC, CTHK1, AIRM, PRATE1, TAUCLD,
-     &                            POLC, CEND, REMOV, REMOVAC,
-     &                            ALFAC, RHOAIR )
+     &                            POLC, CEND, REMOV, REMOVAC, ALFAC )
 
 C...if the liquid water content is above the specified threshold
 C...  then perform the aqueous chemistry within the cloud and
@@ -523,17 +519,12 @@ C...load H+ concentration into the deposition array as well
 C...set cgrid to the ending concentrations
 
                   DO SPC = 1, NSPCSD
-                     if ( isnum_spc(spc) ) then
                         CGRID( k, iw, SPC ) = ( POLC( SPC ) * (1.0 - fract)
-     &                                        + CEND( SPC ) *        fract  ) * cnv4i
-                     else
-                        CGRID( k, iw, SPC ) = ( POLC( SPC ) * (1.0 - fract)
-     &                                        + CEND( SPC ) *        fract  ) * 1.e6
-                     endif
+     &                                        + CEND( SPC ) *        fract  ) * convb( spc )
                   END DO
 
                END IF
             END DO
-         END IF
+!        END IF
 
       END SUBROUTINE RESCLD1

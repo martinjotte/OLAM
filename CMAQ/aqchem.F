@@ -192,8 +192,8 @@ C...........Arguments:
       REAL,      INTENT( IN )  :: WTAVG     ! total water content (kg/m3)
       REAL( 8 ), INTENT( INOUT ) :: GAS    ( NGAS )   ! gas phase concentrations (mol/molV)
       REAL( 8 ), INTENT( INOUT ) :: GASWDEP( NGAS )   ! gas phase wet deposition array (mm mol/liter)
-      REAL( 8 ), INTENT( INOUT ) :: AEROSOL( MAX_NAER,NMODES ) ! aerosol concentrations (mol/molV)
-      REAL( 8 ), INTENT( INOUT ) :: AERWDEP( MAX_NAER,NMODES ) ! aerosol wet deposition array (mm mol/liter)
+      REAL( 8 ), INTENT( INOUT ) :: AEROSOL( NAER,NMODES ) ! aerosol concentrations (mol/molV)
+      REAL( 8 ), INTENT( INOUT ) :: AERWDEP( NAER,NMODES ) ! aerosol wet deposition array (mm mol/liter)
       LOGICAL,   INTENT( IN )    :: DARK           ! DARK = TRUE is night,  DARK = FALSE is day
       REAL,      INTENT( IN )    :: CTHK1     ! cloud thickness (m)
 

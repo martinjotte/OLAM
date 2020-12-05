@@ -360,6 +360,109 @@ C copy precursor_conc back to grid cell concentrations
       End Subroutine update_precursor
 
 C-----------------------------------------------------------------------
+      Subroutine extract_precursor_cgrid( k, iw, airdens )
+
+C  Extracts the required precursor data from CGRID into conc.
+
+C  Revision History:
+C     First version was coded in April 2010 by Steve Howard with
+C     Prakash Bhave, Jeff Young, and Sergey Napelenok.
+
+C SH  03/10/11 Renamed met_data to aeromet_data
+C HS  03/10/11 Changed vtmp and gasconv to real(8)
+C-----------------------------------------------------------------------
+
+      use const_data, only: inv_mwairkg, dmin_gasconc
+      use cgrid_defn, only: cgrid
+
+      Implicit None
+
+C Arguments:
+      Integer, Intent( In ) :: k, iw
+      Real,    Intent( In ) :: airdens
+
+C Local Variables:
+      Real( 8 )       :: gasconv       ! converts from [ppm] to [ug/m^3]
+      Integer         :: n
+      Integer         :: spc
+
+C Compute gas conversion constant
+      gasconv = airdens * inv_mwairkg
+
+C Copy grid cell concentrations of precursor species
+      precursor_conc = 0.0d0
+
+      !dir$ novector
+      do spc = 1, n_precursor
+         n = precursor_map( spc )
+         if ( n /= 0 ) precursor_conc( spc ) = cgrid(k,iw,n)
+      enddo
+
+      do spc = 1, n_precursor
+         precursor_conc( spc ) = Max( dmin_gasconc,
+     &                                precursor_conc( spc ) * gasconv * precursor_mw( spc ) )
+      enddo
+
+      End Subroutine extract_precursor_cgrid
+
+C------------------------------------------------------------------------
+      Subroutine update_precursor_cgrid( k, iw, airdens )
+
+C  Updates CGRID aerosol precursor values from the conc array.
+
+C  Revision History:
+C     First version was coded in April 2010 by Steve Howard with
+C     Prakash Bhave, Jeff Young, and Sergey Napelenok.
+
+C SH  03/10/11 Renamed met_data to aeromet_data
+C HS  03/10/11 Only update conc for species with "update" = .TRUE.;
+C    -changed vtmp and gasconv to real(8)
+C SR  03/25/11 Replaced I/O API include files with UTILIO_DEFN
+C-----------------------------------------------------------------------
+
+      use const_data, only: mwairkg, min_gasconc
+      use cgrid_defn, only: cgrid
+      use utilio_defn
+
+      Implicit None
+
+C arguments:
+      Integer, Intent( In ) :: k, iw
+      Real,    Intent( In ) :: airdens
+
+C local variables:
+      Character( 80 ) :: xmsg
+      Real( 8 )       :: gasconv       ! converts from [ppm] to [ug/m^3]
+      Real( 8 )       :: vtmp
+      Integer         :: n
+      Integer         :: spc
+
+      If ( .Not. mapped ) Then
+         xmsg = 'CGRID Species has not been mapped'
+         Call m3exit( 'update_precursor', 0, 0, xmsg, xstat3 )
+      End If
+
+C compute gas conversion constant
+      gasconv = mwairkg / airdens
+
+C copy precursor_conc back to grid cell concentrations
+      Do spc = 1, n_precursor
+         n = precursor_map( spc )
+         If ( n .Ne. 0 ) Then
+            If ( precursor( spc )%update ) Then
+               If ( precursor( spc )%rxncounter ) Then
+                  cgrid(k,iw,n) = min_gasconc
+               Else
+                  vtmp = precursor_mwi( spc ) * gasconv
+                  cgrid(k,iw,n) = Max( real(precursor_conc( spc ) * vtmp), min_gasconc  )
+               End If
+            End If
+         End If
+      End Do
+
+      End Subroutine update_precursor_cgrid
+
+C-----------------------------------------------------------------------
       Function findPrecursor( vname, required ) Result ( ndx )
 
 C  Finds the index of 'required' aerosol species in the precursor list
