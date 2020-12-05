@@ -304,11 +304,6 @@ Module oname_coms
       character(pathlen) :: watertab_db     = ''
       character(pathlen) :: orog_slope_db   = ''
 
-!!    ED MODEL VARIABLES
-
-      character(pathlen) :: ed2_namelist = ''
-      integer            :: ed2_active   = 0
-
 !!    ISENTROPIC CONTROL
 
       character(pathlen) :: iapr(maxisdirs) = ''

@@ -142,7 +142,6 @@ subroutine copy_nl()
   use mem_rayf,    only: rayf_zmin,    rayf_fact,    rayf_expon,    &
                          rayfw_zmin,   rayfw_fact,   rayfw_expon,  &
                          rayfdiv_zmin, rayfdiv_fact, rayfdiv_expon
-  use ed_misc_coms, only: ed2_active, ed2_namelist
 
   implicit none
 
@@ -185,9 +184,6 @@ subroutine copy_nl()
   soil_database = nl%soil_database
   ndvi_database = nl%ndvi_database
   watertab_db   = nl%watertab_db
-
-  ed2_active = nl%ed2_active
-  ed2_namelist = nl%ed2_namelist
 
   dtlong        = nl%dtlong
   initial       = nl%initial

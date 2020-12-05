@@ -16,9 +16,6 @@
 ## If parallel hdf5 is supported, uncomment the next line
 #OLAM_PARALLEL_HDF5=yes
 #
-## If you use the ED2 model, uncomment the next line
-#USE_ED2=yes
-#
 ## OPTIMIZED:
 #F_OPTS=-Mvect=cachesize:524288 -Munroll -Mnoframe -O2 -pc 64 \
 #       -Mfree  -Mbyteswapio
@@ -59,9 +56,6 @@ OLAM_MPI=yes
 
 # If parallel hdf5 is supported, uncomment the next line
 OLAM_PARALLEL_HDF5=yes
-
-# If using the ED2 model, uncomment the next line
-#USE_ED2=yes
 
 # If you don't use a MPI compiler wrapper script, specify MPI
 # includes and libraries here if OLAM_MPI=yes
@@ -117,9 +111,6 @@ LOADER_OPTS=-static-intel $(F_OPTS)
 #
 ## If parallel hdf5 is supported, uncomment the next line
 #OLAM_PARALLEL_HDF5=yes
-#
-## If you use the ED2 model, uncomment the next line
-#USE_ED2=yes
 #
 ## IBM compilers use a non-standard flag for pre-processing symbols,
 ## so uncomment the next line:

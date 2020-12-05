@@ -24,13 +24,6 @@ ifndef F_DEFINE_FLAG
 F_DEFINE_FLAG=-D
 endif
 
-ifdef USE_ED2
-ifeq ($(USE_ED2),$(filter $(USE_ED2),YES yes))
-SOURCE_FILES+=$(ED2_SOURCES)
-ED2_DEF=$(F_DEFINE_FLAG)USE_ED2 $(F_DEFINE_FLAG)USE_HDF5
-endif
-endif
-
 ifdef OLAM_MPI
 ifeq ($(OLAM_MPI),$(filter $(OLAM_MPI),YES yes))
 MPI_DEF=$(F_DEFINE_FLAG)OLAM_MPI
@@ -50,7 +43,7 @@ HDF5_FORTRAN_DEF=$(F_DEFINE_FLAG)OLAM_PARALLEL_HDF5
 endif
 endif
 
-DEFS=$(ED2_DEF) $(MPI_DEF) $(IEEE_ARITHMETIC_DEF) $(HDF5_FORTRAN_DEF)
+DEFS=$(MPI_DEF) $(IEEE_ARITHMETIC_DEF) $(HDF5_FORTRAN_DEF)
 
 # Define executable name
 
@@ -135,13 +128,6 @@ FORCE:
 
 # Default fortan compiler command:
 objects/%.o: F_COMMAND = $(F_COMP) -c $(F_OPTS) $(INCLUDES)
-
-# For objects that take long to compile, use different fortran flags:
-objects/ed_state_vars.o:           F_COMMAND = $(F_COMP) -c $(SLOW_FFLAGS) $(INCLUDES)
-objects/ed_init_full_history.o:    F_COMMAND = $(F_COMP) -c $(SLOW_FFLAGS) $(INCLUDES)
-objects/edio.o:                    F_COMMAND = $(F_COMP) -c $(SLOW_FFLAGS) $(INCLUDES)
-objects/ed_read_ed10_20_history.o: F_COMMAND = $(F_COMP) -c $(SLOW_FFLAGS) $(INCLUDES)
-objects/ed_read_ed21_history.o:    F_COMMAND = $(F_COMP) -c $(SLOW_FFLAGS) $(INCLUDES)
 
 # Should we rebuild all of the .F90 files if include.mk or Makefile have changed?
 $(addsuffix .o, $(addprefix objects/, $(notdir $(basename \

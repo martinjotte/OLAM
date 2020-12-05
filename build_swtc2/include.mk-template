@@ -13,9 +13,6 @@ OLAM_MPI=yes
 # If parallel hdf5 is supported, uncomment the next line
 OLAM_PARALLEL_HDF5=yes
 
-# If you use the ED2 model, uncomment the next line
-USE_ED2=no
-
 # If using MPI libraries:
 #OLAM_MPI=yes
 #MPI_PATH=/usr/local/mpich
@@ -62,9 +59,6 @@ LIBS=
 #
 ## If parallel hdf5 is supported, uncomment the next line
 #OLAM_PARALLEL_HDF5=yes
-#
-## If you use the ED2 model, uncomment the next line
-#USE_ED2=no
 #
 #MPI_PATH=/usr/local/mpich
 #PAR_INCS=-I$(MPI_PATH)/include
@@ -119,9 +113,6 @@ LIBS=
 #
 ## If parallel hdf5 is supported, uncomment the next line
 #OLAM_PARALLEL_HDF5=yes
-#
-## If you use the ED2 model, uncomment the next line
-#USE_ED2=no
 #
 ## IBM compilers use a non-standard flag for pre-processing symbols,
 ## so uncomment the next line:

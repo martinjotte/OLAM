@@ -502,17 +502,6 @@
    !  10 -- silty clay      11 -- clay           12 -- peat
 
  !--------------------------------------------------------------------------
- ! ED Model variables
- !--------------------------------------------------------------------------
-
-  !  Set this flag to 1 if ED2 will be active in any grid cell.
-  !  Set this flag to 0 if ED2 will not be active
-  NL%ED2_ACTIVE = 0  
-
-  !  Name of the ED2 namelist file.  This is relevant only if ED2_ACTIVE=1.
-  NL%ED2_NAMELIST = 'ED2IN'
-
- !--------------------------------------------------------------------------
  ! Isentropic control 
  !--------------------------------------------------------------------------
  
