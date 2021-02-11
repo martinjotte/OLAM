@@ -307,8 +307,8 @@ subroutine ccn_sfcflux(mrl)
 
 ! END SPECIAL PRINT
 
+  return
 
-  !mjo: This routine doesn't look correct; why is this called at all??
   !Bob: This routine was used for an idealized LES of moist convection where
   !     a generic surface source of aerosol was required.  The routine can be
   !     removed if there is no further use for it.

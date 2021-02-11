@@ -36,16 +36,16 @@ subroutine micro(mrl)
   use micro_coms,    only: miclevel
   use misc_coms,     only: io6, isubdomain, iparallel
   use oname_coms,    only: nl
-  use mem_grid,      only: mwa
-  use mem_sfcg,      only: itab_wsfc, mwsfc, sfcg
+  use mem_grid,      only: mwa, nsw_max, lpw, lsw
+  use mem_sfcg,      only: itab_wsfc, mwsfc, sfcg, itabg_wsfc
   use mem_para,      only: myrank
-  use olam_mpi_sfcg, only: mpi_send_wsfc, mpi_recv_wsfc
+  use olam_mpi_atm,  only: mpi_send_w, mpi_recv_w
 
   implicit none
 
   integer, intent(in) :: mrl
 
-  integer :: j, iw, nbc, iwsfc
+  integer :: j, iw, nbc, iwsfc, kw, ks
 
   ! The nbincall array stores the number of grid levels where subroutine ccnbin
   ! is called for each IW.  It is for informational (printing) purposes only and
@@ -59,9 +59,9 @@ subroutine micro(mrl)
   ! is therefore not duplicated across different OpenMP threads, which
   ! work on groups of ATM columns.
 
-  real :: pcpg (8,mwsfc)
-  real :: qpcpg(8,mwsfc)
-  real :: dpcpg(8,mwsfc)
+  real ::  pcpg(nsw_max,mwa)
+  real :: qpcpg(nsw_max,mwa)
+  real :: dpcpg(nsw_max,mwa)
 
   if (miclevel /= 3) return
 
@@ -73,62 +73,78 @@ subroutine micro(mrl)
 
      iw = 3
 
+      pcpg(1:lsw(iw),iw) = 0.
+     qpcpg(1:lsw(iw),iw) = 0.
+     dpcpg(1:lsw(iw),iw) = 0.
+
      call parcel_env(iw)
-     call micphys(iw, nbincall(iw), pcpg, qpcpg, dpcpg)
+     call micphys(iw, nbincall(iw), pcpg(:,iw), qpcpg(:,iw), dpcpg(:,iw))
 
      RETURN
   endif
 
-  ! Zero out pcp arrays prior to accumulation in main microphysics loop
-
-  !$omp parallel
-  pcpg  = 0.
-  qpcpg = 0.
-  dpcpg = 0.
-
   ! Main microphysics loop
 
   if (mrl > 0) then
-  !$omp do private (iw) schedule(guided)
-  do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
-     call micphys(iw, nbincall(iw), pcpg, qpcpg, dpcpg)
+     !$omp parallel do private(iw) schedule(guided)
+     do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
-  enddo
-  !$omp end do
-  endif
-  !$omp end parallel
+        ! Zero out pcp arrays prior to accumulation
+         pcpg(1:lsw(iw),iw) = 0.
+        qpcpg(1:lsw(iw),iw) = 0.
+        dpcpg(1:lsw(iw),iw) = 0.
 
-  ! MPI send/recv of surface precipitation fluxes
+        call micphys(iw, nbincall(iw), pcpg(:,iw), qpcpg(:,iw), dpcpg(:,iw))
 
-  if (iparallel == 1) then
-     call mpi_send_wsfc(pcpg=pcpg, qpcpg=qpcpg, dpcpg=dpcpg)
-     call mpi_recv_wsfc(pcpg=pcpg, qpcpg=qpcpg, dpcpg=dpcpg)
-  endif
-
-  ! Sum precipitation over ATM-SFC coupling interfaces to get total in SFC cells 
-
-  !$omp parallel do private(j) 
-  do iwsfc = 2, mwsfc
-
-     ! Skip this SFC grid cell if running in parallel and cell rank is not MYRANK
-     if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
-
-     do j = 1,itab_wsfc(iwsfc)%nwatm
-        sfcg%pcpg (iwsfc) = sfcg%pcpg (iwsfc) + itab_wsfc(iwsfc)%arcoarsfc(j) *  pcpg(j,iwsfc)
-        sfcg%qpcpg(iwsfc) = sfcg%qpcpg(iwsfc) + itab_wsfc(iwsfc)%arcoarsfc(j) * qpcpg(j,iwsfc)
-        sfcg%dpcpg(iwsfc) = sfcg%dpcpg(iwsfc) + itab_wsfc(iwsfc)%arcoarsfc(j) * dpcpg(j,iwsfc)
      enddo
+     !$omp end parallel do
 
-  enddo
-  !$omp end parallel do
-   
-  !nbc = 0
-  !do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
-  !   nbc = nbc + nbincall(iw)
-  !enddo
-  !
-  !print*, 'nbincall ',nbc
+     ! MPI send/recv of surface precipitation fluxes
+
+     if (iparallel == 1) then
+        call mpi_send_w(mrl, swvar1=pcpg, swvar2=qpcpg, swvar3=dpcpg)
+        call mpi_recv_w(mrl, swvar1=pcpg, swvar2=qpcpg, swvar3=dpcpg)
+     endif
+
+     ! Sum precipitation over ATM-SFC coupling interfaces to get total in SFC cells
+
+     sfcg%pcpg  = 0.
+     sfcg%qpcpg = 0.
+     sfcg%dpcpg = 0.
+
+     !$omp parallel do private(j,iw,kw,ks)
+     do iwsfc = 2, mwsfc
+
+        ! Skip this SFC grid cell if running in parallel and cell rank is not MYRANK
+        if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+
+        do j = 1,itab_wsfc(iwsfc)%nwatm
+           iw = itab_wsfc(iwsfc)%iwatm(j)  ! local index
+           kw = itab_wsfc(iwsfc)%kwatm(j)
+           ks = kw - lpw(iw) + 1
+
+           sfcg%pcpg (iwsfc) = sfcg%pcpg (iwsfc) &
+                             + itab_wsfc(iwsfc)%arcoarsfc(j) *  pcpg(ks,iw)
+
+           sfcg%qpcpg(iwsfc) = sfcg%qpcpg(iwsfc) &
+                             + itab_wsfc(iwsfc)%arcoarsfc(j) * qpcpg(ks,iw)
+
+           sfcg%dpcpg(iwsfc) = sfcg%dpcpg(iwsfc) &
+                             + itab_wsfc(iwsfc)%arcoarsfc(j) * dpcpg(ks,iw)
+        enddo
+
+     enddo
+     !$omp end parallel do
+
+     !nbc = 0
+     !do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+     !   nbc = nbc + nbincall(iw)
+     !enddo
+     !
+     !print*, 'nbincall ',nbc
+
+  endif ! mrl > 0
 
 end subroutine micro
 
@@ -141,9 +157,8 @@ use ccnbin_coms,    only: nccntyp, nnuc
 use consts_coms,    only: pi4
 use misc_coms,      only: io6, dtlm, time_istp8, timmax8
 use mem_ijtabs,     only: itab_w
-use mem_grid,       only: lpw,glatw,glonw
+use mem_grid,       only: lpw, glatw, glonw, nsw_max
 use oname_coms,     only: nl
-use mem_sfcg,       only: mwsfc
 use mem_flux_accum, only: latheat_liq_accum, latheat_ice_accum
 
 implicit none
@@ -151,9 +166,9 @@ implicit none
 integer, intent(in) :: iw
 integer, intent(inout) :: nbincall
 
-real, intent(inout) :: pcpg (mwsfc,8)
-real, intent(inout) :: qpcpg(mwsfc,8)
-real, intent(inout) :: dpcpg(mwsfc,8)
+real, intent(inout) ::  pcpg(nsw_max)
+real, intent(inout) :: qpcpg(nsw_max)
+real, intent(inout) :: dpcpg(nsw_max)
 
 integer :: k,jflag,jcat,lcat,j1,j2
 

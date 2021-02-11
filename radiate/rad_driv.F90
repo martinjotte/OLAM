@@ -394,6 +394,12 @@ subroutine radiate()
         sfcg%rshort_diffuse(iwsfc) = 0.
         sfcg%rshort_clr    (iwsfc) = 0.
 
+        if (sfcg%leaf_class(iwsfc) >= 2) then
+           iland = iwsfc - omland
+           land%ppfd        (iland) = 0.
+           land%ppfd_diffuse(iland) = 0.
+        endif
+
         ! Loop over all ATM grid cells that are coupled to this SFC grid cell
         ! and sum ATM radiative fluxes to this SFCG cell
 
@@ -412,7 +418,6 @@ subroutine radiate()
            ! par and ppfd are members of land% and not sfcg%
 
            if (sfcg%leaf_class(iwsfc) >= 2) then
-              iland = iwsfc - omland
 
             ! land%par         (iland) = land%par         (iland) + wt * par_ks         (ks,iw)
             ! land%par_diffuse (iland) = land%par_diffuse (iland) + wt * par_diffuse_ks (ks,iw)

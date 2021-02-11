@@ -140,7 +140,7 @@ subroutine leaf4_init_atm()
      iwsfc = iland + omland
 
      ! Skip this cell if running in parallel and cell rank is not MYRANK
-     if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+     ! if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
      ! Set vegetation parameters
 

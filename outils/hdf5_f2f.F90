@@ -8,14 +8,15 @@ module hdf5_f2f
   integer, parameter :: r8 = selected_real_kind(13,300)
   integer, parameter :: i1 = selected_int_kind(2)
   logical, parameter :: bigendian = ichar(transfer(1,'a')) == 0
+  integer, parameter :: maxids = 20
 
   integer(HID_T)   :: fileid
   integer(HID_T)   :: xferid
   integer(HID_T)   :: propid
   integer(HID_T)   :: dsetid
-  integer(HID_T)   :: fspcid(10)
-  integer(HID_T)   :: mspcid(10)
-  integer(HID_T)   :: dspcid(10)
+  integer(HID_T)   :: fspcid(maxids)
+  integer(HID_T)   :: mspcid(maxids)
+  integer(HID_T)   :: dspcid(maxids)
   integer(HSIZE_T) :: dimsf(7)
   integer          :: ndimsf
 

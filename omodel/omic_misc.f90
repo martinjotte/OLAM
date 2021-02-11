@@ -566,9 +566,8 @@ subroutine sedim2(iw0,lpw0,k1,k2,jhcat,dtl0, &
 use micro_coms,  only: mza0, ncat, rxmin, cfmasi, pwmasi, cfvt, pwvt, jnmb, emb1
 use consts_coms, only: cpi, alviocp
 use misc_coms,   only: io6
-use mem_grid,    only: zm, zfacm2, zfacim2, arw, volti
+use mem_grid,    only: zm, zfacm2, zfacim2, arw, volti, nsw_max, lsw
 use mem_ijtabs,  only: itab_w
-use mem_sfcg,    only: mwsfc, itab_wsfc
 
 implicit none
 
@@ -605,23 +604,22 @@ real, intent(inout) :: pcpfluxq(mza0,ncat)
 real, intent(inout) :: accpx(ncat)
 real, intent(inout) :: pcprx(ncat)
 
-real, intent(inout) :: pcpg (8,mwsfc) ! New precipitation amount in coupling area [kg/m^2]
-real, intent(inout) :: qpcpg(8,mwsfc) ! New precipitation energy in coupling area [J/m^2]
-real, intent(inout) :: dpcpg(8,mwsfc) ! New precipitation depth in coupling area [m]
+real, intent(inout) ::  pcpg(nsw_max) ! New precipitation amount in coupling area [kg/m^2]
+real, intent(inout) :: qpcpg(nsw_max) ! New precipitation energy in coupling area [J/m^2]
+real, intent(inout) :: dpcpg(nsw_max) ! New precipitation depth  in coupling area [m]
 
 integer, parameter :: iplaws = 0
 
 real, parameter :: alphasfc(ncat) = (/.001,.001,.010,.010,.010,.003,.001,.001/)
 
-integer :: lcat, lhcat, k, kk, kw
+integer :: lcat, lhcat, k, kk, ks
 integer :: jsfc, jasfc, iwsfc
-real :: arc, arcoariw
 
-real :: zbotnew, areascale, fracwkk
+real :: zbotnew, areascale, fracwkk, v4i, arwm
 
 real :: cxnew(mza0)
 real :: rxnew(mza0)
-real :: qrnew(mza0) 
+real :: qrnew(mza0)
 
   ! Loop over precipitation categories
 
@@ -680,48 +678,41 @@ real :: qrnew(mza0)
      ! Apply number and mass transfers to obtain new hydrometeor concentrations
      ! Method should be positive definite, but check this.
 
-     do k = k2(lcat),lpw0,-1
-        cxnew(k) = cx(k,lcat) + volti(k,iw0) &
+     do k = lpw0+lsw(iw0), k2(lcat)
+        v4i = real(volti(k,iw0))
+
+        cxnew(k) = cx(k,lcat) + v4i &
            * (pcpfluxc(k,lcat) * arw(k,iw0) - pcpfluxc(k-1,lcat) * arw(k-1,iw0))
-        rxnew(k) = rx(k,lcat) + volti(k,iw0) &
+        rxnew(k) = rx(k,lcat) + v4i &
            * (pcpfluxr(k,lcat) * arw(k,iw0) - pcpfluxr(k-1,lcat) * arw(k-1,iw0))
-        qrnew(k) = qr(k,lcat) + volti(k,iw0) &
+        qrnew(k) = qr(k,lcat) + v4i &
            * (pcpfluxq(k,lcat) * arw(k,iw0) - pcpfluxq(k-1,lcat) * arw(k-1,iw0))
      enddo
 
-  ! Loop over surface cells that couple to current ATM cell
+     ! Loop over surface cells that couple to current ATM cell
 
-     do jsfc = 1,itab_w(iw0)%jsfc2
-        iwsfc = itab_w(iw0)%iwsfc(jsfc)
-        jasfc = itab_w(iw0)%jasfc(jsfc)
+     do k = lpw0, min(k2(lcat), lpw0+lsw(iw0)-1)
+        v4i = real(volti(k,iw0))
+        ks  = k - lpw0 + 1
 
-        kw       = itab_wsfc(iwsfc)%kwatm   (jasfc)
-        arc      = itab_wsfc(iwsfc)%arc     (jasfc)
-        arcoariw = itab_wsfc(iwsfc)%arcoariw(jasfc)
+        ! top horizontal area projected onto k-1 level
+        arwm = arw(k,iw0) * zfacim2(k) * zfacm2(k-1)
 
-        ! Skip if all precip is below this level
-        if (k2(lcat) < kw)       cycle
+        cxnew(k) = cx(k,lcat) + v4i &
+           * (pcpfluxc(k,lcat) * arw(k,iw0) - pcpfluxc(k-1,lcat) * arwm)
+        rxnew(k) = rx(k,lcat) + v4i &
+           * (pcpfluxr(k,lcat) * arw(k,iw0) - pcpfluxr(k-1,lcat) * arwm)
+        qrnew(k) = qr(k,lcat) + v4i &
+           * (pcpfluxq(k,lcat) * arw(k,iw0) - pcpfluxq(k-1,lcat) * arwm)
 
-        cxnew(kw) = cxnew(kw) - volti(kw,iw0) * pcpfluxc(kw-1,lcat) * arc
-        rxnew(kw) = rxnew(kw) - volti(kw,iw0) * pcpfluxr(kw-1,lcat) * arc
-        qrnew(kw) = qrnew(kw) - volti(kw,iw0) * pcpfluxq(kw-1,lcat) * arc
-
-        pcprx(lcat) = pcprx(lcat) + pcpfluxr(kw-1,lcat) * arcoariw / dtl0
-        accpx(lcat) = accpx(lcat) + pcpfluxr(kw-1,lcat) * arcoariw
-
-        ! Sum over precipitation categories to get precipitation for individual
-        ! (jasfc,iwsfc) ATM-SFC coupling interfaces, which are not duplicated
-        ! across different OpenMP threads.
-
-        pcpg (jasfc,iwsfc) = pcpg (jasfc,iwsfc) + pcpfluxr(kw-1,lcat)
-        qpcpg(jasfc,iwsfc) = qpcpg(jasfc,iwsfc) + pcpfluxq(kw-1,lcat)
-        dpcpg(jasfc,iwsfc) = dpcpg(jasfc,iwsfc) + pcpfluxr(kw-1,lcat) * alphasfc(lcat)
-
+         pcpg(ks) = pcpg (ks) + pcpfluxr(k-1,lcat)
+        qpcpg(ks) = qpcpg(ks) + pcpfluxq(k-1,lcat)
+        dpcpg(ks) = dpcpg(ks) + pcpfluxr(k-1,lcat) * alphasfc(lcat)
      enddo
 
-     ! Loop over precipation source levels
+     ! Loop over precipition source levels
 
-     do k = lpw0,k2(lcat)
+     do k = lpw0, k2(lcat)
 
         if (rxnew(k) < rxmin(lcat)) then
            rxnew(k) = 0.

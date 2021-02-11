@@ -32,8 +32,6 @@
 !===============================================================================
 Module olam_mpi_atm
 
-integer :: nex1, nex2
-
 Contains
 
 subroutine olam_mpi_init()
@@ -533,7 +531,7 @@ subroutine mpi_send_v(mrl, rvara1, rvara2, rvara3, rvara4, &
 
 #ifdef OLAM_MPI
 
-  integer :: ierr, ipos, ip
+  integer :: ierr, ipos
   integer :: jrecv, jsend
   integer :: j
   integer :: iv
@@ -555,7 +553,7 @@ subroutine mpi_send_v(mrl, rvara1, rvara2, rvara3, rvara4, &
   enddo
   !$omp end do nowait
 
-  !$omp do private(ipos,ierr,j,iv,ivglobe,ip) schedule(dynamic,1)
+  !$omp do private(ipos,ierr,j,iv,ivglobe) schedule(dynamic,1)
   do jsend = 1, nsends_v(mrl)
 
      ! Make sure previous sends are finished
@@ -566,8 +564,7 @@ subroutine mpi_send_v(mrl, rvara1, rvara2, rvara3, rvara4, &
 
      ! Pack the messages into send buffers
 
-     ! reserve space for mesage size
-     ipos = nbytes_int
+     ipos = 0
 
      call MPI_Pack(jtab_v(mloops+jsend)%jend(mrl),1,MPI_INTEGER, &
           send_v(jsend)%buff,send_v(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
@@ -616,12 +613,6 @@ subroutine mpi_send_v(mrl, rvara1, rvara2, rvara3, rvara4, &
                 send_v(jsend)%buff,send_v(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
         endif
 
-        if (j == 1) then
-           ip = 0
-           call MPI_Pack(ipos - 2 * nbytes_int,1,MPI_INTEGER, &
-                send_v(jsend)%buff,send_v(jsend)%nbytes,ip,MPI_COMM_WORLD,ierr)
-        endif
-
      enddo
 
      iposs(jsend) = ipos
@@ -660,7 +651,7 @@ subroutine mpi_send_m(mrl, rvara1, rvara2)
 
 #ifdef OLAM_MPI
 
-  integer :: ierr, ipos, ip
+  integer :: ierr, ipos
   integer :: jrecv, jsend
   integer :: j
   integer :: im
@@ -681,7 +672,7 @@ subroutine mpi_send_m(mrl, rvara1, rvara2)
   enddo
   !$omp end do nowait
 
-  !$omp do private(ipos,ierr,j,im,imglobe,ip) schedule(dynamic,1)
+  !$omp do private(ipos,ierr,j,im,imglobe) schedule(dynamic,1)
   do jsend = 1, nsends_m(mrl)
 
      ! Make sure previous sends are finished
@@ -692,8 +683,7 @@ subroutine mpi_send_m(mrl, rvara1, rvara2)
 
      ! Pack the messages into send buffers
 
-     ! reserve space for mesage size
-     ipos = nbytes_int
+     ipos = 0
 
      call MPI_Pack(jtab_m(mloops+jsend)%jend(mrl),1,MPI_INTEGER, &
           send_m(jsend)%buff,send_m(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
@@ -717,12 +707,6 @@ subroutine mpi_send_m(mrl, rvara1, rvara2)
            send_m(jsend)%buff,send_m(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
         endif
 
-        if (j == 1) then
-           ip = 0
-           call MPI_Pack(ipos - 2 * nbytes_int,1,MPI_INTEGER, &
-                send_m(jsend)%buff,send_m(jsend)%nbytes,ip,MPI_COMM_WORLD,ierr)
-        endif
-
      enddo
 
      iposs(jsend) = ipos
@@ -743,13 +727,14 @@ end subroutine mpi_send_m
 !=============================================================================
 
 subroutine mpi_send_w(mrl, scalars,                                    &
-                      dvara1,   dvara2,   svara1,   svara2,   svara3,  &
                       rvara1,   rvara2,   rvara3,   rvara4,   rvara5,  &
                       rvara6,   rvara7,   rvara8,   rvara9,   rvara10, &
                       rvara11,  rvara12,  rvara13,  rvara14,  rvara15, &
                       rvara16,  rvara17,  rvara18,  rvara19,  rvara20, &
                       r1dvara1, r1dvara2, r1dvara3, r1dvara4, r1dvara5,&
-                      i1dvara1, i1dvara2, i1dvara3, exrvar1,  exrvar2  )
+                      dvara1,   dvara2,   i1dvara1, i1dvara2, i1dvara3,&
+                      svara1,   svara2,   svara3,   svara4,   svara5,  &
+                      swvar1,   swvar2,   swvar3,   swvar4,   swvar5   )
 
 ! Subroutine to perform a parallel MPI send of a "W group" or "S group"
 ! of field variables
@@ -760,9 +745,9 @@ subroutine mpi_send_w(mrl, scalars,                                    &
 
   use var_tables, only: nvar_par, vtab_r, nptonv
   use mem_ijtabs, only: jtab_w, itab_w, mloops
-  use mem_grid,   only: mza, mwa
+  use mem_grid,   only: mza, mwa, lsw, nsw_max
   use consts_coms,only: r8
-  use mem_para,   only: nrecvs_w, nsends_w, recv_w, send_w, itagw, nbytes_int, ireqs_w
+  use mem_para,   only: nrecvs_w, nsends_w, recv_w, send_w, itagw, ireqs_w
 
   implicit none
 
@@ -776,6 +761,8 @@ subroutine mpi_send_w(mrl, scalars,                                    &
   real, optional, intent(in) :: svara1(:,:)
   real, optional, intent(in) :: svara2(:,:)
   real, optional, intent(in) :: svara3(:,:)
+  real, optional, intent(in) :: svara4(:,:)
+  real, optional, intent(in) :: svara5(:,:)
 
   real, optional, intent(in) :: rvara1 (mza,mwa)
   real, optional, intent(in) :: rvara2 (mza,mwa)
@@ -808,12 +795,15 @@ subroutine mpi_send_w(mrl, scalars,                                    &
   integer, optional, intent(in) :: i1dvara2(mwa)
   integer, optional, intent(in) :: i1dvara3(mwa)
 
-  real,    optional, intent(in) :: exrvar1(nex1,mwa)
-  real,    optional, intent(in) :: exrvar2(nex2,mwa)
+  real, optional, intent(in) :: swvar1(nsw_max,mwa)
+  real, optional, intent(in) :: swvar2(nsw_max,mwa)
+  real, optional, intent(in) :: swvar3(nsw_max,mwa)
+  real, optional, intent(in) :: swvar4(nsw_max,mwa)
+  real, optional, intent(in) :: swvar5(nsw_max,mwa)
 
 #ifdef OLAM_MPI
 
-  integer :: ierr, ipos, ip
+  integer :: ierr, ipos
   integer :: jrecv, jsend, ivar
   integer :: i, j
   integer :: iw
@@ -834,7 +824,7 @@ subroutine mpi_send_w(mrl, scalars,                                    &
   enddo
   !$omp end do nowait
 
-  !$omp do private(ipos,ierr,j,iw,iwglobe,i,ivar,ip) schedule(dynamic,1)
+  !$omp do private(ipos,ierr,j,iw,iwglobe,i,ivar) schedule(dynamic,1)
   do jsend = 1, nsends_w(mrl)
 
      ! Make sure previous sends are finished
@@ -845,8 +835,7 @@ subroutine mpi_send_w(mrl, scalars,                                    &
 
      ! Pack the messages into send buffers
 
-     ! reserve space for message size
-     ipos = nbytes_int
+     ipos = 0
 
      call MPI_Pack(jtab_w(mloops+jsend)%jend(mrl),1,MPI_INTEGER, &
           send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
@@ -882,6 +871,16 @@ subroutine mpi_send_w(mrl, scalars,                                    &
 
         if (present(svara3)) then
            call MPI_Pack(svara3(:,iw),size(svara3,1),MPI_REAL, &
+              send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+        endif
+
+        if (present(svara4)) then
+           call MPI_Pack(svara4(:,iw),size(svara4,1),MPI_REAL, &
+              send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+        endif
+
+        if (present(svara5)) then
+           call MPI_Pack(svara5(:,iw),size(svara5,1),MPI_REAL, &
               send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
         endif
 
@@ -1025,16 +1024,31 @@ subroutine mpi_send_w(mrl, scalars,                                    &
                 send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
         endif
 
-        if (present(exrvar1)) then
-           call MPI_Pack(exrvar1(1,iw),nex1,MPI_REAL, &
+        if (present(swvar1)) then
+           call MPI_Pack(swvar1(1,iw),lsw(iw),MPI_REAL, &
                 send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
         endif
 
-        if (present(exrvar2)) then
-           call MPI_Pack(exrvar2(1,iw),nex2,MPI_REAL, &
+        if (present(swvar2)) then
+           call MPI_Pack(swvar2(1,iw),lsw(iw),MPI_REAL, &
                 send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
         endif
- 
+
+        if (present(swvar3)) then
+           call MPI_Pack(swvar3(1,iw),lsw(iw),MPI_REAL, &
+                send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+        endif
+
+        if (present(swvar4)) then
+           call MPI_Pack(swvar4(1,iw),lsw(iw),MPI_REAL, &
+                send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+        endif
+
+        if (present(swvar5)) then
+           call MPI_Pack(swvar5(1,iw),lsw(iw),MPI_REAL, &
+                send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+        endif
+
         if (present(scalars)) then
            do i = 1, nvar_par
               ivar = nptonv(i)
@@ -1043,12 +1057,6 @@ subroutine mpi_send_w(mrl, scalars,                                    &
                    send_w(jsend)%buff,send_w(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
 
            enddo
-        endif
-
-        if (j == 1) then
-           ip = 0
-           call MPI_Pack(ipos - 2 * nbytes_int,1,MPI_INTEGER, &
-                send_w(jsend)%buff,send_w(jsend)%nbytes,ip,MPI_COMM_WORLD,ierr)
         endif
 
      enddo
@@ -1094,7 +1102,7 @@ subroutine mpi_send_wnud(dvara1, dvara2, dvara3, dvara4, dvara5, dvara6)
 
 #ifdef OLAM_MPI
 
-  integer :: ierr, ipos, ip
+  integer :: ierr, ipos
   integer :: jrecv, jsend
   integer :: j
   integer :: iwnud
@@ -1113,7 +1121,7 @@ subroutine mpi_send_wnud(dvara1, dvara2, dvara3, dvara4, dvara5, dvara6)
   enddo
   !$omp end do nowait
 
-  !$omp do private(ipos,ierr,j,iwnud,iwnudglobe,ip) schedule(dynamic,1)
+  !$omp do private(ipos,ierr,j,iwnud,iwnudglobe) schedule(dynamic,1)
   do jsend = 1, nsends_wnud
 
      ! Make sure previous sends are finished
@@ -1124,8 +1132,7 @@ subroutine mpi_send_wnud(dvara1, dvara2, dvara3, dvara4, dvara5, dvara6)
 
      ! Pack the messages into send buffers
 
-     ! reserve space to send mesage size
-     ipos = nbytes_int
+     ipos = 0
 
      call MPI_Pack(jtab_wnud(jsend)%jend,1,MPI_INTEGER, &
           send_wnud(jsend)%buff,send_wnud(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
@@ -1167,12 +1174,6 @@ subroutine mpi_send_wnud(dvara1, dvara2, dvara3, dvara4, dvara5, dvara6)
         if (present(dvara6)) then
            call MPI_Pack(dvara6(1,iwnud),mza,MPI_REAL8, &
            send_wnud(jsend)%buff,send_wnud(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-        endif
-
-        if (j == 1) then
-           ip = 0
-           call MPI_Pack(ipos - 2 * nbytes_int,1,MPI_INTEGER, &
-                send_wnud(jsend)%buff,send_wnud(jsend)%nbytes,ip,MPI_COMM_WORLD,ierr)
         endif
 
      enddo
@@ -1224,7 +1225,7 @@ subroutine mpi_recv_v(mrl, rvara1, rvara2, rvara3, rvara4, &
 
 #ifdef OLAM_MPI
 
-  integer :: ierr, ipos, ipos0, ip
+  integer :: ierr, ipos
   integer :: jrecv, jtmp
   integer :: nvpts
   integer :: j
@@ -1243,19 +1244,14 @@ subroutine mpi_recv_v(mrl, rvara1, rvara2, rvara3, rvara4, &
 
      ! We got some stuff.  Now unpack it into appropriate space.
 
-     !$omp task firstprivate(jrecv) private(ipos0,ip,nvpts,j,ipos,ivglobe,iv,ierr) default(shared)
-     ipos0 = 0
+     !$omp task firstprivate(jrecv) private(nvpts,j,ipos,ivglobe,iv,ierr) default(shared)
+     ipos = 0
 
-     call MPI_Unpack(recv_v(jrecv)%buff,recv_v(jrecv)%nbytes,ipos0, &
-          ip,1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
-
-     call MPI_Unpack(recv_v(jrecv)%buff,recv_v(jrecv)%nbytes,ipos0, &
+     call MPI_Unpack(recv_v(jrecv)%buff,recv_v(jrecv)%nbytes,ipos, &
           nvpts,1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
 
 !----------------------------------------------------------------
      do j = 1,nvpts
-        ipos = ipos0 + (j-1) * ip
-
         call MPI_Unpack(recv_v(jrecv)%buff,recv_v(jrecv)%nbytes,ipos, &
              ivglobe,1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
 
@@ -1332,7 +1328,7 @@ subroutine mpi_recv_m(mrl, rvara1, rvara2)
 
 #ifdef OLAM_MPI
 
-  integer :: ierr, ipos, ipos0, ip
+  integer :: ierr, ipos
   integer :: jrecv, jtmp
   integer :: nmpts
   integer :: j
@@ -1351,19 +1347,14 @@ subroutine mpi_recv_m(mrl, rvara1, rvara2)
 
      !  We got some stuff.  Now unpack it into appropriate space.
 
-     !$omp task firstprivate(jrecv) private(ipos0,ip,nmpts,j,ipos,imglobe,im,ierr) default(shared)
-     ipos0 = 0
+     !$omp task firstprivate(jrecv) private(nmpts,j,ipos,imglobe,im,ierr) default(shared)
+     ipos = 0
 
-     call MPI_Unpack(recv_m(jrecv)%buff,recv_m(jrecv)%nbytes,ipos0, &
-                     ip,1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
-
-     call MPI_Unpack(recv_m(jrecv)%buff,recv_m(jrecv)%nbytes,ipos0, &
+     call MPI_Unpack(recv_m(jrecv)%buff,recv_m(jrecv)%nbytes,ipos, &
                      nmpts,1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
 
 !----------------------------------------------------------------
      do j = 1, nmpts
-        ipos = ipos0 + (j-1) * ip
-
         call MPI_Unpack(recv_m(jrecv)%buff,recv_m(jrecv)%nbytes,ipos, &
                         imglobe,1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
 
@@ -1395,13 +1386,14 @@ end subroutine mpi_recv_m
 !=============================================================================
 
 subroutine mpi_recv_w(mrl, scalars,                                    &
-                      dvara1,   dvara2,   svara1,   svara2,   svara3,  &
                       rvara1,   rvara2,   rvara3,   rvara4,   rvara5,  &
                       rvara6,   rvara7,   rvara8,   rvara9,   rvara10, &
                       rvara11,  rvara12,  rvara13,  rvara14,  rvara15, &
                       rvara16,  rvara17,  rvara18,  rvara19,  rvara20, &
                       r1dvara1, r1dvara2, r1dvara3, r1dvara4, r1dvara5,&
-                      i1dvara1, i1dvara2, i1dvara3, exrvar1,  exrvar2  )
+                      dvara1,   dvara2,   i1dvara1, i1dvara2, i1dvara3,&
+                      svara1,   svara2,   svara3,   svara4,   svara5,  &
+                      swvar1,   swvar2,   swvar3,   swvar4,   swvar5   )
 
 ! Subroutine to perform a parallel MPI receive of a "W group" or "S group"
 ! of field variables
@@ -1413,7 +1405,7 @@ subroutine mpi_recv_w(mrl, scalars,                                    &
   use var_tables, only: vtab_r, nvar_par, nptonv
   use mem_para,   only: nrecvs_w, recv_w, ireqs_w
   use mem_ijtabs, only: itabg_w, mloops
-  use mem_grid,   only: mza, mwa
+  use mem_grid,   only: mza, mwa, lsw, nsw_max
   use consts_coms,only: r8
 
   implicit none
@@ -1428,6 +1420,8 @@ subroutine mpi_recv_w(mrl, scalars,                                    &
   real, optional, intent(inout) :: svara1(:,:)
   real, optional, intent(inout) :: svara2(:,:)
   real, optional, intent(inout) :: svara3(:,:)
+  real, optional, intent(inout) :: svara4(:,:)
+  real, optional, intent(inout) :: svara5(:,:)
 
   real, optional, intent(inout) :: rvara1 (mza,mwa)
   real, optional, intent(inout) :: rvara2 (mza,mwa)
@@ -1460,12 +1454,15 @@ subroutine mpi_recv_w(mrl, scalars,                                    &
   integer, optional, intent(inout) :: i1dvara2(mwa)
   integer, optional, intent(inout) :: i1dvara3(mwa)
 
-  real,    optional, intent(inout) :: exrvar1(nex1,mwa)
-  real,    optional, intent(inout) :: exrvar2(nex2,mwa)
+  real, optional, intent(inout) :: swvar1(nsw_max,mwa)
+  real, optional, intent(inout) :: swvar2(nsw_max,mwa)
+  real, optional, intent(inout) :: swvar3(nsw_max,mwa)
+  real, optional, intent(inout) :: swvar4(nsw_max,mwa)
+  real, optional, intent(inout) :: swvar5(nsw_max,mwa)
 
 #ifdef OLAM_MPI
 
-  integer :: ierr, ipos, ipos0, ip
+  integer :: ierr, ipos
   integer :: jrecv, ivar, jtmp
   integer :: nwpts
   integer :: i, j
@@ -1484,26 +1481,20 @@ subroutine mpi_recv_w(mrl, scalars,                                    &
 
      ! We got some stuff.  Now unpack it into appropriate space.
 
-     !$omp task firstprivate(jrecv) private(ipos0,ip,nwpts,j,ipos,iwglobe,iw,ierr,i,ivar) default(shared)
-     ipos0 = 0
+     !$omp task firstprivate(jrecv) private(nwpts,j,ipos,iwglobe,iw,ierr,i,ivar) default(shared)
+     ipos = 0
 
-     call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos0, &
-          ip,1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
-
-     call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos0, &
+     call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
           nwpts,1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
 
-     !----------------------------------------------------------------
-     do j = 1,nwpts
-
-        ipos = ipos0 + (j-1) * ip
-
+!----------------------------------------------------------------
+     do j = 1, nwpts
         call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
              iwglobe,1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
 
         iw = itabg_w(iwglobe)%iw_myrank
         if (iw < 2) iw = itabg_w(iwglobe)%iw_myrank_iwp
-        !----------------------------------------------------------------
+!----------------------------------------------------------------
 
         if (present(dvara1)) then
            call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
@@ -1528,6 +1519,16 @@ subroutine mpi_recv_w(mrl, scalars,                                    &
         if (present(svara3)) then
            call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
                 svara3(:,iw),size(svara3,1),MPI_REAL,MPI_COMM_WORLD,ierr)
+        endif
+
+        if (present(svara4)) then
+           call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
+                svara4(:,iw),size(svara4,1),MPI_REAL,MPI_COMM_WORLD,ierr)
+        endif
+
+        if (present(svara5)) then
+           call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
+                svara5(:,iw),size(svara5,1),MPI_REAL,MPI_COMM_WORLD,ierr)
         endif
 
         if (present(rvara1)) then
@@ -1670,14 +1671,29 @@ subroutine mpi_recv_w(mrl, scalars,                                    &
                 i1dvara3(iw),1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
         endif
 
-        if (present(exrvar1)) then
+        if (present(swvar1)) then
            call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
-                exrvar1(1,iw),nex1,MPI_REAL,MPI_COMM_WORLD,ierr)
+                swvar1(1,iw),lsw(iw),MPI_REAL,MPI_COMM_WORLD,ierr)
         endif
 
-        if (present(exrvar2)) then
+        if (present(swvar2)) then
            call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
-                exrvar2(1,iw),nex2,MPI_REAL,MPI_COMM_WORLD,ierr)
+                swvar2(1,iw),lsw(iw),MPI_REAL,MPI_COMM_WORLD,ierr)
+        endif
+
+        if (present(swvar3)) then
+           call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
+                swvar3(1,iw),lsw(iw),MPI_REAL,MPI_COMM_WORLD,ierr)
+        endif
+
+        if (present(swvar4)) then
+           call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
+                swvar4(1,iw),lsw(iw),MPI_REAL,MPI_COMM_WORLD,ierr)
+        endif
+
+        if (present(swvar5)) then
+           call MPI_Unpack(recv_w(jrecv)%buff,recv_w(jrecv)%nbytes,ipos, &
+                swvar5(1,iw),lsw(iw),MPI_REAL,MPI_COMM_WORLD,ierr)
         endif
 
         if (present(scalars)) then

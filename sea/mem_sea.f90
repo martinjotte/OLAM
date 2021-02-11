@@ -34,7 +34,7 @@ Module mem_sea
 
    implicit none
 
-   integer :: nzsea     ! Max number of vertical levels in sea/ocean model 
+   integer :: nzsea = 0 ! Max number of vertical levels in sea/ocean model
 
    integer :: nsea      ! Total # of sea cell W pts in model global domain
    integer :: msea      ! Total # of sea cell W pts in model parallel sub-domain

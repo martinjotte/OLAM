@@ -900,16 +900,15 @@ if (infotyp == 'UNITS') then
    op%fldvalv_min = 1.e30
    op%fldvalv_max = -1.e30
 
-   k = 1
    if (op%stagpt == 'T' .or. op%stagpt == 'W') then
       i = jtab_w(jtw_prog)%iw(1)
-      if (op%dimens(1:1) == '3') k = lpw(i)
+      k = lpw(i)
    elseif (op%stagpt == 'V') then
       i = jtab_v(jtv_prog)%iv(1)
-      if (op%dimens(1:1) == '3') k = lpv(i)
+      k = lpv(i)
    elseif (op%stagpt == 'M' .or. op%stagpt == 'P') then
       i = jtab_m(jtm_vadj)%im(1)
-      if (op%dimens(1:1) == '3') k = lpm(i)
+      k = lpm(i)
    elseif (op%stagpt == 'L' .or. op%stagpt == 'R' .or. op%stagpt == 'S' .or. &
            op%stagpt == 'C' .or. op%stagpt == 'E') then
       i = 2

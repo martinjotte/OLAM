@@ -364,7 +364,7 @@ Contains
      allocate (sfcg%cantemp       (mwsfc)) ; sfcg%cantemp        = rinit
      allocate (sfcg%canrrv        (mwsfc)) ; sfcg%canrrv         = rinit
      allocate (sfcg%rough         (mwsfc)) ; sfcg%rough          = rinit
-     allocate (sfcg%head1         (mwsfc)) ; sfcg%head1          = rinit
+     allocate (sfcg%head1         (mwsfc)) ; sfcg%head1          = 0.0
 
   end subroutine alloc_sfcgrid2
 

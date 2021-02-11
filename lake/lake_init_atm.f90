@@ -58,7 +58,7 @@ subroutine lake_init_atm()
      iwsfc = ilake + omlake
 
      ! Skip this cell if running in parallel and cell rank is not MYRANK
-     if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+     ! if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
   ! Initialize lake depth and canopy depth
 
@@ -74,7 +74,7 @@ subroutine lake_init_atm()
 
   ! Sea quantities that are initialized only on 'INITIAL' run
 
-  !$omp parallel do private (iwsfc)
+  !$omp parallel do private (iwsfc,laketemp)
   do ilake = 2,mlake
      iwsfc = ilake + omlake
 

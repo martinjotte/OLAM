@@ -343,11 +343,13 @@ subroutine hist_cache_hdf5_writes()
   call fh5_cache_write(ndims, dims, 11, herr, mcoords=isea_local_primary, &
                                  ifsize=nsea, fcoords=isea_globe_primary)
 
-  ndims   = 2
-  dims(1) = nzsea
-  dims(2) = msea
+  if (nzsea /= 0) then
+     ndims   = 2
+     dims(1) = nzsea
+     dims(2) = msea
 
-  call fh5_cache_write(ndims, dims, 11, herr, mcoords=isea_local_primary, &
+     call fh5_cache_write(ndims, dims, 12, herr, mcoords=isea_local_primary, &
                                  ifsize=nsea, fcoords=isea_globe_primary)
+  endif
 
 end subroutine hist_cache_hdf5_writes

@@ -329,8 +329,8 @@ subroutine plot_fields(id)
 
      ! Draw label bar if so specified
 
-     if ( op%labelbar(iplt) == 'n' .or. op%labelbar(iplt) == 'o' .and. &
-          myrank == 0 ) then
+     if ( (op%labelbar(iplt) == 'n' .or. op%labelbar(iplt) == 'o') &
+          .and. myrank == 0 ) then
         call date_add_to8 (iyear1,imonth1,idate1,itime1*100  &
              ,time_istp8,'s',outyear,outmonth,outdate,outhour)
 

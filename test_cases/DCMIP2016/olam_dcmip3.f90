@@ -754,7 +754,8 @@ real(8), intent(in) :: time0
 
 real, intent(out) :: vmsca(mza,mva), wmsca(mza,mwa)
 
-real(8), intent(out) :: rho_old(mza,mwa) ! density at beginning of timestep [kg/m^3]
+!real(8), intent(out) :: rho_old(mza,mwa) ! density at beginning of timestep [kg/m^3]
+real, intent(out) :: rho_old(mza,mwa) ! density at beginning of timestep [kg/m^3]
 
 real(8) :: lonrad,latrad,p,z,t,phis,ps,rho0,q,q1,q2,q3,q4
 real(8) :: raxis, u01d, v01d, uv01dx, uv01dy, uv01dz, uv01dr

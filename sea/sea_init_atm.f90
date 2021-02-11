@@ -55,8 +55,6 @@ subroutine sea_init_atm()
   real :: dum1, dum2
   real :: vels, psfc
 
-  if (runtype /= "INITIAL") return
-
   timefac_sst    = 0.0
   timefac_seaice = 0.0
 
@@ -75,7 +73,7 @@ subroutine sea_init_atm()
      iwsfc = isea + omsea
 
      ! Skip this cell if running in parallel and cell rank is not MYRANK
-     if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+     ! if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
      ! Initialize sea temperature, sea ice, and canopy depth
 
@@ -86,6 +84,15 @@ subroutine sea_init_atm()
                        + (sea%seaicef(isea) - sea%seaicep(isea)) * timefac_seaice
 
      sfcg%can_depth(iwsfc) = 20. * max(1.,.025 * dt_sea)
+  enddo
+
+  ! End of initialization that does not depend on atmospheric conditions
+
+  if (runtype /= "INITIAL") return
+
+  !$omp parallel do private (iwsfc,dum1,dum2)
+  do isea = 2,msea
+     iwsfc = isea + omsea
 
      ! Skip this cell if running in parallel and cell rank is not MYRANK
      if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
