@@ -1,0 +1,92 @@
+Instructions for building and running grib2olam (GRIB to HDF5 converter)
+
+1. First edit include.mk to match your computer system. 
+
+As with OLAM, a recent version of HDF5 with Fortran 90 wrappers is required.
+When compiled with Fortran support, HDF5 installs a script called "h5fc" or
+"h5pfc" that calls the Fortran compiler and links in the proper HDF5 library
+and Fortran modules. This should be used for the Fortran compiler F_COMP.
+
+Wgrib2 needs the Jasper and PNG libraries, which are available on most LINUX
+systems. Modify include.mk to point to the location where these are installed.
+
+The variables HDF5_LIBS and HDF5_INCS should be left empty when using the HDF5
+wrapper script "h5fc" or "h5pfc". HDF5_LIBS and HDF5_INCS are only needed if
+F_COMP has been set to a Fortran compiler (such as "ifort"), in which case you
+will have to manually set the necessary HDF5 libraries and the location of the
+HDF5 Fortran modules.
+
+
+2. Compile the executables by simplying typing "make". This compiles grib2olam,
+the grib decoder "wgrib", and the grib2 decoder "wgrib2". Each can be compiled
+separately by typing "make grib2olam", "make wgrib", and "make wgrib2".
+
+Wgrib and Wgrib2 were obtained from NCEP from:
+ftp://ftp.cpc.ncep.noaa.gov/wd51we/
+
+Wgrib was modified slightly to allow easier piping of the grib data into
+grib2olam. The version of wgrib included here is required for grib2olam.
+
+Although grib2olam can use the standard wgrib2 executable, in order to make
+the compilation easier the wgrib2 included here was modified slightly to
+remove some unneeded features and external libraries. If wgrib2 is already
+available on your machine, you can use an external wgrib2 by setting the
+variable wgrib2_exe in the namelist DGRIB_IN.
+
+
+3. For running grib2olam:
+
+ Type grib2olam -? for help:
+
+ Usage: grib2olam [-f namelist_file] [-g gribfile] [-t yyyymmddhh] [-h hh]
+        namelist file name defaults to DGRIB_IN
+       -t : data time to process - yyyymmddhh
+       -h : forecast hour - hh
+ 
+            If c_date or c_hr set to '99999999',
+            the date/hour of the first record
+            in the grib file will be used.
+ 
+       Command line arguments will override the namelist!
+
+
+4. Edit DGRIB_IN (or a namelist file by any other name) to choose 
+   the variables from the grib file you want to process. Example
+   namelists that should work for the NCEP GFS model, CFSR reanalysis,
+   and the ECMWF ERA reanalysis are provided.
+   
+   For the NCEP Reanalysis files, the 3D variables are typically:
+   
+   nvar3d=5, var3d='UGRD','VGRD','TMP','HGT','RH',
+
+   For some formats of ECMWF files:
+   
+   nvar3d=5, var3d='U','V','T','Z','R',
+
+   There are sections in the namelist for providing the variables in
+   the grib file that correspond to SST, seaice, land/sea mask, snow mass, and
+   soil temperature and water. The landmask variable is optional and
+   only makes the degribbing process easier. If a variable string is
+   empty, then that surface field will not be degribbed.
+   
+   If you are uncertain which variables are on the file, use:
+   
+   wgrib -s "grib-file-name"   or:
+   rams_wgrib -s "grib-file-name"
+   
+   
+5. Run "grib2olam". If you use the command line arguments, these will override 
+   the settings in the namelist.
+
+
+Various assumptions are made:
+
+- If a variable begins with an "R" it is assumed to be relative humidity 
+  in percent, thus is converted to fraction.
+  
+- All pressure levels that are found for the first "var3d(1)" are used.
+
+- The variables are written to the Ralph file in the order they are specified. 
+  Make sure they are in the order of "u,v,t,z,r" if using for RAMS.
+  
+  

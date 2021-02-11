@@ -1,0 +1,2 @@
+smagorinsky.f90 has been updates for 5.1.3, but timestep.f90 has not.  Procedure should be to compare this timestep.f90 against that in 5.1.2/omodel, and apply the (dcmip) differences to 5.1.3/omodel to get the new timestep.f90 for 5.1.3/test_cases_DCMIP2016.
+

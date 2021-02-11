@@ -1,0 +1,528 @@
+!===============================================================================
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
+
+! Portions of this software are copied or derived from the RAMS software
+! package.  The following copyright notice pertains to RAMS and its derivatives,
+! including OLAM:  
+
+   !----------------------------------------------------------------------------
+   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
+   ! Colorado State University Research Foundation ; ATMET, LLC 
+
+   ! This software is free software; you can redistribute it and/or modify it 
+   ! under the terms of the GNU General Public License as published by the Free
+   ! Software Foundation; either version 2 of the License, or (at your option)
+   ! any later version. 
+
+   ! This software is distributed in the hope that it will be useful, but
+   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+   ! for more details.
+ 
+   ! You should have received a copy of the GNU General Public License along
+   ! with this program; if not, write to the Free Software Foundation, Inc.,
+   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
+   ! (http://www.gnu.org/licenses/gpl.html) 
+   !----------------------------------------------------------------------------
+
+!===============================================================================
+subroutine thrmstr(iw0,lpw0,k1,k2, &
+   thil0,rhow,rhoi,exner0,tair,theta0,qliq,qice,sa1,rhov,rhovstr,rx,qx,sa)
+
+use micro_coms,  only: mza0, ncat
+use consts_coms, only: p00i, rocp, alvl, alvi, cpi4, cpi, cp253i
+use misc_coms,   only: io6
+use therm_lib,   only: qtc
+
+implicit none
+
+integer, intent(in) :: iw0,lpw0
+integer, intent(in) :: k1(11)
+integer, intent(in) :: k2(11)
+
+real, intent(in)    :: thil0  (mza0)
+real, intent(in)    :: rhow   (mza0)
+real, intent(in)    :: rhoi   (mza0)
+real, intent(in)    :: exner0 (mza0)
+real, intent(out)   :: tair   (mza0)
+real, intent(inout) :: theta0 (mza0)
+real, intent(out)   :: qliq   (mza0)
+real, intent(out)   :: qice   (mza0)
+real, intent(out)   :: sa1    (mza0)
+real, intent(inout) :: rhov   (mza0)
+real, intent(out)   :: rhovstr(mza0)
+real, intent(in)    :: rx     (mza0,ncat)
+real, intent(in)    :: qx     (mza0,ncat)
+real, intent(out)   :: sa     (mza0,9)
+
+integer :: k
+real    :: tcoal6, tcoal7, tairstr, til, qhydm
+real    :: lbar, rholiq, rhoice
+real    :: fracliq, fracliq6, fracliq7
+
+! Loop over all vertical levels
+
+do k = lpw0, mza0
+   call qtc(qx(k,6),tcoal6,fracliq6)
+   call qtc(qx(k,7),tcoal7,fracliq7)
+
+   rholiq = rx(k,1) + rx(k,8) + rx(k,2) + rx(k,6) * fracliq6 &
+                                        + rx(k,7) * fracliq7
+
+   rhoice = rx(k,3) + rx(k,4) + rx(k,5) + rx(k,6) * (1.0 - fracliq6) &
+                                        + rx(k,7) * (1.0 - fracliq7)
+
+   til = thil0(k) * exner0(k)
+
+   qliq(k) = alvl * rholiq
+   qice(k) = alvi * rhoice
+
+   ! qhydm is now J/m^3 instead of J/kg:
+   qhydm = qliq(k) + qice(k)
+
+   rhovstr(k) = rhow(k) - rholiq - rhoice
+   rhov   (k) = rhovstr(k)
+
+   fracliq = rholiq / max(1.e-12, rholiq + rhoice)
+
+   lbar = alvl * fracliq + alvi * (1.0 - fracliq)
+
+   tairstr = .5 * (til + sqrt(til * (til + cpi4 * qhydm * rhoi(k))))
+
+   if (tairstr > 253.) then
+
+      tair(k) = tairstr
+      sa(k,1) = til * lbar    * cpi / (2. * tairstr - til) ! stays the same
+      sa1(k)  = til * rhoi(k) * cpi / (2. * tairstr - til)
+
+   else
+
+      tair(k) = til * (1. + qhydm * rhoi(k) * cp253i)
+      sa(k,1) = til * lbar    * cp253i ! stays the same
+      sa1(k)  = til * rhoi(k) * cp253i
+
+   endif
+
+   theta0(k) = tair(k) / exner0(k)
+enddo
+
+end subroutine thrmstr
+
+!===============================================================================
+
+subroutine diffprep(iw0,lcat,k1,k2, &
+   pi4dt,jhcat,sa,sb,sd,se,sf,sg,sh,sm,ss,su,sw,sy,sz, &
+   rx,cx,qr,emb,rhoa,rhov,rhovsrefp,rdynvsci,vapdif,thrmcon,sumuy,sumuz)
+
+use micro_coms,  only: rxmin, frefac1, pwmasi, frefac2, cdp1, sl, sj, sc, sk, &
+                       mza0, ncat
+use misc_coms,   only: io6
+
+implicit none
+
+integer, intent(in) :: iw0,lcat
+
+integer, intent(in) :: k1(11)
+integer, intent(in) :: k2(11)
+
+real, intent(in) :: pi4dt
+
+integer, intent(in) :: jhcat(mza0,ncat)
+
+real, intent(in) :: sa(mza0,9)
+
+real, intent(out)   :: sb(mza0,ncat)
+real, intent(out)   :: sd(mza0,ncat)
+real, intent(out)   :: se(mza0,ncat)
+real, intent(out)   :: sf(mza0,ncat)
+real, intent(out)   :: sg(mza0,ncat)
+real, intent(inout) :: sh(mza0,ncat)
+real, intent(inout) :: sm(mza0,ncat)
+real, intent(out)   :: ss(mza0,ncat)
+real, intent(out)   :: su(mza0,ncat)
+real, intent(out)   :: sw(mza0,ncat)
+real, intent(out)   :: sy(mza0,ncat)
+real, intent(out)   :: sz(mza0,ncat)
+
+real, intent(in) :: rx (mza0,ncat)
+real, intent(in) :: cx (mza0,ncat)
+real, intent(in) :: qr (mza0,ncat)
+real, intent(in) :: emb(mza0,ncat)
+
+real, intent(in) :: rhoa     (mza0)
+real, intent(in) :: rhov     (mza0)
+real, intent(in) :: rhovsrefp(mza0,2)
+real, intent(in) :: rdynvsci (mza0)
+real, intent(in) :: vapdif   (mza0)
+real, intent(in) :: thrmcon  (mza0)
+
+real, intent(inout) :: sumuy(mza0)
+real, intent(inout) :: sumuz(mza0)
+
+integer :: k,if1,if4,if6,if8,lhcat
+real :: fre,scdei
+
+real, dimension(mza0) :: ttest ! automatic array
+
+!CODE BASED ON WALKO ET AL 2000
+!EFFICIENT COMPUTATION OF VAPOR AND HEAT DIFFUSION BETWEEN HYDROMETEORS
+!IN A NUMERICAL MODEL
+
+! DETERMINES WHETHER TO CALCULATE USING LIQUID OR ICE "SA" ARRAYS
+
+if (lcat <= 2 .or. lcat == 8) then
+   if1 = 1
+   if4 = 4
+   if6 = 6
+   if8 = 8
+else
+   if1 = 2
+   if4 = 5
+   if6 = 7
+   if8 = 9
+endif
+
+do k = k1(lcat),k2(lcat)
+
+   if (rx(k,lcat) < rxmin(lcat)) cycle
+
+   lhcat = jhcat(k,lcat)
+
+   fre = frefac1(lhcat) * emb(k,lcat) ** pwmasi(lhcat) &
+      + rdynvsci(k) * frefac2(lhcat) * emb(k,lcat) ** cdp1(lhcat)
+
+   sb(k,lcat) = cx(k,lcat) * fre * pi4dt  ! stays the same (rhoa factor removed)
+
+   su(k,lcat) = vapdif(k) * sb(k,lcat)    ! stays the same
+   sd(k,lcat) = sh(k,lcat) * rx(k,lcat)   ! x rhoa
+   se(k,lcat) = su(k,lcat) * sa(k,if6) + sb(k,lcat) * thrmcon(k) * rhoa(K)
+    ! se picked up rhoa factor (rhoa factor had to be inserted in second term)
+   sf(k,lcat) = su(k,lcat) * sl(if1) - sb(k,lcat) * sa(k,2)  ! stays the same
+   sg(k,lcat) = su(k,lcat) * sa(k,if8) + sb(k,lcat) * sa(k,3) &
+              + sj(lcat) * qr(k,lcat) ! x rhoa
+!     + lambda_j [Joules/m^3 added by radiative heating this timestep]
+   scdei = 1. / (sc(if1) * sd(k,lcat) + se(k,lcat)) ! x (1/rhoa)
+   ss(k,lcat) = sf(k,lcat) * scdei   ! x (1/rhoa)
+   sw(k,lcat) = (sg(k,lcat) - sk(if1) * sd(k,lcat)) * scdei  ! stays the same
+   ttest(k) = ss(k,lcat) * rhov(k) + sw(k,lcat)  ! stays the same
+
+! FOR ALL ICE HYDROS, "SM" IS 1
+! IF PRISTINE,SNOW,AGG TTEST >= ZERO, "SH" IS 1
+
+   if (lcat >= 3 .and. lcat <= 5) then
+      if (ttest(k) >= 0.) then
+         sm(k,lcat) = 0.
+         sh(k,lcat) = 1.
+         sd(k,lcat) = sh(k,lcat) * rx(k,lcat)
+         scdei = 1. / (sc(if1) * sd(k,lcat) + se(k,lcat))
+         ss(k,lcat) = sf(k,lcat) * scdei
+         sw(k,lcat) = (sg(k,lcat) - sk(if1) * sd(k,lcat)) * scdei
+      else
+         sm(k,lcat) = 1.
+      endif
+   endif
+
+! FOR MIXED-PHASE HYDROMETEORS, "SM" IS 0
+
+   if (lcat == 6 .or. lcat == 7) then
+      if (ttest(k) >= 0.) then
+         sm(k,lcat) = 0.
+      else
+         sm(k,lcat) = 1.
+      endif
+   endif
+
+   sy(k,lcat) = rhovsrefp(k,if1) * sm(k,lcat) * sw(k,lcat) - sa(k,if4)
+   sz(k,lcat) = 1. - rhovsrefp(k,if1) * ss(k,lcat) * sm(k,lcat)
+   sumuy(k) = sumuy(k) + su(k,lcat) * sy(k,lcat)
+   sumuz(k) = sumuz(k) + su(k,lcat) * sz(k,lcat)
+
+enddo
+
+end subroutine diffprep
+
+!===============================================================================
+
+subroutine vapdiff(iw0,j1,j2,rhov,rhovstr,sumuy,sumuz)
+
+use micro_coms, only: mza0
+use misc_coms,  only: io6
+
+implicit none
+
+integer, intent(in) :: iw0
+integer, intent(in) :: j1
+integer, intent(in) :: j2
+
+real, intent(out) :: rhov   (mza0)
+real, intent(in)  :: rhovstr(mza0)
+real, intent(in)  :: sumuy  (mza0)
+real, intent(in)  :: sumuz  (mza0)
+
+integer :: k
+
+do k = j1,j2
+   rhov(k) = (rhovstr(k) + sumuy(k)) / (1.0 + sumuz(k))
+enddo
+
+end subroutine vapdiff
+
+!===============================================================================
+
+subroutine vapflux(iw0,lcat,k1,k2, &
+   jhcat,sa,sd,se,sf,sg,sm,ss,su,sw,sy,sz,rx,cx,qx,qr,tx,vap, &
+   rhovsrefp,rhov,rhovstr,sumuy,sumuz,sumvr)
+
+use micro_coms, only: mza0, ncat, rxmin, sc, sk, enmlttab
+use misc_coms,  only: io6
+
+implicit none
+
+integer, intent(in) :: iw0,lcat
+
+integer, intent(in) :: k1(11)
+integer, intent(in) :: k2(11)
+
+integer, intent(in) :: jhcat(mza0,ncat)
+
+real, intent(in) :: sa(mza0,9)
+
+real, intent(in) :: sd(mza0,ncat)
+real, intent(in) :: se(mza0,ncat)
+real, intent(in) :: sf(mza0,ncat)
+real, intent(in) :: sg(mza0,ncat)
+real, intent(in) :: sm(mza0,ncat)
+real, intent(in) :: ss(mza0,ncat)
+real, intent(in) :: su(mza0,ncat)
+real, intent(in) :: sw(mza0,ncat)
+real, intent(in) :: sy(mza0,ncat)
+real, intent(in) :: sz(mza0,ncat)
+
+real, intent(inout) :: rx (mza0,ncat)
+real, intent(inout) :: cx (mza0,ncat)
+real, intent(out)   :: qx (mza0,ncat)
+real, intent(out)   :: qr (mza0,ncat)
+real, intent(out)   :: tx (mza0,ncat)
+real, intent(out)   :: vap(mza0,ncat)
+
+real, intent(in)    :: rhovsrefp(mza0,2)
+real, intent(inout) :: rhov     (mza0)
+real, intent(in)    :: rhovstr  (mza0)
+real, intent(inout) :: sumuy    (mza0)
+real, intent(inout) :: sumuz    (mza0)
+real, intent(inout) :: sumvr    (mza0)
+
+integer :: k,if1,if4
+real :: rxx,fracmass,cxloss
+
+! UPDATES MIXING RATIO AND HEAT DUE TO FLUX OF VAPOR
+! ALSO LINKED TO WALKO ET AL 2000
+
+if (lcat <= 2 .or. lcat == 8) then
+   if1 = 1
+   if4 = 4
+else
+   if1 = 2
+   if4 = 5
+endif
+
+do k = k1(lcat), k2(lcat)
+
+   if (rx(k,lcat) > rxmin(lcat)) then
+
+      tx(k,lcat) = (ss(k,lcat) * rhov(k) + sw(k,lcat)) * sm(k,lcat)
+      vap(k,lcat) = su(k,lcat) * (rhov(k) + sa(k,if4) - rhovsrefp(k,if1) * tx(k,lcat))
+
+      if ((vap(k,lcat) <= -rx(k,lcat)) .or. &
+          (lcat == 3 .and. qx(k,lcat) > 330000.)) then
+
+         ! Do this section if vapor transfer DOES deplete all of LCAT category
+         ! Also do this section if LCAT is pristine ice and it totally melts:
+         ! (evaporate it too).
+
+         sumuy(k) = sumuy(k) - su(k,lcat) * sy(k,lcat)
+         sumuz(k) = sumuz(k) - su(k,lcat) * sz(k,lcat)
+         sumvr(k) = sumvr(k) + rx(k,lcat)
+
+         rhov(k) = (rhovstr(k) + sumuy(k) + sumvr(k)) / (1.0 + sumuz(k))
+
+         vap(k,lcat) = - rx(k,lcat)
+         tx(k,lcat) = 0.
+         cx(k,lcat) = 0.
+         rx(k,lcat) = 0.
+         qx(k,lcat) = 0.
+         qr(k,lcat) = 0.
+
+      else
+
+         ! Do this section if vapor transfer does NOT deplete all of LCAT category
+
+         rxx = rx(k,lcat) + vap(k,lcat)
+
+         if (sm(k,lcat) > .5) then
+            qx(k,lcat) = sc(if1) * tx(k,lcat) + sk(if1)
+            qr(k,lcat) = qx(k,lcat) * rxx
+         else
+            qx(k,lcat) = (rhov(k) * sf(k,lcat) + sg(k,lcat) &
+                       - tx(k,lcat) * se(k,lcat)) / sd(k,lcat)
+            qx(k,lcat) = min(350000.,max(-100000.,qx(k,lcat)))
+            qr(k,lcat) = qx(k,lcat) * rxx
+         endif
+
+         if (vap(k,lcat) < 0.) then
+            fracmass = min(1.,-vap(k,lcat) / rx(k,lcat))
+            cxloss = cx(k,lcat) * enmlttab( int(200.*fracmass)+1, jhcat(k,lcat) )
+            cx(k,lcat) = cx(k,lcat) - cxloss
+         endif
+
+         rx(k,lcat) = rxx
+
+      endif
+
+   endif  ! rx > rxmin
+
+enddo
+
+end subroutine vapflux
+
+!===============================================================================
+
+subroutine psxfer(iw0,k1,k2,vap,rpsxfer,epsxfer,rx,cx,qx,qr)
+
+use micro_coms, only: mza0, ncat, emb1, emb1i, emb0i, rxmin
+use misc_coms,  only: io6
+
+implicit none
+
+integer, intent(in) :: iw0,k1,k2
+
+real, intent(in)    :: vap(mza0,ncat)
+real, intent(inout) :: rpsxfer(mza0)
+real, intent(inout) :: epsxfer(mza0)
+real, intent(inout) :: rx (mza0,ncat)
+real, intent(inout) :: cx (mza0,ncat)
+real, intent(in)    :: qx (mza0,ncat)
+real, intent(inout) :: qr (mza0,ncat)
+
+integer :: k
+real :: f3, dqr, embi
+
+! The basic function of subroutine psxfer is to transfer bulk mixing ratio
+! and number between pristine ice and snow categories when vapor flux causes
+! particle sizes to approach specified category size limits.  Previously,
+! psxfer performed this transfer in both directions, from pristine ice to snow
+! in conditions of vapor deposition and from snow to pristine ice during
+! sublimation.  Now, the routine only performs transfers from pristine ice to
+! snow with vapor deposition.  The reverse process has been omitted, following 
+! the opinions of Walko and Cotton that the process is insignificant, and is
+! also conceptually inconsistent with the assumed properties of ice categories
+! in the bulk microphysics scheme.
+
+! This version of subroutine psxfer (24 March 2012), replaces older versions
+! that specifically assumed gamma distributions for pristine ice and snow
+! hydrometeor sizes.  Now, a size distribution is only assumed to exist
+! conceptually, but its form is unspecified.  Previous versions of psxfer
+! required repairs to prevent pristine ice and/or snow mean hydrometeor mass
+! from exceeding specified size limits.  The present version aims for a simple
+! but robust approach that avoids any need for such repairs.  It computes the
+! ratio of pristine ice mean particle mass to its upper limit of emb1(3), 
+! compares this ratio to specified high and low thresholds, and determines how
+! much mass to transfer from pristine ice to snow based on this comparison.
+
+! Define parameters for high and low mass-ratio thresholds for pristine ice
+! depositional growth.  Experimentation with other settings is encouraged.
+! Initial tests show fairly weak sensitivity of model results to their values.
+
+real, parameter :: f3lo = .1, f3hi = .8, df3i = 1. / (f3hi - f3lo)
+
+! Assume that the mean mass of the transferred particles is the larger of the
+! maximum allowed mean mass for pristine ice and the minimum allowed mean mass
+! for snow, so that this transfer does not risk pushing either category outside
+! its size limits.
+
+embi = min( emb1i(3), emb0i(4) )
+
+! Loop over vertical model levels that may contain pristine ice
+
+do k = k1, k2
+
+! Check if vapor mass was deposited onto pristine ice (it was already added)
+
+   if (vap(k,3) > 0. .and. rx(k,3) > rxmin(3)) then
+
+! Compute ratio of mean particle mass of pristine ice to its maximum limit emb1(3)
+
+      f3 = rx(k,3) / (max(1.e-9,cx(k,3)) * emb1(3))
+
+! Compare f3 to f3lo and f3hi (parameters defined above) to compute amount
+! of mass, as a fraction of new vapor deposition mass, to transfer from
+! pristine ice to snow.
+
+      if     (f3 > f3hi) then
+         rpsxfer(k) = min(vap(k,3), rx(k,3))
+      elseif (f3 > f3lo) then
+         rpsxfer(k) = min(vap(k,3) * (f3 - f3lo) * df3i, rx(k,3))
+      else
+         rpsxfer(k) = 0.0
+      endif
+
+! rpsxfer(k) here is always positive
+
+      if (f3 > f3lo) then
+         epsxfer(k) = rpsxfer(k) * embi ! x rhoa
+         dqr = rpsxfer(k) * qx(k,3)     ! x rhoa
+
+         rx(k,3) = rx(k,3) - rpsxfer(k)
+         cx(k,3) = cx(k,3) - epsxfer(k)
+         qr(k,3) = qr(k,3) - dqr
+         rx(k,4) = rx(k,4) + rpsxfer(k)
+         cx(k,4) = cx(k,4) + epsxfer(k)
+         qr(k,4) = qr(k,4) + dqr
+      endif
+
+   endif
+
+enddo
+
+end subroutine psxfer
+
+!===============================================================================
+
+subroutine newtemp(j1,j2, &
+     rhoi,rhovstr,rhov,exner0,tairc,tair,theta0,rhovslair,rhovsiair,sa)
+
+use micro_coms, only: mza0
+use misc_coms,  only: io6
+use therm_lib,  only: rhovsl, rhovsi
+
+implicit none
+
+integer, intent(in) :: j1
+integer, intent(in) :: j2
+
+real, intent(in)  :: rhoi     (mza0)
+real, intent(in)  :: rhovstr  (mza0)
+real, intent(in)  :: rhov     (mza0)
+real, intent(in)  :: exner0   (mza0)
+real, intent(out) :: tairc    (mza0)
+real, intent(out) :: tair     (mza0)
+real, intent(out) :: theta0   (mza0)
+real, intent(out) :: rhovslair(mza0)
+real, intent(out) :: rhovsiair(mza0)
+real, intent(in)  :: sa       (mza0,9)
+
+integer :: k
+
+do k = j1, j2
+   tairc(k) = tairc(k) + sa(k,1) * rhoi(k) * (rhovstr(k) - rhov(k)) ! rhoi inserted
+   tair(k)  = tairc(k) + 273.15
+   theta0(k) = tair(k) / exner0(k)
+   rhovslair(k) = rhovsl(tairc(k))
+   rhovsiair(k) = rhovsi(tairc(k))
+enddo
+
+end subroutine newtemp

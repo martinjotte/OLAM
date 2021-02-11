@@ -1,0 +1,32 @@
+The files in this /hurricane directory contain software to:
+
+1) place a tropical cyclone in the initial OLAM fields or to enhance one that is
+already present but poorly resolved in the GFS or other analysis used as the 
+initial model state
+
+2) diagnose the location of the center of rotation (near the surface) of the
+tropical cyclone
+
+3) track the motion of the tropical cyclone in the model integration using the
+location diagnosis
+
+4) diagnose a perturbation field comprising the tropical cyclone based on the 
+diagnosed location
+
+5) relocate the diagnosed perturbation field as it exists following some hours
+of model integration to an initial starting position in the initial model fields
+
+6) enhance or modify the relocated perturbation field at the initial time
+
+7) repeat steps 2-5 as a dynamic initialization cycle
+
+8) Initialize actual simulation with dynamically-initialized perturbation field
+
+9) compare modeled and observed locations of the tropical cyclone (data currently
+in this directory are for hurricane Frances (2004)
+
+In order to activate these processes, OLAM must be compiled with the *.f90 files in this directory, and the frances_location_1sept00z or equivalent file must be copied
+to executable directory.
+
+In addition, 2 calls to subroutine hurricane_track (plus a bracketing IF statement around the second call) must be uncommented from olam_run.f90, and 3 calls to subroutine hurricane_init must be uncommented from fldsisan.f90.
+

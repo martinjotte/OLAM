@@ -1,0 +1,3 @@
+This directory (build_SP3B) is used to test all steps of a procedure to spin up
+groundwater abundance and flow and soil energy, and to then use the spun-up
+values as an initial condition for a "regular" simulation.

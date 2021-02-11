@@ -1,0 +1,45 @@
+&dgrib_in
+
+wgrib1_exe='./wgrib'
+wgrib2_exe='./wgrib2'
+
+filein='pgbh00.gdas.1999010100.grb2'
+
+c_date='99999999', c_hr='99999999',
+
+! 3D atmospheric fields
+
+nvar3d = 5,
+var3d  = 'UGRD', 'VGRD', 'TMP',  'HGT', 'RH',
+out3d  = 'UE',   'VE',   'TEMP', 'GEO', 'RH',
+
+! Miscellaneous surface fields (currently unused in OLAM)
+
+nvarsfc = 2,
+varsfc = 'PRES', 'TMP', 
+outsfc = 'PSFC', 'TSFC',
+
+! SST / SEAICE
+
+sstvar   = 'TMP'
+icevar   = 'ICEC'
+landmask = 'LAND'
+
+! Soil and snow cover fields
+
+soilw_var = 'SOILW'
+soilt_var = 'TSOIL'
+snow_var  = 'WEASD'
+
+/
+
+============================================================================
+COMMAND LINE ARGUMENTS WILL OVERRIDE NAMELIST SETTINGS!
+
+filein - input grib file
+c_date - data date/time - yyyymmddhh
+c_hr - forecast hour - hh
+
+If c_date or c_hr set to '99999999', the date/hour of the first record
+in the grib file will be used.
+============================================================================

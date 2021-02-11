@@ -1,0 +1,176 @@
+
+!------------------------------------------------------------------------!
+!  The Community Multiscale Air Quality (CMAQ) system software is in     !
+!  continuous development by various groups and is based on information  !
+!  from these groups: Federal Government employees, contractors working  !
+!  within a United States Government contract, and non-Federal sources   !
+!  including research institutions.  These groups give the Government    !
+!  permission to use, prepare derivative works of, and distribute copies !
+!  of their work in the CMAQ system to the public and to permit others   !
+!  to do so.  The United States Environmental Protection Agency          !
+!  therefore grants similar permission to use the CMAQ system software,  !
+!  but users are requested to provide copies of derivative works or      !
+!  products designed to operate in the CMAQ system to the United States  !
+!  Government without restrictions as to use by others.  Software        !
+!  that is used with the CMAQ system but distributed under the GNU       !
+!  General Public License or the GNU Lesser General Public License is    !
+!  subject to their copyright restrictions.                              !
+!------------------------------------------------------------------------!
+
+C RCS file, release, date & time of last delta, author, state, [and locker]
+C $Header: /project/yoj/arc/CCTM/src/biog/beis3/czangle.F,v 1.4 2012/03/28 16:05:37 yoj Exp $
+
+C what(1) key, module and SID; SCCS file; date and time of last delta:
+C %W% %P% %G% %U%
+
+C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+      SUBROUTINE  CZANGLE( COSZEN )
+
+C----------------------------------------------------------------------
+C Description:
+C   Computes cosine of zenith angle for routine HRBIO()
+C   The zenith angle is the angle measured from the zenith to the line of
+C   sight to the sun
+ 
+C Preconditions:
+C   JDATE:JTIME represented in GMT
+ 
+C Subroutines and Functions called:  none
+ 
+C Revision History:
+C   11/99: by Jeff Vukovich taken from v4.2 SMOKE prototype
+C   10/06: yoj
+C   02/11: Shawn Roselle: Replaced I/O API include files with UTILIO_DEFN
+C   03/12: J. Bash: Bound COSZEN against numerical rounding errors
+C   11/14: J. Bash: Lat and Lon now stored in ASX_DATA_MOD to reduce redundent
+C             memory allocation and reads from file.
+C   07 Nov 14 J.Bash: Updated for the ASX_DATA_MOD shared data module. 
+C----------------------------------------------------------------------
+C Modified from:
+
+C Project Title: Sparse Matrix Operator Kernel Emissions (SMOKE) Modeling System
+C File: @(#)$Id: czangle.F,v 1.4 2012/03/28 16:05:37 yoj Exp $
+C COPYRIGHT (C) 2004, Environmental Modeling for Policy Development
+C All Rights Reserved
+C Carolina Environmental Program
+C University of North Carolina at Chapel Hill
+C 137 E. Franklin St., CB# 6116
+C Chapel Hill, NC 27599-6116
+C smoke@unc.edu
+C Pathname: $Source: /project/yoj/arc/CCTM/src/biog/beis3/czangle.F,v $
+C Last updated: $Date: 2012/03/28 16:05:37 $ 
+C----------------------------------------------------------------------
+
+      USE UTILIO_DEFN
+      use const_data
+      use mem_grid,  only: mwa, glatw, glonw
+      use misc_coms, only: current_time
+
+      IMPLICIT NONE
+
+C Arguments:
+
+!      INTEGER, INTENT( IN )  :: JDATE   ! current simulation date (YYYYDDD)
+!      INTEGER, INTENT( IN )  :: JTIME   ! current simulation time (HHMMSS)
+!      INTEGER, INTENT( IN )  :: NX      ! no. columns
+!      INTEGER, INTENT( IN )  :: NY      ! no. rows
+
+      REAL,    INTENT( OUT ) :: COSZEN( mwa ) !  cos of zenith angle
+
+C Parameters:
+ 
+      REAL, PARAMETER ::
+     &            AA =   0.15,
+     &            BB =   3.885,
+     &            CC = - 1.253,
+     &          SIGA = 279.9348,
+     &          SDEC =   0.39784984,  ! SIN (23^26'37.8") the declination angle
+     &           D60 = 1.0 / 60.0,
+     &           D15 = 1.0 / 15.0,
+     &           D24 = 1.0 / 24.0,
+     &        ROTDAY = 360.0 / 365.242 ! fraction of a complete rotation per day
+
+C Local variables:
+
+      INTEGER    IOS, R, C
+      REAL       SLA, GMT,  TK, DAD, DF,
+     &           DESIN, DECOS, DESIN2, DECOS2, SIG, DECSIN, DECCOS,
+     &           EQT, TST, HRANGL
+                     
+      LOGICAL, SAVE :: FIRSTIME = .TRUE.
+      REAL, ALLOCATABLE, SAVE :: SINLAT( : )
+      REAL, ALLOCATABLE, SAVE :: COSLAT( : )  
+
+      CHARACTER( 16 ) :: PNAME = 'CZANGLE'   !  procedure name
+
+      integer, external :: julday
+      integer           :: jda, iw
+
+C----------------------------------------------------------------------
+
+C compute sine of lat and lon first time through
+
+      IF ( FIRSTIME ) THEN
+
+         FIRSTIME = .FALSE.
+
+         ALLOCATE( SINLAT( mwa ), STAT=IOS )
+         ALLOCATE( COSLAT( mwa ), STAT=IOS )
+
+         DO iw = 2, mwa
+            SLA = PI180 * glatw( iw )
+            SINLAT( iw ) = SIN( SLA )
+            COSLAT( iw ) = COS( SLA )
+         END DO
+
+      END IF   ! if firstime
+
+C Convert time to hours and add time-zone offset
+      
+      gmt = current_time%time / 3600.0
+      jda = julday( current_time%month, current_time%date, current_time%year )
+
+      DAD    = GMT * D24 + jda
+      DF     = ROTDAY * PI180 * DAD      !  The terrestrial-rotation angle
+           
+      DESIN  = SIN( DF )          !  SINE   of this angle
+      DECOS  = COS( DF )          !  COSINE of this angle
+           
+      DESIN2 = SIN( DF + DF )     !  SINE   of twice the angle
+      DECOS2 = COS( DF + DF )     !  COSINE of twice the angle
+           
+      SIG  =  DF
+     &     +  PI180 * ( SIGA
+     &                + 1.914827 * DESIN  - 0.079525 * DECOS
+     &                + 0.019938 * DESIN2 - 0.00162  * DECOS2 )
+           
+C The sine and cosine of the declination
+      
+      DECSIN = SDEC * SIN( SIG )
+      DECCOS = SQRT( 1.0 - DECSIN * DECSIN )
+           
+C The equation of time adjustment
+      
+      EQT = 0.123470 * DESIN  - 0.004289 * DECOS
+     &    + 0.153809 * DESIN2 + 0.060783 * DECOS2
+
+      !$omp parallel do private(tk,tst,hrangl)
+      do iw = 2, mwa
+
+         TK     =  GMT + GLONW( IW ) * D15 !  Distance in hours from LON=0
+         TST    =  TK - EQT     !  true solar time
+         HRANGL =  PI180 * 15.0 * ABS( TST - 12.0 ) !  hour angle
+                   
+C Compute the cosine of zenith angle (sine of the solar elevation)
+          
+         COSZEN( IW ) = DECSIN * SINLAT( IW )
+     &                + DECCOS * COSLAT( IW ) * COS( HRANGL )
+
+C Bound against numerical rounding errors
+
+         COSZEN( IW ) = MIN( MAX( COSZEN( IW ), -1.0 ), 1.0 )
+                   
+      END DO
+      !$omp end parallel do
+
+      END SUBROUTINE CZANGLE

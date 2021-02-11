@@ -1,0 +1,2217 @@
+
+!------------------------------------------------------------------------!
+!  The Community Multiscale Air Quality (CMAQ) system software is in     !
+!  continuous development by various groups and is based on information  !
+!  from these groups: Federal Government employees, contractors working  !
+!  within a United States Government contract, and non-Federal sources   !
+!  including research institutions.  These groups give the Government    !
+!  permission to use, prepare derivative works of, and distribute copies !
+!  of their work in the CMAQ system to the public and to permit others   !
+!  to do so.  The United States Environmental Protection Agency          !
+!  therefore grants similar permission to use the CMAQ system software,  !
+!  but users are requested to provide copies of derivative works or      !
+!  products designed to operate in the CMAQ system to the United States  !
+!  Government without restrictions as to use by others.  Software        !
+!  that is used with the CMAQ system but distributed under the GNU       !
+!  General Public License or the GNU Lesser General Public License is    !
+!  subject to their copyright restrictions.                              !
+!------------------------------------------------------------------------!
+
+C $Header$
+
+C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+      MODULE PHOT_MOD
+
+C-----------------------------------------------------------------------
+C
+C  FSB This version has NO internal write statements
+C  FSB This version has the code for XR96 added.
+C  FSB change indices from L to II in newOptics loop 08/17/2006
+C  FSB This version has all write statements commented out.(08/03/2006)
+C
+C  FSB NOTE - this code assumes that the top of the modeling domain
+C  is about 100 [mb] or 10 [kPa] ~ 16 [km] in altitude. If a
+C  higher altitude top is used , the method of calculating the
+C  ozone column and the ozone optical depth will be necessary.
+C
+C  FSB This version has the addition of Rayleigh optical depth for the
+C  stratosphere as well as the calculation of single scattering
+C  albedo for the AOD calculation. (01/17/2006)
+C  FSB This version has deleted the JPROC values of Cs and Qy as well as
+C  the default aerosol.  It also contains the fast optics
+C  routines.
+C  FSB This module supports the SAPRC99 Chemical mechanism within
+C  CMAQ.
+C  FSB This version calls a fast optical routine for aerosol
+C  extinction and scattering
+C  FSB This version uses a set of constant refractive indices
+C  The new subroutine GETNEWPAR now sets up the refractive indices.
+C
+C  Bill Hutzell(Mar 2011) moved determining refractive indices to a
+C  separate file and new subroutine called AERO_PHOTDATA.
+C
+C  Bill Hutzell(Jun 2011) modified TWOSTREAM_S subroutine to account for
+C  GAM2 equal to zero in the Toon et al. (1989) solution to the two stream
+C  of the radiative transfer equation based on how the NCAR TUV model
+C  implements the approximation
+C
+C  Bill Hutzell(May 2013) modified optical depth agruments to give vetical
+C  profile rather than surface values. Note that TAU_TOT now includes
+C  stratospheric values.
+! Bill Hutzell(Mar 2014) modified calculation of aerosol and cloud optical
+! properites as well as their calculated optical depths. The changes employ
+! FORTRAN modules that contain the layer level of the optical properties.
+C  07 Jul 14 B.Hutzell: replaced mechanism include file(s) with fortran module
+C  10/10/14 - DJL added references to IUPAC10 to NO2 and O3 photo rates
+C  23Jun15   B.Hutzell: made TWOSTREAM and TRIDIAGONAL routine use REAL(8) variables
+C  30Jul15  J.Young: REAL(4) -> REAL for code portability
+C-----------------------------------------------------------------------
+
+      USE CSQY_DATA
+      USE CONST_DATA
+
+      IMPLICIT NONE
+
+!***parameters
+
+      REAL, PARAMETER :: SMALL = 1.0E-36    ! a small number
+
+!***Fundamental Constants: ( Source: CRC76, pp 1-1 to 1-6)
+
+      REAL, PARAMETER :: PLANCK_C = 6.62606876E-34 ! Planck's Constant [Js]
+      REAL, PARAMETER :: LIGHT_SPEED = 299792458.0 ! speed of light in a vacuum
+
+      REAL, PARAMETER :: DU_TO_CONC = 2.6879E16        ! factor from [DU] to [molecules/cm^2]
+      REAL, PARAMETER :: CONC_TO_DU = 1.0 / DU_TO_CONC
+
+!***LOGDEV for NEW_OPTICS and supporting routines
+
+!     INTEGER, SAVE :: NEW_OPTICS_LOG
+
+!      INTEGER, PARAMETER :: N_DIAG_WVL = 2         ! number of dianostic wavelengths
+!      INTEGER, SAVE      :: DIAG_WVL( N_DIAG_WVL ) ! pointers to diagnostic wavelengths
+
+!     REAL, ALLOCATABLE  :: ACTINIC_FLUX( :,: )    ! actinic fluxes, initially [Photons/(cm^2s)] then  [Watts/m^2]
+!     REAL, ALLOCATABLE  :: IRRADIANCE  ( :,: )    ! total downward irradiance [Watts/m^2]
+!     REAL               :: REFLECTION             ! broad band reflection coefficient (diffuse) at model top
+!      REAL               :: TRANSMISSION           ! broad band transmission coefficient (diffuse) at surface
+!      REAL               :: TRANS_DIRECT           ! broad band direct transmission coefficient at surface
+
+      LOGICAL            :: PHOTDIAG = .false.      ! Flag for PHOTDIAG file
+!     LOGICAL, parameter :: ONLY_SOLVE_RAD = .false.! only compute fluxes
+
+      CHARACTER( 133 )   :: PHOT_MOD_MSG
+
+!     integer            :: nlays_max
+
+      REAL, ALLOCATABLE  :: SINLATS ( : ) ! sine of latitude
+      REAL, ALLOCATABLE  :: COSLATS ( : ) ! cosine of latitude
+
+      real, allocatable  :: actinic_flux_sfc( :,: )
+!     real, allocatable  :: cloud_frac_2d     ( : )
+
+      INTEGER            :: LGC_O3   ! pointer to O3 in CGRID
+      INTEGER            :: LGC_NO2  ! pointer to NO2 in CGRID
+
+      real, ALLOCATABLE :: srayl   ( : ) ! Molecular scattering cross sections [ cm ** 2]
+      REAL, ALLOCATABLE :: CONV_WM2( : ) ! conversion factor [photons/(cm**2 s )] to [Watts/m**2]
+
+      REAL :: EQT             ! equation of time
+      REAL :: SOLDIST         ! solar distance [ au ]
+      REAL :: SINDEC          ! sine of the solar declination
+      REAL :: COSDEC          ! cosine of the solar declination
+      REAL :: RSQDI           ! 1 / square of soldist
+
+      CONTAINS
+
+C///////////////////////////////////////////////////////////////////////
+      SUBROUTINE NEW_OPTICS ( IW, NLAYS, nlays_model, nlays_chem,
+     &                        BLKTA, BLKDENS, BLKZF,
+     &                        BLKO3, BLKNO2, ALB,
+     &                        ZSFC, COSZEN, SINZEN,
+     &                        CLDFRC, BLKRJ,
+     &                        tauclds, ssaclds, asmclds )
+C-----------------------------------------------------------------------
+C
+C  FSB  NOTE new call vector <<<<<<<<<<<<< **********
+C
+C  FSB This version has clouds
+C  FSB calculates the photolysis rates as a function of species and height
+C
+C  first coded 10/19/2004 by Dr. Francis S. Binkowski
+C     Carolina Environmental Program
+C     University of North Carolina at Chapel Hill
+C     email: frank_binkowski@unc.edu
+C  modified by FSB  July 29, 2005, 01/19/2006  by FSB
+C
+C  Mar 2011 Bill Hutzell
+C      -revised arguement to account for aerosol redesign in
+C       CMAQ version 5.0
+C      -change array declaration to allow flexible number of
+C       wavelength bins
+C  Apr 2012 Bill Hutzell
+C      -revised error checking to needed photolysis data
+C      -modified case statement for RACM2 photolysis rates
+C      -moved aerosol optics to its own module
+C  07 Jul 14 B.Hutzell: replaced mechanism include file(s) with fortran module
+C-----------------------------------------------------------------------
+
+      USE UTILIO_DEFN
+      USE RXNS_DATA            ! chemical mechanism data
+      USE AERO_PHOTDATA
+
+      use mem_turb,   only: frac_sfck
+      use mem_grid,   only: lsw, nsw_max
+      use oname_coms, only: nl
+
+      IMPLICIT NONE
+
+!***arguments
+      INTEGER, INTENT(IN) :: IW
+      INTEGER, INTENT(IN) :: NLAYS       ! # of radiation vertical layers
+      INTEGER, INTENT(IN) :: NLAYS_MODEL ! # of model vertical layers
+      INTEGER, INTENT(IN) :: NLAYS_CHEM  ! # of vertical layers where chemistry is active
+
+      REAL,    INTENT(IN) :: BLKTA  ( nlays )    ! Air temperature [ K ]
+      REAL,    INTENT(IN) :: BLKDENS( nlays )    ! Air density  [ molecules / cm**3 ]
+      REAL,    INTENT(IN) :: BLKZF  ( nlays+1 )  ! layer full height[ m ]
+      REAL,    INTENT(IN) :: BLKO3  ( nlays )    ! O3 concentration [ molecules / cm**3 ]
+      REAL,    INTENT(IN) :: BLKNO2 ( nlays )    ! NO2 concentration [ molecules / cm**3 ]
+      REAL,    INTENT(IN) :: CLDFRC ( nlays )    ! fraction of gridcell covered by cloud
+
+      REAL,    INTENT(IN) :: ALB( nsw_max,nwl )  ! wavelength-dependent surface albedo
+      REAL,    INTENT(IN) :: ZSFC                ! surface height (msl) [ m ]
+      REAL,    INTENT(IN) :: COSZEN, SINZEN      ! sine and cosine of the zenith angle
+
+!     LOGICAL, INTENT(IN) :: NEW_PROFILE     ! Has the atmospheric profile changed since last call?
+
+      REAL,    INTENT(INOUT) :: BLKRJ( nlays,nphotab )  ! photolysis rates [ 1 / sec ]
+
+!     REAL,    INTENT(OUT) :: TAUC_AERO( :,: )  ! aerosol optical depth, bottom of layer
+!     REAL,    INTENT(OUT) :: TAU_TOT  ( :,: )  ! total optical depth, bottom of layer
+!     REAL,    INTENT(OUT) :: TAU_CLOUD( :,: )  ! cloud optical depth, bottom of layer
+
+!     REAL,    INTENT(INOUT) :: TAUO3_TOP( : )  ! optical depth of ozone above model domain
+!     REAL,    INTENT(INOUT) :: TAU_RAY  ( : )  ! Rayleigh optical depth above model domain
+!     REAL,    INTENT(OUT)   :: SSA_AERO ( : )  ! single scatering albedo for aerosol column
+
+!      REAL, INTENT(INOUT) :: TOTAL_O3_COLUMN  ! total ozone colum density [ DU ]
+
+      real, intent(in) :: tauclds(nwl,nlays)
+      real, intent(in) :: ssaclds(nwl,nlays)
+      real, intent(in) :: asmclds(nwl,nlays)
+
+      logical :: incld
+      integer :: nbnds, k, n, jj, nb(3)
+      integer :: cbot(nlays_model/2 + 1)
+      integer :: ctop(nlays_model/2 + 1)
+      real    :: bfrac(3,2)
+      real    :: prob, probsum
+
+!***internal
+      REAL, PARAMETER :: ONE_OVER_PI = 1.0 / PI
+!      REAL, PARAMETER :: STRAT_TEMP  = 225.0    ! stratospheric temperature
+!      REAL, PARAMETER :: ZTOA        = 50.0E3   ! top of the atmosphere [ m ]
+      real, parameter :: onem = 1.0 - 4.0 * epsilon(1.0)
+
+      INTEGER L, IWL, II, IPHOT, nlevs  ! loop indices
+
+!     INTEGER NLEVEL
+      REAL SOLAR_FLUX        ! solar flux at atmosphere top in a wavelength band, [photons/(cm^2*s)]
+      REAL INSOLATION        ! downward solar flux at atmosphere top summed over wavelength bands, [photons/(cm^2*s)]
+
+!      REAL DELTA_O3_COLUMN   ! change in ozone column density [molecules/cm2]
+!      REAL TROPO_O3_COLUMN   ! ozone column density in the troposphere [molecules/cm2]
+!      REAL STRAT_O3_COLUMN   ! ozone column density in the stratosphere [molecules/cm2]
+!      REAL STRAT_O3_COLMIN   ! ozone minium column density in the stratosphere [molecules/cm2]
+!      REAL TAU_O3            ! optical depth of stratospheric ozone [ m ]
+!      REAL DENSTOM           ! estimated air density at top of model [ molecules / cm**3 ]
+!      REAL LAMDA             ! wavelength  [ nm ]
+!     REAL INV_LAMBDA        ! reciprocal of wavelength [ 1/nm ]
+!     REAL LAMDA_UM          ! wavelength  [ um ]
+
+!***working absorption cross sections [ cm**2 ]. These have been corrected
+!***  for ambient ( pressure and temperature ) conditions.
+
+      REAL AO3
+      REAL ANO2
+      REAL BETA_M     ! molecular scattering coefficient [ 1/m ]
+      REAL BEXT       ! total aerosol extinction coefficient [ 1/m ]
+!     REAL VFAC, BSC  ! unit correction factors
+      REAL BSCAT      ! total aerosol scattering coefficient [ 1/m ]
+      REAL G_BAR      ! total aerosol asymmetry factor
+
+!***FSB The following variable is aq switch that allows a fast version of
+!***  aerosol optics to be used when set to .TRUE.
+
+!***scattering and absorption for the layer
+
+      REAL DTABS_A, DTSCAT_A, DTSCAT, DTABS
+
+      real :: dtscat_m(nlays),  dtabs_m(nlays)
+
+!***variables describing the layer heights and slants
+!     REAL DJ, DF
+!     REAL ZTOM                               ! top of model  [ m ]
+!      REAL, ALLOCATABLE, SAVE :: DSDH_TD( : ) ! slant path function from top down
+!      REAL, ALLOCATABLE, SAVE :: BLKDZ( : )   ! layer thicknesses [ m ]
+!     REAL, ALLOCATABLE, SAVE :: DSDH( : )    ! slant path function
+!     REAL, SAVE              :: DSDH_TOP     ! slantpath function from ZTOM to ZTOA
+
+!***Increment of optical depth
+
+!      REAL, ALLOCATABLE, SAVE :: DTAU    ( : )   ! total depth at level
+!      REAL, ALLOCATABLE, SAVE :: DT_AERO ( : )   ! aerosol contribution at level
+!      REAL, ALLOCATABLE, SAVE :: DT_CLOUD( : )   ! cloud contribution at level
+
+!***single scattering albedo for layer
+
+!      REAL, ALLOCATABLE, SAVE :: OM( : )
+
+!***asymmetry factor
+
+!      REAL, ALLOCATABLE, SAVE :: G( : )
+
+!***arrays for fluxes and irradiances used in
+
+!***delta-Eddington code
+
+!      REAL, ALLOCATABLE, SAVE :: FDIR( : )   ! direct actinic flux
+!      REAL, ALLOCATABLE, SAVE :: FUP ( : )   ! diffuse upward actinic flux
+!      REAL, ALLOCATABLE, SAVE :: FDN ( : )   ! diffuse downward flux
+!      REAL, ALLOCATABLE, SAVE :: EDIR( : )   ! direct irradiance
+!      REAL, ALLOCATABLE, SAVE :: EUP ( : )   ! diffuse upward irradiance
+!      REAL, ALLOCATABLE, SAVE :: EDN ( : )   ! diffuse downward irradiance
+
+!***surface albedo
+
+!     REAL RSFC
+
+!     REAL FX
+!      REAL, ALLOCATABLE, SAVE :: ESUM( : )   ! total downward irradiance
+!      REAL, ALLOCATABLE, SAVE :: FSUM( : )   ! total actinic flux
+
+!***needed for stratospheric Raleigh optical depth
+      REAL, PARAMETER :: R_G = 100.0 * RDGAS / GRAV  ! dry air gas constant
+                                                     ! divided by gravitational
+                                                     ! acceleration [cm/K] NOTE: cgs units
+
+!     REAL HSCALE               ! Scale height [cm] ! NOTE: cgs units
+
+!     REAL NBAR                 ! total number of air molecules [ # /cm**2 ]
+                                ! above top of model domain
+
+!      REAL, SAVE :: COS85
+
+!***FSB Cloud properties.
+!***  FSB These properties are taken fro HU & Stamnes,1993,
+!***  An accurate parameterizationof the radiative properties of
+!***  water clouds suitable for use in climate models, Journal of
+!***  Climate, vol. 6, pp. 728-742. The values in the data statements
+!***  were calculated with an equivalent radius of 10 micrometers.
+!***  Note: Hu &Stamnes give beta in [ 1 / km/ for LWC in [ g / m**3 ]
+!***  the values for beta/ LWC also give beta in [1/m] with LWC in [g/m **3]
+
+      REAL G_CLOUD              ! local cloud asymmetry factor
+      REAL OM_CLOUD             ! local cloud single scattering albedo
+      REAL DTSCAT_CLOUD         ! level increment in cloud scattering optical
+      REAL TAU_SCAT_CLD         ! total scattering optical depth of cloud
+!     REAL LAYERING_FACTOR      ! correction factor for cloud layering
+!     REAL STOZONE
+
+!     real :: dtau_clr, dtau_cld, om_clr, g_clr
+      real :: dtau_cld
+      real :: dtau_clr(nlays), om_clr(nlays), g_clr(nlays)
+      real :: dtau_tot(nlays), om_tot(nlays), g_tot(nlays)
+
+
+!     LOGICAL, SAVE :: FIRST = .TRUE.  ! Flag for first call
+!     LOGICAL       :: SUCCESS
+
+!***arrays for fluxes and irradiances used in
+!      REAL, ALLOCATABLE, SAVE :: SRAYL( : )        ! Molecular scattering cross sections [ cm ** 2]
+!      REAL, ALLOCATABLE, SAVE :: TAU_SCAT( : )     ! aerosol scattering optical depth
+!      REAL, ALLOCATABLE, SAVE :: CONV_WM2( : )     ! conversion factor [photons/(cm**2 s )] to [Watts/m**2]
+
+!***three-dimensional array for Cs and Qy
+!***  (temperature, wavelength, species)
+!***(layer, wavelength species)
+
+!      REAL, ALLOCATABLE, SAVE :: CSZ( :,:,: )
+!      REAL, ALLOCATABLE, SAVE :: QYZ( :,:,: )
+
+         REAL :: TAU_SCAT( NWL )           ! aerosol scattering optical depth
+         REAL :: CSZ( NLAYS,NWL,NPHOTAB )  ! molecular cross section
+         REAL :: QYZ( NLAYS,NWL,NPHOTAB )  ! quantum yield
+
+         real :: actinic_flux(nlays)  ! actinic fluxes, initially [Photons/(cm^2s)] then  [Watts/m^2]
+!        real :: irradiance  (nlays)  ! total downward irradiance [Watts/m^2]
+
+         REAL :: REFLECTION          ! broad band reflection coefficient (diffuse) at model top
+         REAL :: TRANSMISSION        ! broad band transmission coefficient (diffuse) at surface
+         REAL :: TRANS_DIRECT        ! broad band direct transmission coefficient at surface
+         REAL :: DSDH_TD ( NLAYS   ) ! slant path function from top down
+         REAL :: BLKDZ   ( NLAYS   ) ! layer thicknesses [ m ]
+         REAL :: DTAU    ( NLAYS   ) ! total optical depth at level
+!        REAL :: DT_AERO ( NLAYS   ) ! aerosol contribution to optical depth at level
+!        REAL :: DT_CLOUD( NLAYS   ) ! cloud contribution to optical depth at level
+         REAL :: OM      ( NLAYS   ) ! single scattering albedo
+         REAL :: G       ( NLAYS   ) ! asymmetry factor
+         REAL :: FDIR    ( NLAYS+1 ) ! direct actinic flux
+         REAL :: FUP     ( NLAYS+1 ) ! diffuse upward actinic flux
+         REAL :: FDN     ( NLAYS+1 ) ! diffuse downward actinic flux
+         REAL :: EDIR    ( NLAYS+1 ) ! direct irradiance
+         REAL :: EUP     ( NLAYS+1 ) ! diffuse upward irradiance
+         REAL :: EDN     ( NLAYS+1 ) ! diffuse downward irradiance
+!        REAL :: ESUM    ( NLAYS+1 ) ! total downward irradiance
+         REAL :: FSUM    ( NLAYS+1 ) ! total actinic flux
+
+!***FSB Set up conversion factor for
+!***  [photons / ( cm**2 s) ] to [Watts / m**2 ]
+!***  THE 1.0E13 FACTO IS 1.0E9 * 1.0 E4
+!***  The 1.0e9 is for the wavelength [ nm ] -> [ m ]
+!***  The 1.0e4 is for the area [ cm **2 ] -> [ m**2 ]
+!
+!         DO IWL = 1, NWL
+!            CONV_WM2( IWL ) = 1.0E13 * ( PLANCK_C * LIGHT_SPEED ) / WAVELENGTH( IWL )
+!         END DO
+!
+!!***get molecular scattering cross sections
+!
+!         CALL GETSRAY ( NWL, WAVELENGTH, SRAYL )
+
+!***initialize BLKRJ and other layer variables
+
+!     BLKRJ         = 0.0
+!     ACTINIC_FLUX  = 0.0
+!     IRRADIANCE    = 0.0
+!     REFLECTION    = 0.0
+!     TRANSMISSION  = 0.0
+!     TRANS_DIRECT  = 0.0
+!     INSOLATION    = 0.0
+
+!***Initialize sums or set default values for outputs:
+!   TAUC_AERO, TAU_TOT, TAUO3_TOP, TAU_RAY, SSA_AERO, etc.
+
+!      TAUC_AERO = 0.0
+!      TAU_TOT   = 0.0
+!      TAU_CLOUD = 0.0
+!      TAU_SCAT  = 0.0
+!      SSA_AERO  = 0.0
+
+!      TOTAL_TAU_CLD = 0.0
+!#ifdef phot_debug
+!      AVE_SSA_CLD   = 0.0
+!      AVE_ASYMM_CLD = 0.0
+!#endif
+!***Test zenith angle. If coszen is zero or negative, zenith angle is
+!***  equal to or greater than 90 degrees, i.e. before sunrise or
+!***  after sunset at the surface.
+!***  Return  all photolysis rates set to zero. Ignore possible twilight
+!***  processes in upper troposphere.
+
+!***FSB NOTE: tests of the algorithm for slant path show that the
+!***  critical zenith angle for the tropospheric slant path is 88 degrees,
+!***  but the critical zenith angle for the stratospheric slant path is
+!***  85 degrees.  Thus, the code returns zeros for angles greater then or
+!***  equalt to 85 degrees. cos( 85 degrees ) equals 8.715574e-02.
+
+!      IF ( COSZEN .LE. COS85 ) THEN
+!         TAUO3_TOP = 0.0
+!         TAU_RAY   = 0.0
+!         TOTAL_O3_COLUMN   = 0.0
+!         RETURN
+!      END IF
+
+      nlevs = nlays + 1
+
+!      IF ( NEW_PROFILE ) THEN  ! update based on new temperature and density profile
+!***Adjust cross sections and quantum yields for ambient conditions
+
+         CALL GET_CSQY ( nlays, nlays_model, nlays_chem, BLKTA, BLKDENS, CSZ, QYZ )
+
+!***calculate scale height from top of model domain
+
+!        HSCALE = R_G * BLKTA( NLAYS )
+
+!***estimate air density at top of model domain
+
+!         DENSTOM = BLKDENS( NLAYS )
+!     &           * EXP( -100.0 * ( BLKZF( NLAYS + 1 ) - BLKZH( NLAYS ) )
+!     &           / HSCALE )
+
+!***calculate the total number of air molecules [ # / cm**2 ]
+!***  above top of model domain.
+
+!         NBAR = HSCALE * DENSTOM
+
+!***set top of modeling domain
+
+!         ZTOM = BLKZF( NLAYS + 1 )
+
+!***get layer thicknesses and slantpath starting at the TOP
+
+        CALL SLANTPATH2 ( NLAYS, BLKZF, ZSFC, REARTH, SINZEN, BLKDZ, DSDH_TD )
+
+!***get slantpath from ZTOM to ZTOA
+
+!         CALL SLANTPATHTOP ( ZTOM, ZTOA, ZSFC, REARTH, SINZEN, DSDH_TOP )
+
+C*** find ozone column density for atmosphere, stratosphere, and troposphere
+!         TROPO_O3_COLUMN = 0.0
+!         STRAT_O3_COLUMN = DU_TO_CONC * REAL( TOTAL_O3_COLUMN )
+!         STRAT_O3_COLMIN = 0.10 * STRAT_O3_COLUMN
+!         SUCCESS = .TRUE.
+!         DO L = NLAYS, 1, -1
+!            DELTA_O3_COLUMN = 100.0 * BLKO3( L ) * BLKDZ( L )
+!            STRAT_O3_COLUMN = STRAT_O3_COLUMN - DELTA_O3_COLUMN
+!            TROPO_O3_COLUMN = TROPO_O3_COLUMN + DELTA_O3_COLUMN
+!            IF ( STRAT_O3_COLUMN .LT. STRAT_O3_COLMIN  .AND. SUCCESS ) THEN
+!               WRITE( NEW_OPTICS_LOG,'( A, I3, A, F8.3, A , 2(I4,1X) )' )
+!     &         'ERROR: Tropospheric O3 column greater than 90% Stratospheric O3 Column'
+!     &         // ' Below layer: ', L, ' Alt = ',0.001*BLKZF( L ), ' Km  at col,row = ',
+!     &         PHOT_COL, PHOT_ROW
+!               SUCCESS = .FALSE.
+!            END IF
+!         END DO
+
+!         IF ( .NOT. SUCCESS ) THEN
+!            WRITE( NEW_OPTICS_LOG, 99999)
+!            PHOT_MOD_MSG = 'ERROR: predicted O3 tropospheric Column EXCEEDS VALUE based on OMI.DAT'
+!     &                  // 'Read the above dianostic information.'
+!            CALL M3EXIT( 'NEW_OPTICS', JDATE, JTIME, PHOT_MOD_MSG, XSTAT1 )
+!         END IF
+!99999    FORMAT( 'ERROR: predicted O3 tropospheric Column EXCEEDS VALUE based on OMI Data'
+!     &         / 'Potential causes include boundary condition and meteorological input files. '
+!     &         / 'Check the former for unrealistic concentrations of ozone and its precursors.'
+!     &         / 'Check the latter for unrealistic advection and diffusion parameters.')
+!
+!         STRAT_O3_COLUMN = CONC_TO_DU * STRAT_O3_COLUMN
+!        TOTAL_O3_COLUMN = REAL( STRAT_O3_COLUMN + CONC_TO_DU * TROPO_O3_COLUMN, 4 )
+!        TOTAL_O3_COLUMN = CONC_TO_DU * TROPO_O3_COLUMN
+
+!***stratosphere is assumed to exist above the model domain
+!***  top layer. THe assumption here is that this layer is at about 100
+!***  [mb] or 10 [kPa]
+!        IF ( STRAT_O3_COLUMN .LE. STRAT_O3_COLMIN ) THEN
+! 25% is arbitary and could be refined based on mean ozone profiles
+!           TOTAL_O3_COLUMN = CONC_TO_DU * STRAT_O3_COLMIN
+!           PHOT_MOD_MSG = 'ERROR: CMAQ O3 COLUMN EXCEEDS VALUE IN OMI.DAT'
+!           CALL M3WARN( 'NEW_OPTICS', JDATE, JTIME, PHOT_MOD_MSG )
+!           WRITE(NEW_OPTICS_LOG,99988)
+!           WRITE(NEW_OPTICS_LOG,99989)PHOT_ROW, PHOT_COL
+!        ELSE
+!           TOTAL_O3_COLUMN = CONC_TO_DU * STRAT_O3_COLUMN
+!        END IF
+
+!         DO IWL = 1, NWL
+!***Get optical depth for stratospheric ozone column
+!***Note that stratosphere ozone coluumn assumed to exist above model domain
+!***at about 100 [mb] or 10 [kPa]
+!            CALL GET_TAUO3 ( IWL, STRAT_O3_COLUMN, STRAT_TEMP, TAUO3_TOP( IWL ) )
+!***get Rayleigh optical depth for stratosphere
+!            TAU_RAY( IWL ) = NBAR * SRAYL( IWL )
+!         END DO
+!      END IF ! for NEW_PROFILE
+
+!***loop over wavelengths
+
+! find cloud bands
+
+      incld = .false.
+      nbnds = 0
+
+      do k = nlays_model, 1, -1
+         if (cldfrc(k) > 0.01) then
+            if (.not. incld) then
+               nbnds = nbnds + 1
+               ctop(nbnds) = k
+               incld = .true.
+            endif
+         else
+            if (incld) then
+               incld = .false.
+               cbot(nbnds) = k + 1
+            endif
+         endif
+      enddo
+      if (incld) cbot(nbnds) = 1
+
+      if (nbnds > 3) then
+         do while(nbnds > 3)
+            k = minloc(cbot(1:nbnds-1) - ctop(2:nbnds), dim=1)
+            ctop(k+1:nbnds-1) = ctop(k+2:nbnds)
+            cbot(k:nbnds-1) = cbot(k+1:nbnds)
+            nbnds = nbnds - 1
+         enddo
+      endif
+
+      do n = 1, nbnds
+         bfrac(n,1) = maxval( cldfrc(cbot(n):ctop(n)) )
+         if (bfrac(n,1) < 0.02) bfrac(n,1) = 0.0
+         if (bfrac(n,1) > 0.98) bfrac(n,1) = 1.0
+         bfrac(n,2) = 1.0 - bfrac(n,1)
+      enddo
+
+      DO IWL = 1, NWL           ! outermost loop
+
+!        RSFC       = ALB( IWL )        ! surface albedo
+
+!***set scaling factor for reducing extraterrestrial flux
+!***  add ozone and Rayleigh optical depths. Use the
+!***  pseudospherical correction for the stratosphere.
+
+         SOLAR_FLUX = FEXT( IWL ) * RSQDI
+
+!*** initialize tau, delta tau's, other variables and loop over layers
+
+         DTAU         = 0.0
+!        DT_AERO      = 0.0
+!        DT_CLOUD     = 0.0
+         DTSCAT_CLOUD = 0.0
+         TAU_SCAT_CLD = 0.0
+
+         ! Compute clear-sky only optical properties
+
+!***The contributions to scattering and absorption from molecules and particles
+!***  are calculated separately to facilitate the calculation
+!***  of the total single scatering albedo of the column of aerosols
+!***  as measured by satellites.
+
+         DO II = 1, NLAYS
+
+!***in the following statements the factor of 100.0 converts
+!***  converts [ 1 / cm ] to [ 1 / m ]
+
+            BETA_M = SRAYL( IWL )         * BLKDENS( II ) * 100.0
+            AO3    = CSZ( II,IWL,LO3O3P ) * BLKO3  ( II ) * 100.0
+            ANO2   = CSZ( II,IWL,LNO2   ) * BLKNO2 ( II ) * 100.0
+
+            DTSCAT_M(II) = MAX(   BETA_M       * BLKDZ( II ), SMALL) ! molecular scattering
+            DTABS_M (II) = MAX( ( AO3 + ANO2 ) * BLKDZ( II ), SMALL) ! molecular absorption
+
+         ENDDO
+
+
+         if (nl%aerosol_optics_photol < 1) then
+
+            DO II = 1, NLAYS
+               DTAU_CLR(II) = DTSCAT_M(II) + DTABS_M(II)
+               OM_CLR  (II) = DTSCAT_M(II) / DTAU_CLR(II)
+               G_CLR   (II) = 0.0
+            ENDDO
+
+         else
+
+            DO II = 1, NLAYS
+               G_BAR = AERO_ASYM_FAC ( II,IWL )
+               BEXT  = AERO_EXTI_COEF( II,IWL )
+               BSCAT = AERO_SCAT_COEF( II,IWL )
+
+               DTSCAT_A =   BSCAT          * BLKDZ( II ) ! particle scattering
+               DTABS_A  = ( BEXT - BSCAT ) * BLKDZ( II ) ! particle absorption
+
+               DTSCAT = DTSCAT_M(II) + DTSCAT_A
+               DTABS  = DTABS_M (II) + DTABS_A
+
+               DTAU_CLR(II) = DTSCAT + DTABS
+               OM_CLR  (II) = DTSCAT / DTAU_CLR(II)
+               G_CLR   (II) = G_BAR * DTSCAT_A / DTSCAT
+            ENDDO
+
+         endif
+
+         ! Compute total sky properties within cloud bands
+
+         dtau_tot = 0.0
+
+         if (nbnds > 0) then
+            do n = 1, nbnds
+               do ii = cbot(n), ctop(n)
+                  dtau_cld = max( tauclds(iwl,ii) * cldfrc(ii) / bfrac(n,1), 0.0 )
+
+                  if (cldfrc(ii) > 0.01) then
+                     dtau_tot(ii) = dtau_clr(ii) + dtau_cld
+                     om_tot  (ii) = om_clr(ii) * dtau_clr(ii) + ssaclds(iwl,ii)
+                     g_tot   (ii) = ( g_clr(ii) * om_clr(ii) * dtau_clr(ii)
+     &                              + asmclds(iwl,ii) ) / om_tot(ii)
+                     om_tot  (ii) = om_tot(ii) / dtau_tot(ii)
+                  else
+                     dtau_tot(ii) = dtau_clr(ii)
+                     om_tot  (ii) = om_clr  (ii)
+                     g_tot   (ii) = g_clr   (ii)
+                  endif
+
+               enddo
+            enddo
+         endif
+
+         fsum(1:nlevs) = 0.0
+!        esum(1:nlevs) = 0.0
+         probsum       = 0.0
+         nb(1:3)       = 0
+
+         ! first set optical properties of column to the clear sky values
+         do l = 1, nlays
+            ii = nlays + 1 - l
+            dtau(ii) = dtau_clr(l)
+            om  (ii) = om_clr  (l)
+            g   (ii) = g_clr   (l)
+         enddo
+
+         cldloop: do jj = 1, 2**nbnds
+
+            prob = 1.0
+
+            ! now loop over all cloud overlap possibilities and copy
+            ! the appropriate cloud band
+
+            if (nbnds > 0) then
+               do n = 1, nbnds
+
+                  if (mod((jj + 2**(n-1)-1) / 2**(n-1), 2) == 1 ) then
+
+                     ! compute probability; skip small likelyhoods
+                     prob = prob * bfrac(n,2)
+                     if (prob < 0.003) cycle cldloop
+
+                     ! layer is clear
+                     if (nb(n) /= 0) then
+                        do l = cbot(n), ctop(n)
+                           ii = nlays + 1 - l
+                           dtau(ii) = dtau_clr(l)
+                           om  (ii) = om_clr  (l)
+                           g   (ii) = g_clr   (l)
+                        enddo
+                        nb(n) = 0
+                     endif
+
+                  else
+
+                     ! compute probability; skip small likelyhoods
+                     prob = prob * bfrac(n,1)
+                     if (prob < 0.003) cycle cldloop
+
+                     ! layer is cloudy
+                     if (nb(n) /= 1) then
+                        do l = cbot(n), ctop(n)
+                           ii = nlays + 1 - l
+                           dtau(ii) = dtau_tot(l)
+                           om  (ii) = om_tot  (l)
+                           g   (ii) = g_tot   (l)
+                        enddo
+                        nb(n) = 1
+                     endif
+
+                  endif
+
+               enddo
+            endif
+
+            probsum = probsum + prob
+
+!            IF ( CLOUDS( II ) ) THEN
+!
+!               DT_CLOUD( L ) = ( CLOUD_LIQUID_EXT( II,IWL )
+!     &                       +   CLOUD_ICE_EXT( II,IWL )
+!     &                       +   CLOUD_AGGREG_EXT( II,IWL ) ) * BLKDZ( II )
+!               DTSCAT_CLOUD  = ( CLOUD_LIQUID_SCAT( II,IWL )
+!     &                       +   CLOUD_ICE_SCAT( II,IWL )
+!     &                       +   CLOUD_AGGREG_SCAT( II,IWL ) ) * BLKDZ( II )
+
+!Adjust DT_CLOUD for cloud fraction by 1/2 power of CLDFRC to approximate cloud overlap.
+!Note that the power results because the resolved cloud conentrations are averaged over
+!the grid cell so the net overlap correction equal cfrac**(3/2) from Briegleb (1992) times
+!cfrac**(-1) for actual in-cloud concentrations (see Voulgarakis et al., 2009, Geosci Model
+!Dev., vol. 2, pp. 59-72.
+
+!               IF ( CLOUD_LAYERING( II ) ) THEN
+!                  LAYERING_FACTOR = SQRT( CLDFRC( II ) )
+!               ELSE
+!                  LAYERING_FACTOR = CLDFRC( II )
+!               END IF
+!               DT_CLOUD( L ) = DT_CLOUD( L ) * LAYERING_FACTOR
+!               DTSCAT_CLOUD  = DTSCAT_CLOUD  * LAYERING_FACTOR
+!
+!               TAU_SCAT_CLD = TAU_SCAT_CLD + DTSCAT_CLOUD
+!
+!               IF ( DT_CLOUD( L ) .GT. 1.0E-6 ) THEN
+!                  OM_CLOUD = MAX( DTSCAT_CLOUD /DT_CLOUD( L ), 1.0)
+!                  IF ( OM_CLOUD .LT. 0.0 .OR. OM_CLOUD .GT. 1.0 .OR. OM_CLOUD .NE. OM_CLOUD) THEN
+!                     WRITE( NEW_OPTICS_LOG,'(A,I3,A,ES12.4,A)',ADVANCE = 'NO')
+!     &               'OM_CLOUD( L = ', L, ' ) = ', OM_CLOUD,' resetting to '
+!                     OM_CLOUD = MAX( 0.000001, MIN( OM_CLOUD, 0.99999))
+!                     WRITE( NEW_OPTICS_LOG,'(ES12.4)')OM_CLOUD
+!                     WRITE( NEW_OPTICS_LOG,'(A,2(ES12.4,1X))')'LIQUID_EXT, LIQUID_SCAT = ',
+!     &               CLOUD_LIQUID_EXT( II,IWL ), CLOUD_LIQUID_SCAT( II,IWL )
+!                     WRITE( NEW_OPTICS_LOG,'(A,2(ES12.4,1X))')'ICE_EXT, ICE_SCAT = ',
+!     &               CLOUD_ICE_EXT( II,IWL ), CLOUD_ICE_SCAT( II,IWL )
+!                     WRITE( NEW_OPTICS_LOG,'(A,2(ES12.4,1X))')'AGGREG_EXT, AGGREG_SCAT = ',
+!     &               CLOUD_AGGREG_EXT( II,IWL ), CLOUD_AGGREG_SCAT( II,IWL )
+!                     CALL M3EXIT( 'NEW_OPTICS', JDATE, JTIME, ' ', XSTAT1 )
+!                  END IF
+!               ELSE
+!                  OM_CLOUD = 1.0
+!               END IF
+!
+!               IF ( DTSCAT_CLOUD .GT. 1.0E-6 ) THEN
+!
+!                  G_CLOUD = ( (CLOUD_LIQUID_ASY( II,IWL ) * CLOUD_LIQUID_SCAT( II,IWL ))
+!     &                    +   (CLOUD_ICE_ASY( II,IWL )    * CLOUD_ICE_SCAT( II,IWL ))
+!     &                    +   (CLOUD_AGGREG_ASY( II,IWL ) * CLOUD_AGGREG_SCAT( II,IWL )) )
+!     &                    *   BLKDZ( II ) * LAYERING_FACTOR
+
+!#ifdef phot_debug
+!                  IF ( .NOT. ONLY_SOLVE_RAD ) THEN
+!                     AVE_ASYMM_CLD( IWL ) = AVE_ASYMM_CLD( IWL ) + G_CLOUD
+!                     IF ( AVE_ASYMM_CLD( IWL ) .GT. TAU_SCAT_CLD ) THEN
+!                        WRITE( NEW_OPTICS_LOG,'(A,I3,2(A,ES12.4))' )
+!     &                  'Sum for AVE_ASYMM_CLD at L (', L,') = ', AVE_ASYMM_CLD( IWL ),
+!     &                  ' Sum for TAU_SCAT_CLD = ',TAU_SCAT_CLD
+!                        WRITE( NEW_OPTICS_LOG,'(A,2(ES12.4,1X))' )
+!     &                  'AVE_ASYMM_CLD Increment = ', G_CLOUD
+!                        WRITE( NEW_OPTICS_LOG,'(A,2(ES12.4,1X))' )
+!     &                  'TAU_SCAT_CLD Increment = ', DTSCAT_CLOUD
+!                     END IF
+!                  END IF
+!#endif
+
+!                  G_CLOUD  = G_CLOUD / DTSCAT_CLOUD
+!
+!                  IF ( G_CLOUD .GE. 1.0 .OR. G_CLOUD .LE. -1.0 .OR. G_CLOUD .NE. G_CLOUD ) THEN
+!                     WRITE( NEW_OPTICS_LOG,'(A,I3,A,ES12.4,A)',ADVANCE = 'NO' )
+!     &                  'G_CLOUD( L = ', L, ' ) = ', G_CLOUD,' resetting to '
+!                        G_CLOUD = MIN( 0.9999, MAX( G_CLOUD, -0.9999) )
+!                     WRITE( NEW_OPTICS_LOG,'(ES12.4)') G_CLOUD
+!                     WRITE( NEW_OPTICS_LOG,'(A,2(ES12.4,1X))' )
+!     &                  'LIQUID_ASY, LIQUID_SCAT = ',
+!     &                  CLOUD_LIQUID_ASY( II,IWL ), CLOUD_LIQUID_SCAT( II,IWL )
+!                     WRITE( NEW_OPTICS_LOG,'(A,2(ES12.4,1X))' )
+!     &                  'ICE_ASY, ICE_SCAT = ',
+!     &                  CLOUD_ICE_ASY( II,IWL ), CLOUD_ICE_SCAT( II,IWL )
+!                     WRITE( NEW_OPTICS_LOG,'(A,2(ES12.4,1X))' )
+!     &                  'AGGREG_ASY, AGGREG_SCAT = ',
+!     &                  CLOUD_AGGREG_ASY( II,IWL ), CLOUD_AGGREG_SCAT( II,IWL )
+!                     CALL M3EXIT( 'NEW_OPTICS', JDATE, JTIME, ' ', XSTAT1 )
+!                  END IF
+!               ELSE
+!                  G_CLOUD = 0.0
+!               END IF
+!            ELSE
+!               DTSCAT_CLOUD = 0.0
+!               G_CLOUD      = 0.0
+!               OM_CLOUD     = 1.0
+!            END IF
+
+!***calculate total absorption and scattering contributions
+!***to optical depth
+
+!            DTSCAT = DTSCAT_M + DTSCAT_A !+ DTSCAT_CLOUD
+!            DTABS  = DTABS_M  + DTABS_A  !+ MAX(( 1.0 - OM_CLOUD ), 0.0) * DT_CLOUD( L )
+
+!***set aerosol optical depth for later use
+
+!           DT_AERO ( L ) = BEXT * BLKDZ( II )
+
+!***Now calculate the vertical profiles of optical depth,
+!***  single scattering albedo, asymmetry factor
+!***  and DSDH starting at the top.
+
+!!            DTAU( L ) = DTSCAT + DTABS
+!!            OM  ( L ) = DTSCAT / ( DTSCAT + DTABS )
+!!!           G   ( L ) = ( G_BAR * DTSCAT_A + G_CLOUD * DTSCAT_CLOUD ) / DTSCAT
+!!            G   ( L ) = ( G_BAR * DTSCAT_A ) / DTSCAT
+
+!
+!            ! combine clear sky and cloud properties
+!            if (cldfrc(ii) > 0.01) then
+!
+!!              dtau_cld = sqrt( cldfrc(ii) ) * tauclds(iwl,ii)
+!               dtau_cld = cldfrc(ii) * tauclds(iwl,ii)
+!
+!               dtau(l) = dtau_clr + dtau_cld
+!               om  (l) = om_clr * dtau_clr + ssaclds(iwl,ii) * dtau_cld
+!               g   (l) = ( g_clr * om_clr * dtau_clr
+!     &                 + asmclds(iwl,ii) * ssaclds(iwl,ii) * dtau_cld ) / om(l)
+!               om  (l) = om(l) / dtau(l)
+!
+!            else
+!
+!               dtau_cld = 0.0
+!
+!               dtau(l) = dtau_clr
+!               om  (l) = om_clr
+!               g   (l) = g_clr
+!
+!            endif
+
+!            IF ( G( L ) .GE. 1.0 .OR. G( L ) .LE. -1.0 .OR. G( L ) .NE. G( L ) ) THEN
+!               WRITE( NEW_OPTICS_LOG,'(A,ES12.4,A)',ADVANCE = 'NO' )
+!     &         'G( L ) = ', G( L ),' resetting to '
+!               G( L ) = MIN( 0.9999, MAX( G( L ), -0.9999) )
+!               WRITE( NEW_OPTICS_LOG,'(ES12.4)')G( L )
+!               WRITE( NEW_OPTICS_LOG,'(A,10(1X,ES12.4))' )
+!     &         'DTSCAT_M, DTSCAT_A, DTSCAT_CLOUD, G_BAR, G_CLOUD = ',
+!     &          DTSCAT_M, DTSCAT_A, DTSCAT_CLOUD, G_BAR, G_CLOUD
+!            END IF
+!
+!            IF ( OM( L ) .GT. 1.0 .OR. OM( L ) .LE. 0.0 .OR. OM( L ) .NE. OM( L ) ) THEN
+!               WRITE( NEW_OPTICS_LOG,'(A,ES12.4,A)',ADVANCE = 'NO' )
+!     &         'OM( L ) = ', OM( L ),' resetting to '
+!               OM( L ) = MIN( 0.9999, MAX( OM( L ), 0.0001) )
+!#ifdef phot_debug
+!               WRITE( NEW_OPTICS_LOG,'(ES12.4)' ) OM( L )
+!               WRITE( NEW_OPTICS_LOG,'(A,4(1X,ES12.4))' )
+!     &         'DTSCAT, DTABS, ( DTSCAT + DTABS) = ',
+!     &         DTSCAT, DTABS, ( DTSCAT + DTABS )
+!               WRITE( NEW_OPTICS_LOG,'(A,4(1X,ES12.4))' )
+!     &         'DTSCAT_M, DTSCAT_A, DTSCAT_CLOUD = ',
+!     &         DTSCAT_M, DTSCAT_A, DTSCAT_CLOUD
+!               WRITE( NEW_OPTICS_LOG,'(A,4(1X,ES12.4))' )
+!     &         'DDTABS_M, DTABS_A, MAX(( 1.0-OM_CLOUD ), 0.0) * DT_CLOUD( L ) = ',
+!     &         DTABS_M, DTABS_A, MAX(( 1.0 - OM_CLOUD ), 0.0) * DT_CLOUD( L )
+!               WRITE( NEW_OPTICS_LOG,'(A,4(1X,ES12.4))' )
+!     &         ' AO3, ANO2,AERO_BEXT, AERO_BSCAT = ',
+!     &         AO3, ANO2,BEXT, BSCAT
+!#endif
+!            ELSE
+!#ifdef phot_debug
+!               IF ( OM( L ) .EQ. 1.0 ) THEN
+!                  WRITE( NEW_OPTICS_LOG,'(A,4(1X,ES12.4))' )
+!     &            'DTSCAT, DTABS, ( DTSCAT + DTABS ) = ',
+!     &             DTSCAT, DTABS, (DTSCAT + DTABS)
+!                  WRITE( NEW_OPTICS_LOG,'(A,4(1X,ES12.4))' )
+!     &            'DTSCAT_M, DTSCAT_A, DTSCAT_CLOUD = ',
+!     &             DTSCAT_M, DTSCAT_A, DTSCAT_CLOUD
+!                  WRITE( NEW_OPTICS_LOG,'(A,4(1X,ES12.4))' )
+!     &            'DDTABS_M, DTABS_A, MAX(( 1.0-OM_CLOUD ), 0.0) * DT_CLOUD( L ) = ',
+!     &            DTABS_M, DTABS_A, MAX(( 1.0 - OM_CLOUD ), 0.0 ) * DT_CLOUD( L)
+!                  WRITE( NEW_OPTICS_LOG,'(A,4(1X,ES12.4))' )
+!     &            'AO3, ANO2,AERO_BEXT, AERO_BSCAT = ',
+!     &            AO3, ANO2,BEXT, BSCAT
+!               END IF
+!#endif
+!               OM( L ) = MIN( 0.9999,  OM( L ) )
+!            END IF
+
+!            DSDH_TD( L ) = DSDH( L - 1 )
+
+!           IF ( ONLY_SOLVE_RAD ) CYCLE
+!***FSB get sums of unscaled optical depths
+
+!            TAU_SCAT( IWL ) = TAU_SCAT ( IWL ) + DTSCAT_A
+!
+!!***initialize optical depth profiles to the layer increment
+!
+!            TAUC_AERO( II,IWL ) = DT_AERO( L )  ! aerosol optical depth
+!            TAU_TOT  ( II,IWL ) = DTAU( L )     ! total optical depth
+!            TAU_CLOUD( II,IWL ) = DT_CLOUD( L ) ! cloud optical depth
+!
+!         END DO                 ! loop over layers
+
+!***set values for the stratosphere
+
+!         OM     ( 1 ) = TAU_RAY( IWL ) / ( TAU_RAY( IWL ) + TAUO3_TOP( IWL ) )
+!         G      ( 1 ) = 0.05
+!         DTAU   ( 1 ) = TAUO3_TOP( IWL ) + TAU_RAY( IWL )
+!         DSDH_TD( 1 ) = DSDH_TOP
+
+!        NLEVEL = NLAYS + 1
+
+!         IF ( .NOT. ONLY_SOLVE_RAD ) THEN
+!!***calculate optical depth profiles
+!            TAU_TOT  ( NLAYS,IWL ) = TAU_TOT  ( NLAYS,IWL ) + DTAU( 1 )
+!            TAUC_AERO( NLAYS,IWL ) = TAUC_AERO( NLAYS,IWL ) + DT_AERO( 1 )
+!            TAU_CLOUD( NLAYS,IWL ) = TAU_CLOUD( NLAYS,IWL ) + DT_CLOUD( 1 )
+!
+!            DO L =  NLAYS-1, 1, -1
+!               TAU_TOT  ( L,IWL ) = TAU_TOT  ( L,IWL ) + TAU_TOT  ( L+1,IWL )
+!               TAUC_AERO( L,IWL ) = TAUC_AERO( L,IWL ) + TAUC_AERO( L+1,IWL )
+!               TAU_CLOUD( L,IWL ) = TAU_CLOUD( L,IWL ) + TAU_CLOUD( L+1,IWL )
+!            END DO
+!         END IF
+
+!***Set fluxes to zero
+!         FDIR = 0.0
+!         FUP  = 0.0
+!         FDN  = 0.0
+!         EDIR = 0.0
+!         EUP  = 0.0
+!         EDN  = 0.0
+
+!***calculate fluxes and irradiances
+
+         CALL TWOSTREAM_S ( NLAYS, NLEVS, COSZEN, ALB(:,iwl), DTAU, OM, G, DSDH_TD,
+     &                      FDIR, FUP, FDN, EDIR, EUP, EDN, frac_sfck(:,iw), lsw(iw), iw, iwl )
+
+         DO L = 1, NLEVS
+            II = NLEVS + 1 - L
+            FSUM( L ) = fsum(l) + prob * (FDIR( II ) + FDN( II ) + FUP( II )) ! actinic flux
+!           ESUM( L ) = esum(l) + prob * (EDIR( II ) + EDN( II ))             ! downward irradiance
+         END DO
+
+      enddo cldloop
+
+      if (probsum < onem) then
+         do l = 1, nlevs
+            fsum(l) = fsum(l) / probsum
+!           esum(l) = esum(l) / probsum
+         enddo
+      endif
+
+! add diffusion and direct components for calculating reflectivity and transmissivity
+!         INSOLATION    = INSOLATION    + SOLAR_FLUX
+!         REFLECTION    = REFLECTION    + SOLAR_FLUX * EUP( 1 )
+!         TRANSMISSION  = TRANSMISSION  + SOLAR_FLUX * EDN( NLAYS )
+!         TRANS_DIRECT  = TRANS_DIRECT  + SOLAR_FLUX * EDIR( NLAYS )
+
+!         IF ( ONLY_SOLVE_RAD ) CYCLE
+
+!***FSB Calculate column averaged scattering albedo and asymmetry factor
+
+!         IF ( TAUC_AERO( 1,IWL ) .GT. 1.0E-30 ) THEN
+!            SSA_AERO( IWL ) = TAU_SCAT( IWL ) / TAUC_AERO( 1,IWL )
+!         END IF
+
+!         TOTAL_TAU_CLD( IWL ) = TAU_CLOUD( 1,IWL )
+!
+!#ifdef phot_debug
+!         IF ( TAU_CLOUD( 1,IWL ) .GT. 1.0E-20 ) THEN
+!            IF ( AVE_ASYMM_CLD( IWL ) .GT. TAU_SCAT_CLD ) THEN
+!               WRITE( NEW_OPTICS_LOG,'(A,I3,2(A,ES12.4))' )
+!     &         'Sum for AVE_ASYMM_CLD at L(', 1,') = ', AVE_ASYMM_CLD( IWL ),
+!     &         'Sum for TAU_SCAT_CLD = ',TAU_SCAT_CLD
+!               WRITE( NEW_OPTICS_LOG,'(A,2(ES12.4,1X))' )
+!     &         'AVE_ASYMM_CLD Increment = ', G_CLOUD
+!               WRITE( NEW_OPTICS_LOG,'(A,2(ES12.4,1X))' )
+!     &         'TAU_SCAT_CLD Increment = ',
+!     &         DTSCAT_CLOUD
+!            END IF
+!            IF ( TAU_SCAT_CLD .GT. 1.0E-20 ) THEN
+!               AVE_ASYMM_CLD( IWL ) = AVE_ASYMM_CLD( IWL ) / TAU_SCAT_CLD
+!               AVE_SSA_CLD  ( IWL ) = TAU_SCAT_CLD / TAU_CLOUD( 1,IWL )
+!            ELSE
+!               AVE_ASYMM_CLD( IWL ) = 0.0
+!               AVE_SSA_CLD  ( IWL ) = 0.0
+!            END IF
+!            IF ( ABS( AVE_ASYMM_CLD( IWL ) ) .GE.  1.0 ) THEN
+!               WRITE( NEW_OPTICS_LOG,'(A,I3,2(A,ES12.4))' )
+!     &         'Sum for AVE_ASYMM_CLD at L(', 1,') = ', AVE_ASYMM_CLD( IWL )*TAU_SCAT_CLD,
+!     &         'Sum for TAU_SCAT_CLD = ',TAU_SCAT_CLD
+!               WRITE( NEW_OPTICS_LOG,'(A,2(ES12.4,1X))' )
+!     &         'AVE_ASYMM_CLD Increment = ', G_CLOUD
+!               WRITE( NEW_OPTICS_LOG,'(A,2(ES12.4,1X))' )
+!     &         'TAU_SCAT_CLD Increment = ', DTSCAT_CLOUD
+!            END IF
+!         ELSE
+!            TOTAL_TAU_CLD( IWL ) = 0.0
+!            AVE_SSA_CLD  ( IWL ) = 0.0
+!            AVE_ASYMM_CLD( IWL ) = 0.0
+!         END IF
+!#endif
+
+!***FSB capture the total downward irradiance at the surface [ W / m**2]
+!
+!        ETOT_SFC( IWL ) = CONV_WM2( IWL ) * FLXSCALE * FEXT( IWL )
+!     &                  * ESUM( 1 )
+
+!***multiply by the solar flux at the domain top for
+!***actinic flux and irradiance; keeping actinic flux in photons/(cm^2*s)
+         do l = 1, nlays_model
+            ACTINIC_FLUX( L ) = SOLAR_FLUX * FSUM( L )
+!           IRRADIANCE  ( L ) = SOLAR_FLUX * ESUM( L ) * CONV_WM2( IWL )
+         end do
+!     END DO    ! loop over wavelengths
+
+! normalize reflection and transmission coefficients
+!      INSOLATION   = 1.0 / ( COSZEN * INSOLATION )
+!      TRANS_DIRECT = TRANS_DIRECT * INSOLATION
+!      REFLECTION   = ONE_OVER_PI * REFLECTION * INSOLATION
+!      TRANSMISSION = ONE_OVER_PI * TRANSMISSION * INSOLATION
+
+!      IF ( ONLY_SOLVE_RAD ) RETURN
+
+! compute photolysis rates
+          DO IPHOT = 1, NPHOTAB
+            DO L = 1, NLAYS_CHEM
+               BLKRJ( L,IPHOT ) = BLKRJ( L,IPHOT )
+     &                          + ACTINIC_FLUX( L )
+     &                          * CSZ( L,IWL,IPHOT ) * QYZ( L,IWL,IPHOT ) ! [ 1 / sec ]
+            END DO
+         END DO
+
+         ! save surface actinic flux, convert to watts/m^2
+         actinic_flux_sfc(iwl,iw) = actinic_flux(1) * conv_wm2( iwl )
+
+      END DO
+
+! convert actinic flux to watts/m^2
+!      do iwl = 1, nwl
+!         do l = 1, nlays_model
+!            ACTINIC_FLUX( L,IWL ) = ACTINIC_FLUX( L,IWL ) * CONV_WM2( IWL )
+!         enddo
+!      enddo
+
+!***compute rate of photolysis (j-values) for each reaction
+
+!9503  FORMAT('LAYER = ',I3,' MODE = ',I3,' LAMBDA(nm)  = ',ES12.4,' DGN_CORE(m) = ',ES12.4,
+!     &       ' DGN_SHELL(m) = ', ES12.4 / ' REFRACT_IDX_SHELL(NR,NI) = ', 2(ES12.4,1X),
+!     &       ' REFRACT_IDX_CORE(NR,NI) = ', 2(ES12.4,1X) / ' LN(GEO.STD.DEV.) = ',
+!     &       ES12.4)
+!9504  FORMAT('LAYER = ',I3,' MODE = ',I3,' LAMBDA(nm)  = ',ES12.4,' DGN(m) = ',ES12.4,
+!     &       ' REFRACT_IDX(NR,NI) = ', 2(ES12.4,1X) / ' VOL.DENS. = ', ES12.4,
+!     &       ' LN(GEO.STD.DEV.) = ', ES12.4)
+
+!99985 FORMAT('ERROR: Modeled Troposheric Ozone Column downward from layer ',I3,1X)
+!99986 FORMAT('exceeds Top Ozone Column based on OMI.data file. Negative Optical Depths ')
+!99987 FORMAT('but are physically unlikey.')
+!99988 FORMAT(' SETTING O3 Column ABOVE PTOP TO 25% of OMI.dat value  ')
+!99989 FORMAT(' FOR ROW/COL = ',2(1X,I4))
+
+      END SUBROUTINE NEW_OPTICS
+
+C///////////////////////////////////////////////////////////////////////
+
+      SUBROUTINE GETSRAY ( NWL, LAMDA, SRAYL )
+C-----------------------------------------------------------------------
+C  calculate molecular (Rayleigh) scattering cross section, srayl
+C
+C  coded 09/08/2004 by Dr. Francis S. Binkowski
+C     Carolina Environmental Program
+C     University of North Carolina at Chapel Hill
+C     email: frank_binkowski@unc.edu
+C
+C  Reference:
+C     Nicolet, M., On the molecular scattering in the terrestrial
+C     atmosphere: An empirical formula for its calculation in the
+C     homoshpere, Planetary and Space Science. Vol. 32,No. 11,
+C     Pages 1467-1468, November 1984.
+C-----------------------------------------------------------------------
+
+      IMPLICIT NONE
+
+!***arguments
+
+      INTEGER, INTENT( IN )  :: NWL           ! number of wavelength bins
+      REAL,    INTENT( IN )  :: LAMDA( nwl )  ! wavelengths  [nm]
+      REAL,    INTENT( OUT ) :: SRAYL( nwl )  ! molecular scattering cross sections [cm**2]
+
+!***Internal variables
+
+      INTEGER I
+      REAL    WMICRN               ! wavelenght in micrometers
+      REAL    WMICRN1              ! 1 / wmicrn
+      REAL    XX                   ! variable in Nicolet method
+
+!***get molecular scattering cross section. This is a fixed
+!***  function of wavelength.
+
+      DO I = 1, NWL
+         WMICRN = 1.0E-3 * LAMDA( I ) ! wavelength in micrometers
+         WMICRN1 = 1.0 / WMICRN
+
+         IF ( WMICRN .LE. 0.55 ) THEN
+            XX = 3.6772 + 0.389 * WMICRN + 0.09426 * WMICRN1
+         ELSE
+            XX = 4.04
+         END IF
+
+         SRAYL( I ) = 4.02E-28 * WMICRN1**XX    ! in [cm**2]
+
+      END DO
+
+      RETURN
+      END SUBROUTINE GETSRAY
+
+
+!      SUBROUTINE GET_TAUO3 ( IWL, STOZONE, STRAT_TEMP, TAU_O3 )
+!C-----------------------------------------------------------------------
+!C  subroutine to calculate the optical depth of ozone in the
+!C     stratosphere
+!C
+!C  special cross sections for calculating stratospheric ozone
+!C     optical depth
+!C
+!C  the following temperatures and cross sections are from
+!C     Fast-J
+!C     REFERENCE:
+!C     Wild, O., X. Zhu, and M.J. Prather, Fast-J: Accurate simulation
+!C     of in- and below-clolud photolysis in tropospheric chemical
+!C     models,
+!C     Journal of Atmospheric Chemistry, Vol. 37, pp 245-282, 2000
+!C
+!C  coded 10/20/2004 by Dr. Francis S. Binkowski
+!C     Carolina Environmental Program
+!C     University of North Carolina at Chapel Hill
+!C     email: frank_binkowski@unc.edu
+!C     Updated to Fast-JX version 5.0
+!C  Mar 2011 Bill Hutzell
+!C     revised interpolation method for a general number of
+!C     interpolation points
+!C
+!C-----------------------------------------------------------------------
+!
+!      IMPLICIT NONE
+!
+!!***arguments
+!
+!      INTEGER, INTENT( IN )  :: IWL         ! wavelenth index
+!
+!      REAL,    INTENT( IN )  :: STOZONE     ! ozone column amount [ DU ]
+!      REAL,    INTENT( IN )  :: STRAT_TEMP  ! average temperature for stratosphere [ K ]
+!      REAL,    INTENT( OUT ) :: TAU_O3      ! optical depth for statosphere
+!
+!!***Local
+!
+!      INTEGER IXT, IXTEMP
+!
+!      REAL OZONE_CS        ! interpolated ozone absorption cross section
+!      REAL YTT             ! interpolation variable
+!
+!!***Find temperature range:
+!
+!      IF ( STRAT_TEMP .LE. TEMP_O3_STRAT( 1 ) ) IXTEMP = 0
+!
+!      DO IXT = 1, NTEMP_STRAT - 1
+!         IF ( STRAT_TEMP .GT. TEMP_O3_STRAT( IXT ) .AND.
+!     &        STRAT_TEMP .LT. TEMP_O3_STRAT( IXT + 1 ) ) THEN
+!            IXTEMP = IXT
+!            YTT = ( STRAT_TEMP - TEMP_O3_STRAT( IXT ) )
+!     &          / ( TEMP_O3_STRAT( IXT + 1 ) - TEMP_O3_STRAT( IXT ) )
+!         END IF
+!      END DO
+!
+!      IF ( STRAT_TEMP .GE. TEMP_O3_STRAT( NTEMP_STRAT ) ) THEN
+!         IXTEMP = NTEMP_STRAT
+!         YTT = 0.0
+!      END IF
+!
+!!***do linear interpolation
+!
+!      IF ( IXTEMP .EQ. 0 ) THEN
+!         OZONE_CS = XO3CS( 1, IWL )
+!      ELSE IF ( IXTEMP .GE. 1 .AND. IXTEMP .LT. NTEMP_STRAT ) THEN
+!         OZONE_CS = XO3CS( IXTEMP, IWL ) +
+!     &            ( XO3CS( IXTEMP+1, IWL ) - XO3CS( IXTEMP, IWL ) ) * YTT
+!      ELSE IF ( IXTEMP .EQ. NTEMP_STRAT ) THEN
+!         OZONE_CS = XO3CS( IXTEMP, IWL )
+!      END IF
+!
+!      TAU_O3 = DU_TO_CONC * STOZONE * OZONE_CS
+!
+!      RETURN
+!      END SUBROUTINE GET_TAUO3
+!
+!C///////////////////////////////////////////////////////////////////////
+!
+!      SUBROUTINE O3AMT ( XLAT, XLONG, MDAY, OZONE )
+!C-----------------------------------------------------------------------
+!C  This subroutine implements an algorithm for the annual behavior
+!C     of total ozone ( taken here to be stratospheric) from
+!C     climatology
+!C  Reference:
+!C     Van Heuklon, Thomas K., Estimating atmospheric ozone for solar
+!C     radiation models, Solar Energy, Vol. 22, pp 63-68, 1979.
+!C  updated from an earlier version by
+!C     Dr. Francis S. Binkowski, The Carolina Environmental Program,
+!C     The University of North Carolina at Chapel Hill.
+!C     Email: frank_binkowski@unc.edu
+!C     November 03. 2004.
+!C  Only Northern Hemisphere is implemented.
+!C-----------------------------------------------------------------------
+!
+!      IMPLICIT NONE
+!
+!!***arguments
+!
+!      INTEGER, INTENT( IN )  :: MDAY  ! Day number during the year
+!                                      ! Jan 1st = 1.0, Feb 1st = 32, etc.
+!
+!      REAL,    INTENT( IN )  :: XLAT  ! latitude of point on earth's surface
+!      REAL,    INTENT( IN )  :: XLONG ! longitude of point on earth's surface
+!      REAL,    INTENT( OUT ) :: OZONE ! Total column amount of ozone [ DU ]
+!
+!!***Internal:
+!
+!!***The following parameters are from Table 1 of Van Heuklon (1979).
+!
+!      REAL, SAVE ::  A, B, C, D, F, G, H, FJ
+!      DATA A/150.0/, B/1.28/, C/40.0/, D/0.9865/, F/-30.0/, G/20.0/,
+!     &     H/3.0/, FJ/235.0/
+!
+!!***FSB FJ is the equatorial annual average of atmospheric ozone
+!!***  content, as noted on page 65 of Nav Heulklon (1979). This value
+!!***  sets the basic background for ozone.
+!
+!      REAL, PARAMETER :: RD = 0.017453   ! degrees to radians
+!
+!!***Variables of convenience
+!
+!      REAL E, FI, BPHI, DEF, HLI, SINB, SINB2
+!
+!!***set the day
+!
+!      E = FLOAT( MDAY )
+!      FI = 20.0
+!      IF ( XLONG .LT. 0.0 ) FI = 0.0
+!      BPHI  = B * XLAT * RD
+!      DEF   = D * ( E + F ) * RD
+!      HLI   = H * ( XLONG + FI ) * RD
+!      SINB  = SIN( BPHI )
+!      SINB2 = SINB * SINB
+!
+!!***the following equation implements equation (4) of VanHeuklon (1979)
+!
+!      OZONE  = FJ + ( A + C * SIN( DEF ) + G * SIN( HLI ) ) * SINB2
+!
+!      RETURN
+!      END SUBROUTINE O3AMT
+
+C///////////////////////////////////////////////////////////////////////
+
+      SUBROUTINE SLANTPATH2 ( NLAYS, Z, ZSFC, REARTH, SINZEN, DZ, DSDH )
+C-----------------------------------------------------------------------
+C  PURPOSE:
+C     Calculate slant path, ds/dh, over vertical depth in spherical
+C     geometry also calculates the layer thicknesses.
+C     NOTE!!!
+C     This version is restricted to zenith angle less than 90 degrees
+C-----------------------------------------------------------------------
+C  ARGUMENTS:
+C     INPUT:
+C       NLAYS   - INTEGER, number of specified altitude levels
+C       z       - REAL, altitude (agl) [m] <<<    meters
+C       This is from file ZF ( full layers ) from METCRO3D
+C       Z(1) is zero.
+C       zsfc    - REAL, ground elevation (msl) [m]
+C       rearth  - REAL, radius of the earth [m]
+C       sinzen  - REAL, sine of solar zenith angle
+C
+C     OUTPUT:
+C       dz      - REAL, layer thicknesses [ m ]
+C       dsdh    - REAL, slant path of direct beam through each layer
+C       when travelling from the top of the atmosphere downward
+C-----------------------------------------------------------------------
+C  EDIT HISTORY:
+C     Inspired by sphers from TUV
+C     09/08/2004 modified to specialize for CMAQ application
+C     by Dr. Francis S. Binkowski
+C     Environmental Modeling for Policy Development group,
+C     The Carolina Environmental Program
+C     The University of North Carolina-Chapel Hill
+C     Email: frank_binkowski@unc.edu
+C
+C-----------------------------------------------------------------------
+C  REFERENCE:
+C     Dahlback, A. and K. Stamnes, A new spherical model for computing
+C     the radiation field available for photolysis and heating at
+C     twilight, Planetary and Space Sciences, Vol. 39, No. 5,
+C     pp 671-683, 1991.
+C
+C-----------------------------------------------------------------------
+
+      IMPLICIT NONE
+
+!***arguments
+
+      INTEGER, INTENT( IN )  :: NLAYS
+
+      REAL,    INTENT( IN )  :: Z( NLAYS + 1 )
+      REAL,    INTENT( IN )  :: ZSFC
+      REAL,    INTENT( IN )  :: REARTH
+      REAL,    INTENT( IN )  :: SINZEN
+
+      REAL,    INTENT( OUT ) :: DZ  ( NLAYS )  ! layer thicknesses counting from surface upward
+      REAL,    INTENT( OUT ) :: DSDH( NLAYS )
+
+!***Internal
+
+      INTEGER I, J, K           ! loop indices
+      REAL( 8 ) :: RE
+      REAL( 8 ) :: DSJ               ! slant path length [m]
+      REAL( 8 ) :: DHJ               ! layer thickness [m]
+      REAL( 8 ) :: RJ, RJP1
+      REAL( 8 ) :: RPSINZ            ! rpsinz = (re + zd(i)) * sinzen
+      REAL( 8 ) :: RPSINZ2           ! rpsinz * rpsinz
+      REAL( 8 ) :: GA, GB            ! see usage
+      REAL( 8 ) :: ZD ( NLAYS + 1 )  ! array of altitudes indexed from top
+      REAL      :: DZI( NLAYS )      ! layer thicknesses counting downward from the top
+
+C-----------------------------------------------------------------------
+
+!***re include the altitude above sea level to the radius of the earth
+
+      RE = real(REARTH,8) + real(ZSFC,8)
+
+!***calculate dz
+
+      DO K = 1, NLAYS
+         DZ( K ) = Z( K + 1 ) - Z( K )
+      END DO
+
+!***zd, dzi are inverse coordinates of ze & dz
+
+      DO K = 1, NLAYS + 1
+         J = NLAYS + 1 - K + 1
+         ZD( J ) = Z( K ) + RE
+      END DO
+
+      DO K = 1, NLAYS
+         J = NLAYS + 1 - K
+         DZI( J ) = DZ( K )
+      END DO
+
+!***FSB The following code is a direct implementation of appendix B
+!***  of Dahlbeck and Stamnes (1991) for the case of solar zenith
+!***  angle less than 90 degree.
+
+!***calculate ds/dh of every layer starting at the top
+
+      DO J = 1, NLAYS
+         RPSINZ  = ZD( J ) * SINZEN
+         RPSINZ2 = RPSINZ * RPSINZ
+
+         RJ   = ZD ( J )
+         RJP1 = ZD ( J + 1 )
+         DHJ  = DZI( J )
+
+!***define GA and GB
+
+         GB = SQRT( MAX( 0.0D0, RJ * RJ     - RPSINZ2 ) )
+         GA = SQRT( MAX( 0.0D0, RJP1 * RJP1 - RPSINZ2 ) )
+
+!***This is equation B1 from Dahlbeck and Stamnes (1991)
+
+         DSJ = max(GB - GA, dhj)
+
+!***this is the slant path (Chapman) function.
+
+         DSDH( J ) = DSJ / DHJ    ! Note dsdh is on a top to bottom grid.
+
+      END DO   ! loop over altitude
+
+      END SUBROUTINE SLANTPATH2
+
+C///////////////////////////////////////////////////////////////////////
+
+!      SUBROUTINE SLANTPATHTOP ( ZTOM, ZTOA, ZSFC, REARTH, SINZEN,
+!     &                          DSDHTOP )
+!C-----------------------------------------------------------------------
+!C  FSB This is a SPECIAL version to get the slant path from the top of
+!C    the modeling domain (ztom) to the top of the atmosphere (ztoa).
+!C-----------------------------------------------------------------------
+!C  PURPOSE:
+!C     Calculate slant path, ds/dh, over vertical depth in spherical
+!C     geometry also calculates the layer thicknesses.
+!C     NOTE!!!
+!C     This version is restricted to zenith angle less than 90 degrees
+!C-----------------------------------------------------------------------
+!C  ARGUMENTS:
+!C     INPUT:
+!C       ztom    - REAL, altitude (agl) of top of modeling domain [m] <<<meters
+!C       This is from file ZF ( full layers ) from METCRO3D
+!C       Z(1) is zero.
+!C       ztoa    - REAL altitude (msl) of top of atmosphere [ m ]
+!C       zsfc    - REAL, ground elevation (msl) [m]
+!C       rearth  - REAL, radius of the earth [m]
+!C       sinzen  - REAL, sine of solar zenith angle
+!C
+!C     OUTPUT:
+!C       dsdhtop   - REAL, slant path of direct beam through each layer
+!C       when travelling from the top of the atmosphere downward
+!C       to the top of top model
+!C-----------------------------------------------------------------------
+!C  EDIT HISTORY:
+!C     Inspired by sphers from TUV
+!C     09/08/2004 modified  to specialize for CMAQ application
+!C     11/11/2004 modified to do just the one layer from ztom to ztoa.
+!C     by Dr. Francis S. Binkowski
+!C     Environmental Modeling for Policy Development group,
+!C     The Carolina Environmental Program
+!C     The University of North Carolina-Chapel Hill
+!C     Email: frank_binkowski@unc.edu
+!C
+!C-----------------------------------------------------------------------
+!C  REFERENCE:
+!C     Dahlback, A. and K. Stamnes, A new spherical model for computing
+!C     the radiation field available for photolysis and heating at
+!C     twilight, Planetary and Space Sciences, Vol. 39, No. 5,
+!C     pp 671-683, 1991.
+!C
+!C-----------------------------------------------------------------------
+!
+!      IMPLICIT NONE
+!
+!!***arguments
+!
+!      REAL, INTENT(IN)  :: ZTOM
+!      REAL, INTENT(IN)  :: ZTOA
+!      REAL, INTENT(IN)  :: ZSFC
+!      REAL, INTENT(IN)  :: REARTH
+!      REAL, INTENT(IN)  :: SINZEN
+!      REAL, INTENT(OUT) :: DSDHTOP
+!
+!!***Internal
+!
+!      INTEGER :: I, J, K  ! loop indices
+!      REAL    :: RE
+!      REAL    :: DSJ      ! slant path length [m]
+!      REAL    :: DHJ      ! layer thickness [m]
+!      REAL(8) :: RJ, RJP1
+!      REAL(8) :: RPSINZ   ! rpsinz = (re + zd(i)) * sinzen
+!      REAL(8) :: RPSINZ2  ! rpsinz * rpsinz
+!      REAL(8) :: GA, GB   ! see usage
+!
+!C-----------------------------------------------------------------------
+!
+!!***re include the altitude above sea level to the radius of the earth
+!
+!      RE = REARTH + ZSFC
+!
+!!!sjr DHJ = ZTOA - ZTOM
+!      DHJ = ZTOA - ( ZTOM + ZSFC )
+!
+!!***FSB The following code is a direct implementation of appendix B
+!!***  of Dahlbeck and Stamnes (1991) for the case of solar zenith
+!!***  angle less than 90 degree.
+!
+!!***  calculate ds/dh of every layer starting at the top
+!
+!      RPSINZ  = ( REARTH + ZTOA ) * SINZEN
+!      RPSINZ2 = RPSINZ * RPSINZ
+!
+!!!sjr RJ = RE + ZTOA
+!      RJ = REARTH + ZTOA
+!      RJP1 = RE + ZTOM
+!
+!!***define GA and GB
+!
+!      GB = SQRT( MAX( 0.0D0, RJ * RJ     - RPSINZ2 ) )
+!      GA = SQRT( MAX( 0.0D0, RJP1 * RJP1 - RPSINZ2 ) )
+!
+!!***This is equation B1 from Dahlbeck and Stamnes (1991)
+!
+!      DSJ = GB - GA
+!
+!!***this is the slant path (Chapman) function.
+!
+!      DSDHTOP = DSJ / DHJ
+!
+!      RETURN
+!      END SUBROUTINE SLANTPATHTOP
+
+C///////////////////////////////////////////////////////////////////////
+
+      SUBROUTINE TWOSTREAM_S ( NLAYER, NLEVEL, MU, RSFC, TAUU, OMU, GU, DSDH,
+     &                         FDR, FUP, FDN, EDR, EUP, EDN, frac_sfck, nsfc, iw, iwl )
+C-----------------------------------------------------------------------
+C  PURPOSE:
+C     Solve two-stream equations for multiple layers.  The subroutine is
+C     based on equations from:  Toon et al., 1989.
+C     It contains only the Delta Eddington method.
+C     A pseudo-spherical correction has also been added.
+C     FSB This version is restricted to solar zenith angle LESS THAN 90
+C     degrees
+C-----------------------------------------------------------------------
+C  ARGUMENTS:
+C     INPUT:
+C       nlevel - INTEGER, number of specified altitude levels in the
+C                working grid
+C       mu     - REAL, cosine of solar senith angle
+C       rsfc   - REAL, surface albedo at current wavelength
+C       tauu   - REAL, unscaled optical depth of each layer
+C       omu    - REAL, unscaled single scattering albedo of each layer
+C       gu     - REAL, unscaled asymmetry parameter of each layer
+C       dsdh   - REAL, slant path of direct beam through each layer
+C                crossed when travelling from the top of the atmosphere
+C                to layer
+C     OUTPUT:
+C       fdr - REAL, contribution of the direct component to the total
+C             actinic flux at each altitude level
+C       fup - REAL, contribution of the diffuse upwelling component to
+C             the total actinic flux at each altitude level
+C       fdn - REAL, contribution of the diffuse downwelling component to
+C             the total actinic flux at each altitude level
+C       edr - REAL, contribution of the direct component to the total
+C             spectral irradiance at each altitude level
+C       eup - REAL, contribution of the diffuse upwelling component to
+C             the total spectral irradiance at each altitude level
+C       edn - REAL, contribution of the diffuse downwelling component to
+C             the total spectral irradiance at each altitude level
+C-----------------------------------------------------------------------
+C  EDIT HISTORY:
+C     This is a modification of ps2str.f from TUV
+C     this routine has been modified from the original TUV code by
+C     Dr. Francis S. Binkowski, Carolina Environmental Program
+C     09/2004 removed various two-stream methods (FSB)
+C     09/2004 made mu an input (FSB)
+C     09/2004 simplified for case of solar zenith angle less than
+C             90 degrees
+C-----------------------------------------------------------------------
+C  References:
+C
+C     Joseph, J.H., W.J. Wiscombe, and J.A. Weinman, The delta-Eddington
+C     Approximation for radiative flux transfer, Jour. Atmos. Res.,
+C     Vol.33, No. 12, pages 2452 - 2459, December , 1976.
+C     (the method implemented here)
+C
+C     Toon, O.B., C.P. McKay, T.P. Ackerman, and K. Santhanam, Rapid
+C     calculation of radiative heating rates and photodissociation rates
+C     in inhomogeneous multiple scattering atmospheres, J. Geophys. Res.
+C     Vol. 94, No. D13, Pages 16,287 - 16,301, November 20, 1989.
+C     (all citations for equation numbers and page numbers are to this
+C     reference)
+C
+C     Zeng, J., S. Madronich, and K. Stamnes, A note on the use of the
+C     two-stream delta-scaling approximation for calculating atmospheric
+C     photolysis rate coefficients, Journal of Geophysical Research,
+C     vol 101, D9, pp 14,525 - 14530, June 20, 1996.
+C
+C-----------------------------------------------------------------------
+
+      IMPLICIT NONE
+
+!***arguments
+
+      INTEGER, INTENT( IN ) :: NLAYER
+      INTEGER, INTENT( IN ) :: NLEVEL
+      INTEGER, INTENT( IN ) :: NSFC
+      INTEGER, INTENT( IN ) :: iw
+      INTEGER, INTENT( IN ) :: iwl
+
+      REAL,    INTENT(IN )  :: MU
+      REAL,    INTENT(IN )  :: RSFC( NSFC )
+      REAL,    INTENT(IN )  :: TAUU( NLAYER )
+      REAL,    INTENT(IN )  :: OMU ( NLAYER )
+      REAL,    INTENT(IN )  :: GU  ( NLAYER )
+      REAL,    INTENT(IN )  :: DSDH( NLAYER )
+      REAL,    INTENT(OUT ) :: FUP ( NLEVEL )
+      REAL,    INTENT(OUT ) :: FDN ( NLEVEL )
+      REAL,    INTENT(OUT ) :: FDR ( NLEVEL )
+      REAL,    INTENT(OUT ) :: EUP ( NLEVEL )
+      REAL,    INTENT(OUT ) :: EDN ( NLEVEL )
+      REAL,    INTENT(OUT ) :: EDR ( NLEVEL )
+
+      REAL,    INTENT(IN )  :: FRAC_SFCK( NSFC )
+
+!***local:
+
+      REAL :: TAUSLA ( 0:NLAYER )  ! slant path optical depth
+      REAL :: ETAUSLA( 0:NLAYER )  ! transmissivity along slant path
+      REAL :: MU2    ( 0:NLAYER )  ! replaces mu1 for slant path
+      REAL :: TAUSUM ( 0:NLAYER )
+
+!***internal coefficients and matrix
+
+      real :: lam, bgam
+
+      REAL :: E1 ( NLEVEL ), E2  ( NLEVEL ), E3   ( NLEVEL ), E4   ( NLEVEL )
+      REAL :: CUP( NLEVEL ), CDN ( NLEVEL ), CUPTN( NLEVEL ), CDNTN( NLEVEL )
+
+      REAL( 8 ) :: A( 2*NLAYER ), B( 2*NLAYER ), D( 2*NLAYER ), E( 2*NLAYER ), Y( 2*NLAYER )
+      REAL( 8 ) :: tmp1( 2*NLAYER ), tmp2( 2*NLAYER ), y2( 2*nlayer )
+
+!***other:
+
+      REAL :: GI( NLEVEL ), OMI( NLEVEL ), TAUN( NLEVEL )
+
+      REAL :: F, G, OM, OF
+      REAL :: GAM1, GAM2, GAM3, GAM4
+      REAL :: EXPON, UP, DN, DIVISR, TEMP
+
+      REAL :: SSFC( nsfc )
+
+      INTEGER :: ROW
+      INTEGER :: I, J
+      INTEGER :: MROWS, LEV
+
+!***Some additional program constants:
+
+      REAL, PARAMETER :: LARGEST      = 1.0E+36 ! largest machine number
+      REAL, PARAMETER :: SMALLEST     = 1.0E-36 ! smallest machine number
+      REAL, PARAMETER :: SQRTLRGST    = 1.0E+18 ! sqrt(largest)
+      REAL, PARAMETER :: SQRTLRGSTM1  = 1.0E-18 ! 1/sqrt(largest)
+      REAL, PARAMETER :: EPS          = 1.0E-07
+
+      real( 8 ) :: fr
+
+      REAL, PARAMETER :: onem   = nearest(1.0, -1.0)
+      REAL, PARAMETER :: precis = 1.0 - 3.0 * epsilon(1.0)
+
+      ! reciprocal of constant from delta_Eddington method
+!      REAL, parameter :: MU1 = 2.0
+
+      real, parameter :: sq3 = sqrt(3.0)
+      real, parameter :: c1 = 0.5 * sq3
+      REAL, parameter :: MU1 = sq3
+
+!-----------------------------------------------------------------------
+
+!***scaling for delta-Eddington approximation
+!***set  tausla to be slant optical path contribution for each layer.
+
+      TAUSLA(0) = 0.0
+      MU2   (0) = SQRTLRGSTM1
+
+      DO I = 1, NLAYER
+         G  = MAX(0.0, MIN(ONEM,   GU (I)))
+         OM = MAX(EPS, MIN(PRECIS, OMU(I)))
+
+         F  = G * G
+         OF = OM * F
+
+         TAUN(I) = (1. - OF) * MAX( TAUU(I), 0.0 )
+         OMI (I) = (OM - OF) / (1.0 - OF)
+         GI  (I) = G / (1.0 + G)
+
+         TAUSLA(I) = TAUN(I) * DSDH(I)
+         MU2   (I) = MAX( DSDH(I), SQRTLRGSTM1 )
+      END DO
+
+      TAUSUM(0) = 0.0
+      DO I = 1, NLAYER
+         TAUSUM(I) = TAUSUM(I-1) + TAUSLA(I) ! sum over altitude
+      ENDDO
+
+      ETAUSLA(0) = 1.0
+      DO I = 1, NLAYER
+         ETAUSLA(I) = EXP( -TAUSUM(I) )
+      ENDDO
+
+!***compute coefficients for each layer:
+!***  gam1 - gam4 = 2-stream coefficients
+!***  expon0 = calculation of e when tau is zero
+!***  expon1 = calculation of e when tau is taun
+!***  cup and cdn = calculation when tau is zero
+!***  cuptn and cdntn = calc. when tau is taun
+!***  divisr = prevents division by zero
+
+      DO I = 1, NLAYER
+
+         G  = GI (I)
+         OM = OMI(I)
+
+!***calculate the gamma values from line 1 Table 1, page 16,289
+
+         gam1 = c1 * (2. - om - om * g)
+         gam2 = c1 * (om - om * g)
+         gam3 = 0.5 - c1 * g * mu
+         gam4 = 1. - gam3
+
+         LAM  = SQRT( GAM1*GAM1 - GAM2*GAM2 )
+         BGAM = ( GAM1 - LAM ) / GAM2
+
+         EXPON = EXP( -LAM * TAUN(I) )
+
+!***e1 - e4 = pg 16,292 equation 44
+
+         E1(I) = 1.0  + BGAM * EXPON
+         E2(I) = 1.0  - BGAM * EXPON
+         E3(I) = BGAM + EXPON
+         E4(I) = BGAM - EXPON
+
+!***the following sets up for the C equations 23, and 24
+!***  found on page 16,290
+!***  prevent division by zero (if LAMBDA = 1 / MU,
+!***  shift 1/MU^2 by  EPS = 1.E-3
+!***  which is approx equiv to shifting MU by 0.5*EPS* (MU)**3
+
+         DIVISR  = LAM * LAM - MU2(I) * MU2(I)
+
+         TEMP = MAX( 2.e-2, ABS( DIVISR ) )
+         DIVISR = OM / SIGN( TEMP, DIVISR )
+
+         UP = ( ( GAM1 - MU2(I) ) * GAM3 + GAM4 * GAM2 ) * DIVISR
+         DN = ( ( GAM1 + MU2(I) ) * GAM4 + GAM2 * GAM3 ) * DIVISR
+
+!***cup and cdn are when tau is equal to zero
+!***cuptn and cdntn are when tau is equal to taun
+
+         CUP  (I) = UP * ETAUSLA(I-1)
+         CDN  (I) = DN * ETAUSLA(I-1)
+         CUPTN(I) = UP * ETAUSLA(I)
+         CDNTN(I) = DN * ETAUSLA(I)
+
+      ENDDO
+
+!***set up matrix
+!*** ssfc = pg 16,292 equation 37  where pi Fs is one (unity).
+
+      do i = 1, nsfc
+         SSFC(i) = RSFC(i) * MU * ETAUSLA( NLAYER-I+1 )
+      enddo
+
+!***MROWS = the number of rows in the matrix
+
+      MROWS = 2 * NLAYER
+
+!*** the following are from pg 16,292  equations 39 - 43.
+!*** set up first row of matrix:
+
+      A(1) = 0.0D0
+      B(1) = E1(1)
+      D(1) = -E2(1)
+      E(1) = -CDN(1)
+
+      ROW = 1
+
+!***set up odd rows 3 thru (MROWS - 1):
+
+      I = 0
+      DO ROW = 3, MROWS - 1, 2
+         I = I + 1
+         A(ROW) = E2(I) * E3(I) - E4(I) * E1(I)
+         B(ROW) = E1(I) * E1(I + 1) - E3(I) * E3(I + 1)
+         D(ROW) = E3(I) * E4(I + 1) - E1(I) * E2(I + 1)
+         E(ROW) = E3(I) * ( CUP(I + 1) - CUPTN(I) ) +
+     &            E1(I) * ( CDNTN(I) - CDN(I + 1) )
+      ENDDO
+
+!***set up even rows 2 thru (MROWS - 2):
+
+      I = 0
+      DO ROW = 2, MROWS - 2, 2
+         I = I + 1
+         A(ROW) = E2(I + 1) * E1(I) - E3(I) * E4(I + 1)
+         B(ROW) = E2(I) * E2(I + 1) - E4(I) * E4(I + 1)
+         D(ROW) = E1(I + 1) * E4(I + 1) - E2(I + 1) * E3(I + 1)
+         E(ROW) = ( CUP(I + 1) - CUPTN(I) ) * E2(I + 1) -
+     &            ( CDN(I + 1) - CDNTN(I) ) * E4(I + 1)
+      ENDDO
+
+!***set up last row of matrix at MROWS:
+
+      ROW = MROWS
+      I = NLAYER
+
+      A(ROW) = E1(I) - RSFC(1) * E3(I)
+      B(ROW) = E2(I) - RSFC(1) * E4(I)
+      D(ROW) = 0.0D0
+      E(ROW) = SSFC(1) - CUPTN(I) + RSFC(1) * CDNTN(I)
+
+!***solve tri-diagonal matrix:
+
+      CALL TRIDIAGONAL ( A, B, D, E, Y, MROWS, tmp1, tmp2 )
+
+! multiple surface levels with shaved cells
+!      j  = 1
+
+      if (nsfc > 1) then
+
+         i  = nlayer
+         j  = 1
+
+         do row = mrows-2, mrows-2*(nsfc-1), -2
+
+            i = i - 1
+            j = j + 1
+
+            if (frac_sfck(j) < 0.02) cycle
+
+            a(row) = E1(I) - RSFC(j) * E3(I)
+            b(row) = E2(I) - RSFC(j) * E4(I)
+            d(row) = 0.0d0
+            e(row) = SSFC(j) - CUPTN(I) + RSFC(j) * CDNTN(I)
+
+            CALL TRIDIAG2 ( A, B, D, E, Y2, row, tmp1, tmp2 )
+
+            fr = frac_sfck(j)
+
+            y( 1:row ) = y( 1:row ) * (1.d0-fr) + y2( 1:row ) * fr
+
+         enddo
+      endif
+
+!*** unfold solution of matrix, compute output fluxes
+!***the following equations are from pg 16,291  equations 31 & 32
+
+      FDR(1) = 1.0    ! this the downward flux at the top of the model
+      EDR(1) = MU     ! this the downward flux at the top of the model
+      EDN(1) = 0.0
+      EUP(1) = Y(1) * E3(1) - Y(2) * E4(1) + CUP(1)
+      FDN(1) = 0.0
+      FUP(1) = EUP(1) * MU1
+
+      ROW = 1
+      DO LEV = 2, NLEVEL
+         J = LEV - 1
+         FDR(LEV) = ETAUSLA(LEV-1)
+         EDR(LEV) = MU * FDR(LEV)
+         EDN(LEV) = Y(ROW) * E3(J) + Y(ROW + 1) * E4(J) + CDNTN(J)
+         EUP(LEV) = Y(ROW) * E1(J) + Y(ROW + 1) * E2(J) + CUPTN(J)
+         FDN(LEV) = EDN(LEV) * MU1
+         FUP(LEV) = EUP(LEV) * MU1
+         ROW = ROW + 2
+      ENDDO
+
+      END SUBROUTINE TWOSTREAM_S
+
+C///////////////////////////////////////////////////////////////////////
+
+      SUBROUTINE TRIDIAGONAL ( A, B, D, E, Y, N, gam, y2 )
+C-----------------------------------------------------------------------
+C  This version has the same variable names as in twostream_s, that
+C  is D is the superdiagonal and E is the right hand side, and Y is
+C  the  solution. The size of A,B,D,E and Y is now N, the
+C  number of rows in the matrix.
+C-----------------------------------------------------------------------
+C
+C  Function:
+C     Solves tridiagonal system by Thomas algorithm.  Algorithm fails
+C     if first pivot is zero.  In that case, rewrite the
+C     equation as a set of order N-1, with U(2) trivially eliminated.
+C     The associated tri-diagonal system is stored in 3 arrays
+C     B: diagonal
+C     A: sub-diagonal
+C     D: super-diagonal
+C     E: right hand side function
+C     U : return solution from tridiagonal solver
+C
+C     [ B(1) D(1) 0    0    0 ...       0     ]
+C     [ A(2) B(2) D(2) 0    0 ...       .     ]
+C     [ 0    A(3) B(3) D(3) 0 ...       .     ]
+C     [ .       .     .     .           .     ] Y(i) = E(i)
+C     [ .             .     .     .     0     ]
+C     [ .                   .     .     .     ]
+C     [ 0                           A(N) B(N) ]
+C
+C  Preconditions:
+C
+C  Subroutines and Functions Called:
+C
+C  Revision History:
+C     NO.   DATE     WHO      WHAT
+C     __    ____     ___      ____
+C     5     11/09/04  FSB  Changed symbols to match twostream_s
+C                          made arrays variable.
+C     4     4/3/96    SJR  copied code and modified for use in JPROC
+C     3     8/16/94   XKX  configuration management include statements
+C     2     3/15/92   CJC  For use in Models-3 LCM.
+C     1     10/19/89  JKV  converted for use on IBM
+C     0      3/89     BDX  Initial version
+C     yoj
+C-----------------------------------------------------------------------
+
+      IMPLICIT NONE
+
+!***Arguments:
+
+      INTEGER,   INTENT( IN )  :: N        ! number of rows in matrix
+      REAL( 8 ), INTENT( IN )  :: A( n )   ! subdiagonal
+      REAL( 8 ), INTENT( IN )  :: B( n )   ! diagonal
+      REAL( 8 ), INTENT( IN )  :: D( n )   ! superdiagonal
+      REAL( 8 ), INTENT( IN )  :: E( n )   ! R.H. side
+      REAL( 8 ), INTENT( OUT ) :: Y( n )   ! solution
+
+      real( 8 ), intent( inout ) :: gam( n )
+      real( 8 ), intent( inout ) :: y2 ( n )
+
+!***Local Variables:
+
+      INTEGER   :: J
+      REAL( 8 ) :: BET
+
+!***Decomposition and forward substitution:
+
+      BET = 1.0D0 / B( 1 )
+      Y2( 1 ) = BET * E( 1 )
+
+      DO J = 2, N
+         GAM( J ) = BET * D( J - 1 )
+         BET = 1.0D0 / ( B( J ) - A( J ) * GAM( J ) )
+         Y2( J ) = BET * ( E( J ) - A( J ) * Y2( J - 1) )
+      END DO
+
+!***Back-substitution:
+
+      Y( N ) = Y2( N )
+
+      DO J = N - 1, 1, -1
+         Y( J ) = Y2( J ) - GAM( J + 1 ) * Y( J + 1 )
+      END DO
+
+      RETURN
+
+      END SUBROUTINE TRIDIAGONAL
+
+C///////////////////////////////////////////////////////////////////////
+
+      SUBROUTINE TRIDIAG2 ( A, B, D, E, Y, N, gam, y2 )
+C-----------------------------------------------------------------------
+C  This version has the same variable names as in twostream_s, that
+C  is D is the superdiagonal and E is the right hand side, and Y is
+C  the  solution. The size of A,B,D,E and Y is now N, the
+C  number of rows in the matrix.
+C-----------------------------------------------------------------------
+C
+C  Function:
+C     Solves tridiagonal system by Thomas algorithm.  Algorithm fails
+C     if first pivot is zero.  In that case, rewrite the
+C     equation as a set of order N-1, with U(2) trivially eliminated.
+C     The associated tri-diagonal system is stored in 3 arrays
+C     B: diagonal
+C     A: sub-diagonal
+C     D: super-diagonal
+C     E: right hand side function
+C     U : return solution from tridiagonal solver
+C
+C     [ B(1) D(1) 0    0    0 ...       0     ]
+C     [ A(2) B(2) D(2) 0    0 ...       .     ]
+C     [ 0    A(3) B(3) D(3) 0 ...       .     ]
+C     [ .       .     .     .           .     ] Y(i) = E(i)
+C     [ .             .     .     .     0     ]
+C     [ .                   .     .     .     ]
+C     [ 0                           A(N) B(N) ]
+C
+C  Preconditions:
+C
+C  Subroutines and Functions Called:
+C
+C  Revision History:
+C     NO.   DATE     WHO      WHAT
+C     __    ____     ___      ____
+C     5     11/09/04  FSB  Changed symbols to match twostream_s
+C                          made arrays variable.
+C     4     4/3/96    SJR  copied code and modified for use in JPROC
+C     3     8/16/94   XKX  configuration management include statements
+C     2     3/15/92   CJC  For use in Models-3 LCM.
+C     1     10/19/89  JKV  converted for use on IBM
+C     0      3/89     BDX  Initial version
+C     yoj
+C-----------------------------------------------------------------------
+
+      IMPLICIT NONE
+
+!***Arguments:
+
+      INTEGER,   INTENT( IN )  :: N        ! number of rows in matrix
+      REAL( 8 ), INTENT( IN )  :: A( n )   ! subdiagonal
+      REAL( 8 ), INTENT( IN )  :: B( n )   ! diagonal
+      REAL( 8 ), INTENT( IN )  :: D( n )   ! superdiagonal
+      REAL( 8 ), INTENT( IN )  :: E( n )   ! R.H. side
+      REAL( 8 ), INTENT( OUT ) :: Y( n )   ! solution
+
+      real( 8 ), intent( inout ) :: gam( n )
+      real( 8 ), intent( inout ) :: y2 ( n )
+
+!***Local Variables:
+
+      INTEGER   :: J
+
+!***Decomposition and forward substitution:
+
+      Y( N ) = ( E( N ) - A( N ) * Y2( N - 1) ) / ( B( N ) - A( N ) * GAM( N ) )
+
+!***Back-substitution:
+
+      DO J = N - 1, 1, -1
+         Y( J ) = Y2( J ) - GAM( J + 1 ) * Y( J + 1 )
+      END DO
+
+      END SUBROUTINE TRIDIAG2
+
+C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+      SUBROUTINE SOLEFM3 ( YEAR, DAY, EQT, SINDEC, COSDEC, SOLDIST )
+
+C-----------------------------------------------------------------------
+C  This subroutine calculates the sine and cosine of the solar
+C     declination and the equation of time, and solar distance
+C     using an approximation to equations used to generate the
+C     tables in  The Astronomical Almanac.
+
+C  input:
+C     year = year (e.g. 1998)
+C     day  = day of the year (e.g. Feb. 2 is 33)
+C     lat  = latitude in degrees (north is positive)
+C     long = longitude in degrees (east is positive)
+
+C  output:
+C     EQT    = Equation of Time
+C     sindec = sine of the solar declination
+C     cosdec = cosine of the solar declination
+C     soldist = distance of sun in astronomical units
+
+C  Revision history:
+C  FSB Coded September 9, 2004 by Dr. Francis S. Binkowski
+C     Environmental Modeling for Policy Development group,
+C     The Carolina Environmental Program
+C     The University of North Carolina-Chapel Hill
+C     Email: frank_binkowski@unc.edu
+
+C  REFERENCE:The code is a modification of that  from
+C     J.J. Michalsky, The Astronomical Almanac`s algorithm for
+C     approximate solar position (1950-2050)
+C     Solar Energy vol. 40, No. 3, pp 227-235, 1988.
+C     who based it upon
+C     The Astronomical Almanac, U.S. Gov`t. Printing Office,
+C     Washington DC. Page c24 has the algorithm
+
+C  The stated accuracy is 0.01 degree for the epoch ( 1950 - 2050).
+C-----------------------------------------------------------------------
+
+      IMPLICIT NONE
+
+!***arugments
+
+      REAL, INTENT( IN )  :: YEAR, DAY
+      REAL, INTENT( OUT ) :: EQT, SINDEC, COSDEC, SOLDIST
+
+!***parameters
+
+      REAL, PARAMETER :: TWOPI = 2.0 * PI
+      REAL, PARAMETER :: RAD   = PI180
+      REAL, PARAMETER :: RADM1 = 1.0 / RAD
+
+!***FSB inline documentation defines the variables.
+
+      REAL :: DELTA, LEAP, JD, TIME, L, G, LAMDA, EPSILON
+      REAL :: ALPHA
+      REAL :: SING, SIN2G, COSG, COS2G
+      REAL :: NUM, DEN
+
+!***start code
+!***get current julian date, jd
+!***  the offset year of 1949 is for convenience of having all
+!***  positive numbers for the epoch (1950 - 2050)
+
+      DELTA = YEAR - 1949.0
+      LEAP  = AINT( DELTA / 4.0 )
+
+!***jd = 32916.5 + 365.0 * delta + leap + hour / 24.0
+!***set hour = 12.0 and 12.0 / 24.0 -> 0.5
+
+      JD = 2432916.5 + 365.0 * DELTA + LEAP + DAY + 0.5
+
+!***first number is jd for midnight 0 Jan 1949
+!***  leap is leap days since 1949.
+
+!***  calculate ecliptic conditions:
+
+      TIME = JD - 2451545.0     ! 51545.0 is noon Jan 1, 2000
+
+!***calculate mean solar longitude (L)
+
+      L = 280.460 + 0.985674 * TIME ! mean solar longitude
+
+!***now force L to be between 0.0 and 360. degrees
+
+      L = MODULO( L, 360.0 )
+      IF ( L .lt. 0.0 ) L = L + 360.0
+
+!***calculate mean anomaly (g) in radians between 0 and twopi
+
+      G = 357.528 + 0.9856003 * TIME
+      G = MODULO( G, 360.0 )
+      IF ( G .LT. 0.0 ) G = G + 360.0
+
+      G = RAD * G               ! in radians now
+
+!***calculate trig functions of g using identities
+!***  this speeds up the calculations
+
+      SING = SIN( G )
+      COSG = COS( G )
+      SIN2G = 2.0 * SING * COSG
+      COS2G = COSG * COSG - SING * SING
+
+!***calculate ecliptic longitude ( Lamda) and
+!***  obliquity (epsilon) of ecliptic in radians
+
+      LAMDA = L +  1.915 * SING  + 0.020 * SIN2G
+      LAMDA = MODULO( LAMDA, 360.0 )
+      IF ( LAMDA .LT. 0.0 ) LAMDA = LAMDA + 360.0
+
+!***calculate obliquity (epsilon)
+
+      EPSILON = 23.429 - 4.0E-7 * TIME
+      LAMDA   = RAD * LAMDA     ! in radians
+      EPSILON = RAD * EPSILON   ! in radians
+
+!***now calculate right ascension (alpha)
+
+      NUM = COS( EPSILON ) * SIN( LAMDA ) ! numerator
+      DEN = COS( LAMDA )        ! denominator
+      alpha = atan2( num, den )
+
+!***force right ascension to be between 0 and twopi
+
+      if (alpha < 0.0) alpha = alpha + twopi
+
+!***convet alpha to degrees
+
+      ALPHA = RADM1 * ALPHA
+
+!***calculate the sine of the declination
+!***  (sindec) cosine of the declination (cosdec)
+
+      SINDEC = SIN( EPSILON ) * SIN( LAMDA )
+      COSDEC = SQRT( 1.0 - SINDEC * SINDEC )
+
+!***calculate the Equation of Time( EQT) in degrees.
+
+      EQT = L - ALPHA
+      IF ( EQT .GT. 350.0 ) EQT = EQT - 360.0 ! catch a problem
+
+!***calculate solar distance
+
+      SOLDIST = 1.00014 - 0.01671 * COSG - 0.00014 * COS2G
+
+      END SUBROUTINE SOLEFM3
+
+C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+      SUBROUTINE GETZEN2 ( TIME, SINLAT, COSLAT, SINDEC, COSDEC, EQT,
+     &                     COSZEN )
+C-----------------------------------------------------------------------
+C  calculate the zenith angle information at the present time step
+
+C  input:
+C     time    = LST in decimal hours <<NOTE: LST
+C     sinlat  = sine of the latitude
+C     coslat  = cosine of the latitude
+C     sindec  = sine of the solar declination
+C     cosdec  = cosine of the solar declination
+C     EQT     = equation of time in degrees
+
+C  Output:
+C     coszen  = cosine of the zenith angle
+
+C  Revision history:
+C     FSB Coded September 10, 2004 by Dr. Francis S. Binkowski
+C     FSB modified February 15, 2005 to increase efficiency
+C     Environmental Modeling for Policy Development group,
+C     The Carolina Environmental Program
+C     The University of North Carolina-Chapel Hill
+C     Email: frank_binkowski@unc.edu
+
+C  Note: because this routine will be called frequently
+C     during a simulation, the sines and cosines of the
+C     latitude should be calculated once at the beginning of
+C     simulation.
+C-----------------------------------------------------------------------
+
+      IMPLICIT NONE
+
+!***arguments
+
+      REAL, INTENT( IN )  :: TIME, SINLAT, COSLAT
+      REAL, INTENT( IN )  :: SINDEC, COSDEC, EQT
+      REAL, INTENT( OUT ) :: COSZEN
+
+!***internal variables
+
+      REAL            :: HANGLE      ! local hour angle in degrees
+      REAL, PARAMETER :: RAD = PI180
+
+      HANGLE = 15.0 * ( TIME - 12.0 )  + EQT
+      COSZEN = SINDEC * SINLAT + COSLAT * COSDEC * COS( RAD * HANGLE )
+
+!***do not allow zenith angle to be lower than 1 degree (COSZEN = 0.999998)
+!***when COSZEN is 1.0, gas-phase chemistry solver does not work properly
+
+      COSZEN = MIN( COSZEN, 0.999998 )
+
+      END SUBROUTINE GETZEN2
+
+      END MODULE PHOT_MOD
