@@ -973,7 +973,7 @@
 
             NML_INDEX     = -1
             TYPE_INDEX    = -1
-            NML_TYPE      = '??'
+            NML_TYPE      = "??"
             NML_CONVERT   = .FALSE.
 
             DO I = 1, N_GC_SPC ! load gc names and indices

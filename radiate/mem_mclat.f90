@@ -46,6 +46,8 @@ Module mem_mclat
   real :: mclat(33,6,13)
   real :: ypp_mclat(33,6,13)  ! Expanded arrays for spline intp
 
+  integer :: ilev, ifld
+
 !---------------------------------------------------------------------
 !  arctic winter
 !---------------------------------------------------------------------

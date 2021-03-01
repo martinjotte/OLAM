@@ -166,15 +166,6 @@ Contains
 
     allocate (   rhot_nud  (mza,mwa)) ; rhot_nud    = 0.0
 
-    if (nudnxp /= 0) then
-       allocate (    rho_sim(mza,mwnud)) ; rho_sim     = rinit
-       allocate (  theta_sim(mza,mwnud)) ; theta_sim   = rinit
-       allocate (    rrw_sim(mza,mwnud)) ; rrw_sim     = rinit
-       allocate ( uzonal_sim(mza,mwnud)) ; uzonal_sim  = rinit
-       allocate ( umerid_sim(mza,mwnud)) ; umerid_sim  = rinit
-       allocate (   volwnudi(mza,mwnud)) ; volwnudi    = 0.0_r8
-    endif
-
   end subroutine alloc_nudge2
 
   !=========================================================================

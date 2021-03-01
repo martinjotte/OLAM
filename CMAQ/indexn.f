@@ -62,10 +62,10 @@ C***********************************************************************
       INTEGER     I
       INTEGER     INDICES(*)
 
-      CHARACTER*(*) NAME1
-      CHARACTER*(*) NAME2(*)
+      CHARACTER(*) NAME1
+      CHARACTER(*) NAME2(*)
 
-C...Assume NAME1 is not in list NAME2    
+C...Assume NAME1 is not in list NAME2
 
       INDEXN = 0
 
@@ -78,5 +78,4 @@ C...Assume NAME1 is not in list NAME2
 
       END DO
 
-      RETURN
-      END              
+      END FUNCTION INDEXN

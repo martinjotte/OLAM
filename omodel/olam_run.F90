@@ -368,6 +368,10 @@ subroutine olam_run(name_name)
 
   call micinit_fields()
 
+  ! Initialize spectral nudging
+
+  if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) call init_spec_nudge()
+
   ! Initialize primary atmospheric fields
 
   if (initial == 1) then

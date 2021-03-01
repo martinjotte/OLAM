@@ -476,7 +476,7 @@ C...........Local Variables (arrays):
       REAL, PARAMETER :: ONEM = NEAREST(1.0, -1.0)
       REAL      :: EWASHM, XL_EWASH, XL_EWASHM
       LOGICAL   :: DO_WETDEP
-      real      :: faa, fbb
+      real      :: faa, fbb, haa, hba
       real :: hcl1
 
 C...initialize counters and compute several conversion factors
@@ -728,87 +728,33 @@ C...  bisections Make initial guesses for pH:   between  1 and  10
       HPLUS = 0.6309573445e-9
       FB    = BISECT()
 
-      faa = fa
-      fbb = fb
-
       IF (FA * FB > 0.0) THEN
-         write(*,*) ha, fa
-         write(*,*) hb, fb
-         write(*,*) 'PH NOT BETWEEN 2 AND 9.2'
-         write(*,*) iw, itab_w(iw)%iwglobe, kw
 
-         write(*,*) gas(lhcl) * pres_atm, ( LOADING(  LCL, ACC ) + LOADING(  LCL, COR ) ) * XL
+         write(*,*) "PH NOT BETWEEN 2 AND 9.2 AT ", itab_w(iw)%iwglobe, kw
+         write(*,*) "RESETTING BOUNDS TO 1 AND 10"
 
-         write(*,*) HLCONST( TEMP, .TRUE., 1.e-2,    hlhcl  )
-         write(*,*) HLCONST( TEMP, .TRUE., 0.631e-9, hlhcl  )
-
-         write(*,*) 
-
-         hcl1 = 1.74D+06 * EXP(  6.90D+03 * TEMP1 )
-
-         write(*,*)
-         write(*,*) so2h, co2h, nh3h, hno3h, hclh
-         write(*,*) wcavg
-         write(*,*) hcl1h, hcla, hclb
-
-         HA    = 2.0
-         HPLUS = 1.E-2
+         HA    = 1.0
+         HPLUS = 1.E-1
          FA    = BISECT()
 
-         write(*,*)
-         write(*,*) hcl1, rates(9), hcl1h, hcl1 * hclh
-
-         write(*,*) hcl1h * INITGAS( LHCL ) / ( 1.0D0 + XLHCL *  ( 1.0D0 + HCL1/A1 ) ) / a1
-         write(*,*) hcl1h * initgas( lhcl) / (a1 * hcla + hclb)
-
-         write(*,*) NH4, BI0, - 2. * CO3, -2. * SO3, -2. * SO4,
-     &       - OH, - HCO3, - HSO3, - NO3, - HSO4, - HCO2, - CL
-
-!         STION = 0.5D0 * ( ST0 + HPLUS + NH4 + OH + HCO3 + HSO3
-!     &         + 4.0D0 * ( SO4 + CO3 + SO3 ) + NO3 + HSO4 + CL + HCO2 ) ! KMF 08September2011
-!
-!         GM1LOG = STION * ( 0.1018 - 0.509 / (STION + SQRT(STION)) )
-!
-!         GM1  = EXP( LN10 * GM1LOG )
-!         ACT1 = MAX( GM1  * GM1,  1.0E-30 )
-!         GM2  = MAX( ACT1 * ACT1, 1.0E-30 )
-!         ACT2 = MAX( ACT1 * GM2,  1.0E-30 )
-!
-!!         ha = 1.0
-!!         hplus = 1.e-1
-!         fa = bisect()
-         write(*,*) ha, fa, stion, act1, act2
-
-         HB    =  9.2
-         HPLUS = 0.6309573445e-9
+         HB    = 10.0
+         HPLUS = 1.E-10
          FB    = BISECT()
 
-         write(*,*) hcl1h * INITGAS( LHCL ) / ( 1.0D0 + XLHCL *  ( 1.0D0 + HCL1/A1 ) ) / a1
-         write(*,*) cl
+         IF (FA * FB > 0.0) THEN
 
-!         STION = 0.5D0 * ( ST0 + HPLUS + NH4 + OH + HCO3 + HSO3
-!     &         + 4.0D0 * ( SO4 + CO3 + SO3 ) + NO3 + HSO4 + CL + HCO2 ) ! KMF 08September2011
-!
-!         GM1LOG = STION * ( 0.1018 - 0.509 / (STION + SQRT(STION)) )
-!
-!         GM1  = EXP( LN10 * GM1LOG )
-!         ACT1 = MAX( GM1  * GM1,  1.0E-30 )
-!         GM2  = MAX( ACT1 * ACT1, 1.0E-30 )
-!         ACT2 = MAX( ACT1 * GM2,  1.0E-30 )
-!
-!!         hb = 10.0
-!!         hplus = 1.e-10
-!         fb = bisect()
+            XMSG = 'PH NOT BETWEEN 1 AND 10'
+            CALL M3EXIT ( PNAME, 0, 0, XMSG, XSTAT2 )
 
-         write(*,*) NH4, BI0, - 2. * CO3, -2. * SO3, -2. * SO4,
-     &       - OH, - HCO3, - HSO3, - NO3, - HSO4, - HCO2, - CL
+         ENDIF
 
-         write(*,*) hb, fb, stion, act1, act2
-
-         CALL TRACEBACKQQ()
-         XMSG = 'PH NOT BETWEEN 2 AND 9.2'
-         CALL M3EXIT ( PNAME, 0, 0, XMSG, XSTAT2 )
       ENDIF
+
+      haa = ha
+      faa = fa
+
+      hba = hb
+      fbb = fb
 
 C...  Start iteration and bisection ****************
 
@@ -1013,10 +959,10 @@ C...  and methylglyoxal is assumed
 
 C...  Redo iteration and bisection ****************
 
-      HA    = 2.0
+      HA    = haa
       FA    = faa
 
-      HB    = 9.2
+      HB    = hba
       FB    = fbb
 
       DO I30C = 1, 15

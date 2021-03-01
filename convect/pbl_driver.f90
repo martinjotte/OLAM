@@ -925,8 +925,8 @@ subroutine solve_eddy_diff_vc( iv, vmt )
 ! special for underground cells: set minimum diffusivity
 
   do k = ka, kb-1
-     akodz(k) = max(akodz(k), vonk * ( arw(k,iw1) * ustar(iw1) * rho(k,iw1) &
-                                     + arw(k,iw2) * ustar(iw2) * rho(k,iw2) ))
+     akodz(k) = max(akodz(k), vonk * ( arw(k,iw1) * ustar(iw1) * real(rho(k,iw1)) &
+                                     + arw(k,iw2) * ustar(iw2) * real(rho(k,iw2)) ))
   enddo
 
   akodz(ka-1) = 0.0

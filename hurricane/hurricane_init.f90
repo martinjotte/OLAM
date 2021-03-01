@@ -354,7 +354,7 @@ Contains
   use mem_ijtabs,  only: jtw_init, jtab_w
   use mem_basic,   only: thil, theta, tair, rho, rr_w, rr_v, wc, vxe, vye, vze
   use mem_grid,    only: xew, yew, zew, lpw
-  use consts_coms, only: erad, pio180, cp, alvl
+  use consts_coms, only: erad, pio180, alvlocp
   use therm_lib,   only: rhovsl
 
   implicit none
@@ -462,13 +462,13 @@ Contains
             w_ax(k,irad)   =     w_ax(k,irad)   + wrad1 *    wc(k,iw)
             w_ax(k,irad+1) =     w_ax(k,irad+1) + wrad2 *    wc(k,iw)
 
-        ss_liq = max(0.,(rr_v(k,iw) * rho(k,iw) / rhovsl(tair(k,iw)-273.15) - 1.0) * 1.e2)
+        ss_liq = max(0.,(rr_v(k,iw) * real(rho(k,iw)) / rhovsl(tair(k,iw)-273.15) - 1.0) * 1.e2)
 
         ssliq_ax(k,irad)   = ssliq_ax(k,irad)   + wrad1 * ss_liq
         ssliq_ax(k,irad+1) = ssliq_ax(k,irad+1) + wrad2 * ss_liq
 
-        ss_thetadif = min(0.,(rhovsl(tair(k,iw)-273.15) - rr_v(k,iw) * rho(k,iw))) &
-                    * alvl / (cp * rho(k,iw))
+        ss_thetadif = min(0.,(rhovsl(tair(k,iw)-273.15) - rr_v(k,iw) * real(rho(k,iw)))) &
+                    * alvlocp / real(rho(k,iw))
 
         thdif_ax(k,irad)   = thdif_ax(k,irad)   + wrad1 * ss_thetadif
         thdif_ax(k,irad+1) = thdif_ax(k,irad+1) + wrad2 * ss_thetadif

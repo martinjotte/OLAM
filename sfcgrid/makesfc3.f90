@@ -134,11 +134,11 @@ subroutine makesfc3()
   yeq (1:nmsfc) = sfcg%yem  (1:nmsfc)
   zeq (1:nmsfc) = sfcg%zem  (1:nmsfc)
 
-  qlat(nmsfc+1:nqa) = sfcg%glatw(2:nqa)
-  qlon(nmsfc+1:nqa) = sfcg%glonw(2:nqa)
-  xeq (nmsfc+1:nqa) = sfcg%xew  (2:nqa)
-  yeq (nmsfc+1:nqa) = sfcg%yew  (2:nqa)
-  zeq (nmsfc+1:nqa) = sfcg%zew  (2:nqa)
+  qlat(nmsfc+1:nqa) = sfcg%glatw(2:nwsfc)
+  qlon(nmsfc+1:nqa) = sfcg%glonw(2:nwsfc)
+  xeq (nmsfc+1:nqa) = sfcg%xew  (2:nwsfc)
+  yeq (nmsfc+1:nqa) = sfcg%yew  (2:nwsfc)
+  zeq (nmsfc+1:nqa) = sfcg%zew  (2:nwsfc)
 
   ! Interpolate or assign topography height to (M + W) points of surface grid
 

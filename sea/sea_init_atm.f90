@@ -68,7 +68,7 @@ subroutine sea_init_atm()
                     / (s1900_seaice(iseaicefile) - s1900_seaice(iseaicefile-1))
   endif
 
-  !$omp parallel do private (iwsfc,dum1,dum2)
+  !$omp parallel do private (iwsfc)
   do isea = 2,msea
      iwsfc = isea + omsea
 
@@ -85,6 +85,7 @@ subroutine sea_init_atm()
 
      sfcg%can_depth(iwsfc) = 20. * max(1.,.025 * dt_sea)
   enddo
+  !$omp end parallel do
 
   ! End of initialization that does not depend on atmospheric conditions
 
@@ -142,7 +143,7 @@ subroutine sea_init_atm()
                       sea%sea_wthv           (isea), &
                       sea%ice_wthv           (isea), &
                       sea%ice_sxfer_t        (isea), &
-                      sea%ice_sxfer_r        (isea)  )     
+                      sea%ice_sxfer_r        (isea)  )
 
      if (sea%nlev_seaice(isea) > 0) then
 

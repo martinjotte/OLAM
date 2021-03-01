@@ -97,13 +97,13 @@ MODULE ISRPIA
   real :: ZSQ(NIONS) = 0.5 * zions * zions
   real :: ZM (NIONS) = 1.0 / zions
 
-  REAL :: ZIJM(NIONS,NIONS) = RESHAPE( &
-       (/ (( 1.0 / (ZIONS(I) + ZIONS(J)), I=1, NIONS), J=1, NIONS) /), &
+  REAL, PARAMETER :: ZIPJ(NIONS,NIONS) = RESHAPE( &
+       (/ (( ZIONS(I) + ZIONS(J), I=1, NIONS), J=1, NIONS) /), &
        (/ NIONS,NIONS /) )
 
-  REAL :: ZIJS(NIONS,NIONS) = RESHAPE( &
-       (/ (( 0.25*(ZIONS(I) + ZIONS(J))**2, I=1, NIONS), J=1, NIONS) /), &
-       (/ NIONS,NIONS /) )
+  REAL :: ZIJM(NIONS,NIONS) = 1.0 / ZIPJ
+
+  REAL :: ZIJS(NIONS,NIONS) = 0.25 * ZIPJ * ZIPJ
 
   REAL :: ZIJ (NIONS,NIONS) = RESHAPE( &
        (/ (( ZIONS(I) * ZIONS(J), I=1, NIONS), J=1, NIONS) /), &
@@ -415,8 +415,7 @@ contains
     INTEGER, PARAMETER :: NRHS   = 20
     INTEGER, PARAMETER :: NASRD  = NSO4S * NRHS
     INTEGER, PARAMETER :: NASRDM = NASRD - NRHS
-
-    REAL,    PARAMETER :: RH0 = 0.1 * (100. - REAL(NRHS)) + EPSILON(1.)
+    REAL,    PARAMETER :: RH0    = 0.1 * (100 - NRHS) + EPSILON(1.)
 
     REAL,    PARAMETER :: ASSO4(NSO4S) = (/      &
          1.0E-9, 2.5E-9, 5.0E-9, 7.5E-9, 1.0E-8, &

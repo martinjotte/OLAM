@@ -1524,7 +1524,7 @@ subroutine ctrlvols_hex()
         enddo
         facw = max( min(facw,1.0), 0.0)
 
-        volt(k,iw) = max( arw(k,iw) * dzt(k), real(arw0(iw) * dzt(k) * facw, r8) )
+        volt(k,iw) = max( arw(k,iw) * dzt(k), arw0(iw) * dzt(k) * facw )
      enddo
 
      ! Compute number of underground v[xyz]e2 levels in this IW column

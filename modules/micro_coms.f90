@@ -200,6 +200,8 @@ real, allocatable :: pcpfillr(:,:,:,:) ! sedim table for bulk density
 
 integer, allocatable :: kfall(:,:,:)
 
+integer, private :: iefcx, iefcy, ix, iy
+
 real :: ipair(nhcat,nhcat,6)
 
 !         ihx ihy    ipc ipx2 ipy2 ipx ipy ieff

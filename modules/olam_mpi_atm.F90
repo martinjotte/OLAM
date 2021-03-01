@@ -30,6 +30,7 @@
    !----------------------------------------------------------------------------
 
 !===============================================================================
+
 Module olam_mpi_atm
 
 Contains
@@ -1771,9 +1772,9 @@ subroutine mpi_recv_wnud(dvara1, dvara2, dvara3, dvara4, dvara5, dvara6)
      if ( present(dvara1) .and. present(dvara2) .and. present(dvara3) .and. &
           present(dvara4) .and. present(dvara5) .and. present(dvara6) ) then
 
-        !$omp parallel private(vctr1)
-        !$omp do private(ipos,iwnudglobe,iwnud,ierr) &
-        !$omp    reduction(+:dvara1,dvara2,dvara3,dvara4,dvara5,dvara6)
+!        !$omp parallel private(vctr1)
+!        !$omp do private(ipos,iwnudglobe,iwnud,ierr) &
+!        !$omp    reduction(+:dvara1,dvara2,dvara3,dvara4,dvara5,dvara6)
         do j = 1, nwnudpts
            ipos = ipos0 + (j-1) * ip
 
@@ -1812,15 +1813,15 @@ subroutine mpi_recv_wnud(dvara1, dvara2, dvara3, dvara4, dvara5, dvara6)
 
            dvara6(2:mza,iwnud) = dvara6(2:mza,iwnud) + vctr1(2:mza)
         enddo
-        !$omp end do
-        !$omp end parallel
+!        !$omp end do
+!        !$omp end parallel
 
      elseif ( present(dvara1) .and. present(dvara2) .and. present(dvara3) .and. &
               present(dvara4) .and. present(dvara5) ) then
 
-        !$omp parallel private(vctr1)
-        !$omp do private(ipos,iwnudglobe,iwnud,ierr) &
-        !$omp    reduction(+:dvara1,dvara2,dvara3,dvara4,dvara5)
+!        !$omp parallel private(vctr1)
+!        !$omp do private(ipos,iwnudglobe,iwnud,ierr) &
+!        !$omp    reduction(+:dvara1,dvara2,dvara3,dvara4,dvara5)
         do j = 1, nwnudpts
            ipos = ipos0 + (j-1) * ip
 
@@ -1854,15 +1855,15 @@ subroutine mpi_recv_wnud(dvara1, dvara2, dvara3, dvara4, dvara5, dvara6)
 
            dvara5(2:mza,iwnud) = dvara5(2:mza,iwnud) + vctr1(2:mza)
         enddo
-        !$omp end do
-        !$omp end parallel
+!        !$omp end do
+!        !$omp end parallel
 
      elseif ( present(dvara1) .and. present(dvara2) .and. present(dvara3) .and. &
               present(dvara4) ) then
 
-        !$omp parallel private(vctr1)
-        !$omp do private(ipos,iwnudglobe,iwnud,ierr) &
-        !$omp    reduction(+:dvara1,dvara2,dvara3,dvara4)
+!        !$omp parallel private(vctr1)
+!        !$omp do private(ipos,iwnudglobe,iwnud,ierr) &
+!        !$omp    reduction(+:dvara1,dvara2,dvara3,dvara4)
         do j = 1, nwnudpts
            ipos = ipos0 + (j-1) * ip
 
@@ -1891,14 +1892,14 @@ subroutine mpi_recv_wnud(dvara1, dvara2, dvara3, dvara4, dvara5, dvara6)
 
            dvara4(2:mza,iwnud) = dvara4(2:mza,iwnud) + vctr1(2:mza)
         enddo
-        !$omp end do
-        !$omp end parallel
+!        !$omp end do
+!        !$omp end parallel
 
      elseif ( present(dvara1) .and. present(dvara2) .and. present(dvara3) ) then
 
-        !$omp parallel private(vctr1)
-        !$omp do private(ipos,iwnudglobe,iwnud,ierr) &
-        !$omp    reduction(+:dvara1,dvara2,dvara3)
+!        !$omp parallel private(vctr1)
+!        !$omp do private(ipos,iwnudglobe,iwnud,ierr) &
+!        !$omp    reduction(+:dvara1,dvara2,dvara3)
         do j = 1, nwnudpts
            ipos = ipos0 + (j-1) * ip
 
@@ -1922,14 +1923,14 @@ subroutine mpi_recv_wnud(dvara1, dvara2, dvara3, dvara4, dvara5, dvara6)
 
            dvara3(2:mza,iwnud) = dvara3(2:mza,iwnud) + vctr1(2:mza)
         enddo
-        !$omp end do
-        !$omp end parallel
+!        !$omp end do
+!        !$omp end parallel
 
      elseif ( present(dvara1) .and. present(dvara2) ) then
 
-        !$omp parallel private(vctr1)
-        !$omp do private(ipos,iwnudglobe,iwnud,ierr) &
-        !$omp    reduction(+:dvara1,dvara2)
+!        !$omp parallel private(vctr1)
+!        !$omp do private(ipos,iwnudglobe,iwnud,ierr) &
+!        !$omp    reduction(+:dvara1,dvara2)
         do j = 1, nwnudpts
            ipos = ipos0 + (j-1) * ip
 
@@ -1948,14 +1949,14 @@ subroutine mpi_recv_wnud(dvara1, dvara2, dvara3, dvara4, dvara5, dvara6)
 
            dvara2(2:mza,iwnud) = dvara2(2:mza,iwnud) + vctr1(2:mza)
         enddo
-        !$omp end do
-        !$omp end parallel
+!        !$omp end do
+!        !$omp end parallel
 
      elseif ( present(dvara1) ) then
 
-        !$omp parallel private(vctr1)
-        !$omp do private(ipos,iwnudglobe,iwnud,ierr) &
-        !$omp    reduction(+:dvara1)
+!        !$omp parallel private(vctr1)
+!        !$omp do private(ipos,iwnudglobe,iwnud,ierr) &
+!        !$omp    reduction(+:dvara1)
         do j = 1, nwnudpts
            ipos = ipos0 + (j-1) * ip
 
@@ -1969,8 +1970,8 @@ subroutine mpi_recv_wnud(dvara1, dvara2, dvara3, dvara4, dvara5, dvara6)
 
            dvara1(2:mza,iwnud) = dvara1(2:mza,iwnud) + vctr1(2:mza)
         enddo
-        !$omp end do
-        !$omp end parallel
+!        !$omp end do
+!        !$omp end parallel
 
      endif
 

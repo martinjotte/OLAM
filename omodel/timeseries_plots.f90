@@ -11,7 +11,7 @@ subroutine timeseries_plots(type)
   use mem_plot,   only: latheat_liq_accum_prev0, latheat_liq_accum_prev1, &
                         latheat_ice_accum_prev0, latheat_ice_accum_prev1, &
                         time8_prev0, time8_prev1
-  use consts_coms, only: cp, alvl
+  use consts_coms, only: cp, alvlocp, r8
   use therm_lib,  only: rhovsl
 
   implicit none
@@ -363,10 +363,10 @@ subroutine timeseries_plots(type)
           if (jtime /= 1) then
              fe1(irad_lh,jsim) = fe1(irad_lh,jsim) &
                 + cp * rho(k,iw) * dzt(k) * (latheat_liq_accum_prev0(k,iw) - latheat_liq_accum_prev1(k,iw)) &
-                / max(1.,time8_prev0 - time8_prev1)
+                / max(1._r8,time8_prev0 - time8_prev1)
              fe2(irad_lh,jsim) = fe2(irad_lh,jsim) &
                 + cp * rho(k,iw) * dzt(k) * (latheat_ice_accum_prev0(k,iw) - latheat_ice_accum_prev1(k,iw)) &
-                / max(1.,time8_prev0 - time8_prev1)
+                / max(1._r8,time8_prev0 - time8_prev1)
           endif
        enddo
 
@@ -398,8 +398,8 @@ subroutine timeseries_plots(type)
           pcp = 1000. * (rr_r(k,iw) + rr_h(k,iw))
           ss_liq = (rr_v(k,iw) * rho(k,iw) / rhovsl(tair(k,iw)-273.15) - 1.0) * 1.e2
 
-          ss_thetadif = min(0.,(rhovsl(tair(k,iw)-273.15) - rr_v(k,iw) * rho(k,iw))) &
-                      * alvl / (cp * rho(k,iw))
+          ss_thetadif = min(0.,(rhovsl(tair(k,iw)-273.15) - rr_v(k,iw) * real(rho(k,iw)))) &
+                      * alvlocp / real(rho(k,iw))
 
           wt = 0.5 * (wc(k,iw) + wc(k-1,iw))
 
@@ -492,8 +492,8 @@ subroutine timeseries_plots(type)
      he2 (kh,jtime,jsim) = sqrt(he2(kh,jtime,jsim) / max(1.,enw(kh)))
      he4 (kh,jtime,jsim) = sqrt(he4(kh,jtime,jsim) / ennow)
      he6 (kh,jtime,jsim) = sqrt(he6(kh,jtime,jsim) / ennow)
-     he7 (kh,jtime,jsim) = he7 (kh,jtime,jsim) * 86400. / (max(1.,time8_prev0 - time8_prev1) * ennow)
-     he8 (kh,jtime,jsim) = he8 (kh,jtime,jsim) * 86400. / (max(1.,time8_prev0 - time8_prev1) * ennow)
+     he7 (kh,jtime,jsim) = he7 (kh,jtime,jsim) * 86400. / (max(1._r8,time8_prev0 - time8_prev1) * ennow)
+     he8 (kh,jtime,jsim) = he8 (kh,jtime,jsim) * 86400. / (max(1._r8,time8_prev0 - time8_prev1) * ennow)
      he12(kh,jtime,jsim) = he12(kh,jtime,jsim) * 100. / max(1.,ensat(kh))
      he13(kh,jtime,jsim) = he13(kh,jtime,jsim) * 100. / max(1.,ensat(kh))
      he14(kh,jtime,jsim) = he14(kh,jtime,jsim) * 100. / max(1.,ensat(kh))

@@ -1411,12 +1411,6 @@ C *** variables for parameterization based on Bertram and Thornton (2009)
       real, parameter :: ln10 = log(10.0)
       REAL K2FP                            ! varible in eqn 10
 
-C *** statement function for inverting the logit transformation given
-C     in Eq 7 by Davis et al (2008)
-      REAL      LOGITINV  ! statement function
-      REAL      XX        ! dummy argument for LOGITINV
-      LOGITINV( XX ) = 1.0 / ( 1.0 + EXP( -XX ) )
-
 C-----------------------------------------------------------------------
 
 C *** retrieve fine-mode particle-phase ammonium, nitrate, and sulfate [ug/m3]
@@ -1632,6 +1626,16 @@ C     Davis et al. (2008) for a discussion of these options.
             END IF
 
       END SELECT WHAT_OPTION
+
+      CONTAINS
+
+         ! Statement function for inverting the logit transformation given
+         ! in Eq 7 by Davis et al (2008)
+         REAL FUNCTION LOGITINV( XX )
+         IMPLICIT NONE
+         REAL, INTENT(IN) :: XX
+         LOGITINV = 1.0 / ( 1.0 + EXP( -XX ) )
+         END FUNCTION LOGITINV
 
       END FUNCTION N2O5_GAMMA
 

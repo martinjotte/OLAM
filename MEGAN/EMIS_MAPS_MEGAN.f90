@@ -1168,7 +1168,7 @@ module EMIS_MAPS_MEGAN
       DATA  SPMH_NAM_CB6( 81)     , SPMH_MAP_CB6( 81)  &
          / 'cedrol          ', 70            /
       DATA  MECH_NAM_CB6( 81)     , MECH_MAP_CB6( 81)  &
-         / 'SESQ             ', 6             /
+         / 'SESQ            ', 6             /
       DATA  CONV_FAC_CB6( 81)  &
          / 1.00          /
 
@@ -1441,7 +1441,7 @@ module EMIS_MAPS_MEGAN
       DATA  SPMH_NAM_CB6(120)     , SPMH_MAP_CB6(120)  &
          / 'nonanal         ', 96            /
       DATA  MECH_NAM_CB6(120)     , MECH_MAP_CB6(120)  &
-         / 'ALDX             ', 14           /
+         / 'ALDX            ', 14           /
       DATA  CONV_FAC_CB6(120)  &
          / 1.00          /
 
@@ -1847,7 +1847,7 @@ module EMIS_MAPS_MEGAN
       DATA  SPMH_NAM_CB6(178)     , SPMH_MAP_CB6(178)  &
          / 'Ehsalate        ', 140           /
       DATA  MECH_NAM_CB6(178)     , MECH_MAP_CB6(178)  &
-         / 'TOL              ', 15            /
+         / 'TOL             ', 15            /
       DATA  CONV_FAC_CB6(178)  &
          / 1.00          /
 
