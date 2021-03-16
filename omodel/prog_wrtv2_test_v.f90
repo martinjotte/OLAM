@@ -1514,7 +1514,8 @@ subroutine extra_mix_top_vc( iv, vmt )
   vflux(krayfdif_bot-1) = 0.0
 
   do k = krayfdif_bot, mza-1
-    vflux(k) = 0.25 * (arw(k,iw1) + arw(k,iw2)) * rayf_cofdif(k) * (vc(k,iv) - vc(k+1,iv)) * (rho(k+1,iw1) + rho(k+1,iw2) + rho(k,iw1) + rho(k,iw2))
+    vflux(k) = 0.25 * (arw(k,iw1) + arw(k,iw2)) * rayf_cofdif(k) * (vc(k,iv) - vc(k+1,iv)) &
+             * (rho(k+1,iw1) + rho(k+1,iw2) + rho(k,iw1) + rho(k,iw2))
 !     vflux(k) = (arw(k,iw1) + arw(k,iw2)) * rayf_cofdif(k) * (vmc(k,iv) - vmc(k+1,iv))
   enddo
 

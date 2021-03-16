@@ -227,14 +227,12 @@ Contains
 
   integer :: isfcnudy, isfcnudm, isfcnudd, isfcnudh
   integer :: nf
-
   integer :: ndims, idims(3)
-  integer, pointer :: ilocal(:)
 
   ! Processing next sfcnud file
 
   if (inext > 0) isfcnudfile = isfcnudfile + 1
-   
+
   if (isfcnudfile > nsfcnudfiles) then
 
      ! Advance sfcnud files to next year
@@ -254,14 +252,12 @@ Contains
 
   call shdf5_open(fnames_sfcnud(isfcnudfile),'R')
 
-  ilocal => itab_wsfc(:)%iwglobe
-
   ndims    = 1
   idims(1) = nwsfc
 
-  call shdf5_irec(ndims, idims, 'SFCWAT_NUD'  , rvar1=sfcwat_nud,  points=ilocal)
-  call shdf5_irec(ndims, idims, 'SFCTEMP_NUD' , rvar1=sfctemp_nud, points=ilocal)
-  call shdf5_irec(ndims, idims, 'FRACLIQ_NUD' , rvar1=fracliq_nud, points=ilocal)
+  call shdf5_irec(ndims, idims, 'SFCWAT_NUD'  , rvar1=sfcwat_nud,  points=itab_wsfc(:)%iwglobe)
+  call shdf5_irec(ndims, idims, 'SFCTEMP_NUD' , rvar1=sfctemp_nud, points=itab_wsfc(:)%iwglobe)
+  call shdf5_irec(ndims, idims, 'FRACLIQ_NUD' , rvar1=fracliq_nud, points=itab_wsfc(:)%iwglobe)
 
   call shdf5_close()
 
@@ -291,7 +287,6 @@ Contains
 
   character(80) :: fname
   integer :: ndims, idims(2)
-  integer, pointer :: ilocal(:)
 
   real, allocatable :: soil_water_sp (:,:)
   real, allocatable :: soil_energy_sp(:,:)
@@ -314,20 +309,18 @@ Contains
 
   ndims    = 1
   idims(1) = nlake
-  ilocal => itab_lake(:)%iwglobe
 
-  call shdf5_irec(ndims, idims, 'LAKE%LAKE_ENERGY' , rvar1=lake%lake_energy, points=ilocal)
+  call shdf5_irec(ndims, idims, 'LAKE%LAKE_ENERGY', rvar1=lake%lake_energy, points=itab_lake(:)%iwglobe)
 
   ndims    = 2
   idims(1) = nzg_sp
   idims(2) = nland
-  ilocal => itab_land(:)%iwglobe
 
   allocate (soil_water_sp (nzg_sp,mland))
   allocate (soil_energy_sp(nzg_sp,mland))
 
-  call shdf5_irec(ndims, idims, 'LAND%SOIL_WATER'  , rvar2=soil_water_sp,  points=ilocal)
-  call shdf5_irec(ndims, idims, 'LAND%SOIL_ENERGY' , rvar2=soil_energy_sp, points=ilocal)
+  call shdf5_irec(ndims, idims, 'LAND%SOIL_WATER'  , rvar2=soil_water_sp,  points=itab_land(:)%iwglobe)
+  call shdf5_irec(ndims, idims, 'LAND%SOIL_ENERGY' , rvar2=soil_energy_sp, points=itab_land(:)%iwglobe)
 
   call shdf5_close()
 

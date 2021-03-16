@@ -67,7 +67,7 @@ subroutine history_write(vtype)
   logical            :: exans
   integer            :: nv, nvcnt, hdferr
   integer            :: ndims, idims(3)
-  integer, pointer   :: ilpts(:), igpts(:)
+  integer, pointer, contiguous :: ilpts(:), igpts(:)
   integer            :: nglobe, id
 
   if (ioutput == 0) return

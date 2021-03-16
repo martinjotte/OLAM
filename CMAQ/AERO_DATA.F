@@ -1208,19 +1208,19 @@ C  Verify that all the units on the file are consistent
 
 !     Include 'FILES_CTM.EXT'  ! file name parameters
 
-      integer,       intent(in) :: nvars3d
-      character(24), intent(in) :: vname3d(:)
-      character(24), intent(in) :: units3d(:)
+      integer,       intent(in)             :: nvars3d
+      character(24), intent(in), contiguous :: vname3d(:)
+      character(24), intent(in), contiguous :: units3d(:)
 
 C Parameters:
       Character( 10 ), Parameter :: blank10 = ' '
       character(  1 ), parameter :: crlf    = char(10)
 
 C Local Variables:
-      Character( 16 ), Save :: pname = 'map_pmemis'
-      Character( 512 )      :: xmsg1
-      Character( 1024 )     :: xmsg2
-      Character( 16 )       :: units
+      Character( 16 )   :: pname = 'map_pmemis'
+      Character( 512 )  :: xmsg1
+      Character( 1024 ) :: xmsg2
+      Character( 16 )   :: units
 
       Integer :: indx
       Integer :: v

@@ -237,13 +237,14 @@ subroutine write_davg_vars(outyear,outmonth,outdate)
   implicit none
 
   integer, intent(in) :: outyear, outmonth, outdate
+
   character(len=128) :: hnamel
   integer :: lenl
   logical exans
   character(len=32) :: varn
-  integer :: ndims,idims(2), month_use, year_use, date_use
-  integer, pointer :: ilpts(:), igpts(:)
-  integer :: nglobe
+  integer :: ndims,idims(2), month_use, year_use, date_use, nglobe
+
+  integer, pointer, contiguous :: ilpts(:), igpts(:)
 
 ! Determine output file name and open file
 

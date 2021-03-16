@@ -211,8 +211,8 @@
                                              ! TSTEP(1) = local output step
          INTEGER, INTENT( IN ) :: NEMIS_AE   ! number of aerosol emissions species
 
-         integer,       intent(in) :: nvars3d_emis
-         character(24), intent(in) :: vname3d_emis(:)
+         integer,                   intent(in) :: nvars3d_emis
+         character(24), contiguous, intent(in) :: vname3d_emis(:)
 
          LOGICAL SUCCESS
 

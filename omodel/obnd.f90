@@ -250,8 +250,8 @@ real, optional, intent(inout) :: v3(mwa)
 real, optional, intent(inout) :: v4(mwa)
 
 ! For real 2D arrays where the size of the first dimension is not mza
-real, optional, intent(inout) :: s1(:,:)
-real, optional, intent(inout) :: s2(:,:)
+real, optional, contiguous, intent(inout) :: s1(:,:)
+real, optional, contiguous, intent(inout) :: s2(:,:)
 
 real(8), optional, intent(inout) :: d1(mza,mwa)
 real(8), optional, intent(inout) :: d2(mza,mwa)

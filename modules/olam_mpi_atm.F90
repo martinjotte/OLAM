@@ -759,11 +759,11 @@ subroutine mpi_send_w(mrl, scalars,                                    &
   real(r8), optional, intent(in) :: dvara1 (mza,mwa)
   real(r8), optional, intent(in) :: dvara2 (mza,mwa)
 
-  real, optional, intent(in) :: svara1(:,:)
-  real, optional, intent(in) :: svara2(:,:)
-  real, optional, intent(in) :: svara3(:,:)
-  real, optional, intent(in) :: svara4(:,:)
-  real, optional, intent(in) :: svara5(:,:)
+  real, optional, contiguous, intent(in) :: svara1(:,:)
+  real, optional, contiguous, intent(in) :: svara2(:,:)
+  real, optional, contiguous, intent(in) :: svara3(:,:)
+  real, optional, contiguous, intent(in) :: svara4(:,:)
+  real, optional, contiguous, intent(in) :: svara5(:,:)
 
   real, optional, intent(in) :: rvara1 (mza,mwa)
   real, optional, intent(in) :: rvara2 (mza,mwa)
@@ -1418,11 +1418,11 @@ subroutine mpi_recv_w(mrl, scalars,                                    &
   real(r8), optional, intent(inout) :: dvara1 (mza,mwa)
   real(r8), optional, intent(inout) :: dvara2 (mza,mwa)
 
-  real, optional, intent(inout) :: svara1(:,:)
-  real, optional, intent(inout) :: svara2(:,:)
-  real, optional, intent(inout) :: svara3(:,:)
-  real, optional, intent(inout) :: svara4(:,:)
-  real, optional, intent(inout) :: svara5(:,:)
+  real, optional, contiguous, intent(inout) :: svara1(:,:)
+  real, optional, contiguous, intent(inout) :: svara2(:,:)
+  real, optional, contiguous, intent(inout) :: svara3(:,:)
+  real, optional, contiguous, intent(inout) :: svara4(:,:)
+  real, optional, contiguous, intent(inout) :: svara5(:,:)
 
   real, optional, intent(inout) :: rvara1 (mza,mwa)
   real, optional, intent(inout) :: rvara2 (mza,mwa)

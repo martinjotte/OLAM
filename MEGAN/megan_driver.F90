@@ -21,17 +21,17 @@ module mem_megan
   ! Length of the time between LAI updates (days)
   real, PARAMETER :: TSTLEN = 30.0
 
-  integer, save :: ino
-  integer, save :: n_scon_spc
-  integer, save :: n_mech_spc
+  integer :: ino
+  integer :: n_scon_spc
+  integer :: n_mech_spc
 
-  real,          pointer, save :: conv_fac(:) => null()
-  integer,       pointer, save :: spmh_map(:) => null()
-  integer,       pointer, save :: mech_map(:) => null()
-  character(16), pointer, save :: mech_spc(:) => null()
-  real,          pointer, save :: mech_mwt(:) => null()
+  real,          pointer, contiguous :: conv_fac(:) => null()
+  integer,       pointer, contiguous :: spmh_map(:) => null()
+  integer,       pointer, contiguous :: mech_map(:) => null()
+  character(16), pointer, contiguous :: mech_spc(:) => null()
+  real,          pointer, contiguous :: mech_mwt(:) => null()
 
-  integer,   allocatable, save :: mgn_2_gc_map(:)
+  integer, allocatable :: mgn_2_gc_map(:)
 
 
   real :: norm_fact(nvtyp,16)

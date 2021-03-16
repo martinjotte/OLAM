@@ -1,47 +1,49 @@
 MODULE module_cu_kfeta
 
-! Lookup table variables:
-  INTEGER,                   PRIVATE, PARAMETER :: KFNT=250, KFNP=220
-  REAL, DIMENSION(KFNT,KFNP),PRIVATE, SAVE      :: TTAB, QSTAB
-  REAL, DIMENSION(KFNP),     PRIVATE, SAVE      :: THE0K
-  REAL, DIMENSION(200),      PRIVATE, SAVE      :: ALU
-  REAL,                      PRIVATE, PARAMETER :: ASTRT  = 1.e-3
-  REAL,                      PRIVATE, PARAMETER :: BINC   = 0.075
-  REAL,                      PRIVATE, PARAMETER :: PLUTOP = 5000.0
-  REAL,                      PRIVATE, PARAMETER :: PBOT   = 110000.0
-  REAL,                      PRIVATE, PARAMETER :: DTH    = 1.
-  REAL,                      PRIVATE, PARAMETER :: RDTHK  = 1./DTH
-  REAL,                      PRIVATE, PARAMETER :: DPR    = (PBOT-PLUTOP)/REAL(KFNP-1)
-  REAL,                      PRIVATE, PARAMETER :: RDPR   = 1./DPR
+  INTEGER, PARAMETER :: KFNT=250, KFNP=220
+  INTEGER, PARAMETER :: TRIGGER = 1
+
+  REAL, ALLOCATABLE :: TTAB (:,:)
+  REAL, ALLOCATABLE :: QSTAB(:,:)
+  REAL, ALLOCATABLE :: THE0K(:)
+  REAL, ALLOCATABLE :: ALU  (:)
+
+  REAL, PARAMETER :: ASTRT  = 1.e-3
+  REAL, PARAMETER :: BINC   = 0.075
+  REAL, PARAMETER :: PLUTOP = 5000.0
+  REAL, PARAMETER :: PBOT   = 110000.0
+  REAL, PARAMETER :: DTH    = 1.
+  REAL, PARAMETER :: RDTHK  = 1./DTH
+  REAL, PARAMETER :: DPR    = (PBOT-PLUTOP)/REAL(KFNP-1)
+  REAL, PARAMETER :: RDPR   = 1./DPR
 
 ! KF_eta parameters:
-  REAL, PARAMETER, PRIVATE :: SVP1  = 0.6112
-  REAL, PARAMETER, PRIVATE :: SVP2  = 17.67
-  REAL, PARAMETER, PRIVATE :: SVP3  = 29.65
-  REAL, PARAMETER, PRIVATE :: SVPT0 = 273.15
-  REAL, PARAMETER, PRIVATE :: XLV0  = 3.15E6
-  REAL, PARAMETER, PRIVATE :: XLV1  = 2370.
-  REAL, PARAMETER, PRIVATE :: XLS0  = 2.905E6
-  REAL, PARAMETER, PRIVATE :: XLS1  = 259.532
-  REAL, PARAMETER, PRIVATE :: CP    = 1004.6
-  REAL, PARAMETER, PRIVATE :: G     = 9.81
-  REAL, PARAMETER, PRIVATE :: R     = 287.04
+  REAL, PARAMETER :: SVP1  = 0.6112
+  REAL, PARAMETER :: SVP2  = 17.67
+  REAL, PARAMETER :: SVP3  = 29.65
+  REAL, PARAMETER :: SVPT0 = 273.15
+  REAL, PARAMETER :: XLV0  = 3.15E6
+  REAL, PARAMETER :: XLV1  = 2370.
+  REAL, PARAMETER :: XLS0  = 2.905E6
+  REAL, PARAMETER :: XLS1  = 259.532
+  REAL, PARAMETER :: CP    = 1004.6
+  REAL, PARAMETER :: G     = 9.81
+  REAL, PARAMETER :: R     = 287.04
 
-  REAL, PARAMETER, PRIVATE :: GDRY  = -G / CP
-  REAL, PARAMETER, PRIVATE :: ALIQ  = SVP1 * 1000.
-  REAL, PARAMETER, PRIVATE :: BLIQ  = SVP2
-  REAL, PARAMETER, PRIVATE :: CLIQ  = SVP2 * SVPT0
-  REAL, PARAMETER, PRIVATE :: DLIQ  = SVP3
+  REAL, PARAMETER :: GDRY  = -G / CP
+  REAL, PARAMETER :: ALIQ  = SVP1 * 1000.
+  REAL, PARAMETER :: BLIQ  = SVP2
+  REAL, PARAMETER :: CLIQ  = SVP2 * SVPT0
+  REAL, PARAMETER :: DLIQ  = SVP3
 
-  REAL, PARAMETER, PRIVATE :: P00   = 1.e5
-  REAL, PARAMETER, PRIVATE :: T00   = 273.16
-  REAL, PARAMETER, PRIVATE :: RLF   = 3.339E5
-  REAL, PARAMETER, PRIVATE :: TTFRZ = 268.16
-  REAL, PARAMETER, PRIVATE :: TBFRZ = 248.16
+  REAL, PARAMETER :: P00   = 1.e5
+  REAL, PARAMETER :: T00   = 273.16
+  REAL, PARAMETER :: RLF   = 3.339E5
+  REAL, PARAMETER :: TTFRZ = 268.16
+  REAL, PARAMETER :: TBFRZ = 248.16
 
-  REAL, PARAMETER, PRIVATE :: RATE = 0.03
-
-  integer, parameter, private :: trigger  =  1
+  private
+  public :: cuparm_kfeta, kf_lutab
 
 CONTAINS
 
@@ -813,14 +815,14 @@ updraft:    DO NK=K,KL-1
                     EQFRC(NK1)=1.0
                   ELSE
                     EQFRC(NK1)=(TV0(NK1)-TVQU(NK1))*F1/(TU10-TVQU(NK1))
-                    EQFRC(NK1)=AMAX1(0.0,EQFRC(NK1))
-                    EQFRC(NK1)=AMIN1(1.0,EQFRC(NK1))
-                    IF(EQFRC(NK1).EQ.1)THEN
-                      EE2=1.
-                      UD2=0.
-                    ELSEIF(EQFRC(NK1).EQ.0.)THEN
-                      EE2=0.
-                      UD2=1.
+                    IF(EQFRC(NK1).GE.1.)THEN
+                       EQFRC(NK1)=1.0
+                       EE2=1.
+                       UD2=0.
+                    ELSEIF(EQFRC(NK1).LE.0.)THEN
+                       EQFRC(NK1)=0.0
+                       EE2=0.
+                       UD2=1.
                     ELSE
 !
 !...SUBROUTINE PROF5 INTEGRATES OVER THE GAUSSIAN DIST TO DETERMINE THE
@@ -1200,7 +1202,7 @@ updraft:    DO NK=K,KL-1
 !
 !...call tpmix2dd to find wet-bulb temp, qv...
 !
-          call tpmix2dd(p0(lfs),theted(lfs),tz(lfs),qss,iw)
+          call tpmix2dd(p0(lfs),theted(lfs),tz(lfs),qss)
 !         THTAD(LFS)=TZ(LFS)*(P00/P0(LFS))**(0.2854*(1.-0.28*QSS))
           THTAD(LFS)=TZ(LFS)*EXN(LFS)
 !     
@@ -1244,7 +1246,7 @@ updraft:    DO NK=K,KL-1
           endif
           LDT = MIN0(LFS-1,KSTART-1)
 !
-          call tpmix2dd(p0(kstart),theted(kstart),tz(kstart),qss,iw)
+          call tpmix2dd(p0(kstart),theted(kstart),tz(kstart),qss)
 !
           tz(kstart) = tz(kstart)-dtmelt
           ES=ALIQ*EXP((BLIQ*TZ(KSTART)-CLIQ)/(TZ(KSTART)-DLIQ))
@@ -1261,7 +1263,7 @@ updraft:    DO NK=K,KL-1
 !
 !...call tpmix2dd to find wet bulb temp, saturation mixing ratio...
 !
-            call tpmix2dd(p0(nd),theted(nd),tz(nd),qss,iw)
+            call tpmix2dd(p0(nd),theted(nd),tz(nd),qss)
             qsd(nd) = qss
 !
 !...specify RH decrease of 20%/km in downdraft...
@@ -1550,12 +1552,13 @@ iter:     DO NCOUNT=1,10
 !...CHECK TO SEE IF MIXING RATIO DIPS BELOW ZERO ANYWHERE;  IF SO, BORROW
 !...MOISTURE FROM ADJACENT LAYERS TO BRING IT BACK UP ABOVE ZERO...
 !     
-        DO NK=1,LTOP
+!       DO NK=1,LTOP
+        DO NK=2,LTOP
           IF(QG(NK).LT.0.)THEN
-            IF(NK.EQ.1)THEN                             ! JSK MODS
-              write(io6,*) 'QG, QG(NK).LT.0'         ! JSK MODS
-              stop 'stop kf_eta1 '
-            ENDIF                                       ! JSK MODS
+!           IF(NK.EQ.1)THEN                             ! JSK MODS
+!             write(io6,*) 'QG, QG(NK).LT.0'         ! JSK MODS
+!             stop 'stop kf_eta1 '
+!           ENDIF                                       ! JSK MODS
             NK1=NK+1
             IF(NK.EQ.LTOP)THEN
               NK1=KLCL
@@ -1684,7 +1687,7 @@ iter:     DO NCOUNT=1,10
             NK1=NK+1
             THETEU(NK1) = THETEU(NK)
 !
-            call tpmix2dd(p0(nk1),theteu(nk1),tgu(nk1),qgu(nk1),iw)
+            call tpmix2dd(p0(nk1),theteu(nk1),tgu(nk1),qgu(nk1))
 !
             TVQU(NK1)=TGU(NK1)*(1.+0.608*QGU(NK1)-QLIQ(NK1)-QICE(NK1))
             IF(NK.EQ.K)THEN
@@ -2039,31 +2042,31 @@ iter:     DO NCOUNT=1,10
 
      PRATEC=PPTFLX*(1.-FBFRC)/DXSQ
 
-1000 FORMAT(' ',10A8)
-1005 FORMAT(' ',F6.0,2X,F7.4,2X,F7.3,1X,F7.4,2X,4(F6.3,2X),2(F7.3,1X))
-1010 FORMAT(' ',' VERTICAL VELOCITY IS NEGATIVE AT ',F4.0,' MB')
-1015 FORMAT(' ','ALL REMAINING MASS DETRAINS BELOW ',F4.0,' MB')
-1025 FORMAT(5X,' KLCL=',I2,' ZLCL=',F7.1,'M',                         &
+!1000 FORMAT(' ',10A8)
+!1005 FORMAT(' ',F6.0,2X,F7.4,2X,F7.3,1X,F7.4,2X,4(F6.3,2X),2(F7.3,1X))
+!1010 FORMAT(' ',' VERTICAL VELOCITY IS NEGATIVE AT ',F4.0,' MB')
+!1015 FORMAT(' ','ALL REMAINING MASS DETRAINS BELOW ',F4.0,' MB')
+ 1025 FORMAT(5X,' KLCL=',I2,' ZLCL=',F7.1,'M',                         &
         ' DTLCL=',F5.2,' LTOP=',I2,' P0(LTOP)=',-2PF5.1,'MB FRZ LV=',   &
         I2,' TMIX=',0PF4.1,1X,'PMIX=',-2PF6.1,' QMIX=',3PF5.1,          &
         ' CAPE=',0PF7.1)
-1030 FORMAT(' ',' P0(LET) = ',F6.1,' P0(LTOP) = ',F6.1,' VMFLCL =',   &
+ 1030 FORMAT(' ',' P0(LET) = ',F6.1,' P0(LTOP) = ',F6.1,' VMFLCL =',   &
       E12.3,' PLCL =',F6.1,' WLCL =',F6.3,' CLDHGT =',                  &
       F8.1)
-1035 FORMAT(1X,'PEF(WS)=',F5.2,'(CB)=',F5.2,'LC,LET=',2I3,'WKL='       &
+ 1035 FORMAT(1X,'PEF(WS)=',F5.2,'(CB)=',F5.2,'LC,LET=',2I3,'WKL='       &
       ,F6.3,'VWS=',F5.2)
-1070 FORMAT (15A8) 
-1075 FORMAT (F8.2,3(F8.2),2(F8.3),F8.2,2F8.3,F8.2,6F8.3) 
-1080 FORMAT(2X,'LFS,LDB,LDT =',3I3,' TIMEC, TADVEC, NSTEP=',           &
+ 1070 FORMAT (15A8) 
+ 1075 FORMAT (F8.2,3(F8.2),2(F8.3),F8.2,2F8.3,F8.2,6F8.3) 
+ 1080 FORMAT(2X,'LFS,LDB,LDT =',3I3,' TIMEC, TADVEC, NSTEP=',           &
               2(1X,F5.0),I3,'NCOUNT, FABE, AINC=',I2,1X,F6.3,F6.2) 
-1085 FORMAT (A3,14A7,2A8) 
-1090 FORMAT (I3,F7.2,F7.0,10F7.2,4F7.3,2F8.3) 
-1095 FORMAT(' ','  PPT PRODUCTION RATE= ',F10.0,' TOTAL EVAP+PPT= ',F10.0)
-1105 FORMAT(' ','NET LATENT HEAT RELEASE =',E12.5,' ACTUAL HEATING =',&
-       E12.5,' J/KG-S, DIFFERENCE = ',F9.3,'%')
-1110 FORMAT(' ','INITIAL WATER =',E12.5,' FINAL WATER =',E12.5,       &
-       ' TOTAL WATER CHANGE =',F8.2,'%')
-1120 FORMAT(' ','MOISTURE ERROR AS FUNCTION OF TOTAL PPT =',F9.3,'%')
+ 1085 FORMAT (A3,14A7,2A8) 
+ 1090 FORMAT (I3,F7.2,F7.0,10F7.2,4F7.3,2F8.3) 
+!1095 FORMAT(' ','  PPT PRODUCTION RATE= ',F10.0,' TOTAL EVAP+PPT= ',F10.0)
+!1105 FORMAT(' ','NET LATENT HEAT RELEASE =',E12.5,' ACTUAL HEATING =',&
+!       E12.5,' J/KG-S, DIFFERENCE = ',F9.3,'%')
+!1110 FORMAT(' ','INITIAL WATER =',E12.5,' FINAL WATER =',E12.5,       &
+!       ' TOTAL WATER CHANGE =',F8.2,'%')
+ 1120 FORMAT(' ','MOISTURE ERROR AS FUNCTION OF TOTAL PPT =',F9.3,'%')
 
 !-----------------------------------------------------------------------
 !--------------SAVE CLOUD TOP AND BOTTOM FOR RADIATION------------------
@@ -2264,7 +2267,9 @@ iter:     DO NCOUNT=1,10
       REAL, INTENT(IN   )   :: DZ,BOTERM,ENTERM
       REAL, INTENT(INOUT)   :: QLQOUT,QICOUT,WTW,QLIQ,QICE,QNEWLQ,QNEWIC
       REAL :: QTOT,QNEW,QEST,G1,WAVG,CONV,RATIO3,OLDQ,RATIO4,DQ,PPTDRG
-!
+
+      REAL, PARAMETER :: RATE  = 0.03
+
       QTOT=QLIQ+QICE                                                    
       QNEW=QNEWLQ+QNEWIC                                                
 !                                                                       
@@ -2368,13 +2373,13 @@ iter:     DO NCOUNT=1,10
 
 !====================================================================
 
-   SUBROUTINE TPMIX2DD(p,thes,ts,qs,iw)
+   SUBROUTINE TPMIX2DD(p,thes,ts,qs)
 
    IMPLICIT NONE
 
    REAL,         INTENT(IN   )   :: P,THES
    REAL,         INTENT(INOUT)   :: TS,QS
-   INTEGER,      INTENT(IN   )   :: iw     ! avail for debugging
+
    REAL    ::    TP,QQ,BTH,TTH,PP,T00,T10,T01,T11,Q00,Q10,Q01,Q11
    INTEGER ::    IPTB,ITHTB
 
@@ -2498,6 +2503,12 @@ iter:     DO NCOUNT=1,10
 
 ! tolerance for accuracy of temperature 
       real, parameter :: toler = 0.001
+
+      allocate(ttab (kfnt,kfnp))
+      allocate(qstab(kfnt,kfnp))
+
+      allocate(the0k(kfnp))
+      allocate(alu(200))
 
 ! calculate the starting sat. equiv. theta
 

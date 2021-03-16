@@ -226,8 +226,9 @@ subroutine lite_write()
   logical            :: exans
   integer            :: nv, nvcnt
   integer            :: ndims, idims(3)
-  integer, pointer   :: ilpts(:), igpts(:)
   integer            :: nglobe, id, hdferr
+
+  integer, pointer, contiguous :: ilpts(:), igpts(:)
 
   if (nl%ioutput_lite == 0 .or. num_lite < 1) return
 

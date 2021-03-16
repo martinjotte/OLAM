@@ -211,9 +211,6 @@ real :: denom, fldval1, fldval2
 real :: head(nzg)
 real :: psi, psi_slope
 
-integer, save :: icall = 0
-real, save, allocatable :: aux(:)
-
 real :: zanal_swtc5, zanal0_swtc5
 
 integer, parameter :: nfields = 803
@@ -806,11 +803,6 @@ data fldlib(1:4,801:803)/ &
  'VORTP'         ,'P3' ,'VORTP',' (s:S2:-1  )'                              ,& ! 801
  'VORTN'         ,'N3' ,'VORTN',' (s:S2:-1  )'                              ,& ! 802
  'RKE'           ,'T3' ,'RKE',' (s:S2:-1  )'                                 / ! 803
-
-if (icall /= 1) then
-   icall = 1
-   allocate (aux(mwa))
-endif
 
 if (len_trim(fldname0) >= 5) then
    if ( fldname0(1:5) == 'CHEM_' .or. &
@@ -4759,34 +4751,25 @@ case(751) ! 'SFCG_LATFLUX_DAVG'
 
 case(752) ! 'SENSFLUX_DAVG'
 
-   if (infotyp == 'UNITS') then
-      aux(:) = 0.
+   if (.not. allocated(sfluxt_davg)) go to 1000
+   fldval = 0.0
 
-      do j = 1,itab_w(i)%jsfc2
-         iwsfc = itab_w(i)%iwsfc(j)
-         jasfc = itab_w(i)%jasfc(j)
-
-         aux(iw) = aux(iw) + itab_wsfc(iwsfc)%arcoariw(jasfc) * sfluxt_davg(iwsfc) * cp
-      enddo
-
-   endif
-
-   fldval = aux(i)
+   do j = 1,itab_w(i)%jsfc2
+      iwsfc = itab_w(i)%iwsfc(j)
+      jasfc = itab_w(i)%jasfc(j)
+      fldval = fldval + itab_wsfc(iwsfc)%arcoariw(jasfc) * sfluxt_davg(iwsfc) * cp
+   enddo
 
 case(753) ! 'LATFLUX_DAVG'
 
-   if (infotyp == 'UNITS') then
-      aux(:) = 0.
+   if (.not. allocated(sfluxr_davg)) go to 1000
+   fldval = 0.0
 
-      do j = 1,itab_w(i)%jsfc2
-         iwsfc = itab_w(i)%iwsfc(j)
-         jasfc = itab_w(i)%jasfc(j)
-         aux(iw) = aux(iw) + itab_wsfc(iwsfc)%arcoariw(jasfc) * sfluxr_davg(iwsfc) * alvl
-      enddo
-
-   endif
-
-   fldval = aux(i)
+   do j = 1,itab_w(i)%jsfc2
+      iwsfc = itab_w(i)%iwsfc(j)
+      jasfc = itab_w(i)%jasfc(j)
+      fldval = fldval + itab_wsfc(iwsfc)%arcoariw(jasfc) * sfluxr_davg(iwsfc) * alvl
+   enddo
 
 case(771) ! 'RHO_OBS'
 

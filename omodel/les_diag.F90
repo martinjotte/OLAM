@@ -188,11 +188,10 @@ subroutine les_diag()
 
   if (myrank == 0) then
   do k = mza, 2, -1
-  write(*,'(I4, 2F9.4, F10.6, F9.3, F9.1, F9.6,F8.4, 20g12.4)')  k, u_avg(k), v_avg(k), w_avg(k), t_avg(k), p_avg(k), q_avg(k), ww_avg(k), uu_avg(k), tw_avg(k), pp_avg(k)
+  write(*,'(I4, 2F9.4, F10.6, F9.3, F9.1, F9.6,F8.4, 20g12.4)')  k, u_avg(k), v_avg(k), w_avg(k), &
+       t_avg(k), p_avg(k), q_avg(k), ww_avg(k), uu_avg(k), tw_avg(k), pp_avg(k)
   enddo
   write(*,*)
   endif
-
-return
 
 end subroutine les_diag

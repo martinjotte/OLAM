@@ -71,8 +71,8 @@ Contains
 
     implicit none
 
-    integer, intent(in) :: mza, mwa, mrls
-    integer, intent(in) :: nqparm(:)
+    integer,             intent(in) :: mza, mwa, mrls
+    integer, contiguous, intent(in) :: nqparm(:)
 
     if ( any(nqparm(1:mrls) > 0) ) then
 

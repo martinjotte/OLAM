@@ -38,20 +38,20 @@ Module var_tables
   private :: r8
 
   type var_tables_r
-     integer,  pointer :: ivar0_p        => null()
-     integer,  pointer :: ivar1_p(:)     => null()
-     integer,  pointer :: ivar2_p(:,:)   => null()
-     integer,  pointer :: ivar3_p(:,:,:) => null()
+     integer,  pointer             :: ivar0_p        => null()
+     integer,  pointer, contiguous :: ivar1_p(:)     => null()
+     integer,  pointer, contiguous :: ivar2_p(:,:)   => null()
+     integer,  pointer, contiguous :: ivar3_p(:,:,:) => null()
 
-     real,     pointer :: rvar0_p        => null()
-     real,     pointer :: rvar1_p(:)     => null()
-     real,     pointer :: rvar2_p(:,:)   => null()
-     real,     pointer :: rvar3_p(:,:,:) => null()
+     real,     pointer             :: rvar0_p        => null()
+     real,     pointer, contiguous :: rvar1_p(:)     => null()
+     real,     pointer, contiguous :: rvar2_p(:,:)   => null()
+     real,     pointer, contiguous :: rvar3_p(:,:,:) => null()
 
-     real(r8), pointer :: dvar0_p        => null()
-     real(r8), pointer :: dvar1_p(:)     => null()
-     real(r8), pointer :: dvar2_p(:,:)   => null()
-     real(r8), pointer :: dvar3_p(:,:,:) => null()
+     real(r8), pointer             :: dvar0_p        => null()
+     real(r8), pointer, contiguous :: dvar1_p(:)     => null()
+     real(r8), pointer, contiguous :: dvar2_p(:,:)   => null()
+     real(r8), pointer, contiguous :: dvar3_p(:,:,:) => null()
 
      character(32) :: name
      character( 2) :: stagpt
@@ -113,20 +113,20 @@ Contains
     character(*),      intent(in) :: name, stagpt
     logical, optional, intent(in) :: hist, noread, mpt1, lite
 
-    integer,  target, optional, intent(in) :: ivar0
-    integer,  target, optional, intent(in) :: ivar1(:)
-    integer,  target, optional, intent(in) :: ivar2(:,:)
-    integer,  target, optional, intent(in) :: ivar3(:,:,:)
+    integer,  target, optional,             intent(in) :: ivar0
+    integer,  target, optional, contiguous, intent(in) :: ivar1(:)
+    integer,  target, optional, contiguous, intent(in) :: ivar2(:,:)
+    integer,  target, optional, contiguous, intent(in) :: ivar3(:,:,:)
 
-    real,     target, optional, intent(in) :: rvar0
-    real,     target, optional, intent(in) :: rvar1(:)
-    real,     target, optional, intent(in) :: rvar2(:,:)
-    real,     target, optional, intent(in) :: rvar3(:,:,:)
+    real,     target, optional,             intent(in) :: rvar0
+    real,     target, optional, contiguous, intent(in) :: rvar1(:)
+    real,     target, optional, contiguous, intent(in) :: rvar2(:,:)
+    real,     target, optional, contiguous, intent(in) :: rvar3(:,:,:)
 
-    real(r8), target, optional, intent(in) :: dvar0
-    real(r8), target, optional, intent(in) :: dvar1(:)
-    real(r8), target, optional, intent(in) :: dvar2(:,:)
-    real(r8), target, optional, intent(in) :: dvar3(:,:,:)
+    real(r8), target, optional,             intent(in) :: dvar0
+    real(r8), target, optional, contiguous, intent(in) :: dvar1(:)
+    real(r8), target, optional, contiguous, intent(in) :: dvar2(:,:)
+    real(r8), target, optional, contiguous, intent(in) :: dvar3(:,:,:)
 
     character(2), parameter :: ptypes(17) = (/  &
          'AV', 'AW', 'AM', 'AN',  &  ! Atmos V, W, M, NUDGE array
