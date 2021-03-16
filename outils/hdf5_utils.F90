@@ -133,10 +133,10 @@ subroutine shdf5_info(dsetname, ndims, dims)
 
   implicit none
 
-  character(*), intent(in)    :: dsetname ! Dataset name
-  integer,      intent(inout) :: dims(:)
-  integer,      intent(inout) :: ndims    ! Dataset rank (in file)
-  integer                     :: hdferr   ! Error flag
+  character(*),        intent(in)    :: dsetname ! Dataset name
+  integer, contiguous, intent(inout) :: dims(:)
+  integer,             intent(inout) :: ndims    ! Dataset rank (in file)
+  integer                            :: hdferr   ! Error flag
 
 ! Open the dataset.
 
@@ -176,20 +176,28 @@ subroutine shdf5_orec(ndims,dims,dsetname,bvars,ivars,rvars,cvars,dvars,lvars, &
 
   implicit none
 
-  character(*), intent(in) :: dsetname ! Variable label
-  integer,      intent(in) :: ndims    ! Number of dimensions or rank
-  integer,      intent(in) :: dims(:)  ! Dataset dimensions.
+  character(*), intent(in)             :: dsetname ! Variable label
+  integer,      intent(in)             :: ndims    ! Number of dimensions or rank
+  integer,      intent(in), contiguous :: dims(:)  ! Dataset dimensions.
 
 ! Array and scalar arguments for different types. Only specify one in each call
-  integer(i1),  intent(in), optional :: bvars, bvar1(:), bvar2(:,:), bvar3(:,:,:), bvar4(:,:,:,:)
-  integer,      intent(in), optional :: ivars, ivar1(:), ivar2(:,:), ivar3(:,:,:), ivar4(:,:,:,:)
-  real,         intent(in), optional :: rvars, rvar1(:), rvar2(:,:), rvar3(:,:,:), rvar4(:,:,:,:)
-  character,    intent(in), optional :: cvars, cvar1(:), cvar2(:,:), cvar3(:,:,:)
-  real(r8),     intent(in), optional :: dvars, dvar1(:), dvar2(:,:), dvar3(:,:,:), dvar4(:,:,:,:)
-  logical,      intent(in), optional :: lvars, lvar1(:), lvar2(:,:), lvar3(:,:,:)
+  integer(i1),  intent(in), optional :: bvars
+  integer,      intent(in), optional :: ivars
+  real,         intent(in), optional :: rvars
+  character,    intent(in), optional :: cvars
+  real(r8),     intent(in), optional :: dvars
+  logical,      intent(in), optional :: lvars
+
+  integer(i1),  intent(in), optional, contiguous :: bvar1(:), bvar2(:,:), bvar3(:,:,:), bvar4(:,:,:,:)
+  integer,      intent(in), optional, contiguous :: ivar1(:), ivar2(:,:), ivar3(:,:,:), ivar4(:,:,:,:)
+  real,         intent(in), optional, contiguous :: rvar1(:), rvar2(:,:), rvar3(:,:,:), rvar4(:,:,:,:)
+  character,    intent(in), optional, contiguous :: cvar1(:), cvar2(:,:), cvar3(:,:,:)
+  real(r8),     intent(in), optional, contiguous :: dvar1(:), dvar2(:,:), dvar3(:,:,:), dvar4(:,:,:,:)
+  logical,      intent(in), optional, contiguous :: lvar1(:), lvar2(:,:), lvar3(:,:,:)
 
 ! Optional arrays to determine cells for partial/parallel IO
-  integer,      intent(in), optional :: lpoints(:), gpoints(:), nglobe
+  integer,      intent(in), optional             :: nglobe
+  integer,      intent(in), optional, contiguous :: lpoints(:), gpoints(:)
 
 ! Optional arrays to write common NetCDF convention attributes
   character(*), intent(in), optional :: units, long_name, positive
@@ -202,7 +210,7 @@ subroutine shdf5_orec(ndims,dims,dsetname,bvars,ivars,rvars,cvars,dvars,lvars, &
   logical,      intent(in), optional :: isdim
 
 ! Indicate names of each dimension
-  character(*), intent(in), optional :: dimnames(:)
+  character(*), intent(in), optional, contiguous :: dimnames(:)
 
 ! Dataspace cache id
   integer,      intent(in), optional :: cache_id
@@ -367,20 +375,21 @@ subroutine shdf5_orec2(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar1, 
 
   implicit none
 
-  character(*), intent(in) :: dsetname ! Variable label
-  integer,      intent(in) :: ndims    ! Number of dimensions or rank
-  integer,      intent(in) :: dims(:)  ! Dataset dimensions.
+  character(*), intent(in)             :: dsetname ! Variable label
+  integer,      intent(in)             :: ndims    ! Number of dimensions or rank
+  integer,      intent(in), contiguous :: dims(:)  ! Dataset dimensions.
 
 ! Array and scalar arguments for different types. Only specify one in each call
-  integer(i1),  intent(in), optional :: bvar1(:), bvar2(:,:), bvar3(:,:,:), bvar4(:,:,:,:)
-  integer,      intent(in), optional :: ivar1(:), ivar2(:,:), ivar3(:,:,:), ivar4(:,:,:,:)
-  real,         intent(in), optional :: rvar1(:), rvar2(:,:), rvar3(:,:,:), rvar4(:,:,:,:)
-  character,    intent(in), optional :: cvar1(:), cvar2(:,:), cvar3(:,:,:)
-  real(r8),     intent(in), optional :: dvar1(:), dvar2(:,:), dvar3(:,:,:), dvar4(:,:,:,:)
-  logical,      intent(in), optional :: lvar1(:), lvar2(:,:), lvar3(:,:,:)
+  integer(i1),  intent(in), optional, contiguous :: bvar1(:), bvar2(:,:), bvar3(:,:,:), bvar4(:,:,:,:)
+  integer,      intent(in), optional, contiguous :: ivar1(:), ivar2(:,:), ivar3(:,:,:), ivar4(:,:,:,:)
+  real,         intent(in), optional, contiguous :: rvar1(:), rvar2(:,:), rvar3(:,:,:), rvar4(:,:,:,:)
+  character,    intent(in), optional, contiguous :: cvar1(:), cvar2(:,:), cvar3(:,:,:)
+  real(r8),     intent(in), optional, contiguous :: dvar1(:), dvar2(:,:), dvar3(:,:,:), dvar4(:,:,:,:)
+  logical,      intent(in), optional, contiguous :: lvar1(:), lvar2(:,:), lvar3(:,:,:)
 
 ! Optional arrays to determine cells for partial/parallel IO
-  integer,      intent(in), optional :: lpoints(:), gpoints(:), nglobe
+  integer,      intent(in), optional             :: nglobe
+  integer,      intent(in), optional, contiguous :: lpoints(:), gpoints(:)
 
 ! Optional arrays to write common NetCDF convention attributes
   character(*), intent(in), optional :: units, long_name, positive
@@ -393,7 +402,7 @@ subroutine shdf5_orec2(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar1, 
   logical,      intent(in), optional :: isdim
 
 ! Indicate names of each dimension
-  character(*), intent(in), optional :: dimnames(:)
+  character(*), intent(in), optional, contiguous :: dimnames(:)
 
 ! Local variables
   integer :: hdferr  ! Error flag
@@ -701,22 +710,29 @@ subroutine shdf5_irec(ndims,dims,dsetname,bvars,ivars,rvars,cvars,dvars,lvars,  
   use hdf5_f2f
   implicit none
 
-  character(*), intent(IN) :: dsetname ! Dataset name
-  integer,      intent(IN) :: ndims    ! Number of dimensions or rank
-  integer,      intent(IN) :: dims(:)  ! Dataset dimensions
+  character(*), intent(IN)             :: dsetname ! Dataset name
+  integer,      intent(IN)             :: ndims    ! Number of dimensions or rank
+  integer,      intent(IN), contiguous :: dims(:)  ! Dataset dimensions
 
 ! Array and scalar arguments for different types. Only specify one in each call.
-  integer(i1),  intent(inout), optional :: bvars, bvar1(:), bvar2(:,:), bvar3(:,:,:), bvar4(:,:,:,:)
-  integer,      intent(inout), optional :: ivars, ivar1(:), ivar2(:,:), ivar3(:,:,:), ivar4(:,:,:,:)
-  real,         intent(inout), optional :: rvars, rvar1(:), rvar2(:,:), rvar3(:,:,:), rvar4(:,:,:,:)
-  character,    intent(inout), optional :: cvars, cvar1(:), cvar2(:,:), cvar3(:,:,:)
-  real(r8),     intent(inout), optional :: dvars, dvar1(:), dvar2(:,:), dvar3(:,:,:), dvar4(:,:,:,:)
-  logical,      intent(inout), optional :: lvars, lvar1(:), lvar2(:,:), lvar3(:,:,:)
+  integer(i1), intent(inout), optional :: bvars
+  integer,     intent(inout), optional :: ivars
+  real,        intent(inout), optional :: rvars
+  character,   intent(inout), optional :: cvars
+  real(r8),    intent(inout), optional :: dvars
+  logical,     intent(inout), optional :: lvars
+
+  integer(i1), intent(inout), optional, contiguous :: bvar1(:), bvar2(:,:), bvar3(:,:,:), bvar4(:,:,:,:)
+  integer,     intent(inout), optional, contiguous :: ivar1(:), ivar2(:,:), ivar3(:,:,:), ivar4(:,:,:,:)
+  real,        intent(inout), optional, contiguous :: rvar1(:), rvar2(:,:), rvar3(:,:,:), rvar4(:,:,:,:)
+  character,   intent(inout), optional, contiguous :: cvar1(:), cvar2(:,:), cvar3(:,:,:)
+  real(r8),    intent(inout), optional, contiguous :: dvar1(:), dvar2(:,:), dvar3(:,:,:), dvar4(:,:,:,:)
+  logical,     intent(inout), optional, contiguous :: lvar1(:), lvar2(:,:), lvar3(:,:,:)
 
 ! Optional arrays to determine cells for partial/parallel IO
-  integer,      intent(IN),  optional :: points(:)
-  integer,      intent(IN),  optional :: start (:)
-  integer,      intent(IN),  optional :: counts(:)
+  integer,      intent(IN), optional, contiguous :: points(:)
+  integer,      intent(IN), optional, contiguous :: start (:)
+  integer,      intent(IN), optional, contiguous :: counts(:)
 
 ! Local variables
   integer :: hdferr  ! Error flag
@@ -727,7 +743,7 @@ subroutine shdf5_irec(ndims,dims,dsetname,bvars,ivars,rvars,cvars,dvars,lvars,  
      print*, 'Dimension error in shdf5_irec:', ndims, dims(1:ndims)
      stop    'shdf5_irec: bad dims'
   endif
-    
+
 ! Prepare file and memory space for the read
 
   call fh5_prepare_read(dsetname, ndims, dims, hdferr, coords=points, &
@@ -777,7 +793,7 @@ subroutine shdf5_irec(ndims,dims,dsetname,bvars,ivars,rvars,cvars,dvars,lvars,  
      print*, 'field = ', dsetname
      stop    'shdf5_irec: bad data field'
   endif
-  
+
   if (hdferr /= 0) then
      print*, 'shdf5_irec: call fh5d_read: hdf5 error =', hdferr
      print*, 'Error reading ', trim(dsetname)
@@ -820,40 +836,49 @@ subroutine shdf5_io(action,ndims,dims,dsetname,bvars,ivars,rvars,cvars,dvars,lva
 
   implicit none
 
-  character(*), intent(in)           :: dsetname, action
-  integer,      intent(in)           :: ndims,    dims(:)
-  integer(i1),  intent(inout), optional :: bvars, bvar1(:), bvar2(:,:), bvar3(:,:,:), bvar4(:,:,:,:)
-  integer,      intent(inout), optional :: ivars, ivar1(:), ivar2(:,:), ivar3(:,:,:), ivar4(:,:,:,:)
-  real,         intent(inout), optional :: rvars, rvar1(:), rvar2(:,:), rvar3(:,:,:), rvar4(:,:,:,:)
-  character,    intent(inout), optional :: cvars, cvar1(:), cvar2(:,:), cvar3(:,:,:)
-  real(r8),     intent(inout), optional :: dvars, dvar1(:), dvar2(:,:), dvar3(:,:,:), dvar4(:,:,:,:)
-  logical,      intent(inout), optional :: lvars, lvar1(:), lvar2(:,:), lvar3(:,:,:)
- 
+  character(*), intent(in)             :: dsetname, action
+  integer,      intent(in)             :: ndims
+  integer,      intent(in), contiguous :: dims(:)
+
+  integer(i1),  intent(inout), optional :: bvars
+  integer,      intent(inout), optional :: ivars
+  real,         intent(inout), optional :: rvars
+  character,    intent(inout), optional :: cvars
+  real(r8),     intent(inout), optional :: dvars
+  logical,      intent(inout), optional :: lvars
+
+  integer(i1),  intent(inout), optional, contiguous :: bvar1(:), bvar2(:,:), bvar3(:,:,:), bvar4(:,:,:,:)
+  integer,      intent(inout), optional, contiguous :: ivar1(:), ivar2(:,:), ivar3(:,:,:), ivar4(:,:,:,:)
+  real,         intent(inout), optional, contiguous :: rvar1(:), rvar2(:,:), rvar3(:,:,:), rvar4(:,:,:,:)
+  character,    intent(inout), optional, contiguous :: cvar1(:), cvar2(:,:), cvar3(:,:,:)
+  real(r8),     intent(inout), optional, contiguous :: dvar1(:), dvar2(:,:), dvar3(:,:,:), dvar4(:,:,:,:)
+  logical,      intent(inout), optional, contiguous :: lvar1(:), lvar2(:,:), lvar3(:,:,:)
+
   ! THIS ROUTINE CALLS SHDF5_IREC OR SHDF5_OREC TO READ OR WRITE A VARIABLE
   ! DEPENDING ON WHETHER 'ACTION' EQUALS 'READ' OR 'WRITE'
 
   if (action == 'READ') then
-     
+
      call shdf5_irec(ndims,dims,dsetname,bvars,ivars,rvars,cvars,dvars,lvars, &
                                          bvar1,ivar1,rvar1,cvar1,dvar1,lvar1, &
                                          bvar2,ivar2,rvar2,cvar2,dvar2,lvar2, &
                                          bvar3,ivar3,rvar3,cvar3,dvar3,lvar3, &
                                          bvar4,ivar4,rvar4,      dvar4        )
   elseif (action == 'WRITE') then
-     
+
      call shdf5_orec(ndims,dims,dsetname,bvars,ivars,rvars,cvars,dvars,lvars, &
                                          bvar1,ivar1,rvar1,cvar1,dvar1,lvar1, &
                                          bvar2,ivar2,rvar2,cvar2,dvar2,lvar2, &
                                          bvar3,ivar3,rvar3,cvar3,dvar3,lvar3, &
                                          bvar4,ivar4,rvar4,      dvar4        )
   else
-     
+
      print *, "Illegal action in shdf5_io."
      print *, "Action should be 'READ' or 'WRITE'"
      stop     "Ending model run"
 
   endif
-  
+
 end subroutine shdf5_io
 
 !===============================================================================
@@ -873,20 +898,20 @@ subroutine shdf5_orec_ll(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar1
 
   implicit none
 
-  character(*), intent(in) :: dsetname ! Variable label
-  integer,      intent(in) :: ndims    ! Number of dimensions or rank
-  integer,      intent(in) :: dims(:)  ! Dataset dimensions.
+  character(*), intent(in)             :: dsetname ! Variable label
+  integer,      intent(in)             :: ndims    ! Number of dimensions or rank
+  integer,      intent(in), contiguous :: dims(:)  ! Dataset dimensions.
 
 ! Array and scalar arguments for different types. Only specify one in each call
-  integer(i1),  intent(in), optional :: bvar1(:), bvar2(:,:), bvar3(:,:,:)
-  integer,      intent(in), optional :: ivar1(:), ivar2(:,:), ivar3(:,:,:)
-  real,         intent(in), optional :: rvar1(:), rvar2(:,:), rvar3(:,:,:)
-  character,    intent(in), optional :: cvar1(:), cvar2(:,:), cvar3(:,:,:)
-  real(r8),     intent(in), optional :: dvar1(:), dvar2(:,:), dvar3(:,:,:)
-  logical,      intent(in), optional :: lvar1(:), lvar2(:,:), lvar3(:,:,:)
+  integer(i1),  intent(in), optional, contiguous :: bvar1(:), bvar2(:,:), bvar3(:,:,:)
+  integer,      intent(in), optional, contiguous :: ivar1(:), ivar2(:,:), ivar3(:,:,:)
+  real,         intent(in), optional, contiguous :: rvar1(:), rvar2(:,:), rvar3(:,:,:)
+  character,    intent(in), optional, contiguous :: cvar1(:), cvar2(:,:), cvar3(:,:,:)
+  real(r8),     intent(in), optional, contiguous :: dvar1(:), dvar2(:,:), dvar3(:,:,:)
+  logical,      intent(in), optional, contiguous :: lvar1(:), lvar2(:,:), lvar3(:,:,:)
 
 ! Optional arrays to determine cells for partial/parallel IO
-  integer,      intent(in), optional :: gpoints(:)
+  integer,      intent(in), optional, contiguous :: gpoints(:)
 
 ! Optional arrays to write common NetCDF convention attributes
   character(*), intent(in), optional :: units, long_name, positive
@@ -899,7 +924,7 @@ subroutine shdf5_orec_ll(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar1
   logical,      intent(in), optional :: isdim
 
 ! Indicate names of each dimension
-  character(*), intent(in), optional :: dimnames(:)
+  character(*), intent(in), optional, contiguous :: dimnames(:)
 
 ! Dataspace cache id
   integer,      intent(in), optional :: cache_id
@@ -983,7 +1008,7 @@ subroutine shdf5_orec_ll(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar1
   endif
 
 ! Link each variable to its dimensions
-  
+
   if ((present(dimnames)) .and. (.not. present(isdim))) then
      if (size(dimnames) >= ndims) call fh5f_attach_dims(ndims, dimnames, hdferr)
   endif
@@ -1048,17 +1073,17 @@ subroutine shdf5_orec_ll2(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar
 
   implicit none
 
-  character(*), intent(in) :: dsetname ! Variable label
-  integer,      intent(in) :: ndims    ! Number of dimensions or rank
-  integer,      intent(in) :: dims(:)  ! Dataset dimensions.
+  character(*), intent(in)             :: dsetname ! Variable label
+  integer,      intent(in)             :: ndims    ! Number of dimensions or rank
+  integer,      intent(in), contiguous :: dims(:)  ! Dataset dimensions.
 
 ! Array and scalar arguments for different types. Only specify one in each call
-  integer(i1),  intent(in), optional :: bvar1(:), bvar2(:,:), bvar3(:,:,:)
-  integer,      intent(in), optional :: ivar1(:), ivar2(:,:), ivar3(:,:,:)
-  real,         intent(in), optional :: rvar1(:), rvar2(:,:), rvar3(:,:,:)
-  character,    intent(in), optional :: cvar1(:), cvar2(:,:), cvar3(:,:,:)
-  real(r8),     intent(in), optional :: dvar1(:), dvar2(:,:), dvar3(:,:,:)
-  logical,      intent(in), optional :: lvar1(:), lvar2(:,:), lvar3(:,:,:)
+  integer(i1),  intent(in), optional, contiguous :: bvar1(:), bvar2(:,:), bvar3(:,:,:)
+  integer,      intent(in), optional, contiguous :: ivar1(:), ivar2(:,:), ivar3(:,:,:)
+  real,         intent(in), optional, contiguous :: rvar1(:), rvar2(:,:), rvar3(:,:,:)
+  character,    intent(in), optional, contiguous :: cvar1(:), cvar2(:,:), cvar3(:,:,:)
+  real(r8),     intent(in), optional, contiguous :: dvar1(:), dvar2(:,:), dvar3(:,:,:)
+  logical,      intent(in), optional, contiguous :: lvar1(:), lvar2(:,:), lvar3(:,:,:)
 
 ! Optional arrays to determine cells for partial/parallel IO
   integer,      intent(in), optional :: gpoints(:)
@@ -1074,7 +1099,7 @@ subroutine shdf5_orec_ll2(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar
   logical,      intent(in), optional :: isdim
 
 ! Indicate names of each dimension
-  character(*), intent(in), optional :: dimnames(:)
+  character(*), intent(in), optional, contiguous :: dimnames(:)
 
 ! Local variables
   integer :: hdferr  ! Error flag
