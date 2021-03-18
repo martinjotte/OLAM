@@ -335,17 +335,20 @@ Contains
      allocate (sfcg%airtemp       (mwsfc)) ; sfcg%airtemp        = rinit
      allocate (sfcg%airtheta      (mwsfc)) ; sfcg%airtheta       = rinit
      allocate (sfcg%airrrv        (mwsfc)) ; sfcg%airrrv         = rinit
-     allocate (sfcg%airco2        (mwsfc)) ; sfcg%airco2         = rinit
+
      allocate (sfcg%ustar         (mwsfc)) ; sfcg%ustar          = rinit
      allocate (sfcg%vkmsfc        (mwsfc)) ; sfcg%vkmsfc         = rinit
      allocate (sfcg%sfluxt        (mwsfc)) ; sfcg%sfluxt         = rinit
      allocate (sfcg%sfluxr        (mwsfc)) ; sfcg%sfluxr         = rinit
      allocate (sfcg%sxfer_t       (mwsfc)) ; sfcg%sxfer_t        = 0.0
      allocate (sfcg%sxfer_r       (mwsfc)) ; sfcg%sxfer_r        = 0.0
+
      if (co2flag /= 0) then
-        allocate (sfcg%sfluxc        (mwsfc)) ; sfcg%sfluxc         = rinit
-        allocate (sfcg%sxfer_c       (mwsfc)) ; sfcg%sxfer_c        = 0.0
+        allocate (sfcg%airco2     (mwsfc)) ; sfcg%airco2         = rinit
+        allocate (sfcg%sfluxc     (mwsfc)) ; sfcg%sfluxc         = rinit
+        allocate (sfcg%sxfer_c    (mwsfc)) ; sfcg%sxfer_c        = 0.0
      endif
+
      allocate (sfcg%ggaer         (mwsfc)) ; sfcg%ggaer          = rinit
      allocate (sfcg%wthv          (mwsfc)) ; sfcg%wthv           = rinit
      allocate (sfcg%albedo_beam   (mwsfc)) ; sfcg%albedo_beam    = 0.0
@@ -559,11 +562,11 @@ Contains
 
      use mem_basic,   only: rho, press, theta, tair, rr_v, vxe, vye, vze
      use mem_micro,   only: rr_c
-     use mem_co2,     only: rr_co2
+     use mem_co2,     only: co2flag, rr_co2
      use misc_coms,   only: isubdomain
      use consts_coms, only: grav
      use mem_ijtabs,  only: itabg_w
-     use mem_grid,    only: gdz_abov
+     use mem_grid,    only: gdz_abov8
      use mem_para,    only: myrank
 
      implicit none
@@ -587,7 +590,10 @@ Contains
         sfcg%airtemp (iwsfc) = 0.
         sfcg%airtheta(iwsfc) = 0.
         sfcg%airrrv  (iwsfc) = 0.
-        sfcg%airco2  (iwsfc) = 0.
+
+        if (co2flag /= 0) then
+           sfcg%airco2(iwsfc) = 0.
+        endif
 
         ! Loop over all ATM grid cells that couple to this SFC grid cell
 
@@ -596,7 +602,7 @@ Contains
            kw = itab_wsfc(iwsfc)%kwatm(j)
 
            vels = sqrt( vxe(kw,iw)**2 + vye(kw,iw)**2 + vze(kw,iw)**2 )
-           psfc = press(kw,iw) + gdz_abov(kw) * rho(kw,iw) * grav  ! hydrostatic eqn.
+           psfc = press(kw,iw) + gdz_abov8(kw-1) * rho(kw,iw)  ! hydrostatic eqn.
 
            sfcg%vels    (iwsfc) = sfcg%vels    (iwsfc) + itab_wsfc(iwsfc)%arcoarsfc(j) * vels
            sfcg%prss    (iwsfc) = sfcg%prss    (iwsfc) + itab_wsfc(iwsfc)%arcoarsfc(j) * psfc
@@ -610,7 +616,7 @@ Contains
               sfcg%airrrv(iwsfc) = sfcg%airrrv(iwsfc) + itab_wsfc(iwsfc)%arcoarsfc(j) * rr_v(kw,iw)
            endif
 
-           if (allocated(rr_co2)) then
+           if (co2flag /= 0) then
               sfcg%airco2(iwsfc) = sfcg%airco2(iwsfc) + itab_wsfc(iwsfc)%arcoarsfc(j) * rr_co2(kw,iw)
            endif
         enddo

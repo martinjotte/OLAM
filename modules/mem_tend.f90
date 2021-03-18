@@ -32,6 +32,8 @@
 !===============================================================================
 Module mem_tend
 
+  implicit none
+
    real, allocatable :: vmxet(:,:) ! Earth-cartesian x momentum tend [kg/(m^2 s^2)]
    real, allocatable :: vmyet(:,:) ! Earth-cartesian y momentum tend [kg/(m^2 s^2)]
    real, allocatable :: vmzet(:,:) ! Earth-cartesian z momentum tend [kg/(m^2 s^2)]
@@ -219,7 +221,7 @@ Contains
 
    subroutine filltab_tend(naddsc,nccntyp)
 
-   use mem_turb,   only: tkep, epsp
+   use mem_turb,   only: tkep, epsp, sxfer_rk
    use mem_basic,  only: rr_w
    use mem_addsc,  only: addsc
    use mem_micro,  only: rr_c, rr_d, rr_r, rr_p, rr_s, rr_a, rr_g, rr_h,        &
@@ -229,6 +231,7 @@ Contains
    use misc_coms,  only: do_chem, i_o3, i_co, i_ch4
    use cgrid_defn, only: cgrid_scalar_tabs
    use mem_co2,    only: rr_co2, i_co2
+   use oname_coms, only: nl
 
    implicit none
 
@@ -239,7 +242,12 @@ Contains
 
 ! Fill pointers to scalar arrays into scalar tables
 
-   if (allocated(rr_wt))    call vtables_scalar (rr_w, rr_wt, 'RR_W')
+   if (nl%implic_sfc_tq) then
+      if (allocated(rr_wt)) call vtables_scalar (rr_w, rr_wt, 'RR_W')
+   else
+      if (allocated(rr_wt)) call vtables_scalar (rr_w, rr_wt, 'RR_W', sxfer=sxfer_rk)
+   endif
+
    if (allocated(rr_ct))    call vtables_scalar (rr_c, rr_ct, 'RR_C')
    if (allocated(rr_rt))    call vtables_scalar (rr_r, rr_rt, 'RR_R', pbl_mix=.false.)
    if (allocated(rr_pt))    call vtables_scalar (rr_p, rr_pt, 'RR_P')

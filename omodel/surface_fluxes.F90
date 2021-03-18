@@ -64,11 +64,13 @@ subroutine surface_turb_flux(mrl)
   use mem_sfcg,    only: itab_wsfc, sfcg, mwsfc
   use misc_coms,   only: isubdomain, dtlm
   use mem_grid,    only: lsw, lpw, arw
-  use mem_turb,    only: vkm_sfc, sfluxt, sfluxr, sxfer_tk, sxfer_rk, &
-                         ustar, wstar, wtv0, pblh, moli
+  use mem_turb,    only: akm_sfc, vkm_sfc, ustar, sfluxt, sfluxr, &
+                         sxfer_tk, sxfer_rk, wstar, wtv0, pblh, moli, &
+                         akh_dzi, akhth_dzi, akhrv_dzi
   use mem_basic,   only: press, rho, theta, tair, rr_v, vxe, vye, vze
   use mem_micro,   only: rr_c
   use consts_coms, only: grav, p00, rocp, cp, alvl, eps_virt, vonk, p00i
+  use oname_coms,  only: nl
 
   implicit none
 
@@ -78,14 +80,17 @@ subroutine surface_turb_flux(mrl)
   integer :: ks,kw,ka
   integer :: jsfc, jasfc, iwsfc
 
-  real :: exneri
-  real :: my_co2
+  real :: exneri, dtl
   real :: canexner, canexneri, cantheta, canthetav
-  real :: airthetav, ufree
+  real :: airthetav, ufree, akhodz
   real :: shflx  ! Specified surface sensible heat flux for ISFCL = 0 case [W/m^2]
   real :: srflx  ! Specified surface latent heat flux for ISFCL = 0 case [W/m^2]
 
+  real :: sfc_cantheta(mwsfc)
+
   real, parameter :: onethird = 1./3.
+
+  dtl = dtlm(1)
 
   if (isfcl == 0) then
 
@@ -112,19 +117,16 @@ subroutine surface_turb_flux(mrl)
         wstar (iw) = 0.
         wtv0  (iw) = 0.
 
-        vkm_sfc (iw) = 0.
+        akm_sfc (:,iw) = 0.
 
         do ks = 1,lsw(iw)
            kw = ks + lpw(iw) - 1
 
-           sxfer_tk(ks,iw) = 0.
-           sxfer_rk(ks,iw) = 0.
-
            exneri = theta(kw,iw) / tair(kw,iw)
 
-           sxfer_tk(ks,iw) = dtlm(1) * shflx * exneri * (arw(kw,iw) - arw(kw-1,iw))
+           sxfer_tk(ks,iw) = dtl * shflx * exneri * (arw(kw,iw) - arw(kw-1,iw))
 
-           sxfer_rk(ks,iw) = dtlm(1) * srflx          * (arw(kw,iw) - arw(kw-1,iw))
+           sxfer_rk(ks,iw) = dtl * srflx          * (arw(kw,iw) - arw(kw-1,iw))
         enddo
 
         ! albedt (iw) = albedo
@@ -139,45 +141,47 @@ subroutine surface_turb_flux(mrl)
   ! ISFCL = 1 is the LEAF option...
 
   ! Reset to zero the atm values of VKM_SFC, USTAR, SFLUXT, and SFLUXR
-  ! for same mrl's that fluxes will be evaluated for this time.  
+  ! for same mrl's that fluxes will be evaluated for this time.
   ! THUS, VKM_SFC, USTAR, SFLUXT, AND SFLUXR ARE ONLY SUMMED OVER
   ! SPACE, BUT NOT OVER TIME. (ON THE OTHER HAND, SXFER_TK AND SXFER_RK ARE SUMMED
   ! OVER BOTH SPACE AND TIME; THEY ARE RESET TO ZERO IN THILTEND_LONG AND
   ! SCALAR_TRANSPORT AFTER THEY ARE TRANSFERRED TO THE ATMOSPHERE.)
 
-  ! Set sea and land fluxes to be done for SURFACE SIMILARITY: 
+  ! Set sea and land fluxes to be done for SURFACE SIMILARITY:
   !    Do fluxes at beginning of long timestep at given mrl
 
-  !$omp parallel do private(iw)
-  do j = 1,jtab_w(jtw_wstn)%jend(mrl); iw = jtab_w(jtw_wstn)%iw(j)
+  ustar   = 0.
+  wtv0    = 0.
+  sfluxt  = 0.
+  sfluxr  = 0.
+  vkm_sfc = 0.
+  akm_sfc = 0.
+! sxfer_ck= 0.  ! placeholder for CO2
 
-     vkm_sfc(iw) = 0.
-     ustar  (iw) = 0.
-     wtv0   (iw) = 0.
-     sfluxt (iw) = 0.
-     sfluxr (iw) = 0.
-
-     ! for now, zero out surface transfer arrays at the start
-     ! of each long timestep:
-
-     sxfer_tk(:,iw) = 0.
-     sxfer_rk(:,iw) = 0.
-   ! sxfer_ck(:,iw) = 0.  ! placeholder for CO2
-
-  enddo
-  !$omp end parallel do
+  if (nl%implic_sfc_tq) then
+     akh_dzi   = 0.
+     akhth_dzi = 0.
+     akhrv_dzi = 0.
+  else
+     sxfer_tk  = 0.
+     sxfer_rk  = 0.
+  endif
 
   ! Loop over all SFC grid cells in subdomain, EVEN THOSE THAT ARE NOT PRIMARY,
   ! so that all surface fluxes are computed beneath all ATM columns that are primary
 
+  !$omp parallel
   !dir$ novector
-  !$omp parallel do private(airthetav,canexner,canexneri,cantheta,canthetav, &
-  !$omp                     ufree,iland,my_co2,isea)
+  !$omp do private(airthetav,canexner,canexneri,cantheta,canthetav,ufree,isea)
   do iwsfc = 2,mwsfc
 
      airthetav = sfcg%airtheta(iwsfc) * (1.0 + eps_virt * sfcg%airrrv(iwsfc))
      canexner  = (sfcg%prss(iwsfc) * p00i) ** rocp
      canexneri = 1. / canexner
+
+     if (nl%implic_sfc_tq) then
+        sfc_cantheta(iwsfc) = sfcg%cantemp(iwsfc) * canexneri
+     endif
 
      ! Compute turbulent fluxes based on whether SFC grid cell is land, lake, or sea
 
@@ -203,7 +207,7 @@ subroutine surface_turb_flux(mrl)
                    sfcg%canrrv  (iwsfc), &
                    sfcg%vkmsfc  (iwsfc), &
                    sfcg%sfluxt  (iwsfc), &
-                   sfcg%sfluxr  (iwsfc), & 
+                   sfcg%sfluxr  (iwsfc), &
                    sfcg%ustar   (iwsfc), &
                    sfcg%ggaer   (iwsfc)  )
 
@@ -265,7 +269,7 @@ subroutine surface_turb_flux(mrl)
          ! sea%ice_sfluxc(isea) = 0.0
 
         else
-      
+
            ! If sea ice is present in this cell, compute turbulent fluxes over ice
 
            cantheta  = sea%ice_cantemp(isea) * canexneri
@@ -324,32 +328,34 @@ subroutine surface_turb_flux(mrl)
 
         ! Store flux contributions in SEA cell
 
-        sea%sea_sxfer_t(isea) = dtlm(1) * sea%sea_sfluxt(isea) * canexner
-        sea%ice_sxfer_t(isea) = dtlm(1) * sea%ice_sfluxt(isea) * canexner
+        sea%sea_sxfer_t(isea) = dtl * sea%sea_sfluxt(isea) * canexner
+        sea%ice_sxfer_t(isea) = dtl * sea%ice_sfluxt(isea) * canexner
 
-        sea%sea_sxfer_r(isea) = dtlm(1) * sea%sea_sfluxr(isea)
-        sea%ice_sxfer_r(isea) = dtlm(1) * sea%ice_sfluxr(isea)
+        sea%sea_sxfer_r(isea) = dtl * sea%sea_sfluxr(isea)
+        sea%ice_sxfer_r(isea) = dtl * sea%ice_sfluxr(isea)
 
-      ! sea%sea_sxfer_c(isea) = dtlm(1) * sea%sea_sfluxc(isea)
-      ! sea%ice_sxfer_c(isea) = dtlm(1) * sea%ice_sfluxc(isea)
+      ! sea%sea_sxfer_c(isea) = dtl * sea%sea_sfluxc(isea)
+      ! sea%ice_sxfer_c(isea) = dtl * sea%ice_sfluxc(isea)
 
      endif  ! if this is sea cell
 
      ! For any SFC grid cell
 
-     sfcg%sxfer_t(iwsfc) = dtlm(1) * sfcg%sfluxt(iwsfc) * canexner
-     sfcg%sxfer_r(iwsfc) = dtlm(1) * sfcg%sfluxr(iwsfc)
+     if (.not. nl%implic_sfc_tq) then
+        sfcg%sxfer_t(iwsfc) = dtl * sfcg%sfluxt(iwsfc) * canexner
+        sfcg%sxfer_r(iwsfc) = dtl * sfcg%sfluxr(iwsfc)
+     endif
 
      ! If we have co2 or other scalars:
      ! sfcg%sfluxc(iwsfc) = sfcg%rhos(iwsfc) * sfcg%ggaer(iwsfc) * (sfcg%canco2(iwsfc) - sfcg%airco2(iwsfc))
-     ! sfcg%sxfer_c(iwsfc) = dtlm(1) * sfcg%sfluxc(iwsfc)
+     ! sfcg%sxfer_c(iwsfc) = dtl * sfcg%sfluxc(iwsfc)
 
   enddo
-  !$omp end parallel do
+  !$omp end do
 
   ! Loop over ATM grid columns that are primary in this subdomain
 
-  !$omp parallel do private(iw, jsfc, iwsfc, jasfc, kw, ka, ks)
+  !$omp do private(iw, jsfc, iwsfc, jasfc, kw, ka, ks, akhodz)
   do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
      ! Loop over all SFC grid cells that couple to this ATM grid column
@@ -364,21 +370,36 @@ subroutine surface_turb_flux(mrl)
 
         ! Add flux contributions to IW atmospheric column
 
-        ustar  (iw) = ustar  (iw) + itab_wsfc(iwsfc)%arcoariw(jasfc) * sfcg%ustar (iwsfc) 
+        ustar  (iw) = ustar  (iw) + itab_wsfc(iwsfc)%arcoariw(jasfc) * sfcg%ustar (iwsfc)
         wtv0   (iw) = wtv0   (iw) + itab_wsfc(iwsfc)%arcoariw(jasfc) * sfcg%wthv  (iwsfc)
         sfluxt (iw) = sfluxt (iw) + itab_wsfc(iwsfc)%arcoariw(jasfc) * sfcg%sfluxt(iwsfc)
         sfluxr (iw) = sfluxr (iw) + itab_wsfc(iwsfc)%arcoariw(jasfc) * sfcg%sfluxr(iwsfc)
         vkm_sfc(iw) = vkm_sfc(iw) + itab_wsfc(iwsfc)%arcoariw(jasfc) * sfcg%vkmsfc(iwsfc)
-                        ! * land%slope_fact(iwsfc-omland)
-        sxfer_tk(ks,iw) = sxfer_tk(ks,iw) + itab_wsfc(iwsfc)%arc(jasfc) * dtlm(1) * sfcg%sfluxt(iwsfc)
-        sxfer_rk(ks,iw) = sxfer_rk(ks,iw) + itab_wsfc(iwsfc)%arc(jasfc) * dtlm(1) * sfcg%sfluxr(iwsfc)
+                    ! * land%slope_fact(iwsfc-omland)
+
+        akm_sfc(ks,iw) = akm_sfc(ks,iw) + itab_wsfc(iwsfc)%arc(jasfc) * sfcg%vkmsfc(iwsfc)
+                       ! * land%slope_fact(iwsfc-omland)
+
+        if (nl%implic_sfc_tq) then
+           akhodz = itab_wsfc(iwsfc)%arc(jasfc) * sfcg%ggaer(iwsfc) * real(rho(kw,iw))
+
+           akh_dzi  (ks,iw) = akh_dzi  (ks,iw) + akhodz
+           akhth_dzi(ks,iw) = akhth_dzi(ks,iw) + akhodz * sfc_cantheta(iwsfc)
+           akhrv_dzi(ks,iw) = akhrv_dzi(ks,iw) + akhodz * sfcg%canrrv (iwsfc)
+        else
+           sxfer_tk(ks,iw) = sxfer_tk(ks,iw) &
+                           + itab_wsfc(iwsfc)%arc(jasfc) * dtl * sfcg%sfluxt(iwsfc)
+           sxfer_rk(ks,iw) = sxfer_rk(ks,iw) &
+                           + itab_wsfc(iwsfc)%arc(jasfc) * dtl * sfcg%sfluxr(iwsfc)
+        endif
+
      enddo
   enddo
-  !$omp end parallel do
+  !$omp end do
 
   ! Compute some derived surface quantities
 
-  !$omp parallel do private(iw,ka)
+  !$omp do private(iw,ka)
   do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
      ka = lpw(iw)
@@ -393,9 +414,10 @@ subroutine surface_turb_flux(mrl)
      endif
 
   enddo
-  !$omp end parallel do
+  !$omp end do
+  !$omp end parallel
 
-  ! No MPI send/recv communication of ATM turbulent fluxes are required for 
+  ! No MPI send/recv communication of ATM turbulent fluxes are required for
   ! averaging to SFC grid cells because the fluxes are directly computed on
   ! SFC grid cells.
 

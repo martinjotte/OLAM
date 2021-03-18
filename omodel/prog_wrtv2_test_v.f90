@@ -104,9 +104,10 @@ subroutine prog_wrtv(vmsca, wmsca)
   use grad_lib,     only: grad_z_quad, grad_t2d, grad_t2d_quad
   use vel_t3d,      only: diagvel_t3d
   use consts_coms,  only: p00i, rocp
-  use mem_turb,     only: akmodx, akhodx, khtopv, kmtopv
+  use mem_turb,     only: akmodx, akhodx, khtopv, kmtopv, khtop
   use pbl_drivers,  only: solve_eddy_diff_heat, solve_eddy_diff_vc, solve_eddy_diff_vxe
   use mem_rayf,     only: dorayfw, rayf_cofw, krayfw_bot
+  use oname_coms,   only: nl
 
   implicit none
 
@@ -202,7 +203,9 @@ subroutine prog_wrtv(vmsca, wmsca)
         vmzet_short(k,iw) = vmzet(k,iw) * v4
      enddo
 
-     call solve_eddy_diff_heat(iw, thilt_short(:,iw))
+     if (nl%implic_sfc_tq .or. (khtop(iw) >= lpw(iw))) then
+        call solve_eddy_diff_heat(iw, thilt_short(:,iw))
+     endif
      call solve_eddy_diff_vxe (iw, vmxet_short(:,iw), vmyet_short(:,iw), vmzet_short(:,iw))
 
      do jv = 1, itab_w(iw)%npoly

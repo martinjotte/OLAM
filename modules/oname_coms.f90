@@ -220,7 +220,8 @@ Module oname_coms
       real    :: csz   (maxgrds) = 0.2
       real    :: akmin (maxgrds) = 0.0
       integer :: moist_buoy      = 1
-                        
+      logical :: implic_sfc_tq   = .false.
+
 !!    MICROPHYSICS PARAMETERS
 
       integer :: miclevel  = 3

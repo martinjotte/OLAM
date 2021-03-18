@@ -135,13 +135,14 @@ subroutine pbl_driver(mrl)
      endif
 
      ! Apply explicit surface fluxes and emissions for scalars
-     ! (except heat/humidity/momentum which are done implicitly)
 
      call apply_surface_fluxes( iw )
 
      ! Compute tendency of scalars due to vertical turbulent transport
 
-     call solve_eddy_diff_scalars(iw)
+     if (nl%implic_sfc_tq .or. (khtop(iw) >= ka)) then
+        call solve_eddy_diff_scalars(iw)
+     endif
 
   enddo
   !$omp end parallel do
@@ -444,8 +445,8 @@ end subroutine apply_surface_fluxes
 subroutine solve_eddy_diff_scalars( iw )
 
   use mem_grid,   only: mza, arw, volti, lpw, lsw, dzim, arw0i, volt
-  use mem_turb,   only: kpblh, vkh, sfluxr, sxfer_rk, akhs_dzi, agamma, khtop
-  use mem_basic,  only: rho, rr_v
+  use mem_turb,   only: kpblh, vkh, sfluxr, sxfer_rk, akh_dzi, akhrv_dzi, agamma, khtop
+  use mem_basic,  only: rho, rr_w
   use mem_ijtabs, only: itab_w
   use misc_coms,  only: dtlm
   use tridiag,    only: tridv, tridiffo
@@ -468,19 +469,27 @@ subroutine solve_eddy_diff_scalars( iw )
   real    :: vctr2(mza), vctr5(mza), vctr6(mza), vctr7(mza)
   real    :: soln(mza,num_pblmix), rhs(mza,num_pblmix)
   real    :: dtl, dtli, s0(num_pblmix)
-  integer :: kmax, kmax_scal
+  integer :: kmax, kmax_scal, nso, nst
 
   ka   = lpw(iw)
   dtl  = dtlm(1)
   dtli = 1.0 / dtl
   s0   = 0.
 
-  kmax = max(khtop(iw)+1, ka+lsw(iw)-1)
-
   if (khtop(iw) < ka) then
      kmax_scal = ka-1
   else
      kmax_scal = khtop(iw)+1
+  endif
+
+  if (nl%implic_sfc_tq) then
+     kmax = max(khtop(iw)+1, ka+lsw(iw)-1)
+     nso  = 2
+     nst  = num_pblmix-1
+  else
+     kmax = khtop(iw) + 1
+     nso  = 1
+     nst  = num_pblmix
   endif
 
   akodz(ka-1) = 0.
@@ -507,19 +516,24 @@ subroutine solve_eddy_diff_scalars( iw )
 
   ! Water mixing ratio
 
-! do k = ka, mza
-  do k = ka, kmax
-     rhs(k,1) = rr_v(k,iw) + dtorho(k) * rr_wt(k,iw)
-     if (allocated(rr_c)) rhs(k,1) = rhs(k,1) + rr_c(k,iw)
-     if (allocated(rr_p)) rhs(k,1) = rhs(k,1) + rr_p(k,iw)
+  !!! temp
+  if (nl%implic_sfc_tq) then
 
-     ! For supercell test case, subtract initial field
-     if (nl%test_case == 131) rhs(k,1) = rhs(k,1) - rr_w_init(k,iw)
-  enddo
+   ! do k = ka, mza
+     do k = ka, kmax
+        rhs(k,1) = rr_w(k,iw) + dtorho(k) * rr_wt(k,iw)
+!     if (allocated(rr_c)) rhs(k,1) = rhs(k,1) + rr_c(k,iw)
+!     if (allocated(rr_p)) rhs(k,1) = rhs(k,1) + rr_p(k,iw)
+
+        ! For supercell test case, subtract initial field
+        if (nl%test_case == 131) rhs(k,1) = rhs(k,1) - rr_w_init(k,iw)
+     enddo
+
+  endif
 
   ! Scalar variables with long-timestep forcing included
 
-  do ns = 2, num_pblmix
+  do ns = nso, num_pblmix
      n = pblmix_map(ns)
 !    do k = ka, mza
      do k = ka, kmax_scal
@@ -527,6 +541,14 @@ subroutine solve_eddy_diff_scalars( iw )
                  + dtorho(k) * scalar_tab(n)%var_t(k,iw)
      enddo
   enddo
+
+  !!! temp
+ !if (nl%test_case == 131) then
+  if (.not. nl%implic_sfc_tq .and. nl%test_case == 131) then
+     do k = ka, kmax_scal
+        rhs(k,1) = rhs(k,1) - rr_w_init(k,iw)
+     enddo
+  endif
 
   ! Non local PBL terms
 
@@ -571,28 +593,32 @@ subroutine solve_eddy_diff_scalars( iw )
 
 ! if (ka <= mza) then
   if (ka <= kmax_scal .and. num_pblmix > 1) then
-     call tridv(vctr5, vctr6, vctr7, rhs(:,2:), soln(:,2:), ka, kmax_scal, mza, num_pblmix-1)
+     call tridv(vctr5, vctr6, vctr7, rhs(:,nso:), soln(:,nso:), ka, kmax_scal, mza, nst)
   endif
 
   ! Special for water mixing ratio: implicit surface terms
 
-  do k = ka, ka + lsw(iw) - 1
-     ks = k - ka + 1
-     vctr6(k) = vctr6(k) + dtomass(k) * akhs_dzi(ks,iw)
-     rhs(k,1) = rhs(k,1) + dtomass(k) * sxfer_rk(ks,iw)
-  enddo
+  if (nl%implic_sfc_tq) then
 
-  ! Solve tri-diagonal matrix equation for water mixing ratio
+     do k = ka, ka + lsw(iw) - 1
+        ks = k - ka + 1
+        vctr6(k) = vctr6(k) + dtomass(k) * akh_dzi(ks,iw)
+        rhs(k,1) = rhs(k,1) + dtomass(k) * akhrv_dzi(ks,iw)
+     enddo
 
-  if (ka <= kmax) then
-     call tridiffo(mza, ka, kmax, vctr5, vctr6, vctr7, rhs(:,1), soln(:,1))
+     ! Solve tri-diagonal matrix equation for water mixing ratio
+
+     if (ka <= kmax) then
+        call tridiffo(mza, ka, kmax, vctr5, vctr6, vctr7, rhs(:,1), soln(:,1))
+     endif
+
   endif
 
   vctr2(ka-1) = 0.
 ! vctr2(mza ) = 0.
   vctr2(khtop(iw)+1:kmax) = 0.
 
-  do ns = 1, num_pblmix
+  do ns = nso, num_pblmix
      n = pblmix_map(ns)
 
      ! Now, soln contains future(t+1) values.
@@ -616,13 +642,14 @@ subroutine solve_eddy_diff_scalars( iw )
 
      kbot = ka
 
-     if (n == 1) then
+     !!! temp
+     if (nl%implic_sfc_tq .and. (n == 1)) then
         do k = ka, ka + lsw(iw) - 1
            ks = k - ka + 1
 
            scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
                 + volti(k,iw) * ( vctr2(k-1) - vctr2(k) &
-                                - akhs_dzi(ks,iw) * soln(k,1) + sxfer_rk(ks,iw) )
+                                - akh_dzi(ks,iw) * soln(k,1) + akhrv_dzi(ks,iw) )
         enddo
 
         kbot = ka + lsw(iw)
@@ -673,7 +700,7 @@ end subroutine solve_eddy_diff_scalars
 
 subroutine solve_eddy_diff_heat(iw, thilt_short)
 
-  use mem_turb,    only: vkh, sxfer_tk, akhs_dzi, kpblh, sfluxt, &
+  use mem_turb,    only: vkh, sxfer_tk, akh_dzi, akhth_dzi, kpblh, sfluxt, &
                          agamma, khtop
   use mem_basic,   only: rho, theta, tair
   use mem_micro,   only: rr_c, rr_p
@@ -715,7 +742,11 @@ subroutine solve_eddy_diff_heat(iw, thilt_short)
   ka  = lpw(iw)
   dts = dtsm(1)
 
-  kmax = max(khtop(iw)+1, ka+lsw(iw)-1)
+  if (nl%implic_sfc_tq) then
+     kmax = max(khtop(iw)+1, ka+lsw(iw)-1)
+  else
+     kmax = khtop(iw) + 1
+  endif
 
   nonlocal = .false.
 
@@ -752,15 +783,19 @@ subroutine solve_eddy_diff_heat(iw, thilt_short)
 
   ! Distribution of surface fluxes over multiple levels
 
-  do k = ka, ka + lsw(iw) - 1
-     ks = k - ka + 1
+  ! temp
+  if (nl%implic_sfc_tq) then
+
+     do k = ka, ka + lsw(iw) - 1
+        ks = k - ka + 1
 
 !    thl_cor(ks) = rhs(k) - varp(k)
 
-     vctr6(k) = vctr6(k) + dtomass(k) * akhs_dzi(ks,iw)
-     rhs  (k) = rhs  (k) + dtomass(k) * sxfer_tk(ks,iw)
+        vctr6(k) = vctr6(k) + dtomass(k) * akh_dzi  (ks,iw)
+        rhs  (k) = rhs  (k) + dtomass(k) * akhth_dzi(ks,iw)
 !    rhs  (k) = rhs  (k) + dtomass(k) * (sxfer_tk(ks,iw) + akhs_dzi(ks,iw) * thl_cor(ks))
-  enddo
+     enddo
+  endif
 
   ! For supercell test case, for thil, subtract initial field
 
@@ -817,22 +852,21 @@ subroutine solve_eddy_diff_heat(iw, thilt_short)
 
   ! Include surface fluxes at ground
 
-  do k = ka, ka + lsw(iw) - 1
-     ks = k - ka + 1
+  !!!! temp
+  if (nl%implic_sfc_tq) then
 
-!    airtheta(ks) = soln(k) - thl_cor(ks)
+     do k = ka, ka + lsw(iw) - 1
+        ks = k - ka + 1
 
-     thilt_short(k) = thilt_short(k) + &
-          (vctr2(k-1) - vctr2(k) - akhs_dzi(ks,iw) * soln(k) + sxfer_tk(ks,iw))
-!         (vctr2(k-1) - vctr2(k) - akhs_dzi(ks,iw) * airtheta(ks) + sxfer_tk(ks,iw))
+        thilt_short(k) = thilt_short(k) - akh_dzi(ks,iw) * soln(k) + akhth_dzi(ks,iw)
 
-     exner(ks) = dts * rho(k,iw) * tair(k,iw) / theta(k,iw)
-  enddo
+        exner(ks) = dts * rho(k,iw) * tair(k,iw) / theta(k,iw)
+     enddo
 
-  ! Above surface
+  endif
 
 ! do k = ka + lsw(iw), mza
-  do k = ka + lsw(iw), kmax
+  do k = ka, kmax
      thilt_short(k) = thilt_short(k) + vctr2(k-1) - vctr2(k)
   enddo
 

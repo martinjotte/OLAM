@@ -137,7 +137,7 @@ end subroutine olam_alloc_mpi_sfcg
 
 !===============================================================================
 
-subroutine mpi_send_wsfc(pcpg, qpcpg, dpcpg, head, soil_watfrac)
+subroutine mpi_send_wsfc(head, soil_watfrac)
 
   ! Subroutine to perform a parallel MPI send of a "WSFC group"
   ! of field variables
@@ -158,9 +158,6 @@ subroutine mpi_send_wsfc(pcpg, qpcpg, dpcpg, head, soil_watfrac)
 
   implicit none
 
-  real, optional, intent(inout) :: pcpg (8,mwsfc)
-  real, optional, intent(inout) :: qpcpg(8,mwsfc)
-  real, optional, intent(inout) :: dpcpg(8,mwsfc)
   real, optional, intent(inout) :: head        (nzg,mwsfc)
   real, optional, intent(inout) :: soil_watfrac(nzg,mwsfc)
 
@@ -227,20 +224,7 @@ subroutine mpi_send_wsfc(pcpg, qpcpg, dpcpg, head, soil_watfrac)
         call MPI_Pack(iwglobe,1,MPI_INTEGER,  &
            send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
 
-        if (present(pcpg)) then
-
-           ! Pack PCPG, QPCPG, DPCPG
-
-           if (.not. present(qpcpg) .or. .not. present(dpcpg)) then
-              write(io6,'(a)') 'In mpi_send_wsfc, pcpg is present but qpcpg and/or dpcpg are not'
-              stop 'stop mpi_send_wsfc '
-           endif
-
-           call MPI_Pack(pcpg (1,iwsfc),8,MPI_REAL,send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-           call MPI_Pack(qpcpg(1,iwsfc),8,MPI_REAL,send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-           call MPI_Pack(dpcpg(1,iwsfc),8,MPI_REAL,send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
- 
-        elseif (present(head)) then
+        if (present(head)) then
 
            ! Pack HEAD, HYDRESIST
 
@@ -340,7 +324,7 @@ end subroutine mpi_send_wsfc
 
 !=============================================================================
 
-subroutine mpi_recv_wsfc(pcpg, qpcpg, dpcpg, head, soil_watfrac)
+subroutine mpi_recv_wsfc(head, soil_watfrac)
 
   ! Subroutine to perform a parallel MPI receive of a "WSFC group"
   ! of field variables
@@ -361,9 +345,6 @@ subroutine mpi_recv_wsfc(pcpg, qpcpg, dpcpg, head, soil_watfrac)
 
   implicit none
 
-  real, optional, intent(inout) :: pcpg (8,mwsfc)
-  real, optional, intent(inout) :: qpcpg(8,mwsfc)
-  real, optional, intent(inout) :: dpcpg(8,mwsfc)
   real, optional, intent(inout) :: head        (nzg,mwsfc)
   real, optional, intent(inout) :: soil_watfrac(nzg,mwsfc)
 
@@ -414,20 +395,7 @@ subroutine mpi_recv_wsfc(pcpg, qpcpg, dpcpg, head, soil_watfrac)
 
         iwsfc = itabg_wsfc(iwglobe)%iwsfc_myrank
 
-        if (present(pcpg)) then
-
-           ! Unpack PCPG, QPCPG, DPCPG
-
-           if (.not. present(qpcpg) .or. .not. present(dpcpg)) then
-              write(io6,'(a)') 'In mpi_recv_wsfc, pcpg is present but qpcpg and/or dpcpg are not'
-              stop 'stop mpi_recv_wsfc '
-           endif
-
-           call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos,pcpg (1,iwsfc),8,MPI_REAL,MPI_COMM_WORLD,ierr)
-           call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos,qpcpg(1,iwsfc),8,MPI_REAL,MPI_COMM_WORLD,ierr)
-           call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos,dpcpg(1,iwsfc),8,MPI_REAL,MPI_COMM_WORLD,ierr)
-
-        elseif (present(head)) then
+        if (present(head)) then
 
            ! Pack HEAD, SOIL_WATFRAC
 
@@ -439,7 +407,7 @@ subroutine mpi_recv_wsfc(pcpg, qpcpg, dpcpg, head, soil_watfrac)
            endif
 
         else
- 
+
            ! Unpack SFCG quantities
 
            call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos,sfcg%vels    (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)

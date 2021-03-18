@@ -33,28 +33,34 @@
 
 Module mem_turb
 
-  real,    allocatable :: tkep    (:,:)
-  real,    allocatable :: epsp    (:,:)
-  real,    allocatable :: vkm     (:,:)
-  real,    allocatable :: vkh     (:,:)
-  real,    allocatable :: agamma  (:,:)
+  implicit none
 
-  real,    allocatable :: sxfer_tk(:,:)
-  real,    allocatable :: sxfer_rk(:,:)
-  real,    allocatable :: akm_sfc (:,:)
-  real,    allocatable :: akhs_dzi(:,:)
-  real,    allocatable :: ustar_k (:,:)
-  real,    allocatable :: wtv0_k  (:,:)
+  real,    allocatable :: tkep     (:,:)
+  real,    allocatable :: epsp     (:,:)
+  real,    allocatable :: vkm      (:,:)
+  real,    allocatable :: vkh      (:,:)
+  real,    allocatable :: agamma   (:,:)
 
-  real,    allocatable :: sfluxt (:)
-  real,    allocatable :: sfluxr (:)
-  real,    allocatable :: ustar  (:)
-  real,    allocatable :: wstar  (:)
-  real,    allocatable :: moli   (:)
-  real,    allocatable :: wtv0   (:)
-  real,    allocatable :: pblh   (:)
-  real,    allocatable :: vkm_sfc(:)
-  integer, allocatable :: kpblh  (:)
+  real,    allocatable :: sxfer_tk (:,:)
+  real,    allocatable :: sxfer_rk (:,:)
+  real,    allocatable :: akm_sfc  (:,:)
+
+  real,    allocatable :: akh_dzi  (:,:)
+  real,    allocatable :: akhth_dzi(:,:)
+  real,    allocatable :: akhrv_dzi(:,:)
+
+  real,    allocatable :: ustar_k  (:,:)
+  real,    allocatable :: wtv0_k   (:,:)
+
+  real,    allocatable :: sfluxt     (:)
+  real,    allocatable :: sfluxr     (:)
+  real,    allocatable :: ustar      (:)
+  real,    allocatable :: wstar      (:)
+  real,    allocatable :: moli       (:)
+  real,    allocatable :: wtv0       (:)
+  real,    allocatable :: pblh       (:)
+  real,    allocatable :: vkm_sfc    (:)
+  integer, allocatable :: kpblh      (:)
 
   real,    allocatable :: frac_land  (:)
   real,    allocatable :: frac_sea   (:)
@@ -63,14 +69,14 @@ Module mem_turb
   real,    allocatable :: frac_sfc (:,:)
   real,    allocatable :: frac_sfck(:,:)
 
-  real,    allocatable :: akmodx(:,:)
-  real,    allocatable :: akhodx(:,:)
+  real,    allocatable :: akmodx   (:,:)
+  real,    allocatable :: akhodx   (:,:)
 
-  integer, allocatable :: khtop (:)
-  integer, allocatable :: khtopv(:)
+  integer, allocatable :: khtop      (:)
+  integer, allocatable :: khtopv     (:)
 
-  integer, allocatable :: kmtop (:)
-  integer, allocatable :: kmtopv(:)
+  integer, allocatable :: kmtop      (:)
+  integer, allocatable :: kmtopv     (:)
 
 Contains
 
@@ -79,6 +85,8 @@ Contains
   subroutine alloc_turb(mza, mwa, mva, nsw_max, idiffk, mrls)
 
     use misc_coms,  only: rinit
+    use oname_coms, only: nl
+
     implicit none
 
     integer, intent(in) :: mza, mwa, mva, nsw_max, mrls, idiffk(mrls)
@@ -86,13 +94,18 @@ Contains
 !   Allocate arrays based on options (if necessary)
 !   Initialize arrays to zero
 
-    allocate (sxfer_tk(nsw_max,mwa)) ; sxfer_tk = 0.0
-    allocate (sxfer_rk(nsw_max,mwa)) ; sxfer_rk = 0.0
+    if (nl%implic_sfc_tq) then
+       allocate (akh_dzi  (nsw_max,mwa)) ; akh_dzi   = 0.0
+       allocate (akhth_dzi(nsw_max,mwa)) ; akhth_dzi = 0.0
+       allocate (akhrv_dzi(nsw_max,mwa)) ; akhrv_dzi = 0.0
+    else
+       allocate (sxfer_tk (nsw_max,mwa)) ; sxfer_tk  = 0.0
+       allocate (sxfer_rk (nsw_max,mwa)) ; sxfer_rk  = 0.0
+    endif
 
-    allocate (akm_sfc  (nsw_max,mwa)) ; akm_sfc  = 0.0
-    allocate (akhs_dzi (nsw_max,mwa)) ; akhs_dzi = 0.0
-    allocate (ustar_k  (nsw_max,mwa)) ; ustar_k  = 0.0
-    allocate (wtv0_k   (nsw_max,mwa)) ; wtv0_k   = 0.0
+    allocate (akm_sfc  (nsw_max,mwa)) ; akm_sfc   = 0.0
+    allocate (ustar_k  (nsw_max,mwa)) ; ustar_k   = 0.0
+    allocate (wtv0_k   (nsw_max,mwa)) ; wtv0_k    = 0.0
 
     allocate (frac_sfc (nsw_max,mwa)) ; frac_sfc  = 0.0
     allocate (frac_sfck(nsw_max,mwa)) ; frac_sfck = 0.0
@@ -111,12 +124,12 @@ Contains
     allocate (moli      (mwa)) ; moli      = rinit
     allocate (wtv0      (mwa)) ; wtv0      = rinit
     allocate (pblh      (mwa)) ; pblh      = rinit
+    allocate (vkm_sfc   (mwa)) ; vkm_sfc   = rinit
     allocate (kpblh     (mwa)) ; kpblh     = 1
     allocate (frac_urb  (mwa)) ; frac_urb  = 0.0
     allocate (frac_land (mwa)) ; frac_land = 0.0
     allocate (frac_lake (mwa)) ; frac_lake = 0.0
     allocate (frac_sea  (mwa)) ; frac_sea  = 0.0
-    allocate (vkm_sfc   (mwa)) ; vkm_sfc   = 0.0
 
     allocate (akmodx(mza,mva)) ; akmodx    = 0.0
     allocate (akhodx(mza,mva)) ; akhodx    = 0.0
@@ -135,25 +148,30 @@ Contains
 
     implicit none
 
-    if (allocated(tkep))    deallocate (tkep)
-    if (allocated(epsp))    deallocate (epsp)
-    if (allocated(vkm))     deallocate (vkm)
-    if (allocated(vkh))     deallocate (vkh)
-    if (allocated(akm_sfc)) deallocate (akm_sfc)
-    if (allocated(akhs_dzi))deallocate (akhs_dzi)
-    if (allocated(ustar_k)) deallocate (ustar_k)
-    if (allocated(wtv0_k))  deallocate (wtv0_k)
-    if (allocated(sfluxt))  deallocate (sfluxt)
-    if (allocated(sfluxr))  deallocate (sfluxr)
-    if (allocated(ustar))   deallocate (ustar)
-    if (allocated(wstar))   deallocate (wstar)
-    if (allocated(moli))    deallocate (moli)
-    if (allocated(wtv0))    deallocate (wtv0)
-    if (allocated(pblh))    deallocate (pblh)
-    if (allocated(kpblh))   deallocate (kpblh)
-    if (allocated(akmodx))  deallocate (akmodx)
-    if (allocated(akhodx))  deallocate (akhodx)
-    if (allocated(agamma))  deallocate (agamma)
+    if (allocated(tkep))      deallocate (tkep)
+    if (allocated(epsp))      deallocate (epsp)
+    if (allocated(vkm))       deallocate (vkm)
+    if (allocated(vkh))       deallocate (vkh)
+    if (allocated(akh_dzi))   deallocate (akh_dzi)
+    if (allocated(akhth_dzi)) deallocate (akhth_dzi)
+    if (allocated(akhrv_dzi)) deallocate (akhrv_dzi)
+    if (allocated(sxfer_tk))  deallocate (sxfer_tk)
+    if (allocated(sxfer_rk))  deallocate (sxfer_rk)
+    if (allocated(akm_sfc))   deallocate (akm_sfc)
+    if (allocated(vkm_sfc))   deallocate (vkm_sfc)
+    if (allocated(ustar_k))   deallocate (ustar_k)
+    if (allocated(wtv0_k))    deallocate (wtv0_k)
+    if (allocated(sfluxt))    deallocate (sfluxt)
+    if (allocated(sfluxr))    deallocate (sfluxr)
+    if (allocated(ustar))     deallocate (ustar)
+    if (allocated(wstar))     deallocate (wstar)
+    if (allocated(moli))      deallocate (moli)
+    if (allocated(wtv0))      deallocate (wtv0)
+    if (allocated(pblh))      deallocate (pblh)
+    if (allocated(kpblh))     deallocate (kpblh)
+    if (allocated(akmodx))    deallocate (akmodx)
+    if (allocated(akhodx))    deallocate (akhodx)
+    if (allocated(agamma))    deallocate (agamma)
 
   end subroutine dealloc_turb
 
