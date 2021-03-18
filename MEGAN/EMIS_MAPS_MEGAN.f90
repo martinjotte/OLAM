@@ -1,5 +1,7 @@
 module EMIS_MAPS_MEGAN
 
+  implicit none
+
 !=======================================================================
 !  SPC_SPCAT.EXT
 !  This include file contains MEGAN speciated species and their MW.
