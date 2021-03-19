@@ -229,6 +229,8 @@ Contains
   integer :: nf
   integer :: ndims, idims(3)
 
+  integer, pointer :: lpoints(:)
+
   ! Processing next sfcnud file
 
   if (inext > 0) isfcnudfile = isfcnudfile + 1
@@ -255,9 +257,11 @@ Contains
   ndims    = 1
   idims(1) = nwsfc
 
-  call shdf5_irec(ndims, idims, 'SFCWAT_NUD'  , rvar1=sfcwat_nud,  points=itab_wsfc(:)%iwglobe)
-  call shdf5_irec(ndims, idims, 'SFCTEMP_NUD' , rvar1=sfctemp_nud, points=itab_wsfc(:)%iwglobe)
-  call shdf5_irec(ndims, idims, 'FRACLIQ_NUD' , rvar1=fracliq_nud, points=itab_wsfc(:)%iwglobe)
+  lpoints => itab_wsfc(:)%iwglobe
+
+  call shdf5_irec(ndims, idims, 'SFCWAT_NUD' , rvar1=sfcwat_nud,  points=lpoints)
+  call shdf5_irec(ndims, idims, 'SFCTEMP_NUD', rvar1=sfctemp_nud, points=lpoints)
+  call shdf5_irec(ndims, idims, 'FRACLIQ_NUD', rvar1=fracliq_nud, points=lpoints)
 
   call shdf5_close()
 
@@ -291,6 +295,8 @@ Contains
   real, allocatable :: soil_water_sp (:,:)
   real, allocatable :: soil_energy_sp(:,:)
 
+  integer, pointer :: lpoints(:)
+
   ! Map 25 current soil layers into 20 spin-up soil layers
 
   integer :: kspm(25) = (/ 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,18,19,19,20,20,20,20 /)
@@ -310,7 +316,9 @@ Contains
   ndims    = 1
   idims(1) = nlake
 
-  call shdf5_irec(ndims, idims, 'LAKE%LAKE_ENERGY', rvar1=lake%lake_energy, points=itab_lake(:)%iwglobe)
+  lpoints => itab_lake(:)%iwglobe
+
+  call shdf5_irec(ndims, idims, 'LAKE%LAKE_ENERGY', rvar1=lake%lake_energy, points=lpoints)
 
   ndims    = 2
   idims(1) = nzg_sp
@@ -319,8 +327,10 @@ Contains
   allocate (soil_water_sp (nzg_sp,mland))
   allocate (soil_energy_sp(nzg_sp,mland))
 
-  call shdf5_irec(ndims, idims, 'LAND%SOIL_WATER'  , rvar2=soil_water_sp,  points=itab_land(:)%iwglobe)
-  call shdf5_irec(ndims, idims, 'LAND%SOIL_ENERGY' , rvar2=soil_energy_sp, points=itab_land(:)%iwglobe)
+  lpoints => itab_land(:)%iwglobe
+
+  call shdf5_irec(ndims, idims, 'LAND%SOIL_WATER' , rvar2=soil_water_sp,  points=lpoints)
+  call shdf5_irec(ndims, idims, 'LAND%SOIL_ENERGY', rvar2=soil_energy_sp, points=lpoints)
 
   call shdf5_close()
 
