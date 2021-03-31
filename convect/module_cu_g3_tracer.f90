@@ -98,7 +98,7 @@ CONTAINS
        do kc = 1, ktop
           k = kc + ka - 1
           scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
-                                    + dtr(k,ns) * dens(kc)
+                                    + dtr(kc,ns) * dens(kc)
        enddo
     enddo
 
