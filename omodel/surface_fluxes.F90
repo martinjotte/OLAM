@@ -82,7 +82,7 @@ subroutine surface_turb_flux(mrl)
 
   real :: exneri, dtl
   real :: canexner, canexneri, cantheta, canthetav
-  real :: airthetav, ufree, akhodz
+  real :: airthetav, ufree
   real :: shflx  ! Specified surface sensible heat flux for ISFCL = 0 case [W/m^2]
   real :: srflx  ! Specified surface latent heat flux for ISFCL = 0 case [W/m^2]
 
@@ -156,32 +156,21 @@ subroutine surface_turb_flux(mrl)
   sfluxr  = 0.
   vkm_sfc = 0.
   akm_sfc = 0.
-! sxfer_ck= 0.  ! placeholder for CO2
 
-  if (nl%implic_sfc_tq) then
-     akh_dzi   = 0.
-     akhth_dzi = 0.
-     akhrv_dzi = 0.
-  else
-     sxfer_tk  = 0.
-     sxfer_rk  = 0.
-  endif
+  sxfer_tk = 0.
+  sxfer_rk = 0.
+! sxfer_ck = 0.  ! placeholder for CO2
 
   ! Loop over all SFC grid cells in subdomain, EVEN THOSE THAT ARE NOT PRIMARY,
   ! so that all surface fluxes are computed beneath all ATM columns that are primary
 
   !$omp parallel
-  !dir$ novector
   !$omp do private(airthetav,canexner,canexneri,cantheta,canthetav,ufree,isea)
   do iwsfc = 2,mwsfc
 
      airthetav = sfcg%airtheta(iwsfc) * (1.0 + eps_virt * sfcg%airrrv(iwsfc))
      canexner  = (sfcg%prss(iwsfc) * p00i) ** rocp
      canexneri = 1. / canexner
-
-     if (nl%implic_sfc_tq) then
-        sfc_cantheta(iwsfc) = sfcg%cantemp(iwsfc) * canexneri
-     endif
 
      ! Compute turbulent fluxes based on whether SFC grid cell is land, lake, or sea
 
@@ -235,7 +224,7 @@ subroutine surface_turb_flux(mrl)
                    sea%sea_canrrv (isea), &
                    sea%sea_vkmsfc (isea), &
                    sea%sea_sfluxt (isea), &
-                   sea%sea_sfluxr (isea), & 
+                   sea%sea_sfluxr (isea), &
                    sea%sea_ustar  (isea), &
                    sea%sea_ggaer  (isea)  )
 
@@ -243,8 +232,13 @@ subroutine surface_turb_flux(mrl)
            + sea%sea_sfluxr(isea) * eps_virt * sfcg%airtheta(iwsfc) ) / sfcg%rhos(iwsfc)
 
         ! When we have CO2:
-        ! sea%sea_sfluxc(isea) = rhos * sea_ggaer(isea) * (sea%sea_co2 - air_co2)
-        ! sea%sea_sfluxc(isea) = 0.
+!       sea%sea_sfluxc(isea) = sfcg%rhos(iwsfc) * sea%sea_ggaer(isea) &
+!                            * (sea%sea_co2(isea) - air_co2)
+
+        ! Flux contributions to water
+        sea%sea_sxfer_t(isea) = dtl * sea%sea_sfluxt(isea) * canexner
+        sea%sea_sxfer_r(isea) = dtl * sea%sea_sfluxr(isea)
+!       sea%sea_sxfer_c(isea) = dtl * sea%sea_sfluxc(isea)
 
         ! Check if sea ice is present
 
@@ -258,15 +252,19 @@ subroutine surface_turb_flux(mrl)
            sfcg%ggaer (iwsfc) = sea%sea_ggaer (isea)
            sfcg%sfluxt(iwsfc) = sea%sea_sfluxt(isea)
            sfcg%sfluxr(iwsfc) = sea%sea_sfluxr(isea)
+!          sfcg%sfluxc(iwsfc) = sea%sea_sfluxc(isea)
            sfcg%wthv  (iwsfc) = sea%sea_wthv  (isea)
-         ! sfcg%sfluxc(iwsfc) = sea%sea_sfluxc(isea)
 
            sea%ice_vkmsfc(isea) = 0.0
            sea%ice_ustar (isea) = 0.0
            sea%ice_ggaer (isea) = 0.0
            sea%ice_sfluxt(isea) = 0.0
            sea%ice_sfluxr(isea) = 0.0
-         ! sea%ice_sfluxc(isea) = 0.0
+!          sea%ice_sfluxc(isea) = 0.0
+
+           sea%ice_sxfer_t(isea) = 0.0
+           sea%ice_sxfer_r(isea) = 0.0
+!          sea%ice_sxfer_c(isea) = 0.0
 
         else
 
@@ -294,12 +292,17 @@ subroutine surface_turb_flux(mrl)
                       sea%ice_ustar  (isea), &
                       sea%ice_ggaer  (isea)  )
 
+           ! When we have CO2:
+!          sea%ice_sfluxc(isea) = sfcg%rhos(iwsfc) * sea%ice_ggaer(isea) &
+!                               * (sea%ice_co2(isea) - airco2)
+
            sea%ice_wthv(isea) = ( sea%ice_sfluxt(isea) * (1.0 + eps_virt * sfcg%airrrv(iwsfc)) &
               + sea%ice_sfluxr(isea) * eps_virt * sfcg%airtheta(iwsfc) ) / sfcg%rhos(iwsfc)
 
-           ! When we have CO2:
-           ! sea%ice_sfluxc(isea) = sfcg%rhos(iwsfc) * sea_ggaer(isea) * (sea%ice_co2(isea) - sea%airco2(isea))
-           ! sea%ice_sfluxc(isea) = 0.
+           ! Flux contributions to seaice
+           sea%ice_sxfer_t(isea) = dtl * sea%ice_sfluxt(isea) * canexner
+           sea%ice_sxfer_r(isea) = dtl * sea%ice_sfluxr(isea)
+!          sea%sea_sxfer_c(isea) = dtl * sea%sea_sfluxc(isea)
 
            ! Combine sea and ice values based on ice fraction:
 
@@ -307,10 +310,10 @@ subroutine surface_turb_flux(mrl)
                                      + sea%seaicec(isea)  * sea%ice_vkmsfc(isea)
 
            sfcg%ustar(iwsfc)  = (1.0 - sea%seaicec(isea)) * sea%sea_ustar(isea) &
-                                     + sea%seaicec(isea)  * sea%ice_ustar(isea) 
+                                     + sea%seaicec(isea)  * sea%ice_ustar(isea)
 
            sfcg%ggaer(iwsfc)  = (1.0 - sea%seaicec(isea)) * sea%sea_ggaer(isea) &
-                                     + sea%seaicec(isea)  * sea%ice_ggaer(isea) 
+                                     + sea%seaicec(isea)  * sea%ice_ggaer(isea)
 
            sfcg%sfluxt(iwsfc) = (1.0 - sea%seaicec(isea)) * sea%sea_sfluxt(isea) &
                                      + sea%seaicec(isea)  * sea%ice_sfluxt(isea)
@@ -321,41 +324,23 @@ subroutine surface_turb_flux(mrl)
            sfcg%wthv(iwsfc)   = (1.0 - sea%seaicec(isea)) * sea%sea_wthv(isea) &
                                      + sea%seaicec(isea)  * sea%ice_wthv(isea)
 
-           ! sfcg%sfluxc(iwsfc) = (1.0 - sea%seaicec(isea)) * sea%sea_sfluxc(isea) &
-           !                           + sea%seaicec(isea)  * sea%ice_sfluxc(isea)
+!          sfcg%sfluxc(iwsfc) = (1.0 - sea%seaicec(isea)) * sea%sea_sfluxc(isea) &
+!                                    + sea%seaicec(isea)  * sea%ice_sfluxc(isea)
 
         endif
 
-        ! Store flux contributions in SEA cell
-
-        sea%sea_sxfer_t(isea) = dtl * sea%sea_sfluxt(isea) * canexner
-        sea%ice_sxfer_t(isea) = dtl * sea%ice_sfluxt(isea) * canexner
-
-        sea%sea_sxfer_r(isea) = dtl * sea%sea_sfluxr(isea)
-        sea%ice_sxfer_r(isea) = dtl * sea%ice_sfluxr(isea)
-
-      ! sea%sea_sxfer_c(isea) = dtl * sea%sea_sfluxc(isea)
-      ! sea%ice_sxfer_c(isea) = dtl * sea%ice_sfluxc(isea)
-
      endif  ! if this is sea cell
 
-     ! For any SFC grid cell
-
-     if (.not. nl%implic_sfc_tq) then
-        sfcg%sxfer_t(iwsfc) = dtl * sfcg%sfluxt(iwsfc) * canexner
-        sfcg%sxfer_r(iwsfc) = dtl * sfcg%sfluxr(iwsfc)
-     endif
-
-     ! If we have co2 or other scalars:
-     ! sfcg%sfluxc(iwsfc) = sfcg%rhos(iwsfc) * sfcg%ggaer(iwsfc) * (sfcg%canco2(iwsfc) - sfcg%airco2(iwsfc))
-     ! sfcg%sxfer_c(iwsfc) = dtl * sfcg%sfluxc(iwsfc)
+     sfcg%sxfer_t(iwsfc) = dtl * sfcg%sfluxt(iwsfc) * canexner
+     sfcg%sxfer_r(iwsfc) = dtl * sfcg%sfluxr(iwsfc)
+!    sfcg%sxfer_c(iwsfc) = dtl * sfcg%sfluxc(iwsfc)
 
   enddo
   !$omp end do
 
   ! Loop over ATM grid columns that are primary in this subdomain
 
-  !$omp do private(iw, jsfc, iwsfc, jasfc, kw, ka, ks, akhodz)
+  !$omp do private(iw, jsfc, iwsfc, jasfc, kw, ka, ks)
   do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
      ! Loop over all SFC grid cells that couple to this ATM grid column
@@ -380,19 +365,14 @@ subroutine surface_turb_flux(mrl)
         akm_sfc(ks,iw) = akm_sfc(ks,iw) + itab_wsfc(iwsfc)%arc(jasfc) * sfcg%vkmsfc(iwsfc)
                        ! * land%slope_fact(iwsfc-omland)
 
-        if (nl%implic_sfc_tq) then
-           akhodz = itab_wsfc(iwsfc)%arc(jasfc) * sfcg%ggaer(iwsfc) * real(rho(kw,iw))
+        sxfer_tk(ks,iw) = sxfer_tk(ks,iw) &
+                        + itab_wsfc(iwsfc)%arc(jasfc) * dtl * sfcg%sfluxt(iwsfc)
 
-           akh_dzi  (ks,iw) = akh_dzi  (ks,iw) + akhodz
-           akhth_dzi(ks,iw) = akhth_dzi(ks,iw) + akhodz * sfc_cantheta(iwsfc)
-           akhrv_dzi(ks,iw) = akhrv_dzi(ks,iw) + akhodz * sfcg%canrrv (iwsfc)
-        else
-           sxfer_tk(ks,iw) = sxfer_tk(ks,iw) &
-                           + itab_wsfc(iwsfc)%arc(jasfc) * dtl * sfcg%sfluxt(iwsfc)
-           sxfer_rk(ks,iw) = sxfer_rk(ks,iw) &
-                           + itab_wsfc(iwsfc)%arc(jasfc) * dtl * sfcg%sfluxr(iwsfc)
-        endif
+        sxfer_rk(ks,iw) = sxfer_rk(ks,iw) &
+                        + itab_wsfc(iwsfc)%arc(jasfc) * dtl * sfcg%sfluxr(iwsfc)
 
+!       sxfer_ck(ks,iw) = sxfer_ck(ks,iw) &
+!                       + itab_wsfc(iwsfc)%arc(jasfc) * dtl * sfcg%sfluxc(iwsfc)
      enddo
   enddo
   !$omp end do

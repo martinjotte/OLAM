@@ -203,7 +203,7 @@ subroutine prog_wrtv(vmsca, wmsca)
         vmzet_short(k,iw) = vmzet(k,iw) * v4
      enddo
 
-     if (nl%implic_sfc_tq .or. (khtop(iw) >= lpw(iw))) then
+     if (khtop(iw) >= lpw(iw)) then
         call solve_eddy_diff_heat(iw, thilt_short(:,iw))
      endif
      call solve_eddy_diff_vxe (iw, vmxet_short(:,iw), vmyet_short(:,iw), vmzet_short(:,iw))

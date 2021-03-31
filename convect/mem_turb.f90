@@ -94,14 +94,8 @@ Contains
 !   Allocate arrays based on options (if necessary)
 !   Initialize arrays to zero
 
-    if (nl%implic_sfc_tq) then
-       allocate (akh_dzi  (nsw_max,mwa)) ; akh_dzi   = 0.0
-       allocate (akhth_dzi(nsw_max,mwa)) ; akhth_dzi = 0.0
-       allocate (akhrv_dzi(nsw_max,mwa)) ; akhrv_dzi = 0.0
-    else
-       allocate (sxfer_tk (nsw_max,mwa)) ; sxfer_tk  = 0.0
-       allocate (sxfer_rk (nsw_max,mwa)) ; sxfer_rk  = 0.0
-    endif
+    allocate (sxfer_tk (nsw_max,mwa)) ; sxfer_tk  = 0.0
+    allocate (sxfer_rk (nsw_max,mwa)) ; sxfer_rk  = 0.0
 
     allocate (akm_sfc  (nsw_max,mwa)) ; akm_sfc   = 0.0
     allocate (ustar_k  (nsw_max,mwa)) ; ustar_k   = 0.0

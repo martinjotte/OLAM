@@ -43,7 +43,7 @@ subroutine pbl_driver(mrl)
 
   use mem_grid,       only: mza, lpw
   use misc_coms,      only: idiffk, iparallel
-  use mem_turb,       only: vkm, vkh, kmtop, khtop, akm_sfc, ustar
+  use mem_turb,       only: vkm, vkh, kmtop, khtop, kpblh, akm_sfc, ustar, pblh
   use consts_coms,    only: grav, vonk, eps_virt, alvlocp, r8
   use mem_ijtabs,     only: jtab_w, itab_w, jtw_prog
   use module_bl_acm2, only: acm2_pblhgt, acm2_eddyx
@@ -140,7 +140,7 @@ subroutine pbl_driver(mrl)
 
      ! Compute tendency of scalars due to vertical turbulent transport
 
-     if (nl%implic_sfc_tq .or. (khtop(iw) >= ka)) then
+     if (khtop(iw) >= ka) then
         call solve_eddy_diff_scalars(iw)
      endif
 
@@ -150,10 +150,15 @@ subroutine pbl_driver(mrl)
   ! MPI send/recv of computed K's
 
   if (iparallel == 1) then
-     call mpi_send_w(mrl, rvara1=vkm, rvara2=vkh, svara1=akm_sfc, r1dvara1=ustar, &
-                          i1dvara1=khtop, i1dvara2=kmtop)
-     call mpi_recv_w(mrl, rvara1=vkm, rvara2=vkh, svara1=akm_sfc, r1dvara1=ustar, &
-                          i1dvara1=khtop, i1dvara2=kmtop)
+
+     call mpi_send_w(mrl, rvara1=vkm, rvara2=vkh, swvar1=akm_sfc, &
+                          r1dvara1=ustar, r1dvara2=pblh, &
+                          i1dvara1=khtop, i1dvara2=kmtop, i1dvara3=kpblh)
+
+     call mpi_recv_w(mrl, rvara1=vkm, rvara2=vkh, swvar1=akm_sfc, &
+                          r1dvara1=ustar, r1dvara2=pblh, &
+                          i1dvara1=khtop, i1dvara2=kmtop, i1dvara3=kpblh)
+
   endif
 
  ! Lateral boundary copy of computed K's
@@ -465,36 +470,23 @@ subroutine solve_eddy_diff_scalars( iw )
   integer, intent(in) :: iw
 
   real    :: akodz(mza), dtomass(mza), dtorho(mza), dgam(mza)
-  integer :: ka, k, ks, jwl, iwl, jws, iws, kbot, n, ns
+  integer :: ka, k, ks, jwl, iwl, jws, iws, kbot, n, ns, kmax
   real    :: vctr2(mza), vctr5(mza), vctr6(mza), vctr7(mza)
   real    :: soln(mza,num_pblmix), rhs(mza,num_pblmix)
   real    :: dtl, dtli, s0(num_pblmix)
-  integer :: kmax, kmax_scal, nso, nst
 
   ka   = lpw(iw)
   dtl  = dtlm(1)
   dtli = 1.0 / dtl
   s0   = 0.
 
-  if (khtop(iw) < ka) then
-     kmax_scal = ka-1
-  else
-     kmax_scal = khtop(iw)+1
-  endif
+  if (khtop(iw) < ka) return
 
-  if (nl%implic_sfc_tq) then
-     kmax = max(khtop(iw)+1, ka+lsw(iw)-1)
-     nso  = 2
-     nst  = num_pblmix-1
-  else
-     kmax = khtop(iw) + 1
-     nso  = 1
-     nst  = num_pblmix
-  endif
+  kmax = min(khtop(iw) + 1, mza)
 
   akodz(ka-1) = 0.
 ! akodz(mza)  = 0.
-  akodz(khtop(iw)+1:kmax) = 0.
+  akodz(kmax) = 0.
 
   ! Vertical loop over W levels
 
@@ -514,38 +506,19 @@ subroutine solve_eddy_diff_scalars( iw )
      vctr6  (k) = 1. - vctr5(k) - vctr7(k)
   enddo
 
-  ! Water mixing ratio
-
-  !!! temp
-  if (nl%implic_sfc_tq) then
-
-   ! do k = ka, mza
-     do k = ka, kmax
-        rhs(k,1) = rr_w(k,iw) + dtorho(k) * rr_wt(k,iw)
-!     if (allocated(rr_c)) rhs(k,1) = rhs(k,1) + rr_c(k,iw)
-!     if (allocated(rr_p)) rhs(k,1) = rhs(k,1) + rr_p(k,iw)
-
-        ! For supercell test case, subtract initial field
-        if (nl%test_case == 131) rhs(k,1) = rhs(k,1) - rr_w_init(k,iw)
-     enddo
-
-  endif
-
   ! Scalar variables with long-timestep forcing included
 
-  do ns = nso, num_pblmix
+  do ns = 1, num_pblmix
      n = pblmix_map(ns)
 !    do k = ka, mza
-     do k = ka, kmax_scal
+     do k = ka, kmax
         rhs(k,ns) = scalar_tab(n)%var_p(k,iw)  &
-                 + dtorho(k) * scalar_tab(n)%var_t(k,iw)
+                  + dtorho(k) * scalar_tab(n)%var_t(k,iw)
      enddo
   enddo
 
-  !!! temp
- !if (nl%test_case == 131) then
-  if (.not. nl%implic_sfc_tq .and. nl%test_case == 131) then
-     do k = ka, kmax_scal
+  if (nl%test_case == 131) then
+     do k = ka, kmax
         rhs(k,1) = rhs(k,1) - rr_w_init(k,iw)
      enddo
   endif
@@ -579,7 +552,7 @@ subroutine solve_eddy_diff_scalars( iw )
         enddo
 
         do ns = 1, num_pblmix
-           if (abs(s0(ns)) > 1.e-7) then
+           if (abs(s0(ns)) > 1.e-20) then
               do k = ka, kpblh(iw)
                  rhs(k,ns) = rhs(k,ns) + s0(ns) * dgam(k)
               enddo
@@ -592,73 +565,37 @@ subroutine solve_eddy_diff_scalars( iw )
   ! Solve tri-diagonal matrix equation for scalars
 
 ! if (ka <= mza) then
-  if (ka <= kmax_scal .and. num_pblmix > 1) then
-     call tridv(vctr5, vctr6, vctr7, rhs(:,nso:), soln(:,nso:), ka, kmax_scal, mza, nst)
-  endif
-
-  ! Special for water mixing ratio: implicit surface terms
-
-  if (nl%implic_sfc_tq) then
-
-     do k = ka, ka + lsw(iw) - 1
-        ks = k - ka + 1
-        vctr6(k) = vctr6(k) + dtomass(k) * akh_dzi(ks,iw)
-        rhs(k,1) = rhs(k,1) + dtomass(k) * akhrv_dzi(ks,iw)
-     enddo
-
-     ! Solve tri-diagonal matrix equation for water mixing ratio
-
-     if (ka <= kmax) then
-        call tridiffo(mza, ka, kmax, vctr5, vctr6, vctr7, rhs(:,1), soln(:,1))
-     endif
-
+  if (ka <= kmax .and. num_pblmix > 1) then
+     call tridv(vctr5, vctr6, vctr7, rhs, soln, ka, kmax, mza, num_pblmix)
   endif
 
   vctr2(ka-1) = 0.
 ! vctr2(mza ) = 0.
-  vctr2(khtop(iw)+1:kmax) = 0.
+  vctr2(kmax) = 0.
 
-  do ns = nso, num_pblmix
+  do ns = 1, num_pblmix
      n = pblmix_map(ns)
 
      ! Now, soln contains future(t+1) values.
      ! Compute internal vertical turbulent fluxes
 
-     if (abs(s0(ns)) > 1.e-7) then
-        do k = ka, kpblh(iw)-1
-           vctr2(k) = akodz(k) * (soln(k,ns) - soln(k+1,ns)) + s0(ns) * agamma(k,iw)
-        enddo
-        kbot = kpblh(iw)
-     else
-        kbot = ka
-     endif
-
-!    do k = kbot, mza-1
-     do k = kbot, khtop(iw)
+!    do k = ka, mza-1
+     do k = ka, khtop(iw)
         vctr2(k) = akodz(k) * (soln(k,ns) - soln(k+1,ns))
      enddo
 
-     ! Water vapor with implicitly-computed surface fluxes
+     ! Non-local PBL mixing
 
-     kbot = ka
-
-     !!! temp
-     if (nl%implic_sfc_tq .and. (n == 1)) then
-        do k = ka, ka + lsw(iw) - 1
-           ks = k - ka + 1
-
-           scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
-                + volti(k,iw) * ( vctr2(k-1) - vctr2(k) &
-                                - akh_dzi(ks,iw) * soln(k,1) + akhrv_dzi(ks,iw) )
+     if (abs(s0(ns)) > 1.e-20) then
+        do k = ka, kpblh(iw)-1
+           vctr2(k) = vctr2(k) + s0(ns) * agamma(k,iw)
         enddo
-
-        kbot = ka + lsw(iw)
      endif
 
      ! Scalar tendencies from turbulent fluxes
 
-!    do k = kbot, mza
-     do k = kbot, kmax_scal
+!    do k = ka, mza
+     do k = ka, kmax
         scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
                                   + volti(k,iw) * (vctr2(k-1) - vctr2(k))
      enddo
@@ -739,19 +676,16 @@ subroutine solve_eddy_diff_heat(iw, thilt_short)
       nl%test_case == 121 .or. &
       nl%test_case == 122) return
 
-  ka  = lpw(iw)
-  dts = dtsm(1)
+  ka   = lpw(iw)
+  dts  = dtsm(1)
+  kmax = khtop(iw) + 1
 
-  if (nl%implic_sfc_tq) then
-     kmax = max(khtop(iw)+1, ka+lsw(iw)-1)
-  else
-     kmax = khtop(iw) + 1
-  endif
+  if (khtop(iw) < ka) return
 
   nonlocal = .false.
 
-  akodz(ka-1)             = 0.
-  akodz(khtop(iw)+1:kmax) = 0.
+  akodz(ka-1) = 0.
+  akodz(kmax) = 0.
 ! akodz(mza)  = 0.
 
   ! Vertical loop over W levels
@@ -771,31 +705,7 @@ subroutine solve_eddy_diff_heat(iw, thilt_short)
      vctr5  (k) = -dtomass(k) * akodz(k-1)
      vctr7  (k) = -dtomass(k) * akodz(k)
      vctr6  (k) = 1. - vctr5(k) - vctr7(k)
-
-!    if (allocated(rr_c)) then
-!       rhs(k) = rhs(k) - theta(k,iw) * alvlocp * rr_c(k,iw) / max(tair(k,iw),253.)
-!    endif
-
-!    if (allocated(rr_p)) then
-!       rhs(k) = rhs(k) - theta(k,iw) * alviocp * rr_p(k,iw) / max(tair(k,iw),253.)
-!    endif
   enddo
-
-  ! Distribution of surface fluxes over multiple levels
-
-  ! temp
-  if (nl%implic_sfc_tq) then
-
-     do k = ka, ka + lsw(iw) - 1
-        ks = k - ka + 1
-
-!    thl_cor(ks) = rhs(k) - varp(k)
-
-        vctr6(k) = vctr6(k) + dtomass(k) * akh_dzi  (ks,iw)
-        rhs  (k) = rhs  (k) + dtomass(k) * akhth_dzi(ks,iw)
-!    rhs  (k) = rhs  (k) + dtomass(k) * (sxfer_tk(ks,iw) + akhs_dzi(ks,iw) * thl_cor(ks))
-     enddo
-  endif
 
   ! For supercell test case, for thil, subtract initial field
 
@@ -830,76 +740,26 @@ subroutine solve_eddy_diff_heat(iw, thilt_short)
   ! Now, soln contains future(t+1) values.
   ! Compute internal vertical turbulent fluxes
 
-  if (nonlocal) then
-     do k = ka, kpblh(iw)-1
-        vctr2(k) = akodz(k) * (soln(k) - soln(k+1)) + sfluxt(iw) * agamma(k,iw)
-     enddo
-     kbot = kpblh(iw)
-  else
-     kbot = ka
-  endif
-
-! do k = kbot, mza-1
-  do k = kbot, khtop(iw)
+! do k = ka, mza-1
+  do k = ka, khtop(iw)
      vctr2(k) = akodz(k) * (soln(k) - soln(k+1))
   enddo
+
+  if (nonlocal) then
+     do k = ka, kpblh(iw)-1
+        vctr2(k) = vctr2(k) + sfluxt(iw) * agamma(k,iw)
+     enddo
+  endif
 
   ! Set bottom and top internal fluxes to zero
 
   vctr2(ka-1) = 0.
-! vctr2(mza ) = 0.
-  vctr2(khtop(iw)+1:kmax) = 0.
+! vctr2(mza)  = 0.
+  vctr2(kmax) = 0.
 
-  ! Include surface fluxes at ground
-
-  !!!! temp
-  if (nl%implic_sfc_tq) then
-
-     do k = ka, ka + lsw(iw) - 1
-        ks = k - ka + 1
-
-        thilt_short(k) = thilt_short(k) - akh_dzi(ks,iw) * soln(k) + akhth_dzi(ks,iw)
-
-        exner(ks) = dts * rho(k,iw) * tair(k,iw) / theta(k,iw)
-     enddo
-
-  endif
-
-! do k = ka + lsw(iw), mza
   do k = ka, kmax
      thilt_short(k) = thilt_short(k) + vctr2(k-1) - vctr2(k)
   enddo
-
-! Bob thinks the following section is not needed since fluxes are applied to land/lake/sea 
-! in subroutine surface_fluxes.  Thus, commenting out the following...
-
-  ! Canopy heat fluxes
-
-!  do jwl = 1, itab_w(iw)%nland
-!     iwl = itab_w(iw)%iland(jwl)
-!     k   = itab_wl(iwl)%kw
-!     ks  = k - ka + 1
-
-!     land%sxfer_t(iwl) = land%sxfer_t(iwl) &
-!          + land%ggaer(iwl) * (land%cantheta(iwl) - soln(k)) * exner(ks)
-!!         + land%ggaer(iwl) * (land%cantheta(iwl) - airtheta(ks)) * exner(ks)
-!  enddo
-
-!  do jws = 1, itab_w(iw)%nsea
-!     iws = itab_w(iw)%isea(jws)
-!     k   = itab_ws(iws)%kw
-!     ks  = k - ka + 1
-
-!     sea%sea_sxfer_t(iws) = sea%sea_sxfer_t(iws) &
-!          + sea%sea_ggaer(iws) * (sea%sea_cantheta(iws) - soln(k)) * exner(ks)
-!!         + sea%sea_ggaer(iws) * (sea%sea_cantheta(iws) - airtheta(ks)) * exner(ks)
-
-!     if (sea%nlev_seaice(iws) > 0) then
-!        sea%ice_sxfer_t(iws) = sea%ice_sxfer_t(iws) &
-!             + sea%ice_ggaer(iws) * (sea%ice_cantheta(iws) - soln(k)) * exner(ks)
-!!            + sea%ice_ggaer(iws) * (sea%ice_cantheta(iws) - airtheta(ks)) * exner(ks)
-!     endif
-!  enddo
 
 end subroutine solve_eddy_diff_heat
 
