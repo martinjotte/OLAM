@@ -46,8 +46,9 @@ implicit none
 character(pathlen) :: name_name = 'OLAMIN'
 character(pathlen) :: cargv
 character(30)      :: io6file
+character(10)      :: dowrite
 integer :: numarg
-integer :: i,n
+integer :: i, n
 integer :: bad = 0
 integer :: hdferr
 
@@ -147,19 +148,31 @@ if (iparallel == 1 .and. myrank > 0) then
    io6 = 20
 
    if (nl%save_node_logs) then
+
       write (io6file,'(i10)') myrank
       io6file = 'o.io6_r'//trim(adjustl(io6file))
-   else
-      io6file = '/dev/null'
-   endif
 
-! Output file is replaced if it exists
-   open(unit=io6, file=io6file, status='replace', form='formatted')
+      ! Output file is replaced if it exists
+      open(unit=io6, file=io6file, status='replace', form='formatted', action='write')
 
 #ifdef __PGI
-   ! Prevent Portland Group compiler from buffering io6
-   call setvbuf3f(io6,1,1024)
+      ! Prevent Portland Group compiler from buffering io6
+      call setvbuf3f(io6,1,1024)
 #endif
+
+   else
+
+      io6file = '/dev/null'
+
+      ! Work around an issue with IBM compiler and MPI
+#if defined(__xlC__) || defined(__ibmxl__)
+      inquire(file=io6file, write=dowrite, number=i)
+      if (dowrite == 'YES' .and. i > 0) close(i)
+#endif
+
+      open(unit=io6, file=io6file, action='write')
+
+   endif
 
 endif
 

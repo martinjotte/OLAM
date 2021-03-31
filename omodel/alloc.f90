@@ -40,7 +40,7 @@ subroutine olam_mem_alloc()
   use mem_addsc,   only: alloc_addsc, filltab_addsc
   use mem_tend,    only: alloc_tend, filltab_tend
   use mem_turb,    only: alloc_turb, filltab_turb
-  use mem_grid,    only: alloc_grid_other, mza, nsw_max, mva, mwa, nve2_max
+  use mem_grid,    only: alloc_grid_other, mza, nsw_max, mva, mwa
   use mem_nudge,   only: nudflag, nudnxp, mwnud, alloc_nudge2, filltab_nudge, &
                          o3nudflag, alloc_nudge_o3, filltab_nudge_o3
   use mem_ijtabs,  only: mrls
@@ -73,7 +73,7 @@ subroutine olam_mem_alloc()
 
   call alloc_grid_other()
 
-  call alloc_basic(mza,mva,mwa,nve2_max)
+  call alloc_basic(mza,mva,mwa)
   call filltab_basic()
 
   call alloc_cuparm(mza, mwa, mrls, nqparm)

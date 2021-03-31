@@ -34,9 +34,9 @@ Module mem_tend
 
   implicit none
 
-   real, allocatable :: vmxet(:,:) ! Earth-cartesian x momentum tend [kg/(m^2 s^2)]
-   real, allocatable :: vmyet(:,:) ! Earth-cartesian y momentum tend [kg/(m^2 s^2)]
-   real, allocatable :: vmzet(:,:) ! Earth-cartesian z momentum tend [kg/(m^2 s^2)]
+   real, allocatable :: vmxet   (:,:) ! Earth-cartesian x momentum tend [kg/(m^2 s^2)]
+   real, allocatable :: vmyet   (:,:) ! Earth-cartesian y momentum tend [kg/(m^2 s^2)]
+   real, allocatable :: vmzet   (:,:) ! Earth-cartesian z momentum tend [kg/(m^2 s^2)]
 
    real, allocatable :: thilt   (:,:) ! (rho * thil) tend [kg_air K / (m^3 s)]
    real, allocatable :: rr_wt   (:,:) ! water mass tend [kg_wat/(m^3 s)]
@@ -77,230 +77,225 @@ Contains
 
 !===============================================================================
 
-   subroutine alloc_tend(lza,lva,lwa,naddsc,nccntyp)
+  subroutine alloc_tend(lza,lva,lwa,naddsc,nccntyp)
 
-   use mem_turb,   only: tkep, epsp
-   use mem_basic,  only: thil, rr_w, vxe, vye, vze
-   use mem_addsc,  only: addsc
-   use mem_micro,  only: rr_c, rr_d, rr_r, rr_p, rr_s, rr_a, rr_g, rr_h,        &
-                         con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h,&
-                         ccntyp, con_ifn, con_gccn, q2, q6, q7
-   use micro_coms, only: miclevel
-   use misc_coms,  only: io6
-   use mem_co2,    only: rr_co2
+    use mem_turb,   only: tkep, epsp
+    use mem_basic,  only: thil, rr_w, vxe, vye, vze
+    use mem_addsc,  only: addsc
+    use mem_micro,  only: rr_c, rr_d, rr_r, rr_p, rr_s, rr_a, rr_g, rr_h,        &
+                          con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h,&
+                          ccntyp, con_ifn, con_gccn, q2, q6, q7
+    use micro_coms, only: miclevel
+    use misc_coms,  only: io6
+    use mem_co2,    only: rr_co2
 
-   implicit none
+    implicit none
 
-   integer, intent(in) :: lza,lva,lwa,naddsc,nccntyp
+    integer, intent(in) :: lza,lva,lwa,naddsc,nccntyp
 
-   integer :: iaddsc, ic
+    integer :: iaddsc, ic
 
-   write(io6,*) 'enter alloc_tend'
+    write(io6,*) 'enter alloc_tend'
 
 ! Find the maximum number of grid points needed for any grid.
 
-   if (allocated(vxe))     allocate (vmxet(lza,lwa)) ; vmxet = 0.
-   if (allocated(vye))     allocate (vmyet(lza,lwa)) ; vmyet = 0.
-   if (allocated(vze))     allocate (vmzet(lza,lwa)) ; vmzet = 0.
-   if (allocated(thil))    allocate (thilt(lza,lwa)) ; thilt = 0.
-   if (allocated(rr_w))    allocate (rr_wt(lza,lwa)) ; rr_wt = 0.
+    if (allocated(vxe))     allocate (vmxet(lza,lwa)) ; vmxet = 0.
+    if (allocated(vye))     allocate (vmyet(lza,lwa)) ; vmyet = 0.
+    if (allocated(vze))     allocate (vmzet(lza,lwa)) ; vmzet = 0.
+    if (allocated(thil))    allocate (thilt(lza,lwa)) ; thilt = 0.
+    if (allocated(rr_w))    allocate (rr_wt(lza,lwa)) ; rr_wt = 0.
 
-   if (miclevel > 2) then
-      if (allocated(rr_c)) allocate (rr_ct(lza,lwa))
-   endif
+    if (miclevel > 2) then
+       if (allocated(rr_c)) allocate (rr_ct(lza,lwa))
+    endif
 
-   if (allocated(rr_r))    allocate (rr_rt(lza,lwa))
-   if (allocated(rr_p))    allocate (rr_pt(lza,lwa))
-   if (allocated(rr_s))    allocate (rr_st(lza,lwa))
-   if (allocated(rr_a))    allocate (rr_at(lza,lwa))
-   if (allocated(rr_g))    allocate (rr_gt(lza,lwa))
-   if (allocated(rr_h))    allocate (rr_ht(lza,lwa))
-   if (allocated(rr_d))    allocate (rr_dt(lza,lwa))
+    if (allocated(rr_r))    allocate (rr_rt(lza,lwa))
+    if (allocated(rr_p))    allocate (rr_pt(lza,lwa))
+    if (allocated(rr_s))    allocate (rr_st(lza,lwa))
+    if (allocated(rr_a))    allocate (rr_at(lza,lwa))
+    if (allocated(rr_g))    allocate (rr_gt(lza,lwa))
+    if (allocated(rr_h))    allocate (rr_ht(lza,lwa))
+    if (allocated(rr_d))    allocate (rr_dt(lza,lwa))
 
-   if (allocated(con_c))   allocate (con_ct(lza,lwa))
-   if (allocated(con_r))   allocate (con_rt(lza,lwa))
-   if (allocated(con_p))   allocate (con_pt(lza,lwa))
-   if (allocated(con_s))   allocate (con_st(lza,lwa))
-   if (allocated(con_a))   allocate (con_at(lza,lwa))
-   if (allocated(con_g))   allocate (con_gt(lza,lwa))
-   if (allocated(con_h))   allocate (con_ht(lza,lwa))
-   if (allocated(con_d))   allocate (con_dt(lza,lwa))
+    if (allocated(con_c))   allocate (con_ct(lza,lwa))
+    if (allocated(con_r))   allocate (con_rt(lza,lwa))
+    if (allocated(con_p))   allocate (con_pt(lza,lwa))
+    if (allocated(con_s))   allocate (con_st(lza,lwa))
+    if (allocated(con_a))   allocate (con_at(lza,lwa))
+    if (allocated(con_g))   allocate (con_gt(lza,lwa))
+    if (allocated(con_h))   allocate (con_ht(lza,lwa))
+    if (allocated(con_d))   allocate (con_dt(lza,lwa))
 
-   if (allocated(con_gccn))allocate (con_gccnt(lza,lwa))
-   if (allocated(con_ifn)) allocate (con_ifnt (lza,lwa))
+    if (allocated(con_gccn))allocate (con_gccnt(lza,lwa))
+    if (allocated(con_ifn)) allocate (con_ifnt (lza,lwa))
 
-   if (allocated(ccntyp)) then
-      do ic = 1,nccntyp
-         if       (allocated(ccntyp(ic)%con_ccn) .and.   &
-            (.not. allocated(ccntyp(ic)%con_ccnt)))      &
-                   allocate (ccntyp(ic)%con_ccnt(lza,lwa))
-      enddo
-   endif
+    if (allocated(ccntyp)) then
+       do ic = 1,nccntyp
+          if       (allocated(ccntyp(ic)%con_ccn) .and.   &
+             (.not. allocated(ccntyp(ic)%con_ccnt)))      &
+                    allocate (ccntyp(ic)%con_ccnt(lza,lwa))
+       enddo
+    endif
 
-   if (allocated(q2))   allocate (q2t(lza,lwa))
-   if (allocated(q6))   allocate (q6t(lza,lwa))
-   if (allocated(q7))   allocate (q7t(lza,lwa))
+    if (allocated(q2))   allocate (q2t(lza,lwa))
+    if (allocated(q6))   allocate (q6t(lza,lwa))
+    if (allocated(q7))   allocate (q7t(lza,lwa))
 
-   if (allocated(tkep)) allocate (tket(lza,lwa))
-   if (allocated(epsp)) allocate (epst(lza,lwa))
+    if (allocated(tkep)) allocate (tket(lza,lwa))
+    if (allocated(epsp)) allocate (epst(lza,lwa))
 
-   do iaddsc = 1,naddsc
-      if       (allocated(addsc(iaddsc)%sclp) .and.  &
-         (.not. allocated(addsc(iaddsc)%sclt)))      &
-                allocate (addsc(iaddsc)%sclt(lza,lwa))
-   enddo
+    do iaddsc = 1,naddsc
+       if       (allocated(addsc(iaddsc)%sclp) .and.  &
+          (.not. allocated(addsc(iaddsc)%sclt)))      &
+                 allocate (addsc(iaddsc)%sclt(lza,lwa))
+    enddo
 
-   if (allocated(rr_co2)) allocate (rr_co2t(lza,lwa))
+    if (allocated(rr_co2)) allocate (rr_co2t(lza,lwa))
 
-   end subroutine alloc_tend
+  end subroutine alloc_tend
 
 !===============================================================================
 
-   subroutine dealloc_tend(naddsc,nccntyp)
+  subroutine dealloc_tend(naddsc,nccntyp)
 
-   use mem_addsc, only: addsc
-   use mem_micro, only: ccntyp
+    use mem_addsc, only: addsc
+    use mem_micro, only: ccntyp
 
-   implicit none
+    implicit none
 
-   integer, intent(in) :: naddsc, nccntyp
+    integer, intent(in) :: naddsc, nccntyp
 
-   integer :: iaddsc, ic
+    integer :: iaddsc, ic
 
 ! Deallocate all tendency arrays
 
-   if (allocated(vmxet))    deallocate (vmxet)
-   if (allocated(vmyet))    deallocate (vmyet)
-   if (allocated(vmzet))    deallocate (vmzet)
-   if (allocated(thilt))    deallocate (thilt)
-   if (allocated(rr_wt))    deallocate (rr_wt)
+    if (allocated(vmxet))    deallocate (vmxet)
+    if (allocated(vmyet))    deallocate (vmyet)
+    if (allocated(vmzet))    deallocate (vmzet)
+    if (allocated(thilt))    deallocate (thilt)
+    if (allocated(rr_wt))    deallocate (rr_wt)
 
-   if (allocated(rr_ct))    deallocate (rr_ct)
-   if (allocated(rr_rt))    deallocate (rr_rt)
-   if (allocated(rr_pt))    deallocate (rr_pt)
-   if (allocated(rr_st))    deallocate (rr_st)
-   if (allocated(rr_at))    deallocate (rr_at)
-   if (allocated(rr_gt))    deallocate (rr_gt)
-   if (allocated(rr_ht))    deallocate (rr_ht)
-   if (allocated(rr_dt))    deallocate (rr_dt)
+    if (allocated(rr_ct))    deallocate (rr_ct)
+    if (allocated(rr_rt))    deallocate (rr_rt)
+    if (allocated(rr_pt))    deallocate (rr_pt)
+    if (allocated(rr_st))    deallocate (rr_st)
+    if (allocated(rr_at))    deallocate (rr_at)
+    if (allocated(rr_gt))    deallocate (rr_gt)
+    if (allocated(rr_ht))    deallocate (rr_ht)
+    if (allocated(rr_dt))    deallocate (rr_dt)
 
-   if (allocated(con_ct))   deallocate (con_ct)
-   if (allocated(con_rt))   deallocate (con_rt)
-   if (allocated(con_pt))   deallocate (con_pt)
-   if (allocated(con_st))   deallocate (con_st)
-   if (allocated(con_at))   deallocate (con_at)
-   if (allocated(con_gt))   deallocate (con_gt)
-   if (allocated(con_ht))   deallocate (con_ht)
-   if (allocated(con_dt))   deallocate (con_dt)
+    if (allocated(con_ct))   deallocate (con_ct)
+    if (allocated(con_rt))   deallocate (con_rt)
+    if (allocated(con_pt))   deallocate (con_pt)
+    if (allocated(con_st))   deallocate (con_st)
+    if (allocated(con_at))   deallocate (con_at)
+    if (allocated(con_gt))   deallocate (con_gt)
+    if (allocated(con_ht))   deallocate (con_ht)
+    if (allocated(con_dt))   deallocate (con_dt)
 
-   if (allocated(con_gccnt))deallocate (con_gccnt)
-   if (allocated(con_ifnt)) deallocate (con_ifnt)
+    if (allocated(con_gccnt))deallocate (con_gccnt)
+    if (allocated(con_ifnt)) deallocate (con_ifnt)
 
-   if (allocated(ccntyp)) then
-      do ic = 1,nccntyp
-         if (allocated(ccntyp(ic)%con_ccn)) deallocate (ccntyp(ic)%con_ccn)
-      enddo
-   endif
+    if (allocated(ccntyp)) then
+       do ic = 1,nccntyp
+          if (allocated(ccntyp(ic)%con_ccn)) deallocate (ccntyp(ic)%con_ccn)
+       enddo
+    endif
 
-   if (allocated(q2t))      deallocate (q2t)
-   if (allocated(q6t))      deallocate (q6t)
-   if (allocated(q7t))      deallocate (q7t)
+    if (allocated(q2t))      deallocate (q2t)
+    if (allocated(q6t))      deallocate (q6t)
+    if (allocated(q7t))      deallocate (q7t)
 
-   if (allocated(tket))     deallocate (tket)
-   if (allocated(epst))     deallocate (epst)
+    if (allocated(tket))     deallocate (tket)
+    if (allocated(epst))     deallocate (epst)
 
-   do iaddsc = 1,naddsc
-      if (allocated(addsc(iaddsc)%sclt)) deallocate (addsc(iaddsc)%sclt)
-   enddo
+    do iaddsc = 1,naddsc
+       if (allocated(addsc(iaddsc)%sclt)) deallocate (addsc(iaddsc)%sclt)
+    enddo
 
-   if (allocated(rr_co2t)) deallocate(rr_co2t)
+    if (allocated(rr_co2t)) deallocate(rr_co2t)
 
-   end subroutine dealloc_tend
+  end subroutine dealloc_tend
 
 !===============================================================================
 
-   subroutine filltab_tend(naddsc,nccntyp)
+  subroutine filltab_tend(naddsc,nccntyp)
 
-   use mem_turb,   only: tkep, epsp, sxfer_rk
-   use mem_basic,  only: rr_w
-   use mem_addsc,  only: addsc
-   use mem_micro,  only: rr_c, rr_d, rr_r, rr_p, rr_s, rr_a, rr_g, rr_h,        &
-                         con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h,&
-                         ccntyp, con_ifn, con_gccn, q2, q6, q7
-   use var_tables, only: vtables_scalar, num_scalar, scalar_tab, increment_vtable
-   use misc_coms,  only: do_chem, i_o3, i_co, i_ch4
-   use cgrid_defn, only: cgrid_scalar_tabs
-   use mem_co2,    only: rr_co2, i_co2
-   use oname_coms, only: nl
+    use mem_turb,   only: tkep, epsp, sxfer_rk
+    use mem_basic,  only: rr_w
+    use mem_addsc,  only: addsc
+    use mem_micro,  only: rr_c, rr_d, rr_r, rr_p, rr_s, rr_a, rr_g, rr_h,        &
+                          con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h,&
+                          ccntyp, con_ifn, con_gccn, q2, q6, q7
+    use var_tables, only: vtables_scalar, num_scalar, scalar_tab, increment_vtable
+    use misc_coms,  only: do_chem, i_o3, i_co, i_ch4
+    use cgrid_defn, only: cgrid_scalar_tabs
+    use mem_co2,    only: rr_co2, i_co2
+    use oname_coms, only: nl
 
-   implicit none
+    implicit none
 
-   integer, intent(in) :: naddsc, nccntyp
+    integer, intent(in) :: naddsc, nccntyp
 
-   integer :: iaddsc, ic, n
-   character (len=10) :: sname
+    integer :: iaddsc, ic, n
+    character (len=10) :: sname
 
 ! Fill pointers to scalar arrays into scalar tables
 
-   if (nl%implic_sfc_tq) then
-      if (allocated(rr_wt)) call vtables_scalar (rr_w, rr_wt, 'RR_W')
-   else
-      if (allocated(rr_wt)) call vtables_scalar (rr_w, rr_wt, 'RR_W', sxfer=sxfer_rk)
-   endif
+    if (allocated(rr_wt))    call vtables_scalar (rr_w, rr_wt, 'RR_W')
+    if (allocated(rr_ct))    call vtables_scalar (rr_c, rr_ct, 'RR_C')
+    if (allocated(rr_rt))    call vtables_scalar (rr_r, rr_rt, 'RR_R', pbl_mix=.false.)
+    if (allocated(rr_pt))    call vtables_scalar (rr_p, rr_pt, 'RR_P')
+    if (allocated(rr_st))    call vtables_scalar (rr_s, rr_st, 'RR_S', pbl_mix=.false.)
+    if (allocated(rr_at))    call vtables_scalar (rr_a, rr_at, 'RR_A', pbl_mix=.false.)
+    if (allocated(rr_gt))    call vtables_scalar (rr_g, rr_gt, 'RR_G', pbl_mix=.false.)
+    if (allocated(rr_ht))    call vtables_scalar (rr_h, rr_ht, 'RR_H', pbl_mix=.false.)
+    if (allocated(rr_dt))    call vtables_scalar (rr_d, rr_dt, 'RR_D', pbl_mix=.false.)
 
-   if (allocated(rr_ct))    call vtables_scalar (rr_c, rr_ct, 'RR_C')
-   if (allocated(rr_rt))    call vtables_scalar (rr_r, rr_rt, 'RR_R', pbl_mix=.false.)
-   if (allocated(rr_pt))    call vtables_scalar (rr_p, rr_pt, 'RR_P')
-   if (allocated(rr_st))    call vtables_scalar (rr_s, rr_st, 'RR_S', pbl_mix=.false.)
-   if (allocated(rr_at))    call vtables_scalar (rr_a, rr_at, 'RR_A', pbl_mix=.false.)
-   if (allocated(rr_gt))    call vtables_scalar (rr_g, rr_gt, 'RR_G', pbl_mix=.false.)
-   if (allocated(rr_ht))    call vtables_scalar (rr_h, rr_ht, 'RR_H', pbl_mix=.false.)
-   if (allocated(rr_dt))    call vtables_scalar (rr_d, rr_dt, 'RR_D', pbl_mix=.false.)
+    if (allocated(con_ct))   call vtables_scalar (con_c, con_ct, 'CON_C')
+    if (allocated(con_rt))   call vtables_scalar (con_r, con_rt, 'CON_R', pbl_mix=.false.)
+    if (allocated(con_pt))   call vtables_scalar (con_p, con_pt, 'CON_P')
+    if (allocated(con_st))   call vtables_scalar (con_s, con_st, 'CON_S', pbl_mix=.false.)
+    if (allocated(con_at))   call vtables_scalar (con_a, con_at, 'CON_A', pbl_mix=.false.)
+    if (allocated(con_gt))   call vtables_scalar (con_g, con_gt, 'CON_G', pbl_mix=.false.)
+    if (allocated(con_ht))   call vtables_scalar (con_h, con_ht, 'CON_H', pbl_mix=.false.)
+    if (allocated(con_dt))   call vtables_scalar (con_d, con_dt, 'CON_D', pbl_mix=.false.)
 
-   if (allocated(con_ct))   call vtables_scalar (con_c, con_ct, 'CON_C')
-   if (allocated(con_rt))   call vtables_scalar (con_r, con_rt, 'CON_R', pbl_mix=.false.)
-   if (allocated(con_pt))   call vtables_scalar (con_p, con_pt, 'CON_P')
-   if (allocated(con_st))   call vtables_scalar (con_s, con_st, 'CON_S', pbl_mix=.false.)
-   if (allocated(con_at))   call vtables_scalar (con_a, con_at, 'CON_A', pbl_mix=.false.)
-   if (allocated(con_gt))   call vtables_scalar (con_g, con_gt, 'CON_G', pbl_mix=.false.)
-   if (allocated(con_ht))   call vtables_scalar (con_h, con_ht, 'CON_H', pbl_mix=.false.)
-   if (allocated(con_dt))   call vtables_scalar (con_d, con_dt, 'CON_D', pbl_mix=.false.)
+    if (allocated(con_gccnt))call vtables_scalar (con_gccn, con_gccnt, 'CON_GCCN', cu_mix=.true.)
+    if (allocated(con_ifnt)) call vtables_scalar (con_ifn,  con_ifnt,  'CON_IFN',  cu_mix=.true.)
 
-   if (allocated(con_gccnt))call vtables_scalar (con_gccn, con_gccnt, 'CON_GCCN', cu_mix=.true.)
-   if (allocated(con_ifnt)) call vtables_scalar (con_ifn,  con_ifnt,  'CON_IFN',  cu_mix=.true.)
+    if (allocated(ccntyp)) then
+       do ic = 1,nccntyp
+          write(sname,'(a7,i3.3)') 'CON_CCN',ic
+          if (allocated(ccntyp(ic)%con_ccn)) then
+             call vtables_scalar (ccntyp(ic)%con_ccn, ccntyp(ic)%con_ccnt, sname, cu_mix=.true.)
+          endif
+       enddo
+    endif
 
-   if (allocated(ccntyp)) then
-      do ic = 1,nccntyp
-         write(sname,'(a7,i3.3)') 'CON_CCN',ic
-         if (allocated(ccntyp(ic)%con_ccn)) then
-            call vtables_scalar (ccntyp(ic)%con_ccn, ccntyp(ic)%con_ccnt, sname, cu_mix=.true.)
-         endif
-      enddo
-   endif
+    if (allocated(q2t)) call vtables_scalar (q2, q2t, 'Q2', pos_def=.false., pbl_mix=.false.)
+    if (allocated(q6t)) call vtables_scalar (q6, q6t, 'Q6', pos_def=.false., pbl_mix=.false.)
+    if (allocated(q7t)) call vtables_scalar (q7, q7t, 'Q7', pos_def=.false., pbl_mix=.false.)
 
-   if (allocated(q2t)) call vtables_scalar (q2, q2t, 'Q2', pos_def=.false., pbl_mix=.false.)
-   if (allocated(q6t)) call vtables_scalar (q6, q6t, 'Q6', pos_def=.false., pbl_mix=.false.)
-   if (allocated(q7t)) call vtables_scalar (q7, q7t, 'Q7', pos_def=.false., pbl_mix=.false.)
+    num_omic = num_scalar
 
-   num_omic = num_scalar
+    if (allocated(tket)) call vtables_scalar (tkep, tket, 'TKEP')
+    if (allocated(epst)) call vtables_scalar (epsp, epst, 'EPSP')
 
-   if (allocated(tket)) call vtables_scalar (tkep, tket, 'TKEP')
-   if (allocated(epst)) call vtables_scalar (epsp, epst, 'EPSP')
+    if (do_chem == 1) call cgrid_scalar_tabs()
 
-   if (do_chem == 1) call cgrid_scalar_tabs()
+    do iaddsc = 1,naddsc
+       write(sname,'(a4,i3.3)') 'SCLP',iaddsc
 
-   do iaddsc = 1,naddsc
-      write(sname,'(a4,i3.3)') 'SCLP',iaddsc
+       if (allocated(addsc(iaddsc)%sclt)) then
+          call vtables_scalar (addsc(iaddsc)%sclp, addsc(iaddsc)%sclt, trim(sname), cu_mix=.true.)
+       endif
+    enddo
 
-      if (allocated(addsc(iaddsc)%sclt)) then
-         call vtables_scalar (addsc(iaddsc)%sclp, addsc(iaddsc)%sclt, trim(sname), cu_mix=.true.)
-      endif
-   enddo
-
-   if (allocated(rr_co2t)) then
-      call vtables_scalar (rr_co2, rr_co2t, 'RR_CO2', cu_mix=.true.)
-      i_co2 = num_scalar  ! save index of co2 in scalar table
-   endif
+    if (allocated(rr_co2t)) then
+       call vtables_scalar (rr_co2, rr_co2t, 'RR_CO2', cu_mix=.true.)
+       i_co2 = num_scalar  ! save index of co2 in scalar table
+    endif
 
     ! If any prognostic scalars is ozone, save its scalar index for nudging and radiation
 
@@ -341,6 +336,6 @@ Contains
        endif
     enddo
 
- end subroutine filltab_tend
+  end subroutine filltab_tend
 
 End Module mem_tend

@@ -7,37 +7,39 @@
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
+! including OLAM:
 
    !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
+   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University;
+   ! Colorado State University Research Foundation ; ATMET, LLC
 
-   ! This software is free software; you can redistribute it and/or modify it 
+   ! This software is free software; you can redistribute it and/or modify it
    ! under the terms of the GNU General Public License as published by the Free
    ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
+   ! any later version.
 
    ! This software is distributed in the hope that it will be useful, but
    ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
    ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
    ! for more details.
- 
+
    ! You should have received a copy of the GNU General Public License along
    ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
+   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
+   ! (http://www.gnu.org/licenses/gpl.html)
    !----------------------------------------------------------------------------
 
 !===============================================================================
 
 Module var_tables
+
   use consts_coms, only: r8
   implicit none
 
   private :: r8
 
   type var_tables_r
+
      integer,  pointer             :: ivar0_p        => null()
      integer,  pointer, contiguous :: ivar1_p(:)     => null()
      integer,  pointer, contiguous :: ivar2_p(:,:)   => null()
@@ -69,7 +71,12 @@ Module var_tables
   integer :: nvar_par = 0
   integer :: num_lite = 0
 
-!-------------------------------------------------------------------
+  character(2) :: vtypes(16) = &
+       [ 'AV', 'AW', 'AM', 'AN', &  ! Atmos V, W, M, NUDGE array
+         'CV', 'CW', 'CM',       &  ! "Common" SFC grid V, W, M array
+         'LV', 'LW', 'LM',       &  ! Land  V, W, M array
+         'RV', 'RW', 'RM',       &  ! Lake  V, W, M array
+         'SV', 'SW', 'SM'        ]  ! Sea   V, W, M array
 
   type scalar_table
 
@@ -128,15 +135,7 @@ Contains
     real(r8), target, optional, contiguous, intent(in) :: dvar2(:,:)
     real(r8), target, optional, contiguous, intent(in) :: dvar3(:,:,:)
 
-    character(2), parameter :: ptypes(17) = (/  &
-         'AV', 'AW', 'AM', 'AN',  &  ! Atmos V, W, M, NUDGE array
-         'CV', 'CW', 'CM',        &  ! "Common" SFC grid V, W, M array
-         'LV', 'LW', 'LM',        &  ! Land  V, W, M array
-         'RV', 'RW', 'RM',        &  ! Lake  V, W, M array
-         'SV', 'SW', 'SM',        &  ! Sea   V, W, M array
-         'CN'                     /) ! Contstant (scalar)
-
-    integer :: ntsize, iv
+    integer            :: ntsize, iv
     integer, parameter :: ialloc = 20 ! Increment to increase tables
 
     type(var_tables_r),  allocatable :: vtab_copy(:)
@@ -151,9 +150,16 @@ Contains
 
     ! ERROR CHECKING: MAKE SURE VARIABLE HAS A STAGGER POINT
 
-    if (len_trim(stagpt) == 0) then
+    if (len_trim(stagpt) /= 2) then
        write(io6,*) "Error in subroutine increment_vtable:"
-       stop         "vtables called with no stagger point."
+       stop         "vtables called with invalid stagger point."
+    endif
+
+    ! ERROR CHECKING: MAKE SURE VARIABLE STAGGER POINT IS VALID
+
+    if ( all( vtypes /= stagpt ) ) then
+       write(io6,*) "Error in subroutine increment_vtable:"
+       stop         "Vtables called with invalid stagger point."
     endif
 
     ! ERROR CHECKING: MAKE SURE NAMES ARE UNIQUE
@@ -176,13 +182,13 @@ Contains
     ntsize = size(vtab_r)
 
     ! INCREASE VTAB SIZE IF NECESSARY
-    
+
     if (num_var > ntsize) then
        allocate (vtab_copy (ntsize+ialloc) )
        vtab_copy(1:ntsize) = vtab_r
-       call move_alloc(vtab_copy, vtab_r) 
+       call move_alloc(vtab_copy, vtab_r)
     endif
-    
+
     vtab_r(num_var)%name   = name
     vtab_r(num_var)%stagpt = stagpt
 
@@ -242,6 +248,7 @@ Contains
 !===============================================================================
 
   subroutine vtables_scalar(varp,vart,name,sxfer,emis,cu_mix,pos_def,pbl_mix)
+
     use misc_coms, only: io6
     implicit none
 

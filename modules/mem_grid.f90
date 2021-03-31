@@ -7,37 +7,37 @@
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
+! including OLAM:
 
    !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
+   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University;
+   ! Colorado State University Research Foundation ; ATMET, LLC
 
-   ! This software is free software; you can redistribute it and/or modify it 
+   ! This software is free software; you can redistribute it and/or modify it
    ! under the terms of the GNU General Public License as published by the Free
    ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
+   ! any later version.
 
    ! This software is distributed in the hope that it will be useful, but
    ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
    ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
    ! for more details.
- 
+
    ! You should have received a copy of the GNU General Public License along
    ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
+   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
+   ! (http://www.gnu.org/licenses/gpl.html)
    !----------------------------------------------------------------------------
 
 !===============================================================================
 Module mem_grid
 
-   use consts_coms, only: r8
-   implicit none
+  use consts_coms, only: r8
+  implicit none
 
-   private :: r8
+  private :: r8
 
-   integer :: &  ! N values for full-domain reference on any process
+  integer :: &  ! N values for full-domain reference on any process
 
       nza           &  ! Vertical number of all points
      ,nsw_max       &  ! Max # vert atm levels in IW column with sfc flux
@@ -160,145 +160,144 @@ Contains
 
 !===============================================================================
 
-   subroutine alloc_gridz()
+  subroutine alloc_gridz()
 
-   implicit none
+    implicit none
 
-   allocate (zm    (mza));  zm    (:) = 0.
-   allocate (zt    (mza));  zt    (:) = 0.
-   allocate (dzm   (mza));  dzm   (:) = 0.
-   allocate (dzt   (mza));  dzt   (:) = 0.
-   allocate (dzim  (mza));  dzim  (:) = 0.
-   allocate (dzit  (mza));  dzit  (:) = 0.
-   allocate (zfacm (mza));  zfacm (:) = 0.
-   allocate (zfacim(mza));  zfacim(:) = 0.
-   allocate (zfact (mza));  zfact (:) = 0.
-   allocate (zfacit(mza));  zfacit(:) = 0.
-   allocate (zfacm2 (mza)); zfacm2 (:) = 0.
-   allocate (zfacim2(mza)); zfacim2(:) = 0.
+    allocate (zm    (mza));  zm    (:) = 0.
+    allocate (zt    (mza));  zt    (:) = 0.
+    allocate (dzm   (mza));  dzm   (:) = 0.
+    allocate (dzt   (mza));  dzt   (:) = 0.
+    allocate (dzim  (mza));  dzim  (:) = 0.
+    allocate (dzit  (mza));  dzit  (:) = 0.
+    allocate (zfacm (mza));  zfacm (:) = 0.
+    allocate (zfacim(mza));  zfacim(:) = 0.
+    allocate (zfact (mza));  zfact (:) = 0.
+    allocate (zfacit(mza));  zfacit(:) = 0.
+    allocate (zfacm2 (mza)); zfacm2 (:) = 0.
+    allocate (zfacim2(mza)); zfacim2(:) = 0.
 
-   allocate (gravm (mza));  gravm (:) = 0.
-   allocate (gravt (mza));  gravt (:) = 0.
+    allocate (gravm (mza));  gravm (:) = 0.
+    allocate (gravt (mza));  gravt (:) = 0.
 
-   end subroutine alloc_gridz
-
-!===============================================================================
-
-   subroutine alloc_xyzem(lma)
-
-   implicit none
-
-   integer, intent(in) :: lma
-
-   allocate (xem(lma));  xem(1:lma) = 0.
-   allocate (yem(lma));  yem(1:lma) = 0.
-   allocate (zem(lma));  zem(1:lma) = 0.
-
-   end subroutine alloc_xyzem
+  end subroutine alloc_gridz
 
 !===============================================================================
 
-   subroutine alloc_xyzew(lwa)
+  subroutine alloc_xyzem(lma)
 
-   implicit none
+    implicit none
 
-   integer, intent(in) :: lwa
+    integer, intent(in) :: lma
 
-   allocate (xew(lwa));  xew(1:lwa) = 0.
-   allocate (yew(lwa));  yew(1:lwa) = 0.
-   allocate (zew(lwa));  zew(1:lwa) = 0.
+    allocate (xem(lma));  xem(1:lma) = 0.
+    allocate (yem(lma));  yem(1:lma) = 0.
+    allocate (zem(lma));  zem(1:lma) = 0.
 
-   end subroutine alloc_xyzew
+  end subroutine alloc_xyzem
 
 !===============================================================================
 
-   subroutine alloc_grid1(lma, lva, lwa)
+  subroutine alloc_xyzew(lwa)
 
-   use misc_coms, only: io6
+    implicit none
 
-   implicit none
+    integer, intent(in) :: lwa
 
-   integer, intent(in) :: lma, lva, lwa
+    allocate (xew(lwa));  xew(1:lwa) = 0.
+    allocate (yew(lwa));  yew(1:lwa) = 0.
+    allocate (zew(lwa));  zew(1:lwa) = 0.
+
+  end subroutine alloc_xyzew
+
+!===============================================================================
+
+  subroutine alloc_grid1(lma, lva, lwa)
+
+    use misc_coms, only: io6
+    implicit none
+
+    integer, intent(in) :: lma, lva, lwa
 
 ! Allocate and initialize arrays (xem, yem, zem are already allocated)
 
-   allocate (lsw (lwa));  lsw (1:lwa) = 0
-   allocate (lve2(lwa));  lve2(1:lwa) = 0
+    allocate (lsw (lwa));  lsw (1:lwa) = 0
+    allocate (lve2(lwa));  lve2(1:lwa) = 0
 
-   allocate (xev(lva));  xev(1:lva) = 0.
-   allocate (yev(lva));  yev(1:lva) = 0.
-   allocate (zev(lva));  zev(1:lva) = 0.
+    allocate (xev(lva));  xev(1:lva) = 0.
+    allocate (yev(lva));  yev(1:lva) = 0.
+    allocate (zev(lva));  zev(1:lva) = 0.
 
-   allocate (glatv(lva));  glatv(1:lva) = 0.
-   allocate (glonv(lva));  glonv(1:lva) = 0.
+    allocate (glatv(lva));  glatv(1:lva) = 0.
+    allocate (glonv(lva));  glonv(1:lva) = 0.
 
-   allocate (unx(lva));  unx(1:lva) = 0.
-   allocate (uny(lva));  uny(1:lva) = 0.
-   allocate (unz(lva));  unz(1:lva) = 0.
+    allocate (unx(lva));  unx(1:lva) = 0.
+    allocate (uny(lva));  uny(1:lva) = 0.
+    allocate (unz(lva));  unz(1:lva) = 0.
 
-   allocate (vnx(lva));  vnx(1:lva) = 0.
-   allocate (vny(lva));  vny(1:lva) = 0.
-   allocate (vnz(lva));  vnz(1:lva) = 0.
+    allocate (vnx(lva));  vnx(1:lva) = 0.
+    allocate (vny(lva));  vny(1:lva) = 0.
+    allocate (vnz(lva));  vnz(1:lva) = 0.
 
-   allocate (wnx(lwa));  wnx(1:lwa) = 0.
-   allocate (wny(lwa));  wny(1:lwa) = 0.
-   allocate (wnz(lwa));  wnz(1:lwa) = 0.
+    allocate (wnx(lwa));  wnx(1:lwa) = 0.
+    allocate (wny(lwa));  wny(1:lwa) = 0.
+    allocate (wnz(lwa));  wnz(1:lwa) = 0.
 
-   allocate (dnu  (lva));  dnu (1:lva) = 0.
-   allocate (dniu (lva));  dniu(1:lva) = 0.
+    allocate (dnu  (lva));  dnu (1:lva) = 0.
+    allocate (dniu (lva));  dniu(1:lva) = 0.
 
-   allocate (dnv  (lva));  dnv (1:lva) = 0.
-   allocate (dniv (lva));  dniv(1:lva) = 0.
+    allocate (dnv  (lva));  dnv (1:lva) = 0.
+    allocate (dniv (lva));  dniv(1:lva) = 0.
 
-   allocate  (arw0(lwa));   arw0(1:lwa) = 0.
-   allocate  (topw(lwa));   topw(1:lwa) = 0.
-   allocate (glatw(lwa));  glatw(1:lwa) = 0.
-   allocate (glonw(lwa));  glonw(1:lwa) = 0.
+    allocate  (arw0(lwa));   arw0(1:lwa) = 0.
+    allocate  (topw(lwa));   topw(1:lwa) = 0.
+    allocate (glatw(lwa));  glatw(1:lwa) = 0.
+    allocate (glonw(lwa));  glonw(1:lwa) = 0.
 
-   allocate  (arm0(lma));   arm0(1:lma) = 0.
-   allocate  (topm(lma));   topm(1:lma) = 0.
-   allocate (glatm(lma));  glatm(1:lma) = 0.
-   allocate (glonm(lma));  glonm(1:lma) = 0.
+    allocate  (arm0(lma));   arm0(1:lma) = 0.
+    allocate  (topm(lma));   topm(1:lma) = 0.
+    allocate (glatm(lma));  glatm(1:lma) = 0.
+    allocate (glonm(lma));  glonm(1:lma) = 0.
 
-   allocate (vxn_ew(lwa)) ; vxn_ew = 0.
-   allocate (vyn_ew(lwa)) ; vyn_ew = 0.
-   allocate (vzn_ew(lwa)) ; vzn_ew = 0.
+    allocate (vxn_ew(lwa)) ; vxn_ew = 0.
+    allocate (vyn_ew(lwa)) ; vyn_ew = 0.
+    allocate (vzn_ew(lwa)) ; vzn_ew = 0.
 
-   allocate (vxn_ns(lwa)) ; vxn_ns = 0.
-   allocate (vyn_ns(lwa)) ; vyn_ns = 0.
-   allocate (vzn_ns(lwa)) ; vzn_ns = 0.
+    allocate (vxn_ns(lwa)) ; vxn_ns = 0.
+    allocate (vyn_ns(lwa)) ; vyn_ns = 0.
+    allocate (vzn_ns(lwa)) ; vzn_ns = 0.
 
-   allocate (vcn_ew(lva)) ; vcn_ew = 0.
-   allocate (vcn_ns(lva)) ; vcn_ns = 0.
+    allocate (vcn_ew(lva)) ; vcn_ew = 0.
+    allocate (vcn_ns(lva)) ; vcn_ns = 0.
 
-   write(io6,*) 'finishing alloc_grid1'
+    write(io6,*) 'finishing alloc_grid1'
 
-   end subroutine alloc_grid1
+  end subroutine alloc_grid1
 
 !===============================================================================
 
    subroutine alloc_grid2(lma, lva, lwa)
 
-   use consts_coms, only: r8
-   use misc_coms,   only: io6
+     use consts_coms, only: r8
+     use misc_coms,   only: io6
 
-   implicit none
+     implicit none
 
-   integer, intent(in) :: lma, lva, lwa
+     integer, intent(in) :: lma, lva, lwa
 
 ! Allocate  and initialize arrays
 
-   write(io6,*) 'alloc_grid2 ',lma,lva,lwa
+     write(io6,*) 'alloc_grid2 ',lma,lva,lwa
 
-   allocate (lpv(lva)); lpv(1:lva) = 0
-   allocate (lpm(lma)); lpm(1:lma) = 0
-   allocate (lpw(lwa)); lpw(1:lwa) = 0
+     allocate (lpv(lva)); lpv(1:lva) = 0
+     allocate (lpm(lma)); lpm(1:lma) = 0
+     allocate (lpw(lwa)); lpw(1:lwa) = 0
 
-   allocate (arv  (mza,lva));  arv  (1:mza,1:lva) = 0.
-   allocate (arw  (mza,lwa));  arw  (1:mza,1:lwa) = 0.
-   allocate (volt (mza,lwa));  volt (1:mza,1:lwa) = 0._r8
+     allocate (arv  (mza,lva));  arv  (1:mza,1:lva) = 0.
+     allocate (arw  (mza,lwa));  arw  (1:mza,1:lwa) = 0.
+     allocate (volt (mza,lwa));  volt (1:mza,1:lwa) = 0._r8
 
-   write(io6,*) 'finishing alloc_grid2'
+     write(io6,*) 'finishing alloc_grid2'
 
    end subroutine alloc_grid2
 
@@ -419,7 +418,7 @@ Contains
 !===============================================================================
 
    subroutine alloc_grid_other()
-     
+
      ! This routine allocates and defines grid arrays that were not computed
      ! during the MAKEGRID stage
 

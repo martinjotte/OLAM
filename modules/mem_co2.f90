@@ -7,26 +7,26 @@
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
+! including OLAM:
 
    !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
+   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University;
+   ! Colorado State University Research Foundation ; ATMET, LLC
 
-   ! This software is free software; you can redistribute it and/or modify it 
+   ! This software is free software; you can redistribute it and/or modify it
    ! under the terms of the GNU General Public License as published by the Free
    ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
+   ! any later version.
 
    ! This software is distributed in the hope that it will be useful, but
    ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
    ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
    ! for more details.
- 
+
    ! You should have received a copy of the GNU General Public License along
    ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
+   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
+   ! (http://www.gnu.org/licenses/gpl.html)
    !----------------------------------------------------------------------------
 
 !===============================================================================
@@ -34,6 +34,7 @@
 Module mem_co2
 
   use const_data, only: mwair
+  implicit none
 
   ! CO2 flag:  0 = CO2 is not prognosed; 1 = CO2 is prognosed
   integer           :: co2flag     = 0
@@ -56,7 +57,6 @@ Contains
   subroutine alloc_co2(mza,mwa)
 
     use misc_coms, only: rinit
-
     implicit none
 
     integer, intent(in) :: mza,mwa
@@ -84,7 +84,6 @@ Contains
   subroutine filltab_co2()
 
     use var_tables, only: increment_vtable
-
     implicit none
 
     if (allocated(rr_co2)) call increment_vtable('RR_CO2', 'AW', mpt1=.true., rvar2=rr_co2)
@@ -95,29 +94,28 @@ Contains
 
   subroutine co2init()
 
-  use misc_coms,   only: runtype
-  use mem_ijtabs,  only: jtab_w, jtw_init
-  use mem_grid,    only: mza
-  use consts_coms, only: r8
+    use misc_coms,   only: runtype
+    use mem_ijtabs,  only: jtab_w, jtw_init
+    use mem_grid,    only: mza
 
-  implicit none
+    implicit none
 
-  integer :: j, iw
-  real    :: co2_initsh
+    integer :: j, iw
+    real    :: co2_initsh
 
-  ! Initialize 3D and 2D microphysics fields
+    ! Initialize 3D and 2D microphysics fields
 
-  if (runtype == 'INITIAL' .and. allocated(rr_co2) .and. co2flag /= 0) then
+    if (runtype == 'INITIAL' .and. allocated(rr_co2) .and. co2flag /= 0) then
 
-     co2_initsh = co2_initppm * co2_ppm2sh
+       co2_initsh = co2_initppm * co2_ppm2sh
 
-     !$omp parallel do private(iw)
-     do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
-        rr_co2(2:mza,iw) = co2_initsh
-     enddo
-     !$omp end parallel do
+       !$omp parallel do private(iw)
+       do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
+          rr_co2(2:mza,iw) = co2_initsh
+       enddo
+       !$omp end parallel do
 
-  endif ! runtype == 'INITIAL'
+    endif ! runtype == 'INITIAL'
 
   end subroutine co2init
 

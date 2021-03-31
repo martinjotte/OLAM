@@ -7,26 +7,26 @@
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
+! including OLAM:
 
    !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
+   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University;
+   ! Colorado State University Research Foundation ; ATMET, LLC
 
-   ! This software is free software; you can redistribute it and/or modify it 
+   ! This software is free software; you can redistribute it and/or modify it
    ! under the terms of the GNU General Public License as published by the Free
    ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
+   ! any later version.
 
    ! This software is distributed in the hope that it will be useful, but
    ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
    ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
    ! for more details.
- 
+
    ! You should have received a copy of the GNU General Public License along
    ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
+   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
+   ! (http://www.gnu.org/licenses/gpl.html)
    !----------------------------------------------------------------------------
 
 !===============================================================================
@@ -35,51 +35,50 @@ Module olam_mpi_atm
 
 Contains
 
-subroutine olam_mpi_init()
+  subroutine olam_mpi_init()
 
 #ifdef OLAM_MPI
-  use mpi
+    use mpi
 #endif
 
-  use mem_para, only: mgroupsize, myrank, nbytes_int, nbytes_real, nbytes_real8
-
-  implicit none
+    use mem_para, only: mgroupsize, myrank, nbytes_int, nbytes_real, nbytes_real8
+    implicit none
 
 #ifdef OLAM_MPI
 
-  integer :: ierr, iomp
-  !$ integer :: iprov
+    integer :: ierr, iomp
+!$  integer :: iprov
 
 ! Initialize MPI and determine process groupsize and myrank
 
-  iomp = 0
+    iomp = 0
 
-  !$ iomp = 1
-  !$ call MPI_Init_thread(MPI_THREAD_MULTIPLE, iprov, ierr)
-  !$ if (iprov < MPI_THREAD_MULTIPLE) then
-  !$    write(*,*) "MPI_THREAD_MULTIPLE is not provided by MPI"
-  !$    call olam_stop("Stopping model run")
-  !$ endif
+!$  iomp = 1
+!$  call MPI_Init_thread(MPI_THREAD_MULTIPLE, iprov, ierr)
+!$  if (iprov < MPI_THREAD_MULTIPLE) then
+!$     write(*,*) "MPI_THREAD_MULTIPLE is not provided by MPI"
+!$     call olam_stop("Stopping model run")
+!$  endif
 
-  if (iomp == 0) then
-     call MPI_Init(ierr)
-  endif
+    if (iomp == 0) then
+       call MPI_Init(ierr)
+    endif
 
-  call MPI_Comm_size(MPI_COMM_WORLD,mgroupsize,ierr)
-  call MPI_Comm_rank(MPI_COMM_WORLD,myrank,ierr)
+    call MPI_Comm_size(MPI_COMM_WORLD,mgroupsize,ierr)
+    call MPI_Comm_rank(MPI_COMM_WORLD,myrank,ierr)
 
-  call MPI_Pack_size(1, MPI_INTEGER, MPI_COMM_WORLD, nbytes_int  , ierr)
-  call MPI_Pack_size(1, MPI_REAL   , MPI_COMM_WORLD, nbytes_real , ierr)
-  call MPI_Pack_size(1, MPI_REAL8  , MPI_COMM_WORLD, nbytes_real8, ierr)
+    call MPI_Pack_size(1, MPI_INTEGER, MPI_COMM_WORLD, nbytes_int  , ierr)
+    call MPI_Pack_size(1, MPI_REAL   , MPI_COMM_WORLD, nbytes_real , ierr)
+    call MPI_Pack_size(1, MPI_REAL8  , MPI_COMM_WORLD, nbytes_real8, ierr)
 
 #else
 
-  mgroupsize = 1
-  myrank     = 0
+    mgroupsize = 1
+    myrank     = 0
 
-  nbytes_int   = 4
-  nbytes_real  = 4
-  nbytes_real8 = 8
+    nbytes_int   = 4
+    nbytes_real  = 4
+    nbytes_real8 = 8
 
 #endif
 
@@ -1984,9 +1983,8 @@ end subroutine mpi_recv_wnud
 
 subroutine olam_stop(message)
 
-  use mem_para,  only: myrank
-
 #ifdef OLAM_MPI
+  use mem_para, only: myrank
   use mpi
 #endif
 

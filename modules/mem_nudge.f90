@@ -7,26 +7,26 @@
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
+! including OLAM:
 
    !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
+   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University;
+   ! Colorado State University Research Foundation ; ATMET, LLC
 
-   ! This software is free software; you can redistribute it and/or modify it 
+   ! This software is free software; you can redistribute it and/or modify it
    ! under the terms of the GNU General Public License as published by the Free
    ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
+   ! any later version.
 
    ! This software is distributed in the hope that it will be useful, but
    ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
    ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
    ! for more details.
- 
+
    ! You should have received a copy of the GNU General Public License along
    ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
+   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
+   ! (http://www.gnu.org/licenses/gpl.html)
    !----------------------------------------------------------------------------
 
 !===============================================================================
@@ -34,7 +34,6 @@
 Module mem_nudge
 
   use consts_coms, only: r8
-
   implicit none
 
   private :: r8
@@ -42,11 +41,11 @@ Module mem_nudge
   integer, parameter :: nloops_wnud = 100 ! # WNUD DO loops for para
 
   Type itab_wnud_vars          ! data structure for WNUD points (individual rank)
-    logical :: loop(nloops_wnud) = .false. ! flag to perform DO loop at this WNUD pt
-    integer :: npoly = 0      ! number of W neighbors of this WNUD pt
-    integer :: irank = -1     ! rank of process at this WNUD pt (for hist write only)
-    integer :: iwnud(6) = 1   ! array of WNUD neighbors of this WNUD pt
-    integer :: iwnudglobe = 1 ! global index of WNUD point
+     logical :: loop(nloops_wnud) = .false. ! flag to perform DO loop at this WNUD pt
+     integer :: npoly = 0      ! number of W neighbors of this WNUD pt
+     integer :: irank = -1     ! rank of process at this WNUD pt (for hist write only)
+     integer :: iwnud(6) = 1   ! array of WNUD neighbors of this WNUD pt
+     integer :: iwnudglobe = 1 ! global index of WNUD point
   End Type itab_wnud_vars
 
   type (itab_wnud_vars), allocatable, target :: itab_wnud(:)
@@ -83,20 +82,20 @@ Module mem_nudge
   real,    allocatable :: umerid_obsf(:,:)
   real,    allocatable ::  ozone_obsf(:,:)
 
-  real,    allocatable         ::    rho_obs(:,:)
-  real,    allocatable         ::  theta_obs(:,:)
-  real,    allocatable         ::    rrw_obs(:,:)
-  real,    allocatable         :: uzonal_obs(:,:)
-  real,    allocatable         :: umerid_obs(:,:)
+  real,    allocatable ::    rho_obs(:,:)
+  real,    allocatable ::  theta_obs(:,:)
+  real,    allocatable ::    rrw_obs(:,:)
+  real,    allocatable :: uzonal_obs(:,:)
+  real,    allocatable :: umerid_obs(:,:)
 
-  real,    allocatable         ::    rho_sim(:,:)
-  real,    allocatable         ::  theta_sim(:,:)
-  real,    allocatable         ::    rrw_sim(:,:)
-  real,    allocatable         :: uzonal_sim(:,:)
-  real,    allocatable         :: umerid_sim(:,:)
+  real,    allocatable ::    rho_sim(:,:)
+  real,    allocatable ::  theta_sim(:,:)
+  real,    allocatable ::    rrw_sim(:,:)
+  real,    allocatable :: uzonal_sim(:,:)
+  real,    allocatable :: umerid_sim(:,:)
 
-  real,    allocatable         ::   rhot_nud(:,:)
-  real(r8),allocatable         ::   volwnudi(:,:)
+  real,    allocatable ::   rhot_nud(:,:)
+  real(r8),allocatable ::   volwnudi(:,:)
 
   integer :: nudflag
   integer :: nudnxp
@@ -136,8 +135,6 @@ Contains
   subroutine alloc_nudge2(mza,mwa)
 
     use misc_coms,   only: io6, rinit
-    use consts_coms, only: r8
-
     implicit none
 
     integer, intent(in) :: mza, mwa
@@ -247,55 +244,55 @@ Contains
 
 !===============================================================================
 
-   subroutine fill_jnudge()
+  subroutine fill_jnudge()
 
-   implicit none
+    implicit none
 
-   integer :: iwnud, iloop, jend
+    integer :: iwnud, iloop, jend
 
 ! Allocate and zero-fill jtab%jend()
 
-   do iloop = 1,nloops_wnud
-      jtab_wnud(iloop)%jend = 0
-   enddo
+    do iloop = 1,nloops_wnud
+       jtab_wnud(iloop)%jend = 0
+    enddo
 
 ! Compute and store jtab%jend(1)
 
-   do iloop = 1,nloops_wnud
-      jtab_wnud(iloop)%jend = 0
-      do iwnud = 2,mwnud
-         if (itab_wnud(iwnud)%loop(iloop)) then
-            jtab_wnud(iloop)%jend = jtab_wnud(iloop)%jend + 1
-         endif
-      enddo
-      jtab_wnud(iloop)%jend = max(1,jtab_wnud(iloop)%jend)
-   enddo
+    do iloop = 1,nloops_wnud
+       jtab_wnud(iloop)%jend = 0
+       do iwnud = 2,mwnud
+          if (itab_wnud(iwnud)%loop(iloop)) then
+             jtab_wnud(iloop)%jend = jtab_wnud(iloop)%jend + 1
+          endif
+       enddo
+       jtab_wnud(iloop)%jend = max(1,jtab_wnud(iloop)%jend)
+    enddo
 
 ! Allocate and zero-fill JTAB_WNUD%IWNUD
 
-   do iloop = 1,nloops_wnud
-      jend = jtab_wnud(iloop)%jend
-      allocate (jtab_wnud(iloop)%iwnud(jend))
-      jtab_wnud(iloop)%iwnud(1:jend) = 0
-   enddo
+    do iloop = 1,nloops_wnud
+       jend = jtab_wnud(iloop)%jend
+       allocate (jtab_wnud(iloop)%iwnud(jend))
+       jtab_wnud(iloop)%iwnud(1:jend) = 0
+    enddo
 
 ! Initialize JTAB%JEND counters to zero
 
-   do iloop = 1,nloops_wnud
-      jtab_wnud(iloop)%jend = 0
-   enddo
+    do iloop = 1,nloops_wnud
+       jtab_wnud(iloop)%jend = 0
+    enddo
 
 ! Compute JTAB_WNUD%IWNUD
 
-   do iwnud = 2,mwnud
-      do iloop = 1,nloops_wnud
-         if (itab_wnud(iwnud)%loop(iloop)) then
-            jtab_wnud(iloop)%jend = jtab_wnud(iloop)%jend + 1
-            jtab_wnud(iloop)%iwnud(jtab_wnud(iloop)%jend) = iwnud
-         endif
-      enddo
-   enddo
+    do iwnud = 2,mwnud
+       do iloop = 1,nloops_wnud
+          if (itab_wnud(iwnud)%loop(iloop)) then
+             jtab_wnud(iloop)%jend = jtab_wnud(iloop)%jend + 1
+             jtab_wnud(iloop)%iwnud(jtab_wnud(iloop)%jend) = iwnud
+          endif
+       enddo
+    enddo
 
-   end subroutine fill_jnudge
+  end subroutine fill_jnudge
 
 End Module mem_nudge

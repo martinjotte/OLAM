@@ -34,6 +34,9 @@
 Module mem_flux_accum
 
   use consts_coms, only: r8
+  implicit none
+
+  private :: r8
 
 ! Atmosphere grid arrays
 
@@ -238,26 +241,25 @@ end subroutine filltab_flux_accum
 
 subroutine flux_accum()
 
-  use misc_coms,   only: io6, time_istp8, time_istp8p, dtlm, dtsm, time_prevhist, &
-                         ilwrtyp, iswrtyp, isubdomain
+  use misc_coms,   only: time_istp8p, dtlm, dtsm, ilwrtyp, iswrtyp, isubdomain
 
-  use mem_ijtabs,  only: istp, itab_v, itab_w, itabg_w, jtab_v, jtab_w, &
-                         jtv_prog, jtw_prog, mrl_begl, mrl_begs, mrl_endl, mrls
+  use mem_ijtabs,  only: istp, itab_v, itab_w, jtab_v, jtab_w, jtv_prog, &
+                         jtw_prog, mrl_begl, mrl_begs, mrl_endl, mrls
 
-  use mem_basic,   only: vc, wc, press, tair, rr_v, vxe, vye, vze
+  use mem_basic,   only: vc, wc, press, tair, rr_v
 
   use mem_radiate, only: albedt, rshort, rlong, rlongup, &
-                         rshort_top, rshortup_top, rlongup_top, &
-                         rshort_clr, rshortup_clr, rshort_top_clr, &
-                         rshortup_top_clr, rlong_clr, rlongup_clr, &
-                         rlongup_top_clr
+                         rshort_top, rshortup_top, rlongup_top
+!                        rshort_clr, rshortup_clr, rshort_top_clr, &
+!                        rshortup_top_clr, rlong_clr, rlongup_clr, &
+!                        rlongup_top_clr
 
   use mem_average_vars, only:  airtempk_dmin,  airtempk_dmax, &
                                cantempk_dmin,  cantempk_dmax, &
                                vegtempk_dmin,  vegtempk_dmax, &
                               soiltempk_dmin, soiltempk_dmax
 
-  use leaf_coms,   only: mrl_leaf, dt_leaf, isfcl
+  use leaf_coms,   only: mrl_leaf, isfcl
 
   use consts_coms, only: r8
 
@@ -275,7 +277,6 @@ subroutine flux_accum()
 
   real :: soiltempk, tempk, fracliq, fldval
 
-  real :: energy_per_m2 ! sfcwater energy [J/m^2]
   real :: w_comb        ! (sfcwater + soil) water mass [kg/m^2]
   real :: qw_comb       ! (sfcwater + soil) energy [J/m^2]
   real :: hcapsoil      ! soil heat capacity [J/(m^2 K)]

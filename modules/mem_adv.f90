@@ -1,4 +1,42 @@
+!===============================================================================
+! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
+! and David Medvigy in the project group headed by Roni Avissar.  Development
+! has continued by the same team working at other institutions (University of
+! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
+! Princeton University), with significant contributions from other people.
+
+! Portions of this software are copied or derived from the RAMS software
+! package.  The following copyright notice pertains to RAMS and its derivatives,
+! including OLAM:
+
+   !----------------------------------------------------------------------------
+   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University;
+   ! Colorado State University Research Foundation ; ATMET, LLC
+
+   ! This software is free software; you can redistribute it and/or modify it
+   ! under the terms of the GNU General Public License as published by the Free
+   ! Software Foundation; either version 2 of the License, or (at your option)
+   ! any later version.
+
+   ! This software is distributed in the hope that it will be useful, but
+   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+   ! for more details.
+
+   ! You should have received a copy of the GNU General Public License along
+   ! with this program; if not, write to the Free Software Foundation, Inc.,
+   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
+   ! (http://www.gnu.org/licenses/gpl.html)
+   !----------------------------------------------------------------------------
+
+!===============================================================================
+
 module mem_adv
+
+  use consts_coms, only: r8
+  implicit none
+
+  private :: r8
 
   real, allocatable :: a_v(:,:,:)
 
@@ -26,11 +64,13 @@ module mem_adv
 
 contains
 
+!==============================================================================
+
   subroutine alloc_adv()
 
-    use mem_grid
-    use mem_ijtabs
-    use quadrature
+    use mem_grid,    only: mwa, mva, mza, dzm, dztsqo12, dnu, dniv, arw0i, xew, yew, zew, glatw, glonw
+    use mem_ijtabs,  only: itab_w, jtab_w, jtw_prog, itab_v, jtab_v, jtv_wadj
+    use quadrature,  only: hex_quad
     use misc_coms,   only: mdomain, rinit, iparallel
     use consts_coms, only: r8
     use oname_coms,  only: nl
@@ -45,8 +85,8 @@ contains
     real     :: z1(2), z2(2), az1(2,2), az2(2,2), a_h(5,5)
     real     :: dxps1, dyps1, dxps2, dyps2
 
-    real, parameter :: wt1 = 1. / 6.
-    real, parameter :: wt2 = 2. / 3.
+!!    real, parameter :: wt1 = 1. / 6.
+!!    real, parameter :: wt2 = 2. / 3.
 
     allocate(gxps_scp(mza,mwa)) ; gxps_scp = rinit
     allocate(gyps_scp(mza,mwa)) ; gyps_scp = rinit
@@ -104,7 +144,7 @@ contains
     allocate(a_v(mza,2,2))
 
     do k = 2, mza
-       z1 = (/ -dzm(k-1), dzm(k) /)
+       z1 = [ -dzm(k-1), dzm(k) ]
        z2 = z1 * z1 - dztsqo12(k)
 
        az1(1:2,1) = z1
@@ -174,13 +214,13 @@ contains
           enddo
 
           call hex_quad(iw, 2, fint, fxx)
-          xx0(iw) = fint / arw0(iw)
+          xx0(iw) = real(fint) * arw0i(iw)
 
           call hex_quad(iw, 2, fint, fxy)
-          xy0(iw) = fint / arw0(iw)
+          xy0(iw) = real(fint) * arw0i(iw)
 
           call hex_quad(iw, 2, fint, fyy)
-          yy0(iw) = fint / arw0(iw)
+          yy0(iw) = real(fint) * arw0i(iw)
 
           xy_h(1,1:np,iw) = xw(1:np)
           xy_h(2,1:np,iw) = yw(1:np)
@@ -355,27 +395,42 @@ contains
 
   end subroutine alloc_adv
 
+!==============================================================================
 
-  real(8) function fxx(x, y)
+  real(r8) function fxx(x, y)
+
+    use consts_coms, only: r8
     implicit none
-    real(8), intent(in)::  x, y
+
+    real(r8), intent(in)::  x, y
     fxx = x * x
   end function fxx
 
+!==============================================================================
 
-  real(8) function fxy(x, y)
+  real(r8) function fxy(x, y)
+
+    use consts_coms, only: r8
     implicit none
-    real(8), intent(in)::  x, y
+
+    real(r8), intent(in)::  x, y
     fxy = x * y
+
   end function fxy
 
+!==============================================================================
 
-  real(8) function fyy(x, y)
+  real(r8) function fyy(x, y)
+
+    use consts_coms, only: r8
     implicit none
-    real(8), intent(in)::  x, y
+
+    real(r8), intent(in)::  x, y
     fyy = y * y
+
   end function fyy
 
+!==============================================================================
 
   subroutine ludcmp(a, n)
     implicit none

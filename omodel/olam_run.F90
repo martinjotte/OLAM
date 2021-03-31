@@ -52,7 +52,6 @@ subroutine olam_run(name_name)
   use mem_sfcg,    only: nwsfc, mwsfc, alloc_sfcgrid2, filltab_sfcg, sfcg_avgatm, fill_jwsfc
   use oplot_coms,  only: op, iplt_file
   use mem_grid,    only: mma, mva, mwa, mza, alloc_gridz_other
-  use mem_basic,   only: alloc_basic
   use mem_nudge,   only: nudflag, nudnxp, fill_jnudge, o3nudflag
   use mem_rayf,    only: rayf_init
   use mem_para,    only: myrank
