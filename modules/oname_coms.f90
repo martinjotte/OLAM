@@ -48,8 +48,8 @@ Module oname_coms
   Type oname_plot
      character(30) :: fldname    = ' '
      character(1)  :: projectn   = ' '
-     character(20) :: pltspec2   = 'N'
      integer       :: icolortab  = 0
+     character(20) :: pltspec2   = 'N'
      real          :: plotcoord1 = 0.0
      real          :: plotcoord2 = 0.0
      real          :: slabloc    = 0.0

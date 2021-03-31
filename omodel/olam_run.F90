@@ -233,13 +233,13 @@ subroutine olam_run(name_name)
 
   ! Read from GRIDFILE the fields that are needed by para_decomp
 
-  print*, 'olam_run calling gridfile_read_pd '
+  write(io6,*) 'olam_run calling gridfile_read_pd'
 
   call gridfile_read_pd()
 
   ! If land/sea models are active, read SFCGFILE iw points
 
-  print*, 'olam_run calling sfcgfile_read_pd '
+  write(io6,*) 'olam_run calling sfcgfile_read_pd'
 
   if (isfcl == 1) call sfcgfile_read_pd()
 

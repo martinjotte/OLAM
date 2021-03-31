@@ -36,7 +36,7 @@ Module hdf5_utils
   use mem_para,    only: myrank
   use consts_coms, only: r8, i1
 
-  character(1), save :: prevaccess = ''
+  character(1), save :: prevaccess = ' '
   private            :: myrank, r8, i1, prevaccess
 
 #if defined(OLAM_MPI) && !defined(OLAM_PARALLEL_HDF5)
