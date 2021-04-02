@@ -121,12 +121,8 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
    if (any( nqparm(1:mrls) > 0 )) then
       call cuparm_driver()
-      if (isfcl == 1) then
-         if (iparallel == 1) then
-            call mpi_send_w(mrl, r1dvara1=conprr)
-            call mpi_recv_w(mrl, r1dvara1=conprr)
-         endif
 
+      if (isfcl == 1 .and. mrl > 0) then
          call surface_cuparm_flux()
       endif
    endif

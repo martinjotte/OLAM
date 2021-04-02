@@ -421,15 +421,15 @@ Module leaf4_soil
 
      if (sfcwater_energy > 6.e5 .or. sfcwater_energy < -2.5e5) then
 
-        write(io6,*) ' '
-        write(io6,*) 'Sfcwater energy is outside allowable range.'
-        write(io6,*) 'iwsfc,iland,lat,lon = ',iwsfc,iland,glatw,glonw
-        write(io6,*) 'sfcwater energy & mass = ',sfcwater_energy,sfcwater_mass
-        write(io6,*) 'sfcwater depth & energy_per_m2 = ',sfcwater_depth,energy_per_m2
-        write(io6,*) 'wxfer,qwxfer = ',wxfer(nzg+1),qwxfer(nzg+1)
-        write(io6,*) 'head,head1 = ',head(nzg),head1
-        write(io6,*) 'wfree1,qwfree1 = ',wfree1,qwfree1
-        write(io6,*) 'soil_tempk = ',soil_tempk(nzg)
+        write(*,*) ' '
+        write(*,*) 'Sfcwater energy is outside allowable range.'
+        write(*,*) 'iwsfc,iland,lat,lon = ',iwsfc,iland,glatw,glonw
+        write(*,*) 'sfcwater energy & mass = ',sfcwater_energy,sfcwater_mass
+        write(*,*) 'sfcwater depth & energy_per_m2 = ',sfcwater_depth,energy_per_m2
+        write(*,*) 'wxfer,qwxfer = ',wxfer(nzg+1),qwxfer(nzg+1)
+        write(*,*) 'head,head1 = ',head(nzg),head1
+        write(*,*) 'wfree1,qwfree1 = ',wfree1,qwfree1
+        write(*,*) 'soil_tempk = ',soil_tempk(nzg)
         stop 'stop sfcwater energy (subroutine soil)'
      endif
 
@@ -440,7 +440,7 @@ Module leaf4_soil
      soil_water (nzg) = soil_water (nzg) + dslzi(nzg) * sfcwater_mass * .001
      soil_energy(nzg) = soil_energy(nzg) + dslzi(nzg) * energy_per_m2
 
-     sfcwater_mass   = 0. 
+     sfcwater_mass   = 0.
      energy_per_m2   = 0.
      sfcwater_energy = 0.
      sfcwater_depth  = 0.

@@ -4,7 +4,7 @@ subroutine read_soil_analysis(soil_tempc)
   use leaf_coms,  only: dt_leaf, wcap_min
   use mem_land,   only: land, mland, omland, nzg, slzt
   use mem_sfcg,   only: sfcg, itab_wsfc
-  use consts_coms,only: pio180, piu180, erad, cliq1000, alli1000, cice,   &
+  use consts_coms,only: pio180, piu180, erad, cliq1000, alli1000, cice, &
                          cice1000, r8
   use max_dims,   only: pathlen
   use isan_coms,  only: nfgfiles, s1900_fg, fnames_fg, nprx, npry, glat, &
@@ -27,9 +27,9 @@ subroutine read_soil_analysis(soil_tempc)
   logical            :: exists
   integer            :: ndims, idims(3)
   real               :: grx, gry
-  real               :: snowdens, mass
+  real               :: snowdens, mass, tempc, tempk
   integer            :: nio, njo, ngnd
-  integer            :: iland, iwsfc, i, j, k, kk
+  integer            :: iland, iwsfc, i, j, k, kk, ntext
   logical            :: has_snow, has_soilt, has_soilw
   integer            :: bytes, isize, ier, igloberr, ilat, ipry
 
@@ -37,7 +37,8 @@ subroutine read_soil_analysis(soil_tempc)
   real, allocatable  :: soilt(:,:,:) ! soil temp  [K]
   real, allocatable  :: soilw(:,:,:) ! soil water [Vol. fraction]
 
-  real, allocatable  :: a2d(:,:), a3d(:,:,:), tcol(:), wcol(:)
+  real, allocatable  :: a2d(:,:), a3d(:,:,:)
+  real, allocatable  :: tcol(:), wcol(:), tcol2(:), wcol2(:)
   real, allocatable  :: zcol(:), ztmp(:)
   real               :: wprof(nzg)
 
@@ -58,7 +59,7 @@ subroutine read_soil_analysis(soil_tempc)
         ifgfile = nf
      endif
   enddo
-  
+
   if (ifgfile < 1) then
      write(io6,*) ' '
      write(io6,*) 'Unable to find analysis file for soil initialization'
@@ -137,7 +138,7 @@ subroutine read_soil_analysis(soil_tempc)
      if (ndims > 0) call shdf5_irec(ndims, idims, 'ngnd' , ivars=ngnd)
 
      ! Check if sdepths, the soil depth array, is in the analysis file and read it
-  
+
      call shdf5_info('sdepths', ndims, idims)
      if (ndims > 0) then
         if (ngnd == 0) ngnd = idims(1)
@@ -338,7 +339,7 @@ subroutine read_soil_analysis(soil_tempc)
 
      if (ngnd > 0 .and. allocated(zcol)) then
         allocate(a3d(nprx,npry,ngnd))
-     
+
         call shdf5_info('SOILT', ndims, idims)
 
         if (ndims > 0) then
@@ -396,7 +397,7 @@ subroutine read_soil_analysis(soil_tempc)
      write(io6,*) "Using default soil temperatures instead."
      write(io6,*)
   endif
-  
+
   if (.not. has_soilw) then
      write(io6,*) "read_soil: Analysis file does not contain soil moisture."
      write(io6,*) "Using default soil water instead."
@@ -432,7 +433,7 @@ subroutine read_soil_analysis(soil_tempc)
   endif
 
   ! If all data missing, return
-  
+
   if ((.not. has_snow) .and. (.not. has_soilt) .and. (.not. has_soilw)) return
 
   ! Set masks to indicate missing data
@@ -477,8 +478,10 @@ subroutine read_soil_analysis(soil_tempc)
      enddo
   endif
 
-  allocate(tcol(ngnd))
-  allocate(wcol(ngnd))
+  allocate(tcol (ngnd))
+  allocate(tcol2(ngnd))
+  allocate(wcol (ngnd))
+  allocate(wcol2(ngnd))
 
   if (inproj == 2) then
      allocate(plat(npry+4))
@@ -502,10 +505,10 @@ subroutine read_soil_analysis(soil_tempc)
      ! Skip this cell if running in parallel and cell rank is not MYRANK
      if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
-     ! fractional x/y indices in pressure data arrays at current iw point location 
- 
+     ! fractional x/y indices in pressure data arrays at current iw point location
+
      if (inproj == 1) then
- 
+
         gry = (sfcg%glatw(iwsfc) - xswlat) / gdatdy + 3.
         grx = (sfcg%glonw(iwsfc) - xswlon) / gdatdx + 1. + real(ipoffset)
 
@@ -528,39 +531,7 @@ subroutine read_soil_analysis(soil_tempc)
         endif
 
         gry = (sfcg%glatw(iwsfc) - plat(ilat)) / (plat(ilat+1) - plat(ilat)) + real(ilat)
-        grx = (sfcg%glonw(iwsfc) - xswlon) / gdatdx + 1. + real(ipoffset) 
-
-     endif
-
-     ! Interpolate snow depth to this land cell if any of the 4 closest
-     ! analysis points have non-missing snow data
-
-     if (has_snow) then
-
-        ! where snow is masked out, mass will be returned as missing
-        call gdtost(snow, nprx+4, npry+4, grx, gry, mass)
-        
-        if (mass > wcap_min .and. mass < 1.e20) then
-
-           land%sfcwater_mass  (1,iland) = mass
-           land%sfcwater_energy(1,iland) = min(0., (sfcg%cantemp(iwsfc) - 273.15) * cice)
-
-           ! snow density calculation comes from CLM3.0 documentation 
-           ! which is based on Anderson 1975 NWS Technical Doc # 19 
-
-           snowdens = 50.0
-           if (sfcg%cantemp(iwsfc) > 258.15) snowdens =   &
-                50.0 + 1.5 * (sfcg%cantemp(iwsfc) - 258.15)**1.5
-
-           land%sfcwater_depth(1,iland) = land%sfcwater_mass(1,iland) / snowdens
-
-        else
-
-           land%sfcwater_mass  (1,iland) = 0.
-           land%sfcwater_energy(1,iland) = 0.
-           land%sfcwater_depth (1,iland) = 0.
-
-        endif
+        grx = (sfcg%glonw(iwsfc) - xswlon) / gdatdx + 1. + real(ipoffset)
 
      endif
 
@@ -575,20 +546,25 @@ subroutine read_soil_analysis(soil_tempc)
            ! where soilt is masked out, tcol will be returned as missing
            call gdtost(soilt(:,:,k), nprx+4, npry+4, grx, gry, tcol(k))
         enddo
- 
+
         if ( all(tcol(1:ngnd) < 1.e20 .and. tcol(1:ngnd) > 0.) ) then
 
            tcol(1:ngnd) = tcol(1:ngnd) - 273.15
 
-           if (any(tcol(1:ngnd) > 60.)) then
-              write(*,*) iland, tcol(1:ngnd)
-              stop
-           endif
-         
            if (ngnd == 1) then
+
               soil_tempc(1:nzg,iland) = tcol(1)
+
            else
-              call hintrp_cc( ngnd, tcol, zcol, nzg, soil_tempc(:,iland), slzt )
+
+              ! OLAM stores the soil arrays from bottom to top, so
+              ! the input soil array needs to be reversed
+              do k = 1, ngnd
+                 kk = ngnd - k + 1
+                 tcol2(kk)  = tcol(k)
+              enddo
+
+              call hintrp_cc( ngnd, tcol2, zcol, nzg, soil_tempc(:,iland), slzt )
            endif
 
         endif
@@ -606,12 +582,22 @@ subroutine read_soil_analysis(soil_tempc)
            call gdtost(soilw(:,:,k), nprx+4, npry+4, grx, gry, wcol(k))
         enddo
 
-        if ( all(wcol(1:ngnd) < 1.e20 .and. wcol(1:ngnd) >= 0.) ) then
+        if ( all(wcol(1:ngnd) < 0.5 .and. wcol(1:ngnd) >= 0.) ) then
 
            if (ngnd == 1) then
+
               wprof(1:nzg)= wcol(1)
+
            else
-              call hintrp_cc( ngnd, wcol, zcol, nzg, wprof, slzt )
+
+              ! OLAM stores the soil arrays from bottom to top, so
+              ! the input soil array needs to be reversed
+              do k = 1, ngnd
+                 kk = ngnd - k + 1
+                 wcol2(kk)  = wcol(k)
+              enddo
+
+              call hintrp_cc( ngnd, wcol2, zcol, nzg, wprof, slzt )
            endif
 
            ! Bound soil moisture between residual and saturation values
@@ -619,14 +605,50 @@ subroutine read_soil_analysis(soil_tempc)
 
            do k = 1, nzg
               if (land%head0(iland) - slzt(k) < 0.) then
-                 land%soil_water(k,iland) = max( land%wresid_vg(k,iland), &
-                                            min( wprof(k), land%wsat_vg(k,iland) ))
+                 land%soil_water(k,iland) = max( 1.03*land%wresid_vg(k,iland), &
+                                            min( wprof(k), .97*land%wsat_vg(k,iland) ))
               endif
            enddo
 
         endif
      endif
 
+     ! Interpolate snow depth to this land cell if any of the 4 closest
+     ! analysis points have non-missing snow data
+
+     if (has_snow) then
+
+        ! where snow is masked out, mass will be returned as missing
+        call gdtost(snow, nprx+4, npry+4, grx, gry, mass)
+
+        if (mass > wcap_min .and. mass < 1.e20) then
+
+           land%sfcwater_mass(1,iland) = mass
+
+           tempc = sfcg%cantemp(iwsfc) - 273.15
+           if (has_soilt) tempc = min(tempc, soil_tempc(nzg,iland))
+
+           land%sfcwater_energy(1,iland) = min(0., tempc * cice)
+
+           ! snow density calculation comes from CLM3.0 documentation
+           ! which is based on Anderson 1975 NWS Technical Doc # 19
+
+           snowdens = 50.0
+           tempk    = tempc + 273.15
+           if (tempk > 258.15) snowdens = 50.0 + 1.5 * (tempk - 258.15)**1.5
+
+           land%sfcwater_depth(1,iland) = land%sfcwater_mass(1,iland) / snowdens
+
+        else
+
+           land%sfcwater_mass  (1,iland) = 0.
+           land%sfcwater_energy(1,iland) = 0.
+           land%sfcwater_depth (1,iland) = 0.
+
+        endif
+
+     endif
+
   enddo
-   
+
 end subroutine read_soil_analysis

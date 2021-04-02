@@ -635,7 +635,7 @@ Contains
 ! and do NOT have condensation onto surface.
 
      if (sfcwater_fracarea > 0.999) then
-        write(io6,'(a,i10,2f9.2)') 'NOVEG CASE sfcwater_fracarea should be less than 1', &
+        write(*,'(a,i10,2f9.2)') 'NOVEG CASE sfcwater_fracarea should be less than 1', &
             iwsfc,glatw,glonw
         stop 'sfcwater_fracarea = 1, NOVEG CASE'
      endif
@@ -1041,7 +1041,7 @@ Contains
 ! and do NOT have condensation onto surface.
 
      if (sfcwater_fracarea > 0.999) then
-        write(io6,'(a,i10,2f9.2)') 'VEG CASE sfcwater_fracarea should be less than 1', &
+        write(*,'(a,i10,2f9.2)') 'VEG CASE sfcwater_fracarea should be less than 1', &
             iwsfc,glatw,glonw
         stop 'sfcwater_fracarea = 1, VEG CASE'
      endif
@@ -1925,7 +1925,7 @@ Contains
   print*, 'glatw, glonw ', glatw, glonw
 
   do irow = 1,nsize
-     write(io6,'(a,i5,5e15.5)') 'row, aa, yy ',irow,aa(irow,1:nsize),yy(irow)
+     write(*,'(a,i5,5e15.5)') 'row, aa, yy ',irow,aa(irow,1:nsize),yy(irow)
   enddo
 
   stop 'singular matrix '

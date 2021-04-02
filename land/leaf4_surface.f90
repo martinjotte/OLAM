@@ -688,12 +688,12 @@ Contains
   do k = 1,nlev_sfcwater
      if (sfcwater_energy(k) > 6.e5 .or. sfcwater_energy(k) < -2.5e5) then
 
-        write(io6,*) ' '
-        write(io6,*) 'Sfcwater energy is outside allowable range. '
-        write(io6,*) 'iwsfc,iland,k,lat,lon = ',iwsfc,iland,k,glatw,glonw
-        write(io6,*) 'sfcwater_energy = ',sfcwater_energy(k)
-        write(io6,*) 'p1',energy_new(k),sfcwater_mass(k),nlev_sfcwater,nlev_new
-        write(io6,*) 'p2',kold, energy_per_m2(kold)
+        write(*,*) ' '
+        write(*,*) 'Sfcwater energy is outside allowable range. '
+        write(*,*) 'iwsfc,iland,k,lat,lon = ',iwsfc,iland,k,glatw,glonw
+        write(*,*) 'sfcwater_energy = ',sfcwater_energy(k)
+        write(*,*) 'p1',energy_new(k),sfcwater_mass(k),nlev_sfcwater,nlev_new
+        write(*,*) 'p2',kold, energy_per_m2(kold)
         stop 'stop sfcwater energy '
 
      endif
