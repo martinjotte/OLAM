@@ -981,7 +981,7 @@ program grib_to_gdf
      if (have_soilw .and. allocated(soilw) .and. ngnd > 0) then
         write(*,*) 'SOILW'
         ndims = 3
-        idims(1:3) = [nx, ny, nlev]
+        idims(1:3) = [nx, ny, ngnd]
         dimnames(1) = 'lon'
         dimnames(2) = 'lat'
         dimnames(3) = 'depth'
@@ -992,7 +992,7 @@ program grib_to_gdf
      if (have_soilt .and. allocated(soilt) .and. ngnd > 0) then
         write(*,*) 'SOILT'
         ndims = 3
-        idims(1:3) = [nx, ny, nlev]
+        idims(1:3) = [nx, ny, ngnd]
         dimnames(1) = 'lon'
         dimnames(2) = 'lat'
         dimnames(3) = 'depth'

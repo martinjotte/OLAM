@@ -198,15 +198,14 @@ contains
        endif
 
        if (docompress) then
+
           ! Create a property list for compression/chunking/filters
+
           call h5pcreate_f(H5P_DATASET_CREATE_F, propid, hdferr)
-
-          if (.not. (ndims == 1 .and. dimsf(1) == 1)) then
-             call h5pset_chunk_f(propid, ndims, dimsf, hdferr)
-             call h5pset_shuffle_f(propid, hdferr)
-          endif
-
+          call h5pset_chunk_f(propid, ndims, dimsf, hdferr)
+          call h5pset_shuffle_f(propid, hdferr)
           call h5pset_deflate_f(propid, icompress, hdferr)
+
        endif
 
     endif
