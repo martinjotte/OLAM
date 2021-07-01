@@ -36,7 +36,7 @@ Module mem_plot
   use consts_coms, only: r8
   implicit none
 
-  private ::r8
+  private :: r8
 
   real(r8) :: time8_prev0
   real(r8) :: time8_prev1
@@ -927,14 +927,14 @@ Contains
 ! Exception for mem_plot: Not an accumulated quantity but an instantaneous one.
 ! Perhaps in future add to mem_flux_accum arrays.
 
-    do iland = 1,mland
+    do iland = 2, mland
        do k = 1,nzg
           soil_water_tot_prev0(iland) = soil_water_tot_prev0(iland) &
                                       + land%soil_water(k,iland) * dslz(k)
        enddo
     enddo
 
-    do iwsfc = 1,mwsfc
+    do iwsfc = 2, mwsfc
        if (sfcg%leaf_class(iwsfc) < 2) then
 
           head_wtab_prev0(iwsfc) = head_wtab_prev0(iwsfc) &
