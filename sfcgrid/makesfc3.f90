@@ -1252,8 +1252,13 @@ subroutine sfcgfile_write()
   integer :: iclobber1 = 1
   integer :: ndims, idims(2)
   integer :: im, iv, iw
-  real,    allocatable :: rscr(:,:)
-  integer, allocatable :: iscr(:,:)
+
+  real,    allocatable :: rscr1(:)
+  integer, allocatable :: iscr1(:)
+  real,    allocatable :: rscr2(:,:)
+  integer, allocatable :: iscr2(:,:)
+
+  integer, pointer :: i1pointer(:)
 
   character(pathlen) :: flnm
 
@@ -1285,17 +1290,17 @@ subroutine sfcgfile_write()
   idims(1) = 3
   idims(2) = nmsfc
 
-  allocate (iscr(3,nmsfc))
+  allocate (iscr2(3,nmsfc))
   do im = 1,nmsfc
-     iscr(1:3,im) = itab_msfc(im)%ivn(1:3)
+     iscr2(1:3,im) = itab_msfc(im)%ivn(1:3)
   enddo
-  call shdf5_orec(ndims,idims,'itab_msfc%ivn',ivar2=iscr)
+  call shdf5_orec(ndims,idims,'itab_msfc%ivn',ivar2=iscr2)
 
   do im = 1,nmsfc
-     iscr(1:3,im) = itab_msfc(im)%iwn(1:3)
+     iscr2(1:3,im) = itab_msfc(im)%iwn(1:3)
   enddo
-  call shdf5_orec(ndims,idims,'itab_msfc%iwn',ivar2=iscr)
-  deallocate(iscr)
+  call shdf5_orec(ndims,idims,'itab_msfc%iwn',ivar2=iscr2)
+  deallocate(iscr2)
 
   ! Write ITAB_V ARRAYS
 
@@ -1303,26 +1308,39 @@ subroutine sfcgfile_write()
   idims(1) = 2
   idims(2) = nvsfc
 
-  allocate (iscr(2,nvsfc))
+  allocate (iscr2(2,nvsfc))
   do iv = 1,nvsfc
-     iscr(1:2,iv) = itab_vsfc(iv)%imn(1:2)
+     iscr2(1:2,iv) = itab_vsfc(iv)%imn(1:2)
   enddo
-  call shdf5_orec(ndims,idims,'itab_vsfc%imn',ivar2=iscr)
+  call shdf5_orec(ndims,idims,'itab_vsfc%imn',ivar2=iscr2)
 
   do iv = 1,nvsfc
-     iscr(1:2,iv) = itab_vsfc(iv)%iwn(1:2)
+     iscr2(1:2,iv) = itab_vsfc(iv)%iwn(1:2)
   enddo
-  call shdf5_orec(ndims,idims,'itab_vsfc%iwn',ivar2=iscr)
-  deallocate(iscr)
+  call shdf5_orec(ndims,idims,'itab_vsfc%iwn',ivar2=iscr2)
+  deallocate(iscr2)
 
   ! Write ITAB_WSFC SCALARS
 
   ndims    = 1
   idims(1) = nwsfc
 
-  call shdf5_orec(ndims,idims,'itab_wsfc%ivoronoi' ,ivar1=itab_wsfc(:)%ivoronoi)
-  call shdf5_orec(ndims,idims,'itab_wsfc%npoly'    ,ivar1=itab_wsfc(:)%npoly)
-  call shdf5_orec(ndims,idims,'itab_wsfc%nwatm'    ,ivar1=itab_wsfc(:)%nwatm)
+  allocate (iscr1(nwsfc))
+  do iw = 1,nwsfc
+     iscr1(iw) = itab_wsfc(iw)%ivoronoi
+  enddo
+  call shdf5_orec(ndims,idims,'itab_wsfc%ivoronoi' ,ivar1=iscr1)
+
+  do iw = 1,nwsfc
+     iscr1(iw) = itab_wsfc(iw)%npoly
+  enddo
+  call shdf5_orec(ndims,idims,'itab_wsfc%npoly'    ,ivar1=iscr1)
+
+  do iw = 1,nwsfc
+     iscr1(iw) = itab_wsfc(iw)%nwatm
+  enddo
+  call shdf5_orec(ndims,idims,'itab_wsfc%nwatm'    ,ivar1=iscr1)
+  deallocate(iscr1)
 
   ! Write ITAB_WSFC ARRAYS
 
@@ -1330,58 +1348,58 @@ subroutine sfcgfile_write()
   idims(1) = 7
   idims(2) = nwsfc
 
-  allocate (iscr(7,nwsfc))
+  allocate (iscr2(7,nwsfc))
   do iw = 1,nwsfc
-     iscr(1:7,iw) = itab_wsfc(iw)%imn(1:7)
+     iscr2(1:7,iw) = itab_wsfc(iw)%imn(1:7)
   enddo
-  call shdf5_orec(ndims,idims,'itab_wsfc%imn',ivar2=iscr)
+  call shdf5_orec(ndims,idims,'itab_wsfc%imn',ivar2=iscr2)
 
   do iw = 1,nwsfc
-     iscr(1:7,iw) = itab_wsfc(iw)%ivn(1:7)
+     iscr2(1:7,iw) = itab_wsfc(iw)%ivn(1:7)
   enddo
-  call shdf5_orec(ndims,idims,'itab_wsfc%ivn',ivar2=iscr)
+  call shdf5_orec(ndims,idims,'itab_wsfc%ivn',ivar2=iscr2)
 
   do iw = 1,nwsfc
-     iscr(1:7,iw) = itab_wsfc(iw)%iwn(1:7)
+     iscr2(1:7,iw) = itab_wsfc(iw)%iwn(1:7)
   enddo
-  call shdf5_orec(ndims,idims,'itab_wsfc%iwn',ivar2=iscr)
-  deallocate(iscr)
+  call shdf5_orec(ndims,idims,'itab_wsfc%iwn',ivar2=iscr2)
+  deallocate(iscr2)
 
   idims(1) = 8
 
-  allocate (iscr(8,nwsfc))
+  allocate (iscr2(8,nwsfc))
   do iw = 1,nwsfc
-     iscr(1:8,iw) = itab_wsfc(iw)%iwatm(1:8)
+     iscr2(1:8,iw) = itab_wsfc(iw)%iwatm(1:8)
   enddo
-  call shdf5_orec(ndims,idims,'itab_wsfc%iwatm',ivar2=iscr)
+  call shdf5_orec(ndims,idims,'itab_wsfc%iwatm',ivar2=iscr2)
 
   do iw = 1,nwsfc
-     iscr(1:8,iw) = itab_wsfc(iw)%kwatm(1:8)
+     iscr2(1:8,iw) = itab_wsfc(iw)%kwatm(1:8)
   enddo
-  call shdf5_orec(ndims,idims,'itab_wsfc%kwatm',ivar2=iscr)
-  deallocate(iscr)
+  call shdf5_orec(ndims,idims,'itab_wsfc%kwatm',ivar2=iscr2)
+  deallocate(iscr2)
 
-  allocate (rscr(8,nwsfc))
+  allocate (rscr2(8,nwsfc))
   do iw = 1,nwsfc
-     rscr(1:8,iw) = itab_wsfc(iw)%arc(1:8)
+     rscr2(1:8,iw) = itab_wsfc(iw)%arc(1:8)
   enddo
-  call shdf5_orec(ndims,idims,'itab_wsfc%arc',rvar2=rscr)
-
-  do iw = 1,nwsfc
-     rscr(1:8,iw) = itab_wsfc(iw)%arcoarsfc(1:8)
-  enddo
-  call shdf5_orec(ndims,idims,'itab_wsfc%arcoarsfc',rvar2=rscr)
+  call shdf5_orec(ndims,idims,'itab_wsfc%arc',rvar2=rscr2)
 
   do iw = 1,nwsfc
-     rscr(1:8,iw) = itab_wsfc(iw)%arcoariw(1:8)
+     rscr2(1:8,iw) = itab_wsfc(iw)%arcoarsfc(1:8)
   enddo
-  call shdf5_orec(ndims,idims,'itab_wsfc%arcoariw',rvar2=rscr)
+  call shdf5_orec(ndims,idims,'itab_wsfc%arcoarsfc',rvar2=rscr2)
 
   do iw = 1,nwsfc
-     rscr(1:8,iw) = itab_wsfc(iw)%arcoarkw(1:8)
+     rscr2(1:8,iw) = itab_wsfc(iw)%arcoariw(1:8)
   enddo
-  call shdf5_orec(ndims,idims,'itab_wsfc%arcoarkw',rvar2=rscr)
-  deallocate(rscr)
+  call shdf5_orec(ndims,idims,'itab_wsfc%arcoariw',rvar2=rscr2)
+
+  do iw = 1,nwsfc
+     rscr2(1:8,iw) = itab_wsfc(iw)%arcoarkw(1:8)
+  enddo
+  call shdf5_orec(ndims,idims,'itab_wsfc%arcoarkw',rvar2=rscr2)
+  deallocate(rscr2)
 
   ! Write grid structure variables
 
@@ -1480,7 +1498,8 @@ subroutine sfcgfile_read_pd()
   integer            :: imsfc, ivsfc, iwsfc
   character(pathlen) :: flnm
   logical            :: there
-  integer, allocatable :: iscr(:,:)
+  integer, allocatable :: iscr1(:)
+  integer, allocatable :: iscr2(:,:)
 
   flnm = trim(sfcgfile)//'.h5'
 
@@ -1529,17 +1548,17 @@ subroutine sfcgfile_read_pd()
   idims(1) = 3
   idims(2) = nmsfc
 
-  allocate (iscr(3,nmsfc))
-  call shdf5_irec(ndims,idims,'itab_msfc%ivn',ivar2=iscr)
+  allocate (iscr2(3,nmsfc))
+  call shdf5_irec(ndims,idims,'itab_msfc%ivn',ivar2=iscr2)
   do imsfc = 1,nmsfc
-     itab_msfc_pd(imsfc)%ivn(1:3) = iscr(1:3,imsfc)
+     itab_msfc_pd(imsfc)%ivn(1:3) = iscr2(1:3,imsfc)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_msfc%iwn',ivar2=iscr)
+  call shdf5_irec(ndims,idims,'itab_msfc%iwn',ivar2=iscr2)
   do imsfc = 1,nmsfc
-     itab_msfc_pd(imsfc)%iwn(1:3) = iscr(1:3,imsfc)
+     itab_msfc_pd(imsfc)%iwn(1:3) = iscr2(1:3,imsfc)
   enddo
-  deallocate(iscr)
+  deallocate(iscr2)
 
   ! Read ITAB_VSFC ARRAYS
 
@@ -1547,27 +1566,44 @@ subroutine sfcgfile_read_pd()
   idims(1) = 2
   idims(2) = nvsfc
 
-  allocate (iscr(2,nvsfc))
-  call shdf5_irec(ndims,idims,'itab_vsfc%imn',ivar2=iscr)
+  allocate (iscr2(2,nvsfc))
+  call shdf5_irec(ndims,idims,'itab_vsfc%imn',ivar2=iscr2)
   do ivsfc = 1,nvsfc
-     itab_vsfc_pd(ivsfc)%imn(1:2) = iscr(1:2,ivsfc)
+     itab_vsfc_pd(ivsfc)%imn(1:2) = iscr2(1:2,ivsfc)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_vsfc%iwn',ivar2=iscr)
+  call shdf5_irec(ndims,idims,'itab_vsfc%iwn',ivar2=iscr2)
   do ivsfc = 1,nvsfc
-     itab_vsfc_pd(ivsfc)%iwn(1:2) = iscr(1:2,ivsfc)
+     itab_vsfc_pd(ivsfc)%iwn(1:2) = iscr2(1:2,ivsfc)
   enddo
-  deallocate(iscr)
+  deallocate(iscr2)
 
   ! Read ITAB_WSFC SCALARS
 
   ndims    = 1
   idims(1) = nwsfc
 
-  call shdf5_irec(ndims,idims,'itab_wsfc%ivoronoi'  ,ivar1=itab_wsfc_pd(:)%ivoronoi)
-  call shdf5_irec(ndims,idims,'itab_wsfc%nwatm'     ,ivar1=itab_wsfc_pd(:)%nwatm)
-  call shdf5_irec(ndims,idims,'itab_wsfc%npoly'     ,ivar1=itab_wsfc_pd(:)%npoly)
-  call shdf5_irec(ndims,idims,'leaf_class'          ,ivar1=itab_wsfc_pd(:)%leaf_class)
+  allocate (iscr1(nwsfc))
+  call shdf5_irec(ndims,idims,'itab_wsfc%ivoronoi'  ,ivar1=iscr1)
+  do iwsfc = 1,nwsfc
+     itab_wsfc_pd(iwsfc)%ivoronoi = iscr1(iwsfc)
+  enddo
+
+  call shdf5_irec(ndims,idims,'itab_wsfc%nwatm'     ,ivar1=iscr1)
+  do iwsfc = 1,nwsfc
+     itab_wsfc_pd(iwsfc)%nwatm = iscr1(iwsfc)
+  enddo
+
+  call shdf5_irec(ndims,idims,'itab_wsfc%npoly'     ,ivar1=iscr1)
+  do iwsfc = 1,nwsfc
+     itab_wsfc_pd(iwsfc)%npoly = iscr1(iwsfc)
+  enddo
+
+  call shdf5_irec(ndims,idims,'leaf_class'          ,ivar1=iscr1)
+  do iwsfc = 1,nwsfc
+     itab_wsfc_pd(iwsfc)%leaf_class = iscr1(iwsfc)
+  enddo
+  deallocate(iscr1)
 
   ! Read ITAB_WSFC ARRAYS
 
@@ -1575,29 +1611,29 @@ subroutine sfcgfile_read_pd()
   idims(1) = 7
   idims(2) = nwsfc
 
-  allocate (iscr(7,nwsfc))
-  call shdf5_irec(ndims,idims,'itab_wsfc%imn',ivar2=iscr)
+  allocate (iscr2(7,nwsfc))
+  call shdf5_irec(ndims,idims,'itab_wsfc%imn',ivar2=iscr2)
   do iwsfc = 1,nwsfc
-     itab_wsfc_pd(iwsfc)%imn(1:7) = iscr(1:7,iwsfc)
+     itab_wsfc_pd(iwsfc)%imn(1:7) = iscr2(1:7,iwsfc)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_wsfc%ivn',ivar2=iscr)
+  call shdf5_irec(ndims,idims,'itab_wsfc%ivn',ivar2=iscr2)
   do iwsfc = 1,nwsfc
-     itab_wsfc_pd(iwsfc)%ivn(1:7) = iscr(1:7,iwsfc) 
+     itab_wsfc_pd(iwsfc)%ivn(1:7) = iscr2(1:7,iwsfc) 
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_wsfc%iwn',ivar2=iscr)
+  call shdf5_irec(ndims,idims,'itab_wsfc%iwn',ivar2=iscr2)
   do iwsfc = 1,nwsfc
-     itab_wsfc_pd(iwsfc)%iwn(1:7) = iscr(1:7,iwsfc)
+     itab_wsfc_pd(iwsfc)%iwn(1:7) = iscr2(1:7,iwsfc)
   enddo
-  deallocate(iscr)
+  deallocate(iscr2)
 
   idims(1) = 8
 
-  allocate (iscr(8,nwsfc))
-  call shdf5_irec(ndims,idims,'itab_wsfc%iwatm',ivar2=iscr)
+  allocate (iscr2(8,nwsfc))
+  call shdf5_irec(ndims,idims,'itab_wsfc%iwatm',ivar2=iscr2)
   do iwsfc = 1,nwsfc
-     itab_wsfc_pd(iwsfc)%iwatm(1:8) = iscr(1:8,iwsfc)
+     itab_wsfc_pd(iwsfc)%iwatm(1:8) = iscr2(1:8,iwsfc)
   enddo
 
   call shdf5_close()
@@ -1629,8 +1665,22 @@ subroutine sfcgfile_read()
 
   ! Scratch arrays for copying input
 
-  real,    allocatable :: rscr(:,:)
-  integer, allocatable :: iscr(:,:)
+  real,    allocatable :: rscr2(:,:)
+  integer, allocatable :: iscr2(:,:)
+
+  ! Pointers to the global index of the local point
+
+  integer :: lgmsfc(mmsfc)
+  integer :: lgvsfc(mvsfc)
+  integer :: lgwsfc(mwsfc)
+  integer :: lgland(mland)
+
+  lgmsfc = itab_msfc(1:mmsfc)%imglobe
+  lgvsfc = itab_vsfc(1:mvsfc)%ivglobe
+  lgwsfc = itab_wsfc(1:mwsfc)%iwglobe
+  lgland = itab_land(1:mland)%iwglobe
+
+  ! Check if sfcgfile exists
 
   flnm = trim(sfcgfile)//'.h5'
 
@@ -1651,36 +1701,36 @@ subroutine sfcgfile_read()
   idims(1) = 8
   idims(2) = mwsfc
 
-  allocate (iscr(8,mwsfc))
-  call shdf5_irec(ndims,idims,'itab_wsfc%kwatm',ivar2=iscr, points=itab_wsfc%iwglobe)
+  allocate (iscr2(8,mwsfc))
+  call shdf5_irec(ndims,idims,'itab_wsfc%kwatm',ivar2=iscr2, points=lgwsfc)
 
   do iw = 1,mwsfc
-     itab_wsfc(iw)%kwatm(1:8) = iscr(1:8,iw)
+     itab_wsfc(iw)%kwatm(1:8) = iscr2(1:8,iw)
   enddo
 
-  deallocate(iscr)
+  deallocate(iscr2)
 
-  allocate (rscr(8,mwsfc))
-  call shdf5_irec(ndims,idims,'itab_wsfc%arc',rvar2=rscr, points=itab_wsfc%iwglobe)
+  allocate (rscr2(8,mwsfc))
+  call shdf5_irec(ndims,idims,'itab_wsfc%arc',rvar2=rscr2, points=lgwsfc)
   do iw = 1,mwsfc
-     itab_wsfc(iw)%arc(1:8) = rscr(1:8,iw)
+     itab_wsfc(iw)%arc(1:8) = rscr2(1:8,iw)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_wsfc%arcoarsfc',rvar2=rscr, points=itab_wsfc%iwglobe)
+  call shdf5_irec(ndims,idims,'itab_wsfc%arcoarsfc',rvar2=rscr2, points=lgwsfc)
   do iw = 1,mwsfc
-     itab_wsfc(iw)%arcoarsfc(1:8) = rscr(1:8,iw)
+     itab_wsfc(iw)%arcoarsfc(1:8) = rscr2(1:8,iw)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_wsfc%arcoariw',rvar2=rscr, points=itab_wsfc%iwglobe)
+  call shdf5_irec(ndims,idims,'itab_wsfc%arcoariw',rvar2=rscr2, points=lgwsfc)
   do iw = 1,mwsfc
-     itab_wsfc(iw)%arcoariw(1:8) = rscr(1:8,iw)
+     itab_wsfc(iw)%arcoariw(1:8) = rscr2(1:8,iw)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_wsfc%arcoarkw',rvar2=rscr, points=itab_wsfc%iwglobe)
+  call shdf5_irec(ndims,idims,'itab_wsfc%arcoarkw',rvar2=rscr2, points=lgwsfc)
   do iw = 1,mwsfc
-     itab_wsfc(iw)%arcoarkw(1:8) = rscr(1:8,iw)
+     itab_wsfc(iw)%arcoarkw(1:8) = rscr2(1:8,iw)
   enddo
-  deallocate(rscr)
+  deallocate(rscr2)
 
   ! Read grid structure variables
 
@@ -1701,41 +1751,41 @@ subroutine sfcgfile_read()
   ndims    = 1
   idims(1) = mmsfc
 
-  call shdf5_irec(ndims, idims, 'xem'       , rvar1=sfcg%xem,   points=itab_msfc%imglobe)
-  call shdf5_irec(ndims, idims, 'yem'       , rvar1=sfcg%yem,   points=itab_msfc%imglobe)
-  call shdf5_irec(ndims, idims, 'zem'       , rvar1=sfcg%zem,   points=itab_msfc%imglobe)
-  call shdf5_irec(ndims, idims, 'glatm'     , rvar1=sfcg%glatm, points=itab_msfc%imglobe)
-  call shdf5_irec(ndims, idims, 'glonm'     , rvar1=sfcg%glonm, points=itab_msfc%imglobe)
-  call shdf5_irec(ndims, idims, 'topm'      , rvar1=sfcg%topm,  points=itab_msfc%imglobe)
+  call shdf5_irec(ndims, idims, 'xem'       , rvar1=sfcg%xem,   points=lgmsfc)
+  call shdf5_irec(ndims, idims, 'yem'       , rvar1=sfcg%yem,   points=lgmsfc)
+  call shdf5_irec(ndims, idims, 'zem'       , rvar1=sfcg%zem,   points=lgmsfc)
+  call shdf5_irec(ndims, idims, 'glatm'     , rvar1=sfcg%glatm, points=lgmsfc)
+  call shdf5_irec(ndims, idims, 'glonm'     , rvar1=sfcg%glonm, points=lgmsfc)
+  call shdf5_irec(ndims, idims, 'topm'      , rvar1=sfcg%topm,  points=lgmsfc)
 
   idims(1) = mvsfc
 
-  call shdf5_irec(ndims, idims, 'xev'       , rvar1=sfcg%xev,  points=itab_vsfc%ivglobe)
-  call shdf5_irec(ndims, idims, 'yev'       , rvar1=sfcg%yev,  points=itab_vsfc%ivglobe)
-  call shdf5_irec(ndims, idims, 'zev'       , rvar1=sfcg%zev,  points=itab_vsfc%ivglobe)
-  call shdf5_irec(ndims, idims, 'dnu'       , rvar1=sfcg%dnu,  points=itab_vsfc%ivglobe)
-  call shdf5_irec(ndims, idims, 'dniu'      , rvar1=sfcg%dniu, points=itab_vsfc%ivglobe)
-  call shdf5_irec(ndims, idims, 'dnv'       , rvar1=sfcg%dnv,  points=itab_vsfc%ivglobe)
-  call shdf5_irec(ndims, idims, 'dniv'      , rvar1=sfcg%dniv, points=itab_vsfc%ivglobe)
+  call shdf5_irec(ndims, idims, 'xev'       , rvar1=sfcg%xev,  points=lgvsfc)
+  call shdf5_irec(ndims, idims, 'yev'       , rvar1=sfcg%yev,  points=lgvsfc)
+  call shdf5_irec(ndims, idims, 'zev'       , rvar1=sfcg%zev,  points=lgvsfc)
+  call shdf5_irec(ndims, idims, 'dnu'       , rvar1=sfcg%dnu,  points=lgvsfc)
+  call shdf5_irec(ndims, idims, 'dniu'      , rvar1=sfcg%dniu, points=lgvsfc)
+  call shdf5_irec(ndims, idims, 'dnv'       , rvar1=sfcg%dnv,  points=lgvsfc)
+  call shdf5_irec(ndims, idims, 'dniv'      , rvar1=sfcg%dniv, points=lgvsfc)
 
   idims(1) = mwsfc
 
-  call shdf5_irec(ndims, idims, 'area'      , rvar1=sfcg%area,    points=itab_wsfc%iwglobe)
-  call shdf5_irec(ndims, idims, 'xew'       , rvar1=sfcg%xew,     points=itab_wsfc%iwglobe)
-  call shdf5_irec(ndims, idims, 'yew'       , rvar1=sfcg%yew,     points=itab_wsfc%iwglobe)
-  call shdf5_irec(ndims, idims, 'zew'       , rvar1=sfcg%zew,     points=itab_wsfc%iwglobe)
-  call shdf5_irec(ndims, idims, 'glatw'     , rvar1=sfcg%glatw,   points=itab_wsfc%iwglobe)
-  call shdf5_irec(ndims, idims, 'glonw'     , rvar1=sfcg%glonw,   points=itab_wsfc%iwglobe)
-  call shdf5_irec(ndims, idims, 'topw'      , rvar1=sfcg%topw,    points=itab_wsfc%iwglobe)
-  call shdf5_irec(ndims, idims, 'wnx'       , rvar1=sfcg%wnx,     points=itab_wsfc%iwglobe)
-  call shdf5_irec(ndims, idims, 'wny'       , rvar1=sfcg%wny,     points=itab_wsfc%iwglobe)
-  call shdf5_irec(ndims, idims, 'wnz'       , rvar1=sfcg%wnz,     points=itab_wsfc%iwglobe)
-  call shdf5_irec(ndims, idims, 'dzt_bot'   , rvar1=sfcg%dzt_bot, points=itab_wsfc%iwglobe)
+  call shdf5_irec(ndims, idims, 'area'      , rvar1=sfcg%area,    points=lgwsfc)
+  call shdf5_irec(ndims, idims, 'xew'       , rvar1=sfcg%xew,     points=lgwsfc)
+  call shdf5_irec(ndims, idims, 'yew'       , rvar1=sfcg%yew,     points=lgwsfc)
+  call shdf5_irec(ndims, idims, 'zew'       , rvar1=sfcg%zew,     points=lgwsfc)
+  call shdf5_irec(ndims, idims, 'glatw'     , rvar1=sfcg%glatw,   points=lgwsfc)
+  call shdf5_irec(ndims, idims, 'glonw'     , rvar1=sfcg%glonw,   points=lgwsfc)
+  call shdf5_irec(ndims, idims, 'topw'      , rvar1=sfcg%topw,    points=lgwsfc)
+  call shdf5_irec(ndims, idims, 'wnx'       , rvar1=sfcg%wnx,     points=lgwsfc)
+  call shdf5_irec(ndims, idims, 'wny'       , rvar1=sfcg%wny,     points=lgwsfc)
+  call shdf5_irec(ndims, idims, 'wnz'       , rvar1=sfcg%wnz,     points=lgwsfc)
+  call shdf5_irec(ndims, idims, 'dzt_bot'   , rvar1=sfcg%dzt_bot, points=lgwsfc)
 
   ! Read permanent grid cell data
 
-  call shdf5_irec(ndims, idims, 'leaf_class', ivar1=sfcg%leaf_class, points=itab_wsfc%iwglobe)
-  call shdf5_irec(ndims, idims, 'oge'       , ivar1=sfcg%ioge,       points=itab_wsfc%iwglobe)
+  call shdf5_irec(ndims, idims, 'leaf_class', ivar1=sfcg%leaf_class, points=lgwsfc)
+  call shdf5_irec(ndims, idims, 'oge'       , ivar1=sfcg%ioge,       points=lgwsfc)
 
   allocate (land%usdatext            (mland)) ; land%usdatext         = 0
   allocate (land%z_bedrock           (mland)) ; land%z_bedrock        = 0.
@@ -1753,24 +1803,24 @@ subroutine sfcgfile_read()
 
   idims(1) = mland
 
-  call shdf5_irec(ndims, idims, 'usdatext'        , ivar1=land%usdatext,        points=itab_land%iwglobe)
-  call shdf5_irec(ndims, idims, 'z_bedrock'       , rvar1=land%z_bedrock,       points=itab_land%iwglobe)
-  call shdf5_irec(ndims, idims, 'gpp'             , rvar1=land%gpp,             points=itab_land%iwglobe)
-  call shdf5_irec(ndims, idims, 'glhymps_ksat'    , rvar1=land%glhymps_ksat,    points=itab_land%iwglobe)
-  call shdf5_irec(ndims, idims, 'glhymps_ksat_pfr', rvar1=land%glhymps_ksat_pfr,points=itab_land%iwglobe)
-  call shdf5_irec(ndims, idims, 'glhymps_poros'   , rvar1=land%glhymps_poros,   points=itab_land%iwglobe)
+  call shdf5_irec(ndims, idims, 'usdatext'        , ivar1=land%usdatext,        points=lgland)
+  call shdf5_irec(ndims, idims, 'z_bedrock'       , rvar1=land%z_bedrock,       points=lgland)
+  call shdf5_irec(ndims, idims, 'gpp'             , rvar1=land%gpp,             points=lgland)
+  call shdf5_irec(ndims, idims, 'glhymps_ksat'    , rvar1=land%glhymps_ksat,    points=lgland)
+  call shdf5_irec(ndims, idims, 'glhymps_ksat_pfr', rvar1=land%glhymps_ksat_pfr,points=lgland)
+  call shdf5_irec(ndims, idims, 'glhymps_poros'   , rvar1=land%glhymps_poros,   points=lgland)
 
   ndims    = 2
   idims(1) = nzg
   idims(2) = mland
 
-  call shdf5_irec(ndims, idims, 'sand'            , rvar2=land%sand,             points=itab_land%iwglobe)
-  call shdf5_irec(ndims, idims, 'clay'            , rvar2=land%clay,             points=itab_land%iwglobe)
-  call shdf5_irec(ndims, idims, 'silt'            , rvar2=land%silt,             points=itab_land%iwglobe)
-  call shdf5_irec(ndims, idims, 'organ'           , rvar2=land%organ,            points=itab_land%iwglobe)
-  call shdf5_irec(ndims, idims, 'bulkdens_drysoil', rvar2=land%bulkdens_drysoil, points=itab_land%iwglobe)
-  call shdf5_irec(ndims, idims, 'pH_soil'         , rvar2=land%pH_soil,          points=itab_land%iwglobe)
-  call shdf5_irec(ndims, idims, 'cec_soil'        , rvar2=land%cec_soil,         points=itab_land%iwglobe)
+  call shdf5_irec(ndims, idims, 'sand'            , rvar2=land%sand,             points=lgland)
+  call shdf5_irec(ndims, idims, 'clay'            , rvar2=land%clay,             points=lgland)
+  call shdf5_irec(ndims, idims, 'silt'            , rvar2=land%silt,             points=lgland)
+  call shdf5_irec(ndims, idims, 'organ'           , rvar2=land%organ,            points=lgland)
+  call shdf5_irec(ndims, idims, 'bulkdens_drysoil', rvar2=land%bulkdens_drysoil, points=lgland)
+  call shdf5_irec(ndims, idims, 'pH_soil'         , rvar2=land%pH_soil,          points=lgland)
+  call shdf5_irec(ndims, idims, 'cec_soil'        , rvar2=land%cec_soil,         points=lgland)
 
   call shdf5_close()
 
