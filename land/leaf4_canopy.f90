@@ -47,7 +47,7 @@ Contains
                     energy_per_m2, sfcwater_tempk,  sfcwater_fracliq,            &
                     soil_water,    soil_energy,                                  &
                     wsat_vg,       ksat_vg,         specifheat_drysoil,          &
-                    head,          soil_tempk,      soil_fracliq                 )
+                    head,          head_slope,      soil_tempk,      soil_fracliq)
 
   use leaf_coms,     only: soil_rough, dt_leaf, kroot, rcmin, snowmin_expl, &
                            wcap_min, wcap_vmin
@@ -110,7 +110,8 @@ Contains
   real, intent(in)    :: wsat_vg           (nzg) ! saturation water content (porosity) []
   real, intent(in)    :: ksat_vg           (nzg) ! saturation hydraulic conductivity [m/s]
   real, intent(in)    :: specifheat_drysoil(nzg) ! specific heat of dry soil [J/(m^3 K)]
-  real, intent(in)    :: head              (nzg) ! hydraulic head [m] (relative to local topo datum)
+  real, intent(inout) :: head              (nzg) ! hydraulic head [m] (relative to local topo datum)
+  real, intent(in)    :: head_slope        (nzg) ! d(head) / d(soil_water) [m]
   real, intent(in)    :: soil_tempk        (nzg) ! soil temp [K]
   real, intent(in)    :: soil_fracliq      (nzg) ! fraction of soil moisture in liquid phase
 
@@ -217,7 +218,7 @@ Contains
   real :: evap        ! amount evaporated from veg sfc [kg/m^2]
 
   real :: specvol, vw_max
-  real :: tf, wadd, wshed2, qshed2
+  real :: tf, wadd, wshed2, qshed2, delw
 
   real(r8) :: a1, a2, a3, a4, a5, a6, a7, a8
   real(r8) :: h1, h2, h3, h4, h5, h6, h7
@@ -780,9 +781,9 @@ Contains
 
      canrrv = canrrv + (wxfersc + wxfergc - sxfer_r) * canairi
 
-
-
-     soil_water(nzg) = soil_water(nzg) - dslzi(nzg) * wxfergc * .001
+     delw            = dslzi(nzg) * wxfergc * .001
+     soil_water(nzg) = soil_water(nzg) - delw
+     head      (nzg) = head      (nzg) - delw * head_slope(nzg)
 
      sfcwater_mass = sfcwater_mass - wxfersc
 
@@ -1779,7 +1780,9 @@ Contains
 
      veg_water = max(0.,veg_water - wxfervc)
 
-     soil_water(nzg) = soil_water(nzg) - dslzi(nzg) * wxfergc * .001
+     delw            = dslzi(nzg) * wxfergc * .001
+     soil_water(nzg) = soil_water(nzg) - delw
+     head      (nzg) = head      (nzg) - delw * head_slope(nzg)
 
      sfcwater_mass = sfcwater_mass - wxfersc
 
@@ -1801,7 +1804,6 @@ Contains
                              soil_water(nzg),soil_energy(nzg),                     &
                              specifheat_drysoil(nzg), sfcwater_mass,energy_per_m2, &
                              sfcwater_tempk,sfcwater_fracliq)
-
   endif
 
   end subroutine canopy

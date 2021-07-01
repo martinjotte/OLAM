@@ -777,6 +777,7 @@ subroutine surface_driver()
                     land%ksat_vg           (1:nzg,iland), &
                     land%specifheat_drysoil(1:nzg,iland), &
                     head                   (1:nzg,iland), &
+                    head_slope             (1:nzg,iland), &
                     soil_tempk             (1:nzg),       &
                     soil_fracliq           (1:nzg)        )
 
