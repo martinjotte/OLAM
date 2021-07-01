@@ -416,6 +416,7 @@ subroutine apply_surface_fluxes( iw )
      do ns = 1, num_sxfer
         n = sxfer_map(ns)
 
+        !dir$ ivdep
         do ks = 1, lsw(iw)
            k = lpw(iw) + ks - 1
 

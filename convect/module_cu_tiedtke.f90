@@ -166,6 +166,7 @@ CONTAINS
 
 ! Loop over T levels
 
+   !dir$ ivdep
    !dir$ simd
    do k = ka,mza
       kt = mza + 1 - k

@@ -776,8 +776,8 @@ C *** Write dry aerosol distribution parameters to aerosol diagnostic array
 
          enddo
       enddo
-      !$omp end do
-      !$omp end parallel
+!$omp end do
+!$omp end parallel
 
 !     IF ( WRITETIME .AND. AOD ) CALL GET_AOD( mrl )
 

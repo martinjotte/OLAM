@@ -39,7 +39,6 @@ Module mem_addsc
   Type addsc_vars
      real, allocatable :: sclp(:,:) ! somethings per kg_air
      real, allocatable :: sclt(:,:) ! somethings per kg_air per sec
-     real, allocatable :: drydep(:) ! somethings per m^2 per sec (not currently implemented)
   End Type addsc_vars
 
   type (addsc_vars), allocatable :: addsc(:)
@@ -63,11 +62,7 @@ Contains
     do iaddsc = 1,naddsc
 
        write(io6,*) 'alloc_addsc ', iaddsc, mza, mwa, naddsc
-
-       allocate (addsc(iaddsc)%sclp(mza,mwa)) ; call random_number(addsc(iaddsc)%sclp)
-       allocate (addsc(iaddsc)%drydep  (mwa)) ; addsc(iaddsc)%drydep = rinit
-
-       addsc(iaddsc)%sclp = addsc(iaddsc)%sclp + 2.
+       allocate (addsc(iaddsc)%sclp(mza,mwa)) ; addsc(iaddsc)%sclp = rinit
 
     enddo
 
@@ -88,7 +83,6 @@ Contains
 
        do iaddsc = 1,naddsc
           if (allocated(addsc(iaddsc)%sclp  )) deallocate (addsc(iaddsc)%sclp  )
-          if (allocated(addsc(iaddsc)%drydep)) deallocate (addsc(iaddsc)%drydep)
        enddo
 
        deallocate(addsc)
@@ -115,13 +109,6 @@ Contains
 
           write(sname,'(a4,i3.3)') 'SCLP', iaddsc
           call increment_vtable(sname, 'AW', mpt1=.true., rvar2=addsc(iaddsc)%sclp)
-
-       endif
-
-       if (allocated (addsc(iaddsc)%drydep)) then
-
-          write(sname,'(a4,i3.3)') 'SCDD', iaddsc
-          call increment_vtable(sname, 'AW', rvar1=addsc(iaddsc)%drydep)
 
        endif
 

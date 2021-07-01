@@ -1220,10 +1220,9 @@ contains
     enddo
 
     allocate (buf_integer(size))
-    buf_integer = 0
 
     do i = 1, size
-       if(buf_logical(i)) buf_integer(i) = -1
+       buf_integer(i) = merge(-1, 0, buf_logical(i))
     enddo
 
     ! HDF5 1.8 does not like passing integer*1
@@ -1285,15 +1284,10 @@ contains
     js = size(buf_logical, dim=2)
 
     allocate(buf_integer(is,js))
-    buf_integer = 0
 
     do j = 1, js
        do i = 1, is
-          if(buf_logical(i,j)) then
-             buf_integer(i,j) = -1
-          else
-             buf_integer(i,j) = 0
-          endif
+          buf_integer(i,j) = merge(-1, 0, buf_logical(i,j))
        enddo
     enddo
 
@@ -1357,16 +1351,11 @@ contains
     ks = size(buf_logical, dim=3)
 
     allocate(buf_integer(is,js,ks))
-    buf_integer = 0
 
     do k = 1, ks
        do j = 1, js
           do i = 1, is
-             if(buf_logical(i,j,k)) then
-                buf_integer(i,j,k) = -1
-             else
-                buf_integer(i,j,k) = 0
-             endif
+             buf_integer(i,j,k) = merge(-1, 0, buf_logical(i,j,k))
           enddo
        enddo
     enddo
@@ -1531,8 +1520,7 @@ contains
     call h5dcreate_f(fileid, dname, FORTRAN_INT1_TYPE, fspcid(id), dsetid, &
                      hdferr, propid)
 
-    buf_integer = 0
-    if(buf_logical) buf_integer = -1
+    buf_integer = merge(-1, 0, buf_logical)
 
     ! HDF5 1.8 does not like passing integer*1
 !   call h5dwrite_f(dsetid, FORTRAN_INT1_TYPE, buf_integer, dimsf, &

@@ -412,8 +412,8 @@ subroutine prog_wrtv(vmsca, wmsca)
 !!                             rvara15=gxxps_vze, rvara16=gyyps_vze,  rvara17=gxyps_vze )
   endif
 
-  !$omp parallel private(gzps_th,gzps_vx,gzps_vy,gzps_vz,   &
-  !$                     gzzps_th,gzzps_vx,gzzps_vy,gzzps_vz)
+  !$omp parallel private(gzps_th, gzps_vx, gzps_vy, gzps_vz,&
+  !$omp                  gzzps_th,gzzps_vx,gzzps_vy,gzzps_vz)
   !$omp do private(iw,k)
   do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 

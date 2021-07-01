@@ -231,69 +231,108 @@ subroutine mpi_send_wsfc(head, soil_watfrac)
            if (sfcg%leaf_class(iwsfc) >= 2) then
               iland = iwsfc - omland
 
-              call MPI_Pack(head        (1,iland),nzg,MPI_REAL,send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-              call MPI_Pack(soil_watfrac(1,iland),nzg,MPI_REAL,send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+              call MPI_Pack(head        (1,iland),nzg,MPI_REAL,send_wsfc(jsend)%buff, &
+                            send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+              call MPI_Pack(soil_watfrac(1,iland),nzg,MPI_REAL,send_wsfc(jsend)%buff, &
+                            send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
            endif
 
         else
 
            ! Pack SFCG quantities
 
-           call MPI_Pack(sfcg%vels    (iwsfc),1,MPI_REAL,send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-           call MPI_Pack(sfcg%prss    (iwsfc),1,MPI_REAL,send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-           call MPI_Pack(sfcg%rhos    (iwsfc),1,MPI_REAL,send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-           call MPI_Pack(sfcg%airtemp (iwsfc),1,MPI_REAL,send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-           call MPI_Pack(sfcg%airtheta(iwsfc),1,MPI_REAL,send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-           call MPI_Pack(sfcg%airrrv  (iwsfc),1,MPI_REAL,send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-           call MPI_Pack(sfcg%cantemp (iwsfc),1,MPI_REAL,send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-           call MPI_Pack(sfcg%canrrv  (iwsfc),1,MPI_REAL,send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-           call MPI_Pack(sfcg%rough   (iwsfc),1,MPI_REAL,send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-           call MPI_Pack(sfcg%head1   (iwsfc),1,MPI_REAL,send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-           call MPI_Pack(sfcg%wthv    (iwsfc),1,MPI_REAL,send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+           call MPI_Pack(sfcg%vels    (iwsfc),1,MPI_REAL,send_wsfc(jsend)%buff, &
+                            send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+           call MPI_Pack(sfcg%prss    (iwsfc),1,MPI_REAL,send_wsfc(jsend)%buff, &
+                            send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+           call MPI_Pack(sfcg%rhos    (iwsfc),1,MPI_REAL,send_wsfc(jsend)%buff, &
+                            send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+           call MPI_Pack(sfcg%airtemp (iwsfc),1,MPI_REAL,send_wsfc(jsend)%buff, &
+                            send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+           call MPI_Pack(sfcg%airtheta(iwsfc),1,MPI_REAL,send_wsfc(jsend)%buff, &
+                            send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+           call MPI_Pack(sfcg%airrrv  (iwsfc),1,MPI_REAL,send_wsfc(jsend)%buff, &
+                            send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+           call MPI_Pack(sfcg%cantemp (iwsfc),1,MPI_REAL,send_wsfc(jsend)%buff, &
+                            send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+           call MPI_Pack(sfcg%canrrv  (iwsfc),1,MPI_REAL,send_wsfc(jsend)%buff, &
+                            send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+           call MPI_Pack(sfcg%rough   (iwsfc),1,MPI_REAL,send_wsfc(jsend)%buff, &
+                            send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+           call MPI_Pack(sfcg%head1   (iwsfc),1,MPI_REAL,send_wsfc(jsend)%buff, &
+                            send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+           call MPI_Pack(sfcg%wthv    (iwsfc),1,MPI_REAL,send_wsfc(jsend)%buff, &
+                            send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
 
            if (sfcg%leaf_class(iwsfc) >= 2) then
               iland = iwsfc - omland
 
               ! Pack LAND quantities
 
-              call MPI_Pack(land%nlev_sfcwater    (iland),1,MPI_INTEGER,send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-              call MPI_Pack(land%ppfd             (iland),1,   MPI_REAL,send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-              call MPI_Pack(land%ppfd_diffuse     (iland),1,   MPI_REAL,send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-              call MPI_Pack(land%cosz             (iland),1,   MPI_REAL,send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-              call MPI_Pack(land%veg_fracarea     (iland),1,   MPI_REAL,send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-              call MPI_Pack(land%veg_albedo       (iland),1,   MPI_REAL,send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-              call MPI_Pack(land%veg_rough        (iland),1,   MPI_REAL,send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-              call MPI_Pack(land%veg_temp         (iland),1,   MPI_REAL,send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-              call MPI_Pack(land%sfcwater_mass  (1,iland),nzs, MPI_REAL,send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-              call MPI_Pack(land%sfcwater_energy(1,iland),nzs, MPI_REAL,send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-              call MPI_Pack(land%sfcwater_depth (1,iland),nzs, MPI_REAL,send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-              call MPI_Pack(land%soil_water     (1,iland),nzg, MPI_REAL,send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-              call MPI_Pack(land%soil_energy    (1,iland),nzg, MPI_REAL,send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+              call MPI_Pack(land%nlev_sfcwater    (iland),1,MPI_INTEGER,send_wsfc(jsend)%buff, &
+                            send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+              call MPI_Pack(land%ppfd             (iland),1,   MPI_REAL,send_wsfc(jsend)%buff, &
+                            send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+              call MPI_Pack(land%ppfd_diffuse     (iland),1,   MPI_REAL,send_wsfc(jsend)%buff, &
+                            send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+              call MPI_Pack(land%cosz             (iland),1,   MPI_REAL,send_wsfc(jsend)%buff, &
+                            send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+              call MPI_Pack(land%veg_fracarea     (iland),1,   MPI_REAL,send_wsfc(jsend)%buff, &
+                            send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+              call MPI_Pack(land%veg_albedo       (iland),1,   MPI_REAL,send_wsfc(jsend)%buff, &
+                            send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+              call MPI_Pack(land%veg_rough        (iland),1,   MPI_REAL,send_wsfc(jsend)%buff, &
+                            send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+              call MPI_Pack(land%veg_temp         (iland),1,   MPI_REAL,send_wsfc(jsend)%buff, &
+                            send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+              call MPI_Pack(land%sfcwater_mass  (1,iland),nzs, MPI_REAL,send_wsfc(jsend)%buff, &
+                            send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+              call MPI_Pack(land%sfcwater_energy(1,iland),nzs, MPI_REAL,send_wsfc(jsend)%buff, &
+                            send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+              call MPI_Pack(land%sfcwater_depth (1,iland),nzs, MPI_REAL,send_wsfc(jsend)%buff, &
+                            send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+              call MPI_Pack(land%soil_water     (1,iland),nzg, MPI_REAL,send_wsfc(jsend)%buff, &
+                            send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+              call MPI_Pack(land%soil_energy    (1,iland),nzg, MPI_REAL,send_wsfc(jsend)%buff, &
+                            send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
 
            elseif (sfcg%leaf_class(iwsfc) == 1) then
               ilake = iwsfc - omlake
 
               ! Pack LAKE quantities
 
-              call MPI_Pack(lake%lake_energy(ilake),1,MPI_REAL,send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+              call MPI_Pack(lake%lake_energy(ilake),1,MPI_REAL,send_wsfc(jsend)%buff, &
+                            send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
 
            elseif (sfcg%leaf_class(iwsfc) == 0) then
               isea = iwsfc - omsea
 
               ! Pack SEA quantities
 
-              call MPI_Pack(sea%nlev_seaice (isea),1,MPI_INTEGER,send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-              call MPI_Pack(sea%sea_cantemp (isea),1,MPI_REAL,   send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-              call MPI_Pack(sea%ice_cantemp (isea),1,MPI_REAL,   send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-              call MPI_Pack(sea%sea_canrrv  (isea),1,MPI_REAL,   send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-              call MPI_Pack(sea%ice_canrrv  (isea),1,MPI_REAL,   send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-              call MPI_Pack(sea%sea_wthv    (isea),1,MPI_REAL,   send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-              call MPI_Pack(sea%ice_wthv    (isea),1,MPI_REAL,   send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-              call MPI_Pack(sea%sea_rough   (isea),1,MPI_REAL,   send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-              call MPI_Pack(sea%ice_rough   (isea),1,MPI_REAL,   send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-              call MPI_Pack(sea%seaicec     (isea),1,MPI_REAL,   send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-              call MPI_Pack(sea%seatc       (isea),1,MPI_REAL,   send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-              call MPI_Pack(sea%seaice_tempk(1,isea),nzi,MPI_REAL,send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+              call MPI_Pack(sea%nlev_seaice (isea),1,MPI_INTEGER, &
+                           send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+              call MPI_Pack(sea%sea_cantemp (isea),1,MPI_REAL,    &
+                           send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+              call MPI_Pack(sea%ice_cantemp (isea),1,MPI_REAL,    &
+                           send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+              call MPI_Pack(sea%sea_canrrv  (isea),1,MPI_REAL,    &
+                           send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+              call MPI_Pack(sea%ice_canrrv  (isea),1,MPI_REAL,    &
+                           send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+              call MPI_Pack(sea%sea_wthv    (isea),1,MPI_REAL,    &
+                           send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+              call MPI_Pack(sea%ice_wthv    (isea),1,MPI_REAL,    &
+                           send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+              call MPI_Pack(sea%sea_rough   (isea),1,MPI_REAL,    &
+                           send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+              call MPI_Pack(sea%ice_rough   (isea),1,MPI_REAL,    &
+                           send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+              call MPI_Pack(sea%seaicec     (isea),1,MPI_REAL,    &
+                           send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+              call MPI_Pack(sea%seatc       (isea),1,MPI_REAL,    &
+                           send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+              call MPI_Pack(sea%seaice_tempk(1,isea),nzi,MPI_REAL, &
+                           send_wsfc(jsend)%buff,send_wsfc(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
 
           endif
 
@@ -402,69 +441,108 @@ subroutine mpi_recv_wsfc(head, soil_watfrac)
            if (sfcg%leaf_class(iwsfc) >= 2) then
               iland = iwsfc - omland
 
-              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos,head        (1,iland),nzg,MPI_REAL,MPI_COMM_WORLD,ierr)
-              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos,soil_watfrac(1,iland),nzg,MPI_REAL,MPI_COMM_WORLD,ierr)
+              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                              head        (1,iland),nzg,MPI_REAL,MPI_COMM_WORLD,ierr)
+              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                              soil_watfrac(1,iland),nzg,MPI_REAL,MPI_COMM_WORLD,ierr)
            endif
 
         else
 
            ! Unpack SFCG quantities
 
-           call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos,sfcg%vels    (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
-           call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos,sfcg%prss    (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
-           call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos,sfcg%rhos    (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
-           call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos,sfcg%airtemp (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
-           call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos,sfcg%airtheta(iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
-           call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos,sfcg%airrrv  (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
-           call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos,sfcg%cantemp (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
-           call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos,sfcg%canrrv  (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
-           call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos,sfcg%rough   (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
-           call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos,sfcg%head1   (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
-           call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos,sfcg%wthv    (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+           call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                              sfcg%vels    (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+           call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                              sfcg%prss    (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+           call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                              sfcg%rhos    (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+           call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                              sfcg%airtemp (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+           call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                              sfcg%airtheta(iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+           call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                              sfcg%airrrv  (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+           call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                              sfcg%cantemp (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+           call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                              sfcg%canrrv  (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+           call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                              sfcg%rough   (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+           call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                              sfcg%head1   (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+           call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                              sfcg%wthv    (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
 
            if (sfcg%leaf_class(iwsfc) >= 2) then
               iland = iwsfc - omland
 
               ! Unpack LAND quantities
 
-              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos,land%nlev_sfcwater    (iland),1,  MPI_INTEGER,MPI_COMM_WORLD,ierr)
-              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos,land%ppfd             (iland),1,  MPI_REAL,   MPI_COMM_WORLD,ierr)
-              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos,land%ppfd_diffuse     (iland),1,  MPI_REAL,   MPI_COMM_WORLD,ierr)
-              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos,land%cosz             (iland),1,  MPI_REAL,   MPI_COMM_WORLD,ierr)
-              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos,land%veg_fracarea     (iland),1,  MPI_REAL,   MPI_COMM_WORLD,ierr)
-              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos,land%veg_albedo       (iland),1,  MPI_REAL,   MPI_COMM_WORLD,ierr)
-              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos,land%veg_rough        (iland),1,  MPI_REAL,   MPI_COMM_WORLD,ierr)
-              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos,land%veg_temp         (iland),1,  MPI_REAL,   MPI_COMM_WORLD,ierr)
-              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos,land%sfcwater_mass  (1,iland),nzs,MPI_REAL,   MPI_COMM_WORLD,ierr)
-              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos,land%sfcwater_energy(1,iland),nzs,MPI_REAL,   MPI_COMM_WORLD,ierr)
-              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos,land%sfcwater_depth (1,iland),nzs,MPI_REAL,   MPI_COMM_WORLD,ierr)
-              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos,land%soil_water     (1,iland),nzg,MPI_REAL,   MPI_COMM_WORLD,ierr)
-              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos,land%soil_energy    (1,iland),nzg,MPI_REAL,   MPI_COMM_WORLD,ierr)
+              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                              land%nlev_sfcwater    (iland),1,  MPI_INTEGER,MPI_COMM_WORLD,ierr)
+              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                              land%ppfd             (iland),1,  MPI_REAL,   MPI_COMM_WORLD,ierr)
+              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                              land%ppfd_diffuse     (iland),1,  MPI_REAL,   MPI_COMM_WORLD,ierr)
+              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                              land%cosz             (iland),1,  MPI_REAL,   MPI_COMM_WORLD,ierr)
+              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                              land%veg_fracarea     (iland),1,  MPI_REAL,   MPI_COMM_WORLD,ierr)
+              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                              land%veg_albedo       (iland),1,  MPI_REAL,   MPI_COMM_WORLD,ierr)
+              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                              land%veg_rough        (iland),1,  MPI_REAL,   MPI_COMM_WORLD,ierr)
+              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                              land%veg_temp         (iland),1,  MPI_REAL,   MPI_COMM_WORLD,ierr)
+              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                              land%sfcwater_mass  (1,iland),nzs,MPI_REAL,   MPI_COMM_WORLD,ierr)
+              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                              land%sfcwater_energy(1,iland),nzs,MPI_REAL,   MPI_COMM_WORLD,ierr)
+              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                              land%sfcwater_depth (1,iland),nzs,MPI_REAL,   MPI_COMM_WORLD,ierr)
+              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                              land%soil_water     (1,iland),nzg,MPI_REAL,   MPI_COMM_WORLD,ierr)
+              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                              land%soil_energy    (1,iland),nzg,MPI_REAL,   MPI_COMM_WORLD,ierr)
 
            elseif (sfcg%leaf_class(iwsfc) == 1) then
               ilake = iwsfc - omlake
 
               ! Unpack LAKE quantities
 
-              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos,lake%lake_energy(ilake),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                              lake%lake_energy(ilake),1,MPI_REAL,MPI_COMM_WORLD,ierr)
 
            elseif (sfcg%leaf_class(iwsfc) == 0) then
               isea = iwsfc - omsea
 
               ! Unpack SEA quantities
 
-              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos,sea%nlev_seaice (isea),1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
-              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos,sea%sea_cantemp (isea),1,MPI_REAL,   MPI_COMM_WORLD,ierr)
-              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos,sea%ice_cantemp (isea),1,MPI_REAL,   MPI_COMM_WORLD,ierr)
-              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos,sea%sea_canrrv  (isea),1,MPI_REAL,   MPI_COMM_WORLD,ierr)
-              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos,sea%ice_canrrv  (isea),1,MPI_REAL,   MPI_COMM_WORLD,ierr)
-              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos,sea%sea_wthv    (isea),1,MPI_REAL,   MPI_COMM_WORLD,ierr)
-              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos,sea%ice_wthv    (isea),1,MPI_REAL,   MPI_COMM_WORLD,ierr)
-              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos,sea%sea_rough   (isea),1,MPI_REAL,   MPI_COMM_WORLD,ierr)
-              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos,sea%ice_rough   (isea),1,MPI_REAL,   MPI_COMM_WORLD,ierr)
-              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos,sea%seaicec     (isea),1,MPI_REAL,   MPI_COMM_WORLD,ierr)
-              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos,sea%seatc       (isea),1,MPI_REAL,   MPI_COMM_WORLD,ierr)
-              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos,sea%seaice_tempk(1,isea),nzi,MPI_REAL,   MPI_COMM_WORLD,ierr)
+              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                              sea%nlev_seaice (isea),1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
+              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                              sea%sea_cantemp (isea),1,MPI_REAL,   MPI_COMM_WORLD,ierr)
+              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                              sea%ice_cantemp (isea),1,MPI_REAL,   MPI_COMM_WORLD,ierr)
+              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                              sea%sea_canrrv  (isea),1,MPI_REAL,   MPI_COMM_WORLD,ierr)
+              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                              sea%ice_canrrv  (isea),1,MPI_REAL,   MPI_COMM_WORLD,ierr)
+              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                              sea%sea_wthv    (isea),1,MPI_REAL,   MPI_COMM_WORLD,ierr)
+              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                              sea%ice_wthv    (isea),1,MPI_REAL,   MPI_COMM_WORLD,ierr)
+              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                              sea%sea_rough   (isea),1,MPI_REAL,   MPI_COMM_WORLD,ierr)
+              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                              sea%ice_rough   (isea),1,MPI_REAL,   MPI_COMM_WORLD,ierr)
+              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                              sea%seaicec     (isea),1,MPI_REAL,   MPI_COMM_WORLD,ierr)
+              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                              sea%seatc       (isea),1,MPI_REAL,   MPI_COMM_WORLD,ierr)
+              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                              sea%seaice_tempk(1,isea),nzi,MPI_REAL,   MPI_COMM_WORLD,ierr)
 
            endif
 

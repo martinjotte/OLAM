@@ -469,7 +469,7 @@ subroutine shdf5_orec2(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar1, 
            endif
 
            if (present(ivar1)) ibuff( (n-1)*is+1 : n*is) =    ivar1(i)
-           if (present(ivar2)) ibuff( (n-1)*is+1 : n*is) = (/ ivar2(:,i)     /)
+           if (present(ivar2)) ibuff( (n-1)*is+1 : n*is) =    ivar2(:,i)
            if (present(ivar3)) ibuff( (n-1)*is+1 : n*is) = (/ ivar3(:,:,i)   /)
            if (present(ivar4)) ibuff( (n-1)*is+1 : n*is) = (/ ivar4(:,:,:,i) /)
 
@@ -487,7 +487,7 @@ subroutine shdf5_orec2(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar1, 
            endif
 
            if (present(rvar1)) rbuff( (n-1)*is+1 : n*is) =    rvar1(i)
-           if (present(rvar2)) rbuff( (n-1)*is+1 : n*is) = (/ rvar2(:,i)     /)
+           if (present(rvar2)) rbuff( (n-1)*is+1 : n*is) =    rvar2(:,i)
            if (present(rvar3)) rbuff( (n-1)*is+1 : n*is) = (/ rvar3(:,:,i)   /)
            if (present(rvar4)) rbuff( (n-1)*is+1 : n*is) = (/ rvar4(:,:,:,i) /)
 
@@ -505,7 +505,7 @@ subroutine shdf5_orec2(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar1, 
            endif
 
            if (present(dvar1)) dbuff( (n-1)*is+1 : n*is) =    dvar1(i)
-           if (present(dvar2)) dbuff( (n-1)*is+1 : n*is) = (/ dvar2(:,i)     /)
+           if (present(dvar2)) dbuff( (n-1)*is+1 : n*is) =    dvar2(:,i)
            if (present(dvar3)) dbuff( (n-1)*is+1 : n*is) = (/ dvar3(:,:,i)   /)
            if (present(dvar4)) dbuff( (n-1)*is+1 : n*is) = (/ dvar4(:,:,:,i) /)
 
@@ -523,7 +523,7 @@ subroutine shdf5_orec2(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar1, 
            endif
 
            if (present(bvar1)) bbuff( (n-1)*is+1 : n*is) =    bvar1(i)
-           if (present(bvar2)) bbuff( (n-1)*is+1 : n*is) = (/ bvar2(:,i)     /)
+           if (present(bvar2)) bbuff( (n-1)*is+1 : n*is) =    bvar2(:,i)
            if (present(bvar3)) bbuff( (n-1)*is+1 : n*is) = (/ bvar3(:,:,i)   /)
            if (present(bvar4)) bbuff( (n-1)*is+1 : n*is) = (/ bvar4(:,:,:,i) /)
 
@@ -541,7 +541,7 @@ subroutine shdf5_orec2(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar1, 
            endif
 
             if (present(lvar1)) lbuff( (n-1)*is+1 : n*is) =    lvar1(i)
-            if (present(lvar2)) lbuff( (n-1)*is+1 : n*is) = (/ lvar2(:,i)   /)
+            if (present(lvar2)) lbuff( (n-1)*is+1 : n*is) =    lvar2(:,i)
             if (present(lvar2)) lbuff( (n-1)*is+1 : n*is) = (/ lvar3(:,:,i) /)
 
         enddo
