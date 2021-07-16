@@ -386,8 +386,8 @@ contains
 
     character(*), intent(in) :: filein
 
-    integer :: istart, n, iend, nlines, ntok, nc,nr
-    character(len=20) :: clevel, chour, tokens(20), sdepths(20)
+    integer :: istart, n, iend, nlines, ntok, ntok2, nc, nr, nvlev
+    character(len=20) :: chour, tokens(20), sdepths(20), tok(10), vlevs(10)
     real :: ztop, zbot, pval
 
     if (grib_ver == 1) then
@@ -435,8 +435,9 @@ contains
           irecs(nrec) = tokens(1)
           read(tokens(3)(3:),*) idates(nrec)
           fields(nrec) = tokens(4)
-          clevel = tokens(5)
           chour = tokens(6)
+
+          call tokenize(tokens(5), vlevs, nvlev, " ")
 
           ! Skip accumulation or average fields
           if ( (index(chour,'acc') > 0) .or. (index(chour,'ave') > 0) ) then
@@ -481,23 +482,29 @@ contains
 
           elseif ( index(lines(n),'below ground:') > 0 .or. index(lines(n),' down:') > 0 ) then
 
-             call tokenize(clevel, tokens, ntok, " ")
-             call tokenize(tokens(1), sdepths, ntok, "-")
+             write(*,*) vlevs(1)
+             write(*,*) vlevs(2)
 
-             if (ntok >= 2) then
+             call tokenize(vlevs(1), sdepths, ntok2, "-")
+
+             write(*,*) sdepths(1)
+             write(*,*) sdepths(2)
+
+             ! NCEP gives a range for soil layers (like 0.5-1.0 m)
+             ! Need to check how other reanalysis products handle this
+             if (ntok2 > 1 .and. (vlevs(2) == 'cm' .or. vlevs(2) == 'm')) then
 
                 read(sdepths(1),*) ztop
                 read(sdepths(2),*) zbot
 
-                if (tokens(2) == 'cm') then
+                if (vlevs(2) == 'cm') then
 
                    levs(nrec) = - nint(0.5*(ztop + zbot))
-                   !write(*,*) "Found cm", levs(nrec), trim(fields(nrec)), ztop, zbot
 
-                elseif (tokens(2) == 'm') then
+                elseif (vlevs(2) == 'm') then
 
+                   ! convert soil depth to cm
                    levs(nrec) = - nint(50.0*(ztop + zbot))
-                   !write(*,*) "Found m", levs(nrec), trim(fields(nrec))
 
                 endif
 
@@ -509,19 +516,30 @@ contains
 
              endif
 
-          else
+          elseif (vlevs(2) == 'mb') then
+             ! TODO: Are any reanalysis in height or not in mb?
 
-!            read(clevel,*) levs(nrec)
-             read(clevel,*) pval
+             read(vlevs(1),*) pval
 
-             ! mjo: skip pressures less than 1 mb since we are
-             ! storing them in integer arrays. This needs to be changed.
-             if (pval < .99) then
+             ! convert to Pa
+             pval = pval * 100.0
+
+             if (pval < 0.99) then
+
+                ! Skip pressure levels below 1 Pa, since we curently
+                ! store pressure as an integer value
                 nrec = nrec - 1
-                cycle
+
+             else
+
+                levs(nrec) = nint( pval )
+
              endif
 
-             levs(nrec) = nint(pval)
+          else
+
+             ! Skip this record since we didn't match any fields
+             nrec = nrec - 1
 
           endif
 

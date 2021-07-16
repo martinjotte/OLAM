@@ -36,7 +36,7 @@ subroutine isnstage(iaction, p_u, p_v, p_t, p_z, p_r, p_o, &
 use max_dims,     only: maxpr
 use isan_coms,    only: nprz, npry, nprx, nprz_rh, haso3, nbot_o3, &
                         xswlat, xswlon, gdatdx, gdatdy, glat, &
-                        npd, kzonoff, levpr, lzon_bot, ipoffset, inproj
+                        npd, kzonoff, pnpr, lzon_bot, ipoffset, inproj
 use mem_grid,     only: glatw, glonw, mza, mwa
 use mem_ijtabs,   only: jtab_w, jtw_init
 use mem_zonavg,   only: zonp_vect, zont, zonz, zonr, zonu, zono
@@ -85,12 +85,12 @@ real :: r_interp(22)
 ! (i.e., maximum zonp_vect value that is less than 82.5% of levpr(nprz),
 ! which is in hPa)
 
-lzon_bot = nint(19. - 6. * alog10(real(levpr(nprz)))) + 1
+lzon_bot = nint(19. - 6. *  alog10(0.01*pnpr(nprz))) + 1
 
 ! Fill column array of pressure level pressure values in MKS
 
 do k = 1,nprz
-   pcol_p(k+2) = levpr(k) * 100.
+   pcol_p(k+2) = pnpr(k)
 enddo
 pcol_p(2) = 110000.   ! Phony underground level
 pcol_p(1) = 120000.   ! Phony underground level

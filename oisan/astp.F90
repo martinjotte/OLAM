@@ -375,14 +375,27 @@ logical :: isrh, doconvert
 
 iunit = 11
 
-write(io6, *) ''
+write(io6, *) ' '
 write(io6, *) '*****************************************************'
 write(io6, *) '     Access pressure level data'
 write(io6, *) '*****************************************************'
+write(io6, *) ' '
 
-do k = 1,nprz
-   pnpr(k) = levpr(k) * 100.
-enddo
+if (maxval(levpr(1:nprz)) < 2.e3) then
+
+   write(io6,*) "Assuming input pressure levels are in units of mb"
+   do k = 1,nprz
+      pnpr(k) = levpr(k) * 100.
+   enddo
+
+else
+
+   write(io6,*) "Assuming input pressure levels are in units of Pa"
+   do k = 1,nprz
+      pnpr(k) = levpr(k)
+   enddo
+
+endif
 
 ! Call routine to fill pressure arrays from the chosen dataset.
 
@@ -482,8 +495,8 @@ thmax = maxval(p_t(:,:,nprz)) * (p00/pnpr(nprz))**rocp
 thmin = minval(p_t(:,:,1   )) * (p00/pnpr(1))**rocp
 
 write(io6, *) ''
-write(io6, "(' Minimum THETA at ',I4,' mb: ',F9.3)") levpr(1), thmin
-write(io6, "(' Maximum THETA at ',I4,' mb: ',F9.3)") levpr(nprz), thmax
+write(io6, "(' Minimum THETA at ',I4,' Pa: ',F9.3)") nint(pnpr(1)), thmin
+write(io6, "(' Maximum THETA at ',I4,' Pa: ',F9.3)") nint(pnpr(nprz)), thmax
 
 if (fform == 'GDF') then
    close(iunit)
@@ -825,9 +838,9 @@ endif
 
 write(io6, *) '----------------------------------------------------'
 write(io6, "(A,I0,A,I0,A)") ' Pressure-level data has ', nprz, &
-     ' levels, goes up to ', levpr(nprz), ' mb.'
+     ' levels, goes up to ', nint(pnpr(nprz)), ' Pa'
 write(io6, "(A,I0,A,I0,A)") ' Water vapor has ', nprz_rh, &
-     ' levels, is reported up to ', levpr(nprz_rh), ' mb.'
+     ' levels, is reported up to ', nint(pnpr(nprz_rh)), ' Pa'
 write(io6, *) ''
 
 ! Check for missing data

@@ -68,6 +68,8 @@ subroutine tokenize_ws(str,tokens,ntok)
      if(nc.ge.nch) exit
   enddo
 
+  tokens(ntok+1:ntokmax) = ' '
+
 end subroutine tokenize_ws
 
 
@@ -117,6 +119,8 @@ subroutine tokenize(str,tokens,ntok,sep)
      nc=ntend+1
      if(nc.ge.nch) exit
   enddo
+
+  tokens(ntok+1:ntokmax) = ' '
 
 end subroutine tokenize
 

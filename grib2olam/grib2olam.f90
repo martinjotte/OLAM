@@ -873,7 +873,7 @@ program grib_to_gdf
         CALL shdf5_orec(ndims, idims, 'pres', rvar1=plev, isdim=.true., &
                         long_name = "pressure",                         &
                         standard_name = "air_pressure",                 &
-                        units = "hPa",                                  &
+                        units = "Pa",                                   &
                         positive = "down"                               )
 
         deallocate(plev)
