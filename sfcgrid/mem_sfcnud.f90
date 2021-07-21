@@ -229,7 +229,7 @@ Contains
   integer :: nf
   integer :: ndims, idims(3)
 
-  integer, pointer :: lpoints(:)
+  integer, allocatable :: lpoints(:)
 
   ! Processing next sfcnud file
 
@@ -257,11 +257,14 @@ Contains
   ndims    = 1
   idims(1) = nwsfc
 
-  lpoints => itab_wsfc(:)%iwglobe
+  allocate(lpoints(nwsfc))
+  lpoints = itab_wsfc(:)%iwglobe
 
   call shdf5_irec(ndims, idims, 'SFCWAT_NUD' , rvar1=sfcwat_nud,  points=lpoints)
   call shdf5_irec(ndims, idims, 'SFCTEMP_NUD', rvar1=sfctemp_nud, points=lpoints)
   call shdf5_irec(ndims, idims, 'FRACLIQ_NUD', rvar1=fracliq_nud, points=lpoints)
+
+  deallocate(lpoints)
 
   call shdf5_close()
 
@@ -295,7 +298,7 @@ Contains
   real, allocatable :: soil_water_sp (:,:)
   real, allocatable :: soil_energy_sp(:,:)
 
-  integer, pointer :: lpoints(:)
+  integer, allocatable :: lpoints(:)
 
   ! Map 25 current soil layers into 20 spin-up soil layers
 
@@ -316,9 +319,12 @@ Contains
   ndims    = 1
   idims(1) = nlake
 
-  lpoints => itab_lake(:)%iwglobe
+  allocate(lpoints(nlake))
+  lpoints = itab_lake(:)%iwglobe
 
   call shdf5_irec(ndims, idims, 'LAKE%LAKE_ENERGY', rvar1=lake%lake_energy, points=lpoints)
+
+  deallocate(lpoints)
 
   ndims    = 2
   idims(1) = nzg_sp
@@ -327,10 +333,13 @@ Contains
   allocate (soil_water_sp (nzg_sp,mland))
   allocate (soil_energy_sp(nzg_sp,mland))
 
-  lpoints => itab_land(:)%iwglobe
+  allocate(lpoints(nland))
+  lpoints = itab_land(:)%iwglobe
 
   call shdf5_irec(ndims, idims, 'LAND%SOIL_WATER' , rvar2=soil_water_sp,  points=lpoints)
   call shdf5_irec(ndims, idims, 'LAND%SOIL_ENERGY', rvar2=soil_energy_sp, points=lpoints)
+
+  deallocate(lpoints)
 
   call shdf5_close()
 
