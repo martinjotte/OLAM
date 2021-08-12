@@ -34,27 +34,23 @@
 subroutine history_write(vtype)
 
   use var_tables, only: num_var, vtab_r, get_vtab_dims
-  use misc_coms,  only: io6, ioutput, hfilepref, current_time, iclobber, &
-                        iparallel
+  use misc_coms,  only: io6, ioutput, hfilepref, current_time, iclobber
   use hdf5_utils, only: shdf5_orec, shdf5_open, shdf5_close, mpi_does_parallel_io
   use max_dims,   only: pathlen
-  use mem_grid,   only: nma, nva, nwa, mza
-  use mem_sfcg,   only: nwsfc, mwsfc
-  use mem_land,   only: nland, mland, nzg
-  use mem_lake,   only: nlake, mlake, nzlake
-  use mem_sea,    only: nsea, msea, nzsea
-  use sea_coms,   only: nzi
+  use mem_grid,   only: nma, nva, nwa
+  use mem_sfcg,   only: nwsfc
+  use mem_land,   only: nland
+  use mem_lake,   only: nlake
+  use mem_sea,    only: nsea
   use mem_nudge,  only: nwnud
-  use mem_para,   only: iva_globe_primary, iva_local_primary, mva_primary, &
-                        iwa_globe_primary, iwa_local_primary, mwa_primary, &
-                        ima_globe_primary, ima_local_primary, mma_primary, &
-                        iwsfc_globe_primary, iwsfc_local_primary, mwsfc_primary, &
-                        iland_globe_primary, iland_local_primary, mland_primary, &
-                        ilake_globe_primary, ilake_local_primary, mlake_primary, &
-                        isea_globe_primary, isea_local_primary, msea_primary, &
-                        iwnud_globe_primary, iwnud_local_primary, mwnud_primary, &
-                        myrank
-  use hdf5_f2f, only: fh5_close_cache
+  use mem_para,   only: iva_globe_primary, iva_local_primary, &
+                        iwa_globe_primary, iwa_local_primary, &
+                        ima_globe_primary, ima_local_primary, &
+                        iwsfc_globe_primary, iwsfc_local_primary, &
+                        iland_globe_primary, iland_local_primary, &
+                        ilake_globe_primary, ilake_local_primary, &
+                        isea_globe_primary, isea_local_primary, &
+                        iwnud_globe_primary, iwnud_local_primary
   implicit none
 
 ! This routine writes the chosen variables on the history file.
@@ -65,10 +61,11 @@ subroutine history_write(vtype)
   character(32)      :: varn
   character(2)       :: stagpt
   logical            :: exans
-  integer            :: nv, nvcnt, hdferr
+  integer            :: nv, nvcnt
   integer            :: ndims, idims(3)
-  integer, pointer, contiguous :: ilpts(:), igpts(:)
   integer            :: nglobe, id
+
+  integer, pointer, contiguous :: ilpts(:), igpts(:)
 
   if (ioutput == 0) return
 
@@ -96,12 +93,6 @@ subroutine history_write(vtype)
 
   call commio('WRITE')
 
-  ! Save parallel I/O file mappings for repeated uses
-
-  if (mpi_does_parallel_io) then
-     call hist_cache_hdf5_writes()
-  endif
-
 ! Loop through the main variable table and write those variables
 ! with the correct flag set
 
@@ -109,8 +100,6 @@ subroutine history_write(vtype)
   do nv = 1, num_var
 
      if (vtab_r(nv)%ihist) then
-
-        id = 1
 
         varn = vtab_r(nv)%name
         call get_vtab_dims(nv, ndims, idims)
@@ -126,54 +115,30 @@ subroutine history_write(vtype)
            ilpts => iwa_local_primary
            igpts => iwa_globe_primary
            nglobe = nwa
-
-           if (ndims == 1) id = 2
-           if (ndims == 2 .and. idims(1) == mza) id = 3
-
         elseif (stagpt == 'AV') then
            ilpts => iva_local_primary
            igpts => iva_globe_primary
            nglobe = nva
-
-           if (ndims == 2 .and. idims(1) == mza) id = 4
-
         elseif (stagpt == 'AM') then
            ilpts => ima_local_primary
            igpts => ima_globe_primary
            nglobe = nma
-
-        elseif (stagpt == 'CW') then
+        elseif (stagpt == 'CW') then ! Common surface cells
            ilpts => iwsfc_local_primary
            igpts => iwsfc_globe_primary
            nglobe = nwsfc
-
-           if (ndims == 1) id = 5
-
-        elseif (stagpt == 'LW') then
+        elseif (stagpt == 'LW') then ! Lake cells
            ilpts => iland_local_primary
            igpts => iland_globe_primary
            nglobe = nland
-
-           if (ndims == 1) id = 6
-           if (ndims == 2 .and. idims(1) == nzg) id = 7
-
         elseif (stagpt == 'RW') then ! Lake cells
            ilpts => ilake_local_primary
            igpts => ilake_globe_primary
            nglobe = nlake
-
-           if (ndims == 1) id = 8
-           if (ndims == 2 .and. idims(1) == nzlake) id = 9
-
-        elseif (stagpt == 'SW') then
+        elseif (stagpt == 'SW') then ! Sea cells
            ilpts => isea_local_primary
            igpts => isea_globe_primary
            nglobe = nsea
-
-           if (ndims == 1) id = 10
-           if (ndims == 2 .and. idims(1) == nzi) id = 11
-           if (ndims == 2 .and. idims(1) == nzsea) id = 12
-
         elseif (stagpt == 'AN') then
            ilpts => iwnud_local_primary
            igpts => iwnud_globe_primary
@@ -192,44 +157,35 @@ subroutine history_write(vtype)
 
         ! Now do the writes
 
-        if     (associated(vtab_r(nv)%ivar0_p)) then
-           call shdf5_orec(ndims, idims, varn, ivars=vtab_r(nv)%ivar0_p, &
-                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
-        elseif (associated(vtab_r(nv)%ivar1_p)) then
+        if     (associated(vtab_r(nv)%ivar1_p)) then
            call shdf5_orec(ndims, idims, varn, ivar1=vtab_r(nv)%ivar1_p, &
-                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe, cache_id=id)
+                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe, stagpt=stagpt)
         elseif (associated(vtab_r(nv)%ivar2_p)) then
            call shdf5_orec(ndims, idims, varn, ivar2=vtab_r(nv)%ivar2_p, &
-                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe, cache_id=id)
+                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe, stagpt=stagpt)
         elseif (associated(vtab_r(nv)%ivar3_p)) then
            call shdf5_orec(ndims, idims, varn, ivar3=vtab_r(nv)%ivar3_p, &
-                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
+                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe, stagpt=stagpt)
 
-        elseif (associated(vtab_r(nv)%rvar0_p)) then
-           call shdf5_orec(ndims, idims, varn, rvars=vtab_r(nv)%rvar0_p, &
-                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
         elseif (associated(vtab_r(nv)%rvar1_p)) then
            call shdf5_orec(ndims, idims, varn, rvar1=vtab_r(nv)%rvar1_p, &
-                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe, cache_id=id)
+                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe, stagpt=stagpt)
         elseif (associated(vtab_r(nv)%rvar2_p)) then
            call shdf5_orec(ndims, idims, varn, rvar2=vtab_r(nv)%rvar2_p, &
-                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe, cache_id=id)
+                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe, stagpt=stagpt)
         elseif (associated(vtab_r(nv)%rvar3_p)) then
            call shdf5_orec(ndims, idims, varn, rvar3=vtab_r(nv)%rvar3_p, &
-                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
+                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe, stagpt=stagpt)
 
-        elseif (associated(vtab_r(nv)%dvar0_p)) then
-           call shdf5_orec(ndims, idims, varn, dvars=vtab_r(nv)%dvar0_p, &
-                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
         elseif (associated(vtab_r(nv)%dvar1_p)) then
            call shdf5_orec(ndims, idims, varn, dvar1=vtab_r(nv)%dvar1_p, &
-                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe, cache_id=id)
+                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe, stagpt=stagpt)
         elseif (associated(vtab_r(nv)%dvar2_p)) then
            call shdf5_orec(ndims, idims, varn, dvar2=vtab_r(nv)%dvar2_p, &
-                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe, cache_id=id)
+                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe, stagpt=stagpt)
         elseif (associated(vtab_r(nv)%dvar3_p)) then
            call shdf5_orec(ndims, idims, varn, dvar3=vtab_r(nv)%dvar3_p, &
-                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
+                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe, stagpt=stagpt)
         endif
 
         nvcnt = nvcnt + 1
@@ -238,118 +194,6 @@ subroutine history_write(vtype)
 
   enddo
 
-  ! Close parallel I/O file mapping caches
-  if (mpi_does_parallel_io) then
-     do id = 2, 8
-        call fh5_close_cache(id, hdferr)
-     enddo
-  endif
-
   call shdf5_close()
 
 end subroutine history_write
-
-
-
-
-subroutine hist_cache_hdf5_writes()
-
-  use mem_grid,   only: mwa, nwa, mva, nva, mza
-  use mem_sfcg,   only: nwsfc, mwsfc
-  use mem_land,   only: nland, mland, nzg
-  use mem_lake,   only: nlake, mlake, nzlake
-  use mem_sea,    only: nsea, msea, nzsea
-  use sea_coms,   only: nzi
-  use mem_para,   only: iva_globe_primary, iva_local_primary, mva_primary, &
-                        iwa_globe_primary, iwa_local_primary, mwa_primary, &
-                        ima_globe_primary, ima_local_primary, mma_primary, &
-                        iwsfc_globe_primary, iwsfc_local_primary, mwsfc_primary, &
-                        iland_globe_primary, iland_local_primary, mland_primary, &
-                        ilake_globe_primary, ilake_local_primary, mlake_primary, &
-                        isea_globe_primary, isea_local_primary, msea_primary, &
-                        iwnud_globe_primary, iwnud_local_primary, mwnud_primary, &
-                        myrank
-  use hdf5_f2f,   only: fh5_cache_write
-
-  implicit none
-
-  integer :: ndims, herr
-  integer :: dims(3)
-
-  dims = 0
-
-  ndims   = 1
-  dims(1) = mwa
-
-  call fh5_cache_write(ndims, dims, 2, herr, mcoords=iwa_local_primary, &
-                                 ifsize=nwa, fcoords=iwa_globe_primary)
-
-  ndims   = 2
-  dims(1) = mza
-  dims(2) = mwa
-
-  call fh5_cache_write(ndims, dims, 3, herr, mcoords=iwa_local_primary, &
-                                 ifsize=nwa, fcoords=iwa_globe_primary)
-
-  ndims   = 2
-  dims(1) = mza
-  dims(2) = mva
-
-  call fh5_cache_write(ndims, dims, 4, herr, mcoords=iva_local_primary, &
-                                 ifsize=nva, fcoords=iva_globe_primary)
-
-  ndims   = 1
-  dims(1) = mwsfc
-
-  call fh5_cache_write(ndims, dims, 5, herr, mcoords=iwsfc_local_primary, &
-                                 ifsize=nwsfc, fcoords=iwsfc_globe_primary)
-
-  ndims   = 1
-  dims(1) = mland
-
-  call fh5_cache_write(ndims, dims, 6, herr, mcoords=iland_local_primary, &
-                                 ifsize=nland, fcoords=iland_globe_primary)
-
-  ndims   = 2
-  dims(1) = nzg
-  dims(2) = mland
-
-  call fh5_cache_write(ndims, dims, 7, herr, mcoords=iland_local_primary, &
-                                 ifsize=nland, fcoords=iland_globe_primary)
-
-  ndims   = 1
-  dims(1) = mlake
-
-  call fh5_cache_write(ndims, dims,8, herr, mcoords=ilake_local_primary, &
-                                 ifsize=nlake, fcoords=ilake_globe_primary)
-
-  ndims   = 2
-  dims(1) = nzlake
-  dims(1) = mlake
-
-  call fh5_cache_write(ndims, dims, 9, herr, mcoords=ilake_local_primary, &
-                                 ifsize=nlake, fcoords=ilake_globe_primary)
-
-  ndims   = 1
-  dims(1) = msea
-
-  call fh5_cache_write(ndims, dims, 10, herr, mcoords=isea_local_primary, &
-                                 ifsize=nsea, fcoords=isea_globe_primary)
-
-  ndims   = 2
-  dims(1) = nzi
-  dims(2) = msea
-
-  call fh5_cache_write(ndims, dims, 11, herr, mcoords=isea_local_primary, &
-                                 ifsize=nsea, fcoords=isea_globe_primary)
-
-  if (nzsea /= 0) then
-     ndims   = 2
-     dims(1) = nzsea
-     dims(2) = msea
-
-     call fh5_cache_write(ndims, dims, 12, herr, mcoords=isea_local_primary, &
-                                 ifsize=nsea, fcoords=isea_globe_primary)
-  endif
-
-end subroutine hist_cache_hdf5_writes

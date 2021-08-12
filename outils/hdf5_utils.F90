@@ -140,20 +140,12 @@ subroutine shdf5_info(dsetname, ndims, dims)
 
 ! Open the dataset.
 
-  call fh5d_open(dsetname, hdferr)
+  call fh5_get_info(dsetname, ndims, dims, hdferr)
 
   if (hdferr < 0) then
      ndims   = -1
      dims(1) =  0
-     return
   endif
-
-! Get dataset's dimensions
-
-  call fh5s_get_ndims(ndims)
-  call fh5s_get_dims(dims)
-
-  call fh5d_close(hdferr)
 
 end subroutine shdf5_info
 
@@ -164,11 +156,11 @@ subroutine shdf5_orec(ndims,dims,dsetname,bvars,ivars,rvars,cvars,dvars,lvars, &
                                           bvar2,ivar2,rvar2,cvar2,dvar2,lvar2, &
                                           bvar3,ivar3,rvar3,cvar3,dvar3,lvar3, &
                                           bvar4,ivar4,rvar4,      dvar4,       &
-                                          nglobe, lpoints, gpoints,       &
-                                          units, long_name, positive,     &
-                                          imissing, rmissing, dmissing,   &
-                                          isdim, dimnames, standard_name, &
-                                          cell_methods, cache_id          )
+                                          nglobe, lpoints, gpoints, stagpt,    &
+                                          units, long_name, positive,          &
+                                          imissing, rmissing, dmissing,        &
+                                          isdim, dimnames, standard_name,      &
+                                          cell_methods                         )
 
   use oname_coms,  only: nl
   use misc_coms,   only: iparallel
@@ -212,8 +204,8 @@ subroutine shdf5_orec(ndims,dims,dsetname,bvars,ivars,rvars,cvars,dvars,lvars, &
 ! Indicate names of each dimension
   character(*), intent(in), optional, contiguous :: dimnames(:)
 
-! Dataspace cache id
-  integer,      intent(in), optional :: cache_id
+! Type of variable
+  character(2), intent(in), optional :: stagpt
 
 ! Local variables
   integer :: hdferr, ids
@@ -226,9 +218,9 @@ subroutine shdf5_orec(ndims,dims,dsetname,bvars,ivars,rvars,cvars,dvars,lvars, &
   endif
 
 #if defined(OLAM_MPI) && !defined(OLAM_PARALLEL_HDF5)
-  if ( .not. present(ivars) .and. .not. present(rvars) .and. &
-       .not. present(cvars) .and. .not. present(dvars) .and. &
-       .not. present(lvars) .and. present(gpoints) .and. iparallel == 1 ) then
+  if ( (.not. present(bvars)) .and. (.not. present(ivars)) .and. (.not. present(rvars)) .and. &
+       (.not. present(cvars)) .and. (.not. present(dvars)) .and. (.not. present(lvars)) .and. &
+       (iparallel == 1) .and. present(gpoints) .and. present(nglobe) ) then
 
      call shdf5_orec2(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar1,  &
                                           bvar2,ivar2,rvar2,cvar2,dvar2,lvar2,  &
@@ -245,17 +237,15 @@ subroutine shdf5_orec(ndims,dims,dsetname,bvars,ivars,rvars,cvars,dvars,lvars, &
   endif
 #endif
 
-! Prepare memory and options for the write
+  ! Prepare memory and options for the write
 
-  ids = 1
-  if (present(cache_id)) ids = cache_id
+  call fh5_prepare_write(ndims, dims, hdferr, icompress=nl%icompress, &
+                         type=stagpt, mcoords=lpoints, fcoords=gpoints, &
+                         ifsize=nglobe)
 
-  call fh5_prepare_write(ndims, dims, hdferr, nl%icompress, &
-       mcoords=lpoints, fcoords=gpoints, ifsize=nglobe, idcache=ids)
-
-  if (hdferr /= 0) then
+  if (hdferr < 0) then
      print*, "shdf5_orec: can't prepare requested field:", trim(dsetname)
-     return
+     stop
   endif
 
 ! Write the dataset.
@@ -356,7 +346,7 @@ end subroutine shdf5_orec
 
 !================================================================
 
-#ifdef OLAM_MPI
+#if defined(OLAM_MPI) && !defined(OLAM_PARALLEL_HDF5)
 
 subroutine shdf5_orec2(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar1, &
                                            bvar2,ivar2,rvar2,cvar2,dvar2,lvar2, &
@@ -706,7 +696,7 @@ subroutine shdf5_irec(ndims,dims,dsetname,bvars,ivars,rvars,cvars,dvars,lvars,  
                                           bvar2,ivar2,rvar2,cvar2,dvar2,lvar2,  &
                                           bvar3,ivar3,rvar3,cvar3,dvar3,lvar3,  &
                                           bvar4,ivar4,rvar4,      dvar4,        &
-                                          points, start, counts)
+                                          points, start, counts, stagpt)
   use hdf5_f2f
   implicit none
 
@@ -733,6 +723,7 @@ subroutine shdf5_irec(ndims,dims,dsetname,bvars,ivars,rvars,cvars,dvars,lvars,  
   integer,      intent(IN), optional, contiguous :: points(:)
   integer,      intent(IN), optional, contiguous :: start (:)
   integer,      intent(IN), optional, contiguous :: counts(:)
+  character(2), intent(IN), optional             :: stagpt
 
 ! Local variables
   integer :: hdferr  ! Error flag
@@ -747,7 +738,7 @@ subroutine shdf5_irec(ndims,dims,dsetname,bvars,ivars,rvars,cvars,dvars,lvars,  
 ! Prepare file and memory space for the read
 
   call fh5_prepare_read(dsetname, ndims, dims, hdferr, coords=points, &
-                        start=start, counts=counts)
+                        type=stagpt, start=start, counts=counts)
   if (hdferr < 0) then
      print*,'shdf5_irec: can''t prepare requested field:',trim(dsetname)
      return
@@ -886,7 +877,7 @@ end subroutine shdf5_io
 subroutine shdf5_orec_ll(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar1, &
                                              bvar2,ivar2,rvar2,cvar2,dvar2,lvar2, &
                                              bvar3,ivar3,rvar3,cvar3,dvar3,lvar3, &
-                                             gpoints,                        &
+                                             gpoints, stagpt,                &
                                              units, long_name, positive,     &
                                              imissing, rmissing, dmissing,   &
                                              isdim, dimnames, standard_name, &
@@ -920,6 +911,9 @@ subroutine shdf5_orec_ll(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar1
   real,         intent(in), optional :: rmissing
   real(r8),     intent(in), optional :: dmissing
 
+! Type of variable
+  character(2), intent(in), optional :: stagpt
+
 ! Indicates if this variable is a global dimension
   logical,      intent(in), optional :: isdim
 
@@ -930,7 +924,7 @@ subroutine shdf5_orec_ll(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar1
   integer,      intent(in), optional :: cache_id
 
 ! Local variables
-  integer :: hdferr, ids
+  integer :: hdferr
 
 ! Check dimensions and set compression chunk size
 
@@ -958,11 +952,10 @@ subroutine shdf5_orec_ll(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar1
 
 ! Prepare memory and options for the write
 
-  ids = 1
-  if (present(cache_id)) ids = cache_id
+  hdferr = 0
 
-  call fh5_prepare_write_ll( ndims, dims, hdferr, 0, & !nl%icompress, &
-                             fcoords=gpoints, idcache=ids )
+  call fh5_prepare_write_ll( ndims, dims, hdferr, nl%icompress, &
+                             type=stagpt, fcoords=gpoints )
 
   if (hdferr /= 0) then
      print*, "shdf5_orec_ll: can't prepare requested field:", trim(dsetname)

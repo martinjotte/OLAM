@@ -205,25 +205,34 @@ subroutine hist_read()
      ns = idims(ndims)
 
      if     (associated(vtab_r(nv)%ivar1_p)) then
-        call shdf5_irec(ndims, idims, varn, ivar1=vtab_r(nv)%ivar1_p, points=ilocal(1:ns))
+        call shdf5_irec(ndims, idims, varn, ivar1=vtab_r(nv)%ivar1_p, &
+                        points=ilocal(1:ns), stagpt=stagpt)
      elseif (associated(vtab_r(nv)%ivar2_p)) then
-        call shdf5_irec(ndims, idims, varn, ivar2=vtab_r(nv)%ivar2_p, points=ilocal(1:ns))
+        call shdf5_irec(ndims, idims, varn, ivar2=vtab_r(nv)%ivar2_p, &
+                        points=ilocal(1:ns), stagpt=stagpt)
      elseif (associated(vtab_r(nv)%ivar3_p)) then
-        call shdf5_irec(ndims, idims, varn, ivar3=vtab_r(nv)%ivar3_p, points=ilocal(1:ns))
+        call shdf5_irec(ndims, idims, varn, ivar3=vtab_r(nv)%ivar3_p, &
+                        points=ilocal(1:ns), stagpt=stagpt)
 
      elseif (associated(vtab_r(nv)%rvar1_p)) then
-        call shdf5_irec(ndims, idims, varn, rvar1=vtab_r(nv)%rvar1_p, points=ilocal(1:ns))
+        call shdf5_irec(ndims, idims, varn, rvar1=vtab_r(nv)%rvar1_p, &
+                        points=ilocal(1:ns), stagpt=stagpt)
      elseif (associated(vtab_r(nv)%rvar2_p)) then
-        call shdf5_irec(ndims, idims, varn, rvar2=vtab_r(nv)%rvar2_p, points=ilocal(1:ns))
+        call shdf5_irec(ndims, idims, varn, rvar2=vtab_r(nv)%rvar2_p, &
+                        points=ilocal(1:ns), stagpt=stagpt)
      elseif (associated(vtab_r(nv)%rvar3_p)) then
-        call shdf5_irec(ndims, idims, varn, rvar3=vtab_r(nv)%rvar3_p, points=ilocal(1:ns))
+        call shdf5_irec(ndims, idims, varn, rvar3=vtab_r(nv)%rvar3_p, &
+                        points=ilocal(1:ns), stagpt=stagpt)
 
      elseif (associated(vtab_r(nv)%dvar1_p)) then
-        call shdf5_irec(ndims, idims, varn, dvar1=vtab_r(nv)%dvar1_p, points=ilocal(1:ns))
+        call shdf5_irec(ndims, idims, varn, dvar1=vtab_r(nv)%dvar1_p, &
+                        points=ilocal(1:ns), stagpt=stagpt)
      elseif (associated(vtab_r(nv)%dvar2_p)) then
-        call shdf5_irec(ndims, idims, varn, dvar2=vtab_r(nv)%dvar2_p, points=ilocal(1:ns))
+        call shdf5_irec(ndims, idims, varn, dvar2=vtab_r(nv)%dvar2_p, &
+                        points=ilocal(1:ns), stagpt=stagpt)
      elseif (associated(vtab_r(nv)%dvar3_p)) then
-        call shdf5_irec(ndims, idims, varn, dvar3=vtab_r(nv)%dvar3_p, points=ilocal(1:ns))
+        call shdf5_irec(ndims, idims, varn, dvar3=vtab_r(nv)%dvar3_p, &
+                        points=ilocal(1:ns), stagpt=stagpt)
      endif
 
      nvcnt = nvcnt + 1
