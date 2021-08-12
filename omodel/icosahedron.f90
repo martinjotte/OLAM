@@ -30,46 +30,45 @@
    !----------------------------------------------------------------------------
 
 !===============================================================================
+
 subroutine icosahedron(nxp0)
 
-  use mem_ijtabs, only: mrls, itab_md, itab_ud, itab_wd, alloc_itabsd, &
-                        jtm_grid, jtu_grid, jtv_grid, jtw_grid, &
-                        jtm_init, jtu_init, jtv_init, jtw_init, &
-                        jtm_prog, jtu_prog, jtv_prog, jtw_prog, &
-                        jtm_wadj, jtu_wadj, jtv_wadj, jtw_wadj, &
-                        jtm_wstn, jtu_wstn, jtv_wstn, jtw_wstn, &
-                        jtm_lbcp, jtu_lbcp, jtv_lbcp, jtw_lbcp, &
-                        jtm_vadj, jtu_wall, jtv_wall, jtw_vadj
+  use mem_ijtabs,   only: jtm_grid, jtu_grid, jtv_grid, jtw_grid, &
+                          jtm_init, jtu_init, jtv_init, jtw_init, &
+                          jtm_prog, jtu_prog, jtv_prog, jtw_prog, &
+                          jtm_wadj, jtu_wadj, jtv_wadj, jtw_wadj, &
+                          jtm_wstn, jtu_wstn, jtv_wstn, jtw_wstn, &
+                          jtm_lbcp, jtu_lbcp, jtv_lbcp, jtw_lbcp, &
+                          jtm_vadj, jtu_wall, jtv_wall, jtw_vadj
 
-  use mem_grid,    only: nza, nma, nua, nwa, xem, yem, zem, &
-                         alloc_xyzem, impent
-  use misc_coms,   only: io6
-  use consts_coms, only: pi2, erad, erador5
+  use mem_delaunay, only: itab_md, itab_ud, itab_wd, alloc_itabsd, &
+                          xemd, yemd, zemd, nmd, nud, nwd
+
+  use mem_grid,     only: impent
+  use consts_coms,  only: pi2, erad, erador5
 
   implicit none
 
   integer, intent(in) :: nxp0
 
-  real, parameter :: pwrd = 1.0  ! 0.9 is close to making uniform-sized triangles
-                                 ! 1.0 is original value
+  real, parameter :: pwrd = 0.9  ! 0.9 is close to making uniform-sized triangles
+! real, parameter :: pwrd = 1.0  ! 1.0 is original value
 
   integer :: ibigd,i,j,idiamond,im_left,iu0,iu1,iu2,iu3,iu4,iw1,iw2,im &
      ,idiamond_top,im_top,im_right,im_bot,nn10,idiamond_right,idiamond_bot &
      ,iu,iw
   integer :: id
-
+ 
   real :: wts,wtn,wtw,wte,expansion,anglen,anglew,anglee,angles,wtw0,wte0,sumwt
 
-  integer, save, dimension(10) :: ibigd_ne = (/6,7,8,9,10,7,8,9,10,6/) &
-                                 ,ibigd_se = (/2,3,4,5,1,2,3,4,5,1/)
+  integer, parameter :: ibigd_ne(10) = [ 6,7,8,9,10,7,8,9,10,6 ]
+  integer, parameter :: ibigd_se(10) = [ 2,3,4,5, 1,2,3,4, 5,1 ]
 
-  real, save, dimension(10) :: xed_s,xed_n,xed_w,xed_e &
-                              ,yed_s,yed_n,yed_w,yed_e &
-                              ,zed_s,zed_n,zed_w,zed_e
+  real, dimension(10) :: xed_s,xed_n,xed_w,xed_e, &
+                         yed_s,yed_n,yed_w,yed_e, &
+                         zed_s,zed_n,zed_w,zed_e
 
   ! Define triangles, edges, and vertices for icosahedral faces and subdivisions
-
-  mrls = 1  ! Default value
 
   ! For now, use nxp0 to divide each face
 
@@ -77,18 +76,16 @@ subroutine icosahedron(nxp0)
 
   ! ADD 1 to total number of points needed
 
-  nma =     nn10 + 2 + 1  ! ADDING 1 for reference point (index = 1)
-  nua = 3 * nn10     + 1  ! ADDING 1 for reference point (index = 1)
-  nwa = 2 * nn10     + 1  ! ADDING 1 for reference point (index = 1)
+  nmd =     nn10 + 2 + 1  ! ADDING 1 for reference point (index = 1)
+  nud = 3 * nn10     + 1  ! ADDING 1 for reference point (index = 1)
+  nwd = 2 * nn10     + 1  ! ADDING 1 for reference point (index = 1)
 
   ! Allocate memory for itabs and M earth coords
   ! Initialize all neighbor indices to zero
 
-  call alloc_itabsd(nma,nua,nwa)
+  call alloc_itabsd(nmd,nud,nwd)
 
-  call alloc_xyzem(nma)
-
-  do im = 2,nma
+  do im = 2,nmd
      itab_md(im)%imp = im
      itab_md(im)%mrlm = 1
      itab_md(im)%mrlm_orig = 1
@@ -96,12 +93,12 @@ subroutine icosahedron(nxp0)
      call mdloopf('f',im, jtm_grid, jtm_init, jtm_prog, jtm_wadj, jtm_wstn, 0)
   enddo
 
-  do iu = 2,nua
+  do iu = 2,nud
      itab_ud(iu)%iup = iu
      call udloopf('f',iu, jtu_grid, jtu_init, jtu_prog, jtu_wadj, jtu_wstn, 0)
   enddo
 
-  do iw = 2,nwa
+  do iw = 2,nwd
      itab_wd(iw)%iwp = iw
      call wdloopf('f',iw, jtw_grid, jtw_vadj, 0, 0, 0, 0)
   enddo
@@ -159,7 +156,7 @@ subroutine icosahedron(nxp0)
   ! Store IM index of south-pole and north-pole pentagonal points
 
   impent(1) = 2
-  impent(12) = nma
+  impent(12) = nmd
 
   do ibigd = 1,10
 
@@ -220,7 +217,7 @@ subroutine icosahedron(nxp0)
               im_right = idiamond_right + 2
 
               ! Bottom diamond indices
-            
+
               if (j > 1) then
                  idiamond_bot = idiamond - nxp0
                  iu2 = 3 * idiamond_bot + 1 ! (it's the iu3 for id_bot)
@@ -230,7 +227,7 @@ subroutine icosahedron(nxp0)
                               +  1
               endif
               im_bot = idiamond_bot + 2
-            
+
               if (i == 1 .and. j == 1) im_bot = 2
 
            else                  ! Northern 5 diamonds
@@ -266,18 +263,18 @@ subroutine icosahedron(nxp0)
               im_right = idiamond_right + 2
 
               ! Bottom diamond indices
-            
+
               if (j > 1) then
                  idiamond_bot = idiamond - nxp0
               else
                  idiamond_bot = (ibigd_se(ibigd)-1) * nxp0 * nxp0 &
                               + (nxp0 - 1)          * nxp0        &
-                              + i 
+                              + i
               endif
 
               im_bot = idiamond_bot + 2
               iu2 = 3 * idiamond_bot + 1 ! (it's the iu3 for id_bot)
-            
+
               if (i == nxp0 .and. j == nxp0) &
                  im_top = 10 * nxp0 * nxp0 + 3
 
@@ -286,8 +283,8 @@ subroutine icosahedron(nxp0)
            call fill_diamond(im_left,im_right,im_top,im_bot &
               ,iu0,iu1,iu2,iu3,iu4,iw1,iw2)
 
-           ! M point (xem,yem,zem) coordinates
-         
+           ! M point (xemd,yemd,zemd) coordinates
+
            if (i + j <= nxp0) then
               wts  = max(0.,min(1.,real(nxp0 + 1 - i - j) / real(nxp0)))
               wtn  = 0.
@@ -313,67 +310,66 @@ subroutine icosahedron(nxp0)
            wtw = wtw**pwrd / sumwt
            wte = wte**pwrd / sumwt
 
-           xem(im_left) = wts * xed_s(ibigd) &
-                        + wtn * xed_n(ibigd) &
-                        + wtw * xed_w(ibigd) &
-                        + wte * xed_e(ibigd)
+           xemd(im_left) = wts * xed_s(ibigd) &
+                         + wtn * xed_n(ibigd) &
+                         + wtw * xed_w(ibigd) &
+                         + wte * xed_e(ibigd)
 
-           yem(im_left) = wts * yed_s(ibigd) &
-                        + wtn * yed_n(ibigd) &
-                        + wtw * yed_w(ibigd) &
-                        + wte * yed_e(ibigd)
+           yemd(im_left) = wts * yed_s(ibigd) &
+                         + wtn * yed_n(ibigd) &
+                         + wtw * yed_w(ibigd) &
+                         + wte * yed_e(ibigd)
 
-           zem(im_left) = wts * zed_s(ibigd) &
-                        + wtn * zed_n(ibigd) &
-                        + wtw * zed_w(ibigd) &
-                        + wte * zed_e(ibigd)
+           zemd(im_left) = wts * zed_s(ibigd) &
+                         + wtn * zed_n(ibigd) &
+                         + wtw * zed_w(ibigd) &
+                         + wte * zed_e(ibigd)
 
            ! Push M point coordinates out to earth radius
 
-           expansion = erad / sqrt(xem(im_left) ** 2 &
-                                 + yem(im_left) ** 2 &
-                                 + zem(im_left) ** 2 )
+           expansion = erad / sqrt( xemd(im_left) ** 2 &
+                                  + yemd(im_left) ** 2 &
+                                  + zemd(im_left) ** 2 )
 
-           xem(im_left) = xem(im_left) * expansion
-           yem(im_left) = yem(im_left) * expansion
-           zem(im_left) = zem(im_left) * expansion
-         
+           xemd(im_left) = xemd(im_left) * expansion
+           yemd(im_left) = yemd(im_left) * expansion
+           zemd(im_left) = zemd(im_left) * expansion
+
         enddo  ! end i loop
      enddo     ! end j loop
 
   enddo        ! end idbig loop
 
-  xem(2) = 0.
-  yem(2) = 0.
-  zem(2) = -erad
+  xemd(2) = 0.
+  yemd(2) = 0.
+  zemd(2) = -erad
 
-  xem(nma) = 0.
-  yem(nma) = 0.
-  zem(nma) = erad
+  xemd(nmd) = 0.
+  yemd(nmd) = 0.
+  zemd(nmd) = erad
 
-  !call twist()
+  ! call twist(nxp0)
 
-  call tri_neighbors(nma, nua, nwa, itab_md, itab_ud, itab_wd)
+  call tri_neighbors(nmd, nud, nwd, itab_md, itab_ud, itab_wd)
 
   ! This is the place to do spring dynamics
 
-  call spring_dynamics(3, 1, 1, nma, nua, nwa, xem, yem, zem, &
+  call spring_dynamics(3, 1, 1, nxp0, nmd, nud, nwd, xemd, yemd, zemd, &
                        itab_md, itab_ud, itab_wd)
 
 end subroutine icosahedron
 
 !===============================================================================
 
-subroutine fill_diamond(im_left,im_right,im_top,im_bot  &
-   ,iu0,iu1,iu2,iu3,iu4,iw1,iw2)
+subroutine fill_diamond(im_left,im_right,im_top,im_bot,  &
+                        iu0,iu1,iu2,iu3,iu4,iw1,iw2)
 
-  use mem_ijtabs, only: itab_ud, itab_wd
-  use misc_coms,  only: io6
+  use mem_delaunay, only: itab_ud, itab_wd
 
   implicit none
 
   integer, intent(in) :: im_left,im_right,im_top,im_bot
-  integer, intent(in) :: iu0,iu1,iu2,iu3,iu4,iw1,iw2     
+  integer, intent(in) :: iu0,iu1,iu2,iu3,iu4,iw1,iw2
 
   itab_ud(iu0)%im(1) = im_left
   itab_ud(iu0)%im(2) = im_right
@@ -395,16 +391,16 @@ subroutine fill_diamond(im_left,im_right,im_top,im_bot  &
 
   itab_ud(iu4)%iw(1) = iw2
 
-  itab_wd(iw1)%iu(1) = iu0 
-  itab_wd(iw1)%iu(2) = iu1 
-  itab_wd(iw1)%iu(3) = iu2 
+  itab_wd(iw1)%iu(1) = iu0
+  itab_wd(iw1)%iu(2) = iu1
+  itab_wd(iw1)%iu(3) = iu2
   itab_wd(iw1)%mrlw = 1
   itab_wd(iw1)%mrlw_orig = 1
   itab_wd(iw1)%ngr = 1
 
-  itab_wd(iw2)%iu(1) = iu0 
-  itab_wd(iw2)%iu(2) = iu4 
-  itab_wd(iw2)%iu(3) = iu3 
+  itab_wd(iw2)%iu(1) = iu0
+  itab_wd(iw2)%iu(2) = iu4
+  itab_wd(iw2)%iu(3) = iu3
   itab_wd(iw2)%mrlw = 1
   itab_wd(iw2)%mrlw_orig = 1
   itab_wd(iw2)%ngr = 1
@@ -413,18 +409,18 @@ end subroutine fill_diamond
 
 !===============================================================================
 
-subroutine twist()
+subroutine twist(nxp)
 
-  use mem_ijtabs,  only: itab_md, itab_ud, itab_wd
-  use mem_grid,    only: nma, nua, xem, yem, zem
-  use misc_coms,   only: io6, nxp
-  use consts_coms, only: pi1, pi2
+  use mem_delaunay, only: itab_ud, itab_wd, xemd, yemd, zemd, nmd, nud
+  use consts_coms,  only: pi1, pi2
 
   implicit none
 
+  integer, intent(in) :: nxp
+
   integer :: im,im1,im2,im1_east,im2_east
   integer :: iu,iu1,iu2,iu3,iu_east,iueq,iueq_east,iueq_fill
-  integer :: iw,iw1
+  integer :: iw
 
   integer :: nxpo2  ! half of nxp (nxp must be even if twist is done)
 
@@ -441,34 +437,34 @@ subroutine twist()
   iueq_tab(:) = 0
   iweq_tab(:) = 0
 
-  ! Shift all M points in southern hemisphere (excluding equator) 
+  ! Shift all M points in southern hemisphere (excluding equator)
   ! 36 degrees to the east
 
-  do im = 2,nma
-     if (zem(im) < -100.) then
+  do im = 2,nmd
+     if (zemd(im) < -100.) then
 
-        radm = sqrt(xem(im) ** 2 + yem(im) ** 2)
-        angm = atan2(yem(im),xem(im))
+        radm = sqrt(xemd(im) ** 2 + yemd(im) ** 2)
+        angm = atan2(yemd(im),xemd(im))
 
-        xem(im) = radm * cos(angm + .2 * pi1)
-        yem(im) = radm * sin(angm + .2 * pi1)
+        xemd(im) = radm * cos(angm + .2 * pi1)
+        yemd(im) = radm * sin(angm + .2 * pi1)
 
      endif
   enddo
 
   ! Loop over all U points and search for those that are on the equator
 
-  do iu = 1,nua
+  do iu = 1,nud
      im1 = itab_ud(iu)%im(1)
      im2 = itab_ud(iu)%im(2)
 
-     if (abs(zem(im1)) < 100. .and. abs(zem(im2)) < 100.) then
+     if (abs(zemd(im1)) < 100. .and. abs(zemd(im2)) < 100.) then
 
      ! Compute special index for equatorial U points that increases with longitude.
      ! This uses knowledge of icosahedron subroutine that im2 is always east of iu.
      ! IUEQ skips approximately every other integer and therefore needs to be collapsed.
 
-        iueq = int(10 * nxp * (atan2(yem(im2),xem(im2)) + pi1) / pi2) + 1   
+        iueq = int(10 * nxp * (atan2(yemd(im2),xemd(im2)) + pi1) / pi2) + 1
 
         ! Fill table of iu and iw1 indices for each iueq
 
@@ -525,7 +521,7 @@ subroutine twist()
      iu2 = itab_wd(iw)%iu(2)
      iu3 = itab_wd(iw)%iu(3)
 
-  ! For U points on equator: shift their south W point neighbor index 
+  ! For U points on equator: shift their south W point neighbor index
 
      itab_ud(iu_east)%iw(1) = iw
 
@@ -540,7 +536,7 @@ subroutine twist()
         itab_wd(iw)%iu(3) = iu_east
      endif
 
-  ! For U points bordering equator on south: shift their equatorial M point 
+  ! For U points bordering equator on south: shift their equatorial M point
   ! neighbor index
 
      if (iu1 /= iu) then
@@ -582,4 +578,3 @@ subroutine twist()
   enddo
 
 end subroutine twist
-

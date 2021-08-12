@@ -2315,7 +2315,7 @@ end subroutine plot_dualgrid
 subroutine plot_sfcgrid(iplt)
 
   use oplot_coms, only: op
-  use mem_sfcg,    only: mwsfc, sfcg, itab_wsfc
+  use mem_sfcg,    only: mwsfc, sfcg, itab_wsfc, mvsfc, itab_vsfc, nvsfc
   use misc_coms,  only: io6, iparallel
   use mem_para,   only: myrank, mgroupsize, nbytes_int, nbytes_real
   use max_dims,   only: maxnlspoly
@@ -2330,7 +2330,7 @@ subroutine plot_sfcgrid(iplt)
 
   integer :: iflag180,iskip
 
-  integer :: iwsfc,jm1,jm2,im1,im2,npoly
+  integer :: iwsfc,jm1,jm2,im1,im2,npoly,ivsfc,iw1
 
   real :: xp1,xp2,yp1,yp2
   real :: xq1,xq2,yq1,yq2
@@ -2362,9 +2362,11 @@ subroutine plot_sfcgrid(iplt)
 
   base = 4 * nbytes_real
   if (op%windowin(iplt) == 'W') then
-     inc = ceiling( real(mwsfc) / 5. )
+!    inc = ceiling( real(mwsfc) / 5. )
+     inc = ceiling( real(mvsfc) / 5. )
   else
-     inc = mwsfc
+!    inc = mwsfc
+     inc = mvsfc
   endif
 
   if (myrank > 0) then
@@ -2372,16 +2374,35 @@ subroutine plot_sfcgrid(iplt)
      allocate( buffer( buffsize ) )
   endif
 
-  do iwsfc = 2, mwsfc
+! do iwsfc = 2, mwsfc
+!    npoly = itab_wsfc(iwsfc)%npoly
 
-     npoly = itab_wsfc(iwsfc)%npoly
+  ! Changed to loop over V. Will need to go back to W loop if all
+  ! surface cells are no longer Voronoi
+  do ivsfc = 2, mvsfc
 
-     do jm1 = 1,npoly
-        jm2 = jm1 + 1
-        if (jm2 > npoly) jm2 = 1
+     ! Only plot each V segment once in parallel
+     if (iparallel == 1) then
+        iw1 = itab_vsfc(ivsfc)%iwn(1)
+        if (itab_wsfc(iw1)%irank /= myrank) cycle
+     endif
 
-        im1 = itab_wsfc(iwsfc)%imn(jm1)
-        im2 = itab_wsfc(iwsfc)%imn(jm2)
+!    do jm1 = 1,npoly
+!       jm2 = jm1 + 1
+!       if (jm2 > npoly) jm2 = 1
+
+        jm1 = 1
+        jm2 = 2
+
+!       im1 = itab_wsfc(iwsfc)%imn(jm1)
+!       im2 = itab_wsfc(iwsfc)%imn(jm2)
+
+        im1 = itab_vsfc(ivsfc)%imn(jm1)
+        im2 = itab_vsfc(ivsfc)%imn(jm2)
+
+        if (any(itab_vsfc(ivsfc)%iwn(1:2) == 3)) then
+           write(*,*) sfcg%xem(im1), sfcg%yem(im1), sfcg%zem(im1), sfcg%xem(im2), sfcg%yem(im2), sfcg%zem(im2)
+        endif
 
         ! Get tile plot coordinates.
 
@@ -2470,7 +2491,7 @@ subroutine plot_sfcgrid(iplt)
 
         endif
 
-     enddo  ! jm1
+!     enddo  ! jm1
 
   enddo  ! iwsfc
 

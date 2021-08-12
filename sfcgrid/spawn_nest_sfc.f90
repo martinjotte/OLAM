@@ -7,69 +7,27 @@
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
+! including OLAM:
 
    !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
+   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University;
+   ! Colorado State University Research Foundation ; ATMET, LLC
 
-   ! This software is free software; you can redistribute it and/or modify it 
+   ! This software is free software; you can redistribute it and/or modify it
    ! under the terms of the GNU General Public License as published by the Free
    ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
+   ! any later version.
 
    ! This software is distributed in the hope that it will be useful, but
    ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
    ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
    ! for more details.
- 
+
    ! You should have received a copy of the GNU General Public License along
    ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
+   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
+   ! (http://www.gnu.org/licenses/gpl.html)
    !----------------------------------------------------------------------------
-
-!===============================================================================
-
-subroutine copy_sfc_tri_grid(nma, nua, nwa, xem, yem, zem, &
-                             itab_mda, itab_uda, itab_wda)
-
-  use mem_ijtabs, only: itab_md_vars, itab_ud_vars, itab_wd_vars
-  use mem_sfcg,    only: nmd, nud, nwd, xemd, yemd, zemd, itab_md, itab_ud, itab_wd
-
-  implicit none
-
-  integer, intent(in) :: nma, nua, nwa
-  real,    intent(in) :: xem(nma), yem(nma), zem(nma)
-
-  type (itab_md_vars), intent(in) :: itab_mda(nma)
-  type (itab_ud_vars), intent(in) :: itab_uda(nua)
-  type (itab_wd_vars), intent(in) :: itab_wda(nwa)
-
-  ! Save a copy of triangle structure of ATM grid in its current state of
-  ! construction for subsequent independent local refinement of SURFACE grid.
-
-  nmd = nma
-  nud = nua
-  nwd = nwa
-
-  allocate (xemd(nmd))
-  allocate (yemd(nmd))
-  allocate (zemd(nmd))
-
-  allocate (itab_md(nmd))
-  allocate (itab_ud(nud))
-  allocate (itab_wd(nwd))
-
-  xemd(:) = xem(:)
-  yemd(:) = yem(:)
-  zemd(:) = zem(:)
-
-  itab_md = itab_mda
-  itab_ud = itab_uda
-  itab_wd = itab_wda
-
-end subroutine copy_sfc_tri_grid
 
 !===============================================================================
 
@@ -77,18 +35,17 @@ subroutine spawn_nest_sfc()
 
   ! This subroutine adds nested grid regions at the beginning of a simulation.
 
-  use mem_ijtabs,  only: itab_md_vars, itab_ud_vars, itab_wd_vars, &
-                         nest_ud_vars, nest_wd_vars
+  use mem_delaunay, only: itab_md_vars, itab_ud_vars, itab_wd_vars, &
+                          nest_ud_vars, nest_wd_vars, alloc_itabsd, &
+                          nmd, nud, nwd, xemd, yemd, zemd, &
+                          itab_md, itab_ud, itab_wd
 
-  use mem_sfcg,     only: nsfcgrid_root, nsfcgrids, nsfcgrdll, &
-                         sfcgrdrad, sfcgrdlat, sfcgrdlon, &
-                         nmd, nud, nwd, xemd, yemd, zemd, &
-                         itab_md, itab_ud, itab_wd
+  use mem_sfcg,     only: nsfcgrids, nsfcgrdll, sfcgrdrad, sfcgrdlat, &
+                          sfcgrdlon, nxp_sfc, nsfcgrid_root
 
-  use mem_grid,    only: xem, yem, zem
-  use misc_coms,   only: io6, mdomain
-  use consts_coms, only: pio180, erad, pi1, pi2
-  use oname_coms,  only: nl
+  use misc_coms,    only: io6, mdomain
+  use consts_coms,  only: pio180, erad, pi1, pi2
+  use oname_coms,   only: nl
 
   implicit none
 
@@ -98,7 +55,7 @@ subroutine spawn_nest_sfc()
 
   type (nest_ud_vars), allocatable :: nest_ud(:)
   type (nest_wd_vars), allocatable :: nest_wd(:)
-   
+
   integer :: iu,iw,im,iw1,iw2,im1,im2
   integer :: iu1,iu2,iu3,iu1o,iu2o,iu3o,iu1o_iw1,iu2o_iw1,iu3o_iw1
   integer :: iu4,iu5,iu6,iw3,ngr,nsfcgr,mrlo,mrloo,nwdd,j,npoly,nw
@@ -139,16 +96,14 @@ subroutine spawn_nest_sfc()
 
   nmd0 = nmd
   nud0 = nud
-  nwd0 = nwd 
+  nwd0 = nwd
 
   do nsfcgr = 1, nsfcgrids  ! Loop over nested grids
-     ngr = nsfcgr + abs(nsfcgrid_root)
+     ngr = nsfcgr + max(1, nsfcgrid_root)
 
      ! Allocate temporary tables
 
      allocate (nest_ud(nud), nest_wd(nwd))  ! Nest relations
-     allocate (xem_temp(nmd), yem_temp(nmd), zem_temp(nmd))
-
      allocate (jm(3,npts), ju(2,npts))
      allocate (imper(npts), iuper(npts), igsize(npts), nearpent(npts), nwdivg(npts))
 
@@ -160,15 +115,9 @@ subroutine spawn_nest_sfc()
      call move_alloc(itab_ud, ltab_ud)
      call move_alloc(itab_wd, ltab_wd)
 
-     do im = 1,nmd
-        xem_temp(im) = xemd(im)
-        yem_temp(im) = yemd(im)
-        zem_temp(im) = zemd(im)
-     enddo
-
-     ! Deallocate main tables
-
-     deallocate (xemd, yemd, zemd)      
+     call move_alloc(xemd, xem_temp)
+     call move_alloc(yemd, yem_temp)
+     call move_alloc(zemd, zem_temp)
 
      ! Locate and flag all W triangles to be subdivided
      ! Define 3 new W indices and 3 new U indices for each W - attach to W.
@@ -204,11 +153,11 @@ subroutine spawn_nest_sfc()
                  nwd0 = nwd0 + 3
 
               endif
-      
+
            enddo
 
         endif
-      
+
      enddo ! im
 
      ! Add W points to nested grid region in order to eliminate concavities
@@ -228,7 +177,7 @@ subroutine spawn_nest_sfc()
 
            do j = 1,npoly
               iw = ltab_md(im)%iw(j)
-            
+
               if (nest_wd(iw)%iw(3) > 0) then
                  nw = nw + 1  ! Count up subdivided W points around this M point
               endif
@@ -237,7 +186,10 @@ subroutine spawn_nest_sfc()
            ! Check npoly and nw for illegal values
 
            if (nw == 0 .or. nw == npoly) cycle
-           if (npoly == 6 .and. nw < 5) cycle
+           ! if (npoly == 6 .and. nw < 5) cycle
+           ! MJO: This fills in around any pentagon point that happens to be on
+           ! a mesh boundary. I will relax this criteria for now:
+           if (nw < npoly - 1) cycle
 
            ! If we got here, then either of the following is true at current M pt:
            !    (1) npoly = 5 and nw > 0 and nw < npoly
@@ -268,6 +220,8 @@ subroutine spawn_nest_sfc()
 
         enddo
 
+        write(*,*) "calling perim_map2 ", npts, nmd, nud, nwd
+
         call perim_map2(npts, nmd, nud, nwd, nper2, imper, iuper, npolyper, &
                         nwdivper, nearpent, ltab_md, ltab_ud, ltab_wd, nest_wd)
 
@@ -280,13 +234,13 @@ subroutine spawn_nest_sfc()
            else
               nccv = 0
            endif
-         
+
            if (nccv > 1) then
 
               do jj = j-2,j
                  iw1 = ltab_ud(iuper(jj))%iw(1)
                  iw2 = ltab_ud(iuper(jj))%iw(2)
-      
+
                  if (nest_wd(iw1)%iw(3) == 0) then
                     nest_wd(iw1)%iu(1) = nud0 + 1
                     nest_wd(iw1)%iu(2) = nud0 + 2
@@ -325,7 +279,7 @@ subroutine spawn_nest_sfc()
      enddo
      print*, ' '
 
-     ! Nested region should be fully expanded now without any concavities, 
+     ! Nested region should be fully expanded now without any concavities,
      ! 5-edge vertices, or consecutive weak concavities.
 
      ! Define new vertex index for midpoint of each original U edge that is adjacent
@@ -367,7 +321,7 @@ subroutine spawn_nest_sfc()
      kua = nud0
      kwa = nwd0
 
-     ! Form groups of original M and U indices on perimeter and increase nmd0, nud0, 
+     ! Form groups of original M and U indices on perimeter and increase nmd0, nud0,
      ! and nwd0 according to what groups will require
 
      call perim_add1(npts,nper2,imper,iuper,nwdivper,nearpent, &
@@ -376,13 +330,7 @@ subroutine spawn_nest_sfc()
      ! Allocate main tables to expanded size
      ! Initialize all neighbor indices to zero
 
-     allocate (itab_md(nmd0))
-     allocate (itab_ud(nud0))
-     allocate (itab_wd(nwd0))
-
-     allocate (xemd(nmd0))
-     allocate (yemd(nmd0))
-     allocate (zemd(nmd0))
+     call alloc_itabsd(nmd0,nud0,nwd0)
 
      ! Memory copy to main tables
 
@@ -409,7 +357,7 @@ subroutine spawn_nest_sfc()
            im  = nest_ud(iu)%im
            im1 = itab_ud(iu)%im(1)
            im2 = itab_ud(iu)%im(2)
-         
+
            ! Save mrl value of parent grid for new grid being spawned (saved within IF
            ! block because itab_md(im1)%mrlm gets changed later in DO loop)
 
@@ -478,22 +426,22 @@ subroutine spawn_nest_sfc()
            iu2 = nest_wd(iw)%iu(2)
            iu3 = nest_wd(iw)%iu(3)
 
-           iu4 = nest_ud(iu1o)%iu       
-           iu5 = nest_ud(iu2o)%iu       
+           iu4 = nest_ud(iu1o)%iu
+           iu5 = nest_ud(iu2o)%iu
            iu6 = nest_ud(iu3o)%iu
 
-           iw1 = nest_wd(iw)%iw(1)        
-           iw2 = nest_wd(iw)%iw(2)        
-           iw3 = nest_wd(iw)%iw(3) 
+           iw1 = nest_wd(iw)%iw(1)
+           iw2 = nest_wd(iw)%iw(2)
+           iw3 = nest_wd(iw)%iw(3)
 
            ! Fill tables with new values
 
-           itab_wd(iw)%iu(1) = iu1       
-           itab_wd(iw)%iu(2) = iu2       
-           itab_wd(iw)%iu(3) = iu3   
+           itab_wd(iw)%iu(1) = iu1
+           itab_wd(iw)%iu(2) = iu2
+           itab_wd(iw)%iu(3) = iu3
 
-           itab_wd(iw1)%iu(1) = iu1    
-           itab_wd(iw2)%iu(1) = iu2    
+           itab_wd(iw1)%iu(1) = iu1
+           itab_wd(iw2)%iu(1) = iu2
            itab_wd(iw3)%iu(1) = iu3
 
            itab_wd(iw)%mrlw  = mrlo + 1
@@ -516,13 +464,13 @@ subroutine spawn_nest_sfc()
               itab_ud(iu4)%im(2)  = ltab_ud(iu1o)%im(2)
            endif
 
-           if (nest_ud(iu2o)%im > 1) then 
+           if (nest_ud(iu2o)%im > 1) then
               itab_ud(iu2o)%im(2) = nest_ud(iu2o)%im
               itab_ud(iu5)%im(1)  = nest_ud(iu2o)%im
               itab_ud(iu5)%im(2)  = ltab_ud(iu2o)%im(2)
            endif
 
-           if (nest_ud(iu3o)%im > 1) then 
+           if (nest_ud(iu3o)%im > 1) then
               itab_ud(iu3o)%im(2) = nest_ud(iu3o)%im
               itab_ud(iu6)%im(1)  = nest_ud(iu3o)%im
               itab_ud(iu6)%im(2)  = ltab_ud(iu3o)%im(2)
@@ -532,8 +480,8 @@ subroutine spawn_nest_sfc()
               itab_wd(iw3)%iu(2) = iu1o
               itab_wd(iw2)%iu(3) = iu4
 
-              itab_ud(iu1)%im(1) = nest_ud(iu2o)%im            
-              itab_ud(iu1)%im(2) = nest_ud(iu3o)%im            
+              itab_ud(iu1)%im(1) = nest_ud(iu2o)%im
+              itab_ud(iu1)%im(2) = nest_ud(iu3o)%im
               itab_ud(iu1)%iw(1) = iw1
               itab_ud(iu1)%iw(2) = iw
 
@@ -543,21 +491,21 @@ subroutine spawn_nest_sfc()
               itab_wd(iw3)%iu(2) = iu4
               itab_wd(iw2)%iu(3) = iu1o
 
-              itab_ud(iu1)%im(1) = nest_ud(iu3o)%im            
-              itab_ud(iu1)%im(2) = nest_ud(iu2o)%im            
+              itab_ud(iu1)%im(1) = nest_ud(iu3o)%im
+              itab_ud(iu1)%im(2) = nest_ud(iu2o)%im
               itab_ud(iu1)%iw(1) = iw
               itab_ud(iu1)%iw(2) = iw1
 
               itab_ud(iu1o)%iw(2) = iw2
               itab_ud(iu4)%iw(2) = iw3
-           endif    
+           endif
 
            if (iw == iu2o_iw1) then
               itab_wd(iw1)%iu(2) = iu2o
               itab_wd(iw3)%iu(3) = iu5
 
-              itab_ud(iu2)%im(1) = nest_ud(iu3o)%im            
-              itab_ud(iu2)%im(2) = nest_ud(iu1o)%im            
+              itab_ud(iu2)%im(1) = nest_ud(iu3o)%im
+              itab_ud(iu2)%im(2) = nest_ud(iu1o)%im
               itab_ud(iu2)%iw(1) = iw2
               itab_ud(iu2)%iw(2) = iw
 
@@ -567,21 +515,21 @@ subroutine spawn_nest_sfc()
               itab_wd(iw1)%iu(2) = iu5
               itab_wd(iw3)%iu(3) = iu2o
 
-              itab_ud(iu2)%im(1) = nest_ud(iu1o)%im            
-              itab_ud(iu2)%im(2) = nest_ud(iu3o)%im            
+              itab_ud(iu2)%im(1) = nest_ud(iu1o)%im
+              itab_ud(iu2)%im(2) = nest_ud(iu3o)%im
               itab_ud(iu2)%iw(1) = iw
               itab_ud(iu2)%iw(2) = iw2
-            
+
               itab_ud(iu2o)%iw(2) = iw3
               itab_ud(iu5)%iw(2) = iw1
-           endif    
+           endif
 
            if (iw == iu3o_iw1) then
               itab_wd(iw2)%iu(2) = iu3o
               itab_wd(iw1)%iu(3) = iu6
 
-              itab_ud(iu3)%im(1) = nest_ud(iu1o)%im            
-              itab_ud(iu3)%im(2) = nest_ud(iu2o)%im            
+              itab_ud(iu3)%im(1) = nest_ud(iu1o)%im
+              itab_ud(iu3)%im(2) = nest_ud(iu2o)%im
               itab_ud(iu3)%iw(1) = iw3
               itab_ud(iu3)%iw(2) = iw
 
@@ -591,14 +539,14 @@ subroutine spawn_nest_sfc()
               itab_wd(iw2)%iu(2) = iu6
               itab_wd(iw1)%iu(3) = iu3o
 
-              itab_ud(iu3)%im(1) = nest_ud(iu2o)%im            
-              itab_ud(iu3)%im(2) = nest_ud(iu1o)%im            
+              itab_ud(iu3)%im(1) = nest_ud(iu2o)%im
+              itab_ud(iu3)%im(2) = nest_ud(iu1o)%im
               itab_ud(iu3)%iw(1) = iw
               itab_ud(iu3)%iw(2) = iw3
 
               itab_ud(iu3o)%iw(2) = iw1
               itab_ud(iu6)%iw(2) = iw2
-           endif    
+           endif
 
         endif
 
@@ -626,28 +574,32 @@ subroutine spawn_nest_sfc()
 
      ! Plot grid lines
 
-     call o_reopnwk()
-     call plotback()
+     if (.false.) then
 
-     call oplot_set(1)
+        call o_reopnwk()
+        call plotback()
 
-     do iu = 2,nud
-        im1 = itab_ud(iu)%im(1)
-        im2 = itab_ud(iu)%im(2)
+        call oplot_set(1)
 
-        call oplot_transform(1,xemd(im1),yemd(im1),zemd(im1),xp1,yp1)
-        call oplot_transform(1,xemd(im2),yemd(im2),zemd(im2),xp2,yp2)
+        do iu = 2,nud
+           im1 = itab_ud(iu)%im(1)
+           im2 = itab_ud(iu)%im(2)
 
-        call trunc_segment(xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2,iskip)
+           call oplot_transform(1,xemd(im1),yemd(im1),zemd(im1),xp1,yp1)
+           call oplot_transform(1,xemd(im2),yemd(im2),zemd(im2),xp2,yp2)
 
-        if (iskip == 1) cycle
+           call trunc_segment(xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2,iskip)
 
-        call o_frstpt (xq1,yq1)
-        call o_vector (xq2,yq2)
-     enddo
+           if (iskip == 1) cycle
 
-     call o_frame()
-     call o_clswk()
+           call o_frstpt (xq1,yq1)
+           call o_vector (xq2,yq2)
+        enddo
+
+        call o_frame()
+        call o_clswk()
+
+     endif
 
      call tri_neighbors(nmd, nud, nwd, itab_md, itab_ud, itab_wd)
 
@@ -659,8 +611,7 @@ subroutine spawn_nest_sfc()
 
      ! This is the place to do spring dynamics
 
-     call spring_dynamics(1, 1, ngr, nmd, nud, nwd, &
-                          xemd, yemd, zemd, &
+     call spring_dynamics(1, 0, ngr, nxp_sfc, nmd, nud, nwd, xemd, yemd, zemd, &
                           itab_md, itab_ud, itab_wd)
 
      write(io6,'(/,a,i2)') 'Finished spawning grid number ',ngr
@@ -793,7 +744,7 @@ subroutine perim_fill1(ngr,mrloo,nud0,nwd0,nud,nwd,kma,kua,kwa, &
                        jm,ju,npts,ngrp,igsize,nwdivg, &
                        itab_ud, itab_wd, ltab_ud, ltab_wd, nest_ud, nest_wd)
 
-  use mem_ijtabs,  only: itab_ud_vars, itab_wd_vars, nest_ud_vars, nest_wd_vars
+  use mem_delaunay, only: itab_ud_vars, itab_wd_vars, nest_ud_vars, nest_wd_vars
 
   implicit none
 
@@ -819,13 +770,13 @@ subroutine perim_fill1(ngr,mrloo,nud0,nwd0,nud,nwd,kma,kua,kwa, &
   ! Determine width of transition zone at each point on perimeter
 
   do ig = 1,ngrp
-   
+
      if (igsize(ig) == 1) then
-      
+
         call perim_fill_cent1(ngr,mrloo,nud0,nwd0,nud,nwd,kma,kua,kwa, &
                               jm(1,ig),ju(1,ig),jm(2,ig), &
                               itab_ud, itab_wd, ltab_ud, ltab_wd, nest_ud, nest_wd)
-      
+
      else ! nwdivg(ig) = 4
 
         call perim_fill_concave2(ngr,mrloo,nud0,nwd0,nud,nwd,kma,kua,kwa, &
@@ -843,7 +794,7 @@ subroutine perim_fill_cent1(ngr,mrloo,nud0,nwd0,nud,nwd,kma,kua,kwa, &
                             jm1,ju1,jm2, &
                             itab_ud, itab_wd, ltab_ud, ltab_wd, nest_ud, nest_wd)
 
-  use mem_ijtabs,  only: itab_ud_vars, itab_wd_vars, nest_ud_vars, nest_wd_vars
+  use mem_delaunay, only: itab_ud_vars, itab_wd_vars, nest_ud_vars, nest_wd_vars
 
   implicit none
 
@@ -963,7 +914,7 @@ subroutine perim_fill_concave2(ngr,mrloo,nud0,nwd0,nud,nwd,kma,kua,kwa, &
                                jm1,ju1,jm2,ju2,jm3, &
                                itab_ud, itab_wd, ltab_ud, ltab_wd, nest_ud, nest_wd)
 
-  use mem_ijtabs,  only: itab_ud_vars, itab_wd_vars, nest_ud_vars, nest_wd_vars
+  use mem_delaunay, only: itab_ud_vars, itab_wd_vars, nest_ud_vars, nest_wd_vars
 
   implicit none
 

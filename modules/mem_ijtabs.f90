@@ -33,10 +33,11 @@
 
 Module mem_ijtabs
 
-  use max_dims, only: maxgrds, maxremote
+  use max_dims, only: maxremote
+
   implicit none
 
-  private :: maxgrds, maxremote
+  private :: maxremote
 
   integer, parameter :: mloops = 7 ! max # non-para DO loops for M,V,W pts
 
@@ -173,46 +174,6 @@ Module mem_ijtabs
 
   End Type itab_w_vars
 
-  Type itab_md_vars             ! data structure for M pts (individual rank)
-                                ! on the Delaunay mesh
-     logical, allocatable :: loop(:) ! flag to perform each DO loop at this M pt
-
-     integer :: npoly = 0       ! number of V/W neighbors of this M pt
-     integer :: imp = 1         ! M point from which to copy this M pt's values
-     integer :: mrlm = 0        ! mesh refinement level of this M pt
-     integer :: mrlm_orig = 0   ! original MRL of this M pt (hex only)
-     integer :: ngr = 0         ! Grid number
-     integer :: im(7) = 1       ! array of M neighbors of this M pt
-     integer :: iu(7) = 1       ! array of U neighbors of this M pt
-     integer :: iw(7) = 1       ! array of W neighbors of this M pt
-  End Type itab_md_vars
-
-  Type itab_ud_vars             ! data structure for U pts (individual rank)
-                                ! on the Delaunay mesh
-     logical, allocatable :: loop(:) ! flag to perform each DO loop at this M pt
-
-     integer :: iup = 1       ! U pt from which to copy this U pt's values
-     integer :: mrlu = 0      ! mesh refinement level of this U pt
-     integer :: im(2) = 1     ! neighbor M pts of this U pt
-     integer :: iu(12) = 1    ! neighbor U pts
-     integer :: iw(6) = 1     ! neighbor W pts
-  End Type itab_ud_vars
-
-  Type itab_wd_vars             ! data structure for W pts (individual rank)
-                                ! on the Delaunay mesh
-     logical, allocatable :: loop(:) ! flag to perform each DO loop at this W pt
-
-     integer :: npoly = 0     ! number of M/V neighbors of this W pt
-     integer :: iwp = 1       ! W pt from which to copy this W pt's values
-     integer :: mrlw = 0      ! mesh refinement level of this W pt
-     integer :: mrlw_orig = 0 ! original MRL of this W pt
-     integer :: mrow = 0      ! Full row number outside nest
-     integer :: ngr = 0       ! Grid number
-     integer :: im(3) = 1     ! neighbor M pts
-     integer :: iu(3) = 1     ! neighbor U pts
-     integer :: iw(9) = 1     ! neighbor W pts
-  End Type itab_wd_vars
-
   Type itabg_m_vars            ! data structure for M pts (global)
      integer :: im_myrank = -1 ! local (parallel subdomain) index of this M pt
      integer :: irank = -1     ! rank of parallel process at this M pt
@@ -230,15 +191,6 @@ Module mem_ijtabs
      integer :: irank = -1     ! rank of parallel process at this W pt
      integer :: iw_myrank_iwp = -1 ! local W point that corresponds to global iwp
   End Type itabg_w_vars
-
-  Type nest_ud_vars        ! temporary U-pt data structure for spawning nested grids
-     integer :: im=0, iu=0 ! new M/U pts attached to this U pt
-  End Type nest_ud_vars
-
-  Type nest_wd_vars        ! temporary W-pt data structure for spawning nested grids
-     integer :: iu(3) = 0  ! new U pts attached to this W pt
-     integer :: iw(3) = 0  ! new W pts attached to this W pt
-  End Type nest_wd_vars
 
   Type jtab_m_vars
      integer, allocatable :: im(:)
@@ -278,10 +230,6 @@ Module mem_ijtabs
      integer :: iwnud(3) = 1  ! local nudpoly pts
   End Type itab_w_pd_vars
 
-  type (itab_md_vars), allocatable :: itab_md(:)
-  type (itab_ud_vars), allocatable :: itab_ud(:)
-  type (itab_wd_vars), allocatable :: itab_wd(:)
-
   type (itab_m_vars),  allocatable, target :: itab_m(:)
   type (itab_v_vars),  allocatable, target :: itab_v(:)
   type (itab_w_vars),  allocatable, target :: itab_w(:)
@@ -299,36 +247,6 @@ Module mem_ijtabs
   type (jtab_w_vars) :: jtab_w(nloops_w)
 
 Contains
-
-!===============================================================================
-
-  subroutine alloc_itabsd(mma, mua, mwa)
-
-    implicit none
-
-    integer, intent(in) :: mma, mua, mwa
-    integer :: imd, iud, iwd
-
-    allocate (itab_md(mma))
-    allocate (itab_ud(mua))
-    allocate (itab_wd(mwa))
-
-    do imd = 1,mma
-       allocate(itab_md(imd)%loop(mloops))
-       itab_md(imd)%loop(1:mloops) = .false.
-    enddo
-
-    do iud = 1,mua
-       allocate(itab_ud(iud)%loop(mloops))
-       itab_ud(iud)%loop(1:mloops) = .false.
-    enddo
-
-    do iwd = 1,mwa
-       allocate(itab_wd(iwd)%loop(mloops))
-       itab_wd(iwd)%loop(1:mloops) = .false.
-    enddo
-
-  end subroutine alloc_itabsd
 
 !===============================================================================
 

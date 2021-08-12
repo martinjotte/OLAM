@@ -161,28 +161,24 @@
    NL%GRDLAT(7,:) =  24.0
    NL%GRDLON(7,:) = -93.5
 
-   NL%NSFCGRID_ROOT = 7  ! The ABSOLUTE VALUE of NSFCGRID_ROOT indicates the
-                         ! NGRID number during the construction and (possible)
-                         ! local refinement of the ATM grid at which stage a
-                         ! copy of the ATM grid is made as a starting point for
-                         ! construction and (possible) local refinement of the
-                         ! SURFACE grid.
+   NL%SFCGRID_RES_FACTOR =  3    ! Resolution factor for the surface grid.
 
-                         ! If NSFCGRID_ROOT is negative, IVORONOI = 3 is
-                         ! assigned to all cells on the starting SURFACE grid
-                         ! so that they will be hexagonal and will participate
-                         ! in lateral exchange.  If NSFCGRID_ROOT is positive,
-                         ! IVORONOI remains at the default value of 0 for all
-                         ! cells in the starting SURFACE grid, meaning that
-                         ! they can be cut by topography unless locally refined
-                         ! inside NSFCGRIDS regions. 
-                        
-                         ! ANY ATM GRIDS THAT ARE SPAWNED WITH NGR > SFCGRIDS_ROOT
-                         ! MUST BE OVER REGIONS THAT ARE TOTALLY COVERED WITH
-                         ! SURFACE GRID CELLS WITH IVORONOI = 3
+   NL%NSFCGRID_ROOT      = -1    ! If NSFCGRID_ROOT is 0 or negative, the
+                                 ! surface grid is created exactly from the
+                                 ! atmospheric grid and expanded by the factor
+                                 ! given by SFCGRID_RES_FACTOR
 
-   NL%NSFCGRIDS = 0      ! Total number of SURFACE GRID independent refinements
-                         ! to be generated on any MAKEGRID run
+                                 ! If NSFCGRID_ROOT is positive, it indicates
+                                 ! the ATM grid at which stage a copy of the
+                                 ! ATM grid is made, expanded by SFCGRID_RES_FACTOR,
+                                 ! and then possibly further refined if NSFCGRID > 0
+
+ !------------------------------------------------------------------------
+ ! This section used only if NSFCGRID_ROOT > 0
+ !------------------------------------------------------------------------
+
+   NL%NSFCGRIDS = 2      ! Total number of additional SURFACE GRID independent
+                         !  refinements to be generated on any MAKEGRID run
 
    ! Surface Grid 1:
    NL%NSFCGRDLL(1)   =  17
@@ -201,8 +197,6 @@
    NL%SFCGRDRAD(3,:) =  12.e5,21.e5,26.e5,41.e5,46.e5,19.e5,25.e5,19.e5,46.e5,30.e5,11.e5,11.e5,30.e5,13.e5,20.e5,23.e5, 7.e5
    NL%SFCGRDLAT(3,:) =   -27.,  -3.,  22.,  35.,  46.,  11., -23.,  11.,  46.,  54.,  64.,  64.,  44.,  10.,  -5., -13., -50.
    NL%SFCGRDLON(3,:) =    24.,  26.,   0.,  32.,  90., 110., 136., 110.,  90., 123., 166.,-127., -90., -75., -63., -54., -70.
-
-
 
  !------------------------------------------------------------------------------
  ! Timestep and timestep ratios (One ratio for each Mesh Refinement Level (MRL))

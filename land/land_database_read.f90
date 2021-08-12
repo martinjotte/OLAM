@@ -270,7 +270,7 @@ Contains
            ! Read file
 
            if (l1) then
-              write(io6,*) 'getting file ',trim(fname)    
+              write(io6,*) 'getting file ',trim(fname)
 
               call shdf5_open(fname,'R')
 
@@ -304,9 +304,10 @@ Contains
               stop 'stop_landuse_input2'
            endif
 
+           !$omp parallel do private(iq,qlat1,qlon1,rio_full,rjo_full,io_full, &
+           !$omp                     jo_full,io1,jo1,wio2,wjo2,io2,jo2,wio1,wjo1,io,jo)
            do ind = ind1,ind2-1
-
-              iq = qtable(ind)         
+              iq = qtable(ind)
 
               qlat1 = max(-89.9999,min(89.9999,glatq(iq)))
               qlon1 = glonq(iq)
@@ -359,7 +360,7 @@ Contains
 
                  ! Interpolate from 4 surrounding values
 
-                 datq(iq) & 
+                 datq(iq) &
                     = wio1 * (wjo1 * dato(io1,jo1) + wjo2 * dato(io1,jo2)) &
                     + wio2 * (wjo1 * dato(io2,jo1) + wjo2 * dato(io2,jo2))
 
@@ -370,7 +371,7 @@ Contains
                  if (min(dato(io1,jo1), dato(io1,jo2), &
                          dato(io2,jo1), dato(io2,jo2)) > -1.e-6) then
 
-                    datq(iq) & 
+                    datq(iq) &
                        = wio1 * (wjo1 * dato(io1,jo1) + wjo2 * dato(io1,jo2)) &
                        + wio2 * (wjo1 * dato(io2,jo1) + wjo2 * dato(io2,jo2))
 
@@ -398,6 +399,7 @@ Contains
               endif    ! iaction
 
            enddo    ! ind
+           !$omp end parallel do
 
        endif     ! ind2 > ind1
      enddo    ! ifile

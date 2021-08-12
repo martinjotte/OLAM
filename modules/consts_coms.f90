@@ -116,6 +116,7 @@ Module consts_coms
   real            :: eradsq
   real            :: erador5
   real            :: eradi
+  real            :: erad2sq
 
 Contains
 
@@ -178,6 +179,7 @@ Contains
     eradsq   = erad * erad
     erador5  = erad / sqrt(5.)
     eradi    = 1.0  / erad
+    erad2sq  = erad2 * erad2
     dlat     = erad * pio180
     omega2   = omega * 2.
 

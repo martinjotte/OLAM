@@ -111,8 +111,9 @@ Module oname_coms
      real    :: grdlat(maxgrds,maxngrdll) = 0.0
      real    :: grdlon(maxgrds,maxngrdll) = 0.0
 
-     integer :: nsfcgrids     = 0
-     integer :: nsfcgrid_root = 0
+     integer :: nsfcgrids          =  0
+     integer :: sfcgrid_res_factor =  1
+     integer :: nsfcgrid_root      = -1
 
      integer :: nsfcgrdll(maxgrds) = 0
 

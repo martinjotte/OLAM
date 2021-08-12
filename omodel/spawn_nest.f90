@@ -37,24 +37,27 @@ subroutine spawn_nest()
 ! Later will make modified version to add nested grid region(s) during a
 ! simulation.
 
-  use mem_ijtabs,  only: itab_md_vars, itab_ud_vars, itab_wd_vars, &
-                         nest_ud_vars, nest_wd_vars, &
-                         itab_md, itab_ud, itab_wd, mloops, mrls, &
-                         alloc_itabsd, &
-                         jtm_grid, jtu_grid, jtv_grid, jtw_grid, &
-                         jtm_init, jtu_init, jtv_init, jtw_init, &
-                         jtm_prog, jtu_prog, jtv_prog, jtw_prog, &
-                         jtm_wadj, jtu_wadj, jtv_wadj, jtw_wadj, &
-                         jtm_wstn, jtu_wstn, jtv_wstn, jtw_wstn, &
-                         jtm_lbcp, jtu_lbcp, jtv_lbcp, jtw_lbcp, &
-                         jtm_vadj, jtu_wall, jtv_wall, jtw_vadj
+  use mem_ijtabs,   only: mloops, mrls, &
+                          jtm_grid, jtu_grid, jtv_grid, jtw_grid, &
+                          jtm_init, jtu_init, jtv_init, jtw_init, &
+                          jtm_prog, jtu_prog, jtv_prog, jtw_prog, &
+                          jtm_wadj, jtu_wadj, jtv_wadj, jtw_wadj, &
+                          jtm_wstn, jtu_wstn, jtv_wstn, jtw_wstn, &
+                          jtm_lbcp, jtu_lbcp, jtv_lbcp, jtw_lbcp, &
+                          jtm_vadj, jtu_wall, jtv_wall, jtw_vadj
 
-  use mem_grid,    only: nma, nua, nwa, xem, yem, zem, impent, &
-                         alloc_xyzem, nrows, mrows
-  use misc_coms,   only: io6, ngrids, mdomain, nxp, ngrdll, grdrad, grdlat, grdlon
-  use consts_coms, only: pio180, erad, pi1, pi2
-  use oname_coms,  only: nl
-  use mem_sfcg,    only: nsfcgrid_root
+  use mem_delaunay, only: itab_md_vars, itab_ud_vars, itab_wd_vars, &
+                          nest_ud_vars, nest_wd_vars, alloc_itabsd, &
+                          itab_md, itab_ud, itab_wd, copy_tri_grid, &
+                          xemd, yemd, zemd, nmd, nud, nwd
+
+  use mem_grid,     only: impent, nrows, mrows
+
+  use misc_coms,    only: io6, ngrids, mdomain, nxp, ngrdll, grdrad, &
+                          grdlat, grdlon
+
+  use consts_coms,  only: pio180, erad, pi1, pi2
+  use mem_sfcg,     only: nsfcgrid_root
 
   implicit none
 
@@ -64,14 +67,12 @@ subroutine spawn_nest()
 
   type (nest_ud_vars), allocatable :: nest_ud(:)
   type (nest_wd_vars), allocatable :: nest_wd(:)
-   
+
   integer :: iu,iw,im,iw1,iw2,im1,im2
   integer :: iu1,iu2,iu3,iu1o,iu2o,iu3o,iu1o_iw1,iu2o_iw1,iu3o_iw1
-  integer :: iu4,iu5,iu6,iw3,ngr,mrlo,mrloo,nwaa,j,npoly,nw
+  integer :: iu4,iu5,iu6,iw3,ngr,mrlo,mrloo,nwda,j,npoly,nw
 
-  integer :: nma0,nua0,nwa0
-
-  real :: expansion
+  integer :: nmd0,nud0,nwd0
 
   integer, allocatable :: imper(:) ! Ouside IW index at each perimeter index
   integer, allocatable :: iuper(:) ! Boundary IU index at each perimeter index
@@ -79,7 +80,7 @@ subroutine spawn_nest()
 
   integer, parameter :: npts = 10000  ! Sufficient array space for # of CM pts along FM perimeter
 
-  integer, allocatable :: jm(:,:),ju(:,:),iurow_pent(:),igsize(:),nwdivg(:)
+  integer, allocatable :: jm(:,:),ju(:,:),igsize(:),nwdivg(:)
 
   real, allocatable :: xem_temp(:),yem_temp(:),zem_temp(:)
 
@@ -98,15 +99,15 @@ subroutine spawn_nest()
   integer, allocatable :: nwdivper(:) ! # divided W pts at at each perimeter M pt
   integer, allocatable :: nearpent(:) ! flag = 1 if adjacent outside M pt is poly5
 
-  !plt real :: xp1, xp2, xq1, xq2
-  !plt real :: yp1, yp2, yq1, yq2
-  !plt integer :: iskip
+  real :: xp1, xp2, xq1, xq2
+  real :: yp1, yp2, yq1, yq2
+  integer :: iskip
 
   ! Make duplicate of current grid dimensions
 
-  nma0 = nma
-  nua0 = nua
-  nwa0 = nwa
+  nmd0 = nmd
+  nud0 = nud
+  nwd0 = nwd
 
   ! This routine spawns nest using the Method C refined mesh algorithm.  It forces
   ! straight segments of the refined mesh "boundary" to have lengths that are multiples
@@ -122,18 +123,13 @@ subroutine spawn_nest()
 
      ! Allocate temporary tables
 
-     allocate (nest_ud(nua), nest_wd(nwa))  ! Nest relations
-     allocate (xem_temp(nma), yem_temp(nma), zem_temp(nma))
-     allocate (iurow_pent(nua))
-
-     iurow_pent(1:nua) = 0
+     allocate (nest_ud(nud), nest_wd(nwd))  ! Nest relations
+!    allocate (xem_temp(nmd), yem_temp(nmd), zem_temp(nmd))
 
      allocate (jm(nrows+1,npts), ju(nrows,npts))
      allocate (imper(npts), iuper(npts), igsize(npts), nearpent(npts), nwdivg(npts))
 
      allocate (npolyper(npts), nwdivper(npts))
-
-     if (mdomain < 2) call pent_urows(iurow_pent)
 
      ! Copy ITAB information and M-point coordinates to temporary tables
 
@@ -141,17 +137,11 @@ subroutine spawn_nest()
      call move_alloc(itab_ud, ltab_ud)
      call move_alloc(itab_wd, ltab_wd)
 
-     do im = 1,nma
-        xem_temp(im) = xem(im)
-        yem_temp(im) = yem(im)
-        zem_temp(im) = zem(im)
-     enddo
+     call move_alloc(xemd, xem_temp)
+     call move_alloc(yemd, yem_temp)
+     call move_alloc(zemd, zem_temp)
 
-     ! Deallocate main tables
-
-     deallocate (xem, yem, zem)
-
-     allocate (lista(nma), listb(nma), jdone(6,nma))
+     allocate (lista(nmd), listb(nmd), jdone(6,nmd))
 
      ! Find closest M point to first specified NGR center point.
 
@@ -174,7 +164,7 @@ subroutine spawn_nest()
 
      ! Loop over all M points in domain
 
-     do im = 2,nma
+     do im = 2,nmd
         dist = sqrt((xem_temp(im) - xeg) ** 2 &
                   + (yem_temp(im) - yeg) ** 2 &
                   + (zem_temp(im) - zeg) ** 2)
@@ -224,7 +214,7 @@ subroutine spawn_nest()
 
         ! Loop over all M points in domain
 
-        do im = 2,nma
+        do im = 2,nmd
 
            ! Check whether M location is within specified region for NGR refinement
 
@@ -253,10 +243,10 @@ subroutine spawn_nest()
 
         searchloop: do
 
-           jdone(:,im) = 0  ! (6,nma)
+           jdone(:,im) = 0  ! (6,nmd)
            mlist(1:6) = 0
 
-           call thirdm(nma, nua, im, jdone, mlist, ltab_md, ltab_ud)
+           call thirdm(nmd, nud, im, jdone, mlist, ltab_md, ltab_ud)
 
            ! Search through THIRDM neighbors of IM that are in current mlist
 
@@ -321,7 +311,7 @@ subroutine spawn_nest()
 
         im = lista(nlista)
 
-        call thirdm(nma, nua, im, jdone, mlist, ltab_md, ltab_ud)
+        call thirdm(nmd, nud, im, jdone, mlist, ltab_md, ltab_ud)
 
         ! Now that IM's THIRDM neighbors have been found, remove IM from LISTA and add
         ! it to LISTB.
@@ -385,7 +375,7 @@ subroutine spawn_nest()
      do ilistb = 1,nlistb
         im = listb(ilistb)
 
-        call fill_rad3(nma, nwa, im, ltab_md, ltab_wd, nest_wd)
+        call fill_rad3(nmd, nwd, im, ltab_md, ltab_wd, nest_wd)
      enddo
 
      deallocate (lista,listb,jdone)
@@ -393,14 +383,14 @@ subroutine spawn_nest()
      ! Add W points to nested grid region in order to eliminate concavities
      ! (or to eliminate sharp concavities).  This requires iterative procedure
 
-     nwaa = 0  ! Counter of already-existing W points - initialize to zero to
+     nwda = 0  ! Counter of already-existing W points - initialize to zero to
                ! force at least one pass through the following DO WHILE loop
 
-     do while (nwa0 > nwaa)
+     do while (nwd0 > nwda)
 
-        nwaa = nwa0
+        nwda = nwd0
 
-        do im = 2,nma
+        do im = 2,nmd
 
            npoly = ltab_md(im)%npoly
            nw = 0  ! Initialize counter for subdivided W points around this M point
@@ -423,16 +413,16 @@ subroutine spawn_nest()
            !    (2) nw == 5 (a sharp concavity)
            ! Thus, we must fill in all around current M point
 
-           call fill_rad3(nma, nwa, im, ltab_md, ltab_wd, nest_wd)
+           call fill_rad3(nmd, nwd, im, ltab_md, ltab_wd, nest_wd)
 
-           nwa0 = nwa0 + 1 ! just to keep DO WHILE going as long as necessary
+           nwd0 = nwd0 + 1 ! just to keep DO WHILE going as long as necessary
 
         enddo
 
-        call perim_map2(npts, nma, nua, nwa, nper2, imper, iuper, npolyper, &
+        call perim_map2(npts, nmd, nud, nwd, nper2, imper, iuper, npolyper, &
                         nwdivper, nearpent, ltab_md, ltab_ud, ltab_wd, nest_wd)
 
-     enddo ! (nwa0 > nwaa)
+     enddo ! (nwd0 > nwda)
 
      ! Print perimeter map
      !  print*, ' '
@@ -463,29 +453,29 @@ subroutine spawn_nest()
         nest_wd(jw2)%iw(3) = -1
      enddo
 
-     ! Reset nwa0 counter for actual count
+     ! Reset nwd0 counter for actual count
 
-     nwa0 = nwa
+     nwd0 = nwd
 
      ! Loop over all W points, counting up those with nest_wd()%iw(3) still flagged.
      ! Reset all nest_wd members according to current count
 
-     do iw = 2,nwa
+     do iw = 2,nwd
 
         if (nest_wd(iw)%iw(3) > 0) then
 
 !          write(io6,*) 'subdividing W cell ',iw
 
-           nest_wd(iw)%iu(1) = nua0 + 1
-           nest_wd(iw)%iu(2) = nua0 + 2
-           nest_wd(iw)%iu(3) = nua0 + 3
+           nest_wd(iw)%iu(1) = nud0 + 1
+           nest_wd(iw)%iu(2) = nud0 + 2
+           nest_wd(iw)%iu(3) = nud0 + 3
 
-           nest_wd(iw)%iw(1) = nwa0 + 1
-           nest_wd(iw)%iw(2) = nwa0 + 2
-           nest_wd(iw)%iw(3) = nwa0 + 3
+           nest_wd(iw)%iw(1) = nwd0 + 1
+           nest_wd(iw)%iw(2) = nwd0 + 2
+           nest_wd(iw)%iw(3) = nwd0 + 3
 
-           nua0 = nua0 + 3
-           nwa0 = nwa0 + 3
+           nud0 = nud0 + 3
+           nwd0 = nwd0 + 3
 
         endif
 
@@ -497,7 +487,7 @@ subroutine spawn_nest()
      ! index to old U edge.  Also, define new U index for second half of U, and
      ! attach to U.  [Make adjacent to U%m2.]
 
-     do iu = 2,nua
+     do iu = 2,nud
 
         ! Check whether this U is adjacent to a W that is being subdivided
 
@@ -513,52 +503,50 @@ subroutine spawn_nest()
 
            else
 
-              nest_ud(iu)%im = nma0 + 1
-              nest_ud(iu)%iu = nua0 + 1
+              nest_ud(iu)%im = nmd0 + 1
+              nest_ud(iu)%iu = nud0 + 1
 
-              nma0 = nma0 + 1
-              nua0 = nua0 + 1
+              nmd0 = nmd0 + 1
+              nud0 = nud0 + 1
 
            endif
 
         endif
      enddo
 
-     ! Save current values of nma0, nua0, nwa0 prior to adding boundary points
+     ! Save current values of nmd0, nud0, nwd0 prior to adding boundary points
 
-     kma = nma0
-     kua = nua0
-     kwa = nwa0
+     kma = nmd0
+     kua = nud0
+     kwa = nwd0
 
      ! Allocate main tables to expanded size
      ! Initialize all neighbor indices to zero
 
-     call alloc_itabsd(nma0,nua0,nwa0)
-
-     call alloc_xyzem(nma0)
+     call alloc_itabsd(nmd0,nud0,nwd0)
 
      ! Memory copy to main tables
 
-     do im = 1,nma
+     do im = 1,nmd
         itab_md(im)%loop(1:mloops) = ltab_md(im)%loop(1:mloops)
         itab_md(im)%imp       = ltab_md(im)%imp
         itab_md(im)%mrlm      = ltab_md(im)%mrlm
         itab_md(im)%mrlm_orig = ltab_md(im)%mrlm_orig
         itab_md(im)%ngr       = ltab_md(im)%ngr
 
-        xem(im) = xem_temp(im)
-        yem(im) = yem_temp(im)
-        zem(im) = zem_temp(im)
+        xemd(im) = xem_temp(im)
+        yemd(im) = yem_temp(im)
+        zemd(im) = zem_temp(im)
      enddo
 
-     itab_ud(1:nua) = ltab_ud(1:nua)
-     itab_wd(1:nwa) = ltab_wd(1:nwa)
+     itab_ud(1:nud) = ltab_ud(1:nud)
+     itab_wd(1:nwd) = ltab_wd(1:nwd)
 
      ! Loop over U points and check for those flagged for subdivision
 
      mrlo = 0
 
-     do iu = 2,nua
+     do iu = 2,nud
         if (nest_ud(iu)%im > 1) then
            im  = nest_ud(iu)%im
            im1 = itab_ud(iu)%im(1)
@@ -573,9 +561,9 @@ subroutine spawn_nest()
 
            ! Average coordinates to new M points
 
-           xem(im) = .5 * (xem(im1) + xem(im2))
-           yem(im) = .5 * (yem(im1) + yem(im2))
-           zem(im) = .5 * (zem(im1) + zem(im2))
+           xemd(im) = .5 * (xemd(im1) + xemd(im2))
+           yemd(im) = .5 * (yemd(im1) + yemd(im2))
+           zemd(im) = .5 * (zemd(im1) + zemd(im2))
 
            ! Set itab_md()%mrlm = mrlo + 1 at end and mid points of subdivided U edge
 
@@ -595,7 +583,7 @@ subroutine spawn_nest()
 
      mrloo = 0  ! Initialize check variable for uniform mrlw over current nested grid
 
-     do iw = 2,nwa
+     do iw = 2,nwd
 
      ! Check if IW is fully subdivided cell
 
@@ -759,95 +747,98 @@ subroutine spawn_nest()
 
      ! Fill transition zone
 
-     call perim_fill3(ngr, nma, nua, nwa, mrlo, nper2, imper, iuper, ltab_ud, nest_ud, nest_wd)
+     call perim_fill3(ngr, nmd, nud, nwd, mrlo, nper2, imper, iuper, ltab_ud, nest_ud, nest_wd)
 
      ! Fill itabs loop tables for newly spawned points
 
-     do im = nma+1,nma0
+     do im = nmd+1,nmd0
         itab_md(im)%imp = im
         call mdloopf('f',im, jtm_grid, jtm_init, jtm_prog, jtm_wadj, jtm_wstn, 0)
      enddo
 
-     do iu = nua+1,nua0
+     do iu = nud+1,nud0
         itab_ud(iu)%iup = iu
         call udloopf('f',iu, jtu_grid, jtu_init, jtu_prog, jtu_wadj, jtu_wstn, 0)
      enddo
 
-     do iw = nwa+1,nwa0
+     do iw = nwd+1,nwd0
         itab_wd(iw)%iwp = iw
         call wdloopf('f',iw, jtw_grid, jtw_vadj, 0, 0, 0, 0)
      enddo
 
      ! Copy new counter values
 
-     nma = nma0
-     nua = nua0
-     nwa = nwa0
+     nmd = nmd0
+     nud = nud0
+     nwd = nwd0
 
      deallocate (ltab_md,ltab_ud,ltab_wd)
      deallocate (nest_ud,nest_wd)
      deallocate (xem_temp,yem_temp,zem_temp)
 
      deallocate (jm,ju)
-     deallocate (imper,iuper,iurow_pent,igsize,nearpent,nwdivg)
+     deallocate (imper,iuper,igsize,nearpent,nwdivg)
      deallocate (npolyper,nwdivper)
 
-! Plot grid lines
+     ! Plot grid lines
 
-!plt   call o_reopnwk()
-!plt   call plotback()
+     if (.false.) then
 
-!plt   call oplot_set(1)
+        call o_reopnwk()
+        call plotback()
 
-!plt   do iu = 2,nua
-!plt      im1 = itab_ud(iu)%im(1)
-!plt      im2 = itab_ud(iu)%im(2)
+        call oplot_set(1)
 
-!plt      call oplot_transform(1,xem(im1),yem(im1),zem(im1),xp1,yp1)
-!plt      call oplot_transform(1,xem(im2),yem(im2),zem(im2),xp2,yp2)
+        do iu = 2,nud
+           im1 = itab_ud(iu)%im(1)
+           im2 = itab_ud(iu)%im(2)
 
-!plt      call trunc_segment(xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2,iskip)
+           call oplot_transform(1,xemd(im1),yemd(im1),zemd(im1),xp1,yp1)
+           call oplot_transform(1,xemd(im2),yemd(im2),zemd(im2),xp2,yp2)
 
-!plt      if (iskip == 1) cycle
+           call trunc_segment(xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2,iskip)
 
-!plt      call o_frstpt (xq1,yq1)
-!plt      call o_vector (xq2,yq2)
-!plt   enddo
+           if (iskip == 1) cycle
 
-!plt   call o_frame()
-!plt   call o_clswk()
+           call o_frstpt (xq1,yq1)
+           call o_vector (xq2,yq2)
+        enddo
 
-     call tri_neighbors(nma, nua, nwa, itab_md, itab_ud, itab_wd)
+        call o_frame()
+        call o_clswk()
+
+     endif
+
+     call tri_neighbors(nmd, nud, nwd, itab_md, itab_ud, itab_wd)
 
      ! Call subroutine to ID W cells just outside and just inside current NGR
      ! border.  This is permanent ID, used in spring dynamics even when new
      ! grids are added.
 
-     call perim_mrow(nma, nua, nwa, itab_md, itab_ud, itab_wd)
+     call perim_mrow(nmd, nud, nwd, itab_md, itab_ud, itab_wd)
 
      ! This is the place to do spring dynamics
 
-     call spring_dynamics(3, 1, ngr, nma, nua, nwa, xem, yem, zem, &
+     call spring_dynamics(3, 1, ngr, nxp, nmd, nud, nwd, xemd, yemd, zemd, &
                           itab_md, itab_ud, itab_wd)
 
      write(io6,'(/,a,i0)') 'Finished spawning grid number ',ngr
-     write(io6,'(a,i0)')   ' nma = ',nma
-     write(io6,'(a,i0)')   ' nua = ',nua
-     write(io6,'(a,i0)')   ' nwa = ',nwa
+     write(io6,'(a,i0)')   ' nma = ',nmd
+     write(io6,'(a,i0)')   ' nua = ',nud
+     write(io6,'(a,i0)')   ' nwa = ',nwd
 
      ! If independent refinement of surface grid will be done and uses current NGR
      ! refinement of ATM grid as its root, copy ATM grid quantities to surface grid
 
-     if (abs(nsfcgrid_root) == ngr) then
-        call copy_sfc_tri_grid(nma, nua, nwa, xem, yem, zem, &
-                               itab_md, itab_ud, itab_wd)
+     if (nsfcgrid_root == ngr) then
+        call copy_tri_grid()
      endif
 
   enddo   ! end of ngr loop
 
   ! Set mrls equal to maximum mrlw value
 
-  do iw = 2,nwa
+  do iw = 2,nwd
      if (mrls < itab_wd(iw)%mrlw) mrls = itab_wd(iw)%mrlw
   enddo
 
@@ -857,11 +848,8 @@ end subroutine spawn_nest
 
 subroutine perim_fill3(ngr, nma, nua, nwa, mrlo, nper, imper, iuper, ltab_ud, nest_ud, nest_wd)
 
-  use mem_ijtabs, only: itab_ud_vars, nest_ud_vars, nest_wd_vars, &
-                        itab_md, itab_ud, itab_wd
-  use mem_grid,   only: xem, yem, zem
-  use misc_coms,  only: io6
-
+  use mem_delaunay, only: itab_ud_vars, nest_ud_vars, nest_wd_vars, &
+                          itab_md, itab_ud, itab_wd, xemd, yemd, zemd
   implicit none
 
   integer, intent(in) :: ngr, nma, nua, nwa, mrlo, nper, imper(nper), iuper(nper)
@@ -990,10 +978,10 @@ subroutine perim_fill3(ngr, nma, nua, nwa, mrlo, nper, imper, iuper, ltab_ud, ne
 
      if (itab_ud(iu25)%iw(1) == iw6) then
         iw19 = itab_ud(iu25)%iw(2)
-        im12 = itab_ud(iu25)%im(2) ! to reposition xyzem(12)
+        im12 = itab_ud(iu25)%im(2) ! to reposition xyzemd(12)
      else
         iw19 = itab_ud(iu25)%iw(1)
-        im12 = itab_ud(iu25)%im(1) ! to reposition xyzem(12)
+        im12 = itab_ud(iu25)%im(1) ! to reposition xyzemd(12)
      endif
 
      ku1 = nest_wd(iw9)%iu(1)
@@ -1019,10 +1007,10 @@ subroutine perim_fill3(ngr, nma, nua, nwa, mrlo, nper, imper, iuper, ltab_ud, ne
 
      if (itab_ud(iu26)%iw(1) == iw9) then
         iw21 = itab_ud(iu26)%iw(2)
-        im13 = itab_ud(iu26)%im(1) ! to reposition xyzem(13)
+        im13 = itab_ud(iu26)%im(1) ! to reposition xyzemd(13)
      else
         iw21 = itab_ud(iu26)%iw(1)
-        im13 = itab_ud(iu26)%im(2) ! to reposition xyzem(13)
+        im13 = itab_ud(iu26)%im(2) ! to reposition xyzemd(13)
      endif
 
      if (im16 == itab_ud(iu46)%im(1)) then
@@ -1246,29 +1234,29 @@ subroutine perim_fill3(ngr, nma, nua, nwa, mrlo, nper, imper, iuper, ltab_ud, ne
      itab_md(im18)%mrlm_orig = mrlo + 1
      itab_md(im19)%mrlm_orig = mrlo + 1
 
-     xem(im19) = .5 * (xem(im24) + xem(im5))
-     yem(im19) = .5 * (yem(im24) + yem(im5))
-     zem(im19) = .5 * (zem(im24) + zem(im5))
+     xemd(im19) = .5 * (xemd(im24) + xemd(im5))
+     yemd(im19) = .5 * (yemd(im24) + yemd(im5))
+     zemd(im19) = .5 * (zemd(im24) + zemd(im5))
 
-     xem(im18) = .5 * (xem(im19) + xem(im5))
-     yem(im18) = .5 * (yem(im19) + yem(im5))
-     zem(im18) = .5 * (zem(im19) + zem(im5))
+     xemd(im18) = .5 * (xemd(im19) + xemd(im5))
+     yemd(im18) = .5 * (yemd(im19) + yemd(im5))
+     zemd(im18) = .5 * (zemd(im19) + zemd(im5))
 
-     xem(im17) = .75 * xem(im17) + .25 * xem(im19)
-     yem(im17) = .75 * yem(im17) + .25 * yem(im19)
-     zem(im17) = .75 * zem(im17) + .25 * zem(im19)
+     xemd(im17) = .75 * xemd(im17) + .25 * xemd(im19)
+     yemd(im17) = .75 * yemd(im17) + .25 * yemd(im19)
+     zemd(im17) = .75 * zemd(im17) + .25 * zemd(im19)
 
-     xem(im20) = .75 * xem(im20) + .25 * xem(im19)
-     yem(im20) = .75 * yem(im20) + .25 * yem(im19)
-     zem(im20) = .75 * zem(im20) + .25 * zem(im19)
+     xemd(im20) = .75 * xemd(im20) + .25 * xemd(im19)
+     yemd(im20) = .75 * yemd(im20) + .25 * yemd(im19)
+     zemd(im20) = .75 * zemd(im20) + .25 * zemd(im19)
 
-     xem(im12) = .833 * xem(im12) + .167 * xem(im18)
-     yem(im12) = .833 * yem(im12) + .167 * yem(im18)
-     zem(im12) = .833 * zem(im12) + .167 * zem(im18)
+     xemd(im12) = .833 * xemd(im12) + .167 * xemd(im18)
+     yemd(im12) = .833 * yemd(im12) + .167 * yemd(im18)
+     zemd(im12) = .833 * zemd(im12) + .167 * zemd(im18)
 
-     xem(im13) = .833 * xem(im13) + .167 * xem(im18)
-     yem(im13) = .833 * yem(im13) + .167 * yem(im18)
-     zem(im13) = .833 * zem(im13) + .167 * zem(im18)
+     xemd(im13) = .833 * xemd(im13) + .167 * xemd(im18)
+     yemd(im13) = .833 * yemd(im13) + .167 * yemd(im18)
+     zemd(im13) = .833 * zemd(im13) + .167 * zemd(im18)
 
   enddo ! iper
 
@@ -1278,26 +1266,25 @@ end subroutine perim_fill3
 
 subroutine pent_urows(iurow_pent)
 
-  use mem_ijtabs, only: itab_md,itab_ud,itab_wd
-  use mem_grid,   only: nua, nwa, impent, mrows
-  use misc_coms,  only: io6
+  use mem_delaunay, only: itab_md, itab_ud, itab_wd, nud, nwd
+  use mem_grid,     only: impent, mrows
 
   implicit none
 
-  integer, intent(inout) :: iurow_pent(nua)
+  integer, intent(inout) :: iurow_pent(nud)
 
   integer :: ipent,im,j,iw,irow,jrow,iw1,iw2,iw3,iwrow,iu
 
   ! automatic arrays
 
-  integer :: iwrow_temp1(nwa)
-  integer :: iwrow_temp2(nwa)
+  integer :: iwrow_temp1(nwd)
+  integer :: iwrow_temp2(nwd)
 
   ! Initialize temporary arrays to zero before loop over pentagon points
 
-  iurow_pent(1:nua) = 0
-  iwrow_temp1(1:nwa) = 0
-  iwrow_temp2(1:nwa) = 0
+  iurow_pent (1:nud) = 0
+  iwrow_temp1(1:nwd) = 0
+  iwrow_temp2(1:nwd) = 0
 
   ! Loop over all 12 pentagon M points
 
@@ -1307,7 +1294,7 @@ subroutine pent_urows(iurow_pent)
 
      ! Loop over W points that surround current M point; set row flag to 1
 
-     do j = 1,5
+     do j = 1, 5
         iw = itab_md(im)%iw(j)
         iwrow_temp1(iw) = 1
         iwrow_temp2(iw) = 1
@@ -1317,10 +1304,10 @@ subroutine pent_urows(iurow_pent)
 
   ! Advance outward and flag each row
 
-  do irow = 1,2*mrows-1
+  do irow = 1, 2*mrows-1
      jrow = mod(irow,2)
 
-     do iw = 2,nwa
+     do iw = 2, nwd
 
         if (iwrow_temp1(iw) == 0) then
 
@@ -1343,7 +1330,7 @@ subroutine pent_urows(iurow_pent)
 
      enddo
 
-     do iw = 2,nwa
+     do iw = 2, nwd
         iwrow_temp1(iw) = iwrow_temp2(iw)
      enddo
 
@@ -1351,7 +1338,7 @@ subroutine pent_urows(iurow_pent)
 
   ! Loop over all U points and flag those between unequal nonzero iwrow values
 
-  do iu = 2,nua
+  do iu = 2, nud
      iw1 = itab_ud(iu)%iw(1)
      iw2 = itab_ud(iu)%iw(2)
 
@@ -1371,8 +1358,7 @@ subroutine perim_map2(npts, nma, nua, nwa, nper2, imper, iuper, npolyper, &
 
   ! Perim_map maps the perimeter points of a nested grid that is being spawned
 
-  use mem_ijtabs,  only: itab_md_vars, itab_ud_vars, itab_wd_vars, nest_wd_vars
-  use misc_coms, only: io6
+  use mem_delaunay, only: itab_md_vars, itab_ud_vars, itab_wd_vars, nest_wd_vars
 
   implicit none
 
@@ -1432,7 +1418,7 @@ subroutine perim_map2(npts, nma, nua, nwa, nper2, imper, iuper, npolyper, &
   ! Bug check: make sure that imstart is not zero now.
 
   if (imstart == 0) then
-     write(io6,*) 'imstart is zero - stopping model'
+     write(*,*) 'imstart is zero - stopping model'
      stop 'stop imstart perim_map2'
   endif
 
@@ -1506,8 +1492,7 @@ subroutine perim_ngr(nma, nua, nwa, imstart, imnext, iunext, &
   ! process began, and proceeding along the boundary in a counterclockwise direction,
   ! find the adjacent U and M points that existed before the spawn process began.
 
-  use mem_ijtabs,  only: itab_md_vars, itab_ud_vars, itab_wd_vars, nest_wd_vars
-  use misc_coms,  only: io6
+  use mem_delaunay, only: itab_md_vars, itab_ud_vars, itab_wd_vars, nest_wd_vars
 
   implicit none
 
@@ -1567,10 +1552,10 @@ subroutine perim_ngr(nma, nua, nwa, imstart, imnext, iunext, &
   enddo
 
   if (iunext < 2) then
-     write(io6,*) 'iunext < 2 in subroutine perim_ngr - stopping model'
+     write(*,*) 'iunext < 2 in subroutine perim_ngr - stopping model'
      stop 'perim_ngr1'
   elseif (imnext < 2) then
-     write(io6,*) 'imnext < 2 in subroutine perim_ngr - stopping model'
+     write(*,*) 'imnext < 2 in subroutine perim_ngr - stopping model'
      stop 'perim_ngr2'
   endif
 
@@ -1580,8 +1565,7 @@ end subroutine perim_ngr
 
   subroutine perim_mrow(nma, nua, nwa, itab_md, itab_ud, itab_wd)
 
-  use mem_ijtabs, only: itab_wd_vars, itab_ud_vars, itab_md_vars
-  use misc_coms,  only: io6
+  use mem_delaunay, only: itab_wd_vars, itab_ud_vars, itab_md_vars
 
   implicit none
 
@@ -1684,7 +1668,7 @@ subroutine ngr_area(ngr, inside, x, y, z, ngrdll, grdrad, grdlat, grdlon)
   ! is within specified region for NGR refinement
 
   use max_dims,  only: maxgrds, maxngrdll
-  use misc_coms, only: io6, mdomain
+  use misc_coms, only: mdomain
 
   implicit none
 
@@ -1881,8 +1865,7 @@ subroutine thirdm(nma, nua, im, jdone, mlist, ltab_md, ltab_ud)
   ! points along opposite edges.  Both intervening M points will always have 6 edges,
   ! given the conditions under which this subroutine is called.
 
-  use mem_ijtabs, only: itab_md_vars, itab_ud_vars
-  use misc_coms,  only: io6
+  use mem_delaunay, only: itab_md_vars, itab_ud_vars
 
   implicit none
 
@@ -1985,8 +1968,7 @@ end subroutine thirdm
 
 subroutine fill_rad3(nma, nwa, im, ltab_md, ltab_wd, nest_wd)
 
-  use mem_ijtabs,  only: itab_md_vars, itab_wd_vars, nest_wd_vars
-  use misc_coms,   only: io6
+  use mem_delaunay, only: itab_md_vars, itab_wd_vars, nest_wd_vars
 
   implicit none
 

@@ -7,93 +7,79 @@
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
+! including OLAM:
 
    !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
+   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University;
+   ! Colorado State University Research Foundation ; ATMET, LLC
 
-   ! This software is free software; you can redistribute it and/or modify it 
+   ! This software is free software; you can redistribute it and/or modify it
    ! under the terms of the GNU General Public License as published by the Free
    ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
+   ! any later version.
 
    ! This software is distributed in the hope that it will be useful, but
    ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
    ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
    ! for more details.
- 
+
    ! You should have received a copy of the GNU General Public License along
    ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
+   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
+   ! (http://www.gnu.org/licenses/gpl.html)
    !----------------------------------------------------------------------------
 
 !===============================================================================
 subroutine makesfc3()
 
-! This subroutine generates the SURFACE GRID FILE for OLAM runs. 
+! This subroutine generates the SURFACE GRID FILE for OLAM runs.
 
-  use mem_grid,    only: nza, nma, nwa, zm, &
-                         xem, yem, zem, xev, yev, zev, xew, yew, zew, &
-                         arw0, glatw, glonw, glatm, glonm, topm, topw, dnu, dnv
+  use mem_grid,    only: nwa, zm, arw0, topm, topw
 
-  use mem_ijtabs,  only: itab_w, jtab_w, jtw_grid, jtw_lbcp
+  use misc_coms,   only: io6, itopoflg, topo_database, ngrids
 
-  use misc_coms,   only: io6, itopoflg, rinit, topo_database, mdomain
+  use leaf_coms,   only: nvgcon, ivegflg, isoilflg, soil_database, veg_database
 
-  use leaf_coms,   only: dt_leaf, nzs, nvgcon, isfcl, ivegflg, isoilflg, &
-                         soil_database, veg_database
-
-  use consts_coms, only: erad, eradi, piu180, r8
+  use consts_coms, only: eradi, piu180, r8
 
   use land_db,     only: land_database_read
 
-  use soilgrids_db, only: soilgrids_read
+  use soilgrids_db,only: soilgrids_read
 
   use max_dims,    only: maxnlspoly
 
-  use mem_sfcg,    only: nsfcgrids, sfcgfile, nmsfc, nvsfc, nwsfc, mmsfc, mvsfc, mwsfc, &
-                         itab_msfc, itab_vsfc, itab_wsfc, sfcg, &
-                         itab_msfc_vars, itab_vsfc_vars, itab_wsfc_vars, resize_sfcgrid
+  use mem_sfcg,    only: nsfcgrids, nmsfc, nvsfc, nwsfc, sfcg, &
+                         itab_msfc, itab_vsfc, itab_wsfc, &
+                         itab_msfc_vars, itab_vsfc_vars, itab_wsfc_vars, &
+                         sfcgrid_res_factor, nsfcgrid_root
 
-  use mem_land,    only: nland, onland, itab_land, land, nzg, landgrid_dztop, &
+  use mem_land,    only: nland, onland, land, nzg, landgrid_dztop, &
                          landgrid_depth, slz, dslz, dslzo2, dslzi, slzt, &
                          alloc_landcol
 
-  use mem_lake,    only: nlake, onlake, itab_lake, lake 
-  use mem_sea,     only: nsea,  onsea,  itab_sea,  sea
+  use mem_lake,    only: nlake, onlake
+  use mem_sea,     only: nsea,  onsea
   use oname_coms,  only: nl
 
   implicit none
 
-  integer :: k, im, iw, j
-  integer :: nqa, iqa, kw_sea, kw_land
-  integer :: npoly, iland, inew
-  integer :: nmsfc_inc, nvsfc_inc, nwsfc_inc
+  integer :: k, iw, j
+  integer :: kw_sea, kw_land
+  integer :: iland, inew
   integer :: imsfc, ivsfc, iwsfc
-  integer :: leafclass
-  integer :: nasfc, sumleafclassm
+  integer :: nasfc
 
   integer, parameter :: nsgdata = 1 ! number of SoilGrids datasets to read
 
-  integer, allocatable :: miw(:), miv(:,:), mim(:,:,:)
+  real,    allocatable :: rscr(:)
+  integer, allocatable :: iscr(:)
 
-  real, allocatable :: qlat(:),qlon(:),topq(:)
-  real, allocatable :: xeq(:),yeq(:),zeq(:)
-  integer, allocatable :: ioge(:), leaf_class(:)
-
-  type(itab_msfc_vars), allocatable :: itab_msfc_temp(:)
-  type(itab_vsfc_vars), allocatable :: itab_vsfc_temp(:)
   type(itab_wsfc_vars), allocatable :: itab_wsfc_temp(:)
 
   real(r8), allocatable :: tot_area(:)
-  real(r8) :: area_tot
+  real(r8)              :: area_tot
 
-  integer, allocatable :: leaf_classm(:), iwnew(:)
-
-  integer :: jj,iwn
-  real :: topwmin, topwmax, fracz, topr
+  integer, allocatable :: iwnew(:)
 
   integer :: iter
   real :: dz, srati
@@ -116,390 +102,50 @@ subroutine makesfc3()
   call voronoi_sfc()
   call grid_geometry_hex_sfc()
 
-  ! Topography height and surface type (ocean, lake, land) will be filled not
-  ! only for Voronoi (hexagon) cell centers (W points), but also for the
-  ! vertices (M points).  In preparation, allocate and define arrays of spatial
-  ! coordinates that are composites of both sets of points (M + W). 
-
-  nqa = nmsfc + nwsfc - 1
-
-  allocate (qlat(nqa), qlon(nqa), topq(nqa))
-  allocate ( xeq(nqa),  yeq(nqa),  zeq(nqa))
-  allocate (ioge(nqa), leaf_class(nqa))
-  allocate (leaf_classm(nmsfc))
-
-  qlat(1:nmsfc) = sfcg%glatm(1:nmsfc)
-  qlon(1:nmsfc) = sfcg%glonm(1:nmsfc)
-  xeq (1:nmsfc) = sfcg%xem  (1:nmsfc)
-  yeq (1:nmsfc) = sfcg%yem  (1:nmsfc)
-  zeq (1:nmsfc) = sfcg%zem  (1:nmsfc)
-
-  qlat(nmsfc+1:nqa) = sfcg%glatw(2:nwsfc)
-  qlon(nmsfc+1:nqa) = sfcg%glonw(2:nwsfc)
-  xeq (nmsfc+1:nqa) = sfcg%xew  (2:nwsfc)
-  yeq (nmsfc+1:nqa) = sfcg%yew  (2:nwsfc)
-  zeq (nmsfc+1:nqa) = sfcg%zew  (2:nwsfc)
-
-  ! Interpolate or assign topography height to (M + W) points of surface grid
+  ! Interpolate or assign topography height to W points of surface grid
 
   if (itopoflg == 1) then  ! from database
-     call land_database_read(nqa, qlat, qlon, &
-         topo_database, topo_database, 'topo', datq=topq)
+     call land_database_read(nwsfc, sfcg%glatw, sfcg%glonw, &
+         topo_database, topo_database, 'topo', datq=sfcg%topw)
   else
-     call topo_init(nqa,topq,qlat,qlon,xeq,yeq,zeq)
+     call topo_init(nwsfc, sfcg%topw, sfcg%glatw, sfcg%glonw, &
+                    sfcg%xew, sfcg%yew,sfcg%zew)
   endif
 
-  ! Read or assign surface type to (M + W) points of surface grid
+  ! Read or assign surface type to W points of surface grid
 
   if (ivegflg == 1) then  ! from database
-     call land_database_read(nqa, qlat, qlon, &
-          veg_database, veg_database, 'leaf_class', idatq=ioge)
 
-     do iqa = 2,nqa
-        call oge_leafclass(ioge(iqa), leaf_class(iqa))
+     call land_database_read(nwsfc, sfcg%glatw, sfcg%glonw, &
+          veg_database, veg_database, 'leaf_class', idatq=sfcg%ioge)
+
+     do iwsfc = 2, nwsfc
+        call oge_leafclass(sfcg%ioge(iwsfc), sfcg%leaf_class(iwsfc))
      enddo
+
   else  ! from user-defined values in namelist file
-     leaf_class(2:nqa) = nvgcon
+
+     sfcg%leaf_class(2:nwsfc) = nvgcon
+
   endif
 
   ! Loop over all (M + W) points of surface grid
 
-  do iqa = 2,nqa
+  do iwsfc = 2, nwsfc
 
      ! Prevent TOPQ lower than lowest model level zm(1)
 
-     topq(iqa) = max(topq(iqa),zm(1))
+     sfcg%topw(iwsfc) = max(sfcg%topw(iwsfc),zm(1))
 
-     ! If point is ocean but has nonzero topography height, print message
-     ! and reset topography to zero.
+     ! If point is ocean but has nonzero topography height,
+     ! reset topography to zero.
 
-     if (leaf_class(iqa) == 0 .and. topq(iqa) /= 0.) then
-        print*, 'topq height of ocean point is nonzero: resetting to zero '
-        topq(iqa) = 0.
-     endif
+     if (sfcg%leaf_class(iwsfc) == 0) sfcg%topw(iwsfc) = 0.
 
   enddo
 
-  ! Copy topography height and surface type from temporary composite arrays to
-  ! individual W and M arrays of surface grid, and deallocate composite arrays.
-
-  sfcg%topm(2:nmsfc) = topq(2:nmsfc)
-  sfcg%topw(2:nwsfc) = topq(nmsfc+1:nqa)
-
-  sfcg%ioge(2:nwsfc) = ioge(nmsfc+1:nqa)
-
-       leaf_classm(2:nmsfc) = leaf_class(2:nmsfc)
-  sfcg%leaf_class (2:nwsfc) = leaf_class(nmsfc+1:nqa)
-
-  deallocate (qlat, qlon, topq)
-  deallocate (xeq, yeq, zeq)
-  deallocate (ioge, leaf_class)
-
-  ! Allocate arrays to store list of M points during subdivision of surface
-  ! grid hex cells
-
-  allocate (miw(nwsfc))      ; miw(:)     = 0
-  allocate (miv(nvsfc,nza))  ; miv(:,:)   = 0
-  allocate (mim(nwsfc,7,nza)); mim(:,:,:) = 0
-
-  ! Set amount of extra array space in case cell subdivision is done
-
-  nmsfc_inc = 10 * nmsfc
-  nvsfc_inc = 10 * nvsfc
-  nwsfc_inc = 10 * nwsfc
-
-  ! Initialize grid size counters at current values
-
-  mmsfc = nmsfc
-  mvsfc = nvsfc
-  mwsfc = nwsfc
-
-  ! Vertical index for sea (ocean) cells
-
-  kw_sea = 2
-  do while(zm(kw_sea) < 1.) ! 1-meter threshold
-     kw_sea = kw_sea + 1
-  enddo
-
-  ! Initialize ATM grid topography values to large negative ("missing") value
-
-  topw(:) = -2.e3
-  topm(:) = -2.e3
-
-  ! Loop over surface grid W cells
-
-  do iwsfc = 2,nwsfc
-
-     npoly = itab_wsfc(iwsfc)%npoly
-
-     if (itab_wsfc(iwsfc)%ivoronoi >= 2) then  ! (iwatm = 1)
-
-        ! This surface cell is flagged to remain a Voronoi cell (i.e., to not
-        ! be subdivided).  Determine overlay with atmospheric grid.
-
-        call sfc_atm_hex_overlay(iwsfc)
-
-        if (sfcg%leaf_class(iwsfc) == 0) then
-
-           itab_wsfc(iwsfc)%kwatm(1: ) = kw_sea
-
-           sfcg%wnx(iwsfc) = sfcg%xew(iwsfc) * eradi
-           sfcg%wny(iwsfc) = sfcg%yew(iwsfc) * eradi
-           sfcg%wnz(iwsfc) = sfcg%zew(iwsfc) * eradi
-
-        else
-
-           sfcg%wnx(iwsfc) = sfcg%xew(iwsfc) * eradi
-           sfcg%wny(iwsfc) = sfcg%yew(iwsfc) * eradi
-           sfcg%wnz(iwsfc) = sfcg%zew(iwsfc) * eradi
-
-           kw_land = 2
-           do while(zm(kw_land) < 1. + sfcg%topw(iwsfc)) ! 1-meter threshold
-              kw_land = kw_land + 1
-           enddo
-           itab_wsfc(iwsfc)%kwatm = kw_land
-
-        endif
-
-     else
-
-        ! This cell is not flagged to remain a Voronoi cell, which means that
-        ! in its present Voronoi form, it should exactly match an atmospheric
-        ! grid column in both index value and location (until subdivision, if
-        ! any, is done in subroutine sfc_grid_topocut).  Check here for exact
-        ! coincidence.
-
-        if (abs(sfcg%xew(iwsfc) - xew(iwsfc)) > 1. .or. &
-            abs(sfcg%yew(iwsfc) - yew(iwsfc)) > 1. .or. &
-            abs(sfcg%zew(iwsfc) - zew(iwsfc)) > 1.) then
-
-           print*, 'Sfc grid non-Voronoi cell does not match ATM cell ',iwsfc
-           print*, 'sfc2 ',itab_wsfc(iwsfc)%npoly,sfcg%glatw(iwsfc),sfcg%glonw(iwsfc)
-           stop 'stop 101 '
-        endif
-
-        sumleafclassm = 0
-        do j = 1,npoly
-           imsfc = itab_wsfc(iwsfc)%imn(j)
-           iwn = itab_wsfc(iwsfc)%iwn(j)
-
-           if (abs(sfcg%xem(imsfc) - xem(imsfc)) > 2. .or. &
-               abs(sfcg%yem(imsfc) - yem(imsfc)) > 2. .or. &
-               abs(sfcg%zem(imsfc) - zem(imsfc)) > 2.) then
-
-              print*, 'Sfc grid non-Voronoi cell does not match ATM cell ',iwsfc,j
-              print*, 'sfc3 ',npoly,sfcg%glatw(iwsfc),sfcg%glonw(iwsfc)
-              print*, 'sfc4 ',abs(sfcg%xem(imsfc) - xem(imsfc)), &
-                              abs(sfcg%yem(imsfc) - yem(imsfc)), &
-                              abs(sfcg%zem(imsfc) - zem(imsfc))
-
-              do jj = 1,npoly
-                 iwn = itab_wsfc(iwsfc)%iwn(jj)
-                 print*, 'sfc5 ',itab_wsfc(iwn)%npoly
-              enddo
-
-              stop 'stop 102 '
-           endif
-
-           sumleafclassm = sumleafclassm + leaf_classm(imsfc)
-        enddo
-
-        ! Perform topography adjustment for the W and M points of this surface
-        ! cell prior to topocutting
-
-        topwmin = 1.e9
-        topwmax = -1.e9
-
-        do j = 0,npoly
-           if (j == 0) then
-              topr = sfcg%topw(iwsfc)
-           else
-              imsfc = itab_wsfc(iwsfc)%imn(j)
-              topr = sfcg%topm(imsfc)
-           endif
-
-           ! Loop over KM levels
-
-           do k = 1,nza-1
-
-              ! Check whether topr is at or above current KM level
-
-              if (zm(k) <= topr .and. zm(k+1) >= topr) then
-
-                 ! Check topr within height range of KT level
-
-                 fracz = (topr - zm(k)) / (zm(k+1) - zm(k))
-
-                 ! If topr is in lowest or highest 2% of KT level, move it to the limit.      
-
-                 if (fracz < .02) then
-                    topr = zm(k)
-                 elseif (fracz > .98) then
-                    topr = zm(k+1)
-                 endif
-
-                 exit
-
-              endif
-
-           enddo
-
-           ! Copy adjusted topography back to SFC grid W or M point, and copy
-           ! M point topography to coincident ATM grid M point
-
-           if (j == 0) then
-              sfcg%topw(iwsfc) = topr
-           else
-              sfcg%topm(imsfc) = topr
-              topm(imsfc) = sfcg%topm(imsfc)
-
-              if (topwmin > sfcg%topm(imsfc)) topwmin = sfcg%topm(imsfc)
-              if (topwmax < sfcg%topm(imsfc)) topwmax = sfcg%topm(imsfc)
-           endif
-
-        enddo
-
-        ! Constrain SFC grid TOPW by max/min range of adjacent TOPM values, and
-        ! copy to coincident ATM grid W point
-
-        sfcg%topw(iwsfc) = max(topwmin,min(topwmax,sfcg%topw(iwsfc)))
-        topw(iwsfc) = sfcg%topw(iwsfc)
-
-        ! Check surface type of this surface grid cell
-
-        if (sfcg%leaf_class(iwsfc) == 0 .and. sumleafclassm == 0) then
-
-           ! Surface grid W cell and all surrounding M points are ocean.  Cell
-           ! will not be subdivided.  Set ivoronoi flag = 1 to indicate that
-           ! no topocutting is done for this cell.
-
-           itab_wsfc(iwsfc)%kwatm(1) = kw_sea
-           itab_wsfc(iwsfc)%arc(1) = sfcg%area(iwsfc)
-           itab_wsfc(iwsfc)%ivoronoi = 1
-
-        else 
-
-           ! Surface grid W cell is not flagged to remain a Voronoi cell and
-           ! it is not all ocean, so cell will be subdivided, based in part on
-           ! how the topographic surface intersects the horizontal layers of
-           ! the atmospheric grid.  The subdivision of the surface grid follows
-           ! the lines of this intersection such that each surface grid cell
-           ! interfaces with only a single atmospheric cell (single by virtue
-           ! of both its horizontal and vertical index).  In preparation for
-           ! the new surface grid cells generated by this process, allocate
-           ! more space in the surface grid arrays.
-
-           if (mmsfc > size(sfcg%xem) - 100  .or. &
-               mvsfc > size(sfcg%xev) - 100  .or. &
-               mwsfc > size(sfcg%xew) - 100) then
-
-              allocate (itab_msfc_temp(mmsfc + nmsfc_inc))
-              itab_msfc_temp(1:mmsfc) = itab_msfc(1:mmsfc)
-              call move_alloc(itab_msfc_temp, itab_msfc)
-
-              allocate (itab_vsfc_temp(mvsfc + nvsfc_inc))
-              itab_vsfc_temp(1:mvsfc) = itab_vsfc(1:mvsfc)
-              call move_alloc(itab_vsfc_temp, itab_vsfc)
-
-              allocate (itab_wsfc_temp(mwsfc + nwsfc_inc))
-              itab_wsfc_temp(1:mwsfc) = itab_wsfc(1:mwsfc)
-              call move_alloc(itab_wsfc_temp, itab_wsfc)
-
-              call resize_sfcgrid(mmsfc + nmsfc_inc, mvsfc + nvsfc_inc, mwsfc + nwsfc_inc)
-           endif
-
-           ! Proceed with subdivision by atmospheric grid cut cells.
-
-           call sfc_grid_topocut(iwsfc,nwsfc,nvsfc,mwsfc,mmsfc,miw,miv,mim)
-
-        endif
-
-     endif
-
-  enddo
-
-  ! For any surface grid cells that were added or altered in sfc_grid_topocut,
-  ! fill oge and leaf_class values
-
-  if (mwsfc > nwsfc) then
-
-     if (ivegflg == 2) then
-
-        ! If ivegflg == 2, fill sea/land cell areas and IW values, plus
-        ! leaf_class for land cells, from default value defined in OLAMIN.
-        ! User customization can be done here.
-
-        do iwsfc = 2,mwsfc
-           if (itab_wsfc(iwsfc)%ivoronoi == 0) then
-              sfcg%leaf_class(iwsfc) = nvgcon
-           endif
-        enddo
-
-     else
-
-        allocate (qlat(mwsfc), qlon(mwsfc))
-        allocate (ioge(mwsfc), leaf_class(mwsfc))
-        nqa = 1
-
-        do iwsfc = 2,mwsfc
-           if (itab_wsfc(iwsfc)%ivoronoi == 0) then
-              nqa = nqa + 1
-              qlat(nqa) = sfcg%glatw(iwsfc)
-              qlon(nqa) = sfcg%glonw(iwsfc)
-           endif
-        enddo
-
-        ! If ivegflg == 1, fill sea/land cells with leaf_class from leaf database
-
-        call land_database_read(nqa, &
-             qlat(1:nqa), &
-             qlon(1:nqa), &
-             veg_database, &
-             veg_database, &
-             'leaf_class', &
-             idatq=ioge(1:nqa))
-
-        iqa = 1
-        do iwsfc = 2,mwsfc
-           if (itab_wsfc(iwsfc)%ivoronoi == 0) then
-              iqa = iqa + 1
-              call oge_leafclass(ioge(iqa), leafclass)
-              sfcg%ioge(iwsfc) = ioge(iqa)
-              sfcg%leaf_class(iwsfc) = leafclass
-           endif
-        enddo
-
-        deallocate (qlat, qlon, ioge, leaf_class)
-     endif
-
-  endif
-
-  ! call plot_fields(0)  ! Only for LEAF_CLASS
-
-  ! Check all ATM grid topography values to make sure they have been set
-
-  do im = 2,nma
-     if (topm(im) < -1.e3) then
-        print*, 'topm not set ',im,topm(im),glatm(im),glonm(im)
-        stop 'stop topm '
-     endif
-  enddo
-
-  do iw = 2,nwa
-     if (topw(iw) < -1.e3) then
-        print*, 'topw not set ',iw,topw(iw),glatw(iw),glonw(iw)
-        stop 'stop topw '
-     endif
-  enddo
-
-  ! Now, all surface grid cells have been generated.  Resize surface arrays in
-  ! order to eliminate unused space.  At the same time, reorder surface grid W
-  ! cell indices so that land cells are first, deep lake cells are second, and
-  ! sea cells are third.
-
-  nmsfc = mmsfc
-  nvsfc = mvsfc
-  nwsfc = mwsfc
+  ! Now that land use has been assigned, Reorder surface grid W cell indices so
+  ! that land cells are first, deep lake cells are second, and sea cells are third.
 
   nasfc = 1
   nland = 1
@@ -560,47 +206,129 @@ subroutine makesfc3()
 
   ! Loop through SFC grid M points in old order (same as new order)
 
-  allocate (itab_msfc_temp(nmsfc))
-  do imsfc = 2,nmsfc
-     itab_msfc_temp(imsfc) = itab_msfc(imsfc)
-     itab_msfc_temp(imsfc)%iwn(1) = iwnew(itab_msfc(imsfc)%iwn(1))
-     itab_msfc_temp(imsfc)%iwn(2) = iwnew(itab_msfc(imsfc)%iwn(2))
-     itab_msfc_temp(imsfc)%iwn(3) = iwnew(itab_msfc(imsfc)%iwn(3))
+  do imsfc = 2, nmsfc
+     itab_msfc(imsfc)%iwn(1) = iwnew( itab_msfc(imsfc)%iwn(1) )
+     itab_msfc(imsfc)%iwn(2) = iwnew( itab_msfc(imsfc)%iwn(2) )
+     itab_msfc(imsfc)%iwn(3) = iwnew( itab_msfc(imsfc)%iwn(3) )
   enddo
-  call move_alloc(itab_msfc_temp, itab_msfc)
 
   ! Loop through SFC grid V points in old order (same as new order)
 
-  allocate (itab_vsfc_temp(nvsfc))
   do ivsfc = 2,nvsfc
-     itab_vsfc_temp(ivsfc) = itab_vsfc(ivsfc)
-     itab_vsfc_temp(ivsfc)%iwn(1) = iwnew(itab_vsfc(ivsfc)%iwn(1))
-     itab_vsfc_temp(ivsfc)%iwn(2) = iwnew(itab_vsfc(ivsfc)%iwn(2))
+     itab_vsfc(ivsfc)%iwn(1) = iwnew( itab_vsfc(ivsfc)%iwn(1) )
+     itab_vsfc(ivsfc)%iwn(2) = iwnew( itab_vsfc(ivsfc)%iwn(2) )
   enddo
-  call move_alloc(itab_vsfc_temp, itab_vsfc)
+
+  ! Store previous W itabs in a temporary array
+
+  call move_alloc(itab_wsfc, itab_wsfc_temp)
+
+  allocate( itab_wsfc(nwsfc) )
 
   ! Loop through SFC grid W points in old order
 
-  allocate (itab_wsfc_temp(nwsfc))
-  do iwsfc = 2,nwsfc
+  do iwsfc = 2, nwsfc
      inew = iwnew(iwsfc)
 
-     itab_wsfc_temp(inew) = itab_wsfc(iwsfc)
+     itab_wsfc(inew) = itab_wsfc_temp(iwsfc)
 
-     ! Convert IWN neighbor indices of inew W point if inew cell is Voronoi
+     ! Convert IWN neighbor indices of inew W points
+     do j = 1, itab_wsfc_temp(iwsfc)%npoly
+        itab_wsfc(inew)%iwn(j) = iwnew( itab_wsfc_temp(iwsfc)%iwn(j) )
+     enddo
 
-     if (itab_wsfc(iwsfc)%ivoronoi == 3) then
-        do j = 1,itab_wsfc(iwsfc)%npoly
-           itab_wsfc_temp(inew)%iwn(j) = iwnew(itab_wsfc(iwsfc)%iwn(j))
+  enddo
+
+  deallocate(itab_wsfc_temp)
+
+  ! Reorder the sfcg W arrays that have been previously computed
+
+  allocate(rscr(nwsfc))
+
+  rscr = sfcg%area
+  sfcg%area(iwnew(1:nwsfc)) = rscr
+
+  rscr = sfcg%glatw
+  sfcg%glatw(iwnew(1:nwsfc)) = rscr
+
+  rscr = sfcg%glonw
+  sfcg%glonw(iwnew(1:nwsfc)) = rscr
+
+  rscr = sfcg%xew
+  sfcg%xew(iwnew(1:nwsfc)) = rscr
+
+  rscr = sfcg%yew
+  sfcg%yew(iwnew(1:nwsfc)) = rscr
+
+  rscr = sfcg%zew
+  sfcg%zew(iwnew(1:nwsfc)) = rscr
+
+  rscr = sfcg%topw
+  sfcg%topw(iwnew(1:nwsfc)) = rscr
+
+  deallocate(rscr)
+  allocate(iscr(nwsfc))
+
+  iscr = sfcg%leaf_class
+  sfcg%leaf_class(iwnew(1:nwsfc)) = iscr
+
+  iscr = sfcg%ioge
+  sfcg%ioge(iwnew(1:nwsfc)) = iscr
+
+  deallocate(iscr)
+  deallocate(iwnew)
+
+  topw(:) = 0.0
+  topm(:) = 0.0
+
+  ! Loop over surface grid W cells
+
+  write(*,*)
+  write(*,*) "Computing surface-atm overlaps"
+
+  if ( (sfcgrid_res_factor == 1) .and. &
+       ((nsfcgrid_root < 1) .or. (nsfcgrid_root==ngrids .and. nsfcgrids == 0)) ) then
+
+     ! The surface mesh is an exact copy of the atmospheric mesh with only one surface cell
+     ! per atmospheric cell.
+     call step_terrain_overlay()
+
+  else
+
+     ! General case: multiple surface cells per atmospheric cell
+     call sfc_atm_hex_overlay()
+
+  endif
+
+  ! Vertical index for sea (ocean) cells
+
+  kw_sea = 2
+  do while(zm(kw_sea) < 0.1) ! .1-meter threshold
+     kw_sea = kw_sea + 1
+  enddo
+
+  do iwsfc = 2, nwsfc
+
+     sfcg%wnx(iwsfc) = sfcg%xew(iwsfc) * eradi
+     sfcg%wny(iwsfc) = sfcg%yew(iwsfc) * eradi
+     sfcg%wnz(iwsfc) = sfcg%zew(iwsfc) * eradi
+
+     if (sfcg%leaf_class(iwsfc) == 0) then
+
+        itab_wsfc(iwsfc)%kwatm = kw_sea
+
+     else
+
+        kw_land = 2
+        do while(zm(kw_land) < .1 + sfcg%topw(iwsfc)) ! .1-meter threshold
+           kw_land = kw_land + 1
         enddo
+
+        itab_wsfc(iwsfc)%kwatm = kw_land
+
      endif
 
   enddo
-  call move_alloc(itab_wsfc_temp, itab_wsfc)
-
-  call resize_sfcgrid(nmsfc, nvsfc, nwsfc, iwnew=iwnew)
-
-  deallocate(iwnew)
 
   allocate(tot_area(nwa))
   tot_area(:) = 0.0_r8
@@ -619,7 +347,7 @@ subroutine makesfc3()
 
   ! Scale surface cell and ATM coupling areas slightly so that coupling areas sum
   ! almost exactly to arw0 within an ATM column
-  
+
   do iwsfc = 2,nwsfc
      area_tot = 0.
 
@@ -652,8 +380,8 @@ subroutine makesfc3()
   ! with those of the subsequent simulation that will be initialized with the
   ! spun-up groundwater, and for the thinner soil layers in the subsequent
   ! simulation to be groupable together into sets that correspond to individual
-  ! layers in the present spin-up simulation.  To achieve this, set nzga 
-  ! (an alternate value of nzg) to be the nzg value in the subsequent 
+  ! layers in the present spin-up simulation.  To achieve this, set nzga
+  ! (an alternate value of nzg) to be the nzg value in the subsequent
   ! simulation so that the soil depths of that simulation can be replicated
   ! here, and then group the thinner layers together here to be consistent
   ! with nzg (which is less than nzga) that is used for this spin-up simulation.
@@ -688,7 +416,7 @@ subroutine makesfc3()
      thick = thick + dz
 
      if (nl%igw_spinup /= 1 .or. thick > 0.5) then
-        k = k - 1 
+        k = k - 1
         slz(k) = slz(k+1) - thick
 
         dslz  (k) = slz(k+1) - slz(k)
@@ -723,7 +451,8 @@ subroutine makesfc3()
   ! Always read FAO soil data and fill single-level usdatext array.  This may be needed
   ! permanently to fill in holes in the SoilGrids maps.
 
-  allocate (qlat(nqa), qlon(nqa), topq(nqa))
+! allocate (qlat(nqa), qlon(nqa), topq(nqa))
+  allocate(iscr(nland))
 
   call land_database_read(nland, &
        sfcg%glatw(1:nland),      &
@@ -731,7 +460,7 @@ subroutine makesfc3()
        soil_database,            &
        soil_database,            &
        'soil_text',              &
-       idatq=sfcg%ioge(1:nland))
+       idatq=iscr)
 
   ! Loop over all land cells (already defined and filled with leaf_class)
 
@@ -739,7 +468,7 @@ subroutine makesfc3()
 
      ! Convert from FAO soil type to USDA soil textural class
 
-     call fao_usda(sfcg%ioge(iland), land%usdatext(iland))
+     call fao_usda(iscr(iland), land%usdatext(iland))
 
      ! Customization of soil composition can be done inside subroutine
      ! usda_composition by modifying usdatext(iland) and/or how it is used
@@ -747,6 +476,8 @@ subroutine makesfc3()
      call usda_composition(iland, land%usdatext(iland))
 
   enddo
+
+  deallocate(iscr)
 
   if (isoilflg == 1) then
 
@@ -762,21 +493,44 @@ subroutine makesfc3()
 
   endif
 
-print*, 'finished soilgrids_read '
-
-! REMAINING TASKS:
-! (1) Method for computing unit normal vectors for sfc hex cells over land
-! (2) Check to make sure all "flux cell" area is accounted for
-
-
-! RELATED TASKS:
-! (1) 3D soil water
-! (2) MPI parallelism for soil
-! (3) Deep lake model
-! (4) Shallow lake model
-! (5) 
+  print*, 'finished soilgrids_read '
 
 end subroutine makesfc3
+
+!===============================================================================
+
+subroutine step_terrain_overlay()
+
+  use mem_grid,   only: nwa, nma, topw, topm, arw0
+  use mem_sfcg,   only: nwsfc, nmsfc, sfcg, itab_wsfc
+  use mem_ijtabs, only: itab_m
+
+  implicit none
+
+  integer :: im, iw1, iw2, iw3, iw, iwsfc
+
+  if (nwa /= nwsfc) stop 'error in nwsfc size!'
+  if (nma /= nmsfc) stop 'error in nmsfc size!'
+
+  topw(:) = sfcg%topw
+
+  do im = 2, nma
+     iw1 = itab_m(im)%iw(1)
+     iw2 = itab_m(im)%iw(2)
+     iw3 = itab_m(im)%iw(3)
+
+     topm(im) = (topw(iw1) + topw(iw2) + topw(iw3)) / 3.
+  enddo
+
+  do iwsfc = 2, nwsfc
+     iw = iwsfc
+
+     itab_wsfc(iwsfc)%nwatm    = 1
+     itab_wsfc(iwsfc)%iwatm(1) = iw
+     itab_wsfc(iwsfc)%arc  (1) = arw0(iw)
+  enddo
+
+end subroutine step_terrain_overlay
 
 !===============================================================================
 
@@ -799,17 +553,17 @@ subroutine topo_init(nqa,topq,glatq,glonq,xeq,yeq,zeq)
 
   implicit none
 
-  integer, intent(in) :: nqa
-  real, intent(in) :: glatq(nqa),glonq(nqa),xeq(nqa),yeq(nqa),zeq(nqa)
-
-  real, intent(out) :: topq(nqa)
+  integer, intent( in) :: nqa
+  real,    intent( in) :: glatq(nqa),glonq(nqa),xeq(nqa),yeq(nqa),zeq(nqa)
+  real,    intent(out) :: topq(nqa)
 
   integer :: iq
 
-  real :: hfwid
-  real :: hgt
-  real :: hfwid2
-  real :: hoffset
+! WITCH OF AGNESI MOUNTAIN
+! real :: hfwid
+! real :: hgt
+! real :: hfwid2
+! real :: hoffset
 
   real :: r, r0
 
@@ -819,8 +573,7 @@ subroutine topo_init(nqa,topq,glatq,glonq,xeq,yeq,zeq)
   real(8) :: zm0, rhom0, u0, v0, wm0
   real(8) :: lon,lat,p,t,phis,ps,q,q1,q2,q3,q4
   real(8) :: hyam, hybm, gc
-  real(8) :: time0   = 0.0d0
-  integer :: zcoords = 1.0d0
+  integer :: zcoords = 1
   integer :: cfv = 0
   integer :: shear = 0
   logical :: hybrid_eta = .false.
@@ -862,7 +615,7 @@ subroutine topo_init(nqa,topq,glatq,glonq,xeq,yeq,zeq)
      ! The following form (with a nonzero hoffset value subtracted) gives zero
      ! topography at large distance from mountain top.
 
-     ! topq(iq) = max(0.,hgt * hfwid2 / (hfwid2 + xeq(iq)**2) - hoffset) 
+     ! topq(iq) = max(0.,hgt * hfwid2 / (hfwid2 + xeq(iq)**2) - hoffset)
 
      ! write(io6,*) 'topq ',iq,xeq(iq),topq(iq)
 
@@ -878,7 +631,7 @@ subroutine topo_init(nqa,topq,glatq,glonq,xeq,yeq,zeq)
 
         topq(iq) = max(0., 2000. * (1. - r / r0))
 
-        print*, 'topoinit ',iq,r,r0,topq(iq)
+        ! print*, 'topoinit ',iq,r,r0,topq(iq)
      endif
 
      !=============================================================================
@@ -942,7 +695,7 @@ subroutine topo_init(nqa,topq,glatq,glonq,xeq,yeq,zeq)
 
         endif
 
-        print*, 'topodefn ',iq,topq(iq)
+        ! print*, 'topodefn ',iq,topq(iq)
 
      endif
 
@@ -955,7 +708,7 @@ end subroutine topo_init
 subroutine oge_leafclass(ioge,leafclass)
 
   ! This subroutine maps the input ioge classes to a smaller set leafclass
-  ! which represents the full set of LEAF-2 or LEAF-3 classes for which 
+  ! which represents the full set of LEAF-2 or LEAF-3 classes for which
   ! LSP values are defined.
 
   implicit none
@@ -1103,20 +856,20 @@ subroutine fao_usda(ifao,iusda)
 
   integer :: catb(0:133)
 
-  ! (Bob 9/14/2000) This table maps FAO soil units numbered 0 to 132, plus our 
-  ! own missing value designated 133, to the USDA soil textural classes.  FAO 
-  ! classes [0] (ocean), [1, 7, 27, 42, 66, 69, 77, 78, 84, 98, 113] (soils not 
-  ! used in original FAO dataset), [132] (water), and [133] (our missing value) 
+  ! (Bob 9/14/2000) This table maps FAO soil units numbered 0 to 132, plus our
+  ! own missing value designated 133, to the USDA soil textural classes.  FAO
+  ! classes [0] (ocean), [1, 7, 27, 42, 66, 69, 77, 78, 84, 98, 113] (soils not
+  ! used in original FAO dataset), [132] (water), and [133] (our missing value)
   ! are all mapped to a default class of sandy clay loam in case they happen to
   ! correspond to a land surface area in the landuse dataset that RAMS uses to
   ! define land area.  We wrote missing value class 133 to the RAMS FAO files
   ! whenever a negative value (which is out of range of defined values) was
   ! found in the original FAO dataset, which occurred in about 2.6% of the
-  ! pixels.  For the remaining FAO classes, a cross reference table to Zobler 
+  ! pixels.  For the remaining FAO classes, a cross reference table to Zobler
   ! soil texture classes that was provided, plus our own cross referencing table
-  ! from Zobler to USDA classes listed below, provides the mapping from FAO to 
+  ! from Zobler to USDA classes listed below, provides the mapping from FAO to
   ! USDA.  In this mapping, we use only organic USDA classes and omit nonorganic
-  ! classes since most soils do contain organic matter, and organic content 
+  ! classes since most soils do contain organic matter, and organic content
   ! information is not provided in the Zobler classes.
 
   !  Zobler Class              USDA Class
@@ -1197,7 +950,7 @@ subroutine usda_composition(iland,usdatext)
     .32,   .34,   .34,   .07,   .095,    .41,    .722e-6,     1.9,   1.31,  .250,   & !  8 clay loam
     .52,   .42,   .06,   .08,   .100,    .38,    .333e-6,     2.7,   1.23,  .219,   & !  9 sandy clay
     .06,   .47,   .47,   .09,   .070,    .36,    .556e-7,      .5,   1.09,  .283,   & ! 10 silty clay
-    .22,   .58,   .20,   .10,   .068,    .38,    .556e-6,      .8,   1.09,  .286,   & ! 11 clay 
+    .22,   .58,   .20,   .10,   .068,    .38,    .556e-6,      .8,   1.09,  .286,   & ! 11 clay
     .10,   .06,   .84,   .05,   .034,    .46,    .694e-6,     1.6,   1.37,  .200/), & ! 12 silt
      (/10,12/) )
 
@@ -1245,7 +998,6 @@ subroutine sfcgfile_write()
   use mem_lake,   only: nlake, onlake
   use mem_sea,    only: nsea, onsea
   use hdf5_utils, only: shdf5_open, shdf5_orec, shdf5_close
-  use misc_coms,  only: io6
 
   implicit none
 
@@ -1253,12 +1005,9 @@ subroutine sfcgfile_write()
   integer :: ndims, idims(2)
   integer :: im, iv, iw
 
-  real,    allocatable :: rscr1(:)
   integer, allocatable :: iscr1(:)
   real,    allocatable :: rscr2(:,:)
   integer, allocatable :: iscr2(:,:)
-
-  integer, pointer :: i1pointer(:)
 
   character(pathlen) :: flnm
 
@@ -1326,10 +1075,10 @@ subroutine sfcgfile_write()
   idims(1) = nwsfc
 
   allocate (iscr1(nwsfc))
-  do iw = 1,nwsfc
-     iscr1(iw) = itab_wsfc(iw)%ivoronoi
-  enddo
-  call shdf5_orec(ndims,idims,'itab_wsfc%ivoronoi' ,ivar1=iscr1)
+! do iw = 1,nwsfc
+!    iscr1(iw) = itab_wsfc(iw)%ivoronoi
+! enddo
+! call shdf5_orec(ndims,idims,'itab_wsfc%ivoronoi' ,ivar1=iscr1)
 
   do iw = 1,nwsfc
      iscr1(iw) = itab_wsfc(iw)%npoly
@@ -1423,7 +1172,7 @@ subroutine sfcgfile_write()
   call shdf5_orec(ndims, idims, 'zem'       , rvar1=sfcg%zem)
   call shdf5_orec(ndims, idims, 'glatm'     , rvar1=sfcg%glatm)
   call shdf5_orec(ndims, idims, 'glonm'     , rvar1=sfcg%glonm)
-  call shdf5_orec(ndims, idims, 'topm'      , rvar1=sfcg%topm)
+! call shdf5_orec(ndims, idims, 'topm'      , rvar1=sfcg%topm)
 
   idims(1) = nvsfc
 
@@ -1584,10 +1333,10 @@ subroutine sfcgfile_read_pd()
   idims(1) = nwsfc
 
   allocate (iscr1(nwsfc))
-  call shdf5_irec(ndims,idims,'itab_wsfc%ivoronoi'  ,ivar1=iscr1)
-  do iwsfc = 1,nwsfc
-     itab_wsfc_pd(iwsfc)%ivoronoi = iscr1(iwsfc)
-  enddo
+! call shdf5_irec(ndims,idims,'itab_wsfc%ivoronoi'  ,ivar1=iscr1)
+! do iwsfc = 1,nwsfc
+!    itab_wsfc_pd(iwsfc)%ivoronoi = iscr1(iwsfc)
+! enddo
 
   call shdf5_irec(ndims,idims,'itab_wsfc%nwatm'     ,ivar1=iscr1)
   do iwsfc = 1,nwsfc
@@ -1619,7 +1368,7 @@ subroutine sfcgfile_read_pd()
 
   call shdf5_irec(ndims,idims,'itab_wsfc%ivn',ivar2=iscr2)
   do iwsfc = 1,nwsfc
-     itab_wsfc_pd(iwsfc)%ivn(1:7) = iscr2(1:7,iwsfc) 
+     itab_wsfc_pd(iwsfc)%ivn(1:7) = iscr2(1:7,iwsfc)
   enddo
 
   call shdf5_irec(ndims,idims,'itab_wsfc%iwn',ivar2=iscr2)
@@ -1661,7 +1410,8 @@ subroutine sfcgfile_read()
   integer            :: ndims, idims(2)
   character(pathlen) :: flnm
   logical            :: there
-  integer            :: im, iv, iw
+  integer            :: iw
+  character(2)       :: type
 
   ! Scratch arrays for copying input
 
@@ -1697,12 +1447,13 @@ subroutine sfcgfile_read()
 
  ! Read ITAB_WSFC ARRAYS
 
-  ndims = 2
+  ndims    = 2
   idims(1) = 8
   idims(2) = mwsfc
+  type     = 'CW'
 
   allocate (iscr2(8,mwsfc))
-  call shdf5_irec(ndims,idims,'itab_wsfc%kwatm',ivar2=iscr2, points=lgwsfc)
+  call shdf5_irec(ndims,idims,'itab_wsfc%kwatm',ivar2=iscr2, points=lgwsfc, stagpt=type)
 
   do iw = 1,mwsfc
      itab_wsfc(iw)%kwatm(1:8) = iscr2(1:8,iw)
@@ -1711,22 +1462,22 @@ subroutine sfcgfile_read()
   deallocate(iscr2)
 
   allocate (rscr2(8,mwsfc))
-  call shdf5_irec(ndims,idims,'itab_wsfc%arc',rvar2=rscr2, points=lgwsfc)
+  call shdf5_irec(ndims,idims,'itab_wsfc%arc',rvar2=rscr2, points=lgwsfc, stagpt=type)
   do iw = 1,mwsfc
      itab_wsfc(iw)%arc(1:8) = rscr2(1:8,iw)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_wsfc%arcoarsfc',rvar2=rscr2, points=lgwsfc)
+  call shdf5_irec(ndims,idims,'itab_wsfc%arcoarsfc',rvar2=rscr2, points=lgwsfc, stagpt=type)
   do iw = 1,mwsfc
      itab_wsfc(iw)%arcoarsfc(1:8) = rscr2(1:8,iw)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_wsfc%arcoariw',rvar2=rscr2, points=lgwsfc)
+  call shdf5_irec(ndims,idims,'itab_wsfc%arcoariw',rvar2=rscr2, points=lgwsfc, stagpt=type)
   do iw = 1,mwsfc
      itab_wsfc(iw)%arcoariw(1:8) = rscr2(1:8,iw)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_wsfc%arcoarkw',rvar2=rscr2, points=lgwsfc)
+  call shdf5_irec(ndims,idims,'itab_wsfc%arcoarkw',rvar2=rscr2, points=lgwsfc, stagpt=type)
   do iw = 1,mwsfc
      itab_wsfc(iw)%arcoarkw(1:8) = rscr2(1:8,iw)
   enddo
@@ -1750,42 +1501,45 @@ subroutine sfcgfile_read()
 
   ndims    = 1
   idims(1) = mmsfc
+  type     = 'CM'
 
-  call shdf5_irec(ndims, idims, 'xem'       , rvar1=sfcg%xem,   points=lgmsfc)
-  call shdf5_irec(ndims, idims, 'yem'       , rvar1=sfcg%yem,   points=lgmsfc)
-  call shdf5_irec(ndims, idims, 'zem'       , rvar1=sfcg%zem,   points=lgmsfc)
-  call shdf5_irec(ndims, idims, 'glatm'     , rvar1=sfcg%glatm, points=lgmsfc)
-  call shdf5_irec(ndims, idims, 'glonm'     , rvar1=sfcg%glonm, points=lgmsfc)
-  call shdf5_irec(ndims, idims, 'topm'      , rvar1=sfcg%topm,  points=lgmsfc)
+  call shdf5_irec(ndims, idims, 'xem'       , rvar1=sfcg%xem,   points=lgmsfc, stagpt=type)
+  call shdf5_irec(ndims, idims, 'yem'       , rvar1=sfcg%yem,   points=lgmsfc, stagpt=type)
+  call shdf5_irec(ndims, idims, 'zem'       , rvar1=sfcg%zem,   points=lgmsfc, stagpt=type)
+  call shdf5_irec(ndims, idims, 'glatm'     , rvar1=sfcg%glatm, points=lgmsfc, stagpt=type)
+  call shdf5_irec(ndims, idims, 'glonm'     , rvar1=sfcg%glonm, points=lgmsfc, stagpt=type)
+! call shdf5_irec(ndims, idims, 'topm'      , rvar1=sfcg%topm,  points=lgmsfc, stagpt=type)
 
   idims(1) = mvsfc
+  type     = 'CV'
 
-  call shdf5_irec(ndims, idims, 'xev'       , rvar1=sfcg%xev,  points=lgvsfc)
-  call shdf5_irec(ndims, idims, 'yev'       , rvar1=sfcg%yev,  points=lgvsfc)
-  call shdf5_irec(ndims, idims, 'zev'       , rvar1=sfcg%zev,  points=lgvsfc)
-  call shdf5_irec(ndims, idims, 'dnu'       , rvar1=sfcg%dnu,  points=lgvsfc)
-  call shdf5_irec(ndims, idims, 'dniu'      , rvar1=sfcg%dniu, points=lgvsfc)
-  call shdf5_irec(ndims, idims, 'dnv'       , rvar1=sfcg%dnv,  points=lgvsfc)
-  call shdf5_irec(ndims, idims, 'dniv'      , rvar1=sfcg%dniv, points=lgvsfc)
+  call shdf5_irec(ndims, idims, 'xev'       , rvar1=sfcg%xev,  points=lgvsfc, stagpt=type)
+  call shdf5_irec(ndims, idims, 'yev'       , rvar1=sfcg%yev,  points=lgvsfc, stagpt=type)
+  call shdf5_irec(ndims, idims, 'zev'       , rvar1=sfcg%zev,  points=lgvsfc, stagpt=type)
+  call shdf5_irec(ndims, idims, 'dnu'       , rvar1=sfcg%dnu,  points=lgvsfc, stagpt=type)
+  call shdf5_irec(ndims, idims, 'dniu'      , rvar1=sfcg%dniu, points=lgvsfc, stagpt=type)
+  call shdf5_irec(ndims, idims, 'dnv'       , rvar1=sfcg%dnv,  points=lgvsfc, stagpt=type)
+  call shdf5_irec(ndims, idims, 'dniv'      , rvar1=sfcg%dniv, points=lgvsfc, stagpt=type)
 
   idims(1) = mwsfc
+  type     = 'CW'
 
-  call shdf5_irec(ndims, idims, 'area'      , rvar1=sfcg%area,    points=lgwsfc)
-  call shdf5_irec(ndims, idims, 'xew'       , rvar1=sfcg%xew,     points=lgwsfc)
-  call shdf5_irec(ndims, idims, 'yew'       , rvar1=sfcg%yew,     points=lgwsfc)
-  call shdf5_irec(ndims, idims, 'zew'       , rvar1=sfcg%zew,     points=lgwsfc)
-  call shdf5_irec(ndims, idims, 'glatw'     , rvar1=sfcg%glatw,   points=lgwsfc)
-  call shdf5_irec(ndims, idims, 'glonw'     , rvar1=sfcg%glonw,   points=lgwsfc)
-  call shdf5_irec(ndims, idims, 'topw'      , rvar1=sfcg%topw,    points=lgwsfc)
-  call shdf5_irec(ndims, idims, 'wnx'       , rvar1=sfcg%wnx,     points=lgwsfc)
-  call shdf5_irec(ndims, idims, 'wny'       , rvar1=sfcg%wny,     points=lgwsfc)
-  call shdf5_irec(ndims, idims, 'wnz'       , rvar1=sfcg%wnz,     points=lgwsfc)
-  call shdf5_irec(ndims, idims, 'dzt_bot'   , rvar1=sfcg%dzt_bot, points=lgwsfc)
+  call shdf5_irec(ndims, idims, 'area'      , rvar1=sfcg%area,    points=lgwsfc, stagpt=type)
+  call shdf5_irec(ndims, idims, 'xew'       , rvar1=sfcg%xew,     points=lgwsfc, stagpt=type)
+  call shdf5_irec(ndims, idims, 'yew'       , rvar1=sfcg%yew,     points=lgwsfc, stagpt=type)
+  call shdf5_irec(ndims, idims, 'zew'       , rvar1=sfcg%zew,     points=lgwsfc, stagpt=type)
+  call shdf5_irec(ndims, idims, 'glatw'     , rvar1=sfcg%glatw,   points=lgwsfc, stagpt=type)
+  call shdf5_irec(ndims, idims, 'glonw'     , rvar1=sfcg%glonw,   points=lgwsfc, stagpt=type)
+  call shdf5_irec(ndims, idims, 'topw'      , rvar1=sfcg%topw,    points=lgwsfc, stagpt=type)
+  call shdf5_irec(ndims, idims, 'wnx'       , rvar1=sfcg%wnx,     points=lgwsfc, stagpt=type)
+  call shdf5_irec(ndims, idims, 'wny'       , rvar1=sfcg%wny,     points=lgwsfc, stagpt=type)
+  call shdf5_irec(ndims, idims, 'wnz'       , rvar1=sfcg%wnz,     points=lgwsfc, stagpt=type)
+  call shdf5_irec(ndims, idims, 'dzt_bot'   , rvar1=sfcg%dzt_bot, points=lgwsfc, stagpt=type)
 
   ! Read permanent grid cell data
 
-  call shdf5_irec(ndims, idims, 'leaf_class', ivar1=sfcg%leaf_class, points=lgwsfc)
-  call shdf5_irec(ndims, idims, 'oge'       , ivar1=sfcg%ioge,       points=lgwsfc)
+  call shdf5_irec(ndims, idims, 'leaf_class', ivar1=sfcg%leaf_class, points=lgwsfc, stagpt=type)
+  call shdf5_irec(ndims, idims, 'oge'       , ivar1=sfcg%ioge,       points=lgwsfc, stagpt=type)
 
   allocate (land%usdatext            (mland)) ; land%usdatext         = 0
   allocate (land%z_bedrock           (mland)) ; land%z_bedrock        = 0.
@@ -1802,25 +1556,27 @@ subroutine sfcgfile_read()
   allocate (land%cec_soil        (nzg,mland)) ; land%cec_soil         = 0.
 
   idims(1) = mland
+  type     = 'LW'
 
-  call shdf5_irec(ndims, idims, 'usdatext'        , ivar1=land%usdatext,        points=lgland)
-  call shdf5_irec(ndims, idims, 'z_bedrock'       , rvar1=land%z_bedrock,       points=lgland)
-  call shdf5_irec(ndims, idims, 'gpp'             , rvar1=land%gpp,             points=lgland)
-  call shdf5_irec(ndims, idims, 'glhymps_ksat'    , rvar1=land%glhymps_ksat,    points=lgland)
-  call shdf5_irec(ndims, idims, 'glhymps_ksat_pfr', rvar1=land%glhymps_ksat_pfr,points=lgland)
-  call shdf5_irec(ndims, idims, 'glhymps_poros'   , rvar1=land%glhymps_poros,   points=lgland)
+  call shdf5_irec(ndims, idims, 'usdatext'        , ivar1=land%usdatext,        points=lgland, stagpt=type)
+  call shdf5_irec(ndims, idims, 'z_bedrock'       , rvar1=land%z_bedrock,       points=lgland, stagpt=type)
+  call shdf5_irec(ndims, idims, 'gpp'             , rvar1=land%gpp,             points=lgland, stagpt=type)
+  call shdf5_irec(ndims, idims, 'glhymps_ksat'    , rvar1=land%glhymps_ksat,    points=lgland, stagpt=type)
+  call shdf5_irec(ndims, idims, 'glhymps_ksat_pfr', rvar1=land%glhymps_ksat_pfr,points=lgland, stagpt=type)
+  call shdf5_irec(ndims, idims, 'glhymps_poros'   , rvar1=land%glhymps_poros,   points=lgland, stagpt=type)
 
   ndims    = 2
   idims(1) = nzg
   idims(2) = mland
+  type     = 'LW'
 
-  call shdf5_irec(ndims, idims, 'sand'            , rvar2=land%sand,             points=lgland)
-  call shdf5_irec(ndims, idims, 'clay'            , rvar2=land%clay,             points=lgland)
-  call shdf5_irec(ndims, idims, 'silt'            , rvar2=land%silt,             points=lgland)
-  call shdf5_irec(ndims, idims, 'organ'           , rvar2=land%organ,            points=lgland)
-  call shdf5_irec(ndims, idims, 'bulkdens_drysoil', rvar2=land%bulkdens_drysoil, points=lgland)
-  call shdf5_irec(ndims, idims, 'pH_soil'         , rvar2=land%pH_soil,          points=lgland)
-  call shdf5_irec(ndims, idims, 'cec_soil'        , rvar2=land%cec_soil,         points=lgland)
+  call shdf5_irec(ndims, idims, 'sand'            , rvar2=land%sand,             points=lgland, stagpt=type)
+  call shdf5_irec(ndims, idims, 'clay'            , rvar2=land%clay,             points=lgland, stagpt=type)
+  call shdf5_irec(ndims, idims, 'silt'            , rvar2=land%silt,             points=lgland, stagpt=type)
+  call shdf5_irec(ndims, idims, 'organ'           , rvar2=land%organ,            points=lgland, stagpt=type)
+  call shdf5_irec(ndims, idims, 'bulkdens_drysoil', rvar2=land%bulkdens_drysoil, points=lgland, stagpt=type)
+  call shdf5_irec(ndims, idims, 'pH_soil'         , rvar2=land%pH_soil,          points=lgland, stagpt=type)
+  call shdf5_irec(ndims, idims, 'cec_soil'        , rvar2=land%cec_soil,         points=lgland, stagpt=type)
 
   call shdf5_close()
 
@@ -1830,16 +1586,14 @@ end subroutine sfcgfile_read
 
 subroutine landgrid_print()
 
-  use mem_land,  only: nland, onland, itab_land, land, nzg, landgrid_dztop, &
-                       landgrid_depth, slz, dslz, dslzo2, dslzi, slzt, &
-                       alloc_landcol
+  use mem_land,  only: nzg, slz, dslz, slzt
   use misc_coms, only: io6
 
   implicit none
 
   integer :: k
 
-  ! Print land grid vertical geometry 
+  ! Print land grid vertical geometry
 
   write(io6,'(/,a)') '=========================================='
   write(io6,'(a)'  ) '        LAND GRID VERTICAL GEOMETRY'
@@ -1863,4 +1617,3 @@ subroutine landgrid_print()
   13 format (15x,i4,3f10.3)
 
 end subroutine landgrid_print
-

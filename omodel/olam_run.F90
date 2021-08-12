@@ -758,9 +758,6 @@ subroutine olam_run(name_name)
 
   write(io6,'(/,a)') 'olam_run completed initialization'
 
-  ! Exit if doing a zero time run
-  if (time8 >= timmax8) go to 1000
-
   if (icycle_hurrinit == ncycle_hurrinit) then ! Includes case where ncycle_hurrinit = 0
 
      ! Setup lite variable output
@@ -845,6 +842,9 @@ subroutine olam_run(name_name)
   call copy_plot(0)
   call plot_fields(0)
   call fields2_ll()
+
+  ! Exit if doing a zero time run
+  if (time8 >= timmax8) go to 1000
 
   ! Call the model time integration driver
 

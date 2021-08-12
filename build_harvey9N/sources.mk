@@ -40,6 +40,7 @@ SOURCE_FILES= \
              $(MODEL_MODS)/mem_average_vars.f90 \
              $(MODEL_MODS)/mem_basic.f90 \
              $(MODEL_MODS)/mem_co2.f90 \
+             $(MODEL_MODS)/mem_delaunay.f90 \
              $(MODEL_MODS)/mem_flux_accum.f90 \
              $(MODEL_MODS)/mem_grid.f90 \
              $(MODEL_MODS)/mem_ijtabs.f90 \
@@ -73,6 +74,7 @@ SOURCE_FILES= \
              $(OMODEL)/cart_hex.f90 \
              $(OMODEL)/coneplot.f90 \
              $(OMODEL)/contslab.F90 \
+             $(OMODEL)/expand_global.f90 \
              $(OMODEL)/fields2_ll.F90 \
              $(OMODEL)/fill_itabs.f90 \
              $(OMODEL)/grad_lib.f90 \

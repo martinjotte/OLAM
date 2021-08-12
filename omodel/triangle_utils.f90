@@ -32,8 +32,7 @@
 !===============================================================================
 subroutine tri_neighbors(nma, nua, nwa, itab_md, itab_ud, itab_wd)
 
-  use mem_ijtabs, only: itab_md_vars, itab_ud_vars, itab_wd_vars
-  use misc_coms,  only: io6
+  use mem_delaunay, only: itab_md_vars, itab_ud_vars, itab_wd_vars
 
   implicit none
 
@@ -52,6 +51,8 @@ subroutine tri_neighbors(nma, nua, nwa, itab_md, itab_ud, itab_wd)
 
   ! Loop over W points
 
+  !$omp parallel
+  !$omp do private(iu1,iu2,iu3)
   do iw = 2,nwa
      itab_wd(iw)%npoly = 0
 
@@ -66,7 +67,7 @@ subroutine tri_neighbors(nma, nua, nwa, itab_md, itab_ud, itab_wd)
      ! Fill M and inner W neighbors for current W point
 
      if (iu1 > 1) then
-        if (iw == itab_ud(iu1)%iw(1)) then
+        if     (iw == itab_ud(iu1)%iw(1)) then
            itab_wd(iw)%im(3) = itab_ud(iu1)%im(1)
            itab_wd(iw)%im(2) = itab_ud(iu1)%im(2)
            itab_wd(iw)%iw(1) = itab_ud(iu1)%iw(2)
@@ -102,9 +103,11 @@ subroutine tri_neighbors(nma, nua, nwa, itab_md, itab_ud, itab_wd)
      endif
 
   enddo
+  !$omp end do
 
   ! Fill outer W points for current W point
 
+  !$omp do private(iw1,iw2,iw3)
   do iw = 2,nwa
      iw1 = itab_wd(iw)%iw(1)
      iw2 = itab_wd(iw)%iw(2)
@@ -168,9 +171,12 @@ subroutine tri_neighbors(nma, nua, nwa, itab_md, itab_ud, itab_wd)
      endif
 
   enddo
+  !$omp end do
 
   ! Loop over U points
 
+  !$omp do private(iw1,iw2,iw1_iu1,iw1_iu2,iw1_iu3,iw2_iu1,iw2_iu2,iw2_iu3, &
+  !$omp            iu1,iu2,iu3,iu4,iw3,iw4,iw5,iw6)
   do iu = 2,nua
 
      iw1 = itab_ud(iu)%iw(1)
@@ -318,22 +324,21 @@ subroutine tri_neighbors(nma, nua, nwa, itab_md, itab_ud, itab_wd)
         itab_ud(iu)%iu(12) = itab_wd(iw6)%iu(1)
      endif
 
-   enddo  ! end loop over U points
+  enddo  ! end loop over U points
+  !$omp end do
+  !$omp end parallel
 
-   ! Fill U and W points for M points (do this as loop over U points)
+  ! Fill U and W points for M points (do this as loop over U points)
+
+  itab_md(:)%npoly = 0
 
   do iu = 2,nua
      do j = 1,2
+        im = itab_ud(iu)%im(j)
+        iw = itab_ud(iu)%iw(j)
 
-        if (j == 1) im = itab_ud(iu)%im(1)
-        if (j == 2) im = itab_ud(iu)%im(2)
-
-        iw1 = itab_ud(iu)%iw(1)
-        iw2 = itab_ud(iu)%iw(2)
-
-        if (itab_md(im)%npoly == 0 .or. &
-           (itab_wd(iw1)%npoly < 3 .and. j == 1) .or. &  ! This and next line added for walls;
-           (itab_wd(iw2)%npoly < 3 .and. j == 2)) then   ! npoly check allows WD at cart_hex boundaries
+        if ( (itab_md(im)%npoly == 0) .or. &  ! The and next line added for walls:
+             (itab_wd(iw)%npoly < 3) ) then   ! npoly check allows WD at cart_hex boundaries
 
            iunow = iu
            iu0 = 0
@@ -343,6 +348,8 @@ subroutine tri_neighbors(nma, nua, nwa, itab_md, itab_ud, itab_wd)
 
               iu0 = iu
               npoly = npoly + 1  ! MOVED HERE 8/24/2012
+
+              if (npoly > 7) stop 'stop tri_neighbors npoly'
 
               itab_md(im)%iu(npoly) = iunow
 
@@ -367,8 +374,6 @@ subroutine tri_neighbors(nma, nua, nwa, itab_md, itab_ud, itab_wd)
               endif
 
               itab_md(im)%npoly = npoly
-
-              if (npoly > 10) stop 'stop tri_neighbors npoly'
 
            enddo
 

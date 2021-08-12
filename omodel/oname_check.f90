@@ -44,15 +44,14 @@ use max_dims,    only: maxgrds, maxsndg, maxnplt, maxisdirs, &
 use oname_coms,  only: nl
 use consts_coms, only: erad2, pi1, pi2, p00, r8
 use misc_coms,   only: io6
-use mem_sfcg,     only: nsfcgrids, nsfcgrid_root
 
 implicit none
 
-integer  :: nfatal, nwarn, ifm, ng, i, k, iplt, i_huge, idz
+integer  :: nfatal, nwarn, ng, i, k, iplt, i_huge, idz
 real     :: r_huge, r_min, r_max, r_tiny, dzxmin, zb_min, zb_max, dtlong4
 real(r8) :: d_huge, d_tiny
 
-character(len=1), dimension(8) :: tunits = (/ 'd','D','h','H','m','M','s','S' /)
+character(len=1), dimension(8) :: tunits = [ 'd','D','h','H','m','M','s','S' ]
 
 nfatal = 0
 nwarn  = 0
@@ -161,10 +160,10 @@ call ichk_bnds( nl%ngrids_old, "NGRIDS_OLD", 0, maxgrds, 0, nfatal, nwarn, &
 
 ! global mesh requires nxp to be divisible by 3
 
-if (nl%mdomain < 2 .and. mod(nl%nxp,3) /= 0) then
-   write(io6,*) 'FATAL - NXP must be divisible by 3 for a global run'
-   nfatal = nfatal + 1
-endif
+!if (nl%mdomain < 2 .and. mod(nl%nxp,3) /= 0) then
+!   write(io6,*) 'FATAL - NXP must be divisible by 3 for a global run'
+!   nfatal = nfatal + 1
+!endif
 
 do ng = 2, nl%ngrids
    call ichk_bnds(nl%ngrdll(ng), "NGRDLL", 1, maxngrdll, 0, nfatal, nwarn )
@@ -184,21 +183,39 @@ endif
 ! SURFACE NESTED GRID DEFINITION
 !--------------------------------------------------------------------------
 
-call ichk_bnds( nl%nsfcgrids,   "NSFCGRIDS",       0, maxgrds, 0, nfatal, nwarn, &
+call ichk_bnds( nl%nsfcgrids,   "NSFCGRIDS", 0, maxgrds, 0, nfatal, nwarn, &
      msgmax="Increase maxgrds in max_dims.f90 if more sfc nests are needed." )
 
-call ichk_bnds( nl%nsfcgrid_root, "NSFCGRID_ROOT", -maxgrds, maxgrds, 0, nfatal, nwarn, &
-     msgmax="Increase maxgrds in max_dims.f90 if more sfc nests are needed." )
+! If greater than 1, sfcgrid_res_factor must have prime factors of 2 and/or 3
 
-if (abs(nl%nsfcgrid_root) < 1 .or. abs(nl%nsfcgrid_root) > nl%ngrids) then
-   write(io6,*) 'FATAL - Abs(nsfcgrid_root) must be at least 1 and may not exceed ngrids'
+ng = nl%sfcgrid_res_factor
+if (ng > 1) then
+
+   do while( mod(ng,2) == 0 )
+      ng = ng / 2
+   enddo
+
+   do while( mod(ng,3) == 0 )
+      ng = ng / 3
+   enddo
+
+   if (ng /= 1) then
+      stop "Error: sfcgrid_res_factor must be 1 or have prime factors of only 2 and/or 3."
+   endif
+elseif (ng < 1) then
+   stop "Error: sfcgrid_res_factor must be positive."
+endif
+
+if (nl%nsfcgrid_root > nl%ngrids) then
+   write(*,*) "Error: nsfcgrid_root must be negative, zero, or less than ngrids."
    nfatal = nfatal + 1
 endif
 
-! global mesh requires nxp to be divisible by 3
+call ichk_bnds( nl%nsfcgrid_root, "NSFCGRID_ROOT", -i_huge, maxgrds, 0, nfatal, nwarn, &
+     msgmax="Increase maxgrds in max_dims.f90 if more sfc nests are needed." )
 
-do ng = 2, nl%ngrids
-   call ichk_bnds(nl%ngrdll(ng), "NSFCGRDLL", 1, maxngrdll, 0, nfatal, nwarn )
+do ng = 1, nl%nsfcgrids
+   call ichk_bnds(nl%nsfcgrdll(ng), "NSFCGRDLL", 1, maxngrdll, 0, nfatal, nwarn )
 enddo
 
 if (nl%mdomain < 2) then

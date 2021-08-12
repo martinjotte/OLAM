@@ -7,36 +7,40 @@
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
+! including OLAM:
 
    !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
+   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University;
+   ! Colorado State University Research Foundation ; ATMET, LLC
 
-   ! This software is free software; you can redistribute it and/or modify it 
+   ! This software is free software; you can redistribute it and/or modify it
    ! under the terms of the GNU General Public License as published by the Free
    ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
+   ! any later version.
 
    ! This software is distributed in the hope that it will be useful, but
    ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
    ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
    ! for more details.
- 
+
    ! You should have received a copy of the GNU General Public License along
    ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
+   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
+   ! (http://www.gnu.org/licenses/gpl.html)
    !----------------------------------------------------------------------------
 
 !===============================================================================
-Module mem_sfcg
-  
-  use max_dims,   only: maxnlspoly, maxgrds, maxngrdll, pathlen, maxremote
-  use mem_ijtabs, only: itab_md_vars, itab_ud_vars, itab_wd_vars, &
-                        nest_ud_vars, nest_wd_vars
 
+Module mem_sfcg
+
+  use max_dims,     only: maxnlspoly, maxgrds, maxngrdll, pathlen, maxremote
+  use mem_delaunay, only: itab_md_vars, itab_ud_vars, itab_wd_vars, &
+                          nest_ud_vars, nest_wd_vars
   implicit none
+
+  private :: maxnlspoly, maxgrds, maxngrdll, pathlen, maxremote
+  private :: itab_md_vars, itab_ud_vars, itab_wd_vars
+  private :: nest_ud_vars, nest_wd_vars
 
   character(pathlen) :: sfcgfile
 
@@ -62,7 +66,7 @@ Module mem_sfcg
      logical :: send(maxremote) = .false.
      integer :: iwglobe = 1  ! global sfcg index of this WSFC pt (in parallel run)
      integer :: irank = -1   ! rank of parallel process at this WSFC pt
-     integer :: ivoronoi = 0 ! Force to be Voronoi cell if >= 2
+     integer :: ivoronoi = 3 ! Force to be Voronoi cell if >= 2
 
      integer :: npoly = 0
 
@@ -97,7 +101,7 @@ Module mem_sfcg
   End type itab_vsfc_pd_vars
 
   Type itab_wsfc_pd_vars
-     integer :: ivoronoi = 0 ! Force Voronoi cell if >= 2
+     integer :: ivoronoi = 3 ! Force Voronoi cell if >= 2
 
      integer :: npoly = 0
 
@@ -126,10 +130,10 @@ Module mem_sfcg
   End Type itabg_vsfc_vars
 
   Type itabg_wsfc_vars            ! Global data structure for WSFC pts
-     integer :: iwsfc_myrank = -1 ! local (parallel subdomain) WSFC index 
-     integer :: iland_myrank = -1 ! local (parallel subdomain) LAND index 
-     integer :: ilake_myrank = -1 ! local (parallel subdomain) LAKE index 
-     integer :: isea_myrank  = -1 ! local (parallel subdomain) SEA index 
+     integer :: iwsfc_myrank = -1 ! local (parallel subdomain) WSFC index
+     integer :: iland_myrank = -1 ! local (parallel subdomain) LAND index
+     integer :: ilake_myrank = -1 ! local (parallel subdomain) LAKE index
+     integer :: isea_myrank  = -1 ! local (parallel subdomain) SEA index
      integer :: irank = -1        ! rank of parallel process at a WSFC pt
   End Type itabg_wsfc_vars
 
@@ -144,7 +148,7 @@ Module mem_sfcg
      integer, allocatable :: jend(:)
   End Type jtab_wsfc_mpi_vars
 
-  type (jtab_wsfc_mpi_vars) :: jtab_wsfc_mpi(maxremote) 
+  type (jtab_wsfc_mpi_vars) :: jtab_wsfc_mpi(maxremote)
 
   Type surface_grid_vars
 
@@ -155,15 +159,15 @@ Module mem_sfcg
      real, allocatable :: zem  (:) ! earth z coord of sfc M points
      real, allocatable :: glatm(:) ! latitude of sfc cell M points
      real, allocatable :: glonm(:) ! longitude of sfc cell M points
-     real, allocatable :: topm (:) ! topographic height of sfc W points
+!    real, allocatable :: topm (:) ! topographic height of sfc W points
 
      real, allocatable :: xev (:) !
      real, allocatable :: yev (:) !
      real, allocatable :: zev (:) !
-     real, allocatable :: dnu (:) ! 
-     real, allocatable :: dniu(:) ! 
-     real, allocatable :: dnv (:) ! 
-     real, allocatable :: dniv(:) ! 
+     real, allocatable :: dnu (:) !
+     real, allocatable :: dniu(:) !
+     real, allocatable :: dnv (:) !
+     real, allocatable :: dniv(:) !
 
      real, allocatable :: area    (:) ! cell surface area [m^2]
      real, allocatable :: xew     (:) ! earth x coord of sfc W points
@@ -175,7 +179,7 @@ Module mem_sfcg
      real, allocatable :: wnx     (:) ! norm unit vector x comp of sfc cells
      real, allocatable :: wny     (:) ! norm unit vector y comp of sfc cells
      real, allocatable :: wnz     (:) ! norm unit vector z comp of sfc cells
-     real, allocatable :: dzt_bot (:) ! surface similarity grid-height 
+     real, allocatable :: dzt_bot (:) ! surface similarity grid-height
 
      ! Surface type (land/vegetation, lake, or sea)
 
@@ -239,42 +243,34 @@ Module mem_sfcg
 ! TRI-GRID INFORMATION FOR INDEPENDENT REFINING OF SFC GRID
 
   integer :: nsfcgrids
-
+  integer :: sfcgrid_res_factor
   integer :: nsfcgrid_root
+  integer :: nxp_sfc
 
   integer :: nsfcgrdll(maxgrds)
   real    :: sfcgrdrad(maxgrds,maxngrdll)
   real    :: sfcgrdlat(maxgrds,maxngrdll)
   real    :: sfcgrdlon(maxgrds,maxngrdll)
-  
-  integer :: nmd
-  integer :: nud
-  integer :: nwd
 
-  real, allocatable :: xemd(:), yemd(:), zemd(:)
-
-  type (itab_md_vars), allocatable :: itab_md(:)
-  type (itab_ud_vars), allocatable :: itab_ud(:)
-  type (itab_wd_vars), allocatable :: itab_wd(:)
-
-  type (itab_md_vars), allocatable :: ltab_md(:)
-  type (itab_ud_vars), allocatable :: ltab_ud(:)
-  type (itab_wd_vars), allocatable :: ltab_wd(:)
-
-  type (nest_ud_vars), allocatable :: nest_ud(:)
-  type (nest_wd_vars), allocatable :: nest_wd(:)
-   
 Contains
 
 !=========================================================================
 
-  subroutine alloc_sfcgrid1(mmsfc0, mvsfc0, mwsfc0)
+  subroutine alloc_sfcgrid1(mmsfc0, mvsfc0, mwsfc0, alloc_xyzew)
 
   use misc_coms, only: rinit, runtype
 
   implicit none
 
   integer, intent(in) :: mmsfc0, mvsfc0, mwsfc0
+
+  logical, intent(in), optional :: alloc_xyzew
+  logical                       :: do_allocw
+
+  do_allocw = .true.
+  if (present(alloc_xyzew)) then
+     do_allocw = alloc_xyzew
+  endif
 
   ! Allocate surface grid tables
 
@@ -289,7 +285,7 @@ Contains
   allocate (sfcg%zem  (mmsfc0)) ; sfcg%zem   = rinit
   allocate (sfcg%glatm(mmsfc0)) ; sfcg%glatm = rinit
   allocate (sfcg%glonm(mmsfc0)) ; sfcg%glonm = rinit
-  allocate (sfcg%topm (mmsfc0)) ; sfcg%topm  = rinit
+! allocate (sfcg%topm (mmsfc0)) ; sfcg%topm  = rinit
 
   allocate (sfcg%xev  (mvsfc0)) ; sfcg%xev   = rinit
   allocate (sfcg%yev  (mvsfc0)) ; sfcg%yev   = rinit
@@ -302,9 +298,13 @@ Contains
   allocate (sfcg%area    (mwsfc0)) ; sfcg%area     = rinit
   allocate (sfcg%glatw   (mwsfc0)) ; sfcg%glatw    = rinit
   allocate (sfcg%glonw   (mwsfc0)) ; sfcg%glonw    = rinit
-  allocate (sfcg%xew     (mwsfc0)) ; sfcg%xew      = rinit
-  allocate (sfcg%yew     (mwsfc0)) ; sfcg%yew      = rinit
-  allocate (sfcg%zew     (mwsfc0)) ; sfcg%zew      = rinit
+
+  if (do_allocw) then
+     allocate (sfcg%xew  (mwsfc0)) ; sfcg%xew      = rinit
+     allocate (sfcg%yew  (mwsfc0)) ; sfcg%yew      = rinit
+     allocate (sfcg%zew  (mwsfc0)) ; sfcg%zew      = rinit
+  endif
+
   allocate (sfcg%topw    (mwsfc0)) ; sfcg%topw     = rinit
   allocate (sfcg%wnx     (mwsfc0)) ; sfcg%wnx      = rinit
   allocate (sfcg%wny     (mwsfc0)) ; sfcg%wny      = rinit
@@ -373,145 +373,6 @@ Contains
 
 !=========================================================================
 
-  subroutine resize_sfcgrid(mmsfc1, mvsfc1, mwsfc1, iwnew)
-
-  use misc_coms, only: rinit, runtype
-
-  implicit none
-
-  integer, intent(in) :: mmsfc1, mvsfc1, mwsfc1
-  integer, optional, intent(in) :: iwnew(mwsfc1)
-
-  integer :: mmsfc0, mvsfc0, mwsfc0, mmsfc2, mvsfc2, mwsfc2
-
-  real,    allocatable :: rscr(:,:)
-  integer, allocatable :: iscr(:,:)
-
-  ! Resize surface grid member arrays
-
-  mmsfc0 = size(sfcg%xem)
-  mvsfc0 = size(sfcg%xev)
-  mwsfc0 = size(sfcg%xew)
-
-  mmsfc2 = min(mmsfc0,mmsfc1)
-  mvsfc2 = min(mvsfc0,mvsfc1)
-  mwsfc2 = min(mwsfc0,mwsfc1)
-
-  allocate(rscr(mmsfc2,6))
-
-  rscr(1:mmsfc2,1) = sfcg%xem  (1:mmsfc2)
-  rscr(1:mmsfc2,2) = sfcg%yem  (1:mmsfc2)
-  rscr(1:mmsfc2,3) = sfcg%zem  (1:mmsfc2)
-  rscr(1:mmsfc2,4) = sfcg%glatm(1:mmsfc2)
-  rscr(1:mmsfc2,5) = sfcg%glonm(1:mmsfc2)
-  rscr(1:mmsfc2,6) = sfcg%topm (1:mmsfc2)
-
-  deallocate (sfcg%xem)   ; allocate (sfcg%xem  (mmsfc1))
-  deallocate (sfcg%yem)   ; allocate (sfcg%yem  (mmsfc1))
-  deallocate (sfcg%zem)   ; allocate (sfcg%zem  (mmsfc1))
-  deallocate (sfcg%glatm) ; allocate (sfcg%glatm(mmsfc1))
-  deallocate (sfcg%glonm) ; allocate (sfcg%glonm(mmsfc1))
-  deallocate (sfcg%topm)  ; allocate (sfcg%topm (mmsfc1))
-
-  sfcg%xem  (1:mmsfc2) = rscr(1:mmsfc2,1) 
-  sfcg%yem  (1:mmsfc2) = rscr(1:mmsfc2,2) 
-  sfcg%zem  (1:mmsfc2) = rscr(1:mmsfc2,3) 
-  sfcg%glatm(1:mmsfc2) = rscr(1:mmsfc2,4) 
-  sfcg%glonm(1:mmsfc2) = rscr(1:mmsfc2,5) 
-  sfcg%topm (1:mmsfc2) = rscr(1:mmsfc2,6) 
-
-  deallocate(rscr) ; allocate(rscr(mvsfc2,7))
-
-  rscr(1:mvsfc2,1) = sfcg%xev (1:mvsfc2)
-  rscr(1:mvsfc2,2) = sfcg%yev (1:mvsfc2)
-  rscr(1:mvsfc2,3) = sfcg%zev (1:mvsfc2)
-  rscr(1:mvsfc2,4) = sfcg%dnu (1:mvsfc2)
-  rscr(1:mvsfc2,5) = sfcg%dniu(1:mvsfc2)
-  rscr(1:mvsfc2,6) = sfcg%dnv (1:mvsfc2)
-  rscr(1:mvsfc2,7) = sfcg%dniv(1:mvsfc2)
-
-  deallocate (sfcg%xev)  ; allocate (sfcg%xev(mvsfc1))
-  deallocate (sfcg%yev)  ; allocate (sfcg%yev(mvsfc1))
-  deallocate (sfcg%zev)  ; allocate (sfcg%zev(mvsfc1))
-  deallocate (sfcg%dnu)  ; allocate (sfcg%dnu(mvsfc1))
-  deallocate (sfcg%dniu) ; allocate (sfcg%dniu(mvsfc1))
-  deallocate (sfcg%dnv)  ; allocate (sfcg%dnv(mvsfc1))
-  deallocate (sfcg%dniv) ; allocate (sfcg%dniv(mvsfc1))
-
-  sfcg%xev (1:mvsfc2) = rscr(1:mvsfc2,1) 
-  sfcg%yev (1:mvsfc2) = rscr(1:mvsfc2,2) 
-  sfcg%zev (1:mvsfc2) = rscr(1:mvsfc2,3) 
-  sfcg%dnu (1:mvsfc2) = rscr(1:mvsfc2,4) 
-  sfcg%dniu(1:mvsfc2) = rscr(1:mvsfc2,5) 
-  sfcg%dnv (1:mvsfc2) = rscr(1:mvsfc2,6) 
-  sfcg%dniv(1:mvsfc2) = rscr(1:mvsfc2,7) 
-
-  deallocate(rscr) ; allocate(rscr(mwsfc2,11), iscr(mwsfc2,2))
-
-  rscr(1:mwsfc2, 1) = sfcg%area      (1:mwsfc2)
-  rscr(1:mwsfc2, 2) = sfcg%glatw     (1:mwsfc2)
-  rscr(1:mwsfc2, 3) = sfcg%glonw     (1:mwsfc2)
-  rscr(1:mwsfc2, 4) = sfcg%xew       (1:mwsfc2)
-  rscr(1:mwsfc2, 5) = sfcg%yew       (1:mwsfc2)
-  rscr(1:mwsfc2, 6) = sfcg%zew       (1:mwsfc2)
-  rscr(1:mwsfc2, 7) = sfcg%topw      (1:mwsfc2)
-  rscr(1:mwsfc2, 8) = sfcg%wnx       (1:mwsfc2)
-  rscr(1:mwsfc2, 9) = sfcg%wny       (1:mwsfc2)
-  rscr(1:mwsfc2,10) = sfcg%wnz       (1:mwsfc2)
-  rscr(1:mwsfc2,11) = sfcg%dzt_bot   (1:mwsfc2)
-  iscr(1:mwsfc2, 1) = sfcg%leaf_class(1:mwsfc2)
-  iscr(1:mwsfc2, 2) = sfcg%ioge      (1:mwsfc2)
-
-  deallocate (sfcg%area)       ; allocate (sfcg%area      (mwsfc1))
-  deallocate (sfcg%glatw)      ; allocate (sfcg%glatw     (mwsfc1))
-  deallocate (sfcg%glonw)      ; allocate (sfcg%glonw     (mwsfc1))
-  deallocate (sfcg%xew)        ; allocate (sfcg%xew       (mwsfc1))
-  deallocate (sfcg%yew)        ; allocate (sfcg%yew       (mwsfc1))
-  deallocate (sfcg%zew)        ; allocate (sfcg%zew       (mwsfc1))
-  deallocate (sfcg%topw)       ; allocate (sfcg%topw      (mwsfc1))
-  deallocate (sfcg%wnx)        ; allocate (sfcg%wnx       (mwsfc1))
-  deallocate (sfcg%wny)        ; allocate (sfcg%wny       (mwsfc1))
-  deallocate (sfcg%wnz)        ; allocate (sfcg%wnz       (mwsfc1))
-  deallocate (sfcg%dzt_bot)    ; allocate (sfcg%dzt_bot   (mwsfc1))
-  deallocate (sfcg%leaf_class) ; allocate (sfcg%leaf_class(mwsfc1))
-  deallocate (sfcg%ioge)       ; allocate (sfcg%ioge      (mwsfc1))
-
-  if (present(iwnew)) then
-     sfcg%area      (iwnew(1:mwsfc2)) = rscr(1:mwsfc2, 1)
-     sfcg%glatw     (iwnew(1:mwsfc2)) = rscr(1:mwsfc2, 2) 
-     sfcg%glonw     (iwnew(1:mwsfc2)) = rscr(1:mwsfc2, 3)
-     sfcg%xew       (iwnew(1:mwsfc2)) = rscr(1:mwsfc2, 4)
-     sfcg%yew       (iwnew(1:mwsfc2)) = rscr(1:mwsfc2, 5)
-     sfcg%zew       (iwnew(1:mwsfc2)) = rscr(1:mwsfc2, 6)
-     sfcg%topw      (iwnew(1:mwsfc2)) = rscr(1:mwsfc2, 7)
-     sfcg%wnx       (iwnew(1:mwsfc2)) = rscr(1:mwsfc2, 8)
-     sfcg%wny       (iwnew(1:mwsfc2)) = rscr(1:mwsfc2, 9)
-     sfcg%wnz       (iwnew(1:mwsfc2)) = rscr(1:mwsfc2,10)
-     sfcg%dzt_bot   (iwnew(1:mwsfc2)) = rscr(1:mwsfc2,11)
-     sfcg%leaf_class(iwnew(1:mwsfc2)) = iscr(1:mwsfc2, 1)
-     sfcg%ioge      (iwnew(1:mwsfc2)) = iscr(1:mwsfc2, 2)
- else
-     sfcg%area      (1:mwsfc2) = rscr(1:mwsfc2, 1)
-     sfcg%glatw     (1:mwsfc2) = rscr(1:mwsfc2, 2) 
-     sfcg%glonw     (1:mwsfc2) = rscr(1:mwsfc2, 3)
-     sfcg%xew       (1:mwsfc2) = rscr(1:mwsfc2, 4)
-     sfcg%yew       (1:mwsfc2) = rscr(1:mwsfc2, 5)
-     sfcg%zew       (1:mwsfc2) = rscr(1:mwsfc2, 6)
-     sfcg%topw      (1:mwsfc2) = rscr(1:mwsfc2, 7)
-     sfcg%wnx       (1:mwsfc2) = rscr(1:mwsfc2, 8)
-     sfcg%wny       (1:mwsfc2) = rscr(1:mwsfc2, 9)
-     sfcg%wnz       (1:mwsfc2) = rscr(1:mwsfc2,10)
-     sfcg%dzt_bot   (1:mwsfc2) = rscr(1:mwsfc2,11)
-     sfcg%leaf_class(1:mwsfc2) = iscr(1:mwsfc2, 1)
-     sfcg%ioge      (1:mwsfc2) = iscr(1:mwsfc2, 2)
-  endif
-
-  deallocate(rscr, iscr)
-
-  end subroutine resize_sfcgrid
-
-!=========================================================================
-
    subroutine filltab_sfcg()
 
      use var_tables, only: increment_vtable
@@ -553,7 +414,7 @@ Contains
      if (allocated(sfcg%canrrv))         call increment_vtable('SFCG%CANRRV',         'CW', rvar1=sfcg%canrrv)
      if (allocated(sfcg%rough))          call increment_vtable('SFCG%ROUGH',          'CW', rvar1=sfcg%rough)
      if (allocated(sfcg%head1))          call increment_vtable('SFCG%HEAD1',          'CW', rvar1=sfcg%head1)
-    
+
    end subroutine filltab_sfcg
 
 !=========================================================================
@@ -633,13 +494,13 @@ Contains
   use mem_ijtabs, only: mrls
 
   use misc_coms,  only: io6, iparallel
-   
+
   use mem_para,   only: mgroupsize, myrank,  &
                         send_wsfc, recv_wsfc,  &
                         nsends_wsfc, nrecvs_wsfc
 
   implicit none
-   
+
   integer :: jsend, iwsfc, jend
 
   ! Allocate and zero-fill JTAB_WSFC_MPI%JEND
@@ -655,7 +516,7 @@ Contains
 
   ! Compute and store JTAB_WSFC_MPI%JEND(1)
 
-  do jsend = 1,nsends_wsfc(1)
+  do jsend = 1,nsends_wsfc
      jtab_wsfc_mpi(jsend)%jend(1) = 0
      do iwsfc = 2,mwsfc
         if (itab_wsfc(iwsfc)%send(jsend)) then
@@ -667,7 +528,7 @@ Contains
 
   ! Allocate and zero-fill JTAB_WSFC_MPI%IWSFC
 
-  do jsend = 1,nsends_wsfc(1)
+  do jsend = 1,nsends_wsfc
      jend = jtab_wsfc_mpi(jsend)%jend(1)
      allocate (jtab_wsfc_mpi(jsend)%iwsfc(jend))
                jtab_wsfc_mpi(jsend)%iwsfc(1:jend) = 0
@@ -675,14 +536,14 @@ Contains
 
   ! Initialize JTAB_WSFC_MPI%JEND counters to zero
 
-  do jsend = 1,nsends_wsfc(1)
+  do jsend = 1,nsends_wsfc
      jtab_wsfc_mpi(jsend)%jend(1:mrls) = 0
   enddo
 
   ! Compute JTAB_WSFC_MPI%IWSFC (only fill for MRL = 1)
 
   do iwsfc = 2,mwsfc
-     do jsend = 1,nsends_wsfc(1)
+     do jsend = 1,nsends_wsfc
 
         if (itab_wsfc(iwsfc)%send(jsend)) then
            jtab_wsfc_mpi(jsend)%jend(1) = jtab_wsfc_mpi(jsend)%jend(1) + 1

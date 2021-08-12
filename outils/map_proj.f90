@@ -392,7 +392,6 @@ real :: zep
 real :: xq
 real :: yq
 real :: zq
-real :: t
 
 ! This subroutine computes coordinates (x,y) of point q projected onto 
 ! orthographic plane whose pole point is located at geographic coordinates
@@ -544,7 +543,7 @@ end subroutine ps_e
 
 subroutine gn_e(xeq,yeq,zeq,polelat,polelon,x,y)
 
-use consts_coms, only: pio180, erad
+use consts_coms, only: pio180, erad, eradsq
 
 implicit none
 
@@ -568,7 +567,7 @@ real :: xq
 real :: yq
 real :: zq
 real :: t
-real :: alpha
+!real :: alpha
 
 ! Given coordinates (x,y) of point q projected onto gnomic plane
 ! whose pole point is located at geographic coordinates (polelat,polelon), 
@@ -594,9 +593,9 @@ zep = erad * sinplat
 ! coordinates of gnomic plane to point (x,y) on the gnomic
 ! plane has the following parameter (t) value on the earth's surface (zq <= 0):
 
-alpha = atan2(sqrt(x**2 + y**2),erad)
-
-t = cos(alpha)
+! alpha = atan2(sqrt(x**2 + y**2),erad)
+! t     = cos(alpha)
+t     = erad / sqrt(x*x + y*y + eradsq)
 
 ! This gives the following xq, yq, zq coordinates relative to the polar
 ! stereographic plane for the projection of point q from the polar stereographic
@@ -622,13 +621,14 @@ end subroutine gn_e
 
 subroutine de_ps(dxe,dye,dze,cosplat,sinplat,cosplon,sinplon,x,y)
 
-use consts_coms, only: pio180, erad, erad2
+use consts_coms, only: pio180, erad2
 
 implicit none
 
 real, intent(in) :: dxe
 real, intent(in) :: dye
 real, intent(in) :: dze
+
 real, intent(in) :: cosplat
 real, intent(in) :: sinplat
 real, intent(in) :: cosplon
@@ -655,9 +655,9 @@ real :: t
 ! radially outward from the center of the earth, and the y axis pointing 
 ! northward along the local earth meridian from the pole point.
 
-xq = - sinplon * dxe + cosplon * dye
-yq =   cosplat * dze - sinplat * (cosplon * dxe + sinplon * dye)
-zq =   sinplat * dze + cosplat * (cosplon * dxe + sinplon * dye)
+xq =                           - sinplon * dxe + cosplon * dye
+yq =  cosplat * dze - sinplat * (cosplon * dxe + sinplon * dye)
+zq =  sinplat * dze + cosplat * (cosplon * dxe + sinplon * dye)
 
 ! Parametric equation for line from antipodal point at (0,0,-2 erad) in 3D 
 ! coordinates of polar stereographic plane to point q has the following 
@@ -750,3 +750,190 @@ x = xq * t
 y = yq * t
 
 end subroutine ll_xy2
+
+!============================================================================
+
+subroutine ps_de(dxe,dye,dze,cosplat,sinplat,cosplon,sinplon,x,y)
+
+  use consts_coms, only: erad2, erad2sq
+
+  implicit none
+
+  real, intent(out) :: dxe
+  real, intent(out) :: dye
+  real, intent(out) :: dze
+
+  real, intent(in) :: cosplat
+  real, intent(in) :: sinplat
+  real, intent(in) :: cosplon
+  real, intent(in) :: sinplon
+
+  real, intent(in) :: x
+  real, intent(in) :: y
+
+  real :: xq
+  real :: yq
+  real :: zq
+  real :: t
+! real :: alpha
+
+! Given coordinates (x,y) of point q projected onto polar stereographic plane
+! whose pole point is located at geographic coordinates (polelat,polelon),
+! this subroutine computes coordinates (xeq,yeq,zeq) of q on earth spherical
+! surface defined in "earth cartesian space", where the origin is the center
+! of the earth, the z axis is the north pole, the x axis is the equator and
+! prime meridian, and the y axis is the equator and 90 E..
+
+! Parametric equation for line from antipodal point at (0,0,-2 erad) in 3D
+! coordinates of polar stereographic plane to point (x,y) on the polar stereographic
+! plane has the following parameter (t) value on the earth's surface (zq <= 0):
+
+! alpha = 2. * atan2(sqrt(x**2 + y**2),erad2)
+! t     = .5 * (1. + cos(alpha))
+  t     = erad2sq / (x*x + y*y + erad2sq)
+
+! This gives the following xq, yq, zq coordinates relative to the polar
+! stereographic plane for the projection of point q from the polar stereographic
+! plane to the earth surface:
+
+  xq = x * t
+  yq = y * t
+  zq = erad2 * (t - 1.)
+
+! Transform q point located on the earth's surface from ps coordinates (xq,yq,zq)
+! to earth coordinates (xe,ye,ze).  The polar stereographic plane has its origin
+! at the pole point, with the z axis pointing radially outward from the center
+! of the earth, and the y axis pointing northward along the local earth meridian
+! from the pole point.
+
+  dxe = -sinplon * xq + cosplon * (-sinplat * yq + cosplat * zq)
+  dye =  cosplon * xq - sinplon * ( sinplat * yq - cosplat * zq)
+  dze =  cosplat * yq + sinplat * zq
+
+end subroutine ps_de
+
+!============================================================================
+
+subroutine de_gn(dxe,dye,dze,cosplat,sinplat,cosplon,sinplon,x,y)
+
+  use consts_coms, only: pio180, erad
+
+  implicit none
+
+  real, intent(in) :: dxe
+  real, intent(in) :: dye
+  real, intent(in) :: dze
+
+  real, intent(in) :: cosplat
+  real, intent(in) :: sinplat
+  real, intent(in) :: cosplon
+  real, intent(in) :: sinplon
+
+  real, intent(out) :: x
+  real, intent(out) :: y
+
+  real :: xq
+  real :: yq
+  real :: zq
+  real :: t
+
+! This subroutine computes coordinates (x,y) of point q projected onto
+! gnomic plane whose pole point is located at geographic coordinates
+! (polelat,polelon).  Input coordinates (xeq,yeq,zeq) of q are defined in
+! "earth cartesian space", where the origin is the center of the earth,
+! the z axis is the north pole, the x axis is the equator and prime meridian,
+! and the y axis is the equator and 90 E..
+
+! Transform q point from (xe,ye,ze) coordinates to 3D coordinates relative to
+! gnomic plane with origin at the pole point, the z axis pointing
+! radially outward from the center of the earth, and the y axis pointing
+! northward along the local earth meridian from the pole point.
+
+  xq =                          - sinplon * dxe + cosplon * dye
+  yq = cosplat * dze - sinplat * (cosplon * dxe + sinplon * dye)
+  zq = sinplat * dze + cosplat * (cosplon * dxe + sinplon * dye)
+
+  if (zq < -.999 * erad) then  ! point is on other side of earth - do not plot
+
+     x = 1.e12                 ! This will serve as a flag to not plot point
+     y = 1.e12                 ! This will serve as a flag to not plot point
+
+  else
+
+! Parametric equation for line from earth center point at (0,0,-erad) in 3D
+! coordinates of gnomic plane to point q has the following
+! parameter (t) value on the gnomic plane (zq <= 0):
+
+     t = erad / (erad + zq)
+
+! This gives the following x and y coordinates for the projection of point q
+! onto the gnomic plane:
+
+     x = xq * t
+     y = yq * t
+
+  endif
+
+end subroutine de_gn
+
+!============================================================================
+
+subroutine gn_de(dxe,dye,dze,cosplat,sinplat,cosplon,sinplon,x,y)
+
+  use consts_coms, only: erad, eradsq
+
+  implicit none
+
+  real, intent(out) :: dxe
+  real, intent(out) :: dye
+  real, intent(out) :: dze
+
+  real, intent(in) :: cosplat
+  real, intent(in) :: sinplat
+  real, intent(in) :: cosplon
+  real, intent(in) :: sinplon
+
+  real, intent(in) :: x
+  real, intent(in) :: y
+
+  real :: xq
+  real :: yq
+  real :: zq
+  real :: t
+! real :: alpha
+
+! Given coordinates (x,y) of point q projected onto gnomic plane
+! whose pole point is located at geographic coordinates (polelat,polelon),
+! this subroutine computes coordinates (xeq,yeq,zeq) of q on earth spherical
+! surface defined in "earth cartesian space", where the origin is the center
+! of the earth, the z axis is the north pole, the x axis is the equator and
+! prime meridian, and the y axis is the equator and 90 E..
+
+! Parametric equation for line from earth center point at (0,0,-erad) in 3D
+! coordinates of gnomic plane to point (x,y) on the gnomic
+! plane has the following parameter (t) value on the earth's surface (zq <= 0):
+
+! alpha = atan2(sqrt(x**2 + y**2),erad)
+! t     = cos(alpha)
+  t     = erad / sqrt(x*x + y*y + eradsq)
+
+! This gives the following xq, yq, zq coordinates relative to the polar
+! stereographic plane for the projection of point q from the polar stereographic
+! plane to the earth surface:
+
+  xq = x * t
+  yq = y * t
+  zq = erad * (t - 1.)
+
+! Transform q point located on the earth's surface from ps coordinates (xq,yq,zq)
+! to earth coordinates (xe,ye,ze).  The polar stereographic plane has its origin
+! at the pole point, with the z axis pointing radially outward from the center
+! of the earth, and the y axis pointing northward along the local earth meridian
+! from the pole point.
+
+  dxe = - sinplon * xq + cosplon * (-sinplat * yq + cosplat * zq)
+  dye =   cosplon * xq - sinplon * ( sinplat * yq - cosplat * zq)
+  dze =                            + cosplat * yq + sinplat * zq
+
+end subroutine gn_de
+

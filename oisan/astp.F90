@@ -495,8 +495,8 @@ thmax = maxval(p_t(:,:,nprz)) * (p00/pnpr(nprz))**rocp
 thmin = minval(p_t(:,:,1   )) * (p00/pnpr(1))**rocp
 
 write(io6, *) ''
-write(io6, "(' Minimum THETA at ',I4,' Pa: ',F9.3)") nint(pnpr(1)), thmin
-write(io6, "(' Maximum THETA at ',I4,' Pa: ',F9.3)") nint(pnpr(nprz)), thmax
+write(io6, "(' Minimum THETA at ',I6,' Pa: ',F9.3)") nint(pnpr(1)), thmin
+write(io6, "(' Maximum THETA at ',I6,' Pa: ',F9.3)") nint(pnpr(nprz)), thmax
 
 if (fform == 'GDF') then
    close(iunit)

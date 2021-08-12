@@ -7,58 +7,56 @@
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
+! including OLAM:
 
    !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
+   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University;
+   ! Colorado State University Research Foundation ; ATMET, LLC
 
-   ! This software is free software; you can redistribute it and/or modify it 
+   ! This software is free software; you can redistribute it and/or modify it
    ! under the terms of the GNU General Public License as published by the Free
    ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
+   ! any later version.
 
    ! This software is distributed in the hope that it will be useful, but
    ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
    ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
    ! for more details.
- 
+
    ! You should have received a copy of the GNU General Public License along
    ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
+   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
+   ! (http://www.gnu.org/licenses/gpl.html)
    !----------------------------------------------------------------------------
 
 !===============================================================================
 subroutine voronoi()
 
-  use mem_ijtabs,  only: itab_md, itab_ud, itab_wd, itab_m, itab_v, itab_w, &
-                         alloc_itabs, mloops
+  use mem_ijtabs,   only: mloops, itab_m, itab_v, itab_w, alloc_itabs
 
-  use mem_grid,    only: nma, nua, nva, nwa, mma, mua, mva, mwa, &
-                         xem, yem, zem, xew, yew, zew, &
-                         alloc_xyzem, alloc_xyzew
-  use misc_coms,   only: mdomain
-  use consts_coms, only: pi2, erad
+  use mem_delaunay, only: itab_md, itab_ud, itab_wd, &
+                          xemd, yemd, zemd, nmd, nud, nwd
+
+  use mem_grid,     only: nma, nua, nva, nwa, mma, mua, mva, mwa, &
+                          xem, yem, zem, xew, yew, zew, &
+                          alloc_xyzem, alloc_xyzew
+
+  use misc_coms,    only: mdomain
+  use consts_coms,  only: pi2, erad
 
   implicit none
 
   integer :: im1,im2
   integer :: iw1,iw2,iw3,im,iw
-  integer :: nmad,nuad,nwad
   integer :: iwd,iv,iud,iud1,iud2,imd,npoly,j,j1
   real    :: expansion
 
   ! Interchange grid dimensions
 
-  nmad = nma
-  nuad = nua
-  nwad = nwa
-
-  nma = nwad
-  nua = nuad
-  nva = nuad
-  nwa = nmad
+  nma = nwd
+  nua = nud
+  nva = nud
+  nwa = nmd
 
   mma = nma
   mua = nua
@@ -69,26 +67,21 @@ subroutine voronoi()
 
   call alloc_itabs(nma,nva,nwa,0)
 
-  ! Allocate XEW,YEW,ZEW arrays, and fill their values from XEM,YEM,ZEM, which
+  ! Allocate XEW,YEW,ZEW arrays, and fill their values from XEMD,YEMD,ZEMD, which
   ! still have the OLD nmad dimension which is the NEW nwa dimension
 
-  call alloc_xyzew(nwa)
+  call move_alloc(xemd, xew)
+  call move_alloc(yemd, yew)
+  call move_alloc(zemd, zew)
 
-  do iw = 1,nwa
-     xew(iw) = xem(iw)
-     yew(iw) = yem(iw)
-     zew(iw) = zem(iw)
-  enddo
+  ! Allocate XEM,YEM,ZEM to NEW nma dimension
 
-  ! Deallocate XEM,YEM,ZEM and re-allocate to NEW nma dimension
-
-  deallocate (xem,yem,zem)
   call alloc_xyzem(nma)
 
   ! Since XEM,YEM,ZEM have just been re-allocated, initialize their values to be
   ! barycenters of Delaunay triangles whose vertices are at XEW,YEW,ZEW
 
-  do iwd = 2,nwad
+  do iwd = 2, nwd
      im = iwd
 
   ! Indices of 3 M points surrounding WD point
@@ -146,11 +139,11 @@ subroutine voronoi()
      if (itab_wd(im1)%npoly < 3) then ! itab_m(im1)%npoly not filled yet
         xem(im1) = xew(iw1) + xew(iw2) - xem(im2)
         yem(im1) = yew(iw1) + yew(iw2) - yem(im2)
-        zem(im1) = 0. 
+        zem(im1) = 0.
      elseif (itab_wd(im2)%npoly < 3) then ! itab_m(im2)%npoly not filled yet
         xem(im2) = xew(iw1) + xew(iw2) - xem(im1)
         yem(im2) = yew(iw1) + yew(iw2) - yem(im1)
-        zem(im2) = 0. 
+        zem(im2) = 0.
      endif
 
      ! Extract information from IMD1 neighbor
@@ -302,18 +295,17 @@ subroutine pcvt()
 
   use mem_ijtabs,  only: itab_m, itab_w
   use mem_grid,    only: nma, nwa, xem, yem, zem, xew, yew, zew
-  use consts_coms, only: erad, piu180
+  use consts_coms, only: erad, eradi
   use misc_coms,   only: mdomain
 
   implicit none
 
-  integer, parameter :: niter = 1
-  real, parameter :: fracw = 1., fracm = 1.
-
   integer :: jm,jm1,iw,im,iw1,iw2,iw3,iter,npoly
 
   real :: xm(7),ym(7)
-  real :: raxis,glatw,glonw,area,xc,yc,xec,yec,zec,expansion
+  real :: raxis,raxisi,area,xc,yc,xec,yec,zec,expansion
+  real :: sinwlat,coswlat,sinwlon,coswlon
+  real :: dxe,dye,dze
   real :: xebc,yebc,zebc
   real :: glatbc,glonbc
   real :: x1,x2,x3,y1,y2,y3
@@ -321,198 +313,138 @@ subroutine pcvt()
   real :: s1,s2,s3
   real :: xcc,ycc
 
-  ! Main iteration loop
-
-  do iter = 1,niter
+  ! Compute XEM,YEM,ZEM location as circumcentric coordinates of 3 W points.
+  ! This establishes W cell as voronoi.
 
   ! Loop over all M points
 
-     do im = 2,nma
+  !$omp parallel
+  !$omp do private(iw1,iw2,iw3,xebc,yebc,zebc,raxis,raxisi, &
+  !$omp            sinwlat,coswlat,sinwlon,coswlon,dxe,dye,dze,x1,y1, &
+  !$omp            x2,y2,x3,y3,dx12,dx13,dx23,s1,s2,s3,ycc,xcc)
+  do im = 2,nma
 
-        ! Indices of 3 W points surrounding M point
+     ! Indices of 3 W points surrounding M point
 
-        if (any(itab_m(im)%iw(1:3) < 2)) cycle
+     if (any(itab_m(im)%iw(1:3) < 2)) cycle
 
-        iw1 = itab_m(im)%iw(1)
-        iw2 = itab_m(im)%iw(2)
-        iw3 = itab_m(im)%iw(3)
+     iw1 = itab_m(im)%iw(1)
+     iw2 = itab_m(im)%iw(2)
+     iw3 = itab_m(im)%iw(3)
 
-        ! Fill circumcentric M point coordinates from coordinates of 3 W points.
-        ! This establishes W cell as voronoi.
+     ! These were initialized to be the barycenter of each triangle
+
+     xebc = xem(im)
+     yebc = yem(im)
+     zebc = zem(im)
+
+     if (mdomain <= 1) then
 
         ! For global domain, transform from sphere to PS plane
 
-        if (mdomain <= 1) then
+        raxis  = sqrt(xebc ** 2 + yebc ** 2)
+        raxisi = 1.0 /raxis
 
-        ! First, compute barycenter of 3 W points
+        sinwlat = zebc  * eradi
+        coswlat = raxis * eradi
 
-           xebc = (xew(iw1) + xew(iw2) + xew(iw3)) / 3.
-           yebc = (yew(iw1) + yew(iw2) + yew(iw3)) / 3.
-           zebc = (zew(iw1) + zew(iw2) + zew(iw3)) / 3.
+        sinwlon = yebc * raxisi
+        coswlon = xebc * raxisi
 
-           ! Push barycentric point coordinates out to earth radius
+        ! Transform 3 W points to PS coordinates
 
-           expansion = erad / sqrt(xebc ** 2  &
-                                 + yebc ** 2  &
-                                 + zebc ** 2  )
+        dxe = xew(iw1) - xebc
+        dye = yew(iw1) - yebc
+        dze = zew(iw1) - zebc
+        call de_ps(dxe,dye,dze,coswlat,sinwlat,coswlon,sinwlon,x1,y1)
 
-           xebc = xebc * expansion
-           yebc = yebc * expansion
-           zebc = zebc * expansion
+        dxe = xew(iw2) - xebc
+        dye = yew(iw2) - yebc
+        dze = zew(iw2) - zebc
+        call de_ps(dxe,dye,dze,coswlat,sinwlat,coswlon,sinwlon,x2,y2)
 
-           ! Get latitude and longitude of barycentric point
+        dxe = xew(iw3) - xebc
+        dye = yew(iw3) - yebc
+        dze = zew(iw3) - zebc
+        call de_ps(dxe,dye,dze,coswlat,sinwlat,coswlon,sinwlon,x3,y3)
 
-           raxis = sqrt(xebc ** 2 + yebc ** 2)
+     else
 
-           glatbc = atan2(zebc,raxis) * piu180
-           glonbc = atan2(yebc,xebc) * piu180
+        ! For Cartesian domain, use given planar X,Y coordinates
 
-           ! Transform 3 W points to PS coordinates
+        x1 = xew(iw1) - xebc
+        x2 = xew(iw2) - xebc
+        x3 = xew(iw3) - xebc
 
-           call e_ps(xew(iw1),yew(iw1),zew(iw1),glatbc,glonbc,x1,y1)
-           call e_ps(xew(iw2),yew(iw2),zew(iw2),glatbc,glonbc,x2,y2)
-           call e_ps(xew(iw3),yew(iw3),zew(iw3),glatbc,glonbc,x3,y3)
+        y1 = yew(iw1) - yebc
+        y2 = yew(iw2) - yebc
+        y3 = yew(iw3) - yebc
 
-           ! For Cartesian domain, use given planar X,Y coordinates
+     endif
 
-        else
+     ! Compute intermediate quanties
 
-        ! First, compute barycenter of 3 W points
+     dx12 = x2 - x1
+     dx13 = x3 - x1
+     dx23 = x3 - x2
 
-           xebc = (xew(iw1) + xew(iw2) + xew(iw3)) / 3.
-           yebc = (yew(iw1) + yew(iw2) + yew(iw3)) / 3.
-           zebc = (zew(iw1) + zew(iw2) + zew(iw3)) / 3.
+     s1 = x1**2 + y1**2
+     s2 = x2**2 + y2**2
+     s3 = x3**2 + y3**2
 
-           x1 = xew(iw1) - xebc
-           x2 = xew(iw2) - xebc
-           x3 = xew(iw3) - xebc
+     ! Algebraic solution for circumcenter Y coordinate
 
-           y1 = yew(iw1) - yebc
-           y2 = yew(iw2) - yebc
-           y3 = yew(iw3) - yebc
+     ycc = .5 * (dx13 * s2 - dx12 * s3 - dx23 * s1) &
+              / (dx13 * y2 - dx12 * y3 - dx23 * y1)
 
-        endif
+     ! Algebraic solution for circumcenter X coordinate
 
-        ! Compute intermediate quanties
+     if (abs(dx12) > abs(dx13)) then
+        xcc = (s2 - s1 - ycc * 2. * (y2 - y1)) / (2. * dx12)
+     else
+        xcc = (s3 - s1 - ycc * 2. * (y3 - y1)) / (2. * dx13)
+     endif
 
-        dx12 = x2 - x1
-        dx13 = x3 - x1
-        dx23 = x3 - x2
+     ! For global domain, transform circumcenter from PS to earth coordinates
 
-        s1 = x1**2 + y1**2
-        s2 = x2**2 + y2**2
-        s3 = x3**2 + y3**2
+     if (mdomain <= 1) then
 
-        ! Algebraic solution for circumcenter Y coordinate
+        call ps_de(dxe,dye,dze,coswlat,sinwlat,coswlon,sinwlon,xcc,ycc)
 
-        ycc = .5 * (dx13 * s2 - dx12 * s3 - dx23 * s1) &
-                 / (dx13 * y2 - dx12 * y3 - dx23 * y1)
+        xem(im) = dxe + xebc
+        yem(im) = dye + yebc
+        zem(im) = dze + zebc
 
-        ! Algebraic solution for circumcenter X coordinate
+     else
 
-        if (abs(dx12) > abs(dx13)) then
-           xcc = (s2 - s1 - ycc * 2. * (y2 - y1)) / (2. * dx12)
-        else
-           xcc = (s3 - s1 - ycc * 2. * (y3 - y1)) / (2. * dx13)
-        endif
+        xem(im) = xcc + xebc
+        yem(im) = ycc + yebc
 
-        ! For global domain, transform circumcenter from PS to earth coordinates
-
-        if (mdomain <= 1) then
-           call ps_e(xem(im),yem(im),zem(im),glatbc,glonbc,xcc,ycc)
-        else
-           xem(im) = xcc + xebc
-           yem(im) = ycc + yebc
-        endif
-
-     enddo
-
-     if (iter == niter) exit
-
-     ! Loop over all W points
-
-     do iw = 2,nwa
-
-     ! Determine latitude and longitude of W point
-
-        if (mdomain <= 1) then
-           raxis = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis
-
-           glatw = atan2(zew(iw),raxis)   * piu180
-           glonw = atan2(yew(iw),xew(iw)) * piu180
-        endif
-
-       ! Loop over all M points adjacent to current W point
-
-        npoly = itab_w(iw)%npoly
-
-        do jm = 1,npoly
-           im = itab_w(iw)%im(jm)
-
-           ! Determine local PS coordinates of current M point
-
-           if (mdomain <= 1) then
-              call e_ps(xem(im),yem(im),zem(im),glatw,glonw,xm(jm),ym(jm))
-           else
-              xm(jm) = xem(im) - xew(iw)
-              ym(jm) = yem(im) - yew(iw)
-           endif
-        enddo
-
-        ! Compute Voronoi cell area for current W point
-
-        area = 0.
-
-        do jm = 1,npoly
-           jm1 = jm + 1
-           if (jm1 > npoly) jm1 = 1
-
-           area = area + .5 * (xm(jm) * ym(jm1) - xm(jm1) * ym(jm))
-        enddo
-
-        ! Compute Voronoi cell centroid (in local PS coordinates) for current W point
-
-        xc = 0.
-        yc = 0.
-
-        do jm = 1,npoly
-           jm1 = jm + 1
-           if (jm1 > npoly) jm1 = 1
-
-           xc = xc + (xm(jm) + xm(jm1)) * (xm(jm) * ym(jm1) - xm(jm1) * ym(jm))
-           yc = yc + (ym(jm) + ym(jm1)) * (xm(jm) * ym(jm1) - xm(jm1) * ym(jm))
-        enddo
-
-        xc = xc / (6. * area)
-        yc = yc / (6. * area)
-
-        ! Transform local PS coordinates of centroid to Earth coordinates
-
-        if (mdomain <= 1) then
-           call ps_e(xec,yec,zec,glatw,glonw,xc,yc)
-        else
-           xec = xc + xew(iw)
-           yec = yc + yew(iw)
-           zec = 0.
-        endif
-
-        ! Move current W point (fractionally) to centroid location
-
-        xew(iw) = (1. - fracw) * xew(iw) + fracw * xec
-        yew(iw) = (1. - fracw) * yew(iw) + fracw * yec
-        zew(iw) = (1. - fracw) * zew(iw) + fracw * zec
-
-        ! Adjust W point coordinates to earth radius in case required
-
-        expansion = erad / sqrt(xew(iw) ** 2 + yew(iw) ** 2 + zew(iw) ** 2)
-
-        xew(iw) = xew(iw) * expansion
-        yew(iw) = yew(iw) * expansion
-        zew(iw) = zew(iw) * expansion
-
-     enddo
+     endif
 
   enddo
+  !$omp end do nowait
+
+  ! Adjust each M point to the Earth's radius for global domain
+
+  if (mdomain <= 1) then
+
+     !$omp do private(expansion)
+     do im = 2, nma
+
+        expansion = erad / sqrt( xem(im) ** 2 &
+                               + yem(im) ** 2 &
+                               + zem(im) ** 2 )
+
+        xem(im) = xem(im) * expansion
+        yem(im) = yem(im) * expansion
+        zem(im) = zem(im) * expansion
+
+     enddo
+     !$omp end do nowait
+
+  endif
+  !$omp end parallel
 
 end subroutine pcvt
 
@@ -989,7 +921,7 @@ subroutine grid_geometry_hex()
      !$omp do private(npoly, fo, a, b, work, info, j, iv, vdotw, vmag, fact, &
      !$omp            vnx_ps, vny_ps, vnz_ps, vrot_x, vrot_y, wsize, lwork)
      do iw = 2, nwa
-      
+
         npoly = itab_w(iw)%npoly
 
         ! Default coefficients from Perot
@@ -1068,7 +1000,9 @@ subroutine grid_geometry_hex()
         call dgels( 'N', 3, npoly, 1, a, 3, b, 7, wsize, -1, info )
         lwork = nint(wsize(1)) + 1
 
-        if (allocated(work) .and. size(work) < lwork) deallocate(work)
+        if (allocated(work)) then
+           if (size(work) < lwork) deallocate(work)
+        endif
         if (.not. allocated(work)) allocate(work(lwork))
 
         call dgels( 'N', 3, npoly, 1, a, 3, b, 7, work, size(work), info )
@@ -1098,7 +1032,7 @@ subroutine grid_geometry_hex()
            itab_w(iw)%ecvec_vz(1:npoly) = b(1:npoly) * vnz_ps(1:npoly) * fact
 
         else
-      
+
            write(*,*) "Problem optimizing vector coefficients for iw = ", iw
            write(*,*) glatw(iw), glonw(iw)
            write(*,*) info
@@ -1114,7 +1048,7 @@ subroutine grid_geometry_hex()
 
      enddo
      !omp end do
-   
+
      if (allocated(a))    deallocate(a)
      if (allocated(work)) deallocate(work)
 
@@ -1240,10 +1174,14 @@ subroutine ctrlvols_hex()
   real :: arw0_check(nwa)
   real(r8) :: sfcarea_sum
 
+  integer :: nsfcw(nwa)
+
   write(io6,*) 'Defining control volume areas'
 
   arw (:,:) = 0.
   arw0_check(:) = 0.
+
+  nsfcw(:) = 0
 
   ! Loop over all SURFACE cells
 
@@ -1259,6 +1197,8 @@ subroutine ctrlvols_hex()
 
         arw(kw:nza-1,iw) = arw(kw:nza-1,iw) + itab_wsfc(iwsfc)%arc(j)
         arw0_check(iw) = arw0_check(iw) + itab_wsfc(iwsfc)%arc(j)
+
+        nsfcw(iw) = nsfcw(iw) + 1
      enddo
   enddo
 
@@ -1266,7 +1206,7 @@ subroutine ctrlvols_hex()
   ! Check for equality between arw0 and arw0_check
 
   do j = 1,jtab_w(jtw_grid)%jend(1); iw = jtab_w(jtw_grid)%iw(j)
-     if (abs(arw0(iw)/arw0_check(iw) - 1.0) > 1.e-6) then
+     if (abs(arw0(iw) - arw0_check(iw)) > 1.e-6*min(arw0(iw),arw0_check(iw))) then
         print*, 'arw0_check ',iw,arw0(iw),arw0_check(iw),arw0(iw)/arw0_check(iw)
      endif
   enddo
@@ -1304,6 +1244,23 @@ subroutine ctrlvols_hex()
 
         do k = 2,nza
            arv(k,iv) = 0.
+        enddo
+
+     elseif (nsfcw(iw1) == 1 .and. nsfcw(iw2) == 1) then
+
+        do k = nza,2,-1
+
+           if (k < nza .and. (arw(k,iw1) <= 1.e-9 .or. arw(k,iw2) <= 1.e-9)) then
+
+              ! close V if top of either T neighbor is completely closed
+              arv(k,iv) = 0.
+
+           else
+
+              arv(k,iv) = dnu(iv) * dzt(k)
+
+           endif
+
         enddo
 
      else
@@ -1551,7 +1508,7 @@ subroutine ctrlvols_hex()
         iw  = itab_wsfc(iwsfc)%iwatm(j)
         kw  = itab_wsfc(iwsfc)%kwatm(j)
         arc = itab_wsfc(iwsfc)%arc  (j)
-  
+
         ! Compute ratios of coupling area to ATM and SFC grid cell areas
 
         arw8  = arw(kw,  iw)

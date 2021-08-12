@@ -32,17 +32,19 @@
 !===============================================================================
 subroutine cartesian_2d()
 
-  use mem_ijtabs, only: itab_md, itab_ud, itab_wd, mrls, alloc_itabsd, &
-                        jtm_grid, jtu_grid, jtv_grid, jtw_grid, &
-                        jtm_init, jtu_init, jtv_init, jtw_init, &
-                        jtm_prog, jtu_prog, jtv_prog, jtw_prog, &
-                        jtm_lbcp, jtu_lbcp, jtv_lbcp, jtw_lbcp, &
-                        jtm_wadj, jtu_wadj, jtv_wadj, jtw_wadj, &
-                        jtm_wstn, jtu_wstn, jtv_wstn, jtw_wstn, &
-                        jtm_vadj, jtu_wall, jtv_wall, jtw_vadj
+  use mem_delaunay, only: itab_md, itab_ud, itab_wd, alloc_itabsd, &
+                          xemd, yemd, zemd, nmd, nud, nwd
 
-  use mem_grid,   only: nma, nua, nwa, xem, yem, zem, alloc_xyzem
-  use misc_coms,  only: io6, nxp, mdomain, deltax
+  use mem_ijtabs,   only: jtm_grid, jtu_grid, jtv_grid, jtw_grid, &
+                          jtm_init, jtu_init, jtv_init, jtw_init, &
+                          jtm_prog, jtu_prog, jtv_prog, jtw_prog, &
+                          jtm_lbcp, jtu_lbcp, jtv_lbcp, jtw_lbcp, &
+                          jtm_wadj, jtu_wadj, jtv_wadj, jtw_wadj, &
+                          jtm_wstn, jtu_wstn, jtv_wstn, jtw_wstn, &
+                          jtm_vadj, jtu_wall, jtv_wall, jtw_vadj, &
+                          mrls
+
+  use misc_coms,    only: io6, nxp, mdomain, deltax
 
   implicit none
 
@@ -56,15 +58,13 @@ subroutine cartesian_2d()
 
   ! Use nxp to count triangles
 
-  nma = 2 * nxp + 2 + 1 ! ADDING 1 for reference point (index = 1)
-  nua = 4 * nxp + 1 + 1 ! ADDING 1 for reference point (index = 1)
-  nwa = 2 * nxp     + 1 ! ADDING 1 for reference point (index = 1)
+  nmd = 2 * nxp + 2 + 1 ! ADDING 1 for reference point (index = 1)
+  nud = 4 * nxp + 1 + 1 ! ADDING 1 for reference point (index = 1)
+  nwd = 2 * nxp     + 1 ! ADDING 1 for reference point (index = 1)
 
-  call alloc_itabsd(nma,nua,nwa)
+  call alloc_itabsd(nmd,nud,nwd)
 
-  call alloc_xyzem(nma)
-
-  do im = 2,nma
+  do im = 2,nmd
      itab_md(im)%imp = im
      call mdloopf('f',im, jtm_grid, jtm_vadj, 0, 0, 0, 0)
   enddo
@@ -200,21 +200,21 @@ subroutine cartesian_2d()
      unit_dist = .5 * sqrt(3.) * deltax ! This is 1/2 of triangle face width
      diamond_centx = (2 * i - 1 - nxp) * unit_dist
 
-     xem(im1) = diamond_centx - 1.5 * unit_dist
-     xem(im2) = diamond_centx -  .5 * unit_dist
-     xem(im3) = diamond_centx +  .5 * unit_dist
-     xem(im4) = diamond_centx + 1.5 * unit_dist
+     xemd(im1) = diamond_centx - 1.5 * unit_dist
+     xemd(im2) = diamond_centx -  .5 * unit_dist
+     xemd(im3) = diamond_centx +  .5 * unit_dist
+     xemd(im4) = diamond_centx + 1.5 * unit_dist
 
-     yem(im1) = - .75 * deltax
-     yem(im2) =   .75 * deltax
-     yem(im3) = - .75 * deltax
-     yem(im4) =   .75 * deltax
+     yemd(im1) = - .75 * deltax
+     yemd(im2) =   .75 * deltax
+     yemd(im3) = - .75 * deltax
+     yemd(im4) =   .75 * deltax
 
   enddo  ! end i loop
 
-  zem(2:nma) = 0.
+  zemd(2:nmd) = 0.
 
-  call tri_neighbors(nma, nua, nwa, itab_md, itab_ud, itab_wd)
+  call tri_neighbors(nmd, nud, nwd, itab_md, itab_ud, itab_wd)
 
 end subroutine cartesian_2d
 
@@ -222,14 +222,14 @@ end subroutine cartesian_2d
 
 subroutine cartesian_3d()
 
-  use mem_ijtabs, only: itab_md, itab_ud, itab_wd, mrls, alloc_itabsd, &
-                        jtm_grid, jtu_grid, jtw_grid, &
-                        jtu_init, jtu_prog, jtu_wadj, jtu_wstn, jtu_lbcp, &
-                        jtw_init, jtw_prog, jtw_wadj, jtw_wstn, jtw_lbcp
+  use mem_delaunay, only: itab_md, itab_ud, itab_wd, alloc_itabsd, &
+                          xemd, yemd, zemd, nmd, nud, nwd
 
-  use mem_grid,   only: nma, nua, nwa, xem, yem, zem, alloc_xyzem
+  use mem_ijtabs,   only: jtm_grid, jtu_grid, jtw_grid, mrls, &
+                          jtu_init, jtu_prog, jtu_wadj, jtu_wstn, jtu_lbcp, &
+                          jtw_init, jtw_prog, jtw_wadj, jtw_wstn, jtw_lbcp
 
-  use misc_coms,  only: io6, nxp, mdomain, deltax
+  use misc_coms,    only: io6, nxp, mdomain, deltax
 
   implicit none
 
@@ -249,15 +249,13 @@ subroutine cartesian_3d()
 
   ! Use nxp to count triangles
 
-  nma =  5 * nxp + 5 + 1 ! ADDING 1 for reference point (index = 1)
-  nua = 13 * nxp + 4 + 1 ! ADDING 1 for reference point (index = 1)
-  nwa =  8 * nxp     + 1 ! ADDING 1 for reference point (index = 1)
+  nmd =  5 * nxp + 5 + 1 ! ADDING 1 for reference point (index = 1)
+  nud = 13 * nxp + 4 + 1 ! ADDING 1 for reference point (index = 1)
+  nwd =  8 * nxp     + 1 ! ADDING 1 for reference point (index = 1)
 
-  call alloc_itabsd(nma,nua,nwa)
+  call alloc_itabsd(nmd,nud,nwd)
 
-  call alloc_xyzem(nma)
-
-  do im = 2,nma
+  do im = 2,nmd
      itab_md(im)%imp = im
      call mdloopf('f',im, jtm_grid, 0, 0, 0, 0, 0)
   enddo
@@ -774,33 +772,32 @@ subroutine cartesian_3d()
      unit_dist = .5 * sqrt(3.) * deltax ! This is 1/2 of triangle face width
      diamond_centx = (2 * i - 1 - nxp) * unit_dist
 
-     xem(im1)  = diamond_centx - 1.5 * unit_dist
-     xem(im2)  = xem(im1)
-     xem(im3)  = xem(im1)
-     xem(im4)  = diamond_centx -  .5 * unit_dist
-     xem(im5)  = xem(im4)
-     xem(im6)  = diamond_centx +  .5 * unit_dist
-     xem(im7)  = xem(im6)
-     xem(im8)  = xem(im6)
-     xem(im9)  = diamond_centx + 1.5 * unit_dist
-     xem(im10) = xem(im9)
+     xemd(im1)  = diamond_centx - 1.5 * unit_dist
+     xemd(im2)  = xemd(im1)
+     xemd(im3)  = xemd(im1)
+     xemd(im4)  = diamond_centx -  .5 * unit_dist
+     xemd(im5)  = xemd(im4)
+     xemd(im6)  = diamond_centx +  .5 * unit_dist
+     xemd(im7)  = xemd(im6)
+     xemd(im8)  = xemd(im6)
+     xemd(im9)  = diamond_centx + 1.5 * unit_dist
+     xemd(im10) = xemd(im9)
 
-     yem(im1)  = - 3.0 * deltax
-     yem(im2)  =    .0 * deltax
-     yem(im3)  =   3.0 * deltax
-     yem(im4)  = - 1.5 * deltax
-     yem(im5)  =   1.5 * deltax
-     yem(im6)  = - 3.0 * deltax
-     yem(im7)  =    .0 * deltax
-     yem(im8)  =   3.0 * deltax
-     yem(im9)  = - 1.5 * deltax
-     yem(im10) =   1.5 * deltax
+     yemd(im1)  = - 3.0 * deltax
+     yemd(im2)  =    .0 * deltax
+     yemd(im3)  =   3.0 * deltax
+     yemd(im4)  = - 1.5 * deltax
+     yemd(im5)  =   1.5 * deltax
+     yemd(im6)  = - 3.0 * deltax
+     yemd(im7)  =    .0 * deltax
+     yemd(im8)  =   3.0 * deltax
+     yemd(im9)  = - 1.5 * deltax
+     yemd(im10) =   1.5 * deltax
 
   enddo  ! end i loop
 
-  zem(2:nma) = 0.
+  zemd(2:nmd) = 0.
 
-  call tri_neighbors(nma, nua, nwa, itab_md, itab_ud, itab_wd)
+  call tri_neighbors(nmd, nud, nwd, itab_md, itab_ud, itab_wd)
 
 end subroutine cartesian_3d
-

@@ -147,8 +147,8 @@ subroutine copy_nl()
   use mem_rayf,    only: rayf_zmin,    rayf_fact,    rayf_expon,    &
                          rayfw_zmin,   rayfw_fact,   rayfw_expon,  &
                          rayfdiv_zmin, rayfdiv_fact, rayfdiv_expon
-  use mem_sfcg,    only: nsfcgrids, nsfcgrid_root, nsfcgrdll, &
-                         sfcgrdrad, sfcgrdlat, sfcgrdlon, sfcgfile
+  use mem_sfcg,    only: nsfcgrids, sfcgrid_res_factor, nsfcgrid_root, nxp_sfc, &
+                         nsfcgrdll, sfcgrdrad, sfcgrdlat, sfcgrdlon, sfcgfile
 
   implicit none
 
@@ -393,28 +393,30 @@ subroutine copy_nl()
      ngrids     = nl%ngrids
      ngrids_old = nl%ngrids_old
 
-     do i = 1,maxgrds
-        ngrdll(i) = nl%ngrdll(i)
+     ngrdll = nl%ngrdll
+     grdrad = nl%grdrad
+     grdlat = nl%grdlat
+     grdlon = nl%grdlon
 
-        do j = 1,ngrdll(i)
-           grdrad(i,j) = nl%grdrad(i,j)
-           grdlat(i,j) = nl%grdlat(i,j)
-           grdlon(i,j) = nl%grdlon(i,j)
-        enddo
-     enddo
+     sfcgrid_res_factor = nl%sfcgrid_res_factor
+     nxp_sfc            = nl%sfcgrid_res_factor * nl%nxp
+     nsfcgrid_root      = nl%nsfcgrid_root
 
-     nsfcgrids     = nl%nsfcgrids
-     nsfcgrid_root = nl%nsfcgrid_root
+     if (nl%nsfcgrid_root > 0) then
 
-     do i = 1,maxgrds
-        nsfcgrdll(i) = nl%nsfcgrdll(i)
+        nsfcgrids = nl%nsfcgrids
+        nsfcgrdll = nl%nsfcgrdll
 
-        do j = 1,nsfcgrdll(i)
-           sfcgrdrad(i,j) = nl%sfcgrdrad(i,j)
-           sfcgrdlat(i,j) = nl%sfcgrdlat(i,j)
-           sfcgrdlon(i,j) = nl%sfcgrdlon(i,j)
-        enddo
-     enddo
+        sfcgrdrad = nl%sfcgrdrad
+        sfcgrdlat = nl%sfcgrdlat
+        sfcgrdlon = nl%sfcgrdlon
+
+     else
+
+        nsfcgrids = 0
+        nsfcgrdll = 0
+
+     endif
 
   endif
 
@@ -438,7 +440,7 @@ subroutine copy_nl()
      ivegflg   = nl%ivegflg
      deltax    = nl%deltax
      ndz       = nl%ndz
-   
+
      hdz(1:ndz) = nl%hdz(1:ndz)
      dz (1:ndz) = nl%dz (1:ndz)
 

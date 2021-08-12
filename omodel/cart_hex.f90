@@ -32,19 +32,21 @@
 !===============================================================================
 subroutine cart_hex()
 
-  use mem_ijtabs, only: itab_md, itab_ud, itab_wd, mrls, alloc_itabsd, &
-                        jtm_grid, jtu_grid, jtv_grid, jtw_grid, &
-                        jtm_init, jtu_init, jtv_init, jtw_init, &
-                        jtm_prog, jtu_prog, jtv_prog, jtw_prog, &
-                        jtm_lbcp, jtu_lbcp, jtv_lbcp, jtw_lbcp, &
-                        jtm_wadj, jtu_wadj, jtv_wadj, jtw_wadj, &
-                        jtm_wstn, jtu_wstn, jtv_wstn, jtw_wstn, &
-                        jtm_vadj, jtu_wall, jtv_wall, jtw_vadj
+  use mem_delaunay, only: itab_md, itab_ud, itab_wd, alloc_itabsd, &
+                          xemd, yemd, zemd, nmd, nud, nwd
 
-  use mem_grid,   only: nma, nua, nwa, mma, mua, mwa, xem, yem, zem, alloc_xyzem
-  use misc_coms,  only: io6, nxp, deltax
-  use oplot_coms, only: op
-  use mem_para,   only: myrank
+  use mem_ijtabs,   only: jtm_grid, jtu_grid, jtv_grid, jtw_grid, &
+                          jtm_init, jtu_init, jtv_init, jtw_init, &
+                          jtm_prog, jtu_prog, jtv_prog, jtw_prog, &
+                          jtm_lbcp, jtu_lbcp, jtv_lbcp, jtw_lbcp, &
+                          jtm_wadj, jtu_wadj, jtv_wadj, jtw_wadj, &
+                          jtm_wstn, jtu_wstn, jtv_wstn, jtw_wstn, &
+                          jtm_vadj, jtu_wall, jtv_wall, jtw_vadj, mrls
+
+  use mem_grid,     only: mma, mua, mwa
+  use misc_coms,    only: io6, nxp, deltax
+  use oplot_coms,   only: op
+  use mem_para,     only: myrank
 
   implicit none
 
@@ -76,62 +78,60 @@ subroutine cart_hex()
   ! Fill temporary structured arrays with indices for all staggered 
   ! points in unstructured grid, and add up unstructured grid points.
 
-  nma = 1
-  nua = 1
-  nwa = 1
+  nmd = 1
+  nud = 1
+  nwd = 1
 
   do ir = 1,3           ! rhombus counter
      do j = 1,nxp       ! row within rhombus
         do i = 1,nxp+1  ! column within rhombus row
 
-           jm1(i,j,ir) = nma + 1
+           jm1(i,j,ir) = nmd + 1
 
-           ju1(i,j,ir) = nua + 1
-           ju2(i,j,ir) = nua + 2
-           ju3(i,j,ir) = nua + 3
+           ju1(i,j,ir) = nud + 1
+           ju2(i,j,ir) = nud + 2
+           ju3(i,j,ir) = nud + 3
 
-           jw1(i,j,ir) = nwa + 1
-           jw2(i,j,ir) = nwa + 2
+           jw1(i,j,ir) = nwd + 1
+           jw2(i,j,ir) = nwd + 2
 
-           nma = nma + 1
-           nua = nua + 3
-           nwa = nwa + 2
+           nmd = nmd + 1
+           nud = nud + 3
+           nwd = nwd + 2
 
         enddo
 
-        jw1(0,j,ir) = nwa + 1
+        jw1(0,j,ir) = nwd + 1
 
-        nwa = nwa + 1
+        nwd = nwd + 1
 
      enddo
 
      do i = 1,nxp+1
 
-        jm1(i,nxp+1,ir) = nma + 1
-        ju1(i,nxp+1,ir) = nua + 1
-        jw2(i,    0,ir) = nwa + 1
+        jm1(i,nxp+1,ir) = nmd + 1
+        ju1(i,nxp+1,ir) = nud + 1
+        jw2(i,    0,ir) = nwd + 1
 
-        nma = nma + 1
-        nua = nua + 1
-        nwa = nwa + 1
+        nmd = nmd + 1
+        nud = nud + 1
+        nwd = nwd + 1
 
      enddo
   enddo
 
-  jw0 = nwa + 1
+  jw0 = nwd + 1
 
-  nwa = nwa + 1
+  nwd = nwd + 1
 
   ! Allocate itab and earth-coordinate arrays
 
-  call alloc_itabsd(nma,nua,nwa)
-
-  call alloc_xyzem(nma)
+  call alloc_itabsd(nmd,nud,nwd)
 
   ! Assign imp, iup, iwp members of itab arrays equal to array indices
   ! by default.  Correct for boundary points later.
 
-  do im = 2,nma
+  do im = 2,nmd
      itab_md(im)%imp = im
      itab_md(im)%mrlm = 1
      itab_md(im)%mrlm_orig = 1
@@ -139,12 +139,12 @@ subroutine cart_hex()
      call mdloopf('f',im, jtm_grid, jtm_init, jtm_prog, jtm_wadj, jtm_wstn, 0)
   enddo
 
-  do iu = 2,nua
+  do iu = 2,nud
      itab_ud(iu)%iup = iu
      call udloopf('f',iu, jtu_grid, jtu_init, jtu_prog, jtu_wadj, jtu_wstn, 0)
   enddo
 
-  do iw = 2,nwa
+  do iw = 2,nwd
      itab_wd(iw)%iwp = iw
      itab_wd(iw)%mrlw = 1
      itab_wd(iw)%mrlw_orig = 1
@@ -211,9 +211,9 @@ subroutine cart_hex()
 
            ! Rotation to universal "earth" frame (on planar surface)
 
-           xem(im1) = rxx * xm + rxy * ym
-           yem(im1) = ryx * xm + ryy * ym
-           zem(im1) = 0.
+           xemd(im1) = rxx * xm + rxy * ym
+           yemd(im1) = ryx * xm + ryy * ym
+           zemd(im1) = 0.
 
            iu1 = ju1(i,j,ir)
            iu2 = ju2(i,j,ir)
@@ -382,9 +382,9 @@ subroutine cart_hex()
 
         ! Rotation to universal "earth" frame (on planar surface)
 
-        xem(im1) = rxx * xm + rxy * ym
-        yem(im1) = ryx * xm + ryy * ym
-        zem(im1) = 0.
+        xemd(im1) = rxx * xm + rxy * ym
+        yemd(im1) = ryx * xm + ryy * ym
+        zemd(im1) = 0.
 
         if (i <= nxp) then
            im2 = jm1(i+1,nxp+1,ir)
@@ -424,7 +424,7 @@ subroutine cart_hex()
 
   enddo
 
-  call tri_neighbors(nma, nua, nwa, itab_md, itab_ud, itab_wd)
+  call tri_neighbors(nmd, nud, nwd, itab_md, itab_ud, itab_wd)
 
   ! Plot grid lines
 
@@ -435,22 +435,22 @@ subroutine cart_hex()
      call o_reopnwk()
      call plotback()
 
-     mma = nma
-     mua = nua
-     mwa = nwa
+     mma = nmd
+     mua = nud
+     mwa = nwd
 
      call oplot_set(1)
 
      psiz = .035 / real(nxp)
 
-     do iu = 2,nua
+     do iu = 2,nud
         im1 = itab_ud(iu)%im(1)
         im2 = itab_ud(iu)%im(2)
         iw1 = itab_ud(iu)%iw(1)
         iw2 = itab_ud(iu)%iw(2)
 
-        call oplot_transform(1,xem(im1),yem(im1),zem(im1),xp1,yp1)
-        call oplot_transform(1,xem(im2),yem(im2),zem(im2),xp2,yp2)
+        call oplot_transform(1,xemd(im1),yemd(im1),zemd(im1),xp1,yp1)
+        call oplot_transform(1,xemd(im2),yemd(im2),zemd(im2),xp2,yp2)
 
         call trunc_segment(xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2,iskip)
 

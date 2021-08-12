@@ -229,7 +229,13 @@ Contains
   integer :: nf
   integer :: ndims, idims(3)
 
-  integer, allocatable :: lpoints(:)
+  character(2) :: type
+
+  ! Pointers to the global index of the local point
+
+  integer :: lgwsfc(mwsfc)
+
+  lgwsfc = itab_wsfc(1:mwsfc)%iwglobe
 
   ! Processing next sfcnud file
 
@@ -256,15 +262,11 @@ Contains
 
   ndims    = 1
   idims(1) = nwsfc
+  type     = 'CW'
 
-  allocate(lpoints(nwsfc))
-  lpoints = itab_wsfc(:)%iwglobe
-
-  call shdf5_irec(ndims, idims, 'SFCWAT_NUD' , rvar1=sfcwat_nud,  points=lpoints)
-  call shdf5_irec(ndims, idims, 'SFCTEMP_NUD', rvar1=sfctemp_nud, points=lpoints)
-  call shdf5_irec(ndims, idims, 'FRACLIQ_NUD', rvar1=fracliq_nud, points=lpoints)
-
-  deallocate(lpoints)
+  call shdf5_irec(ndims, idims, 'SFCWAT_NUD' , rvar1=sfcwat_nud,  points=lgwsfc, stagpt=type)
+  call shdf5_irec(ndims, idims, 'SFCTEMP_NUD', rvar1=sfctemp_nud, points=lgwsfc, stagpt=type)
+  call shdf5_irec(ndims, idims, 'FRACLIQ_NUD', rvar1=fracliq_nud, points=lgwsfc, stagpt=type)
 
   call shdf5_close()
 
@@ -290,7 +292,7 @@ Contains
   ! Set nzg_spinup to nzg value used in spin-up simulation
 
   integer, parameter :: nzg_sp = 20
-  real, parameter :: rhow = 1000. ! density of liquid water [kg/m^3]
+  real,    parameter :: rhow = 1000. ! density of liquid water [kg/m^3]
 
   character(80) :: fname
   integer :: ndims, idims(2)
@@ -298,7 +300,7 @@ Contains
   real, allocatable :: soil_water_sp (:,:)
   real, allocatable :: soil_energy_sp(:,:)
 
-  integer, allocatable :: lpoints(:)
+  character(2) :: type
 
   ! Map 25 current soil layers into 20 spin-up soil layers
 
@@ -307,6 +309,14 @@ Contains
   integer :: iland, iwsfc, k, ksp
 
   real :: tempk, tempc, fracliq
+
+  ! Pointers to the global index of the local point
+
+  integer :: lglake(mlake)
+  integer :: lgland(mland)
+
+  lglake = itab_lake(1:mlake)%iwglobe
+  lgland = itab_land(1:mland)%iwglobe
 
   ! Open and read groundwater spinup file
 
@@ -317,29 +327,21 @@ Contains
   call shdf5_open(fname,'R')
 
   ndims    = 1
-  idims(1) = nlake
+  idims(1) = mlake
+  type     = 'RW'
 
-  allocate(lpoints(nlake))
-  lpoints = itab_lake(:)%iwglobe
-
-  call shdf5_irec(ndims, idims, 'LAKE%LAKE_ENERGY', rvar1=lake%lake_energy, points=lpoints)
-
-  deallocate(lpoints)
+  call shdf5_irec(ndims, idims, 'LAKE%LAKE_ENERGY', rvar1=lake%lake_energy, points=lglake, stagpt=type)
 
   ndims    = 2
   idims(1) = nzg_sp
-  idims(2) = nland
+  idims(2) = mland
+  type     = 'LW'
 
   allocate (soil_water_sp (nzg_sp,mland))
   allocate (soil_energy_sp(nzg_sp,mland))
 
-  allocate(lpoints(nland))
-  lpoints = itab_land(:)%iwglobe
-
-  call shdf5_irec(ndims, idims, 'LAND%SOIL_WATER' , rvar2=soil_water_sp,  points=lpoints)
-  call shdf5_irec(ndims, idims, 'LAND%SOIL_ENERGY', rvar2=soil_energy_sp, points=lpoints)
-
-  deallocate(lpoints)
+  call shdf5_irec(ndims, idims, 'LAND%SOIL_WATER' , rvar2=soil_water_sp,  points=lgland, stagpt=type)
+  call shdf5_irec(ndims, idims, 'LAND%SOIL_ENERGY', rvar2=soil_energy_sp, points=lgland, stagpt=type)
 
   call shdf5_close()
 

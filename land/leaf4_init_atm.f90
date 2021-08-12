@@ -69,7 +69,6 @@ subroutine leaf4_init_atm()
   real :: wtd(mland)             ! watertable depth from database
 
   real, external :: rhovsl
-  real, allocatable :: glatland(:), glonland(:)
 
   ! Leaf quantities that get initialized at the start of any model run
 
@@ -82,26 +81,20 @@ subroutine leaf4_init_atm()
 
   ! Allocate and fill temporary lat/lon arrays for land points only
 
-  allocate (glatland(mland), glonland(mland)); glatland(:) = 0.; glonland(:) = 0.
-  do iland = 2,mland
-     iwsfc = iland + omland
-     glatland(iland) = sfcg%glatw(iwsfc)
-     glonland(iland) = sfcg%glonw(iwsfc)
-  enddo
-
   ! Subgrid orographic roughness
 
   land%slope_fact(1) = 1.0
 
   if (nl%iorogslopeflg == 1 .and. len_trim(nl%orog_slope_db) > 0) then
 
+     ! assume omland = 0
      call land_database_read(mland, &
-          glatland,                 &
-          glonland,                 &
-          nl%orog_slope_db,       &
-          nl%orog_slope_db,       &
-          'orog',                 &
-          datq=wtd                )
+          sfcg%glatw,               &
+          sfcg%glonw,               &
+          nl%orog_slope_db,         &
+          nl%orog_slope_db,         &
+          'orog',                   &
+          datq=wtd                  )
 
      !$omp parallel do
      do iland = 2, mland
@@ -123,17 +116,16 @@ subroutine leaf4_init_atm()
 
   if (iwatertabflg == 1) then
 
+     ! assume omland = 0
      call land_database_read(mland, &
-          glatland,                 &
-          glonland,                 &
-          watertab_db,            &
-          watertab_db,            &
-          'wtd',                  &
-          datq=wtd                )
+          sfcg%glatw,               &
+          sfcg%glonw,               &
+          watertab_db,              &
+          watertab_db,              &
+          'wtd',                    &
+          datq=wtd                  )
 
   endif
-
-  deallocate (glatland, glonland)
 
   !$omp parallel do private (iwsfc,leaf_class)
   do iland = 2,mland
