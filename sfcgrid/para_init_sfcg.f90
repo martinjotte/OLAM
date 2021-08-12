@@ -43,7 +43,7 @@ subroutine para_init_sfcg()
   use mem_land,   only: mland, omland, onland, itab_land
   use mem_lake,   only: mlake, omlake, onlake, itab_lake
   use mem_sea,    only: msea, omsea, onsea, itab_sea
-                        
+
   implicit none
 
   integer :: iw, npoly, j, iwn, imn, ivn, imsfc, ivsfc, iwsfc, iwatm
@@ -64,8 +64,8 @@ subroutine para_init_sfcg()
 
   ! Allocate send & recv counter arrays and initialize to zero
 
-  allocate (nsends_wsfc(mrls)) ; nsends_wsfc = 0
-  allocate (nrecvs_wsfc(mrls)) ; nrecvs_wsfc = 0
+  nsends_wsfc = 0
+  nrecvs_wsfc = 0
 
   myrankflag_msfc(:) = .false.
   myrankflag_vsfc(:) = .false.
@@ -374,14 +374,14 @@ integer :: jrecv
 
 ! Check whether iremote_wsfc is already in table of ranks to receive from
 
-do jrecv = 1,nrecvs_wsfc(1)
+do jrecv = 1, nrecvs_wsfc
    if (recv_wsfc(jrecv)%iremote == iremote) exit
 enddo
 
-! If jrecv exceeds nrecvs_wsfc(1), jrecv represents a rank not yet entered in the
-! table, so increase nrecvs_wsfc(1).
+! If jrecv exceeds nrecvs_wsfc, jrecv represents a rank not yet entered in the
+! table, so increase nrecvs_wsfc.
 
-if (jrecv > nrecvs_wsfc(1)) nrecvs_wsfc(1) = jrecv
+if (jrecv > nrecvs_wsfc) nrecvs_wsfc = jrecv
 
 ! Enter remote rank in recv-remote-rank table.
 
@@ -407,14 +407,14 @@ integer :: iwsfc_myrank
 
 ! Check whether iremote_wsfc is already in table of ranks to send to
 
-do jsend=1,nsends_wsfc(1)
+do jsend=1, nsends_wsfc
    if (send_wsfc(jsend)%iremote == iremote) exit
 enddo
 
 ! If jsend exceeds nsends_wsfc, jsend represents a rank not yet entered in the
 ! table, so increase nsends_wsfc.
 
-if (jsend > nsends_wsfc(1)) nsends_wsfc = jsend
+if (jsend > nsends_wsfc) nsends_wsfc = jsend
 
 ! Enter point in send-point table, and enter remote rank in send-remote-rank table.
 

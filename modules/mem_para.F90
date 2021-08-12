@@ -48,38 +48,36 @@ Module mem_para
   integer, allocatable :: nsends_v(:)  ! dimensioned to mrls
   integer, allocatable :: nsends_w(:)  ! dimensioned to mrls
   integer, allocatable :: nsends_m(:)  ! dimensioned to mrls
-
-  integer :: nsends_wnud
+  integer              :: nsends_wnud  ! dimensioned to 1
+  integer              :: nsends_wsfc  ! dimensioned to 1
 
   integer, allocatable :: nrecvs_v(:)  ! dimensioned to mrls
   integer, allocatable :: nrecvs_w(:)  ! dimensioned to mrls
   integer, allocatable :: nrecvs_m(:)  ! dimensioned to mrls
-
-  integer :: nrecvs_wnud
+  integer              :: nrecvs_wnud  ! dimensioned to 1
+  integer              :: nrecvs_wsfc  ! dimensioned to 1
 
 ! SFC grid sends/receives are scalars
 
-  integer, allocatable :: nsends_wsfc(:)  ! dimensioned to mrls
-  integer, allocatable :: nrecvs_wsfc(:)  ! dimensioned to mrls
-
   Type nodebuffs
      character, allocatable :: buff(:)
-     integer :: nbytes   =  0
-     integer :: iremote  = -1
-     integer :: irequest = MPI_REQUEST_NULL
+     integer :: nbytes  =  0
+     integer :: iremote = -1
+!    integer :: irequest = MPI_REQUEST_NULL
+     integer,   allocatable :: npts(:)
+     integer,   allocatable :: ipts(:)
   End Type nodebuffs
 
   type(nodebuffs), allocatable :: send_v(:)
   type(nodebuffs), allocatable :: send_w(:)
   type(nodebuffs), allocatable :: send_m(:)
   type(nodebuffs), allocatable :: send_wnud(:)
+  type(nodebuffs), allocatable :: send_wsfc(:)
 
   type(nodebuffs), allocatable :: recv_v(:)
   type(nodebuffs), allocatable :: recv_w(:)
   type(nodebuffs), allocatable :: recv_m(:)
   type(nodebuffs), allocatable :: recv_wnud(:)
-
-  type(nodebuffs), allocatable :: send_wsfc(:)
   type(nodebuffs), allocatable :: recv_wsfc(:)
 
   integer                      :: mva_primary = 0
@@ -124,10 +122,29 @@ Module mem_para
   integer :: nbytes_real
   integer :: nbytes_real8
 
-  integer, allocatable :: ireqs_v(:)
-  integer, allocatable :: ireqs_w(:)
-  integer, allocatable :: ireqs_m(:)
-  integer, allocatable :: ireqs_wnud(:)
-  integer, allocatable :: ireqs_wsfc(:)
+  integer              :: icurr_v = 1
+  integer              :: inext_v = 2
+  integer, allocatable :: ireqr_v(:,:)
+  integer, allocatable :: ireqs_v(:,:)
+
+  integer              :: icurr_m = 1
+  integer              :: inext_m = 2
+  integer, allocatable :: ireqr_m(:,:)
+  integer, allocatable :: ireqs_m(:,:)
+
+  integer              :: icurr_w = 1
+  integer              :: inext_w = 2
+  integer, allocatable :: ireqr_w(:,:)
+  integer, allocatable :: ireqs_w(:,:)
+
+  integer              :: icurr_wnud = 1
+  integer              :: inext_wnud = 2
+  integer, allocatable :: ireqr_wnud(:,:)
+  integer, allocatable :: ireqs_wnud(:,:)
+
+  integer              :: icurr_wsfc = 1
+  integer              :: inext_wsfc = 2
+  integer, allocatable :: ireqr_wsfc(:,:)
+  integer, allocatable :: ireqs_wsfc(:,:)
 
 End Module mem_para
