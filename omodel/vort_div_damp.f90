@@ -200,89 +200,138 @@ end subroutine divh_damp
 
 
 
-!!subroutine vort_damp(mrl)
-!!
-!!  use mem_ijtabs,   only: jtab_v, itab_v, jtv_prog, jtab_m, itab_m, jtm_vadj
-!!  use mem_grid,     only: lpv, mza, vnxo2, vnyo2, vnzo2, dniv, dnv, mma, lpm, &
-!!                          lpw, lve2
-!!  use olam_mpi_atm, only: mpi_send_m, mpi_recv_m
-!!  use mem_basic,    only: vc, vxe, vye, vze, rho
-!!  use mem_tend,     only: vmt
-!!  use obnd,         only: lbcopy_m
-!!  use misc_coms,    only: iparallel, dtlm
-!!  use oname_coms,   only: nl
-!!
-!!  implicit none
-!!
-!!  integer, intent(in) :: mrl
-!!  integer             :: iv, iw1, iw2, k, j, jv, kb, im, im1, im2, k2
-!!  real                :: facv, facs, vce, dti, dv
-!!  real                :: vortp_ex(mza,mma)
-!!
-!!  if (nl%vort_damp_fact < 1.e-8) return
-!!
-!!  !$omp parallel do private(im,kb,jv,iv,iw1,iw2,dv,k)
-!!  do j = 1,jtab_m(jtm_vadj)%jend(mrl); im = jtab_m(jtm_vadj)%im(j)
-!!
-!!     kb = lpm(im)
-!!
-!!     vortp_ex(:,im) = 0.
-!!
-!!     ! Loop over V neighbors to evaluate circulation around M (at time T)
-!!     do jv = 1, 3
-!!        iv = itab_m(im)%iv(jv)
-!!
-!!        iw1 = itab_v(iv)%iw(1)
-!!        iw2 = itab_v(iv)%iw(2)
-!!
-!!        if (itab_v(iv)%im(2) == im) then
-!!           dv = +dnv(iv)
-!!        else
-!!           dv = -dnv(iv)
-!!        endif
-!!
-!!        do k = kb, mza
-!!           vortp_ex(k,im) = vortp_ex(k,im) + dv * ( vc(k,iv)      &
-!!                          - vnxo2(iv) * (vxe(k,iw1) + vxe(k,iw2)) &
-!!                          - vnyo2(iv) * (vye(k,iw1) + vye(k,iw2)) &
-!!                          - vnzo2(iv) * (vze(k,iw1) + vze(k,iw2)) )
-!!        enddo
-!!
-!!     enddo
-!!  enddo
-!!  !$omp end parallel do
-!!
-!!  ! MPI send/recv of vortp
-!!  if (iparallel == 1) then
-!!     call mpi_send_m(mrl, rvara1=vortp_ex)
-!!     call mpi_recv_m(mrl, rvara1=vortp_ex)
-!!  endif
-!!  call lbcopy_m(mrl, a1=vortp_ex)
-!!
-!!  !$omp parallel do private(iv,iw1,iw2,im1,im2,k2,dti,facv,facs,k,vce)
-!!  do j = 1,jtab_v(jtv_prog)%jend(mrl); iv = jtab_v(jtv_prog)%iv(j)
-!!
-!!     iw1 = itab_v(iv)%iw(1)
-!!     iw2 = itab_v(iv)%iw(2)
-!!     im1 = itab_v(iv)%im(1)
-!!     im2 = itab_v(iv)%im(2)
-!!
-!!     dti = 1.0 / real(dtlm(itab_v(iv)%mrlv))
-!!
-!!     facv = 0.5 * nl%vort_damp_fact * dniv(iv) * dti
-!!     do k = lpv(iv), mza
-!!        vmt(k,iv) = vmt(k,iv) + facv * real(rho(k,iw1) + rho(k,iw2)) &
-!!                              * (vortp_ex(k,im1) - vortp_ex(k,im2))
-!!     enddo
-!!
-!!  enddo
-!!  !$omp end parallel do
-!!
-!!end subroutine vort_damp
-!!
-!!
-!!
-!!
+subroutine vort_damp(mrl)
+
+  use mem_ijtabs,   only: jtab_v, jtab_m, itab_v, itab_m, jtv_prog, jtm_vadj
+  use mem_grid,     only: mva, lpv, lpm, mza, mma, dnu, dnv, arm0, zfacit
+  use olam_mpi_atm, only: mpi_send_m, mpi_recv_m
+  use mem_basic,    only: vc, rho
+  use mem_tend,     only: vmt
+  use obnd,         only: lbcopy_m
+  use misc_coms,    only: iparallel
+  use oname_coms,   only: nl
+
+  implicit none
+
+  integer, intent(in)     :: mrl
+  integer                 :: iv, iw1, iw2, k, j, jv, im, kb
+  integer                 :: iv1, iv2, iv3, iv4
+  integer                 :: im1, im2, im3, im4, im5, im6
+  real                    :: vortp(mza,mma)
+  real                    :: arm0i, vort_big1, vort_big2, cv
+  real, allocatable, save :: c1(:), c2(:)
+  logical,           save :: firstime = .true.
+  real, parameter         :: onethird = 1./3.
+
+  if (nl%akmin_vort < 1.e-7) return
+
+  if (firstime) then
+     firstime = .false.
+
+     allocate(c1(mva))
+     allocate(c2(mva))
+
+     cv = nl%akmin_vort  * 0.075
+
+     !$omp parallel do private(iv,iv1,iv2,iv3,iv4,im1,im2,iw1,iw2)
+     do j = 1,jtab_v(jtv_prog)%jend(1); iv = jtab_v(jtv_prog)%iv(j)
+
+        iv1  = itab_v(iv)%iv(1)
+        iv2  = itab_v(iv)%iv(2)
+        iv3  = itab_v(iv)%iv(3)
+        iv4  = itab_v(iv)%iv(4)
+
+        im1  = itab_v(iv)%im(1)
+        im2  = itab_v(iv)%im(2)
+
+        iw1  = itab_v(iv)%iw(1)
+        iw2  = itab_v(iv)%iw(2)
+
+        c1(iv) = -cv * (arm0(im1)**onethird)**2 * dnu(iv1) * dnu(iv2) / &
+                  ( dnu(iv1) * dnu(iv2) * dnv(iv)  &
+                  + dnu(iv)  * dnu(iv2) * dnv(iv1) &
+                  + dnu(iv)  * dnu(iv1) * dnv(iv2) )
+
+        c2(iv) =  cv * (arm0(im2)**onethird)**2 * dnu(iv3) * dnu(iv4) / &
+                  ( dnu(iv3) * dnu(iv4) * dnv(iv)  &
+                  + dnu(iv)  * dnu(iv4) * dnv(iv3) &
+                  + dnu(iv)  * dnu(iv3) * dnv(iv4) )
+
+     enddo
+     !$omp end parallel do
+
+  endif  ! firstime
+
+  !$omp parallel do private(im,kb,jv,iv,k,arm0i)
+  do j = 1,jtab_m(jtm_vadj)%jend(mrl); im = jtab_m(jtm_vadj)%im(j)
+
+     kb = lpm(im)
+
+     vortp(:,im) = 0.
+
+     ! Loop over V neighbors to evaluate circulation around M (at time T)
+     do jv = 1, 3
+        iv = itab_m(im)%iv(jv)
+
+        if (itab_v(iv)%im(2) == im) then
+
+           do k = kb,mza
+              vortp(k,im) = vortp(k,im) + vc(k,iv) * dnv(iv)
+           enddo
+
+        else
+
+           do k = kb,mza
+              vortp(k,im) = vortp(k,im) - vc(k,iv) * dnv(iv)
+           enddo
+
+        endif
+     enddo
+
+     ! Convert circulation to relative vertical vorticity at M
+     ! (DNV lacks the zfact factor and ARM0 lacks the zfact**2 factor, so we
+     ! divide their quotient by zfact)
+
+     arm0i = 1. / arm0(im)
+
+     do k = kb,mza
+        vortp(k,im) = vortp(k,im) * arm0i * zfacit(k)
+     enddo
+
+  enddo
+  !$omp end parallel do
+
+  if (iparallel == 1) then
+     call mpi_send_m(mrl, rvara1=vortp)
+     call mpi_recv_m(mrl, rvara1=vortp)
+  endif
+  call lbcopy_m(mrl, a1=vortp)
+
+  !$omp parallel do private(iv,iw1,iw2,im1,im2,im3,im4,im5,im6,k,vort_big1,vort_big2)
+  do j = 1,jtab_v(jtv_prog)%jend(mrl); iv = jtab_v(jtv_prog)%iv(j)
+
+     iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
+     im1 = itab_v(iv)%im(1); im2 = itab_v(iv)%im(2); im3 = itab_v(iv)%im(3)
+     im4 = itab_v(iv)%im(4); im5 = itab_v(iv)%im(5); im6 = itab_v(iv)%im(6)
+
+     do k = lpv(iv), mza
+
+        vort_big1 = onethird * (vortp(k,im2) + vortp(k,im3) + vortp(k,im4))
+        vort_big2 = onethird * (vortp(k,im1) + vortp(k,im5) + vortp(k,im6))
+
+        ! Horizontal filter for vertical vorticity
+
+        vmt(k,iv) = vmt(k,iv) + real( rho(k,iw1) + rho(k,iw2) ) &
+                  * ( (vort_big1 - vortp(k,im1)) * c1(iv) &
+                    + (vort_big2 - vortp(k,im2)) * c2(iv) )
+     enddo
+
+  enddo
+  !$omp end parallel do
+
+end subroutine vort_damp
+
+
 !!subroutine rayf_vels(mrl)
 !!
 !!  use mem_basic,  only: vxe, vye, vze, vc, rho

@@ -93,7 +93,7 @@ subroutine prog_wrtv(vmsca, wmsca)
                           vxe, vye, vze, theta, tair
   use mem_grid,     only: mza, mva, mwa, lpv, lpw, arv, dzto2, dztsqo6, &
                           volt, volti
-  use mem_tend,     only: thilt, vmxet, vmyet, vmzet
+  use mem_tend,     only: thilt, vmxet, vmyet, vmzet, vmt
   use misc_coms,    only: iparallel, dtsm, mstp, time8p, dtlm
   use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, mpi_send_v, mpi_recv_v
   use oplot_coms,   only: op
@@ -235,7 +235,7 @@ subroutine prog_wrtv(vmsca, wmsca)
 !        vmt_short(k,iv) = vmt_short(k,iv) + vmt(k,iv)
 !     enddo
 
-     vmt_short(:,iv) = 0.
+     vmt_short(:,iv) = vmt(:,iv)
 
 !    call solve_eddy_diff_vc(iv, vmt_short(:,iv))
 

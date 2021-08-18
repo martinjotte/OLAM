@@ -406,7 +406,11 @@ subroutine spawn_nest()
            ! Check npoly and nw for illegal values
 
            if (nw == 0 .or. nw == npoly) cycle
-           if (npoly == 6 .and. nw < 5) cycle
+
+           ! if (npoly == 6 .and. nw < 5) cycle
+           ! MJO: This fills in around any pentagon point that happens to be on
+           ! a mesh boundary. I will relax this criteria for now:
+           if (nw < npoly - 1) cycle
 
            ! If we got here, then either of the following is true at current M pt:
            !    (1) npoly = 5 and nw > 0 and nw < npoly

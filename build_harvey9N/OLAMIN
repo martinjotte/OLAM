@@ -280,8 +280,11 @@
 
    NL%HORIZ_ADV_ORDER = 2 ! Horizontal advection order (2 or 3)
 
-   NL%VORT_DAMP_FACT = 0.0  ! Scaling factor for vorticity and divergence
-   NL%DIVH_DAMP_FACT = 0.10 ! damping. Set to 0 to disable.
+   NL%AKMIN_VORT     = 0.4  ! Rotio of vorticity damping coefficient to typical
+                            ! value from deformation K. Typical range 0.2 - 1.0
+
+   NL%DIVH_DAMP_FACT = 0.10 ! Fraction of horizontal divergence to damp in one timestep.
+                            ! Set to 0 to disable. Should be no larger than about 0.18
 
    NL%ZERO_NEG_SCALARS = .false. ! Force negative scalar concentrations to zero?
 

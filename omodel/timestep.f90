@@ -139,21 +139,12 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
       call radiate()
    endif
 
-!  call divh_damp(1)
-
-!  call rayf_vels(1)
-
    mrl = mrl_begl(istp)
    if (mrl > 0) then
 
       ! small-scale vorticity damping
 
-!     call divh_damp(mrl)
-!     call vort_damp(mrl)
-
-      ! Rayleigh friction for velocit at model top
-
-!      call rayf_vels(mrl)
+      call vort_damp(mrl)
 
       ! Mudging tendencies
 
@@ -174,8 +165,8 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
       ! CMAQ emissions and deposition
 
       if (do_chem == 1) then
-         call get_emis (mrl)
-         call get_depv (mrl)
+         call get_emis(mrl)
+         call get_depv(mrl)
       endif
 
       ! Long timestep PBL tendencies
@@ -609,7 +600,7 @@ subroutine tend0()
 
   use mem_ijtabs, only: istp, mrl_begl, mrl_begs
   use var_tables, only: scalar_tab, num_scalar
-  use mem_tend,   only: thilt, vmxet, vmyet, vmzet
+  use mem_tend,   only: thilt, vmxet, vmyet, vmzet, vmt
 
   implicit none
 
@@ -620,6 +611,7 @@ subroutine tend0()
      vmyet = 0.0
      vmzet = 0.0
      thilt = 0.0
+     vmt   = 0.0
 
      do n = 1, num_scalar
         scalar_tab(n)%var_t = 0.0

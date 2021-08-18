@@ -38,6 +38,8 @@ Module mem_tend
    real, allocatable :: vmyet   (:,:) ! Earth-cartesian y momentum tend [kg/(m^2 s^2)]
    real, allocatable :: vmzet   (:,:) ! Earth-cartesian z momentum tend [kg/(m^2 s^2)]
 
+   real, allocatable :: vmt     (:,:) ! Long timestep V tendencies
+
    real, allocatable :: thilt   (:,:) ! (rho * thil) tend [kg_air K / (m^3 s)]
    real, allocatable :: rr_wt   (:,:) ! water mass tend [kg_wat/(m^3 s)]
 
@@ -80,7 +82,7 @@ Contains
   subroutine alloc_tend(lza,lva,lwa,naddsc,nccntyp)
 
     use mem_turb,   only: tkep, epsp
-    use mem_basic,  only: thil, rr_w, vxe, vye, vze
+    use mem_basic,  only: thil, rr_w, vxe, vye, vze, vc
     use mem_addsc,  only: addsc
     use mem_micro,  only: rr_c, rr_d, rr_r, rr_p, rr_s, rr_a, rr_g, rr_h,        &
                           con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h,&
@@ -102,6 +104,9 @@ Contains
     if (allocated(vxe))     allocate (vmxet(lza,lwa)) ; vmxet = 0.
     if (allocated(vye))     allocate (vmyet(lza,lwa)) ; vmyet = 0.
     if (allocated(vze))     allocate (vmzet(lza,lwa)) ; vmzet = 0.
+
+    if (allocated(vc))      allocate (vmt  (lza,lva)) ; vmt   = 0.
+
     if (allocated(thil))    allocate (thilt(lza,lwa)) ; thilt = 0.
     if (allocated(rr_w))    allocate (rr_wt(lza,lwa)) ; rr_wt = 0.
 

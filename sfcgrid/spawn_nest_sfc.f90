@@ -213,14 +213,12 @@ subroutine spawn_nest_sfc()
                  nud0 = nud0 + 3
                  nwd0 = nwd0 + 3
 
-                 write(io6,*) 'Activating W point ',iw,' to prevent concavity'
+!                write(io6,*) 'Activating W point ',iw,' to prevent concavity'
 
               endif
            enddo
 
         enddo
-
-        write(*,*) "calling perim_map2 ", npts, nmd, nud, nwd
 
         call perim_map2(npts, nmd, nud, nwd, nper2, imper, iuper, npolyper, &
                         nwdivper, nearpent, ltab_md, ltab_ud, ltab_wd, nest_wd)
@@ -271,20 +269,19 @@ subroutine spawn_nest_sfc()
      enddo ! (nwd0 > nwdd)
 
      ! Print perimeter map
-
-     print*, ' '
-     do j = 1,nper2
-        write(6,'(a,8i7)') 'perim ',ngr,nper2,j,imper(j),iuper(j),npolyper(j), &
-                                    nwdivper(j),nearpent(j)
-     enddo
-     print*, ' '
+     !
+     ! print*, ' '
+     ! do j = 1,nper2
+     !    write(6,'(a,8i7)') 'perim ',ngr,nper2,j,imper(j),iuper(j),npolyper(j), &
+     !                                nwdivper(j),nearpent(j)
+     ! enddo
+     ! print*, ' '
 
      ! Nested region should be fully expanded now without any concavities,
      ! 5-edge vertices, or consecutive weak concavities.
 
      ! Define new vertex index for midpoint of each original U edge that is adjacent
-     ! to an original triangle that is being subdivided, unless it is also adjacent
-     ! to an original triangle with subdivide flag = -1.  Attach new vertex
+     ! to an original triangle that is being subdivided.  Attach new vertex
      ! index to old U edge.  Also, define new U index for second half of U, and
      ! attach to U.  [Make adjacent to U%m2.]
 
@@ -297,20 +294,11 @@ subroutine spawn_nest_sfc()
 
         if (nest_wd(iw1)%iw(3) > 0 .or. nest_wd(iw2)%iw(3) > 0) then
 
-           if (nest_wd(iw1)%iw(3) < 0 .or. nest_wd(iw2)%iw(3) < 0) then
+           nest_ud(iu)%im = nmd0 + 1
+           nest_ud(iu)%iu = nud0 + 1
 
-              nest_ud(iu)%im = 1
-              nest_ud(iu)%iu = iu
-
-           else
-
-              nest_ud(iu)%im = nmd0 + 1
-              nest_ud(iu)%iu = nud0 + 1
-
-              nmd0 = nmd0 + 1
-              nud0 = nud0 + 1
-
-           endif
+           nmd0 = nmd0 + 1
+           nud0 = nud0 + 1
 
         endif
      enddo

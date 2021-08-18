@@ -173,7 +173,7 @@ Module oname_coms
 
      integer :: horiz_adv_order = 2
 
-     real    :: vort_damp_fact = 0.1
+     real    :: akmin_vort     = 0.4
      real    :: divh_damp_fact = 0.1
 
      logical :: zero_neg_scalars = .true.

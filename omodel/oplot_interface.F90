@@ -811,9 +811,11 @@ subroutine plot_index_sfc(iplt)
 
         do j = 1,3
            iwn = itab_msfc(imsfc)%iwn(j)
-           if (itab_wsfc(iwn)%ivoronoi == 3) then
-              call get_psiz(iplt,sqrt(sfcg%area(iwn)),psiz,vsprd)
-              exit
+           if (iwn > 1) then
+              if (itab_wsfc(iwn)%ivoronoi == 3) then
+                 call get_psiz(iplt,sqrt(sfcg%area(iwn)),psiz,vsprd)
+                 exit
+              endif
            endif
 
            ! If no adjacent Voronoi W cell found, do not plot this M point
@@ -2384,6 +2386,7 @@ subroutine plot_sfcgrid(iplt)
      ! Only plot each V segment once in parallel
      if (iparallel == 1) then
         iw1 = itab_vsfc(ivsfc)%iwn(1)
+        if (iw1 < 1) cycle
         if (itab_wsfc(iw1)%irank /= myrank) cycle
      endif
 
@@ -2399,10 +2402,6 @@ subroutine plot_sfcgrid(iplt)
 
         im1 = itab_vsfc(ivsfc)%imn(jm1)
         im2 = itab_vsfc(ivsfc)%imn(jm2)
-
-        if (any(itab_vsfc(ivsfc)%iwn(1:2) == 3)) then
-           write(*,*) sfcg%xem(im1), sfcg%yem(im1), sfcg%zem(im1), sfcg%xem(im2), sfcg%yem(im2), sfcg%zem(im2)
-        endif
 
         ! Get tile plot coordinates.
 
