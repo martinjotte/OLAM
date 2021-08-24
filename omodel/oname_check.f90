@@ -80,14 +80,16 @@ write(io6,*) ' '
 ! RUNTYPE
 !--------------------------------------------------------------------------
 
-if ( (nl%runtype /= 'MAKEGRID'   ) .and. &
-     (nl%runtype /= 'INITIAL'    ) .and. &
-     (nl%runtype /= 'HISTORY'    ) .and. &
-     (nl%runtype /= 'HISTADDGRID') .and. &
-     (nl%runtype /= 'PLOTONLY'   ) ) then
+if ( (nl%runtype /= 'MAKEGRID'     ) .and. &
+     (nl%runtype /= 'INITIAL'      ) .and. &
+     (nl%runtype /= 'HISTORY'      ) .and. &
+     (nl%runtype /= 'HISTADDGRID'  ) .and. &
+     (nl%runtype /= 'PLOTONLY'     ) .and. &
+     (nl%runtype /= 'MAKEGRID_PLOT') ) then
    write(io6,*) " -- FATAL -- RUNTYPE = "//trim(nl%runtype)
    write(io6,*) "             RUNTYPE must be either 'MAKEGRID', 'INITIAL', "
-   write(io6,*) "             'HISTORY', 'HISTADDGRID', or 'PLOTONLY'"
+   write(io6,*) "             'HISTORY', 'HISTADDGRID', 'MAKEGRID_PLOT', "
+   write(io6,*) "             or 'PLOTONLY'"
    nfatal = nfatal + 1
 endif
 
@@ -158,6 +160,8 @@ call ichk_bnds( nl%ngrids,   "NGRIDS",       1, maxgrds, 0, nfatal, nwarn, &
 call ichk_bnds( nl%ngrids_old, "NGRIDS_OLD", 0, maxgrds, 0, nfatal, nwarn, &
      msgmax="Increase maxgrds in max_dims.f90 if more nests are needed." )
 
+call ichk_bnds( nl%gridplot_base, "GRIDPLOT_BASE", 2, maxgrds, 2, nfatal, nwarn )
+
 ! global mesh requires nxp to be divisible by 3
 
 !if (nl%mdomain < 2 .and. mod(nl%nxp,3) /= 0) then
@@ -185,6 +189,8 @@ endif
 
 call ichk_bnds( nl%nsfcgrids,   "NSFCGRIDS", 0, maxgrds, 0, nfatal, nwarn, &
      msgmax="Increase maxgrds in max_dims.f90 if more sfc nests are needed." )
+
+call ichk_bnds( nl%sfcgridplot_base, "SFCGRIDPLOT_BASE", 1, maxgrds, 2, nfatal, nwarn )
 
 ! If greater than 1, sfcgrid_res_factor must have prime factors of 2 and/or 3
 
@@ -665,10 +671,12 @@ if ((nl%runtype == 'INITIAL') .or. &
 
 call rchk_bnds( nl%dtvec,     "DTVEC",     1.e-3, r_huge, 2, nfatal, nwarn )
 call rchk_bnds( nl%headspeed, "HEADSPEED", 1.e-3, r_huge, 2, nfatal, nwarn )
-call rchk_bnds( nl%stemlength, "STEMLENGTH",1.e-3, r_huge, 2, nfatal, nwarn )
+call rchk_bnds( nl%stemlength,"STEMLENGTH",1.e-3, r_huge, 2, nfatal, nwarn )
 call ichk_bnds( nl%plttype,   "PLTTYPE",   0, 2, 2, nfatal, nwarn )
 call ichk_bnds( nl%pltorient, "PLTORIENT", 0, 1, 2, nfatal, nwarn )
-      
+call ichk_bnds( nl%mapcolor,  "MAPCOLOR",  0, 255, 2, nfatal, nwarn)
+call ichk_bnds( nl%llcolor,   "LLCOLOR",   0, 255, 2, nfatal, nwarn)
+
 !------------------------------------------------------------------------
 ! PLOTTING SPECIFICATIONS
 !------------------------------------------------------------------------

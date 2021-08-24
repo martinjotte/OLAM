@@ -39,9 +39,51 @@ subroutine oplot_init()
 
   implicit none
 
+  character(128) :: dirnm, filenm
+  integer        :: istat, i
+
   if (myrank == 0) then
      call o_opngks()
      call gks_colors(1)
+
+     ! Find default location of NCAR Graphics databases
+     call o_gngpat(dirnm, "database", istat)
+
+     if (istat /= -1) then
+
+        ! string is returned as C array
+        do i = 1, 128
+           if (ichar(dirnm(i:i)) == 32 .or. ichar(dirnm(i:i)) == 0) exit
+        enddo
+
+        ! check for newer medium resolution maps
+        filenm = dirnm(1:i-1) // "/Earth..2.lines"
+        inquire(file=filenm, exist=op%has_med_res)
+
+        ! check for newest high resolution maps
+        filenm = dirnm(1:i-1) // "/Earth..4.lines"
+        inquire(file=filenm, exist=op%has_high_res)
+
+     else
+
+        write(*,*) "NCAR Graphics cannot locate it's default database directory."
+
+        call get_environment_variable("NCARG_ROOT", value=dirnm, status=istat)
+        if (istat == -1) then
+           write(*,*) "The environment variable NCARG_ROOT is not set."
+        else
+           write(*,*) "NCARG_ROOT is set to: ", trim(dirnm)
+        endif
+
+        call get_environment_variable("NCARG_DATABASE", value=dirnm, status=istat)
+        if (istat == -1) then
+           write(*,*) "The environment variable NCARG_DATABASE is not set."
+        else
+           write(*,*) "NCARG_DATABASE is set to: ", trim(dirnm)
+        endif
+
+     endif
+
   endif
 
   ! Initialize some oplot parameters (not set in namelist).
@@ -149,19 +191,6 @@ subroutine plot_fields(id)
      if (op%iplotback /= 1 .and. myrank == 0) then
         call plotback()
      endif
-
-     ! Draw filled-in map if so specified
-
-!    if (( op%projectn(iplt) == 'L'  .or.   &
-!          op%projectn(iplt) == 'P'  .or.   &
-!          op%projectn(iplt) == 'G'  .or.   &
-!          op%projectn(iplt) == 'O' ).and.  &
-!         (op%maptyp(iplt)   == 'M'  .and.  &
-!          op%contrtyp(iplt) /= 'T'  .and.  &
-!          op%contrtyp(iplt) /= 'F'  .and.  &
-!          op%contrtyp(iplt) /= 'O' )) then
-!       call mkmap(iplt,'FILL')
-!    endif
 
      ! Get units and stagpoint information for this field
 
@@ -304,18 +333,17 @@ subroutine plot_fields(id)
 
      endif
 
-     ! Draw line map if so specified
+     ! Draw line map and/or lat/lons if specified
 
-     if ( (op%projectn(iplt) == 'L'  .or.   &
-           op%projectn(iplt) == 'P'  .or.   & 
-           op%projectn(iplt) == 'G'  .or.   & 
-           op%projectn(iplt) == 'O') .and.  & 
-          (op%maptyp(iplt)   /= 'N') .and.  &
-          (op%maptyp(iplt)   == 'm'  .or.   &
-           op%contrtyp(iplt) == 'T'  .or.   &
-           op%contrtyp(iplt) == 'F'  .or.   &
-           op%contrtyp(iplt) == 'O') ) then
-        call mkmap(iplt,'LINE')
+     if ( ( op%projectn(iplt) == 'L' .or.    &
+            op%projectn(iplt) == 'P' .or.    &
+            op%projectn(iplt) == 'G' .or.    &
+            op%projectn(iplt) == 'O' ) .and. &
+          ( op%maptyp  (iplt) == 'm' .or.    &
+            op%pltll   (iplt) == 'l' ) ) then
+
+        call mkmap(iplt)
+
      endif
 
      ! Draw colorbar if so specified
@@ -2565,59 +2593,118 @@ end subroutine plot_grid_frame
 
 !===============================================================================
 
-subroutine mkmap(iplt,filltype)
+subroutine mkmap(iplt)
 
   use oplot_coms,  only: op
-  use consts_coms, only: erad, erad2
+  use consts_coms, only: erad, erad2, eradi, piu180
   use misc_coms,   only: io6
   use mem_para,    only: myrank
 
   implicit none
 
   integer, intent(in) :: iplt
-  character(len=*), intent(in) :: filltype
+  real                :: scale
 
   call oplot_set(iplt)
 
   if (myrank /= 0) return
 
-  ! Set plot color (black)
+  if (op%projectn(iplt) == 'L') then
+     scale = op%xmax
+  else
+     scale = op%xmax * eradi * piu180
+  endif
 
-  call o_gsplci(10)
-  call o_gsfaci(10)
-  call o_gstxci(10)
-  call o_sflush()
+  call o_mapint()
+  call o_mappos(op%h1,op%h2,op%v1,op%v2)
 
-  if (trim(filltype) == 'LINE') then
+! call o_mapsti('DA',65535) ! To plot parallels and meridians with solid lines
 
-     call o_mapint()
-     call o_mappos(op%h1,op%h2,op%v1,op%v2)
-     call o_mapsti('GR',10)    ! For 10-degree spacing of plotted parallels and meridians
-     call o_mapsti('DA',65535) ! To plot parallels and meridians with solid lines
-!    call o_mapstc('OU','PS')  ! To plot bnds of continents, countries, and US  states
-!    call o_mapstc('OU','NO')  ! To plot NO geographic information
+  ! Spacing of lat/lon lines
+
+  if     (scale < 3.) then
+     call o_mapsti('GR', 1)
+  elseif (scale < 6.) then
+     call o_mapsti('GR', 2)
+  elseif (scale < 8.0) then
+     call o_mapstr('GR', 2.5)
+  elseif (scale < 15.) then
+     call o_mapsti('GR', 5)
+  elseif (scale < 30.) then
+     call o_mapsti('GR',10)
+  elseif (scale < 40.) then
+     call o_mapsti('GR',15)
+  else
+     call o_mapsti('GR',20)
+  endif
+
+  if (scale < 20.) then
+     call o_mapstc('OU','PS')  ! To plot continental, international, and US state outlines
+  elseif (scale < 45.) then
+     call o_mapstc('OU','PO')  ! To plot continental outlines + international outlines
+  else
      call o_mapstc('OU','CO')  ! To plot continental outlines
-!    call o_mapstc('OU','US')  ! To plot US state outlines
-!    call o_mapstc('OU','PO')  ! To plot continental outlines + international outlines
+  endif
 
-     if (op%projectn(iplt) == 'L') then
-        call o_maproj('CE',0.,op%plon3,0.)  ! Force plat to be zero for CE projection
-        call o_mapset('LI',op%xmin,op%xmax,op%ymin,op%ymax)
-     elseif (op%projectn(iplt) == 'P') then
-        call o_maproj('ST',op%plat3,op%plon3,0.)
-        call o_mapset('LI',op%xmin/erad2,op%xmax/erad2  &
-                          ,op%ymin/erad2,op%ymax/erad2)
-     elseif (op%projectn(iplt) == 'O') then
-        call o_maproj('OR',op%plat3,op%plon3,0.)
-        call o_mapset('LI',op%xmin/erad,op%xmax/erad  &
-                          ,op%ymin/erad,op%ymax/erad)
+  if (op%projectn(iplt) == 'L') then
+     call o_maproj('CE',0.,op%plon3,0.)  ! Force plat to be zero for CE projection
+     call o_mapset('LI',op%xmin,op%xmax,op%ymin,op%ymax)
+  elseif (op%projectn(iplt) == 'P') then
+     call o_maproj('ST',op%plat3,op%plon3,0.)
+     call o_mapset('LI',op%xmin/erad2,op%xmax/erad2  &
+                       ,op%ymin/erad2,op%ymax/erad2)
+  elseif (op%projectn(iplt) == 'O') then
+     call o_maproj('OR',op%plat3,op%plon3,0.)
+     call o_mapset('LI',op%xmin/erad,op%xmax/erad  &
+                       ,op%ymin/erad,op%ymax/erad)
+  elseif (op%projectn(iplt) == 'G') then
+     call o_maproj('GN',op%plat3,op%plon3,0.)
+     call o_mapset('LI',op%xmin/erad,op%xmax/erad  &
+                       ,op%ymin/erad,op%ymax/erad)
+  else
+     return
+  endif
+
+  call o_mapint()  ! Initialize the above parameters
+
+  if (op%pltll(iplt) == 'm') then
+
+     ! Set color of map lines
+     call o_gsplci(op%mapcolor)
+     call o_gsfaci(op%mapcolor)
+     call o_gstxci(op%mapcolor)
+     call o_gslwsc(1.0)
+     call o_sflush()
+
+     if (op%has_high_res .and. scale < 9.) then
+        ! plot using highest resolution coastlines, international borders,
+        ! and US/Can/Mex states
+        call o_mplndr('Earth..4',4)
+     elseif (op%has_med_res .and. scale < 20.) then
+        ! plot using medium resolution coastlines, international borders,
+        ! and US/Can/Mex states
+        call o_mplndr('Earth..2',4)
+     elseif (op%has_med_res .and. scale < 25.) then
+        ! plot using medium resolution coastlines and international borders
+        call o_mplndr('Earth..2',3)
      else
-        return
+        ! plot using original low resolution coastlines
+        call o_maplot()
      endif
 
-     call o_mapint()             ! Initialize the above parameters
-!    call mapgrd()
-     call o_maplot()
+     call o_sflush()
+  endif
+
+  if ( op%pltll(iplt) == 'l' ) then
+
+     ! Set color of lat/lon lines
+     call o_gsplci(op%llcolor)
+     call o_gsfaci(op%llcolor)
+     call o_gstxci(op%llcolor)
+     call o_gslwsc(1.0)
+     call o_sflush()
+
+     call o_mapgrd()  ! Draw lat/lon lines
      call o_sflush()
 
   endif
@@ -2719,11 +2806,11 @@ subroutine oplot_panel(panel,frameoff,pltborder,colorbar0,aspect,projectn)
 
         ! Expanded panels in 3x3 configuration (with some axis labels suppressed)
 
-     !t   op%fx1    = .09 ! plot frame left side x coord
-          op%fx1    = .11 ! plot frame left side x coord
+   !t   op%fx1    = .09 ! plot frame left side x coord
+        op%fx1    = .11 ! plot frame left side x coord
         op%fx2    = .93 ! plot frame right side x coord
-     !t   op%ytlabx = .08 ! y-axis tick label right end x coord
-          op%ytlabx = .10 ! y-axis tick label right end x coord
+   !t   op%ytlabx = .08 ! y-axis tick label right end x coord
+        op%ytlabx = .10 ! y-axis tick label right end x coord
         op%cbx1   = .95 ! colorbar left side x coord
         op%cbx2   = .98 ! colorbar right side x coord
         op%cblx   = .99 ! colorbar label left end x coord
@@ -2762,7 +2849,7 @@ subroutine oplot_panel(panel,frameoff,pltborder,colorbar0,aspect,projectn)
 
   if (colorbar0 /= 'c') then
 
- goto 44
+!! goto 44
 
      op%fx1 = .14  ! plot frame left side x coord
      op%fx2 = .97  ! plot frame right side x coord
@@ -2789,12 +2876,11 @@ subroutine oplot_panel(panel,frameoff,pltborder,colorbar0,aspect,projectn)
      op%sminy = .035 ! slab min y coord
      op%smaxy = .015 ! slab max y coord
 
-! temporary resets
-
- 44 continue
-
-     op%fx2 = .93  ! plot frame right side x coord
-    
+!! temporary resets
+!!
+!! 44 continue
+!!
+!!     op%fx2 = .93  ! plot frame right side x coord
 
   endif
 
@@ -2813,7 +2899,7 @@ subroutine oplot_panel(panel,frameoff,pltborder,colorbar0,aspect,projectn)
      ! Aspect between 0 and 1 is used as specified plot window height/width ratio
 
      op%fy2 = op%fy1 + (op%fx2 - op%fx1) * aspect
-   
+
   endif
 
   op%fnamey = op%fy2 + .025 ! field name y coord
@@ -2835,7 +2921,7 @@ subroutine oplot_panel(panel,frameoff,pltborder,colorbar0,aspect,projectn)
   hoffset3x3 = 0.325
   voffset3x3 = 0.325
 
-  if (pltborder == 't') then  ! Exclude inner axis labels in multi-panel plots   
+  if (pltborder == 't') then  ! Exclude inner axis labels in multi-panel plots
 
      hscale2x2  = 0.5
      vscale2x2  = 0.5

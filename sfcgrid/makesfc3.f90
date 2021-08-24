@@ -36,7 +36,7 @@ subroutine makesfc3()
 
   use mem_grid,    only: nwa, zm, arw0, topm, topw
 
-  use misc_coms,   only: io6, itopoflg, topo_database, ngrids
+  use misc_coms,   only: io6, itopoflg, topo_database, ngrids, runtype
 
   use leaf_coms,   only: nvgcon, ivegflg, isoilflg, soil_database, veg_database
 
@@ -96,6 +96,8 @@ subroutine makesfc3()
   ! independent of those on the atmospheric grid, perform them next.
 
   if (nsfcgrids > 0) call spawn_nest_sfc()
+
+  if (runtype == 'MAKEGRID_PLOT') return
 
   ! Generate Voronoi form of surface grid and compute its geometric properties.
 

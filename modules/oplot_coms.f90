@@ -48,6 +48,9 @@ Module oplot_coms
      integer :: pltorient  ! Landscape or portrait
      integer :: vec_maxmrl ! Highest mesh level to plot wind vectors
 
+     integer :: mapcolor = 10  ! Color of map outlines
+     integer :: llcolor  = 10  ! Color of lat/lon lines
+
      real(r8) :: frqplt    ! Time interval between plots
 
      real :: dtvec     ! Scaling time (seconds) for plotted velocity vectors
@@ -84,6 +87,7 @@ Module oplot_coms
          ,pltdualgrid = 'N' & ! Plot grid lines ['D']
          ,pltborder   = 'N' & ! Plot border, +ticks+outer_axlabs, +inner_axlabs ['b','t','a']
          ,maptyp      = 'N' & ! Type of map plot ['M','m']
+         ,pltll       = 'N' & ! Flag to plot lat/lon lines ['l']
          ,pltcone     = 'N' & ! Flag to plot cone circle ['C']
          ,windowin    = 'N' & ! Flag to window in ['W']
          ,frameoff    = 'N' & ! Flag to suppress frame call ['f']
@@ -166,6 +170,11 @@ Module oplot_coms
 
      character(len=20) :: extfldname = 'N' ! Name of external plotted field
 
+     logical :: has_med_res = .false. ! Indicates the neweer medium-resolution maps
+                                      ! are available in the installed NCAR Graphics
+
+     logical :: has_high_res = .false. ! Indicates the newest high-resolution maps
+                                       ! are available in the installed NCAR Graphics
   End Type oplot_vars
 
   type (oplot_vars) :: op

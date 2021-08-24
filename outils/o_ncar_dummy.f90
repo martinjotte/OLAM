@@ -221,6 +221,20 @@ end subroutine o_mapint
 
 !===============================================================================
 
+subroutine o_mapgrd()
+  implicit none
+end subroutine o_mapgrd
+
+!===============================================================================
+
+subroutine o_mapstr(a,r)
+  implicit none
+  character(*), intent(in) :: a
+  real,         intent(in) :: r
+end subroutine o_mapstr
+
+!===============================================================================
+
 subroutine o_mapsti(a,i)
   implicit none
   character(*), intent(in) :: a
@@ -242,6 +256,14 @@ end subroutine o_maplot
 
 !===============================================================================
 
+subroutine o_mplndr(a,i)
+  implicit none
+  character(*), intent(in) :: a
+  integer,      intent(in) :: i
+end subroutine o_mplndr
+
+!===============================================================================
+
 subroutine o_pcsetr(a,r)
   implicit none
   character(*), intent(in) :: a
@@ -255,6 +277,15 @@ subroutine o_pcseti(a,i)
   character(*), intent(in) :: a
   integer,      intent(in) :: i
 end subroutine o_pcseti
+
+!===============================================================================
+
+subroutine o_gngpat(a,b,i)
+  implicit none
+  character(*), intent( in) :: a, b
+  integer,      intent(out) :: i
+  i = 0
+end subroutine o_gngpat
 
 !===============================================================================
 

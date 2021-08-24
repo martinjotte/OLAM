@@ -311,6 +311,8 @@ subroutine copy_nl()
   op%pltorient  = nl%pltorient
   op%vec_maxmrl = nl%vec_maxmrl
   op%prtval_size= nl%prtval_size
+  op%mapcolor   = nl%mapcolor
+  op%llcolor    = nl%llcolor
 
   do i = 1,op%nplt
      op%fldname(i)   = nl%plotspecs(i)%fldname
@@ -349,8 +351,9 @@ subroutine copy_nl()
 
      if (index(nl%plotspecs(i)%pltspec2,'c') > 0) op%colorbar(i) = 'c'
 
-     if (index(nl%plotspecs(i)%pltspec2,'M') > 0) op%maptyp(i) = 'M'
      if (index(nl%plotspecs(i)%pltspec2,'m') > 0) op%maptyp(i) = 'm'
+
+     if (index(nl%plotspecs(i)%pltspec2,'l') > 0) op%pltll(i) = 'l'
 
      if (index(nl%plotspecs(i)%pltspec2,'C') > 0) op%pltcone(i) = 'C'
 
@@ -387,6 +390,7 @@ subroutine copy_nl()
 ! to replace the history file values.
 
   if (runtype == 'MAKEGRID'     .or. &
+      runtype == 'MAKEGRID_PLOT'.or. &
       runtype == 'INITIAL'      .or. &
       runtype == 'HISTADDGRID') then
 
@@ -424,7 +428,9 @@ subroutine copy_nl()
 ! restart or changing them would be irrelevant.  Thus, they are only copied
 ! from the namelist if a history file is not being read.
 
-  if (runtype == 'MAKEGRID' .or. runtype == 'INITIAL') then
+  if ( (runtype == 'MAKEGRID') .or. &
+       (runtype == 'MAKEGRID_PLOT') .or. &
+       (runtype == 'INITIAL') ) then
 
      itime1    = nl%itime1
      idate1    = nl%idate1

@@ -71,7 +71,7 @@ subroutine spring_dynamics_nest( mrows, moveint, ngr, nxp, nma, nua, nwa, &
   use mem_delaunay, only: itab_md_vars, itab_ud_vars, itab_wd_vars
   use mem_grid,     only: impent
   use consts_coms,  only: pi2, erad, r8
-  use misc_coms,    only: io6, mdomain, deltax
+  use misc_coms,    only: io6, mdomain, deltax, runtype
   use oplot_coms,   only: op
 
   implicit none
@@ -84,7 +84,6 @@ subroutine spring_dynamics_nest( mrows, moveint, ngr, nxp, nma, nua, nwa, &
   type (itab_ud_vars), intent(inout) :: itab_ud(nua)
   type (itab_wd_vars), intent(inout) :: itab_wd(nwa)
 
-! integer, parameter :: niter = 5000
   integer            :: niter
   integer, parameter :: nprnt = 50
   real,    parameter :: relax = .04
@@ -151,23 +150,15 @@ subroutine spring_dynamics_nest( mrows, moveint, ngr, nxp, nma, nua, nwa, &
 
   integer, allocatable :: npoly_jm(:)
 
-  if (mrows == 3) then
+  if (runtype == 'MAKEGRID_PLOT') then
+     niter = 50
+  elseif (mrows == 3) then
      niter = 5000
   else
      niter = 200
   endif
 
   erad8 = real(erad,r8)
-
-!!  dsm(:) = 0.0
-
-!!  xem8(:) = real(xem(:),r8)
-!!  yem8(:) = real(yem(:),r8)
-!!  zem8(:) = real(zem(:),r8)
-!!
-!!  xem0 = xem8
-!!  yem0 = yem8
-!!  zem0 = zem8
 
   allocate(movem(nma))
   allocate(im_jm(nma))
@@ -630,8 +621,9 @@ subroutine spring_dynamics_nest( mrows, moveint, ngr, nxp, nma, nua, nwa, &
         !$omp end do
 
         !$omp single
-        write(*,'(3x,A,I5,A,I5,A,f0.4)') &
-             "Iteration ", iter, " of ", niter, ",  Max DS = ", sqrt( maxval( dsm ) )
+        write(*,'(3x,A,I5,A,I5,A,f0.4,A)') &
+             "Iteration ", iter, " of ", niter, ",  Max DS = ", &
+             sqrt( maxval( dsm ) ), " meters."
         !$omp end single
 
      endif
@@ -772,7 +764,7 @@ subroutine spring_dynamics1( mrows, moveint, ngr, nxp, nma, nua, nwa, &
   use mem_delaunay, only: itab_md_vars, itab_ud_vars, itab_wd_vars
   use mem_grid,     only: impent
   use consts_coms,  only: pi2, erad, r8, piu180
-  use misc_coms,    only: io6, mdomain, deltax
+  use misc_coms,    only: io6, mdomain, deltax, runtype
   use oplot_coms,   only: op
 
   implicit none
@@ -785,7 +777,7 @@ subroutine spring_dynamics1( mrows, moveint, ngr, nxp, nma, nua, nwa, &
   type (itab_ud_vars), intent(inout) :: itab_ud(nua)
   type (itab_wd_vars), intent(inout) :: itab_wd(nwa)
 
-  integer, parameter :: niter = 5000
+  integer            :: niter
   integer, parameter :: nprnt = 50
   real,    parameter :: relax = .035
   real,    parameter :: beta  = 1.242
@@ -817,6 +809,9 @@ subroutine spring_dynamics1( mrows, moveint, ngr, nxp, nma, nua, nwa, &
   integer :: iumn(nua,2)
   integer :: iuun(nua,4)
   integer :: imnp(nma), imiu(7,nma)
+
+  niter = 5000
+  if (runtype == 'MAKEGRID_PLOT') niter = 50
 
 ! special
 ! RETURN
@@ -939,8 +934,6 @@ subroutine spring_dynamics1( mrows, moveint, ngr, nxp, nma, nua, nwa, &
         else
            distm = dist00
         endif
-!!
-!!        distm = min(ratio(iu),0.61) * disto61
 
         ! Fractional change to dist that would make it equal dist0
 
@@ -997,15 +990,16 @@ subroutine spring_dynamics1( mrows, moveint, ngr, nxp, nma, nua, nwa, &
 
         !$omp do
         do im = 2, nma
-           dsm(im) = sqrt( (xem8(im) - xem0(im))**2 &
+           dsm(im) = real( (xem8(im) - xem0(im))**2 &
                          + (yem8(im) - yem0(im))**2 &
                          + (zem8(im) - zem0(im))**2 )
         enddo
         !$omp end do
 
         !$omp single
-        write(*,'(3x,A,I5,A,I5,A,f0.4)') &
-             "Iteration ", iter, " of ", niter, ",  Max DS = ", maxval(dsm)
+        write(*,'(3x,A,I5,A,I5,A,f0.4,A)') &
+             "Iteration ", iter, " of ", niter, ",  Max DS = ", &
+             sqrt( maxval(dsm) ), " meters."
         !$omp end single
 
      endif
@@ -1077,410 +1071,3 @@ subroutine spring_dynamics1( mrows, moveint, ngr, nxp, nma, nua, nwa, &
   zem(:) = real(zem8(:))
 
 end subroutine spring_dynamics1
-
-!===============================================================================
-
-subroutine spring_dynamics3( mrows, moveint, ngr, nxp, nma, nua, nwa, &
-                             xem, yem, zem, itab_md, itab_ud, itab_wd )
-
-  ! Subroutine spring_dynamics1 is used only for adjusting grid 1 (i.e.,
-  ! the quasi-uniform global atm grid) prior to any mesh refinements.
-  ! Call subroutine spring_dynamics to adjust mesh refinements of either
-  ! the atm or surface grids.
-
-  use mem_delaunay, only: itab_md_vars, itab_ud_vars, itab_wd_vars
-  use mem_grid,     only: impent
-  use consts_coms,  only: pi2, erad, r8, piu180
-  use misc_coms,    only: io6, mdomain, deltax
-  use oplot_coms,   only: op
-
-  implicit none
-
-  integer, intent(in) :: mrows, moveint, ngr, nxp, nma, nua, nwa
-
-  real, intent(inout) :: xem(nma), yem(nma), zem(nma)
-
-  type (itab_md_vars), intent(inout) :: itab_md(nma)
-  type (itab_ud_vars), intent(inout) :: itab_ud(nua)
-  type (itab_wd_vars), intent(inout) :: itab_wd(nwa)
-
-  integer, parameter :: niter = 5000
-  integer, parameter :: nprnt = 50
-  real,    parameter :: relax = .035
-  real,    parameter :: beta  = 1.242
-
-! Automatic arrays
-
-  real     :: dist(nua), dist0(nua), distm
-  real     :: ratio(nua), frac_change
-  real     :: dx(nua), dy(nua), dz(nua)
-  real     :: dirs(7,nma)
-
-  integer  :: iu,iu1,iu2,iu3,iu4
-  integer  :: im,im1,im2,im3
-  integer  :: iw1,iw2,mrow1,mrow2,mrmax,mrmin
-  integer  :: iw,j
-  integer  :: iter
-
-  integer  :: iskip
-  real     :: xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2
-  real     :: twocosphi3, twocosphi4
-  real     :: dist00
-  real     :: dsm(nma)
-
-  real(r8) :: xem8(nma),yem8(nma),zem8(nma)
-  real(r8) :: xem0(nma),yem0(nma),zem0(nma)
-  real(r8) :: expansion, erad8
-
-  character(10) :: string
-
-  integer :: iumn(nua,2)
-  integer :: iuun(nua,4)
-  integer :: imnp(nma), imiu(7,nma)
-
-! special
-! RETURN
-! end special
-
-  erad8 = real(erad,r8)
-
-  dsm(1) = 0.0
-
-  xem8(:) = real(xem(:),r8)
-  yem8(:) = real(yem(:),r8)
-  zem8(:) = real(zem(:),r8)
-
-! Compute mean length of coarse mesh U segments
-
-  if (mdomain < 2) then
-     dist00 = beta * pi2 * erad / (5. * real(nxp))
-  else
-     dist00 = deltax * sqrt( 2.0 / sqrt(3.0) )
-  endif
-
-  write(io6,'(a,4i9)') "In spring dynamics: ngr,nma,niter = ",1,nma,niter
-
-  !$omp parallel private(iter)
-  !$omp do private(iw1,iw2,mrow1,mrow2,mrmax,mrmin)
-  do iu = 2, nua
-     iumn(iu,1) = itab_ud(iu)%im(1)
-     iumn(iu,2) = itab_ud(iu)%im(2)
-
-     iuun(iu,1) = itab_ud(iu)%iu(1)
-     iuun(iu,2) = itab_ud(iu)%iu(2)
-     iuun(iu,3) = itab_ud(iu)%iu(3)
-     iuun(iu,4) = itab_ud(iu)%iu(4)
-
-     ! Compute target distance for any MRL value
-
-     dist0(iu) = dist00 / real( 2**(itab_ud(iu)%mrlu - 1) )
-
-     ! Modified distance in MRL border zone
-
-!     if (ngr > 1) then
-
-        iw1 = itab_ud(iu)%iw(1)
-        iw2 = itab_ud(iu)%iw(2)
-
-        mrow1 = itab_wd(iw1)%mrow
-        mrow2 = itab_wd(iw2)%mrow
-
-        mrmax = max(mrow1,mrow2)
-        mrmin = min(mrow1,mrow2)
-
-        if (mrows >= 3) then
-
-           if (.true.) then  ! Martin's adjustments to expand smallest cells
-
-              if (mrmax == -4 .and. mrmin == -5) then
-                 dist0(iu) = dist0(iu) * 12.1 / 12.
-              elseif (mrmax == -4 .and. mrmin == -4) then
-                 dist0(iu) = dist0(iu) * 12.4 / 12.
-              elseif (mrmax == -3 .and. mrmin == -4) then
-                 dist0(iu) = dist0(iu) * 12.8 / 12.
-              elseif (mrmax == -3 .and. mrmin == -3) then
-                 dist0(iu) = dist0(iu) * 13.2 / 12.
-              elseif (mrmax == -2 .and. mrmin == -3) then
-                 dist0(iu) = dist0(iu) * 13.6 / 12.
-              elseif  (mrmax == -2 .and. mrmin == -2) then
-                 dist0(iu) = dist0(iu) * 14.0 / 12.
-              elseif (mrmax == -1 .and. mrmin == -2) then
-                 dist0(iu) = dist0(iu) * 16.0 / 12.
-              elseif (mrmax == -1 .and. mrmin == -1) then
-                 dist0(iu) = dist0(iu) * 17.0 / 12.
-              elseif (mrmax == 1 .and. mrmin == -1) then
-                 dist0(iu) = dist0(iu) * 18.0 / 12.
-              elseif (mrmax == 1 .and. mrmin == 1) then
-                 dist0(iu) = dist0(iu) * 11.0 / 12.
-              elseif (mrmax == 2 .and. mrmin == 1) then
-                 dist0(iu) = dist0(iu) * 11.3 / 12.
-              elseif (mrmax == 2 .and. mrmin == 2) then
-                 dist0(iu) = dist0(iu) * 11.5 / 12.
-              elseif (mrmax == 3 .and. mrmin == 2) then
-                 dist0(iu) = dist0(iu) * 11.6 / 12.
-              elseif (mrmax == 3 .and. mrmin == 3) then
-                 dist0(iu) = dist0(iu) * 11.7 / 12.
-              elseif (mrmax == 4 .and. mrmin == 3) then
-                 dist0(iu) = dist0(iu) * 11.8 / 12.
-              elseif (mrmax == 4 .and. mrmin == 4) then
-                 dist0(iu) = dist0(iu) * 11.9 / 12.
-              elseif (mrmax == 5 .and. mrmin == 4) then
-                 dist0(iu) = dist0(iu) * 11.95 / 12.
-              endif
-
-           else
-
-              if     (mrmax == -2 .and. mrmin == -2) then
-                 dist0(iu) = dist0(iu) *  7. / 6.  !* .90
-              elseif (mrmax == -1 .and. mrmin == -2) then
-                 dist0(iu) = dist0(iu) *  8. / 6.  !* .90
-              elseif (mrmax == -1 .and. mrmin == -1) then
-                 dist0(iu) = dist0(iu) *  9. / 6.  !* .90
-              elseif (mrmax == 1 .and. mrmin == -1) then
-                 dist0(iu) = dist0(iu) * 10. / 6.  !* .90
-              elseif (mrmax == 1 .and. mrmin == 1) then
-                 dist0(iu) = dist0(iu) * 11. / 12. !* .90
-              endif
-
-           endif
-
-        else ! (mrows = 1) Can be used for sfc grid but not atm grid
-
-           if (mrmax == 1 .and. mrmin == 1) then
-              dist0(iu) = dist0(iu) * 0.75
-           endif
-
-        endif
-
-!     endif ! ngr
-
-  enddo
-  !$omp end do nowait
-
-  !$omp do private(j,iu)
-  do im = 2, nma
-     imnp(im) = itab_md(im)%npoly
-
-     do j = 1, itab_md(im)%npoly
-        iu = itab_md(im)%iu(j)
-
-        imiu(j,im) = iu
-
-        if (itab_ud(iu)%im(2) == im) then
-           dirs(j,im) =  relax
-        else
-           dirs(j,im) = -relax
-        endif
-
-     enddo
-  enddo
-  !$omp end do
-
-! Main iteration loop
-
-  do iter = 1, niter
-
-     if (iter == 1 .or. mod(iter,nprnt) == 0) then
-
-        !$omp do
-        do im = 2, nma
-           xem0(im) = xem8(im)
-           yem0(im) = yem8(im)
-           zem0(im) = zem8(im)
-        enddo
-        !$omp end do nowait
-
-     endif
-
-! Compute length of each U segment
-
-     !$omp do private(im1,im2)
-     do iu = 2, nua
-        im1 = iumn(iu,1)
-        im2 = iumn(iu,2)
-
-        dx(iu) = real( xem8(im2) - xem8(im1) )
-        dy(iu) = real( yem8(im2) - yem8(im1) )
-        dz(iu) = real( zem8(im2) - zem8(im1) )
-     enddo
-     !$omp end do nowait
-
-     !$omp do
-     do iu = 2, nua
-        dist(iu) = sqrt( dx(iu) * dx(iu) &
-                       + dy(iu) * dy(iu) &
-                       + dz(iu) * dz(iu) )
-     enddo
-     !$omp end do
-
-! Adjustment of dist0 based on opposite angles of triangles
-
-     !$omp do private(iu1,iu2,iu3,iu4,twocosphi3,twocosphi4)
-     do iu = 2, nua
-        iu1 = iuun(iu,1)
-        iu2 = iuun(iu,2)
-        iu3 = iuun(iu,3)
-        iu4 = iuun(iu,4)
-
-        ! Compute cosine of angles at IM3 and IM4
-
-        twocosphi3 = (dist(iu1)**2 + dist(iu2)**2 - dist(iu)**2) / (dist(iu1) * dist(iu2))
-        twocosphi4 = (dist(iu3)**2 + dist(iu4)**2 - dist(iu)**2) / (dist(iu3) * dist(iu4))
-
-        ! Ratio of smaller cosine to limiting value of cos(72 deg)
-
-        ratio(iu) = min(twocosphi3,twocosphi4)
-     enddo
-     !$omp end do nowait
-
-     !$omp do private(distm,frac_change)
-     do iu = 2, nua
-
-        if (ratio(iu) < .61) then
-           distm = dist0(iu) * max(ratio(iu) / .61, 0.1)
-        else
-           distm = dist0(iu)
-        endif
-
-        ! Fractional change to dist that would make it equal dist0
-
-        frac_change = (distm - dist(iu)) / dist(iu)
-
-        ! Compute components of displacement that gives dist0
-
-        dx(iu) = dx(iu) * frac_change
-        dy(iu) = dy(iu) * frac_change
-        dz(iu) = dz(iu) * frac_change
-
-     enddo
-     !$omp end do
-
-     !$omp do private(j,iu)
-     do im = 2, nma
-
-        ! For preventing either polar M point from moving:
-        ! if (im == impent(1 )) cycle
-        ! if (im == impent(12)) cycle
-
-        ! For preventing all pentagonal points from moving:
-        ! if (any(im == impent(1:12))) cycle
-
-        ! Apply the displacement components to each M point
-        do j = 1, imnp(im)
-           iu = imiu(j,im)
-           xem8(im) = xem8(im) + dirs(j,im) * dx(iu)
-           yem8(im) = yem8(im) + dirs(j,im) * dy(iu)
-           zem8(im) = zem8(im) + dirs(j,im) * dz(iu)
-        enddo
-
-     enddo
-     !$omp end do
-
-! Push M point coordinates out to earth radius
-
-     if (mdomain < 2) then
-
-        !$omp do private(expansion)
-        do im = 2, nma
-           expansion = erad8 / sqrt( xem8(im) ** 2 + yem8(im) ** 2 + zem8(im) ** 2 )
-           xem8(im) = xem8(im) * expansion
-           yem8(im) = yem8(im) * expansion
-           zem8(im) = zem8(im) * expansion
-        enddo
-        !$omp end do
-
-     endif
-
-! Print iteration status
-
-     if (iter == 1 .or. mod(iter,nprnt) == 0) then
-
-        !$omp do
-        do im = 2, nma
-           dsm(im) = sqrt( (xem8(im) - xem0(im))**2 &
-                         + (yem8(im) - yem0(im))**2 &
-                         + (zem8(im) - zem0(im))**2 )
-        enddo
-        !$omp end do
-
-        !$omp single
-        write(*,'(3x,A,I5,A,I5,A,f0.4)') &
-             "Iteration ", iter, " of ", niter, ",  Max DS = ", maxval(dsm)
-        !$omp end single
-
-     endif
-
-! Section for plotting grid at intermediate stages of spring dynamics adjustment
-! Remove .false. to activate
-
-     if (.true. .and. (iter == 1 .or. mod(iter,100) == 0)) then
-
-        !$omp single
-        xem(:) = real(xem8(:))
-        yem(:) = real(yem8(:))
-        zem(:) = real(zem8(:))
-
-        ! Plot grid lines
-
-        call o_reopnwk()
-        call plotback()
-
-        call oplot_set(1)
-
-        do iu = 2,nua
-           im1 = itab_ud(iu)%im(1)
-           im2 = itab_ud(iu)%im(2)
-
-           call oplot_transform(1,xem(im1),yem(im1),zem(im1),xp1,yp1)
-           call oplot_transform(1,xem(im2),yem(im2),zem(im2),xp2,yp2)
-
-           call trunc_segment(xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2,iskip)
-
-           if (iskip == 1) cycle
-
-           call o_frstpt (xq1,yq1)
-           call o_vector (xq2,yq2)
-
-           call oplot_transform(1, (xem(im1)+xem(im2))/2., &
-                                   (yem(im1)+yem(im2))/2., &
-                                   (zem(im1)+zem(im2))/2., &
-                                   xp1, yp1                )
-        enddo
-
-        ! Print mrow values
-
-        if (.false.) then
-        do iw = 2, nwa
-           im1 = itab_wd(iw)%im(1)
-           im2 = itab_wd(iw)%im(2)
-           im3 = itab_wd(iw)%im(3)
-
-           call oplot_transform(1, (xem(im1)+xem(im2)+xem(im3))/3., &
-                                   (yem(im1)+yem(im2)+yem(im3))/3., &
-                                   (zem(im1)+zem(im2)+zem(im3))/3., &
-                                   xp1, yp1                         )
-
-           if ( xp1 < op%xmin .or.  &
-                xp1 > op%xmax .or.  &
-                yp1 < op%ymin .or.  &
-                yp1 > op%ymax ) cycle
-
-           write(string,'(I0)') itab_wd(iw)%mrow
-           call o_plchlq (xp1,yp1,trim(adjustl(string)),0.002,0.,0.)
-        enddo
-        endif
-
-        call o_frame()
-        call o_clswk()
-        !$omp end single
-
-     endif ! mod(iter,*)
-
-  enddo ! iter
-  !$omp end parallel
-
-  xem(:) = real(xem8(:))
-  yem(:) = real(yem8(:))
-  zem(:) = real(zem8(:))
-
-end subroutine spring_dynamics3

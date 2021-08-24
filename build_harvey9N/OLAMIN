@@ -41,6 +41,7 @@
  ! NL%RUNTYPE  = 'HISTORY'
  ! NL%RUNTYPE  = 'HISTADDGRID'
  ! NL%RUNTYPE  = 'PLOTONLY'
+ ! NL%RUNTYPE  = 'MAKEGRID_PLOT'
 
  !--------------------------------------------------------------------------
  ! Simulation ending time
@@ -114,6 +115,9 @@
                       ! set to 0 for normal MAKEGRID run that is NOT
                       ! preparation for HISTADDGRID restart.
 
+   NL%GRIDPLOT_BASE = 2  ! The mesh number to center plot on when doing a
+                         ! MAKEGRID_PLOT run.
+
  ! One group of values must be provided for each "grid" number NG = 2:NGRIDS
 
  ! NGRDLL(NG) = Number of geographic points that you use to define the extent
@@ -179,6 +183,9 @@
 
    NL%NSFCGRIDS = 2      ! Total number of additional SURFACE GRID independent
                          !  refinements to be generated on any MAKEGRID run
+
+   NL%SFCGRIDPLOT_BASE = 1  ! The sfcgrid mesh number to center the plot on
+                            ! when doing a MAKEGRID_PLOT run
 
    ! Surface Grid 1:
    NL%NSFCGRDLL(1)   =  17
@@ -738,9 +745,13 @@
   NL%PLTORIENT = 0    ! 0 = portrait,  1 = landscape
                       ! (only for postscript or pdf output)
 
-  NL%ZPLOT_MIN = -1.0   ! For vertical or cone plots, these specify the vertical
-  NL%ZPLOT_MAX = 14000.0   ! extent of the plots (m); use -1.0 to indicate the
-                        ! default top and bottom of the model
+  NL%ZPLOT_MIN = -1.0    ! For vertical or cone plots, these specify the vertical
+  NL%ZPLOT_MAX = 14000.0 ! extent of the plots (m); use -1.0 to indicate the
+                         ! default top and bottom of the model
+
+  NL%MAPCOLOR = 13     ! Color of map outlines.  Useful colors: 10 - black
+  NL%LLCOLOR  = 10     ! Color of lat/lon lines.                13 - dark gray
+                       ! (see plotcolors for all color values)  14 - light gray
 
  !-------------------------------------------------------------------------
  ! Plotting Specifications
@@ -779,9 +790,6 @@
  'SH_TOTCOND'      ,'O',  7,'F4fmcntW', -93.5,24.0,  4000.,    600.e3,     0.,    'lin',   0.,   0.,  0.,  0.
  'ACCPBOTH'        ,'O',455,'F1fmcntW', -93.5,24.0,   500.,    600.e3,     0.,    'lin',   0.,   0.,  0.,  0.
  'SPEEDW'          ,'O', 79,'F2mcntW',  -93.5,24.0,   150.,    600.e3,     0.,    'lin',   0.,   0.,  0.,  0.
-
-
-
 
 
 

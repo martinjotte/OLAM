@@ -50,7 +50,7 @@ subroutine gridinit()
                          alloc_grid1, alloc_grid2, alloc_gridz_other
   use mem_nudge,   only: nudflag, nudnxp, nwnud, itab_wnud, alloc_nudge1, &
                          xewnud, yewnud, zewnud
-  use mem_sfcg,    only: nsfcgrid_root, sfcgrid_res_factor
+  use mem_sfcg,    only: nsfcgrid_root, sfcgrid_res_factor, nsfcgrids
 
   implicit none
 
@@ -65,7 +65,7 @@ subroutine gridinit()
 
   ! Vertical ATM grid coordinate setup
 
-  write(io6,'(/,a)') 'gridinit calling gridset2'
+  write(io6,'(/,a,/)') 'gridinit calling gridset2'
   call gridset2()
 
   write(io6,'(a,f8.1)') ' Model top height = ',zm(nza)
@@ -80,7 +80,7 @@ subroutine gridinit()
  ! If using nudging on global domain with independent nudging grid,
  ! generate nudging grid here
 
-     if (nudflag > 0 .and. nudnxp > 0) then
+     if (nudflag > 0 .and. nudnxp > 0 .and. runtype /= 'MAKEGRID_PLOT') then
 
         write(io6,'(/,a)') 'gridinit calling icosahedron for nudging grid'
 
@@ -208,11 +208,16 @@ subroutine gridinit()
 
   endif
 
+  if ( (runtype == 'MAKEGRID_PLOT') .and. &
+       (nsfcgrid_root <= 0 .or. nsfcgrids < 1) ) return
+
   if (nsfcgrid_root <= 0 .and. mdomain /= 4) then
      ! Store a temporaty copy of the full Delaunay mesh
      ! to be used later to construct the surface grid
      call copy_tri_grid()
   endif
+
+  if (runtype /= 'MAKEGRID_PLOT') then
 
   if (mdomain /= 4) then
 
@@ -251,6 +256,8 @@ subroutine gridinit()
 
   ! Set up topographic surface and its intersection of the 3D atmospheric grid.
 
+  endif
+
   call copyback_tri_grid()
 
   if (sfcgrid_res_factor > 1) then
@@ -260,6 +267,8 @@ subroutine gridinit()
   write(io6,'(/,a)') 'gridinit calling makesfc3'
 
   call makesfc3()
+
+  if (runtype == 'MAKEGRID_PLOT') return
 
   ! Allocate remaining unstructured grid geometry arrays
 

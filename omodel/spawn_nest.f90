@@ -54,10 +54,11 @@ subroutine spawn_nest()
   use mem_grid,     only: impent, nrows, mrows
 
   use misc_coms,    only: io6, ngrids, mdomain, nxp, ngrdll, grdrad, &
-                          grdlat, grdlon
+                          grdlat, grdlon, runtype
 
-  use consts_coms,  only: pio180, erad, pi1, pi2
+  use consts_coms,  only: pio180, erad, pi1, pi2, piu180
   use mem_sfcg,     only: nsfcgrid_root
+  use oname_coms,   only: nl
 
   implicit none
 
@@ -116,6 +117,12 @@ subroutine spawn_nest()
   ! the aforementioned refined mesh "boundary".
 
   mrows = 3
+
+  if (runtype == 'MAKEGRID_PLOT') then
+     call o_reopnwk()
+     call plotback()
+     call oplot_set_makegrid(1)
+  endif
 
   do ngr = 2, ngrids  ! Loop over nested grids
 
@@ -791,8 +798,6 @@ subroutine spawn_nest()
         call o_reopnwk()
         call plotback()
 
-        call oplot_set(1)
-
         do iu = 2,nud
            im1 = itab_ud(iu)%im(1)
            im2 = itab_ud(iu)%im(2)
@@ -838,7 +843,50 @@ subroutine spawn_nest()
         call copy_tri_grid()
      endif
 
+     if (runtype == 'MAKEGRID_PLOT' .and. ngr >= nl%gridplot_base) then
+
+        ! Set plot line color (red) and thickness
+        call o_gsplci(1)
+        call o_gsfaci(1)
+        call o_gstxci(1)
+        call o_gslwsc(2.5)
+        call o_sflush()
+
+        do iu = 2, nud
+           iw1 = itab_ud(iu)%iw(1)
+           iw2 = itab_ud(iu)%iw(2)
+
+           if ( ( all(itab_md( itab_wd(iw1)%im(1:3) )%ngr == ngr) .and. &
+                  any(itab_md( itab_wd(iw2)%im(1:3) )%ngr /= ngr) ) .or. &
+                ( all(itab_md( itab_wd(iw2)%im(1:3) )%ngr == ngr) .and. &
+                  any(itab_md( itab_wd(iw1)%im(1:3) )%ngr /= ngr) ) ) then
+
+              im1 = itab_ud(iu)%im(1)
+              im2 = itab_ud(iu)%im(2)
+
+              call oplot_transform(1,xemd(im1),yemd(im1),zemd(im1),xp1,yp1)
+              call oplot_transform(1,xemd(im2),yemd(im2),zemd(im2),xp2,yp2)
+
+              call trunc_segment(xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2,iskip)
+
+              if (iskip == 1) cycle
+
+              call o_frstpt (xq1,yq1)
+              call o_vector (xq2,yq2)
+
+           endif
+        enddo
+
+     endif
+
   enddo   ! end of ngr loop
+
+  if (runtype == 'MAKEGRID_PLOT') then
+     call o_sflush
+     call mkmap_makegrid()
+     call o_frame()
+     call o_clswk()
+  endif
 
   ! Set mrls equal to maximum mrlw value
 
@@ -2043,3 +2091,246 @@ subroutine fill_rad3(nma, nwa, im, ltab_md, ltab_wd, nest_wd)
   enddo ! j,iw
 
 end subroutine fill_rad3
+
+
+
+subroutine oplot_set_makegrid(iplt)
+
+  use misc_coms,   only: ngrdll, grdrad, grdlat, grdlon, nxp
+  use mem_sfcg,    only: nsfcgrdll, sfcgrdrad, sfcgrdlat, sfcgrdlon, &
+                         nsfcgrid_root, sfcgrid_res_factor
+  use oplot_coms,  only: op
+  use consts_coms, only: erad, pio180
+  use oname_coms,  only: nl
+
+  implicit none
+
+  integer, intent(in) :: iplt  ! 1 if plotting atm mesh
+                               ! 2 if plotting sfc mesh
+  integer :: i, ngplt
+  real    :: xx, yy, zz, x, y, z, xmax, xmin, ymax, ymin, gsize
+  real    :: rn, rlat, rlon, expansion, x0, y0, dx, dy, ds, bsize
+
+  real,    pointer :: g_lons(:,:), g_lats(:,:), g_rads(:,:)
+  integer, pointer :: ngrds(:)
+  character(30)    :: title
+
+  op%coneang  = 0.
+  op%viewazim = 0.
+  op%projectn(1) = 'O'
+
+  if (iplt == 2) then
+     ngplt = nl%sfcgridplot_base
+     gsize = 5. * (7150.e3 / real( &
+             nxp * sfcgrid_res_factor * 2**(nsfcgrid_root + ngplt - 2)))
+
+     ngrds  => nsfcgrdll
+     g_lons => sfcgrdlon
+     g_lats => sfcgrdlat
+     g_rads => sfcgrdrad
+  else
+     ngplt = nl%gridplot_base
+     gsize = 5. * (7150.e3 / real(nxp * 2**(ngplt-2)))
+
+     ngrds  => ngrdll
+     g_lons => grdlon
+     g_lats => grdlat
+     g_rads => grdrad
+  endif
+
+  if (ngrds(ngplt) == 1) then
+
+     op%plon3 = g_lons(ngplt,1)
+     op%plat3 = g_lats(ngplt,1)
+
+     op%xmin = -g_rads(ngplt,1) - gsize
+     op%xmax =  g_rads(ngplt,1) + gsize
+
+     op%ymin = -g_rads(ngplt,1) - gsize
+     op%ymax =  g_rads(ngplt,1) + gsize
+
+  else
+
+     xx = 0.
+     yy = 0.
+     zz = 0.
+     rn = 1.0 / ngrds(ngplt)
+
+     do i = 1, ngrds(ngplt)
+        call ec_e( g_lons(ngplt,i), g_lats(ngplt,i), x, y, z)
+
+        xx = xx + x * rn
+        yy = yy + y * rn
+        zz = zz + z * rn
+     enddo
+
+     expansion = erad / sqrt( xx*xx + yy*yy + zz*zz )
+     xx = xx * expansion
+     yy = yy * expansion
+     zz = zz * expansion
+
+     call e_ec(xx,yy,zz,rlon,rlat)
+
+     xmax = 0.0
+     xmin = 0.0
+
+     ymax = 0.0
+     ymin = 0.0
+
+     do i = 1, ngrds(ngplt)
+        call ll_xy(g_lats(ngplt,i), g_lons(ngplt,i), rlat, rlon, x, y)
+
+        xmax = max(xmax, x + g_rads(ngplt,i))
+        xmin = min(xmin, x - g_rads(ngplt,i))
+
+        ymax = max(ymax, y + g_rads(ngplt,i))
+        ymin = min(ymin, y - g_rads(ngplt,i))
+     enddo
+
+     x0 = 0.5*(xmax+xmin)
+     y0 = 0.5*(ymax+ymin)
+
+     dx = 0.5*(xmax-xmin)
+     dy = 0.5*(ymax-ymin)
+
+     call xy_ll(op%plat3, op%plon3, rlat, rlon, x0, y0)
+
+     ds = 1.05 * max(dx,dy)
+     op%xmin = -ds - gsize
+     op%xmax =  ds + gsize
+     op%ymin = -ds - gsize
+     op%ymax =  ds + gsize
+
+  endif
+
+  ! Set limits of panel and frame window in plotter coordinates
+
+  call oplot_panel('0', 'N', 't', 'N', 1.,'O')
+
+  ! Scale plot window to selected model domain
+
+  call o_set(op%h1,op%h2,op%v1,op%v2,op%xmin,op%xmax,op%ymin,op%ymax,1)
+
+!!  ! Specify font # and scale font size for titlebar
+!!
+!!  call o_pcsetr('CL',1.)  ! set character line width to 1.
+!!  call o_pcseti ('FN',4)  ! set font number to 4 (font 2 is similar but wider spacing)
+!!
+!!  call o_gsplci(10)
+!!  call o_gstxci(10)
+!!  call o_sflush()
+!!
+!!  bsize = .012 * (op%h1 - op%h2)
+!!! op%fnamey = op%v2 + .025  ! field name y coord
+!!  op%fnamey = op%v2 - .025  ! field name y coord
+!!
+!!  if (iplt == 2) then
+!!     title = "Surface mesh outlines"
+!!  else
+!!     title = "Atmospheric mesh outlines"
+!!  endif
+!!
+!!  call o_plchhq(op%fx1, op%fnamey, trim(title), bsize, 0., 0.)
+!!  call o_sflush()
+
+end subroutine oplot_set_makegrid
+
+
+
+subroutine mkmap_makegrid()
+
+  use consts_coms, only: eradi, piu180
+  use oplot_coms,  only: op
+
+  implicit none
+
+  real    :: xinc, yinc, scale
+  integer :: labincx, labincy
+
+  scale = op%xmax * eradi * piu180
+
+  call o_mapint()
+  call o_mappos(op%h1,op%h2,op%v1,op%v2)
+
+  ! Spacing of lat/lon lines
+
+  if     (scale < 3.) then
+     call o_mapsti('GR', 1)
+  elseif (scale < 6.) then
+     call o_mapsti('GR', 2)
+  elseif (scale < 8.0) then
+     call o_mapstr('GR', 2.5)
+  elseif (scale < 15.) then
+     call o_mapsti('GR', 5)
+  elseif (scale < 30.) then
+     call o_mapsti('GR',10)
+  elseif (scale < 40.) then
+     call o_mapsti('GR',15)
+  else
+     call o_mapsti('GR',20)
+  endif
+
+!    call o_mapsti('DA',65535) ! To plot parallels and meridians with solid lines
+
+  if (scale < 20.) then
+     call o_mapstc('OU','PS')  ! To plot continental, international, and US state outlines
+  elseif (scale < 45.) then
+     call o_mapstc('OU','PO')  ! To plot continental outlines + international outlines
+  else
+     call o_mapstc('OU','CO')  ! To plot continental outlines
+  endif
+
+  call o_maproj('OR',op%plat3,op%plon3,0.)
+
+  call o_mapset('LI',op%xmin*eradi,op%xmax*eradi  &
+                    ,op%ymin*eradi,op%ymax*eradi)
+
+  call o_mapint()    ! Initialize the above parameters
+
+  ! Set map line color (black)
+
+  call o_gsplci(10)
+  call o_gsfaci(10)
+  call o_gstxci(10)
+  call o_gslwsc(1.0)
+  call o_sflush()
+
+  if (op%has_high_res .and. scale < 9.) then
+     ! plot using highest resolution coastlines, international borders,
+     ! and US/Can/Mex states
+     call o_mplndr('Earth..4',4)
+  elseif (op%has_med_res .and. scale < 20.) then
+     ! plot using medium resolution coastlines, international borders,
+     ! and US/Can/Mex states
+     call o_mplndr('Earth..2',4)
+  elseif (op%has_med_res .and. scale < 25.) then
+     ! plot using medium resolution coastlines and international borders
+     call o_mplndr('Earth..2',3)
+  else
+     ! plot using original low resolution coastlines
+     call o_maplot()
+  endif
+
+  call o_sflush()
+
+  ! Set color of lat/lon (gray)
+  call o_gsplci(14)
+  call o_gsfaci(14)
+  call o_gstxci(14)
+  call o_gslwsc(1.0)
+  call o_sflush()
+
+  call o_mapgrd()  ! Draw lat/lon lines
+  call o_sflush()
+
+  call niceinc20(.001*op%xmin,.001*op%xmax,xinc,labincx)
+  call niceinc20(.001*op%ymin,.001*op%ymax,yinc,labincy)
+
+  call oplot_xy2('0', 'N', 'a', 'N',                     &
+                 1., .016, 10 ,0, 1, [0], [0],           &
+                 'X (km)', 'Y (km)',                     &
+                 .001*op%xmin,.001*op%xmax,xinc,labincx, &
+                 .001*op%ymin,.001*op%ymax,yinc,labincy  )
+  call o_sflush()
+
+end subroutine mkmap_makegrid

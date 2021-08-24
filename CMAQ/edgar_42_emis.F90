@@ -1758,7 +1758,7 @@ contains
 
 
   subroutine emis_overlap(nlon, nlat)
-    use consts_coms, only: erad, pio180, piu180, r8
+    use consts_coms, only: erad, eradi, pio180, piu180, r8
     use misc_coms,   only: io6
     use mem_ijtabs,  only: jtab_w, itab_w, jtw_prog
     use mem_grid,    only: glatw, glonw, glatm, glonm, arw0, &
@@ -1792,6 +1792,7 @@ contains
     real :: dxe, dye, dze
     real :: coswlon, sinwlon
     real :: coswlat, sinwlat
+    real :: raxis, raxisi
 
     integer, allocatable :: ipoints(:), itmp(:)
     integer, allocatable :: jpoints(:), jtmp(:)
@@ -1809,7 +1810,8 @@ contains
     !$omp do private(jw,iw,np,tolerance,sumarea,n,im,flats,flons,ngrp,max180,&
     !$omp            min180,js,je,is,ie,sinwlat,coswlat,sinwlon,coswlon,&
     !$omp            dxe,dye,dze,x,y,xf,yf,ng,nn,j,i,lons,lats,xg,yg,areaij,&
-    !$omp            alpha,area,jtrap,xtrap,ytrap,traparea,ijsize) schedule(guided)
+    !$omp            alpha,area,jtrap,xtrap,ytrap,traparea,ijsize,raxis,raxisi)&
+    !$omp schedule(guided)
     do jw = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(jw)
 
        np = itab_w(iw)%npoly
@@ -1867,10 +1869,14 @@ contains
 
           ! Calculate the iw cell vertices on a polar-stereographic tangent plane
 
-          sinwlat = sin(glatw(iw) * pio180)
-          coswlat = cos(glatw(iw) * pio180)
-          sinwlon = sin(glonw(iw) * pio180)
-          coswlon = cos(glonw(iw) * pio180)
+          raxis  = sqrt(xew(iw) ** 2 + yew(iw) ** 2)
+          raxisi = 1.0 /raxis
+
+          sinwlat = zew(iw) * eradi
+          coswlat = raxis   * eradi
+
+          sinwlon = yew(iw) * raxisi
+          coswlon = xew(iw) * raxisi
 
           do n = 1, np
              im = itab_w(iw)%im(n)

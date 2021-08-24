@@ -43,7 +43,7 @@ subroutine spawn_nest_sfc()
   use mem_sfcg,     only: nsfcgrids, nsfcgrdll, sfcgrdrad, sfcgrdlat, &
                           sfcgrdlon, nxp_sfc, nsfcgrid_root
 
-  use misc_coms,    only: io6, mdomain
+  use misc_coms,    only: io6, mdomain, runtype
   use consts_coms,  only: pio180, erad, pi1, pi2
   use oname_coms,   only: nl
 
@@ -97,6 +97,12 @@ subroutine spawn_nest_sfc()
   nmd0 = nmd
   nud0 = nud
   nwd0 = nwd
+
+  if (runtype == 'MAKEGRID_PLOT') then
+     call o_reopnwk()
+     call plotback()
+     call oplot_set_makegrid(2)
+  endif
 
   do nsfcgr = 1, nsfcgrids  ! Loop over nested grids
      ngr = nsfcgr + max(1, nsfcgrid_root)
@@ -602,12 +608,55 @@ subroutine spawn_nest_sfc()
      call spring_dynamics(1, 0, ngr, nxp_sfc, nmd, nud, nwd, xemd, yemd, zemd, &
                           itab_md, itab_ud, itab_wd)
 
-     write(io6,'(/,a,i2)') 'Finished spawning grid number ',ngr
+     write(io6,'(/,a,i2)') 'Finished spawning surface grid number ',ngr
      write(io6,'(a,i8)')   ' nmd = ',nmd
      write(io6,'(a,i8)')   ' nud = ',nud
      write(io6,'(a,i8)')   ' nwd = ',nwd
 
+     if (runtype == 'MAKEGRID_PLOT' .and. ngr >= nl%gridplot_base) then
+
+        ! Set plot line color (red) and thickness
+        call o_gsplci(1)
+        call o_gsfaci(1)
+        call o_gstxci(1)
+        call o_gslwsc(2.5)
+        call o_sflush()
+
+        do iu = 2, nud
+           iw1 = itab_ud(iu)%iw(1)
+           iw2 = itab_ud(iu)%iw(2)
+
+           if ( ( all(itab_md( itab_wd(iw1)%im(1:3) )%ngr == ngr) .and. &
+                  any(itab_md( itab_wd(iw2)%im(1:3) )%ngr /= ngr) ) .or. &
+                ( all(itab_md( itab_wd(iw2)%im(1:3) )%ngr == ngr) .and. &
+                  any(itab_md( itab_wd(iw1)%im(1:3) )%ngr /= ngr) ) ) then
+
+              im1 = itab_ud(iu)%im(1)
+              im2 = itab_ud(iu)%im(2)
+
+              call oplot_transform(1,xemd(im1),yemd(im1),zemd(im1),xp1,yp1)
+              call oplot_transform(1,xemd(im2),yemd(im2),zemd(im2),xp2,yp2)
+
+              call trunc_segment(xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2,iskip)
+
+              if (iskip == 1) cycle
+
+              call o_frstpt (xq1,yq1)
+              call o_vector (xq2,yq2)
+
+           endif
+        enddo
+
+     endif
+
   enddo   ! end of ngr loop
+
+  if (runtype == 'MAKEGRID_PLOT') then
+     call o_sflush
+     call mkmap_makegrid()
+     call o_frame()
+     call o_clswk()
+  endif
 
 end subroutine spawn_nest_sfc
 

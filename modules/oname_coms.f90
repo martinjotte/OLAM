@@ -104,6 +104,7 @@ Module oname_coms
 
      integer :: ngrids     = 1
      integer :: ngrids_old = 0
+     integer :: gridplot_base = 2
 
      integer :: ngrdll(maxgrds) = 0
 
@@ -114,6 +115,7 @@ Module oname_coms
      integer :: nsfcgrids          =  0
      integer :: sfcgrid_res_factor =  1
      integer :: nsfcgrid_root      = -1
+     integer :: sfcgridplot_base   =  1
 
      integer :: nsfcgrdll(maxgrds) = 0
 
@@ -374,8 +376,10 @@ Module oname_coms
      integer :: plttype    = 0
      integer :: pltorient  = 0
      integer :: vec_maxmrl = maxgrds
-     real    :: zplot_min = -1.0
-     real    :: zplot_max = -1.0
+     real    :: zplot_min  = -1.0
+     real    :: zplot_max  = -1.0
+     integer :: mapcolor   = 13
+     integer :: llcolor    = 13
 
      character(pathlen) :: pltname     = 'gmeta'
      character(10)      :: prtval_size = 'medium'

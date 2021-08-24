@@ -118,11 +118,11 @@ Module misc_coms
   real :: cfracrh2
   real :: cfraccup
 
-  integer :: ngrdll(maxgrds)
+  integer, target :: ngrdll(maxgrds)
+  real,    target :: grdrad(maxgrds,maxngrdll)
+  real,    target :: grdlat(maxgrds,maxngrdll)
+  real,    target :: grdlon(maxgrds,maxngrdll)
 
-  real :: grdrad(maxgrds,maxngrdll)
-  real :: grdlat(maxgrds,maxngrdll)
-  real :: grdlon(maxgrds,maxngrdll)
   real :: cflxy (maxgrds)
   real :: cflz  (maxgrds)
   real :: csz   (maxgrds)

@@ -203,7 +203,7 @@ subroutine olam_run(name_name)
 
   ! MAKEGRID runs must be single-processor
 
-  if ( runtype == 'MAKEGRID' ) then
+  if ( runtype == 'MAKEGRID' .or. runtype == 'MAKEGRID_PLOT' ) then
      if (iparallel == 1) then
         write(io6,*) trim(runtype)//' will only be done on a single process.'
         iparallel  = 0
@@ -218,7 +218,7 @@ subroutine olam_run(name_name)
 
   ! If RUNTYPE = 'MAKEGRID', generate full-domain ATM and SFC grids
 
-  if (runtype == 'MAKEGRID') then
+  if (runtype == 'MAKEGRID' .or. runtype == 'MAKEGRID_PLOT') then
      call gridinit()
 
      call gridset_print()
@@ -864,7 +864,7 @@ subroutine olam_run(name_name)
      ! Remap 3D hurricane fields from grid cells at present location to
      ! grid cells at initial location; store in arrays
 
-     call vortex_reloc3d() 
+     call vortex_reloc3d()
 
      ! Return to starting point of next initialization cycle
 

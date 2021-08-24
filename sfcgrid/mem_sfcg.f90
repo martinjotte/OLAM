@@ -247,10 +247,10 @@ Module mem_sfcg
   integer :: nsfcgrid_root
   integer :: nxp_sfc
 
-  integer :: nsfcgrdll(maxgrds)
-  real    :: sfcgrdrad(maxgrds,maxngrdll)
-  real    :: sfcgrdlat(maxgrds,maxngrdll)
-  real    :: sfcgrdlon(maxgrds,maxngrdll)
+  integer, target :: nsfcgrdll(maxgrds)
+  real   , target :: sfcgrdrad(maxgrds,maxngrdll)
+  real   , target :: sfcgrdlat(maxgrds,maxngrdll)
+  real   , target :: sfcgrdlon(maxgrds,maxngrdll)
 
 Contains
 
