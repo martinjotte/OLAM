@@ -638,7 +638,6 @@ subroutine sfc_atm_hex_overlay()
 
   enddo
 
-
   do im = 2, nma
 
      if (icountm(im) == 0) then
@@ -648,13 +647,9 @@ subroutine sfc_atm_hex_overlay()
 
      elseif (icountm(im) == 2) then
 
-        write(*,*) im, "2"
-
         topm(im) = 0.5 * topm(im)
 
      elseif (icountm(im) == 3) then
-
-        write(*,*) im, "3"
 
         topm(im) = topm(im) / 3.
 

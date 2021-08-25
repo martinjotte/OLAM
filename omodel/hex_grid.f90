@@ -699,14 +699,16 @@ subroutine grid_geometry_hex()
   !$omp end do
 
   !$omp single
-  write(*,*)
-  write(*,*) "min area:::::::::::::::::::::::::::::::::::::::::::::"
   iw = minloc(arw0(2:),1) + 1
-  write(*,*) arw0(iw), glatw(iw), glonw(iw)
   write(*,*)
-  write(*,*) "max area:::::::::::::::::::::::::::::::::::::::::::::"
+  write(*,'(A,f0.4,A)')       " Minimum atmos grid spacing is ", .001*sqrt(arw0(iw)), " km"
+  write(*,'(A,I0,2(A,f0.4))') " at iw = ", iw, ", Lat = ", glatw(iw), ", Lon = ", glonw(iw)
+
   iw = maxloc(arw0(2:),1) + 1
-  write(*,*) arw0(iw), glatw(iw), glonw(iw)
+  write(*,*)
+  write(*,'(A,f0.4,A)')       " Maximum atmos grid spacing is ", .001*sqrt(arw0(iw)), " km"
+  write(*,'(A,I0,2(A,f0.4))') " at iw = ", iw, ", Lat = ", glatw(iw), ", Lon = ", glonw(iw)
+  write(*,*)
   !$omp end single
 
   !$omp do private(npoly,j2,j1,iv,iw1,iw2,dops,npoly1,npoly2,np,&

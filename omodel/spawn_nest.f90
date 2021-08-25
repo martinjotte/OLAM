@@ -2327,7 +2327,7 @@ subroutine mkmap_makegrid()
   call niceinc20(.001*op%ymin,.001*op%ymax,yinc,labincy)
 
   call oplot_xy2('0', 'N', 'a', 'N',                     &
-                 1., .016, 10 ,0, 1, [0], [0],           &
+                 1., .016, 10 ,0, 1, [0.], [0.],         &
                  'X (km)', 'Y (km)',                     &
                  .001*op%xmin,.001*op%xmax,xinc,labincx, &
                  .001*op%ymin,.001*op%ymax,yinc,labincy  )

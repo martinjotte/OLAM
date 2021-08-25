@@ -1,5 +1,6 @@
 subroutine expand_delaunay_mesh(ires_factor, iatm)
 
+  use mem_delaunay, only: nmd, nud, nwd
   implicit none
 
   integer, intent(in) :: ires_factor
@@ -28,15 +29,24 @@ subroutine expand_delaunay_mesh(ires_factor, iatm)
         stop "Error: sfcgrid_res_factor must be 1 or have factors of 2 and 3."
      endif
 
+     if (iatm) then
+        write(*,*) "Before mesh expansion:"
+     else
+        write(*,*) "Before mesh expansion for sfc grid:"
+     endif
+     write(*,'(A,I9)') " nmd = ", nmd
+     write(*,'(A,I9)') " nud = ", nud
+     write(*,'(A,I9)') " nwd = ", nwd
+
+     do i = 1, n3
+        call expand_global3(iatm)
+     enddo
+
+     do i = 1, n2
+        call expand_global2(iatm)
+     enddo
+
   endif
-
-  do i = 1, n3
-     call expand_global3(iatm)
-  enddo
-
-  do i = 1, n2
-     call expand_global2(iatm)
-  enddo
 
 end subroutine expand_delaunay_mesh
 
@@ -409,9 +419,11 @@ subroutine expand_global2(iatmgrid)
 
   endif
 
-  write(*,'(a,i8)')   ' nmd = ',nmd
-  write(*,'(a,i8)')   ' nud = ',nud
-  write(*,'(a,i8)')   ' nwd = ',nwd
+  write(*,*)
+  write(*,*) "After doubling mesh:"
+  write(*,'(a,i9)')   ' nmd = ',nmd
+  write(*,'(a,i9)')   ' nud = ',nud
+  write(*,'(a,i9)')   ' nwd = ',nwd
 
 end subroutine expand_global2
 
@@ -996,8 +1008,10 @@ subroutine expand_global3(iatmgrid)
 
   endif
 
-  write(*,'(a,i8)')   ' nmd = ',nmd
-  write(*,'(a,i8)')   ' nud = ',nud
-  write(*,'(a,i8)')   ' nwd = ',nwd
+  write(*,*)
+  write(*,*) "After tripling mesh"
+  write(*,'(a,i9)')   ' nmd = ',nmd
+  write(*,'(a,i9)')   ' nud = ',nud
+  write(*,'(a,i9)')   ' nwd = ',nwd
 
 end subroutine expand_global3
