@@ -109,6 +109,7 @@ Contains
 
   subroutine alloc_itabsd(mma, mua, mwa)
 
+    use misc_coms,  only: rinit
     use mem_ijtabs, only: mloops
 
     implicit none
@@ -120,9 +121,13 @@ Contains
     allocate (itab_ud(mua))
     allocate (itab_wd(mwa))
 
-    allocate(xemd(mma))
-    allocate(yemd(mma))
-    allocate(zemd(mma))
+    allocate(xemd(mma)) ; xemd = rinit
+    allocate(yemd(mma)) ; yemd = rinit
+    allocate(zemd(mma)) ; zemd = rinit
+
+    xemd(1) = 0.
+    yemd(1) = 0.
+    zemd(1) = 0.
 
   end subroutine alloc_itabsd
 
