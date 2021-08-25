@@ -172,7 +172,8 @@ Contains
 
   subroutine alloc_land(mland, nzg, nzs)
 
-  use misc_coms, only: rinit
+  use misc_coms,  only: rinit
+  use oname_coms, only: nl
 
   implicit none
 
@@ -224,10 +225,13 @@ Contains
 
   allocate (land%soil_water     (nzg,mland)) ; land%soil_water  = rinit
   allocate (land%soil_energy    (nzg,mland)) ; land%soil_energy = rinit
-  allocate (land%head_press     (nzg,mland)) ; land%head_press  = rinit
   allocate (land%head0              (mland)) ; land%head0       = rinit
 
- ! The following are allocated in makesfc3.f90 because they are on the SFCGRIDFILE 
+  if (nl%igw_spinup == 1) then
+     allocate (land%head_press     (nzg,mland)) ; land%head_press  = rinit
+  endif
+
+ ! The following are allocated in makesfc3.f90 because they are on the SFCGRIDFILE
 
  ! allocate (land%usdatext            (mland)) ; land%usdatext         = 0
  ! allocate (land%z_bedrock           (mland)) ; land%z_bedrock        = rinit

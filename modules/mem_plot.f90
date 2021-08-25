@@ -476,6 +476,7 @@ Contains
     use mem_sfcg,       only: sfcg, mwsfc
     use mem_land,       only: land, mland, omland, nzg, dslz, slzt
     use leaf4_soil,     only: soil_wat2pot
+    use oname_coms,     only: nl
     use mem_flux_accum, only: rshort_accum,         rshortup_accum, &
                                rlong_accum,          rlongup_accum, &
                           rshort_top_accum,     rshortup_top_accum, &
@@ -943,24 +944,49 @@ Contains
 
           iland = iwsfc - omland
 
-          do klev = nzg,1,-1
-             call soil_wat2pot(klev, iland, land%soil_water(klev,iland), &
-                  land%wresid_vg(klev,iland), land%wsat_vg(klev,iland), &
-                  land%alpha_vg(klev,iland), land%en_vg(klev,iland), psi, psi_slope)
+          if (nl%igw_spinup == 1) then
 
-             ! Trial algorithm: Get head_wtab from highest saturated soil level
+             do klev = nzg,1,-1
+                call soil_wat2pot(klev, iland, land%soil_water(klev,iland), &
+                     land%wresid_vg(klev,iland), land%wsat_vg(klev,iland), &
+                     land%alpha_vg(klev,iland), land%en_vg(klev,iland), psi, psi_slope)
 
-             if (psi > 1.e-2 .or. land%head_press(klev,iland) > 1.e-2) then
-                head(klev) = land%head_press(klev,iland) + slzt(klev)
-                head_wtab_prev0(iwsfc) = head_wtab_prev0(iwsfc) &
-                                       + head(klev)
-                exit
-             else
-                head(klev) = psi + slzt(klev)
-                if (klev == 1)  head_wtab_prev0(iwsfc) = head_wtab_prev0(iwsfc) &
-                                                       + head(klev)
-             endif
-          enddo
+                ! Trial algorithm: Get head_wtab from highest saturated soil level
+
+                if (psi > 1.e-2 .or. land%head_press(klev,iland) > 1.e-2) then
+                   head(klev) = land%head_press(klev,iland) + slzt(klev)
+                   head_wtab_prev0(iwsfc) = head_wtab_prev0(iwsfc) &
+                                          + head(klev)
+                   exit
+                else
+                   head(klev) = psi + slzt(klev)
+                   if (klev == 1)  head_wtab_prev0(iwsfc) = head_wtab_prev0(iwsfc) &
+                                                          + head(klev)
+                endif
+             enddo
+
+          else
+
+             do klev = nzg,1,-1
+                call soil_wat2pot(klev, iland, land%soil_water(klev,iland), &
+                     land%wresid_vg(klev,iland), land%wsat_vg(klev,iland), &
+                     land%alpha_vg(klev,iland), land%en_vg(klev,iland), psi, psi_slope)
+
+                ! Trial algorithm: Get head_wtab from highest saturated soil level
+
+                if (psi > 1.e-2) then
+                   head(klev) = psi + slzt(klev)
+                   head_wtab_prev0(iwsfc) = head_wtab_prev0(iwsfc) &
+                                          + head(klev)
+                   exit
+                else
+                   head(klev) = psi + slzt(klev)
+                   if (klev == 1)  head_wtab_prev0(iwsfc) = head_wtab_prev0(iwsfc) &
+                                                          + head(klev)
+                endif
+             enddo
+
+          endif
 
        endif
     enddo

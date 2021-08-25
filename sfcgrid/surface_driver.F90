@@ -35,7 +35,6 @@ subroutine surface_driver()
 
   use leaf_coms,      only: nzs, iupdndvi, s1900_ndvi, dt_leaf, &
                             indvifile, nndvifiles, soil_rough, snow_rough, z_root
-                            
   use mem_ijtabs,     only: itabg_w, itab_w
   use mem_sfcg,       only: itab_wsfc, itab_vsfc, sfcg, mvsfc, mwsfc
   use mem_land,       only: land, mland, omland, nzg, slz, slzt, dslz
@@ -48,7 +47,7 @@ subroutine surface_driver()
   use consts_coms,    only: grav, cliq1000, alli1000
   use leaf4_canopy,   only: canopy, vegndvi, fast_canopy
   use leaf4_surface,  only: sfcwater, sfcwater_adjust, remove_runoff, grndvap
-  use leaf4_soil,     only: soil, soil_wat2khyd, head_column
+  use leaf4_soil,     only: soil, soil_wat2khyd, head_column, head_column_spinup
   use leaf4_plot,     only: leaf_plot
   use therm_lib,      only: qwtk, qtk
   use olam_mpi_sfcg,  only: mpi_send_wsfc, mpi_recv_wsfc
@@ -134,36 +133,48 @@ subroutine surface_driver()
 
   ! Loop over all surface cells (in this subdomain)
 
-  !$omp do private(iland)
-  do iwsfc = 2,mwsfc
+  !$omp parallel do private(iwsfc)
+  do iland = 2, mland
+     iwsfc = iland + omland
 
      ! Skip this cell if running in parallel and cell rank is not MYRANK
 
      if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
-     ! Skip this cell if it is not land
-
-     if (sfcg%leaf_class(iwsfc) < 2) cycle
-
      ! Compute total head (relative to local topographic datum) based on soil
      ! moisture, pressure head, and depth in soil
 
-     iland = iwsfc - omland
+     if (nl%igw_spinup /= 1) then
 
-     call head_column(nzg, iland,                &
-                      slzt            (:),       &
-                      land%soil_water (:,iland), &
-                      land%wresid_vg  (:,iland), &
-                      land%wsat_vg    (:,iland), &
-                      land%alpha_vg   (:,iland), &
-                      land%en_vg      (:,iland), &
-                      land%head_press (:,iland), &
-                      head            (:,iland), &
-                      head_slope      (:,iland), &
-                      soil_watfrac    (:,iland)  )
+        call head_column(nzg, iland,                &
+                         slzt            (:),       &
+                         land%soil_water (:,iland), &
+                         land%wresid_vg  (:,iland), &
+                         land%wsat_vg    (:,iland), &
+                         land%alpha_vg   (:,iland), &
+                         land%en_vg      (:,iland), &
+                         head            (:,iland), &
+                         head_slope      (:,iland), &
+                         soil_watfrac    (:,iland)  )
 
-  enddo ! iwsfc
-  !$omp end do
+     else
+
+        call head_column_spinup(nzg, iland,                &
+                         slzt            (:),       &
+                         land%soil_water (:,iland), &
+                         land%wresid_vg  (:,iland), &
+                         land%wsat_vg    (:,iland), &
+                         land%alpha_vg   (:,iland), &
+                         land%en_vg      (:,iland), &
+                         land%head_press (:,iland), &
+                         head            (:,iland), &
+                         head_slope      (:,iland), &
+                         soil_watfrac    (:,iland)  )
+
+     endif
+
+  enddo ! iland
+  !$omp end parallel do
 
   ! MPI send/recv of time-dependent SFCG, LAND, LAKE, SEA quantities
 
@@ -827,7 +838,6 @@ subroutine surface_driver()
                land%lambda_vg     (1:nzg,iland), &
                land%en_vg         (1:nzg,iland), &
                land%alpha_vg      (1:nzg,iland), &
-               land%head_press    (1:nzg,iland), &
                soil_watfrac       (1:nzg,iland), &
                head_slope         (1:nzg,iland), &
                head               (1:nzg,iland), &

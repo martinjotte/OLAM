@@ -239,14 +239,16 @@ subroutine leaf4_init_atm()
 
      do k = 1,nzg
 
-        ! Diagnose pressure head and soil water from given head0 and slzt  
+        ! Diagnose pressure head and soil water from given head0 and slzt
 
         psi = land%head0(iland) - slzt(k)
 
-        if (psi > 0.) then
-           land%head_press(k,iland) = psi
-        else
-           land%head_press(k,iland) = 0.
+        if (nl%igw_spinup == 1) then
+           if (psi > 0.) then
+              land%head_press(k,iland) = psi
+           else
+              land%head_press(k,iland) = 0.
+           endif
         endif
 
         call soil_pot2wat(psi, land%wresid_vg(k,iland), land%wsat_vg(k,iland), &

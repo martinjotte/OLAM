@@ -39,7 +39,7 @@ Module leaf4_soil
                   gpp, sfcwater_mass, sfcwater_energy, sfcwater_depth,   &
                   energy_per_m2, soil_water, soil_energy,                &
                   wresid_vg, wsat_vg, ksat_vg, lambda_vg, en_vg,alpha_vg,&
-                  head_press, soil_watfrac, head_slope, head,            &
+                  soil_watfrac, head_slope, head,                        &
                   soil_tempk, soil_fracliq, thermcond_soil               )
 
   use leaf_coms, only: nzs, dt_leaf, z_root, kroot
@@ -81,7 +81,6 @@ Module leaf4_soil
   real, intent(in   ) :: lambda_vg     (nzg) ! van Genuchten lambda parameter [ ]
   real, intent(in   ) :: en_vg         (nzg) ! van Genuchten n parameter [ ]
   real, intent(in   ) :: alpha_vg      (nzg) ! van Genuchten alpha parameter [ ]
-  real, intent(in   ) :: head_press    (nzg) ! head from positive (confinement) pressure [m]
   real, intent(in   ) :: soil_watfrac  (nzg) ! fractional water content within vG range [limited to (0,1)]
   real, intent(in   ) :: head_slope    (nzg) ! derivative of head with respect to soil_water [m]
   real, intent(inout) :: head          (nzg) ! hydraulic head [m] (relative to local topo datum)
@@ -471,14 +470,12 @@ Module leaf4_soil
   real :: em_vg
   real :: emi_vg
 
-  real, parameter :: psi_slope_trans = 1000.  ! Inverse specific storage (for transients)
-                                               ! of single grid cell at supersaturation
   real, parameter :: psi_slope_static = 10000. ! Inverse specific storage (asymptotic)
                                                ! of single grid cell at supersaturation
 
   real, parameter :: wfrac_inc = 0.0001 ! Small increment of wfrac for computing
                                         ! slope within normal range of wfrac
-  
+
   real, parameter :: psi_low2 =  -50000.
   real, parameter :: psi_low1 = -100000.
   real, parameter :: psi_inc12 = psi_low2 - psi_low1
@@ -505,7 +502,7 @@ Module leaf4_soil
      ! specific storage value for water potential slope
 
      psi = (soil_water - wsat_vg) * psi_slope_static
-     psi_slope = psi_slope_trans
+     psi_slope = psi_slope_static
 
   else
 
@@ -748,6 +745,54 @@ Module leaf4_soil
 
   subroutine head_column(nzg, iland, slzt, &
                          soil_water, wresid_vg, wsat_vg, alpha_vg, en_vg, &
+                         head, head_slope, soil_watfrac)
+
+  ! Diagnose hydraulic head (relative to local topographic datum) and
+  ! its derivative with respect to soil water, and perform any necessary
+  ! temporal relaxation of head_press.
+
+  use mem_land,   only: hptimi
+  use leaf_coms,  only: dt_leaf
+
+  implicit none
+
+  integer, intent(in) :: nzg, iland
+
+  real, intent(in)    :: slzt        (nzg)
+  real, intent(in)    :: soil_water  (nzg)
+  real, intent(in)    :: wresid_vg   (nzg)
+  real, intent(in)    :: wsat_vg     (nzg)
+  real, intent(in)    :: alpha_vg    (nzg)
+  real, intent(in)    :: en_vg       (nzg)
+  real, intent(inout) :: head        (nzg)
+  real, intent(inout) :: head_slope  (nzg)
+  real, intent(inout) :: soil_watfrac(nzg)
+
+  integer :: k
+
+  real :: psi, psi_slope
+  real :: soil_watfrac_ul
+
+  do k = 1,nzg
+
+     soil_watfrac_ul = (soil_water(k) - wresid_vg(k)) / (wsat_vg(k) - wresid_vg(k))
+
+     soil_watfrac(k) = min(1.0,max(0.001,soil_watfrac_ul))
+
+     call soil_wat2pot(k, iland, soil_water(k), wresid_vg(k), wsat_vg(k), &
+                       alpha_vg(k), en_vg(k), psi, psi_slope)
+
+     head(k) = psi + slzt(k)
+     head_slope(k) = psi_slope
+
+  enddo
+
+  end subroutine head_column
+
+!===============================================================================
+
+  subroutine head_column_spinup(nzg, iland, slzt, &
+                         soil_water, wresid_vg, wsat_vg, alpha_vg, en_vg, &
                          head_press, head, head_slope, soil_watfrac)
 
   ! Diagnose hydraulic head (relative to local topographic datum) and
@@ -774,11 +819,9 @@ Module leaf4_soil
 
   real, parameter :: head_slope_trans = 1000.  ! Inverse specific storage (for transients)
                                                ! of single grid cell at supersaturation
-
   integer :: k
 
   real :: psi, psi_slope
-  real :: head_press0
   real :: soil_watfrac_ul
   real :: head_press_change
 
@@ -802,7 +845,7 @@ Module leaf4_soil
         head_press_change = dt_leaf * hptimi * (psi - head_press(k))
 
         head_press(k) = max(0.,head_press(k) + head_press_change)
-           
+
         ! Compute total head relative to local topographic datum
 
         head(k) = head_press(k) + slzt(k)
@@ -818,6 +861,6 @@ Module leaf4_soil
 
   enddo
 
-  end subroutine head_column
+  end subroutine head_column_spinup
 
 End Module leaf4_soil
