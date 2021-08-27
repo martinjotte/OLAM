@@ -50,8 +50,8 @@ subroutine gridinit()
                          alloc_grid1, alloc_grid2, alloc_gridz_other
   use mem_nudge,   only: nudflag, nudnxp, nwnud, itab_wnud, alloc_nudge1, &
                          xewnud, yewnud, zewnud
-  use mem_sfcg,    only: nsfcgrid_root, sfcgrid_res_factor, nsfcgrids
-
+  use mem_sfcg,    only: nsfcgrid_root, sfcgrid_res_factor, nsfcgrids, &
+                         nmsfc, nvsfc, nwsfc
   implicit none
 
   integer :: npoly
@@ -208,8 +208,12 @@ subroutine gridinit()
 
   endif
 
-  if ( (runtype == 'MAKEGRID_PLOT') .and. &
-       (nsfcgrid_root <= 0 .or. nsfcgrids < 1) ) return
+  if (runtype == 'MAKEGRID_PLOT') then
+     nma = nwd
+     nua = nud
+     nva = nud
+     nwa = nmd
+  endif
 
   if (nsfcgrid_root <= 0 .and. mdomain /= 4) then
      ! Store a temporaty copy of the full Delaunay mesh
@@ -219,42 +223,40 @@ subroutine gridinit()
 
   if (runtype /= 'MAKEGRID_PLOT') then
 
-  if (mdomain /= 4) then
+     if (mdomain /= 4) then
 
-     call voronoi()
-     call pcvt()
+        call voronoi()
+        call pcvt()
 
-  endif
+     endif
 
-  write(io6,'(/,a)') 'gridinit after voronoi'
-  write(io6,'(a,i8)')   ' nma = ',nma
-  write(io6,'(a,i8)')   ' nua = ',nua
-  write(io6,'(a,i8)')   ' nwa = ',nwa
+     write(io6,'(/,a)') 'gridinit after voronoi'
+     write(io6,'(a,i8)')   ' nma = ',nma
+     write(io6,'(a,i8)')   ' nua = ',nua
+     write(io6,'(a,i8)')   ' nwa = ',nwa
 
-  ! Allocate remaining GRID FOOTPRINT arrays for full domain
+     ! Allocate remaining GRID FOOTPRINT arrays for full domain
 
-  write(io6,'(/,a)') 'gridinit calling alloc_grid1 for full domain'
+     write(io6,'(/,a)') 'gridinit calling alloc_grid1 for full domain'
 
-  call alloc_grid1(nma, nva, nwa)
+     call alloc_grid1(nma, nva, nwa)
 
-  ! Initialize dtlm, dtsm, ndtrat, and nacoust,
-  ! and compute the timestep schedule for all grid operations.
+     ! Initialize dtlm, dtsm, ndtrat, and nacoust,
+     ! and compute the timestep schedule for all grid operations.
 
-  write(io6,'(/,a)') 'gridinit calling modsched'
+     write(io6,'(/,a)') 'gridinit calling modsched'
 
-  call modsched()
+     call modsched()
 
-  write(io6,'(/,a)') 'gridinit calling fill_jtabs'
+     write(io6,'(/,a)') 'gridinit calling fill_jtabs'
 
-  call fill_jtabs(nma,nva,nwa,0)
+     call fill_jtabs(nma,nva,nwa,0)
 
-  ! Fill remaining GRID FOOTPRINT geometry for full domain
+     ! Fill remaining GRID FOOTPRINT geometry for full domain
 
-  write(io6,'(/,a)') 'gridinit calling grid_geometry'
+     write(io6,'(/,a)') 'gridinit calling grid_geometry'
 
-  call grid_geometry_hex()
-
-  ! Set up topographic surface and its intersection of the 3D atmospheric grid.
+     call grid_geometry_hex()
 
   endif
 
@@ -268,7 +270,12 @@ subroutine gridinit()
 
   call makesfc3()
 
-  if (runtype == 'MAKEGRID_PLOT') return
+  if (runtype == 'MAKEGRID_PLOT') then
+     nmsfc = nwd
+     nvsfc = nud
+     nwsfc = nmd
+     return
+  endif
 
   ! Allocate remaining unstructured grid geometry arrays
 
@@ -637,7 +644,7 @@ end subroutine grav_init
 
 subroutine gridset_print()
 
-use misc_coms, only: io6
+use misc_coms, only: io6, runtype
 use mem_grid,  only: nza, zm, zt, dzt, nma, nua, nva, nwa
 use leaf_coms, only: isfcl
 use mem_sfcg,  only: nwsfc
@@ -673,18 +680,25 @@ enddo
 13 format (15x,i4,2f10.2)
 
 write(io6,'(/,a)' ) 'Global grid indices:'
-write(io6,'(a,i8)') '  nma = ',nma
-write(io6,'(a,i8)') '  nua = ',nua
-write(io6,'(a,i8)') '  nva = ',nva
-write(io6,'(a,i8)') '  nwa = ',nwa
-write(io6,'(a,i8)') '  nza = ',nza
+write(io6,'(a,i9)') '  nwa = ',nwa
+write(io6,'(a,i9)') '  nva = ',nva
+write(io6,'(a,i9)') '  nma = ',nma
+write(io6,'(a,i9)') '  nza = ',nza
 
-if (isfcl == 1) then
-   write(io6,'(/,a)' ) 'Global sfcg/land/lake/sea indices:'
-   write(io6,'(a,i8)') '  nwsfc = ',nwsfc
-   write(io6,'(a,i8)') '  nland = ',nland
-   write(io6,'(a,i8)') '  nlake = ',nlake
-   write(io6,'(a,i8)') '  nsea  = ',nsea
+if (runtype == 'MAKEGRID_PLOT') then
+
+   write(io6,'(a,i9)') 'nwsfc = ',nwsfc
+
+else
+
+   if (isfcl == 1) then
+      write(io6,'(/,a)' ) 'Global sfcg/land/lake/sea indices:'
+      write(io6,'(a,i9)') '  nwsfc = ',nwsfc
+      write(io6,'(a,i9)') '  nland = ',nland
+      write(io6,'(a,i9)') '  nlake = ',nlake
+      write(io6,'(a,i9)') '  nsea  = ',nsea
+   endif
+
 endif
 
 end subroutine gridset_print
