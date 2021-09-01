@@ -82,8 +82,7 @@ subroutine lakecells()
                       sfcg%albedo_beam (iwsfc), &
                       sfcg%pcpg        (iwsfc), &
                       sfcg%qpcpg       (iwsfc), &
-                      sfcg%runoff      (iwsfc), &
-                      itab_wsfc(iwsfc)%ivoronoi)
+                      sfcg%runoff      (iwsfc)  )
 
      else ! "Fast canopy" nudging
 
@@ -92,7 +91,6 @@ subroutine lakecells()
                           lake%lake_energy(ilake), &
                           sfcg%head1      (iwsfc), &
                           sfcg%runoff     (iwsfc), &
-                          itab_wsfc(iwsfc)%ivoronoi, &
                           sfcwat_nud      (iwsfc), &
                           sfctemp_nud     (iwsfc), &
                           fracliq_nud     (iwsfc)  )
@@ -115,7 +113,7 @@ end subroutine lakecells
 
 subroutine lakecell(iwsfc, ilake, depth, lake_energy, surface_srrv, rhos, ustar, &
                     sxfer_t, sxfer_r, can_depth, cantemp, canrrv, rough, head1, &
-                    rshort, rlong, rlongup, albedo_beam, pcpg, qpcpg, runoff, ivoronoi)
+                    rshort, rlong, rlongup, albedo_beam, pcpg, qpcpg, runoff)
 
   use lake_coms,   only: dt_lake
   use consts_coms, only: cp, grav, t00, cliq1000, alvl
@@ -145,7 +143,6 @@ subroutine lakecell(iwsfc, ilake, depth, lake_energy, surface_srrv, rhos, ustar,
   real,    intent(in)    :: pcpg        ! new pcp amount this timestep [kg/m^2]
   real,    intent(in)    :: qpcpg       ! new pcp energy this timestep [J/m^2]
   real,    intent(inout) :: runoff      ! new runoff mass this timestep [kg/m^2]
-  integer, intent(in)    :: ivoronoi    ! Voronoi flag (to control water mass eqn.)
 
   ! Local parameters
 
@@ -212,24 +209,22 @@ subroutine lakecell(iwsfc, ilake, depth, lake_energy, surface_srrv, rhos, ustar,
   rough = (1.0-zw) * zn1 + zw * zn2
   rough = min( rough, 2.85e-3)
 
-  ! If ivoronoi = 3, update lake water level (mass)
+  ! Update lake water level (mass)
 
-  if (ivoronoi == 3) then
-     if (head1 > lake_head1_thresh) then
-        runoff = (head1 - lake_head1_thresh) * dt_lake / lake_runoff_time
-     else
-        runoff = 0.
-     endif
-
-     head1 = head1 + 0.001 * (pcpg - wxfersc) - runoff
+  if (head1 > lake_head1_thresh) then
+     runoff = (head1 - lake_head1_thresh) * dt_lake / lake_runoff_time
+  else
+     runoff = 0.
   endif
+
+  head1 = head1 + 0.001 * (pcpg - wxfersc) - runoff
 
 end subroutine lakecell
 
 !===============================================================================
 
 subroutine lakecell_nud(iwsfc, ilake, depth, lake_energy, head1, &
-                    runoff, ivoronoi, sfcwat_nud, sfctemp_nud, fracliq_nud)
+                    runoff, sfcwat_nud, sfctemp_nud, fracliq_nud)
 
   use lake_coms,   only: dt_lake
   use misc_coms,   only: io6
@@ -243,7 +238,6 @@ subroutine lakecell_nud(iwsfc, ilake, depth, lake_energy, head1, &
   real,    intent(inout) :: lake_energy ! lake energy lake energy [J/kg]
   real,    intent(inout) :: head1       ! lake water hydraulic head (rel to topo datum) [m]
   real,    intent(inout) :: runoff      ! new runoff mass this timestep [kg/m^2]
-  integer, intent(in)    :: ivoronoi    ! Voronoi flag (to control water mass eqn.)
   real,    intent(in)    :: sfcwat_nud  !
   real,    intent(in)    :: sfctemp_nud !
   real,    intent(in)    :: fracliq_nud !
@@ -273,15 +267,13 @@ subroutine lakecell_nud(iwsfc, ilake, depth, lake_energy, head1, &
 
   lake_energy = lake_energy + del_energy_per_m2 / (depth * 1000.) ! water density = 1000 kg/m^3
 
-  ! If ivoronoi = 3, update lake water level (mass)
+  ! Update lake water level (mass)
 
-  if (ivoronoi == 3) then
-     head1 = max(-2.0, head1 + sfcwat_nud * 0.001)
+  head1 = max(-2.0, head1 + sfcwat_nud * 0.001)
 
-     if (head1 > lake_head1_thresh) then
-        runoff = (head1 - lake_head1_thresh) * dt_lake / lake_runoff_time
-        head1 = head1 - runoff
-     endif
+  if (head1 > lake_head1_thresh) then
+     runoff = (head1 - lake_head1_thresh) * dt_lake / lake_runoff_time
+     head1 = head1 - runoff
   endif
 
 end subroutine lakecell_nud

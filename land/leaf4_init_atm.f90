@@ -224,7 +224,7 @@ subroutine leaf4_init_atm()
      sfcg%sfluxr   (iwsfc) = 0.
      sfcg%wthv     (iwsfc) = 0.
 
-     land%vegwater_energy(iland) = 0.
+     land%veg_energy(iland) = (land%veg_temp(iland) - 273.15) * land%hcapveg(iland)
 
      ! Default initialization of sfcwater_mass, soil_tempc, and soil_water
 

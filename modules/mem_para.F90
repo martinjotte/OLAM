@@ -50,12 +50,14 @@ Module mem_para
   integer, allocatable :: nsends_m(:)  ! dimensioned to mrls
   integer              :: nsends_wnud  ! dimensioned to 1
   integer              :: nsends_wsfc  ! dimensioned to 1
+  integer              :: nsends_vsfc  ! dimensioned to 1
 
   integer, allocatable :: nrecvs_v(:)  ! dimensioned to mrls
   integer, allocatable :: nrecvs_w(:)  ! dimensioned to mrls
   integer, allocatable :: nrecvs_m(:)  ! dimensioned to mrls
   integer              :: nrecvs_wnud  ! dimensioned to 1
   integer              :: nrecvs_wsfc  ! dimensioned to 1
+  integer              :: nrecvs_vsfc  ! dimensioned to 1
 
 ! SFC grid sends/receives are scalars
 
@@ -73,12 +75,14 @@ Module mem_para
   type(nodebuffs), allocatable :: send_m(:)
   type(nodebuffs), allocatable :: send_wnud(:)
   type(nodebuffs), allocatable :: send_wsfc(:)
+  type(nodebuffs), allocatable :: send_vsfc(:)
 
   type(nodebuffs), allocatable :: recv_v(:)
   type(nodebuffs), allocatable :: recv_w(:)
   type(nodebuffs), allocatable :: recv_m(:)
   type(nodebuffs), allocatable :: recv_wnud(:)
   type(nodebuffs), allocatable :: recv_wsfc(:)
+  type(nodebuffs), allocatable :: recv_vsfc(:)
 
   integer                      :: mva_primary = 0
   integer, target, allocatable :: iva_globe_primary(:)
@@ -95,6 +99,10 @@ Module mem_para
   integer                      :: mwsfc_primary = 0
   integer, target, allocatable :: iwsfc_globe_primary(:)
   integer, target, allocatable :: iwsfc_local_primary(:)
+
+  integer                      :: mvsfc_primary = 0
+  integer, target, allocatable :: ivsfc_globe_primary(:)
+  integer, target, allocatable :: ivsfc_local_primary(:)
 
   integer                      :: mland_primary = 0
   integer, target, allocatable :: iland_globe_primary(:)
@@ -117,6 +125,7 @@ Module mem_para
   integer, parameter :: itagw    = 3
   integer, parameter :: itagwnud = 4
   integer, parameter :: itagwsfc = 5
+  integer, parameter :: itagvsfc = 6
 
   integer :: nbytes_int
   integer :: nbytes_real
@@ -146,5 +155,10 @@ Module mem_para
   integer              :: inext_wsfc = 2
   integer, allocatable :: ireqr_wsfc(:,:)
   integer, allocatable :: ireqs_wsfc(:,:)
+
+  integer              :: icurr_vsfc = 1
+  integer              :: inext_vsfc = 2
+  integer, allocatable :: ireqr_vsfc(:,:)
+  integer, allocatable :: ireqs_vsfc(:,:)
 
 End Module mem_para

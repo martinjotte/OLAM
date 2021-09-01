@@ -38,7 +38,7 @@ subroutine history_write(vtype)
   use hdf5_utils, only: shdf5_orec, shdf5_open, shdf5_close, mpi_does_parallel_io
   use max_dims,   only: pathlen
   use mem_grid,   only: nma, nva, nwa
-  use mem_sfcg,   only: nwsfc
+  use mem_sfcg,   only: nwsfc, nvsfc
   use mem_land,   only: nland
   use mem_lake,   only: nlake
   use mem_sea,    only: nsea
@@ -47,6 +47,7 @@ subroutine history_write(vtype)
                         iwa_globe_primary, iwa_local_primary, &
                         ima_globe_primary, ima_local_primary, &
                         iwsfc_globe_primary, iwsfc_local_primary, &
+                        ivsfc_globe_primary, ivsfc_local_primary, &
                         iland_globe_primary, iland_local_primary, &
                         ilake_globe_primary, ilake_local_primary, &
                         isea_globe_primary, isea_local_primary, &
@@ -71,7 +72,11 @@ subroutine history_write(vtype)
 
 ! Construct h5 file name and open the file
 
-  call makefnam(hnamel, hfilepref, current_time, 'H', '$', 'h5')
+  if (trim(vtype) == 'HTC') then
+     call makefnam(hnamel, hfilepref, current_time, 'HTC', '$', 'h5')
+  else
+     call makefnam(hnamel, hfilepref, current_time, 'H', '$', 'h5')
+  endif
 
   inquire(file=hnamel,exist=exans)
   if (exans .and. iclobber == 0) then
@@ -127,6 +132,10 @@ subroutine history_write(vtype)
            ilpts => iwsfc_local_primary
            igpts => iwsfc_globe_primary
            nglobe = nwsfc
+        elseif (stagpt == 'CV') then ! Common surface cells (V pts)
+           ilpts => ivsfc_local_primary
+           igpts => ivsfc_globe_primary
+           nglobe = nvsfc
         elseif (stagpt == 'LW') then ! Lake cells
            ilpts => iland_local_primary
            igpts => iland_globe_primary

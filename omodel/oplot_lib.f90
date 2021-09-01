@@ -449,7 +449,7 @@ data fldlib(1:4,230:250)/ &
 
 ! LAND_CELLS - ATM averages
 
-data fldlib(1:4,251:278)/ &
+data fldlib(1:4,251:279)/ &
  'AL_SFCWATER_TOT'        ,'T2' ,'AL TOTAL SFCWATER MASS',' (kg m:S2:-2  )'  ,& ! 251
  'AL_SOIL_WATER_TOT'      ,'T2' ,'AL TOTAL SOIL WATER',' (m)'                ,& ! 252
 
@@ -486,14 +486,15 @@ data fldlib(1:4,251:278)/ &
  'SEAICEP'       ,'S2' ,'SEAICE FRACTION (PAST DATA)',' ( )'                 ,& ! 275
  'SEAICEF'       ,'S2' ,'SEAICE FRACTION (FUTURE DATA)',' ( )'               ,& ! 276
  'SEAICEC'       ,'S2' ,'SEAICE FRACTION (CURRENT)',' ( )'                   ,& ! 277
+ 'WDEPTH'        ,'S2' ,'SEA WDEPTH',' (m)'                                  ,& ! 278
 
 ! OTHER LAND or SFC fields
 
- 'SLOPE_FACT'    ,'L2' ,'SUBGRID OROGRAPHY SLOPE FACTOR',' ( )'               / ! 278
+ 'SLOPE_FACT'    ,'L2' ,'SUBGRID OROGRAPHY SLOPE FACTOR',' ( )'               / ! 279
 
 ! SFC GRID CELLS - 2D
 
-data fldlib(1:4,301:329)/ &
+data fldlib(1:4,301:335)/ &
  'LEAF_CLASS'         ,'C2' ,'LEAF CLASS',' ( )'                               ,& ! 301
  'SFCG_AREA'          ,'C2' ,'SFCG CELL AREA',' (m:S2:2  )'                    ,& ! 302
  'SFCG_GLATW'         ,'C2' ,'SFCG CELL LATITUDE',' (deg)'                     ,& ! 303
@@ -509,7 +510,7 @@ data fldlib(1:4,301:329)/ &
  'SFCG_CANRRV'        ,'C2' ,'SFCG CANOPY VAPOR MIX RATIO',' (g kg:S2:-1  )'   ,& ! 313
  'SFCG_SKINTEMPK'     ,'C2' ,'SFCG SKIN TEMP',' (K)'                           ,& ! 314
  'SFCG_GSS_SRRV'      ,'C2' ,'SFCG SAT VAP MIX RATIO',' (g kg:S2:-1  )'        ,& ! 315
- 'HEAD1'              ,'C2' ,'WATER SFC HEAD REL TO LOCAL TOPO DATUM',' (m)'   ,& ! 316
+ 'HEAD1'              ,'C2' ,'WATER SFC HEAD',' (m)'                           ,& ! 316
  'HEAD_WTAB'          ,'C2' ,'HEAD AT WATER TABLE',' (m)'                      ,& ! 317
 
  'SFCG_SENSFLUX'      ,'C2','SFCG SENS HEAT FLX',' (W m:S2:-2  )'              ,& ! 318
@@ -522,12 +523,20 @@ data fldlib(1:4,301:329)/ &
  'SFCG_RLONG_ALBEDO'  ,'C2','SFCG NET LW ALBEDO',' ( )'                        ,& ! 324
  'SFCG_ALBEDO_BEAM'   ,'C2','SFCG NET BEAM ALBEDO',' ( )'                      ,& ! 325
  'SFCG_ALBEDO_DIFFUSE','C2','SFCG NET DIFFUSE ALBEDO',' ( )'                   ,& ! 326
+ 'SFCG_BATHYM'        ,'C2','SFCG CELL BATHYMETRY',' (m)'                      ,& ! 327
+ 'SFCG_PCPG'          ,'C2','SFCG PCPG',' (kg m:S2:-2  )'                      ,& ! 328
+ 'SFCG_VC'            ,'B2','SFCG VC',' (m s:S2:-1  )'                         ,& ! 329
+ 'WAT_DEPTH'          ,'C2','WAT_DEPTH',' (m)'                                 ,& ! 330
+ 'WAT_TEMPK'          ,'C2','WAT_TEMP',' (K)'                                  ,& ! 331
+ 'HEAD1_MSL'          ,'C2','WATER SFC HEAD REL TO MSL',' (m)'                 ,& ! 332
+
+!SFCG_SWM_ACTIVE
 
 ! Special SFC GRID nudging fields
 
- 'SFCWAT_NUD'         ,'C2' ,'SFCWAT_NUD',' (mm/day)'                          ,& ! 327 ! fast can nud
- 'SFCTEMP_NUD'        ,'C2' ,'SFCTEMP_NUD',' (K)'                              ,& ! 328 ! fast can nud
- 'FRACLIQ_NUD'        ,'C2' ,'FRACLIQ_NUD',' ( )'                               / ! 329 ! fast can nud
+ 'SFCWAT_NUD'         ,'C2' ,'SFCWAT_NUD',' (mm/day)'                          ,& ! 333 ! fast can nud
+ 'SFCTEMP_NUD'        ,'C2' ,'SFCTEMP_NUD',' (K)'                              ,& ! 334 ! fast can nud
+ 'FRACLIQ_NUD'        ,'C2' ,'FRACLIQ_NUD',' ( )'                               / ! 335 ! fast can nud
 
 ! SFC GRID CELLS - DIF2 fields
 
@@ -713,11 +722,10 @@ data fldlib(1:4,561:584)/ &
 
 ! ITAB_WSFC MEMBERS - 2D
 
-data fldlib(1:4,601:614)/ &
+data fldlib(1:4,602:614)/ &
 
- 'ITAB_WSFC_IWGLOBE'   ,'C2' ,'ITAB_WSFC_IWGLOBE',' ( )'                      ,& ! 601
- 'ITAB_WSFC_IRANK'     ,'C2' ,'ITAB_WSFC_IRANK',' ( )'                        ,& ! 602
- 'ITAB_WSFC_IVORONOI'  ,'C2' ,'ITAB_WSFC_IVORONOI',' ( )'                     ,& ! 603
+ 'ITAB_WSFC_IWGLOBE'   ,'C2' ,'ITAB_WSFC_IWGLOBE',' ( )'                      ,& ! 602
+ 'ITAB_WSFC_IRANK'     ,'C2' ,'ITAB_WSFC_IRANK',' ( )'                        ,& ! 603
  'ITAB_WSFC_NWATM'     ,'C2' ,'ITAB_WSFC_NWATM',' ( )'                        ,& ! 604
  'ITAB_WSFC_IWATM'     ,'C2' ,'ITAB_WSFC_IWATM',' ( )'                        ,& ! 605
  'ITAB_WSFC_KWATM'     ,'C2' ,'ITAB_WSFC_KWATM',' ( )'                        ,& ! 606
@@ -930,6 +938,12 @@ endif
 
 notavail = 0
 kp = min(k+1,mza)
+
+! Try these to prevent out-of-bounds access when infotyp == 'UNITS'
+
+iland = max(2,i-omland)
+ilake = max(2,i-omlake)
+isea  = max(2,i-omsea)
 
 ! Execute IF block below even when infotyp == 'UNITS'
 ! in order to check whether current plot field is available in this model run.
@@ -2244,82 +2258,66 @@ case(134) ! 'PCPBOTH_REL4'
 
 case(181) ! 'SAND'
 
-   iland = i - omland
    fldval = real(land%sand(k,iland))
 
 case(182) ! 'CLAY'
 
-   iland = i - omland
    fldval = real(land%clay(k,iland))
 
 case(183) ! 'SILT'
 
-   iland = i - omland
    fldval = real(land%silt(k,iland))
 
 case(184) ! 'ORGAN'
 
-   iland = i - omland
    fldval = real(land%organ(k,iland)) * 1000. ! converts from kg/kg to g/kg
 
 case(185) ! 'BULKDENS_DRYSOIL'
 
-   iland = i - omland
    fldval = real(land%bulkdens_drysoil(k,iland))
 
 case(186) ! 'PH_SOIL'
 
-   iland = i - omland
    fldval = real(land%pH_soil(k,iland))
 
 case(187) ! 'CEC_SOIL'
 
-   iland = i - omland
    fldval = real(land%cec_soil(k,iland))
 
 case(188) ! 'WRESID_VG'
 
-   iland = i - omland
    fldval = real(land%wresid_vg(k,iland))
 
 case(189) ! 'WSAT_VG'
 
-   iland = i - omland
    fldval = real(land%wsat_vg(k,iland))
 
 case(190) ! 'KSAT_VG'
 
-   iland = i - omland
    fldval = real(land%ksat_vg(k,iland))
 
 case(191) ! 'ALPHA_VG'
 
-   iland = i - omland
    fldval = real(land%alpha_vg(k,iland))
 
 case(192) ! 'EN_VG'
 
-   iland = i - omland
    fldval = real(land%en_vg(k,iland))
 
 case(193) ! 'LAMBDA_VG'
 
-   iland = i - omland
    fldval = real(land%lambda_vg(k,iland))
 
 case(194) ! 'SPECIFHEAT_DRYSOIL'
 
-   iland = i - omland
    fldval = real(land%specifheat_drysoil(k,iland))
 
 case(195) ! 'SOIL_ENERGY'
 
-   iland = i - omland
    fldval = land%soil_energy(k,iland) * 1.e-6
 
 case(196) ! 'SOIL_TEMPK'
 
-   iland = i - omland
    call qwtk(land%soil_energy(k,iland),        &
              land%soil_water(k,iland)*1.e3,    &
              land%specifheat_drysoil(k,iland), &
@@ -2328,7 +2326,6 @@ case(196) ! 'SOIL_TEMPK'
 
 case(197) ! 'SOIL_FRACLIQ'
 
-   iland = i - omland
    call qwtk(land%soil_energy(k,iland),        &
              land%soil_water(k,iland)*1.e3,    &
              land%specifheat_drysoil(k,iland), &
@@ -2337,17 +2334,14 @@ case(197) ! 'SOIL_FRACLIQ'
 
 case(198) ! 'SOIL_WATER'
 
-   iland = i - omland
    fldval = land%soil_water(k,iland) / land%wsat_vg(k,iland)
 
 case(199) ! 'SFWAT_MASS'
 
-   iland = i - omland
    fldval = land%sfcwater_mass(k,iland)
 
 case(200) ! 'SFWAT_ENERGY'
 
-   iland = i - omland
    if (land%nlev_sfcwater(iland) == 0) then
       notavail = 4
    else
@@ -2356,7 +2350,6 @@ case(200) ! 'SFWAT_ENERGY'
 
 case(201) ! 'SFWAT_TEMPK'
 
-   iland = i - omland
    if (land%nlev_sfcwater(iland) == 0) then
       notavail = 4
    else
@@ -2366,7 +2359,6 @@ case(201) ! 'SFWAT_TEMPK'
 
 case(202) ! 'SFWAT_FRACLIQ'
 
-   iland = i - omland
    if (land%nlev_sfcwater(iland) == 0) then
       notavail = 4
    else
@@ -2376,7 +2368,6 @@ case(202) ! 'SFWAT_FRACLIQ'
 
 case(203) ! 'SFWAT_DEPTH'
 
-   iland = i - omland
    fldval = 0.
    do klev = 1,land%nlev_sfcwater(iland)
       fldval = fldval + land%sfcwater_depth(klev,iland)
@@ -2390,72 +2381,59 @@ case(203) ! 'SFWAT_DEPTH'
 
 case(205) ! 'USDA_TEXT'
 
-   iland = i - omland
    fldval = real(land%usdatext(iland))
 
 case(206) ! 'Z_BEDROCK'
 
-   iland = i - omland
    fldval = real(land%z_bedrock(iland))
 
 case(207) ! 'GPP'
 
-   iland = i - omland
    fldval = real(land%gpp(iland))
 
 case(208) ! 'GLHYMPS_KSAT'
 
-   iland = i - omland
    fldval = real(land%glhymps_ksat(iland))
 
 case(209) ! 'GLHYMPS_KSAT_PFR'
 
-   iland = i - omland
    fldval = real(land%glhymps_ksat_pfr(iland))
 
 case(210) ! 'GLHYMPS_POROS'
 
-   iland = i - omland
    fldval = real(land%glhymps_poros(iland))
 
 case(211) ! 'NLEV_SFWAT'
 
-   iland = i - omland
    fldval = real(land%nlev_sfcwater(iland))
 
 case(212) ! 'VEG_NDVIC'
 
-   iland = i - omland
    fldval = land%veg_ndvic(iland)
 
 case(213) ! 'VEG_TEMPC'
 
-   iland = i - omland
    fldval = land%veg_temp(iland) - 273.15
 
 case(214) ! 'VEG_TEMPK'
 
-   iland = i - omland
    fldval = land%veg_temp(iland)
 
 case(215) ! 'VEG_WATER'
 
-   iland = i - omland
    fldval = land%veg_water(iland)
 
 case(216) ! 'STOM_RESIST'
 
-   iland = i - omland
    fldval = land%stom_resist(iland)
 
 case(217) ! 'SFCWATER_TOT'
 
-   iland = i - omland
    fldval = sum(land%sfcwater_mass(:,iland))
 
 case(218) ! 'SFCWATER_TOP_TEMP'
 
-   iland = i - omland
+
    if (land%nlev_sfcwater(iland) == 0) then
       notavail = 4
    else
@@ -2466,7 +2444,6 @@ case(218) ! 'SFCWATER_TOP_TEMP'
 
 case(219) ! 'SOIL_TOP_TEMP'
 
-   iland = i - omland
    call qwtk(land%soil_energy(nzg,iland),        &
              land%soil_water(nzg,iland)*1.e3,    &
              land%specifheat_drysoil(nzg,iland), &
@@ -2475,7 +2452,6 @@ case(219) ! 'SOIL_TOP_TEMP'
 
 case(220) ! 'GROUND_RRV'
 
-   iland = i - omland
    fldval = land%ground_rrv(iland) * 1.e3
 
 case(221) ! 'SOIL_DEPTH'
@@ -2484,12 +2460,10 @@ case(221) ! 'SOIL_DEPTH'
 
 case(222) ! 'SOIL_WATER_TOT'
 
-   iland = i - omland
    fldval = sum(land%soil_water(:,iland) * dslz(:))
 
 case(223) ! 'HEAD0'
 
-   iland = i - omland
    fldval = land%head0(iland)
 
 case(230) ! 'WXFERI_DIF2'
@@ -2497,7 +2471,6 @@ case(230) ! 'WXFERI_DIF2'
    ! NOTE: wxferi_accum fluxes are positive upward; fldval flux (infiltration)
    !       is defined positive downward
 
-   iland = i - omland
    if (.not. allocated(wxferi_accum)) go to 1000
    fldval = -(wxferi_accum_prev0(iland) - wxferi_accum_prev1(iland)) * 1.e3 ! convert from m to mm
 
@@ -2510,7 +2483,6 @@ case(231) ! 'WXFERP_DIF2'
    ! NOTE: wxferp_accum fluxes are positive upward; fldval flux (percolation)
    !       is defined positive downward
 
-   iland = i - omland
    if (.not. allocated(wxferp_accum)) go to 1000
    fldval = -(wxferp_accum_prev0(iland) - wxferp_accum_prev1(iland)) * 1.e3 ! convert from m to mm
 
@@ -2523,7 +2495,6 @@ case(232) ! 'WXFER1_DIF2'
    ! NOTE: wxfer1_accum fluxes are positive upward; fldval flux (at soil bottom)
    !       is defined positive downward
 
-   iland = i - omland
    if (.not. allocated(wxfer1_accum)) go to 1000
    fldval = -(wxfer1_accum_prev0(iland) - wxfer1_accum_prev1(iland)) * 1.e3 ! convert from m to mm
 
@@ -2535,12 +2506,10 @@ case(233) ! 'SOIL_WATER_TOT_DIF2'
 
    ! Not an accumulated quantity
 
-   iland = i - omland
    fldval = soil_water_tot_prev0(iland) - soil_water_tot_prev1(iland)
 
 case(234) ! 'VEGTEMPK_DMIN_DIF2'
 
-   iland = i - omland
    if (.not. allocated(vegtemp_dmin_accum)) go to 1000
    fldval = (vegtemp_dmin_accum_prev0(iland) - vegtemp_dmin_accum_prev1(iland))
 
@@ -2550,7 +2519,6 @@ case(234) ! 'VEGTEMPK_DMIN_DIF2'
 
 case(235) ! 'VEGTEMPK_DMAX_DIF2'
 
-   iland = i - omland
    if (.not. allocated(vegtemp_dmax_accum)) go to 1000
    fldval = (vegtemp_dmax_accum_prev0(iland) - vegtemp_dmax_accum_prev1(iland))
 
@@ -2560,7 +2528,6 @@ case(235) ! 'VEGTEMPK_DMAX_DIF2'
 
 case(236) ! 'VEGTEMPK_DSPAN_DIF2'
 
-   iland = i - omland
    if (.not. allocated(vegtemp_dmax_accum)) go to 1000
    fldval = (vegtemp_dmax_accum_prev0(iland) - vegtemp_dmax_accum_prev1(iland)) &
           - (vegtemp_dmin_accum_prev0(iland) - vegtemp_dmin_accum_prev1(iland))
@@ -2571,7 +2538,6 @@ case(236) ! 'VEGTEMPK_DSPAN_DIF2'
 
 case(237) ! 'SOILTEMPK_DMIN_DIF2'
 
-   iland = i - omland
    if (.not. allocated(soiltemp_dmin_accum)) go to 1000
    fldval = (soiltemp_dmin_accum_prev0(iland) - soiltemp_dmin_accum_prev1(iland))
 
@@ -2581,7 +2547,6 @@ case(237) ! 'SOILTEMPK_DMIN_DIF2'
 
 case(238) ! 'SOILTEMPK_DMAX_DIF2'
 
-   iland = i - omland
    if (.not. allocated(soiltemp_dmax_accum)) go to 1000
    fldval = (soiltemp_dmax_accum_prev0(iland) - soiltemp_dmax_accum_prev1(iland))
 
@@ -2591,7 +2556,6 @@ case(238) ! 'SOILTEMPK_DMAX_DIF2'
 
 case(239) ! 'SOILTEMPK_DSPAN_DIF2'
 
-   iland = i - omland
    if (.not. allocated(soiltemp_dmax_accum)) go to 1000
    fldval = (soiltemp_dmax_accum_prev0(iland) - soiltemp_dmax_accum_prev1(iland)) &
           - (soiltemp_dmin_accum_prev0(iland) - soiltemp_dmin_accum_prev1(iland))
@@ -2605,7 +2569,6 @@ case(240) ! 'WXFERIF_DIF2'
    ! NOTE: wxferi_accum fluxes are positive upward; fldval flux (infiltration)
    !       is defined positive downward
 
-   iland = i - omland
    if (.not. allocated(wxferi_accum)) go to 1000
    fldval = -(wxferi_accum_prev0(iland) - wxferi_accum_prev1(iland)) * 1.e3 & ! convert from m to mm
           / (pcp_accum_prev0(i) - pcp_accum_prev1(i))
@@ -2619,7 +2582,6 @@ case(241) ! 'WXFERI_DIF4'
    ! NOTE: wxferi_accum fluxes are positive upward; fldval fluxes (infiltration)
    !       are defined positive downward
 
-   iland = i - omland
    if (.not. allocated(wxferi_accum)) go to 1000
    fldval1 = -(wxferi_accum_prev0(iland) - wxferi_accum_prev1(iland)) * 1.e3 ! convert from m to mm
    fldval2 = -(wxferi_accum_prev2(iland) - wxferi_accum_prev3(iland)) * 1.e3 ! convert from m to mm
@@ -2639,7 +2601,6 @@ case(242) ! 'WXFERP_DIF4'
    ! NOTE: wxferp_accum fluxes are positive upward; fldval fluxes (percolation)
    !       are defined positive downward
 
-   iland = i - omland
    if (.not. allocated(wxferp_accum)) go to 1000
    fldval1 = -(wxferp_accum_prev0(iland) - wxferp_accum_prev1(iland)) * 1.e3 ! convert from m to mm
    fldval2 = -(wxferp_accum_prev2(iland) - wxferp_accum_prev3(iland)) * 1.e3 ! convert from m to mm
@@ -2659,7 +2620,6 @@ case(243) ! 'WXFER1_DIF4'
    ! NOTE: wxfer1_accum fluxes are positive upward; fldval fluxes (at soil bottom)
    !       are defined positive downward
 
-   iland = i - omland
    if (.not. allocated(wxfer1_accum)) go to 1000
    fldval1 = -(wxfer1_accum_prev0(iland) - wxfer1_accum_prev1(iland)) * 1.e3 ! convert from m to mm
    fldval2 = -(wxfer1_accum_prev2(iland) - wxfer1_accum_prev3(iland)) * 1.e3 ! convert from m to mm
@@ -2676,7 +2636,6 @@ case(243) ! 'WXFER1_DIF4'
 
 case(244) ! 'VEGTEMPK_DMIN_DIF4'
 
-   iland = i - omland
    if (.not. allocated(vegtemp_dmin_accum)) go to 1000
    fldval1 = (vegtemp_dmin_accum_prev0(iland) - vegtemp_dmin_accum_prev1(iland))
    fldval2 = (vegtemp_dmin_accum_prev2(iland) - vegtemp_dmin_accum_prev3(iland))
@@ -2693,7 +2652,6 @@ case(244) ! 'VEGTEMPK_DMIN_DIF4'
 
 case(245) ! 'VEGTEMPK_DMAX_DIF4'
 
-   iland = i - omland
    if (.not. allocated(vegtemp_dmax_accum)) go to 1000
    fldval1 = (vegtemp_dmax_accum_prev0(iland) - vegtemp_dmax_accum_prev1(iland))
    fldval2 = (vegtemp_dmax_accum_prev2(iland) - vegtemp_dmax_accum_prev3(iland))
@@ -2710,7 +2668,6 @@ case(245) ! 'VEGTEMPK_DMAX_DIF4'
 
 case(246) ! 'VEGTEMPK_DSPAN_DIF4'
 
-   iland = i - omland
    if (.not. allocated(vegtemp_dmax_accum)) go to 1000
    fldval1 = (vegtemp_dmax_accum_prev0(iland) - vegtemp_dmax_accum_prev1(iland)) &
            - (vegtemp_dmin_accum_prev0(iland) - vegtemp_dmin_accum_prev1(iland))
@@ -2729,7 +2686,6 @@ case(246) ! 'VEGTEMPK_DSPAN_DIF4'
 
 case(247) ! 'SOILTEMPK_DMIN_DIF4'
 
-   iland = i - omland
    if (.not. allocated(soiltemp_dmin_accum)) go to 1000
    fldval1 = (soiltemp_dmin_accum_prev0(iland) - soiltemp_dmin_accum_prev1(iland))
    fldval2 = (soiltemp_dmin_accum_prev2(iland) - soiltemp_dmin_accum_prev3(iland))
@@ -2746,7 +2702,6 @@ case(247) ! 'SOILTEMPK_DMIN_DIF4'
 
 case(248) ! 'SOILTEMPK_DMAX_DIF4'
 
-   iland = i - omland
    if (.not. allocated(soiltemp_dmax_accum)) go to 1000
    fldval1 = (soiltemp_dmax_accum_prev0(iland) - soiltemp_dmax_accum_prev1(iland))
    fldval2 = (soiltemp_dmax_accum_prev2(iland) - soiltemp_dmax_accum_prev3(iland))
@@ -2763,7 +2718,6 @@ case(248) ! 'SOILTEMPK_DMAX_DIF4'
 
 case(249) ! 'SOILTEMPK_DSPAN_DIF4'
 
-   iland = i - omland
    if (.not. allocated(soiltemp_dmax_accum)) go to 1000
    fldval1 = (soiltemp_dmax_accum_prev0(iland) - soiltemp_dmax_accum_prev1(iland)) &
            - (soiltemp_dmin_accum_prev0(iland) - soiltemp_dmin_accum_prev1(iland))
@@ -2785,7 +2739,6 @@ case(250) ! 'WXFERIF_DIF4'
    ! NOTE: wxferi_accum fluxes are positive upward; fldval fluxes (infiltration)
    !       are defined positive downward
 
-   iland = i - omland
    if (.not. allocated(wxferi_accum)) go to 1000
    fldval1 = -(wxferi_accum_prev0(iland) - wxferi_accum_prev1(iland)) * 1.e3 & ! convert from m to mm
            / (pcp_accum_prev0(i) - pcp_accum_prev1(i))
@@ -3383,41 +3336,38 @@ case(271) ! 'AL_SOILTEMP_DSPAN_DIF4'
 
 case(272) ! 'SEATP'
 
-   isea = i - omsea
    fldval = sea%seatp(isea)   
 
 case(273) ! 'SEATF'
 
-   isea = i - omsea
    fldval = sea%seatf(isea)
 
 case(274) ! 'SEATC'
 
-   isea = i - omsea
    fldval = sea%seatc(isea)
 
 case(275) ! 'SEAICEP'
 
-   isea = i - omsea
    fldval = sea%seaicep(isea)   
 
 case(276) ! 'SEAICEF'
 
-   isea = i - omsea
    fldval = sea%seaicef(isea)
 
 case(277) ! 'SEAICEC'
 
-   isea = i - omsea
    fldval = sea%seaicec(isea)
+
+case(278) ! 'WDEPTH'
+
+   fldval = sea%wdepth(isea)
 
 !-----------------------------------------
 ! OTHER LAND or SEA fields
 !-----------------------------------------
 
-case(278) ! 'SLOPE_FACT'
+case(279) ! 'SLOPE_FACT'
 
-   iland = i - omland
    fldval = land%slope_fact(iland)
 
 !-----------------------------------------
@@ -3640,17 +3590,74 @@ case(326) ! 'SFCG_ALBEDO_DIFFUSE'
 
    fldval = sfcg%albedo_diffuse(i)
 
-case(327) ! 'SFCWAT_NUD'
+case(327) ! 'SFCG_BATHYM'
+
+   fldval = sfcg%bathym(i)
+
+case(328) ! 'SFCG_PCPG'
+
+   fldval = sfcg%pcpg(i)
+
+case(329) ! 'SFCG_VC'
+
+   fldval = sfcg%vc(i) 
+
+case(330) ! 'WAT_DEPTH'
+
+   if (sfcg%leaf_class(i) == 0) then
+      isea = i - omsea
+      fldval = sea%wdepth(isea)
+   elseif (sfcg%leaf_class(i) == 1) then
+      ilake = i - omlake
+      fldval = lake%depth(ilake)
+   elseif (sfcg%leaf_class(i) >= 2) then
+      iland = i - omland
+      fldval = 0.
+      do klev = 1,land%nlev_sfcwater(iland)
+         fldval = fldval + land%sfcwater_depth(klev,iland)
+      enddo
+   endif
+
+case(331) ! 'WAT_TEMPK'
+
+   if (sfcg%leaf_class(i) == 0) then
+      isea = i - omsea
+      fldval = sea%seatc(isea)
+   elseif (sfcg%leaf_class(i) == 1) then
+      ilake = i - omlake
+      call qtk(lake%lake_energy(ilake),tempk,fracliq)
+      fldval = tempk
+   elseif (sfcg%leaf_class(i) >= 2) then
+      iland = i - omland
+      nls = land%nlev_sfcwater(iland)
+      if (nls > 0) then
+         call qtk(land%sfcwater_energy(nls,iland),tempk,fracliq)
+         fldval = tempk
+      else
+         call qwtk(land%soil_energy(nzg,iland),        &
+                   land%soil_water(nzg,iland)*1.e3,    &
+                   land%specifheat_drysoil(nzg,iland), &
+                   tempk, fracliq)
+      endif
+
+      fldval = tempk
+   endif
+
+case(332) ! 'HEAD1_MSL'
+
+   fldval = sfcg%head1(i) + sfcg%topw(i)
+
+case(333) ! 'SFCWAT_NUD'
 
    if (.not. allocated(sfcwat_nud)) go to 1000
    fldval = sfcwat_nud(i) * 86400. 
 
-case(328) ! 'SFCTEMP_NUD'
+case(334) ! 'SFCTEMP_NUD'
 
    if (.not. allocated(sfctemp_nud)) go to 1000
    fldval = sfctemp_nud(i)
 
-case(329) ! 'FRACLIQ_NUD'
+case(335) ! 'FRACLIQ_NUD'
 
    if (.not. allocated(fracliq_nud)) go to 1000
    fldval = fracliq_nud(i)
@@ -4506,12 +4513,10 @@ case(584) ! 'ITAB_W_JASFC'
 
 ! ITAB_WSFC MEMBERS
 
-case(601) ! 'ITAB_WSFC_IWGLOBE'
+case(602) ! 'ITAB_WSFC_IWGLOBE'
    fldval = itab_wsfc(i)%iwglobe
-case(602) ! 'ITAB_WSFC_IRANK'
+case(603) ! 'ITAB_WSFC_IRANK'
    fldval = itab_wsfc(i)%irank
-case(603) ! 'ITAB_WSFC_IVORONOI'
-   fldval = itab_wsfc(i)%ivoronoi
 case(604) ! 'ITAB_WSFC_NWATM'
    fldval = itab_wsfc(i)%nwatm
 case(605) ! 'ITAB_WSFC_IWATM'
@@ -4698,37 +4703,31 @@ case(737) ! 'CANTEMPK_DMAX'
 case(738) ! 'VEGTEMPK_DAVG'
 
    if (.not. allocated(vegtempk_davg)) go to 1000
-   iland = i - omland
    fldval = vegtempk_davg(iland)
 
 case(739) ! 'VEGTEMPK_DMIN'
 
    if (.not. allocated(vegtempk_dmin)) go to 1000
-   iland = i - omland
    fldval = vegtempk_dmin(iland)
 
 case(740) ! 'VEGTEMPK_DMAX'
 
    if (.not. allocated(vegtempk_dmax)) go to 1000
-   iland = i - omland
    fldval = vegtempk_dmax(iland)
 
 case(741) ! 'SOILTEMPK_DAVG'
 
    if (.not. allocated(soiltempk_davg)) go to 1000
-   iland = i - omland
    fldval = soiltempk_davg(iland)
 
 case(742) ! 'SOILTEMPK_DMIN'
 
    if (.not. allocated(soiltempk_dmin)) go to 1000
-   iland = i - omland
    fldval = soiltempk_dmin(iland)
 
 case(743) ! 'SOILTEMPK_DMAX'
 
    if (.not. allocated(soiltempk_dmax)) go to 1000
-   iland = i - omland
    fldval = soiltempk_dmax(iland)
 
 case(744) ! 'SFCG_AIRTEMPK_DAVG'

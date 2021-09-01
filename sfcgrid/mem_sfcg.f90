@@ -57,22 +57,44 @@ Module mem_sfcg
   End type itab_msfc_vars
 
   Type itab_vsfc_vars
+     logical :: send(maxremote) = .false.
      integer :: ivglobe = 1
+     integer :: irank = -1   ! rank of parallel process at this VSFC pt
      integer :: imn(2)
      integer :: iwn(2)
+
+     real :: cosv(2) = 0.     ! cosine of angle between V and zonal dir (Voronoi)
+     real :: sinv(2) = 0.     ! sine of angle between V and zonal dir (Voronoi)
+
+     real :: dxps(2) = 0.     ! xps (eastward) displacement from neighbor W pts
+     real :: dyps(2) = 0.     ! yps (northward) displacement from neighbor W pts
   End type itab_vsfc_vars
 
   Type itab_wsfc_vars
      logical :: send(maxremote) = .false.
      integer :: iwglobe = 1  ! global sfcg index of this WSFC pt (in parallel run)
      integer :: irank = -1   ! rank of parallel process at this WSFC pt
-     integer :: ivoronoi = 3 ! Force to be Voronoi cell if >= 2
 
      integer :: npoly = 0
 
      integer :: imn(7)
      integer :: ivn(7)
      integer :: iwn(7)
+
+     real :: dirv(7) = 0.     ! pos direction of V neighbors
+
+     real :: farm(7) = 0.     ! Fraction of arw0 in each M point sector 
+     real :: farv(7) = 0.     ! Fraction of arw0 in each V point sector 
+
+     real :: gxps1(7) = 0.    ! gradient weight xe component for point 1
+     real :: gyps1(7) = 0.    ! gradient weight ye component for point 1
+
+     real :: gxps2(7) = 0.    ! gradient weight xe component for point 2
+     real :: gyps2(7) = 0.    ! gradient weight ye component for point 2
+
+     real :: ecvec_vx(7) = 0. ! factors converting V to earth cart. velocity
+     real :: ecvec_vy(7) = 0. ! factors converting V to earth cart. velocity
+     real :: ecvec_vz(7) = 0. ! factors converting V to earth cart. velocity
 
      ! Dimension of (8) is estimate of max possible number of atm cells that could
      ! overlap this sfc cell
@@ -101,8 +123,6 @@ Module mem_sfcg
   End type itab_vsfc_pd_vars
 
   Type itab_wsfc_pd_vars
-     integer :: ivoronoi = 3 ! Force Voronoi cell if >= 2
-
      integer :: npoly = 0
 
      integer :: imn(7)
@@ -143,12 +163,40 @@ Module mem_sfcg
 
   ! DERIVED TYPE TO HOLD MPI TABLES FOR A PARALLEL RUN
 
+  Type jtab_vsfc_mpi_vars
+     integer, allocatable :: ivsfc(:)
+     integer, allocatable :: jend(:)
+  End Type jtab_vsfc_mpi_vars
+
+  type (jtab_vsfc_mpi_vars) :: jtab_vsfc_mpi(maxremote) 
+
   Type jtab_wsfc_mpi_vars
      integer, allocatable :: iwsfc(:)
      integer, allocatable :: jend(:)
   End Type jtab_wsfc_mpi_vars
 
   type (jtab_wsfc_mpi_vars) :: jtab_wsfc_mpi(maxremote)
+
+  ! DERIVED TYPES TO LIST GRID POINTS INVOLVED IN SHALLOW WATER MODEL
+
+  Type jtab_wsfc_swm_vars
+     integer, allocatable :: iwsfc(:)
+     integer              :: jend
+  End Type jtab_wsfc_swm_vars
+
+  Type jtab_vsfc_swm_vars
+     integer, allocatable :: ivsfc(:)
+     integer              :: jend
+  End Type jtab_vsfc_swm_vars
+
+  Type jtab_msfc_swm_vars
+     integer, allocatable :: imsfc(:)
+     integer              :: jend
+  End Type jtab_msfc_swm_vars
+
+  type (jtab_wsfc_swm_vars) :: jtab_wsfc_swm 
+  type (jtab_vsfc_swm_vars) :: jtab_vsfc_swm 
+  type (jtab_msfc_swm_vars) :: jtab_msfc_swm 
 
   Type surface_grid_vars
 
@@ -160,6 +208,7 @@ Module mem_sfcg
      real, allocatable :: glatm(:) ! latitude of sfc cell M points
      real, allocatable :: glonm(:) ! longitude of sfc cell M points
 !    real, allocatable :: topm (:) ! topographic height of sfc W points
+     real, allocatable :: arm0 (:) ! Area of IM triangle at earth surface [m^2]
 
      real, allocatable :: xev (:) !
      real, allocatable :: yev (:) !
@@ -168,6 +217,12 @@ Module mem_sfcg
      real, allocatable :: dniu(:) !
      real, allocatable :: dnv (:) !
      real, allocatable :: dniv(:) !
+     real, allocatable :: unx  (:) ! U face normal unit vector x component
+     real, allocatable :: uny  (:) ! U face normal unit vector y component
+     real, allocatable :: unz  (:) ! U face normal unit vector z component
+     real, allocatable :: vnx  (:) ! V face normal unit vector x component
+     real, allocatable :: vny  (:) ! V face normal unit vector y component
+     real, allocatable :: vnz  (:) ! V face normal unit vector z component
 
      real, allocatable :: area    (:) ! cell surface area [m^2]
      real, allocatable :: xew     (:) ! earth x coord of sfc W points
@@ -176,15 +231,20 @@ Module mem_sfcg
      real, allocatable :: glatw   (:) ! latitude of sfc cell W points
      real, allocatable :: glonw   (:) ! longitude of sfc cell W points
      real, allocatable :: topw    (:) ! topographic height of sfc W points
+     real, allocatable :: bathym  (:) ! bathymetric height of sfc W points
      real, allocatable :: wnx     (:) ! norm unit vector x comp of sfc cells
      real, allocatable :: wny     (:) ! norm unit vector y comp of sfc cells
      real, allocatable :: wnz     (:) ! norm unit vector z comp of sfc cells
      real, allocatable :: dzt_bot (:) ! surface similarity grid-height
 
+     real, allocatable :: gxps_coef(:)
+     real, allocatable :: gyps_coef(:)
+
      ! Surface type (land/vegetation, lake, or sea)
 
-     integer, allocatable :: leaf_class(:) ! leaf ("vegetation") class
-     integer, allocatable :: ioge      (:) ! integer array for storing database data
+     integer, allocatable :: leaf_class (:) ! leaf ("vegetation") class
+     integer, allocatable :: ioge       (:) ! integer array for storing database data
+     logical, allocatable :: swm_active (:) ! shallow-water/flood model active in these sfcg cells
 
      ! Atmospheric near-surface properties
 
@@ -236,6 +296,21 @@ Module mem_sfcg
      real, allocatable :: rough    (:) ! roughness height [m]
      real, allocatable :: head1    (:) ! water surface hydraulic head (rel to topo) [m]
 
+     ! Shallow Water Model (SWM) quantities:
+     ! (Members of sfcg because V-point variables/indices are required)
+
+     integer, allocatable :: iwdepv(:) ! Advective donor cell IW index for V face
+
+     real, allocatable :: vc(:)     ! Current velocity [m/s]
+     real, allocatable :: vmp(:)    ! Past velocity * depth [m^2/s]
+     real, allocatable :: vmc(:)    ! Current velocity * depth [m^2/s]
+
+     real, allocatable :: hflux_wat(:) ! Volume flux across V face (VMC * DNU) [m^3/s]
+     real, allocatable :: hflux_enr(:) ! Energy flux across V face [J/s]
+     real, allocatable :: hflux_vxe(:)
+     real, allocatable :: hflux_vye(:)
+     real, allocatable :: hflux_vze(:)
+
   End type surface_grid_vars
 
   type (surface_grid_vars), target :: sfcg
@@ -251,6 +326,15 @@ Module mem_sfcg
   real   , target :: sfcgrdrad(maxgrds,maxngrdll)
   real   , target :: sfcgrdlat(maxgrds,maxngrdll)
   real   , target :: sfcgrdlon(maxgrds,maxngrdll)
+
+! SWM ZONE INFORMATION
+
+  integer :: nswmzons
+
+  integer, target :: nswmzonll(maxgrds)
+  real   , target :: swmzonrad(maxgrds,maxngrdll)
+  real   , target :: swmzonlat(maxgrds,maxngrdll)
+  real   , target :: swmzonlon(maxgrds,maxngrdll)
 
 Contains
 
@@ -286,6 +370,7 @@ Contains
   allocate (sfcg%glatm(mmsfc0)) ; sfcg%glatm = rinit
   allocate (sfcg%glonm(mmsfc0)) ; sfcg%glonm = rinit
 ! allocate (sfcg%topm (mmsfc0)) ; sfcg%topm  = rinit
+  allocate (sfcg%arm0 (mmsfc0)) ; sfcg%arm0  = 0.
 
   allocate (sfcg%xev  (mvsfc0)) ; sfcg%xev   = rinit
   allocate (sfcg%yev  (mvsfc0)) ; sfcg%yev   = rinit
@@ -294,6 +379,12 @@ Contains
   allocate (sfcg%dniu (mvsfc0)) ; sfcg%dniu  = rinit
   allocate (sfcg%dnv  (mvsfc0)) ; sfcg%dnv   = rinit
   allocate (sfcg%dniv (mvsfc0)) ; sfcg%dniv  = rinit
+  allocate (sfcg%unx  (mvsfc0)) ; sfcg%unx   = rinit
+  allocate (sfcg%uny  (mvsfc0)) ; sfcg%uny   = rinit
+  allocate (sfcg%unz  (mvsfc0)) ; sfcg%unz   = rinit
+  allocate (sfcg%vnx  (mvsfc0)) ; sfcg%vnx   = rinit
+  allocate (sfcg%vny  (mvsfc0)) ; sfcg%vny   = rinit
+  allocate (sfcg%vnz  (mvsfc0)) ; sfcg%vnz   = rinit
 
   allocate (sfcg%area    (mwsfc0)) ; sfcg%area     = rinit
   allocate (sfcg%glatw   (mwsfc0)) ; sfcg%glatw    = rinit
@@ -306,13 +397,18 @@ Contains
   endif
 
   allocate (sfcg%topw    (mwsfc0)) ; sfcg%topw     = rinit
+  allocate (sfcg%bathym  (mwsfc0)) ; sfcg%bathym   = rinit
   allocate (sfcg%wnx     (mwsfc0)) ; sfcg%wnx      = rinit
   allocate (sfcg%wny     (mwsfc0)) ; sfcg%wny      = rinit
   allocate (sfcg%wnz     (mwsfc0)) ; sfcg%wnz      = rinit
   allocate (sfcg%dzt_bot (mwsfc0)) ; sfcg%dzt_bot  = rinit
 
+  allocate (sfcg%gxps_coef (mwsfc0)) ; sfcg%gxps_coef  = rinit
+  allocate (sfcg%gyps_coef (mwsfc0)) ; sfcg%gyps_coef  = rinit
+
   allocate (sfcg%leaf_class(mwsfc0)) ; sfcg%leaf_class = 0
   allocate (sfcg%ioge      (mwsfc0)) ; sfcg%ioge       = 0
+  allocate (sfcg%swm_active(mwsfc0)) ; sfcg%swm_active = .false.
 
   end subroutine alloc_sfcgrid1
 
@@ -369,6 +465,18 @@ Contains
      allocate (sfcg%rough         (mwsfc)) ; sfcg%rough          = rinit
      allocate (sfcg%head1         (mwsfc)) ; sfcg%head1          = 0.0
 
+     allocate (sfcg%iwdepv        (mvsfc)) ; sfcg%iwdepv         = 0
+
+     allocate (sfcg%vc            (mvsfc)) ; sfcg%vc             = 0.0
+     allocate (sfcg%vmp           (mvsfc)) ; sfcg%vmp            = 0.0
+     allocate (sfcg%vmc           (mvsfc)) ; sfcg%vmc            = 0.0
+
+     allocate (sfcg%hflux_wat     (mvsfc)) ; sfcg%hflux_wat      = 0.0
+     allocate (sfcg%hflux_enr     (mvsfc)) ; sfcg%hflux_enr      = 0.0
+     allocate (sfcg%hflux_vxe     (mvsfc)) ; sfcg%hflux_vxe      = 0.0
+     allocate (sfcg%hflux_vye     (mvsfc)) ; sfcg%hflux_vye      = 0.0
+     allocate (sfcg%hflux_vze     (mvsfc)) ; sfcg%hflux_vze      = 0.0
+
   end subroutine alloc_sfcgrid2
 
 !=========================================================================
@@ -415,6 +523,10 @@ Contains
      if (allocated(sfcg%rough))          call increment_vtable('SFCG%ROUGH',          'CW', rvar1=sfcg%rough)
      if (allocated(sfcg%head1))          call increment_vtable('SFCG%HEAD1',          'CW', rvar1=sfcg%head1)
 
+     if (allocated(sfcg%vc))             call increment_vtable('SFCG%VC',             'CV', rvar1=sfcg%vc)
+     if (allocated(sfcg%vmp))            call increment_vtable('SFCG%VMP',            'CV', rvar1=sfcg%vmp)
+     if (allocated(sfcg%vmc))            call increment_vtable('SFCG%VMC',            'CV', rvar1=sfcg%vmc)
+
    end subroutine filltab_sfcg
 
 !=========================================================================
@@ -429,10 +541,11 @@ Contains
      use mem_ijtabs,  only: itabg_w
      use mem_grid,    only: gdz_abov8
      use mem_para,    only: myrank
+     use mem_sea,     only: sea, omsea
 
      implicit none
 
-     integer :: iwsfc, j, iw, kw
+     integer :: iwsfc, j, iw, kw, isea
      real :: vels, psfc
 
      ! Average atmospheric quantities to each SFC grid cell location
@@ -480,6 +593,23 @@ Contains
            if (co2flag /= 0) then
               sfcg%airco2(iwsfc) = sfcg%airco2(iwsfc) + itab_wsfc(iwsfc)%arcoarsfc(j) * rr_co2(kw,iw)
            endif
+
+           ! Surface stress components for sea cells
+
+           if (sfcg%leaf_class(iwsfc) == 0) then
+              isea = iwsfc - omsea
+
+              if (j == 1) then
+                 sea%windxe(isea) = itab_wsfc(iwsfc)%arcoarsfc(j) * vxe(kw,iw)
+                 sea%windye(isea) = itab_wsfc(iwsfc)%arcoarsfc(j) * vye(kw,iw)
+                 sea%windze(isea) = itab_wsfc(iwsfc)%arcoarsfc(j) * vze(kw,iw)
+              else
+                 sea%windxe(isea) = sea%windxe(isea) + itab_wsfc(iwsfc)%arcoarsfc(j) * vxe(kw,iw)
+                 sea%windye(isea) = sea%windye(isea) + itab_wsfc(iwsfc)%arcoarsfc(j) * vye(kw,iw)
+                 sea%windze(isea) = sea%windze(isea) + itab_wsfc(iwsfc)%arcoarsfc(j) * vze(kw,iw)
+              endif
+           endif
+
         enddo
 
      enddo
@@ -489,19 +619,76 @@ Contains
 
 !===============================================================================
 
-  subroutine fill_jwsfc()
+  subroutine fill_jtab_sfcg()
 
   use mem_ijtabs, only: mrls
 
   use misc_coms,  only: io6, iparallel
 
   use mem_para,   only: mgroupsize, myrank,  &
-                        send_wsfc, recv_wsfc,  &
-                        nsends_wsfc, nrecvs_wsfc
+                        send_vsfc, recv_vsfc, nsends_vsfc, nrecvs_vsfc, &
+                        send_wsfc, recv_wsfc, nsends_wsfc, nrecvs_wsfc
 
   implicit none
 
-  integer :: jsend, iwsfc, jend
+  integer :: jsend, jend, iwsfc, ivsfc, imsfc, iw1, iw2, iw3
+
+!----------------------------------------------------------------------
+
+  ! Allocate and zero-fill JTAB_VSFC_MPI%JEND
+
+  do jsend = 1,maxremote
+     allocate (jtab_vsfc_mpi(jsend)%jend(mrls))
+               jtab_vsfc_mpi(jsend)%jend(1:mrls) = 0
+  enddo
+
+  ! jtab_vsfc_mpi only needed if run is parallel
+
+  if (iparallel == 0) then
+
+     ! Compute and store JTAB_VSFC_MPI%JEND(1)
+
+     do jsend = 1,nsends_vsfc
+        jtab_vsfc_mpi(jsend)%jend(1) = 0
+        do ivsfc = 2,mvsfc
+           if (itab_vsfc(ivsfc)%send(jsend)) then
+              jtab_vsfc_mpi(jsend)%jend(1) = jtab_vsfc_mpi(jsend)%jend(1) + 1
+           endif
+        enddo
+        jtab_vsfc_mpi(jsend)%jend(1) = max(1,jtab_vsfc_mpi(jsend)%jend(1))
+     enddo
+
+     ! Allocate and zero-fill JTAB_VSFC_MPI%IVSFC
+
+     do jsend = 1,nsends_wsfc
+        jend = jtab_vsfc_mpi(jsend)%jend(1)
+        allocate (jtab_vsfc_mpi(jsend)%ivsfc(jend))
+                  jtab_vsfc_mpi(jsend)%ivsfc(1:jend) = 0
+     enddo
+
+     ! Initialize JTAB_VSFC_MPI%JEND counters to zero
+
+     do jsend = 1,nsends_vsfc
+        jtab_vsfc_mpi(jsend)%jend(1:mrls) = 0
+     enddo
+
+     ! Compute JTAB_WVFC_MPI%IVSFC (only fill for MRL = 1)
+
+     do ivsfc = 2,mvsfc
+        do jsend = 1,nsends_vsfc
+
+           if (itab_vsfc(ivsfc)%send(jsend)) then
+              jtab_vsfc_mpi(jsend)%jend(1) = jtab_vsfc_mpi(jsend)%jend(1) + 1
+              jend = jtab_vsfc_mpi(jsend)%jend(1)
+              jtab_vsfc_mpi(jsend)%ivsfc(jend) = ivsfc
+           endif
+
+        enddo
+     enddo
+
+  endif
+
+!----------------------------------------------------------------------
 
   ! Allocate and zero-fill JTAB_WSFC_MPI%JEND
 
@@ -510,49 +697,171 @@ Contains
                jtab_wsfc_mpi(jsend)%jend(1:mrls) = 0
   enddo
 
-  ! Return if run is not parallel (jtab not needed)
+  ! jtab_wsfc_mpi only needed if run is parallel
 
-  if (iparallel == 0) return
+  if (iparallel == 0) then
 
-  ! Compute and store JTAB_WSFC_MPI%JEND(1)
+     ! Compute and store JTAB_WSFC_MPI%JEND(1)
 
-  do jsend = 1,nsends_wsfc
-     jtab_wsfc_mpi(jsend)%jend(1) = 0
-     do iwsfc = 2,mwsfc
-        if (itab_wsfc(iwsfc)%send(jsend)) then
-           jtab_wsfc_mpi(jsend)%jend(1) = jtab_wsfc_mpi(jsend)%jend(1) + 1
-        endif
+     do jsend = 1,nsends_wsfc
+        jtab_wsfc_mpi(jsend)%jend(1) = 0
+        do iwsfc = 2,mwsfc
+           if (itab_wsfc(iwsfc)%send(jsend)) then
+              jtab_wsfc_mpi(jsend)%jend(1) = jtab_wsfc_mpi(jsend)%jend(1) + 1
+           endif
+        enddo
+        jtab_wsfc_mpi(jsend)%jend(1) = max(1,jtab_wsfc_mpi(jsend)%jend(1))
      enddo
-     jtab_wsfc_mpi(jsend)%jend(1) = max(1,jtab_wsfc_mpi(jsend)%jend(1))
+
+     ! Allocate and zero-fill JTAB_WSFC_MPI%IWSFC
+
+     do jsend = 1,nsends_wsfc
+        jend = jtab_wsfc_mpi(jsend)%jend(1)
+        allocate (jtab_wsfc_mpi(jsend)%iwsfc(jend))
+                  jtab_wsfc_mpi(jsend)%iwsfc(1:jend) = 0
+     enddo
+
+     ! Initialize JTAB_WSFC_MPI%JEND counters to zero
+
+     do jsend = 1,nsends_wsfc
+        jtab_wsfc_mpi(jsend)%jend(1:mrls) = 0
+     enddo
+
+     ! Compute JTAB_WSFC_MPI%IWSFC (only fill for MRL = 1)
+
+     do iwsfc = 2,mwsfc
+        do jsend = 1,nsends_wsfc
+
+           if (itab_wsfc(iwsfc)%send(jsend)) then
+              jtab_wsfc_mpi(jsend)%jend(1) = jtab_wsfc_mpi(jsend)%jend(1) + 1
+              jend = jtab_wsfc_mpi(jsend)%jend(1)
+              jtab_wsfc_mpi(jsend)%iwsfc(jend) = iwsfc
+           endif
+
+        enddo
+     enddo
+
+  endif
+
+  !--------------------------------------------------------------
+
+  ! Compute and store JTAB_WSFC_SWM%JEND, restricted to SEA points that are SWM-active
+
+  jtab_wsfc_swm%jend = 0
+  do iwsfc = 2,mwsfc
+     if (sfcg%swm_active(iwsfc) .and. sfcg%leaf_class(iwsfc) == 0) then
+        jtab_wsfc_swm%jend = jtab_wsfc_swm%jend + 1
+     endif
   enddo
+  jtab_wsfc_swm%jend = max(1,jtab_wsfc_swm%jend)
 
-  ! Allocate and zero-fill JTAB_WSFC_MPI%IWSFC
+  ! Allocate and zero-fill JTAB_WSFC_SWM%IWSFC
 
-  do jsend = 1,nsends_wsfc
-     jend = jtab_wsfc_mpi(jsend)%jend(1)
-     allocate (jtab_wsfc_mpi(jsend)%iwsfc(jend))
-               jtab_wsfc_mpi(jsend)%iwsfc(1:jend) = 0
-  enddo
+  jend = jtab_wsfc_swm%jend
+  allocate (jtab_wsfc_swm%iwsfc(jend))
+            jtab_wsfc_swm%iwsfc(1:jend) = 0
 
-  ! Initialize JTAB_WSFC_MPI%JEND counters to zero
+  ! Initialize JTAB_WSFC_SWM%JEND to zero
 
-  do jsend = 1,nsends_wsfc
-     jtab_wsfc_mpi(jsend)%jend(1:mrls) = 0
-  enddo
+  jtab_wsfc_swm%jend = 0
 
-  ! Compute JTAB_WSFC_MPI%IWSFC (only fill for MRL = 1)
+  ! Compute JTAB_WSFC_SWM%IWSFC
 
   do iwsfc = 2,mwsfc
-     do jsend = 1,nsends_wsfc
-
-        if (itab_wsfc(iwsfc)%send(jsend)) then
-           jtab_wsfc_mpi(jsend)%jend(1) = jtab_wsfc_mpi(jsend)%jend(1) + 1
-           jtab_wsfc_mpi(jsend)%iwsfc(jtab_wsfc_mpi(jsend)%jend(1)) = iwsfc
-        endif
-
-     enddo
+     if (sfcg%swm_active(iwsfc) .and. sfcg%leaf_class(iwsfc) == 0) then
+        jtab_wsfc_swm%jend = jtab_wsfc_swm%jend + 1
+        jend = jtab_wsfc_swm%jend
+        jtab_wsfc_swm%iwsfc(jend) = iwsfc
+     endif
   enddo
 
-  end subroutine fill_jwsfc
+  !--------------------------------------------------------------
+
+  ! Compute and store JTAB_VSFC_SWM%JEND, restricted to V edges between two
+  ! SEA points that are SWM-active
+
+  jtab_vsfc_swm%jend = 0
+  do ivsfc = 2,mvsfc
+     iw1 = itab_vsfc(ivsfc)%iwn(1)
+     iw2 = itab_vsfc(ivsfc)%iwn(2)
+     if ((sfcg%swm_active(iw1) .and. sfcg%leaf_class(iw1) == 0) .and. &
+         (sfcg%swm_active(iw2) .and. sfcg%leaf_class(iw2) == 0)) then
+        jtab_vsfc_swm%jend = jtab_vsfc_swm%jend + 1
+     endif
+  enddo
+  jtab_vsfc_swm%jend = max(1,jtab_vsfc_swm%jend)
+
+  ! Allocate and zero-fill JTAB_VSFC_SWM%IVSFC
+
+  jend = jtab_vsfc_swm%jend
+  allocate (jtab_vsfc_swm%ivsfc(jend))
+            jtab_vsfc_swm%ivsfc(1:jend) = 0
+
+  ! Initialize JTAB_VSFC_SWM%JEND to zero
+
+  jtab_vsfc_swm%jend = 0
+
+  ! Compute JTAB_VSFC_SWM%IVSFC
+
+  do ivsfc = 2,mvsfc
+     iw1 = itab_vsfc(ivsfc)%iwn(1)
+     iw2 = itab_vsfc(ivsfc)%iwn(2)
+     if ((sfcg%swm_active(iw1) .and. sfcg%leaf_class(iw1) == 0) .and. &
+         (sfcg%swm_active(iw2) .and. sfcg%leaf_class(iw2) == 0)) then
+        jtab_vsfc_swm%jend = jtab_vsfc_swm%jend + 1
+        jend = jtab_vsfc_swm%jend
+        jtab_vsfc_swm%ivsfc(jend) = ivsfc
+     endif
+  enddo
+
+  !--------------------------------------------------------------
+
+  ! Compute and store JTAB_MSFC_SWM%JEND, restricted to M vertices surrounded
+  ! by 3 SEA points that are SWM-active
+
+  jtab_msfc_swm%jend = 0
+  do imsfc = 2,mmsfc
+     iw1 = itab_msfc(imsfc)%iwn(1)
+     iw2 = itab_msfc(imsfc)%iwn(2)
+     iw3 = itab_msfc(imsfc)%iwn(3)
+
+     if (iw1 > 1 .and. iw2 > 1 .and. iw3 > 1) then
+        if ((sfcg%swm_active(iw1) .and. sfcg%leaf_class(iw1) == 0) .and. &
+            (sfcg%swm_active(iw2) .and. sfcg%leaf_class(iw2) == 0) .and. &
+            (sfcg%swm_active(iw3) .and. sfcg%leaf_class(iw3) == 0)) then
+           jtab_msfc_swm%jend = jtab_msfc_swm%jend + 1
+        endif
+     endif
+  enddo
+  jtab_msfc_swm%jend = max(1,jtab_msfc_swm%jend)
+
+  ! Allocate and zero-fill JTAB_MSFC_SWM%IMSFC
+
+  jend = jtab_msfc_swm%jend
+  allocate (jtab_msfc_swm%imsfc(jend))
+            jtab_msfc_swm%imsfc(1:jend) = 0
+
+  ! Initialize JTAB_MSFC_SWM%JEND to zero
+
+  jtab_msfc_swm%jend = 0
+
+  ! Compute JTAB_MSFC_SWM%IMSFC
+
+  do imsfc = 2,mmsfc
+     iw1 = itab_msfc(imsfc)%iwn(1)
+     iw2 = itab_msfc(imsfc)%iwn(2)
+     iw3 = itab_msfc(imsfc)%iwn(3)
+     if (iw1 > 1 .and. iw2 > 1 .and. iw3 > 1) then
+        if ((sfcg%swm_active(iw1) .and. sfcg%leaf_class(iw1) == 0) .and. &
+            (sfcg%swm_active(iw2) .and. sfcg%leaf_class(iw2) == 0) .and. &
+            (sfcg%swm_active(iw3) .and. sfcg%leaf_class(iw3) == 0)) then
+           jtab_msfc_swm%jend = jtab_msfc_swm%jend + 1
+           jend = jtab_msfc_swm%jend
+           jtab_msfc_swm%imsfc(jend) = imsfc
+        endif
+     endif
+  enddo
+
+  end subroutine fill_jtab_sfcg
 
 End Module mem_sfcg

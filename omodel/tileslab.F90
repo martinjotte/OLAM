@@ -994,7 +994,7 @@ end subroutine tileslab_horiz_vn
 
 !===============================================================================
 
-subroutine tileslab_horiz_sfc(iplt,action)
+subroutine tileslab_horiz_wsfc(iplt,action)
 
   use max_dims,   only: maxnlspoly
   use oplot_coms, only: op
@@ -1107,8 +1107,6 @@ print*, trim(op%dimens), op%slabloc(iplt),nzg,nzs
           all(vtpn(1:npoly) < op%ymin) .or. all(vtpn(1:npoly) > op%ymax)) cycle
 
      ! Plot cell
-
-if (iwsfc == 1008) print*, 'tileslabk ',k
 
      call oplot_lib(k,iwsfc,'VALUE',op%fldname(iplt),wtbot,wttop, &
                     fldval,notavail)    
@@ -1245,7 +1243,248 @@ if (iwsfc == 1008) print*, 'tileslabk ',k
                                 field_tot, area_tot, field_tot/area_tot
   endif
 
-end subroutine tileslab_horiz_sfc
+end subroutine tileslab_horiz_wsfc
+
+!===============================================================================
+
+subroutine tileslab_horiz_vsfc(iplt,action)
+
+  use oplot_coms, only: op
+  use mem_sfcg,   only: mvsfc, itab_vsfc, sfcg
+  use mem_land,   only: nzg
+  use leaf_coms,  only: nzs
+  use misc_coms,  only: io6, iparallel
+  use mem_para,   only: myrank, mgroupsize, nbytes_int, nbytes_real
+
+#ifdef OLAM_MPI
+  use mpi
+#endif
+
+  implicit none
+
+  integer,      intent(in) :: iplt
+  character(1), intent(in) :: action
+
+  integer :: ivsfc
+  integer :: iw1, iw2
+  integer :: itpn
+  integer :: im1, im2
+  integer :: notavail
+
+  real :: fldval
+  real :: hpt, vpt, psiz, vsprd
+  real :: htpn(4), vtpn(4)
+
+  integer, allocatable :: buffer(:), bcopy(:)
+  integer :: nu, ier, buffsize, ipos, base, inc, n, j
+  integer :: nus(mgroupsize)
+  integer, parameter :: itag = 40
+  integer :: iflag180
+
+  nu   = 0
+  ipos = 0
+
+  base = 13 * nbytes_real
+  if (op%windowin(iplt) == 'W') then
+     inc = ceiling( real(mvsfc) / 5. )
+  else
+     inc = mvsfc
+  endif
+
+  if (myrank > 0) then
+     buffsize = inc * base
+     allocate( buffer( buffsize ) )
+  endif
+
+  do ivsfc = 2,mvsfc
+
+     if (itab_vsfc(ivsfc)%irank /= myrank) cycle 
+
+     ! Get tile plot coordinates.  
+
+     call oplot_transform(iplt,sfcg%xev(ivsfc),sfcg%yev(ivsfc),sfcg%zev(ivsfc),hpt,vpt)
+
+     im1 = itab_vsfc(ivsfc)%imn(1)
+     im2 = itab_vsfc(ivsfc)%imn(2)
+     iw1 = itab_vsfc(ivsfc)%iwn(1)
+     iw2 = itab_vsfc(ivsfc)%iwn(2)
+
+     ! Initialize iflag180
+
+     iflag180 = 0
+
+     if (im1 > 1) then
+        call oplot_transform(iplt,sfcg%xem(im1),sfcg%yem(im1),sfcg%zem(im1),htpn(1),vtpn(1))
+     else
+        htpn(1) = hpt
+        vtpn(1) = vpt
+     endif
+
+     if (im2 > 1) then
+        call oplot_transform(iplt,sfcg%xem(im2),sfcg%yem(im2),sfcg%zem(im2),htpn(3),vtpn(3))
+     else
+        htpn(3) = hpt
+        vtpn(3) = vpt
+     endif
+
+     if (iw2 > 1) then
+        call oplot_transform(iplt,sfcg%xew(iw2),sfcg%yew(iw2),sfcg%zew(iw2),htpn(2),vtpn(2))
+     else
+        htpn(2) = htpn(3)
+        vtpn(2) = vtpn(3)
+     endif
+
+     if (iw1 > 1) then
+        call oplot_transform(iplt,sfcg%xew(iw1),sfcg%yew(iw1),sfcg%zew(iw1),htpn(4),vtpn(4))
+     else
+        htpn(4) = htpn(3)
+        vtpn(4) = vtpn(3)
+     endif
+
+     !  Avoid wrap-around for lat-lon plot
+
+     if (op%projectn(iplt) == 'L') then
+        do itpn = 1,4
+           call ll_unwrap(hpt,htpn(itpn))
+        enddo
+     endif
+
+     ! Jump out of loop if any cell corner is on other side of earth
+
+     if (any(htpn(1:4) > 1.e11)) cycle
+
+     ! Jump out of loop if entire cell is outside plot window. 
+
+     if ( all(htpn(1:4) < op%xmin) .or. all(htpn(1:4) > op%xmax) .or.  &
+          all(vtpn(1:4) < op%ymin) .or. all(vtpn(1:4) > op%ymax)) cycle
+
+     ! Get cell value and 'available' flag
+
+     call oplot_lib(1,ivsfc,'VALUE',op%fldname(iplt),1.,0., &
+                    fldval,notavail)    
+
+     if (notavail > 0) cycle 
+
+     ! Set iflag180
+        
+     if (op%projectn(iplt) == 'L') then
+        do itpn = 1,4
+           if (htpn(itpn) < -180.001) iflag180 =  1
+           if (htpn(itpn) >  180.001) iflag180 = -1
+        enddo
+     endif
+
+     call get_psiz(iplt,sfcg%dnv(ivsfc),psiz,vsprd)
+
+     if (myrank == 0) then
+
+        call celltile(iplt,4,htpn,vtpn,hpt,vpt,psiz,vsprd,fldval,action)
+        
+     else
+
+#ifdef OLAM_MPI
+        nu = nu + 1
+        if (buffsize < ipos + base) then
+           allocate( bcopy (buffsize + inc * base) )
+           bcopy(1:buffsize) = buffer
+           call move_alloc(bcopy, buffer)
+           buffsize = size(buffer)
+        endif
+
+        call MPI_Pack(htpn,   4, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+        call MPI_Pack(vtpn,   4, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+        call MPI_Pack(hpt,    1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+        call MPI_Pack(vpt,    1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+        call MPI_Pack(psiz,   1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+        call MPI_Pack(vsprd,  1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+        call MPI_Pack(fldval, 1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+#endif
+
+     endif
+
+     ! If this polygon crosses +/- 180 degrees longitude in lat/lon plot, re-plot
+     ! at other end
+
+     if (iflag180 /= 0) then
+
+        do itpn = 1, 4
+           htpn(itpn) = htpn(itpn) + 360. * iflag180
+        enddo
+
+        if (myrank == 0) then
+
+           call celltile(iplt,4,htpn,vtpn,hpt,vpt,psiz,vsprd,fldval,action)
+
+        else
+
+#ifdef OLAM_MPI
+           nu = nu + 1
+           if (buffsize < ipos + base) then
+              allocate( bcopy (buffsize + inc * base) )
+              bcopy(1:buffsize) = buffer
+              call move_alloc(bcopy, buffer)
+              buffsize = size(buffer)
+           endif
+
+           call MPI_Pack(htpn,   4, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+           call MPI_Pack(vtpn,   4, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+           call MPI_Pack(hpt,    1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+           call MPI_Pack(vpt,    1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+           call MPI_Pack(psiz,   1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+           call MPI_Pack(vsprd,  1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+           call MPI_Pack(fldval, 1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+#endif
+
+        endif
+
+     endif ! iflag180
+
+  enddo
+
+#ifdef OLAM_MPI
+  if (iparallel == 1) then
+     call MPI_Gather(nu, 1, MPI_INTEGER, nus, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ier)
+
+     if (myrank > 0 .and. nu > 0) then
+        call MPI_Send(buffer, ipos, MPI_PACKED, 0, itag, MPI_COMM_WORLD, ier)
+     endif
+
+     if (myrank == 0) then
+
+        buffsize = maxval(nus(2:mgroupsize)) * base
+        allocate( buffer( buffsize ) )
+
+        do n = 2, mgroupsize
+
+           if (nus(n) > 0) then
+
+              call MPI_Recv( buffer, buffsize, MPI_PACKED, n-1, itag, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier )
+
+              ipos = 0
+
+              do j = 1, nus(n)
+               
+                 call MPI_Unpack(buffer, buffsize, ipos, htpn,   4, MPI_REAL,    MPI_COMM_WORLD, ier)
+                 call MPI_Unpack(buffer, buffsize, ipos, vtpn,   4, MPI_REAL,    MPI_COMM_WORLD, ier)
+                 call MPI_Unpack(buffer, buffsize, ipos, hpt,    1, MPI_REAL,    MPI_COMM_WORLD, ier)
+                 call MPI_Unpack(buffer, buffsize, ipos, vpt,    1, MPI_REAL,    MPI_COMM_WORLD, ier)
+                 call MPI_Unpack(buffer, buffsize, ipos, psiz,   1, MPI_REAL,    MPI_COMM_WORLD, ier)
+                 call MPI_Unpack(buffer, buffsize, ipos, vsprd,  1, MPI_REAL,    MPI_COMM_WORLD, ier)
+                 call MPI_Unpack(buffer, buffsize, ipos, fldval, 1, MPI_REAL,    MPI_COMM_WORLD, ier)
+
+                 call celltile(iplt,4,htpn,vtpn,hpt,vpt,psiz,vsprd,fldval,action)
+           
+              enddo
+
+           endif
+        enddo
+     endif
+        
+     deallocate(buffer)
+  endif
+#endif
+
+end subroutine tileslab_horiz_vsfc
 
 !===============================================================================
 

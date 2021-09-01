@@ -42,7 +42,7 @@ Contains
                     snowfac,       vf,              stom_resist,     veg_height, &
                     veg_rough,     veg_tai,         veg_lai,         hcapveg,    &
                     rshort_v,      rshort_g,        rlong_v,         rlong_s,    &
-                    rlong_g,       veg_water,       vegwater_energy, veg_temp,   &
+                    rlong_g,       veg_water,       veg_energy,      veg_temp,   &
                     sfcwater_mass, sfcwater_energy, sfcwater_depth,              &
                     energy_per_m2, sfcwater_tempk,  sfcwater_fracliq,            &
                     soil_water,    soil_energy,                                  &
@@ -97,7 +97,7 @@ Contains
   real, intent(in)    :: rlong_s          ! l/w rad flux absorbed by sfc [W/m^2]
   real, intent(in)    :: rlong_g          ! l/w rad flux absorbed by gnd [W/m^2]
   real, intent(inout) :: veg_water        ! veg sfc water content [kg/m^2]
-  real, intent(inout) :: vegwater_energy  ! veg sfc water energy [J/m^2]
+  real, intent(inout) :: veg_energy       ! (veg + veg_water) energy [J/m^2]
   real, intent(inout) :: veg_temp         ! veg temp [K]
   real, intent(inout) :: sfcwater_mass    ! surface water mass [kg/m^2]
   real, intent(inout) :: sfcwater_energy  ! surface water energy [J/kg]
@@ -150,10 +150,10 @@ Contains
   real :: wxfergc     ! gnd-to-can_air vap xfer this step [kg_vap/m^2]
   real :: hxfervc     ! veg-to-can_air heat xfer this step [J/m^2]
   real :: wxfervc     ! veg-to-can_air vapor xfer this step [kg_vap/m^2]
+  real :: vegwater_energy ! energy of veg_water [J/m^2]
   real :: wshed       ! water shed from veg this LEAF timestep [kg/m^2]
   real :: qshed       ! water energy shed from veg this LEAF timestep [J/m^2]
   real :: dshed       ! depth of water shed from veg [m]
-  real :: veg_energy  ! combined veg and veg_water energy [J/m^2]
   real :: factv       ! for computing rasveg
   real :: aux         ! for computing rasveg
   real :: rasveg      ! full-veg value of rd [s/m]
@@ -218,7 +218,7 @@ Contains
   real :: evap        ! amount evaporated from veg sfc [kg/m^2]
 
   real :: specvol, vw_max
-  real :: tf, wadd, wshed2, qshed2, delw
+  real :: tf, wadd, wshed2, qshed2, veg_temp0, delw
 
   real(r8) :: a1, a2, a3, a4, a5, a6, a7, a8
   real(r8) :: h1, h2, h3, h4, h5, h6, h7
@@ -288,57 +288,71 @@ Contains
      wtveg  = max(0.,min(1., 1.1 * veg_tai / covr))
      rdi    = ustar / (5. * (1. - wtveg) + ustar * rasveg * wtveg)
 
-     ! Evaluate vegetation Celsius temperature
+     ! It is assumed that at this point in the computations, veg_temp is
+     ! still consistent with veg_energy and veg_water from the previous
+     ! timestep and therefore does not need to be re-diagnosed.
 
-     tvegc      = veg_temp - t00
-     veg_energy = hcapveg * tvegc + vegwater_energy
+     ! Remove any existing veg water over threshold (which would have come from
+     ! any dew or frost deposition on the previous timestep)
 
-     ! Remove any existing veg water over threshold
+! do independent check of veg_temp (using veg_temp0)
+
+call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
 
      if (veg_water > vw_max) then
+        vegwater_energy = veg_energy - hcapveg * (veg_temp - t00)
+
         wshed = veg_water - vw_max
         qshed = wshed * vegwater_energy / veg_water
         dshed = wshed * .001
 
-        veg_water       = vw_max
-        vegwater_energy = vegwater_energy - qshed
-        veg_energy      = veg_energy      - qshed
+        veg_water  = vw_max
+        veg_energy = veg_energy - qshed
      endif
 
      ! Add any precipitation intercepted mass and energy to vegetation surface
 
      if (pcpg > 1.e-30) then
-        veg_water       = veg_water       + pcpg  * vf
-        vegwater_energy = vegwater_energy + qpcpg * vf
+        veg_water  = veg_water  + pcpg  * vf
+        veg_energy = veg_energy + qpcpg * vf
+
+        call qwtk(veg_energy, veg_water, hcapveg, veg_temp, fracliqv)
 
         if (veg_water > vw_max) then
+           vegwater_energy = veg_energy - hcapveg * (veg_temp - t00)
+
            wshed2 = veg_water - vw_max
            qshed2 = wshed2 * vegwater_energy / veg_water
 
-           veg_water       = vw_max
-           vegwater_energy = vegwater_energy - qshed2
-           veg_energy      = veg_energy - qshed2
+           veg_water  = vw_max
+           veg_energy = veg_energy - qshed2
 
            wshed = wshed + wshed2
            qshed = qshed + qshed2
            dshed = dshed + wshed2 * dpcpg / pcpg
+
         endif
 
-        call qwtk(veg_energy, veg_water, hcapveg, veg_temp, fracliqv)
-        tvegc = veg_temp - t00
+
      endif
+
+     ! Still should not require re-diagnosis of veg_temp, but do so anyway
+     ! to check values
+
+     call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
+
+     tvegc = veg_temp - t00
 
      ! Check for presence of veg_water and set iwetveg flag
 
      iwetveg = (veg_water > wcap_vmin)
      if (.not. iwetveg) then
         if (veg_water > 1.e-20) canrrv = canrrv + veg_water * canairi
-        veg_water       = 0.
-        vegwater_energy = 0.
-        veg_energy      = tvegc * hcapveg
+        veg_water  = 0.
+        veg_energy = tvegc * hcapveg
      endif
 
-     ! Vegetation saturation vapor density and gradient
+     ! Vegetation saturation vapor density and derivative
 
      veg_rhovs  = rhovsil(tvegc)
      veg_rhovsp = rhovsil(tvegc+1.) - veg_rhovs
@@ -446,7 +460,7 @@ Contains
   if (wadd > 1.e-30) then
      sfcwater_mass   = sfcwater_mass   + wadd
      sfcwater_depth  = sfcwater_depth  + dpcpg * (1. - vf) + dshed
-     sfcwater_energy = sfcwater_energy + qpcpg * (1. - vf) + qshed
+     energy_per_m2   = energy_per_m2   + qpcpg * (1. - vf) + qshed
   endif
 
   ! If nlsw1 = 1 (lowest sfcwater layer), and sfcwater mass is present but
@@ -558,7 +572,7 @@ Contains
   ! predicted atmospheric layer.
 
   ! Quantities that apply both WITH and WITHOUT VEGETATION
-  ! [radsfc is net shortwave + longwave input to surface.  In LEAF4, all shortwave
+  ! [radsfc is net shortwave + longwave input to surface].  In LEAF4, all shortwave
   ! radiation absorbed by the surface is put into rshort_g (in subroutine
   ! sfcrad_land), whether sfcwater is present or not.  Here in subroutine
   ! leaf4_canopy, the decision is made, based on abundance of sfcwater, whether
@@ -638,6 +652,10 @@ Contains
      if (sfcwater_fracarea > 0.999) then
         write(*,'(a,i10,2f9.2)') 'NOVEG CASE sfcwater_fracarea should be less than 1', &
             iwsfc,glatw,glonw
+        print*, 'sf1 ',sfcwater_fracarea,eps_wxfer,sfcwater_mass
+        print*, 'sf2 ',xx2(1),xx2(2),a5,a6
+        print*, 'sf3 ',h2,h4,h6,h7
+        print*, 'sf4 ',y2,y5
         stop 'sfcwater_fracarea = 1, NOVEG CASE'
      endif
 
@@ -1044,6 +1062,9 @@ Contains
      if (sfcwater_fracarea > 0.999) then
         write(*,'(a,i10,2f9.2)') 'VEG CASE sfcwater_fracarea should be less than 1', &
             iwsfc,glatw,glonw
+        print*, 'sf11 ',sfcwater_fracarea,eps_wxfer,sfcwater_mass
+        print*, 'sf12 ',xx4(1),xx4(2),xx4(3),xx4(4)
+        print*, 'sf13 ',veg_water
         stop 'sfcwater_fracarea = 1, VEG CASE'
      endif
 
@@ -1769,7 +1790,10 @@ Contains
 
      cantemp = cantemp + (hxfervc + hxfersc - cp * sxfer_t) * hcapcani
 
-     veg_temp = veg_temp + (radveg - hxfervc - (wxfervc + transp) * alvl) * hcapvegi
+     veg_water = max(0.,veg_water - wxfervc)
+     veg_energy = veg_energy + radveg - hxfervc - (wxfervc + transp) * alvl
+
+     call qwtk(veg_energy, veg_water, hcapveg, veg_temp, fracliqv)
 
      ! Energy_per_m2 may pertain to sfcwater only, soil only, or both combined.  In cases
      ! where it pertains to sfcwater only, wxfergc will be zero.
@@ -1777,8 +1801,6 @@ Contains
      energy_per_m2 = energy_per_m2 + radsfc - hxfersc - (wxfersc + wxfergc) * alvl
 
      canrrv = canrrv + (wxfervc + transp + wxfersc + wxfergc - sxfer_r) * canairi
-
-     veg_water = max(0.,veg_water - wxfervc)
 
      delw            = dslzi(nzg) * wxfergc * .001
      soil_water(nzg) = soil_water(nzg) - delw
@@ -1804,6 +1826,7 @@ Contains
                              soil_water(nzg),soil_energy(nzg),                     &
                              specifheat_drysoil(nzg), sfcwater_mass,energy_per_m2, &
                              sfcwater_tempk,sfcwater_fracliq)
+
   endif
 
   end subroutine canopy

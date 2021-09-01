@@ -236,11 +236,10 @@ Module leaf4_soil
      vctr8(k) = xfercoef(k) * (head(k-1) - head(k))
   enddo
 
-  ! If soil model is more than 50 meters deep AND this column participates in 
-  ! lateral groundwater transport, assume that there is no drainage through
-  ! the lower boundary.  Set the boundary transfer coefficient to zero.
+  ! If soil model is more than 50 meters deep, assume that there is no drainage
+  ! through the lower boundary.  Set the boundary transfer coefficient to zero.
 
-  if (slz(1) < -50. .and. itab_wsfc(iwsfc)%ivoronoi == 3) then
+  if (slz(1) < -50.) then
 
      xfercoef(1) = 0.
 

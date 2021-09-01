@@ -439,7 +439,9 @@ subroutine slab(iplt)
                 op%stagpt == 'R' .or. & ! lake cells
                 op%stagpt == 'S' .or. & ! sea cells
                 op%stagpt == 'C') then  ! for "common" sfc cells
-           call tileslab_horiz_sfc(iplt,'T')
+           call tileslab_horiz_wsfc(iplt,'T')
+        elseif (op%stagpt == 'B') then  ! common V points
+           call tileslab_horiz_vsfc(iplt,'T')
         endif
 
      else
@@ -518,7 +520,9 @@ subroutine slab_val(iplt)
              op%stagpt == 'R' .or. & ! lake cells
              op%stagpt == 'S' .or. & ! sea cells
              op%stagpt == 'C') then  ! for "common" sfc cells
-        call tileslab_horiz_sfc(iplt,'P')
+        call tileslab_horiz_wsfc(iplt,'P')
+     elseif (op%stagpt == 'B') then  ! sfcgrid V points
+        call tileslab_horiz_vsfc(iplt,'P')
      endif
 
   else  ! Vertical plots
@@ -821,7 +825,7 @@ subroutine plot_index_sfc(iplt)
      allocate( buffer( buffsize ) )
   endif
 
-  ! Plot M point indices for M points that are adjacent to Voronoi W cells
+  ! Plot M point indices
 
   if ( op%pltindx2(iplt) == 'j' ) then
 
@@ -834,19 +838,17 @@ subroutine plot_index_sfc(iplt)
 
      do imsfc = 2,mmsfc
 
-        ! Look for adjacent Voronoi W cell and, if found, use W cell size
+        ! Loop over adjacent W cell and use W cell size
         ! to get psiz and vsprd for M point plot
 
         do j = 1,3
            iwn = itab_msfc(imsfc)%iwn(j)
            if (iwn > 1) then
-              if (itab_wsfc(iwn)%ivoronoi == 3) then
-                 call get_psiz(iplt,sqrt(sfcg%area(iwn)),psiz,vsprd)
-                 exit
-              endif
+              call get_psiz(iplt,sqrt(sfcg%area(iwn)),psiz,vsprd)
+              exit
            endif
 
-           ! If no adjacent Voronoi W cell found, do not plot this M point
+           ! If no adjacent W cell found, do not plot this M point
 
            if (j == 3) go to 10
         enddo
@@ -890,7 +892,8 @@ subroutine plot_index_sfc(iplt)
 
   ! Plot V point indices (for V points that exist)
 
-  if ( op%pltindx2(iplt) == 'j' ) then
+  if ( op%pltindx2(iplt) == 'j' .or.  &
+       trim(op%stagpt)   == 'B' ) then
 
      if (myrank == 0) then
         call o_sflush()
@@ -941,8 +944,10 @@ subroutine plot_index_sfc(iplt)
 
   ! Plot W point indices
 
-  if ( op%pltindx2(iplt) == 'i' .or.  &
-       op%pltindx2(iplt) == 'j' ) then
+  if ( op%pltindx2(iplt) == 'j' .or.  &
+       trim(op%stagpt)   == 'L' .or.  &
+       trim(op%stagpt)   == 'S' .or.  &
+       trim(op%stagpt)   == 'C') then
 
      if (myrank == 0) then
         call o_sflush()
@@ -1063,6 +1068,10 @@ subroutine vectslab(iplt)
 
      if ( op%vectbarb(iplt) == 'w' .or. &
           op%vectbarb(iplt) == 'B' ) call vectslab_horiz_w(iplt)
+
+     if ( op%vectbarb(iplt) == 'Y' ) call vectslab_horiz_vsfc(iplt)
+
+     if ( op%vectbarb(iplt) == 'y' ) call vectslab_horiz_wsfc(iplt)
 
   elseif (op%projectn(iplt) == 'C') then  ! etc for 'V'?
 

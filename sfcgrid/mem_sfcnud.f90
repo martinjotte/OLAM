@@ -33,9 +33,9 @@
 
 Module mem_sfcnud
 
-use consts_coms, only: r8
+  use consts_coms, only: r8
 
-implicit none
+  implicit none
 
   integer :: nsfcnudfiles, isfcnudfile
 
@@ -45,6 +45,35 @@ implicit none
   real, allocatable ::  sfcwat_nud(:)
   real, allocatable :: sfctemp_nud(:)
   real, allocatable :: fracliq_nud(:)
+  real, allocatable :: iws_sfcnud(:,:)
+  real, allocatable :: wts_sfcnud(:,:)
+
+  ! Data structures for file-input sfcnud arrays.  If they have different size
+  ! than sfcgrid in current model run, their values will be interpolated.
+
+  Type sfcnudin_vars
+     integer :: nvsfc
+     integer :: nwsfc
+
+     real, allocatable :: dnv(:)
+     real, allocatable :: xew(:)
+     real, allocatable :: yew(:)
+     real, allocatable :: zew(:)
+     real, allocatable :: glatw(:)
+     real, allocatable :: glonw(:)
+     real, allocatable ::  sfcwat(:)
+     real, allocatable :: sfctemp(:)
+     real, allocatable :: fracliq(:)
+  End type sfcnudin_vars
+
+  Type itab_wsfcnudin_vars
+     integer :: npoly = 0
+     integer :: ivn(7)
+     integer :: iwn(7)
+  End type itab_wsfcnudin_vars
+
+  type       (sfcnudin_vars),              target ::       sfcnudin
+  type (itab_wsfcnudin_vars), allocatable, target :: itab_wsfcnudin(:)
 
 Contains
 
@@ -52,10 +81,7 @@ Contains
 
   subroutine alloc_sfcnud()
 
-  use mem_grid,  only: mza, mva, mwa
-  use mem_basic, only: press, rho, theta, vc
-  use mem_addsc, only: addsc
-  use mem_sfcg,  only: mwsfc
+  use mem_sfcg, only: mwsfc
 
   implicit none
 
@@ -72,7 +98,7 @@ Contains
   use misc_coms,  only: io6, current_time, simtime, hfilepref, iclobber
   use max_dims,   only: pathlen
   use mem_para,   only: myrank
-  use mem_sfcg,   only: mwsfc
+  use mem_sfcg,   only: sfcg, nwsfc, nvsfc, itab_wsfc
   use hdf5_utils, only: shdf5_orec, shdf5_open, shdf5_close
 
   use mem_plot, only: time8_prev0,         time8_prev1, &
@@ -86,12 +112,16 @@ Contains
   real :: pcp_dif2, sfluxr_dif2
   integer :: ndims, idims(1), iwsfc
   character(pathlen) :: hnamel
+  logical, save :: firstime = .true.
   type(simtime) :: ctime
+
+  integer, allocatable :: iscr1(:)
+  integer, allocatable :: iscr2(:,:)
 
   ! Write surface nudging fields (sfcwat mass, temperature, and fracliq) to a
   ! file.  This subroutine is only executed in a PLOTONLY run, with iparallel = 0
 
-  do iwsfc = 2,mwsfc
+  do iwsfc = 2,nwsfc
         pcp_dif2 =    pcp_accum_prev0(iwsfc) -    pcp_accum_prev1(iwsfc)
      sfluxr_dif2 = sfluxr_accum_prev0(iwsfc) - sfluxr_accum_prev1(iwsfc)
 
@@ -118,13 +148,66 @@ Contains
   call shdf5_open(hnamel,'W',iclobber) 
 
   ndims    = 1
-  idims(1) = mwsfc
+  idims(1) = nwsfc
 
   call shdf5_orec(ndims, idims, 'SFCWAT_NUD'  , rvar1=sfcwat_nud)
   call shdf5_orec(ndims, idims, 'SFCTEMP_NUD' , rvar1=sfctemp_nud)
   call shdf5_orec(ndims, idims, 'FRACLIQ_NUD' , rvar1=fracliq_nud)
 
   call shdf5_close()
+
+  ! On first call to this subroutine, write out sfcnud grid file
+
+  if (firstime) then
+     firstime = .false.
+
+     call makefnam(hnamel, hfilepref, ctime, 'GN', '$', 'h5')
+     call shdf5_open(hnamel,'W',iclobber) 
+
+     ndims = 1
+     idims(1) = 1
+
+     call shdf5_orec(ndims, idims, 'nvsfc'  , ivars=nvsfc)
+     call shdf5_orec(ndims, idims, 'nwsfc'  , ivars=nwsfc)
+
+     idims(1) = nvsfc
+
+     call shdf5_orec(ndims, idims, 'sfcg%dnv'   , rvar1=sfcg%dnv)
+
+     idims(1) = nwsfc
+
+     call shdf5_orec(ndims, idims, 'sfcg%xew'   , rvar1=sfcg%xew)
+     call shdf5_orec(ndims, idims, 'sfcg%yew'   , rvar1=sfcg%yew)
+     call shdf5_orec(ndims, idims, 'sfcg%zew'   , rvar1=sfcg%zew)
+     call shdf5_orec(ndims, idims, 'sfcg%glatw' , rvar1=sfcg%glatw)
+     call shdf5_orec(ndims, idims, 'sfcg%glonw' , rvar1=sfcg%glonw)
+
+     allocate (iscr1(nwsfc))
+     do iwsfc = 1,nwsfc
+        iscr1(iwsfc) = itab_wsfc(iwsfc)%npoly
+     enddo
+     call shdf5_orec(ndims,idims,'itab_wsfc%npoly' ,ivar1=iscr1)
+     deallocate(iscr1)
+
+     ndims = 2
+     idims(1) = 7
+     idims(2) = nwsfc
+
+     allocate (iscr2(7,nwsfc))
+     do iwsfc = 1,nwsfc
+       iscr2(1:7,iwsfc) = itab_wsfc(iwsfc)%ivn(1:7)
+     enddo
+     call shdf5_orec(ndims,idims,'itab_wsfc%ivn',ivar2=iscr2)
+
+     do iwsfc = 1,nwsfc
+        iscr2(1:7,iwsfc) = itab_wsfc(iwsfc)%iwn(1:7)
+     enddo
+     call shdf5_orec(ndims,idims,'itab_wsfc%iwn',ivar2=iscr2)
+     deallocate(iscr2)
+
+     call shdf5_close()
+
+  endif  ! firstime
 
   end subroutine sfcnud_write
 
@@ -215,27 +298,26 @@ Contains
 
   subroutine sfcnud_read(inext)
 
-  use misc_coms,  only: io6, current_time
-  use hdf5_utils, only: shdf5_open, shdf5_close, shdf5_irec, shdf5_info
+  use misc_coms,  only: io6, current_time, simtime, hfilepref
   use max_dims,   only: pathlen
   use mem_para,   only: myrank
   use mem_sfcg,   only: itab_wsfc, nwsfc, mwsfc
+  use hdf5_utils, only: shdf5_open, shdf5_close, shdf5_irec, shdf5_info
 
   implicit none
 
   integer, intent(in) :: inext
 
   integer :: isfcnudy, isfcnudm, isfcnudd, isfcnudh
-  integer :: nf
+  integer :: nf, iw, iwsfc, iwglobe
   integer :: ndims, idims(3)
+  character(pathlen) :: hnamel
+  type(simtime) :: ctime
 
-  character(2) :: type
+  logical, save :: firstime = .true.
 
-  ! Pointers to the global index of the local point
-
-  integer :: lgwsfc(mwsfc)
-
-  lgwsfc = itab_wsfc(1:mwsfc)%iwglobe
+  integer, allocatable :: iscr1(:)
+  integer, allocatable :: iscr2(:,:)
 
   ! Processing next sfcnud file
 
@@ -254,6 +336,84 @@ Contains
 
   endif
 
+  ! On first call to this subroutine, read sfcnud grid file and allocate input arrays
+
+  if (firstime) then
+     firstime = .false.
+
+     call makefnam(hnamel, hfilepref, ctime, 'GN', '$', 'h5')
+     call shdf5_open(fnames_sfcnud(isfcnudfile),'R')
+
+     ndims = 1
+     idims(1) = 1
+
+     call shdf5_irec(ndims, idims, 'nvsfc'  , ivars=sfcnudin%nvsfc)
+     call shdf5_irec(ndims, idims, 'nwsfc'  , ivars=sfcnudin%nwsfc)
+
+     allocate (sfcnudin%sfcwat (sfcnudin%nwsfc))
+     allocate (sfcnudin%sfctemp(sfcnudin%nwsfc))
+     allocate (sfcnudin%fracliq(sfcnudin%nwsfc))
+
+     ! If sfcnud data read from file did not use the same grid as the current
+     ! model run, allocate additional grid coordinate arrays, read their values
+     ! from the grid file, and compute interpolation coefficients in preparation
+     ! for interpolating input values to grid cells in current model run.
+
+     if (nwsfc /= sfcnudin%nwsfc) then ! Assume this check to be sufficient
+
+        allocate (sfcnudin%dnv  (sfcnudin%nvsfc))
+        allocate (sfcnudin%xew  (sfcnudin%nwsfc))
+        allocate (sfcnudin%yew  (sfcnudin%nwsfc))
+        allocate (sfcnudin%zew  (sfcnudin%nwsfc))
+        allocate (sfcnudin%glatw(sfcnudin%nwsfc))
+        allocate (sfcnudin%glonw(sfcnudin%nwsfc))
+
+        idims(1) = sfcnudin%nvsfc
+
+        call shdf5_irec(ndims, idims, 'sfcg%dnv'    , rvar1=sfcnudin%dnv)
+
+        idims(1) = sfcnudin%nwsfc
+
+        call shdf5_irec(ndims, idims, 'sfcg%xew'    , rvar1=sfcnudin%xew)
+        call shdf5_irec(ndims, idims, 'sfcg%yew'    , rvar1=sfcnudin%yew)
+        call shdf5_irec(ndims, idims, 'sfcg%zew'    , rvar1=sfcnudin%zew)
+        call shdf5_irec(ndims, idims, 'sfcg%glatw'  , rvar1=sfcnudin%glatw)
+        call shdf5_irec(ndims, idims, 'sfcg%glonw'  , rvar1=sfcnudin%glonw)
+
+        allocate (iscr1(sfcnudin%nwsfc))
+        call shdf5_irec(ndims,idims,'itab_wsfc%npoly' ,ivar1=iscr1)
+        do iw = 1,sfcnudin%nwsfc
+           itab_wsfcnudin(iw)%npoly = iscr1(iw)
+        enddo
+        deallocate(iscr1)
+
+        ndims = 2
+        idims(1) = 7
+        idims(2) = sfcnudin%nwsfc
+
+        allocate (iscr2(7,sfcnudin%nwsfc))
+        call shdf5_irec(ndims,idims,'itab_wsfc%ivn',ivar2=iscr2)
+        do iw = 1,sfcnudin%nwsfc
+           itab_wsfcnudin(iw)%ivn(1:7) = iscr2(1:7,iw)
+        enddo
+
+        call shdf5_irec(ndims,idims,'itab_wsfc%iwn',ivar2=iscr2)
+        do iw = 1,sfcnudin%nwsfc
+           itab_wsfcnudin(iw)%iwn(1:7) = iscr2(1:7,iw)
+        enddo
+        deallocate(iscr2)
+
+        allocate (iws_sfcnud(nwsfc,3))
+        allocate (wts_sfcnud(nwsfc,3))
+ 
+        call find_3iws_sfcnud()
+
+     endif
+
+     call shdf5_close()
+
+  endif  ! firstime
+
   ! Open and read sfcnud_database file
 
   write(io6,*) 'reading sfcnud file ', isfcnudfile, trim(fnames_sfcnud(isfcnudfile))
@@ -261,14 +421,43 @@ Contains
   call shdf5_open(fnames_sfcnud(isfcnudfile),'R')
 
   ndims    = 1
-  idims(1) = nwsfc
-  type     = 'CW'
+  idims(1) = sfcnudin%nwsfc
 
-  call shdf5_irec(ndims, idims, 'SFCWAT_NUD' , rvar1=sfcwat_nud,  points=lgwsfc, stagpt=type)
-  call shdf5_irec(ndims, idims, 'SFCTEMP_NUD', rvar1=sfctemp_nud, points=lgwsfc, stagpt=type)
-  call shdf5_irec(ndims, idims, 'FRACLIQ_NUD', rvar1=fracliq_nud, points=lgwsfc, stagpt=type)
+  call shdf5_irec(ndims, idims, 'SFCWAT_NUD' , rvar1=sfcnudin%sfcwat)
+  call shdf5_irec(ndims, idims, 'SFCTEMP_NUD', rvar1=sfcnudin%sfctemp)
+  call shdf5_irec(ndims, idims, 'FRACLIQ_NUD', rvar1=sfcnudin%fracliq)
 
   call shdf5_close()
+
+  ! If sfcnud data read from file used the same grid as the current model run,
+  ! copy file values to sfcnud arrays.  Otherwise, interpolate them.
+
+  if (nwsfc == sfcnudin%nwsfc) then ! Assume this check to be sufficient
+
+     do iwsfc = 1, mwsfc
+        iwglobe = itab_wsfc(iwsfc)%iwglobe
+        sfcwat_nud (iwsfc) = sfcnudin%sfcwat (iwglobe)
+        sfctemp_nud(iwsfc) = sfcnudin%sfctemp(iwglobe)
+        fracliq_nud(iwsfc) = sfcnudin%fracliq(iwglobe)
+     enddo
+
+  else
+
+     do iwsfc = 1, mwsfc
+        sfcwat_nud(iwsfc)  = wts_sfcnud(iwsfc,1) * sfcnudin%sfcwat(iws_sfcnud(iwsfc,1)) &
+                           + wts_sfcnud(iwsfc,2) * sfcnudin%sfcwat(iws_sfcnud(iwsfc,2)) &
+                           + wts_sfcnud(iwsfc,3) * sfcnudin%sfcwat(iws_sfcnud(iwsfc,3))
+
+        sfctemp_nud(iwsfc) = wts_sfcnud(iwsfc,1) * sfcnudin%sfctemp(iws_sfcnud(iwsfc,1)) &
+                           + wts_sfcnud(iwsfc,2) * sfcnudin%sfctemp(iws_sfcnud(iwsfc,2)) &
+                           + wts_sfcnud(iwsfc,3) * sfcnudin%sfctemp(iws_sfcnud(iwsfc,3))
+
+        fracliq_nud(iwsfc) = wts_sfcnud(iwsfc,1) * sfcnudin%fracliq(iws_sfcnud(iwsfc,1)) &
+                           + wts_sfcnud(iwsfc,2) * sfcnudin%fracliq(iws_sfcnud(iwsfc,2)) &
+                           + wts_sfcnud(iwsfc,3) * sfcnudin%fracliq(iws_sfcnud(iwsfc,3))
+     enddo
+
+  endif
 
   end subroutine sfcnud_read
 
@@ -400,5 +589,170 @@ Contains
   deallocate (soil_water_sp, soil_energy_sp)
 
   end subroutine read_gw_spinup
+
+!================================================================================
+
+  subroutine find_3iws_sfcnud()
+
+  use mem_sfcg,    only: sfcg, mwsfc
+  use consts_coms, only: pio180
+
+  implicit none
+
+  integer :: iw, npoly, j, iwn, j1, j2, iwsfc
+
+  real :: coswlon, sinwlon
+  real :: coswlat, sinwlat
+  real :: dxe, dye, dze
+
+  real :: xwn(7), ywn(7), dot00(7), dot01(7), dot11(7), denomi(7), dn(7)
+  real :: qx, qy, dnvmax, dist, distn
+  real :: dot02,dot12,u,v
+
+  real, parameter :: fuzz = 0.001
+
+  ! Loop over all SFCNUD points in arrays read from file
+
+  do iw = 2, sfcnudin%nwsfc
+
+     sinwlat = sin(sfcnudin%glatw(iw) * pio180)
+     coswlat = cos(sfcnudin%glatw(iw) * pio180)
+     sinwlon = sin(sfcnudin%glonw(iw) * pio180)
+     coswlon = cos(sfcnudin%glonw(iw) * pio180)
+
+     ! Find max distance to neighbor W points
+
+     npoly = itab_wsfcnudin(iw)%npoly
+     dnvmax = maxval(sfcnudin%dnv(itab_wsfcnudin(iw)%ivn(1:npoly)))
+
+     ! Loop over neighbor W points
+
+     do j = 1,npoly
+        iwn = itab_wsfcnudin(iw)%iwn(j)
+
+        ! Transform neighbor W points to PS coordinates tangent at IW point
+
+        dxe = sfcnudin%xew(iwn) - sfcnudin%xew(iw)
+        dye = sfcnudin%yew(iwn) - sfcnudin%yew(iw)
+        dze = sfcnudin%zew(iwn) - sfcnudin%zew(iw)
+
+        call de_ps(dxe,dye,dze,coswlat,sinwlat,coswlon,sinwlon,xwn(j),ywn(j))
+     enddo
+
+     ! Loop over each pair of consecutive neighbor W points, and set up
+     ! triangle-check coefficients that depend only on W points
+
+     do j1 = 1,npoly
+        j2 = j1 + 1
+        if (j1 == npoly) j2 = 1
+
+        dot00(j1) = xwn(j1) * xwn(j1) + ywn(j1) * ywn(j1)
+        dot01(j1) = xwn(j1) * xwn(j2) + ywn(j1) * ywn(j2)
+        dot11(j1) = xwn(j2) * xwn(j2) + ywn(j2) * ywn(j2)
+
+        denomi(j1) = 1. / (dot00(j1) * dot11(j1) - dot01(j1) * dot01(j1))
+        dn(j1)     = 1. / (xwn(j2) * ywn(j1) - xwn(j1) * ywn(j2))
+     enddo
+           
+     ! Loop over all iwsfc points and determine which are closer to current
+     ! input IW point than to any other input IW point on globe.  It is
+     ! sufficient to show that a iwsfc point is closer to current input IW
+     ! point than to any neighbor input IW point, AND that it is closer to
+     ! current input IW point than most distant neighbor input IW point is.
+
+     do iwsfc = 2, mwsfc
+        if (abs(sfcg%zew(iwsfc) - sfcnudin%zew(iw)) > dnvmax) cycle
+
+        ! Skip this iwsfc point if its nearest input IW point has already been found
+
+        if (iws_sfcnud(iwsfc,1) > 1) cycle
+
+        ! Skip this iwsfc point if any of its earth coordinates differs from
+        ! input IW point by more than dnvmax
+
+        if (abs(sfcg%xew(iwsfc) - sfcnudin%xew(iw)) > dnvmax) cycle
+        if (abs(sfcg%yew(iwsfc) - sfcnudin%yew(iw)) > dnvmax) cycle
+
+        ! Compute distance between IW point and lat/lon point
+
+        dist = sqrt((sfcg%xew(iwsfc)-sfcnudin%xew(iw))**2 &
+                  + (sfcg%yew(iwsfc)-sfcnudin%yew(iw))**2 &
+                  + (sfcg%zew(iwsfc)-sfcnudin%zew(iw))**2)
+
+        ! Skip this iwsfc point if it is farther from input IW point than most
+        ! distant neighbor IWN point is
+
+        if (dist > dnvmax) cycle
+
+        ! Loop over neighbor W points
+
+        do j = 1,npoly
+           iwn = itab_wsfcnudin(iw)%iwn(j)
+
+           ! Compute distance between lat/lon point and IWN point
+
+           distn = sqrt((sfcg%xew(iwsfc)-sfcnudin%xew(iwn))**2 &
+                      + (sfcg%yew(iwsfc)-sfcnudin%yew(iwn))**2 &
+                      + (sfcg%zew(iwsfc)-sfcnudin%zew(iwn))**2)
+
+           ! If iwsfc point is closer to IWN point than to input IW point, move
+           ! on to next iwsfc point.  Bias is used to reduce chance of
+           ! iwsfc point being rejected by all input IW points in domain; this 
+           ! might lead to a few iwsfc values being interpolated on
+           ! multiple MPI subdomains, but this is sorted out later.
+
+           if (distn < 0.999999 * dist) cycle
+        enddo
+
+        ! If this point was reached, current iwsfc point is inside input IW cell.
+        ! Store input IW index for the iwsfc point and transform iwsfc point
+        ! to PS coordinates tangent at input IW point.
+
+        dxe = sfcg%xew(iwsfc) - sfcnudin%xew(iw)
+        dye = sfcg%yew(iwsfc) - sfcnudin%yew(iw)
+        dze = sfcg%zew(iwsfc) - sfcnudin%zew(iw)
+
+        call de_ps(dxe,dye,dze,coswlat,sinwlat,coswlon,sinwlon,qx,qy)
+
+        ! Loop over each pair of consecutive neighbor input IW points 
+
+        do j1 = 1,npoly
+           j2 = j1 + 1
+           if (j1 == npoly) j2 = 1
+
+           ! Set up triangle-check coefficients that depend on lat/lon points
+
+           dot02 = xwn(j1) * qx + ywn(j1) * qy
+           dot12 = xwn(j2) * qx + ywn(j2) * qy
+
+           u = (dot11(j1) * dot02 - dot01(j1) * dot12) * denomi(j1)
+           v = (dot00(j1) * dot12 - dot01(j1) * dot02) * denomi(j1)
+
+           if (u > -fuzz .and. v > -fuzz .and. u + v < 1.0 + fuzz) then
+
+              ! lat/lon point is inside current triangle; store indices of
+              ! both IWN neighbors
+
+              iws_sfcnud(iwsfc,1) = iw
+              iws_sfcnud(iwsfc,2) = itab_wsfcnudin(iw)%iwn(j1)
+              iws_sfcnud(iwsfc,3) = itab_wsfcnudin(iw)%iwn(j2)
+
+              ! Compute and store 3 interpolation weights
+
+              wts_sfcnud(iwsfc,2) = dn(j1) * (-ywn(j2) * qx + xwn(j2) * qy)
+              wts_sfcnud(iwsfc,3) = dn(j1) * ( ywn(j1) * qx - xwn(j1) * qy)
+              wts_sfcnud(iwsfc,1) = 1. - wts_sfcnud(iwsfc,2) - wts_sfcnud(iwsfc,3)
+
+              exit
+
+           endif
+
+        enddo  ! j1 loop
+
+     enddo ! iwsfc loop
+
+  enddo  ! iw loop
+
+  end subroutine find_3iws_sfcnud
 
 End Module mem_sfcnud

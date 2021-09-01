@@ -47,15 +47,15 @@
  ! Simulation ending time
  !--------------------------------------------------------------------------
 
-   NL%TIMEUNIT = 'd'      ! Time units of TIMMAX: 's','m','h','d'
-   NL%TIMMAX   = 1.0      ! Ending time of this model run
+   NL%TIMEUNIT = 's'      ! Time units of TIMMAX: 's','m','h','d'
+   NL%TIMMAX   = 86400.0      ! Ending time of this model run
 
  !--------------------------------------------------------------------------
  ! Start of simulation (when model time counter TIME8 = 0.)
  !--------------------------------------------------------------------------
 
    NL%ITIME1   = 1200     ! UTC
-   NL%IDATE1   = 24       ! Day
+   NL%IDATE1   = 25       ! Day
    NL%IMONTH1  = 8        ! Month
    NL%IYEAR1   = 2017     ! Year
 
@@ -130,44 +130,44 @@
  ! GRDLON(NG,:)   sequence for grid NG
 
    ! Grid 2:
-   NL%NGRDLL(2)   =  1
-   NL%GRDRAD(2,:) =  3000.e3
-   NL%GRDLAT(2,:) =  24.0
-   NL%GRDLON(2,:) = -93.5
+   NL%NGRDLL(2)   =  2
+   NL%GRDRAD(2,:) =  3000.e3,3000.e3
+   NL%GRDLAT(2,:) =     27.0,   28.0
+   NL%GRDLON(2,:) =    -96.0,  -97.0
 
    ! Grid 3:
-   NL%NGRDLL(3)   =  1
-   NL%GRDRAD(3,:) =  1800.e3
-   NL%GRDLAT(3,:) =  24.0
-   NL%GRDLON(3,:) = -93.5
+   NL%NGRDLL(3)   =  2
+   NL%GRDRAD(3,:) =  1800.e3,1800.e3
+   NL%GRDLAT(3,:) =     27.0,   28.0
+   NL%GRDLON(3,:) =    -96.0,  -97.0
 
    ! Grid 4:
-   NL%NGRDLL(4)   =  1
-   NL%GRDRAD(4,:) =  1200.e3
-   NL%GRDLAT(4,:) =  24.0
-   NL%GRDLON(4,:) = -93.5
+   NL%NGRDLL(4)   =  2
+   NL%GRDRAD(4,:) =  1200.e3,1200.e3
+   NL%GRDLAT(4,:) =     27.0,   28.0
+   NL%GRDLON(4,:) =    -96.0,  -97.0
 
    ! Grid 5:
-   NL%NGRDLL(5)   =  1
-   NL%GRDRAD(5,:) =  800.e3
-   NL%GRDLAT(5,:) =  24.0
-   NL%GRDLON(5,:) = -93.5
+   NL%NGRDLL(5)   =  2
+   NL%GRDRAD(5,:) =  800.e3,800.e3
+   NL%GRDLAT(5,:) =    27.0,  28.0
+   NL%GRDLON(5,:) =   -96.0, -97.0
 
    ! Grid 6:
-   NL%NGRDLL(6)   =  1
-   NL%GRDRAD(6,:) =  500.e3
-   NL%GRDLAT(6,:) =  24.0
-   NL%GRDLON(6,:) = -93.5
+   NL%NGRDLL(6)   =  2
+   NL%GRDRAD(6,:) =  500.e3,500.e3
+   NL%GRDLAT(6,:) =    27.0,  28.0
+   NL%GRDLON(6,:) =   -96.0, -97.0
 
    ! Grid 7:
-   NL%NGRDLL(7)   =  1
-   NL%GRDRAD(7,:) =  300.e3
-   NL%GRDLAT(7,:) =  24.0
-   NL%GRDLON(7,:) = -93.5
+   NL%NGRDLL(7)   =  2
+   NL%GRDRAD(7,:) =  300.e3,300.e3
+   NL%GRDLAT(7,:) =    27.0,  28.0
+   NL%GRDLON(7,:) =   -96.0, -97.0
 
    NL%SFCGRID_RES_FACTOR =  3    ! Resolution factor for the surface grid.
 
-   NL%NSFCGRID_ROOT      = -1    ! If NSFCGRID_ROOT is 0 or negative, the
+  NL%NSFCGRID_ROOT      = -7     ! If NSFCGRID_ROOT is 0 or negative, the
                                  ! surface grid is created exactly from the
                                  ! atmospheric grid and expanded by the factor
                                  ! given by SFCGRID_RES_FACTOR
@@ -177,12 +177,13 @@
                                  ! ATM grid is made, expanded by SFCGRID_RES_FACTOR,
                                  ! and then possibly further refined if NSFCGRID > 0
 
+
  !------------------------------------------------------------------------
  ! This section used only if NSFCGRID_ROOT > 0
  !------------------------------------------------------------------------
 
-   NL%NSFCGRIDS = 2      ! Total number of additional SURFACE GRID independent
-                         !  refinements to be generated on any MAKEGRID run
+   NL%NSFCGRIDS = 0      ! Total number of SURFACE GRID independent refinements
+                         ! to be generated on any MAKEGRID run
 
    NL%SFCGRIDPLOT_BASE = 1  ! The sfcgrid mesh number to center the plot on
                             ! when doing a MAKEGRID_PLOT run
@@ -204,6 +205,21 @@
    NL%SFCGRDRAD(3,:) =  12.e5,21.e5,26.e5,41.e5,46.e5,19.e5,25.e5,19.e5,46.e5,30.e5,11.e5,11.e5,30.e5,13.e5,20.e5,23.e5, 7.e5
    NL%SFCGRDLAT(3,:) =   -27.,  -3.,  22.,  35.,  46.,  11., -23.,  11.,  46.,  54.,  64.,  64.,  44.,  10.,  -5., -13., -50.
    NL%SFCGRDLON(3,:) =    24.,  26.,   0.,  32.,  90., 110., 136., 110.,  90., 123., 166.,-127., -90., -75., -63., -54., -70.
+
+   NL%NSWMZONS   =  1
+
+   ! SWM Zone 1:
+   NL%NSWMZONLL(1)   =  6
+   NL%SWMZONRAD(1,:) =  10.e4, 10.e4, 10.e4, 10.e4, 10.e4, 10.e4
+   NL%SWMZONLAT(1,:) =   26.0,  27.5,  28.3,  29.3,  29.8,  29.1
+   NL%SWMZONLON(1,:) =  -97.1, -97.3, -96.4, -94.8, -93.2, -90.6
+
+   ! SWM Zone 2:
+   NL%NSWMZONLL(2)   =  17
+   NL%SWMZONRAD(2,:) =  10.e4, 10.e4, 10.e4, 10.e4, 10.e4, 10.e4
+   NL%SWMZONLAT(2,:) =   25.1,  27.6,  28.7,  29.3,  29.1,  29.7
+   NL%SWMZONLON(2,:) =  -81.7, -83.5, -83.4, -84.1, -85.4, -86.5
+
 
  !------------------------------------------------------------------------------
  ! Timestep and timestep ratios (One ratio for each Mesh Refinement Level (MRL))
@@ -255,7 +271,7 @@
    NL%IOUTPUT_LITE = 0         ! Lite files: 0-no files, 1-write files
    NL%IOUTPUT_LATLON = 0       ! Lat/Lon:    0-no files, 1-write files
 
-   NL%HFILEPREF = 'hist/harveySOIL9N'     ! History file output path/prefix
+   NL%HFILEPREF = 'hist/harveySOIL3N'     ! History file output path/prefix
    NL%ICLOBBER  = 1             ! 0 = stop if files exist, 1 = overwite files
    NL%ICOMPRESS = 3             ! 0 (no compres, fast) <-> 9 (max compres, slow)
    NL%LATLONPLOT = 0            ! 1 = plot generated lat/lon fields too
@@ -264,11 +280,11 @@
                                 ! Setting this can speed up parallel writes
                                 ! Ignored if 0 or negative
 
-   NL%FRQSTATE  =  3600.       ! Time interval between history files
+   NL%FRQSTATE  =  1800.        ! Time interval between history files
    NL%FRQLITE   =  3600.0      ! Time interval between lite files
    NL%FRQLATLON =  3600.0      ! Time interval between lat/lon output files
 
-   NL%HFILIN   = 'hist/harveySOIL9N-H-2017-08-24-120000.h5'      ! History file intput
+   NL%HFILIN   = 'hist/harveySOIL3N-H-2017-08-25-123000.h5'      ! History file intput
 
    ! Variables output in lite files:
    NL%LITE_VARS = 'TAIR', 'WC', 'SH_V', 'PRESS', 'RHO', 'RSHORT', 'RLONG'
@@ -434,15 +450,15 @@
  ! Hurricane Dynamic Initialization Parameters
  !--------------------------------------------------------------------------
 
-   NL%NCYCLE_HURRINIT = 3      ! Number of initialization cycles to perform
+   NL%NCYCLE_HURRINIT = 0      ! Number of initialization cycles to perform
                                !  (NCYCLE_HURRINIT > 0 keeps hurricane tracking turned on)
 
-   NL%TIMMAX_HURRINIT = 1800.  ! Ending integration time of each cycle
+   NL%TIMMAX_HURRINIT = 7200.  ! Ending integration time of each cycle
 
-   NL%HLAT0 =  23.7            ! Obs Harvey location on 24 Aug 2017 12 UTC
-   NL%HLON0 = -93.1            ! Obs Harvey location on 24 Aug 2017 12 UTC
+   NL%HLAT0 =  26.3            ! Obs Harvey location on 24 Aug 2017 12 UTC
+   NL%HLON0 = -95.8            ! Obs Harvey location on 24 Aug 2017 12 UTC
 
-   NL%VTAN_EYW    = 30.        ! Target maximum tangential wind speed when adding perturbation
+   NL%VTAN_EYW    = 55.        ! Target maximum tangential wind speed when adding perturbation
                                !  (VTAN_EYW < 1.0 turns off addition of perturbation)
 
    NL%RAD_EYW     = 35.e3      ! radius where vtan_eyw applies
@@ -587,11 +603,13 @@
    NL%LANDGRID_DZTOP =   .10    ! Thickness (m) of top (shallowest) soil grid level 
    NL%LANDGRID_DEPTH = 200.0    ! Depth (m) of soil grid lower boundary
 
-   NL%ISOILFLG   = 1      ! 1 -- Read soil composition from SoilGrids data files
+ !!  NL%ISOILFLG   = 1      ! 1 -- Read soil composition from SoilGrids data files
+   NL%ISOILFLG   = 2      ! 1 -- Read soil composition from SoilGrids data files
                           ! 2 -- Read soil type from FAO data file, convert to
                           !      USDA text class, and use tabulated soil composition
 
-   NL%ISOILPTF   = 1      ! 1 -- Pedotransfer functions from Vereecken
+ !!  NL%ISOILPTF   = 1      ! 1 -- Pedotransfer functions from Vereecken
+   NL%ISOILPTF   = 3      ! 1 -- Pedotransfer functions from Vereecken
                           ! 2 -- Pedotransfer functions from de Boer
                           ! 3 -- Hydraulic parameters from USDA classification (only with ISOILFLG = 2)
 
@@ -615,6 +633,7 @@
  ! Surface database file paths and names
 
    NL%TOPO_DATABASE      = '../../olamdatah5/gmted30s/TM'
+   NL%BATHYM_DATABASE    = '../../olamdatah5/etopo1/BM'
    NL%VEG_DATABASE       = '../../olamdatah5/oge2/OGE2_'
    NL%SOIL_DATABASE      = '../../olamdatah5/fao/FAO_'
    NL%SOILGRIDS_DATABASE = '../../olamdatah5/soilgrids/'
@@ -694,12 +713,33 @@
  ! History files to read from for RUNTYPE = 'PLOTONLY'
  !------------------------------------------------------------------------
 
-  NL%NPLT_FILES = 2   ! Number of history files to plot from for
+  NL%NPLT_FILES = 1   ! Number of history files to plot from for
                        ! RUNTYPE = 'PLOTONLY' (limit of maxpltfiles)
 
   NL%PLT_FILES =
-     './hist/struct1-H-2000-01-01-000000.h5',
-     './hist/struct1-H-2000-02-01-000000.h5',
+     './hist/harveySOIL3N-H-2017-08-25-173000.h5',
+
+     './hist/harveySOIL3N-H-2017-08-25-123000.h5',
+     './hist/harveySOIL3N-H-2017-08-25-130000.h5',
+     './hist/harveySOIL3N-H-2017-08-25-133000.h5',
+     './hist/harveySOIL3N-H-2017-08-25-140000.h5',
+     './hist/harveySOIL3N-H-2017-08-25-143000.h5',
+     './hist/harveySOIL3N-H-2017-08-25-150000.h5',
+     './hist/harveySOIL3N-H-2017-08-25-153000.h5',
+     './hist/harveySOIL3N-H-2017-08-25-160000.h5',
+     './hist/harveySOIL3N-H-2017-08-25-163000.h5',
+     './hist/harveySOIL3N-H-2017-08-25-170000.h5',
+     './hist/harveySOIL3N-H-2017-08-25-173000.h5',
+     './hist/harveySOIL3N-H-2017-08-25-180000.h5',
+     './hist/harveySOIL3N-H-2017-08-25-183000.h5',
+
+
+
+     './hist/harveySOIL2N-H-2017-08-25-140000.h5',
+     './hist/harveySOIL2N-HTC-2017-08-25-120000.h5',
+     './hist/harveySOIL9N-H-2017-08-24-123000.h5',
+     './hist/harveySOIL9N-H-2017-08-24-124500.h5',
+     './hist/harveySOIL9N-H-2017-08-24-130000.h5',
 
  !------------------------------------------------------------------------
  ! Day-average files to plot from for RUNTYPE = 'PLOTONLY'
@@ -716,14 +756,14 @@
  ! Plotting parameters
  !--------------------------------------------------------------------------
 
-  NL%NPLT    =  4    ! Number of fields plotted at each time 
+  NL%NPLT    =  11    ! Number of fields plotted at each time 
                       ! (limit of maxnplt fields in max_dims.f90)
 
-  NL%FRQPLT =  3600.    ! Plot frequency (for RUNTYPE = 'INITIAL' or 'HISTORY')
+  NL%FRQPLT =  1800.    ! Plot frequency (for RUNTYPE = 'INITIAL' or 'HISTORY')
                             
-  NL%DTVEC = 1200.    ! Scaling time (seconds) for plotted velocity vectors
+  NL%DTVEC = 300.     ! Scaling time (seconds) for plotted velocity vectors
 
-  NL%HEADSPEED = 3.   ! Scaling speed for arrow head length in plotted
+  NL%HEADSPEED = 1.   ! Scaling speed for arrow head length in plotted
                       ! velocity vectors
 
   NL%STEMLENGTH = 10.e3 ! Geographic distance (m) of windbarb stem for size scaling
@@ -731,7 +771,7 @@
   NL%VEC_MAXMRL = 5   ! The maximum mesh refinement level when plotting 
                       ! velocity vectors with the "V" pltspec
 
-  NL%PRTVAL_SIZE = 'large' ! Relative size of font when printing values on the
+  NL%PRTVAL_SIZE = 'small' ! Relative size of font when printing values on the
                            ! plot: 'small', 'medium', or 'large'
 
   NL%PLTTYPE = 0      ! 0 = NCAR graphics meta file
@@ -739,15 +779,15 @@
                       ! 2 = pdf file (requires ncar graphics 4.4.0 or later)
                       ! Postscript and pdf output best for plotonly run
 
-  NL%PLTNAME = 'gmeta_harveySOIL9N'   ! Note: .ps or .pdf will be appended to pltname 
+  NL%PLTNAME = 'gmeta_harveySOIL2N_08p'   ! Note: .ps or .pdf will be appended to pltname 
                          ! for postscript or pdf output
 
   NL%PLTORIENT = 0    ! 0 = portrait,  1 = landscape
                       ! (only for postscript or pdf output)
 
-  NL%ZPLOT_MIN = -1.0    ! For vertical or cone plots, these specify the vertical
-  NL%ZPLOT_MAX = 14000.0 ! extent of the plots (m); use -1.0 to indicate the
-                         ! default top and bottom of the model
+  NL%ZPLOT_MIN = -1.0   ! For vertical or cone plots, these specify the vertical
+  NL%ZPLOT_MAX = 14000.0   ! extent of the plots (m); use -1.0 to indicate the
+                        ! default top and bottom of the model
 
   NL%MAPCOLOR = 13     ! Color of map outlines.  Useful colors: 10 - black
   NL%LLCOLOR  = 10     ! Color of lat/lon lines.                13 - dark gray
@@ -764,7 +804,7 @@
  !  L = Lat/lon cylindrical     T,F,L,O = Tiles, Fillcnt, Linecnt, Overlay L on F
  !  P = Polar stereographic     P       = Print value
  !  G = Gnomic                  I,J     = local Index, all indices
- !  O = Orthographic            B,V,w   = Barb, V-normvec, w(totvec)
+ !  O = Orthographic            B,V,w,Y,y = Barb, V-normvec, w(totvec), Y(normvec-sea), y(totvec-sea)
  !  Z = Horizontal cartesian    G       = Grid cells
  !  C = Cone                    g       = surface grid cells
  !  V = Vertical plane          D       = Dual grid cells
@@ -786,10 +826,62 @@
  !                   |  color   |        lon/lat      height,  width     or 'V'   
  !FLDNAME            |  table   |        or x/y      or p-lev   (m)     projectn  cscale cmin cmax  cinc zhfwid
  !-------------------------------------------------------------------------------------------------------------
- 'PMSL'            ,'O',510,'F3fmcntW', -93.5,24.0,   500.,    600.e3,     0.,    'lin', 930.,1010., 4.0,  0.
- 'SH_TOTCOND'      ,'O',  7,'F4fmcntW', -93.5,24.0,  4000.,    600.e3,     0.,    'lin',   0.,   0.,  0.,  0.
- 'ACCPBOTH'        ,'O',455,'F1fmcntW', -93.5,24.0,   500.,    600.e3,     0.,    'lin',   0.,   0.,  0.,  0.
- 'SPEEDW'          ,'O', 79,'F2mcntW',  -93.5,24.0,   150.,    600.e3,     0.,    'lin',   0.,   0.,  0.,  0.
+ 'SPEEDW'           ,'O',511,'TGwmscotW',  -96.5,27.7,  1000.,   400.e3,     0.,    'lin',    0., 100.,  5.0,  0.
+ 'RR_TOTCOND'       ,'O',512,'TwmscotW',   -96.5,27.7,  1000.,   400.e3,     0.,    'lin',    0.,  20.,  1.0,  0.
+ 'LEAF_CLASS'       ,'O',  1,'TgimcotW',   -96.5,27.7,  1000.,   400.e3,     0.,    'lin',    0.,   0.,   0.,  0.
+ 'SFCG_TOPW'        ,'O',470,'FgmcotW',    -96.5,27.7,  1000.,   400.e3,     0.,    'lin',    0.,   0.,   0.,  0.
+ 'SFCG_BATHYM'      ,'O',470,'FgmcotW',    -96.5,27.7,  1000.,   400.e3,     0.,    'lin',    0.,   0.,   0.,  0.
+ 'HEAD1'            ,'O',513,'FmcotW',     -96.5,27.7,  1000.,   400.e3,     0.,    'log',  -10.,  10.,0.001,  0.999
+ 'HEAD1_MSL'        ,'O',514,'FmcotW',     -96.5,27.7,  1000.,   400.e3,     0.,    'log',  -10., 1.e4, 0.01,  0.999
+ 'WDEPTH'           ,'O',515,'TYmcotW',    -96.5,27.7,  1000.,   400.e3,     0.,    'log',   -1.,9000.,  0.1,  0.999
+ 'SFCWATER_TOT'     ,'O',200,'TymcotW',    -96.5,27.7,  1000.,   400.e3,     0.,    'lin',    0.,   0.,   0.,  0.0
+ 'WAT_DEPTH'        ,'O',516,'FmcotW',     -96.5,27.7,  1000.,   400.e3,     0.,    'log',    0., 2.e4,  0.1,  0.0
+ 'WAT_TEMPK'        ,'O',517,'FmcotW',     -96.5,27.7,  1000.,   400.e3,     0.,    'lin',  270., 330.,  2.0,  0.0
+
+ 'SPEEDW'           ,'O',521,'TGJwmscntW', -97.0,28.2,  1000.,   100.e3,     0.,    'lin',    0., 100.,  5.0,  0.
+ 'RR_TOTCOND'       ,'O',522,'TGJVmscntW', -97.0,28.2,  1000.,   100.e3,     0.,    'lin',    0.,  20.,  1.0,  0.
+ 'LEAF_CLASS'       ,'O',  1,'TgjmcotW',   -97.0,28.2,  1000.,   100.e3,     0.,    'lin',    0.,   0.,   0.,  0.
+ 'SFCG_TOPW'        ,'O',470,'FgjmcotW',   -97.0,28.2,  1000.,   100.e3,     0.,    'lin',    0.,   0.,   0.,  0.
+ 'WAT_TEMPK'        ,'O',527,'FgicotW',    -97.0,28.2,  1000.,   100.e3,     0.,    'lin',  270., 330.,  2.0,  0.0
+ 'SFCG_CANTEMPK'    ,'O',  4,'TgiPmctnW',  -97.0,28.2,  1000.,   100.e3,     0.,    'lin',    0., 100.,  5.0,  0.
+ 'SFCG_CANRRV'      ,'O',  5,'TgiPmctnW',  -97.0,28.2,  1000.,   100.e3,     0.,    'lin',    0., 100.,  5.0,  0.
+ 'SFCG_AIRTEMPK'    ,'O',  4,'TgiPmctnW',  -97.0,28.2,  1000.,   100.e3,     0.,    'lin',    0., 100.,  5.0,  0.
+ 'SFCG_AIRRRV'      ,'O',  5,'TgiPmctnW',  -97.0,28.2,  1000.,   100.e3,     0.,    'lin',    0., 100.,  5.0,  0.
+ 'SFCG_SKINTEMPK'   ,'O',  4,'TgiPmctnW',  -97.0,28.2,  1000.,   100.e3,     0.,    'lin',    0., 100.,  5.0,  0.
+ 'VEG_TEMPK'        ,'O',  4,'TgiPmctnW',  -97.0,28.2,  1000.,   100.e3,     0.,    'lin',    0., 100.,  5.0,  0.
+ 'SFCWATER_TOT'     ,'O',200,'TgiPmctnW',  -97.0,28.2,  1000.,   100.e3,     0.,    'lin',    0., 100.,  5.0,  0.
+ 'SFCWATER_TOP_TEMP','O',  4,'TgiPmctnW',  -97.0,28.2,  1000.,   100.e3,     0.,    'lin',    0., 100.,  5.0,  0.
+ 'SOIL_TOP_TEMP'    ,'O',  4,'TgiPmctnW',  -97.0,28.2,  1000.,   100.e3,     0.,    'lin',    0., 100.,  5.0,  0.
+
+ 'SFWAT_TEMPK'     ,'O',517,'TgiPYmcotW', -97.33,25.6,  1000.,   600.e3,     0.,    'lin',  270., 330.,  2.0,  0.0
+
+ 'SPEEDW'          ,'O',513,'TGJwmscntW',  -97.2,27.7,  1000.,   200.e3,     0.,    'lin',    0., 100.,  5.0,  0.
+ 'SPEEDW'          ,'O',513,'TGJwmcntW',   -97.2,27.7,  1000.,   200.e3,     0.,    'lin',    0., 100.,  5.0,  0.
+ 'SPEEDW'          ,'O',513,'TGJwmcntW',   -97.2,27.7,  2000.,   200.e3,     0.,    'lin',    0., 100.,  5.0,  0.
+ 'RR_TOTCOND'      ,'O',514,'TGJwmscntW',  -97.2,27.7,  1000.,   200.e3,     0.,    'lin',    0.,  20.,  1.0,  0.
+ 'RR_TOTCOND'      ,'O',514,'TGJwmcntW',   -97.2,27.7,  1000.,   200.e3,     0.,    'lin',    0.,  20.,  1.0,  0.
+ 'RR_TOTCOND'      ,'O',514,'TGJwmcntW',   -97.2,27.7,  2000.,   200.e3,     0.,    'lin',    0.,  20.,  1.0,  0.
+
+
+ 'SFCG_TOPW'       ,'O',470,'FGiPgmcotW', -90.66,29.28,  1000.,   30.e3,     0.,    'lin',    0.,   0.,   0.,  0.
+ 'SFCG_BATHYM'     ,'O',470,'FGiPgmcotW', -90.66,29.28,  1000.,   30.e3,     0.,    'lin',    0.,   0.,   0.,  0.
+ 'LEAF_CLASS'      ,'O',  1,'TGiPgymcotW',-90.66,29.28,  1000.,   30.e3,     0.,    'lin',    0.,   0.,   0.,  0.
+ 'HEAD1'           ,'O',511,'FGiPgYmcotW',-90.66,29.28,  1000.,   30.e3,     0.,    'log',  -10.,  10.,0.001,  0.999
+ 'WDEPTH'          ,'O',512,'FGiPgYmcotW',-90.66,29.28,  1000.,   30.e3,     0.,    'log',   -1.,9000., 0.01,  0.999
+
+ 'THIL'            ,'O',511,'TGIPmscntW', -67.5,4.5,   500.,    400.e3,     0.,    'lin', 270., 320., 2.0,  0.
+ 'SPEEDW'          ,'O',512,'TGIPmscntW', -67.5,4.5,   500.,    400.e3,     0.,    'lin',   0., 100., 5.0,  0.
+ 'LEAF_CLASS'       ,'O',  1,'TgiPmcbnW', -67.5,4.5,  1000.,    400.e3,     0.,    'lin',   0., 100., 5.0,  0.
+ 'SFCG_CANTEMPK'    ,'O',  4,'TgiPmcbnW', -67.5,4.5,  1000.,    400.e3,     0.,    'lin',   0., 100., 5.0,  0.
+ 'SFCG_CANRRV'      ,'O',  5,'TgiPmcbnW', -67.5,4.5,  1000.,    400.e3,     0.,    'lin',   0., 100., 5.0,  0.
+ 'SFCG_AIRTEMPK'    ,'O',  4,'TgiPmcbnW', -67.5,4.5,  1000.,    400.e3,     0.,    'lin',   0., 100., 5.0,  0.
+ 'SFCG_AIRRRV'      ,'O',  5,'TgiPmcbnW', -67.5,4.5,  1000.,    400.e3,     0.,    'lin',   0., 100., 5.0,  0.
+ 'SFCG_SKINTEMPK'   ,'O',  4,'TgiPmcbnW', -67.5,4.5,  1000.,    400.e3,     0.,    'lin',   0., 100., 5.0,  0.
+ 'VEG_TEMPK'        ,'O',  4,'TgiPmcbnW', -67.5,4.5,  1000.,    400.e3,     0.,    'lin',   0., 100., 5.0,  0.
+ 'SFCWATER_TOT'     ,'O',200,'TgiPmcbnW', -67.5,4.5,  1000.,    400.e3,     0.,    'lin',   0., 100., 5.0,  0.
+ 'SFCWATER_TOP_TEMP','O',  4,'TgiPmcbnW', -67.5,4.5,  1000.,    400.e3,     0.,    'lin',   0., 100., 5.0,  0.
+ 'SOIL_TOP_TEMP'    ,'O',  4,'TgiPmcbnW', -67.5,4.5,  1000.,    400.e3,     0.,    'lin',   0., 100., 5.0,  0.
+
 
 
 
@@ -857,11 +949,11 @@
  'CEC_SOIL'         ,'L',433,'Tmcbn',       0., 0.,    1000.,    200.e3,    0.
  'PH_SOIL'          ,'L',434,'Tmcbn',       0., 0.,    1000.,    200.e3,    0.
  'SFCG_CANTEMPK'    ,'L',  4,'Tmcbn',       0.,0.,    1000.,    500.e3,    0.
- 'SFCG_CANSHV'      ,'L',  5,'Tmcbn',       0.,0.,    1000.,    500.e3,    0.
+ 'SFCG_CANRRV'      ,'L',  5,'Tmcbn',       0.,0.,    1000.,    500.e3,    0.
  'SFCG_CANTEMPK'    ,'L',  4,'Tmcbn',       0.,0.,  1000.,    500.e3,    0.
- 'SFCG_CANSHV'      ,'L',  5,'Tmcbn',       0.,0.,  1000.,    500.e3,    0.
+ 'SFCG_CANRRV'      ,'L',  5,'Tmcbn',       0.,0.,  1000.,    500.e3,    0.
  'SFCG_AIRTEMPK'    ,'L',  4,'Tmcbn',       0.,0.,  1000.,    500.e3,    0.
- 'SFCG_AIRSHV'      ,'L',  5,'Tmcbn',       0.,0.,  1000.,    500.e3,    0.
+ 'SFCG_AIRRRV'      ,'L',  5,'Tmcbn',       0.,0.,  1000.,    500.e3,    0.
  'SFCG_SKINTEMPK'   ,'L',  4,'Tmcbn',       0.,0.,  1000.,    500.e3,    0.
  'VEG_TEMPK'        ,'L',  4,'Tmcbn',       0.,0.,  1000.,    500.e3,    0.
  'SFCWATER_TOT'     ,'L',200,'Tmcbn',       0.,0.,  1000.,    500.e3,    0.
@@ -877,7 +969,7 @@
  'SFCG_ALBEDO_BEAM'   ,'L',  6,'Tmcbn',     0.,0.,  1000.,    500.e3,    0.
  'SFCG_ALBEDO_DIFFUSE','L',  6,'Tmcbn',     0.,0.,  1000.,    500.e3,    0.
  'SFCG_CANTEMPK_DIF2'  ,'L',  6,'Tmcbn',     0.,0.,  1000.,    500.e3,    0.
- 'SFCG_CANSHV_DIF2'    ,'L',  6,'Tmcbn',     0.,0.,  1000.,    500.e3,    0.
+ 'SFCG_CANRRV_DIF2'    ,'L',  6,'Tmcbn',     0.,0.,  1000.,    500.e3,    0.
  'SFCG_SKINTEMPK_DIF2' ,'L',  6,'Tmcbn',     0.,0.,  1000.,    500.e3,    0.
  'SFCG_SENSFLUX_DIF2'  ,'L',  6,'Tmcbn',     0.,0.,  1000.,    500.e3,    0.
  'SFCG_LATFLUX_DIF2'   ,'L',  6,'Tmcbn',     0.,0.,  1000.,    500.e3,    0.
@@ -888,7 +980,7 @@
 
 
  'SFCG_CANTEMPK'    ,'L',  4,'Tmcot',       0.,0.,    1000.,    500.e3,    0.
- 'SFCG_CANSHV'      ,'L',  5,'Tmcot',       0.,0.,    1000.,    500.e3,    0.
+ 'SFCG_CANRRV'      ,'L',  5,'Tmcot',       0.,0.,    1000.,    500.e3,    0.
 
  'LEAF_CLASS'       ,'L',  1,'TGgmcot',     0.,0.,    1000.,    600.e3,    0.
  'PCPBOTH_DIF2'     ,'L',418,'Tmcot',       0.,0.,    1000.,    5000.e3,    0.
@@ -915,18 +1007,18 @@
  'THETA'            ,'O',413,
  'AIRTEMPK'         ,'O',  4,
  'AIRTEMPC'         ,'O',112,
- 'SH_W'             ,'O',  5,
- 'SH_V'             ,'O',  5,
- 'SH_C'             ,'O',  5,
- 'SH_D'             ,'O',  5,
- 'SH_R'             ,'O',  5,
- 'SH_P'             ,'O',  5,
- 'SH_S'             ,'O',  5,
- 'SH_A'             ,'O',  5,
- 'SH_G'             ,'O',  5,
- 'SH_H'             ,'O',  5,
- 'SH_CP'            ,'O',  5,
- 'SH_TOTCOND'       ,'O',  5,
+ 'RR_W'             ,'O',  5,
+ 'RR_V'             ,'O',  5,
+ 'RR_C'             ,'O',  5,
+ 'RR_D'             ,'O',  5,
+ 'RR_R'             ,'O',  5,
+ 'RR_P'             ,'O',  5,
+ 'RR_S'             ,'O',  5,
+ 'RR_A'             ,'O',  5,
+ 'RR_G'             ,'O',  5,
+ 'RR_H'             ,'O',  5,
+ 'RR_CP'            ,'O',  5,
+ 'RR_TOTCOND'       ,'O',  5,
  'CON_C'            ,'O',200,
  'CON_D'            ,'O',200,
  'CON_R'            ,'O',200,
@@ -1004,7 +1096,7 @@
  'WC_DIF2'          ,'O',125,
  'PRESS_DIF2'       ,'O',415,
  'AIRTEMPK_DIF2'    ,'O',  4,
- 'SH_V_DIF2'        ,'O',  5,
+ 'RR_V_DIF2'        ,'O',  5,
  'PCPMIC_DIF2'      ,'O',418,
  'PCPCON_DIF2'      ,'O',418,
  'PCPBOTH_DIF2'     ,'O',418,
@@ -1053,7 +1145,7 @@
  'SFCWATER_TOT'     ,'O',200,
  'SFCWATER_TOP_TEMP','O',  4,
  'SOIL_TOP_TEMP'    ,'O',  4,
- 'GROUND_SHV'       ,'O',  5,
+ 'GROUND_SRRV'      ,'O',  5,
  'SOIL_DEPTH'       ,'O',  7,
  'SOIL_WATER_TOT'   ,'O',  3,
  'HEAD0'            ,'O',419,
@@ -1083,11 +1175,11 @@
  'SFC_ROUGH'         ,'O',201,
  'SFC_VESFC'          ,'O', 54,
  'SFC_AIRTEMPK'      ,'O',  4,
- 'SFC_AIRSHV'        ,'O',  5,
+ 'SFC_AIRRRV'        ,'O',  5,
  'SFC_CANTEMPK'      ,'O',  4,
- 'SFC_CANSHV'        ,'O',  5,
+ 'SFC_CANRRV'        ,'O',  5,
  'SFC_SKINTEMPK'     ,'O',  4,
- 'SFC_GSS_SSH'       ,'O',  5,
+ 'SFC_GSS_SRRV'      ,'O',  5,
 
  'SFC_SENSFLUX'      ,'O',167,
  'SFC_VAPFLUX'       ,'O',167,
@@ -1101,9 +1193,9 @@
 
  'SFC_VELS_DIF2'     ,'O', 54,
  'SFC_AIRTEMPK_DIF2' ,'O',  4,
- 'SFC_AIRSHV_DIF2'   ,'O',  5,
+ 'SFC_AIRRRV_DIF2'   ,'O',  5,
  'SFC_CANTEMPK_DIF2' ,'O',  4,
- 'SFC_CANSHV_DIF2'   ,'O',  5,
+ 'SFC_CANRRV_DIF2'   ,'O',  5,
  'SFC_SKINTEMPK_DIF2','O',  4,
  'SFC_SENSFLUX_DIF2' ,'O',167,
  'SFC_LATFLUX_DIF2'  ,'O',167,
@@ -1111,9 +1203,9 @@
 
  'ASFC_VELS'         ,'O', 54,
  'ASFC_AIRTEMPK'     ,'O',  4,
- 'ASFC_AIRSHV'       ,'O',  5,
+ 'ASFC_AIRRRV'       ,'O',  5,
  'ASFC_CANTEMPK'     ,'O',  4,
- 'ASFC_CANSHV'       ,'O',  5,
+ 'ASFC_CANRRV'       ,'O',  5,
  'ASFC_SKINTEMPK'    ,'O',  4,
  'ASFC_SENSFLUX'     ,'O',167,
  'ASFC_LATFLUX'      ,'O',167,
@@ -1121,9 +1213,9 @@
 
  'ASFC_VELS_DIF2'     ,'O', 54,
  'ASFC_AIRTEMPK_DIF2' ,'O',  4,
- 'ASFC_AIRSHV_DIF2'   ,'O',  5,
+ 'ASFC_AIRRRV_DIF2'   ,'O',  5,
  'ASFC_CANTEMPK_DIF2' ,'O',  4,
- 'ASFC_CANSHV_DIF2'   ,'O',  5,
+ 'ASFC_CANRRV_DIF2'   ,'O',  5,
  'ASFC_SKINTEMPK_DIF2','O',  4,
  'ASFC_SENSFLUX_DIF2' ,'O',167,
  'ASFC_LATFLUX_DIF2'  ,'O',167,
@@ -1198,27 +1290,6 @@
  'ITAB_W_IWNUD'     ,'O', 65,
  'ITAB_W_FNUD'      ,'O',  6,
 
- 'PRESS_MAVG'       ,'O',415,
- 'RHO_MAVG'         ,'O',414,
- 'TEMPK_MAVG'       ,'O',  4,
- 'SH_V_MAVG'        ,'O',  5,
- 'SH_W_MAVG'        ,'O',  5,
- 'WC_MAVG'          ,'O',300,
- 'ZONAL_WINDW_MAVG' ,'O',309,
- 'MERID_WINDW_MAVG' ,'O',309,
- 'RSHORT_MAVG'      ,'O', 63,
- 'RSHORT_TOP_MAVG'  ,'O', 63,
- 'RSHORTUP_MAVG'    ,'O', 63,
- 'RSHORTUP_TOP_MAVG','O', 63,
- 'RLONG_MAVG'       ,'O', 63,
- 'RLONGUP_MAVG'     ,'O', 63,
- 'RLONGUP_TOP_MAVG' ,'O', 63,
- 'LATFLUX_MAVG'     ,'O',163,
- 'SENSFLUX_MAVG'    ,'O',163,
- 'WINDSPEED_MAVG'   ,'O',200,
- 'ACCPMIC_MTOT'     ,'O',200,
- 'ACCPCON_MTOT'     ,'O',200,
- 'ACCPBOTH_MTOT'    ,'O',200,
  'PRESS_DAVG'       ,'O',415,
  'ZONAL_WINDW_DAVG' ,'O',309,
  'MERID_WINDW_DAVG' ,'O',309,
@@ -1255,17 +1326,17 @@
 
  'RHO_OBS'          ,'O',414,
  'THETA_OBS'        ,'O',413,
- 'SHW_OBS'          ,'O',  5,
+ 'RRW_OBS'          ,'O',  5,
  'UZONAL_OBS'       ,'O',113,
  'UMERID_OBS'       ,'O',113,
  'RHO_SIM'          ,'O',414,
  'THETA_SIM'        ,'O',413,
- 'SHW_SIM'          ,'O',  5,
+ 'RRW_SIM'          ,'O',  5,
  'UZONAL_SIM'       ,'O',113,
  'UMERID_SIM'       ,'O',113,
  'RHO_OBS_SIM'      ,'O',306,
  'THETA_OBS_SIM'    ,'O',109,
- 'SHW_OBS_SIM'      ,'O',306,
+ 'RRW_OBS_SIM'      ,'O',306,
  'UZONAL_OBS_SIM'   ,'O',109,
  'UMERID_OBS_SIM'   ,'O',109,
  'VXE'              ,'O',113,
@@ -1273,6 +1344,6 @@
  'VZE'              ,'O',113,
  'PBLH'             ,'O',401,
  'HKM'              ,'O',200,
- 'SHW_HCONV'        ,'O',303,
- 'SHV_HCONV'        ,'O',303,
+ 'RRW_HCONV'        ,'O',303,
+ 'RRV_HCONV'        ,'O',303,
  'CLDNUM'           ,'O', 62,

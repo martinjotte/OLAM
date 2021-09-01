@@ -164,10 +164,10 @@ call ichk_bnds( nl%gridplot_base, "GRIDPLOT_BASE", 2, maxgrds, 2, nfatal, nwarn 
 
 ! global mesh requires nxp to be divisible by 3
 
-!if (nl%mdomain < 2 .and. mod(nl%nxp,3) /= 0) then
-!   write(io6,*) 'FATAL - NXP must be divisible by 3 for a global run'
-!   nfatal = nfatal + 1
-!endif
+if (nl%mdomain < 2 .and. mod(nl%nxp,3) /= 0) then
+   write(io6,*) 'FATAL - NXP must be divisible by 3 for a global run'
+   nfatal = nfatal + 1
+endif
 
 do ng = 2, nl%ngrids
    call ichk_bnds(nl%ngrdll(ng), "NGRDLL", 1, maxngrdll, 0, nfatal, nwarn )

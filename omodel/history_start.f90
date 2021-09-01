@@ -125,7 +125,7 @@ subroutine hist_read()
   use misc_coms,   only: io6, runtype
   use var_tables,  only: num_var, vtab_r, get_vtab_dims
   use hdf5_utils,  only: shdf5_info, shdf5_irec
-  use mem_sfcg,    only: itab_wsfc, nwsfc, mwsfc
+  use mem_sfcg,    only: itab_wsfc, nwsfc, mwsfc, itab_vsfc, nvsfc, mvsfc
   use mem_land,    only: itab_land, nland, mland, nzg
   use mem_lake,    only: itab_lake, nlake, mlake
   use mem_sea,     only: itab_sea, nsea, msea
@@ -136,7 +136,7 @@ subroutine hist_read()
   integer       :: nv, nvcnt, ns, ndims, idims(3)
   character(32) :: varn
   character (2) :: stagpt
-  integer       :: ilocal(max(mwa,mva,mma,mwsfc,mland,mlake,msea,mwnud))
+  integer       :: ilocal(max(mwa,mva,mma,mwsfc,mvsfc,mland,mlake,msea,mwnud))
 
   nvcnt =  0
 
@@ -182,6 +182,9 @@ subroutine hist_read()
      elseif (stagpt == 'CW' .and. idims(ndims) == nwsfc) then
         ilocal(1:mwsfc) = itab_wsfc(1:mwsfc)%iwglobe
         idims(ndims) = mwsfc
+     elseif (stagpt == 'CV' .and. idims(ndims) == nvsfc) then
+        ilocal(1:mvsfc) = itab_vsfc(1:mvsfc)%ivglobe
+        idims(ndims) = mvsfc
      elseif (stagpt == 'LW' .and. idims(ndims) == nland) then
         ilocal(1:mland) = itab_land(1:mland)%iwglobe
         idims(ndims) = mland

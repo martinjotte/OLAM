@@ -220,6 +220,7 @@ SOURCE_FILES= \
              $(SEA)/seaice.f90 \
              $(SEA)/sea_init_atm.f90 \
              $(SEA)/sea_startup.f90 \
+             $(SEA)/sea_swm.f90 \
              $(SEA)/sst_database_read.f90 \
              $(SFCG)/hex_grid_sfc.f90 \
              $(SFCG)/makesfc3.f90 \

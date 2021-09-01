@@ -40,6 +40,11 @@ Module var_tables
 
   type var_tables_r
 
+     logical,  pointer             :: lvar0_p        => null()
+     logical,  pointer, contiguous :: lvar1_p(:)     => null()
+     logical,  pointer, contiguous :: lvar2_p(:,:)   => null()
+     logical,  pointer, contiguous :: lvar3_p(:,:,:) => null()
+
      integer,  pointer             :: ivar0_p        => null()
      integer,  pointer, contiguous :: ivar1_p(:)     => null()
      integer,  pointer, contiguous :: ivar2_p(:,:)   => null()
@@ -111,6 +116,7 @@ Contains
 !===============================================================================
 
   subroutine increment_vtable(name, stagpt, hist, noread, mpt1, lite, &
+                              lvar0, lvar1, lvar2, lvar3,             &
                               ivar0, ivar1, ivar2, ivar3,             &
                               rvar0, rvar1, rvar2, rvar3,             &
                               dvar0, dvar1, dvar2, dvar3              )
@@ -119,6 +125,11 @@ Contains
 
     character(*),      intent(in) :: name, stagpt
     logical, optional, intent(in) :: hist, noread, mpt1, lite
+
+    logical,  target, optional,             intent(in) :: lvar0
+    logical,  target, optional, contiguous, intent(in) :: lvar1(:)
+    logical,  target, optional, contiguous, intent(in) :: lvar2(:,:)
+    logical,  target, optional, contiguous, intent(in) :: lvar3(:,:,:)
 
     integer,  target, optional,             intent(in) :: ivar0
     integer,  target, optional, contiguous, intent(in) :: ivar1(:)
@@ -196,7 +207,16 @@ Contains
     if (present(noread)) vtab_r(num_var)%nread = noread
     if (present(lite))   vtab_r(num_var)%ilite = lite
 
-     if     (present(ivar0)) then
+     if     (present(lvar0)) then
+        vtab_r(num_var)%lvar0_p => lvar0
+     elseif (present(lvar1)) then
+        vtab_r(num_var)%lvar1_p => lvar1
+     elseif (present(lvar2)) then
+        vtab_r(num_var)%lvar2_p => lvar2
+     elseif (present(lvar3)) then
+        vtab_r(num_var)%lvar3_p => lvar3
+
+     elseif (present(ivar0)) then
         vtab_r(num_var)%ivar0_p => ivar0
      elseif (present(ivar1)) then
         vtab_r(num_var)%ivar1_p => ivar1
@@ -430,7 +450,27 @@ Contains
     ndims = 0
     idims = 0
 
-    if     (associated(vtab_r(nv)%ivar0_p)) then
+    if     (associated(vtab_r(nv)%lvar0_p)) then
+
+       ndims      = 1
+       idims(1)   = 1
+
+    elseif (associated(vtab_r(nv)%lvar1_p)) then
+
+       ndims      = 1
+       idims(1:1) = shape(vtab_r(nv)%lvar1_p)
+
+    elseif (associated(vtab_r(nv)%lvar2_p)) then
+
+       ndims      = 2
+       idims(1:2) = shape(vtab_r(nv)%lvar2_p)
+
+    elseif (associated(vtab_r(nv)%lvar3_p)) then
+
+       ndims      = 3
+       idims(1:3) = shape(vtab_r(nv)%lvar3_p)
+
+    elseif (associated(vtab_r(nv)%ivar0_p)) then
 
        ndims      = 1
        idims(1)   = 1

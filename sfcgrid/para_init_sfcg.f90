@@ -39,7 +39,7 @@ subroutine para_init_sfcg()
                         itab_vsfc, itabg_vsfc, itab_vsfc_pd, &
                         itab_wsfc, itabg_wsfc, itab_wsfc_pd, &
                         alloc_sfcgrid1, sfcg
-  use mem_para,   only: myrank, nsends_wsfc, nrecvs_wsfc
+  use mem_para,   only: myrank, nsends_wsfc, nrecvs_wsfc, nsends_vsfc, nrecvs_vsfc
   use mem_land,   only: mland, omland, onland, itab_land
   use mem_lake,   only: mlake, omlake, onlake, itab_lake
   use mem_sea,    only: msea, omsea, onsea, itab_sea
@@ -64,7 +64,9 @@ subroutine para_init_sfcg()
 
   ! Allocate send & recv counter arrays and initialize to zero
 
+  nsends_vsfc = 0
   nsends_wsfc = 0
+  nrecvs_vsfc = 0
   nrecvs_wsfc = 0
 
   myrankflag_msfc(:) = .false.
@@ -91,15 +93,12 @@ subroutine para_init_sfcg()
      if (itabg_wsfc(iwsfc)%irank == myrank) then
         myrankflag_wsfc(iwsfc) = .true.
 
-        ! If the flagged point is also a non-boundary Voronoi cell, flag all
-        ! its IWN neighbors for inclusion on this rank.
+        ! Flag all IWN neighbors of IW for inclusion on this rank.
 
-        if (itab_wsfc_pd(iwsfc)%ivoronoi == 3) then
-           do j = 1,itab_wsfc_pd(iwsfc)%npoly
-              iwn = itab_wsfc_pd(iwsfc)%iwn(j)
-              myrankflag_wsfc(iwn) = .true.
-           enddo
-        endif
+        do j = 1,itab_wsfc_pd(iwsfc)%npoly
+           iwn = itab_wsfc_pd(iwsfc)%iwn(j)
+           myrankflag_wsfc(iwn) = .true.
+        enddo
      endif
 
      ! If the SFC grid W point is coupled to an ATM cell whose rank is myrank,
@@ -143,13 +142,8 @@ subroutine para_init_sfcg()
            imn = itab_wsfc_pd(iwsfc)%imn(j)
            myrankflag_msfc(imn) = .true.
 
-           ! Only Voronoi cells whose neighbors are all Voronoi cells have a
-           ! complete set of V neighbors
-
-           if (itab_wsfc_pd(iwsfc)%ivoronoi == 3) then
-              ivn = itab_wsfc_pd(iwsfc)%ivn(j)
-              myrankflag_vsfc(ivn) = .true.
-           endif
+           ivn = itab_wsfc_pd(iwsfc)%ivn(j)
+           myrankflag_vsfc(ivn) = .true.
         enddo
      endif
   enddo
@@ -229,19 +223,16 @@ subroutine para_init_sfcg()
         itab_wsfc(iwsfc_myrank)%irank    = itabg_wsfc(iwsfc)%irank
         itab_wsfc(iwsfc_myrank)%iwglobe  = iwsfc
         itab_wsfc(iwsfc_myrank)%npoly    = itab_wsfc_pd(iwsfc)%npoly
-        itab_wsfc(iwsfc_myrank)%ivoronoi = itab_wsfc_pd(iwsfc)%ivoronoi
         itab_wsfc(iwsfc_myrank)%nwatm    = itab_wsfc_pd(iwsfc)%nwatm
 
         do j = 1,itab_wsfc_pd(iwsfc)%npoly 
            imn = itab_wsfc_pd(iwsfc)%imn(j) ! global index
            itab_wsfc(iwsfc_myrank)%imn(j) = itabg_msfc(imn)%imsfc_myrank  ! local index
 
-           if (itab_wsfc_pd(iwsfc)%ivoronoi == 3) then
-              ivn = itab_wsfc_pd(iwsfc)%ivn(j) ! global index
-              iwn = itab_wsfc_pd(iwsfc)%iwn(j) ! global index
-              itab_wsfc(iwsfc_myrank)%ivn(j) = itabg_vsfc(ivn)%ivsfc_myrank  ! local index
-              itab_wsfc(iwsfc_myrank)%iwn(j) = itabg_wsfc(iwn)%iwsfc_myrank  ! local index
-           endif
+           ivn = itab_wsfc_pd(iwsfc)%ivn(j) ! global index
+           iwn = itab_wsfc_pd(iwsfc)%iwn(j) ! global index
+           itab_wsfc(iwsfc_myrank)%ivn(j) = itabg_vsfc(ivn)%ivsfc_myrank  ! local index
+           itab_wsfc(iwsfc_myrank)%iwn(j) = itabg_wsfc(iwn)%iwsfc_myrank  ! local index
         enddo
 
         do j = 1,itab_wsfc_pd(iwsfc)%nwatm 
@@ -274,8 +265,7 @@ subroutine para_init_sfcg()
         imsfc_myrank = itabg_msfc(imsfc)%imsfc_myrank
         itab_msfc(imsfc_myrank)%imglobe = imsfc
 
-        ! The following is apparently needed only for contslab.f90 and then only
-        ! for Voronoi cells
+        ! The following is apparently needed only for contslab.f90
 
         do j = 1,3
            ivn = itab_msfc_pd(imsfc)%ivn(j) ! global index
@@ -292,8 +282,6 @@ subroutine para_init_sfcg()
      if (myrankflag_vsfc(ivsfc)) then
         ivsfc_myrank = itabg_vsfc(ivsfc)%ivsfc_myrank
         itab_vsfc(ivsfc_myrank)%ivglobe = ivsfc
-
-        ! The following is needed for Voronoi cells
 
         do j = 1,2
            imn = itab_vsfc_pd(ivsfc)%imn(j) ! global index
@@ -323,11 +311,11 @@ subroutine para_init_sfcg()
         call recv_table_wsfc(itabg_wsfc(iwsfc)%irank)
      endif
 
-     ! If this SFC grid W point is primary on a remote rank, has ivoronoi = 3,
-     ! and is adjacent to a point that is primary on myrank, add the
-     ! myrank-primary point global index and that remote rank to MPI send table.
+     ! If this SFC grid W point is primary on a remote rank and is adjacent to
+     ! a point that is primary on myrank, add the myrank-primary point global
+     ! index and that remote rank to MPI send table.
 
-     if (itabg_wsfc(iwsfc)%irank /= myrank .and. itab_wsfc_pd(iwsfc)%ivoronoi == 3) then
+     if (itabg_wsfc(iwsfc)%irank /= myrank) then
         do j = 1,itab_wsfc_pd(iwsfc)%npoly
            iwn = itab_wsfc_pd(iwsfc)%iwn(j) ! Global index
 

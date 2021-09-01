@@ -36,7 +36,8 @@ subroutine surface_driver()
   use leaf_coms,      only: nzs, iupdndvi, s1900_ndvi, dt_leaf, &
                             indvifile, nndvifiles, soil_rough, snow_rough, z_root
   use mem_ijtabs,     only: itabg_w, itab_w
-  use mem_sfcg,       only: itab_wsfc, itab_vsfc, sfcg, mvsfc, mwsfc
+  use mem_sfcg,       only: itab_wsfc, itab_vsfc, sfcg, mvsfc, mwsfc, &
+                            jtab_wsfc_swm
   use mem_land,       only: land, mland, omland, nzg, slz, slzt, dslz
   use mem_lake,       only: lake, mlake, omlake, timescale_lake
   use mem_sea,        only: sea, omsea
@@ -49,6 +50,9 @@ subroutine surface_driver()
   use leaf4_surface,  only: sfcwater, sfcwater_adjust, remove_runoff, grndvap
   use leaf4_soil,     only: soil, soil_wat2khyd, head_column, head_column_spinup
   use leaf4_plot,     only: leaf_plot
+  use leaf_coms,      only: wcap_min
+
+  use ocean_swm,      only: swm_grad2d, swm_hflux, swm_progw, swm_progv, swm_diagvel
   use therm_lib,      only: qwtk, qtk
   use olam_mpi_sfcg,  only: mpi_send_wsfc, mpi_recv_wsfc
   use oname_coms,     only: nl
@@ -65,9 +69,9 @@ subroutine surface_driver()
   real :: energy_per_m2    (nzs) ! sfcwater energy [J/m^2]
   real :: hydresist1       (nzg)
   real :: hydresist2       (nzg)
-  real :: dheight          (nzg) ! change in water height (of a lake surface or in a soil layer)
-                                 ! from lateral fluxes [m]
-  real :: energyin         (nzg) ! change in energy (of lake water or a soil layer) from lateral fluxes [J/m^2]
+  real :: dheight          (nzg) ! change in water height (of a T cell)
+                                 ! from lateral water fluxes [m]
+  real :: energyin         (nzg) ! change in energy (of T cell) from lateral water fluxes [J/m^2]
 
   real :: head        (nzg,mland)
   real :: head_slope  (nzg,mland)
@@ -125,7 +129,7 @@ subroutine surface_driver()
   !---------------------------------------------------------------------------
   ! Compute hydraulic head in primary land cells and those adjacent to primary
   ! cells, and compute horizontal groundwater fluxes of mass and energy across
-  ! faces of all primary land and lake cells with IVORONOI = 3 in this subdomain
+  ! faces of all primary land and lake cells in this subdomain
   !---------------------------------------------------------------------------
 
   watflux   (:,:) = 0.
@@ -141,8 +145,8 @@ subroutine surface_driver()
 
      if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
-     ! Compute total head (relative to local topographic datum) based on soil
-     ! moisture, pressure head, and depth in soil
+     ! For land cells, compute total head (relative to local topographic
+     ! datum) based on soil moisture, pressure head, and depth in soil
 
      if (nl%igw_spinup /= 1) then
 
@@ -176,16 +180,36 @@ subroutine surface_driver()
   enddo ! iland
   !$omp end parallel do
 
-  ! MPI send/recv of time-dependent SFCG, LAND, LAKE, SEA quantities
+  ! Evaluate horizontal gradients of temp, VXE, VYE, and VZE for ocean cells
+  ! that are updated with Shallow Water Model (SWM).
+
+  call swm_grad2d()
+
+  ! MPI send/recv of head and SWM gradients
 
   if (iparallel == 1) then
+
+     ! THE FOLLOWING NEED TO BE SET UP FOR ONLY SOIL CELLS
+
      call mpi_send_wsfc(head=head,soil_watfrac=soil_watfrac)
      call mpi_recv_wsfc(head=head,soil_watfrac=soil_watfrac)
+
+     ! THE FOLLOWING NEED TO BE SET UP FOR ONLY SWM_ACTIVE SEA CELLS
+
+!F     call mpi_send_wsfc(rvara1=sea%gxps_scp, rvara2=sea%gyps_scp, &
+!F                        rvara3=sea%gxps_vxe, rvara4=sea%gyps_vxe, &
+!F                        rvara5=sea%gxps_vye, rvara6=sea%gyps_vye, &
+!F                        rvara7=sea%gxps_vze, rvara8=sea%gyps_vze  )
+
+!F     call mpi_recv_wsfc(rvara1=sea%gxps_scp, rvara2=sea%gyps_scp, &
+!F                        rvara3=sea%gxps_vxe, rvara4=sea%gyps_vxe, &
+!F                        rvara5=sea%gxps_vye, rvara6=sea%gyps_vye, &
+!F                        rvara7=sea%gxps_vze, rvara8=sea%gyps_vze  )
   endif
 
-  ! Loop over all SFC grid V faces in this subdomain (NOTE: they only exist
-  ! around Voronoi cells).  Evaluate water and energy fluxes across V face,
-  ! with flux direction defined by flux = (head(v%iw1) - head(v%iw2)) / resist
+  ! Loop over all SFC grid V faces in this subdomain.  Evaluate water and
+  ! energy fluxes across V face, with flux direction defined by 
+  ! flux = (head(v%iw1) - head(v%iw2)) / resist
 
   !$omp parallel private(soil_tempk, soil_fracliq, hydresist1, hydresist2)
   !$omp do private(iw1, iw2, iland1, iland2, k, ilake1, ilake2, isea1, isea2, &
@@ -194,23 +218,22 @@ subroutine surface_driver()
      iw1 = itab_vsfc(ivsfc)%iwn(1)
      iw2 = itab_vsfc(ivsfc)%iwn(2)
 
-     ! Skip this SFC grid V face if either adjacent W cell is not a Voronoi cell
-
      if (iw1 < 2 .or. iw2 < 2) cycle
-     if (itab_wsfc(iw1)%ivoronoi < 2 .or. itab_wsfc(iw2)%ivoronoi < 2) cycle
 
-        ! Compute half distance along topographic slope between adjacent sfcg w points
+     ! Compute half distance along topographic slope between adjacent sfcg w points
 
-        dnvo2 = 0.5 * sqrt(sfcg%dnv(ivsfc)**2 + (sfcg%topw(iw1) - sfcg%topw(iw2))**2)
+     dnvo2 = 0.5 * sqrt(sfcg%dnv(ivsfc)**2 + (sfcg%topw(iw1) - sfcg%topw(iw2))**2)
 
      if (sfcg%leaf_class(iw1) >= 2 .and. sfcg%leaf_class(iw2) >= 2) then
-
+!@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+!LAND-LAND
+!@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         ! Fluxes at current IVSFC location are between two land cells
 
         iland1 = iw1 - omland
         iland2 = iw2 - omland
 
-        ! Loop over vertical levels
+        ! Loop vertically over soil levels
 
         do k = 1,nzg
 
@@ -264,7 +287,9 @@ subroutine surface_driver()
         enddo
 
      elseif (sfcg%leaf_class(iw1) >= 2) then
-
+!@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+!LAND-SEA or LAND-LAKE
+!@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         ! Fluxes at current IVSFC location are between a land cell (iw1) and
         ! a water cell (iw2) - either sea or lake.  Hydraulic resistance is
         ! from land side only with assumed saturation at interface.  Head is
@@ -328,7 +353,9 @@ subroutine surface_driver()
         enddo ! k
 
      elseif (sfcg%leaf_class(iw2) >= 2) then
-
+!@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+!SEA-LAND or LAKE-LAND
+!@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         ! Fluxes at current IVSFC location are between a land cell (iw2) and
         ! a water cell (iw1) - either sea or lake.  Hydraulic resistance is
         ! from land side only with assumed saturation at interface.  Head is
@@ -390,7 +417,9 @@ subroutine surface_driver()
         enddo ! k
 
      elseif (sfcg%leaf_class(iw1) == 1 .and. sfcg%leaf_class(iw2) == 1) then
-
+!@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+!LAKE-LAKE
+!@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         ! Fluxes at current IVSFC location are between two lake cells.  If they
         ! have different topographic heights, assume that they are unconnected
         ! and skip this IVN point.
@@ -404,6 +433,8 @@ subroutine surface_driver()
         ! cells are assumed to be interconnected.  Compute a water flux at
         ! ivsfc that is proportional to the difference in head1 values between
         ! the lake cells so that water levels tend toward equilibration.
+        ! ALTHOUGH MASS CONSERVING, THIS IS STRICTLY A RELAXATION TERM, NOT A
+        ! COMPUTATION OF DYNAMICS BASED ON FORCE, DRAG, AND/OR MOMENTUM.
 
         watflux(nzg,ivsfc) = (sfcg%head1(iw1) + sfcg%topw(iw1) - sfcg%head1(iw2) - sfcg%topw(iw2)) &
                            * min(sfcg%area(iw1),sfcg%area(iw2)) &
@@ -426,9 +457,22 @@ subroutine surface_driver()
 
      endif ! sfcg%leaf_class(iw1 & iw2)
 
+!@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+!LAND-LAND, LAND-LAKE, LAND-SEA, LAKE-LAND, SEA-LAND, SEA-SEA surface fluxes in SWM-ACTIVE regions
+!@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+     if (sfcg%swm_active(iw1) .or. sfcg%swm_active(iw2)) then ! Includes sea, lake, land cells
+        call swm_hflux(ivsfc, iw1, iw2)
+     endif
+
   enddo ! ivsfc
   !$omp end do
   !$omp end parallel
+
+  if (iparallel == 1) then
+!F     call mpi_send_wsfc(rvara1=hflux_vxe, rvara2=hflux_vye, rvara3=hflux_vze)
+!F     call mpi_recv_wsfc(rvara1=hflux_vxe, rvara2=hflux_vye, rvara3=hflux_vze)
+  endif
 
   ! Time interpolation factor for updating NDVI
 
@@ -438,6 +482,48 @@ subroutine surface_driver()
      timefac_ndvi = (s1900_sim             - s1900_ndvi(indvifile-1))  &
                   / (s1900_ndvi(indvifile) - s1900_ndvi(indvifile-1))
   endif
+
+  !----------------------------------------------------------------------------------
+  ! Loop over SEA CELLS that use SWM; prognose WDEPTH, HEAD1, & W-cell horiz momentum
+  !----------------------------------------------------------------------------------
+
+  !$omp parallel do private(iwsfc) 
+  do j = 1,jtab_wsfc_swm%jend; iwsfc = jtab_wsfc_swm%iwsfc(j)
+     call swm_progw(iwsfc)
+  enddo
+  !$omp end parallel do 
+
+! MPI SEND/RECV of quantities needed for prog_v
+
+  if (iparallel == 1) then
+
+!F     call mpi_send_wsfc(rvara1=sea%wdepth, rvara2=sea%temp,  rvara3=sea%head1, &
+!F                        rvara4=sea%vmxet,  rvara5=sea%vmyet, rvara6=sea%vmzet, &
+!F                        rvara7=sea%vmxet_area,  rvara8=sea%vmyet_area, rvara9=sea%vmzet_area )
+
+!F     call mpi_recv_wsfc(rvara1=sea%wdepth, rvara2=sea%temp,  rvara3=sea%head1, &
+!F                        rvara4=sea%vmxet,  rvara5=sea%vmyet, rvara6=sea%vmzet, &
+!F                        rvara7=sea%vmxet_area,  rvara8=sea%vmyet_area, rvara9=sea%vmzet_area )
+  endif
+
+  ! UPDATE SFCG%VMC AND SFCG%VC for sea cells that use SWM
+
+  call swm_progv()
+
+  ! MPI send/recv of SFCG%VMC, SFCG%VC
+
+   if (iparallel == 1) then
+!F      call mpi_send_vsfc(rvara1=vmc, rvara2=vc)
+!F      call mpi_recv_vsfc(rvara1=vmc, rvara2=vc)
+   endif
+
+   ! Compute earth cartesian velocities (VXE, VYE, VZE) for sea cells that use SWM
+
+   call swm_diagvel()
+
+   ! Update specified SEATC in all sea cells that use it
+
+   call seacells()
 
   !-----------------------------------------------------------------------
   ! Loop over ALL LAKE CELLS
@@ -451,11 +537,6 @@ subroutine surface_driver()
      ! Skip this cell if running in parallel and cell rank is not MYRANK
 
      if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
-
-     ! Skip this cell if it is not interior voronoi cell, which indicates that
-     ! horizontal water fluxes do not participate in its water budget
-
-     if (itab_wsfc(iwsfc)%ivoronoi /= 3) cycle
 
      dheight (:) = 0.
      energyin(:) = 0.
@@ -478,11 +559,18 @@ subroutine surface_driver()
            ! mass and energy fluxes.  Accumulate sum only in nzg level.
 
            do k = 1,nzg
-              factor = dirv * dt_leaf * sfcg%dnu(ivn) * dslz(k) / sfcg%area(iwsfc) ! [s/m]
+              factor = dirv * dt_leaf * sfcg%dnu(ivn) * dslz(k) / sfcg%area(iwsfc) ! [s] to here
 
               dheight (nzg) = dheight (nzg) + factor * watflux   (k,ivn) ! [m]
               energyin(nzg) = energyin(nzg) + factor * energyflux(k,ivn) ! [J/m^2]
            enddo
+
+           ! Add mass and energy contributions from soil sfcwater in neighbor cell
+
+           factor = dirv * dt_leaf / sfcg%area(iwsfc) ! [s/m^2]
+
+           dheight (nzg) = dheight (nzg) + factor * sfcg%hflux_wat(ivn) ! [m] or [m^3/m^2]
+           energyin(nzg) = energyin(nzg) + factor * sfcg%hflux_enr(ivn) ! [J/m^2]
 
         elseif (sfcg%leaf_class(iwn) == 1) then
 
@@ -499,10 +587,14 @@ subroutine surface_driver()
 
      ! Add height and energy changes to cell
 
-     sfcg%head1(iwsfc) = sfcg%head1(iwsfc) + dheight(nzg)
+     energy_per_m2(1) = lake%lake_energy(ilake) * lake%depth(ilake) * 1000.
 
-     lake%lake_energy(ilake) = lake%lake_energy(ilake) + energyin(nzg) / (lake%depth(ilake) * 1000.) ! water density = 1000 kg/m^3
+     lake%depth(ilake) = lake%depth(ilake) + dheight(nzg)
 
+     lake%lake_energy(ilake) = (energy_per_m2(1) + energyin(nzg)) &
+                             / (max(wcap_min,lake%depth(ilake)) * 1000.) ! water density = 1000 kg/m^3
+
+     sfcg%head1(iwsfc) = lake%depth(ilake) + sfcg%bathym(iwsfc) - sfcg%topw(iwsfc)
   enddo
   !$omp end do
   !$omp end parallel
@@ -527,47 +619,71 @@ subroutine surface_driver()
      ! Skip this cell if running in parallel and cell rank is not MYRANK
      if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
-     ! If this is interior Voronoi cell, apply horizontal groundwater mass
-     ! and energy fluxes
- 
-     if (itab_wsfc(iwsfc)%ivoronoi == 3) then
+     ! Apply horizontal groundwater mass and energy fluxes
 
-        dheight (:) = 0.
-        energyin(:) = 0.
+     dheight (:) = 0.
+     energyin(:) = 0.
 
-        ! Loop over all lateral faces of this iland cell
+     energy_per_m2(1) = land%sfcwater_energy(1,iland) * land%sfcwater_mass(1,iland)
 
-        do j = 1,itab_wsfc(iwsfc)%npoly
-           ivn = itab_wsfc(iwsfc)%ivn(j)
+     ! Loop over all lateral faces of this iland cell
 
-           if (iwsfc == itab_vsfc(ivn)%iwn(2)) then
-              dirv = 1.0
-           else
-              dirv = -1.0
-           endif
+     do j = 1,itab_wsfc(iwsfc)%npoly
+        ivn = itab_wsfc(iwsfc)%ivn(j)
 
-           ! Loop over vertical levels; sum mass and energy fluxes over j faces
+        if (iwsfc == itab_vsfc(ivn)%iwn(2)) then
+           dirv = 1.0
+        else
+           dirv = -1.0
+        endif
 
-           do k = 1,nzg
-              factor = dirv * dt_leaf * sfcg%dnu(ivn) * dslz(k) / sfcg%area(iwsfc) ! [s]
-
-              dheight (k) = dheight (k) + factor * watflux   (k,ivn) ! [m]
-              energyin(k) = energyin(k) + factor * energyflux(k,ivn) ! [J/m^2]
-           enddo ! k
-
-        enddo ! j
-
-        ! Add mass and energy changes to cell, and adjust hydraulic head due to
-        ! water mass change according to constant slope fit for current timestep
+        ! Loop over vertical levels; sum mass and energy fluxes over j faces
 
         do k = 1,nzg
-           land%soil_water (k,iland) = land%soil_water (k,iland) + dheight(k)
-           land%soil_energy(k,iland) = land%soil_energy(k,iland) + energyin(k)
+           factor = dirv * dt_leaf * sfcg%dnu(ivn) * dslz(k) / sfcg%area(iwsfc) ! [s]
 
-           head(k,iland) = head(k,iland) + head_slope(k,iland) * dheight(k)
-        enddo
+           dheight (k) = dheight (k) + factor * watflux   (k,ivn) ! [m]
+           energyin(k) = energyin(k) + factor * energyflux(k,ivn) ! [J/m^2]
+        enddo ! k
 
-     endif ! ivoronoi == 3
+        ! Add mass and energy contributions from overland flow from neighbor cell
+
+        factor = dirv * dt_leaf / sfcg%area(iwsfc) ! [s/m^2]
+
+        land%sfcwater_depth(1,iland)  = land%sfcwater_depth(1,iland)  &
+                                      + factor * sfcg%hflux_wat(ivn) ! [m] or [m^3/m^2]
+
+        land%sfcwater_mass(1,iland)   = land%sfcwater_mass(1,iland)   &
+                                      + factor * sfcg%hflux_wat(ivn) * 1000. ! [kg/m^2]
+
+        energy_per_m2(1)              = energy_per_m2(1) & 
+                                      + factor * sfcg%hflux_enr(ivn) ! [J/m^2]
+
+        land%sfcwater_energy(1,iland) = energy_per_m2(1) &
+                                      / max(wcap_min,land%sfcwater_mass(1,iland))
+
+     enddo ! j, ivn
+
+     ! Reset relationship between sfcwater presence and nlev_sfcwater setting
+
+     if (land%sfcwater_mass(1,iland) > wcap_min .and. land%nlev_sfcwater(iland) == 0) then
+        land%nlev_sfcwater(iland) = 1
+        land%sfcwater_energy(1,iland) = energy_per_m2(1) / land%sfcwater_mass(1,iland)
+     elseif (land%sfcwater_mass(1,iland) < wcap_min .and. land%nlev_sfcwater(iland) > 0) then
+        land%nlev_sfcwater(iland) = 0
+        land%sfcwater_mass(1,iland) = 0.
+        land%sfcwater_energy(1,iland) = 0.
+     endif
+
+     ! Add mass and energy changes to cell, and adjust hydraulic head due to
+     ! water mass change according to constant slope fit for current timestep
+
+     do k = 1,nzg
+        land%soil_water (k,iland) = land%soil_water (k,iland) + dheight(k)
+        land%soil_energy(k,iland) = land%soil_energy(k,iland) + energyin(k)
+
+        head(k,iland) = head(k,iland) + head_slope(k,iland) * dheight(k)
+     enddo
 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ! START OF OLD LEAF4_LANDCELL SECTION
@@ -774,7 +890,7 @@ subroutine surface_driver()
                     land%rlong_s              (iland), &
                     land%rlong_g              (iland), &
                     land%veg_water            (iland), &
-                    land%vegwater_energy      (iland), &
+                    land%veg_energy           (iland), &
                     land%veg_temp             (iland), &   
                     land%sfcwater_mass  (nlsw1,iland), &
                     land%sfcwater_energy(nlsw1,iland), &
@@ -946,7 +1062,7 @@ subroutine surface_driver()
         soil_energy      = land%soil_energy    (1:nzg,iland), &
         head             = head                (1:nzg,iland)  )
 
-  enddo
+  enddo  ! iland
   !$omp end do
   !$omp end parallel
 

@@ -57,6 +57,7 @@ Module misc_coms
   character(pathlen) :: hfilepref
   character(pathlen) :: zonclim
   character(pathlen) :: topo_database
+  character(pathlen) :: bathym_database
 
   real     :: rinit  = 0.0
   real(r8) :: rinit8 = 0.0_r8

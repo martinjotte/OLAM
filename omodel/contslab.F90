@@ -1458,10 +1458,6 @@ subroutine contslab_horiz_sfc(iplt)
 
         if (iwn < 2) cycle mloop
 
-        ! Skip current MSFC point if IWN cell is not a Voronoi cell
-
-        if (itab_wsfc(iwn)%ivoronoi < 1) cycle mloop
-
         ! Get plot coordinates of current W point
 
         call oplot_transform(iplt,sfcg%xew(iwn),sfcg%yew(iwn),sfcg%zew(iwn),hcpn(j),vcpn(j))

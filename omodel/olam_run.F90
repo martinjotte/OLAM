@@ -49,7 +49,9 @@ subroutine olam_run(name_name)
   use leaf_coms,   only: isfcl, iupdndvi, nzs
   use sea_coms,    only: iupdsst, iupdseaice
   use mem_ijtabs,  only: istp, mrls, fill_jtabs, itab_v, itab_w
-  use mem_sfcg,    only: nwsfc, mwsfc, alloc_sfcgrid2, filltab_sfcg, sfcg_avgatm, fill_jwsfc
+  use mem_sfcg,    only: nwsfc, mwsfc, nvsfc, mvsfc, alloc_sfcgrid2, &
+                         filltab_sfcg, sfcg_avgatm, fill_jtab_sfcg, sfcg
+  use ocean_swm,   only: swm_init, swm_diagvel
   use oplot_coms,  only: op, iplt_file
   use mem_grid,    only: mma, mva, mwa, mza, alloc_gridz_other
   use mem_nudge,   only: nudflag, nudnxp, fill_jnudge, o3nudflag
@@ -305,11 +307,11 @@ subroutine olam_run(name_name)
 
   if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) call fill_jnudge()
 
-  ! Allocate and fill jwsfc data structure
+  ! Allocate and fill jtab_sfcg data structure
 
   if (isfcl == 1) then
-     write(io6,'(/,a)') 'olam_run calling fill_jwsfc'
-     call fill_jwsfc()
+     write(io6,'(/,a)') 'olam_run calling fill_jtab_sfcg'
+     call fill_jtab_sfcg()
   endif
 
   ! Allocate column initial state arrays
@@ -481,6 +483,9 @@ subroutine olam_run(name_name)
      write(io6,'(/,a)') 'olam_run calling sea_startup'
      call sea_startup()
 
+     write(io6,'(/,a)') 'olam_run calling swm_init'
+     call swm_init()
+
      ! Average atmospheric fields to SFC grid cells
 
      write(io6,'(/,a)') 'olam_run calling sfcg_avgatm'
@@ -529,6 +534,8 @@ subroutine olam_run(name_name)
    if (iparallel == 1) then
       call mpi_send_wsfc()
       call mpi_recv_wsfc()
+
+      ! Also, send/recv vsfc?
    endif
 
   ! If using variable initialization and polygon nudging, read most recent
@@ -695,6 +702,8 @@ subroutine olam_run(name_name)
      mrl = 1
      call diagvel_t3d(mrl)
 
+     if (isfcl == 1) call swm_diagvel()
+
      ! reset convective variables if we have turned off convection
 
      call reset_cuparm()
@@ -792,7 +801,11 @@ subroutine olam_run(name_name)
      ! reset hlat and hlon to the initial hurricane location
 
      if (runtype == 'INITIAL' .and. icycle_hurrinit > 1) then
+        print*, 'olam_run calling vortex_relocated'
+
         call vortex_relocated()
+
+        print*, 'returned from vortex_relocated'
 
         hlat = hlat0
         hlon = hlon0
@@ -819,13 +832,12 @@ subroutine olam_run(name_name)
         ! Reompute azimuthal averages of dynamic, thermodynamic, and moisture
         ! fields, and plot averages (in radial-height cross sections)
 
-         call vortex_azim_avg()
-         call vortex_rzplot1()
+        call vortex_azim_avg()
+        call vortex_rzplot1()
 
      endif
 
-     ! If this is a an INITIAL run, write secondary history file
-     ! with 'HTC' in name, and plot altered initial state.
+     ! If INITIAL runtype, write secondary history file with 'HTC' in name.
 
      if (runtype == 'INITIAL') then
         write(io6,'(/,a)') 'olam_run calling history_write with HTC vtype'

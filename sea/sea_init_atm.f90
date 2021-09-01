@@ -75,7 +75,9 @@ subroutine sea_init_atm()
      ! Skip this cell if running in parallel and cell rank is not MYRANK
      ! if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
-     ! Initialize sea temperature, sea ice, and canopy depth
+     ! Initialize sea depth, sea temperature, sea ice, and canopy depth
+
+     sea%wdepth(isea) = sfcg%topw(iwsfc) - sfcg%bathym(iwsfc)
 
      sea%seatc(isea) = sea%seatp(isea)  &
                      + (sea%seatf(isea) - sea%seatp(isea)) * timefac_sst

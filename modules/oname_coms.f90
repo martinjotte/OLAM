@@ -123,6 +123,14 @@ Module oname_coms
      real    :: sfcgrdlat(maxgrds,maxngrdll) = 0.0
      real    :: sfcgrdlon(maxgrds,maxngrdll) = 0.0
 
+     integer :: nswmzons = 0
+
+     integer :: nswmzonll(maxgrds) = 0
+
+     real    :: swmzonrad(maxgrds,maxngrdll) = 0.0
+     real    :: swmzonlat(maxgrds,maxngrdll) = 0.0
+     real    :: swmzonlon(maxgrds,maxngrdll) = 0.0
+
 !!    TIMESTEP RATIOS
 
      integer :: ndtrat (maxgrds) = 1
@@ -328,6 +336,7 @@ Module oname_coms
      real    :: seaice =   0.0
 
      character(pathlen) :: topo_database      = ' '
+     character(pathlen) :: bathym_database    = ' '
      character(pathlen) :: veg_database       = ' '
      character(pathlen) :: soil_database      = ' '
      character(pathlen) :: soilgrids_database = ' '

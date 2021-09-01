@@ -597,17 +597,17 @@ Contains
 
   implicit none
 
-  integer :: iw,i,j,k,iu,iv,iw1,iw2,kbc,iter
+  integer :: iw,j,k,iv,iw1,iw2,iter
   integer :: ir
   real :: exner, temp, ccn
   real :: wnxh,wnyh,wnzh
   real :: vnxrad,vnyrad,vnzrad,vnxtan,vnytan,vnztan
 
-  real :: rad,vtan_pert0,rrw_pert0,zdif
+  real :: rad
 
   real :: wt_vert
 
-  real :: radax_eyw, radax_env, countk, delv_eyw
+  real :: radax_eyw, radax_env, countk
   real :: circ_eyw, circ_env_avg
   real :: wrad1, wrad2
 
@@ -615,19 +615,14 @@ Contains
   real :: vtan_targ  (nr)
   real :: vtan_ax_avg(nr)
 
-  real :: vtan_tot  (nz,nr)
   real :: vtan_pert (nz,nr)
   real :: exner_pert(nz,nr)
   real :: theta_pert(nz,nr)
 
   real :: delrad, radmid, thetamid, vtanmid, vpertmid, vtotmid
 
-  integer :: irad, mrl
-
   real :: zmin_circav, zmax_circav
-  real :: theta_tot0, theta_tot1, theta_pert0, dbdz, dri
-  real :: radax_mid, radax_inc, dvdz
-  real :: fcor, omeglat, circ_avg_env, thetaw, vtanw
+  real :: fcor, omeglat
   real :: exner_up, exner_dn
 
   real(r8) :: pkhyd, rho_tot(mza)
@@ -850,11 +845,11 @@ Contains
                           ( theta(k,iw) * (1.0 + eps_vapi * rr_v(k,iw)) )
               rho_tot(k) = rho(k,iw) * (1. + rr_v(k,iw))
            else
-              exner = (real(press(k,iw)) * p00i) ** rocp   ! Defined WITHOUT CP factor
-              temp  = exner * theta(k,iw)
+!WW              exner = (real(press(k,iw)) * p00i) ** rocp   ! Defined WITHOUT CP factor
+!WW              temp  = exner * theta(k,iw)
 
-              rr_c(k,iw) = max(0., rr_w(k,iw) - rhovsl(temp-273.15) / real(rho(k,iw)))
-              rr_v(k,iw) = rr_w(k,iw) - rr_c(k,iw)
+!WW              rr_c(k,iw) = max(0., rr_w(k,iw) - rhovsl(temp-273.15) / real(rho(k,iw)))
+!WW              rr_v(k,iw) = rr_w(k,iw) - rr_c(k,iw)
 
               rho(k,iw) = press(k,iw) ** cvocp * p00kord / &
                           ( theta(k,iw) * (1.0 + eps_vapi * rr_v(k,iw)) )
@@ -1017,7 +1012,7 @@ Contains
 
   integer :: iwiflag(mwa)
 
-  integer :: im,iw,i,j,k,jnext,iwnext,ips,jps,npoly,ipt,jpt,lpt
+  integer :: im,iw,j,k,kr,jnext,iwnext,ips,jps,npoly,ipt,jpt,lpt
   integer :: ifld, iwi
 
   real :: rad, rad0, rpolyi
@@ -1030,10 +1025,6 @@ Contains
 
   real :: v0x,v0y,v1x,v1y,v2x,v2y,dot00,dot01,dot02,dot11,dot12,denomi,u,v
   real :: xwi,ywi
-
-  character(pathlen) :: fname
-  character(2) :: string
-  logical :: exans
 
   logical, save :: first_call = .TRUE.
 
@@ -1123,7 +1114,7 @@ Contains
      npoly = itab_m(im)%npoly
      rpolyi = 1. / real(npoly)
 
-     ! Initialize field average and iwiflag
+     ! Initialize field average
 
      field_avg(1:mza,1:nfld) = 0.
 
@@ -1156,37 +1147,39 @@ Contains
         ! Vertical loop over T levels
 
         do k = 2,mza
-           vtan = vxe(k,iw) * wnxtan + vye(k,iw) * wnytan + vze(k,iw) * wnztan
-           vrad = vxe(k,iw) * wnxrad + vye(k,iw) * wnyrad + vze(k,iw) * wnzrad
+           kr = max(k,lpw(iw))  ! In case TC is too close to land and has underground points
+
+           vtan = vxe(kr,iw) * wnxtan + vye(kr,iw) * wnytan + vze(kr,iw) * wnztan
+           vrad = vxe(kr,iw) * wnxrad + vye(kr,iw) * wnyrad + vze(kr,iw) * wnzrad
 
            field(k,j, 1) =  vtan
            field(k,j, 2) =  vrad
-           field(k,j, 3) =    wc(k,iw)
-           field(k,j, 4) =  thil(k,iw)
-           field(k,j, 5) = theta(k,iw)
-           field(k,j, 6) =  rr_w(k,iw)
-           field(k,j, 7) =  rr_v(k,iw)
-           if (allocated(rr_c))  field(k,j, 8) =  rr_c(k,iw)
-           if (allocated(rr_d))  field(k,j, 9) =  rr_d(k,iw)
-           if (allocated(rr_r))  field(k,j,10) =  rr_r(k,iw)
-           if (allocated(rr_p))  field(k,j,11) =  rr_p(k,iw)
-           if (allocated(rr_s))  field(k,j,12) =  rr_s(k,iw)
-           if (allocated(rr_a))  field(k,j,13) =  rr_a(k,iw)
-           if (allocated(rr_g))  field(k,j,14) =  rr_g(k,iw)
-           if (allocated(rr_h))  field(k,j,15) =  rr_h(k,iw)
-           if (allocated(con_c)) field(k,j,16) = con_c(k,iw)
-           if (allocated(con_d)) field(k,j,17) = con_d(k,iw)
-           if (allocated(con_r)) field(k,j,18) = con_r(k,iw)
-           if (allocated(con_p)) field(k,j,19) = con_p(k,iw)
-           if (allocated(con_s)) field(k,j,20) = con_s(k,iw)
-           if (allocated(con_a)) field(k,j,21) = con_a(k,iw)
-           if (allocated(con_g)) field(k,j,22) = con_g(k,iw)
-           if (allocated(con_h)) field(k,j,23) = con_h(k,iw)
-           if (allocated(q2))    field(k,j,24) =    q2(k,iw)
-           if (allocated(q6))    field(k,j,25) =    q6(k,iw)
-           if (allocated(q7))    field(k,j,26) =    q7(k,iw)
-           field(k,j,27) =   rho(k,iw)
-           field(k,j,28) = press(k,iw)
+           field(k,j, 3) =    wc(kr,iw)
+           field(k,j, 4) =  thil(kr,iw)
+           field(k,j, 5) = theta(kr,iw)
+           field(k,j, 6) =  rr_w(kr,iw)
+           field(k,j, 7) =  rr_v(kr,iw)
+           if (allocated(rr_c))  field(k,j, 8) =  rr_c(kr,iw)
+           if (allocated(rr_d))  field(k,j, 9) =  rr_d(kr,iw)
+           if (allocated(rr_r))  field(k,j,10) =  rr_r(kr,iw)
+           if (allocated(rr_p))  field(k,j,11) =  rr_p(kr,iw)
+           if (allocated(rr_s))  field(k,j,12) =  rr_s(kr,iw)
+           if (allocated(rr_a))  field(k,j,13) =  rr_a(kr,iw)
+           if (allocated(rr_g))  field(k,j,14) =  rr_g(kr,iw)
+           if (allocated(rr_h))  field(k,j,15) =  rr_h(kr,iw)
+           if (allocated(con_c)) field(k,j,16) = con_c(kr,iw)
+           if (allocated(con_d)) field(k,j,17) = con_d(kr,iw)
+           if (allocated(con_r)) field(k,j,18) = con_r(kr,iw)
+           if (allocated(con_p)) field(k,j,19) = con_p(kr,iw)
+           if (allocated(con_s)) field(k,j,20) = con_s(kr,iw)
+           if (allocated(con_a)) field(k,j,21) = con_a(kr,iw)
+           if (allocated(con_g)) field(k,j,22) = con_g(kr,iw)
+           if (allocated(con_h)) field(k,j,23) = con_h(kr,iw)
+           if (allocated(q2))    field(k,j,24) =    q2(kr,iw)
+           if (allocated(q6))    field(k,j,25) =    q6(kr,iw)
+           if (allocated(q7))    field(k,j,26) =    q7(kr,iw)
+           field(k,j,27) =   rho(kr,iw)
+           field(k,j,28) = press(kr,iw)
 
            field_avg(k,1:nfld) = field_avg(k,1:nfld) + field(k,j,1:nfld) * rpolyi
         enddo
@@ -1264,9 +1257,9 @@ Contains
                  if (iwi < 2 .or. iwi > mwa) &
                     write(6,'(a,6i8)') 'iwi out of bounds ',iwi,mwa,ipt,jpt,lpt,ips
 
-                 ! Distance of this IW point from initial eye center
+                 ! Distance of this IWI point from initial eye center
 
-                 rad0 = sqrt((xew(iw)-xeh0)**2 + (yew(iw)-yeh0)**2 + (zew(iw)-zeh0)**2)
+                 rad0 = sqrt((xew(iwi)-xeh0)**2 + (yew(iwi)-yeh0)**2 + (zew(iwi)-zeh0)**2)
    
                  ! Skip interpolation for all points outside specified radius
 
@@ -1366,7 +1359,7 @@ Contains
 
   integer :: iout
 
-  integer :: iw,j,k,iu,iv,iw1,iw2,kbc,iter
+  integer :: iw,j,k,iv,iw1,iw2,iter
   real :: exner, temp, ccn
   real :: wnxh,wnyh,wnzh
   real :: vnxrad,vnyrad,vnzrad,vnxtan,vnytan,vnztan
@@ -1376,14 +1369,9 @@ Contains
 
   real(r8) :: pkhyd, rho_tot(mza)
 
-  character(10) :: cstr
-  integer :: istr, mrl
-  real :: rstr
+  integer :: mrl
 
   real :: vtan(mza,mwa),vrad(mza,mwa)
-
-  character(pathlen) :: fname
-  logical :: exans
 
   ! Components of unit vector outward normal to earth surface at hurricane center
 
@@ -1392,6 +1380,8 @@ Contains
   wnzh = zeh0 / erad
 
   ! Horizontal loop over all active W points in file data 
+
+!  print*, 'rld0 : nout ',nout
 
   do iout = 1,nout
 
@@ -1479,6 +1469,7 @@ Contains
            q7(k,iw) =    q7(k,iw) * wt2c + reloc_field(k,iout,26) * wt2
           rho(k,iw) =   rho(k,iw) * wt2c + reloc_field(k,iout,27) * wt2
         press(k,iw) = press(k,iw) * wt2c + reloc_field(k,iout,28) * wt2
+
      enddo
 
      ! Carry out iterative hydrostatic balance procedure
@@ -1486,7 +1477,7 @@ Contains
      if (miclevel == 0) then
         rho_tot(nzz) = rho(nzz,iw)
      else
-        rho_tot(nzz) = rho(nzz,iw) * (1. + rr_w(k,iw))
+        rho_tot(nzz) = rho(nzz,iw) * (1. + rr_w(nzz,iw))
      endif
 
      do iter = 1,100
@@ -1506,16 +1497,17 @@ Contains
                           ( theta(k,iw) * (1.0 + eps_vapi * rr_v(k,iw)) )
               rho_tot(k) = rho(k,iw) * (1. + rr_v(k,iw))
            else
-              exner = (real(press(k,iw)) * p00i) ** rocp   ! Defined WITHOUT CP factor
-              temp  = exner * theta(k,iw)
+!WW              exner = (real(press(k,iw)) * p00i) ** rocp   ! Defined WITHOUT CP factor
+!WW              temp  = exner * theta(k,iw)
 
-              rr_c(k,iw) = max(0., rr_w(k,iw) - rhovsl(temp-273.15) / real(rho(k,iw)))
-              rr_v(k,iw) = rr_w(k,iw) - rr_c(k,iw)
+!WW              rr_c(k,iw) = max(0., rr_w(k,iw) - rhovsl(temp-273.15) / real(rho(k,iw)))
+!WW              rr_v(k,iw) = rr_w(k,iw) - rr_c(k,iw)
 
               rho(k,iw) = press(k,iw) ** cvocp * p00kord / &
                           ( theta(k,iw) * (1.0 + eps_vapi * rr_v(k,iw)) )
 
               rho_tot(k) = rho(k,iw) * (1. + rr_w(k,iw))
+
            endif
 
            ! Hydrostatically integrate downward using weighting to damp oscillations

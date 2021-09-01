@@ -107,7 +107,7 @@ subroutine copy_nl()
   use oname_coms,  only: nl
   use misc_coms,   only: io6, expnme, runtype, timeunit, timmax8, ndtrat, &
                          nacoust, idiffk, csz, csx, akmin, &
-                         dtlong, initial, zonclim, topo_database, &
+                         dtlong, initial, zonclim, topo_database, bathym_database, &
                          gridfile, hfilin, ioutput, hfilepref, iclobber, &
                          frqstate, naddsc, ilwrtyp, iswrtyp, radfrq, &
                          icfrac, cfracrh1, cfracrh2, cfraccup, nqparm, confrq, &
@@ -148,7 +148,8 @@ subroutine copy_nl()
                          rayfw_zmin,   rayfw_fact,   rayfw_expon,  &
                          rayfdiv_zmin, rayfdiv_fact, rayfdiv_expon
   use mem_sfcg,    only: nsfcgrids, sfcgrid_res_factor, nsfcgrid_root, nxp_sfc, &
-                         nsfcgrdll, sfcgrdrad, sfcgrdlat, sfcgrdlon, sfcgfile
+                         nsfcgrdll, sfcgrdrad, sfcgrdlat, sfcgrdlon, sfcgfile, &
+                         nswmzons, nswmzonll, swmzonrad, swmzonlat, swmzonlon
 
   implicit none
 
@@ -185,6 +186,7 @@ subroutine copy_nl()
   enddo
 
   topo_database      = nl%topo_database
+  bathym_database    = nl%bathym_database
   sst_database       = nl%sst_database
   seaice_database    = nl%seaice_database
   veg_database       = nl%veg_database
@@ -333,6 +335,8 @@ subroutine copy_nl()
      if (index(nl%plotspecs(i)%pltspec2,'B') > 0) op%vectbarb(i) = 'B'
      if (index(nl%plotspecs(i)%pltspec2,'V') > 0) op%vectbarb(i) = 'V'
      if (index(nl%plotspecs(i)%pltspec2,'w') > 0) op%vectbarb(i) = 'w'
+     if (index(nl%plotspecs(i)%pltspec2,'Y') > 0) op%vectbarb(i) = 'Y'
+     if (index(nl%plotspecs(i)%pltspec2,'y') > 0) op%vectbarb(i) = 'y'
 
      if (index(nl%plotspecs(i)%pltspec2,'G') > 0) op%pltgrid(i) = 'G'
      if (index(nl%plotspecs(i)%pltspec2,'g') > 0) op%pltgrid_sfc(i) = 'g'
@@ -420,6 +424,16 @@ subroutine copy_nl()
         nsfcgrids = 0
         nsfcgrdll = 0
 
+     endif
+
+     nswmzons = nl%nswmzons
+
+     if (nswmzons > 0) then
+        nswmzonll = nl%nswmzonll
+
+        swmzonrad = nl%swmzonrad
+        swmzonlat = nl%swmzonlat
+        swmzonlon = nl%swmzonlon
      endif
 
   endif

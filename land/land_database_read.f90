@@ -290,6 +290,8 @@ Contains
                  call shdf5_irec(ndims,idims,'WTD',rvar2=dato)
               elseif (iaction == 'orog') then
                  call shdf5_irec(ndims,idims,'orog',rvar2=dato)
+              elseif (iaction == 'etopo1') then
+                 call shdf5_irec(ndims,idims,'etopo1',rvar2=dato)
               else
                  write(io6,*) 'incorrect action specified in leaf_database'
                  write(io6,*) 'stopping run'
@@ -356,7 +358,8 @@ Contains
 
               if (iaction == 'topo' .or. &
                   iaction == 'ndvi' .or. &
-                  iaction == 'orog') then
+                  iaction == 'orog' .or. &
+                  iaction == 'etopo1') then
 
                  ! Interpolate from 4 surrounding values
 

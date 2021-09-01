@@ -100,7 +100,7 @@ Module mem_land
      real, allocatable :: veg_albedo  (:) ! veg albedo
      real, allocatable :: veg_tai     (:) ! veg total area index
      real, allocatable :: veg_water   (:) ! veg sfc water content [kg/m^2]
-     real, allocatable :: vegwater_energy(:) ! veg sfc water energy [J/m^2]
+     real, allocatable :: veg_energy  (:) ! (veg + veg_water) energy [J/m^2]
      real, allocatable :: veg_temp    (:) ! veg temp [K]
      real, allocatable :: veg_ndvip   (:) ! veg past ndvi (obs time)
      real, allocatable :: veg_ndvif   (:) ! veg future ndvi (obs time)
@@ -212,7 +212,7 @@ Contains
   allocate (land%veg_albedo         (mland)) ; land%veg_albedo      = rinit
   allocate (land%veg_tai            (mland)) ; land%veg_tai         = rinit
   allocate (land%veg_water          (mland)) ; land%veg_water       = rinit
-  allocate (land%vegwater_energy    (mland)) ; land%vegwater_energy = rinit
+  allocate (land%veg_energy         (mland)) ; land%veg_energy      = rinit
   allocate (land%veg_temp           (mland)) ; land%veg_temp        = rinit
   allocate (land%veg_ndvip          (mland)) ; land%veg_ndvip       = rinit
   allocate (land%veg_ndvif          (mland)) ; land%veg_ndvif       = rinit
@@ -285,7 +285,7 @@ Contains
   if (allocated(land%veg_albedo))      call increment_vtable('LAND%VEG_ALBEDO',      'LW', rvar1=land%veg_albedo)
   if (allocated(land%veg_tai))         call increment_vtable('LAND%VEG_TAI',         'LW', rvar1=land%veg_tai)
   if (allocated(land%veg_water))       call increment_vtable('LAND%VEG_WATER',       'LW', rvar1=land%veg_water)
-  if (allocated(land%vegwater_energy)) call increment_vtable('LAND%VEGWATER_ENERGY', 'LW', rvar1=land%vegwater_energy)
+  if (allocated(land%veg_energy))      call increment_vtable('LAND%VEG_ENERGY',      'LW', rvar1=land%veg_energy)
   if (allocated(land%veg_temp))        call increment_vtable('LAND%VEG_TEMP',        'LW', rvar1=land%veg_temp)
   if (allocated(land%veg_ndvic))       call increment_vtable('LAND%VEG_NDVIC',       'LW', rvar1=land%veg_ndvic)
   if (allocated(land%stom_resist))     call increment_vtable('LAND%STOM_RESIST',     'LW', rvar1=land%stom_resist)

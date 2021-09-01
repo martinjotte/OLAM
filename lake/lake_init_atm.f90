@@ -62,7 +62,7 @@ subroutine lake_init_atm()
 
   ! Initialize lake depth and canopy depth
 
-     lake%depth(ilake) = 20. ! SET TO ROUGHLY THE SUMMERTIME THERMOCLINE DEPTH; EVENTUALLY, USE MULTILEVEL LAKE MODEL
+     lake%depth(ilake) = sfcg%topw(iwsfc) - sfcg%bathym(iwsfc)
      sfcg%can_depth(iwsfc) = 20. * max(1.,.025 * dt_lake)
 
   enddo  ! ilake
