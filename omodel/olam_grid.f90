@@ -50,8 +50,8 @@ subroutine gridinit()
                          alloc_grid1, alloc_grid2, alloc_gridz_other
   use mem_nudge,   only: nudflag, nudnxp, nwnud, itab_wnud, alloc_nudge1, &
                          xewnud, yewnud, zewnud
-  use mem_sfcg,    only: nsfcgrid_root, sfcgrid_res_factor, nsfcgrids, &
-                         nmsfc, nvsfc, nwsfc
+  use mem_sfcg,    only: sfcgrid_res_factor, nsfcgrids, nmsfc, nvsfc, nwsfc
+
   implicit none
 
   integer :: npoly
@@ -186,12 +186,6 @@ subroutine gridinit()
 
   endif
 
-  if (nsfcgrid_root == 1 .and. mdomain /= 4) then
-     ! Store a temporaty copy of the Delaunay mesh at this mrl level
-     ! to be used later to construct the surface grid
-     call copy_tri_grid()
-  endif
-
   ! If independent refinement of surface grid will be done and uses ATM grid 1
   ! as its root, copy grid 1 quantities to surface grid
 
@@ -215,7 +209,7 @@ subroutine gridinit()
      nwa = nmd
   endif
 
-  if (nsfcgrid_root <= 0 .and. mdomain /= 4) then
+  if (mdomain /= 4) then
      ! Store a temporaty copy of the full Delaunay mesh
      ! to be used later to construct the surface grid
      call copy_tri_grid()
@@ -260,10 +254,12 @@ subroutine gridinit()
 
   endif
 
-  call copyback_tri_grid()
+  if (mdomain /= 4) then
+     call copyback_tri_grid()
 
-  if (sfcgrid_res_factor > 1) then
-     call expand_delaunay_mesh(sfcgrid_res_factor, .false.)
+     if (sfcgrid_res_factor > 1) then
+        call expand_delaunay_mesh(sfcgrid_res_factor, .false.)
+     endif
   endif
 
   write(io6,'(/,a)') 'gridinit calling makesfc3'

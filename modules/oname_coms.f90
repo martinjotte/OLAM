@@ -114,7 +114,6 @@ Module oname_coms
 
      integer :: nsfcgrids          =  0
      integer :: sfcgrid_res_factor =  1
-     integer :: nsfcgrid_root      = -1
      integer :: sfcgridplot_base   =  1
 
      integer :: nsfcgrdll(maxgrds) = 0

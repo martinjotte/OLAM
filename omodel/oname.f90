@@ -147,7 +147,7 @@ subroutine copy_nl()
   use mem_rayf,    only: rayf_zmin,    rayf_fact,    rayf_expon,    &
                          rayfw_zmin,   rayfw_fact,   rayfw_expon,  &
                          rayfdiv_zmin, rayfdiv_fact, rayfdiv_expon
-  use mem_sfcg,    only: nsfcgrids, sfcgrid_res_factor, nsfcgrid_root, nxp_sfc, &
+  use mem_sfcg,    only: nsfcgrids, sfcgrid_res_factor, nxp_sfc, &
                          nsfcgrdll, sfcgrdrad, sfcgrdlat, sfcgrdlon, sfcgfile, &
                          nswmzons, nswmzonll, swmzonrad, swmzonlat, swmzonlon
 
@@ -408,23 +408,13 @@ subroutine copy_nl()
 
      sfcgrid_res_factor = nl%sfcgrid_res_factor
      nxp_sfc            = nl%sfcgrid_res_factor * nl%nxp
-     nsfcgrid_root      = nl%nsfcgrid_root
 
-     if (nl%nsfcgrid_root > 0) then
+     nsfcgrids = nl%nsfcgrids
+     nsfcgrdll = nl%nsfcgrdll
 
-        nsfcgrids = nl%nsfcgrids
-        nsfcgrdll = nl%nsfcgrdll
-
-        sfcgrdrad = nl%sfcgrdrad
-        sfcgrdlat = nl%sfcgrdlat
-        sfcgrdlon = nl%sfcgrdlon
-
-     else
-
-        nsfcgrids = 0
-        nsfcgrdll = 0
-
-     endif
+     sfcgrdrad = nl%sfcgrdrad
+     sfcgrdlat = nl%sfcgrdlat
+     sfcgrdlon = nl%sfcgrdlon
 
      nswmzons = nl%nswmzons
 

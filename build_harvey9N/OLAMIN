@@ -165,25 +165,10 @@
    NL%GRDLAT(7,:) =    27.0,  28.0
    NL%GRDLON(7,:) =   -96.0, -97.0
 
-   NL%SFCGRID_RES_FACTOR =  3    ! Resolution factor for the surface grid.
+   NL%SFCGRID_RES_FACTOR = 3    ! Resolution factor for the surface grid.
 
-  NL%NSFCGRID_ROOT      = -7     ! If NSFCGRID_ROOT is 0 or negative, the
-                                 ! surface grid is created exactly from the
-                                 ! atmospheric grid and expanded by the factor
-                                 ! given by SFCGRID_RES_FACTOR
-
-                                 ! If NSFCGRID_ROOT is positive, it indicates
-                                 ! the ATM grid at which stage a copy of the
-                                 ! ATM grid is made, expanded by SFCGRID_RES_FACTOR,
-                                 ! and then possibly further refined if NSFCGRID > 0
-
-
- !------------------------------------------------------------------------
- ! This section used only if NSFCGRID_ROOT > 0
- !------------------------------------------------------------------------
-
-   NL%NSFCGRIDS = 0      ! Total number of SURFACE GRID independent refinements
-                         ! to be generated on any MAKEGRID run
+   NL%NSFCGRIDS = 0      ! Total number of additional SURFACE GRID independent
+                         !  refinements to be generated on any MAKEGRID run
 
    NL%SFCGRIDPLOT_BASE = 1  ! The sfcgrid mesh number to center the plot on
                             ! when doing a MAKEGRID_PLOT run
@@ -219,7 +204,6 @@
    NL%SWMZONRAD(2,:) =  10.e4, 10.e4, 10.e4, 10.e4, 10.e4, 10.e4
    NL%SWMZONLAT(2,:) =   25.1,  27.6,  28.7,  29.3,  29.1,  29.7
    NL%SWMZONLON(2,:) =  -81.7, -83.5, -83.4, -84.1, -85.4, -86.5
-
 
  !------------------------------------------------------------------------------
  ! Timestep and timestep ratios (One ratio for each Mesh Refinement Level (MRL))

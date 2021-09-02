@@ -41,9 +41,9 @@ subroutine spawn_nest_sfc()
                           itab_md, itab_ud, itab_wd
 
   use mem_sfcg,     only: nsfcgrids, nsfcgrdll, sfcgrdrad, sfcgrdlat, &
-                          sfcgrdlon, nxp_sfc, nsfcgrid_root
+                          sfcgrdlon, nxp_sfc
 
-  use misc_coms,    only: io6, mdomain, runtype
+  use misc_coms,    only: io6, mdomain, runtype, ngrids
   use consts_coms,  only: pio180, erad, pi1, pi2
   use oname_coms,   only: nl
 
@@ -98,14 +98,8 @@ subroutine spawn_nest_sfc()
   nud0 = nud
   nwd0 = nwd
 
-  if (runtype == 'MAKEGRID_PLOT') then
-     call o_reopnwk()
-     call plotback()
-     call oplot_set_makegrid(2)
-  endif
-
   do nsfcgr = 1, nsfcgrids  ! Loop over nested grids
-     ngr = nsfcgr + max(1, nsfcgrid_root)
+     ngr = nsfcgr + ngrids
 
      ! Allocate temporary tables
 
@@ -613,7 +607,13 @@ subroutine spawn_nest_sfc()
      write(io6,'(a,i8)')   ' nud = ',nud
      write(io6,'(a,i8)')   ' nwd = ',nwd
 
-     if (runtype == 'MAKEGRID_PLOT' .and. ngr >= nl%gridplot_base) then
+     if (runtype == 'MAKEGRID_PLOT' .and. nsfcgr >= nl%sfcgridplot_base) then
+
+        if (nsfcgr == nl%sfcgridplot_base) then
+           call o_reopnwk()
+           call plotback()
+           call oplot_set_makegrid(2,mrlo)
+        endif
 
         ! Set plot line color (red) and thickness
         call o_gsplci(1)

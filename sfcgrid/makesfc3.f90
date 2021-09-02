@@ -34,9 +34,10 @@ subroutine makesfc3()
 
 ! This subroutine generates the SURFACE GRID FILE for OLAM runs.
 
-  use mem_grid,    only: nwa, zm, arw0, topm, topw
+  use mem_grid,    only: zm, arw0, topm, topw, nwa, nva, nma, xew, yew, zew
 
-  use misc_coms,   only: io6, itopoflg, topo_database, bathym_database, ngrids, runtype
+  use misc_coms,   only: io6, itopoflg, topo_database, bathym_database, ngrids, &
+                         runtype, mdomain
 
   use leaf_coms,   only: nvgcon, ivegflg, isoilflg, soil_database, veg_database
 
@@ -48,11 +49,13 @@ subroutine makesfc3()
 
   use max_dims,    only: maxnlspoly
 
+  use mem_ijtabs,  only: itab_m, itab_v, itab_w
+
   use mem_sfcg,    only: nsfcgrids, nmsfc, nvsfc, nwsfc, sfcg, &
                          itab_msfc, itab_vsfc, itab_wsfc, &
                          itab_msfc_vars, itab_vsfc_vars, itab_wsfc_vars, &
                          nswmzons, nswmzonll, swmzonrad, swmzonlat, swmzonlon, &
-                         sfcgrid_res_factor, nsfcgrid_root
+                         sfcgrid_res_factor, alloc_sfcgrid1
 
   use mem_land,    only: nland, onland, land, nzg, landgrid_dztop, &
                          landgrid_depth, slz, dslz, dslzo2, dslzi, slzt, &
@@ -64,7 +67,7 @@ subroutine makesfc3()
 
   implicit none
 
-  integer :: k, iw, j
+  integer :: k, iw, j, iv, im, np
   integer :: kw_sea, kw_land
   integer :: iland, inew, iswmzon, minside
   integer :: imsfc, ivsfc, iwsfc
@@ -102,7 +105,46 @@ subroutine makesfc3()
 
   ! Generate Voronoi form of surface grid and compute its geometric properties.
 
-  call voronoi_sfc()
+  if (mdomain /= 4) then
+
+     call voronoi_sfc()
+
+  else
+
+     ! Special for cartesian hex grid
+
+     nmsfc = nma
+     nvsfc = nva
+     nwsfc = nwa
+
+     call alloc_sfcgrid1(nmsfc, nvsfc, nwsfc)
+
+     sfcg%xew = xew
+     sfcg%yew = yew
+     sfcg%zew = zew
+
+     do iv = 2,nvsfc
+        itab_vsfc(iv)%imn(1:2)  = itab_v(iv)%im(1:2)
+        itab_vsfc(iv)%iwn(1:2)  = itab_v(iv)%iw(1:2)
+     enddo
+
+     do im = 2,nmsfc
+        itab_msfc(im)%ivn(1:3) = itab_m(im)%iv(1:3)
+        itab_msfc(im)%iwn(1:3) = itab_m(im)%iw(1:3)
+     enddo
+
+     do iw = 2,nwsfc
+        np = itab_w(iw)%npoly
+
+        itab_wsfc(iw)%npoly      = np
+        itab_wsfc(iw)%imn (1:np) = itab_w(iw)%im  (1:np)
+        itab_wsfc(iw)%ivn (1:np) = itab_w(iw)%iv  (1:np)
+        itab_wsfc(iw)%iwn (1:np) = itab_w(iw)%iw  (1:np)
+        itab_wsfc(iw)%dirv(1:np) = itab_w(iw)%dirv(1:np)
+     enddo
+
+  endif
+
   call grid_geometry_hex_sfc()
 
   ! Interpolate or assign topography height to W points of surface grid
@@ -289,11 +331,10 @@ subroutine makesfc3()
   write(*,*)
   write(*,*) "Computing surface-atm overlaps"
 
-  if ( (sfcgrid_res_factor == 1) .and. &
-       ((nsfcgrid_root < 1) .or. (nsfcgrid_root==ngrids .and. nsfcgrids == 0)) ) then
+  if ( sfcgrid_res_factor == 1 .and. nsfcgrids == 0 ) then
 
-     ! The surface mesh is an exact copy of the atmospheric mesh with only one surface cell
-     ! per atmospheric cell.
+     ! The surface mesh is an exact copy of the atmospheric mesh with only one
+     ! surface cell per atmospheric cell.
      call step_terrain_overlay()
 
   else

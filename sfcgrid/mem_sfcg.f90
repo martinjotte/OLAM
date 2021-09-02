@@ -319,7 +319,6 @@ Module mem_sfcg
 
   integer :: nsfcgrids
   integer :: sfcgrid_res_factor
-  integer :: nsfcgrid_root
   integer :: nxp_sfc
 
   integer, target :: nsfcgrdll(maxgrds)

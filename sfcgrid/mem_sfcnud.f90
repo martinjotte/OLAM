@@ -110,7 +110,7 @@ Contains
   implicit none
 
   real :: pcp_dif2, sfluxr_dif2
-  integer :: ndims, idims(1), iwsfc
+  integer :: ndims, idims(2), iwsfc
   character(pathlen) :: hnamel
   logical, save :: firstime = .true.
   type(simtime) :: ctime
@@ -225,8 +225,6 @@ Contains
   integer :: iyears, imonths, idates, ihours
   integer :: nf
 
-  integer :: ndims, idims(1)
-
   ! SFCNUD input files are assumed to be cyclic with a 1-year period
 
   nsfcnudfiles = 12 ! For the case of one file per month
@@ -310,7 +308,7 @@ Contains
 
   integer :: isfcnudy, isfcnudm, isfcnudd, isfcnudh
   integer :: nf, iw, iwsfc, iwglobe
-  integer :: ndims, idims(3)
+  integer :: ndims, idims(2)
   character(pathlen) :: hnamel
   type(simtime) :: ctime
 

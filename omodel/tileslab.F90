@@ -1054,8 +1054,6 @@ subroutine tileslab_horiz_wsfc(iplt,action)
 
   ! Find K level to plot if field is 3d
 
-print*, trim(op%dimens), op%slabloc(iplt),nzg,nzs
-
   if (trim(op%dimens) == '3G') then
      k = min(nzg,max(1,nint(op%slabloc(iplt))))
   elseif (trim(op%dimens) == '3S') then

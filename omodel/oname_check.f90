@@ -212,14 +212,6 @@ elseif (ng < 1) then
    stop "Error: sfcgrid_res_factor must be positive."
 endif
 
-if (nl%nsfcgrid_root > nl%ngrids) then
-   write(*,*) "Error: nsfcgrid_root must be negative, zero, or less than ngrids."
-   nfatal = nfatal + 1
-endif
-
-call ichk_bnds( nl%nsfcgrid_root, "NSFCGRID_ROOT", -i_huge, maxgrds, 0, nfatal, nwarn, &
-     msgmax="Increase maxgrds in max_dims.f90 if more sfc nests are needed." )
-
 do ng = 1, nl%nsfcgrids
    call ichk_bnds(nl%nsfcgrdll(ng), "NSFCGRDLL", 1, maxngrdll, 0, nfatal, nwarn )
 enddo

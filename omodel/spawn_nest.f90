@@ -48,7 +48,7 @@ subroutine spawn_nest()
 
   use mem_delaunay, only: itab_md_vars, itab_ud_vars, itab_wd_vars, &
                           nest_ud_vars, nest_wd_vars, alloc_itabsd, &
-                          itab_md, itab_ud, itab_wd, copy_tri_grid, &
+                          itab_md, itab_ud, itab_wd, &
                           xemd, yemd, zemd, nmd, nud, nwd
 
   use mem_grid,     only: impent, nrows, mrows
@@ -57,7 +57,6 @@ subroutine spawn_nest()
                           grdlat, grdlon, runtype
 
   use consts_coms,  only: pio180, erad, pi1, pi2, piu180
-  use mem_sfcg,     only: nsfcgrid_root
   use oname_coms,   only: nl
 
   implicit none
@@ -117,12 +116,6 @@ subroutine spawn_nest()
   ! the aforementioned refined mesh "boundary".
 
   mrows = 3
-
-  if (runtype == 'MAKEGRID_PLOT') then
-     call o_reopnwk()
-     call plotback()
-     call oplot_set_makegrid(1)
-  endif
 
   do ngr = 2, ngrids  ! Loop over nested grids
 
@@ -836,14 +829,13 @@ subroutine spawn_nest()
      write(io6,'(a,i0)')   ' nua = ',nud
      write(io6,'(a,i0)')   ' nwa = ',nwd
 
-     ! If independent refinement of surface grid will be done and uses current NGR
-     ! refinement of ATM grid as its root, copy ATM grid quantities to surface grid
-
-     if (nsfcgrid_root == ngr) then
-        call copy_tri_grid()
-     endif
-
      if (runtype == 'MAKEGRID_PLOT' .and. ngr >= nl%gridplot_base) then
+
+        if (ngr == nl%gridplot_base) then
+           call o_reopnwk()
+           call plotback()
+           call oplot_set_makegrid(1,mrlo)
+        endif
 
         ! Set plot line color (red) and thickness
         call o_gsplci(1)
@@ -2094,19 +2086,20 @@ end subroutine fill_rad3
 
 
 
-subroutine oplot_set_makegrid(iplt)
+subroutine oplot_set_makegrid(iplt,mrlo)
 
+  use consts_coms, only: erad
   use misc_coms,   only: ngrdll, grdrad, grdlat, grdlon, nxp
-  use mem_sfcg,    only: nsfcgrdll, sfcgrdrad, sfcgrdlat, sfcgrdlon, &
-                         nsfcgrid_root, sfcgrid_res_factor
+  use mem_sfcg,    only: nsfcgrdll, sfcgrdrad, sfcgrdlat, sfcgrdlon, nxp_sfc
   use oplot_coms,  only: op
-  use consts_coms, only: erad, pio180
   use oname_coms,  only: nl
 
   implicit none
 
   integer, intent(in) :: iplt  ! 1 if plotting atm mesh
                                ! 2 if plotting sfc mesh
+  integer, intent(in) :: mrlo
+
   integer :: i, ngplt
   real    :: xx, yy, zz, x, y, z, xmax, xmin, ymax, ymin, gsize
   real    :: rn, rlat, rlon, expansion, x0, y0, dx, dy, ds, bsize
@@ -2121,8 +2114,7 @@ subroutine oplot_set_makegrid(iplt)
 
   if (iplt == 2) then
      ngplt = nl%sfcgridplot_base
-     gsize = 5. * (7150.e3 / real( &
-             nxp * sfcgrid_res_factor * 2**(nsfcgrid_root + ngplt - 2)))
+     gsize = 5. * 7150.e3 / real(nxp_sfc * 2**mrlo)
 
      ngrds  => nsfcgrdll
      g_lons => sfcgrdlon
@@ -2130,7 +2122,7 @@ subroutine oplot_set_makegrid(iplt)
      g_rads => sfcgrdrad
   else
      ngplt = nl%gridplot_base
-     gsize = 5. * (7150.e3 / real(nxp * 2**(ngplt-2)))
+     gsize = 5. * 7150.e3 / real(nxp * 2**mrlo)
 
      ngrds  => ngrdll
      g_lons => grdlon
