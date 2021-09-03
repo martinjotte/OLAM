@@ -89,6 +89,7 @@ Module misc_coms
   integer :: ioutput
   integer :: iclobber
   integer :: itopoflg
+  integer :: ibathflg
   integer :: nzpp
   integer :: nscl
   integer :: nxp

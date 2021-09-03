@@ -37,7 +37,7 @@ subroutine makesfc3()
   use mem_grid,    only: zm, arw0, topm, topw, nwa, nva, nma, xew, yew, zew
 
   use misc_coms,   only: io6, itopoflg, topo_database, bathym_database, ngrids, &
-                         runtype, mdomain
+                         ibathflg, runtype, mdomain
 
   use leaf_coms,   only: nvgcon, ivegflg, isoilflg, soil_database, veg_database
 
@@ -478,22 +478,21 @@ subroutine makesfc3()
 
   ! Fill bathymetry data
 
-  if (itopoflg == 1) then  ! from database
-     call land_database_read(nwsfc, sfcg%glatw, sfcg%glonw, &
-         bathym_database, bathym_database, 'etopo1', datq=sfcg%bathym)
+  if (ibathflg == 1) then  ! from database
+
+     call land_database_read( nlake+nsea-1, sfcg%glatw(nland:), sfcg%glonw(nland:), &
+          bathym_database, bathym_database, 'etopo1', datq=sfcg%bathym(nland:) )
+
+     ! For land cells, set bathym equal to topw
+     sfcg%bathym(1:nland) = sfcg%topw(1:nland)
 
      ! Prevent bathym from exceeding (topw - 1.0) for sea and lake cells,
-     ! and for land cells, set bathym equal to topw.
+     sfcg%bathym(nland+1:) = min(sfcg%bathym(nland+1:), sfcg%topw(nland+1:) - 1.0)
 
-     do iwsfc = 1,nwsfc
-        if (sfcg%leaf_class(iwsfc) < 2) then 
-           sfcg%bathym(iwsfc) = min(sfcg%bathym(iwsfc), sfcg%topw(iwsfc) - 1.0)
-        else
-           sfcg%bathym(iwsfc) = sfcg%topw(iwsfc)
-        endif
-     enddo
   else
+
      sfcg%bathym(1:nwsfc) = sfcg%topw(1:nwsfc)
+
   endif
 
   ! Set logical flag for ocean IW cells that use Shallow Water Model (SWM)

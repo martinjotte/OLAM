@@ -286,6 +286,15 @@ call dchk_bnds( nl%frqlatlon, "FRQLATLON", nl%dtlong, d_huge, 2, nfatal, nwarn )
 !--------------------------------------------------------------------------
 
 call ichk_bnds( nl%itopoflg, "ITOPOFLG", 1,  2, 0, nfatal, nwarn )
+call ichk_bnds( nl%ibathflg, "IBATHFLG", 1,  2, 0, nfatal, nwarn )
+
+if (nl%nswmzons > 0) then
+   if (nl%itopoflg == 2 .or. nl%ibathflg == 2) then
+      write(*,*) "Shallow water tidal model requires both topography"
+      write(*,*) "and bathymetry databases."
+      stop "Error: topopgraphy and bathymetry must be present for nswmzons > 0"
+   endif
+endif
 
 !--------------------------------------------------------------------------
 ! MODEL OPTIONS / NUMERICAL SCHEMES

@@ -598,6 +598,7 @@
                           ! 3 -- Hydraulic parameters from USDA classification (only with ISOILFLG = 2)
 
    NL%ITOPOFLG   = 1      ! 1 -- Read data from standard database file
+   NL%IBATHFLG   = 1      ! 1 -- Read data from standard database file
    NL%IVEGFLG    = 1      ! 2 -- Use default value assigned in topo_init
    NL%NDVIFLG    = 1      !      or mksfc.f90
 

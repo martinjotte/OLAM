@@ -114,7 +114,7 @@ subroutine copy_nl()
                          nsndg, ipsflg, itsflg, irtsflg, iusflg, &
                          hs, p_sfc, us, vs, ts, ps, rts, &
                          itime1, idate1, imonth1, iyear1, ngrids, ngrids_old, &
-                         nzp, mdomain, itopoflg, nxp, &
+                         nzp, mdomain, itopoflg, ibathflg, nxp, &
                          ngrdll, grdrad, grdlat, grdlon, deltax, ndz, hdz, dz, &
                          current_time, debug_fp, init_nans, do_chem
 
@@ -447,6 +447,7 @@ subroutine copy_nl()
      mdomain   = nl%mdomain
      isfcl     = nl%isfcl
      itopoflg  = nl%itopoflg
+     ibathflg  = nl%ibathflg
      ivegflg   = nl%ivegflg
      deltax    = nl%deltax
      ndz       = nl%ndz

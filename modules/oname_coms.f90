@@ -317,6 +317,7 @@ Module oname_coms
      integer :: isoilflg   = 2
      integer :: isoilptf   = 3
      integer :: itopoflg   = 2
+     integer :: ibathflg   = 2
      integer :: ivegflg    = 2
      integer :: ndviflg    = 2
      integer :: isstflg    = 0
