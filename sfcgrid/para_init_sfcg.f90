@@ -119,7 +119,7 @@ subroutine para_init_sfcg()
   ! flagged for inclusion on this rank
 
   do iwsfc = 2,nwsfc
-     if (myrankflag_wsfc(iwsfc)) then 
+     if (myrankflag_wsfc(iwsfc)) then
 
         ! Increment counter of W points flagged for inclusion on this rank
 
@@ -135,16 +135,22 @@ subroutine para_init_sfcg()
            isea_myrank = isea_myrank + 1
         endif
 
-        ! Flag M and V neighbors of current SFC grid W point for inclusion 
+        ! Flag M and V neighbors of current SFC grid W point for inclusion
+        ! if the W point is primary on this rank
 
-        npoly = itab_wsfc_pd(iwsfc)%npoly
-        do j = 1,npoly
-           imn = itab_wsfc_pd(iwsfc)%imn(j)
-           myrankflag_msfc(imn) = .true.
+        if (itabg_wsfc(iwsfc)%irank == myrank) then
 
-           ivn = itab_wsfc_pd(iwsfc)%ivn(j)
-           myrankflag_vsfc(ivn) = .true.
-        enddo
+           npoly = itab_wsfc_pd(iwsfc)%npoly
+           do j = 1,npoly
+              imn = itab_wsfc_pd(iwsfc)%imn(j)
+              myrankflag_msfc(imn) = .true.
+
+              ivn = itab_wsfc_pd(iwsfc)%ivn(j)
+              myrankflag_vsfc(ivn) = .true.
+           enddo
+
+        endif
+
      endif
   enddo
 
@@ -288,6 +294,7 @@ subroutine para_init_sfcg()
            iwn = itab_vsfc_pd(ivsfc)%iwn(j) ! global index
            itab_vsfc(ivsfc_myrank)%imn(j) = itabg_msfc(imn)%imsfc_myrank  ! local index
            itab_vsfc(ivsfc_myrank)%iwn(j) = itabg_wsfc(iwn)%iwsfc_myrank  ! local index
+
         enddo
      endif
   enddo

@@ -12,6 +12,7 @@ subroutine read_soil_analysis(soil_tempc)
   use hdf5_utils, only: shdf5_open, shdf5_irec, shdf5_info, shdf5_close
   use mem_para,   only: myrank, nbytes_int, nbytes_real
   use prfill_mod, only: prfill, prfill3
+  use mem_ijtabs, only: itab_w
 
 #ifdef OLAM_MPI
   use mpi
@@ -503,7 +504,10 @@ subroutine read_soil_analysis(soil_tempc)
      iwsfc = iland + omland
 
      ! Skip this cell if running in parallel and cell rank is not MYRANK
-     if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+     !if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+     if (isubdomain == 1) then
+        if (.not. any( itab_w( itab_wsfc(iwsfc)%iwatm( 1:itab_wsfc(iwsfc)%nwatm ) )%irank == myrank ) ) cycle
+     endif
 
      ! fractional x/y indices in pressure data arrays at current iw point location
 

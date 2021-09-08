@@ -344,9 +344,9 @@ subroutine read_sst_analysis(iaction)
      iwsfc = isea + omsea
 
      ! Skip this cell if running in parallel and cell rank is not MYRANK
-     if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+     ! if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
-! fractional x/y indices in pressure data arrays at current iw point location 
+! fractional x/y indices in pressure data arrays at current iw point location
 
      if (inproj == 1) then
 

@@ -105,6 +105,10 @@ subroutine radiate()
      do isea = 2,msea
         iwsfc = isea + omsea
 
+        if (isubdomain == 1) then
+           if (.not. any( itab_w( itab_wsfc(iwsfc)%iwatm( 1:itab_wsfc(iwsfc)%nwatm ) )%irank == myrank ) ) cycle
+        endif
+
         ! Get surface radiative properties (albedos and rlongup) for each sea cell.
         ! Compute solar zenith angle for sea cells
 
@@ -163,6 +167,10 @@ subroutine radiate()
      do ilake = 2,mlake
         iwsfc = ilake + omlake
 
+        if (isubdomain == 1) then
+           if (.not. any( itab_w( itab_wsfc(iwsfc)%iwatm( 1:itab_wsfc(iwsfc)%nwatm ) )%irank == myrank ) ) cycle
+        endif
+
         ! Get surface radiative properties (albedos and rlongup) for each sea cell. 
         ! Compute solar zenith angle for sea cells
 
@@ -193,6 +201,10 @@ subroutine radiate()
      !$omp do private (iwsfc, nzw, wdepth)
      do iland = 2,mland
         iwsfc = iland + omland
+
+        if (isubdomain == 1) then
+           if (.not. any( itab_w( itab_wsfc(iwsfc)%iwatm( 1:itab_wsfc(iwsfc)%nwatm ) )%irank == myrank ) ) cycle
+        endif
 
         ! Get surface radiative properties (albedos and rlongup) for each land cell.
 

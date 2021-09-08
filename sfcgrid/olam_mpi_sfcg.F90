@@ -257,6 +257,15 @@ subroutine mpi_send_wsfc(head, soil_watfrac)
 !       iwglobe = itab_wsfc(iwsfc)%iwglobe
 !----------------------------------------------------------------
 
+!!        iland = -1
+!!        if ((iwsfc >= omland+2) .and. (iwsfc <= omlake+1)) iland = iwsfc + omland
+!!
+!!        ilake = -1
+!!        if ((iwsfc >= omlake+2) .and. (iwsfc <= omsea+1)) ilake = iwsfc + omlake
+!!
+!!        isea = -1
+!!        if (iwsfc >= omsea+2) isea = iwsfc + omsea
+
         ! Pack the messages into send buffers
 
         if (present(head)) then

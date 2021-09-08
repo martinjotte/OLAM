@@ -71,6 +71,7 @@ subroutine surface_turb_flux(mrl)
   use mem_micro,   only: rr_c
   use consts_coms, only: grav, p00, rocp, cp, alvl, eps_virt, vonk, p00i
   use oname_coms,  only: nl
+  use mem_para,    only: myrank
 
   implicit none
 
@@ -167,6 +168,10 @@ subroutine surface_turb_flux(mrl)
   !$omp parallel
   !$omp do private(airthetav,canexner,canexneri,cantheta,canthetav,ufree,isea)
   do iwsfc = 2,mwsfc
+
+     if (isubdomain == 1) then
+        if (.not. any( itab_w( itab_wsfc(iwsfc)%iwatm( 1:itab_wsfc(iwsfc)%nwatm ) )%irank == myrank ) ) cycle
+     endif
 
      airthetav = sfcg%airtheta(iwsfc) * (1.0 + eps_virt * sfcg%airrrv(iwsfc))
      canexner  = (sfcg%prss(iwsfc) * p00i) ** rocp

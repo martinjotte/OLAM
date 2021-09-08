@@ -38,7 +38,7 @@ subroutine sea_init_atm()
   use mem_basic,   only: rho, press, rr_v, theta
   use mem_micro,   only: rr_c
   use misc_coms,   only: s1900_sim, isubdomain, runtype
-  use mem_ijtabs,  only: itabg_w
+  use mem_ijtabs,  only: itab_w
   use mem_sfcg,    only: itab_wsfc, sfcg
   use consts_coms, only: t00, p00i, rocp
   use therm_lib,   only: rhovsl, rhovsil
@@ -98,7 +98,10 @@ subroutine sea_init_atm()
      iwsfc = isea + omsea
 
      ! Skip this cell if running in parallel and cell rank is not MYRANK
-     if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+     ! if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+     if (isubdomain == 1) then
+        if (.not. any( itab_w( itab_wsfc(iwsfc)%iwatm( 1:itab_wsfc(iwsfc)%nwatm ) )%irank == myrank ) ) cycle
+     endif
 
      ! Apply initial atmospheric properties to sea "canopy"
 

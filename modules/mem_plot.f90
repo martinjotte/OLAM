@@ -473,10 +473,11 @@ Contains
     use mem_cuparm,     only: aconpr
     use mem_micro,      only: accpd, accpr, accpp, accps, accpa, accpg, accph
     use misc_coms,      only: time8
-    use mem_sfcg,       only: sfcg, mwsfc
+    use mem_sfcg,       only: sfcg, mwsfc, itab_wsfc
     use mem_land,       only: land, mland, omland, nzg, dslz, slzt
     use leaf4_soil,     only: soil_wat2pot
     use oname_coms,     only: nl
+    use mem_para,       only: myrank
     use mem_flux_accum, only: rshort_accum,         rshortup_accum, &
                                rlong_accum,          rlongup_accum, &
                           rshort_top_accum,     rshortup_top_accum, &
@@ -929,13 +930,18 @@ Contains
 ! Perhaps in future add to mem_flux_accum arrays.
 
     do iland = 2, mland
-       do k = 1,nzg
-          soil_water_tot_prev0(iland) = soil_water_tot_prev0(iland) &
-                                      + land%soil_water(k,iland) * dslz(k)
-       enddo
+       iwsfc = iland + omland
+       if (itab_wsfc(iwsfc)%irank == myrank) then
+          do k = 1,nzg
+             soil_water_tot_prev0(iland) = soil_water_tot_prev0(iland) &
+                                         + land%soil_water(k,iland) * dslz(k)
+          enddo
+       endif
     enddo
 
     do iwsfc = 2, mwsfc
+       if (itab_wsfc(iwsfc)%irank /= myrank) cycle
+
        if (sfcg%leaf_class(iwsfc) < 2) then
 
           head_wtab_prev0(iwsfc) = head_wtab_prev0(iwsfc) &

@@ -7,26 +7,26 @@
 
 ! Portions of this software are copied or derived from the RAMS software
 ! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
+! including OLAM:
 
    !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
+   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University;
+   ! Colorado State University Research Foundation ; ATMET, LLC
 
-   ! This software is free software; you can redistribute it and/or modify it 
+   ! This software is free software; you can redistribute it and/or modify it
    ! under the terms of the GNU General Public License as published by the Free
    ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
+   ! any later version.
 
    ! This software is distributed in the hope that it will be useful, but
    ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
    ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
    ! for more details.
- 
+
    ! You should have received a copy of the GNU General Public License along
    ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
+   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
+   ! (http://www.gnu.org/licenses/gpl.html)
    !----------------------------------------------------------------------------
 
 !===============================================================================
@@ -143,7 +143,7 @@ subroutine leaf4_init_atm()
      land%veg_height (iland) = veg_ht(leaf_class)
      land%stom_resist(iland) = 1.e6
 
-     ! For now, choose heat/vapor capacities for stability based on timestep   
+     ! For now, choose heat/vapor capacities for stability based on timestep
 
      sfcg%can_depth(iwsfc) = 20. * max(1.,.030 * dt_leaf)
      land%hcapveg  (iland) = 3.e4 * max(1.,.025 * dt_leaf)
@@ -211,7 +211,10 @@ subroutine leaf4_init_atm()
      iwsfc = iland + omland
 
      ! Skip this cell if running in parallel and cell rank is not MYRANK
-     if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+     !if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+     if (isubdomain == 1) then
+        if (.not. any( itab_w( itab_wsfc(iwsfc)%iwatm( 1:itab_wsfc(iwsfc)%nwatm ) )%irank == myrank ) ) cycle
+     endif
 
      ! Apply initial atmospheric properties to land canopy
 
@@ -283,7 +286,10 @@ subroutine leaf4_init_atm()
      iwsfc = iland + omland
 
      ! Skip this cell if running in parallel and cell rank is not MYRANK
-     if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+     !if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+     if (isubdomain == 1) then
+        if (.not. any( itab_w( itab_wsfc(iwsfc)%iwatm( 1:itab_wsfc(iwsfc)%nwatm ) )%irank == myrank ) ) cycle
+     endif
 
      !--------------------------------------------------------------------------------
      ! ADD A METHOD HERE TO INITIALIZE FRACTION OF SOIL WATER THAT IS LIQUID (FRACLIQ)
@@ -301,9 +307,9 @@ subroutine leaf4_init_atm()
 
      endif
 
-     ! Initialize soil energy [J/m^3] from given soil textural class, temperature, 
-     ! total water content, and liquid fraction (as opposed to ice fraction) of the 
-     ! soil water that is present.  
+     ! Initialize soil energy [J/m^3] from given soil textural class, temperature,
+     ! total water content, and liquid fraction (as opposed to ice fraction) of the
+     ! soil water that is present.
 
      do k = 1,nzg
 
@@ -313,18 +319,18 @@ subroutine leaf4_init_atm()
                = soil_tempc(k,iland) * land%specifheat_drysoil(k,iland)     &
                + soil_tempc(k,iland) * land%soil_water(k,iland) * cliq1000  &
                + fracliq(k,iland)    * land%soil_water(k,iland) * alli1000
-             
+
         else
-      
+
            land%soil_energy(k,iland)                                       &
               = soil_tempc(k,iland) * land%specifheat_drysoil(k,iland)     &
               + soil_tempc(k,iland) * land%soil_water(k,iland) * cice1000  &
               + fracliq(k,iland)    * land%soil_water(k,iland) * alli1000
-             
+
         endif
      enddo
 
-     ! Leaf classes 17 and 20 represent persistent wetlands (bogs, marshes, 
+     ! Leaf classes 17 and 20 represent persistent wetlands (bogs, marshes,
      ! fens, swamps).  Initialize these areas with 0.1 m of standing surface
      ! water (sfcwater) added to whatever is already present (e.g., from obs).
 
@@ -332,7 +338,7 @@ subroutine leaf4_init_atm()
 
         ! Since sfcwater_energy has units of J/kg, first convert to J/m^2 before adding
         ! wetland sfcwater.
-      
+
         wq = land%sfcwater_mass(1,iland) * land%sfcwater_energy(1,iland)
 
         ! Add wetland sfcwater mass and depth
@@ -354,7 +360,7 @@ subroutine leaf4_init_atm()
         ! Diagnose new sfcwater energy
 
         land%sfcwater_energy(1,iland) = (wq + wq_added) / land%sfcwater_mass(1,iland)
-      
+
      endif
 
      ! Leaf classes 2 represents persistent ice/snow (icecap, glacier).
@@ -398,7 +404,7 @@ subroutine leaf4_init_atm()
      ! Initialize ground (soil) and surface vapor specific humidity
 
      nlsw1 = max(1,land%nlev_sfcwater(iland))
-   
+
      call soil_wat2pot(nzg, iland, land%soil_water(nzg,iland), land%wresid_vg(nzg,iland), &
                        land%wsat_vg(nzg,iland), land%alpha_vg(nzg,iland), &
                        land%en_vg(nzg,iland), psi, psi_slope)

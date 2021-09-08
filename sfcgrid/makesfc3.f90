@@ -484,14 +484,16 @@ subroutine makesfc3()
           bathym_database, bathym_database, 'etopo1', datq=sfcg%bathym(nland:) )
 
      ! For land cells, set bathym equal to topw
-     sfcg%bathym(1:nland) = sfcg%topw(1:nland)
+     sfcg%bathym(2:nland) = sfcg%topw(2:nland)
 
      ! Prevent bathym from exceeding (topw - 1.0) for sea and lake cells,
      sfcg%bathym(nland+1:) = min(sfcg%bathym(nland+1:), sfcg%topw(nland+1:) - 1.0)
 
   else
 
-     sfcg%bathym(1:nwsfc) = sfcg%topw(1:nwsfc)
+     sfcg%bathym(2       :nland  ) = sfcg%topw(2:nland)
+     sfcg%bathym(2+onlake:1+onsea) = sfcg%topw(2+onlake:1+onsea) -  10.0
+     sfcg%bathym(2+onsea :nwsfc  ) = sfcg%topw(2+onlake:1+onsea) - 100.0
 
   endif
 

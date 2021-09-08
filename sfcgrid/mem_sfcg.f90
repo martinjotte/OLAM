@@ -385,7 +385,7 @@ Contains
   allocate (sfcg%vny  (mvsfc0)) ; sfcg%vny   = rinit
   allocate (sfcg%vnz  (mvsfc0)) ; sfcg%vnz   = rinit
 
-  allocate (sfcg%area    (mwsfc0)) ; sfcg%area     = rinit
+  allocate (sfcg%area    (mwsfc0)) ; sfcg%area     = 0.
   allocate (sfcg%glatw   (mwsfc0)) ; sfcg%glatw    = rinit
   allocate (sfcg%glonw   (mwsfc0)) ; sfcg%glonw    = rinit
 
@@ -537,7 +537,7 @@ Contains
      use mem_co2,     only: co2flag, rr_co2
      use misc_coms,   only: isubdomain
      use consts_coms, only: grav
-     use mem_ijtabs,  only: itabg_w
+     use mem_ijtabs,  only: itab_w
      use mem_grid,    only: gdz_abov8
      use mem_para,    only: myrank
      use mem_sea,     only: sea, omsea
@@ -555,7 +555,10 @@ Contains
      do iwsfc = 2, mwsfc
 
         ! Skip this SFC grid cell if running in parallel and cell rank is not MYRANK
-        if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+        ! if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+        if (isubdomain == 1) then
+           if (.not. any( itab_w( itab_wsfc(iwsfc)%iwatm( 1:itab_wsfc(iwsfc)%nwatm ) )%irank == myrank ) ) cycle
+        endif
 
         sfcg%vels    (iwsfc) = 0.
         sfcg%prss    (iwsfc) = 0.

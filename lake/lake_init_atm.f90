@@ -37,7 +37,7 @@ subroutine lake_init_atm()
   use mem_basic,   only: rho, press, vxe, vye, vze, tair, rr_v, theta
   use mem_micro,   only: rr_c
   use misc_coms,   only: io6, time8, s1900_sim, iparallel, isubdomain, runtype
-  use mem_ijtabs,  only: itabg_w
+  use mem_ijtabs,  only: itab_w
   use mem_sfcg,    only: itab_wsfc, sfcg
   use mem_para,    only: myrank
   use consts_coms, only: t00, cliq, alli, p00i, grav, rocp
@@ -79,7 +79,10 @@ subroutine lake_init_atm()
      iwsfc = ilake + omlake
 
      ! Skip this cell if running in parallel and cell rank is not MYRANK
-     if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+     ! if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+     if (isubdomain == 1) then
+        if (.not. any( itab_w( itab_wsfc(iwsfc)%iwatm( 1:itab_wsfc(iwsfc)%nwatm ) )%irank == myrank ) ) cycle
+     endif
 
      ! Apply initial atmospheric properties to lake "canopy"
 
