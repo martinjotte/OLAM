@@ -428,13 +428,13 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
          call sfcg_avgatm()
          if (do_chem == 1) call megan_avg_temp()
       endif
-   endif
 
-   ! MPI send/recv of time-dependent SFCG, LAND, LAKE, SEA quantities
+      ! MPI send/recv of time-dependent SFCG, LAND, LAKE, SEA quantities
+      if (iparallel == 1) then
+         call mpi_send_wsfc()
+         call mpi_recv_wsfc()
+      endif
 
-   if (iparallel == 1) then
-      call mpi_send_wsfc()
-      call mpi_recv_wsfc()
    endif
 
    ! call check_nans(21,rvara1=alpha_press)
