@@ -523,7 +523,7 @@ subroutine surface_driver()
 
    ! Update specified SEATC in all sea cells that use it
 
-   call seacells()
+!   call seacells()
 
   !-----------------------------------------------------------------------
   ! Loop over ALL LAKE CELLS
