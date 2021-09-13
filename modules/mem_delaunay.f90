@@ -103,6 +103,8 @@ Module mem_delaunay
   integer :: nud_copy = 0
   integer :: nwd_copy = 0
 
+  integer, allocatable :: iwdorig(:), iwdorig_temp(:)
+
 Contains
 
 !===============================================================================
@@ -168,6 +170,8 @@ Contains
 
     implicit none
 
+    integer :: iw
+
     ! Save a copy of triangle structure of ATM grid in its current state of
     ! construction for subsequent independent local refinement of SURFACE grid.
 
@@ -187,6 +191,11 @@ Contains
     call move_alloc(itab_md_copy, itab_md)
     call move_alloc(itab_ud_copy, itab_ud)
     call move_alloc(itab_wd_copy, itab_wd)
+
+    allocate(iwdorig(nwd))
+    do iw = 1, nwd
+       iwdorig(iw) = iw
+    enddo
 
   end subroutine copyback_tri_grid
 

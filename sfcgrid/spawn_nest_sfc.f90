@@ -38,7 +38,7 @@ subroutine spawn_nest_sfc()
   use mem_delaunay, only: itab_md_vars, itab_ud_vars, itab_wd_vars, &
                           nest_ud_vars, nest_wd_vars, alloc_itabsd, &
                           nmd, nud, nwd, xemd, yemd, zemd, &
-                          itab_md, itab_ud, itab_wd
+                          itab_md, itab_ud, itab_wd, iwdorig, iwdorig_temp
 
   use mem_sfcg,     only: nsfcgrids, nsfcgrdll, sfcgrdrad, sfcgrdlat, &
                           sfcgrdlon, nxp_sfc
@@ -119,6 +119,8 @@ subroutine spawn_nest_sfc()
      call move_alloc(yemd, yem_temp)
      call move_alloc(zemd, zem_temp)
 
+     call move_alloc(iwdorig, iwdorig_temp)
+
      ! Locate and flag all W triangles to be subdivided
      ! Define 3 new W indices and 3 new U indices for each W - attach to W.
 
@@ -186,10 +188,7 @@ subroutine spawn_nest_sfc()
            ! Check npoly and nw for illegal values
 
            if (nw == 0 .or. nw == npoly) cycle
-           ! if (npoly == 6 .and. nw < 5) cycle
-           ! MJO: This fills in around any pentagon point that happens to be on
-           ! a mesh boundary. I will relax this criteria for now:
-           if (nw < npoly - 1) cycle
+           if (npoly == 6 .and. nw < 5) cycle
 
            ! If we got here, then either of the following is true at current M pt:
            !    (1) npoly = 5 and nw > 0 and nw < npoly
@@ -320,7 +319,11 @@ subroutine spawn_nest_sfc()
 
      call alloc_itabsd(nmd0,nud0,nwd0)
 
+     allocate(iwdorig(nwd0))
+
      ! Memory copy to main tables
+
+     iwdorig(1:nwd) = iwdorig_temp
 
      do im = 1,nmd
         itab_md(im)%imp       = ltab_md(im)%imp
@@ -446,6 +449,10 @@ subroutine spawn_nest_sfc()
            itab_wd(iw2)%ngr = ngr
            itab_wd(iw3)%ngr = ngr
 
+           iwdorig(iw1) = iwdorig_temp(iw)
+           iwdorig(iw2) = iwdorig_temp(iw)
+           iwdorig(iw3) = iwdorig_temp(iw)
+
            if (nest_ud(iu1o)%im > 1) then
               itab_ud(iu1o)%im(2) = nest_ud(iu1o)%im
               itab_ud(iu4)%im(1)  = nest_ud(iu1o)%im
@@ -555,6 +562,7 @@ subroutine spawn_nest_sfc()
      deallocate (ltab_md,ltab_ud,ltab_wd)
      deallocate (nest_ud,nest_wd)
      deallocate (xem_temp,yem_temp,zem_temp)
+     deallocate (iwdorig_temp)
 
      deallocate (jm,ju)
      deallocate (imper,iuper,igsize,nearpent,nwdivg)
@@ -595,7 +603,7 @@ subroutine spawn_nest_sfc()
      ! border.  This is permanent ID, used in spring dynamics even when new
      ! grids are added.
 
-     call perim_mrow(nmd, nud, nwd, itab_md, itab_ud, itab_wd)
+     call perim_mrow(ngr,nmd, nud, nwd, itab_md, itab_ud, itab_wd)
 
      ! This is the place to do spring dynamics
 
@@ -612,7 +620,7 @@ subroutine spawn_nest_sfc()
         if (nsfcgr == nl%sfcgridplot_base) then
            call o_reopnwk()
            call plotback()
-           call oplot_set_makegrid(2,mrlo)
+           call oplot_set_makegrid(.false., mrlo)
         endif
 
         ! Set plot line color (red) and thickness
@@ -831,7 +839,8 @@ subroutine perim_fill_cent1(ngr,mrloo,nud0,nwd0,nud,nwd,kma,kua,kwa, &
                             jm1,ju1,jm2, &
                             itab_ud, itab_wd, ltab_ud, ltab_wd, nest_ud, nest_wd)
 
-  use mem_delaunay, only: itab_ud_vars, itab_wd_vars, nest_ud_vars, nest_wd_vars
+  use mem_delaunay, only: itab_ud_vars, itab_wd_vars, nest_ud_vars, nest_wd_vars, &
+                          iwdorig, iwdorig_temp
 
   implicit none
 
@@ -931,6 +940,7 @@ subroutine perim_fill_cent1(ngr,mrloo,nud0,nwd0,nud,nwd,kma,kua,kwa, &
 
   itab_wd(iw1)%ngr = ngr
   itab_wd(iw2)%ngr = ngr
+  iwdorig(iw2)     = iwdorig_temp(iw1)
 
   return
 
@@ -951,7 +961,8 @@ subroutine perim_fill_concave2(ngr,mrloo,nud0,nwd0,nud,nwd,kma,kua,kwa, &
                                jm1,ju1,jm2,ju2,jm3, &
                                itab_ud, itab_wd, ltab_ud, ltab_wd, nest_ud, nest_wd)
 
-  use mem_delaunay, only: itab_ud_vars, itab_wd_vars, nest_ud_vars, nest_wd_vars
+  use mem_delaunay, only: itab_ud_vars, itab_wd_vars, nest_ud_vars, nest_wd_vars, &
+                          iwdorig, iwdorig_temp
 
   implicit none
 
@@ -1021,11 +1032,6 @@ subroutine perim_fill_concave2(ngr,mrloo,nud0,nwd0,nud,nwd,kma,kua,kwa, &
      itab_ud(iu2)%iw(2) = iw3
   endif
 
-  !write(io6,'(a,20i7)') 'pf11 ',jm1,jm2,jm3,ju1,ju2, &
-  !   ltab_ud(ju1)%im(1),ltab_ud(ju1)%im(2),ltab_ud(ju2)%im(1),ltab_ud(ju2)%im(2), &
-  !   ltab_ud(ju1)%iw(1),ltab_ud(ju1)%iw(2),ltab_ud(ju2)%iw(1),ltab_ud(ju2)%iw(2), &
-  !   nest_ud(ju1)%iu
-
   ! Determine orientation of positive ju2 direction to get iw4 (=jw2)
 
   if (jm2 == ltab_ud(ju2)%im(1)) then  ! Positive ju2 points inward
@@ -1069,40 +1075,6 @@ subroutine perim_fill_concave2(ngr,mrloo,nud0,nwd0,nud,nwd,kma,kua,kwa, &
 
   iw1 = jw1
   iw4 = jw2
-
-  !print*, ' '
-  !write(io6,'(a,20i7)') 'c2a.1 ',im1,im2,im3,im4,im5,im6
-  !write(io6,'(a,20i7)') 'c2a.2 ',iu1,iu2,iu3,iu4,iu5,iu6,iu7,iu8,iu9
-  !write(io6,'(a,20i7)') 'c2a.3 ',iw1,iw2,iw3,iw4
-  !write(io6,'(a,20i7)') 'c2a.4  ',itab_ud(iu1)%im(1),itab_ud(iu1)%im(2), &
-  !                                itab_ud(iu1)%iw(1),itab_ud(iu1)%iw(2)
-  !write(io6,'(a,20i7)') 'c2a.5  ',itab_ud(iu2)%im(1),itab_ud(iu2)%im(2), &
-  !                                itab_ud(iu2)%iw(1),itab_ud(iu2)%iw(2)
-  !write(io6,'(a,20i7)') 'c2a.6  ',itab_ud(iu3)%im(1),itab_ud(iu3)%im(2), &
-  !                                itab_ud(iu3)%iw(1),itab_ud(iu3)%iw(2)
-  !write(io6,'(a,20i7)') 'c2a.7  ',itab_ud(iu4)%im(1),itab_ud(iu4)%im(2), &
-  !                                itab_ud(iu4)%iw(1),itab_ud(iu4)%iw(2)
-  !write(io6,'(a,20i7)') 'c2a.8  ',itab_ud(iu5)%im(1),itab_ud(iu5)%im(2), &
-  !                                itab_ud(iu5)%iw(1),itab_ud(iu5)%iw(2)
-  !write(io6,'(a,20i7)') 'c2a.9  ',itab_ud(iu6)%im(1),itab_ud(iu6)%im(2), &
-  !                                itab_ud(iu6)%iw(1),itab_ud(iu6)%iw(2)
-  !write(io6,'(a,20i7)') 'c2a.10 ',itab_ud(iu7)%im(1),itab_ud(iu7)%im(2), &
-  !                                itab_ud(iu7)%iw(1),itab_ud(iu7)%iw(2)
-  !write(io6,'(a,20i7)') 'c2a.11 ',itab_ud(iu8)%im(1),itab_ud(iu8)%im(2), &
-  !                                itab_ud(iu8)%iw(1),itab_ud(iu8)%iw(2)
-  !write(io6,'(a,20i7)') 'c2a.12 ',itab_ud(iu9)%im(1),itab_ud(iu9)%im(2), &
-  !                                itab_ud(iu9)%iw(1),itab_ud(iu9)%iw(2)
-  !write(io6,'(a,20i7)') 'c2a.13 ',itab_wd(iw1)%iu(1),itab_wd(iw1)%iu(2), &
-  !                                itab_wd(iw1)%iu(3)
-  !write(io6,'(a,20i7)') 'c2a.14 ',itab_wd(iw2)%iu(1),itab_wd(iw2)%iu(2), &
-  !                                itab_wd(iw2)%iu(3)
-  !write(io6,'(a,20i7)') 'c2a.15 ',itab_wd(iw3)%iu(1),itab_wd(iw3)%iu(2), &
-  !                                itab_wd(iw3)%iu(3)
-  !write(io6,'(a,20i7)') 'c2a.16 ',itab_wd(iw4)%iu(1),itab_wd(iw4)%iu(2), &
-  !                                itab_wd(iw4)%iu(3)
-  !print*, ' '
-
-
 
   ! Fill remaining neighbor indices for U and W points
 
@@ -1158,6 +1130,9 @@ subroutine perim_fill_concave2(ngr,mrloo,nud0,nwd0,nud,nwd,kma,kua,kwa, &
   itab_wd(iw2)%ngr = ngr
   itab_wd(iw3)%ngr = ngr
   itab_wd(iw4)%ngr = ngr
+
+  iwdorig(iw2) = iwdorig_temp(iw1)
+  iwdorig(iw3) = iwdorig_temp(iw1)
 
   return
 

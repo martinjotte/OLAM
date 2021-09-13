@@ -83,7 +83,8 @@ subroutine makesfc3()
   real(r8), allocatable :: tot_area(:)
   real(r8)              :: area_tot
 
-  integer, allocatable :: iwnew(:)
+  integer, allocatable :: iwnew (:)
+  integer, allocatable :: iworig(:)
 
   integer :: iter
   real :: dz, srati
@@ -321,7 +322,6 @@ subroutine makesfc3()
   sfcg%ioge(iwnew(1:nwsfc)) = iscr
 
   deallocate(iscr)
-  deallocate(iwnew)
 
   topw(:) = 0.0
   topm(:) = 0.0
@@ -333,9 +333,16 @@ subroutine makesfc3()
 
   if ( sfcgrid_res_factor == 1 .and. nsfcgrids == 0 ) then
 
+     allocate(iworig(nwsfc))
+     iworig(1) = 1
+     do iwsfc = 2, nwsfc
+        iworig( iwnew(iwsfc) ) = iwsfc
+     enddo
+
      ! The surface mesh is an exact copy of the atmospheric mesh with only one
      ! surface cell per atmospheric cell.
-     call step_terrain_overlay()
+     call step_terrain_overlay(iworig)
+     deallocate(iworig)
 
   else
 
@@ -343,6 +350,8 @@ subroutine makesfc3()
      call sfc_atm_hex_overlay()
 
   endif
+
+  deallocate(iwnew)
 
   ! Vertical index for sea (ocean) cells
 
@@ -575,7 +584,7 @@ end subroutine makesfc3
 
 !===============================================================================
 
-subroutine step_terrain_overlay()
+subroutine step_terrain_overlay(iworig)
 
   use mem_grid,   only: nwa, nma, topw, topm, arw0
   use mem_sfcg,   only: nwsfc, nmsfc, sfcg, itab_wsfc
@@ -583,12 +592,23 @@ subroutine step_terrain_overlay()
 
   implicit none
 
+  integer, intent(in) :: iworig(nwsfc)
+
   integer :: im, iw1, iw2, iw3, iw, iwsfc
 
   if (nwa /= nwsfc) stop 'error in nwsfc size!'
   if (nma /= nmsfc) stop 'error in nmsfc size!'
 
-  topw(:) = sfcg%topw
+  do iwsfc = 2, nwsfc
+     iw = iworig(iwsfc)
+
+     topw(iw) = sfcg%topw(iwsfc)
+
+     itab_wsfc(iwsfc)%nwatm    = 1
+     itab_wsfc(iwsfc)%iwatm(1) = iw
+     itab_wsfc(iwsfc)%arc  (1) = arw0(iw)
+  enddo
+
 
   do im = 2, nma
      iw1 = itab_m(im)%iw(1)
@@ -596,14 +616,6 @@ subroutine step_terrain_overlay()
      iw3 = itab_m(im)%iw(3)
 
      topm(im) = (topw(iw1) + topw(iw2) + topw(iw3)) / 3.
-  enddo
-
-  do iwsfc = 2, nwsfc
-     iw = iwsfc
-
-     itab_wsfc(iwsfc)%nwatm    = 1
-     itab_wsfc(iwsfc)%iwatm(1) = iw
-     itab_wsfc(iwsfc)%arc  (1) = arw0(iw)
   enddo
 
 end subroutine step_terrain_overlay

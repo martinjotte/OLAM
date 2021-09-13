@@ -33,10 +33,10 @@
 subroutine voronoi_sfc()
 
   use mem_sfcg,     only: nmsfc, nvsfc, nwsfc, itab_msfc, itab_vsfc, &
-                          itab_wsfc, sfcg, alloc_sfcgrid1
+                          itab_wsfc, sfcg, alloc_sfcgrid1, im_orig
 
   use mem_delaunay, only: itab_md, itab_ud, itab_wd, nmd, nud, nwd, &
-                          xemd, yemd, zemd
+                          xemd, yemd, zemd, iwdorig
 
   use misc_coms,    only: mdomain
   use consts_coms,  only: erad, eradi, piu180
@@ -70,6 +70,8 @@ subroutine voronoi_sfc()
   call move_alloc(xemd, sfcg%xew)
   call move_alloc(yemd, sfcg%yew)
   call move_alloc(zemd, sfcg%zew)
+
+  call move_alloc(iwdorig, im_orig)
 
   ! Compute XEM,YEM,ZEM location as circumcentric coordinates of 3 W points.
   ! This establishes W cell as voronoi.
@@ -322,7 +324,7 @@ subroutine grid_geometry_hex_sfc()
 
   ! Loop over all V points
 
-  !$omp do private(im1,im2,iw1,iw2,expansion)
+  !$omp do private(im1,im2,iw1,iw2,expansion,dvm1,dvm2,frac)
   do iv = 2,nvsfc
 
      ! Fill global index (replaced later if this run is parallel)
@@ -403,6 +405,8 @@ subroutine grid_geometry_hex_sfc()
         print*, 'FRAC  = ',frac
         print*, 'IW1 = ', iw1, ' IW2 = ', iw2
         print*, 'IV    = ',iv
+        print*, 'GLATM = ', sfcg%glatm(im1)
+        print*, 'GLONM = ', sfcg%glonm(im1)
         print*, 'SFCG%XEV = ',sfcg%xev(iv)
         print*, 'SFCG%YEV = ',sfcg%yev(iv)
         print*, 'SFCG%ZEV = ',sfcg%zev(iv)
@@ -769,150 +773,15 @@ end subroutine grid_geometry_hex_sfc
 
 subroutine sfc_atm_hex_overlay()
 
-  use mem_grid,    only: nwa, nma, xem, yem, zem, xew, yew, zew, arw0, &
-                         topm, topw, glatw, glonw, glonm, glatm
-  use mem_ijtabs,  only: itab_w, itab_m
-  use mem_sfcg,    only: itab_wsfc, sfcg, nwsfc
-  use consts_coms, only: r8, eradi, erad2, pio180
+  use mem_grid,    only: nwa, nma, topm, topw, glatw, glonw, glonm, glatm
+  use mem_sfcg,    only: nwsfc
 
   implicit none
 
-  integer :: iw, npoly, iwsfc, jm, im, j
-
-  real :: xeamin(nwa), yeamin(nwa), zeamin(nwa)
-  real :: xeamax(nwa), yeamax(nwa), zeamax(nwa)
-  real :: eradcheck
-
-
-  Type latlonbin
-     integer              :: npts
-     real                 :: dsmax
-     integer, allocatable :: ipts(:)
-  End Type latlonbin
-
-  type(latlonbin), allocatable :: iwbin(:,:)
-
-  integer, allocatable :: ipts_copy(:)
-  integer              :: ibin, jbin, ib, jb, di, dj
-  integer              :: ibmax, ibmin, ii
-  real                 :: ds(7), dsmax
-  integer              :: npts, isize
-  integer              :: imax, i
-
-  real, parameter :: deg_per_m = 1.0 / 108.e3
+  integer :: iw, iwsfc, im
 
   integer, allocatable :: icountw(:)
   integer, allocatable :: icountm(:)
-
-  eradcheck = 0.95 * erad2
-
-  xeamin = 1.e9
-  yeamin = 1.e9
-  zeamin = 1.e9
-
-  xeamax = -1.e9
-  yeamax = -1.e9
-  zeamax = -1.e9
-
-  ! Allocate lat/lon bins for IW cells
-
-  allocate(iwbin(360,180))
-
-  do j = 1, 180
-     if (j < 10 .or. j > 170) then
-        imax = 1
-     else
-        imax = 360
-     endif
-     do i = 1, imax
-        allocate( iwbin(i,j)%ipts(5) )
-        iwbin(i,j)%ipts  = 0
-        iwbin(i,j)%npts  = 0
-        iwbin(i,j)%dsmax = 0.0
-     enddo
-  enddo
-
-  ! Store max and min extents of each IW cell
-
-  do iw = 2, nwa
-     npoly = itab_w(iw)%npoly
-
-     do jm = 1,npoly
-        im = itab_w(iw)%im(jm)
-
-        if (xeamin(iw) > xem(im)) xeamin(iw) = xem(im)
-        if (yeamin(iw) > yem(im)) yeamin(iw) = yem(im)
-        if (zeamin(iw) > zem(im)) zeamin(iw) = zem(im)
-
-        if (xeamax(iw) < xem(im)) xeamax(iw) = xem(im)
-        if (yeamax(iw) < yem(im)) yeamax(iw) = yem(im)
-        if (zeamax(iw) < zem(im)) zeamax(iw) = zem(im)
-
-        ds(jm) = (xem(im) - xew(iw))**2 &
-               + (yem(im) - yew(iw))**2 &
-               + (zem(im) - zew(iw))**2
-     enddo
-
-     xeamin(iw) = xeamin(iw) - 10.
-     yeamin(iw) = yeamin(iw) - 10.
-     zeamin(iw) = zeamin(iw) - 10.
-
-     xeamax(iw) = xeamax(iw) + 10.
-     yeamax(iw) = yeamax(iw) + 10.
-     zeamax(iw) = zeamax(iw) + 10.
-
-     dsmax = sqrt( maxval( ds(1:npoly) ) )
-
-     jbin = int( min( max( glatw(iw), -89.9999), 89.9999 ) + 90.0 ) + 1
-
-     if (jbin < 10 .or. jbin > 170) then
-        ibin = 1
-     else
-        ibin = int( min( max( glonw(iw), -179.9999), 179.9999 ) + 180.0 ) + 1
-     endif
-
-     iwbin(ibin,jbin)%npts = iwbin(ibin,jbin)%npts + 1
-
-     npts  = iwbin(ibin,jbin)%npts
-     isize = size( iwbin(ibin,jbin)%ipts )
-
-     if (npts > isize) then
-        call move_alloc( iwbin(ibin,jbin)%ipts, ipts_copy )
-        allocate( iwbin(ibin,jbin)%ipts( isize*2 ) )
-        iwbin(ibin,jbin)%ipts(1:isize) = ipts_copy
-     endif
-
-     iwbin(ibin,jbin)%ipts( npts ) = iw
-     iwbin(ibin,jbin)%dsmax = max( iwbin(ibin,jbin)%dsmax, dsmax )
-
-     dj = int(3.*dsmax * deg_per_m) + 1
-     di = int(3.*dsmax * deg_per_m / cos( glatw(iw) * pio180 )) + 1
-
-     do jb = max(jbin-dj,1), min(jbin+dj,180)
-
-        if (jb < 10 .or. jb > 170) then
-           ibmax = 1
-           ibmin = 1
-        else
-           ibmax = ibin + di
-           ibmin = ibin - di
-        endif
-
-        do ii = ibmin, ibmax
-
-           if (ii < 1) then
-              ib = 360 + ii
-           elseif (ii > 360) then
-              ib = ii - 360
-           else
-              ib = ii
-           endif
-
-           iwbin(ib,jb)%dsmax = max( iwbin(ibin,jbin)%dsmax, dsmax )
-
-        enddo
-     enddo
-  enddo
 
   allocate(icountw(nwa)) ; icountw = 0
   allocate(icountm(nma)) ; icountm = 0
@@ -920,7 +789,7 @@ subroutine sfc_atm_hex_overlay()
   !$omp parallel do
   do iwsfc = 2, nwsfc
 
-     call sfc_atm_hex_overlay_2( iwsfc )
+     call sfc_atm_hex_overlay_2( icountw, icountm, iwsfc )
 
   enddo
   !$omp end parallel do
@@ -977,25 +846,33 @@ subroutine sfc_atm_hex_overlay()
 
   enddo
 
-contains
+end subroutine sfc_atm_hex_overlay
 
-! Putting this section of code in an internal subroutine simplifies OpenMP, as
-! all local variables declared in thie routine will be default private, and
-! variables from the scope of the parent routine are default shared.
+!============================================================================
 
-subroutine sfc_atm_hex_overlay_2( iwsfc )
+subroutine sfc_atm_hex_overlay_2( icountw, icountm, iwsfc )
+
+  use mem_grid,    only: nwa, nma, xem, yem, zem, xew, yew, zew, arw0, &
+                         topm, topw
+  use mem_ijtabs,  only: itab_w, itab_m
+  use mem_sfcg,    only: itab_wsfc, sfcg, im_orig
+  use consts_coms, only: r8, eradi, pio180
 
   implicit none
 
-  integer, intent(in) :: iwsfc
+  integer, intent(in)    :: iwsfc
+  integer, intent(inout) :: icountw(nwa)
+  integer, intent(inout) :: icountm(nma)
 
   integer, parameter :: npmax = 7  ! Heptagons are max polygon for SINGLE GRID LEVEL
                                    ! in atm polygon cell
 
   integer, parameter :: nqmax = 7  ! Land cells can also be up to heptagons at this stage
 
+  real,    parameter :: oneplus = 1.0 + 5. * epsilon(1.)
+
   integer :: iw, npoly, nsfcpoly, jmsfc, imsfc, jm, im, nwatm, idum
-  real    :: xp0, yp0, xq0, yq0, dum, ds(nqmax), dsm
+  real    :: xp0, yp0, xq0, yq0, dum
 
   real(r8) :: xw, yw, alpha
   real(r8) :: xp(npmax),yp(npmax)
@@ -1004,49 +881,34 @@ subroutine sfc_atm_hex_overlay_2( iwsfc )
   real(r8) :: alphaq(nqmax)
 
   real :: area
-  real :: xesfcmin, yesfcmin, zesfcmin
-  real :: xesfcmax, yesfcmax, zesfcmax
-
   real :: sinwslat, coswslat
   real :: sinwslon, coswslon
   real :: raxis, raxisi
   real :: dxe, dye, dze
 
-  integer :: ibin, jbin, ib, jb, di, dj
-  integer :: ibmax, ibmin, ii, jj
-  real    :: dsmax
+  integer :: nw, imatm(7), iwatm(8), iwnew, jw, np, j
 
-  real, parameter :: oneplus = 1.0 + 5. * epsilon(1.)
-  real, parameter :: deg_per_m = 1.0 / 108.e3
+  np          = itab_wsfc(iwsfc)%npoly
+  imatm(1:np) = im_orig( itab_wsfc(iwsfc)%imn(1:np) )
 
-  xesfcmin = 1.e9
-  yesfcmin = 1.e9
-  zesfcmin = 1.e9
+  nw         = 3
+  iwatm(1:3) = itab_m( imatm(1) )%iw(1:3)
 
-  xesfcmax = -1.e9
-  yesfcmax = -1.e9
-  zesfcmax = -1.e9
+  do jm = 2, itab_wsfc(iwsfc)%npoly
+     if ( any(imatm(jm) == imatm(1:jm-1)) ) cycle
+
+     do jw = 1, 3
+        iwnew = itab_m( imatm(jm) )%iw(jw)
+        if ( any(iwnew == iwatm(1:nw)) ) cycle
+
+        nw = nw + 1
+        if (nw > 8) stop 'too many points!'
+        iwatm(nw) = iwnew
+     enddo
+  enddo
 
   nwatm = 0
   nsfcpoly = itab_wsfc(iwsfc)%npoly
-
-  do jmsfc = 1, nsfcpoly
-     imsfc = itab_wsfc(iwsfc)%imn(jmsfc)
-
-     if (xesfcmin > sfcg%xem(imsfc)) xesfcmin = sfcg%xem(imsfc)
-     if (yesfcmin > sfcg%yem(imsfc)) yesfcmin = sfcg%yem(imsfc)
-     if (zesfcmin > sfcg%zem(imsfc)) zesfcmin = sfcg%zem(imsfc)
-
-     if (xesfcmax < sfcg%xem(imsfc)) xesfcmax = sfcg%xem(imsfc)
-     if (yesfcmax < sfcg%yem(imsfc)) yesfcmax = sfcg%yem(imsfc)
-     if (zesfcmax < sfcg%zem(imsfc)) zesfcmax = sfcg%zem(imsfc)
-
-     ds(jmsfc) = (sfcg%xem(imsfc) - sfcg%xew(iwsfc))**2 &
-               + (sfcg%yem(imsfc) - sfcg%yew(iwsfc))**2 &
-               + (sfcg%zem(imsfc) - sfcg%zew(iwsfc))**2
-  enddo
-
-  dsm = sqrt( maxval( ds(1:nsfcpoly) ) )
 
   raxis  = sqrt( sfcg%xew(iwsfc) ** 2 + sfcg%yew(iwsfc) ** 2 )
   raxisi = 1.0 / raxis
@@ -1083,61 +945,8 @@ subroutine sfc_atm_hex_overlay_2( iwsfc )
 
   enddo
 
-  jbin = int( min( max( sfcg%glatw(iwsfc),  -89.9999),  89.9999 ) +  90.0 ) + 1
-  ibin = int( min( max( sfcg%glonw(iwsfc), -179.9999), 179.9999 ) + 180.0 ) + 1
-
-  if (jbin < 10 .or. jbin > 170) then
-     dsmax = iwbin(1,jbin)%dsmax + dsm
-  else
-     dsmax = iwbin(ibin,jbin)%dsmax + dsm
-  endif
-
-  dj = int(dsmax * deg_per_m) + 1
-
-  ! Loop over latitude (N-S) bins in neighborhood of this iwsfc cell
-  do jb = max(jbin-dj,1), min(jbin+dj,180)
-
-     if (jb < 10 .or. jb > 170) then
-        ibmax = 1
-        ibmin = 1
-     else
-        di = int( dsmax * deg_per_m / coswslat ) + 1
-        ibmax = ibin + di
-        ibmin = ibin - di
-     endif
-
-     ! Loop over longitude (E-W) bins in neighborhood of this iwsfc cell
-     do ii = ibmin, ibmax
-
-        ! circular shift longitude indices
-        if (ii < 1) then
-           ib = 360 + ii
-        elseif (ii > 360) then
-           ib = ii - 360
-        else
-           ib = ii
-        endif
-
-        ! Loop over all iw points in current lat/lon bin
-        do jj = 1, iwbin(ib,jb)%npts
-           iw = iwbin(ib,jb)%ipts(jj)
-
-           ! Skip interaction using non-overlap check
-
-           if (abs(xew(iw) + sfcg%xew(iwsfc)) < eradcheck) then  ! Skip if both near X pole
-              if (xeamin(iw) > xesfcmax) cycle
-              if (xeamax(iw) < xesfcmin) cycle
-           endif
-
-           if (abs(yew(iw) + sfcg%yew(iwsfc)) < eradcheck) then  ! Skip if both near Y pole
-              if (yeamin(iw) > yesfcmax) cycle
-              if (yeamax(iw) < yesfcmin) cycle
-           endif
-
-           if (abs(zew(iw) + sfcg%zew(iwsfc)) < eradcheck) then  ! Skip if both near Z pole
-              if (zeamin(iw) > zesfcmax) cycle
-              if (zeamax(iw) < zesfcmin) cycle
-           endif
+  do jw = 1, nw
+     iw = iwatm(jw)
 
            ! Loop over all neighbor M points of this IW
 
@@ -1230,8 +1039,8 @@ subroutine sfc_atm_hex_overlay_2( iwsfc )
            itab_wsfc(iwsfc)%iwatm(nwatm) = iw
            itab_wsfc(iwsfc)%arc  (nwatm) = area
 
-        enddo  ! iw
-     enddo  ! ibin
+!        enddo  ! iw
+!     enddo  ! ibin
   enddo  ! jbin
 
   ! Order multiple overlap areas so that largest is first
@@ -1251,8 +1060,6 @@ subroutine sfc_atm_hex_overlay_2( iwsfc )
   endif
 
 end subroutine sfc_atm_hex_overlay_2
-
-end subroutine sfc_atm_hex_overlay
 
 !============================================================================
 

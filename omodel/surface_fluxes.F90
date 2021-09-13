@@ -170,7 +170,7 @@ subroutine surface_turb_flux(mrl)
   do iwsfc = 2,mwsfc
 
      if (isubdomain == 1) then
-        if (.not. any( itab_w( itab_wsfc(iwsfc)%iwatm( 1:itab_wsfc(iwsfc)%nwatm ) )%irank == myrank ) ) cycle
+        if (.not. any( itab_w( max(1,itab_wsfc(iwsfc)%iwatm( 1:itab_wsfc(iwsfc)%nwatm )) )%irank == myrank ) ) cycle
      endif
 
      airthetav = sfcg%airtheta(iwsfc) * (1.0 + eps_virt * sfcg%airrrv(iwsfc))

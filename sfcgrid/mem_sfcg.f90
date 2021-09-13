@@ -83,8 +83,8 @@ Module mem_sfcg
 
      real :: dirv(7) = 0.     ! pos direction of V neighbors
 
-     real :: farm(7) = 0.     ! Fraction of arw0 in each M point sector 
-     real :: farv(7) = 0.     ! Fraction of arw0 in each V point sector 
+     real :: farm(7) = 0.     ! Fraction of arw0 in each M point sector
+     real :: farv(7) = 0.     ! Fraction of arw0 in each V point sector
 
      real :: gxps1(7) = 0.    ! gradient weight xe component for point 1
      real :: gyps1(7) = 0.    ! gradient weight ye component for point 1
@@ -168,7 +168,7 @@ Module mem_sfcg
      integer, allocatable :: jend(:)
   End Type jtab_vsfc_mpi_vars
 
-  type (jtab_vsfc_mpi_vars) :: jtab_vsfc_mpi(maxremote) 
+  type (jtab_vsfc_mpi_vars) :: jtab_vsfc_mpi(maxremote)
 
   Type jtab_wsfc_mpi_vars
      integer, allocatable :: iwsfc(:)
@@ -194,9 +194,9 @@ Module mem_sfcg
      integer              :: jend
   End Type jtab_msfc_swm_vars
 
-  type (jtab_wsfc_swm_vars) :: jtab_wsfc_swm 
-  type (jtab_vsfc_swm_vars) :: jtab_vsfc_swm 
-  type (jtab_msfc_swm_vars) :: jtab_msfc_swm 
+  type (jtab_wsfc_swm_vars) :: jtab_wsfc_swm
+  type (jtab_vsfc_swm_vars) :: jtab_vsfc_swm
+  type (jtab_msfc_swm_vars) :: jtab_msfc_swm
 
   Type surface_grid_vars
 
@@ -314,6 +314,8 @@ Module mem_sfcg
   End type surface_grid_vars
 
   type (surface_grid_vars), target :: sfcg
+
+  integer, allocatable :: im_orig(:)
 
 ! TRI-GRID INFORMATION FOR INDEPENDENT REFINING OF SFC GRID
 
@@ -555,10 +557,7 @@ Contains
      do iwsfc = 2, mwsfc
 
         ! Skip this SFC grid cell if running in parallel and cell rank is not MYRANK
-        ! if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
-        if (isubdomain == 1) then
-           if (.not. any( itab_w( itab_wsfc(iwsfc)%iwatm( 1:itab_wsfc(iwsfc)%nwatm ) )%irank == myrank ) ) cycle
-        endif
+        if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
         sfcg%vels    (iwsfc) = 0.
         sfcg%prss    (iwsfc) = 0.
@@ -646,7 +645,7 @@ Contains
 
   ! jtab_vsfc_mpi only needed if run is parallel
 
-  if (iparallel == 0) then
+  if (iparallel == 1) then
 
      ! Compute and store JTAB_VSFC_MPI%JEND(1)
 
@@ -701,7 +700,7 @@ Contains
 
   ! jtab_wsfc_mpi only needed if run is parallel
 
-  if (iparallel == 0) then
+  if (iparallel == 1) then
 
      ! Compute and store JTAB_WSFC_MPI%JEND(1)
 

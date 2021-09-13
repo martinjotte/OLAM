@@ -106,7 +106,7 @@ subroutine radiate()
         iwsfc = isea + omsea
 
         if (isubdomain == 1) then
-           if (.not. any( itab_w( itab_wsfc(iwsfc)%iwatm( 1:itab_wsfc(iwsfc)%nwatm ) )%irank == myrank ) ) cycle
+           if (.not. any( itab_w( max(1,itab_wsfc(iwsfc)%iwatm( 1:itab_wsfc(iwsfc)%nwatm )) )%irank == myrank ) ) cycle
         endif
 
         ! Get surface radiative properties (albedos and rlongup) for each sea cell.
@@ -168,7 +168,7 @@ subroutine radiate()
         iwsfc = ilake + omlake
 
         if (isubdomain == 1) then
-           if (.not. any( itab_w( itab_wsfc(iwsfc)%iwatm( 1:itab_wsfc(iwsfc)%nwatm ) )%irank == myrank ) ) cycle
+           if (.not. any( itab_w( max(1,itab_wsfc(iwsfc)%iwatm( 1:itab_wsfc(iwsfc)%nwatm )) )%irank == myrank ) ) cycle
         endif
 
         ! Get surface radiative properties (albedos and rlongup) for each sea cell. 
@@ -203,7 +203,7 @@ subroutine radiate()
         iwsfc = iland + omland
 
         if (isubdomain == 1) then
-           if (.not. any( itab_w( itab_wsfc(iwsfc)%iwatm( 1:itab_wsfc(iwsfc)%nwatm ) )%irank == myrank ) ) cycle
+           if (.not. any( itab_w( max(1,itab_wsfc(iwsfc)%iwatm( 1:itab_wsfc(iwsfc)%nwatm )) )%irank == myrank ) ) cycle
         endif
 
         ! Get surface radiative properties (albedos and rlongup) for each land cell.

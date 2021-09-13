@@ -87,7 +87,8 @@ subroutine spring_dynamics_nest( mrows, moveint, ngr, nxp, nma, nua, nwa, &
   integer            :: niter
   integer, parameter :: nprnt = 50
   real,    parameter :: relax = .04
-  real,    parameter :: beta  = 1.242
+! real,    parameter :: beta  = 1.242
+  real               :: beta
 
   real, allocatable :: dist (:)
   real, allocatable :: dist0(:)
@@ -154,8 +155,10 @@ subroutine spring_dynamics_nest( mrows, moveint, ngr, nxp, nma, nua, nwa, &
      niter = 50
   elseif (mrows == 3) then
      niter = 5000
+     beta  = 1.242
   else
-     niter = 200
+     niter = 3000
+     beta  = 1.1
   endif
 
   erad8 = real(erad,r8)
@@ -206,14 +209,15 @@ subroutine spring_dynamics_nest( mrows, moveint, ngr, nxp, nma, nua, nwa, &
         do j = 1, itab_md(im)%npoly
            iw = itab_md(im)%iw(j)
 
-           ngrw = itab_wd(iw)%ngr
-
-           if (ngrw /= ngr) cycle
-
-           if (itab_wd(iw)%mrow == -3 .or. &
-               itab_wd(iw)%mrow == -2 .or. &
-               itab_wd(iw)%mrow == -1 .or. &
-               itab_wd(iw)%mrow ==  1) then
+!          ngrw = itab_wd(iw)%ngr
+!
+!          if (ngrw /= ngr) cycle
+!
+!          if (itab_wd(iw)%mrow == -3 .or. &
+!              itab_wd(iw)%mrow == -2 .or. &
+!              itab_wd(iw)%mrow == -1 .or. &
+!              itab_wd(iw)%mrow ==  1) then
+           if (itab_wd(iw)%ngr == ngr .and. itab_wd(iw)%mrow /= 0) then
 
               nmovem = nmovem + 1
               im_jm( nmovem ) = im
@@ -642,16 +646,14 @@ subroutine spring_dynamics_nest( mrows, moveint, ngr, nxp, nma, nua, nwa, &
            zem(im) = real(zem8(jm))
         enddo
         !$omp end do
-        !$omp single
 
         ! Plot grid lines
 
+        !$omp single
         call o_reopnwk()
-
-        do ipic = 1,3
-
         call plotback()
-        call oplot_set(ipic)
+
+        call oplot_set(1)
 
         do iu = 2,nua
            im1 = itab_ud(iu)%im(1)
@@ -668,69 +670,28 @@ subroutine spring_dynamics_nest( mrows, moveint, ngr, nxp, nma, nua, nwa, &
            call o_vector (xq2,yq2)
         enddo
 
-        if (ipic == 1) then
+        ! Print mrow values
 
-           ! print mrow values
+        do iw = 2, nwa
+           im1 = itab_wd(iw)%im(1)
+           im2 = itab_wd(iw)%im(2)
+           im3 = itab_wd(iw)%im(3)
 
-           do iw = 2, nwa
-              im1 = itab_wd(iw)%im(1)
-              im2 = itab_wd(iw)%im(2)
-              im3 = itab_wd(iw)%im(3)
+           call oplot_transform(1, (xem(im1)+xem(im2)+xem(im3))/3., &
+                                   (yem(im1)+yem(im2)+yem(im3))/3., &
+                                   (zem(im1)+zem(im2)+zem(im3))/3., &
+                                   xp1, yp1                         )
 
-              call oplot_transform(1, (xem(im1)+xem(im2)+xem(im3))/3., &
-                                      (yem(im1)+yem(im2)+yem(im3))/3., &
-                                      (zem(im1)+zem(im2)+zem(im3))/3., &
-                                      xp1, yp1                         )
+           if ( xp1 < op%xmin .or.  &
+                xp1 > op%xmax .or.  &
+                yp1 < op%ymin .or.  &
+                yp1 > op%ymax ) cycle
 
-              if ( xp1 < op%xmin .or.  &
-                   xp1 > op%xmax .or.  &
-                   yp1 < op%ymin .or.  &
-                   yp1 > op%ymax ) cycle
-
-              write(string,'(I0)') itab_wd(iw)%mrow
-              call o_plchlq (xp1,yp1,trim(adjustl(string)),0.003,0.,0.)
-           enddo
-
-        elseif (ipic == 2) then
-
-           ! print ngr values for M points
-
-           do im = 2, nma
-
-              call oplot_transform(1, xem(im), yem(im), zem(im), xp1, yp1)
-
-              if ( xp1 < op%xmin .or.  &
-                   xp1 > op%xmax .or.  &
-                   yp1 < op%ymin .or.  &
-                   yp1 > op%ymax ) cycle
-
-              write(string,'(I0)') itab_md(im)%ngr
-              call o_plchlq (xp1,yp1,trim(adjustl(string)),0.003,0.,0.)
-           enddo
-
-        elseif (ipic == 3) then
-
-           ! print im values for M points
-
-           do im = 2, nma
-
-              call oplot_transform(1, xem(im), yem(im), zem(im), xp1, yp1)
-
-              if ( xp1 < op%xmin .or.  &
-                   xp1 > op%xmax .or.  &
-                   yp1 < op%ymin .or.  &
-                   yp1 > op%ymax ) cycle
-
-              write(string,'(I0)') im
-              call o_plchlq (xp1,yp1,trim(adjustl(string)),0.003,0.,0.)
-           enddo
-
-        endif
-
-        call o_frame()
-
+           write(string,'(I0)') itab_wd(iw)%mrow
+           call o_plchlq (xp1,yp1,trim(adjustl(string)),0.0025,0.,0.)
         enddo
 
+        call o_frame()
         call o_clswk()
         !$omp end single
 

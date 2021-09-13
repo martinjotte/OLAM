@@ -31,7 +31,7 @@
 
 !===============================================================================
 
-subroutine spawn_nest()
+subroutine spawn_nest(iatmgrid)
 
 ! This subroutine adds nested grid regions at the beginning of a simulation.
 ! Later will make modified version to add nested grid region(s) during a
@@ -48,7 +48,7 @@ subroutine spawn_nest()
 
   use mem_delaunay, only: itab_md_vars, itab_ud_vars, itab_wd_vars, &
                           nest_ud_vars, nest_wd_vars, alloc_itabsd, &
-                          itab_md, itab_ud, itab_wd, &
+                          itab_md, itab_ud, itab_wd, iwdorig, iwdorig_temp, &
                           xemd, yemd, zemd, nmd, nud, nwd
 
   use mem_grid,     only: impent, nrows, mrows
@@ -56,10 +56,15 @@ subroutine spawn_nest()
   use misc_coms,    only: io6, ngrids, mdomain, nxp, ngrdll, grdrad, &
                           grdlat, grdlon, runtype
 
+  use mem_sfcg,     only: nsfcgrids, nsfcgrdll, sfcgrdrad, sfcgrdlat, &
+                          sfcgrdlon, nxp_sfc
+
   use consts_coms,  only: pio180, erad, pi1, pi2, piu180
   use oname_coms,   only: nl
 
   implicit none
+
+  logical, intent(in) :: iatmgrid
 
   type (itab_md_vars), allocatable :: ltab_md(:)
   type (itab_ud_vars), allocatable :: ltab_ud(:)
@@ -103,6 +108,12 @@ subroutine spawn_nest()
   real :: yp1, yp2, yq1, yq2
   integer :: iskip
 
+  integer          :: nn, n0, ngrids0, nxp0, gridplot_base
+  integer, pointer :: ngrdll0(:)
+  real,    pointer :: grdrad0(:,:)
+  real,    pointer :: grdlat0(:,:)
+  real,    pointer :: grdlon0(:,:)
+
   ! Make duplicate of current grid dimensions
 
   nmd0 = nmd
@@ -117,15 +128,51 @@ subroutine spawn_nest()
 
   mrows = 3
 
-  do ngr = 2, ngrids  ! Loop over nested grids
+  if (iatmgrid) then
 
-     write(io6,'(/,a,i0)') 'Spawning grid number ',ngr
+     n0      = 2
+     nxp0    = nxp
+     ngrids0 = ngrids
+
+     ngrdll0 => ngrdll
+     grdrad0 => grdrad
+     grdlat0 => grdlat
+     grdlon0 => grdlon
+
+     gridplot_base = nl%gridplot_base
+
+  else
+
+     n0      = 1
+     nxp0    = nxp_sfc
+     ngrids0 = ngrids
+
+     ngrdll0 => nsfcgrdll
+     grdrad0 => sfcgrdrad
+     grdlat0 => sfcgrdlat
+     grdlon0 => sfcgrdlon
+
+     gridplot_base = nl%sfcgridplot_base
+
+  endif
+
+  do nn = n0, ngrids0
+
+     if (iatmgrid) then
+        ngr = nn
+     else
+        ngr = nn + ngrids
+     endif
+
+     if (iatmgrid) then
+        write(io6,'(/,a,i0)') 'Spawning grid number ',ngr
+     else
+        write(io6,'(/,a,i0)') 'Spawning surface grid number ',ngr
+     endif
 
      ! Allocate temporary tables
 
      allocate (nest_ud(nud), nest_wd(nwd))  ! Nest relations
-!    allocate (xem_temp(nmd), yem_temp(nmd), zem_temp(nmd))
-
      allocate (jm(nrows+1,npts), ju(nrows,npts))
      allocate (imper(npts), iuper(npts), igsize(npts), nearpent(npts), nwdivg(npts))
 
@@ -141,6 +188,8 @@ subroutine spawn_nest()
      call move_alloc(yemd, yem_temp)
      call move_alloc(zemd, zem_temp)
 
+     if (.not. iatmgrid) call move_alloc(iwdorig, iwdorig_temp)
+
      allocate (lista(nmd), listb(nmd), jdone(6,nmd))
 
      ! Find closest M point to first specified NGR center point.
@@ -148,14 +197,14 @@ subroutine spawn_nest()
      ! Get earth coordinates for [grdlat(ngr,1),grdlon(ngr,1)]
 
      if (mdomain < 2) then
-        zeg = erad * sin(grdlat(ngr,1) * pio180)
-        reg = erad * cos(grdlat(ngr,1) * pio180)
-        xeg = reg  * cos(grdlon(ngr,1) * pio180)
-        yeg = reg  * sin(grdlon(ngr,1) * pio180)
+        zeg = erad * sin(grdlat0(nn,1) * pio180)
+        reg = erad * cos(grdlat0(nn,1) * pio180)
+        xeg = reg  * cos(grdlon0(nn,1) * pio180)
+        yeg = reg  * sin(grdlon0(nn,1) * pio180)
      else
         zeg = 0.
-        xeg = grdlon(ngr,1)
-        yeg = grdlat(ngr,1)
+        xeg = grdlon0(nn,1)
+        yeg = grdlat0(nn,1)
      endif
 
      ! Initialize distance
@@ -188,8 +237,8 @@ subroutine spawn_nest()
         do ipent = 1,12
            im = impent(ipent)
 
-           call ngr_area(ngr,minside,xem_temp(im),yem_temp(im),zem_temp(im), &
-                         ngrdll, grdrad, grdlat, grdlon)
+           call ngr_area(nn,minside,xem_temp(im),yem_temp(im),zem_temp(im), &
+                         ngrdll0, grdrad0, grdlat0, grdlon0)
 
            if (minside == 1) then
               imbeg = im
@@ -218,8 +267,8 @@ subroutine spawn_nest()
 
            ! Check whether M location is within specified region for NGR refinement
 
-           call ngr_area(ngr,minside,xem_temp(im),yem_temp(im),zem_temp(im), &
-                         ngrdll, grdrad, grdlat, grdlon)
+           call ngr_area(nn,minside,xem_temp(im),yem_temp(im),zem_temp(im), &
+                         ngrdll0, grdrad0, grdlat0, grdlon0)
 
            if (minside == 1) then
 
@@ -256,9 +305,9 @@ subroutine spawn_nest()
               immmm = mlist(j)
               if (immmm > 1) then
 
-                 call ngr_area(ngr,minside,xem_temp(immmm),yem_temp(immmm), &
-                                                           zem_temp(immmm), &
-                               ngrdll, grdrad, grdlat, grdlon)
+                 call ngr_area(nn,minside,xem_temp(immmm),yem_temp(immmm), &
+                                                          zem_temp(immmm), &
+                               ngrdll0, grdrad0, grdlat0, grdlon0)
 
                  if (minside == 1) then
                     imbeg = immmm
@@ -342,9 +391,9 @@ subroutine spawn_nest()
 
                  ! Check whether IMMMM point is inside NGR refinement area
 
-                 call ngr_area(ngr,minside,xem_temp(immmm),yem_temp(immmm), &
-                                                           zem_temp(immmm), &
-                               ngrdll, grdrad, grdlat, grdlon)
+                 call ngr_area(nn,minside,xem_temp(immmm),yem_temp(immmm), &
+                                                          zem_temp(immmm), &
+                               ngrdll0, grdrad0, grdlat0, grdlon0)
 
                  if (minside == 1) then
 
@@ -529,10 +578,14 @@ subroutine spawn_nest()
 
      call alloc_itabsd(nmd0,nud0,nwd0)
 
+     if (.not. iatmgrid) allocate(iwdorig(nwd0))
+
      ! Memory copy to main tables
 
+     if (.not. iatmgrid) iwdorig(1:nwd) = iwdorig_temp
+
      do im = 1,nmd
-        itab_md(im)%loop(1:mloops) = ltab_md(im)%loop(1:mloops)
+        if (iatmgrid) itab_md(im)%loop(1:mloops) = ltab_md(im)%loop(1:mloops)
         itab_md(im)%imp       = ltab_md(im)%imp
         itab_md(im)%mrlm      = ltab_md(im)%mrlm
         itab_md(im)%mrlm_orig = ltab_md(im)%mrlm_orig
@@ -655,6 +708,12 @@ subroutine spawn_nest()
            itab_wd(iw2)%ngr = ngr
            itab_wd(iw3)%ngr = ngr
 
+           if (.not. iatmgrid) then
+              iwdorig(iw1) = iwdorig_temp(iw)
+              iwdorig(iw2) = iwdorig_temp(iw)
+              iwdorig(iw3) = iwdorig_temp(iw)
+           endif
+
            if (nest_ud(iu1o)%im > 1) then
               itab_ud(iu1o)%im(2) = nest_ud(iu1o)%im
               itab_ud(iu4)%im(1)  = nest_ud(iu1o)%im
@@ -755,20 +814,24 @@ subroutine spawn_nest()
 
      ! Fill itabs loop tables for newly spawned points
 
-     do im = nmd+1,nmd0
-        itab_md(im)%imp = im
-        call mdloopf('f',im, jtm_grid, jtm_init, jtm_prog, jtm_wadj, jtm_wstn, 0)
-     enddo
+     if (iatmgrid) then
 
-     do iu = nud+1,nud0
-        itab_ud(iu)%iup = iu
-        call udloopf('f',iu, jtu_grid, jtu_init, jtu_prog, jtu_wadj, jtu_wstn, 0)
-     enddo
+        do im = nmd+1,nmd0
+           itab_md(im)%imp = im
+           call mdloopf('f',im, jtm_grid, jtm_init, jtm_prog, jtm_wadj, jtm_wstn, 0)
+        enddo
 
-     do iw = nwd+1,nwd0
-        itab_wd(iw)%iwp = iw
-        call wdloopf('f',iw, jtw_grid, jtw_vadj, 0, 0, 0, 0)
-     enddo
+        do iu = nud+1,nud0
+           itab_ud(iu)%iup = iu
+           call udloopf('f',iu, jtu_grid, jtu_init, jtu_prog, jtu_wadj, jtu_wstn, 0)
+        enddo
+
+        do iw = nwd+1,nwd0
+           itab_wd(iw)%iwp = iw
+           call wdloopf('f',iw, jtw_grid, jtw_vadj, 0, 0, 0, 0)
+        enddo
+
+     endif
 
      ! Copy new counter values
 
@@ -779,6 +842,7 @@ subroutine spawn_nest()
      deallocate (ltab_md,ltab_ud,ltab_wd)
      deallocate (nest_ud,nest_wd)
      deallocate (xem_temp,yem_temp,zem_temp)
+     if (.not. iatmgrid) deallocate (iwdorig_temp)
 
      deallocate (jm,ju)
      deallocate (imper,iuper,igsize,nearpent,nwdivg)
@@ -790,6 +854,8 @@ subroutine spawn_nest()
 
         call o_reopnwk()
         call plotback()
+
+        call oplot_set(1)
 
         do iu = 2,nud
            im1 = itab_ud(iu)%im(1)
@@ -817,24 +883,34 @@ subroutine spawn_nest()
      ! border.  This is permanent ID, used in spring dynamics even when new
      ! grids are added.
 
-     call perim_mrow(nmd, nud, nwd, itab_md, itab_ud, itab_wd)
+     call perim_mrow(ngr, nmd, nud, nwd, itab_md, itab_ud, itab_wd)
 
      ! This is the place to do spring dynamics
 
-     call spring_dynamics(3, 1, ngr, nxp, nmd, nud, nwd, xemd, yemd, zemd, &
-                          itab_md, itab_ud, itab_wd)
+     if (iatmgrid) then
+        call spring_dynamics(3, 1, ngr, nxp0, nmd, nud, nwd, xemd, yemd, zemd, &
+                             itab_md, itab_ud, itab_wd)
+     else
+        call spring_dynamics(3, 0, ngr, nxp0, nmd, nud, nwd, xemd, yemd, zemd, &
+                             itab_md, itab_ud, itab_wd)
+     endif
 
-     write(io6,'(/,a,i0)') 'Finished spawning grid number ',ngr
-     write(io6,'(a,i0)')   ' nma = ',nmd
-     write(io6,'(a,i0)')   ' nua = ',nud
-     write(io6,'(a,i0)')   ' nwa = ',nwd
+     if (iatmgrid) then
+        write(io6,'(/,a,i0)') 'Finished spawning grid number ',ngr
+     else
+        write(io6,'(/,a,i0)') 'Finished spawning surface grid number ',ngr
+     endif
 
-     if (runtype == 'MAKEGRID_PLOT' .and. ngr >= nl%gridplot_base) then
+     write(io6,'(a,i0)') ' nmd = ',nmd
+     write(io6,'(a,i0)') ' nud = ',nud
+     write(io6,'(a,i0)') ' nwd = ',nwd
 
-        if (ngr == nl%gridplot_base) then
+     if (runtype == 'MAKEGRID_PLOT' .and. nn >= gridplot_base) then
+
+        if (nn == gridplot_base) then
            call o_reopnwk()
            call plotback()
-           call oplot_set_makegrid(1,mrlo)
+           call oplot_set_makegrid(iatmgrid,mrlo)
         endif
 
         ! Set plot line color (red) and thickness
@@ -1607,19 +1683,19 @@ end subroutine perim_ngr
 
 !===========================================================================
 
-  subroutine perim_mrow(nma, nua, nwa, itab_md, itab_ud, itab_wd)
+  subroutine perim_mrow(ngr, nma, nua, nwa, itab_md, itab_ud, itab_wd)
 
   use mem_delaunay, only: itab_wd_vars, itab_ud_vars, itab_md_vars
 
   implicit none
 
-  integer, intent(in) :: nma, nua, nwa
+  integer, intent(in) :: nma, nua, nwa, ngr
 
   type (itab_md_vars), intent(inout) :: itab_md(nma)
   type (itab_ud_vars), intent(inout) :: itab_ud(nua)
   type (itab_wd_vars), intent(inout) :: itab_wd(nwa)
 
-  integer :: iw, iw1, iw2, iw3, im1, im2, im3
+  integer :: iw, iw1, iw2, iw3, im1, im2, im3, im
   integer :: irow, jrow, mrow
 
   integer :: mrow_temp(nwa)
@@ -1649,6 +1725,7 @@ end subroutine perim_ngr
              itab_wd(iw)%mrlw < itab_wd(iw3)%mrlw) then
 
         itab_wd(iw)%mrow = 1
+        itab_wd(iw)%ngr = ngr
         mrow_temp(iw) = 1
 
      elseif (itab_wd(iw)%mrlw > itab_wd(iw1)%mrlw .or. &
@@ -1656,6 +1733,7 @@ end subroutine perim_ngr
              itab_wd(iw)%mrlw > itab_wd(iw3)%mrlw) then
 
         itab_wd(iw)%mrow = -1
+        itab_wd(iw)%ngr = ngr
         mrow_temp(iw) = -1
 
      endif
@@ -1698,8 +1776,13 @@ end subroutine perim_ngr
 
      do iw = 2,nwa
         itab_wd(iw)%mrow  = mrow_temp(iw)
+        if (mrow_temp(iw) /= 0) itab_wd(iw)%ngr = ngr
      enddo
 
+  enddo
+
+  do im = 2, nma
+     if (all( itab_wd( itab_md(im)%iw( 1:itab_md(im)%npoly ) )%ngr == ngr )) itab_md(im)%ngr = ngr
   enddo
 
 end subroutine perim_mrow
@@ -2086,7 +2169,7 @@ end subroutine fill_rad3
 
 
 
-subroutine oplot_set_makegrid(iplt,mrlo)
+subroutine oplot_set_makegrid(iatm,mrlo)
 
   use consts_coms, only: erad
   use misc_coms,   only: ngrdll, grdrad, grdlat, grdlon, nxp
@@ -2096,8 +2179,8 @@ subroutine oplot_set_makegrid(iplt,mrlo)
 
   implicit none
 
-  integer, intent(in) :: iplt  ! 1 if plotting atm mesh
-                               ! 2 if plotting sfc mesh
+  logical, intent(in) :: iatm  ! T if plotting atm mesh
+                               ! F if plotting sfc mesh
   integer, intent(in) :: mrlo
 
   integer :: i, ngplt
@@ -2112,15 +2195,7 @@ subroutine oplot_set_makegrid(iplt,mrlo)
   op%viewazim = 0.
   op%projectn(1) = 'O'
 
-  if (iplt == 2) then
-     ngplt = nl%sfcgridplot_base
-     gsize = 5. * 7150.e3 / real(nxp_sfc * 2**mrlo)
-
-     ngrds  => nsfcgrdll
-     g_lons => sfcgrdlon
-     g_lats => sfcgrdlat
-     g_rads => sfcgrdrad
-  else
+  if (iatm) then
      ngplt = nl%gridplot_base
      gsize = 5. * 7150.e3 / real(nxp * 2**mrlo)
 
@@ -2128,6 +2203,14 @@ subroutine oplot_set_makegrid(iplt,mrlo)
      g_lons => grdlon
      g_lats => grdlat
      g_rads => grdrad
+  else
+     ngplt = nl%sfcgridplot_base
+     gsize = 5. * 7150.e3 / real(nxp_sfc * 2**mrlo)
+
+     ngrds  => nsfcgrdll
+     g_lons => sfcgrdlon
+     g_lats => sfcgrdlat
+     g_rads => sfcgrdrad
   endif
 
   if (ngrds(ngplt) == 1) then

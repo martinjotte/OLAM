@@ -193,7 +193,7 @@ subroutine gridinit()
 
      write(io6,'(/,a,i0)') 'gridinit calling spawn_nest for ngrids = ',ngrids
 
-     call spawn_nest()  ! calls 2 allocs
+     call spawn_nest(.true.)  ! calls 2 allocs
 
      !write(io6,'(/,a)') 'gridinit after spawn_nest'
      !write(io6,'(a,i8)')   ' nmd = ',nma

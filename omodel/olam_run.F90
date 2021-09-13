@@ -527,16 +527,14 @@ subroutine olam_run(name_name)
 
      endif
 
+     ! MPI send/recv of time-dependent SFCG, LAND, LAKE, SEA quantities
+
+     if (iparallel == 1) then
+        call mpi_send_wsfc()
+        call mpi_recv_wsfc()
+     endif
+
   endif
-
-   ! MPI send/recv of time-dependent SFCG, LAND, LAKE, SEA quantities
-
-   if (iparallel == 1) then
-      call mpi_send_wsfc()
-      call mpi_recv_wsfc()
-
-      ! Also, send/recv vsfc?
-   endif
 
   ! If using variable initialization and polygon nudging, read most recent
   ! and next observational analyses, and fill nudging polygons for both

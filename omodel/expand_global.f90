@@ -59,7 +59,7 @@ subroutine expand_global2(iatmgrid)
   use mem_delaunay, only: itab_md_vars, itab_ud_vars, itab_wd_vars, &
                           nest_ud_vars, nest_wd_vars, alloc_itabsd, &
                           nmd, nud, nwd, xemd, yemd, zemd, &
-                          itab_md, itab_ud, itab_wd
+                          itab_md, itab_ud, itab_wd, iwdorig, iwdorig_temp
 
   use mem_ijtabs,   only: mloops, &
                           jtm_grid, jtu_grid, jtv_grid, jtw_grid, &
@@ -117,6 +117,8 @@ subroutine expand_global2(iatmgrid)
   call move_alloc(yemd, yem_temp)
   call move_alloc(zemd, zem_temp)
 
+  if (.not. iatmgrid) call move_alloc(iwdorig, iwdorig_temp)
+
   do iw = 2, nwd
      nest_wd(iw)%iu(1) = nud0 + 1
      nest_wd(iw)%iu(2) = nud0 + 2
@@ -143,7 +145,13 @@ subroutine expand_global2(iatmgrid)
 
   call alloc_itabsd(nmd0,nud0,nwd0)
 
+  if (.not. iatmgrid) allocate(iwdorig(nwd0))
+
   ! Memory copy to main tables
+
+  if (.not. iatmgrid) then
+     iwdorig(1:nwd) = iwdorig_temp
+  endif
 
   xemd(1:nmd) = xem_temp
   yemd(1:nmd) = yem_temp
@@ -269,6 +277,12 @@ subroutine expand_global2(iatmgrid)
      itab_ud(iu6)%im(1)  = nest_ud(iu3o)%im
      itab_ud(iu6)%im(2)  = ltab_ud(iu3o)%im(2)
 
+     if (.not. iatmgrid) then
+        iwdorig(iw1) = iwdorig_temp(iw)
+        iwdorig(iw2) = iwdorig_temp(iw)
+        iwdorig(iw3) = iwdorig_temp(iw)
+     endif
+
      if (iw == iu1o_iw1) then
 
         itab_wd(iw3)%iu(2) = iu1o
@@ -388,6 +402,8 @@ subroutine expand_global2(iatmgrid)
   deallocate (nest_ud,nest_wd)
   deallocate (xem_temp,yem_temp,zem_temp)
 
+  if (.not. iatmgrid) deallocate (iwdorig_temp)
+
   call tri_neighbors(nmd, nud, nwd, itab_md, itab_ud, itab_wd)
 
   ! Plot grid lines
@@ -434,7 +450,8 @@ subroutine expand_global3(iatmgrid)
 
   use mem_delaunay, only: nmd, nud, nwd, xemd, yemd, zemd, &
                           itab_md, itab_ud, itab_wd, alloc_itabsd, &
-                          itab_md_vars, itab_ud_vars, itab_wd_vars
+                          itab_md_vars, itab_ud_vars, itab_wd_vars, &
+                          iwdorig, iwdorig_temp
 
   use mem_ijtabs,   only: mloops, &
                           jtm_grid, jtu_grid, jtv_grid, jtw_grid, &
@@ -507,6 +524,8 @@ subroutine expand_global3(iatmgrid)
   call move_alloc(yemd, yem_temp)
   call move_alloc(zemd, zem_temp)
 
+  if (.not. iatmgrid) call move_alloc(iwdorig, iwdorig_temp)
+
   do iw = 2, nwd
      nest_wd(iw)%iu(1) = nud0 + 1
      nest_wd(iw)%iu(2) = nud0 + 2
@@ -550,7 +569,13 @@ subroutine expand_global3(iatmgrid)
 
   call alloc_itabsd(nmd0,nud0,nwd0)
 
+  if (.not. iatmgrid) allocate(iwdorig(nwd0))
+
   ! Memory copy to main tables
+
+  if (.not. iatmgrid) then
+     iwdorig(1:nwd) = iwdorig_temp
+  endif
 
   xemd(1:nmd) = xem_temp
   yemd(1:nmd) = yem_temp
@@ -697,6 +722,10 @@ subroutine expand_global3(iatmgrid)
         itab_wd(iwn(j))%mrlw_orig = mrloo
         itab_wd(iwn(j))%ngr       = ngr
         itab_wd(iwn(j))%mrow      = mrow
+
+        if (.not. iatmgrid) then
+           iwdorig(iwn(j)) = iwdorig_temp(iw)
+        endif
      enddo
 
      itab_ud(iu1o   )%im(2) = nest_ud(iu1o)%im(1)
@@ -976,6 +1005,8 @@ subroutine expand_global3(iatmgrid)
   deallocate (ltab_md,ltab_ud,ltab_wd)
   deallocate (nest_ud,nest_wd)
   deallocate (xem_temp,yem_temp,zem_temp)
+
+  if (.not. iatmgrid) deallocate (iwdorig_temp)
 
   call tri_neighbors(nmd, nud, nwd, itab_md, itab_ud, itab_wd)
 
