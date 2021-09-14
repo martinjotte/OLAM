@@ -924,10 +924,8 @@ subroutine spawn_nest(iatmgrid)
            iw1 = itab_ud(iu)%iw(1)
            iw2 = itab_ud(iu)%iw(2)
 
-           if ( ( all(itab_md( itab_wd(iw1)%im(1:3) )%ngr == ngr) .and. &
-                  any(itab_md( itab_wd(iw2)%im(1:3) )%ngr /= ngr) ) .or. &
-                ( all(itab_md( itab_wd(iw2)%im(1:3) )%ngr == ngr) .and. &
-                  any(itab_md( itab_wd(iw1)%im(1:3) )%ngr /= ngr) ) ) then
+           if ( (itab_wd(iw1)%mrow ==  1 .and. itab_wd(iw2)%mrow == -1) .or. &
+                (itab_wd(iw1)%mrow == -1 .and. itab_wd(iw2)%mrow ==  1) ) then
 
               im1 = itab_ud(iu)%im(1)
               im2 = itab_ud(iu)%im(2)
