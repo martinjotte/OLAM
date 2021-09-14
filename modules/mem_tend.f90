@@ -247,7 +247,6 @@ Contains
 
 ! Fill pointers to scalar arrays into scalar tables
 
-    if (allocated(rr_wt))    call vtables_scalar (rr_w, rr_wt, 'RR_W')
     if (allocated(rr_wt))    call vtables_scalar (rr_w, rr_wt, 'RR_W', sxfer=sxfer_rk)
     if (allocated(rr_ct))    call vtables_scalar (rr_c, rr_ct, 'RR_C')
     if (allocated(rr_rt))    call vtables_scalar (rr_r, rr_rt, 'RR_R', pbl_mix=.false.)
