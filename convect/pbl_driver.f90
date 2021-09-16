@@ -279,7 +279,7 @@ end subroutine comp_horiz_k_column
 
 subroutine pbl_init()
 
-  use mem_grid,      only: lsw, lpw, mwa, arw, arw0, zfacim2
+  use mem_grid,      only: lsw, lpw, mwa, arw, arw0, zfacim2, nsw_max
   use mem_ijtabs,    only: jtab_w, jtw_prog, itabg_w, itab_w
   use mem_turb,      only: frac_urb, frac_land, frac_sea, frac_lake, &
                            frac_sfc, frac_sfck, ustar, wstar, wtv0, moli
@@ -341,32 +341,41 @@ subroutine pbl_init()
 
   endif
 
-  !$omp parallel do private(ks,k,km)
+  !$omp parallel do private(jsfc,iwsfc,jasfc,ks,k,km)
   do iw = 2, mwa
 
-     ! Store the fraction of the total surface that intersects with each layer
+     frac_sfc (:,iw) = 0.
+     frac_sfck(:,iw) = 0.
 
      if (lsw(iw) == 1) then
-        frac_sfc(1,iw) = 1.0
+
+        frac_sfc (1,iw) = 1.0
+        frac_sfck(1,iw) = 1.0
+
      else
-        do ks = 1, lsw(iw)
+
+        ! Store the fraction of the total surface that intersects with each layer (a+ - a-) / a0
+
+        do jsfc = 1, itab_w(iw)%jsfc2
+           iwsfc = itab_w(iw)%iwsfc(jsfc)
+           jasfc = itab_w(iw)%jasfc(jsfc)
+           ks    =  itab_wsfc(iwsfc)%kwatm(jasfc) - lpw(iw) + 1
+
+           frac_sfc(ks,iw) = frac_sfc(ks,iw) + itab_wsfc(iwsfc)%arcoariw(jasfc)
+        enddo
+
+        ! Store the fraction of the current layer that intersects with the surface (a+ - a-) / a+
+
+        frac_sfck(1,iw) = 1.0
+
+        do ks = 2, lsw(iw)
            k  = lpw(iw) + ks - 1
            km = k - 1
-           frac_sfc(ks,iw) = &
-                max(arw(k,iw) * zfacim2(k) - arw(km,iw) * zfacim2(km),0.) / arw0(iw)
+           frac_sfck(ks,iw) = &
+                max(arw(k,iw) * zfacim2(k) - arw(km,iw) * zfacim2(km),0.) / (arw(k,iw) * zfacim2(k))
         enddo
+
      endif
-
-     ! Store the fraction of the current cell that intersects with the surface
-
-     frac_sfck(1,iw) = 1.0
-
-     do ks = 2, lsw(iw)
-       k  = lpw(iw) + ks - 1
-        km = k - 1
-        frac_sfck(ks,iw) = &
-             max(arw(k,iw) * zfacim2(k) - arw(km,iw) * zfacim2(km),0.) / (arw(k,iw) * zfacim2(k))
-     enddo
 
   enddo
   !$omp end parallel do

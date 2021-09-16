@@ -1164,7 +1164,7 @@ if (nl%test_case >= 901 .and. nl%test_case <= 999) go to 1412
 
 ! Compute sedimentation for all 7 precipitating categories
 
-   call sedim2(iw0,lpw0,k1,k2,jhcat,dtl0, &
+   call sedim2(iw0,lpw0,k1,k2,jhcat,dtl0,dtli0, &
    voa, denfac, tair, thil0, theta0, dsed_thil, rhoi, rhow, &
    cx, rx, qx, qr, emb, dmb, pcpvel, pcpfluxc, pcpfluxr, pcpfluxq, &
    accpx, pcprx, pcpg, qpcpg, dpcpg)

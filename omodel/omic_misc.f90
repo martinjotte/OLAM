@@ -558,7 +558,7 @@ end subroutine x02
 
 !===============================================================================
 
-subroutine sedim2(iw0,lpw0,k1,k2,jhcat,dtl0, &
+subroutine sedim2(iw0,lpw0,k1,k2,jhcat,dtl0,dtli0, &
    voa, denfac, tair, thil0, theta0, dsed_thil, rhoi, rhow, &
    cx, rx, qx, qr, emb, dmb, pcpvel, pcpfluxc, pcpfluxr, pcpfluxq, &
    accpx, pcprx, pcpg, qpcpg, dpcpg)
@@ -568,6 +568,7 @@ use consts_coms, only: cpi, alviocp
 use misc_coms,   only: io6
 use mem_grid,    only: zm, zfacm2, zfacim2, arw, volti, nsw_max, lsw
 use mem_ijtabs,  only: itab_w
+use mem_turb,    only: frac_sfc
 
 implicit none
 
@@ -579,7 +580,7 @@ integer, intent(in) :: k2(11)
 
 integer, intent(in) :: jhcat(mza0,ncat)
 
-real, intent(in) :: dtl0
+real, intent(in) :: dtl0, dtli0
 
 real, intent(in)    :: voa      (mza0)
 real, intent(in)    :: denfac   (mza0)
@@ -709,6 +710,9 @@ real :: qrnew(mza0)
         qpcpg(ks) = qpcpg(ks) + pcpfluxq(k-1,lcat)
         dpcpg(ks) = dpcpg(ks) + pcpfluxr(k-1,lcat) * alphasfc(lcat)
      enddo
+
+     accpx(lcat) = sum( pcpg(1:lsw(iw0)) * frac_sfc(1:lsw(iw0),iw0) )
+     pcprx(lcat) = accpx(lcat) * dtli0
 
      ! Loop over precipition source levels
 
