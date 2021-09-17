@@ -738,7 +738,7 @@ use mem_grid,   only: mza, mva, mwa, zt, xev, yev, zev, vnx, vny, vnz, lpw, &
 use mem_addsc,  only: addsc
 use consts_coms,only: p00, rocp, erad, pio180, p00i
 use misc_coms,  only: dtlong, dtsm, iparallel
-use vel_t3d,    only: diagvel_t3d
+use vel_t3d,    only: diagvel_t3d, diagvel_t3d_init
 use oname_coms, only: nl
 
 use olam_mpi_atm, only: mpi_send_w, mpi_recv_w
@@ -944,6 +944,7 @@ end do
 
 ! Compute Earth-Cartesian velocities
 
+call diagvel_t3d_init(1)
 call diagvel_t3d(1)
 
 if (iparallel == 1) call mpi_send_w(mrl, dvara1=rho)

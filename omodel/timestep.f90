@@ -240,14 +240,6 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
    call prog_wrtv(vmsca,wmsca)
 
-    ! Update earth-cartesian velocities (including time-averaged scalar velocities)
-
-!   mrl = mrl_ends(istp)
-!   if (mrl > 0) then
-!      call diagvel_t3d(mrl)
-!     call check_nans(12)
-!   endif
-
    33 continue
 
    mrl = mrl_endl(istp)

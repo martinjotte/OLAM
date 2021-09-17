@@ -70,7 +70,7 @@ subroutine olam_run(name_name)
   use mem_addgrid, only: init_addgrid
   use mem_land,    only: land, nland, mland, nzg
   use mem_sea,     only: sea, nsea, msea
-  use vel_t3d,     only: diagvel_t3d, diag_uzonal_umerid, init_velt3d
+  use vel_t3d,     only: init_velt3d
   use mem_adv,     only: alloc_adv
   use mem_co2,     only: co2init
 
@@ -694,11 +694,6 @@ subroutine olam_run(name_name)
      time8p      = time8 + time_bias   ! Slightly forward biased time
      time_istp8  = time8
      time_istp8p = time8p              ! Slightly forward biased time
-
-     ! Earth cartesian velocities not saved in history file
-
-     mrl = 1
-     call diagvel_t3d(mrl)
 
      if (isfcl == 1) call swm_diagvel()
 

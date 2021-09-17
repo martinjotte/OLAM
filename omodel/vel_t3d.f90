@@ -35,8 +35,9 @@ module vel_t3d
   real, allocatable :: eym(:,:)
   real, allocatable :: ezm(:,:)
 
-  private
-  public :: init_velt3d, diagvel_t3d, diag_uzonal_umerid
+  real, allocatable :: vxe2(:,:)
+  real, allocatable :: vye2(:,:)
+  real, allocatable :: vze2(:,:)
 
 contains
 
@@ -46,6 +47,8 @@ subroutine init_velt3d()
 
   use mem_grid,   only: mwa, nve2_max, lve2, lpw, lpv, vnx, vny, vnz, wnx, wny, wnz
   use mem_ijtabs, only: jtab_w, jtw_prog, itab_w
+  use misc_coms,  only: rinit
+  use oname_coms, only: nl
 
   implicit none
 
@@ -57,46 +60,56 @@ subroutine init_velt3d()
 
   real :: extot, eytot, eztot
 
-  allocate(exm(nve2_max,mwa)) ; exm = 1.0
-  allocate(eym(nve2_max,mwa)) ; eym = 1.0
-  allocate(ezm(nve2_max,mwa)) ; ezm = 1.0
+  if (nl%icut_vel == 1) then
 
-  !$omp parallel private(exsum,eysum,ezsum)
-  !$omp do private(iw,jv,iv,k,ks,extot,eytot,eztot) schedule(guided)
-  do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
+     allocate (vxe2(nve2_max,mwa)) ; vxe2 = rinit
+     allocate (vye2(nve2_max,mwa)) ; vye2 = rinit
+     allocate (vze2(nve2_max,mwa)) ; vze2 = rinit
 
-     if (lve2(iw) > 0) then
+  else
 
-        exsum(1:lve2(iw)) = 0.0
-        eysum(1:lve2(iw)) = 0.0
-        ezsum(1:lve2(iw)) = 0.0
+     allocate(exm(nve2_max,mwa)) ; exm = 1.0
+     allocate(eym(nve2_max,mwa)) ; eym = 1.0
+     allocate(ezm(nve2_max,mwa)) ; ezm = 1.0
 
-        do jv = 1, itab_w(iw)%npoly
-           iv = itab_w(iw)%iv(jv)
+     !$omp parallel private(exsum,eysum,ezsum)
+     !$omp do private(iw,jv,iv,k,ks,extot,eytot,eztot) schedule(guided)
+     do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
 
-           do k = lpv(iv), lpw(iw) + lve2(iw) - 1
-              ks = k - lpw(iw) + 1
-              exsum(ks) = exsum(ks) + itab_w(iw)%ecvec_vx(jv) * vnx(iv)
-              eysum(ks) = eysum(ks) + itab_w(iw)%ecvec_vy(jv) * vny(iv)
-              ezsum(ks) = ezsum(ks) + itab_w(iw)%ecvec_vz(jv) * vnz(iv)
+        if (lve2(iw) > 0) then
+
+           exsum(1:lve2(iw)) = 0.0
+           eysum(1:lve2(iw)) = 0.0
+           ezsum(1:lve2(iw)) = 0.0
+
+           do jv = 1, itab_w(iw)%npoly
+              iv = itab_w(iw)%iv(jv)
+
+              do k = lpv(iv), lpw(iw) + lve2(iw) - 1
+                 ks = k - lpw(iw) + 1
+                 exsum(ks) = exsum(ks) + itab_w(iw)%ecvec_vx(jv) * vnx(iv)
+                 eysum(ks) = eysum(ks) + itab_w(iw)%ecvec_vy(jv) * vny(iv)
+                 ezsum(ks) = ezsum(ks) + itab_w(iw)%ecvec_vz(jv) * vnz(iv)
+              enddo
            enddo
-        enddo
 
-        extot = 1. - wnx(iw)**2
-        eytot = 1. - wny(iw)**2
-        eztot = 1. - wnz(iw)**2
+           extot = 1. - wnx(iw)**2
+           eytot = 1. - wny(iw)**2
+           eztot = 1. - wnz(iw)**2
 
-        do ks = 1, lve2(iw)
-           exm(ks,iw) = min(4., extot / max(exsum(ks), 1.e-7))
-           eym(ks,iw) = min(4., eytot / max(eysum(ks), 1.e-7))
-           ezm(ks,iw) = min(4., eztot / max(ezsum(ks), 1.e-7))
-        enddo
+           do ks = 1, lve2(iw)
+              exm(ks,iw) = min(4., extot / max(exsum(ks), 1.e-7))
+              eym(ks,iw) = min(4., eytot / max(eysum(ks), 1.e-7))
+              ezm(ks,iw) = min(4., eztot / max(ezsum(ks), 1.e-7))
+           enddo
 
-     endif
+        endif
 
-  enddo
-  !$omp end do
-  !$omp end parallel
+     enddo
+     !$omp end do
+     !$omp end parallel
+
+  endif
 
 end subroutine init_velt3d
 
@@ -142,6 +155,7 @@ subroutine vel_t3d_hex(iw)
   use mem_ijtabs, only: itab_w
   use mem_basic,  only: vc, wc, vxe, vye, vze
   use mem_grid,   only: mza, lpw, lve2, lpv, wnxo2, wnyo2, wnzo2
+  use oname_coms, only: nl
 
   implicit none
 
@@ -170,15 +184,29 @@ subroutine vel_t3d_hex(iw)
      enddo
   enddo
 
-  ! Underground cells: extrapolate from above-ground cells
-
   if (lve2(iw) > 0) then
-     do ksw = 1, lve2(iw)
-        k = ka + ksw - 1
-        vxe(k,iw) = vxe(k,iw) * exm(ksw,iw)
-        vye(k,iw) = vye(k,iw) * eym(ksw,iw)
-        vze(k,iw) = vze(k,iw) * ezm(ksw,iw)
-     enddo
+
+     if (nl%icut_vel == 1) then
+
+        ! Underground velocity contribution: prognose from T cell tendencies
+        do ksw = 1, lve2(iw)
+           k = ka + ksw - 1
+           vxe(k,iw) = vxe(k,iw) + vxe2(ksw,iw)
+           vye(k,iw) = vye(k,iw) + vye2(ksw,iw)
+           vze(k,iw) = vze(k,iw) + vze2(ksw,iw)
+        enddo
+
+     else
+
+        ! Underground velocity contribution: extrapolate from prognosed vc
+        do ksw = 1, lve2(iw)
+           k = ka + ksw - 1
+           vxe(k,iw) = vxe(k,iw) * exm(ksw,iw)
+           vye(k,iw) = vye(k,iw) * eym(ksw,iw)
+           vze(k,iw) = vze(k,iw) * ezm(ksw,iw)
+        enddo
+
+     endif
   endif
 
   ! W contributions
@@ -196,8 +224,69 @@ subroutine vel_t3d_hex(iw)
 
 end subroutine vel_t3d_hex
 
+!===============================================================================
 
+subroutine diagvel_t3d_init(mrl)
 
+  use mem_ijtabs, only: jtab_w, itab_w, jtw_prog
+  use mem_grid,   only: lpw, lve2, lpv
+  use oname_coms, only: nl
+  use mem_basic,  only: vc
+
+  implicit none
+
+  integer, intent(in) :: mrl
+
+  integer :: j,iw,npoly,ka,k,jv,iv,ksw,kbv
+
+  if (mrl == 0 .or. nl%icut_vel /= 1) return
+
+  ! Horizontal loop over W columns
+
+  !----------------------------------------------------------------------
+  !$omp parallel do private(iw,npoly,ka,k,jv,iv,kbv,ksw)
+  do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+  !----------------------------------------------------------------------
+
+     npoly = itab_w(iw)%npoly
+     ka = lpw(iw)
+
+     vxe2(:,iw) = 0.
+     vye2(:,iw) = 0.
+     vze2(:,iw) = 0.
+
+     if (lve2(iw) > 0) then
+
+        ! Loop over adjacent V faces
+
+        do jv = 1, npoly
+
+           iv  = itab_w(iw)%iv(jv)
+           kbv = lpv(iv)
+
+           ! Check if any V faces are below ground
+
+           if (ka < kbv) then
+              do k = ka, kbv-1
+                 ksw = k - ka + 1
+
+                 ! Project INITIAL VC from lowest prognosed face back to (vxe2, vye2, vze2)
+
+                 vxe2(ksw,iw) = vxe2(ksw,iw) + itab_w(iw)%ecvec_vx(jv) * vc(kbv,iv)
+                 vye2(ksw,iw) = vye2(ksw,iw) + itab_w(iw)%ecvec_vy(jv) * vc(kbv,iv)
+                 vze2(ksw,iw) = vze2(ksw,iw) + itab_w(iw)%ecvec_vz(jv) * vc(kbv,iv)
+              enddo
+           endif
+
+        enddo
+     endif
+
+  enddo
+  !$omp end parallel do
+
+end subroutine diagvel_t3d_init
+
+!===============================================================================
 
 subroutine diag_uzonal_umerid(mrl)
 
@@ -211,16 +300,15 @@ subroutine diag_uzonal_umerid(mrl)
 
   !$omp parallel do private(iw)
   do iw = 2, mwa
-     call diag_uzonal_umerid_w(iw)
+     call diag_uzonal_umerid_iw(iw)
   enddo
   !$omp end parallel do
 
 end subroutine diag_uzonal_umerid
 
+!===============================================================================
 
-
-
-subroutine diag_uzonal_umerid_w(iw)
+subroutine diag_uzonal_umerid_iw(iw)
 
   use mem_basic, only: vxe, vye, vze, ue, ve
   use mem_grid,  only: lpw, mza, vxn_ew, vyn_ew, vxn_ns, vyn_ns, vzn_ns
@@ -243,8 +331,7 @@ subroutine diag_uzonal_umerid_w(iw)
      ve(k,iw) = ve(lpw(iw),iw)
   enddo
 
-end subroutine diag_uzonal_umerid_w
-
+end subroutine diag_uzonal_umerid_iw
 
 
 end module vel_t3d

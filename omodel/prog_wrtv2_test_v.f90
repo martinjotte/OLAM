@@ -764,13 +764,15 @@ subroutine prog_wrt_begs( iw, istage, vmca, wmsca, dts,         &
                           rho0, rth0, wmc0 )
 
   use mem_ijtabs,  only: itab_w
-  use mem_basic,   only: wmc, rho, thil, wc, press, vxe, vye
+  use mem_basic,   only: wmc, rho, thil, wc, press, vxe, vye, vze
+
+  use vel_t3d,     only: vxe2, vye2, vze2
   use misc_coms,   only: deltax, nxp, initial, dn01d, th01d
   use consts_coms, only: cpocv, rocv, omega2, pi1, pio180, r8
   use mem_grid,    only: mza, mva, mwa, lpv, lpw, arw, wnx, wny, wnz, volt, &
-                         gravm, volti, volwi, glatw, glonw, &
+                         gravm, volti, volwi, glatw, glonw, lve2, &
                          zwgt_top8, zwgt_bot8, gdz_wgtm8, gdz_wgtp8, &
-                         zwgt_top, zwgt_bot
+                         zwgt_top, zwgt_bot, nve2_max, vnx, vny, vnz
   use tridiag,     only: tridiffo
   use oname_coms,  only: nl
 ! use mem_rayf,    only: dorayfw, rayf_cofw, krayfw_bot, &
@@ -805,11 +807,11 @@ subroutine prog_wrt_begs( iw, istage, vmca, wmsca, dts,         &
 ! real(r8), intent(in) :: rho0(mza,mva)
 
   integer :: jv, iv, iwn
-  integer :: k, ka, kbv
+  integer :: k, ka, kbv, ksw
   integer :: npoly
 
   real :: c6, c8, c9, c10, c11
-  real :: dirv, vmarv
+  real :: dirv, vmarv, dtom, vmt1
   real :: del_rhothil
   real :: rad0_swtc, rad_swtc, topo_swtc
 
@@ -861,6 +863,10 @@ subroutine prog_wrt_begs( iw, istage, vmca, wmsca, dts,         &
   real :: b31(mza),b32(mza),b33(mza),b34(mza)
 
   real :: b8, b9, b11, b12, b13, b14
+
+  real :: vxe1(nve2_max)
+  real :: vye1(nve2_max)
+  real :: vze1(nve2_max)
 
   ka = lpw(iw)
 
@@ -1170,43 +1176,45 @@ subroutine prog_wrt_begs( iw, istage, vmca, wmsca, dts,         &
 
   enddo
 
-!!  if (lve2(iw) > 0) then
-!!
-!!     do ksw = 1, lve2(iw)
-!!        k = ksw + ka - 1
-!!
-!!        ! Zero out vxe2, vye2, vze2 prior to new diagnosis
-!!        vxe2(ksw,iw) = 0.
-!!        vye2(ksw,iw) = 0.
-!!        vze2(ksw,iw) = 0.
-!!
-!!        ! Estimate velocity in T cells at (t+1) by prognostic method
-!!        vxe1(k) = vxe(k,iw) + dts * vmxet_rk(k,iw) * volti(k,iw) / real(rho(k,iw))
-!!        vye1(k) = vye(k,iw) + dts * vmyet_rk(k,iw) * volti(k,iw) / real(rho(k,iw))
-!!        vze1(k) = vze(k,iw) + dts * vmzet_rk(k,iw) * volti(k,iw) / real(rho(k,iw))
-!!     enddo
-!!
-!!     ! Loop over adjacent V faces
-!!
-!!     do jv = 1, npoly
-!!        iv = itab_w(iw)%iv(jv)
-!!
-!!        ! Project full-forward-time vxe1, vye1, vze1 onto V faces that are
-!!        ! below ground, and then project back to vxe2, vye2, vze2
-!!
-!!        if (lpv(iv) > ka) then
-!!           do k = ka, lpv(iv) - 1
-!!              ksw = k - ka + 1
-!!              vmt1 = vnx(iv) * vxe1(k) + vny(iv) * vye1(k) + vnz(iv) * vze1(k)
-!!
-!!              vxe2(ksw,iw) = vxe2(ksw,iw) + itab_w(iw)%ecvec_vx(jv) * vmt1
-!!              vye2(ksw,iw) = vye2(ksw,iw) + itab_w(iw)%ecvec_vy(jv) * vmt1
-!!              vze2(ksw,iw) = vze2(ksw,iw) + itab_w(iw)%ecvec_vz(jv) * vmt1
-!!           enddo
-!!        endif
-!!
-!!     enddo
-!!  endif
+  if (nl%icut_vel == 1 .and. lve2(iw) > 0) then
+
+     do ksw = 1, lve2(iw)
+        k = ksw + ka - 1
+
+        ! Zero out vxe2, vye2, vze2 prior to new diagnosis
+        vxe2(ksw,iw) = 0.
+        vye2(ksw,iw) = 0.
+        vze2(ksw,iw) = 0.
+
+        dtom = dts * volti(k,iw) / real(rho(k,iw))
+
+        ! Estimate velocity in T cells at (t+1) by prognostic method
+        vxe1(k) = vxe(k,iw) + dtom * vmxet_rk(k,iw)
+        vye1(k) = vye(k,iw) + dtom * vmyet_rk(k,iw)
+        vze1(k) = vze(k,iw) + dtom * vmzet_rk(k,iw)
+     enddo
+
+     ! Loop over adjacent V faces
+
+     do jv = 1, npoly
+        iv = itab_w(iw)%iv(jv)
+
+        ! Project full-forward-time vxe1, vye1, vze1 onto V faces that are
+        ! below ground, and then project back to vxe2, vye2, vze2
+
+        if (lpv(iv) > ka) then
+           do k = ka, lpv(iv) - 1
+              ksw = k - ka + 1
+              vmt1 = vnx(iv) * vxe1(k) + vny(iv) * vye1(k) + vnz(iv) * vze1(k)
+
+              vxe2(ksw,iw) = vxe2(ksw,iw) + itab_w(iw)%ecvec_vx(jv) * vmt1
+              vye2(ksw,iw) = vye2(ksw,iw) + itab_w(iw)%ecvec_vy(jv) * vmt1
+              vze2(ksw,iw) = vze2(ksw,iw) + itab_w(iw)%ecvec_vz(jv) * vmt1
+           enddo
+        endif
+
+     enddo
+  endif
 
   ! For shallow water test cases 2 & 5, rho & press are
   ! interpreted as water depth & height

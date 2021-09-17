@@ -187,6 +187,8 @@ Module oname_coms
 
      logical :: zero_neg_scalars = .true.
 
+     integer :: icut_vel = 1
+
      logical :: debug_fp    = .false.
      logical :: init_nans   = .false.
 

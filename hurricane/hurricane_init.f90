@@ -585,7 +585,7 @@ Contains
   use therm_lib,    only: rhovsl
   use mem_micro,    only: rr_c, con_c, cldnum
   use micro_coms,   only: miclevel, ccnparm, jnmb, rxmin, zfactor_ccn
-  use vel_t3d,      only: diagvel_t3d
+  use vel_t3d,      only: diagvel_t3d, diagvel_t3d_init
   use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, &
                           mpi_send_v, mpi_recv_v
 
@@ -982,6 +982,7 @@ Contains
 
   ! Re-diagnose earth-relative velocities
 
+  call diagvel_t3d_init(1)
   call diagvel_t3d(1)
 
   end subroutine vortex_add_pert
@@ -1353,7 +1354,7 @@ Contains
   use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, &
                           mpi_send_v, mpi_recv_v 
   use obnd,         only: lbcopy_v, lbcopy_w
-  use vel_t3d,      only: diagvel_t3d
+  use vel_t3d,      only: diagvel_t3d, diagvel_t3d_init
 
   implicit none
 
@@ -1647,6 +1648,7 @@ Contains
 
   ! Re-diagnose earth-relative velocities
 
+  call diagvel_t3d_init(1)
   call diagvel_t3d(1)
 
   end subroutine vortex_relocated
