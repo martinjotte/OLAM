@@ -1842,7 +1842,7 @@ subroutine ngr_area(ngr, inside, x, y, z, ngrdll, grdrad, grdlat, grdlon)
 
      if (dist < grdrad(ngr,1)) then
         inside = 1
-     elseif (inside == 0 .and. dist < grdrad(ngr,1) * 1.2 ) then
+     elseif (inside == 0 .and. dist < grdrad(ngr,1) * 1.5 ) then
         inside = 2  ! larger radius when searching for ipent points
      endif
 
