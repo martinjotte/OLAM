@@ -690,7 +690,7 @@ real :: qrnew(mza0)
            * (pcpfluxq(k,lcat) * arw(k,iw0) - pcpfluxq(k-1,lcat) * arw(k-1,iw0))
      enddo
 
-     ! Loop over surface cells that couple to current ATM cell
+     ! Loop over all layers that intersect with the surface
 
      do k = lpw0, min(k2(lcat), lpw0+lsw(iw0)-1)
         v4i = real(volti(k,iw0))
@@ -709,9 +709,10 @@ real :: qrnew(mza0)
          pcpg(ks) = pcpg (ks) + pcpfluxr(k-1,lcat)
         qpcpg(ks) = qpcpg(ks) + pcpfluxq(k-1,lcat)
         dpcpg(ks) = dpcpg(ks) + pcpfluxr(k-1,lcat) * alphasfc(lcat)
+
+        accpx(lcat) = accpx(lcat) + pcpfluxr(k-1,lcat) * frac_sfc(ks,iw0)
      enddo
 
-     accpx(lcat) = sum( pcpg(1:lsw(iw0)) * frac_sfc(1:lsw(iw0),iw0) )
      pcprx(lcat) = accpx(lcat) * dtli0
 
      ! Loop over precipition source levels

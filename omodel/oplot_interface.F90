@@ -2676,7 +2676,7 @@ subroutine mkmap(iplt)
 
   call o_mapint()  ! Initialize the above parameters
 
-  if (op%pltll(iplt) == 'm') then
+  if (op%maptyp(iplt) == 'm') then
 
      ! Set color of map lines
      call o_gsplci(op%mapcolor)

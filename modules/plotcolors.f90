@@ -3765,8 +3765,8 @@ Contains
     call o_hls(iwk,11, 50., 60.,100.)  ! purple
     call o_hls(iwk,12,135., 40., 70.)  ! dark red for roads
 
-    call o_hls(iwk,13, 00., 30.,  0.)  ! dark gray for roads/outlines
-    call o_hls(iwk,14,  0., 50.,  0.)  ! light gray for raods/outlines
+    call o_hls(iwk,13,  0., 30.,  0.)  ! dark gray for roads/outlines
+    call o_hls(iwk,14,  0., 42.,  0.)  ! light gray for raods/outlines
 
     call o_hls(iwk,15,290., 90., 70.)  ! blue-green for canopy air
     call o_hls(iwk,16,150., 60.,100.)  ! orange

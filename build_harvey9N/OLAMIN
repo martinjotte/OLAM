@@ -797,7 +797,7 @@
  !          |                   b,t,a   = grid border, +ticks+outer_axlabs, +inner_axlabs
  !          |                   n,o     = field name, field name + info block
  !          |                   c       = colorbar
- !          |                   M,m     = Map filled, map lined
+ !          |                   m,l     = map lined, lat/lon lines
  !           \                  C       = Cone circle plotted
  !            \                 p,s     = plot on const p sfc, plot near-sfc value
  !             \                W       = Window dimensions as specified
