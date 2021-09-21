@@ -1189,9 +1189,9 @@ subroutine prog_wrt_begs( iw, istage, vmca, wmsca, dts,         &
         dtom = dts * volti(k,iw) / real(rho(k,iw))
 
         ! Estimate velocity in T cells at (t+1) by prognostic method
-        vxe1(k) = vxe(k,iw) + dtom * vmxet_rk(k,iw)
-        vye1(k) = vye(k,iw) + dtom * vmyet_rk(k,iw)
-        vze1(k) = vze(k,iw) + dtom * vmzet_rk(k,iw)
+        vxe1(ksw) = vxe(k,iw) + dtom * vmxet_rk(k,iw)
+        vye1(ksw) = vye(k,iw) + dtom * vmyet_rk(k,iw)
+        vze1(ksw) = vze(k,iw) + dtom * vmzet_rk(k,iw)
      enddo
 
      ! Loop over adjacent V faces
@@ -1205,7 +1205,7 @@ subroutine prog_wrt_begs( iw, istage, vmca, wmsca, dts,         &
         if (lpv(iv) > ka) then
            do k = ka, lpv(iv) - 1
               ksw = k - ka + 1
-              vmt1 = vnx(iv) * vxe1(k) + vny(iv) * vye1(k) + vnz(iv) * vze1(k)
+              vmt1 = vnx(iv) * vxe1(ksw) + vny(iv) * vye1(ksw) + vnz(iv) * vze1(ksw)
 
               vxe2(ksw,iw) = vxe2(ksw,iw) + itab_w(iw)%ecvec_vx(jv) * vmt1
               vye2(ksw,iw) = vye2(ksw,iw) + itab_w(iw)%ecvec_vy(jv) * vmt1
