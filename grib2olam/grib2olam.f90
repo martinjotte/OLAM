@@ -879,12 +879,12 @@ program grib_to_gdf
         deallocate(plev)
      endif
 
-     if (nlev > 0) then
-        idims(1) = nlev
+     if (ngnd > 0) then
+        idims(1) = ngnd
 
-        allocate(zlev(nlev))
+        allocate(zlev(ngnd))
 
-        zlev = -0.01 * real(islevs(1:nlev))
+        zlev = -0.01 * real(islevs(1:ngnd))
 
         CALL shdf5_orec(ndims, idims, 'depth', rvar1=zlev, isdim=.true., &
                         long_name = "soil depth relative to surface",    &
