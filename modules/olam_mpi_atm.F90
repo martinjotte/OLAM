@@ -131,19 +131,20 @@ subroutine olam_mpi_finalize()
   use mpi
 #endif
 
-  use mem_para,  only: send_v,    recv_v,    ireqr_v,    inext_v,    nrecvs_v,    &
-                       send_w,    recv_w,    ireqr_w,    inext_w,    nrecvs_m,    &
-                       send_m,    recv_m,    ireqr_m,    inext_m,    nrecvs_w,    &
-                       send_wnud, recv_wnud, ireqr_wnud, inext_wnud, nrecvs_wnud, &
-                       send_wsfc, recv_wsfc, ireqr_wsfc, inext_wsfc, nrecvs_wsfc
+  use mem_para,  only: send_v,    recv_v,    ireqr_v,    nrecvs_v,    ireqs_v,    nsends_v,    &
+                       send_w,    recv_w,    ireqr_w,    nrecvs_m,    ireqs_m,    nsends_m,    &
+                       send_m,    recv_m,    ireqr_m,    nrecvs_w,    ireqs_w,    nsends_w,    &
+                       send_wnud, recv_wnud, ireqr_wnud, nrecvs_wnud, ireqs_wnud, nsends_wnud, &
+                       send_wsfc, recv_wsfc, ireqr_wsfc, nrecvs_wsfc, ireqs_wsfc, nsends_wsfc
   use mem_nudge, only: nudflag, nudnxp
-  use misc_coms, only: iparallel
+  use misc_coms, only: iparallel, io6
 
   implicit none
 
 #ifdef OLAM_MPI
 
-  integer :: ierr, jrecv
+  integer :: ierr, jrecv, ii, jsend
+  logical :: flags
 
   if (iparallel == 1) then
 
@@ -151,39 +152,113 @@ subroutine olam_mpi_finalize()
 
      call olam_mpi_barrier()
 
-     ! Cancel pending receives
+     ! Cancel any pending communication
 
-     do jrecv = 1, nrecvs_v(1)
-        if (ireqr_v(jrecv,inext_v) /= MPI_REQUEST_NULL) then
-           call MPI_Cancel(ireqr_v(jrecv,inext_v), ierr)
-        endif
-     enddo
+     do ii = 1, 2
 
-     do jrecv = 1, nrecvs_m(1)
-        if (ireqr_m(jrecv,inext_m) /= MPI_REQUEST_NULL) then
-           call MPI_Cancel(ireqr_m(jrecv,inext_m), ierr)
-        endif
-     enddo
-
-     do jrecv = 1, nrecvs_w(1)
-        if (ireqr_w(jrecv,inext_w) /= MPI_REQUEST_NULL) then
-           call MPI_Cancel(ireqr_w(jrecv,inext_w), ierr)
-        endif
-     enddo
-
-     if (nudflag > 0 .and. nudnxp > 0) then
-        do jrecv = 1, nrecvs_wnud
-           if (ireqr_wnud(jrecv,inext_wnud) /= MPI_REQUEST_NULL) then
-              call MPI_Cancel(ireqr_wnud(jrecv,inext_wnud), ierr)
+        do jrecv = 1, nrecvs_v(1)
+           if (ireqr_v(jrecv,ii) /= MPI_REQUEST_NULL) then
+              call MPI_Cancel(ireqr_v(jrecv,ii), ierr)
            endif
         enddo
+
+        do jsend = 1, nsends_v(1)
+           if (ireqs_v(jsend,ii) /= MPI_REQUEST_NULL) then
+              call MPI_Cancel(ireqs_v(jsend,ii), ierr)
+           endif
+        enddo
+
+        do jrecv = 1, nrecvs_m(1)
+           if (ireqr_m(jrecv,ii) /= MPI_REQUEST_NULL) then
+              call MPI_Cancel(ireqr_m(jrecv,ii), ierr)
+           endif
+        enddo
+
+        do jsend = 1, nsends_m(1)
+           if (ireqs_m(jsend,ii) /= MPI_REQUEST_NULL) then
+              call MPI_Cancel(ireqs_m(jsend,ii), ierr)
+           endif
+        enddo
+
+        do jrecv = 1, nrecvs_w(1)
+           if (ireqr_w(jrecv,ii) /= MPI_REQUEST_NULL) then
+              call MPI_Cancel(ireqr_w(jrecv,ii), ierr)
+           endif
+        enddo
+
+        do jsend = 1, nsends_w(1)
+           if (ireqs_w(jsend,ii) /= MPI_REQUEST_NULL) then
+              call MPI_Cancel(ireqs_w(jsend,ii), ierr)
+           endif
+        enddo
+
+        if (nudflag > 0 .and. nudnxp > 0) then
+
+           do jrecv = 1, nrecvs_wnud
+              if (ireqr_wnud(jrecv,ii) /= MPI_REQUEST_NULL) then
+                 call MPI_Cancel(ireqr_wnud(jrecv,ii), ierr)
+              endif
+           enddo
+
+           do jsend = 1, nsends_wnud
+              if (ireqs_wnud(jsend,ii) /= MPI_REQUEST_NULL) then
+                 call MPI_Cancel(ireqs_wnud(jsend,ii), ierr)
+              endif
+           enddo
+
+        endif
+
+        do jrecv = 1, nrecvs_wsfc
+           if (ireqr_wsfc(jrecv,ii) /= MPI_REQUEST_NULL) then
+              call MPI_Cancel(ireqr_wsfc(jrecv,ii), ierr)
+           endif
+        enddo
+
+        do jsend = 1, nsends_wsfc
+           if (ireqs_wsfc(jsend,ii) /= MPI_REQUEST_NULL) then
+              call MPI_Cancel(ireqs_wsfc(jsend,ii), ierr)
+           endif
+        enddo
+
+     enddo
+
+     ! Test that all communication requests have been completed or cancelled
+
+     call olam_mpi_barrier()
+
+     call MPI_Testall(nrecvs_v(1), ireqr_v(:,1), flags, MPI_STATUSES_IGNORE, ierr)
+     call MPI_Testall(nrecvs_v(1), ireqr_v(:,2), flags, MPI_STATUSES_IGNORE, ierr)
+
+     call MPI_Testall(nsends_v(1), ireqs_v(:,1), flags, MPI_STATUSES_IGNORE, ierr)
+     call MPI_Testall(nsends_v(1), ireqs_v(:,2), flags, MPI_STATUSES_IGNORE, ierr)
+
+     call MPI_Testall(nrecvs_m(1), ireqr_m(:,1), flags, MPI_STATUSES_IGNORE, ierr)
+     call MPI_Testall(nrecvs_m(1), ireqr_m(:,2), flags, MPI_STATUSES_IGNORE, ierr)
+
+     call MPI_Testall(nsends_m(1), ireqs_m(:,1), flags, MPI_STATUSES_IGNORE, ierr)
+     call MPI_Testall(nsends_m(1), ireqs_m(:,2), flags, MPI_STATUSES_IGNORE, ierr)
+
+     call MPI_Testall(nrecvs_w(1), ireqr_w(:,1), flags, MPI_STATUSES_IGNORE, ierr)
+     call MPI_Testall(nrecvs_w(1), ireqr_w(:,2), flags, MPI_STATUSES_IGNORE, ierr)
+
+     call MPI_Testall(nsends_w(1), ireqs_w(:,1), flags, MPI_STATUSES_IGNORE, ierr)
+     call MPI_Testall(nsends_w(1), ireqs_w(:,2), flags, MPI_STATUSES_IGNORE, ierr)
+
+     if (nudflag > 0 .and. nudnxp > 0) then
+        call MPI_Testall(nrecvs_wnud, ireqr_wnud(:,1), flags, MPI_STATUSES_IGNORE, ierr)
+        call MPI_Testall(nrecvs_wnud, ireqr_wnud(:,2), flags, MPI_STATUSES_IGNORE, ierr)
+
+        call MPI_Testall(nsends_wnud, ireqs_wnud(:,1), flags, MPI_STATUSES_IGNORE, ierr)
+        call MPI_Testall(nsends_wnud, ireqs_wnud(:,2), flags, MPI_STATUSES_IGNORE, ierr)
      endif
 
-     do jrecv = 1, nrecvs_wsfc
-        if (ireqr_wsfc(jrecv,inext_wsfc) /= MPI_REQUEST_NULL) then
-           call MPI_Cancel(ireqr_wsfc(jrecv,inext_wsfc), ierr)
-        endif
-     enddo
+     call MPI_Testall(nrecvs_wsfc, ireqr_wsfc(:,1), flags, MPI_STATUSES_IGNORE, ierr)
+     call MPI_Testall(nrecvs_wsfc, ireqr_wsfc(:,2), flags, MPI_STATUSES_IGNORE, ierr)
+
+     call MPI_Testall(nsends_wsfc, ireqs_wsfc(:,1), flags, MPI_STATUSES_IGNORE, ierr)
+     call MPI_Testall(nsends_wsfc, ireqs_wsfc(:,2), flags, MPI_STATUSES_IGNORE, ierr)
+
+     call olam_mpi_barrier()
 
   endif
 

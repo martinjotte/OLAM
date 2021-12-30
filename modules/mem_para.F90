@@ -33,14 +33,7 @@
 
 Module mem_para
 
-#ifdef OLAM_MPI
-   use mpi, only: MPI_REQUEST_NULL
-   implicit none
-   private     :: MPI_REQUEST_NULL
-#else
-   implicit none
-   integer, parameter, private :: MPI_REQUEST_NULL = 0
-#endif
+  implicit none
 
   integer :: mgroupsize
   integer :: myrank
@@ -65,7 +58,6 @@ Module mem_para
      character, allocatable :: buff(:)
      integer :: nbytes  =  0
      integer :: iremote = -1
-!    integer :: irequest = MPI_REQUEST_NULL
      integer,   allocatable :: npts(:)
      integer,   allocatable :: ipts(:)
   End Type nodebuffs

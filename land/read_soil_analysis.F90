@@ -504,10 +504,7 @@ subroutine read_soil_analysis(soil_tempc)
      iwsfc = iland + omland
 
      ! Skip this cell if running in parallel and cell rank is not MYRANK
-     !if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
-     if (isubdomain == 1) then
-        if (.not. any( itab_w( itab_wsfc(iwsfc)%iwatm( 1:itab_wsfc(iwsfc)%nwatm ) )%irank == myrank ) ) cycle
-     endif
+     if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
      ! fractional x/y indices in pressure data arrays at current iw point location
 
