@@ -43,6 +43,7 @@ subroutine history_write(vtype)
   use mem_lake,   only: nlake
   use mem_sea,    only: nsea
   use mem_nudge,  only: nwnud
+  use hcane_rz,   only: htc0
   use mem_para,   only: iva_globe_primary, iva_local_primary, &
                         iwa_globe_primary, iwa_local_primary, &
                         ima_globe_primary, ima_local_primary, &
@@ -72,8 +73,11 @@ subroutine history_write(vtype)
 
 ! Construct h5 file name and open the file
 
-  if (trim(vtype) == 'HTC') then
-     call makefnam(hnamel, hfilepref, current_time, 'HTC', '$', 'h5')
+  if (trim(vtype) == 'HTC0') then
+     call makefnam(hnamel, hfilepref, current_time, 'HTC0', '$', 'h5')
+     htc0 = hnamel
+  elseif (trim(vtype) == 'HTC1') then
+     call makefnam(hnamel, hfilepref, current_time, 'HTC1', '$', 'h5')
   else
      call makefnam(hnamel, hfilepref, current_time, 'H', '$', 'h5')
   endif

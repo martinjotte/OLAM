@@ -60,10 +60,12 @@ subroutine lake_init_atm()
      ! Skip this cell if running in parallel and cell rank is not MYRANK
      ! if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
-  ! Initialize lake depth and canopy depth
+     ! Initialize lake depth and canopy depth
 
      lake%depth(ilake) = sfcg%topw(iwsfc) - sfcg%bathym(iwsfc)
      sfcg%can_depth(iwsfc) = 20. * max(1.,.025 * dt_lake)
+
+     sfcg%head1(iwsfc) = lake%depth(ilake) + sfcg%bathym(iwsfc) - sfcg%topw(iwsfc)
 
   enddo  ! ilake
   !$omp end parallel do

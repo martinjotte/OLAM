@@ -3490,64 +3490,23 @@ case(317) ! 'HEAD_WTAB'
 
       iland = i - omland
 
-!orig      do klev = 1,nzg
-!orig         call soil_wat2pot(klev, iland, land%soil_water(klev,iland), &
-!orig              land%wresid_vg(klev,iland), land%wsat_vg(klev,iland), &
-!orig              land%alpha_vg(klev,iland), land%en_vg(klev,iland), psi, psi_slope)
+      do klev = nzg,1,-1
+         call soil_wat2pot(klev, iland, land%soil_water(klev,iland), &
+              land%wresid_vg(klev,iland), land%wsat_vg(klev,iland), &
+              land%alpha_vg(klev,iland), land%en_vg(klev,iland), psi, psi_slope)
 
-!orig         ! Trial algorithm: Get head_wtab from highest saturated soil level;
-!orig         ! possible alternative is to vertically average head up to this level
+         ! Trial algorithm: Get head_wtab from highest saturated soil level
 
-!orig         if (psi > 1.e-2 .or. land%head_press(klev,iland) > 1.e-2) then
-!orig            head(klev) = land%head_press(klev,iland) + slzt(klev)
-!orig            fldval = head(klev)
-!orig         else
-!orig            head(klev) = psi + slzt(klev)
-!orig            if (klev == 1) fldval = head(klev)
-!orig            exit
-!orig         endif
-!orig      enddo
+         if (psi > 1.e-2) then
+            head(klev) = psi + slzt(klev)
+            fldval = head(klev)
+            exit
+         else
+            head(klev) = psi + slzt(klev)
+            if (klev == 1) fldval = head(klev)
+         endif
+      enddo
 
-      if (nl%igw_spinup == 1) then
-
-         do klev = nzg,1,-1
-            call soil_wat2pot(klev, iland, land%soil_water(klev,iland), &
-                 land%wresid_vg(klev,iland), land%wsat_vg(klev,iland), &
-                 land%alpha_vg(klev,iland), land%en_vg(klev,iland), psi, psi_slope)
-
-            ! Trial algorithm: Get head_wtab from highest saturated soil level
-
-            if (psi > 1.e-2 .or. land%head_press(klev,iland) > 1.e-2) then
-               head(klev) = land%head_press(klev,iland) + slzt(klev)
-               fldval = head(klev)
-               exit
-            else
-               head(klev) = psi + slzt(klev)
-               if (klev == 1) fldval = head(klev)
-
-            endif
-         enddo
-
-      else
-
-         do klev = nzg,1,-1
-            call soil_wat2pot(klev, iland, land%soil_water(klev,iland), &
-                 land%wresid_vg(klev,iland), land%wsat_vg(klev,iland), &
-                 land%alpha_vg(klev,iland), land%en_vg(klev,iland), psi, psi_slope)
-
-            ! Trial algorithm: Get head_wtab from highest saturated soil level
-
-            if (psi > 1.e-2) then
-               head(klev) = psi + slzt(klev)
-               fldval = head(klev)
-               exit
-            else
-               head(klev) = psi + slzt(klev)
-               if (klev == 1) fldval = head(klev)
-            endif
-         enddo
-
-      endif
    endif
 
 !-----------------------------------------

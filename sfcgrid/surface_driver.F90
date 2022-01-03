@@ -48,11 +48,12 @@ subroutine surface_driver()
   use consts_coms,    only: grav, cliq1000, alli1000
   use leaf4_canopy,   only: canopy, vegndvi, fast_canopy
   use leaf4_surface,  only: sfcwater, sfcwater_adjust, remove_runoff, grndvap
-  use leaf4_soil,     only: soil, soil_wat2khyd, head_column, head_column_spinup
+  use leaf4_soil,     only: soil, soil_wat2khyd, head_column
   use leaf4_plot,     only: leaf_plot
   use leaf_coms,      only: wcap_min
 
-  use ocean_swm,      only: swm_grad2d, swm_hflux, swm_progw, swm_progv, swm_diagvel
+  use sea_swm,        only: swm_grad2d, swm_hflux, swm_progw, swm_progv, &
+                            swm_diagvel, depthmin_flux
   use therm_lib,      only: qwtk, qtk
   use olam_mpi_sfcg,  only: mpi_send_wsfc, mpi_recv_wsfc
   use oname_coms,     only: nl
@@ -66,7 +67,7 @@ subroutine surface_driver()
   real :: sfcwater_fracliq (nzs) ! fraction of sfc water in liquid phase
   real :: soil_tempk       (nzg) ! soil temperature [K]
   real :: soil_fracliq     (nzg) ! fraction of soil moisture in liquid phase
-  real :: energy_per_m2    (nzs) ! sfcwater energy [J/m^2]
+  real :: energy_per_m2    (nzs) ! sfcwater or lake energy [J/m^2]
   real :: hydresist1       (nzg)
   real :: hydresist2       (nzg)
   real :: dheight          (nzg) ! change in water height (of a T cell)
@@ -148,34 +149,16 @@ subroutine surface_driver()
      ! For land cells, compute total head (relative to local topographic
      ! datum) based on soil moisture, pressure head, and depth in soil
 
-     if (nl%igw_spinup /= 1) then
-
-        call head_column(nzg, iland,                &
-                         slzt            (:),       &
-                         land%soil_water (:,iland), &
-                         land%wresid_vg  (:,iland), &
-                         land%wsat_vg    (:,iland), &
-                         land%alpha_vg   (:,iland), &
-                         land%en_vg      (:,iland), &
-                         head            (:,iland), &
-                         head_slope      (:,iland), &
-                         soil_watfrac    (:,iland)  )
-
-     else
-
-        call head_column_spinup(nzg, iland,                &
-                         slzt            (:),       &
-                         land%soil_water (:,iland), &
-                         land%wresid_vg  (:,iland), &
-                         land%wsat_vg    (:,iland), &
-                         land%alpha_vg   (:,iland), &
-                         land%en_vg      (:,iland), &
-                         land%head_press (:,iland), &
-                         head            (:,iland), &
-                         head_slope      (:,iland), &
-                         soil_watfrac    (:,iland)  )
-
-     endif
+     call head_column(nzg, iland,                &
+                      slzt            (:),       &
+                      land%soil_water (:,iland), &
+                      land%wresid_vg  (:,iland), &
+                      land%wsat_vg    (:,iland), &
+                      land%alpha_vg   (:,iland), &
+                      land%en_vg      (:,iland), &
+                      head            (:,iland), &
+                      head_slope      (:,iland), &
+                      soil_watfrac    (:,iland)  )
 
   enddo ! iland
   !$omp end parallel do
@@ -183,7 +166,7 @@ subroutine surface_driver()
   ! Evaluate horizontal gradients of temp, VXE, VYE, and VZE for ocean cells
   ! that are updated with Shallow Water Model (SWM).
 
-  call swm_grad2d()
+  if (nl%igw_spinup /= 1) call swm_grad2d()
 
   ! MPI send/recv of head and SWM gradients
 
@@ -193,6 +176,8 @@ subroutine surface_driver()
 
      call mpi_send_wsfc(head=head,soil_watfrac=soil_watfrac)
      call mpi_recv_wsfc(head=head,soil_watfrac=soil_watfrac)
+
+     if (nl%igw_spinup /= 1) then
 
      ! THE FOLLOWING NEED TO BE SET UP FOR ONLY SWM_ACTIVE SEA CELLS
 
@@ -205,6 +190,8 @@ subroutine surface_driver()
 !F                        rvara3=sea%gxps_vxe, rvara4=sea%gyps_vxe, &
 !F                        rvara5=sea%gxps_vye, rvara6=sea%gyps_vye, &
 !F                        rvara7=sea%gxps_vze, rvara8=sea%gyps_vze  )
+
+     endif
   endif
 
   ! Loop over all SFC grid V faces in this subdomain.  Evaluate water and
@@ -341,7 +328,14 @@ subroutine surface_driver()
                  energyflux(k,ivsfc) = watflux(k,ivsfc) &
                                      * (cliq1000 * (sea%seatc(isea2) - 273.15) + alli1000) ! [J/(m^2 s)]
               else
+
                  ilake2 = iw2 - omlake
+
+                 ! Zero flux out of lake if depth is below minimum
+                 if (lake%depth(ilake2) < depthmin_flux) then
+                    watflux(k,ivsfc) = 0.
+                 endif
+
                  call qtk(lake%lake_energy(ilake2), laketemp, fracliq)
 
                  energyflux(k,ivsfc) = watflux(k,ivsfc) &
@@ -396,6 +390,12 @@ subroutine surface_driver()
                                      * (cliq1000 * (sea%seatc(isea1) - 273.15) + alli1000) ! [J/(m^2 s)]
               else
                  ilake1 = iw1 - omlake
+
+                 ! Zero flux out of lake if depth is below minimum
+                 if (lake%depth(ilake1) < depthmin_flux) then
+                    watflux(k,ivsfc) = 0.
+                 endif
+
                  call qtk(lake%lake_energy(ilake1), laketemp, fracliq)
 
                  energyflux(k,ivsfc) = watflux(k,ivsfc) &
@@ -442,11 +442,21 @@ subroutine surface_driver()
 
         if (watflux(nzg,ivsfc) > 0.) then
 
+           ! Zero flux out of lake cell if depth is below minimum
+           if (lake%depth(ilake1) < depthmin_flux) then
+              watflux(nzg,ivsfc) = 0.
+           endif
+
            call qtk(lake%lake_energy(ilake1), laketemp, fracliq)
 
            energyflux(nzg,ivsfc) = watflux(nzg,ivsfc) &
                                  * (cliq1000 * (laketemp - 273.15) + alli1000) ! [J/(m^2 s)]
         else
+
+           ! Zero flux out of lake cell if depth is below minimum
+           if (lake%depth(ilake2) < depthmin_flux) then
+              watflux(nzg,ivsfc) = 0.
+           endif
 
            call qtk(lake%lake_energy(ilake2), laketemp, fracliq)
 
@@ -462,7 +472,7 @@ subroutine surface_driver()
 !@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
      if (sfcg%swm_active(iw1) .or. sfcg%swm_active(iw2)) then ! Includes sea, lake, land cells
-        call swm_hflux(ivsfc, iw1, iw2)
+        if (nl%igw_spinup /= 1) call swm_hflux(ivsfc, iw1, iw2)
      endif
 
   enddo ! ivsfc
@@ -487,43 +497,47 @@ subroutine surface_driver()
   ! Loop over SEA CELLS that use SWM; prognose WDEPTH, HEAD1, & W-cell horiz momentum
   !----------------------------------------------------------------------------------
 
-  !$omp parallel do private(iwsfc) 
-  do j = 1,jtab_wsfc_swm%jend; iwsfc = jtab_wsfc_swm%iwsfc(j)
-     call swm_progw(iwsfc)
-  enddo
-  !$omp end parallel do 
+  if (nl%igw_spinup /= 1) then
 
-! MPI SEND/RECV of quantities needed for prog_v
+     !$omp parallel do private(iwsfc) 
+     do j = 1,jtab_wsfc_swm%jend; iwsfc = jtab_wsfc_swm%iwsfc(j)
+        call swm_progw(iwsfc)
+     enddo
+     !$omp end parallel do 
 
-  if (iparallel == 1) then
+     ! MPI SEND/RECV of quantities needed for prog_v
 
-!F     call mpi_send_wsfc(rvara1=sea%wdepth, rvara2=sea%temp,  rvara3=sea%head1, &
-!F                        rvara4=sea%vmxet,  rvara5=sea%vmyet, rvara6=sea%vmzet, &
-!F                        rvara7=sea%vmxet_area,  rvara8=sea%vmyet_area, rvara9=sea%vmzet_area )
+     if (iparallel == 1) then
 
-!F     call mpi_recv_wsfc(rvara1=sea%wdepth, rvara2=sea%temp,  rvara3=sea%head1, &
-!F                        rvara4=sea%vmxet,  rvara5=sea%vmyet, rvara6=sea%vmzet, &
-!F                        rvara7=sea%vmxet_area,  rvara8=sea%vmyet_area, rvara9=sea%vmzet_area )
-  endif
+!F      call mpi_send_wsfc(rvara1=sea%wdepth, rvara2=sea%temp,  rvara3=sea%head1, &
+!F                         rvara4=sea%vmxet,  rvara5=sea%vmyet, rvara6=sea%vmzet, &
+!F                         rvara7=sea%vmxet_area,  rvara8=sea%vmyet_area, rvara9=sea%vmzet_area )
 
-  ! UPDATE SFCG%VMC AND SFCG%VC for sea cells that use SWM
+!F      call mpi_recv_wsfc(rvara1=sea%wdepth, rvara2=sea%temp,  rvara3=sea%head1, &
+!F                         rvara4=sea%vmxet,  rvara5=sea%vmyet, rvara6=sea%vmzet, &
+!F                         rvara7=sea%vmxet_area,  rvara8=sea%vmyet_area, rvara9=sea%vmzet_area )
+     endif
 
-  call swm_progv()
+     ! UPDATE SFCG%VMC AND SFCG%VC for sea cells that use SWM
 
-  ! MPI send/recv of SFCG%VMC, SFCG%VC
+     call swm_progv()
 
-   if (iparallel == 1) then
+     ! MPI send/recv of SFCG%VMC, SFCG%VC
+
+     if (iparallel == 1) then
 !F      call mpi_send_vsfc(rvara1=vmc, rvara2=vc)
 !F      call mpi_recv_vsfc(rvara1=vmc, rvara2=vc)
-   endif
+     endif
 
-   ! Compute earth cartesian velocities (VXE, VYE, VZE) for sea cells that use SWM
+     ! Compute earth cartesian velocities (VXE, VYE, VZE) for sea cells that use SWM
 
-   call swm_diagvel()
+     if (nl%igw_spinup /= 1) call swm_diagvel()
 
-   ! Update specified SEATC in all sea cells that use it
+  endif
 
-!   call seacells()
+  ! Update specified SEATC in all sea cells that use it
+
+  call seacells()
 
   !-----------------------------------------------------------------------
   ! Loop over ALL LAKE CELLS
@@ -563,14 +577,19 @@ subroutine surface_driver()
 
               dheight (nzg) = dheight (nzg) + factor * watflux   (k,ivn) ! [m]
               energyin(nzg) = energyin(nzg) + factor * energyflux(k,ivn) ! [J/m^2]
+
            enddo
 
-           ! Add mass and energy contributions from soil sfcwater in neighbor cell
+           if (nl%igw_spinup /= 1) then
 
-           factor = dirv * dt_leaf / sfcg%area(iwsfc) ! [s/m^2]
+              ! Add mass and energy contributions from soil sfcwater in neighbor cell
 
-           dheight (nzg) = dheight (nzg) + factor * sfcg%hflux_wat(ivn) ! [m] or [m^3/m^2]
-           energyin(nzg) = energyin(nzg) + factor * sfcg%hflux_enr(ivn) ! [J/m^2]
+              factor = dirv * dt_leaf / sfcg%area(iwsfc) ! [s/m^2]
+
+              dheight (nzg) = dheight (nzg) + factor * sfcg%hflux_wat(ivn) ! [m] or [m^3/m^2]
+              energyin(nzg) = energyin(nzg) + factor * sfcg%hflux_enr(ivn) ! [J/m^2]
+
+           endif
 
         elseif (sfcg%leaf_class(iwn) == 1) then
 
@@ -598,6 +617,8 @@ subroutine surface_driver()
   enddo
   !$omp end do
   !$omp end parallel
+
+  call lakecells()
 
   !-----------------------------------------------------------------------
   ! Loop over ALL LAND CELLS
@@ -646,18 +667,22 @@ subroutine surface_driver()
            energyin(k) = energyin(k) + factor * energyflux(k,ivn) ! [J/m^2]
         enddo ! k
 
-        ! Add mass and energy contributions from overland flow from neighbor cell
+        if (nl%igw_spinup /= 1) then
 
-        factor = dirv * dt_leaf / sfcg%area(iwsfc) ! [s/m^2]
+           ! Add mass and energy contributions from overland flow from neighbor cell
 
-        land%sfcwater_depth(1,iland)  = land%sfcwater_depth(1,iland)  &
-                                      + factor * sfcg%hflux_wat(ivn) ! [m] or [m^3/m^2]
+           factor = dirv * dt_leaf / sfcg%area(iwsfc) ! [s/m^2]
 
-        land%sfcwater_mass(1,iland)   = land%sfcwater_mass(1,iland)   &
-                                      + factor * sfcg%hflux_wat(ivn) * 1000. ! [kg/m^2]
+           land%sfcwater_depth(1,iland)  = land%sfcwater_depth(1,iland)  &
+                                         + factor * sfcg%hflux_wat(ivn) ! [m] or [m^3/m^2]
 
-        energy_per_m2(1)              = energy_per_m2(1) & 
-                                      + factor * sfcg%hflux_enr(ivn) ! [J/m^2]
+           land%sfcwater_mass(1,iland)   = land%sfcwater_mass(1,iland)   &
+                                         + factor * sfcg%hflux_wat(ivn) * 1000. ! [kg/m^2]
+
+           energy_per_m2(1)              = energy_per_m2(1) & 
+                                         + factor * sfcg%hflux_enr(ivn) ! [J/m^2]
+
+        endif
 
         land%sfcwater_energy(1,iland) = energy_per_m2(1) &
                                       / max(wcap_min,land%sfcwater_mass(1,iland))
@@ -830,6 +855,10 @@ subroutine surface_driver()
                          soil_tempk             (1:nzg),       &
                          soil_fracliq           (1:nzg)        )
 
+
+
+
+
      else
 
         ! With igw_spinup /= 1, call subroutines vegndvi and canopy for standard
@@ -959,6 +988,8 @@ subroutine surface_driver()
                head               (1:nzg,iland), &
                soil_tempk         (1:nzg),       &
                soil_fracliq       (1:nzg),       &
+               dheight            (1:nzg),       & ! included here only to pass to leaf_plot
+               energyin           (1:nzg),       & ! included here only to pass to leaf_plot
                thermcond_soil     (1:nzg)        )
 
      ! Inventory sfcwater layer(s) and adjust thicknesses if more than one

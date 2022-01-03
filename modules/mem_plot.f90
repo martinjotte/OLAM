@@ -289,27 +289,6 @@ Contains
     allocate ( rlongup_top_accum_prev0(mwa)) ; rlongup_top_accum_prev0(:) = 0.
     allocate ( rlongup_top_accum_prev1(mwa)) ; rlongup_top_accum_prev1(:) = 0.
 
-!   allocate ( rshort_clr_accum_prev0(mwa)) ; rshort_clr_accum_prev0(:) = 0.
-!   allocate ( rshort_clr_accum_prev1(mwa)) ; rshort_clr_accum_prev1(:) = 0.
-
-!   allocate ( rshortup_clr_accum_prev0(mwa)) ; rshortup_clr_accum_prev0(:) = 0.
-!   allocate ( rshortup_clr_accum_prev1(mwa)) ; rshortup_clr_accum_prev1(:) = 0.
-
-!   allocate ( rlong_clr_accum_prev0(mwa)) ; rlong_clr_accum_prev0(:) = 0.
-!   allocate ( rlong_clr_accum_prev1(mwa)) ; rlong_clr_accum_prev1(:) = 0.
-
-!   allocate ( rlongup_clr_accum_prev0(mwa)) ; rlongup_clr_accum_prev0(:) = 0.
-!   allocate ( rlongup_clr_accum_prev1(mwa)) ; rlongup_clr_accum_prev1(:) = 0.
-
-!   allocate ( rshort_top_clr_accum_prev0(mwa)) ; rshort_top_clr_accum_prev0(:) = 0.
-!   allocate ( rshort_top_clr_accum_prev1(mwa)) ; rshort_top_clr_accum_prev1(:) = 0.
-
-!   allocate ( rshortup_top_clr_accum_prev0(mwa)) ; rshortup_top_clr_accum_prev0(:) = 0.
-!   allocate ( rshortup_top_clr_accum_prev1(mwa)) ; rshortup_top_clr_accum_prev1(:) = 0.
-
-!   allocate ( rlongup_top_clr_accum_prev0(mwa)) ; rlongup_top_clr_accum_prev0(:) = 0.
-!   allocate ( rlongup_top_clr_accum_prev1(mwa)) ; rlongup_top_clr_accum_prev1(:) = 0.
-
     allocate ( vc_accum_prev0(mza,mva)) ; vc_accum_prev0(:,:) = 0.
     allocate ( vc_accum_prev1(mza,mva)) ; vc_accum_prev1(:,:) = 0.
 
@@ -525,15 +504,18 @@ Contains
 ! the above 4 totals to get the difference in springtime precipitation
 ! from A to B.
 
-!   if (iplt_file ==  6 .or. &
-!       iplt_file == 11 .or. &
-!       iplt_file == 16 .or. &
-!       iplt_file == 21 .or. &
-!       iplt_file == 26 .or. &
-!       iplt_file == 31 .or. &
-!       iplt_file == 36 .or. &
-!       iplt_file == 41 .or. &
-!       iplt_file == 46) then
+ ! if (iplt_file ==  4 .or. &
+ !     iplt_file ==  7 .or. &
+ !     iplt_file == 10 .or. &
+ !     iplt_file == 13 .or. &
+ !     iplt_file == 16 .or. &
+ !     iplt_file == 19 .or. &
+ !     iplt_file == 22 .or. &
+ !     iplt_file == 25 .or. &
+ !     iplt_file == 28 .or. &
+ !     iplt_file == 31 .or. &
+ !     iplt_file == 34 .or. &
+ !     iplt_file == 37) then
 
 !   if (iplt_file == 121) then
 
@@ -558,14 +540,6 @@ Contains
       rshort_top_accum_prev1(:) =   rshort_top_accum_prev0(:)
     rshortup_top_accum_prev1(:) = rshortup_top_accum_prev0(:)
      rlongup_top_accum_prev1(:) =  rlongup_top_accum_prev0(:)
-
-!         rshort_clr_accum_prev1(:) =       rshort_clr_accum_prev0(:)
-!       rshortup_clr_accum_prev1(:) =     rshortup_clr_accum_prev0(:)
-!          rlong_clr_accum_prev1(:) =        rlong_clr_accum_prev0(:)
-!        rlongup_clr_accum_prev1(:) =      rlongup_clr_accum_prev0(:)
-!     rshort_top_clr_accum_prev1(:) =   rshort_top_clr_accum_prev0(:)
-!   rshortup_top_clr_accum_prev1(:) = rshortup_top_clr_accum_prev0(:)
-!    rlongup_top_clr_accum_prev1(:) =  rlongup_top_clr_accum_prev0(:)
 
              vc_accum_prev1(:,:) =          vc_accum_prev0(:,:)
              wc_accum_prev1(:,:) =          wc_accum_prev0(:,:)
@@ -686,14 +660,6 @@ Contains
     rshortup_top_accum_prev0(:) = 0.
      rlongup_top_accum_prev0(:) = 0.
 
-!         rshort_clr_accum_prev0(:) = 0.
-!       rshortup_clr_accum_prev0(:) = 0.
-!          rlong_clr_accum_prev0(:) = 0.
-!        rlongup_clr_accum_prev0(:) = 0.
-!     rshort_top_clr_accum_prev0(:) = 0.
-!   rshortup_top_clr_accum_prev0(:) = 0.
-!    rlongup_top_clr_accum_prev0(:) = 0.
-
              vc_accum_prev0(:,:) = 0.
              wc_accum_prev0(:,:) = 0.
           press_accum_prev0(:,:) = 0.
@@ -735,7 +701,7 @@ Contains
     head_wtab_prev0     (:) = 0.
 !------------------------------------------------------------------------------
 
-!   endif
+ !   endif
 
     time8_prev0 = time8_prev0 + time8
 
@@ -950,49 +916,24 @@ Contains
 
           iland = iwsfc - omland
 
-          if (nl%igw_spinup == 1) then
+          do klev = nzg,1,-1
+             call soil_wat2pot(klev, iland, land%soil_water(klev,iland), &
+                  land%wresid_vg(klev,iland), land%wsat_vg(klev,iland), &
+                  land%alpha_vg(klev,iland), land%en_vg(klev,iland), psi, psi_slope)
 
-             do klev = nzg,1,-1
-                call soil_wat2pot(klev, iland, land%soil_water(klev,iland), &
-                     land%wresid_vg(klev,iland), land%wsat_vg(klev,iland), &
-                     land%alpha_vg(klev,iland), land%en_vg(klev,iland), psi, psi_slope)
+             ! Trial algorithm: Get head_wtab from highest saturated soil level
 
-                ! Trial algorithm: Get head_wtab from highest saturated soil level
-
-                if (psi > 1.e-2 .or. land%head_press(klev,iland) > 1.e-2) then
-                   head(klev) = land%head_press(klev,iland) + slzt(klev)
-                   head_wtab_prev0(iwsfc) = head_wtab_prev0(iwsfc) &
-                                          + head(klev)
-                   exit
-                else
-                   head(klev) = psi + slzt(klev)
-                   if (klev == 1)  head_wtab_prev0(iwsfc) = head_wtab_prev0(iwsfc) &
-                                                          + head(klev)
-                endif
-             enddo
-
-          else
-
-             do klev = nzg,1,-1
-                call soil_wat2pot(klev, iland, land%soil_water(klev,iland), &
-                     land%wresid_vg(klev,iland), land%wsat_vg(klev,iland), &
-                     land%alpha_vg(klev,iland), land%en_vg(klev,iland), psi, psi_slope)
-
-                ! Trial algorithm: Get head_wtab from highest saturated soil level
-
-                if (psi > 1.e-2) then
-                   head(klev) = psi + slzt(klev)
-                   head_wtab_prev0(iwsfc) = head_wtab_prev0(iwsfc) &
-                                          + head(klev)
-                   exit
-                else
-                   head(klev) = psi + slzt(klev)
-                   if (klev == 1)  head_wtab_prev0(iwsfc) = head_wtab_prev0(iwsfc) &
-                                                          + head(klev)
-                endif
-             enddo
-
-          endif
+             if (psi > 1.e-2) then
+                head(klev) = psi + slzt(klev)
+                head_wtab_prev0(iwsfc) = head_wtab_prev0(iwsfc) &
+                                       + head(klev)
+                exit
+             else
+                head(klev) = psi + slzt(klev)
+                if (klev == 1)  head_wtab_prev0(iwsfc) = head_wtab_prev0(iwsfc) &
+                                                       + head(klev)
+             endif
+          enddo
 
        endif
     enddo

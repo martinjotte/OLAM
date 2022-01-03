@@ -67,6 +67,8 @@ subroutine lakecells()
                       lake%depth       (ilake), &
                       lake%lake_energy (ilake), &
                       lake%surface_srrv(ilake), &
+                      sfcg%topw        (iwsfc), &
+                      sfcg%bathym      (iwsfc), &
                       sfcg%rhos        (iwsfc), &
                       sfcg%ustar       (iwsfc), &
                       sfcg%sxfer_t     (iwsfc), &
@@ -89,6 +91,8 @@ subroutine lakecells()
         call lakecell_nud(iwsfc, ilake,            &
                           lake%depth      (ilake), &
                           lake%lake_energy(ilake), &
+                          sfcg%topw       (iwsfc), &
+                          sfcg%bathym     (iwsfc), &
                           sfcg%head1      (iwsfc), &
                           sfcg%runoff     (iwsfc), &
                           sfcwat_nud      (iwsfc), &
@@ -111,22 +115,26 @@ end subroutine lakecells
 
 !===============================================================================
 
-subroutine lakecell(iwsfc, ilake, depth, lake_energy, surface_srrv, rhos, ustar, &
-                    sxfer_t, sxfer_r, can_depth, cantemp, canrrv, rough, head1, &
-                    rshort, rlong, rlongup, albedo_beam, pcpg, qpcpg, runoff)
+subroutine lakecell(iwsfc, ilake, depth, lake_energy, surface_srrv, topw, bathym, &
+                    rhos, ustar, sxfer_t, sxfer_r, can_depth, cantemp, canrrv, &
+                    rough, head1, rshort, rlong, rlongup, albedo_beam, &
+                    pcpg, qpcpg, runoff)
 
   use lake_coms,   only: dt_lake
   use consts_coms, only: cp, grav, t00, cliq1000, alvl
   use misc_coms,   only: io6
   use therm_lib,   only: rhovsil, qtk
+  use sea_swm,     only: depthmin_flux
 
   implicit none
 
   integer, intent(in)    :: iwsfc       ! current sfc grid cell index
   integer, intent(in)    :: ilake       ! current lake cell index
-  real,    intent(in)    :: depth       ! lake mean depth [m]
+  real,    intent(inout) :: depth       ! lake mean depth [m]
   real,    intent(inout) :: lake_energy ! lake energy lake energy [J/kg]
   real,    intent(out)   :: surface_srrv! lake surface sat mixing ratio [kg_vap/kg_dryair] 
+  real,    intent(in)    :: topw        ! topographic height of sfc W points [m]
+  real,    intent(in)    :: bathym      ! bathymetric height of sfc W points [m]
   real,    intent(in)    :: rhos        ! air density [kg/m^3]
   real,    intent(in)    :: ustar       ! friction velocity [m/s]
   real,    intent(in)    :: sxfer_t     ! can_air to atm heat xfer this step [kg_air K/m^2]
@@ -158,7 +166,7 @@ subroutine lakecell(iwsfc, ilake, depth, lake_energy, surface_srrv, rhos, ustar,
   real :: hxferca ! heat xfer from can_air to atm this step [J/m^2]
   real :: wxfersc ! vapor xfer from lake surface to can_air this step [kg_vap/m^2]
   real :: radsfc  ! Radiation absorbed by surface [J/m^2]
-  real :: del_energy_per_m2 ! change in lake energy this timestep [J/m^2]
+  real :: energy_per_m2 ! lake energy expressed in units of [J/m^2]
 
   real :: zn1, zn2, zw
   real :: laketemp, fracliq
@@ -182,14 +190,33 @@ subroutine lakecell(iwsfc, ilake, depth, lake_energy, surface_srrv, rhos, ustar,
   hxfersc = dt_lake * cp * rhos * rdi * (laketemp - cantemp)
   wxfersc = dt_lake *      rhos * rdi * (surface_srrv - canrrv)
 
+  ! Zero evaporation from lake if depth is below min depth
+  if (depth < depthmin_flux .and. wxfersc > 0.) then
+     wxfersc = 0.
+  endif
+
   hxferca = cp * sxfer_t  ! sxfer_t and sxfer_r already incorporate dt_lake
 
   cantemp = cantemp + (hxfersc - hxferca) / (can_depth * rhos * cp)
   canrrv  = canrrv  + (wxfersc - sxfer_r) / (can_depth * rhos)
 
-  del_energy_per_m2 = radsfc - hxfersc - wxfersc * alvl + qpcpg
+  if (head1 > lake_head1_thresh) then
+     runoff = (head1 - lake_head1_thresh) * dt_lake / lake_runoff_time
+  else
+     runoff = 0.
+  endif
 
-  lake_energy = lake_energy + del_energy_per_m2 / (depth * 1000.) ! water density = 1000 kg/m^3
+  energy_per_m2 = lake_energy * depth * 1000.
+
+  ! Update lake water depth, energy, and head1
+
+  depth = depth + 0.001 * (pcpg - wxfersc) - runoff
+
+  energy_per_m2 = energy_per_m2 + radsfc - hxfersc - wxfersc * alvl + qpcpg
+
+  lake_energy = energy_per_m2 / (depth * 1000.) ! water density = 1000 kg/m^3
+
+  head1 = depth + bathym - topw
 
   ! Evaluate lake roughness height
 
@@ -209,21 +236,11 @@ subroutine lakecell(iwsfc, ilake, depth, lake_energy, surface_srrv, rhos, ustar,
   rough = (1.0-zw) * zn1 + zw * zn2
   rough = min( rough, 2.85e-3)
 
-  ! Update lake water level (mass)
-
-  if (head1 > lake_head1_thresh) then
-     runoff = (head1 - lake_head1_thresh) * dt_lake / lake_runoff_time
-  else
-     runoff = 0.
-  endif
-
-  head1 = head1 + 0.001 * (pcpg - wxfersc) - runoff
-
 end subroutine lakecell
 
 !===============================================================================
 
-subroutine lakecell_nud(iwsfc, ilake, depth, lake_energy, head1, &
+subroutine lakecell_nud(iwsfc, ilake, depth, lake_energy, topw, bathym, head1, &
                     runoff, sfcwat_nud, sfctemp_nud, fracliq_nud)
 
   use lake_coms,   only: dt_lake
@@ -234,8 +251,10 @@ subroutine lakecell_nud(iwsfc, ilake, depth, lake_energy, head1, &
 
   integer, intent(in)    :: iwsfc       ! current sfc grid cell index
   integer, intent(in)    :: ilake       ! current lake cell index
-  real,    intent(in)    :: depth       ! lake mean depth [m]
+  real,    intent(inout) :: depth       ! lake mean depth [m]
   real,    intent(inout) :: lake_energy ! lake energy lake energy [J/kg]
+  real,    intent(in)    :: topw        ! topographic height of sfc W points [m]
+  real,    intent(in)    :: bathym      ! bathymetric height of sfc W points [m]
   real,    intent(inout) :: head1       ! lake water hydraulic head (rel to topo datum) [m]
   real,    intent(inout) :: runoff      ! new runoff mass this timestep [kg/m^2]
   real,    intent(in)    :: sfcwat_nud  !
@@ -249,8 +268,8 @@ subroutine lakecell_nud(iwsfc, ilake, depth, lake_energy, head1, &
 
   ! Local variables
 
-  real :: del_energy_per_m2 ! change in lake energy this timestep [J/m^2]
-  real :: laketemp, fracliq, ediff, flux
+  real :: energy_per_m2 ! lake energy expressed in units of [J/m^2]
+  real :: laketemp, fracliq, ediff, eflux
 
   ! Diagnose lake temperature and liquid fraction
 
@@ -261,19 +280,26 @@ subroutine lakecell_nud(iwsfc, ilake, depth, lake_energy, head1, &
 
   ediff = sfctemp_nud - laketemp + 80. * (fracliq_nud - fracliq)
 
-  flux = max(-500.,min(500.,20. * ediff))
+  eflux = max(-500.,min(500.,20. * ediff))
 
-  del_energy_per_m2 = flux * dt_lake
+  energy_per_m2 = lake_energy * depth * 1000.
 
-  lake_energy = lake_energy + del_energy_per_m2 / (depth * 1000.) ! water density = 1000 kg/m^3
+  ! Update lake water depth, energy, and head1
 
-  ! Update lake water level (mass)
+  depth = max(0., depth + sfcwat_nud * 0.001)
 
-  head1 = max(-2.0, head1 + sfcwat_nud * 0.001)
+  energy_per_m2 = energy_per_m2 + eflux * dt_lake
+
+  lake_energy = energy_per_m2 / (depth * 1000.) ! water density = 1000 kg/m^3
+
+  head1 = depth + bathym - topw
+
+  ! Compute lake runoff; no change to lake_energy needed since [J/kg] remains the same
 
   if (head1 > lake_head1_thresh) then
      runoff = (head1 - lake_head1_thresh) * dt_lake / lake_runoff_time
-     head1 = head1 - runoff
+     depth = depth - runoff
+     head1 = depth + bathym - topw
   endif
 
 end subroutine lakecell_nud

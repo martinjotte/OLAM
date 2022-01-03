@@ -1091,7 +1091,7 @@ call o_set (op%hp1,op%hp2,op%vp1,op%vp2,0.,1.,0.,1.,1)
 call o_pcseti ('FN',4)  ! set font number to 4 (font 2 is similar but wider spacing)
 call o_pcsetr('CL',1.)  ! set character line width to 1
 bsize = .009 * (op%hp2 - op%hp1)
-bsize = .015 * (op%hp2 - op%hp1)
+!bsize = .015 * (op%hp2 - op%hp1)
 
 call o_gsplci(10)
 call o_gstxci(10)

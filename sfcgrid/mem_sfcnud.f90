@@ -34,6 +34,7 @@
 Module mem_sfcnud
 
   use consts_coms, only: r8
+  use max_dims,    only: pathlen
 
   implicit none
 
@@ -42,11 +43,20 @@ Module mem_sfcnud
   real(r8),          allocatable ::  s1900_sfcnud(:)
   character(len=80), allocatable :: fnames_sfcnud(:)
 
+  character(pathlen) :: gw_spinup_sfcgfile, gw_spinup_histfile
+
   real, allocatable ::  sfcwat_nud(:)
   real, allocatable :: sfctemp_nud(:)
   real, allocatable :: fracliq_nud(:)
-  real, allocatable :: iws_sfcnud(:,:)
   real, allocatable :: wts_sfcnud(:,:)
+
+  integer, allocatable :: iws_sfcnud(:,:)
+
+  integer :: nzg_nl ! namelist value of nzg --- Used in groundwater spin-up run when
+  integer :: nzg_sp ! spin-up value of nzg  --- nzg is reduced during initialization
+
+  integer, allocatable :: kspm(:)      ! maps soil layer vertical indices from
+                                       ! groundwater spin-up run to regular run
 
   ! Data structures for file-input sfcnud arrays.  If they have different size
   ! than sfcgrid in current model run, their values will be interpolated.
@@ -238,18 +248,18 @@ Contains
 
   ! Fill fnames_sfcnud array with sfcnud file names, including rel or abs path
 
-  fnames_sfcnud( 1) = './hist/climstats1-SN-0000-02-01-000000.h5'
-  fnames_sfcnud( 2) = './hist/climstats1-SN-0000-03-01-000000.h5'
-  fnames_sfcnud( 3) = './hist/climstats1-SN-0000-04-01-000000.h5'
-  fnames_sfcnud( 4) = './hist/climstats1-SN-0000-05-01-000000.h5'
-  fnames_sfcnud( 5) = './hist/climstats1-SN-0000-06-01-000000.h5'
-  fnames_sfcnud( 6) = './hist/climstats1-SN-0000-07-01-000000.h5'
-  fnames_sfcnud( 7) = './hist/climstats1-SN-0000-08-01-000000.h5'
-  fnames_sfcnud( 8) = './hist/climstats1-SN-0000-09-01-000000.h5'
-  fnames_sfcnud( 9) = './hist/climstats1-SN-0000-10-01-000000.h5'
-  fnames_sfcnud(10) = './hist/climstats1-SN-0000-11-01-000000.h5'
-  fnames_sfcnud(11) = './hist/climstats1-SN-0000-12-01-000000.h5'
-  fnames_sfcnud(12) = './hist/climstats1-SN-0000-01-01-000000.h5'
+  fnames_sfcnud( 1) = './hist/clim4-SN-0000-02-01-000000.h5'
+  fnames_sfcnud( 2) = './hist/clim4-SN-0000-03-01-000000.h5'
+  fnames_sfcnud( 3) = './hist/clim4-SN-0000-04-01-000000.h5'
+  fnames_sfcnud( 4) = './hist/clim4-SN-0000-05-01-000000.h5'
+  fnames_sfcnud( 5) = './hist/clim4-SN-0000-06-01-000000.h5'
+  fnames_sfcnud( 6) = './hist/clim4-SN-0000-07-01-000000.h5'
+  fnames_sfcnud( 7) = './hist/clim4-SN-0000-08-01-000000.h5'
+  fnames_sfcnud( 8) = './hist/clim4-SN-0000-09-01-000000.h5'
+  fnames_sfcnud( 9) = './hist/clim4-SN-0000-10-01-000000.h5'
+  fnames_sfcnud(10) = './hist/clim4-SN-0000-11-01-000000.h5'
+  fnames_sfcnud(11) = './hist/clim4-SN-0000-12-01-000000.h5'
+  fnames_sfcnud(12) = './hist/clim4-SN-0000-01-01-000000.h5'
 
   ! Fill s1900_sfcnud array with time for each sfcnud file
 
@@ -339,8 +349,13 @@ Contains
   if (firstime) then
      firstime = .false.
 
-     call makefnam(hnamel, hfilepref, ctime, 'GN', '$', 'h5')
-     call shdf5_open(fnames_sfcnud(isfcnudfile),'R')
+     hnamel = './hist/clim4-GN-0000-01-01-000000.h5'
+
+     write(io6,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++'
+     write(io6,*) 'Opening sfcnud file '//trim(hnamel)
+     write(io6,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++'
+
+     call shdf5_open(hnamel,'R')
 
      ndims = 1
      idims(1) = 1
@@ -365,6 +380,8 @@ Contains
         allocate (sfcnudin%zew  (sfcnudin%nwsfc))
         allocate (sfcnudin%glatw(sfcnudin%nwsfc))
         allocate (sfcnudin%glonw(sfcnudin%nwsfc))
+
+        allocate (itab_wsfcnudin(sfcnudin%nwsfc))
 
         idims(1) = sfcnudin%nvsfc
 
@@ -401,8 +418,8 @@ Contains
         enddo
         deallocate(iscr2)
 
-        allocate (iws_sfcnud(nwsfc,3))
-        allocate (wts_sfcnud(nwsfc,3))
+        allocate (iws_sfcnud(nwsfc,3)); iws_sfcnud = 0
+        allocate (wts_sfcnud(nwsfc,3)); wts_sfcnud = 0.
  
         call find_3iws_sfcnud()
 
@@ -453,140 +470,12 @@ Contains
         fracliq_nud(iwsfc) = wts_sfcnud(iwsfc,1) * sfcnudin%fracliq(iws_sfcnud(iwsfc,1)) &
                            + wts_sfcnud(iwsfc,2) * sfcnudin%fracliq(iws_sfcnud(iwsfc,2)) &
                            + wts_sfcnud(iwsfc,3) * sfcnudin%fracliq(iws_sfcnud(iwsfc,3))
+
      enddo
 
   endif
 
   end subroutine sfcnud_read
-
-!===============================================================================
-
-  subroutine read_gw_spinup()
-
-  ! Initialize soil water and energy, and lake energy, from results of spin-up
-  ! simulation
-
-  use misc_coms,   only: io6
-  use mem_sfcg,    only: itab_wsfc, nwsfc, mwsfc
-  use mem_land,    only: land, itab_land, nland, mland, omland, nzg
-  use mem_lake,    only: lake, itab_lake, nlake, mlake
-  use consts_coms, only: cice1000, cliq1000, alli1000
-  use therm_lib,   only: qwtk
-  use hdf5_utils,  only: shdf5_open, shdf5_close, shdf5_irec
-
-  implicit none
-
-  ! Set nzg_spinup to nzg value used in spin-up simulation
-
-  integer, parameter :: nzg_sp = 20
-  real,    parameter :: rhow = 1000. ! density of liquid water [kg/m^3]
-
-  character(80) :: fname
-  integer :: ndims, idims(2)
-
-  real, allocatable :: soil_water_sp (:,:)
-  real, allocatable :: soil_energy_sp(:,:)
-
-  character(2) :: type
-
-  ! Map 25 current soil layers into 20 spin-up soil layers
-
-  integer :: kspm(25) = (/ 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,18,19,19,20,20,20,20 /)
-
-  integer :: iland, iwsfc, k, ksp
-
-  real :: tempk, tempc, fracliq
-
-  ! Pointers to the global index of the local point
-
-  integer :: lglake(mlake)
-  integer :: lgland(mland)
-
-  lglake = itab_lake(1:mlake)%iwglobe
-  lgland = itab_land(1:mland)%iwglobe
-
-  ! Open and read groundwater spinup file
-
-  fname = './hist/nudgerun1-H-2100-01-01-000000.h5'
-
-  write(io6,*) 'reading gw_spinup file ', trim(fname)
-
-  call shdf5_open(fname,'R')
-
-  ndims    = 1
-  idims(1) = mlake
-  type     = 'RW'
-
-  call shdf5_irec(ndims, idims, 'LAKE%LAKE_ENERGY', rvar1=lake%lake_energy, points=lglake, stagpt=type)
-
-  ndims    = 2
-  idims(1) = nzg_sp
-  idims(2) = mland
-  type     = 'LW'
-
-  allocate (soil_water_sp (nzg_sp,mland))
-  allocate (soil_energy_sp(nzg_sp,mland))
-
-  call shdf5_irec(ndims, idims, 'LAND%SOIL_WATER' , rvar2=soil_water_sp,  points=lgland, stagpt=type)
-  call shdf5_irec(ndims, idims, 'LAND%SOIL_ENERGY', rvar2=soil_energy_sp, points=lgland, stagpt=type)
-
-  call shdf5_close()
-
-  ! Horizontal loop over land points
-
-  do iland = 2,mland
-     iwsfc = iland + omland
-
-     do k = 1,nzg
-        ksp = kspm(k)
-
-        if (ksp < 18) then
-
-           ! Copy soil water and energy directly from spin-up layer to current 
-           ! layer if layers are identical (hardwired at 18 for specific case)
-
-           land%soil_water (k,iland) = soil_water_sp (ksp,iland)
-           land%soil_energy(k,iland) = soil_energy_sp(ksp,iland)
-
-        else
-
-           ! Diagnose spin-up soil temperature and fractional liquid water phase.
-           ! Since specifheat_drysoil is not available from the spin-up simulation
-           ! (although it could be made available with some effort if necessary),
-           ! assume that it is the same as that in level k of the current simulation.
-
-           call qwtk(soil_energy_sp(ksp,iland), soil_water_sp(ksp,iland) * rhow, &
-                     land%specifheat_drysoil(k,iland), tempk, fracliq)
-
-           tempc = tempk - 273.15
-
-           ! If we're here, k /= ksp and soil_water_sp(ksp,iland) exceeds the
-           ! porosity of level k.  Consequently, set soil_water(k,iland) to
-           ! capacity.
-
-           land%soil_water(k,iland) = min(land%wsat_vg(k,iland),soil_water_sp(ksp,iland))
-
-           ! Diagnose corresponding soil energy
-
-           if (tempc > 0.) then
-              land%soil_energy(k,iland) =   tempc * land%specifheat_drysoil(k,iland)    &
-                                        +   tempc * land%soil_water(k,iland) * cliq1000 &
-                                        + fracliq * land%soil_water(k,iland) * alli1000
-           else
-              land%soil_energy(k,iland) =   tempc * land%specifheat_drysoil(k,iland)    &
-                                        +   tempc * land%soil_water(k,iland) * cice1000 &
-                                        + fracliq * land%soil_water(k,iland) * alli1000
-           endif
-
-        endif
-
-     enddo
-
-  enddo
-
-  deallocate (soil_water_sp, soil_energy_sp)
-
-  end subroutine read_gw_spinup
 
 !================================================================================
 
@@ -671,7 +560,7 @@ Contains
         if (abs(sfcg%xew(iwsfc) - sfcnudin%xew(iw)) > dnvmax) cycle
         if (abs(sfcg%yew(iwsfc) - sfcnudin%yew(iw)) > dnvmax) cycle
 
-        ! Compute distance between IW point and lat/lon point
+        ! Compute distance between IWSFC point and IW point
 
         dist = sqrt((sfcg%xew(iwsfc)-sfcnudin%xew(iw))**2 &
                   + (sfcg%yew(iwsfc)-sfcnudin%yew(iw))**2 &
@@ -681,6 +570,7 @@ Contains
         ! distant neighbor IWN point is
 
         if (dist > dnvmax) cycle
+
 
         ! Loop over neighbor W points
 
@@ -699,7 +589,7 @@ Contains
            ! might lead to a few iwsfc values being interpolated on
            ! multiple MPI subdomains, but this is sorted out later.
 
-           if (distn < 0.999999 * dist) cycle
+           if (distn < 0.999999 * dist) goto 10
         enddo
 
         ! If this point was reached, current iwsfc point is inside input IW cell.
@@ -747,10 +637,168 @@ Contains
 
         enddo  ! j1 loop
 
+        10 continue
+
      enddo ! iwsfc loop
 
   enddo  ! iw loop
 
   end subroutine find_3iws_sfcnud
+
+!===============================================================================
+
+  subroutine read_gw_spinup()
+
+  ! Initialize soil water and energy, and lake energy, from results of spin-up
+  ! simulation
+
+  use misc_coms,   only: io6
+  use mem_sfcg,    only: itab_wsfc, nwsfc, mwsfc
+  use mem_land,    only: land, itab_land, nland, mland, omland, nzg
+  use mem_lake,    only: lake, itab_lake, nlake, mlake
+  use consts_coms, only: cice1000, cliq1000, alli1000
+  use therm_lib,   only: qwtk
+  use hdf5_utils,  only: shdf5_open, shdf5_close, shdf5_irec
+
+  implicit none
+
+  real,    parameter :: rhow = 1000. ! density of liquid water [kg/m^3]
+
+  character(80) :: fname
+  integer :: ndims, idims(2)
+
+  real, allocatable :: soil_water_sp (:,:)
+  real, allocatable :: soil_energy_sp(:,:)
+
+  character(2) :: type
+
+  ! Map 25 current soil layers into 20 spin-up soil layers
+
+  integer :: iland, iwsfc, k, ksp
+
+  real :: tempk, tempc, fracliq
+
+  ! Pointers to the global index of the local point
+
+  integer :: lglake(mlake)
+  integer :: lgland(mland)
+
+  lglake = itab_lake(1:mlake)%iwglobe
+  lgland = itab_land(1:mland)%iwglobe
+
+  ! Open and read sfcgrid file from groundwater spinup simulation
+
+  fname = trim(gw_spinup_sfcgfile)
+
+  write(io6,*) 'reading gw_spinup file ', fname
+
+  call shdf5_open(fname,'R')
+
+  ndims = 1
+  idims(1) = 1
+
+  call shdf5_irec(ndims, idims, 'nzg_nl' , ivars=nzg_nl)
+  call shdf5_irec(ndims, idims, 'nzg_sp' , ivars=nzg_sp)
+
+  if (nzg_nl /= nzg) then
+     print*, 'nzg    = ',nzg
+     print*, 'nzg_nl = ',nzg_nl
+     print*, 'nzg_sp = ',nzg_sp
+     print*, 'nzg of this gw-initialized simulation does not equal '
+     print*, 'nzg_nl of the gw-spinup simulation '
+     stop 'stop nzg_nl '
+  endif
+
+  allocate (kspm(nzg_nl))
+
+  idims(1) = nzg_nl
+
+  call shdf5_irec(ndims, idims, 'kspm'   , ivar1=kspm)
+
+  call shdf5_close()
+
+  ! Open and read history file from groundwater spinup simulation
+
+  fname = trim(gw_spinup_histfile)
+
+  write(io6,*) 'reading gw_spinup file ', trim(fname)
+
+  call shdf5_open(fname,'R')
+
+  ndims    = 1
+  idims(1) = mlake
+  type     = 'RW'
+
+  call shdf5_irec(ndims, idims, 'LAKE%DEPTH',       rvar1=lake%depth,       points=lglake, stagpt=type)
+  call shdf5_irec(ndims, idims, 'LAKE%LAKE_ENERGY', rvar1=lake%lake_energy, points=lglake, stagpt=type)
+
+  ndims    = 2
+  idims(1) = nzg_sp
+  idims(2) = mland
+  type     = 'LW'
+
+  allocate (soil_water_sp (nzg_sp,mland))
+  allocate (soil_energy_sp(nzg_sp,mland))
+
+  call shdf5_irec(ndims, idims, 'LAND%SOIL_WATER' , rvar2=soil_water_sp,  points=lgland, stagpt=type)
+  call shdf5_irec(ndims, idims, 'LAND%SOIL_ENERGY', rvar2=soil_energy_sp, points=lgland, stagpt=type)
+
+  call shdf5_close()
+
+  ! Horizontal loop over land points
+
+  do iland = 2,mland
+     iwsfc = iland + omland
+
+     do k = 1,nzg
+        ksp = kspm(k)
+
+        if (ksp == k) then
+
+           ! Copy soil water and energy directly from spin-up layer to current 
+           ! layer if layers are identical (hardwired at 18 for specific case)
+
+           land%soil_water (k,iland) = soil_water_sp (ksp,iland)
+           land%soil_energy(k,iland) = soil_energy_sp(ksp,iland)
+
+        else
+
+           ! Diagnose spin-up soil temperature and fractional liquid water phase.
+           ! Since specifheat_drysoil is not available from the spin-up simulation
+           ! (although it could be made available with some effort if necessary),
+           ! assume that it is the same as that in level k of the current simulation.
+
+           call qwtk(soil_energy_sp(ksp,iland), soil_water_sp(ksp,iland) * rhow, &
+                     land%specifheat_drysoil(k,iland), tempk, fracliq)
+
+           tempc = tempk - 273.15
+
+           ! If we're here, k /= ksp and soil_water_sp(ksp,iland) exceeds the
+           ! porosity of level k.  Consequently, set soil_water(k,iland) to
+           ! capacity.
+
+           land%soil_water(k,iland) = min(land%wsat_vg(k,iland),soil_water_sp(ksp,iland))
+
+           ! Diagnose corresponding soil energy
+
+           if (tempc > 0.) then
+              land%soil_energy(k,iland) =   tempc * land%specifheat_drysoil(k,iland)    &
+                                        +   tempc * land%soil_water(k,iland) * cliq1000 &
+                                        + fracliq * land%soil_water(k,iland) * alli1000
+           else
+              land%soil_energy(k,iland) =   tempc * land%specifheat_drysoil(k,iland)    &
+                                        +   tempc * land%soil_water(k,iland) * cice1000 &
+                                        + fracliq * land%soil_water(k,iland) * alli1000
+           endif
+
+        endif
+
+     enddo
+
+  enddo
+
+  deallocate (soil_water_sp, soil_energy_sp)
+
+  end subroutine read_gw_spinup
 
 End Module mem_sfcnud

@@ -31,7 +31,7 @@
 
 !===============================================================================
 
-module ocean_swm
+module sea_swm
 
   implicit none
 
@@ -782,34 +782,36 @@ subroutine swm_init()
 
   implicit none
 
-  integer :: j, iw, isea, npoly, jv, iv
+  integer :: j, iwsfc, isea, npoly, jv, iv
   real :: tide
 
   tide = 0.
 
-  !$omp parallel do private(iw,isea,npoly,jv,iv) 
+  !$omp parallel do private(iwsfc,isea,npoly,jv,iv) 
   do j = 1,jtab_wsfc_swm%jend
-     iw = jtab_wsfc_swm%iwsfc(j)
-     isea = iw - omsea
+     iwsfc = jtab_wsfc_swm%iwsfc(j)
+     isea = iwsfc - omsea
 
      sea%vxe1(isea) = 0.
      sea%vye1(isea) = 0.
      sea%vze1(isea) = 0.
 
-     sea%wdepth(isea) = max(depthmin_flux, tide - sfcg%bathym(iw))
+     sea%wdepth(isea) = max(depthmin_flux, tide - sfcg%bathym(iwsfc))
+
+     sfcg%head1(iwsfc) = sea%wdepth(isea) + sfcg%bathym(iwsfc)
 
      if (sea%wdepth(isea) < depthmin_swe) cycle
 
      ! Loop over adjacent V faces, regardless of whether prognosed or underground,
      ! to diagnose initial vxe1,vye2,vze1 from initial vc.
 
-     npoly = itab_wsfc(iw)%npoly
+     npoly = itab_wsfc(iwsfc)%npoly
      do jv = 1, npoly
-        iv = itab_wsfc(iw)%ivn(jv)
+        iv = itab_wsfc(iwsfc)%ivn(jv)
 
-        sea%vxe1(isea) = sea%vxe1(isea) + itab_wsfc(iw)%ecvec_vx(jv) * sfcg%vc(iv)
-        sea%vye1(isea) = sea%vye1(isea) + itab_wsfc(iw)%ecvec_vy(jv) * sfcg%vc(iv)
-        sea%vze1(isea) = sea%vze1(isea) + itab_wsfc(iw)%ecvec_vz(jv) * sfcg%vc(iv)
+        sea%vxe1(isea) = sea%vxe1(isea) + itab_wsfc(iwsfc)%ecvec_vx(jv) * sfcg%vc(iv)
+        sea%vye1(isea) = sea%vye1(isea) + itab_wsfc(iwsfc)%ecvec_vy(jv) * sfcg%vc(iv)
+        sea%vze1(isea) = sea%vze1(isea) + itab_wsfc(iwsfc)%ecvec_vz(jv) * sfcg%vc(iv)
      enddo
 
   enddo
@@ -817,4 +819,4 @@ subroutine swm_init()
 
 end subroutine swm_init
 
-end module ocean_swm
+end module sea_swm

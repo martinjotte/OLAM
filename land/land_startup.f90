@@ -183,7 +183,7 @@ subroutine land_parms()
                         fpar_max, fpar_min, sr_min, z_root, kroot,    &
                         snowmin_expl, wcap_min, wcap_vmin, dt_leaf
 
-  use mem_land,   only: nzg, slz, kperc, hptimi
+  use mem_land,   only: nzg, slz, kperc
 
   use misc_coms,  only: io6
   use oname_coms, only: nl
@@ -262,7 +262,6 @@ subroutine land_parms()
      ! Standard run with ATM coupling and short timestep
 
      snowmin_expl = max(10.0, 0.04 * dt_leaf)
-     hptimi = 1.0 / 1800.
 
      ! Choose percolation level to be slz level that is closest to -3.0 m in height
 
@@ -282,7 +281,6 @@ subroutine land_parms()
      ! Surface stand-alone run with long timestep
 
      snowmin_expl = 300.
-     hptimi = 1.0 / (86400. * 5.)
 
   endif
 

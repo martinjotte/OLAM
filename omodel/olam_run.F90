@@ -51,7 +51,7 @@ subroutine olam_run(name_name)
   use mem_ijtabs,  only: istp, mrls, fill_jtabs, itab_v, itab_w
   use mem_sfcg,    only: nwsfc, mwsfc, nvsfc, mvsfc, alloc_sfcgrid2, &
                          filltab_sfcg, sfcg_avgatm, fill_jtab_sfcg, sfcg
-  use ocean_swm,   only: swm_init, swm_diagvel
+  use sea_swm,     only: swm_init, swm_diagvel
   use oplot_coms,  only: op, iplt_file
   use mem_grid,    only: mma, mva, mwa, mza, alloc_gridz_other
   use mem_nudge,   only: nudflag, nudnxp, fill_jnudge, o3nudflag
@@ -62,7 +62,7 @@ subroutine olam_run(name_name)
   use hcane_rz,    only: ncycle_hurrinit, icycle_hurrinit, hurricane_init, &
                          vortex_azim_avg, vortex_add_pert, vortex_reloc3d, &
                          vortex_relocated, vortex_rzplot1, vtan_eyw, hlat, &
-                         hlon, hlat0, hlon0, hlat_hist, hlon_hist
+                         hlon, hlat0, hlon0, hlat_hist, hlon_hist, htc0
   use obnd,        only: trsets, lbcopy_w
   use var_tables,  only: nvar_par, vtab_r, nptonv
   use mem_plot,    only: alloc_plot, copy_plot
@@ -70,7 +70,8 @@ subroutine olam_run(name_name)
   use mem_addgrid, only: init_addgrid
   use mem_land,    only: land, nland, mland, nzg
   use mem_sea,     only: sea, nsea, msea
-  use vel_t3d,     only: init_velt3d
+  use vel_t3d,     only: init_velt3d, diagvel_t3d_init, diagvel_t3d, &
+                         diag_uzonal_umerid 
   use mem_adv,     only: alloc_adv
   use mem_co2,     only: co2init
 
@@ -506,6 +507,13 @@ subroutine olam_run(name_name)
      write(io6,'(/,a)') 'olam_run calling sea_init_atm'
      call sea_init_atm()
 
+     ! Initial diagnosis of vxe1,vye1,vze1 and of vxe,vye,vze
+
+     call diagvel_t3d_init(1)
+     call diagvel_t3d(1)
+
+     if (isfcl == 1) call swm_diagvel()
+
      if (nl%igw_spinup == 1) then
 
         ! If making or using surface nudging files for SOIL model spin-up, allocate memory
@@ -532,6 +540,8 @@ subroutine olam_run(name_name)
      if (iparallel == 1) then
         call mpi_send_wsfc()
         call mpi_recv_wsfc()
+
+        ! Also, send/recv vsfc?
      endif
 
   endif
@@ -637,7 +647,9 @@ subroutine olam_run(name_name)
         ! Write sfcnud file to be used for nudged spin-up simulation
 
         if (nl%igw_spinup == 1 .and. isfcl == 1) then
-           call sfcnud_write()
+           ! if (mod(iplt_file,5) == 0) then    ! Template: modify for # of years in climate simulation
+              call sfcnud_write()
+           ! endif
         endif
 
         ! For shallow water test cases, compute error norms
@@ -679,10 +691,19 @@ subroutine olam_run(name_name)
   endif
 
   ! For HISTORY start or for second and later cycles of hurricane dynamic
-  ! initialization, replace initial fields with HISTORY read
+  ! initialization, replace initial fields with HISTORY read.
+
+  ! (Trying to history restart while hurricane initialization cycles are in
+  ! progress does not work correctly.)
 
   if (runtype == 'HISTORY' .or. runtype == 'HISTADDGRID' .or. &
      icycle_hurrinit > 1) then
+
+     if (runtype == 'INITIAL' .and. icycle_hurrinit > 1) then
+        hfilin = trim(htc0)
+     else
+        hfilin = nl%hfilin
+     endif
 
      write(io6,*) 'olam_run calling history_start'
      call history_start('COMMIO')
@@ -694,8 +715,6 @@ subroutine olam_run(name_name)
      time8p      = time8 + time_bias   ! Slightly forward biased time
      time_istp8  = time8
      time_istp8p = time8p              ! Slightly forward biased time
-
-     if (isfcl == 1) call swm_diagvel()
 
      ! reset convective variables if we have turned off convection
 
@@ -742,8 +761,13 @@ subroutine olam_run(name_name)
   ! cycle of hurricane initialization, write initial history file
 
   if (runtype /= 'HISTORY' .and. icycle_hurrinit < 2) then
-     write(io6,'(/,a)') 'olam_run calling history_write'
-     call history_write('STATE')
+     if (icycle_hurrinit == 1) then
+        write(*,'(/,a)') 'olam_run calling history_write with HTC0 vtype'
+        call history_write('HTC0')
+     else
+        write(*,'(/,a)') 'olam_run calling history_write with STATE vtype'
+        call history_write('STATE')
+     endif
      write(io6,'(/,a)') 'olam_run finished history_write'
   endif
 
@@ -807,8 +831,8 @@ subroutine olam_run(name_name)
      ! If this is an INITIAL run and this is not the final initialization cycle,
      ! add axisymmetric vortex perturbation
 
-     if (runtype == 'INITIAL' .and. icycle_hurrinit < ncycle_hurrinit .and. &
-         vtan_eyw > 0.99 ) then
+     if (runtype == 'INITIAL' .and. vtan_eyw > 0.99 .and. &
+        (icycle_hurrinit < ncycle_hurrinit .or. ncycle_hurrinit == 1)) then
 
         ! Compute azimuthal averages of dynamic, thermodynamic, and moisture
         ! fields, and plot averages (in radial-height cross sections)
@@ -833,9 +857,9 @@ subroutine olam_run(name_name)
      ! If INITIAL runtype, write secondary history file with 'HTC' in name.
 
      if (runtype == 'INITIAL') then
-        write(io6,'(/,a)') 'olam_run calling history_write with HTC vtype'
-        call history_write('HTC')
-        write(io6,'(/,a)') 'olam_run finished history_write with HTC vtype'
+        write(io6,'(/,a)') 'olam_run calling history_write with HTC1 vtype'
+        call history_write('HTC1')
+        write(io6,'(/,a)') 'olam_run finished history_write with HTC1 vtype'
      endif
 
   endif

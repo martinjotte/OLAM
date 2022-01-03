@@ -35,9 +35,9 @@ module vel_t3d
   real, allocatable :: eym(:,:)
   real, allocatable :: ezm(:,:)
 
-  real, allocatable :: vxe2(:,:)
-  real, allocatable :: vye2(:,:)
-  real, allocatable :: vze2(:,:)
+  real, allocatable :: vxe1(:,:)
+  real, allocatable :: vye1(:,:)
+  real, allocatable :: vze1(:,:)
 
 contains
 
@@ -62,9 +62,9 @@ subroutine init_velt3d()
 
   if (nl%icut_vel == 1) then
 
-     allocate (vxe2(nve2_max,mwa)) ; vxe2 = rinit
-     allocate (vye2(nve2_max,mwa)) ; vye2 = rinit
-     allocate (vze2(nve2_max,mwa)) ; vze2 = rinit
+     allocate (vxe1(nve2_max,mwa)) ; vxe1 = rinit
+     allocate (vye1(nve2_max,mwa)) ; vye1 = rinit
+     allocate (vze1(nve2_max,mwa)) ; vze1 = rinit
 
   else
 
@@ -154,14 +154,14 @@ subroutine vel_t3d_hex(iw)
 
   use mem_ijtabs, only: itab_w
   use mem_basic,  only: vc, wc, vxe, vye, vze
-  use mem_grid,   only: mza, lpw, lve2, lpv, wnxo2, wnyo2, wnzo2
+  use mem_grid,   only: mza, lpw, lve2, lpv, vnx, vny, vnz, wnxo2, wnyo2, wnzo2
   use oname_coms, only: nl
 
   implicit none
 
   integer, intent(in) :: iw
   integer             :: npoly,ka,k,jv,iv,ksw,kbv
-  real                :: wst
+  real                :: wst, vcwall
 
   npoly = itab_w(iw)%npoly
   ka    = lpw(iw)
@@ -182,31 +182,40 @@ subroutine vel_t3d_hex(iw)
         vye(k,iw) = vye(k,iw) + itab_w(iw)%ecvec_vy(jv) * vc(k,iv)
         vze(k,iw) = vze(k,iw) + itab_w(iw)%ecvec_vz(jv) * vc(k,iv)
      enddo
-  enddo
-
-  if (lve2(iw) > 0) then
 
      if (nl%icut_vel == 1) then
 
-        ! Underground velocity contribution: prognose from T cell tendencies
-        do ksw = 1, lve2(iw)
-           k = ka + ksw - 1
-           vxe(k,iw) = vxe(k,iw) + vxe2(ksw,iw)
-           vye(k,iw) = vye(k,iw) + vye2(ksw,iw)
-           vze(k,iw) = vze(k,iw) + vze2(ksw,iw)
-        enddo
+        ! Vertical loop over all closed V faces
+        do k = ka, kbv-1
 
-     else
+           ! Use projected vcwall for closed faces
 
-        ! Underground velocity contribution: extrapolate from prognosed vc
-        do ksw = 1, lve2(iw)
-           k = ka + ksw - 1
-           vxe(k,iw) = vxe(k,iw) * exm(ksw,iw)
-           vye(k,iw) = vye(k,iw) * eym(ksw,iw)
-           vze(k,iw) = vze(k,iw) * ezm(ksw,iw)
+           ksw = k - ka + 1
+
+           vcwall = vnx(iv) * vxe1(ksw,iw) &
+                  + vny(iv) * vye1(ksw,iw) &
+                  + vnz(iv) * vze1(ksw,iw)
+
+           vxe(k,iw) = vxe(k,iw) + itab_w(iw)%ecvec_vx(jv) * vcwall
+           vye(k,iw) = vye(k,iw) + itab_w(iw)%ecvec_vy(jv) * vcwall
+           vze(k,iw) = vze(k,iw) + itab_w(iw)%ecvec_vz(jv) * vcwall
+
         enddo
 
      endif
+
+  enddo
+
+  if (nl%icut_vel /= 1) then
+
+     ! Underground velocity contribution: extrapolate from prognosed vc
+     do ksw = 1, lve2(iw)
+        k = ka + ksw - 1
+        vxe(k,iw) = vxe(k,iw) * exm(ksw,iw)
+        vye(k,iw) = vye(k,iw) * eym(ksw,iw)
+        vze(k,iw) = vze(k,iw) * ezm(ksw,iw)
+     enddo
+
   endif
 
   ! W contributions
@@ -251,9 +260,9 @@ subroutine diagvel_t3d_init(mrl)
      npoly = itab_w(iw)%npoly
      ka = lpw(iw)
 
-     vxe2(:,iw) = 0.
-     vye2(:,iw) = 0.
-     vze2(:,iw) = 0.
+     vxe1(:,iw) = 0.
+     vye1(:,iw) = 0.
+     vze1(:,iw) = 0.
 
      if (lve2(iw) > 0) then
 
@@ -270,11 +279,11 @@ subroutine diagvel_t3d_init(mrl)
               do k = ka, kbv-1
                  ksw = k - ka + 1
 
-                 ! Project INITIAL VC from lowest prognosed face back to (vxe2, vye2, vze2)
+                 ! Diagnose initial vxe1, vye1, vze1 from vc at lpv level
 
-                 vxe2(ksw,iw) = vxe2(ksw,iw) + itab_w(iw)%ecvec_vx(jv) * vc(kbv,iv)
-                 vye2(ksw,iw) = vye2(ksw,iw) + itab_w(iw)%ecvec_vy(jv) * vc(kbv,iv)
-                 vze2(ksw,iw) = vze2(ksw,iw) + itab_w(iw)%ecvec_vz(jv) * vc(kbv,iv)
+                 vxe1(ksw,iw) = vxe1(ksw,iw) + itab_w(iw)%ecvec_vx(jv) * vc(kbv,iv)
+                 vye1(ksw,iw) = vye1(ksw,iw) + itab_w(iw)%ecvec_vy(jv) * vc(kbv,iv)
+                 vze1(ksw,iw) = vze1(ksw,iw) + itab_w(iw)%ecvec_vz(jv) * vc(kbv,iv)
               enddo
            endif
 

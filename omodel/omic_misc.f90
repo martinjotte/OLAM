@@ -614,7 +614,6 @@ integer, parameter :: iplaws = 0
 real, parameter :: alphasfc(ncat) = (/.001,.001,.010,.010,.010,.003,.001,.001/)
 
 integer :: lcat, lhcat, k, kk, ks
-integer :: jsfc, jasfc, iwsfc
 
 real :: zbotnew, areascale, fracwkk, v4i, arwm
 
@@ -660,7 +659,7 @@ real :: qrnew(mza0)
 
            ! Horizontal area scale factor for current w(kk) level
 
-           areascale = zfacim2(k-1) * zfacm2(kk)
+           areascale = zfacm2(k-1) * zfacim2(kk)
 
            ! Depth of source grid cell precipitation that crosses w(kk) level
 

@@ -202,40 +202,40 @@ Module mem_sfcg
 
      ! Surface grid geometry and location
 
-     real, allocatable :: xem  (:) ! earth x coord of sfc M points
-     real, allocatable :: yem  (:) ! earth y coord of sfc M points
-     real, allocatable :: zem  (:) ! earth z coord of sfc M points
-     real, allocatable :: glatm(:) ! latitude of sfc cell M points
-     real, allocatable :: glonm(:) ! longitude of sfc cell M points
+     real, allocatable :: xem  (:) ! earth x coord of sfc M points [m]
+     real, allocatable :: yem  (:) ! earth y coord of sfc M points [m]
+     real, allocatable :: zem  (:) ! earth z coord of sfc M points [m]
+     real, allocatable :: glatm(:) ! latitude of sfc cell M points [deg]
+     real, allocatable :: glonm(:) ! longitude of sfc cell M points [deg]
 !    real, allocatable :: topm (:) ! topographic height of sfc W points
      real, allocatable :: arm0 (:) ! Area of IM triangle at earth surface [m^2]
 
-     real, allocatable :: xev (:) !
-     real, allocatable :: yev (:) !
-     real, allocatable :: zev (:) !
-     real, allocatable :: dnu (:) !
-     real, allocatable :: dniu(:) !
-     real, allocatable :: dnv (:) !
-     real, allocatable :: dniv(:) !
-     real, allocatable :: unx  (:) ! U face normal unit vector x component
-     real, allocatable :: uny  (:) ! U face normal unit vector y component
-     real, allocatable :: unz  (:) ! U face normal unit vector z component
-     real, allocatable :: vnx  (:) ! V face normal unit vector x component
-     real, allocatable :: vny  (:) ! V face normal unit vector y component
-     real, allocatable :: vnz  (:) ! V face normal unit vector z component
+     real, allocatable :: xev (:) ! earth x coord of sfc V points [m]
+     real, allocatable :: yev (:) ! earth y coord of sfc V points [m]
+     real, allocatable :: zev (:) ! earth z coord of sfc V points [m]
+     real, allocatable :: dnu (:) ! grid cell distance across U face [m]
+     real, allocatable :: dniu(:) ! inverse of dnu [1/m]
+     real, allocatable :: dnv (:) ! grid cell distance across V face [m]
+     real, allocatable :: dniv(:) ! inverse of dnv [1/m]
+     real, allocatable :: unx  (:) ! U face normal unit vector x component [m]
+     real, allocatable :: uny  (:) ! U face normal unit vector y component [m]
+     real, allocatable :: unz  (:) ! U face normal unit vector z component [m]
+     real, allocatable :: vnx  (:) ! V face normal unit vector x component [m]
+     real, allocatable :: vny  (:) ! V face normal unit vector y component [m]
+     real, allocatable :: vnz  (:) ! V face normal unit vector z component [m]
 
      real, allocatable :: area    (:) ! cell surface area [m^2]
-     real, allocatable :: xew     (:) ! earth x coord of sfc W points
-     real, allocatable :: yew     (:) ! earth y coord of sfc W points
-     real, allocatable :: zew     (:) ! earth z coord of sfc W points
-     real, allocatable :: glatw   (:) ! latitude of sfc cell W points
-     real, allocatable :: glonw   (:) ! longitude of sfc cell W points
-     real, allocatable :: topw    (:) ! topographic height of sfc W points
-     real, allocatable :: bathym  (:) ! bathymetric height of sfc W points
-     real, allocatable :: wnx     (:) ! norm unit vector x comp of sfc cells
-     real, allocatable :: wny     (:) ! norm unit vector y comp of sfc cells
-     real, allocatable :: wnz     (:) ! norm unit vector z comp of sfc cells
-     real, allocatable :: dzt_bot (:) ! surface similarity grid-height
+     real, allocatable :: xew     (:) ! earth x coord of sfc W points [m]
+     real, allocatable :: yew     (:) ! earth y coord of sfc W points [m]
+     real, allocatable :: zew     (:) ! earth z coord of sfc W points [m]
+     real, allocatable :: glatw   (:) ! latitude of sfc cell W points [deg]
+     real, allocatable :: glonw   (:) ! longitude of sfc cell W points [deg]
+     real, allocatable :: topw    (:) ! topographic height of sfc W points [m]
+     real, allocatable :: bathym  (:) ! bathymetric height of sfc W points [m]
+     real, allocatable :: wnx     (:) ! norm unit vector x comp of sfc cells [m]
+     real, allocatable :: wny     (:) ! norm unit vector y comp of sfc cells [m]
+     real, allocatable :: wnz     (:) ! norm unit vector z comp of sfc cells [m]
+     real, allocatable :: dzt_bot (:) ! surface similarity grid-height [m]
 
      real, allocatable :: gxps_coef(:)
      real, allocatable :: gyps_coef(:)

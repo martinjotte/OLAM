@@ -57,13 +57,15 @@ subroutine makesfc3()
                          nswmzons, nswmzonll, swmzonrad, swmzonlat, swmzonlon, &
                          sfcgrid_res_factor, alloc_sfcgrid1
 
-  use mem_land,    only: nland, onland, land, nzg, landgrid_dztop, &
-                         landgrid_depth, slz, dslz, dslzo2, dslzi, slzt, &
-                         alloc_landcol
+  use mem_land,    only: nland, onland, land, nzg, &
+                         slz, dslz, dslzo2, dslzi, slzt, &
+                         landgrid_dztop, landgrid_depth, alloc_landcol
 
   use mem_lake,    only: nlake, onlake
   use mem_sea,     only: nsea,  onsea
   use oname_coms,  only: nl
+
+  use mem_sfcnud,  only: nzg_nl, nzg_sp, kspm
 
   implicit none
 
@@ -80,6 +82,12 @@ subroutine makesfc3()
 
   type(itab_wsfc_vars), allocatable :: itab_wsfc_temp(:)
 
+  real, allocatable :: slz_temp   (:)
+  real, allocatable :: dslz_temp  (:)
+  real, allocatable :: dslzo2_temp(:)
+  real, allocatable :: dslzi_temp (:)
+  real, allocatable :: slzt_temp  (:)
+
   real(r8), allocatable :: tot_area(:)
   real(r8)              :: area_tot
 
@@ -89,7 +97,7 @@ subroutine makesfc3()
   integer :: iter
   real :: dz, srati
 
-  integer :: nzga, kk
+  integer :: kk, koff
   real :: thick
 
   ! At this point in the process of surface grid initialization, the surface
@@ -419,42 +427,46 @@ subroutine makesfc3()
 
   ! Initialize soil grid depth and vertical spacing arrays
 
-  ! Soil vertical grid spacing arrays
+  ! Allocate soil vertical grid spacing arrays
 
   call alloc_landcol()
+
+  allocate (kspm(nzg))
 
   ! Iteration to find land grid vertical stretch rate
 
   write(io6,'(/,a,/)') 'Iterations for land grid vertical stretch ratio'
 
-  ! If this is long-term groundwater spin-up simulation with long time steps,
+  srati = 0.5
+  do iter = 1,20
+     srati = 1. / (landgrid_depth * (1. - srati) / (srati * landgrid_dztop) + 1.)**(1./real(nzg))
+     print*, 'iter, stretch ratio ',iter,1./srati
+  enddo
+
+  ! If this is a long-term groundwater spin-up simulation with long time steps,
   ! soil layers must (generally) be thicker than 0.5 m for stability.  At the
   ! same time, it is desirable for the thicker/deeper soil layers to be identical
   ! with those of the subsequent simulation that will be initialized with the
   ! spun-up groundwater, and for the thinner soil layers in the subsequent
   ! simulation to be groupable together into sets that correspond to individual
-  ! layers in the present spin-up simulation.  To achieve this, set nzga
-  ! (an alternate value of nzg) to be the nzg value in the subsequent
-  ! simulation so that the soil depths of that simulation can be replicated
-  ! here, and then group the thinner layers together here to be consistent
-  ! with nzg (which is less than nzga) that is used for this spin-up simulation.
+  ! layers in the present spin-up simulation.  To achieve this, the following
+  ! code computes soil layer thicknesses and depths the same as in the subsequent
+  ! simulation, but then combines the thinner layers into groups that are each
+  ! at least 0.5 m thick.  THEREFORE, THE USER MUST LEAVE NZG IN OLAMIN SET TO
+  ! THE SAME VALUE THAT WILL BE USED IN THE SUBSEQUENT SIMULATION.  The code 
+  ! sets nzg to a new reduced value that reflects the grouping of thinner
+  ! layers, but saves the original OLAMIN value in nzg_nl.  It also makes a
+  ! mapping table that relates the vertical indexes of the soil layers between
+  ! the grouped and ungrouped sets, and writes that table, along with nzg and
+  ! nzg_nl to the output file that contains the spun-up groundwater
+  ! and temperature values.  In the subsequent simulation that is initialized
+  ! from the spun-up soil, the table is used to map the spun-up soil layers to
+  ! the thinner and more numerous layers used in the subsequent simulation.
 
-  ! In order to determine the correct value of nzg to specify in OLAMIN for the
-  ! spin-up simulation, first look at the soil layer depths in the subsequent
-  ! simulation and determine how the thin layers would be grouped into each
-  ! layer of the spin-up simulation.
+  ! Save nzg value read from OLAMIN in nzg_nl and, provisionally, in nzg_sp
 
-  if (nl%igw_spinup == 1) then
-     nzga = 25
-  else
-     nzga = nzg
-  endif
-
-  srati = 0.5
-  do iter = 1,20
-     srati = 1. / (landgrid_depth * (1. - srati) / (srati * landgrid_dztop) + 1.)**(1./real(nzga))
-     print*, 'iter, stretch ratio ',iter,1./srati
-  enddo
+  nzg_nl = nzg
+  nzg_sp = nzg
 
   ! Compute soil grid levels
 
@@ -462,9 +474,9 @@ subroutine makesfc3()
   slz(nzg+1) = 0.
   thick = 0.
 
-  k = nzg + 1
+  k = nzg + 1        ! k counts over grouped layers (if igw_spinup = 1)
 
-  do kk = nzga,1,-1
+  do kk = nzg,1,-1   ! kk counts over original ungrouped layers
 
      thick = thick + dz
 
@@ -481,7 +493,55 @@ subroutine makesfc3()
      endif
 
      dz = dz / srati
+
+     ! Map kk soil layers into k soil layers
+
+     kspm(kk) = k
+
+     print*, 'kspm ',k,kk,kspm(kk)
+
   enddo
+
+  ! If this is a long-term groundwater spin-up simulation and soil layers have
+  ! been grouped into thicker layers, the k index for the layer thicknesses and
+  ! depth assigned above did not terminate at 1.  Therefore, shift the indexes
+  ! here, and reduce nzg accordingly.
+
+  koff = k - 1
+  if (koff > 0) then
+
+     ! Computed reduced nzg value for grouped soil layers
+
+     nzg_sp = nzg - koff
+     nzg = nzg_sp
+
+     ! Move soil vertical grid spacing arrays to temporary space
+
+     call move_alloc (slz   , slz_temp)
+     call move_alloc (dslz  , dslz_temp)
+     call move_alloc (dslzo2, dslzo2_temp)
+     call move_alloc (dslzi , dslzi_temp)
+     call move_alloc (slzt  , slzt_temp)
+
+     ! Reallocate soil vertical grid spacing arrays at reduced nzg size
+
+     call alloc_landcol()
+
+     ! Fill soil vertical grid spacing arrays with index-shifted values
+
+     slz(nzg+1) = 0.
+
+     do k = 1,nzg
+           slz(k) =    slz_temp(k + koff)
+          dslz(k) =   dslz_temp(k + koff)
+        dslzo2(k) = dslzo2_temp(k + koff)
+         dslzi(k) =  dslzi_temp(k + koff)
+          slzt(k) =   slzt_temp(k + koff)
+     enddo
+
+     deallocate (slz_temp, dslz_temp, dslzo2_temp, dslzi_temp, slzt_temp)
+
+  endif
 
   call landgrid_print()
 
@@ -495,7 +555,7 @@ subroutine makesfc3()
      ! For land cells, set bathym equal to topw
      sfcg%bathym(2:nland) = sfcg%topw(2:nland)
 
-     ! Prevent bathym from exceeding (topw - 1.0) for sea and lake cells,
+     ! Prevent bathym from exceeding (topw - 1.0) for sea and lake cells
      sfcg%bathym(nland+1:) = min(sfcg%bathym(nland+1:), sfcg%topw(nland+1:) - 1.0)
 
   else
@@ -608,7 +668,6 @@ subroutine step_terrain_overlay(iworig)
      itab_wsfc(iwsfc)%iwatm(1) = iw
      itab_wsfc(iwsfc)%arc  (1) = arw0(iw)
   enddo
-
 
   do im = 2, nma
      iw1 = itab_m(im)%iw(1)
@@ -1085,6 +1144,9 @@ subroutine sfcgfile_write()
                         slz, dslz, dslzo2, dslzi, slzt
   use mem_lake,   only: nlake, onlake
   use mem_sea,    only: nsea, onsea
+  use mem_sfcnud, only: nzg_nl, nzg_sp, kspm
+  use oname_coms, only: nl
+
   use hdf5_utils, only: shdf5_open, shdf5_orec, shdf5_close
 
   implicit none
@@ -1120,6 +1182,18 @@ subroutine sfcgfile_write()
   call shdf5_orec(ndims, idims, 'onlake' , ivars=onlake)
   call shdf5_orec(ndims, idims, 'onsea'  , ivars=onsea)
   call shdf5_orec(ndims, idims, 'nzg'    , ivars=nzg)
+
+  ! Write nzg_nl, nzg_sp, and kspm to the sfcgrid file only if this MAKEGRID
+  ! run is for a groundwater spin-up simulation.
+
+  if (nl%igw_spinup == 1) then
+     call shdf5_orec(ndims, idims, 'nzg_nl' , ivars=nzg_nl)
+     call shdf5_orec(ndims, idims, 'nzg_sp' , ivars=nzg_sp)
+
+     idims(1) = nzg_nl
+
+     call shdf5_orec(ndims, idims, 'kspm'   , ivar1=kspm)
+  endif
 
   ! Write ITAB_M ARRAYS
 
@@ -1403,6 +1477,8 @@ subroutine sfcgfile_read_pd()
   use mem_land,   only: nland, onland, nzg
   use mem_lake,   only: nlake, onlake
   use mem_sea,    only: nsea, onsea
+!UNN  use mem_sfcnud, only: nzg_nl, nzg_sp, kspm
+
   use hdf5_utils, only: shdf5_open, shdf5_irec, shdf5_close
   use misc_coms,  only: io6
 
@@ -1442,6 +1518,10 @@ subroutine sfcgfile_read_pd()
   call shdf5_irec(ndims, idims, 'onlake', ivars=onlake)
   call shdf5_irec(ndims, idims, 'onsea' , ivars=onsea)
   call shdf5_irec(ndims, idims, 'nzg'   , ivars=nzg)
+
+  ! In this subroutine, do not read nzg_nl, nzg_sp, or kspm from the sfcgfile.
+  ! When needed for groundwater initialization, they are read by another
+  ! subroutine from a sfcgfile that was written by a separate simulation.
 
   write(io6, '(/,a)')    '==============================================='
   write(io6, '(a)')      'Reading from sfcgfile:'

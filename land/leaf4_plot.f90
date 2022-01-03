@@ -69,10 +69,11 @@ Contains
                       hxfervc,                           &
                       wxfervc,          rdi,             &
                       rb,               head,            &
-                      head0,            head1            )
+                      head0,            head1,           &
+                      dheight,          energyin         )
 
 use leaf_coms,   only: nzs
-use mem_land,    only: nzg, slz, dslz
+use mem_land,    only: land, nzg, slz, dslz
 use consts_coms, only: cp
 use oplot_coms,  only: op
 use misc_coms,   only: io6, runtype, time8
@@ -98,6 +99,8 @@ real, optional, intent(in) :: hxferg        (nzg+1) ! heat xfer between soil lay
 real, optional, intent(in) :: wxfer         (nzg+1) ! soil water xfer [m]
 real, optional, intent(in) :: qwxfer        (nzg+1) ! soil energy xfer from water xfer [J/m^2]
 real, optional, intent(in) :: psi_matric      (nzg) ! matric potential [m]
+real, optional, intent(in) :: dheight         (nzg) ! change in water height from lateral fluxes [m]
+real, optional, intent(in) :: energyin        (nzg) ! change in energy from lateral water fluxes [J/m^2]
 real, optional, intent(in) :: head            (nzg) ! soil total hydraulic head [m]
 real, optional, intent(in) :: sfcwater_mass   (nzs) ! surface water mass [kg/m^2]
 real, optional, intent(in) :: sfcwater_energy (nzs) ! surface water energy [J/kg]
@@ -189,6 +192,8 @@ real :: yk4
 real :: yk5
 
 real :: ywk,ywk1,ywk2
+
+real :: soil_watfrac_ul
 
 real :: xtpn(4)
 real :: ytpn(4)
@@ -511,18 +516,48 @@ do k = 1,nzg
    write (number,'(i5)') k
    call o_plchhq(.03,ywk,trim(adjustl(number)),psiz,0.,0.)
 
-   write (number,'(f10.3)') dslz(k)
+   write (number,'(f9.2)') dslz(k)
    call o_plchhq(xw1,ywk,trim(adjustl(number)),psiz,0.,0.)
    if (k == 1) call o_plchhq(xw1,yk2,'dslz',psiz,0.,0.)
 
    if (present(soil_water)) then
 
-      write (number,'(f10.6)') soil_water(k)
+      write (number,'(f10.3)') soil_water(k)
       call o_plchhq(xw3,ywk,trim(adjustl(number)),psiz,0.,0.)
      
       if (k == 1) call o_plchhq(xw3,yk2,'water',psiz,0.,0.)
 
+      soil_watfrac_ul = (soil_water(k) - land%wresid_vg(k,iland)) &
+                      / (land%wsat_vg(k,iland) - land%wresid_vg(k,iland))
+
+      if (soil_watfrac_ul > 1.0) then
+         soil_watfrac_ul = 1.0 + (soil_water(k) - land%wsat_vg(k,iland)) 
+      endif
+
+      write (number,'(f8.3)') soil_watfrac_ul
+      call o_plchhq(xw9,ywk,trim(adjustl(number)),psiz,0.,0.)
+     
+      if (k == 1) call o_plchhq(xw9,yk2,'watfrac_ul',psiz,0.,0.)
+
    endif
+
+   if (present(dheight)) then
+
+      write (number,'(f8.4)') dheight(k)
+      call o_plchhq(xw10,ywk,trim(adjustl(number)),psiz,0.,0.)
+     
+      if (k == 1) call o_plchhq(xw10,yk2,'dheight',psiz,0.,0.)
+
+   endif
+
+ !  if (present(energyin)) then
+
+ !     write (number,'(f8.3)') energyin(k)
+ !     call o_plchhq(xw11,ywk,trim(adjustl(number)),psiz,0.,0.)
+     
+ !     if (k == 1) call o_plchhq(xw11,yk2,'energyin',psiz,0.,0.)
+
+ !  endif
 
    if (present(soil_energy)) then
 
@@ -558,15 +593,15 @@ do k = 1,nzg
 
    if (present(head)) then
 
-      write (number,'(f12.3)') head(k)
+      write (number,'(f11.2)') head(k)
       call o_plchhq(xw7,ywk1,trim(adjustl(number)),psiz,0.,0.)
-      if (k == 1) call o_plchhq(xw7,yk2,'   /h',psiz,0.,0.)
+      if (k == 1) call o_plchhq(xw7,yk2,'head',psiz,0.,0.)
 
    endif
 
    if (present(soil_rfactor)) then
 
-      write (number,'(e12.3)') soil_rfactor(k)
+      write (number,'(f10.3)') soil_rfactor(k)
       call o_plchhq(xw8,ywk,trim(adjustl(number)),psiz,0.,0.)
       if (k == 1) call o_plchhq(xw8,yk2,'rfactor',psiz,0.,0.)
 
@@ -594,7 +629,7 @@ do k = 1,nzg
 
    if (present(soil_water)) then
 
-      write (number,'(f10.6)') soil_water(k) * 1000. * dslz(k)
+      write (number,'(f9.3)') soil_water(k) * dslz(k)
       call o_plchhq(xw11,ywk,trim(adjustl(number)),psiz,0.,0.)
       if (k == 1) call o_plchhq(xw11,yk2,'water_a',psiz,0.,0.)
 
@@ -633,7 +668,7 @@ do k = 1,nzg + 1
  
    if (present(hxferg)) then
 
-      write (number,'(e12.3)') hxferg(k)
+      write (number,'(f12.1)') hxferg(k)
       call o_plchhq(xw2,ybot,trim(adjustl(number)),psiz,0.,0.)
       if (k == 1) call o_plchhq(xw2,yk1,'hxferg',psiz,0.,0.)
 
@@ -641,15 +676,15 @@ do k = 1,nzg + 1
 
    if (present(wxfer)) then
  
-      write (number,'(e12.3)') wxfer(k)
-      call o_plchhq(xw3,ybot,trim(adjustl(number)),psiz,0.,0.)
-      if (k == 1) call o_plchhq(xw3,yk1,'wxfer',psiz,0.,0.)
+      write (number,'(f10.4)') wxfer(k)
+      call o_plchhq(xw11,ybot,trim(adjustl(number)),psiz,0.,0.)
+      if (k == 1) call o_plchhq(xw11,yk1,'wxfer',psiz,0.,0.)
 
    endif
 
    if (present(qwxfer)) then
  
-      write (number,'(e12.3)') qwxfer(k)
+      write (number,'(f12.6)') qwxfer(k) * 1.e-6  ! [MJ/m^2]
       call o_plchhq(xw4,ybot,trim(adjustl(number)),psiz,0.,0.)
       if (k == 1) call o_plchhq(xw4,yk1,'qwxfer',psiz,0.,0.)
 

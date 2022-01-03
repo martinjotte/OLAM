@@ -523,7 +523,6 @@
 
    NL%GRIDFILE    = 'sfcfiles/gridfile9'   ! path/prefix for grid file. 
    NL%SFCGFILE    = 'sfcfiles/sfcgfile9'   ! path/prefix for sfcg file. 
-   NL%SFCNUDFILE  = 'sfcfiles/sfcnudfile9' ! path/prefix for sfcnud file. 
 
  !--------------------------------------------------------------------------
  !  Topography, Leaf, and Sea Variables
@@ -577,6 +576,9 @@
                       !     initialized from the final results of the long-term spin-up
                       !     simulation.  For this case, the soil initialization file is
                       !     specified in IGW_SPINUP_FILE.
+
+   NL%GW_SPINUP_SFCGFILE = './sfcfiles/sfcgfile_sp.h5'
+   NL%GW_SPINUP_HISTFILE = './hist/gwspinup-H-2100-01-01-000000.h5'
 
    NL%NZS = 1     ! Maximum number of snowcover layers
 

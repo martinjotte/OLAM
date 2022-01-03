@@ -243,14 +243,6 @@ subroutine leaf4_init_atm()
 
         psi = land%head0(iland) - slzt(k)
 
-        if (nl%igw_spinup == 1) then
-           if (psi > 0.) then
-              land%head_press(k,iland) = psi
-           else
-              land%head_press(k,iland) = 0.
-           endif
-        endif
-
         call soil_pot2wat(psi, land%wresid_vg(k,iland), land%wsat_vg(k,iland), &
                           land%alpha_vg(k,iland), land%en_vg(k,iland), &
                           land%soil_water(k,iland))
@@ -339,9 +331,6 @@ subroutine leaf4_init_atm()
 
         land%sfcwater_mass(1,iland) = land%sfcwater_mass(1,iland)  &
                                     + 100.  ! 100 kg/m^2 equivalent to 0.1 m depth
-
-        sfcg%head1(iwsfc) = .001 * land%sfcwater_mass(1,iland)
-
         land%sfcwater_depth(1,iland) = land%sfcwater_depth(1,iland)  &
                                      + .1   ! 0.1 m added depth
 
@@ -426,6 +415,10 @@ subroutine leaf4_init_atm()
 
      sfcg%rough(iwsfc) = max(snow_rough, &
         max(soil_rough, land%veg_rough(iland)) * (1. - land%snowfac(iland)))
+
+     ! Diagnose head1 based on sfcwater mass
+
+     sfcg%head1(iwsfc) = .001 * sum(land%sfcwater_mass(1:land%nlev_sfcwater(iland),iland))
 
   enddo
 

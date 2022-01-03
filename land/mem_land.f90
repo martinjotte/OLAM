@@ -42,12 +42,10 @@ Module mem_land
   integer :: onland = 0  ! Always zero, so need not use in code
   integer :: omland = 0  ! Always zero, so need not use in code
 
-  real :: hptimi         ! Inverse time scale for head_press adjustment [1/s]
+  integer :: kperc = 2   ! Vertical index of percolation level; perc depth is slz(kperc)
 
-  integer :: kperc = 2      ! Vertical index of percolation level; perc depth is slz(kperc)
-
-  real :: landgrid_dztop    ! Thickness (m) of top (shallowest) soil grid level 
-  real :: landgrid_depth    ! Depth (m) of soil grid lower boundary
+  real :: landgrid_dztop ! Thickness (m) of top (shallowest) soil grid level 
+  real :: landgrid_depth ! Depth (m) of soil grid lower boundary
 
   real, save, allocatable :: slz   (:) ! height (negative) of soil layer M pt [m]
   real, save, allocatable :: dslz  (:) ! soil layer thickness at T pt [m]
@@ -113,7 +111,6 @@ Module mem_land
 
      real, allocatable :: soil_water (:,:) ! soil water content [vol_water/vol_tot]
      real, allocatable :: soil_energy(:,:) ! soil energy [J/m^3]
-     real, allocatable :: head_press (:,:) ! head from positive (confinement) pressure [m]
      real, allocatable :: head0        (:) ! LBC total hydraulic head [m]
 
      ! Soil quantities read from SoilGrids datasets (constant in time)
@@ -227,10 +224,6 @@ Contains
   allocate (land%soil_energy    (nzg,mland)) ; land%soil_energy = rinit
   allocate (land%head0              (mland)) ; land%head0       = rinit
 
-  if (nl%igw_spinup == 1) then
-     allocate (land%head_press     (nzg,mland)) ; land%head_press  = rinit
-  endif
-
  ! The following are allocated in makesfc3.f90 because they are on the SFCGRIDFILE
 
  ! allocate (land%usdatext            (mland)) ; land%usdatext         = 0
@@ -301,7 +294,6 @@ Contains
 
   if (allocated(land%soil_water))  call increment_vtable('LAND%SOIL_WATER',  'LW', rvar2=land%soil_water)
   if (allocated(land%soil_energy)) call increment_vtable('LAND%SOIL_ENERGY', 'LW', rvar2=land%soil_energy)
-  if (allocated(land%head_press))  call increment_vtable('LAND%HEAD_PRESS',  'LW', rvar2=land%head_press)
   if (allocated(land%head0))       call increment_vtable('LAND%HEAD0',       'LW', rvar1=land%head0)
 
   end subroutine filltab_land

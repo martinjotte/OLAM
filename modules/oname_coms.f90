@@ -304,7 +304,6 @@ Module oname_coms
 
      character(pathlen) :: gridfile   = 'sfcfiles/gridfile_0'
      character(pathlen) :: sfcgfile   = 'sfcfiles/sfcgfile_0'
-     character(pathlen) :: sfcnudfile = 'sfcfiles/sfcnudfile_0'
 
 !!    TOPOGRAPHY, LEAF, SEA VARIABLES
 
@@ -337,6 +336,8 @@ Module oname_coms
      real    :: seatmp = 280.0
      real    :: seaice =   0.0
 
+     character(pathlen) :: gw_spinup_sfcgfile = ' '
+     character(pathlen) :: gw_spinup_histfile = ' '
      character(pathlen) :: topo_database      = ' '
      character(pathlen) :: bathym_database    = ' '
      character(pathlen) :: veg_database       = ' '

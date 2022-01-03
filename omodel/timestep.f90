@@ -413,8 +413,6 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
    if (leafstep(istp) > 0) then
       call surface_driver()
-      call lakecells()
-      call seacells()
 
       if (nl%igw_spinup /= 1) then
          call sfcg_avgatm()

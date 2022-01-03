@@ -814,7 +814,7 @@ subroutine vectslab_horiz_vsfc(iplt)
   use oplot_coms,  only: op
   use mem_sfcg,    only: itab_msfc, itab_vsfc, itab_wsfc, jtab_vsfc_swm, sfcg
   use mem_sea,     only: omsea, sea
-  use ocean_swm,   only: depthmin_swe
+  use sea_swm,     only: depthmin_swe
   use consts_coms, only: eradi
   use misc_coms,   only: io6, mdomain, iparallel
   use mem_para,    only: myrank, mgroupsize, nbytes_int, nbytes_real

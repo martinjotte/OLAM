@@ -150,6 +150,7 @@ subroutine copy_nl()
   use mem_sfcg,    only: nsfcgrids, sfcgrid_res_factor, nxp_sfc, &
                          nsfcgrdll, sfcgrdrad, sfcgrdlat, sfcgrdlon, sfcgfile, &
                          nswmzons, nswmzonll, swmzonrad, swmzonlat, swmzonlon
+  use mem_sfcnud,  only: gw_spinup_sfcgfile, gw_spinup_histfile
 
   implicit none
 
@@ -185,6 +186,8 @@ subroutine copy_nl()
      nqparm(i)  = nl%nqparm(i)
   enddo
 
+  gw_spinup_sfcgfile = nl%gw_spinup_sfcgfile
+  gw_spinup_histfile = nl%gw_spinup_histfile
   topo_database      = nl%topo_database
   bathym_database    = nl%bathym_database
   sst_database       = nl%sst_database

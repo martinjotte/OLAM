@@ -66,7 +66,7 @@ subroutine oplot_init()
 
      else
 
-        write(*,*) "NCAR Graphics cannot locate it's default database directory."
+        write(*,*) "NCAR Graphics cannot locate its default database directory."
 
         call get_environment_variable("NCARG_ROOT", value=dirnm, status=istat)
         if (istat == -1) then
@@ -543,8 +543,7 @@ subroutine plot_index(iplt)
 
   use oplot_coms, only: op
   use mem_grid,   only: mma, mva, mwa, xem, yem, zem, &
-                        xev, yev, zev, xew, yew, zew, &
-                        arm0, arw0, dnv
+                        xev, yev, zev, xew, yew, zew, arw0
   use mem_ijtabs, only: itab_w, jtab_w, jtw_wadj, &
                         itab_v, jtab_v, jtv_wadj, &
                         itab_m, jtab_m, jtm_vadj
@@ -560,7 +559,7 @@ subroutine plot_index(iplt)
 
   integer, intent(in) :: iplt
 
-  integer :: im,jm,img,iv,jv,ivg,iw,jw,iwg,iwsfc,iwsfcg
+  integer :: im,jm,img,iv,jv,ivg,iw,jw,iwg,iwsfc,iwsfcg,iwn
   real :: hpt,vpt,psiz,vsprd
 
   integer, allocatable :: buffer(:), bcopy(:)
@@ -613,12 +612,13 @@ subroutine plot_index(iplt)
         do im = 2,mma
 
         img = itab_m(im)%imglobe
+        iwn = itab_m(im)%iw(1)
 
         call oplot_transform(iplt,xem(im),yem(im),zem(im),hpt,vpt)
         if ( hpt < op%xmin .or. hpt > op%xmax .or.  &
              vpt < op%ymin .or. vpt > op%ymax ) cycle
 
-        call get_psiz(iplt,sqrt(arm0(im)),psiz,vsprd)
+        call get_psiz(iplt,sqrt(arw0(iwn)),psiz,vsprd)
 
         if (myrank == 0) then
 
@@ -657,12 +657,13 @@ subroutine plot_index(iplt)
         do iv = 2,mva
 
         ivg = itab_v(iv)%ivglobe
+        iwn = itab_v(iv)%iw(1)
 
         call oplot_transform(iplt,xev(iv),yev(iv),zev(iv),hpt,vpt)
         if ( hpt < op%xmin .or. hpt > op%xmax .or.  &
              vpt < op%ymin .or. vpt > op%ymax ) cycle
 
-        call get_psiz(iplt,dnv(iv),psiz,vsprd)
+        call get_psiz(iplt,sqrt(arw0(iwn)),psiz,vsprd)
 
         if (myrank == 0) then
 
@@ -909,12 +910,13 @@ subroutine plot_index_sfc(iplt)
         else
            ivg = ivsfc
         endif
+        iwn = itab_vsfc(ivsfc)%iwn(1)
 
         call oplot_transform(iplt,sfcg%xev(ivsfc),sfcg%yev(ivsfc),sfcg%zev(ivsfc),hpt,vpt)
         if ( hpt < op%xmin .or. hpt > op%xmax .or.  &
              vpt < op%ymin .or. vpt > op%ymax ) cycle
 
-        call get_psiz(iplt,sfcg%dnv(ivsfc),psiz,vsprd)
+        call get_psiz(iplt,sqrt(sfcg%area(iwn)),psiz,vsprd)
 
         if (myrank == 0) then
 

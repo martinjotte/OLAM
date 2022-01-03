@@ -83,6 +83,8 @@ implicit none
   real :: hlat0, hlon0, hlat, hlon
   real :: hlat_hist = 0., hlon_hist = 0.
 
+  character(128) :: htc0 = 'n'  ! pathlen = 128 in max_dims.f90
+
   real :: circ_avg(nr)
 
   real :: vtan_eyw    ! Target maximum tangential wind speed 
