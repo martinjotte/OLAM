@@ -182,6 +182,9 @@ Module oname_coms
 
      integer :: horiz_adv_order = 2
 
+     integer :: acoust_timestep_level = 3
+     integer :: scalar_timestep_level = 2
+
      real    :: akmin_vort     = 0.4
      real    :: divh_damp_fact = 0.1
 
@@ -205,6 +208,10 @@ Module oname_coms
      real :: rayfdiv_zmin  = 30000.0
      real :: rayfdiv_fact  = 0.0
      real :: rayfdiv_expon = 1.0
+
+     real :: rayfmix_zmin  = 30000.0
+     real :: rayfmix_fact  = 0.0
+     real :: rayfmix_expon = 1.0
 
 !!    RADIATION PARAMETERIZATION PARAMETERS
 

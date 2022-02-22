@@ -49,19 +49,24 @@ Module mem_rayf
   real :: rayfdiv_expon
   real :: rayfdiv_fact
 
+  real :: rayfmix_zmin
+  real :: rayfmix_expon
+  real :: rayfmix_fact
+
   real, allocatable :: rayf_cof   (:)
   real, allocatable :: rayf_cofw  (:)
   real, allocatable :: rayf_cofdiv(:)
-  real, allocatable :: rayf_cofdif(:)
+  real, allocatable :: rayf_cofmix(:)
 
   integer :: krayf_bot
   integer :: krayfw_bot
   integer :: krayfdiv_bot
-  integer :: krayfdif_bot
+  integer :: krayfmix_bot
 
   logical :: dorayf    = .false.
   logical :: dorayfw   = .false.
   logical :: dorayfdiv = .false.
+  logical :: dorayfmix = .false.
 
 Contains
 
@@ -69,33 +74,35 @@ Contains
 
 ! Initialize Rayleigh friction vertical profile coefficients
 
-    use misc_coms,    only: dtsm
-    use mem_grid,     only: mza, zm, zt
-    use oname_coms,   only: nl
+    use misc_coms,  only: dtsm, initial
+    use mem_grid,   only: mza, zm, zt
+    use oname_coms, only: nl
 
     implicit none
 
-    integer             :: k
-    real                :: distimi, distim0
+    integer :: k
+    real    :: distimi, distim0, dti
+
+    dti = 1.0 / real(dtsm(1))
 
     allocate( rayf_cof   (mza) )
     allocate( rayf_cofw  (mza) )
     allocate( rayf_cofdiv(mza) )
-    allocate( rayf_cofdif(mza) )
+    allocate( rayf_cofmix(mza) )
+
+    rayf_cof    = 0.0
+    rayf_cofw   = 0.0
+    rayf_cofdiv = 0.0
+    rayf_cofmix = 0.0
 
     krayf_bot    = mza + 1
     krayfw_bot   = mza + 1
     krayfdiv_bot = mza + 1
-    krayfdif_bot = mza + 1
+    krayfmix_bot = mza + 1
 
-! RAYF coefficient for THIL and VMC
+! RAYF COEFFICIENT FOR THIL AND VMC (ONLY FOR HORIZ. HOMOG. INITIALIZATION)
 
-    rayf_cof(1:mza) = 0.
-
-    if (rayf_fact > 1.e-7) then
-
-       dorayf = .true.
-       distimi = rayf_fact / real(dtsm(1))
+    if (rayf_fact > 1.e-7 .and. initial == 1) then
 
        do k = 2, mza
           if (zt(k) > rayf_zmin) then
@@ -104,45 +111,46 @@ Contains
           endif
        enddo
 
-       do k = krayf_bot, mza
-          rayf_cof(k) = distimi   &
-               * ((zt(k) - rayf_zmin) / (zm(mza) - rayf_zmin)) ** rayf_expon
-       enddo
+       if (krayf_bot <= mza) then
 
+          dorayf  = .true.
+          distimi = rayf_fact * dti
+
+          do k = krayf_bot, mza
+             rayf_cof(k) = distimi   &
+                  * ((zt(k) - rayf_zmin) / (zm(mza) - rayf_zmin)) ** rayf_expon
+          enddo
+
+       endif
     endif
 
-! RAYF coefficient for WMC
-
-    rayf_cofw(1:mza) = 0.
+! RAYF coefficient for WMC damping
 
     if (rayfw_fact > 1.e-7) then
 
-       dorayfw = .true.
-       distimi = rayfw_fact / real(dtsm(1))
-
-       do k = 2, mza
+       do k = 2, mza-1
           if (zm(k) > rayfw_zmin) then
              krayfw_bot = k
              exit
           endif
        enddo
 
-       do k = krayfw_bot, mza-1
-          rayf_cofw(k) = distimi   &
-               * ((zm(k) - rayfw_zmin) / (zm(mza) - rayfw_zmin)) ** rayfw_expon
-       enddo
+       if (krayfw_bot < mza) then
 
+          dorayfw = .true.
+          distimi = rayfw_fact * dti
+
+          do k = krayfw_bot, mza-1
+             rayf_cofw(k) = distimi   &
+                  * ((zm(k) - rayfw_zmin) / (zm(mza) - rayfw_zmin)) ** rayfw_expon
+          enddo
+
+       endif
     endif
 
 ! RAYF coefficient for Horiz Divergence
 
-    rayf_cofdiv(1:mza) = 0.
-
     if (rayfdiv_fact > 1.e-7) then
-
-       dorayfdiv = .true.
-       distim0   = max(nl%divh_damp_fact, 0.) / real(dtsm(1))
-       distimi   = (max(rayfdiv_fact,nl%divh_damp_fact)  - max(nl%divh_damp_fact,0.)) / real(dtsm(1))
 
        do k = 2, mza
           if (zt(k) > rayfdiv_zmin) then
@@ -151,28 +159,76 @@ Contains
           endif
        enddo
 
-       do k = krayfdiv_bot, mza
-          rayf_cofdiv(k) = distim0 + distimi   &
-               * ((zt(k) - rayfdiv_zmin) / (zm(mza) - rayfdiv_zmin)) ** rayfdiv_expon
-       enddo
+       if (krayfdiv_bot <= mza) then
 
+          dorayfdiv = .true.
+          distim0   = max(nl%divh_damp_fact, 0.) * dti
+          distimi   = max(rayfdiv_fact,nl%divh_damp_fact) * dti - distim0
+
+          do k = krayfdiv_bot, mza
+             rayf_cofdiv(k) = distim0 + distimi   &
+                  * ((zt(k) - rayfdiv_zmin) / (zm(mza) - rayfdiv_zmin)) ** rayfdiv_expon
+          enddo
+
+       endif
     endif
 
-! RAYF coefficient for velocity mixing
+! RAYF coefficient for horizontal velocity (VC) mixing
 
-    rayf_cofdif(1:mza) = 0.
+    if (rayfmix_fact > 1.e-7) then
 
-    do k = 2, mza
-       if (zt(k) > 27000.) then
-          krayfdif_bot = k
-          exit
+       do k = 2, mza-1
+          if (zm(k) > rayfmix_zmin) then
+             krayfmix_bot = k
+             exit
+          endif
+       enddo
+
+       if (krayfmix_bot < mza) then
+
+          dorayfmix = .true.
+
+          do k = krayfmix_bot, mza-1
+             rayf_cofmix(k) = rayfmix_fact &
+                  * ((zm(k) - rayfmix_zmin) / (zm(mza) - rayfw_zmin)) ** rayfmix_expon
+          enddo
+
        endif
-    enddo
-
-    do k = krayfdif_bot, mza
-       rayf_cofdif(k) = 0.35 * (zt(k) - 27000.) / (zm(mza) - 27000.)
-    enddo
+    endif
 
   end subroutine rayf_init
+
+
+  subroutine rayf_mix_top_vc( iv, vmt )
+
+    use mem_ijtabs,  only: itab_v
+    use mem_basic,   only: vc, rho
+    use mem_grid,    only: mza, arw, volvi
+
+    implicit none
+
+    integer, intent(in   ) :: iv
+    real,    intent(inout) :: vmt(mza)
+
+    real    :: vflux(mza)
+    integer :: k, iw1, iw2
+
+    iw1 = itab_v(iv)%iw(1)
+    iw2 = itab_v(iv)%iw(2)
+
+    vflux (mza)           = 0.0
+    vflux(krayfmix_bot-1) = 0.0
+
+    do k = krayfmix_bot, mza-1
+       vflux(k) = 0.25 * (arw(k,iw1) + arw(k,iw2)) * rayf_cofmix(k) * (vc(k,iv) - vc(k+1,iv)) &
+            * real(rho(k+1,iw1) + rho(k+1,iw2) + rho(k,iw1) + rho(k,iw2))
+    enddo
+
+    do k = krayfmix_bot, mza
+       vmt(k) = vmt(k) + (vflux(k-1) - vflux(k)) * volvi(k,iv)
+    enddo
+
+  end subroutine rayf_mix_top_vc
+
 
 end module mem_rayf

@@ -130,6 +130,8 @@ subroutine hist_read()
   use mem_lake,    only: itab_lake, nlake, mlake
   use mem_sea,     only: itab_sea, nsea, msea
   use mem_nudge,   only: nwnud, mwnud, itab_wnud
+  use mem_para,    only: myrank
+  use mem_basic,   only: vmc, vmp
 
   implicit none
 
@@ -162,10 +164,23 @@ subroutine hist_read()
      ! Skip to next variable if the current one is not in the history file
 
      if (ndims < 0) then
-        write(io6,*)
-        write(io6,*) 'Variable '//trim(varn)//' is not in the history file, skipping'
-        write(io6,*)
-        cycle
+        if (varn == 'VMP') then
+
+           write(io6,*)
+           write(io6,*) 'Variable VMP is not in the history file.'
+           write(io6,*) 'Setting VMP to VMC.'
+           write(io6,*)
+           vmp = vmc
+           cycle
+
+        else
+
+           write(io6,*)
+           write(io6,*) 'Variable '//trim(varn)//' is not in the history file, skipping'
+           write(io6,*)
+           cycle
+
+        endif
      endif
 
      ! Identify the points we want to read from the history file

@@ -524,9 +524,11 @@ Contains
      if (allocated(sfcg%rough))          call increment_vtable('SFCG%ROUGH',          'CW', rvar1=sfcg%rough)
      if (allocated(sfcg%head1))          call increment_vtable('SFCG%HEAD1',          'CW', rvar1=sfcg%head1)
 
-     if (allocated(sfcg%vc))             call increment_vtable('SFCG%VC',             'CV', rvar1=sfcg%vc)
-     if (allocated(sfcg%vmp))            call increment_vtable('SFCG%VMP',            'CV', rvar1=sfcg%vmp)
-     if (allocated(sfcg%vmc))            call increment_vtable('SFCG%VMC',            'CV', rvar1=sfcg%vmc)
+!!!!!!!!!!!!!! TODO !!!!!!!!!!!!!!
+!    if (allocated(sfcg%vc))             call increment_vtable('SFCG%VC',             'CV', rvar1=sfcg%vc)
+!    if (allocated(sfcg%vmp))            call increment_vtable('SFCG%VMP',            'CV', rvar1=sfcg%vmp)
+!    if (allocated(sfcg%vmc))            call increment_vtable('SFCG%VMC',            'CV', rvar1=sfcg%vmc)
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
    end subroutine filltab_sfcg
 

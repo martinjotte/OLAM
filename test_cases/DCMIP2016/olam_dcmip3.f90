@@ -727,17 +727,17 @@ end subroutine dcmip_save_initfields
 
 !==========================================================================
 
-subroutine olam_dcmip_prescribedflow(time0,vmsca,wmsca,rho_old)
+subroutine olam_dcmip_prescribedflow(time0,rho_old)
 
 use mem_basic,  only: vc, vmc, wc, wmc, rho, thil, theta, press, rr_w, rr_v, &
-                      vxe, vye, vze
+                      vxesc, vyesc, vzesc, wmsc, vmsc, vxe, vye, vze, vmp
 use mem_ijtabs, only: itab_v, jtab_v, jtab_w, jtw_prog, itab_w
 use mem_grid,   only: mza, mva, mwa, zt, xev, yev, zev, vnx, vny, vnz, lpw, &
                       glatw, glonw, lpv, zm, glatv, glonv, xew, yew, zew, dzt, &
                       arw, arv, volti
 use mem_addsc,  only: addsc
 use consts_coms,only: p00, rocp, erad, pio180, p00i
-use misc_coms,  only: dtlong, dtsm, iparallel
+use misc_coms,  only: dtlong, dtsm, iparallel, nrk_scal
 use vel_t3d,    only: diagvel_t3d, diagvel_t3d_init
 use oname_coms, only: nl
 
@@ -752,10 +752,7 @@ implicit none
 
 real(8), intent(in) :: time0
 
-real, intent(out) :: vmsca(mza,mva), wmsca(mza,mwa)
-
-!real(8), intent(out) :: rho_old(mza,mwa) ! density at beginning of timestep [kg/m^3]
-real, intent(out) :: rho_old(mza,mwa) ! density at beginning of timestep [kg/m^3]
+real(8), intent(out) :: rho_old(mza,mwa) ! density at beginning of timestep [kg/m^3]
 
 real(8) :: lonrad,latrad,p,z,t,phis,ps,rho0,q,q1,q2,q3,q4
 real(8) :: raxis, u01d, v01d, uv01dx, uv01dy, uv01dz, uv01dr
@@ -766,7 +763,8 @@ integer :: mrl,j,iw,k,iv,iw1,iw2,zcoords,test,ka,kb,jv
 
 real(8) :: pv(mza), zmv(mza), wcv(mza), uz(mza), vz(mza), rhoz(mza)
 
-real    :: hflux_rho(mza), dirv
+real    :: dirv
+real(8) :: hflux_rho(mza), wmarw(mza)
 
 zcoords = 1
 mrl     = 1
@@ -786,9 +784,8 @@ do iw = 2,mwa  ! do for all points in subdomain
 
    wc     (mza,iw) = 0.
    wmc    (mza,iw) = 0.
-   wmsca  (mza,iw) = 0.
-   rho_old(mza,iw) = rho(mza,iw)
-   rho_old(ka ,iw) = rho(ka ,iw)
+   wmsc   (mza,iw) = 0.
+   wmsc   (ka ,iw) = 0.
 
    if (nl%test_case == 11) then
 
@@ -803,9 +800,9 @@ do iw = 2,mwa  ! do for all points in subdomain
                                          wcv,rhoz,time0)
 
       do k = ka, mza-1
-         wc   (k,iw) = wcv(k)
-         wmc  (k,iw) = wcv(k) * rhoz(k)
-         wmsca(k,iw) = wmc(k,iw) * arw(k,iw)
+         wc  (k,iw) = wcv(k)
+         wmc (k,iw) = wcv(k) * rhoz(k)
+         wmsc(k,iw) = wmc(k,iw)
       enddo
 
    elseif (nl%test_case == 12) then
@@ -820,9 +817,9 @@ do iw = 2,mwa  ! do for all points in subdomain
          call test1_advection_hadley(lonrad,latrad,p,zm0,zcoords, &
             u0,v0,wm0,t,phis,ps,rhom0,q,q1,time0)
 
-         wc   (k,iw) = wm0
-         wmc  (k,iw) = wm0 * rhom0
-         wmsca(k,iw) = wmc(k,iw) * arw(k,iw)
+         wc  (k,iw) = wm0
+         wmc (k,iw) = wm0 * rhom0
+         wmsc(k,iw) = wmc(k,iw)
       enddo
 
    endif
@@ -901,9 +898,15 @@ do iv = 2,mva
    endif
 
    do k = kb, mza
-      vmc  (k,iv) = vc (k,iv) * real( rhoz(k) )
-      vmsca(k,iv) = vmc(k,iv) * arv(k,iv)
+      vmc (k,iv) = vc (k,iv) * real( rhoz(k) )
+      vmsc(k,iv) = vmc(k,iv)
    enddo
+
+   if (allocated(vmp)) then
+      do k = kb, mza
+         vmp(k,iv) = vmc(k,iv)
+      enddo
+   endif
 
 enddo
 !$omp end do
@@ -915,7 +918,7 @@ enddo
 !$omp do private(iw,k,jv,iv,dirv,dts)
 do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
-   hflux_rho = 0.0
+   hflux_rho = 0._8
 
    do jv = 1, itab_w(iw)%npoly
       iv   = itab_w(iw)%iv(jv)
@@ -923,18 +926,22 @@ do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
       ! Loop over T levels
       do k = lpv(iv), mza
-         hflux_rho(k) = hflux_rho(k) + dirv * vmsca(k,iv)
+         hflux_rho(k) = hflux_rho(k) + real(dirv * vmc(k,iv) * arv(k,iw), 8)
       enddo
    enddo
 
    dts = dtsm(itab_w(iw)%mrlw)
 
-   do k = lpw(iw), mza
-      rho(k,iw) = rho(k,iw) + dts * volti(k,iw) &
-                            * (hflux_rho(k) + wmsca(k-1,iw) - wmsca(k,iw))
+   do k = lpw(iw), mza-1
+      wmarw(k) = wmc(k,iw) * arw(k,iw)
    enddo
 
-   do k = 1, lpw(iw)-1
+   do k = lpw(iw), mza
+      rho(k,iw) = rho(k,iw) + dts * volti(k,iw) &
+                            * (hflux_rho(k) + wmarw(k-1) - wmarw(k))
+   enddo
+
+   do k = 2, lpw(iw)-1
       rho(k,iw) = rho(lpw(iw),iw)
    enddo
 
@@ -956,6 +963,18 @@ if (nl%naddsc >= 2) addsc(2)%sclt = 0.
 if (nl%naddsc >= 3) addsc(3)%sclt = 0.
 if (nl%naddsc >= 4) addsc(4)%sclt = 0.
 if (nl%naddsc >= 5) addsc(5)%sclt = 0.
+
+if (nrk_scal == 1) then
+   !$omp parallel do private(iw,k)
+   do iw = 2, mwa
+      do k = 2, mza
+         vxesc(k,iw) = vxe(k,iw)
+         vyesc(k,iw) = vye(k,iw)
+         vzesc(k,iw) = vze(k,iw)
+      enddo
+   enddo
+   !$omp end parallel do
+endif
 
 if (iparallel == 1) call mpi_recv_w(mrl, dvara1=rho)
 call lbcopy_w(1, d1=rho)

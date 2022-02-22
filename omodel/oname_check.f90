@@ -318,14 +318,17 @@ call rchk_bnds( nl%rayf_fact,  "RAYF_FACT",  0.0,    1.0, 2, nfatal, nwarn )
 call rchk_bnds( nl%rayf_expon, "RAYF_EXPON", 0.0,    5.0, 2, nfatal, nwarn )
 call rchk_bnds( nl%rayf_zmin,  "RAYF_ZMIN" , 0.0, r_huge, 2, nfatal, nwarn )
 
-
-call rchk_bnds( nl%rayfw_fact,  "RAYFW_FACT",  0.0,    1.0, 2, nfatal, nwarn )
+call rchk_bnds( nl%rayfw_fact,  "RAYFW_FACT",  0.0, r_huge, 2, nfatal, nwarn )
 call rchk_bnds( nl%rayfw_expon, "RAYFW_EXPON", 0.0,    5.0, 2, nfatal, nwarn )
 call rchk_bnds( nl%rayfw_zmin,  "RAYFW_ZMIN" , 0.0, r_huge, 2, nfatal, nwarn )
 
-call rchk_bnds( nl%rayfdiv_fact,  "RAYFDIV_FACT",  0.0,    0.5, 2, nfatal, nwarn )
+call rchk_bnds( nl%rayfdiv_fact,  "RAYFDIV_FACT",  0.0,    0.3, 2, nfatal, nwarn )
 call rchk_bnds( nl%rayfdiv_expon, "RAYFDIV_EXPON", 0.0,    5.0, 2, nfatal, nwarn )
 call rchk_bnds( nl%rayfdiv_zmin,  "RAYFDIV_ZMIN" , 0.0, r_huge, 2, nfatal, nwarn )
+
+call rchk_bnds( nl%rayfdiv_fact,  "RAYFMIX_FACT",  0.0,    2.0, 2, nfatal, nwarn )
+call rchk_bnds( nl%rayfdiv_expon, "RAYFMIX_EXPON", 0.0,    5.0, 2, nfatal, nwarn )
+call rchk_bnds( nl%rayfdiv_zmin,  "RAYFMIX_ZMIN" , 0.0, r_huge, 2, nfatal, nwarn )
 
 !--------------------------------------------------------------------------
 ! RADIATION PARAMETERIZATION PARAMETERS
@@ -476,6 +479,25 @@ elseif (nl%miclevel == 3) then
    call rchk_bnds( nl%ccnparm,  "CCNPARM",  0., 2000.e6, 0, nfatal, nwarn )
    call rchk_bnds( nl%gccnparm, "GCCNPARM", 0., 100.e3, 0, nfatal, nwarn )
    call rchk_bnds( nl%ifnparm,  "IFNPARM",  0., 100.e3, 0, nfatal, nwarn )
+
+   if (nl%icloud == 4) then
+
+      if (nl%iccn /= 1) then
+         write(io6,*) 'FATAL - ICCN must be set to 1 when ICLOUD = 4'
+         nfatal = nfatal + 1
+      endif
+
+      if (nl%igccn /= 1) then
+         write(io6,*) 'FATAL - IGCCN must be set to 1 when ICLOUD = 4'
+         nfatal = nfatal + 1
+      endif
+
+      if (nl%iifn /= 1) then
+         write(io6,*) 'FATAL - IIFN must be set to 1 when ICLOUD = 4'
+         nfatal = nfatal + 1
+      endif
+
+   endif
 
 endif
 

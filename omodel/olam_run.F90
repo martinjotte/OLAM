@@ -41,7 +41,7 @@ subroutine olam_run(name_name)
                          runtype, hfilin, timmax8, alloc_misc, iparallel,        &
                          iyear1, imonth1, idate1, itime1, s1900_init, s1900_sim, &
                          time_prevhist, rinit, rinit8, debug_fp, init_nans,      &
-                         isubdomain, do_chem, time_bias, dtlong
+                         isubdomain, do_chem, time_bias, dtlong, ioutput
 
   use olam_mpi_atm,only: olam_alloc_mpi, mpi_send_w, mpi_recv_w, &
                          alloc_mpi_sndrcv_bufs
@@ -760,12 +760,12 @@ subroutine olam_run(name_name)
   ! If this is not a history start AND if it is not the second or later
   ! cycle of hurricane initialization, write initial history file
 
-  if (runtype /= 'HISTORY' .and. icycle_hurrinit < 2) then
+  if (runtype /= 'HISTORY' .and. icycle_hurrinit < 2 .and. ioutput /= 0) then
      if (icycle_hurrinit == 1) then
-        write(*,'(/,a)') 'olam_run calling history_write with HTC0 vtype'
+        write(io6,'(/,a)') 'olam_run calling history_write with HTC0 vtype'
         call history_write('HTC0')
      else
-        write(*,'(/,a)') 'olam_run calling history_write with STATE vtype'
+        write(io6,'(/,a)') 'olam_run calling history_write with STATE vtype'
         call history_write('STATE')
      endif
      write(io6,'(/,a)') 'olam_run finished history_write'

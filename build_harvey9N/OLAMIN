@@ -287,6 +287,12 @@
 
    NL%HORIZ_ADV_ORDER = 2 ! Horizontal advection order (2 or 3)
 
+   NL%ACOUST_TIMESTEP_LEVEL = 3  ! Time stepping scheme for variables on acoustic
+   NL%SCALAR_TIMESTEP_LEVEL = 2  ! or scalar (long) timesteps.
+                                 ! 1 = Bob's original 1-step scheme
+                                 ! 2 = Runge-Kutta 2-step scheme (RK3)
+                                 ! 3 = Runge-Kutta 3-step scheme (RK3)
+
    NL%AKMIN_VORT     = 0.4  ! Rotio of vorticity damping coefficient to typical
                             ! value from deformation K. Typical range 0.2 - 1.0
 

@@ -98,6 +98,9 @@ Module misc_coms
   integer :: ndz
   integer :: mstp
 
+  integer :: nrk_wrtv = 3
+  integer :: nrk_scal = 2
+
   integer :: idiffk   (maxgrds)
   integer :: ndtrat   (maxgrds)
   integer :: nacoust  (maxgrds)

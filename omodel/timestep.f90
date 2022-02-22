@@ -34,7 +34,8 @@ subroutine timestep()
 
 use misc_coms,   only: io6, time8, time_istp8, time_istp8p, time_bias, &
                        nqparm, initial, ilwrtyp, iswrtyp, dtsm, i_o3, &
-                       iparallel, s1900_init, s1900_sim, do_chem
+                       iparallel, s1900_init, s1900_sim, do_chem, &
+                       nrk_wrtv, nrk_scal
 use mem_ijtabs,  only: nstp, istp, mrls, leafstep, mrl_begl, mrl_endl, mrl_ends
 use mem_nudge,   only: nudflag, nudnxp, o3nudflag
 use mem_grid,    only: mza, mva, mwa
@@ -54,7 +55,8 @@ use var_tables,  only: num_scalar, scalar_tab
 use mem_megan,   only: megan_avg_temp
 use emis_defn,   only: get_emis
 use depv_defn,   only: get_depv
-use wrtv_mem,    only: prog_wrtv, comp_alpha_press
+use wrtv_rk,     only: prog_wrtv_rk
+use wrtv_orig,   only: prog_wrtv_orig
 use check_nan,   only: check_nans, compute_mass_sums
 use pbl_drivers, only: pbl_driver, comp_horiz_k
 use mem_cuparm,  only: conprr
@@ -64,11 +66,7 @@ implicit none
 
 integer :: jstp, mrl, n
 
-real     :: vmsca      (mza,mva) ! V face momentum for scalar advection
-real     :: wmsca      (mza,mwa) ! W face momentum for scalar advection
-!real(r8) :: rho_old    (mza,mwa) ! density at beginning of long timestep [kg/m^3]
-real :: rho_old    (mza,mwa) ! density at beginning of long timestep [kg/m^3]
-
+real(r8) :: rho_old(mza,mwa) ! density at beginning of long timestep [kg/m^3]
 real(r8) :: time0
 
 ! +----------------------------------------------------------------------------+
@@ -105,13 +103,10 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
    if (nl%test_case >= 901 .and. nl%test_case <= 950) go to 1311
 
-   call tend0()
-
    mrl = mrl_begl(istp)
    if (mrl > 0) then
-      call pcpg0()
+      call tend0(rho_old)
       call comp_alpha_press(mrl)
-
       call surface_turb_flux(mrl)
       call sea_spray(mrl)
       call dust_src(mrl)
@@ -183,10 +178,6 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
    endif
 
-   ! call check_nans(5,rvara1=alpha_press)
-
-   call zero_momsc(vmsca,wmsca,rho_old)
-
    ! call check_nans(11,rvara1=alpha_press)
 
    ! Call olam_dcmip_phys, which is the OLAM interface to DCMIP auxiliary
@@ -238,7 +229,11 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
        nl%test_case == 13) go to 33
    !--------------------------------------
 
-   call prog_wrtv(vmsca,wmsca)
+   if (nrk_wrtv == 1) then
+      call prog_wrtv_orig()
+   else
+      call prog_wrtv_rk()
+   endif
 
    33 continue
 
@@ -262,7 +257,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
       time0 = time8 + .5 * dtsm(1)
 
-      call olam_dcmip_prescribedflow(time0,vmsca,wmsca,rho_old)
+      call olam_dcmip_prescribedflow(time0,rho_old)
 
    endif
    !--------------------------------------
@@ -276,7 +271,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
        nl%test_case == 13) go to 34
    !--------------------------------------
 
-   call timeavg_momsc(vmsca,wmsca)
+   call timeavg_momsc()
 
    34 continue
 
@@ -285,7 +280,11 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    mrl = mrl_endl(istp)
    if (mrl > 0) then
 
-      call scalar_transport(mrl,vmsca,wmsca,rho_old)
+      if (nrk_scal == 1) then
+         call scalar_transport_orig(mrl,rho_old)
+      else
+         call scalar_transport_rk(mrl,rho_old)
+      endif
 
 !     call check_nans(14) !,rvara1=alpha_press)
 !     call check_nans(15)
@@ -457,14 +456,13 @@ end subroutine timestep
 
 subroutine modsched()
 
-use mem_ijtabs, only: nstp, mrls,  &
-                      mrl_endl, mrl_ends, mrl_begl, mrl_begs, leafstep
-
-use misc_coms,  only: io6, nacoust, ndtrat, dtlm, dtlong, dtsm
-use leaf_coms,  only: dt_leaf, mrl_leaf, isfcl
-use lake_coms,  only: dt_lake
-use sea_coms,   only: dt_sea
-use consts_coms,only: r8
+use mem_ijtabs,  only: nstp, mrls,  &
+                       mrl_endl, mrl_ends, mrl_begl, mrl_begs, leafstep
+use misc_coms,   only: io6, nacoust, ndtrat, dtlm, dtlong, dtsm
+use leaf_coms,   only: dt_leaf, mrl_leaf, isfcl
+use lake_coms,   only: dt_lake
+use sea_coms,    only: dt_sea
+use consts_coms, only: r8
 
 implicit none
 
@@ -584,57 +582,166 @@ end subroutine modsched
 
 !==========================================================================
 
-subroutine tend0()
+subroutine tend0(rho_old)
 
-  use mem_ijtabs, only: istp, mrl_begl, mrl_begs
-  use var_tables, only: scalar_tab, num_scalar
-  use mem_tend,   only: thilt, vmxet, vmyet, vmzet, vmt
+  use mem_ijtabs,  only: istp, mrl_begl, mrl_begs
+  use var_tables,  only: scalar_tab, num_scalar
+  use mem_tend,    only: thilt, vmxet, vmyet, vmzet, vmt
+  use misc_coms,   only: nrk_scal
+  use mem_sfcg,    only: mwsfc, itab_wsfc, sfcg
+  use mem_basic,   only: vmsc, wmsc, rho, vxesc, vyesc, vzesc
+  use mem_grid,    only: mza, mwa, mva
+  use consts_coms, only: r8
 
   implicit none
 
-  integer :: n
+  real(r8), intent(out) :: rho_old(mza,mwa)
+  integer               :: iw, iv, n, k, iwsfc
 
-  if (mrl_begl(istp) > 0) then
-     vmxet = 0.0
-     vmyet = 0.0
-     vmzet = 0.0
-     thilt = 0.0
-     vmt   = 0.0
+  !$omp parallel
+  !$omp do private(k,n)
+  do iw = 2, mwa
+
+     do k = 2, mza
+        vmxet  (k,iw) = 0.0
+        vmyet  (k,iw) = 0.0
+        vmzet  (k,iw) = 0.0
+        thilt  (k,iw) = 0.0
+        wmsc   (k,iw) = 0.0
+        rho_old(k,iw) = rho(k,iw)
+     enddo
 
      do n = 1, num_scalar
-        scalar_tab(n)%var_t = 0.0
+        do k = 2, mza
+           scalar_tab(n)%var_t(k,iw) = 0.0
+        enddo
      enddo
-  endif
+
+     if (nrk_scal == 1) then
+        do k = 2, mza
+           vxesc(k,iw) = 0.0
+           vyesc(k,iw) = 0.0
+           vzesc(k,iw) = 0.0
+        enddo
+     endif
+
+  enddo
+  !$omp end do nowait
+
+  !$omp do private(k)
+  do iv = 2, mva
+     do k = 2, mza
+        vmt (k,iv) = 0.0
+        vmsc(k,iv) = 0.0
+     enddo
+  enddo
+  !$omp end do nowait
+
+  !$omp do
+  do iwsfc = 2, mwsfc
+     sfcg%pcpg (iwsfc) = 0.
+     sfcg%qpcpg(iwsfc) = 0.
+     sfcg%dpcpg(iwsfc) = 0.
+  enddo
+  !$omp end do nowait
+  !$omp end parallel
 
 end subroutine tend0
 
 !==========================================================================
 
-subroutine pcpg0()
+subroutine comp_alpha_press(mrl)
 
-  use misc_coms, only: isubdomain
-  use mem_sfcg,  only: mwsfc, itab_wsfc, sfcg
-  use mem_para,  only: myrank
+  use mem_grid,    only: lpw, lpv, mza, dzim, dniv, zfacit
+  use mem_ijtabs,  only: jtab_w, jtw_prog, jtab_v, jtv_prog, itab_v
+  use consts_coms, only: pc1, rdry, rvap, cpocv, r8, gravo2
+  use mem_basic,   only: rr_v, rr_w, theta, thil, alpha_press, &
+                         pwfac, pvfac
+  use oname_coms,  only: nl
 
   implicit none
 
-  integer :: iwsfc
+  integer, intent(in)  :: mrl
+  integer              :: j, iw, k, iv, iw1, iw2
+  real                 :: rw
 
-  !$omp parallel do
-  do iwsfc = 2,mwsfc
+  !$omp parallel
+  !$omp do private(iw,k,rw)
+  do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
-     ! Skip this cell if running in parallel and cell rank is not MYRANK
+     ! Evaluate alpha coefficient for pressure
+     do k = lpw(iw), mza
+!       alpha_press(k,iw) = pc1 * (rdry + rvap * rr_v(k,iw)) ** cpocv
+        alpha_press(k,iw) = pc1 * ( (rdry + rvap * rr_v(k,iw)) &
+                                  * theta(k,iw) / thil(k,iw) ) ** cpocv
+     enddo
 
-     if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+     do k = lpw(iw), mza-1
+!       pwfac(k,iw) = dzim(k) * ( zwgt_bot(k) / (1. + rr_w(k  ,iw)) &
+!                               + zwgt_top(k) / (1. + rr_w(k+1,iw)) )
 
-     sfcg%pcpg (iwsfc) = 0.
-     sfcg%qpcpg(iwsfc) = 0.
-     sfcg%dpcpg(iwsfc) = 0.
-
+        rw = 0.5 * (rr_w(k+1,iw) + rr_w(k,iw))
+        pwfac(k,iw) = dzim(k) * (1.0 - rw + rw * rw)
+     enddo
   enddo
-  !$omp end parallel do
+  !$omp end do nowait
 
-end subroutine pcpg0
+  !$omp do private(iv,iw1,iw2,k,rw)
+  do j = 1,jtab_v(jtv_prog)%jend(mrl); iv = jtab_v(jtv_prog)%iv(j)
+     iw1 = itab_v(iv)%iw(1)
+     iw2 = itab_v(iv)%iw(2)
+
+     do k = lpv(iv), mza
+!       pvfac(k,iv) = dnivo2(iv) * zfacit(k) * ( 1. / (1. + rr_w(k,iw1)) &
+!                                              + 1. / (1. + rr_w(k,iw2)) )
+
+        rw =  0.5 * (rr_w(k,iw1) + rr_w(k,iw2))
+        pvfac(k,iv) = dniv(iv) * zfacit(k) * (1.0 - rw + rw * rw)
+     enddo
+  enddo
+  !$omp end do nowait
+  !$omp end parallel
+
+end subroutine comp_alpha_press
+
+!===========================================================================
+
+subroutine timeavg_momsc()
+
+  use mem_ijtabs, only: istp, mrl_endl
+  use mem_grid,   only: mza, mva, mwa, lpw, lpv
+  use misc_coms,  only: nacoust
+  use mem_basic,  only: vmsc, wmsc
+
+  implicit none
+
+  integer :: k, iv, iw
+  real    :: acoi
+
+  if (mrl_endl(istp) > 0) then
+     acoi = 1.0 / nacoust(1)
+
+     !$omp parallel
+     !$omp do private(k)
+     do iv = 2, mva
+        do k = lpv(iv), mza
+           vmsc(k,iv) = vmsc(k,iv) * acoi
+        enddo
+     enddo
+     !$omp end do nowait
+
+     !$omp do private(k)
+     do iw = 2, mwa
+        do k = lpw(iw), mza-1
+           wmsc(k,iw) = wmsc(k,iw) * acoi
+        enddo
+     enddo
+     !$omp end do nowait
+     !$omp end parallel
+
+  endif
+
+end subroutine timeavg_momsc
 
 !==========================================================================
 

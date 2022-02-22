@@ -116,7 +116,8 @@ subroutine copy_nl()
                          itime1, idate1, imonth1, iyear1, ngrids, ngrids_old, &
                          nzp, mdomain, itopoflg, ibathflg, nxp, &
                          ngrdll, grdrad, grdlat, grdlon, deltax, ndz, hdz, dz, &
-                         current_time, debug_fp, init_nans, do_chem
+                         current_time, debug_fp, init_nans, do_chem, &
+                         nrk_wrtv, nrk_scal
 
   use micro_coms,  only: miclevel, icloud, idriz, irain, ipris, isnow, iaggr, &
                          igraup, ihail, iccn, igccn, iifn, &
@@ -145,8 +146,10 @@ subroutine copy_nl()
   use mem_nudge,   only: tnudcent, nudflag, nudnxp,  &
                          o3nudflag, tnudi_o3, o3nudpress
   use mem_rayf,    only: rayf_zmin,    rayf_fact,    rayf_expon,    &
-                         rayfw_zmin,   rayfw_fact,   rayfw_expon,  &
-                         rayfdiv_zmin, rayfdiv_fact, rayfdiv_expon
+                         rayfw_zmin,   rayfw_fact,   rayfw_expon,   &
+                         rayfdiv_zmin, rayfdiv_fact, rayfdiv_expon, &
+                         rayfmix_zmin, rayfmix_fact, rayfmix_expon
+
   use mem_sfcg,    only: nsfcgrids, sfcgrid_res_factor, nxp_sfc, &
                          nsfcgrdll, sfcgrdrad, sfcgrdlat, sfcgrdlon, sfcgfile, &
                          nswmzons, nswmzonll, swmzonrad, swmzonlat, swmzonlon
@@ -217,6 +220,8 @@ subroutine copy_nl()
   naddsc        = nl%naddsc
   debug_fp      = nl%debug_fp
   init_nans     = nl%init_nans
+  nrk_wrtv      = nl%acoust_timestep_level
+  nrk_scal      = nl%scalar_timestep_level
   rayf_zmin     = nl%rayf_zmin
   rayf_fact     = nl%rayf_fact
   rayf_expon    = nl%rayf_expon
@@ -226,6 +231,9 @@ subroutine copy_nl()
   rayfdiv_zmin  = nl%rayfdiv_zmin
   rayfdiv_fact  = nl%rayfdiv_fact
   rayfdiv_expon = nl%rayfdiv_expon
+  rayfmix_zmin  = nl%rayfmix_zmin
+  rayfmix_fact  = nl%rayfmix_fact
+  rayfmix_expon = nl%rayfmix_expon
   ilwrtyp       = nl%ilwrtyp
   iswrtyp       = nl%iswrtyp
   radfrq        = nl%radfrq

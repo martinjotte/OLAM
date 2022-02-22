@@ -464,10 +464,8 @@ subroutine solve_eddy_diff_scalars( iw )
   use mem_basic,  only: rho, rr_w
   use mem_ijtabs, only: itab_w
   use misc_coms,  only: dtlm
-  use tridiag,    only: tridv, tridiffo
+  use tridiag,    only: tridv
   use var_tables, only: num_pblmix, pblmix_map, scalar_tab
-  !use mem_leaf,   only: itab_wl, land
-  !use mem_sea,    only: itab_ws, sea
   use leaf_coms,  only: isfcl
   use mem_micro,  only: rr_c, rr_p
   use mem_tend,   only: rr_wt
@@ -479,200 +477,11 @@ subroutine solve_eddy_diff_scalars( iw )
 
   integer, intent(in) :: iw
 
-  real    :: akodz(mza), dtomass(mza), dtorho(mza), dgam(mza)
+  real    :: dtomass(mza), dtorho(mza), akodz(mza)
   integer :: ka, k, ks, jwl, iwl, jws, iws, kbot, n, ns, kmax
   real    :: vctr2(mza), vctr5(mza), vctr6(mza), vctr7(mza)
-  real    :: soln(mza,num_pblmix), rhs(mza,num_pblmix)
-  real    :: dtl, dtli, s0(num_pblmix)
-
-  ka   = lpw(iw)
-  dtl  = dtlm(1)
-  dtli = 1.0 / dtl
-  s0   = 0.
-
-  if (khtop(iw) < ka) return
-
-  kmax = min(khtop(iw) + 1, mza)
-
-  akodz(ka-1) = 0.
-! akodz(mza)  = 0.
-  akodz(kmax) = 0.
-
-  ! Vertical loop over W levels
-
-! do k = ka, mza-1
-  do k = ka, khtop(iw)
-     akodz(k) = arw(k,iw) * vkh(k,iw) * dzim(k)
-  enddo
-
-  ! Vertical loop over T levels
-
-! do k = ka, mza
-  do k = ka, kmax
-     dtorho (k) = dtl / rho(k,iw)
-     dtomass(k) = forw_imp * dtorho(k) * volti(k,iw)
-     vctr5  (k) = -dtomass(k) * akodz(k-1)
-     vctr7  (k) = -dtomass(k) * akodz(k)
-     vctr6  (k) = 1. - vctr5(k) - vctr7(k)
-  enddo
-
-  ! Scalar variables with long-timestep forcing included
-
-  do ns = 1, num_pblmix
-     n = pblmix_map(ns)
-!    do k = ka, mza
-     do k = ka, kmax
-        rhs(k,ns) = scalar_tab(n)%var_p(k,iw)  &
-                  + dtorho(k) * scalar_tab(n)%var_t(k,iw)
-     enddo
-  enddo
-
-  if (nl%test_case == 131) then
-     do k = ka, kmax
-        rhs(k,1) = rhs(k,1) - rr_w_init(k,iw)
-     enddo
-  endif
-
-  ! Non local PBL terms
-
-  if (nl%idiffk(itab_w(iw)%mrlw) == 1) then
-     if (agamma(ka,iw) > 1.e-7) then
-
-        do k = ka, kpblh(iw)
-           dgam(k) = dtomass(k) * (agamma(k-1,iw) - agamma(k,iw) )
-        enddo
-
-        ! water vapor (assumed to always be first scalar)
-        s0(1) = sfluxr(iw)
-
-        do ns = 2, num_pblmix
-           n = pblmix_map(ns)
-
-           ! other scalars with surface flux
-           if (scalar_tab(n)%do_sxfer) then
-              s0(ns) = sum( scalar_tab(n)%sxfer(1:lsw(iw),iw) / rho(ka:ka+lsw(iw)-1,iw) ) &
-                     * dtli * arw0i(iw)
-           endif
-
-           ! other scalars with near-surface emissions
-           if (scalar_tab(n)%do_emis) then
-              s0(ns) = s0(n) + sum( real(volt(ka:ka+2,iw)) * scalar_tab(n)%emis(ka:ka+2,iw) ) &
-                             / arw(ka+2,iw)
-           endif
-        enddo
-
-        do ns = 1, num_pblmix
-           if (abs(s0(ns)) > 1.e-20) then
-              do k = ka, kpblh(iw)
-                 rhs(k,ns) = rhs(k,ns) + s0(ns) * dgam(k)
-              enddo
-           endif
-        enddo
-
-     endif
-  endif
-
-  ! Solve tri-diagonal matrix equation for scalars
-
-! if (ka <= mza) then
-  if (ka <= kmax .and. num_pblmix > 1) then
-     call tridv(vctr5, vctr6, vctr7, rhs, soln, ka, kmax, mza, num_pblmix)
-  endif
-
-  vctr2(ka-1) = 0.
-! vctr2(mza ) = 0.
-  vctr2(kmax) = 0.
-
-  do ns = 1, num_pblmix
-     n = pblmix_map(ns)
-
-     ! Now, soln contains future(t+1) values.
-     ! Compute internal vertical turbulent fluxes
-
-!    do k = ka, mza-1
-     do k = ka, khtop(iw)
-        vctr2(k) = akodz(k) * (soln(k,ns) - soln(k+1,ns))
-     enddo
-
-     ! Non-local PBL mixing
-
-     if (abs(s0(ns)) > 1.e-20) then
-        do k = ka, kpblh(iw)-1
-           vctr2(k) = vctr2(k) + s0(ns) * agamma(k,iw)
-        enddo
-     endif
-
-     ! Scalar tendencies from turbulent fluxes
-
-!    do k = ka, mza
-     do k = ka, kmax
-        scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
-                                  + volti(k,iw) * (vctr2(k-1) - vctr2(k))
-     enddo
-
-  enddo
-
-! Bob thinks the following section is not needed since fluxes are applied to land/lake/sea 
-! in subroutine surface_fluxes.  Thus, commenting out the following...
-
-  ! Compute surface fluxes of humidity for leaf given the implicit solution
-
-!  if (isfcl > 0) then
-
-!     do jwl = 1, itab_w(iw)%nland
-!        iwl = itab_w(iw)%iland(jwl)
-!        k   = itab_wl(iwl)%kw
-!        ks  = k - ka + 1
-
-!        land%sxfer_r(iwl) = land%ggaer(iwl) * (land%canshv(iwl) - soln(k,1)) * dtl * rho(k,iw)
-!     enddo
-
-!     do jws = 1, itab_w(iw)%nsea
-!        iws = itab_w(iw)%isea(jws)
-!        k   = itab_ws(iws)%kw
-!        ks  = k - ka + 1
-
-!        sea%sea_sxfer_r(iws) = sea%sea_ggaer(iws) * (sea%sea_canshv(iws) - soln(k,1)) * dtl * rho(k,iw)
-
-!        if (sea%nlev_seaice(iws) > 0) then
-!           sea%ice_sxfer_r(iws) = sea%ice_ggaer(iws) * (sea%ice_canshv(iws) - soln(k,1)) * dtl * rho(k,iw)
-!        endif
-!     enddo
-
-!  endif
-
-end subroutine solve_eddy_diff_scalars
-
-!===============================================================================
-
-subroutine solve_eddy_diff_heat(iw, thilt_short)
-
-  use mem_turb,    only: vkh, sxfer_tk, akh_dzi, akhth_dzi, kpblh, sfluxt, &
-                         agamma, khtop
-  use mem_basic,   only: rho, theta, tair
-  use mem_micro,   only: rr_c, rr_p
-  use misc_coms,   only: dtsm
-  use mem_grid,    only: mza, lpw, lsw, volti, dzim, arw, nsw_max
-  use oname_coms,  only: nl
-  use tridiag,     only: tridiffo
-  use mem_ijtabs,  only: itab_w
-  use consts_coms, only: t00, p00, rocp, alvlocp, alviocp
-  !use mem_leaf,    only: itab_wl, land
-  !use mem_sea,     only: itab_ws, sea
-
-  use supercell_testm, only: thil_init
-
-  implicit none
-
-  integer, intent(in )   :: iw
-  real,    intent(inout) :: thilt_short(mza)  ! note: thilt assumed scaled by volume
-
-  integer :: ka, k, ks, jwl, iwl, jws, iws, kbot, kmax
-  real    :: dts, dtom
-  real    :: akodz(mza), dtomass(mza), soln(mza), rhs(mza)
-  real    :: vctr2(mza), vctr5(mza), vctr6(mza), vctr7(mza)
-  real    :: exner(nsw_max)
-  logical :: nonlocal
+  real    :: soln(mza,num_pblmix), rhs(mza,num_pblmix), varp(mza)
+  real    :: dtl, dtli, wc0
 
   ! For DCMIP 2015 baroclinic and tropical cyclone tests, return here so that
   ! vertical mixing is not done by standard OLAM code; instead it will
@@ -686,55 +495,288 @@ subroutine solve_eddy_diff_heat(iw, thilt_short)
       nl%test_case == 121 .or. &
       nl%test_case == 122) return
 
+  if (khtop(iw) < lpw(iw) .or. num_pblmix == 0) return
+
+  ka   = lpw(iw)
+  dtl  = dtlm(1)
+  dtli = 1.0 / dtl
+  kmax = khtop(iw) + 1
+
+
+  ! Vertical loop over T levels
+  do k = ka, kmax
+     dtorho (k) = dtl / real(rho(k,iw))
+     dtomass(k) = forw_imp * dtorho(k) * volti(k,iw)
+  enddo
+
+!!  ! Scalar variables with long-timestep forcing included
+!!
+!!  do ns = 1, num_pblmix
+!!     n = pblmix_map(ns)
+!!
+!!     do k = ka, kmax
+!!        varp(k) = scalar_tab(n)%var_p(k,iw) &
+!!                + dtorho(k) * scalar_tab(n)%var_t(k,iw)
+!!     enddo
+!!  enddo
+!!
+!!  ! For supercell test case, subtract initial field from rr_w
+!!
+!!  if (nl%test_case == 131) then
+!!     do k = ka, kmax
+!!        varp(k,1) = varp(k,1) - rr_w_init(k,iw)
+!!     enddo
+!!  endif
+
+  ! Vertical loop over W levels
+  do k = ka, khtop(iw)
+     akodz(k) = arw(k,iw) * vkh(k,iw) * dzim(k)
+     vctr5(k) = -akodz(k) * dtomass(k)
+     vctr7(k) = -akodz(k) * dtomass(k+1)
+     vctr6(k) = 1. - vctr5(k) - vctr7(k)
+  enddo
+
+  ! Load scalars into RHS arrays, including any nonlocal terms
+
+  do ns = 1, num_pblmix
+     n = pblmix_map(ns)
+
+     ! Scalar variables with long-timestep forcing included
+
+     do k = ka, kmax
+        varp(k) = scalar_tab(n)%var_p(k,iw) &
+                + dtorho(k) * scalar_tab(n)%var_t(k,iw)
+     enddo
+
+     ! For supercell test case, subtract initial field from rr_w
+
+     if (nl%test_case == 131 .and. ns == 1) then
+        do k = ka, kmax
+           varp(k) = varp(k) - rr_w_init(k,iw)
+        enddo
+     endif
+
+     ! SGS flux
+
+     do k = ka, kmax
+        rhs(k,ns) = akodz(k) * (varp(k) - varp(k+1))
+     enddo
+
+     ! Non local PBL fluxes
+
+     if (nl%idiffk(itab_w(iw)%mrlw) == 1) then
+        if (agamma(ka,iw) / arw(ka,iw) > 1.e-6) then
+
+           wc0 = 0.0
+
+           if (ns == 1) then
+
+              ! water vapor
+              wc0 = sfluxr(iw) / real(rho(ka,iw))
+
+           elseif (scalar_tab(n)%do_sxfer) then
+
+              ! other scalars with surface flux
+              wc0 = sum( scalar_tab(n)%sxfer(1:lsw(iw),iw) / real(rho(ka:ka+lsw(iw)-1,iw)) ) &
+                    * dtli * arw0i(iw)
+
+           endif
+
+           if (scalar_tab(n)%do_emis) then
+
+              ! other scalars with near-surface emissions
+              wc0 = wc0 + sum( real(volt(ka:ka+2,iw)) * scalar_tab(n)%emis(ka:ka+2,iw) ) &
+                        / arw(ka+2,iw)
+
+           endif
+
+           if (wc0 > 1.e-25) then
+
+              do k = ka, kpblh(iw)
+                 rhs(k,ns) = rhs(k,ns) + wc0 * agamma(k,iw)
+              enddo
+
+           endif
+
+        endif
+     endif
+
+  enddo
+
+
+!!
+!!  ! Vertical loop over W levels
+!!
+!!! do k = ka, mza-1
+!!  do k = ka, khtop(iw)
+!!     akodz(k) = arw(k,iw) * vkh(k,iw) * dzim(k)
+!!  enddo
+!!
+!!  ! Vertical loop over T levels
+!!
+!!! do k = ka, mza
+!!  do k = ka, kmax
+!!     dtorho (k) = dtl / rho(k,iw)
+!!     dtomass(k) = forw_imp * dtorho(k) * volti(k,iw)
+!!     vctr5  (k) = -dtomass(k) * akodz(k-1)
+!!     vctr7  (k) = -dtomass(k) * akodz(k)
+!!     vctr6  (k) = 1. - vctr5(k) - vctr7(k)
+!!  enddo
+!!
+!!  ! Scalar variables with long-timestep forcing included
+!!
+!!  do ns = 1, num_pblmix
+!!     n = pblmix_map(ns)
+!!!    do k = ka, mza
+!!     do k = ka, kmax
+!!        rhs(k,ns) = scalar_tab(n)%var_p(k,iw)  &
+!!                  + dtorho(k) * scalar_tab(n)%var_t(k,iw)
+!!     enddo
+!!  enddo
+!!
+!!  if (nl%test_case == 131) then
+!!     do k = ka, kmax
+!!        rhs(k,1) = rhs(k,1) - rr_w_init(k,iw)
+!!     enddo
+!!  endif
+
+!!  ! Non local PBL terms
+!!
+!!  if (nl%idiffk(itab_w(iw)%mrlw) == 1) then
+!!     if (agamma(ka,iw) > 1.e-7) then
+!!
+!!        do k = ka, kpblh(iw)
+!!           dgam(k) = dtomass(k) * (agamma(k-1,iw) - agamma(k,iw) )
+!!        enddo
+!!
+!!        ! water vapor (assumed to always be first scalar)
+!!        s0(1)            = sfluxr(iw)
+!!        s0(2:num_pblmix) = 0.0
+!!
+!!        do ns = 2, num_pblmix
+!!           n = pblmix_map(ns)
+!!
+!!           ! other scalars with surface flux
+!!           if (scalar_tab(n)%do_sxfer) then
+!!              s0(ns) = sum( scalar_tab(n)%sxfer(1:lsw(iw),iw) / rho(ka:ka+lsw(iw)-1,iw) ) &
+!!                     * dtli * arw0i(iw)
+!!           endif
+!!
+!!           ! other scalars with near-surface emissions
+!!           if (scalar_tab(n)%do_emis) then
+!!              s0(ns) = s0(n) + sum( real(volt(ka:ka+2,iw)) * scalar_tab(n)%emis(ka:ka+2,iw) ) &
+!!                             / arw(ka+2,iw)
+!!           endif
+!!        enddo
+!!
+!!        do ns = 1, num_pblmix
+!!           if (abs(s0(ns)) > 1.e-20) then
+!!              do k = ka, kpblh(iw)
+!!                 rhs(k,ns) = rhs(k,ns) + s0(ns) * dgam(k)
+!!              enddo
+!!           endif
+!!        enddo
+!!
+!!     endif
+!!  endif
+
+  ! Solve tri-diagonal matrix equation for scalars
+
+  call tridv(vctr5, vctr6, vctr7, rhs, soln, ka, khtop(iw), mza, num_pblmix)
+
+  do ns = 1, num_pblmix
+     n = pblmix_map(ns)
+
+     ! Set bottom and top vertical internal turbulent fluxes to zero
+
+     soln(ka-1,ns) = 0.
+     soln(kmax,ns) = 0.
+
+     ! Soln contains future(t+1) fluxes. Compute scalar tendencies
+
+     do k = ka, kmax
+        scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
+                                  + volti(k,iw) * (soln(k-1,ns) - soln(k,ns))
+     enddo
+
+  enddo
+
+end subroutine solve_eddy_diff_scalars
+
+!===============================================================================
+
+subroutine solve_eddy_diff_heat(iw, thilt)
+
+  use mem_turb,        only: vkh, kpblh, sfluxt, agamma, khtop
+  use mem_basic,       only: rho, thil
+  use misc_coms,       only: dtsm
+  use mem_grid,        only: mza, lpw, volti, dzim, arw
+  use oname_coms,      only: nl
+  use tridiag,         only: tridiffo
+  use mem_ijtabs,      only: itab_w
+  use supercell_testm, only: thil_init
+
+  implicit none
+
+  integer, intent(in )   :: iw
+  real,    intent(inout) :: thilt(mza)  ! note: thilt assumed scaled by volume
+
+  integer :: ka, k, ks, jwl, iwl, jws, iws, kbot, kmax
+  real    :: dts, dtom, akodz, r4i, wt0
+  real    :: dtomass(mza), varp(mza)
+  real    :: vctr5(mza), vctr6(mza), vctr7(mza), rhs(mza), soln(mza)
+
+  ! For DCMIP 2015 baroclinic and tropical cyclone tests, return here so that
+  ! vertical mixing is not done by standard OLAM code; instead it will
+  ! (optionally) be done in dcmip_physics routine.
+
+  if (nl%test_case == 110 .or. &
+      nl%test_case == 111 .or. &
+      nl%test_case == 112 .or. &
+      nl%test_case == 113 .or. &
+      nl%test_case == 114 .or. &
+      nl%test_case == 121 .or. &
+      nl%test_case == 122) return
+
+  if (khtop(iw) < lpw(iw)) return
+
   ka   = lpw(iw)
   dts  = dtsm(1)
   kmax = khtop(iw) + 1
 
-  if (khtop(iw) < ka) return
-
-  nonlocal = .false.
-
-  akodz(ka-1) = 0.
-  akodz(kmax) = 0.
-! akodz(mza)  = 0.
-
-  ! Vertical loop over W levels
-
-! do k = ka, mza-1
-  do k = ka, khtop(iw)
-     akodz(k) = arw(k,iw) * vkh(k,iw) * dzim(k)
-  enddo
-
   ! Vertical loop over T levels
-
-! do k = ka, mza
   do k = ka, kmax
-     dtom       = dts * volti(k,iw) / rho(k,iw)
+     dtom       = dts * volti(k,iw) / real(rho(k,iw))
      dtomass(k) = forw_imp * dtom
-     rhs    (k) = theta(k,iw) + dtom * thilt_short(k)
-     vctr5  (k) = -dtomass(k) * akodz(k-1)
-     vctr7  (k) = -dtomass(k) * akodz(k)
-     vctr6  (k) = 1. - vctr5(k) - vctr7(k)
+     varp   (k) = thil(k,iw) + dtom * thilt(k)
   enddo
 
-  ! For supercell test case, for thil, subtract initial field
+  ! For supercell test case, subtract initial field from thil
 
   if (nl%test_case == 131) then
      do k = ka, kmax
-!    do k = ka, mza
-        rhs(k) = rhs(k) - thil_init(k,iw)
+        varp(k) = varp(k) - thil_init(k,iw)
      enddo
   endif
+
+  ! Vertical loop over W levels
+  do k = ka, khtop(iw)
+     akodz    = arw(k,iw) * vkh(k,iw) * dzim(k)
+
+     rhs  (k) =  akodz * (varp(k) - varp(k+1))
+     vctr5(k) = -akodz * dtomass(k)
+     vctr7(k) = -akodz * dtomass(k+1)
+     vctr6(k) = 1. - vctr5(k) - vctr7(k)
+  enddo
 
   ! Non local PBL term
 
   if (nl%idiffk(itab_w(iw)%mrlw) == 1) then
      if (agamma(ka,iw) > 1.e-7) then
-        nonlocal = .true.
 
+        wt0 = sfluxt(iw) / real(rho(ka,iw))
         do k = ka, kpblh(iw)
-           rhs(k) = rhs(k) + dtomass(k) * sfluxt(iw) &
-                           * ( agamma(k-1,iw) - agamma(k,iw) )
+           rhs(k) = rhs(k) + wt0 * agamma(k,iw)
         enddo
 
      endif
@@ -742,33 +784,17 @@ subroutine solve_eddy_diff_heat(iw, thilt_short)
 
   ! Solve tri-diagonal matrix equation
 
-! if (ka <= mza) then
-  if (ka <= kmax) then
-     call tridiffo(mza, ka, kmax, vctr5, vctr6, vctr7, rhs, soln)
-  endif
+  call tridiffo(mza, ka, khtop(iw), vctr5, vctr6, vctr7, rhs, soln)
 
-  ! Now, soln contains future(t+1) values.
-  ! Compute internal vertical turbulent fluxes
+  ! Set bottom and top vertical internal turbulent fluxes to zero
 
-! do k = ka, mza-1
-  do k = ka, khtop(iw)
-     vctr2(k) = akodz(k) * (soln(k) - soln(k+1))
-  enddo
+  soln(ka-1) = 0.0
+  soln(kmax) = 0.0
 
-  if (nonlocal) then
-     do k = ka, kpblh(iw)-1
-        vctr2(k) = vctr2(k) + sfluxt(iw) * agamma(k,iw)
-     enddo
-  endif
-
-  ! Set bottom and top internal fluxes to zero
-
-  vctr2(ka-1) = 0.
-! vctr2(mza)  = 0.
-  vctr2(kmax) = 0.
+  ! Compute temperature tendency (weighted by volumne)
 
   do k = ka, kmax
-     thilt_short(k) = thilt_short(k) + vctr2(k-1) - vctr2(k)
+     thilt(k) = thilt(k) + soln(k-1) - soln(k)
   enddo
 
 end subroutine solve_eddy_diff_heat
@@ -991,6 +1017,7 @@ subroutine solve_eddy_diff_vxe( iw, vmxet, vmyet, vmzet )
      vctr3(k) = akm_sfc(ks,iw) * dzit_bot(k)
      vctr6(k) = vctr6(k) + dtomass(k) * vctr3(k)
   enddo
+
   ! Solve tri-diagonal matrix equation
 
   if (ka <= kmax) then

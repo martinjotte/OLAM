@@ -343,7 +343,7 @@ subroutine pcvt()
         ! For global domain, transform from sphere to PS plane
 
         raxis  = sqrt(xebc ** 2 + yebc ** 2)
-        raxisi = 1.0 /raxis
+        raxisi = 1.0 / raxis
 
         sinwlat = zebc  * eradi
         coswlat = raxis * eradi
@@ -458,10 +458,10 @@ subroutine grid_geometry_hex()
                          vnx, vny, vnz, glonw, glatw, dnu, dniu, dnv, dniv, arw0, &
                          arm0, glonm, glatm, glatv, glonv
   use misc_coms,   only: mdomain, nxp
-  use consts_coms, only: erad, piu180, pio2
+  use consts_coms, only: erad, eradi, piu180, pio2
   use oplot_coms,  only: op
   use mem_para,    only: myrank
-  use consts_coms, only: r8
+  use consts_coms, only: r8, pio180
 
   implicit none
 
@@ -470,7 +470,6 @@ subroutine grid_geometry_hex()
   integer            :: iw1,iw2
   integer            :: j,npoly
   real               :: expansion
-  real               :: raxis
   real               :: dvm1,dvm2
   integer            :: j1,j2
   integer            :: npoly1,npoly2,np
@@ -483,11 +482,13 @@ subroutine grid_geometry_hex()
   character(10)      :: string
   integer            :: lwork
   integer            :: info
+  real               :: raxis,raxisi,dxe,dye,dze,arwi
+  real               :: sinwlat,coswlat,sinwlon,coswlon
 
   real(r8)              :: b(7), fo(7), vnx_ps(7), vny_ps(7), vnz_ps(7), vrot_x(7), vrot_y(7)
   real(r8), allocatable :: work(:)
   real(r8), allocatable :: a(:,:)
-  real(r8)              :: wsize(1), vdotw, vmag, fact
+  real(r8)              :: wsize(1), vdotw, vmagi, fact
 
   ! Loop over all M points
 
@@ -681,9 +682,9 @@ subroutine grid_geometry_hex()
         glatw(iw) = atan2(zew(iw),raxis)   * piu180
         glonw(iw) = atan2(yew(iw),xew(iw)) * piu180
 
-        wnx(iw) = xew(iw) / erad
-        wny(iw) = yew(iw) / erad
-        wnz(iw) = zew(iw) / erad
+        wnx(iw) = xew(iw) * eradi
+        wny(iw) = yew(iw) * eradi
+        wnz(iw) = zew(iw) * eradi
 
      else
 
@@ -711,13 +712,29 @@ subroutine grid_geometry_hex()
   write(*,*)
   !$omp end single
 
-  !$omp do private(npoly,j2,j1,iv,iw1,iw2,dops,npoly1,npoly2,np,&
-  !$omp            im1,xw1,xw2,yw1,yw2,xv,yv,alpha)
+  !$omp do private(npoly,j2,j1,iv,iw1,iw2,dops,npoly1,npoly2,np, &
+  !$omp            im1,xw1,xw2,yw1,yw2,xv,yv,raxis,raxisi,vmagi, &
+  !$omp            sinwlat,coswlat,sinwlon,coswlon,dxe,dye,dze,arwi)
   do iw = 2,nwa
 
      ! Number of polygon edges/vertices
 
      npoly = itab_w(iw)%npoly
+
+     if (mdomain <= 1) then
+
+        raxis  = sqrt(xew(iw)**2 + yew(iw)**2)
+        raxisi = 1.0 / raxis
+
+        sinwlat = zew(iw) * eradi
+        coswlat = raxis   * eradi
+
+        sinwlon = yew(iw) * raxisi
+        coswlon = xew(iw) * raxisi
+
+     endif
+
+     arwi = 1.0 / arw0(iw)
 
      ! Loop over all polygon edges
 
@@ -732,13 +749,14 @@ subroutine grid_geometry_hex()
         ! Fractional area of arw0(iw) that is occupied by M and V sectors
 
         if (itab_v(iv)%iw(1) == iw1) then
-           itab_w(iw)%farm(j1) = itab_w(iw)%farm(j1) + quarter_kite(1,iv) / arw0(iw)
-           itab_w(iw)%farm(j2) = itab_w(iw)%farm(j2) + quarter_kite(2,iv) / arw0(iw)
+           itab_w(iw)%farm(j1) = itab_w(iw)%farm(j1) + quarter_kite(1,iv) * arwi
+           itab_w(iw)%farm(j2) = itab_w(iw)%farm(j2) + quarter_kite(2,iv) * arwi
         else
-           itab_w(iw)%farm(j1) = itab_w(iw)%farm(j1) + quarter_kite(2,iv) / arw0(iw)
-           itab_w(iw)%farm(j2) = itab_w(iw)%farm(j2) + quarter_kite(1,iv) / arw0(iw)
+           itab_w(iw)%farm(j1) = itab_w(iw)%farm(j1) + quarter_kite(2,iv) * arwi
+           itab_w(iw)%farm(j2) = itab_w(iw)%farm(j2) + quarter_kite(1,iv) * arwi
         endif
-        itab_w(iw)%farv(j2) = (quarter_kite(1,iv) + quarter_kite(2,iv)) / arw0(iw)
+
+        itab_w(iw)%farv(j2) = (quarter_kite(1,iv) + quarter_kite(2,iv)) * arwi
 
         !----------------------------------------
         ! NEW SECTION JULY 2011
@@ -774,70 +792,73 @@ subroutine grid_geometry_hex()
            ! tangent at IW
 
            if (mdomain <= 1) then
-              call e_ps(xew(iw1),yew(iw1),zew(iw1),glatw(iw),glonw(iw),xw1,yw1)
-              call e_ps(xew(iw2),yew(iw2),zew(iw2),glatw(iw),glonw(iw),xw2,yw2)
-              call e_ps(xev(iv),yev(iv),zev(iv),glatw(iw),glonw(iw),xv,yv)
+
+              dxe = xew(iw1) - xew(iw)
+              dye = yew(iw1) - yew(iw)
+              dze = zew(iw1) - zew(iw)
+              call de_ps(dxe,dye,dze,coswlat,sinwlat,coswlon,sinwlon,xw1,yw1)
+
+              dxe = xew(iw2) - xew(iw)
+              dye = yew(iw2) - yew(iw)
+              dze = zew(iw2) - zew(iw)
+              call de_ps(dxe,dye,dze,coswlat,sinwlat,coswlon,sinwlon,xw2,yw2)
+
+              dxe = xev(iv) - xew(iw)
+              dye = yev(iv) - yew(iw)
+              dze = zev(iv) - zew(iw)
+              call de_ps(dxe,dye,dze,coswlat,sinwlat,coswlon,sinwlon,xv,yv)
+
            else
+
               xw1 = xew(iw1) - xew(iw)
               yw1 = yew(iw1) - yew(iw)
               xw2 = xew(iw2) - xew(iw)
               yw2 = yew(iw2) - yew(iw)
               xv  = xev(iv)  - xew(iw)
               yv  = yev(iv)  - yew(iw)
+
            endif
 
            ! Coefficients for eastward and northward components of gradient
 
-           itab_w(iw)%gxps1(j1) =  yw2 / (xw1 * yw2 - xw2 * yw1)
-           itab_w(iw)%gxps2(j1) = -yw1 / (xw1 * yw2 - xw2 * yw1)
+           vmagi = 1.0 / (xw1 * yw2 - xw2 * yw1)
 
-           itab_w(iw)%gyps1(j1) = -xw2 / (xw1 * yw2 - xw2 * yw1)
-           itab_w(iw)%gyps2(j1) =  xw1 / (xw1 * yw2 - xw2 * yw1)
+           itab_w(iw)%gxps1(j1) =  yw2 * vmagi
+           itab_w(iw)%gxps2(j1) = -yw1 * vmagi
+
+           itab_w(iw)%gyps1(j1) = -xw2 * vmagi
+           itab_w(iw)%gyps2(j1) =  xw1 * vmagi
 
            !----------------------------------------
 
-           if (itab_w(iw)%dirv(j2) < 0.) then
-              alpha = atan2(yw2,xw2)   ! VC(iv) direction counterclockwise from east
+           vmagi = 1.0 / sqrt(xw2*xw2 + yw2*yw2)
 
-              itab_v(iv)%cosv(1) = cos(alpha)
-              itab_v(iv)%sinv(1) = sin(alpha)
+           if (itab_w(iw)%dirv(j2) < 0.) then
+
+            ! alpha = atan2(yw2,xw2)   ! VC(iv) direction counterclockwise from east
+            ! itab_v(iv)%cosv(1) = cos(alpha)
+            ! itab_v(iv)%sinv(1) = sin(alpha)
+
+              itab_v(iv)%cosv(1) = xw2 * vmagi
+              itab_v(iv)%sinv(1) = yw2 * vmagi
 
               itab_v(iv)%dxps(1) = xv
               itab_v(iv)%dyps(1) = yv
-           else
-              alpha = atan2(-yw2,-xw2) ! VC(iv) direction counterclockwise from east
 
-              itab_v(iv)%cosv(2) = cos(alpha)
-              itab_v(iv)%sinv(2) = sin(alpha)
+           else
+
+            ! alpha = atan2(-yw2,-xw2) ! VC(iv) direction counterclockwise from east
+            ! itab_v(iv)%cosv(2) = cos(alpha)
+            ! itab_v(iv)%sinv(2) = sin(alpha)
+
+              itab_v(iv)%cosv(2) = -xw2 * vmagi
+              itab_v(iv)%sinv(2) = -yw2 * vmagi
 
               itab_v(iv)%dxps(2) = xv
               itab_v(iv)%dyps(2) = yv
+
            endif
 
-        endif
-
-        ! Earth-grid components of rotated polar stereographic easterly
-        ! (or cartesian positive x) horizontal unit vector
-
-        if (mdomain <= 1) then
-           itab_w(iw)%unx_w = -sin(glonw(iw))
-           itab_w(iw)%uny_w = cos(glonw(iw))
-        else
-           itab_w(iw)%unx_w = 1.0
-           itab_w(iw)%uny_w = 0.0
-        endif
-
-        ! Earth-grid components of rotated polar stereographic northerly
-        ! (or cartesian positive y) horizontal unit vector
-
-        if (mdomain <= 1) then
-           itab_w(iw)%vnx_w = -sin(glatw(iw)) * cos(glonw(iw))
-           itab_w(iw)%vny_w = -sin(glatw(iw)) * sin(glonw(iw))
-           itab_w(iw)%vnz_w = cos(glatw(iw))
-        else
-           itab_w(iw)%vnx_w = 0.0
-           itab_w(iw)%vny_w = 1.0
-           itab_w(iw)%vnz_w = 0.0
         endif
 
         !----------------------------------------
@@ -845,6 +866,30 @@ subroutine grid_geometry_hex()
         !----------------------------------------
 
      enddo
+
+     ! Earth-grid components of rotated polar stereographic easterly
+     ! (or cartesian positive x) horizontal unit vector
+
+     if (mdomain <= 1) then
+        itab_w(iw)%unx_w = -sinwlon
+        itab_w(iw)%uny_w =  coswlon
+     else
+        itab_w(iw)%unx_w = 1.0
+        itab_w(iw)%uny_w = 0.0
+     endif
+
+     ! Earth-grid components of rotated polar stereographic northerly
+     ! (or cartesian positive y) horizontal unit vector
+
+     if (mdomain <= 1) then
+        itab_w(iw)%vnx_w = -sinwlat * coswlon
+        itab_w(iw)%vny_w = -sinwlat * sinwlon
+        itab_w(iw)%vnz_w =  coswlat
+     else
+        itab_w(iw)%vnx_w = 0.0
+        itab_w(iw)%vny_w = 1.0
+        itab_w(iw)%vnz_w = 0.0
+     endif
 
   enddo
   !$omp end do
@@ -920,7 +965,7 @@ subroutine grid_geometry_hex()
 
   if (mdomain < 2 .or. mdomain == 5) then
 
-     !$omp do private(npoly, fo, a, b, work, info, j, iv, vdotw, vmag, fact, &
+     !$omp do private(npoly, fo, a, b, work, info, j, iv, vdotw, vmagi, fact, &
      !$omp            vnx_ps, vny_ps, vnz_ps, vrot_x, vrot_y, wsize, lwork)
      do iw = 2, nwa
 
@@ -950,17 +995,17 @@ subroutine grid_geometry_hex()
 
               ! Normalize these new vectors to unit length
 
-              vmag = sqrt( vnx_ps(j)**2 + vny_ps(j)**2 + vnz_ps(j)**2 )
+              vmagi = 1._r8 / sqrt( vnx_ps(j)**2 + vny_ps(j)**2 + vnz_ps(j)**2 )
 
-              vnx_ps(j) = vnx_ps(j) / vmag
-              vny_ps(j) = vny_ps(j) / vmag
-              vnz_ps(j) = vnz_ps(j) / vmag
+              vnx_ps(j) = vnx_ps(j) * vmagi
+              vny_ps(j) = vny_ps(j) * vmagi
+              vnz_ps(j) = vnz_ps(j) * vmagi
 
               ! Rotate these new unit normals to a coordinate system with Z aligned with W
 
               if (wnz(iw) >= 0.0) then
 
-                 fact = ( wny(iw)*vnx_ps(j) - wnx(iw)*vny_ps(j) ) / ( 1.0 + wnz(iw) )
+                 fact = ( wny(iw)*vnx_ps(j) - wnx(iw)*vny_ps(j) ) / ( 1._r8 + wnz(iw) )
 
                  vrot_x(j) = vnx_ps(j)*wnz(iw) - vnz_ps(j)*wnx(iw) + wny(iw)*fact
                  vrot_y(j) = vny_ps(j)*wnz(iw) - vnz_ps(j)*wny(iw) - wnx(iw)*fact

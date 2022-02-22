@@ -1321,7 +1321,7 @@ do k = lpw0, mza0
    wc0   (k) = wc   (k,iw0)
    press0(k) = real(press(k,iw0))
    rhoa  (k) = real(rho  (k,iw0))
-   rhow  (k) = rr_w (k,iw0) * rhoa(k)
+   rhow  (k) = max(rr_w (k,iw0) * rhoa(k), 0.0)
    rhoi  (k) = 1. / rhoa(k)
    exner0(k) = (press0(k) * p00i) ** rocp  ! defined WITHOUT CP factor
 enddo

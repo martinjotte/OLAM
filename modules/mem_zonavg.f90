@@ -70,15 +70,15 @@ Contains
 
 ! Allocate zonavg memory
 
-    allocate( zont12(nlata, nplev, nmons) )
-    allocate( zonu12(nlata, nplev, nmons) )
-    allocate( zont  (nlata, nplev       ) )
-    allocate( zonu  (nlata, nplev       ) )
-    allocate( zonr  (nlata, nplev       ) )
-    allocate( zonz  (nlata, nplev       ) )
-    allocate( zono  (nlata, nplev       ) )
+    if (.not. allocated(zont12)) allocate( zont12(nlata, nplev, nmons) )
+    if (.not. allocated(zonu12)) allocate( zonu12(nlata, nplev, nmons) )
+    if (.not. allocated(zont  )) allocate( zont  (nlata, nplev       ) )
+    if (.not. allocated(zonu  )) allocate( zonu  (nlata, nplev       ) )
+    if (.not. allocated(zonr  )) allocate( zonr  (nlata, nplev       ) )
+    if (.not. allocated(zonz  )) allocate( zonz  (nlata, nplev       ) )
+    if (.not. allocated(zono  )) allocate( zono  (nlata, nplev       ) )
 
-    allocate( zonp_vect(nplev) )
+    if (.not. allocated(zonp_vect)) allocate( zonp_vect(nplev) )
 
 ! Read in 'ZONAVG_CLIMATE' dataset (if not already read in), and interpolate
 ! to the current time.  This fills array ZONU with zonal wind and array ZONT

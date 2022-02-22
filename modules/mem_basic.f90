@@ -40,6 +40,8 @@ Module mem_basic
 
   real, allocatable :: vmc  (:,:) ! current V horiz momentum [kg/(m^2 s)]
   real, allocatable :: vc   (:,:) ! current V horiz velocity [m/s]
+  real, allocatable :: vmp  (:,:) ! previous V horiz momentum [kg/(m^2 s)]
+                                  ! (for original time-stepping scheme)
 
   real, allocatable :: wmc  (:,:) ! current vert momentum [kg/(m^2 s)]
   real, allocatable :: wc   (:,:) ! current vert velocity [m/s]
@@ -59,13 +61,26 @@ Module mem_basic
   real(r8), allocatable :: press(:,:) ! air pressure [Pa]
   real(r8), allocatable :: rho  (:,:) ! dry air density [kg/m^3]
 
+  ! Half-forward earth cartesian velocities for original scalar transport scheme
+  real, allocatable :: vxesc(:,:)
+  real, allocatable :: vyesc(:,:)
+  real, allocatable :: vzesc(:,:)
+
+  ! Half-forrward advecting velocities for scalars averaged over long timestep
+  real, allocatable :: wmsc(:,:)
+  real, allocatable :: vmsc(:,:)
+
+  real, allocatable :: alpha_press(:,:)
+  real, allocatable :: pwfac      (:,:)
+  real, allocatable :: pvfac      (:,:)
+
 Contains
 
 !===============================================================================
 
   subroutine alloc_basic(mza,mva,mwa)
 
-    use misc_coms, only: rinit, rinit8
+    use misc_coms, only: rinit, rinit8, nrk_scal, nrk_wrtv
 
     implicit none
 
@@ -91,8 +106,25 @@ Contains
     allocate (vye  (mza,mwa)) ; vye   = rinit
     allocate (vze  (mza,mwa)) ; vze   = rinit
 
-    allocate(ue    (mza,mwa)) ; ue    = rinit
-    allocate(ve    (mza,mwa)) ; ve    = rinit
+    allocate (ue   (mza,mwa)) ; ue    = rinit
+    allocate (ve   (mza,mwa)) ; ve    = rinit
+
+    allocate (wmsc(mza,mwa)) ; wmsc = rinit
+    allocate (vmsc(mza,mva)) ; vmsc = rinit
+
+    if (nrk_scal == 1) then
+       allocate(vxesc(mza,mwa)) ; vxesc = rinit
+       allocate(vyesc(mza,mwa)) ; vyesc = rinit
+       allocate(vzesc(mza,mwa)) ; vzesc = rinit
+    endif
+
+    if (nrk_wrtv == 1) then
+       allocate(vmp(mza,mva)) ; vmp = rinit
+    endif
+
+    allocate(alpha_press(mza,mwa)) ; alpha_press = rinit
+    allocate(pwfac      (mza,mwa)) ; pwfac       = rinit
+    allocate(pvfac      (mza,mva)) ; pvfac       = rinit
 
   end subroutine alloc_basic
 
@@ -103,6 +135,7 @@ Contains
 
     if (allocated(vmc))   deallocate (vmc)
     if (allocated(vc))    deallocate (vc)
+    if (allocated(vmp))   deallocate (vmp)
 
     if (allocated(wmc))   deallocate (wmc)
     if (allocated(wc))    deallocate (wc)
@@ -120,6 +153,13 @@ Contains
 
     if (allocated(ue))    deallocate (ue)
     if (allocated(ve))    deallocate (ve)
+
+    if (allocated(wmsc)) deallocate (wmsc)
+    if (allocated(vmsc)) deallocate (vmsc)
+
+    if (allocated(vxesc)) deallocate (vxesc)
+    if (allocated(vyesc)) deallocate (vyesc)
+    if (allocated(vzesc)) deallocate (vzesc)
 
   end subroutine dealloc_basic
 
@@ -161,6 +201,8 @@ Contains
     if (allocated(ue))    call increment_vtable('UE',   'AW', rvar2=ue)
 
     if (allocated(ve))    call increment_vtable('VE',   'AW', rvar2=ve)
+
+    if (allocated(vmp))   call increment_vtable('VMP',  'AV', rvar2=vmp)
 
   end subroutine filltab_basic
 

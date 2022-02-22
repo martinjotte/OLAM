@@ -45,10 +45,11 @@ subroutine olam_mem_alloc()
                          o3nudflag, alloc_nudge_o3, filltab_nudge_o3
   use mem_ijtabs,  only: mrls
   use oname_coms,  only: nl
-  use wrtv_mem,    only: alloc_wrtv_mem
+  use wrtv_rk,     only: alloc_wrtv_rk
+  use wrtv_orig,   only: alloc_wrtv_orig
 
   use misc_coms,   only: io6, naddsc, initial, idiffk, ilwrtyp, iswrtyp,  &
-                         nqparm, do_chem
+                         nqparm, do_chem, nrk_wrtv
 
   use micro_coms,  only: miclevel, ncat, jnmb, iccn, igccn, iifn
   use ccnbin_coms, only: nccntyp
@@ -140,7 +141,11 @@ subroutine olam_mem_alloc()
 
 ! Extra memory for prog_wrtv
 
-  call alloc_wrtv_mem()
+  if (nrk_wrtv == 1) then
+     call alloc_wrtv_orig()
+  else
+     call alloc_wrtv_rk()
+  endif
 
 ! Extra memory if nudging ozone. Must be called after scalar tables are set up
 

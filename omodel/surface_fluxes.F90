@@ -66,7 +66,7 @@ subroutine surface_turb_flux(mrl)
   use mem_grid,    only: lsw, lpw, arw
   use mem_turb,    only: akm_sfc, vkm_sfc, ustar, sfluxt, sfluxr, &
                          sxfer_tk, sxfer_rk, wstar, wtv0, pblh, moli, &
-                         akh_dzi, akhth_dzi, akhrv_dzi
+                         akh_dzi, akhth_dzi, akhrv_dzi, ustar_k, wtv0_k
   use mem_basic,   only: press, rho, theta, tair, rr_v, vxe, vye, vze
   use mem_micro,   only: rr_c
   use consts_coms, only: grav, p00, rocp, cp, alvl, eps_virt, vonk, p00i
@@ -125,6 +125,9 @@ subroutine surface_turb_flux(mrl)
 
            exneri = theta(kw,iw) / tair(kw,iw)
 
+           ustar_k(ks,iw) = 0.1
+           wtv0_k (ks,iw) = 0.0
+
            sxfer_tk(ks,iw) = dtl * shflx * exneri * (arw(kw,iw) - arw(kw-1,iw))
 
            sxfer_rk(ks,iw) = dtl * srflx          * (arw(kw,iw) - arw(kw-1,iw))
@@ -157,6 +160,8 @@ subroutine surface_turb_flux(mrl)
   sfluxr  = 0.
   vkm_sfc = 0.
   akm_sfc = 0.
+  ustar_k = 0.
+  wtv0_k  = 0.
 
   sxfer_tk = 0.
   sxfer_rk = 0.
@@ -376,9 +381,14 @@ subroutine surface_turb_flux(mrl)
         sxfer_rk(ks,iw) = sxfer_rk(ks,iw) &
                         + itab_wsfc(iwsfc)%arc(jasfc) * dtl * sfcg%sfluxr(iwsfc)
 
+        ustar_k(ks,iw) = ustar_k(ks,iw) + itab_wsfc(iwsfc)%arcoarkw(jasfc) * sfcg%ustar(iwsfc)
+
+        wtv0_k (ks,iw) = wtv0_k (ks,iw) + itab_wsfc(iwsfc)%arcoarkw(jasfc) * sfcg%wthv (iwsfc)
+
 !       sxfer_ck(ks,iw) = sxfer_ck(ks,iw) &
 !                       + itab_wsfc(iwsfc)%arc(jasfc) * dtl * sfcg%sfluxc(iwsfc)
      enddo
+
   enddo
   !$omp end do
 
