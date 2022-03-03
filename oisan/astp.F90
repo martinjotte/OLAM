@@ -29,847 +29,1200 @@
    ! (http://www.gnu.org/licenses/gpl.html) 
    !----------------------------------------------------------------------------
 
-!===============================================================================
-subroutine read_press_header(fform)
+subroutine read_press_header()
 
-use isan_coms,  only: iyear, nprz, levpr, ivertcoord, secondlat, cntlon, &
-                      cntlat, xnelon, xnelat, itinc, inproj, gdatdy, gdatdx, &
-                      xswlat, xswlon, npry, nprx, ihh, idd, imm, &
-                      iyy, isversion, marker, innpr, imonth, idate, ihour, &
-                      ipoffset, glat
-use misc_coms,  only: io6, iparallel
-use hdf5_utils, only: shdf5_open, shdf5_irec
-use mem_para,   only: myrank, nbytes_int, nbytes_real
-
-#ifdef OLAM_MPI
-use mpi
-#endif
-
-implicit none
-
-character(len=3), intent(inout) :: fform
-
-character(len=16) :: ext
-
-logical :: exists
-integer :: lv, n, ier, igloberr, ipry
-integer :: ndims, idims(2)
-integer :: bytes, isize
-
-integer, allocatable :: buffer(:)
-
-! Read the header of input pressure file.
-
-write(io6,'(/,a,/)') 'Reading pressure gridded data header '//trim(innpr)
-
-! Set flag for type of file:
-!     "GDF" - text Ralph II file (none or .vfm extension)
-!     "HD5"  - HDF5 GDF file ("h5" or "hdf5")
-!                     2 or 3D field records (x,y) or (x,y,z/p)
-!                       (1,1)   - (SW lon,lat) --
-!                       (1,1,1) - (SW lon,lat,bottom z/p level)
-!                     range of header info
-
-! Find file name extension
-
-ext = trim( innpr( index(innpr,'.',back=.true.)+1:) )
-
-fform = "GDF"
-if (ext == 'h5' .or. ext == 'hdf5' .or. ext == 'hdf' .or. &
-    ext == 'H5' .or. ext == 'HDF5' .or. ext == 'HDF' )    &
-    fform = 'HD5'
-
-inquire(file=innpr, exist=exists)
-if (.not. exists) then
-   write(*,*) "read_press_header: Error opening analysis file:"
-   write(*,*) trim(innpr)
-   stop       " File does not exist."
-endif
-
-if (fform == 'GDF') then
-
-   open(11, file=innpr, status="OLD", action="READ")
-   read(11,*) marker,isversion
-   if(marker.ne.999999) isversion=1
-
-   if (isversion == 1) then
-      rewind 11
-      read(11,*) iyy,imm,idd,ihh,nprz,nprx,npry,xswlon,xswlat,gdatdx,gdatdy
-      read(11,*) (levpr(n),n=1,nprz)
-      inproj = 1
-      ihh = ihh * 100
-   elseif (isversion == 2) then
-      write(io6,*) 'doing RALPH 2 format'
-      read(11,*) iyy,imm,idd,ihh,itinc,nprz,nprx,npry
-      read(11,*) inproj,gdatdx,gdatdy,xswlat,xswlon &
-                ,xnelat,xnelon,cntlat,cntlon,secondlat
-      read(11,*) ivertcoord,(levpr(lv),lv=1,nprz)
-   endif
-
-elseif (fform == 'HD5') then
+  use isan_coms,  only: iyear, nprz, levpr, ivertcoord, secondlat, cntlat, &
+                        xnelon, xnelat, itinc, inproj, gdatdy, gdatdx, &
+                        xswlat, xswlon, npry, nprx, ihh, idd, imm, iyy, &
+                        isversion, innpr, imonth, idate, ihour, ipoffset, &
+                        glat, pnpr, o3name, haso3
+  use misc_coms,  only: io6, iparallel
+  use hdf5_utils, only: shdf5_open, shdf5_irec, shdf5_info
+  use mem_para,   only: myrank, nbytes_int, nbytes_real
 
 #ifdef OLAM_MPI
-   if (iparallel == 1) then
-      bytes = 0
-      isize = nbytes_int*12 + nbytes_real*9
-      allocate( buffer( isize ) )
-   endif
+  use mpi
 #endif
 
-   if (myrank == 0) then
+  implicit none
 
-      call shdf5_open (innpr, 'R')
+  character(len=16) :: ext
 
-      ndims    = 1
-      idims(1) = 1
-      idims(2) = 1
+  logical :: exists
+  integer :: ier, igloberr, ipry, k
+  integer :: ndims, idims(3)
+  integer :: bytes, isize
 
-      call shdf5_irec(ndims, idims, 'version',ivars=isversion)
-      call shdf5_irec(ndims, idims, 'year'   ,ivars=iyy)
-      call shdf5_irec(ndims, idims, 'month'  ,ivars=imm)
-      call shdf5_irec(ndims, idims, 'day'    ,ivars=idd)
-      call shdf5_irec(ndims, idims, 'hour'   ,ivars=ihh)
-      call shdf5_irec(ndims, idims, 'ftime'  ,ivars=itinc)
-      call shdf5_irec(ndims, idims, 'nx'     ,ivars=nprx)
-      call shdf5_irec(ndims, idims, 'ny'     ,ivars=npry)
-      call shdf5_irec(ndims, idims, 'nlev'   ,ivars=nprz)
-      call shdf5_irec(ndims, idims, 'iproj'  ,ivars=inproj)
-      call shdf5_irec(ndims, idims, 'vcoord' ,ivars=ivertcoord)
-      call shdf5_irec(ndims, idims, 'swlat'  ,rvars=xswlat)
-      call shdf5_irec(ndims, idims, 'swlon'  ,rvars=xswlon)
-      call shdf5_irec(ndims, idims, 'nelat'  ,rvars=xnelat)
-      call shdf5_irec(ndims, idims, 'nelon'  ,rvars=xnelon)
-      call shdf5_irec(ndims, idims, 'dx'     ,rvars=gdatdx)
-      call shdf5_irec(ndims, idims, 'dy'     ,rvars=gdatdy)
-      call shdf5_irec(ndims, idims, 'reflat1',rvars=cntlat)
-      call shdf5_irec(ndims, idims, 'reflat2',rvars=secondlat)
+  integer, allocatable :: buffer(:)
 
-      idims(1) = nprz
-      call shdf5_irec(ndims, idims, 'levels' ,ivar1=levpr)
+  ndims = 0
+  idims = 0
 
-      if (inproj == 2) then
-         if (allocated(glat)) deallocate(glat)
-         allocate(glat(npry))
+  ! Read the header of input pressure file.
 
-         idims(1) = npry
-         call shdf5_irec(ndims, idims, 'glat' ,rvar1=glat)
-      endif
+  write(io6,'(/,a,/)') 'Reading pressure gridded data header '//trim(innpr)
+
+  ! Find file name extension
+
+  ext = trim( innpr( index(innpr,'.',back=.true.)+1:) )
+
+  inquire(file=innpr, exist=exists)
+  if (.not. exists) then
+     write(*,*) "read_press_header: Error opening analysis file:"
+     write(*,*) trim(innpr)
+     stop       " File does not exist."
+  endif
+
+  ! Read header only on processor rank 0
+
+  if (myrank == 0) then
+     call shdf5_open (innpr, 'R')
+
+     ndims    = 1
+     idims(1) = 1
+
+     call shdf5_irec(ndims, idims, 'version',ivars=isversion)
+     call shdf5_irec(ndims, idims, 'year'   ,ivars=iyy)
+     call shdf5_irec(ndims, idims, 'month'  ,ivars=imm)
+     call shdf5_irec(ndims, idims, 'day'    ,ivars=idd)
+     call shdf5_irec(ndims, idims, 'hour'   ,ivars=ihh)
+     call shdf5_irec(ndims, idims, 'ftime'  ,ivars=itinc)
+     call shdf5_irec(ndims, idims, 'nx'     ,ivars=nprx)
+     call shdf5_irec(ndims, idims, 'ny'     ,ivars=npry)
+     call shdf5_irec(ndims, idims, 'nlev'   ,ivars=nprz)
+     call shdf5_irec(ndims, idims, 'iproj'  ,ivars=inproj)
+     call shdf5_irec(ndims, idims, 'vcoord' ,ivars=ivertcoord)
+     call shdf5_irec(ndims, idims, 'swlat'  ,rvars=xswlat)
+     call shdf5_irec(ndims, idims, 'swlon'  ,rvars=xswlon)
+     call shdf5_irec(ndims, idims, 'nelat'  ,rvars=xnelat)
+     call shdf5_irec(ndims, idims, 'nelon'  ,rvars=xnelon)
+     call shdf5_irec(ndims, idims, 'dx'     ,rvars=gdatdx)
+     call shdf5_irec(ndims, idims, 'dy'     ,rvars=gdatdy)
+     call shdf5_irec(ndims, idims, 'reflat1',rvars=cntlat)
+     call shdf5_irec(ndims, idims, 'reflat2',rvars=secondlat)
+
+     if (allocated(levpr)) deallocate(levpr)
+     allocate(levpr(nprz))
+
+     ndims    = 1
+     idims(1) = nprz
+     call shdf5_irec(ndims, idims, 'levels' ,ivar1=levpr)
+
+     if (inproj == 2) then
+        if (allocated(glat)) deallocate(glat)
+        allocate(glat(npry))
+
+        ndims    = 1
+        idims(1) = npry
+        call shdf5_irec(ndims, idims, 'glat' ,rvar1=glat)
+     endif
+
+     ! Check for ozone variable in file
+
+     ndims = 0
+     idims = 0
+     haso3 = .false.
+
+     call shdf5_info('O3MR', ndims, idims)
+
+     if (ndims == 3 .and. all( idims == [nprx,npry,nprz] ) ) then
+
+        haso3  = .true.
+        o3name = 'O3MR'
+
+     else
+
+        call shdf5_info('OZONE', ndims, idims)
+
+        if (ndims == 3 .and. all( idims == [nprx,npry,nprz] ) ) then
+           haso3  = .true.
+           o3name = 'OZONE'
+        endif
+
+     endif
+
+  endif  ! myrank == 0
+
+  ! If parallel run, communicate header data to other ranks
 
 #ifdef OLAM_MPI
-      if (iparallel == 1) then
-         call MPI_Pack(isversion , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
-         call MPI_Pack(iyy       , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
-         call MPI_Pack(imm       , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
-         call MPI_Pack(idd       , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
-         call MPI_Pack(ihh       , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
-         call MPI_Pack(itinc     , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
-         call MPI_Pack(nprx      , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
-         call MPI_Pack(npry      , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
-         call MPI_Pack(nprz      , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
-         call MPI_Pack(inproj    , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
-         call MPI_Pack(ivertcoord, 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
-         call MPI_Pack(xswlat    , 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
-         call MPI_Pack(xswlon    , 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
-         call MPI_Pack(xnelat    , 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
-         call MPI_Pack(xnelon    , 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
-         call MPI_Pack(gdatdx    , 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
-         call MPI_Pack(gdatdy    , 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
-         call MPI_Pack(cntlat    , 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
-         call MPI_Pack(secondlat , 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
-      endif
+  if (iparallel == 1) then
+
+     bytes = 0
+     isize = nbytes_int*13 + nbytes_real*9
+     allocate( buffer( isize ) )
+
+     if (myrank == 0) then
+        call MPI_Pack(isversion , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
+        call MPI_Pack(iyy       , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
+        call MPI_Pack(imm       , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
+        call MPI_Pack(idd       , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
+        call MPI_Pack(ihh       , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
+        call MPI_Pack(itinc     , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
+        call MPI_Pack(nprx      , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
+        call MPI_Pack(npry      , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
+        call MPI_Pack(nprz      , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
+        call MPI_Pack(inproj    , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
+        call MPI_Pack(ivertcoord, 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
+        call MPI_Pack(haso3     , 1, MPI_LOGICAL, buffer, isize, bytes, MPI_COMM_WORLD, ier)
+        call MPI_Pack(xswlat    , 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
+        call MPI_Pack(xswlon    , 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
+        call MPI_Pack(xnelat    , 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
+        call MPI_Pack(xnelon    , 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
+        call MPI_Pack(gdatdx    , 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
+        call MPI_Pack(gdatdy    , 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
+        call MPI_Pack(cntlat    , 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
+        call MPI_Pack(secondlat , 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
+     endif
+
+     call MPI_Bcast(buffer, isize, MPI_PACKED, 0, MPI_COMM_WORLD, ier)
+
+     if (myrank /= 0) then
+        call MPI_Unpack(buffer, isize, bytes, isversion , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
+        call MPI_Unpack(buffer, isize, bytes, iyy       , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
+        call MPI_Unpack(buffer, isize, bytes, imm       , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
+        call MPI_Unpack(buffer, isize, bytes, idd       , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
+        call MPI_Unpack(buffer, isize, bytes, ihh       , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
+        call MPI_Unpack(buffer, isize, bytes, itinc     , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
+        call MPI_Unpack(buffer, isize, bytes, nprx      , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
+        call MPI_Unpack(buffer, isize, bytes, npry      , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
+        call MPI_Unpack(buffer, isize, bytes, nprz      , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
+        call MPI_Unpack(buffer, isize, bytes, inproj    , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
+        call MPI_Unpack(buffer, isize, bytes, ivertcoord, 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
+        call MPI_Unpack(buffer, isize, bytes, haso3     , 1, MPI_LOGICAL, MPI_COMM_WORLD, ier)
+        call MPI_Unpack(buffer, isize, bytes, xswlat    , 1, MPI_REAL   , MPI_COMM_WORLD, ier)
+        call MPI_Unpack(buffer, isize, bytes, xswlon    , 1, MPI_REAL   , MPI_COMM_WORLD, ier)
+        call MPI_Unpack(buffer, isize, bytes, xnelat    , 1, MPI_REAL   , MPI_COMM_WORLD, ier)
+        call MPI_Unpack(buffer, isize, bytes, xnelon    , 1, MPI_REAL   , MPI_COMM_WORLD, ier)
+        call MPI_Unpack(buffer, isize, bytes, gdatdx    , 1, MPI_REAL   , MPI_COMM_WORLD, ier)
+        call MPI_Unpack(buffer, isize, bytes, gdatdy    , 1, MPI_REAL   , MPI_COMM_WORLD, ier)
+        call MPI_Unpack(buffer, isize, bytes, cntlat    , 1, MPI_REAL   , MPI_COMM_WORLD, ier)
+        call MPI_Unpack(buffer, isize, bytes, secondlat , 1, MPI_REAL   , MPI_COMM_WORLD, ier)
+
+        if (allocated(levpr)) deallocate(levpr)
+        allocate(levpr(nprz))
+
+        if (inproj == 2) then
+           if (allocated(glat)) deallocate(glat)
+           allocate(glat(npry))
+        endif
+     endif
+
+     call MPI_Bcast(levpr, nprz, MPI_INTEGER, 0, MPI_COMM_WORLD, ier)
+
+     if (inproj == 2) then
+        call MPI_Bcast(glat, npry, MPI_INTEGER, 0, MPI_COMM_WORLD, ier)
+     endif
+
+     deallocate(buffer)
+
+  endif
 #endif
 
-   endif
+  write(io6,*) 'nprz1 ',nprz,nprx,npry
 
-#ifdef OLAM_MPI
-   if (iparallel == 1) then
+  ! Check for consistency between file parameters and namelist parameters
 
-      call MPI_Bcast(buffer, isize, MPI_PACKED, 0, MPI_COMM_WORLD, ier)
+  if (iyy /= iyear .or. imm /= imonth .or. idd /= idate .or. ihh /= ihour) then
 
-      if (myrank /= 0) then
+     write(io6,*) 'Pressure file dates not the same as namelist!'
+     write(io6,*) 'Year :',iyy,iyear
+     write(io6,*) 'Month:',imm,imonth
+     write(io6,*) 'Day  :',idd,idate
+     write(io6,*) 'Hour :',ihh,ihour
+     stop 'pr_dates'
+  endif
 
-         bytes = 0
-         call MPI_Unpack(buffer, isize, bytes, isversion , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
-         call MPI_Unpack(buffer, isize, bytes, iyy       , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
-         call MPI_Unpack(buffer, isize, bytes, imm       , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
-         call MPI_Unpack(buffer, isize, bytes, idd       , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
-         call MPI_Unpack(buffer, isize, bytes, ihh       , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
-         call MPI_Unpack(buffer, isize, bytes, itinc     , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
-         call MPI_Unpack(buffer, isize, bytes, nprx      , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
-         call MPI_Unpack(buffer, isize, bytes, npry      , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
-         call MPI_Unpack(buffer, isize, bytes, nprz      , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
-         call MPI_Unpack(buffer, isize, bytes, inproj    , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
-         call MPI_Unpack(buffer, isize, bytes, ivertcoord, 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
-         call MPI_Unpack(buffer, isize, bytes, xswlat    , 1, MPI_REAL   , MPI_COMM_WORLD, ier)
-         call MPI_Unpack(buffer, isize, bytes, xswlon    , 1, MPI_REAL   , MPI_COMM_WORLD, ier)
-         call MPI_Unpack(buffer, isize, bytes, xnelat    , 1, MPI_REAL   , MPI_COMM_WORLD, ier)
-         call MPI_Unpack(buffer, isize, bytes, xnelon    , 1, MPI_REAL   , MPI_COMM_WORLD, ier)
-         call MPI_Unpack(buffer, isize, bytes, gdatdx    , 1, MPI_REAL   , MPI_COMM_WORLD, ier)
-         call MPI_Unpack(buffer, isize, bytes, gdatdy    , 1, MPI_REAL   , MPI_COMM_WORLD, ier)
-         call MPI_Unpack(buffer, isize, bytes, cntlat    , 1, MPI_REAL   , MPI_COMM_WORLD, ier)
-         call MPI_Unpack(buffer, isize, bytes, secondlat , 1, MPI_REAL   , MPI_COMM_WORLD, ier)
+  ! Check pressure data domain size, location, and type
 
-      endif
+  if (inproj == 1) then
 
-      call MPI_Bcast(levpr, nprz, MPI_INTEGER, 0, MPI_COMM_WORLD, ier)
+     ! INPROJ = 1 denotes an input gridded atmospheric dataset defined on a
+     ! latitude-longitude grid, with uniformly-spaced latitude and longitude,
+     ! defined by parameters (nprx, npry, nprz, gdatdx, gdatdy, xswlat, xswlon)
 
-      if (inproj == 2) then
-         if (myrank /= 0) then
-            if (allocated(glat)) deallocate(glat)
-            allocate(glat(npry))
-         endif
-         call MPI_Bcast(glat, npry, MPI_INTEGER, 0, MPI_COMM_WORLD, ier)
-      endif
+     ! We make the requirement that a full global domain of pressure-level data
+     ! be read in.  Check this here.  Following the convention for the NCEP/DOE
+     ! Reanalysis2 data, it is assumed that nprx * gdatdx should equal 360 degrees
+     ! (of longitude).  If this is not the case, this check will stop execution.
 
-      deallocate(buffer)
+     igloberr = 0
 
-   endif
-#endif
+     if (abs(nprx * gdatdx - 360.) > .1) igloberr = 1
 
-endif
+     ! Data points may be defined at latitudinal coordinates that include both
+     ! geographic poles (-90. and 90. degrees), in which (npry-1) * gdatdy should
+     ! equal 180 degrees, or data points may be offset by 1/2 gdatdy from polar
+     ! locations, in which case npry * gdatdy should equal 180 degrees.  Both
+     ! possibilities are checked here, and if neither is satisfied, this check
+     ! will stop execution.  For either case, the beginning latitude of the dataset
+     ! is checked for consistency.
 
-write(io6,*) 'nprz1 ',nprz,nprx,npry
+     if (abs((npry-1) * gdatdy - 180.) < .1) then
+        if (abs(xswlat + 90.) > .1) igloberr = 1
+     elseif (abs(npry * gdatdy - 180.) < .1) then
+        if (abs(xswlat - 0.5 * gdatdy + 90.) > .1) igloberr = 1
+     else
+        igloberr = 1
+     endif
 
-! Check for consistency between file parameters and namelist parameters
+     if (igloberr == 1) then
+        write(io6,*) 'INPROJ = ',inproj
+        write(io6,*) 'Gridded pressure level data must have global coverage'
+        write(io6,*) 'nprx,npry = ',nprx,npry
+        write(io6,*) 'gdatdx,gdatdy = ',gdatdx,gdatdy
+        write(io6,*) 'xswlat,xswlon= ',xswlat,xswlon
+        stop 'astp stop1 - non-global domain in input pressure data'
+     endif
 
-if (iyy /= iyear .or. imm /= imonth .or. idd /= idate .or. ihh /= ihour) then
+     ! Compute longitudinal offset index for copying input data to the expanded
+     ! isan pressure arrays.
 
-   write(io6,*) 'Pressure file dates not the same as namelist!'
-   write(io6,*) 'Year :',iyy,iyear
-   write(io6,*) 'Month:',imm,imonth
-   write(io6,*) 'Day  :',idd,idate
-   write(io6,*) 'Hour :',ihh,ihour
-   stop 'pr_dates'
-endif
+     ipoffset = int((xswlon + 180.) / gdatdx) + 2
 
-! Check pressure data domain size, location, and type
+  elseif (inproj == 2) then
 
-if (inproj == 1) then
+     ! INPROJ = 2 denotes an input gridded atmospheric dataset defined on a
+     ! latitude-longitude grid, with uniformly-spaced longitude and variable
+     ! latitudinal spacing, and defined by parameters (nprx, npry, nprz, gdatdx,
+     ! xswlon) and glat, an array of specified latitudes.
 
-   ! INPROJ = 1 denotes an input gridded atmospheric dataset defined on a
-   ! latitude-longitude grid, with uniformly-spaced latitude and longitude,
-   ! defined by parameters (nprx, npry, nprz, gdatdx, gdatdy, xswlat, xswlon)
+     ! We make the requirement that a full global domain of pressure-level data
+     ! be read in.  Check this here.  Following the convention for the NCEP/DOE
+     ! Reanalysis2 data, it is assumed that nprx * gdatdx should equal 360 degrees
+     ! (of longitude).  If this is not the case, this check will stop execution.
 
-   ! We make the requirement that a full global domain of pressure-level data
-   ! be read in.  Check this here.  Following the convention for the NCEP/DOE
-   ! Reanalysis2 data, it is assumed that nprx * gdatdx should equal 360 degrees
-   ! (of longitude).  If this is not the case, this check will stop execution.
+     igloberr = 0
 
-   igloberr = 0
+     if (abs(nprx * gdatdx - 360.) > .1) igloberr = 1
 
-   if (abs(nprx * gdatdx - 360.) > .1) igloberr = 1
+     ! Data points may be defined at latitudinal coordinates that include both
+     ! geographic poles (-90. and 90. degrees) or data points may be offset by
+     ! (approximately) 1/2 gdatdy from polar locations.  Here, we check that at
+     ! least one of these possibilities is satisfied.  If not, this check will
+     ! stop execution.
 
-   ! Data points may be defined at latitudinal coordinates that include both
-   ! geographic poles (-90. and 90. degrees), in which (npry-1) * gdatdy should
-   ! equal 180 degrees, or data points may be offset by 1/2 gdatdy from polar
-   ! locations, in which case npry * gdatdy should equal 180 degrees.  Both
-   ! possibilities are checked here, and if neither is satisfied, this check
-   ! will stop execution.  For either case, the beginning latitude of the dataset
-   ! is checked for consistency.
+     if (glat(1) - (glat(2) - glat(1)) > -90.) igloberr = 1
+     if (glat(npry) + (glat(npry) - glat(npry-1)) < 90.) igloberr = 1
 
-   if (abs((npry-1) * gdatdy - 180.) < .1) then
-      if (abs(xswlat + 90.) > .1) igloberr = 1
-   elseif (abs(npry * gdatdy - 180.) < .1) then
-      if (abs(xswlat - 0.5 * gdatdy + 90.) > .1) igloberr = 1
-   else
-      igloberr = 1
-   endif
+     if (igloberr == 1) then
+        write(io6,*) 'INPROJ = ',inproj
+        write(io6,*) 'Gridded pressure level data must have global coverage'
+        write(io6,*) 'nprx,npry = ',nprx,npry
+        write(io6,*) 'gdatdx = ',gdatdx
+        write(io6,*) 'xswlat,xswlon= ',xswlat,xswlon
+        do ipry = 1,npry
+           write(io6,*) 'ipry, glat = ',ipry,glat(ipry)
+        enddo
+        stop 'astp stop2 - non-global domain in input pressure data'
+     endif
 
-   if (igloberr == 1) then
-      write(io6,*) 'INPROJ = ',inproj
-      write(io6,*) 'Gridded pressure level data must have global coverage'
-      write(io6,*) 'nprx,npry = ',nprx,npry
-      write(io6,*) 'gdatdx,gdatdy = ',gdatdx,gdatdy
-      write(io6,*) 'xswlat,xswlon= ',xswlat,xswlon
-      stop 'astp stop1 - non-global domain in input pressure data'
-   endif
+     ! Compute longitudinal offset index for copying input data to the expanded
+     ! isan pressure arrays.
 
-   ! Compute longitudinal offset index for copying input data to the expanded
-   ! isan pressure arrays.
+     ipoffset = int((xswlon + 180.) / gdatdx) + 2
 
-   ipoffset = int((xswlon + 180.) / gdatdx) + 2
+  else
 
-elseif (inproj == 2) then
+     write(io6,*) 'The input gridded atmospheric dataset does not conform '
+     write(io6,*) 'to currently-implemented formats, which are: '
+     write(io6,*) '(iproj=1) latitude-longitude with uniform spacing '
+     write(io6,*) '(iproj=2) latitude-longitude with specified variable '
+     write(io6,*) '          latitude and uniformly-spaced longitude '
+     write(io6,*) ' '
+     write(io6,*) 'Other formats will require additional coding.'
 
-   ! INPROJ = 2 denotes an input gridded atmospheric dataset defined on a
-   ! latitude-longitude grid, with uniformly-spaced longitude and variable
-   ! latitudinal spacing, and defined by parameters (nprx, npry, nprz, gdatdx,
-   ! xswlon) and glat, an array of specified latitudes.
+     stop 'astp stop - input atmospheric dataset format'
 
-   ! We make the requirement that a full global domain of pressure-level data
-   ! be read in.  Check this here.  Following the convention for the NCEP/DOE
-   ! Reanalysis2 data, it is assumed that nprx * gdatdx should equal 360 degrees
-   ! (of longitude).  If this is not the case, this check will stop execution.
+  endif
 
-   igloberr = 0
+  ! Convert input pressure levels to Pascals
 
-   if (abs(nprx * gdatdx - 360.) > .1) igloberr = 1
+  if (allocated(pnpr)) deallocate(pnpr)
+  allocate(pnpr(nprz))
 
-   ! Data points may be defined at latitudinal coordinates that include both
-   ! geographic poles (-90. and 90. degrees) or data points may be offset by
-   ! (approximately) 1/2 gdatdy from polar locations.  Here, we check that at
-   ! least one of these possibilities is satisfied.  If not, this check will
-   ! stop execution.
+  if (levpr(1) < 2000) then
 
-   if (glat(1) - (glat(2) - glat(1)) > -90.) igloberr = 1
-   if (glat(npry) + (glat(npry) - glat(npry-1)) < 90.) igloberr = 1
+     write(io6,*)
+     write(io6,*) "Assuming input pressure levels are in units of mb"
+     write(io6,*)
+     do k = 1,nprz
+        pnpr(k) = real( levpr(k) ) * 100.
+     enddo
 
-   if (igloberr == 1) then
-      write(io6,*) 'INPROJ = ',inproj
-      write(io6,*) 'Gridded pressure level data must have global coverage'
-      write(io6,*) 'nprx,npry = ',nprx,npry
-      write(io6,*) 'gdatdx = ',gdatdx
-      write(io6,*) 'xswlat,xswlon= ',xswlat,xswlon
-      do ipry = 1,npry
-         write(io6,*) 'ipry, glat = ',ipry,glat(ipry)
-      enddo
-      stop 'astp stop2 - non-global domain in input pressure data'
-   endif
+  else
 
-   ! Compute longitudinal offset index for copying input data to the expanded
-   ! isan pressure arrays.
+     write(io6,*)
+     write(io6,*) "Assuming input pressure levels are in units of Pa"
+     write(io6,*)
+     do k = 1,nprz
+        pnpr(k) = real( levpr(k) )
+     enddo
 
-   ipoffset = int((xswlon + 180.) / gdatdx) + 2
-
-else
-
-   write(io6,*) 'The input gridded atmospheric dataset does not conform '
-   write(io6,*) 'to currently-implemented formats, which are: '
-   write(io6,*) '(iproj=1) latitude-longitude with uniform spacing '
-   write(io6,*) '(iproj=2) latitude-longitude with specified variable '
-   write(io6,*) '          latitude and uniformly-spaced longitude '
-   write(io6,*) ' '
-   write(io6,*) 'Other formats will require additional coding.'
-
-   stop 'astp stop - input atmospheric dataset format'
-
-endif
+  endif
 
 end subroutine read_press_header
 
-!===============================================================================
 
-subroutine pressure_stage(fform, p_u, p_v, p_t, p_z, p_r, p_o)
 
-use isan_coms,   only: pnpr, levpr, nprx, npry, nprz
-use consts_coms, only: rocp, p00, eps_vap
-use misc_coms,   only: io6
-use hdf5_utils,  only: shdf5_close
-use mem_para,    only: myrank
-use therm_lib,   only: eslf
+subroutine pressure_stage()
 
-implicit none
-
-character(len=*), intent(in) :: fform
-
-real, intent(inout) :: p_u(nprx+4,npry+4,nprz)
-real, intent(inout) :: p_v(nprx+4,npry+4,nprz)
-real, intent(inout) :: p_t(nprx+4,npry+4,nprz)
-real, intent(inout) :: p_z(nprx+4,npry+4,nprz)
-real, intent(inout) :: p_r(nprx+4,npry+4,nprz)
-real, intent(inout) :: p_o(nprx+4,npry+4,nprz)
-
-real :: thmax,thmin,vapor_press,qmax,fac,rr
-integer :: i,j,k,iunit
-logical :: isrh, doconvert
-
-iunit = 11
-
-write(io6, *) ' '
-write(io6, *) '*****************************************************'
-write(io6, *) '     Access pressure level data'
-write(io6, *) '*****************************************************'
-write(io6, *) ' '
-
-if (maxval(levpr(1:nprz)) < 2.e3) then
-
-   write(io6,*) "Assuming input pressure levels are in units of mb"
-   do k = 1,nprz
-      pnpr(k) = levpr(k) * 100.
-   enddo
-
-else
-
-   write(io6,*) "Assuming input pressure levels are in units of Pa"
-   do k = 1,nprz
-      pnpr(k) = levpr(k)
-   enddo
-
-endif
-
-! Call routine to fill pressure arrays from the chosen dataset.
-
-call get_press (fform, iunit, isrh, p_u, p_v, p_t, p_z, p_r, p_o)
-
-!!!!!!!! Be careful !!!!!!!!!
-!  Check input humidity variable p_r.  Assume that if the maximum of the field
-!  is greater than 1.1 (which allows for some machine roundoff),
-!  it is specific humidity (in g/kg) which needs to be converted to kg/kg,
-!  else it is R.H. which needs to be converted to specific humidity
-
-if (.not. isrh) then
-
-   ! Old RALPH files should have specific humidity in g/kg
-   doconvert = .true.
-
-   ! New HDF files should also be in g/kg, but if the grib file had a
-   ! nonstandard name for humidity, grib2olam might not have converted
-   ! the units properly. Check the magnitude of humdity to guess the units.
-   ! This will be changed when we write the units to the degribbed file!
-
-   if (fform == 'HD5') then
-
-      ! Level 1 should always the lowest level!
-      qmax = maxval(p_r(1:nprx+4, 1:npry+4, 1))
-
-      ! If all specific humidities at lowest level are less than 1,
-      ! assume it is alread kg/kg
-      if (qmax < 1.0) doconvert = .false.
-
-   endif
-
-   if (doconvert) then
-
-      ! Convert g/kg specific humidity to kg/kg mixing ratio
-      fac = 0.001
-
-      write(io6, *) ''
-      write(io6, *) 'Converting g/kg specific humidity to kg/kg mixing ratio'
-
-   else
-
-      ! convert specific humiity to mixing ratio
-      fac = 1.0
-
-      write(io6, *) ''
-      write(io6, *) 'Converting specific humidity to mixing ratio'
-
-   endif
-
-   !$omp parallel do private(j,i,rr)
-   do k = 1,nprz
-      do j = 1,npry+4
-         do i = 1,nprx+4
-            rr = fac * p_r(i,j,k)
-            p_r(i,j,k) = rr / (1. - rr)
-         enddo
-      enddo
-   enddo
-   !$omp end parallel do
-
-else
-
-   ! Convert R.H. to specific humidity
-
-   write(io6, *) ''
-   write(io6, *) 'Converting relative humidity to mixing ratio'
-
-   !$omp parallel do private(j,i,vapor_press)
-   do k = 1,nprz
-      do j = 1,npry+4
-         do i = 1,nprx+4
-
-            ! Compute ambient vapor pressure based on R.H.
-            ! and saturation vapor pressure (eslf)
-
-            vapor_press = p_r(i,j,k) * eslf(p_t(i,j,k)-273.15)
-
-            ! Do not allow vapor pressure to exceed ambient pressure
-
-            vapor_press = min( 0.9*pnpr(k), vapor_press )
-
-            ! Compute mixing ratio from vapor press and ambient press
-
-            p_r(i,j,k) = eps_vap * vapor_press &
-                       / ( pnpr(k) - vapor_press )
-         enddo
-      enddo
-   enddo
-   !$omp end parallel do
-
-endif
-
-! Print max-min theta at bottom and top levels
-
-thmax = maxval(p_t(:,:,nprz)) * (p00/pnpr(nprz))**rocp
-thmin = minval(p_t(:,:,1   )) * (p00/pnpr(1))**rocp
-
-write(io6, *) ''
-write(io6, "(' Minimum THETA at ',I6,' Pa: ',F9.3)") nint(pnpr(1)), thmin
-write(io6, "(' Maximum THETA at ',I6,' Pa: ',F9.3)") nint(pnpr(nprz)), thmax
-
-if (fform == 'GDF') then
-   close(iunit)
-elseif (fform == 'HD5' .and. myrank == 0) then
-   call shdf5_close()
-endif
-
-write(io6,*) ''
-write(io6,*) 'nprz2 ',nprz
-
-end subroutine pressure_stage
-
-!===============================================================================
-
-subroutine get_press (fform, iunit, isrh, p_u, p_v, p_t, p_z, p_r, p_o)
-
-use max_dims,   only: maxpr
-use isan_coms,  only: nprz, npry, nprx, pnpr, iyear, imonth, idate, &
-                      ihour, levpr, nprz_rh, nbot_o3, haso3, &
-                      gdatdy, xswlat, ipoffset, inproj
-use misc_coms,  only: io6, iparallel
-use hdf5_utils, only: shdf5_irec, shdf5_info
-use mem_para,   only: myrank
-use prfill_mod, only: prfill, prfill3
+  use isan_coms,   only: npd, nprx, npry, nprz, gdatdy, gdatdx, pnpr, &
+                         pcol_p, pcol_z, ipoffset, kzonoff, lzon_bot, &
+                         inproj, plat, glat, xswlat, o_press, o_theta, o_rho, &
+                         o_rrw, o_uzonal, o_umerid, o_ozone, haso3, o3name
+  use hdf5_utils,  only: shdf5_info, shdf5_irec, shdf5_close
+  use mem_para,    only: myrank
+  use misc_coms,   only: rinit, io6, iparallel, i_o3
+  use mem_ijtabs,  only: jtab_w, jtw_init
+  use mem_zonavg,  only: zonz, zont, zonr, zonu, zono, zonp_vect
+  use consts_coms, only: p00, rocp, eps_vap, cvocp, p00kord, eps_vapi
+  use therm_lib,   only: eslf
+  use mem_grid,    only: mza, mwa, zt
+  use prfill_mod,  only: prfill, prfill3
 
 #ifdef OLAM_MPI
-use mpi
+  use mpi
 #endif
 
-implicit none
+  implicit none
 
-character(len=*), intent(in) :: fform
-integer, intent(in)  :: iunit
-logical, intent(inout) :: isrh
+  real, parameter :: mwair  = 28.9628             ! molecular weight of air
+  real, parameter :: mwo3   = 48.0                ! molecular weight of ozone
+  real, parameter :: cnvto3 = mwair / mwo3 * 1.e6 ! ozone mixing ratio to ppmV
 
-real, intent(inout) :: p_u(nprx+4,npry+4,nprz)
-real, intent(inout) :: p_v(nprx+4,npry+4,nprz)
-real, intent(inout) :: p_t(nprx+4,npry+4,nprz)
-real, intent(inout) :: p_z(nprx+4,npry+4,nprz)
-real, intent(inout) :: p_r(nprx+4,npry+4,nprz)
-real, intent(inout) :: p_o(nprx+4,npry+4,nprz)
+  real :: yoffset, xoffset, gdyi, gdxi
+  real :: dprat1, dprat2, dg, vapor_press
 
-real :: as(nprx,npry)
-real :: as3(nprx,npry,nprz)
+  integer :: k, j, i, iw
+  integer :: levp, ilat, nprz_rh, nbot_o3
+  integer :: ndims, idims(3)
+  logical :: isrh
 
-integer :: i,j,k,lv,n,ier
-integer :: ithere(maxpr,5),isfthere(5)
-character(len=1) :: idat(5) = (/ 'T','U','V','H','R' /)
-integer :: ndims, idims(3), njdims, jdims(3)
-character(10) :: varname
+  real :: pcol_thet  (npd)
+  real :: pcol_exneri(npd)
+  real :: pvect      (npd)
 
-! Initialize with missing data flag
+  character(10) :: varname
 
-ithere   = -999
-isfthere = -999
-haso3    = .false.
+  ! Array to store input lat/lon/pressure data
+  real, allocatable :: as3(:,:,:), at3(:,:,:)
 
-!  Read upper air fields
+  ! Define expanded array with 2 added rows/colums at N, S, E, and W
+  ! boundaries so that overlapping quadratic interpolation (in subroutine
+  ! gdtost) has sufficient points to work from.  Input data may be offset by
+  ! 1/2 grid cell from nodal latitudes and longitudes (e.g., (-180.,-90.)),
+  ! in which case all added points would be required.
+  real, allocatable :: p3d(:,:,:)
 
-isrh = .true.
-write(io6,*) ' '
-
-if (fform == 'GDF') then
-
-   do lv = 1,nprz
-
-! Zonal wind component
-
-      read(iunit,*,end=70,err=70) ((as(i,j),i=1,nprx),j=1,npry)
-      call prfill(nprx,npry,as,p_u(:,:,lv),gdatdy,xswlat,ipoffset,inproj)
-      write(io6, '('' ==  Read UE on P lev '',i4,'' at UTC '',i6.4,2i3,i5)') &
-         levpr(lv),ihour,idate,imonth,iyear
-
-! Meridional wind component
-
-      read(iunit,*,end=70,err=70) ((as(i,j),i=1,nprx),j=1,npry)
-      call prfill(nprx,npry,as,p_v(:,:,lv),gdatdy,xswlat,ipoffset,inproj)
-      write(io6, '('' ==  Read VE on P lev '',i4,'' at UTC '',i6.4,2i3,i5)') &
-         levpr(lv),ihour,idate,imonth,iyear
-
-! Temperature
-
-      read(iunit,*,end=70,err=70) ((as(i,j),i=1,nprx),j=1,npry)
-      call prfill(nprx,npry,as,p_t(:,:,lv),gdatdy,xswlat,ipoffset,inproj)
-      write(io6, '('' ==  Read T on P lev '',i4,'' at UTC '',i6.4,2i3,i5)') &
-         levpr(lv),ihour,idate,imonth,iyear
-      write(io6,*) 'prread1 ',as(5,5),nprx,npry,p_t(5,5,lv)
-
-! Geopotential height
-
-      read(iunit,*,end=70,err=70) ((as(i,j),i=1,nprx),j=1,npry)
-      call prfill(nprx,npry,as,p_z(:,:,lv),gdatdy,xswlat,ipoffset,inproj)
-      write(io6, '('' ==  Read Z on P lev '',i4,'' at UTC '',i6.4,2i3,i5)') &
-         levpr(lv),ihour,idate,imonth,iyear
-
-! Relative humidity (or specific humidity)
-
-      read(iunit,*,end=70,err=70) ((as(i,j),i=1,nprx),j=1,npry)
-      call prfill(nprx,npry,as,p_r(:,:,lv),gdatdy,xswlat,ipoffset,inproj)
-      write(io6, '('' ==  Read RH on P lev '',i4,'' at UTC '',i6.4,2i3,i5)') &
-         levpr(lv),ihour,idate,imonth,iyear
-
-   enddo
-
-   write(io6,*) ''
-
-   goto 71
-
-   70 CONTINUE
-   write(io6,*) 'Premature end of file or error in pressure input file!'
-   write(io6,*) 'We''ll close our eyes and pretend it didn''t happen!'
-   71 continue
-
-elseif (fform == 'HD5') then
-
-   ! Read 3D met vars
-
-   ndims = 3
-   idims(1) = nprx
-   idims(2) = npry
-   idims(3) = nprz
-
-   ! Read east-west velocity U. It may be called UP, UE, or U in the file
-
-   if (myrank == 0) then
-
-      varname = 'U'
-      call shdf5_info(varname, njdims, jdims)
-
-      if (njdims <= 0) then
-         varname = 'UP'
-         call shdf5_info(varname, njdims, jdims)
-      endif
-
-      if (njdims <= 0) then
-         varname = 'UE'
-         call shdf5_info(varname, njdims, jdims)
-      endif
-
-      call shdf5_irec(ndims, idims, varname, rvar3 = as3)
-      call prfill3(nprx,npry,nprz,as3,p_u,gdatdy,xswlat,ipoffset,inproj)
-
-   endif
+  ! Arrays to store data on analysis pressure levels interpolated to each
+  ! model horizontal (iw) location
+  real, allocatable :: field(:,:)
 
 #ifdef OLAM_MPI
-   if (iparallel == 1) then
-      call MPI_Bcast( p_u, (nprx+4)*(npry+4)*nprz, MPI_REAL, 0, MPI_COMM_WORLD, ier )
-   endif
+  integer :: ier, ireq
 #endif
 
-   ! Read north-south velocity V. It may be called VP, VE, or V in the file
+  yoffset = 3.0
+  xoffset = 1.0 + real(ipoffset)
 
-   if (myrank == 0) then
+  gdyi = 1.0 / gdatdy
+  gdxi = 1.0 / gdatdx
 
-      varname = 'V'
-      call shdf5_info(varname, njdims, jdims)
+  ! Fill column array of pressure level values in MKS
 
-      if (njdims <= 0) then
-         varname = 'VP'
-         call shdf5_info(varname, njdims, jdims)
-      endif
+  do k = 1, nprz
+     pcol_p(k+2) = pnpr(k)
+  enddo
+  pcol_p(2) = 110000.   ! Phony underground level
+  pcol_p(1) = 120000.   ! Phony underground level
 
-      if (njdims <= 0) then
-         varname = 'VE'
-         call shdf5_info(varname, njdims, jdims)
-      endif
+  ! If necessary, fill upper pressure levels from ZONAVG data
 
-      call shdf5_irec(ndims, idims, varname, rvar3 = as3)
-      call prfill3(nprx,npry,nprz,as3,p_v,gdatdy,xswlat,ipoffset,inproj)
+  k = nprz + 2                ! highest ppd level filled so far
+  kzonoff = k + 1 - lzon_bot  ! k offset for copying pzon levels to ppd
 
-   endif
+  do levp = lzon_bot, 22
+     k = levp + kzonoff
+     pcol_p(k) = zonp_vect(levp)
+  enddo
+
+  ! Inverse exner function (defined without cp factor)
+
+  do k = 1, npd
+     pcol_exneri(k) = ( p00 / pcol_p(k) )**rocp
+  enddo
+
+  ! Allocate space for 3d arrays
+
+  if (myrank == 0) then
+     allocate( as3(nprx,npry,nprz) )
+  endif
+  allocate(p3d(nprx+4,npry+4,nprz))
+
+  allocate(field (npd,mwa)) ; field  = rinit
+
+! For INPROJ = 2, where latitudes are specified, fill expanded latitude array
+
+  if (inproj == 2) then
+
+     if (allocated(plat)) deallocate(plat)
+     allocate(plat(npry+4))
+
+     do ilat = 1,npry
+        plat(ilat+2) = glat(ilat)
+     enddo
+
+     plat(2) = plat(3) - (plat(4) - plat(3))
+     plat(1) = plat(2) - (plat(3) - plat(2))
+
+     plat(npry+3) = plat(npry+2) + (plat(npry+2) - plat(npry+1))
+     plat(npry+4) = plat(npry+3) + (plat(npry+3) - plat(npry+2))
+
+  endif
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! Read geopotential height
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  if (myrank == 0) then
+
+     ndims = 0
+     idims = 0
+
+     varname = 'GEO'
+     call shdf5_info(varname, ndims, idims)
+
+     if (ndims /= 3 .or. any( idims /= [nprx,npry,nprz] ) ) then
+        write(*,*) "Geopotential height (GEO) not found in analysis file."
+        stop
+     endif
+
+     write(io6,*) "Reading geopotential height " // trim(varname)
+     call shdf5_irec(ndims, idims,varname,rvar3 = as3)
+     call prfill3(nprx,npry,nprz,as3,p3d,gdatdy,xswlat,ipoffset,inproj)
+  endif
 
 #ifdef OLAM_MPI
-   if (iparallel == 1) then
-      call MPI_Bcast( p_v, (nprx+4)*(npry+4)*nprz, MPI_REAL, 0, MPI_COMM_WORLD, ier )
-   endif
+  if (iparallel == 1) then
+     call MPI_Ibcast( p3d, (nprx+4)*(npry+4)*nprz, MPI_REAL, 0, MPI_COMM_WORLD, &
+                     ireq, ier )
+     if (myrank > 0) call MPI_Wait( ireq, MPI_STATUS_IGNORE, ier )
+  endif
 #endif
 
-   ! Read temperature 
+  ! Horizontally interpolate geopotential of each pressure level
+  ! to the model column lat/lon locations
 
-   if (myrank == 0) then
+  call hinterp_plevs( gdxi, gdyi, xoffset, yoffset, p3d, pcol_z )
 
-      call shdf5_irec(ndims, idims,'TEMP',rvar3 = as3)
-      call prfill3(nprx,npry,nprz,as3,p_t,gdatdy,xswlat,ipoffset,inproj)
+  ! Extra levels above analysis (from zonavg arrays)
 
-   endif
+  if (npd > nprz+2) then
+     call hinterp_zonavg(pcol_z, zonz)
+  endif
+
+  ! Special for extrapolated levels at bottom
+
+  dprat2 = 10000. / ((pcol_p(3) - pcol_p(4)) * 1.05)
+  dprat1 = 10000. / ((pcol_p(3) - pcol_p(4)) * 1.13)
+
+  ! Set phony underground height field and vertically interpolate pressure
+  ! to OLAM vertical coordinate levels
+
+  !$omp parallel do private(iw,dg)
+  do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
+     dg           = pcol_z(4,iw) - pcol_z(3,iw)
+     pcol_z(2,iw) = pcol_z(3,iw) - dg * dprat2
+     pcol_z(1,iw) = pcol_z(2,iw) - dg * dprat1
+
+     call hintrp_cc(npd, pcol_p, pcol_z(:,iw), mza, o_press(:,iw), zt)
+  enddo
+  !$omp end parallel do
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! Read temperature
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  if (myrank == 0) then
+     ndims = 0
+     idims = 0
+
+     varname = 'TEMP'
+     call shdf5_info(varname, ndims, idims)
+
+     if (ndims /= 3 .or. any( idims /= [nprx,npry,nprz] ) ) then
+        write(*,*) "Air temperature (TEMP) not found in analysis file."
+        stop
+     endif
+
+     write(io6,*) "Reading air temperature " // trim(varname)
+     call shdf5_irec(ndims, idims,varname,rvar3 = as3)
+
+     if (iparallel == 1) call MPI_Wait( ireq, MPI_STATUS_IGNORE, ier )
+     call prfill3(nprx,npry,nprz,as3,p3d,gdatdy,xswlat,ipoffset,inproj)
+
+  endif
 
 #ifdef OLAM_MPI
-   if (iparallel == 1) then
-      call MPI_Bcast( p_t, (nprx+4)*(npry+4)*nprz, MPI_REAL, 0, MPI_COMM_WORLD, ier )
-   endif
+  if (iparallel == 1) then
+     call MPI_Ibcast( p3d, (nprx+4)*(npry+4)*nprz, MPI_REAL, 0, MPI_COMM_WORLD, &
+                      ireq, ier )
+     if (myrank > 0) call MPI_Wait( ireq, MPI_STATUS_IGNORE, ier )
+  endif
 #endif
 
-   ! Read geopotential height
+  ! Horizontally interpolate geopotential of each pressure level
+  ! to the model column lat/lon locations
 
-   if (myrank == 0) then
-      call shdf5_irec(ndims, idims,'GEO',rvar3 = as3)
-      call prfill3(nprx,npry,nprz,as3,p_z,gdatdy,xswlat,ipoffset,inproj)
-   endif
+  call hinterp_plevs( gdxi, gdyi, xoffset, yoffset, p3d, field )
+
+  ! Extra levels above analysis (from zonavg arrays)
+
+  if (npd > nprz+2) then
+     call hinterp_zonavg(field, zont)
+  endif
+
+  ! Set phony underground height field and vertically interpolate pressure
+  ! levels to OLAM pressure field
+
+  !$omp parallel private(pcol_thet)
+  !$omp do private(iw,k)
+  do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
+
+     do k = 3, npd
+        pcol_thet(k) = field(k,iw) * pcol_exneri(k)
+     enddo
+
+     pcol_thet(2) = pcol_thet(3)
+     pcol_thet(1) = pcol_thet(2)
+
+     call hintrp_cc(npd, pcol_thet, pcol_z(:,iw), mza, o_theta(:,iw), zt)
+  enddo
+  !$omp end do
+  !$omp end parallel
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! Read water vapor
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  if (myrank == 0) then
+
+     ndims = 0
+     idims = 0
+
+     ! First check if specific humidity is in analysis file
+
+     varname = 'SHV'
+     isrh    = .false.
+     call shdf5_info(varname, ndims, idims)
+
+     if (ndims /= 3) then
+
+        ! If we don't have specific humidity, check for relative humidity.
+        ! It may be called RELHUM or RH
+
+        varname = 'RH'
+        isrh   = .true.
+        call shdf5_info(varname, ndims, idims)
+
+        if (ndims /= 3) then
+
+           varname = 'RELHUM'
+           isrh   = .true.
+           call shdf5_info(varname, ndims, idims)
+
+           if (ndims /= 3 .or. any( idims /= [nprx,npry,nprz] ) ) then
+              write(*,*) "Water vapor not found in analysis file."
+              stop
+           endif
+
+        endif
+     endif
+
+     ! If we need temperature to convert RH to mixing ratio, store it in
+     ! p3d. Note: as3 is still the air temperature read in from the reanalysis
+
+     if (isrh) then
+        allocate( at3(nprx,npry,nprz) )
+        at3 = as3
+     endif
+
+     write(io6,*) "Reading water vapor " // trim(varname)
+     call shdf5_irec(ndims, idims, varname, rvar3=as3)
+
+     if (isrh) then
+
+        ! RH should be stored as a ratio (0-1). If there are larger values,
+        ! assume RH is in percent and convert to decimal RH. This is probably
+        ! not necessary with recent versions of grib2olam but we will keep
+        ! this check anyway. TODO: Read and store units from grib2olam.
+        if ( any(as3(:,:,1) > 2.0) ) then
+           write(io6, *) '    Converting relative humidity (%) to ratio (0-1)'
+           as3 = 0.01 * as3
+        endif
+
+        ! Convert relative humidity to mixing ratio
+
+        write(io6,*) '    Converting relative humidity to mixing ratio'
+
+        !$omp parallel do collapse(2) private(k,j,i,vapor_press)
+        do k = 1, nprz
+           do j = 1, npry
+              do i = 1, nprx
+
+                 ! Compute ambient vapor pressure based on R.H.
+                 ! and saturation vapor pressure (eslf) (at3 temporarily
+                 ! stores air temperature).
+
+                 vapor_press = as3(i,j,k) * eslf(at3(i,j,k)-273.15)
+
+                 ! Do not allow vapor pressure to exceed ambient pressure
+
+                 vapor_press = min( 0.9*pnpr(k), vapor_press )
+
+                 ! Compute mixing ratio from vapor press and ambient press
+
+                 as3(i,j,k) = eps_vap * vapor_press &
+                            / ( pnpr(k) - vapor_press )
+              enddo
+           enddo
+        enddo
+        !$omp end parallel do
+
+        deallocate(at3)
+
+     else
+
+        ! If any specific humidities at lowest level are greater than 1,
+        ! assume it is g/kg and convert to kg/kg. This is probably not
+        ! necessary with recent versions of grib2olam but we will keep
+        ! this check anyway. TODO: Read and store units from grib2olam.
+        if ( any(as3(:,:,1) > 1.0) ) then
+           write(io6, *) ''
+           write(io6, *) 'Converting g/kg specific humidity to kg/kg'
+           as3 = 0.001 * as3
+        endif
+
+        ! Convert specific humidity to mixing ratio
+
+        write(io6, *) ''
+        write(io6, *) 'Converting specific humidity to mixing ratio'
+
+        !$omp parallel do
+        do k = 1, nprz
+           as3(:,:,k) = as3(:,:,k) / (1.0 - as3(:,:,k))
+        enddo
+        !$omp end parallel do
+
+     endif
+
+     if (iparallel == 1) call MPI_Wait( ireq, MPI_STATUS_IGNORE, ier )
+     call prfill3(nprx,npry,nprz,as3,p3d,gdatdy,xswlat,ipoffset,inproj)
+
+  endif
 
 #ifdef OLAM_MPI
-   if (iparallel == 1) then
-      call MPI_Bcast( p_z, (nprx+4)*(npry+4)*nprz, MPI_REAL, 0, MPI_COMM_WORLD, ier )
-   endif
+  if (iparallel == 1) then
+     call MPI_Ibcast( p3d, (nprx+4)*(npry+4)*nprz, MPI_REAL, 0, MPI_COMM_WORLD, &
+                      ireq, ier )
+     if (myrank > 0) call MPI_Wait( ireq, MPI_STATUS_IGNORE, ier )
+  endif
 #endif
-
-   ! Read water vapor specific humidity if it exists in the file
-
-   if (myrank == 0) then
-
-      njdims = 0
-      call shdf5_info("SHV", njdims, jdims)
-
-      if (njdims > 0) then
-
-         isrh = .false.
-         call shdf5_irec(ndims, idims,'SHV',rvar3 = as3)
-         call prfill3(nprx,npry,nprz,as3,p_r,gdatdy,xswlat,ipoffset,inproj)
-
-      else
-
-   ! Read relative humidity if we don't have specific humidity,
-   ! It may be called RELHUM or RH
-
-         varname = 'RH'
-         call shdf5_info(varname, njdims, jdims)
-
-         if (njdims <= 0) then
-            varname = 'RELHUM'
-         endif
-
-         isrh = .true.
-         call shdf5_irec(ndims, idims, varname, rvar3 = as3)
-         call prfill3(nprx,npry,nprz,as3,p_r,gdatdy,xswlat,ipoffset,inproj)
-
-      endif
-   endif
-
-#ifdef OLAM_MPI
-   if (iparallel == 1) then
-      call MPI_Bcast( p_r, (nprx+4)*(npry+4)*nprz, MPI_REAL, 0, MPI_COMM_WORLD, ier )
-      call MPI_Bcast( isrh, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ier )
-   endif
-#endif
-
-   ! Read ozone if it exists in the file
-
-   if (myrank == 0) then
-
-      njdims = 0
-      call shdf5_info("O3MR", njdims, jdims)
-
-      if (njdims > 0) then
-
-         haso3 = .true.
-         call shdf5_irec(ndims, idims, 'O3MR', rvar3 = as3)
-         call prfill3(nprx,npry,nprz,as3,p_o,gdatdy,xswlat,ipoffset,inproj)
-
-      endif
-
-   endif
-
-#ifdef OLAM_MPI
-   if (iparallel == 1) then
-      call MPI_Bcast( haso3, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ier )
-
-      if (haso3) then
-         call MPI_Bcast( p_o, (nprx+4)*(npry+4)*nprz, MPI_REAL, 0, MPI_COMM_WORLD, ier )
-      endif
-
-   endif
-#endif
-
-!  if (ivertcoord == 3) call shdf5_irec('PRESS',rvar3 = p_p)
-
-!  print*,'uu max-min:', maxval(p_u), minval(p_u)
-!  print*,'vv max-min:', maxval(p_v), minval(p_v)
-!  print*,'tt max-min:', maxval(p_t), minval(p_t)
-!  print*,'zz max-min:', maxval(p_z), minval(p_z)
-!  print*,'rr max-min:', maxval(p_r), minval(p_r)
-!  print*,'pp max-min:', maxval(p_p), minval(p_p)
-
-   ! 3D scalar vars
-
-!   if (num_scvars > 0) then
-!      do nv = 1, num_scvars
-!         call shdf5_irec(trim(in_scvars(nv)),rvar3 = p_scalar(:,:,:,nv))
-
-!         print*,trim(in_scvars(nv)),' max-min:', maxval(p_scalar(:,:,:,nv)), &
-!                      minval(p_scalar(:,:,:,nv))
-
-!      enddo
-!   endif
-
-endif
 
 ! Special for RH:
 ! Reanalysis typically only reports RH up to 100mb, but still reports the other
 ! fields up to higher levels. Check for the highest level that reports RH:
 
-do k = nprz,1,-1
-   if (all(p_r(:,:,k) > -998.)) then
-      nprz_rh = k
-      exit
-   endif
-enddo
+  nprz_rh = 0
 
-! Special for GDF text files:
-! The old ralph format does not differentiate between specific humidity
-! and relative humidity. We assume that if the maximum of the humidity
-! variable is greater than 1.1 (which allows for some machine roundoff),
-! it is specific humidity (in g/kg), else it is relative humidity
+  do k = nprz,1,-1
+     if (all(p3d(:,:,k) > -998.)) then
+        nprz_rh = k
+        exit
+     endif
+  enddo
 
-if (fform == 'GDF') then
-   if (maxval(p_r(1:nprx+4,1:npry+4,1:nprz_rh)) > 1.1) then
-      isrh = .false.
-   else
-      isrh = .true.
-   endif
-endif
+  ! Horizontally interpolate humidity at each pressure level
+  ! to the model column lat/lon locations
 
-! Special for OZONE:
-! GFS only reports ozone ABOVE 100 mb, whereas the CFSR reanalysis reports the
-! whole column. Check the lowest level at which ozone is reported if it is in
-! the analysis file:
+  call hinterp_plevs( gdxi, gdyi, xoffset, yoffset, p3d, field )
 
-if (haso3) then
-   nbot_o3 = 0
+  ! Extra levels above analysis (from zonavg arrays)
 
-   do k = 1, nprz
-      if (all(p_o(:,:,k) > -998.)) then
-         nbot_o3 = k
-         exit
-      endif
-   enddo
+  if (npd > nprz+2) then
+     call hinterp_zonavg(field, zonr)
+  endif
 
-   if (nbot_o3 == 0) haso3 = .false.
-endif
+  !$omp parallel private(pvect)
+  !$omp do private(iw,k)
+  do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 
-write(io6, *) '----------------------------------------------------'
-write(io6, "(A,I0,A,I0,A)") ' Pressure-level data has ', nprz, &
-     ' levels, goes up to ', nint(pnpr(nprz)), ' Pa'
-write(io6, "(A,I0,A,I0,A)") ' Water vapor has ', nprz_rh, &
-     ' levels, is reported up to ', nint(pnpr(nprz_rh)), ' Pa'
-write(io6, *) ''
+     ! Copy humidity pressure levels to temprorary vector
+     pvect(3:npd) = field(3:npd,iw)
 
-! Check for missing data
+     ! Phony underground levels
+     pvect(1:2) = pvect(3)
 
-do k = 1,nprz
-   ithere(k,1) = count(p_t(:,:,k) < -998.0)
-   ithere(k,2) = count(p_u(:,:,k) < -998.0)
-   ithere(k,3) = count(p_v(:,:,k) < -998.0)
-   ithere(k,4) = count(p_z(:,:,k) < -998.0)
-   ithere(k,5) = count(p_r(:,:,k) < -998.0)
-enddo
+     ! Set any missing humidity levels from Mclatchy soundings
+     ! (only for reanalyses that don't report humdidity at all levels)
+     if (nprz_rh < nprz) then
+        call fill_wvap_levs_mclat(iw, nprz_rh+3, nprz+2, pvect)
+     endif
 
-where (ithere(:,:) > nprx*npry) ithere(:,:) = -1
+     ! Vertically interpolate humidity from pressure levels to model levels
+     call hintrp_cc(npd, pvect, pcol_z(:,iw), mza, o_rrw(:,iw), zt)
 
-write(io6,*) '---------------------------------------------------'
-write(io6,*) ' # of missing values per level (-1 = all missing): '
-write(io6,*) '---------------------------------------------------'
-write(io6, '(a,5(6x,a1))') '   P (mb)', (idat(n),n=1,5)
+     do k = 1, mza
+        o_rrw(k,iw) = max( 1.e-8, o_rrw(k,iw) )
+     enddo
 
-do k = 1,nprz
-   write(io6, '(f10.2,t10,5(i7))') pnpr(k)/100., (ithere(k,n),n=1,5)
-enddo
+  enddo
+  !$iomp end do
+  !$omp end parallel
 
-if (any(ithere(1:nprz,(/1,2,3,4/)) /= 0) .or. any(ithere(1:nprz_rh,5) /= 0)) then
-   write(io6,*) ''
-   write(io6,*) '-------------------------------------------------------'
-   write(io6,*) 'WARNING - There appears to be missing data in the input'
-   write(io6,*) '          pressure-level data files'
-   write(io6,*) '-------------------------------------------------------'
-endif
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!! Read zonal wind
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-end subroutine get_press
+  if (myrank == 0) then
+
+     ndims = 0
+     idims = 0
+
+     ! East-wst velocity may be called UP, UE, or U
+
+     varname = 'U'
+     call shdf5_info(varname, ndims, idims)
+
+     if (ndims /= 3) then
+
+        varname = 'UP'
+        call shdf5_info(varname, ndims, idims)
+
+        if (ndims /= 3) then
+
+           varname = 'UE'
+           call shdf5_info(varname, ndims, idims)
+
+           if (ndims /= 3 .or. any( idims /= [nprx,npry,nprz] ) ) then
+              write(*,*) "Zonal wind (U) not found in analysis file."
+              stop
+           endif
+
+        endif
+     endif
+
+     write(io6,*) "Reading zonal wind " // trim(varname)
+     call shdf5_irec(ndims, idims, varname, rvar3 = as3)
+
+     if (iparallel == 1) call MPI_Wait( ireq, MPI_STATUS_IGNORE, ier )
+     call prfill3(nprx,npry,nprz,as3,p3d,gdatdy,xswlat,ipoffset,inproj)
+
+  endif
+
+#ifdef OLAM_MPI
+  if (iparallel == 1) then
+     call MPI_Ibcast( p3d, (nprx+4)*(npry+4)*nprz, MPI_REAL, 0, MPI_COMM_WORLD, &
+                     ireq, ier )
+     if (myrank > 0) call MPI_Wait( ireq, MPI_STATUS_IGNORE, ier )
+  endif
+#endif
+
+  ! Horizontally interpolate zonal wind at each pressure level
+  ! to the model column lat/lon locations
+
+  call hinterp_plevs( gdxi, gdyi, xoffset, yoffset, p3d, field )
+
+  ! Extra levels above analysis (from zonavg arrays)
+
+  if (npd > nprz+2) then
+     call hinterp_zonavg(field, zonu)
+  endif
+
+  !$omp parallel do private(iw)
+  do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
+     call hintrp_cc(npd, field(:,iw), pcol_z(:,iw), mza, o_uzonal(:,iw), zt)
+  enddo
+  !$omp end parallel do
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!! Read meridional wind
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  if (myrank == 0) then
+
+     ndims = 0
+     idims = 0
+
+     ! East-wst velocity may be called VP, VE, or V
+
+     varname = 'V'
+     call shdf5_info(varname, ndims, idims)
+
+     if (ndims /= 3) then
+
+        varname = 'VP'
+        call shdf5_info(varname, ndims, idims)
+
+        if (ndims /= 3) then
+
+           varname = 'VE'
+           call shdf5_info(varname, ndims, idims)
+
+           if (ndims /= 3 .or. any( idims /= [nprx,npry,nprz] ) ) then
+              write(*,*) "Meridional wind (V) not found in analysis file."
+              stop
+           endif
+
+        endif
+     endif
+
+     write(io6,*) "Reading meridional wind " // trim(varname)
+     call shdf5_irec(ndims, idims, varname, rvar3 = as3)
+
+     if (iparallel == 1) call MPI_Wait( ireq, MPI_STATUS_IGNORE, ier )
+     call prfill3(nprx,npry,nprz,as3,p3d,gdatdy,xswlat,ipoffset,inproj)
+
+  endif
+
+#ifdef OLAM_MPI
+  if (iparallel == 1) then
+     call MPI_Ibcast( p3d, (nprx+4)*(npry+4)*nprz, MPI_REAL, 0, MPI_COMM_WORLD, &
+                      ireq, ier )
+     if (myrank > 0) call MPI_Wait( ireq, MPI_STATUS_IGNORE, ier )
+  endif
+#endif
+
+  ! Horizontally interpolate meridional wind at each pressure level
+  ! to the model column lat/lon locations
+
+  call hinterp_plevs( gdxi, gdyi, xoffset, yoffset, p3d, field )
+
+  !$omp parallel do private(iw)
+  do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
+
+     if (npd > nprz+2) then
+        field(nprz+3:npd,iw) = 0.0
+     endif
+
+     call hintrp_cc(npd, field(:,iw), pcol_z(:,iw), mza, o_umerid(:,iw), zt)
+  enddo
+  !$omp end parallel do
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!! Read ozone
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  if (i_o3 > 0) then
+
+     nbot_o3 = nprz + 1
+
+     if (haso3) then
+
+        if (myrank == 0) then
+
+           ndims = 0
+           idims = 0
+
+           call shdf5_info(o3name, ndims, idims)
+
+           if (ndims /= 3 .or. any( idims /= [nprx,npry,nprz] ) ) then
+              write(*,*) "Ozone mixing ration not found in analysis file."
+              stop
+           endif
+
+           write(io6,*) "Reading ozone mixing ratio " // trim(varname)
+           call shdf5_irec(ndims, idims, varname, rvar3 = as3)
+
+           if (iparallel == 1) call MPI_Wait( ireq, MPI_STATUS_IGNORE, ier )
+           call prfill3(nprx,npry,nprz,as3,p3d,gdatdy,xswlat,ipoffset,inproj)
+
+        endif
+
+#ifdef OLAM_MPI
+        if (iparallel == 1) then
+           call MPI_Ibcast( p3d, (nprx+4)*(npry+4)*nprz, MPI_REAL, 0, MPI_COMM_WORLD, &
+                            ireq, ier )
+           if (myrank > 0) call MPI_Wait( ireq, MPI_STATUS_IGNORE, ier )
+        endif
+#endif
+
+        ! Special for OZONE:
+        ! Some analysis only reports ozone ABOVE 100 mb. Check for the lowest
+        ! level at which ozone is reported in the analysis file
+
+        do k = 1, nprz
+           if (all(p3d(:,:,k) > -998.)) then
+              nbot_o3 = k
+              exit
+           endif
+        enddo
+
+        ! Horizontally interpolate ozone at each pressure level
+        ! to the model column lat/lon locations
+
+        if (nbot_o3 < nprz+1) then
+           call hinterp_plevs( gdxi, gdyi, xoffset, yoffset, p3d, field )
+        endif
+
+     endif
+
+     ! Extra levels above analysis (from zonavg arrays)
+
+     if (npd > nprz+2) then
+        call hinterp_zonavg(field, zono)
+     endif
+
+     !$omp parallel private(pvect)
+     !$omp do private(iw,k)
+     do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
+
+        ! Copy ozone pressure levels to temprorary vector
+        pvect(nbot_o3+2:npd) = field(nbot_o3:npd,iw)
+
+        ! Set any missing ozone levels from Mclatchy soundings
+        ! (only for reanalyses that don't report ozone at all levels)
+        if ( nbot_o3 > 1 ) then
+           call fill_ozone_levs_mclat(iw, 3, nbot_o3+1, pvect)
+        endif
+
+        ! Phony underground levels
+        pvect(1:2) = pvect(3)
+
+        ! Vertically interpolate ozone from pressure levels to model levels
+        call hintrp_cc(npd, pvect, pcol_z(:,iw), mza, o_ozone(:,iw), zt)
+
+        ! Convert to ppmV
+        do k = 1, mza
+           o_ozone(k,iw) = max( 1.e-30, cnvto3 * o_ozone(k,iw) )
+        enddo
+
+     enddo
+     !$omp end do
+     !$omp end parallel
+
+  endif
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!! Compute dry density
+!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  !$omp parallel do private(iw,k)
+  do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
+
+     do k = 1, mza
+        o_rho(k,iw) = o_press(k,iw) ** cvocp * p00kord / &
+                      ( o_theta(k,iw) * (1.0 + eps_vapi * o_rrw(k,iw)) )
+     enddo
+
+  enddo
+  !$omp end parallel do
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!! Deallocate arrays and close HDF5
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  if (allocated(as3)) deallocate(as3)
+  if (allocated(p3d)) deallocate(p3d)
+
+  if (iparallel == 1 .and. myrank == 0) then
+     call MPI_Wait( ireq , MPI_STATUS_IGNORE, ier )
+  endif
+
+  if (myrank == 0) then
+     call shdf5_close()
+  endif
+
+end subroutine pressure_stage
+
+
+
+subroutine hinterp_plevs( gdxi, gdyi, xoffset, yoffset, p3d, field )
+
+  use mem_grid,   only: mwa, glatw, glonw
+  use mem_ijtabs, only: jtab_w, jtw_init
+  use isan_coms
+
+  implicit none
+
+  ! This routine horizontally interpolates the input lon/lat/press
+  ! analysis (p3d array) to each model column at the standard pressure
+  ! levels.
+
+  real, intent(in ) :: gdxi, gdyi, xoffset, yoffset
+  real, intent(in ) :: p3d(nprx+4,npry+4,nprz)
+  real, intent(out) :: field(npd,mwa)
+
+  integer :: j, iw, ilat, k
+  real    :: grx, gry
+
+  !$omp parallel do private(iw,grx,gry,ilat,k)
+  do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
+
+     if (inproj == 1) then
+
+        grx = (glonw(iw) - xswlon) * gdxi + xoffset
+        gry = (glatw(iw) - xswlat) * gdyi + yoffset
+
+     elseif (inproj == 2) then
+
+        ! estimate latitude index assuming uniform spacing of plat
+
+        ilat = 2 + npry * int((glatw(iw) - plat(2)) / 180.)
+
+        ! find correct latitude index
+
+        if (plat(ilat) > glatw(iw)) then
+           do while(plat(ilat) > glatw(iw))
+              ilat = ilat - 1
+           enddo
+        elseif (plat(ilat+1) < glatw(iw)) then
+           do while(plat(ilat+1) < glatw(iw))
+              ilat = ilat + 1
+           enddo
+        endif
+
+        grx = (glonw(iw) - xswlon) * gdxi + xoffset
+        gry = (glatw(iw) - plat(ilat)) / (plat(ilat+1) - plat(ilat)) + real(ilat)
+
+     endif
+
+     ! Horizontally interpolate gridded pressure-level data to column
+     ! at location of current W point
+
+     do k = 1, nprz
+        call gdtost(p3d(:,:,k), nprx+4, npry+4, grx, gry, field(k+2,iw))
+     enddo
+
+     ! Temporarily set underground levels to value at lowest analysis level
+     field(1:2,iw) = field(3,iw)
+
+     ! Temporarily set added levels above analysis to value at highest analysis level
+     if (npd > nprz+2) then
+        field(nprz+3:npd,iw) = field(nprz+2,iw)
+     endif
+
+  enddo
+  !$omp end parallel do
+
+end subroutine hinterp_plevs
+
+
+
+
+subroutine hinterp_zonavg(field, zona)
+
+  use mem_grid,   only: mwa, glatw
+  use mem_ijtabs, only: jtab_w, jtw_init
+  use mem_zonavg, only: nlata, nplev
+  use isan_coms
+
+  implicit none
+
+  real, intent(in   ) :: zona(nlata,nplev)
+  real, intent(inout) :: field(npd,mwa)
+
+  integer :: j, iw, ilat, k, levp
+  real    :: rlat, wt2
+
+  if (npd <= nprz+2) return
+
+  !$omp parallel do private(iw,rlat,ilat,wt2,levp,k)
+  do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
+
+     rlat = .4 * (glatw(iw) + 93.75)
+     ilat = int(rlat)
+     wt2  = rlat - float(ilat)
+
+     do levp = lzon_bot, 22
+        k = levp + kzonoff
+        field(k,iw) = (1. - wt2) * zona(ilat,levp) + wt2 * zona(ilat+1,levp)
+     enddo
+
+  enddo
+  !$omp end parallel do
+
+end subroutine hinterp_zonavg
+
+
+
+
+subroutine fill_wvap_levs_mclat(iw, nbot, ntop, qvect)
+
+  use mem_mclat, only: sslat, mclat, ypp_mclat, mclat_spline
+  use mem_grid,  only: glatw
+  use isan_coms, only: npd, pcol_p
+
+  implicit none
+
+  integer, intent(in)  :: iw, nbot, ntop
+  real,    intent(out) :: qvect(npd)
+
+  real    :: mcol(33,6)
+  integer :: lv
+
+  ! Fills pressure levels from nbot to ntop with water vapor values
+  ! from the Mclatchy soundings
+
+  if (nbot > ntop) return
+
+  ! This assumes that mclat_spline has already been called
+  ! with the current date
+
+  call spline2_vec(13, 33*6, sslat, mclat, ypp_mclat, glatw(iw), mcol)
+
+  ! Compute water vapor mixing ratios by dividing by dry density
+
+  do lv = 1,33
+     mcol(lv,4) = mcol(lv,4) / (mcol(lv,6) - mcol(lv,4))
+  enddo
+
+  ! Set any missing water vapor data
+
+  lv = ntop - nbot + 1
+
+  call pintrp_ee(33, mcol(1,5), mcol(1,2), lv, qvect(nbot:ntop), pcol_p(nbot:ntop))
+
+end subroutine fill_wvap_levs_mclat
+
+
+
+
+subroutine fill_ozone_levs_mclat(iw, nbot, ntop, ovect)
+
+  use mem_mclat, only: sslat, mclat, ypp_mclat, mclat_spline
+  use mem_grid,  only: glatw
+  use isan_coms, only: npd, pcol_p
+
+  implicit none
+
+  integer, intent(in)  :: iw, nbot, ntop
+  real,    intent(out) :: ovect(npd)
+
+  real    :: mcol(33,6)
+  integer :: lv
+
+  ! Fills pressure levels from nbot to ntop with ozone values
+  ! from the Mclatchy soundings
+
+  if (nbot > ntop) return
+
+  ! This assumes that mclat_spline has already been called
+  ! with the current date
+
+  call spline2_vec(13, 33*6, sslat, mclat, ypp_mclat, glatw(iw), mcol)
+
+  ! Compute ozone mixing ratios by dividing by dry density
+
+  do lv = 1,33
+     mcol(lv,5) = mcol(lv,5) / (mcol(lv,6) - mcol(lv,4))
+  enddo
+
+  ! Vertically interpolate Mclatchy water vapor BY PRESSURE to analysis levels
+
+  lv = ntop - nbot + 1
+
+  call pintrp_ee(33, mcol(1,4), mcol(1,2), lv, ovect(nbot:ntop), pcol_p(nbot:ntop))
+
+end subroutine fill_ozone_levs_mclat

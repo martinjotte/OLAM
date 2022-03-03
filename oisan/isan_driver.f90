@@ -33,17 +33,22 @@
 subroutine isan_driver(iaction)
 
   use isan_coms,  only: innpr, ihour, idate, imonth, iyear, nfgfiles, ifgfile, &
-                        ctotdate_fg, fnames_fg, s1900_fg
-  use misc_coms,  only: io6, runtype, s1900_init, s1900_sim
-  use mem_zonavg, only: zonavg_init
+                        ctotdate_fg, fnames_fg, s1900_fg, lzon_bot, npd, &
+                        pcol_p, pcol_z, nprx, npry, nprz, o_rho, o_press, &
+                        o_theta, o_rrw, o_uzonal, o_umerid, o_ozone, pnpr, &
+                        levpr, glat
+  use misc_coms,  only: io6, runtype, s1900_init, s1900_sim, rinit, rinit8, i_o3
+  use mem_zonavg, only: zonavg_init, zonp_vect
+  use mem_grid,   only: mza, mwa
+  use mem_nudge,  only: nudflag, nudnxp, o3nudflag
+  use consts_coms,only: r8
 
   implicit none
 
   integer, intent(in) :: iaction
 
-  character(len=3) :: fform
-
   integer :: nf
+  real    :: pmin
 
   ! Check type of call to isan_driver
 
@@ -113,74 +118,53 @@ subroutine isan_driver(iaction)
 ! Read header information from gridded pressure-level files for this file time.
 ! This information includes input data array dimensions.
 
-  call read_press_header(fform)
+  call read_press_header()
 
-! Process isan data for this file time.
+! Determine if (and how many) additional levels above the reanalysis we need
+! from the ZONAVG arrays
 
-  call isan_singletime(iaction,fform)
+  pmin = 0.5 * zonp_vect(22) + zonp_vect(21)
 
-end subroutine isan_driver
+  if ( pnpr(nprz) < pmin ) then
 
-!=======================================================================
+     lzon_bot = 23
+     npd      = nprz + 2
 
-subroutine isan_singletime(iaction,fform)
+  else
 
-  use isan_coms,  only: nprx, npry, nprz
-  use mem_grid,   only: mza, mwa
-  use misc_coms,  only: runtype
-  use mem_nudge,  only: nudflag, nudnxp, o3nudflag
-  use consts_coms,only: r8
+     ! Determine index of lowest ZONAVG pressure level that is at least 1/2
+     ! ZONAVG pressure level higher than highest input pressure data level
+     ! (i.e., maximum zonp_vect value that is less than 82.5% of levpr(nprz),
+     ! which is in hPa)
 
-  implicit none
+     lzon_bot = min(23, nint(31. - 6. *  log10( pnpr(nprz) )) + 1)
+     npd      = nprz + 25 - lzon_bot
 
-  integer, intent(in) :: iaction
-  character(len=3), intent(in) :: fform
-
-! Define expanded arrays with 2 added rows/colums at N, S, E, and W
-! boundaries so that overlapping quadratic interpolation (in subroutine gdtost)
-! has sufficient points to work from.  Input data may be offset by 1/2 grid
-! cell from nodal latitudes and longitudes (e.g., (-180.,-90.)), in which case
-! all added points would be required.
-
-  real :: p_u(nprx+4,npry+4,nprz)
-  real :: p_v(nprx+4,npry+4,nprz)
-  real :: p_t(nprx+4,npry+4,nprz)
-  real :: p_z(nprx+4,npry+4,nprz)
-  real :: p_r(nprx+4,npry+4,nprz)
-  real :: p_o(nprx+4,npry+4,nprz)
-
-  real(r8) :: o_rho   (mza,mwa)
-  real(r8) :: o_press (mza,mwa)
-  real     :: o_theta (mza,mwa)
-  real     :: o_rrw   (mza,mwa)
-  real     :: o_uzonal(mza,mwa)
-  real     :: o_umerid(mza,mwa)
-  real     :: o_ozone (mza,mwa)
-
-  o_rho    = 0.0_r8
-  o_press  = 0.0_r8
-  o_theta  = 0.0
-  o_rrw    = 0.0
-  o_uzonal = 0.0
-  o_umerid = 0.0
-  o_ozone  = 0.0
-
-! Read in gridded pressure-level data and copy to isan arrays
-
-  call pressure_stage(fform, p_u, p_v, p_t, p_z, p_r, p_o)
-
-
-! Add pressure-level data at higher levels from climatology and interpolate
-! combined data to OLAM grid
-
-  call isnstage(iaction, p_u, p_v, p_t, p_z, p_r, p_o, &
-                o_press, o_rho, o_theta, o_rrw, o_uzonal, o_umerid, o_ozone)
-
-! If initializing model, fill main model fields
-
-  if (iaction == 0 .and. runtype == 'INITIAL') then
-     call fldsisan(o_press, o_rho, o_theta, o_rrw, o_uzonal, o_umerid, o_ozone)
   endif
+
+! Allocate memory for ISAN processing
+
+  allocate( pcol_p  (npd) )     ; pcol_p   = rinit
+  allocate( pcol_z  (npd,mwa) ) ; pcol_z   = rinit
+
+  allocate( o_rho   (mza,mwa) ) ; o_rho    = rinit8
+  allocate( o_press (mza,mwa) ) ; o_press  = rinit8
+  allocate( o_theta (mza,mwa) ) ; o_theta  = rinit
+  allocate( o_rrw   (mza,mwa) ) ; o_rrw    = rinit
+  allocate( o_uzonal(mza,mwa) ) ; o_uzonal = rinit
+  allocate( o_umerid(mza,mwa) ) ; o_umerid = rinit
+
+  if (i_o3 > 0) then
+     allocate( o_ozone (mza,mwa) ) ; o_ozone  = rinit
+  endif
+
+! Read gridded pressure-level data and add any ZONAVG fields as necessary
+
+  call pressure_stage()
+
+! Interpolate data to OLAM grid
+
+  call isnstage(iaction)
 
 ! If nudging, prepare observational nudging fields
 
@@ -196,4 +180,23 @@ subroutine isan_singletime(iaction,fform)
      call nudge_prep_o3(iaction, o_ozone)
   endif
 
-end subroutine isan_singletime
+! Deallocate ISAN arrays
+
+  deallocate( pcol_p  )
+  deallocate( pcol_z  )
+
+  deallocate( o_rho   )
+  deallocate( o_press )
+  deallocate( o_theta )
+  deallocate( o_rrw   )
+  deallocate( o_uzonal)
+  deallocate( o_umerid)
+
+  if (allocated( o_ozone )) deallocate( o_ozone )
+
+  ! These were allocated in read_press_header
+  if (allocated( levpr )) deallocate( levpr )
+  if (allocated( pnpr  )) deallocate( pnpr  )
+  if (allocated( glat  )) deallocate( glat  )
+
+end subroutine isan_driver
