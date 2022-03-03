@@ -79,8 +79,9 @@ subroutine scalar_transport_orig(mrl, rho_old)
 
   real(r8) :: hflux(mza), vflux(mza)
   real(r8) :: scp_tend(mza)
-  real(r8) :: dt
   real(r8) :: rhoi(mza,mwa)
+  real(r8) :: dt
+  real     :: dt4
 
   real :: gxps_scp(mza,mwa), gyps_scp(mza,mwa), gzps_scp(mza,mwa)
   real :: dxps_w(mza,mwa), dyps_w(mza,mwa), dzps_w(mza,mwa)
@@ -98,11 +99,11 @@ subroutine scalar_transport_orig(mrl, rho_old)
 ! (OK to use density at time t)
 
   !$omp parallel private(wsc,vsc)
-  !$omp do private(iw,kb,dt,k)
+  !$omp do private(iw,kb,dt4,k)
   do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
-     kb = lpw(iw)
-     dt = dtlm(itab_w(iw)%mrlw)
+     kb  = lpw(iw)
+     dt4 = dtlm(itab_w(iw)%mrlw)
 
      do k = kb, mza-1
         wsc  (k)    = wmsc(k,iw) &
@@ -118,14 +119,14 @@ subroutine scalar_transport_orig(mrl, rho_old)
      wmsca  (mza,iw) = 0.0
      scp_upw(mza,iw) = 0.0
 
-     call donorpointw(iw, dt, wsc, vxesc(:,iw), vyesc(:,iw), vzesc(:,iw), &
+     call donorpointw(iw, dt4, wsc, vxesc(:,iw), vyesc(:,iw), vzesc(:,iw), &
                       dxps_w(:,iw), dyps_w(:,iw), dzps_w(:,iw))
 
      if ( nudflag > 0 .and. nl%nud_preserve_mix_ratio .and. &
           itab_w(iw)%mrlw <= nl%max_nud_mrl ) then
 
         do k = kb, mza
-           rhoi(k,iw) = 1._r8 / ( rho(k,iw) - dt * rhot_nud(k,iw) )
+           rhoi(k,iw) = 1._r8 / ( rho(k,iw) - real( dt4 * rhot_nud(k,iw), r8 ) )
         enddo
 
      else
@@ -143,20 +144,20 @@ subroutine scalar_transport_orig(mrl, rho_old)
 ! diagnose face-normal velocity components at (t + 1/2) from mass fluxes
 ! (OK to use density at time t)
 
-  !$omp do private(iv,iw1,iw2,kb,dt,k)
+  !$omp do private(iv,iw1,iw2,kb,dt4,k)
   do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
 
      iw1 = itab_v(iv)%iw(1)
      iw2 = itab_v(iv)%iw(2)
      kb  = lpv(iv)
-     dt  = dtlm(itab_v(iv)%mrlv)
+     dt4 = dtlm(itab_v(iv)%mrlv)
 
      do k = kb, mza
         vsc  (k)    = 2.0 * vmsc(k,iv) / real( rho_old(k,iw1) + rho_old(k,iw2) )
         vmsca(k,iv) = vmsc(k,iv) * arv(k,iv)
      enddo
 
-     call donorpointv(iv, dt, vsc, vxesc, vyesc, vzesc, &
+     call donorpointv(iv, dt4, vsc, vxesc, vyesc, vzesc, &
                       dxps_v(:,iv), dyps_v(:,iv), dzps_v(:,iv))
 
   enddo

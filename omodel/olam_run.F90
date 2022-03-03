@@ -41,7 +41,7 @@ subroutine olam_run(name_name)
                          runtype, hfilin, timmax8, alloc_misc, iparallel,        &
                          iyear1, imonth1, idate1, itime1, s1900_init, s1900_sim, &
                          time_prevhist, rinit, rinit8, debug_fp, init_nans,      &
-                         isubdomain, do_chem, time_bias, dtlong, ioutput
+                         isubdomain, do_chem, time_bias, dtlong, ioutput, nrk_wrtv
 
   use olam_mpi_atm,only: olam_alloc_mpi, mpi_send_w, mpi_recv_w, &
                          alloc_mpi_sndrcv_bufs
@@ -71,9 +71,11 @@ subroutine olam_run(name_name)
   use mem_land,    only: land, nland, mland, nzg
   use mem_sea,     only: sea, nsea, msea
   use vel_t3d,     only: init_velt3d, diagvel_t3d_init, diagvel_t3d, &
-                         diag_uzonal_umerid 
+                         diag_uzonal_umerid
   use mem_adv,     only: alloc_adv
   use mem_co2,     only: co2init
+  use wrtv_rk,     only: init_wrtv_rk
+  use wrtv_orig,   only: init_wrtv_orig
 
   use cgrid_spcs,  only: cgrid_spcs_init
   use aero_data,   only: map_aero
@@ -393,6 +395,13 @@ subroutine olam_run(name_name)
      endif
   endif
 
+  ! Initial diagnosis of vxe1,vye1,vze1 and of vxe,vye,vze
+
+  if (runtype == 'INITIAL') then
+     call diagvel_t3d_init(1)
+     call diagvel_t3d(1)
+  endif
+
   !------------------------------------------------------------
   ! Call fill_swtc5 to read in and initialize reference
   ! solution for time = 0 and time = 15d.
@@ -439,7 +448,7 @@ subroutine olam_run(name_name)
 
   mrl = 1
 
-  call trsets(mrl)  
+  call trsets(mrl)
 
   ! For parallel run, send and receive initialized scalars
 
@@ -507,12 +516,7 @@ subroutine olam_run(name_name)
      write(io6,'(/,a)') 'olam_run calling sea_init_atm'
      call sea_init_atm()
 
-     ! Initial diagnosis of vxe1,vye1,vze1 and of vxe,vye,vze
-
-     call diagvel_t3d_init(1)
-     call diagvel_t3d(1)
-
-     if (isfcl == 1) call swm_diagvel()
+     call swm_diagvel()
 
      if (nl%igw_spinup == 1) then
 
@@ -569,6 +573,14 @@ subroutine olam_run(name_name)
   ! Initialize PBL quantities
 
   call pbl_init()
+
+  ! Extra initializations for small-timestep solver
+
+  if (nrk_wrtv == 1) then
+     call init_wrtv_orig()
+  else
+     call init_wrtv_rk()
+  endif
 
   ! Initialize emissions/deposition if doing chemistry
 

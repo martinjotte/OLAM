@@ -44,20 +44,13 @@ subroutine olam_mem_alloc()
   use mem_nudge,   only: nudflag, nudnxp, mwnud, alloc_nudge2, filltab_nudge, &
                          o3nudflag, alloc_nudge_o3, filltab_nudge_o3
   use mem_ijtabs,  only: mrls
-  use oname_coms,  only: nl
-  use wrtv_rk,     only: alloc_wrtv_rk
-  use wrtv_orig,   only: alloc_wrtv_orig
-
   use misc_coms,   only: io6, naddsc, initial, idiffk, ilwrtyp, iswrtyp,  &
                          nqparm, do_chem, nrk_wrtv
-
   use micro_coms,  only: miclevel, ncat, jnmb, iccn, igccn, iifn
   use ccnbin_coms, only: nccntyp
-
   use leaf_coms,   only: isfcl
   use mem_sfcg,    only: mwsfc
   use mem_land,    only: mland
-  use mem_sea,     only: msea
 
   use mem_flux_accum, only: alloc_flux_accum, filltab_flux_accum
 
@@ -138,14 +131,6 @@ subroutine olam_mem_alloc()
 
   call alloc_tend(mza,mva,mwa,naddsc,nccntyp)
   call filltab_tend(naddsc,nccntyp)
-
-! Extra memory for prog_wrtv
-
-  if (nrk_wrtv == 1) then
-     call alloc_wrtv_orig()
-  else
-     call alloc_wrtv_rk()
-  endif
 
 ! Extra memory if nudging ozone. Must be called after scalar tables are set up
 

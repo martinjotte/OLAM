@@ -41,13 +41,13 @@ module wrtv_orig
   logical, save     :: rotational = .false.
 
   private
-  public prog_wrtv_orig, alloc_wrtv_orig
+  public prog_wrtv_orig, init_wrtv_orig
 
 contains
 
 !===============================================================================
 
-subroutine alloc_wrtv_orig()
+subroutine init_wrtv_orig()
 
   use mem_grid,   only: mma, mwa, mva, mza
   use misc_coms,  only: rinit
@@ -67,7 +67,7 @@ subroutine alloc_wrtv_orig()
      allocate(vortn  (mza,mva)) ; vortn   = rinit
   endif
 
-end subroutine alloc_wrtv_orig
+end subroutine init_wrtv_orig
 
 !===============================================================================
 

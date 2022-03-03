@@ -1255,7 +1255,7 @@ end subroutine limit_h3
              ihw = itab_w(iw)%iwglobe
           endif
 
-          if (abs(wc(k,iw)) > wm .or. wc(k,iw) /= wc(k,iw)) then
+          if (abs(wc(k,iw)) > abs(wm) .or. wc(k,iw) /= wc(k,iw)) then
              wm  = wc(k,iw)
              iwk = k
              iww = itab_w(iw)%iwglobe
@@ -1306,9 +1306,9 @@ end subroutine limit_h3
 
     !$ if (nthreads > 1) then
     !$
-    !$    mlocw = maxloc(   w_max, dim=1)
-    !$    mlocc = maxloc( cfl_max, dim=1)
-    !$    mloch = maxloc(cflh_max, dim=1)
+    !$    mlocw = maxloc(abs(w_max), dim=1)
+    !$    mlocc = maxloc(  cfl_max , dim=1)
+    !$    mloch = maxloc( cflh_max , dim=1)
     !$
     !$    do n = 1, nthreads
     !$       if ( cfl_max(n) /=  cfl_max(n)) mlocc = n

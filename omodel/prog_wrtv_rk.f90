@@ -44,22 +44,31 @@ module wrtv_rk
   real(r8), parameter :: xstg2(2) =           [ 0.5_r8, 1.0_r8 ]
 
   private
-  public alloc_wrtv_rk, prog_wrtv_rk
+  public init_wrtv_rk, prog_wrtv_rk
 
 contains
 
 !===============================================================================
 
-subroutine alloc_wrtv_rk()
+subroutine init_wrtv_rk()
 
-  use mem_grid,    only: mza, mwa, mva
-  use misc_coms,   only: rinit
+  use mem_grid,  only: mza
+  use misc_coms, only: dtsm
+  use mem_rayf,  only: dorayfw, rayf_cofw, krayfw_bot
 
   implicit none
 
+  integer :: k
+
   allocate(b20(mza)) ; b20 = 1.0
 
-end subroutine alloc_wrtv_rk
+  if (dorayfw) then
+     do k = krayfw_bot, mza-1
+        b20(k) = 1.0 + real(dtsm(1)) * rayf_cofw(k)
+     enddo
+  endif
+
+end subroutine init_wrtv_rk
 
 !===============================================================================
 
@@ -94,8 +103,7 @@ subroutine prog_wrtv_rk()
   use consts_coms,  only: p00i, rocp, r8
   use mem_turb,     only: akmodx, akhodx, khtopv, kmtopv, khtop
   use pbl_drivers,  only: solve_eddy_diff_heat, solve_eddy_diff_vc, solve_eddy_diff_vxe
-  use mem_rayf,     only: dorayf, krayf_bot, rayf_cof, dorayfw, rayf_cofw, &
-                          krayfw_bot, dorayfmix, rayf_mix_top_vc
+  use mem_rayf,     only: dorayf, krayf_bot, rayf_cof, dorayfmix, rayf_mix_top_vc
   use oname_coms,   only: nl
 
   implicit none
@@ -246,26 +254,6 @@ subroutine prog_wrtv_rk()
      endif
 
      dts = real(dt8)
-
-     ! Set coefficients for vertical velocity damping (Rayleigh friction)
-
-     if     (mstp == 0 .and. time8p <         dtlm(1)) then
-        b20 = 9.0
-     elseif (mstp == 1 .and. time8p < 2._r8 * dtlm(1)) then
-        b20 = 3.0
-     elseif (mstp == 2 .and. time8p < 3._r8 * dtlm(1)) then
-        b20 = 2.0
-     elseif (mstp == 3 .and. time8p < 4._r8 * dtlm(1)) then
-        b20 = 1.5
-     else
-        b20 = 1.0
-     endif
-
-     if (dorayfw) then
-        do k = krayfw_bot, mza-1
-           b20(k) = max(b20(k), 1.0 + dts * rayf_cofw(k))
-        enddo
-     endif
 
 ! INCLUDE THE LONG TIMESTEP THIL AND MOMENTUM TENDENCIES IN EACH SHORT TIMESTEP
 
@@ -671,14 +659,6 @@ subroutine prog_wrtv_rk()
                      a4=thil,      a5=wmc,       a6=wc,       &
                      d1=rho,       d2=press )
 
-! enddo  ! istage temp!!!!!!!!!!!!
-!!!!!!!!!!!!!!
-! stop!!!!!!!!!!!!!!!!!!!!
-!
-
-  !!!!!!!!!!! temp !!!!!
-  !!! theta = thil
-
 ! COMPUTE TERMS FOR ROTATIONAL FORM OF HORIZONTAL MOMENTUM
 
 !!  if (rotational) then
@@ -776,8 +756,7 @@ subroutine prog_wrt_begs( iw, istage, dts, dt8,                 &
                          zwgt_top, zwgt_bot, nve2_max, vnx, vny, vnz
   use tridiag,     only: tridiffo
   use oname_coms,  only: nl
-  use mem_rayf,    only: dorayfw, rayf_cofw, krayfw_bot, &
-                         dorayf, rayf_cof, krayf_bot
+  use mem_rayf,    only: dorayf, rayf_cof, krayf_bot
   use mem_nudge,   only: rhot_nud, nudflag
 
   implicit none
@@ -874,7 +853,7 @@ subroutine prog_wrt_begs( iw, istage, dts, dt8,                 &
   ka = lpw(iw)
 
   do k = ka, mza
-     thilt_rk(k) = real( thilt_short(ka,iw), r8 )
+     thilt_rk(k) = thilt_short(k,iw)
   enddo
 
   ! Loop over W levels
@@ -939,6 +918,7 @@ subroutine prog_wrt_begs( iw, istage, dts, dt8,                 &
         vmxet_rk(k,iw) = vmxet_rk(k,iw) + vmarv * vxe_upv (k,iv)
         vmyet_rk(k,iw) = vmyet_rk(k,iw) + vmarv * vye_upv (k,iv)
         vmzet_rk(k,iw) = vmzet_rk(k,iw) + vmarv * vze_upv (k,iv)
+
      enddo
 
   enddo
