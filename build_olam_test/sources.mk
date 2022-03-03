@@ -62,7 +62,6 @@ SOURCE_FILES= \
              $(OISAN)/asti.f90 \
              $(OISAN)/astp.F90 \
              $(OISAN)/file_inv.f90 \
-             $(OISAN)/fldsisan.f90 \
              $(OISAN)/isan_coms.f90 \
              $(OISAN)/isan_driver.f90 \
              $(OISAN)/nudge_o3.f90 \
@@ -110,9 +109,11 @@ SOURCE_FILES= \
              $(OMODEL)/othrm.f90 \
              $(OMODEL)/para_decomp.f90 \
              $(OMODEL)/para_init.f90 \
-             $(OMODEL)/prog_wrtv2_test_v.f90 \
+             $(OMODEL)/prog_wrtv_orig.f90 \
+             $(OMODEL)/prog_wrtv_rk.f90 \
              $(OMODEL)/salt_dust_src.f90 \
-             $(OMODEL)/scalar_transport2.F90 \
+             $(OMODEL)/scalar_transport_orig.F90 \
+             $(OMODEL)/scalar_transport_rk.F90 \
              $(OMODEL)/spawn_nest.f90 \
              $(OMODEL)/spring_dynamics.f90 \
              $(OMODEL)/surface_fluxes.F90 \

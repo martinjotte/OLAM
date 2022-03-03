@@ -47,17 +47,17 @@
  ! Simulation ending time
  !--------------------------------------------------------------------------
 
-   NL%TIMEUNIT = 's'      ! Time units of TIMMAX: 's','m','h','d'
-   NL%TIMMAX   = 86400.0      ! Ending time of this model run
+   NL%TIMEUNIT = 'd'      ! Time units of TIMMAX: 's','m','h','d'
+   NL%TIMMAX   = 1.0      ! Ending time of this model run
 
  !--------------------------------------------------------------------------
  ! Start of simulation (when model time counter TIME8 = 0.)
  !--------------------------------------------------------------------------
 
-   NL%ITIME1   = 1200     ! UTC
-   NL%IDATE1   = 25       ! Day
-   NL%IMONTH1  = 8        ! Month
-   NL%IYEAR1   = 2017     ! Year
+   NL%ITIME1   = 0000     ! UTC
+   NL%IDATE1   = 09       ! Day
+   NL%IMONTH1  = 11       ! Month
+   NL%IYEAR1   = 2020     ! Year
 
  !--------------------------------------------------------------------------
  ! Vertical grid specifications
@@ -69,7 +69,7 @@
                   ! Exception: NDZ = 1 is flag to use ZZ instead of (HDZ,DZ) pairs
 
    NL%HDZ  =   0.,  2000., 20000., 45000.  ! Heights at which DZ is specified
-   NL%DZ   =  100.,  200.,  1000.,  1000.  ! Vertical grid spacing at each HDZ
+   NL%DZ   =  100.,  200.,  1000.,  2250.  ! Vertical grid spacing at each HDZ
 
    ! Vertical levels if NDZ = 1
    NL%ZZ       = 0.0,
@@ -96,8 +96,8 @@
                       !    4 = Horizontally-periodic long/narrow Cartesian domain
                       !    5 = Horizontally-periodic hexagonal Cartesian domain
 
-   NL%NXP = 60        ! Number of grid points spanning one side of
-                      !  any icosahedral triangle when MDOMAIN = 0 
+   NL%NXP = 66        ! Number of grid points spanning one side of
+                      ! any icosahedral triangle when MDOMAIN = 0 
                       ! or spanning X direction when MDOMAIN = 3
 
    NL%DELTAX = 1000.  ! Coarse grid horizontal spacing (used if MDOMAIN > 0)
@@ -106,7 +106,7 @@
  ! Horizontal grid refinement ("nested grid") definition
  !--------------------------------------------------------------------------
 
-   NL%NGRIDS = 7      ! Total number of grids to generate on any MAKEGRID run
+   NL%NGRIDS = 3      ! Total number of grids to generate on any MAKEGRID run
 
    NL%NGRIDS_OLD = 0  ! Number of grids that are present on previous gridfile
                       ! and history file.  Used in secondary MAKEGRID run in
@@ -130,42 +130,41 @@
  ! GRDLON(NG,:)   sequence for grid NG
 
    ! Grid 2:
-   NL%NGRDLL(2)   =  2
-   NL%GRDRAD(2,:) =  3000.e3,3000.e3
-   NL%GRDLAT(2,:) =     27.0,   28.0
-   NL%GRDLON(2,:) =    -96.0,  -97.0
+   NL%NGRDLL(2)   =  1
+   NL%GRDRAD(2,:) =  4000.e3, 4000.e3,
+   NL%GRDLAT(2,:) =   28.0,  30.0,
+   NL%GRDLON(2,:) =  -84.0, -93.0,
 
    ! Grid 3:
-   NL%NGRDLL(3)   =  2
-   NL%GRDRAD(3,:) =  1800.e3,1800.e3
-   NL%GRDLAT(3,:) =     27.0,   28.0
-   NL%GRDLON(3,:) =    -96.0,  -97.0
+   NL%NGRDLL(3)   =  1
+   NL%GRDRAD(3,:) =  3000.e3, 3000.e3
+   NL%GRDLAT(3,:) =   28.0,  30.0,
+   NL%GRDLON(3,:) =  -84.0, -93.0,
 
    ! Grid 4:
-   NL%NGRDLL(4)   =  2
-   NL%GRDRAD(4,:) =  1200.e3,1200.e3
-   NL%GRDLAT(4,:) =     27.0,   28.0
-   NL%GRDLON(4,:) =    -96.0,  -97.0
+   NL%NGRDLL(4)   =  1
+!  NL%GRDRAD(4,:) =  2150.e3, 2150.e3,
+   NL%GRDRAD(4,:) =  2400.e3, 2300.e3,
+   NL%GRDLAT(4,:) =   26.0,   30.0,
+   NL%GRDLON(4,:) =  -82.0,  -93.0,
 
    ! Grid 5:
-   NL%NGRDLL(5)   =  2
-   NL%GRDRAD(5,:) =  800.e3,800.e3
-   NL%GRDLAT(5,:) =    27.0,  28.0
-   NL%GRDLON(5,:) =   -96.0, -97.0
+   NL%NGRDLL(5)   =  1
+   NL%GRDRAD(5,:) =  1000.e3
+   NL%GRDLAT(5,:) =   22.00,
+   NL%GRDLON(5,:) =  -80.00,
 
    ! Grid 6:
-   NL%NGRDLL(6)   =  2
-   NL%GRDRAD(6,:) =  500.e3,500.e3
-   NL%GRDLAT(6,:) =    27.0,  28.0
-   NL%GRDLON(6,:) =   -96.0, -97.0
+   NL%NGRDLL(6)   =  1
+   NL%GRDRAD(6,:) =  600.e3
+   NL%GRDLAT(6,:) =   22.00,
+   NL%GRDLON(6,:) =  -80.00,
 
-   ! Grid 7:
-   NL%NGRDLL(7)   =  2
-   NL%GRDRAD(7,:) =  300.e3,300.e3
-   NL%GRDLAT(7,:) =    27.0,  28.0
-   NL%GRDLON(7,:) =   -96.0, -97.0
+   NL%SFCGRID_RES_FACTOR = 2    ! Resolution factor for the surface grid.
 
-   NL%SFCGRID_RES_FACTOR = 3    ! Resolution factor for the surface grid.
+ !--------------------------------------------------------------------------
+ ! For additional refinements of surface mesh:
+ !--------------------------------------------------------------------------
 
    NL%NSFCGRIDS = 0      ! Total number of additional SURFACE GRID independent
                          !  refinements to be generated on any MAKEGRID run
@@ -191,7 +190,11 @@
    NL%SFCGRDLAT(3,:) =   -27.,  -3.,  22.,  35.,  46.,  11., -23.,  11.,  46.,  54.,  64.,  64.,  44.,  10.,  -5., -13., -50.
    NL%SFCGRDLON(3,:) =    24.,  26.,   0.,  32.,  90., 110., 136., 110.,  90., 123., 166.,-127., -90., -75., -63., -54., -70.
 
-   NL%NSWMZONS   =  1
+ !--------------------------------------------------------------------------
+ ! For shallow water coastal flood model:
+ !--------------------------------------------------------------------------
+
+   NL%NSWMZONS   =  0
 
    ! SWM Zone 1:
    NL%NSWMZONLL(1)   =  6
@@ -209,10 +212,9 @@
  ! Timestep and timestep ratios (One ratio for each Mesh Refinement Level (MRL))
  !------------------------------------------------------------------------------
 
-   NL%DTLONG  = 6.      ! Long timestep
+   NL%DTLONG  = 300.      ! Long timestep
 
-   NL%NACOUST  = 4,4,4,4,4,4,4,4,4   ! # acoustic timesteps per long timestep
-
+   NL%NACOUST  = 3,3,3,3,3,3,3,3
 
  !--------------------------------------------------------------------------
  ! Variable initialization input
@@ -234,15 +236,15 @@
 
    NL%MAX_NUD_MRL = 5    ! Highest MRL at which gridpoint nudging is performed
 
-   NL%NUDNXP = 0         ! NXP value for defining nudging grid for spectral nudging
+   NL%NUDNXP = 0         ! NXP value for defining nudging grid for
+                         ! spectral nudging (not yet fully implemented)
                          ! (0 turns off spectral nudging)
 
    NL%TNUDCENT = 43200.0 ! 4DDA nudging time scale (s)
 
-   NL%NUD_PRESERVE_MIX_RATIO = .TRUE.  ! TRUE:  nudging density preserves scalar
-                                       !        mixing ratios
-                                       ! FALSE: nudging density preserves scalar
-                                       !        mass
+   NL%NUD_PRESERVE_MIX_RATIO = .TRUE.  ! TRUE:  Nudging preserves tracer
+                                       !        mixing ratio
+                                       ! FALSE: Nudging preserves tracer mass
 
  !--------------------------------------------------------------------------
  ! History file, Month-average, and Day-average I/O
@@ -250,25 +252,25 @@
 
    NL%SAVE_NODE_LOGS = .false.
 
-   NL%IOUTPUT      = 1         ! 0-no files, 1-write files
+   NL%IOUTPUT      = 0         ! 0-no files, 1-write files
    NL%IOUTPUT_DAVG = 0         ! Day-avg:    0-no files, 1-write or read files
    NL%IOUTPUT_LITE = 0         ! Lite files: 0-no files, 1-write files
    NL%IOUTPUT_LATLON = 0       ! Lat/Lon:    0-no files, 1-write files
 
-   NL%HFILEPREF = 'hist/harveySOIL3N'     ! History file output path/prefix
+   NL%HFILEPREF = 'hist/harveySOIL9O'     ! History file output path/prefix
    NL%ICLOBBER  = 1             ! 0 = stop if files exist, 1 = overwite files
-   NL%ICOMPRESS = 3             ! 0 (no compres, fast) <-> 9 (max compres, slow)
+   NL%ICOMPRESS = 0             ! 0 (no compres, fast) <-> 9 (max compres, slow)
    NL%LATLONPLOT = 0            ! 1 = plot generated lat/lon fields too
 
    NL%IBLOCKSIZE = -1           ! File system block size for parallel I/O
                                 ! Setting this can speed up parallel writes
                                 ! Ignored if 0 or negative
 
-   NL%FRQSTATE  =  1800.        ! Time interval between history files
+   NL%FRQSTATE  =  3600.       ! Time interval between history files
    NL%FRQLITE   =  3600.0      ! Time interval between lite files
    NL%FRQLATLON =  3600.0      ! Time interval between lat/lon output files
 
-   NL%HFILIN   = 'hist/harveySOIL3N-H-2017-08-25-123000.h5'      ! History file intput
+   NL%HFILIN   = 'hist/harveySOIL9N-H-2017-08-24-120000.h5'      ! History file intput
 
    ! Variables output in lite files:
    NL%LITE_VARS = 'TAIR', 'WC', 'SH_V', 'PRESS', 'RHO', 'RSHORT', 'RLONG'
@@ -282,7 +284,7 @@
    NL%ITHIL_MONOT = 0     ! Monotonic advection for temperature (THIL)
                           ! 0 = off, 1 = monotonic
    
-   NL%ISCAL_MONOT = 1     ! Monotonic advection for scalars (including moisture)
+   NL%ISCAL_MONOT = 0     ! Monotonic advection for scalars (including moisture)
                           ! 0 = off, 1 = monotonic, 2 = positive-definite
 
    NL%HORIZ_ADV_ORDER = 2 ! Horizontal advection order (2 or 3)
@@ -293,10 +295,10 @@
                                  ! 2 = Runge-Kutta 2-step scheme (RK3)
                                  ! 3 = Runge-Kutta 3-step scheme (RK3)
 
-   NL%AKMIN_VORT     = 0.4  ! Rotio of vorticity damping coefficient to typical
+   NL%AKMIN_VORT     = 0.2  ! Rotio of vorticity damping coefficient to typical
                             ! value from deformation K. Typical range 0.2 - 1.0
 
-   NL%DIVH_DAMP_FACT = 0.10 ! Fraction of horizontal divergence to damp in one timestep.
+   NL%DIVH_DAMP_FACT = 0.12 ! Fraction of horizontal divergence to damp in one timestep.
                             ! Set to 0 to disable. Should be no larger than about 0.18
 
    NL%ZERO_NEG_SCALARS = .false. ! Force negative scalar concentrations to zero?
@@ -309,20 +311,24 @@
                            ! errors (useful if DEBUG_FP is set to .true.)
 
  !--------------------------------------------------------------------------
- ! Rayleigh friction parameters
+ ! Rayleigh friction parameters at model top
  !--------------------------------------------------------------------------
 
-   NL%RAYF_ZMIN   = 25000.  ! Damping for U, THIL - minimum height (m)
-   NL%RAYF_FACT  = 0.0     ! Damping for U, THIL - model top disp time (s)
-   NL%RAYF_EXPON  = 1.0     ! Damping for U, THIL - exponent for profile
+   NL%RAYF_ZMIN  = 25000.  ! Damping for U, THIL - minimum height (m)
+   NL%RAYF_FACT  = 0.0     ! Damping for U, THIL - fraction damped in one timestep
+   NL%RAYF_EXPON = 1.0     ! Damping for U, THIL - exponent for profile
    
-   NL%RAYFW_ZMIN   = 25000. ! Damping for W - minimum height (m)
-   NL%RAYFW_FACT  = 0.8    ! Damping for W - model top disp time
-   NL%RAYFW_EXPON  = 1.0    ! Damping for W - exponent for profile
+   NL%RAYFW_ZMIN  = 25000. ! Damping for W - minimum height (m)
+   NL%RAYFW_FACT  = 0.30   ! Damping for W - fraction damped in one timestep
+   NL%RAYFW_EXPON = 1.0    ! Damping for W - exponent for profile
 
-   NL%RAYFDIV_ZMIN   = 25000. ! Damping for horiz. div. - minimum height (m)
-   NL%RAYFDIV_FACT  = 0.13   ! Damping for horiz. div. - model top disp time
-   NL%RAYFDIV_EXPON  = 1.0    ! Damping for horiz. div. - exponent for profile
+   NL%RAYFDIV_ZMIN  = 25000. ! Damping for horiz. div. - minimum height (m)
+   NL%RAYFDIV_FACT  = 0.15   ! Damping for horiz. div. - fraction damped in one timestep
+   NL%RAYFDIV_EXPON = 1.0    ! Damping for horiz. div. - exponent for profile
+
+   NL%RAYFMIX_ZMIN  = 25000. ! Extra mixing of V - minimum height (m)
+   NL%RAYFMIX_FACT  = 0.25   ! Extra mixing of V - fraction damped in one timestep
+   NL%RAYFMIX_EXPON = 1.0    ! Extra mixing of V - exponent for profile
 
  !--------------------------------------------------------------------------
  ! Radiation parameters
@@ -348,7 +354,7 @@
  ! Cumulus parameterization parameters
  !--------------------------------------------------------------------------
   
-   NL%NQPARM = 2,2,2,2,2,0,0,0,0   ! Cumulus parameterization scheme for each MRL
+   NL%NQPARM = 2,2,2,2,2,2,2,2,2   ! Cumulus parameterization scheme for each MRL
                                    ! 0 = off, 1 = Tiedtke, 2 = Grell, 3 = KF_eta,
                                    ! 4 = Emanuel, 5 = Grell-Freitas
 
@@ -374,7 +380,7 @@
                                            !  viscosity coefficient to typical
                                            !  value from deformation K
 
-   NL%MOIST_BUOY = 3   ! Determines how subgrid buoyancy is computed:
+   NL%MOIST_BUOY = 2   ! Determines how subgrid buoyancy is computed:
                        ! 0 - Subgrid buoyancy is not affected by condensate
                        ! 1 - Reslvd cld drops affect SGS buoyancy
                        ! 2 - Reslvd cld drops and pristine ice
@@ -392,7 +398,7 @@
  
                   ! Options !
                   !---------!
-   NL%ICLOUD = 5  !  0,4,5  ! 0 = category off
+   NL%ICLOUD = 4  !  0,4,5  ! 0 = category off
    NL%IDRIZ  = 5  !  0,  5  ! 2 = diameter specified and concen diagnosed
    NL%IPRIS  = 5  !  0,  5  ! 4 = concen specified and diameter diagnosed
    NL%IRAIN  = 5  !  0,2,5  ! 5 = concen prognosed and diameter diagnosed
@@ -401,7 +407,7 @@
    NL%IGRAUP = 5  !  0,2,5  ! are set to 5, all others not set to 0 will
    NL%IHAIL  = 5  !  0,2,5  ! be set to 5 as well (in code)
 
-   NL%ICCN   = 4  ! 1   = CCN concentration is specified in CCNPARM
+   NL%ICCN   = 1  ! 1   = CCN concentration is specified in CCNPARM
                   ! 2+  = CCN is prognosed (ICCN value ID's a set of CCN types)
 
    NL%IGCCN  = 1  ! 1 = GCCN concentration is specified in GCCNPARM
@@ -443,12 +449,12 @@
    NL%NCYCLE_HURRINIT = 0      ! Number of initialization cycles to perform
                                !  (NCYCLE_HURRINIT > 0 keeps hurricane tracking turned on)
 
-   NL%TIMMAX_HURRINIT = 7200.  ! Ending integration time of each cycle
+   NL%TIMMAX_HURRINIT = 900.  ! Ending integration time of each cycle
 
-   NL%HLAT0 =  26.3            ! Obs Harvey location on 24 Aug 2017 12 UTC
-   NL%HLON0 = -95.8            ! Obs Harvey location on 24 Aug 2017 12 UTC
+   NL%HLAT0 =  23.7            ! Obs Harvey location on 24 Aug 2017 12 UTC
+   NL%HLON0 = -93.1            ! Obs Harvey location on 24 Aug 2017 12 UTC
 
-   NL%VTAN_EYW    = 55.        ! Target maximum tangential wind speed when adding perturbation
+   NL%VTAN_EYW    = 30.        ! Target maximum tangential wind speed when adding perturbation
                                !  (VTAN_EYW < 1.0 turns off addition of perturbation)
 
    NL%RAD_EYW     = 35.e3      ! radius where vtan_eyw applies
@@ -595,18 +601,16 @@
    NL%LANDGRID_DZTOP =   .10    ! Thickness (m) of top (shallowest) soil grid level 
    NL%LANDGRID_DEPTH = 200.0    ! Depth (m) of soil grid lower boundary
 
- !!  NL%ISOILFLG   = 1      ! 1 -- Read soil composition from SoilGrids data files
    NL%ISOILFLG   = 2      ! 1 -- Read soil composition from SoilGrids data files
                           ! 2 -- Read soil type from FAO data file, convert to
                           !      USDA text class, and use tabulated soil composition
 
- !!  NL%ISOILPTF   = 1      ! 1 -- Pedotransfer functions from Vereecken
    NL%ISOILPTF   = 3      ! 1 -- Pedotransfer functions from Vereecken
                           ! 2 -- Pedotransfer functions from de Boer
                           ! 3 -- Hydraulic parameters from USDA classification (only with ISOILFLG = 2)
 
    NL%ITOPOFLG   = 1      ! 1 -- Read data from standard database file
-   NL%IBATHFLG   = 1      ! 1 -- Read data from standard database file
+   NL%IBATHFLG   = 2      ! 1 -- Read data from standard database file
    NL%IVEGFLG    = 1      ! 2 -- Use default value assigned in topo_init
    NL%NDVIFLG    = 1      !      or mksfc.f90
 
@@ -614,10 +618,10 @@
    NL%ISEAICEFLG = 2      ! 1 -- read climatological mean SST/SEAICE from file
                           ! 2 -- read from degribbed analysis files
  
-   NL%ISOILSTATEINIT = 0  ! 0 -- default initialization based on landuse
+   NL%ISOILSTATEINIT = 1  ! 0 -- default initialization based on landuse
                           ! 1 -- read from degribbed analysis file
 
-   NL%IWATERTABFLG   = 1  ! 0 -- use default for each landuse class
+   NL%IWATERTABFLG   = 0  ! 0 -- use default for each landuse class
                           ! 1 -- read from file
 
    NL%IOROGSLOPEFLG  = 0  ! 0 -- no subgrid orographic roughness
@@ -625,27 +629,27 @@
 
  ! Surface database file paths and names
 
-   NL%TOPO_DATABASE      = '../../olamdatah5/gmted30s/TM'
-   NL%BATHYM_DATABASE    = '../../olamdatah5/etopo1/BM'
-   NL%VEG_DATABASE       = '../../olamdatah5/oge2/OGE2_'
-   NL%SOIL_DATABASE      = '../../olamdatah5/fao/FAO_'
-   NL%SOILGRIDS_DATABASE = '../../olamdatah5/soilgrids/'
-   NL%GLHYMPS_DATABASE   = '../../olamdatah5/glhymps/'
-   NL%NDVI_DATABASE      = '../../olamdatah5/ndvi/NDVI'
-   NL%WATERTAB_DB        = '../../olamdatah5/wtd/WTD'
-   NL%OROG_SLOPE_DB      = '../../olamdatah5/slope/ORO'
+   NL%TOPO_DATABASE      = '/Users/otte/olamdatah5/gmted30s/TM'
+   NL%BATHYM_DATABASE    = '/Users/otte/olamdatah5/etopo1/BM'
+   NL%VEG_DATABASE       = '/Users/otte/olamdatah5/oge2/OGE2_'
+   NL%SOIL_DATABASE      = '/Users/otte/olamdatah5/fao/FAO_'
+   NL%SOILGRIDS_DATABASE = '/Users/otte/olamdatah5/soilgrids/'
+   NL%GLHYMPS_DATABASE   = '/Users/otte/olamdatah5/glhymps/'
+   NL%NDVI_DATABASE      = '/Users/otte/olamdatah5/ndvi/NDVI'
+   NL%WATERTAB_DB        = '/Users/otte/olamdatah5/wtd/WTD'
+   NL%OROG_SLOPE_DB      = '/Users/otte/olamdatah5/slope/ORO'
 
  ! These point to a .txt listing of sst/seaice files, and are used only
  ! if isstflg/iseaiceflg = 1
 
-   NL%SST_DATABASE    = '../../olamdatah5/sst7100/sstfiles.txt'
-   NL%SEAICE_DATABASE = '../../olamdatah5/ice8100/icefiles.txt'
+   NL%SST_DATABASE    = '/glade/u/olamdatah5/sst7100/sstfiles.txt'
+   NL%SEAICE_DATABASE = '/glade/u/olamdatah5/ice8100/icefiles.txt'
 
  ! Update flags for surface data
 
-   NL%IUPDNDVI   = 1  ! 0/1 = No/Yes update of NDVI values during run
-   NL%IUPDSST    = 1  ! 0/1 = No/Yes update of SST values during run
-   NL%IUPDSEAICE = 1  ! 0/1 = No/Yes update of SEAICE values during run
+   NL%IUPDNDVI   = 0  ! 0/1 = No/Yes update of NDVI values during run
+   NL%IUPDSST    = 0  ! 0/1 = No/Yes update of SST values during run
+   NL%IUPDSEAICE = 0  ! 0/1 = No/Yes update of SEAICE values during run
 
    NL%SEATMP   = 280.0   ! Water surface temperature (K) if ISSTFLG = 0
    NL%SEAICE   =   0.0   ! Seaice fraction (0 - 1) if ISEAICEFLG = 0
@@ -669,7 +673,7 @@
  ! for atmospheric initialization (and optionally, nudging)
  !--------------------------------------------------------------------------
  
-   NL%IAPR = './dp_list'
+   NL%IAPR = '/Users/otte/olam/data/dp-p.txt'
 
  !--------------------------------------------------------------------------
  ! CMAQ chemistry variables
@@ -689,14 +693,14 @@
                                   ! 2: Use core-shell mixing model to get
                                   !    aersol optical properties
 
-   NL%EMIS_DIR       = '../../olamdatah5/edgar42'
+   NL%EMIS_DIR       = '/Users/otte/olamdatah5/edgar42'
    NL%GEIA_EMIS_FILE = '../etc/geia_emis.nc4'
    
    ! Set these to read the global plant functional type database provided with
    ! the MEGAN biogenic emission module; else we estimate these from the OLAM
    ! land use files.
    NL%MEGAN_USE_PFTS_FILE = .FALSE.
-   NL%MEGAN_PFTS_FILE     = '../../olamdatah5/megan/pfts.nc4'
+   NL%MEGAN_PFTS_FILE     = '/Users/otte/olamdatah5/megan/pfts.nc4'
 
    NL%O3NUDFLAG  = 0
    NL%O3NUDPRESS = 150.
@@ -706,33 +710,12 @@
  ! History files to read from for RUNTYPE = 'PLOTONLY'
  !------------------------------------------------------------------------
 
-  NL%NPLT_FILES = 1   ! Number of history files to plot from for
+  NL%NPLT_FILES = 0   ! Number of history files to plot from for
                        ! RUNTYPE = 'PLOTONLY' (limit of maxpltfiles)
 
   NL%PLT_FILES =
-     './hist/harveySOIL3N-H-2017-08-25-173000.h5',
-
-     './hist/harveySOIL3N-H-2017-08-25-123000.h5',
-     './hist/harveySOIL3N-H-2017-08-25-130000.h5',
-     './hist/harveySOIL3N-H-2017-08-25-133000.h5',
-     './hist/harveySOIL3N-H-2017-08-25-140000.h5',
-     './hist/harveySOIL3N-H-2017-08-25-143000.h5',
-     './hist/harveySOIL3N-H-2017-08-25-150000.h5',
-     './hist/harveySOIL3N-H-2017-08-25-153000.h5',
-     './hist/harveySOIL3N-H-2017-08-25-160000.h5',
-     './hist/harveySOIL3N-H-2017-08-25-163000.h5',
-     './hist/harveySOIL3N-H-2017-08-25-170000.h5',
-     './hist/harveySOIL3N-H-2017-08-25-173000.h5',
-     './hist/harveySOIL3N-H-2017-08-25-180000.h5',
-     './hist/harveySOIL3N-H-2017-08-25-183000.h5',
-
-
-
-     './hist/harveySOIL2N-H-2017-08-25-140000.h5',
-     './hist/harveySOIL2N-HTC-2017-08-25-120000.h5',
-     './hist/harveySOIL9N-H-2017-08-24-123000.h5',
-     './hist/harveySOIL9N-H-2017-08-24-124500.h5',
-     './hist/harveySOIL9N-H-2017-08-24-130000.h5',
+     './hist/struct1-H-2000-01-01-000000.h5',
+     './hist/struct1-H-2000-02-01-000000.h5',
 
  !------------------------------------------------------------------------
  ! Day-average files to plot from for RUNTYPE = 'PLOTONLY'
@@ -749,14 +732,14 @@
  ! Plotting parameters
  !--------------------------------------------------------------------------
 
-  NL%NPLT    =  11    ! Number of fields plotted at each time 
+  NL%NPLT    =  1    ! Number of fields plotted at each time 
                       ! (limit of maxnplt fields in max_dims.f90)
 
-  NL%FRQPLT =  1800.    ! Plot frequency (for RUNTYPE = 'INITIAL' or 'HISTORY')
+  NL%FRQPLT =  3600.    ! Plot frequency (for RUNTYPE = 'INITIAL' or 'HISTORY')
                             
-  NL%DTVEC = 300.     ! Scaling time (seconds) for plotted velocity vectors
+  NL%DTVEC = 1200.    ! Scaling time (seconds) for plotted velocity vectors
 
-  NL%HEADSPEED = 1.   ! Scaling speed for arrow head length in plotted
+  NL%HEADSPEED = 3.   ! Scaling speed for arrow head length in plotted
                       ! velocity vectors
 
   NL%STEMLENGTH = 10.e3 ! Geographic distance (m) of windbarb stem for size scaling
@@ -764,7 +747,7 @@
   NL%VEC_MAXMRL = 5   ! The maximum mesh refinement level when plotting 
                       ! velocity vectors with the "V" pltspec
 
-  NL%PRTVAL_SIZE = 'small' ! Relative size of font when printing values on the
+  NL%PRTVAL_SIZE = 'large' ! Relative size of font when printing values on the
                            ! plot: 'small', 'medium', or 'large'
 
   NL%PLTTYPE = 0      ! 0 = NCAR graphics meta file
@@ -772,7 +755,7 @@
                       ! 2 = pdf file (requires ncar graphics 4.4.0 or later)
                       ! Postscript and pdf output best for plotonly run
 
-  NL%PLTNAME = 'gmeta_harveySOIL2N_08p'   ! Note: .ps or .pdf will be appended to pltname 
+  NL%PLTNAME = 'gmeta_harveySOIL9N'   ! Note: .ps or .pdf will be appended to pltname 
                          ! for postscript or pdf output
 
   NL%PLTORIENT = 0    ! 0 = portrait,  1 = landscape
@@ -880,6 +863,7 @@
 
 / 
  ! End of OLAMIN namelist
+
  'SFCG_CANTEMPK'      ,'L',  4,'Tmcot',      0.,0.,  1000.,    5000.e3,    0.
  'SOIL_TOP_TEMP'      ,'L',  4,'Tmcot',     0.,0.,  1000.,    5000.e3,    0.
  'PCPBOTH_DIF2'       ,'L',418,'Tmcot',      0.,0.,  1000.,    5000.e3,    0.
