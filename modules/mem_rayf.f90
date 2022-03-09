@@ -189,7 +189,7 @@ Contains
           dorayfmix = .true.
 
           do k = krayfmix_bot, mza-1
-             rayf_cofmix(k) = rayfmix_fact &
+             rayf_cofmix(k) = 0.5 * rayfmix_fact &
                   * ((zm(k) - rayfmix_zmin) / (zm(mza) - rayfw_zmin)) ** rayfmix_expon
           enddo
 
@@ -197,6 +197,54 @@ Contains
     endif
 
   end subroutine rayf_init
+
+
+
+  subroutine rayf_mix_top_vxe( iw, vmxet, vmyet, vmzet )
+
+    use mem_basic,   only: vxe, vye, vze, rho
+    use mem_grid,    only: mza, arw, lpw
+
+    implicit none
+
+    integer, intent(in   ) :: iw
+    real,    intent(inout) :: vmxet(mza) ! xe-mom tend scaled by volume
+    real,    intent(inout) :: vmyet(mza) ! ye-mom tend scaled by volume
+    real,    intent(inout) :: vmzet(mza) ! ze-mom tend scaled by volume
+
+    real    :: vxflux(mza)
+    real    :: vyflux(mza)
+    real    :: vzflux(mza)
+    real    :: fact
+    integer :: ka, k
+
+    ka = max(krayfmix_bot, lpw(iw))
+
+    vxflux(mza) = 0.0
+    vxflux(ka)  = 0.0
+
+    vyflux(mza) = 0.0
+    vyflux(ka)  = 0.0
+
+    vzflux(mza) = 0.0
+    vzflux(ka)  = 0.0
+
+    do k = ka, mza-1
+       fact = arw(k,iw) * rayf_cofmix(k) * real(rho(k+1,iw) + rho(k,iw))
+
+       vxflux(k) = fact * (vxe(k,iw) - vxe(k+1,iw))
+       vyflux(k) = fact * (vye(k,iw) - vye(k+1,iw))
+       vzflux(k) = fact * (vze(k,iw) - vze(k+1,iw))
+    enddo
+
+    do k = ka, mza
+       vmxet(k) = vmxet(k) + vxflux(k-1) - vxflux(k)
+       vmyet(k) = vmyet(k) + vyflux(k-1) - vyflux(k)
+       vmzet(k) = vmzet(k) + vzflux(k-1) - vzflux(k)
+    enddo
+
+  end subroutine rayf_mix_top_vxe
+
 
 
   subroutine rayf_mix_top_vc( iv, vmt )

@@ -102,8 +102,8 @@ subroutine prog_wrtv_rk()
   use vel_t3d,      only: diagvel_t3d
   use consts_coms,  only: p00i, rocp, r8
   use mem_turb,     only: akmodx, akhodx, khtopv, kmtopv, khtop
-  use pbl_drivers,  only: solve_eddy_diff_heat, solve_eddy_diff_vc, solve_eddy_diff_vxe
-  use mem_rayf,     only: dorayf, krayf_bot, rayf_cof, dorayfmix, rayf_mix_top_vc
+  use pbl_drivers,  only: solve_eddy_diff_heat, solve_eddy_diff_vxe
+  use mem_rayf,     only: dorayf, krayf_bot, rayf_cof, dorayfmix, rayf_mix_top_vxe
   use oname_coms,   only: nl
 
   implicit none
@@ -196,10 +196,18 @@ subroutine prog_wrtv_rk()
         vmzet_short(k,iw) = vmzet(k,iw) * v4
      enddo
 
+     ! Vertical diffusion
+
      call solve_eddy_diff_heat(iw, thilt_short(:,iw))
      call solve_eddy_diff_vxe (iw, vmxet_short(:,iw), vmyet_short(:,iw), vmzet_short(:,iw))
 
-     ! RAYLEIGH FRICTION ON THIL - only for horizontally homogeneous initialization
+     ! Rayleigh friction on velocity gradient
+
+     if (dorayfmix) then
+        call rayf_mix_top_vxe (iw, vmxet_short(:,iw), vmyet_short(:,iw), vmzet_short(:,iw))
+     endif
+
+     ! Rayleigh friction on thil - only for horizontally homogeneous initialization
 
      if (dorayf .and. initial == 1) then
         do k = krayf_bot, mza
@@ -207,6 +215,8 @@ subroutine prog_wrtv_rk()
                 + rayf_cof(k) * dn01d(k) * (th01d(k) - thil(k,iw)) * v4
         enddo
      endif
+
+     ! Horizontal diffusion
 
      do jv = 1, itab_w(iw)%npoly
         iv  = itab_w(iw)%iv(jv)
@@ -229,15 +239,8 @@ subroutine prog_wrtv_rk()
   !$omp do private(iv)
   do j = 1,jtab_v(jtv_prog)%jend(mrl); iv = jtab_v(jtv_prog)%iv(j)
 
-     vmc0(:,iv) = vmc(:,iv)
-
+     vmc0     (:,iv) = vmc(:,iv)
      vmt_short(:,iv) = vmt(:,iv)
-
-!    call solve_eddy_diff_vc(iv, vmt_short(:,iv))
-
-     if (dorayfmix) then
-        call rayf_mix_top_vc(iv, vmt_short(:,iv))
-     endif
 
   enddo
   !$omp end do

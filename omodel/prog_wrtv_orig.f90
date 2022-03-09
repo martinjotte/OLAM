@@ -92,7 +92,7 @@ subroutine prog_wrtv_orig()
   use vel_t3d,      only: vel_t3d_hex
   use oname_coms,   only: nl
   use mem_turb,     only: akmodx, akhodx, khtopv, kmtopv, khtop
-  use mem_rayf,     only: dorayfmix, rayf_mix_top_vc
+  use mem_rayf,     only: dorayfmix, rayf_mix_top_vxe
   use grad_lib,     only: grad_t2d, grad_z
   use pbl_drivers,  only: solve_eddy_diff_heat, solve_eddy_diff_vxe
   use vel_t3d,      only: diagvel_t3d
@@ -199,6 +199,12 @@ subroutine prog_wrtv_orig()
                              + akmodx(k,iv) * (vze(k,iwn) - vze(k,iw))
         enddo
      enddo
+
+     ! Rayleigh friction on velocity gradient
+
+     if (dorayfmix) then
+        call rayf_mix_top_vxe (iw, vmxet_short(:,iw), vmyet_short(:,iw), vmzet_short(:,iw))
+     endif
 
   enddo
   !$omp end parallel do
@@ -393,10 +399,6 @@ subroutine prog_wrtv_orig()
 
   !$omp parallel do private(iv)
   do j = 1,jtab_v(jtv_prog)%jend(mrl); iv = jtab_v(jtv_prog)%iv(j)
-
-     if (dorayfmix) then
-        call rayf_mix_top_vc(iv, vmt_short(:,iv))
-     endif
 
      call prog_v_begs( iv, vmt_short(:,iv), vmxet_short, vmyet_short, vmzet_short )
 
