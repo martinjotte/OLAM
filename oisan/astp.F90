@@ -559,7 +559,9 @@ subroutine pressure_stage()
      write(io6,*) "Reading air temperature " // trim(varname)
      call shdf5_irec(ndims, idims,varname,rvar3 = as3)
 
+#ifdef OLAM_MPI
      if (iparallel == 1) call MPI_Wait( ireq, MPI_STATUS_IGNORE, ier )
+#endif
      call prfill3(nprx,npry,nprz,as3,p3d,gdatdy,xswlat,ipoffset,inproj)
 
   endif
@@ -699,14 +701,14 @@ subroutine pressure_stage()
         ! necessary with recent versions of grib2olam but we will keep
         ! this check anyway. TODO: Read and store units from grib2olam.
         if ( any(as3(:,:,1) > 1.0) ) then
-           write(io6, *) ''
+           write(io6, *) ' '
            write(io6, *) 'Converting g/kg specific humidity to kg/kg'
            as3 = 0.001 * as3
         endif
 
         ! Convert specific humidity to mixing ratio
 
-        write(io6, *) ''
+        write(io6, *) ' '
         write(io6, *) 'Converting specific humidity to mixing ratio'
 
         !$omp parallel do
@@ -717,7 +719,9 @@ subroutine pressure_stage()
 
      endif
 
+#ifdef OLAM_MPI
      if (iparallel == 1) call MPI_Wait( ireq, MPI_STATUS_IGNORE, ier )
+#endif
      call prfill3(nprx,npry,nprz,as3,p3d,gdatdy,xswlat,ipoffset,inproj)
 
   endif
@@ -816,7 +820,9 @@ subroutine pressure_stage()
      write(io6,*) "Reading zonal wind " // trim(varname)
      call shdf5_irec(ndims, idims, varname, rvar3 = as3)
 
+#ifdef OLAM_MPI
      if (iparallel == 1) call MPI_Wait( ireq, MPI_STATUS_IGNORE, ier )
+#endif
      call prfill3(nprx,npry,nprz,as3,p3d,gdatdy,xswlat,ipoffset,inproj)
 
   endif
@@ -881,7 +887,9 @@ subroutine pressure_stage()
      write(io6,*) "Reading meridional wind " // trim(varname)
      call shdf5_irec(ndims, idims, varname, rvar3 = as3)
 
+#ifdef OLAM_MPI
      if (iparallel == 1) call MPI_Wait( ireq, MPI_STATUS_IGNORE, ier )
+#endif
      call prfill3(nprx,npry,nprz,as3,p3d,gdatdy,xswlat,ipoffset,inproj)
 
   endif
@@ -935,7 +943,9 @@ subroutine pressure_stage()
            write(io6,*) "Reading ozone mixing ratio " // trim(varname)
            call shdf5_irec(ndims, idims, varname, rvar3 = as3)
 
+#ifdef OLAM_MPI
            if (iparallel == 1) call MPI_Wait( ireq, MPI_STATUS_IGNORE, ier )
+#endif
            call prfill3(nprx,npry,nprz,as3,p3d,gdatdy,xswlat,ipoffset,inproj)
 
         endif
@@ -1026,9 +1036,11 @@ subroutine pressure_stage()
   if (allocated(as3)) deallocate(as3)
   if (allocated(p3d)) deallocate(p3d)
 
+#ifdef OLAM_MPI
   if (iparallel == 1 .and. myrank == 0) then
      call MPI_Wait( ireq , MPI_STATUS_IGNORE, ier )
   endif
+#endif
 
   if (myrank == 0) then
      call shdf5_close()
