@@ -1119,7 +1119,6 @@ subroutine ccnbin(iw0, k, ntim, timespan, &
 
   real, parameter :: afhh0    = afhh * d2moli ** mbfhh
   real, parameter :: onethird = 1. / 3.
-  real, parameter :: dminprogeps = nearest(dminprog, -1.0)
   real, parameter :: fdc0 = sqrt( pi2 / rvap ) / xalphac
   real, parameter :: fka0 = sqrt( pi2 / rdry ) / (0.96 * cp)
   real, external  :: few, flhv
@@ -1303,7 +1302,7 @@ subroutine ccnbin(iw0, k, ntim, timespan, &
 
               diagdiam = max(diagdiam, drydiam11(ibin))
 
-              if ( diagdiam >= dminprogeps ) then
+              if ( diagdiam >= dminprog ) then
                  iprognose(ibin) = .true.
                  wetdiam  (ibin) = min(diagdiam, dmaxbin(ibin))
                  wetdiam3 (ibin) = wetdiam(ibin)**3
