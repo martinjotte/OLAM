@@ -32,25 +32,28 @@
 !===============================================================================
 subroutine isnstage(iaction)
 
-  use max_dims,     only: maxpr
-  use mem_basic,    only: vmc, vc, thil, rr_w, vxe, vye, vze, &
+  use mem_basic,    only: vmc, vc, thil, rr_w, rr_v, vxe, vye, vze, tair, &
                           wmc, wc, theta, rho, press, ue, ve, vc, vmc
-  use mem_grid,     only: mza, lpv, lpw, zm, zt, vnxo2, vnyo2, vnzo2
+  use mem_grid,     only: mza, lpv, lpw, zm, zt, vnxo2, vnyo2, vnzo2, &
+                          vxn_ew, vyn_ew, vxn_ns, vyn_ns, vzn_ns
   use mem_ijtabs,   only: jtab_w, jtw_init, jtab_v, itab_v, jtv_init
-  use consts_coms,  only: rocp, p00i, cp
-  use misc_coms,    only: iparallel, runtype, io6
+  use consts_coms,  only: rocp, p00i, alvlocp, t00
+  use misc_coms,    only: iparallel, runtype, io6, i_o3
   use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, mpi_send_v, mpi_recv_v
   use obnd,         only: lbcopy_v, lbcopy_w
-
-  use isan_coms
+  use mem_micro,    only: rr_c, con_c, cldnum
+  use micro_coms,   only: miclevel, ccnparm, jnmb, rxmin, zfactor_ccn
+  use isan_coms,    only: o_rho, o_press, o_theta, o_rrw, o_uzonal, o_umerid, &
+                          o_ozone
+  use var_tables,   only: scalar_tab
+  use therm_lib,    only: rhovsl
 
   implicit none
 
   integer, intent(in) :: iaction
 
-  integer :: j,iw,k,iv,iw1,iw2
-
-  if (iaction == 1 .or. runtype /= 'INITIAL') return
+  integer :: j, iw, k, ka, iv, iw1, iw2
+  real    :: cond, tt, ccn
 
   write(io6,*)
   write(io6,*) "Performing iterative hydrostatic balancing."
@@ -60,6 +63,92 @@ subroutine isnstage(iaction)
 
      ! Perform iterative hydrostatic balance and copy to main model arrays
      call vterpp_s(iw)
+
+  enddo
+  !$omp end parallel do
+
+  ! Skip setting model arrays if we are only nudging and not initialising
+
+  if (iaction == 1 .or. runtype /= 'INITIAL') return
+
+  ! Copy to model arrays
+
+  !$omp parallel do private(iw,ka,k,cond,tt,ccn)
+  do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
+
+     ka = lpw(iw)
+
+     wc (1:mza,iw) = 0.0
+     wmc(1:mza,iw) = 0.0
+
+     do k = ka, mza
+
+        rho  (k,iw) = o_rho   (k,iw)
+        rr_w (k,iw) = o_rrw   (k,iw)
+        theta(k,iw) = o_theta (k,iw)
+        press(k,iw) = o_press (k,iw)
+        tair (k,iw) = o_theta (k,iw) * (o_press(k,iw) * p00i) ** rocp
+        rr_v (k,iw) = o_rrw   (k,iw)
+        rr_c (k,iw) = 0.0
+        thil (k,iw) = theta   (k,iw)
+        ue   (k,iw) = o_uzonal(k,iw)
+        ve   (k,iw) = o_umerid(k,iw)
+
+        vxe  (k,iw) = vxn_ew(iw) * o_uzonal(k,iw) + vxn_ns(iw) * o_umerid(k,iw)
+        vye  (k,iw) = vyn_ew(iw) * o_uzonal(k,iw) + vyn_ns(iw) * o_umerid(k,iw)
+        vze  (k,iw) =                               vzn_ns(iw) * o_umerid(k,iw)
+
+     enddo
+
+     if (miclevel >= 2) then
+
+        do k = ka, mza
+           cond = rr_w(k,iw) * o_rho(k,iw) - rhovsl(tair(k,iw)-t00)
+
+           if (cond > rxmin(1)) then
+              rr_c(k,iw) = cond / o_rho(k,iw)
+              rr_v(k,iw) = rr_w(k,iw) - rr_c(k,iw)
+
+              tt         = max(tair(k,iw),253.) * (1.0 + rr_v(k,iw))
+              thil(k,iw) = theta(k,iw) * tt / (tt + alvlocp * rr_c(k,iw))
+           endif
+
+        enddo
+     endif
+
+     do k = 1, ka-1
+        thil (k,iw) = thil (ka,iw)
+        theta(k,iw) = theta(ka,iw)
+        rho  (k,iw) = rho  (ka,iw)
+     enddo
+
+     ! Initialize any variable in the var_table that is named ozone.
+     ! Assumed units are ppmv
+
+     if (i_o3 > 0) then
+        scalar_tab(i_o3)%var_p(ka:mza,iw) = o_ozone(ka:mza,iw)
+        scalar_tab(i_o3)%var_p(1:ka-1,iw) = o_ozone(ka,iw)
+     endif
+
+     ! If there is initial cloud water and we are prognosing cloud number,
+     ! initialize con_c based on default CCN. This can be overwriten later
+     ! if we read in geos-chem or CMAQ CCN.
+
+     if (miclevel == 3 .and. jnmb(1) == 5) then
+        if (ccnparm > 1.e6) then
+           ccn = ccnparm
+        else
+           ccn = cldnum(iw)
+        endif
+
+        do k = ka, mza
+           if (rr_c(k,iw) * o_rho(k,iw) >= rxmin(1)) then
+              con_c(k,iw) = ccn * o_rho(k,iw) * zfactor_ccn(k)
+           else
+              con_c(k,iw) = 0.0
+           endif
+        enddo
+     endif
 
   enddo
   !$omp end parallel do
@@ -143,34 +232,23 @@ end subroutine isnstage
 
 subroutine vterpp_s(iw)
 
-  use max_dims,    only: maxpr
-  use isan_coms,   only: o_rho, o_press, o_theta, o_rrw, o_uzonal, o_umerid, &
-                         o_ozone, npd, pcol_p, pcol_z
-  use consts_coms, only: r8, grav2, grav, cvocp, p00kord, rvap, p00, p00i, &
-                         t00, cp, rocp, gravi, eps_virt, eps_vapi, alvlocp
+  use isan_coms,   only: o_rho, o_press, o_theta, o_rrw, npd, pcol_p, pcol_z
+  use consts_coms, only: grav2, grav, cvocp, p00kord, rvap, p00, p00i, &
+                         t00, cp, rocp, gravi, eps_virt, eps_vapi
   use mem_grid,    only: mza, lpw, zt, gravm, volt, volwi, dzm, &
-                         vxn_ew, vyn_ew, vxn_ns, vyn_ns, vzn_ns, &
                          gdz_belo, gdz_abov
-  use mem_basic,   only: wc, wmc, rho, rr_w, rr_v, thil, theta, tair, press, &
-                         ue, ve, vxe, vye, vze
-  use mem_micro,   only: rr_c, con_c, cldnum
-  use misc_coms,   only: i_o3, nrk_wrtv
-  use micro_coms,  only: miclevel, ccnparm, jnmb, rxmin, zfactor_ccn
+  use misc_coms,   only: nrk_wrtv
+  use micro_coms,  only: miclevel
   use therm_lib,   only: rhovsl
-  use var_tables,  only: scalar_tab
 
   implicit none
 
-  integer,  intent(in ) :: iw
+  integer, intent(in) :: iw
 
-  real :: rho_tot(mza), v4(mza), fact(mza)
-  real :: pressnew, pkhyd, dp(mza)
-  real :: pvect(mza), rvect(mza)
-
+  real    :: rho_tot(mza), v4(mza), fact(mza), dp(mza)
   integer :: k, kpbc, klo, khi, kbc, kother, iter, ka
-  real    :: extrap, exner, tairc, cond, rrv, sh_c, ccn
-
-  real :: x0, x1
+  real    :: extrap, exner, tairc, cond, rrv
+  real    :: x0, x1, pkhyd
 
   ka = lpw(iw)
 
@@ -218,21 +296,26 @@ subroutine vterpp_s(iw)
      enddo
   endif
 
-  ! Carry out iterative hydrostatic balance procedure keeping theta constant
+  if (miclevel > 1) then
+     do k = ka, mza
+        o_rho(k,iw) = o_press(k,iw)**cvocp * p00kord / &
+                      ( o_theta(k,iw) * (1.0 + eps_vapi * o_rrw(k,iw)) )
+     enddo
+  endif
 
-  pvect(ka:mza) = o_press(ka:mza,iw)
-  rvect(ka:mza) = o_rho  (ka:mza,iw)
+  ! Carry out iterative hydrostatic balance procedure keeping Theta constant
 
   do iter = 1, 100
 
-     x0 = 0.025 + 0.01 * real(min(iter,30))
+     x0 = 0.02 * real(min(iter,20))
      x1 = 1.0 - x0
 
      ! Adjust pressure at k = kbc.  Use temporal weighting for damping
 
-     pressnew   = pvect(kother) * (pcol_p(kpbc) / pvect(kother)) ** extrap
-     dp   (kbc) = pressnew - pvect(kbc)
-     pvect(kbc) = x0 * pvect(kbc) + x1 * pressnew
+     pkhyd = o_press(kother,iw) * ( pcol_p(kpbc) / o_press(kother,iw) )**extrap
+
+     dp     (kbc)    = abs( pkhyd - o_press(kbc,iw) )
+     o_press(kbc,iw) = x0 * o_press(kbc,iw) + x1 * pkhyd
 
      ! Compute density for all levels
 
@@ -240,31 +323,31 @@ subroutine vterpp_s(iw)
 
         ! No influence of water on thermodynamics
         do k = ka, mza
-           rvect  (k) = pvect(k)**cvocp * p00kord / o_theta(k,iw)
-           rho_tot(k) = rvect(k)
+           o_rho(k,iw) = o_press(k,iw)**cvocp * p00kord / o_theta(k,iw)
+           rho_tot(k)  = o_rho(k,iw)
         enddo
 
      elseif (miclevel == 1) then
 
         ! Only assume water vapor effects on thermodynamics (no condensate)
         do k = ka, mza
-           rvect  (k) = pvect(k)**cvocp * p00kord / &
-                        ( o_theta(k,iw) * (1.0 + eps_vapi * o_rrw(k,iw)) )
-           rho_tot(k) = rvect(k) * (1. + o_rrw(k,iw))
+           o_rho(k,iw) = o_press(k,iw)**cvocp * p00kord / &
+                         ( o_theta(k,iw) * (1.0 + eps_vapi * o_rrw(k,iw)) )
+           rho_tot(k)  = o_rho(k,iw) * (1. + o_rrw(k,iw))
         enddo
 
      else
 
         ! Water vapor and condensate allowed
         do k = ka, mza
-           exner = (pvect(k) * p00i) ** rocp
+           exner = (o_press(k,iw) * p00i) ** rocp
            tairc = exner * o_theta(k,iw) - t00
-           cond  = max(0., o_rrw(k,iw) - rhovsl(tairc) / rvect(k))
+           cond  = max(0., o_rrw(k,iw) - rhovsl(tairc) / o_rho(k,iw))
            rrv   = o_rrw(k,iw) - cond
 
-           rvect  (k) = pvect(k)**cvocp * p00kord / &
-                        ( o_theta(k,iw) * (1.0 + eps_vapi * rrv) )
-           rho_tot(k) = rvect(k) * (1. + o_rrw(k,iw))
+           o_rho(k,iw) = o_press(k,iw)**cvocp * p00kord / &
+                         ( o_theta(k,iw) * (1.0 + eps_vapi * rrv) )
+           rho_tot(k)  = o_rho(k,iw) * (1. + o_rrw(k,iw))
         enddo
 
      endif
@@ -279,19 +362,19 @@ subroutine vterpp_s(iw)
         ! in the hydrostatic balance
 
         do k = kbc+1, mza
-           pkhyd = pvect(k-1) &
+           pkhyd = o_press(k-1,iw) &
                  - ( gdz_belo(k-1) * rho_tot(k-1) + gdz_abov(k-1) * rho_tot(k) )
 
-           dp   (k) = pkhyd - pvect(k)
-           pvect(k) = .15 * pvect(k) + .85 * max(.1, pkhyd)
+           dp     (k)    = abs( pkhyd - o_press(k,iw) )
+           o_press(k,iw) = x0 * o_press(k,iw) + x1 * max(.1, pkhyd)
         enddo
 
         do k = kbc-1, ka, -1
-           pkhyd = pvect(k+1) &
+           pkhyd = o_press(k+1,iw) &
                  + ( gdz_belo(k) * rho_tot(k) + gdz_abov(k) * rho_tot(k+1) )
 
-           dp   (k) = pkhyd - pvect(k)
-           pvect(k) = .15 * pvect(k) + .85 * max(.1, pkhyd)
+           dp     (k)    = abs( pkhyd - o_press(k,iw) )
+           o_press(k,iw) = x0 * o_press(k,iw) + x1 * pkhyd
         enddo
 
      else
@@ -300,106 +383,32 @@ subroutine vterpp_s(iw)
         ! in the hydrostatic balance
 
         do k = kbc+1, mza
-           pkhyd = pvect(k-1) &
+           pkhyd = o_press(k-1,iw) &
                  - ( v4(k-1) * rho_tot(k-1) + v4(k) * rho_tot(k) ) * fact(k-1)
 
-           dp   (k) = pkhyd - pvect(k)
-           pvect(k) = x0 * pvect(k) + x1 * max(.1, pkhyd)
+           dp     (k)    = abs( pkhyd - o_press(k,iw) )
+           o_press(k,iw) = x0 * o_press(k,iw) + x1 * max(.1, pkhyd)
         enddo
 
         do k = kbc-1, ka, -1
-           pkhyd = pvect(k+1) &
+           pkhyd = o_press(k+1,iw) &
                  + ( v4(k) * rho_tot(k) + v4(k+1) * rho_tot(k+1) ) * fact(k)
 
-           dp   (k) = pkhyd - pvect(k)
-           pvect(k) = x0 * pvect(k) + x1 * max(.1, pkhyd)
+           dp     (k)    = abs( pkhyd - o_press(k,iw) )
+           o_press(k,iw) = x0 * o_press(k,iw) + x1 * pkhyd
         enddo
 
      endif
 
      ! Exit if pressure has converged after at least 8 iterations
 
-     if (iter > 8) then
-        if (maxval( abs(dp(ka:mza)) / pvect(ka:mza) ) < 8.e-7) exit
+     if (iter >= 8) then
+        if ( maxval( dp(ka:mza) / o_press(ka:mza,iw) ) < 1.e-6 .or. &
+             maxval( dp(ka:mza) ) < 1.e-2 ) exit
      endif
 
   enddo
 
-  ! Copy to model arrays
-
-  ka = lpw(iw)
-
-  wc (1:mza,iw) = 0.0
-  wmc(1:mza,iw) = 0.0
-
-  do k = ka, mza
-
-     rho  (k,iw) = rvect   (k)
-     rr_w (k,iw) = o_rrw   (k,iw)
-     theta(k,iw) = o_theta (k,iw)
-     press(k,iw) = pvect   (k)
-     tair (k,iw) = o_theta (k,iw) * (pvect(k) * p00i) ** rocp
-     rr_v (k,iw) = o_rrw   (k,iw)
-     rr_c (k,iw) = 0.0
-     thil (k,iw) = theta   (k,iw)
-     ue   (k,iw) = o_uzonal(k,iw)
-     ve   (k,iw) = o_umerid(k,iw)
-
-     vxe  (k,iw) = vxn_ew(iw) * o_uzonal(k,iw) + vxn_ns(iw) * o_umerid(k,iw)
-     vye  (k,iw) = vyn_ew(iw) * o_uzonal(k,iw) + vyn_ns(iw) * o_umerid(k,iw)
-     vze  (k,iw) =                               vzn_ns(iw) * o_umerid(k,iw)
-
-  enddo
-
-  if (miclevel >= 2) then
-
-     do k = ka, mza
-        cond = rr_w(k,iw) * rvect(k) - rhovsl(tair(k,iw)-t00)
-
-        if (cond > rxmin(1)) then
-           rr_c(k,iw) = cond / rvect(k)
-           rr_v(k,iw) = rr_w(k,iw) - rr_c(k,iw)
-           sh_c       = rr_c(k,iw) / (1.0 + rr_v(k,iw))
-           thil(k,iw) = theta(k,iw) / (1. + alvlocp * sh_c / max(tair(k,iw),253.))
-        endif
-
-     enddo
-  endif
-
-! write(*,*) iw, iter, maxval(rr_c(ka:mza,iw))
-
-  do k = 1, ka-1
-     thil (k,iw) = thil (ka,iw)
-     theta(k,iw) = theta(ka,iw)
-     rho  (k,iw) = 0._r8
-  enddo
-
-  ! Initialize any variable in the var_table that is named ozone.
-  ! Assumed units are ppmv
-
-  if (i_o3 > 0) then
-     scalar_tab(i_o3)%var_p(ka:mza,iw) = o_ozone(ka:mza,iw)
-     scalar_tab(i_o3)%var_p(1:ka-1,iw) = o_ozone(ka,iw)
-  endif
-
-  ! If there is initial cloud water and we are prognosing cloud number,
-  ! initialize con_c based on default CCN. This can be overwriten later
-  ! if we read in geos-chem or CMAQ CCN.
-
-  if (miclevel == 3 .and. jnmb(1) == 5) then
-     if (ccnparm > 1.e6) then
-        ccn = ccnparm
-     else
-        ccn = cldnum(iw)
-     endif
-
-     do k = ka, mza
-        if (rr_c(k,iw) * real(rho(k,iw)) > rxmin(1)) then
-           con_c(k,iw) = ccn * real(rho(k,iw)) * zfactor_ccn(k)
-        else
-           con_c(k,iw) = 0.0
-        endif
-     enddo
-  endif
+  ! Return if we are performing a nudging prep and not initialising model arays
 
 end subroutine vterpp_s

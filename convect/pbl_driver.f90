@@ -502,31 +502,11 @@ subroutine solve_eddy_diff_scalars( iw )
   dtli = 1.0 / dtl
   kmax = khtop(iw) + 1
 
-
   ! Vertical loop over T levels
   do k = ka, kmax
      dtorho (k) = dtl / real(rho(k,iw))
      dtomass(k) = forw_imp * dtorho(k) * volti(k,iw)
   enddo
-
-!!  ! Scalar variables with long-timestep forcing included
-!!
-!!  do ns = 1, num_pblmix
-!!     n = pblmix_map(ns)
-!!
-!!     do k = ka, kmax
-!!        varp(k) = scalar_tab(n)%var_p(k,iw) &
-!!                + dtorho(k) * scalar_tab(n)%var_t(k,iw)
-!!     enddo
-!!  enddo
-!!
-!!  ! For supercell test case, subtract initial field from rr_w
-!!
-!!  if (nl%test_case == 131) then
-!!     do k = ka, kmax
-!!        varp(k,1) = varp(k,1) - rr_w_init(k,iw)
-!!     enddo
-!!  endif
 
   ! Vertical loop over W levels
   do k = ka, khtop(iw)
@@ -558,7 +538,7 @@ subroutine solve_eddy_diff_scalars( iw )
 
      ! SGS flux
 
-     do k = ka, kmax
+     do k = ka, khtop(iw)
         rhs(k,ns) = akodz(k) * (varp(k) - varp(k+1))
      enddo
 
@@ -590,7 +570,7 @@ subroutine solve_eddy_diff_scalars( iw )
 
            endif
 
-           if (wc0 > 1.e-25) then
+           if (abs(wc0) > 1.e-25) then
 
               do k = ka, kpblh(iw)
                  rhs(k,ns) = rhs(k,ns) + wc0 * agamma(k,iw)
@@ -602,83 +582,6 @@ subroutine solve_eddy_diff_scalars( iw )
      endif
 
   enddo
-
-
-!!
-!!  ! Vertical loop over W levels
-!!
-!!! do k = ka, mza-1
-!!  do k = ka, khtop(iw)
-!!     akodz(k) = arw(k,iw) * vkh(k,iw) * dzim(k)
-!!  enddo
-!!
-!!  ! Vertical loop over T levels
-!!
-!!! do k = ka, mza
-!!  do k = ka, kmax
-!!     dtorho (k) = dtl / rho(k,iw)
-!!     dtomass(k) = forw_imp * dtorho(k) * volti(k,iw)
-!!     vctr5  (k) = -dtomass(k) * akodz(k-1)
-!!     vctr7  (k) = -dtomass(k) * akodz(k)
-!!     vctr6  (k) = 1. - vctr5(k) - vctr7(k)
-!!  enddo
-!!
-!!  ! Scalar variables with long-timestep forcing included
-!!
-!!  do ns = 1, num_pblmix
-!!     n = pblmix_map(ns)
-!!!    do k = ka, mza
-!!     do k = ka, kmax
-!!        rhs(k,ns) = scalar_tab(n)%var_p(k,iw)  &
-!!                  + dtorho(k) * scalar_tab(n)%var_t(k,iw)
-!!     enddo
-!!  enddo
-!!
-!!  if (nl%test_case == 131) then
-!!     do k = ka, kmax
-!!        rhs(k,1) = rhs(k,1) - rr_w_init(k,iw)
-!!     enddo
-!!  endif
-
-!!  ! Non local PBL terms
-!!
-!!  if (nl%idiffk(itab_w(iw)%mrlw) == 1) then
-!!     if (agamma(ka,iw) > 1.e-7) then
-!!
-!!        do k = ka, kpblh(iw)
-!!           dgam(k) = dtomass(k) * (agamma(k-1,iw) - agamma(k,iw) )
-!!        enddo
-!!
-!!        ! water vapor (assumed to always be first scalar)
-!!        s0(1)            = sfluxr(iw)
-!!        s0(2:num_pblmix) = 0.0
-!!
-!!        do ns = 2, num_pblmix
-!!           n = pblmix_map(ns)
-!!
-!!           ! other scalars with surface flux
-!!           if (scalar_tab(n)%do_sxfer) then
-!!              s0(ns) = sum( scalar_tab(n)%sxfer(1:lsw(iw),iw) / rho(ka:ka+lsw(iw)-1,iw) ) &
-!!                     * dtli * arw0i(iw)
-!!           endif
-!!
-!!           ! other scalars with near-surface emissions
-!!           if (scalar_tab(n)%do_emis) then
-!!              s0(ns) = s0(n) + sum( real(volt(ka:ka+2,iw)) * scalar_tab(n)%emis(ka:ka+2,iw) ) &
-!!                             / arw(ka+2,iw)
-!!           endif
-!!        enddo
-!!
-!!        do ns = 1, num_pblmix
-!!           if (abs(s0(ns)) > 1.e-20) then
-!!              do k = ka, kpblh(iw)
-!!                 rhs(k,ns) = rhs(k,ns) + s0(ns) * dgam(k)
-!!              enddo
-!!           endif
-!!        enddo
-!!
-!!     endif
-!!  endif
 
   ! Solve tri-diagonal matrix equation for scalars
 

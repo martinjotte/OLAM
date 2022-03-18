@@ -34,14 +34,12 @@ subroutine isan_driver(iaction)
 
   use isan_coms,  only: innpr, ihour, idate, imonth, iyear, nfgfiles, ifgfile, &
                         ctotdate_fg, fnames_fg, s1900_fg, lzon_bot, npd, &
-                        pcol_p, pcol_z, nprx, npry, nprz, o_rho, o_press, &
-                        o_theta, o_rrw, o_uzonal, o_umerid, o_ozone, pnpr, &
-                        levpr, glat
-  use misc_coms,  only: io6, runtype, s1900_init, s1900_sim, rinit, rinit8, i_o3
+                        pcol_p, pcol_z, nprz, o_rho, o_press, o_theta, o_rrw, &
+                        o_uzonal, o_umerid, o_ozone, pnpr, levpr, glat
+  use misc_coms,  only: io6, runtype, s1900_init, s1900_sim, rinit, i_o3
   use mem_zonavg, only: zonavg_init, zonp_vect
   use mem_grid,   only: mza, mwa
   use mem_nudge,  only: nudflag, nudnxp, o3nudflag
-  use consts_coms,only: r8
 
   implicit none
 
@@ -147,8 +145,8 @@ subroutine isan_driver(iaction)
   allocate( pcol_p  (npd) )     ; pcol_p   = rinit
   allocate( pcol_z  (npd,mwa) ) ; pcol_z   = rinit
 
-  allocate( o_rho   (mza,mwa) ) ; o_rho    = rinit8
-  allocate( o_press (mza,mwa) ) ; o_press  = rinit8
+  allocate( o_rho   (mza,mwa) ) ; o_rho    = rinit
+  allocate( o_press (mza,mwa) ) ; o_press  = rinit
   allocate( o_theta (mza,mwa) ) ; o_theta  = rinit
   allocate( o_rrw   (mza,mwa) ) ; o_rrw    = rinit
   allocate( o_uzonal(mza,mwa) ) ; o_uzonal = rinit

@@ -1,18 +1,17 @@
 subroutine read_soil_analysis(soil_tempc)
 
   use misc_coms,  only: io6, s1900_sim, s1900_init, isubdomain, iparallel
-  use leaf_coms,  only: dt_leaf, wcap_min
+  use leaf_coms,  only: wcap_min
   use mem_land,   only: land, mland, omland, nzg, slzt
   use mem_sfcg,   only: sfcg, itab_wsfc
-  use consts_coms,only: pio180, piu180, erad, cliq1000, alli1000, cice, &
-                         cice1000, r8
+  use consts_coms,only: pio180, piu180, cliq1000, alli1000, cice, &
+                        cice1000, r8
   use max_dims,   only: pathlen
   use isan_coms,  only: nfgfiles, s1900_fg, fnames_fg, nprx, npry, glat, &
                         inproj, xswlat, xswlon, gdatdx, gdatdy, ipoffset
   use hdf5_utils, only: shdf5_open, shdf5_irec, shdf5_info, shdf5_close
   use mem_para,   only: myrank, nbytes_int, nbytes_real
   use prfill_mod, only: prfill, prfill3
-  use mem_ijtabs, only: itab_w
 
 #ifdef OLAM_MPI
   use mpi
@@ -30,7 +29,7 @@ subroutine read_soil_analysis(soil_tempc)
   real               :: grx, gry
   real               :: snowdens, mass, tempc, tempk
   integer            :: nio, njo, ngnd
-  integer            :: iland, iwsfc, i, j, k, kk, ntext
+  integer            :: iland, iwsfc, i, j, k, kk
   logical            :: has_snow, has_soilt, has_soilw
   integer            :: bytes, isize, ier, igloberr, ilat, ipry
 
@@ -142,20 +141,29 @@ subroutine read_soil_analysis(soil_tempc)
 
      call shdf5_info('sdepths', ndims, idims)
      if (ndims > 0) then
-        if (ngnd == 0) ngnd = idims(1)
+
+        if (ngnd /= idims(1)) then
+           ngnd = idims(1)
+        endif
+
         allocate( ztmp(ngnd), zcol(ngnd) )
         call shdf5_irec(ndims, idims, 'sdepths', rvar1=ztmp)
+
+        ! OLAM stores the soil arrays from bottom to top, so we need to reverse
+        ! the input soil depth array, and convert to m
+
+        do k = 1, ngnd
+           kk = ngnd - k + 1
+           zcol(kk) = ztmp(k) * 0.01
+        enddo
+
+        deallocate(ztmp)
+
+     else
+
+        ngnd = 0
+
      endif
-
-     ! OLAM stores the soil arrays from bottom to top, so we need to reverse
-     ! the input soil depth array, and convert to m
-
-     do k = 1, ngnd
-        kk = ngnd - k + 1
-        zcol(kk) = ztmp(k) * 0.01
-     enddo
-
-     deallocate(ztmp)
 
 #ifdef OLAM_MPI
      if (iparallel == 1) then
@@ -171,7 +179,7 @@ subroutine read_soil_analysis(soil_tempc)
 #endif
 
   endif
- 
+
 #ifdef OLAM_MPI
   if (iparallel == 1) then
 
@@ -204,11 +212,11 @@ subroutine read_soil_analysis(soil_tempc)
   endif
 #endif
 
-  if (ngnd == 0) then
-     write(io6,*) "Gridded analysis dataset does not contain soil depth information."
-     write(io6,*) "Soil initialization from analysis file will be skipped."
-     write(io6,*)
-  endif
+! if (ngnd == 0) then
+!    write(io6,*) "Gridded analysis dataset does not contain soil depth information."
+!    write(io6,*) "Soil initialization from analysis file will be skipped."
+!    write(io6,*)
+! endif
 
   ! Check data domain size, location, and type
 
@@ -381,9 +389,9 @@ subroutine read_soil_analysis(soil_tempc)
 
 #ifdef OLAM_MPI
   if (iparallel == 1) then
-     call MPI_Bcast(snow,  nio*njo     , MPI_REAL, 0, MPI_COMM_WORLD, ier)
-     call MPI_Bcast(soilt, nio*njo*ngnd, MPI_REAL, 0, MPI_COMM_WORLD, ier)
-     call MPI_Bcast(soilw, nio*njo*ngnd, MPI_REAL, 0, MPI_COMM_WORLD, ier)
+     if (has_snow ) call MPI_Bcast(snow,  nio*njo     , MPI_REAL, 0, MPI_COMM_WORLD, ier)
+     if (has_soilt) call MPI_Bcast(soilt, nio*njo*ngnd, MPI_REAL, 0, MPI_COMM_WORLD, ier)
+     if (has_soilw) call MPI_Bcast(soilw, nio*njo*ngnd, MPI_REAL, 0, MPI_COMM_WORLD, ier)
   endif
 #endif
 
@@ -391,17 +399,26 @@ subroutine read_soil_analysis(soil_tempc)
      write(io6,*) "read_soil: Analysis file does not contain snow mass."
      write(io6,*) "Skipping snow depth initialization."
      write(io6,*)
+  else
+     write(io6,*) "read_soil: Initializing snow depth from analysis file."
+     write(io6,*)
   endif
 
   if (.not. has_soilt) then
      write(io6,*) "read_soil: Analysis file does not contain soil temperature."
      write(io6,*) "Using default soil temperatures instead."
      write(io6,*)
+  else
+     write(io6,*) "read_soil: Initializing soil temperature from analysis file."
+     write(io6,*)
   endif
 
   if (.not. has_soilw) then
      write(io6,*) "read_soil: Analysis file does not contain soil moisture."
      write(io6,*) "Using default soil water instead."
+     write(io6,*)
+  else
+     write(io6,*) "read_soil: Initializing soil water from analysis file."
      write(io6,*)
   endif
 

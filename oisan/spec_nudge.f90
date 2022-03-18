@@ -117,11 +117,11 @@ subroutine nudge_prep_spec(iaction, o_rho, o_theta, o_rrw, o_uzonal, o_umerid)
 
   integer, intent(in) :: iaction
 
-  real(r8), intent(in)  :: o_rho   (mza,mwa)
-  real,     intent(in)  :: o_theta (mza,mwa)
-  real,     intent(in)  :: o_rrw   (mza,mwa)
-  real,     intent(in)  :: o_uzonal(mza,mwa)
-  real,     intent(in)  :: o_umerid(mza,mwa)
+  real, intent(in) :: o_rho   (mza,mwa)
+  real, intent(in) :: o_theta (mza,mwa)
+  real, intent(in) :: o_rrw   (mza,mwa)
+  real, intent(in) :: o_uzonal(mza,mwa)
+  real, intent(in) :: o_umerid(mza,mwa)
 
   integer               :: j,iw,k,iwnud,iwnud1
 

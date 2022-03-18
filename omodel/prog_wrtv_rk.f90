@@ -926,23 +926,21 @@ subroutine prog_wrt_begs( iw, istage, dts, dt8,                 &
 
   enddo
 
-  ! Add Coriolis terms to momentum tendencies
+  ! density tenency
 
   do k = ka, mza
      mass = real( rho(k,iw) * volt(k,iw) )
 
-     vmxet_rk(k,iw) = vmxet_rk(k,iw) + mass * omega2 * vye(k,iw)
-     vmyet_rk(k,iw) = vmyet_rk(k,iw) - mass * omega2 * vxe(k,iw)
-  enddo
-
-  c8  = dts * pc2
-  c9  =-dts * fr
-
-  do k = ka, mza
+     rhothil(k) = rho(k,iw) * thil(k,iw)
 
      b10(k) = dt8 * real(volti(k,iw),r8)
+     b5 (k) = alpha_press(k,iw) * real(rhothil(k)) ** rocv
+     b15(k) = b10(k) * real(b5(k))
 
-     rhothil(k) = rho(k,iw) * thil(k,iw)
+     ! Add Coriolis terms to momentum tendencies
+
+     vmxet_rk(k,iw) = vmxet_rk(k,iw) + mass * omega2 * vye(k,iw)
+     vmyet_rk(k,iw) = vmyet_rk(k,iw) - mass * omega2 * vxe(k,iw)
 
      ! Explicit density tendency
 
@@ -958,9 +956,6 @@ subroutine prog_wrt_begs( iw, istage, dts, dt8,                 &
         delex_rho    (k) = delex_rho    (k) + rho0(k,iw) - rho(k,iw)
         delex_rhothil(k) = delex_rhothil(k) + rth0(k,iw) - rhothil(k)
      endif
-
-     b5 (k) = alpha_press(k,iw) * real(rhothil(k)) ** rocv
-     b15(k) = b10(k) * real(b5(k))
 
      press_ex(k) = b5(k) * (rhothil(k) + pc2 * delex_rhothil(k))
 
@@ -1018,6 +1013,9 @@ subroutine prog_wrt_begs( iw, istage, dts, dt8,                 &
 !    b6(k)  = c6  * volti(k,iw)
 !     b10(k) = c10 * volti(k,iw)
 !  enddo
+
+  c8  = dts * pc2
+  c9  =-dts * fr
 
   ! Loop over W pts
   do k = ka, mza-1

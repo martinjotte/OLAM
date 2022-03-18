@@ -1014,21 +1014,6 @@ subroutine pressure_stage()
 
   endif
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!! Compute dry density
-!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-  !$omp parallel do private(iw,k)
-  do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
-
-     do k = 1, mza
-        o_rho(k,iw) = o_press(k,iw) ** cvocp * p00kord / &
-                      ( o_theta(k,iw) * (1.0 + eps_vapi * o_rrw(k,iw)) )
-     enddo
-
-  enddo
-  !$omp end parallel do
-
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!! Deallocate arrays and close HDF5
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

@@ -37,20 +37,19 @@ use mem_nudge,   only: rho_obsp, theta_obsp, rrw_obsp, &
                        rho_obsf, theta_obsf, rrw_obsf, &
                        uzonal_obsp, umerid_obsp,       &
                        uzonal_obsf, umerid_obsf
-
 use mem_grid,    only: mza, mwa, lpw
 use mem_ijtabs,  only: jtab_w, jtw_init
 use consts_coms, only: r8
 
 implicit none
 
-integer,  intent(in) :: iaction
-real(r8), intent(in) :: o_rho   (mza,mwa)
-real,     intent(in) :: o_theta (mza,mwa)
-real,     intent(in) :: o_rrw   (mza,mwa)
-real,     intent(in) :: o_uzonal(mza,mwa)
-real,     intent(in) :: o_umerid(mza,mwa)
-integer              :: j,iw,k
+integer, intent(in) :: iaction
+real,    intent(in) :: o_rho   (mza,mwa)
+real,    intent(in) :: o_theta (mza,mwa)
+real,    intent(in) :: o_rrw   (mza,mwa)
+real,    intent(in) :: o_uzonal(mza,mwa)
+real,    intent(in) :: o_umerid(mza,mwa)
+integer             :: j, iw, k
 
 ! Begin OpenMP parallel block
 !$omp parallel
@@ -113,7 +112,7 @@ use mem_nudge, only:   tnudcent, rhot_nud,                 &
                      uzonal_obs, uzonal_obsp, uzonal_obsf, &
                      umerid_obs, umerid_obsp, umerid_obsf
 
-use mem_basic,   only: rho, theta, rr_w, vxe, vye, vze
+use mem_basic,   only: rho, theta, rr_w, ue, ve, vxe, vye, vze
 use mem_grid,    only: mza, lpw, vxn_ew, vyn_ew, vxn_ns, vyn_ns, vzn_ns
 use misc_coms,   only: s1900_sim
 use mem_ijtabs,  only: itab_w, jtab_w, jtw_prog
@@ -130,7 +129,6 @@ integer, intent(in) :: mrl
 
 integer :: j, iw, k
 real    :: umzonalt, ummeridt
-real    :: uzonal, umerid
 real    :: tp, tf, tnudi, tnudr, rho4
 
 !----------------------------------------------------------------------
@@ -187,8 +185,7 @@ tp = 1. - tf
 
 ! Horizontal loop over W columns
 !----------------------------------------------------------------------
-!$omp parallel do private( iw,k,tnudi,rho4,tnudr,uzonal,umerid, &
-!$omp                      umzonalt,ummeridt )
+!$omp parallel do private( iw,k,tnudi,rho4,tnudr,umzonalt,ummeridt )
 do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 !---------------------------------------------------------------------
 
@@ -219,13 +216,6 @@ do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
       rho4  = rho(k,iw)
       tnudr = rho4 * tnudi
 
-      ! Reconstruct UZONAL and UMERID from VXE, VYE, VZE
-
-      uzonal = vxe(k,iw) * vxn_ew(iw) + vye(k,iw) * vyn_ew(iw)
-
-      umerid = vxe(k,iw) * vxn_ns(iw) + vye(k,iw) * vyn_ns(iw) &
-             + vze(k,iw) * vzn_ns(iw)
-
       ! Density nudging
 
       rhot_nud(k,iw) = tnudi * (rho_obs(k,iw) - rho4)
@@ -241,9 +231,9 @@ do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
       ! Momentum nudging (including density change)
 
-      umzonalt = tnudr * (uzonal_obs(k,iw) - uzonal)
+      umzonalt = tnudr * (uzonal_obs(k,iw) - ue(k,iw))
 
-      ummeridt = tnudr * (umerid_obs(k,iw) - umerid)
+      ummeridt = tnudr * (umerid_obs(k,iw) - ve(k,iw))
 
       vmxet(k,iw) = vmxet(k,iw) + vxn_ew(iw) * umzonalt + vxn_ns(iw) * ummeridt &
                   + vxe(k,iw) * rhot_nud(k,iw)

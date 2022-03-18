@@ -590,7 +590,7 @@ subroutine tend0(rho_old)
   use misc_coms,   only: nrk_scal
   use mem_sfcg,    only: mwsfc, itab_wsfc, sfcg
   use mem_basic,   only: vmsc, wmsc, rho, vxesc, vyesc, vzesc
-  use mem_grid,    only: mza, mwa, mva
+  use mem_grid,    only: mza, mwa, mva, lpw, lpv
   use consts_coms, only: r8
 
   implicit none
@@ -602,23 +602,26 @@ subroutine tend0(rho_old)
   !$omp do private(k,n)
   do iw = 2, mwa
 
-     do k = 2, mza
+     do k = lpw(iw), mza
         vmxet  (k,iw) = 0.0
         vmyet  (k,iw) = 0.0
         vmzet  (k,iw) = 0.0
         thilt  (k,iw) = 0.0
-        wmsc   (k,iw) = 0.0
         rho_old(k,iw) = rho(k,iw)
      enddo
 
+     do k = lpw(iw)-1, mza
+        wmsc(k,iw) = 0.0
+     enddo
+
      do n = 1, num_scalar
-        do k = 2, mza
+        do k = lpw(iw), mza
            scalar_tab(n)%var_t(k,iw) = 0.0
         enddo
      enddo
 
      if (nrk_scal == 1) then
-        do k = 2, mza
+        do k = lpw(iw), mza
            vxesc(k,iw) = 0.0
            vyesc(k,iw) = 0.0
            vzesc(k,iw) = 0.0
@@ -630,7 +633,7 @@ subroutine tend0(rho_old)
 
   !$omp do private(k)
   do iv = 2, mva
-     do k = 2, mza
+     do k = lpv(iv), mza
         vmt (k,iv) = 0.0
         vmsc(k,iv) = 0.0
      enddo

@@ -203,7 +203,7 @@ Contains
   subroutine rayf_mix_top_vxe( iw, vmxet, vmyet, vmzet )
 
     use mem_basic,   only: vxe, vye, vze, rho
-    use mem_grid,    only: mza, arw, lpw
+    use mem_grid,    only: mza, arw0, lpw
 
     implicit none
 
@@ -220,17 +220,17 @@ Contains
 
     ka = max(krayfmix_bot, lpw(iw))
 
-    vxflux(mza) = 0.0
-    vxflux(ka)  = 0.0
+    vxflux(mza)  = 0.0
+    vxflux(ka-1) = 0.0
 
-    vyflux(mza) = 0.0
-    vyflux(ka)  = 0.0
+    vyflux(mza)  = 0.0
+    vyflux(ka-1) = 0.0
 
-    vzflux(mza) = 0.0
-    vzflux(ka)  = 0.0
+    vzflux(mza)  = 0.0
+    vzflux(ka-1) = 0.0
 
     do k = ka, mza-1
-       fact = arw(k,iw) * rayf_cofmix(k) * real(rho(k+1,iw) + rho(k,iw))
+       fact = arw0(iw) * rayf_cofmix(k) * real(rho(k+1,iw) + rho(k,iw))
 
        vxflux(k) = fact * (vxe(k,iw) - vxe(k+1,iw))
        vyflux(k) = fact * (vye(k,iw) - vye(k+1,iw))
@@ -244,39 +244,6 @@ Contains
     enddo
 
   end subroutine rayf_mix_top_vxe
-
-
-
-  subroutine rayf_mix_top_vc( iv, vmt )
-
-    use mem_ijtabs,  only: itab_v
-    use mem_basic,   only: vc, rho
-    use mem_grid,    only: mza, arw, volvi
-
-    implicit none
-
-    integer, intent(in   ) :: iv
-    real,    intent(inout) :: vmt(mza)
-
-    real    :: vflux(mza)
-    integer :: k, iw1, iw2
-
-    iw1 = itab_v(iv)%iw(1)
-    iw2 = itab_v(iv)%iw(2)
-
-    vflux (mza)           = 0.0
-    vflux(krayfmix_bot-1) = 0.0
-
-    do k = krayfmix_bot, mza-1
-       vflux(k) = 0.25 * (arw(k,iw1) + arw(k,iw2)) * rayf_cofmix(k) * (vc(k,iv) - vc(k+1,iv)) &
-            * real(rho(k+1,iw1) + rho(k+1,iw2) + rho(k,iw1) + rho(k,iw2))
-    enddo
-
-    do k = krayfmix_bot, mza
-       vmt(k) = vmt(k) + (vflux(k-1) - vflux(k)) * volvi(k,iv)
-    enddo
-
-  end subroutine rayf_mix_top_vc
 
 
 end module mem_rayf

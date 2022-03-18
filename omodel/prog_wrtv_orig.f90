@@ -443,6 +443,7 @@ subroutine prog_wrt_begs( iw, vmcf, wmsc,                       &
   use mem_turb,    only: akmodx, akhodx
   use mem_rayf,    only: dorayfw, rayf_cofw, krayfw_bot, &
                          dorayf, rayf_cof, krayf_bot
+  use mem_nudge,   only: rhot_nud, nudflag
 
   implicit none
 
@@ -693,6 +694,12 @@ subroutine prog_wrt_begs( iw, vmcf, wmsc,                       &
   c8  = dts * pc2
   c9  =-dts * fr
   c10 = dts * fw
+
+  if (nudflag == 1) then
+     do k = ka, mza
+        delex_rho(k) = delex_rho(k) + dt8 * real( rhot_nud(k,iw), r8)
+     enddo
+  endif
 
   ! Vertical loop over W levels
 
