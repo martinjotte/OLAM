@@ -503,17 +503,23 @@
 !     lower - n2o, p = 706.272 mbar, t = 278.94 k
 !     upper - n2o, p = 95.58 mbar, t = 215.7 k
 
+      real(kind=rb) :: refrat_planck_a
+      real(kind=rb) :: refrat_planck_b
+      real(kind=rb) :: refrat_m_a
+      real(kind=rb) :: refrat_m_b
+
 !  P = 212.725 mb
-      real(kind=rb), parameter :: refrat_planck_a = chi_mls1_2(9)
+      refrat_planck_a = chi_mls1_2(9)
 
 !  P = 95.58 mb
-      real(kind=rb), parameter :: refrat_planck_b = chi_mls1_2(13)
+      refrat_planck_b = chi_mls1_2(13)
 
 !  P = 706.270mb
-      real(kind=rb), parameter :: refrat_m_a = chi_mls1_2(3)
+      refrat_m_a = chi_mls1_2(3)
 
 !  P = 95.58 mb
-      real(kind=rb), parameter :: refrat_m_b = chi_mls1_2(13)
+      refrat_m_b = chi_mls1_2(13)
+
 
 ! Compute the optical depth by interpolating in ln(pressure) and
 ! temperature, and appropriate species.  Below laytrop, the water vapor
@@ -785,11 +791,14 @@
       real(kind=rb) :: tauself, taufor
       real(kind=rb) :: tau_major, tau_major1
 
+      real(kind=rb) :: refrat_planck_a
+      real(kind=rb) :: refrat_planck_b
+
 ! P =   142.5940 mb
-      real(kind=rb), parameter :: refrat_planck_a = chi_mls1_2(11)
+      refrat_planck_a = chi_mls1_2(11)
 
 ! P = 95.58350 mb
-      real(kind=rb), parameter :: refrat_planck_b = chi_mls3_2(13)
+      refrat_planck_b = chi_mls3_2(13)
 
 ! Compute the optical depth by interpolating in ln(pressure) and
 ! temperature, and appropriate species.  Below laytrop, the water
@@ -1054,14 +1063,18 @@
 ! Calculate reference ratio to be used in calculation of Planck
 ! fraction in lower/upper atmosphere.
 
+      real(kind=rb) :: refrat_planck_a
+      real(kind=rb) :: refrat_planck_b
+      real(kind=rb) :: refrat_m_a
+
 ! P = 473.420 mb
-      real(kind=rb), parameter :: refrat_planck_a = chi_mls1_2(5)
+      refrat_planck_a = chi_mls1_2(5)
 
 ! P = 0.2369 mb
-      real(kind=rb), parameter :: refrat_planck_b = chi_mls3_2(43)
+      refrat_planck_b = chi_mls3_2(43)
 
 ! P = 317.3480
-      real(kind=rb), parameter :: refrat_m_a = chi_mls1_2(7)
+      refrat_m_a = chi_mls1_2(7)
 
 ! Compute the optical depth by interpolating in ln(pressure) and
 ! temperature, and appropriate species.  Below laytrop, the
@@ -1409,11 +1422,14 @@
 ! Calculate reference ratio to be used in calculation of Planck
 ! fraction in lower atmosphere.
 
+      real(kind=rb) :: refrat_planck_a
+      real(kind=rb) :: refrat_m_a
+
 ! P = 706.2620 mb
-      real(kind=rb), parameter :: refrat_planck_a = chi_mls1_3(3)
+      refrat_planck_a = chi_mls1_3(3)
 
 ! P = 706.2720 mb
-      real(kind=rb), parameter :: refrat_m_a = chi_mls1_3(3)
+      refrat_m_a = chi_mls1_3(3)
 
 ! Compute the optical depth by interpolating in ln(pressure),
 ! temperature, and appropriate species.  Below laytrop, the water
@@ -1440,9 +1456,9 @@
          speccomb_mco2 = colh2o(lay) + refrat_m_a*colo3(lay)
          specparm_mco2 = min(colh2o(lay)/speccomb_mco2, oneminus)
          specmult_mco2 = 8._rb*specparm_mco2
-         jmco2 = int(specmult_mco2)
-         jmco2 = 1 + jmco2
-         fmco2 = specmult_mco2 - jmco2
+         imco2 = int(specmult_mco2)
+         jmco2 = 1 + imco2
+         fmco2 = specmult_mco2 - imco2
 
 !  In atmospheres where the amount of CO2 is too great to be considered
 !  a minor species, adjust the column amount of CO2 by an empirical factor
@@ -1796,11 +1812,14 @@
 ! Calculate reference ratio to be used in calculation of Planck
 ! fraction in lower/upper atmosphere.
 
+      real(kind=rb) :: refrat_planck_a
+      real(kind=rb) :: refrat_m_a
+
 ! P = 212 mb
-      real(kind=rb), parameter :: refrat_planck_a = chi_mls1_6(9)
+      refrat_planck_a = chi_mls1_6(9)
 
 ! P = 706.272 mb
-      real(kind=rb), parameter :: refrat_m_a = chi_mls1_6(3)
+      refrat_m_a = chi_mls1_6(3)
 
 ! Compute the optical depth by interpolating in ln(pressure),
 ! temperature, and appropriate species.  Below laytrop, the water
@@ -2165,8 +2184,10 @@
 ! Calculate reference ratio to be used in calculation of Planck
 ! fraction in lower/upper atmosphere.
 
+      real(kind=rb) :: refrat_planck_a
+
 ! P =   174.164 mb
-      real(kind=rb), parameter :: refrat_planck_a = chi_mls1_2(10)
+      refrat_planck_a = chi_mls1_2(10)
 
 ! Compute the optical depth by interpolating in ln(pressure),
 ! temperature, and appropriate species.  Below laytrop, the water
@@ -2378,14 +2399,18 @@
 ! Calculate reference ratio to be used in calculation of Planck
 ! fraction in lower/upper atmosphere.
 
+      real(kind=rb) :: refrat_planck_a
+      real(kind=rb) :: refrat_m_a
+      real(kind=rb) :: refrat_m_a3
+
 ! P = 473.420 mb (Level 5)
-      real(kind=rb), parameter :: refrat_planck_a = chi_mls1_4(5)
+      refrat_planck_a = chi_mls1_4(5)
 
 ! P = 1053. (Level 1)
-      real(kind=rb), parameter :: refrat_m_a = chi_mls1_4(1)
+      refrat_m_a = chi_mls1_4(1)
 
 ! P = 706. (Level 3)
-      real(kind=rb), parameter :: refrat_m_a3 = chi_mls1_4(3)
+      refrat_m_a3 = chi_mls1_4(3)
 
 ! Compute the optical depth by interpolating in ln(pressure),
 ! temperature, and appropriate species.  Below laytrop, the water
@@ -2690,11 +2715,15 @@
 
 ! Calculate reference ratio to be used in calculation of Planck
 ! fraction in lower atmosphere.
+
+      real(kind=rb) :: refrat_planck_a
+      real(kind=rb) :: refrat_m_a
+
 ! P = 1053. mb (Level 1)
-      real(kind=rb), parameter :: refrat_planck_a = chi_mls4_2(1)
+      refrat_planck_a = chi_mls4_2(1)
 
 ! P = 1053.
-      real(kind=rb), parameter :: refrat_m_a = chi_mls4_2(1)
+      refrat_m_a = chi_mls4_2(1)
 
 ! Compute the optical depth by interpolating in ln(pressure),
 ! temperature, and appropriate species.  Below laytrop, the water
@@ -2909,8 +2938,10 @@
 ! Calculate reference ratio to be used in calculation of Planck
 ! fraction in lower atmosphere.
 
+      real(kind=rb) :: refrat_planck_a
+
 ! P = 387. mb (Level 6)
-      real(kind=rb), parameter :: refrat_planck_a = chi_mls1_6(6)
+      refrat_planck_a = chi_mls1_6(6)
 
 ! Compute the optical depth by interpolating in ln(pressure),
 ! temperature,and appropriate species.  Below laytrop, the water
@@ -2938,8 +2969,8 @@
          specparm_planck = min(colh2o(lay)/speccomb_planck, oneminus)
          specmult_planck = 8._rb*specparm_planck
          ipl = int(specmult_planck)
-         jpl= 1 + ipl
-         fpl =  specmult_planck - ipl
+         jpl = 1 + ipl
+         fpl = specmult_planck - ipl
 
          ind0 = ((jp(lay)-1)*5+(jt(lay)-1))*nspa(16) + js
          ind1 = (jp(lay)*5+(jt1(lay)-1))*nspa(16) + js1

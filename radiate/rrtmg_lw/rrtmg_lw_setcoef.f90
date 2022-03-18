@@ -332,6 +332,13 @@
       implicit none
       integer :: in, ib
 
+      if (allocated(totplnk)) return
+
+      call set_ref()
+
+      allocate( totplnk(nbndlw,181))
+      allocate(dtotplnk(nbndlw,181))
+
       totplnk(1, 1:50) = (/ &
       0.14783e-05_rb,0.15006e-05_rb,0.15230e-05_rb,0.15455e-05_rb,0.15681e-05_rb, &
       0.15908e-05_rb,0.16136e-05_rb,0.16365e-05_rb,0.16595e-05_rb,0.16826e-05_rb, &

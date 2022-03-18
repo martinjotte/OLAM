@@ -102,10 +102,8 @@
               (220._rb, i=1, 2), &
               (650._rb, i=1, 2) /)
 
-      real(kind=rb) ::  totplnk(nbndlw,181)
-      real(kind=rb) :: dtotplnk(nbndlw,181)
-      !dir$ attributes align:32 ::  totplnk
-      !dir$ attributes align:32 :: dtotplnk
+      real(kind=rb), allocatable ::  totplnk(:,:)
+      real(kind=rb), allocatable :: dtotplnk(:,:)
 
       integer(kind=im), parameter :: ngc(nbndlw) = &
            (/10,12,16,14,16,8,12,8,12,6,8,8,4,2,2,2/)
