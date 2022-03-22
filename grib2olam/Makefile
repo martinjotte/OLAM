@@ -10,7 +10,7 @@ include ./include.mk
 F_COMMAND = $(F_COMP) -c $(F_OPTS) $(FORT_INCS)
 C_COMMAND = $(C_COMP) -c $(C_OPTS) $(DEFINES)
 
-WGRIB2_FLAGS  = $(C_OPTS) $(PNG_INCS) $(JASPER_INCS) -DUSE_PNG -DUSE_JPEG2000 -DUSE_JASPER
+WGRIB2_FLAGS  = $(C_OPTS) $(PNG_INCS) $(JASPER_INCS) -DUSE_PNG -DUSE_JASPER
 WGRIB2_LDFLGS = $(C_OPTS) $(JASPER_LIBS) $(PNG_LIBS)
 #
 #     Define run archive and executable file names.
