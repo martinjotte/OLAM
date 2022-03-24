@@ -37,7 +37,7 @@ subroutine isan_driver(iaction)
                         pcol_p, pcol_z, nprz, o_rho, o_press, o_theta, o_rrw, &
                         o_uzonal, o_umerid, o_ozone, pnpr, levpr, glat
   use misc_coms,  only: io6, runtype, s1900_init, s1900_sim, rinit, i_o3
-  use mem_zonavg, only: zonavg_init, zonp_vect
+  use mem_zonavg, only: zonavg_init
   use mem_grid,   only: mza, mwa
   use mem_nudge,  only: nudflag, nudnxp, o3nudflag
 
@@ -46,7 +46,6 @@ subroutine isan_driver(iaction)
   integer, intent(in) :: iaction
 
   integer :: nf
-  real    :: pmin
 
   ! Check type of call to isan_driver
 
@@ -118,27 +117,13 @@ subroutine isan_driver(iaction)
 
   call read_press_header()
 
-! Determine if (and how many) additional levels above the reanalysis we need
-! from the ZONAVG arrays
+  ! Determine index of lowest ZONAVG pressure level that is at least 1/2
+  ! ZONAVG pressure level higher than highest input pressure data level
+  ! (i.e., maximum zonp_vect value that is less than 82.5% of levpr(nprz),
+  ! which is in hPa)
 
-  pmin = 0.5 * zonp_vect(22) + zonp_vect(21)
-
-  if ( pnpr(nprz) < pmin ) then
-
-     lzon_bot = 23
-     npd      = nprz + 2
-
-  else
-
-     ! Determine index of lowest ZONAVG pressure level that is at least 1/2
-     ! ZONAVG pressure level higher than highest input pressure data level
-     ! (i.e., maximum zonp_vect value that is less than 82.5% of levpr(nprz),
-     ! which is in hPa)
-
-     lzon_bot = min(23, nint(31. - 6. *  log10( pnpr(nprz) )) + 1)
-     npd      = nprz + 25 - lzon_bot
-
-  endif
+  lzon_bot = min(23, nint(31. - 6. *  log10( pnpr(nprz) )) + 1)
+  npd      = nprz + 25 - lzon_bot
 
 ! Allocate memory for ISAN processing
 
