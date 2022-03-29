@@ -93,7 +93,8 @@ subroutine alloc_mpi_sndrcv_bufs()
                        send_w,    recv_w,    &
                        send_m,    recv_m,    &
                        send_wnud, recv_wnud, &
-                       send_wsfc, recv_wsfc
+                       send_wsfc, recv_wsfc, &
+                       send_vsfc, recv_vsfc
 
   use misc_coms, only: iparallel
   use mem_nudge, only: nudflag, nudnxp
@@ -121,6 +122,9 @@ subroutine alloc_mpi_sndrcv_bufs()
   allocate(send_wsfc(mgroupsize))
   allocate(recv_wsfc(mgroupsize))
 
+  allocate(send_vsfc(mgroupsize))
+  allocate(recv_vsfc(mgroupsize))
+
 end subroutine alloc_mpi_sndrcv_bufs
 
 !===============================================================================
@@ -135,7 +139,8 @@ subroutine olam_mpi_finalize()
                        send_w,    recv_w,    ireqr_w,    nrecvs_m,    ireqs_m,    nsends_m,    &
                        send_m,    recv_m,    ireqr_m,    nrecvs_w,    ireqs_w,    nsends_w,    &
                        send_wnud, recv_wnud, ireqr_wnud, nrecvs_wnud, ireqs_wnud, nsends_wnud, &
-                       send_wsfc, recv_wsfc, ireqr_wsfc, nrecvs_wsfc, ireqs_wsfc, nsends_wsfc
+                       send_wsfc, recv_wsfc, ireqr_wsfc, nrecvs_wsfc, ireqs_wsfc, nsends_wsfc, &
+                       send_vsfc, recv_vsfc, ireqr_vsfc, nrecvs_vsfc, ireqs_vsfc, nsends_vsfc
   use mem_nudge, only: nudflag, nudnxp
   use misc_coms, only: iparallel, io6
 
@@ -220,6 +225,18 @@ subroutine olam_mpi_finalize()
            endif
         enddo
 
+        do jrecv = 1, nrecvs_vsfc
+           if (ireqr_vsfc(jrecv,ii) /= MPI_REQUEST_NULL) then
+              call MPI_Cancel(ireqr_vsfc(jrecv,ii), ierr)
+           endif
+        enddo
+
+        do jsend = 1, nsends_vsfc
+           if (ireqs_vsfc(jsend,ii) /= MPI_REQUEST_NULL) then
+              call MPI_Cancel(ireqs_vsfc(jsend,ii), ierr)
+           endif
+        enddo
+
      enddo
 
      ! Test that all communication requests have been completed or cancelled
@@ -258,6 +275,12 @@ subroutine olam_mpi_finalize()
      call MPI_Testall(nsends_wsfc, ireqs_wsfc(:,1), flags, MPI_STATUSES_IGNORE, ierr)
      call MPI_Testall(nsends_wsfc, ireqs_wsfc(:,2), flags, MPI_STATUSES_IGNORE, ierr)
 
+     call MPI_Testall(nrecvs_vsfc, ireqr_vsfc(:,1), flags, MPI_STATUSES_IGNORE, ierr)
+     call MPI_Testall(nrecvs_vsfc, ireqr_vsfc(:,2), flags, MPI_STATUSES_IGNORE, ierr)
+
+     call MPI_Testall(nsends_vsfc, ireqs_vsfc(:,1), flags, MPI_STATUSES_IGNORE, ierr)
+     call MPI_Testall(nsends_vsfc, ireqs_vsfc(:,2), flags, MPI_STATUSES_IGNORE, ierr)
+
      call olam_mpi_barrier()
 
   endif
@@ -282,6 +305,9 @@ subroutine olam_mpi_finalize()
 
   if (allocated(send_wsfc )) deallocate(send_wsfc)
   if (allocated(recv_wsfc )) deallocate(recv_wsfc)
+
+  if (allocated(send_vsfc )) deallocate(send_vsfc)
+  if (allocated(recv_vsfc )) deallocate(recv_vsfc)
 
 #endif
 

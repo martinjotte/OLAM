@@ -143,7 +143,7 @@ subroutine cloudprep_rad(iw,ka,mcat,jhcat,rhov,rx,emb,ktop)
               endif
 
               rx (k,1) = rr_c(k,iw)
-              emb(k,1) = max(emb0(1), min(emb1(1), rx(k,1) / cx))
+              emb(k,1) = max(emb0(1), min(emb1(1), rx(k,1) / max(1.e-12,cx)))
 
               ktop(1) = k
            endif

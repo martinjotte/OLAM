@@ -36,11 +36,11 @@ subroutine olam_run(name_name)
   use, intrinsic :: ieee_arithmetic
 #endif
 
-  use misc_coms,   only: io6, time8, time8p, time_istp8, time_istp8p, iflag,     &
-                         expnme, mdomain, initial, iswrtyp, ilwrtyp, timeunit,   &
-                         runtype, hfilin, timmax8, alloc_misc, iparallel,        &
-                         iyear1, imonth1, idate1, itime1, s1900_init, s1900_sim, &
-                         time_prevhist, rinit, rinit8, debug_fp, init_nans,      &
+  use misc_coms,   only: io6, mstp, time8, time8p, time_istp8, time_istp8p, iflag, &
+                         expnme, mdomain, initial, iswrtyp, ilwrtyp, timeunit,     &
+                         runtype, hfilin, timmax8, alloc_misc, iparallel,          &
+                         iyear1, imonth1, idate1, itime1, s1900_init, s1900_sim,   &
+                         time_prevhist, rinit, rinit8, debug_fp, init_nans,        &
                          isubdomain, do_chem, time_bias, dtlong, ioutput, nrk_wrtv
 
   use olam_mpi_atm,only: olam_alloc_mpi, mpi_send_w, mpi_recv_w, &
@@ -50,7 +50,7 @@ subroutine olam_run(name_name)
   use sea_coms,    only: iupdsst, iupdseaice
   use mem_ijtabs,  only: istp, mrls, fill_jtabs, itab_v, itab_w
   use mem_sfcg,    only: nwsfc, mwsfc, nvsfc, mvsfc, alloc_sfcgrid2, &
-                         filltab_sfcg, sfcg_avgatm, fill_jtab_sfcg, sfcg
+                         filltab_sfcg, fill_jtab_sfcg, sfcg
   use sea_swm,     only: swm_init, swm_diagvel
   use oplot_coms,  only: op, iplt_file
   use mem_grid,    only: mma, mva, mwa, mza, alloc_gridz_other
@@ -60,9 +60,9 @@ subroutine olam_run(name_name)
   use consts_coms, only: r8, init_consts
   use oname_coms,  only: nl
   use hcane_rz,    only: ncycle_hurrinit, icycle_hurrinit, hurricane_init, &
-                         vortex_azim_avg, vortex_add_pert, vortex_reloc3d, &
-                         vortex_relocated, vortex_rzplot1, vtan_eyw, hlat, &
-                         hlon, hlat0, hlon0, hlat_hist, hlon_hist, htc0
+                         vortex_center_diagnose, vortex_azim_avg,          &
+                         vortex_reloc3d, vortex_relocated, htc0, &
+                         hlat, hlon, hlat0, hlon0, hlat_hist, hlon_hist
   use obnd,        only: trsets, lbcopy_w
   use var_tables,  only: nvar_par, vtab_r, nptonv
   use mem_plot,    only: alloc_plot, copy_plot
@@ -493,6 +493,11 @@ subroutine olam_run(name_name)
      write(io6,'(/,a)') 'olam_run calling sea_startup'
      call sea_startup()
 
+     ! Start up POM1D model
+
+     write(io6,'(/,a)') 'olam_run calling pom_startup'
+     call pom_startup()
+
      write(io6,'(/,a)') 'olam_run calling swm_init'
      call swm_init()
 
@@ -516,7 +521,12 @@ subroutine olam_run(name_name)
      write(io6,'(/,a)') 'olam_run calling sea_init_atm'
      call sea_init_atm()
 
-     call swm_diagvel()
+     ! Initialize POM1D fields
+
+     write(io6,'(/,a)') 'olam_run calling pom_init'
+     call pom_init()
+
+     if (isfcl == 1) call swm_diagvel()
 
      if (nl%igw_spinup == 1) then
 
@@ -728,18 +738,20 @@ subroutine olam_run(name_name)
      time_istp8  = time8
      time_istp8p = time8p              ! Slightly forward biased time
 
+     mstp = 0
+
      ! reset convective variables if we have turned off convection
 
      call reset_cuparm()
 
      ! If not updating SST/SEAICE/NDVI, copy the curent values to 
      ! the past and future arrays
-     
+
      if (iupdsst /= 1) then
         sea%seatp(:) = sea%seatc(:)
         sea%seatf(:) = sea%seatc(:)
      endif
-     
+
      if (iupdseaice /= 1) then
         sea%seaicep(:) = sea%seaicec(:)
         sea%seaicef(:) = sea%seaicec(:)
@@ -750,23 +762,6 @@ subroutine olam_run(name_name)
         land%veg_ndvif(:) = land%veg_ndvic(:)
      endif
 
-  endif
-
-  ! If this is INITIAL run with hurricane initialization cycles, 
-  ! set timmax8 to timmax_hurrinit on all but the last cycle, and
-  ! set timmax8 to namelist value on the last cycle
-
-  if (runtype == 'INITIAL' .and. ncycle_hurrinit > 0) then
-     if (icycle_hurrinit < ncycle_hurrinit) then
-        timmax8 = nl%timmax_hurrinit
-     else
-        if (timeunit == 'd' .or. timeunit == 'D') tfact = 86400.0_r8
-        if (timeunit == 'h' .or. timeunit == 'H') tfact =  3600.0_r8
-        if (timeunit == 'm' .or. timeunit == 'M') tfact =    60.0_r8
-        if (timeunit == 's' .or. timeunit == 'S') tfact =     1.0_r8
-
-        timmax8 = nl%timmax * tfact
-     endif
   endif
 
   ! If this is not a history start AND if it is not the second or later
@@ -820,14 +815,14 @@ subroutine olam_run(name_name)
      if (runtype == 'INITIAL' .and. icycle_hurrinit == 1) then
         hlat = hlat0      ! Value specified in namelist
         hlon = hlon0      ! Value specified in namelist
+        call vortex_center_diagnose()
      elseif (runtype == 'HISTORY') then
         hlat = hlat_hist  ! Current value in history file
         hlon = hlon_hist  ! Current value in history file
      endif
 
      ! In 'INITIAL' run, on second or later cycle, relocate hurricane fields
-     ! (that were prognosed on previous cycle) back to initial location, and
-     ! reset hlat and hlon to the initial hurricane location
+     ! (that were prognosed on previous cycle) back to initial location
 
      if (runtype == 'INITIAL' .and. icycle_hurrinit > 1) then
         print*, 'olam_run calling vortex_relocated'
@@ -835,34 +830,6 @@ subroutine olam_run(name_name)
         call vortex_relocated()
 
         print*, 'returned from vortex_relocated'
-
-        hlat = hlat0
-        hlon = hlon0
-     endif
-
-     ! If this is an INITIAL run and this is not the final initialization cycle,
-     ! add axisymmetric vortex perturbation
-
-     if (runtype == 'INITIAL' .and. vtan_eyw > 0.99 .and. &
-        (icycle_hurrinit < ncycle_hurrinit .or. ncycle_hurrinit == 1)) then
-
-        ! Compute azimuthal averages of dynamic, thermodynamic, and moisture
-        ! fields, and plot averages (in radial-height cross sections)
-
-        call vortex_azim_avg()
-        call vortex_rzplot1()
-
-        ! Add axisymmetric tangential wind and potential temperature
-        ! perturbations to increase vortex intensity and maintain approximate
-        ! gradient wind balance
-
-        call vortex_add_pert()
-
-        ! Reompute azimuthal averages of dynamic, thermodynamic, and moisture
-        ! fields, and plot averages (in radial-height cross sections)
-
-        call vortex_azim_avg()
-        call vortex_rzplot1()
 
      endif
 
@@ -884,6 +851,13 @@ subroutine olam_run(name_name)
   call plot_fields(0)
   call fields2_ll()
 
+  ! Compute azimuthal averages of dynamic, thermodynamic, and moisture
+  ! fields, and plot averages (in radial-height cross sections)
+
+  if (ncycle_hurrinit > 0) then
+     call vortex_azim_avg('plot')
+  endif
+
   ! Exit if doing a zero time run
   if (time8 >= timmax8) go to 1000
 
@@ -896,11 +870,7 @@ subroutine olam_run(name_name)
   ! PREPARE FOR NEXT HURRICANE DYNAMIC INITIALIZATION CYCLE (if
   ! any more are to be done)
 
-  if (icycle_hurrinit > 0 .and. icycle_hurrinit <= ncycle_hurrinit) then
-
-     ! Compute and plot axisymmetric hurricane fields
-
-     call vortex_azim_avg()
+  if (icycle_hurrinit > 0 .and. icycle_hurrinit < ncycle_hurrinit) then
 
      ! Remap 3D hurricane fields from grid cells at present location to
      ! grid cells at initial location; store in arrays
@@ -934,6 +904,7 @@ subroutine model()
                        s1900_init, s1900_sim
   use consts_coms, only: r8
   use oname_coms,  only: nl
+  use hcane_rz,    only: ncycle_hurrinit, icycle_hurrinit
 
   implicit none
 
@@ -945,6 +916,7 @@ subroutine model()
 
   real :: wtime_start, t1, wtime1, wtime2, t2, wtime_tot
   real, external :: walltime
+  real(r8) :: timmax8_model
   character(len=40) :: stepc1,stepc2,stepc3,stepc4,stepc5
   type(simtime) :: begtime
 
@@ -952,11 +924,17 @@ subroutine model()
 
   wtime_start = walltime(0.)
 
+  if (ncycle_hurrinit > 0 .and. icycle_hurrinit < ncycle_hurrinit) then
+     timmax8_model = nl%timmax_hurrinit
+  else
+     timmax8_model = timmax8
+  endif
+
   ! Start the timesteps
 
   mstp = 0
 
-  do while (time8p < timmax8)
+  do while (time8p < timmax8_model)
 
      begtime = current_time
 
@@ -1029,8 +1007,8 @@ subroutine olam_output()
   use consts_coms, only: r8
   use oname_coms,  only: nl
   use mem_plot,    only: copy_plot
-  use hcane_rz,    only: icycle_hurrinit, vortex_center_diagnose
-
+  use hcane_rz,    only: ncycle_hurrinit, icycle_hurrinit, vortex_center_diagnose, &
+                         vortex_azim_avg
   use lite_vars,   only: lite_write
   use mem_megan,   only: megan_store_lai
 
@@ -1053,6 +1031,10 @@ subroutine olam_output()
   if (mod(time8p,op%frqplt) < dtlm(1) .or. time8p >= timmax8 .or. iflag == 1) then
      call copy_plot(0)
      call plot_fields(0)
+
+     if (ncycle_hurrinit > 0) then
+        call vortex_azim_avg('plot')
+     endif
   endif
 
   call date_add_to8(iyear1,imonth1,idate1,itime1,time8p,'s',outyear,  &

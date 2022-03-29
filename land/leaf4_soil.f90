@@ -32,6 +32,18 @@
 !===============================================================================
 Module leaf4_soil
 
+  implicit none
+
+  real, parameter :: psi_slope_static = 5000. ! Inverse specific storage (asymptotic)
+                                               ! of single grid cell at supersaturation
+
+  real, parameter :: wfrac_inc = 0.0001 ! Small increment of wfrac for computing
+                                        ! slope within normal range of wfrac
+
+  real, parameter :: psi_low2 =  -50000.
+  real, parameter :: psi_low1 = -100000.
+  real, parameter :: psi_inc12 = psi_low2 - psi_low1
+
   Contains
 
   subroutine soil(iland, iwsfc, ktrans, transp, wfree1, qwfree1,         &
@@ -579,13 +591,6 @@ Module leaf4_soil
   real :: em_vg
   real :: emi_vg
 
-  real, parameter :: head_slope_static = 5000. ! Inverse specific storage (asymptotic)
-                                               ! of single grid cell at supersaturation
-
-  real, parameter :: psi_low2 =  -50000.
-  real, parameter :: psi_low1 = -100000.
-  real, parameter :: psi_inc12 = psi_low2 - psi_low1
-
   real :: wfrac_low2, wfrac_low1, wfrac_inc12, soil_watfrac_ul
 
   ! van Genuchten auxiliary variables. Option for em_vg should be identical
@@ -603,7 +608,7 @@ Module leaf4_soil
      ! For water potential zero or higher, use linear relationship
      ! assuming a constant specific storage parameter.
 
-     soil_water = wsat_vg + psi / head_slope_static
+     soil_water = wsat_vg + psi / psi_slope_static
 
   elseif (psi <= psi_low2) then
 

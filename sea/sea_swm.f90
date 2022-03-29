@@ -105,7 +105,6 @@ subroutine swm_grad2d()
      do jv = 1, npoly
         iv  = itab_wsfc(iw)%ivn(jv)
         iwn = itab_wsfc(iw)%iwn(jv)
-        isean = iwn - omsea
 
         jm2 = jv
         if (jm2 == 1) then
@@ -117,17 +116,20 @@ subroutine swm_grad2d()
         gxps_coef = itab_wsfc(iw)%gxps1(jm2) + itab_wsfc(iw)%gxps2(jm1)
         gyps_coef = itab_wsfc(iw)%gyps1(jm2) + itab_wsfc(iw)%gyps2(jm1)
 
-        if (sfcg%leaf_class(iwn) == 0    .and. &
-            sfcg%swm_active(iwn)         .and. &
-            sea%wdepth(isean) > depthmin_swe) then
+        dvxe = 0.  ! ASSUME ZERO GRADIENT IF IWN NOT FILLED SWM CELL 
+        dvye = 0.
+        dvze = 0.
 
-           dvxe = sea%vxe(isean) - sea%vxe(isea)
-           dvye = sea%vye(isean) - sea%vye(isea)
-           dvze = sea%vze(isean) - sea%vze(isea)
-        else          ! ASSUME ZERO GRADIENT IF IWN NOT FILLED SWM CELL 
-           dvxe = 0.
-           dvye = 0.
-           dvze = 0.
+        if (sfcg%leaf_class(iwn) == 0 .and. &
+            sfcg%swm_active(iwn)) then
+
+           isean = iwn - omsea
+
+           if (sea%wdepth(isean) > depthmin_swe) then
+              dvxe = sea%vxe(isean) - sea%vxe(isea)
+              dvye = sea%vye(isean) - sea%vye(isea)
+              dvze = sea%vze(isean) - sea%vze(isea)
+           endif
         endif
 
         sea%gxps_vxe(isea) = sea%gxps_vxe(isea) + gxps_coef * dvxe
@@ -165,7 +167,6 @@ subroutine swm_hflux(iv, iw1, iw2)
 
   integer :: isea1, isea2, iland1, iland2, ilake1, ilake2
 
-  real :: dto2
   real :: cosv1, sinv1, cosv2, sinv2
   real :: dxps_v, dyps_v
 
@@ -310,8 +311,8 @@ subroutine swm_hflux(iv, iw1, iw2)
         cosv1 = itab_vsfc(iv)%cosv(1)
         sinv1 = itab_vsfc(iv)%sinv(1)
 
-        dxps_v = -dto2 * (vcf * cosv1 - ufacev * sinv1) + itab_vsfc(iv)%dxps(1)
-        dyps_v = -dto2 * (vcf * sinv1 + ufacev * cosv1) + itab_vsfc(iv)%dyps(1)
+        dxps_v = -0.5 * dt_leaf * (vcf * cosv1 - ufacev * sinv1) + itab_vsfc(iv)%dxps(1)
+        dyps_v = -0.5 * dt_leaf * (vcf * sinv1 + ufacev * cosv1) + itab_vsfc(iv)%dyps(1)
 
         sfcg%hflux_vxe(iv) = sfcg%hflux_wat(iv) * (sea%vxe(isea1) &
                                    + dxps_v * sea%gxps_vxe(isea1) &
@@ -346,8 +347,8 @@ subroutine swm_hflux(iv, iw1, iw2)
         cosv2 = itab_vsfc(iv)%cosv(2)
         sinv2 = itab_vsfc(iv)%sinv(2)
 
-        dxps_v = -dto2 * (vcf * cosv2 - ufacev * sinv2) + itab_vsfc(iv)%dxps(2)
-        dyps_v = -dto2 * (vcf * sinv2 + ufacev * cosv2) + itab_vsfc(iv)%dyps(2)
+        dxps_v = -0.5 * dt_leaf * (vcf * cosv2 - ufacev * sinv2) + itab_vsfc(iv)%dxps(2)
+        dyps_v = -0.5 * dt_leaf * (vcf * sinv2 + ufacev * cosv2) + itab_vsfc(iv)%dyps(2)
 
         sfcg%hflux_vxe(iv) = sfcg%hflux_wat(iv) * (sea%vxe(isea2) &
                                    + dxps_v * sea%gxps_vxe(isea2) &
@@ -490,7 +491,7 @@ subroutine swm_progv()
   use consts_coms, only: grav
   use leaf_coms,   only: dt_leaf
 
-!F  use olam_mpi_sfcg, only: mpi_send_msfc, mpi_recv_msfc
+  use olam_mpi_sfcg, only: mpi_send_wsfc, mpi_recv_wsfc, mpi_send_vsfc, mpi_recv_vsfc
 
   implicit none
 
@@ -567,9 +568,15 @@ subroutine swm_progv()
   enddo
   !$omp end do
 
-  ! Compute vorticity for vorticity damping
+  if (iparallel) then
+     call mpi_send_vsfc(vc_ex=vc_ex)
+     call mpi_recv_vsfc(vc_ex=vc_ex)
+  endif
 
-  !$omp do private(im,jv,iv,iw1,iw2,isea1,isea2)
+  ! Compute vorticity for vorticity damping at all swm-active msfc points in
+  ! this subdomain (vortp_ex does not require mpi send/recv)
+
+  !$omp do private(im,jv,iv,iw,isea)
   do j = 1,jtab_msfc_swm%jend; im = jtab_msfc_swm%imsfc(j)
 
      ! Loop over V neighbors to evaluate circulation around M (at time T)
@@ -596,13 +603,6 @@ subroutine swm_progv()
   !$omp end do 
   !$omp end parallel
 
-  ! MPI send/recv of vortp_ex
-
-  if (iparallel == 1) then
-!F     call mpi_send_msfc(1, rvara1=vortp_ex)
-!F     call mpi_recv_msfc(1, rvara1=vortp_ex)
-  endif
-
   ! Compute divergence for divergence damping
 
   !$omp parallel do private(iw,isea,jv,iv,iwn,isean)
@@ -616,11 +616,17 @@ subroutine swm_progv()
      do jv = 1, itab_wsfc(iw)%npoly
         iv    = itab_wsfc(iw)%ivn(jv)
         iwn   = itab_wsfc(iw)%iwn(jv)
-        isean = iwn - omsea
 
-        if (sea%wdepth(isean) >= depthmin_swe) then
-           div2d_ex(isea) = div2d_ex(isea) - itab_wsfc(iw)%dirv(jv) &
-                          * vc_ex(iv) * sfcg%dnu(iv) / sfcg%area(iw)
+        if (sfcg%leaf_class(iwn) == 0 .and. &
+            sfcg%swm_active(iwn)) then
+
+           isean = iwn - omsea
+
+           if (sea%wdepth(isean) >= depthmin_swe) then
+              div2d_ex(isea) = div2d_ex(isea) - itab_wsfc(iw)%dirv(jv) &
+                             * vc_ex(iv) * sfcg%dnu(iv) / sfcg%area(iw)
+           endif
+
         endif
 
      enddo
@@ -630,8 +636,8 @@ subroutine swm_progv()
   ! MPI send/recv of div2d
 
   if (iparallel == 1) then
-!F     call mpi_send_wsfc(1, rvara1=div2d_ex)
-!F     call mpi_recv_wsfc(1, rvara1=div2d_ex)
+     call mpi_send_wsfc(set='swm_div2d_ex', div2d_ex=div2d_ex)
+     call mpi_recv_wsfc(set='swm_div2d_ex', div2d_ex=div2d_ex)
   endif
 
   !$omp parallel do private(iv,iw1,iw2,isea1,isea2,im1,im2,vdepth, &
@@ -701,7 +707,6 @@ subroutine swm_diagvel()
   use mem_sfcg,    only: sfcg, jtab_wsfc_swm, itab_vsfc, itab_wsfc
   use mem_sea,     only: sea, omsea
   use misc_coms,   only: iparallel
-!F  use olam_mpi_atm, only: mpi_send_wsfc, mpi_recv_wsfc
 
   implicit none
 
@@ -763,13 +768,6 @@ subroutine swm_diagvel()
 
   enddo
   !$omp end parallel do
-
-  ! Parallel send-recieve of Earth Cartesian velocities
-
-  if (iparallel == 1) then
-!F     call mpi_send_wsfc(mrl, rvara1=sfcg%vxe, rvara2=sfcg%vye, rvara3=sfcg%vze)
-!F     call mpi_recv_wsfc(mrl, rvara1=sfcg%vxe, rvara2=sfcg%vye, rvara3=sfcg%vze)
-  endif
 
 end subroutine swm_diagvel
 

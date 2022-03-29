@@ -155,18 +155,20 @@ subroutine lite_write()
   use hdf5_utils, only: shdf5_orec, shdf5_open, shdf5_close, mpi_does_parallel_io
   use max_dims,   only: pathlen
   use mem_grid,   only: nma, nua, nva, nwa
-  use mem_sfcg,   only: nwsfc
+  use mem_sfcg,   only: nwsfc, nvsfc, nmsfc
   use mem_land,   only: nland
   use mem_lake,   only: nlake
   use mem_sea,    only: nsea
   use mem_nudge,  only: nwnud
-  use mem_para,   only: iva_globe_primary, iva_local_primary, &
-                        iwa_globe_primary, iwa_local_primary, &
-                        ima_globe_primary, ima_local_primary, &
+  use mem_para,   only: iva_globe_primary,   iva_local_primary,   &
+                        iwa_globe_primary,   iwa_local_primary,   &
+                        ima_globe_primary,   ima_local_primary,   &
                         iwsfc_globe_primary, iwsfc_local_primary, &
+                        ivsfc_globe_primary, ivsfc_local_primary, &
+                        imsfc_globe_primary, imsfc_local_primary, &
                         iland_globe_primary, iland_local_primary, &
                         ilake_globe_primary, ilake_local_primary, &
-                        isea_globe_primary, isea_local_primary, &
+                        isea_globe_primary,  isea_local_primary,  &
                         iwnud_globe_primary, iwnud_local_primary
   implicit none
 
@@ -244,6 +246,14 @@ subroutine lite_write()
         ilpts => iwsfc_local_primary
         igpts => iwsfc_globe_primary
         nglobe = nwsfc
+     elseif (stagpt == 'CV') then ! Common surface cells (V pts)
+        ilpts => ivsfc_local_primary
+        igpts => ivsfc_globe_primary
+        nglobe = nvsfc
+     elseif (stagpt == 'CM') then ! Common surface cells (M pts)
+        ilpts => imsfc_local_primary
+        igpts => imsfc_globe_primary
+        nglobe = nmsfc
      elseif (stagpt == 'LW') then
         ilpts => iland_local_primary
         igpts => iland_globe_primary
@@ -322,8 +332,8 @@ subroutine lite_read(litefile)
   use misc_coms,   only: io6, runtype, time8, time_istp8
   use var_tables,  only: num_var, vtab_r, get_vtab_dims, num_lite
   use hdf5_utils,  only: shdf5_info, shdf5_irec, shdf5_open, shdf5_close
-  use mem_sfcg,    only: itab_wsfc, nwsfc, mwsfc
-  use mem_land,    only: itab_land, nland, mland
+  use mem_sfcg,    only: itab_wsfc, nwsfc, mwsfc, itab_vsfc, nvsfc, mvsfc
+  use mem_land,    only: itab_land, nland, mland, nzg
   use mem_lake,    only: itab_lake, nlake, mlake
   use mem_sea,     only: itab_sea, nsea, msea
 
@@ -337,7 +347,7 @@ subroutine lite_read(litefile)
   integer       :: j, nv, ns, ndims, idims(3)
   character(32) :: varn
   character (2) :: stagpt
-  integer       :: ilocal(max(mwa,mva,mma,mwsfc,mland,mlake,msea,mwnud))
+  integer       :: ilocal(max(mwa,mva,mma,mwsfc,mvsfc,mland,mlake,msea,mwnud))
 
   inquire(file=trim(litefile),exist=exans)
 
@@ -390,6 +400,9 @@ subroutine lite_read(litefile)
         elseif (stagpt == 'CW' .and. idims(ndims) == nwsfc) then
            ilocal(1:mwsfc) = itab_wsfc(1:mwsfc)%iwglobe
            idims(ndims) = mwsfc
+        elseif (stagpt == 'CV' .and. idims(ndims) == nvsfc) then
+           ilocal(1:mvsfc) = itab_vsfc(1:mvsfc)%ivglobe
+           idims(ndims) = mvsfc
         elseif (stagpt == 'LW' .and. idims(ndims) == nland) then
            ilocal(1:mland) = itab_land(1:mland)%iwglobe
            idims(ndims) = mland

@@ -213,6 +213,8 @@ SOURCE_FILES= \
              $(RADIATE)/rrtmg_sw/rrtmg_sw_spcvmc.f90 \
              $(RADIATE)/rrtmg_sw/rrtmg_sw_taumol.f90 \
              $(SEA)/mem_sea.f90 \
+             $(SEA)/pom_interface.f90 \
+             $(SEA)/pom2k1d.f90 \
              $(SEA)/read_seaice_analysis.F90 \
              $(SEA)/read_sst_analysis.F90 \
              $(SEA)/sea_coms.f90 \
@@ -232,6 +234,7 @@ SOURCE_FILES= \
              $(SFCG)/spawn_nest_sfc.f90 \
              $(SFCG)/surface_driver.F90 \
              $(HURRICANE)/hurricane_init.f90 \
+             $(HURRICANE)/plot_trajecfile.f90 \
              $(TEST_CASES)/mem_swtc5_refsoln_cubic.f90 \
              $(TEST_CASES)/swtc_init.f90 \
              $(TEST_CASES)/diagn_global_swtc.F90 \

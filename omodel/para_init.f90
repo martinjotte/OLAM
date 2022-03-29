@@ -53,7 +53,7 @@ subroutine para_init()
 
   use leaf_coms,  only: isfcl
 
-  use mem_sfcg,    only: nwsfc, mwsfc, itab_wsfc, sfcg
+  use mem_sfcg,    only: nwsfc, mwsfc, nvsfc, mvsfc, itab_wsfc, sfcg
 
   use mem_nudge,  only: nudflag, nudnxp, nwnud, mwnud, itab_wnud, itabg_wnud, &
                         alloc_nudge1
@@ -63,7 +63,7 @@ subroutine para_init()
   integer :: j,imn,ivn,iwn,jnud
   integer :: im,iv,iw,iw1,iw2,iwnud,iwnud1,iwnud2,iwnud3
   integer :: imp,ivp,iwp
-  integer :: iwsfc,ipass
+  integer :: ivsfc,iwsfc,ipass
   integer :: npoly
   integer :: wadj_flag
   integer :: jsfc2
@@ -733,7 +733,7 @@ subroutine para_init()
 
   if (isfcl == 1) then
 
-     call para_init_sfcg ()
+     call para_init_sfcg()
 
      ! Do two passes through the following code to build lists of attached
      ! land, lake, and sea cells for each IW column
@@ -1106,7 +1106,8 @@ subroutine compute_primary_points()
 
   use mem_grid,   only: mma, mva, mwa
   use mem_ijtabs, only: itab_v, itab_w, itab_m, itabg_m
-  use mem_sfcg,   only: itab_wsfc, itabg_wsfc, mwsfc, sfcg
+  use mem_sfcg,   only: mmsfc, mvsfc, mwsfc, sfcg, itab_msfc, itabg_msfc, &
+                        itab_vsfc, itabg_vsfc, itab_wsfc, itabg_wsfc
   use mem_land,   only: itab_land, mland, omland
   use mem_lake,   only: itab_lake, mlake, omlake
   use mem_sea,    only: itab_sea, msea, omsea
@@ -1115,6 +1116,8 @@ subroutine compute_primary_points()
   use mem_para,   only:   mva_primary,   iva_globe_primary,   iva_local_primary, &
                           mwa_primary,   iwa_globe_primary,   iwa_local_primary, &
                           mma_primary,   ima_globe_primary,   ima_local_primary, &
+                        mmsfc_primary, imsfc_globe_primary, imsfc_local_primary, &
+                        mvsfc_primary, ivsfc_globe_primary, ivsfc_local_primary, &
                         mwsfc_primary, iwsfc_globe_primary, iwsfc_local_primary, &
                         mland_primary, iland_globe_primary, iland_local_primary, &
                         mlake_primary, ilake_globe_primary, ilake_local_primary, &
@@ -1136,6 +1139,14 @@ subroutine compute_primary_points()
 
   do i = 2, mma
      if (itabg_m( itab_m(i)%imglobe )%irank == myrank) mma_primary = mma_primary + 1
+  enddo
+
+  do i = 2, mmsfc
+     if (itab_msfc(i)%irank == myrank) mmsfc_primary = mmsfc_primary + 1
+  enddo
+
+  do i = 2, mvsfc
+     if (itab_vsfc(i)%irank == myrank) mvsfc_primary = mvsfc_primary + 1
   enddo
 
   do i = 2, mwsfc
@@ -1164,6 +1175,8 @@ subroutine compute_primary_points()
      mwa_primary = mwa_primary + 1 
      mma_primary = mma_primary + 1
      mva_primary = mva_primary + 1
+     mmsfc_primary = mmsfc_primary + 1
+     mvsfc_primary = mvsfc_primary + 1
      mwsfc_primary = mwsfc_primary + 1
      mland_primary = mland_primary + 1
      mlake_primary = mlake_primary + 1
@@ -1181,6 +1194,12 @@ subroutine compute_primary_points()
 
   allocate(ima_globe_primary(mma_primary))
   allocate(ima_local_primary(mma_primary))
+
+  allocate(imsfc_globe_primary(mmsfc_primary))
+  allocate(imsfc_local_primary(mmsfc_primary))
+
+  allocate(ivsfc_globe_primary(mvsfc_primary))
+  allocate(ivsfc_local_primary(mvsfc_primary))
 
   allocate(iwsfc_globe_primary(mwsfc_primary))
   allocate(iwsfc_local_primary(mwsfc_primary))
@@ -1209,6 +1228,12 @@ subroutine compute_primary_points()
 
      ima_globe_primary(1) = 1
      ima_local_primary(1) = 1
+
+     imsfc_globe_primary(1) = 1
+     imsfc_local_primary(1) = 1
+
+     ivsfc_globe_primary(1) = 1
+     ivsfc_local_primary(1) = 1
 
      iwsfc_globe_primary(1) = 1
      iwsfc_local_primary(1) = 1
@@ -1270,6 +1295,30 @@ subroutine compute_primary_points()
   enddo
 
   if (ia /= mma_primary) stop "error computing number of primary points3"
+
+  ia = istart
+
+  do i = 2, mmsfc
+     if (itabg_msfc( itab_msfc(i)%imglobe )%irank == myrank) then
+        ia = ia + 1
+        imsfc_globe_primary(ia) = itab_msfc(i)%imglobe
+        imsfc_local_primary(ia) = i
+     endif
+  enddo
+
+  if (ia /= mmsfc_primary) stop "error computing number of primary points4.3"
+
+  ia = istart
+
+  do i = 2, mvsfc
+     if (itabg_vsfc( itab_vsfc(i)%ivglobe )%irank == myrank) then
+        ia = ia + 1
+        ivsfc_globe_primary(ia) = itab_vsfc(i)%ivglobe
+        ivsfc_local_primary(ia) = i
+     endif
+  enddo
+
+  if (ia /= mvsfc_primary) stop "error computing number of primary points4.4"
 
   ia = istart
   ib = istart
@@ -1342,6 +1391,20 @@ do i = 2, mma_primary
    endif
 enddo
 
+do i = 2, mmsfc_primary
+   if (imsfc_globe_primary(i) < imsfc_globe_primary(i-1)) then
+      write(io6,*) 'error: MSFC is out of order!!!!'
+      stop
+   endif
+enddo
+
+do i = 2, mvsfc_primary
+   if (ivsfc_globe_primary(i) < ivsfc_globe_primary(i-1)) then
+      write(io6,*) 'error: VSFC is out of order!!!!'
+      stop
+   endif
+enddo
+
 do i = 2, mwsfc_primary
    if (iwsfc_globe_primary(i) < iwsfc_globe_primary(i-1)) then
       write(io6,*) 'error: WSFC is out of order!!!!'
@@ -1396,6 +1459,20 @@ enddo
 do i = 2, mma
    if (itab_m(i)%imglobe < itab_m(i-1)%imglobe) then
       write(io6,*) 'error: MAGLOBE is out of order!!!!'
+      stop
+   endif
+enddo
+
+do i = 2, mmsfc
+   if (itab_msfc(i)%imglobe < itab_msfc(i-1)%imglobe) then
+      write(io6,*) 'error: MSFCGLOBE is out of order!!!!'
+      stop
+   endif
+enddo
+
+do i = 2, mvsfc
+   if (itab_vsfc(i)%ivglobe < itab_vsfc(i-1)%ivglobe) then
+      write(io6,*) 'error: VSFCGLOBE is out of order!!!!'
       stop
    endif
 enddo

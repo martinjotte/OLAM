@@ -110,6 +110,7 @@ subroutine plot_fields(id)
   use mem_para,   only: myrank, mgroupsize
   use plotcolors, only: make_colortable
   use oname_coms, only: nl
+  use hcane_rz,   only: icycle_hurrinit, vortex_trajec_plot
 
 #ifdef OLAM_MPI
   use mpi
@@ -259,9 +260,23 @@ subroutine plot_fields(id)
 
      call vectslab(iplt)
 
-     ! SPECIAL HURRICANE HARVEY LOCATION PLOT
+     ! If running hurricane tracking, plot trajectory of this simulation
 
-     ! call plot_harvey(iplt)
+     if (icycle_hurrinit > 0 .and. &
+        (runtype == 'INITIAL' .or. runtype == 'HISTORY')) then
+
+        if (iplt == 1) then
+           call vortex_trajec_plot(iplt)
+        endif
+     endif
+
+     ! If running hurricane tracking, plot trajectories of multiple simulations
+
+     if (icycle_hurrinit > 0) then
+        if (iplt == 1) then
+           ! call plot_trajecfile(iplt)
+        endif
+     endif
 
      ! Draw SFC grid boundaries if so specified
 
@@ -350,8 +365,9 @@ subroutine plot_fields(id)
 
      if ( op%colorbar(iplt) == 'c' .and. myrank == 0 ) then
 
-        ! Comment out the call to plot_colorbar when doing spaghetti plots
+        ! Omit call to plot_colorbar when doing spaghetti plots
 
+        !e.g.: if (iplt /= 1) call plot_colorbar(op%icolortab(iplt))
         call plot_colorbar(op%icolortab(iplt))
      endif
 

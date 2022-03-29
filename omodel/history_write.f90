@@ -38,7 +38,7 @@ subroutine history_write(vtype)
   use hdf5_utils, only: shdf5_orec, shdf5_open, shdf5_close, mpi_does_parallel_io
   use max_dims,   only: pathlen
   use mem_grid,   only: nma, nva, nwa
-  use mem_sfcg,   only: nwsfc, nvsfc
+  use mem_sfcg,   only: nwsfc, nvsfc, nmsfc
   use mem_land,   only: nland
   use mem_lake,   only: nlake
   use mem_sea,    only: nsea
@@ -49,9 +49,10 @@ subroutine history_write(vtype)
                         ima_globe_primary, ima_local_primary, &
                         iwsfc_globe_primary, iwsfc_local_primary, &
                         ivsfc_globe_primary, ivsfc_local_primary, &
+                        imsfc_globe_primary, imsfc_local_primary, &
                         iland_globe_primary, iland_local_primary, &
                         ilake_globe_primary, ilake_local_primary, &
-                        isea_globe_primary, isea_local_primary, &
+                        isea_globe_primary,  isea_local_primary, &
                         iwnud_globe_primary, iwnud_local_primary
   implicit none
 
@@ -140,6 +141,10 @@ subroutine history_write(vtype)
            ilpts => ivsfc_local_primary
            igpts => ivsfc_globe_primary
            nglobe = nvsfc
+        elseif (stagpt == 'CM') then ! Common surface cells (M pts)
+           ilpts => imsfc_local_primary
+           igpts => imsfc_globe_primary
+           nglobe = nmsfc
         elseif (stagpt == 'LW') then ! Lake cells
            ilpts => iland_local_primary
            igpts => iland_globe_primary

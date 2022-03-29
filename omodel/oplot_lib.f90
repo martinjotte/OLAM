@@ -39,6 +39,7 @@ use mem_sfcg,    only: itab_wsfc, itab_msfc, itab_vsfc, sfcg
 use mem_land,    only: land, mland, omland, nzg, slz, dslz, slzt
 use mem_lake,    only: lake, mlake, omlake
 use mem_sea,     only: sea,  msea,  omsea
+use pom2k1d,     only: pom
 use leaf4_soil,  only: soil_wat2pot
 
 use mem_basic,   only: vmc, wmc, vc, wc, rho, press, &
@@ -398,7 +399,7 @@ data fldlib(1:4,181:203)/ &
 
 ! LAND_CELLS - 2D
 
-data fldlib(1:4,205:223)/ &
+data fldlib(1:4,205:224)/ &
  'USDA_TEXT'        ,'L2' ,'USDA SOIL TEXTURAL CLASS (2D)',' ( )'            ,& ! 205
  'Z_BEDROCK'        ,'L2' ,'Z_BEDROCK',' (m)'                                ,& ! 206
  'GPP'              ,'L2' ,'GROSS PRIMARY PRODUCTION OF CARBON',' ()'        ,& ! 207
@@ -417,7 +418,9 @@ data fldlib(1:4,205:223)/ &
  'GROUND_RRV'       ,'L2' ,'EQUIL VAP MIX RATIO OF SOIL',' (g kg:S2:-1  )'   ,& ! 220
  'SOIL_DEPTH'       ,'L2' ,'SOIL DEPTH',' (m)'                               ,& ! 221
  'SOIL_WATER_TOT'   ,'L2' ,'TOTAL SOIL WATER',' (m)'                         ,& ! 222
- 'HEAD0'            ,'L2' ,'HEAD0',' (m)'                                     / ! 223
+ 'HEAD0'            ,'L2' ,'HEAD0',' (m)'                                    ,& ! 223
+ 'SLOPE_FACT'       ,'L2' ,'SUBGRID OROGRAPHY SLOPE FACTOR',' ( )'            / ! 224
+
 
 ! LAND_CELLS - DIF2 fields
 
@@ -449,7 +452,7 @@ data fldlib(1:4,230:250)/ &
 
 ! LAND_CELLS - ATM averages
 
-data fldlib(1:4,251:279)/ &
+data fldlib(1:4,251:280)/ &
  'AL_SFCWATER_TOT'        ,'T2' ,'AL TOTAL SFCWATER MASS',' (kg m:S2:-2  )'  ,& ! 251
  'AL_SOIL_WATER_TOT'      ,'T2' ,'AL TOTAL SOIL WATER',' (m)'                ,& ! 252
 
@@ -487,10 +490,8 @@ data fldlib(1:4,251:279)/ &
  'SEAICEF'       ,'S2' ,'SEAICE FRACTION (FUTURE DATA)',' ( )'               ,& ! 276
  'SEAICEC'       ,'S2' ,'SEAICE FRACTION (CURRENT)',' ( )'                   ,& ! 277
  'WDEPTH'        ,'S2' ,'SEA WDEPTH',' (m)'                                  ,& ! 278
-
-! OTHER LAND or SFC fields
-
- 'SLOPE_FACT'    ,'L2' ,'SUBGRID OROGRAPHY SLOPE FACTOR',' ( )'               / ! 279
+ 'POM_KBA'       ,'S2' ,'POM LEVELS',' (#)'                                  ,& ! 279
+ 'POM_TEMPSFC'   ,'S2' ,'POM SURFACE TEMP',' (K)'                             / ! 280
 
 ! SFC GRID CELLS - 2D
 
@@ -2466,6 +2467,10 @@ case(223) ! 'HEAD0'
 
    fldval = land%head0(iland)
 
+case(224) ! 'SLOPE_FACT'
+
+   fldval = land%slope_fact(iland)
+
 case(230) ! 'WXFERI_DIF2'
 
    ! NOTE: wxferi_accum fluxes are positive upward; fldval flux (infiltration)
@@ -3362,13 +3367,13 @@ case(278) ! 'WDEPTH'
 
    fldval = sea%wdepth(isea)
 
-!-----------------------------------------
-! OTHER LAND or SEA fields
-!-----------------------------------------
+case(279) ! 'POM_KBA'
 
-case(279) ! 'SLOPE_FACT'
+   fldval = pom%kba(isea)
 
-   fldval = land%slope_fact(iland)
+case(280) ! 'POM_TEMPSFC'
+
+   fldval = pom%potmp(1,isea)
 
 !-----------------------------------------
 ! SFC GRID CELLS - 2D

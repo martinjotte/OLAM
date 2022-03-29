@@ -750,7 +750,7 @@ subroutine prog_wrt_begs( iw, istage, dts, dt8,                 &
   use mem_basic,   only: wmc, rho, thil, wc, press, vxe, vye, vze, vmc, wmsc, &
                          alpha_press, pwfac
 
-  use vel_t3d,     only: vxe1, vye1, vze1
+  use vel_t3d,     only: icut_vel, vxe1, vye1, vze1
   use misc_coms,   only: deltax, nxp, initial, nrk_wrtv
   use consts_coms, only: cpocv, rocv, omega2, pi1, pio180, r8
   use mem_grid,    only: mza, mva, mwa, lpv, lpw, arw, wnx, wny, wnz, volt, &
@@ -884,7 +884,7 @@ subroutine prog_wrt_begs( iw, istage, dts, dt8,                 &
 ! hflux_vye  = 0.
 ! hflux_vze  = 0.
 
-  if (nl%icut_vel == 1 .and. lve2(iw) > 0) then
+  if (icut_vel == 1 .and. lve2(iw) > 0) then
      do ksw = 1, lve2(iw)
         k = ksw + ka - 1
         r4 = real(rho(k,iw))
@@ -1152,7 +1152,7 @@ subroutine prog_wrt_begs( iw, istage, dts, dt8,                 &
 
   enddo
 
-  if (nl%icut_vel == 1 .and. lve2(iw) > 0) then
+  if (icut_vel == 1 .and. lve2(iw) > 0) then
      do ksw = 1, lve2(iw)
         k = ksw + ka - 1
 

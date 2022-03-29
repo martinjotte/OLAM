@@ -96,6 +96,10 @@ Module mem_para
   integer, target, allocatable :: ivsfc_globe_primary(:)
   integer, target, allocatable :: ivsfc_local_primary(:)
 
+  integer                      :: mmsfc_primary = 0
+  integer, target, allocatable :: imsfc_globe_primary(:)
+  integer, target, allocatable :: imsfc_local_primary(:)
+
   integer                      :: mland_primary = 0
   integer, target, allocatable :: iland_globe_primary(:)
   integer, target, allocatable :: iland_local_primary(:)

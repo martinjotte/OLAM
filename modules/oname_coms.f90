@@ -103,7 +103,6 @@ Module oname_coms
 !!    NESTED GRID DEFINITION
 
      integer :: ngrids     = 1
-     integer :: ngrids_old = 0
      integer :: gridplot_base = 2
 
      integer :: ngrdll(maxgrds) = 0
@@ -129,6 +128,14 @@ Module oname_coms
      real    :: swmzonrad(maxgrds,maxngrdll) = 0.0
      real    :: swmzonlat(maxgrds,maxngrdll) = 0.0
      real    :: swmzonlon(maxgrds,maxngrdll) = 0.0
+
+     integer :: npomzons = 0
+
+     integer :: npomzonll(maxgrds) = 0
+
+     real    :: pomzonrad(maxgrds,maxngrdll) = 0.0
+     real    :: pomzonlat(maxgrds,maxngrdll) = 0.0
+     real    :: pomzonlon(maxgrds,maxngrdll) = 0.0
 
 !!    TIMESTEP RATIOS
 
@@ -189,8 +196,6 @@ Module oname_coms
      real    :: divh_damp_fact = 0.1
 
      logical :: zero_neg_scalars = .true.
-
-     integer :: icut_vel = 1
 
      logical :: debug_fp    = .false.
      logical :: init_nans   = .false.
@@ -278,21 +283,21 @@ Module oname_coms
      integer  :: ncycle_hurrinit
      real(r8) :: timmax_hurrinit
 
-     real :: hlat0
-     real :: hlon0
+     real :: hlat0          ! Obs hurricane latitude (deg)
+     real :: hlon0          ! Obs hurricane longitude (deg)
 
-     real :: vtan_eyw      ! Target maximum tangential wind speed
-     real :: rad_eyw       ! Radius where vtan_eyw applies
-     real :: rad_env       ! Radius of environment (where perturbation ceases)
+     real :: rad1_blend     ! Inner radius for relocation blending weights (m)
+     real :: rad2_blend     ! Outer radius for relocation blending weights (m)
 
-     real :: rexpon_delc   ! Radial power law for circulation
-     real :: zmax_delv     ! Maximum height of perturbation vortex
-     real :: zexpon_delv   ! Vertical power law of perturbation magnitude
+     real :: zcent_thpert   ! Center height of toroidal heating region (m)
+     real :: zhwid_thpert   ! Vertical half-width of toroidal heating region (m)
 
-     real :: rad1_blend    ! Inner radius for relocation blending weights
-     real :: rad2_blend    ! Outer radius for relocation blending weights
-     real :: z1_blend      ! Lower height for relocation blending weights
-     real :: z2_blend      ! Upper height for relocation blending weights
+     real :: rcent_thpert   ! Center radius of toroidal heating region (m) 
+     real :: rhwid_thpert   ! Radial half-width of toroidal heating region (m)
+
+     real :: maxrate_thpert ! Maximum heating rate (K/s) in toroidal heating region (K/s)
+
+     real :: vtan_targ      ! Target maximum tangential wind speed (to modulate heating rate)
 
 !!    SOUNDING SPECIFICATION
 
@@ -318,9 +323,13 @@ Module oname_coms
      integer :: igw_spinup  =  0
      integer :: nzs         =  1
      integer :: nzg         = 21
+     integer :: nzpom       = 40
 
      real :: landgrid_dztop = 0.05
      real :: landgrid_depth = 5.00
+
+     real :: pom_dztop = 5.0
+     real :: pom_depth = 4500.
 
      integer :: isoilflg   = 2
      integer :: isoilptf   = 3

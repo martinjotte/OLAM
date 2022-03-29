@@ -39,14 +39,16 @@ subroutine para_init_sfcg()
                         itab_vsfc, itabg_vsfc, itab_vsfc_pd, &
                         itab_wsfc, itabg_wsfc, itab_wsfc_pd, &
                         alloc_sfcgrid1, sfcg
-  use mem_para,   only: myrank, nsends_wsfc, nrecvs_wsfc, nsends_vsfc, nrecvs_vsfc
+  use mem_para,   only: myrank, nsends_wsfc, nrecvs_wsfc, &
+                        nsends_vsfc, nrecvs_vsfc
   use mem_land,   only: mland, omland, onland, itab_land
   use mem_lake,   only: mlake, omlake, onlake, itab_lake
   use mem_sea,    only: msea, omsea, onsea, itab_sea
+  use pom2k1d,    only: alloc_pomgrid
 
   implicit none
 
-  integer :: iw, npoly, j, iwn, imn, ivn, imsfc, ivsfc, iwsfc, iwatm
+  integer :: iw, npoly, j, jj, iwn, imn, ivn, ivnn, imsfc, ivsfc, iwsfc, iwatm
 
   integer :: imsfc_myrank = 1 ! Counter for SFC grid M points to be included on this rank
   integer :: ivsfc_myrank = 1 ! Counter for SFC grid V points to be included on this rank
@@ -66,6 +68,7 @@ subroutine para_init_sfcg()
 
   nsends_vsfc = 0
   nsends_wsfc = 0
+
   nrecvs_vsfc = 0
   nrecvs_wsfc = 0
 
@@ -81,24 +84,36 @@ subroutine para_init_sfcg()
 
   do iwsfc = 2,nwsfc
 
-     ! Set the rank of the SFC grid W point to that of the ATM cell to which
+     ! Set the rank of the WSFC point to that of the ATM cell to which
      ! it is coupled with the largest coupling area
 
      iw = itab_wsfc_pd(iwsfc)%iwatm(1) ! global index
      itabg_wsfc(iwsfc)%irank = itabg_w(iw)%irank
 
-     ! If the rank of the SFC grid W point is the same as myrank, flag the
-     ! point for inclusion on this rank
+     ! If the rank of the WSFC cell is the same as myrank, then
+     !    (1) flag the WSFC point for inclusion on this rank
+     !    (2) flag all IWN and IMN neighbors of WSFC cell for inclusion on this rank.
+     !    (3) flag all IVN neighbors of flagged IMN neighbors for inclusion on this rank
 
      if (itabg_wsfc(iwsfc)%irank == myrank) then
         myrankflag_wsfc(iwsfc) = .true.
 
-        ! Flag all IWN neighbors of IW for inclusion on this rank.
+        npoly = itab_wsfc_pd(iwsfc)%npoly
 
-        do j = 1,itab_wsfc_pd(iwsfc)%npoly
+        do j = 1,npoly
            iwn = itab_wsfc_pd(iwsfc)%iwn(j)
            myrankflag_wsfc(iwn) = .true.
+
+           imn = itab_wsfc_pd(iwsfc)%imn(j)
+           myrankflag_msfc(imn) = .true.
+
+           do jj = 1,3
+              ivnn = itab_msfc_pd(imn)%ivn(jj)
+              myrankflag_vsfc(ivnn) = .true.
+           enddo
+
         enddo
+
      endif
 
      ! If the SFC grid W point is coupled to an ATM cell whose rank is myrank,
@@ -109,23 +124,17 @@ subroutine para_init_sfcg()
 
         if (itabg_w(iw)%irank == myrank) then
            myrankflag_wsfc(iwsfc) = .true.
-           cycle
         endif
      enddo
 
   enddo
 
-  ! Loop over all global SFC grid W points and find those that have been
-  ! flagged for inclusion on this rank
+  ! Loop over all global SFC grid W points.  For those that have been flagged for
+  ! inclusion on this rank, increment counters of WSFC, LAND, LAKE, and SEA cells.
 
   do iwsfc = 2,nwsfc
      if (myrankflag_wsfc(iwsfc)) then
-
-        ! Increment counter of W points flagged for inclusion on this rank
-
         iwsfc_myrank = iwsfc_myrank + 1
-
-        ! Increment counters of LAND, LAKE, and SEA cells
 
         if (itab_wsfc_pd(iwsfc)%leaf_class >= 2) then
            iland_myrank = iland_myrank + 1
@@ -134,34 +143,22 @@ subroutine para_init_sfcg()
         else
            isea_myrank = isea_myrank + 1
         endif
-
-        ! Flag M and V neighbors of current SFC grid W point for inclusion
-        ! if the W point is primary on this rank
-
-        if (itabg_wsfc(iwsfc)%irank == myrank) then
-
-           npoly = itab_wsfc_pd(iwsfc)%npoly
-           do j = 1,npoly
-              imn = itab_wsfc_pd(iwsfc)%imn(j)
-              myrankflag_msfc(imn) = .true.
-
-              ivn = itab_wsfc_pd(iwsfc)%ivn(j)
-              myrankflag_vsfc(ivn) = .true.
-           enddo
-
-        endif
-
      endif
   enddo
 
-  ! Count SFC grid M and V points that have been flagged for inclusion
+  ! Count SFC grid M and V points that have been flagged for inclusion,
+  ! and set their rank to that of their first WSFC neighbor
 
   do imsfc = 2,nmsfc
      if (myrankflag_msfc(imsfc)) imsfc_myrank = imsfc_myrank + 1
+     iwn = itab_msfc_pd(imsfc)%iwn(1)
+     itabg_msfc(imsfc)%irank = itabg_wsfc(iwn)%irank
   enddo
 
   do ivsfc = 2,nvsfc
      if (myrankflag_vsfc(ivsfc)) ivsfc_myrank = ivsfc_myrank + 1
+     iwn = itab_vsfc_pd(ivsfc)%iwn(1)
+     itabg_vsfc(ivsfc)%irank = itabg_wsfc(iwn)%irank
   enddo
 
   mmsfc = imsfc_myrank
@@ -183,6 +180,8 @@ subroutine para_init_sfcg()
   allocate (itab_land(mland))
   allocate (itab_lake(mlake))
   allocate (itab_sea (msea ))
+
+  call alloc_pomgrid(msea)
 
   ! Reset myrank point counters to 1
 
@@ -231,14 +230,28 @@ subroutine para_init_sfcg()
         itab_wsfc(iwsfc_myrank)%npoly    = itab_wsfc_pd(iwsfc)%npoly
         itab_wsfc(iwsfc_myrank)%nwatm    = itab_wsfc_pd(iwsfc)%nwatm
 
-        do j = 1,itab_wsfc_pd(iwsfc)%npoly 
+        do j = 1,7
            imn = itab_wsfc_pd(iwsfc)%imn(j) ! global index
-           itab_wsfc(iwsfc_myrank)%imn(j) = itabg_msfc(imn)%imsfc_myrank  ! local index
-
            ivn = itab_wsfc_pd(iwsfc)%ivn(j) ! global index
            iwn = itab_wsfc_pd(iwsfc)%iwn(j) ! global index
-           itab_wsfc(iwsfc_myrank)%ivn(j) = itabg_vsfc(ivn)%ivsfc_myrank  ! local index
-           itab_wsfc(iwsfc_myrank)%iwn(j) = itabg_wsfc(iwn)%iwsfc_myrank  ! local index
+
+           if (myrankflag_msfc(imn)) then
+              itab_wsfc(iwsfc_myrank)%imn(j) = itabg_msfc(imn)%imsfc_myrank  ! local index
+           else
+              itab_wsfc(iwsfc_myrank)%imn(j) = 1
+           endif
+
+           if (myrankflag_vsfc(ivn)) then
+              itab_wsfc(iwsfc_myrank)%ivn(j) = itabg_vsfc(ivn)%ivsfc_myrank  ! local index
+           else
+              itab_wsfc(iwsfc_myrank)%ivn(j) = 1
+           endif
+
+           if (myrankflag_wsfc(iwn)) then
+              itab_wsfc(iwsfc_myrank)%iwn(j) = itabg_wsfc(iwn)%iwsfc_myrank  ! local index
+           else
+              itab_wsfc(iwsfc_myrank)%iwn(j) = 1
+           endif
         enddo
 
         do j = 1,itab_wsfc_pd(iwsfc)%nwatm 
@@ -269,6 +282,7 @@ subroutine para_init_sfcg()
   do imsfc = 2,nmsfc
      if (myrankflag_msfc(imsfc)) then
         imsfc_myrank = itabg_msfc(imsfc)%imsfc_myrank
+        itab_msfc(imsfc_myrank)%irank   = itabg_msfc(imsfc)%irank
         itab_msfc(imsfc_myrank)%imglobe = imsfc
 
         ! The following is apparently needed only for contslab.f90
@@ -287,6 +301,7 @@ subroutine para_init_sfcg()
   do ivsfc = 2,nvsfc
      if (myrankflag_vsfc(ivsfc)) then
         ivsfc_myrank = itabg_vsfc(ivsfc)%ivsfc_myrank
+        itab_vsfc(ivsfc_myrank)%irank   = itabg_vsfc(ivsfc)%irank
         itab_vsfc(ivsfc_myrank)%ivglobe = ivsfc
 
         do j = 1,2
@@ -294,12 +309,11 @@ subroutine para_init_sfcg()
            iwn = itab_vsfc_pd(ivsfc)%iwn(j) ! global index
            itab_vsfc(ivsfc_myrank)%imn(j) = itabg_msfc(imn)%imsfc_myrank  ! local index
            itab_vsfc(ivsfc_myrank)%iwn(j) = itabg_wsfc(iwn)%iwsfc_myrank  ! local index
-
         enddo
      endif
   enddo
 
-  ! Read land grid information (that does not contain neighbor or coupling
+  ! Read surface grid information (that does not contain neighbor or coupling
   ! indices) for all points in local parallel subdomain for this rank (or for
   ! all points in domain if run is sequential)
 
@@ -348,9 +362,39 @@ subroutine para_init_sfcg()
 
   enddo
 
+  ! Loop over all VSFC points in global domain
+
+  do ivsfc = 2,nvsfc
+
+     ! If this VSFC grid point is primary on a remote rank and is also in the
+     ! memory of myrank, add that remote irank to MPI receive table.
+
+     if (itabg_vsfc(ivsfc)%irank /= myrank .and. myrankflag_vsfc(ivsfc)) then
+        call recv_table_vsfc(itabg_vsfc(ivsfc)%irank)
+     endif
+
+     ! If this VSFC grid point is primary on this rank and an adjacent WSFC point
+     ! (of which there are 4) is primary on a remote rank, add this VSFC point
+     ! index and that remote rank to send table.
+
+     if (itabg_vsfc(ivsfc)%irank == myrank) then
+        do j = 1,2
+           imn = itab_vsfc_pd(ivsfc)%iwn(j)
+
+           do jj = 1,3
+              iwn = itab_msfc_pd(imn)%iwn(jj)
+
+              if (itabg_wsfc(iwn)%irank /= myrank) &
+                 call send_table_vsfc(ivsfc,itabg_wsfc(iwn)%irank)
+           enddo
+        enddo
+     endif
+
+  enddo
+
   ! Deallocate temporary arrays
 
-  deallocate(itab_wsfc_pd)  ! and/or nullify?
+  deallocate(itab_wsfc_pd, itab_vsfc_pd, itab_msfc_pd)
   
 end subroutine para_init_sfcg 
 
@@ -383,6 +427,36 @@ if (jrecv > nrecvs_wsfc) nrecvs_wsfc = jrecv
 recv_wsfc(jrecv)%iremote = iremote
 
 end subroutine recv_table_wsfc
+
+!===============================================================================
+
+subroutine recv_table_vsfc(iremote)
+
+use mem_para,  only: nrecvs_vsfc, recv_vsfc
+use misc_coms, only: io6
+
+implicit none
+
+integer, intent(in) :: iremote
+
+integer :: jrecv
+
+! Check whether iremote_vsfc is already in table of ranks to receive from
+
+do jrecv=1,nrecvs_vsfc
+   if (recv_vsfc(jrecv)%iremote == iremote) exit
+enddo
+
+! If jrecv exceeds nrecvs_vsfc, jrecv represents a rank not yet entered in the
+! table, so increase nrecvs_vsfc.
+
+if (jrecv > nrecvs_vsfc) nrecvs_vsfc = jrecv
+
+! Enter remote rank in recv-remote-rank table.
+
+recv_vsfc(jrecv)%iremote = iremote
+
+end subroutine recv_table_vsfc
 
 !===============================================================================
 
@@ -420,4 +494,39 @@ send_wsfc(jsend)%iremote = iremote
 
 end subroutine send_table_wsfc
 
+!===============================================================================
+
+subroutine send_table_vsfc(ivsfc,iremote)
+
+use mem_sfcg,  only: itab_vsfc, itabg_vsfc
+use mem_para,  only: nsends_vsfc, send_vsfc
+use misc_coms, only: io6
+
+implicit none
+
+integer, intent(in) :: ivsfc
+integer, intent(in) :: iremote
+
+integer :: jsend
+integer :: ivsfc_myrank
+
+! Check whether iremote_vsfc is already in table of ranks to send to
+
+do jsend=1,nsends_vsfc
+   if (send_vsfc(jsend)%iremote == iremote) exit
+enddo
+
+! If jsend exceeds nsends_vsfc, jsend represents a rank not yet entered in the
+! table, so increase nsends_vsfc.
+
+if (jsend > nsends_vsfc) nsends_vsfc = jsend
+
+! Enter point in send-point table, and enter remote rank in send-remote-rank table.
+
+ivsfc_myrank = itabg_vsfc(ivsfc)%ivsfc_myrank
+
+itab_vsfc(ivsfc_myrank)%send(jsend) = .true.
+send_vsfc(jsend)%iremote = iremote
+
+end subroutine send_table_vsfc
 

@@ -32,6 +32,8 @@
 !===============================================================================
 Module mem_sea
 
+   use max_dims, only: maxgrds, maxngrdll
+
    implicit none
 
    integer :: nzsea = 0 ! Max number of vertical levels in sea/ocean model
@@ -160,6 +162,15 @@ Module mem_sea
    End Type sea_vars
 
    type (sea_vars) :: sea
+
+! POM1D ZONE INFORMATION
+
+  integer :: npomzons
+
+  integer, target :: npomzonll(maxgrds)
+  real   , target :: pomzonrad(maxgrds,maxngrdll)
+  real   , target :: pomzonlat(maxgrds,maxngrdll)
+  real   , target :: pomzonlon(maxgrds,maxngrdll)
 
 Contains
 

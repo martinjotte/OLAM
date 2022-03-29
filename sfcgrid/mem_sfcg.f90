@@ -51,17 +51,19 @@ Module mem_sfcg
   integer :: nwsfc, mwsfc
 
   Type itab_msfc_vars
+     logical :: send(maxremote) = .false.
      integer :: imglobe = 1
-     integer :: ivn(3) = 1       ! array of V neighbors of this M pt
-     integer :: iwn(3) = 1       ! array of W neighbors of this M pt
+     integer :: irank = -1    ! rank of parallel process at this MSFC pt
+     integer :: ivn(3) = 1    ! array of V neighbors of this M pt
+     integer :: iwn(3) = 1    ! array of W neighbors of this M pt
   End type itab_msfc_vars
 
   Type itab_vsfc_vars
      logical :: send(maxremote) = .false.
      integer :: ivglobe = 1
-     integer :: irank = -1   ! rank of parallel process at this VSFC pt
-     integer :: imn(2)
-     integer :: iwn(2)
+     integer :: irank = -1    ! rank of parallel process at this VSFC pt
+     integer :: imn(2) = 1
+     integer :: iwn(2) = 1
 
      real :: cosv(2) = 0.     ! cosine of angle between V and zonal dir (Voronoi)
      real :: sinv(2) = 0.     ! sine of angle between V and zonal dir (Voronoi)
@@ -77,9 +79,9 @@ Module mem_sfcg
 
      integer :: npoly = 0
 
-     integer :: imn(7)
-     integer :: ivn(7)
-     integer :: iwn(7)
+     integer :: imn(7) = 1
+     integer :: ivn(7) = 1
+     integer :: iwn(7) = 1
 
      real :: dirv(7) = 0.     ! pos direction of V neighbors
 
@@ -161,42 +163,27 @@ Module mem_sfcg
   type (itabg_vsfc_vars), allocatable, target :: itabg_vsfc(:)
   type (itabg_wsfc_vars), allocatable, target :: itabg_wsfc(:)
 
-  ! DERIVED TYPE TO HOLD MPI TABLES FOR A PARALLEL RUN
-
-  Type jtab_vsfc_mpi_vars
-     integer, allocatable :: ivsfc(:)
-     integer, allocatable :: jend(:)
-  End Type jtab_vsfc_mpi_vars
-
-  type (jtab_vsfc_mpi_vars) :: jtab_vsfc_mpi(maxremote)
-
-  Type jtab_wsfc_mpi_vars
-     integer, allocatable :: iwsfc(:)
-     integer, allocatable :: jend(:)
-  End Type jtab_wsfc_mpi_vars
-
-  type (jtab_wsfc_mpi_vars) :: jtab_wsfc_mpi(maxremote)
-
-  ! DERIVED TYPES TO LIST GRID POINTS INVOLVED IN SHALLOW WATER MODEL
-
-  Type jtab_wsfc_swm_vars
-     integer, allocatable :: iwsfc(:)
-     integer              :: jend
-  End Type jtab_wsfc_swm_vars
-
-  Type jtab_vsfc_swm_vars
-     integer, allocatable :: ivsfc(:)
-     integer              :: jend
-  End Type jtab_vsfc_swm_vars
-
-  Type jtab_msfc_swm_vars
+  Type jtab_msfc_vars
      integer, allocatable :: imsfc(:)
-     integer              :: jend
-  End Type jtab_msfc_swm_vars
+     integer              :: jend = 0
+  End Type jtab_msfc_vars
 
-  type (jtab_wsfc_swm_vars) :: jtab_wsfc_swm
-  type (jtab_vsfc_swm_vars) :: jtab_vsfc_swm
-  type (jtab_msfc_swm_vars) :: jtab_msfc_swm
+  Type jtab_vsfc_vars
+     integer, allocatable :: ivsfc(:)
+     integer              :: jend = 0
+  End Type jtab_vsfc_vars
+
+  Type jtab_wsfc_vars
+     integer, allocatable :: iwsfc(:)
+     integer              :: jend = 0
+  End Type jtab_wsfc_vars
+
+  type (jtab_vsfc_vars) :: jtab_vsfc_mpi(maxremote)
+  type (jtab_wsfc_vars) :: jtab_wsfc_mpi(maxremote)
+
+  type (jtab_msfc_vars) :: jtab_msfc_swm
+  type (jtab_vsfc_vars) :: jtab_vsfc_swm
+  type (jtab_wsfc_vars) :: jtab_wsfc_swm
 
   Type surface_grid_vars
 
@@ -245,6 +232,7 @@ Module mem_sfcg
      integer, allocatable :: leaf_class (:) ! leaf ("vegetation") class
      integer, allocatable :: ioge       (:) ! integer array for storing database data
      logical, allocatable :: swm_active (:) ! shallow-water/flood model active in these sfcg cells
+     logical, allocatable :: pom_active (:) ! POM1D model active in these sfcg cells
 
      ! Atmospheric near-surface properties
 
@@ -410,6 +398,7 @@ Contains
   allocate (sfcg%leaf_class(mwsfc0)) ; sfcg%leaf_class = 0
   allocate (sfcg%ioge      (mwsfc0)) ; sfcg%ioge       = 0
   allocate (sfcg%swm_active(mwsfc0)) ; sfcg%swm_active = .false.
+  allocate (sfcg%pom_active(mwsfc0)) ; sfcg%pom_active = .false.
 
   end subroutine alloc_sfcgrid1
 
@@ -524,101 +513,11 @@ Contains
      if (allocated(sfcg%rough))          call increment_vtable('SFCG%ROUGH',          'CW', rvar1=sfcg%rough)
      if (allocated(sfcg%head1))          call increment_vtable('SFCG%HEAD1',          'CW', rvar1=sfcg%head1)
 
-!!!!!!!!!!!!!! TODO !!!!!!!!!!!!!!
-!    if (allocated(sfcg%vc))             call increment_vtable('SFCG%VC',             'CV', rvar1=sfcg%vc)
-!    if (allocated(sfcg%vmp))            call increment_vtable('SFCG%VMP',            'CV', rvar1=sfcg%vmp)
-!    if (allocated(sfcg%vmc))            call increment_vtable('SFCG%VMC',            'CV', rvar1=sfcg%vmc)
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+     if (allocated(sfcg%vc))             call increment_vtable('SFCG%VC',             'CV', rvar1=sfcg%vc)
+     if (allocated(sfcg%vmp))            call increment_vtable('SFCG%VMP',            'CV', rvar1=sfcg%vmp)
+     if (allocated(sfcg%vmc))            call increment_vtable('SFCG%VMC',            'CV', rvar1=sfcg%vmc)
 
    end subroutine filltab_sfcg
-
-!=========================================================================
-
-   subroutine sfcg_avgatm()
-
-     use mem_basic,   only: rho, press, theta, tair, rr_v, vxe, vye, vze
-     use mem_micro,   only: rr_c
-     use mem_co2,     only: co2flag, rr_co2
-     use misc_coms,   only: isubdomain
-     use consts_coms, only: grav
-     use mem_ijtabs,  only: itab_w
-     use mem_grid,    only: gdz_abov8
-     use mem_para,    only: myrank
-     use mem_sea,     only: sea, omsea
-
-     implicit none
-
-     integer :: iwsfc, j, iw, kw, isea
-     real :: vels, psfc
-
-     ! Average atmospheric quantities to each SFC grid cell location
-
-     ! Loop over all SFC grid cells
-
-     !$omp parallel do private(j,iw,kw,vels,psfc)
-     do iwsfc = 2, mwsfc
-
-        ! Skip this SFC grid cell if running in parallel and cell rank is not MYRANK
-        if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
-
-        sfcg%vels    (iwsfc) = 0.
-        sfcg%prss    (iwsfc) = 0.
-        sfcg%rhos    (iwsfc) = 0.
-        sfcg%airtemp (iwsfc) = 0.
-        sfcg%airtheta(iwsfc) = 0.
-        sfcg%airrrv  (iwsfc) = 0.
-
-        if (co2flag /= 0) then
-           sfcg%airco2(iwsfc) = 0.
-        endif
-
-        ! Loop over all ATM grid cells that couple to this SFC grid cell
-
-        do j = 1,itab_wsfc(iwsfc)%nwatm
-           iw = itab_wsfc(iwsfc)%iwatm(j)  ! local index
-           kw = itab_wsfc(iwsfc)%kwatm(j)
-
-           vels = sqrt( vxe(kw,iw)**2 + vye(kw,iw)**2 + vze(kw,iw)**2 )
-           psfc = press(kw,iw) + gdz_abov8(kw-1) * rho(kw,iw)  ! hydrostatic eqn.
-
-           sfcg%vels    (iwsfc) = sfcg%vels    (iwsfc) + itab_wsfc(iwsfc)%arcoarsfc(j) * vels
-           sfcg%prss    (iwsfc) = sfcg%prss    (iwsfc) + itab_wsfc(iwsfc)%arcoarsfc(j) * psfc
-           sfcg%rhos    (iwsfc) = sfcg%rhos    (iwsfc) + itab_wsfc(iwsfc)%arcoarsfc(j) * rho  (kw,iw)
-           sfcg%airtemp (iwsfc) = sfcg%airtemp (iwsfc) + itab_wsfc(iwsfc)%arcoarsfc(j) * tair (kw,iw)
-           sfcg%airtheta(iwsfc) = sfcg%airtheta(iwsfc) + itab_wsfc(iwsfc)%arcoarsfc(j) * theta(kw,iw)
-
-           if (allocated(rr_c)) then
-              sfcg%airrrv(iwsfc) = sfcg%airrrv(iwsfc) + itab_wsfc(iwsfc)%arcoarsfc(j) * (rr_v(kw,iw) + rr_c(kw,iw))
-           else
-              sfcg%airrrv(iwsfc) = sfcg%airrrv(iwsfc) + itab_wsfc(iwsfc)%arcoarsfc(j) * rr_v(kw,iw)
-           endif
-
-           if (co2flag /= 0) then
-              sfcg%airco2(iwsfc) = sfcg%airco2(iwsfc) + itab_wsfc(iwsfc)%arcoarsfc(j) * rr_co2(kw,iw)
-           endif
-
-           ! Surface stress components for sea cells
-
-           if (sfcg%leaf_class(iwsfc) == 0) then
-              isea = iwsfc - omsea
-
-              if (j == 1) then
-                 sea%windxe(isea) = itab_wsfc(iwsfc)%arcoarsfc(j) * vxe(kw,iw)
-                 sea%windye(isea) = itab_wsfc(iwsfc)%arcoarsfc(j) * vye(kw,iw)
-                 sea%windze(isea) = itab_wsfc(iwsfc)%arcoarsfc(j) * vze(kw,iw)
-              else
-                 sea%windxe(isea) = sea%windxe(isea) + itab_wsfc(iwsfc)%arcoarsfc(j) * vxe(kw,iw)
-                 sea%windye(isea) = sea%windye(isea) + itab_wsfc(iwsfc)%arcoarsfc(j) * vye(kw,iw)
-                 sea%windze(isea) = sea%windze(isea) + itab_wsfc(iwsfc)%arcoarsfc(j) * vze(kw,iw)
-              endif
-           endif
-
-        enddo
-
-     enddo
-     !$omp end parallel do
-
-  end subroutine sfcg_avgatm
 
 !===============================================================================
 
@@ -634,195 +533,105 @@ Contains
 
   implicit none
 
-  integer :: jsend, jend, iwsfc, ivsfc, imsfc, iw1, iw2, iw3
-
-!----------------------------------------------------------------------
-
-  ! Allocate and zero-fill JTAB_VSFC_MPI%JEND
-
-  do jsend = 1,maxremote
-     allocate (jtab_vsfc_mpi(jsend)%jend(mrls))
-               jtab_vsfc_mpi(jsend)%jend(1:mrls) = 0
-  enddo
-
-  ! jtab_vsfc_mpi only needed if run is parallel
+  integer :: jsend, jend, iwsfc, ivsfc, imsfc, iw1, iw2, iw3, j, j1
 
   if (iparallel == 1) then
 
-     ! Compute and store JTAB_VSFC_MPI%JEND(1)
+     ! jtab_vsfc_mpi
 
      do jsend = 1,nsends_vsfc
-        jtab_vsfc_mpi(jsend)%jend(1) = 0
+        j = 0
         do ivsfc = 2,mvsfc
-           if (itab_vsfc(ivsfc)%send(jsend)) then
-              jtab_vsfc_mpi(jsend)%jend(1) = jtab_vsfc_mpi(jsend)%jend(1) + 1
-           endif
+           if (itab_vsfc(ivsfc)%send(jsend)) j = j + 1
         enddo
-        jtab_vsfc_mpi(jsend)%jend(1) = max(1,jtab_vsfc_mpi(jsend)%jend(1))
-     enddo
+        jtab_vsfc_mpi(jsend)%jend = max(1,j)
 
-     ! Allocate and zero-fill JTAB_VSFC_MPI%IVSFC
-
-     do jsend = 1,nsends_wsfc
-        jend = jtab_vsfc_mpi(jsend)%jend(1)
+        jend = jtab_vsfc_mpi(jsend)%jend
         allocate (jtab_vsfc_mpi(jsend)%ivsfc(jend))
                   jtab_vsfc_mpi(jsend)%ivsfc(1:jend) = 0
-     enddo
 
-     ! Initialize JTAB_VSFC_MPI%JEND counters to zero
-
-     do jsend = 1,nsends_vsfc
-        jtab_vsfc_mpi(jsend)%jend(1:mrls) = 0
-     enddo
-
-     ! Compute JTAB_WVFC_MPI%IVSFC (only fill for MRL = 1)
-
-     do ivsfc = 2,mvsfc
-        do jsend = 1,nsends_vsfc
-
+        j = 0
+        do ivsfc = 2,mvsfc
            if (itab_vsfc(ivsfc)%send(jsend)) then
-              jtab_vsfc_mpi(jsend)%jend(1) = jtab_vsfc_mpi(jsend)%jend(1) + 1
-              jend = jtab_vsfc_mpi(jsend)%jend(1)
-              jtab_vsfc_mpi(jsend)%ivsfc(jend) = ivsfc
+              j = j + 1
+              jtab_vsfc_mpi(jsend)%ivsfc(j) = ivsfc
            endif
-
         enddo
      enddo
 
-  endif
-
-!----------------------------------------------------------------------
-
-  ! Allocate and zero-fill JTAB_WSFC_MPI%JEND
-
-  do jsend = 1,maxremote
-     allocate (jtab_wsfc_mpi(jsend)%jend(mrls))
-               jtab_wsfc_mpi(jsend)%jend(1:mrls) = 0
-  enddo
-
-  ! jtab_wsfc_mpi only needed if run is parallel
-
-  if (iparallel == 1) then
-
-     ! Compute and store JTAB_WSFC_MPI%JEND(1)
+     ! jtab_wsfc_mpi
 
      do jsend = 1,nsends_wsfc
-        jtab_wsfc_mpi(jsend)%jend(1) = 0
+        j = 0
         do iwsfc = 2,mwsfc
-           if (itab_wsfc(iwsfc)%send(jsend)) then
-              jtab_wsfc_mpi(jsend)%jend(1) = jtab_wsfc_mpi(jsend)%jend(1) + 1
-           endif
+           if (itab_wsfc(iwsfc)%send(jsend)) j = j + 1
         enddo
-        jtab_wsfc_mpi(jsend)%jend(1) = max(1,jtab_wsfc_mpi(jsend)%jend(1))
-     enddo
+        jtab_wsfc_mpi(jsend)%jend = max(1,j)
 
-     ! Allocate and zero-fill JTAB_WSFC_MPI%IWSFC
-
-     do jsend = 1,nsends_wsfc
-        jend = jtab_wsfc_mpi(jsend)%jend(1)
+        jend = jtab_wsfc_mpi(jsend)%jend
         allocate (jtab_wsfc_mpi(jsend)%iwsfc(jend))
                   jtab_wsfc_mpi(jsend)%iwsfc(1:jend) = 0
-     enddo
 
-     ! Initialize JTAB_WSFC_MPI%JEND counters to zero
-
-     do jsend = 1,nsends_wsfc
-        jtab_wsfc_mpi(jsend)%jend(1:mrls) = 0
-     enddo
-
-     ! Compute JTAB_WSFC_MPI%IWSFC (only fill for MRL = 1)
-
-     do iwsfc = 2,mwsfc
-        do jsend = 1,nsends_wsfc
-
+        j = 0
+        do iwsfc = 2,mwsfc
            if (itab_wsfc(iwsfc)%send(jsend)) then
-              jtab_wsfc_mpi(jsend)%jend(1) = jtab_wsfc_mpi(jsend)%jend(1) + 1
-              jend = jtab_wsfc_mpi(jsend)%jend(1)
-              jtab_wsfc_mpi(jsend)%iwsfc(jend) = iwsfc
+              j = j + 1
+              jtab_wsfc_mpi(jsend)%iwsfc(j) = iwsfc
            endif
-
         enddo
      enddo
 
   endif
 
-  !--------------------------------------------------------------
+  ! JTAB_WSFC_SWM, restricted to SEA points that are SWM-active
 
-  ! Compute and store JTAB_WSFC_SWM%JEND, restricted to SEA points that are SWM-active
-
-  jtab_wsfc_swm%jend = 0
+  j = 0
   do iwsfc = 2,mwsfc
-     if (sfcg%swm_active(iwsfc) .and. sfcg%leaf_class(iwsfc) == 0) then
-        jtab_wsfc_swm%jend = jtab_wsfc_swm%jend + 1
-     endif
+     if (sfcg%swm_active(iwsfc) .and. sfcg%leaf_class(iwsfc) == 0) j = j + 1
   enddo
-  jtab_wsfc_swm%jend = max(1,jtab_wsfc_swm%jend)
+  jtab_wsfc_swm%jend = j
 
-  ! Allocate and zero-fill JTAB_WSFC_SWM%IWSFC
+  j1 = max(j,1)
+  allocate (jtab_wsfc_swm%iwsfc(j1))
+            jtab_wsfc_swm%iwsfc(1:j1) = 0
 
-  jend = jtab_wsfc_swm%jend
-  allocate (jtab_wsfc_swm%iwsfc(jend))
-            jtab_wsfc_swm%iwsfc(1:jend) = 0
-
-  ! Initialize JTAB_WSFC_SWM%JEND to zero
-
-  jtab_wsfc_swm%jend = 0
-
-  ! Compute JTAB_WSFC_SWM%IWSFC
-
+  j = 0
   do iwsfc = 2,mwsfc
      if (sfcg%swm_active(iwsfc) .and. sfcg%leaf_class(iwsfc) == 0) then
-        jtab_wsfc_swm%jend = jtab_wsfc_swm%jend + 1
-        jend = jtab_wsfc_swm%jend
-        jtab_wsfc_swm%iwsfc(jend) = iwsfc
+        j = j + 1
+        jtab_wsfc_swm%iwsfc(j) = iwsfc
      endif
   enddo
 
-  !--------------------------------------------------------------
+  ! JTAB_VSFC_SWM, restricted to VSFC edges between 2 SEA cells that are SWM-active
 
-  ! Compute and store JTAB_VSFC_SWM%JEND, restricted to V edges between two
-  ! SEA points that are SWM-active
+  j = 0
+  do ivsfc = 2,mvsfc
+     iw1 = itab_vsfc(ivsfc)%iwn(1)
+     iw2 = itab_vsfc(ivsfc)%iwn(2)
+     if ((sfcg%swm_active(iw1) .and. sfcg%leaf_class(iw1) == 0) .and. &
+         (sfcg%swm_active(iw2) .and. sfcg%leaf_class(iw2) == 0)) j = j + 1
+  enddo
+  jtab_vsfc_swm%jend = j
 
-  jtab_vsfc_swm%jend = 0
+  j1 = max(j,1)
+  allocate (jtab_vsfc_swm%ivsfc(j1))
+            jtab_vsfc_swm%ivsfc(1:j1) = 0
+
+  j = 0
   do ivsfc = 2,mvsfc
      iw1 = itab_vsfc(ivsfc)%iwn(1)
      iw2 = itab_vsfc(ivsfc)%iwn(2)
      if ((sfcg%swm_active(iw1) .and. sfcg%leaf_class(iw1) == 0) .and. &
          (sfcg%swm_active(iw2) .and. sfcg%leaf_class(iw2) == 0)) then
-        jtab_vsfc_swm%jend = jtab_vsfc_swm%jend + 1
-     endif
-  enddo
-  jtab_vsfc_swm%jend = max(1,jtab_vsfc_swm%jend)
-
-  ! Allocate and zero-fill JTAB_VSFC_SWM%IVSFC
-
-  jend = jtab_vsfc_swm%jend
-  allocate (jtab_vsfc_swm%ivsfc(jend))
-            jtab_vsfc_swm%ivsfc(1:jend) = 0
-
-  ! Initialize JTAB_VSFC_SWM%JEND to zero
-
-  jtab_vsfc_swm%jend = 0
-
-  ! Compute JTAB_VSFC_SWM%IVSFC
-
-  do ivsfc = 2,mvsfc
-     iw1 = itab_vsfc(ivsfc)%iwn(1)
-     iw2 = itab_vsfc(ivsfc)%iwn(2)
-     if ((sfcg%swm_active(iw1) .and. sfcg%leaf_class(iw1) == 0) .and. &
-         (sfcg%swm_active(iw2) .and. sfcg%leaf_class(iw2) == 0)) then
-        jtab_vsfc_swm%jend = jtab_vsfc_swm%jend + 1
-        jend = jtab_vsfc_swm%jend
-        jtab_vsfc_swm%ivsfc(jend) = ivsfc
+        j = j + 1
+        jtab_vsfc_swm%ivsfc(j) = ivsfc
      endif
   enddo
 
-  !--------------------------------------------------------------
+  ! JTAB_MSFC_SWM, restricted to M vertices surrounded by 3 SEA cells that are SWM-active
 
-  ! Compute and store JTAB_MSFC_SWM%JEND, restricted to M vertices surrounded
-  ! by 3 SEA points that are SWM-active
-
-  jtab_msfc_swm%jend = 0
+  j = 0
   do imsfc = 2,mmsfc
      iw1 = itab_msfc(imsfc)%iwn(1)
      iw2 = itab_msfc(imsfc)%iwn(2)
@@ -831,25 +640,16 @@ Contains
      if (iw1 > 1 .and. iw2 > 1 .and. iw3 > 1) then
         if ((sfcg%swm_active(iw1) .and. sfcg%leaf_class(iw1) == 0) .and. &
             (sfcg%swm_active(iw2) .and. sfcg%leaf_class(iw2) == 0) .and. &
-            (sfcg%swm_active(iw3) .and. sfcg%leaf_class(iw3) == 0)) then
-           jtab_msfc_swm%jend = jtab_msfc_swm%jend + 1
-        endif
+            (sfcg%swm_active(iw3) .and. sfcg%leaf_class(iw3) == 0)) j = j + 1
      endif
   enddo
-  jtab_msfc_swm%jend = max(1,jtab_msfc_swm%jend)
+  jtab_msfc_swm%jend = j
 
-  ! Allocate and zero-fill JTAB_MSFC_SWM%IMSFC
+  j1 = max(j,1)
+  allocate (jtab_msfc_swm%imsfc(j1))
+            jtab_msfc_swm%imsfc(1:j1) = 0
 
-  jend = jtab_msfc_swm%jend
-  allocate (jtab_msfc_swm%imsfc(jend))
-            jtab_msfc_swm%imsfc(1:jend) = 0
-
-  ! Initialize JTAB_MSFC_SWM%JEND to zero
-
-  jtab_msfc_swm%jend = 0
-
-  ! Compute JTAB_MSFC_SWM%IMSFC
-
+  j = 0
   do imsfc = 2,mmsfc
      iw1 = itab_msfc(imsfc)%iwn(1)
      iw2 = itab_msfc(imsfc)%iwn(2)
@@ -858,9 +658,8 @@ Contains
         if ((sfcg%swm_active(iw1) .and. sfcg%leaf_class(iw1) == 0) .and. &
             (sfcg%swm_active(iw2) .and. sfcg%leaf_class(iw2) == 0) .and. &
             (sfcg%swm_active(iw3) .and. sfcg%leaf_class(iw3) == 0)) then
-           jtab_msfc_swm%jend = jtab_msfc_swm%jend + 1
-           jend = jtab_msfc_swm%jend
-           jtab_msfc_swm%imsfc(jend) = imsfc
+           j = j + 1
+           jtab_msfc_swm%imsfc(j) = imsfc
         endif
      endif
   enddo

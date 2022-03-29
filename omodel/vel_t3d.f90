@@ -39,6 +39,8 @@ module vel_t3d
   real, allocatable :: vye1(:,:)
   real, allocatable :: vze1(:,:)
 
+  integer, parameter :: icut_vel = 1
+
 contains
 
 !===============================================================================
@@ -48,7 +50,6 @@ subroutine init_velt3d()
   use mem_grid,   only: mwa, nve2_max, lve2, lpw, lpv, vnx, vny, vnz, wnx, wny, wnz
   use mem_ijtabs, only: jtab_w, jtw_prog, itab_w
   use misc_coms,  only: rinit
-  use oname_coms, only: nl
 
   implicit none
 
@@ -60,7 +61,7 @@ subroutine init_velt3d()
 
   real :: extot, eytot, eztot
 
-  if (nl%icut_vel == 1) then
+  if (icut_vel == 1) then
 
      allocate (vxe1(nve2_max,mwa)) ; vxe1 = rinit
      allocate (vye1(nve2_max,mwa)) ; vye1 = rinit
@@ -155,7 +156,6 @@ subroutine vel_t3d_hex(iw)
   use mem_ijtabs, only: itab_w
   use mem_basic,  only: vc, wc, vxe, vye, vze
   use mem_grid,   only: mza, lpw, lve2, lpv, vnx, vny, vnz, wnxo2, wnyo2, wnzo2
-  use oname_coms, only: nl
 
   implicit none
 
@@ -183,7 +183,7 @@ subroutine vel_t3d_hex(iw)
         vze(k,iw) = vze(k,iw) + itab_w(iw)%ecvec_vz(jv) * vc(k,iv)
      enddo
 
-     if (nl%icut_vel == 1) then
+     if (icut_vel == 1) then
 
         ! Vertical loop over all closed V faces
         do k = ka, kbv-1
@@ -206,7 +206,7 @@ subroutine vel_t3d_hex(iw)
 
   enddo
 
-  if (nl%icut_vel /= 1) then
+  if (icut_vel /= 1) then
 
      ! Underground velocity contribution: extrapolate from prognosed vc
      do ksw = 1, lve2(iw)
@@ -239,7 +239,6 @@ subroutine diagvel_t3d_init(mrl)
 
   use mem_ijtabs, only: jtab_w, itab_w, jtw_prog
   use mem_grid,   only: lpw, lve2, lpv
-  use oname_coms, only: nl
   use mem_basic,  only: vc
 
   implicit none
@@ -248,7 +247,7 @@ subroutine diagvel_t3d_init(mrl)
 
   integer :: j,iw,npoly,ka,k,jv,iv,ksw,kbv
 
-  if (mrl == 0 .or. nl%icut_vel /= 1) return
+  if (mrl == 0 .or. icut_vel /= 1) return
 
   ! Horizontal loop over W columns
 

@@ -111,6 +111,7 @@ Module mem_land
 
      real, allocatable :: soil_water (:,:) ! soil water content [vol_water/vol_tot]
      real, allocatable :: soil_energy(:,:) ! soil energy [J/m^3]
+     real, allocatable :: head       (:,:) ! hydraulic head [m]
      real, allocatable :: head0        (:) ! LBC total hydraulic head [m]
 
      ! Soil quantities read from SoilGrids datasets (constant in time)
@@ -222,6 +223,7 @@ Contains
 
   allocate (land%soil_water     (nzg,mland)) ; land%soil_water  = rinit
   allocate (land%soil_energy    (nzg,mland)) ; land%soil_energy = rinit
+  allocate (land%head           (nzg,mland)) ; land%head        = rinit
   allocate (land%head0              (mland)) ; land%head0       = rinit
 
  ! The following are allocated in makesfc3.f90 because they are on the SFCGRIDFILE
@@ -294,6 +296,7 @@ Contains
 
   if (allocated(land%soil_water))  call increment_vtable('LAND%SOIL_WATER',  'LW', rvar2=land%soil_water)
   if (allocated(land%soil_energy)) call increment_vtable('LAND%SOIL_ENERGY', 'LW', rvar2=land%soil_energy)
+  if (allocated(land%head))        call increment_vtable('LAND%HEAD',        'LW', rvar2=land%head)
   if (allocated(land%head0))       call increment_vtable('LAND%HEAD0',       'LW', rvar1=land%head0)
 
   end subroutine filltab_land

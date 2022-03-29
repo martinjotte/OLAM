@@ -113,7 +113,7 @@ subroutine copy_nl()
                          icfrac, cfracrh1, cfracrh2, cfraccup, nqparm, confrq, &
                          nsndg, ipsflg, itsflg, irtsflg, iusflg, &
                          hs, p_sfc, us, vs, ts, ps, rts, &
-                         itime1, idate1, imonth1, iyear1, ngrids, ngrids_old, &
+                         itime1, idate1, imonth1, iyear1, ngrids, &
                          nzp, mdomain, itopoflg, ibathflg, nxp, &
                          ngrdll, grdrad, grdlat, grdlon, deltax, ndz, hdz, dz, &
                          current_time, debug_fp, init_nans, do_chem, &
@@ -126,9 +126,9 @@ subroutine copy_nl()
 
   use mem_co2,     only: co2flag, co2_initppm
 
-  use hcane_rz,    only: ncycle_hurrinit, hlat0, hlon0, vtan_eyw, &
-                         rad_eyw, rad_env, rexpon_delc, zmax_delv, zexpon_delv, &
-                         rad1_blend, rad2_blend, z1_blend, z2_blend
+  use hcane_rz,    only: ncycle_hurrinit, timmax_hurrinit, hlat0, hlon0,     &
+                         rad1_blend, rad2_blend, zcent_thpert, zhwid_thpert, &
+                         rcent_thpert, rhwid_thpert, maxrate_thpert, vtan_targ
 
   use leaf_coms,   only: nvgcon, isoilflg, isoilptf, ndviflg, &
                          isfcl, ivegflg, nzs, &
@@ -153,6 +153,11 @@ subroutine copy_nl()
   use mem_sfcg,    only: nsfcgrids, sfcgrid_res_factor, nxp_sfc, &
                          nsfcgrdll, sfcgrdrad, sfcgrdlat, sfcgrdlon, sfcgfile, &
                          nswmzons, nswmzonll, swmzonrad, swmzonlat, swmzonlon
+
+  use mem_sea,     only: npomzons, npomzonll, pomzonrad, pomzonlat, pomzonlon
+  
+  use pom2k1d,     only: nzpom, pom_dztop, pom_depth
+                       
   use mem_sfcnud,  only: gw_spinup_sfcgfile, gw_spinup_histfile
 
   implicit none
@@ -266,19 +271,20 @@ subroutine copy_nl()
   ifnparm       = nl%ifnparm
   co2flag       = nl%co2flag
   co2_initppm   = nl%co2_ppmv_init
-  ncycle_hurrinit= nl%ncycle_hurrinit
-  hlat0         = nl%hlat0
-  hlon0         = nl%hlon0
-  vtan_eyw      = nl%vtan_eyw
-  rad_eyw       = nl%rad_eyw
-  rad_env       = nl%rad_env
-  rexpon_delc   = nl%rexpon_delc
-  zmax_delv     = nl%zmax_delv
-  zexpon_delv   = nl%zexpon_delv
-  rad1_blend    = nl%rad1_blend
-  rad2_blend    = nl%rad2_blend
-  z1_blend      = nl%z1_blend
-  z2_blend      = nl%z2_blend
+
+  ncycle_hurrinit = nl%ncycle_hurrinit
+  timmax_hurrinit = nl%ncycle_hurrinit
+  hlat0           = nl%hlat0
+  hlon0           = nl%hlon0
+  rad1_blend      = nl%rad1_blend
+  rad2_blend      = nl%rad2_blend
+  zcent_thpert    = nl%zcent_thpert
+  zhwid_thpert    = nl%zhwid_thpert
+  rcent_thpert    = nl%rcent_thpert
+  rhwid_thpert    = nl%rhwid_thpert
+  maxrate_thpert  = nl%maxrate_thpert
+  vtan_targ       = nl%vtan_targ
+
   nvgcon        = nl%nvgcon
   nsndg         = nl%nsndg
   ipsflg        = nl%ipsflg
@@ -410,7 +416,6 @@ subroutine copy_nl()
       runtype == 'HISTADDGRID') then
 
      ngrids     = nl%ngrids
-     ngrids_old = nl%ngrids_old
 
      ngrdll = nl%ngrdll
      grdrad = nl%grdrad
@@ -437,6 +442,16 @@ subroutine copy_nl()
         swmzonlon = nl%swmzonlon
      endif
 
+     npomzons = nl%npomzons
+
+     if (npomzons > 0) then
+        npomzonll = nl%npomzonll
+
+        pomzonrad = nl%pomzonrad
+        pomzonlat = nl%pomzonlat
+        pomzonlon = nl%pomzonlon
+     endif
+
   endif
 
 ! Variables in the following section either must not be changed on a history
@@ -453,6 +468,7 @@ subroutine copy_nl()
      iyear1    = nl%iyear1
      nzp       = nl%nzp
      nzg       = nl%nzg
+     nzpom     = nl%nzpom
      nzs       = nl%nzs
      nxp       = nl%nxp
      mdomain   = nl%mdomain
@@ -468,6 +484,9 @@ subroutine copy_nl()
 
      landgrid_dztop = nl%landgrid_dztop
      landgrid_depth = nl%landgrid_depth
+
+     pom_dztop = nl%pom_dztop
+     pom_depth = nl%pom_depth
 
      ! set current time to initial time here.  If this is a history run,
      ! reset current time in subroutine history_start.

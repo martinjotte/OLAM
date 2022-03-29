@@ -157,9 +157,6 @@ endif
 call ichk_bnds( nl%ngrids,   "NGRIDS",       1, maxgrds, 0, nfatal, nwarn, &
      msgmax="Increase maxgrds in max_dims.f90 if more nests are needed." )
 
-call ichk_bnds( nl%ngrids_old, "NGRIDS_OLD", 0, maxgrds, 0, nfatal, nwarn, &
-     msgmax="Increase maxgrds in max_dims.f90 if more nests are needed." )
-
 call ichk_bnds( nl%gridplot_base, "GRIDPLOT_BASE", 2, maxgrds, 2, nfatal, nwarn )
 
 ! global mesh requires nxp to be divisible by 3
@@ -317,6 +314,7 @@ call rchk_bnds( nl%divh_damp_fact, "DIVH_DAMP_FACT", 0.0, 0.2, 2, nfatal, nwarn 
 call rchk_bnds( nl%rayf_fact,  "RAYF_FACT",  0.0,    1.0, 2, nfatal, nwarn )
 call rchk_bnds( nl%rayf_expon, "RAYF_EXPON", 0.0,    5.0, 2, nfatal, nwarn )
 call rchk_bnds( nl%rayf_zmin,  "RAYF_ZMIN" , 0.0, r_huge, 2, nfatal, nwarn )
+
 
 call rchk_bnds( nl%rayfw_fact,  "RAYFW_FACT",  0.0, r_huge, 2, nfatal, nwarn )
 call rchk_bnds( nl%rayfw_expon, "RAYFW_EXPON", 0.0,    5.0, 2, nfatal, nwarn )
@@ -492,11 +490,6 @@ elseif (nl%miclevel == 3) then
          nfatal = nfatal + 1
       endif
 
-      if (nl%iifn /= 1) then
-         write(io6,*) 'FATAL - IIFN must be set to 1 when ICLOUD = 4'
-         nfatal = nfatal + 1
-      endif
-
    endif
 
 endif
@@ -512,8 +505,6 @@ endif
 !--------------------------------------------------------------------------
 
    call ichk_bnds( nl%ncycle_hurrinit,  "NCYCLE_HURRINIT",  0, 20, 0, nfatal, nwarn )
-   call rchk_bnds( nl%rad_eyw,  "RAD_EYW",   5.e3, 90.e3, 0, nfatal, nwarn )
-   call rchk_bnds( nl%rad_env,  "RAD_ENV", 100.e3,300.e3, 0, nfatal, nwarn )
 
 if (  nl%ncycle_hurrinit > 0 .and. &
      (nl%test_case /= 0      .or.  &

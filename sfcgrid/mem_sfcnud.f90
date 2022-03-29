@@ -654,8 +654,9 @@ Contains
 
   use misc_coms,   only: io6
   use mem_sfcg,    only: itab_wsfc, nwsfc, mwsfc
-  use mem_land,    only: land, itab_land, nland, mland, omland, nzg
+  use mem_land,    only: land, itab_land, nland, mland, omland, nzg, slzt
   use mem_lake,    only: lake, itab_lake, nlake, mlake
+  use leaf4_soil,  only: soil_pot2wat
   use consts_coms, only: cice1000, cliq1000, alli1000
   use therm_lib,   only: qwtk
   use hdf5_utils,  only: shdf5_open, shdf5_close, shdf5_irec
@@ -669,14 +670,13 @@ Contains
 
   real, allocatable :: soil_water_sp (:,:)
   real, allocatable :: soil_energy_sp(:,:)
+  real, allocatable :: head_sp       (:,:)
 
   character(2) :: type
 
-  ! Map 25 current soil layers into 20 spin-up soil layers
-
   integer :: iland, iwsfc, k, ksp
 
-  real :: tempk, tempc, fracliq
+  real :: tempk, tempc, fracliq, psi
 
   ! Pointers to the global index of the local point
 
@@ -690,7 +690,7 @@ Contains
 
   fname = trim(gw_spinup_sfcgfile)
 
-  write(io6,*) 'reading gw_spinup file ', fname
+  write(io6,*) 'reading gw_spinup sfcgfile ', fname
 
   call shdf5_open(fname,'R')
 
@@ -721,7 +721,7 @@ Contains
 
   fname = trim(gw_spinup_histfile)
 
-  write(io6,*) 'reading gw_spinup file ', trim(fname)
+  write(io6,*) 'reading gw_spinup histfile ', trim(fname)
 
   call shdf5_open(fname,'R')
 
@@ -739,9 +739,11 @@ Contains
 
   allocate (soil_water_sp (nzg_sp,mland))
   allocate (soil_energy_sp(nzg_sp,mland))
+  allocate (head_sp       (nzg_sp,mland))
 
   call shdf5_irec(ndims, idims, 'LAND%SOIL_WATER' , rvar2=soil_water_sp,  points=lgland, stagpt=type)
   call shdf5_irec(ndims, idims, 'LAND%SOIL_ENERGY', rvar2=soil_energy_sp, points=lgland, stagpt=type)
+  call shdf5_irec(ndims, idims, 'LAND%HEAD',        rvar2=head_sp,        points=lgland, stagpt=type)
 
   call shdf5_close()
 
@@ -756,14 +758,31 @@ Contains
         if (ksp == k) then
 
            ! Copy soil water and energy directly from spin-up layer to current 
-           ! layer if layers are identical (hardwired at 18 for specific case)
+           ! layer if layers are identical
 
            land%soil_water (k,iland) = soil_water_sp (ksp,iland)
            land%soil_energy(k,iland) = soil_energy_sp(ksp,iland)
 
         else
 
-           ! Diagnose spin-up soil temperature and fractional liquid water phase.
+           ! Here in the upper soil layers, k /= ksp, so spun-up soil layers
+           ! are thicker than layers in the present simulation, and they may
+           ! have different soil properties.
+
+           ! Assign initial soil moisture in the present simulation such that
+           ! its head value equals that of the spun-up simulation.
+
+           psi = head_sp(ksp,iland) - slzt(k)
+
+           call soil_pot2wat(psi, land%wresid_vg(k,iland), land%wsat_vg(k,iland), &
+                             land%alpha_vg(k,iland), land%en_vg(k,iland), &
+                             land%soil_water(k,iland))
+
+           land%soil_water(k,iland) = max(land%wresid_vg(k,iland), &
+                                      min(land%wsat_vg(k,iland),   &
+                                      land%soil_water(k,iland)))
+
+           ! Diagnose spun-up soil temperature and fractional liquid water phase.
            ! Since specifheat_drysoil is not available from the spin-up simulation
            ! (although it could be made available with some effort if necessary),
            ! assume that it is the same as that in level k of the current simulation.
@@ -772,12 +791,6 @@ Contains
                      land%specifheat_drysoil(k,iland), tempk, fracliq)
 
            tempc = tempk - 273.15
-
-           ! If we're here, k /= ksp and soil_water_sp(ksp,iland) exceeds the
-           ! porosity of level k.  Consequently, set soil_water(k,iland) to
-           ! capacity.
-
-           land%soil_water(k,iland) = min(land%wsat_vg(k,iland),soil_water_sp(ksp,iland))
 
            ! Diagnose corresponding soil energy
 
@@ -797,7 +810,7 @@ Contains
 
   enddo
 
-  deallocate (soil_water_sp, soil_energy_sp)
+  deallocate (soil_water_sp, soil_energy_sp, head_sp)
 
   end subroutine read_gw_spinup
 

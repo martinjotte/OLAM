@@ -77,21 +77,26 @@ subroutine seacells()
      ! Skip this cell if running in parallel and cell rank is not MYRANK
      if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
-! Zero runoff for sea cells
+     ! Zero runoff for sea cells
 
      sfcg%runoff(iwsfc) = 0.
 
-! Update SEATC and seaice fraction
-
-     sea%seatc(isea) = sea%seatp(isea) &
-                     + timefac_sst * (sea%seatf(isea) - sea%seatp(isea))
+     ! Update seaice fraction
 
      sea%seaicec(isea) = sea%seaicep(isea) &
                        + timefac_seaice * (sea%seaicef(isea) - sea%seaicep(isea))
 
-! Update SEA fields
+     ! Update SEATC if isea cell is not pom_active or is is swm_active
 
-     call seacell(isea                  ,  &
+!TMP     if (.not. sfcg%pom_active(iwsfc) .or. sfcg%swm_active(iwsfc)) then
+
+        sea%seatc(isea) = sea%seatp(isea) &
+                        + timefac_sst * (sea%seatf(isea) - sea%seatp(isea))
+!TMP     endif
+
+     ! Update SEA fields
+
+     call seacell(isea, iwsfc,             &
                   sfcg%rhos      (iwsfc),  &
                   sea%sea_ustar   (isea),  &
                   sea%sea_sxfer_t (isea),  &
@@ -176,17 +181,21 @@ end subroutine seacells
 
 !===============================================================================
 
-subroutine seacell( isea, rhos, ustar, sxfer_t, sxfer_r, can_depth, &
+subroutine seacell( isea, iwsfc, rhos, ustar, sxfer_t, sxfer_r, can_depth, &
                     seatc, cantemp, canrrv, surface_srrv, rough     )
 
+  use mem_sfcg,    only: itab_wsfc, sfcg
+  use mem_sea,     only: sea
   use sea_coms,    only: dt_sea
-  use consts_coms, only: cp, grav
+  use consts_coms, only: cp, grav, cliq1000, erad, eradi
   use misc_coms,   only: io6
   use therm_lib,   only: rhovsl
+  use pom2k1d,     only: pom, rhoref, pom_column
 
   implicit none
 
   integer, intent(in)    :: isea         ! current sea cell index
+  integer, intent(in)    :: iwsfc        ! current sfcg cell index
   real,    intent(in)    :: rhos         ! air density [kg/m^3]
   real,    intent(in)    :: ustar        ! friction velocity [m/s]
   real,    intent(in)    :: sxfer_t      ! can_air to atm heat xfer this step [kg_air K/m^2]
@@ -207,11 +216,13 @@ subroutine seacell( isea, rhos, ustar, sxfer_t, sxfer_r, can_depth, &
 ! Local variables
 
   real :: rdi     ! canopy conductance [m/s]
+  real :: hfluxgc ! heat flux from sea surface to can_air [kg K/(m^2 s)]
   real :: hxfergc ! heat xfer from sea surface to can_air this step [J/m^2]
   real :: hxferca ! heat xfer from can_air to atm this step [J/m^2]
   real :: wxfergc ! vapor xfer from sea surface to can_air this step [kg_vap/m^2]
 
   real :: zn1, zn2, zw, usti
+  real :: raxis, windu, windv, cdtop, wusurf, wvsurf, wtsurf, wssurf, swrad
 
 ! Evaluate surface saturation specific humidity
 
@@ -223,8 +234,10 @@ subroutine seacell( isea, rhos, ustar, sxfer_t, sxfer_r, can_depth, &
 
   rdi = .2 * ustar
 
-  hxfergc = dt_sea * cp * rhos * rdi * (seatc        - cantemp)
-  wxfergc = dt_sea *      rhos * rdi * (surface_srrv - canrrv)
+  hfluxgc = rhos * rdi * (seatc - cantemp)
+
+  hxfergc = dt_sea * cp * hfluxgc
+  wxfergc = dt_sea * rhos * rdi * (surface_srrv - canrrv)
 
   hxferca = cp * sxfer_t  ! sxfer_t and sxfer_r already incorporate dt_sea
 
@@ -249,5 +262,43 @@ subroutine seacell( isea, rhos, ustar, sxfer_t, sxfer_r, can_depth, &
   zn2   = 10. * exp(-9.5 * usti**one3) + 1.65e-6 * usti
   rough = (1.0-zw) * zn1 + zw * zn2
   rough = min( rough, 2.85e-3)
+
+  ! Update POM1D vertical column variables if this sea cell is pom_active and is not swm_active
+
+  if (sfcg%pom_active(iwsfc) .and. .not. sfcg%swm_active(iwsfc)) then
+
+     ! Eastward and northward surface wind components for sea cell
+
+     raxis = sqrt(sfcg%xew(iwsfc) ** 2 + sfcg%yew(iwsfc) ** 2)  ! dist from earth axis
+
+     if (raxis > 1.e-3) then
+        windu = (sea%windye(isea) * sfcg%xew(iwsfc) &
+               - sea%windxe(isea) * sfcg%yew(iwsfc)) / raxis
+
+        windv =  sea%windze(isea) * raxis * eradi    &
+              - (sea%windxe(isea) * sfcg%xew(iwsfc)  &
+               + sea%windye(isea) * sfcg%yew(iwsfc)) &
+              * sfcg%zew(iwsfc) / (raxis * erad)
+     else
+        windu = 0.
+        windv = 0.
+     endif
+
+     ! CDTOP is the drag coefficient between wind and water at the top water surface
+     ! and is based on vkmsfc computed in subroutine stars for surface wind stress.
+
+     cdtop = sfcg%vkmsfc(iwsfc) / (sfcg%dzt_bot(iwsfc) * rhoref)
+
+     wusurf = cdtop * (pom%ub(1,isea) - windu)
+     wvsurf = cdtop * (pom%vb(1,isea) - windv)
+     wtsurf = hfluxgc / rhoref + (sfcg%rlong(iwsfc) - sfcg%rlongup(iwsfc)) / cliq1000
+     wssurf = 0.
+     swrad = sfcg%rshort(iwsfc) * (1. - sfcg%albedo_beam(iwsfc)) / cliq1000
+
+     call pom_column(isea, pom%kba(isea), wusurf, wvsurf, wtsurf, wssurf, swrad)
+
+!TMP     sea%seatc(isea) = pom%potmp(1,isea)
+
+  endif
 
 end subroutine seacell

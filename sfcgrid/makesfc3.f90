@@ -62,16 +62,21 @@ subroutine makesfc3()
                          landgrid_dztop, landgrid_depth, alloc_landcol
 
   use mem_lake,    only: nlake, onlake
-  use mem_sea,     only: nsea,  onsea
+
+  use mem_sea,     only: nsea, onsea, sea, &
+                         npomzons, npomzonll, pomzonrad, pomzonlat, pomzonlon
+
+  use pom2k1d,     only: nzpom, pom, yy, alloc_pomgrid, pom_levels
+
   use oname_coms,  only: nl
 
   use mem_sfcnud,  only: nzg_nl, nzg_sp, kspm
 
   implicit none
 
-  integer :: k, iw, j, iv, im, np
+  integer :: k, iw, j, iv, im, np, kpom
   integer :: kw_sea, kw_land
-  integer :: iland, inew, iswmzon, minside
+  integer :: iland, inew, iswmzon, minside, ipomzon, isea
   integer :: imsfc, ivsfc, iwsfc
   integer :: nasfc
 
@@ -474,14 +479,19 @@ subroutine makesfc3()
   slz(nzg+1) = 0.
   thick = 0.
 
-  k = nzg + 1        ! k counts over grouped layers (if igw_spinup = 1)
+  k = nzg        ! k counts over grouped layers (if igw_spinup = 1)
 
   do kk = nzg,1,-1   ! kk counts over original ungrouped layers
+
+     ! Map kk soil layers into k soil layers
+
+     kspm(kk) = k
+
+     ! print*, 'kspm ',k,kk,kspm(kk)
 
      thick = thick + dz
 
      if (nl%igw_spinup /= 1 .or. thick > 0.5) then
-        k = k - 1
         slz(k) = slz(k+1) - thick
 
         dslz  (k) = slz(k+1) - slz(k)
@@ -490,15 +500,10 @@ subroutine makesfc3()
         slzt  (k) = .5 * (slz(k) + slz(k+1))
 
         thick = 0.
+        k = k - 1
      endif
 
      dz = dz / srati
-
-     ! Map kk soil layers into k soil layers
-
-     kspm(kk) = k
-
-     print*, 'kspm ',k,kk,kspm(kk)
 
   enddo
 
@@ -507,13 +512,19 @@ subroutine makesfc3()
   ! depth assigned above did not terminate at 1.  Therefore, shift the indexes
   ! here, and reduce nzg accordingly.
 
-  koff = k - 1
+  koff = k
   if (koff > 0) then
 
      ! Computed reduced nzg value for grouped soil layers
 
      nzg_sp = nzg - koff
      nzg = nzg_sp
+
+     kspm(1:nzg_nl) = kspm(1:nzg_nl) - koff
+
+     print*, 'final nzg, nzg_sp, nzg_nl ',nzg, nzg_sp, nzg_nl
+     print*, ' '
+     print*, 'final kspm(1:nzg_nl) ',kspm(1:nzg_nl)
 
      ! Move soil vertical grid spacing arrays to temporary space
 
@@ -566,7 +577,7 @@ subroutine makesfc3()
 
   endif
 
-  ! Set logical flag for ocean IW cells that use Shallow Water Model (SWM)
+  ! Set logical flag for IWSFC cells that use Shallow Water Model (SWM)
 
   do iswmzon = 1,nswmzons
      do iwsfc = 2,nwsfc
@@ -575,6 +586,44 @@ subroutine makesfc3()
 
         if (minside == 1) sfcg%swm_active(iwsfc) = .true.
      enddo
+  enddo
+
+  ! Set logical flag for SEA cells that use POM1D
+
+  do ipomzon = 1,npomzons
+     do isea = 2,nsea
+        iwsfc = isea + onsea
+
+        call ngr_area(ipomzon,minside,sfcg%xew(iwsfc),sfcg%yew(iwsfc),sfcg%zew(iwsfc), &
+                      npomzonll, pomzonrad, pomzonlat, pomzonlon)
+
+        if (minside == 1 .and. .not. sfcg%swm_active(iwsfc)) then
+           sfcg%pom_active(iwsfc) = .true.
+        endif
+     enddo
+  enddo
+
+  ! Allocate POM1D grid arrays and define vertical levels
+
+  call alloc_pomgrid(nsea)
+
+  call pom_levels()
+
+  ! Fill POM1D horizontally-dependent number of layers
+
+  do isea = 2,nsea
+     iwsfc = isea + onsea
+
+     if (sfcg%pom_active(iwsfc)) then
+        do kpom = 1,nzpom
+           if (sfcg%bathym(iwsfc) < yy(kpom)) then 
+              pom%kba(isea) = kpom
+           else
+              exit
+           endif
+        enddo
+     endif
+
   enddo
 
   ! Initialize soil static properties
@@ -1143,7 +1192,8 @@ subroutine sfcgfile_write()
   use mem_land,   only: nland, onland, land, nzg, &
                         slz, dslz, dslzo2, dslzi, slzt
   use mem_lake,   only: nlake, onlake
-  use mem_sea,    only: nsea, onsea
+  use mem_sea,    only: nsea, onsea, sea
+  use pom2k1d,    only: nzpom, pom, y, yy, dy, dyy
   use mem_sfcnud, only: nzg_nl, nzg_sp, kspm
   use oname_coms, only: nl
 
@@ -1182,6 +1232,7 @@ subroutine sfcgfile_write()
   call shdf5_orec(ndims, idims, 'onlake' , ivars=onlake)
   call shdf5_orec(ndims, idims, 'onsea'  , ivars=onsea)
   call shdf5_orec(ndims, idims, 'nzg'    , ivars=nzg)
+  call shdf5_orec(ndims, idims, 'nzpom'  , ivars=nzpom)
 
   ! Write nzg_nl, nzg_sp, and kspm to the sfcgrid file only if this MAKEGRID
   ! run is for a groundwater spin-up simulation.
@@ -1395,6 +1446,13 @@ subroutine sfcgfile_write()
   call shdf5_orec(ndims, idims, 'dslzi'  , rvar1=dslzi)
   call shdf5_orec(ndims, idims, 'slzt'   , rvar1=slzt)
 
+  idims(1) = nzpom
+
+  call shdf5_orec(ndims, idims, 'y'   , rvar1=y)
+  call shdf5_orec(ndims, idims, 'yy'  , rvar1=yy)
+  call shdf5_orec(ndims, idims, 'dy'  , rvar1=dy)
+  call shdf5_orec(ndims, idims, 'dyy' , rvar1=dyy)
+
   ndims    = 1
   idims(1) = nmsfc
 
@@ -1441,6 +1499,7 @@ subroutine sfcgfile_write()
   call shdf5_orec(ndims, idims, 'leaf_class', ivar1=sfcg%leaf_class)
   call shdf5_orec(ndims, idims, 'oge'       , ivar1=sfcg%ioge)
   call shdf5_orec(ndims, idims, 'swm_active', lvar1=sfcg%swm_active)
+  call shdf5_orec(ndims, idims, 'pom_active', lvar1=sfcg%pom_active)
 
   idims(1) = nland
 
@@ -1463,6 +1522,11 @@ subroutine sfcgfile_write()
   call shdf5_orec(ndims, idims, 'pH_soil'         , rvar2=land%pH_soil)
   call shdf5_orec(ndims, idims, 'cec_soil'        , rvar2=land%cec_soil)
 
+  ndims    = 1
+  idims(1) = nsea
+
+  call shdf5_orec(ndims, idims, 'pom%kba' , ivar1=pom%kba)
+
   call shdf5_close()
 
 end subroutine sfcgfile_write
@@ -1477,6 +1541,8 @@ subroutine sfcgfile_read_pd()
   use mem_land,   only: nland, onland, nzg
   use mem_lake,   only: nlake, onlake
   use mem_sea,    only: nsea, onsea
+  use pom2k1d,    only: nzpom
+
 !UNN  use mem_sfcnud, only: nzg_nl, nzg_sp, kspm
 
   use hdf5_utils, only: shdf5_open, shdf5_irec, shdf5_close
@@ -1493,7 +1559,7 @@ subroutine sfcgfile_read_pd()
 
   flnm = trim(sfcgfile)//'.h5'
 
-  write(io6,*) 'Checking sfcgfile ',flnm
+  write(io6,*) 'Checking sfcgfile (1) ',flnm
 
   inquire(file=flnm, exist=there)
 
@@ -1518,6 +1584,7 @@ subroutine sfcgfile_read_pd()
   call shdf5_irec(ndims, idims, 'onlake', ivars=onlake)
   call shdf5_irec(ndims, idims, 'onsea' , ivars=onsea)
   call shdf5_irec(ndims, idims, 'nzg'   , ivars=nzg)
+  call shdf5_irec(ndims, idims, 'nzpom' , ivars=nzpom)
 
   ! In this subroutine, do not read nzg_nl, nzg_sp, or kspm from the sfcgfile.
   ! When needed for groundwater initialization, they are read by another
@@ -1642,6 +1709,9 @@ subroutine sfcgfile_read()
                         sfcgfile, mmsfc, mvsfc, mwsfc
   use mem_land,   only: land, itab_land, mland, nzg, slz, dslz, dslzo2, &
                         dslzi, slzt, alloc_landcol
+  use mem_lake,   only: lake, itab_lake
+  use mem_sea,    only: sea, itab_sea, msea
+  use pom2k1d,    only: nzpom, pom, y, yy, dy, dyy
   use hdf5_utils, only: shdf5_open, shdf5_irec, shdf5_close
   use misc_coms,  only: io6
 
@@ -1664,17 +1734,19 @@ subroutine sfcgfile_read()
   integer :: lgvsfc(mvsfc)
   integer :: lgwsfc(mwsfc)
   integer :: lgland(mland)
+  integer :: lgsea (msea)
 
   lgmsfc = itab_msfc(1:mmsfc)%imglobe
   lgvsfc = itab_vsfc(1:mvsfc)%ivglobe
   lgwsfc = itab_wsfc(1:mwsfc)%iwglobe
   lgland = itab_land(1:mland)%iwglobe
+  lgsea  = itab_sea (1:msea )%iwglobe
 
   ! Check if sfcgfile exists
 
   flnm = trim(sfcgfile)//'.h5'
 
-  write(io6,*) 'Checking sfcgfile ',flnm
+  write(io6,*) 'Checking sfcgfile (2)',flnm
 
   inquire(file=flnm, exist=there)
 
@@ -1822,6 +1894,13 @@ subroutine sfcgfile_read()
   call shdf5_irec(ndims, idims, 'dslzi'  , rvar1=dslzi)
   call shdf5_irec(ndims, idims, 'slzt'   , rvar1=slzt)
 
+  idims(1) = nzpom
+
+  call shdf5_irec(ndims, idims, 'y'   , rvar1=y)
+  call shdf5_irec(ndims, idims, 'yy'  , rvar1=yy)
+  call shdf5_irec(ndims, idims, 'dy'  , rvar1=dy)
+  call shdf5_irec(ndims, idims, 'dyy' , rvar1=dyy)
+
   ndims    = 1
   idims(1) = mmsfc
   type     = 'CM'
@@ -1868,9 +1947,10 @@ subroutine sfcgfile_read()
 
   ! Read permanent grid cell data
 
-  call shdf5_irec(ndims, idims, 'leaf_class', ivar1=sfcg%leaf_class, points=lgwsfc, stagpt=type)
+  call shdf5_irec(ndims, idims, 'leaf_class', ivar1=sfcg%leaf_class, points=lgwsfc, stagpt=type)      
   call shdf5_irec(ndims, idims, 'oge'       , ivar1=sfcg%ioge,       points=lgwsfc, stagpt=type)
   call shdf5_irec(ndims, idims, 'swm_active', lvar1=sfcg%swm_active, points=lgwsfc, stagpt=type)
+  call shdf5_irec(ndims, idims, 'pom_active', lvar1=sfcg%pom_active, points=lgwsfc, stagpt=type)
 
   allocate (land%usdatext            (mland)) ; land%usdatext         = 0
   allocate (land%z_bedrock           (mland)) ; land%z_bedrock        = 0.
@@ -1908,6 +1988,12 @@ subroutine sfcgfile_read()
   call shdf5_irec(ndims, idims, 'bulkdens_drysoil', rvar2=land%bulkdens_drysoil, points=lgland, stagpt=type)
   call shdf5_irec(ndims, idims, 'pH_soil'         , rvar2=land%pH_soil,          points=lgland, stagpt=type)
   call shdf5_irec(ndims, idims, 'cec_soil'        , rvar2=land%cec_soil,         points=lgland, stagpt=type)
+
+  ndims    = 1
+  idims(1) = msea
+  type     = 'SW'
+
+  call shdf5_irec(ndims, idims, 'pom%kba' , ivar1=pom%kba,  points=lgsea, stagpt=type)
 
   call shdf5_close()
 

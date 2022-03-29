@@ -125,7 +125,8 @@ subroutine hist_read()
   use misc_coms,   only: io6, runtype
   use var_tables,  only: num_var, vtab_r, get_vtab_dims
   use hdf5_utils,  only: shdf5_info, shdf5_irec
-  use mem_sfcg,    only: itab_wsfc, nwsfc, mwsfc, itab_vsfc, nvsfc, mvsfc
+  use mem_sfcg,    only: nwsfc, nvsfc, nmsfc, mwsfc, mvsfc, mmsfc, &
+                         itab_wsfc, itab_vsfc, itab_msfc
   use mem_land,    only: itab_land, nland, mland, nzg
   use mem_lake,    only: itab_lake, nlake, mlake
   use mem_sea,     only: itab_sea, nsea, msea
@@ -200,6 +201,9 @@ subroutine hist_read()
      elseif (stagpt == 'CV' .and. idims(ndims) == nvsfc) then
         ilocal(1:mvsfc) = itab_vsfc(1:mvsfc)%ivglobe
         idims(ndims) = mvsfc
+     elseif (stagpt == 'CM' .and. idims(ndims) == nmsfc) then
+        ilocal(1:mmsfc) = itab_msfc(1:mmsfc)%imglobe
+        idims(ndims) = mmsfc
      elseif (stagpt == 'LW' .and. idims(ndims) == nland) then
         ilocal(1:mland) = itab_land(1:mland)%iwglobe
         idims(ndims) = mland
@@ -213,10 +217,6 @@ subroutine hist_read()
         ilocal(1:mwnud) = itab_wnud(1:mwnud)%iwnudglobe
         idims(ndims) = mwnud
      else
-
-        ! TODO: Const values
-        ! TODO: Land U and M; Sea U and M? (probably not!)
-
         stop "invalid array size in history_read"
      endif
 

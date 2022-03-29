@@ -430,7 +430,7 @@ subroutine prog_wrt_begs( iw, vmcf, wmsc,                       &
   use mem_ijtabs,  only: itab_w
   use mem_basic,   only: wmc, rho, thil, wc, press, vxe, vye, vze, &
                          alpha_press, pwfac
-  use vel_t3d,     only: vxe1, vye1, vze1
+  use vel_t3d,     only: icut_vel, vxe1, vye1, vze1
   use misc_coms,   only: dtsm, deltax, nxp, initial, dn01d, th01d, nrk_scal
   use consts_coms, only: cpocv, omega2, pi1, pio180, r8
   use mem_grid,    only: mza, mva, mwa, lpv, lpw, lve2, arw, arv, &
@@ -859,7 +859,7 @@ subroutine prog_wrt_begs( iw, vmcf, wmsc,                       &
 
   if (nrk_scal == 1) then
      ktop = mza
-  elseif (nl%icut_vel == 1) then
+  elseif (icut_vel == 1) then
      ktop = ka + lve2(iw) - 1
   else
      ktop = ka - 1
@@ -888,7 +888,7 @@ subroutine prog_wrt_begs( iw, vmcf, wmsc,                       &
 
   ! Save velocity in T cells at (t+1) for prognostic method
 
-  if (nl%icut_vel == 1) then
+  if (icut_vel == 1) then
      do ksw = 1, lve2(iw)
         k = ksw + ka - 1
 

@@ -39,7 +39,7 @@ use misc_coms,   only: io6, time8, time_istp8, time_istp8p, time_bias, &
 use mem_ijtabs,  only: nstp, istp, mrls, leafstep, mrl_begl, mrl_endl, mrl_ends
 use mem_nudge,   only: nudflag, nudnxp, o3nudflag
 use mem_grid,    only: mza, mva, mwa
-use mem_sfcg,    only: sfcg_avgatm, sfcg
+use mem_sfcg,    only: sfcg
 use micro_coms,  only: miclevel
 use leaf_coms,   only: isfcl
 use mem_basic,   only: thil, rho, wmc, wc, theta
@@ -60,7 +60,8 @@ use wrtv_orig,   only: prog_wrtv_orig
 use check_nan,   only: check_nans, compute_mass_sums
 use pbl_drivers, only: pbl_driver, comp_horiz_k
 use mem_cuparm,  only: conprr
-use olam_mpi_sfcg, only: mpi_send_wsfc, mpi_recv_wsfc
+use olam_mpi_sfcg,only: mpi_send_wsfc, mpi_recv_wsfc
+use hcane_rz,    only: ncycle_hurrinit, icycle_hurrinit, vortex_add_thetapert
 
 implicit none
 
@@ -137,11 +138,20 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    mrl = mrl_begl(istp)
    if (mrl > 0) then
 
+      ! Add incremental axisymmetric potential temperature perturbation
+      ! inside the hurricane core to increase vortex intensity
+
+      if (icycle_hurrinit < ncycle_hurrinit .or. &
+         (ncycle_hurrinit == 1 .and. time_istp8p < nl%timmax_hurrinit)) then
+
+         call vortex_add_thetapert()
+      endif
+
       ! small-scale vorticity damping
 
       call vort_damp(mrl)
 
-      ! Mudging tendencies
+      ! Nudging tendencies
 
       if (initial == 2 .and. nudflag == 1) then
          if (nudnxp == 0) then
@@ -241,7 +251,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    if (mrl > 0) then
       call diag_uzonal_umerid(mrl)
 !     call check_nans(12)
-  endif
+   endif
 
    !    write(*,'(a)') ' calling mass_sums3 '
    !    call compute_mass_sums()
@@ -416,12 +426,6 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
       if (nl%igw_spinup /= 1) then
          call sfcg_avgatm()
          if (do_chem == 1) call megan_avg_temp()
-      endif
-
-      ! MPI send/recv of time-dependent SFCG, LAND, LAKE, SEA quantities
-      if (iparallel == 1) then
-         call mpi_send_wsfc()
-         call mpi_recv_wsfc()
       endif
 
    endif
