@@ -338,10 +338,8 @@ real :: xhalf(2,maxhalf), yhalf(2,maxhalf)
 real :: speed, pc, xt, xea, yea, zea, xeb, yeb, zeb, xec, yec, zec
 real :: xa, ya, xb, yb, xc, yc
 
-
-
   integer, allocatable :: buffer(:), bcopy(:)
-  integer :: nu, ier, buffsize, ipos, base, inc, j, n, is
+  integer :: nu, ier, buffsize, ipos, base, inc, j, n, is, kp
   integer :: nus(mgroupsize)
   integer, parameter :: itag = 40
 
@@ -393,9 +391,11 @@ do jw = 1, jtab_w(jtw_prog)%jend(1)
 
 ! 3D earth-coordinate wind components
 
-   vx = wtbot(iw) * vxe(kw(iw),iw) + wttop(iw) * vxe(kw(iw)+1,iw)
-   vy = wtbot(iw) * vye(kw(iw),iw) + wttop(iw) * vye(kw(iw)+1,iw)
-   vz = wtbot(iw) * vze(kw(iw),iw) + wttop(iw) * vze(kw(iw)+1,iw)
+   kp = min(kw(iw)+1,mza)
+
+   vx = wtbot(iw) * vxe(kw(iw),iw) + wttop(iw) * vxe(kp,iw)
+   vy = wtbot(iw) * vye(kw(iw),iw) + wttop(iw) * vye(kp,iw)
+   vz = wtbot(iw) * vze(kw(iw),iw) + wttop(iw) * vze(kp,iw)
 
 ! Projection onto local vertical vector
 

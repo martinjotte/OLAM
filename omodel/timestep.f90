@@ -89,7 +89,7 @@ if (time_istp8 < 1.e-3_r8) then
       call diagn_global_dcmip()
    endif
 
-!   call check_nans(15)
+   ! call check_nans(15)
 
 endif
 
@@ -113,7 +113,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
       call dust_src(mrl)
    endif
 
-   ! call check_nans(1,rvara1=alpha_press)
+   ! call check_nans(1)
 
    if (any( nqparm(1:mrls) > 0 )) then
       call cuparm_driver()
@@ -129,7 +129,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
       call calc_3d_cloud_fraction(mrl)
    endif
 
-   ! call check_nans(2,rvara1=alpha_press)
+   ! call check_nans(2)
 
    if (ilwrtyp + iswrtyp > 0) then
       call radiate()
@@ -188,7 +188,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
    endif
 
-   ! call check_nans(11,rvara1=alpha_press)
+   ! call check_nans(11)
 
    ! Call olam_dcmip_phys, which is the OLAM interface to DCMIP auxiliary
    ! physics subroutine that provides tendencies to some model fields
@@ -250,7 +250,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    mrl = mrl_endl(istp)
    if (mrl > 0) then
       call diag_uzonal_umerid(mrl)
-!     call check_nans(12)
+   !  call check_nans(12)
    endif
 
    !    write(*,'(a)') ' calling mass_sums3 '
@@ -285,7 +285,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
    34 continue
 
-   ! call check_nans(13,rvara1=alpha_press)
+   ! call check_nans(13)
 
    mrl = mrl_endl(istp)
    if (mrl > 0) then
@@ -296,12 +296,11 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
          call scalar_transport_rk(mrl,rho_old)
       endif
 
-!     call check_nans(14) !,rvara1=alpha_press)
-!     call check_nans(15)
+   ! call check_nans(14)
+   ! call check_nans(15)
 
    endif
 
-!   call check_nans(15,rvara1=alpha_press)
 
    ! Special diagnosis of water vapor for DCMIP tests; thil is dry theta in that case
    !---------------------------------------------------------------------------------
@@ -350,39 +349,30 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    !endif
    ! END SPECIAL PLOT SECTION - - - - - - - - - - - - - - - - - -
 
-   ! call check_nans(16,rvara1=alpha_press)
-
    1311 continue
 
    mrl = mrl_endl(istp)
    if (miclevel == 3 .and. mrl > 0) then
-!!!   call check_nans(16,rvara1=alpha_press)
-!      call check_nans(15)
       call micro(mrl)  ! maybe later make freq. uniform
-!      call check_nans(16)
-!!!   stop
 
-!      call les_diag()
-
+      ! call les_diag()
+      ! call check_nans(16)
    endif
 
-!!   call check_nans(16)
 
    ! Bypass all processes except microphyics if running microphysics parcel simulation
 
    if (nl%test_case >= 901 .and. nl%test_case <= 950) go to 1312
 
-   ! call check_nans(17,rvara1=alpha_press)
-
    ! Call atmospheric chemistry here
 
-!   if (do_chem == 1) call cmaq_driver()
+   if (do_chem == 1) call cmaq_driver()
 
    ! Cyclic lateral boundaries and bottom boundary for scalars
 
    call trsets(mrl)
 
-   ! call check_nans(18,rvara1=alpha_press)
+   ! call check_nans(18)
 
 !   mrl = mrl_ends(istp)
 
@@ -420,7 +410,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
    1400 continue
 
-   if (leafstep(istp) > 0) then
+   if (isfcl > 0 .and. leafstep(istp) > 0) then
       call surface_driver()
 
       if (nl%igw_spinup /= 1) then
@@ -463,7 +453,7 @@ subroutine modsched()
 use mem_ijtabs,  only: nstp, mrls,  &
                        mrl_endl, mrl_ends, mrl_begl, mrl_begs, leafstep
 use misc_coms,   only: io6, nacoust, ndtrat, dtlm, dtlong, dtsm
-use leaf_coms,   only: dt_leaf, mrl_leaf, isfcl
+use leaf_coms,   only: dt_leaf, mrl_leaf
 use lake_coms,   only: dt_lake
 use sea_coms,    only: dt_sea
 use consts_coms, only: r8
@@ -564,7 +554,7 @@ do jstp = 1,nstp
 !    2. Also do leaf at end of long timestep for any mrl > 1 whose dtlm > 30 s
 
    mrl = mrl_endl(jstp)
-   if (isfcl == 1 .and. mrl > 0) then
+   if (mrl > 0) then
       if (mrl == 1 .or. dtlm(mrl) > 30.0_r8) then
          leafstep(jstp) = 1
 
@@ -644,13 +634,16 @@ subroutine tend0(rho_old)
   enddo
   !$omp end do nowait
 
-  !$omp do
-  do iwsfc = 2, mwsfc
-     sfcg%pcpg (iwsfc) = 0.
-     sfcg%qpcpg(iwsfc) = 0.
-     sfcg%dpcpg(iwsfc) = 0.
-  enddo
-  !$omp end do nowait
+  if (allocated(sfcg%pcpg)) then
+     !$omp do
+     do iwsfc = 2, mwsfc
+        sfcg%pcpg (iwsfc) = 0.
+        sfcg%qpcpg(iwsfc) = 0.
+        sfcg%dpcpg(iwsfc) = 0.
+     enddo
+     !$omp end do nowait
+  endif
+
   !$omp end parallel
 
 end subroutine tend0

@@ -140,13 +140,22 @@ subroutine find_3iws_ll(nlon,nlat,alon,alat,iws_ll,wts_ll)
      iw = jtab_w(jtw_prog)%iw(jw)
 
      raxis  = sqrt( xew(iw)**2 + yew(iw)**2 )
-     raxisi = 1.0 / raxis
 
      sinwlat = zew(iw) * eradi
      coswlat = raxis   * eradi
 
-     sinwlon = yew(iw) * raxisi
-     coswlon = xew(iw) * raxisi
+     ! For points less than 100 m from Earth's polar axis, make arbitrary
+     ! assumption that longitude = 0 deg.  This is just to settle on a PS
+     ! planar coordinate system in which to do the algebra.
+
+     if (raxis >= 1.e2) then
+        raxisi = 1.0 / raxis
+        sinwlon = yew(iw) * raxisi
+        coswlon = xew(iw) * raxisi
+     else
+        sinwlon = 0.
+        coswlon = 1.
+     endif
 
      ! Find max distance to neighbor W points
 

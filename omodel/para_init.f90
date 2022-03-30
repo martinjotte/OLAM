@@ -731,7 +731,7 @@ subroutine para_init()
 
   ! Check whether LAND/LAKE/SEA models are used
 
-  if (isfcl == 1) then
+!!  if (isfcl == 1) then
 
      call para_init_sfcg()
 
@@ -822,7 +822,7 @@ subroutine para_init()
 
      enddo  ! ipass
 
-  endif  ! isfcl = 1
+!!  endif  ! isfcl = 1
 
   call compute_primary_points()
 

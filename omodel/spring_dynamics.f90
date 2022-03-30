@@ -913,8 +913,8 @@ subroutine spring_dynamics1( mrows, moveint, ngr, nxp, nma, nua, nwa, &
      do im = 2, nma
 
         ! For preventing either polar M point from moving:
-        ! if (im == impent(1 )) cycle
-        ! if (im == impent(12)) cycle
+        if (im == impent(1 )) cycle
+        if (im == impent(12)) cycle
 
         ! For preventing all pentagonal points from moving:
         ! if (any(im == impent(1:12))) cycle

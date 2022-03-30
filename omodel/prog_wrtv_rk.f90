@@ -617,7 +617,7 @@ subroutine prog_wrtv_rk()
 
 ! MAIN LOOP OVER W COLUMNS FOR UPDATING WM, WC, RHO, THIL, AND PRESS
 
-  !$omp do private(iw)
+  !$omp do private(iw,k)
   do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
 
      ! Prognose vertical velocity, density, thil, and diagnose pressure

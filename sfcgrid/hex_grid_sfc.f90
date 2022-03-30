@@ -112,13 +112,22 @@ subroutine voronoi_sfc()
         ! Get latitude and longitude of barycentric point
 
         raxis  = sqrt(xebc ** 2 + yebc ** 2)
-        raxisi = 1.0 / raxis
 
         sinwslat = zebc  * eradi
         coswslat = raxis * eradi
 
-        sinwslon = yebc * raxisi
-        coswslon = xebc * raxisi
+        ! For points less than 100 m from Earth's polar axis, make arbitrary
+        ! assumption that longitude = 0 deg.  This is just to settle on a PS
+        ! planar coordinate system in which to do the algebra.
+
+        if (raxis >= 1.e2) then
+           raxisi = 1.0 / raxis
+           sinwslon = yebc * raxisi
+           coswslon = xebc * raxisi
+        else
+           sinwslon = 0.
+           coswslon = 1.
+        endif
 
         ! Transform 3 W points to PS coordinates
 
@@ -294,12 +303,11 @@ subroutine grid_geometry_hex_sfc()
   real          :: quarter_kite(2,nvsfc)
   character(10) :: string
 
-  integer               :: lwork
-  integer               :: info
-  real(r8)              :: b(7), fo(7), vnx_ps(7), vny_ps(7), vnz_ps(7), vrot_x(7), vrot_y(7)
+  integer               :: lwork, info
+  real(r8)              :: a(3,7), b(7), fo(7), vnx_ps(7), vny_ps(7), vnz_ps(7)
+  real(r8)              :: vrot_x(7), vrot_y(7)
   real(r8), allocatable :: work(:)
-  real(r8), allocatable :: a(:,:)
-  real(r8)              :: wsize(1), vdotw, vmag, fact
+  real(r8)              :: wsize(1), vdotw, vmagi, fact
 
   ! Loop over all M points and compute their latitude and longitude
 
@@ -438,7 +446,7 @@ subroutine grid_geometry_hex_sfc()
      sfcg%area(iw2) = sfcg%area(iw2) + quarter_kite(1,iv) + quarter_kite(2,iv)
   enddo
 
-  !$omp parallel
+  !$omp parallel private(a,b,wsize,lwork,work,info)
 
   !$omp do private(raxis,npoly,j1,j2,ivn,iw1,iw2,xw1,yw1,xw2,yw2,xv,yv,alpha)
   do iw = 2,nwsfc
@@ -557,26 +565,25 @@ subroutine grid_geometry_hex_sfc()
   enddo
   !$omp end do
 
-  !$omp end parallel
-
   ! Coefficients for converting earth-cartesian velocity to V and W
 
   if (mdomain < 2 .or. mdomain == 5) then
 
- !!    !$omp do private(npoly, fo, a, b, work, info, j, ivn, vdotw, vmag, fact, &
- !!    !$omp            vnx_ps, vny_ps, vnz_ps, vrot_x, vrot_y, wsize, lwork)
+     a = 0.0
+     b = 0.0
+     call dgels( 'N', 3, 7, 1, a, 3, b, 7, wsize, -1, info )
+
+     lwork = nint(wsize(1)) + 1
+     allocate(work(lwork))
+
+     !$omp do private(npoly, fo, j, ivn, vdotw, vmagi, fact, &
+     !$omp            vnx_ps, vny_ps, vnz_ps, vrot_x, vrot_y)
      do iw = 2, nwsfc
-      
+
         npoly = itab_wsfc(iw)%npoly
 
         ! Default coefficients from Perot
         fo(1:npoly) = 2.0_r8 * itab_wsfc(iw)%farv(1:npoly)
-
-        if (allocated(a)) then
-           if (size(a,2) /= npoly) deallocate(a)
-        endif
-
-        if (.not. allocated(a)) allocate(a(3,npoly))
 
         if (mdomain < 2) then
 
@@ -593,17 +600,17 @@ subroutine grid_geometry_hex_sfc()
 
               ! Normalize these new vectors to unit length
 
-              vmag = sqrt( vnx_ps(j)**2 + vny_ps(j)**2 + vnz_ps(j)**2 )
+              vmagi = 1.0_r8 / sqrt( vnx_ps(j)**2 + vny_ps(j)**2 + vnz_ps(j)**2 )
 
-              vnx_ps(j) = vnx_ps(j) / vmag
-              vny_ps(j) = vny_ps(j) / vmag
-              vnz_ps(j) = vnz_ps(j) / vmag
+              vnx_ps(j) = vnx_ps(j) * vmagi
+              vny_ps(j) = vny_ps(j) * vmagi
+              vnz_ps(j) = vnz_ps(j) * vmagi
 
               ! Rotate these new unit normals to a coordinate system with Z aligned with W
 
               if (sfcg%wnz(iw) >= 0.0) then
 
-                 fact = ( sfcg%wny(iw)*vnx_ps(j) - sfcg%wnx(iw)*vny_ps(j) ) / ( 1.0 + sfcg%wnz(iw) )
+                 fact = ( sfcg%wny(iw)*vnx_ps(j) - sfcg%wnx(iw)*vny_ps(j) ) / ( 1._r8 + sfcg%wnz(iw) )
 
                  vrot_x(j) = vnx_ps(j)*sfcg%wnz(iw) - vnz_ps(j)*sfcg%wnx(iw) + sfcg%wny(iw)*fact
                  vrot_y(j) = vny_ps(j)*sfcg%wnz(iw) - vnz_ps(j)*sfcg%wny(iw) - sfcg%wnx(iw)*fact
@@ -638,44 +645,23 @@ subroutine grid_geometry_hex_sfc()
         a(2,1:npoly) = vrot_y(1:npoly) * vrot_y(1:npoly)
         a(3,1:npoly) = vrot_x(1:npoly) * vrot_y(1:npoly)
 
-        b(1) = 1._r8 - sum( fo(1:npoly) * a(1,:) )
-        b(2) = 1._r8 - sum( fo(1:npoly) * a(2,:) )
-        b(3) =       - sum( fo(1:npoly) * a(3,:) )
+        b(1) = 1._r8 - sum( fo(1:npoly) * a(1,1:npoly) )
+        b(2) = 1._r8 - sum( fo(1:npoly) * a(2,1:npoly) )
+        b(3) =       - sum( fo(1:npoly) * a(3,1:npoly) )
 
-        call dgels( 'N', 3, npoly, 1, a, 3, b, 7, wsize, -1, info )
-        lwork = nint(wsize(1)) + 1
-
-        if (allocated(work) .and. size(work) < lwork) deallocate(work)
-        if (.not. allocated(work)) allocate(work(lwork))
-
-        call dgels( 'N', 3, npoly, 1, a, 3, b, 7, work, size(work), info )
+        call dgels( 'N', 3, npoly, 1, a(:,1:npoly), 3, b, 7, work, lwork, info )
 
         ! Vector b is now the correction to the coefficients fo
         b(1:npoly) = b(1:npoly) + fo(1:npoly)
 
         if (info == 0 .and. all(b(1:npoly) > 0.05_r8) .and. all(b(1:npoly) < 0.7_r8)) then
 
-           ! itab_w(iw)%ecvec_vx(1:npoly) = b(1:npoly) * vnx_ps(1:npoly)   ! This is old ATM version
-           ! itab_w(iw)%ecvec_vy(1:npoly) = b(1:npoly) * vny_ps(1:npoly)   ! This is old ATM version
-           ! itab_w(iw)%ecvec_vz(1:npoly) = b(1:npoly) * vnz_ps(1:npoly)   ! This is old ATM version
-
-           fact =  sum( b(1:npoly) * vnx_ps(1:npoly) * sfcg%vnx(itab_wsfc(iw)%ivn(1:npoly)) )
-           fact = (1._r8 - sfcg%wnx(iw)**2) / max(fact, 1.e-30_r8)
-
-           itab_wsfc(iw)%ecvec_vx(1:npoly) = b(1:npoly) * vnx_ps(1:npoly) * fact
-
-           fact = sum( b(1:npoly) * vny_ps(1:npoly) * sfcg%vny(itab_wsfc(iw)%ivn(1:npoly)) )
-           fact = (1._r8 - sfcg%wny(iw)**2) / max(fact, 1.e-30_r8)
-
-           itab_wsfc(iw)%ecvec_vy(1:npoly) = b(1:npoly) * vny_ps(1:npoly) * fact
-
-           fact = sum( b(1:npoly) * vnz_ps(1:npoly) * sfcg%vnz(itab_wsfc(iw)%ivn(1:npoly)) )
-           fact = (1._r8 - sfcg%wnz(iw)**2) / max(fact, 1.e-30_r8)
-
-           itab_wsfc(iw)%ecvec_vz(1:npoly) = b(1:npoly) * vnz_ps(1:npoly) * fact
+           itab_wsfc(iw)%ecvec_vx(1:npoly) = b(1:npoly) * vnx_ps(1:npoly)
+           itab_wsfc(iw)%ecvec_vy(1:npoly) = b(1:npoly) * vny_ps(1:npoly)
+           itab_wsfc(iw)%ecvec_vz(1:npoly) = b(1:npoly) * vnz_ps(1:npoly)
 
         else
-      
+
            write(6,'(a,i9)')   "Problem optimizing vector coefficients for iw = ", iw
            write(6,'(7f10.4)') sfcg%glatw(iw), sfcg%glonw(iw)
            write(6,'(i5)')     info
@@ -690,14 +676,13 @@ subroutine grid_geometry_hex_sfc()
         endif
 
      enddo
- !!    !omp end do
-   
-     if (allocated(a))    deallocate(a)
-     if (allocated(work)) deallocate(work)
+     !omp end do
+
+     deallocate(work)
 
   else
 
- !!    !$omp do private(npoly)
+     !$omp do private(npoly)
      do iw = 2, nwsfc
         npoly = itab_wsfc(iw)%npoly
         itab_wsfc(iw)%ecvec_vx(1:npoly) = 2.0 * itab_wsfc(iw)%farv(1:npoly) &
@@ -707,9 +692,11 @@ subroutine grid_geometry_hex_sfc()
         itab_wsfc(iw)%ecvec_vz(1:npoly) = 2.0 * itab_wsfc(iw)%farv(1:npoly) &
                                         * sfcg%vnz(itab_wsfc(iw)%ivn(1:npoly))
      enddo
- !!    !$omp end do
+     !$omp end do
 
   endif
+
+  !$omp end parallel
 
   ! Plot grid lines
 
@@ -911,13 +898,22 @@ subroutine sfc_atm_hex_overlay_2( icountw, icountm, iwsfc )
   nsfcpoly = itab_wsfc(iwsfc)%npoly
 
   raxis  = sqrt( sfcg%xew(iwsfc) ** 2 + sfcg%yew(iwsfc) ** 2 )
-  raxisi = 1.0 / raxis
 
   sinwslat = sfcg%zew(iwsfc) * eradi
   coswslat = raxis           * eradi
 
-  sinwslon = sfcg%yew(iwsfc) * raxisi
-  coswslon = sfcg%xew(iwsfc) * raxisi
+  ! For points less than 100 m from Earth's polar axis, make arbitrary
+  ! assumption that longitude = 0 deg.  This is just to settle on a PS
+  ! planar coordinate system in which to do the algebra.
+
+  if (raxis >= 1.e2) then
+     raxisi = 1.0 / raxis
+     sinwslon = sfcg%yew(iwsfc) * raxisi
+     coswslon = sfcg%xew(iwsfc) * raxisi
+  else
+     sinwslon = 0.
+     coswslon = 1.
+  endif
 
   ! Loop over all neighbor M points of this iwsfc
 

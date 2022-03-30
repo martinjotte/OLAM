@@ -343,13 +343,22 @@ subroutine pcvt()
         ! For global domain, transform from sphere to PS plane
 
         raxis  = sqrt(xebc ** 2 + yebc ** 2)
-        raxisi = 1.0 / raxis
 
         sinwlat = zebc  * eradi
         coswlat = raxis * eradi
 
-        sinwlon = yebc * raxisi
-        coswlon = xebc * raxisi
+        ! For points less than 100 m from Earth's polar axis, make arbitrary
+        ! assumption that longitude = 0 deg.  This is just to settle on a PS
+        ! planar coordinate system in which to do the algebra.
+
+        if (raxis >= 1.e2) then
+           raxisi = 1.0 / raxis
+           sinwlon = yebc * raxisi
+           coswlon = xebc * raxisi
+        else
+           sinwlon = 0.
+           coswlon = 1.
+        endif
 
         ! Transform 3 W points to PS coordinates
 
@@ -405,7 +414,7 @@ subroutine pcvt()
         xcc = (s3 - s1 - ycc * 2. * (y3 - y1)) / (2. * dx13)
      endif
 
-     ! For global domain, transform circumcenter from PS to earth coordinates
+     ! For global domain, transform circumcenter from PS to earth coordinates.
 
      if (mdomain <= 1) then
 
@@ -480,14 +489,13 @@ subroutine grid_geometry_hex()
   logical            :: dops
   real               :: quarter_kite(2,nva)
   character(10)      :: string
-  integer            :: lwork
-  integer            :: info
   real               :: raxis,raxisi,dxe,dye,dze,arwi
   real               :: sinwlat,coswlat,sinwlon,coswlon
 
-  real(r8)              :: b(7), fo(7), vnx_ps(7), vny_ps(7), vnz_ps(7), vrot_x(7), vrot_y(7)
+  integer               :: lwork, info
+  real(r8)              :: a(3,7), b(7), fo(7), vnx_ps(7), vny_ps(7), vnz_ps(7)
+  real(r8)              :: vrot_x(7), vrot_y(7)
   real(r8), allocatable :: work(:)
-  real(r8), allocatable :: a(:,:)
   real(r8)              :: wsize(1), vdotw, vmagi, fact
 
   ! Loop over all M points
@@ -665,7 +673,7 @@ subroutine grid_geometry_hex()
      if (im /= imp) arm0(im) = arm0(imp)
   enddo
 
-  !$omp parallel
+  !$omp parallel private(a,b,wsize,lwork,work,info)
   !$omp do private(raxis)
   do iw = 2,nwa
 
@@ -724,13 +732,22 @@ subroutine grid_geometry_hex()
      if (mdomain <= 1) then
 
         raxis  = sqrt(xew(iw)**2 + yew(iw)**2)
-        raxisi = 1.0 / raxis
 
         sinwlat = zew(iw) * eradi
         coswlat = raxis   * eradi
 
-        sinwlon = yew(iw) * raxisi
-        coswlon = xew(iw) * raxisi
+        ! For points less than 100 m from Earth's polar axis, make arbitrary
+        ! assumption that longitude = 0 deg.  This is just to settle on a PS
+        ! planar coordinate system in which to do the algebra.
+
+        if (raxis >= 1.e2) then
+           raxisi = 1.0 / raxis
+           sinwlon = yew(iw) * raxisi
+           coswlon = xew(iw) * raxisi
+        else
+           sinwlon = 0.
+           coswlon = 1.
+        endif
 
      endif
 
@@ -965,20 +982,21 @@ subroutine grid_geometry_hex()
 
   if (mdomain < 2 .or. mdomain == 5) then
 
-     !$omp do private(npoly, fo, a, b, work, info, j, iv, vdotw, vmagi, fact, &
-     !$omp            vnx_ps, vny_ps, vnz_ps, vrot_x, vrot_y, wsize, lwork)
+     a = 0.0
+     b = 0.0
+     call dgels( 'N', 3, 7, 1, a, 3, b, 7, wsize, -1, info )
+
+     lwork = nint(wsize(1)) + 1
+     allocate(work(lwork))
+
+     !$omp do private(npoly, fo, j, iv, vdotw, vmagi, fact, &
+     !$omp            vnx_ps, vny_ps, vnz_ps, vrot_x, vrot_y)
      do iw = 2, nwa
 
         npoly = itab_w(iw)%npoly
 
         ! Default coefficients from Perot
         fo(1:npoly) = 2.0_r8 * itab_w(iw)%farv(1:npoly)
-
-        if (allocated(a)) then
-           if (size(a,2) /= npoly) deallocate(a)
-        endif
-
-        if (.not. allocated(a)) allocate(a(3,npoly))
 
         if (mdomain < 2) then
 
@@ -1040,43 +1058,20 @@ subroutine grid_geometry_hex()
         a(2,1:npoly) = vrot_y(1:npoly) * vrot_y(1:npoly)
         a(3,1:npoly) = vrot_x(1:npoly) * vrot_y(1:npoly)
 
-        b(1) = 1._r8 - sum( fo(1:npoly) * a(1,:) )
-        b(2) = 1._r8 - sum( fo(1:npoly) * a(2,:) )
-        b(3) =       - sum( fo(1:npoly) * a(3,:) )
+        b(1) = 1._r8 - sum( fo(1:npoly) * a(1,1:npoly) )
+        b(2) = 1._r8 - sum( fo(1:npoly) * a(2,1:npoly) )
+        b(3) =       - sum( fo(1:npoly) * a(3,1:npoly) )
 
-        call dgels( 'N', 3, npoly, 1, a, 3, b, 7, wsize, -1, info )
-        lwork = nint(wsize(1)) + 1
-
-        if (allocated(work)) then
-           if (size(work) < lwork) deallocate(work)
-        endif
-        if (.not. allocated(work)) allocate(work(lwork))
-
-        call dgels( 'N', 3, npoly, 1, a, 3, b, 7, work, size(work), info )
+        call dgels( 'N', 3, npoly, 1, a, 3, b, 7, work, lwork, info )
 
         ! Vector b is now the correction to the coefficients fo
         b(1:npoly) = b(1:npoly) + fo(1:npoly)
 
         if (info == 0 .and. all(b(1:npoly) > 0.05_r8) .and. all(b(1:npoly) < 0.7_r8)) then
 
-           ! itab_w(iw)%ecvec_vx(1:npoly) = b(1:npoly) * vnx_ps(1:npoly)
-           ! itab_w(iw)%ecvec_vy(1:npoly) = b(1:npoly) * vny_ps(1:npoly)
-           ! itab_w(iw)%ecvec_vz(1:npoly) = b(1:npoly) * vnz_ps(1:npoly)
-
-           fact =  sum( b(1:npoly) * vnx_ps(1:npoly) * vnx(itab_w(iw)%iv(1:npoly)) )
-           fact = (1._r8 - wnx(iw)**2) / max(fact, 1.e-30_r8)
-
-           itab_w(iw)%ecvec_vx(1:npoly) = b(1:npoly) * vnx_ps(1:npoly) * fact
-
-           fact = sum( b(1:npoly) * vny_ps(1:npoly) * vny(itab_w(iw)%iv(1:npoly)) )
-           fact = (1._r8 - wny(iw)**2) / max(fact, 1.e-30_r8)
-
-           itab_w(iw)%ecvec_vy(1:npoly) = b(1:npoly) * vny_ps(1:npoly) * fact
-
-           fact = sum( b(1:npoly) * vnz_ps(1:npoly) * vnz(itab_w(iw)%iv(1:npoly)) )
-           fact = (1._r8 - wnz(iw)**2) / max(fact, 1.e-30_r8)
-
-           itab_w(iw)%ecvec_vz(1:npoly) = b(1:npoly) * vnz_ps(1:npoly) * fact
+            itab_w(iw)%ecvec_vx(1:npoly) = b(1:npoly) * vnx_ps(1:npoly)
+            itab_w(iw)%ecvec_vy(1:npoly) = b(1:npoly) * vny_ps(1:npoly)
+            itab_w(iw)%ecvec_vz(1:npoly) = b(1:npoly) * vnz_ps(1:npoly)
 
         else
 
@@ -1096,8 +1091,7 @@ subroutine grid_geometry_hex()
      enddo
      !omp end do
 
-     if (allocated(a))    deallocate(a)
-     if (allocated(work)) deallocate(work)
+     deallocate(work)
 
   else
 

@@ -454,6 +454,7 @@ Contains
     use misc_coms,      only: time8
     use mem_sfcg,       only: sfcg, mwsfc, itab_wsfc
     use mem_land,       only: land, mland, omland, nzg, dslz, slzt
+    use leaf_coms,      only: isfcl
     use leaf4_soil,     only: soil_wat2pot
     use oname_coms,     only: nl
     use mem_para,       only: myrank
@@ -895,48 +896,54 @@ Contains
 ! Exception for mem_plot: Not an accumulated quantity but an instantaneous one.
 ! Perhaps in future add to mem_flux_accum arrays.
 
-    do iland = 2, mland
-       iwsfc = iland + omland
-       if (itab_wsfc(iwsfc)%irank == myrank) then
-          do k = 1,nzg
-             soil_water_tot_prev0(iland) = soil_water_tot_prev0(iland) &
-                                         + land%soil_water(k,iland) * dslz(k)
-          enddo
-       endif
-    enddo
+    if (isfcl > 0) then
 
-    do iwsfc = 2, mwsfc
-       if (itab_wsfc(iwsfc)%irank /= myrank) cycle
+       do iland = 2, mland
+          iwsfc = iland + omland
+          if (itab_wsfc(iwsfc)%irank == myrank) then
+             do k = 1,nzg
+                soil_water_tot_prev0(iland) = soil_water_tot_prev0(iland) &
+                                            + land%soil_water(k,iland) * dslz(k)
+             enddo
+          endif
+       enddo
 
-       if (sfcg%leaf_class(iwsfc) < 2) then
+       do iwsfc = 2, mwsfc
+          if (itab_wsfc(iwsfc)%irank /= myrank) cycle
 
-          head_wtab_prev0(iwsfc) = head_wtab_prev0(iwsfc) &
-                                 + sfcg%head1(iwsfc)
-       else
+          if (sfcg%leaf_class(iwsfc) < 2) then
 
-          iland = iwsfc - omland
+             head_wtab_prev0(iwsfc) = head_wtab_prev0(iwsfc) &
+                                    + sfcg%head1(iwsfc)
+          else
 
-          do klev = nzg,1,-1
-             call soil_wat2pot(klev, iland, land%soil_water(klev,iland), &
-                  land%wresid_vg(klev,iland), land%wsat_vg(klev,iland), &
-                  land%alpha_vg(klev,iland), land%en_vg(klev,iland), psi, psi_slope)
+             iland = iwsfc - omland
 
-             ! Trial algorithm: Get head_wtab from highest saturated soil level
+             do klev = nzg,1,-1
+                call soil_wat2pot(klev, iland, land%soil_water(klev,iland), &
+                     land%wresid_vg(klev,iland), land%wsat_vg(klev,iland), &
+                     land%alpha_vg(klev,iland), land%en_vg(klev,iland), psi, psi_slope)
 
-             if (psi > 1.e-2) then
-                head(klev) = psi + slzt(klev)
-                head_wtab_prev0(iwsfc) = head_wtab_prev0(iwsfc) &
-                                       + head(klev)
-                exit
-             else
-                head(klev) = psi + slzt(klev)
-                if (klev == 1)  head_wtab_prev0(iwsfc) = head_wtab_prev0(iwsfc) &
-                                                       + head(klev)
-             endif
-          enddo
+                ! Trial algorithm: Get head_wtab from highest saturated soil level
 
-       endif
-    enddo
+                if (psi > 1.e-2) then
+                   head(klev) = psi + slzt(klev)
+                   head_wtab_prev0(iwsfc) = head_wtab_prev0(iwsfc) &
+                                          + head(klev)
+                   exit
+                else
+                   head(klev) = psi + slzt(klev)
+                   if (klev == 1)  head_wtab_prev0(iwsfc) = head_wtab_prev0(iwsfc) &
+                                                          + head(klev)
+                endif
+             enddo
+
+          endif
+
+       enddo
+
+    endif
+
 !------------------------------------------------------------------------------
 
   end subroutine copy_plot

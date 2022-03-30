@@ -246,9 +246,9 @@ subroutine olam_run(name_name)
 
   write(io6,*) 'olam_run calling sfcgfile_read_pd'
 
-  if (isfcl == 1) call sfcgfile_read_pd()
+  call sfcgfile_read_pd()
 
-  ! If run is parallel, assign each grid cell (ATM and, if ISFCL = 1, SFCG)
+  ! If run is parallel, assign each grid cell (ATM and SFCG)
   ! to one of multiple subdomains. If not, the grid remains unchanged
 
   write(io6,'(/,a)') 'olam_run calling para_decomp'
@@ -291,11 +291,11 @@ subroutine olam_run(name_name)
   write(io6,'(a,i8)') ' mva = ',mva
   write(io6,'(a,i8)') ' mwa = ',mwa
 
-  if (isfcl == 1) then
+!!  if (isfcl == 1) then
      write(io6,'(a,i8)')   ' mwsfc = ',mwsfc
      write(io6,'(a,i8)')   ' mland = ',mland
      write(io6,'(a,i8)')   ' msea = ',msea
-  endif
+!!  endif
 
   ! Initialize dtlm, dtsm, ndtrat, and nacoust,
   ! and compute the timestep schedule for all grid operations.
@@ -312,10 +312,10 @@ subroutine olam_run(name_name)
 
   ! Allocate and fill jtab_sfcg data structure
 
-  if (isfcl == 1) then
+!!  if (isfcl == 1) then
      write(io6,'(/,a)') 'olam_run calling fill_jtab_sfcg'
      call fill_jtab_sfcg()
-  endif
+!!  endif
 
   ! Allocate column initial state arrays
 
@@ -395,13 +395,6 @@ subroutine olam_run(name_name)
      endif
   endif
 
-  ! Initial diagnosis of vxe1,vye1,vze1 and of vxe,vye,vze
-
-  if (runtype == 'INITIAL') then
-     call diagvel_t3d_init(1)
-     call diagvel_t3d(1)
-  endif
-
   !------------------------------------------------------------
   ! Call fill_swtc5 to read in and initialize reference
   ! solution for time = 0 and time = 15d.
@@ -417,6 +410,13 @@ subroutine olam_run(name_name)
 
   if (nl%test_case > 7 .and. nl%test_case < 500) call olam_dcmip_init()
   !----------------------------------------------------------------------
+
+  ! Initial diagnosis of vxe1,vye1,vze1 and of vxe,vye,vze
+
+  if (runtype == 'INITIAL') then
+     call diagvel_t3d_init(1)
+     call diagvel_t3d(1)
+  endif
 
   ! Initialize cloud fraction
 
