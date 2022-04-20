@@ -45,7 +45,7 @@ use leaf_coms,   only: isfcl
 use mem_basic,   only: thil, rho, wmc, wc, theta
 use olam_mpi_atm,only: mpi_send_w, mpi_recv_w, mpi_send_v, mpi_recv_v
 use var_tables,  only: nvar_par, vtab_r, nptonv
-use obnd,        only: trsets, lbcopy_v, lbcopy_w, botset, latsett
+use obnd,        only: trsets, lbcopy_v, lbcopy_w, set_bottom
 use oplot_coms,  only: op
 use oname_coms,  only: nl
 use mem_flux_accum, only: flux_accum
@@ -370,7 +370,13 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
    ! Cyclic lateral boundaries and bottom boundary for scalars
 
-   call trsets(mrl)
+!   call trsets(mrl)
+
+   ! Bottom boundary for scalars
+
+   if (mrl_endl(istp) > 0) then
+      call set_bottom()
+   endif
 
    ! call check_nans(18)
 
@@ -395,10 +401,13 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    mrl = mrl_endl(istp)
    if (mrl > 0) then
 
-      if (iparallel == 1) call mpi_send_w(mrl, scalars='S')  ! Send scalars
+      if (iparallel == 1) call mpi_send_w(mrl, rvara1=thil, scalars='S')  ! Send scalars
 
-      if (iparallel == 1) call mpi_recv_w(mrl, scalars='S')  ! Recv scalars
+      if (iparallel == 1) call mpi_recv_w(mrl, rvara1=thil, scalars='S')  ! Recv scalars
 
+      ! Lateral boundary conditions for limited-area runs
+
+      call lbcopy_w(mrl, a1=thil)
       do n = 1, nvar_par
          call lbcopy_w(mrl, a1=vtab_r(nptonv(n))%rvar2_p)
       enddo

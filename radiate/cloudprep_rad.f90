@@ -86,10 +86,15 @@ subroutine cloudprep_rad(iw,ka,mcat,jhcat,rhov,rx,emb,ktop)
 
      mcat = 1
 
+! Zero out microphysics scratch arrays for the present iw column
+
+     rx (:,1) = 0.
+     emb(:,1) = 0.
+     ktop (1) = 1
+
 ! In OLAM, with miclevel = 2, cloud number concentration is specified in cldnum.
 ! Diagnose cloud droplet mean mass.
 
-     ktop(1) = 1
      do k = ka,mza
         jhcat(k,1) = 1
         if (rr_c(k,iw) * real(rho(k,iw)) >= rxmin(1)) then

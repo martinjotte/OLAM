@@ -136,6 +136,39 @@ end subroutine botset
 
 !===============================================================================
 
+subroutine set_bottom()
+
+  use mem_ijtabs, only: jtab_w, jtw_prog
+  use mem_grid,   only: lpw
+  use var_tables, only: nvar_par, vtab_r, nptonv
+  use mem_basic,  only: thil
+
+  implicit none
+
+  integer :: j, iw, ka, n, k
+
+  !$omp parallel do private (iw,ka,n,k)
+  do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
+
+     ka = lpw(iw)
+
+     do n = 1, nvar_par
+        do k = 1, ka-1
+           vtab_r(nptonv(n))%rvar2_p(k,iw) = vtab_r(nptonv(n))%rvar2_p(ka,iw)
+        enddo
+     enddo
+
+     do k = 1, ka-1
+        thil(k,iw) = thil(ka,iw)
+     enddo
+
+  enddo
+  !$omp end parallel do
+
+end subroutine set_bottom
+
+!===============================================================================
+
 subroutine lbcopy_m(mrl, a1)
 
 use mem_ijtabs, only: jtab_m, itab_m, jtm_lbcp

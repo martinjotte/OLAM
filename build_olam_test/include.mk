@@ -19,10 +19,10 @@ F_OPTS=-Ofast -xHost -fno-alias -fno-fnalias -ip -traceback -assume norealloc_lh
 #F_OPTS=-Ofast -xHost -traceback -vecabi=cmdtarget -qopenmp
 
 # FOR REPRODUCIBLE RESULTS
-#F_OPTS=-O2 -fp-model precise -traceback -stand f08 -assume norealloc_lhs -qopenmp
+#F_OPTS=-O2 -xHost -fp-model precise -fp-speculation=safe -traceback -stand f08 -assume norealloc_lhs
 
 # EXTENDED DEBUGGING:
-#F_OPTS=-O2 -g -fp-model strict -check bounds -traceback -warn interfaces,unused -stand f08 -debug extended -check pointers -check uninit -init=arrays -init=snan -qopenmp
+#F_OPTS=-O2 -xHost -g -fp-model strict -fp-speculation=strict -check bounds -traceback -warn interfaces,unused -stand f08 -debug extended -check pointers -check uninit -init=arrays -init=snan -qopenmp
 
 # EXTRA OPTIONS FOR FIXED-SOURCE CODE
 FIXED_SRC_FLAGS=-fixed -132
@@ -38,7 +38,7 @@ LOADER=$(F_COMP)
 LOADER_OPTS=$(F_OPTS)
 
 # For Apple OSX: the stack size needs to be increased at link time
-#LOADER_OPTS=$(F_OPTS) -Wl,-stack_size -Wl,0x40000000
+#LOADER_OPTS=$(F_OPTS) -Wl,-stack_size -Wl,0x80000000
 
 # to allow ifort compiler to link with pg-compiled ncar graphics:
 # LIBS=-z muldefs -L/opt/pgi/linux86-64/5.2/lib -lpgftnrtl -lpgc
