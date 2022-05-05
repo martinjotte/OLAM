@@ -33,8 +33,8 @@
 program main
 
 use misc_coms,    only: io6, iparallel
-use mem_para,     only: myrank, mgroupsize
-use olam_mpi_atm, only: olam_mpi_init, olam_mpi_finalize, olam_mpi_barrier
+use mem_para,     only: myrank, mgroupsize, olam_mpi_init, olam_mpi_finalize, &
+                        olam_mpi_barrier
 use misc_coms,    only: tmpdir
 use max_dims,     only: pathlen
 use hdf5,         only: h5open_f, h5close_f

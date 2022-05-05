@@ -123,10 +123,13 @@ subroutine voronoi()
      itab_v(iv)%ivglobe  = iv
      itab_v(iv)%mrlv     = itab_ud(iud)%mrlu
 
-     itab_v(iv)%im(1:6)  = itab_ud(iud)%iw(1:6)
+   ! itab_v(iv)%im(1:6)  = itab_ud(iud)%iw(1:6)
+   ! itab_v(iv)%iw(1:4)  = itab_ud(iud)%im(1:4)
+
+     itab_v(iv)%im(1:2)  = itab_ud(iud)%iw(1:2)
      itab_v(iv)%iw(1:2)  = itab_ud(iud)%im(1:2)
 
-     itab_v(iv)%iv(1:4)  = itab_ud(iud)%iu(1:4)
+   ! itab_v(iv)%iv(1:4)  = itab_ud(iud)%iu(1:4)
    ! itab_v(iv)%iv(1:12) = itab_ud(iud)%iu(1:12)
 
   ! For periodic Cartesian hex domain, compute coordinates for outer M points
@@ -148,41 +151,41 @@ subroutine voronoi()
 
      ! Extract information from IMD1 neighbor
 
-     imd = itab_ud(iud)%im(1)
-     npoly = itab_md(imd)%npoly
+   ! imd = itab_ud(iud)%im(1)
+   ! npoly = itab_md(imd)%npoly
 
-     do j = 1,npoly
-        j1 = j + 1
-        if (j == npoly) j1 = 1
+   ! do j = 1,npoly
+   !    j1 = j + 1
+   !    if (j == npoly) j1 = 1
 
-        iud1 = itab_md(imd)%iu(j)
-        iud2 = itab_md(imd)%iu(j1)
+   !    iud1 = itab_md(imd)%iu(j)
+   !    iud2 = itab_md(imd)%iu(j1)
 
-        ! IW(3) and IW(4) neighbors of IV
+   !    ! IW(3) and IW(4) neighbors of IV
 
-        if (iud2 == iv) then
-           iw1 = itab_ud(iud1)%im(1)
-           iw2 = itab_ud(iud1)%im(2)
+   !    if (iud2 == iv) then
+   !       iw1 = itab_ud(iud1)%im(1)
+   !       iw2 = itab_ud(iud1)%im(2)
 
-           if (iw1 == imd) then
-              itab_v(iv)%iw(3) = iw2
-           else
-              itab_v(iv)%iw(3) = iw1
-           endif
-        endif
+   !       if (iw1 == imd) then
+   !          itab_v(iv)%iw(3) = iw2
+   !       else
+   !          itab_v(iv)%iw(3) = iw1
+   !       endif
+   !    endif
 
-        if (iud1 == iv) then
-           iw1 = itab_ud(iud2)%im(1)
-           iw2 = itab_ud(iud2)%im(2)
+   !    if (iud1 == iv) then
+   !       iw1 = itab_ud(iud2)%im(1)
+   !       iw2 = itab_ud(iud2)%im(2)
 
-           if (iw1 == imd) then
-              itab_v(iv)%iw(4) = iw2
-           else
-              itab_v(iv)%iw(4) = iw1
-           endif
-        endif
+   !       if (iw1 == imd) then
+   !          itab_v(iv)%iw(4) = iw2
+   !       else
+   !          itab_v(iv)%iw(4) = iw1
+   !       endif
+   !    endif
 
-     enddo
+   ! enddo
 
   enddo
 
@@ -257,6 +260,7 @@ subroutine voronoi()
 
      itab_m(im)%iv(1:3)   = itab_wd(iwd)%iu(1:3)
      itab_m(im)%iw(1:3)   = itab_wd(iwd)%im(1:3)
+     itab_m(im)%im(1:3)   = itab_wd(iwd)%iw(1:3)
   enddo
 
   ! Special: for a cartesian domain, do a lateral boundary copy of MRL
@@ -463,13 +467,12 @@ subroutine grid_geometry_hex()
 
   use mem_ijtabs,  only: itab_m, itab_v, itab_w
   use mem_grid,    only: nma, nva, nwa, xev, yev, zev, xem, yem, zem, &
-                         xew, yew, zew, unx, uny, unz, wnx, wny, wnz,      &
+                         xew, yew, zew, unx, uny, unz, wnx, wny, wnz, &
                          vnx, vny, vnz, glonw, glatw, dnu, dniu, dnv, dniv, arw0, &
                          arm0, glonm, glatm, glatv, glonv
   use misc_coms,   only: mdomain, nxp
   use consts_coms, only: erad, eradi, piu180, pio2
   use oplot_coms,  only: op
-  use mem_para,    only: myrank
   use consts_coms, only: r8, pio180
 
   implicit none
@@ -1115,8 +1118,6 @@ subroutine grid_geometry_hex()
 
   if (.false.) then
 
-     if (myrank /= 0) return
-
      call o_reopnwk()
      call plotback()
      call oplot_set(1)
@@ -1193,16 +1194,13 @@ end subroutine grid_geometry_hex
 subroutine ctrlvols_hex()
 
   use mem_ijtabs,  only: jtab_m, jtab_v, jtab_w, itab_m, itab_v, itab_w, &
-                         jtm_grid, jtv_grid, jtv_wall, jtv_lbcp, &
-                         jtw_grid, jtw_lbcp
+                         jtm_grid, jtv_grid, jtv_lbcp, jtw_grid, jtw_lbcp
   use mem_sfcg,    only: nwsfc, sfcg, itab_wsfc
   use misc_coms,   only: io6, mdomain
   use consts_coms, only: r8
   use mem_grid,    only: nsw_max, nza, nma, nva, nwa, lpm, lpv, lpw, lsw, &
                          topm, zm, dzt, zfact, zfacm2, dnu, &
                          arw0, arv, arw, volt, lve2, nve2_max, dzt_bot
- use olam_mpi_atm,only: olam_stop
-
   implicit none
 
   integer  :: j,iw,iwp,iv,ivp,im1,im2,k,km,im,iw1,iw2,iw3
@@ -1392,14 +1390,6 @@ subroutine ctrlvols_hex()
 
   enddo
 
-  ! Set ARV to zero at non-topo walls
-  ! [ONLY FOR ISFCL = 0]
-
-  do j = 1,jtab_v(jtv_wall)%jend(1); iv = jtab_v(jtv_wall)%iv(j)
-     arv(2:nza,iv) = 0.
-     lpv(iv) = nza
-  enddo
-
   ! Lateral boundary copy of ARV
 
   do j = 1,jtab_v(jtv_lbcp)%jend(1); iv = jtab_v(jtv_lbcp)%iv(j)
@@ -1534,6 +1524,8 @@ subroutine ctrlvols_hex()
 
      volt(nza,iw) = arw0(iw) * dzt(nza)
   enddo
+  !$omp end parallel do
+
   nve2_max = maxval(lve2(:))
 
   ! Loop over all SURFACE cells
@@ -1624,3 +1616,840 @@ subroutine ctrlvols_hex()
   enddo
 
 end subroutine ctrlvols_hex
+
+!===============================================================================
+
+subroutine ctrlvols_hex_nosfcg()
+
+  use mem_ijtabs,  only: jtab_m, jtab_v, jtab_w, itab_m, itab_v, itab_w, &
+                         jtm_grid, jtv_grid, jtv_lbcp, jtw_grid, jtw_lbcp
+  use misc_coms,   only: io6, mdomain
+  use mem_grid,    only: nsw_max, nza, nma, nva, nwa, lpm, lpv, lpw, lsw, &
+                         zm, dzt, zfact, zfacm2, dnu, &
+                         arw0, arv, arw, volt, lve2, nve2_max, dzt_bot, &
+                         glatw, glonw, xew, yew, zew, topw, &
+                         glatm, glonm, xem, yem, zem, topm
+  implicit none
+
+  integer  :: j,iw,iwp,iv,ivp,im1,im2,k,km,im,iw1,iw2,iw3
+  integer :: kw,npoly,jv,iv1,iv2,iv3, ipat
+  real    :: hmin,hmax,facw, topmin, topmax
+  logical :: docheck
+
+  integer :: npats(7), kw_pats(nza,7) 
+  real    :: area_pats(nza,7)
+
+  real :: arw0_check
+
+  ! This subroutine is called instead of ctrlvols_hex when OLAM is not using
+  ! a surface grid.  It must therefore define control volume parameters directly
+  ! from topography info, which it first obtains from a call to topo_init.
+
+  ! Initialize TOPW and TOPM by calling topo_init
+
+  call topo_init(nwa,topw,glatw,glonw,xew,yew,zew)  
+  call topo_init(nma,topm,glatm,glonm,xem,yem,zem)  
+ 
+  ! Prevent TOPM from being lower than lowest model level zm(1)
+
+  topm(2:nma) = max(topm(2:nma),zm(1))
+
+  write(io6,*) 'Defining control volume areas'
+
+  arw(:,:) = 0.
+
+  do j = 1,jtab_w(jtw_grid)%jend(1); iw = jtab_w(jtw_grid)%iw(j)
+     npoly = itab_w(iw)%npoly
+
+     ! Prevent TOPW from being outside the range of surrounding TOPM values
+
+     topmax = maxval(topm(itab_w(iw)%im(1:npoly)))
+     topmin = minval(topm(itab_w(iw)%im(1:npoly)))
+
+     topw(iw) = max(topmin,min(topmax,topw(iw)))
+ 
+     ! Evaluate levels where topographic surface intersects this IW column
+
+     call atm_grid_topocut(iw, npoly, npats(1:npoly), kw_pats(:,1:npoly), &
+                                                    area_pats(:,1:npoly))
+
+     arw0_check = 0.
+
+     do jv = 1,npoly
+        do ipat = 1,npats(jv)
+           kw = kw_pats(ipat,jv)
+
+           arw(kw:nza-1,iw) = arw(kw:nza-1,iw) + area_pats(ipat,jv)
+           arw0_check       = arw0_check       + area_pats(ipat,jv)
+
+           lsw(iw) = max(lsw(iw), kw - lpw(iw) + 1)
+        enddo
+     enddo
+
+     ! Check for equality between arw0 and arw0_check
+
+     if (abs(arw0(iw) - arw0_check) > 1.e-6*min(arw0(iw),arw0_check)) then
+        print*, 'arw0_check ',iw,arw0(iw),arw0_check,arw0(iw)/arw0_check
+     endif
+
+  enddo
+
+  ! Loop over all ATM cells and close those whose ARW is below a specified limit
+
+GOTO 1
+
+  do j = 1,jtab_w(jtw_grid)%jend(1); iw = jtab_w(jtw_grid)%iw(j)
+     do k = nza-1, 2, -1
+        if (arw(k,iw) < 0.2 * arw0(iw)) then
+           arw (1:k,iw) = 0.0
+           exit
+        endif
+     enddo
+  enddo
+
+1 CONTINUE
+
+  ! Lateral boundary copy of ARW
+
+  do j = 1,jtab_w(jtw_lbcp)%jend(1); iw = jtab_w(jtw_lbcp)%iw(j)
+     iwp = itab_w(iw)%iwp
+     arw (:,iw) = arw (:,iwp)
+  enddo
+
+  ! Loop over all ATM grid V edges and get FIRST ESTIMATE of ARV, subject to
+  ! subsequent adjustment
+
+  !$omp parallel do private(iv,im1,im2,iw1,iw2,k,hmin,hmax,km)
+  do j = 1,jtab_v(jtv_grid)%jend(1); iv = jtab_v(jtv_grid)%iv(j)
+     im1 = itab_v(iv)%im(1); im2 = itab_v(iv)%im(2)
+     iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
+
+     arv(1,iv) = 0.
+
+     if (dnu(iv) < 1.e-6) then
+
+        do k = 2,nza
+           arv(k,iv) = 0.
+        enddo
+
+     else
+
+        if (topm(im2) > topm(im1)) then
+           hmin = topm(im1)
+           hmax = topm(im2)
+        else
+           hmin = topm(im2)
+           hmax = topm(im1)
+        endif
+
+        do k = nza,2,-1
+           km = k - 1
+
+           if (k < nza .and. (arw(k,iw1) <= 1.e-9 .or. arw(k,iw2) <= 1.e-9)) then
+
+              ! close V if top of either T neighbor is completely closed
+              arv(k,iv) = 0.
+
+           elseif (zm(k) <= hmin) then
+
+              ! close V if below terrain height
+              arv(k,iv) = 0.
+
+           elseif (zm(km) >= hmax) then
+
+              arv(k,iv) = dnu(iv) * dzt(k)
+
+           elseif (zm(k) < hmax .and. zm(km) < hmin) then
+
+              arv(k,iv) = dnu(iv) * .5 * (zm(k) - hmin)**2 / (hmax - hmin)
+
+           elseif (zm(k) <  hmax .and. zm(km) >=  hmin) then
+
+              arv(k,iv) = dnu(iv) * dzt(k)  &
+                 * (.5 * (zm(k) + zm(km)) - hmin) / (hmax - hmin)
+
+           elseif (zm(k) >= hmax .and. zm(km) < hmin) then
+
+              arv(k,iv) = dnu(iv) * (zm(k) - .5 * (hmax + hmin))
+
+           elseif (zm(k) >= hmax .and. zm(km) >=  hmin) then
+
+              arv(k,iv) = dnu(iv)  &
+                 * (dzt(k) - .5 * (hmax - zm(km)) ** 2 / (hmax - hmin))
+
+           else
+
+              write(io6,*) 'arv option not reached ',k,iv,j,  &
+                 zm(k),zm(km),hmax,hmin
+              stop 'stop arv defn'
+
+           endif
+
+GOTO 2
+
+           if (arv(k,iv) < 0.2 * dnu(iv) * dzt(k)) then
+              arv(1:k,iv) = 0.0
+              exit
+           endif
+
+2 CONTINUE
+
+        enddo ! k
+
+     endif
+
+  enddo ! j,iv
+  !$omp end parallel do
+
+  ! option for stability: if hexagon has only one lateral face open, close entire cell
+
+  docheck = .true.
+  do while (docheck)
+
+     docheck = .false.
+     do j = 1,jtab_w(jtw_grid)%jend(1); iw = jtab_w(jtw_grid)%iw(j)
+
+        npoly = itab_w(iw)%npoly
+
+        do k = nza-1, 2, -1
+
+           if ( count( arv( k,itab_w(iw)%iv(1:npoly) ) < 1.e-8 ) == npoly-1 ) then
+              docheck = .true.
+              arw (1:k,iw) = 0.0
+              arv (1:k,itab_w(iw)%iv(1:npoly)) = 0.0
+              exit
+           endif
+        enddo
+     enddo
+
+  enddo
+
+  ! Lateral boundary copy of ARV
+
+  do j = 1,jtab_v(jtv_lbcp)%jend(1); iv = jtab_v(jtv_lbcp)%iv(j)
+     ivp = itab_v(iv)%ivp
+     arv(:,iv) = arv(:,ivp)
+  enddo
+
+  ! Lateral boundary copy of ARW
+
+  do j = 1,jtab_w(jtw_lbcp)%jend(1); iw = jtab_w(jtw_lbcp)%iw(j)
+     iwp = itab_w(iw)%iwp
+     arw (:,iw) = arw (:,iwp)
+  enddo
+
+!===============================================================================
+! At this point, ATM cells with insufficient top ARW and/or only one ARV
+! side open have been completely closed (ARV and ARW have been set to 0)
+!===============================================================================
+! No further complete closures of ARW or ARV are allowed beyond this point,
+! although ARW will be recomputed based on closures that have already been done
+! {also, ARV may be adjusted downward if it is too large for an adjacent ARW??}
+!===============================================================================
+
+  ! At each ATM grid M point, compute upper bound for LPM and for LPW and LPV
+  ! of neighbor points using neighbor ARVs and ARWs.  This is final value for
+  ! LPM, LPV, and LPW.
+
+  lpm(2:nma) = nza
+  lpv(2:nva) = nza
+  lpw(2:nwa) = nza
+
+  do j = 1,jtab_m(jtm_grid)%jend(1); im = jtab_m(jtm_grid)%im(j)
+
+     iv1 = itab_m(im)%iv(1)
+     iv2 = itab_m(im)%iv(2)
+     iv3 = itab_m(im)%iv(3)
+
+     iw1 = itab_m(im)%iw(1)
+     iw2 = itab_m(im)%iw(2)
+     iw3 = itab_m(im)%iw(3)
+
+     ! Loop over vertical levels from top to bottom
+
+     do k = nza,2,-1
+        if (arv(k,iv1) < .005 * dnu(iv1) * dzt(k)) exit
+        if (arv(k,iv2) < .005 * dnu(iv2) * dzt(k)) exit
+        if (arv(k,iv3) < .005 * dnu(iv3) * dzt(k)) exit
+
+        if (k < nza) then
+           if (arw(k,iw1) < .001 * arw0(iw1)) exit
+           if (arw(k,iw2) < .001 * arw0(iw2)) exit
+           if (arw(k,iw3) < .001 * arw0(iw3)) exit
+        endif
+
+        lpm(im) = k
+
+        lpv(iv1) = min(lpv(iv1),k)
+        lpv(iv2) = min(lpv(iv2),k)
+        lpv(iv3) = min(lpv(iv3),k)
+
+        lpw(iw1) = min(lpw(iw1),k)
+        lpw(iw2) = min(lpw(iw2),k)
+        lpw(iw3) = min(lpw(iw3),k)
+     enddo
+
+  enddo
+
+  lsw(:)  = 1
+  nsw_max = 1
+
+  do j = 1,jtab_w(jtw_grid)%jend(1); iw = jtab_w(jtw_grid)%iw(j)
+
+     ! Loop over vertical levels from top to bottom
+
+     do k = nza-1,2,-1
+
+        ! Increase LSW if this W level intersects topography in this cell
+
+        if (arw(k,iw) > 0. .and. arw(k,iw) < .999 * arw0(iw)) then
+           lsw(iw) = lsw(iw) + 1
+        endif
+
+     enddo  ! k
+
+     nsw_max = max(nsw_max, lsw(iw))
+  enddo
+
+  volt(:,:) = 0.
+  lve2(:)   = 0.
+
+  ! Loop over all ATM grid columns
+
+  !$omp parallel do private(iw,k,facw,jv,iv)
+  do j = 1,jtab_w(jtw_grid)%jend(1); iw = jtab_w(jtw_grid)%iw(j)
+
+     ! Loop over vertical levels
+
+     do k = lpw(iw),nza-1
+
+        ! Define volt based on ARVs and on ARW at top of cell such that
+        ! area-to-volume ratio is not greater than that for fully open cell
+
+        facw = 0.
+        do jv = 1,itab_w(iw)%npoly
+           iv = itab_w(iw)%iv(jv)
+           ! Each V face contributes to open up its fraction farv
+           ! of the current polygon:
+           facw = facw + 1.5 * itab_w(iw)%farv(jv) * arv(k,iv) / (dnu(iv) * dzt(k))
+        enddo
+        facw = max( min(facw,1.0), 0.0)
+
+ !!       volt(k,iw) = max( arw(k,iw) * dzt(k), arw0(iw) * dzt(k) * facw )
+ !!       volt(k,iw) = arw(k,iw) * dzt(k)
+        volt(k,iw) = arw0(iw) * dzt(k)
+     enddo
+
+     ! Compute number of underground v[xyz]e2 levels in this IW column
+
+     do jv = 1, itab_w(iw)%npoly
+        iv = itab_w(iw)%iv(jv)
+        lve2(iw) = max(lve2(iw), lpv(iv) - lpw(iw))
+     enddo
+
+     volt(nza,iw) = arw0(iw) * dzt(nza)
+  enddo
+  !$omp end parallel do
+
+  nve2_max = maxval(lve2(:))
+
+  if (mdomain < 2) then
+
+     ! Expand ARW and VOLT with height for spherical geometry
+
+     do j = 1,jtab_w(jtw_grid)%jend(1); iw = jtab_w(jtw_grid)%iw(j)
+        do k = lpw(iw), nza
+           arw (k,iw) = arw (k,iw) * zfacm2(k)
+           volt(k,iw) = volt(k,iw) * zfact(k)**2
+        enddo
+     enddo
+
+     ! Expand ARV with height for spherical geometry
+
+     do j = 1,jtab_v(jtv_grid)%jend(1); iv = jtab_v(jtv_grid)%iv(j)
+        do k = lpv(iv), nza
+           arv(k,iv) = arv(k,iv) * zfact(k)
+        enddo
+     enddo
+
+  endif
+
+  ! Lateral boundary copy of ARW, VOLT, LPW, and LSW
+
+  do j = 1,jtab_w(jtw_lbcp)%jend(1); iw = jtab_w(jtw_lbcp)%iw(j)
+     iwp = itab_w(iw)%iwp
+
+     arw  (:,iw) = arw  (:,iwp)
+     volt (:,iw) = volt (:,iwp)
+     lpw    (iw) = lpw    (iwp)
+     lsw    (iw) = lsw    (iwp)
+  enddo
+
+  ! Lateral boundary copy of ARV
+
+  do j = 1,jtab_v(jtv_lbcp)%jend(1); iv = jtab_v(jtv_lbcp)%iv(j)
+     ivp = itab_v(iv)%ivp
+
+     arv(:,iv) = arv(:,ivp)
+     lpv(iv) = lpv(ivp)
+  enddo
+
+end subroutine ctrlvols_hex_nosfcg
+
+!============================================================================
+
+subroutine atm_grid_topocut(iw, npoly, npats, kw_pats, area_pats)
+
+  use mem_grid,   only: nza, zm, topm, topw, dnv, dniu, &
+                        xem, yem, zem, xev, yev, zev, xew, yew, zew
+  use mem_ijtabs, only: itab_w
+
+  implicit none
+
+  integer, intent(in)    :: iw, npoly
+  integer, intent(inout) :: npats(npoly), kw_pats(nza,npoly) 
+  real,    intent(inout) :: area_pats(nza,npoly)
+
+  integer :: jv, jm1, jm2, iv, im1, im2
+  integer :: t1, t2, t3, ipat
+  integer :: jp1, jp2
+
+  real :: z1,z2,z3,x1,x2,x3,y1,y2,y3
+  real :: xm1, ym1, xm2, ym2
+  real :: area
+  real :: zmpat(5,nza), xmpat(5,nza), ympat(5,nza)
+  integer :: tmpat(5,nza)  ! Flag denoting the edge or vertex where a new M 
+                           ! point is defined
+  integer :: kmpat(5,nza)
+  integer :: kwpat(nza),lpoly(nza),npat
+  real :: dvm1, dvm2
+
+  ! Loop over all polygon edges
+
+  do jv = 1,npoly
+     jm1 = jv - 1
+     if (jm1 == 0) jm1 = npoly
+     jm2 = jv
+
+     iv  = itab_w(iw)%iv(jv)
+     im1 = itab_w(iw)%im(jm1)
+     im2 = itab_w(iw)%im(jm2)
+
+     ! Each triangular sector of a hexagonal (or pentagonal or heptagonal) grid
+     ! cell, formed by the IW point and two adjacent IM points, has topographic
+     ! height specified on each of its vertices, so the triangle is treated as
+     ! a planar topographic surface.  Find lines on this surface where it is
+     ! intersected by each zm level of the atmospheric grid, and construct
+     ! polygonal areas bounded by the lines of intersection and triangular
+     ! sector edges (using the algorithm in cont3f).  Each of these polygons
+     ! defines a separate contribution to the volume and surface area of a
+     ! cut cell of the atmosphere grid.
+
+     ! For cont3f algorithm, use local coordinate system with IW point at
+     ! origin and IV edge being a line of constant positive y.
+
+     dvm1 = sqrt((xev(iv) - xem(im1))**2 &
+          +      (yev(iv) - yem(im1))**2 &
+          +      (zev(iv) - zem(im1))**2)
+
+     dvm2 = sqrt((xev(iv) - xem(im2))**2 &
+          +      (yev(iv) - yem(im2))**2 &
+          +      (zev(iv) - zem(im2))**2)
+
+     x1 = 0.
+     x2 = dvm1
+     x3 = -dvm2
+     y1 = 0.
+     y2 = 0.5 * dnv(iv)
+     y3 = 0.5 * dnv(iv)
+     z1 = topw(iw)
+     z2 = topm(im1)
+     z3 = topm(im2)
+     t1 = 1
+     t2 = 2
+     t3 = 3
+
+     if     (z1 >= z2 .and. z2 >= z3) then
+        call cont3sfc2(z1,z2,z3,x1,x2,x3,y1,y2,y3,t1,t2,t3, &
+                       zmpat,xmpat,ympat,tmpat,kmpat,kwpat,lpoly,npat)
+     elseif (z1 >= z3 .and. z3 >= z2) then
+        call cont3sfc2(z1,z3,z2,x1,x3,x2,y1,y3,y2,t1,t3,t2, &
+                       zmpat,xmpat,ympat,tmpat,kmpat,kwpat,lpoly,npat)
+        call reverse_polygon(zmpat,xmpat,ympat,tmpat,kmpat,lpoly,npat)
+     elseif (z2 >= z1 .and. z1 >= z3) then
+        call cont3sfc2(z2,z1,z3,x2,x1,x3,y2,y1,y3,t2,t1,t3, &
+                       zmpat,xmpat,ympat,tmpat,kmpat,kwpat,lpoly,npat)
+        call reverse_polygon(zmpat,xmpat,ympat,tmpat,kmpat,lpoly,npat)
+     elseif (z2 >= z3 .and. z3 >= z1) then
+        call cont3sfc2(z2,z3,z1,x2,x3,x1,y2,y3,y1,t2,t3,t1, &
+                       zmpat,xmpat,ympat,tmpat,kmpat,kwpat,lpoly,npat)
+     elseif (z3 >= z1 .and. z1 >= z2) then
+        call cont3sfc2(z3,z1,z2,x3,x1,x2,y3,y1,y2,t3,t1,t2, &
+                       zmpat,xmpat,ympat,tmpat,kmpat,kwpat,lpoly,npat)
+     elseif (z3 >= z2 .and. z2 >= z1) then
+        call cont3sfc2(z3,z2,z1,x3,x2,x1,y3,y2,y1,t3,t2,t1, &
+                       zmpat,xmpat,ympat,tmpat,kmpat,kwpat,lpoly,npat)
+        call reverse_polygon(zmpat,xmpat,ympat,tmpat,kmpat,lpoly,npat)
+     endif
+
+     ! Loop over new patches that have been found in this sector
+
+     do ipat = 1,npat
+
+        ! Compute polygon area
+
+        area = 0.
+
+        do jp1 = 1,lpoly(ipat)
+           jp2 = jp1 + 1
+           if (jp2 > lpoly(ipat)) jp2 = 1
+
+           xm1 = xmpat(jp1,ipat)
+           ym1 = ympat(jp1,ipat)
+
+           xm2 = xmpat(jp2,ipat)
+           ym2 = ympat(jp2,ipat)
+
+           area = area + 0.5 * (xm1 * ym2 - xm2 * ym1)
+        enddo ! jp1
+
+        npats         (jv) = npat
+        kw_pats  (ipat,jv) = kwpat(ipat)
+        area_pats(ipat,jv) = area
+
+     enddo  ! ipat
+
+  enddo   ! jv
+
+end subroutine atm_grid_topocut
+
+!===============================================================================
+
+subroutine cont3sfc2(z1,z2,z3,x1,x2,x3,y1,y2,y3,t1,t2,t3,zmpat,xmpat,ympat,tmpat,kmpat,kwpat,lpoly,npat)
+
+  use mem_grid, only: nza, zm
+
+  implicit none
+
+  real,    intent(in   ) :: z1,z2,z3,x1,x2,x3,y1,y2,y3
+  integer, intent(in   ) :: t1,t2,t3
+  real,    intent(inout) :: zmpat(5,nza), xmpat(5,nza), ympat(5,nza)
+  integer, intent(inout) :: tmpat(5,nza), kmpat(5,nza)
+  integer, intent(out  ) :: kwpat(nza),lpoly(nza),npat
+
+  integer :: to1, to2, km, iflag
+  real :: zo1, zo2, xo1, xo2, yo1, yo2, contlev ! "old" values of xmpat1,xmpat2,ympat1,ympat2
+
+  ! Determine lowest zm level that exceeds z3, the lowest triangle vertex
+
+  km = 1
+  do while (z3 >= zm(km) .and. km < nza-1)
+     km = km + 1
+  enddo
+  contlev = zm(km)
+  npat = 1
+  kmpat(:,:) = 0
+
+  ! If all 3 points are in the same contour interval
+
+  if (contlev >= z1 .or. contlev <= z3) then
+
+     zmpat(1,npat) = z1
+     xmpat(1,npat) = x1
+     ympat(1,npat) = y1
+     tmpat(1,npat) = t1
+
+     zmpat(2,npat) = z2
+     xmpat(2,npat) = x2
+     ympat(2,npat) = y2
+     tmpat(2,npat) = t2
+
+     zmpat(3,npat) = z3
+     xmpat(3,npat) = x3
+     ympat(3,npat) = y3
+     tmpat(3,npat) = t3
+
+     kwpat(npat) = km
+
+     lpoly(npat) = 3
+
+     return
+  endif
+
+  ! Draw all contour lines of value less than z1
+
+  iflag = 0
+
+  do while (contlev < z1)
+
+     if (iflag > 0) then
+        zo1 = zmpat(1,npat-1)
+        xo1 = xmpat(1,npat-1)
+        yo1 = ympat(1,npat-1)
+        to1 = tmpat(1,npat-1)
+
+        zo2 = zmpat(2,npat-1)
+        xo2 = xmpat(2,npat-1)
+        yo2 = ympat(2,npat-1)
+        to2 = tmpat(2,npat-1)
+     endif
+
+     if ( abs(z1-z3) > 1.e-25 ) then
+        zmpat(1,npat) = contlev
+        xmpat(1,npat) = x3 + (x1-x3) * (contlev-z3) / (z1-z3)
+        ympat(1,npat) = y3 + (y1-y3) * (contlev-z3) / (z1-z3)
+        tmpat(1,npat) = t2*10
+        kmpat(1,npat) = km
+     else
+        zmpat(1,npat) = z3
+        xmpat(1,npat) = x3
+        ympat(1,npat) = y3
+        tmpat(1,npat) = t3
+     endif
+
+     if (contlev < z2) then
+
+        if ( abs(z2-z3) > 1.e-25 ) then
+           zmpat(2,npat) = contlev
+           xmpat(2,npat) = x3 + (x2-x3) * (contlev-z3) / (z2-z3)
+           ympat(2,npat) = y3 + (y2-y3) * (contlev-z3) / (z2-z3)
+           tmpat(2,npat) = t1*10
+           kmpat(2,npat) = km
+        else
+           zmpat(2,npat) = z3
+           xmpat(2,npat) = x3
+           ympat(2,npat) = y3
+           tmpat(2,npat) = t3
+        endif
+
+        if (iflag == 0) then  ! lowest contour interval: z3 is a node
+           zmpat(3,npat) = z3
+           xmpat(3,npat) = x3   
+           ympat(3,npat) = y3
+           tmpat(3,npat) = t3
+
+           kwpat(npat) = km
+           lpoly(npat) = 3
+        else
+           zmpat(3,npat) = zo2
+           xmpat(3,npat) = xo2
+           ympat(3,npat) = yo2
+           tmpat(3,npat) = to2
+           kmpat(3,npat) = km - 1
+
+           zmpat(4,npat) = zo1
+           xmpat(4,npat) = xo1
+           ympat(4,npat) = yo1
+           tmpat(4,npat) = to1
+           kmpat(4,npat) = km - 1
+
+           kwpat(npat) = km
+           lpoly(npat) = 4
+        endif
+
+        if (km == nza-1) then  ! highest model level: z1 and z2 are nodes
+                               ! (should not actually happen)
+           zmpat(3,npat) = z2
+           xmpat(3,npat) = x2
+           ympat(3,npat) = y2
+           tmpat(3,npat) = t2
+
+           zmpat(4,npat) = z1         
+           xmpat(4,npat) = x1         
+           ympat(4,npat) = y1
+           tmpat(4,npat) = t1
+
+           kwpat(npat) = km
+           lpoly(npat) = 4
+
+           return
+        elseif (zm(km+1) >= z1) then  ! highest contour interval:
+                                      ! z1 and z2 are nodes
+           zmpat(1,npat+1) = zmpat(2,npat)
+           xmpat(1,npat+1) = xmpat(2,npat)
+           ympat(1,npat+1) = ympat(2,npat)
+           tmpat(1,npat+1) = tmpat(2,npat)
+           kmpat(1,npat+1) = km
+
+           zmpat(2,npat+1) = zmpat(1,npat)
+           xmpat(2,npat+1) = xmpat(1,npat)
+           ympat(2,npat+1) = ympat(1,npat)
+           tmpat(2,npat+1) = tmpat(1,npat)
+           kmpat(2,npat+1) = km
+
+           zmpat(3,npat+1) = z1
+           xmpat(3,npat+1) = x1
+           ympat(3,npat+1) = y1
+           tmpat(3,npat+1) = t1
+
+           zmpat(4,npat+1) = z2         
+           xmpat(4,npat+1) = x2         
+           ympat(4,npat+1) = y2
+           tmpat(4,npat+1) = t2
+
+           kwpat(npat+1) = km + 1
+           lpoly(npat+1) = 4
+
+           npat = npat + 1
+
+           return
+        endif
+
+        iflag = 1
+
+     else   
+
+        if ( abs(z1-z2) > 1.e-25 ) then
+           zmpat(2,npat) = contlev
+           xmpat(2,npat) = x2 + (x1-x2) * (contlev-z2) / (z1-z2)
+           ympat(2,npat) = y2 + (y1-y2) * (contlev-z2) / (z1-z2)
+           tmpat(2,npat) = t3*10
+           kmpat(2,npat) = km
+        else
+           zmpat(2,npat) = z2
+           xmpat(2,npat) = x2
+           ympat(2,npat) = y2
+           tmpat(2,npat) = t2
+        endif
+
+        if (iflag == 0) then  ! lowest contour color: z2 and z3 are nodes
+           zmpat(3,npat) = z2
+           xmpat(3,npat) = x2
+           ympat(3,npat) = y2
+           tmpat(3,npat) = t2
+
+           zmpat(4,npat) = z3        
+           xmpat(4,npat) = x3        
+           ympat(4,npat) = y3         
+           tmpat(4,npat) = t3
+
+           kwpat(npat) = km
+           lpoly(npat) = 4
+        elseif (iflag == 1) then ! switching from contlev < z2 to contlev > z2
+           zmpat(3,npat) = z2
+           xmpat(3,npat) = x2
+           ympat(3,npat) = y2
+           tmpat(3,npat) = t2
+
+           zmpat(4,npat) = zo2
+           xmpat(4,npat) = xo2
+           ympat(4,npat) = yo2
+           tmpat(4,npat) = to2
+           kmpat(4,npat) = km - 1
+
+           zmpat(5,npat) = zo1         
+           xmpat(5,npat) = xo1         
+           ympat(5,npat) = yo1
+           tmpat(5,npat) = to1
+           kmpat(5,npat) = km - 1
+
+           kwpat(npat) = km
+           lpoly(npat) = 5
+        else                     ! keeping to contlev > z2
+           zmpat(3,npat) = zo2
+           xmpat(3,npat) = xo2
+           ympat(3,npat) = yo2
+           tmpat(3,npat) = to2
+           kmpat(3,npat) = km - 1
+
+           zmpat(4,npat) = zo1
+           xmpat(4,npat) = xo1
+           ympat(4,npat) = yo1
+           tmpat(4,npat) = to1
+           kmpat(4,npat) = km - 1
+
+           kwpat(npat) = km
+           lpoly(npat) = 4
+        endif
+
+        if (km == nza-1) then  ! highest model level: z1 is a node 
+           zmpat(3,npat) = z1  ! (should not actually happen)
+           xmpat(3,npat) = x1  ! (should not actually happen)
+           ympat(3,npat) = y1
+           tmpat(3,npat) = t1
+
+           kwpat(npat) = km
+           lpoly(npat) = 3
+
+           return
+        elseif (zm(km+1) >= z1) then  ! highest contour interval: z1 is a node
+           zmpat(1,npat+1) = zmpat(2,npat)
+           xmpat(1,npat+1) = xmpat(2,npat)
+           ympat(1,npat+1) = ympat(2,npat)
+           tmpat(1,npat+1) = tmpat(2,npat)
+           kmpat(1,npat+1) = km
+
+           zmpat(2,npat+1) = zmpat(1,npat)
+           xmpat(2,npat+1) = xmpat(1,npat)
+           ympat(2,npat+1) = ympat(1,npat)
+           tmpat(2,npat+1) = tmpat(1,npat)
+           kmpat(2,npat+1) = km
+
+           zmpat(3,npat+1) = z1
+           xmpat(3,npat+1) = x1
+           ympat(3,npat+1) = y1
+           tmpat(3,npat+1) = t1
+
+           kwpat(npat+1) = km + 1
+           lpoly(npat+1) = 3
+
+           npat = npat + 1
+
+           return
+        endif
+
+        iflag = 2
+
+     endif
+
+     npat = npat + 1
+     km = km + 1
+     contlev = zm(km)
+
+  enddo
+
+end subroutine cont3sfc2
+
+!==========================================================================
+
+subroutine reverse_polygon(zmpat, xmpat, ympat, tmpat, kmpat, lpoly, npat)
+
+  use mem_grid, only: nza
+
+  implicit none
+
+  real,    intent(inout) :: zmpat(5,nza), xmpat(5,nza), ympat(5,nza)
+  integer, intent(inout) :: tmpat(5,nza), kmpat(5,nza)
+  integer, intent(in   ) :: npat, lpoly(nza)
+
+  integer :: ipat, j, jc, istore
+  real :: store
+
+  do ipat = 1,npat
+     do j = 1,lpoly(ipat) / 2
+        jc = lpoly(ipat) + 1 - j
+
+        store = zmpat(j,ipat)
+        zmpat(j,ipat) = zmpat(jc,ipat)
+        zmpat(jc,ipat) = store
+
+        store = xmpat(j,ipat)
+        xmpat(j,ipat) = xmpat(jc,ipat)
+        xmpat(jc,ipat) = store
+
+        store = ympat(j,ipat)
+        ympat(j,ipat) = ympat(jc,ipat)
+        ympat(jc,ipat) = store
+
+        istore = tmpat(j,ipat)
+        tmpat(j,ipat) = tmpat(jc,ipat)
+        tmpat(jc,ipat) = istore
+
+        istore = kmpat(j,ipat)
+        kmpat(j,ipat) = kmpat(jc,ipat)
+        kmpat(jc,ipat) = istore
+     enddo
+  enddo
+
+end subroutine reverse_polygon
+

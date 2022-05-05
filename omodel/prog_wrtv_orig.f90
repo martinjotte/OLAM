@@ -203,7 +203,7 @@ subroutine prog_wrtv_orig()
      ! Rayleigh friction on velocity gradient
 
      if (dorayfmix) then
-        call rayf_mix_top_vxe (iw, vmxet_short(:,iw), vmyet_short(:,iw), vmzet_short(:,iw))
+        call rayf_mix_top_vxe(iw, vmxet_short(:,iw), vmyet_short(:,iw), vmzet_short(:,iw))
      endif
 
   enddo
@@ -228,9 +228,9 @@ subroutine prog_wrtv_orig()
      iw2 = itab_v(iv)%iw(2)
 
      do k = lpv(iv), mza
-        vmcf (k,iv) = 1.5 * vmc(k,iv) - 0.5 * vmp(k,iv)
-        vmsc (k,iv) = vmsc(k,iv) + vmcf(k,iv)
-        vmp  (k,iv) = vmc (k,iv)
+        vmcf(k,iv) = 1.5 * vmc(k,iv) - 0.5 * vmp(k,iv)
+        vmsc(k,iv) = vmsc(k,iv) + vmcf(k,iv)
+        vmp (k,iv) = vmc (k,iv)
      enddo
 
   enddo
@@ -245,7 +245,7 @@ subroutine prog_wrtv_orig()
      call grad_z(iw, vye (:,iw), gzps_vye(:,iw))
      call grad_z(iw, vze (:,iw), gzps_vze(:,iw))
   enddo
-  !$omp end do nowait
+  !$omp end do
 
   !$omp do private(iw,k,kd)
   do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
@@ -500,15 +500,16 @@ subroutine prog_wrt_begs( iw, vmcf, wmsc,                       &
   real(r8) :: delex_rho(mza)
   real(r8) :: rhothil  (mza)
   real(r8) :: press_t  (mza)
+  real(r8) :: po_swtc  (mza)
   real(r8) :: delex_rhothil(mza)
   real(r8) :: hflux_thil(mza)
   real(r8) :: vflux_thil(mza)
   real(r8) :: thil_tend (mza)
   real(r8) :: rhoi, del_rhothil
 
-  real :: delex_wm     (mza)
-  real :: del_wm       (mza)
-  real :: fwdel_wm     (mza)
+  real :: delex_wm(mza)
+  real :: del_wm  (mza)
+  real :: fwdel_wm(mza)
   real :: r4i
 
   real :: hflux_vxe(mza)
@@ -825,6 +826,15 @@ subroutine prog_wrt_begs( iw, vmcf, wmsc,                       &
   del_wmar8(ka-1) = 0._r8
   del_wmar8(mza)  = 0._r8
 
+  ! For shallow water test cases 2 & 5, rho & press are
+  ! interpreted as water depth & height
+
+  if (nl%test_case == 2 .or. nl%test_case == 5) then
+     do k = ka, mza
+        po_swtc(k) = rho(k,iw) + fp * delex_rho(k)
+     enddo
+  endif
+
   ! Vertical loop over T points
 
   do k = ka,mza
@@ -914,7 +924,7 @@ subroutine prog_wrt_begs( iw, vmcf, wmsc,                       &
      endif
 
      do k = ka,mza
-        press(k,iw) = rho(k,iw) + topo_swtc + fp * delex_rho(k)
+        press(k,iw) = po_swtc(k) + topo_swtc
      enddo
   endif
 
@@ -931,7 +941,7 @@ subroutine prog_wrt_begs( iw, vmcf, wmsc,                       &
 
   ! Set top & bottom values of WC
 
-!  wc(ka-1,iw) = wc(ka,iw)
+  wc(ka-1,iw) = wc(ka,iw)
 
 !  wc(1:ka-2,iw) = 0.
 !  wc(mza   ,iw) = 0.

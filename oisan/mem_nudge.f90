@@ -111,18 +111,20 @@ Module mem_nudge
 
 Contains
 
-  subroutine alloc_nudge1(lwnud)
+  subroutine alloc_nudge1(lwnud,ii)
 
     use misc_coms, only: io6, rinit
     implicit none
 
-    integer, intent(in) :: lwnud
+    integer, intent(in) :: lwnud, ii
 
 !   Allocate arrays based on options (if necessary)
 
     write(io6,*) 'allocating nudge1 ', lwnud
 
-    allocate (itab_wnud(lwnud))
+    if (ii > 1) then
+       allocate (itab_wnud(lwnud))
+    endif
 
     allocate (xewnud(lwnud)) ; xewnud = rinit
     allocate (yewnud(lwnud)) ; yewnud = rinit

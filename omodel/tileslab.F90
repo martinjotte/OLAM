@@ -34,7 +34,7 @@ subroutine tileslab_horiz_mp(iplt,action)
   use oplot_coms, only: op
   use mem_grid,   only: mza, mma, mwa, lpw, zm, zt, xem, yem, zem, &
                         xev, yev, zev, xew, yew, zew, arm0
-  use mem_ijtabs, only: itab_m, itabg_m, jtab_m, jtm_vadj
+  use mem_ijtabs, only: itab_m, itabg_m, jtab_m, jtm_prog
   use misc_coms,  only: io6, iparallel
   use mem_para,   only: myrank, mgroupsize, nbytes_int, nbytes_real
 
@@ -47,7 +47,7 @@ subroutine tileslab_horiz_mp(iplt,action)
   integer,      intent(in) :: iplt
   character(1), intent(in) :: action
 
-  integer :: j, jn, jnn, jj, im, iw, npoly, iv1, iv2
+  integer :: j, jn, jnn, jj, jm, im, iw, npoly, iv1, iv2
   integer :: notavail, navail
 
   real :: hpt, vpt, psiz, vsprd
@@ -92,15 +92,11 @@ subroutine tileslab_horiz_mp(iplt,action)
 
   ! Loop over M points
 
-!  mloop: do jm = 1, jtab_m(jtm_vadj)%jend(1)
-!            im = jtab_m(jtm_vadj)%im(jm)
-  mloop: do im = 2,mma
-
-     if (itabg_m( itab_m(im)%imglobe )%irank /= myrank) cycle mloop
+  mloop: do jm = 1, jtab_m(jtm_prog)%jend(1)
+            im = jtab_m(jtm_prog)%im(jm)
 
      ! For now, skip pts that don't read in topm
-
-     if (.not. itab_m(im)%loop(1)) cycle mloop
+     ! if (.not. itab_m(im)%loop(1)) cycle mloop
 
      ! Get tile plot coordinates.
 

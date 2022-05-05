@@ -69,6 +69,7 @@ subroutine scalar_transport_orig(mrl, rho_old)
 
   real :: vmsca(mza,mva)
   real :: wmsca(mza,mwa)
+  real :: scp_prev(mza,mwa)
 
 !  integer :: iwdepv(mza,mva)
 
@@ -175,6 +176,9 @@ subroutine scalar_transport_orig(mrl, rho_old)
      ! Point SCP and SCT to scalar table arrays
      scp => scalar_tab(n)%var_p(:,:)
      sct => scalar_tab(n)%var_t(:,:)
+
+     ! Save previous SCP for diffusion
+     scp_prev = scp
 
 ! Evaluate horizontal gradients of scalar field on a local polar
 ! stereographic projection
@@ -284,7 +288,7 @@ subroutine scalar_transport_orig(mrl, rho_old)
 
            ! Vertical loop over T levels to compute horizontal difusive fluxes
            do k = lpv(iv), khtopv(iv)
-              hflux(k) = hflux(k) + akhodx(k,iv) * (scp(k,iwn) - scp(k,iw))
+              hflux(k) = hflux(k) + akhodx(k,iv) * (scp_prev(k,iwn) - scp_prev(k,iw))
            enddo
 
         enddo

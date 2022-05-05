@@ -1262,6 +1262,11 @@ subroutine sfcgfile_write()
      iscr2(1:3,im) = itab_msfc(im)%iwn(1:3)
   enddo
   call shdf5_orec(ndims,idims,'itab_msfc%iwn',ivar2=iscr2)
+
+  do im = 1,nmsfc
+     iscr2(1:3,im) = itab_msfc(im)%imn(1:3)
+  enddo
+  call shdf5_orec(ndims,idims,'itab_msfc%imn',ivar2=iscr2)
   deallocate(iscr2)
 
   ! Write ITAB_V ARRAYS
@@ -1537,10 +1542,11 @@ subroutine sfcgfile_read_pd()
 
   use max_dims,   only: pathlen
   use mem_sfcg,   only: nmsfc, mmsfc, nvsfc, mvsfc, nwsfc, mwsfc, &
-                        itab_msfc_pd, itab_vsfc_pd, itab_wsfc_pd, sfcgfile
-  use mem_land,   only: nland, onland, nzg
-  use mem_lake,   only: nlake, onlake
-  use mem_sea,    only: nsea, onsea
+                        itab_msfc_pd, itab_vsfc_pd, itab_wsfc_pd, &
+                        itabg_msfc, itabg_vsfc, itabg_wsfc, sfcgfile
+  use mem_land,   only: nland, mland, onland, omland, nzg
+  use mem_lake,   only: nlake, mlake, onlake, omlake
+  use mem_sea,    only: nsea, msea, onsea, omsea
   use pom2k1d,    only: nzpom
 
 !UNN  use mem_sfcnud, only: nzg_nl, nzg_sp, kspm
@@ -1570,7 +1576,7 @@ subroutine sfcgfile_read_pd()
 
   call shdf5_open(flnm,'R')
 
-  ndims = 1
+  ndims    = 1
   idims(1) = 1
   idims(2) = 1
 
@@ -1586,6 +1592,18 @@ subroutine sfcgfile_read_pd()
   call shdf5_irec(ndims, idims, 'nzg'   , ivars=nzg)
   call shdf5_irec(ndims, idims, 'nzpom' , ivars=nzpom)
 
+  ! Copy grid dimensions
+
+  mwsfc  = nwsfc
+  mmsfc  = nmsfc
+  mvsfc  = nvsfc
+  mland  = nland
+  mlake  = nlake
+  msea   = nsea
+  omland = onland
+  omlake = onlake
+  omsea  = onsea
+
   ! In this subroutine, do not read nzg_nl, nzg_sp, or kspm from the sfcgfile.
   ! When needed for groundwater initialization, they are read by another
   ! subroutine from a sfcgfile that was written by a separate simulation.
@@ -1595,13 +1613,17 @@ subroutine sfcgfile_read_pd()
   write(io6, '(2(a,i0))')'  nwsfc = ', nwsfc, ', nzg = ', nzg
   write(io6, '(a,/)')    '==============================================='
 
-  ndims = 2
-  idims(1) = 8
-  idims(2) = nwsfc
+  ! Allocate permanent itabg data structures
 
   allocate (itab_msfc_pd(nmsfc))
   allocate (itab_vsfc_pd(nvsfc))
   allocate (itab_wsfc_pd(nwsfc))
+
+  ! Allocate permanent itabg data structures
+
+  allocate(itabg_msfc(nmsfc))
+  allocate(itabg_vsfc(nvsfc))
+  allocate(itabg_wsfc(nwsfc))
 
   ! Read ITAB_MSFC ARRAYS
 
@@ -1618,6 +1640,11 @@ subroutine sfcgfile_read_pd()
   call shdf5_irec(ndims,idims,'itab_msfc%iwn',ivar2=iscr2)
   do imsfc = 1,nmsfc
      itab_msfc_pd(imsfc)%iwn(1:3) = iscr2(1:3,imsfc)
+  enddo
+
+  call shdf5_irec(ndims,idims,'itab_msfc%imn',ivar2=iscr2)
+  do imsfc = 1,nmsfc
+     itab_msfc_pd(imsfc)%imn(1:3) = iscr2(1:3,imsfc)
   enddo
   deallocate(iscr2)
 
@@ -1947,7 +1974,7 @@ subroutine sfcgfile_read()
 
   ! Read permanent grid cell data
 
-  call shdf5_irec(ndims, idims, 'leaf_class', ivar1=sfcg%leaf_class, points=lgwsfc, stagpt=type)      
+! call shdf5_irec(ndims, idims, 'leaf_class', ivar1=sfcg%leaf_class, points=lgwsfc, stagpt=type)
   call shdf5_irec(ndims, idims, 'oge'       , ivar1=sfcg%ioge,       points=lgwsfc, stagpt=type)
   call shdf5_irec(ndims, idims, 'swm_active', lvar1=sfcg%swm_active, points=lgwsfc, stagpt=type)
   call shdf5_irec(ndims, idims, 'pom_active', lvar1=sfcg%pom_active, points=lgwsfc, stagpt=type)

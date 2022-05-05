@@ -45,7 +45,6 @@ SOURCE_FILES= \
              $(MODEL_MODS)/mem_grid.f90 \
              $(MODEL_MODS)/mem_ijtabs.f90 \
              $(MODEL_MODS)/mem_micro.f90 \
-             $(MODEL_MODS)/mem_nudge.f90 \
              $(MODEL_MODS)/mem_para.F90 \
              $(MODEL_MODS)/mem_plot.f90 \
              $(MODEL_MODS)/mem_rayf.f90 \
@@ -54,7 +53,6 @@ SOURCE_FILES= \
              $(MODEL_MODS)/micro_coms.f90 \
              $(MODEL_MODS)/misc_coms.f90 \
              $(MODEL_MODS)/nuclei_coms.f90 \
-             $(MODEL_MODS)/olam_mpi_atm.F90 \
              $(MODEL_MODS)/oname_coms.f90 \
              $(MODEL_MODS)/oplot_coms.f90 \
              $(MODEL_MODS)/plotcolors.f90 \
@@ -62,14 +60,16 @@ SOURCE_FILES= \
              $(OISAN)/asti.f90 \
              $(OISAN)/astp.F90 \
              $(OISAN)/file_inv.f90 \
+             $(OISAN)/init_nudgrid.f90 \
              $(OISAN)/isan_coms.f90 \
              $(OISAN)/isan_driver.f90 \
+             $(OISAN)/mem_nudge.f90 \
              $(OISAN)/nudge_o3.f90 \
              $(OISAN)/obs_nudge.f90 \
+             $(OISAN)/olam_mpi_nudge.F90 \
              $(OISAN)/spec_nudge.f90 \
              $(OMODEL)/alloc.f90 \
              $(OMODEL)/average_vars.f90 \
-             $(OMODEL)/cartesian.f90 \
              $(OMODEL)/cart_hex.f90 \
              $(OMODEL)/coneplot.f90 \
              $(OMODEL)/contslab.F90 \
@@ -81,6 +81,7 @@ SOURCE_FILES= \
              $(OMODEL)/history_start.f90 \
              $(OMODEL)/history_write.f90 \
              $(OMODEL)/icosahedron.f90 \
+             $(OMODEL)/init_atmgrid.f90 \
              $(OMODEL)/lateral_friction.f90 \
              $(OMODEL)/les_diag.F90 \
              $(OMODEL)/lite_vars.f90 \
@@ -89,6 +90,7 @@ SOURCE_FILES= \
              $(OMODEL)/ocio.f90 \
              $(OMODEL)/ohhi.f90 \
              $(OMODEL)/olam_grid.f90 \
+             $(OMODEL)/olam_mpi_atm.F90 \
              $(OMODEL)/olammain.F90 \
              $(OMODEL)/olamplot.f90 \
              $(OMODEL)/olam_run.F90 \
@@ -108,7 +110,6 @@ SOURCE_FILES= \
              $(OMODEL)/oplot_lib.f90 \
              $(OMODEL)/othrm.f90 \
              $(OMODEL)/para_decomp.f90 \
-             $(OMODEL)/para_init.f90 \
              $(OMODEL)/prog_wrtv_orig.f90 \
              $(OMODEL)/prog_wrtv_rk.f90 \
              $(OMODEL)/salt_dust_src.f90 \
@@ -225,12 +226,12 @@ SOURCE_FILES= \
              $(SEA)/sea_startup.f90 \
              $(SEA)/sea_swm.f90 \
              $(SEA)/sst_database_read.f90 \
+             $(SFCG)/init_sfcgrid.f90 \
              $(SFCG)/hex_grid_sfc.f90 \
              $(SFCG)/makesfc3.f90 \
              $(SFCG)/mem_sfcg.f90 \
              $(SFCG)/mem_sfcnud.f90 \
-             $(SFCG)/olam_mpi_sfcg.F90 \
-             $(SFCG)/para_init_sfcg.f90 \
+             $(SFCG)/olam_mpi_sfc.F90 \
              $(SFCG)/spawn_nest_sfc.f90 \
              $(SFCG)/surface_driver.F90 \
              $(HURRICANE)/hurricane_init.f90 \

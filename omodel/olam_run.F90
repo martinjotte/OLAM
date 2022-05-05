@@ -43,8 +43,15 @@ subroutine olam_run(name_name)
                          time_prevhist, rinit, rinit8, debug_fp, init_nans,        &
                          isubdomain, do_chem, time_bias, dtlong, ioutput, nrk_wrtv
 
-  use olam_mpi_atm,only: olam_alloc_mpi, mpi_send_w, mpi_recv_w, &
-                         alloc_mpi_sndrcv_bufs
+  use olam_mpi_atm,only: olam_mpi_atm_start, olam_mpi_atm_stop, &
+                         mpi_send_w, mpi_recv_w
+
+  use olam_mpi_sfc,only: olam_mpi_sfc_start, olam_mpi_sfc_stop, &
+                         mpi_send_wsfc, mpi_recv_wsfc
+
+  use olam_mpi_nud,only: olam_mpi_nud_start, olam_mpi_nud_stop
+
+  use mem_para,    only: myrank, compute_pario_points
 
   use leaf_coms,   only: isfcl, iupdndvi, nzs
   use sea_coms,    only: iupdsst, iupdseaice
@@ -56,7 +63,6 @@ subroutine olam_run(name_name)
   use mem_grid,    only: mma, mva, mwa, mza, alloc_gridz_other
   use mem_nudge,   only: nudflag, nudnxp, fill_jnudge, o3nudflag
   use mem_rayf,    only: rayf_init
-  use mem_para,    only: myrank
   use consts_coms, only: r8, init_consts
   use oname_coms,  only: nl
   use hcane_rz,    only: ncycle_hurrinit, icycle_hurrinit, hurricane_init, &
@@ -88,7 +94,7 @@ subroutine olam_run(name_name)
   use pbl_drivers, only: pbl_init
 
   use precursor_data, only: map_precursor
-  use olam_mpi_sfcg,  only: olam_alloc_mpi_sfcg, mpi_send_wsfc, mpi_recv_wsfc
+
   use mem_sfcnud,  only: sfcnud_write, alloc_sfcnud, sfcnud_read_init, read_gw_spinup
 
   use mem_average_vars, only: reset_davg_vars
@@ -232,46 +238,64 @@ subroutine olam_run(name_name)
      go to 1000
   endif
 
-  ! Initial allocation of communication buffer arrays based on # of nodes
-
-  call alloc_mpi_sndrcv_bufs()
-
   ! Read from GRIDFILE the fields that are needed by para_decomp
 
+  write(io6,*)
   write(io6,*) 'olam_run calling gridfile_read_pd'
 
   call gridfile_read_pd()
 
   ! If land/sea models are active, read SFCGFILE iw points
 
-  write(io6,*) 'olam_run calling sfcgfile_read_pd'
-
-  call sfcgfile_read_pd()
+  if (mdomain <= 1) then
+     write(io6,*)
+     write(io6,*) 'olam_run calling sfcgfile_read_pd'
+     call sfcgfile_read_pd()
+  endif
 
   ! If run is parallel, assign each grid cell (ATM and SFCG)
   ! to one of multiple subdomains. If not, the grid remains unchanged
 
-  write(io6,'(/,a)') 'olam_run calling para_decomp'
+  write(io6,*)
+  write(io6,*) 'olam_run calling para_decomp'
 
   call para_decomp()
 
-  write(io6,'(/,a,3i9)') 'olam_run after para_decomp',nwsfc,nland,nsea
-
   ! Set up itab data types and grid coordinate arrays for current node, and
-  ! reallocate memory for current node
+  ! reallocate memory for current node, and finish gridfile reads
 
-  write(io6,'(/,a)') 'olam_run calling para_init'
+  write(io6,*)
+  write(io6,*) 'olam_run calling init_atmgrid'
 
-  call para_init()
+  call init_atmgrid()
+
+  if (mdomain <= 1) then
+     write(io6,*)
+     write(io6,*) 'olam_run calling init_sfcgrid'
+     call init_sfcgrid()
+  endif
+
+  if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) then
+     write(io6,*)
+     write(io6,*) 'olam_run calling init_nudgrid'
+     call init_nudgrid()
+  endif
+
+  ! Select points that are writen to disk for parallel I/O (each
+  ! point can only be written once even if defined on multiple nodes)
+
+  call compute_pario_points()
 
   call grav_init()
 
-  write(io6,'(/,a)') 'olam_run calling alloc_gridz_other'
+  write(io6,*)
+  write(io6,*) 'olam_run calling alloc_gridz_other'
+
   call alloc_gridz_other()
 
   call gridset_print()
 
-  call landgrid_print()
+  if (mdomain <= 1) call landgrid_print()
 
   mwa_prog = 0
   do i=1,mwa
@@ -291,11 +315,11 @@ subroutine olam_run(name_name)
   write(io6,'(a,i8)') ' mva = ',mva
   write(io6,'(a,i8)') ' mwa = ',mwa
 
-!!  if (isfcl == 1) then
-     write(io6,'(a,i8)')   ' mwsfc = ',mwsfc
-     write(io6,'(a,i8)')   ' mland = ',mland
-     write(io6,'(a,i8)')   ' msea = ',msea
-!!  endif
+  if (mdomain <= 1) then
+     write(io6,'(a,i8)') ' mwsfc = ', mwsfc
+     write(io6,'(a,i8)') ' mland = ', mland
+     write(io6,'(a,i8)') ' msea  = ', msea
+  endif
 
   ! Initialize dtlm, dtsm, ndtrat, and nacoust,
   ! and compute the timestep schedule for all grid operations.
@@ -314,7 +338,7 @@ subroutine olam_run(name_name)
 
 !!  if (isfcl == 1) then
      write(io6,'(/,a)') 'olam_run calling fill_jtab_sfcg'
-     call fill_jtab_sfcg()
+     call fill_jtab_sfcg(mwa)
 !!  endif
 
   ! Allocate column initial state arrays
@@ -351,13 +375,18 @@ subroutine olam_run(name_name)
   call olam_mem_alloc()
 
   if (iparallel == 1) then
-     write(io6,'(/,a)') 'olam_run calling olam_alloc_mpi'
 
-     call olam_alloc_mpi(mza,mrls)
+     write(io6,'(/,a)') 'olam_run calling olam_mpi_atm_start'
+     call olam_mpi_atm_start()
 
-     write(io6,'(/,a)') 'olam_run calling olam_alloc_mpi_sfcg'
+     write(io6,'(/,a)') 'olam_run calling olam_mpi_sfc_start'
+     call olam_mpi_sfc_start()
 
-     call olam_alloc_mpi_sfcg(nzg,nzs)
+     if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) then
+        write(io6,'(/,a)') 'olam_run calling olam_mpi_sfc_start'
+        call olam_mpi_nud_start()
+     endif
+
   endif
 
   ! Allocate memory for advection and pre-compute arrays for 3rd order advection
@@ -552,9 +581,8 @@ subroutine olam_run(name_name)
      ! MPI send/recv of time-dependent SFCG, LAND, LAKE, SEA quantities
 
      if (iparallel == 1) then
-        call mpi_send_wsfc()
-        call mpi_recv_wsfc()
-
+        call mpi_send_wsfc(set='sfc_driv_end')
+        call mpi_recv_wsfc(set='sfc_driv_end')
         ! Also, send/recv vsfc?
      endif
 
@@ -890,6 +918,19 @@ subroutine olam_run(name_name)
   write(io6,'(/,a)') 'olam_run calling o_clsgks'
 
   call o_clsgks()
+
+  if (iparallel == 1) then
+     write(io6,'(/,a)') 'olam_run closing MPI communication buffers'
+
+     call olam_mpi_atm_stop()
+
+     call olam_mpi_sfc_stop()
+
+     if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) then
+        call olam_mpi_nud_stop()
+     endif
+
+  endif
 
   write(io6,'(/,a)') 'olam_run returning to olammain'
 

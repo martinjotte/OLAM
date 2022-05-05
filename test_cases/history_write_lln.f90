@@ -264,9 +264,14 @@ do iu = 2,mua
 
       raxis = sqrt(xeu(iu) ** 2 + yeu(iu) ** 2)  ! dist from earth axis
 
-      uzonal(k,iu) = (vy * xeu(iu) - vx * yeu(iu)) / raxis
-      umerid(k,iu) = vz * raxis / erad  &
-         - (vx * xeu(iu) + vy * yeu(iu)) * zeu(iu) / (raxis * erad) 
+      if (raxis > 1.e3) then
+         uzonal(k,iu) = (vy * xeu(iu) - vx * yeu(iu)) / raxis
+         umerid(k,iu) = vz * raxis / erad  &
+            - (vx * xeu(iu) + vy * yeu(iu)) * zeu(iu) / (raxis * erad) 
+      else
+         uzonal(k,iu) = 0.
+         umerid(k,iu) = 0.
+      endif
 
    enddo
 enddo

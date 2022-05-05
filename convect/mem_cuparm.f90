@@ -71,8 +71,8 @@ Contains
 
     implicit none
 
-    integer,             intent(in) :: mza, mwa, mrls
-    integer, contiguous, intent(in) :: nqparm(:)
+    integer, intent(in) :: mza, mwa, mrls
+    integer, intent(in) :: nqparm(mrls)
 
     if ( any(nqparm(1:mrls) > 0) ) then
 
@@ -147,49 +147,55 @@ Contains
 
 !===============================================================================
 
-  subroutine filltab_cuparm()
+  subroutine filltab_cuparm(mrls, nqparm)
 
     use var_tables, only: increment_vtable
+
     implicit none
 
-     if (allocated(thsrc))  call increment_vtable('THSRC', 'AW', rvar2=thsrc)
+    integer, intent(in) :: mrls
+    integer, intent(in) :: nqparm(mrls)
 
-     if (allocated(rtsrc))  call increment_vtable('RTSRC', 'AW', rvar2=rtsrc)
+    if (allocated(thsrc))  call increment_vtable('THSRC', 'AW', rvar2=thsrc)
 
-     if (allocated(umsrc))  call increment_vtable('UMSRC', 'AW', rvar2=umsrc)
+    if (allocated(rtsrc))  call increment_vtable('RTSRC', 'AW', rvar2=rtsrc)
 
-     if (allocated(vmsrc))  call increment_vtable('VMSRC', 'AW', rvar2=vmsrc)
+    if (allocated(umsrc))  call increment_vtable('UMSRC', 'AW', rvar2=umsrc)
 
-     if (allocated(aconpr)) call increment_vtable('ACONPR','AW', dvar1=aconpr)
+    if (allocated(vmsrc))  call increment_vtable('VMSRC', 'AW', rvar2=vmsrc)
 
-     if (allocated(conprr)) call increment_vtable('CONPRR','AW', rvar1=conprr)
+    if (allocated(aconpr)) call increment_vtable('ACONPR','AW', dvar1=aconpr)
 
-     if (allocated(qwcon))  call increment_vtable('QWCON', 'AW', rvar2=qwcon)
+    if (allocated(conprr)) call increment_vtable('CONPRR','AW', rvar1=conprr)
 
-     if (allocated(cbmf))   call increment_vtable('CBMF',  'AW', rvar1=cbmf)
+    if (allocated(qwcon))  call increment_vtable('QWCON', 'AW', rvar2=qwcon)
 
-     if (allocated(cddf))   call increment_vtable('CDDF',  'AW', rvar1=cddf)
+    if (allocated(cbmf))   call increment_vtable('CBMF',  'AW', rvar1=cbmf)
 
-     if (allocated(kcutop)) call increment_vtable('KCUTOP','AW', ivar1=kcutop)
+    if (allocated(cddf))   call increment_vtable('CDDF',  'AW', rvar1=cddf)
 
-     if (allocated(kcubot)) call increment_vtable('KCUBOT','AW', ivar1=kcubot)
+    if (allocated(kcutop)) call increment_vtable('KCUTOP','AW', ivar1=kcutop)
 
-     if (allocated(kudbot)) call increment_vtable('KUDBOT','AW', ivar1=kudbot)
+    if (allocated(kcubot)) call increment_vtable('KCUBOT','AW', ivar1=kcubot)
 
-     if (allocated(kddtop)) call increment_vtable('KDDTOP','AW', ivar1=kddtop)
+    if (allocated(kudbot)) call increment_vtable('KUDBOT','AW', ivar1=kudbot)
 
-     if (allocated(kddmax)) call increment_vtable('KDDMAX','AW', ivar1=kddmax)
+    if (allocated(kddtop)) call increment_vtable('KDDTOP','AW', ivar1=kddtop)
 
-     if (allocated(kddbot)) call increment_vtable('KDDBOT','AW', ivar1=kddbot)
+    if (allocated(kddmax)) call increment_vtable('KDDMAX','AW', ivar1=kddmax)
 
-     if (allocated(kstabi)) call increment_vtable('KSTABI','AW', ivar1=kstabi)
+    if (allocated(kddbot)) call increment_vtable('KDDBOT','AW', ivar1=kddbot)
 
-     if (allocated(iactcu)) call increment_vtable('IACTCU','AW', ivar1=iactcu)
+    if (allocated(kstabi)) call increment_vtable('KSTABI','AW', ivar1=kstabi)
 
-     if (allocated(cu_pwa)) call increment_vtable('CU_PWA','AW', rvar2=cu_pwa)
+    if (allocated(cu_pwa)) call increment_vtable('CU_PWA','AW', rvar2=cu_pwa)
 
-     if (allocated(cu_pev)) call increment_vtable('CU_PEV','AW', rvar2=cu_pev)
+    if (allocated(cu_pev)) call increment_vtable('CU_PEV','AW', rvar2=cu_pev)
 
-   end subroutine filltab_cuparm
+    if ( any(nqparm(1:mrls) > 0) ) then
+       if (allocated(iactcu)) call increment_vtable('IACTCU','AW', ivar1=iactcu)
+    endif
+
+  end subroutine filltab_cuparm
 
 End Module mem_cuparm

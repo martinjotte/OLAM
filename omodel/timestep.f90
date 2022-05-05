@@ -60,7 +60,7 @@ use wrtv_orig,   only: prog_wrtv_orig
 use check_nan,   only: check_nans, compute_mass_sums
 use pbl_drivers, only: pbl_driver, comp_horiz_k
 use mem_cuparm,  only: conprr
-use olam_mpi_sfcg,only: mpi_send_wsfc, mpi_recv_wsfc
+use olam_mpi_sfc,only: mpi_send_wsfc, mpi_recv_wsfc
 use hcane_rz,    only: ncycle_hurrinit, icycle_hurrinit, vortex_add_thetapert
 
 implicit none

@@ -41,10 +41,6 @@ Module mem_ijtabs
 
   integer, parameter :: mloops = 7 ! max # non-para DO loops for M,V,W pts
 
-  integer, parameter :: nloops_m = mloops + maxremote ! # M DO loops incl para
-  integer, parameter :: nloops_v = mloops + maxremote ! # V DO loops incl para
-  integer, parameter :: nloops_w = mloops + maxremote ! # W DO loops incl para
-
   ! M, U, V, and W loop indices. The last 4 letters of these indices have the
   ! following meanings:
   !
@@ -70,7 +66,7 @@ Module mem_ijtabs
   integer, parameter :: jtm_wadj = 4, jtu_wadj = 4, jtv_wadj = 4, jtw_wadj = 4
   integer, parameter :: jtm_wstn = 5, jtu_wstn = 5, jtv_wstn = 5, jtw_wstn = 5
   integer, parameter :: jtm_lbcp = 6, jtu_lbcp = 6, jtv_lbcp = 6, jtw_lbcp = 6
-  integer, parameter :: jtm_vadj = 7, jtu_wall = 7, jtv_wall = 7, jtw_vadj = 7
+  integer, parameter :: jtm_vadj = 7,                             jtw_vadj = 7
 
   integer :: nstp  ! # of finest grid acoustic timesteps in coarse grid dtlong
   integer :: istp  ! Current timestep counter from 1 to nstp
@@ -87,29 +83,31 @@ Module mem_ijtabs
   integer, allocatable :: leafstep(:)  ! flag to run leaf on any sub-timestep
 
   Type itab_m_vars             ! data structure for M pts (individual rank)
-     logical, allocatable :: loop(:) ! flag to perform each DO loop at this M pt
-
+     logical :: loop(mloops) = .false.
      integer :: npoly = 0       ! number of V/W neighbors of this M pt
      integer :: imp = 1         ! M point from which to copy this M pt's values
+     integer :: irank = -1      ! rank of parallel process at this M pt
      integer :: imglobe = 1     ! global index of this M pt (in parallel case)
      integer :: mrlm = 0        ! mesh refinement level of this M pt
      integer :: mrlm_orig = 0   ! original MRL of this M pt (hex only)
      integer :: mrow = 0        ! Full row number outside nest
      integer :: ngr = 0         ! Grid number
      integer :: iv(3) = 1       ! array of V neighbors of this M pt
+     integer :: im(3) = 1       ! array of M neighbors of this M pt
      integer :: iw(3) = 1       ! array of W neighbors of this M pt
   End Type itab_m_vars
 
   Type itab_v_vars             ! data structure for V pts (individual rank)
-     logical, allocatable :: loop(:) ! flag to perform each DO loop at this V pt
-
+     logical :: loop(mloops) = .false.
      integer :: ivp = 1       ! V pt from which to copy this V pt's values
      integer :: irank = -1    ! rank of parallel process at this V pt
      integer :: ivglobe = 1   ! global index of this V pt (in parallel case)
      integer :: mrlv = 0      ! mesh refinement level of this V pt
-     integer :: im(6) = 1     ! neighbor M pts of this V pt
-     integer :: iw(4) = 1     ! neighbor W pts of this V pt
-     integer :: iv(4) = 1     ! neighbor V pts
+!    integer :: im(6) = 1     ! neighbor M pts of this V pt
+     integer :: im(2) = 1     ! neighbor M pts of this V pt
+!    integer :: iw(4) = 1     ! neighbor W pts of this V pt
+     integer :: iw(2) = 1     ! neighbor W pts of this V pt
+!    integer :: iv(4) = 1     ! neighbor V pts
 
      real :: farw(2) = 0.     ! Interp of ARW to V control volume [VADV + VDIFF]
 
@@ -121,8 +119,7 @@ Module mem_ijtabs
   End Type itab_v_vars
 
   Type itab_w_vars             ! data structure for W pts (individual rank)
-     logical, allocatable :: loop(:) ! flag to perform each DO loop at this W pt
-
+     logical :: loop(mloops) = .false.
      integer :: npoly = 0     ! number of M/V neighbors of this W pt
      integer :: iwp = 1       ! W pt from which to copy this W pt's values
      integer :: irank = -1    ! rank of parallel process at this W pt
@@ -157,9 +154,7 @@ Module mem_ijtabs
      real :: ecvec_vz(7) = 0. ! factors converting V to earth cart. velocity
 
      integer :: iwnud(3) = 1  ! local nudpoly pts
-     real    :: fnud(3) = 0.  ! local nudpoly coeffs
-
-     !------------------------------------------------------------------------------
+     real    :: fnud (3) = 0. ! local nudpoly coeffs
 
      integer :: jsfc2  = 0 ! number of surface cells attached to this W column
      integer :: jland1 = 0 ! beginning land cell counter (if any land cells present)
@@ -171,25 +166,21 @@ Module mem_ijtabs
 
      integer, allocatable :: iwsfc (:) ! local-rank indices of attached surface cells
      integer, allocatable :: jasfc (:) ! atm j index of attached surface cells
-
   End Type itab_w_vars
 
   Type itabg_m_vars            ! data structure for M pts (global)
      integer :: im_myrank = -1 ! local (parallel subdomain) index of this M pt
-     integer :: irank = -1     ! rank of parallel process at this M pt
-     integer :: im_myrank_imp = -1 ! local M point that corresponds to global imp
+     integer :: irank     = -1 ! rank of parallel process at this M pt
   End Type itabg_m_vars
 
   Type itabg_v_vars            ! data structure for V pts (global)
      integer :: iv_myrank = -1 ! local (parallel subdomain) index of this V pt
-     integer :: irank = -1     ! rank of parallel process at this V pt
-     integer :: iv_myrank_ivp = -1 ! local V point that corresponds to global ivp
+     integer :: irank     = -1 ! rank of parallel process at this V pt
   End Type itabg_v_vars
 
   Type itabg_w_vars            ! data structure for W pts (global)
      integer :: iw_myrank = -1 ! local (parallel subdomain) index of this W pt
-     integer :: irank = -1     ! rank of parallel process at this W pt
-     integer :: iw_myrank_iwp = -1 ! local W point that corresponds to global iwp
+     integer :: irank     = -1 ! rank of parallel process at this W pt
   End Type itabg_w_vars
 
   Type jtab_m_vars
@@ -211,14 +202,19 @@ Module mem_ijtabs
      integer :: npoly = 0  ! number of V/W neighbors of this M pt
      integer :: imp   = 1  ! M point from which to copy this M pt's value
      integer :: iv(3) = 1  ! array of V neighbors of this M pt
+     integer :: im(3) = 1  ! array of M neighbors of this M pt
      integer :: iw(3) = 1  ! array of W neighbors of this M pt
+     integer :: im_myrank_imp = -1 ! local M point that corresponds to global iwp
   End Type itab_m_pd_vars
 
   Type itab_v_pd_vars      ! data structure for V pts (individual rank) on para_(decomp,init)
      integer :: ivp    = 1 ! V pt from which to copy this V pt's values
-     integer :: im(6)  = 1 ! neighbor M pts of this V pt
-     integer :: iv(4)  = 1 ! neighbor V pts
-     integer :: iw(4)  = 1 ! neighbor W pts of this V pt
+!    integer :: im(6)  = 1 ! neighbor M pts of this V pt
+     integer :: im(2)  = 1 ! neighbor M pts of this V pt
+!    integer :: iv(4)  = 1 ! neighbor V pts
+!    integer :: iw(4)  = 1 ! neighbor W pts of this V pt
+     integer :: iw(2)  = 1 ! neighbor W pts of this V pt
+     integer :: iv_myrank_ivp = -1 ! local V point that corresponds to global ivp
   End Type itab_v_pd_vars
 
   Type itab_w_pd_vars      ! data structure for W pts (individual rank) on para_(decomp,init)
@@ -227,7 +223,8 @@ Module mem_ijtabs
      integer :: im(7) = 1  ! neighbor M pts of this W pt
      integer :: iv(7) = 1  ! neighbor V pts
      integer :: iw(7) = 1  ! neighbor W pts
-     integer :: iwnud(3) = 1  ! local nudpoly pts
+     integer :: iw_myrank_iwp = -1 ! local W point that corresponds to global iwp
+     integer :: iwnud(3) = 1
   End Type itab_w_pd_vars
 
   type (itab_m_vars),  allocatable, target :: itab_m(:)
@@ -242,9 +239,9 @@ Module mem_ijtabs
   type (itabg_v_vars), allocatable, target :: itabg_v(:)
   type (itabg_w_vars), allocatable, target :: itabg_w(:)
 
-  type (jtab_m_vars) :: jtab_m(nloops_m)
-  type (jtab_v_vars) :: jtab_v(nloops_v)
-  type (jtab_w_vars) :: jtab_w(nloops_w)
+  type (jtab_m_vars) :: jtab_m(mloops)
+  type (jtab_v_vars) :: jtab_v(mloops)
+  type (jtab_w_vars) :: jtab_w(mloops)
 
 Contains
 
@@ -255,61 +252,30 @@ Contains
     implicit none
 
     integer, intent(in) :: mma, mva, mwa, input
-    integer :: im, iv, iw
 
     allocate (itab_m(mma))
     allocate (itab_v(mva))
     allocate (itab_w(mwa))
 
-    if (input == 0) then
-
-       do im = 1,mma
-          allocate(itab_m(im)%loop(mloops))
-          itab_m(im)%loop(1:mloops) = .false.
-       enddo
-
-       do iv = 1,mva
-          allocate(itab_v(iv)%loop(mloops))
-          itab_v(iv)%loop(1:mloops) = .false.
-       enddo
-
-       do iw = 1,mwa
-          allocate(itab_w(iw)%loop(mloops))
-          itab_w(iw)%loop(1:mloops) = .false.
-       enddo
-
-    else
-
-       do im = 1,mma
-          allocate(itab_m(im)%loop(nloops_m))
-          itab_m(im)%loop(1:nloops_m) = .false.
-       enddo
-
-       do iv = 1,mva
-          allocate(itab_v(iv)%loop(nloops_v))
-          itab_v(iv)%loop(1:nloops_v) = .false.
-       enddo
-
-       do iw = 1,mwa
-          allocate(itab_w(iw)%loop(nloops_w))
-          itab_w(iw)%loop(1:nloops_w) = .false.
-       enddo
-
-    endif
-
   end subroutine alloc_itabs
 
 !===============================================================================
 
-  subroutine alloc_itabs_pd(mma, mva, mwa)
+  subroutine alloc_itabs_pd(nma, nva, nwa)
 
     implicit none
 
-    integer, intent(in) :: mma, mva, mwa
+    integer, intent(in) :: nma, nva, nwa
 
-    allocate (itab_m_pd(mma))
-    allocate (itab_v_pd(mva))
-    allocate (itab_w_pd(mwa))
+    allocate (itab_m_pd(nma))
+    allocate (itab_v_pd(nva))
+    allocate (itab_w_pd(nwa))
+
+    ! Allocate permanent itabg data structures
+
+    allocate (itabg_m(nma))
+    allocate (itabg_v(nva))
+    allocate (itabg_w(nwa))
 
   end subroutine alloc_itabs_pd
 
@@ -321,150 +287,56 @@ Contains
 
     integer, intent(in) :: mma, mva, mwa, input
 
-    integer :: iw, iv, im, mrl
-    integer :: iloop, jend
-    integer :: nlm, nlv, nlw
+    integer :: iw, iv, im
+    integer :: iloop, j
 
-    if (input == 0) then
-       nlm = mloops
-       nlv = mloops
-       nlw = mloops
-    else
-       nlm = nloops_m
-       nlv = nloops_v
-       nlw = nloops_w
-    endif
+    do iloop = 1, mloops
 
-! Allocate and zero-fill jtab%jend()
+       ! Compute JTAB_M%IM
 
-    do iloop = 1,nlm
-       allocate (jtab_m(iloop)%jend(mrls))
-       jtab_m(iloop)%jend(1:mrls) = 0
-    enddo
+       allocate( jtab_m(iloop)%jend(mrls) )
+       jtab_m(iloop)%jend(1:mrls) = count( itab_m(2:mma)%loop(iloop) )
 
-    if (allocated(itab_v)) then
-       do iloop = 1,nlv
-          allocate (jtab_v(iloop)%jend(mrls))
-          jtab_v(iloop)%jend(1:mrls) = 0
-       enddo
-    endif
+       allocate( jtab_m(iloop)%im( jtab_m(iloop)%jend(1) ) )
 
-    do iloop = 1,nlw
-       allocate (jtab_w(iloop)%jend(mrls))
-       jtab_w(iloop)%jend(1:mrls) = 0
-    enddo
-
-! Compute and store jtab%jend(1)
-
-    do iloop = 1,nlm
-       jtab_m(iloop)%jend(1) = 0
-       do im = 2,mma
+       j = 0
+       do im = 2, mma
           if (itab_m(im)%loop(iloop)) then
-             jtab_m(iloop)%jend(1) = jtab_m(iloop)%jend(1) + 1
+             j = j + 1
+             jtab_m(iloop)%im(j) = im
           endif
        enddo
-       jtab_m(iloop)%jend(1) = max(1,jtab_m(iloop)%jend(1))
-    enddo
 
-    do iloop = 1,nlv
-       jtab_v(iloop)%jend(1) = 0
-       do iv = 2,mva
+       ! Compute JTAB_M%IV
+
+       allocate( jtab_v(iloop)%jend(mrls) )
+       jtab_v(iloop)%jend(1:mrls) = count( itab_v(2:mva)%loop(iloop) )
+
+       allocate( jtab_v(iloop)%iv( jtab_v(iloop)%jend(1) ) )
+
+       j = 0
+       do iv = 2, mva
           if (itab_v(iv)%loop(iloop)) then
-             jtab_v(iloop)%jend(1) = jtab_v(iloop)%jend(1) + 1
+             j = j + 1
+             jtab_v(iloop)%iv(j) = iv
           endif
        enddo
-       jtab_v(iloop)%jend(1) = max(1,jtab_v(iloop)%jend(1))
-    enddo
 
-    do iloop = 1,nlw
-       jtab_w(iloop)%jend(1) = 0
-       do iw = 2,mwa
+       ! Compute JTAB_M%IW
+
+       allocate( jtab_w(iloop)%jend(mrls) )
+       jtab_w(iloop)%jend(1:mrls) = count( itab_w(2:mwa)%loop(iloop) )
+
+       allocate( jtab_w(iloop)%iw( jtab_w(iloop)%jend(1) ) )
+
+       j = 0
+       do iw = 2, mwa
           if (itab_w(iw)%loop(iloop)) then
-             jtab_w(iloop)%jend(1) = jtab_w(iloop)%jend(1) + 1
+             j = j + 1
+             jtab_w(iloop)%iw(j) = iw
           endif
        enddo
-       jtab_w(iloop)%jend(1) = max(1,jtab_w(iloop)%jend(1))
-    enddo
 
-! Allocate and zero-fill JTAB_M%IM, JTAB_V%IV, JTAB_W%IW
-
-    do iloop = 1,nlm
-       jend = jtab_m(iloop)%jend(1)
-       allocate (jtab_m(iloop)%im(jend))
-       jtab_m(iloop)%im(1:jend) = 0
-    enddo
-
-    do iloop = 1,nlv
-       jend = jtab_v(iloop)%jend(1)
-       allocate (jtab_v(iloop)%iv(jend))
-       jtab_v(iloop)%iv(1:jend) = 0
-    enddo
-
-    do iloop = 1,nlw
-       jend = jtab_w(iloop)%jend(1)
-       allocate (jtab_w(iloop)%iw(jend))
-       jtab_w(iloop)%iw(1:jend) = 0
-    enddo
-
-! Initialize JTAB%JEND counters to zero
-
-    do iloop = 1,nlm
-       jtab_m(iloop)%jend(1:mrls) = 0
-    enddo
-
-    do iloop = 1,nlv
-       jtab_v(iloop)%jend(1:mrls) = 0
-    enddo
-
-    do iloop = 1,nlw
-       jtab_w(iloop)%jend(1:mrls) = 0
-    enddo
-
-! ///////////////////////////////////////////////////////////////////////////
-! Compute JTAB_M%IM
-! ///////////////////////////////////////////////////////////////////////////
-
-    do mrl = mrls,1,-1
-       do im = 2,mma
-          do iloop = 1,nlm
-             if (itab_m(im)%loop(iloop) .and. itab_m(im)%mrlm == mrl) then
-                jtab_m(iloop)%jend(1:mrl) = jtab_m(iloop)%jend(1:mrl) + 1
-                jtab_m(iloop)%im(jtab_m(iloop)%jend(1)) = im
-             endif
-          enddo
-       enddo
-    enddo
-
-! ///////////////////////////////////////////////////////////////////////////
-! Compute JTAB_V%IV
-! ///////////////////////////////////////////////////////////////////////////
-
-! MRL-independent loops
-
-    do mrl = mrls,1,-1
-       do iv = 2,mva
-          do iloop = 1,nlv
-             if (itab_v(iv)%loop(iloop) .and. itab_v(iv)%mrlv == mrl) then
-                jtab_v(iloop)%jend(1:mrl) = jtab_v(iloop)%jend(1:mrl) + 1
-                jtab_v(iloop)%iv(jtab_v(iloop)%jend(1)) = iv
-             endif
-          enddo
-       enddo
-    enddo
-
-! ///////////////////////////////////////////////////////////////////////////
-! Compute JTAB_W%IW
-! ///////////////////////////////////////////////////////////////////////////
-
-    do mrl = mrls,1,-1
-       do iw = 2,mwa
-          do iloop = 1,nlw
-             if (itab_w(iw)%loop(iloop) .and. itab_w(iw)%mrlw == mrl) then
-                jtab_w(iloop)%jend(1:mrl) = jtab_w(iloop)%jend(1:mrl) + 1
-                jtab_w(iloop)%iw(jtab_w(iloop)%jend(1)) = iw
-             endif
-          enddo
-       enddo
     enddo
 
   end subroutine fill_jtabs

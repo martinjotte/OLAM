@@ -3055,7 +3055,7 @@ subroutine oplot_set(iplt)
   use misc_coms,   only: io6, mdomain, deltax, iparallel
   use oplot_coms,  only: op
   use oname_coms,  only: nl
-  use mem_grid,    only: xem, yem, xew, yew, zew, zm, mma, mwa, arw0, nza, mza
+  use mem_grid,    only: xem, yem, xew, yew, zew, zm, zt, mma, mwa, arw0, nza
   use mem_sfcg,    only: sfcg, mwsfc
   use consts_coms, only: erad, pio180
   use mem_para,    only: myrank, mgroupsize
@@ -3363,7 +3363,7 @@ subroutine oplot_set(iplt)
 !    else
         op%psiz = .07 * delxmin / (op%xmax - op%xmin)
 !    endif
-     op%vsprd = 50.  ! for vert xsectn
+     op%vsprd = 0.2 * (zm(2) - zt(2))  ! for vert xsectn
 
   endif
 

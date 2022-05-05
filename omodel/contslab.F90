@@ -514,7 +514,7 @@ subroutine contslab_horiz_vn(iplt)
   use mem_grid,   only: mma, mva, mwa, zm, zt, lpv, lpw, &
                         xem, yem, zem, &
                         xev, yev, zev, xew, yew, zew
-  use mem_ijtabs, only: itab_m, itab_w, itab_v, jtab_m, jtm_vadj, &
+  use mem_ijtabs, only: itab_m, itab_w, itab_v, jtab_m, jtm_prog, &
                         jtab_w, jtw_prog
   use misc_coms,  only: io6, isubdomain, iparallel
   use mem_para,   only: myrank, mgroupsize, nbytes_int, nbytes_real
@@ -573,8 +573,8 @@ subroutine contslab_horiz_vn(iplt)
 ! FIRST LOOP is over M points for contouring V points
 !------------------------------------------------------
 
-  mloop: do jm = 1, jtab_m(jtm_vadj)%jend(1)
-            im = jtab_m(jtm_vadj)%im(jm)
+  mloop: do jm = 1, jtab_m(jtm_prog)%jend(1)
+            im = jtab_m(jtm_prog)%im(jm)
 
      ! Get plot coordinates of current M point.
 
@@ -603,12 +603,6 @@ subroutine contslab_horiz_vn(iplt)
         iv  = itab_m(im)%iv(j)
         iw1 = itab_v(iv)%iw(1)
         iw2 = itab_v(iv)%iw(2)
-
-        ! TEMPORARY FIX TO AVOID ACCESSING UNDEFINED VALUES IN PARALLEL
-
-        if (isubdomain == 1) then
-           if (itab_v(iv)%irank /= myrank) cycle mloop
-        endif
 
         ! Skip current V cell if index < 2
 
@@ -843,12 +837,6 @@ subroutine contslab_horiz_vn(iplt)
 
         iv = itab_w(iw)%iv(j)
 
-        ! TEMPORARY FIX TO AVOID ACCESSING UNDEFINED VALUES IN PARALLEL
-
-        if (isubdomain == 1) then
-           if (itab_v(iv)%irank /= myrank) cycle wloop
-        endif
-
         ! Skip current V cell if index < 2
 
         if (iv < 2) cycle wloop
@@ -1006,7 +994,7 @@ subroutine contslab_horiz_tw(iplt)
   use oplot_coms, only: op
   use mem_grid,   only: mva, mma, mwa, zm, zt, lpw, xem, yem, zem, &
                         xev, yev, zev, xew, yew, zew
-  use mem_ijtabs, only: itab_m, jtab_m, jtm_vadj
+  use mem_ijtabs, only: itab_m, jtab_m, jtm_vadj, jtm_prog
   use misc_coms,  only: io6, iparallel
   use mem_para,   only: myrank, mgroupsize, nbytes_int, nbytes_real
 
@@ -1062,8 +1050,8 @@ subroutine contslab_horiz_tw(iplt)
 
   ! Loop over M points for contouring W points
 
-  mloop: do jm = 1, jtab_m(jtm_vadj)%jend(1)
-            im = jtab_m(jtm_vadj)%im(jm)
+  mloop: do jm = 1, jtab_m(jtm_prog)%jend(1)
+            im = jtab_m(jtm_prog)%im(jm)
 
      ! Get plot coordinates of current M point.
 
@@ -1087,7 +1075,7 @@ subroutine contslab_horiz_tw(iplt)
 
      do j = 1, npoly
 
-        ! Current W point index   
+        ! Current W point index
 
         iw = itab_m(im)%iw(j)
 

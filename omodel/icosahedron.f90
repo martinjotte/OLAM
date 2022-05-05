@@ -33,13 +33,12 @@
 
 subroutine icosahedron(nxp0)
 
-  use mem_ijtabs,   only: jtm_grid, jtu_grid, jtv_grid, jtw_grid, &
-                          jtm_init, jtu_init, jtv_init, jtw_init, &
-                          jtm_prog, jtu_prog, jtv_prog, jtw_prog, &
-                          jtm_wadj, jtu_wadj, jtv_wadj, jtw_wadj, &
-                          jtm_wstn, jtu_wstn, jtv_wstn, jtw_wstn, &
-                          jtm_lbcp, jtu_lbcp, jtv_lbcp, jtw_lbcp, &
-                          jtm_vadj, jtu_wall, jtv_wall, jtw_vadj
+  use mem_ijtabs,   only: jtm_grid, jtu_grid, jtw_grid, &
+                          jtm_init, jtu_init, jtw_init, &
+                          jtm_prog, jtu_prog, jtw_prog, &
+                          jtm_wadj, jtu_wadj, jtw_wadj, &
+                          jtm_wstn, jtu_wstn, jtw_wstn, &
+                          jtm_vadj,           jtw_vadj
 
   use mem_delaunay, only: itab_md, itab_ud, itab_wd, alloc_itabsd, &
                           xemd, yemd, zemd, nmd, nud, nwd
@@ -90,7 +89,7 @@ subroutine icosahedron(nxp0)
      itab_md(im)%mrlm = 1
      itab_md(im)%mrlm_orig = 1
      itab_md(im)%ngr = 1
-     call mdloopf('f',im, jtm_grid, jtm_init, jtm_prog, jtm_wadj, jtm_wstn, 0)
+     call mdloopf('f',im, jtm_grid, jtm_init, jtm_prog, jtm_wadj, jtm_vadj, jtm_wstn)
   enddo
 
   do iu = 2,nud
@@ -100,7 +99,7 @@ subroutine icosahedron(nxp0)
 
   do iw = 2,nwd
      itab_wd(iw)%iwp = iw
-     call wdloopf('f',iw, jtw_grid, jtw_vadj, 0, 0, 0, 0)
+     call wdloopf('f',iw, jtw_grid, jtw_prog, jtw_wadj, jtw_vadj, 0, 0)
   enddo
 
   ! Fill big diamond corner coordinates

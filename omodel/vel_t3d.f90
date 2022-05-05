@@ -239,54 +239,34 @@ subroutine diagvel_t3d_init(mrl)
 
   use mem_ijtabs, only: jtab_w, itab_w, jtw_prog
   use mem_grid,   only: lpw, lve2, lpv
-  use mem_basic,  only: vc
+  use mem_basic,  only: vxe, vye, vze
 
   implicit none
 
   integer, intent(in) :: mrl
 
-  integer :: j,iw,npoly,ka,k,jv,iv,ksw,kbv
+  integer :: j,iw,ka,k,ksw
 
   if (mrl == 0 .or. icut_vel /= 1) return
 
   ! Horizontal loop over W columns
 
   !----------------------------------------------------------------------
-  !$omp parallel do private(iw,npoly,ka,k,jv,iv,kbv,ksw)
+  !$omp parallel do private(iw,ka,k,ksw)
   do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
   !----------------------------------------------------------------------
 
-     npoly = itab_w(iw)%npoly
-     ka = lpw(iw)
-
-     vxe1(:,iw) = 0.
-     vye1(:,iw) = 0.
-     vze1(:,iw) = 0.
-
      if (lve2(iw) > 0) then
 
-        ! Loop over adjacent V faces
+        ka = lpw(iw)
+        do ksw = 1, lve2(iw)
+           k = ksw + ka - 1
 
-        do jv = 1, npoly
-
-           iv  = itab_w(iw)%iv(jv)
-           kbv = lpv(iv)
-
-           ! Check if any V faces are below ground
-
-           if (ka < kbv) then
-              do k = ka, kbv-1
-                 ksw = k - ka + 1
-
-                 ! Diagnose initial vxe1, vye1, vze1 from vc at lpv level
-
-                 vxe1(ksw,iw) = vxe1(ksw,iw) + itab_w(iw)%ecvec_vx(jv) * vc(kbv,iv)
-                 vye1(ksw,iw) = vye1(ksw,iw) + itab_w(iw)%ecvec_vy(jv) * vc(kbv,iv)
-                 vze1(ksw,iw) = vze1(ksw,iw) + itab_w(iw)%ecvec_vz(jv) * vc(kbv,iv)
-              enddo
-           endif
-
+           vxe1(ksw,iw) = vxe(k,iw)
+           vye1(ksw,iw) = vye(k,iw)
+           vze1(ksw,iw) = vze(k,iw)
         enddo
+
      endif
 
   enddo

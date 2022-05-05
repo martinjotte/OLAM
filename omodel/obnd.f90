@@ -244,17 +244,19 @@ end subroutine lbcopy_v
 
 !===============================================================================
 
-subroutine lbcopy_w(mrl, a1,  a2,  a3,  a4,  a5,  a6,  a7,  a8,  a9,  a10, &
-                         a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, &
-                         d1,  d2,  s1,  s2,  v1,  v2,  v3,  v4, iv1, iv2)
+subroutine lbcopy_w(mrl, a1,  a2,  a3,  a4,  a5,  a6,  a7,  a8,  a9,  a10,   &
+                         a11, a12, a13, a14, a15, a16, a17, a18, a19, a20,   &
+                         d1,  d2,  s1,  s2,  v1,  v2,  v3,  v4, iv1, iv2, iv3)
 
-use mem_ijtabs, only: jtab_w, itab_w, jtw_lbcp
-use mem_grid,   only: mza, mwa
+use mem_ijtabs,  only: jtab_w, itab_w, jtw_lbcp
+use mem_grid,    only: mza, mwa
+use consts_coms, only: r8
 
 implicit none
 
 integer, intent(in) :: mrl
 
+! For real 2D arrays dimensioned to mza
 real, optional, intent(inout) :: a1 (mza,mwa)
 real, optional, intent(inout) :: a2 (mza,mwa)
 real, optional, intent(inout) :: a3 (mza,mwa)
@@ -276,22 +278,24 @@ real, optional, intent(inout) :: a18(mza,mwa)
 real, optional, intent(inout) :: a19(mza,mwa)
 real, optional, intent(inout) :: a20(mza,mwa)
 
+! For real*8 2D arrays dimensioned to mza
+real(8), optional, intent(inout) :: d1(mza,mwa)
+real(8), optional, intent(inout) :: d2(mza,mwa)
+
 ! 1D real vectors
 real, optional, intent(inout) :: v1(mwa)
 real, optional, intent(inout) :: v2(mwa)
 real, optional, intent(inout) :: v3(mwa)
 real, optional, intent(inout) :: v4(mwa)
 
-! For real 2D arrays where the size of the first dimension is not mza
-real, optional, contiguous, intent(inout) :: s1(:,:)
-real, optional, contiguous, intent(inout) :: s2(:,:)
-
-real(8), optional, intent(inout) :: d1(mza,mwa)
-real(8), optional, intent(inout) :: d2(mza,mwa)
-
 ! 1D integer vectors
 integer, optional, intent(inout) :: iv1(mwa)
 integer, optional, intent(inout) :: iv2(mwa)
+integer, optional, intent(inout) :: iv3(mwa)
+
+! For real 2D arrays where the size of the first dimension is not mza
+real, optional, contiguous, intent(inout) :: s1(:,:)
+real, optional, contiguous, intent(inout) :: s2(:,:)
 
 integer :: j,iw,iwp
 
@@ -341,6 +345,7 @@ do j = 1,jtab_w(jtw_lbcp)%jend(mrl); iw = jtab_w(jtw_lbcp)%iw(j)
 
    if (present(iv1)) iv1  (iw) = iv1  (iwp)
    if (present(iv2)) iv2  (iw) = iv2  (iwp)
+   if (present(iv3)) iv3  (iw) = iv3  (iwp)
 
 enddo
 !$omp end do

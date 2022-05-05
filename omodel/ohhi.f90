@@ -618,7 +618,7 @@ use mem_basic,   only: theta, thil, tair, press, rho, wc, wmc, vc, &
                        vmc, rr_w, rr_v, ue, ve, vxe, vye, vze
 use mem_micro,   only: rr_c, con_c, cldnum
 use micro_coms,  only: miclevel, ccnparm, jnmb, rxmin, zfactor_ccn
-use mem_ijtabs,  only: jtab_w, jtab_v, itab_v, jtv_init, jtw_init, jtv_wall
+use mem_ijtabs,  only: jtab_w, jtab_v, itab_v, jtv_init, jtw_init
 use misc_coms,   only: th01d, pr01d, dn01d, rt01d, u01d, v01d, iparallel
 use consts_coms, only: cvocp, p00kord, p00i, rocp, alvlocp, eps_vapi, r8
 use mem_grid,    only: mza, lpv, lpw, gdz_abov8, gdz_belo8, vcn_ew, vcn_ns, &
@@ -803,17 +803,6 @@ do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)
 
 enddo
 !$omp end parallel do
-
-! Set VMC, VC = 0 at channel (non-topo) walls
-
-!----------------------------------------------------------------------
-do j = 1,jtab_v(jtv_wall)%jend(1); iv = jtab_v(jtv_wall)%iv(j)
-!----------------------------------------------------------------------
-
-   vmc(:,iv) = 0.
-   vc (:,iv) = 0.
-
-enddo
 
 ! MPI parallel send/recv of V group
 

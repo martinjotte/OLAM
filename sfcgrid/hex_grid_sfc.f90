@@ -270,6 +270,7 @@ subroutine voronoi_sfc()
      iwd = im
      itab_msfc(im)%ivn(1:3) = itab_wd(iwd)%iu(1:3)
      itab_msfc(im)%iwn(1:3) = itab_wd(iwd)%im(1:3)
+     itab_msfc(im)%imn(1:3) = itab_wd(iwd)%iw(1:3)
   enddo
   !$omp end do
   !$omp end parallel
@@ -286,7 +287,6 @@ subroutine grid_geometry_hex_sfc()
   use misc_coms,   only: mdomain, nxp
   use consts_coms, only: erad, piu180, r8
   use oplot_coms,  only: op
-  use mem_para,    only: myrank
 
   implicit none
 
@@ -701,8 +701,6 @@ subroutine grid_geometry_hex_sfc()
   ! Plot grid lines
 
   if (.false.) then
-
-     if (myrank /= 0) return
 
      call o_reopnwk()
      call plotback()

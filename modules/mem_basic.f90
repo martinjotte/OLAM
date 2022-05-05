@@ -51,12 +51,12 @@ Module mem_basic
   real, allocatable :: theta(:,:) ! pot temp [K]
   real, allocatable :: tair (:,:) ! temperature [K]
 
-  real, allocatable :: vxe  (:,:) ! earth-relative x velocity at T point [m/s]
-  real, allocatable :: vye  (:,:) ! earth-relative y velocity at T point [m/s]
-  real, allocatable :: vze  (:,:) ! earth-relative z velocity at T point [m/s]
+  real, allocatable, target :: vxe  (:,:) ! earth-relative x velocity at T point [m/s]
+  real, allocatable, target :: vye  (:,:) ! earth-relative y velocity at T point [m/s]
+  real, allocatable         :: vze  (:,:) ! earth-relative z velocity at T point [m/s]
 
-  real, allocatable :: ue   (:,:) ! easterly wind
-  real, allocatable :: ve   (:,:) ! northerly wind
+  real, pointer, contiguous :: ue(:,:) ! easterly wind
+  real, pointer, contiguous :: ve(:,:) ! northerly wind
 
   real(r8), allocatable :: press(:,:) ! air pressure [Pa]
   real(r8), allocatable :: rho  (:,:) ! dry air density [kg/m^3]
@@ -80,7 +80,7 @@ Contains
 
   subroutine alloc_basic(mza,mva,mwa)
 
-    use misc_coms, only: rinit, rinit8, nrk_scal, nrk_wrtv
+    use misc_coms, only: rinit, rinit8, nrk_scal, nrk_wrtv, mdomain
 
     implicit none
 
@@ -92,10 +92,10 @@ Contains
     allocate (vmc  (mza,mva)) ; vmc = rinit
     allocate (vc   (mza,mva)) ; vc  = rinit
 
-    allocate (rho  (mza,mwa)) ; rho   = 0.0_r8 !rinit
+    allocate (rho  (mza,mwa)) ; rho   = 0.0_r8
     allocate (press(mza,mwa)) ; press = rinit8
     allocate (wmc  (mza,mwa)) ; wmc   = rinit
-    allocate (wc   (mza,mwa)) ; wc    = 0.0 !rinit
+    allocate (wc   (mza,mwa)) ; wc    = 0.0
     allocate (thil (mza,mwa)) ; thil  = rinit
     allocate (theta(mza,mwa)) ; theta = rinit
     allocate (tair (mza,mwa)) ; tair  = rinit
@@ -106,8 +106,13 @@ Contains
     allocate (vye  (mza,mwa)) ; vye   = rinit
     allocate (vze  (mza,mwa)) ; vze   = rinit
 
-    allocate (ue   (mza,mwa)) ; ue    = rinit
-    allocate (ve   (mza,mwa)) ; ve    = rinit
+    if (mdomain <= 1) then
+       allocate (ue(mza,mwa)) ; ue    = rinit
+       allocate (ve(mza,mwa)) ; ve    = rinit
+    else
+       ue => vxe
+       ve => vye
+    endif
 
     allocate (wmsc(mza,mwa)) ; wmsc = rinit
     allocate (vmsc(mza,mva)) ; vmsc = rinit
@@ -131,6 +136,7 @@ Contains
 !===============================================================================
 
   subroutine dealloc_basic()
+
     implicit none
 
     if (allocated(vmc))   deallocate (vmc)
@@ -151,8 +157,8 @@ Contains
     if (allocated(vye))   deallocate (vye)
     if (allocated(vze))   deallocate (vze)
 
-    if (allocated(ue))    deallocate (ue)
-    if (allocated(ve))    deallocate (ve)
+!    if (allocated(ue))    deallocate (ue)
+!    if (allocated(ve))    deallocate (ve)
 
     if (allocated(wmsc)) deallocate (wmsc)
     if (allocated(vmsc)) deallocate (vmsc)
@@ -168,6 +174,8 @@ Contains
   subroutine filltab_basic()
 
     use var_tables, only: increment_vtable
+    use misc_coms,  only: mdomain
+
     implicit none
 
     if (allocated(vmc))   call increment_vtable('VMC',  'AV', rvar2=vmc)
@@ -198,11 +206,15 @@ Contains
 
     if (allocated(vze))   call increment_vtable('VZE',  'AW', rvar2=vze)
 
-    if (allocated(ue))    call increment_vtable('UE',   'AW', rvar2=ue)
-
-    if (allocated(ve))    call increment_vtable('VE',   'AW', rvar2=ve)
-
     if (allocated(vmp))   call increment_vtable('VMP',  'AV', rvar2=vmp)
+
+
+
+!    if (allocated(ue))    call increment_vtable('UE',   'AW', rvar2=ue)
+
+!    if (allocated(ve))    call increment_vtable('VE',   'AW', rvar2=ve)
+
+
 
   end subroutine filltab_basic
 

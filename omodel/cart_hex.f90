@@ -35,18 +35,17 @@ subroutine cart_hex()
   use mem_delaunay, only: itab_md, itab_ud, itab_wd, alloc_itabsd, &
                           xemd, yemd, zemd, nmd, nud, nwd
 
-  use mem_ijtabs,   only: jtm_grid, jtu_grid, jtv_grid, jtw_grid, &
-                          jtm_init, jtu_init, jtv_init, jtw_init, &
-                          jtm_prog, jtu_prog, jtv_prog, jtw_prog, &
-                          jtm_lbcp, jtu_lbcp, jtv_lbcp, jtw_lbcp, &
-                          jtm_wadj, jtu_wadj, jtv_wadj, jtw_wadj, &
-                          jtm_wstn, jtu_wstn, jtv_wstn, jtw_wstn, &
-                          jtm_vadj, jtu_wall, jtv_wall, jtw_vadj, mrls
+  use mem_ijtabs,   only: jtm_grid, jtu_grid, jtw_grid, &
+                          jtm_init, jtu_init, jtw_init, &
+                          jtm_prog, jtu_prog, jtw_prog, &
+                          jtm_lbcp, jtu_lbcp, jtw_lbcp, &
+                          jtm_wadj, jtu_wadj, jtw_wadj, &
+                          jtm_wstn, jtu_wstn, jtw_wstn, &
+                          jtm_vadj,           jtw_vadj, mrls
 
   use mem_grid,     only: mma, mua, mwa
   use misc_coms,    only: io6, nxp, deltax
   use oplot_coms,   only: op
-  use mem_para,     only: myrank
 
   implicit none
 
@@ -75,7 +74,7 @@ subroutine cart_hex()
 
   mrls = 1  ! Default value
 
-  ! Fill temporary structured arrays with indices for all staggered 
+  ! Fill temporary structured arrays with indices for all staggered
   ! points in unstructured grid, and add up unstructured grid points.
 
   nmd = 1
@@ -136,7 +135,7 @@ subroutine cart_hex()
      itab_md(im)%mrlm = 1
      itab_md(im)%mrlm_orig = 1
      itab_md(im)%ngr = 1
-     call mdloopf('f',im, jtm_grid, jtm_init, jtm_prog, jtm_wadj, jtm_wstn, 0)
+     call mdloopf('f',im, jtm_grid, jtm_init, jtm_prog, jtm_wadj, jtm_vadj, jtm_wstn)
   enddo
 
   do iu = 2,nud
@@ -149,7 +148,7 @@ subroutine cart_hex()
      itab_wd(iw)%mrlw = 1
      itab_wd(iw)%mrlw_orig = 1
      itab_wd(iw)%ngr = 1
-     call wdloopf('f',iw, jtw_grid, jtw_vadj, 0, 0, 0, 0)
+     call wdloopf('f',iw, jtw_grid, jtw_prog, jtw_wadj, jtw_vadj, 0, 0)
   enddo
 
   ! DELTAX, whose value is defined in OLAMIN, is a measure of the
@@ -248,7 +247,7 @@ subroutine cart_hex()
               itab_ud(iu1)%iw(1) = iw1
               itab_ud(iu1)%iw(2) = iw3
            endif
-         
+
            if (ir == 1 .or. ir == 3) then
               itab_ud(iu2)%im(1) = im1
               itab_ud(iu2)%im(2) = im4
@@ -284,7 +283,7 @@ subroutine cart_hex()
            if (i == 1 .and. j == 1) then
 
               itab_md(im1)%imp = jm1(2,2,irp)
-              call mdloopf('f',im1, jtm_lbcp, jtm_wadj, jtm_wstn, 0, 0, 0)
+              call mdloopf('f',im1, jtm_lbcp, jtm_wadj, jtm_vadj, jtm_wstn, 0, 0)
 
               if (ir == 2) then
                  itab_ud(iu1)%iup = ju3(2,1,irm)
@@ -303,16 +302,16 @@ subroutine cart_hex()
 
               itab_wd(iw3)%iwp = jw2(2,1,irm)
               itab_wd(iw3)%iu(1) = iu1
-              call wdloopf('f',iw3, jtw_lbcp, 0, 0, 0, 0, 0)
+              call wdloopf('f',iw3, jtw_lbcp, jtw_wadj, jtw_vadj, 0, 0, 0)
 
               itab_wd(iw4)%iwp = jw1(2,2,irp)
               itab_wd(iw4)%iu(1) = iu3
-              call wdloopf('f',iw4, jtw_lbcp, 0, 0, 0, 0, 0)
+              call wdloopf('f',iw4, jtw_lbcp, jtw_wadj, jtw_vadj, 0, 0, 0)
 
            elseif (i == 1) then
 
               itab_md(im1)%imp = jm1(j+1,2,irp)
-              call mdloopf('f',im1, jtm_lbcp, jtm_wadj, jtm_wstn, 0, 0, 0)
+              call mdloopf('f',im1, jtm_lbcp, jtm_wadj, jtm_vadj, jtm_wstn, 0, 0)
 
               if (ir /= 2) then
                  itab_ud(iu1)%iup = ju2(j,1,irp)
@@ -329,13 +328,13 @@ subroutine cart_hex()
 
               itab_wd(iw4)%iwp = jw1(j+1,2,irp)
               itab_wd(iw4)%iu(1) = iu3
-              call wdloopf('f',iw4, jtw_lbcp, 0, 0, 0, 0, 0)
+              call wdloopf('f',iw4, jtw_lbcp, jtw_wadj, jtw_vadj, 0, 0, 0)
 
            elseif (j == 1) then
 
               itab_md(im1)%imp = jm1(2,i,irm)
-              call mdloopf('f',im1, jtm_lbcp, jtm_wadj, jtm_wstn, 0, 0, 0)
-              
+              call mdloopf('f',im1, jtm_lbcp, jtm_wadj, jtm_vadj, jtm_wstn, 0, 0)
+
               call udloopf('f',iu1, jtu_lbcp, 0, 0, 0, 0, 0)
 
               if (i == nxp+1 .and. ir == 2) then
@@ -362,7 +361,7 @@ subroutine cart_hex()
                  itab_wd(iw3)%iwp = jw2(2,i,irm)
               endif
               itab_wd(iw3)%iu(1) = iu1
-              call wdloopf('f',iw3, jtw_lbcp, 0, 0, 0, 0, 0)
+              call wdloopf('f',iw3, jtw_lbcp, jtw_wadj, jtw_vadj, 0, 0, 0)
 
            endif
 
@@ -411,7 +410,7 @@ subroutine cart_hex()
         if (i == 1) then
 
            itab_md(im1)%imp = jm1(2,nxp+1,irm)
-           call mdloopf('f',im1, jtm_lbcp, jtm_wadj, jtm_wstn, 0, 0, 0)
+           call mdloopf('f',im1, jtm_lbcp, jtm_wadj, jtm_vadj, jtm_wstn, 0, 0)
 
            if (ir /= 2) then
               itab_ud(iu1)%iup = ju2(nxp+1,1,irp)
@@ -429,8 +428,6 @@ subroutine cart_hex()
   ! Plot grid lines
 
   if (.false.) then
-
-     if (myrank /= 0) return
 
      call o_reopnwk()
      call plotback()
@@ -508,7 +505,7 @@ subroutine cart4_hex()
                         jtm_lbcp, jtv_lbcp, jtw_lbcp, &
                         jtm_wadj, jtv_wadj, jtw_wadj, &
                         jtm_wstn, jtv_wstn, jtw_wstn, &
-                        jtm_vadj, jtv_wall, jtw_vadj
+                        jtm_vadj,           jtw_vadj
 
   use mem_grid,   only: nma, nua, nva, nwa, mma, mua, mva, mwa, &
                         xem, yem, zem, xew, yew, zew, &
@@ -518,7 +515,7 @@ subroutine cart4_hex()
 
   implicit none
 
-  integer :: i, j, iw, im, iv
+  integer :: i, j, iw, im, iv, im1, im2
   integer :: jw(11), jaw(11), jzw(11)
   integer :: jm(29), jam(29), jzm(29)
   integer :: jv(28), jav(28), jzv(28)
@@ -695,10 +692,10 @@ subroutine cart4_hex()
      yem(jm( 7:23:8)) = -1.75 * unit_dist / sqrt(3.)
      yem(jm(16     )) = -2.75 * unit_dist / sqrt(3.) 
 
-     call wloopf('f',jw(5), jtw_lbcp, jtw_wadj, jtw_wstn, 0, 0, 0)
-     call wloopf('f',jw(6), jtw_grid, jtw_init, jtw_prog, jtw_wadj, jtw_wstn, 0)
-     call wloopf('f',jw(7), jtw_grid, jtw_init, jtw_prog, jtw_wadj, jtw_wstn, 0)
-     call wloopf('f',jw(8), jtw_lbcp, jtw_wadj, jtw_wstn, 0, 0, 0)
+     call wloopf('f',jw(5), jtw_lbcp, jtw_wadj, jtw_wstn, jtw_vadj, 0, 0)
+     call wloopf('f',jw(6), jtw_grid, jtw_init, jtw_prog, jtw_wadj, jtw_wstn, jtw_vadj)
+     call wloopf('f',jw(7), jtw_grid, jtw_init, jtw_prog, jtw_wadj, jtw_wstn, jtw_vadj)
+     call wloopf('f',jw(8), jtw_lbcp, jtw_wadj, jtw_wstn, jtw_vadj, 0, 0)
 
      itab_w(jw(5))%iwp   = jw(7)
 
@@ -758,13 +755,13 @@ subroutine cart4_hex()
 
      itab_w(jw(8))%iwp = jw(6)
 
-     call mloopf('f',jm(10), jtm_lbcp, jtm_grid, 0, 0, 0, 0)
-     call mloopf('f',jm(11), jtm_grid, jtm_vadj, 0, 0, 0, 0)
-     call mloopf('f',jm(12), jtm_grid, jtm_vadj, 0, 0, 0, 0)
-     call mloopf('f',jm(13), jtm_grid, jtm_vadj, 0, 0, 0, 0)
-     call mloopf('f',jm(14), jtm_grid, jtm_vadj, 0, 0, 0, 0)
-     call mloopf('f',jm(15), jtm_grid, jtm_vadj, 0, 0, 0, 0)
-     call mloopf('f',jm(16), jtm_lbcp, 0, 0, 0, 0, 0)
+     call mloopf('f',jm(10), jtm_lbcp, jtm_grid, jtm_vadj, jtm_wadj, 0, 0)
+     call mloopf('f',jm(11), jtm_grid, jtm_prog, jtm_vadj, jtm_wadj, 0, 0)
+     call mloopf('f',jm(12), jtm_grid, jtm_prog, jtm_vadj, jtm_wadj, 0, 0)
+     call mloopf('f',jm(13), jtm_grid, jtm_prog, jtm_vadj, jtm_wadj, 0, 0)
+     call mloopf('f',jm(14), jtm_grid, jtm_prog, jtm_vadj, jtm_wadj, 0, 0)
+     call mloopf('f',jm(15), jtm_grid, jtm_prog, jtm_vadj, jtm_wadj, 0, 0)
+     call mloopf('f',jm(16), jtm_lbcp, jtm_vadj, jtm_wadj, 0,        0, 0)
 
      itab_m(jm(9))%npoly = 1
      itab_m(jm(9))%imp   = jm(21) ! corrected later for jmz row
@@ -848,130 +845,130 @@ subroutine cart4_hex()
      itab_v(jv(12))%ivp   = jv(28) ! corrected later for jzv row
      itab_v(jv(12))%iw(1) = jw(6)
      itab_v(jv(12))%iw(2) = jw(9)
-     itab_v(jv(12))%iw(3) = jw(10)
-     itab_v(jv(12))%iw(4) = jw(5)
+!    itab_v(jv(12))%iw(3) = jw(10)
+!    itab_v(jv(12))%iw(4) = jw(5)
      itab_v(jv(12))%im(1) = jm(19)
      itab_v(jv(12))%im(2) = jm(10)
-     itab_v(jv(12))%im(3) = jm(20)
-     itab_v(jv(12))%im(4) = jm(18)
-     itab_v(jv(12))%im(5) = jm(11)
-     itab_v(jv(12))%im(6) = jm(9)
-     itab_v(jv(12))%iv(1) = jv(24)
-     itab_v(jv(12))%iv(2) = jv(23)
-     itab_v(jv(12))%iv(3) = jv(13)
-     itab_v(jv(12))%iv(4) = jv(11)
+!    itab_v(jv(12))%im(3) = jm(20)
+!    itab_v(jv(12))%im(4) = jm(18)
+!    itab_v(jv(12))%im(5) = jm(11)
+!    itab_v(jv(12))%im(6) = jm(9)
+!    itab_v(jv(12))%iv(1) = jv(24)
+!    itab_v(jv(12))%iv(2) = jv(23)
+!    itab_v(jv(12))%iv(3) = jv(13)
+!    itab_v(jv(12))%iv(4) = jv(11)
 
      itab_v(jv(13))%ivp   = jv(19)
      itab_v(jv(13))%iw(1) = jw(5)
      itab_v(jv(13))%iw(2) = jw(6)
-     itab_v(jv(13))%iw(3) = jw(2)
-     itab_v(jv(13))%iw(4) = jw(9)
+!    itab_v(jv(13))%iw(3) = jw(2)
+!    itab_v(jv(13))%iw(4) = jw(9)
      itab_v(jv(13))%im(1) = jm(11)
      itab_v(jv(13))%im(2) = jm(10)
-     itab_v(jv(13))%im(3) = jm(2)
-     itab_v(jv(13))%im(4) = jm(12)
-     itab_v(jv(13))%im(5) = jm(9)
-     itab_v(jv(13))%im(6) = jm(19)
-     itab_v(jv(13))%iv(1) = jv(2)
-     itab_v(jv(13))%iv(2) = jv(14)
-     itab_v(jv(13))%iv(3) = jv(11)
-     itab_v(jv(13))%iv(4) = jv(12)
+!    itab_v(jv(13))%im(3) = jm(2)
+!    itab_v(jv(13))%im(4) = jm(12)
+!    itab_v(jv(13))%im(5) = jm(9)
+!    itab_v(jv(13))%im(6) = jm(19)
+!    itab_v(jv(13))%iv(1) = jv(2)
+!    itab_v(jv(13))%iv(2) = jv(14)
+!    itab_v(jv(13))%iv(3) = jv(11)
+!    itab_v(jv(13))%iv(4) = jv(12)
 
      itab_v(jv(14))%ivp   = jv(14)
      itab_v(jv(14))%iw(1) = jw(2)
      itab_v(jv(14))%iw(2) = jw(6)
-     itab_v(jv(14))%iw(3) = jw(7)
-     itab_v(jv(14))%iw(4) = jw(5)
+!    itab_v(jv(14))%iw(3) = jw(7)
+!    itab_v(jv(14))%iw(4) = jw(5)
      itab_v(jv(14))%im(1) = jm(12)
      itab_v(jv(14))%im(2) = jm(11)
-     itab_v(jv(14))%im(3) = jm(13)
-     itab_v(jv(14))%im(4) = jm(21)
-     itab_v(jv(14))%im(5) = jm(2)
-     itab_v(jv(14))%im(6) = jm(10)
-     itab_v(jv(14))%iv(1) = jv(16)
-     itab_v(jv(14))%iv(2) = jv(15)
-     itab_v(jv(14))%iv(3) = jv(2)
-     itab_v(jv(14))%iv(4) = jv(13)
+!    itab_v(jv(14))%im(3) = jm(13)
+!    itab_v(jv(14))%im(4) = jm(21)
+!    itab_v(jv(14))%im(5) = jm(2)
+!    itab_v(jv(14))%im(6) = jm(10)
+!    itab_v(jv(14))%iv(1) = jv(16)
+!    itab_v(jv(14))%iv(2) = jv(15)
+!    itab_v(jv(14))%iv(3) = jv(2)
+!    itab_v(jv(14))%iv(4) = jv(13)
 
      itab_v(jv(15))%ivp   = jv(15)
      itab_v(jv(15))%iw(1) = jw(7)
      itab_v(jv(15))%iw(2) = jw(6)
-     itab_v(jv(15))%iw(3) = jw(11)
-     itab_v(jv(15))%iw(4) = jw(2)
+!    itab_v(jv(15))%iw(3) = jw(11)
+!    itab_v(jv(15))%iw(4) = jw(2)
      itab_v(jv(15))%im(1) = jm(21)
      itab_v(jv(15))%im(2) = jm(12)
-     itab_v(jv(15))%im(3) = jm(22)
-     itab_v(jv(15))%im(4) = jm(20)
-     itab_v(jv(15))%im(5) = jm(13)
-     itab_v(jv(15))%im(6) = jm(11)
-     itab_v(jv(15))%iv(1) = jv(27)
-     itab_v(jv(15))%iv(2) = jv(26)
-     itab_v(jv(15))%iv(3) = jv(16)
-     itab_v(jv(15))%iv(4) = jv(14)
+!    itab_v(jv(15))%im(3) = jm(22)
+!    itab_v(jv(15))%im(4) = jm(20)
+!    itab_v(jv(15))%im(5) = jm(13)
+!    itab_v(jv(15))%im(6) = jm(11)
+!    itab_v(jv(15))%iv(1) = jv(27)
+!    itab_v(jv(15))%iv(2) = jv(26)
+!    itab_v(jv(15))%iv(3) = jv(16)
+!    itab_v(jv(15))%iv(4) = jv(14)
 
      itab_v(jv(16))%ivp   = jv(16)
      itab_v(jv(16))%iw(1) = jw(2)
      itab_v(jv(16))%iw(2) = jw(7)
-     itab_v(jv(16))%iw(3) = jw(3)
-     itab_v(jv(16))%iw(4) = jw(6)
+!    itab_v(jv(16))%iw(3) = jw(3)
+!    itab_v(jv(16))%iw(4) = jw(6)
      itab_v(jv(16))%im(1) = jm(13)
      itab_v(jv(16))%im(2) = jm(12)
-     itab_v(jv(16))%im(3) = jm(4)
-     itab_v(jv(16))%im(4) = jm(14)
-     itab_v(jv(16))%im(5) = jm(11)
-     itab_v(jv(16))%im(6) = jm(21)
-     itab_v(jv(16))%iv(1) = jv(5)
-     itab_v(jv(16))%iv(2) = jv(17)
-     itab_v(jv(16))%iv(3) = jv(14)
-     itab_v(jv(16))%iv(4) = jv(15)
+!    itab_v(jv(16))%im(3) = jm(4)
+!    itab_v(jv(16))%im(4) = jm(14)
+!    itab_v(jv(16))%im(5) = jm(11)
+!    itab_v(jv(16))%im(6) = jm(21)
+!    itab_v(jv(16))%iv(1) = jv(5)
+!    itab_v(jv(16))%iv(2) = jv(17)
+!    itab_v(jv(16))%iv(3) = jv(14)
+!    itab_v(jv(16))%iv(4) = jv(15)
 
      itab_v(jv(17))%ivp   = jv(17)
      itab_v(jv(17))%iw(1) = jw(3)
      itab_v(jv(17))%iw(2) = jw(7)
-     itab_v(jv(17))%iw(3) = jw(4)
-     itab_v(jv(17))%iw(4) = jw(2)
+!    itab_v(jv(17))%iw(3) = jw(4)
+!    itab_v(jv(17))%iw(4) = jw(2)
      itab_v(jv(17))%im(1) = jm(14)
      itab_v(jv(17))%im(2) = jm(13)
-     itab_v(jv(17))%im(3) = jm(7)
-     itab_v(jv(17))%im(4) = jm(15)
-     itab_v(jv(17))%im(5) = jm(4)
-     itab_v(jv(17))%im(6) = jm(12)
-     itab_v(jv(17))%iv(1) = jv(9)
-     itab_v(jv(17))%iv(2) = jv(18)
-     itab_v(jv(17))%iv(3) = jv(5)
-     itab_v(jv(17))%iv(4) = jv(16)
+!    itab_v(jv(17))%im(3) = jm(7)
+!    itab_v(jv(17))%im(4) = jm(15)
+!    itab_v(jv(17))%im(5) = jm(4)
+!    itab_v(jv(17))%im(6) = jm(12)
+!    itab_v(jv(17))%iv(1) = jv(9)
+!    itab_v(jv(17))%iv(2) = jv(18)
+!    itab_v(jv(17))%iv(3) = jv(5)
+!    itab_v(jv(17))%iv(4) = jv(16)
 
      itab_v(jv(18))%ivp   = jv(18)
      itab_v(jv(18))%iw(1) = jw(4)
      itab_v(jv(18))%iw(2) = jw(7)
-     itab_v(jv(18))%iw(3) = jw(8)
-     itab_v(jv(18))%iw(4) = jw(3)
+!    itab_v(jv(18))%iw(3) = jw(8)
+!    itab_v(jv(18))%iw(4) = jw(3)
      itab_v(jv(18))%im(1) = jm(15)
      itab_v(jv(18))%im(2) = jm(14)
-     itab_v(jv(18))%im(3) = jm(16)
-     itab_v(jv(18))%im(4) = jm(22)
-     itab_v(jv(18))%im(5) = jm(7)
-     itab_v(jv(18))%im(6) = jm(13)
-     itab_v(jv(18))%iv(1) = jv(20)
-     itab_v(jv(18))%iv(2) = jv(19)
-     itab_v(jv(18))%iv(3) = jv(9)
-     itab_v(jv(18))%iv(4) = jv(17)
+!    itab_v(jv(18))%im(3) = jm(16)
+!    itab_v(jv(18))%im(4) = jm(22)
+!    itab_v(jv(18))%im(5) = jm(7)
+!    itab_v(jv(18))%im(6) = jm(13)
+!    itab_v(jv(18))%iv(1) = jv(20)
+!    itab_v(jv(18))%iv(2) = jv(19)
+!    itab_v(jv(18))%iv(3) = jv(9)
+!    itab_v(jv(18))%iv(4) = jv(17)
 
      itab_v(jv(19))%ivp   = jv(19)
      itab_v(jv(19))%iw(1) = jw(7)
      itab_v(jv(19))%iw(2) = jw(8)
-     itab_v(jv(19))%iw(3) = jw(4)
-     itab_v(jv(19))%iw(4) = jw(11)
+!    itab_v(jv(19))%iw(3) = jw(4)
+!    itab_v(jv(19))%iw(4) = jw(11)
      itab_v(jv(19))%im(1) = jm(15)
      itab_v(jv(19))%im(2) = jm(22)
-     itab_v(jv(19))%im(3) = jm(14)
-     itab_v(jv(19))%im(4) = jm(16)
-     itab_v(jv(19))%im(5) = jm(21)
-     itab_v(jv(19))%im(6) = jm(23)
-     itab_v(jv(19))%iv(1) = jv(18)
-     itab_v(jv(19))%iv(2) = jv(20)
-     itab_v(jv(19))%iv(3) = jv(27)
-     itab_v(jv(19))%iv(4) = jv(28)
+!    itab_v(jv(19))%im(3) = jm(14)
+!    itab_v(jv(19))%im(4) = jm(16)
+!    itab_v(jv(19))%im(5) = jm(21)
+!    itab_v(jv(19))%im(6) = jm(23)
+!    itab_v(jv(19))%iv(1) = jv(18)
+!    itab_v(jv(19))%iv(2) = jv(20)
+!    itab_v(jv(19))%iv(3) = jv(27)
+!    itab_v(jv(19))%iv(4) = jv(28)
 
      itab_v(jv(20))%ivp   = jv(14)
      itab_v(jv(20))%iw(1) = jw(4)
@@ -981,12 +978,12 @@ subroutine cart4_hex()
 
   enddo
 
-  call wloopf('f',jaw( 2), jtw_lbcp, jtw_wadj, jtw_wstn, 0, 0, 0)
-  call wloopf('f',jaw( 3), jtw_lbcp, jtw_wadj, jtw_wstn, 0, 0, 0)
-  call wloopf('f',jaw( 4), jtw_lbcp, jtw_wadj, jtw_wstn, 0, 0, 0)
-  call wloopf('f',jzw( 9), jtw_lbcp, jtw_wadj, jtw_wstn, 0, 0, 0)
-  call wloopf('f',jzw(10), jtw_lbcp, jtw_wadj, jtw_wstn, 0, 0, 0)
-  call wloopf('f',jzw(11), jtw_lbcp, jtw_wadj, jtw_wstn, 0, 0, 0)
+  call wloopf('f',jaw( 2), jtw_lbcp, jtw_wadj, jtw_wstn, jtw_vadj, 0, 0)
+  call wloopf('f',jaw( 3), jtw_lbcp, jtw_wadj, jtw_wstn, jtw_vadj, 0, 0)
+  call wloopf('f',jaw( 4), jtw_lbcp, jtw_wadj, jtw_wstn, jtw_vadj, 0, 0)
+  call wloopf('f',jzw( 9), jtw_lbcp, jtw_wadj, jtw_wstn, jtw_vadj, 0, 0)
+  call wloopf('f',jzw(10), jtw_lbcp, jtw_wadj, jtw_wstn, jtw_vadj, 0, 0)
+  call wloopf('f',jzw(11), jtw_lbcp, jtw_wadj, jtw_wstn, jtw_vadj, 0, 0)
 
   itab_w(jaw( 2))%iwp = jzw(6)
   itab_w(jaw( 3))%iwp = jzw(7)
@@ -995,16 +992,16 @@ subroutine cart4_hex()
   itab_w(jzw(10))%iwp = jaw(6)
   itab_w(jzw(11))%iwp = jaw(7)
 
-  call mloopf('f',jam( 2), jtm_lbcp, 0, 0, 0, 0, 0)
-  call mloopf('f',jam( 4), jtm_lbcp, 0, 0, 0, 0, 0)
-  call mloopf('f',jam( 7), jtm_lbcp, 0, 0, 0, 0, 0)
-  call mloopf('f',jzm(18), jtm_lbcp, 0, 0, 0, 0, 0)
-  call mloopf('f',jzm(19), jtm_lbcp, jtm_grid, 0, 0, 0, 0)
-  call mloopf('f',jzm(20), jtm_lbcp, jtm_grid, 0, 0, 0, 0)
-  call mloopf('f',jzm(21), jtm_lbcp, jtm_grid, jtm_vadj, 0, 0, 0)
-  call mloopf('f',jzm(22), jtm_lbcp, jtm_grid, jtm_vadj, 0, 0, 0)
-  call mloopf('f',jzm(23), jtm_lbcp, 0, 0, 0, 0, 0)
-  call mloopf('f',jzm(29), jtm_lbcp, 0, 0, 0, 0, 0)
+  call mloopf('f',jam( 2), jtm_lbcp, jtm_vadj, jtm_wadj, jtm_grid, 0, 0)
+  call mloopf('f',jam( 4), jtm_lbcp, jtm_vadj, jtm_wadj, jtm_grid, 0, 0)
+  call mloopf('f',jam( 7), jtm_lbcp, jtm_vadj, jtm_wadj, jtm_grid, 0, 0)
+  call mloopf('f',jzm(18), jtm_lbcp, jtm_vadj, jtm_wadj, jtm_grid, 0, 0)
+  call mloopf('f',jzm(19), jtm_lbcp, jtm_vadj, jtm_wadj, jtm_grid, 0, 0)
+  call mloopf('f',jzm(20), jtm_lbcp, jtm_vadj, jtm_wadj, jtm_grid, 0, 0)
+  call mloopf('f',jzm(21), jtm_lbcp, jtm_vadj, jtm_wadj, jtm_grid, 0, 0)
+  call mloopf('f',jzm(22), jtm_lbcp, jtm_vadj, jtm_wadj, jtm_grid, 0, 0)
+  call mloopf('f',jzm(23), jtm_lbcp, jtm_vadj, jtm_wadj, 0,        0, 0)
+  call mloopf('f',jzm(29), jtm_lbcp, jtm_vadj, jtm_wadj, 0,        0, 0)
 
   itab_m(jam(2))%npoly  = 1
   itab_m(jam(2))%imp    = jam(14)
@@ -1111,18 +1108,18 @@ subroutine cart4_hex()
   itab_v(jzv(24))%ivp   = jav(14)
   itab_v(jzv(24))%iw(1) = jzw(6)
   itab_v(jzv(24))%iw(2) = jzw(10)
-  itab_v(jzv(24))%iw(3) = jzw(11)
-  itab_v(jzv(24))%iw(4) = jzw(9)
+! itab_v(jzv(24))%iw(3) = jzw(11)
+! itab_v(jzv(24))%iw(4) = jzw(9)
   itab_v(jzv(24))%im(1) = jzm(20)
   itab_v(jzv(24))%im(2) = jzm(19)
-  itab_v(jzv(24))%im(3) = jzm(21)
-  itab_v(jzv(24))%im(4) = jzm(29)
-  itab_v(jzv(24))%im(5) = jzm(10)
-  itab_v(jzv(24))%im(6) = jzm(18)
-  itab_v(jzv(24))%iv(1) = jzv(26)
-  itab_v(jzv(24))%iv(2) = jzv(25)
-  itab_v(jzv(24))%iv(3) = jzv(12)
-  itab_v(jzv(24))%iv(4) = jzv(23)
+! itab_v(jzv(24))%im(3) = jzm(21)
+! itab_v(jzv(24))%im(4) = jzm(29)
+! itab_v(jzv(24))%im(5) = jzm(10)
+! itab_v(jzv(24))%im(6) = jzm(18)
+! itab_v(jzv(24))%iv(1) = jzv(26)
+! itab_v(jzv(24))%iv(2) = jzv(25)
+! itab_v(jzv(24))%iv(3) = jzv(12)
+! itab_v(jzv(24))%iv(4) = jzv(23)
 
   itab_v(jzv(25))%ivp   = jav(15)
   itab_v(jzv(25))%iw(1) = jzw(11)
@@ -1133,39 +1130,57 @@ subroutine cart4_hex()
   itab_v(jzv(26))%ivp   = jav(16)
   itab_v(jzv(26))%iw(1) = jzw(6)
   itab_v(jzv(26))%iw(2) = jzw(11)
-  itab_v(jzv(26))%iw(3) = jzw(7)
-  itab_v(jzv(26))%iw(4) = jzw(10)
+! itab_v(jzv(26))%iw(3) = jzw(7)
+! itab_v(jzv(26))%iw(4) = jzw(10)
   itab_v(jzv(26))%im(1) = jzm(21)
   itab_v(jzv(26))%im(2) = jzm(20)
-  itab_v(jzv(26))%im(3) = jzm(12)
-  itab_v(jzv(26))%im(4) = jzm(22)
-  itab_v(jzv(26))%im(5) = jzm(19)
-  itab_v(jzv(26))%im(6) = jzm(29)
-  itab_v(jzv(26))%iv(1) = jzv(15)
-  itab_v(jzv(26))%iv(2) = jzv(27)
-  itab_v(jzv(26))%iv(3) = jzv(24)
-  itab_v(jzv(26))%iv(4) = jzv(25)
+! itab_v(jzv(26))%im(3) = jzm(12)
+! itab_v(jzv(26))%im(4) = jzm(22)
+! itab_v(jzv(26))%im(5) = jzm(19)
+! itab_v(jzv(26))%im(6) = jzm(29)
+! itab_v(jzv(26))%iv(1) = jzv(15)
+! itab_v(jzv(26))%iv(2) = jzv(27)
+! itab_v(jzv(26))%iv(3) = jzv(24)
+! itab_v(jzv(26))%iv(4) = jzv(25)
 
   itab_v(jzv(27))%ivp   = jav(17)
   itab_v(jzv(27))%iw(1) = jzw(7)
   itab_v(jzv(27))%iw(2) = jzw(11)
-  itab_v(jzv(27))%iw(3) = jzw(8)
-  itab_v(jzv(27))%iw(4) = jzw(6)
+! itab_v(jzv(27))%iw(3) = jzw(8)
+! itab_v(jzv(27))%iw(4) = jzw(6)
   itab_v(jzv(27))%im(1) = jzm(22)
   itab_v(jzv(27))%im(2) = jzm(21)
-  itab_v(jzv(27))%im(3) = jzm(15)
-  itab_v(jzv(27))%im(4) = jzm(23)
-  itab_v(jzv(27))%im(5) = jzm(12)
-  itab_v(jzv(27))%im(6) = jzm(20)
-  itab_v(jzv(27))%iv(1) = jzv(19)
-  itab_v(jzv(27))%iv(2) = jzv(28)
-  itab_v(jzv(27))%iv(3) = jzv(15)
-  itab_v(jzv(27))%iv(4) = jzv(26)
+! itab_v(jzv(27))%im(3) = jzm(15)
+! itab_v(jzv(27))%im(4) = jzm(23)
+! itab_v(jzv(27))%im(5) = jzm(12)
+! itab_v(jzv(27))%im(6) = jzm(20)
+! itab_v(jzv(27))%iv(1) = jzv(19)
+! itab_v(jzv(27))%iv(2) = jzv(28)
+! itab_v(jzv(27))%iv(3) = jzv(15)
+! itab_v(jzv(27))%iv(4) = jzv(26)
 
   itab_v(jzv(28))%ivp   = jav(18)
   itab_v(jzv(28))%iw(1) = jzw(8)
   itab_v(jzv(28))%iw(2) = jzw(11)
   itab_v(jzv(28))%im(1) = jzm(23)
   itab_v(jzv(28))%im(2) = jzm(22)
+
+  do im = 2,nma
+     do j = 1, itab_m(im)%npoly
+        iv = itab_m(im)%iv(j)
+
+        im1 = itab_v(iv)%im(1)
+        im2 = itab_v(iv)%im(2)
+
+        if (im1 == im .or. im2 == im) then
+           if (im1 == im) then
+              itab_m(im)%im(j) = im2
+           else
+              itab_m(im)%im(j) = im1
+           endif
+        endif
+
+     enddo
+  enddo
 
 end subroutine cart4_hex

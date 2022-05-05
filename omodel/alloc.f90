@@ -71,7 +71,7 @@ subroutine olam_mem_alloc()
   call filltab_basic()
 
   call alloc_cuparm(mza, mwa, mrls, nqparm)
-  call filltab_cuparm()
+  call filltab_cuparm(mrls, nqparm)
 
   call alloc_micro(mza,mwa,miclevel,ncat,nccntyp,iccn,igccn,iifn,jnmb)
   call filltab_micro(nccntyp)

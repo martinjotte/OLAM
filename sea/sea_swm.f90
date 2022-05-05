@@ -490,8 +490,7 @@ subroutine swm_progv()
   use misc_coms,   only: iparallel
   use consts_coms, only: grav
   use leaf_coms,   only: dt_leaf
-
-  use olam_mpi_sfcg, only: mpi_send_wsfc, mpi_recv_wsfc, mpi_send_vsfc, mpi_recv_vsfc
+  use olam_mpi_sfc,only: mpi_send_wsfc, mpi_recv_wsfc, mpi_send_vsfc, mpi_recv_vsfc
 
   implicit none
 

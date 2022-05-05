@@ -815,6 +815,7 @@ subroutine prog_wrt_begs( iw, istage, dts, dt8,                 &
   real(r8) :: delex_rho(mza)
   real(r8) :: delex_rhothil(mza)
   real(r8) :: del_rhothil
+  real(r8) :: po_swtc(mza)
 
   real(r8) :: rhothil  (mza)
   real(r8) :: thilt_rk (mza)
@@ -1122,6 +1123,15 @@ subroutine prog_wrt_begs( iw, istage, dts, dt8,                 &
   vflux_vze(ka-1) = 0.
   vflux_vze(mza)  = 0.
 
+  ! For shallow water test cases 2 & 5, rho & press are
+  ! interpreted as water depth & height
+
+  if (nl%test_case == 2 .or. nl%test_case == 5) then
+     do k = ka, mza
+        po_swtc(k) = rho(k,iw) + fp3 * delex_rho(k)
+     enddo
+  endif
+
   ! Vertical loop over T points
 
   do k = ka, mza
@@ -1183,7 +1193,7 @@ subroutine prog_wrt_begs( iw, istage, dts, dt8,                 &
      endif
 
      do k = ka,mza
-        press(k,iw) = rho(k,iw) + topo_swtc + fp2 * delex_rho(k)
+        press(k,iw) = po_swtc(k) + topo_swtc
      enddo
   endif
 
@@ -1196,7 +1206,7 @@ subroutine prog_wrt_begs( iw, istage, dts, dt8,                 &
 
   ! Set top & bottom values of WC
 
-!  wc(ka-1,iw) = wc(ka,iw)
+  wc(ka-1,iw) = wc(ka,iw)
 
 !  wc(1:ka-2,iw) = 0.
 !  wc(mza   ,iw) = 0.

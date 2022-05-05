@@ -35,7 +35,7 @@ subroutine init_spec_nudge()
 
   use mem_ijtabs,   only: jtab_w, itab_w, jtw_init
   use mem_grid,     only: mza, volt
-  use olam_mpi_atm, only: mpi_send_wnud, mpi_recv_wnud
+! use olam_mpi_atm, only: mpi_send_wnud, mpi_recv_wnud
   use misc_coms,    only: iparallel
   use consts_coms,  only: r8
   use misc_coms,    only: rinit
@@ -84,8 +84,8 @@ subroutine init_spec_nudge()
 
   ! MPI SEND/RECV of nudging arrays
 
-  if (iparallel == 1) call mpi_send_wnud(dvara1=volni)
-  if (iparallel == 1) call mpi_recv_wnud(dvara1=volni)
+!!  if (iparallel == 1) call mpi_send_wnud(dvara1=volni)
+!!  if (iparallel == 1) call mpi_recv_wnud(dvara1=volni)
 
   !$omp parallel do private(k)
   do iwnud = 2, mwnud
@@ -110,7 +110,7 @@ subroutine nudge_prep_spec(iaction, o_rho, o_theta, o_rrw, o_uzonal, o_umerid)
   use mem_grid,    only: mza, mwa, volt
   use misc_coms,   only: iparallel
   use mem_ijtabs,  only: jtab_w, itab_w, jtw_init
-  use olam_mpi_atm,only: mpi_send_wnud, mpi_recv_wnud
+! use olam_mpi_atm,only: mpi_send_wnud, mpi_recv_wnud
   use consts_coms, only: r8
 
   implicit none
@@ -191,11 +191,11 @@ subroutine nudge_prep_spec(iaction, o_rho, o_theta, o_rrw, o_uzonal, o_umerid)
 
   if (iparallel == 1) then
 
-     call mpi_send_wnud(dvara1=drho, dvara2=dtheta,  &
-                        dvara3=drrw, dvara4=duzonal, dvara5=dumerid)
-
-     call mpi_recv_wnud(dvara1=drho, dvara2=dtheta,  &
-                        dvara3=drrw, dvara4=duzonal, dvara5=dumerid)
+!!     call mpi_send_wnud(dvara1=drho, dvara2=dtheta,  &
+!!                        dvara3=drrw, dvara4=duzonal, dvara5=dumerid)
+!!
+!!     call mpi_recv_wnud(dvara1=drho, dvara2=dtheta,  &
+!!                        dvara3=drrw, dvara4=duzonal, dvara5=dumerid)
   endif
 
   ! Normalize nudging point sums to get average values
@@ -248,7 +248,7 @@ subroutine spec_nudge(mrl)
   use consts_coms, only: r8
   use mem_tend,    only: thilt, rr_wt, vmxet, vmyet, vmzet
   use isan_coms,   only: ifgfile, s1900_fg
-  use olam_mpi_atm,only: mpi_send_wnud, mpi_recv_wnud
+!  use olam_mpi_atm,only: mpi_send_wnud, mpi_recv_wnud
 
   implicit none
 
@@ -374,11 +374,11 @@ subroutine spec_nudge(mrl)
 
   if (iparallel == 1) then
 
-     call mpi_send_wnud(dvara1=drho, dvara2=dtheta,  &
-                        dvara3=drrw, dvara4=duzonal, dvara5=dumerid)
-
-     call mpi_recv_wnud(dvara1=drho, dvara2=dtheta,  &
-                        dvara3=drrw, dvara4=duzonal, dvara5=dumerid)
+!!     call mpi_send_wnud(dvara1=drho, dvara2=dtheta,  &
+!!                        dvara3=drrw, dvara4=duzonal, dvara5=dumerid)
+!!
+!!     call mpi_recv_wnud(dvara1=drho, dvara2=dtheta,  &
+!!                        dvara3=drrw, dvara4=duzonal, dvara5=dumerid)
   endif
 
   ! Horizontal loop over nudging polygons

@@ -33,31 +33,30 @@
 
 subroutine surface_driver()
 
-  use leaf_coms,      only: nzs, iupdndvi, s1900_ndvi, dt_leaf, &
-                            indvifile, nndvifiles, soil_rough, snow_rough, z_root
-  use mem_ijtabs,     only: itabg_w, itab_w
-  use mem_sfcg,       only: itab_wsfc, itab_vsfc, sfcg, mvsfc, mwsfc, &
-                            jtab_wsfc_swm
-  use mem_land,       only: land, mland, omland, nzg, slz, slzt, dslz
-  use mem_lake,       only: lake, mlake, omlake, timescale_lake
-  use mem_sea,        only: sea, msea, omsea
-  use misc_coms,      only: io6, s1900_sim, isubdomain, time8p, iparallel
-  use mem_para,       only: myrank
-  use mem_basic,      only: rho, press, theta, tair, vxe, vye, vze, rr_v
-  use mem_micro,      only: rr_c
-  use consts_coms,    only: grav, cliq1000, alli1000, erad, eradi
-  use leaf4_canopy,   only: canopy, vegndvi, fast_canopy
-  use leaf4_surface,  only: sfcwater, sfcwater_adjust, remove_runoff, grndvap
-  use leaf4_soil,     only: soil, soil_wat2khyd, head_column
-  use leaf4_plot,     only: leaf_plot
-  use leaf_coms,      only: wcap_min
-
-  use sea_swm,        only: swm_grad2d, swm_hflux, swm_progw, swm_progv, &
-                            swm_diagvel, depthmin_flux
-  use therm_lib,      only: qwtk, qtk
-  use olam_mpi_sfcg,  only: mpi_send_wsfc, mpi_recv_wsfc, mpi_send_vsfc, mpi_recv_vsfc
-  use oname_coms,     only: nl
-  use mem_sfcnud,     only: sfcwat_nud, sfctemp_nud, fracliq_nud
+  use leaf_coms,     only: nzs, iupdndvi, s1900_ndvi, dt_leaf, &
+                           indvifile, nndvifiles, soil_rough, snow_rough, z_root
+  use mem_ijtabs,    only: itabg_w, itab_w
+  use mem_sfcg,      only: itab_wsfc, itab_vsfc, sfcg, mvsfc, mwsfc, &
+                           jtab_wsfc_swm
+  use mem_land,      only: land, mland, omland, nzg, slz, slzt, dslz
+  use mem_lake,      only: lake, mlake, omlake, timescale_lake
+  use mem_sea,       only: sea, msea, omsea
+  use misc_coms,     only: io6, s1900_sim, isubdomain, time8p, iparallel
+  use mem_basic,     only: rho, press, theta, tair, vxe, vye, vze, rr_v
+  use mem_micro,     only: rr_c
+  use consts_coms,   only: grav, cliq1000, alli1000, erad, eradi
+  use leaf4_canopy,  only: canopy, vegndvi, fast_canopy
+  use leaf4_surface, only: sfcwater, sfcwater_adjust, remove_runoff, grndvap
+  use leaf4_soil,    only: soil, soil_wat2khyd, head_column
+  use leaf4_plot,    only: leaf_plot
+  use leaf_coms,     only: wcap_min
+  use sea_swm,       only: swm_grad2d, swm_hflux, swm_progw, swm_progv, &
+                           swm_diagvel, depthmin_flux
+  use therm_lib,     only: qwtk, qtk
+  use mem_para,      only: myrank
+  use olam_mpi_sfc,  only: mpi_send_wsfc, mpi_recv_wsfc, mpi_send_vsfc, mpi_recv_vsfc
+  use oname_coms,    only: nl
+  use mem_sfcnud,    only: sfcwat_nud, sfctemp_nud, fracliq_nud
 
   implicit none
 
@@ -1105,17 +1104,17 @@ end subroutine surface_driver
 
 subroutine sfcg_avgatm()
 
-  use mem_basic,     only: rho, press, theta, tair, rr_v, vxe, vye, vze
-  use mem_micro,     only: rr_c
-  use mem_co2,       only: co2flag, rr_co2
-  use misc_coms,     only: isubdomain, iparallel
-  use consts_coms,   only: grav
-  use mem_ijtabs,    only: itab_w
-  use mem_grid,      only: gdz_abov8
-  use mem_para,      only: myrank
-  use olam_mpi_sfcg, only: mpi_send_wsfc, mpi_recv_wsfc
-  use mem_sfcg,      only: mwsfc, sfcg, itab_wsfc
-  use mem_sea,       only: sea, omsea
+  use mem_basic,    only: rho, press, theta, tair, rr_v, vxe, vye, vze
+  use mem_micro,    only: rr_c
+  use mem_co2,      only: co2flag, rr_co2
+  use misc_coms,    only: isubdomain, iparallel
+  use consts_coms,  only: grav
+  use mem_ijtabs,   only: itab_w
+  use mem_grid,     only: gdz_abov8
+  use mem_para,     only: myrank
+  use olam_mpi_sfc, only: mpi_send_wsfc, mpi_recv_wsfc
+  use mem_sfcg,     only: mwsfc, sfcg, itab_wsfc
+  use mem_sea,      only: sea, omsea
 
   implicit none
 

@@ -687,10 +687,10 @@ data fldlib(1:4,551:558)/  &
  'ITAB_V_IRANK'  ,'V2' ,'ITAB_V_IRANK',' ( )'                               ,& ! 552
  'ITAB_V_IVGLOBE','V2' ,'ITAB_V_IVGLOBE',' ( )'                             ,& ! 553
  'ITAB_V_MRLV'   ,'V2' ,'ITAB_V_MRLV',' ( )'                                ,& ! 554
- 'ITAB_V_IM'     ,'V2' ,'ITAB_V_IM',' ( )'                                  ,& ! 555
- 'ITAB_V_IV'     ,'V2' ,'ITAB_V_IV',' ( )'                                  ,& ! 556
- 'ITAB_V_IW'     ,'V2' ,'ITAB_V_IW',' ( )'                                  ,& ! 557
- 'ITAB_V_FARW'   ,'V2' ,'ITAB_V_FARW',' ( )'                                 / ! 558
+ 'ITAB_V_FARW'   ,'V2' ,'ITAB_V_FARW',' ( )'                                ,& ! 555
+ 'ITAB_V_IM'     ,'V2' ,'ITAB_V_IM',' ( )'                                  ,& ! 556
+ 'ITAB_V_IW'     ,'V2' ,'ITAB_V_IW',' ( )'                                   / ! 557
+!'ITAB_V_IV'     ,'V2' ,'ITAB_V_IV',' ( )'                                  ,& ! 558
 
 ! ITAB_W MEMBERS - 2D
 
@@ -4414,14 +4414,14 @@ case(553) ! 'ITAB_V_IVGLOBE'
    fldval = itab_v(i)%ivglobe
 case(554) ! 'ITAB_V_MRLV'
    fldval = itab_v(i)%mrlv
-case(555) ! 'ITAB_V_IM'
+case(555) ! 'ITAB_V_FARW'
+   fldval = itab_v(i)%farw(indp)
+case(556) ! 'ITAB_V_IM'
    fldval = itab_v(i)%im(indp)
-case(556) ! 'ITAB_V_IV'
-   fldval = itab_v(i)%iv(indp)
 case(557) ! 'ITAB_V_IW'
    fldval = itab_v(i)%iw(indp)
-case(558) ! 'ITAB_V_FARW'
-   fldval = itab_v(i)%farw(indp)
+!case(558) ! 'ITAB_V_IV'
+!   fldval = itab_v(i)%iv(indp)
 
 ! ITAB_W MEMBERS
 

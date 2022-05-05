@@ -163,8 +163,8 @@ subroutine pbl_driver(mrl)
 
  ! Lateral boundary copy of computed K's
 
-  call lbcopy_w(mrl, a1=vkm, a2=vkh, s1=akm_sfc, v1=ustar, &
-                     iv1=khtop, iv2=kmtop)
+  call lbcopy_w(mrl, a1=vkm, a2=vkh, s1=akm_sfc, v1=ustar, v2=pblh, &
+                     iv1=khtop, iv2=kmtop, iv3=kpblh)
 
 end subroutine pbl_driver
 

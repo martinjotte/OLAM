@@ -51,15 +51,16 @@ Module mem_sfcg
   integer :: nwsfc, mwsfc
 
   Type itab_msfc_vars
-     logical :: send(maxremote) = .false.
+!    logical :: send(maxremote) = .false.
      integer :: imglobe = 1
      integer :: irank = -1    ! rank of parallel process at this MSFC pt
      integer :: ivn(3) = 1    ! array of V neighbors of this M pt
      integer :: iwn(3) = 1    ! array of W neighbors of this M pt
+     integer :: imn(3) = 1    ! array of M neighbors of this M pt
   End type itab_msfc_vars
 
   Type itab_vsfc_vars
-     logical :: send(maxremote) = .false.
+!    logical :: send(maxremote) = .false.
      integer :: ivglobe = 1
      integer :: irank = -1    ! rank of parallel process at this VSFC pt
      integer :: imn(2) = 1
@@ -73,7 +74,7 @@ Module mem_sfcg
   End type itab_vsfc_vars
 
   Type itab_wsfc_vars
-     logical :: send(maxremote) = .false.
+!    logical :: send(maxremote) = .false.
      integer :: iwglobe = 1  ! global sfcg index of this WSFC pt (in parallel run)
      integer :: irank = -1   ! rank of parallel process at this WSFC pt
 
@@ -117,6 +118,7 @@ Module mem_sfcg
   Type itab_msfc_pd_vars
      integer :: ivn(3)
      integer :: iwn(3)
+     integer :: imn(3)
   End type itab_msfc_pd_vars
 
   Type itab_vsfc_pd_vars
@@ -177,9 +179,6 @@ Module mem_sfcg
      integer, allocatable :: iwsfc(:)
      integer              :: jend = 0
   End Type jtab_wsfc_vars
-
-  type (jtab_vsfc_vars) :: jtab_vsfc_mpi(maxremote)
-  type (jtab_wsfc_vars) :: jtab_wsfc_mpi(maxremote)
 
   type (jtab_msfc_vars) :: jtab_msfc_swm
   type (jtab_vsfc_vars) :: jtab_vsfc_swm
@@ -521,67 +520,15 @@ Contains
 
 !===============================================================================
 
-  subroutine fill_jtab_sfcg()
+  subroutine fill_jtab_sfcg(mwa)
 
-  use mem_ijtabs, only: mrls
-
-  use misc_coms,  only: io6, iparallel
-
-  use mem_para,   only: mgroupsize, myrank,  &
-                        send_vsfc, recv_vsfc, nsends_vsfc, nrecvs_vsfc, &
-                        send_wsfc, recv_wsfc, nsends_wsfc, nrecvs_wsfc
-
+  use mem_ijtabs, only: mrls, itab_w
   implicit none
 
-  integer :: jsend, jend, iwsfc, ivsfc, imsfc, iw1, iw2, iw3, j, j1
+  integer, intent(in) :: mwa
 
-  if (iparallel == 1) then
-
-     ! jtab_vsfc_mpi
-
-     do jsend = 1,nsends_vsfc
-        j = 0
-        do ivsfc = 2,mvsfc
-           if (itab_vsfc(ivsfc)%send(jsend)) j = j + 1
-        enddo
-        jtab_vsfc_mpi(jsend)%jend = max(1,j)
-
-        jend = jtab_vsfc_mpi(jsend)%jend
-        allocate (jtab_vsfc_mpi(jsend)%ivsfc(jend))
-                  jtab_vsfc_mpi(jsend)%ivsfc(1:jend) = 0
-
-        j = 0
-        do ivsfc = 2,mvsfc
-           if (itab_vsfc(ivsfc)%send(jsend)) then
-              j = j + 1
-              jtab_vsfc_mpi(jsend)%ivsfc(j) = ivsfc
-           endif
-        enddo
-     enddo
-
-     ! jtab_wsfc_mpi
-
-     do jsend = 1,nsends_wsfc
-        j = 0
-        do iwsfc = 2,mwsfc
-           if (itab_wsfc(iwsfc)%send(jsend)) j = j + 1
-        enddo
-        jtab_wsfc_mpi(jsend)%jend = max(1,j)
-
-        jend = jtab_wsfc_mpi(jsend)%jend
-        allocate (jtab_wsfc_mpi(jsend)%iwsfc(jend))
-                  jtab_wsfc_mpi(jsend)%iwsfc(1:jend) = 0
-
-        j = 0
-        do iwsfc = 2,mwsfc
-           if (itab_wsfc(iwsfc)%send(jsend)) then
-              j = j + 1
-              jtab_wsfc_mpi(jsend)%iwsfc(j) = iwsfc
-           endif
-        enddo
-     enddo
-
-  endif
+  integer :: jend, iwsfc, ivsfc, imsfc, iw1, iw2, iw3, j, j1
+  integer :: iw, ipass, jsfc2
 
   ! JTAB_WSFC_SWM, restricted to SEA points that are SWM-active
 
@@ -663,6 +610,92 @@ Contains
         endif
      endif
   enddo
+
+  ! Do two passes through the following code to build lists of attached
+  ! land, lake, and sea cells for each IW column
+
+  do ipass = 1,2
+
+     ! Set land, lake and sea counters to zero for all atmosphere IW columns
+
+     itab_w(1:mwa)%jsfc2  = 0
+     itab_w(1:mwa)%jland2 = 0
+     itab_w(1:mwa)%jlake2 = 0
+     itab_w(1:mwa)%jsea2  = 0
+
+     ! Loop over all SFC grid cells and get atmosphere column iw index
+
+     do iwsfc = 2,mwsfc
+        do j = 1,itab_wsfc(iwsfc)%nwatm
+
+           iw = itab_wsfc(iwsfc)%iwatm(j) ! local index (or -1 if not on this rank)
+
+           ! Skip this j/iw point if it is not on current node
+
+           if (iw < 2) cycle
+
+           itab_w(iw)%jsfc2 = itab_w(iw)%jsfc2 + 1
+
+           ! Increment land, lake, or sea cell counter for IW column
+
+           if (sfcg%leaf_class(iwsfc) >= 2) then
+              itab_w(iw)%jland2 = itab_w(iw)%jland2 + 1
+           elseif (sfcg%leaf_class(iwsfc) == 1) then
+              itab_w(iw)%jlake2 = itab_w(iw)%jlake2 + 1
+           else
+              itab_w(iw)%jsea2 = itab_w(iw)%jsea2 + 1
+           endif
+
+           ! If second pass, enter SFC cell indices into itab_w(iw) member arrays
+
+           if (ipass == 2) then
+              itab_w(iw)%iwsfc(itab_w(iw)%jsfc2) = iwsfc  ! local-rank iwsfc and iw indices
+              itab_w(iw)%jasfc(itab_w(iw)%jsfc2) = j
+           endif
+
+        enddo
+     enddo
+
+     ! If first pass, allocate iwsfc member of itab_w(iw)
+
+     if (ipass == 1) then
+        do iw = 2,mwa
+           jsfc2 = itab_w(iw)%jsfc2
+           allocate(itab_w(iw)%iwsfc(jsfc2))
+           allocate(itab_w(iw)%jasfc(jsfc2))
+        enddo
+     endif
+
+        ! If second pass, convert j-index members of itab_w(iw) if land, lake,
+        ! and/or sea points are present
+
+        if (ipass == 2) then
+           do iw = 2,mwa
+
+              itab_w(iw)%jland1 = 1
+              itab_w(iw)%jlake1 = itab_w(iw)%jland2 + 1
+              itab_w(iw)%jsea1 = itab_w(iw)%jlake2 + 1
+
+              if (itab_w(iw)%jlake2 > 0) then
+                 itab_w(iw)%jlake2 = itab_w(iw)%jland2 + itab_w(iw)%jlake2
+              endif
+
+              if (itab_w(iw)%jsea2 > 0) then
+                 if (itab_w(iw)%jlake2 > 0) then
+                    itab_w(iw)%jsea2 = itab_w(iw)%jlake2 + itab_w(iw)%jsea2
+                 else
+                    itab_w(iw)%jsea2 = itab_w(iw)%jland2 + itab_w(iw)%jsea2
+                 endif
+              endif
+
+           enddo
+        endif
+
+     enddo  ! ipass
+
+
+
+
 
   end subroutine fill_jtab_sfcg
 

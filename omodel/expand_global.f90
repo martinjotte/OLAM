@@ -62,13 +62,12 @@ subroutine expand_global2(iatmgrid)
                           itab_md, itab_ud, itab_wd, iwdorig, iwdorig_temp
 
   use mem_ijtabs,   only: mloops, &
-                          jtm_grid, jtu_grid, jtv_grid, jtw_grid, &
-                          jtm_init, jtu_init, jtv_init, jtw_init, &
-                          jtm_prog, jtu_prog, jtv_prog, jtw_prog, &
-                          jtm_wadj, jtu_wadj, jtv_wadj, jtw_wadj, &
-                          jtm_wstn, jtu_wstn, jtv_wstn, jtw_wstn, &
-                          jtm_lbcp, jtu_lbcp, jtv_lbcp, jtw_lbcp, &
-                          jtm_vadj, jtu_wall, jtv_wall, jtw_vadj
+                          jtm_grid, jtu_grid, jtw_grid, &
+                          jtm_init, jtu_init, jtw_init, &
+                          jtm_prog, jtu_prog, jtw_prog, &
+                          jtm_wadj, jtu_wadj, jtw_wadj, &
+                          jtm_wstn, jtu_wstn, jtw_wstn, &
+                          jtm_vadj,           jtw_vadj
 
   use misc_coms,    only: mdomain
   use consts_coms,  only: pio180, erad, pi1, pi2
@@ -377,7 +376,7 @@ subroutine expand_global2(iatmgrid)
 
      do im = nmd+1,nmd0
         itab_md(im)%imp = im
-        call mdloopf('f',im, jtm_grid, jtm_init, jtm_prog, jtm_wadj, jtm_wstn, 0)
+        call mdloopf('f',im, jtm_grid, jtm_init, jtm_prog, jtm_wadj, jtm_vadj, jtm_wstn)
      enddo
 
      do iu = nud+1,nud0
@@ -387,7 +386,7 @@ subroutine expand_global2(iatmgrid)
 
      do iw = nwd+1,nwd0
         itab_wd(iw)%iwp = iw
-        call wdloopf('f',iw, jtw_grid, jtw_vadj, 0, 0, 0, 0)
+        call wdloopf('f',iw, jtw_grid, jtw_prog, jtw_wadj, jtw_vadj, 0, 0)
      enddo
 
   endif
@@ -454,13 +453,12 @@ subroutine expand_global3(iatmgrid)
                           iwdorig, iwdorig_temp
 
   use mem_ijtabs,   only: mloops, &
-                          jtm_grid, jtu_grid, jtv_grid, jtw_grid, &
-                          jtm_init, jtu_init, jtv_init, jtw_init, &
-                          jtm_prog, jtu_prog, jtv_prog, jtw_prog, &
-                          jtm_wadj, jtu_wadj, jtv_wadj, jtw_wadj, &
-                          jtm_wstn, jtu_wstn, jtv_wstn, jtw_wstn, &
-                          jtm_lbcp, jtu_lbcp, jtv_lbcp, jtw_lbcp, &
-                          jtm_vadj, jtu_wall, jtv_wall, jtw_vadj
+                          jtm_grid, jtu_grid, jtw_grid, &
+                          jtm_init, jtu_init, jtw_init, &
+                          jtm_prog, jtu_prog, jtw_prog, &
+                          jtm_wadj, jtu_wadj, jtw_wadj, &
+                          jtm_wstn, jtu_wstn, jtw_wstn, &
+                          jtm_vadj,           jtw_vadj
 
   use misc_coms,    only: mdomain
   use consts_coms,  only: pio180, erad, pi1, pi2
