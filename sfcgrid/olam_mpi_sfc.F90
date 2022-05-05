@@ -30,263 +30,74 @@
    !----------------------------------------------------------------------------
 
 !===============================================================================
-Module olam_mpi_sfcg
+
+Module olam_mpi_sfc
+
+  integer, parameter :: itagwsfc = 11
+  integer, parameter :: itagvsfc = 12
+  integer, parameter :: itagmsfc = 13
+
+  integer :: nsends_wsfc, nrecvs_wsfc
+  integer :: nsends_vsfc, nrecvs_vsfc
+  integer :: nsends_msfc, nrecvs_msfc
+
+  Type nodebuffs
+     character, allocatable :: buff(:)
+     integer,   allocatable :: ipts(:)
+     integer                :: nbytes = 0
+     integer                :: jend = 0
+     integer                :: iremote = -1
+  End Type nodebuffs
+
+  type(nodebuffs), allocatable :: send_wsfc(:), recv_wsfc(:)
+  type(nodebuffs), allocatable :: send_vsfc(:), recv_vsfc(:)
+  type(nodebuffs), allocatable :: send_msfc(:), recv_msfc(:)
+
+  integer              :: icurr_wsfc = 1
+  integer              :: inext_wsfc = 2
+  integer, allocatable :: ireqr_wsfc(:,:)
+  integer, allocatable :: ireqs_wsfc(:,:)
+
+  integer              :: icurr_vsfc = 1
+  integer              :: inext_vsfc = 2
+  integer, allocatable :: ireqr_vsfc(:,:)
+  integer, allocatable :: ireqs_vsfc(:,:)
+
+  integer              :: icurr_msfc = 1
+  integer              :: inext_msfc = 2
+  integer, allocatable :: ireqr_msfc(:,:)
+  integer, allocatable :: ireqs_msfc(:,:)
 
 Contains
 
-subroutine olam_alloc_mpi_sfcg(nzg, nzs)
-
-  ! FOR SFC GRID CELLS, THIS ROUTINE ASSUMES MRL=1.
+subroutine olam_mpi_sfc_start()
 
 #ifdef OLAM_MPI
   use mpi
 #endif
 
-  use mem_sfcg,  only: itab_wsfc, itabg_wsfc, jtab_wsfc_mpi, &
-                       itab_vsfc, itabg_vsfc, jtab_vsfc_mpi
-  use mem_para,  only: nbytes_int, nbytes_real, &
-                        ireqr_wsfc,  ireqs_wsfc,  ireqr_vsfc,  ireqs_vsfc, &
-                       nsends_wsfc, nrecvs_wsfc, nsends_vsfc, nrecvs_vsfc, &
-                         send_wsfc,   recv_wsfc,   send_vsfc,   recv_vsfc, &
-                        icurr_wsfc,  inext_wsfc,  icurr_vsfc,  inext_vsfc, &
-                          itagwsfc,                 itagvsfc
   implicit none
 
-  integer, intent(in) :: nzg
-  integer, intent(in) :: nzs
-
 #ifdef OLAM_MPI
+  integer :: ierr, jsend, jrecv
 
-  integer :: nbytes_per_iwsfc
-  integer :: nbytes_per_ivsfc
+  allocate( ireqs_wsfc(nsends_wsfc,2) ) ; ireqs_wsfc = MPI_REQUEST_NULL
+  allocate( ireqr_wsfc(nrecvs_wsfc,2) ) ; ireqr_wsfc = MPI_REQUEST_NULL
 
-  integer, parameter :: itag410 = 410
-  integer, parameter :: itag411 = 411
-  integer, parameter :: itag510 = 510
-  integer, parameter :: itag511 = 511
+  allocate( ireqs_vsfc(nsends_vsfc,2) ) ; ireqs_vsfc = MPI_REQUEST_NULL
+  allocate( ireqr_vsfc(nrecvs_vsfc,2) ) ; ireqr_vsfc = MPI_REQUEST_NULL
 
-  integer :: ipos, ierr
-  integer :: jsend, jrecv, jtmp, j
-
-  integer, allocatable :: iglobe(:)
-
-  ! Post WSFC receives
-
-  allocate( ireqr_wsfc(nrecvs_wsfc,2) )
-  allocate( ireqs_wsfc(nsends_wsfc,2) )
+  allocate( ireqs_msfc(nsends_msfc,2) ) ; ireqs_msfc = MPI_REQUEST_NULL
+  allocate( ireqr_msfc(nrecvs_msfc,2) ) ; ireqr_msfc = MPI_REQUEST_NULL
 
   do jrecv = 1, nrecvs_wsfc
-     allocate( recv_wsfc(jrecv)%npts(1) )
-     call MPI_IRecv(recv_wsfc(jrecv)%npts, 1, MPI_INTEGER, recv_wsfc(jrecv)%iremote, &
-                    itag410, MPI_COMM_WORLD, ireqr_wsfc(jrecv,icurr_wsfc), ierr)
-  enddo
-
-  ! Post VSFC receives
-
-  allocate( ireqr_vsfc(nrecvs_vsfc,2) )
-  allocate( ireqs_vsfc(nsends_vsfc,2) )
-
-  do jrecv = 1, nrecvs_vsfc
-     allocate( recv_vsfc(jrecv)%npts(1) )
-     call MPI_IRecv(recv_vsfc(jrecv)%npts, 1, MPI_INTEGER, recv_vsfc(jrecv)%iremote, &
-                    itag510, MPI_COMM_WORLD, ireqr_vsfc(jrecv,icurr_vsfc), ierr)
-  enddo
-
-  ! Determine number of bytes to send per IWSFC column
-
-  nbytes_per_iwsfc = 3       * nbytes_int  &
-                   + 14      * nbytes_real &
-                   + 2 * nzg * nbytes_real &
-                   + 3 * nzs * nbytes_real
-
-  ! Loop over all WSFC sends
-
-  do jsend = 1, nsends_wsfc
-
-     ! Send buffer sizes to receive ranks
-
-     call MPI_Isend(jtab_wsfc_mpi(jsend)%jend, 1, MPI_INTEGER, &
-                    send_wsfc(jsend)%iremote, itag410, MPI_COMM_WORLD, &
-                    ireqs_wsfc(jsend,icurr_wsfc), ierr)
-
-     ! Determine size of send_wsfc buffer
-
-     send_wsfc(jsend)%nbytes = nbytes_per_iwsfc * jtab_wsfc_mpi(jsend)%jend
-
-     ! Allocate buffer
-
-     allocate(send_wsfc(jsend)%buff(send_wsfc(jsend)%nbytes))
-
-  enddo
-
-  ! Determine number of bytes to send per IVSFC column
-
-  nbytes_per_ivsfc = 8       * nbytes_real &
-                   + 2 * nzg * nbytes_real
-
-  ! Loop over all VSFC sends
-
-  do jsend = 1, nsends_vsfc
-
-     ! Send buffer sizes to receive ranks
-
-     call MPI_Isend(jtab_vsfc_mpi(jsend)%jend, 1, MPI_INTEGER, &
-                    send_vsfc(jsend)%iremote, itag510, MPI_COMM_WORLD, &
-                    ireqs_vsfc(jsend,icurr_vsfc), ierr)
-
-     ! Determine size of send_vsfc buffer
-
-     send_vsfc(jsend)%nbytes = nbytes_per_ivsfc * jtab_vsfc_mpi(jsend)%jend
-
-     ! Allocate buffer
-
-     allocate(send_vsfc(jsend)%buff(send_vsfc(jsend)%nbytes))
-
-  enddo
-
-  ! Loop over all WSFC receives
-
-  do jtmp = 1, nrecvs_wsfc
-
-     ! Get completed recv_wsfc buffer sizes
-
-     call MPI_Waitany(nrecvs_wsfc, ireqr_wsfc(:,icurr_wsfc), jrecv, MPI_STATUS_IGNORE, ierr)
-
-     recv_wsfc(jrecv)%nbytes = nbytes_per_iwsfc * recv_wsfc(jrecv)%npts(1)
-
-     ! Allocate recv_wsfc buffers for completed transfer
-
-     allocate( recv_wsfc(jrecv)%buff( recv_wsfc(jrecv)%nbytes ) )
-     allocate( recv_wsfc(jrecv)%ipts( recv_wsfc(jrecv)%npts(1) ) )
-
-     ! Post next receive to get the list of iwsfc points we are getting
-
-     call MPI_Irecv(recv_wsfc(jrecv)%buff, recv_wsfc(jrecv)%nbytes, MPI_PACKED, &
-                    recv_wsfc(jrecv)%iremote, itag411, MPI_COMM_WORLD, &
-                    ireqr_wsfc(jrecv,inext_wsfc), ierr)
-  enddo
-
-  ! Loop over all VSFC receives
-
-  do jtmp = 1, nrecvs_vsfc
-
-     ! Get completed recv_vsfc buffer sizes
-
-     call MPI_Waitany(nrecvs_vsfc, ireqr_vsfc(:,icurr_vsfc), jrecv, MPI_STATUS_IGNORE, ierr)
-
-     recv_vsfc(jrecv)%nbytes = nbytes_per_ivsfc * recv_vsfc(jrecv)%npts(1)
-
-     ! Allocate recv_vsfc buffers for completed transfer
-
-     allocate( recv_vsfc(jrecv)%buff( recv_vsfc(jrecv)%nbytes ) )
-     allocate( recv_vsfc(jrecv)%ipts( recv_vsfc(jrecv)%npts(1) ) )
-
-     ! Post next receive to get the list of ivsfc points we are getting
-
-     call MPI_Irecv(recv_vsfc(jrecv)%buff, recv_vsfc(jrecv)%nbytes, MPI_PACKED, &
-                    recv_vsfc(jrecv)%iremote, itag511, MPI_COMM_WORLD, &
-                    ireqr_vsfc(jrecv,inext_vsfc), ierr)
-  enddo
-
-  ! Communicate the list of iwsfc points we are sending to adjacent nodes
-
-  do jtmp = 1, nsends_wsfc
-
-     ! Make sure previous send is finished
-     call MPI_Waitany(nsends_wsfc, ireqs_wsfc(:,icurr_wsfc), jsend, MPI_STATUS_IGNORE, ierr)
-
-     allocate(iglobe( jtab_wsfc_mpi(jsend)%jend ) )
-
-     do j = 1, jtab_wsfc_mpi(jsend)%jend
-        iglobe(j) = itab_wsfc( jtab_wsfc_mpi(jsend)%iwsfc(j) )%iwglobe
-     enddo
-
-     ipos = 0
-
-     call MPI_Pack(iglobe, jtab_wsfc_mpi(jsend)%jend, MPI_INTEGER, &
-          send_wsfc(jsend)%buff, send_wsfc(jsend)%nbytes, ipos, MPI_COMM_WORLD, ierr)
-
-     call MPI_Isend(send_wsfc(jsend)%buff, ipos, MPI_PACKED, &
-                    send_wsfc(jsend)%iremote, itag411, MPI_COMM_WORLD, &
-                    ireqs_wsfc(jsend,inext_wsfc), ierr)
-
-     deallocate(iglobe)
-  enddo
-
-  ! Communicate the list of ivsfc points we are sending to adjacent nodes
-
-  do jtmp = 1, nsends_vsfc
-
-     ! Make sure previous send is finished
-     call MPI_Waitany(nsends_vsfc, ireqs_vsfc(:,icurr_vsfc), jsend, MPI_STATUS_IGNORE, ierr)
-
-     allocate(iglobe( jtab_vsfc_mpi(jsend)%jend ) )
-
-     do j = 1, jtab_vsfc_mpi(jsend)%jend
-        iglobe(j) = itab_vsfc( jtab_vsfc_mpi(jsend)%ivsfc(j) )%ivglobe
-     enddo
-
-     ipos = 0
-
-     call MPI_Pack(iglobe, jtab_vsfc_mpi(jsend)%jend, MPI_INTEGER, &
-          send_vsfc(jsend)%buff, send_vsfc(jsend)%nbytes, ipos, MPI_COMM_WORLD, ierr)
-
-     call MPI_Isend(send_vsfc(jsend)%buff, ipos, MPI_PACKED, &
-                    send_vsfc(jsend)%iremote, itag511, MPI_COMM_WORLD, &
-                    ireqs_vsfc(jsend,inext_vsfc), ierr)
-
-     deallocate(iglobe)
-  enddo
-
-  ! Unpack and store the list of iwsfc points we are getting from adjacent nodes
-
-  icurr_wsfc = mod(icurr_wsfc,2) + 1
-  inext_wsfc = mod(inext_wsfc,2) + 1
-
-  do jtmp = 1, nrecvs_wsfc
-     call MPI_Waitany(nrecvs_wsfc, ireqr_wsfc(:,icurr_wsfc), jrecv, MPI_STATUS_IGNORE, ierr)
-
-     ipos = 0
-
-     allocate( iglobe( recv_wsfc(jrecv)%npts(1) ) )
-
-     call MPI_Unpack(recv_wsfc(jrecv)%buff, recv_wsfc(jrecv)%nbytes, ipos, &
-                     iglobe, recv_wsfc(jrecv)%npts(1), MPI_INTEGER, &
-                     MPI_COMM_WORLD, ierr)
-
-     do j = 1, recv_wsfc(jrecv)%npts(1)
-        recv_wsfc(jrecv)%ipts(j) = itabg_wsfc( iglobe(j) )%iwsfc_myrank
-     enddo
-
-     deallocate(iglobe)
 
      call MPI_Irecv(recv_wsfc(jrecv)%buff, recv_wsfc(jrecv)%nbytes, MPI_PACKED, &
                     recv_wsfc(jrecv)%iremote, itagwsfc, MPI_COMM_WORLD,         &
                     ireqr_wsfc(jrecv,inext_wsfc), ierr                          )
   enddo
 
-  ! Unpack and store the list of ivsfc points we are getting from adjacent nodes
-
-  icurr_vsfc = mod(icurr_vsfc,2) + 1
-  inext_vsfc = mod(inext_vsfc,2) + 1
-
-  do jtmp = 1, nrecvs_vsfc
-     call MPI_Waitany(nrecvs_vsfc, ireqr_vsfc(:,icurr_vsfc), jrecv, MPI_STATUS_IGNORE, ierr)
-
-     ipos = 0
-
-     allocate( iglobe( recv_vsfc(jrecv)%npts(1) ) )
-
-     call MPI_Unpack(recv_vsfc(jrecv)%buff, recv_vsfc(jrecv)%nbytes, ipos, &
-                     iglobe, recv_vsfc(jrecv)%npts(1), MPI_INTEGER, &
-                     MPI_COMM_WORLD, ierr)
-
-     do j = 1, recv_vsfc(jrecv)%npts(1)
-        recv_vsfc(jrecv)%ipts(j) = itabg_vsfc( iglobe(j) )%ivsfc_myrank
-     enddo
-
-     deallocate(iglobe)
-
+  do jrecv = 1, nrecvs_vsfc
      call MPI_Irecv(recv_vsfc(jrecv)%buff, recv_vsfc(jrecv)%nbytes, MPI_PACKED, &
                     recv_vsfc(jrecv)%iremote, itagvsfc, MPI_COMM_WORLD,         &
                     ireqr_vsfc(jrecv,inext_vsfc), ierr                          )
@@ -294,7 +105,7 @@ subroutine olam_alloc_mpi_sfcg(nzg, nzs)
 
 #endif
 
-end subroutine olam_alloc_mpi_sfcg
+end subroutine olam_mpi_sfc_start
 
 !===============================================================================
 
@@ -307,14 +118,13 @@ subroutine mpi_send_wsfc(set, soil_watfrac, div2d_ex)
   use mpi
 #endif
 
-  use mem_sfcg,    only: sfcg, itab_wsfc, jtab_wsfc_mpi, mwsfc
+  use mem_sfcg,    only: sfcg, mwsfc
   use mem_land,    only: nzg, land, mland, omland
   use mem_lake,    only: lake, omlake
   use mem_sea,     only: sea, msea, omsea
   use leaf_coms,   only: nzs
   use sea_coms,    only: nzi
-  use mem_para,    only: nsends_wsfc, send_wsfc, itagwsfc, ireqs_wsfc, &
-                         icurr_wsfc, inext_wsfc
+  use mem_para,    only: myrank
 
   implicit none
 
@@ -325,8 +135,7 @@ subroutine mpi_send_wsfc(set, soil_watfrac, div2d_ex)
 #ifdef OLAM_MPI
 
   integer :: ierr, ipos
-  integer :: jsend, jtmp
-  integer :: j, nb
+  integer :: jsend, jtmp, jj, nb
   integer :: iwsfc, iland, ilake, isea
 
   ! Before we send anything, post the receives
@@ -338,16 +147,18 @@ subroutine mpi_send_wsfc(set, soil_watfrac, div2d_ex)
      ! Make sure the previous sends are finished
      call MPI_Waitany(nsends_wsfc, ireqs_wsfc(:,icurr_wsfc), jsend, MPI_STATUS_IGNORE, ierr)
 
-     !$omp task private(ipos,j,iwsfc,iland,ilake,isea,ierr) &
+     if (jsend == MPI_UNDEFINED) jsend = jtmp
+
+     !$omp task private(ipos,jj,iwsfc,iland,ilake,isea,ierr) &
      !$omp      firstprivate(jsend) default(shared)
 
      ipos = 0
 
      ! Loop over number of columns for this jsend
 
-     do j = 1,jtab_wsfc_mpi(jsend)%jend
-        iwsfc = jtab_wsfc_mpi(jsend)%iwsfc(j)
-        nb = send_wsfc(jsend)%nbytes
+     do jj = 1, send_wsfc(jsend)%jend
+        iwsfc = send_wsfc(jsend)%ipts(jj)
+        nb    = send_wsfc(jsend)%nbytes
 
         ! Pack the messages into send buffers
 
@@ -425,7 +236,7 @@ subroutine mpi_send_wsfc(set, soil_watfrac, div2d_ex)
               call MPI_Pack(sea%vze(isea),1,MPI_REAL, &
                             send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
            endif
-           
+
         elseif (set == 'sfc_driv_end') then
 
            call MPI_Pack(sfcg%cantemp(iwsfc),1,MPI_REAL, &
@@ -568,11 +379,9 @@ subroutine mpi_send_vsfc(watflux, energyflux, vc_ex)
   use mpi
 #endif
 
-  use mem_sfcg,    only: sfcg, itab_vsfc, jtab_vsfc_mpi, mvsfc
-  use mem_land,    only: nzg
-  use mem_para,    only: nsends_vsfc, send_vsfc, itagvsfc, ireqs_vsfc, &
-                         icurr_vsfc, inext_vsfc
-  use oname_coms,  only: nl
+  use mem_sfcg,   only: sfcg, itab_vsfc, mvsfc
+  use mem_land,   only: nzg
+  use oname_coms, only: nl
 
   implicit none
 
@@ -583,8 +392,7 @@ subroutine mpi_send_vsfc(watflux, energyflux, vc_ex)
 #ifdef OLAM_MPI
 
   integer :: ierr, ipos
-  integer :: jsend, jtmp
-  integer :: j, nb
+  integer :: jsend, jtmp, jj, nb
   integer :: ivsfc, iw1, iw2
 
   ! Before we send anything, post the receives
@@ -596,16 +404,18 @@ subroutine mpi_send_vsfc(watflux, energyflux, vc_ex)
      ! Make sure the previous sends are finished
      call MPI_Waitany(nsends_vsfc, ireqs_vsfc(:,icurr_vsfc), jsend, MPI_STATUS_IGNORE, ierr)
 
-     !$omp task private(ipos,j,ivsfc,ierr) &
+     if (jsend == MPI_UNDEFINED) jsend = jtmp
+
+     !$omp task private(ipos,jj,ivsfc,nb,iw1,iw2,ierr) &
      !$omp      firstprivate(jsend) default(shared)
 
      ipos = 0
+     nb = send_vsfc(jsend)%nbytes
 
      ! Loop over number of VSFC points for this jsend
 
-     do j = 1,jtab_vsfc_mpi(jsend)%jend
-        ivsfc = jtab_vsfc_mpi(jsend)%ivsfc(j)
-        nb = send_vsfc(jsend)%nbytes
+     do jj = 1, send_vsfc(jsend)%jend
+        ivsfc = send_vsfc(jsend)%ipts(jj)
 
         iw1 = itab_vsfc(ivsfc)%iwn(1)
         iw2 = itab_vsfc(ivsfc)%iwn(2)
@@ -699,13 +509,13 @@ subroutine mpi_recv_wsfc(set, soil_watfrac, div2d_ex)
   use mpi
 #endif
 
-  use mem_sfcg,    only: sfcg, mwsfc
-  use leaf_coms,   only: nzs
-  use sea_coms,    only: nzi
-  use mem_land,    only: nzg, land, omland
-  use mem_lake,    only: lake, omlake
-  use mem_sea,     only: sea, msea, omsea
-  use mem_para,    only: nrecvs_wsfc, itagwsfc, recv_wsfc, ireqr_wsfc, icurr_wsfc, inext_wsfc
+  use mem_sfcg,  only: sfcg, mwsfc
+  use leaf_coms, only: nzs
+  use sea_coms,  only: nzi
+  use mem_land,  only: nzg, land, omland
+  use mem_lake,  only: lake, omlake
+  use mem_sea,   only: sea, msea, omsea
+  use mem_para,  only: myrank
 
   implicit none
 
@@ -716,10 +526,8 @@ subroutine mpi_recv_wsfc(set, soil_watfrac, div2d_ex)
 #ifdef OLAM_MPI
 
   integer :: ierr, ipos
-  integer :: jrecv, jtmp
-  integer :: j
+  integer :: jrecv, jtmp, jj
   integer :: iwsfc, iland, ilake, isea
-! integer :: iwglobe
 
   !$omp parallel
   !$omp single
@@ -729,17 +537,19 @@ subroutine mpi_recv_wsfc(set, soil_watfrac, div2d_ex)
 
      call MPI_Waitany(nrecvs_wsfc, ireqr_wsfc(:,icurr_wsfc), jrecv, MPI_STATUS_IGNORE, ierr)
 
+     if (jrecv == MPI_UNDEFINED) jrecv = jtmp
+
      ! We got some stuff.  Now unpack it into appropriate space.
 
-     !$omp task private(j,ipos,iwsfc,iland,ilake,isea,ierr) &
+     !$omp task private(ipos,jj,iwsfc,iland,ilake,isea,ierr) &
      !$omp      firstprivate(jrecv) default(shared)
 
      ipos = 0
 
      ! Loop over number of columns for this jtmp/jrecv
 
-     do j = 1, recv_wsfc(jrecv)%npts(1)
-        iwsfc = recv_wsfc(jrecv)%ipts(j)
+     do jj = 1, recv_wsfc(jrecv)%jend
+        iwsfc = recv_wsfc(jrecv)%ipts(jj)
 
         if (set == 'head_swm_grad') then
 
@@ -816,7 +626,7 @@ subroutine mpi_recv_wsfc(set, soil_watfrac, div2d_ex)
                               sea%vze    (isea),1,MPI_REAL,MPI_COMM_WORLD,ierr)
 
            endif
-           
+
         elseif (set == 'sfc_driv_end') then
 
            call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
@@ -952,10 +762,9 @@ subroutine mpi_recv_vsfc(watflux, energyflux, vc_ex)
   use mpi
 #endif
 
-  use mem_sfcg,    only: sfcg, mvsfc, itab_vsfc
-  use mem_land,    only: nzg, land, omland
-  use mem_para,    only: nrecvs_vsfc, itagvsfc, recv_vsfc, ireqr_vsfc, icurr_vsfc, inext_vsfc
-  use oname_coms,  only: nl
+  use mem_sfcg,   only: sfcg, mvsfc, itab_vsfc
+  use mem_land,   only: nzg, land, omland
+  use oname_coms, only: nl
 
   implicit none
 
@@ -967,8 +776,7 @@ subroutine mpi_recv_vsfc(watflux, energyflux, vc_ex)
 
   integer :: ierr, ipos
   integer :: jrecv, jtmp
-  integer :: j
-  integer :: ivsfc, iw1, iw2
+  integer :: jj, ivsfc, iw1, iw2
 
   !$omp parallel
   !$omp single
@@ -978,17 +786,19 @@ subroutine mpi_recv_vsfc(watflux, energyflux, vc_ex)
 
      call MPI_Waitany(nrecvs_vsfc, ireqr_vsfc(:,icurr_vsfc), jrecv, MPI_STATUS_IGNORE, ierr)
 
+     if (jrecv == MPI_UNDEFINED) jrecv = jtmp
+
      ! We got some stuff.  Now unpack it into appropriate space.
 
-     !$omp task private(j,ipos,ivsfc,ierr) &
+     !$omp task private(ipos,jj,ivsfc,iw1,iw2,ierr) &
      !$omp      firstprivate(jrecv) default(shared)
 
      ipos = 0
 
      ! Loop over number of columns for this jtmp/jrecv
 
-     do j = 1, recv_vsfc(jrecv)%npts(1)
-        ivsfc = recv_vsfc(jrecv)%ipts(j)
+     do jj = 1, recv_vsfc(jrecv)%jend
+        ivsfc = recv_vsfc(jrecv)%ipts(jj)
 
         iw1 = itab_vsfc(ivsfc)%iwn(1)
         iw2 = itab_vsfc(ivsfc)%iwn(2)
@@ -1064,4 +874,98 @@ subroutine mpi_recv_vsfc(watflux, energyflux, vc_ex)
 
 end subroutine mpi_recv_vsfc
 
-End Module olam_mpi_sfcg
+!===============================================================================
+
+subroutine olam_mpi_sfc_stop()
+
+#ifdef OLAM_MPI
+  use mpi
+#endif
+
+  use misc_coms, only: iparallel
+  use mem_para,  only: olam_mpi_barrier
+
+  implicit none
+
+#ifdef OLAM_MPI
+
+  integer :: ierr, jrecv, ii, jsend
+  logical :: flags
+
+  if (iparallel == 1) then
+
+     ! First make sure all processes are here so that all sends are finished
+
+     call olam_mpi_barrier()
+
+     ! Cancel any pending communication
+
+     do ii = 1, 2
+
+        do jrecv = 1, nrecvs_wsfc
+           if (ireqr_wsfc(jrecv,ii) /= MPI_REQUEST_NULL) then
+              call MPI_Cancel(ireqr_wsfc(jrecv,ii), ierr)
+           endif
+        enddo
+
+        do jsend = 1, nsends_wsfc
+           if (ireqs_wsfc(jsend,ii) /= MPI_REQUEST_NULL) then
+              call MPI_Cancel(ireqs_wsfc(jsend,ii), ierr)
+           endif
+        enddo
+
+        do jrecv = 1, nrecvs_vsfc
+           if (ireqr_vsfc(jrecv,ii) /= MPI_REQUEST_NULL) then
+              call MPI_Cancel(ireqr_vsfc(jrecv,ii), ierr)
+           endif
+        enddo
+
+        do jsend = 1, nsends_vsfc
+           if (ireqs_vsfc(jsend,ii) /= MPI_REQUEST_NULL) then
+              call MPI_Cancel(ireqs_vsfc(jsend,ii), ierr)
+           endif
+        enddo
+
+     enddo
+
+     ! Test that all communication requests have been completed or cancelled
+
+     call olam_mpi_barrier()
+
+     call MPI_Testall(nrecvs_wsfc, ireqr_wsfc(:,1), flags, MPI_STATUSES_IGNORE, ierr)
+     call MPI_Testall(nrecvs_wsfc, ireqr_wsfc(:,2), flags, MPI_STATUSES_IGNORE, ierr)
+
+     call MPI_Testall(nsends_wsfc, ireqs_wsfc(:,1), flags, MPI_STATUSES_IGNORE, ierr)
+     call MPI_Testall(nsends_wsfc, ireqs_wsfc(:,2), flags, MPI_STATUSES_IGNORE, ierr)
+
+     call MPI_Testall(nrecvs_vsfc, ireqr_vsfc(:,1), flags, MPI_STATUSES_IGNORE, ierr)
+     call MPI_Testall(nrecvs_vsfc, ireqr_vsfc(:,2), flags, MPI_STATUSES_IGNORE, ierr)
+
+     call MPI_Testall(nsends_vsfc, ireqs_vsfc(:,1), flags, MPI_STATUSES_IGNORE, ierr)
+     call MPI_Testall(nsends_vsfc, ireqs_vsfc(:,2), flags, MPI_STATUSES_IGNORE, ierr)
+
+     call olam_mpi_barrier()
+
+  endif
+
+  ! Deallocate unused arrays
+
+  if (allocated(send_wsfc)) deallocate(send_wsfc)
+  if (allocated(recv_wsfc)) deallocate(recv_wsfc)
+
+  if (allocated(send_vsfc)) deallocate(send_vsfc)
+  if (allocated(recv_vsfc)) deallocate(recv_vsfc)
+
+  if (allocated(ireqs_wsfc)) deallocate(ireqs_wsfc)
+  if (allocated(ireqr_wsfc)) deallocate(ireqr_wsfc)
+
+  if (allocated(ireqs_vsfc)) deallocate(ireqs_vsfc)
+  if (allocated(ireqr_vsfc)) deallocate(ireqr_vsfc)
+
+#endif
+
+end subroutine olam_mpi_sfc_stop
+
+!==================================================================
+
+End Module olam_mpi_sfc

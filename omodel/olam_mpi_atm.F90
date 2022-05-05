@@ -33,861 +33,89 @@
 
 Module olam_mpi_atm
 
+  integer, parameter :: itagw    = 1
+  integer, parameter :: itagv    = 2
+  integer, parameter :: itagm    = 3
+
+  integer :: nsends_v, nrecvs_v
+  integer :: nsends_w, nrecvs_w
+  integer :: nsends_m, nrecvs_m
+
+  Type nodebuffs
+     character, allocatable :: buff(:)
+     integer,   allocatable :: ipts(:)
+     integer                :: nbytes = 0
+     integer                :: jend = 0
+     integer                :: iremote = -1
+  End Type nodebuffs
+
+  type(nodebuffs), allocatable :: send_w(:), recv_w(:)
+  type(nodebuffs), allocatable :: send_v(:), recv_v(:)
+  type(nodebuffs), allocatable :: send_m(:), recv_m(:)
+
+  integer              :: icurr_v = 1
+  integer              :: inext_v = 2
+  integer, allocatable :: ireqr_v(:,:)
+  integer, allocatable :: ireqs_v(:,:)
+
+  integer              :: icurr_m = 1
+  integer              :: inext_m = 2
+  integer, allocatable :: ireqr_m(:,:)
+  integer, allocatable :: ireqs_m(:,:)
+
+  integer              :: icurr_w = 1
+  integer              :: inext_w = 2
+  integer, allocatable :: ireqr_w(:,:)
+  integer, allocatable :: ireqs_w(:,:)
+
 Contains
 
-  subroutine olam_mpi_init()
-
-#ifdef OLAM_MPI
-    use mpi
-#endif
-
-    use mem_para, only: mgroupsize, myrank, nbytes_int, nbytes_real, nbytes_real8
-    implicit none
-
-#ifdef OLAM_MPI
-
-    integer :: ierr, iomp
-!$  integer :: iprov
-
-! Initialize MPI and determine process groupsize and myrank
-
-    iomp = 0
-
-!$  iomp = 1
-!$  call MPI_Init_thread(MPI_THREAD_MULTIPLE, iprov, ierr)
-!$  if (iprov < MPI_THREAD_MULTIPLE) then
-!$     write(*,*) "MPI_THREAD_MULTIPLE is not provided by MPI"
-!$     call olam_stop("Stopping model run")
-!$  endif
-
-    if (iomp == 0) then
-       call MPI_Init(ierr)
-    endif
-
-    call MPI_Comm_size(MPI_COMM_WORLD,mgroupsize,ierr)
-    call MPI_Comm_rank(MPI_COMM_WORLD,myrank,ierr)
-
-    call MPI_Pack_size(1, MPI_INTEGER, MPI_COMM_WORLD, nbytes_int  , ierr)
-    call MPI_Pack_size(1, MPI_REAL   , MPI_COMM_WORLD, nbytes_real , ierr)
-    call MPI_Pack_size(1, MPI_REAL8  , MPI_COMM_WORLD, nbytes_real8, ierr)
-
-#else
-
-    mgroupsize = 1
-    myrank     = 0
-
-    nbytes_int   = 4
-    nbytes_real  = 4
-    nbytes_real8 = 8
-
-#endif
-
-end subroutine olam_mpi_init
-
 !===============================================================================
 
-subroutine alloc_mpi_sndrcv_bufs()
-
-  use mem_para,  only: mgroupsize,           &
-                       send_v,    recv_v,    &
-                       send_w,    recv_w,    &
-                       send_m,    recv_m,    &
-                       send_wnud, recv_wnud, &
-                       send_wsfc, recv_wsfc, &
-                       send_vsfc, recv_vsfc
-
-  use misc_coms, only: iparallel
-  use mem_nudge, only: nudflag, nudnxp
-
-  implicit none
-
-  if (iparallel == 0) return
-
-! Allocate send and recv tables
-
-  allocate(send_v(mgroupsize))
-  allocate(recv_v(mgroupsize))
-
-  allocate(send_m(mgroupsize))
-  allocate(recv_m(mgroupsize))
-
-  allocate(send_w(mgroupsize))
-  allocate(recv_w(mgroupsize))
-
-  if (nudflag > 0 .and. nudnxp > 0) then
-     allocate(send_wnud(mgroupsize))
-     allocate(recv_wnud(mgroupsize))
-  endif
-
-  allocate(send_wsfc(mgroupsize))
-  allocate(recv_wsfc(mgroupsize))
-
-  allocate(send_vsfc(mgroupsize))
-  allocate(recv_vsfc(mgroupsize))
-
-end subroutine alloc_mpi_sndrcv_bufs
-
-!===============================================================================
-
-subroutine olam_mpi_finalize()
+subroutine olam_mpi_atm_start()
 
 #ifdef OLAM_MPI
   use mpi
 #endif
 
-  use mem_para,  only: send_v,    recv_v,    ireqr_v,    nrecvs_v,    ireqs_v,    nsends_v,    &
-                       send_w,    recv_w,    ireqr_w,    nrecvs_m,    ireqs_m,    nsends_m,    &
-                       send_m,    recv_m,    ireqr_m,    nrecvs_w,    ireqs_w,    nsends_w,    &
-                       send_wnud, recv_wnud, ireqr_wnud, nrecvs_wnud, ireqs_wnud, nsends_wnud, &
-                       send_wsfc, recv_wsfc, ireqr_wsfc, nrecvs_wsfc, ireqs_wsfc, nsends_wsfc, &
-                       send_vsfc, recv_vsfc, ireqr_vsfc, nrecvs_vsfc, ireqs_vsfc, nsends_vsfc
-  use mem_nudge, only: nudflag, nudnxp
-  use misc_coms, only: iparallel, io6
-
   implicit none
 
 #ifdef OLAM_MPI
+  integer :: ierr, jsend, jrecv
 
-  integer :: ierr, jrecv, ii, jsend
-  logical :: flags
+  allocate( ireqs_w(nsends_w,2) ) ; ireqs_w = MPI_REQUEST_NULL
+  allocate( ireqr_w(nrecvs_w,2) ) ; ireqr_w = MPI_REQUEST_NULL
 
-  if (iparallel == 1) then
+  allocate( ireqs_v(nsends_v,2) ) ; ireqs_v = MPI_REQUEST_NULL
+  allocate( ireqr_v(nrecvs_v,2) ) ; ireqr_v = MPI_REQUEST_NULL
 
-     ! First make sure all processes get here so that all sends are finished
+  allocate( ireqs_m(nsends_m,2) ) ; ireqs_m = MPI_REQUEST_NULL
+  allocate( ireqr_m(nrecvs_m,2) ) ; ireqr_m = MPI_REQUEST_NULL
 
-     call olam_mpi_barrier()
-
-     ! Cancel any pending communication
-
-     do ii = 1, 2
-
-        do jrecv = 1, nrecvs_v(1)
-           if (ireqr_v(jrecv,ii) /= MPI_REQUEST_NULL) then
-              call MPI_Cancel(ireqr_v(jrecv,ii), ierr)
-           endif
-        enddo
-
-        do jsend = 1, nsends_v(1)
-           if (ireqs_v(jsend,ii) /= MPI_REQUEST_NULL) then
-              call MPI_Cancel(ireqs_v(jsend,ii), ierr)
-           endif
-        enddo
-
-        do jrecv = 1, nrecvs_m(1)
-           if (ireqr_m(jrecv,ii) /= MPI_REQUEST_NULL) then
-              call MPI_Cancel(ireqr_m(jrecv,ii), ierr)
-           endif
-        enddo
-
-        do jsend = 1, nsends_m(1)
-           if (ireqs_m(jsend,ii) /= MPI_REQUEST_NULL) then
-              call MPI_Cancel(ireqs_m(jsend,ii), ierr)
-           endif
-        enddo
-
-        do jrecv = 1, nrecvs_w(1)
-           if (ireqr_w(jrecv,ii) /= MPI_REQUEST_NULL) then
-              call MPI_Cancel(ireqr_w(jrecv,ii), ierr)
-           endif
-        enddo
-
-        do jsend = 1, nsends_w(1)
-           if (ireqs_w(jsend,ii) /= MPI_REQUEST_NULL) then
-              call MPI_Cancel(ireqs_w(jsend,ii), ierr)
-           endif
-        enddo
-
-        if (nudflag > 0 .and. nudnxp > 0) then
-
-           do jrecv = 1, nrecvs_wnud
-              if (ireqr_wnud(jrecv,ii) /= MPI_REQUEST_NULL) then
-                 call MPI_Cancel(ireqr_wnud(jrecv,ii), ierr)
-              endif
-           enddo
-
-           do jsend = 1, nsends_wnud
-              if (ireqs_wnud(jsend,ii) /= MPI_REQUEST_NULL) then
-                 call MPI_Cancel(ireqs_wnud(jsend,ii), ierr)
-              endif
-           enddo
-
-        endif
-
-        do jrecv = 1, nrecvs_wsfc
-           if (ireqr_wsfc(jrecv,ii) /= MPI_REQUEST_NULL) then
-              call MPI_Cancel(ireqr_wsfc(jrecv,ii), ierr)
-           endif
-        enddo
-
-        do jsend = 1, nsends_wsfc
-           if (ireqs_wsfc(jsend,ii) /= MPI_REQUEST_NULL) then
-              call MPI_Cancel(ireqs_wsfc(jsend,ii), ierr)
-           endif
-        enddo
-
-        do jrecv = 1, nrecvs_vsfc
-           if (ireqr_vsfc(jrecv,ii) /= MPI_REQUEST_NULL) then
-              call MPI_Cancel(ireqr_vsfc(jrecv,ii), ierr)
-           endif
-        enddo
-
-        do jsend = 1, nsends_vsfc
-           if (ireqs_vsfc(jsend,ii) /= MPI_REQUEST_NULL) then
-              call MPI_Cancel(ireqs_vsfc(jsend,ii), ierr)
-           endif
-        enddo
-
-     enddo
-
-     ! Test that all communication requests have been completed or cancelled
-
-     call olam_mpi_barrier()
-
-     call MPI_Testall(nrecvs_v(1), ireqr_v(:,1), flags, MPI_STATUSES_IGNORE, ierr)
-     call MPI_Testall(nrecvs_v(1), ireqr_v(:,2), flags, MPI_STATUSES_IGNORE, ierr)
-
-     call MPI_Testall(nsends_v(1), ireqs_v(:,1), flags, MPI_STATUSES_IGNORE, ierr)
-     call MPI_Testall(nsends_v(1), ireqs_v(:,2), flags, MPI_STATUSES_IGNORE, ierr)
-
-     call MPI_Testall(nrecvs_m(1), ireqr_m(:,1), flags, MPI_STATUSES_IGNORE, ierr)
-     call MPI_Testall(nrecvs_m(1), ireqr_m(:,2), flags, MPI_STATUSES_IGNORE, ierr)
-
-     call MPI_Testall(nsends_m(1), ireqs_m(:,1), flags, MPI_STATUSES_IGNORE, ierr)
-     call MPI_Testall(nsends_m(1), ireqs_m(:,2), flags, MPI_STATUSES_IGNORE, ierr)
-
-     call MPI_Testall(nrecvs_w(1), ireqr_w(:,1), flags, MPI_STATUSES_IGNORE, ierr)
-     call MPI_Testall(nrecvs_w(1), ireqr_w(:,2), flags, MPI_STATUSES_IGNORE, ierr)
-
-     call MPI_Testall(nsends_w(1), ireqs_w(:,1), flags, MPI_STATUSES_IGNORE, ierr)
-     call MPI_Testall(nsends_w(1), ireqs_w(:,2), flags, MPI_STATUSES_IGNORE, ierr)
-
-     if (nudflag > 0 .and. nudnxp > 0) then
-        call MPI_Testall(nrecvs_wnud, ireqr_wnud(:,1), flags, MPI_STATUSES_IGNORE, ierr)
-        call MPI_Testall(nrecvs_wnud, ireqr_wnud(:,2), flags, MPI_STATUSES_IGNORE, ierr)
-
-        call MPI_Testall(nsends_wnud, ireqs_wnud(:,1), flags, MPI_STATUSES_IGNORE, ierr)
-        call MPI_Testall(nsends_wnud, ireqs_wnud(:,2), flags, MPI_STATUSES_IGNORE, ierr)
-     endif
-
-     call MPI_Testall(nrecvs_wsfc, ireqr_wsfc(:,1), flags, MPI_STATUSES_IGNORE, ierr)
-     call MPI_Testall(nrecvs_wsfc, ireqr_wsfc(:,2), flags, MPI_STATUSES_IGNORE, ierr)
-
-     call MPI_Testall(nsends_wsfc, ireqs_wsfc(:,1), flags, MPI_STATUSES_IGNORE, ierr)
-     call MPI_Testall(nsends_wsfc, ireqs_wsfc(:,2), flags, MPI_STATUSES_IGNORE, ierr)
-
-     call MPI_Testall(nrecvs_vsfc, ireqr_vsfc(:,1), flags, MPI_STATUSES_IGNORE, ierr)
-     call MPI_Testall(nrecvs_vsfc, ireqr_vsfc(:,2), flags, MPI_STATUSES_IGNORE, ierr)
-
-     call MPI_Testall(nsends_vsfc, ireqs_vsfc(:,1), flags, MPI_STATUSES_IGNORE, ierr)
-     call MPI_Testall(nsends_vsfc, ireqs_vsfc(:,2), flags, MPI_STATUSES_IGNORE, ierr)
-
-     call olam_mpi_barrier()
-
-  endif
-
-  ! Now terminate MPI
-
-  call MPI_Finalize(ierr)
-
-  ! Deallocate unused arrays
-
-  if (allocated(send_v )) deallocate(send_v)
-  if (allocated(recv_v )) deallocate(recv_v)
-
-  if (allocated(send_m )) deallocate(send_m)
-  if (allocated(recv_m )) deallocate(recv_m)
-
-  if (allocated(send_w )) deallocate(send_w)
-  if (allocated(recv_w )) deallocate(recv_w)
-
-  if (allocated(send_wnud )) deallocate(send_wnud)
-  if (allocated(recv_wnud )) deallocate(recv_wnud)
-
-  if (allocated(send_wsfc )) deallocate(send_wsfc)
-  if (allocated(recv_wsfc )) deallocate(recv_wsfc)
-
-  if (allocated(send_vsfc )) deallocate(send_vsfc)
-  if (allocated(recv_vsfc )) deallocate(recv_vsfc)
-
-#endif
-
-end subroutine olam_mpi_finalize
-
-!==================================================================
-
-subroutine olam_alloc_mpi(mza, mrls)
-
-#ifdef OLAM_MPI
-  use mpi
-#endif
-
-  use mem_ijtabs, only: itab_v, itabg_v, jtab_v, itab_w, itabg_w, jtab_w, &
-                        itab_m, itabg_m, jtab_m, mloops
-  use mem_nudge,  only: itab_wnud, itabg_wnud, jtab_wnud, nudflag, nudnxp
-  use mem_para,   only: nbytes_int, nbytes_real, nbytes_real8,     &
-                        nrecvs_v, nrecvs_w, nrecvs_m, nrecvs_wnud, &
-                        nsends_v, nsends_w, nsends_m, nsends_wnud, &
-                        recv_v,   recv_w,   recv_m,   recv_wnud,   &
-                        send_v,   send_w,   send_m,   send_wnud,   &
-                        ireqr_v,  ireqr_w,  ireqr_m,  ireqr_wnud,  &
-                        ireqs_v,  ireqs_w,  ireqs_m,  ireqs_wnud,  &
-                        icurr_v,  icurr_w,  icurr_m,  icurr_wnud,  &
-                        inext_v,  inext_w,  inext_m,  inext_wnud,  &
-                        itagv,    itagw,    itagm,    itagwnud
-
-  use var_tables, only: nvar_par
-
-  implicit none
-
-  integer, intent(in) :: mza
-  integer, intent(in) :: mrls
-
-#ifdef OLAM_MPI
-
-  integer :: nbytes_per_iv
-  integer :: nbytes_per_iw
-  integer :: nbytes_per_im
-  integer :: nbytes_per_iwnud
-
-  integer :: itag10  =  10
-  integer :: itag110 = 110
-  integer :: itag210 = 210
-  integer :: itag310 = 310
-
-  integer :: itag11  =  11
-  integer :: itag111 = 111
-  integer :: itag211 = 211
-  integer :: itag311 = 311
-
-  integer :: ierr, ipos
-  integer :: jsend, jrecv, jtmp, j
-
-  integer :: nv
-  integer :: mrl
-
-  integer, allocatable :: iglobe(:)
-
-! Post V receives
-
-  allocate( ireqr_v(nrecvs_v(1),2) )
-  allocate( ireqs_v(nsends_v(1),2) )
-
-  do jrecv = 1,nrecvs_v(1)
-     allocate( recv_v(jrecv)%npts(mrls) )
-     call MPI_Irecv(recv_v(jrecv)%npts, mrls, MPI_INTEGER, recv_v(jrecv)%iremote, &
-          itag10, MPI_COMM_WORLD, ireqr_v(jrecv,icurr_v), ierr)
-  enddo
-
-! Post M receives
-
-  allocate( ireqr_m(nrecvs_m(1),2) )
-  allocate( ireqs_m(nsends_m(1),2) )
-
-  do jrecv = 1,nrecvs_m(1)
-     allocate( recv_m(jrecv)%npts(mrls) )
-     call MPI_Irecv(recv_m(jrecv)%npts, mrls, MPI_INTEGER, recv_m(jrecv)%iremote, &
-          itag110, MPI_COMM_WORLD, ireqr_m(jrecv,icurr_m), ierr)
-  enddo
-
-! Post W receives
-
-  allocate( ireqr_w(nrecvs_w(1),2) )
-  allocate( ireqs_w(nsends_w(1),2) )
-
-  do jrecv = 1,nrecvs_w(1)
-     allocate( recv_w(jrecv)%npts(mrls) )
-     call MPI_Irecv(recv_w(jrecv)%npts, mrls, MPI_INTEGER, recv_w(jrecv)%iremote, &
-          itag210, MPI_COMM_WORLD, ireqr_w(jrecv,icurr_w), ierr)
-  enddo
-
-! Post WNUD receives
-
-  if (nudflag > 0 .and. nudnxp > 0) then
-
-     allocate( ireqr_w(nrecvs_wnud,2) )
-     allocate( ireqs_w(nsends_wnud,2) )
-
-     do jrecv = 1,nrecvs_wnud
-        allocate( recv_wnud(jrecv)%npts(1) )
-        call MPI_Irecv(recv_wnud(jrecv)%npts, 1, MPI_INTEGER, recv_wnud(jrecv)%iremote, &
-             itag310, MPI_COMM_WORLD, ireqr_wnud(jrecv,icurr_wnud), ierr)
-     enddo
-  endif
-
-! Determine number of bytes to send per IV column
-
-  nbytes_per_iv =       3 * nbytes_int  &
-                + mza * 4 * nbytes_real
-
-! Loop over all V sends for mrl = 1
-
-  do jsend = 1, nsends_v(1)
-
-     ! Send buffer sizes to receive ranks
-
-     call MPI_Isend(jtab_v(mloops+jsend)%jend, mrls, MPI_INTEGER, &
-                    send_v(jsend)%iremote, itag10, MPI_COMM_WORLD, &
-                    ireqs_v(jsend,icurr_v), ierr)
-
-     ! Determine size of send_v buffer for mrl = 1
-
-     send_v(jsend)%nbytes = nbytes_per_iv * jtab_v(mloops+jsend)%jend(1)
-
-     ! Allocate buffer
-
-     allocate(send_v(jsend)%buff( send_v(jsend)%nbytes) )
-
-     ! If at least 1 V point needs to be sent to current remote rank for
-     ! current mrl, increase nsends_v(mrl) by 1.
-
-     do mrl = 2, mrls
-        if (jtab_v(mloops+jsend)%jend(mrl) > 0) then
-           nsends_v(mrl) = nsends_v(mrl) + 1
-        endif
-     enddo
-
-  enddo
-
-! Determine number of bytes to send per IM column
-
-  nbytes_per_im = mza * 2 * nbytes_real
-
-! Loop over all M sends for mrl = 1
-
-  do jsend = 1, nsends_m(1)
-
-     ! Send buffer sizes to receive ranks
-
-     call MPI_Isend(jtab_m(mloops+jsend)%jend, mrls, MPI_INTEGER, &
-                    send_m(jsend)%iremote, itag110, MPI_COMM_WORLD, &
-                    ireqs_m(jsend,icurr_m), ierr)
-
-     ! Determine size of send_m buffer for mrl = 1
-
-     send_m(jsend)%nbytes = nbytes_per_im * jtab_m(mloops+jsend)%jend(1)
-
-     ! Allocate buffer
-
-     allocate(send_m(jsend)%buff( send_m(jsend)%nbytes) )
-
-     ! If at least 1 M point needs to be sent to current remote rank for
-     ! current mrl, increase nsends_m(mrl) by 1.
-
-     do mrl = 2, mrls
-        if (jtab_m(mloops+jsend)%jend(mrl) > 0) then
-           nsends_m(mrl) = nsends_m(mrl) + 1
-        endif
-     enddo
-
-  enddo
-
-! Determine number of bytes to send per IW column
-
-  ! Extra room for the 'G' communication group
-  nv = max(nvar_par, 20)
-
-  nbytes_per_iw = mza *  2 * nbytes_real8 &
-                + mza * nv * nbytes_real
-
-! Loop over all W sends for mrl = 1
-
-  do jsend = 1, nsends_w(1)
-
-     ! Send buffer sizes to receive ranks
-
-     call MPI_Isend(jtab_w(mloops+jsend)%jend, mrls, MPI_INTEGER, &
-                    send_w(jsend)%iremote, itag210, MPI_COMM_WORLD, &
-                    ireqs_w(jsend,icurr_w), ierr)
-
-     ! Determine size of send_w buffer for mrl = 1
-
-     send_w(jsend)%nbytes = nbytes_per_iw * jtab_w(mloops+jsend)%jend(1)
-
-     ! Allocate buffer
-
-     allocate(send_w(jsend)%buff(send_w(jsend)%nbytes))
-
-     ! If at least 1 W point needs to be sent to current remote rank for
-     ! current mrl, increase nsends_w(mrl) by 1.
-
-     do mrl = 2, mrls
-        if (jtab_w(mloops+jsend)%jend(mrl) > 0) then
-           nsends_w(mrl) = nsends_w(mrl) + 1
-        endif
-     enddo
-
-  enddo
-
-  if (nudflag > 0 .and. nudnxp > 0) then
-
-     ! Determine number of bytes to send per IWNUD column
-
-     nbytes_per_iwnud = mza * 6 * nbytes_real8
-
-     ! Loop over all WNUD sends
-
-     do jsend = 1, nsends_wnud
-
-        ! Send buffer sizes to receive ranks
-
-        call MPI_Isend(jtab_wnud(jsend)%jend, 1, MPI_INTEGER, &
-                       send_wnud(jsend)%iremote, itag310, MPI_COMM_WORLD, &
-                       ireqs_wnud(jsend,icurr_wnud), ierr)
-
-        ! Determine size of send_wnud buffer
-
-        send_wnud(jsend)%nbytes = nbytes_per_iwnud * jtab_wnud(jsend)%jend
-
-        ! Allocate buffer
-
-        allocate(send_wnud (jsend)%buff(send_wnud(jsend)%nbytes))
-
-     enddo
-  endif
-
-! Loop over all V receives for mrl = 1
-
-  do jtmp = 1, nrecvs_v(1)
-
-     ! Get recv_v buffer sizes from any node
-
-     call MPI_Waitany(nrecvs_v(1), ireqr_v(:,icurr_v), jrecv, MPI_STATUS_IGNORE, ierr)
-
-     recv_v(jrecv)%nbytes = nbytes_per_iv * recv_v(jrecv)%npts(1)
-
-     ! Allocate recv_v buffers
-
-     allocate(recv_v(jrecv)%buff( recv_v(jrecv)%nbytes ) )
-     allocate(recv_v(jrecv)%ipts( recv_v(jrecv)%npts(1) ) )
-
-     ! Loop over all mrl values greater than 1. If at least 1 V point needs to be
-     ! received from current remote rank for each mrl, increase nrecvs_v(mrl) by 1.
-
-     do mrl = 2, mrls
-        if (recv_v(jrecv)%npts(mrl) > 0) then
-           nrecvs_v(mrl) = nrecvs_v(mrl) + 1
-        endif
-     enddo
-
-     ! Post receive to get the list of iv points we are getting
-
-     call MPI_Irecv(recv_v(jrecv)%buff, recv_v(jrecv)%nbytes, MPI_PACKED, &
-                    recv_v(jrecv)%iremote, itag11, MPI_COMM_WORLD,        &
-                    ireqr_v(jrecv,inext_v), ierr)
-  enddo
-
-! Loop over all M receives for mrl = 1
-
-  do jtmp = 1, nrecvs_m(1)
-
-     ! Get recv_m buffer sizes from any node
-
-     call MPI_Waitany(nrecvs_m(1), ireqr_m(:,icurr_m), jrecv, MPI_STATUS_IGNORE, ierr)
-
-     recv_m(jrecv)%nbytes = nbytes_per_im * recv_m(jrecv)%npts(1)
-
-     ! Allocate recv_m buffers
-
-     allocate(recv_m(jrecv)%buff( recv_m(jrecv)%nbytes) )
-     allocate(recv_m(jrecv)%ipts( recv_m(jrecv)%npts(1) ) )
-
-     ! Loop over all mrl values greater than 1. If at least 1 M point needs to be
-     ! received from current remote rank for each mrl, increase nrecvs_m(mrl) by 1.
-
-     do mrl = 2, mrls
-        if (recv_m(jrecv)%npts(mrl) > 0) then
-           nrecvs_m(mrl) = nrecvs_m(mrl) + 1
-        endif
-     enddo
-
-     ! Post receive to get the list of im points we are getting
-
-     call MPI_Irecv(recv_m(jrecv)%buff, recv_m(jrecv)%nbytes, MPI_PACKED, &
-                    recv_m(jrecv)%iremote, itag111, MPI_COMM_WORLD,       &
-                    ireqr_m(jrecv,inext_m), ierr)
-  enddo
-
-! Loop over all W receives for mrl = 1
-
-  do jtmp = 1, nrecvs_w(1)
-
-     ! Get recv_w buffer sizes from any node
-
-     call MPI_Waitany(nrecvs_w(1), ireqr_w(:,icurr_w), jrecv, MPI_STATUS_IGNORE, ierr)
-
-     recv_w(jrecv)%nbytes = nbytes_per_iw * recv_w(jrecv)%npts(1)
-
-     ! Allocate recv_w buffers
-
-     allocate(recv_w(jrecv)%buff( recv_w(jrecv)%nbytes))
-     allocate(recv_w(jrecv)%ipts( recv_w(jrecv)%npts(1) ) )
-
-     ! Loop over all mrl values greater than 1. If at least 1 W point needs to be
-     ! received from current remote rank for each mrl, increase nrecvs_w(mrl) by 1.
-
-     do mrl = 2, mrls
-        if (recv_w(jrecv)%npts(mrl) > 0) then
-           nrecvs_w(mrl) = nrecvs_w(mrl) + 1
-        endif
-     enddo
-
-     ! Post receive to get the list of iw points we are getting
-
-     call MPI_Irecv(recv_w(jrecv)%buff, recv_w(jrecv)%nbytes, MPI_PACKED, &
-                    recv_w(jrecv)%iremote, itag211, MPI_COMM_WORLD,       &
-                    ireqr_w(jrecv,inext_w), ierr)
-  enddo
-
-! Loop over all WNUD receives
-
-  if (nudflag > 0 .and. nudnxp > 0) then
-     do jtmp = 1, nrecvs_wnud
-
-        ! Get recv_wnud buffer sizes from any node
-
-        call MPI_Waitany(nrecvs_wnud, ireqr_wnud(:,icurr_wnud), jrecv, MPI_STATUS_IGNORE, ierr)
-
-        recv_wnud(jrecv)%nbytes = nbytes_per_iwnud * recv_wnud(jrecv)%npts(1)
-
-        ! Allocate recv_wnud buffers
-
-        allocate(recv_wnud(jrecv)%buff( recv_wnud(jrecv)%nbytes) )
-        allocate(recv_wnud(jrecv)%ipts( recv_wnud(jrecv)%npts(1) ) )
-
-        ! Post receive to get the list of iwnud points we are getting
-
-        call MPI_Irecv(recv_wnud(jrecv)%buff, recv_wnud(jrecv)%nbytes, MPI_PACKED, &
-                       recv_wnud(jrecv)%iremote, itag311, MPI_COMM_WORLD, &
-                       ireqr_wnud(jrecv,inext_w), ierr)
-     enddo
-  endif
-
-  ! Communicate the list of iv points we are sending to adjacent nodes
-
-  do jtmp = 1, nsends_v(1)
-
-     ! Make sure previous send is finished
-     call MPI_Waitany(nsends_v(1), ireqs_v(:,icurr_v), jsend, MPI_STATUS_IGNORE, ierr)
-
-     allocate( iglobe( jtab_v(mloops+jsend)%jend(1) ) )
-
-     do j = 1, jtab_v(mloops+jsend)%jend(1)
-        iglobe(j) = itab_v( jtab_v(mloops+jsend)%iv(j) )%ivglobe
-     enddo
-
-     ipos = 0
-
-     call MPI_Pack(iglobe, jtab_v(mloops+jsend)%jend(1), MPI_INTEGER, &
-          send_v(jsend)%buff, send_v(jsend)%nbytes, ipos, MPI_COMM_WORLD, ierr)
-
-     call MPI_Isend(send_v(jsend)%buff, ipos, MPI_PACKED, &
-                    send_v(jsend)%iremote, itag11, MPI_COMM_WORLD, &
-                    ireqs_v(jsend,inext_v), ierr)
-
-     deallocate(iglobe)
-  enddo
-
-  ! Communicate the list of im points we are sending to adjacent nodes
-
-  do jtmp = 1, nsends_m(1)
-
-     ! Make sure previous send is finished
-     call MPI_Waitany(nsends_m(1), ireqs_m(:,icurr_m), jsend, MPI_STATUS_IGNORE, ierr)
-
-     allocate( iglobe( jtab_m(mloops+jsend)%jend(1) ) )
-
-     do j = 1, jtab_m(mloops+jsend)%jend(1)
-        iglobe(j) = itab_m( jtab_m(mloops+jsend)%im(j) )%imglobe
-     enddo
-
-     ipos = 0
-
-     call MPI_Pack(iglobe, jtab_m(mloops+jsend)%jend(1), MPI_INTEGER, &
-          send_m(jsend)%buff, send_m(jsend)%nbytes, ipos, MPI_COMM_WORLD, ierr)
-
-     call MPI_Isend(send_m(jsend)%buff, ipos, MPI_PACKED,           &
-                    send_m(jsend)%iremote, itag111, MPI_COMM_WORLD, &
-                    ireqs_m(jsend,inext_m), ierr)
-
-     deallocate(iglobe)
-  enddo
-
-  ! Communicate the list of iw points we are sending to adjacent nodes
-
-  do jtmp = 1, nsends_w(1)
-
-     ! Make sure previous send is finished
-     call MPI_Waitany(nsends_w(1), ireqs_w(:,icurr_w), jsend, MPI_STATUS_IGNORE, ierr)
-
-     allocate( iglobe( jtab_w(mloops+jsend)%jend(1) ) )
-
-     do j = 1, jtab_w(mloops+jsend)%jend(1)
-        iglobe(j) = itab_w( jtab_w(mloops+jsend)%iw(j) )%iwglobe
-     enddo
-
-     ipos = 0
-
-     call MPI_Pack(iglobe, jtab_w(mloops+jsend)%jend(1), MPI_INTEGER, &
-          send_w(jsend)%buff, send_w(jsend)%nbytes, ipos, MPI_COMM_WORLD, ierr)
-
-     call MPI_Isend(send_w(jsend)%buff, ipos, MPI_PACKED,           &
-                    send_w(jsend)%iremote, itag211, MPI_COMM_WORLD, &
-                    ireqs_w(jsend,inext_w), ierr)
-
-     deallocate(iglobe)
-  enddo
-
-  ! Communicate the list of iwnud points we are sending to adjacent nodes
-
-  if (nudflag > 0 .and. nudnxp > 0) then
-     do jtmp = 1, nsends_wnud
-
-        ! Make sure previous send is finished
-        call MPI_Waitany(nsends_wnud, ireqs_wnud(:,icurr_wnud), jsend, MPI_STATUS_IGNORE, ierr)
-
-        allocate( iglobe( jtab_wnud(jsend)%jend ) )
-
-        do j = 1, jtab_wnud(jsend)%jend
-           iglobe(j) = itab_wnud( jtab_wnud(jsend)%iwnud(j) )%iwnudglobe
-        enddo
-
-        ipos = 0
-
-        call MPI_Pack(iglobe, jtab_wnud(jsend)%jend, MPI_INTEGER, &
-             send_wnud(jsend)%buff, send_wnud(jsend)%nbytes, ipos, MPI_COMM_WORLD, ierr)
-
-        call MPI_Isend(send_wnud(jsend)%buff, ipos, MPI_PACKED,           &
-                       send_wnud(jsend)%iremote, itag311, MPI_COMM_WORLD, &
-                       ireqs_wnud(jsend,inext_w), ierr)
-
-        deallocate(iglobe)
-     enddo
-  endif
-
-  ! Unpack and store the list of iv points we are getting from adjacent nodes
-
-  icurr_v = mod(icurr_v,2) + 1
-  inext_v = mod(inext_v,2) + 1
-
-  do jtmp = 1, nrecvs_v(1)
-     call MPI_Waitany(nrecvs_v(1), ireqr_v(:,icurr_v), jrecv, MPI_STATUS_IGNORE, ierr)
-
-     ipos = 0
-
-     allocate( iglobe( recv_v(jrecv)%npts(1) ) )
-
-     call MPI_Unpack(recv_v(jrecv)%buff, recv_v(jrecv)%nbytes, ipos, &
-                     iglobe, recv_v(jrecv)%npts(1), MPI_INTEGER, &
-                     MPI_COMM_WORLD, ierr)
-
-     do j = 1, recv_v(jrecv)%npts(1)
-        recv_v(jrecv)%ipts(j) = itabg_v( iglobe(j) )%iv_myrank
-        if (recv_v(jrecv)%ipts(j) < 2) then
-           recv_v(jrecv)%ipts(j) = itabg_v( iglobe(j) )%iv_myrank_ivp
-        endif
-     enddo
-
-     deallocate(iglobe)
+  do jrecv = 1, nrecvs_v
 
      call MPI_Irecv(recv_v(jrecv)%buff, recv_v(jrecv)%nbytes, MPI_PACKED, &
                     recv_v(jrecv)%iremote, itagv, MPI_COMM_WORLD,         &
                     ireqr_v(jrecv,inext_v), ierr)
   enddo
 
-  ! Unpack and store the list of im points we are getting from adjacent nodes
-
-  icurr_m = mod(icurr_m,2) + 1
-  inext_m = mod(inext_m,2) + 1
-
-  do jtmp = 1, nrecvs_m(1)
-     call MPI_Waitany(nrecvs_m(1), ireqr_m(:,icurr_m), jrecv, MPI_STATUS_IGNORE, ierr)
-
-     ipos = 0
-
-     allocate( iglobe( recv_m(jrecv)%npts(1) ) )
-
-     call MPI_Unpack(recv_m(jrecv)%buff, recv_m(jrecv)%nbytes, ipos, &
-                     iglobe, recv_m(jrecv)%npts(1), MPI_INTEGER, &
-                     MPI_COMM_WORLD, ierr)
-
-     do j = 1, recv_m(jrecv)%npts(1)
-        recv_m(jrecv)%ipts(j) = itabg_m( iglobe(j) )%im_myrank
-        if (recv_m(jrecv)%ipts(j) < 2) then
-           recv_m(jrecv)%ipts(j) = itabg_m( iglobe(j) )%im_myrank_imp
-        endif
-     enddo
-
-     deallocate(iglobe)
+  do jrecv = 1, nrecvs_m
 
      call MPI_Irecv(recv_m(jrecv)%buff, recv_m(jrecv)%nbytes, MPI_PACKED, &
                     recv_m(jrecv)%iremote, itagm, MPI_COMM_WORLD,         &
                     ireqr_m(jrecv,inext_m), ierr)
   enddo
 
-  ! Unpack and store the list of iw points we are getting from adjacent nodes
-
-  icurr_w = mod(icurr_w,2) + 1
-  inext_w = mod(inext_w,2) + 1
-
-  do jtmp = 1, nrecvs_w(1)
-     call MPI_Waitany(nrecvs_w(1), ireqr_w(:,icurr_w), jrecv, MPI_STATUS_IGNORE, ierr)
-
-     ipos = 0
-
-     allocate( iglobe( recv_w(jrecv)%npts(1) ) )
-
-     call MPI_Unpack(recv_w(jrecv)%buff, recv_w(jrecv)%nbytes, ipos, &
-                     iglobe, recv_w(jrecv)%npts(1), MPI_INTEGER, &
-                     MPI_COMM_WORLD, ierr)
-
-     do j = 1, recv_w(jrecv)%npts(1)
-        recv_w(jrecv)%ipts(j) = itabg_w( iglobe(j) )%iw_myrank
-        if (recv_w(jrecv)%ipts(j) < 2) then
-           recv_w(jrecv)%ipts(j) = itabg_w( iglobe(j) )%iw_myrank_iwp
-        endif
-     enddo
-
-     deallocate(iglobe)
+  do jrecv = 1, nrecvs_w
 
      call MPI_Irecv(recv_w(jrecv)%buff, recv_w(jrecv)%nbytes, MPI_PACKED, &
                     recv_w(jrecv)%iremote, itagw, MPI_COMM_WORLD,         &
                     ireqr_w(jrecv,inext_w), ierr)
   enddo
 
-  ! Unpack and store the list of iwnud points we are getting from adjacent nodes
-
-  if (nudflag > 0 .and. nudnxp > 0) then
-
-     icurr_wnud = mod(icurr_wnud,2) + 1
-     inext_wnud = mod(inext_wnud,2) + 1
-
-     do jtmp = 1, nrecvs_wnud
-        call MPI_Waitany(nrecvs_wnud, ireqr_wnud(:,icurr_wnud), jrecv, MPI_STATUS_IGNORE, ierr)
-
-        ipos = 0
-
-        allocate( iglobe( recv_wnud(jrecv)%npts(1) ) )
-
-        call MPI_Unpack(recv_wnud(jrecv)%buff, recv_wnud(jrecv)%nbytes, ipos, &
-                        iglobe, recv_wnud(jrecv)%npts(1), MPI_INTEGER, &
-                        MPI_COMM_WORLD, ierr)
-
-        do j = 1, recv_wnud(jrecv)%npts(1)
-           recv_wnud(jrecv)%ipts(j) = itabg_wnud( iglobe(j) )%iwnud_myrank
-        enddo
-
-        deallocate(iglobe)
-
-        call MPI_Irecv(recv_wnud(jrecv)%buff, recv_wnud(jrecv)%nbytes, MPI_PACKED, &
-                       recv_wnud(jrecv)%iremote, itagwnud, MPI_COMM_WORLD,         &
-                       ireqr_wnud(jrecv,inext_wnud), ierr)
-     enddo
-
-  endif
-
 #endif
 
-end subroutine olam_alloc_mpi
+end subroutine olam_mpi_atm_start
 
 !===============================================================================
 
@@ -900,7 +128,6 @@ subroutine mpi_send_v(mrl, rvara1, rvara2, rvara3, rvara4, &
   use mpi
 #endif
 
-  use mem_para,   only: send_v, nsends_v, itagv, ireqs_v, icurr_v, inext_v
   use mem_ijtabs, only: jtab_v, mloops
   use mem_grid,   only: mza, mva
 
@@ -928,10 +155,12 @@ subroutine mpi_send_v(mrl, rvara1, rvara2, rvara3, rvara4, &
 
   !$omp parallel
   !$omp single
-  do jtmp = 1, nsends_v(mrl)
+  do jtmp = 1, nsends_v
 
      ! Make sure previous sends are finished
-     call MPI_Waitany(nsends_v(mrl), ireqs_v(:,icurr_v), jsend, MPI_STATUS_IGNORE, ierr)
+     call MPI_Waitany(nsends_v, ireqs_v(:,icurr_v), jsend, MPI_STATUS_IGNORE, ierr)
+
+     if (jsend == MPI_UNDEFINED) jsend = jtmp
 
      !$omp task private(ipos,ierr,j,iv) firstprivate(jsend) default(shared)
 
@@ -939,8 +168,8 @@ subroutine mpi_send_v(mrl, rvara1, rvara2, rvara3, rvara4, &
 
      ipos = 0
 
-     do j = 1,jtab_v(mloops+jsend)%jend(mrl)
-        iv = jtab_v(mloops+jsend)%iv(j)
+     do j = 1, send_v(jsend)%jend
+        iv = send_v(jsend)%ipts(j)
 
         if (present(rvara1)) then
            call MPI_Pack(rvara1(1,iv),mza,MPI_REAL, &
@@ -1008,7 +237,6 @@ subroutine mpi_send_m(mrl, rvara1, rvara2)
   use mpi
 #endif
 
-  use mem_para,   only: nsends_m, send_m, itagm, ireqs_m, icurr_m, inext_m
   use mem_ijtabs, only: jtab_m, mloops
   use mem_grid,   only: mza, mma
 
@@ -1028,10 +256,12 @@ subroutine mpi_send_m(mrl, rvara1, rvara2)
 
   !$omp parallel
   !$omp single
-  do jtmp = 1, nsends_m(mrl)
+  do jtmp = 1, nsends_m
 
      ! Make sure previous send is finished
-     call MPI_Waitany(nsends_m(mrl), ireqs_m(:,icurr_m), jsend, MPI_STATUS_IGNORE, ierr)
+     call MPI_Waitany(nsends_m, ireqs_m(:,icurr_m), jsend, MPI_STATUS_IGNORE, ierr)
+
+     if (jsend == MPI_UNDEFINED) jsend = jtmp
 
      !$omp task private(ipos,ierr,j,im) firstprivate(jsend) default(shared)
 
@@ -1039,8 +269,8 @@ subroutine mpi_send_m(mrl, rvara1, rvara2)
 
      ipos = 0
 
-     do j = 1,jtab_m(mloops+jsend)%jend(mrl)
-        im = jtab_m(mloops+jsend)%im(j)
+     do j = 1, send_m(jsend)%jend
+        im = send_m(jsend)%ipts(j)
 
         if (present(rvara1)) then
            call MPI_Pack(rvara1(1,im),mza,MPI_REAL, &
@@ -1098,7 +328,6 @@ subroutine mpi_send_w(mrl, scalars,                                    &
   use mem_ijtabs, only: jtab_w, mloops
   use mem_grid,   only: mza, mwa, lsw, nsw_max
   use consts_coms,only: r8
-  use mem_para,   only: send_w, nsends_w, itagw, ireqs_w, icurr_w, inext_w
 
   implicit none
 
@@ -1165,10 +394,12 @@ subroutine mpi_send_w(mrl, scalars,                                    &
 
   !$omp parallel
   !$omp single
-  do jtmp = 1, nsends_w(mrl)
+  do jtmp = 1, nsends_w
 
      ! Make sure previous sends are finished
-     call MPI_Waitany(nsends_w(mrl), ireqs_w(:,icurr_w), jsend, MPI_STATUS_IGNORE, ierr)
+     call MPI_Waitany(nsends_w, ireqs_w(:,icurr_w), jsend, MPI_STATUS_IGNORE, ierr)
+
+     if (jsend == MPI_UNDEFINED) jsend = jtmp
 
      !$omp task private(ipos,ierr,j,iw,i,ivar) firstprivate(jsend) default(shared)
 
@@ -1176,8 +407,8 @@ subroutine mpi_send_w(mrl, scalars,                                    &
 
      ipos = 0
 
-     do j = 1, jtab_w(mloops+jsend)%jend(mrl)
-        iw = jtab_w(mloops+jsend)%iw(j)
+     do j = 1, send_w(jsend)%jend
+        iw = send_w(jsend)%ipts(j)
 
         if (present(dvara1)) then
            call MPI_Pack(dvara1(1,iw),mza,MPI_REAL8, &
@@ -1414,101 +645,101 @@ end subroutine mpi_send_w
 
 !=============================================================================
 
-subroutine mpi_send_wnud(dvara1, dvara2, dvara3, dvara4, dvara5, dvara6)
-
-#ifdef OLAM_MPI
-  use mpi
-#endif
-
-  use mem_para,   only: nsends_wnud, send_wnud, itagwnud, ireqs_wnud, &
-                        icurr_wnud, inext_wnud
-  use mem_grid,   only: mza
-  use mem_nudge,  only: mwnud, jtab_wnud
-  use consts_coms,only: r8
-
-  implicit none
-
-  real(r8), optional, intent(in) :: dvara1(mza,mwnud)
-  real(r8), optional, intent(in) :: dvara2(mza,mwnud)
-  real(r8), optional, intent(in) :: dvara3(mza,mwnud)
-  real(r8), optional, intent(in) :: dvara4(mza,mwnud)
-  real(r8), optional, intent(in) :: dvara5(mza,mwnud)
-  real(r8), optional, intent(in) :: dvara6(mza,mwnud)
-
-#ifdef OLAM_MPI
-
-  integer :: ierr, ipos
-  integer :: jsend, jtmp
-  integer :: j, iwnud
-
-  !$omp parallel
-  !$omp single
-  do jtmp = 1, nsends_wnud
-
-     ! Make sure previous sends are finished
-     call MPI_Waitany(nsends_wnud, ireqs_wnud(:,icurr_wnud), jsend, MPI_STATUS_IGNORE, ierr)
-
-     !$omp task private(ipos,ierr,j,iwnud) firstprivate(jsend) default(shared)
-
-     ! Pack the messages into send buffers
-
-     ipos = 0
-
-     do j = 1, jtab_wnud(jsend)%jend
-        iwnud = jtab_wnud(jsend)%iwnud(j)
-
-        if (present(dvara1)) then
-           call MPI_Pack(dvara1(1,iwnud),mza,MPI_REAL8, &
-           send_wnud(jsend)%buff,send_wnud(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-        endif
-
-        if (present(dvara2)) then
-           call MPI_Pack(dvara2(1,iwnud),mza,MPI_REAL8, &
-           send_wnud(jsend)%buff,send_wnud(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-        endif
-
-        if (present(dvara3)) then
-           call MPI_Pack(dvara3(1,iwnud),mza,MPI_REAL8, &
-           send_wnud(jsend)%buff,send_wnud(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-        endif
-
-        if (present(dvara4)) then
-           call MPI_Pack(dvara4(1,iwnud),mza,MPI_REAL8, &
-           send_wnud(jsend)%buff,send_wnud(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-        endif
-
-        if (present(dvara5)) then
-           call MPI_Pack(dvara5(1,iwnud),mza,MPI_REAL8, &
-           send_wnud(jsend)%buff,send_wnud(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-        endif
-
-        if (present(dvara6)) then
-           call MPI_Pack(dvara6(1,iwnud),mza,MPI_REAL8, &
-           send_wnud(jsend)%buff,send_wnud(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-        endif
-
-     enddo
-
-     ! Now we can actually go on to sending the stuff
-
-     call MPI_Isend(send_wnud(jsend)%buff, ipos, MPI_PACKED, &
-                    send_wnud(jsend)%iremote, itagwnud, MPI_COMM_WORLD, &
-                    ireqs_wnud(jsend, inext_wnud), ierr)
-
-     !$omp end task
-
-  enddo
-  !$omp end single
-  !$omp end parallel
-
-  ! Increment MPI request pointers
-
-  icurr_wnud = mod(icurr_wnud,2) + 1
-  inext_wnud = mod(inext_wnud,2) + 1
-
-#endif
-
-end subroutine mpi_send_wnud
+!!subroutine mpi_send_wnud(dvara1, dvara2, dvara3, dvara4, dvara5, dvara6)
+!!
+!!#ifdef OLAM_MPI
+!!  use mpi
+!!#endif
+!!
+!!  use mem_grid,   only: mza
+!!  use mem_nudge,  only: mwnud, jtab_wnud
+!!  use consts_coms,only: r8
+!!
+!!  implicit none
+!!
+!!  real(r8), optional, intent(in) :: dvara1(mza,mwnud)
+!!  real(r8), optional, intent(in) :: dvara2(mza,mwnud)
+!!  real(r8), optional, intent(in) :: dvara3(mza,mwnud)
+!!  real(r8), optional, intent(in) :: dvara4(mza,mwnud)
+!!  real(r8), optional, intent(in) :: dvara5(mza,mwnud)
+!!  real(r8), optional, intent(in) :: dvara6(mza,mwnud)
+!!
+!!#ifdef OLAM_MPI
+!!
+!!  integer :: ierr, ipos
+!!  integer :: jsend, jtmp
+!!  integer :: j, iwnud
+!!
+!!  !$omp parallel
+!!  !$omp single
+!!  do jtmp = 1, nsends_wnud
+!!
+!!     ! Make sure previous sends are finished
+!!     call MPI_Waitany(nsends_wnud, ireqs_wnud(:,icurr_wnud), jsend, MPI_STATUS_IGNORE, ierr)
+!!
+!!     if (jsend == MPI_UNDEFINED) jsend = jtmp
+!!
+!!     !$omp task private(ipos,ierr,j,iwnud) firstprivate(jsend) default(shared)
+!!
+!!     ! Pack the messages into send buffers
+!!
+!!     ipos = 0
+!!
+!!     do j = 1, jtab_wnud(jsend)%jend
+!!        iwnud = jtab_wnud(jsend)%ipts(j)
+!!
+!!        if (present(dvara1)) then
+!!           call MPI_Pack(dvara1(1,iwnud),mza,MPI_REAL8, &
+!!           send_wnud(jsend)%buff,send_wnud(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+!!        endif
+!!
+!!        if (present(dvara2)) then
+!!           call MPI_Pack(dvara2(1,iwnud),mza,MPI_REAL8, &
+!!           send_wnud(jsend)%buff,send_wnud(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+!!        endif
+!!
+!!        if (present(dvara3)) then
+!!           call MPI_Pack(dvara3(1,iwnud),mza,MPI_REAL8, &
+!!           send_wnud(jsend)%buff,send_wnud(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+!!        endif
+!!
+!!        if (present(dvara4)) then
+!!           call MPI_Pack(dvara4(1,iwnud),mza,MPI_REAL8, &
+!!           send_wnud(jsend)%buff,send_wnud(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+!!        endif
+!!
+!!        if (present(dvara5)) then
+!!           call MPI_Pack(dvara5(1,iwnud),mza,MPI_REAL8, &
+!!           send_wnud(jsend)%buff,send_wnud(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+!!        endif
+!!
+!!        if (present(dvara6)) then
+!!           call MPI_Pack(dvara6(1,iwnud),mza,MPI_REAL8, &
+!!           send_wnud(jsend)%buff,send_wnud(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+!!        endif
+!!
+!!     enddo
+!!
+!!     ! Now we can actually go on to sending the stuff
+!!
+!!     call MPI_Isend(send_wnud(jsend)%buff, ipos, MPI_PACKED, &
+!!                    send_wnud(jsend)%iremote, itagwnud, MPI_COMM_WORLD, &
+!!                    ireqs_wnud(jsend, inext_wnud), ierr)
+!!
+!!     !$omp end task
+!!
+!!  enddo
+!!  !$omp end single
+!!  !$omp end parallel
+!!
+!!  ! Increment MPI request pointers
+!!
+!!  icurr_wnud = mod(icurr_wnud,2) + 1
+!!  inext_wnud = mod(inext_wnud,2) + 1
+!!
+!!#endif
+!!
+!!end subroutine mpi_send_wnud
 
 !=============================================================================
 
@@ -1522,7 +753,6 @@ subroutine mpi_recv_v(mrl, rvara1, rvara2, rvara3, rvara4, &
   use mpi
 #endif
 
-  use mem_para,   only: recv_v, nrecvs_v, ireqr_v, itagv, icurr_v, inext_v
   use mem_grid,   only: mza, mva
 
   implicit none
@@ -1549,11 +779,13 @@ subroutine mpi_recv_v(mrl, rvara1, rvara2, rvara3, rvara4, &
 
   !$omp parallel
   !$omp single
-  do jtmp = 1, nrecvs_v(mrl)
+  do jtmp = 1, nrecvs_v
 
      ! Now, let's wait on our receives
 
-     call MPI_Waitany(nrecvs_v(mrl), ireqr_v(:,icurr_v), jrecv, MPI_STATUS_IGNORE, ierr)
+     call MPI_Waitany(nrecvs_v, ireqr_v(:,icurr_v), jrecv, MPI_STATUS_IGNORE, ierr)
+
+     if (jrecv == MPI_UNDEFINED) jrecv = jtmp
 
      ! We got some stuff.  Now unpack it into appropriate space.
 
@@ -1561,7 +793,7 @@ subroutine mpi_recv_v(mrl, rvara1, rvara2, rvara3, rvara4, &
 
      ipos = 0
 
-     do j = 1, recv_v(jrecv)%npts(mrl)
+     do j = 1, recv_v(jrecv)%jend
         iv = recv_v(jrecv)%ipts(j)
 
         if (present(rvara1)) then
@@ -1626,7 +858,6 @@ subroutine mpi_recv_m(mrl, rvara1, rvara2)
   use mpi
 #endif
 
-  use mem_para,   only: recv_m, nrecvs_m, ireqr_m, itagm, icurr_m, inext_m
   use mem_grid,   only: mza, mma
 
   implicit none
@@ -1646,11 +877,13 @@ subroutine mpi_recv_m(mrl, rvara1, rvara2)
 
   !$omp parallel
   !$omp single
-  do jtmp = 1, nrecvs_m(mrl)
+  do jtmp = 1, nrecvs_m
 
      !  Now, let's wait on our receives
 
-     call MPI_Waitany(nrecvs_m(mrl), ireqr_m(:,icurr_m), jrecv, MPI_STATUS_IGNORE, ierr)
+     call MPI_Waitany(nrecvs_m, ireqr_m(:,icurr_m), jrecv, MPI_STATUS_IGNORE, ierr)
+
+     if (jrecv == MPI_UNDEFINED) jrecv = jtmp
 
      !  We got some stuff.  Now unpack it into appropriate space.
 
@@ -1658,7 +891,7 @@ subroutine mpi_recv_m(mrl, rvara1, rvara2)
 
      ipos = 0
 
-     do j = 1, recv_m(jrecv)%npts(mrl)
+     do j = 1, recv_m(jrecv)%jend
         im = recv_m(jrecv)%ipts(j)
 
         if (present(rvara1)) then
@@ -1707,7 +940,6 @@ subroutine mpi_recv_w(mrl, scalars,                                    &
 #endif
 
   use var_tables, only: vtab_r, nvar_par, nptonv
-  use mem_para,   only: recv_w, nrecvs_w, ireqr_w, itagw, icurr_w, inext_w
   use mem_grid,   only: mza, mwa, lsw, nsw_max
   use consts_coms,only: r8
 
@@ -1775,11 +1007,13 @@ subroutine mpi_recv_w(mrl, scalars,                                    &
 
   !$omp parallel
   !$omp single
-  do jtmp = 1, nrecvs_w(mrl)
+  do jtmp = 1, nrecvs_w
 
      ! Now, let's wait on our receives
 
-     call MPI_Waitany(nrecvs_w(mrl), ireqr_w(:,icurr_w), jrecv, MPI_STATUS_IGNORE, ierr)
+     call MPI_Waitany(nrecvs_w, ireqr_w(:,icurr_w), jrecv, MPI_STATUS_IGNORE, ierr)
+
+     if (jrecv == MPI_UNDEFINED) jrecv = jtmp
 
      ! We got some stuff.  Now unpack it into appropriate space.
 
@@ -1787,7 +1021,7 @@ subroutine mpi_recv_w(mrl, scalars,                                    &
 
      ipos = 0
 
-     do j = 1, recv_w(jrecv)%npts(mrl)
+     do j = 1, recv_w(jrecv)%jend
         iw = recv_w(jrecv)%ipts(j)
 
         if (present(dvara1)) then
@@ -2018,151 +1252,248 @@ end subroutine mpi_recv_w
 
 !=============================================================================
 
-subroutine mpi_recv_wnud(dvara1, dvara2, dvara3, dvara4, dvara5, dvara6)
+!!subroutine mpi_recv_wnud(dvara1, dvara2, dvara3, dvara4, dvara5, dvara6)
+!!
+!!! Subroutine to perform a parallel MPI receive of a "WNUD group"
+!!! of field variables
+!!
+!!#ifdef OLAM_MPI
+!!  use mpi
+!!#endif
+!!
+!!  use mem_grid,    only: mza
+!!  use mem_nudge,   only: mwnud
+!!  use consts_coms, only: r8
+!!
+!!  implicit none
+!!
+!!  real(r8), optional, intent(inout) :: dvara1(mza,mwnud)
+!!  real(r8), optional, intent(inout) :: dvara2(mza,mwnud)
+!!  real(r8), optional, intent(inout) :: dvara3(mza,mwnud)
+!!  real(r8), optional, intent(inout) :: dvara4(mza,mwnud)
+!!  real(r8), optional, intent(inout) :: dvara5(mza,mwnud)
+!!  real(r8), optional, intent(inout) :: dvara6(mza,mwnud)
+!!
+!!#ifdef OLAM_MPI
+!!
+!!  integer  :: ierr, ipos
+!!  integer  :: jrecv, jtmp
+!!  integer  :: j, iwnud
+!!  real(r8) :: vctr1(mza)
+!!
+!!  do jtmp = 1, nrecvs_wnud
+!!
+!!     ! Now, let's wait on our receives
+!!
+!!     call MPI_Waitany(nrecvs_wnud, ireqr_wnud(:,icurr_wnud), jrecv, MPI_STATUS_IGNORE, ierr)
+!!
+!!     if (jrecv == MPI_UNDEFINED) jrecv = jtmp
+!!
+!!     ! We got some stuff.  Now unpack it into appropriate space.
+!!
+!!     ! For now we don't use OpenMP to unpack these buffers because more then one receive
+!!     ! may be added to an individual iwnud point.
+!!
+!!     ipos = 0
+!!
+!!     do j = 1, recv_wnud(jrecv)%jend(1)
+!!        iwnud = recv_wnud(jrecv)%ipts(j)
+!!
+!!        if (present(dvara1)) then
+!!           call MPI_Unpack(recv_wnud(jrecv)%buff,recv_wnud(jrecv)%nbytes,ipos, &
+!!                           vctr1,mza,MPI_REAL8,MPI_COMM_WORLD,ierr)
+!!
+!!           dvara1(2:mza,iwnud) = dvara1(2:mza,iwnud) + vctr1(2:mza)
+!!        endif
+!!
+!!        if (present(dvara2)) then
+!!           call MPI_Unpack(recv_wnud(jrecv)%buff,recv_wnud(jrecv)%nbytes,ipos, &
+!!                           vctr1,mza,MPI_REAL8,MPI_COMM_WORLD,ierr)
+!!
+!!           dvara2(2:mza,iwnud) = dvara2(2:mza,iwnud) + vctr1(2:mza)
+!!        endif
+!!
+!!        if (present(dvara3)) then
+!!           call MPI_Unpack(recv_wnud(jrecv)%buff,recv_wnud(jrecv)%nbytes,ipos, &
+!!                           vctr1,mza,MPI_REAL8,MPI_COMM_WORLD,ierr)
+!!
+!!           dvara3(2:mza,iwnud) = dvara3(2:mza,iwnud) + vctr1(2:mza)
+!!        endif
+!!
+!!        if (present(dvara4)) then
+!!           call MPI_Unpack(recv_wnud(jrecv)%buff,recv_wnud(jrecv)%nbytes,ipos, &
+!!                           vctr1,mza,MPI_REAL8,MPI_COMM_WORLD,ierr)
+!!
+!!           dvara4(2:mza,iwnud) = dvara4(2:mza,iwnud) + vctr1(2:mza)
+!!        endif
+!!
+!!        if (present(dvara5)) then
+!!           call MPI_Unpack(recv_wnud(jrecv)%buff,recv_wnud(jrecv)%nbytes,ipos, &
+!!                           vctr1,mza,MPI_REAL8,MPI_COMM_WORLD,ierr)
+!!
+!!           dvara5(2:mza,iwnud) = dvara5(2:mza,iwnud) + vctr1(2:mza)
+!!        endif
+!!
+!!        if (present(dvara6)) then
+!!           call MPI_Unpack(recv_wnud(jrecv)%buff,recv_wnud(jrecv)%nbytes,ipos, &
+!!                           vctr1,mza,MPI_REAL8,MPI_COMM_WORLD,ierr)
+!!
+!!           dvara6(2:mza,iwnud) = dvara6(2:mza,iwnud) + vctr1(2:mza)
+!!        endif
+!!
+!!     enddo
+!!
+!!     call MPI_Irecv(recv_wnud(jrecv)%buff, recv_wnud(jrecv)%nbytes, MPI_PACKED, &
+!!                    recv_wnud(jrecv)%iremote, itagwnud, MPI_COMM_WORLD,         &
+!!                    ireqr_wnud(jrecv,inext_wnud), ierr)
+!!  enddo
+!!
+!!#endif
+!!
+!!end subroutine mpi_recv_wnud
 
-! Subroutine to perform a parallel MPI receive of a "WNUD group"
-! of field variables
+subroutine olam_mpi_atm_stop()
 
 #ifdef OLAM_MPI
   use mpi
 #endif
 
-  use mem_para,    only: recv_wnud, nrecvs_wnud, ireqr_wnud, itagwnud, &
-                         icurr_wnud, inext_wnud
-  use mem_grid,    only: mza
-  use mem_nudge,   only: mwnud
-  use consts_coms, only: r8
+  use mem_para,  only: olam_mpi_barrier
+  use mem_nudge, only: nudflag, nudnxp
+  use misc_coms, only: iparallel
 
   implicit none
 
-  real(r8), optional, intent(inout) :: dvara1(mza,mwnud)
-  real(r8), optional, intent(inout) :: dvara2(mza,mwnud)
-  real(r8), optional, intent(inout) :: dvara3(mza,mwnud)
-  real(r8), optional, intent(inout) :: dvara4(mza,mwnud)
-  real(r8), optional, intent(inout) :: dvara5(mza,mwnud)
-  real(r8), optional, intent(inout) :: dvara6(mza,mwnud)
-
 #ifdef OLAM_MPI
 
-  integer  :: ierr, ipos
-  integer  :: jrecv, jtmp
-  integer  :: j, iwnud
-  real(r8) :: vctr1(mza)
+  integer :: ierr, jrecv, ii, jsend
+  logical :: flags
 
-  do jtmp = 1, nrecvs_wnud
+  if (iparallel == 1) then
 
-     ! Now, let's wait on our receives
+     ! First make sure all processes get here so that all sends are finished
 
-     call MPI_Waitany(nrecvs_wnud, ireqr_wnud(:,icurr_wnud), jrecv, MPI_STATUS_IGNORE, ierr)
+     call olam_mpi_barrier()
 
-     ! We got some stuff.  Now unpack it into appropriate space.
+     ! Cancel any pending communication
 
-     ! For now we don't use OpenMP to unpack these buffers because more then one receive
-     ! may be added to an individual iwnud point.
+     do ii = 1, 2
 
-     ipos = 0
+        do jrecv = 1, nrecvs_v
+           if (ireqr_v(jrecv,ii) /= MPI_REQUEST_NULL) then
+              call MPI_Cancel(ireqr_v(jrecv,ii), ierr)
+           endif
+        enddo
 
-     do j = 1, recv_wnud(jrecv)%npts(1)
-        iwnud = recv_wnud(jrecv)%ipts(j)
+        do jsend = 1, nsends_v
+           if (ireqs_v(jsend,ii) /= MPI_REQUEST_NULL) then
+              call MPI_Cancel(ireqs_v(jsend,ii), ierr)
+           endif
+        enddo
 
-        if (present(dvara1)) then
-           call MPI_Unpack(recv_wnud(jrecv)%buff,recv_wnud(jrecv)%nbytes,ipos, &
-                           vctr1,mza,MPI_REAL8,MPI_COMM_WORLD,ierr)
+        do jrecv = 1, nrecvs_m
+           if (ireqr_m(jrecv,ii) /= MPI_REQUEST_NULL) then
+              call MPI_Cancel(ireqr_m(jrecv,ii), ierr)
+           endif
+        enddo
 
-           dvara1(2:mza,iwnud) = dvara1(2:mza,iwnud) + vctr1(2:mza)
-        endif
+        do jsend = 1, nsends_m
+           if (ireqs_m(jsend,ii) /= MPI_REQUEST_NULL) then
+              call MPI_Cancel(ireqs_m(jsend,ii), ierr)
+           endif
+        enddo
 
-        if (present(dvara2)) then
-           call MPI_Unpack(recv_wnud(jrecv)%buff,recv_wnud(jrecv)%nbytes,ipos, &
-                           vctr1,mza,MPI_REAL8,MPI_COMM_WORLD,ierr)
+        do jrecv = 1, nrecvs_w
+           if (ireqr_w(jrecv,ii) /= MPI_REQUEST_NULL) then
+              call MPI_Cancel(ireqr_w(jrecv,ii), ierr)
+           endif
+        enddo
 
-           dvara2(2:mza,iwnud) = dvara2(2:mza,iwnud) + vctr1(2:mza)
-        endif
+        do jsend = 1, nsends_w
+           if (ireqs_w(jsend,ii) /= MPI_REQUEST_NULL) then
+              call MPI_Cancel(ireqs_w(jsend,ii), ierr)
+           endif
+        enddo
 
-        if (present(dvara3)) then
-           call MPI_Unpack(recv_wnud(jrecv)%buff,recv_wnud(jrecv)%nbytes,ipos, &
-                           vctr1,mza,MPI_REAL8,MPI_COMM_WORLD,ierr)
-
-           dvara3(2:mza,iwnud) = dvara3(2:mza,iwnud) + vctr1(2:mza)
-        endif
-
-        if (present(dvara4)) then
-           call MPI_Unpack(recv_wnud(jrecv)%buff,recv_wnud(jrecv)%nbytes,ipos, &
-                           vctr1,mza,MPI_REAL8,MPI_COMM_WORLD,ierr)
-
-           dvara4(2:mza,iwnud) = dvara4(2:mza,iwnud) + vctr1(2:mza)
-        endif
-
-        if (present(dvara5)) then
-           call MPI_Unpack(recv_wnud(jrecv)%buff,recv_wnud(jrecv)%nbytes,ipos, &
-                           vctr1,mza,MPI_REAL8,MPI_COMM_WORLD,ierr)
-
-           dvara5(2:mza,iwnud) = dvara5(2:mza,iwnud) + vctr1(2:mza)
-        endif
-
-        if (present(dvara6)) then
-           call MPI_Unpack(recv_wnud(jrecv)%buff,recv_wnud(jrecv)%nbytes,ipos, &
-                           vctr1,mza,MPI_REAL8,MPI_COMM_WORLD,ierr)
-
-           dvara6(2:mza,iwnud) = dvara6(2:mza,iwnud) + vctr1(2:mza)
-        endif
+!!        if (nudflag > 0 .and. nudnxp > 0) then
+!!
+!!           do jrecv = 1, nrecvs_wnud
+!!              if (ireqr_wnud(jrecv,ii) /= MPI_REQUEST_NULL) then
+!!                 call MPI_Cancel(ireqr_wnud(jrecv,ii), ierr)
+!!              endif
+!!           enddo
+!!
+!!           do jsend = 1, nsends_wnud
+!!              if (ireqs_wnud(jsend,ii) /= MPI_REQUEST_NULL) then
+!!                 call MPI_Cancel(ireqs_wnud(jsend,ii), ierr)
+!!              endif
+!!           enddo
+!!
+!!        endif
 
      enddo
 
-     call MPI_Irecv(recv_wnud(jrecv)%buff, recv_wnud(jrecv)%nbytes, MPI_PACKED, &
-                    recv_wnud(jrecv)%iremote, itagwnud, MPI_COMM_WORLD,         &
-                    ireqr_wnud(jrecv,inext_wnud), ierr)
-  enddo
+     ! Test that all communication requests have been completed or cancelled
+
+     call olam_mpi_barrier()
+
+     call MPI_Testall(nrecvs_v, ireqr_v(:,1), flags, MPI_STATUSES_IGNORE, ierr)
+     call MPI_Testall(nrecvs_v, ireqr_v(:,2), flags, MPI_STATUSES_IGNORE, ierr)
+
+     call MPI_Testall(nsends_v, ireqs_v(:,1), flags, MPI_STATUSES_IGNORE, ierr)
+     call MPI_Testall(nsends_v, ireqs_v(:,2), flags, MPI_STATUSES_IGNORE, ierr)
+
+     call MPI_Testall(nrecvs_m, ireqr_m(:,1), flags, MPI_STATUSES_IGNORE, ierr)
+     call MPI_Testall(nrecvs_m, ireqr_m(:,2), flags, MPI_STATUSES_IGNORE, ierr)
+
+     call MPI_Testall(nsends_m, ireqs_m(:,1), flags, MPI_STATUSES_IGNORE, ierr)
+     call MPI_Testall(nsends_m, ireqs_m(:,2), flags, MPI_STATUSES_IGNORE, ierr)
+
+     call MPI_Testall(nrecvs_w, ireqr_w(:,1), flags, MPI_STATUSES_IGNORE, ierr)
+     call MPI_Testall(nrecvs_w, ireqr_w(:,2), flags, MPI_STATUSES_IGNORE, ierr)
+
+     call MPI_Testall(nsends_w, ireqs_w(:,1), flags, MPI_STATUSES_IGNORE, ierr)
+     call MPI_Testall(nsends_w, ireqs_w(:,2), flags, MPI_STATUSES_IGNORE, ierr)
+
+!!     if (nudflag > 0 .and. nudnxp > 0) then
+!!        call MPI_Testall(nrecvs_wnud, ireqr_wnud(:,1), flags, MPI_STATUSES_IGNORE, ierr)
+!!        call MPI_Testall(nrecvs_wnud, ireqr_wnud(:,2), flags, MPI_STATUSES_IGNORE, ierr)
+!!
+!!        call MPI_Testall(nsends_wnud, ireqs_wnud(:,1), flags, MPI_STATUSES_IGNORE, ierr)
+!!        call MPI_Testall(nsends_wnud, ireqs_wnud(:,2), flags, MPI_STATUSES_IGNORE, ierr)
+!!     endif
+
+     call olam_mpi_barrier()
+
+  endif
+
+  ! Deallocate unused arrays
+
+  if (allocated(send_v)) deallocate(send_v)
+  if (allocated(recv_v)) deallocate(recv_v)
+
+  if (allocated(send_m)) deallocate(send_m)
+  if (allocated(recv_m)) deallocate(recv_m)
+
+  if (allocated(send_w)) deallocate(send_w)
+  if (allocated(recv_w)) deallocate(recv_w)
+
+  if (allocated(ireqs_v)) deallocate(ireqs_v)
+  if (allocated(ireqr_v)) deallocate(ireqr_v)
+
+  if (allocated(ireqs_m)) deallocate(ireqs_m)
+  if (allocated(ireqr_m)) deallocate(ireqr_m)
+
+  if (allocated(ireqs_w)) deallocate(ireqs_w)
+  if (allocated(ireqr_w)) deallocate(ireqr_w)
+
+!!  if (allocated(send_wnud )) deallocate(send_wnud)
+!!  if (allocated(recv_wnud )) deallocate(recv_wnud)
 
 #endif
 
-end subroutine mpi_recv_wnud
+end subroutine olam_mpi_atm_stop
 
-!=============================================================================
-
-subroutine olam_stop(message)
-
-#ifdef OLAM_MPI
-  use mem_para, only: myrank
-  use mpi
-#endif
-
-  implicit none
-
-#ifdef OLAM_MPI
-  integer :: ierr
-#endif
-
-  character(*), intent(in) :: message
-
-#ifdef OLAM_MPI
-  write(*,'(A,I0,A)') "Node ", myrank, ":"
-  write(*,'(A)') "STOP "//message
-  call mpi_abort(MPI_COMM_WORLD,1,ierr)
-  stop
-#else
-  write(*,*) "STOPPING: "//message
-  stop
-#endif
-
-end subroutine olam_stop
-
-!================================================================================
-
-subroutine olam_mpi_barrier()
-
-#ifdef OLAM_MPI
-  use mpi
-#endif
-  implicit none
-
-#ifdef OLAM_MPI
-  integer :: ierr
-  call mpi_barrier(MPI_COMM_WORLD, ierr)
-#endif
-
-end subroutine olam_mpi_barrier
-
-!=============================================================================
+!==================================================================
 
 End Module olam_mpi_atm
