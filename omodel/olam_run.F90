@@ -128,14 +128,9 @@ subroutine olam_run(name_name)
   istp  = 1
   time8 = 0.0_r8
 
-  ! Read namelist variables
-
-!  write(io6,'(/,a)') 'olam_run calling namelist read'
-!  call read_nl(name_name)
-
   ! Set remaining physical constants
 
-  call init_consts(nl%test_case)
+  call init_consts(mdomain, nl%test_case, nl%rlat0)
 
   ! Check and copy namelist variables
 
@@ -878,6 +873,7 @@ subroutine olam_run(name_name)
   call copy_plot(0)
   call plot_fields(0)
   call fields2_ll()
+  if (mdomain == 5 .and. nl%les_diag_freq > 0._r8) call les_diag()
 
   ! Compute azimuthal averages of dynamic, thermodynamic, and moisture
   ! fields, and plot averages (in radial-height cross sections)
@@ -1037,7 +1033,7 @@ end subroutine model
 subroutine olam_output()
 
   use misc_coms,   only: io6, time8, time8p, dtlm, iflag, frqstate, timmax8, &
-                         initial, s1900_sim, time_prevhist, &
+                         initial, s1900_sim, time_prevhist, mdomain, &
                          iyear1, imonth1, idate1, itime1, do_chem
   use leaf_coms,   only: isfcl, iupdndvi, indvifile, s1900_ndvi
   use sea_coms,    only: iupdsst, iupdseaice, isstfile, iseaicefile, &
@@ -1114,6 +1110,14 @@ subroutine olam_output()
      endif
      call reset_davg_vars() ! Always call because used in subroutine flux_accum
 
+  endif
+
+  ! Print LES area-averaged statistics
+
+  if (mdomain == 5 .and. nl%les_diag_freq > 1.e-5_r8) then
+     if (mod(time8p,nl%les_diag_freq) < dtlm(1)) then
+        call les_diag()
+     endif
   endif
 
   ! For idealized test cases, compute error norms

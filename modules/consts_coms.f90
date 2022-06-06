@@ -117,16 +117,20 @@ Module consts_coms
   real            :: erador5
   real            :: eradi
   real            :: erad2sq
+  real            :: fcoriol  ! omega2 for global run,
+                              ! omega2 * sin(lat) for Cartesian run
 
 Contains
 
 !===============================================================================
 
-  subroutine init_consts(test_case)
+  subroutine init_consts(mdomain,test_case,rlat0)
 
     implicit none
 
+    integer, intent(in) :: mdomain
     integer, intent(in) :: test_case
+    real,    intent(in) :: rlat0
 
     ! Standard (Earth) values
 
@@ -182,6 +186,18 @@ Contains
     erad2sq  = erad2 * erad2
     dlat     = erad * pio180
     omega2   = omega * 2.
+
+    if (mdomain <= 1) then
+
+       ! global run
+       fcoriol = omega2
+
+    else
+
+       ! limited area run; vxe is defined E-W, vye is defined N-S
+       fcoriol = omega2 * sin(pio180 * rlat0)
+
+    endif
 
   end subroutine init_consts
 

@@ -97,9 +97,23 @@
 
    NL%NXP = 66        ! Number of grid points spanning one side of
                       ! any icosahedral triangle when MDOMAIN = 0 
-                      ! or spanning X direction when MDOMAIN = 3
+                      ! or spanning X direction when MDOMAIN = 4
+                      ! or radius of prognostic region for MDOMAIN = 5
 
-   NL%DELTAX = 1000.  ! Coarse grid horizontal spacing (used if MDOMAIN > 0)
+ !--------------------------------------------------------------------------
+ ! Cartesian grid parameters (Only used if MDOMAIN > 0)
+ !--------------------------------------------------------------------------
+
+   NL%DELTAX = 1000.  ! Coarse grid horizontal spacing
+
+   NL%U_GEOSTROPHIC = 0.0  ! Large-scale pressure gradient defined by
+   NL%V_GEOSTROPHIC = 0.0  ! geostrophic wind for idealized limted-area runs.
+
+   NL%RLAT0 = 45.0  ! Center lat/lon of Cartesian domain
+   NL%RLON0 =  0.0  ! (currently only used to set Coriolis parameter)
+
+   NL%LES_DIAG_FREQ = 0.0  ! Frequency (s) to output LES area-averaged statistics
+                           ! for MDOMAIN=5 run (set to 0.0 to disable)
 
  !--------------------------------------------------------------------------
  ! Horizontal grid refinement ("nested grid") definition

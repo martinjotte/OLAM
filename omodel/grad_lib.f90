@@ -129,8 +129,8 @@ subroutine grad_t2d(iw, scp, gxps, gyps)
 
      do k = lpv(ivn), mza
         dscp    = scp(k,iwn) - scp(k,iw)
-        gxps(k) = gxps(k) + gxps_coef(iw,n) * dscp
-        gyps(k) = gyps(k) + gyps_coef(iw,n) * dscp
+        gxps(k) = gxps(k) + gxps_coef(n,iw) * dscp
+        gyps(k) = gyps(k) + gyps_coef(n,iw) * dscp
      enddo
 
   enddo

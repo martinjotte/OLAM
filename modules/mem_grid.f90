@@ -457,8 +457,8 @@ Contains
      allocate(arw0i    (mwa))
      allocate(volti(mza,mwa))
      allocate(volwi(mza,mwa))
-     allocate(gxps_coef(mwa,7))
-     allocate(gyps_coef(mwa,7))
+     allocate(gxps_coef(7,mwa))
+     allocate(gyps_coef(7,mwa))
 
      wnxo2(1) = 0.0
      wnyo2(1) = 0.0
@@ -549,8 +549,8 @@ Contains
               n2 = n1 - 1
            endif
 
-           gxps_coef(iw,n1) = itab_w(iw)%gxps1(n1) + itab_w(iw)%gxps2(n2)
-           gyps_coef(iw,n1) = itab_w(iw)%gyps1(n1) + itab_w(iw)%gyps2(n2)
+           gxps_coef(n1,iw) = itab_w(iw)%gxps1(n1) + itab_w(iw)%gxps2(n2)
+           gyps_coef(n2,iw) = itab_w(iw)%gyps1(n1) + itab_w(iw)%gyps2(n2)
         enddo
 
         raxis = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis

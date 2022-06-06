@@ -35,8 +35,7 @@ subroutine read_nl(file)
 
 use oname_coms,   only: nl, cmdlne_runtype, cmdlne_fields, numcf
 use max_dims,     only: pathlen
-use mem_para,     only: olam_mpi_barrier
-use misc_coms,    only: io6
+use mem_para,     only: olam_mpi_barrier, myrank
 
 implicit none
 
@@ -68,18 +67,23 @@ fexists = .false.
 do il = 1, numcf
    fs = "&OLAMIN NL%" // adjustl(trim(cmdlne_fields(il))) // " /"
 
-   write(io6,*) trim(fs)
+   ! unit io6 not setup yet
+   if (myrank == 0) write(*,*) trim(fs)
 
    read(fs, nml=OLAMIN, iostat=ios)
 
    if (ios /= 0) then
       fexists = .true.
-      write(io6,*)
-      write(io6,*) "Error setting name list values from command line:"
-      write(io6,*) trim(cmdlne_fields(il))
-      write(io6,*) ios
-      write(io6,*) trim(fs)
-      write(io6,*) "Stopping model run."
+
+      ! unit io6 not setup yet
+      if (myrank == 0) then
+         write(*,*)
+         write(*,*) "Error setting name list values from command line:"
+         write(*,*) trim(cmdlne_fields(il))
+         write(*,*) ios
+         write(*,*) trim(fs)
+         write(*,*) "Stopping model run."
+      endif
       exit
    endif
 enddo

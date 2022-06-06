@@ -538,8 +538,7 @@ subroutine swm_progv()
 
   vc_ex(:) = 0.  ! Could move this to progw for more selective zeroing
 
-  !$omp parallel 
-  !$omp do private(iv, iw1, iw2, isea1, isea2)
+  !$omp parallel do private(iv, iw1, iw2, isea1, isea2)
   do j = 1,jtab_vsfc_swm%jend
      iv = jtab_vsfc_swm%ivsfc(j)
 
@@ -565,16 +564,18 @@ subroutine swm_progv()
 
      endif
   enddo
-  !$omp end do
+  !$omp end parallel do
 
-  if (iparallel) then
+  if (iparallel == 1) then
      call mpi_send_vsfc(vc_ex=vc_ex)
      call mpi_recv_vsfc(vc_ex=vc_ex)
   endif
 
   ! Compute vorticity for vorticity damping at all swm-active msfc points in
   ! this subdomain (vortp_ex does not require mpi send/recv)
+  !
 
+  !$omp parallel
   !$omp do private(im,jv,iv,iw,isea)
   do j = 1,jtab_msfc_swm%jend; im = jtab_msfc_swm%imsfc(j)
 
@@ -599,12 +600,11 @@ subroutine swm_progv()
      enddo
 
   enddo
-  !$omp end do 
-  !$omp end parallel
+  !$omp end do
 
   ! Compute divergence for divergence damping
 
-  !$omp parallel do private(iw,isea,jv,iv,iwn,isean)
+  !$omp do private(iw,isea,jv,iv,iwn,isean)
   do j = 1, jtab_wsfc_swm%jend; iw = jtab_wsfc_swm%iwsfc(j)
      isea = iw - omsea
 
@@ -630,7 +630,8 @@ subroutine swm_progv()
 
      enddo
   enddo
-  !$omp end parallel do
+  !$omp end do
+  !$omp end parallel
 
   ! MPI send/recv of div2d
 

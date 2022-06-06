@@ -91,14 +91,24 @@ Module oname_coms
      integer :: nxp      = 0
 
      real(r8) :: dtlong = 0.0_r8
-     real     :: deltax = 0.0
-
      integer :: ndz = 0
 
      real :: hdz(10) = 0.
      real :: dz (10) = 0.
 
      real :: zz(maxsndg) = 0.0
+
+!!    LIMITED-AREA RUN SPECIFICATION
+
+     real :: deltax = 1000.0
+
+     real :: u_geostrophic = 0.0
+     real :: v_geostrophic = 0.0
+
+     real :: rlat0 = 45.0
+     real :: rlon0 =  0.0
+
+     real(r8) :: les_diag_freq = 0.0_r8
 
 !!    NESTED GRID DEFINITION
 

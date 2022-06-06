@@ -222,72 +222,72 @@ subroutine compute_pario_points()
      allocate(iwa_globe_primary(mwa_primary))
      allocate(iwa_local_primary(mwa_primary))
      do i = 1, mwa
-        iwa_globe_primary = i
-        iwa_local_primary = i
+        iwa_globe_primary(i) = i
+        iwa_local_primary(i) = i
      enddo
 
      mva_primary = mva
      allocate(iva_globe_primary(mva_primary))
      allocate(iva_local_primary(mva_primary))
      do i = 1, mva
-        iva_globe_primary = i
-        iva_local_primary = i
+        iva_globe_primary(i) = i
+        iva_local_primary(i) = i
      enddo
 
      mma_primary = mma
      allocate(ima_globe_primary(mma_primary))
      allocate(ima_local_primary(mma_primary))
      do i = 1, mma
-        ima_globe_primary = i
-        ima_local_primary = i
+        ima_globe_primary(i) = i
+        ima_local_primary(i) = i
      enddo
 
      mwsfc_primary = mwsfc
      allocate(iwsfc_globe_primary(mwsfc_primary))
      allocate(iwsfc_local_primary(mwsfc_primary))
      do i = 1, mwsfc
-        iwsfc_globe_primary = i
-        iwsfc_local_primary = i
+        iwsfc_globe_primary(i) = i
+        iwsfc_local_primary(i) = i
      enddo
 
      mvsfc_primary = mvsfc
      allocate(ivsfc_globe_primary(mvsfc_primary))
      allocate(ivsfc_local_primary(mvsfc_primary))
      do i = 1, mvsfc
-        ivsfc_globe_primary = i
-        ivsfc_local_primary = i
+        ivsfc_globe_primary(i) = i
+        ivsfc_local_primary(i) = i
      enddo
 
      mmsfc_primary = mmsfc
      allocate(imsfc_globe_primary(mmsfc_primary))
      allocate(imsfc_local_primary(mmsfc_primary))
      do i = 1, mmsfc
-        imsfc_globe_primary = i
-        imsfc_local_primary = i
+        imsfc_globe_primary(i) = i
+        imsfc_local_primary(i) = i
      enddo
 
      mland_primary = mland
      allocate(iland_globe_primary(mland_primary))
      allocate(iland_local_primary(mland_primary))
      do i = 1, mland
-        iland_globe_primary = i
-        iland_local_primary = i
+        iland_globe_primary(i) = i
+        iland_local_primary(i) = i
      enddo
 
      msea_primary = msea
      allocate(isea_globe_primary(msea_primary))
      allocate(isea_local_primary(msea_primary))
      do i = 1, msea
-        isea_globe_primary = i
-        isea_local_primary = i
+        isea_globe_primary(i) = i
+        isea_local_primary(i) = i
      enddo
 
      mlake_primary = mlake
      allocate(ilake_globe_primary(mlake_primary))
      allocate(ilake_local_primary(mlake_primary))
      do i = 1, mlake
-        ilake_globe_primary = i
-        ilake_local_primary = i
+        ilake_globe_primary(i) = i
+        ilake_local_primary(i) = i
      enddo
 
      if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) then
@@ -295,8 +295,8 @@ subroutine compute_pario_points()
         allocate(iwnud_globe_primary(mwnud_primary))
         allocate(iwnud_local_primary(mwnud_primary))
         do i = 1, mwnud
-           iwnud_globe_primary = i
-           iwnud_local_primary = i
+           iwnud_globe_primary(i) = i
+           iwnud_local_primary(i) = i
         enddo
      endif
 

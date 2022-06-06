@@ -260,7 +260,7 @@ data fldlib(1:4,  1:36)/ &
  'CON_GCCN'      ,'T3' ,'GCCN NUM',' (# g:S2:-1  )'                         ,& !p 35
  'CON_IFN'       ,'T3' ,'IFN NUM',' (# g:S2:-1  )'                           / !p 36
 
-data fldlib(1:4, 37:60)/ &
+data fldlib(1:4, 37:61)/ &
  'VKM'           ,'T3' ,'VERT TURB MOMENTUM K',' (N s m:S2:-2  )'           ,& !p 37
  'FTHRD'         ,'T3' ,'RADIATIVE THETA TENDENCY',' (K s:S2:-1  )'         ,& !p 38
  'SPEEDW'        ,'T3' ,'WIND SPEED AT W',' (m s:S2:-1  )'                  ,& !p 39
@@ -283,8 +283,9 @@ data fldlib(1:4, 37:60)/ &
  'ADDSCP'        ,'T3' ,'SCALAR PERTURBATION',' ( )'                        ,& !  56
  'ZPLEV'         ,'T3' ,'HEIGHT OF CONST P SFC',' (m)'                      ,& !p 57
  'QWCON'         ,'T3' ,'CUPARM CONDENSATE MIX RATIO',' (g kg:S2:-1  )'     ,& !p 58
- 'CO2CON'        ,'T3' ,'CO2 CONCENTRATION',' (ppmv of dry air)'            ,& !p 59
- 'RH_LIQ'        ,'T3' ,'RH_LIQUID',' (%)'                                   / !p 60
+ 'CO2CON'        ,'T3' ,'CO2 CONCENTRATION',' (ppmV dry air)'               ,& !p 59
+ 'CO2PERT'       ,'T3' ,'CO2 CHANGE',' (ppmV dry air)'                      ,& !p 60
+ 'RH_LIQ'        ,'T3' ,'RH_LIQUID',' (%)'                                   / !p 61
 
 ! ATMOSPHERE - 2D
 
@@ -670,7 +671,7 @@ data fldlib(1:4,511:537)/ &
 
 ! ITAB_M MEMBERS - 2D
 
-data fldlib(1:4,541:548)/ &
+data fldlib(1:4,541:550)/ &
  'ITAB_M_NPOLY'  ,'M2' ,'ITAB_M_NPOLY',' ( )'                               ,& ! 541
  'ITAB_M_IMGLOBE','M2' ,'ITAB_M_IMGLOBE',' ( )'                             ,& ! 542
  'ITAB_M_MRLM'   ,'M2' ,'ITAB_M_MRLM',' ( )'                                ,& ! 543
@@ -678,11 +679,13 @@ data fldlib(1:4,541:548)/ &
  'ITAB_M_MROW'   ,'M2' ,'ITAB_M_MROW',' ( )'                                ,& ! 545
  'ITAB_M_NGR'    ,'M2' ,'ITAB_M_NGR',' ( )'                                 ,& ! 546
  'ITAB_M_IV'     ,'M2' ,'ITAB_M_IV',' ( )'                                  ,& ! 547
- 'ITAB_M_IW'     ,'M2' ,'ITAB_M_IW',' ( )'                                   / ! 548
+ 'ITAB_M_IW'     ,'M2' ,'ITAB_M_IW',' ( )'                                  ,& ! 548
+ 'ITAB_M_IM'     ,'M2' ,'ITAB_M_IM',' ( )'                                  ,& ! 549
+ 'ITAB_M_IRANK'  ,'M2' ,'ITAB_M_IRANK',' ( )'                                / ! 550
 
 ! ITAB_V MEMBERS - 2D
 
-data fldlib(1:4,551:558)/  &
+data fldlib(1:4,551:557)/  &
  'ITAB_V_IVP'    ,'V2' ,'ITAB_V_IVP',' ( )'                                 ,& ! 551
  'ITAB_V_IRANK'  ,'V2' ,'ITAB_V_IRANK',' ( )'                               ,& ! 552
  'ITAB_V_IVGLOBE','V2' ,'ITAB_V_IVGLOBE',' ( )'                             ,& ! 553
@@ -1529,10 +1532,6 @@ case(56) ! 'ADDSC_P'
    if (.not. allocated(addsc1_init)) go to 1000
 
    fldval = addsc(indp)%sclp(k,i) - addsc1_init(k,i) 
-   
-!-----------------------------------------
-! ATMOSPHERE - 2D
-!-----------------------------------------
 
 case(57) ! 'ZPLEV'
 
@@ -1545,17 +1544,23 @@ case(58) ! 'QWCON'
 !          +  wttop * qwcon(kp,i)) * 1.e3
    fldval = cbmf(i)
 
-case(59) ! 'CO2CON'
+case(59:60) ! 'CO2CON', 'CO2PERT'
 
    if (.not. allocated(rr_co2)) go to 1000
 
    fldval = (wtbot * rr_co2(k ,i) &
           +  wttop * rr_co2(kp,i) ) * co2_sh2ppm
 
-case(60) ! 'RH_LIQ'
+   if (icase == 60) fldval = fldval - nl%co2_ppmv_init
+
+case(61) ! 'RH_LIQ'
 
    fldval = (wtbot * rr_v(k ,i) * real(rho(k ,i)) * rhovsl_inv(tair(k ,i)-273.15) &
           +  wttop * rr_v(kp,i) * real(rho(kp,i)) * rhovsl_inv(tair(kp,i)-273.15)) * 1.e2
+
+!-----------------------------------------
+! ATMOSPHERE - 2D
+!-----------------------------------------
 
 case(62) ! 'RSHORT_TOP'
 
@@ -4402,6 +4407,10 @@ case(547) ! 'ITAB_M_IV'
    fldval = itab_m(i)%iv(indp)
 case(548) ! 'ITAB_M_IW'
    fldval = itab_m(i)%iw(indp)
+case(549) ! 'ITAB_M_IM'
+   fldval = itab_m(i)%im(indp)
+case(550) ! 'ITAB_M_IRANK'
+   fldval = itab_m(i)%irank
 
 ! ITAB_V MEMBERS
 

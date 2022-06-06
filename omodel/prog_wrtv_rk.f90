@@ -751,8 +751,8 @@ subroutine prog_wrt_begs( iw, istage, dts, dt8,                 &
                          alpha_press, pwfac
 
   use vel_t3d,     only: icut_vel, vxe1, vye1, vze1
-  use misc_coms,   only: deltax, nxp, initial, nrk_wrtv
-  use consts_coms, only: cpocv, rocv, omega2, pi1, pio180, r8
+  use misc_coms,   only: deltax, nxp, initial, nrk_wrtv, mdomain
+  use consts_coms, only: cpocv, rocv, fcoriol, pi1, pio180, r8
   use mem_grid,    only: mza, mva, mwa, lpv, lpw, arw, wnx, wny, wnz, volt, &
                          gravm, volti, volwi, glatw, glonw, lve2, arv, &
                          zwgt_top8, zwgt_bot8, gdz_wgtm8, gdz_wgtp8, &
@@ -927,21 +927,34 @@ subroutine prog_wrt_begs( iw, istage, dts, dt8,                 &
 
   enddo
 
+  if (mdomain > 1) then
+
+     ! Coriolis and large-scale PGF tendencies for limited-area run
+     do k = ka, mza
+        mass = real( rho(k,iw) * volt(k,iw) )
+        vmxet_rk(k,iw) = vmxet_rk(k,iw) + mass * fcoriol * (vye(k,iw) - nl%v_geostrophic)
+        vmyet_rk(k,iw) = vmyet_rk(k,iw) - mass * fcoriol * (vxe(k,iw) - nl%u_geostrophic)
+     enddo
+
+  else
+
+     ! Coriolis tendencies for global run
+     do k = ka, mza
+        mass = real( rho(k,iw) * volt(k,iw) )
+        vmxet_rk(k,iw) = vmxet_rk(k,iw) + mass * fcoriol * vye(k,iw)
+        vmyet_rk(k,iw) = vmyet_rk(k,iw) - mass * fcoriol * vxe(k,iw)
+     enddo
+
+  endif
+
   ! density tenency
 
   do k = ka, mza
-     mass = real( rho(k,iw) * volt(k,iw) )
-
      rhothil(k) = rho(k,iw) * thil(k,iw)
 
      b10(k) = dt8 * real(volti(k,iw),r8)
      b5 (k) = alpha_press(k,iw) * real(rhothil(k)) ** rocv
      b15(k) = b10(k) * real(b5(k))
-
-     ! Add Coriolis terms to momentum tendencies
-
-     vmxet_rk(k,iw) = vmxet_rk(k,iw) + mass * omega2 * vye(k,iw)
-     vmyet_rk(k,iw) = vmyet_rk(k,iw) - mass * omega2 * vxe(k,iw)
 
      ! Explicit density tendency
 

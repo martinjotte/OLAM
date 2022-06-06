@@ -1,23 +1,12 @@
 subroutine les_diag()
 
-  use mem_basic!,  only: rr_w,rho,thil,rr_v,wc,wmc,press,vmc,vc,vxe,vye,vze
-  use mem_micro!,  only: rr_c,rr_r
-  use mem_grid!,   only: mza,mwa,lpw,volti,mva,lpv,glatw,glonw,glatv,glonv
-!  use mem_tend,   only: thilt,rr_wt,vmxet,vmyet,vmzet
-  use misc_coms!,  only: io6, iparallel
-  use mem_ijtabs!, only: itab_v, itab_w
-  use mem_para,   only: myrank
-  use mem_cuparm
-  use mem_land
-  use mem_sea
-  use mem_turb
-  use mem_tend
+  use mem_basic,  only: rr_w,rho,thil,rr_v,wc,wmc,press,ue,ve
+  use mem_grid,   only: mza,mwa,lpw,zm,arw0
+  use mem_ijtabs, only: jtab_w, jtw_prog
+  use misc_coms,  only: io6, iparallel
+  use mem_para,   only: myrank, mgroupsize
+  use consts_coms,only: r8
   use mem_addsc
-  use mem_para,  only: mgroupsize, myrank
-
-#ifdef IEEE_ARITHMETIC
-  use, intrinsic :: ieee_arithmetic, only: ieee_is_nan
-#endif
 
 #ifdef OLAM_MPI
   use mpi
@@ -25,17 +14,8 @@ subroutine les_diag()
 
   implicit none
 
-  integer :: i,k,istop,ierror,j
-!  integer, intent(in) :: icall
-
-  integer :: jwl, iwl, kw, np, n, ks
-  real :: r4, vss(7), vsx(7)
-
-  integer :: ivmax, ikmax, iw1, iw2, iv, iw
-  real    :: dvmax, dv
-
-  integer :: iwmax, ikwmax
-  real :: vmax, wmax
+  integer :: j, iw, k, i, ierror
+  real :: arwo2
 
   real(8), dimension(:), pointer, contiguous :: w_avg, u_avg, v_avg, t_avg, q_avg, p_avg, a_avg
   real(8), dimension(:), pointer, contiguous :: ww_avg, uu_avg, vv_avg, tt_avg, qq_avg, pp_avg, aa_avg
@@ -48,13 +28,6 @@ subroutine les_diag()
 
   real(8), allocatable, save :: arwm_tot(:)
   logical, save :: firstime = .true.
-
-! real(8), allocatable, save :: afrac(:,:)
-
-  !!!!!!!!!!!!!!!!!!!!!!!!!!
-!  return
-  !!!!!!!!!!!!!!!!!!!!!!
-
 
   if (firstime) then
      allocate(arwm_tot(mza))
@@ -72,19 +45,11 @@ subroutine les_diag()
 
      arwm_tot(2:) = 1.d0 / arwm_tot(2:)
 
-!!     allocate(afrac  (mwa))
-!!     allocate(afraco2(mwa))
-!!     do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
-!!        do k = lpw(iw), mza
-!!        afrac  (k,iw) = real(arw0(iw),8) * arwm_tot
-!!        afraco2(iw) = 0.5d0 * afrac(iw)
-!!     enddo
-
      firstime = .false.
   endif
 
-  buffera = 0.0
-  bufferb = 0.0
+  buffera = 0.0_r8
+  bufferb = 0.0_r8
 
   w_avg => buffera(:,1)
   u_avg => buffera(:,2)
@@ -123,7 +88,7 @@ subroutine les_diag()
   end do
   !$omp end parallel do
 
-  do i = 1, 6
+  do i = 1, 7
      buffera(2:,i) = arwm_tot(2:) * buffera(2:,i)
   enddo
 
@@ -134,7 +99,7 @@ subroutine les_diag()
 #endif
 
   !$omp parallel private(wprime,uprime,vprime,tprime,qprime,pprime,aprime)
-  !$omp do private(iw,k) reduction(+:bufferb)
+  !$omp do private(iw,k,arwo2) reduction(+:bufferb)
   do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
 
      do k = lpw(iw), mza
@@ -155,41 +120,45 @@ subroutine les_diag()
 !       bufferb(k,7) = bufferb(k,7) + arw0(iw) * aprime(k) * aprime(k)
      enddo
 
+     arwo2 = 0.5 * arw0(iw)
+
      do k = lpw(iw), mza-1
-        bufferb(k, 8) = bufferb(k, 8) + arw0(iw) * wprime(k) * (uprime(k+1) + uprime(k))
-        bufferb(k, 9) = bufferb(k, 9) + arw0(iw) * wprime(k) * (vprime(k+1) + vprime(k))
-        bufferb(k,10) = bufferb(k,10) + arw0(iw) * wprime(k) * (tprime(k+1) + tprime(k))
-        bufferb(k,11) = bufferb(k,11) + arw0(iw) * wprime(k) * (qprime(k+1) + qprime(k))
-        bufferb(k,12) = bufferb(k,12) + arw0(iw) * wprime(k) * (pprime(k+1) + pprime(k))
-!       bufferb(k,13) = bufferb(k,13) + arw0(iw) * wprime(k) * (aprime(k+1) + aprime(k))
+        bufferb(k, 8) = bufferb(k, 8) + arwo2 * wprime(k) * (uprime(k+1) + uprime(k))
+        bufferb(k, 9) = bufferb(k, 9) + arwo2 * wprime(k) * (vprime(k+1) + vprime(k))
+        bufferb(k,10) = bufferb(k,10) + arwo2 * wprime(k) * (tprime(k+1) + tprime(k))
+        bufferb(k,11) = bufferb(k,11) + arwo2 * wprime(k) * (qprime(k+1) + qprime(k))
+        bufferb(k,12) = bufferb(k,12) + arwo2 * wprime(k) * (pprime(k+1) + pprime(k))
+!       bufferb(k,13) = bufferb(k,13) + arwo2 * wprime(k) * (aprime(k+1) + aprime(k))
      enddo
 
   enddo
   !$omp end do
   !$omp end parallel
 
-  do i = 1, 6
+  do i = 1, 13
      bufferb(2:,i) = arwm_tot(2:) * bufferb(2:,i)
-  enddo
-
-  do i = 8, 12
-     bufferb(2:,i) = 0.5 * arwm_tot(2:) * bufferb(2:,i)
   enddo
 
 #ifdef OLAM_MPI
   if (iparallel == 1) then
      if (myrank == 0) then
-        call MPI_Reduce(MPI_IN_PLACE, bufferb, mza*13, MPI_REAL8, MPI_SUM, 0, MPI_COMM_WORLD, ierror)
+        call MPI_Reduce(MPI_IN_PLACE, bufferb, mza*13, MPI_REAL8, MPI_SUM, 0, &
+                        MPI_COMM_WORLD, ierror)
      else
-        call MPI_Reduce(bufferb, bufferb, mza*13, MPI_REAL8, MPI_SUM, 0, MPI_COMM_WORLD, ierror)
+        call MPI_Reduce(bufferb, bufferb, mza*13, MPI_REAL8, MPI_SUM, 0, &
+                        MPI_COMM_WORLD, ierror)
      endif
   endif
 #endif
 
   if (myrank == 0) then
+     write(*,*)
+     write(*,'(A8,4A9,4A11)') "Z  ", "<U> ", "<V> ", "<THil>", "<Qv>  ", "<w'w'>  ", &
+                              "<u'u'>  ", "<t'w'>  ", "<p'p'>  "
+
   do k = mza, 2, -1
-  write(*,'(I4, 2F9.4, F10.6, F9.3, F9.1, F9.6,F8.4, 20g12.4)')  k, u_avg(k), v_avg(k), w_avg(k), &
-       t_avg(k), p_avg(k), q_avg(k), ww_avg(k), uu_avg(k), tw_avg(k), pp_avg(k)
+  write(*,'(F8.2, 2F9.4, F9.3, F9.6, 4G11.4)') zm(k), u_avg(k), v_avg(k), &
+       t_avg(k), q_avg(k), ww_avg(k), uu_avg(k), tw_avg(k), pp_avg(k)
   enddo
   write(*,*)
   endif

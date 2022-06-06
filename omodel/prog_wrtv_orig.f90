@@ -431,8 +431,9 @@ subroutine prog_wrt_begs( iw, vmcf, wmsc,                       &
   use mem_basic,   only: wmc, rho, thil, wc, press, vxe, vye, vze, &
                          alpha_press, pwfac
   use vel_t3d,     only: icut_vel, vxe1, vye1, vze1
-  use misc_coms,   only: dtsm, deltax, nxp, initial, dn01d, th01d, nrk_scal
-  use consts_coms, only: cpocv, omega2, pi1, pio180, r8
+  use misc_coms,   only: dtsm, deltax, nxp, initial, dn01d, th01d, nrk_scal, &
+                         mdomain
+  use consts_coms, only: cpocv, fcoriol, pi1, pio180, r8
   use mem_grid,    only: mza, mva, mwa, lpv, lpw, lve2, arw, arv, &
                          vnx, vny, vnz, wnx, wny, wnz, wnxo2, wnyo2, wnzo2, &
                          dzim, volt, volti, volwi, glatw, glonw, gdzim, &
@@ -479,7 +480,7 @@ subroutine prog_wrt_begs( iw, vmcf, wmsc,                       &
 
   real :: c6, c7, c8, c9, c10
   real :: dirv, vmarv
-  real :: vmt1
+  real :: vmt1, mass
   real :: rad0_swtc, rad_swtc, topo_swtc
 
   ! Vertical implicit scheme weighting parameters
@@ -540,6 +541,23 @@ subroutine prog_wrt_begs( iw, vmcf, wmsc,                       &
 
   dt8 = dtsm(itab_w(iw)%mrlw)  ! double precision DT
   dts = dt8                    ! single precision DT
+
+  ! Store current T cell earth-Cartesion momentum
+
+  if (nrk_scal == 1) then
+     ktop = mza
+  elseif (icut_vel == 1) then
+     ktop = ka + lve2(iw) - 1
+  else
+     ktop = ka - 1
+  endif
+
+  do k = ka, ktop
+     r4 = real(rho(k,iw))
+     vmxe(k) = vxe(k,iw) * r4
+     vmye(k) = vye(k,iw) * r4
+     vmze(k) = vze(k,iw) * r4
+  enddo
 
   ! Set bottom & top vertical advective mass and heat fluxes to zero
 
@@ -619,20 +637,27 @@ subroutine prog_wrt_begs( iw, vmcf, wmsc,                       &
 
   enddo
 
+  if (mdomain > 1) then
+
+     ! Coriolis and large-scale PGF tendencies for limited-area run
+     do k = ka, mza
+        mass = real( rho(k,iw) * volt(k,iw) )
+        vmxet_short(k,iw) = vmxet_short(k,iw) + mass * fcoriol * (vxe(k,iw) - nl%v_geostrophic)
+        vmyet_short(k,iw) = vmyet_short(k,iw) - mass * fcoriol * (vye(k,iw) + nl%u_geostrophic)
+     enddo
+
+  else
+
+     ! Coriolis tendencies for global run
+     do k = ka, mza
+        mass = real( rho(k,iw) * volt(k,iw) )
+        vmxet_short(k,iw) = vmxet_short(k,iw) + mass * fcoriol * vxe(k,iw)
+        vmyet_short(k,iw) = vmyet_short(k,iw) - mass * fcoriol * vye(k,iw)
+     enddo
+
+  endif
+
   do k = ka, mza
-     r4 = real(rho (k,iw))
-     v4 = real(volt(k,iw))
-
-     ! Compute current T cell momentum and store in temp array
-
-     vmxe(k) = vxe(k,iw) * r4
-     vmye(k) = vye(k,iw) * r4
-     vmze(k) = vze(k,iw) * r4
-
-     ! Coriolis tendencies
-
-     vmxet_short(k,iw) = vmxet_short(k,iw) + omega2 * v4 * vmye(k)
-     vmyet_short(k,iw) = vmyet_short(k,iw) - omega2 * v4 * vmxe(k)
 
      ! Explicit momentum tendencies from advective transport
      ! (weighted by T cell volume)
@@ -866,14 +891,6 @@ subroutine prog_wrt_begs( iw, vmcf, wmsc,                       &
      vmzet(k) = vmzet(k) + vflux_vze(k-1) - vflux_vze(k)
 
   enddo
-
-  if (nrk_scal == 1) then
-     ktop = mza
-  elseif (icut_vel == 1) then
-     ktop = ka + lve2(iw) - 1
-  else
-     ktop = ka - 1
-  endif
 
   ! Estimate velocity in T cells at (t+1) by prognostic method
 
