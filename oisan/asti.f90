@@ -237,7 +237,6 @@ subroutine vterpp_s(iw)
                          t00, cp, rocp, gravi, eps_virt, eps_vapi
   use mem_grid,    only: mza, lpw, zt, gravm, volt, volwi, dzm, &
                          gdz_belo, gdz_abov
-  use misc_coms,   only: nrk_wrtv
   use micro_coms,  only: miclevel
   use therm_lib,   only: rhovsl
 
@@ -245,7 +244,7 @@ subroutine vterpp_s(iw)
 
   integer, intent(in) :: iw
 
-  real    :: rho_tot(mza), v4(mza), fact(mza), dp(mza)
+  real    :: rho_tot(mza), dp(mza)
   integer :: k, kpbc, klo, khi, kbc, kother, iter, ka
   real    :: extrap, exner, tairc, cond, rrv
   real    :: x0, x1, pkhyd
@@ -288,13 +287,6 @@ subroutine vterpp_s(iw)
   endif
 
   extrap = (zt(kbc) - zt(kother)) / (pcol_z(kpbc,iw) - zt(kother))
-
-  if (nrk_wrtv > 1) then
-     do k = ka, mza
-        v4  (k) = real(volt(k,iw))
-        fact(k) = gravm(k) * volwi(k,iw) * dzm(k)
-     enddo
-  endif
 
   if (miclevel > 1) then
      do k = ka, mza
@@ -356,49 +348,21 @@ subroutine vterpp_s(iw)
      ! Impose minimum value of 0.1 Pa to avoid overshoot to negative values
      ! during iteration.  Use weighting to damp oscillations
 
-     if (nrk_wrtv == 1) then
+     do k = kbc+1, mza
+        pkhyd = o_press(k-1,iw) &
+              - ( gdz_belo(k-1) * rho_tot(k-1) + gdz_abov(k-1) * rho_tot(k) )
 
-        ! Bob's single-step time integration scheme height-averages density
-        ! in the hydrostatic balance
+        dp(k)         = abs( pkhyd - o_press(k,iw) )
+        o_press(k,iw) = x0 * o_press(k,iw) + x1 * max(.1, pkhyd)
+     enddo
 
-        do k = kbc+1, mza
-           pkhyd = o_press(k-1,iw) &
-                 - ( gdz_belo(k-1) * rho_tot(k-1) + gdz_abov(k-1) * rho_tot(k) )
+     do k = kbc-1, ka, -1
+        pkhyd = o_press(k+1,iw) &
+              + ( gdz_belo(k) * rho_tot(k) + gdz_abov(k) * rho_tot(k+1) )
 
-           dp     (k)    = abs( pkhyd - o_press(k,iw) )
-           o_press(k,iw) = x0 * o_press(k,iw) + x1 * max(.1, pkhyd)
-        enddo
-
-        do k = kbc-1, ka, -1
-           pkhyd = o_press(k+1,iw) &
-                 + ( gdz_belo(k) * rho_tot(k) + gdz_abov(k) * rho_tot(k+1) )
-
-           dp     (k)    = abs( pkhyd - o_press(k,iw) )
-           o_press(k,iw) = x0 * o_press(k,iw) + x1 * pkhyd
-        enddo
-
-     else
-
-        ! Runge-Kutta time integration scheme volume-averages density
-        ! in the hydrostatic balance
-
-        do k = kbc+1, mza
-           pkhyd = o_press(k-1,iw) &
-                 - ( v4(k-1) * rho_tot(k-1) + v4(k) * rho_tot(k) ) * fact(k-1)
-
-           dp     (k)    = abs( pkhyd - o_press(k,iw) )
-           o_press(k,iw) = x0 * o_press(k,iw) + x1 * max(.1, pkhyd)
-        enddo
-
-        do k = kbc-1, ka, -1
-           pkhyd = o_press(k+1,iw) &
-                 + ( v4(k) * rho_tot(k) + v4(k+1) * rho_tot(k+1) ) * fact(k)
-
-           dp     (k)    = abs( pkhyd - o_press(k,iw) )
-           o_press(k,iw) = x0 * o_press(k,iw) + x1 * pkhyd
-        enddo
-
-     endif
+        dp(k)         = abs( pkhyd - o_press(k,iw) )
+        o_press(k,iw) = x0 * o_press(k,iw) + x1 * pkhyd
+     enddo
 
      ! Exit if pressure has converged after at least 8 iterations
 
@@ -408,7 +372,5 @@ subroutine vterpp_s(iw)
      endif
 
   enddo
-
-  ! Return if we are performing a nudging prep and not initialising model arays
 
 end subroutine vterpp_s
