@@ -1,4 +1,4 @@
-!===============================================================================
+
 ! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
 ! and David Medvigy in the project group headed by Roni Avissar.  Development
 ! has continued by the same team working at other institutions (University of
@@ -35,18 +35,18 @@ subroutine para_decomp()
 ! Decompose global grid into multiple subdomains for parallel computation
 
 use mem_para,   only: mgroupsize
-use misc_coms,  only: mdomain, iparallel
+use misc_coms,  only: mdomain, iparallel, io6
 use mem_ijtabs, only: itab_v_pd, itab_m_pd, itabg_m, itabg_v, itabg_w
 use mem_nudge,  only: nudflag, nudnxp, nwnud, itabg_wnud, &
                       xewnud, yewnud, zewnud
-use mem_grid,   only: nma, nva, nwa, xew, yew, zew
+use mem_grid,   only: nma, nva, nwa, xew, yew, zew, arw0
 use mem_sfcg,   only: nmsfc, itabg_msfc, itab_msfc_pd, &
                       nvsfc, itabg_vsfc, itab_wsfc_pd, &
                       nwsfc, itabg_wsfc, itab_vsfc_pd
 implicit none
 
 integer :: im,iv,iw,iwnud
-integer :: iw1,iw2
+integer :: iw1,iw2,im1,im2
 integer :: igp,jgp
 integer :: i, j, ii, jj, iinud, jjnud
 
@@ -65,7 +65,8 @@ integer :: nwgnud(mgroupsize)
 integer, allocatable :: iwtemp(:), jwtemp(:)
 integer, allocatable :: iwnudtemp(:), jwnudtemp(:)
 
-integer :: num(1002)
+integer, parameter :: nbins = 2000
+integer :: num(nbins + 2)
 
 real :: val (nwa)
 real :: valnud(nwnud)
@@ -73,13 +74,17 @@ real :: valnud(nwnud)
 Type grp_var
    integer, allocatable :: iw(:)
    integer, allocatable :: iwnud(:)
-End type
+End Type grp_var
 
 type (grp_var) :: grp(mgroupsize)
 
-integer :: nuv_per_node(0:mgroupsize-1)
 integer :: iwsfc,ivsfc,imsfc,iwn
-integer :: irankw(3), irankv(3)
+integer :: irankw(3), irankv(3), irankm(3)
+
+real, parameter :: scal = 0.45
+real :: xsca, ysca, zsca, xo, yo, zo
+
+real, allocatable :: ds(:)
 
 if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) then
    allocate (itabg_wnud(nwnud))
@@ -93,9 +98,11 @@ if (iparallel == 1) then
    ! Allocate and fill grp%iw for group 1
 
    allocate (grp(1)%iw(nwa-1))
+   allocate (ds(nwa))
 
    do iw = 2,nwa
       grp(1)%iw(iw-1) = iw
+      ds(iw) = sqrt(arw0(iw))
    enddo
 
    ! Check if NUDGING GRID is being used
@@ -156,10 +163,27 @@ if (iparallel == 1) then
 
 ! ATM cells - z direction
 
-               do i = 1,nwg(igp)
-                  iw = grp(igp)%iw(i)
-                  val(iw) = zew(iw)
-               enddo
+               if (xmax - xmin > ymax - ymin) then
+
+                  xsca = scal / (xmax - xmin)
+                  xo   = 0.50 * (xmax - xmin)
+
+                  do i = 1,nwg(igp)
+                     iw = grp(igp)%iw(i)
+                     val(iw) = zew(iw) + ds(iw) * (xew(iw) - xo) * xsca
+                  enddo
+
+               else
+
+                  ysca = scal / (ymax - ymin)
+                  yo   = 0.50 * (ymax - ymin)
+
+                  do i = 1,nwg(igp)
+                     iw = grp(igp)%iw(i)
+                     val(iw) = zew(iw) + ds(iw) * (yew(iw) - yo) * ysca
+                  enddo
+
+               endif
 
                cmin = zmin
                cmax = zmax
@@ -177,10 +201,27 @@ if (iparallel == 1) then
 
 ! ATM cells - x direction
 
-               do i = 1,nwg(igp)
-                  iw = grp(igp)%iw(i)
-                  val(iw) = xew(iw)
-               enddo
+               if (ymax - ymin > zmax - zmin) then
+
+                  ysca = scal / (ymax - ymin)
+                  yo   = 0.50 * (ymax - ymin)
+
+                  do i = 1,nwg(igp)
+                     iw = grp(igp)%iw(i)
+                     val(iw) = xew(iw) + ds(iw) * (yew(iw) - yo) * ysca
+                  enddo
+
+               else
+
+                  zsca = scal / (zmax - zmin)
+                  zo   = 0.50 * (zmax - zmin)
+
+                  do i = 1,nwg(igp)
+                     iw = grp(igp)%iw(i)
+                     val(iw) = xew(iw) + ds(iw) * (zew(iw) - zo) * zsca
+                  enddo
+
+               endif
 
                cmin = xmin
                cmax = xmax
@@ -198,10 +239,27 @@ if (iparallel == 1) then
 
 ! ATM cells - y direction
 
-               do i = 1,nwg(igp)
-                  iw = grp(igp)%iw(i)
-                  val(iw) = yew(iw)
-               enddo
+               if (xmax - xmin > zmax - zmin) then
+
+                  xsca = scal / (xmax - xmin)
+                  xo   = 0.50 * (xmax - xmin)
+
+                  do i = 1,nwg(igp)
+                     iw = grp(igp)%iw(i)
+                     val(iw) = yew(iw) + ds(iw) * (xew(iw) - xo) * xsca
+                  enddo
+
+               else
+
+                  zsca = scal / (zmax - zmin)
+                  zo   = 0.50 * (zmax - zmin)
+
+                  do i = 1,nwg(igp)
+                     iw = grp(igp)%iw(i)
+                     val(iw) = yew(iw) + ds(iw) * (zew(iw) - zo) * zsca
+                  enddo
+
+               endif
 
                cmin = ymin
                cmax = ymax
@@ -229,15 +287,14 @@ if (iparallel == 1) then
                   if (val(iw) <= cmin) then
                      ibin = 1
                   elseif (val(iw) >= cmax) then
-                     ibin = 1002
+                     ibin = nbins + 2
                   else
-                     ibin = int(1000. * (val(iw) - cmin) / (cmax - cmin)) + 2
+                     ibin = int(real(nbins) * (val(iw) - cmin) / (cmax - cmin)) + 2
                   endif
                   num(ibin) = num(ibin) + 1
 
 ! Sum points that are beyond geometric center of group
-
-                  if (ibin >= 502) numcent = numcent + 1
+                  if (ibin > nbins/2 + 2) numcent = numcent + 1
                enddo
 
 ! Set igsize(jgp) based on numcent
@@ -254,13 +311,12 @@ if (iparallel == 1) then
 
                numtot = num(1)
                ibin = 1
-               do while (numtot + num(ibin+1) <= numcut)
+               do while (numtot + num(ibin+1) < numcut)
                   numtot = numtot + num(ibin+1)
                   ibin = ibin + 1
                enddo
-
-               cmin0 = cmin + (cmax - cmin) * .001 * (real(ibin) - 1.1)
-               cmax = cmin + (cmax - cmin) * .001 * (real(ibin) +  .1)
+               cmin0 = cmin + (cmax - cmin) * (real(ibin) - 1.1) / real(nbins)
+               cmax = cmin + (cmax - cmin) * (real(ibin) +  .1) / real(nbins)
                cmin = cmin0
 
             enddo
@@ -367,66 +423,58 @@ if (iparallel == 1) then
 
    enddo
 
-   ! New way for assigning U/V rank:
-   ! Loop over each U/V point and assign its rank to the IW neighbor that has
-   ! fewer U/V points in its stencil
-
-   nuv_per_node(:) = 0
-
-   ! If W neighbors have the same rank, set V to this rank too
+   ! Set V rank based on its nearest W neighbors
 
    do iv = 2,nva
-      iw1 = itab_v_pd(iv)%iw(1)
-      iw2 = itab_v_pd(iv)%iw(2)
-      if (itabg_w(iw1)%irank == itabg_w(iw2)%irank) then
-         itabg_v(iv)%irank = itabg_w(iw1)%irank
-         nuv_per_node(itabg_v(iv)%irank) = nuv_per_node(itabg_v(iv)%irank) + 1
-      endif
+      itabg_v(iv)%irank = itabg_w( itab_v_pd(iv)%iw( mod(iv,2)+1 ) )%irank
    enddo
 
-   ! If W neighbors are on different ranks, assign V to the rank with fewer V members
-
-   do iv = 2,nva
-      iw1 = itab_v_pd(iv)%iw(1)
-      iw2 = itab_v_pd(iv)%iw(2)
-      if (itabg_w(iw1)%irank /= itabg_w(iw2)%irank) then
-         if (nuv_per_node(itabg_w(iw1)%irank) <= nuv_per_node(itabg_w(iw2)%irank)) then
-            itabg_v(iv)%irank = itabg_w(iw1)%irank
-            nuv_per_node(itabg_w(iw1)%irank) = nuv_per_node(itabg_w(iw1)%irank) + 1
-         else
-            itabg_v(iv)%irank = itabg_w(iw2)%irank
-            nuv_per_node(itabg_w(iw2)%irank) = nuv_per_node(itabg_w(iw2)%irank) + 1
-         endif
-      endif
-   enddo
-
-   ! Set rank of M point based on dominant rank of its immediate neighbors
+   ! Set M rank based on its nearest W and V neighbors
 
    do im = 2, nma
       if (itab_m_pd(im)%npoly < 3) then
 
-         itabg_m(im)%irank = itabg_v( itab_m_pd(im)%iv(1) )%irank
+         itabg_m(im)%irank = itabg_w( itab_m_pd(im)%iw(1) )%irank
 
       else
 
          irankw(1:3) = itabg_w( itab_m_pd(im)%iw(1:3) )%irank
          irankv(1:3) = itabg_v( itab_m_pd(im)%iv(1:3) )%irank
 
-         ! Also ensure at least one adjacent W and one adjacent V neighbor
-         ! share the same rank as this M point
-
          if (irankw(1) == irankw(2) .or. irankw(1) == irankw(3)) then
             itabg_m(im)%irank = irankw(1)
          elseif (irankw(2) == irankw(3)) then
             itabg_m(im)%irank = irankw(2)
-         elseif (irankv(2) == irankv(1) .or. irankv(2) == irankv(3)) then
-            itabg_m(im)%irank = irankv(2)
-         else
+
+         elseif (irankv(1) == irankv(2) .or. irankv(1) == irankv(3)) then
             itabg_m(im)%irank = irankv(1)
+         elseif (irankv(2) == irankv(3)) then
+            itabg_m(im)%irank = irankv(2)
+
+         else
+            itabg_m(im)%irank = irankw( mod(im,3)+1 )
          endif
 
       endif
    enddo
+
+   ! Re-set V rank if nearest M neighbors have the same rank
+
+   do iv = 2, nva
+      iw1 = itab_v_pd(iv)%iw(1)
+      iw2 = itab_v_pd(iv)%iw(2)
+      if (itabg_w(iw1)%irank /= itabg_w(iw2)%irank) then
+         im1 = itab_v_pd(iv)%im(1)
+         im2 = itab_v_pd(iv)%im(2)
+         if (itabg_m(im1)%irank == itabg_m(im2)%irank) itabg_v(iv)%irank = itabg_m(im1)%irank
+      endif
+   enddo
+
+!   write(io6,*)
+!   do igp = 0, mgroupsize-1
+!      write(io6,*) igp, count( itabg_w(2:)%irank == igp ), &
+!                        count( itabg_v(2:)%irank == igp ), &
+!                        count( itabg_m(2:)%irank == igp )
 
    if (mdomain <= 1) then
 
@@ -460,10 +508,14 @@ if (iparallel == 1) then
             itabg_msfc(imsfc)%irank = irankw(1)
          elseif (irankw(2) == irankw(3)) then
             itabg_msfc(imsfc)%irank = irankw(2)
-         elseif (irankv(2) == irankv(1) .or. irankv(2) == irankv(3)) then
-            itabg_msfc(imsfc)%irank = irankv(2)
-         else
+
+         elseif (irankv(1) == irankv(2) .or. irankv(1) == irankv(3)) then
             itabg_msfc(imsfc)%irank = irankv(1)
+         elseif (irankv(2) == irankv(3)) then
+            itabg_msfc(imsfc)%irank = irankv(2)
+
+         else
+            itabg_msfc(imsfc)%irank = irankw( mod(imsfc,3)+1 )
          endif
       enddo
 

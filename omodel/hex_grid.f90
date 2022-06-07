@@ -38,7 +38,7 @@ subroutine voronoi()
                           xemd, yemd, zemd, nmd, nud, nwd
 
   use mem_grid,     only: nma, nua, nva, nwa, mma, mua, mva, mwa, &
-                          xem, yem, zem, xew, yew, zew, &
+                          xem, yem, zem, xew, yew, zew, arw0, &
                           alloc_xyzem, alloc_xyzew
 
   use misc_coms,    only: mdomain
@@ -73,6 +73,8 @@ subroutine voronoi()
   call move_alloc(xemd, xew)
   call move_alloc(yemd, yew)
   call move_alloc(zemd, zew)
+
+  allocate(arw0(nwa)) ; arw0 = 0.0
 
   ! Allocate XEM,YEM,ZEM to NEW nma dimension
 
@@ -1493,26 +1495,22 @@ subroutine ctrlvols_hex()
 
   ! Loop over all ATM grid columns
 
-  !$omp parallel do private(iw,k,facw,jv,iv)
+!  !$omp parallel do private(iw,k,jv,iv)
   do j = 1,jtab_w(jtw_grid)%jend(1); iw = jtab_w(jtw_grid)%iw(j)
+
+     ! special at model top
+     volt(nza,iw) = dzt(nza) * arw0(iw)
 
      ! Loop over vertical levels
 
-     do k = lpw(iw),nza-1
+     do k = lpw(iw), nza-1
 
-        ! Define volt based on ARVs and on ARW at top of cell such that
-        ! area-to-volume ratio is not greater than that for fully open cell
+        if (arw(k-1,iw) / arw(k,iw) > 0.999) then
+           volt(k,iw) = dzt(k) * arw(k,iw)
+        else
+           call volt_from_flux(k,iw)
+        endif
 
-        facw = 0.
-        do jv = 1,itab_w(iw)%npoly
-           iv = itab_w(iw)%iv(jv)
-           ! Each V face contributes to open up its fraction farv
-           ! of the current polygon:
-           facw = facw + 1.5 * itab_w(iw)%farv(jv) * arv(k,iv) / (dnu(iv) * dzt(k))
-        enddo
-        facw = max( min(facw,1.0), 0.0)
-
-        volt(k,iw) = max( arw(k,iw) * dzt(k), arw0(iw) * dzt(k) * facw )
      enddo
 
      ! Compute number of underground v[xyz]e2 levels in this IW column
@@ -1522,9 +1520,8 @@ subroutine ctrlvols_hex()
         lve2(iw) = max(lve2(iw), lpv(iv) - lpw(iw))
      enddo
 
-     volt(nza,iw) = arw0(iw) * dzt(nza)
   enddo
-  !$omp end parallel do
+!  !$omp end parallel do
 
   nve2_max = maxval(lve2(:))
 
@@ -1919,25 +1916,19 @@ GOTO 2
   !$omp parallel do private(iw,k,facw,jv,iv)
   do j = 1,jtab_w(jtw_grid)%jend(1); iw = jtab_w(jtw_grid)%iw(j)
 
+     ! special at model top
+     volt(nza,iw) = dzt(nza) * arw0(iw)
+
      ! Loop over vertical levels
 
-     do k = lpw(iw),nza-1
+     do k = lpw(iw), nza-1
 
-        ! Define volt based on ARVs and on ARW at top of cell such that
-        ! area-to-volume ratio is not greater than that for fully open cell
+        if (arw(k-1,iw) / arw(k,iw) > 0.999) then
+           volt(k,iw) = dzt(k) * arw(k,iw)
+        else
+           call volt_from_flux(k,iw)
+        endif
 
-        facw = 0.
-        do jv = 1,itab_w(iw)%npoly
-           iv = itab_w(iw)%iv(jv)
-           ! Each V face contributes to open up its fraction farv
-           ! of the current polygon:
-           facw = facw + 1.5 * itab_w(iw)%farv(jv) * arv(k,iv) / (dnu(iv) * dzt(k))
-        enddo
-        facw = max( min(facw,1.0), 0.0)
-
- !!       volt(k,iw) = max( arw(k,iw) * dzt(k), arw0(iw) * dzt(k) * facw )
- !!       volt(k,iw) = arw(k,iw) * dzt(k)
-        volt(k,iw) = arw0(iw) * dzt(k)
      enddo
 
      ! Compute number of underground v[xyz]e2 levels in this IW column
@@ -1947,7 +1938,6 @@ GOTO 2
         lve2(iw) = max(lve2(iw), lpv(iv) - lpw(iw))
      enddo
 
-     volt(nza,iw) = arw0(iw) * dzt(nza)
   enddo
   !$omp end parallel do
 
@@ -2452,4 +2442,117 @@ subroutine reverse_polygon(zmpat, xmpat, ympat, tmpat, kmpat, lpoly, npat)
   enddo
 
 end subroutine reverse_polygon
+
+!==========================================================================
+
+subroutine volt_from_flux(k,iw)
+
+  use mem_grid,    only: arv, arw, arw0, volt, dnu, dzt, vnx, vny, vnz, &
+                         xew, yew, zew
+  use mem_ijtabs,  only: itab_w
+  use consts_coms, only: pi1, eradi
+  use misc_coms,   only: mdomain
+
+  implicit none
+
+  integer, intent(in) :: k, iw
+
+  integer, parameter :: naz = 18
+  integer :: iaz, jv, iv
+
+  real :: az, uzonal, umerid, raxis, vxe, vye, vze, vc, wc, dirv, hflux
+  real :: hflux_cut_in, hflux_cut_out, hflux_opn_in, hflux_opn_out
+  real :: vflux_cut_in, vflux_cut_out, vflux_opn_in
+  real :: factor, maxfactor
+
+  maxfactor = 0.
+
+  ! Loop over increments of azimuth angle, counterclockwise from east, up to half a circle
+
+  do iaz = 1, naz
+     az = pi1 * real(iaz - 1) / real(naz)
+
+     ! Horizontal velocity components assuming 1 m/s total horizontal wind
+
+     uzonal = cos(az)
+     umerid = sin(az)
+
+     raxis = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis
+
+     if (mdomain < 2 .and. raxis > 1.e3) then
+        vxe = -yew(iw) / raxis * uzonal - xew(iw) * zew(iw) * eradi / raxis * umerid
+        vye =  xew(iw) / raxis * uzonal - yew(iw) * zew(iw) * eradi / raxis * umerid
+        vze =                                                 raxis * eradi * umerid
+     else
+        vxe = uzonal
+        vye = umerid
+        vze = 0.
+     endif
+
+     ! Project cell-center velocity components onto each hex face, and get
+     ! horizontal fluxes for this cut cell and for open cell of same dimensions
+
+     hflux_cut_in  = 0.
+     hflux_cut_out = 0.
+     hflux_opn_in  = 0.
+     hflux_opn_out = 0.
+
+     do jv = 1, itab_w(iw)%npoly
+        iv   = itab_w(iw)%iv(jv)
+        dirv = itab_w(iw)%dirv(jv)
+
+        vc = vnx(iv) * vxe &
+           + vny(iv) * vye &
+           + vnz(iv) * vze
+
+        hflux = dirv * vc
+
+        if (hflux > 0.) then
+           hflux_cut_in = hflux_cut_in + hflux * arv(k,iv)
+           hflux_opn_in = hflux_opn_in + hflux * dnu(iv) * dzt(k)
+        else
+           hflux_cut_out = hflux_cut_out - hflux * arv(k,iv)
+           hflux_opn_out = hflux_opn_out - hflux * dnu(iv) * dzt(k)
+        endif
+     enddo
+
+     ! Compute vertical velocity that gives zero net flux for cut cell, and get
+     ! vertical fluxes for this cut cell and for open cell of same dimensions
+
+     wc = (hflux_cut_in - hflux_cut_out) / (arw(k,iw) - arw(k-1,iw))
+
+     if (wc > 0.) then
+        vflux_cut_in  = wc * arw(k-1,iw)
+        vflux_cut_out = wc * arw(k,iw)
+        vflux_opn_in  = wc * arw0(iw)
+     else
+        vflux_cut_in  = -wc * arw(k,iw)
+        vflux_cut_out = -wc * arw(k-1,iw)
+        vflux_opn_in  = -wc * arw0(iw)
+     endif
+
+     ! Compute volt
+
+     factor = (hflux_cut_in + vflux_cut_in) / (hflux_opn_in + vflux_opn_in)
+
+     if (factor > maxfactor) maxfactor = factor
+
+     ! Verify that cut cell net flux is zero
+
+!     if (iaz == 1) then
+!        print*, ' '
+!        write(*,'(120a)') '          iaz   iw     k   hfcutin    hfcutout    vfcutin    vfcutout  fsum   factor  maxfactor'
+!        print*, ' '
+!     endif
+
+!     write(*,'(a,3i6,4f11.1,f8.1,2f8.3)') 'volts ', iaz, iw, k, &
+!        hflux_cut_in, hflux_cut_out, vflux_cut_in, vflux_cut_out, &
+!        hflux_cut_in - hflux_cut_out + vflux_cut_in - vflux_cut_out, &
+!        factor, maxfactor
+
+  enddo
+
+  volt(k,iw) = arw0(iw) * dzt(k) * maxfactor
+
+end subroutine volt_from_flux
 

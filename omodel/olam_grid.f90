@@ -1269,7 +1269,7 @@ subroutine gridfile_read_pd()
                         itab_m_pd, itab_v_pd, itab_w_pd, alloc_itabs_pd
   use mem_grid,   only: nza, nma, nua, nva, nwa, &
                         mza, mma, mua, mva, mwa, nsw_max, nve2_max, &
-                        xem, yem, zem, xew, yew, zew, &
+                        xem, yem, zem, xew, yew, zew, arw0, &
                         alloc_xyzem, alloc_xyzew
   use leaf_coms,  only: isfcl
 
@@ -1520,6 +1520,8 @@ subroutine gridfile_read_pd()
   call shdf5_irec(ndims, idims, 'XEW', rvar1=xew)
   call shdf5_irec(ndims, idims, 'YEW', rvar1=yew)
   call shdf5_irec(ndims, idims, 'ZEW', rvar1=zew)
+
+  call shdf5_irec(ndims, idims, 'ARW0', rvar1=arw0)
 
   ! Read ITAB_M SCALARS
 
@@ -1858,7 +1860,7 @@ subroutine gridfile_read()
   call shdf5_irec(ndims, idims, 'WNX'  , rvar1=wnx  , points=lgwa, stagpt=type)
   call shdf5_irec(ndims, idims, 'WNY'  , rvar1=wny  , points=lgwa, stagpt=type)
   call shdf5_irec(ndims, idims, 'WNZ'  , rvar1=wnz  , points=lgwa, stagpt=type)
-  call shdf5_irec(ndims, idims, 'ARW0' , rvar1=arw0 , points=lgwa, stagpt=type)
+! call shdf5_irec(ndims, idims, 'ARW0' , rvar1=arw0 , points=lgwa, stagpt=type)
   call shdf5_irec(ndims, idims, 'TOPW' , rvar1=topw , points=lgwa, stagpt=type)
   call shdf5_irec(ndims, idims, 'GLATW', rvar1=glatw, points=lgwa, stagpt=type)
   call shdf5_irec(ndims, idims, 'GLONW', rvar1=glonw, points=lgwa, stagpt=type)

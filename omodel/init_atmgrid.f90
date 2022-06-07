@@ -63,7 +63,7 @@ subroutine para_init_atm()
 
   use mem_grid,   only: nma, nva, nwa, mma, mua, mva, mwa, mza, &
                         alloc_gridz, alloc_xyzem, alloc_xyzew, &
-                        alloc_grid1, alloc_grid2, xew, yew, zew
+                        alloc_grid1, alloc_grid2, xew, yew, zew, arw0
 
   use mem_para,     only: mgroupsize, myrank, nbytes_int, nbytes_real, nbytes_real8
   use olam_mpi_atm, only: nsends_v, nrecvs_v, send_v, recv_v, &
@@ -118,7 +118,7 @@ subroutine para_init_atm()
   integer :: imp_recv_jrecv(nma) ! temporary recv table
   integer :: imp_recv_im   (nma) ! temporary recv table
 
-  real, allocatable :: xewg(:), yewg(:), zewg(:)
+  real, allocatable :: xewg(:), yewg(:), zewg(:), arw0g(:)
 
   ! Initialize send & recv counters to zero
 
@@ -221,6 +221,7 @@ subroutine para_init_atm()
   call move_alloc(xew,xewg)
   call move_alloc(yew,yewg)
   call move_alloc(zew,zewg)
+  call move_alloc(arw0,arw0g)
 
   call alloc_gridz()
   call alloc_itabs(mma, mva, mwa, 1)
@@ -265,13 +266,14 @@ subroutine para_init_atm()
         itab_w(iw_myrank)%iwglobe = iw
         itab_w(iw_myrank)%irank = itabg_w(iw)%irank
 
-        xew(iw_myrank) = xewg(iw)
-        yew(iw_myrank) = yewg(iw)
-        zew(iw_myrank) = zewg(iw)
+        xew (iw_myrank) = xewg (iw)
+        yew (iw_myrank) = yewg (iw)
+        zew (iw_myrank) = zewg (iw)
+        arw0(iw_myrank) = arw0g(iw)
      endif
   enddo
 
-  deallocate (xewg, yewg, zewg)
+  deallocate (xewg, yewg, zewg, arw0g)
 
   ! Read the grid structure for all points in local parallel subdomain
   ! for this rank (or for all points in domain if run is sequential)

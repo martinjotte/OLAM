@@ -124,7 +124,6 @@ subroutine mpi_send_wsfc(set, soil_watfrac, div2d_ex)
   use mem_sea,     only: sea, msea, omsea
   use leaf_coms,   only: nzs
   use sea_coms,    only: nzi
-  use mem_para,    only: myrank
 
   implicit none
 
@@ -149,16 +148,16 @@ subroutine mpi_send_wsfc(set, soil_watfrac, div2d_ex)
 
      if (jsend == MPI_UNDEFINED) jsend = jtmp
 
-     !$omp task private(ipos,jj,iwsfc,iland,ilake,isea,ierr) &
+     !$omp task private(ipos,jj,iwsfc,nb,iland,ilake,isea,ierr) &
      !$omp      firstprivate(jsend) default(shared)
 
      ipos = 0
+     nb   = send_wsfc(jsend)%nbytes
 
      ! Loop over number of columns for this jsend
 
      do jj = 1, send_wsfc(jsend)%jend
         iwsfc = send_wsfc(jsend)%ipts(jj)
-        nb    = send_wsfc(jsend)%nbytes
 
         ! Pack the messages into send buffers
 
@@ -515,7 +514,6 @@ subroutine mpi_recv_wsfc(set, soil_watfrac, div2d_ex)
   use mem_land,  only: nzg, land, omland
   use mem_lake,  only: lake, omlake
   use mem_sea,   only: sea, msea, omsea
-  use mem_para,  only: myrank
 
   implicit none
 
@@ -525,9 +523,10 @@ subroutine mpi_recv_wsfc(set, soil_watfrac, div2d_ex)
 
 #ifdef OLAM_MPI
 
-  integer :: ierr, ipos
+  integer :: ierr, ipos, count
   integer :: jrecv, jtmp, jj
   integer :: iwsfc, iland, ilake, isea
+  integer :: status(mpi_status_size)
 
   !$omp parallel
   !$omp single
@@ -535,19 +534,22 @@ subroutine mpi_recv_wsfc(set, soil_watfrac, div2d_ex)
 
      ! Now, let's wait on our receives
 
-     call MPI_Waitany(nrecvs_wsfc, ireqr_wsfc(:,icurr_wsfc), jrecv, MPI_STATUS_IGNORE, ierr)
+     call MPI_Waitany(nrecvs_wsfc, ireqr_wsfc(:,icurr_wsfc), jrecv, status, ierr)
 
      if (jrecv == MPI_UNDEFINED) jrecv = jtmp
 
      ! We got some stuff.  Now unpack it into appropriate space.
 
-     !$omp task private(ipos,jj,iwsfc,iland,ilake,isea,ierr) &
-     !$omp      firstprivate(jrecv) default(shared)
+     !$omp task private(ipos,jj,iwsfc,iland,ilake,isea,ierr,count) &
+     !$omp      firstprivate(jrecv,status) default(shared)
 
      ipos = 0
 
      ! Loop over number of columns for this jtmp/jrecv
 
+     call MPI_Get_count(status, MPI_PACKED, count, ierr)
+
+     if (count /= 0) then
      do jj = 1, recv_wsfc(jrecv)%jend
         iwsfc = recv_wsfc(jrecv)%ipts(jj)
 
@@ -736,6 +738,7 @@ subroutine mpi_recv_wsfc(set, soil_watfrac, div2d_ex)
         endif
 
      enddo
+     endif
 
      call MPI_Irecv(recv_wsfc(jrecv)%buff, recv_wsfc(jrecv)%nbytes, MPI_PACKED, &
                     recv_wsfc(jrecv)%iremote, itagwsfc, MPI_COMM_WORLD,         &
@@ -774,9 +777,10 @@ subroutine mpi_recv_vsfc(watflux, energyflux, vc_ex)
 
 #ifdef OLAM_MPI
 
-  integer :: ierr, ipos
+  integer :: ierr, ipos, count
   integer :: jrecv, jtmp
   integer :: jj, ivsfc, iw1, iw2
+  integer :: status(mpi_status_size)
 
   !$omp parallel
   !$omp single
@@ -784,19 +788,22 @@ subroutine mpi_recv_vsfc(watflux, energyflux, vc_ex)
 
      ! Now, let's wait on our receives
 
-     call MPI_Waitany(nrecvs_vsfc, ireqr_vsfc(:,icurr_vsfc), jrecv, MPI_STATUS_IGNORE, ierr)
+     call MPI_Waitany(nrecvs_vsfc, ireqr_vsfc(:,icurr_vsfc), jrecv, status, ierr)
 
      if (jrecv == MPI_UNDEFINED) jrecv = jtmp
 
      ! We got some stuff.  Now unpack it into appropriate space.
 
-     !$omp task private(ipos,jj,ivsfc,iw1,iw2,ierr) &
-     !$omp      firstprivate(jrecv) default(shared)
+     !$omp task private(ipos,jj,ivsfc,iw1,iw2,ierr,count) &
+     !$omp      firstprivate(jrecv,status) default(shared)
 
      ipos = 0
 
      ! Loop over number of columns for this jtmp/jrecv
 
+     call MPI_Get_count(status, MPI_PACKED, count, ierr)
+
+     if (count /= 0) then
      do jj = 1, recv_vsfc(jrecv)%jend
         ivsfc = recv_vsfc(jrecv)%ipts(jj)
 
@@ -859,6 +866,7 @@ subroutine mpi_recv_vsfc(watflux, energyflux, vc_ex)
         endif
 
      enddo
+     endif
 
      call MPI_Irecv(recv_vsfc(jrecv)%buff, recv_vsfc(jrecv)%nbytes, MPI_PACKED, &
                     recv_vsfc(jrecv)%iremote, itagvsfc, MPI_COMM_WORLD,         &

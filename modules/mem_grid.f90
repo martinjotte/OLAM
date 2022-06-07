@@ -208,6 +208,8 @@ Contains
     allocate (yew(lwa));  yew(1:lwa) = 0.
     allocate (zew(lwa));  zew(1:lwa) = 0.
 
+    allocate (arw0(lwa)); arw0(1:lwa) = 0.
+
   end subroutine alloc_xyzew
 
 !===============================================================================
@@ -249,7 +251,7 @@ Contains
     allocate (dnv  (lva));  dnv (1:lva) = 0.
     allocate (dniv (lva));  dniv(1:lva) = 0.
 
-    allocate  (arw0(lwa));   arw0(1:lwa) = 0.
+!   allocate  (arw0(lwa));   arw0(1:lwa) = 0.
     allocate  (topw(lwa));   topw(1:lwa) = 0.
     allocate (glatw(lwa));  glatw(1:lwa) = 0.
     allocate (glonw(lwa));  glonw(1:lwa) = 0.

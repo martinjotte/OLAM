@@ -755,8 +755,8 @@ subroutine prog_wrt_begs( iw, istage, dts, dt8,                 &
   use consts_coms, only: cpocv, rocv, fcoriol, pi1, pio180, r8
   use mem_grid,    only: mza, mva, mwa, lpv, lpw, arw, wnx, wny, wnz, volt, &
                          gravm, volti, volwi, glatw, glonw, lve2, arv, &
-                         zwgt_top8, zwgt_bot8, gdz_wgtm8, gdz_wgtp8, &
-                         zwgt_top, zwgt_bot, nve2_max, vnx, vny, vnz
+                         zwgt_top8, zwgt_bot8, vnx, vny, vnz, &
+                         gdz_wgtp8, gdz_wgtm8, gdz_wgtp, gdz_wgtm
   use tridiag,     only: tridiffo
   use oname_coms,  only: nl
   use mem_rayf,    only: dorayf, rayf_cof, krayf_bot
@@ -825,7 +825,8 @@ subroutine prog_wrt_begs( iw, istage, dts, dt8,                 &
 ! real :: press_t  (mza)
 
   real(r8) :: press_ex (mza)
-  real :: mass_ex  (mza)
+! real :: mass_ex  (mza)
+  real :: rho_ex(mza)
 ! real(r8) :: rd_rt_w  (mza)
 
   real :: delex_wm     (mza)
@@ -973,7 +974,8 @@ subroutine prog_wrt_begs( iw, istage, dts, dt8,                 &
 
      press_ex(k) = b5(k) * (rhothil(k) + pc2 * delex_rhothil(k))
 
-     mass_ex (k) = volt(k,iw) * (rho(k,iw) + fr * delex_rho(k))
+!    mass_ex (k) = volt(k,iw) * (rho(k,iw) + fr * delex_rho(k))
+     rho_ex  (k) = rho(k,iw) + fr * delex_rho(k)
 
   enddo
 
@@ -981,19 +983,20 @@ subroutine prog_wrt_begs( iw, istage, dts, dt8,                 &
 
   do k = ka, mza-1
 
-     b4(k) = gravm(k) * volwi(k,iw)
+!    b4(k) = gravm(k) * volwi(k,iw)
 
      ! Explicit vertical momentum tendency
 
-     delex_wm(k) = wmc0(k,iw) + dts * ( & !wmt_other(k) &
+     delex_wm(k) = wmc0(k,iw) + dts * ( &
 
           ! Pressure gradient at W level
 
           + real( press_ex(k) - press_ex(k+1) ) * pwfac(k,iw) &
 
-          ! Volume-weighted buoyancy forcing in vertical between T levels
+          ! Z-weighted buoyancy forcing in vertical between T levels
 
-          - (mass_ex(k) + mass_ex(k+1)) * b4(k)  &
+!         - (mass_ex(k) + mass_ex(k+1)) * b4(k)  &
+          - real( gdz_wgtm8(k) * rho_ex(k) + gdz_wgtp8(k) * rho_ex(k+1) ) &
 
           ! Volume-weighted momentum forcings in vertical between T levels
 
@@ -1028,8 +1031,8 @@ subroutine prog_wrt_begs( iw, istage, dts, dt8,                 &
 !     b10(k) = c10 * volti(k,iw)
 !  enddo
 
-  c8  = dts * pc2
-  c9  =-dts * fr
+  c8  =  dts * pc2
+  c9  = -dts * dts * fr
 
   ! Loop over W pts
   do k = ka, mza-1
@@ -1047,7 +1050,7 @@ subroutine prog_wrt_begs( iw, istage, dts, dt8,                 &
 !     b14(k) = b9(k)  * dzt_bot(k+1)
 
 !    b9 = c9 * b4(k)
-     b9 = c9 * dts * b4(k)
+!    b9 = c9 * dts * b4(k)
 
 !    b13 = b9 * volt(k,iw)
 !    b14 = b9 * volt(k+1,iw)
@@ -1079,17 +1082,23 @@ subroutine prog_wrt_begs( iw, istage, dts, dt8,                 &
 !    b25 = b13 * b10(k)
 !    b26 = b14 * b10(k+1)
 
+     b25 = c9 * volti(k  ,iw) * gdz_wgtm(k)
+     b26 = c9 * volti(k+1,iw) * gdz_wgtp(k)
+
 !    b25(k) = b9(k) * c10
 !    b26(k) = b9(k) * c10
 
 !            * (b2(k) * (b23(k) + b24(k)) + b25(k) - b26(k))
 !           * (b22(k) - b21(k) + b2(k) * (b23(k) + b24(k)) + b25(k) - b26(k))
 
-     b31(k) =        - arw(k-1,iw) * (b21 + b23 * thil_upw(k-1,iw) + b9)
+!    b31(k) =        - arw(k-1,iw) * (b21 + b23 * thil_upw(k-1,iw) + b9)
+     b31(k) =        - arw(k-1,iw) * (b21 + b23 * thil_upw(k-1,iw) + b25)
 
-     b32(k) = b20(k) + arw(k  ,iw) * thil_upw(k,iw) * (b23 + b24)
+!    b32(k) = b20(k) + arw(k  ,iw) * thil_upw(k,iw) * (b23 + b24)
+     b32(k) = b20(k) + arw(k  ,iw) * (thil_upw(k,iw) * (b23 + b24) + b25 - b26)
 
-     b33(k) =          arw(k+1,iw) * (b22 - b24 * thil_upw(k+1,iw) + b9)
+!    b33(k) =          arw(k+1,iw) * (b22 - b24 * thil_upw(k+1,iw) + b9)
+     b33(k) =          arw(k+1,iw) * (b22 - b24 * thil_upw(k+1,iw) + b26)
 
   enddo
 
