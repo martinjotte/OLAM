@@ -2,7 +2,6 @@ module rrlw_ncpar
         use parkind ,only : im => kind_im, rb => kind_rb
 
         implicit none
-        save
         
         real(kind=rb), parameter :: cpdair = 1003.5  ! Specific heat capacity of dry air
                                                          ! at constant pressure at 273 K

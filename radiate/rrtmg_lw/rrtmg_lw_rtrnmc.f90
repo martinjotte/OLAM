@@ -20,8 +20,7 @@
       use parkind,  only: im => kind_im, rb => kind_rb, cldmin
       use parrrtm,  only: mg, nbndlw, ngptlw
       use rrlw_con, only: fluxfac, heatfac
-      use rrlw_wvn, only: delwave, delwaveg, ngb, ngs, ngc, ngs1
-      use rrlw_tbl, only: tblint, bpade, tau_tbl, exp_tbl, tfn_tbl
+      use rrlw_wvn, only: delwave, delwaveg, ngb, ngs, ngc, nga
 
       implicit none
 
@@ -137,10 +136,6 @@
 !    iclddn                       ! flag for cloud in column at any layer
 !    semiss                       ! surface emissivities for each band
 !    reflect                      ! surface reflectance
-!    bpade                        ! 1/(pade constant)
-!    tau_tbl                      ! clear sky optical depth look-up table
-!    exp_tbl                      ! exponential look-up table for transmittance
-!    tfn_tbl                      ! tau transition function look-up table
 
 ! local
 !    atrans                       ! gaseous absorptivity
@@ -218,7 +213,7 @@
             if (secdif .lt. -1.80_rb) secdif = -1.80_rb
             if (secdif .gt. -1.50_rb) secdif = -1.50_rb
          endif
-         do ig = ngs1(iband), ngs(iband)
+         do ig = nga(iband), ngs(iband)
             secdiff(ig) = secdif
          enddo
       enddo

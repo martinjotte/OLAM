@@ -174,7 +174,6 @@ SOURCE_FILES= \
              $(RADIATE)/rrtmg_lw/rrlw_kg16.f90 \
              $(RADIATE)/rrtmg_lw/rrlw_ncpar.f90 \
              $(RADIATE)/rrtmg_lw/rrlw_ref.f90 \
-             $(RADIATE)/rrtmg_lw/rrlw_tbl.f90 \
              $(RADIATE)/rrtmg_lw/rrlw_wvn.f90 \
              $(RADIATE)/rrtmg_lw/rrtmg_lw_cldprmc.f90 \
              $(RADIATE)/rrtmg_lw/rrtmg_lw_init.f90 \
@@ -204,7 +203,6 @@ SOURCE_FILES= \
              $(RADIATE)/rrtmg_sw/rrsw_kg29.f90 \
              $(RADIATE)/rrtmg_sw/rrsw_ncpar.f90 \
              $(RADIATE)/rrtmg_sw/rrsw_ref.f90 \
-             $(RADIATE)/rrtmg_sw/rrsw_tbl.f90 \
              $(RADIATE)/rrtmg_sw/rrsw_wvn.f90 \
              $(RADIATE)/rrtmg_sw/rrtmg_sw_cldprmc.f90 \
              $(RADIATE)/rrtmg_sw/rrtmg_sw_init.f90 \

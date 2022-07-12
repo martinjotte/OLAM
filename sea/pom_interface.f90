@@ -78,7 +78,7 @@ subroutine pom_init()
 
         do k = 1,nzpom
            pom%potmp(k,isea) = seatempc + (1.0 - seatempc) &
-                             * min(1.0, (yy(k) - yy(1)) / -3000.)
+                             * min(1.0, (yy(1) - yy(k)) / 3000.)
            pom%salin(k,isea) = 35.
            pom%q2   (k,isea) = small
            pom%q2l  (k,isea) = pom%q2(k,isea) * tlen

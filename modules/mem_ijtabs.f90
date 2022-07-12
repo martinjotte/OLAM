@@ -209,13 +209,11 @@ Module mem_ijtabs
 
   Type itab_v_pd_vars      ! data structure for V pts (individual rank) on para_(decomp,init)
      integer :: ivp    = 1 ! V pt from which to copy this V pt's values
-!    integer :: im(6)  = 1 ! neighbor M pts of this V pt
+     integer :: iv(2)  = 1
      integer :: im(2)  = 1 ! neighbor M pts of this V pt
-!    integer :: iv(4)  = 1 ! neighbor V pts
-!    integer :: iw(4)  = 1 ! neighbor W pts of this V pt
      integer :: iw(2)  = 1 ! neighbor W pts of this V pt
      integer :: iv_myrank_ivp = -1 ! local V point that corresponds to global ivp
-  End Type itab_v_pd_vars
+  End type itab_v_pd_vars
 
   Type itab_w_pd_vars      ! data structure for W pts (individual rank) on para_(decomp,init)
      integer :: iwp   = 1  ! W pt from which to copy this W pt's values

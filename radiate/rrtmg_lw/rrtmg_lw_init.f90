@@ -44,7 +44,6 @@
 ! **************************************************************************
 
       use parrrtm,    only: mg, nbndlw, ngptlw
-      use rrlw_tbl,   only: ntbl, tblint, pade, bpade, tau_tbl, exp_tbl, tfn_tbl
       use hdf5_utils, only: shdf5_open, shdf5_close
       use oname_coms, only: nl
       use max_dims,   only: pathlen
@@ -66,18 +65,6 @@
       logical :: exists
 
       character(pathlen) :: inputfile
-
-! ------- Definitions -------
-!     Arrays for 10000-point look-up tables:
-!     TAU_TBL Clear-sky optical depth (used in cloudy radiative transfer)
-!     EXP_TBL Exponential lookup table for transmittance
-!     TFN_TBL Tau transition function; i.e. the transition of the Planck
-!             function from that for the mean layer temperature to that for
-!             the layer boundary temperature as a function of optical depth.
-!             The "linear in tau" method is used to make the table.
-!     PADE    Pade approximation constant (= 0.278)
-!     BPADE   Inverse of the Pade approximation constant
-!
 
 ! Initialize model data
       call lwcldpr                ! cloud optical properties
@@ -111,34 +98,6 @@
       call lw_kgb16_h5
 
       call shdf5_close()
-
-! Compute lookup tables for transmittance, tau transition function,
-! and clear sky tau (for the cloudy sky radiative transfer).  Tau is
-! computed as a function of the tau transition function, transmittance
-! is calculated as a function of tau, and the tau transition function
-! is calculated using the linear in tau formulation at values of tau
-! above 0.01.  TF is approximated as tau/6 for tau < 0.01.  All tables
-! are computed at intervals of 0.001.  The inverse of the constant used
-! in the Pade approximation to the tau transition function is set to b.
-
-      tau_tbl(0) = 0.0_rb
-      tau_tbl(ntbl) = 1.e10_rb
-      exp_tbl(0) = 1.0_rb
-      exp_tbl(ntbl) = expeps
-      tfn_tbl(0) = 0.0_rb
-      tfn_tbl(ntbl) = 1.0_rb
-
-      do itr = 1, ntbl-1
-         tfn = real(itr) / real(ntbl)
-         tau_tbl(itr) = bpade * tfn / (1._rb - tfn)
-         exp_tbl(itr) = exp(-tau_tbl(itr))
-         if (exp_tbl(itr) .le. expeps) exp_tbl(itr) = expeps
-         if (tau_tbl(itr) .lt. 0.06_rb) then
-            tfn_tbl(itr) = tau_tbl(itr)/6._rb
-         else
-            tfn_tbl(itr) = 1._rb-2._rb*((1._rb/tau_tbl(itr))-(exp_tbl(itr)/(1.-exp_tbl(itr))))
-         endif
-      enddo
 
 ! Perform g-point reduction from 16 per band (256 total points) to
 ! a band dependant number (140 total points) for all absorption

@@ -108,7 +108,7 @@
       integer(kind=im), parameter :: ngc(nbndlw) = &
            (/10,12,16,14,16,8,12,8,12,6,8,8,4,2,2,2/)
 
-      integer(kind=im), parameter :: ngs1(nbndlw) = &
+      integer(kind=im), parameter :: nga(nbndlw) = &
            (/1,11,23,39,53,69,77,89,97,109,115,123,131,135,137,139/)
 
       integer(kind=im), parameter :: ngs(nbndlw) = &

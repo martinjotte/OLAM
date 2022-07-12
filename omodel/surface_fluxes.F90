@@ -62,7 +62,7 @@ subroutine surface_turb_flux(mrl)
   use mem_sea,     only: omsea, sea
   use mem_ijtabs,  only: itab_w, itabg_w, jtab_w, jtw_prog, jtw_wstn
   use mem_sfcg,    only: itab_wsfc, sfcg, mwsfc
-  use misc_coms,   only: isubdomain, dtlm
+  use misc_coms,   only: iparallel, dtlm
   use mem_grid,    only: lsw, lpw, arw
   use mem_turb,    only: akm_sfc, vkm_sfc, ustar, sfluxt, sfluxr, &
                          sxfer_tk, sxfer_rk, wstar, wtv0, pblh, moli, &
@@ -174,8 +174,8 @@ subroutine surface_turb_flux(mrl)
   !$omp do private(airthetav,canexner,canexneri,cantheta,canthetav,ufree,isea)
   do iwsfc = 2,mwsfc
 
-     if (isubdomain == 1) then
-        if (.not. any( itab_w( max(1,itab_wsfc(iwsfc)%iwatm( 1:itab_wsfc(iwsfc)%nwatm )) )%irank == myrank ) ) cycle
+     if (iparallel == 1) then
+        if ( all( itab_w( [max(1,itab_wsfc(iwsfc)%iwatm( 1:itab_wsfc(iwsfc)%nwatm ))] )%irank /= myrank ) ) cycle
      endif
 
      airthetav = sfcg%airtheta(iwsfc) * (1.0 + eps_virt * sfcg%airrrv(iwsfc))

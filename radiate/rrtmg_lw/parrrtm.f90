@@ -4,7 +4,6 @@
       use parkind ,only : im => kind_im
 
       implicit none
-      save
 
 !------------------------------------------------------------------
 ! rrtmg_lw main parameters
@@ -75,6 +74,7 @@
       integer(kind=im), parameter :: ngs13 = 134
       integer(kind=im), parameter :: ngs14 = 136
       integer(kind=im), parameter :: ngs15 = 138
+      integer(kind=im), parameter :: ngs16 = 140
 
 ! Use for 256 g-point model
 !      integer(kind=im), parameter :: ng1  = 16

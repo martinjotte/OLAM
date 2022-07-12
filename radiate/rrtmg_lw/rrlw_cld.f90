@@ -3,7 +3,6 @@
       use parkind, only : rb => kind_rb
 
       implicit none
-      save
 
 !------------------------------------------------------------------
 ! rrtmg_lw cloud property coefficients

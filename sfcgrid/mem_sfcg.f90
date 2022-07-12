@@ -155,9 +155,6 @@ Module mem_sfcg
 
   Type itabg_wsfc_vars            ! Global data structure for WSFC pts
      integer :: iwsfc_myrank = -1 ! local (parallel subdomain) WSFC index
-     integer :: iland_myrank = -1 ! local (parallel subdomain) LAND index
-     integer :: ilake_myrank = -1 ! local (parallel subdomain) LAKE index
-     integer :: isea_myrank  = -1 ! local (parallel subdomain) SEA index
      integer :: irank = -1        ! rank of parallel process at a WSFC pt
   End Type itabg_wsfc_vars
 

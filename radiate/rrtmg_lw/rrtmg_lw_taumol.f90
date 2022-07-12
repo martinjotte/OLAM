@@ -381,7 +381,7 @@
          do ig = 1, ng1
             taufor = forfac0(lay) * forref(ig,3) + &
                      forfac1(lay) * forref(ig,4)
-            taun2 = scalen2 * (kb_mn2(ig,indminor(lay)) + minorfrac(lay) * kb_mn2(ig,indminor(lay)+1))
+            taun2 = scalen2 * (kb_mn2(ig,indminor(lay)) + minorfrac(lay) * dkb_mn2(ig,indminor(lay)))
             taug(ig,lay) = corradj * (colh2o(lay) * &
                 (fac00(lay) * absb(ig,ind0) + &
                  fac10(lay) * absb(ig,ind0+1) + &

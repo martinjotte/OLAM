@@ -52,7 +52,7 @@ subroutine radiate()
   use mem_basic,   only: thil, theta, tair
   use consts_coms, only: stefan, pio180, eradi, r8
   use misc_coms,   only: io6, time8p, time_istp8, radfrq, ilwrtyp, &
-                         iswrtyp, dtlong, iparallel, isubdomain, mstp, runtype
+                         iswrtyp, dtlong, iparallel, mstp, runtype
   use mem_grid,    only: lpw, mza, wnx, wny, wnz, lsw, nsw_max
   use mem_turb,    only: frac_sfc
   use therm_lib,   only: qtk
@@ -105,8 +105,8 @@ subroutine radiate()
      do isea = 2,msea
         iwsfc = isea + omsea
 
-        if (isubdomain == 1) then
-           if (.not. any( itab_w( max(1,itab_wsfc(iwsfc)%iwatm( 1:itab_wsfc(iwsfc)%nwatm )) )%irank == myrank ) ) cycle
+        if (iparallel == 1) then
+           if ( all( itab_w( [max(1,itab_wsfc(iwsfc)%iwatm( 1:itab_wsfc(iwsfc)%nwatm ))] )%irank /= myrank ) ) cycle
         endif
 
         ! Get surface radiative properties (albedos and rlongup) for each sea cell.
@@ -167,8 +167,8 @@ subroutine radiate()
      do ilake = 2,mlake
         iwsfc = ilake + omlake
 
-        if (isubdomain == 1) then
-           if (.not. any( itab_w( max(1,itab_wsfc(iwsfc)%iwatm( 1:itab_wsfc(iwsfc)%nwatm )) )%irank == myrank ) ) cycle
+        if (iparallel == 1) then
+           if ( all( itab_w( [max(1,itab_wsfc(iwsfc)%iwatm( 1:itab_wsfc(iwsfc)%nwatm ))] )%irank /= myrank ) ) cycle
         endif
 
         ! Get surface radiative properties (albedos and rlongup) for each sea cell. 
@@ -192,7 +192,7 @@ subroutine radiate()
         sfcg%rlong_albedo  (iwsfc)  = 0.0  ! [water longwave albedo assumed to be zero]
         sfcg%albedo_diffuse(iwsfc) = sfcg%albedo_beam(iwsfc)
      enddo
-     !$omp end do
+     !$omp end do nowait
 
      ! Loop over all LAND cells in subdomain, EVEN THOSE THAT ARE NOT PRIMARY,
      ! so that all surface albedos and upward longwave radiative fluxes are
@@ -202,8 +202,8 @@ subroutine radiate()
      do iland = 2,mland
         iwsfc = iland + omland
 
-        if (isubdomain == 1) then
-           if (.not. any( itab_w( max(1,itab_wsfc(iwsfc)%iwatm( 1:itab_wsfc(iwsfc)%nwatm )) )%irank == myrank ) ) cycle
+        if (iparallel == 1) then
+           if ( all( itab_w( [max(1,itab_wsfc(iwsfc)%iwatm( 1:itab_wsfc(iwsfc)%nwatm ))] )%irank /= myrank ) ) cycle
         endif
 
         ! Get surface radiative properties (albedos and rlongup) for each land cell.
@@ -397,7 +397,7 @@ subroutine radiate()
      do iwsfc = 2,mwsfc
 
         ! Skip this SFC grid cell if running in parallel and cell rank is not MYRANK
-        if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+        if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
         ! Prepare SFC grid downward shortwave and longwave fluxes for summation from ATM columns
 
@@ -451,7 +451,7 @@ subroutine radiate()
         iwsfc = isea + omsea
 
         ! Skip this SFC grid cell if running in parallel and cell rank is not MYRANK
-        if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+        if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
         call sfcrad_seaice_2( sea%ice_net_rshort(isea), &
                               sea%ice_net_rlong (isea), &
@@ -472,7 +472,7 @@ subroutine radiate()
         iwsfc = iland + omland
 
         ! Skip this SFC grid cell if running in parallel and cell rank is not MYRANK
-        if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+        if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
         nzw = max(land%nlev_sfcwater(iland), 1)
 

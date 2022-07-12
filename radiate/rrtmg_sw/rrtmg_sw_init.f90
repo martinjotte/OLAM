@@ -42,7 +42,6 @@
 ! **************************************************************************
 
       use parrrsw,    only: mg, nbndsw, ngptsw
-      use rrsw_tbl,   only: ntbl, tblint, pade, bpade, tau_tbl, exp_tbl
       use rrsw_ref,   only: rrsw_ref_init
       use rrsw_aer,   only: swaerpr
 
@@ -110,21 +109,6 @@
       call sw_kgb29_h5
 
       call shdf5_close()
-
-! Define exponential lookup tables for transmittance. Tau is
-! computed as a function of the tau transition function, and transmittance 
-! is calculated as a function of tau.  All tables are computed at intervals 
-! of 0.0001.  The inverse of the constant used in the Pade approximation to 
-! the tau transition function is set to bpade.
-
-      exp_tbl(0) = 1.0_rb
-      exp_tbl(ntbl) = expeps
-      do itr = 1, ntbl-1
-         tfn = real(itr,kind=rb) / real(ntbl,kind=rb)
-         tau_tbl = bpade * tfn / (1._rb - tfn)
-         exp_tbl(itr) = exp(-tau_tbl)
-         if (exp_tbl(itr) .le. expeps) exp_tbl(itr) = expeps
-      enddo
 
 ! Perform g-point reduction from 16 per band (224 total points) to
 ! a band dependent number (112 total points) for all absorption
