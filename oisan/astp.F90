@@ -1014,18 +1014,18 @@ subroutine pressure_stage()
 
   endif
 
+#ifdef OLAM_MPI
+  if (iparallel == 1 .and. myrank == 0) then
+     call MPI_Wait( ireq , MPI_STATUS_IGNORE, ier )
+  endif
+#endif
+
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!! Deallocate arrays and close HDF5
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   if (allocated(as3)) deallocate(as3)
   if (allocated(p3d)) deallocate(p3d)
-
-#ifdef OLAM_MPI
-  if (iparallel == 1 .and. myrank == 0) then
-     call MPI_Wait( ireq , MPI_STATUS_IGNORE, ier )
-  endif
-#endif
 
   if (myrank == 0) then
      call shdf5_close()
