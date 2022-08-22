@@ -106,9 +106,6 @@ Module mem_grid
 
    integer :: impent(12)  ! Scratch array for storing 12 pentagonal IM indices
 
-   integer, parameter :: nrows = 5
-   integer :: mrows
-
 ! "Derived" variables computed at beginning of integration rather than
 ! at the MAKEGRID stage
 
@@ -116,7 +113,6 @@ Module mem_grid
 
         wnxo2, wnyo2, wnzo2,  & ! W-face unit normals divided by 2
         vnxo2, vnyo2, vnzo2,  & ! V-face unit normals divided by 2
-        unxo2, unyo2, unzo2,  & ! U-face unit normals divided by 2
 
         dzt_top,              & ! distance between ZM(k) and ZT(k)
         dzt_bot,              & ! distance between ZT(k) and ZM(k-1)
@@ -138,6 +134,8 @@ Module mem_grid
 
         arw0i,                & ! 1 / arw0
         dnivo2                  ! 1/(2dxy) across V face
+
+   integer, allocatable :: lpvmax(:) ! max lpv of all iw1 and iw2 faces
 
    ! double precision weights for interpolating T levels to W
 
@@ -430,7 +428,7 @@ Contains
 
      implicit none
 
-     integer :: iw, j, iv, iw1, iw2, k, n1, n2, kbot
+     integer :: iw, j, iv, iw1, iw2, k, n1, n2
      real    :: raxis, vxn_ewv, vyn_ewv, vxn_nsv, vyn_nsv, vzn_nsv
 
      ! Allocate and define variables defined at V faces
@@ -438,19 +436,15 @@ Contains
      allocate(vnxo2     (mva))
      allocate(vnyo2     (mva))
      allocate(vnzo2     (mva))
-     allocate(unxo2     (mva))
-     allocate(unyo2     (mva))
-     allocate(unzo2     (mva))
      allocate(dnivo2    (mva))
+     allocate(lpvmax    (mva))
      allocate(volvi (mza,mva))
 
      vnxo2  (1) = 0.0
      vnyo2  (1) = 0.0
      vnzo2  (1) = 0.0
-     unxo2  (1) = 0.0
-     unyo2  (1) = 0.0
-     unzo2  (1) = 0.0
      dnivo2 (1) = 0.0
+     lpvmax (1) = 0
      volvi(:,1) = 0.0
 
      allocate(wnxo2    (mwa))
@@ -475,26 +469,21 @@ Contains
         vnxo2 (iv) = vnx (iv) * 0.5
         vnyo2 (iv) = vny (iv) * 0.5
         vnzo2 (iv) = vnz (iv) * 0.5
-        unxo2 (iv) = unx (iv) * 0.5
-        unyo2 (iv) = uny (iv) * 0.5
-        unzo2 (iv) = unz (iv) * 0.5
         dnivo2(iv) = dniv(iv) * 0.5
      enddo
-     !omp end do
+     !omp end do nowait
 
-     !$omp do private(iv,iw1,iw2,k,vxn_ewv,vyn_ewv,vxn_nsv,vyn_nsv,vzn_nsv,kbot)
+     !$omp do private(iv,iw1,iw2,k,vxn_ewv,vyn_ewv,vxn_nsv,vyn_nsv,vzn_nsv)
      do j = 1,jtab_v(jtv_wadj)%jend(1); iv = jtab_v(jtv_wadj)%iv(j)
         iw1 = itab_v(iv)%iw(1)
         iw2 = itab_v(iv)%iw(2)
 
-!       kbot = max(lpw(iw1),lpw(iw2))
-        kbot = min(lpw(iw1),lpw(iw2))
-
-!       do k = lpv(iv), mza
-        do k = kbot, mza
+        volvi(1:lpv(iv)-1,iv) = 0.0
+        do k = lpv(iv), mza
            volvi(k,iv) = real( 1.0_r8 / (volt(k,iw1) + volt(k,iw2)) )
         enddo
-        volvi(1:kbot-1,iv) = 0.0
+
+        lpvmax(iv) = max( lpw(iw1)+lve2(iw1), lpw(iw2)+lve2(iw2) )
 
         if (mdomain > 1) then
 
@@ -527,7 +516,7 @@ Contains
      enddo
      !$omp end do nowait
 
-     !$omp do private(n1,n2,raxis)
+     !$omp do private(k,n1,n2,raxis)
      do iw = 2, mwa
 
         wnxo2(iw) = wnx(iw) * 0.5
@@ -535,13 +524,16 @@ Contains
         wnzo2(iw) = wnz(iw) * 0.5
 
         volti(1:lpw(iw)-1,iw) = 0.0
-        volti(lpw(iw):mza,iw) = real( 1.0_r8 / volt(lpw(iw):mza,iw) )
+        do k = lpw(iw), mza
+           volti(k,iw) = real( 1.0_r8 / volt(k,iw) )
+        enddo
 
         volwi(1:lpw(iw)-1,iw) = 0.0
-        volwi(mza,iw)         = 0.0
+        do k = lpw(iw), mza-1
+           volwi(k,iw) = real( 1.0_r8 / (volt(k,iw) + volt(k+1,iw)) )
+        enddo
+        volwi(mza,iw) = 0.0
 
-        volwi(lpw(iw):mza-1,iw) = real( 1.0_r8 / ( volt(lpw(iw)  :mza-1,iw) &
-                                                 + volt(lpw(iw)+1:mza  ,iw) ) )
         arw0i(iw) = 1.0 / arw0(iw)
 
         do n1 = 1, itab_w(iw)%npoly

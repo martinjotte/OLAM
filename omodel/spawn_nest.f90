@@ -50,7 +50,7 @@ subroutine spawn_nest(iatmgrid)
                           itab_md, itab_ud, itab_wd, iwdorig, iwdorig_temp, &
                           xemd, yemd, zemd, nmd, nud, nwd
 
-  use mem_grid,     only: impent, nrows, mrows
+  use mem_grid,     only: impent
 
   use misc_coms,    only: io6, ngrids, mdomain, nxp, ngrdll, grdrad, &
                           grdlat, grdlon, runtype
@@ -84,7 +84,7 @@ subroutine spawn_nest(iatmgrid)
 
   integer, parameter :: npts = 10000  ! Sufficient array space for # of CM pts along FM perimeter
 
-  integer, allocatable :: jm(:,:),ju(:,:),igsize(:),nwdivg(:)
+  integer, allocatable :: igsize(:),nwdivg(:)
 
   real, allocatable :: xem_temp(:),yem_temp(:),zem_temp(:)
 
@@ -124,8 +124,6 @@ subroutine spawn_nest(iatmgrid)
   ! of 3 triangle edges on the unrefined side.  Method C also fits exactly 3 transition
   ! rows across a gap that was originally 2 coarse grid rows wide, centered on
   ! the aforementioned refined mesh "boundary".
-
-  mrows = 3
 
   if (iatmgrid) then
 
@@ -172,9 +170,7 @@ subroutine spawn_nest(iatmgrid)
      ! Allocate temporary tables
 
      allocate (nest_ud(nud), nest_wd(nwd))  ! Nest relations
-     allocate (jm(nrows+1,npts), ju(nrows,npts))
      allocate (imper(npts), iuper(npts), igsize(npts), nearpent(npts), nwdivg(npts))
-
      allocate (npolyper(npts), nwdivper(npts))
 
      ! Copy ITAB information and M-point coordinates to temporary tables
@@ -843,7 +839,6 @@ subroutine spawn_nest(iatmgrid)
      deallocate (xem_temp,yem_temp,zem_temp)
      if (.not. iatmgrid) deallocate (iwdorig_temp)
 
-     deallocate (jm,ju)
      deallocate (imper,iuper,igsize,nearpent,nwdivg)
      deallocate (npolyper,nwdivper)
 
@@ -1378,95 +1373,6 @@ subroutine perim_fill3(ngr, nma, nua, nwa, mrlo, nper, imper, iuper, ltab_ud, ne
   enddo ! iper
 
 end subroutine perim_fill3
-
-!===========================================================================
-
-subroutine pent_urows(iurow_pent)
-
-  use mem_delaunay, only: itab_md, itab_ud, itab_wd, nud, nwd
-  use mem_grid,     only: impent, mrows
-
-  implicit none
-
-  integer, intent(inout) :: iurow_pent(nud)
-
-  integer :: ipent,im,j,iw,irow,jrow,iw1,iw2,iw3,iwrow,iu
-
-  ! automatic arrays
-
-  integer :: iwrow_temp1(nwd)
-  integer :: iwrow_temp2(nwd)
-
-  ! Initialize temporary arrays to zero before loop over pentagon points
-
-  iurow_pent (1:nud) = 0
-  iwrow_temp1(1:nwd) = 0
-  iwrow_temp2(1:nwd) = 0
-
-  ! Loop over all 12 pentagon M points
-
-  do ipent = 1,12
-
-     im = impent(ipent)
-
-     ! Loop over W points that surround current M point; set row flag to 1
-
-     do j = 1, 5
-        iw = itab_md(im)%iw(j)
-        iwrow_temp1(iw) = 1
-        iwrow_temp2(iw) = 1
-     enddo
-
-  enddo
-
-  ! Advance outward and flag each row
-
-  do irow = 1, 2*mrows-1
-     jrow = mod(irow,2)
-
-     do iw = 2, nwd
-
-        if (iwrow_temp1(iw) == 0) then
-
-           ! If IW is adjacent to any other IW cell with nonzero mrow,
-           ! set mrow for IW cell
-
-           iw1 = itab_wd(iw)%iw(1)
-           iw2 = itab_wd(iw)%iw(2)
-           iw3 = itab_wd(iw)%iw(3)
-
-           ! Check for positive mrow values
-
-           iwrow = max(iwrow_temp1(iw1), &
-                       iwrow_temp1(iw2), &
-                       iwrow_temp1(iw3))
-
-           if (iwrow > 0) iwrow_temp2(iw) = iwrow + jrow
-
-        endif
-
-     enddo
-
-     do iw = 2, nwd
-        iwrow_temp1(iw) = iwrow_temp2(iw)
-     enddo
-
-  enddo
-
-  ! Loop over all U points and flag those between unequal nonzero iwrow values
-
-  do iu = 2, nud
-     iw1 = itab_ud(iu)%iw(1)
-     iw2 = itab_ud(iu)%iw(2)
-
-     if (iwrow_temp1(iw1) > 0 .and. iwrow_temp1(iw2) > 0 .and.  &
-         iwrow_temp1(iw1) /= iwrow_temp1(iw2)) then
-
-         iurow_pent(iu) = min(iwrow_temp1(iw1),iwrow_temp1(iw2))
-     endif
-  enddo
-
-end subroutine pent_urows
 
 !==============================================================================
 
