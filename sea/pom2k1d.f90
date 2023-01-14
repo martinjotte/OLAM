@@ -361,7 +361,7 @@ Contains
   ! whereby breaking wave tke is injected into the surface is included.
   ! However, we use an analytical solution to the near surface tke equation to
   ! solve for q2 at the surface giving the same result as C-B diffusion. The
-  ! new scheme is simpler and more robust than the latter scheme.  
+  ! new scheme is simpler and more robust than the latter scheme.
 
   ! Craig, P. D. and M. L. Banner, Modeling wave-enhanced turbulence in the
   !     ocean surface layer. J. Phys. Oceanogr., 24, 2546-2559, 1994.
@@ -412,7 +412,7 @@ Contains
   utau2 = sqrt(wusurf**2 + wvsurf**2)
   ! Wave breaking energy- a variant of Craig & Banner (1994); see Mellor and Blumberg, 2003.
   ee(1) = 0.e0
-  gg(1) = (15.8 * cbcnst)**(2./3.) * utau2 
+  gg(1) = (15.8 * cbcnst)**(2./3.) * utau2
   ! Surface length scale following Stacey (1999).
   l0 = surfl * utau2 / grav
 
@@ -543,7 +543,7 @@ Contains
   ! Richmeyer and Morton.  Irradiance parameters (Jerlov water type)
   ! are from Paulson and Simpson.
 
-  ! Richtmeyer R.D., and K.W. Morton, 1967. Difference Methods for 
+  ! Richtmeyer R.D., and K.W. Morton, 1967. Difference Methods for
   ! Initial-Value Problems, 2nd edition, Interscience, New York, 198-201.
 
   ! Paulson, C. A., and J. Simpson, 1977: Irradiance measurements in the
@@ -619,7 +619,7 @@ Contains
 
   ! Solves for vertical diffusion of u- and v-momentum using method described by:
   ! Richtmeyer R.D., and K.W. Morton, 1967. Difference  Methods for
-  ! Initial-Value Problems, 2nd edition, Interscience, New York, 198-201.                  
+  ! Initial-Value Problems, 2nd edition, Interscience, New York, 198-201.
 
   ! NOTE that wusurf and wvsurf have the opposite sign to the wind velocity.
 

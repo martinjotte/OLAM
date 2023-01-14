@@ -1,13 +1,13 @@
 !------------------Subroutine deposition_driver--------------
 !This subroutine calculates dry deposition, rain and in-cloud
 !scavenging. Originally written for RAMS 4.3.0 by Nair et al.
-!Land surface types updated to RAMS 6.0 by Rob Seigel (2010). 
-!Steve Saleeby (2011) checked code and updated wet scavenging to 
+!Land surface types updated to RAMS 6.0 by Rob Seigel (2010).
+!Steve Saleeby (2011) checked code and updated wet scavenging to
 !match collection efficiency and scavenging rates documented in
 !Seinfeld and Pandis (2006). Terms were adjusted in the collection
-!efficiency for wet scavenging to be appropriate for multiple 
+!efficiency for wet scavenging to be appropriate for multiple
 !aerosol types. Particle sizes and fall speeds were derived from
-!RAMS parameters. 
+!RAMS parameters.
 
 !==============================================================================
 subroutine nuclei_deposition(iw, k1, k2, dtl0, rhoi, press, tair, &
@@ -108,7 +108,7 @@ implicit none
   real :: cd        ! drag coefficient over water (Baron & Willeke (2001) 4-23
   real :: rvd       ! auxiliary variable
   real :: a1r       ! auxiliary variable
-  real :: dzicld    ! Inverse of cloud vertical thickness in convective param [1/m] 
+  real :: dzicld    ! Inverse of cloud vertical thickness in convective param [1/m]
   real :: xkcprime
   real :: xkdprime
   real :: xkc

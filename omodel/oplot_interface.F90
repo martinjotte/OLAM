@@ -1,40 +1,7 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 subroutine oplot_init()
 
   use oplot_coms, only: op
   use plotcolors, only: gks_colors
-  use misc_coms,  only: io6
   use mem_para,   only: myrank
 
   implicit none
@@ -100,13 +67,11 @@ subroutine plot_fields(id)
 
   use misc_coms,  only: io6, iyear1, imonth1, idate1, itime1, time_istp8
   use oplot_coms, only: op, iplt_file
-  use mem_grid,   only: mza, mwa, lpw
   use misc_coms,  only: runtype, iparallel
-  use mem_ijtabs, only: jtab_w, jtw_prog
   use mem_micro,  only: pcprd, pcprr, pcprp, pcprs, pcpra, pcprg, pcprh, &
                         accpd, accpr, accpp, accps, accpa, accpg, accph
   use mem_cuparm, only: conprr, aconpr
-  use obnd,       only: lbcopy_w1d
+  use obnd,       only: lbcopy_w
   use mem_para,   only: myrank, mgroupsize
   use plotcolors, only: make_colortable
   use oname_coms, only: nl
@@ -130,18 +95,18 @@ subroutine plot_fields(id)
   dum1 = 0.
   dum2 = 0.
 
-  ! Lateral boundary copy of surface precipitation quantities 
+  ! Lateral boundary copy of surface precipitation quantities
   ! (only needed for plotting)
 
-  if (allocated(pcprd)) call lbcopy_w1d(1,a1=pcprd,d1=accpd)
-  if (allocated(pcprr)) call lbcopy_w1d(1,a1=pcprr,d1=accpr)
-  if (allocated(pcprp)) call lbcopy_w1d(1,a1=pcprp,d1=accpp)
-  if (allocated(pcprs)) call lbcopy_w1d(1,a1=pcprs,d1=accps)
-  if (allocated(pcpra)) call lbcopy_w1d(1,a1=pcpra,d1=accpa)
-  if (allocated(pcprg)) call lbcopy_w1d(1,a1=pcprg,d1=accpg)
-  if (allocated(pcprh)) call lbcopy_w1d(1,a1=pcprh,d1=accph)
+  if (allocated(pcprd)) call lbcopy_w(v1=pcprd,vd1=accpd)
+  if (allocated(pcprr)) call lbcopy_w(v1=pcprr,vd1=accpr)
+  if (allocated(pcprp)) call lbcopy_w(v1=pcprp,vd1=accpp)
+  if (allocated(pcprs)) call lbcopy_w(v1=pcprs,vd1=accps)
+  if (allocated(pcpra)) call lbcopy_w(v1=pcpra,vd1=accpa)
+  if (allocated(pcprg)) call lbcopy_w(v1=pcprg,vd1=accpg)
+  if (allocated(pcprh)) call lbcopy_w(v1=pcprh,vd1=accph)
 
-  if (allocated(conprr)) call lbcopy_w1d(1,a1=conprr,d1=aconpr)
+  if (allocated(conprr)) call lbcopy_w(v1=conprr,vd1=aconpr)
 
   ! Reopen the current graphics output workstation if it is closed
 
@@ -263,7 +228,7 @@ subroutine plot_fields(id)
      ! If running hurricane tracking, plot trajectory of this simulation
 
      if (icycle_hurrinit > 0 .and. &
-        (runtype == 'INITIAL' .or. runtype == 'HISTORY')) then
+        (runtype == 'INITIAL' .or. runtype == 'HISTORY' .or. runtype == 'HISTADDGRID')) then
 
         if (iplt == 1) then
            call vortex_trajec_plot(iplt)
@@ -417,8 +382,6 @@ end subroutine plot_fields
 subroutine slab(iplt)
 
   use oplot_coms, only: op
-  use mem_grid,   only: mwa
-  use misc_coms,  only: io6
   use mem_para,   only: myrank
 
   implicit none
@@ -511,8 +474,6 @@ end subroutine slab
 subroutine slab_val(iplt)
 
   use oplot_coms, only: op
-  use mem_grid,   only: mwa
-  use misc_coms,  only: io6
 
   implicit none
 
@@ -539,6 +500,8 @@ subroutine slab_val(iplt)
         call tileslab_horiz_wsfc(iplt,'P')
      elseif (op%stagpt == 'B') then  ! sfcgrid V points
         call tileslab_horiz_vsfc(iplt,'P')
+     elseif (op%stagpt == 'A') then  ! sfcgrid M points
+        call tileslab_horiz_msfc(iplt,'P')
      endif
 
   else  ! Vertical plots
@@ -560,11 +523,8 @@ subroutine plot_index(iplt)
   use oplot_coms, only: op
   use mem_grid,   only: mma, mva, mwa, xem, yem, zem, &
                         xev, yev, zev, xew, yew, zew, arw0
-  use mem_ijtabs, only: itab_w, jtab_w, jtw_wadj, &
-                        itab_v, jtab_v, jtv_wadj, &
-                        itab_m, jtab_m, jtm_vadj
-  use mem_sfcg,    only: sfcg, itab_wsfc, mwsfc
-  use misc_coms,  only: io6, iparallel
+  use mem_ijtabs, only: itab_w, itab_v, itab_m
+  use misc_coms,  only: iparallel
   use mem_para,   only: myrank, mgroupsize, nbytes_int, nbytes_real
 
 #ifdef OLAM_MPI
@@ -575,8 +535,8 @@ subroutine plot_index(iplt)
 
   integer, intent(in) :: iplt
 
-  integer :: im,jm,img,iv,jv,ivg,iw,jw,iwg,iwsfc,iwsfcg,iwn
-  real :: hpt,vpt,psiz,vsprd
+  integer :: im,img,iv,ivg,iw,iwg
+  real :: hpt,vpt
 
   integer, allocatable :: buffer(:), bcopy(:)
   integer :: nu, ier, buffsize, ipos, base, inc, n, j, i
@@ -615,30 +575,24 @@ subroutine plot_index(iplt)
      call o_sflush()
      call o_gsplci(10)
      call o_gstxci(10)
-     call o_sflush()
   endif
 
   if ( op%pltindx1(iplt) == 'J' .or.  &
        trim(op%stagpt)   == 'M' .or.  &
        trim(op%stagpt)   == 'P' ) then
 
-!     do jm = 1, jtab_m(jtm_vadj)%jend(1)
-!        im  = jtab_m(jtm_vadj)%im(jm)
-
-        do im = 2,mma
+     do im = 2, mma
+        if (iparallel == 1 .and. itab_m(im)%irank /= myrank) cycle
 
         img = itab_m(im)%imglobe
-        iwn = itab_m(im)%iw(1)
 
         call oplot_transform(iplt,xem(im),yem(im),zem(im),hpt,vpt)
         if ( hpt < op%xmin .or. hpt > op%xmax .or.  &
              vpt < op%ymin .or. vpt > op%ymax ) cycle
 
-        call get_psiz(iplt,sqrt(arw0(iwn)),psiz,vsprd)
-
         if (myrank == 0) then
 
-           call oplot_locindex(img,hpt,vpt,psiz)
+           call oplot_locindex(img,hpt,vpt,op%psiz)
 
         else
 
@@ -654,7 +608,6 @@ subroutine plot_index(iplt)
            call MPI_Pack(img, 1, MPI_INTEGER, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
            call MPI_Pack(hpt, 1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
            call MPI_Pack(vpt, 1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-           call MPI_Pack(psiz,1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
 #endif
 
         endif
@@ -668,22 +621,18 @@ subroutine plot_index(iplt)
        trim(op%stagpt)   == 'V' .or.  &
        trim(op%stagpt)   == 'N' ) then
 
-!     do jv = 1, jtab_v(jtv_wadj)%jend(1)
-!        iv  = jtab_v(jtv_wadj)%iv(jv)
-        do iv = 2,mva
+     do iv = 2, mva
+        if (iparallel == 1 .and. itab_v(iv)%irank /= myrank) cycle
 
         ivg = itab_v(iv)%ivglobe
-        iwn = itab_v(iv)%iw(1)
 
         call oplot_transform(iplt,xev(iv),yev(iv),zev(iv),hpt,vpt)
         if ( hpt < op%xmin .or. hpt > op%xmax .or.  &
              vpt < op%ymin .or. vpt > op%ymax ) cycle
 
-        call get_psiz(iplt,sqrt(arw0(iwn)),psiz,vsprd)
-
         if (myrank == 0) then
 
-           call oplot_locindex(ivg,hpt,vpt,psiz)
+           call oplot_locindex(ivg,hpt,vpt,op%psiz)
 
         else
 
@@ -699,7 +648,6 @@ subroutine plot_index(iplt)
            call MPI_Pack(ivg, 1, MPI_INTEGER, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
            call MPI_Pack(hpt, 1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
            call MPI_Pack(vpt, 1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-           call MPI_Pack(psiz,1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
 #endif
 
         endif
@@ -713,21 +661,18 @@ subroutine plot_index(iplt)
        trim(op%stagpt)   == 'W' .or.  &
        trim(op%stagpt)   == 'T' ) then
 
-!     do jw = 1, jtab_w(jtw_wadj)%jend(1)
-!        iw  = jtab_w(jtw_wadj)%iw(jw)
-        do iw = 2,mwa
+     do iw = 2, mwa
+        if (iparallel == 1 .and. itab_w(iw)%irank /= myrank) cycle
 
         iwg = itab_w(iw)%iwglobe
 
         call oplot_transform(iplt,xew(iw),yew(iw),zew(iw),hpt,vpt)
         if ( hpt < op%xmin .or. hpt > op%xmax .or.  &
              vpt < op%ymin .or. vpt > op%ymax ) cycle
-        
-        call get_psiz(iplt,sqrt(arw0(iw)),psiz,vsprd)
 
         if (myrank == 0) then
 
-           call oplot_locindex(iwg,hpt,vpt,psiz)
+           call oplot_locindex(iwg,hpt,vpt,op%psiz)
 
         else
 
@@ -743,7 +688,6 @@ subroutine plot_index(iplt)
            call MPI_Pack(iwg, 1, MPI_INTEGER, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
            call MPI_Pack(hpt, 1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
            call MPI_Pack(vpt, 1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-           call MPI_Pack(psiz,1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
 #endif
 
         endif
@@ -773,14 +717,13 @@ subroutine plot_index(iplt)
               ipos = 0
 
               do j = 1, nus(n)
-               
+
                  call MPI_Unpack(buffer, buffsize, ipos, i,   1, MPI_INTEGER, MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, hpt, 1, MPI_REAL,    MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, vpt, 1, MPI_REAL,    MPI_COMM_WORLD, ier)
-                 call MPI_Unpack(buffer, buffsize, ipos, psiz,1, MPI_REAL,    MPI_COMM_WORLD, ier)
-                 
-                 call oplot_locindex(i,hpt,vpt,psiz)
-               
+
+                 call oplot_locindex(i,hpt,vpt,op%psiz)
+
               enddo
 
            endif
@@ -799,7 +742,7 @@ subroutine plot_index_sfc(iplt)
 
   use oplot_coms, only: op
   use mem_sfcg,   only: sfcg, itab_msfc, itab_vsfc, itab_wsfc, mmsfc, mvsfc, mwsfc
-  use misc_coms,  only: io6, iparallel,isubdomain
+  use misc_coms,  only: iparallel
   use mem_para,   only: myrank, mgroupsize, nbytes_int, nbytes_real
 
 #ifdef OLAM_MPI
@@ -810,11 +753,11 @@ subroutine plot_index_sfc(iplt)
 
   integer, intent(in) :: iplt
 
-  integer :: img,ivg,iwg,iwn
+  integer :: img,ivg,iwg
 
   integer :: imsfc, ivsfc, iwsfc
 
-  real :: hpt,vpt,psiz,vsprd
+  real :: hpt,vpt
 
   integer, allocatable :: buffer(:), bcopy(:)
   integer :: nu, ier, buffsize, ipos, base, inc, n, j, i
@@ -844,37 +787,19 @@ subroutine plot_index_sfc(iplt)
 
   ! Plot M point indices
 
-  if ( op%pltindx2(iplt) == 'j' ) then
+  if ( op%pltindx2(iplt) == 'j' .or.  &
+       trim(op%stagpt)   == 'A' ) then
 
      if (myrank == 0) then
         call o_sflush()
         call o_gsplci(8)
         call o_gstxci(8)
-        call o_sflush()
      endif
 
      do imsfc = 2,mmsfc
+        if (iparallel == 1 .and. itab_msfc(imsfc)%irank /= myrank) cycle
 
-        ! Loop over adjacent W cell and use W cell size
-        ! to get psiz and vsprd for M point plot
-
-        do j = 1,3
-           iwn = itab_msfc(imsfc)%iwn(j)
-           if (iwn > 1) then
-              call get_psiz(iplt,sqrt(sfcg%area(iwn)),psiz,vsprd)
-              exit
-           endif
-
-           ! If no adjacent W cell found, do not plot this M point
-
-           if (j == 3) go to 10
-        enddo
-
-        if (isubdomain == 1) then
-           img = itab_msfc(imsfc)%imglobe
-        else
-           img = imsfc
-        endif
+        img = itab_msfc(imsfc)%imglobe
 
         call oplot_transform(iplt,sfcg%xem(imsfc),sfcg%yem(imsfc),sfcg%zem(imsfc),hpt,vpt)
         if ( hpt < op%xmin .or. hpt > op%xmax .or.  &
@@ -882,7 +807,7 @@ subroutine plot_index_sfc(iplt)
 
         if (myrank == 0) then
 
-           call oplot_locindex(img,hpt,vpt,psiz)
+           call oplot_locindex(img,hpt,vpt,op%psiz)
 
         else
 
@@ -898,7 +823,6 @@ subroutine plot_index_sfc(iplt)
            call MPI_Pack(img, 1, MPI_INTEGER, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
            call MPI_Pack(hpt, 1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
            call MPI_Pack(vpt, 1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-           call MPI_Pack(psiz,1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
 #endif
 
         endif
@@ -916,27 +840,20 @@ subroutine plot_index_sfc(iplt)
         call o_sflush()
         call o_gsplci(9)
         call o_gstxci(9)
-        call o_sflush()
      endif
 
      do ivsfc = 2,mvsfc
+        if (iparallel == 1 .and. itab_vsfc(ivsfc)%irank /= myrank) cycle
 
-        if (isubdomain == 1) then
-           ivg = itab_vsfc(ivsfc)%ivglobe
-        else
-           ivg = ivsfc
-        endif
-        iwn = itab_vsfc(ivsfc)%iwn(1)
+        ivg = itab_vsfc(ivsfc)%ivglobe
 
         call oplot_transform(iplt,sfcg%xev(ivsfc),sfcg%yev(ivsfc),sfcg%zev(ivsfc),hpt,vpt)
         if ( hpt < op%xmin .or. hpt > op%xmax .or.  &
              vpt < op%ymin .or. vpt > op%ymax ) cycle
 
-        call get_psiz(iplt,sqrt(sfcg%area(iwn)),psiz,vsprd)
-
         if (myrank == 0) then
 
-           call oplot_locindex(ivg,hpt,vpt,psiz)
+           call oplot_locindex(ivg,hpt,vpt,op%psiz)
 
         else
 
@@ -952,7 +869,6 @@ subroutine plot_index_sfc(iplt)
            call MPI_Pack(ivg, 1, MPI_INTEGER, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
            call MPI_Pack(hpt, 1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
            call MPI_Pack(vpt, 1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-           call MPI_Pack(psiz,1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
 #endif
 
         endif
@@ -971,27 +887,21 @@ subroutine plot_index_sfc(iplt)
         call o_sflush()
         call o_gsplci(12)
         call o_gstxci(12)
-        call o_sflush()
      endif
 
-        do iwsfc = 2,mwsfc
+     do iwsfc = 2, mwsfc
+        if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
-        if (isubdomain == 1) then
-           iwg = itab_wsfc(iwsfc)%iwglobe
-        else
-           iwg = iwsfc
-        endif
+        iwg = itab_wsfc(iwsfc)%iwglobe
 
         call oplot_transform(iplt,sfcg%xew(iwsfc),sfcg%yew(iwsfc),sfcg%zew(iwsfc),hpt,vpt)
 
         if ( hpt < op%xmin .or. hpt > op%xmax .or.  &
              vpt < op%ymin .or. vpt > op%ymax ) cycle
-        
-        call get_psiz(iplt,sqrt(sfcg%area(iwsfc)),psiz,vsprd)
 
         if (myrank == 0) then
 
-           call oplot_locindex(iwg,hpt,vpt,psiz)
+           call oplot_locindex(iwg,hpt,vpt,op%psiz)
 
         else
 
@@ -1007,7 +917,6 @@ subroutine plot_index_sfc(iplt)
            call MPI_Pack(iwg, 1, MPI_INTEGER, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
            call MPI_Pack(hpt, 1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
            call MPI_Pack(vpt, 1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-           call MPI_Pack(psiz,1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
 #endif
 
         endif
@@ -1037,14 +946,13 @@ subroutine plot_index_sfc(iplt)
               ipos = 0
 
               do j = 1, nus(n)
-               
+
                  call MPI_Unpack(buffer, buffsize, ipos, i,   1, MPI_INTEGER, MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, hpt, 1, MPI_REAL,    MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, vpt, 1, MPI_REAL,    MPI_COMM_WORLD, ier)
-                 call MPI_Unpack(buffer, buffsize, ipos, psiz,1, MPI_REAL,    MPI_COMM_WORLD, ier)
-                 
-                 call oplot_locindex(i,hpt,vpt,psiz)
-               
+
+                 call oplot_locindex(i,hpt,vpt,op%psiz)
+
               enddo
 
            endif
@@ -1062,7 +970,6 @@ end subroutine plot_index_sfc
 subroutine vectslab(iplt)
 
   use oplot_coms, only: op
-  use misc_coms,  only: io6
   use mem_para,   only: myrank
 
   implicit none
@@ -1105,7 +1012,6 @@ subroutine horizplot_k(iplt,mha,ktf,kc,wtbot,wttop)
   use mem_grid,   only: mza, mma, mva, mwa, lpw, zm, zt
   use mem_ijtabs, only: itab_m, itab_v
   use oplot_coms, only: op
-  use misc_coms,  only: io6
 
   implicit none
 
@@ -1117,7 +1023,7 @@ subroutine horizplot_k(iplt,mha,ktf,kc,wtbot,wttop)
   real :: plev,pressp1,pressp2,count2,pressv1,pressv2
 
   ! This subroutine determines the following quantities for horizontal plots:
-  ! (1) ktf flag for T cells indicating 0-in plot range, 1-below ground, 
+  ! (1) ktf flag for T cells indicating 0-in plot range, 1-below ground,
   !     2-above model top
   ! (2) vertical level kc and vertical weights wtbot, wttop for given stagpt
 
@@ -1171,7 +1077,7 @@ subroutine horizplot_k(iplt,mha,ktf,kc,wtbot,wttop)
                  if (wtbot(iw) > 1.) then
                     wtbot(iw) = wtbot(iw) - 1.
                     wttop(iw) = wttop(iw) + 1.
-               
+
                     k = k - 1
                  endif
 
@@ -1318,7 +1224,7 @@ subroutine horizplot_k(iplt,mha,ktf,kc,wtbot,wttop)
 
            kc(ip) = 2
            npoly = itab_m(ip)%npoly
-         
+
            do j = 1,npoly
               iw = itab_m(ip)%iw(j)
               if (kc(ip) < lpw(iw)) kc(ip) = lpw(iw)
@@ -1333,7 +1239,7 @@ subroutine horizplot_k(iplt,mha,ktf,kc,wtbot,wttop)
            kpf = 1  ! initial value
 
            npoly = itab_m(ip)%npoly
-         
+
            do j = 1,npoly
               iw = itab_m(ip)%iw(j)
               if (ktf(iw) == 0) then
@@ -1341,9 +1247,9 @@ subroutine horizplot_k(iplt,mha,ktf,kc,wtbot,wttop)
                  if (kp > lpw(iw)) kp = lpw(iw)
               endif
            enddo
-         
+
            if (kpf /= 0) then
-         
+
               ! defaults, not used
 
               kc(ip) = 2
@@ -1367,9 +1273,9 @@ subroutine horizplot_k(iplt,mha,ktf,kc,wtbot,wttop)
                        pressp2 = pressp2 + press(k,iw)
                     endif
                  enddo
-         
+
                  pressp2 = pressp2 / count2
-         
+
                  if (k > kp .and. pressp2 < plev) then
                     wtbot(ip) = (plev - pressp2) / (pressp1 - pressp2)
                     wttop(ip) = 1. - wtbot(ip)
@@ -1377,12 +1283,12 @@ subroutine horizplot_k(iplt,mha,ktf,kc,wtbot,wttop)
                     exit
                  endif
 
-                 pressp1 = pressp2  
+                 pressp1 = pressp2
 
               enddo
 
            endif
-                            
+
         else ! plot at specified height op%slabloc(iplt)
 
            k = 2
@@ -1411,9 +1317,9 @@ end subroutine horizplot_k
 subroutine plot_underground_w(iplt,ktzone)
 
   use oplot_coms, only: op
-  use mem_grid,   only: mza, mwa, zm, zt, lpw, xem, yem, zem, xew, yew, zew
+  use mem_grid,   only: mwa, zm, lpw, xem, yem, zem, xew, yew, zew
   use mem_ijtabs, only: itab_w, jtab_w, jtw_prog
-  use misc_coms,  only: io6, iparallel
+  use misc_coms,  only: iparallel
   use mem_para,   only: myrank, mgroupsize, nbytes_int, nbytes_real
 
 #ifdef OLAM_MPI
@@ -1452,11 +1358,11 @@ subroutine plot_underground_w(iplt,ktzone)
      ipos = 0
 
      if (myrank > 0) then
-        buffsize = jtab_w(jtw_prog)%jend(1) * (nbytes_int + 14 * nbytes_real)
+        buffsize = jtab_w(jtw_prog)%jend * (nbytes_int + 14 * nbytes_real)
         allocate( buffer( buffsize ) )
      endif
 
-     do jw = 1,jtab_w(jtw_prog)%jend(1)
+     do jw = 1,jtab_w(jtw_prog)%jend
         iw = jtab_w(jtw_prog)%iw(jw)
 
         ! Skip this iw point if it is not underground
@@ -1464,7 +1370,7 @@ subroutine plot_underground_w(iplt,ktzone)
         if (ktzone(iw) /= 1) cycle
 
         ! Initialize iflag180
-     
+
         iflag180 = 0
 
         ! Get tile plot coordinates
@@ -1591,11 +1497,11 @@ subroutine plot_underground_w(iplt,ktzone)
      ipos = 0
 
      if (myrank > 0) then
-        buffsize = jtab_w(jtw_prog)%jend(1) * (nbytes_int + 6 * nbytes_real)
+        buffsize = jtab_w(jtw_prog)%jend * (nbytes_int + 6 * nbytes_real)
         allocate( buffer( buffsize ) )
      endif
 
-     do jw = 1,jtab_w(jtw_prog)%jend(1)
+     do jw = 1,jtab_w(jtw_prog)%jend
         iw = jtab_w(jtw_prog)%iw(jw)
 
         ! Get horizontal plot coordinates for cells in this column
@@ -1619,7 +1525,7 @@ subroutine plot_underground_w(iplt,ktzone)
 
            do k = 2, lpw(iw)
 
-              if (k < lpw(iw)) then 
+              if (k < lpw(iw)) then
 
                  ! Get T-cell vertical coordinates for fully underground cells
                  vtpn(1) = zm(k-1)
@@ -1677,15 +1583,15 @@ subroutine plot_underground_w(iplt,ktzone)
                  ipos = 0
 
                  do j = 1, nus(n)
-               
+
                     call MPI_Unpack(buffer, buffsize, ipos, lpwiw, 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
                     call MPI_Unpack(buffer, buffsize, ipos, htpn,  4, MPI_REAL,    MPI_COMM_WORLD, ier)
                     call MPI_Unpack(buffer, buffsize, ipos, topo1, 1, MPI_REAL,    MPI_COMM_WORLD, ier)
                     call MPI_Unpack(buffer, buffsize, ipos, topo2, 1, MPI_REAL,    MPI_COMM_WORLD, ier)
-      
+
                     do k = 2, lpwiw
 
-                       if (k < lpwiw) then 
+                       if (k < lpwiw) then
 
                           ! Get T-cell vertical coordinates for fully underground cells
                           vtpn(1) = zm(k-1)
@@ -1746,7 +1652,7 @@ end subroutine plot_underground_w
 !!    op%projectn(iplt) == 'O' .or.  &
 !!    op%projectn(iplt) == 'Z') then  ! Horizontal cross section
 !!
-!!   do jm = 1, jtab_m(jtm_vadj)%jend(1)
+!!   do jm = 1, jtab_m(jtm_vadj)%jend
 !!      im = jtab_m(jtm_vadj)%im(jm)
 !!
 !!!     Get tile plot coordinates
@@ -1754,7 +1660,7 @@ end subroutine plot_underground_w
 !!      if (op%projectn(iplt) == 'L') then    ! For determining wrap-around direction
 !!         call oplot_transform(iplt,xem(im),yem(im),zem(im),xpt,ypt)
 !!      endif
-!!      
+!!
 !!      npoly = itab_m(im)%npoly
 !!      do j = 1,npoly
 !!
@@ -1772,7 +1678,7 @@ end subroutine plot_underground_w
 !!            do while (press(kw(j)+1,iw) > plev .and. kw(j) < mza-1)
 !!               kw(j) = kw(j) + 1
 !!            enddo
-!!         
+!!
 !!         endif
 !!
 !!         call oplot_transform(iplt,xew(iw),yew(iw),zew(iw),htpn(j),vtpn(j))
@@ -1789,7 +1695,7 @@ end subroutine plot_underground_w
 !!
 !!      if ( all(htpn(1:npoly) < op%xmin) .or. all(htpn(1:npoly) > op%xmax) .or.  &
 !!           all(vtpn(1:npoly) < op%ymin) .or. all(vtpn(1:npoly) > op%ymax) ) cycle
-!!      
+!!
 !!!     If cell is underground, tile-plot it with underground color
 !!
 !!      if (any(kw(1:npoly) < lpw(itab_m(im)%iw(1:npoly)))) then
@@ -1807,10 +1713,10 @@ end subroutine plot_underground_w
 subroutine plot_grid(iplt)
 
   use oplot_coms, only: op
-  use mem_grid,   only: mwa, mva, mza, xem, yem, zem, xew, yew, zew, zm
+  use mem_grid,   only: mva, mza, xem, yem, zem, zm
   use mem_ijtabs, only: itab_w, itab_v, jtab_v, jtab_w, jtv_wadj, jtw_prog
-  use misc_coms,  only: io6, iparallel
-  use mem_para,   only: myrank, mgroupsize, nbytes_int, nbytes_real
+  use misc_coms,  only: iparallel
+  use mem_para,   only: myrank, mgroupsize, nbytes_real
 
 #ifdef OLAM_MPI
   use mpi
@@ -1821,7 +1727,7 @@ subroutine plot_grid(iplt)
   integer, intent(in) :: iplt
 
   integer :: iflag180,iskip,jvmax
-  integer :: j,k,im1,im2,iok,iv,jv
+  integer :: j,k,im1,im2,iok,iv
 
 ! integer :: iw,jw,iv1,iv2
 ! real :: topo1,topo2
@@ -1846,7 +1752,7 @@ subroutine plot_grid(iplt)
   nu   = 0
   ipos = 0
 
-  jvmax = jtab_v(jtv_wadj)%jend(1)
+  jvmax = jtab_v(jtv_wadj)%jend
 
   base = (4 * nbytes_real) * mza * 2
   if ( op%windowin(iplt) == 'W' .or. &
@@ -1901,7 +1807,7 @@ subroutine plot_grid(iplt)
         if (iskip == 1) cycle
 
         ! Plot line segment
-      
+
         if (myrank == 0) then
 
            call o_frstpt (xq1,yq1)
@@ -1958,7 +1864,7 @@ subroutine plot_grid(iplt)
               call MPI_Pack(yq2, 1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
 #endif
            endif
-      
+
         endif
 
      enddo
@@ -1971,7 +1877,7 @@ subroutine plot_grid(iplt)
          do iv = 1,mva
 
 !        iv  = jtab_v(jtv_wadj)%iv(jv)
-        
+
         im1 = itab_v(iv)%im(1)
         im2 = itab_v(iv)%im(2)
 
@@ -1985,7 +1891,7 @@ subroutine plot_grid(iplt)
              xem(im2),yem(im2),zem(im2),xem(im2),yem(im2),zem(im2), &
              wta1,wta2,wta3,wtb1,wtb2,wtb3,iok,htpn)
 
-!q      do jw = 1, jtab_w(jtw_prog)%jend(1)
+!q      do jw = 1, jtab_w(jtw_prog)%jend
 !q         iw = jtab_w(jtw_prog)%iw(jw)
 !q
 !q         ! Get horizontal plot coordinates for cells in this column
@@ -1999,7 +1905,7 @@ subroutine plot_grid(iplt)
 ! Jump out of loop if this W point does not intersect plot cone or plane
 
         if (iok /= 1) cycle
- 
+
         call trunc_segment(htpn(1),htpn(1),op%ymin,op%ymax,xq1,xq2,yq1,yq2,iskip)
 
         if (iskip == 0) then
@@ -2028,9 +1934,9 @@ subroutine plot_grid(iplt)
            endif
 
         endif
-         
+
         call trunc_segment(htpn(2),htpn(2),op%ymin,op%ymax,xq1,xq2,yq1,yq2,iskip)
-      
+
         if (iskip == 0) then
 
            if (myrank == 0) then
@@ -2059,7 +1965,7 @@ subroutine plot_grid(iplt)
 
         endif
 
-! Jump out of loop if either cell side is outside plot window. 
+! Jump out of loop if either cell side is outside plot window.
 
 !t      if (htpn(1) < op%xmin .or. htpn(1) > op%xmax .or.  &
 !t          htpn(2) < op%xmin .or. htpn(2) > op%xmax) cycle
@@ -2172,12 +2078,10 @@ end subroutine plot_grid
 subroutine plot_dualgrid(iplt)
 
   use oplot_coms,  only: op
-  use mem_grid,    only: mwa, mva, mza, xem, yem, zem, xew, yew, zew, zm,  &
-                         wnx, wny, wnz
-  use mem_ijtabs,  only: itab_w, itab_v, jtab_v, jtv_wadj
-  use consts_coms, only: erad
-  use misc_coms,   only: io6, iparallel
-  use mem_para,    only: myrank, mgroupsize, nbytes_int, nbytes_real
+  use mem_grid,    only: xew, yew, zew
+  use mem_ijtabs,  only: itab_v, jtab_v, jtv_wadj
+  use misc_coms,   only: iparallel
+  use mem_para,    only: myrank, mgroupsize, nbytes_real
 
 #ifdef OLAM_MPI
   use mpi
@@ -2212,7 +2116,7 @@ subroutine plot_dualgrid(iplt)
   nu   = 0
   ipos = 0
 
-  jvmax = jtab_v(jtv_wadj)%jend(1)
+  jvmax = jtab_v(jtv_wadj)%jend
 
   base = (4 * nbytes_real) * 2
   if (op%windowin(iplt) == 'W') then
@@ -2240,7 +2144,7 @@ subroutine plot_dualgrid(iplt)
         call oplot_transform(iplt,xew(iw1),yew(iw1),zew(iw1),xp1,yp1)
         call oplot_transform(iplt,xew(iw2),yew(iw2),zew(iw2),xp2,yp2)
      endif
-   
+
      ! Avoid wrap-around and set iflag180
 
      iflag180 = 0
@@ -2318,7 +2222,7 @@ subroutine plot_dualgrid(iplt)
            call MPI_Pack(yq2, 1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
 #endif
         endif
-      
+
      endif
 
   enddo
@@ -2372,9 +2276,9 @@ end subroutine plot_dualgrid
 subroutine plot_sfcgrid(iplt)
 
   use oplot_coms, only: op
-  use mem_sfcg,    only: mwsfc, sfcg, itab_wsfc, mvsfc, itab_vsfc, nvsfc
+  use mem_sfcg,   only: sfcg, itab_wsfc, mvsfc, itab_vsfc
   use misc_coms,  only: io6, iparallel
-  use mem_para,   only: myrank, mgroupsize, nbytes_int, nbytes_real
+  use mem_para,   only: myrank, mgroupsize, nbytes_real
   use max_dims,   only: maxnlspoly
 
 #ifdef OLAM_MPI
@@ -2387,7 +2291,7 @@ subroutine plot_sfcgrid(iplt)
 
   integer :: iflag180,iskip
 
-  integer :: iwsfc,jm1,jm2,im1,im2,npoly,ivsfc,iw1
+  integer :: jm1,jm2,im1,im2,ivsfc,iw1
 
   real :: xp1,xp2,yp1,yp2
   real :: xq1,xq2,yq1,yq2
@@ -2598,7 +2502,6 @@ end subroutine plot_sfcgrid
 subroutine plot_grid_frame()
 
   use oplot_coms, only: op
-  use misc_coms,  only: io6
   use mem_para,   only: myrank
 
   implicit none
@@ -2624,7 +2527,6 @@ subroutine mkmap(iplt)
 
   use oplot_coms,  only: op
   use consts_coms, only: erad, erad2, eradi, piu180
-  use misc_coms,   only: io6
   use mem_para,    only: myrank
 
   implicit none
@@ -2743,13 +2645,14 @@ end subroutine mkmap
 subroutine oplot_transform(iplt,xeq,yeq,zeq,xout,yout)
 
   use oplot_coms, only: op
-  use misc_coms,  only: io6
 
   implicit none
 
   integer, intent(in)  :: iplt
   real,    intent(in)  :: xeq,yeq,zeq
   real,    intent(out) :: xout,yout
+
+  real :: dxe, dye, dze
 
   ! Transform to plot frame coordinates
 
@@ -2765,14 +2668,31 @@ subroutine oplot_transform(iplt,xeq,yeq,zeq,xout,yout)
      endif
 
   elseif (op%projectn(iplt) == 'P') then
-     call e_ps(xeq,yeq,zeq,op%plat3,op%plon3,xout,yout)
+
+     dxe = xeq - op%pxe
+     dye = yeq - op%pye
+     dze = zeq - op%pze
+     call de_ps(dxe,dye,dze,op%cosplat,op%sinplat,op%cosplon,op%sinplon,xout,yout)
+
   elseif (op%projectn(iplt) == 'G') then
-     call e_gn(xeq,yeq,zeq,op%plat3,op%plon3,xout,yout)
+
+     dxe = xeq - op%pxe
+     dye = yeq - op%pye
+     dze = zeq - op%pze
+     call de_gn(dxe,dye,dze,op%cosplat,op%sinplat,op%cosplon,op%sinplon,xout,yout)
+
   elseif (op%projectn(iplt) == 'O') then
-     call e_or(xeq,yeq,zeq,op%plat3,op%plon3,xout,yout)
+
+     dxe = xeq - op%pxe
+     dye = yeq - op%pye
+     dze = zeq - op%pze
+     call de_or(dxe,dye,dze,op%cosplat,op%sinplat,op%cosplon,op%sinplon,xout,yout)
+
   else  ! Cartesian domain
+
      xout = xeq - op%plon3
      yout = yeq - op%plat3
+
   endif
 
 end subroutine oplot_transform
@@ -2782,7 +2702,6 @@ end subroutine oplot_transform
 subroutine oplot_panel(panel,frameoff,pltborder,colorbar0,aspect,projectn)
 
   use oplot_coms, only: op
-  use misc_coms,  only: io6
 
   implicit none
 
@@ -2822,7 +2741,7 @@ subroutine oplot_panel(panel,frameoff,pltborder,colorbar0,aspect,projectn)
   op%sminy = .05 ! slab min y coord
   op%smaxy = .03 ! slab max y coord
 
-  if (pltborder == 't') then  ! Exclude inner axis labels in multi-panel plots   
+  if (pltborder == 't') then  ! Exclude inner axis labels in multi-panel plots
 
      if (frameoff == 'h' .or. &
             panel == '5' .or. &
@@ -3052,7 +2971,7 @@ end subroutine oplot_panel
 
 subroutine oplot_set(iplt)
 
-  use misc_coms,   only: io6, mdomain, deltax, iparallel
+  use misc_coms,   only: mdomain, iparallel
   use oplot_coms,  only: op
   use oname_coms,  only: nl
   use mem_grid,    only: xem, yem, xew, yew, zew, zm, zt, mma, mwa, arw0, nza
@@ -3083,6 +3002,21 @@ subroutine oplot_set(iplt)
   op%plat3    = nl%plotspecs(iplt)%plotcoord2
   op%coneang  = nl%plotspecs(iplt)%slabloc
   op%viewazim = nl%plotspecs(iplt)%viewazim
+
+  if ( (op%projectn(iplt) == 'P') .or. (op%projectn(iplt) == 'G') .or. &
+       (op%projectn(iplt) == 'O') ) then
+
+     op%sinplat = sin(op%plat3 * pio180)
+     op%cosplat = cos(op%plat3 * pio180)
+
+     op%sinplon = sin(op%plon3 * pio180)
+     op%cosplon = cos(op%plon3 * pio180)
+
+     op%pxe = op%cosplon * op%cosplat * erad
+     op%pye = op%sinplon * op%cosplat * erad
+     op%pze =              op%sinplat * erad
+
+  endif
 
   ! Set limits of plot window in model domain coordinates
 
@@ -3187,7 +3121,7 @@ subroutine oplot_set(iplt)
            op%ymax = min(nl%zplot_max, zm(nza))
         endif
 
-        if (op%stagpt == 'A' .or. op%stagpt == 'L') op%ymin = -.2 * op%ymax  
+        if (op%stagpt == 'A' .or. op%stagpt == 'L') op%ymin = -.2 * op%ymax
 
      elseif (op%projectn(iplt) == 'C') then
 
@@ -3220,7 +3154,6 @@ subroutine oplot_set(iplt)
         if (iparallel == 1) then
 
            allocate(buffer(4,0:mgroupsize-1))
-           !allocate(buffer(4,mgroupsize))
            buffer(1,myrank) = op%xmin
            buffer(2,myrank) = op%xmax
            buffer(3,myrank) = op%ymin
@@ -3299,26 +3232,26 @@ subroutine oplot_set(iplt)
 
         if     (op%prtval_size == 'small' .or. op%prtval_size == 'SMALL') then
            op%psiz = 0.04 * (delxmin / (6. * erad)) * (400. / (op%xmax - op%xmin))
-           op%vsprd = .2 * (delxmin / (6. * erad)) * 400.
+           op%vsprd = .05 * (delxmin / (6. * erad)) * 400.
         elseif (op%prtval_size == 'large' .or. op%prtval_size == 'LARGE') then
            op%psiz = 0.12 * (delxmin / (6. * erad)) * (400. / (op%xmax - op%xmin))
-           op%vsprd = .6 * (delxmin / (6. * erad)) * 400.
+           op%vsprd = .15 * (delxmin / (6. * erad)) * 400.
         else
            op%psiz = 0.08 * (delxmin / (6. * erad)) * (400. / (op%xmax - op%xmin))
-           op%vsprd = .4 * (delxmin / (6. * erad)) * 400.
+           op%vsprd = .10 * (delxmin / (6. * erad)) * 400.
         endif
 
      else
 
         if     (op%prtval_size == 'small' .or. op%prtval_size == 'SMALL') then
            op%psiz = 0.04 * delxmin / (op%xmax - op%xmin)
-           op%vsprd = .2 * delxmin
+           op%vsprd = .05 * delxmin
         elseif (op%prtval_size == 'large' .or. op%prtval_size == 'LARGE') then
            op%psiz = 0.12 * delxmin / (op%xmax - op%xmin)
-           op%vsprd = .6 * delxmin
+           op%vsprd = .15 * delxmin
         else
            op%psiz = 0.08 * delxmin / (op%xmax - op%xmin)
-           op%vsprd = .4 * delxmin
+           op%vsprd = .10 * delxmin
         endif
 
      endif
@@ -3338,7 +3271,7 @@ subroutine oplot_set(iplt)
 
         if (iok /= 1) cycle ! If this W pt does not intersect plot cone
 
-        ! Jump out of loop if either cell side is outside plot window. 
+        ! Jump out of loop if either cell side is outside plot window.
 
         if ( htpn(1) < op%xmin .or. htpn(1) > op%xmax .or.  &
              htpn(2) < op%xmin .or. htpn(2) > op%xmax ) cycle
@@ -3375,7 +3308,7 @@ subroutine oplot_set(iplt)
   else
      aspect = 1.
   endif
-    
+
   call oplot_panel(op%panel(iplt),op%frameoff(iplt),op%pltborder(iplt), &
                    op%colorbar(iplt),aspect,op%projectn(iplt))
 
@@ -3386,56 +3319,3 @@ subroutine oplot_set(iplt)
   endif
 
 end subroutine oplot_set
-
-!===============================================================================
-
-subroutine get_psiz(iplt,delx,psiz,vsprd)
-
-  use oplot_coms,  only: op
-  use consts_coms, only: erad
-
-  implicit none
-
-  integer, intent(in) :: iplt
-  real,    intent(in) :: delx
-  real, intent(inout) :: psiz
-  real, intent(inout) :: vsprd
-
-  if ( op%projectn(iplt) == 'L' .or.  &
-       op%projectn(iplt) == 'P' .or.  &
-       op%projectn(iplt) == 'G' .or.  &
-       op%projectn(iplt) == 'O' .or.  &
-       op%projectn(iplt) == 'Z' ) then   ! Horizontal cross section
-
-     if (op%projectn(iplt) == 'L') then
-
-        if     (op%prtval_size == 'small' .or. op%prtval_size == 'SMALL') then
-           psiz = 0.04 * (delx / (6. * erad)) * (400. / (op%xmax - op%xmin))
-           vsprd = .05 * (delx / (6. * erad)) * 400.
-        elseif (op%prtval_size == 'large' .or. op%prtval_size == 'LARGE') then
-           psiz = 0.12 * (delx / (6. * erad)) * (400. / (op%xmax - op%xmin))
-           vsprd = .15 * (delx / (6. * erad)) * 400.
-        else
-           psiz = 0.08 * (delx / (6. * erad)) * (400. / (op%xmax - op%xmin))
-           vsprd = .10 * (delx / (6. * erad)) * 400.
-        endif
-
-     else
-
-        if     (op%prtval_size == 'small' .or. op%prtval_size == 'SMALL') then
-           psiz = 0.04 * delx / (op%xmax - op%xmin)
-           vsprd = .05 * delx
-        elseif (op%prtval_size == 'large' .or. op%prtval_size == 'LARGE') then
-           psiz = 0.12 * delx / (op%xmax - op%xmin)
-           vsprd = .15 * delx
-        else
-           psiz = 0.08 * delx / (op%xmax - op%xmin)
-           vsprd = .10 * delx
-        endif
-
-     endif
-
-  endif
-
-end subroutine get_psiz
-

@@ -6,8 +6,8 @@
 #include "fnlist.h"
 
 /*
- This file is part of wgrib2 and is distributed under terms of the GNU General 
- Public License.  For details see, Free Software Foundation, Inc., 
+ This file is part of wgrib2 and is distributed under terms of the GNU General
+ Public License.  For details see, Free Software Foundation, Inc.,
  51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
  (C) 2009  Pablo Romero
@@ -37,7 +37,7 @@ int f_unix_time(ARG0) {
 	timeinfo.tm_sec = second;
 	rtx=my_timegm(&timeinfo);
 
-	if (verftime(sec, &(timeinfo.tm_year), &(timeinfo.tm_mon), &(timeinfo.tm_mday), &(timeinfo.tm_hour), 
+	if (verftime(sec, &(timeinfo.tm_year), &(timeinfo.tm_mon), &(timeinfo.tm_mday), &(timeinfo.tm_hour),
 		&(timeinfo.tm_min), &(timeinfo.tm_sec)) == 0) {
 	    timeinfo.tm_year -= 1900;
 	    timeinfo.tm_mon -= 1;

@@ -64,7 +64,7 @@ C-----------------------------------------------------------------------
       Integer, Save      :: n_cgrid2aq
 
 CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-C...Gas surrogates species 
+C...Gas surrogates species
 CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
 
       Type sur_gas_type
@@ -124,14 +124,14 @@ C...Pointers for the AQCHEM array GAS
       Integer, Parameter :: lho   = 14   ! OH, hydroxyl radical
 
 CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-C...Aerosol surrogates species 
+C...Aerosol surrogates species
 CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
 
 !      Type sur_aer_type
 !         Character( 16 ) :: name( nmodes )     ! surrogate name
 !         Real            :: backgnd            ! background value
 !         Real            :: molwt              ! molecular weight
-!         Real            :: density            ! density (kg/m^3) 
+!         Real            :: density            ! density (kg/m^3)
 !      End Type sur_aer_type
 
 !     Type ( sur_aer_type ), Allocatable, Save  :: srgaer( : )
@@ -239,7 +239,7 @@ C...TXHG aersosols
 C...Pointers for the AQCHEM arrays LIQUID and WETDEP
 !      Integer, Parameter :: lacl        = 01  ! Hydrogen ion
 !      Integer, Parameter :: lnh4accl    = 02  ! Ammonium(attributed to accum. mode)
-!      Integer, Parameter :: lcacorl     = 03  ! coarse mode Calcium 
+!      Integer, Parameter :: lcacorl     = 03  ! coarse mode Calcium
 !      Integer, Parameter :: lnaaccl     = 04  ! Sodium
 !      Integer, Parameter :: lohl        = 05  ! Hydroxyl radical
 !      Integer, Parameter :: lso4accl    = 06  ! Sulfate (attributed to accumulation mode)
@@ -383,12 +383,12 @@ C for TX version
       real, allocatable, save :: coars_m3c(:)
 
       Contains
- 
+
 C------------------------------------------------------------------------
       Subroutine aq_data_init()
 
 C  Defines mapping from CGRID for species concentration and moments.
- 
+
 C  Revision History:
 C     First version was coded in May 2010 by Steve Howard with
 C     Prakash Bhave, Jeff Young, and Sergey Napelenok.
@@ -783,9 +783,9 @@ C...Create the pointers for required aerosol surrogate species needed by AQCHEM
 !        nliqs    = lmnaccl
 
 C...For TXHG version
-!        ltracer_akn    = findSgrAer( req_traceri  ) !  Tracer aitken mode 
-!        ltracer_acc    = findSgrAer( req_tracerj  ) !  Tracer accumation mode 
-!        ltracer_cor    = findSgrAer( req_tracerk  ) !  Tracer coarse mode 
+!        ltracer_akn    = findSgrAer( req_traceri  ) !  Tracer aitken mode
+!        ltracer_acc    = findSgrAer( req_tracerj  ) !  Tracer accumation mode
+!        ltracer_cor    = findSgrAer( req_tracerk  ) !  Tracer coarse mode
 !        lphg_akn       = findSgrAer( req_phgi ) !  Mercuric aitken and accumulation modes
 !        lphg_acc       = findSgrAer( req_phgj ) !  Mercuric aitken and accumulation modes
 !        lphg_cor       = findSgrAer( req_phgk ) !  Mercuric coarse mode

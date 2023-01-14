@@ -1,36 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
-
 module lite_vars
 
   use max_dims,   only: maxlite
@@ -150,11 +117,10 @@ subroutine lite_write()
 
   use oname_coms, only: nl
   use var_tables, only: num_var, vtab_r, get_vtab_dims
-  use misc_coms,  only: io6, ioutput, current_time, iclobber, &
-                        iparallel
+  use misc_coms,  only: io6, current_time, iclobber
   use hdf5_utils, only: shdf5_orec, shdf5_open, shdf5_close, mpi_does_parallel_io
   use max_dims,   only: pathlen
-  use mem_grid,   only: nma, nua, nva, nwa
+  use mem_grid,   only: nma, nva, nwa
   use mem_sfcg,   only: nwsfc, nvsfc, nmsfc
   use mem_land,   only: nland
   use mem_lake,   only: nlake
@@ -180,7 +146,7 @@ subroutine lite_write()
   logical            :: exans
   integer            :: nv, j
   integer            :: ndims, idims(3)
-  integer            :: nglobe, id, hdferr
+  integer            :: nglobe
 
   integer, pointer, contiguous :: ilpts(:), igpts(:)
 
@@ -326,14 +292,13 @@ end subroutine lite_write
 
 subroutine lite_read(litefile)
 
-  use oname_coms,  only: nl
-  use mem_grid,    only: nwa, nva, nma, mwa, mva, mma, mza
+  use mem_grid,    only: nwa, nva, nma, mwa, mva, mma
   use mem_ijtabs,  only: itab_w, itab_v, itab_m
-  use misc_coms,   only: io6, runtype, time8, time_istp8
-  use var_tables,  only: num_var, vtab_r, get_vtab_dims, num_lite
+  use misc_coms,   only: io6, time8, time_istp8
+  use var_tables,  only: vtab_r, get_vtab_dims, num_lite
   use hdf5_utils,  only: shdf5_info, shdf5_irec, shdf5_open, shdf5_close
   use mem_sfcg,    only: itab_wsfc, nwsfc, mwsfc, itab_vsfc, nvsfc, mvsfc
-  use mem_land,    only: itab_land, nland, mland, nzg
+  use mem_land,    only: itab_land, nland, mland
   use mem_lake,    only: itab_lake, nlake, mlake
   use mem_sea,     only: itab_sea, nsea, msea
 

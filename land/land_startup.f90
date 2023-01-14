@@ -1,43 +1,8 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
-
 subroutine land_startup()
 
   use leaf_coms, only: nzs, ndviflg, iupdndvi, isoilflg
   use mem_land,  only: alloc_land, filltab_land, land, mland, nzg, slzt, omland
-  use misc_coms, only: io6, runtype, isubdomain
-  use mem_sfcg,  only: itab_wsfc
-  use mem_para,  only: myrank
+  use misc_coms, only: runtype
 
   implicit none
 
@@ -95,7 +60,7 @@ subroutine land_startup()
 
   ! Apply pedotransfer functions to obtain soil hydraulic properties and
   ! specific heat.  Loop over all land points, INCLUDING THOSE THAT ARE NOT
-  ! PRIMARY ON THIS SUBDOMAIN. 
+  ! PRIMARY ON THIS SUBDOMAIN.
 
   do iland = 2,mland
      iwsfc = iland + omland
@@ -110,8 +75,8 @@ subroutine land_startup()
         ! this transition grid level when bedrock is near the surface.  However,
         ! where bedrock begins much deeper, the transition level is set above
         ! z_bedrock because SoilGrids data is defined only in the top 2 m, while
-        ! GLHYMPS applies to roughly the top 100 m.  For now, we choose the 
-        ! transition level to be no greater than 10 meters below the surface. 
+        ! GLHYMPS applies to roughly the top 100 m.  For now, we choose the
+        ! transition level to be no greater than 10 meters below the surface.
 
         if (isoilflg == 1 .and. slzt(k) < max(-10.0, land%z_bedrock(iland))) then
 
@@ -132,7 +97,7 @@ subroutine land_startup()
            ! pH_soil is not used for physical computations in bedrock layers,
            ! leaving the array free for other uses.  We set pH_soil to -10.0
            ! in bedrock to be used as an identifier that a soil grid level is
-           ! filled with bedrock.  
+           ! filled with bedrock.
 
            land%wresid_vg         (k,iland) = 0.2 * land%glhymps_poros(iland)
            land%wsat_vg           (k,iland) =       land%glhymps_poros(iland)
@@ -221,7 +186,7 @@ subroutine land_parms()
        .22, .40, .95, 5.1, 5.0,  .5,  .0, .85,  1.0, 1.0, .0, 100.,  & ! 15  Crop/mixed farming, C3 grassland
        .18, .40, .95, 5.1, 5.0,  .5,  .0, .80,  1.1, 1.0, .0, 500.,  & ! 16  Irrigated crop
        .12, .43, .98, 5.1, 7.0, 1.0,  .0, .80,  1.6, 1.0, .0, 500.,  & ! 17  Bog or marsh
-       .20, .36, .96, 5.1, 6.0, 1.0,  .0, .80,  7.0, 3.5, .0, 100.,  & ! 18  Wooded grassland 
+       .20, .36, .96, 5.1, 6.0, 1.0,  .0, .80,  7.0, 3.5, .0, 100.,  & ! 18  Wooded grassland
        .20, .36, .90, 5.1, 3.6, 1.0,  .0, .74,  6.0, 2.5, .0, 500.,  & ! 19  Urban and built up
        .17, .24, .95, 4.1, 7.0, 1.0,  .0, .90, 32.0, 5.0, .0, 500.,  & ! 20  Wetland evergreen broadleaf tree
        .18, .18, .96, 5.1, 3.0,  .5,  .0, .80, 0.32, 1.0, .0, 100./),& ! 21  Deforested (Amazon - Medvigy)
@@ -334,7 +299,7 @@ subroutine soil_ptf(iland, k, slzt, usdatext, sand, clay, silt,   &
     .32,   .34,   .34,   .07,   .095,    .41,    .722e-6,     1.9,   1.31,  .250,   & !  8 clay loam
     .52,   .42,   .06,   .08,   .100,    .38,    .333e-6,     2.7,   1.23,  .219,   & !  9 sandy clay
     .06,   .47,   .47,   .09,   .070,    .36,    .556e-7,      .5,   1.09,  .283,   & ! 10 silty clay
-    .22,   .58,   .20,   .10,   .068,    .38,    .556e-6,      .8,   1.09,  .286,   & ! 11 clay 
+    .22,   .58,   .20,   .10,   .068,    .38,    .556e-6,      .8,   1.09,  .286,   & ! 11 clay
     .10,   .06,   .84,   .05,   .034,    .46,    .694e-6,     1.6,   1.37,  .200/), & ! 12 silt
      (/10,12/) )
 
@@ -354,7 +319,7 @@ subroutine soil_ptf(iland, k, slzt, usdatext, sand, clay, silt,   &
   real, parameter :: c02 = -0.1631  * 1.e-3 ! wsat bulkdens_drysoil
 
   real, parameter :: a03 = -4.3003          ! alpha intercept
-  real, parameter :: b03 = -0.0097  * 1.e2  ! alpha clay 
+  real, parameter :: b03 = -0.0097  * 1.e2  ! alpha clay
   real, parameter :: c03 =  0.0138  * 1.e2  ! alpha sand
   real, parameter :: d03 =  zero    * 1.e-3 ! alpha bulkdens_drysoil
   real, parameter :: e03 = -0.0992  * 1.e2  ! alpha organ
@@ -375,7 +340,7 @@ subroutine soil_ptf(iland, k, slzt, usdatext, sand, clay, silt,   &
   real, parameter :: c06 =  0.0067  * 1.e2  ! lambda sand
   real, parameter :: d06 =  zero    * 1.e-3 ! lambda bulkdens_drysoil
   real, parameter :: e06 =  zero    * 1.e2  ! lambda organ
- 
+
   ! de Boer PTF hydraulic parameters
 
   ! Sand and clay multipliers convert from fraction to percentage.
@@ -386,7 +351,7 @@ subroutine soil_ptf(iland, k, slzt, usdatext, sand, clay, silt,   &
 
   real, parameter :: a12 =  0.83080           ! wsat intercept
   real, parameter :: b12 =  0.0002728 * 1.e2  ! wsat clay
-  real, parameter :: c12 =  0.000187  * 1.e2  ! wsat silt 
+  real, parameter :: c12 =  0.000187  * 1.e2  ! wsat silt
   real, parameter :: d12 = -0.28217   * 1.e-3 ! wsat bulkdens_drysoil
 
   real, parameter :: a13 = -0.43348           ! alpha intercept
@@ -470,7 +435,7 @@ subroutine soil_ptf(iland, k, slzt, usdatext, sand, clay, silt,   &
      alpha_vg  =     -100. * 10.**(a13 + b13 * clay + c13 * silt + d13 * bulkdens_drysoil + e13 * organ   + f13 * topsoil)
      en_vg     =        1. + 10.**(a14 + b14 * clay + c14 * silt + d14 * bulkdens_drysoil + e14 * organ   + f14 * topsoil)
      ksat_vg   = .11574e-6 * 10.**(a15 + b15 * clay + c15 * silt + d15 * cec_soil         + e15 * pH_soil + f15 * topsoil)
-     lambda_vg = 0.5  
+     lambda_vg = 0.5
 
   elseif (isoilptf == 3) then
 
@@ -482,7 +447,7 @@ subroutine soil_ptf(iland, k, slzt, usdatext, sand, clay, silt,   &
      ksat_vg   =  soilparms4(7,usdatext)
      alpha_vg  = -soilparms4(8,usdatext)
      en_vg     =  soilparms4(9,usdatext)
-     lambda_vg = 0.5  
+     lambda_vg = 0.5
 
      soilwilt  =  soilparms4(10,usdatext)
 

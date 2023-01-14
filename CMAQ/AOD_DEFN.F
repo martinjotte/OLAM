@@ -17,7 +17,7 @@
 !------------------------------------------------------------------------!
 
 C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-      module aod_defn 
+      module aod_defn
 C Calculates the aerosol optical thickness using reconstructed extinction
 C values from the IMPROVE monitoring network updated from Malm and Hand,
 C (Atmos. Env. 41, 3407-3427, 2007) See comments in AERO_DATA.F
@@ -137,23 +137,23 @@ c Open the diagnostic file
 
 !-----------------------------------------------------------------------
       subroutine get_extinc( airrh, ext2 )
- 
+
 C *** adapted from getvisby.F
 C Revisions:
 C 05/2016: P Liu, 1) update humfac and add humfac_large, because ammonium sulfate, nitrate and OM
 C                 are splitted into small and large modes,humfac will be used for small mode
-C                 2) update algorithm for estimating light extinction efficiency based on IMPROVE 
+C                 2) update algorithm for estimating light extinction efficiency based on IMPROVE
 C                 for both updates see Pitchford et al., Journal of the Air & Waste Management Association (57)(2007), pp 1326.
 C-----------------------------------------------------------------------
- 
+
          use aero_data
 
          implicit none
- 
+
          real, intent( in )  :: airrh  ! rel hum [ fraction ]
          real, intent( out ) :: ext2   ! extinction [ 1/km ] (Reconstructed)
 
-C *** Parameters 
+C *** Parameters
 C factor to rescale units from [ 1/Mm ] to [ 1/km ]
          real, parameter :: scale = 1.0e-03
 
@@ -258,7 +258,7 @@ C *** IMPROVE reconstructed method
 C *** NOTE in the following the fine primary mass "other" is
 C     treated as though it were fine mass soil.
 
-      
+
 C     split aerosol mass of sulfate nitrate and OM to small and large
 C     modes based on their individual total mass
 
@@ -296,13 +296,13 @@ C     modes based on their individual total mass
          end do
 C  convert mass of sulfate and nitrate to ammonium sulfate and ammounium nitrate
          total_mass_so4 = total_mass_so4 * (aerospc_mw(anh4_idx)*2+aerospc_mw(aso4_idx))
-     &                    /aerospc_mw(aso4_idx) 
+     &                    /aerospc_mw(aso4_idx)
          total_mass_no3 = total_mass_no3 * (aerospc_mw(anh4_idx)+aerospc_mw(ano3_idx))
-     &                    /aerospc_mw(ano3_idx)       
+     &                    /aerospc_mw(ano3_idx)
 
 C     get the extinction efficiency for all species
          ext2 = 0.0
-         
+
          do n = 1, n_aerospc
 
             if (  aerospc( n )%tracer ) cycle
@@ -315,16 +315,16 @@ C     get the extinction efficiency for all species
                      if (total_mass_so4 .lt. 20.0)  then  ! if total mass less than 20ug/m3, split to 2 modes
                        ext2 = ext2 + frh*aerospc( n )%visual_idx *(mass_with_nh4-mass_with_nh4/20.0)
      &                        + frh_large * aerospc(n)%visual_idx_large*mass_with_nh4/20.0
-     
+
                      else                               ! else  all mass goes to large mode
                        ext2 = ext2 + frh_large * aerospc( n )%visual_idx_large *mass_with_nh4
-                          
+
                      end if
                   end if
                end do
                cycle
             end if
-        
+
             if (n .eq. ano3_idx ) then        ! for ammonium nitrate
                 do m = 1, n_mode
                   if ( .not. aero_missing( n,m ) ) then
@@ -337,7 +337,7 @@ C     get the extinction efficiency for all species
                      else                               ! else  all mass goes to large mode
                        ext2 = ext2 + frh_large * aerospc( n)%visual_idx_large *mass_with_nh4
 
-                     end if 
+                     end if
                   end if
                 end do
                 cycle

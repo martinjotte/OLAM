@@ -50,10 +50,10 @@ int f_ndates(ARG3) {
 			3 YYYYMMDD
 			4 YYYYMMDDHH
 			5 YYYYMMDDHHmm
-			6 YYYYMMDDHHmmss 
+			6 YYYYMMDDHHmmss
 	 */
 	format = (strlen_arg1-2)/2;
-        if (strlen_arg1 % 2 == 1 || strlen_arg1 < 4 || strlen_arg1 > 14) 
+        if (strlen_arg1 % 2 == 1 || strlen_arg1 < 4 || strlen_arg1 > 14)
 	   fatal_error("ndates: arg1 (YYYY|YYYYMM|YYYYMMDD|YYYYMMDDHH|YYYYMMDDHHmm|YYYYMMDDHHmmss)","");
 	sscanf(arg1, "%4d%2d%2d%2d%2d%2d", &year, &month, &day, &hour, &minute, &second);
 	if (check_time(year,month,day,hour,minute,second))
@@ -62,7 +62,7 @@ int f_ndates(ARG3) {
 	/* get ending date */
 
         strlen_arg2 = strlen(arg2);
- 
+
 	for (i = 0; i < strlen_arg2; i++) {
 	    if (isdigit(arg2[i]) == 0) break;
 	}
@@ -72,7 +72,7 @@ int f_ndates(ARG3) {
 	if (i == strlen_arg2) {
 	    day_end = month_end = 1;
             hour_end = minute_end = second_end = 0;
-            if (strlen_arg2 % 2 == 1 || strlen_arg2 < 4 || strlen_arg2 > 14) 
+            if (strlen_arg2 % 2 == 1 || strlen_arg2 < 4 || strlen_arg2 > 14)
 	        fatal_error("ndates: arg2 (YYYY|YYYYMM|YYYYMMDD|YYYYMMDDHH|YYYYMMDDHHmm|YYYYMMDDHHmmss)","");
 	    sscanf(arg2, "%4d%2d%2d%2d%2d%2d", &year_end, &month_end, &day_end, &hour_end, &minute_end, &second_end);
 	}
@@ -121,7 +121,7 @@ int f_ndates(ARG3) {
 	}
 
         if (dt_unit == -1) fatal_error("ndates: unsupported time unit %s", string);
-        
+
 	while (cmp_time(year, month, day, hour, minute, second,
 		year_end, month_end, day_end, hour_end, minute_end, second_end) == -1) {
 
@@ -164,7 +164,7 @@ int f_ndates_fmt(ARG1) {
     char *out;
 
     if (mode == -2) return 0;
-    if (mode == -1 && strlen(arg1) > NAMELEN-1) 
+    if (mode == -1 && strlen(arg1) > NAMELEN-1)
             fatal_error("ndates_fmt: format too long: %s", arg1);
 
     in = arg1;

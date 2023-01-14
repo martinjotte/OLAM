@@ -1,7 +1,7 @@
 subroutine diagn_global_swtc()
 
 ! This subroutine computes error norms for shallow water test cases 1, 2, and 5
-     
+
 use mem_basic
 use mem_micro
 use micro_coms
@@ -47,7 +47,7 @@ ncall = ncall + 1
 
 if (ncall == 1) then
 
-   ncall_tot = int(timmax8 / dtlm(1)) + 10
+   ncall_tot = int(timmax8 / dtlm) + 10
 
    allocate (ge1(ncall_tot), ge2(ncall_tot), ge3(ncall_tot), vctr18(ncall_tot))
    allocate (height_init(nwa))
@@ -91,7 +91,7 @@ if (ncall == 1) then
    elseif (timedif < 1000.) then
       timeinc = 40.
    endif
-      
+
 endif
 
 ! Initialize summation and max/min quantities to zero
@@ -113,7 +113,7 @@ do iw = 2,mwa
 
    if (nl%test_case == 5) then
 
-! Due to problem with reference solution (or its interpolation), 
+! Due to problem with reference solution (or its interpolation),
 ! omit high latitude points
 
       if (glatw(iw) > 85. .or. glatw(iw) < -85.) cycle
@@ -129,7 +129,7 @@ do iw = 2,mwa
 
       zanal0_swtc5 = 0.
       zanal_swtc5 = 0.
-   
+
    endif
 
 ! Get height and volume for current IW point

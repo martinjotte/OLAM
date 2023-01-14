@@ -25,9 +25,9 @@ Of course, you may loose support some functionality.
                   wgrib2 *.c *.h *.sh and documentation
 
 
-The components of wgrib2, the C/Fortran API and wgrib2 library are either in 
-the public domain or covered by the GNU General Public License depending on 
-the files in question.  No other licence will be accepted into this archive 
+The components of wgrib2, the C/Fortran API and wgrib2 library are either in
+the public domain or covered by the GNU General Public License depending on
+the files in question.  No other licence will be accepted into this archive
 of wgrib2 modules.  (Already have too many licences for the libraries.)  Unlike
 the situation with the libraries, it would be difficult to make a PD-only
 version of wgrib2.
@@ -41,4 +41,4 @@ Distribution of wgrib2 needs to be compatible with all applicatable licences.
 Contributions of new files can either be public domain or GNU GPL.
 If you modify an existing file, please state that your contribution
 is of the same (gnu or public domain) as the original file.  Otherwise
-it gets messy.  
+it gets messy.

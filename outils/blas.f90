@@ -2,21 +2,21 @@
 !
 !  =========== DOCUMENTATION ===========
 !
-! Online html documentation available at 
-!            http://www.netlib.org/lapack/explore-html/ 
+! Online html documentation available at
+!            http://www.netlib.org/lapack/explore-html/
 !
 !  Definition:
 !  ===========
 !
 !       SUBROUTINE SCOPY(N,SX,INCX,SY,INCY)
-! 
+!
 !       .. Scalar Arguments ..
 !       INTEGER INCX,INCY,N
 !       ..
 !       .. Array Arguments ..
 !       REAL SX(*),SY(*)
 !       ..
-!  
+!
 !
 !> \par Purpose:
 !  =============
@@ -30,10 +30,10 @@
 !  Authors:
 !  ========
 !
-!> \author Univ. of Tennessee 
-!> \author Univ. of California Berkeley 
-!> \author Univ. of Colorado Denver 
-!> \author NAG Ltd. 
+!> \author Univ. of Tennessee
+!> \author Univ. of California Berkeley
+!> \author Univ. of Colorado Denver
+!> \author NAG Ltd.
 !
 !> \date November 2011
 !
@@ -85,7 +85,7 @@
                SY(I) = SX(I)
             END DO
             IF (N.LT.7) RETURN
-         END IF   
+         END IF
          MP1 = M + 1
          DO I = MP1,N,7
             SY(I) = SX(I)
@@ -96,7 +96,7 @@
             SY(I+5) = SX(I+5)
             SY(I+6) = SX(I+6)
          END DO
-      ELSE      
+      ELSE
 !
 !        code for unequal increments or equal increments
 !          not equal to 1
@@ -117,14 +117,14 @@
 !
 !  =========== DOCUMENTATION ===========
 !
-! Online html documentation available at 
-!            http://www.netlib.org/lapack/explore-html/ 
+! Online html documentation available at
+!            http://www.netlib.org/lapack/explore-html/
 !
 !  Definition:
 !  ===========
 !
 !       SUBROUTINE SGEMM(TRANSA,TRANSB,M,N,K,ALPHA,A,LDA,B,LDB,BETA,C,LDC)
-! 
+!
 !       .. Scalar Arguments ..
 !       REAL ALPHA,BETA
 !       INTEGER K,LDA,LDB,LDC,M,N
@@ -133,7 +133,7 @@
 !       .. Array Arguments ..
 !       REAL A(LDA,*),B(LDB,*),C(LDC,*)
 !       ..
-!  
+!
 !
 !> \par Purpose:
 !  =============
@@ -276,10 +276,10 @@
 !  Authors:
 !  ========
 !
-!> \author Univ. of Tennessee 
-!> \author Univ. of California Berkeley 
-!> \author Univ. of Colorado Denver 
-!> \author NAG Ltd. 
+!> \author Univ. of Tennessee
+!> \author Univ. of California Berkeley
+!> \author Univ. of Colorado Denver
+!> \author NAG Ltd.
 !
 !> \date November 2011
 !
@@ -505,14 +505,14 @@
 !
 !  =========== DOCUMENTATION ===========
 !
-! Online html documentation available at 
-!            http://www.netlib.org/lapack/explore-html/ 
+! Online html documentation available at
+!            http://www.netlib.org/lapack/explore-html/
 !
 !  Definition:
 !  ===========
 !
 !       SUBROUTINE SGEMV(TRANS,M,N,ALPHA,A,LDA,X,INCX,BETA,Y,INCY)
-! 
+!
 !       .. Scalar Arguments ..
 !       REAL ALPHA,BETA
 !       INTEGER INCX,INCY,LDA,M,N
@@ -521,7 +521,7 @@
 !       .. Array Arguments ..
 !       REAL A(LDA,*),X(*),Y(*)
 !       ..
-!  
+!
 !
 !> \par Purpose:
 !  =============
@@ -632,10 +632,10 @@
 !  Authors:
 !  ========
 !
-!> \author Univ. of Tennessee 
-!> \author Univ. of California Berkeley 
-!> \author Univ. of Colorado Denver 
-!> \author NAG Ltd. 
+!> \author Univ. of Tennessee
+!> \author Univ. of California Berkeley
+!> \author Univ. of Colorado Denver
+!> \author NAG Ltd.
 !
 !> \date November 2011
 !
@@ -839,14 +839,14 @@
 !
 !  =========== DOCUMENTATION ===========
 !
-! Online html documentation available at 
-!            http://www.netlib.org/lapack/explore-html/ 
+! Online html documentation available at
+!            http://www.netlib.org/lapack/explore-html/
 !
 !  Definition:
 !  ===========
 !
 !       SUBROUTINE SGER(M,N,ALPHA,X,INCX,Y,INCY,A,LDA)
-! 
+!
 !       .. Scalar Arguments ..
 !       REAL ALPHA
 !       INTEGER INCX,INCY,LDA,M,N
@@ -854,7 +854,7 @@
 !       .. Array Arguments ..
 !       REAL A(LDA,*),X(*),Y(*)
 !       ..
-!  
+!
 !
 !> \par Purpose:
 !  =============
@@ -941,10 +941,10 @@
 !  Authors:
 !  ========
 !
-!> \author Univ. of Tennessee 
-!> \author Univ. of California Berkeley 
-!> \author Univ. of Colorado Denver 
-!> \author NAG Ltd. 
+!> \author Univ. of Tennessee
+!> \author Univ. of California Berkeley
+!> \author Univ. of Colorado Denver
+!> \author NAG Ltd.
 !
 !> \date November 2011
 !
@@ -1066,21 +1066,21 @@
 !
 !  =========== DOCUMENTATION ===========
 !
-! Online html documentation available at 
-!            http://www.netlib.org/lapack/explore-html/ 
+! Online html documentation available at
+!            http://www.netlib.org/lapack/explore-html/
 !
 !  Definition:
 !  ===========
 !
 !       REAL FUNCTION SNRM2(N,X,INCX)
-! 
+!
 !       .. Scalar Arguments ..
 !       INTEGER INCX,N
 !       ..
 !       .. Array Arguments ..
 !       REAL X(*)
 !       ..
-!  
+!
 !
 !> \par Purpose:
 !  =============
@@ -1096,10 +1096,10 @@
 !  Authors:
 !  ========
 !
-!> \author Univ. of Tennessee 
-!> \author Univ. of California Berkeley 
-!> \author Univ. of Colorado Denver 
-!> \author NAG Ltd. 
+!> \author Univ. of Tennessee
+!> \author Univ. of California Berkeley
+!> \author Univ. of Colorado Denver
+!> \author NAG Ltd.
 !
 !> \date November 2011
 !
@@ -1178,14 +1178,14 @@
 !
 !  =========== DOCUMENTATION ===========
 !
-! Online html documentation available at 
-!            http://www.netlib.org/lapack/explore-html/ 
+! Online html documentation available at
+!            http://www.netlib.org/lapack/explore-html/
 !
 !  Definition:
 !  ===========
 !
 !       SUBROUTINE SSCAL(N,SA,SX,INCX)
-! 
+!
 !       .. Scalar Arguments ..
 !       REAL SA
 !       INTEGER INCX,N
@@ -1193,7 +1193,7 @@
 !       .. Array Arguments ..
 !       REAL SX(*)
 !       ..
-!  
+!
 !
 !> \par Purpose:
 !  =============
@@ -1207,10 +1207,10 @@
 !  Authors:
 !  ========
 !
-!> \author Univ. of Tennessee 
-!> \author Univ. of California Berkeley 
-!> \author Univ. of Colorado Denver 
-!> \author NAG Ltd. 
+!> \author Univ. of Tennessee
+!> \author Univ. of California Berkeley
+!> \author Univ. of Colorado Denver
+!> \author NAG Ltd.
 !
 !> \date November 2011
 !
@@ -1288,14 +1288,14 @@
 !
 !  =========== DOCUMENTATION ===========
 !
-! Online html documentation available at 
-!            http://www.netlib.org/lapack/explore-html/ 
+! Online html documentation available at
+!            http://www.netlib.org/lapack/explore-html/
 !
 !  Definition:
 !  ===========
 !
 !       SUBROUTINE STRMM(SIDE,UPLO,TRANSA,DIAG,M,N,ALPHA,A,LDA,B,LDB)
-! 
+!
 !       .. Scalar Arguments ..
 !       REAL ALPHA
 !       INTEGER LDA,LDB,M,N
@@ -1304,7 +1304,7 @@
 !       .. Array Arguments ..
 !       REAL A(LDA,*),B(LDB,*)
 !       ..
-!  
+!
 !
 !> \par Purpose:
 !  =============
@@ -1437,10 +1437,10 @@
 !  Authors:
 !  ========
 !
-!> \author Univ. of Tennessee 
-!> \author Univ. of California Berkeley 
-!> \author Univ. of Colorado Denver 
-!> \author NAG Ltd. 
+!> \author Univ. of Tennessee
+!> \author Univ. of California Berkeley
+!> \author Univ. of Colorado Denver
+!> \author NAG Ltd.
 !
 !> \date November 2011
 !
@@ -1703,14 +1703,14 @@
 !
 !  =========== DOCUMENTATION ===========
 !
-! Online html documentation available at 
-!            http://www.netlib.org/lapack/explore-html/ 
+! Online html documentation available at
+!            http://www.netlib.org/lapack/explore-html/
 !
 !  Definition:
 !  ===========
 !
 !       SUBROUTINE STRMV(UPLO,TRANS,DIAG,N,A,LDA,X,INCX)
-! 
+!
 !       .. Scalar Arguments ..
 !       INTEGER INCX,LDA,N
 !       CHARACTER DIAG,TRANS,UPLO
@@ -1718,7 +1718,7 @@
 !       .. Array Arguments ..
 !       REAL A(LDA,*),X(*)
 !       ..
-!  
+!
 !
 !> \par Purpose:
 !  =============
@@ -1821,10 +1821,10 @@
 !  Authors:
 !  ========
 !
-!> \author Univ. of Tennessee 
-!> \author Univ. of California Berkeley 
-!> \author Univ. of Colorado Denver 
-!> \author NAG Ltd. 
+!> \author Univ. of Tennessee
+!> \author Univ. of California Berkeley
+!> \author Univ. of Colorado Denver
+!> \author NAG Ltd.
 !
 !> \date November 2011
 !
@@ -2045,14 +2045,14 @@
 !
 !  =========== DOCUMENTATION ===========
 !
-! Online html documentation available at 
-!            http://www.netlib.org/lapack/explore-html/ 
+! Online html documentation available at
+!            http://www.netlib.org/lapack/explore-html/
 !
 !  Definition:
 !  ===========
 !
 !       SUBROUTINE STRSM(SIDE,UPLO,TRANSA,DIAG,M,N,ALPHA,A,LDA,B,LDB)
-! 
+!
 !       .. Scalar Arguments ..
 !       REAL ALPHA
 !       INTEGER LDA,LDB,M,N
@@ -2061,7 +2061,7 @@
 !       .. Array Arguments ..
 !       REAL A(LDA,*),B(LDB,*)
 !       ..
-!  
+!
 !
 !> \par Purpose:
 !  =============
@@ -2155,7 +2155,7 @@
 !> \param[in] A
 !> \verbatim
 !>          A is REAL array of DIMENSION ( LDA, k ),
-!>           where k is m when SIDE = 'L' or 'l'  
+!>           where k is m when SIDE = 'L' or 'l'
 !>             and k is n when SIDE = 'R' or 'r'.
 !>           Before entry  with  UPLO = 'U' or 'u',  the  leading  k by k
 !>           upper triangular part of the array  A must contain the upper
@@ -2197,10 +2197,10 @@
 !  Authors:
 !  ========
 !
-!> \author Univ. of Tennessee 
-!> \author Univ. of California Berkeley 
-!> \author Univ. of Colorado Denver 
-!> \author NAG Ltd. 
+!> \author Univ. of Tennessee
+!> \author Univ. of California Berkeley
+!> \author Univ. of Colorado Denver
+!> \author NAG Ltd.
 !
 !> \date November 2011
 !

@@ -1,60 +1,25 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 subroutine radiate()
 
   use mem_tend,    only: thilt
-  use mem_ijtabs,  only: jtab_w, itab_w, itabg_w, mrl_begl, istp, jtw_prog
+  use mem_ijtabs,  only: jtab_w, itab_w, mrl_begl, istp, jtw_prog
   use mem_sfcg,    only: itab_wsfc, sfcg, mwsfc
   use mem_lake,    only: lake, mlake, omlake
   use mem_land,    only: land, mland, omland, nzg
   use mem_sea,     only: sea, msea, omsea
   use sea_coms,    only: nzi
   use leaf4_surface,only: sfcrad_land
-  use mem_radiate, only: solfac, sunx, suny, sunz, cosz, nadd_rad,          &
+  use mem_radiate, only: sunx, suny, sunz, cosz, nadd_rad,                  &
                          rlongup, rlong_albedo, albedt, albedt_beam,        &
-                         albedt_diffuse, fthrd_sw, rshort, rlong, fthrd_lw, &
+                         albedt_diffuse, fthrd_sw, rshort, fthrd_lw,        &
                          rshort_top, rshortup_top, rshort_diffuse,          &
-                         rshort_clr, rshortup_clr,                          &
-                         rshort_top_clr, rshortup_top_clr,                  &
                          par, par_diffuse, uva, uvb, uvc, pbl_cld_forc,     &
                          ppfd, ppfd_diffuse, rlong_ks, rshort_ks,           &
                          rshort_diffuse_ks, ppfd_ks, ppfd_diffuse_ks
   use mem_basic,   only: thil, theta, tair
   use consts_coms, only: stefan, pio180, eradi, r8
-  use misc_coms,   only: io6, time8p, time_istp8, radfrq, ilwrtyp, &
+  use misc_coms,   only: io6, time8p, time_istp8, radfrq, ilwrtyp, do_chem, &
                          iswrtyp, dtlong, iparallel, mstp, runtype
   use mem_grid,    only: lpw, mza, wnx, wny, wnz, lsw, nsw_max
-  use mem_turb,    only: frac_sfc
   use therm_lib,   only: qtk
   use mem_para,    only: myrank
   use olam_mpi_atm,only: mpi_send_w, mpi_recv_w
@@ -98,7 +63,7 @@ subroutine radiate()
 
      ! Loop over all SEA cells in subdomain, EVEN THOSE THAT ARE NOT PRIMARY,
      ! so that all surface albedos and upward longwave radiative fluxes are
-     ! available beneath all ATM columns that are primary. 
+     ! available beneath all ATM columns that are primary.
 
      !$omp parallel
      !$omp do private (iwsfc, sea_cosz)
@@ -161,7 +126,7 @@ subroutine radiate()
 
      ! Loop over all LAKE cells in subdomain, EVEN THOSE THAT ARE NOT PRIMARY,
      ! so that all surface albedos and upward longwave radiative fluxes are
-     ! available beneath all ATM columns that are primary. 
+     ! available beneath all ATM columns that are primary.
 
      !$omp do private (iwsfc, lake_cosz, tempk, fracliq)
      do ilake = 2,mlake
@@ -171,7 +136,7 @@ subroutine radiate()
            if ( all( itab_w( [max(1,itab_wsfc(iwsfc)%iwatm( 1:itab_wsfc(iwsfc)%nwatm ))] )%irank /= myrank ) ) cycle
         endif
 
-        ! Get surface radiative properties (albedos and rlongup) for each sea cell. 
+        ! Get surface radiative properties (albedos and rlongup) for each sea cell.
         ! Compute solar zenith angle for sea cells
 
         lake_cosz = (sfcg%xew(iwsfc) * sunx  &
@@ -196,7 +161,7 @@ subroutine radiate()
 
      ! Loop over all LAND cells in subdomain, EVEN THOSE THAT ARE NOT PRIMARY,
      ! so that all surface albedos and upward longwave radiative fluxes are
-     ! available beneath all ATM columns that are primary. 
+     ! available beneath all ATM columns that are primary.
 
      !$omp do private (iwsfc, nzw, wdepth)
      do iland = 2,mland
@@ -257,7 +222,7 @@ subroutine radiate()
            land%specifheat_drysoil(nzg,iland), &
            land%sand              (nzg,iland)  )
 
-           ! For LEAF land cells, there is no distinction between beam and 
+           ! For LEAF land cells, there is no distinction between beam and
            ! diffuse radiation.
 
         sfcg%albedo_diffuse(iwsfc) = sfcg%albedo_beam(iwsfc)
@@ -272,7 +237,7 @@ subroutine radiate()
      !$omp do private (iw, ka, nsfc, jsfc, iwsfc, jasfc, wti, wtk, &
      !$omp                      kw, ks, koff, nrad) &
      !$omp             schedule(guided)
-     do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j) ! jend(1) = hardw for mrl=1
+     do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
         ka   = lpw(iw)
         nsfc = lsw(iw)
@@ -304,7 +269,7 @@ subroutine radiate()
 !        rshortup_clr    (iw) = 0.
 !        rshort_top_clr  (iw) = 0.
 !        rshortup_top_clr(iw) = 0.
-      
+
         fthrd_sw(ka:mza,iw) = 0.
 
         par(iw) = 0.
@@ -386,8 +351,17 @@ subroutine radiate()
      ! MPI send/recv of surface downward radiative fluxes
 
      if (iparallel == 1) then
-        call mpi_send_w(1, svara1=rlong_ks, svara2=rshort_ks, svara3=rshort_diffuse_ks)
-        call mpi_recv_w(1, svara1=rlong_ks, svara2=rshort_ks, svara3=rshort_diffuse_ks)
+
+        if (do_chem == 1) then
+           call mpi_send_w(svara1=rlong_ks, svara2=rshort_ks, svara3=rshort_diffuse_ks, &
+                           svara4=ppfd_ks, svara5=ppfd_diffuse_ks)
+           call mpi_recv_w(svara1=rlong_ks, svara2=rshort_ks, svara3=rshort_diffuse_ks, &
+                           svara4=ppfd_ks, svara5=ppfd_diffuse_ks)
+        else
+           call mpi_send_w(svara1=rlong_ks, svara2=rshort_ks, svara3=rshort_diffuse_ks)
+           call mpi_recv_w(svara1=rlong_ks, svara2=rshort_ks, svara3=rshort_diffuse_ks)
+        endif
+
      endif
 
      ! Loop over all SFC grid cells
@@ -404,9 +378,8 @@ subroutine radiate()
         sfcg%rlong         (iwsfc) = 0.
         sfcg%rshort        (iwsfc) = 0.
         sfcg%rshort_diffuse(iwsfc) = 0.
-        sfcg%rshort_clr    (iwsfc) = 0.
 
-        if (sfcg%leaf_class(iwsfc) >= 2) then
+        if (do_chem == 1 .and. sfcg%leaf_class(iwsfc) >= 2) then
            iland = iwsfc - omland
            land%ppfd        (iland) = 0.
            land%ppfd_diffuse(iland) = 0.
@@ -429,21 +402,19 @@ subroutine radiate()
 
            ! par and ppfd are members of land% and not sfcg%
 
-           if (sfcg%leaf_class(iwsfc) >= 2) then
-
+           if (do_chem == 1 .and. sfcg%leaf_class(iwsfc) >= 2) then
             ! land%par         (iland) = land%par         (iland) + wt * par_ks         (ks,iw)
             ! land%par_diffuse (iland) = land%par_diffuse (iland) + wt * par_diffuse_ks (ks,iw)
               land%ppfd        (iland) = land%ppfd        (iland) + wt * ppfd_ks        (ks,iw)
               land%ppfd_diffuse(iland) = land%ppfd_diffuse(iland) + wt * ppfd_diffuse_ks(ks,iw)
-
            endif
 
         enddo
 
-     enddo   
+     enddo
      !$omp end do
 
-     ! Loop over all SEA cells to compute radiative fluxes for all 
+     ! Loop over all SEA cells to compute radiative fluxes for all
      ! seaice components, given that rshort and rlong are now updated.
 
     !$omp do private(iwsfc)
@@ -464,7 +435,7 @@ subroutine radiate()
      enddo
      !$omp end do
 
-     ! Loop over all LAND cells to compute radiative fluxes 
+     ! Loop over all LAND cells to compute radiative fluxes
      ! for all cell components, given that rshort and rlong are now updated.
 
      !$omp do private (iwsfc,nzw,wdepth)
@@ -531,7 +502,7 @@ subroutine radiate()
   mrl = mrl_begl(istp)
   if (mrl > 0) then
   !$omp parallel do private(iw,k)
-  do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+  do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
      do k = lpw(iw), mza
 
@@ -555,13 +526,9 @@ end subroutine radiate
 
 subroutine sunloc()
 
-  use misc_coms,   only: io6, imonth1, idate1, iyear1, itime1, time_istp8,  &
-                         iswrtyp, ilwrtyp
-
+  use misc_coms,   only: imonth1, idate1, iyear1, itime1, time_istp8
   use consts_coms, only: pi2, pio180
-
   use mem_radiate, only: jday, solfac, sunx, suny, sunz
-
   use mem_mclat,   only: mclat_spline
 
   implicit none
@@ -603,7 +570,7 @@ subroutine sunloc()
   solfac = 1.000110 + 0.034221 * cos (d0) + 0.001280 * sin(d0)  &
                     + 0.000719 * cos(d02) + 0.000077 * sin(d02)
 
-  ! Declin is the solar latitude in degrees   
+  ! Declin is the solar latitude in degrees
 
   t1 = pi2 * real(jday) / 366.
 
@@ -657,7 +624,7 @@ subroutine radinit()
   use mem_radiate,   only: maxadd_rad, nadd_rad, zmrad, mcica_seed, &
                            sunx, suny, sunz, cosz
   use mem_grid,      only: mza, zm, glatw, glonw, nwa, wnx, wny, wnz
-  use misc_coms,     only: io6, iswrtyp, ilwrtyp
+  use misc_coms,     only: iswrtyp, ilwrtyp
   use consts_coms,   only: cp
   use rrtmg_sw_init, only: rrtmg_sw_ini
   use rrtmg_lw_init, only: rrtmg_lw_ini
@@ -710,7 +677,7 @@ subroutine radinit()
 
   call sunloc()
 
-  do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
+  do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
      ! Seed the random number generator for RRTMg's cloud overlap scheme.
      ! This should only be done at initial time, but if we restart a run

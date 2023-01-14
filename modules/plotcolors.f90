@@ -1,36 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University;
-   ! Colorado State University Research Foundation ; ATMET, LLC
-
-   ! This software is free software; you can redistribute it and/or modify it
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version.
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
-
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
-   ! (http://www.gnu.org/licenses/gpl.html)
-   !----------------------------------------------------------------------------
-
-!===============================================================================
-
 Module plotcolors
 
   implicit none
@@ -70,7 +37,7 @@ Module plotcolors
        9.1, 10.1, 11.1, 12.1, 13.1, 14.1, 15.1, 16.1, 17.1, 18.1, &
       19.1, 20.1, 21.1, 22.1                                      /
 
-! Table 2  (seatp, seatc, seatf [K])
+! Table 2  (sst [K])
 
   data clrtab(2)%nvals/41/
   data clrtab(2)%ifmt(1:2)/0,3/
@@ -639,7 +606,7 @@ Module plotcolors
       7600., 7800., 8000., 8200., 8400., 8600., 8800., 9000., 9200., 9400., &
       9600., 9800.,10000.,10200.,10400.,10600.,10800.                       /
 
-! Table 39  (seatp, seatc, seatf [K])
+! Table 39  (sst [K])
 
   data clrtab(39)%nvals/21/
   data clrtab(39)%ifmt(1:2)/0,3/
@@ -1282,7 +1249,7 @@ Module plotcolors
       980., 984., 988., 992., 996.,1000.,1004.,1008.,1012.,1016., &
      1020.,1024.                                                  /
 
-! Table 83 (specialized) 
+! Table 83 (specialized)
 
   data clrtab(83)%nvals/4/
   data clrtab(83)%ifmt(1:2)/10,10/
@@ -1290,6 +1257,23 @@ Module plotcolors
        145,144,143,142  /
   data clrtab(83)%vals(1:4)/ &
       -0.9, 0.1, 1.1, 2.1  /
+
+! Table 5 (all specific humidities(kg/kg))
+
+  data clrtab(84)%nvals/46/
+  data clrtab(84)%ifmt(1:2)/0,6/
+  data clrtab(84)%ipal(1:46)/ &
+     100,101,102,103,104,105,106,107,108,109, &
+     110,111,112,113,114,115,116,117,118,119, &
+     120,121,122,123,124,125,126,127,128,129, &
+     130,131,132,133,134,135,136,137,138,139, &
+     140,141,142,143,144,145                  /
+  data clrtab(84)%vals(1:46)/ &
+      0.e-3,  1.e-3,  2.e-3,  3.e-3,  4.e-3,  5.e-3,  6.e-3,  7.e-3,  8.e-3,  9.e-3, &
+     10.e-3, 11.e-3, 12.e-3, 13.e-3, 14.e-3, 15.e-3, 16.e-3, 17.e-3, 18.e-3, 19.e-3, &
+     20.e-3, 21.e-3, 22.e-3, 23.e-3, 24.e-3, 25.e-3, 26.e-3, 27.e-3, 28.e-3, 29.e-3, &
+     30.e-3, 31.e-3, 32.e-3, 33.e-3, 34.e-3, 35.e-3, 36.e-3, 37.e-3, 38.e-3, 39.e-3, &
+     40.e-3, 41.e-3, 42.e-3, 43.e-3, 44.e-3, 45.e-3                                  /
 
 !----------------------------------------------------------------------------
 ! COLORTABLES 100-199: LINEAR SCALING WITH NEGATIVE VALUES
@@ -3328,7 +3312,7 @@ Module plotcolors
   data clrtab(441)%nvals/30/
   data clrtab(441)%ifmt(1:2)/1,6/
   data clrtab(441)%ipal(1:30)/ &
-     100,101,102,103,104,105,106,107,108,109, &
+     146,101,102,103,104,105,106,107,108,109, &
      110,111,112,113,114,115,116,117,118,119, &
      120,121,122,123,124,125,126,127,128,129  /
   data clrtab(441)%vals(1:30)/ &
@@ -3715,7 +3699,7 @@ Module plotcolors
 
 ! Table 469 (topw and bathym)
 
-  data clrtab(469)%nvals/40/  
+  data clrtab(469)%nvals/40/
   data clrtab(469)%ifmt(1:2)/0,6/
   data clrtab(469)%ipal(1:40)/ &
       84, 85, 86, 87, 88, 89, 90, 91, 92, 93, &
@@ -3730,7 +3714,7 @@ Module plotcolors
 
 ! Table 470 (topw and bathym)
 
-  data clrtab(470)%nvals/40/  
+  data clrtab(470)%nvals/40/
   data clrtab(470)%ifmt(1:2)/0,6/
   data clrtab(470)%ipal(1:40)/ &
       84, 85, 86, 87, 88, 89, 90, 91, 92, 93, &
@@ -3809,6 +3793,21 @@ Module plotcolors
       990., 991., 992., 993., 994., 995., 996., 997., 998., 999., &
      1000.,1001.,1002.,1003.,1004.,1005.,1006.,1007.,1008.,1009., &
      1010.,1011.                                                  /
+
+! Table 476 (topw)
+
+  data clrtab(476)%nvals/37/  
+  data clrtab(476)%ifmt(1:2)/0,6/
+  data clrtab(476)%ipal(1:37)/ &
+      88, 89, 90, 91, 92, 93, 94, 95, 96, 97, &
+      98, 99,100,112,113,114,115,116,117,118, &
+     119,120,121,122,123,124,125,126,127,128, &
+     129,130,131,132,133,134,135              /
+  data clrtab(476)%vals(1:37)/ &
+    -450.,-400.,-350.,-300.,-250.,-200.,-150.,-100., -50., -20., &
+     -10.,  -1.,   1.,  10.,  20.,  50., 100., 200., 300., 500., &
+    1000.,1500.,2000.,2500.,3000.,3500.,4000.,4500.,5000.,5500., &
+    6000.,6500.,7000.,7500.,8000.,8500.,9000.                    /
 
 Contains
 
@@ -3917,27 +3916,55 @@ Contains
  !  call o_hls (iwk, 68,137.,38., 95.)
  !  call o_hls (iwk, 69,137.,30., 95.)
 
-! set of 60+ colors
+! set of 80+ colors
 
-    call o_hls (iwk,84, 25.,30., 40.)
-    call o_hls (iwk,85, 25.,40., 40.)
-    call o_hls (iwk,86, 25.,52., 40.)
-    call o_hls (iwk,87, 25.,70., 40.)  ! low-sat violet blues
+    call o_hls (iwk,60,240.,30., 40.) ! low-sat greens
+    call o_hls (iwk,61,240.,40., 40.)
+    call o_hls (iwk,62,240.,50., 40.)
+    call o_hls (iwk,63,240.,61., 40.)
+    call o_hls (iwk,64,240.,72., 40.)
 
-    call o_hls (iwk,88, 60.,30., 40.)
-    call o_hls (iwk,89, 60.,40., 40.)
-    call o_hls (iwk,90, 60.,52., 40.)
-    call o_hls (iwk,91, 60.,70., 40.)  ! low-sat violets
+    call o_hls (iwk,65,280.,30., 40.) ! low-sat blue greens
+    call o_hls (iwk,66,280.,39., 40.)
+    call o_hls (iwk,67,280.,49., 40.)
+    call o_hls (iwk,68,280.,61., 40.)
+    call o_hls (iwk,69,280.,72., 40.)
 
-    call o_hls (iwk,92,120.,30., 40.)
-    call o_hls (iwk,93,120.,40., 40.)
-    call o_hls (iwk,94,120.,52., 40.)
-    call o_hls (iwk,95,120.,70., 40.)  ! low-sat reds
+    call o_hls (iwk,70,320.,30., 40.) ! low-sat green blues
+    call o_hls (iwk,71,320.,39., 40.)
+    call o_hls (iwk,72,320.,49., 40.)
+    call o_hls (iwk,73,320.,61., 40.)
+    call o_hls (iwk,74,320.,72., 40.)
 
-    call o_hls (iwk,96,150.,30., 40.)  ! browns
-    call o_hls (iwk,97,150.,40., 40.)
-    call o_hls (iwk,98,150.,52., 40.)
-    call o_hls (iwk,99,150.,70., 40.)
+    call o_hls (iwk,75,  0.,30., 40.) ! low-sat blues
+    call o_hls (iwk,76,  0.,42., 40.)
+    call o_hls (iwk,77,  0.,57., 40.)
+    call o_hls (iwk,78,  0.,65., 40.)
+    call o_hls (iwk,79,  0.,75., 40.)
+
+    call o_hls (iwk,80, 25.,30., 40.)  ! low-sat violet blues
+    call o_hls (iwk,81, 25.,40., 40.)
+    call o_hls (iwk,82, 25.,50., 40.)
+    call o_hls (iwk,83, 25.,61., 40.)
+    call o_hls (iwk,84, 25.,72., 40.)
+
+    call o_hls (iwk,85, 60.,30., 40.)  ! low-sat violets
+    call o_hls (iwk,86, 60.,40., 40.)
+    call o_hls (iwk,87, 60.,50., 40.)
+    call o_hls (iwk,88, 60.,61., 40.)
+    call o_hls (iwk,89, 60.,72., 40.)
+
+    call o_hls (iwk,90,120.,30., 40.)  ! low-sat reds
+    call o_hls (iwk,91,120.,40., 40.)
+    call o_hls (iwk,92,120.,50., 40.)
+    call o_hls (iwk,93,120.,61., 40.)
+    call o_hls (iwk,94,120.,72., 40.)
+
+    call o_hls (iwk,95,150.,30., 40.)  ! browns
+    call o_hls (iwk,96,150.,40., 40.)
+    call o_hls (iwk,97,150.,50., 40.)
+    call o_hls (iwk,98,150.,61., 40.)
+    call o_hls (iwk,99,150.,72., 40.)
 
     call o_hls (iwk,100,  0.,75., 95.) ! blues
     call o_hls (iwk,101,  0.,57., 95.)
@@ -4005,7 +4032,7 @@ Contains
     call o_hls (iwk,152,290., 41., 75.)
     call o_hls (iwk,153,290., 55., 75.)
     call o_hls (iwk,154,290., 77., 75.)
-    
+
     call o_hls (iwk,155,350., 70., 75.)  ! Blue - at sea level
 
     call o_hls (iwk,156,270., 33., 75.)  ! Greens
@@ -4162,18 +4189,18 @@ Contains
 
 ! Extras - for precip (GPCP v22)
 
-    call o_hls (iwk,71,  0.,99.,  0.)  ! White
-    call o_hls (iwk,72,305.,90.,100.)  ! Light Blue
-    call o_hls (iwk,73,255.,80., 90.)  ! Light Green
-    call o_hls (iwk,74,265.,50., 65.)  ! Green
-    call o_hls (iwk,75,180.,50.,100.)  ! Yellow
-    call o_hls (iwk,76,150.,50.,100.)  ! Orange
-    call o_hls (iwk,77,100.,80.,100.)  ! Darkish Pink
-    call o_hls (iwk,78,120.,50.,100.)  ! Red
-    call o_hls (iwk,79, 60.,80., 90.)  ! Light violet
-    call o_hls (iwk,80, 40.,42., 95.)  ! Violet
-    call o_hls (iwk,81,140.,30.,100.)  ! Reddish brown
-    call o_hls (iwk,82,  0., 0.,  0.)  ! Black
+!    call o_hls (iwk,71,  0.,99.,  0.)  ! White
+!    call o_hls (iwk,72,305.,90.,100.)  ! Light Blue
+!    call o_hls (iwk,73,255.,80., 90.)  ! Light Green
+!    call o_hls (iwk,74,265.,50., 65.)  ! Green
+!    call o_hls (iwk,75,180.,50.,100.)  ! Yellow
+!    call o_hls (iwk,76,150.,50.,100.)  ! Orange
+!    call o_hls (iwk,77,100.,80.,100.)  ! Darkish Pink
+!    call o_hls (iwk,78,120.,50.,100.)  ! Red
+!    call o_hls (iwk,79, 60.,80., 90.)  ! Light violet
+!    call o_hls (iwk,80, 40.,42., 95.)  ! Violet
+!    call o_hls (iwk,81,140.,30.,100.)  ! Reddish brown
+!    call o_hls (iwk,82,  0., 0.,  0.)  ! Black
 
 ! NCAR
 
@@ -4331,7 +4358,7 @@ Contains
 
        if (ninc_max < 0) then ! No positive colors; no white space
 
-          nnegc = min(16,ninc_max - ninc_min + 2)
+          nnegc = min(40,ninc_max - ninc_min + 2)
 
           do ival = 1, nnegc
              clrtab(ictab)%vals(ival) = real(ninc_max - nnegc + ival + 1) * cinc
@@ -4351,7 +4378,7 @@ Contains
 
        elseif (zerohalfwid < 0.001) then ! No white space
 
-          nnegc = min(16,-ninc_min + 1)
+          nnegc = min(40,-ninc_min + 1)
           nposc = min(46,ninc_max + 1)
 
           do ival = 1, nnegc + nposc
@@ -4363,7 +4390,7 @@ Contains
        else                              ! Use white space
 
           if (zerohalfwid > 0.9) then    ! White space occupies full range of (-cinc,0)
-             nnegc = min(16,-ninc_min)
+             nnegc = min(40,-ninc_min)
              do ival = 1, nnegc
                 clrtab(ictab)%vals(ival) = real(ival - nnegc - 1) * cinc
                 clrtab(ictab)%ipal(ival) = 99 - nnegc + ival
@@ -4383,7 +4410,7 @@ Contains
              if (ninc_min == 0) then
                 nnegc = 0
              else
-                nnegc = min(16,-ninc_min + 1)
+                nnegc = min(40,-ninc_min + 1)
                 do ival = 1, nnegc
                    clrtab(ictab)%vals(ival) = real(ival - nnegc) * cinc
                    clrtab(ictab)%ipal(ival) = 99 - nnegc + ival
@@ -4455,7 +4482,7 @@ Contains
 
        if (cmax < 2.0 * cinc) then ! No positive range
           nposc = 0
-          nnegc = min(16,indcmin - indcinc + 1)
+          nnegc = min(40,indcmin - indcinc + 1)
 
           do ival = 1, nnegc
              clrtab(ictab)%vals(ival) = -contlog(indcinc + nnegc - ival)
@@ -4476,7 +4503,7 @@ Contains
           clrtab(ictab)%nvals = nposc
        else ! Both negative and positive range
           nposc = min(46,indcmax - indcinc + 2)
-          nnegc = min(16,indcmin - indcinc + 1)
+          nnegc = min(40,indcmin - indcinc + 1)
 
           do ival = 1, nnegc
              clrtab(ictab)%vals(ival) = -contlog(indcinc + nnegc - ival)

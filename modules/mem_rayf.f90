@@ -1,36 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University;
-   ! Colorado State University Research Foundation ; ATMET, LLC
-
-   ! This software is free software; you can redistribute it and/or modify it
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version.
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
-
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
-   ! (http://www.gnu.org/licenses/gpl.html)
-   !----------------------------------------------------------------------------
-
-!===============================================================================
-
 Module mem_rayf
 
   implicit none
@@ -58,6 +25,8 @@ Module mem_rayf
   real, allocatable :: rayf_cofdiv(:)
   real, allocatable :: rayf_cofmix(:)
 
+  real, allocatable :: vc03d(:,:)
+
   integer :: krayf_bot
   integer :: krayfw_bot
   integer :: krayfdiv_bot
@@ -75,15 +44,16 @@ Contains
 ! Initialize Rayleigh friction vertical profile coefficients
 
     use misc_coms,  only: dtsm, initial
-    use mem_grid,   only: mza, zm, zt
+    use mem_grid,   only: mza, mva, lpv, zm, zt
     use oname_coms, only: nl
+    use mem_basic,  only: vc
 
     implicit none
 
-    integer :: k
+    integer :: k, iv
     real    :: distimi, distim0, dti
 
-    dti = 1.0 / real(dtsm(1))
+    dti = 1.0 / real(dtsm)
 
     allocate( rayf_cof   (mza) )
     allocate( rayf_cofw  (mza) )
@@ -195,6 +165,19 @@ Contains
 
        endif
     endif
+
+! For horizontally homogeneous run using Rayleigh friction, allocate and fill
+! vc03d with initial horiz velocity that the model will relax towards
+
+    if (dorayf) then
+        allocate( vc03d(mza,mva) ) ; vc03d = 0.
+
+        do iv = 2, mva
+           do k = lpv(iv), mza
+              vc03d(k,iv) = vc(k,iv)
+           enddo
+        enddo
+     endif
 
   end subroutine rayf_init
 

@@ -8,7 +8,7 @@
 // #define OLD_MODE
 
 int ftime2(unsigned char **sec, char *inv_out, int mode);
-int ftime2_tr(unsigned char **sec, char *inv_out, unsigned char *verf_time, int fcst_time, int fcst_unit, int n, 
+int ftime2_tr(unsigned char **sec, char *inv_out, unsigned char *verf_time, int fcst_time, int fcst_unit, int n,
 	int mode, int *prt_missing);
 static void print_ftime2 (int unit1, int value1, int unit2, int value2, int format, char *inv_out);
 
@@ -95,7 +95,7 @@ int ftime2(unsigned char **sec, char *inv_out, int mode) {
  *   recursive
  */
 
-int ftime2_tr(unsigned char **sec, char *inv_out, unsigned char *verf_time, int fcst_time, int fcst_unit, int n, 
+int ftime2_tr(unsigned char **sec, char *inv_out, unsigned char *verf_time, int fcst_time, int fcst_unit, int n,
 	int mode, int *prt_missing) {
     int n_max, i, code_4_10, code_4_11, code_4_4a, code_4_4b, timea, timeb;
     int tmp_value, tmp_unit;
@@ -123,7 +123,7 @@ int ftime2_tr(unsigned char **sec, char *inv_out, unsigned char *verf_time, int 
 
     if (mode == 99) fprintf(stderr,">> 4.10=%d 4.11=%d 4.4a=%d timea=%d 4.4b=%d timeb=%d\n", code_4_10, code_4_11, code_4_4a,
         timea, code_4_4b, timeb);
-     
+
         // code table 4.11
         //
         // 1:        (..)                       ref_time++
@@ -154,14 +154,14 @@ int ftime2_tr(unsigned char **sec, char *inv_out, unsigned char *verf_time, int 
 	    }
 	    inv_out += strlen(inv_out);
 	    return 0;
-	}       
+	}
 	if (code_4_11 == 1) {
 	    inv_out += strlen(inv_out);
 	    if (code_4_4a == code_4_4b) {
 		sprintf(inv_out,"%d@%d %s %s", timea/timeb+1,timeb,time_range2a(code_4_4b), code_4_10_name(code_4_10));
 	    }
 	    else {
-		sprintf(inv_out,"%d %ss@%d %s %s", timea, time_range2a(code_4_4a), timeb, time_range2a(code_4_4b), 
+		sprintf(inv_out,"%d %ss@%d %s %s", timea, time_range2a(code_4_4a), timeb, time_range2a(code_4_4b),
                           code_4_10_name(code_4_10));
 	    }
 	    inv_out += strlen(inv_out);
@@ -228,7 +228,7 @@ int ftime2_tr(unsigned char **sec, char *inv_out, unsigned char *verf_time, int 
 	    sprintf(inv_out,"ensemble %s-3 valid %d %s", code_4_10_name(code_4_10), fcst_time, time_range2a(fcst_unit));
 	    return 0;
 	}
-	    
+	
 	//  ensemble acc-4 valid 174 hour
         if (code_4_11 == 4) {
 	    sprintf(inv_out,"ensemble %s-4 valid %d %s", code_4_10_name(code_4_10), fcst_time, time_range2a(fcst_unit));
@@ -292,7 +292,7 @@ int ftime2_tr(unsigned char **sec, char *inv_out, unsigned char *verf_time, int 
 	    else sprintf(inv_out,"%d@%d %s %s%s",i,timeb,time_range2a(code_4_4b), code_4_10_name(code_4_10),left);
         }
 	else {
-	    sprintf(inv_out,"%d %ss@%d %s %s%s", timea, time_range2a(code_4_4a), timeb, time_range2a(code_4_4b), 
+	    sprintf(inv_out,"%d %ss@%d %s %s%s", timea, time_range2a(code_4_4a), timeb, time_range2a(code_4_4b),
                           code_4_10_name(code_4_10),left);
 	}
 	inv_out += strlen(inv_out);
@@ -333,7 +333,7 @@ int ftime2_tr(unsigned char **sec, char *inv_out, unsigned char *verf_time, int 
         N:M time_range                                  ex.  0:3 hour
         N time_range1:(N time_range1+M time_range2)     ex 2 hour:(4 day+2 hour)
 */
-   
+
 static void print_ftime2 (int unit1, int value1, int unit2, int value2, int format, char *inv_out) {
 
     int dash_colon;

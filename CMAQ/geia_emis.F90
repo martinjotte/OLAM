@@ -70,7 +70,7 @@ subroutine geia_init()
 
      call shdf5_close()
   endif
-        
+
 #ifdef OLAM_MPI
   if (iparallel == 1) then
      call MPI_Bcast(buffer, nlon*nlat*2, MPI_REAL, 0, MPI_COMM_WORLD, ier)
@@ -79,7 +79,7 @@ subroutine geia_init()
 
   gdatdx = 1.0
   gdatdy = 1.0
-  
+
   xswlat =  -89.5
   xswlon = -179.5
 
@@ -92,13 +92,13 @@ subroutine geia_init()
   ! Fill emissions arrays by interpolation
 
   !$omp parallel do private(j,iw,gry,grx)
-  do j = 1, jtab_w(jtw_prog)%jend(1)
+  do j = 1, jtab_w(jtw_prog)%jend
      iw = jtab_w(jtw_prog)%iw(j)
-  
-     ! fractional x/y indices in data arrays at current iw point location 
- 
+
+     ! fractional x/y indices in data arrays at current iw point location
+
      gry = (glatw(iw) - xswlat) / gdatdy + 3.
-     grx = (glonw(iw) - xswlon) / gdatdx + 1. + real(ipoffset) 
+     grx = (glonw(iw) - xswlon) / gdatdx + 1. + real(ipoffset)
 
      call gdtost( cl, nio, njo, grx, gry,  cl_emis(iw))
      call gdtost(hcl, nio, njo, grx, gry, hcl_emis(iw))

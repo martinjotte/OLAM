@@ -42,7 +42,7 @@ subroutine phot_albedo(iw, coszens, currhr_lst, julian_day, jyfreq, &
    real    :: albedo_snow_dir(nwl)
    real    :: albedo_snow_dif(nwl)
 
-                                      
+
 !     CMAQ albedo category             LEAF category
 !----------------------------------------------------------------
 !   1 EVERGREEN NEEDLE FOREST           0  Ocean

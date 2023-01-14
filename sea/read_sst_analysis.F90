@@ -1,9 +1,9 @@
 subroutine read_sst_analysis(iaction)
 
   use mem_sea,    only: sea, msea, omsea
-  use mem_sfcg,   only: sfcg, itab_wsfc
+  use mem_sfcg,   only: sfcg
   use sea_coms,   only: isstfile, isstflg
-  use misc_coms,  only: io6, s1900_sim, s1900_init, iparallel, isubdomain
+  use misc_coms,  only: io6, s1900_sim, iparallel
   use max_dims,   only: pathlen
   use isan_coms,  only: nfgfiles, s1900_fg, fnames_fg, nprx, npry, glat, &
                         inproj, xswlat, xswlon, gdatdx, gdatdy, ipoffset
@@ -75,7 +75,7 @@ subroutine read_sst_analysis(iaction)
         stop 'stop: no future analysis file for sst/seaice file'
      endif
 
-     sea%seatp(:) = sea%seatf(:)   
+     sea%seatp(:) = sea%seatf(:)
 
   endif
 
@@ -343,9 +343,6 @@ subroutine read_sst_analysis(iaction)
   do isea = 2, msea
      iwsfc = isea + omsea
 
-     ! Skip this cell if running in parallel and cell rank is not MYRANK
-     ! if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
-
 ! fractional x/y indices in pressure data arrays at current iw point location
 
      if (inproj == 1) then
@@ -372,7 +369,7 @@ subroutine read_sst_analysis(iaction)
         endif
 
         gry = (sfcg%glatw(iwsfc) - plat(ilat)) / (plat(ilat+1) - plat(ilat)) + real(ilat)
-        grx = (sfcg%glonw(iwsfc) - xswlon) / gdatdx + 1. + real(ipoffset) 
+        grx = (sfcg%glonw(iwsfc) - xswlon) / gdatdx + 1. + real(ipoffset)
 
      endif
 

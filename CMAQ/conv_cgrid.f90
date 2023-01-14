@@ -101,7 +101,7 @@ contains
   end subroutine setup_conv
 
 
-  subroutine conv_cgrid ( mrl )
+  subroutine conv_cgrid ( )
 
     !-----------------------------------------------------------------------
     ! Function:
@@ -121,8 +121,6 @@ contains
 
     implicit none
 
-    integer, intent(in) :: mrl
-
     integer :: iw, k, n, v, j
     real    :: fac
     real    :: rhoi(mza)
@@ -136,7 +134,7 @@ contains
 
     !$omp parallel private(rhoi)
     !$omp do private(iw,k,v,n,fac)
-    do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+    do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
        do k = lpw(iw), mza
           rhoi(k) = 1.0 / real(rho(k,iw))
@@ -187,7 +185,7 @@ contains
   end subroutine conv_cgrid
 
 
-  subroutine rev_cgrid ( mrl )
+  subroutine rev_cgrid ( )
 
     !-----------------------------------------------------------------------
     ! Function:
@@ -207,8 +205,6 @@ contains
 
     implicit none
 
-    integer, intent(in) :: mrl
-
     integer :: iw, k, n, v, j
     real    :: fac
     real    :: rho4(mza)
@@ -222,7 +218,7 @@ contains
 
     !$omp parallel private(rho4)
     !$omp do private(iw,k,v,n,fac)
-    do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+    do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
        do k = lpw(iw), mza
           rho4(k) = rho(k,iw)

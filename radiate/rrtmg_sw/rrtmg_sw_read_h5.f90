@@ -266,7 +266,7 @@ subroutine sw_kgb28_h5
   implicit none
 
   integer(kind=im), parameter :: bandNumber = 13
-  integer(kind=im), parameter :: numGPoints = no28  
+  integer(kind=im), parameter :: numGPoints = no28
   integer(kind=im), parameter :: gPointSetNumber = 1
 
   call shdf5_irec(2, (/numGPoints,keyupper/),              'sfluxrefo28', rvar2=sfluxrefo)

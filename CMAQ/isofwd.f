@@ -1715,7 +1715,7 @@ C
       REAL(8) :: X1, Y1, X2, Y2, X3, Y3, A650, A4M0, A60
       REAL(8) :: CHI1, CHI2, CHI4, CHI5, CHI6, CHI7, CHI8, CHI9
       REAL    :: DELTA, DYM, WATER0, MOLALR(21)
-      INTEGER :: I, j
+      INTEGER :: I
 C
 C *** SETUP PARAMETERS ************************************************
 C

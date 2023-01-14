@@ -5,4 +5,4 @@
 
       setup_logdev = io6
 
-      end function setup_logdev 
+      end function setup_logdev

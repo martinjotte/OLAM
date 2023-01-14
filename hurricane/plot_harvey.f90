@@ -1,35 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 subroutine plot_harvey(iplt)
 
   use mem_basic,   only: press
@@ -65,8 +33,8 @@ subroutine plot_harvey(iplt)
 
   real, save, dimension(100) :: lonsim1,latsim1,lonsim2,latsim2
   real, save, dimension(100) :: xobs,yobs,xsim1,ysim1,xsim2,ysim2
- 
-    RETURN  ! Do this return for main 2-day run or normal plotonly run, 
+
+    RETURN  ! Do this return for main 2-day run or normal plotonly run,
             ! and comment out this return when doing spaghetti plots
 
   ! if (iplt > 1) return
@@ -91,7 +59,7 @@ subroutine plot_harvey(iplt)
 
      open(32,file='aug24_12z.dat2_olamA',status='old',form='formatted')
      do iline = 1,462  ! Number of lines in file
-                                                              
+
         read(32,'(a2,2x,i2,2x,i10,2x,i2,2x,a4,2x,i3,2x,i3,3x,i4,3x,i3,2x,i4)') &
            basin, cyclone_num, yymmddhh, technum, modelid, tau, idlat, idlon, vmax, mslp
 
@@ -140,7 +108,7 @@ subroutine plot_harvey(iplt)
      lonsim1( 0) =  -93.10 ; latsim1( 0) =  23.70 ! observed; use this
   !  lonsim1( 0) =  -92.96 ; latsim1( 0) =  23.93 ! based on CFSR; do not use
      lonsim1( 1) =  -93.80 ; latsim1( 1) =  24.27
-     lonsim1( 2) =  -94.44 ; latsim1( 2) =  24.79 
+     lonsim1( 2) =  -94.44 ; latsim1( 2) =  24.79
      lonsim1( 3) =  -95.38 ; latsim1( 3) =  25.65
      lonsim1( 4) =  -96.20 ; latsim1( 4) =  26.25
      lonsim1( 5) =  -96.94 ; latsim1( 5) =  27.04
@@ -148,8 +116,8 @@ subroutine plot_harvey(iplt)
      lonsim1( 7) =  -98.26 ; latsim1( 7) =  27.82
      lonsim1( 8) =  -98.74 ; latsim1( 8) =  28.18
      lonsim1( 9) =  -99.42 ; latsim1( 9) =  28.40
-     lonsim1(10) = -100.23 ; latsim1(10) =  28.50 
-     lonsim1(11) = -100.76 ; latsim1(11) =  28.34 
+     lonsim1(10) = -100.23 ; latsim1(10) =  28.50
+     lonsim1(11) = -100.76 ; latsim1(11) =  28.34
      lonsim1(12) = -101.55 ; latsim1(12) =  28.33
      lonsim1(13) = -102.27 ; latsim1(13) =  28.08
      lonsim1(14) =  0.; latsim1(14) =   0.
@@ -168,11 +136,11 @@ subroutine plot_harvey(iplt)
      lonsim2( 1) =  -93.76 ; latsim2( 1) =  24.28
      lonsim2( 2) =  -94.42 ; latsim2( 2) =  24.81
      lonsim2( 3) =  -95.48 ; latsim2( 3) =  25.72
-     lonsim2( 4) =  -96.29 ; latsim2( 4) =  26.26 
+     lonsim2( 4) =  -96.29 ; latsim2( 4) =  26.26
      lonsim2( 5) =  -96.91 ; latsim2( 5) =  27.03
-     lonsim2( 6) =  -97.57 ; latsim2( 6) =  27.47 
-     lonsim2( 7) =  -98.24 ; latsim2( 7) =  27.85 
-     lonsim2( 8) =  -98.86 ; latsim2( 8) =  28.13 
+     lonsim2( 6) =  -97.57 ; latsim2( 6) =  27.47
+     lonsim2( 7) =  -98.24 ; latsim2( 7) =  27.85
+     lonsim2( 8) =  -98.86 ; latsim2( 8) =  28.13
      lonsim2( 9) =  -99.34 ; latsim2( 9) =  28.30
      lonsim2(10) =  0.; latsim2(10) =   0.
      lonsim2(11) =  0.; latsim2(11) =   0.

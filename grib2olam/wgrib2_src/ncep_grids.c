@@ -69,19 +69,19 @@ void ncep_grids(const char **arg1, const char **arg2, const char **arg3) {
 		*arg3="90:73:-2.5";
 		break;
 
-	    case 3: 
+	    case 3:
 		*arg1="latlon";
 		*arg2="0:360:1";
 		*arg3="90:181:-1";
 		break;
 
-	    case 4: 
+	    case 4:
 		*arg1="latlon";
 		*arg2="0:720:0.5";
 		*arg3="90:361:-0.5";
 		break;
 
-	    case 45: 
+	    case 45:
 		*arg1="latlon";
 		*arg2="0:288:1.25";
 		*arg3="90:145:-1.25";

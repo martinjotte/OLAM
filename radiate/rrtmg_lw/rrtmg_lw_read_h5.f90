@@ -297,7 +297,7 @@ subroutine lw_kgb13_h5
   implicit none
 
   integer(kind=im), parameter :: bandNumber = 13
-  integer(kind=im), parameter :: numGPoints = no13  
+  integer(kind=im), parameter :: numGPoints = no13
   integer(kind=im), parameter :: gPointSetNumber = 1
 
   call shdf5_irec(2, (/numGPoints,keylower/),              'fracrefao13', rvar2=fracrefao)

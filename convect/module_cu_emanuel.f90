@@ -191,7 +191,7 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
 !            the first value of the array P.
 !
 !     ND:  The dimension of the arrays T, Q, QS, P, PH, FT and FQ
-! 
+!
 !     NL:  The maximum number of levels to which convection can
 !            penetrate, plus 1.
 !            NL MUST be less than or equal to ND-1.
@@ -201,14 +201,14 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
 !
 !     NTRA:The number of different tracers. If no tracer transport
 !            is needed, set this equal to 1. (On most compilers, setting
-!            NTRA to 0 will bypass tracer calculation, saving some CPU.)  
+!            NTRA to 0 will bypass tracer calculation, saving some CPU.)
 !
 !     DELT: The model time step (sec) between calls to CONVECT
 !
 ! -- sb: interface with the cloud parameterization:
 !
-!     QCONDC: mixing ratio of condensed water within clouds (kg/kg) 
-!               For use in the Bony-Emanuel cloud parameterization 
+!     QCONDC: mixing ratio of condensed water within clouds (kg/kg)
+!               For use in the Bony-Emanuel cloud parameterization
 ! sb --
 !----------------------------------------------------------------------------
 !    ***   On Output:         ***
@@ -290,8 +290,8 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
        qsm, qstm, qti, rat, revap, rh, scrit, siga, sigt, sjmax, sjmin, smid, &
        smin, stemp, tca, tvaplcl, tvpplcl, wdtrain
 
-  integer :: i, ihmin, inb1, j, jtt, k
-
+  integer :: i, ihmin, j, jtt, k
+! integer :: inb1
   integer ::  nent(mza)
   real    ::  uent(mza,mza), vent(mza,mza) !, traent(mza,mza,ntra), tratm(mza)
   real    ::  up(mza), vp(mza) !, trap(mza,ntra)
@@ -347,7 +347,7 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
 !   ***   (THEIR STANDARD VALUES ARE  0.20 AND 0.1, RESPECTIVELY)    ***
 !   ***                   (DAMP MUST BE LESS THAN 1)                 ***
 
-  real, parameter :: &  
+  real, parameter :: &
        ELCRIT=.0011, &
        TLCRIT=-55.0, &
        ENTP=1.0,     & ! 1.5
@@ -369,7 +369,7 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
 !   ***             THESE SHOULD BE CONSISTENT WITH             ***
 !   ***              THOSE USED IN CALLING PROGRAM              ***
 !   ***     NOTE: THESE ARE ALSO SPECIFIED IN SUBROUTINE TLIFT  ***
-  
+
   real, parameter :: &
        CPD=1005.7,   &
        CPV=1870.0,   &
@@ -483,7 +483,7 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
            endif
         enddo
         IF (ICB >= NL-1) cycle
-        
+
         call tlift(p,t,q,qs,gz,icb,i,tvp,tp,clw,nd,nl,1)
         deltv = tvp(icb) - tp(icb)*q(i) - tv(icb)
 
@@ -559,7 +559,7 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
            exit
         endif
      enddo
-     
+
      if (i >= nk) then
         iflag = 0
         cbmf  = 0.0
@@ -636,7 +636,7 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
 !        TRAP(I,J)=TRA(I-1,J)
 !     ENDDO
   ENDDO
-  
+
 !  ***  FIND THE FIRST MODEL LEVEL (INB1) ABOVE THE PARCEL'S      ***
 !  ***          HIGHEST LEVEL OF NEUTRAL BUOYANCY                 ***
 !  ***     AND THE HIGHEST LEVEL OF POSITIVE CAPE (INB)           ***
@@ -663,7 +663,7 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
   FRAC=-CAPE/DEFRAC
 ! FRAC=MIN(FRAC,1.0)
   FRAC=MAX(FRAC,0.0)
-  
+
   if (frac >= 1.0) then
      inb  = inb - 1
      frac = 00
@@ -705,9 +705,9 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
 ! CBMFOLD=CBMF
 ! DELT0=300.0
 ! DELT0=600.0
-! DAMPS=DAMP*DELT/DELT0 
-! CBMF=(1.-DAMPS)*CBMF+0.1*ALPHA*DTMA 
-  CBMF = (1.-DAMP)*CBMF + 0.1*ALPHA*DTMA 
+! DAMPS=DAMP*DELT/DELT0
+! CBMF=(1.-DAMPS)*CBMF+0.1*ALPHA*DTMA
+  CBMF = (1.-DAMP)*CBMF + 0.1*ALPHA*DTMA
   CBMF=MAX(CBMF,0.0)
   CBMF=MIN(CBMF,xmbmax)
 !
@@ -1139,7 +1139,7 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
 !  DO K=1,NTRA
 !     FTRAOLD=FTRA(INB,K)
 !     FTRA(INB,K)=FTRA(INB,K)*(1.-FRAC)
-!     FTRA(INB-1,K)=FTRA(INB-1,K)+FRAC*FTRAOLD*(PH(INB)-PH(INB+1)) / & 
+!     FTRA(INB-1,K)=FTRA(INB-1,K)+FRAC*FTRAOLD*(PH(INB)-PH(INB+1)) / &
 !          (PH(INB-1)-PH(INB))
 !  END DO
 
@@ -1214,8 +1214,8 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
 
   do i=icb,inb
      siga = ma(i) / ( rho(i) * wa(i) * delta )
-     SIGA = MIN(SIGA,0.9) 
-     SIGA = MAX(SIGA,0.1) 
+     SIGA = MIN(SIGA,0.9)
+     SIGA = MAX(SIGA,0.1)
      QCONDC(I) = SIGA * CLW(I)*(1.-EP(I)) + (1.-SIGA) * QCOND(I)
   ENDDO
 
@@ -1272,7 +1272,7 @@ SUBROUTINE TLIFT(P,T,Q,QS,GZ,ICB,NK,TVP,TPK,CLW,ND,NL,KK)
 
   NST=ICB
   NSB=ICB
-  IF(KK.EQ.2)THEN  
+  IF(KK.EQ.2)THEN
      NST=NL
      NSB=ICB+1
   END IF
@@ -1288,9 +1288,9 @@ SUBROUTINE TLIFT(P,T,Q,QS,GZ,ICB,NK,TVP,TPK,CLW,ND,NL,KK)
         TG=MAX(TG,35.0)
         TC=TG-273.15
         DENOM=243.5+TC
-        IF(TC.GE.0.0)THEN  
+        IF(TC.GE.0.0)THEN
            ES=6.112*EXP(17.67*TC/DENOM)
-        ELSE  
+        ELSE
            ES=EXP(23.33086-6111.72784/TG+0.15215*LOG(TG))
         END IF
         QG=EPS*ES/(P(I)-ES*(1.-EPS))

@@ -1,34 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
 subroutine init_sfcgrid()
 
   use misc_coms, only: iparallel
@@ -62,7 +31,7 @@ subroutine para_init_sfc()
   use max_dims,     only: maxremote
   use mem_land,     only: mland, omland, onland, itab_land, nzg
   use mem_lake,     only: mlake, omlake, onlake, itab_lake
-  use mem_sea,      only: msea, omsea, onsea, itab_sea
+  use mem_sea,      only: sea, msea, omsea, onsea, itab_sea
   use pom2k1d,      only: alloc_pomgrid
   use leaf_coms,    only: nzs
 
@@ -240,6 +209,9 @@ subroutine para_init_sfc()
   allocate (itab_lake(mlake))
   allocate (itab_sea (msea ))
 
+  allocate (sfcg%dzt_bot(mwsfc))  ; sfcg%dzt_bot = 0.
+  allocate (sea%pom_active(msea)) ; sea%pom_active = .false.
+
   call alloc_pomgrid(msea)
 
   ! Reset myrank point counters to 1
@@ -303,6 +275,7 @@ subroutine para_init_sfc()
   ! all points in domain if run is sequential)
 
   call sfcgfile_read()
+  call gridfile_read_sfc()
 
   ! Copy and convert global itab_msfc_pd index information to local rank itab_msfc
 
@@ -877,7 +850,7 @@ subroutine serial_init_sfc()
                           alloc_sfcgrid1, sfcg
   use mem_land,     only: mland, nland, itab_land
   use mem_lake,     only: mlake, nlake, itab_lake
-  use mem_sea,      only: msea, nsea, itab_sea
+  use mem_sea,      only: sea, msea, nsea, itab_sea
   use pom2k1d,      only: alloc_pomgrid
 
   implicit none
@@ -892,6 +865,9 @@ subroutine serial_init_sfc()
   allocate (itab_land(mland))
   allocate (itab_lake(mlake))
   allocate (itab_sea (msea ))
+
+  allocate (sfcg%dzt_bot(mwsfc))  ; sfcg%dzt_bot = 0.
+  allocate (sea%pom_active(msea)) ; sea%pom_active = .false.
 
   call alloc_pomgrid(msea)
 
@@ -932,6 +908,7 @@ subroutine serial_init_sfc()
   ! all points in domain if run is sequential)
 
   call sfcgfile_read()
+  call gridfile_read_sfc()
 
   ! Copy global itab_msfc_pd index information to itab_msfc
 

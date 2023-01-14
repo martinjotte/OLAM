@@ -36,7 +36,7 @@ C                        to open the diagnostic file. Eliminate the BARRIER
 C                        and the CLOSE3 and OPEN3.
 C   21 Jun 2010 J.Young: convert for Namelist redesign
 C   27 Jan 2011 J.Young: remove references to AERO3 and AERO4
-C   20 Jan 2011 J. Bash: Passed the component fluxes and tstep between vdiff 
+C   20 Jan 2011 J. Bash: Passed the component fluxes and tstep between vdiff
 C                        & m3dry
 C   16 Feb 2011 S.Roselle: replaced I/O API include files with UTILIO_DEFN
 C    5 May 2011 J.Young: remove writing diagnostic output for initial call
@@ -158,7 +158,7 @@ C Parameters:
          REAL, PARAMETER :: M2PHA = 1.0E+04        ! 1 hectare = 1.0e4 m**2
          REAL, PARAMETER :: CMLMR = 1.0E+06        ! ppmV/Molar Mixing Ratio
          REAL, PARAMETER :: CNVTD = M2PHA / CMLMR / MWAIR ! combined ddep conv factor
- 
+
 C Local variables:
          CHARACTER( 16 ), ALLOCATABLE :: ALL_GAS_DEPV( : )
 !        LOGICAL, ALLOCATABLE         :: AE_DEPV_FOUND( : )
@@ -400,7 +400,7 @@ C DEPVEL_GAS is used also for non-ILDEPV in the sgtot calculation
 
 !a            IF ( ILDEPV ) THEN
 !a               ALLOCATE ( CGRIDL1( N_GAS_DEPV,NCOLS,NROWS ),
-!a     &                    PVD    ( N_GAS_DEPV,NCOLS,NROWS ), 
+!a     &                    PVD    ( N_GAS_DEPV,NCOLS,NROWS ),
 !a     &                    CMP    ( LCMP,NCOLS,NROWS),STAT = ALLOCSTAT )
 
 !a            ALLOCATE ( pvd_land( mlandflux, N_GAS_DEPV ), stat = allocstat )
@@ -496,7 +496,7 @@ C DEPVEL_GAS is used also for non-ILDEPV in the sgtot calculation
 
 !-----------------------------------------------------------------------
 
-         subroutine get_depv( mrl )
+         subroutine get_depv( )
 
          use mem_ijtabs, only: jtab_w, jtw_prog
          use mem_grid,   only: lsw
@@ -504,13 +504,12 @@ C DEPVEL_GAS is used also for non-ILDEPV in the sgtot calculation
 
          implicit none
 
-         integer, intent(in) :: mrl
          integer             :: j, iw
 
          if (n_spc_depv < 1 .or. nl%do_drydep == 0) return
 
          !$omp parallel do private(j,iw)
-         do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+         do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
             call get_depv1(iw, lsw(iw))
          enddo
          !$omp end parallel do
@@ -526,9 +525,9 @@ C DEPVEL_GAS is used also for non-ILDEPV in the sgtot calculation
          USE CONST_DATA
          use cgrid_defn, only: cgrid
          use misc_coms,  only: dtlm
-         use mem_grid,   only: lpw, volt, arw0, arw, zfacim2, zfacm2
+         use mem_grid,   only: lpw, volt, arw0
          use mem_basic,  only: rho
-         use mem_turb,   only: frac_sfc, frac_sfck
+         use mem_turb,   only: frac_sfc
          use cgrid_defn, only: cgrid, sxfer_gc, sxfer_nr, sxfer_ae
 
          IMPLICIT NONE
@@ -550,7 +549,7 @@ C DEPVEL_GAS is used also for non-ILDEPV in the sgtot calculation
          do ks = 1, nsfc
             kw = lpw(iw) + ks - 1
 
-            fact1(ks) = real(rho(kw,iw) * dtlm(1)) * frac_sfc(ks,iw) * arw0(iw)
+            fact1(ks) = real(rho(kw,iw) * dtlm) * frac_sfc(ks,iw) * arw0(iw)
             fact2(ks) = 0.95 * real(volt(kw,iw) * rho(kw,iw))
          enddo
 

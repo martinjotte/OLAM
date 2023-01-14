@@ -1,36 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
-
 subroutine coneplot_tri(iplt,iw,xe1,ye1,ze1,xe2,ye2,ze2,xe3,ye3,ze3, &
                         wta1,wta2,wta3,wtb1,wtb2,wtb3,iok,htpn)
 
@@ -38,11 +5,9 @@ subroutine coneplot_tri(iplt,iw,xe1,ye1,ze1,xe2,ye2,ze2,xe3,ye3,ze3, &
 ! surface triangle, and if it does, also obtains horizontal coordinates of both
 ! intersection points
 
-use oplot_coms,  only: op, xepc, yepc, zepc
-use mem_grid,    only: xem, yem, zem, xev, yev, zev, xew, yew, zew
-use mem_ijtabs,  only: itab_w
+use oplot_coms,  only: op
 use consts_coms, only: pio180, erad, eradi, piu180, pi2
-use misc_coms,   only: io6, mdomain
+use misc_coms,   only: mdomain
 
 implicit none
 
@@ -85,7 +50,7 @@ if (mdomain >= 2) then
 
 else
 
-! cone is viewed from INSIDE, so cone axis is in opposite direction from viewazim 
+! cone is viewed from INSIDE, so cone axis is in opposite direction from viewazim
 
    sinvaz = -sin(op%viewazim * pio180)
    cosvaz = -cos(op%viewazim * pio180)
@@ -128,9 +93,9 @@ else
 
 ! Intersection of cone and earth is a circle - find earth coords of circle center
 
-   xcent = unxec3 * erad * cosconang 
-   ycent = unyec3 * erad * cosconang 
-   zcent = unzec3 * erad * cosconang 
+   xcent = unxec3 * erad * cosconang
+   ycent = unyec3 * erad * cosconang
+   zcent = unzec3 * erad * cosconang
 
 ! Cone radius
 
@@ -140,11 +105,11 @@ else
 
    zwincent = erad * sinplat
    raxis = erad * cosplat
-   xwincent = raxis * cos(op%plon3 * pio180) 
-   ywincent = raxis * sin(op%plon3 * pio180) 
+   xwincent = raxis * cos(op%plon3 * pio180)
+   ywincent = raxis * sin(op%plon3 * pio180)
 
-! Compute angle of triangle vertices with plot cone center using dot products 
-! (Adequate precision may require cross product for cone angles 
+! Compute angle of triangle vertices with plot cone center using dot products
+! (Adequate precision may require cross product for cone angles
 ! close to 0 or 180)
 
    s1 = piu180 * acos((xe1 * unxec3 + ye1 * unyec3 + ze1 * unzec3) * eradi)
@@ -387,7 +352,7 @@ else
 
 ! Scale angles to htpn coordinates (in meters along cone circle)
 
-   htpn(1) = angea * radcone 
+   htpn(1) = angea * radcone
    htpn(2) = angeb * radcone
 
 endif
@@ -406,7 +371,6 @@ use oplot_coms,  only: op, xepc, yepc, zepc
 use mem_grid,    only: xem, yem, zem, topm
 use mem_ijtabs,  only: itab_w
 use consts_coms, only: pio180, erad, piu180, pi2, pi1
-use misc_coms,   only: io6
 
 implicit none
 
@@ -428,10 +392,7 @@ real :: vecleftx,veclefty,vecleftz
 real :: valx,valy
 real :: angm(7),angm1,angm2
 real :: angmin,angmax
-real :: ang0
 real :: wt1,wt2
-real :: xrad1,yrad1,zrad1
-real :: xrad2,yrad2,zrad2
 real :: ange1,ange2
 real :: sinplat,cosplat
 real :: sinvaz,cosvaz
@@ -445,7 +406,7 @@ real :: topm1,topm2
 sinplat = sin(op%plat3 * pio180)
 cosplat = cos(op%plat3 * pio180)
 
-! cone is viewed from INSIDE, so cone axis is in opposite direction from viewazim 
+! cone is viewed from INSIDE, so cone axis is in opposite direction from viewazim
 
 sinvaz = -sin(op%viewazim * pio180)
 cosvaz = -cos(op%viewazim * pio180)
@@ -485,9 +446,9 @@ unzec3 = sinconlat
 
 ! Intersection of cone and earth is a circle - find earth coords of circle center
 
-xcent = unxec3 * erad * cosconang 
-ycent = unyec3 * erad * cosconang 
-zcent = unzec3 * erad * cosconang 
+xcent = unxec3 * erad * cosconang
+ycent = unyec3 * erad * cosconang
+zcent = unzec3 * erad * cosconang
 
 ! Cone radius
 
@@ -497,8 +458,8 @@ radcone = erad * sinconang
 
 zwincent = erad * sinplat
 raxis = erad * cosplat
-xwincent = raxis * cos(op%plon3 * pio180) 
-ywincent = raxis * sin(op%plon3 * pio180) 
+xwincent = raxis * cos(op%plon3 * pio180)
+ywincent = raxis * sin(op%plon3 * pio180)
 
 ! Initialize ANGMIN and ANGMAX
 
@@ -512,8 +473,8 @@ npoly = itab_w(iw)%npoly
 do j = 1,npoly
    im = itab_w(iw)%im(j)
 
-! Compute angle of M point with plot cone center using dot products 
-! (Adequate precision may require cross product for cone angles 
+! Compute angle of M point with plot cone center using dot products
+! (Adequate precision may require cross product for cone angles
 ! close to 0 or 180)
 
    angm(j) = piu180  &
@@ -549,13 +510,13 @@ do j = 1,npoly
    if (jm1 > npoly) jm1 = jm1 - npoly
    if (jm2 > npoly) jm2 = jm2 - npoly
    if (jm3 > npoly) jm3 = jm3 - npoly
-   
+
    im1 = itab_w(iw)%im(jm1)
    im2 = itab_w(iw)%im(jm2)
 
    jv = jm2
    iv  = itab_w(iw)%iv(jv)
-      
+
    xem1 = xem(im1)
    yem1 = yem(im1)
    zem1 = zem(im1)
@@ -563,10 +524,10 @@ do j = 1,npoly
    xem2 = xem(im2)
    yem2 = yem(im2)
    zem2 = zem(im2)
-   
+
    topm1 = topm(im1)
    topm2 = topm(im2)
-   
+
    angm1 = angm(jm1)
    angm2 = angm(jm2)
 
@@ -578,7 +539,7 @@ do j = 1,npoly
 
       if (angm1 == angm2) then
 
-! This interval is tangent to cone      
+! This interval is tangent to cone
 
          if (jm1 == 1 .or. jm2 == 1) then
 
@@ -617,7 +578,7 @@ do j = 1,npoly
          exit
 
       else
-         
+
 ! This interval touches cone at 1 point
 
          wt2 = (op%coneang - angm1) / (angm2 - angm1)
@@ -630,7 +591,7 @@ do j = 1,npoly
          iv2     = iv
 
       endif
-      
+
    elseif (angm1 > op%coneang .and. angm2 <= op%coneang) then
 
 ! This interval touches cone at 1 point
@@ -695,7 +656,7 @@ if (ange2 + pi1 < ange1) ange2 = ange2 + pi2
 
 ! Scale angles to htpn coordinates (in meters along cone circle)
 
-htpn(1) = ange1 * radcone 
+htpn(1) = ange1 * radcone
 htpn(2) = ange2 * radcone
 htpn(3) = htpn(2)
 htpn(4) = htpn(1)

@@ -61,8 +61,6 @@ C..SAVED LOCAL VARIABLES:
 C..SCRATCH LOCAL VARIABLES:
       REAL( 8 ) ::    O1D_S                 ! sum of O1D loss frequencies
       REAL( 8 ) ::    OH_S                  ! stoich coeff for OH from O1D+H2O or H2
-      REAL( 8 ) ::    HO2_S                 ! stoich coeff for HO2 from O1D+H2 rxn
-      REAL( 8 ) ::    XOH_S                 ! stoich coeff for OH & HONO from NO2EX loss rxn
       REAL( 8 ) ::    R4_19                 ! production of OH from HONO
       REAL( 8 ) ::    R19_4                 ! production of HONO from OH
       REAL( 8 ) ::    R4_5                  ! production of OH from HO2
@@ -73,10 +71,7 @@ C..SCRATCH LOCAL VARIABLES:
       REAL( 8 ) ::    L4, L5, L19, L21      ! species loss terms
 
       REAL( 8 ) ::    A, B, C               ! coeffs of quadratic eq. for HO2
-      REAL( 8 ) ::    Q                     ! intermediate term
-
       REAL( 8 ) ::    T1, T2, T3            ! intermediate terms
-
       REAL( 8 ) ::    L21_INV               ! reciprocal of HNO4 loss term
 
 C**********************************************************************

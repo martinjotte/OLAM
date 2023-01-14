@@ -15,22 +15,16 @@ subroutine cmaq_driver( )
 
   implicit none
 
-  integer :: mrl
-
 #ifdef CMAQ_TIMING
   real, external :: walltime
   real :: wtime_start,t1,w1,w2,t2
 #endif
 
-  mrl = mrl_endl(istp)
-
   ! Photolysis rates
 
   if (istp == 1) call phot( )
 
-  if (mrl > 0) then
-
-!  write(*,'(A,10g13.5)') " ", cgrid(6,535,91), cgrid(6,535,n_gc_spc+60), cgrid(6,535,n_gc_spc+59), cgrid(6,535,n_gc_spc+62)
+  if (mrl_endl(istp) > 0) then
 
   ! Cloud/aqueous processes
 
@@ -40,15 +34,9 @@ subroutine cmaq_driver( )
      call cpu_time(t1)
 #endif
 
-!     write(*,'(A,10g13.5)') "a", cgrid(6,535,91), cgrid(6,535,n_gc_spc+60), cgrid(6,535,n_gc_spc+47), cgrid(6,535,n_gc_spc+62), cgrid(6,535,num_str:num_end)
+     call grell_aq_driver( )
 
-     call grell_aq_driver( mrl )
-
-!     write(*,'(A,10g13.5)') "b", cgrid(6,535,91), cgrid(6,535,n_gc_spc+60), cgrid(6,535,n_gc_spc+47), cgrid(6,535,n_gc_spc+50), cgrid(6,535,num_str:num_end)
-
-     call rescld         ( mrl )
-
-!     write(*,'(A,10g13.5)') "c", cgrid(6,535,91), cgrid(6,535,n_gc_spc+60), cgrid(6,535,n_gc_spc+47), cgrid(6,535,n_gc_spc+50), cgrid(6,535,num_str:num_end)
+     call rescld         ( )
 
 #ifdef CMAQ_TIMING
      w2 = walltime(wtime_start)
@@ -58,9 +46,7 @@ subroutine cmaq_driver( )
 
   ! Convert aerosol species to densities
 
-     call rev_cgrid( mrl )
-
-!     write(*,'(A,10g13.5)') "d", cgrid(6,535,91), cgrid(6,535,n_gc_spc+48), cgrid(6,535,n_gc_spc+47), cgrid(6,535,n_gc_spc+50), cgrid(6,535,num_str:num_end)
+     call rev_cgrid( )
 
   ! Aerosol sedimentation
 
@@ -70,9 +56,7 @@ subroutine cmaq_driver( )
      call cpu_time(t1)
 #endif
 
-     call aero_sedi( mrl )
-
-!     write(*,'(A,10g13.5)') "e", cgrid(6,535,91), cgrid(6,535,n_gc_spc+48), cgrid(6,535,n_gc_spc+47), cgrid(6,535,n_gc_spc+50), cgrid(6,535,num_str:num_end)
+     call aero_sedi( )
 
 #ifdef CMAQ_TIMING
      w2 = walltime(wtime_start)
@@ -88,9 +72,7 @@ subroutine cmaq_driver( )
      call cpu_time(t1)
 #endif
 
-     call chem( mrl )
-
-!     write(*,'(A,10g13.5)') "f", cgrid(6,535,91), cgrid(6,535,n_gc_spc+48), cgrid(6,535,n_gc_spc+47), cgrid(6,535,n_gc_spc+50), cgrid(6,535,num_str:num_end)
+     call chem( )
 
 #ifdef CMAQ_TIMING
      w2 = walltime(wtime_start)
@@ -105,9 +87,7 @@ subroutine cmaq_driver( )
      call cpu_time(t1)
 #endif
 
-     call aero( mrl )
-
-!     write(*,'(A,10g13.5)') "g", cgrid(6,535,91), cgrid(6,535,n_gc_spc+48), cgrid(6,535,n_gc_spc+47), cgrid(6,535,n_gc_spc+50), cgrid(6,535,num_str:num_end)
+     call aero( )
 
 #ifdef CMAQ_TIMING
      w2 = walltime(wtime_start)
@@ -117,9 +97,7 @@ subroutine cmaq_driver( )
 
   ! Convert aerosol species back to concentrations
 
-     call conv_cgrid ( mrl )
+     call conv_cgrid ( )
   endif
-
-!  write(*,'(A,10g13.5)') "h", cgrid(6,535,91), cgrid(6,535,n_gc_spc+48), cgrid(6,535,n_gc_spc+47), cgrid(6,535,n_gc_spc+50), cgrid(6,535,num_str:num_end)
 
 end subroutine cmaq_driver

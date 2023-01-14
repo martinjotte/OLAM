@@ -1,35 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 Module leaf4_surface
 
 Contains
@@ -39,12 +7,11 @@ Contains
                       sfcwater_mass, sfcwater_energy, sfcwater_depth,      &
                       sfcwater_tempk, sfcwater_fracliq, energy_per_m2,     &
                       soil_water, soil_energy, specifheat_drysoil,         &
-                      soil_watfrac, soil_tempk, soil_fracliq , thermcond_soil )
+                      soil_tempk, thermcond_soil )
 
   use leaf_coms,   only: nzs, dt_leaf, snowmin_expl
-  use mem_land,    only: nzg, dslz, dslzi, dslzo2
+  use mem_land,    only: nzg, dslzi, dslzo2
   use consts_coms, only: alvi, cice, cliq, alli
-  use misc_coms,   only: io6
   use leaf4_plot,  only: leaf_plot
   use therm_lib,   only: qwtk
 
@@ -70,29 +37,22 @@ Contains
   real,    intent(inout) :: soil_energy       (nzg) ! soil internal energy [J/m^3]
   real,    intent(in)    :: specifheat_drysoil(nzg) ! specific heat of dry soil [J/(m^3 K)]
   real,    intent(in)    :: soil_tempk        (nzg) ! soil temperature [K]
-  real,    intent(in)    :: soil_fracliq      (nzg) ! fraction of soil water in liq phase
-  real,    intent(in)    :: soil_watfrac      (nzg) ! water fraction in soil layer [vol_water/vol_total]
   real,    intent(in)    :: thermcond_soil    (nzg) ! soil thermal conductivity [W/(K m)]
 
   ! Local variables
 
-  real :: hxfers        (nzs+1) ! sfcwater heat xfer [J/m2] 
+  real :: hxfers        (nzs+1) ! sfcwater heat xfer [J/m2]
   real :: sfcwater_rfactor(nzs) ! sfcwater thermal resistivity [K m^2/W]
 
   integer :: k         ! vertical index over sfcwater layers
-  integer :: kold      ! vertical index of adjacent lower sfcwater layer
 
   real :: soil_rfactor ! soil thermal resistance [K m^2/W]
   real :: hxfergs   ! energy transfer from soil to sfcwater this step [J/m^2]
   real :: snden     ! sfcwater density [kg/m^3]
-  real :: vegfracc  ! 1 minus veg fractional area
   real :: wfree     ! free liquid in sfcwater layer that can percolate out [kg/m^2]
   real :: qwfree    ! energy carried by wfree [J/m^2]
   real :: dwfree    ! depth carried by wfree [m]
   real :: fracstep  ! ratio of leaf timestep to snow density exponential decay time
-  real :: totsnow   ! sum of mass over sfcwater layers [kg/m^2]
-  real :: hcapsoil  ! soil(nzg) heat capacity [J/(m^2 K)]
-  real :: sndenmin  ! minimum sfcwater density [kg/m^3]
   real :: tempk     ! Kelvin temperature of snowcover, limited to max of 273.15 [K]
   real :: wcap_min  ! minimum surface water water [kg/m^2]
 
@@ -115,7 +75,7 @@ Contains
   ! the threshold is reached
 
   if (nlev_sfcwater > 1) then
-     do while (nlev_sfcwater > 1 .and. sfcwater_mass(nlev_sfcwater) < 10.) ! 10 kg/m^2 threshold 
+     do while (nlev_sfcwater > 1 .and. sfcwater_mass(nlev_sfcwater) < 10.) ! 10 kg/m^2 threshold
         k = nlev_sfcwater
 
         sfcwater_mass(k-1)  = sfcwater_mass(k-1)  + sfcwater_mass(k)
@@ -137,8 +97,6 @@ Contains
 
   if (sfcwater_mass(1) < wcap_min) then
 
- ! if (iland == 10110) print*, 'swat15.1 ',soil_water(nzg),sfcwater_mass(1),dslzi(nzg) * sfcwater_mass(1) * .001
-
      sfcwater_mass  (1) = 0.
      sfcwater_energy(1) = 0.
      sfcwater_depth (1) = 0.
@@ -148,8 +106,6 @@ Contains
      sfcwater_fracliq(1) = 0.
 
      nlev_sfcwater = 0
-
- ! if (iland == 10110) print*, 'swat15.2 ',soil_water(nzg),sfcwater_mass(1),dslzi(nzg) * sfcwater_mass(1) * .001
 
      return
   endif
@@ -167,7 +123,7 @@ Contains
      do k = 1,nlev_sfcwater
 
         ! Compute snow heat resistance times HALF layer depth (sfcwater_rfactor).
-        ! Sfcwater_tempk(k) should be correctly balanced value at this point, so 
+        ! Sfcwater_tempk(k) should be correctly balanced value at this point, so
         ! sfcwater_rfactor(k) should have correct value.  Formula applies to snow,
         ! so limit temperature to no greater than 273.15.
 
@@ -188,18 +144,18 @@ Contains
         ! Energy transfer at bottom and top are applied separately.
 
         hxfers(1) = 0.
-        hxfers(nlev_sfcwater+1) = 0. 
+        hxfers(nlev_sfcwater+1) = 0.
 
         ! Compute internal sfcwater energy xfer if at least two layers exist [J/m2]
 
         do k = 2,nlev_sfcwater
            hxfers(k) = dt_leaf * (sfcwater_tempk(k-1) - sfcwater_tempk(k)) &
-                     / (sfcwater_rfactor(k-1) + sfcwater_rfactor(k))      
+                     / (sfcwater_rfactor(k-1) + sfcwater_rfactor(k))
         enddo
 
-        ! Add contributions to sfcwater energy_per_m2 from internal transfers of 
+        ! Add contributions to sfcwater energy_per_m2 from internal transfers of
         ! sensible heat (and latent heat, implicitly included in sfcwater_rfactor).
-        ! This excludes energy transfer from internal gravitational draining of 
+        ! This excludes energy transfer from internal gravitational draining of
         ! free water mass.
 
         do k = 1,nlev_sfcwater
@@ -270,8 +226,8 @@ Contains
      ! than this limiting value, apply the density increase for this timestep.
 
      ! This formulation and decay constants are very crude approximations to a few
-     ! widely variable observations of snowpack density and are intended only as a 
-     ! rough representation of the tendency for snowcover to compress with time.  
+     ! widely variable observations of snowpack density and are intended only as a
+     ! rough representation of the tendency for snowcover to compress with time.
      ! A better formulation that accounts for several environmental factors would
      ! be desirable here.
 
@@ -318,7 +274,7 @@ Contains
 
            else
 
-              ! Not all sfcwater_mass(k) drains from layer.  Drain mass, energy, and depth 
+              ! Not all sfcwater_mass(k) drains from layer.  Drain mass, energy, and depth
               ! of free water out of current layer
 
               sfcwater_mass(k)  = sfcwater_mass(k)  - wfree
@@ -358,10 +314,10 @@ Contains
                     nlev_sfcwater,                     &
                     linit           = 1,               &
                     lframe          = 1,               &
-                    sfcwater_mass   = sfcwater_mass,   & 
-                    sfcwater_energy = sfcwater_energy, & 
-                    energy_per_m2   = energy_per_m2,   & 
-                    sfcwater_depth  = sfcwater_depth   ) 
+                    sfcwater_mass   = sfcwater_mass,   &
+                    sfcwater_energy = sfcwater_energy, &
+                    energy_per_m2   = energy_per_m2,   &
+                    sfcwater_depth  = sfcwater_depth   )
 
   endif
 
@@ -375,7 +331,6 @@ Contains
 
   use mem_land,    only: nzg, dslz, dslzi
   use consts_coms, only: cice, cliq, alli
-  use misc_coms,   only: io6
   use therm_lib,   only: qwtk
 
   implicit none
@@ -459,7 +414,7 @@ Contains
 
         ! Upper bound on sfcwater_fracliq: case with soil_water all ice
 
-        flmax = fracliq_comb * w_comb / sfcwater_mass         
+        flmax = fracliq_comb * w_comb / sfcwater_mass
 
         ! New sfcwater_fracliq value becomes closest value within bounds to old value
 
@@ -482,10 +437,8 @@ Contains
   subroutine sfcwater_adjust(iland, iwsfc, glatw, glonw, nlev_sfcwater, sfcwater_mass, &
                              sfcwater_energy, sfcwater_depth, energy_per_m2)
 
-  use leaf_coms, only: nzs, dt_leaf
-
+  use leaf_coms,   only: nzs
   use consts_coms, only: alli
-  use misc_coms, only: io6
 
   implicit none
 
@@ -520,13 +473,11 @@ Contains
 
   ! Local parameters
 
-  real, parameter :: snowmin = 11.      ! min sfcwater layer mass with multiple layers [kg/m^2] 
+  real, parameter :: snowmin = 11.      ! min sfcwater layer mass with multiple layers [kg/m^2]
 
   real, save, dimension(10,10) :: thick  ! snowlayer thickness scaling factor
 
   integer, parameter :: iland_print = 0
-
-  real :: sfcwat_tempk, sfcwat_fracliq
 
   data thick(1:10, 1)/  1., .00, .00, .00, .00, .00, .00, .00, .00, .00/
   data thick(1:10, 2)/ .50, .50, .00, .00, .00, .00, .00, .00, .00, .00/
@@ -539,7 +490,7 @@ Contains
   data thick(1:10, 9)/ .02, .04, .09, .18, .34, .18, .09, .04, .02, .00/
   data thick(1:10,10)/ .02, .03, .06, .13, .26, .26, .13, .06, .03, .02/
 
-  ! Re-distribute mass, energy, and depth among layers to maintain prescribed 
+  ! Re-distribute mass, energy, and depth among layers to maintain prescribed
   ! distribution of mass
 
   ! Count up all existing snow layers that are not totally liquid
@@ -573,7 +524,7 @@ Contains
 
   ! If more than one snowcover layer is allowed, perform adjustment of layers if needed
 
-  ! Find maximum number of layers for which thinnest layer (top and bottom) would 
+  ! Find maximum number of layers for which thinnest layer (top and bottom) would
   ! be thicker than snowmin.
 
   maxlayers = 1
@@ -637,7 +588,7 @@ Contains
         kold = kold + 1
         wtold = 1.
 
-        ! If old-layer counter does not exceed top old layer, repeat transfer operation 
+        ! If old-layer counter does not exceed top old layer, repeat transfer operation
         ! for current old layer
 
         if (kold <= nlev_sfcwater) go to 10
@@ -706,9 +657,8 @@ Contains
   subroutine remove_runoff(iland, iwsfc, leaf_class, sfcwater_mass, sfcwater_energy, &
                            sfcwater_depth, runoff)
 
-  use leaf_coms,   only: nzs, dt_leaf
+  use leaf_coms,   only: dt_leaf
   use consts_coms, only: alli, cliq
-  use misc_coms,   only: io6
   use therm_lib,   only: qtk
 
   implicit none
@@ -771,7 +721,7 @@ Contains
      sfcwater_energy = (energy_per_m2 - qrunoff) / sfcwater_mass
      sfcwater_depth = sfcwater_depth - drunoff
   endif
-  
+
   end subroutine remove_runoff
 
 !===============================================================================
@@ -780,14 +730,12 @@ Contains
                      ground_shv, sfcwater_energy, soil_water, soil_energy, &
                      head, specifheat_drysoil)
 
-  use mem_land,    only: nzg
   use consts_coms, only: grav, rvap
-  use misc_coms,   only: io6
   use therm_lib,   only: qtk, rhovsil, qwtk
 
   implicit none
 
-  integer, intent(in)  :: iland           ! current land cell number 
+  integer, intent(in)  :: iland           ! current land cell number
   real,    intent(in)  :: rhos            ! air density [kg/m^3]
   real,    intent(in)  :: canshv          ! canopy vapor spec hum [kg_vap/kg_air]
   integer, intent(in)  :: nlev_sfcwater   ! # active levels of surface water
@@ -821,7 +769,7 @@ Contains
 
      ! Without snowcover, sfc_rhovs is the saturation vapor density at the
      ! temperature of the soil surface, and is used for computing dew/frost
-     ! formation only.  
+     ! formation only.
 
      call qwtk(soil_energy,soil_water*1.e3,specifheat_drysoil,tempk,fracliq)
      sfc_rhovs = rhovsil(tempk-273.15)
@@ -844,13 +792,11 @@ Contains
 
   subroutine grndvap_ab(iland,tempk,soil_water,head,can_rhov,sfc_rhovs,gnd_rhov)
 
-  use mem_land,  only: nzg
   use consts_coms, only: grav, rvap
-  use misc_coms,   only: io6
 
   implicit none
 
-  integer, intent(in) :: iland       ! current land cell number 
+  integer, intent(in) :: iland       ! current land cell number
 
   real, intent(in)  :: tempk       ! soil temperature [K]
   real, intent(in)  :: soil_water  ! soil water content [vol_water/vol_tot]
@@ -902,7 +848,6 @@ Contains
 
   use leaf_coms,   only: nzs, emisv, emisg, emisw
   use consts_coms, only: stefan, eradi
-  use misc_coms,   only: io6
   use mem_radiate, only: sunx, suny, sunz
   use therm_lib,   only: qwtk, qtk
 
@@ -962,7 +907,6 @@ Contains
   real :: rlongs_v         ! longwave radiative flux from snow to veg  [W/m^2]
   real :: rlongg_a         ! longwave radiative flux from soil to atm  [W/m^2]
   real :: rlongg_v         ! longwave radiative flux from soil to veg  [W/m^2]
-  real :: fracabs          ! fraction of rshort that is absorbed by snowcover
   real :: soil_watfrac_ul  ! soil water fraction (unlimited)
   real :: soil_watfrac     ! soil water fraction (limited)
   real :: vfc       ! 1 - vf
@@ -971,9 +915,6 @@ Contains
   real :: alg       ! ground (soil) albedo
   real :: als       ! snowcover albedo (needs better formula based on age of snow)
   real :: alv       ! veg albedo
-  real :: abss      ! fraction s/w rad absorbed into top sfcwater layer
-  real :: fractrans ! fraction of s/w rad flux transmitted through snowcover layer
-  real :: absg      ! fraction of rshort that is absorbed by ground (soil)
   real :: emv       ! veg emissivity
   real :: glong     ! soil l/w rad emission [W/m^2]
   real :: slong     ! sfc water l/w rad emission [W/m^2]
@@ -983,9 +924,9 @@ Contains
   ! parameterization driver, performing exactly the same operations on both calls.
   ! All that is used from the first call are net surface albedo and upward
   ! longwave radiative flux for each land cell.  The radiation parameterization
-  ! carries out atmospheric radiative transfer computations following this first 
-  ! call using the albedo and upward longwave flux.  The second call to this 
-  ! subroutine is made after the atmospheric radiative fluxes are computed.  
+  ! carries out atmospheric radiative transfer computations following this first
+  ! call using the albedo and upward longwave flux.  The second call to this
+  ! subroutine is made after the atmospheric radiative fluxes are computed.
   ! This call provides net radiative fluxes to vegetation, snowcover, and soil in
   ! each land cell, plus functions of snowcover, all of which are used in leaf4.
 
@@ -1112,10 +1053,10 @@ Contains
 
      snowfac = snowfac / max(.001,veg_height)
 
-     ! If sfcwater (snowcover) is deep enough to cover most vegetation, assume that 
+     ! If sfcwater (snowcover) is deep enough to cover most vegetation, assume that
      ! all is covered
 
-     if (snowfac > .9) snowfac = 1.   
+     if (snowfac > .9) snowfac = 1.
 
      alv = veg_albedo
 

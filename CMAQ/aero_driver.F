@@ -90,20 +90,20 @@ C   David Wong - Oct 11 - extended the twoway implementation to handle finer
 C                         time resolution
 C
 C   Bill Hutzell - Sept 13 - inserted module for AEROSOL_CHEMISTRY to support
-C                            diagnostic outputs on reaction gamma and yield 
-C                            values 
-C   HOT Pye - Jan 13 - Additional information for IEPOX aerosol 
+C                            diagnostic outputs on reaction gamma and yield
+C                            values
+C   HOT Pye - Jan 13 - Additional information for IEPOX aerosol
 C                      written to AERODIAG file
 C   David Wong - Aug 15 - Used IO_PE_INCLUSIVE rather than MYPE to facilitate
 C                         parallel I/O implementation
 C                       - Used a new logical variable, FIRST_CTM_VIS_1 to
-C                         determine when to open CTM_VIS_1 
+C                         determine when to open CTM_VIS_1
 C  B.Hutzell 22 Feb 16 - Added test to determine to write diagnostics from aerosol
 C                        chemistry
 C  H Pye and B Murphy April 2016 - Updated dry/wet moment process to use
 C                        Extract_aero and Update_aero for getting moment/saving surface area
 C  D. Wong 10 May 2016 - added calculation of average PMDIAG species w.r.t.
-C                        environment variable CTM_PMDIAG, APMDIAG_BLEV_ELEV, 
+C                        environment variable CTM_PMDIAG, APMDIAG_BLEV_ELEV,
 C                        and AVG_PMDIAG_SPCS
 C                      - added calculation of average visibility species w.r.t.
 C                        environment variable CTM_AVISDIAG
@@ -114,7 +114,7 @@ C  D. Wong 19 May 2016 - renamed ACONC_END_TIME to AVG_FILE_ENDTIME
 C                      - updated the way to define NUM_PMDIAG_SPC
 C                      - set CTM_PMDIAG default value to .TRUE.
 C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-      SUBROUTINE AERO ( mrl )
+      SUBROUTINE AERO ( )
 
 !     USE GRID_CONF           ! horizontal & vertical domain specifications
 
@@ -141,7 +141,6 @@ C *** Includes:
 
 C *** Arguments:
 
-      integer, intent(in) :: mrl
 C *** CGRID is conc field (including gas and aerosol variables)
 !     REAL, POINTER :: CGRID( :,:,:,: )              !  concentrations
 !     INTEGER      JDATE        ! Current model date , coded YYYYDDD
@@ -340,7 +339,7 @@ C ------------------ begin body of AERO_DRIVER -------------------------
 
 !        ALLOCATE (   PMDIAG_SPC( NCOLS,NROWS,NLAYS,NUM_PMDIAG_SPC ),
 !    &              A_PMDIAG_SPC( NCOLS,NROWS,A_NLAYS,NUM_PMDIAG_SPC ),
-!    &              TEMP_DATA( NUM_PMDIAG_SPC ), 
+!    &              TEMP_DATA( NUM_PMDIAG_SPC ),
 !    &              AVIS_SPC( NCOLS,NROWS,N_AE_VIS_SPC ),
 !    &              STAT=ALLOCSTAT)
 
@@ -489,7 +488,7 @@ C *** Get domain decomp info from the MET_CRO_3D file
 
 C *** Set floating point synchronization time step:
 !     DT = FLOAT( MSTEP ) ! set time step in seconds
-      dt = dtlm(mrl)
+      dt = dtlm
 
 C *** Get Meteorological Variables
 
@@ -545,12 +544,12 @@ C --------------------- Begin loops over grid cells --------------------------
 C *** initialize conc arrays
 
 !     N_APMDIAG_STEP = N_APMDIAG_STEP + 1
-!     N_VIS_STEP     = N_VIS_STEP + 1 
+!     N_VIS_STEP     = N_VIS_STEP + 1
 
 !$omp parallel private(aeromode_mass,aeromode_dens)
 !$omp do private(iw,k,kmax,c,r,l,n,fpm1,fpm25,fpm10,fams,airtemp,airpres,airdens,airrh)
 !$omp&   schedule(guided)
-      do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+      do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
          aod_data(iw) = 0.0
 
@@ -757,7 +756,7 @@ C *** Accumulate wet diameters, 2nd, and 3rd moments to average aerosol diagnost
 !                    IF ( A_PMDIAG_SPC_MAP( V ) .EQ. 1 ) THEN
 !                       A_PMDIAG_SPC( C,R,L,V ) = A_PMDIAG_SPC( C,R,L,V ) + TEMP_DATA( V )
 !                    END IF
-!                 END DO 
+!                 END DO
 !              END IF
 
 C *** Write dry aerosol distribution parameters to aerosol diagnostic array
@@ -855,7 +854,7 @@ C *** Write data to the aerosol diagnostic file.
 !    &                     'for date and time', MDATE, MTIME
 
 !        END IF
-!    
+!
 C *** Write data to the AOD diagnostic file.
 !        IF ( AOD ) THEN
 
@@ -883,7 +882,7 @@ C *** Write data to the average aerosol diagnostic file.
 !           DO V = 1, NUM_PMDIAG_SPC
 !
 !              IF ( A_PMDIAG_SPC_MAP( V ) .EQ. 1 ) THEN
-!                 A_PMDIAG_SPC( :,:,:,V ) = A_PMDIAG_SPC( :,:,:,V ) / N_APMDIAG_STEP 
+!                 A_PMDIAG_SPC( :,:,:,V ) = A_PMDIAG_SPC( :,:,:,V ) / N_APMDIAG_STEP
 
 !                 IF ( .NOT. WRITE3( CTM_APMDIAG_1, PMDIAG_SPC_RECORD( V )%SPC_NAME,
 !    &                               MDATE, MTIME, A_PMDIAG_SPC( :,:,:,V ) ) ) THEN
@@ -900,7 +899,7 @@ C *** Write data to the average aerosol diagnostic file.
 
 !           N_APMDIAG_STEP = 0
 !        END IF
-!    
+!
 C *** Write data to the average visibility diagnostic file.
 !        IF ( AVISDIAG ) THEN
 !           AVIS_SPC = AVIS_SPC / N_VIS_STEP
@@ -909,7 +908,7 @@ C *** Write data to the average visibility diagnostic file.
 !              XMSG = 'Could not write ' // CTM_AVIS_1 // ' file'
 !              CALL M3EXIT ( PNAME, MDATE, MTIME, XMSG, XSTAT1 )
 !           END IF
-!           N_VIS_STEP = 0 
+!           N_VIS_STEP = 0
 !           AVIS_SPC = 0.0
 !        END IF
 

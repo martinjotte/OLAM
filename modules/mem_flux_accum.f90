@@ -1,36 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
-
 Module mem_flux_accum
 
   use consts_coms, only: r8
@@ -47,14 +14,6 @@ Module mem_flux_accum
   real(r8), allocatable ::   rshort_top_accum(:)
   real(r8), allocatable :: rshortup_top_accum(:)
   real(r8), allocatable ::  rlongup_top_accum(:)
-
-  real(r8), allocatable ::       rshort_clr_accum(:)
-  real(r8), allocatable ::     rshortup_clr_accum(:)
-  real(r8), allocatable ::        rlong_clr_accum(:)
-  real(r8), allocatable ::      rlongup_clr_accum(:)
-  real(r8), allocatable ::   rshort_top_clr_accum(:)
-  real(r8), allocatable :: rshortup_top_clr_accum(:)
-  real(r8), allocatable ::  rlongup_top_clr_accum(:)
 
   real(r8), allocatable ::          vc_accum(:,:)
   real(r8), allocatable ::          wc_accum(:,:)
@@ -117,20 +76,12 @@ subroutine alloc_flux_accum(mza,mva,mwa,mwsfc,mland)
      allocate (    rshortup_accum(mwa)) ;     rshortup_accum = 0._r8
      allocate (  rshort_top_accum(mwa)) ;   rshort_top_accum = 0._r8
      allocate (rshortup_top_accum(mwa)) ; rshortup_top_accum = 0._r8
-
-!     allocate (      rshort_clr_accum(mwa)) ;       rshort_clr_accum = 0._r8
-!     allocate (    rshortup_clr_accum(mwa)) ;     rshortup_clr_accum = 0._r8
-!     allocate (  rshort_top_clr_accum(mwa)) ;   rshort_top_clr_accum = 0._r8
-!     allocate (rshortup_top_clr_accum(mwa)) ; rshortup_top_clr_accum = 0._r8
   endif
 
   if (ilwrtyp > 0) then
      allocate (          rlong_accum(mwa)) ;           rlong_accum = 0._r8
      allocate (        rlongup_accum(mwa)) ;         rlongup_accum = 0._r8
      allocate (    rlongup_top_accum(mwa)) ;     rlongup_top_accum = 0._r8
-!     allocate (      rlong_clr_accum(mwa)) ;       rlong_clr_accum = 0._r8
-!     allocate (    rlongup_clr_accum(mwa)) ;     rlongup_clr_accum = 0._r8
-!     allocate (rlongup_top_clr_accum(mwa)) ; rlongup_top_clr_accum = 0._r8
   endif
 
   if (.false.) then
@@ -174,7 +125,7 @@ subroutine alloc_flux_accum(mza,mva,mwa,mwsfc,mland)
      allocate (soiltemp_dmin_accum (mland)) ; soiltemp_dmin_accum = 0._r8
      allocate (soiltemp_dmax_accum (mland)) ; soiltemp_dmax_accum = 0._r8
   endif
-  
+
 end subroutine alloc_flux_accum
 
 !===============================================================================
@@ -184,29 +135,21 @@ subroutine filltab_flux_accum()
   use var_tables, only: increment_vtable
   implicit none
 
-  if (allocated(          rshort_accum)) call increment_vtable(          'RSHORT_ACCUM','AW', dvar1=          rshort_accum)
-  if (allocated(        rshortup_accum)) call increment_vtable(        'RSHORTUP_ACCUM','AW', dvar1=        rshortup_accum)
-  if (allocated(           rlong_accum)) call increment_vtable(           'RLONG_ACCUM','AW', dvar1=           rlong_accum)
-  if (allocated(         rlongup_accum)) call increment_vtable(         'RLONGUP_ACCUM','AW', dvar1=         rlongup_accum)
-  if (allocated(      rshort_top_accum)) call increment_vtable(      'RSHORT_TOP_ACCUM','AW', dvar1=      rshort_top_accum)
-  if (allocated(    rshortup_top_accum)) call increment_vtable(    'RSHORTUP_TOP_ACCUM','AW', dvar1=    rshortup_top_accum)
-  if (allocated(     rlongup_top_accum)) call increment_vtable(     'RLONGUP_TOP_ACCUM','AW', dvar1=     rlongup_top_accum)
+  if (allocated(      rshort_accum)) call increment_vtable(      'RSHORT_ACCUM','AW', dvar1=      rshort_accum)
+  if (allocated(    rshortup_accum)) call increment_vtable(    'RSHORTUP_ACCUM','AW', dvar1=    rshortup_accum)
+  if (allocated(       rlong_accum)) call increment_vtable(       'RLONG_ACCUM','AW', dvar1=       rlong_accum)
+  if (allocated(     rlongup_accum)) call increment_vtable(     'RLONGUP_ACCUM','AW', dvar1=     rlongup_accum)
+  if (allocated(  rshort_top_accum)) call increment_vtable(  'RSHORT_TOP_ACCUM','AW', dvar1=  rshort_top_accum)
+  if (allocated(rshortup_top_accum)) call increment_vtable('RSHORTUP_TOP_ACCUM','AW', dvar1=rshortup_top_accum)
+  if (allocated( rlongup_top_accum)) call increment_vtable( 'RLONGUP_TOP_ACCUM','AW', dvar1= rlongup_top_accum)
 
-  if (allocated(      rshort_clr_accum)) call increment_vtable(      'RSHORT_CLR_ACCUM','AW', dvar1=      rshort_clr_accum)
-  if (allocated(    rshortup_clr_accum)) call increment_vtable(    'RSHORTUP_CLR_ACCUM','AW', dvar1=    rshortup_clr_accum)
-  if (allocated(       rlong_clr_accum)) call increment_vtable(       'RLONG_CLR_ACCUM','AW', dvar1=       rlong_clr_accum)
-  if (allocated(     rlongup_clr_accum)) call increment_vtable(     'RLONGUP_CLR_ACCUM','AW', dvar1=     rlongup_clr_accum)
-  if (allocated(  rshort_top_clr_accum)) call increment_vtable(  'RSHORT_TOP_CLR_ACCUM','AW', dvar1=  rshort_top_clr_accum)
-  if (allocated(rshortup_top_clr_accum)) call increment_vtable('RSHORTUP_TOP_CLR_ACCUM','AW', dvar1=rshortup_top_clr_accum)
-  if (allocated( rlongup_top_clr_accum)) call increment_vtable( 'RLONGUP_TOP_CLR_ACCUM','AW', dvar1= rlongup_top_clr_accum)
-
-  if (allocated(              vc_accum)) call increment_vtable(              'VC_ACCUM','AV', dvar2=              vc_accum)
-  if (allocated(              wc_accum)) call increment_vtable(              'WC_ACCUM','AW', dvar2=              wc_accum)
-  if (allocated(           press_accum)) call increment_vtable(           'PRESS_ACCUM','AW', dvar2=           press_accum)
-  if (allocated(            tair_accum)) call increment_vtable(            'TAIR_ACCUM','AW', dvar2=            tair_accum)
-  if (allocated(            rr_v_accum)) call increment_vtable(            'RR_V_ACCUM','AW', dvar2=            rr_v_accum)
-  if (allocated(     latheat_liq_accum)) call increment_vtable(     'LATHEAT_LIQ_ACCUM','AW', dvar2=     latheat_liq_accum)
-  if (allocated(     latheat_ice_accum)) call increment_vtable(     'LATHEAT_ICE_ACCUM','AW', dvar2=     latheat_ice_accum)
+  if (allocated(          vc_accum)) call increment_vtable(          'VC_ACCUM','AV', dvar2=          vc_accum)
+  if (allocated(          wc_accum)) call increment_vtable(          'WC_ACCUM','AW', dvar2=          wc_accum)
+  if (allocated(       press_accum)) call increment_vtable(       'PRESS_ACCUM','AW', dvar2=       press_accum)
+  if (allocated(        tair_accum)) call increment_vtable(        'TAIR_ACCUM','AW', dvar2=        tair_accum)
+  if (allocated(        rr_v_accum)) call increment_vtable(        'RR_V_ACCUM','AW', dvar2=        rr_v_accum)
+  if (allocated( latheat_liq_accum)) call increment_vtable( 'LATHEAT_LIQ_ACCUM','AW', dvar2= latheat_liq_accum)
+  if (allocated( latheat_ice_accum)) call increment_vtable( 'LATHEAT_ICE_ACCUM','AW', dvar2= latheat_ice_accum)
 
   if (allocated(      vels_accum)) call increment_vtable(    'VELS_ACCUM','CW', dvar1=    vels_accum)
   if (allocated(   airtemp_accum)) call increment_vtable( 'AIRTEMP_ACCUM','CW', dvar1= airtemp_accum)
@@ -241,25 +184,22 @@ end subroutine filltab_flux_accum
 
 subroutine flux_accum()
 
-  use misc_coms,   only: time_istp8p, dtlm, dtsm, ilwrtyp, iswrtyp, isubdomain
+  use misc_coms,   only: time_istp8p, dtlm, dtsm, ilwrtyp, iswrtyp, iparallel
 
-  use mem_ijtabs,  only: istp, itab_v, itab_w, jtab_v, jtab_w, jtv_prog, &
-                         jtw_prog, mrl_begl, mrl_begs, mrl_endl, mrls
+  use mem_ijtabs,  only: istp, jtab_v, jtab_w, jtv_prog, &
+                         jtw_prog, mrl_begl, mrl_begs, mrl_endl
 
   use mem_basic,   only: vc, wc, press, tair, rr_v
 
   use mem_radiate, only: albedt, rshort, rlong, rlongup, &
                          rshort_top, rshortup_top, rlongup_top
-!                        rshort_clr, rshortup_clr, rshort_top_clr, &
-!                        rshortup_top_clr, rlong_clr, rlongup_clr, &
-!                        rlongup_top_clr
 
   use mem_average_vars, only:  airtempk_dmin,  airtempk_dmax, &
                                cantempk_dmin,  cantempk_dmax, &
                                vegtempk_dmin,  vegtempk_dmax, &
                               soiltempk_dmin, soiltempk_dmax
 
-  use leaf_coms,   only: mrl_leaf, isfcl
+  use leaf_coms,   only: isfcl
 
   use consts_coms, only: r8
 
@@ -273,7 +213,7 @@ subroutine flux_accum()
 
   implicit none
 
-  integer :: mrl, j, iv, iw, iwsfc, iland, ilake, isea, k, nls
+  integer :: j, iv, iw, iwsfc, iland, ilake, isea, k, nls
 
   real :: soiltempk, tempk, fracliq, fldval
 
@@ -281,54 +221,44 @@ subroutine flux_accum()
   real :: qw_comb       ! (sfcwater + soil) energy [J/m^2]
   real :: hcapsoil      ! soil heat capacity [J/(m^2 K)]
 
-  real(r8) :: dta
-
 ! Update accumulations of ATM velocity and pressure
 
-  mrl = mrl_begs(istp)
-  if (mrl > 0) then
+  if (mrl_begs(istp) > 0) then
 
      if (allocated(vc_accum)) then
-        !$omp parallel do private(iv,dta,k)
-        do j = 1,jtab_v(jtv_prog)%jend(mrl); iv = jtab_v(jtv_prog)%iv(j)
 
-           ! Timestep for accumulating velocity and pressure, DTA, is the small
+        !$omp parallel do private(iv,k)
+        do j = 1,jtab_v(jtv_prog)%jend; iv = jtab_v(jtv_prog)%iv(j)
+
+           ! Timestep for accumulating velocity and pressure, DTSM, is the small
            ! (acoustic) timestep. The frequency that each IV cell is processed in this
-           ! loop should be consistent with (inversely proportional to) that DTA.
-
-           dta = dtsm(itab_v(iv)%mrlv)
+           ! loop should be consistent with (inversely proportional to) DTSM
 
            do k = lpv(iv),mza
-              vc_accum(k,iv) = vc_accum(k,iv) + dta * real(vc(k,iv),r8)
+              vc_accum(k,iv) = vc_accum(k,iv) + dtsm * real(vc(k,iv),r8)
            enddo
 
         enddo
         !$omp end parallel do
+
      endif
 
-  endif
+     !$omp parallel do private(iw,k)
+     do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
-  mrl = mrl_begs(istp)
-  if (mrl > 0) then
-
-     !$omp parallel do private(iw,dta,k)
-     do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
-
-! Timestep for accumulating velocity and pressure, DTA, is the small
-! (acoustic) timestep. The frequency that each IW cell is processed in this
-! loop should be consistent with (inversely proportional to) that DTA.
-
-        dta = dtsm(itab_w(iw)%mrlw)
+        ! Timestep for accumulating velocity and pressure, DTSM, is the small
+        ! (acoustic) timestep. The frequency that each IV cell is processed in this
+        ! loop should be consistent with (inversely proportional to) DTSM
 
         if (allocated(wc_accum)) then
            do k = lpw(iw),mza
-              wc_accum(k,iw) = wc_accum(k,iw) + dta * real(wc(k,iw),r8)
+              wc_accum(k,iw) = wc_accum(k,iw) + dtsm * real(wc(k,iw),r8)
            enddo
         endif
 
         if (allocated(press_accum)) then
            do k = lpw(iw),mza
-              press_accum(k,iw) = press_accum(k,iw) + dta *   press(k,iw)
+              press_accum(k,iw) = press_accum(k,iw) + dtsm * press(k,iw)
            enddo
         endif
 
@@ -339,27 +269,24 @@ subroutine flux_accum()
 
 ! Update accumulations of ATM temperature and specific humidity
 
-  mrl = mrl_endl(istp)
-  if (mrl > 0) then
+  if (mrl_endl(istp) > 0) then
 
-     !$omp parallel do private(iw,dta,k)
-     do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+     !$omp parallel do private(iw,k)
+     do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
-! Timestep for accumulating temperature and moisture, DTA, is the long
-! timestep. The frequency that each IW cell is processed in this
-! loop should be consistent with (inversely proportional to) that DTA.
-
-        dta = dtlm(itab_w(iw)%mrlw)
+        ! Timestep for accumulating temperature and moisture, DTLM, is the long
+        ! timestep. The frequency that each IW cell is processed in this
+        ! loop should be consistent with (inversely proportional to) DTLM
 
         if (allocated(tair_accum)) then
            do k = lpw(iw),mza
-              tair_accum(k,iw) = tair_accum(k,iw) + dta * real(tair(k,iw),r8)
+              tair_accum(k,iw) = tair_accum(k,iw) + dtlm * real(tair(k,iw),r8)
            enddo
         endif
 
         if (allocated(rr_v_accum)) then
            do k = lpw(iw),mza
-              rr_v_accum(k,iw) = rr_v_accum(k,iw) + dta * real(rr_v(k,iw),r8)
+              rr_v_accum(k,iw) = rr_v_accum(k,iw) + dtlm * real(rr_v(k,iw),r8)
            enddo
         endif
 
@@ -370,72 +297,53 @@ subroutine flux_accum()
 
 ! Update accumulations of ATM SFC and TOP radiative fluxes
 
-!----------------------------------------------------------------------
-  mrl = mrl_begl(istp)
-  if (mrl > 0 .and. ilwrtyp + iswrtyp > 0) then
+  if (mrl_begl(istp) > 0 .and. ilwrtyp + iswrtyp > 0) then
 
-     !$omp parallel do private(iw,dta)
-     do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
-!----------------------------------------------------------------------
+     !$omp parallel do private(iw)
+     do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
-! Timestep for accumulating fluxes, DTA is dtlm for the given IW cell; 
-! the frequency that each IW cell is processed in this loop should be 
-! consistent with (inversely proportional to) that DTA.
-
-        dta = dtlm(itab_w(iw)%mrlw)
+        ! Timestep for accumulating fluxes is DTLM for the given IW cell;
+        ! the frequency that each IW cell is processed in this loop should be
+        ! consistent with (inversely proportional to) DTLM
 
         if (iswrtyp > 0) then
-           rshort_accum      (iw) = rshort_accum      (iw) + dta * real(rshort(iw),r8)
-           rshortup_accum    (iw) = rshortup_accum    (iw) + dta * real(rshort(iw) * albedt(iw),r8)
-           rshort_top_accum  (iw) = rshort_top_accum  (iw) + dta * real(rshort_top(iw),r8)
-           rshortup_top_accum(iw) = rshortup_top_accum(iw) + dta * real(rshortup_top(iw),r8)
-
-!           rshort_clr_accum      (iw) = rshort_clr_accum      (iw) + dta * real(rshort_clr(iw),r8)
-!           rshortup_clr_accum    (iw) = rshortup_clr_accum    (iw) + dta * real(rshortup_clr(iw),r8)
-!           rshort_top_clr_accum  (iw) = rshort_top_clr_accum  (iw) + dta * real(rshort_top_clr(iw),r8)
-!           rshortup_top_clr_accum(iw) = rshortup_top_clr_accum(iw) + dta * real(rshortup_top_clr(iw),r8)
+           rshort_accum      (iw) = rshort_accum      (iw) + dtlm * real(rshort(iw),r8)
+           rshortup_accum    (iw) = rshortup_accum    (iw) + dtlm * real(rshort(iw) * albedt(iw),r8)
+           rshort_top_accum  (iw) = rshort_top_accum  (iw) + dtlm * real(rshort_top(iw),r8)
+           rshortup_top_accum(iw) = rshortup_top_accum(iw) + dtlm * real(rshortup_top(iw),r8)
         endif
 
         if (ilwrtyp > 0) then
-           rlong_accum      (iw) = rlong_accum      (iw) + dta * real(rlong(iw),r8)
-           rlongup_accum    (iw) = rlongup_accum    (iw) + dta * real(rlongup(iw),r8)
-           rlongup_top_accum(iw) = rlongup_top_accum(iw) + dta * real(rlongup_top(iw),r8)
-
-!           rlong_clr_accum      (iw) = rlong_clr_accum      (iw) + dta * real(rlong_clr(iw),r8)
-!           rlongup_clr_accum    (iw) = rlongup_clr_accum    (iw) + dta * real(rlongup_clr(iw),r8)
-!           rlongup_top_clr_accum(iw) = rlongup_top_clr_accum(iw) + dta * real(rlongup_top_clr(iw),r8)
+           rlong_accum      (iw) = rlong_accum      (iw) + dtlm * real(rlong(iw),r8)
+           rlongup_accum    (iw) = rlongup_accum    (iw) + dtlm * real(rlongup(iw),r8)
+           rlongup_top_accum(iw) = rlongup_top_accum(iw) + dtlm * real(rlongup_top(iw),r8)
         endif
 
      enddo
      !$omp end parallel do
+
   endif
 
-! Update accumulations of SFC grid cells
+  if (mrl_endl(istp) > 0 .and. isfcl > 0) then
 
-!----------------------------------------------------------------------
-  mrl = mrl_endl(istp)
-  if (mrl > 0 .and. isfcl > 0) then
-
-     if (mrl <= mrl_leaf) mrl = 1  ! special mrl set for leaf
-
-     dta  = dtlm(mrl)
+     ! Update accumulations of SFC grid cells
 
      !$omp parallel do
      do iwsfc = 2,mwsfc
 
         ! Skip this cell if running in parallel and cell rank is not MYRANK
-        if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+        if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
-           vels_accum(iwsfc) =    vels_accum(iwsfc) + dta * real(sfcg%vels   (iwsfc),r8)
-        airtemp_accum(iwsfc) = airtemp_accum(iwsfc) + dta * real(sfcg%airtemp(iwsfc),r8)
-         airrrv_accum(iwsfc) =  airrrv_accum(iwsfc) + dta * real(sfcg%airrrv (iwsfc),r8)
+           vels_accum(iwsfc) =    vels_accum(iwsfc) + dtlm * real(sfcg%vels   (iwsfc),r8)
+        airtemp_accum(iwsfc) = airtemp_accum(iwsfc) + dtlm * real(sfcg%airtemp(iwsfc),r8)
+         airrrv_accum(iwsfc) =  airrrv_accum(iwsfc) + dtlm * real(sfcg%airrrv (iwsfc),r8)
 
-        cantemp_accum(iwsfc) = cantemp_accum(iwsfc) + dta * real(sfcg%cantemp(iwsfc),r8)
-         canrrv_accum(iwsfc) =  canrrv_accum(iwsfc) + dta * real(sfcg%canrrv (iwsfc),r8)
-         sfluxt_accum(iwsfc) =  sfluxt_accum(iwsfc) + dta * real(sfcg%sfluxt (iwsfc),r8)
-         sfluxr_accum(iwsfc) =  sfluxr_accum(iwsfc) + dta * real(sfcg%sfluxr (iwsfc),r8)
-            pcp_accum(iwsfc) =     pcp_accum(iwsfc) +       real(sfcg%pcpg   (iwsfc),r8) ! sfcg%pcpg   is amount in timestep, not flux
-         runoff_accum(iwsfc) =  runoff_accum(iwsfc) +       real(sfcg%runoff (iwsfc),r8) ! sfcg%runoff is amount in timestep, not flux
+        cantemp_accum(iwsfc) = cantemp_accum(iwsfc) + dtlm * real(sfcg%cantemp(iwsfc),r8)
+         canrrv_accum(iwsfc) =  canrrv_accum(iwsfc) + dtlm * real(sfcg%canrrv (iwsfc),r8)
+         sfluxt_accum(iwsfc) =  sfluxt_accum(iwsfc) + dtlm * real(sfcg%sfluxt (iwsfc),r8)
+         sfluxr_accum(iwsfc) =  sfluxr_accum(iwsfc) + dtlm * real(sfcg%sfluxr (iwsfc),r8)
+            pcp_accum(iwsfc) =     pcp_accum(iwsfc) +        real(sfcg%pcpg   (iwsfc),r8) ! sfcg%pcpg   is amount in timestep, not flux
+         runoff_accum(iwsfc) =  runoff_accum(iwsfc) +        real(sfcg%runoff (iwsfc),r8) ! sfcg%runoff is amount in timestep, not flux
 
         if (airtempk_dmin(iwsfc) > sfcg%airtemp(iwsfc)) airtempk_dmin(iwsfc) = sfcg%airtemp(iwsfc)
         if (airtempk_dmax(iwsfc) < sfcg%airtemp(iwsfc)) airtempk_dmax(iwsfc) = sfcg%airtemp(iwsfc)
@@ -444,19 +352,9 @@ subroutine flux_accum()
         if (cantempk_dmax(iwsfc) < sfcg%cantemp(iwsfc)) cantempk_dmax(iwsfc) = sfcg%cantemp(iwsfc)
 
      enddo
-     !$omp end parallel do 
+     !$omp end parallel do
 
-  endif
-
-! Update accumulations of LAND cells
-
-!----------------------------------------------------------------------
-  mrl = mrl_endl(istp)
-  if (mrl > 0 .and. isfcl > 0) then
-
-     if (mrl <= mrl_leaf) mrl = 1  ! special mrl set for leaf
-
-     dta  = dtlm(mrl)
+     ! Update accumulations of LAND cells
 
      !$omp parallel do private(iwsfc, nls, soiltempk, tempk, fracliq, fldval, &
      !$omp                     w_comb, qw_comb, hcapsoil)
@@ -464,7 +362,7 @@ subroutine flux_accum()
         iwsfc = iland + omland
 
         ! Skip this cell if running in parallel and cell rank is not MYRANK
-        if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+        if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
         nls = land%nlev_sfcwater(iland)
 
@@ -472,7 +370,7 @@ subroutine flux_accum()
                   land%soil_water(nzg,iland)*1.e3,    &
                   land%specifheat_drysoil(nzg,iland), &
                   soiltempk, fracliq)
- 
+
         if (nls > 0) then
            call qtk(land%sfcwater_energy(nls,iland),tempk,fracliq)
 
@@ -483,7 +381,7 @@ subroutine flux_accum()
                         + land%vf(iland)  * land%veg_temp(iland)
         endif
 
-        skintemp_accum(iwsfc) = skintemp_accum(iwsfc) + dta * real(fldval,r8)
+        skintemp_accum(iwsfc) = skintemp_accum(iwsfc) + dtlm * real(fldval,r8)
 
         if (vegtempk_dmin(iland) > land%veg_temp(iland)) vegtempk_dmin(iland) = land%veg_temp(iland)
         if (vegtempk_dmax(iland) < land%veg_temp(iland)) vegtempk_dmax(iland) = land%veg_temp(iland)
@@ -509,56 +407,36 @@ subroutine flux_accum()
 
         call qwtk(qw_comb,w_comb,hcapsoil,tempk,fracliq)
 
-        sfctemp_accum(iwsfc) = sfctemp_accum(iwsfc) + dta * real(tempk,r8)
-        fracliq_accum(iwsfc) = fracliq_accum(iwsfc) + dta * real(fracliq,r8)
+        sfctemp_accum(iwsfc) = sfctemp_accum(iwsfc) + dtlm * real(tempk,r8)
+        fracliq_accum(iwsfc) = fracliq_accum(iwsfc) + dtlm * real(fracliq,r8)
 
      enddo
-     !$omp end parallel do 
+     !$omp end parallel do
 
-  endif
-
-! Update accumulations of LAKE cells
-
-!----------------------------------------------------------------------
-  mrl = mrl_endl(istp)
-  if (mrl > 0 .and. isfcl > 0) then
-
-     if (mrl <= mrl_leaf) mrl = 1  ! special mrl set for leaf
-
-     dta  = dtlm(mrl)
+     ! Update accumulations of LAKE cells
 
      !$omp parallel do private (iwsfc, tempk, fracliq)
      do ilake = 2,mlake
         iwsfc = ilake + omlake
 
         ! Skip this cell if running in parallel and cell rank is not MYRANK
-        if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+        if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
         call qtk(lake%lake_energy(ilake),tempk,fracliq)
-        skintemp_accum(iwsfc) = skintemp_accum(iwsfc) + dta * real(tempk,r8)
-        sfctemp_accum (iwsfc) = sfctemp_accum (iwsfc) + dta * real(tempk,r8)
-        fracliq_accum (iwsfc) = fracliq_accum (iwsfc) + dta * real(fracliq,r8)
+        skintemp_accum(iwsfc) = skintemp_accum(iwsfc) + dtlm * real(tempk,r8)
+        sfctemp_accum (iwsfc) = sfctemp_accum (iwsfc) + dtlm * real(tempk,r8)
+        fracliq_accum (iwsfc) = fracliq_accum (iwsfc) + dtlm * real(fracliq,r8)
      enddo
-     !$omp end parallel do 
+     !$omp end parallel do
 
-  endif
-
-! Update accumulations of SEA cells
-
-!----------------------------------------------------------------------
-  mrl = mrl_endl(istp)
-  if (mrl > 0 .and. isfcl > 0) then
-
-     if (mrl <= mrl_leaf) mrl = 1  ! special mrl set for leaf
-
-     dta  = dtlm(mrl)
+     ! Update accumulations of SEA cells
 
      !$omp parallel do private(iwsfc,nls,fldval)
      do isea = 2,msea
         iwsfc = isea + omsea
 
         ! Skip this cell if running in parallel and cell rank is not MYRANK
-        if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+        if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
         nls = sea%nlev_seaice(isea)
 
@@ -569,9 +447,9 @@ subroutine flux_accum()
            fldval = sea%seatc(isea)
         endif
 
-        skintemp_accum(iwsfc) = skintemp_accum(iwsfc) + dta * real(fldval,r8)
-        sfctemp_accum (iwsfc) = sfctemp_accum (iwsfc) + dta * real(fldval,r8)
-        fracliq_accum (iwsfc) = fracliq_accum (iwsfc) + dta * real(1.0 - sea%seaicec(isea),r8)
+        skintemp_accum(iwsfc) = skintemp_accum(iwsfc) + dtlm * real(fldval,r8)
+        sfctemp_accum (iwsfc) = sfctemp_accum (iwsfc) + dtlm * real(fldval,r8)
+        fracliq_accum (iwsfc) = fracliq_accum (iwsfc) + dtlm * real(1.0 - sea%seaicec(isea),r8)
 
      enddo
      !$omp end parallel do
@@ -580,7 +458,7 @@ subroutine flux_accum()
 
   ! Apply daily min/max accumulations
 
-  if (mod(time_istp8p,86400.0_r8) < dtsm(mrls) .and. isfcl > 0) then
+  if (mod(time_istp8p,86400.0_r8) < dtsm .and. isfcl > 0) then
 
      ! SFC grid cells
 
@@ -588,7 +466,7 @@ subroutine flux_accum()
      do iwsfc = 2,mwsfc
 
         ! Skip this cell if running in parallel and cell rank is not MYRANK
-        if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+        if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
         airtemp_dmin_accum(iwsfc) = airtemp_dmin_accum(iwsfc) + real(airtempk_dmin(iwsfc),r8) * 86400._r8
         airtemp_dmax_accum(iwsfc) = airtemp_dmax_accum(iwsfc) + real(airtempk_dmax(iwsfc),r8) * 86400._r8
@@ -606,7 +484,7 @@ subroutine flux_accum()
         iwsfc = iland + omland
 
         ! Skip this cell if running in parallel and cell rank is not MYRANK
-        if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+        if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
         vegtemp_dmin_accum(iland) = vegtemp_dmin_accum(iland) + real(vegtempk_dmin(iland),r8) * 86400._r8
         vegtemp_dmax_accum(iland) = vegtemp_dmax_accum(iland) + real(vegtempk_dmax(iland),r8) * 86400._r8
@@ -615,7 +493,7 @@ subroutine flux_accum()
         soiltemp_dmax_accum(iland) = soiltemp_dmax_accum(iland) + real(soiltempk_dmax(iland),r8) * 86400._r8
 
      enddo
-     !$omp end parallel do 
+     !$omp end parallel do
 
   endif
 

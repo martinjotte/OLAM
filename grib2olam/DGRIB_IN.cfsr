@@ -16,7 +16,7 @@ out3d  = 'UE',   'VE',   'TEMP', 'GEO', 'SHV',
 ! Miscellaneous surface fields (currently unused in OLAM)
 
 nvarsfc = 2,
-varsfc = 'PRES', 'TMP', 
+varsfc = 'PRES', 'TMP',
 outsfc = 'PSFC', 'TSFC',
 
 ! SST / SEAICE

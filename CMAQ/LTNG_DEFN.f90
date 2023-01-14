@@ -85,7 +85,7 @@ contains
   end function ltng_init
 
 
-  subroutine get_ltng ( mrl )
+  subroutine get_ltng ( )
 
     ! Get NO produced from lightning in VDEMIS_LT
     ! TODO: add resolved
@@ -98,8 +98,6 @@ contains
     use consts_coms,only: t00
 
     implicit none
-
-    integer, intent(in) :: mrl
 
     real, parameter :: tmin = t00 - 40.0
     real, parameter :: tmax = t00 - 15.0
@@ -116,7 +114,7 @@ contains
     if ( .not. ltng_no ) return
 
     !$omp parallel do private(j,iw,rate) schedule(guided)
-    do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+    do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
        vdemis_lt   (:,iw) = 0.0
        column_ltng_no(iw) = 0.0
@@ -167,7 +165,7 @@ contains
 
     ! COMPUTE RATIO OF CLOUD-TO-GROUND FLASHES TO TOTAL FLASHES
     !
-    ! Price & Rind (1993) compute the ratio of Cloud-Ground 
+    ! Price & Rind (1993) compute the ratio of Cloud-Ground
     ! to Total Flashes by the parameterization:
     !
     ! For 5.5 < dz < 14:
@@ -176,18 +174,18 @@ contains
     !
     ! Where:
     !
-    ! (1) dz is the depth [km] of the cloud above the freezing 
-    !     level.  The cold-cloud thickness (dz) is the depth of 
-    !     the layer between the cloud top and the center of the 
-    !     highest layer for which the temperature exceeds 273 K. 
-    !     The cold-cloud thickness is set to 5.5 km at grid points 
+    ! (1) dz is the depth [km] of the cloud above the freezing
+    !     level.  The cold-cloud thickness (dz) is the depth of
+    !     the layer between the cloud top and the center of the
+    !     highest layer for which the temperature exceeds 273 K.
+    !     The cold-cloud thickness is set to 5.5 km at grid points
     !     where it is less than 5.5 km.
 
     ! Convert cold cloud thickness from [m] to [km] (min value: 5.5 km)
 
     cc = max( ccthick * 1.e-3, 5.5 )
     cc = min( cc, 12.0 )
-      
+
     f_cg = 1.0 / ( 1.0 + 63.09 + cc * ( -36.540 + &
                                  cc * (   7.493 + &
                                  cc * (  -0.648 + &
@@ -213,7 +211,7 @@ contains
     real    :: glat, r1, r0, eta, scale
     integer :: mtype, k, in, ka
 
-    ! lightning NOx vertical cummulative source distributions 
+    ! lightning NOx vertical cummulative source distributions
     ! from Ott et al [JGR, 2010]; 50 evenly spaced levels from
     ! surface to cloud top for 1) tropical marine, 2) tropical
     ! land, 3) midlatitudes, and 4) subtropics
@@ -255,12 +253,12 @@ contains
          0.8579,  0.8819,  0.9027,  0.9203,  0.9379,  0.9530, &
          0.9639,  0.9748,  0.9842,  0.9890,  0.9938,  0.9981, &
          0.9987,  0.9994,  1.0000 /), (/51,4/)                )
-    
+
     mtype           = 0
     vertprof(1:mza) = 0.0
     glat            = glatw(iw)
     ka              = lpw(iw)
-      
+
     ! Assign profile kind to grid box, following Allen et al. [JGR, 2010]
 
     select case (current_time%month)
@@ -316,13 +314,13 @@ contains
        else
           mtype = 3           ! Midlatitude
        endif
-         
+
     end select
 
     ! Safety check
 
     if ( mtype == 0 ) return
-      
+
     ! Use the profile for this type of lightnox event to partition
     ! the total column lightnox onto the vertical grid
 
@@ -334,7 +332,7 @@ contains
        in = max(0, min(49, int(eta)))
        r1 = eta - real(in)
        r0 = 1.0 - r1
-  
+
        frac(k) = r0 * profiles(in,mtype) + r1 * profiles(in+1,mtype)
     enddo
 
@@ -356,14 +354,14 @@ contains
     real, intent(out) :: fsea
 
     ! COMPUTE LIGHTNOX FLASH RATE / SECOND
-  
+
     ! Price & Rind (1992) give the following parameterizations for
     ! lightnox flash rates as a function of convective cloud top
     ! height. LightNOX will therefore occur much more often on land
 
     ! Flashes/sec over land
     fland = 5.733e-7 * ( height * 1.e-3 )**4.90
-      
+
     ! Flahes/sec over sea
     fsea  = 1.067e-5 * ( height * 1.e-3 )**1.73
 

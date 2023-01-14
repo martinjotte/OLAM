@@ -60,7 +60,7 @@ C..SAVED LOCAL VARIABLES:
 
 
 C..SCRATCH LOCAL VARIABLES:
-      REAL( 8 ) ::   A, B, C, Q   ! Quadratic equation terms
+      REAL( 8 ) ::   A, B, C      ! Quadratic equation terms
       REAL( 8 ) ::   CMN          ! Temp scalar
       REAL( 8 ) ::   L15          ! Loss of NO3
       REAL( 8 ) ::   L16          ! Loss of N2O5
@@ -122,7 +122,7 @@ c..K15_15, R15_16, and R16_15 terms
       K15_15  = RKI(  35 ) * DTC
 
       R15_16  = ( RKI(  37 )
-     &        +   RKI(  38 ) ) * DTC 
+     &        +   RKI(  38 ) ) * DTC
 
 
       R16_15  = RKI(  36 ) * YC( NO2 ) * DTC

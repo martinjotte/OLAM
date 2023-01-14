@@ -1,36 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
-
 subroutine spawn_nest(iatmgrid)
 
 ! This subroutine adds nested grid regions at the beginning of a simulation.
@@ -47,10 +14,8 @@ subroutine spawn_nest(iatmgrid)
 
   use mem_delaunay, only: itab_md_vars, itab_ud_vars, itab_wd_vars, &
                           nest_ud_vars, nest_wd_vars, alloc_itabsd, &
-                          itab_md, itab_ud, itab_wd, iwdorig, iwdorig_temp, &
+                          itab_md, itab_ud, itab_wd, impent, &
                           xemd, yemd, zemd, nmd, nud, nwd
-
-  use mem_grid,     only: impent
 
   use misc_coms,    only: io6, ngrids, mdomain, nxp, ngrdll, grdrad, &
                           grdlat, grdlon, runtype
@@ -60,6 +25,7 @@ subroutine spawn_nest(iatmgrid)
 
   use consts_coms,  only: pio180, erad, pi1, pi2, piu180
   use oname_coms,   only: nl
+  use oplot_coms,   only: op
 
   implicit none
 
@@ -72,15 +38,15 @@ subroutine spawn_nest(iatmgrid)
   type (nest_ud_vars), allocatable :: nest_ud(:)
   type (nest_wd_vars), allocatable :: nest_wd(:)
 
-  integer :: iu,iw,im,iw1,iw2,im1,im2
+  integer :: iu,iw,im,iw1,iw2,im1,im2,im3
   integer :: iu1,iu2,iu3,iu1o,iu2o,iu3o,iu1o_iw1,iu2o_iw1,iu3o_iw1
   integer :: iu4,iu5,iu6,iw3,ngr,mrlo,mrloo,nwda,j,npoly,nw
+  integer :: iu1n,iu2n,iu3n
 
   integer :: nmd0,nud0,nwd0
 
   integer, allocatable :: imper(:) ! Ouside IW index at each perimeter index
   integer, allocatable :: iuper(:) ! Boundary IU index at each perimeter index
-  integer :: kma,kua,kwa   ! New M,U,W indices while constructing nest perimeter
 
   integer, parameter :: npts = 10000  ! Sufficient array space for # of CM pts along FM perimeter
 
@@ -105,13 +71,20 @@ subroutine spawn_nest(iatmgrid)
 
   real :: xp1, xp2, xq1, xq2
   real :: yp1, yp2, yq1, yq2
-  integer :: iskip
+  integer :: iskip, niter, mvint
+  integer :: imnext, imn, iwnext, iwn, iunext, iun
+
+  logical, allocatable :: iwdiv(:), iudiv(:)
+  logical, allocatable :: ismnest(:), isunest(:), iswnest(:)
+  integer, allocatable :: imnew(:), iwnew(:), iunew(:)
 
   integer          :: nn, n0, ngrids0, nxp0, gridplot_base
   integer, pointer :: ngrdll0(:)
   real,    pointer :: grdrad0(:,:)
   real,    pointer :: grdlat0(:,:)
   real,    pointer :: grdlon0(:,:)
+
+  character(12) :: string
 
   ! Make duplicate of current grid dimensions
 
@@ -142,7 +115,7 @@ subroutine spawn_nest(iatmgrid)
 
      n0      = 1
      nxp0    = nxp_sfc
-     ngrids0 = ngrids
+     ngrids0 = nsfcgrids
 
      ngrdll0 => nsfcgrdll
      grdrad0 => sfcgrdrad
@@ -183,9 +156,8 @@ subroutine spawn_nest(iatmgrid)
      call move_alloc(yemd, yem_temp)
      call move_alloc(zemd, zem_temp)
 
-     if (.not. iatmgrid) call move_alloc(iwdorig, iwdorig_temp)
-
      allocate (lista(nmd), listb(nmd), jdone(6,nmd))
+     allocate (imnew(nmd), iwnew(nwd), iunew(nud))
 
      ! Find closest M point to first specified NGR center point.
 
@@ -501,32 +473,166 @@ subroutine spawn_nest(iatmgrid)
         nest_wd(jw2)%iw(3) = -1
      enddo
 
-     ! Reset nwd0 counter for actual count
-
-     nwd0 = nwd
-
      ! Loop over all W points, counting up those with nest_wd()%iw(3) still flagged.
      ! Reset all nest_wd members according to current count
 
-     do iw = 2,nwd
+     iwnext = 2
+     iwnew(1) = 1
+
+     do iw = 2, nwd
+        iwnew(iw) = iwnext
 
         if (nest_wd(iw)%iw(3) > 0) then
+           iwnext = iwnext + 1
+           nest_wd(iw)%iw(1) = iwnext
 
-!          write(io6,*) 'subdividing W cell ',iw
+           iwnext = iwnext + 1
+           nest_wd(iw)%iw(2) = iwnext
 
-           nest_wd(iw)%iu(1) = nud0 + 1
-           nest_wd(iw)%iu(2) = nud0 + 2
-           nest_wd(iw)%iu(3) = nud0 + 3
-
-           nest_wd(iw)%iw(1) = nwd0 + 1
-           nest_wd(iw)%iw(2) = nwd0 + 2
-           nest_wd(iw)%iw(3) = nwd0 + 3
-
-           nud0 = nud0 + 3
-           nwd0 = nwd0 + 3
-
+           iwnext = iwnext + 1
+           nest_wd(iw)%iw(3) = iwnext
         endif
 
+        iwnext = iwnext + 1
+     enddo
+
+     ! Reset nwd0 counter for actual count
+     nwd0 = iwnext - 1
+
+     allocate(iwdiv(nwd))
+     iwdiv = .false.
+
+     iunext = 2
+     iunew(1) = 1
+
+     do iu = 2, nud
+        iunew(iu) = iunext
+
+        ! Check whether this U is adjacent to a W that is being subdivided
+
+        iw1 = ltab_ud(iu)%iw(1)
+        iw2 = ltab_ud(iu)%iw(2)
+
+        if (nest_wd(iw1)%iw(3) > 0 .or. nest_wd(iw2)%iw(3) > 0) then
+           if (nest_wd(iw1)%iw(3) < 0 .or. nest_wd(iw2)%iw(3) < 0) then
+
+              nest_ud(iu)%iu = iunew(iu)
+
+           else
+
+              iunext = iunext + 1
+              nest_ud(iu)%iu = iunext
+
+           endif
+        endif
+
+        do j = 1, 2
+           iw = ltab_ud(iu)%iw(j)
+           if (.not. iwdiv(iw)) then
+
+              iwdiv(iw) = .true.
+              if (nest_wd(iw)%iw(3) > 0) then
+
+                 iunext = iunext + 1
+                 nest_wd(iw)%iu(1) = iunext
+
+                 iunext = iunext + 1
+                 nest_wd(iw)%iu(2) = iunext
+
+                 iunext = iunext + 1
+                 nest_wd(iw)%iu(3) = iunext
+
+              endif
+           endif
+        enddo
+
+        iunext = iunext + 1
+     enddo
+
+     nud0 = iunext - 1
+     deallocate(iwdiv)
+
+     allocate(iudiv(nud))
+     iudiv = .false.
+
+     imnext = 2
+     imnew(1) = 1
+
+     do im = 2, nmd
+        imnew(im) = imnext
+
+        do j = 1, ltab_md(im)%npoly
+           iu = ltab_md(im)%iu(j)
+           if (.not. iudiv(iu)) then
+              iudiv(iu) = .true.
+
+              ! Check whether this U is adjacent to a W that is being subdivided
+
+              iw1 = ltab_ud(iu)%iw(1)
+              iw2 = ltab_ud(iu)%iw(2)
+
+              if (nest_wd(iw1)%iw(3) > 0 .or. nest_wd(iw2)%iw(3) > 0) then
+                 if (nest_wd(iw1)%iw(3) < 0 .or. nest_wd(iw2)%iw(3) < 0) then
+
+                    nest_ud(iu)%im = 1
+
+                 else
+
+                    imnext = imnext + 1
+                    nest_ud(iu)%im = imnext
+
+                 endif
+              endif
+           endif
+        enddo
+
+        imnext = imnext + 1
+     enddo
+!     stop
+
+     nmd0 = imnext - 1
+     deallocate(iudiv)
+
+     do im = 1, 12
+        impent(im) = imnew(impent(im))
+     enddo
+
+     ! Allocate main tables to expanded size
+     ! Initialize all neighbor indices to zero
+
+     call alloc_itabsd(nmd0,nud0,nwd0)
+
+     if (iatmgrid) then
+        allocate(ismnest(nmd0)) ; ismnest = .true.
+        allocate(isunest(nud0)) ; isunest = .true.
+        allocate(iswnest(nwd0)) ; iswnest = .true.
+     endif
+
+     ! Memory copy to main tables
+
+     do im = 2, nmd
+        imn = imnew(im)
+
+        xemd(imn) = xem_temp(im)
+        yemd(imn) = yem_temp(im)
+        zemd(imn) = zem_temp(im)
+
+        itab_md(imn)%mrlm      = ltab_md(im)%mrlm
+        itab_md(imn)%mrlm_orig = ltab_md(im)%mrlm_orig
+        itab_md(imn)%ngr       = ltab_md(im)%ngr
+        itab_md(imn)%npoly     = ltab_md(im)%npoly
+
+        if (iatmgrid) then
+           itab_md(imn)%loop(1:mloops) = ltab_md(im)%loop(1:mloops)
+           itab_md(imn)%imp     = imnew( ltab_md(im)%imp )
+           ismnest(imn)         = .false.
+        endif
+
+        do j = 1, 7
+           itab_md(imn)%im(j) = imnew( ltab_md(im)%im(j) )
+           itab_md(imn)%iu(j) = iunew( ltab_md(im)%iu(j) )
+           itab_md(imn)%iw(j) = iwnew( ltab_md(im)%iw(j) )
+        enddo
      enddo
 
      ! Define new vertex index for midpoint of each original U edge that is adjacent
@@ -535,74 +641,35 @@ subroutine spawn_nest(iatmgrid)
      ! index to old U edge.  Also, define new U index for second half of U, and
      ! attach to U.  [Make adjacent to U%m2.]
 
-     do iu = 2,nud
-
-        ! Check whether this U is adjacent to a W that is being subdivided
-
-        iw1 = ltab_ud(iu)%iw(1)
-        iw2 = ltab_ud(iu)%iw(2)
-
-        if (nest_wd(iw1)%iw(3) > 0 .or. nest_wd(iw2)%iw(3) > 0) then
-
-           if (nest_wd(iw1)%iw(3) < 0 .or. nest_wd(iw2)%iw(3) < 0) then
-
-              nest_ud(iu)%im = 1
-              nest_ud(iu)%iu = iu
-
-           else
-
-              nest_ud(iu)%im = nmd0 + 1
-              nest_ud(iu)%iu = nud0 + 1
-
-              nmd0 = nmd0 + 1
-              nud0 = nud0 + 1
-
-           endif
-
-        endif
-     enddo
-
-     ! Save current values of nmd0, nud0, nwd0 prior to adding boundary points
-
-     kma = nmd0
-     kua = nud0
-     kwa = nwd0
-
-     ! Allocate main tables to expanded size
-     ! Initialize all neighbor indices to zero
-
-     call alloc_itabsd(nmd0,nud0,nwd0)
-
-     if (.not. iatmgrid) allocate(iwdorig(nwd0))
-
-     ! Memory copy to main tables
-
-     if (.not. iatmgrid) iwdorig(1:nwd) = iwdorig_temp
-
-     do im = 1,nmd
-        if (iatmgrid) itab_md(im)%loop(1:mloops) = ltab_md(im)%loop(1:mloops)
-        itab_md(im)%imp       = ltab_md(im)%imp
-        itab_md(im)%mrlm      = ltab_md(im)%mrlm
-        itab_md(im)%mrlm_orig = ltab_md(im)%mrlm_orig
-        itab_md(im)%ngr       = ltab_md(im)%ngr
-
-        xemd(im) = xem_temp(im)
-        yemd(im) = yem_temp(im)
-        zemd(im) = zem_temp(im)
-     enddo
-
-     itab_ud(1:nud) = ltab_ud(1:nud)
-     itab_wd(1:nwd) = ltab_wd(1:nwd)
-
      ! Loop over U points and check for those flagged for subdivision
 
      mrlo = 0
 
-     do iu = 2,nud
+     do iu = 2, nud
+        iun = iunew(iu)
+
+        itab_ud(iun)%mrlu = ltab_ud(iu)%mrlu
+
+        if (iatmgrid) then
+           itab_ud(iun)%loop(1:mloops) = ltab_ud(iu)%loop(1:mloops)
+           itab_ud(iun)%iup     = iunew( ltab_ud(iu)%iup )
+           isunest(iun)         = .false.
+        endif
+
+        do j = 1, 2
+           itab_ud(iun)%im(j) = imnew( ltab_ud(iu)%im(j) )
+        enddo
+        do j = 1, 6
+           itab_ud(iun)%iw(j) = iwnew( ltab_ud(iu)%iw(j) )
+        enddo
+        do j = 1, 12
+           itab_ud(iun)%iu(j) = iunew( ltab_ud(iu)%iu(j) )
+        enddo
+
         if (nest_ud(iu)%im > 1) then
-           im  = nest_ud(iu)%im
-           im1 = itab_ud(iu)%im(1)
-           im2 = itab_ud(iu)%im(2)
+           im  = nest_ud(iu )%im
+           im1 = itab_ud(iun)%im(1)
+           im2 = itab_ud(iun)%im(2)
 
            ! Save mrl value of parent grid for new grid being spawned (saved within IF
            ! block because itab_md(im1)%mrlm gets changed later in DO loop)
@@ -635,30 +702,57 @@ subroutine spawn_nest(iatmgrid)
 
      mrloo = 0  ! Initialize check variable for uniform mrlw over current nested grid
 
-     do iw = 2,nwd
+     do iw = 2, nwd
+        iwn = iwnew(iw)
 
-     ! Check if IW is fully subdivided cell
+        itab_wd(iwn)%npoly     = ltab_wd(iw)%npoly
+        itab_wd(iwn)%mrow      = ltab_wd(iw)%mrow
+        itab_wd(iwn)%ngr       = ltab_wd(iw)%ngr
+        itab_wd(iwn)%mrlw      = ltab_wd(iw)%mrlw
+        itab_wd(iwn)%mrlw_orig = ltab_wd(iw)%mrlw_orig
+
+        do j = 1, 3
+           itab_wd(iwn)%im(j) = imnew( ltab_wd(iw)%im(j) )
+           itab_wd(iwn)%iu(j) = iunew( ltab_wd(iw)%iu(j) )
+        enddo
+        do j = 1, 9
+           itab_wd(iwn)%iw(j) = iwnew( ltab_wd(iw)%iw(j) )
+        enddo
+
+        if (iatmgrid) then
+           itab_wd(iwn)%loop(1:mloops) = ltab_wd(iw)%loop(1:mloops)
+           itab_wd(iwn)%iwp     = iwnew( ltab_wd(iw)%iwp )
+           iswnest(iwn)         = .false.
+        endif
+
+        ! Check if IW is fully subdivided cell
 
         if (nest_wd(iw)%iw(3) > 0) then
 
-        ! This is fully subdivided W cell
+           ! This is fully subdivided W cell
 
-        ! Mapping of original undivided triangles
+           ! Mapping of original undivided triangles
 
            iu1o = ltab_wd(iw)%iu(1)
            iu2o = ltab_wd(iw)%iu(2)
            iu3o = ltab_wd(iw)%iu(3)
+
+           iu1n  = iunew(iu1o)
+           iu2n  = iunew(iu2o)
+           iu3n  = iunew(iu3o)
+
            mrlo = ltab_wd(iw)%mrlw
 
            ! Check of mrlw value for current nested grid
 
            if (mrloo == 0) mrloo = mrlo  ! Set to first nonzero mrlw encountered
            if (mrlo /= mrloo) then
-              write(io6,*) 'Current nested grid ',ngr
-              write(io6,*) 'crosses pre-existing grid boundary.'
-              write(io6,*) 'iw = ',iw
-              write(io6,*) 'stopping model'
-              stop 'stop - nested grid out of bounds'
+              write(io6,*)
+              write(io6,'(A,I0,A)') ' Current nested grid ', ngr, ' crosses (or is too close to)'
+              write(io6,'(A,I0,A)') ' the next coarser grid boundary at iw = ', iw, '.'
+              write(io6,'(A)')      ' Reduce the size of the current nested grid or increase the parent grid size.'
+              write(io6,*)
+              stop 'Ending MAKEGRID - nested grid out of bounds in spawn_nest'
            endif
 
            iu1o_iw1 = ltab_ud(iu1o)%iw(1)
@@ -681,15 +775,15 @@ subroutine spawn_nest(iatmgrid)
 
            ! Fill tables with new values
 
-           itab_wd(iw)%iu(1) = iu1
-           itab_wd(iw)%iu(2) = iu2
-           itab_wd(iw)%iu(3) = iu3
+           itab_wd(iwn)%iu(1) = iu1
+           itab_wd(iwn)%iu(2) = iu2
+           itab_wd(iwn)%iu(3) = iu3
 
            itab_wd(iw1)%iu(1) = iu1
            itab_wd(iw2)%iu(1) = iu2
            itab_wd(iw3)%iu(1) = iu3
 
-           itab_wd(iw)%mrlw  = mrlo + 1
+           itab_wd(iwn)%mrlw = mrlo + 1
            itab_wd(iw1)%mrlw = mrlo + 1
            itab_wd(iw2)%mrlw = mrlo + 1
            itab_wd(iw3)%mrlw = mrlo + 1
@@ -698,105 +792,99 @@ subroutine spawn_nest(iatmgrid)
            itab_wd(iw2)%mrlw_orig = mrlo + 1
            itab_wd(iw3)%mrlw_orig = mrlo + 1
 
-           itab_wd(iw)%ngr  = ngr
+           itab_wd(iwn)%ngr = ngr
            itab_wd(iw1)%ngr = ngr
            itab_wd(iw2)%ngr = ngr
            itab_wd(iw3)%ngr = ngr
 
-           if (.not. iatmgrid) then
-              iwdorig(iw1) = iwdorig_temp(iw)
-              iwdorig(iw2) = iwdorig_temp(iw)
-              iwdorig(iw3) = iwdorig_temp(iw)
-           endif
-
            if (nest_ud(iu1o)%im > 1) then
-              itab_ud(iu1o)%im(2) = nest_ud(iu1o)%im
-              itab_ud(iu4)%im(1)  = nest_ud(iu1o)%im
-              itab_ud(iu4)%im(2)  = ltab_ud(iu1o)%im(2)
+              itab_ud(iu1n)%im(2) = nest_ud(iu1o)%im
+              itab_ud(iu4 )%im(1) = nest_ud(iu1o)%im
+              itab_ud(iu4 )%im(2) = imnew( ltab_ud(iu1o)%im(2) )
            endif
 
            if (nest_ud(iu2o)%im > 1) then
-              itab_ud(iu2o)%im(2) = nest_ud(iu2o)%im
-              itab_ud(iu5)%im(1)  = nest_ud(iu2o)%im
-              itab_ud(iu5)%im(2)  = ltab_ud(iu2o)%im(2)
+              itab_ud(iu2n)%im(2) = nest_ud(iu2o)%im
+              itab_ud(iu5 )%im(1) = nest_ud(iu2o)%im
+              itab_ud(iu5 )%im(2) = imnew( ltab_ud(iu2o)%im(2) )
            endif
 
            if (nest_ud(iu3o)%im > 1) then
-              itab_ud(iu3o)%im(2) = nest_ud(iu3o)%im
-              itab_ud(iu6)%im(1)  = nest_ud(iu3o)%im
-              itab_ud(iu6)%im(2)  = ltab_ud(iu3o)%im(2)
+              itab_ud(iu3n)%im(2) = nest_ud(iu3o)%im
+              itab_ud(iu6 )%im(1) = nest_ud(iu3o)%im
+              itab_ud(iu6 )%im(2) = imnew( ltab_ud(iu3o)%im(2) )
            endif
 
            if (iw == iu1o_iw1) then
-              itab_wd(iw3)%iu(2) = iu1o
+              itab_wd(iw3)%iu(2) = iu1n
               itab_wd(iw2)%iu(3) = iu4
 
               itab_ud(iu1)%im(1) = nest_ud(iu2o)%im
               itab_ud(iu1)%im(2) = nest_ud(iu3o)%im
               itab_ud(iu1)%iw(1) = iw1
-              itab_ud(iu1)%iw(2) = iw
+              itab_ud(iu1)%iw(2) = iwn
 
-              itab_ud(iu1o)%iw(1) = iw3
-              itab_ud(iu4)%iw(1) = iw2
+              itab_ud(iu1n)%iw(1) = iw3
+              itab_ud(iu4 )%iw(1) = iw2
            else
               itab_wd(iw3)%iu(2) = iu4
-              itab_wd(iw2)%iu(3) = iu1o
+              itab_wd(iw2)%iu(3) = iu1n
 
               itab_ud(iu1)%im(1) = nest_ud(iu3o)%im
               itab_ud(iu1)%im(2) = nest_ud(iu2o)%im
-              itab_ud(iu1)%iw(1) = iw
+              itab_ud(iu1)%iw(1) = iwn
               itab_ud(iu1)%iw(2) = iw1
 
-              itab_ud(iu1o)%iw(2) = iw2
-              itab_ud(iu4)%iw(2) = iw3
+              itab_ud(iu1n)%iw(2) = iw2
+              itab_ud(iu4 )%iw(2) = iw3
            endif
 
            if (iw == iu2o_iw1) then
-              itab_wd(iw1)%iu(2) = iu2o
+              itab_wd(iw1)%iu(2) = iu2n
               itab_wd(iw3)%iu(3) = iu5
 
               itab_ud(iu2)%im(1) = nest_ud(iu3o)%im
               itab_ud(iu2)%im(2) = nest_ud(iu1o)%im
               itab_ud(iu2)%iw(1) = iw2
-              itab_ud(iu2)%iw(2) = iw
+              itab_ud(iu2)%iw(2) = iwn
 
-              itab_ud(iu2o)%iw(1) = iw1
-              itab_ud(iu5)%iw(1) = iw3
+              itab_ud(iu2n)%iw(1) = iw1
+              itab_ud(iu5 )%iw(1) = iw3
            else
               itab_wd(iw1)%iu(2) = iu5
-              itab_wd(iw3)%iu(3) = iu2o
+              itab_wd(iw3)%iu(3) = iu2n
 
               itab_ud(iu2)%im(1) = nest_ud(iu1o)%im
               itab_ud(iu2)%im(2) = nest_ud(iu3o)%im
-              itab_ud(iu2)%iw(1) = iw
+              itab_ud(iu2)%iw(1) = iwn
               itab_ud(iu2)%iw(2) = iw2
 
-              itab_ud(iu2o)%iw(2) = iw3
-              itab_ud(iu5)%iw(2) = iw1
+              itab_ud(iu2n)%iw(2) = iw3
+              itab_ud(iu5 )%iw(2) = iw1
            endif
 
            if (iw == iu3o_iw1) then
-              itab_wd(iw2)%iu(2) = iu3o
+              itab_wd(iw2)%iu(2) = iu3n
               itab_wd(iw1)%iu(3) = iu6
 
               itab_ud(iu3)%im(1) = nest_ud(iu1o)%im
               itab_ud(iu3)%im(2) = nest_ud(iu2o)%im
               itab_ud(iu3)%iw(1) = iw3
-              itab_ud(iu3)%iw(2) = iw
+              itab_ud(iu3)%iw(2) = iwn
 
-              itab_ud(iu3o)%iw(1) = iw2
-              itab_ud(iu6)%iw(1) = iw1
+              itab_ud(iu3n)%iw(1) = iw2
+              itab_ud(iu6 )%iw(1) = iw1
            else
               itab_wd(iw2)%iu(2) = iu6
-              itab_wd(iw1)%iu(3) = iu3o
+              itab_wd(iw1)%iu(3) = iu3n
 
               itab_ud(iu3)%im(1) = nest_ud(iu2o)%im
               itab_ud(iu3)%im(2) = nest_ud(iu1o)%im
-              itab_ud(iu3)%iw(1) = iw
+              itab_ud(iu3)%iw(1) = iwn
               itab_ud(iu3)%iw(2) = iw3
 
-              itab_ud(iu3o)%iw(2) = iw1
-              itab_ud(iu6)%iw(2) = iw2
+              itab_ud(iu3n)%iw(2) = iw1
+              itab_ud(iu6 )%iw(2) = iw2
            endif
 
         endif
@@ -805,26 +893,36 @@ subroutine spawn_nest(iatmgrid)
 
      ! Fill transition zone
 
-     call perim_fill3(ngr, nmd, nud, nwd, mrlo, nper2, imper, iuper, ltab_ud, nest_ud, nest_wd)
+     call perim_fill3(ngr, nmd, nud, nwd, mrlo, nper2, imper, iuper, &
+                      ltab_ud, nest_ud, nest_wd, iunew, iwnew, imnew)
 
      ! Fill itabs loop tables for newly spawned points
 
      if (iatmgrid) then
 
-        do im = nmd+1,nmd0
-           itab_md(im)%imp = im
-           call mdloopf('f',im, jtm_grid, jtm_init, jtm_prog, jtm_wadj, jtm_vadj, jtm_wstn)
+        do im = 2, nmd0
+           if (ismnest(im)) then
+              itab_md(im)%imp = im
+              call mdloopf('f',im, jtm_grid, jtm_init, jtm_prog, jtm_wadj, jtm_vadj, jtm_wstn)
+           endif
         enddo
+        deallocate (ismnest)
 
-        do iu = nud+1,nud0
-           itab_ud(iu)%iup = iu
-           call udloopf('f',iu, jtu_grid, jtu_init, jtu_prog, jtu_wadj, jtu_wstn, 0)
+        do iu = 2, nud0
+           if (isunest(iu)) then
+              itab_ud(iu)%iup = iu
+              call udloopf('f',iu, jtu_grid, jtu_init, jtu_prog, jtu_wadj, jtu_wstn, 0)
+           endif
         enddo
+        deallocate (isunest)
 
-        do iw = nwd+1,nwd0
-           itab_wd(iw)%iwp = iw
-           call wdloopf('f',iw, jtw_grid, jtw_prog, jtw_wadj, jtw_vadj, 0, 0)
+        do iw = 2, nwd0
+           if (iswnest(iw)) then
+              itab_wd(iw)%iwp = iw
+              call wdloopf('f',iw, jtw_grid, jtw_prog, jtw_wadj, jtw_vadj, 0, 0)
+           endif
         enddo
+        deallocate (iswnest)
 
      endif
 
@@ -837,10 +935,10 @@ subroutine spawn_nest(iatmgrid)
      deallocate (ltab_md,ltab_ud,ltab_wd)
      deallocate (nest_ud,nest_wd)
      deallocate (xem_temp,yem_temp,zem_temp)
-     if (.not. iatmgrid) deallocate (iwdorig_temp)
 
      deallocate (imper,iuper,igsize,nearpent,nwdivg)
      deallocate (npolyper,nwdivper)
+     deallocate (imnew,iwnew,iunew)
 
      ! Plot grid lines
 
@@ -864,6 +962,19 @@ subroutine spawn_nest(iatmgrid)
 
            call o_frstpt (xq1,yq1)
            call o_vector (xq2,yq2)
+
+           call oplot_transform(1, (xemd(im1)+xemd(im2))/2., &
+                                   (yemd(im1)+yemd(im2))/2., &
+                                   (zemd(im1)+zemd(im2))/2., &
+                                   xp1, yp1                  )
+
+           if ( xp1 < op%xmin .or.  &
+                xp1 > op%xmax .or.  &
+                yp1 < op%ymin .or.  &
+                yp1 > op%ymax ) cycle
+
+           write(string,'(I0)') iu
+           call o_plchlq (xp1,yp1,trim(adjustl(string)),0.0025,0.,0.)
         enddo
 
         call o_frame()
@@ -881,13 +992,19 @@ subroutine spawn_nest(iatmgrid)
 
      ! This is the place to do spring dynamics
 
-     if (iatmgrid) then
-        call spring_dynamics(3, 1, ngr, nxp0, nmd, nud, nwd, xemd, yemd, zemd, &
-                             itab_md, itab_ud, itab_wd)
+     if (runtype == 'MAKEGRID_PLOT') then
+        niter = 100
+        mvint = 0
+     else if (iatmgrid) then
+        niter = 5000
+        mvint = 0
      else
-        call spring_dynamics(3, 0, ngr, nxp0, nmd, nud, nwd, xemd, yemd, zemd, &
-                             itab_md, itab_ud, itab_wd)
+        niter = 2000
+        mvint = 0
      endif
+
+     call spring_dynamics(niter, mvint, ngr, nxp0, nmd, nud, nwd, &
+                          xemd, yemd, zemd, itab_md, itab_ud, itab_wd)
 
      if (iatmgrid) then
         write(io6,'(/,a,i0)') 'Finished spawning grid number ',ngr
@@ -905,14 +1022,14 @@ subroutine spawn_nest(iatmgrid)
            call o_reopnwk()
            call plotback()
            call oplot_set_makegrid(iatmgrid,mrlo)
-        endif
 
-        ! Set plot line color (red) and thickness
-        call o_gsplci(1)
-        call o_gsfaci(1)
-        call o_gstxci(1)
-        call o_gslwsc(2.5)
-        call o_sflush()
+           ! Set plot line color (red) and thickness
+           call o_sflush()
+           call o_gsplci(1)
+           call o_gsfaci(1)
+           call o_gstxci(1)
+           call o_gslwsc(2.5)
+        endif
 
         do iu = 2, nud
            iw1 = itab_ud(iu)%iw(1)
@@ -942,7 +1059,6 @@ subroutine spawn_nest(iatmgrid)
   enddo   ! end of ngr loop
 
   if (runtype == 'MAKEGRID_PLOT') then
-     call o_sflush
      call mkmap_makegrid()
      call o_frame()
      call o_clswk()
@@ -950,21 +1066,27 @@ subroutine spawn_nest(iatmgrid)
 
   ! Set mrls equal to maximum mrlw value
 
-  do iw = 2,nwd
-     if (mrls < itab_wd(iw)%mrlw) mrls = itab_wd(iw)%mrlw
-  enddo
+  if (iatmgrid) then
+     do iw = 2,nwd
+        if (mrls < itab_wd(iw)%mrlw) mrls = itab_wd(iw)%mrlw
+     enddo
+  endif
 
 end subroutine spawn_nest
 
 !==============================================================================
 
-subroutine perim_fill3(ngr, nma, nua, nwa, mrlo, nper, imper, iuper, ltab_ud, nest_ud, nest_wd)
+subroutine perim_fill3(ngr, nma, nua, nwa, mrlo, nper, imper, iuper, &
+                       ltab_ud, nest_ud, nest_wd, iunew, iwnew, imnew)
 
   use mem_delaunay, only: itab_ud_vars, nest_ud_vars, nest_wd_vars, &
                           itab_md, itab_ud, itab_wd, xemd, yemd, zemd
+  use misc_coms,    only: io6
+
   implicit none
 
   integer, intent(in) :: ngr, nma, nua, nwa, mrlo, nper, imper(nper), iuper(nper)
+  integer, intent(in) :: iunew(nua), iwnew(nwa), imnew(nma)
 
   type (itab_ud_vars), intent(inout) :: ltab_ud(nua)
   type (nest_ud_vars), intent(inout) :: nest_ud(nua)
@@ -981,6 +1103,7 @@ subroutine perim_fill3(ngr, nma, nua, nwa, mrlo, nper, imper, iuper, ltab_ud, ne
 
   integer :: iw6,iw7,iw8,iw9,iw19,iw20,iw21,iw27,iw29,iw31
   integer :: iw26,iw28,iw30,iw32
+  integer :: iw6o,iw9o
 
   integer :: iper
 
@@ -997,79 +1120,85 @@ subroutine perim_fill3(ngr, nma, nua, nwa, mrlo, nper, imper, iuper, ltab_ud, ne
      ju3 = iuper(iper+2)
 
      if (jm1 == ltab_ud(ju1)%im(1)) then
-        iu41 = ju1
+        iu41 = iunew( ju1 )
         iu42 = nest_ud(ju1)%iu
-        iu46 = ltab_ud(ju1)%iu(5)
-        iw26 = ltab_ud(ju1)%iw(3)
-        iw27 = ltab_ud(ju1)%iw(1)
+        iu46 = iunew( ltab_ud(ju1)%iu(5) )
+        iw26 = iwnew( ltab_ud(ju1)%iw(3) )
+        iw27 = iwnew( ltab_ud(ju1)%iw(1) )
      else
         iu41 = nest_ud(ju1)%iu
-        iu42 = ju1
-        iu46 = ltab_ud(ju1)%iu(12)
-        iw26 = ltab_ud(ju1)%iw(6)
-        iw27 = ltab_ud(ju1)%iw(2)
+        iu42 = iunew( ju1 )
+        iu46 = iunew( ltab_ud(ju1)%iu(12) )
+        iw26 = iwnew( ltab_ud(ju1)%iw(6 ) )
+        iw27 = iwnew( ltab_ud(ju1)%iw(2 ) )
      endif
 
      if (jm2 == ltab_ud(ju2)%im(1)) then
 
-        iu49 = ltab_ud(ju2)%iu(1)
-        iu50 = ltab_ud(ju2)%iu(2)
-        iu34 = ltab_ud(ju2)%iu(3)
-        iu35 = ltab_ud(ju2)%iu(4)
-        iu48 = ltab_ud(ju2)%iu(5)
-        iu51 = ltab_ud(ju2)%iu(8)
+        iu49 = iunew( ltab_ud(ju2)%iu(1) )
+        iu50 = iunew( ltab_ud(ju2)%iu(2) )
+        iu34 = iunew( ltab_ud(ju2)%iu(3) )
+        iu35 = iunew( ltab_ud(ju2)%iu(4) )
+        iu48 = iunew( ltab_ud(ju2)%iu(5) )
+        iu51 = iunew( ltab_ud(ju2)%iu(8) )
 
-        iw6 = ltab_ud(ju2)%iw(5)
-        iw9 = ltab_ud(ju2)%iw(6)
-        iw29 = ltab_ud(ju2)%iw(1)
-        iw20 = ltab_ud(ju2)%iw(2)
-        iw28 = ltab_ud(ju2)%iw(3)
-        iw30 = ltab_ud(ju2)%iw(4)
+        iw6o =        ltab_ud(ju2)%iw(5)
+        iw9o =        ltab_ud(ju2)%iw(6)
+
+        iw6  = iwnew( ltab_ud(ju2)%iw(5) )
+        iw9  = iwnew( ltab_ud(ju2)%iw(6) )
+        iw29 = iwnew( ltab_ud(ju2)%iw(1) )
+        iw20 = iwnew( ltab_ud(ju2)%iw(2) )
+        iw28 = iwnew( ltab_ud(ju2)%iw(3) )
+        iw30 = iwnew( ltab_ud(ju2)%iw(4) )
 
      else
 
-        iu49 = ltab_ud(ju2)%iu(4)
-        iu50 = ltab_ud(ju2)%iu(3)
-        iu34 = ltab_ud(ju2)%iu(2)
-        iu35 = ltab_ud(ju2)%iu(1)
-        iu48 = ltab_ud(ju2)%iu(12)
-        iu51 = ltab_ud(ju2)%iu(9)
+        iu49 = iunew( ltab_ud(ju2)%iu(4 ) )
+        iu50 = iunew( ltab_ud(ju2)%iu(3 ) )
+        iu34 = iunew( ltab_ud(ju2)%iu(2 ) )
+        iu35 = iunew( ltab_ud(ju2)%iu(1 ) )
+        iu48 = iunew( ltab_ud(ju2)%iu(12) )
+        iu51 = iunew( ltab_ud(ju2)%iu(9 ) )
 
-        iw6 = ltab_ud(ju2)%iw(4)
-        iw9 = ltab_ud(ju2)%iw(3)
-        iw29 = ltab_ud(ju2)%iw(2)
-        iw20 = ltab_ud(ju2)%iw(1)
-        iw28 = ltab_ud(ju2)%iw(6)
-        iw30 = ltab_ud(ju2)%iw(5)
+        iw6o =        ltab_ud(ju2)%iw(4)
+        iw9o =        ltab_ud(ju2)%iw(3)
+
+        iw6  = iwnew( ltab_ud(ju2)%iw(4) )
+        iw9  = iwnew( ltab_ud(ju2)%iw(3) )
+        iw29 = iwnew( ltab_ud(ju2)%iw(2) )
+        iw20 = iwnew( ltab_ud(ju2)%iw(1) )
+        iw28 = iwnew( ltab_ud(ju2)%iw(6) )
+        iw30 = iwnew( ltab_ud(ju2)%iw(5) )
 
      endif
 
      if (jm3 == ltab_ud(ju3)%im(1)) then
-        im21 = ltab_ud(ju3)%im(2)
-        iu44 = ju3
+        im21 = imnew( ltab_ud(ju3)%im(2) )
+        iu44 = iunew( ju3 )
         iu45 = nest_ud(ju3)%iu
-        iu53 = ltab_ud(ju3)%iu(8)
-        iw31 = ltab_ud(ju3)%iw(1)
-        iw32 = ltab_ud(ju3)%iw(4)
+        iu53 = iunew( ltab_ud(ju3)%iu(8) )
+        iw31 = iwnew( ltab_ud(ju3)%iw(1) )
+        iw32 = iwnew( ltab_ud(ju3)%iw(4) )
      else
-        im21 = ltab_ud(ju3)%im(1)
+        im21 = imnew( ltab_ud(ju3)%im(1) )
         iu44 = nest_ud(ju3)%iu
-        iu45 = ju3
-        iu53 = ltab_ud(ju3)%iu(9)
-        iw31 = ltab_ud(ju3)%iw(2)
-        iw32 = ltab_ud(ju3)%iw(5)
+        iu45 = iunew( ju3 )
+        iu53 = iunew( ltab_ud(ju3)%iu(9) )
+        iw31 = iwnew( ltab_ud(ju3)%iw(2) )
+        iw32 = iwnew( ltab_ud(ju3)%iw(5) )
      endif
 
-     im16 = jm1
+     im16 = imnew( jm1 )
      im17 = nest_ud(ju1)%im
-     im18 = jm2
-     im19 = jm3
+     im18 = imnew( jm2 )
+     im19 = imnew( jm3 )
      im20 = nest_ud(ju3)%im
-     iu43 = ju2
+     iu43 = iunew( ju2 )
 
-     ku1 = nest_wd(iw6)%iu(1)
-     ku2 = nest_wd(iw6)%iu(2)
-     ku3 = nest_wd(iw6)%iu(3)
+     ku1 = nest_wd(iw6o)%iu(1)
+     ku2 = nest_wd(iw6o)%iu(2)
+     ku3 = nest_wd(iw6o)%iu(3)
 
      if (itab_ud(ku1)%im(1) > 1 .and. itab_ud(ku1)%im(2) > 1) then
         iu25 = ku2
@@ -1096,9 +1225,9 @@ subroutine perim_fill3(ngr, nma, nua, nwa, mrlo, nper, imper, iuper, ltab_ud, ne
         im12 = itab_ud(iu25)%im(1) ! to reposition xyzemd(12)
      endif
 
-     ku1 = nest_wd(iw9)%iu(1)
-     ku2 = nest_wd(iw9)%iu(2)
-     ku3 = nest_wd(iw9)%iu(3)
+     ku1 = nest_wd(iw9o)%iu(1)
+     ku2 = nest_wd(iw9o)%iu(2)
+     ku3 = nest_wd(iw9o)%iu(3)
 
      if (itab_ud(ku1)%im(1) > 1 .and. itab_ud(ku1)%im(2) > 1) then
         iu16 = ku2
@@ -1338,6 +1467,15 @@ subroutine perim_fill3(ngr, nma, nua, nwa, mrlo, nper, imper, iuper, ltab_ud, ne
      itab_wd(iw30)%ngr = ngr
      itab_wd(iw31)%ngr = ngr
      itab_wd(iw32)%ngr = ngr
+
+     if (any( itab_wd( [iw20,iw26,iw27,iw28,iw29,iw30,iw31,iw32] )%mrlw /= mrlo )) then
+        write(io6,*)
+        write(io6,'(A,I0,A)') ' Current nested grid ', ngr, ' crosses (or is too close to)'
+        write(io6,'(A,I0,A)') ' the next coarser grid boundary. Reduce the size of the current'
+        write(io6,'(A)')      ' nested grid or increase the parent grid size.'
+        write(io6,*)
+        stop 'Ending MAKEGRID - nested grid out of bounds in perim_fill3'
+     endif
 
      ! NEW M locations
 
@@ -1589,6 +1727,7 @@ end subroutine perim_ngr
   subroutine perim_mrow(ngr, nma, nua, nwa, itab_md, itab_ud, itab_wd)
 
   use mem_delaunay, only: itab_wd_vars, itab_ud_vars, itab_md_vars
+  use misc_coms,    only: io6
 
   implicit none
 
@@ -1598,57 +1737,51 @@ end subroutine perim_ngr
   type (itab_ud_vars), intent(inout) :: itab_ud(nua)
   type (itab_wd_vars), intent(inout) :: itab_wd(nwa)
 
-  integer :: iw, iw1, iw2, iw3, im1, im2, im3, im
+  integer :: iw, iw1, iw2, iw3, im
   integer :: irow, jrow, mrow
 
-  integer :: mrow_temp(nwa)
+  integer :: mrow_temp(nwa), mrow_temp2(nwa)
+
+  ! Initialize all mrow values to zero.
+
+  mrow_temp  = 0
 
   ! Loop over all W points
 
   do iw = 2,nwa
 
-     ! Initialize all mrow values to zero.
+     ! Set mrow values on current nested grid border to +/- 1.
 
-     itab_wd(iw)%mrow  = 0
+     if (itab_wd(iw)%ngr == ngr) then
 
-     mrow_temp (iw)    = 0
+        iw1 = itab_wd(iw)%iw(1)
+        iw2 = itab_wd(iw)%iw(2)
+        iw3 = itab_wd(iw)%iw(3)
 
-     ! Set mrow values on nested grid border to +/- 1.
+        if     (itab_wd(iw)%mrlw < itab_wd(iw1)%mrlw .or. &
+                itab_wd(iw)%mrlw < itab_wd(iw2)%mrlw .or. &
+                itab_wd(iw)%mrlw < itab_wd(iw3)%mrlw) then
 
-     iw1 = itab_wd(iw)%iw(1)
-     iw2 = itab_wd(iw)%iw(2)
-     iw3 = itab_wd(iw)%iw(3)
+           mrow_temp(iw) = 1
 
-     im1 = itab_wd(iw)%im(1)
-     im2 = itab_wd(iw)%im(2)
-     im3 = itab_wd(iw)%im(3)
+        elseif (itab_wd(iw)%mrlw > itab_wd(iw1)%mrlw .or. &
+                itab_wd(iw)%mrlw > itab_wd(iw2)%mrlw .or. &
+                itab_wd(iw)%mrlw > itab_wd(iw3)%mrlw) then
 
-     if     (itab_wd(iw)%mrlw < itab_wd(iw1)%mrlw .or. &
-             itab_wd(iw)%mrlw < itab_wd(iw2)%mrlw .or. &
-             itab_wd(iw)%mrlw < itab_wd(iw3)%mrlw) then
+           mrow_temp(iw) = -1
 
-        itab_wd(iw)%mrow = 1
-        itab_wd(iw)%ngr = ngr
-        mrow_temp(iw) = 1
-
-     elseif (itab_wd(iw)%mrlw > itab_wd(iw1)%mrlw .or. &
-             itab_wd(iw)%mrlw > itab_wd(iw2)%mrlw .or. &
-             itab_wd(iw)%mrlw > itab_wd(iw3)%mrlw) then
-
-        itab_wd(iw)%mrow = -1
-        itab_wd(iw)%ngr = ngr
-        mrow_temp(iw) = -1
+        endif
 
      endif
-
   enddo
 
-  do irow = 2,10  ! First row already done above
+  mrow_temp2(:) = mrow_temp(:)
+
+  do irow = 2,22  ! First row already done above
      jrow = mod(irow,2)
 
      do iw = 2,nwa
-
-        if (itab_wd(iw)%mrow == 0) then
+        if (mrow_temp(iw) == 0) then
 
            ! If IW is adjacent to any other IW cell with nonzero mrow,
            ! set mrow for IW cell
@@ -1659,33 +1792,56 @@ end subroutine perim_ngr
 
            ! Check for positive mrow values
 
-           mrow = max(itab_wd(iw1)%mrow &
-                     ,itab_wd(iw2)%mrow &
-                     ,itab_wd(iw3)%mrow)
+           mrow = max( mrow_temp(iw1), mrow_temp(iw2), mrow_temp(iw3) )
 
-           if (mrow > 0) mrow_temp (iw) = mrow + jrow
+           if (mrow > 0) mrow_temp2(iw) = mrow + jrow
 
            ! Check for negative mrow values
 
-           mrow = min(itab_wd(iw1)%mrow &
-                     ,itab_wd(iw2)%mrow &
-                     ,itab_wd(iw3)%mrow)
+           mrow = min( mrow_temp(iw1), mrow_temp(iw2), mrow_temp(iw3) )
 
-           if (mrow < 0) mrow_temp (iw) = mrow - jrow
+           if (mrow < 0) mrow_temp2(iw) = mrow - jrow
 
         endif
-
      enddo
 
-     do iw = 2,nwa
-        itab_wd(iw)%mrow  = mrow_temp(iw)
-        if (mrow_temp(iw) /= 0) itab_wd(iw)%ngr = ngr
-     enddo
+     mrow_temp(:) = mrow_temp2(:)
 
   enddo
 
+  do iw = 2,nwa
+     if (mrow_temp(iw) /= 0) then
+
+        ! This is probably not necessary with the new check in perim_fill3, but
+        ! will keep this anyway since a helpful warning message here is better
+        ! than an obscure error if spring dynamics messes up the grid!
+
+        if (mrow_temp(iw) < 2 .and. itab_wd(iw)%mrow /= 0 .and. itab_wd(iw)%mrow > -3) then
+           write(io6,*)
+           write(io6,'(A,I0,A)') ' Current nested grid ', ngr, ' crosses (or is too close to)'
+           write(io6,'(A,I0,A)') ' the next coarser grid boundary. Reduce the size of the current'
+           write(io6,'(A)')      ' nested grid or increase the parent grid size.'
+           write(io6,*)
+           stop 'Ending MAKEGRID - nested grid out of bounds in perim_mrow'
+        endif
+
+        ! Make sure previous mrows of -2, -1, and 1 are preserved in case
+        ! they are adjacent to new mesh boundaries, or else spring dynamics
+        ! will not behave properly!!
+
+        if (itab_wd(iw)%mrow == 0 .or. itab_wd(iw)%mrow < -2) then
+           itab_wd(iw)%mrow = mrow_temp(iw)
+        endif
+
+        ! Include adjacent rows to this nested grid for spring dynamics
+        itab_wd(iw)%ngr = ngr
+
+     endif
+  enddo
+
+  ! Mark boundary M points as part of this nested grid for spring dynamics
   do im = 2, nma
-     if (all( itab_wd( itab_md(im)%iw( 1:itab_md(im)%npoly ) )%ngr == ngr )) itab_md(im)%ngr = ngr
+     if (any( itab_wd( itab_md(im)%iw( 1:itab_md(im)%npoly ) )%ngr == ngr )) itab_md(im)%ngr = ngr
   enddo
 
 end subroutine perim_mrow
@@ -1694,7 +1850,7 @@ end subroutine perim_mrow
 
 subroutine ngr_area(ngr, inside, x, y, z, ngrdll, grdrad, grdlat, grdlon)
 
-  ! Subroutine ngr_area checks whether a point located at coordinates (x,y,z) 
+  ! Subroutine ngr_area checks whether a point located at coordinates (x,y,z)
   ! is within specified region for NGR refinement
 
   use max_dims,  only: maxgrds, maxngrdll
@@ -1711,7 +1867,7 @@ subroutine ngr_area(ngr, inside, x, y, z, ngrdll, grdrad, grdlat, grdlon)
   real,    intent(in ) :: grdlon(maxgrds,maxngrdll)
 
   !-------------------------------------------------------------------------------
-  ! New option introduced April 2010:  Define nested grid region as comprising the 
+  ! New option introduced April 2010:  Define nested grid region as comprising the
   ! W points adjacent to all M points that are within a specified distance of one
   ! or more connected line segments.
   integer :: ipt, jpt
@@ -1908,7 +2064,11 @@ subroutine thirdm(nma, nua, im, jdone, mlist, ltab_md, ltab_ud)
 
   integer :: npoly, j, jj, jjop, iu, iuu, iuuu, imm, immm, immmm
 
-  npoly = ltab_md(im)%npoly
+  ! If the grid is specified incorrectly in the namelist and crosses a previous
+  ! mesh boundary, npoly can be 7 which could crash the code. Limit npoly to 6
+  ! which prevents a crash here, and then a nice error message will be printed
+  ! later when the code determines the mesh specification is out of bounds.
+  npoly = min(ltab_md(im)%npoly,6)
 
   ! Loop over the 5 or 6 edges that connect to current IM point
 
@@ -2074,7 +2234,7 @@ end subroutine fill_rad3
 
 subroutine oplot_set_makegrid(iatm,mrlo)
 
-  use consts_coms, only: erad
+  use consts_coms, only: erad, pio180
   use misc_coms,   only: ngrdll, grdrad, grdlat, grdlon, nxp
   use mem_sfcg,    only: nsfcgrdll, sfcgrdrad, sfcgrdlat, sfcgrdlon, nxp_sfc
   use oplot_coms,  only: op
@@ -2088,7 +2248,7 @@ subroutine oplot_set_makegrid(iatm,mrlo)
 
   integer :: i, ngplt
   real    :: xx, yy, zz, x, y, z, xmax, xmin, ymax, ymin, gsize
-  real    :: rn, rlat, rlon, expansion, x0, y0, dx, dy, ds, bsize
+  real    :: rn, rlat, rlon, expansion, x0, y0, dx, dy, ds
 
   real,    pointer :: g_lons(:,:), g_lats(:,:), g_rads(:,:)
   integer, pointer :: ngrds(:)
@@ -2181,6 +2341,16 @@ subroutine oplot_set_makegrid(iatm,mrlo)
 
   endif
 
+  op%sinplat = sin(op%plat3 * pio180)
+  op%cosplat = cos(op%plat3 * pio180)
+
+  op%sinplon = sin(op%plon3 * pio180)
+  op%cosplon = cos(op%plon3 * pio180)
+
+  op%pxe = op%cosplon * op%cosplat * erad
+  op%pye = op%sinplon * op%cosplat * erad
+  op%pze =              op%sinplat * erad
+
   ! Set limits of panel and frame window in plotter coordinates
 
   call oplot_panel('0', 'N', 't', 'N', 1.,'O')
@@ -2189,27 +2359,28 @@ subroutine oplot_set_makegrid(iatm,mrlo)
 
   call o_set(op%h1,op%h2,op%v1,op%v2,op%xmin,op%xmax,op%ymin,op%ymax,1)
 
-!!  ! Specify font # and scale font size for titlebar
-!!
-!!  call o_pcsetr('CL',1.)  ! set character line width to 1.
-!!  call o_pcseti ('FN',4)  ! set font number to 4 (font 2 is similar but wider spacing)
-!!
-!!  call o_gsplci(10)
-!!  call o_gstxci(10)
-!!  call o_sflush()
-!!
-!!  bsize = .012 * (op%h1 - op%h2)
-!!! op%fnamey = op%v2 + .025  ! field name y coord
-!!  op%fnamey = op%v2 - .025  ! field name y coord
-!!
-!!  if (iplt == 2) then
-!!     title = "Surface mesh outlines"
-!!  else
-!!     title = "Atmospheric mesh outlines"
-!!  endif
-!!
-!!  call o_plchhq(op%fx1, op%fnamey, trim(title), bsize, 0., 0.)
-!!  call o_sflush()
+  ! Specify font # and scale font size for titlebar
+
+  call o_pcsetr('CL',1.)  ! set character line width to 1.
+  call o_pcseti ('FN',4)  ! set font number to 4 (font 2 is similar but wider spacing)
+
+  call o_sflush()
+  call o_gsplci(10)
+  call o_gstxci(10)
+
+  gsize = .012 * (op%h1 - op%h2)
+! op%fnamey = op%v2 + .025  ! field name y coord
+  op%fnamey = op%v2 - .025  ! field name y coord
+
+  if (iatm) then
+     title = "Atmospheric mesh outlines"
+  else
+     title = "Surface mesh outlines"
+  endif
+
+! call o_plchhq(op%fx1, op%fnamey, trim(title), gsize, 0., 0.)
+! call o_plchhq( 0.5, 0.5, trim(title), gsize, 0., 0.)
+  call o_plchhq( 0.5*(op%xmin + op%xmax), 1.05*op%ymax, trim(title), .015, 0., 0.)
 
 end subroutine oplot_set_makegrid
 
@@ -2267,11 +2438,11 @@ subroutine mkmap_makegrid()
 
   ! Set map line color (black)
 
+  call o_sflush()
   call o_gsplci(10)
   call o_gsfaci(10)
   call o_gstxci(10)
   call o_gslwsc(1.0)
-  call o_sflush()
 
   if (op%has_high_res .and. scale < 9.) then
      ! plot using highest resolution coastlines, international borders,
@@ -2289,17 +2460,14 @@ subroutine mkmap_makegrid()
      call o_maplot()
   endif
 
-  call o_sflush()
-
   ! Set color of lat/lon (gray)
+  call o_sflush()
   call o_gsplci(14)
   call o_gsfaci(14)
   call o_gstxci(14)
   call o_gslwsc(1.0)
-  call o_sflush()
 
   call o_mapgrd()  ! Draw lat/lon lines
-  call o_sflush()
 
   call niceinc20(.001*op%xmin,.001*op%xmax,xinc,labincx)
   call niceinc20(.001*op%ymin,.001*op%ymax,yinc,labincy)
@@ -2309,6 +2477,5 @@ subroutine mkmap_makegrid()
                  'X (km)', 'Y (km)',                     &
                  .001*op%xmin,.001*op%xmax,xinc,labincx, &
                  .001*op%ymin,.001*op%ymax,yinc,labincy  )
-  call o_sflush()
 
 end subroutine mkmap_makegrid

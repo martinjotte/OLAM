@@ -1,43 +1,11 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University;
-   ! Colorado State University Research Foundation ; ATMET, LLC
-
-   ! This software is free software; you can redistribute it and/or modify it
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version.
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
-
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
-   ! (http://www.gnu.org/licenses/gpl.html)
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 subroutine makesfc3()
 
 ! This subroutine generates the SURFACE GRID FILE for OLAM runs.
 
-  use mem_grid,    only: zm, arw0, topm, topw, nwa, nva, nma, xew, yew, zew
+  use mem_grid,    only: zm, nwa, nva, nma, xew, yew, zew
 
-  use misc_coms,   only: io6, itopoflg, topo_database, bathym_database, ngrids, &
-                         ibathflg, runtype, mdomain
+  use misc_coms,   only: io6, itopoflg, topo_database, bathym_database, &
+                         ibathflg, runtype, mdomain, topodb_cutoff
 
   use leaf_coms,   only: nvgcon, ivegflg, isoilflg, soil_database, veg_database
 
@@ -55,7 +23,7 @@ subroutine makesfc3()
                          itab_msfc, itab_vsfc, itab_wsfc, &
                          itab_msfc_vars, itab_vsfc_vars, itab_wsfc_vars, &
                          nswmzons, nswmzonll, swmzonrad, swmzonlat, swmzonlon, &
-                         sfcgrid_res_factor, alloc_sfcgrid1
+                         alloc_sfcgrid1
 
   use mem_land,    only: nland, onland, land, nzg, &
                          slz, dslz, dslzo2, dslzi, slzt, &
@@ -75,7 +43,6 @@ subroutine makesfc3()
   implicit none
 
   integer :: k, iw, j, iv, im, np, kpom
-  integer :: kw_sea, kw_land
   integer :: iland, inew, iswmzon, minside, ipomzon, isea
   integer :: imsfc, ivsfc, iwsfc
   integer :: nasfc
@@ -93,14 +60,10 @@ subroutine makesfc3()
   real, allocatable :: dslzi_temp (:)
   real, allocatable :: slzt_temp  (:)
 
-  real(r8), allocatable :: tot_area(:)
-  real(r8)              :: area_tot
-
   integer, allocatable :: iwnew (:)
-  integer, allocatable :: iworig(:)
 
   integer :: iter
-  real :: dz, srati
+  real :: dz, srati, area_cutoff
 
   integer :: kk, koff
   real :: thick
@@ -113,7 +76,7 @@ subroutine makesfc3()
   ! If any additional local mesh refinements are to be made on the surface grid
   ! independent of those on the atmospheric grid, perform them next.
 
-  if (nsfcgrids > 0) call spawn_nest_sfc()
+  if (nsfcgrids > 0) call spawn_nest(.false.)
 
   if (runtype == 'MAKEGRID_PLOT') return
 
@@ -164,11 +127,23 @@ subroutine makesfc3()
   ! Interpolate or assign topography height to W points of surface grid
 
   if (itopoflg == 1) then  ! from database
+
      call land_database_read(nwsfc, sfcg%glatw, sfcg%glonw, &
-         topo_database, topo_database, 'topo', datq=sfcg%topw)
+          topo_database(1), topo_database(1), 'topo', datq=sfcg%topw)
+
+     area_cutoff = topodb_cutoff ** 2
+
+     if (any(sfcg%area(2:) < area_cutoff)) then
+        call land_database_read(nwsfc, sfcg%glatw, sfcg%glonw, &
+             topo_database(2), topo_database(2), 'topo2', &
+             datq=sfcg%topw, area=sfcg%area)
+     endif
+
   else
+
      call topo_init(nwsfc, sfcg%topw, sfcg%glatw, sfcg%glonw, &
                     sfcg%xew, sfcg%yew,sfcg%zew)
+
   endif
 
   ! Read or assign surface type to W points of surface grid
@@ -188,7 +163,7 @@ subroutine makesfc3()
 
   endif
 
-  ! Loop over all (M + W) points of surface grid
+  ! Loop over all W points of surface grid
 
   do iwsfc = 2, nwsfc
 
@@ -295,7 +270,6 @@ subroutine makesfc3()
      do j = 1, itab_wsfc_temp(iwsfc)%npoly
         itab_wsfc(inew)%iwn(j) = iwnew( itab_wsfc_temp(iwsfc)%iwn(j) )
      enddo
-
   enddo
 
   deallocate(itab_wsfc_temp)
@@ -335,104 +309,15 @@ subroutine makesfc3()
   sfcg%ioge(iwnew(1:nwsfc)) = iscr
 
   deallocate(iscr)
-
-  topw(:) = 0.0
-  topm(:) = 0.0
-
-  ! Loop over surface grid W cells
-
-  write(*,*)
-  write(*,*) "Computing surface-atm overlaps"
-
-  if ( sfcgrid_res_factor == 1 .and. nsfcgrids == 0 ) then
-
-     allocate(iworig(nwsfc))
-     iworig(1) = 1
-     do iwsfc = 2, nwsfc
-        iworig( iwnew(iwsfc) ) = iwsfc
-     enddo
-
-     ! The surface mesh is an exact copy of the atmospheric mesh with only one
-     ! surface cell per atmospheric cell.
-     call step_terrain_overlay(iworig)
-     deallocate(iworig)
-
-  else
-
-     ! General case: multiple surface cells per atmospheric cell
-     call sfc_atm_hex_overlay()
-
-  endif
-
   deallocate(iwnew)
 
-  ! Vertical index for sea (ocean) cells
-
-  kw_sea = 2
-  do while(zm(kw_sea) < 0.1) ! .1-meter threshold
-     kw_sea = kw_sea + 1
-  enddo
-
   do iwsfc = 2, nwsfc
-
      sfcg%wnx(iwsfc) = sfcg%xew(iwsfc) * eradi
      sfcg%wny(iwsfc) = sfcg%yew(iwsfc) * eradi
      sfcg%wnz(iwsfc) = sfcg%zew(iwsfc) * eradi
-
-     if (sfcg%leaf_class(iwsfc) == 0) then
-
-        itab_wsfc(iwsfc)%kwatm = kw_sea
-
-     else
-
-        kw_land = 2
-        do while(zm(kw_land) < .1 + sfcg%topw(iwsfc)) ! .1-meter threshold
-           kw_land = kw_land + 1
-        enddo
-
-        itab_wsfc(iwsfc)%kwatm = kw_land
-
-     endif
-
   enddo
 
-  allocate(tot_area(nwa))
-  tot_area(:) = 0.0_r8
-
-  ! Loop over all surface cells
-
-  do iwsfc = 2,nwsfc
-
-     ! Loop over ATM coupling areas of current surface cell
-
-     do j = 1,itab_wsfc(iwsfc)%nwatm
-        iw = itab_wsfc(iwsfc)%iwatm(j)
-        tot_area(iw) = tot_area(iw) + itab_wsfc(iwsfc)%arc(j)
-     enddo
-  enddo
-
-  ! Scale surface cell and ATM coupling areas slightly so that coupling areas sum
-  ! almost exactly to arw0 within an ATM column
-
-  do iwsfc = 2,nwsfc
-     area_tot = 0.
-
-     do j = 1,itab_wsfc(iwsfc)%nwatm
-        iw  = itab_wsfc(iwsfc)%iwatm(j)
-
-        itab_wsfc(iwsfc)%arc(j) = itab_wsfc(iwsfc)%arc(j) * arw0(iw) / tot_area(iw)
-
-        area_tot = area_tot + itab_wsfc(iwsfc)%arc(j)
-     enddo
-
-     sfcg%area(iwsfc) = area_tot
-  enddo
-
-  deallocate(tot_area)
-
-  ! Initialize soil grid depth and vertical spacing arrays
-
-  ! Allocate soil vertical grid spacing arrays
+  ! Allocate and initialize soil grid depth and vertical spacing arrays
 
   call alloc_landcol()
 
@@ -458,7 +343,7 @@ subroutine makesfc3()
   ! code computes soil layer thicknesses and depths the same as in the subsequent
   ! simulation, but then combines the thinner layers into groups that are each
   ! at least 0.5 m thick.  THEREFORE, THE USER MUST LEAVE NZG IN OLAMIN SET TO
-  ! THE SAME VALUE THAT WILL BE USED IN THE SUBSEQUENT SIMULATION.  The code 
+  ! THE SAME VALUE THAT WILL BE USED IN THE SUBSEQUENT SIMULATION.  The code
   ! sets nzg to a new reduced value that reflects the grouping of thinner
   ! layers, but saves the original OLAMIN value in nzg_nl.  It also makes a
   ! mapping table that relates the vertical indexes of the soil layers between
@@ -571,24 +456,28 @@ subroutine makesfc3()
 
   else
 
-     sfcg%bathym(2       :nland  ) = sfcg%topw(2:nland)
+     sfcg%bathym(2       :nland  ) = sfcg%topw(2       :nland  )
      sfcg%bathym(2+onlake:1+onsea) = sfcg%topw(2+onlake:1+onsea) -  10.0
-     sfcg%bathym(2+onsea :nwsfc  ) = sfcg%topw(2+onlake:1+onsea) - 100.0
+     sfcg%bathym(2+onsea :nwsfc  ) = sfcg%topw(2+onsea :nwsfc  ) - 100.0
 
   endif
 
-  ! Set logical flag for IWSFC cells that use Shallow Water Model (SWM)
+  ! Set logical flag for IWSFC cells that use Shallow Water Model (SWM).
+  ! Require that bathym depth be no greater than 100 m.
 
   do iswmzon = 1,nswmzons
      do iwsfc = 2,nwsfc
         call ngr_area(iswmzon,minside,sfcg%xew(iwsfc),sfcg%yew(iwsfc),sfcg%zew(iwsfc), &
                       nswmzonll, swmzonrad, swmzonlat, swmzonlon)
 
-        if (minside == 1) sfcg%swm_active(iwsfc) = .true.
+        if (minside == 1 .and. sfcg%bathym(iwsfc) > -100.) sfcg%swm_active(iwsfc) = .true.
      enddo
   enddo
 
-  ! Set logical flag for SEA cells that use POM1D
+  ! Set logical flag for SEA cells that use POM1D.
+  ! Require that water be deeper than 30 m.
+
+  allocate(sea%pom_active(nsea)); sea%pom_active = .false.
 
   do ipomzon = 1,npomzons
      do isea = 2,nsea
@@ -597,8 +486,8 @@ subroutine makesfc3()
         call ngr_area(ipomzon,minside,sfcg%xew(iwsfc),sfcg%yew(iwsfc),sfcg%zew(iwsfc), &
                       npomzonll, pomzonrad, pomzonlat, pomzonlon)
 
-        if (minside == 1 .and. .not. sfcg%swm_active(iwsfc)) then
-           sfcg%pom_active(iwsfc) = .true.
+        if (minside == 1 .and. .not. sfcg%swm_active(iwsfc) .and. sfcg%bathym(iwsfc) < -30.) then
+           sea%pom_active(isea) = .true.
         endif
      enddo
   enddo
@@ -609,14 +498,14 @@ subroutine makesfc3()
 
   call pom_levels()
 
-  ! Fill POM1D horizontally-dependent number of layers
+  ! Fill POM1D horizontally-dependent number of layers.
 
   do isea = 2,nsea
      iwsfc = isea + onsea
 
-     if (sfcg%pom_active(iwsfc)) then
+     if (sea%pom_active(isea)) then
         do kpom = 1,nzpom
-           if (sfcg%bathym(iwsfc) < yy(kpom)) then 
+           if (sfcg%bathym(iwsfc) < yy(kpom)) then
               pom%kba(isea) = kpom
            else
               exit
@@ -693,43 +582,6 @@ end subroutine makesfc3
 
 !===============================================================================
 
-subroutine step_terrain_overlay(iworig)
-
-  use mem_grid,   only: nwa, nma, topw, topm, arw0
-  use mem_sfcg,   only: nwsfc, nmsfc, sfcg, itab_wsfc
-  use mem_ijtabs, only: itab_m
-
-  implicit none
-
-  integer, intent(in) :: iworig(nwsfc)
-
-  integer :: im, iw1, iw2, iw3, iw, iwsfc
-
-  if (nwa /= nwsfc) stop 'error in nwsfc size!'
-  if (nma /= nmsfc) stop 'error in nmsfc size!'
-
-  do iwsfc = 2, nwsfc
-     iw = iworig(iwsfc)
-
-     topw(iw) = sfcg%topw(iwsfc)
-
-     itab_wsfc(iwsfc)%nwatm    = 1
-     itab_wsfc(iwsfc)%iwatm(1) = iw
-     itab_wsfc(iwsfc)%arc  (1) = arw0(iw)
-  enddo
-
-  do im = 2, nma
-     iw1 = itab_m(im)%iw(1)
-     iw2 = itab_m(im)%iw(2)
-     iw3 = itab_m(im)%iw(3)
-
-     topm(im) = (topw(iw1) + topw(iw2) + topw(iw3)) / 3.
-  enddo
-
-end subroutine step_terrain_overlay
-
-!===============================================================================
-
 subroutine topo_init(nqa,topq,glatq,glonq,xeq,yeq,zeq)
 
   ! Subroutine topo_init fills the TOPQ array with topography height.  TOPQ and
@@ -779,11 +631,8 @@ subroutine topo_init(nqa,topq,glatq,glonq,xeq,yeq,zeq)
 
   topq(:) = 0.
 
-  ! The remainder of this subroutine is for re-defining topography, and a few
-  ! commonly used options are given below.  However, if itopoflg is set to 1 in
-  ! OLAMIN, topography values set in this subroutine will be overridden in
-  ! subroutine topo_database, which interpolates topography to the OLAM grid
-  ! from a standard topography dataset.
+  ! The remainder of this subroutine is defining topography in the special case
+  ! where itopflg = 2.  A few occasionally used options are given below.
 
   ! Horizontal loop over all land topography points
 
@@ -1188,7 +1037,8 @@ subroutine sfcgfile_write()
   ! Write sfcg quantities to sfcgfile
 
   use max_dims,   only: maxnlspoly, pathlen
-  use mem_sfcg,   only: nmsfc, nvsfc, nwsfc, itab_msfc, itab_vsfc, itab_wsfc, sfcg, sfcgfile
+  use mem_sfcg,   only: nmsfc, nvsfc, nwsfc, itab_msfc, itab_vsfc, itab_wsfc, &
+                        sfcg, sfcgfile
   use mem_land,   only: nland, onland, land, nzg, &
                         slz, dslz, dslzo2, dslzi, slzt
   use mem_lake,   only: nlake, onlake
@@ -1320,10 +1170,10 @@ subroutine sfcgfile_write()
   enddo
   call shdf5_orec(ndims,idims,'itab_wsfc%npoly'    ,ivar1=iscr1)
 
-  do iw = 1,nwsfc
-     iscr1(iw) = itab_wsfc(iw)%nwatm
-  enddo
-  call shdf5_orec(ndims,idims,'itab_wsfc%nwatm'    ,ivar1=iscr1)
+!TR  do iw = 1,nwsfc
+!TR     iscr1(iw) = itab_wsfc(iw)%nwatm
+!TR  enddo
+!TR  call shdf5_orec(ndims,idims,'itab_wsfc%nwatm'    ,ivar1=iscr1)
   deallocate(iscr1)
 
   ! Write ITAB_WSFC ARRAYS
@@ -1401,42 +1251,6 @@ subroutine sfcgfile_write()
   call shdf5_orec(ndims,idims,'itab_wsfc%ecvec_vz',rvar2=rscr2)
   deallocate(rscr2)
 
-  idims(1) = 8
-
-  allocate (iscr2(8,nwsfc))
-  do iw = 1,nwsfc
-     iscr2(1:8,iw) = itab_wsfc(iw)%iwatm(1:8)
-  enddo
-  call shdf5_orec(ndims,idims,'itab_wsfc%iwatm',ivar2=iscr2)
-
-  do iw = 1,nwsfc
-     iscr2(1:8,iw) = itab_wsfc(iw)%kwatm(1:8)
-  enddo
-  call shdf5_orec(ndims,idims,'itab_wsfc%kwatm',ivar2=iscr2)
-  deallocate(iscr2)
-
-  allocate (rscr2(8,nwsfc))
-  do iw = 1,nwsfc
-     rscr2(1:8,iw) = itab_wsfc(iw)%arc(1:8)
-  enddo
-  call shdf5_orec(ndims,idims,'itab_wsfc%arc',rvar2=rscr2)
-
-  do iw = 1,nwsfc
-     rscr2(1:8,iw) = itab_wsfc(iw)%arcoarsfc(1:8)
-  enddo
-  call shdf5_orec(ndims,idims,'itab_wsfc%arcoarsfc',rvar2=rscr2)
-
-  do iw = 1,nwsfc
-     rscr2(1:8,iw) = itab_wsfc(iw)%arcoariw(1:8)
-  enddo
-  call shdf5_orec(ndims,idims,'itab_wsfc%arcoariw',rvar2=rscr2)
-
-  do iw = 1,nwsfc
-     rscr2(1:8,iw) = itab_wsfc(iw)%arcoarkw(1:8)
-  enddo
-  call shdf5_orec(ndims,idims,'itab_wsfc%arcoarkw',rvar2=rscr2)
-  deallocate(rscr2)
-
   ! Write grid structure variables
 
   ndims = 1
@@ -1497,14 +1311,12 @@ subroutine sfcgfile_write()
   call shdf5_orec(ndims, idims, 'wnx'       , rvar1=sfcg%wnx)
   call shdf5_orec(ndims, idims, 'wny'       , rvar1=sfcg%wny)
   call shdf5_orec(ndims, idims, 'wnz'       , rvar1=sfcg%wnz)
-  call shdf5_orec(ndims, idims, 'dzt_bot'   , rvar1=sfcg%dzt_bot)
 
   ! Write permanent grid cell data
 
   call shdf5_orec(ndims, idims, 'leaf_class', ivar1=sfcg%leaf_class)
   call shdf5_orec(ndims, idims, 'oge'       , ivar1=sfcg%ioge)
   call shdf5_orec(ndims, idims, 'swm_active', lvar1=sfcg%swm_active)
-  call shdf5_orec(ndims, idims, 'pom_active', lvar1=sfcg%pom_active)
 
   idims(1) = nland
 
@@ -1530,7 +1342,8 @@ subroutine sfcgfile_write()
   ndims    = 1
   idims(1) = nsea
 
-  call shdf5_orec(ndims, idims, 'pom%kba' , ivar1=pom%kba)
+  call shdf5_orec(ndims, idims, 'pom_active'      , lvar1=sea%pom_active)
+  call shdf5_orec(ndims, idims, 'pom%kba'         , ivar1=pom%kba)
 
   call shdf5_close()
 
@@ -1565,7 +1378,7 @@ subroutine sfcgfile_read_pd()
 
   flnm = trim(sfcgfile)//'.h5'
 
-  write(io6,*) 'Checking sfcgfile (1) ',flnm
+  write(io6,*) 'sfcgfile_read_pd - checking sfcgfile (1) ',flnm
 
   inquire(file=flnm, exist=there)
 
@@ -1672,10 +1485,10 @@ subroutine sfcgfile_read_pd()
   idims(1) = nwsfc
 
   allocate (iscr1(nwsfc))
-  call shdf5_irec(ndims,idims,'itab_wsfc%nwatm'     ,ivar1=iscr1)
-  do iwsfc = 1,nwsfc
-     itab_wsfc_pd(iwsfc)%nwatm = iscr1(iwsfc)
-  enddo
+!TR  call shdf5_irec(ndims,idims,'itab_wsfc%nwatm'     ,ivar1=iscr1)
+!TR  do iwsfc = 1,nwsfc
+!TR     itab_wsfc_pd(iwsfc)%nwatm = iscr1(iwsfc)
+!TR  enddo
 
   call shdf5_irec(ndims,idims,'itab_wsfc%npoly'     ,ivar1=iscr1)
   do iwsfc = 1,nwsfc
@@ -1711,13 +1524,13 @@ subroutine sfcgfile_read_pd()
   enddo
   deallocate(iscr2)
 
-  idims(1) = 8
+!TR  idims(1) = 8
 
-  allocate (iscr2(8,nwsfc))
-  call shdf5_irec(ndims,idims,'itab_wsfc%iwatm',ivar2=iscr2)
-  do iwsfc = 1,nwsfc
-     itab_wsfc_pd(iwsfc)%iwatm(1:8) = iscr2(1:8,iwsfc)
-  enddo
+!TR  allocate (iscr2(8,nwsfc))
+!TR  call shdf5_irec(ndims,idims,'itab_wsfc%iwatm',ivar2=iscr2)
+!TR  do iwsfc = 1,nwsfc
+!TR     itab_wsfc_pd(iwsfc)%iwatm(1:8) = iscr2(1:8,iwsfc)
+!TR  enddo
 
   call shdf5_close()
 
@@ -1736,7 +1549,6 @@ subroutine sfcgfile_read()
                         sfcgfile, mmsfc, mvsfc, mwsfc
   use mem_land,   only: land, itab_land, mland, nzg, slz, dslz, dslzo2, &
                         dslzi, slzt, alloc_landcol
-  use mem_lake,   only: lake, itab_lake
   use mem_sea,    only: sea, itab_sea, msea
   use pom2k1d,    only: nzpom, pom, y, yy, dy, dyy
   use hdf5_utils, only: shdf5_open, shdf5_irec, shdf5_close
@@ -1752,8 +1564,7 @@ subroutine sfcgfile_read()
 
   ! Scratch arrays for copying input
 
-  real,    allocatable :: rscr2(:,:)
-  integer, allocatable :: iscr2(:,:)
+  real, allocatable :: rscr2(:,:)
 
   ! Pointers to the global index of the local point
 
@@ -1773,7 +1584,7 @@ subroutine sfcgfile_read()
 
   flnm = trim(sfcgfile)//'.h5'
 
-  write(io6,*) 'Checking sfcgfile (2)',flnm
+  write(io6,*) 'sfcgfile_read - checking sfcgfile (2)',flnm
 
   inquire(file=flnm, exist=there)
 
@@ -1872,39 +1683,6 @@ subroutine sfcgfile_read()
   enddo
   deallocate(rscr2)
 
-  idims(1) = 8
-
-  allocate (iscr2(8,mwsfc))
-  call shdf5_irec(ndims,idims,'itab_wsfc%kwatm',ivar2=iscr2, points=lgwsfc, stagpt=type)
-
-  do iw = 1,mwsfc
-     itab_wsfc(iw)%kwatm(1:8) = iscr2(1:8,iw)
-  enddo
-
-  deallocate(iscr2)
-
-  allocate (rscr2(8,mwsfc))
-  call shdf5_irec(ndims,idims,'itab_wsfc%arc',rvar2=rscr2, points=lgwsfc, stagpt=type)
-  do iw = 1,mwsfc
-     itab_wsfc(iw)%arc(1:8) = rscr2(1:8,iw)
-  enddo
-
-  call shdf5_irec(ndims,idims,'itab_wsfc%arcoarsfc',rvar2=rscr2, points=lgwsfc, stagpt=type)
-  do iw = 1,mwsfc
-     itab_wsfc(iw)%arcoarsfc(1:8) = rscr2(1:8,iw)
-  enddo
-
-  call shdf5_irec(ndims,idims,'itab_wsfc%arcoariw',rvar2=rscr2, points=lgwsfc, stagpt=type)
-  do iw = 1,mwsfc
-     itab_wsfc(iw)%arcoariw(1:8) = rscr2(1:8,iw)
-  enddo
-
-  call shdf5_irec(ndims,idims,'itab_wsfc%arcoarkw',rvar2=rscr2, points=lgwsfc, stagpt=type)
-  do iw = 1,mwsfc
-     itab_wsfc(iw)%arcoarkw(1:8) = rscr2(1:8,iw)
-  enddo
-  deallocate(rscr2)
-
   ! Read grid structure variables
 
   call alloc_landcol()
@@ -1970,14 +1748,12 @@ subroutine sfcgfile_read()
   call shdf5_irec(ndims, idims, 'wnx'       , rvar1=sfcg%wnx,     points=lgwsfc, stagpt=type)
   call shdf5_irec(ndims, idims, 'wny'       , rvar1=sfcg%wny,     points=lgwsfc, stagpt=type)
   call shdf5_irec(ndims, idims, 'wnz'       , rvar1=sfcg%wnz,     points=lgwsfc, stagpt=type)
-  call shdf5_irec(ndims, idims, 'dzt_bot'   , rvar1=sfcg%dzt_bot, points=lgwsfc, stagpt=type)
 
   ! Read permanent grid cell data
 
 ! call shdf5_irec(ndims, idims, 'leaf_class', ivar1=sfcg%leaf_class, points=lgwsfc, stagpt=type)
   call shdf5_irec(ndims, idims, 'oge'       , ivar1=sfcg%ioge,       points=lgwsfc, stagpt=type)
   call shdf5_irec(ndims, idims, 'swm_active', lvar1=sfcg%swm_active, points=lgwsfc, stagpt=type)
-  call shdf5_irec(ndims, idims, 'pom_active', lvar1=sfcg%pom_active, points=lgwsfc, stagpt=type)
 
   allocate (land%usdatext            (mland)) ; land%usdatext         = 0
   allocate (land%z_bedrock           (mland)) ; land%z_bedrock        = 0.
@@ -2020,11 +1796,128 @@ subroutine sfcgfile_read()
   idims(1) = msea
   type     = 'SW'
 
-  call shdf5_irec(ndims, idims, 'pom%kba' , ivar1=pom%kba,  points=lgsea, stagpt=type)
+  call shdf5_irec(ndims, idims, 'pom_active', lvar1=sea%pom_active, points=lgsea, stagpt=type)
+  call shdf5_irec(ndims, idims, 'pom%kba'   , ivar1=pom%kba,        points=lgsea, stagpt=type)
 
   call shdf5_close()
 
 end subroutine sfcgfile_read
+
+!==========================================================================
+
+subroutine sfcgfile_read_makeaddgrid()
+
+  use max_dims,   only: pathlen
+  use mem_sfcg,   only: nwsfc, mwsfc, nmsfc, mmsfc, itab_wsfc, sfcg, sfcgfile
+  use hdf5_utils, only: shdf5_open, shdf5_irec, shdf5_close
+  use misc_coms,  only: io6
+
+  implicit none
+
+  integer            :: ndims, idims(2)
+  integer            :: iwsfc
+  character(pathlen) :: flnm
+  logical            :: there
+  integer, allocatable :: iscr1(:)
+  integer, allocatable :: iscr2(:,:)
+
+  flnm = trim(sfcgfile)//'.h5'
+
+  write(io6,*) 'sfcgfile_read_makeaddgrid - checking sfcgfile (1) ',flnm
+
+  inquire(file=flnm, exist=there)
+
+  if (.not. there) then
+     write(io6,*) 'sfcgfile was not found - stopping run'
+     stop 'stop: no sfcgfile'
+  endif
+
+  call shdf5_open(flnm,'R')
+
+  ndims    = 1
+  idims(1) = 1
+  idims(2) = 1
+
+  call shdf5_irec(ndims, idims, 'nwsfc' , ivars=nwsfc)
+  call shdf5_irec(ndims, idims, 'nmsfc' , ivars=nmsfc)
+
+  ! Copy grid dimensions
+
+  mwsfc  = nwsfc
+  mmsfc  = nmsfc
+
+  write(io6, '(/,a)')    '==============================================='
+  write(io6, '(a)')      'Reading from sfcgfile:'
+  write(io6, '(2(a,i0))')'  nwsfc = ', nwsfc
+  write(io6, '(a,/)')    '==============================================='
+
+  ! Allocate itabw data structure
+
+  allocate (itab_wsfc(nwsfc))
+
+  ! Read ITAB_WSFC SCALARS
+
+  ndims    = 1
+  idims(1) = nwsfc
+
+  allocate (iscr1(nwsfc))
+  call shdf5_irec(ndims,idims,'itab_wsfc%npoly'     ,ivar1=iscr1)
+  do iwsfc = 1,nwsfc
+     itab_wsfc(iwsfc)%npoly = iscr1(iwsfc)
+  enddo
+  deallocate(iscr1)
+
+  ! Read ITAB_WSFC ARRAYS
+
+  ndims = 2
+  idims(1) = 7
+  idims(2) = nwsfc
+
+  allocate (iscr2(7,nwsfc))
+  call shdf5_irec(ndims,idims,'itab_wsfc%imn',ivar2=iscr2)
+  do iwsfc = 1,nwsfc
+     itab_wsfc(iwsfc)%imn(1:7) = iscr2(1:7,iwsfc)
+  enddo
+  deallocate(iscr2)
+
+  ! Allocate sfcg arrays
+
+  allocate (sfcg%xem(nmsfc))
+  allocate (sfcg%yem(nmsfc))
+  allocate (sfcg%zem(nmsfc))
+
+  allocate (sfcg%xew  (nwsfc))
+  allocate (sfcg%yew  (nwsfc))
+  allocate (sfcg%zew  (nwsfc))
+  allocate (sfcg%glatw(nwsfc))
+  allocate (sfcg%glonw(nwsfc))
+  allocate (sfcg%topw (nwsfc))
+  allocate (sfcg%area (nwsfc))
+
+  allocate (sfcg%leaf_class (nwsfc))
+
+  ndims    = 1
+  idims(1) = nmsfc
+
+  call shdf5_irec(ndims, idims, 'xem'        , rvar1=sfcg%xem)
+  call shdf5_irec(ndims, idims, 'yem'        , rvar1=sfcg%yem)
+  call shdf5_irec(ndims, idims, 'zem'        , rvar1=sfcg%zem)
+
+  idims(1) = nwsfc
+
+  call shdf5_irec(ndims, idims, 'area'       , rvar1=sfcg%area)
+  call shdf5_irec(ndims, idims, 'xew'        , rvar1=sfcg%xew)
+  call shdf5_irec(ndims, idims, 'yew'        , rvar1=sfcg%yew)
+  call shdf5_irec(ndims, idims, 'zew'        , rvar1=sfcg%zew)
+  call shdf5_irec(ndims, idims, 'glatw'      , rvar1=sfcg%glatw)
+  call shdf5_irec(ndims, idims, 'glonw'      , rvar1=sfcg%glonw)
+  call shdf5_irec(ndims, idims, 'topw'       , rvar1=sfcg%topw)
+
+  call shdf5_irec(ndims, idims, 'leaf_class' , ivar1=sfcg%leaf_class)
+
+  call shdf5_close()
+
+end subroutine sfcgfile_read_makeaddgrid
 
 !===============================================================================
 

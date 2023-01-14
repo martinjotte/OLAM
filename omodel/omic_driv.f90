@@ -1,49 +1,15 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
-subroutine micro(mrl)
+subroutine micro()
 
   use mem_ijtabs,    only: jtab_w, jtw_prog
   use micro_coms,    only: miclevel
-  use misc_coms,     only: io6, isubdomain, iparallel
+  use misc_coms,     only: iparallel
   use oname_coms,    only: nl
   use mem_grid,      only: mwa, nsw_max, lpw, lsw
-  use mem_sfcg,      only: itab_wsfc, mwsfc, sfcg, itabg_wsfc
+  use mem_sfcg,      only: itab_wsfc, mwsfc, sfcg
   use mem_para,      only: myrank
   use olam_mpi_atm,  only: mpi_send_w, mpi_recv_w
 
   implicit none
-
-  integer, intent(in) :: mrl
 
   integer :: j, iw, nbc, iwsfc, kw, ks
 
@@ -85,66 +51,62 @@ subroutine micro(mrl)
 
   ! Main microphysics loop
 
-  if (mrl > 0) then
+  !$omp parallel do private(iw) schedule(guided)
+  do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
-     !$omp parallel do private(iw) schedule(guided)
-     do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+     ! Zero out pcp arrays prior to accumulation
+     pcpg(1:lsw(iw),iw) = 0.
+     qpcpg(1:lsw(iw),iw) = 0.
+     dpcpg(1:lsw(iw),iw) = 0.
 
-        ! Zero out pcp arrays prior to accumulation
-         pcpg(1:lsw(iw),iw) = 0.
-        qpcpg(1:lsw(iw),iw) = 0.
-        dpcpg(1:lsw(iw),iw) = 0.
+     call micphys(iw, nbincall(iw), pcpg(:,iw), qpcpg(:,iw), dpcpg(:,iw))
 
-        call micphys(iw, nbincall(iw), pcpg(:,iw), qpcpg(:,iw), dpcpg(:,iw))
+  enddo
+  !$omp end parallel do
 
+  ! MPI send/recv of surface precipitation fluxes
+
+  if (iparallel == 1) then
+     call mpi_send_w(swvar1=pcpg, swvar2=qpcpg, swvar3=dpcpg)
+     call mpi_recv_w(swvar1=pcpg, swvar2=qpcpg, swvar3=dpcpg)
+  endif
+
+  ! Sum precipitation over ATM-SFC coupling interfaces to get total in SFC cells
+
+  sfcg%pcpg  = 0.
+  sfcg%qpcpg = 0.
+  sfcg%dpcpg = 0.
+
+  !$omp parallel do private(j,iw,kw,ks)
+  do iwsfc = 2, mwsfc
+
+     ! Skip this SFC grid cell if running in parallel and cell rank is not MYRANK
+     if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+
+     do j = 1,itab_wsfc(iwsfc)%nwatm
+        iw = itab_wsfc(iwsfc)%iwatm(j)  ! local index
+        kw = itab_wsfc(iwsfc)%kwatm(j)
+        ks = kw - lpw(iw) + 1
+
+        sfcg%pcpg (iwsfc) = sfcg%pcpg (iwsfc) &
+                          + itab_wsfc(iwsfc)%arcoarsfc(j) *  pcpg(ks,iw)
+
+        sfcg%qpcpg(iwsfc) = sfcg%qpcpg(iwsfc) &
+                          + itab_wsfc(iwsfc)%arcoarsfc(j) * qpcpg(ks,iw)
+
+        sfcg%dpcpg(iwsfc) = sfcg%dpcpg(iwsfc) &
+                          + itab_wsfc(iwsfc)%arcoarsfc(j) * dpcpg(ks,iw)
      enddo
-     !$omp end parallel do
 
-     ! MPI send/recv of surface precipitation fluxes
+  enddo
+  !$omp end parallel do
 
-     if (iparallel == 1) then
-        call mpi_send_w(mrl, swvar1=pcpg, swvar2=qpcpg, swvar3=dpcpg)
-        call mpi_recv_w(mrl, swvar1=pcpg, swvar2=qpcpg, swvar3=dpcpg)
-     endif
-
-     ! Sum precipitation over ATM-SFC coupling interfaces to get total in SFC cells
-
-     sfcg%pcpg  = 0.
-     sfcg%qpcpg = 0.
-     sfcg%dpcpg = 0.
-
-     !$omp parallel do private(j,iw,kw,ks)
-     do iwsfc = 2, mwsfc
-
-        ! Skip this SFC grid cell if running in parallel and cell rank is not MYRANK
-        if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
-
-        do j = 1,itab_wsfc(iwsfc)%nwatm
-           iw = itab_wsfc(iwsfc)%iwatm(j)  ! local index
-           kw = itab_wsfc(iwsfc)%kwatm(j)
-           ks = kw - lpw(iw) + 1
-
-           sfcg%pcpg (iwsfc) = sfcg%pcpg (iwsfc) &
-                             + itab_wsfc(iwsfc)%arcoarsfc(j) *  pcpg(ks,iw)
-
-           sfcg%qpcpg(iwsfc) = sfcg%qpcpg(iwsfc) &
-                             + itab_wsfc(iwsfc)%arcoarsfc(j) * qpcpg(ks,iw)
-
-           sfcg%dpcpg(iwsfc) = sfcg%dpcpg(iwsfc) &
-                             + itab_wsfc(iwsfc)%arcoarsfc(j) * dpcpg(ks,iw)
-        enddo
-
-     enddo
-     !$omp end parallel do
-
-     !nbc = 0
-     !do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
-     !   nbc = nbc + nbincall(iw)
-     !enddo
-     !
-     !print*, 'nbincall ',nbc
-
-  endif ! mrl > 0
+  !nbc = 0
+  !do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
+  !   nbc = nbc + nbincall(iw)
+  !enddo
+  !
+  !print*, 'nbincall ',nbc
 
 end subroutine micro
 
@@ -152,11 +114,10 @@ end subroutine micro
 
 subroutine micphys(iw, nbincall, pcpg, qpcpg, dpcpg)
 
-use micro_coms,     only: mza0, ncat, nhcat, neff, cfvt, jnmb, emb2, rxmin, emb1
+use micro_coms,     only: mza0, ncat, nhcat, neff, jnmb, rxmin
 use ccnbin_coms,    only: nccntyp, nnuc
 use consts_coms,    only: pi4
-use misc_coms,      only: io6, dtlm, time_istp8, timmax8
-use mem_ijtabs,     only: itab_w
+use misc_coms,      only: dtlm, time_istp8
 use mem_grid,       only: lpw, glatw, glonw, nsw_max
 use oname_coms,     only: nl
 use mem_flux_accum, only: latheat_liq_accum, latheat_ice_accum
@@ -170,14 +131,14 @@ real, intent(inout) ::  pcpg(nsw_max)
 real, intent(inout) :: qpcpg(nsw_max)
 real, intent(inout) :: dpcpg(nsw_max)
 
-integer :: k,jflag,jcat,lcat,j1,j2
+integer :: k,jflag,lcat
 
 integer :: j12,j14,j15,j16,j17,j18,j23,j24,j25,j26,j27
 integer :: j35,j36,j37,j45,j46,j47,j56,j57,j67,j82,j84,j85,j86,j87
 integer :: k12,k14,k15,k16,k17,k18,k23,k24,k25,k26,k27
 integer :: k35,k36,k37,k45,k46,k47,k56,k57,k67,k82,k84,k85,k86,k87
 
-integer :: lpw0,iw0,mrl0,kend
+integer :: lpw0,iw0,kend
 
 real :: dtl0,dtli0
 
@@ -233,7 +194,7 @@ real :: thil0 (mza0)
 real :: theta0(mza0)
 real :: press0(mza0)
 real :: exner0(mza0)
-real :: wc0   (mza0)
+! real :: wc0   (mza0)
 
 real :: rhoa(mza0)
 real :: rhow(mza0)
@@ -307,7 +268,7 @@ real :: epsxfer(mza0)
 ! categories, the 3rd digit represents the donor category, and the 4th digit
 ! represents the recipient category.  For example, the consequence of a
 ! collision between rain and pristine ice is a mass transfer from rain to hail
-! that is denoted as 'r2327', which uses species numbers: 1=cloud, 2=rain, 
+! that is denoted as 'r2327', which uses species numbers: 1=cloud, 2=rain,
 ! 3=pristine_ice, 4=snow, 5=aggregates, 6=graupel, 7=hail, 8=drizzle (=cloud2).
 
 real :: &
@@ -345,8 +306,7 @@ real :: &
 
 iw0  = iw
 lpw0 = lpw(iw0)
-mrl0 = itab_w(iw)%mrlw
-dtl0 = dtlm(mrl0)
+dtl0 = dtlm
 
 dtli0 = 1. / dtl0
 pi4dt = pi4 * dtl0
@@ -399,7 +359,7 @@ thil0 (:) = 0.
 theta0(:) = 0.
 press0(:) = 0.
 exner0(:) = 0.
-wc0   (:) = 0.
+! wc0   (:) = 0.
 
 tair     (:) = 0.
 tairc    (:) = 0.
@@ -489,7 +449,7 @@ accpx(:) = 0.
 ! Copy hydrometeor bulk mass and number concentration from main model arrays
 ! to microphysics column arrays
 
- call mic_copy(iw0,lpw0,voa,thil0,press0,wc0,rhoa,rhow,rhoi,exner0, &
+ call mic_copy(iw0,lpw0,voa,thil0,press0,rhoa,rhow,rhoi,exner0, &
                con_ccnx,con_gccnx,con_ifnx,rx,cx,qx,qr)
 
 ! Loop over all vertical levels
@@ -773,7 +733,7 @@ if (k1(8) <= k2(8)) &
 
 ! Determine coalescence efficiencies
 
-call effxy(lpw0,k1,k2,rx,qr,emb,tx,eff)
+call effxy(lpw0,k1,k2,qr,emb,tx,eff)
 
 ! Liquid water collisions
 
@@ -791,7 +751,7 @@ if (jnmb(8) >= 1 .and. k1(1) <= k2(1)) &
 ! Collision between cloud and drizzle - transfer to drizzle and rain
 
 if (j18 <= k18) &
-   call col1882(1,8,2,1,j18,k18, &
+   call col1882(1,8,1,j18,k18, &
       jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac, &
       r1818,r1812,r1882,e1811,e1882)
 
@@ -805,11 +765,11 @@ if (jnmb(2) >= 1 .and. k1(8) <= k2(8)) &
 ! Collisions of cloud or drizzle with rain
 
 if (j12 <= k12) &
-   call col1(1,2,2,1,j12,k12, &
+   call col1(1,2,1,j12,k12, &
       jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,r1212,e1211)
 
 if (j82 <= k82) &
-   call col1(8,2,2,1,j82,k82, &
+   call col1(8,2,1,j82,k82, &
       jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,r8282,e8288)
 
 ! Self collection of rain, aggregates, graupel, and hail: number change only
@@ -860,39 +820,39 @@ j57 = max(k1(5),k1(7)); k57 = min(k2(5),k2(7))
 j67 = max(k1(6),k1(7)); k67 = min(k2(6),k2(7))
 
 if (j35 <= k35) &
-   call col1(3,5,5,2,j35,k35, &
+   call col1(3,5,2,j35,k35, &
       jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,r3535,e3533)
 
 if (j36 <= k36) &
-   call col1(3,6,6,5,j36,k36, &
+   call col1(3,6,5,j36,k36, &
       jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,r3636,e3633)
 
 if (j37 <= k37) &
-   call col1(3,7,7,6,j37,k37, &
+   call col1(3,7,6,j37,k37, &
       jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,r3737,e3733)
 
 if (j45 <= k45) &
-   call col1(4,5,5,3,j45,k45, &
+   call col1(4,5,3,j45,k45, &
       jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,r4545,e4544)
 
 if (j46 <= k46) &
-   call col1(4,6,6,5,j46,k46, &
+   call col1(4,6,5,j46,k46, &
       jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,r4646,e4644)
 
 if (j47 <= k47) &
-   call col1(4,7,7,6,j47,k47, &
+   call col1(4,7,6,j47,k47, &
       jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,r4747,e4744)
 
 if (j56 <= k56) &
-   call col1(5,6,6,5,j56,k56, &
+   call col1(5,6,5,j56,k56, &
       jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,r5656,e5655)
 
 if (j57 <= k57) &
-   call col1(5,7,7,6,j57,k57, &
+   call col1(5,7,6,j57,k57, &
       jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,r5757,e5755)
 
 if (j67 <= k67) &
-   call col1(6,7,7,5,j67,k67, &
+   call col1(6,7,5,j67,k67, &
       jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,r6767,e6766)
 
 ! Ice-cloud and ice-drizzle collisions with graupel by-product
@@ -999,14 +959,14 @@ endif
     r8486,r8484,r8446,r8583,r8586,r8585,r8556,r8683,r8686,r1713, &
     r1717,r8783,r8787,r2332,r2327,r2323,r2337,r2442,r2427,r2424, &
     r2447,r2552,r2527,r2525,r2557,r2662,r2627,r2626,r2667,r2772, &
-    r2727,r0000,r1812,r1882, &
+    r2727,r1812,r1882, &
     e1111,e1118,e8888,e8882,e1112,e1811,e1211,e8288,e2222,e5555, &
     e6666,e7777,e3333,e3335,e4444,e4445,e3433,e3444,e3435,e3445, &
     e3533,e3633,e3733,e4544,e4644,e4744,e5655,e5755,e6766,e1413, &
     e1411,e1446,e1513,e1511,e1556,e1613,e1611,e8483,e8488,e8446, &
     e8583,e8588,e8556,e8683,e8688,e1713,e1711,e8783,e8788,e2322, &
     e2327,e2333,e2337,e2422,e2427,e2444,e2447,e2522,e2527,e2555, &
-    e2557,e2622,e2627,e2666,e2667,e2722,e2727,e2777,e0000,e1882, &
+    e2557,e2622,e2627,e2666,e2667,e2722,e2727,e2777,e1882, &
     con_ccnx)
 
 1411 continue
@@ -1014,9 +974,9 @@ endif
 ! Nucleation of cloud droplets
 
 if (jnmb(1) >= 1) &
-   call cldnuc(iw0,lpw0,dtli0,nbincall, &
-               rx,cx,qr,qx,con_ccnx,con_gccnx,rhov,rhoi,rhoa,press0, &
-               tair,tairc,wc0,rhovslair,rnuc_vc,rnuc_vd,cnuc_vc,cnuc_vd)
+   call cldnuc(iw0,lpw0,dtl0,nbincall, &
+               rx,cx,qr,qx,con_ccnx,con_gccnx,rhov,rhoa,press0, &
+               tair,tairc,rhovslair,rnuc_vc,rnuc_vd,cnuc_vc,cnuc_vd)
 
 ! Rediagnose k2(1) and k3(1) because of possible new cloud nucleation
 
@@ -1065,9 +1025,8 @@ if (jnmb(8) >= 3 .and. k1(8) <= k2(8)) &
 ! Nucleation of ice crystals
 
 if (jnmb(3) >= 1) &
-   call icenuc(k1,k2,lpw0,mrl0,iw0, &
-      rx,cx,qr,qx,emb,vap,tx,rhov,rhoa,press0,dynvisc,thrmcon, &
-      tair,tairc,rhovslair,rhovsiair,con_ccnx,con_ifnx,dtl0, &
+   call icenuc(k1,k2,lpw0,iw0,rx,cx,qr,qx,emb,rhov, &
+      tairc,rhovslair,rhovsiair,con_ccnx,con_ifnx,dtl0, &
       rnuc_cp_hom,rnuc_dp_hom,rnuc_vp_haze,rnuc_vp_immers, &
       cnuc_cp_hom,cnuc_dp_hom,cnuc_vp_haze,cnuc_vp_immers)
 
@@ -1251,14 +1210,14 @@ endif
 ! from microphysics column arrays to main model arrays
 
  call mic_copyback(iw0,lpw0,k2, &
-    dtli0,accpx,pcprx,thil0,theta0,tair,rhoa,rhow,rhov, &
+    accpx,pcprx,thil0,theta0,tair,rhoi,rhow,rhov, &
     con_ccnx,con_gccnx,con_ifnx,rx,cx,qx)
 
 end subroutine micphys
 
 !===============================================================================
 
-subroutine mic_copy(iw0,lpw0,voa,thil0,press0,wc0,rhoa,rhow,rhoi,exner0, &
+subroutine mic_copy(iw0,lpw0,voa,thil0,press0,rhoa,rhow,rhoi,exner0, &
                     con_ccnx,con_gccnx,con_ifnx,rx,cx,qx,qr)
 
 use micro_coms, only: mza0, ncat, iccn, igccn, iifn, jnmb, rxmin, &
@@ -1269,7 +1228,7 @@ use ccnbin_coms, only: nccntyp
 
 use mem_grid,   only: zfacm2, zfacim2, arw, volt, lsw, voa0
 
-use mem_basic,  only: thil, press, wc, rho, rr_w
+use mem_basic,  only: thil, press, rho, rr_w
 
 use mem_micro,  only: rr_c, rr_d, rr_r, rr_p, rr_s, rr_a, rr_g, rr_h, &
                       q2, q6, q7, ccntyp, con_gccn, con_ifn, &
@@ -1286,7 +1245,7 @@ integer, intent(in) :: lpw0
 real, intent(inout) :: voa   (mza0)
 real, intent(inout) :: thil0 (mza0)
 real, intent(inout) :: press0(mza0)
-real, intent(inout) :: wc0   (mza0)
+!real, intent(inout) :: wc0   (mza0)
 real, intent(inout) :: rhoa  (mza0)
 real, intent(inout) :: rhow  (mza0)
 real, intent(inout) :: rhoi  (mza0)
@@ -1302,7 +1261,6 @@ real, intent(inout) :: qx(mza0,ncat)
 real, intent(inout) :: qr(mza0,ncat)
 
 integer :: k, ic
-real    :: rxx
 
 ! Ratio of grid cell volume to top horizontal area arw projected onto W(k-1) level
 
@@ -1318,7 +1276,7 @@ enddo
 
 do k = lpw0, mza0
    thil0 (k) = thil (k,iw0)
-   wc0   (k) = wc   (k,iw0)
+!  wc0   (k) = wc   (k,iw0)
    press0(k) = real(press(k,iw0))
    rhoa  (k) = real(rho  (k,iw0))
    rhow  (k) = max(rr_w (k,iw0) * rhoa(k), 0.0)
@@ -1453,7 +1411,7 @@ end subroutine mic_copy
 !===============================================================================
 
 subroutine mic_copyback(iw0,lpw0,k2, &
-   dtli0,accpx,pcprx,thil0,theta0,tair0,rhoa,rhow,rhov, &
+   accpx,pcprx,thil0,theta0,tair0,rhoi,rhow,rhov, &
    con_ccnx,con_gccnx,con_ifnx,rx,cx,qx)
 
 use micro_coms, only: mza0, ncat, jnmb, iccn, igccn, iifn, rxmin
@@ -1474,8 +1432,6 @@ integer, intent(in) :: lpw0
 
 integer, intent(in) :: k2(11)
 
-real, intent(in) :: dtli0
-
 real, intent(in) :: accpx(ncat)
 real, intent(in) :: pcprx(ncat)
 
@@ -1484,7 +1440,7 @@ real, intent(in) :: theta0(mza0)
 real, intent(in) :: tair0(mza0)
 real, intent(in) :: rhov(mza0)
 
-real, intent(in) :: rhoa(mza0)
+real, intent(in) :: rhoi(mza0)
 real, intent(in) :: rhow(mza0)
 
 real, intent(in) :: con_ccnx (mza0,nccntyp)
@@ -1495,17 +1451,15 @@ real, intent(in) :: rx(mza0,ncat)
 real, intent(in) :: cx(mza0,ncat)
 real, intent(in) :: qx(mza0,ncat)
 
-real    :: rhoi (mza0)
 integer :: k, ic
 
 ! Copy base thermodynamic variables
 
 do k = lpw0,mza0
-!  thilt(k,iw0) = thilt(k,iw0) + (thil0(k) - thil(k,iw0)) * rhoa(k) * dtli0  ! To apply over small timesteps
+!  thilt(k,iw0) = thilt(k,iw0) + (thil0(k) - thil(k,iw0)) * rhoa(k) * dtlm  ! To apply over each timestep
    thil (k,iw0) = thil0 (k)
    theta(k,iw0) = theta0(k)
    tair (k,iw0) = tair0 (k)
-   rhoi (k)     = 1. / rhoa(k)    !BOB: not necessary to compute rhoi here since unchanged thru micphys??
    rr_w (k,iw0) = rhow(k) * rhoi(k)
    rr_v (k,iw0) = rhov(k) * rhoi(k)
 enddo

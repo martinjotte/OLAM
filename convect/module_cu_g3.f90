@@ -1217,7 +1217,7 @@ CONTAINS
      integer                                                           &
         ,intent (in   )                   ::                           &
                                   ktf
-  ! cdd= detrainment function 
+  ! cdd= detrainment function
   ! q = environmental q on model levels
   ! q_cup = environmental q on model cloud levels
   ! qes_cup = saturation q on model cloud levels
@@ -1230,7 +1230,7 @@ CONTAINS
   ! qrch = saturation q in cloud
   ! pwd = evaporate at that level
   ! pwev = total normalized integrated evaoprate (I2)
-  ! entr= entrainment rate 
+  ! entr= entrainment rate
 
      real,    dimension (ktf)                              &
         ,intent (in   )                   ::                           &
@@ -2196,7 +2196,7 @@ CONTAINS
   ! t_cup = temperature (Kelvin) on model cloud levels
   ! dby = buoancy term
   ! zu= normalized updraft mass flux
-  ! z = heights of model levels 
+  ! z = heights of model levels
   ! ierr error value, maybe modified in this routine
   !
      real,    dimension (ktf)                              &

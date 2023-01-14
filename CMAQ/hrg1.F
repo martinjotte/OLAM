@@ -133,7 +133,7 @@ c    R2_1 = production of NO2 from NO ( rates of form k[NO][x] )
 c            a)  NO+O3=NO2 not included
 c            b)  NO+NO3=2NO2 ( 1/2 of NO2 formation rate included )
 c            c)  NO3+NO2=NO+NO2 is not included for NO2
-c    P2 =  remaining NO2 production terms 
+c    P2 =  remaining NO2 production terms
 c            a)  NO+O3=NO2 not included
 c            b)  NO+NO3=2NO2 (1/2 of NO2 formation rate included )
 c    L2 = loss of NO2 (except rxns producing NO2 - they are in R1_2)
@@ -241,7 +241,7 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 
 
 cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-c  O3P Section 
+c  O3P Section
 c    P12 = production of O3P except NO2+hv=O3P (J1)
 c    L12 = loss terms
 cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc

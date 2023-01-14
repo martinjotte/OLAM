@@ -1,44 +1,9 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 subroutine sea_init_atm()
 
   use mem_sea,     only: sea, msea, omsea
   use sea_coms,    only: iupdsst, s1900_sst, isstfile, nsstfiles, dt_sea,  &
                          iupdseaice, s1900_seaice, iseaicefile, nseaicefiles, nzi
-  use mem_basic,   only: rho, press, rr_v, theta
-  use mem_micro,   only: rr_c
-  use misc_coms,   only: s1900_sim, isubdomain, runtype
-  use mem_ijtabs,  only: itab_w
+  use misc_coms,   only: s1900_sim, iparallel, runtype
   use mem_sfcg,    only: itab_wsfc, sfcg
   use consts_coms, only: t00, p00i, rocp
   use therm_lib,   only: rhovsl, rhovsil
@@ -46,14 +11,11 @@ subroutine sea_init_atm()
 
   implicit none
 
-  integer :: iw
-  integer :: kw
-  integer :: isea, iwsfc, j
+  integer :: isea, iwsfc
 
   real :: timefac_sst
   real :: timefac_seaice
   real :: dum1, dum2
-  real :: vels, psfc
 
   timefac_sst    = 0.0
   timefac_seaice = 0.0
@@ -73,7 +35,7 @@ subroutine sea_init_atm()
      iwsfc = isea + omsea
 
      ! Skip this cell if running in parallel and cell rank is not MYRANK
-     ! if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+     ! if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
      ! Initialize sea depth, sea temperature, sea ice, and canopy depth
 
@@ -98,7 +60,7 @@ subroutine sea_init_atm()
      iwsfc = isea + omsea
 
      ! Skip this cell if running in parallel and cell rank is not MYRANK
-     if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+     if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
      ! Apply initial atmospheric properties to sea "canopy"
 
@@ -163,7 +125,7 @@ subroutine sea_init_atm()
 
         sea%surface_srrv(isea) = (1.0 - sea%seaicec(isea)) * sea%sea_sfc_srrv(isea) + &
                                         sea%seaicec(isea)  * sea%ice_sfc_srrv(isea)
- 
+
      else
 
         sfcg%rough      (iwsfc) = sea%sea_rough   (isea)

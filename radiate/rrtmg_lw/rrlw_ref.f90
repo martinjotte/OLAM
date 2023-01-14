@@ -6,7 +6,7 @@ module rrlw_ref
   private :: rb
 
 !------------------------------------------------------------------
-! rrtmg_lw reference atmosphere 
+! rrtmg_lw reference atmosphere
 ! Based on standard mid-latitude summer profile
 !
 ! Initial version:  JJMorcrette, ECMWF, jul1998
@@ -19,7 +19,7 @@ module rrlw_ref
 ! pref   :  real   : Reference pressure levels
 ! preflog:  real   : Reference pressure levels, ln(pref)
 ! tref   :  real   : Reference temperature levels for MLS profile
-! chi_mls:  real   : 
+! chi_mls:  real   :
 !------------------------------------------------------------------
 
 ! These pressures are chosen such that the ln of the first pressure

@@ -1,36 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
-
 Module mem_sfcnud
 
   use consts_coms, only: r8
@@ -155,7 +122,7 @@ Contains
   if (myrank == 0) write(io6,'(/,a)') "Writing surface nudge fields to disk..."
 
   call makefnam(hnamel, hfilepref, ctime, 'SN', '$', 'h5')
-  call shdf5_open(hnamel,'W',iclobber) 
+  call shdf5_open(hnamel,'W',iclobber)
 
   ndims    = 1
   idims(1) = nwsfc
@@ -172,7 +139,7 @@ Contains
      firstime = .false.
 
      call makefnam(hnamel, hfilepref, ctime, 'GN', '$', 'h5')
-     call shdf5_open(hnamel,'W',iclobber) 
+     call shdf5_open(hnamel,'W',iclobber)
 
      ndims = 1
      idims(1) = 1
@@ -225,13 +192,11 @@ Contains
 
   subroutine sfcnud_read_init()
 
-  use misc_coms,  only: io6, current_time, s1900_sim
+  use misc_coms,  only: io6, s1900_sim
   use max_dims,   only: pathlen
-  use mem_para,   only: myrank
 
   implicit none
 
-  integer :: isfcnudy,isfcnudm,isfcnudd,isfcnudh
   integer :: iyears, imonths, idates, ihours
   integer :: nf
 
@@ -306,9 +271,8 @@ Contains
 
   subroutine sfcnud_read(inext)
 
-  use misc_coms,  only: io6, current_time, simtime, hfilepref
+  use misc_coms,  only: io6, simtime
   use max_dims,   only: pathlen
-  use mem_para,   only: myrank
   use mem_sfcg,   only: itab_wsfc, nwsfc, mwsfc
   use hdf5_utils, only: shdf5_open, shdf5_close, shdf5_irec, shdf5_info
 
@@ -320,7 +284,6 @@ Contains
   integer :: nf, iw, iwsfc, iwglobe
   integer :: ndims, idims(2)
   character(pathlen) :: hnamel
-  type(simtime) :: ctime
 
   logical, save :: firstime = .true.
 
@@ -420,7 +383,7 @@ Contains
 
         allocate (iws_sfcnud(nwsfc,3)); iws_sfcnud = 0
         allocate (wts_sfcnud(nwsfc,3)); wts_sfcnud = 0.
- 
+
         call find_3iws_sfcnud()
 
      endif
@@ -540,7 +503,7 @@ Contains
         denomi(j1) = 1. / (dot00(j1) * dot11(j1) - dot01(j1) * dot01(j1))
         dn(j1)     = 1. / (xwn(j2) * ywn(j1) - xwn(j1) * ywn(j2))
      enddo
-           
+
      ! Loop over all iwsfc points and determine which are closer to current
      ! input IW point than to any other input IW point on globe.  It is
      ! sufficient to show that a iwsfc point is closer to current input IW
@@ -585,7 +548,7 @@ Contains
 
            ! If iwsfc point is closer to IWN point than to input IW point, move
            ! on to next iwsfc point.  Bias is used to reduce chance of
-           ! iwsfc point being rejected by all input IW points in domain; this 
+           ! iwsfc point being rejected by all input IW points in domain; this
            ! might lead to a few iwsfc values being interpolated on
            ! multiple MPI subdomains, but this is sorted out later.
 
@@ -602,7 +565,7 @@ Contains
 
         call de_ps(dxe,dye,dze,coswlat,sinwlat,coswlon,sinwlon,qx,qy)
 
-        ! Loop over each pair of consecutive neighbor input IW points 
+        ! Loop over each pair of consecutive neighbor input IW points
 
         do j1 = 1,npoly
            j2 = j1 + 1
@@ -653,9 +616,8 @@ Contains
   ! simulation
 
   use misc_coms,   only: io6
-  use mem_sfcg,    only: itab_wsfc, nwsfc, mwsfc
-  use mem_land,    only: land, itab_land, nland, mland, omland, nzg, slzt
-  use mem_lake,    only: lake, itab_lake, nlake, mlake
+  use mem_land,    only: land, itab_land, mland, omland, nzg, slzt
+  use mem_lake,    only: lake, itab_lake, mlake
   use leaf4_soil,  only: soil_pot2wat
   use consts_coms, only: cice1000, cliq1000, alli1000
   use therm_lib,   only: qwtk
@@ -757,7 +719,7 @@ Contains
 
         if (ksp == k) then
 
-           ! Copy soil water and energy directly from spin-up layer to current 
+           ! Copy soil water and energy directly from spin-up layer to current
            ! layer if layers are identical
 
            land%soil_water (k,iland) = soil_water_sp (ksp,iland)

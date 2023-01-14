@@ -1,17 +1,17 @@
 subroutine timeseries_plots(type)
 
   use mem_basic,  only: wc, vxe, vye, vze, tair, press, rho, rr_v
-  use mem_micro,  only: rr_c, rr_d, rr_r, rr_p, rr_s, rr_a, rr_g, rr_h, &
+  use mem_micro,  only: rr_c, rr_d, rr_r, rr_h, &
                         accpd, accpr, accpp, accps, accpa, accpg, accph
   use mem_ijtabs, only: jtab_w, jtw_prog
-  use misc_coms,  only: io6, time_istp8, timmax8, dtlong, runtype, time8
+  use misc_coms,  only: time_istp8, timmax8, dtlong, runtype
   use oplot_coms, only: op
   use oname_coms, only: nl
   use mem_grid,   only: zt, dzt, xew, yew, zew, lpw
   use mem_plot,   only: latheat_liq_accum_prev0, latheat_liq_accum_prev1, &
                         latheat_ice_accum_prev0, latheat_ice_accum_prev1, &
                         time8_prev0, time8_prev1
-  use consts_coms, only: cp, alvlocp, r8
+  use consts_coms,only: cp, alvlocp, r8
   use therm_lib,  only: rhovsl
 
   implicit none
@@ -26,7 +26,7 @@ subroutine timeseries_plots(type)
 
   integer, save :: nlh(nrad_lh)
 
-  integer :: iw, j, kh, k, nc, ka, jtime, jsim, jft, irad, isim, irad_lh, icolor
+  integer :: iw, j, kh, k, ka, jtime, jsim, jft, irad, isim, irad_lh, icolor
 
   integer :: khe, ihe
 
@@ -63,7 +63,7 @@ subroutine timeseries_plots(type)
         ncall_tot = nl%nplt_files
         numsims = 3
      elseif (runtype == 'PLOTONLY' .and. type == 'L') then  ! For this option, need to comment out
-        ncall_tot = nl%nlite_files                          ! things that are not on lite files 
+        ncall_tot = nl%nlite_files                          ! things that are not on lite files
         numsims = 1
      else
         ncall_tot = int(timmax8 / dtlong) + 2
@@ -164,7 +164,7 @@ subroutine timeseries_plots(type)
      elseif (timedif < 1000.) then
         timeinc = 40.
      endif
-      
+
      ! iw0 is location of minimum MSLP in N, NA, and NA10X simulations
 
      iw0( 1,1) = 197494
@@ -318,7 +318,7 @@ subroutine timeseries_plots(type)
      do irad = 1,nrad_lh
         vctr19(irad) = 10.0 * real(irad) - 5.0
      enddo
- 
+
   endif
 
   jtime = mod(ncall-1,numtimes) + 1
@@ -341,7 +341,7 @@ subroutine timeseries_plots(type)
 
   ! Horizontal loop over all IW points
 
-  do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
+  do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
     radnow = sqrt((xew(iw)-xew(iw0(jft,jsim)))**2 + (yew(iw)-yew(iw0(jft,jsim)))**2 + (zew(iw)-zew(iw0(jft,jsim)))**2)
     radall = sqrt((xew(iw)-xew(396574))**2 + (yew(iw)-yew(396574))**2 + (zew(iw)-zew(396574))**2)
@@ -846,7 +846,7 @@ GOTO 11
      endif
 
      call oplot_zxy2(ipanel,'N','a','c',aspect,scalelab, &
-                     'max LWC ',' (g/kg)', numtimes,ny,vctr18,height, & 
+                     'max LWC ',' (g/kg)', numtimes,ny,vctr18,height, &
                      xlab,ylab, &
                      he3(:,: ,isim), &
                      456,ifill,timebeg,timeend,timeinc,5, &
@@ -958,7 +958,7 @@ GOTO 13
 
   enddo
 
-  ! SPECIAL DIFFERENCE PLOT (NA10X MINUS N) 
+  ! SPECIAL DIFFERENCE PLOT (NA10X MINUS N)
 
      do ihe = 1,numtimes
         do khe = 1,ny
@@ -1001,7 +1001,7 @@ GOTO 13
 
   enddo
 
-  ! SPECIAL DIFFERENCE PLOT (NA10X MINUS N) 
+  ! SPECIAL DIFFERENCE PLOT (NA10X MINUS N)
 
      do ihe = 1,numtimes
         do khe = 1,ny
@@ -1036,7 +1036,7 @@ GOTO 13
      endif
 
      call oplot_zxy2(ipanel,'N','a','c',aspect,scalelab, &
-                     'max supercooled LWC ',' (g/kg)', numtimes,ny,vctr18,height, & 
+                     'max supercooled LWC ',' (g/kg)', numtimes,ny,vctr18,height, &
                      xlab,ylab, &
                      he9(:,: ,isim), &
                      418,ifill,timebeg,timeend,timeinc,5, &
@@ -1062,7 +1062,7 @@ GOTO 13
      endif
 
      call oplot_zxy2(ipanel,'N','a','c',aspect,scalelab, &
-                     'max SS ',' (%)', numtimes,ny,vctr18,height, & 
+                     'max SS ',' (%)', numtimes,ny,vctr18,height, &
                      xlab,ylab, &
                      he11(:,: ,isim), &
                      442,ifill,timebeg,timeend,timeinc,5, &
@@ -1091,7 +1091,7 @@ GOTO 13
      endif
 
      call oplot_zxy2(ipanel,'N','a','c',aspect,scalelab, &
-                     'SS thetadif ',' (K)', numtimes,ny,vctr18,height, & 
+                     'SS thetadif ',' (K)', numtimes,ny,vctr18,height, &
                      xlab,ylab, &
                      he15(:,: ,isim), &
                      462,ifill,timebeg,timeend,timeinc,5, &
@@ -1099,7 +1099,7 @@ GOTO 13
 
   enddo
 
-  ! SPECIAL DIFFERENCE PLOT (N MINUS NA10X) 
+  ! SPECIAL DIFFERENCE PLOT (N MINUS NA10X)
 
      do ihe = 1,numtimes
         do khe = 1,ny
@@ -1109,7 +1109,7 @@ GOTO 13
      enddo
 
      call oplot_zxy2('4','N','a','c',aspect,scalelab, &
-                     'diff SS thetadif',' (K)', numtimes,ny,vctr18,height, & 
+                     'diff SS thetadif',' (K)', numtimes,ny,vctr18,height, &
                      '','', &
                      he15(:,: ,3), &
                      465,ifill,timebeg,timeend,timeinc,5, &
@@ -1132,7 +1132,7 @@ GOTO 13
      endif
 
      call oplot_zxy2(ipanel,'N','a','c',aspect,scalelab, &
-                     'area SS > 5% ',' (%)', numtimes,ny,vctr18,height, & 
+                     'area SS > 5% ',' (%)', numtimes,ny,vctr18,height, &
                      xlab,ylab, &
                      he12(:,: ,isim), &
                      463,ifill,timebeg,timeend,timeinc,5, &
@@ -1157,7 +1157,7 @@ GOTO 13
      endif
 
      call oplot_zxy2(ipanel,'N','a','c',aspect,scalelab, &
-                     'area SS > 10% ',' (%)', numtimes,ny,vctr18,height, & 
+                     'area SS > 10% ',' (%)', numtimes,ny,vctr18,height, &
                      xlab,ylab, &
                      he13(:,: ,isim), &
                      463,ifill,timebeg,timeend,timeinc,5, &
@@ -1182,7 +1182,7 @@ GOTO 13
      endif
 
      call oplot_zxy2(ipanel,'N','a','c',aspect,scalelab, &
-                     'area SS > 30% ',' (%)', numtimes,ny,vctr18,height, & 
+                     'area SS > 30% ',' (%)', numtimes,ny,vctr18,height, &
                      xlab,ylab, &
                      he14(:,: ,isim), &
                      463,ifill,timebeg,timeend,timeinc,5, &

@@ -74,7 +74,7 @@ SOURCE_FILES= \
              $(OMODEL)/coneplot.f90 \
              $(OMODEL)/contslab.F90 \
              $(OMODEL)/expand_global.f90 \
-             $(OMODEL)/fields2_ll.F90 \
+             $(OMODEL)/fields3_ll.F90 \
              $(OMODEL)/fill_itabs.f90 \
              $(OMODEL)/grad_lib.f90 \
              $(OMODEL)/hex_grid.f90 \
@@ -132,11 +132,12 @@ SOURCE_FILES= \
              $(OUTILS)/hdf5_utils.F90 \
              $(OUTILS)/interp_lib.f90 \
              $(OUTILS)/lapack.f90 \
+             $(OUTILS)/latlon_bins.f90 \
              $(OUTILS)/map_proj.f90 \
              $(OUTILS)/matrix.f90 \
              $(OUTILS)/olam_interp_ll.f90 \
              $(OUTILS)/o_ncar.f90 \
-             $(OUTILS)/polygon_overlap.f90 \
+             $(OUTILS)/polygon_overlap.F90 \
              $(OUTILS)/prfill.f90 \
              $(OUTILS)/quadrature.f90 \
              $(OUTILS)/string_lib.f90 \
@@ -230,9 +231,8 @@ SOURCE_FILES= \
              $(SFCG)/mem_sfcg.f90 \
              $(SFCG)/mem_sfcnud.f90 \
              $(SFCG)/olam_mpi_sfc.F90 \
-             $(SFCG)/spawn_nest_sfc.f90 \
              $(SFCG)/surface_driver.F90 \
-             $(HURRICANE)/hurricane_init.f90 \
+             $(HURRICANE)/hurricane_init.F90 \
              $(HURRICANE)/plot_trajecfile.f90 \
              $(TEST_CASES)/mem_swtc5_refsoln_cubic.f90 \
              $(TEST_CASES)/swtc_init.f90 \

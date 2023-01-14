@@ -30,7 +30,7 @@ static double convunit(double val, char convstring[50]) {
 	if (strcmp(convstring,"GPH_M")==0) val/=9.82;
 	else if (strcmp(convstring,"M_MM")==0) val*=1000;
 	else if (strcmp(convstring,"PERC_PART")==0 || strcmp(convstring,"PA_HPA")==0) val/=100;
-	else if (strcmp(convstring,"PART_PERC")==0) val*=100; 
+	else if (strcmp(convstring,"PART_PERC")==0) val*=100;
 	else if (strcmp(convstring,"K_C")==0) val-=273.16;
 	return val;
 }
@@ -45,7 +45,7 @@ int f_mysql_dump(ARG7) {
     char sql[3000];
     char server[100];
     char user[100];
-    char password[100]; 
+    char password[100];
     char database[100];
     char table[100];
     MYSQL_RES *res;
@@ -96,7 +96,7 @@ int f_mysql_dump(ARG7) {
 
     if (mode == -1) {
         decode = latlon = 1;
-        
+
 	*local = save = (struct local_struct *) malloc( sizeof(struct local_struct));
 	if (save == NULL) fatal_error("mysql_speed memory allocation ","");
 
@@ -126,7 +126,7 @@ int f_mysql_dump(ARG7) {
 	/* Connect to database */
 	if (!mysql_real_connect(save->conn, server, user, password, database, 0, NULL, 0)) {
 	   fatal_error("f_mysql_speed: could not connect to %s", mysql_error(save->conn));
-	} 
+	}
 	save->last_GDS_change_no = 0;
 	return 0;
     }
@@ -176,7 +176,7 @@ int f_mysql_dump(ARG7) {
 
     save = (struct local_struct *) *local;
 
-//     if (new_GDS && save->isset == 0) { 
+//     if (new_GDS && save->isset == 0) {
        if (save->last_GDS_change_no != GDS_change_no && save->isset == 0) {
   	save->npts = GB2_Sec3_npts(sec);
   	if (save->npts > MAX_NXNY) {
@@ -197,7 +197,7 @@ int f_mysql_dump(ARG7) {
 	fatal_error("f_mysql_speed, grid definition has to be the same for all fields","");
   }
   save->last_GDS_change_no = GDS_change_no;
-  
+
     /*Collect runtime and validtime into vt and rt*/
     reftime(sec, &year, &month, &day, &hour, &minute, &second);
 //  p = sec[1];
@@ -222,7 +222,7 @@ int f_mysql_dump(ARG7) {
     // f_lev(mode, sec, data, ndata, level_buf, local);
     f_lev(call_ARG0(level_buf,NULL));
     if (ndata != save->npts && save->npts>0) fprintf(stderr,"ERROR: fields do not contain equally many gridpoints, %u , %u \n",save->npts,ndata);
- 	   
+ 	
     if (strcmp(level_buf, "reserved")==0) return(0);
     getName(sec, mode, NULL, name, desc, unit);
     fprintf(stderr,"Start processing of %s at %s, runtime=%s, validtime=%s \n", name, level_buf,rt,vt);

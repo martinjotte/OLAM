@@ -169,7 +169,7 @@
          ! MAIN loop over all rows and columns
 
          !$omp parallel do private(iw,koff,nlays,nlays_model) schedule(guided)
-         do j = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
+         do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
             ! K index offset for radiation column arrays
             koff = lpw(iw) - 1

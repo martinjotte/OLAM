@@ -1,43 +1,8 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 subroutine lake_init_atm()
 
   use mem_lake,    only: lake, mlake, omlake
   use lake_coms,   only: dt_lake
-  use mem_basic,   only: rho, press, vxe, vye, vze, tair, rr_v, theta
-  use mem_micro,   only: rr_c
-  use misc_coms,   only: io6, time8, s1900_sim, iparallel, isubdomain, runtype
-  use mem_ijtabs,  only: itab_w
+  use misc_coms,   only: iparallel, runtype
   use mem_sfcg,    only: itab_wsfc, sfcg
   use mem_para,    only: myrank
   use consts_coms, only: t00, cliq, alli, p00i, grav, rocp
@@ -45,11 +10,8 @@ subroutine lake_init_atm()
 
   implicit none
 
-  integer :: iw
-  integer :: kw
-  integer :: ilake, iwsfc, j
-
-  real :: vels, psfc, laketemp
+  integer :: ilake, iwsfc
+  real    :: laketemp
 
   ! Initialize lake quantities that do not depend on atmospheric conditions
 
@@ -58,7 +20,7 @@ subroutine lake_init_atm()
      iwsfc = ilake + omlake
 
      ! Skip this cell if running in parallel and cell rank is not MYRANK
-     ! if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+     ! if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
      ! Initialize lake depth and canopy depth
 
@@ -81,7 +43,7 @@ subroutine lake_init_atm()
      iwsfc = ilake + omlake
 
      ! Skip this cell if running in parallel and cell rank is not MYRANK
-     if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+     if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
      ! Apply initial atmospheric properties to lake "canopy"
 

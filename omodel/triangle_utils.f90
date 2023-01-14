@@ -1,35 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 subroutine tri_neighbors(nma, nua, nwa, itab_md, itab_ud, itab_wd)
 
   use mem_delaunay, only: itab_md_vars, itab_ud_vars, itab_wd_vars
@@ -411,7 +379,7 @@ abr(2,3) = a23
 abr(3,3) = a33
 abr(4,3) = b3
 
-! Interchange rows if necessary so that first row has 
+! Interchange rows if necessary so that first row has
 ! largest (magnitude) element of first column
 
 if (abs(abr(1,2)) > abs(abr(1,1))) then
@@ -478,7 +446,7 @@ abr(1,2) = a12
 abr(2,2) = a22
 abr(3,2) = b2
 
-! Interchange rows if necessary so that first row has 
+! Interchange rows if necessary so that first row has
 ! largest (magnitude) element of first column
 
 if (abs(abr(1,2)) > abs(abr(1,1))) then
@@ -523,7 +491,7 @@ subroutine matinv3x3(a11,a21,a31,a12,a22,a32,a13,a23,a33  &
                     ,b11,b21,b31,b12,b22,b32,b13,b23,b33)
 
 implicit none
- 
+
 real, intent(in)  :: a11,a21,a31,a12,a22,a32,a13,a23,a33
 real, intent(out) :: b11,b21,b31,b12,b22,b32,b13,b23,b33
 
@@ -532,9 +500,9 @@ real :: det
 det = a11*(a22*a33-a23*a32)  &
     + a21*(a32*a13-a12*a33)  &
     + a31*(a12*a23-a22*a13)
-    
-if (abs(det) < 1.e-12) stop 'stop singular matrix'    
-    
+
+if (abs(det) < 1.e-12) stop 'stop singular matrix'
+
 b11 = (a22*a33-a32*a23)/det
 b21 = (a31*a23-a21*a33)/det
 b31 = (a21*a32-a31*a22)/det
@@ -561,7 +529,7 @@ real :: det
 
 det = a11*a22 - a21*a12
 
-if (abs(det) < 1.e-12) stop 'stop singular matrix'    
+if (abs(det) < 1.e-12) stop 'stop singular matrix'
 
 b11 =  a22/det
 b21 = -a21/det

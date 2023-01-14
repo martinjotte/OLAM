@@ -54,7 +54,7 @@ contains
 
   !:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-  subroutine aero_sedi( mrl )
+  subroutine aero_sedi( )
 
     use mem_ijtabs,  only: jtab_w, jtw_prog
     use mem_grid,    only: mwa
@@ -63,8 +63,6 @@ contains
     use oname_coms,  only: nl
 
     implicit none
-
-    integer, intent(in) :: mrl
 
     integer :: j, iw, v, n
     integer :: astat
@@ -110,7 +108,7 @@ contains
     endif  ! firstime
 
     !$omp parallel do private(iw)
-    do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+    do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
        call aero_sedi2( iw )
 
@@ -125,7 +123,6 @@ contains
 
     use mem_grid,    only: mza, lpw, volt, volti, arw, voa0, &
                            lsw, zm, zfacm2, zfacim2
-    use mem_ijtabs,  only: itab_w
     use misc_coms,   only: dtlm
     use cgrid_spcs,  only: n_gc_spc, n_ae_spc
     use cgrid_defn,  only: cgrid
@@ -146,7 +143,7 @@ contains
 
     call aero_sedv( iw, vsed_ae )
 
-    dt = dtlm(itab_w(iw)%mrlw)
+    dt = dtlm
 
     ! Ratio of grid cell volume to top horizontal area arw projected onto W(k-1) level
 

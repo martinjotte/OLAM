@@ -1,36 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
-
 subroutine icosahedron(nxp0)
 
   use mem_ijtabs,   only: jtm_grid, jtu_grid, jtw_grid, &
@@ -40,10 +7,11 @@ subroutine icosahedron(nxp0)
                           jtm_wstn, jtu_wstn, jtw_wstn, &
                           jtm_vadj,           jtw_vadj
 
-  use mem_delaunay, only: itab_md, itab_ud, itab_wd, alloc_itabsd, &
-                          xemd, yemd, zemd, nmd, nud, nwd
+  use misc_coms,    only: runtype
 
-  use mem_grid,     only: impent
+  use mem_delaunay, only: itab_md, itab_ud, itab_wd, alloc_itabsd, &
+                          xemd, yemd, zemd, nmd, nud, nwd, impent
+
   use consts_coms,  only: pi2, erad, erador5
 
   implicit none
@@ -56,8 +24,8 @@ subroutine icosahedron(nxp0)
   integer :: ibigd,i,j,idiamond,im_left,iu0,iu1,iu2,iu3,iu4,iw1,iw2,im &
      ,idiamond_top,im_top,im_right,im_bot,nn10,idiamond_right,idiamond_bot &
      ,iu,iw
-  integer :: id
- 
+  integer :: id, niter
+
   real :: wts,wtn,wtw,wte,expansion,anglen,anglew,anglee,angles,wtw0,wte0,sumwt
 
   integer, parameter :: ibigd_ne(10) = [ 6,7,8,9,10,7,8,9,10,6 ]
@@ -353,7 +321,10 @@ subroutine icosahedron(nxp0)
 
   ! This is the place to do spring dynamics
 
-  call spring_dynamics(3, 1, 1, nxp0, nmd, nud, nwd, xemd, yemd, zemd, &
+  niter = 5000
+  if (runtype == 'MAKEGRID_PLOT') niter = 100
+
+  call spring_dynamics(niter, 1, 1, nxp0, nmd, nud, nwd, xemd, yemd, zemd, &
                        itab_md, itab_ud, itab_wd)
 
 end subroutine icosahedron

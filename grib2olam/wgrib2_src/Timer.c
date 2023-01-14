@@ -7,7 +7,7 @@
 /*
  *  Timer.c  3/2019   Public Domain Wesley Ebisuzaki
  */
- 
+
 
 #ifdef _OPENMP
 
@@ -20,7 +20,7 @@ static int n_time;
 /*
  * HEADER:100:start_timer:misc:0:starts OpenMP timer
  */
- 
+
 int f_start_timer(ARG0) {
     if (mode >= 0) start_time = omp_get_wtime();
     return 0;

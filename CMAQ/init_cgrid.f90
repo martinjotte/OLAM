@@ -52,7 +52,7 @@ subroutine init_cgrid ()
   use misc_coms,   only: imonth1, idate1, iyear1, itime1
   use max_dims,    only: pathlen
   use cgrid_spcs
-  use cgrid_defn,  only: cgrid, cgrid_names
+  use cgrid_defn,  only: cgrid
   use string_lib
   use rxns_data
   use const_data
@@ -364,7 +364,7 @@ subroutine init_cgrid ()
 
   !$omp parallel private(press_in,press_out,densi_in,dens_out,vec_in,vec,conc,m3)
   !$omp do private(iw,ka,psfc,spc,v,ndx,k,i,m3_dry,m3_wet)
-  do j = 1, jtab_w(jtw_init)%jend(1)
+  do j = 1, jtab_w(jtw_init)%jend
      iw   = jtab_w(jtw_init)%iw(j)
      ka   = lpw(iw)
 

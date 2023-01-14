@@ -1,36 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
-
 subroutine inc_davg_vars()
 
   use mem_average_vars, only: &
@@ -38,25 +5,21 @@ subroutine inc_davg_vars()
      press_davg, vxe_davg, vye_davg, vze_davg, rshort_davg, &
      tempk_davg, tempk_dmin, tempk_dmax, accpmic_dtot, accpcon_dtot, &
      press_ul_davg, vxe_ul_davg, vye_ul_davg, vze_ul_davg, &
-       sfluxt_davg, sfluxr_davg, airtempk_davg, cantempk_davg, &
-       vegtempk_davg, soiltempk_davg
-     
+     sfluxt_davg, sfluxr_davg, airtempk_davg, cantempk_davg, &
+     vegtempk_davg, soiltempk_davg
 
-  use mem_ijtabs,  only: itabg_w, jtab_w, jtw_prog
-  use mem_grid,    only: mwa, lpw, zt, zm, mza, dzim
-  use mem_basic,   only: wc, rr_v, rr_w, tair, press, rho, vxe, vye, vze
+  use mem_ijtabs,  only: jtab_w, jtw_prog
+  use mem_grid,    only: lpw
+  use mem_basic,   only: tair, press, vxe, vye, vze
   use consts_coms, only: alvl, cp
-  use mem_turb,    only: sfluxr, sfluxt
-  use misc_coms,   only: io6, dtlong, time8, isubdomain
+  use misc_coms,   only: dtlong, iparallel
   use mem_cuparm,  only: conprr
-!obs  use mem_micro,   only: pcpgr
-  use mem_radiate, only: rshort, rshort_top, rshortup_top, rlong, rlongup, &
-                         rlongup_top, albedt
-
-  use therm_lib, only: qwtk
-  use mem_sfcg,  only: sfcg, mwsfc, itab_wsfc
-  use mem_land,  only: land, mland, omland, nzg
-  use mem_para,  only: myrank
+  use mem_micro,   only: pcprd, pcprr, pcprp, pcprs, pcpra, pcprg, pcprh
+  use mem_radiate, only: rshort
+  use therm_lib,   only: qwtk
+  use mem_sfcg,    only: sfcg, mwsfc, itab_wsfc
+  use mem_land,    only: land, mland, omland, nzg
+  use mem_para,    only: myrank
 
   implicit none
 
@@ -71,7 +34,7 @@ subroutine inc_davg_vars()
 ! Horizontal loop over all prognostic W/T points
 
   !$omp do private (iw,k)
-  do j = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
+  do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
 ! Accumulate of sums for 2D surface quantities
 
@@ -81,13 +44,27 @@ subroutine inc_davg_vars()
         vxe_davg(iw) =    vxe_davg(iw) + vxe(k,iw)
         vye_davg(iw) =    vye_davg(iw) + vye(k,iw)
         vze_davg(iw) =    vze_davg(iw) + vze(k,iw)
-     rshort_davg(iw) = rshort_davg(iw) + rshort(iw) 
+     rshort_davg(iw) = rshort_davg(iw) + rshort(iw)
       tempk_davg(iw) =  tempk_davg(iw) + tair(k,iw)
 
      if (tempk_dmin(iw) > tair(k,iw)) tempk_dmin(iw) = tair(k,iw)
      if (tempk_dmax(iw) < tair(k,iw)) tempk_dmax(iw) = tair(k,iw)
 
-!obs     accpmic_dtot(iw) = accpmic_dtot(iw) + pcpgr(iw) * dtlong
+     if (allocated(pcprd)) accpmic_dtot(iw) = accpmic_dtot(iw) &
+                                            + pcprd(iw) * dtlong
+     if (allocated(pcprr)) accpmic_dtot(iw) = accpmic_dtot(iw) &
+                                            + pcprr(iw) * dtlong
+     if (allocated(pcprp)) accpmic_dtot(iw) = accpmic_dtot(iw) &
+                                            + pcprp(iw) * dtlong
+     if (allocated(pcprs)) accpmic_dtot(iw) = accpmic_dtot(iw) &
+                                            + pcprs(iw) * dtlong
+     if (allocated(pcpra)) accpmic_dtot(iw) = accpmic_dtot(iw) &
+                                            + pcpra(iw) * dtlong
+     if (allocated(pcprg)) accpmic_dtot(iw) = accpmic_dtot(iw) &
+                                            + pcprg(iw) * dtlong
+     if (allocated(pcprh)) accpmic_dtot(iw) = accpmic_dtot(iw) &
+                                            + pcprh(iw) * dtlong
+
      if (allocated(conprr)) then
         accpcon_dtot(iw) = accpcon_dtot(iw) + conprr(iw) * dtlong
      endif
@@ -106,7 +83,7 @@ subroutine inc_davg_vars()
   do iwsfc = 2, mwsfc
 
      ! Skip this cell if running in parallel and cell rank is not MYRANK
-     if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+     if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
      airtempk_davg(iwsfc) = airtempk_davg(iwsfc) + sfcg%airtemp(iwsfc)
      cantempk_davg(iwsfc) = cantempk_davg(iwsfc) + sfcg%cantemp(iwsfc)
@@ -122,7 +99,7 @@ subroutine inc_davg_vars()
      iwsfc = iland + omland
 
      ! Skip this cell if running in parallel and cell rank is not MYRANK
-     if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+     if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
      call qwtk(land%soil_energy(nzg,iland),        &
                land%soil_water(nzg,iland)*1.e3,    &
@@ -148,11 +125,10 @@ subroutine norm_davg_vars()
          vegtempk_davg, soiltempk_davg, &
      cantempk_davg, airtempk_davg, sfluxt_davg, sfluxr_davg
 
-  use mem_grid,  only: mwa
   use mem_sfcg,  only: mwsfc, itab_wsfc
   use mem_land,  only: mland, omland
   use mem_ijtabs,only: jtab_w, jtw_prog
-  use misc_coms, only: isubdomain
+  use misc_coms, only: iparallel
   use mem_para,  only: myrank
 
   implicit none
@@ -165,7 +141,7 @@ subroutine norm_davg_vars()
   !$omp parallel
 
   !$omp do private(iw)
-  do j = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
+  do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
         press_davg(iw) =    press_davg(iw) * ni
           vxe_davg(iw) =      vxe_davg(iw) * ni
           vye_davg(iw) =      vye_davg(iw) * ni
@@ -183,7 +159,7 @@ subroutine norm_davg_vars()
   do iwsfc = 2, mwsfc
 
      ! Skip this cell if running in parallel and cell rank is not MYRANK
-     if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+     if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
      airtempk_davg(iwsfc) = airtempk_davg(iwsfc) * ni
      cantempk_davg(iwsfc) = cantempk_davg(iwsfc) * ni
@@ -197,7 +173,7 @@ subroutine norm_davg_vars()
      iwsfc = iland + omland
 
      ! Skip this cell if running in parallel and cell rank is not MYRANK
-     if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+     if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
        vegtempk_davg(iland) =   vegtempk_davg(iland) * ni
       soiltempk_davg(iland) =  soiltempk_davg(iland) * ni
@@ -210,21 +186,20 @@ end subroutine norm_davg_vars
 !===============================================================
 
 subroutine write_davg_vars(outyear,outmonth,outdate)
-  
+
   use mem_average_vars, only: &
      press_davg, vxe_davg, vye_davg, vze_davg, rshort_davg, &
      tempk_davg, tempk_dmin, tempk_dmax, accpmic_dtot, accpcon_dtot, &
      press_ul_davg, vxe_ul_davg, vye_ul_davg, vze_ul_davg, &
      airtempk_davg, airtempk_dmin, airtempk_dmax, &
      cantempk_davg, cantempk_dmin, cantempk_dmax, &
-       vegtempk_davg,   vegtempk_dmin,   vegtempk_dmax, &
-      soiltempk_davg,  soiltempk_dmin,  soiltempk_dmax, &
-         sfluxt_davg,     sfluxr_davg
+     vegtempk_davg,   vegtempk_dmin,   vegtempk_dmax, &
+     soiltempk_davg,  soiltempk_dmin,  soiltempk_dmax, &
+     sfluxt_davg,     sfluxr_davg
 
   use hdf5_utils, only: shdf5_orec, shdf5_open, shdf5_close
   use mem_grid,   only: mwa, nwa
-  use misc_coms,  only: iparallel, hfilepref, iclobber, io6, time8, iyear1, &
-                        imonth1, idate1, itime1
+  use misc_coms,  only: hfilepref, iclobber, io6
   use mem_para,   only: iwa_globe_primary, iwa_local_primary, &
                         iwsfc_globe_primary, iwsfc_local_primary, &
                         iland_globe_primary, iland_local_primary, &
@@ -241,7 +216,6 @@ subroutine write_davg_vars(outyear,outmonth,outdate)
   character(len=128) :: hnamel
   integer :: lenl
   logical exans
-  character(len=32) :: varn
   integer :: ndims,idims(2), month_use, year_use, date_use, nglobe
 
   integer, pointer, contiguous :: ilpts(:), igpts(:)
@@ -271,7 +245,7 @@ subroutine write_davg_vars(outyear,outmonth,outdate)
        0,'D','$','h5')  ! '$' argument suppresses grid# encoding
 
   lenl = len_trim(hnamel)
-  
+
   inquire(file=hnamel,exist=exans)
   if (exans .and. iclobber == 0) then
      write(io6,*)'!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
@@ -348,7 +322,7 @@ subroutine write_davg_vars(outyear,outmonth,outdate)
        lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
   call shdf5_orec(ndims,idims,  'SFLUXR_DAVG',rvar1=  sfluxr_davg, &
        lpoints=ilpts, gpoints = igpts, nglobe=nglobe)
-  
+
   idims(1) = mland
 
   ilpts => iland_local_primary
@@ -375,7 +349,7 @@ end subroutine write_davg_vars
 !===============================================================
 
 subroutine read_davg_vars(davgfile)
-  
+
   use mem_average_vars, only: &
      press_davg, vxe_davg, vye_davg, vze_davg, rshort_davg, &
      tempk_davg, tempk_dmin, tempk_dmax, accpmic_dtot, accpcon_dtot, &
@@ -389,7 +363,7 @@ subroutine read_davg_vars(davgfile)
   use misc_coms,  only: io6
   use hdf5_utils, only: shdf5_irec, shdf5_open, shdf5_close
   use mem_grid,   only: mwa
-  use mem_ijtabs, only: itabg_w, itab_w, itab_v, itab_m
+  use mem_ijtabs, only: itab_w
   use mem_sfcg,   only: itab_wsfc, mwsfc
   use mem_land,   only: itab_land, mland
 
@@ -399,7 +373,6 @@ subroutine read_davg_vars(davgfile)
 
   logical :: exans
   integer :: ndims, idims(2)
-  character(len=32) :: varn
 
   integer :: ilocalw(mwa)
   integer :: ilocall(mland)
@@ -408,7 +381,7 @@ subroutine read_davg_vars(davgfile)
   inquire(file=davgfile,exist=exans)
 
   if (exans) then
-  
+
 ! Day-average file exists.  Open, read, and close file.
 
      write(io6,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++'
@@ -418,7 +391,7 @@ subroutine read_davg_vars(davgfile)
      call shdf5_open(trim(davgfile),'R')
 
  ! Read day-average variables
-  
+
      ndims    = 1
      idims(1) = mwa
      ilocalw(1:mwa) = itab_w(1:mwa)%iwglobe
@@ -472,7 +445,7 @@ subroutine read_davg_vars(davgfile)
      write(io6,*) '!!!   but it does not exist. The run is ended.'
      write(io6,*) '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
      stop 'in read_davg_vars'
-   
+
   endif
 
 end subroutine read_davg_vars

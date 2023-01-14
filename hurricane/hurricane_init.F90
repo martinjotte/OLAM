@@ -1,40 +1,8 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 module hcane_rz
 
-use consts_coms, only: r8
+  use consts_coms, only: r8
 
-implicit none
+  implicit none
 
 ! The purpose of module hcane_rz is to restore the intensity and eyewall
 ! diameter of a hurricane that is under-resolved in the initial conditions of
@@ -73,7 +41,7 @@ implicit none
   integer :: ncycle_hurrinit ! Number of initialization cycles to perform
   integer :: icycle_hurrinit ! Ending integration time of each cycle (s)
 
-  real(r8) :: timmax_hurrinit 
+  real(r8) :: timmax_hurrinit
 
   real :: hlat0, hlon0   ! Initial obs hurricane lat/lon (deg)
 
@@ -83,7 +51,7 @@ implicit none
   real :: zcent_thpert   ! Center height of toroidal heating region (m)
   real :: zhwid_thpert   ! Vertical half-width of toroidal heating region (m)
 
-  real :: rcent_thpert   ! Center radius of toroidal heating region (m) 
+  real :: rcent_thpert   ! Center radius of toroidal heating region (m)
   real :: rhwid_thpert   ! Radial half-width of toroidal heating region (m)
 
   real :: maxrate_thpert ! Maximum heating rate in toroidal heating region (K/s)
@@ -91,12 +59,17 @@ implicit none
   real :: vtan_targ      ! Target max tangential wind speed (m/s)
   real :: vtan_max       ! Current max tangential wind speed (m/s)
 
+  real :: pmsl_targ      ! Target hurricane central MSL pressure (Pa)
+  real :: pmsl_min       ! Current min hurricane MSL pressure (Pa)
+
   real :: hlat_hist = 0., hlon_hist = 0. ! Stored on history file
   real :: hlat_reloc, hlon_reloc         ! Relocation point
   real :: hlat, hlon                     ! Input to and updated by vortex_center_diagnose;
                                          ! used by vortex_azim_avg and vortex_add_thetapert
 
   real :: xeh_reloc, yeh_reloc, zeh_reloc
+  real :: cos_hlat_reloc, sin_hlat_reloc
+  real :: cos_hlon_reloc, sin_hlon_reloc
 
   ! Time series of hlat, hlon, model time
 
@@ -132,6 +105,15 @@ implicit none
 
   real, allocatable :: reloc_field(:,:,:)
 
+  integer :: kthpert_min = 2
+  integer :: kthpert_max = 1
+  integer :: l8k
+
+  real, allocatable :: wt_vert (:)
+  real, allocatable :: dradi_ax(:)
+
+  real :: rmax, rmaxsq
+
 Contains
 
 !===============================================================================
@@ -139,18 +121,51 @@ Contains
   subroutine hurricane_init()
 
   use misc_coms,  only: timmax8, dtlm
-  use oname_coms, only: nl
+  use mem_grid,   only: mza, zt
 
   implicit none
 
-  integer :: nhtim, nhcyc
+  integer         :: nhtim, nhcyc, k
+  real            :: delz
+  real, parameter :: zexpon_thpert = 2.0    ! []
 
-  nhtim = max(timmax8, nl%timmax_hurrinit) / dtlm(1)
+  nhtim = max(timmax8, timmax_hurrinit) / dtlm
   nhcyc = max(1,ncycle_hurrinit)
+
+  rmax   = 0.999999 * radius_ax(nr)
+  rmaxsq = rmax * rmax
 
   allocate (hlata(0:nhtim,nhcyc))
   allocate (hlona(0:nhtim,nhcyc))
   allocate (htima(0:nhtim,nhcyc)); htima(:,:) = 0.
+
+  do k = 2, mza
+     if (zt(k) > zcent_thpert - zhwid_thpert) exit
+  enddo
+  kthpert_min = k
+
+  do k = kthpert_min, mza
+     if (zt(k) > zcent_thpert + zhwid_thpert) exit
+  enddo
+  kthpert_max = k-1
+
+  allocate(wt_vert(mza)) ; wt_vert = 0.
+
+  do k = kthpert_min, kthpert_max
+     delz       = abs( zt(k) - zcent_thpert )
+     wt_vert(k) = 1. - (delz / zhwid_thpert) ** zexpon_thpert
+  enddo
+
+  do k = 2, mza
+     if (zt(k) > 8.e3) exit
+  enddo
+  l8k = k - 1
+
+  allocate(dradi_ax(nr))
+  do k = 1, nr-1
+     dradi_ax(k) = 1.0 / (radius_ax(k+1) - radius_ax(k))
+  enddo
+  dradi_ax(nr) = dradi_ax(nr-1)
 
   end subroutine hurricane_init
 
@@ -158,39 +173,48 @@ Contains
 
   subroutine vortex_center_diagnose()
 
-  ! This subroutine diagnoses the latitude & longitude of the MSL pressure minimum 
+  ! This subroutine diagnoses the latitude & longitude of the MSL pressure minimum
   ! inside a tropical cyclone.  It requires a nearby starting location (hlat,hlon)
   ! to be provided, either from a user specification of the known cyclone location
   ! or from a recent location previously diagnosed from this subroutine.
 
   ! The algorithm of subroutine vortex_center_diagnose is not to simply search for
-  ! the lowest MSL pressure in the vicinity, but rather to take a weighted average 
+  ! the lowest MSL pressure in the vicinity, but rather to take a weighted average
   ! over multiple grid cells having pressure close to that lowest value.  This yields
   ! a location that is more steady in time, less subject to turbulent fluctuations,
   ! and more tied to the circulation at the scale of the cyclone core region.
 
-  ! NOTE: THIS SUBROUTINE IS NOT MPI-COMPATIBLE; IT ASSUMES THAT ALL POINTS IN THE
-  ! INNER REGION OF THE CYLONE ARE CONTAINED ON ONE AND THE SAME COMPUTER PROCESS.  
+  ! This works now for parallel run
 
-  use mem_ijtabs, only: 
-  use mem_basic, only: press, tair
-  use misc_coms, only: mstp, time8
-  use mem_grid, only: mwa, zt, lpw, xew, yew, zew, arw0, glatw, glonw
+  use mem_ijtabs,  only: jtab_w, jtw_prog
+  use mem_basic,   only: press, tair
+  use misc_coms,   only: mstp, time8, iparallel, io6
+  use mem_grid,    only: mwa, zt, lpw, xew, yew, zew, arw0, glatw, glonw
   use consts_coms, only: pio180, erad
+
+#ifdef OLAM_MPI
+  use mpi
+#endif
 
   implicit none
 
-  integer :: iw, ka
+  integer :: j, iw, ka
+  logical :: iskip(mwa)
 
   real :: reh, xeh, yeh, zeh
-  real :: dist, weight
-  real :: rlon, rlat
+  real :: distsq, weight
+  real :: rlon, rlat, dlat, dlon
 
-  real :: area_tot, pmsl_min, pmsl_avg, pmsl_thresh
+  real :: area_tot, pmsl_avg, pmsl_thresh
   real :: xew_avg, yew_avg, zew_avg, weight_sum
   real :: pmsl(mwa)
 
-  write(6,'(a,2f10.3)') 'vortex_center_diagnose BEGIN ',hlat,hlon
+#ifdef OLAM_MPI
+  real    :: buffer(4)
+  integer :: ierr
+#endif
+
+  write(io6,'(a,2f10.3)') 'vortex_center_diagnose BEGIN ',hlat,hlon
 
   ! Find "earth" coordinates of previous vortex center location (hlat,hlon)
 
@@ -211,24 +235,30 @@ Contains
 
   weight_sum = 0.
 
-  ! Horizontal loop over all W points
+  iskip = .true.
 
-  do iw = 2,mwa
+  ! Horizontal loop over W points
+  do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
      ! Skip current W point if its location is far from first guess position
      ! (This is rough check that eliminates most points)
 
-     if (abs(glatw(iw) - hlat) > 5.) cycle
-     if (abs(glonw(iw) - hlon) > 5.) cycle
+     dlat = abs(glatw(iw) - hlat)
+     dlon = abs(glonw(iw) - hlon)
+
+     if (dlat > 5. .and. dlat < 355.) cycle
+     if (dlon > 5. .and. dlon < 355.) cycle
 
      ! Distance of current W point to first guess position
 
-     dist = sqrt((xew(iw)-xeh)**2 + (yew(iw)-yeh)**2 + (zew(iw)-zeh)**2)
+     distsq = (xew(iw)-xeh)**2 + (yew(iw)-yeh)**2 + (zew(iw)-zeh)**2
 
      ! Skip current W point if its location is far from first guess position
      ! (This is finer check)
 
-     if (dist > 100.e3) cycle
+     if (distsq > 1.e10) cycle
+
+     iskip(iw) = .false.
 
      ka = lpw(iw)
 
@@ -248,30 +278,27 @@ Contains
 
   enddo  ! iw
 
+#ifdef OLAM_MPI
+  if (iparallel == 1) then
+     buffer(1:2) = [area_tot, pmsl_avg]
+     call MPI_Allreduce( MPI_IN_PLACE, buffer, 2, MPI_REAL, MPI_SUM, MPI_COMM_WORLD, ierr )
+     area_tot = buffer(1)
+     pmsl_avg = buffer(2)
+     call MPI_Allreduce( MPI_IN_PLACE, pmsl_min, 1, MPI_REAL, MPI_MIN, MPI_COMM_WORLD, ierr )
+  endif
+#endif
+
   ! Compute average pressure for any k level with cells above ground
   ! Compute threshold pressure at 80% of the range from avg to min
 
   pmsl_avg = pmsl_avg / area_tot
   pmsl_thresh = pmsl_avg + .80 * (pmsl_min - pmsl_avg)
 
-  ! Horizontal loop over all W points
-
-  do iw = 2,mwa
-
-     ! Skip current W point if its location is far from first guess position
-     ! (This is rough check that eliminates most points)
-
-     if (abs(glatw(iw) - hlat) > 5.) cycle
-     if (abs(glonw(iw) - hlon) > 5.) cycle
-
-     ! Distance of current W point to first guess position
-
-     dist = sqrt((xew(iw)-xeh)**2 + (yew(iw)-yeh)**2 + (zew(iw)-zeh)**2)
+  ! Horizontal loop over W points
+  do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
      ! Skip current W point if its location is far from first guess position
-     ! (This is finer check)
-
-     if (dist > 100.e3) cycle
+     if (iskip(iw)) cycle
 
      ! If pmsl < threshold value, sum area-pressure weighted grid cell location
 
@@ -286,8 +313,18 @@ Contains
         weight_sum = weight_sum + weight
 
      endif
-
   enddo  ! iw
+
+#ifdef OLAM_MPI
+  if (iparallel == 1) then
+     buffer(1:4) = [xew_avg, yew_avg, zew_avg, weight_sum]
+     call MPI_Allreduce( MPI_IN_PLACE, buffer, 4, MPI_REAL, MPI_SUM, MPI_COMM_WORLD, ierr )
+     xew_avg = buffer(1)
+     yew_avg = buffer(2)
+     zew_avg = buffer(3)
+     weight_sum = buffer(4)
+  endif
+#endif
 
   ! Compute mean location
 
@@ -313,7 +350,7 @@ Contains
   hlona(mstp,icycle_hurrinit) = rlon
   htima(mstp,icycle_hurrinit) = real(time8)
 
-  write(6,'(a,i8,2f10.3,f12.2)') &
+  write(io6,'(a,i8,2f10.3,f12.2)') &
      'vortex_center_diagnose END: mstp, hlat, hlon, pmsl_min   ', mstp, hlat, hlon, pmsl_min
 
   end subroutine vortex_center_diagnose
@@ -327,11 +364,12 @@ Contains
   use mem_micro,   only: rr_c, rr_d, rr_r, rr_p, rr_s, rr_a, rr_g, rr_h, &
                          q2, q6, q7, &
                          con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h
-  use mem_ijtabs,  only: itab_m, itab_w, jtab_w, jtw_init
-  use misc_coms,   only: io6
-  use mem_grid,    only: mza, mma, mwa, lpw, xem, yem, zem, xew, yew, zew
-  use consts_coms, only: erad, pio180
+  use mem_ijtabs,  only: itab_m, jtab_w, jtw_init
+  use mem_grid,    only: mza, mma, mwa, lpw, xem, yem, zem, xew, yew, zew, dzm
+  use consts_coms, only: erad, pio180, eps_virt, rocp, cpor, gocp, cvocp, &
+                         p00i, p00k, p00kord, t00
   use max_dims,    only: pathlen
+  use therm_lib,   only: rhovsl, rhovsl_inv
 
   implicit none
 
@@ -342,9 +380,9 @@ Contains
   integer :: iwiflag(mwa)
 
   integer :: im,iw,j,k,kr,jnext,iwnext,ips,jps,npoly,ipt,jpt,lpt
-  integer :: ifld, iwi
+  integer :: ifld, iwi, n
 
-  real :: rad, rad0, rpolyi
+  real :: rad, radsq, rad0, rpolyi
 
   real :: x(3),y(3),z(3)
   real :: xw(7),yw(7)
@@ -353,7 +391,8 @@ Contains
   real :: field(mza,7,nfld),field_avg(mza,nfld)
 
   real :: v0x,v0y,v1x,v1y,v2x,v2y,dot00,dot01,dot02,dot11,dot12,denomi,u,v
-  real :: xwi,ywi
+  real :: xwi,ywi,rchksq,thv
+  real :: dxe, dye, dze
 
   logical, save :: first_call = .TRUE.
 
@@ -365,31 +404,46 @@ Contains
 
      ! Select relocation point and compute its "earth" coordinates
 
-   ! hlat_reloc = hlata(0,1)
-   ! hlon_reloc = hlona(0,1)
-     hlat_reloc = hlata(5,1)
-     hlon_reloc = hlona(5,1)
+!    hlat_reloc = hlata(0,1)
+!    hlon_reloc = hlona(0,1)
+!    hlat_reloc = hlata(5,1)
+!    hlon_reloc = hlona(5,1)
+     hlat_reloc = hlat0
+     hlon_reloc = hlon0
 
-     reh       = erad * cos(hlat_reloc * pio180)  ! distance from earth axis
-     zeh_reloc = erad * sin(hlat_reloc * pio180)
-     xeh_reloc = reh  * cos(hlon_reloc * pio180)
-     yeh_reloc = reh  * sin(hlon_reloc * pio180)
+     cos_hlat_reloc = cos(hlat_reloc * pio180)
+     sin_hlat_reloc = sin(hlat_reloc * pio180)
+     cos_hlon_reloc = cos(hlon_reloc * pio180)
+     sin_hlon_reloc = sin(hlon_reloc * pio180)
+
+     reh       = erad * cos_hlat_reloc  ! distance from earth axis
+     zeh_reloc = erad * sin_hlat_reloc
+     xeh_reloc = reh  * cos_hlon_reloc
+     yeh_reloc = reh  * sin_hlon_reloc
+
+     rchksq = (rad2_blend + 50.e3)**2
 
      ! Loop over all W points for recording iw indices in iwps array
 
-     do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)  ! jend(1) = hardwired for mrl 1
+     do j = 1,jtab_w(jtw_init)%jend; iw = jtab_w(jtw_init)%iw(j)
 
         ! Distance of this IW point from relocation point
 
-        rad0 = sqrt((xew(iw)-xeh_reloc)**2 + (yew(iw)-yeh_reloc)**2 + (zew(iw)-zeh_reloc)**2)
+!       rad0 = sqrt((xew(iw)-xeh_reloc)**2 + (yew(iw)-yeh_reloc)**2 + (zew(iw)-zeh_reloc)**2)
+        radsq = (xew(iw)-xeh_reloc)**2 + (yew(iw)-yeh_reloc)**2 + (zew(iw)-zeh_reloc)**2
 
         ! Skip hurricane assimilation for all points outside specified radius
 
-        if (rad0 >= rad2_blend + 50.e3) cycle
+        if (radsq >= rchksq) cycle
+!       if (rad0 >= rad2_blend + 50.e3) cycle
 
         ! Transform current W point to PS coordinates tangent at hurricane center
 
-        call e_ps(xew(iw),yew(iw),zew(iw),hlat_reloc,hlon_reloc,xw(1),yw(1))
+        dxe = xew(iw) - xeh_reloc
+        dye = yew(iw) - yeh_reloc
+        dze = yew(iw) - zeh_reloc
+        call de_ps( dxe,dye,dze,cos_hlat_reloc,sin_hlat_reloc,&
+                    cos_hlon_reloc,sin_hlon_reloc,xw(1),yw(1) )
 
         ! Get ips,jps indices on PS grid (assumed to be 5 km mesh that is 1000 km wide)
 
@@ -438,7 +492,7 @@ Contains
      ! Distance of this IM point from current eye center
 
      rad = sqrt((xem(im)-xeh)**2 + (yem(im)-yeh)**2 + (zem(im)-zeh)**2)
-   
+
      ! Skip hurricane assimilation for all points outside specified radius
 
      if (rad >= rad2_blend + 30.e3) cycle
@@ -469,41 +523,70 @@ Contains
         ! Vertical loop over T levels
 
         do k = 2,mza
-           kr = max(k,lpw(iw))  ! In case TC is too close to land and has underground points
+                                 field(k,j, 1) =   vxe(k,iw)
+                                 field(k,j, 2) =   vye(k,iw)
+                                 field(k,j, 3) =   vze(k,iw)
+                                 field(k,j, 4) =   wmc(k,iw)
+                                 field(k,j, 5) =    wc(k,iw)
+                                 field(k,j, 6) =   rho(k,iw)
+                                 field(k,j, 7) = press(k,iw)
+                                 field(k,j, 8) =  thil(k,iw)
+                                 field(k,j, 9) = theta(k,iw)
+                                 field(k,j,10) =  tair(k,iw)
+                                 field(k,j,11) =  rr_w(k,iw)
+                                 field(k,j,12) =  rr_v(k,iw)
+           if (allocated(rr_c))  field(k,j,13) =  rr_c(k,iw)
+           if (allocated(rr_d))  field(k,j,14) =  rr_d(k,iw)
+           if (allocated(rr_r))  field(k,j,15) =  rr_r(k,iw)
+           if (allocated(rr_p))  field(k,j,16) =  rr_p(k,iw)
+           if (allocated(rr_s))  field(k,j,17) =  rr_s(k,iw)
+           if (allocated(rr_a))  field(k,j,18) =  rr_a(k,iw)
+           if (allocated(rr_g))  field(k,j,19) =  rr_g(k,iw)
+           if (allocated(rr_h))  field(k,j,20) =  rr_h(k,iw)
+           if (allocated(con_c)) field(k,j,21) = con_c(k,iw)
+           if (allocated(con_d)) field(k,j,22) = con_d(k,iw)
+           if (allocated(con_r)) field(k,j,23) = con_r(k,iw)
+           if (allocated(con_p)) field(k,j,24) = con_p(k,iw)
+           if (allocated(con_s)) field(k,j,25) = con_s(k,iw)
+           if (allocated(con_a)) field(k,j,26) = con_a(k,iw)
+           if (allocated(con_g)) field(k,j,27) = con_g(k,iw)
+           if (allocated(con_h)) field(k,j,28) = con_h(k,iw)
+           if (allocated(q2))    field(k,j,29) =    q2(k,iw)
+           if (allocated(q6))    field(k,j,30) =    q6(k,iw)
+           if (allocated(q7))    field(k,j,31) =    q7(k,iw)
 
-                                 field(k,j, 1) =   vxe(kr,iw)
-                                 field(k,j, 2) =   vye(kr,iw)
-                                 field(k,j, 3) =   vze(kr,iw)
-                                 field(k,j, 4) =   wmc(kr,iw)
-                                 field(k,j, 5) =    wc(kr,iw)
-                                 field(k,j, 6) =   rho(kr,iw)
-                                 field(k,j, 7) = press(kr,iw)
-                                 field(k,j, 8) =  thil(kr,iw)
-                                 field(k,j, 9) = theta(kr,iw)
-                                 field(k,j,10) =  tair(kr,iw)
-                                 field(k,j,11) =  rr_w(kr,iw)
-                                 field(k,j,12) =  rr_v(kr,iw)
-           if (allocated(rr_c))  field(k,j,13) =  rr_c(kr,iw)
-           if (allocated(rr_d))  field(k,j,14) =  rr_d(kr,iw)
-           if (allocated(rr_r))  field(k,j,15) =  rr_r(kr,iw)
-           if (allocated(rr_p))  field(k,j,16) =  rr_p(kr,iw)
-           if (allocated(rr_s))  field(k,j,17) =  rr_s(kr,iw)
-           if (allocated(rr_a))  field(k,j,18) =  rr_a(kr,iw)
-           if (allocated(rr_g))  field(k,j,19) =  rr_g(kr,iw)
-           if (allocated(rr_h))  field(k,j,20) =  rr_h(kr,iw)
-           if (allocated(con_c)) field(k,j,21) = con_c(kr,iw)
-           if (allocated(con_d)) field(k,j,22) = con_d(kr,iw)
-           if (allocated(con_r)) field(k,j,23) = con_r(kr,iw)
-           if (allocated(con_p)) field(k,j,24) = con_p(kr,iw)
-           if (allocated(con_s)) field(k,j,25) = con_s(kr,iw)
-           if (allocated(con_a)) field(k,j,26) = con_a(kr,iw)
-           if (allocated(con_g)) field(k,j,27) = con_g(kr,iw)
-           if (allocated(con_h)) field(k,j,28) = con_h(kr,iw)
-           if (allocated(q2))    field(k,j,29) =    q2(kr,iw)
-           if (allocated(q6))    field(k,j,30) =    q6(kr,iw)
-           if (allocated(q7))    field(k,j,31) =    q7(kr,iw)
+        enddo
 
-           field_avg(k,1:nfld) = field_avg(k,1:nfld) + field(k,j,1:nfld) * rpolyi
+        ! Special for levels below lpw:
+
+        if (lpw(iw) > 2) then
+
+           kr   = lpw(iw)
+           thv  = theta(kr,iw) * ( 1.0 + eps_virt * rr_v(kr,iw) )
+
+           do k = kr-1, 2, -1
+              ! ignore condensate
+              field(k,j,7) = (field(k+1,j,7)**rocp + gocp * dzm(k) * p00k / thv )**cpor
+           enddo
+
+           do k = 2, kr-1
+              field(k,j, 4) = wmc(kr,iw)
+              field(k,j, 5) = wc (kr,iw)
+              field(k,j, 6) = field(k,j,7)**cvocp * p00kord / thv
+              field(k,j, 8) = theta(kr,iw)  ! ignore condensate
+              field(k,j, 9) = theta(kr,iw)
+              field(k,j,10) = theta(kr,iw) * (field(k,j,7)*p00i)**rocp
+              field(k,j,11) = rr_v (kr,iw)  ! ignore condensate
+              field(k,j,12) = rr_v (kr,iw)
+              field(k,j,13:31) = 0.0        ! ignore condensate
+           enddo
+
+        endif
+
+        do n = 1, nfld
+           do k = 2, mza
+              field_avg(k,n) = field_avg(k,n) + field(k,j,n) * rpolyi
+           enddo
         enddo
 
      enddo
@@ -582,7 +665,7 @@ Contains
                  ! Distance of this IWI point from relocation point
 
                  rad0 = sqrt((xew(iwi)-xeh_reloc)**2 + (yew(iwi)-yeh_reloc)**2 + (zew(iwi)-zeh_reloc)**2)
-   
+
                  ! Skip interpolation for all points outside specified radius
 
                  if (rad0 >= rad2_blend + 20.e3) cycle
@@ -636,7 +719,7 @@ Contains
 
                        reloc_field(k,nout,1:nfld) = a(k,1:nfld)       &
                                                   + b(k,1:nfld) * xwi &
-                                                  + c(k,1:nfld) * ywi    
+                                                  + c(k,1:nfld) * ywi
 
                     enddo  ! k
 
@@ -662,39 +745,33 @@ Contains
 
   ! This subroutine replaces a model initial state that contains a poorly-resolved
   ! tropical cyclone from a GFS or other analysis with a cyclone that was
-  ! simulated in a previous model run and was relocated to the position 
+  ! simulated in a previous model run and was relocated to the position
   ! inferred in the initial GFS fields.
 
   use mem_basic,   only: vc, vmc, wc, wmc, thil, theta, tair, &
                          rr_w, rr_v, rho, press, vxe, vye, vze
   use mem_micro,   only: rr_c, rr_d, rr_r, rr_p, rr_s, rr_a, rr_g, rr_h, &
-                         q2, q6, q7, cldnum, &
+                         q2, q6, q7, &
                          con_c, con_d, con_r, con_p, con_s, con_a, con_g, con_h
-  use micro_coms,  only: miclevel, ccnparm, jnmb, rxmin, zfactor_ccn
   use therm_lib,   only: rhovsl
-  use mem_ijtabs,  only: itab_m, itab_v, itab_w, jtab_v, jtv_init
-  use misc_coms,   only: io6, iparallel
-  use mem_grid,    only: mza, mma, mwa, lpw, xev, yev, zev, xew, yew, zew, &
-                         vnxo2, vnyo2, vnzo2, zt, gdz_belo8, gdz_abov8
-  use consts_coms, only: erad, pio180, grav, rvap, rdry, alvlocp, &
+  use mem_ijtabs,  only: itab_v, jtab_v, jtv_init
+  use misc_coms,   only: iparallel
+  use mem_grid,    only: mza, mwa, xev, yev, zev, xew, yew, zew, &
+                         vnxo2, vnyo2, vnzo2, lpw, lve2
+  use consts_coms, only: pio180, grav, rvap, rdry, alvlocp, &
                          cvocp, rocp, p00k, p00i, r8, eps_vapi, p00kord
   use max_dims,    only: pathlen
   use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, &
-                          mpi_send_v, mpi_recv_v 
+                          mpi_send_v, mpi_recv_v
   use obnd,         only: lbcopy_v, lbcopy_w
-  use vel_t3d,      only: diagvel_t3d, diagvel_t3d_init
+  use vel_t3d,      only: diagvel_t3d
 
   implicit none
 
   integer :: iout
-
-  integer :: iw,j,k,iv,iw1,iw2,iter
-  real :: exner, temp, ccn
-  real :: wt1, wt1c
-
-  real :: rad0, vreloc
-
-  integer :: mrl
+  integer :: iw,j,k,iv,iw1,iw2
+  real    :: wt1, wt1c
+  real    :: rad0, vreloc
 
   real :: vxer(mza,mwa), vyer(mza,mwa), vzer(mza,mwa)
 
@@ -708,9 +785,7 @@ Contains
   vyer = vye
   vzer = vze
 
-  ! Horizontal loop over all active W points in file data 
-
-!  print*, 'rld0 : nout ',nout
+  ! Horizontal loop over all active W points in file data
 
   do iout = 1,nout
 
@@ -733,11 +808,11 @@ Contains
         wt1 = (rad2_blend - rad0) / (rad2_blend - rad1_blend)
      endif
 
+     wt1c = 1. - wt1
+
      ! Vertical loop over T levels
 
      do k = 2,mza
-
-        wt1c = 1. - wt1
 
         ! Transfer relocation array data to OLAM arrays, with weighting
 
@@ -775,35 +850,37 @@ Contains
 
      enddo
 
-!Q     ! Vertical loop over T levels
+     ! Special for shaved cells with prognostic method:
 
-!Q     do k = lpw(iw),mza
-!Q        wmc(k,iw) = wc(k,iw) * .5 * (rho(k,iw) + rho(k+1,iw))
-!Q        tair(k,iw) = theta(k,iw) * (press(k,iw) * p00i) ** rocp
-!Q     enddo
+     if (lve2(iw) > 0) then
+        do k = lpw(iw), lpw(iw) + lve2(iw) - 1
+           vxe(k,iw) = vxe(k,iw) * wt1c + reloc_field(k,iout, 1) * wt1
+           vye(k,iw) = vye(k,iw) * wt1c + reloc_field(k,iout, 2) * wt1
+           vze(k,iw) = vze(k,iw) * wt1c + reloc_field(k,iout, 3) * wt1
+        enddo
+     endif
 
   enddo
 
   ! If using MPI, perform parallel send/recv
 
   if (iparallel == 1) then
-     mrl = 1
-     call mpi_send_w(mrl, dvara1=press, dvara2=rho, &
+     call mpi_send_w(dvara1=press, dvara2=rho, &
                      rvara1=wc, rvara2=wmc, rvara3=thil)
 
-     call mpi_recv_w(mrl, dvara1=press, dvara2=rho, &
+     call mpi_recv_w(dvara1=press, dvara2=rho, &
                      rvara1=wc, rvara2=wmc, rvara3=thil)
   endif
 
   ! LBC copy (THETA and TAIR will be copied later with the scalars)
 
-  call lbcopy_w(1, a1=wc, a2=wmc, a3=thil, d1=press, d2=rho)
+  call lbcopy_w(a1=wc, a2=wmc, a3=thil, d1=press, d2=rho)
 
   ! Initialize VC field
 
-  do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)  ! jend(1) = hardwired for mrl 1
+  do j = 1,jtab_v(jtv_init)%jend; iv = jtab_v(jtv_init)%iv(j)
      iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
- 
+
      ! Distance of this point from relocation point
 
      rad0 = sqrt((xev(iv)-xeh_reloc)**2 + (yev(iv)-yeh_reloc)**2 + (zev(iv)-zeh_reloc)**2)
@@ -840,18 +917,17 @@ Contains
   ! If using MPI, perform parallel send/recv
 
   if (iparallel == 1) then
-     call mpi_send_v(1, rvara1=vmc, rvara2=vc)
-     call mpi_recv_v(1, rvara1=vmc, rvara2=vc)
+     call mpi_send_v(rvara1=vmc, rvara2=vc)
+     call mpi_recv_v(rvara1=vmc, rvara2=vc)
   endif
 
   ! LBC copy of VMC, VC
 
-  call lbcopy_v(1, vmc=vmc, vc=vc)
+  call lbcopy_v(vmc=vmc, vc=vc)
 
   ! Re-diagnose earth-relative velocities
 
-  call diagvel_t3d_init(1)
-  call diagvel_t3d(1)
+  call diagvel_t3d()
 
   end subroutine vortex_relocated
 
@@ -867,30 +943,40 @@ Contains
   ! is only called during the last forward cycle if that is the only cycle.
 
   use mem_ijtabs,   only: jtw_prog, jtab_w
-  use mem_basic,    only: thil, theta
-  use mem_tend,     only: thilt
-  use misc_coms,    only: iparallel, mstp
-  use mem_grid,     only: mza, lpw, xew, yew, zew, zt
-  use consts_coms,  only: erad, pio180
-  use olam_mpi_atm, only: mpi_send_w, mpi_recv_w
-  use obnd,         only: lbcopy_w
+  use mem_tend,     only: thilt, rr_wt
+  use mem_basic,    only: rho, rr_v, tair, theta, press
+  use misc_coms,    only: mstp, dtlong, time_istp8p
+  use mem_grid,     only: lpw, xew, yew, zew
+  use consts_coms,  only: erad, pio180, t00, r8
+  use therm_lib,    only: rhovsl, rhovsl_inv
+  use mem_para,     only: myrank
 
   implicit none
 
-  real, parameter :: zexpon_thpert = 2.0    ! []
   real, parameter :: rexpon_thpert = 2.0    ! []
 
   integer :: iw, j, k
 
   real :: reh, zeh, xeh, yeh
-  real :: rad, delr, delz, wt_horiz, wt_vert
+  real :: rad, delr, wt_horiz
+  real :: vterm, pterm, thtend, thtend0, tfact
 
   ! Call vortex_azim_avg periodically to update vtan_max, which is used to
   ! modulate the imposed heating rate as the vortex intensity approaches the
   ! target value
 
-  if (mod(mstp,10) == 1) then
-     call vortex_azim_avg('noplot')
+  if (mod(mstp,4) == 0) then
+     call vortex_get_vtanmax()
+  endif
+
+  ! Gradually ramp down heating at end of spinup cycle
+
+  tfact = 1.0
+
+  if ( icycle_hurrinit == ncycle_hurrinit .and. &
+       time_istp8p > 0.5_r8 * timmax_hurrinit ) then
+
+     tfact = sqrt( max(0., 2.0 - 2.0 * real(time_istp8p) / real(timmax_hurrinit)) )
   endif
 
   ! Find "earth" coordinates of current hurricane center location (hlat, hlon)
@@ -900,59 +986,202 @@ Contains
   xeh = reh  * cos(hlon * pio180)
   yeh = reh  * sin(hlon * pio180)
 
+  vterm = max(0., min(1., (vtan_targ - vtan_max ) / 15.0 ) )
+  pterm = max(0., min(1., (pmsl_min  - pmsl_targ) / 10.e2) )
+
+  ! geometrically average press and velocity weights
+  thtend0 = maxrate_thpert * tfact * (sqrt( (1.0+vterm) * (1.0+pterm) ) - 1.0)
+
+  if (myrank == 0) then
+     write(*,*) "Theta Pert: ", thtend0, tfact, vtan_max, vterm, pterm
+  endif
+
+  if (thtend0 < 1.e-6) return
+
   ! Add perturbation to thermodynamic fields
 
-  do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)  ! jend(1) = hardwired for mrl 1
+  !$omp parallel do private(iw,rad,delr,wt_horiz,k,thtend) schedule(guided)
+  do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
      ! Distance of this IW point from eye center
 
      rad = sqrt((xew(iw)-xeh)**2 + (yew(iw)-yeh)**2 + (zew(iw)-zeh)**2)
 
-     ! Skip for all points outside limiting perturbation radius
-
-     if (rad >= rcent_thpert + rhwid_thpert) cycle
-
      delr = abs(rad - rcent_thpert)
 
-     if (delr < rhwid_thpert) then
-        wt_horiz = 1. - (delr / rhwid_thpert) ** rexpon_thpert
-     else
-        wt_horiz = 0.
-     endif
+     ! Skip for all points outside limiting perturbation radius
 
-     do k = lpw(iw),mza
+     if (delr >= rhwid_thpert) cycle
 
-        ! Skip for all points above limiting perturbation height
+     wt_horiz = 1. - (delr / rhwid_thpert) ** rexpon_thpert
 
-        if (zt(k) >= zcent_thpert + zhwid_thpert) exit
-
-        delz = abs(zt(k) - zcent_thpert)
-
-        if (delz < zhwid_thpert) then
-           wt_vert = 1. - (delz / zhwid_thpert) ** zexpon_thpert
-        else
-           wt_vert = 0.
-        endif
-
-        thilt(k,iw) = thilt(k,iw) + wt_horiz * wt_vert * maxrate_thpert &
-                    * max(0., (vtan_targ - vtan_max) / vtan_targ)
-
+     do k = max(lpw(iw),kthpert_min), kthpert_max
+        thtend      = thtend0 * wt_horiz * wt_vert(k)
+        thilt(k,iw) = thilt(k,iw) + thtend * real(rho(k,iw))
      enddo
 
   enddo
-
-  ! If using MPI, perform parallel send/recv
-
-  if (iparallel == 1) then
-     call mpi_send_w(1, rvara1=thil, rvara2=theta)
-     call mpi_recv_w(1, rvara1=thil, rvara2=theta)
-  endif
-
-  ! LBC copy
-
-  call lbcopy_w(1, a1=thil, a2=theta)
+  !$omp end parallel do
 
   end subroutine vortex_add_thetapert
+
+!==================================================================================
+
+  subroutine vortex_get_vtanmax()
+
+  ! This subroutine computes axisymmetric azimuthal averages of cyclone radial
+  ! and azimuthal wind as a function of radius and height. Azimuthal averages
+  ! are computed on each model level up to a specified maximum height and over
+  ! intervals between radial distance values defined in the radius_ax array.
+
+  ! This works in parallel for huricane tracking
+
+  use mem_ijtabs,  only: jtw_init, jtab_w
+  use mem_basic,   only: vxe, vye, vze
+  use mem_grid,    only: mza, lpw, xew, yew, zew
+  use consts_coms, only: erad, eradi, pio180
+  use misc_coms,   only: iparallel
+
+#ifdef OLAM_MPI
+  use mpi
+#endif
+
+  implicit none
+
+  integer :: iw, j, k, irad, kmin
+
+  real :: reh, zeh, xeh, yeh
+  real :: wnxh,wnyh,wnzh
+  real :: wnxrad,wnyrad,wnzrad,wnxtan,wnytan,wnztan
+  real :: rad,wrad1,wrad2,radm,radsq
+  real :: vtan_ax0
+
+  ! Axisymmmetric vortex profile arrays
+
+  real, target  :: buffer(mza,nr,2)
+  real, pointer :: vtan_ax (:,:)  ! tangential wind (m/s)
+  real, pointer :: weight_t(:,:)  ! weight array for T points
+
+!!  real :: vtan_ax0 (mza,nr)
+!!  real :: weight_t0(mza,nr)
+
+#ifdef OLAM_MPI
+  integer :: ierr
+#endif
+
+  ! Find "earth" coordinates of hurricane center
+
+  reh = erad * cos(hlat * pio180)  ! distance from earth axis
+  zeh = erad * sin(hlat * pio180)
+  xeh = reh  * cos(hlon * pio180)
+  yeh = reh  * sin(hlon * pio180)
+
+  ! Components of unit vector outward normal to earth surface at hurricane center
+
+  wnxh = xeh * eradi
+  wnyh = yeh * eradi
+  wnzh = zeh * eradi
+
+  ! Initialize axixymmetric arrays to zero prior to summation
+
+  buffer = 0.0
+
+  vtan_ax  => buffer(:,:,1)
+  weight_t => buffer(:,:,2)
+
+  ! Loop over all W points
+
+! TODO: get openmp working here?
+!!  !$omp parallel private(vtan_ax0,weight_t0)
+!!  vtan_ax0  = 0.
+!!  weight_t0 = 0.
+!!  !$omp do private(iw,radsq,rad,radm,irad,wrad2,wrad1,wnxrad,wnyrad,wnzrad,&
+!!  !$omp            &wnxtan,wnytan,wnztan,k,vtan_ax0) schedule(guided)
+  do j = 1,jtab_w(jtw_init)%jend; iw = jtab_w(jtw_init)%iw(j)
+
+     ! Distance of this IW point from eye center
+
+!    rad = sqrt((xew(iw)-xeh)**2 + (yew(iw)-yeh)**2 + (zew(iw)-zeh)**2)
+     radsq = (xew(iw)-xeh)**2 + (yew(iw)-yeh)**2 + (zew(iw)-zeh)**2
+
+     ! Skip axisymmetric averaging for all points outside specified radius
+
+!    if (rad >= radius_ax(nr) - 1.) cycle
+     if (radsq >= rmaxsq) cycle
+
+     rad  = sqrt(radsq)
+     radm = 1.0 / rad
+
+     ! Determine interpolation point in radial dimension
+
+     irad = 1
+     do while (rad > radius_ax(irad+1))
+        irad = irad + 1
+     enddo
+
+     ! Make sure irad is in array bounds
+
+     if (irad < 1 .or. irad+1 > nr) cycle
+
+     wrad2 = (rad - radius_ax(irad)) * dradi_ax(irad)
+     wrad1 = 1. - wrad2
+
+     ! Unit normal vector components from hurricane center to current IW point
+
+     wnxrad = (xew(iw) - xeh) * radm
+     wnyrad = (yew(iw) - yeh) * radm
+     wnzrad = (zew(iw) - zeh) * radm
+
+     ! Unit vector components in direction of tangential vortex wind
+
+     wnxtan = wnyh * wnzrad - wnzh * wnyrad
+     wnytan = wnzh * wnxrad - wnxh * wnzrad
+     wnztan = wnxh * wnyrad - wnyh * wnxrad
+
+     ! Vertical loop over T levels
+
+     do k = lpw(iw), l8k
+        weight_t(k,irad)   = weight_t(k,irad)   + wrad1
+        weight_t(k,irad+1) = weight_t(k,irad+1) + wrad2
+
+        ! Diagnose axisymmetric component of model's own vortex
+
+        vtan_ax0 = vxe(k,iw) * wnxtan + vye(k,iw) * wnytan + vze(k,iw) * wnztan
+
+        vtan_ax(k,irad)   = vtan_ax(k,irad)   + wrad1 * vtan_ax0
+        vtan_ax(k,irad+1) = vtan_ax(k,irad+1) + wrad2 * vtan_ax0
+     enddo
+  enddo
+!!  !$omp end parallel do
+
+#ifdef OLAM_MPI
+  if (iparallel == 1) then
+     call MPI_Allreduce( MPI_IN_PLACE, buffer, mza*nr*2, MPI_REAL, MPI_SUM, MPI_COMM_WORLD, ierr )
+  endif
+#endif
+
+  ! Convert sums to averages
+
+  vtan_max = 0.
+
+  do irad = nr, 2, -1
+
+     do k = 2, l8k
+        if (weight_t(k,irad) > 1.e-6) exit
+     enddo
+     kmin = k
+
+     do k = kmin, l8k
+        vtan_ax(k,irad) = vtan_ax(k,irad) / weight_t(k,irad)
+     enddo
+
+     if (kmin <= l8k) then
+        vtan_max = max(vtan_max, maxval(vtan_ax(kmin:l8k,irad)))
+     endif
+
+  enddo
+
+end subroutine vortex_get_vtanmax
 
 !==================================================================================
 
@@ -970,6 +1199,7 @@ Contains
   use mem_grid,    only: mza, zt, xew, yew, zew, lpw
   use consts_coms, only: erad, pio180, alvlocp
   use therm_lib,   only: rhovsl
+  use misc_coms,   only: iparallel
   use mem_para,    only: myrank
   use plotcolors,  only: make_colortable
 
@@ -977,7 +1207,7 @@ Contains
 
   character(*), intent(in) :: plt
 
-  integer :: iw, j, k, irad, nzz
+  integer :: iw, j, k, irad, nzz, kmin
   real :: reh, zeh, xeh, yeh
   real :: wnxh,wnyh,wnzh
   real :: wnxrad,wnyrad,wnzrad,wnxtan,wnytan,wnztan
@@ -1001,6 +1231,8 @@ Contains
 
   real :: weight_t(mza,nr) ! weight array for T points
 
+  ! Needs work in parallel!!!!!!!!!!!
+  if (iparallel == 1) return
   if (myrank /= 0) return
 
   ! Find "earth" coordinates of hurricane center
@@ -1033,7 +1265,7 @@ Contains
 
   ! Loop over all W points
 
-  do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)  ! jend(1) = hardwired for mrl 1
+  do j = 1,jtab_w(jtw_init)%jend; iw = jtab_w(jtw_init)%iw(j)
 
      ! Distance of this IW point from eye center
 
@@ -1041,7 +1273,7 @@ Contains
 
      ! Skip axisymmetric averaging for all points outside specified radius
 
-     if (rad >= radius_ax(nr) - 1.) cycle
+     if (rad >= radius_ax(nr) - 1.0) cycle
 
      ! Determine interpolation point in radial dimension
 
@@ -1052,9 +1284,10 @@ Contains
 
      if (irad < 1 .or. irad+1 > nr) then
         print*, 'irad out of bounds1 ', irad, nr
+        cycle
      endif
 
-     wrad2 = (rad - radius_ax(irad)) / (radius_ax(irad+1) - radius_ax(irad))
+     wrad2 = (rad - radius_ax(irad)) * dradi_ax(irad)
      wrad1 = 1. - wrad2
 
      ! Unit normal vector components from hurricane center to current IW point
@@ -1124,69 +1357,85 @@ Contains
 
   ! Convert sums to averages
 
-  vtan_max = 0.
+!! vtan_max     = 0.
+  vtan_ax(:,1) = 0.
+  vrad_ax(:,1) = 0.
 
   do irad = nr,1,-1
 
-     do k = 2,mza
+     do k = 2, mza
+        if (weight_t(k,irad) > 1.e-6) exit
+     enddo
+     kmin = k
 
-        if (weight_t(k,irad) < 1.e-6) then
+     do k = kmin, mza
+         thil_ax(k,irad) =  thil_ax(k,irad) / weight_t(k,irad)
+        theta_ax(k,irad) = theta_ax(k,irad) / weight_t(k,irad)
+         tair_ax(k,irad) =  tair_ax(k,irad) / weight_t(k,irad)
+          rrw_ax(k,irad) =   rrw_ax(k,irad) / weight_t(k,irad)
+          rrv_ax(k,irad) =   rrv_ax(k,irad) / weight_t(k,irad)
+            w_ax(k,irad) =     w_ax(k,irad) / weight_t(k,irad)
+        ssliq_ax(k,irad) = ssliq_ax(k,irad) / weight_t(k,irad)
+        thdif_ax(k,irad) = thdif_ax(k,irad) / weight_t(k,irad)
 
-           if (irad == nr) stop 'stop irad T'
+        if (irad > 1) then
+           vtan_ax(k,irad) = vtan_ax(k,irad) / weight_t(k,irad)
+           vrad_ax(k,irad) = vrad_ax(k,irad) / weight_t(k,irad)
+        endif
+     enddo
 
-            thil_ax(k,irad) =  thil_ax(k,irad+1)
-           theta_ax(k,irad) = theta_ax(k,irad+1)
-            tair_ax(k,irad) =  tair_ax(k,irad+1)
-             rrw_ax(k,irad) =   rrw_ax(k,irad+1)
-             rrv_ax(k,irad) =   rrv_ax(k,irad+1)
-               w_ax(k,irad) =     w_ax(k,irad+1)
-           ssliq_ax(k,irad) = ssliq_ax(k,irad+1)
-           thdif_ax(k,irad) = thdif_ax(k,irad+1)
+     if (kmin > 2) then
 
-           if (irad > 1) then
+        if (irad == nr) then
 
-              vtan_ax(k,irad) = vtan_ax(k,irad+1) &
-                              * radius_ax(irad) / radius_ax(irad+1)
+           if (kmin > mza) stop 'stop irad T'
 
-              vrad_ax(k,irad) = vrad_ax(k,irad+1) &
-                              * radius_ax(irad) / radius_ax(irad+1)
-
-           endif
+           do k = 2, kmin-1
+               thil_ax(k,irad) =  thil_ax(kmin,irad)
+              theta_ax(k,irad) = theta_ax(kmin,irad)
+               tair_ax(k,irad) =  tair_ax(kmin,irad)
+                rrw_ax(k,irad) =   rrw_ax(kmin,irad)
+                rrv_ax(k,irad) =   rrv_ax(kmin,irad)
+                  w_ax(k,irad) =     w_ax(kmin,irad)
+              ssliq_ax(k,irad) = ssliq_ax(kmin,irad)
+              thdif_ax(k,irad) = thdif_ax(kmin,irad)
+               vtan_ax(k,irad) =  vtan_ax(kmin,irad)
+               vrad_ax(k,irad) =  vrad_ax(kmin,irad)
+           enddo
 
         else
 
-            thil_ax(k,irad) =  thil_ax(k,irad) / weight_t(k,irad)
-           theta_ax(k,irad) = theta_ax(k,irad) / weight_t(k,irad)
-            tair_ax(k,irad) =  tair_ax(k,irad) / weight_t(k,irad)
-             rrw_ax(k,irad) =   rrw_ax(k,irad) / weight_t(k,irad)
-             rrv_ax(k,irad) =   rrv_ax(k,irad) / weight_t(k,irad)
-               w_ax(k,irad) =     w_ax(k,irad) / weight_t(k,irad)
-           ssliq_ax(k,irad) = ssliq_ax(k,irad) / weight_t(k,irad)
-           thdif_ax(k,irad) = thdif_ax(k,irad) / weight_t(k,irad)
+           do k = 2, kmin-1
+               thil_ax(k,irad) =  thil_ax(k,irad+1)
+              theta_ax(k,irad) = theta_ax(k,irad+1)
+               tair_ax(k,irad) =  tair_ax(k,irad+1)
+                rrw_ax(k,irad) =   rrw_ax(k,irad+1)
+                rrv_ax(k,irad) =   rrv_ax(k,irad+1)
+                  w_ax(k,irad) =     w_ax(k,irad+1)
+              ssliq_ax(k,irad) = ssliq_ax(k,irad+1)
+              thdif_ax(k,irad) = thdif_ax(k,irad+1)
 
-           if (irad > 1) then
-
-              vtan_ax(k,irad) = vtan_ax(k,irad) / weight_t(k,irad)
-              vrad_ax(k,irad) = vrad_ax(k,irad) / weight_t(k,irad)
-
-           endif
+              if (irad > 1) then
+                 vtan_ax(k,irad) = vtan_ax(k,irad+1) &
+                                 * radius_ax(irad) / radius_ax(irad+1)
+                 vrad_ax(k,irad) = vrad_ax(k,irad+1) &
+                                 * radius_ax(irad) / radius_ax(irad+1)
+              endif
+           enddo
 
         endif
+     endif
 
-        vtan_ax(k,1) = 0.
-        vrad_ax(k,1) = 0.
-
-        vtan_max = max(vtan_max, vtan_ax(k,irad))
-     enddo
-
-     write(6,'(a,i5,3f10.1)') 'irad, radius_ax, vtan_ax, vrad_ax ', &
-        irad, radius_ax(irad), vtan_ax(5,irad), vrad_ax(5,irad)
+!     if (kmin <= mza .and. irad /= 1) then
+!        vtan_max = max(vtan_max, maxval(vtan_ax(kmin:mza,irad)))
+!     endif
 
   enddo
 
-  print*, 'vtan_max ', vtan_max
+  ! print*, 'vtan_max ', vtan_max
 
   if (trim(plt) /= 'plot') return
+  if (myrank /= 0) return
 
   cond_ax(:,:) = rrw_ax(:,:) - rrv_ax(:,:)
 
@@ -1233,7 +1482,7 @@ Contains
 
   subroutine vortex_rzplot(nzz, panel, label, units, fieldin, factor, lbc, colortab)
 
-  ! This subroutine is a wrapper for plotting radius-height arrays of 
+  ! This subroutine is a wrapper for plotting radius-height arrays of
   ! dimension (nzz,nr) that contain azimuthal averages of the TC vortex.
   ! It calls oplot_zxy2 to carry out the actual plot.
 
@@ -1267,14 +1516,14 @@ Contains
   field(2:nzz,1:nr) = fieldin(2:nzz,1:nr) * factor
   field(1,1:nr) = field(2,1:nr)
   if (lbc == 0) field(1,1:nr) = 0.
-  
+
   call oplot_zxy2(trim(panel),'N','a','c',aspect,scalelab,                 &
-                  trim(label),trim(units), nr, nzz, radius, height, & 
+                  trim(label),trim(units), nr, nzz, radius, height, &
                   'radius (km)','height (km)', &
                   field,    & ! 11N
                   colortab,ifill,0.,radius(nr),20.,5,               &
                   0.0,height(nzz),1.0,5  )
- 
+
   end subroutine vortex_rzplot
 
 !==================================================================================
@@ -1286,7 +1535,7 @@ Contains
   use misc_coms,   only: mstp, dtlong
   use oplot_coms,  only: op
   use consts_coms, only: pio180, erad
-  use oname_coms,  only: nl
+  use mem_para,    only: myrank
 
   implicit none
 
@@ -1295,6 +1544,8 @@ Contains
   integer :: icolor, lhour, khour, kstp, kstp_max, jcyc
   real :: reh, zeh, xeh, yeh, rhour, bsize, xs, ys
   character(len=2) :: title
+
+  if (myrank /= 0) return
 
   bsize = .016 * (op%hp2 - op%hp1) ! * 0.3
 
@@ -1319,7 +1570,7 @@ Contains
      call o_gsfaci(icolor)
 
      if (jcyc < icycle_hurrinit) then
-        kstp_max = int(nl%timmax_hurrinit / dtlong)
+        kstp_max = int(timmax_hurrinit / dtlong)
      else
         kstp_max = mstp
      endif

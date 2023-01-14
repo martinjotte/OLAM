@@ -1,37 +1,4 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
-
-subroutine scalar_transport_orig(mrl, rho_old)
+subroutine scalar_transport_orig(rho_old)
 
   use mem_ijtabs,   only: jtab_v, jtab_w, itab_v, itab_w, &
                           jtv_wadj, jtw_prog, jtw_wadj
@@ -53,8 +20,6 @@ subroutine scalar_transport_orig(mrl, rho_old)
 !                          gxps_scp, gyps_scp, gzps_scp, &
 !                          gxyps_scp, gxxps_scp, gyyps_scp, gzzps_scp
   implicit none
-
-  integer, intent(in) :: mrl
 
   real(r8), intent(in) :: rho_old(mza,mwa)
 
@@ -91,20 +56,16 @@ subroutine scalar_transport_orig(mrl, rho_old)
   real, pointer, contiguous :: scp(:,:)
   real, pointer, contiguous :: sct(:,:)
 
-! Return if this is not the end of the long timestep on any MRL
-
-  if (mrl == 0) return
-
 ! Horizontal loop over all primary W columns to diagnose
 ! face-normal vertical velocity at (t + 1/2) from mass fluxes
 ! (OK to use density at time t)
 
   !$omp parallel private(wsc,vsc)
   !$omp do private(iw,kb,dt4,k)
-  do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+  do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
      kb  = lpw(iw)
-     dt4 = dtlm(itab_w(iw)%mrlw)
+     dt4 = dtlm
 
      do k = kb, mza-1
         wsc  (k)    = wmsc(k,iw) &
@@ -146,12 +107,12 @@ subroutine scalar_transport_orig(mrl, rho_old)
 ! (OK to use density at time t)
 
   !$omp do private(iv,iw1,iw2,kb,dt4,k)
-  do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
+  do j = 1,jtab_v(jtv_wadj)%jend; iv = jtab_v(jtv_wadj)%iv(j)
 
      iw1 = itab_v(iv)%iw(1)
      iw2 = itab_v(iv)%iw(2)
      kb  = lpv(iv)
-     dt4 = dtlm(itab_v(iv)%mrlv)
+     dt4 = dtlm
 
      do k = kb, mza
         vsc  (k)    = 2.0 * vmsc(k,iv) / real( rho_old(k,iw1) + rho_old(k,iw2) )
@@ -168,7 +129,7 @@ subroutine scalar_transport_orig(mrl, rho_old)
   ! Compute outflow CFL numbers for long timestep stability check;
   ! also needed by Thuburn monotonic scheme
 
-  call comp_cfls_long( mrl, vmsca, wmsca, rho_old )
+  call comp_cfls_long( vmsca, wmsca, rho_old )
 
 ! LOOP OVER SCALARS HERE
   do n = 1, num_scalar
@@ -184,7 +145,7 @@ subroutine scalar_transport_orig(mrl, rho_old)
 ! stereographic projection
 
      !$omp parallel do private(iw)
-     do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+     do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
         call grad_t2d(iw, scp, gxps_scp(:,iw), gyps_scp(:,iw))
         call grad_z  (iw, scp(:,iw), gzps_scp(:,iw))
@@ -195,7 +156,7 @@ subroutine scalar_transport_orig(mrl, rho_old)
 ! MPI send of SCP horizontal gradient components
 
      if (iparallel == 1) then
-        call mpi_send_w(mrl, rvara1=gxps_scp, rvara2=gyps_scp, rvara3=gzps_scp)
+        call mpi_send_w(rvara1=gxps_scp, rvara2=gyps_scp, rvara3=gzps_scp)
      endif
 
 ! Horizontal loop over all primary W columns to compute the
@@ -203,7 +164,7 @@ subroutine scalar_transport_orig(mrl, rho_old)
 ! computed before scalar gradients are received at the borders
 
      !$omp parallel do private(iw,k,kd)
-     do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+     do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
         do k = lpw(iw), mza-1
 
@@ -224,16 +185,16 @@ subroutine scalar_transport_orig(mrl, rho_old)
 ! MPI recv of SCP horizontal gradient components
 
      if (iparallel == 1) then
-        call mpi_recv_w(mrl, rvara1=gxps_scp,  rvara2=gyps_scp, rvara3=gzps_scp)
+        call mpi_recv_w(rvara1=gxps_scp, rvara2=gyps_scp, rvara3=gzps_scp)
      endif
 
-     call lbcopy_w(mrl, a1=gxps_scp,  a2=gyps_scp, a3=gzps_scp)
+     call lbcopy_w(a1=gxps_scp, a2=gyps_scp, a3=gzps_scp)
 
 ! Horizontal loop over all V points surrounding primary W/T columns
 ! to compute upwinded scalar value at the V points
 
      !$omp parallel do private(iv,iw1,iw2,k,iwd)
-     do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
+     do j = 1,jtab_v(jtv_wadj)%jend; iv = jtab_v(jtv_wadj)%iv(j)
 
         iw1 = itab_v(iv)%iw(1)
         iw2 = itab_v(iv)%iw(2)
@@ -259,10 +220,10 @@ subroutine scalar_transport_orig(mrl, rho_old)
 
      !$omp parallel private(hflux,vflux,scp_tend)
      !$omp do private (iw,kb,dt,jv,iv,iwn,dirv,k)
-     do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+     do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
         kb = lpw(iw)
-        dt = dtlm(itab_w(iw)%mrlw)
+        dt = dtlm
 
         vflux(kb-1)     = 0.0
         vflux(kb:mza-1) = real( scp_upw(kb:mza,iw), r8)
@@ -346,9 +307,6 @@ subroutine donorpointv(iv, dt, vs, vxe, vye, vze, dxps, dyps, dzps)
   real :: wnx_v, wny_v, wnz_v
   real :: vxeface, vyeface, vzeface
 
-  real :: dx, dxo2, dy, dyo2
-  real :: dx1, dy1, dx2, dy2
-
   real :: ufacev(mza), wfacev
 
   integer :: kb, k, iw1, iw2
@@ -426,7 +384,7 @@ end subroutine donorpointv
 subroutine donorpointw(iw, dt, ws, vxe, vye, vze, dxps, dyps, dzps)
 
   use mem_ijtabs, only: itab_w, jtw_prog
-  use mem_grid,   only: mza, lpw, dzto2, dzt
+  use mem_grid,   only: mza, lpw, dzto2
 
   implicit none
 
@@ -436,7 +394,7 @@ subroutine donorpointw(iw, dt, ws, vxe, vye, vze, dxps, dyps, dzps)
   real,    intent(in)  :: vxe(mza), vye(mza), vze(mza)
   real,    intent(out) :: dxps(mza), dyps(mza), dzps(mza)
 
-  real :: dto2, zp
+  real :: dto2
   real :: unx_w, uny_w, vnx_w, vny_w, vnz_w
   real :: vxeface, vyeface, vzeface
   real :: uface,vface
@@ -490,7 +448,7 @@ end subroutine donorpointw
 
 !===============================================================================
 
-subroutine comp_cfls_long(mrl, vmsca, wmsca, rho_old)
+subroutine comp_cfls_long(vmsca, wmsca, rho_old)
 
   ! Diagnose outflow CFL number; also used for advection CFL stability check
 
@@ -508,12 +466,11 @@ subroutine comp_cfls_long(mrl, vmsca, wmsca, rho_old)
 
   implicit none
 
-  integer,  intent(in) :: mrl
   real,     intent(in) :: vmsca  (mza,mva)
   real,     intent(in) :: wmsca  (mza,mwa)
   real(r8), intent(in) :: rho_old(mza,mwa)
 
-  integer :: j, iv, k, iw, n, jv
+  integer :: j, iv, k, iw, n
   integer :: ier, inode, iwnode
   integer :: mlocc, mlocw, nthreads, myid
   real    :: dt
@@ -546,10 +503,10 @@ subroutine comp_cfls_long(mrl, vmsca, wmsca, rho_old)
   cflmx = -1.0
   wmx   =  0.0
 
-  !$omp do private(iw,dt,k,n,iv,jv)
-  do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+  !$omp do private(iw,dt,k,n,iv)
+  do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
-     dt = dtlm(itab_w(iw)%mrlw)
+     dt = dtlm
 
      do k = lpw(iw), mza
         cfl(k) = max(wmsca(k,iw),0.0) - min(wmsca(k-1,iw),0.0)

@@ -1,6 +1,6 @@
 subroutine read_soil_analysis(soil_tempc)
 
-  use misc_coms,  only: io6, s1900_sim, s1900_init, isubdomain, iparallel
+  use misc_coms,  only: io6, s1900_sim, s1900_init, iparallel
   use leaf_coms,  only: wcap_min
   use mem_land,   only: land, mland, omland, nzg, slzt
   use mem_sfcg,   only: sfcg, itab_wsfc
@@ -521,7 +521,7 @@ subroutine read_soil_analysis(soil_tempc)
      iwsfc = iland + omland
 
      ! Skip this cell if running in parallel and cell rank is not MYRANK
-     if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+     if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
      ! fractional x/y indices in pressure data arrays at current iw point location
 

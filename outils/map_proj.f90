@@ -1,35 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University;
-   ! Colorado State University Research Foundation ; ATMET, LLC
-
-   ! This software is free software; you can redistribute it and/or modify it
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version.
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
-
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
-   ! (http://www.gnu.org/licenses/gpl.html)
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 subroutine ll_xy (qlat,qlon,polelat,polelon,x,y)
 
 use consts_coms, only: erad, erad2, pio180
@@ -316,7 +284,7 @@ real :: zq
 real :: t
 
 ! This subroutine computes coordinates (x,y) of point q projected onto
-! gnomic plane whose pole point is located at geographic coordinates
+! gnomonic tangent plane whose pole point is located at geographic coordinates
 ! (polelat,polelon).  Input coordinates (xeq,yeq,zeq) of q are defined in
 ! "earth cartesian space", where the origin is the center of the earth,
 ! the z axis is the north pole, the x axis is the equator and prime meridian,
@@ -336,7 +304,7 @@ yep = erad * cosplat * sinplon
 zep = erad * sinplat
 
 ! Transform q point from (xe,ye,ze) coordinates to 3D coordinates relative to
-! gnomic plane with origin at the pole point, the z axis pointing
+! gnomonic tangent plane with origin at the pole point, the z axis pointing
 ! radially outward from the center of the earth, and the y axis pointing
 ! northward along the local earth meridian from the pole point.
 
@@ -350,13 +318,13 @@ if (zq < -erad) then   ! point is on other side of earth - do not plot
 else
 
    ! Parametric equation for line from earth center point at (0,0,-erad) in 3D
-   ! coordinates of gnomic plane to point q has the following
-   ! parameter (t) value on the gnomic plane (zq <= 0):
+   ! coordinates of gnomonic tangent plane to point q has the following
+   ! parameter (t) value on the gnomonic tangent plane (zq <= 0):
 
    t = erad / (erad + zq)
 
    ! This gives the following x and y coordinates for the projection of point q
-   ! onto the gnomic plane:
+   ! onto the gnomonic tangent plane:
 
    x = xq * t
    y = yq * t
@@ -431,6 +399,56 @@ else
 endif
 
 end subroutine e_or
+
+!============================================================================
+
+subroutine de_or(dxe,dye,dze,cosplat,sinplat,cosplon,sinplon,x,y)
+
+  use consts_coms, only: pio180, erad
+
+  implicit none
+
+  real, intent(in) :: dxe
+  real, intent(in) :: dye
+  real, intent(in) :: dze
+
+  real, intent(in) :: cosplat
+  real, intent(in) :: sinplat
+  real, intent(in) :: cosplon
+  real, intent(in) :: sinplon
+
+  real, intent(out) :: x
+  real, intent(out) :: y
+
+  real :: xq
+  real :: yq
+  real :: zq
+
+! This subroutine computes coordinates (x,y) of point q projected onto
+! orthographic plane whose pole point is located at geographic coordinates
+! (polelat,polelon).  Input coordinates (xeq,yeq,zeq) of q are defined in
+! "earth cartesian space", where the origin is the center of the earth,
+! the z axis is the north pole, the x axis is the equator and prime meridian,
+! and the y axis is the equator and 90 E..
+
+! Transform q point from (xe,ye,ze) coordinates to 3D coordinates relative to
+! polar stereographic plane with origin at the pole point, the z axis pointing
+! radially outward from the center of the earth, and the y axis pointing
+! northward along the local earth meridian from the pole point.
+
+  xq = - sinplon * dxe + cosplon * dye
+  yq =   cosplat * dze - sinplat * (cosplon * dxe + sinplon * dye)
+  zq =   sinplat * dze + cosplat * (cosplon * dxe + sinplon * dye)
+
+  if (zq < -erad) then   ! point is on other side of earth - do not plot
+     x = 1.e12           ! This will serve as a flag to not plot point
+     y = 1.e12           ! This will serve as a flag to not plot point
+  else
+     x = xq
+     y = yq
+  endif
+
+end subroutine de_or
 
 !============================================================================
 
@@ -603,7 +621,7 @@ real :: zq
 real :: t
 !real :: alpha
 
-! Given coordinates (x,y) of point q projected onto gnomic plane
+! Given coordinates (x,y) of point q projected onto gnomonic tangent plane
 ! whose pole point is located at geographic coordinates (polelat,polelon),
 ! this subroutine computes coordinates (xeq,yeq,zeq) of q on earth spherical
 ! surface defined in "earth cartesian space", where the origin is the center
@@ -624,7 +642,7 @@ yep = erad * cosplat * sinplon
 zep = erad * sinplat
 
 ! Parametric equation for line from earth center point at (0,0,-erad) in 3D
-! coordinates of gnomic plane to point (x,y) on the gnomic
+! coordinates of gnomonic tangent plane to point (x,y) on the tangent gnomonic
 ! plane has the following parameter (t) value on the earth's surface (zq <= 0):
 
 ! alpha = atan2(sqrt(x**2 + y**2),erad)
@@ -706,6 +724,69 @@ x = xq * t
 y = yq * t
 
 end subroutine de_ps
+
+!============================================================================
+
+subroutine de_ps_mult(n,dxe,dye,dze,cosplat,sinplat,cosplon,sinplon,x,y)
+
+use consts_coms, only: pio180, erad2
+
+implicit none
+
+integer, intent(in) :: n
+
+real, intent(in) :: dxe(n)
+real, intent(in) :: dye(n)
+real, intent(in) :: dze(n)
+
+real, intent(in) :: cosplat
+real, intent(in) :: sinplat
+real, intent(in) :: cosplon
+real, intent(in) :: sinplon
+
+real, intent(out) :: x(n)
+real, intent(out) :: y(n)
+
+real :: xq
+real :: yq
+real :: zq
+real :: t
+integer :: i
+
+! This subroutine computes coordinates (x,y) of point q projected onto polar
+! stereographic plane given the sines and cosines of the pole point
+! located at geographic coordinates (polelat,polelon).
+! Input vector (dxe,dye,dze) is the distance of point q from the pole point
+! in "earth cartesian space", where the origin is the center of the earth,
+! the z axis is the north pole, the x axis is the equator and prime meridian,
+! and the y axis is the equator and 90 E..
+
+! Transform q point from (xe,ye,ze) coordinates to 3D coordinates relative to
+! polar stereographic plane with origin at the pole point, the z axis pointing
+! radially outward from the center of the earth, and the y axis pointing
+! northward along the local earth meridian from the pole point.
+
+do i = 1, n
+
+   xq =                              - sinplon * dxe(i) + cosplon * dye(i)
+   yq =  cosplat * dze(i) - sinplat * (cosplon * dxe(i) + sinplon * dye(i))
+   zq =  sinplat * dze(i) + cosplat * (cosplon * dxe(i) + sinplon * dye(i))
+
+! Parametric equation for line from antipodal point at (0,0,-2 erad) in 3D
+! coordinates of polar stereographic plane to point q has the following
+! parameter (t) value on the polar stereographic plane (zq <= 0):
+
+   t = erad2 / (erad2 + zq)
+
+! This gives the following x and y coordinates for the projection of point q
+! onto the polar stereographic plane:
+
+   x(i) = xq * t
+   y(i) = yq * t
+
+enddo
+
+end subroutine de_ps_mult
 
 !============================================================================
 
@@ -872,14 +953,14 @@ subroutine de_gn(dxe,dye,dze,cosplat,sinplat,cosplon,sinplon,x,y)
   real :: t
 
 ! This subroutine computes coordinates (x,y) of point q projected onto
-! gnomic plane whose pole point is located at geographic coordinates
+! gnomonic tangent plane whose pole point is located at geographic coordinates
 ! (polelat,polelon).  Input coordinates (xeq,yeq,zeq) of q are defined in
 ! "earth cartesian space", where the origin is the center of the earth,
 ! the z axis is the north pole, the x axis is the equator and prime meridian,
 ! and the y axis is the equator and 90 E..
 
 ! Transform q point from (xe,ye,ze) coordinates to 3D coordinates relative to
-! gnomic plane with origin at the pole point, the z axis pointing
+! gnomonic tangent plane with origin at the pole point, the z axis pointing
 ! radially outward from the center of the earth, and the y axis pointing
 ! northward along the local earth meridian from the pole point.
 
@@ -895,13 +976,13 @@ subroutine de_gn(dxe,dye,dze,cosplat,sinplat,cosplon,sinplon,x,y)
   else
 
 ! Parametric equation for line from earth center point at (0,0,-erad) in 3D
-! coordinates of gnomic plane to point q has the following
-! parameter (t) value on the gnomic plane (zq <= 0):
+! coordinates of gnomonic tangent plane to point q has the following
+! parameter (t) value on the gnomonic tangent plane (zq <= 0):
 
      t = erad / (erad + zq)
 
 ! This gives the following x and y coordinates for the projection of point q
-! onto the gnomic plane:
+! onto the gnomonic tangent plane:
 
      x = xq * t
      y = yq * t
@@ -909,6 +990,68 @@ subroutine de_gn(dxe,dye,dze,cosplat,sinplat,cosplon,sinplon,x,y)
   endif
 
 end subroutine de_gn
+
+!============================================================================
+
+subroutine de_gn_mult(n,dxe,dye,dze,cosplat,sinplat,cosplon,sinplon,x,y)
+
+  use consts_coms, only: pio180, erad
+
+  implicit none
+
+  integer, intent(in) :: n
+
+  real, intent(in) :: dxe(n)
+  real, intent(in) :: dye(n)
+  real, intent(in) :: dze(n)
+
+  real, intent(in) :: cosplat
+  real, intent(in) :: sinplat
+  real, intent(in) :: cosplon
+  real, intent(in) :: sinplon
+
+  real, intent(out) :: x(n)
+  real, intent(out) :: y(n)
+
+  real :: xq
+  real :: yq
+  real :: zq
+  real :: t
+  integer :: i
+
+! This subroutine computes coordinates (x,y) of point q projected onto
+! gnomonic tangent plane whose pole point is located at geographic coordinates
+! (polelat,polelon).  Input coordinates (xeq,yeq,zeq) of q are defined in
+! "earth cartesian space", where the origin is the center of the earth,
+! the z axis is the north pole, the x axis is the equator and prime meridian,
+! and the y axis is the equator and 90 E..
+
+! Transform q point from (xe,ye,ze) coordinates to 3D coordinates relative to
+! gnomonic tangent plane with origin at the pole point, the z axis pointing
+! radially outward from the center of the earth, and the y axis pointing
+! northward along the local earth meridian from the pole point.
+
+  do i = 1, n
+
+     xq =                             - sinplon * dxe(i) + cosplon * dye(i)
+     yq = cosplat * dze(i) - sinplat * (cosplon * dxe(i) + sinplon * dye(i))
+     zq = sinplat * dze(i) + cosplat * (cosplon * dxe(i) + sinplon * dye(i))
+
+! Parametric equation for line from earth center point at (0,0,-erad) in 3D
+! coordinates of gnomonic tangent plane to point q has the following
+! parameter (t) value on the gnomonic tangent plane (zq <= 0):
+
+     t = erad / max(erad + zq, 1.) ! Guard if point is on other side of earth
+
+! This gives the following x and y coordinates for the projection of point q
+! onto the gnomonic tangent plane:
+
+     x(i) = min(xq * t, 1.e12)   ! 1.e12 will serve as a flag to not plot point
+     y(i) = min(yq * t, 1.e12)   ! 1.e12 will serve as a flag to not plot point
+
+  enddo
+
+end subroutine de_gn_mult
 
 !============================================================================
 
@@ -936,7 +1079,7 @@ subroutine gn_de(dxe,dye,dze,cosplat,sinplat,cosplon,sinplon,x,y)
   real :: t
 ! real :: alpha
 
-! Given coordinates (x,y) of point q projected onto gnomic plane
+! Given coordinates (x,y) of point q projected onto gnomonic tangent plane
 ! whose pole point is located at geographic coordinates (polelat,polelon),
 ! this subroutine computes coordinates (xeq,yeq,zeq) of q on earth spherical
 ! surface defined in "earth cartesian space", where the origin is the center
@@ -944,7 +1087,7 @@ subroutine gn_de(dxe,dye,dze,cosplat,sinplat,cosplon,sinplon,x,y)
 ! prime meridian, and the y axis is the equator and 90 E..
 
 ! Parametric equation for line from earth center point at (0,0,-erad) in 3D
-! coordinates of gnomic plane to point (x,y) on the gnomic
+! coordinates of gnomonic tangent plane to point (x,y) on the gnomonic tangent
 ! plane has the following parameter (t) value on the earth's surface (zq <= 0):
 
 ! alpha = atan2(sqrt(x**2 + y**2),erad)

@@ -1,35 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 Module leaf4_plot
 
 Contains
@@ -76,7 +44,7 @@ use leaf_coms,   only: nzs
 use mem_land,    only: land, nzg, slz, dslz
 use consts_coms, only: cp
 use oplot_coms,  only: op
-use misc_coms,   only: io6, runtype, time8
+use misc_coms,   only: runtype, time8
 use mem_para,    only: myrank
 
 implicit none
@@ -245,7 +213,7 @@ if (present(linit)) then
 ! Plot white background
 
    call plotback()
-   
+
 ! Scale plotter coordinates for unit square
 
    call o_set(0.,1.,0.,1.,0.,1.,0.,1.,1)
@@ -404,12 +372,12 @@ if (present(linit)) then
    call o_vector(x2,yk5)
 
 ! Top of canopy
-   
+
    call o_frstpt(x1,yc2)
    call o_vector(x2,yc2)
 
 ! Top of atm layers
-   
+
    call o_frstpt(x1,y2)
    call o_vector(x2,y2)
 
@@ -524,19 +492,19 @@ do k = 1,nzg
 
       write (number,'(f10.3)') soil_water(k)
       call o_plchhq(xw3,ywk,trim(adjustl(number)),psiz,0.,0.)
-     
+
       if (k == 1) call o_plchhq(xw3,yk2,'water',psiz,0.,0.)
 
       soil_watfrac_ul = (soil_water(k) - land%wresid_vg(k,iland)) &
                       / (land%wsat_vg(k,iland) - land%wresid_vg(k,iland))
 
       if (soil_watfrac_ul > 1.0) then
-         soil_watfrac_ul = 1.0 + (soil_water(k) - land%wsat_vg(k,iland)) 
+         soil_watfrac_ul = 1.0 + (soil_water(k) - land%wsat_vg(k,iland))
       endif
 
       write (number,'(f8.3)') soil_watfrac_ul
       call o_plchhq(xw9,ywk,trim(adjustl(number)),psiz,0.,0.)
-     
+
       if (k == 1) call o_plchhq(xw9,yk2,'watfrac_ul',psiz,0.,0.)
 
    endif
@@ -545,7 +513,7 @@ do k = 1,nzg
 
       write (number,'(f8.4)') dheight(k)
       call o_plchhq(xw10,ywk,trim(adjustl(number)),psiz,0.,0.)
-     
+
       if (k == 1) call o_plchhq(xw10,yk2,'dheight',psiz,0.,0.)
 
    endif
@@ -554,7 +522,7 @@ do k = 1,nzg
 
  !     write (number,'(f8.3)') energyin(k)
  !     call o_plchhq(xw11,ywk,trim(adjustl(number)),psiz,0.,0.)
-     
+
  !     if (k == 1) call o_plchhq(xw11,yk2,'energyin',psiz,0.,0.)
 
  !  endif
@@ -665,7 +633,7 @@ do k = 1,nzg + 1
    write (number,'(f12.3)') slz(k)
    call o_plchhq(xw1,ybot,trim(adjustl(number)),psiz,0.,0.)
    if (k == 1) call o_plchhq(xw1,yk1,'slz',psiz,0.,0.)
- 
+
    if (present(hxferg)) then
 
       write (number,'(f12.1)') hxferg(k)
@@ -675,7 +643,7 @@ do k = 1,nzg + 1
    endif
 
    if (present(wxfer)) then
- 
+
       write (number,'(f10.4)') wxfer(k)
       call o_plchhq(xw11,ybot,trim(adjustl(number)),psiz,0.,0.)
       if (k == 1) call o_plchhq(xw11,yk1,'wxfer',psiz,0.,0.)
@@ -683,7 +651,7 @@ do k = 1,nzg + 1
    endif
 
    if (present(qwxfer)) then
- 
+
       write (number,'(f12.6)') qwxfer(k) * 1.e-6  ! [MJ/m^2]
       call o_plchhq(xw4,ybot,trim(adjustl(number)),psiz,0.,0.)
       if (k == 1) call o_plchhq(xw4,yk1,'qwxfer',psiz,0.,0.)
@@ -752,7 +720,7 @@ do k = 1,nlev_sfcwater
    endif
 
    if (present(rshort_s)) then
- 
+
       write (number,'(f12.1)') rshort_s(k)
       call o_plchhq(xw9,ywk,trim(adjustl(number)),psiz,0.,0.)
       if (k == 1) call o_plchhq(xw9,yk4,'rshort_s',psiz,0.,0.)
@@ -828,7 +796,7 @@ if (nlev_sfcwater == 0) then
    endif
 
 endif
-       
+
 ! Print sums at canopy top
 
 yw1 = yc2 - .012
@@ -989,7 +957,7 @@ if (present(leaf_class)) then
       yw6 = yv2 - .072
       yw7 = yv2 - .084
       yw8 = yv2 - .096
-   
+
       xw1 = xv1 + .10
       xw2 = xv1 + .27
       xw3 = xv2 + .07
@@ -1121,9 +1089,9 @@ if (present(leaf_class)) then
          call o_plchhq(xw3,yw8,'qshed = '//trim(adjustl(number)),psiz,0.,0.)
 
       endif
-         
+
    endif
-      
+
 endif
 
 if (present(lframe)) then

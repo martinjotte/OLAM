@@ -31,7 +31,7 @@ static double convunit(double val, char convstring[50]) {
 	if (strcmp(convstring,"GPH_M")==0) val/=9.82;
 	else if (strcmp(convstring,"M_MM")==0) val*=1000;
 	else if (strcmp(convstring,"PERC_PART")==0 || strcmp(convstring,"PA_HPA")==0) val/=100;
-	else if (strcmp(convstring,"PART_PERC")==0) val*=100; 
+	else if (strcmp(convstring,"PART_PERC")==0) val*=100;
 	else if (strcmp(convstring,"K_C")==0) val-=273.16;
 	return val;
 }
@@ -46,7 +46,7 @@ int f_mysql_speed(ARG7) {
     char sql[MAX_SQL_INSERT];
     char server[100];
     char user[100];
-    char password[100]; 
+    char password[100];
     char database[100];
     char table[100];
     MYSQL_RES *res;
@@ -96,7 +96,7 @@ int f_mysql_speed(ARG7) {
 
     if (mode == -1) {
         decode = latlon = 1;
-        
+
 	*local = save = (struct local_struct *) malloc( sizeof(struct local_struct));
 	if (save == NULL) fatal_error("mysql_speed memory allocation ","");
 
@@ -127,7 +127,7 @@ int f_mysql_speed(ARG7) {
 	/* Connect to database */
 	if (!mysql_real_connect(save->conn, server, user, password, database, 0, NULL, 0)) {
 	   fatal_error("f_mysql_speed: could not connect to %s", mysql_error(save->conn));
-	} 
+	}
 	return 0;
     }
 
@@ -187,7 +187,7 @@ int f_mysql_speed(ARG7) {
 	fatal_error("f_mysql_speed, grid definition has to be the same for all fields","");
    }
    save->last_GDS_change_no = GDS_change_no;
- 
+
     /*Collect runtime and validtime into vt and rt*/
 
     reftime(sec, &year, &month, &day, &hour, &minute, &second);
@@ -213,7 +213,7 @@ int f_mysql_speed(ARG7) {
     // f_lev(mode, sec, data, ndata, level_buf, local);
     f_lev(call_ARG0(level_buf, NULL));
     //if (ndata != save->npts && save->npts>0) fprintf(stderr,"ERROR: fields do not contain equally many gridpoints, %d , %d \n",save->npts,ndata);
- 	   
+ 	
     if (strcmp(level_buf, "reserved") == 0) return(0);
     getName(sec, mode, NULL, name, desc, unit);
     fprintf(stderr,"Start processing of %s at %s, runtime=%s, validtime=%s \n", name, level_buf,rt,vt);

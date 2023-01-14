@@ -22,7 +22,6 @@ Contains
 
    integer :: ifile,ilat,ilon
 
-   real :: dummy1,dummy2
    character(80) :: fname_swtc5
    logical :: fexists
 
@@ -32,17 +31,17 @@ Contains
    nlat = 640
 
    allocate(zanal00_swtc5(nlon,nlat),zanal15_swtc5(nlon,nlat))
-   
+
    allocate (zglat(-1:nlat+2),wt(4, 2, 0:nlat))
 
    do ifile = 1,2
-   
+
       if (ifile == 1) then
          fname_swtc5 = '../../swtc5_refsoln/hmodc5_0000_E000570.dat'
       elseif (ifile == 2) then
          fname_swtc5 = '../../swtc5_refsoln/hmodc5_0360_E000570.dat'
       endif
-   
+
       inquire(file=fname_swtc5, exist=fexists)
       if (.not. fexists) then
          write(io6,*) '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
@@ -79,7 +78,7 @@ Contains
    zglat(nlat+1) =  pi - zglat(nlat)
    zglat(nlat+2) =  pi - zglat(nlat-1)
 
-  ! Compute the weights for the horizontal interpolation from the Gaussian grid 
+  ! Compute the weights for the horizontal interpolation from the Gaussian grid
   ! of the IFS to the triangular grid; weights for bicubic interpolation
 
    do ilat = 0,nlat
@@ -134,16 +133,16 @@ Contains
    subroutine npr_bicubics(sg,glatw,glonw,s)
 
    implicit none
-       
+
    integer indexs(2)
    real :: sg(nlon,nlat), s
 
-   real(kind=dp) :: dlati, dlon, dloni, npole, sixth, spole, s1, s2, s3, s4
+   real(kind=dp) :: dlon, dloni, sixth, s1, s2, s3, s4
    real(kind=dp) :: xlat, xlon, x1, x2, x3, x4, y1, y2, y3, y4
    real(kind=dp) :: pi
-   integer ilat, ilatm1, ilatp1, ilatp2, ilon, ilonm1
+   integer ilat, ilon, ilonm1
    integer ilonp1, ilonp2, jlon, jlonm1, jlonp1, jlonp2, mlat
-   
+
    real :: glatw,glonw
 
    pi    = 2._dp*asin(1._dp)
@@ -159,7 +158,7 @@ Contains
    call npr_getindex(xlat, xlon, indexs)
    ilat = indexs(1)
    ilon = indexs(2)
-                                                      
+
    ilonp1 = mod(ilon, nlon) + 1
    ilonp2 = mod(ilonp1, nlon) + 1
    ilonm1 = mod(ilon+nlon-2, nlon) + 1

@@ -55,7 +55,6 @@ C Local variables:
       CHARACTER( 16 ) :: VNAME            ! scratch string
 
       INTEGER LOGDEV
-      INTEGER ALLOCSTAT
       INTEGER V, N, L
       INTEGER STRT, FINI
 
@@ -94,7 +93,7 @@ C Set up the DEPV pointers to calculated deposition velocities
 #endif
             END IF
          ELSE
-            XMSG = 'Could not find ' // TRIM( DEPV_NAMES( V ) ) // 
+            XMSG = 'Could not find ' // TRIM( DEPV_NAMES( V ) ) //
      &             ' in '            // TRIM( DEPV_METHOD )     //
      &             ' surrogate table.'
 !    &             ' surrogate table. >>> Dep vel set to zero <<< '
@@ -135,13 +134,13 @@ C Locate model species' DEPVs in the unique DEPV_NAMES list
             DEPV_SUR( V ) = N
          ELSE
             XMSG = 'Could not find ' // TRIM( GC_DEPV( V ) )
-     &           // ' in DEPV table.'  
+     &           // ' in DEPV table.'
             CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
          END IF
       END DO
 
       STRT = N_GC_DEPV + 1
-      FINI = N_GC_DEPV + N_NR_DEPV 
+      FINI = N_GC_DEPV + N_NR_DEPV
       DO V = STRT, FINI
          VNAME = NR_DEPV( V - ( STRT-1 ) )
          N = INDEX1( VNAME, N_DEPV_NAMES, DEPV_NAMES )
@@ -149,7 +148,7 @@ C Locate model species' DEPVs in the unique DEPV_NAMES list
             DEPV_SUR( V ) = N
          ELSE
             XMSG = 'Could not find ' // TRIM( NR_DEPV( V ) )
-     &           // ' in DEPV table.'  
+     &           // ' in DEPV table.'
             CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
          END IF
       END DO

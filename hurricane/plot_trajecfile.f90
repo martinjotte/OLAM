@@ -1,46 +1,13 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 subroutine plot_trajecfile(iplt)
 
   ! This subroutine plots trajectories from multiple hurricane forecasts that
   ! are read from a data file originally downloaded from the National Hurricane
   ! Center.  The raw file is usually amended to include best track information
   ! and one or more OLAM simulated trajectories.  The name of the data file, the
-  ! number of model simulations it contains, and a duration in hours over which 
+  ! number of model simulations it contains, and a duration in hours over which
   ! to plot the trajectories must be specified below.  Additional customization
   ! of this subroutine may be needed for a large number of model simulations.
 
-  use misc_coms,   only: time8, mstp
   use oplot_coms,  only: op
   use consts_coms, only: pio180, erad
 
@@ -48,29 +15,37 @@ subroutine plot_trajecfile(iplt)
 
   integer, intent(in) :: iplt
 
-  logical, save :: newcall = .true.
-  real :: zeh, reh, xeh, yeh, bsize, rhour, xs, ys
+  real :: zeh, reh, xeh, yeh, bsize
   character(len=2) :: title
 
-  integer :: iline, imodel, jmodel, ihour, im1, im2, icolor, kstp, khour, lhour
+  integer :: imodel, jmodel, ihour, im1, im2, icolor
   character(2) :: basin
   character(4) :: pastid, modelid
   integer :: cyclone_num, yymmddhh, technum, tau, idlat, idlon, vmax, mslp
 
   integer, parameter :: nmodels = 40, nhours = 50
+  logical, save :: newcall = .true.
 
-  integer, save :: mhour(nmodels,nhours)
-  integer, save :: numhours(nmodels)
-  real, save ::  mlat(nmodels,nhours),  mlon(nmodels,nhours)
-  real,save :: xsims(nmodels,nhours), ysims(nmodels,nhours)
-  character(4), save :: model_id(nmodels,nhours)
+  integer,      allocatable, save :: mhour(:,:)
+  integer,      allocatable, save :: numhours(:)
+  real,         allocatable, save :: mlat(:,:),  mlon(:,:)
+  real,         allocatable, save :: xsims(:,:), ysims(:,:)
+  character(4), allocatable, save :: model_id(:,:)
 
-  real :: xpt1, xpt2, xpt3, ypt
+  real :: xpt, ypt
 
   ! if (iplt > 1) return
 
   if (newcall) then
      newcall = .false.
+
+     allocate( mhour   (nmodels,nhours) )
+     allocate( numhours(nmodels)        )
+     allocate( mlat    (nmodels,nhours) )
+     allocate( mlon    (nmodels,nhours) )
+     allocate( xsims   (nmodels,nhours) )
+     allocate( ysims   (nmodels,nhours) )
+     allocate( model_id(nmodels,nhours) )
 
      ! Read locations from multiple forecast models at OLAM initialization time
 
@@ -78,8 +53,8 @@ subroutine plot_trajecfile(iplt)
      pastid = '0000'
 
      open(32,file='aug24_12z.dat2_olamA',status='old',form='formatted')
-     do 
-                                                              
+     do
+
         read(32,'(a2,2x,i2,2x,i10,2x,i2,2x,a4,2x,i3,2x,i3,3x,i4,3x,i3,2x,i4)') &
            basin, cyclone_num, yymmddhh, technum, modelid, tau, idlat, idlon, vmax, mslp
 
@@ -170,10 +145,10 @@ subroutine plot_trajecfile(iplt)
 
      ! Plot color code
 
-     xpt1 = 235.e3
-     ypt  = 215.e3 - 18.e3 * real(imodel - im1)
+     xpt = 235.e3
+     ypt = 215.e3 - 18.e3 * real(imodel - im1)
 
-     ! call o_plchhq(xpt1,ypt,model_id(jmodel,1),1.1*bsize,0.,-1.)
+     ! call o_plchhq(xpt,ypt,model_id(jmodel,1),1.1*bsize,0.,-1.)
 
      ! Plot results
 
@@ -197,4 +172,3 @@ subroutine plot_trajecfile(iplt)
   enddo
 
 end subroutine plot_trajecfile
-

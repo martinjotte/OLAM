@@ -136,7 +136,7 @@
          call edgar_42_init(nvars3d_emis, vname3d_emis, units3d_emis)
 
          allocate(edgar_kmax(mwa)) ; edgar_kmax = mza
-         do jw = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(jw)
+         do jw = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(jw)
             ka = lpw(iw) + lsw(iw) - 1
             edgar_kmax(iw) = maxval(vinterp(1:nsec,ka)%nlevs) + ka - 1
          enddo
@@ -155,7 +155,7 @@
                UNITSCK = UNITS3D_EMIS( V )
                CALL UPCASE ( UNITSCK )
                IF (GC_EMIS(n) == 'POC') then
-                  if ( unitsck .ne. 'G/S'   .and.  
+                  if ( unitsck .ne. 'G/S'   .and.
      &                 unitsck .ne. 'G/SEC' ) then
                      XMSG = 'GC units incorrect in emissions file'
                      CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT2 )
@@ -214,7 +214,7 @@
      &                                // 'Vertical diffusion ...'
             NEMIS_AE = N_AE_EMIS  ! from CGRID_SPCS (originally, AE_EMIS.EXT)
             ! set up PM emitted species mapping
-            CALL MAP_PMEMIS ( nvars3d_emis, vname3d_emis, units3d_emis ) 
+            CALL MAP_PMEMIS ( nvars3d_emis, vname3d_emis, units3d_emis )
          ELSE
             NEMIS_AE = 0
          END IF
@@ -242,7 +242,7 @@
 ! or Print Warnings if Mistakes Are Made.
 !        CALL EMIS_SPC_CHECK( JDATE, JTIME )
 
-C Warn the User if there are No Emissions Species On Any File         
+C Warn the User if there are No Emissions Species On Any File
          IF ( N_SPC_EMIS .LE. 0 ) THEN
             XMSG = 'There are no emissions: VDEMIS is set to zero' ! below
             CALL M3WARN ( PNAME, JDATE, JTIME, XMSG )
@@ -254,7 +254,7 @@ C Warn the User if there are No Emissions Species On Any File
 
 !-----------------------------------------------------------------------
 
-      subroutine get_emis ( mrl )
+      subroutine get_emis ( )
 
          USE CGRID_SPCS          ! CGRID mechanism species
          USE AERO_EMIS           ! inherits GRID_CONF
@@ -268,7 +268,7 @@ C Warn the User if there are No Emissions Species On Any File
          use mem_grid,     only: mza, volti, lpw
          use mem_ijtabs,   only: jtab_w, jtw_prog, itab_w
          use mem_land,     only: omland
-         use mem_sfcg,     only: itab_wsfc, sfcg
+         use mem_sfcg,     only: itab_wsfc
          use mem_basic,    only: rho
          use mem_megan,    only: megan_driver, megan_emis, mgn_2_gc_map
          use edgar_42_emis,only: process_edgar_emis, edgar42_emis
@@ -276,10 +276,6 @@ C Warn the User if there are No Emissions Species On Any File
          use oname_coms,   only: nl
 
          IMPLICIT NONE
-
-! Arguments:
-
-         integer, intent( in ) :: mrl
 
 ! Local Variables:
 
@@ -301,19 +297,19 @@ C Warn the User if there are No Emissions Species On Any File
          call process_edgar_emis()
 
          if (ltng_no) then
-            call get_ltng( mrl )
+            call get_ltng( )
          endif
 
          if (isfcl == 1) then
-            call get_soil_nox(mrl)
-            call megan_driver(mrl)
+            call get_soil_nox()
+            call megan_driver()
          endif
 
 ! Apply gaseous emissions (gas chemistry and non-reacting species)
 
          !$omp parallel private(cnvtc)
          !$omp do private(iw,k,s,n,jsfc,iwsfc,jasfc,kw,iland)
-         do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+         do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
             ! Zero-out emissions arrays
 
@@ -457,7 +453,7 @@ C Warn the User if there are No Emissions Species On Any File
 ! GET_AERO_EMIS is in f90 module AERO_EMIS
 
          if ( n_ae_spc .gt. 0 ) then
-            CALL GET_AERO_EMIS ( mrl, nvars3d_emis, vname3d_emis, edgar_kmax )
+            CALL GET_AERO_EMIS ( nvars3d_emis, vname3d_emis, edgar_kmax )
          endif
 
       END SUBROUTINE GET_EMIS

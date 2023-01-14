@@ -1,36 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
-
 module wrtv_rk
 
   use consts_coms, only: r8
@@ -64,7 +31,7 @@ subroutine init_wrtv_rk()
 
   if (dorayfw) then
      do k = krayfw_bot, mza-1
-        b20(k) = 1.0 + real(dtsm(1)) * rayf_cofw(k)
+        b20(k) = 1.0 + real(dtsm) * rayf_cofw(k)
      enddo
   endif
 
@@ -81,35 +48,31 @@ subroutine prog_wrtv_rk()
 
 ! The above description needs amending: The time differencing method is RK3.
 
-  use mem_ijtabs,   only: jtab_v, jtab_w, istp, mrl_endl, &
-                          mrl_ends, jtw_wadj, jtm_vadj, jtv_prog, &
-                          jtv_wadj, jtv_lbcp, jtw_prog, jtw_lbcp, &
-                          itab_w, itab_v
+  use mem_ijtabs,   only: jtab_v, jtab_w, jtw_wadj, jtm_vadj, jtv_prog, &
+                          jtv_wadj, jtv_lbcp, jtw_prog, jtw_lbcp, itab_w, itab_v
   use mem_basic,    only: rho, thil, wc, press, vmc, vc, wmc, &
-                          vxe, vye, vze, theta, tair, vmsc, vxesc, vyesc, vzesc
-  use mem_grid,     only: mza, mva, mwa, lpv, lpw, arv, dzto2, dztsqo6, &
-                          volt, volti
+                          vxe, vye, vze, vmsc, vxesc, vyesc, vzesc
+  use mem_grid,     only: mza, mva, mwa, lpv, lpw, dzto2, dztsqo6, volt, xev, &
+                          nve2_max, lve2
   use mem_tend,     only: thilt, vmxet, vmyet, vmzet, vmt
-  use misc_coms,    only: iparallel, dtsm, mstp, time8p, dtlm, nrk_wrtv, &
-                          dn01d, th01d, initial, nrk_scal
+  use misc_coms,    only: iparallel, dtsm, nrk_wrtv, dn01d, th01d, &
+                          initial, nrk_scal, deltax, nxp, mdomain
   use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, mpi_send_v, mpi_recv_v
-  use oplot_coms,   only: op
   use obnd,         only: lbcopy_m, lbcopy_w, lbcopy_v
   use oname_coms,   only: nl
   use mem_adv,      only: gxps_scp, gyps_scp, gxyps_scp, gxxps_scp, gyyps_scp, &
                           xx0_v, yy0_v, xy0_v
   use grad_lib,     only: grad_z_quad, grad_t2d, grad_t2d_quad
-  use vel_t3d,      only: diagvel_t3d
+  use vel_t3d,      only: vel_t3d_hex
   use consts_coms,  only: p00i, rocp, r8
-  use mem_turb,     only: akmodx, akhodx, khtopv, kmtopv, khtop
+  use mem_turb,     only: akmodx, akhodx, khtopv, kmtopv
   use pbl_drivers,  only: solve_eddy_diff_heat, solve_eddy_diff_vxe
-  use mem_rayf,     only: dorayf, krayf_bot, rayf_cof, dorayfmix, rayf_mix_top_vxe
-  use oname_coms,   only: nl
-
+  use mem_rayf,     only: dorayf, krayf_bot, rayf_cof, dorayfmix, rayf_mix_top_vxe, &
+                          vc03d
   implicit none
 
-  integer  :: j, iv, iw, k, mrl, iw1, iw2, iwn, jv, istage
-  real     :: dts, v4
+  integer  :: j, iv, iw, k, ksw, iw1, iw2, iwn, jv, istage
+  real     :: dts, v4, rs
   real(r8) :: dt8
 
 ! automatic arrays
@@ -142,10 +105,11 @@ subroutine prog_wrtv_rk()
   real :: vmzet_short(mza,mwa)
   real :: vmt_short  (mza,mva)
 
-  real :: hflux_thil(mza)
-  real :: hflux_vxe (mza)
-  real :: hflux_vye (mza)
-  real :: hflux_vze (mza)
+  ! For prognostic shaved-cell method
+  real :: vmtrk(nve2_max,mva)
+  real :: vmxe0(nve2_max,mwa)
+  real :: vmye0(nve2_max,mwa)
+  real :: vmze0(nve2_max,mwa)
 
   real :: gxps_vxe(mza,mwa)
   real :: gyps_vxe(mza,mwa)
@@ -153,6 +117,8 @@ subroutine prog_wrtv_rk()
   real :: gyps_vye(mza,mwa)
   real :: gxps_vze(mza,mwa)
   real :: gyps_vze(mza,mwa)
+
+  real :: unit_dist, fracx, rayfx
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!  real :: gxxps_vxe(mza,mwa)
@@ -168,14 +134,9 @@ subroutine prog_wrtv_rk()
 !!  real :: gxyps_vze(mza,mwa)
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-! THIS ROUTINE IS PERFORMED AT THE END OF EACH SMALL TIMESTEP
-
-  mrl = mrl_ends(istp)
-  if (mrl == 0) return
-
   !$omp parallel
-  !$omp do private(iw,k,v4,jv,iv,iwn)
-  do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+  !$omp do private(iw,k,v4,ksw,rs,jv,iv,iwn)
+  do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
      thil_upw(      mza,iw) = 0.
      thil_upw(lpw(iw)-1,iw) = 0.
@@ -196,21 +157,35 @@ subroutine prog_wrtv_rk()
         vmzet_short(k,iw) = vmzet(k,iw) * v4
      enddo
 
-     ! Vertical diffusion
+     ! Save initial earth-cartesian momentum for prognostic shaved-cell method
+
+     do ksw = 1, lve2(iw)
+        k = ksw + lpw(iw) - 1
+        rs = real(rho(k,iw))
+
+        vmxe0(ksw,iw) = vxe(k,iw) * rs
+        vmye0(ksw,iw) = vye(k,iw) * rs
+        vmze0(ksw,iw) = vze(k,iw) * rs
+     enddo
+
+     ! Vertical diffusion now performed every short timestep for heat/momentum
 
      call solve_eddy_diff_heat(iw, thilt_short(:,iw))
-     call solve_eddy_diff_vxe (iw, vmxet_short(:,iw), vmyet_short(:,iw), vmzet_short(:,iw))
+     call solve_eddy_diff_vxe (iw, vmxet_short(:,iw), vmyet_short(:,iw), &
+                                   vmzet_short(:,iw))
 
-     ! Rayleigh friction on velocity gradient
+     ! Rayleigh friction on velocity gradient at model top
 
      if (dorayfmix) then
-        call rayf_mix_top_vxe (iw, vmxet_short(:,iw), vmyet_short(:,iw), vmzet_short(:,iw))
+        call rayf_mix_top_vxe (iw, vmxet_short(:,iw), vmyet_short(:,iw), &
+                                   vmzet_short(:,iw))
      endif
 
      ! Rayleigh friction on thil - only for horizontally homogeneous initialization
 
      if (dorayf .and. initial == 1) then
         do k = krayf_bot, mza
+           v4 = real(volt(k,iw))
            thilt_short(k,iw) = thilt_short(k,iw) &
                 + rayf_cof(k) * dn01d(k) * (th01d(k) - thil(k,iw)) * v4
         enddo
@@ -237,7 +212,7 @@ subroutine prog_wrtv_rk()
   !$omp end do nowait
 
   !$omp do private(iv)
-  do j = 1,jtab_v(jtv_prog)%jend(mrl); iv = jtab_v(jtv_prog)%iv(j)
+  do j = 1,jtab_v(jtv_prog)%jend; iv = jtab_v(jtv_prog)%iv(j)
 
      vmc0     (:,iv) = vmc(:,iv)
      vmt_short(:,iv) = vmt(:,iv)
@@ -246,55 +221,451 @@ subroutine prog_wrtv_rk()
   !$omp end do
   !$omp end parallel
 
-  call divh_damp(1, vmt_short)
+  ! Rayleigh friction on vmc
+
+  if (dorayf) then
+
+     unit_dist = sqrt(sqrt(4./3.)) * deltax  ! approx = 1.07457 * deltax; for mdomain = 4 only
+
+     !$omp parallel do private(iv,iw1,iw2,fracx,rayfx,k)
+     do j = 1,jtab_v(jtv_prog)%jend; iv = jtab_v(jtv_prog)%iv(j)
+        iw1 = itab_v(iv)%iw(1)
+        iw2 = itab_v(iv)%iw(2)
+
+        if (mdomain /= 4) then
+
+           ! Vertical loop over V points
+           do k = krayf_bot, mza
+              vmt_short(k,iv) = vmt_short(k,iv) + rayf_cof(k) &
+                   * 0.5 * (rho(k,iw1) + rho(k,iw2)) * (vc03d(k,iv) - vc(k,iv))
+           enddo
+
+        else
+
+           ! Coefficient for extra RAYF damping at ends of channel with cyclic BC's
+
+           fracx = abs(xev(iv)) / (0.5 * real(nxp) * unit_dist)
+           rayfx = (-2. + 3. * fracx) * (0.2 * rayf_cof(mza))  ! max of (0.2 * rayf_cof) at top bnd
+
+           ! Vertical loop over V points
+           do k = lpv(iv), mza
+              vmt_short(k,iv) = vmt_short(k,iv) + max(rayf_cof(k),rayfx) &
+                   * 0.5 * (rho(k,iw1) + rho(k,iw2)) * (vc03d(k,iv) - vc(k,iv))
+           enddo
+
+        endif
+
+     enddo
+     !$omp end parallel do
+
+  endif ! (dorayf)
+
+  call divh_damp(vmt_short)
 
   do istage = 1, nrk_wrtv
 
      if (nrk_wrtv == 2) then
-        dt8 = xstg2(istage) * dtsm(1)
+        dt8 = xstg2(istage) * dtsm
      else
-        dt8 = xstg3(istage) * dtsm(1)
+        dt8 = xstg3(istage) * dtsm
      endif
 
      dts = real(dt8)
 
-! INCLUDE THE LONG TIMESTEP THIL AND MOMENTUM TENDENCIES IN EACH SHORT TIMESTEP
+     !$omp parallel do private(iw,k)
+     do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
-!  ! omp parallel
-!  ! omp do private(iw,dt,k)
-!  do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+        do k = lpw(iw), mza
+           vmxet_rk(k,iw) = vmxet_short(k,iw)
+           vmyet_rk(k,iw) = vmyet_short(k,iw)
+           vmzet_rk(k,iw) = vmzet_short(k,iw)
+        enddo
 
-!     dt = dtsm(itab_w(iw)%mrlw)
+        if (nl%horiz_adv_order <= 2) then
 
-!!     do k = lpw(iw), mza
-!!        thilt_short(k,iw) = thilt(k,iw)
-!!        vmxet_short(k,iw) = vmxet(k,iw)
-!!        vmyet_short(k,iw) = vmyet(k,iw)
-!!        vmzet_short(k,iw) = vmzet(k,iw)
-!!     enddo
+           call grad_t2d(iw, thil, gxps_scp(:,iw),  gyps_scp(:,iw))
 
-!!! temp
-!     do k = lpw(iw), mza-1
-!        wmca(k,iw) = wmc(k,iw) * arw(k,iw)
-!     enddo
+           if (nl%iscal_monot > 0) then
+              call limit_h2(iw, thil, gxps_scp(:,iw), gyps_scp(:,iw))
+           endif
 
-!     call donorpointw(iw, 0.0, wc(:,iw), vxe(:,iw), vye(:,iw), vze(:,iw), kdepw(:,iw))
+        else
 
-!  enddo
-!  ! omp end do nowait
+           call grad_t2d_quad(iw, thil, gxps_scp (:,iw), gyps_scp (:,iw), &
+                              gxxps_scp(:,iw), gxyps_scp(:,iw), gyyps_scp(:,iw))
 
-  ! Compute CFL numbers needed by Thuburn monotonic scheme
+           if (nl%iscal_monot > 0) then
+              call limit_h3(iw, thil, gxps_scp(:,iw), gyps_scp(:,iw), &
+                            gxxps_scp(:,iw), gxyps_scp(:,iw), gyyps_scp(:,iw))
+           endif
 
-!!!!!! temp
+        endif
+
+        ! velocity second order for now
+        call grad_t2d(iw, vxe, gxps_vxe(:,iw), gyps_vxe(:,iw))
+        call grad_t2d(iw, vye, gxps_vye(:,iw), gyps_vye(:,iw))
+        call grad_t2d(iw, vze, gxps_vze(:,iw), gyps_vze(:,iw))
+
+!!      call grad_t2d_quad(iw, vxe, gxps_vxe (:,iw), gyps_vxe (:,iw), &
+!!                         gxxps_vxe(:,iw), gxyps_vxe(:,iw), gyyps_vxe(:,iw))
 !!
-!  if (nl%ithil_monot > 0 .and. istage == 3) then
-!     call comp_cfls_short( mrl, vmca, wmca )
-!  endif
+!!      call grad_t2d_quad(iw, vye, gxps_vye (:,iw), gyps_vye(:,iw), &
+!!                         gxxps_vye(:,iw), gxyps_vye(:,iw), gyyps_vye(:,iw))
+!!
+!!      call grad_t2d_quad(iw, vze, gxps_vze (:,iw), gyps_vze(:,iw), &
+!!                         gxxps_vze(:,iw), gxyps_vze(:,iw), gyyps_vze(:,iw))
+
+!!      call grad_t2d_v(iw, vxe_upv, vye_upv, vze_upv,  &
+!!                      gxps_vxe(:,iw), gyps_vxe(:,iw), &
+!!                      gxps_vye(:,iw), gyps_vye(:,iw), &
+!!                      gxps_vze(:,iw), gyps_vze(:,iw)  )
+
+     enddo
+     !$omp end parallel do
+
+     ! MPI send of THIL, VXE, VYE, and VZE gradient components
+
+     if (iparallel == 1) then
+
+        if (nl%horiz_adv_order <= 2) then
+           call mpi_send_w(rvara1=gxps_scp, rvara2=gyps_scp, &
+                           rvara3=gxps_vxe, rvara4=gyps_vxe, &
+                           rvara5=gxps_vye, rvara6=gyps_vye, &
+                           rvara7=gxps_vze, rvara8=gyps_vze  )
+        else
+           call mpi_send_w(rvara1=gxps_scp,   rvara2=gyps_scp, &
+                           rvara3=gxxps_scp,  rvara4=gxyps_scp, rvara5=gyyps_scp, &
+                           rvara6=gxps_vxe,   rvara7=gyps_vxe, &
+                           rvara8=gxps_vye,   rvara9=gyps_vye, &
+                           rvara10=gxps_vze,  rvara11=gyps_vze )
+        endif
+
+!!      call mpi_send_w(rvara1=gxps_scp, rvara2=gyps_scp, &
+!!                      rvara3=gxps_vxe, rvara4=gyps_vxe, &
+!!                      rvara5=gxps_vye, rvara6=gyps_vye, &
+!!                      rvara7=gxps_vze, rvara8=gyps_vze, &
+!!                      rvara9=gxxps_vxe, rvara10=gyyps_vxe, rvara11=gxyps_vxe, &
+!!                      rvara12=gxxps_vye, rvara13=gyyps_vye,  rvara14=gxyps_vye,&
+!!                      rvara15=gxxps_vze, rvara16=gyyps_vze,  rvara17=gxyps_vze)
+     endif
+
+     !$omp parallel private(gzps_th, gzps_vx, gzps_vy, gzps_vz,&
+     !$omp                  gzzps_th,gzzps_vx,gzzps_vy,gzzps_vz)
+     !$omp do private(iw,k)
+     do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
+
+        ! Evaluate vertical gradient of thil, vxe, vye, and vze for begs
+
+        call grad_z_quad(iw, thil(:,iw), gzps_th, gzzps_th)
+        call grad_z_quad(iw, vxe (:,iw), gzps_vx, gzzps_vx)
+        call grad_z_quad(iw, vye (:,iw), gzps_vy, gzzps_vy)
+        call grad_z_quad(iw, vze (:,iw), gzps_vz, gzzps_vz)
+
+        if (nl%iscal_monot > 0) then
+           call limit_z(iw, thil(:,iw), gzps_th, gzzps_th)
+        endif
+
+        ! Evaluate upwinded thil, vxe, vye, and vze at each w face
+
+        do k = lpw(iw), mza-1
+
+           if (wmc(k,iw) > 0.) then
+
+              thil_upw(k,iw) = thil(k,iw)  &
+                             +   dzto2(k) *  gzps_th(k) &
+                             + dztsqo6(k) * gzzps_th(k)
+
+              vxe_upw(k,iw)  = vxe(k,iw)                &
+                             +   dzto2(k) *  gzps_vx(k) &
+                             + dztsqo6(k) * gzzps_vx(k)
+
+              vye_upw(k,iw)  = vye(k,iw)                &
+                             +   dzto2(k) *  gzps_vy(k) &
+                             + dztsqo6(k) * gzzps_vy(k)
+
+              vze_upw(k,iw)  = vze(k,iw)                &
+                             +   dzto2(k) *  gzps_vz(k) &
+                             + dztsqo6(k) * gzzps_vz(k)
+           else
+
+              thil_upw(k,iw) = thil(k+1,iw)                 &
+                             -   dzto2(k+1) *  gzps_th(k+1) &
+                             + dztsqo6(k+1) * gzzps_th(k+1)
+
+              vxe_upw(k,iw) = vxe(k+1,iw)                  &
+                            -   dzto2(k+1) *  gzps_vx(k+1) &
+                            + dztsqo6(k+1) * gzzps_vx(k+1)
+
+              vye_upw(k,iw) = vye(k+1,iw)                  &
+                            -   dzto2(k+1) *  gzps_vy(k+1) &
+                            + dztsqo6(k+1) * gzzps_vy(k+1)
+
+              vze_upw(k,iw) = vze(k+1,iw)                  &
+                            -   dzto2(k+1) *  gzps_vz(k+1) &
+                            + dztsqo6(k+1) * gzzps_vz(k+1)
+           endif
+
+        enddo
+
+     enddo
+     !$omp end do nowait
+     !$omp end parallel
+
+! Finish MPI recv of THIL, VXE, VYE, and VZE gradient components
+
+     if (iparallel == 1) then
+
+        if (nl%horiz_adv_order <= 2) then
+           call mpi_recv_w(rvara1=gxps_scp, rvara2=gyps_scp, &
+                           rvara3=gxps_vxe, rvara4=gyps_vxe, &
+                           rvara5=gxps_vye, rvara6=gyps_vye, &
+                           rvara7=gxps_vze, rvara8=gyps_vze  )
+        else
+           call mpi_recv_w(rvara1=gxps_scp,   rvara2=gyps_scp, &
+                           rvara3=gxxps_scp,  rvara4=gxyps_scp, rvara5=gyyps_scp, &
+                           rvara6=gxps_vxe,   rvara7=gyps_vxe, &
+                           rvara8=gxps_vye,   rvara9=gyps_vye, &
+                           rvara10=gxps_vze,  rvara11=gyps_vze )
+        endif
+
+!!      call mpi_recv_w(rvara1=gxps_scp, rvara2=gyps_scp, &
+!!                      rvara3=gxps_vxe, rvara4=gyps_vxe, &
+!!                      rvara5=gxps_vye, rvara6=gyps_vye, &
+!!                      rvara7=gxps_vze, rvara8=gyps_vze, &
+!!                      rvara9=gxxps_vxe, rvara10=gyyps_vxe, rvara11=gxyps_vxe, &
+!!                      rvara12=gxxps_vye, rvara13=gyyps_vye,  rvara14=gxyps_vye,&
+!!                      rvara15=gxxps_vze, rvara16=gyyps_vze,  rvara17=gxyps_vze)
+     endif
+
+     ! Lateral boundary copy of THIL, VXE, VYE, and VZE gradient components
+
+     if (nl%horiz_adv_order <= 2) then
+        call lbcopy_w(a1=gxps_scp, a2=gyps_scp, &
+                      a3=gxps_vxe, a4=gyps_vxe, &
+                      a5=gxps_vye, a6=gyps_vye, &
+                      a7=gxps_vze, a8=gyps_vze  )
+     else
+        call lbcopy_w(a1=gxps_scp,  a2=gyps_scp, &
+                      a3=gxxps_scp, a4=gxyps_scp,  a5=gyyps_scp,  &
+                      a6=gxps_vxe,  a7=gyps_vxe, &
+                      a8=gxps_vye,  a9=gyps_vye, &
+                      a10=gxps_vze, a11=gyps_vze )
+     endif
+
+     ! EVALUATE UPWINDED THIL, VXE, VYE, AND VZE AT EACH V FACE FOR
+     ! HORIZONTAL FLUX COMPUTATION
+
+     !$omp parallel
+     !$omp do private(iv,k,iw1,iw2)
+     do j = 1,jtab_v(jtv_wadj)%jend; iv = jtab_v(jtv_wadj)%iv(j)
+
+        ! Save half-forward velocities from the final R-K stage for
+        ! scalar transport
+
+        if (istage == nrk_wrtv) then
+           do k = lpv(iv), mza
+              vmsc(k,iv) = vmsc(k,iv) + vmc(k,iv)
+           enddo
+        endif
+
+        iw1 = itab_v(iv)%iw(1)
+        iw2 = itab_v(iv)%iw(2)
+
+        do k = lpv(iv), mza
+
+           if (vmc(k,iv) > 0.) then
+
+              if (nl%horiz_adv_order <= 2) then
+                 thil_upv(k,iv) = thil(k,iw1) &
+                                + itab_v(iv)%dxps(1) * gxps_scp(k,iw1) &
+                                + itab_v(iv)%dyps(1) * gyps_scp(k,iw1)
+              else
+                 thil_upv(k,iv) = thil(k,iw1) &
+                                + itab_v(iv)%dxps(1) *  gxps_scp(k,iw1) &
+                                + itab_v(iv)%dyps(1) *  gyps_scp(k,iw1) &
+                                + xx0_v(1,iv)        * gxxps_scp(k,iw1) &
+                                + yy0_v(1,iv)        * gyyps_scp(k,iw1) &
+                                + xy0_v(1,iv)        * gxyps_scp(k,iw1)
+              endif
+
+              vxe_upv(k,iv)  = vxe(k,iw1) &
+                             + itab_v(iv)%dxps(1) * gxps_vxe(k,iw1) &
+                             + itab_v(iv)%dyps(1) * gyps_vxe(k,iw1)
+
+              vye_upv(k,iv)  = vye(k,iw1) &
+                             + itab_v(iv)%dxps(1) * gxps_vye(k,iw1) &
+                             + itab_v(iv)%dyps(1) * gyps_vye(k,iw1)
+
+              vze_upv(k,iv)  = vze(k,iw1) &
+                             + itab_v(iv)%dxps(1) * gxps_vze(k,iw1) &
+                             + itab_v(iv)%dyps(1) * gyps_vze(k,iw1)
+
+!!            vxe_upv(k,iv)  = vxe(k,iw1) &
+!!                           + itab_v(iv)%dxps(1) * gxps_vxe(k,iw1) &
+!!                           + itab_v(iv)%dyps(1) * gyps_vxe(k,iw1) &
+!!                           + xx0_v(1,iv)        * gxxps_vxe(k,iw1) &
+!!                           + yy0_v(1,iv)        * gyyps_vxe(k,iw1) &
+!!                           + xy0_v(1,iv)        * gxyps_vxe(k,iw1)
+!!
+!!            vye_upv(k,iv)  = vye(k,iw1) &
+!!                           + itab_v(iv)%dxps(1) * gxps_vye(k,iw1) &
+!!                           + itab_v(iv)%dyps(1) * gyps_vye(k,iw1) &
+!!                           + xx0_v(1,iv)        * gxxps_vye(k,iw1) &
+!!                           + yy0_v(1,iv)        * gyyps_vye(k,iw1) &
+!!                           + xy0_v(1,iv)        * gxyps_vye(k,iw1)
+!!
+!!            vze_upv(k,iv)  = vze(k,iw1) &
+!!                           + itab_v(iv)%dxps(1) * gxps_vze(k,iw1) &
+!!                           + itab_v(iv)%dyps(1) * gyps_vze(k,iw1) &
+!!                           + xx0_v(1,iv)        * gxxps_vze(k,iw1) &
+!!                           + yy0_v(1,iv)        * gyyps_vze(k,iw1) &
+!!                           + xy0_v(1,iv)        * gxyps_vze(k,iw1)
+
+           else
+
+              if (nl%horiz_adv_order <= 2) then
+                 thil_upv(k,iv) = thil(k,iw2) &
+                                + itab_v(iv)%dxps(2) * gxps_scp(k,iw2) &
+                                + itab_v(iv)%dyps(2) * gyps_scp(k,iw2)
+              else
+                 thil_upv(k,iv) = thil(k,iw2) &
+                                + itab_v(iv)%dxps(2) *  gxps_scp(k,iw2) &
+                                + itab_v(iv)%dyps(2) *  gyps_scp(k,iw2) &
+                                + xx0_v(2,iv)        * gxxps_scp(k,iw2) &
+                                + yy0_v(2,iv)        * gyyps_scp(k,iw2) &
+                                + xy0_v(2,iv)        * gxyps_scp(k,iw2)
+              endif
+
+              vxe_upv(k,iv)  = vxe(k,iw2) &
+                             + itab_v(iv)%dxps(2) * gxps_vxe(k,iw2) &
+                             + itab_v(iv)%dyps(2) * gyps_vxe(k,iw2)
+
+              vye_upv(k,iv)  = vye(k,iw2) &
+                             + itab_v(iv)%dxps(2) * gxps_vye(k,iw2) &
+                             + itab_v(iv)%dyps(2) * gyps_vye(k,iw2)
+
+              vze_upv(k,iv)  = vze(k,iw2) &
+                             + itab_v(iv)%dxps(2) * gxps_vze(k,iw2) &
+                             + itab_v(iv)%dyps(2) * gyps_vze(k,iw2)
+
+!!            vxe_upv(k,iv)  = vxe(k,iw2) &
+!!                           + itab_v(iv)%dxps(2) * gxps_vxe(k,iw2) &
+!!                           + itab_v(iv)%dyps(2) * gyps_vxe(k,iw2) &
+!!                           + xx0_v(2,iv)        * gxxps_vxe(k,iw1) &
+!!                           + yy0_v(2,iv)        * gyyps_vxe(k,iw1) &
+!!                           + xy0_v(2,iv)        * gxyps_vxe(k,iw1)
+!!
+!!            vye_upv(k,iv)  = vye(k,iw2) &
+!!                           + itab_v(iv)%dxps(2) * gxps_vye(k,iw2) &
+!!                           + itab_v(iv)%dyps(2) * gyps_vye(k,iw2) &
+!!                           + xx0_v(2,iv)        * gxxps_vye(k,iw1) &
+!!                           + yy0_v(2,iv)        * gyyps_vye(k,iw1) &
+!!                           + xy0_v(2,iv)        * gxyps_vye(k,iw1)
+!!
+!!            vze_upv(k,iv)  = vze(k,iw2) &
+!!                           + itab_v(iv)%dxps(2) * gxps_vze(k,iw2) &
+!!                           + itab_v(iv)%dyps(2) * gyps_vze(k,iw2) &
+!!                           + xx0_v(2,iv)        * gxxps_vze(k,iw1) &
+!!                           + yy0_v(2,iv)        * gyyps_vze(k,iw1) &
+!!                           + xy0_v(2,iv)        * gxyps_vze(k,iw1)
+
+           endif
+
+        enddo
+
+     enddo
+     !$omp end do
+
+     ! MAIN LOOP OVER W COLUMNS FOR UPDATING WM, WC, RHO, THIL, AND PRESS
+
+     !$omp do private(iw,k)
+     do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
+
+        ! Prognose vertical velocity, density, thil, and diagnose pressure
+
+        call prog_wrt_begs( iw, istage, dts, dt8,                 &
+                            thil_upv, vxe_upv, vye_upv, vze_upv,  &
+                            thil_upw, vxe_upw, vye_upw, vze_upw,  &
+                            thilt_short, vmxet_rk, vmyet_rk, vmzet_rk, &
+                            rho0, rth0, wmc0 )
+
+        ! Store half-forward earth cartesian velocities from the appropriate R-K
+        ! stage if the original single-step scalar advection scheme is used
+
+        if (nrk_scal == 1 .and. istage == nrk_wrtv) then
+           do k = lpw(iw), mza
+              vxesc(k,iw) = vxesc(k,iw) + vxe(k,iw)
+              vyesc(k,iw) = vyesc(k,iw) + vye(k,iw)
+              vzesc(k,iw) = vzesc(k,iw) + vze(k,iw)
+           enddo
+        endif
+
+     enddo
+     !$omp end do nowait
+     !$omp end parallel
+
+     ! MPI SEND/RECV and LBC copy of quantities needed for prog_v:
+     ! PRESS, RHO, VMXET_SHORT, VMYET_SHORT, and VMZET_SHORT
+
+     if (iparallel == 1) then
+        call mpi_send_w(dvara1=press, dvara2=rho, &
+                        rvara1=vmxet_rk, rvara2=vmyet_rk, rvara3=vmzet_rk)
+        call mpi_recv_w(dvara1=press, dvara2=rho, &
+                        rvara1=vmxet_rk, rvara2=vmyet_rk, rvara3=vmzet_rk)
+     endif
+
+     call lbcopy_w(a1=vmxet_rk,  a2=vmyet_rk,  a3=vmzet_rk, &
+                   d1=rho,       d2=press)
+
+     ! MAIN LOOP OVER V POINTS TO UPDATE VMC AND VC
+
+     !$omp parallel do private(iv)
+     do j = 1,jtab_v(jtv_prog)%jend; iv = jtab_v(jtv_prog)%iv(j)
+
+        call prog_v_begs(iv, dts, vmc0, vmxet_rk, vmyet_rk, vmzet_rk, vmt_short)
+
+     enddo
+     !$omp end parallel do
+
+     ! MPI SEND/RECV and LBC of VC and VMC
+
+     if (iparallel == 1) then
+        call mpi_send_v(rvara1=vmc, rvara2=vc)
+        call mpi_recv_v(rvara1=vmc, rvara2=vc)
+     endif
+     call lbcopy_v(vmc=vmc, vc=vc)
+
+     ! UPDATE EARTH CARTESIAN VELOCITIES
+
+     !$omp parallel do private(iw)
+     do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
+
+        if (lve2(iw) > 0) then
+           call update_vxe_undrgnd(iw, dts, vmxe0, vmye0, vmze0, vmtrk, &
+                                   vmxet_rk, vmyet_rk, vmzet_rk)
+        endif
+
+        call vel_t3d_hex(iw)
+
+     enddo
+     !$omp end parallel do
+
+     ! Parallel send-recieve of Earth Cartesian velocities, W, and THIL
+
+     if (iparallel == 1) then
+        call mpi_send_w(rvara1=vxe, rvara2=vye, rvara3=vze, &
+                        rvara4=wmc, rvara5=wc, rvara6=thil)
+        call mpi_recv_w(rvara1=vxe, rvara2=vye, rvara3=vze, &
+                        rvara4=wmc, rvara5=wc, rvara6=thil)
+     endif
+     call lbcopy_w(a1=vxe, a2=vye, a3=vze, a4=wmc, a5=wc, a6=thil)
+
+  enddo ! istage loop
 
 ! SPECIAL PLOT SECTION - - - - - - - - - - - - - - - - - - - -
 ! (Example of how to plot "external" field; one not available in module memory)
 !
-! if (mod(time8,op%frqplt) < dtlm(1) .and. istp == 900) then
+! if (mod(time8,op%frqplt) < dtlm .and. istp == 900) then
 !    allocate (op%extfld(mza,mwa))
 !    op%extfld(:,:) = vxe(:,:)
 !    op%extfldname = 'VXE'
@@ -302,437 +673,6 @@ subroutine prog_wrtv_rk()
 !    deallocate (op%extfld)
 ! endif
 ! END SPECIAL PLOT SECTION - - - - - - - - - - - - - - - - - -
-
-  !$omp parallel do private(iw,k)
-  do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
-
-     do k = lpw(iw), mza
-        vmxet_rk(k,iw) = vmxet_short(k,iw)
-        vmyet_rk(k,iw) = vmyet_short(k,iw)
-        vmzet_rk(k,iw) = vmzet_short(k,iw)
-     enddo
-
-     if (nl%horiz_adv_order <= 2) then
-
-        call grad_t2d(iw, thil, gxps_scp(:,iw),  gyps_scp(:,iw))
-
-        if (nl%iscal_monot > 0) then
-           call limit_h2(iw, thil, gxps_scp(:,iw), gyps_scp(:,iw))
-        endif
-
-     else
-
-        call grad_t2d_quad(iw, thil, gxps_scp (:,iw), gyps_scp (:,iw), &
-                                     gxxps_scp(:,iw), gxyps_scp(:,iw), gyyps_scp(:,iw))
-
-        if (nl%iscal_monot > 0) then
-           call limit_h3(iw, thil, gxps_scp(:,iw), gyps_scp(:,iw),&
-                                   gxxps_scp(:,iw), gxyps_scp(:,iw), gyyps_scp(:,iw))
-        endif
-
-     endif
-
-     call grad_t2d(iw, vxe, gxps_vxe(:,iw), gyps_vxe(:,iw))
-     call grad_t2d(iw, vye, gxps_vye(:,iw), gyps_vye(:,iw))
-     call grad_t2d(iw, vze, gxps_vze(:,iw), gyps_vze(:,iw))
-
-!!     call grad_t2d_quad(iw, vxe, gxps_vxe (:,iw), gyps_vxe (:,iw), &
-!!                                 gxxps_vxe(:,iw), gxyps_vxe(:,iw), gyyps_vxe(:,iw))
-!!
-!!     call grad_t2d_quad(iw, vye, gxps_vye (:,iw), gyps_vye(:,iw), &
-!!                                 gxxps_vye(:,iw), gxyps_vye(:,iw), gyyps_vye(:,iw))
-!!
-!!     call grad_t2d_quad(iw, vze, gxps_vze (:,iw), gyps_vze(:,iw), &
-!!                                 gxxps_vze(:,iw), gxyps_vze(:,iw), gyyps_vze(:,iw))
-
-
-!!     call grad_t2d_v(iw, vxe_upv, vye_upv, vze_upv,  &
-!!                     gxps_vxe(:,iw), gyps_vxe(:,iw), &
-!!                     gxps_vye(:,iw), gyps_vye(:,iw), &
-!!                     gxps_vze(:,iw), gyps_vze(:,iw)  )
-
-  enddo
-  !$omp end parallel do
-
-! MPI send of THIL, VXE, VYE, and VZE gradient components
-
-  if (iparallel == 1) then
-
-     if (nl%horiz_adv_order <= 2) then
-        call mpi_send_w(mrl, rvara1=gxps_scp, rvara2=gyps_scp, &
-                             rvara3=gxps_vxe, rvara4=gyps_vxe, &
-                             rvara5=gxps_vye, rvara6=gyps_vye, &
-                             rvara7=gxps_vze, rvara8=gyps_vze  )
-     else
-        call mpi_send_w(mrl, rvara1=gxps_scp,   rvara2=gyps_scp, &
-                             rvara3=gxxps_scp,  rvara4=gxyps_scp, rvara5=gyyps_scp,  &
-                             rvara6=gxps_vxe,   rvara7=gyps_vxe, &
-                             rvara8=gxps_vye,   rvara9=gyps_vye, &
-                             rvara10=gxps_vze,  rvara11=gyps_vze )
-     endif
-!!
-!!        call mpi_send_w(mrl, rvara1=gxps_scp, rvara2=gyps_scp, &
-!!                             rvara3=gxps_vxe, rvara4=gyps_vxe, &
-!!                             rvara5=gxps_vye, rvara6=gyps_vye, &
-!!                             rvara7=gxps_vze, rvara8=gyps_vze, &
-!!                             rvara9=gxxps_vxe, rvara10=gyyps_vxe, rvara11=gxyps_vxe, &
-!!                             rvara12=gxxps_vye, rvara13=gyyps_vye,  rvara14=gxyps_vye,&
-!!                             rvara15=gxxps_vze, rvara16=gyyps_vze,  rvara17=gxyps_vze )
-  endif
-
-  !$omp parallel private(gzps_th, gzps_vx, gzps_vy, gzps_vz,&
-  !$omp                  gzzps_th,gzzps_vx,gzzps_vy,gzzps_vz)
-  !$omp do private(iw,k)
-  do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
-
-     ! Evaluate vertical gradient of thil, vxe, vye, and vze for begs
-
-     call grad_z_quad(iw, thil(:,iw), gzps_th, gzzps_th)
-     call grad_z_quad(iw, vxe (:,iw), gzps_vx, gzzps_vx)
-     call grad_z_quad(iw, vye (:,iw), gzps_vy, gzzps_vy)
-     call grad_z_quad(iw, vze (:,iw), gzps_vz, gzzps_vz)
-
-     if (nl%iscal_monot > 0) then
-        call limit_z(iw, thil(:,iw), gzps_th, gzzps_th)
-     endif
-
-    ! Evaluate upwinded thil, vxe, vye, and vze at each w face
-
-    do k = lpw(iw), mza-1
-
-        if (wmc(k,iw) > 0.) then
-
-           thil_upw(k,iw) = thil(k,iw)  &
-                          +   dzto2(k) *  gzps_th(k) &
-                          + dztsqo6(k) * gzzps_th(k)
-
-           vxe_upw(k,iw)  = vxe(k,iw)                &
-                          +   dzto2(k) *  gzps_vx(k) &
-                          + dztsqo6(k) * gzzps_vx(k)
-
-           vye_upw(k,iw)  = vye(k,iw)                &
-                          +   dzto2(k) *  gzps_vy(k) &
-                          + dztsqo6(k) * gzzps_vy(k)
-
-           vze_upw(k,iw)  = vze(k,iw)                &
-                          +   dzto2(k) *  gzps_vz(k) &
-                          + dztsqo6(k) * gzzps_vz(k)
-        else
-
-           thil_upw(k,iw) = thil(k+1,iw)                 &
-                          -   dzto2(k+1) *  gzps_th(k+1) &
-                          + dztsqo6(k+1) * gzzps_th(k+1)
-
-           vxe_upw(k,iw) = vxe(k+1,iw)                  &
-                         -   dzto2(k+1) *  gzps_vx(k+1) &
-                         + dztsqo6(k+1) * gzzps_vx(k+1)
-
-           vye_upw(k,iw) = vye(k+1,iw)                  &
-                         -   dzto2(k+1) *  gzps_vy(k+1) &
-                         + dztsqo6(k+1) * gzzps_vy(k+1)
-
-           vze_upw(k,iw) = vze(k+1,iw)                  &
-                         -   dzto2(k+1) *  gzps_vz(k+1) &
-                         + dztsqo6(k+1) * gzzps_vz(k+1)
-        endif
-
-     enddo
-
-  enddo
-  !$omp end do nowait
-  !$omp end parallel
-
-! Finish MPI recv of THIL, VXE, VYE, and VZE gradient components
-
-  if (iparallel == 1) then
-
-     if (nl%horiz_adv_order <= 2) then
-        call mpi_recv_w(mrl, rvara1=gxps_scp, rvara2=gyps_scp, &
-                             rvara3=gxps_vxe, rvara4=gyps_vxe, &
-                             rvara5=gxps_vye, rvara6=gyps_vye, &
-                             rvara7=gxps_vze, rvara8=gyps_vze  )
-     else
-        call mpi_recv_w(mrl, rvara1=gxps_scp,   rvara2=gyps_scp, &
-                             rvara3=gxxps_scp,  rvara4=gxyps_scp, rvara5=gyyps_scp, &
-                             rvara6=gxps_vxe,   rvara7=gyps_vxe, &
-                             rvara8=gxps_vye,   rvara9=gyps_vye, &
-                             rvara10=gxps_vze,  rvara11=gyps_vze )
-     endif
-!!
-!!        call mpi_recv_w(mrl, rvara1=gxps_scp, rvara2=gyps_scp, &
-!!                             rvara3=gxps_vxe, rvara4=gyps_vxe, &
-!!                             rvara5=gxps_vye, rvara6=gyps_vye, &
-!!                             rvara7=gxps_vze, rvara8=gyps_vze, &
-!!                             rvara9=gxxps_vxe, rvara10=gyyps_vxe, rvara11=gxyps_vxe, &
-!!                             rvara12=gxxps_vye, rvara13=gyyps_vye,  rvara14=gxyps_vye,&
-!!                             rvara15=gxxps_vze, rvara16=gyyps_vze,  rvara17=gxyps_vze )
-
-
-  endif
-
-! Lateral boundary copy of THIL, VXE, VYE, and VZE gradient components
-
-  if (nl%horiz_adv_order <= 2) then
-     call lbcopy_w(mrl, a1=gxps_scp, a2=gyps_scp, &
-                        a3=gxps_vxe, a4=gyps_vxe, &
-                        a5=gxps_vye, a6=gyps_vye, &
-                        a7=gxps_vze, a8=gyps_vze  )
-  else
-     call lbcopy_w(mrl, a1=gxps_scp,  a2=gyps_scp, &
-                        a3=gxxps_scp, a4=gxyps_scp,  a5=gyyps_scp,  &
-                        a6=gxps_vxe,  a7=gyps_vxe, &
-                        a8=gxps_vye,  a9=gyps_vye, &
-                        a10=gxps_vze, a11=gyps_vze )
-  endif
-
-! EVALUATE UPWINDED THIL, VXE, VYE, AND VZE AT EACH V FACE FOR
-! HORIZONTAL FLUX COMPUTATION
-
-  !$omp parallel
-  !$omp do private(iv,k,iw1,iw2)
-  do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
-
-     ! Save half-forward velocities from the final R-K stage for
-     ! scalar transport
-
-     if (istage == nrk_wrtv) then
-        do k = lpv(iv), mza
-           vmsc(k,iv) = vmsc(k,iv) + vmc(k,iv)
-        enddo
-     endif
-
-     iw1 = itab_v(iv)%iw(1)
-     iw2 = itab_v(iv)%iw(2)
-
-     do k = lpv(iv), mza
-
-        if (vmc(k,iv) > 0.) then
-
-           if (nl%horiz_adv_order <= 2) then
-              thil_upv(k,iv) = thil(k,iw1) &
-                             + itab_v(iv)%dxps(1) * gxps_scp(k,iw1) &
-                             + itab_v(iv)%dyps(1) * gyps_scp(k,iw1)
-           else
-              thil_upv(k,iv) = thil(k,iw1) &
-                             + itab_v(iv)%dxps(1) *  gxps_scp(k,iw1) &
-                             + itab_v(iv)%dyps(1) *  gyps_scp(k,iw1) &
-                             + xx0_v(1,iv)        * gxxps_scp(k,iw1) &
-                             + yy0_v(1,iv)        * gyyps_scp(k,iw1) &
-                             + xy0_v(1,iv)        * gxyps_scp(k,iw1)
-           endif
-
-           vxe_upv(k,iv)  = vxe(k,iw1) &
-                          + itab_v(iv)%dxps(1) * gxps_vxe(k,iw1) &
-                          + itab_v(iv)%dyps(1) * gyps_vxe(k,iw1)
-
-           vye_upv(k,iv)  = vye(k,iw1) &
-                          + itab_v(iv)%dxps(1) * gxps_vye(k,iw1) &
-                          + itab_v(iv)%dyps(1) * gyps_vye(k,iw1)
-
-           vze_upv(k,iv)  = vze(k,iw1) &
-                          + itab_v(iv)%dxps(1) * gxps_vze(k,iw1) &
-                          + itab_v(iv)%dyps(1) * gyps_vze(k,iw1)
-!!
-!!           vxe_upv(k,iv)  = vxe(k,iw1) &
-!!                          + itab_v(iv)%dxps(1) * gxps_vxe(k,iw1) &
-!!                          + itab_v(iv)%dyps(1) * gyps_vxe(k,iw1) &
-!!                          + xx0_v(1,iv)        * gxxps_vxe(k,iw1) &
-!!                          + yy0_v(1,iv)        * gyyps_vxe(k,iw1) &
-!!                          + xy0_v(1,iv)        * gxyps_vxe(k,iw1)
-!!
-!!           vye_upv(k,iv)  = vye(k,iw1) &
-!!                          + itab_v(iv)%dxps(1) * gxps_vye(k,iw1) &
-!!                          + itab_v(iv)%dyps(1) * gyps_vye(k,iw1) &
-!!                          + xx0_v(1,iv)        * gxxps_vye(k,iw1) &
-!!                          + yy0_v(1,iv)        * gyyps_vye(k,iw1) &
-!!                          + xy0_v(1,iv)        * gxyps_vye(k,iw1)
-!!
-!!           vze_upv(k,iv)  = vze(k,iw1) &
-!!                          + itab_v(iv)%dxps(1) * gxps_vze(k,iw1) &
-!!                          + itab_v(iv)%dyps(1) * gyps_vze(k,iw1) &
-!!                          + xx0_v(1,iv)        * gxxps_vze(k,iw1) &
-!!                          + yy0_v(1,iv)        * gyyps_vze(k,iw1) &
-!!                          + xy0_v(1,iv)        * gxyps_vze(k,iw1)
-
-        else
-
-           if (nl%horiz_adv_order <= 2) then
-              thil_upv(k,iv) = thil(k,iw2) &
-                             + itab_v(iv)%dxps(2) * gxps_scp(k,iw2) &
-                             + itab_v(iv)%dyps(2) * gyps_scp(k,iw2)
-           else
-              thil_upv(k,iv) = thil(k,iw2) &
-                             + itab_v(iv)%dxps(2) *  gxps_scp(k,iw2) &
-                             + itab_v(iv)%dyps(2) *  gyps_scp(k,iw2) &
-                             + xx0_v(2,iv)        * gxxps_scp(k,iw2) &
-                             + yy0_v(2,iv)        * gyyps_scp(k,iw2) &
-                             + xy0_v(2,iv)        * gxyps_scp(k,iw2)
-           endif
-
-           vxe_upv(k,iv)  = vxe(k,iw2) &
-                          + itab_v(iv)%dxps(2) * gxps_vxe(k,iw2) &
-                          + itab_v(iv)%dyps(2) * gyps_vxe(k,iw2)
-
-           vye_upv(k,iv)  = vye(k,iw2) &
-                          + itab_v(iv)%dxps(2) * gxps_vye(k,iw2) &
-                          + itab_v(iv)%dyps(2) * gyps_vye(k,iw2)
-
-           vze_upv(k,iv)  = vze(k,iw2) &
-                          + itab_v(iv)%dxps(2) * gxps_vze(k,iw2) &
-                          + itab_v(iv)%dyps(2) * gyps_vze(k,iw2)
-!!
-!!           vxe_upv(k,iv)  = vxe(k,iw2) &
-!!                          + itab_v(iv)%dxps(2) * gxps_vxe(k,iw2) &
-!!                          + itab_v(iv)%dyps(2) * gyps_vxe(k,iw2) &
-!!                          + xx0_v(2,iv)        * gxxps_vxe(k,iw1) &
-!!                          + yy0_v(2,iv)        * gyyps_vxe(k,iw1) &
-!!                          + xy0_v(2,iv)        * gxyps_vxe(k,iw1)
-!!
-!!           vye_upv(k,iv)  = vye(k,iw2) &
-!!                          + itab_v(iv)%dxps(2) * gxps_vye(k,iw2) &
-!!                          + itab_v(iv)%dyps(2) * gyps_vye(k,iw2) &
-!!                          + xx0_v(2,iv)        * gxxps_vye(k,iw1) &
-!!                          + yy0_v(2,iv)        * gyyps_vye(k,iw1) &
-!!                          + xy0_v(2,iv)        * gxyps_vye(k,iw1)
-!!
-!!           vze_upv(k,iv)  = vze(k,iw2) &
-!!                          + itab_v(iv)%dxps(2) * gxps_vze(k,iw2) &
-!!                          + itab_v(iv)%dyps(2) * gyps_vze(k,iw2) &
-!!                          + xx0_v(2,iv)        * gxxps_vze(k,iw1) &
-!!                          + yy0_v(2,iv)        * gyyps_vze(k,iw1) &
-!!                          + xy0_v(2,iv)        * gxyps_vze(k,iw1)
-
-        endif
-
-     enddo
-
-  enddo
-  !$omp end do
-
-! Compute the monotonic or positive-definite flux limiters and then apply them
-
-!  if (nl%ithil_monot == 1 .and. istage==3) then
-!     call comp_and_apply_monot_limits(mrl, thil, thil_upw, thil_upv, wmca, vmca)
-!  endif
-
-! MAIN LOOP OVER W COLUMNS FOR UPDATING WM, WC, RHO, THIL, AND PRESS
-
-  !$omp do private(iw,k)
-  do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
-
-     ! Prognose vertical velocity, density, thil, and diagnose pressure
-
-     call prog_wrt_begs( iw, istage, dts, dt8,                 &
-                         thil_upv, vxe_upv, vye_upv, vze_upv,  &
-                         thil_upw, vxe_upw, vye_upw, vze_upw,  &
-                         thilt_short, vmxet_rk, vmyet_rk, vmzet_rk, &
-                         rho0, rth0, wmc0 )
-
-     ! Store half-forward earth cartesian velocities from the appropriate R-K
-     ! stage if the original single-step scalar advection scheme is used
-
-     if (nrk_scal == 1 .and. istage == nrk_wrtv) then
-        do k = lpw(iw), mza
-           vxesc(k,iw) = vxesc(k,iw) + vxe(k,iw)
-           vyesc(k,iw) = vyesc(k,iw) + vye(k,iw)
-           vzesc(k,iw) = vzesc(k,iw) + vze(k,iw)
-        enddo
-     endif
-
-  enddo
-  !$omp end do nowait
-  !$omp end parallel
-
-
-! MPI SEND/RECV and LBC copy of quantities needed for prog_v:
-! PRESS, RHO, VMXET_SHORT, VMYET_SHORT, and VMZET_SHORT
-
-  if (iparallel == 1) then
-
-     call mpi_send_w(mrl, dvara1=press, dvara2=rho, &
-                     rvara1=vmxet_rk, rvara2=vmyet_rk, rvara3=vmzet_rk, &
-                     rvara4=thil, rvara5=wmc, rvara6=wc)
-
-     call mpi_recv_w(mrl, dvara1=press, dvara2=rho, &
-                     rvara1=vmxet_rk, rvara2=vmyet_rk, rvara3=vmzet_rk, &
-                     rvara4=thil, rvara5=wmc, rvara6=wc)
-  endif
-
-  call lbcopy_w(mrl, a1=vmxet_rk,  a2=vmyet_rk,  a3=vmzet_rk, &
-                     a4=thil,      a5=wmc,       a6=wc,       &
-                     d1=rho,       d2=press )
-
-! COMPUTE TERMS FOR ROTATIONAL FORM OF HORIZONTAL MOMENTUM
-
-!!  if (rotational) then
-!!     call prep_rotational(mrl)
-!!  endif
-
-!!  if (dorayfdiv) then
-!!
-!!     !$omp parallel do private(iw,jv,iv,k)
-!!     do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
-!!
-!!        div2d(:,iw) = 0.0
-!!        do jv = 1, itab_w(iw)%npoly
-!!           iv = itab_w(iw)%iv(jv)
-!!
-!!           do k = krayfdiv_bot, mza
-!!              div2d(k,iw) = div2d(k,iw) - itab_w(iw)%dirv(jv) * vmc(k,iv) * dnu(iv)
-!!           enddo
-!!        enddo
-!!     enddo
-!!     !$omp end parallel do
-!!
-!!     ! MPI send of div2d
-!!     if (iparallel == 1) then
-!!        call mpi_send_w(mrl, svara1=div2d)
-!!        call mpi_recv_w(mrl, svara1=div2d)
-!!     endif
-!!     call lbcopy_w(mrl, s1=div2d)
-!!
-!!  endif ! dorayfdiv
-
-! MAIN LOOP OVER V POINTS TO UPDATE VMC AND VC
-
-  !$omp parallel do private(iv)
-  do j = 1,jtab_v(jtv_prog)%jend(mrl); iv = jtab_v(jtv_prog)%iv(j)
-
-     call prog_v_begs( iv, dts, vmc0, vmxet_rk, vmyet_rk, vmzet_rk, vmt_short )
-
-  enddo
-  !$omp end parallel do
-
-! MPI SEND/RECV and LBC of VC and VMC
-
-  if (iparallel == 1) then
-     call mpi_send_v(mrl, rvara1=vmc, rvara2=vc)
-     call mpi_recv_v(mrl, rvara1=vmc, rvara2=vc)
-  endif
-  call lbcopy_v(mrl, vmc=vmc, vc=vc)
-
-! UPDATE EARTH CARTESIAN VELOCITIES
-
-  call diagvel_t3d(mrl)
-
-  enddo ! istage loop
-
-!!  mrl = mrl_endl(istp)
-!!  if (mrl > 0) then
-!!
-!!     !$omp parallel do private(k)
-!!     do iw = 2, mwa
-!!        do k = lpw(iw), mza
-!!!        theta(k,iw) = thil(k,iw)
-!!           tair(k,iw) = theta(k,iw) * (real(press(k,iw)) * p00i) ** rocp
-!!        enddo
-!!        tair(1:lpw(iw)-1,iw) = tair(lpw(iw),iw)
-!!
-!!        thilt(:,iw) = 0.0
-!!     enddo
-!!     !$omp end parallel do
-!!
-!!  endif
 
 end subroutine prog_wrtv_rk
 
@@ -747,19 +687,16 @@ subroutine prog_wrt_begs( iw, istage, dts, dt8,                 &
                           rho0, rth0, wmc0 )
 
   use mem_ijtabs,  only: itab_w
-  use mem_basic,   only: wmc, rho, thil, wc, press, vxe, vye, vze, vmc, wmsc, &
+  use mem_basic,   only: wmc, rho, thil, wc, press, vxe, vye, vmc, wmsc, &
                          alpha_press, pwfac
-
-  use vel_t3d,     only: icut_vel, vxe1, vye1, vze1
-  use misc_coms,   only: deltax, nxp, initial, nrk_wrtv, mdomain
+  use misc_coms,   only: nrk_wrtv, mdomain
   use consts_coms, only: cpocv, rocv, fcoriol, pi1, pio180, r8
   use mem_grid,    only: mza, mva, mwa, lpv, lpw, arw, wnx, wny, wnz, volt, &
-                         gravm, volti, volwi, glatw, glonw, lve2, arv, &
-                         zwgt_top8, zwgt_bot8, vnx, vny, vnz, &
-                         gdz_wgtp8, gdz_wgtm8, gdz_wgtp, gdz_wgtm
+                         volti, volwi, glatw, glonw, arv, &
+                         zwgt_top8, zwgt_bot8, gdz_wgtp8, gdz_wgtm8, &
+                         gdz_wgtp, gdz_wgtm
   use tridiag,     only: tridiffo
   use oname_coms,  only: nl
-  use mem_rayf,    only: dorayf, rayf_cof, krayf_bot
   use mem_nudge,   only: rhot_nud, nudflag
 
   implicit none
@@ -789,12 +726,12 @@ subroutine prog_wrt_begs( iw, istage, dts, dt8,                 &
 
 ! real(r8), intent(in) :: rho0(mza,mva)
 
-  integer :: jv, iv, iwn
+  integer :: jv, iv
   integer :: k, ka, kbv, ksw
   integer :: npoly
 
-  real :: c6, c8, c9, c10, c11
-  real :: dirv, vmarv, dtom, vmt1, r4, r4i, dtov
+  real :: c8, c9
+  real :: dirv, vmarv
   real :: rad0_swtc, rad_swtc, topo_swtc
 
   ! Vertical implicit scheme weighting parameters
@@ -833,9 +770,6 @@ subroutine prog_wrt_begs( iw, istage, dts, dt8,                 &
   real :: wmf          (mza)
   real :: mass, rhoi
 
-  real(r8) :: b10(mza)
-  real(r8) :: b5(mza)
-
 ! real :: hflux_thil(mza)
 ! real :: hflux_vxe (mza)
 ! real :: hflux_vye (mza)
@@ -845,15 +779,10 @@ subroutine prog_wrt_begs( iw, istage, dts, dt8,                 &
   real :: vflux_vye (mza)
   real :: vflux_vze (mza)
 
-  real :: b1(mza), b2(mza)
-  real :: b7
+  real(r8) :: b5(mza), b10(mza)
 
-  real :: b4(mza),b6(mza),b15(mza)
-  real :: b21, b22, b23, b24, b25, b26
-  real :: b31(mza),b32(mza),b33(mza),b34(mza)
-
-  real :: b8, b9, b11, b12, b13, b14
-  real :: vmxe(mza), vmye(mza), vmze(mza)
+  real :: b7, b8, b21, b22, b23, b24, b25, b26
+  real :: b15(mza), b31(mza), b32(mza), b33(mza)
 
   ka = lpw(iw)
 
@@ -861,41 +790,9 @@ subroutine prog_wrt_begs( iw, istage, dts, dt8,                 &
      thilt_rk(k) = thilt_short(k,iw)
   enddo
 
-  ! Loop over W levels
-
-!!  do k = ka, mza-1
-!!
-!!     ! vertical mass flux for time level t
-!!
-!!     wmarw(k) = wmc(k,iw) * arw(k,iw)
-!!
-!!     ! vertical fluxes
-!!
-!!     vflux_thil(k) = wmarw(k) * thil_upw(k,iw)
-!!     vflux_vxe(k)  = wmarw(k) * vxe_upw (k,iw)
-!!     vflux_vye(k)  = wmarw(k) * vye_upw (k,iw)
-!!     vflux_vze(k)  = wmarw(k) * vze_upw (k,iw)
-!!
-!!  enddo
-
   ! Initialize horizontal advection arrays to zero
 
   hflux_rho  = 0._r8
-! hflux_thil = 0.
-! hflux_vxe  = 0.
-! hflux_vye  = 0.
-! hflux_vze  = 0.
-
-  if (icut_vel == 1 .and. lve2(iw) > 0) then
-     do ksw = 1, lve2(iw)
-        k = ksw + ka - 1
-        r4 = real(rho(k,iw))
-
-        vmxe(ksw) = vxe(k,iw) * r4
-        vmye(ksw) = vye(k,iw) * r4
-        vmze(ksw) = vze(k,iw) * r4
-     enddo
-  endif
 
   ! Number of edges of this IW polygon
 
@@ -1184,20 +1081,6 @@ subroutine prog_wrt_begs( iw, istage, dts, dt8,                 &
 
   enddo
 
-  if (icut_vel == 1 .and. lve2(iw) > 0) then
-     do ksw = 1, lve2(iw)
-        k = ksw + ka - 1
-
-        r4i  = 1.0 / real(rho(k,iw))
-        dtov = dts * volti(k,iw)
-
-        ! Estimate velocity in T cells at (t+1) by prognostic method
-        vxe1(ksw,iw) = (vmxe(ksw) + dtov * vmxet_rk(k,iw)) * r4i
-        vye1(ksw,iw) = (vmye(ksw) + dtov * vmyet_rk(k,iw)) * r4i
-        vze1(ksw,iw) = (vmze(ksw) + dtov * vmzet_rk(k,iw)) * r4i
-     enddo
-  endif
-
   ! For shallow water test cases 2 & 5, rho & press are
   ! interpreted as water depth & height
 
@@ -1247,9 +1130,8 @@ subroutine prog_v_begs( iv, dts, vmc0, vmxet_rk, vmyet_rk, vmzet_rk, vmt_short )
 
   use mem_ijtabs,  only: itab_v
   use mem_basic,   only: vc, press, vmc, rho, pvfac
-  use consts_coms, only: eradi, gravo2
-  use mem_grid,    only: mza, mva, mwa, lpv, dniu, dniv, &
-                         zfacit, vnx, vny, vnz, dnivo2, volvi, lpw
+  use consts_coms, only: gravo2
+  use mem_grid,    only: mza, mva, mwa, lpv, vnx, vny, vnz, volvi
   use oname_coms,  only: nl
   use mem_rayf
 
@@ -1264,7 +1146,7 @@ subroutine prog_v_begs( iv, dts, vmc0, vmxet_rk, vmyet_rk, vmzet_rk, vmt_short )
   real,    intent(in) :: vmt_short(mza,mva)
   real,    intent(in) :: vmc0     (mza,mva)
 
-  integer :: k, kb, kbot
+  integer :: k, kb
   integer :: iw1, iw2
   real    :: pgf(mza)
 
@@ -1290,66 +1172,7 @@ subroutine prog_v_begs( iv, dts, vmc0, vmxet_rk, vmyet_rk, vmzet_rk, vmt_short )
      enddo
   endif
 
-!!  if (dorayfdiv) then
-!!
-!!     ! Vertical loop over V points
-!!     do k = krayfdiv_bot, mza
-!!
-!!        ! Divergence in IW1 excluding IV
-!!        sum1 = div2d(k,iw1) - vmc(k,iv) * dnu(iv)
-!!
-!!        ! Divergence in IW2 excluding IV
-!!        sum2 = div2d(k,iw2) + vmc(k,iv) * dnu(iv)
-!!
-!!        ! VMP value that would equalize horizontal divergence in IW1 and IW2
-!!        ! cells (assuming no blockage by topography)
-!!
-!!        vmp_eqdiv = ( arw0(iw1) * sum2 - arw0(iw2) * sum1 ) * rayfdivfac(iv)
-!!
-!!        pgf(k) = pgf(k) + rayf_cofdiv(k) * (vmp_eqdiv - vmc(k,iv))
-!!
-!!     enddo
-!!
-!!  endif ! (dorayfdiv)
-
-
-
-
   ! Update VMC
-
-!!  if (.not. rotational) then
-
-!     kbot = max(lpw(iw1),lpw(iw2))
-
-!!     if (lpw(iw1) < kbot) then
-!!
-!!        do k = lpw(iw1), kbot-1
-!!           vmc(k,iv) = vmp(k,iv) + dts * ( vmt_short(k,iv) &
-!!                     + ( vnx(iv) * vmxet_rk(k,iw1) &
-!!                       + vny(iv) * vmyet_rk(k,iw1) &
-!!                       + vnz(iv) * vmzet_rk(k,iw1) ) * volvi(k,iv) )
-!!
-!!           vc(k,iv) = vmc(k,iv) / real( rho(k,iw1) )
-!!
-!!
-!!        enddo
-!!
-!!     elseif (lpw(iw2) < kbot) then
-!!
-!!        do k = lpw(iw2), kbot-1
-!!           vmc(k,iv) = vmp(k,iv) + dts * ( vmt_short(k,iv) &
-!!                     + ( vnx(iv) * vmxet_rk(k,iw2) &
-!!                       + vny(iv) * vmyet_rk(k,iw2) &
-!!                       + vnz(iv) * vmzet_rk(k,iw2) ) * volvi(k,iv) )
-!!
-!!           vc(k,iv) = vmc(k,iv) / real( rho(k,iw2) )
-!!      enddo
-!!
-!!     endif
-!!
-!!     do k = min(lpw(iw1),lpw(iw2)), kb-1
-!!        vmc(k,iv) = vmc0(k,iv) + dts * vmt_short(k,iv)
-!!     enddo
 
   do k = kb, mza
 
@@ -1362,189 +1185,84 @@ subroutine prog_v_begs( iv, dts, vmc0, vmxet_rk, vmyet_rk, vmzet_rk, vmt_short )
 
   enddo
 
-!!     kbot = max(lpw(iw1),lpw(iw2))
-!!
-!!     do k = kbot, mza
-!!        vc(k,iv) = 2.0 * vmc(k,iv) / real( rho(k,iw1) + rho(k,iw2) )
-!!     enddo
-!!
-!!     if (lpw(iw1) < kbot) then
-!!        do k = lpw(iw1), kbot-1
-!!           vc(k,iv) = vmc(k,iv) / real( rho(k,iw1) )
-!!        enddo
-!!     elseif (lpw(iw2) < kbot) then
-!!        do k = lpw(iw2), kbot-1
-!!           vc(k,iv) = vmc(k,iv) / real( rho(k,iw2) )
-!!        enddo
-!!     endif
-
-!!  else  ! If using rotational form:
-!!
-!!     dtso2dnu = 0.5 * dts * dniu(iv)
-!!     dtso2dnv = 0.5 * dts * dniv(iv)
-!!
-!!     ! Vertical loop over V levels
-!!
-!!     do k = kb,mza
-!!        vx = .5 * (vxe(k,iw1) + vxe(k,iw2))
-!!        vy = .5 * (vye(k,iw1) + vye(k,iw2))
-!!        vz = .5 * (vze(k,iw1) + vze(k,iw2))
-!!
-!!        uc =    unx(iv) * vx + uny(iv) * vy + unz(iv) * vz
-!!        watv = (xev(iv) * vx + yev(iv) * vy + zev(iv) * vz) * eradi
-!!
-!!        tke1 = .5 * (vxe(k,iw1)**2 + vye(k,iw1)**2 + vze(k,iw1)**2)
-!!        tke2 = .5 * (vxe(k,iw2)**2 + vye(k,iw2)**2 + vze(k,iw2)**2)
-!!
-!!        !@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@A1
-!!        vortp_v = .5 * (vortp(k,im1) + vortp(k,im2)) &
-!!
-!!             ! APVM method (Ringler et al. 2010) to obtain upwinded vortp at V
-!!
-!!             + dtso2dnu * uc       * (vortp(k,im1) - vortp(k,im2)) &
-!!             + dtso2dnv * vc(k,iv) * (vortp_t(k,iw1) - vortp_t(k,iw2))
-!!        !@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@A2
-!!
-!!        vmc(k,iv) = vmc(k,iv) + dts * (vmt_short(k,iv) + pgf(k) &
-!!
-!!                  + ( vnx(iv) * (vmxet_rk(k,iw1) + vmxet_rk(k,iw2))    &
-!!                    + vny(iv) * (vmyet_rk(k,iw1) + vmyet_rk(k,iw2))    &
-!!                    + vnz(iv) * (vmzet_rk(k,iw1) + vmzet_rk(k,iw2)) ) * volvi(k,iv) &
-!!
-!!                  + .5 * (rho(k,iw1) + rho(k,iw2))                           &
-!!                  * (dniv(iv) * (tke1 - tke2)                                &
-!!                  + uc * vortp_v                                             &
-!!                  - watv * .5 * (vortn(k-1,iv) + vortn(k,iv))))
-!!
-!!        vc(k,iv) = 2.0 * vmc(k,iv) / real( rho(k,iw1) + rho(k,iw2) )
-!!     enddo
-!!
-!!  endif ! rotational
-
 end subroutine prog_v_begs
 
-!!subroutine prep_rotational(mrl)
+
+!=========================================================================
+
+
+subroutine update_vxe_undrgnd(iw, dts, vmxe0, vmye0, vmze0, pg2, &
+                              vmxet_rk, vmyet_rk, vmzet_rk)
+
+  use mem_basic,  only: vxe, vye, vze, rho
+  use mem_grid!,   only: mwa, mva, mza, lpw, lve2, lpv, nve2_max, volti
+  use mem_ijtabs, only: itab_w
+!  use vel_t3d,    only: exm, eym, ezm
+
+  implicit none
+
+  integer, intent(in) :: iw
+  real,    intent(in) :: dts
+
+  real,    intent(in) :: vmxe0(nve2_max,mwa)
+  real,    intent(in) :: vmye0(nve2_max,mwa)
+  real,    intent(in) :: vmze0(nve2_max,mwa)
+
+  real,    intent(in) :: pg2(nve2_max,mva)
+
+  real,    intent(in) :: vmxet_rk(mza,mwa)
+  real,    intent(in) :: vmyet_rk(mza,mwa)
+  real,    intent(in) :: vmzet_rk(mza,mwa)
+
+  integer :: npoly, ka, jv, iv, kb, k, kv, ks, kt
+  real    :: rsi
+  real    :: pgfxe(nve2_max), pgfye(nve2_max),pgfze(nve2_max)
+
+  if (lve2(iw) > 0) then
+
+     npoly = itab_w(iw)%npoly
+     ka    = lpw(iw)
+     kt    = lpw(iw) + lve2(iw) - 1
+
+     pgfxe(1:lve2(iw)) = 0.
+     pgfye(1:lve2(iw)) = 0.
+     pgfze(1:lve2(iw)) = 0.
+
+!!     do jv = 1, npoly
+!!        iv = itab_w(iw)%iv(jv)
+!!        kb = lpv(iv)
 !!
-!!  use mem_ijtabs,   only: jtab_v, jtab_w, itab_v, itab_w, jtab_m, itab_m, &
-!!                          jtm_vadj, jtv_prog, jtv_wadj, jtv_lbcp, jtw_prog, jtw_lbcp
-!!  use mem_basic,    only: vc, wc
-!!  use mem_grid,     only: mza, lpm, lpv, lpw, dzim, zfact, &
-!!                          zfacit, zfacim, dnv, dniv, arm0
-!!  use obnd,         only: lbcopy_m, lbcopy_w
-!!  use misc_coms,    only: iparallel
-!!  use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, mpi_send_m, mpi_recv_m
+!!        do k = kb, kt
+!!           kv = k - kb + 1
+!!           ks = k - ka + 1
 !!
-!!  implicit none
-!!
-!!  integer, intent(in) :: mrl
-!!
-!!  integer :: j, iv, k, kb
-!!  integer :: iw, iw1, iw2
-!!  integer :: im,npoly,jv
-!!  integer :: jm
-!!  real    :: arm0i
-!!
-!!! IF USING ROTATIONAL METHOD, HORIZONTAL LOOP OVER M/P COLUMNS
-!!! FOR COMPUTING VERTICAL VORTICITY.
-!!
-!!  !$omp parallel do private(im,npoly,kb,jv,iv,k,arm0i)
-!!  do j = 1,jtab_m(jtm_vadj)%jend(mrl); im = jtab_m(jtm_vadj)%im(j)
-!!
-!!     npoly = itab_m(im)%npoly
-!!     kb    = lpm(im)
-!!
-!!     vortp(:,im) = 0.
-!!
-!!     ! Loop over V neighbors to evaluate circulation around M (at time T)
-!!     do jv = 1,npoly
-!!        iv = itab_m(im)%iv(jv)
-!!
-!!        if (itab_v(iv)%im(2) == im) then
-!!
-!!           do k = kb,mza
-!!              vortp(k,im) = vortp(k,im) + vc(k,iv) * dnv(iv)
-!!           enddo
-!!
-!!        else
-!!
-!!           do k = kb,mza
-!!              vortp(k,im) = vortp(k,im) - vc(k,iv) * dnv(iv)
-!!           enddo
-!!
-!!        endif
-!!     enddo
-!!
-!!     ! Convert circulation to relative vertical vorticity at M
-!!     ! (DNV lacks the zfact factor and ARM0 lacks the zfact**2 factor, so we
-!!     ! divide their quotient by zfact)
-!!
-!!     arm0i = 1. / arm0(im)
-!!
-!!     do k = kb,mza
-!!        vortp(k,im) = vortp(k,im) * arm0i * zfacit(k)
-!!     enddo
-!!
-!!  enddo
-!!  !$omp end parallel do 
-!!
-!!  ! PARALLEL SEND/RECV OF VORTP
-!!
-!!  if (iparallel == 1) then
-!!     call mpi_send_m(mrl, rvara1=vortp)
-!!     call mpi_recv_m(mrl, rvara1=vortp)
-!!  endif
-!!  call lbcopy_m(mrl, a1=vortp)
-!!
-!!! IF USING ROTATIONAL FORM FOR PROGNOSING HORIZONTAL MOMENTUM,
-!!! EVALUATE VORTP_T AND VORTN AND CORIOLIS FORCING TERMS
-!!
-!!  ! Horizontal loop over W/T columns
-!!  !$omp parallel do private(iw,npoly,kb,k,jm,im)
-!!  do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
-!!
-!!     npoly = itab_w(iw)%npoly
-!!     kb = lpw(iw)
-!!
-!!     vortp_t(:,iw) = 0.
-!!
-!!     ! Loop over M neighbors of W
-!!     do jm = 1,npoly
-!!        im = itab_w(iw)%im(jm)
-!!
-!!        ! Vertical loop over T levels; average vorticity from P points to T point.
-!!        do k = kb,mza
-!!           vortp_t(k,iw) = vortp_t(k,iw) + itab_w(iw)%farm(jm) * vortp(k,im)
+!!           pgfxe(ks) = pgfxe(ks) + itab_w(iw)%ecvec_vx(jv) * pg2(kv,iv)
+!!           pgfye(ks) = pgfye(ks) + itab_w(iw)%ecvec_vy(jv) * pg2(kv,iv)
+!!           pgfze(ks) = pgfze(ks) + itab_w(iw)%ecvec_vz(jv) * pg2(kv,iv)
 !!        enddo
 !!     enddo
-!!
-!!  enddo
-!!  !$omp end parallel do
-!!
-!!  if (iparallel == 1) call mpi_send_w(mrl, rvara1=vortp_t)
-!!  if (iparallel == 1) call mpi_recv_w(mrl, rvara1=vortp_t)
-!!  call lbcopy_w(mrl, a1=vortp_t)
-!!
-!!  ! Horizontal loop over V/N columns
-!!  !$omp parallel do private(iv,iw1,iw2,k,kb) 
-!!  do j = 1,jtab_v(jtv_prog)%jend(mrl); iv = jtab_v(jtv_prog)%iv(j)
-!!
-!!     iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
-!!     kb = lpv(iv)
-!!
-!!     ! Vertical loop over N levels; compute horizontal relative vorticity
-!!     ! and vertical velocity at N points (at time T)
-!!     do k = kb,mza-1
-!!        vortn(k,iv) = zfacim(k) * ((wc(k,iw1) - wc(k,iw2)) * dniv(iv) &
-!!                    + (vc(k+1,iv) * zfact(k+1) - vc(k,iv) * zfact(k)) * dzim(k))
-!!     enddo
-!!
-!!     vortn(1:kb-1,iv) = 0.
-!!     vortn(mza,iv) = 0.
-!!
-!!  enddo
-!!  !$omp end parallel do
-!!
-!!end subroutine prep_rotational
+
+     do ks = 1, lve2(iw)
+        k = ks + ka - 1
+
+        rsi  = 1.0 / real(rho(k,iw))
+
+        vxe(k,iw) = (vmxe0(ks,iw) + dts * ( vmxet_rk(k,iw) * volti(k,iw) &
+                                          )) * rsi
+!                                          + pgfxe(ks) * exm(ks,iw))) * rsi
+        vye(k,iw) = (vmye0(ks,iw) + dts * ( vmyet_rk(k,iw) * volti(k,iw) &
+                                          )) * rsi
+!                                          + pgfye(ks) * eym(ks,iw))) * rsi
+        vze(k,iw) = (vmze0(ks,iw) + dts * ( vmzet_rk(k,iw) * volti(k,iw) &
+                                          )) * rsi
+!                                          + pgfze(ks) * ezm(ks,iw))) * rsi
+     enddo
+
+  endif
+
+end subroutine update_vxe_undrgnd
+
+
 
 
 subroutine wind_vec_at_v(iv, vxe_v, vye_v, vze_v)

@@ -21,7 +21,7 @@ int f_spectral_bands_extname(ARG0) {
     const char *agency=NULL, *instype=NULL, *shortname=NULL, *longname=NULL;
     const char *satellite=NULL, *pol=NULL;
     const char *classification=NULL;
-    
+
     const char *shortname1=NULL, *satellite1=NULL, *pol1=NULL;
     double c=299792458.;
     double minwave=9e19, maxwave=-9e19, sumwave=0, wl, fq;
@@ -37,7 +37,7 @@ int f_spectral_bands_extname(ARG0) {
     } else if(pdt == 32) {
         nb = sec[4][22];
         bandstart=23;
-    } else 
+    } else
         return 0;
 
     // check size
@@ -118,7 +118,7 @@ int f_spectral_bands_extname(ARG0) {
             sprintf(inv_out,"Ins %d ",instrument);
         inv_out+=strlen(inv_out);
     }
-        
+
     if(minwave*1.01<maxwave)
         sprintf(inv_out,"%d bands: %.3g to %.3g m-1 ",nb,minwave,maxwave);
     else {
@@ -131,7 +131,7 @@ int f_spectral_bands_extname(ARG0) {
     }
     inv_out+=strlen(inv_out);
 
-    if(multipol) 
+    if(multipol)
         strcat(inv_out,"mult.pol.");
     else if(pol1 && strcmp(pol1,"unpolarized"))
         strcat(inv_out,pol);
@@ -158,7 +158,7 @@ int f_spectral_bands(ARG0) {
         } else if(pdt == 32) {
           nb = sec[4][22];
           bandstart=23;
-        } else 
+        } else
           return 0;
 
 	sprintf(inv_out,"%snumber of spectral bands=%d", nl, nb);

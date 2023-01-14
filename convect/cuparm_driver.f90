@@ -1,35 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 subroutine cuparm_driver()
 
   use mem_grid,         only: vxn_ew, vxn_ns, vxn_ew, vyn_ns, vyn_ew, vzn_ns, &
@@ -39,7 +7,7 @@ subroutine cuparm_driver()
   use module_cu_tiedtke,only: cuparm_tiedtke
   use module_cu_emanuel,only: cuparm_emanuel
   use misc_coms,        only: io6, time_istp8, time_istp8p, nqparm, confrq, &
-                              dtlong, mstp, runtype, dtlm, iparallel
+                              dtlm, mstp, runtype, iparallel
   use mem_ijtabs,       only: itab_w, jtab_w, mrl_begl, istp, mrls, jtw_prog, jtw_wadj
   use mem_cuparm,       only: thsrc, rtsrc, aconpr, conprr, kstabi, &
                               kcutop, kcubot, qwcon, iactcu, cbmf, cddf, kddtop, &
@@ -58,9 +26,8 @@ subroutine cuparm_driver()
 
   integer, save :: init_kf = 0
   integer       :: j, iw, k, mrl, mrlw
-  real          :: dthmax, dtlong4, confrq4, confrq4i
+  real          :: dthmax, dtlong4, dtli, confrq4
   integer       :: iwqmax, kqmax, km, km1
-  integer       :: ka, kb
   real          :: rt, ravail
 
 ! For KF_eta parameterization, initialize scheme if needed
@@ -72,11 +39,12 @@ subroutine cuparm_driver()
      endif
   endif
 
-  dtlong4  = real(dtlong)
+  dtlong4 = real(dtlm)
+  dtli    = 1.0 / dtlong4
 
 ! Check whether it is time to update cumulus parameterization tendencies
 
-  if ((istp == 1 .and. mod(time_istp8p, confrq) < dtlong) .or. &
+  if ((istp == 1 .and. mod(time_istp8p, confrq) < dtlm) .or. &
       (istp == 1 .and. mstp == 0 .and. runtype == 'HISTADDGRID')) then
 
 ! Print message that cumulus parameterization is being computed
@@ -86,14 +54,13 @@ subroutine cuparm_driver()
            ' hrs into simulation'
 
      confrq4  = real(confrq)
-     confrq4i = 1. / confrq4
 
 ! Loop over all IW grid cells where cumulus parameterization may be done
 
 !----------------------------------------------------------------------
-     !$omp parallel do private(iw,mrlw,km,km1,k,ka,kb) &
+     !$omp parallel do private(iw,mrlw,km,km1,k) &
      !$omp    schedule( guided )
-     do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j) ! jend(1) for mrl = 1
+     do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 
 ! MRL for current IW column
@@ -131,7 +98,7 @@ subroutine cuparm_driver()
            km = mza + 1 - lpw(iw) ! km  = # of T levels in cuparm_tiedtke
            km1 = km + 1           ! km1 = # of W levels in cuparm_tiedtke
 
-           call cuparm_tiedtke(iw,km,km1,dtlong4,confrq4,confrq4i)
+           call cuparm_tiedtke(iw,km,km1,confrq4)
 
         elseif (nqparm(mrlw) == 2 .or. nqparm(mrlw) == 5) then
 
@@ -174,7 +141,7 @@ subroutine cuparm_driver()
      kqmax  = 0
 
      ! this will need to be changed to work with OpenMP
-     do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
+     do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
         if (iactcu(iw) > 0) then
            do k = lpw(iw), mza
               if (thsrc(k,iw) > dthmax) then
@@ -190,12 +157,12 @@ subroutine cuparm_driver()
            iwqmax, " K=", kqmax, " IS ", dthmax*86400., " K/DAY"
 
      if (iparallel == 1) then
-        call mpi_send_w(1, i1dvara1=kcutop, i1dvara2=kcubot, i1dvara3=iactcu, &
-                           r1dvara1=cbmf, r1dvara2=conprr)
+        call mpi_send_w(i1dvara1=kcutop, i1dvara2=kcubot, i1dvara3=iactcu, &
+                        r1dvara1=cbmf, r1dvara2=conprr)
      endif
 
      ! Update cloud fraction if convection was updated
-     call calc_3d_cloud_fraction(1)
+     call calc_3d_cloud_fraction()
 
   endif
 
@@ -207,8 +174,8 @@ subroutine cuparm_driver()
   mrl = mrl_begl(istp)
   if (mrl > 0) then
 
-     !$omp parallel do private(iw,dtlong4,k,ravail,rt) schedule(guided)
-     do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+     !$omp parallel do private(iw,k,ravail,rt) schedule(guided)
+     do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 
         ! Skip if no convection in this column
@@ -223,19 +190,17 @@ subroutine cuparm_driver()
            cycle
         endif
 
-        dtlong4 = dtlm(itab_w(iw)%mrlw)
-
         aconpr(iw) = aconpr(iw) + conprr(iw) * dtlong4
 
         do k = lpw(iw), min(kcutop(iw)+1,mza)
-!          if (tair(k,iw) > 253.) then
-           thilt(k,iw) = thilt(k,iw) + thsrc(k,iw) * theta(k,iw) / tair(k,iw)
-!          else
-!             thilt(k,iw) = thilt(k,iw) + thsrc(k,iw) * thil(k,iw) / tair(k,iw)
-!          endif
+           if (tair(k,iw) > 253.) then
+              thilt(k,iw) = thilt(k,iw) + thsrc(k,iw) * theta(k,iw) / tair(k,iw)
+           else
+              thilt(k,iw) = thilt(k,iw) + thsrc(k,iw) * thil(k,iw) / tair(k,iw)
+           endif
 
            ravail = 0.95 * max(rr_w(k,iw), 0.0) * real(rho(k,iw))
-           rt     = max( rtsrc(k,iw), -ravail / dtlong4 )
+           rt     = max( rtsrc(k,iw), -ravail * dtli )
 
            rr_wt(k,iw) = rr_wt(k,iw) + rt
         enddo
@@ -268,12 +233,11 @@ subroutine cuparm_driver()
   endif
 
   if (iparallel == 1) then
-     if ((istp == 1 .and. mod(time_istp8p, confrq) < dtlong) .or. &
+     if ((istp == 1 .and. mod(time_istp8p, confrq) < dtlm) .or. &
          (istp == 1 .and. mstp == 0 .and. runtype == 'HISTADDGRID')) then
 
-        call mpi_recv_w(1, i1dvara1=kcutop, i1dvara2=kcubot, i1dvara3=iactcu, &
-                           r1dvara1=cbmf, r1dvara2=conprr)
-
+        call mpi_recv_w(i1dvara1=kcutop, i1dvara2=kcubot, i1dvara3=iactcu, &
+                        r1dvara1=cbmf, r1dvara2=conprr)
      endif
   endif
 
@@ -293,7 +257,7 @@ subroutine reset_cuparm()
   integer :: j, iw, mrlw
 
   !$omp parallel do private(iw,mrlw)
-  do j = 1,jtab_w(jtw_wadj)%jend(1); iw = jtab_w(jtw_wadj)%iw(j)
+  do j = 1,jtab_w(jtw_wadj)%jend; iw = jtab_w(jtw_wadj)%iw(j)
 
      ! MRL for current IW column
      mrlw = itab_w(iw)%mrlw

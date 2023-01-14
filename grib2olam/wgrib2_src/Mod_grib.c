@@ -42,10 +42,10 @@ int parse_level1(unsigned char **sec, const char *string, int *table_4_5, int *s
         t = level_table[i];
 	/* %% -> quoted %, otherwise a read */
 
-        while (*t) { 
+        while (*t) {
 	    if (*t++ == '%') {
 		if (*t == 0) break;
-	        if (*t++ != '%') n_percent++; 
+	        if (*t++ != '%') n_percent++;
 	    }
 	}
         if (n_percent == 0) {
@@ -84,10 +84,10 @@ int parse_level1(unsigned char **sec, const char *string, int *table_4_5, int *s
             t = ncep_level_table[i];
 	    /* %% -> quoted %, otherwise a read */
 
-            while (*t) { 
+            while (*t) {
 	        if (*t++ == '%') {
 		    if (*t == 0) break;
-	            if (*t++ != '%') n_percent++; 
+	            if (*t++ != '%') n_percent++;
 	        }
 	    }
             if (n_percent == 0) {
@@ -132,7 +132,7 @@ int f_set_lev(ARG1) {
     char layer_type1[20], layer_type2[20];
 
     int table_4_5, scale_factor, scale_value;
- 
+
     if (mode < 0) return 0;
 
     len_arg1 = strlen(arg1);
@@ -322,7 +322,7 @@ extern struct gribtable_s gribtable[], *user_gribtable;
  *                 new match that is not in local tables,
  *                 if nothing, return match in local tables
  *                   not perfect, doesn't know center.
- * 1.2 4/2017 WNE: understands 
+ * 1.2 4/2017 WNE: understands
  *                 var discipline=0 center=34 local_table=1 parmcat=1 parm=203
  *                 var discipline=10 master_table=2 parmcat=0 parm=11
  *                 var10_2_1_7_0_11
@@ -445,7 +445,7 @@ int f_set_center(ARG1) {
 
 static const char *set_options="discipline, center, subcenter, master_table, local_table, background_process_id, "
         "analysis_or_forecast_process_id, model_version_date, chemical, table_1.2, table_1.3, table_1.4, "
-        "table_3.0, table_3.1/GDT, table_3.2, " 
+        "table_3.0, table_3.1/GDT, table_3.2, "
 	"table_3.3, table_3.4, table_4.0/PDT, table_4.1, table_4.2, table_4.3, table_4.5a, table_4.5b, table_4.6, "
         "table_4.7, table_4.8, table_4.10, "
         "table_4.11, table_4.230, table_5.0/DRT, table_6.0, %";
@@ -1053,7 +1053,7 @@ fprintf(stderr,">>> need to check out climo1\n");
         add_time(&year, &month, &day, &hour, &minute, &second, (j-1)*k, tr);
         add_time(&year, &month, &day, &hour, &minute, &second, (j2-1)*k2, tr2);
         save_time(year, month, day, hour, minute, second, new_sec4+34);
-        
+
 
         uint_char(58, new_sec4);                // length of section
         uint2_char(8, new_sec4+7);              // pdt = 8

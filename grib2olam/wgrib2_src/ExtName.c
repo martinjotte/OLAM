@@ -20,7 +20,7 @@
  * To handle the current and future extentions
  *
  *  Part A:  -f_misc
- *           inventory to print out the extensions  
+ *           inventory to print out the extensions
  *           format :A=value:B=value:C=value:
  *  Part B   getExtName
  *           like getName but returns extended name
@@ -58,7 +58,7 @@ int f_misc(ARG0) {
 	need_space = 1;
         inv_out += strlen(inv_out);
     }
-    
+
     f_spatial_proc(call_ARG0(inv_out,NULL));
     if (strlen(inv_out)) {
 	if (need_space) strcat(inv_out,":");
@@ -151,7 +151,7 @@ int f_misc(ARG0) {
         if (val >= 0) {
             if (GB2_MasterTable(sec) <= 4) {
                 if (error_count++ <= 10) {
-		    if (GB2_Center(sec) == ECMWF) 
+		    if (GB2_Center(sec) == ECMWF)
 			fprintf(stderr, "Warning: possible incompatible chemistry table .. table turned off.\n");
 		    else if (GB2_Center(sec) != NCEP)
 			fprintf(stderr,
@@ -245,11 +245,11 @@ int f_ext_name(ARG0) {
 }
 
 
-/* 
+/*
 
   getExtName : if (use_ext_name == 0) return old name
                else return extended name
-   
+
   get extend name - need to change some characters   ... version 2 for the format
   space -> *space
   colon -> *space

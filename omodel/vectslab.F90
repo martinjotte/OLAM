@@ -1,43 +1,11 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
 subroutine vectslab_horiz_v(iplt)
 
   use oplot_coms,  only: op
-  use mem_grid,    only: mza, mva, mwa, zm, lpw, unx, uny, unz, vnx, vny, vnz, &
-                         xev, yev, zev
+  use mem_grid,    only: mva, mwa, vnx, vny, vnz, xev, yev, zev
   use mem_ijtabs,  only: itab_m, itab_v, itab_w, jtab_v, jtv_wadj
   use consts_coms, only: eradi
-  use misc_coms,   only: io6, mdomain, iparallel
-  use mem_para,    only: myrank, mgroupsize, nbytes_int, nbytes_real
+  use misc_coms,   only: mdomain, iparallel
+  use mem_para,    only: myrank, mgroupsize, nbytes_real
 
 #ifdef OLAM_MPI
   use mpi
@@ -74,7 +42,7 @@ subroutine vectslab_horiz_v(iplt)
   op%stagpt = 'V'
   call horizplot_k(iplt,mva,ktf,kv,wtbot,wttop)
 
-  jvmax = jtab_v(jtv_wadj)%jend(1)
+  jvmax = jtab_v(jtv_wadj)%jend
 
   nu   = 0
   ipos = 0
@@ -103,7 +71,7 @@ subroutine vectslab_horiz_v(iplt)
 
      iw1_v1 = itab_w(iw1)%iv(1)
      iw2_v1 = itab_w(iw2)%iv(1)
-      
+
      ! Skip this point if we want to plot vectors only on a coarser mesh level
 
      if ( itab_m(im1)%mrlm_orig > op%vec_maxmrl .and. &
@@ -119,7 +87,7 @@ subroutine vectslab_horiz_v(iplt)
 
      call oplot_transform(iplt,xev(iv),yev(iv),zev(iv),pointx,pointy)
 
-     ! Jump out of loop if vector head is outside plot window. 
+     ! Jump out of loop if vector head is outside plot window.
 
      if ( pointx < op%xmin .or. pointx > op%xmax .or.  &
           pointy < op%ymin .or. pointy > op%ymax ) cycle
@@ -129,7 +97,7 @@ subroutine vectslab_horiz_v(iplt)
 
      if (ktf(iw1) == 0 .or. ktf(iw2) == 0) then
 
-        ! Cell is above ground 
+        ! Cell is above ground
 
         call oplot_lib(kv(iv),iv,'VALUV','VC',wtbot(iv),wttop(iv), &
                        fldval_v,notavail)
@@ -143,7 +111,7 @@ subroutine vectslab_horiz_v(iplt)
 
         ! Vector length and unit components
 
-        stemlen = max(1.e-6,sqrt(stemx**2 + stemy**2 + stemz**2))      
+        stemlen = max(1.e-6,sqrt(stemx**2 + stemy**2 + stemz**2))
 
         snx = stemx / stemlen
         sny = stemy / stemlen
@@ -191,7 +159,7 @@ subroutine vectslab_horiz_v(iplt)
         if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,head1x)
         if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,head2x)
 
-        ! Jump out of loop if tail or sides of head are outside plot window. 
+        ! Jump out of loop if tail or sides of head are outside plot window.
 
         if ( tailx  < op%xmin .or. tailx  > op%xmax .or.  &
              taily  < op%ymin .or. taily  > op%ymax .or.  &
@@ -259,7 +227,7 @@ subroutine vectslab_horiz_v(iplt)
               ipos = 0
 
               do j = 1, nus(n)
-               
+
                  call MPI_Unpack(buffer, buffsize, ipos, tailx,  1, MPI_REAL, MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, taily,  1, MPI_REAL, MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, pointx, 1, MPI_REAL, MPI_COMM_WORLD, ier)
@@ -280,7 +248,7 @@ subroutine vectslab_horiz_v(iplt)
            endif
         enddo
      endif
-        
+
      deallocate(buffer)
   endif
 #endif
@@ -292,11 +260,11 @@ end subroutine vectslab_horiz_v
 subroutine vectslab_horiz_w(iplt)
 
   use oplot_coms,  only: op
-  use mem_grid,    only: mza, mwa, zm, lpw, xew, yew, zew, wnx, wny, wnz
-  use mem_ijtabs,  only: itab_m, itab_v, itab_w, jtab_w, jtw_prog
+  use mem_grid,    only: mza, mwa, xew, yew, zew, wnx, wny, wnz
+  use mem_ijtabs,  only: itab_w, jtab_w, jtw_prog
   use mem_basic,   only: vxe, vye, vze
   use consts_coms, only: eradi
-  use misc_coms,   only: io6, mdomain, iparallel
+  use misc_coms,   only: mdomain, iparallel
   use mem_para,    only: myrank, mgroupsize, nbytes_int, nbytes_real
 
 #ifdef OLAM_MPI
@@ -369,7 +337,7 @@ call horizplot_k(iplt,mwa,ktf,kw,wtbot,wttop)
      allocate( buffer( buffsize ) )
   endif
 
-do jw = 1, jtab_w(jtw_prog)%jend(1)
+do jw = 1, jtab_w(jtw_prog)%jend
    iw = jtab_w(jtw_prog)%iw(jw)
 
 ! Skip this point if it is underground
@@ -384,7 +352,7 @@ do jw = 1, jtab_w(jtw_prog)%jend(1)
 
    call oplot_transform(iplt,xew(iw),yew(iw),zew(iw),pointx,pointy)
 
-! Jump out of loop if vector head is outside plot window. 
+! Jump out of loop if vector head is outside plot window.
 
    if (pointx < op%xmin .or. pointx > op%xmax .or.  &
        pointy < op%ymin .or. pointy > op%ymax) cycle
@@ -483,7 +451,7 @@ do jw = 1, jtab_w(jtw_prog)%jend(1)
       if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,head1x)
       if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,head2x)
 
-! Jump out of loop if tail or sides of head are outside plot window. 
+! Jump out of loop if tail or sides of head are outside plot window.
 
       if (tailx  < op%xmin .or. tailx  > op%xmax .or.  &
           taily  < op%ymin .or. taily  > op%ymax .or.  &
@@ -800,7 +768,7 @@ enddo
            endif
         enddo
      endif
-        
+
      deallocate(buffer)
   endif
 #endif
@@ -812,12 +780,10 @@ end subroutine vectslab_horiz_w
 subroutine vectslab_horiz_vsfc(iplt)
 
   use oplot_coms,  only: op
-  use mem_sfcg,    only: itab_msfc, itab_vsfc, itab_wsfc, jtab_vsfc_swm, sfcg
-  use mem_sea,     only: omsea, sea
-  use sea_swm,     only: depthmin_swe
+  use mem_sfcg,    only: itab_vsfc, itab_wsfc, jtab_vsfc_swm, sfcg
   use consts_coms, only: eradi
-  use misc_coms,   only: io6, mdomain, iparallel
-  use mem_para,    only: myrank, mgroupsize, nbytes_int, nbytes_real
+  use misc_coms,   only: mdomain, iparallel
+  use mem_para,    only: myrank, mgroupsize, nbytes_real
 
 #ifdef OLAM_MPI
   use mpi
@@ -827,9 +793,9 @@ subroutine vectslab_horiz_vsfc(iplt)
 
   integer, intent(in) :: iplt
 
-  integer :: jv,iv,iw1,iw2,notavail,im1,im2,iw1_v1,iw2_v1,jvmax,isea1,isea2
+  integer :: jv,iv,iw1,iw2,im1,im2,iw1_v1,iw2_v1,jvmax
 
-  real :: fldval_v,pointx,pointy,tailx,taily
+  real :: pointx,pointy,tailx,taily
   real :: headlen,head1x,head1y,head2x,head2y
   real :: tailxe,tailye,tailze,stemlen
   real :: stemx,stemy,stemz,snx,sny,snz,rnx,rny,rnz
@@ -865,9 +831,6 @@ subroutine vectslab_horiz_vsfc(iplt)
      iw1 = itab_vsfc(iv)%iwn(1)
      iw2 = itab_vsfc(iv)%iwn(2)
 
-     isea1 = iw1 - omsea
-     isea2 = iw2 - omsea
-
      im1 = itab_vsfc(iv)%imn(1)
      im2 = itab_vsfc(iv)%imn(2)
 
@@ -881,7 +844,7 @@ subroutine vectslab_horiz_vsfc(iplt)
 
      call oplot_transform(iplt,sfcg%xev(iv),sfcg%yev(iv),sfcg%zev(iv),pointx,pointy)
 
-     ! Jump out of loop if vector head is outside plot window. 
+     ! Jump out of loop if vector head is outside plot window.
 
      if ( pointx < op%xmin .or. pointx > op%xmax .or.  &
           pointy < op%ymin .or. pointy > op%ymax ) cycle
@@ -895,7 +858,7 @@ subroutine vectslab_horiz_vsfc(iplt)
 
         ! Vector length and unit components
 
-        stemlen = max(1.e-6,sqrt(stemx**2 + stemy**2 + stemz**2))      
+        stemlen = max(1.e-6,sqrt(stemx**2 + stemy**2 + stemz**2))
 
         snx = stemx / stemlen
         sny = stemy / stemlen
@@ -943,7 +906,7 @@ subroutine vectslab_horiz_vsfc(iplt)
         if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,head1x)
         if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,head2x)
 
-        ! Jump out of loop if tail or sides of head are outside plot window. 
+        ! Jump out of loop if tail or sides of head are outside plot window.
 
         if ( tailx  < op%xmin .or. tailx  > op%xmax .or.  &
              taily  < op%ymin .or. taily  > op%ymax .or.  &
@@ -1009,7 +972,7 @@ subroutine vectslab_horiz_vsfc(iplt)
               ipos = 0
 
               do j = 1, nus(n)
-               
+
                  call MPI_Unpack(buffer, buffsize, ipos, tailx,  1, MPI_REAL, MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, taily,  1, MPI_REAL, MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, pointx, 1, MPI_REAL, MPI_COMM_WORLD, ier)
@@ -1030,7 +993,7 @@ subroutine vectslab_horiz_vsfc(iplt)
            endif
         enddo
      endif
-        
+
      deallocate(buffer)
   endif
 #endif
@@ -1042,12 +1005,11 @@ end subroutine vectslab_horiz_vsfc
 subroutine vectslab_horiz_wsfc(iplt)
 
   use oplot_coms,  only: op
-  use mem_sfcg,    only: itab_msfc, itab_vsfc, itab_wsfc, jtab_wsfc_swm, &
-                         mwsfc, sfcg
+  use mem_sfcg,    only: jtab_wsfc_swm, mwsfc, sfcg
   use mem_sea,     only: sea, omsea
   use consts_coms, only: eradi
-  use misc_coms,   only: io6, mdomain, iparallel
-  use mem_para,    only: myrank, mgroupsize, nbytes_int, nbytes_real
+  use misc_coms,   only: mdomain, iparallel
+  use mem_para,    only: myrank, mgroupsize, nbytes_real
 
 #ifdef OLAM_MPI
   use mpi
@@ -1066,7 +1028,7 @@ subroutine vectslab_horiz_wsfc(iplt)
   real :: head1xe,head1ye,head1ze,head2xe,head2ye,head2ze
 
   integer, allocatable :: buffer(:), bcopy(:)
-  integer :: nu, ier, buffsize, ipos, base, inc, j, n, is
+  integer :: nu, ier, buffsize, ipos, base, inc, j, n
   integer :: nus(mgroupsize)
   integer, parameter :: itag = 40
 
@@ -1095,7 +1057,7 @@ subroutine vectslab_horiz_wsfc(iplt)
 
      call oplot_transform(iplt,sfcg%xew(iw),sfcg%yew(iw),sfcg%zew(iw),pointx,pointy)
 
-     ! Jump out of loop if vector head is outside plot window. 
+     ! Jump out of loop if vector head is outside plot window.
 
      if (pointx < op%xmin .or. pointx > op%xmax .or.  &
          pointy < op%ymin .or. pointy > op%ymax) cycle
@@ -1160,7 +1122,7 @@ subroutine vectslab_horiz_wsfc(iplt)
      if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,head1x)
      if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,head2x)
 
-     ! Jump out of loop if tail or sides of head are outside plot window. 
+     ! Jump out of loop if tail or sides of head are outside plot window.
 
      if (tailx  < op%xmin .or. tailx  > op%xmax .or.  &
          taily  < op%ymin .or. taily  > op%ymax .or.  &
@@ -1240,7 +1202,7 @@ subroutine vectslab_horiz_wsfc(iplt)
            endif
         enddo
      endif
-        
+
      deallocate(buffer)
   endif
 #endif

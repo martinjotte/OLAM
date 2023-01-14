@@ -1,36 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
-
 subroutine interp_htw_ll(npts,iws_loc,wts_loc,nlevin,nlevout,field,field_ll)
 
   use mem_grid,     only: mwa, mza, lpw
@@ -50,7 +17,7 @@ subroutine interp_htw_ll(npts,iws_loc,wts_loc,nlevin,nlevout,field,field_ll)
 
   if (nlevin == mza) then
      !$omp parallel do private (iw,ka,k)
-     do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
+     do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
         ka = lpw(iw)
         do k = ka-1, 1, -1
            field(k,iw) = field(ka,iw)
@@ -60,8 +27,8 @@ subroutine interp_htw_ll(npts,iws_loc,wts_loc,nlevin,nlevout,field,field_ll)
   endif
 
   if (iparallel == 1) then
-     call mpi_send_w(1,svara1=field)
-     call mpi_recv_w(1,svara1=field)
+     call mpi_send_w(svara1=field)
+     call mpi_recv_w(svara1=field)
   endif
 
   !$omp parallel do private (kout,kin)
@@ -136,7 +103,7 @@ subroutine find_3iws_ll(nlon,nlat,alon,alat,iws_ll,wts_ll)
 
   ! Loop over all prognostic W points
 
-  do jw = 1, jtab_w(jtw_prog)%jend(1)
+  do jw = 1, jtab_w(jtw_prog)%jend
      iw = jtab_w(jtw_prog)%iw(jw)
 
      raxis  = sqrt( xew(iw)**2 + yew(iw)**2 )
@@ -236,7 +203,7 @@ subroutine find_3iws_ll(nlon,nlat,alon,alat,iws_ll,wts_ll)
 
               ! If lat/lon point is closer to IWN point than to IW point, move
               ! on to next lat/lon point.  Bias is used to reduce chance of
-              ! lat/lon point being rejected by all IW points in domain; this 
+              ! lat/lon point being rejected by all IW points in domain; this
               ! might lead to a few lat/lon values being interpolated on
               ! multiple MPI subdomains, but this is sorted out later.
 
@@ -253,7 +220,7 @@ subroutine find_3iws_ll(nlon,nlat,alon,alat,iws_ll,wts_ll)
 
            call de_ps(dxe,dye,dze,coswlat,sinwlat,coswlon,sinwlon,qx,qy)
 
-           ! Loop over each pair of consecutive neighbor W points 
+           ! Loop over each pair of consecutive neighbor W points
 
            do j1 = 1,npoly
               j2 = j1 + 1

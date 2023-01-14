@@ -46,7 +46,7 @@
 !
 !    Klemp, J. B., W. C. Skamarock, W. C., and S.-H. Park, 2015:
 !    Idealized Global Nonhydrostatic Atmospheric Test Cases on a Reduced
-!    Radius Sphere. Journal of Advances in Modeling Earth Systems. 
+!    Radius Sphere. Journal of Advances in Modeling Earth Systems.
 !    doi:10.1002/2015MS000435
 !
 !=======================================================================
@@ -84,7 +84,7 @@ SUBROUTINE DCMIP2016_PHYSICS(test, u, v, p, qv, qc, qr, &
             p       ,  & ! Pressure on model levels (Pa)
             exner        ! Exner function
 
-  REAL(8), INTENT(IN) :: & 
+  REAL(8), INTENT(IN) :: &
             dt           ! Time step (s)
 
   REAL(8), DIMENSION(nz), INTENT(IN) :: &
@@ -126,7 +126,7 @@ SUBROUTINE DCMIP2016_PHYSICS(test, u, v, p, qv, qc, qr, &
     SST_TC   = 302.15d0,     & ! Constant Value for SST
     T0       = 273.16d0,     & ! Control temp for calculation of qsat
     e0       = 610.78d0,     & ! Saturation vapor pressure at T0
-    rhow     = 1000.0d0,     & ! Density of Liquid Water 
+    rhow     = 1000.0d0,     & ! Density of Liquid Water
     Cd0      = 0.0007d0,     & ! Constant for Cd calc. Simth and Vogl 2008
     Cd1      = 0.000065d0,   & ! Constant for Cd calc. Simth and Vogl 2008
     Cm       = 0.002d0,      & ! Constant for Cd calc. Simth and Vogl 2008
@@ -152,10 +152,8 @@ SUBROUTINE DCMIP2016_PHYSICS(test, u, v, p, qv, qc, qr, &
     za,                       & ! Altitude of lowest model level (m)
     Tsurf,                    & ! Sea surface temperature (K)
     ps,                       & ! Surface pressure (Pa)
-    pres,                     & ! Pressure on model level (Pa)
     presi,                    & ! Pressure on model interface (Pa)
     rhomi,                    & ! Moist density on model interface (kg/m^3)
-    thetav,                   & ! Virtual potential temperature (K)
     dz,                       & ! Thickness of model level (m)
     deltaqsv,                 & ! Change in specific humidity
     wind,                     & ! Wind speed in the lowest model level (m/s)
@@ -201,7 +199,7 @@ SUBROUTINE DCMIP2016_PHYSICS(test, u, v, p, qv, qc, qr, &
   !------------------------------------------------
 
   ! Moist baroclinic wave test
-  if (test .eq. 1) then 
+  if (test .eq. 1) then
     Tsurf = &
       (T00 + pi*u0/rair * 1.5d0 * sin(etav) * (cos(etav))**0.5d0 * &
       ((-2.d0*(sin(lat))**6 * ((cos(lat))**2 + 1.d0/3.d0) &
@@ -342,7 +340,7 @@ SUBROUTINE DCMIP2016_PHYSICS(test, u, v, p, qv, qc, qr, &
 
   ! Hydrostatic surface pressure
 
-  ps = p(ka) + gravit * rhom(ka) * (z(ka) - zi(ka)) 
+  ps = p(ka) + gravit * rhom(ka) * (z(ka) - zi(ka))
   qsats = epsilo * e0 / ps * exp(-latvap / rh2o * ((one/Tsurf)-(one/T0)))
 
   u(ka) = u(ka) / (one + dt * Cd * wind / za)
@@ -421,5 +419,5 @@ SUBROUTINE DCMIP2016_PHYSICS(test, u, v, p, qv, qc, qr, &
     qv(k) = qsv(k) / (one - qsv(k))
   enddo
 
-END SUBROUTINE DCMIP2016_PHYSICS 
+END SUBROUTINE DCMIP2016_PHYSICS
 

@@ -1,36 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
-
 module wrtv_orig
   implicit none
 
@@ -78,21 +45,20 @@ subroutine prog_wrtv_orig()
 ! convergences in T cells, the Miura (2007) piecewise-linear advection algorithm,
 ! and the Walko and Avissar (2008a,b) time differencing method.
 
-  use mem_ijtabs,   only: jtab_v, jtab_w, itab_v, itab_w, istp, mrl_begl, &
-                          mrl_begs, mrl_ends, jtm_vadj, jtv_prog, jtw_wadj, &
+  use mem_ijtabs,   only: jtab_v, jtab_w, itab_v, itab_w, istp, &
+                          mrl_ends, jtm_vadj, jtv_prog, jtw_wadj, &
                           jtv_wadj, jtv_lbcp, jtw_prog, jtw_lbcp
   use mem_basic,    only: rho, thil, press, wmc, wc, vmc, vc, vxe, vye, vze, vmp, &
                           vmsc, wmsc, vxesc, vyesc, vzesc
-  use mem_grid,     only: mza, mva, mwa, lpv, lpw, arw, arv, volt
+  use mem_grid,     only: mza, mva, mwa, lpv, lpw, volt, xev
   use mem_tend,     only: thilt, vmxet, vmyet, vmzet, vmt
-  use misc_coms,    only: iparallel, dtsm
+  use misc_coms,    only: iparallel, dtsm, deltax, mdomain, nxp
   use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, mpi_send_v, mpi_recv_v
-  use oplot_coms,   only: op
   use obnd,         only: lbcopy_v, lbcopy_w
   use vel_t3d,      only: vel_t3d_hex
-  use oname_coms,   only: nl
-  use mem_turb,     only: akmodx, akhodx, khtopv, kmtopv, khtop
-  use mem_rayf,     only: dorayfmix, rayf_mix_top_vxe
+  use mem_turb,     only: akmodx, akhodx, khtopv, kmtopv
+  use mem_rayf,     only: dorayfmix, rayf_mix_top_vxe, &
+                          krayf_bot, dorayf, rayf_cof, vc03d
   use grad_lib,     only: grad_t2d, grad_z
   use pbl_drivers,  only: solve_eddy_diff_heat, solve_eddy_diff_vxe
   use vel_t3d,      only: diagvel_t3d
@@ -112,12 +78,9 @@ subroutine prog_wrtv_orig()
 
   implicit none
 
-  integer :: j, iv, iw, k, mrl, kd, iwd, jv, iwn, iw1, iw2
+  integer :: j, iv, iw, k, kd, iwd, jv, iwn, iw1, iw2
 
 ! automatic arrays
-
-  integer :: iwdepv(mza,mva) ! donor cell IW index for V face
-  integer :: kdepw(mza,mwa)  ! donor cell K index for W face
 
   real :: v4, dt
   real :: vmcf(mza,mva) ! Time-extrapolated VMC
@@ -148,17 +111,18 @@ subroutine prog_wrtv_orig()
   real :: dxps_w(mza), dyps_w(mza), dzps_w(mza)
   real :: dxps_v(mza), dyps_v(mza), dzps_v(mza)
 
+  real :: unit_dist, fracx, rayfx
+
 ! THIS ROUTINE IS PERFORMED AT THE END OF EACH SMALL TIMESTEP
 
-  mrl = mrl_ends(istp)
-  if (mrl == 0) return
+  if (mrl_ends(istp) == 0) return
 
-  dt = dtsm(1)
+  dt = dtsm
 
 ! INCLUDE THE LONG TIMESTEP THIL AND MOMENTUM TENDENCIES IN EACH SHORT TIMESTEP
 
   !$omp parallel do private(iw,k,v4,jv,iv,iwn)
-  do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+  do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
      do k = lpw(iw), mza
         v4 = real(volt(k,iw))
@@ -212,15 +176,15 @@ subroutine prog_wrtv_orig()
   ! MPI send of THIL, VXE, VYE, and VZE gradient components
 
   if (iparallel == 1) then
-     call mpi_send_w(mrl, rvara1=gxps_the, rvara2=gyps_the, &
-                          rvara3=gxps_vxe, rvara4=gyps_vxe, &
-                          rvara5=gxps_vye, rvara6=gyps_vye, &
-                          rvara7=gxps_vze, rvara8=gyps_vze  )
+     call mpi_send_w(rvara1=gxps_the, rvara2=gyps_the, &
+                     rvara3=gxps_vxe, rvara4=gyps_vxe, &
+                     rvara5=gxps_vye, rvara6=gyps_vye, &
+                     rvara7=gxps_vze, rvara8=gyps_vze  )
   endif
 
   !$omp parallel private(dxps_w,dyps_w,dzps_w)
   !$omp do private(iv,iw1,iw2,k)
-  do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
+  do j = 1,jtab_v(jtv_wadj)%jend; iv = jtab_v(jtv_wadj)%iv(j)
 
      ! Extrapolate VM to time T + 1/2; update VMP
 
@@ -239,7 +203,7 @@ subroutine prog_wrtv_orig()
   ! EVALUATE VERTICAL GRADIENT OF THIL, VXE, VYE, AND VZE FOR BEGS
 
   !$omp do private(iw)
-  do j = 1, jtab_w(jtw_wadj)%jend(mrl); iw = jtab_w(jtw_wadj)%iw(j)
+  do j = 1, jtab_w(jtw_wadj)%jend; iw = jtab_w(jtw_wadj)%iw(j)
      call grad_z(iw, thil(:,iw), gzps_the(:,iw))
      call grad_z(iw, vxe (:,iw), gzps_vxe(:,iw))
      call grad_z(iw, vye (:,iw), gzps_vye(:,iw))
@@ -248,7 +212,7 @@ subroutine prog_wrtv_orig()
   !$omp end do
 
   !$omp do private(iw,k,kd)
-  do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+  do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
      call donorpointw(iw, dt, wc(:,iw), vxe(:,iw), vye(:,iw), vze(:,iw), &
                       dxps_w, dyps_w, dzps_w)
@@ -288,25 +252,25 @@ subroutine prog_wrtv_orig()
   ! Finish MPI recv of THIL, VXE, VYE, and VZE gradient components
 
   if (iparallel == 1) then
-     call mpi_recv_w(mrl, rvara1=gxps_the, rvara2=gyps_the, &
-                          rvara3=gxps_vxe, rvara4=gyps_vxe, &
-                          rvara5=gxps_vye, rvara6=gyps_vye, &
-                          rvara7=gxps_vze, rvara8=gyps_vze  )
+     call mpi_recv_w(rvara1=gxps_the, rvara2=gyps_the, &
+                     rvara3=gxps_vxe, rvara4=gyps_vxe, &
+                     rvara5=gxps_vye, rvara6=gyps_vye, &
+                     rvara7=gxps_vze, rvara8=gyps_vze  )
   endif
 
   ! Lateral boundary copy of THIL, VXE, VYE, and VZE gradient components
 
-  call lbcopy_w(mrl, a1=gxps_the, a2=gyps_the, &
-                     a3=gxps_vxe, a4=gyps_vxe, &
-                     a5=gxps_vye, a6=gyps_vye, &
-                     a7=gxps_vze, a8=gyps_vze  )
+  call lbcopy_w(a1=gxps_the, a2=gyps_the, &
+                a3=gxps_vxe, a4=gyps_vxe, &
+                a5=gxps_vye, a6=gyps_vye, &
+                a7=gxps_vze, a8=gyps_vze  )
 
 ! EVALUATE UPWINDED THIL, VXE, VYE, AND VZE AT EACH V FACE FOR
 ! HORIZONTAL FLUX COMPUTATION.
 
   !$omp parallel private(vcf,dxps_v,dyps_v,dzps_v)
   !$omp do private(iv,iw1,iw2,k,iwd)
-  do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
+  do j = 1,jtab_v(jtv_wadj)%jend; iv = jtab_v(jtv_wadj)%iv(j)
 
      iw1 = itab_v(iv)%iw(1)
      iw2 = itab_v(iv)%iw(2)
@@ -351,7 +315,7 @@ subroutine prog_wrtv_orig()
 ! MAIN LOOP OVER W COLUMNS FOR UPDATING WM, WC, RHO, THIL, AND PRESS
 
   !$omp do private(iw)
-  do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+  do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
      ! Prognose vertical velocity, density, thil, and diagnose pressure
      call prog_wrt_begs( iw, vmcf, wmsc,                       &
@@ -364,41 +328,75 @@ subroutine prog_wrtv_orig()
   !$omp end do nowait
   !$omp end parallel
 
-  ! MPI send of quantities needed for prog_v:
+  ! MPI send/recv of quantities needed for prog_v:
   ! PRESS, RHO, VMXET_VOLT, VMYET_VOLT, and VMZET_VOLT
 
   if (iparallel == 1) then
-     call mpi_send_w(mrl, dvara1=press, dvara2=rho, &
-                     rvara1=vmxet_short, rvara2=vmyet_short, rvara3=vmzet_short )
+     call mpi_send_w(dvara1=press, dvara2=rho, rvara1=vmxet_short, &
+                     rvara2=vmyet_short, rvara3=vmzet_short )
+
+     call mpi_recv_w(dvara1=press, dvara2=rho, rvara1=vmxet_short, &
+                     rvara2=vmyet_short, rvara3=vmzet_short )
   endif
 
-  ! MPI recv and LBC copy of quantities needed for prog_v:
-  ! PRESS, RHO, VMXET_VOLT, VMYET_VOLT, and VMZET_VOLT
-
-  if (iparallel == 1) then
-     call mpi_recv_w(mrl, dvara1=press, dvara2=rho, &
-                     rvara1=vmxet_short, rvara2=vmyet_short, rvara3=vmzet_short )
-  endif
-
-  call lbcopy_w(mrl, a1=vmxet_short, a2=vmyet_short, a3=vmzet_short,  &
-                     d1=press,       d2=rho                           )
+  call lbcopy_w(a1=vmxet_short, a2=vmyet_short, a3=vmzet_short, &
+                d1=press,       d2=rho)
 
   ! Compute terms for rotational form of horizontal momentum
 
   if (rotational) then
-     call prep_rotational(mrl)
+     call prep_rotational()
   endif
-
-  ! A good place to do divergence damping
 
   vmt_short = vmt
 
-  call divh_damp(1, vmt_short)
+  ! Rayleigh friction on vmc
+
+  if (dorayf) then
+
+     unit_dist = sqrt(sqrt(4./3.)) * deltax  ! approx = 1.07457 * deltax; for mdomain = 4 only
+
+     !$omp parallel do private(iv,iw1,iw2,fracx,rayfx,k)
+     do j = 1,jtab_v(jtv_prog)%jend; iv = jtab_v(jtv_prog)%iv(j)
+        iw1 = itab_v(iv)%iw(1)
+        iw2 = itab_v(iv)%iw(2)
+
+        if (mdomain /= 4) then
+
+           ! Vertical loop over V points
+           do k = krayf_bot, mza
+              vmt_short(k,iv) = vmt_short(k,iv) + max(rayf_cof(k),rayfx) &
+                   * 0.5 * (rho(k,iw1) + rho(k,iw2)) * (vc03d(k,iv) - vc(k,iv))
+           enddo
+
+        else
+
+           ! Coefficient for extra RAYF damping at ends of channel with cyclic BC's
+
+           fracx = abs(xev(iv)) / (0.5 * real(nxp) * unit_dist)
+           rayfx = (-2. + 3. * fracx) * (0.2 * rayf_cof(mza))  ! max of (0.2 * rayf_cof) at top bnd
+
+           ! Vertical loop over V points
+           do k = lpv(iv), mza
+              vmt_short(k,iv) = vmt_short(k,iv) + max(rayf_cof(k),rayfx) &
+                   * 0.5 * (rho(k,iw1) + rho(k,iw2)) * (vc03d(k,iv) - vc(k,iv))
+           enddo
+
+        endif
+
+     enddo
+     !$omp end parallel do
+
+  endif ! (dorayf)
+
+  ! A good place to do divergence damping
+
+  call divh_damp(vmt_short)
 
   ! Main loop over v points to update vmc and vc
 
   !$omp parallel do private(iv)
-  do j = 1,jtab_v(jtv_prog)%jend(mrl); iv = jtab_v(jtv_prog)%iv(j)
+  do j = 1,jtab_v(jtv_prog)%jend; iv = jtab_v(jtv_prog)%iv(j)
 
      call prog_v_begs( iv, vmt_short(:,iv), vmxet_short, vmyet_short, vmzet_short )
 
@@ -408,14 +406,14 @@ subroutine prog_wrtv_orig()
   ! MPI SEND/RECV and LBC of VC and VMC
 
   if (iparallel == 1) then
-     call mpi_send_v(mrl, rvara1=vmc, rvara2=vc)
-     call mpi_recv_v(mrl, rvara1=vmc, rvara2=vc)
+     call mpi_send_v(rvara1=vmc, rvara2=vc)
+     call mpi_recv_v(rvara1=vmc, rvara2=vc)
   endif
-  call lbcopy_v(mrl, vmc=vmc, vc=vc)
+  call lbcopy_v(vmc=vmc, vc=vc)
 
-  ! UPDATE EARTH CARTESIAN VELOCITIES
+  ! Update Earth Cartesian velocities
 
-  call diagvel_t3d(mrl)
+  call diagvel_t3d()
 
 end subroutine prog_wrtv_orig
 
@@ -430,18 +428,15 @@ subroutine prog_wrt_begs( iw, vmcf, wmsc,                       &
   use mem_ijtabs,  only: itab_w
   use mem_basic,   only: wmc, rho, thil, wc, press, vxe, vye, vze, &
                          alpha_press, pwfac
-  use vel_t3d,     only: icut_vel, vxe1, vye1, vze1
   use misc_coms,   only: dtsm, deltax, nxp, initial, dn01d, th01d, nrk_scal, &
                          mdomain
   use consts_coms, only: cpocv, fcoriol, pi1, pio180, r8
   use mem_grid,    only: mza, mva, mwa, lpv, lpw, lve2, arw, arv, &
-                         vnx, vny, vnz, wnx, wny, wnz, wnxo2, wnyo2, wnzo2, &
-                         dzim, volt, volti, volwi, glatw, glonw, gdzim, &
-                         dzt_top, dzt_bot, zwgt_bot, gravm, &
-                         zwgt_top8, zwgt_bot8, gdz_wgtm8, gdz_wgtp8
+                         wnx, wny, wnz, volt, volti, volwi, glatw, glonw, &
+                         gdzim, dzt_top, dzt_bot, zwgt_top8, zwgt_bot8, &
+                         gdz_wgtm8, gdz_wgtp8
   use tridiag,     only: tridiffo
   use oname_coms,  only: nl
-  use mem_turb,    only: akmodx, akhodx
   use mem_rayf,    only: dorayfw, rayf_cofw, krayfw_bot, &
                          dorayf, rayf_cof, krayf_bot
   use mem_nudge,   only: rhot_nud, nudflag
@@ -479,8 +474,7 @@ subroutine prog_wrt_begs( iw, vmcf, wmsc,                       &
   real(r8) :: dt8, v4, v8i
 
   real :: c6, c7, c8, c9, c10
-  real :: dirv, vmarv
-  real :: vmt1, mass
+  real :: dirv, vmarv, mass
   real :: rad0_swtc, rad_swtc, topo_swtc
 
   ! Vertical implicit scheme weighting parameters
@@ -525,7 +519,7 @@ subroutine prog_wrt_begs( iw, vmcf, wmsc,                       &
   real :: vflux_vye(mza)
   real :: vflux_vze(mza)
 
-  real :: b1(mza),b2(mza),b3(mza),b5(mza),b6(mza),b10(mza)
+  real :: b1(mza),b2(mza),b5(mza),b6(mza),b10(mza)
   real :: b7(mza),b8(mza),b9(mza),b11(mza),b12(mza),b13(mza),b14(mza)
   real :: b20(mza),b21(mza),b22(mza),b23(mza),b24(mza),b25(mza),b26(mza)
   real :: b31(mza),b32(mza),b33(mza),b34(mza)
@@ -539,17 +533,15 @@ subroutine prog_wrt_begs( iw, vmcf, wmsc,                       &
 
   ka = lpw(iw)
 
-  dt8 = dtsm(itab_w(iw)%mrlw)  ! double precision DT
-  dts = dt8                    ! single precision DT
+  dt8 = dtsm  ! double precision DT
+  dts = dt8   ! single precision DT
 
   ! Store current T cell earth-Cartesion momentum
 
   if (nrk_scal == 1) then
      ktop = mza
-  elseif (icut_vel == 1) then
-     ktop = ka + lve2(iw) - 1
   else
-     ktop = ka - 1
+     ktop = ka + lve2(iw) - 1
   endif
 
   do k = ka, ktop
@@ -678,10 +670,8 @@ subroutine prog_wrt_begs( iw, vmcf, wmsc,                       &
   if (dorayf .and. initial == 1) then
 
      do k = krayf_bot, mza
-        v4 = real(volt(k,iw))
-
-        thil_tend(k) = thil_tend(k) &
-                        + real( rayf_cof(k) * dn01d(k) * (th01d(k) - thil(k,iw)) * v4, r8)
+        thil_tend(k) = thil_tend(k) + volt(k,iw) &
+             * real( rayf_cof(k) * dn01d(k) * (th01d(k) - thil(k,iw)), r8)
      enddo
 
      ! Alternate form: Extra RAYF at open ends of channel with cyclic end boundary conditions
@@ -689,7 +679,7 @@ subroutine prog_wrt_begs( iw, vmcf, wmsc,                       &
      ! rayfx = .2 * (-2. + 3. * fracx) * rayf_cof(mza)
      ! rayfx = 0.   ! Default: no extra RAYF
      ! do k = ka, mza
-     !    thilt(k,iw) = thilt(k,iw) + max(rayf_cof(k),rayfx)  & 
+     !    thilt(k,iw) = thilt(k,iw) + max(rayf_cof(k),rayfx)  &
      !                * dn01d(k) * (th01d(k) - thil(k,iw))
      ! enddo
 
@@ -915,13 +905,11 @@ subroutine prog_wrt_begs( iw, vmcf, wmsc,                       &
 
   ! Save velocity in T cells at (t+1) for prognostic method
 
-  if (icut_vel == 1) then
-     do ksw = 1, lve2(iw)
-        k = ksw + ka - 1
-
-        vxe1(ksw,iw) = vxef(k)
-        vye1(ksw,iw) = vyef(k)
-        vze1(ksw,iw) = vzef(k)
+  if (lve2(iw) > 0.) then
+     do k = ka, ka + lve2(iw) - 1
+        vxe(k,iw) = vxef(k)
+        vye(k,iw) = vyef(k)
+        vze(k,iw) = vzef(k)
      enddo
   endif
 
@@ -985,13 +973,11 @@ subroutine prog_v_begs( iv, vmt_short, vmxet_short, vmyet_short, vmzet_short )
 
   use mem_ijtabs,  only: itab_v
   use mem_basic,   only: vc, press, vmc, rho, vxe, vye, vze, pvfac
-  use mem_tend,    only: vmt
-  use misc_coms,   only: dtsm, initial, mdomain, deltax, nxp
+  use misc_coms,   only: dtsm
   use consts_coms, only: eradi, gravo2
-  use mem_grid,    only: mza, mwa, lpv, volt, xev, yev, zev, &
-                         unx, uny, unz, vnx, vny, vnz, vnxo2, vnyo2, vnzo2, &
+  use mem_grid,    only: mza, mwa, lpv, xev, yev, zev, &
+                         unx, uny, unz, vnx, vny, vnz, &
                          dniu, dniv, volvi
-  use mem_rayf!,    only: dorayf, rayf_cof, vc03d, dn03d, krayf_bot
   use oname_coms,  only: nl
 
   implicit none
@@ -1007,7 +993,6 @@ subroutine prog_v_begs( iv, vmt_short, vmxet_short, vmyet_short, vmzet_short )
   integer :: iw1,iw2,im1,im2
 
   real :: dts
-  real :: fracx, rayfx
   real :: vx, vy, vz, uc, watv, tke1, tke2, vortp_v, dtso2dnu, dtso2dnv
   real :: pgf(mza)
 
@@ -1016,7 +1001,7 @@ subroutine prog_v_begs( iv, vmt_short, vmxet_short, vmyet_short, vmzet_short )
   iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
   im1 = itab_v(iv)%im(1); im2 = itab_v(iv)%im(2)
 
-  dts = dtsm(itab_v(iv)%mrlv)
+  dts = dtsm
 
   kb = lpv(iv)
 
@@ -1095,7 +1080,7 @@ end subroutine prog_v_begs
 
 !===============================================================================
 
-subroutine prep_rotational(mrl)
+subroutine prep_rotational()
 
   use mem_ijtabs,   only: jtab_v, jtab_w, itab_v, itab_w, jtab_m, itab_m, &
                           jtm_vadj, jtv_prog, jtv_wadj, jtv_lbcp, jtw_prog, jtw_lbcp
@@ -1108,8 +1093,6 @@ subroutine prep_rotational(mrl)
 
   implicit none
 
-  integer, intent(in) :: mrl
-
   integer :: j, iv, k, kb
   integer :: iw, iw1, iw2
   integer :: im,npoly,jv
@@ -1120,7 +1103,7 @@ subroutine prep_rotational(mrl)
 ! FOR COMPUTING VERTICAL VORTICITY.
 
   !$omp parallel do private(im,npoly,kb,jv,iv,k,arm0i)
-  do j = 1,jtab_m(jtm_vadj)%jend(mrl); im = jtab_m(jtm_vadj)%im(j)
+  do j = 1,jtab_m(jtm_vadj)%jend; im = jtab_m(jtm_vadj)%im(j)
 
      npoly = itab_m(im)%npoly
      kb    = lpm(im)
@@ -1146,7 +1129,7 @@ subroutine prep_rotational(mrl)
         endif
      enddo
 
-     ! Convert circulation to relative vertical vorticity at M 
+     ! Convert circulation to relative vertical vorticity at M
      ! (DNV lacks the zfact factor and ARM0 lacks the zfact**2 factor, so we
      ! divide their quotient by zfact)
 
@@ -1157,22 +1140,22 @@ subroutine prep_rotational(mrl)
      enddo
 
   enddo
-  !$omp end parallel do 
+  !$omp end parallel do
 
   ! PARALLEL SEND/RECV OF VORTP
 
   if (iparallel == 1) then
-     call mpi_send_m(mrl, rvara1=vortp)
-     call mpi_recv_m(mrl, rvara1=vortp)
+     call mpi_send_m(rvara1=vortp)
+     call mpi_recv_m(rvara1=vortp)
   endif
-  call lbcopy_m(mrl, a1=vortp)
+  call lbcopy_m(a1=vortp)
 
 ! IF USING ROTATIONAL FORM FOR PROGNOSING HORIZONTAL MOMENTUM,
 ! EVALUATE VORTP_T AND VORTN AND CORIOLIS FORCING TERMS
 
   ! Horizontal loop over W/T columns
   !$omp parallel do private(iw,npoly,kb,k,jm,im)
-  do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+  do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
      npoly = itab_w(iw)%npoly
      kb = lpw(iw)
@@ -1190,20 +1173,20 @@ subroutine prep_rotational(mrl)
      enddo
 
   enddo
-  !$omp end parallel do 
+  !$omp end parallel do
 
-  if (iparallel == 1) call mpi_send_w(mrl, rvara1=vortp_t)
-  if (iparallel == 1) call mpi_recv_w(mrl, rvara1=vortp_t)
-  call lbcopy_w(mrl, a1=vortp_t)
+  if (iparallel == 1) call mpi_send_w(rvara1=vortp_t)
+  if (iparallel == 1) call mpi_recv_w(rvara1=vortp_t)
+  call lbcopy_w(a1=vortp_t)
 
   ! Horizontal loop over V/N columns
-  !$omp parallel do private(iv,iw1,iw2,k,kb) 
-  do j = 1,jtab_v(jtv_prog)%jend(mrl); iv = jtab_v(jtv_prog)%iv(j)
+  !$omp parallel do private(iv,iw1,iw2,k,kb)
+  do j = 1,jtab_v(jtv_prog)%jend; iv = jtab_v(jtv_prog)%iv(j)
 
      iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
      kb = lpv(iv)
 
-     ! Vertical loop over N levels; compute horizontal relative vorticity 
+     ! Vertical loop over N levels; compute horizontal relative vorticity
      ! and vertical velocity at N points (at time T)
      do k = kb,mza-1
         vortn(k,iv) = zfacim(k) * ((wc(k,iw1) - wc(k,iw2)) * dniv(iv) &
@@ -1214,7 +1197,7 @@ subroutine prep_rotational(mrl)
      vortn(mza,iv) = 0.
 
   enddo
-  !$omp end parallel do 
+  !$omp end parallel do
 
 end subroutine prep_rotational
 

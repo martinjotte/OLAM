@@ -1,36 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University;
-   ! Colorado State University Research Foundation ; ATMET, LLC
-
-   ! This software is free software; you can redistribute it and/or modify it
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version.
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
-
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
-   ! (http://www.gnu.org/licenses/gpl.html)
-   !----------------------------------------------------------------------------
-
-!===============================================================================
-
 module mem_adv
 
   use consts_coms, only: r8
@@ -162,7 +129,7 @@ contains
     a_v(1,:,:) = a_v(2,:,:)
 
     !$omp parallel do private(iw,n,ivn,npoly)
-    do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
+    do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
        npoly = itab_w(iw)%npoly
 
        do n = 1, npoly
@@ -189,17 +156,17 @@ contains
     !$omp end parallel do
 
     if (iparallel == 1) then
-       call mpi_send_w(1, svara1=xx_yy)
-       call mpi_recv_w(1, svara1=xx_yy)
+       call mpi_send_w(svara1=xx_yy)
+       call mpi_recv_w(svara1=xx_yy)
     endif
-    call lbcopy_w(1, s1=xx_yy)
+    call lbcopy_w(s1=xx_yy)
 
     ! Coefficients for quadratic interpolating polynomical for advection
 
     if (nl%horiz_adv_order == 3) then
 
        !$omp parallel do private(iw,np,n,iwn,xw,yw,at,a_h,fint)
-       do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
+       do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
           np  = itab_w(iw)%npoly
 
           do n = 1, np
@@ -287,14 +254,14 @@ contains
        !$omp end parallel do
 
        if (iparallel == 1) then
-          call mpi_send_w(1, r1dvara1=xx0, r1dvara2=xy0, r1dvara3=yy0)
-          call mpi_recv_w(1, r1dvara1=xx0, r1dvara2=xy0, r1dvara3=yy0)
+          call mpi_send_w(r1dvara1=xx0, r1dvara2=xy0, r1dvara3=yy0)
+          call mpi_recv_w(r1dvara1=xx0, r1dvara2=xy0, r1dvara3=yy0)
        endif
-       call lbcopy_w(1, v1=xx0, v2=xy0, v3=yy0)
+       call lbcopy_w(v1=xx0, v2=xy0, v3=yy0)
 
        !$omp parallel
        !$omp do private(iv,iw1,iw2,im1,im2,dxps1,dyps1,dxps2,dyps2)
-       do j = 1,jtab_v(jtv_wadj)%jend(1); iv = jtab_v(jtv_wadj)%iv(j)
+       do j = 1,jtab_v(jtv_wadj)%jend; iv = jtab_v(jtv_wadj)%iv(j)
           iw1 = itab_v(iv)%iw(1)
           iw2 = itab_v(iv)%iw(2)
 
@@ -372,7 +339,7 @@ contains
        !$omp end do
 
        !$omp do private(iw,n,ivn)
-       do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
+       do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
           do n = 1, itab_w(iw)%npoly
              ivn = itab_w(iw)%iv(n)
 

@@ -1,36 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University;
-   ! Colorado State University Research Foundation ; ATMET, LLC
-
-   ! This software is free software; you can redistribute it and/or modify it
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version.
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
-
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
-   ! (http://www.gnu.org/licenses/gpl.html)
-   !----------------------------------------------------------------------------
-
-!===============================================================================
-
 subroutine leaf4_init_atm()
 
   use leaf_coms,    only: nzs, veg_ht, soil_rough, snow_rough, &
@@ -39,11 +6,7 @@ subroutine leaf4_init_atm()
                           wcap_min
   use mem_land,     only: mland, land, omland, nzg, slzt
   use leaf4_surface,only: grndvap
-  use mem_basic,    only: rho, press, vxe, vye, vze, tair, rr_v, theta
-  use mem_micro,    only: rr_c
-  use misc_coms,    only: io6, time8, s1900_sim, iparallel, isubdomain, &
-                          runtype, initial
-  use mem_ijtabs,   only: itabg_w, itab_w
+  use misc_coms,    only: s1900_sim, iparallel, runtype, initial
   use mem_sfcg,     only: itab_wsfc, sfcg
   use consts_coms,  only: cliq, cice, alli, cliq1000, cice1000, alli1000, &
                           grav, p00i, rocp, t00
@@ -132,7 +95,7 @@ subroutine leaf4_init_atm()
      iwsfc = iland + omland
 
      ! Skip this cell if running in parallel and cell rank is not MYRANK
-     ! if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+     ! if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
      ! Set vegetation parameters
 
@@ -211,7 +174,7 @@ subroutine leaf4_init_atm()
      iwsfc = iland + omland
 
      ! Skip this cell if running in parallel and cell rank is not MYRANK
-     if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+     if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
      ! Apply initial atmospheric properties to land canopy
 
@@ -275,7 +238,7 @@ subroutine leaf4_init_atm()
      iwsfc = iland + omland
 
      ! Skip this cell if running in parallel and cell rank is not MYRANK
-     if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+     if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
      !--------------------------------------------------------------------------------
      ! ADD A METHOD HERE TO INITIALIZE FRACTION OF SOIL WATER THAT IS LIQUID (FRACLIQ)

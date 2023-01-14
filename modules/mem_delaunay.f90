@@ -1,36 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University;
-   ! Colorado State University Research Foundation ; ATMET, LLC
-
-   ! This software is free software; you can redistribute it and/or modify it
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version.
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
-
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
-   ! (http://www.gnu.org/licenses/gpl.html)
-   !----------------------------------------------------------------------------
-
-!===============================================================================
-
 Module mem_delaunay
 
   use mem_ijtabs, only: mloops
@@ -103,7 +70,8 @@ Module mem_delaunay
   integer :: nud_copy = 0
   integer :: nwd_copy = 0
 
-  integer, allocatable :: iwdorig(:), iwdorig_temp(:)
+  integer, allocatable :: impent(:)  ! Scratch array for storing 12 pentagonal IM indices
+  integer, allocatable :: impent_copy(:)
 
 Contains
 
@@ -117,7 +85,8 @@ Contains
     implicit none
 
     integer, intent(in) :: mma, mua, mwa
-    integer :: imd, iud, iwd
+
+    if (.not. allocated(impent)) allocate(impent(12))
 
     allocate (itab_md(mma))
     allocate (itab_ud(mua))
@@ -154,6 +123,8 @@ Contains
     allocate (itab_ud_copy(nud))
     allocate (itab_wd_copy(nwd))
 
+    allocate (impent_copy(12))
+
     xemd_copy = xemd
     yemd_copy = yemd
     zemd_copy = zemd
@@ -162,6 +133,8 @@ Contains
     itab_ud_copy = itab_ud
     itab_wd_copy = itab_wd
 
+    impent_copy = impent
+
   end subroutine copy_tri_grid
 
 !===============================================================================
@@ -169,8 +142,6 @@ Contains
   subroutine copyback_tri_grid()
 
     implicit none
-
-    integer :: iw
 
     ! Save a copy of triangle structure of ATM grid in its current state of
     ! construction for subsequent independent local refinement of SURFACE grid.
@@ -192,10 +163,7 @@ Contains
     call move_alloc(itab_ud_copy, itab_ud)
     call move_alloc(itab_wd_copy, itab_wd)
 
-    allocate(iwdorig(nwd))
-    do iw = 1, nwd
-       iwdorig(iw) = iw
-    enddo
+    call move_alloc(impent_copy, impent)
 
   end subroutine copyback_tri_grid
 

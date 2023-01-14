@@ -1,15 +1,14 @@
-subroutine lateral_friction(mrl)
+subroutine lateral_friction()
 
-  use mem_ijtabs, only: jtab_w, jtw_prog, itab_w, itabg_w
-  use mem_grid,   only: mwa, mva, mza, nsw_max, dnu, dnv, dzt, zfact, &
-                        arv, arw0, lpw, lsw, arw, volti, lpv
+  use mem_ijtabs, only: jtab_w, jtw_prog, itab_w
+  use mem_grid,   only: mwa, mva, mza, dnu, dzt, zfact, &
+                        arv, lpw, arw, volti, lpv
   use mem_basic,  only: vxe, vye, vze, rho
   use mem_tend,   only: vmxet, vmyet, vmzet
   use consts_coms,only: vonk
 
   implicit none
 
-  integer, intent(in)        :: mrl
   integer                    :: j, iw, iv, k, ks, n, ksmax
   real                       :: awind, dist
   real,    allocatable, save :: area_log(:,:)
@@ -33,12 +32,12 @@ subroutine lateral_friction(mrl)
         enddo
         lsv(iv) = k - 1
      enddo
-     
+
      ! Find level of higest partially blocked face in each W column
 
      lsv_max = 0
      ksmax   = 1
-     do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+     do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
         do n  = 1, itab_w(iw)%npoly
            iv = itab_w(iw)%iv(n)
            lsv_max(iw) = max(lsv_max(iw),lsv(iv))
@@ -51,7 +50,7 @@ subroutine lateral_friction(mrl)
 
      area_log(:,:) = 0.0
 
-     do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+     do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
         area_sum(:)   = 0.0
 
@@ -79,7 +78,7 @@ subroutine lateral_friction(mrl)
            endif
 
            dist = max(dist, 2.0 * z0)
-           
+
            area_log(ks,iw) = area_sum(ks) * volti(k,iw) * vonk * vonk / (log(dist/z0))**2
         enddo
 
@@ -92,23 +91,17 @@ subroutine lateral_friction(mrl)
 
   ! lateral stress flux divergence = AREA / VOL * rho * vx * |V| * (vonk / log(d/z0)) ^ 2
 
-  if (mrl > 0) then     
-                                                                                 
-     !$omp parallel do private(iw,k,ks,awind)
-     do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+  !$omp parallel do private(iw,k,ks,awind)
+  do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
+     do k  = lpw(iw), lsv_max(iw)
+        ks = k - lpw(iw) + 1
 
-        do k  = lpw(iw), lsv_max(iw)
-           ks = k - lpw(iw) + 1
-           
-           awind = sqrt( vxe(k,iw)**2 + vye(k,iw)**2 + vze(k,iw)**2 ) * area_log(ks,iw) * rho(k,iw)
+        awind = sqrt( vxe(k,iw)**2 + vye(k,iw)**2 + vze(k,iw)**2 ) * area_log(ks,iw) * rho(k,iw)
 
-           vmxet(k,iw) = vmxet(k,iw) - awind * vxe(k,iw)
-           vmyet(k,iw) = vmyet(k,iw) - awind * vye(k,iw)
-           vmzet(k,iw) = vmzet(k,iw) - awind * vze(k,iw)
-        enddo
-
+        vmxet(k,iw) = vmxet(k,iw) - awind * vxe(k,iw)
+        vmyet(k,iw) = vmyet(k,iw) - awind * vye(k,iw)
+        vmzet(k,iw) = vmzet(k,iw) - awind * vze(k,iw)
      enddo
-
-  endif
+  enddo
 
 end subroutine lateral_friction

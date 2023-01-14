@@ -1,4 +1,3 @@
-
 !------------------------------------------------------------------------!
 !  The Community Multiscale Air Quality (CMAQ) system software is in     !
 !  continuous development by various groups and is based on information  !
@@ -45,7 +44,6 @@ C***********************************************************************
       USE RXNS_DATA
       USE RXNS_FUNCTION
       USE CONST_DATA
-      use mem_grid,  only: mza
       use misc_coms, only: dtlm
 
       IMPLICIT NONE
@@ -399,6 +397,6 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
       RTOL( VSVOO3       ) = 2.5D-03
       RTOL( VSVOO1       ) = 2.5D-03
 
-      RTOL = MIN( RTOL * (2.D0 + MAX(0.D0, DTLM(1) - 60.D0) / 120.D0), 1.D0)
+      RTOL = MIN( RTOL * (2.D0 + MAX(0.D0, DTLM - 60.D0) / 120.D0), 1.D0)
 
       END SUBROUTINE HRINIT

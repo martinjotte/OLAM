@@ -1,35 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 Module leaf4_canopy
 
 Contains
@@ -50,12 +18,10 @@ Contains
                     head,          head_slope,      soil_tempk,      soil_fracliq)
 
   use leaf_coms,     only: soil_rough, dt_leaf, kroot, rcmin, snowmin_expl, &
-                           wcap_min, wcap_vmin
-  use mem_sfcg,      only: sfcg
-  use mem_land,      only: nzg, dslz, dslzi, slzt
+                           wcap_vmin
+  use mem_land,      only: nzg, dslz, dslzi
   use leaf4_surface, only: sfcwater_soil_comb, grndvap_ab
-  use consts_coms,   only: cp, vonk, alvl, cliq, cice, alli, rvap, t00, r8
-  use misc_coms,     only: io6
+  use consts_coms,   only: cp, vonk, alvi, alvl, alli, cliq, cice, rvap, t00, r8
   use matrix,        only: matrix8_2x2, matrix8_3x3, matrix8_4x4, matrix8_NxN
   use therm_lib,     only: qwtk, rhovsil, eslf
 
@@ -150,7 +116,7 @@ Contains
   real :: wxfergc     ! gnd-to-can_air vap xfer this step [kg_vap/m^2]
   real :: hxfervc     ! veg-to-can_air heat xfer this step [J/m^2]
   real :: wxfervc     ! veg-to-can_air vapor xfer this step [kg_vap/m^2]
-  real :: vegwater_energy ! energy of veg_water [J/m^2]
+  real :: vegw_energy ! energy of veg_water [J/m^2]
   real :: wshed       ! water shed from veg this LEAF timestep [kg/m^2]
   real :: qshed       ! water energy shed from veg this LEAF timestep [J/m^2]
   real :: dshed       ! depth of water shed from veg [m]
@@ -189,12 +155,16 @@ Contains
   real :: can_rhov    ! Canopy air water vapor density [kg_vap/m^3]
   real :: canair      ! Canopy air mass [kg/m^2]
   real :: hcapcan     ! Canopy air heat capacity [J/(m^2 K)]
-  real :: hcapsfc     ! Surface heat capacity [J/(m^2 K)]
+  real :: hcapsfc     ! Heat capacity of top soil + any sfcwater, or only sfcwater [J/(m^2 K)]
+  real :: hcapvegw    ! Heat capacity of vegetation + any veg_water [J/(m^2 K)]
 
   real :: canairi     ! Inverse of canair
   real :: hcapcani    ! Inverse of hcapcan
   real :: hcapsfci    ! Inverse of hcapsfc
-  real :: hcapvegi    ! Inverse of hcapveg
+  real :: hcapvegwi   ! Inverse of hcapvegw
+
+  real :: alvveg      ! Latent heat of vaporization at veg surface, adjusted for phase of veg_water [J/(kg)]
+  real :: alvsfc      ! Latent heat of vaporization at ground surface, adjusted for phase of sfcwater [J/(kg)]
 
   real :: radsfc      ! Radiation absorbed by surface [J/m^2]
   real :: radveg      ! Radiation absorbed by vegetation [J/m^2]
@@ -210,7 +180,6 @@ Contains
   real :: sfc_rhovsp  ! sfc_rhovs derivative with respect to temperature
 
   real :: gnd_rhov    ! ground sfc evaporative water vapor density [kg_vap/m^3]
-  real :: gnd_rhov1   ! gnd_rhov at 1 K warmer [kg_vap/m^3]
   real :: gnd_rhovp   ! gnd_rhov derivative with respect to temperature
 
   real :: eps_wxfer   ! very small water transfer to accomodate truncation error
@@ -218,7 +187,7 @@ Contains
   real :: evap        ! amount evaporated from veg sfc [kg/m^2]
 
   real :: specvol, vw_max
-  real :: tf, wadd, wshed2, qshed2, veg_temp0, delw
+  real :: tf, wadd, wshed2, dshed2, delw
 
   real(r8) :: a1, a2, a3, a4, a5, a6, a7, a8
   real(r8) :: h1, h2, h3, h4, h5, h6, h7
@@ -288,68 +257,51 @@ Contains
      wtveg  = max(0.,min(1., 1.1 * veg_tai / covr))
      rdi    = ustar / (5. * (1. - wtveg) + ustar * rasveg * wtveg)
 
-     ! It is assumed that at this point in the computations, veg_temp is
-     ! still consistent with veg_energy and veg_water from the previous
-     ! timestep and therefore does not need to be re-diagnosed.
-
-     ! Remove any existing veg water over threshold (which would have come from
-     ! any dew or frost deposition on the previous timestep)
-
-! do independent check of veg_temp (using veg_temp0)
-
-call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
-
-     if (veg_water > vw_max) then
-        vegwater_energy = veg_energy - hcapveg * (veg_temp - t00)
-
-        wshed = veg_water - vw_max
-        qshed = wshed * vegwater_energy / veg_water
-        dshed = wshed * .001
-
-        veg_water  = vw_max
-        veg_energy = veg_energy - qshed
-     endif
-
      ! Add any precipitation intercepted mass and energy to vegetation surface
 
-     if (pcpg > 1.e-30) then
-        veg_water  = veg_water  + pcpg  * vf
-        veg_energy = veg_energy + qpcpg * vf
-
-        call qwtk(veg_energy, veg_water, hcapveg, veg_temp, fracliqv)
-
-        if (veg_water > vw_max) then
-           vegwater_energy = veg_energy - hcapveg * (veg_temp - t00)
-
-           wshed2 = veg_water - vw_max
-           qshed2 = wshed2 * vegwater_energy / veg_water
-
-           veg_water  = vw_max
-           veg_energy = veg_energy - qshed2
-
-           wshed = wshed + wshed2
-           qshed = qshed + qshed2
-           dshed = dshed + wshed2 * dpcpg / pcpg
-
-        endif
-
-
-     endif
-
-     ! Still should not require re-diagnosis of veg_temp, but do so anyway
-     ! to check values
-
-     call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
-
-     tvegc = veg_temp - t00
+     veg_water  = veg_water  + pcpg  * vf
+     veg_energy = veg_energy + qpcpg * vf
 
      ! Check for presence of veg_water and set iwetveg flag
 
      iwetveg = (veg_water > wcap_vmin)
+
+     ! If veg water is below a tiny threshold, remove from surface
+     ! (conserving water mass and energy)
+
      if (.not. iwetveg) then
-        if (veg_water > 1.e-20) canrrv = canrrv + veg_water * canairi
+        canrrv     = canrrv + veg_water * canairi
+        veg_energy = veg_energy - alvi * veg_water
         veg_water  = 0.
-        veg_energy = tvegc * hcapveg
+     endif
+
+     ! Recompute vegetation temperature and liquid water fraction
+
+     call qwtk(veg_energy, veg_water, hcapveg, veg_temp, fracliqv)
+
+     tvegc = veg_temp - t00
+
+     ! Remove any existing veg water over shedding threshold (which would have
+     ! come from any dew or frost deposition on the previous timestep or precip
+     ! this timestep). This will NOT change temperature or liquid fraction.
+
+     if (veg_water > vw_max) then
+        vegw_energy = veg_energy - hcapveg * tvegc
+
+        wshed = veg_water - vw_max
+        qshed = wshed * vegw_energy / veg_water
+
+        veg_water  = vw_max
+        veg_energy = veg_energy - qshed
+
+        ! accumulated precip shed
+        wshed2 = min(pcpg * vf, wshed)
+
+        ! depth of accumulated precip shed
+        dshed2 = wshed2 * max(1.e-3, dpcpg / max(pcpg,1.e-30))
+
+        ! include depth of existing water shed (assume ice or liquid)
+        dshed = dshed2 + (wshed - wshed2) * 1.e-3
      endif
 
      ! Vegetation saturation vapor density and derivative
@@ -378,7 +330,7 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
 
         ! Find layer in root zone with highest head (unless mostly ice)
 
-        if (swp < head(k) .and. soil_fracliq(k) > .5) then 
+        if (swp < head(k) .and. soil_fracliq(k) > .5) then
            swp = head(k)
            ktrans = k
         endif
@@ -466,7 +418,7 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
   ! If nlsw1 = 1 (lowest sfcwater layer), and sfcwater mass is present but
   ! below limiting stability value for explicit heat transfer or if sfcwater
   ! is mostly liquid, perform implicit thermal balance between sfcwater and
-  ! the top soil layer and set icomb flag to 1.  
+  ! the top soil layer and set icomb flag to 1.
 
   if (nlsw1 == 1 .and. &
      (sfcwater_mass < snowmin_expl .or. sfcwater_fracliq > .5)) then
@@ -478,7 +430,8 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
 
      icomb = 1
 
-     ! Diagnose combined sfc heat capacity for sfcwater and top soil layer
+     ! Diagnose combined sfc heat capacity (hcapsfc) for sfcwater and top soil layer.
+     ! See description of hcapsfc for sfcwater alone in the ELSE part of the IF block.
 
      sfc_energy = energy_per_m2 + soil_energy(nzg) * dslz(nzg)
      sfc_wmass  = sfcwater_mass + soil_water(nzg)  * dslz(nzg) * 1.e3
@@ -494,13 +447,14 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
 
   else
 
-     ! If sfcwater and soil(nzg) temperatures are NOT implicitly coupled, set 
-     ! icomb flag to 0 and diagnose sfc heat capacity for sfcwater alone.
+     ! If sfcwater and soil(nzg) temperatures are NOT implicitly coupled, set
+     ! icomb flag to 0 and diagnose sfc heat capacity (hcapsfc) for sfcwater alone.
+
+     icomb = 0
+
      ! First, diagnose sfcwater temperature and liquid fraction.  Use qwtk
      ! instead of qtk because energy_per_m2 is used instead of sfcwater_energy.
      ! ("dryhcap" = 100 is very small value)
-
-     icomb = 0
 
      call qwtk(energy_per_m2,sfcwater_mass,100.,sfcwater_tempk,sfcwater_fracliq)
 
@@ -515,6 +469,13 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
   endif
 
   hcapsfci = 1. / hcapsfc
+
+  ! Use the following latent heat for vapor flux at the surface when multiplying
+  ! inverse surface heat capacity to get implicit temperature change of the
+  ! surface.  (When surface water is a mixture of liquid and ice, inverse surface
+  ! heat capacity is zero, so alvsfc has no effect.)
+
+  alvsfc = alvi - sfcwater_fracliq * alli
 
   ! Sfcwater saturation vapor density and derivative
 
@@ -533,7 +494,7 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
   gnd_rhovp = sfc_rhovsp * gnd_rhov / sfc_rhovs
 
   ! The remainder of subroutine canopy sets up and solves a linear system of
-  ! equations using the trapezoidal-implicit method.  The solution of the system 
+  ! equations using the trapezoidal-implicit method.  The solution of the system
   ! consists of turbulent heat and water vapor fluxes between canopy air, the
   ! surface (sfcwater or soil), and vegetation (if present), and the consequent
   ! changes to water and energy content of canopy air, the surface, and vegetation.
@@ -561,7 +522,7 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
   ! fluxes between canopy air and the free atmosphere within the implicit system.
   ! This would require that subroutine stars not compute these fluxes itself, but
   ! that it instead compute surface exchange coefficients for sensible heat and
-  ! vapor (as it currently does for momentum).  It would also require that most 
+  ! vapor (as it currently does for momentum).  It would also require that most
   ! of the code below in this subroutine be transferred to a separate subroutine
   ! so that it can be called for every flux cell.  In this structural change,
   ! turbulent transfers between canopy air, vegetation, and the surface would be
@@ -606,10 +567,10 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
   h4 = fcn * rhos * canairi
   h6 = fcn * hcapsfci
   h7 = fcn * hcapcani
-                                                                    !!       CAN VAP            CAN VAP           RHOVS & TEMP
-  y2 = sfc_rhovs - can_rhov + h2 * radsfc + h4 *      sxfer_r  !!  -h4 * veg_water - h4 * sfcwater_mass - h2 * alvl * sfcwater_mass
-  y5 = sfc_tempk - cantemp  + h6 * radsfc + h7 * cp * sxfer_t  !!                                       - h6 * alvl * sfcwater_mass
-  y3 = gnd_rhov  - can_rhov + h3 * radsfc + h4 *      sxfer_r  !!  -h4 * veg_water - h4 * sfcwater_mass - h3 * alvl * sfcwater_mass
+                                                               !!       CAN VAP            CAN VAP           RHOVS & TEMP
+  y2 = sfc_rhovs - can_rhov + h2 * radsfc + h4 *      sxfer_r  !!  -h4 * veg_water - h4 * sfcwater_mass - h2 * alvsfc * sfcwater_mass
+  y5 = sfc_tempk - cantemp  + h6 * radsfc + h7 * cp * sxfer_t  !!                                       - h6 * alvsfc * sfcwater_mass
+  y3 = gnd_rhov  - can_rhov + h3 * radsfc + h4 *      sxfer_r  !!  -h4 * veg_water - h4 * sfcwater_mass - h3 * alvsfc * sfcwater_mass
 
   if (iveg == 0) then
 
@@ -625,12 +586,12 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
 !           partial evaporation from sfcwater that completely covers the surface.
 !           (When sfcwater completely covers the surface, it is too abundant to
 !           completely evaporate in a single time step.)
- 
-     aa2(1,1) = 1._r8 + a5 * (h2 * alvl + h4)
+
+     aa2(1,1) = 1._r8 + a5 * (h2 * alvsfc + h4)
      aa2(1,2) =         a5 * h2
      yy2(1)   =         a5 * y2         ! WSC row
 
-     aa2(2,1) =         a6 * h6 * alvl
+     aa2(2,1) =         a6 * h6 * alvsfc
      aa2(2,2) = 1._r8 + a6 * (h6 + h7)
      yy2(2)   =         a6 * y5         ! HSC row
 
@@ -664,26 +625,26 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
 
      if (sfcwater_mass > 0.) then
 
-        aa3(1,1) = 1._r8 + a7 * (h2 * alvl + h4)
+        aa3(1,1) = 1._r8 + a7 * (h2 * alvsfc + h4)
         aa3(1,2) =         a7 * h2
         aa3(1,3) =         a7 * h4
         yy3(1)   =         a7 * y2    ! WSC row
 
-        aa3(2,1) =         a6 * h6 * alvl
+        aa3(2,1) =         a6 * h6 * alvsfc
         aa3(2,2) = 1._r8 + a6 * (h6 + h7)
-        aa3(2,3) =         a6 * h6 * alvl
+        aa3(2,3) =         a6 * h6 * alvsfc
         yy3(2)   =         a6 * y5    ! HSC row
 
         aa3(3,1) =         a8 * h4
         aa3(3,2) =         a8 * h3
-        aa3(3,3) = 1._r8 + a8 * (h3 * alvl + h4)
+        aa3(3,3) = 1._r8 + a8 * (h3 * alvsfc + h4)
         yy3(3)   =         a8 * y3    ! WGC row
 
         call matrix8_3x3(AA3,YY3,XX3,sing); if (sing) call sing_print(iland,102,3,aa3,yy3,glatw,glonw)
 
         if (xx3(1) > -eps_wxfer .and. xx3(1) <= sfcwater_mass .and. &
             xx3(3) > -eps_wxfer) then ! test was successful
- 
+
            wxfersc = xx3(1)
            hxfersc = xx3(2)
            wxfergc = xx3(3)
@@ -706,7 +667,7 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
         if (xx3(1) <= sfcwater_mass) then
            skiptest(3) = .true.
         endif
- 
+
      endif
 
      103 continue
@@ -715,13 +676,13 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
 ! Test 103: Given complete evaporation of any sfcwater, solve 2x2 system to
 !           test for positive evaporation from soil
 
-     aa2(1,1) = 1._r8 + a8 * (h3 * alvl + h4)
+     aa2(1,1) = 1._r8 + a8 * (h3 * alvsfc + h4)
      aa2(1,2) =         a8 * h3
-     yy2(1)   =         a8 * (y3 - (h3 * alvl + h4) * sfcwater_mass)  ! WGC row
+     yy2(1)   =         a8 * (y3 - (h3 * alvsfc + h4) * sfcwater_mass)  ! WGC row
 
-     aa2(2,1) =         a6 * h6 * alvl
+     aa2(2,1) =         a6 * h6 * alvsfc
      aa2(2,2) = 1._r8 + a6 * (h6 + h7)
-     yy2(2)   =         a6 * (y5 - h6 * alvl * sfcwater_mass)         ! HSC row
+     yy2(2)   =         a6 * (y5 - h6 * alvsfc * sfcwater_mass)         ! HSC row
 
      call matrix8_2x2(AA2,YY2,XX2,sing); if (sing) call sing_print(iland,103,2,aa2,yy2,glatw,glonw)
 
@@ -742,11 +703,11 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
 
      if (sfcwater_mass > 0.) then
 
-        aa2(1,1) = 1._r8 + a7 * (h2 * alvl + h4)
+        aa2(1,1) = 1._r8 + a7 * (h2 * alvsfc + h4)
         aa2(1,2) =         a7 * h2
         yy2(1)   =         a7 * y2        ! WSC row
 
-        aa2(2,1) =         a6 * h6 * alvl
+        aa2(2,1) =         a6 * h6 * alvsfc
         aa2(2,2) = 1._r8 + a6 * (h6 + h7)
         yy2(2)   =         a6 * y5        ! HSC row
 
@@ -771,7 +732,7 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
 !           Test 104) to get surface heat flux
 
      aa2(2,2) = 1._r8 + a6 * (h6 + h7)
-     yy2(2)   =         a6 * (y5 - h6 * alvl * sfcwater_mass)  ! HSC row
+     yy2(2)   =         a6 * (y5 - h6 * alvsfc * sfcwater_mass)  ! HSC row
 
      wxfersc = sfcwater_mass
      wxfergc = 0.
@@ -795,7 +756,19 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
 
      cantemp = cantemp + (hxfersc - cp * sxfer_t) * hcapcani
 
-     energy_per_m2 = energy_per_m2 + radsfc - hxfersc - (wxfersc + wxfergc) * alvl
+     ! The latent heat of sublimation, alvi, must be used in computing the following gain/loss of
+     ! energy_per_m2 due to vapor flux.  This is because extensive energy and mass carried by the
+     ! vapor are both explicitly added to or subtracted from surface water, and the energy of vapor,
+     ! defined relative to a zero-energy reference of ice at 0 deg C, is its mass times alvi
+     ! (neglecting a small contribution from vapor temperature differing from 0 deg C).  Following
+     ! the gain or loss of mass and energy via vapor flux, the resultant intensive energy of surface
+     ! water is diagnosed as its extensive energy divided by its extensive mass.  If surface water
+     ! is in the liquid phase, its intensive energy includes the latent heat of fusion.  Vapor
+     ! carries this energy by virtue of its mass flux alone, so the total energy alvi carried by
+     ! vapor is only alvl above this value, which correctly accounts for evaporation/condensation
+     ! occurring in this case rather than sublimation/deposition.
+
+     energy_per_m2 = energy_per_m2 + radsfc - hxfersc - (wxfersc + wxfergc) * alvi
 
      canrrv = canrrv + (wxfersc + wxfergc - sxfer_r) * canairi
 
@@ -816,7 +789,22 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
 
      ! Case WITH VEGETATION
 
-     hcapvegi = 1. / hcapveg
+     if     (veg_energy < 0.) then
+        hcapvegw = veg_water * cice + hcapveg
+     elseif (veg_energy > veg_water * alli) then
+        hcapvegw = veg_water * cliq + hcapveg
+     else
+        hcapvegw = veg_water * (alli / 1.) + hcapveg ! Assume small positive dT/dE
+     endif
+
+     hcapvegwi = 1. / hcapvegw
+
+     ! Use the following latent heat for vapor flux at the vegetation surface
+     ! when multiplying inverse vegw heat capacity to get implicit temperature
+     ! change of the vegetation.  (When veg_water is a mixture of liquid and ice,
+     ! inverse veg heat capacity is zero, so alvveg has no effect.)
+
+     alvveg = alvi - fracliqv * alli
 
      radveg = dt_leaf * (rshort_v + rlong_v)
 
@@ -831,11 +819,11 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
 
      ! Auxiliary quantities
 
-     h1 = fcn * veg_rhovsp * hcapvegi
-     h5 = fcn * hcapvegi
-                                                                       !!       CAN VAP            CAN VAP           RHOVS & TEMP
-     y1 = veg_rhovs - can_rhov + h1 * radveg + h4 *      sxfer_r  !!  -h4 * veg_water - h4 * sfcwater_mass - h1 * alvl * veg_water
-     y4 = veg_temp  - cantemp  + h5 * radveg + h7 * cp * sxfer_t  !!                                       - h5 * alvl * veg_water
+     h1 = fcn * veg_rhovsp * hcapvegwi
+     h5 = fcn * hcapvegwi
+                                                                  !!       CAN VAP            CAN VAP           RHOVS & TEMP
+     y1 = veg_rhovs - can_rhov + h1 * radveg + h4 *      sxfer_r  !!  -h4 * veg_water - h4 * sfcwater_mass - h1 * alvveg * veg_water
+     y4 = veg_temp  - cantemp  + h5 * radveg + h7 * cp * sxfer_t  !!                                       - h5 * alvveg * veg_water
 
      ! Fill arrays for matrix solution (trapezoidal implicit method) to balance
      ! vapor and heat fluxes between canopy air, vegetation, and the surface.
@@ -847,7 +835,7 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
 
      ! For the surface, there are 4 distinct situations to consider:
 
-     ! 1. Condensation onto surface (Gc) or full sfcwater coverage with partial evaporation (Sew)
+     ! 1. Condensation onto surface (Sc) or full sfcwater coverage with partial evaporation (Sew)
      ! 2. Evaporation from both sfcwater and soil with sfcwater not depleting (GeSew)
      ! 3. Evaporation from both sfcwater and soil with sfcwater depleting or zero (GeSe)
      ! 4. Evaporation from sfcwater only with sfcwater not depleting (Sew)
@@ -868,17 +856,17 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
      ! 5x5  Test  5  Vew GeSew        (iwetveg=t)  (sfcwater_mass > 0.)
      ! 5x5  Test  6  Ve  GeSew                     (sfcwater_mass > 0.)
 
-     ! 4x4  Test  7  Vc  GeSe                 
-     ! 4x4  Test  8  Vew GeSe         (iwetveg=t) 
-     ! 4x4  Test  9  Ve  GeSe                  
+     ! 4x4  Test  7  Vc  GeSe
+     ! 4x4  Test  8  Vew GeSe         (iwetveg=t)
+     ! 4x4  Test  9  Ve  GeSe
 
      ! 4x4  Test 10  Vc  Sew                       (sfcwater_mass > 0.)
      ! 4x4  Test 11  Vew Sew          (iwetveg=t)  (sfcwater_mass > 0.)
      ! 4x4  Test 12  Ve  Sew                       (sfcwater_mass > 0.)
 
-     ! 3x3  Test 13  Vc  Se                    
-     ! 3x3  Test 14  Vew Se           (iwetveg=t)  
-     ! 3x3  Test 15  Ve  Se                    
+     ! 3x3  Test 13  Vc  Se
+     ! 3x3  Test 14  Vew Se           (iwetveg=t)
+     ! 3x3  Test 15  Ve  Se
 
      ! We proceed to solve each equation in the above order until finding one
      ! that produces fluxes of the correct sign for the particular equation.
@@ -892,27 +880,27 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
 !         completely covers the surface.
 !         (When sfcwater completely covers the surface, it is too abundant to
 !         completely evaporate in a single time step.)
- 
-     aa4(1,1) = 1._r8 + a1 * (h1 * alvl + h4)
+
+     aa4(1,1) = 1._r8 + a1 * (h1 * alvveg + h4)
      aa4(1,2) =         a1 * h4
      aa4(1,3) =         a1 * h1
      aa4(1,4) = 0._r8
      yy4(1)   =         a1 * y1  ! WVC row
 
      aa4(2,1) =         a5 * h4
-     aa4(2,2) = 1._r8 + a5 * (h2 * alvl + h4)
+     aa4(2,2) = 1._r8 + a5 * (h2 * alvsfc + h4)
      aa4(2,3) = 0._r8
      aa4(2,4) =         a5 * h2
      yy4(2)   =         a5 * y2  ! WSC row
 
-     aa4(3,1) =         a2 * h5 * alvl
+     aa4(3,1) =         a2 * h5 * alvveg
      aa4(3,2) = 0._r8
      aa4(3,3) = 1._r8 + a2 * (h5 + h7)
      aa4(3,4) =         a2 * h7
      yy4(3)   =         a2 * y4  ! HVC row
 
      aa4(4,1) = 0._r8
-     aa4(4,2) =         a6 * h6 * alvl
+     aa4(4,2) =         a6 * h6 * alvsfc
      aa4(4,3) =         a6 * h7
      aa4(4,4) = 1._r8 + a6 * (h6 + h7)
      yy4(4)   =         a6 * y5  ! HSC row
@@ -939,7 +927,7 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
         skiptest(2) = .true.
         skiptest(3) = .true.
      endif
- 
+
      2 continue
      if (skiptest(2)) go to 3
 
@@ -951,26 +939,26 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
 
      if (iwetveg) then
 
-        aa4(1,1) = 1._r8 + (a3 + a4) * (h1 * alvl + h4)
+        aa4(1,1) = 1._r8 + (a3 + a4) * (h1 * alvveg + h4)
         aa4(1,2) =         (a3 + a4) * h4
         aa4(1,3) =         (a3 + a4) * h1
         aa4(1,4) = 0._r8
         yy4(1)   =         (a3 + a4) * y1  ! WVC row
 
         aa4(2,1) =         a5 * h4
-        aa4(2,2) = 1._r8 + a5 * (h2 * alvl + h4)
+        aa4(2,2) = 1._r8 + a5 * (h2 * alvsfc + h4)
         aa4(2,3) = 0._r8
         aa4(2,4) =         a5 * h2
         yy4(2)   =         a5 * y2         ! WSC row
 
-        aa4(3,1) =         a2 * h5 * alvl
+        aa4(3,1) =         a2 * h5 * alvveg
         aa4(3,2) = 0._r8
         aa4(3,3) = 1._r8 + a2 * (h5 + h7)
         aa4(3,4) =         a2 * h7
         yy4(3)   =         a2 * y4         ! HVC row
 
         aa4(4,1) = 0._r8
-        aa4(4,2) =         a6 * h6 * alvl
+        aa4(4,2) =         a6 * h6 * alvsfc
         aa4(4,3) =         a6 * h7
         aa4(4,4) = 1._r8 + a6 * (h6 + h7)
         yy4(4)   =         a6 * y5         ! HSC row
@@ -1003,7 +991,7 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
         elseif (evap <= veg_water) then
            skiptest(3) = .true.
         endif
- 
+
      endif
 
      3 continue
@@ -1015,26 +1003,26 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
 !         (When sfcwater completely covers the surface, it is too abundant to
 !         completely evaporate in a single time step.)
 
-     aa4(1,1) = 1._r8 + a4 * (h1 * alvl + h4)
+     aa4(1,1) = 1._r8 + a4 * (h1 * alvveg + h4)
      aa4(1,2) =         a4 * h4
      aa4(1,3) =         a4 * h1
      aa4(1,4) = 0._r8
-     yy4(1)   =         a4 * (y1 - (h1 * alvl + h4) * veg_water)  ! WVC row
+     yy4(1)   =         a4 * (y1 - (h1 * alvveg + h4) * veg_water)  ! WVC row
 
      aa4(2,1) =         a5 * h4
-     aa4(2,2) = 1._r8 + a5 * (h2 * alvl + h4)
+     aa4(2,2) = 1._r8 + a5 * (h2 * alvsfc + h4)
      aa4(2,3) = 0._r8
      aa4(2,4) =         a5 * h2
      yy4(2)   =         a5 * (y2 - h4 * veg_water)                ! WSC row
 
-     aa4(3,1) =         a2 * h5 * alvl
+     aa4(3,1) =         a2 * h5 * alvveg
      aa4(3,2) = 0._r8
      aa4(3,3) = 1._r8 + a2 * (h5 + h7)
      aa4(3,4) =         a2 * h7
-     yy4(3)   =         a2 * (y4 - h5 * alvl * veg_water)         ! HVC row
+     yy4(3)   =         a2 * (y4 - h5 * alvveg * veg_water)         ! HVC row
 
      aa4(4,1) = 0._r8
-     aa4(4,2) =         a6 * h6 * alvl
+     aa4(4,2) =         a6 * h6 * alvsfc
      aa4(4,3) =         a6 * h7
      aa4(4,4) = 1._r8 + a6 * (h6 + h7)
      yy4(4)   =         a6 * y5                                   ! HSC row
@@ -1076,7 +1064,7 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
 
      if (sfcwater_mass > 0.) then
 
-        aa5(1,1) = 1._r8 + a1 * (h1 * alvl + h4)
+        aa5(1,1) = 1._r8 + a1 * (h1 * alvveg + h4)
         aa5(1,2) =         a1 * h4
         aa5(1,3) =         a1 * h1
         aa5(1,4) = 0._r8
@@ -1084,31 +1072,31 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
         yy5(1)   =         a1 * y1  ! WVC row
 
         aa5(2,1) =         a7 * h4
-        aa5(2,2) = 1._r8 + a7 * (h2 * alvl + h4)
+        aa5(2,2) = 1._r8 + a7 * (h2 * alvsfc + h4)
         aa5(2,3) = 0._r8
         aa5(2,4) =         a7 * h2
         aa5(2,5) =         a7 * h4
         yy5(2)   =         a7 * y2  ! WSC row
 
-        aa5(3,1) =         a2 * h5 * alvl
+        aa5(3,1) =         a2 * h5 * alvveg
         aa5(3,2) = 0._r8
         aa5(3,3) = 1._r8 + a2 * (h5 + h7)
         aa5(3,4) =         a2 * h7
-        aa5(3,5) =         a2 * h5 * alvl
+        aa5(3,5) =         a2 * h5 * alvveg
         yy5(3)   =         a2 * y4  ! HVC row
 
         aa5(4,1) = 0._r8
-        aa5(4,2) =         a6 * h6 * alvl
+        aa5(4,2) =         a6 * h6 * alvsfc
         aa5(4,3) =         a6 * h7
         aa5(4,4) = 1._r8 + a6 * (h6 + h7)
-        aa5(4,5) =         a6 * h6 * alvl
+        aa5(4,5) =         a6 * h6 * alvsfc
         yy5(4)   =         a6 * y5  ! HSC row
 
         aa5(5,1) =         a8 * h4
         aa5(5,2) =         a8 * h4
         aa5(5,3) = 0._r8
         aa5(5,4) =         a8 * h3
-        aa5(5,5) = 1._r8 + a8 * (h3 * alvl + h4)
+        aa5(5,5) = 1._r8 + a8 * (h3 * alvsfc + h4)
         yy5(5)   =         a8 * y3  ! WGC row
 
         call matrix8_NxN(5,AA5,YY5,XX5,sing); if (sing) call sing_print(iland,4,5,aa5,yy5,glatw,glonw)
@@ -1150,7 +1138,7 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
         if (xx5(2) <= sfcwater_mass) then
            skiptest(7) = .true.
         endif
- 
+
      endif
 
      5 continue
@@ -1162,7 +1150,7 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
 
      if (sfcwater_mass > 0. .and. iwetveg) then
 
-        aa5(1,1) = 1._r8 + (a3 + a4) * (h1 * alvl + h4)
+        aa5(1,1) = 1._r8 + (a3 + a4) * (h1 * alvveg + h4)
         aa5(1,2) =         (a3 + a4) * h4
         aa5(1,3) =         (a3 + a4) * h1
         aa5(1,4) = 0._r8
@@ -1170,31 +1158,31 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
         yy5(1)   =         (a3 + a4) * y1  ! WVC row
 
         aa5(2,1) =         a7 * h4
-        aa5(2,2) = 1._r8 + a7 * (h2 * alvl + h4)
+        aa5(2,2) = 1._r8 + a7 * (h2 * alvsfc + h4)
         aa5(2,3) = 0._r8
         aa5(2,4) =         a7 * h2
         aa5(2,5) =         a7 * h4
         yy5(2)   =         a7 * y2         ! WSC row
 
-        aa5(3,1) =         a2 * h5 * alvl
+        aa5(3,1) =         a2 * h5 * alvveg
         aa5(3,2) = 0._r8
         aa5(3,3) = 1._r8 + a2 * (h5 + h7)
         aa5(3,4) =         a2 * h7
-        aa5(3,5) =         a2 * h5 * alvl
+        aa5(3,5) =         a2 * h5 * alvveg
         yy5(3)   =         a2 * y4         ! HVC row
 
         aa5(4,1) = 0._r8
-        aa5(4,2) =         a6 * h6 * alvl
+        aa5(4,2) =         a6 * h6 * alvsfc
         aa5(4,3) =         a6 * h7
         aa5(4,4) = 1._r8 + a6 * (h6 + h7)
-        aa5(4,5) =         a6 * h6 * alvl
+        aa5(4,5) =         a6 * h6 * alvsfc
         yy5(4)   =         a6 * y5         ! HSC row
 
         aa5(5,1) =         a8 * h4
         aa5(5,2) =         a8 * h4
         aa5(5,3) = 0._r8
         aa5(5,4) =         a8 * h3
-        aa5(5,5) = 1._r8 + a8 * (h3 * alvl + h4)
+        aa5(5,5) = 1._r8 + a8 * (h3 * alvsfc + h4)
         yy5(5)   =         a8 * y3         ! WGC row
 
         call matrix8_NxN(5,AA5,YY5,XX5,sing); if (sing) call sing_print(iland,5,5,aa5,yy5,glatw,glonw)
@@ -1221,7 +1209,7 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
         if (evap <= veg_water) then
            skiptest(6) = .true.
         endif
- 
+
         ! If this test resulted in condensation onto the surface,
         ! skip past tests 8, 11, and 14
 
@@ -1237,7 +1225,7 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
         if (xx5(2) <= sfcwater_mass) then
            skiptest(8) = .true.
         endif
- 
+
      endif
 
      6 continue
@@ -1249,39 +1237,39 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
 
      if (sfcwater_mass > 0.) then
 
-        aa5(1,1) = 1._r8 + a4 * (h1 * alvl + h4)
+        aa5(1,1) = 1._r8 + a4 * (h1 * alvveg + h4)
         aa5(1,2) =         a4 * h4
         aa5(1,3) =         a4 * h1
         aa5(1,4) = 0._r8
         aa5(1,5) =         a4 * h4
-        yy5(1)   =         a4 * (y1 - (h1 * alvl + h4) * veg_water)  ! WVC row
+        yy5(1)   =         a4 * (y1 - (h1 * alvveg + h4) * veg_water)  ! WVC row
 
         aa5(2,1) =         a7 * h4
-        aa5(2,2) = 1._r8 + a7 * (h2 * alvl + h4)
+        aa5(2,2) = 1._r8 + a7 * (h2 * alvsfc + h4)
         aa5(2,3) = 0._r8
         aa5(2,4) =         a7 * h2
         aa5(2,5) =         a7 * h4
         yy5(2)   =         a7 * (y2 - h4 * veg_water)                ! WSC row
 
-        aa5(3,1) =         a2 * h5 * alvl
+        aa5(3,1) =         a2 * h5 * alvveg
         aa5(3,2) = 0._r8
         aa5(3,3) = 1._r8 + a2 * (h5 + h7)
         aa5(3,4) =         a2 * h7
-        aa5(3,5) =         a2 * h5 * alvl
-        yy5(3)   =         a2 * (y4 - h5 * alvl * veg_water)         ! HVC row
+        aa5(3,5) =         a2 * h5 * alvveg
+        yy5(3)   =         a2 * (y4 - h5 * alvveg * veg_water)         ! HVC row
 
         aa5(4,1) = 0._r8
-        aa5(4,2) =         a6 * h6 * alvl
+        aa5(4,2) =         a6 * h6 * alvsfc
         aa5(4,3) =         a6 * h7
         aa5(4,4) = 1._r8 + a6 * (h6 + h7)
-        aa5(4,5) =         a6 * h6 * alvl
+        aa5(4,5) =         a6 * h6 * alvsfc
         yy5(4)   =         a6 * y5                                   ! HSC row
 
         aa5(5,1) =         a8 * h4
         aa5(5,2) =         a8 * h4
         aa5(5,3) = 0._r8
         aa5(5,4) =         a8 * h3
-        aa5(5,5) = 1._r8 + a8 * (h3 * alvl + h4)
+        aa5(5,5) = 1._r8 + a8 * (h3 * alvsfc + h4)
         yy5(5)   =         a8 * (y3 - h4 * veg_water)                ! WGC row
 
         call matrix8_NxN(5,AA5,YY5,XX5,sing); if (sing) call sing_print(iland,6,5,aa5,yy5,glatw,glonw)
@@ -1315,7 +1303,7 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
         if (xx5(2) <= sfcwater_mass) then
            skiptest(9) = .true.
         endif
- 
+
      endif
 
 
@@ -1325,29 +1313,29 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
 ! Test 7:  Given complete evaporation of any sfcwater, solve 4x4 system to test
 !         for condensation onto vegetation and zero or positive evaporation from soil
 
-     aa4(1,1) = 1._r8 + a1 * (h1 * alvl + h4)
+     aa4(1,1) = 1._r8 + a1 * (h1 * alvveg + h4)
      aa4(1,2) =         a1 * h4
      aa4(1,3) =         a1 * h1
      aa4(1,4) = 0._r8
      yy4(1)   =         a1 * (y1 - h4 * sfcwater_mass)                ! WVC row
 
      aa4(2,1) =         a8 * h4
-     aa4(2,2) = 1._r8 + a8 * (h3 * alvl + h4)
+     aa4(2,2) = 1._r8 + a8 * (h3 * alvsfc + h4)
      aa4(2,3) = 0._r8
      aa4(2,4) =         a8 * h3
-     yy4(2)   =         a8 * (y3 - (h3 * alvl + h4) * sfcwater_mass)  ! WGC row
+     yy4(2)   =         a8 * (y3 - (h3 * alvsfc + h4) * sfcwater_mass)  ! WGC row
 
-     aa4(3,1) =         a2 * h5 * alvl
+     aa4(3,1) =         a2 * h5 * alvveg
      aa4(3,2) = 0._r8
      aa4(3,3) = 1._r8 + a2 * (h5 + h7)
      aa4(3,4) =         a2 * h7
      yy4(3)   =         a2 * y4                                       ! HVC row
 
      aa4(4,1) = 0._r8
-     aa4(4,2) =         a6 * h6 * alvl
+     aa4(4,2) =         a6 * h6 * alvsfc
      aa4(4,3) =         a6 * h7
      aa4(4,4) = 1._r8 + a6 * (h6 + h7)
-     yy4(4)   =         a6 * (y5 - h6 * alvl * sfcwater_mass)         ! HSC row
+     yy4(4)   =         a6 * (y5 - h6 * alvsfc * sfcwater_mass)         ! HSC row
 
      call matrix8_4x4(AA4,YY4,XX4,sing); if (sing) call sing_print(iland,7,4,aa4,yy4,glatw,glonw)
 
@@ -1381,29 +1369,29 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
 
      if (iwetveg) then
 
-        aa4(1,1) = 1._r8 + (a3 + a4) * (h1 * alvl + h4)
+        aa4(1,1) = 1._r8 + (a3 + a4) * (h1 * alvveg + h4)
         aa4(1,2) =         (a3 + a4) * h4
         aa4(1,3) =         (a3 + a4) * h1
         aa4(1,4) = 0._r8
         yy4(1)   =         (a3 + a4) * (y1 - h4 * sfcwater_mass)         ! WVC row
 
         aa4(2,1) =         a8 * h4
-        aa4(2,2) = 1._r8 + a8 * (h3 * alvl + h4)
+        aa4(2,2) = 1._r8 + a8 * (h3 * alvsfc + h4)
         aa4(2,3) = 0._r8
         aa4(2,4) =         a8 * h3
-        yy4(2)   =         a8 * (y3 - (h3 * alvl + h4) * sfcwater_mass)  ! WGC row
+        yy4(2)   =         a8 * (y3 - (h3 * alvsfc + h4) * sfcwater_mass)  ! WGC row
 
-        aa4(3,1) =         a2 * h5 * alvl
+        aa4(3,1) =         a2 * h5 * alvveg
         aa4(3,2) = 0._r8
         aa4(3,3) = 1._r8 + a2 * (h5 + h7)
         aa4(3,4) =         a2 * h7
         yy4(3)   =         a2 * y4                                       ! HVC row
 
         aa4(4,1) = 0._r8
-        aa4(4,2) =         a6 * h6 * alvl
+        aa4(4,2) =         a6 * h6 * alvsfc
         aa4(4,3) =         a6 * h7
         aa4(4,4) = 1._r8 + a6 * (h6 + h7)
-        yy4(4)   =         a6 * (y5 - h6 * alvl * sfcwater_mass)         ! HSC row
+        yy4(4)   =         a6 * (y5 - h6 * alvsfc * sfcwater_mass)         ! HSC row
 
         call matrix8_4x4(AA4,YY4,XX4,sing); if (sing) call sing_print(iland,8,4,aa4,yy4,glatw,glonw)
 
@@ -1428,7 +1416,7 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
         if (evap <= veg_water) then
            skiptest(9) = .true.
         endif
- 
+
      endif
 
      9 continue
@@ -1437,30 +1425,30 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
 ! Test 9:  Given complete evaporation of any sfcwater, and complete evaporation
 !         of any veg_water, solve 4x4 system to test for zero or positive
 !         transpiration and zero or positive evaporation from soil
- 
-     aa4(1,1) = 1._r8 + a4 * (h1 * alvl + h4)
+
+     aa4(1,1) = 1._r8 + a4 * (h1 * alvveg + h4)
      aa4(1,2) =         a4 * h4
      aa4(1,3) =         a4 * h1
      aa4(1,4) = 0._r8
-     yy4(1)   =         a4 * (y1 - (h1 * alvl + h4) * veg_water - h4 * sfcwater_mass)  ! WVC row
+     yy4(1)   =         a4 * (y1 - (h1 * alvveg + h4) * veg_water - h4 * sfcwater_mass)  ! WVC row
 
      aa4(2,1) =         a8 * h4
-     aa4(2,2) = 1._r8 + a8 * (h3 * alvl + h4)
+     aa4(2,2) = 1._r8 + a8 * (h3 * alvsfc + h4)
      aa4(2,3) = 0._r8
      aa4(2,4) =         a8 * h3
-     yy4(2)   =         a8 * (y3 - h4 * veg_water - (h3 * alvl + h4) * sfcwater_mass)  ! WGC row
+     yy4(2)   =         a8 * (y3 - h4 * veg_water - (h3 * alvsfc + h4) * sfcwater_mass)  ! WGC row
 
-     aa4(3,1) =         a2 * h5 * alvl
+     aa4(3,1) =         a2 * h5 * alvveg
      aa4(3,2) = 0._r8
      aa4(3,3) = 1._r8 + a2 * (h5 + h7)
      aa4(3,4) =         a2 * h7
-     yy4(3)   =         a2 * (y4 - h5 * alvl * veg_water)                              ! HVC row
+     yy4(3)   =         a2 * (y4 - h5 * alvveg * veg_water)                              ! HVC row
 
      aa4(4,1) = 0._r8
-     aa4(4,2) =         a6 * h6 * alvl
+     aa4(4,2) =         a6 * h6 * alvsfc
      aa4(4,3) =         a6 * h7
      aa4(4,4) = 1._r8 + a6 * (h6 + h7)
-     yy4(4)   =         a6 * (y5 - h6 * alvl * sfcwater_mass)                          ! HSC row
+     yy4(4)   =         a6 * (y5 - h6 * alvsfc * sfcwater_mass)                          ! HSC row
 
      call matrix8_4x4(AA4,YY4,XX4,sing); if (sing) call sing_print(iland,9,4,aa4,yy4,glatw,glonw)
 
@@ -1486,26 +1474,26 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
 
      if (sfcwater_mass > 0.) then
 
-        aa4(1,1) = 1._r8 + a1 * (h1 * alvl + h4)
+        aa4(1,1) = 1._r8 + a1 * (h1 * alvveg + h4)
         aa4(1,2) =         a1 * h4
         aa4(1,3) =         a1 * h1
         aa4(1,4) = 0._r8
         yy4(1)   =         a1 * y1  ! WVC row
 
         aa4(2,1) =         a7 * h4
-        aa4(2,2) = 1._r8 + a7 * (h2 * alvl + h4)
+        aa4(2,2) = 1._r8 + a7 * (h2 * alvsfc + h4)
         aa4(2,3) = 0._r8
         aa4(2,4) =         a7 * h2
         yy4(2)   =         a7 * y2  ! WSC row
 
-        aa4(3,1) =         a2 * h5 * alvl
+        aa4(3,1) =         a2 * h5 * alvveg
         aa4(3,2) = 0._r8
         aa4(3,3) = 1._r8 + a2 * (h5 + h7)
         aa4(3,4) =         a2 * h7
         yy4(3)   =         a2 * y4  ! HVC row
 
         aa4(4,1) = 0._r8
-        aa4(4,2) =         a6 * h6 * alvl
+        aa4(4,2) =         a6 * h6 * alvsfc
         aa4(4,3) =         a6 * h7
         aa4(4,4) = 1._r8 + a6 * (h6 + h7)
         yy4(4)   =         a6 * y5  ! HSC row
@@ -1544,26 +1532,26 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
 
      if (sfcwater_mass > 0. .and. iwetveg) then
 
-        aa4(1,1) = 1._r8 + (a3 + a4) * (h1 * alvl + h4)
+        aa4(1,1) = 1._r8 + (a3 + a4) * (h1 * alvveg + h4)
         aa4(1,2) =         (a3 + a4) * h4
         aa4(1,3) =         (a3 + a4) * h1
         aa4(1,4) = 0._r8
         yy4(1)   =         (a3 + a4) * y1  ! WVC row
 
         aa4(2,1) =         a7 * h4
-        aa4(2,2) = 1._r8 + a7 * (h2 * alvl + h4)
+        aa4(2,2) = 1._r8 + a7 * (h2 * alvsfc + h4)
         aa4(2,3) = 0._r8
         aa4(2,4) =         a7 * h2
         yy4(2)   =         a7 * y2         ! WSC row
 
-        aa4(3,1) =         a2 * h5 * alvl
+        aa4(3,1) =         a2 * h5 * alvveg
         aa4(3,2) = 0._r8
         aa4(3,3) = 1._r8 + a2 * (h5 + h7)
         aa4(3,4) =         a2 * h7
         yy4(3)   =         a2 * y4         ! HVC row
 
         aa4(4,1) = 0._r8
-        aa4(4,2) =         a6 * h6 * alvl
+        aa4(4,2) =         a6 * h6 * alvsfc
         aa4(4,3) =         a6 * h7
         aa4(4,4) = 1._r8 + a6 * (h6 + h7)
         yy4(4)   =         a6 * y5         ! HSC row
@@ -1591,7 +1579,7 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
         if (evap <= veg_water) then
            skiptest(12) = .true.
         endif
- 
+
      endif
 
      12 continue
@@ -1601,29 +1589,29 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
 !          veg_water, and given zero vapor flux with soil, solve 4x4 system
 !          to test for zero or positive transpiration and partial evaporation of
 !          any surface water
- 
+
      if (sfcwater_mass > 0.) then
- 
-        aa4(1,1) = 1._r8 + a4 * (h1 * alvl + h4)
+
+        aa4(1,1) = 1._r8 + a4 * (h1 * alvveg + h4)
         aa4(1,2) =         a4 * h4
         aa4(1,3) =         a4 * h1
         aa4(1,4) = 0._r8
-        yy4(1)   =         a4 * (y1 - (h1 * alvl + h4) * veg_water)  ! WVC row
+        yy4(1)   =         a4 * (y1 - (h1 * alvveg + h4) * veg_water)  ! WVC row
 
         aa4(2,1) =         a7 * h4
-        aa4(2,2) = 1._r8 + a7 * (h2 * alvl + h4)
+        aa4(2,2) = 1._r8 + a7 * (h2 * alvsfc + h4)
         aa4(2,3) = 0._r8
         aa4(2,4) =         a7 * h2
         yy4(2)   =         a7 * (y2 - h4               * veg_water)  ! WSC row
 
-        aa4(3,1) =         a2 * h5 * alvl
+        aa4(3,1) =         a2 * h5 * alvveg
         aa4(3,2) = 0._r8
         aa4(3,3) = 1._r8 + a2 * (h5 + h7)
         aa4(3,4) =         a2 * h7
-        yy4(3)   =         a2 * (y4 - h5 * alvl        * veg_water)  ! HVC row
+        yy4(3)   =         a2 * (y4 - h5 * alvveg        * veg_water)  ! HVC row
 
         aa4(4,1) = 0._r8
-        aa4(4,2) =         a6 * h6 * alvl
+        aa4(4,2) =         a6 * h6 * alvsfc
         aa4(4,3) =         a6 * h7
         aa4(4,4) = 1._r8 + a6 * (h6 + h7)
         yy4(4)   =         a6 * y5                                   ! HSC row
@@ -1651,12 +1639,12 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
 ! Test 13:  Given zero vapor flux with soil and given complete evaporation of
 !          any sfcwater, solve 3x3 system to test for condensation onto vegetation
 
-     aa3(1,1) = 1._r8 + a1 * (h1 * alvl + h4)
+     aa3(1,1) = 1._r8 + a1 * (h1 * alvveg + h4)
      aa3(1,2) =         a1 * h1
      aa3(1,3) = 0._r8
      yy3(1)   =         a1 * (y1 - h4 * sfcwater_mass)         ! WVC row
 
-     aa3(2,1) =         a2 * h5 * alvl
+     aa3(2,1) =         a2 * h5 * alvveg
      aa3(2,2) = 1._r8 + a2 * (h5 + h7)
      aa3(2,3) =         a2 * h7
      yy3(2)   =         a2 * y4                                ! HVC row
@@ -1664,7 +1652,7 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
      aa3(3,1) = 0._r8
      aa3(3,2) =         a6 * h7
      aa3(3,3) = 1._r8 + a6 * (h6 + h7)
-     yy3(3)   =         a6 * (y5 - h6 * alvl * sfcwater_mass)  ! HSC row 
+     yy3(3)   =         a6 * (y5 - h6 * alvsfc * sfcwater_mass)  ! HSC row
 
      call matrix8_3x3(AA3,YY3,XX3,sing); if (sing) call sing_print(iland,13,3,aa3,yy3,glatw,glonw)
 
@@ -1695,15 +1683,15 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
 ! Test 14:  If vegetation is wet, and given zero vapor flux with soil and
 !          complete evaporation of any sfcwater, solve 3x3 system to test for
 !          partial evaporation from vegetation
- 
+
      if (iwetveg) then
 
-        aa3(1,1) = 1._r8 + (a3 + a4) * (h1 * alvl + h4)
+        aa3(1,1) = 1._r8 + (a3 + a4) * (h1 * alvveg + h4)
         aa3(1,2) =         (a3 + a4) * h1
         aa3(1,3) = 0._r8
         yy3(1)   =         (a3 + a4) * (y1 - h4 * sfcwater_mass)  ! WVC row
 
-        aa3(2,1) =         a2 * h5 * alvl
+        aa3(2,1) =         a2 * h5 * alvveg
         aa3(2,2) = 1._r8 + a2 * (h5 + h7)
         aa3(2,3) =         a2 * h7
         yy3(2)   =         a2 * y4                                ! HVC row
@@ -1711,7 +1699,7 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
         aa3(3,1) = 0._r8
         aa3(3,2) =         a6 * h7
         aa3(3,3) = 1._r8 + a6 * (h6 + h7)
-        yy3(3)   =         a6 * (y5 - h6 * alvl * sfcwater_mass)  ! HSC row 
+        yy3(3)   =         a6 * (y5 - h6 * alvsfc * sfcwater_mass)  ! HSC row
 
         call matrix8_3x3(AA3,YY3,XX3,sing); if (sing) call sing_print(iland,14,3,aa3,yy3,glatw,glonw)
 
@@ -1735,7 +1723,7 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
         if (evap <= veg_water) then
            skiptest(15) = .true.
         endif
- 
+
      endif
 
      15 continue
@@ -1745,21 +1733,21 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
 ! Test 15:  Given complete evaporation of any veg_water, complete evaporation
 !          of any sfcwater, and zero vapor flux with soil, solve 3x3 system
 !          to test for zero or positive transpiration
- 
-     aa3(1,1) = 1._r8 + a4 * (h1 * alvl + h4)
+
+     aa3(1,1) = 1._r8 + a4 * (h1 * alvveg + h4)
      aa3(1,2) =         a4 * h1
      aa3(1,3) = 0._r8
-     yy3(1)   =         a4 * (y1 - (h1 * alvl + h4) * veg_water - h4 * sfcwater_mass)  ! WVC row
+     yy3(1)   =         a4 * (y1 - (h1 * alvveg + h4) * veg_water - h4 * sfcwater_mass)  ! WVC row
 
-     aa3(2,1) =         a2 * h5 * alvl
+     aa3(2,1) =         a2 * h5 * alvveg
      aa3(2,2) = 1._r8 + a2 * (h5 + h7)
      aa3(2,3) =         a2 * h7
-     yy3(2)   =         a2 * (y4 - h5 * alvl        * veg_water)                        ! HVC row
+     yy3(2)   =         a2 * (y4 - h5 * alvveg        * veg_water)                        ! HVC row
 
      aa3(3,1) = 0._r8
      aa3(3,2) =         a6 * h7
      aa3(3,3) = 1._r8 + a6 * (h6 + h7)
-     yy3(3)   =         a6 * (y5 - h6 * alvl * sfcwater_mass)                           ! HSC row 
+     yy3(3)   =         a6 * (y5 - h6 * alvsfc * sfcwater_mass)                           ! HSC row
 
      call matrix8_3x3(AA3,YY3,XX3,sing); if (sing) call sing_print(iland,15,3,aa3,yy3,glatw,glonw)
 
@@ -1791,14 +1779,18 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
      cantemp = cantemp + (hxfervc + hxfersc - cp * sxfer_t) * hcapcani
 
      veg_water = max(0.,veg_water - wxfervc)
-     veg_energy = veg_energy + radveg - hxfervc - (wxfervc + transp) * alvl
+
+     ! The latent heat of sublimation, alvi, must be used in computing the following gain/loss of
+     ! veg_energy and energy_per_m2 due to vapor flux.  (See explanation above in similar context.)
+
+     veg_energy = veg_energy + radveg - hxfervc - (wxfervc + transp) * alvi
 
      call qwtk(veg_energy, veg_water, hcapveg, veg_temp, fracliqv)
 
      ! Energy_per_m2 may pertain to sfcwater only, soil only, or both combined.  In cases
      ! where it pertains to sfcwater only, wxfergc will be zero.
 
-     energy_per_m2 = energy_per_m2 + radsfc - hxfersc - (wxfersc + wxfergc) * alvl
+     energy_per_m2 = energy_per_m2 + radsfc - hxfersc - (wxfersc + wxfergc) * alvi
 
      canrrv = canrrv + (wxfervc + transp + wxfersc + wxfergc - sxfer_r) * canairi
 
@@ -1840,7 +1832,6 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
   use leaf_coms, only: veg_frac, albv_brown, albv_green, sai, dead_frac,  &
                        fpar_max, veg_clump, glai_max, dfpardsr, fpar_min, &
                        sr_max, sr_min, tai_max
-  use misc_coms, only: io6
 
   implicit none
 
@@ -1908,7 +1899,7 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
      fpar = fpar_min + (sr - sr_min) * dfpardsr(leaf_class)
 
      ! Compute green leaf area index (veg_lai), dead leaf area index (dead_lai),
-     ! total area index (tai), and green fraction   
+     ! total area index (tai), and green fraction
 
      veg_lai = glai_max(leaf_class) * (veg_clump(leaf_class) * fpar / fpar_max  &
         + (1. - veg_clump(leaf_class)) * alog(1. - fpar) * fpcon)
@@ -1925,7 +1916,7 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
                 + albv_brown(leaf_class) * (1. - green_frac)
      veg_fracarea = veg_frac(leaf_class) * (1. - exp(-extinc_veg * veg_tai))
 
-  endif         
+  endif
 
   end subroutine vegndvi
 
@@ -1933,7 +1924,6 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
 
   subroutine sing_print(iland,ieqn,nsize,aa,yy,glatw,glonw)
 
-  use misc_coms,   only: io6
   use consts_coms, only: r8
 
   implicit none
@@ -1966,10 +1956,8 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
                          soil_water,    soil_energy,     specifheat_drysoil, &
                          soil_tempk,    soil_fracliq                         )
 
-  use leaf_coms,      only: dt_leaf, snowmin_expl
-  use mem_sfcg,       only: sfcg
+  use leaf_coms,      only: dt_leaf
   use mem_land,       only: nzg
-  use misc_coms,      only: io6
   use therm_lib,      only: qwtk
   use leaf4_surface,  only: sfcwater_soil_comb
 
@@ -1998,9 +1986,6 @@ call qwtk(veg_energy, veg_water, hcapveg, veg_temp0, fracliqv)
   real, intent(in)    :: soil_fracliq      (nzg) ! fraction of soil moisture in liquid phase
 
   ! Local variables
-
-  integer :: k        ! loop index over soil layers
-  integer :: iveg     ! flag for exposed vegetation (0=no, 1=yes)
 
   real :: flux, ediff
 

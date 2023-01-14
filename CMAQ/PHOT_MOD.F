@@ -218,7 +218,7 @@ C-----------------------------------------------------------------------
 
 !     INTEGER NLEVEL
       REAL SOLAR_FLUX        ! solar flux at atmosphere top in a wavelength band, [photons/(cm^2*s)]
-      REAL INSOLATION        ! downward solar flux at atmosphere top summed over wavelength bands, [photons/(cm^2*s)]
+!     REAL INSOLATION        ! downward solar flux at atmosphere top summed over wavelength bands, [photons/(cm^2*s)]
 
 !      REAL DELTA_O3_COLUMN   ! change in ozone column density [molecules/cm2]
 !      REAL TROPO_O3_COLUMN   ! ozone column density in the troposphere [molecules/cm2]
@@ -312,8 +312,8 @@ C-----------------------------------------------------------------------
 !***  Note: Hu &Stamnes give beta in [ 1 / km/ for LWC in [ g / m**3 ]
 !***  the values for beta/ LWC also give beta in [1/m] with LWC in [g/m **3]
 
-      REAL G_CLOUD              ! local cloud asymmetry factor
-      REAL OM_CLOUD             ! local cloud single scattering albedo
+!     REAL G_CLOUD              ! local cloud asymmetry factor
+!     REAL OM_CLOUD             ! local cloud single scattering albedo
       REAL DTSCAT_CLOUD         ! level increment in cloud scattering optical
       REAL TAU_SCAT_CLD         ! total scattering optical depth of cloud
 !     REAL LAYERING_FACTOR      ! correction factor for cloud layering
@@ -340,16 +340,16 @@ C-----------------------------------------------------------------------
 !      REAL, ALLOCATABLE, SAVE :: CSZ( :,:,: )
 !      REAL, ALLOCATABLE, SAVE :: QYZ( :,:,: )
 
-         REAL :: TAU_SCAT( NWL )           ! aerosol scattering optical depth
+!        REAL :: TAU_SCAT( NWL )           ! aerosol scattering optical depth
          REAL :: CSZ( NLAYS,NWL,NPHOTAB )  ! molecular cross section
          REAL :: QYZ( NLAYS,NWL,NPHOTAB )  ! quantum yield
 
          real :: actinic_flux(nlays)  ! actinic fluxes, initially [Photons/(cm^2s)] then  [Watts/m^2]
 !        real :: irradiance  (nlays)  ! total downward irradiance [Watts/m^2]
 
-         REAL :: REFLECTION          ! broad band reflection coefficient (diffuse) at model top
-         REAL :: TRANSMISSION        ! broad band transmission coefficient (diffuse) at surface
-         REAL :: TRANS_DIRECT        ! broad band direct transmission coefficient at surface
+!        REAL :: REFLECTION          ! broad band reflection coefficient (diffuse) at model top
+!        REAL :: TRANSMISSION        ! broad band transmission coefficient (diffuse) at surface
+!        REAL :: TRANS_DIRECT        ! broad band direct transmission coefficient at surface
          REAL :: DSDH_TD ( NLAYS   ) ! slant path function from top down
          REAL :: BLKDZ   ( NLAYS   ) ! layer thicknesses [ m ]
          REAL :: DTAU    ( NLAYS   ) ! total optical depth at level
@@ -942,7 +942,7 @@ C*** find ozone column density for atmosphere, stratosphere, and troposphere
 !***calculate fluxes and irradiances
 
          CALL TWOSTREAM_S ( NLAYS, NLEVS, COSZEN, ALB(:,iwl), DTAU, OM, G, DSDH_TD,
-     &                      FDIR, FUP, FDN, EDIR, EUP, EDN, frac_sfck(:,iw), lsw(iw), iw, iwl )
+     &                      FDIR, FUP, FDN, EDIR, EUP, EDN, frac_sfck(:,iw), lsw(iw) )
 
          DO L = 1, NLEVS
             II = NLEVS + 1 - L
@@ -1326,7 +1326,7 @@ C-----------------------------------------------------------------------
 
 !***Internal
 
-      INTEGER I, J, K           ! loop indices
+      INTEGER   :: J, K           ! loop indices
       REAL( 8 ) :: RE
       REAL( 8 ) :: DSJ               ! slant path length [m]
       REAL( 8 ) :: DHJ               ! layer thickness [m]
@@ -1503,7 +1503,7 @@ C///////////////////////////////////////////////////////////////////////
 C///////////////////////////////////////////////////////////////////////
 
       SUBROUTINE TWOSTREAM_S ( NLAYER, NLEVEL, MU, RSFC, TAUU, OMU, GU, DSDH,
-     &                         FDR, FUP, FDN, EDR, EUP, EDN, frac_sfck, nsfc, iw, iwl )
+     &                         FDR, FUP, FDN, EDR, EUP, EDN, frac_sfck, nsfc )
 C-----------------------------------------------------------------------
 C  PURPOSE:
 C     Solve two-stream equations for multiple layers.  The subroutine is
@@ -1576,8 +1576,6 @@ C-----------------------------------------------------------------------
       INTEGER, INTENT( IN ) :: NLAYER
       INTEGER, INTENT( IN ) :: NLEVEL
       INTEGER, INTENT( IN ) :: NSFC
-      INTEGER, INTENT( IN ) :: iw
-      INTEGER, INTENT( IN ) :: iwl
 
       REAL,    INTENT(IN )  :: MU
       REAL,    INTENT(IN )  :: RSFC( NSFC )
@@ -1810,10 +1808,10 @@ C-----------------------------------------------------------------------
 
             a(row) = E1(I) - RSFC(j) * E3(I)
             b(row) = E2(I) - RSFC(j) * E4(I)
-            d(row) = 0.0d0
+!           d(row) = 0.0d0
             e(row) = SSFC(j) - CUPTN(I) + RSFC(j) * CDNTN(I)
 
-            CALL TRIDIAG2 ( A, B, D, E, Y2, row, tmp1, tmp2 )
+            CALL TRIDIAG2 ( A, B, E, Y2, row, tmp1, tmp2 )
 
             fr = frac_sfck(j)
 
@@ -1936,7 +1934,7 @@ C-----------------------------------------------------------------------
 
 C///////////////////////////////////////////////////////////////////////
 
-      SUBROUTINE TRIDIAG2 ( A, B, D, E, Y, N, gam, y2 )
+      SUBROUTINE TRIDIAG2 ( A, B, E, Y, N, gam, y2 )
 C-----------------------------------------------------------------------
 C  This version has the same variable names as in twostream_s, that
 C  is D is the superdiagonal and E is the right hand side, and Y is
@@ -1987,7 +1985,7 @@ C-----------------------------------------------------------------------
       INTEGER,   INTENT( IN )  :: N        ! number of rows in matrix
       REAL( 8 ), INTENT( IN )  :: A( n )   ! subdiagonal
       REAL( 8 ), INTENT( IN )  :: B( n )   ! diagonal
-      REAL( 8 ), INTENT( IN )  :: D( n )   ! superdiagonal
+!     REAL( 8 ), INTENT( IN )  :: D( n )   ! superdiagonal
       REAL( 8 ), INTENT( IN )  :: E( n )   ! R.H. side
       REAL( 8 ), INTENT( OUT ) :: Y( n )   ! solution
 

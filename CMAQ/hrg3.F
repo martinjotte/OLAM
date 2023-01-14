@@ -58,7 +58,7 @@ C..SAVED LOCAL VARIABLES:
 
 
 C..SCRATCH LOCAL VARIABLES:
-      REAL( 8 ) ::   A, B, C, Q   ! Quadratic equation terms
+      REAL( 8 ) ::   A, B, C      ! Quadratic equation terms
       REAL( 8 ) ::   CMN          ! Temp scalar
       REAL( 8 ) ::   L8           ! Loss of CCO_O2
       REAL( 8 ) ::   L9           ! Loss of PAN

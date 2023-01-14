@@ -1,36 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
-
 subroutine nudge_prep_obs(iaction, o_rho, o_theta, o_rrw, o_uzonal, o_umerid)
 
 use mem_nudge,   only: rho_obsp, theta_obsp, rrw_obsp, &
@@ -60,7 +27,7 @@ if (iaction == 1) then
 
 !----------------------------------------------------------------------
    !$omp do private(iw,k)
-   do j = 1, jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
+   do j = 1, jtab_w(jtw_init)%jend; iw = jtab_w(jtw_init)%iw(j)
 !---------------------------------------------------------------------
       do k = lpw(iw), mza
             rho_obsp(k,iw) =    rho_obsf(k,iw)
@@ -82,7 +49,7 @@ endif
 
 !----------------------------------------------------------------------
 !$omp do private(iw,k)
-do j = 1, jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
+do j = 1, jtab_w(jtw_init)%jend; iw = jtab_w(jtw_init)%iw(j)
 !---------------------------------------------------------------------
 
    do k = lpw(iw), mza
@@ -103,7 +70,7 @@ end subroutine nudge_prep_obs
 
 !===============================================================================
 
-subroutine obs_nudge(mrl)
+subroutine obs_nudge()
 
 use mem_nudge, only:   tnudcent, rhot_nud,                 &
                         rho_obs, rho_obsp,    rho_obsf,    &
@@ -118,14 +85,11 @@ use misc_coms,   only: s1900_sim
 use mem_ijtabs,  only: itab_w, jtab_w, jtw_prog
 use mem_tend,    only: thilt, rr_wt, vmxet, vmyet, vmzet
 use isan_coms,   only: ifgfile, s1900_fg
-use olam_mpi_atm,only: mpi_send_w, mpi_recv_w
 use oname_coms,  only: nl
 
 implicit none
 
 ! Nudge selected model fields (rho, thil, rr_w, vmc) to observed data
-
-integer, intent(in) :: mrl
 
 integer :: j, iw, k
 real    :: umzonalt, ummeridt
@@ -172,10 +136,6 @@ real    :: tp, tf, tnudi, tnudr, rho4
 !endif
 !----------------------------------------------------------------------
 
-! Check whether it is time to nudge
-
-if (mrl < 1) return
-
 ! Time interpolation coefficients
 
 tf = real ( (s1900_sim         - s1900_fg(ifgfile-1)) &
@@ -186,7 +146,7 @@ tp = 1. - tf
 ! Horizontal loop over W columns
 !----------------------------------------------------------------------
 !$omp parallel do private( iw,k,tnudi,rho4,tnudr,umzonalt,ummeridt )
-do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 !---------------------------------------------------------------------
 
 ! Skip obs nudging if mrl of this column is greater than max nudging mrl

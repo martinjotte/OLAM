@@ -40,7 +40,7 @@ subroutine relax(nxin,nyin,field,mask)
   do m = 1, nx * ny
 
      change = 0.0
-  
+
      ! red squares
      do j = 1, ny
 

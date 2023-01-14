@@ -109,11 +109,11 @@ strcat(inv_out, "Geolocation library status (by search order)\n");
 #endif
 #endif
 #if (DEFAULT_GCTPC == 1)
-    strcat(inv_out, "  gctpc geolocation is enabled\n"); 
+    strcat(inv_out, "  gctpc geolocation is enabled\n");
 #else
     strcat(inv_out, "  gctpc geolocation is disabled\n");
 #endif
-strcat(inv_out, "  spherical geolocation is enabled\n"); 
+strcat(inv_out, "  spherical geolocation is enabled\n");
 
 
 #ifdef USE_UDF

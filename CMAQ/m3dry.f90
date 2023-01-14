@@ -141,8 +141,8 @@ SUBROUTINE m3dry ( iw, abflux, sfc_hono, nsfc, depvel_gas )
   use cgrid_defn,  only: cgrid, vdemis_gc
   use mem_ijtabs,  only: itab_w
   use mem_sfcg,    only: itab_wsfc, sfcg
-  use mem_land,    only: land, mland, omland, nzg
-  use mem_sea,     only: sea, msea, omsea
+  use mem_land,    only: land, omland, nzg
+  use mem_sea,     only: sea, omsea
   use mem_grid,    only: dzt, volti, lpw
   use mem_basic,   only: theta, rho
   use mem_turb,    only: pblh
@@ -306,6 +306,10 @@ SUBROUTINE m3dry ( iw, abflux, sfc_hono, nsfc, depvel_gas )
      kw = itab_wsfc(iwsfc)%kwatm(jasfc)
 
      iland = iwsfc - omland
+
+     ks = kw - lpw(iw) + 1
+
+     arcoarkw = itab_wsfc(iwsfc)%arcoarkw(jasfc)
 
      ustar = sfcg%ustar(iwsfc)
      zf    = dzt(kw)
@@ -630,9 +634,9 @@ SUBROUTINE m3dry ( iw, abflux, sfc_hono, nsfc, depvel_gas )
 
      isea = iwsfc - omsea
 
-     ks  = kw - lpw(iw) + 1
+     ks = kw - lpw(iw) + 1
 
-     arcoarkw  = itab_wsfc(iwsfc)%arcoarkw(jasfc)
+     arcoarkw = itab_wsfc(iwsfc)%arcoarkw(jasfc)
 
      isocean = (sfcg%leaf_class(iwsfc) == 0)
 

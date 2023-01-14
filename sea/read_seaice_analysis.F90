@@ -1,9 +1,9 @@
 subroutine read_seaice_analysis(iaction)
 
   use mem_sea,    only: sea, msea, omsea
-  use mem_sfcg,   only: sfcg, itab_wsfc
+  use mem_sfcg,   only: sfcg
   use sea_coms,   only: iseaicefile, iseaiceflg
-  use misc_coms,  only: io6, s1900_sim, s1900_init, iparallel, isubdomain
+  use misc_coms,  only: io6, s1900_sim, iparallel
   use max_dims,   only: pathlen
   use isan_coms,  only: nfgfiles, s1900_fg, fnames_fg, nprx, npry, glat, &
                         inproj, xswlat, xswlon, gdatdx, gdatdy, ipoffset
@@ -27,7 +27,7 @@ subroutine read_seaice_analysis(iaction)
   integer            :: nio, njo, isea, iwsfc
   logical            :: exists, has_seaice
   integer            :: bytes, isize, ier, igloberr, ilat, ipry
-  
+
   real,    allocatable :: ice(:,:)  ! sea ice concentration [0 - 1]
   real,    allocatable :: a2d(:,:)
   integer, allocatable :: buffer(:)
@@ -54,7 +54,7 @@ subroutine read_seaice_analysis(iaction)
            iseaicefile = nf
         endif
      enddo
-  
+
      if (iseaicefile < 1) then
         write(io6,*) ' '
         write(io6,*) 'Unable to find analysis file for sst/seaice'
@@ -75,7 +75,7 @@ subroutine read_seaice_analysis(iaction)
         stop 'stop: no future analysis file for sst/seaice file'
      endif
 
-     sea%seaicep(:) = sea%seaicef(:)   
+     sea%seaicep(:) = sea%seaicef(:)
 
   endif
 
@@ -343,13 +343,10 @@ subroutine read_seaice_analysis(iaction)
   do isea = 2, msea
      iwsfc = isea + omsea
 
-     ! Skip this cell if running in parallel and cell rank is not MYRANK
-     ! if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
-
-! fractional x/y indices in pressure data arrays at current iw point location 
+! fractional x/y indices in pressure data arrays at current iw point location
 
      if (inproj == 1) then
- 
+
         gry = (sfcg%glatw(iwsfc) - xswlat) / gdatdy + 3.
         grx = (sfcg%glonw(iwsfc) - xswlon) / gdatdx + 1. + real(ipoffset)
 
@@ -372,7 +369,7 @@ subroutine read_seaice_analysis(iaction)
         endif
 
         gry = (sfcg%glatw(iwsfc) - plat(ilat)) / (plat(ilat+1) - plat(ilat)) + real(ilat)
-        grx = (sfcg%glonw(iwsfc) - xswlon) / gdatdx + 1. + real(ipoffset) 
+        grx = (sfcg%glonw(iwsfc) - xswlon) / gdatdx + 1. + real(ipoffset)
 
      endif
 

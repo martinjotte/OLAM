@@ -1,35 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University;
-   ! Colorado State University Research Foundation ; ATMET, LLC
-
-   ! This software is free software; you can redistribute it and/or modify it
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version.
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
-
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
-   ! (http://www.gnu.org/licenses/gpl.html)
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 subroutine voronoi()
 
   use mem_ijtabs,   only: mloops, itab_m, itab_v, itab_w, alloc_itabs
@@ -48,7 +16,8 @@ subroutine voronoi()
 
   integer :: im1,im2
   integer :: iw1,iw2,iw3,im,iw
-  integer :: iwd,iv,iud,iud1,iud2,imd,npoly,j,j1
+  integer :: iwd,iv,iud,imd,npoly,j
+! integer :: iud1,iud2,j1
   real    :: expansion
 
   ! Interchange grid dimensions
@@ -65,7 +34,7 @@ subroutine voronoi()
 
   ! Allocate Voronoi set of itabs
 
-  call alloc_itabs(nma,nva,nwa,0)
+  call alloc_itabs(nma,nva,nwa)
 
   ! Allocate XEW,YEW,ZEW arrays, and fill their values from XEMD,YEMD,ZEMD, which
   ! still have the OLD nmad dimension which is the NEW nwa dimension
@@ -299,21 +268,19 @@ subroutine pcvt()
 
   ! Iterative procedure for defining centroidal voronoi cells
 
-  use mem_ijtabs,  only: itab_m, itab_w
-  use mem_grid,    only: nma, nwa, xem, yem, zem, xew, yew, zew
+  use mem_ijtabs,  only: itab_m
+  use mem_grid,    only: nma, xem, yem, zem, xew, yew, zew
   use consts_coms, only: erad, eradi
   use misc_coms,   only: mdomain
 
   implicit none
 
-  integer :: jm,jm1,iw,im,iw1,iw2,iw3,iter,npoly
+  integer :: im,iw1,iw2,iw3
 
-  real :: xm(7),ym(7)
-  real :: raxis,raxisi,area,xc,yc,xec,yec,zec,expansion
+  real :: raxis,raxisi,expansion
   real :: sinwlat,coswlat,sinwlon,coswlon
   real :: dxe,dye,dze
   real :: xebc,yebc,zebc
-  real :: glatbc,glonbc
   real :: x1,x2,x3,y1,y2,y3
   real :: dx12,dx13,dx23
   real :: s1,s2,s3
@@ -487,7 +454,7 @@ subroutine grid_geometry_hex()
   real               :: dvm1,dvm2
   integer            :: j1,j2
   integer            :: npoly1,npoly2,np
-  real               :: xm1,xm2,xv,ym1,ym2,yv,frac,alpha
+  real               :: xm1,xm2,xv,ym1,ym2,yv,frac
   real               :: xw1,xw2,yw1,yw2
   real               :: xq1, yq1, xq2, yq2, psiz, vsprd
   integer            :: iskip, iwp, ivp, imp
@@ -1072,7 +1039,7 @@ subroutine grid_geometry_hex()
         ! Vector b is now the correction to the coefficients fo
         b(1:npoly) = b(1:npoly) + fo(1:npoly)
 
-        if (info == 0 .and. all(b(1:npoly) > 0.05_r8) .and. all(b(1:npoly) < 0.7_r8)) then
+        if (info == 0 .and. all(b(1:npoly) > 0.03_r8) .and. all(b(1:npoly) < 0.7_r8)) then
 
             itab_w(iw)%ecvec_vx(1:npoly) = b(1:npoly) * vnx_ps(1:npoly)
             itab_w(iw)%ecvec_vy(1:npoly) = b(1:npoly) * vny_ps(1:npoly)
@@ -1206,23 +1173,19 @@ subroutine ctrlvols_hex()
   implicit none
 
   integer  :: j,iw,iwp,iv,ivp,im1,im2,k,km,im,iw1,iw2,iw3
-  integer :: kw,npoly,jv,iv1,iv2,iv3,iwsfc
-  real    :: hmin,hmax,facw
-  real(r8):: area, arw8, arw8m, arc
-  logical :: docheck
-
-  real(r8), allocatable :: area_sum(:,:)
-  real :: arw0_check(nwa)
+  integer  :: kw,npoly,jv,iv1,iv2,iv3,iwsfc
+  real     :: hmin,hmax,a0,aopn,atot,amin,amax
+  real(r8) :: area, arw8, arw8m, arc
+  logical  :: docheck, istab
   real(r8) :: sfcarea_sum
-
-  integer :: nsfcw(nwa)
+  integer  :: nmin, nclosed, nmov, js, jasfc
 
   write(io6,*) 'Defining control volume areas'
 
-  arw (:,:) = 0.
-  arw0_check(:) = 0.
+  arw(:,:) = 0.
 
-  nsfcw(:) = 0
+! istab = .true.
+  istab = .true.
 
   ! Loop over all SURFACE cells
 
@@ -1237,25 +1200,34 @@ subroutine ctrlvols_hex()
         kw  = itab_wsfc(iwsfc)%kwatm(j)
 
         arw(kw:nza-1,iw) = arw(kw:nza-1,iw) + itab_wsfc(iwsfc)%arc(j)
-        arw0_check(iw) = arw0_check(iw) + itab_wsfc(iwsfc)%arc(j)
 
-        nsfcw(iw) = nsfcw(iw) + 1
+        itab_w(iw)%jsfc2 = itab_w(iw)%jsfc2 + 1
      enddo
   enddo
 
-!{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{
-  ! Check for equality between arw0 and arw0_check
+  if (istab) then
 
-  do j = 1,jtab_w(jtw_grid)%jend(1); iw = jtab_w(jtw_grid)%iw(j)
-     if (abs(arw0(iw) - arw0_check(iw)) > 1.e-6*min(arw0(iw),arw0_check(iw))) then
-        print*, 'arw0_check ',iw,arw0(iw),arw0_check(iw),arw0(iw)/arw0_check(iw)
-     endif
-  enddo
-!}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}
+     do j = 1,jtab_w(jtw_grid)%jend; iw = jtab_w(jtw_grid)%iw(j)
+        allocate( itab_w(iw)%iwsfc( itab_w(iw)%jsfc2 ) )
+        allocate( itab_w(iw)%jasfc( itab_w(iw)%jsfc2 ) )
+        itab_w(iw)%jsfc2 = 0
+     enddo
+
+     do iwsfc = 2, nwsfc
+        do j = 1, itab_wsfc(iwsfc)%nwatm
+           iw = itab_wsfc(iwsfc)%iwatm(j)
+
+           itab_w(iw)%jsfc2 = itab_w(iw)%jsfc2 + 1
+           itab_w(iw)%iwsfc(  itab_w(iw)%jsfc2  ) = iwsfc
+           itab_w(iw)%jasfc(  itab_w(iw)%jsfc2  ) = j
+        enddo
+     enddo
+
+  endif
 
   ! Loop over all ATM cells and close those whose ARW is below a specified limit
 
-  do j = 1,jtab_w(jtw_grid)%jend(1); iw = jtab_w(jtw_grid)%iw(j)
+  do j = 1,jtab_w(jtw_grid)%jend; iw = jtab_w(jtw_grid)%iw(j)
      do k = nza-1, 2, -1
         if (arw(k,iw) < 0.2 * arw0(iw)) then
            arw (1:k,iw) = 0.0
@@ -1266,7 +1238,7 @@ subroutine ctrlvols_hex()
 
   ! Lateral boundary copy of ARW
 
-  do j = 1,jtab_w(jtw_lbcp)%jend(1); iw = jtab_w(jtw_lbcp)%iw(j)
+  do j = 1,jtab_w(jtw_lbcp)%jend; iw = jtab_w(jtw_lbcp)%iw(j)
      iwp = itab_w(iw)%iwp
      arw (:,iw) = arw (:,iwp)
   enddo
@@ -1275,7 +1247,7 @@ subroutine ctrlvols_hex()
   ! subsequent adjustment
 
   !$omp parallel do private(iv,im1,im2,iw1,iw2,k,hmin,hmax,km)
-  do j = 1,jtab_v(jtv_grid)%jend(1); iv = jtab_v(jtv_grid)%iv(j)
+  do j = 1,jtab_v(jtv_grid)%jend; iv = jtab_v(jtv_grid)%iv(j)
      im1 = itab_v(iv)%im(1); im2 = itab_v(iv)%im(2)
      iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
 
@@ -1287,7 +1259,7 @@ subroutine ctrlvols_hex()
            arv(k,iv) = 0.
         enddo
 
-     elseif (nsfcw(iw1) == 1 .and. nsfcw(iw2) == 1) then
+     elseif (itab_w(iw1)%jsfc2 == 1 .and. itab_w(iw2)%jsfc2 == 1) then
 
         do k = nza,2,-1
 
@@ -1357,6 +1329,7 @@ subroutine ctrlvols_hex()
 
            endif
 
+           ! Close faces with ARV below a specified limit:
            if (arv(k,iv) < 0.2 * dnu(iv) * dzt(k)) then
               arv(1:k,iv) = 0.0
               exit
@@ -1369,42 +1342,131 @@ subroutine ctrlvols_hex()
   enddo ! j,iv
   !$omp end parallel do
 
-  ! option for stability: if hexagon has only one lateral face open, close entire cell
+  ! Option for stability: if cell has only one or two lateral faces open,
+  ! close entire cell:
 
   docheck = .true.
   do while (docheck)
 
      docheck = .false.
-     do j = 1,jtab_w(jtw_grid)%jend(1); iw = jtab_w(jtw_grid)%iw(j)
+     do j = 1,jtab_w(jtw_grid)%jend; iw = jtab_w(jtw_grid)%iw(j)
 
         npoly = itab_w(iw)%npoly
 
-        do k = nza-1, 2, -1
+        if (istab) then
+           nmin = npoly-2
+        else
+           nmin = npoly-1
+        endif
 
-           if ( count( arv( k,itab_w(iw)%iv(1:npoly) ) < 1.e-8 ) == npoly-1 ) then
+        do k = nza-1, 2, -1
+           if (arw(k,iw) < 1.e-8) exit
+
+           nclosed = count( arv( k,itab_w(iw)%iv(1:npoly) ) < 1.e-8 )
+           if (nclosed >= nmin) then
               docheck = .true.
               arw (1:k,iw) = 0.0
               arv (1:k,itab_w(iw)%iv(1:npoly)) = 0.0
               exit
            endif
+
+           if (istab) then
+              aopn = 0.0
+              atot = 0.0
+
+              do jv = 1, npoly
+                 iv = itab_w(iw)%iv(jv)
+                 atot = atot + arv(k,iv)
+                 aopn = aopn + dnu(iv) * dzt(k)
+              enddo
+
+              if (atot < 0.2 * aopn) then
+                 docheck = .true.
+                 arw (1:k,iw) = 0.0
+                 arv (1:k,itab_w(iw)%iv(1:npoly)) = 0.0
+                 exit
+              endif
+           endif
+
         enddo
+     enddo
+
+     ! Lateral boundary copy of ARV
+
+     do j = 1,jtab_v(jtv_lbcp)%jend; iv = jtab_v(jtv_lbcp)%iv(j)
+        ivp = itab_v(iv)%ivp
+        arv(:,iv) = arv(:,ivp)
+     enddo
+
+     ! Lateral boundary copy of ARW
+
+     do j = 1,jtab_w(jtw_lbcp)%jend; iw = jtab_w(jtw_lbcp)%iw(j)
+        iwp = itab_w(iw)%iwp
+        arw (:,iw) = arw (:,iwp)
      enddo
 
   enddo
 
-  ! Lateral boundary copy of ARV
+  if (istab) then
 
-  do j = 1,jtab_v(jtv_lbcp)%jend(1); iv = jtab_v(jtv_lbcp)%iv(j)
-     ivp = itab_v(iv)%ivp
-     arv(:,iv) = arv(:,ivp)
-  enddo
+     do j = 1,jtab_w(jtw_grid)%jend; iw = jtab_w(jtw_grid)%iw(j)
 
-  ! Lateral boundary copy of ARW
+        npoly = itab_w(iw)%npoly
+!       a0 = 0.85 * arw0(iw)
+        a0 = 0.90 * arw0(iw)
 
-  do j = 1,jtab_w(jtw_lbcp)%jend(1); iw = jtab_w(jtw_lbcp)%iw(j)
-     iwp = itab_w(iw)%iwp
-     arw (:,iw) = arw (:,iwp)
-  enddo
+        do k = nza-1, 2, -1
+           if (arw(k,iw) > 1.e-8 .and. arw(k,iw) < a0) then
+
+              aopn = 0.0
+              atot = 0.0
+
+              do jv = 1, npoly
+                 iv = itab_w(iw)%iv(jv)
+                 atot = atot + arv(k,iv)
+                 aopn = aopn + dnu(iv) * dzt(k)
+              enddo
+
+              amin = a0 * atot / aopn
+              do while( arw(k,iw) < amin )
+
+                 do js = 1, itab_w(iw)%jsfc2
+                    iwsfc = itab_w(iw)%iwsfc(js)
+                    jasfc = itab_w(iw)%jasfc(js)
+                    if ( itab_wsfc(iwsfc)%nwatm == 1 .and. &
+                         itab_wsfc(iwsfc)%kwatm(jasfc) == k+1 ) then
+                       itab_wsfc(iwsfc)%kwatm(jasfc) = k
+                       arw(k,iw) = arw(k,iw) + itab_wsfc(iwsfc)%arc(jasfc)
+                       exit
+                    endif
+                 enddo
+
+                 if (js == itab_w(iw)%jsfc2 + 1) then
+                    do js = 1, itab_w(iw)%jsfc2
+                       iwsfc = itab_w(iw)%iwsfc(js)
+                       jasfc = itab_w(iw)%jasfc(js)
+                       if (itab_wsfc(iwsfc)%kwatm(jasfc) == k+1) then
+                          itab_wsfc(iwsfc)%kwatm(jasfc) = k
+                          arw(k,iw) = arw(k,iw) + itab_wsfc(iwsfc)%arc(jasfc)
+                          exit
+                       endif
+                    enddo
+                 endif
+
+                 if (js == itab_w(iw)%jsfc2 + 1) then
+                    write(*,*) iw, k, amin, arw(k,iw), arw0(iw)
+                    write(*,*) arw(k+1,iw)
+
+                    write(*,*) count( itab_wsfc(iwsfc)%kwatm( : ) == k+1 )
+
+                    stop 'oh no!!!!!!!!!!!!!!'
+                 endif
+
+              enddo
+           endif
+        enddo
+     enddo
+  endif
 
 !===============================================================================
 ! At this point, ATM cells with insufficient top ARW and/or only one ARV
@@ -1423,7 +1485,7 @@ subroutine ctrlvols_hex()
   lpv(2:nva) = nza
   lpw(2:nwa) = nza
 
-  do j = 1,jtab_m(jtm_grid)%jend(1); im = jtab_m(jtm_grid)%im(j)
+  do j = 1,jtab_m(jtm_grid)%jend; im = jtab_m(jtm_grid)%im(j)
 
      iv1 = itab_m(im)%iv(1)
      iv2 = itab_m(im)%iv(2)
@@ -1495,20 +1557,32 @@ subroutine ctrlvols_hex()
 
   ! Loop over all ATM grid columns
 
-!  !$omp parallel do private(iw,k,jv,iv)
-  do j = 1,jtab_w(jtw_grid)%jend(1); iw = jtab_w(jtw_grid)%iw(j)
+  !$omp parallel do private(iw,k,jv,iv)
+  do j = 1,jtab_w(jtw_grid)%jend; iw = jtab_w(jtw_grid)%iw(j)
 
      ! special at model top
      volt(nza,iw) = dzt(nza) * arw0(iw)
 
      ! Loop over vertical levels
 
-     do k = lpw(iw), nza-1
+     do k = nza-1, lpw(iw), -1
 
-        if (arw(k-1,iw) / arw(k,iw) > 0.999) then
+        if (arw(k-1,iw) > 0.999 * arw(k,iw)) then
+
            volt(k,iw) = dzt(k) * arw(k,iw)
+
         else
+
            call volt_from_flux(k,iw)
+
+           if (istab) then
+
+              amin = 0.5 * (arw(k,iw)+arw(k-1,iw)) * dzt(k)
+              amax = arw(k,iw) * dzt(k)
+              volt(k,iw) = max(real(amin,r8), min(real(amax,r8), volt(k,iw)))
+
+           endif
+
         endif
 
      enddo
@@ -1521,9 +1595,13 @@ subroutine ctrlvols_hex()
      enddo
 
   enddo
-!  !$omp end parallel do
+  !$omp end parallel do
+
+! stop
 
   nve2_max = maxval(lve2(:))
+
+  allocate(sfcg%dzt_bot(nwsfc))
 
   ! Loop over all SURFACE cells
 
@@ -1575,7 +1653,7 @@ subroutine ctrlvols_hex()
 
      ! Expand ARW and VOLT with height for spherical geometry
 
-     do j = 1,jtab_w(jtw_grid)%jend(1); iw = jtab_w(jtw_grid)%iw(j)
+     do j = 1,jtab_w(jtw_grid)%jend; iw = jtab_w(jtw_grid)%iw(j)
         do k = lpw(iw), nza
            arw (k,iw) = arw (k,iw) * zfacm2(k)
            volt(k,iw) = volt(k,iw) * zfact(k)**2
@@ -1584,7 +1662,7 @@ subroutine ctrlvols_hex()
 
      ! Expand ARV with height for spherical geometry
 
-     do j = 1,jtab_v(jtv_grid)%jend(1); iv = jtab_v(jtv_grid)%iv(j)
+     do j = 1,jtab_v(jtv_grid)%jend; iv = jtab_v(jtv_grid)%iv(j)
         do k = lpv(iv), nza
            arv(k,iv) = arv(k,iv) * zfact(k)
         enddo
@@ -1594,7 +1672,7 @@ subroutine ctrlvols_hex()
 
   ! Lateral boundary copy of ARW, VOLT, LPW, and LSW
 
-  do j = 1,jtab_w(jtw_lbcp)%jend(1); iw = jtab_w(jtw_lbcp)%iw(j)
+  do j = 1,jtab_w(jtw_lbcp)%jend; iw = jtab_w(jtw_lbcp)%iw(j)
      iwp = itab_w(iw)%iwp
 
      arw  (:,iw) = arw  (:,iwp)
@@ -1605,7 +1683,7 @@ subroutine ctrlvols_hex()
 
   ! Lateral boundary copy of ARV
 
-  do j = 1,jtab_v(jtv_lbcp)%jend(1); iv = jtab_v(jtv_lbcp)%iv(j)
+  do j = 1,jtab_v(jtv_lbcp)%jend; iv = jtab_v(jtv_lbcp)%iv(j)
      ivp = itab_v(iv)%ivp
 
      arv(:,iv) = arv(:,ivp)
@@ -1623,17 +1701,17 @@ subroutine ctrlvols_hex_nosfcg()
   use misc_coms,   only: io6, mdomain
   use mem_grid,    only: nsw_max, nza, nma, nva, nwa, lpm, lpv, lpw, lsw, &
                          zm, dzt, zfact, zfacm2, dnu, &
-                         arw0, arv, arw, volt, lve2, nve2_max, dzt_bot, &
+                         arw0, arv, arw, volt, lve2, nve2_max, &
                          glatw, glonw, xew, yew, zew, topw, &
                          glatm, glonm, xem, yem, zem, topm
   implicit none
 
   integer  :: j,iw,iwp,iv,ivp,im1,im2,k,km,im,iw1,iw2,iw3
   integer :: kw,npoly,jv,iv1,iv2,iv3, ipat
-  real    :: hmin,hmax,facw, topmin, topmax
+  real    :: hmin,hmax,topmin, topmax
   logical :: docheck
 
-  integer :: npats(7), kw_pats(nza,7) 
+  integer :: npats(7), kw_pats(nza,7)
   real    :: area_pats(nza,7)
 
   real :: arw0_check
@@ -1644,9 +1722,9 @@ subroutine ctrlvols_hex_nosfcg()
 
   ! Initialize TOPW and TOPM by calling topo_init
 
-  call topo_init(nwa,topw,glatw,glonw,xew,yew,zew)  
-  call topo_init(nma,topm,glatm,glonm,xem,yem,zem)  
- 
+  call topo_init(nwa,topw,glatw,glonw,xew,yew,zew)
+  call topo_init(nma,topm,glatm,glonm,xem,yem,zem)
+
   ! Prevent TOPM from being lower than lowest model level zm(1)
 
   topm(2:nma) = max(topm(2:nma),zm(1))
@@ -1655,7 +1733,7 @@ subroutine ctrlvols_hex_nosfcg()
 
   arw(:,:) = 0.
 
-  do j = 1,jtab_w(jtw_grid)%jend(1); iw = jtab_w(jtw_grid)%iw(j)
+  do j = 1,jtab_w(jtw_grid)%jend; iw = jtab_w(jtw_grid)%iw(j)
      npoly = itab_w(iw)%npoly
 
      ! Prevent TOPW from being outside the range of surrounding TOPM values
@@ -1664,7 +1742,7 @@ subroutine ctrlvols_hex_nosfcg()
      topmin = minval(topm(itab_w(iw)%im(1:npoly)))
 
      topw(iw) = max(topmin,min(topmax,topw(iw)))
- 
+
      ! Evaluate levels where topographic surface intersects this IW column
 
      call atm_grid_topocut(iw, npoly, npats(1:npoly), kw_pats(:,1:npoly), &
@@ -1695,7 +1773,7 @@ subroutine ctrlvols_hex_nosfcg()
 
 GOTO 1
 
-  do j = 1,jtab_w(jtw_grid)%jend(1); iw = jtab_w(jtw_grid)%iw(j)
+  do j = 1,jtab_w(jtw_grid)%jend; iw = jtab_w(jtw_grid)%iw(j)
      do k = nza-1, 2, -1
         if (arw(k,iw) < 0.2 * arw0(iw)) then
            arw (1:k,iw) = 0.0
@@ -1708,7 +1786,7 @@ GOTO 1
 
   ! Lateral boundary copy of ARW
 
-  do j = 1,jtab_w(jtw_lbcp)%jend(1); iw = jtab_w(jtw_lbcp)%iw(j)
+  do j = 1,jtab_w(jtw_lbcp)%jend; iw = jtab_w(jtw_lbcp)%iw(j)
      iwp = itab_w(iw)%iwp
      arw (:,iw) = arw (:,iwp)
   enddo
@@ -1717,7 +1795,7 @@ GOTO 1
   ! subsequent adjustment
 
   !$omp parallel do private(iv,im1,im2,iw1,iw2,k,hmin,hmax,km)
-  do j = 1,jtab_v(jtv_grid)%jend(1); iv = jtab_v(jtv_grid)%iv(j)
+  do j = 1,jtab_v(jtv_grid)%jend; iv = jtab_v(jtv_grid)%iv(j)
      im1 = itab_v(iv)%im(1); im2 = itab_v(iv)%im(2)
      iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
 
@@ -1804,7 +1882,7 @@ GOTO 2
   do while (docheck)
 
      docheck = .false.
-     do j = 1,jtab_w(jtw_grid)%jend(1); iw = jtab_w(jtw_grid)%iw(j)
+     do j = 1,jtab_w(jtw_grid)%jend; iw = jtab_w(jtw_grid)%iw(j)
 
         npoly = itab_w(iw)%npoly
 
@@ -1823,14 +1901,14 @@ GOTO 2
 
   ! Lateral boundary copy of ARV
 
-  do j = 1,jtab_v(jtv_lbcp)%jend(1); iv = jtab_v(jtv_lbcp)%iv(j)
+  do j = 1,jtab_v(jtv_lbcp)%jend; iv = jtab_v(jtv_lbcp)%iv(j)
      ivp = itab_v(iv)%ivp
      arv(:,iv) = arv(:,ivp)
   enddo
 
   ! Lateral boundary copy of ARW
 
-  do j = 1,jtab_w(jtw_lbcp)%jend(1); iw = jtab_w(jtw_lbcp)%iw(j)
+  do j = 1,jtab_w(jtw_lbcp)%jend; iw = jtab_w(jtw_lbcp)%iw(j)
      iwp = itab_w(iw)%iwp
      arw (:,iw) = arw (:,iwp)
   enddo
@@ -1852,7 +1930,7 @@ GOTO 2
   lpv(2:nva) = nza
   lpw(2:nwa) = nza
 
-  do j = 1,jtab_m(jtm_grid)%jend(1); im = jtab_m(jtm_grid)%im(j)
+  do j = 1,jtab_m(jtm_grid)%jend; im = jtab_m(jtm_grid)%im(j)
 
      iv1 = itab_m(im)%iv(1)
      iv2 = itab_m(im)%iv(2)
@@ -1891,7 +1969,7 @@ GOTO 2
   lsw(:)  = 1
   nsw_max = 1
 
-  do j = 1,jtab_w(jtw_grid)%jend(1); iw = jtab_w(jtw_grid)%iw(j)
+  do j = 1,jtab_w(jtw_grid)%jend; iw = jtab_w(jtw_grid)%iw(j)
 
      ! Loop over vertical levels from top to bottom
 
@@ -1913,17 +1991,17 @@ GOTO 2
 
   ! Loop over all ATM grid columns
 
-  !$omp parallel do private(iw,k,facw,jv,iv)
-  do j = 1,jtab_w(jtw_grid)%jend(1); iw = jtab_w(jtw_grid)%iw(j)
+  !$omp parallel do private(iw,k,jv,iv)
+  do j = 1,jtab_w(jtw_grid)%jend; iw = jtab_w(jtw_grid)%iw(j)
 
      ! special at model top
      volt(nza,iw) = dzt(nza) * arw0(iw)
 
      ! Loop over vertical levels
 
-     do k = lpw(iw), nza-1
+     do k = nza-1, lpw(iw), -1
 
-        if (arw(k-1,iw) / arw(k,iw) > 0.999) then
+        if (arw(k-1,iw) > 0.999 * arw(k,iw)) then
            volt(k,iw) = dzt(k) * arw(k,iw)
         else
            call volt_from_flux(k,iw)
@@ -1947,7 +2025,7 @@ GOTO 2
 
      ! Expand ARW and VOLT with height for spherical geometry
 
-     do j = 1,jtab_w(jtw_grid)%jend(1); iw = jtab_w(jtw_grid)%iw(j)
+     do j = 1,jtab_w(jtw_grid)%jend; iw = jtab_w(jtw_grid)%iw(j)
         do k = lpw(iw), nza
            arw (k,iw) = arw (k,iw) * zfacm2(k)
            volt(k,iw) = volt(k,iw) * zfact(k)**2
@@ -1956,7 +2034,7 @@ GOTO 2
 
      ! Expand ARV with height for spherical geometry
 
-     do j = 1,jtab_v(jtv_grid)%jend(1); iv = jtab_v(jtv_grid)%iv(j)
+     do j = 1,jtab_v(jtv_grid)%jend; iv = jtab_v(jtv_grid)%iv(j)
         do k = lpv(iv), nza
            arv(k,iv) = arv(k,iv) * zfact(k)
         enddo
@@ -1966,7 +2044,7 @@ GOTO 2
 
   ! Lateral boundary copy of ARW, VOLT, LPW, and LSW
 
-  do j = 1,jtab_w(jtw_lbcp)%jend(1); iw = jtab_w(jtw_lbcp)%iw(j)
+  do j = 1,jtab_w(jtw_lbcp)%jend; iw = jtab_w(jtw_lbcp)%iw(j)
      iwp = itab_w(iw)%iwp
 
      arw  (:,iw) = arw  (:,iwp)
@@ -1977,7 +2055,7 @@ GOTO 2
 
   ! Lateral boundary copy of ARV
 
-  do j = 1,jtab_v(jtv_lbcp)%jend(1); iv = jtab_v(jtv_lbcp)%iv(j)
+  do j = 1,jtab_v(jtv_lbcp)%jend; iv = jtab_v(jtv_lbcp)%iv(j)
      ivp = itab_v(iv)%ivp
 
      arv(:,iv) = arv(:,ivp)
@@ -1990,14 +2068,13 @@ end subroutine ctrlvols_hex_nosfcg
 
 subroutine atm_grid_topocut(iw, npoly, npats, kw_pats, area_pats)
 
-  use mem_grid,   only: nza, zm, topm, topw, dnv, dniu, &
-                        xem, yem, zem, xev, yev, zev, xew, yew, zew
+  use mem_grid,   only: nza, topm, topw, dnv, xem, yem, zem, xev, yev, zev
   use mem_ijtabs, only: itab_w
 
   implicit none
 
   integer, intent(in)    :: iw, npoly
-  integer, intent(inout) :: npats(npoly), kw_pats(nza,npoly) 
+  integer, intent(inout) :: npats(npoly), kw_pats(nza,npoly)
   real,    intent(inout) :: area_pats(nza,npoly)
 
   integer :: jv, jm1, jm2, iv, im1, im2
@@ -2008,7 +2085,7 @@ subroutine atm_grid_topocut(iw, npoly, npats, kw_pats, area_pats)
   real :: xm1, ym1, xm2, ym2
   real :: area
   real :: zmpat(5,nza), xmpat(5,nza), ympat(5,nza)
-  integer :: tmpat(5,nza)  ! Flag denoting the edge or vertex where a new M 
+  integer :: tmpat(5,nza)  ! Flag denoting the edge or vertex where a new M
                            ! point is defined
   integer :: kmpat(5,nza)
   integer :: kwpat(nza),lpoly(nza),npat
@@ -2214,7 +2291,7 @@ subroutine cont3sfc2(z1,z2,z3,x1,x2,x3,y1,y2,y3,t1,t2,t3,zmpat,xmpat,ympat,tmpat
 
         if (iflag == 0) then  ! lowest contour interval: z3 is a node
            zmpat(3,npat) = z3
-           xmpat(3,npat) = x3   
+           xmpat(3,npat) = x3
            ympat(3,npat) = y3
            tmpat(3,npat) = t3
 
@@ -2244,8 +2321,8 @@ subroutine cont3sfc2(z1,z2,z3,x1,x2,x3,y1,y2,y3,t1,t2,t3,zmpat,xmpat,ympat,tmpat
            ympat(3,npat) = y2
            tmpat(3,npat) = t2
 
-           zmpat(4,npat) = z1         
-           xmpat(4,npat) = x1         
+           zmpat(4,npat) = z1
+           xmpat(4,npat) = x1
            ympat(4,npat) = y1
            tmpat(4,npat) = t1
 
@@ -2272,8 +2349,8 @@ subroutine cont3sfc2(z1,z2,z3,x1,x2,x3,y1,y2,y3,t1,t2,t3,zmpat,xmpat,ympat,tmpat
            ympat(3,npat+1) = y1
            tmpat(3,npat+1) = t1
 
-           zmpat(4,npat+1) = z2         
-           xmpat(4,npat+1) = x2         
+           zmpat(4,npat+1) = z2
+           xmpat(4,npat+1) = x2
            ympat(4,npat+1) = y2
            tmpat(4,npat+1) = t2
 
@@ -2287,7 +2364,7 @@ subroutine cont3sfc2(z1,z2,z3,x1,x2,x3,y1,y2,y3,t1,t2,t3,zmpat,xmpat,ympat,tmpat
 
         iflag = 1
 
-     else   
+     else
 
         if ( abs(z1-z2) > 1.e-25 ) then
            zmpat(2,npat) = contlev
@@ -2308,9 +2385,9 @@ subroutine cont3sfc2(z1,z2,z3,x1,x2,x3,y1,y2,y3,t1,t2,t3,zmpat,xmpat,ympat,tmpat
            ympat(3,npat) = y2
            tmpat(3,npat) = t2
 
-           zmpat(4,npat) = z3        
-           xmpat(4,npat) = x3        
-           ympat(4,npat) = y3         
+           zmpat(4,npat) = z3
+           xmpat(4,npat) = x3
+           ympat(4,npat) = y3
            tmpat(4,npat) = t3
 
            kwpat(npat) = km
@@ -2327,8 +2404,8 @@ subroutine cont3sfc2(z1,z2,z3,x1,x2,x3,y1,y2,y3,t1,t2,t3,zmpat,xmpat,ympat,tmpat
            tmpat(4,npat) = to2
            kmpat(4,npat) = km - 1
 
-           zmpat(5,npat) = zo1         
-           xmpat(5,npat) = xo1         
+           zmpat(5,npat) = zo1
+           xmpat(5,npat) = xo1
            ympat(5,npat) = yo1
            tmpat(5,npat) = to1
            kmpat(5,npat) = km - 1
@@ -2352,7 +2429,7 @@ subroutine cont3sfc2(z1,z2,z3,x1,x2,x3,y1,y2,y3,t1,t2,t3,zmpat,xmpat,ympat,tmpat
            lpoly(npat) = 4
         endif
 
-        if (km == nza-1) then  ! highest model level: z1 is a node 
+        if (km == nza-1) then  ! highest model level: z1 is a node
            zmpat(3,npat) = z1  ! (should not actually happen)
            xmpat(3,npat) = x1  ! (should not actually happen)
            ympat(3,npat) = y1
@@ -2448,9 +2525,9 @@ end subroutine reverse_polygon
 subroutine volt_from_flux(k,iw)
 
   use mem_grid,    only: arv, arw, arw0, volt, dnu, dzt, vnx, vny, vnz, &
-                         xew, yew, zew
+                         xew, yew, zew, lpw
   use mem_ijtabs,  only: itab_w
-  use consts_coms, only: pi1, eradi
+  use consts_coms, only: pi2, eradi
   use misc_coms,   only: mdomain
 
   implicit none
@@ -2458,19 +2535,22 @@ subroutine volt_from_flux(k,iw)
   integer, intent(in) :: k, iw
 
   integer, parameter :: naz = 18
-  integer :: iaz, jv, iv
+  integer :: iaz, jv, iv, iloop
 
   real :: az, uzonal, umerid, raxis, vxe, vye, vze, vc, wc, dirv, hflux
   real :: hflux_cut_in, hflux_cut_out, hflux_opn_in, hflux_opn_out
   real :: vflux_cut_in, vflux_cut_out, vflux_opn_in
-  real :: factor, maxfactor
+  real :: del_arw, factor, maxfactor
+
+  real, parameter :: onem = 1.0 - 1.e-6
 
   maxfactor = 0.
+  iloop = 1
 
   ! Loop over increments of azimuth angle, counterclockwise from east, up to half a circle
 
   do iaz = 1, naz
-     az = pi1 * real(iaz - 1) / real(naz)
+     az = pi2 * real(iaz - 1) / real(naz)
 
      ! Horizontal velocity components assuming 1 m/s total horizontal wind
 
@@ -2516,10 +2596,14 @@ subroutine volt_from_flux(k,iw)
         endif
      enddo
 
-     ! Compute vertical velocity that gives zero net flux for cut cell, and get
-     ! vertical fluxes for this cut cell and for open cell of same dimensions
+     ! Compute vertical velocity that gives zero net flux for cut cell.
+     ! For arbitrarily steep terrain slope, limit vertical velocity to
+     ! +/- 10 m/s, which would correspond to a slope of 10:1.
 
-     wc = (hflux_cut_in - hflux_cut_out) / (arw(k,iw) - arw(k-1,iw))
+     del_arw = max(.01 * arw(k,iw), arw(k,iw) - arw(k-1,iw))
+     wc = max(-10., min(10., (hflux_cut_in - hflux_cut_out) / del_arw))
+
+     ! Get vertical fluxes for this cut cell and for open cell of same dimensions.
 
      if (wc > 0.) then
         vflux_cut_in  = wc * arw(k-1,iw)
@@ -2549,6 +2633,11 @@ subroutine volt_from_flux(k,iw)
 !        hflux_cut_in, hflux_cut_out, vflux_cut_in, vflux_cut_out, &
 !        hflux_cut_in - hflux_cut_out + vflux_cut_in - vflux_cut_out, &
 !        factor, maxfactor
+
+     if (maxfactor > onem) then
+        maxfactor = 1.0
+        exit
+     endif
 
   enddo
 

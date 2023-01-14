@@ -1,36 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University;
-   ! Colorado State University Research Foundation ; ATMET, LLC
-
-   ! This software is free software; you can redistribute it and/or modify it
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version.
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
-
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
-   ! (http://www.gnu.org/licenses/gpl.html)
-   !----------------------------------------------------------------------------
-
-!===============================================================================
-
 Module mem_ijtabs
 
   use max_dims, only: maxremote
@@ -79,8 +46,6 @@ Module mem_ijtabs
   integer, allocatable :: mrl_endr(:)  ! MRL at end of RK step
   integer, allocatable :: mrl_endl(:)  ! MRL at end of long timestep
   real,    allocatable :: dtrk    (:)  ! MRL RK timestep factor
-
-  integer, allocatable :: leafstep(:)  ! flag to run leaf on any sub-timestep
 
   Type itab_m_vars             ! data structure for M pts (individual rank)
      logical :: loop(mloops) = .false.
@@ -185,17 +150,17 @@ Module mem_ijtabs
 
   Type jtab_m_vars
      integer, allocatable :: im(:)
-     integer, allocatable :: jend(:)
+     integer              :: jend
   End Type jtab_m_vars
 
   Type jtab_v_vars
      integer, allocatable :: iv(:)
-     integer, allocatable :: jend(:)
+     integer              :: jend
   End Type jtab_v_vars
 
   Type jtab_w_vars
      integer, allocatable :: iw(:)
-     integer, allocatable :: jend(:)
+     integer              :: jend
   End Type jtab_w_vars
 
   Type itab_m_pd_vars      ! data structure for M pts (individual rank) on para_(decomp,init)
@@ -209,11 +174,10 @@ Module mem_ijtabs
 
   Type itab_v_pd_vars      ! data structure for V pts (individual rank) on para_(decomp,init)
      integer :: ivp    = 1 ! V pt from which to copy this V pt's values
-     integer :: iv(2)  = 1
      integer :: im(2)  = 1 ! neighbor M pts of this V pt
      integer :: iw(2)  = 1 ! neighbor W pts of this V pt
      integer :: iv_myrank_ivp = -1 ! local V point that corresponds to global ivp
-  End type itab_v_pd_vars
+  End Type itab_v_pd_vars
 
   Type itab_w_pd_vars      ! data structure for W pts (individual rank) on para_(decomp,init)
      integer :: iwp   = 1  ! W pt from which to copy this W pt's values
@@ -245,11 +209,11 @@ Contains
 
 !===============================================================================
 
-  subroutine alloc_itabs(mma, mva, mwa, input)
+  subroutine alloc_itabs(mma, mva, mwa)
 
     implicit none
 
-    integer, intent(in) :: mma, mva, mwa, input
+    integer, intent(in) :: mma, mva, mwa
 
     allocate (itab_m(mma))
     allocate (itab_v(mva))
@@ -279,11 +243,11 @@ Contains
 
 !===============================================================================
 
-  subroutine fill_jtabs(mma, mva, mwa, input)
+  subroutine fill_jtabs(mma, mva, mwa)
 
     implicit none
 
-    integer, intent(in) :: mma, mva, mwa, input
+    integer, intent(in) :: mma, mva, mwa
 
     integer :: iw, iv, im
     integer :: iloop, j
@@ -292,10 +256,9 @@ Contains
 
        ! Compute JTAB_M%IM
 
-       allocate( jtab_m(iloop)%jend(mrls) )
-       jtab_m(iloop)%jend(1:mrls) = count( itab_m(2:mma)%loop(iloop) )
+       jtab_m(iloop)%jend = count( itab_m(2:mma)%loop(iloop) )
 
-       allocate( jtab_m(iloop)%im( jtab_m(iloop)%jend(1) ) )
+       allocate( jtab_m(iloop)%im( jtab_m(iloop)%jend ) )
 
        j = 0
        do im = 2, mma
@@ -307,10 +270,9 @@ Contains
 
        ! Compute JTAB_M%IV
 
-       allocate( jtab_v(iloop)%jend(mrls) )
-       jtab_v(iloop)%jend(1:mrls) = count( itab_v(2:mva)%loop(iloop) )
+       jtab_v(iloop)%jend = count( itab_v(2:mva)%loop(iloop) )
 
-       allocate( jtab_v(iloop)%iv( jtab_v(iloop)%jend(1) ) )
+       allocate( jtab_v(iloop)%iv( jtab_v(iloop)%jend ) )
 
        j = 0
        do iv = 2, mva
@@ -322,10 +284,9 @@ Contains
 
        ! Compute JTAB_M%IW
 
-       allocate( jtab_w(iloop)%jend(mrls) )
-       jtab_w(iloop)%jend(1:mrls) = count( itab_w(2:mwa)%loop(iloop) )
+       jtab_w(iloop)%jend = count( itab_w(2:mwa)%loop(iloop) )
 
-       allocate( jtab_w(iloop)%iw( jtab_w(iloop)%jend(1) ) )
+       allocate( jtab_w(iloop)%iw( jtab_w(iloop)%jend ) )
 
        j = 0
        do iw = 2, mwa

@@ -359,7 +359,7 @@ contains
 
     use mem_grid,    only: mza, dzm, dzt, zm, zt, lpw, lsw
     use consts_coms, only: grav, grav2, eps_virt, alvlocp, alviocp
-    use mem_turb,    only: ustar, wstar, wtv0, kpblh, pblh, frac_sfc
+    use mem_turb,    only: ustar, wstar, wtv0, kpblh, pblh
     use mem_basic,   only: theta, tair, vxe, vye, vze, rr_v
     use mem_radiate, only: pbl_cld_forc
     use mem_micro,   only: rr_c, rr_p
@@ -412,20 +412,11 @@ contains
        thlv(k) = thl * (1.0 + eps_virt * rr_v(k,iw) - ql)
     enddo
 
-!!    ! COMPUTE AN AVERAGE NEAR-SURFACE VIRTUAL POTENTIAL TEMPERATURE
-!!
-!!    if (nsfc == 1) then
-!!       thlvsfc = thlv(kbot)
-!!    else
-!!       thlvsfc = sum( thlv(kbot:kbot+nsfc-1) * frac_sfc(1:nsfc,iw) )
-!!    endif
-
     ! IF SURFACE LAYER IS UNSTABLE, COMPUTE CONVECTIVE VELOCITY SCALE
     ! AND THERMAL EXCESS TEMPERATURE:
 
     if (wtv0(iw) > 0.) then
        wscale = (ustar(iw)**3 + 0.6 * wstar(iw)**3) ** onethird
-!      thlvsfc = thlvsfc + 8.5 * wtv0(iw) / wscale
        thlvsfc = thlv(kbot) + 9.0 * wtv0(iw) / wscale
        ric     = 0.45
     else

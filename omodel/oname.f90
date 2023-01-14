@@ -1,103 +1,70 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
-
 subroutine read_nl(file)
 
-use oname_coms,   only: nl, cmdlne_runtype, cmdlne_fields, numcf
-use max_dims,     only: pathlen
-use mem_para,     only: olam_mpi_barrier, myrank
+  use oname_coms,   only: nl, cmdlne_runtype, cmdlne_fields, numcf
+  use max_dims,     only: pathlen
+  use mem_para,     only: olam_mpi_barrier, myrank
 
-implicit none
+  implicit none
 
-character(*), intent(in) :: file
-character(pathlen)       :: fs
-integer                  :: il, ios
-logical                  :: fexists
+  character(*), intent(in) :: file
+  character(pathlen)       :: fs
+  integer                  :: il, ios
+  logical                  :: fexists
 
-namelist /OLAMIN/ nl
+  namelist /OLAMIN/ nl
 
 ! OPEN THE NAMELIST FILE
 
-inquire(file=file, exist=fexists)
-if (.not. fexists) then
-   write(*,*) "The namelist file "//trim(file)//" is missing."
-   stop "Stopping model run."
-endif
-open(10, status='OLD', file=file)
- 
+  inquire(file=file, exist=fexists)
+  if (.not. fexists) then
+     write(*,*) "The namelist file "//trim(file)//" is missing."
+     stop "Stopping model run."
+  endif
+  open(10, status='OLD', file=file)
+
 ! READ GRID POINT, MODEL OPTIONS, AND PLOTTING INFORMATION FROM THE NAMELIST
 
-read(10, nml=OLAMIN)
-close(10)
+  read(10, nml=OLAMIN)
+  close(10)
 
 ! OVERWRITE NAMELIST WITH COMMAND LINE SWITCHES
 
-fexists = .false.
+  fexists = .false.
 
-do il = 1, numcf
-   fs = "&OLAMIN NL%" // adjustl(trim(cmdlne_fields(il))) // " /"
+  do il = 1, numcf
+     fs = "&OLAMIN NL%" // adjustl(trim(cmdlne_fields(il))) // " /"
 
-   ! unit io6 not setup yet
-   if (myrank == 0) write(*,*) trim(fs)
+     ! unit io6 not setup yet
+     if (myrank == 0) write(*,*) trim(fs)
 
-   read(fs, nml=OLAMIN, iostat=ios)
+     read(fs, nml=OLAMIN, iostat=ios)
 
-   if (ios /= 0) then
-      fexists = .true.
+     if (ios /= 0) then
+        fexists = .true.
 
-      ! unit io6 not setup yet
-      if (myrank == 0) then
-         write(*,*)
-         write(*,*) "Error setting name list values from command line:"
-         write(*,*) trim(cmdlne_fields(il))
-         write(*,*) ios
-         write(*,*) trim(fs)
-         write(*,*) "Stopping model run."
-      endif
-      exit
-   endif
-enddo
+        ! unit io6 not setup yet
+        if (myrank == 0) then
+           write(*,*)
+           write(*,*) "Error setting name list values from command line:"
+           write(*,*) trim(cmdlne_fields(il))
+           write(*,*) ios
+           write(*,*) trim(fs)
+           write(*,*) "Stopping model run."
+        endif
+        exit
+     endif
+  enddo
 
-call olam_mpi_barrier()
-if (fexists) stop
+  call olam_mpi_barrier()
+  if (fexists) stop
 
 ! OVERWRITE NAMELIST WITH COMMAND LINE RUNTYPE
 
-if (len_trim(cmdlne_runtype) > 1) then
-   nl%runtype = cmdlne_runtype
-endif
+  if (len_trim(cmdlne_runtype) > 1) then
+     nl%runtype = cmdlne_runtype
+  endif
 
-deallocate(cmdlne_fields)
+  deallocate(cmdlne_fields)
 
 end subroutine read_nl
 
@@ -108,7 +75,7 @@ subroutine copy_nl()
   use max_dims,    only: maxgrds, maxisdirs
   use consts_coms, only: r8
   use oname_coms,  only: nl
-  use misc_coms,   only: io6, expnme, runtype, timeunit, timmax8, ndtrat, &
+  use misc_coms,   only: expnme, runtype, timeunit, timmax8, &
                          nacoust, idiffk, csz, csx, akmin, &
                          dtlong, initial, zonclim, topo_database, bathym_database, &
                          gridfile, hfilin, ioutput, hfilepref, iclobber, &
@@ -120,7 +87,7 @@ subroutine copy_nl()
                          nzp, mdomain, itopoflg, ibathflg, nxp, &
                          ngrdll, grdrad, grdlat, grdlon, deltax, ndz, hdz, dz, &
                          current_time, debug_fp, init_nans, do_chem, &
-                         nrk_wrtv, nrk_scal
+                         nrk_wrtv, nrk_scal, topodb_cutoff
 
   use micro_coms,  only: miclevel, icloud, idriz, irain, ipris, isnow, iaggr, &
                          igraup, ihail, iccn, igccn, iifn, &
@@ -131,7 +98,8 @@ subroutine copy_nl()
 
   use hcane_rz,    only: ncycle_hurrinit, timmax_hurrinit, hlat0, hlon0,     &
                          rad1_blend, rad2_blend, zcent_thpert, zhwid_thpert, &
-                         rcent_thpert, rhwid_thpert, maxrate_thpert, vtan_targ
+                         rcent_thpert, rhwid_thpert, maxrate_thpert, &
+                         vtan_targ, pmsl_targ
 
   use leaf_coms,   only: nvgcon, isoilflg, isoilptf, ndviflg, &
                          isfcl, ivegflg, nzs, &
@@ -158,18 +126,23 @@ subroutine copy_nl()
                          nswmzons, nswmzonll, swmzonrad, swmzonlat, swmzonlon
 
   use mem_sea,     only: npomzons, npomzonll, pomzonrad, pomzonlat, pomzonlon
-  
+
+  use sea_swm,     only: niter_swm
+
   use pom2k1d,     only: nzpom, pom_dztop, pom_depth
-                       
+
   use mem_sfcnud,  only: gw_spinup_sfcgfile, gw_spinup_histfile
 
   implicit none
 
-  integer  :: i, j, ihrs, imns
+  integer  :: i, ihrs, imns
   real(r8) :: tfact
 
-! The variables in this section are always copied from the namelist for any
-! RUNTYPE.  This allows some model options to be changed on a history start.
+! Copy namelist variables to their counterparts that are used within the model.
+! If this model run is a 'HISTORY', 'HISTADDGRID', or 'PLOTONLY' runtype, some
+! of the copied namelist values will be overwritten by their values read from
+! the history file in order to ensure that they are not changed from previous
+! runs.
 
   expnme   = nl%expnme
   runtype  = nl%runtype
@@ -187,9 +160,76 @@ subroutine copy_nl()
   timmax8 = timmax8 * tfact
 !----------------------------------------------------------
 
+  itime1    = nl%itime1
+  idate1    = nl%idate1
+  imonth1   = nl%imonth1
+  iyear1    = nl%iyear1
+
+  ! If this is not a 'HISTORY', 'HISTADDGRID', or 'PLOTONLY' runtype, set
+  ! current time to initial time here.  Otherwise, current time will be
+  ! set in subroutine history_start.
+
+  if (runtype /= 'HISTORY' .and. runtype /= 'HISTADDGRID' .and. &
+      runtype /= 'PLOTONLY') then
+
+     ihrs = itime1 / 100
+     imns = mod(itime1, 100)
+
+     current_time%year  = iyear1
+     current_time%month = imonth1
+     current_time%date  = idate1
+     current_time%time  = ihrs * 3600.0_r8 + imns * 60.0_r8
+  endif
+
+  nzp       = nl%nzp
+  ndz       = nl%ndz
+
+  hdz(1:ndz) = nl%hdz(1:ndz)
+  dz (1:ndz) = nl%dz (1:ndz)
+
+  mdomain   = nl%mdomain
+  nxp       = nl%nxp
+  deltax    = nl%deltax
+
+  ngrids     = nl%ngrids
+
+  ngrdll = nl%ngrdll
+  grdrad = nl%grdrad
+  grdlat = nl%grdlat
+  grdlon = nl%grdlon
+
+  sfcgrid_res_factor = nl%sfcgrid_res_factor
+
+  nxp_sfc            = nl%sfcgrid_res_factor * nl%nxp
+
+  nsfcgrids = nl%nsfcgrids
+  nsfcgrdll = nl%nsfcgrdll
+
+  sfcgrdrad = nl%sfcgrdrad
+  sfcgrdlat = nl%sfcgrdlat
+  sfcgrdlon = nl%sfcgrdlon
+
+  nswmzons = nl%nswmzons
+
+  if (nswmzons > 0) then
+     nswmzonll = nl%nswmzonll
+
+     swmzonrad = nl%swmzonrad
+     swmzonlat = nl%swmzonlat
+     swmzonlon = nl%swmzonlon
+  endif
+
+  npomzons = nl%npomzons
+
+  if (npomzons > 0) then
+     npomzonll = nl%npomzonll
+
+     pomzonrad = nl%pomzonrad
+     pomzonlat = nl%pomzonlat
+     pomzonlon = nl%pomzonlon
+  endif
+
   do i = 1,maxgrds
-     ndtrat(i)  = nl%ndtrat(i)
-     nacoust(i) = nl%nacoust(i)
      idiffk(i)  = nl%idiffk(i)
      csz(i)     = nl%csz(i)
      csx(i)     = nl%csx(i)
@@ -197,39 +237,25 @@ subroutine copy_nl()
      nqparm(i)  = nl%nqparm(i)
   enddo
 
-  gw_spinup_sfcgfile = nl%gw_spinup_sfcgfile
-  gw_spinup_histfile = nl%gw_spinup_histfile
-  topo_database      = nl%topo_database
-  bathym_database    = nl%bathym_database
-  sst_database       = nl%sst_database
-  seaice_database    = nl%seaice_database
-  veg_database       = nl%veg_database
-  soil_database      = nl%soil_database
-  soilgrids_database = nl%soilgrids_database
-  glhymps_database   = nl%glhymps_database
-  ndvi_database      = nl%ndvi_database
-  watertab_db        = nl%watertab_db
-
   dtlong        = nl%dtlong
+  nacoust       = nl%nacoust
   initial       = nl%initial
   zonclim       = nl%zonclim
-  tnudcent      = nl%tnudcent
   nudflag       = nl%nudflag
-  hfilin        = nl%hfilin
+  nudnxp        = nl%nudnxp
+  tnudcent      = nl%tnudcent
   ioutput       = nl%ioutput
   hfilepref     = nl%hfilepref
   iclobber      = nl%iclobber
   frqstate      = nl%frqstate
-  gridfile      = nl%gridfile
-  sfcgfile      = nl%sfcgfile
-  iupdsst       = nl%iupdsst
-  iupdseaice    = nl%iupdseaice
-  iupdndvi      = nl%iupdndvi
+  hfilin        = nl%hfilin
+
   naddsc        = nl%naddsc
-  debug_fp      = nl%debug_fp
-  init_nans     = nl%init_nans
   nrk_wrtv      = nl%acoust_timestep_level
   nrk_scal      = nl%scalar_timestep_level
+  debug_fp      = nl%debug_fp
+  init_nans     = nl%init_nans
+
   rayf_zmin     = nl%rayf_zmin
   rayf_fact     = nl%rayf_fact
   rayf_expon    = nl%rayf_expon
@@ -242,6 +268,7 @@ subroutine copy_nl()
   rayfmix_zmin  = nl%rayfmix_zmin
   rayfmix_fact  = nl%rayfmix_fact
   rayfmix_expon = nl%rayfmix_expon
+
   ilwrtyp       = nl%ilwrtyp
   iswrtyp       = nl%iswrtyp
   radfrq        = nl%radfrq
@@ -250,8 +277,7 @@ subroutine copy_nl()
   cfracrh2      = nl%cfracrh2
   cfraccup      = nl%cfraccup
   confrq        = nl%confrq
-  seatmp        = nl%seatmp
-  seaice        = nl%seaice
+
   miclevel      = nl%miclevel
   icloud        = nl%icloud
   idriz         = nl%idriz
@@ -272,11 +298,12 @@ subroutine copy_nl()
   ccnparm       = nl%ccnparm
   gccnparm      = nl%gccnparm
   ifnparm       = nl%ifnparm
+
   co2flag       = nl%co2flag
   co2_initppm   = nl%co2_ppmv_init
 
   ncycle_hurrinit = nl%ncycle_hurrinit
-  timmax_hurrinit = nl%ncycle_hurrinit
+  timmax_hurrinit = nl%timmax_hurrinit
   hlat0           = nl%hlat0
   hlon0           = nl%hlon0
   rad1_blend      = nl%rad1_blend
@@ -287,28 +314,13 @@ subroutine copy_nl()
   rhwid_thpert    = nl%rhwid_thpert
   maxrate_thpert  = nl%maxrate_thpert
   vtan_targ       = nl%vtan_targ
+  pmsl_targ       = nl%pmsl_targ * 1.e2  ! mb to Pa
 
-  nvgcon        = nl%nvgcon
   nsndg         = nl%nsndg
   ipsflg        = nl%ipsflg
   itsflg        = nl%itsflg
   irtsflg       = nl%irtsflg
   iusflg        = nl%iusflg
-  nudnxp        = nl%nudnxp
-  isstflg       = nl%isstflg
-  iseaiceflg    = nl%iseaiceflg
-  isoilflg      = nl%isoilflg
-  isoilptf      = nl%isoilptf
-  isoilstateinit= nl%isoilstateinit
-  iwatertabflg  = nl%iwatertabflg
-  ndviflg       = nl%ndviflg
-
-  do_chem       = nl%do_chem
-  o3nudflag     = nl%o3nudflag
-  tnudi_o3      = 1.0 / max( nl%o3tnudcent, real(nl%dtlong) )
-  o3nudpress    = nl%o3nudpress * 100.0  ! mb to Pa
-
-  iapr(1:maxisdirs) = nl%iapr(1:maxisdirs)
 
   hs(1) = nl%hs
   p_sfc = nl%p_sfc
@@ -320,19 +332,75 @@ subroutine copy_nl()
      vs(i)  = nl%sounding(5,i)
   enddo
 
+  gridfile      = nl%gridfile
+  sfcgfile      = nl%sfcgfile
+
+  isfcl     = nl%isfcl
+  gw_spinup_sfcgfile = nl%gw_spinup_sfcgfile
+  gw_spinup_histfile = nl%gw_spinup_histfile
+  nzs       = nl%nzs
+  nzg       = nl%nzg
+  landgrid_dztop = nl%landgrid_dztop
+  landgrid_depth = nl%landgrid_depth
+  niter_swm     = nl%niter_swm
+  nzpom     = nl%nzpom
+  pom_dztop = nl%pom_dztop
+  pom_depth = nl%pom_depth
+
+  isoilflg      = nl%isoilflg
+  isoilptf      = nl%isoilptf
+  itopoflg  = nl%itopoflg
+  ibathflg  = nl%ibathflg
+  ivegflg   = nl%ivegflg
+  ndviflg       = nl%ndviflg
+  isstflg       = nl%isstflg
+  iseaiceflg    = nl%iseaiceflg
+  isoilstateinit= nl%isoilstateinit
+  iwatertabflg  = nl%iwatertabflg
+  topodb_cutoff      = nl%topodb_cutoff
+
+  topo_database(:)   = nl%topo_database(:)
+  bathym_database    = nl%bathym_database
+  veg_database       = nl%veg_database
+  soil_database      = nl%soil_database
+  soilgrids_database = nl%soilgrids_database
+  glhymps_database   = nl%glhymps_database
+  ndvi_database      = nl%ndvi_database
+  watertab_db        = nl%watertab_db
+  sst_database       = nl%sst_database
+  seaice_database    = nl%seaice_database
+  iupdndvi      = nl%iupdndvi
+  iupdsst       = nl%iupdsst
+  iupdseaice    = nl%iupdseaice
+  seatmp        = nl%seatmp
+  seaice        = nl%seaice
+  nvgcon        = nl%nvgcon
+
+  iapr(1:maxisdirs) = nl%iapr(1:maxisdirs)
+
+  do_chem       = nl%do_chem
+  o3nudflag     = nl%o3nudflag
+  tnudi_o3      = 1.0 / max( nl%o3tnudcent, real(nl%dtlong) )
+  o3nudpress    = nl%o3nudpress * 100.0  ! mb to Pa
+
 ! Variables from $MODEL_PLOT namelist
 
-  op%nplt       = nl%nplt
   op%nplt_files = nl%nplt_files
+
+  do i = 1,op%nplt_files
+     op%plt_files(i) = nl%plt_files(i)
+  enddo
+
+  op%nplt       = nl%nplt
   op%frqplt     = nl%frqplt
   op%dtvec      = nl%dtvec
   op%headspeed  = nl%headspeed
   op%stemlength = nl%stemlength
-  op%pltname    = nl%pltname
-  op%plttype    = nl%plttype
-  op%pltorient  = nl%pltorient
   op%vec_maxmrl = nl%vec_maxmrl
   op%prtval_size= nl%prtval_size
+  op%plttype    = nl%plttype
+  op%pltname    = nl%pltname
+  op%pltorient  = nl%pltorient
   op%mapcolor   = nl%mapcolor
   op%llcolor    = nl%llcolor
 
@@ -359,6 +427,7 @@ subroutine copy_nl()
      if (index(nl%plotspecs(i)%pltspec2,'y') > 0) op%vectbarb(i) = 'y'
 
      if (index(nl%plotspecs(i)%pltspec2,'G') > 0) op%pltgrid(i) = 'G'
+
      if (index(nl%plotspecs(i)%pltspec2,'g') > 0) op%pltgrid_sfc(i) = 'g'
 
      if (index(nl%plotspecs(i)%pltspec2,'D') > 0) op%pltdualgrid(i) = 'D'
@@ -375,9 +444,8 @@ subroutine copy_nl()
 
      if (index(nl%plotspecs(i)%pltspec2,'c') > 0) op%colorbar(i) = 'c'
 
+     if (index(nl%plotspecs(i)%pltspec2,'M') > 0) op%pltll(i) = 'M'
      if (index(nl%plotspecs(i)%pltspec2,'m') > 0) op%maptyp(i) = 'm'
-
-     if (index(nl%plotspecs(i)%pltspec2,'l') > 0) op%pltll(i) = 'l'
 
      if (index(nl%plotspecs(i)%pltspec2,'C') > 0) op%pltcone(i) = 'C'
 
@@ -404,119 +472,19 @@ subroutine copy_nl()
      if (index(nl%plotspecs(i)%pltspec2,'u') > 0) op%noundrg(i) = 'u'
   enddo
 
-  do i = 1,op%nplt_files
-     op%plt_files(i) = nl%plt_files(i)
-  enddo
-
-! Variables in the following section specify the configuration of added
-! grids (local mesh refinements) and must be copied from the namelist when
-! a history file is not being read or when the namelist value is intended
-! to replace the history file values.
-
-  if (runtype == 'MAKEGRID'     .or. &
-      runtype == 'MAKEGRID_PLOT'.or. &
-      runtype == 'INITIAL'      .or. &
-      runtype == 'HISTADDGRID') then
-
-     ngrids     = nl%ngrids
-
-     ngrdll = nl%ngrdll
-     grdrad = nl%grdrad
-     grdlat = nl%grdlat
-     grdlon = nl%grdlon
-
-     sfcgrid_res_factor = nl%sfcgrid_res_factor
-     nxp_sfc            = nl%sfcgrid_res_factor * nl%nxp
-
-     nsfcgrids = nl%nsfcgrids
-     nsfcgrdll = nl%nsfcgrdll
-
-     sfcgrdrad = nl%sfcgrdrad
-     sfcgrdlat = nl%sfcgrdlat
-     sfcgrdlon = nl%sfcgrdlon
-
-     nswmzons = nl%nswmzons
-
-     if (nswmzons > 0) then
-        nswmzonll = nl%nswmzonll
-
-        swmzonrad = nl%swmzonrad
-        swmzonlat = nl%swmzonlat
-        swmzonlon = nl%swmzonlon
-     endif
-
-     npomzons = nl%npomzons
-
-     if (npomzons > 0) then
-        npomzonll = nl%npomzonll
-
-        pomzonrad = nl%pomzonrad
-        pomzonlat = nl%pomzonlat
-        pomzonlon = nl%pomzonlon
-     endif
-
-  endif
-
-! Variables in the following section either must not be changed on a history
-! restart or changing them would be irrelevant.  Thus, they are only copied
-! from the namelist if a history file is not being read.
-
-  if ( (runtype == 'MAKEGRID') .or. &
-       (runtype == 'MAKEGRID_PLOT') .or. &
-       (runtype == 'INITIAL') ) then
-
-     itime1    = nl%itime1
-     idate1    = nl%idate1
-     imonth1   = nl%imonth1
-     iyear1    = nl%iyear1
-     nzp       = nl%nzp
-     nzg       = nl%nzg
-     nzpom     = nl%nzpom
-     nzs       = nl%nzs
-     nxp       = nl%nxp
-     mdomain   = nl%mdomain
-     isfcl     = nl%isfcl
-     itopoflg  = nl%itopoflg
-     ibathflg  = nl%ibathflg
-     ivegflg   = nl%ivegflg
-     deltax    = nl%deltax
-     ndz       = nl%ndz
-
-     hdz(1:ndz) = nl%hdz(1:ndz)
-     dz (1:ndz) = nl%dz (1:ndz)
-
-     landgrid_dztop = nl%landgrid_dztop
-     landgrid_depth = nl%landgrid_depth
-
-     pom_dztop = nl%pom_dztop
-     pom_depth = nl%pom_depth
-
-     ! set current time to initial time here.  If this is a history run,
-     ! reset current time in subroutine history_start.
-
-     ihrs = itime1 / 100
-     imns = mod(itime1, 100)
-
-     current_time%year  = iyear1
-     current_time%month = imonth1
-     current_time%date  = idate1
-     current_time%time  = ihrs * 3600.0_r8 + imns * 60.0_r8
-
-  endif
-
 end subroutine copy_nl
 
 !===============================================================================
 
 subroutine namelist_print()
 
-use oname_coms, only: nl
-use misc_coms,  only: io6
+  use oname_coms, only: nl
+  use misc_coms,  only: io6
 
-implicit none
+  implicit none
 
-namelist /OLAMIN/ nl
+  namelist /OLAMIN/ nl
 
-write(io6, nml=OLAMIN)
+  write(io6, nml=OLAMIN)
 
 end subroutine namelist_print

@@ -6,7 +6,7 @@
  *  to                    init() {
  *                          variable = value;
  *                        }
- * 
+ *
  * needed to make wgrib2 a callable routine
  */
 

@@ -1,57 +1,20 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 subroutine seacells()
 
   use sea_coms,    only: nzi, iupdsst, s1900_sst, isstfile, nsstfiles,  &
                          iupdseaice, s1900_seaice, iseaicefile, nseaicefiles
-  use mem_ijtabs,  only: itabg_w
   use mem_sfcg,    only: itab_wsfc, sfcg
   use mem_sea,     only: sea, msea, omsea
-  use misc_coms,   only: io6, time8, s1900_sim, isubdomain
+  use misc_coms,   only: s1900_sim, iparallel
   use mem_para,    only: myrank
-  use mem_basic,   only: rho, press, theta, tair, vxe, vye, vze, rr_v
-  use mem_micro,   only: rr_c
-  use consts_coms, only: grav
 
   implicit none
 
 ! Local variables
 
   integer :: isea      ! sea cell loop counter
-  integer :: iw, kw, iwsfc, j
+  integer :: iwsfc
   real    :: timefac_sst   ! fraction of elapsed time from past to future SST obs
   real    :: timefac_seaice   ! fraction of elapsed time from past to future SEA ICE obs
-  real    :: psfc, vels
 
 ! Time interpolation factors for updating SST and SEA ICE
 
@@ -75,7 +38,7 @@ subroutine seacells()
      iwsfc = isea + omsea
 
      ! Skip this cell if running in parallel and cell rank is not MYRANK
-     if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+     if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
      ! Zero runoff for sea cells
 
@@ -88,11 +51,11 @@ subroutine seacells()
 
      ! Update SEATC if isea cell is not pom_active or is is swm_active
 
-!TMP     if (.not. sfcg%pom_active(iwsfc) .or. sfcg%swm_active(iwsfc)) then
+     if (.not. sea%pom_active(isea) .or. sfcg%swm_active(iwsfc)) then
 
         sea%seatc(isea) = sea%seatp(isea) &
                         + timefac_sst * (sea%seatf(isea) - sea%seatp(isea))
-!TMP     endif
+     endif
 
      ! Update SEA fields
 
@@ -184,11 +147,10 @@ end subroutine seacells
 subroutine seacell( isea, iwsfc, rhos, ustar, sxfer_t, sxfer_r, can_depth, &
                     seatc, cantemp, canrrv, surface_srrv, rough     )
 
-  use mem_sfcg,    only: itab_wsfc, sfcg
+  use mem_sfcg,    only: sfcg
   use mem_sea,     only: sea
   use sea_coms,    only: dt_sea
   use consts_coms, only: cp, grav, cliq1000, erad, eradi
-  use misc_coms,   only: io6
   use therm_lib,   only: rhovsl
   use pom2k1d,     only: pom, rhoref, pom_column
 
@@ -206,7 +168,7 @@ subroutine seacell( isea, iwsfc, rhos, ustar, sxfer_t, sxfer_r, can_depth, &
   real,    intent(inout) :: canrrv       ! "canopy" air vapor mixing ratio [kg_vap/kg_dryair]
   real,    intent(out)   :: surface_srrv ! sea surface sat mixing ratio [kg_vap/kg_dryair]
   real,    intent(out)   :: rough        ! sea cell roughess height [m]
-  
+
 ! Local parameter
 
   real, parameter :: z0fac = 0.011 / grav  ! factor for Charnok roughness height
@@ -265,7 +227,7 @@ subroutine seacell( isea, iwsfc, rhos, ustar, sxfer_t, sxfer_r, can_depth, &
 
   ! Update POM1D vertical column variables if this sea cell is pom_active and is not swm_active
 
-  if (sfcg%pom_active(iwsfc) .and. .not. sfcg%swm_active(iwsfc)) then
+  if (sea%pom_active(isea) .and. .not. sfcg%swm_active(iwsfc)) then
 
      ! Eastward and northward surface wind components for sea cell
 

@@ -12,7 +12,7 @@
 
 /* openmp compatible routines, does not require OpenMP 3.1
  *
- * Public Domain 8/2015 Wesley Ebisuzaki  
+ * Public Domain 8/2015 Wesley Ebisuzaki
  *               6/2016 Wesley Ebisuzaki
  */
 
@@ -102,7 +102,7 @@ int min_max_array_all_defined(float *data, unsigned int n, float *min, float *ma
     *min = min_val;
     *max = max_val;
     return 0;
-} 
+}
 
 /*
  * find min/max of an integer array

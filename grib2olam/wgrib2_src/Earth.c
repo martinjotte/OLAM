@@ -29,9 +29,9 @@ int f_radius(ARG0) {
         radius = (major+minor)*0.5;
 
 	switch(table_3_2) {
-	    case 0: 
-	    case 6: 
-	    case 8: 
+	    case 0:
+	    case 6:
+	    case 8:
 		sprintf(inv_out,"sphere predefined radius=%.1lf m", major); break;
 	    case 1: sprintf(inv_out,"sphere user defined radius=%.1lf m",major); break;
 	    case 2: sprintf(inv_out, "IAU 1965 ave radius=%.1lf m major axis=%.1lf m minor axis=%.1lf m",
@@ -198,7 +198,7 @@ double radius_earth(unsigned char **sec) {
 	factor = INT1(p[1]);
 	value = int4(p+2);
 	radius = scaled2dbl(factor, value);
-	if (radius < 6300000.0 || radius > 6400000.0) 
+	if (radius < 6300000.0 || radius > 6400000.0)
 	   fatal_error_i("radius of earth is %d m", (int) radius);
     }
     else if (table_3_2 == 2)  radius = (6378.160 + 6356.775)*0.5 * 1000.0;
@@ -216,7 +216,7 @@ double radius_earth(unsigned char **sec) {
 	/* radius in km, convert to m */
 	if (table_3_2 == 3) radius *=  1000.0;
 
-        if (radius < 6300000.0 || radius > 6400000.0) 
+        if (radius < 6300000.0 || radius > 6400000.0)
 	   fatal_error_i("radius of earth is %d m", (int) radius);
     }
     else if (table_3_2 == 4)  radius = (6378.137 + 6356.752314)*0.5 * 1000.0;

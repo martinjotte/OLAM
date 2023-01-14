@@ -5,17 +5,16 @@ MODULE module_cu_g3_aq
 
 CONTAINS
 
-  subroutine grell_aq_driver ( mrl )
+  subroutine grell_aq_driver ( )
 
     use mem_ijtabs, only: jtab_w, jtw_prog
 
     implicit none
 
-    integer, intent(in) :: mrl
     integer             :: j, iw
 
     !$omp parallel do private(iw) schedule(guided)
-    do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+    do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
        call grell_aqmix( iw )
 

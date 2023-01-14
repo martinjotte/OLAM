@@ -1,40 +1,9 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
 subroutine contslab_horiz_mp(iplt)
 
   use oplot_coms, only: op
-  use mem_grid,   only: mza, mma, mwa, zm, zt, lpw, xem, yem, zem, xew, yew, zew
+  use mem_grid,   only: mma, mwa, xem, yem, zem, xew, yew, zew
   use mem_ijtabs, only: itab_w, jtab_w, jtw_prog
-  use misc_coms,  only: io6, iparallel
+  use misc_coms,  only: iparallel
   use mem_para,   only: myrank, mgroupsize, nbytes_int, nbytes_real
 
 #ifdef OLAM_MPI
@@ -87,14 +56,14 @@ subroutine contslab_horiz_mp(iplt)
 
   ! Loop over W points for contouring M points
 
-  mloop: do jw = 1, jtab_w(jtw_prog)%jend(1)
+  mloop: do jw = 1, jtab_w(jtw_prog)%jend
             iw = jtab_w(jtw_prog)%iw(jw)
 
      ! Skip this W point if it is underground
 
      if (ktf(iw) /= 0) cycle
 
-     ! Get plot coordinates of current W point.  
+     ! Get plot coordinates of current W point.
 
      call oplot_transform(iplt,xew(iw),yew(iw),zew(iw),hpt,vpt)
 
@@ -113,7 +82,7 @@ subroutine contslab_horiz_mp(iplt)
 
      do j = 1, npoly
 
-        ! Current M point index   
+        ! Current M point index
 
         im = itab_w(iw)%im(j)
 
@@ -125,12 +94,12 @@ subroutine contslab_horiz_mp(iplt)
 
         call oplot_transform(iplt,xem(im),yem(im),zem(im),hcpn(j),vcpn(j))
 
-        ! Skip this W point if current M point is far outside plot window 
+        ! Skip this W point if current M point is far outside plot window
         ! (which means that orthographic projection returned large value
         ! that indicates that point is on other side of Earth)
 
         if (abs(hcpn(j)) > 1.e11) cycle mloop
-      
+
         ! Avoid wrap-around and set iflag180
 
         if (op%projectn(iplt)== 'L') then
@@ -139,13 +108,13 @@ subroutine contslab_horiz_mp(iplt)
            if (hcpn(j) >  180.001) iflag180 = -1
         endif
 
-        ! Set plot window flag to 1 if any M point is on window side of 
+        ! Set plot window flag to 1 if any M point is on window side of
         ! respective boundary
 
-        if (hcpn(j) >= op%xmin) ipwx1 = 1 
-        if (hcpn(j) <= op%xmax) ipwx2 = 1 
-        if (vcpn(j) >= op%ymin) ipwy1 = 1 
-        if (vcpn(j) <= op%ymax) ipwy2 = 1 
+        if (hcpn(j) >= op%xmin) ipwx1 = 1
+        if (hcpn(j) <= op%xmax) ipwx2 = 1
+        if (vcpn(j) >= op%ymin) ipwy1 = 1
+        if (vcpn(j) <= op%ymax) ipwy2 = 1
 
      enddo
 
@@ -166,7 +135,7 @@ subroutine contslab_horiz_mp(iplt)
      ! Contour plot cell of 2-D or 3-D field
 
      if (myrank == 0) then
-     
+
         call contpolyg(op%icolortab(iplt),op%ifill,npoly,hcpn,vcpn,fldvals)
 
      else
@@ -219,9 +188,9 @@ subroutine contslab_horiz_mp(iplt)
 #endif
 
         endif
-            
+
      endif
-            
+
   enddo mloop
 
 #ifdef OLAM_MPI
@@ -246,7 +215,7 @@ subroutine contslab_horiz_mp(iplt)
               ipos = 0
 
               do j = 1, nus(n)
-               
+
                  call MPI_Unpack(buffer, buffsize, ipos, npoly,   1,     MPI_INTEGER, MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, hcpn,    npoly, MPI_REAL,    MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, vcpn,    npoly, MPI_REAL,    MPI_COMM_WORLD, ier)
@@ -259,14 +228,14 @@ subroutine contslab_horiz_mp(iplt)
            endif
         enddo
      endif
-        
+
      deallocate(buffer)
   endif
 #endif
 
 ! NOTE: For Hex grid, may in the future want underground to always be
 !       triangle areas.  In that case, first do underground plot and then
-!       call contpolyg selectively for trios of points in remaining 
+!       call contpolyg selectively for trios of points in remaining
 !       (open) sectors, using U/V point at face of underground block.
 
 end subroutine contslab_horiz_mp
@@ -278,11 +247,10 @@ subroutine contslab_topmw(iplt)
 ! Special routine to plot topm and topw values together
 
   use oplot_coms, only: op
-  use mem_grid,   only: mza, mma, mwa, zm, zt, lpw, xem, yem, zem, &
-                        xew, yew, zew, topm, topw
+  use mem_grid,   only: mma, xem, yem, zem, xew, yew, zew, topm, topw
   use mem_ijtabs, only: itab_w, jtab_w, jtw_prog
-  use misc_coms,  only: io6, iparallel
-  use mem_para,   only: myrank, mgroupsize, nbytes_int, nbytes_real
+  use misc_coms,  only: iparallel
+  use mem_para,   only: myrank, mgroupsize, nbytes_real
 
 #ifdef OLAM_MPI
   use mpi
@@ -292,7 +260,7 @@ subroutine contslab_topmw(iplt)
 
   integer, intent(in) :: iplt
 
-  integer :: npoly,j,iw,jw,im,notavail,jn
+  integer :: npoly,j,iw,jw,im,jn
   integer :: iflag180
   integer :: ipwx1,ipwx2,ipwy1,ipwy2
 
@@ -322,10 +290,10 @@ subroutine contslab_topmw(iplt)
 
   ! Loop over W points
 
-  wloop: do jw = 1, jtab_w(jtw_prog)%jend(1)
+  wloop: do jw = 1, jtab_w(jtw_prog)%jend
             iw = jtab_w(jtw_prog)%iw(jw)
 
-     ! Get plot coordinates of current W point.  
+     ! Get plot coordinates of current W point.
 
      call oplot_transform(iplt,xew(iw),yew(iw),zew(iw),hpt,vpt)
 
@@ -344,7 +312,7 @@ subroutine contslab_topmw(iplt)
 
      do j = 1, npoly
 
-        ! Current M point index   
+        ! Current M point index
 
         im = itab_w(iw)%im(j)
 
@@ -356,12 +324,12 @@ subroutine contslab_topmw(iplt)
 
         call oplot_transform(iplt,xem(im),yem(im),zem(im),hcpn(j),vcpn(j))
 
-        ! Skip this W point if current M point is far outside plot window 
+        ! Skip this W point if current M point is far outside plot window
         ! (which means that orthographic projection returned large value
         ! that indicates that point is on other side of Earth)
 
         if (abs(hcpn(j)) > 1.e11) cycle wloop
-      
+
         ! Avoid wrap-around and set iflag180
 
         if (op%projectn(iplt)== 'L') then
@@ -370,13 +338,13 @@ subroutine contslab_topmw(iplt)
            if (hcpn(j) >  180.001) iflag180 = -1
         endif
 
-        ! Set plot window flag to 1 if any M point is on window side of 
+        ! Set plot window flag to 1 if any M point is on window side of
         ! respective boundary
 
-        if (hcpn(j) >= op%xmin) ipwx1 = 1 
-        if (hcpn(j) <= op%xmax) ipwx2 = 1 
-        if (vcpn(j) >= op%ymin) ipwy1 = 1 
-        if (vcpn(j) <= op%ymax) ipwy2 = 1 
+        if (hcpn(j) >= op%xmin) ipwx1 = 1
+        if (hcpn(j) <= op%xmax) ipwx2 = 1
+        if (vcpn(j) >= op%ymin) ipwy1 = 1
+        if (vcpn(j) <= op%ymax) ipwy2 = 1
 
      enddo
 
@@ -403,13 +371,13 @@ subroutine contslab_topmw(iplt)
         hcpn3(2) = hcpn(j)
         vcpn3(2) = vcpn(j)
         fldvals3(2) = fldvals(j)
-         
+
         hcpn3(3) = hcpn(jn)
         vcpn3(3) = vcpn(jn)
         fldvals3(3) = fldvals(jn)
 
         if (myrank == 0) then
-     
+
            call contpolyg(op%icolortab(iplt),op%ifill,3,hcpn3,vcpn3,fldvals3)
 
         else
@@ -458,11 +426,11 @@ subroutine contslab_topmw(iplt)
 #endif
 
            endif
-            
+
         endif
-        
+
      enddo ! j/m loop
-    
+
   enddo wloop
 
 #ifdef OLAM_MPI
@@ -487,7 +455,7 @@ subroutine contslab_topmw(iplt)
               ipos = 0
 
               do j = 1, nus(n)
-               
+
                  call MPI_Unpack(buffer, buffsize, ipos, hcpn3,    npoly, MPI_REAL,    MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, vcpn3,    npoly, MPI_REAL,    MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, fldvals3, npoly, MPI_REAL,    MPI_COMM_WORLD, ier)
@@ -499,7 +467,7 @@ subroutine contslab_topmw(iplt)
            endif
         enddo
      endif
-        
+
      deallocate(buffer)
   endif
 #endif
@@ -511,12 +479,11 @@ end subroutine contslab_topmw
 subroutine contslab_horiz_vn(iplt)
 
   use oplot_coms, only: op
-  use mem_grid,   only: mma, mva, mwa, zm, zt, lpv, lpw, &
-                        xem, yem, zem, &
+  use mem_grid,   only: mma, mva, mwa, xem, yem, zem, &
                         xev, yev, zev, xew, yew, zew
   use mem_ijtabs, only: itab_m, itab_w, itab_v, jtab_m, jtm_prog, &
                         jtab_w, jtw_prog
-  use misc_coms,  only: io6, isubdomain, iparallel
+  use misc_coms,  only: iparallel
   use mem_para,   only: myrank, mgroupsize, nbytes_int, nbytes_real
 
 #ifdef OLAM_MPI
@@ -573,7 +540,7 @@ subroutine contslab_horiz_vn(iplt)
 ! FIRST LOOP is over M points for contouring V points
 !------------------------------------------------------
 
-  mloop: do jm = 1, jtab_m(jtm_prog)%jend(1)
+  mloop: do jm = 1, jtab_m(jtm_prog)%jend
             im = jtab_m(jtm_prog)%im(jm)
 
      ! Get plot coordinates of current M point.
@@ -598,7 +565,7 @@ subroutine contslab_horiz_vn(iplt)
 
      do j = 1, npoly
 
-        ! Current U/V point index   
+        ! Current U/V point index
 
         iv  = itab_m(im)%iv(j)
         iw1 = itab_v(iv)%iw(1)
@@ -612,12 +579,12 @@ subroutine contslab_horiz_vn(iplt)
 
         call oplot_transform(iplt,xev(iv),yev(iv),zev(iv),hcpn(j),vcpn(j))
 
-        ! Skip this M point if current V point is far outside plot window 
+        ! Skip this M point if current V point is far outside plot window
         ! (which means that orthographic projection returned large value that
         ! indicates that point is on other side of Earth)
 
         if (abs(hcpn(j)) > 1.e11) cycle  mloop
-      
+
         ! Avoid wrap-around and set iflag180
 
         if (op%projectn(iplt)== 'L') then
@@ -626,13 +593,13 @@ subroutine contslab_horiz_vn(iplt)
            if (hcpn(j) >  180.001) iflag180 = -1
         endif
 
-        ! Set plot window flag to 1 if any V point is on window side of 
+        ! Set plot window flag to 1 if any V point is on window side of
         ! respective boundary
 
-        if (hcpn(j) >= op%xmin) ipwx1 = 1 
-        if (hcpn(j) <= op%xmax) ipwx2 = 1 
-        if (vcpn(j) >= op%ymin) ipwy1 = 1 
-        if (vcpn(j) <= op%ymax) ipwy2 = 1 
+        if (hcpn(j) >= op%xmin) ipwx1 = 1
+        if (hcpn(j) <= op%xmax) ipwx2 = 1
+        if (vcpn(j) >= op%ymin) ipwy1 = 1
+        if (vcpn(j) <= op%ymax) ipwy2 = 1
 
         if (ktf(iw1) /= 0 .and. ktf(iw2) /= 0) cycle
 
@@ -652,16 +619,16 @@ subroutine contslab_horiz_vn(iplt)
      enddo
 
      if (avail < .1) cycle mloop
-   
+
      avg = avg / avail
-   
+
      ! If any window flag is zero, all V points for this M point are outside
      ! the same window boundary, so skip this M point
 
      if (ipwx1 == 0 .or. ipwx2 == 0 .or. ipwy1 == 0 .or. ipwy2 == 0) cycle mloop
 
      ! Loop over all V points that surround current M point and contour plot
-     ! each available sector 
+     ! each available sector
 
      do j = 1, npoly
 
@@ -679,7 +646,7 @@ subroutine contslab_horiz_vn(iplt)
         iw = itab_m(im)%iw(jnn)
 
         if (ktf(iw) == 0) then
-      
+
            hcpn3(1) = hpt
            vcpn3(1) = vpt
            fldvals3(1) = avg
@@ -687,7 +654,7 @@ subroutine contslab_horiz_vn(iplt)
            hcpn3(2) = hcpn(j)
            vcpn3(2) = vcpn(j)
            fldvals3(2) = fldvals(j)
-         
+
            hcpn3(3) = hcpn(jn)
            vcpn3(3) = vcpn(jn)
            fldvals3(3) = fldvals(jn)
@@ -722,7 +689,7 @@ subroutine contslab_horiz_vn(iplt)
               hcpn3(1:3) = hcpn3(1:3) + 360. * iflag180
 
               if (myrank == 0) then
-      
+
                  call contpolyg(op%icolortab(iplt),op%ifill,3,hcpn3,vcpn3,fldvals3)
 
               else
@@ -773,7 +740,7 @@ subroutine contslab_horiz_vn(iplt)
               ipos = 0
 
               do j = 1, nus(n)
-               
+
                  call MPI_Unpack(buffer, buffsize, ipos, hcpn3,    npoly, MPI_REAL, MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, vcpn3,    npoly, MPI_REAL, MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, fldvals3, npoly, MPI_REAL, MPI_COMM_WORLD, ier)
@@ -785,7 +752,7 @@ subroutine contslab_horiz_vn(iplt)
            endif
         enddo
      endif
-        
+
      deallocate(buffer)
   endif
 #endif
@@ -809,12 +776,12 @@ subroutine contslab_horiz_vn(iplt)
 ! SECOND LOOP is over W points for contouring V points
 !------------------------------------------------------
 
-  wloop: do jw = 1, jtab_w(jtw_prog)%jend(1)
+  wloop: do jw = 1, jtab_w(jtw_prog)%jend
             iw = jtab_w(jtw_prog)%iw(jw)
 
      if (ktf(iw) /= 0) cycle
 
-     ! Get plot coordinates of current W point.  
+     ! Get plot coordinates of current W point.
 
      call oplot_transform(iplt,xew(iw),yew(iw),zew(iw),hpt,vpt)
 
@@ -833,7 +800,7 @@ subroutine contslab_horiz_vn(iplt)
 
      do j = 1, npoly
 
-        ! Current V point index   
+        ! Current V point index
 
         iv = itab_w(iw)%iv(j)
 
@@ -845,12 +812,12 @@ subroutine contslab_horiz_vn(iplt)
 
         call oplot_transform(iplt,xev(iv),yev(iv),zev(iv),hcpn(j),vcpn(j))
 
-        ! Skip this M point if current V point is far outside plot window 
+        ! Skip this M point if current V point is far outside plot window
         ! (which means that orthographic projection returned large value that
         ! indicates that point is on other side of Earth)
 
         if (abs(hcpn(j)) > 1.e11) cycle wloop
-      
+
         ! Avoid wrap-around and set iflag180
 
         if (op%projectn(iplt)== 'L') then
@@ -859,16 +826,16 @@ subroutine contslab_horiz_vn(iplt)
            if (hcpn(j) >  180.001) iflag180 = -1
         endif
 
-        ! Set plot window flag to 1 if any M point is on window side of 
+        ! Set plot window flag to 1 if any M point is on window side of
         ! respective boundary
 
-        if (hcpn(j) >= op%xmin) ipwx1 = 1 
-        if (hcpn(j) <= op%xmax) ipwx2 = 1 
-        if (vcpn(j) >= op%ymin) ipwy1 = 1 
-        if (vcpn(j) <= op%ymax) ipwy2 = 1 
+        if (hcpn(j) >= op%xmin) ipwx1 = 1
+        if (hcpn(j) <= op%xmax) ipwx2 = 1
+        if (vcpn(j) >= op%ymin) ipwy1 = 1
+        if (vcpn(j) <= op%ymax) ipwy2 = 1
 
      enddo
-      
+
      ! If any window flag is zero, all M points for this W point are outside
      ! the same window boundary, so skip this W point
 
@@ -878,7 +845,7 @@ subroutine contslab_horiz_vn(iplt)
 
      do j = 1,npoly
         iv = itab_w(iw)%iv(j)
-      
+
         call oplot_lib(kv(iv),iv,'VALUE',op%fldname(iplt),wtbot(iv),wttop(iv), &
                        fldvals(j),notavail)
         if (notavail > 0) cycle
@@ -940,9 +907,9 @@ subroutine contslab_horiz_vn(iplt)
 #endif
 
         endif
-            
+
      endif
-            
+
   enddo wloop
 
 #ifdef OLAM_MPI
@@ -967,7 +934,7 @@ subroutine contslab_horiz_vn(iplt)
               ipos = 0
 
               do j = 1, nus(n)
-               
+
                  call MPI_Unpack(buffer, buffsize, ipos, npoly,   1,     MPI_INTEGER, MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, hcpn,    npoly, MPI_REAL,    MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, vcpn,    npoly, MPI_REAL,    MPI_COMM_WORLD, ier)
@@ -980,7 +947,7 @@ subroutine contslab_horiz_vn(iplt)
            endif
         enddo
      endif
-        
+
      deallocate(buffer)
   endif
 #endif
@@ -992,10 +959,10 @@ end subroutine contslab_horiz_vn
 subroutine contslab_horiz_tw(iplt)
 
   use oplot_coms, only: op
-  use mem_grid,   only: mva, mma, mwa, zm, zt, lpw, xem, yem, zem, &
+  use mem_grid,   only: mma, mwa, xem, yem, zem, &
                         xev, yev, zev, xew, yew, zew
-  use mem_ijtabs, only: itab_m, jtab_m, jtm_vadj, jtm_prog
-  use misc_coms,  only: io6, iparallel
+  use mem_ijtabs, only: itab_m, jtab_m, jtm_wadj
+  use misc_coms,  only: iparallel
   use mem_para,   only: myrank, mgroupsize, nbytes_int, nbytes_real
 
 #ifdef OLAM_MPI
@@ -1032,7 +999,7 @@ subroutine contslab_horiz_tw(iplt)
   if (op%dimens == '3') then
      call plot_underground_w(iplt,ktf)
   endif
-  
+
   nu   = 0
   ipos = 0
 
@@ -1050,8 +1017,8 @@ subroutine contslab_horiz_tw(iplt)
 
   ! Loop over M points for contouring W points
 
-  mloop: do jm = 1, jtab_m(jtm_prog)%jend(1)
-            im = jtab_m(jtm_prog)%im(jm)
+  mloop: do jm = 1, jtab_m(jtm_wadj)%jend
+            im = jtab_m(jtm_wadj)%im(jm)
 
      ! Get plot coordinates of current M point.
 
@@ -1087,7 +1054,7 @@ subroutine contslab_horiz_tw(iplt)
 
         call oplot_transform(iplt,xew(iw),yew(iw),zew(iw),hcpn(j),vcpn(j))
 
-        ! Skip this M point if current W point is far outside plot window 
+        ! Skip this M point if current W point is far outside plot window
         ! (which means that orthographic projection returned large value that
         ! indicates that point is on other side of Earth)
 
@@ -1101,13 +1068,13 @@ subroutine contslab_horiz_tw(iplt)
            if (hcpn(j) >  180.001) iflag180 = -1
         endif
 
-        ! Set plot window flag to 1 if any W point is on window side of 
+        ! Set plot window flag to 1 if any W point is on window side of
         ! respective boundary
 
-        if (hcpn(j) >= op%xmin) ipwx1 = 1 
-        if (hcpn(j) <= op%xmax) ipwx2 = 1 
-        if (vcpn(j) >= op%ymin) ipwy1 = 1 
-        if (vcpn(j) <= op%ymax) ipwy2 = 1 
+        if (hcpn(j) >= op%xmin) ipwx1 = 1
+        if (hcpn(j) <= op%xmax) ipwx2 = 1
+        if (vcpn(j) >= op%ymin) ipwy1 = 1
+        if (vcpn(j) <= op%ymax) ipwy2 = 1
 
         if (ktf(iw) /= 0) cycle
 
@@ -1120,9 +1087,9 @@ subroutine contslab_horiz_tw(iplt)
      enddo
 
      if (avail < .1) cycle
-   
+
      avg = avg / avail
-   
+
      ! If any window flag is zero, all W points for this M point are outside
      ! the same window boundary, so skip this W point
 
@@ -1161,7 +1128,7 @@ subroutine contslab_horiz_tw(iplt)
         if (iflag180 /= 0) then
 
            hcpn(1:npoly) = hcpn(1:npoly) + 360. * iflag180
-      
+
            if (myrank == 0) then
 
               call contpolyg(op%icolortab(iplt),op%ifill,npoly,hcpn,vcpn,fldvals)
@@ -1190,9 +1157,9 @@ subroutine contslab_horiz_tw(iplt)
      ! If only some W points are available, plot them by sectors
 
      else
-            
+
         ! Loop over all W points that surround current M point and contour plot each
-        ! available sector 
+        ! available sector
 
         do j = 1,npoly
            jn = j + 1
@@ -1212,7 +1179,7 @@ subroutine contslab_horiz_tw(iplt)
               hcpn3(2) = hcpn(j)
               vcpn3(2) = vcpn(j)
               fldvals3(2) = fldvals(j)
-         
+
               hcpn3(3) = hcpn(jn)
               vcpn3(3) = vcpn(jn)
               fldvals3(3) = fldvals(jn)
@@ -1232,7 +1199,7 @@ subroutine contslab_horiz_tw(iplt)
               fldvals3(2) = fldvals(j)
 
            elseif (ktf(iw2) == 0) then
-         
+
               ! Specific way to get IV since ordering of W and U/V neighbors of M is not
               ! identical for both grid systems
 
@@ -1246,7 +1213,7 @@ subroutine contslab_horiz_tw(iplt)
               fldvals3(3) = fldvals(jn)
 
            else
-         
+
               cycle
 
            endif
@@ -1333,7 +1300,7 @@ subroutine contslab_horiz_tw(iplt)
               ipos = 0
 
               do j = 1, nus(n)
-               
+
                  call MPI_Unpack(buffer, buffsize, ipos, npoly,   1,     MPI_INTEGER, MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, hcpn,    npoly, MPI_REAL,    MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, vcpn,    npoly, MPI_REAL,    MPI_COMM_WORLD, ier)
@@ -1346,7 +1313,7 @@ subroutine contslab_horiz_tw(iplt)
            endif
         enddo
      endif
-        
+
      deallocate(buffer)
   endif
 #endif
@@ -1358,10 +1325,10 @@ end subroutine contslab_horiz_tw
 subroutine contslab_horiz_sfc(iplt)
 
   use oplot_coms, only: op
-  use mem_sfcg,   only: mvsfc, mmsfc, mwsfc, sfcg, itab_msfc, itab_wsfc
+  use mem_sfcg,   only: mmsfc, sfcg, itab_msfc
   use mem_land,   only: nzg
   use leaf_coms,  only: nzs
-  use misc_coms,  only: io6, iparallel
+  use misc_coms,  only: iparallel
   use mem_para,   only: myrank, mgroupsize, nbytes_int, nbytes_real
 
 #ifdef OLAM_MPI
@@ -1438,7 +1405,7 @@ subroutine contslab_horiz_sfc(iplt)
      npoly = 3
      do j = 1, npoly
 
-        ! Current W point index   
+        ! Current W point index
 
         iwn = itab_msfc(imsfc)%iwn(j)
 
@@ -1450,7 +1417,7 @@ subroutine contslab_horiz_sfc(iplt)
 
         call oplot_transform(iplt,sfcg%xew(iwn),sfcg%yew(iwn),sfcg%zew(iwn),hcpn(j),vcpn(j))
 
-        ! Skip this MSFC point if current IWN point is far outside plot window 
+        ! Skip this MSFC point if current IWN point is far outside plot window
         ! (which means that orthographic projection returned large value that
         ! indicates that point is on other side of Earth)
 
@@ -1464,13 +1431,13 @@ subroutine contslab_horiz_sfc(iplt)
            if (hcpn(j) >  180.001) iflag180 = -1
         endif
 
-        ! Set plot window flag to 1 if any W point is on window side of 
+        ! Set plot window flag to 1 if any W point is on window side of
         ! respective boundary
 
-        if (hcpn(j) >= op%xmin) ipwx1 = 1 
-        if (hcpn(j) <= op%xmax) ipwx2 = 1 
-        if (vcpn(j) >= op%ymin) ipwy1 = 1 
-        if (vcpn(j) <= op%ymax) ipwy2 = 1 
+        if (hcpn(j) >= op%xmin) ipwx1 = 1
+        if (hcpn(j) <= op%xmax) ipwx2 = 1
+        if (vcpn(j) >= op%ymin) ipwy1 = 1
+        if (vcpn(j) <= op%ymax) ipwy2 = 1
 
         call oplot_lib(k,iwn,'VALUE',op%fldname(iplt),wtbot,wttop, &
                        fldvals(j),notavail)
@@ -1481,9 +1448,9 @@ subroutine contslab_horiz_sfc(iplt)
      enddo
 
      if (avail < .1) cycle
-   
+
      avg = avg / avail
-   
+
      ! If any window flag is zero, all W points for this M point are outside
      ! the same window boundary, so skip this W point
 
@@ -1522,7 +1489,7 @@ subroutine contslab_horiz_sfc(iplt)
         if (iflag180 /= 0) then
 
            hcpn(1:npoly) = hcpn(1:npoly) + 360. * iflag180
-      
+
            if (myrank == 0) then
 
               call contpolyg(op%icolortab(iplt),op%ifill,npoly,hcpn,vcpn,fldvals)
@@ -1574,7 +1541,7 @@ subroutine contslab_horiz_sfc(iplt)
               ipos = 0
 
               do j = 1, nus(n)
-               
+
                  call MPI_Unpack(buffer, buffsize, ipos, npoly,   1,     MPI_INTEGER, MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, hcpn,    npoly, MPI_REAL,    MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, vcpn,    npoly, MPI_REAL,    MPI_COMM_WORLD, ier)
@@ -1587,7 +1554,7 @@ subroutine contslab_horiz_sfc(iplt)
            endif
         enddo
      endif
-        
+
      deallocate(buffer)
   endif
 #endif
@@ -1600,10 +1567,10 @@ subroutine contslab_vert_v(iplt)
 
   use oplot_coms, only: op
   use mem_grid,   only: mwa, mza, lpw, zt
-  use misc_coms,  only: io6, iparallel
+  use misc_coms,  only: iparallel
   use mem_ijtabs, only: jtab_w, jtw_prog
-  use consts_coms,only: erad, pio180
-  use mem_para,   only: myrank, mgroupsize, nbytes_int, nbytes_real
+  use consts_coms,only: pio180
+  use mem_para,   only: myrank, mgroupsize, nbytes_real
 
 #ifdef OLAM_MPI
   use mpi
@@ -1636,7 +1603,7 @@ subroutine contslab_vert_v(iplt)
      allocate( buffer( buffsize ) )
   endif
 
-  do jw = 1, jtab_w(jtw_prog)%jend(1)
+  do jw = 1, jtab_w(jtw_prog)%jend
      iw = jtab_w(jtw_prog)%iw(jw)
 
      ! Get horizontal plot coordinates for IW point
@@ -1659,20 +1626,20 @@ subroutine contslab_vert_v(iplt)
 
      hpt = .5 * (hcpn(1) + hcpn(2))
 
-     ! Skip current IV point if entire cell is outside plot window. 
+     ! Skip current IV point if entire cell is outside plot window.
 
      if ( (hcpn(1) < op%xmin .and. hcpn(2) < op%xmin) .or.  &
-          (hcpn(1) > op%xmax .and. hcpn(2) > op%xmax) ) cycle         
-   
+          (hcpn(1) > op%xmax .and. hcpn(2) > op%xmax) ) cycle
+
      hcpn(3) = hcpn(2)
      hcpn(4) = hcpn(1)
-   
+
      do k = lpw(iw),mza-1   ! Loop is over W levels
 
         ! Skip this K point if entire cell is above or below plot window
 
         if (zt(k+1) < op%ymin .or. zt(k) > op%ymax) cycle
-   
+
         ! Get T-cell vertical coordinates
 
         vcpn(1) = zt(k)
@@ -1684,22 +1651,22 @@ subroutine contslab_vert_v(iplt)
 
         call oplot_lib(k,iv1,'VALUE',op%fldname(iplt),wtbot,wttop, &
                        fldvals(1),notavail)
-        if (notavail > 0) cycle 
+        if (notavail > 0) cycle
         call oplot_lib(k,iv2,'VALUE',op%fldname(iplt),wtbot,wttop, &
                        fldvals(2),notavail)
-        if (notavail > 0) cycle 
+        if (notavail > 0) cycle
         call oplot_lib(k+1,iv2,'VALUE',op%fldname(iplt),wtbot,wttop, &
                        fldvals(3),notavail)
-        if (notavail > 0) cycle 
+        if (notavail > 0) cycle
         call oplot_lib(k+1,iv1,'VALUE',op%fldname(iplt),wtbot,wttop, &
                        fldvals(4),notavail)
-        if (notavail > 0) cycle 
+        if (notavail > 0) cycle
 
         if (myrank == 0) then
 
            ! Contour plot cell around current M point
            call contpolyg(op%icolortab(iplt),op%ifill,4,hcpn,vcpn,fldvals)
-      
+
         else
 
 #ifdef OLAM_MPI
@@ -1743,7 +1710,7 @@ subroutine contslab_vert_v(iplt)
               ipos = 0
 
               do j = 1, nus(n)
-               
+
                  call MPI_Unpack(buffer, buffsize, ipos, hcpn,    4, MPI_REAL, MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, vcpn,    4, MPI_REAL, MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, fldvals, 4, MPI_REAL, MPI_COMM_WORLD, ier)
@@ -1755,7 +1722,7 @@ subroutine contslab_vert_v(iplt)
            endif
         enddo
      endif
-        
+
      deallocate(buffer)
   endif
 #endif
@@ -1773,9 +1740,9 @@ subroutine contslab_vert_t(iplt)
   use mem_grid,   only: mwa, mza, lpw, zm, zt, &
                         xem, yem, zem, xev, yev, zev, xew, yew, zew
   use mem_ijtabs, only: itab_w, jtab_w, jtw_prog
-  use misc_coms,  only: io6, mdomain, iparallel
+  use misc_coms,  only: mdomain, iparallel
   use consts_coms,only: erad, pio180
-  use mem_para,   only: myrank, mgroupsize, nbytes_int, nbytes_real
+  use mem_para,   only: myrank, mgroupsize, nbytes_real
 
 #ifdef OLAM_MPI
   use mpi
@@ -1816,7 +1783,7 @@ subroutine contslab_vert_t(iplt)
   ! Loop is over W for contouring W points
   ! Limit to primary W point or else we will go out of bounds for a parallel run
 
-  do jw = 1, jtab_w(jtw_prog)%jend(1)
+  do jw = 1, jtab_w(jtw_prog)%jend
      iw = jtab_w(jtw_prog)%iw(jw)
 
      npoly = itab_w(iw)%npoly
@@ -1878,7 +1845,7 @@ subroutine contslab_vert_t(iplt)
            ! Skip this triangle if entire cell is outside plot window
 
            if ( (hcpn(1) < op%xmin .and. hcpn(2) < op%xmin) .or.  &
-                (hcpn(1) > op%xmax .and. hcpn(2) > op%xmax) ) cycle         
+                (hcpn(1) > op%xmax .and. hcpn(2) > op%xmax) ) cycle
 
            ! Fill arrays with field points
 
@@ -2087,7 +2054,7 @@ subroutine contslab_vert_t(iplt)
               ipos = 0
 
               do j = 1, nus(n)
-               
+
                  call MPI_Unpack(buffer, buffsize, ipos, hcpn,    4, MPI_REAL, MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, vcpn,    4, MPI_REAL, MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, fldvals, 4, MPI_REAL, MPI_COMM_WORLD, ier)
@@ -2099,7 +2066,7 @@ subroutine contslab_vert_t(iplt)
            endif
         enddo
      endif
-        
+
      deallocate(buffer)
   endif
 #endif
@@ -2114,12 +2081,12 @@ end subroutine contslab_vert_t
 subroutine contslab_vert_w(iplt)
 
   use oplot_coms, only: op
-  use mem_grid,   only: mwa, mza, lpw, zm, zt, &
+  use mem_grid,   only: mwa, mza, lpw, zm, &
                         xem, yem, zem, xev, yev, zev, xew, yew, zew
   use mem_ijtabs, only: itab_w, jtab_w, jtw_prog
-  use misc_coms,  only: io6, mdomain, iparallel
+  use misc_coms,  only: mdomain, iparallel
   use consts_coms,only: erad, pio180
-  use mem_para,   only: myrank, mgroupsize, nbytes_int, nbytes_real
+  use mem_para,   only: myrank, mgroupsize, nbytes_real
 
 #ifdef OLAM_MPI
   use mpi
@@ -2159,7 +2126,7 @@ subroutine contslab_vert_w(iplt)
   ! Loop is over W for contouring W points
   ! Limit to primary W point or else we will go out of bounds for a parallel run
 
-  do jw = 1, jtab_w(jtw_prog)%jend(1)
+  do jw = 1, jtab_w(jtw_prog)%jend
      iw = jtab_w(jtw_prog)%iw(jw)
 
      npoly = itab_w(iw)%npoly
@@ -2226,7 +2193,7 @@ subroutine contslab_vert_w(iplt)
            ! Skip this triangle if entire cell is outside plot window
 
            if ( (hcpn(1) < op%xmin .and. hcpn(2) < op%xmin) .or.  &
-                (hcpn(1) > op%xmax .and. hcpn(2) > op%xmax) ) cycle         
+                (hcpn(1) > op%xmax .and. hcpn(2) > op%xmax) ) cycle
 
            ! Fill arrays with field points
 
@@ -2295,7 +2262,7 @@ subroutine contslab_vert_w(iplt)
 
               if ( all(vcpn(1:4) < op%ymin) .or. &
                    all(vcpn(1:4) > op%ymax) ) cycle
-                    
+
               ! W values interpolated to A and B points for plotting
 
               fldvals(1) = wta1 * valw(k-1) + wta2 * val2(k-1) + wta3 * val3(k-1)
@@ -2356,7 +2323,7 @@ subroutine contslab_vert_w(iplt)
               ipos = 0
 
               do j = 1, nus(n)
-               
+
                  call MPI_Unpack(buffer, buffsize, ipos, hcpn,    4, MPI_REAL, MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, vcpn,    4, MPI_REAL, MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, fldvals, 4, MPI_REAL, MPI_COMM_WORLD, ier)
@@ -2368,7 +2335,7 @@ subroutine contslab_vert_w(iplt)
            endif
         enddo
      endif
-        
+
      deallocate(buffer)
   endif
 #endif

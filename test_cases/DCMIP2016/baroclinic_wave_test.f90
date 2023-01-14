@@ -16,9 +16,9 @@ MODULE baroclinic_wave
 !    pertt    type of perturbation (0 = exponential, 1 = stream function)
 !        X    Earth scaling factor
 !
-!  Given a point specified by: 
-!      lon    longitude (radians) 
-!      lat    latitude (radians) 
+!  Given a point specified by:
+!      lon    longitude (radians)
+!      lat    latitude (radians)
 !      p/z    pressure (Pa) / height (m)
 !  zcoords    1 if z is specified, 0 if p is specified
 !
@@ -79,7 +79,7 @@ MODULE baroclinic_wave
        pertlat    = 2.d0*pi/9.d0,     & ! Perturbation latitude
        pertz      = 15000.d0   ,      & ! Perturbation height cap
        dxepsilon  = 1.d-5               ! Small value for numerical derivatives
- 
+
   REAL(8), PARAMETER ::               &
        moistqlat  = 2.d0*pi/9.d0,     & ! Humidity latitudinal width
        moistqp    = 34000.d0,         & ! Humidity vertical pressure width
@@ -89,7 +89,7 @@ MODULE baroclinic_wave
        moistqr    = 0.9d0,            & ! Maximum saturation ratio
        moisteps   = 0.622d0,          & ! Ratio of gas constants
        moistT0    = 273.16d0,         & ! Reference temperature (K)
-       moistE0Ast = 610.78d0            ! Saturation vapor pressure at T0 (Pa) 
+       moistE0Ast = 610.78d0            ! Saturation vapor pressure at T0 (Pa)
 
 CONTAINS
 
@@ -98,7 +98,7 @@ CONTAINS
 !=======================================================================
   SUBROUTINE baroclinic_wave_test(deep,moist,pertt,X,lon,lat,p,z,zcoords,u,v,t,thetav,phis,ps,rho,q) &
     BIND(c, name = "baroclinic_wave_test")
- 
+
     IMPLICIT NONE
 
 !-----------------------------------------------------------------------
@@ -137,7 +137,7 @@ CONTAINS
     REAL(8) :: aref, omegaref
     REAL(8) :: T0, constH, constC, scaledZ, inttau2, rratio
     REAL(8) :: inttermU, bigU, rcoslat, omegarcoslat
-    REAL(8) :: eta, qratio, qnum, qden
+    REAL(8) :: eta
 
     !------------------------------------------------
     !   Pressure and temperature
@@ -188,7 +188,7 @@ CONTAINS
     end if
 
     omegarcoslat = omegaref * rcoslat
-    
+
     u = - omegarcoslat + sqrt(omegarcoslat**2 + rcoslat * bigU)
     v = 0.d0
 
@@ -326,7 +326,7 @@ CONTAINS
 !    Calculate pointwise z and temperature given pressure
 !-----------------------------------------------------------------------
   SUBROUTINE evaluate_z_temperature(deep, X, lon, lat, p, z, t)
-    
+
     INTEGER, INTENT(IN)  :: deep ! Deep (1) or Shallow (0) test case
 
     REAL(8), INTENT(IN)  :: &

@@ -19,11 +19,11 @@ void setup_user_gribtable(void) {
     int cntr;
     int ltab;
     int pcat;
-    int pnum; 
+    int pnum;
 
     FILE *input;
     int nline, k, cnt, i, j;
- 
+
     user_gribtable = NULL;
     filename = getenv("GRIB2TABLE");
     if (filename == NULL) filename = getenv("grib2table");
@@ -60,7 +60,7 @@ void setup_user_gribtable(void) {
 	    fprintf(stderr,"user_gribtable: ignoring %s", line);
 	}
 	if (cnt == 10) {
-	    j = sscanf(line,"%d:%d:%d:%d:%d:%d:%d:%d:%[^:]:%[^:]:%[^:\n\r]", &disc, &mtab_set, &mtab_low, &mtab_high, 
+	    j = sscanf(line,"%d:%d:%d:%d:%d:%d:%d:%d:%[^:]:%[^:]:%[^:\n\r]", &disc, &mtab_set, &mtab_low, &mtab_high,
 			&cntr, &ltab, &pcat,&pnum,name,desc,units);
 	    if (j == 11) {
 		user_gribtable[k].disc = disc;
@@ -95,7 +95,7 @@ void setup_user_gribtable(void) {
 	        fprintf(stderr,"user_gribtable: ignoring #2 %s", line);
 	    }
 
-// 	 fprintf(stderr,"user_gribtab: j=%d %d %d %d %d %d %d (%s) (%s) (%s)\n", j, disc, mtab_set, 
+// 	 fprintf(stderr,"user_gribtab: j=%d %d %d %d %d %d %d (%s) (%s) (%s)\n", j, disc, mtab_set,
 //          cntr, ltab, pcat, pnum,name,desc,units);
         }
     }

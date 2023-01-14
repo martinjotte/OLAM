@@ -1,4 +1,4 @@
-/* unpack_grib 
+/* unpack_grib
  * 3/2008 public domain Wesley Ebisuzaki
  * 5/2016 public domain DWD
  */
@@ -17,6 +17,7 @@
    int dec_png_clone(unsigned char *,int *,int *,char *);
    int i;
 #endif
+
 #ifdef USE_JASPER
    #include <jasper/jasper.h>
 #endif
@@ -57,6 +58,7 @@ int unpk_grib(unsigned char **sec, float *data) {
     jas_image_cmpt_t *pcmpt;
     jas_matrix_t *jas_data;
     int j, k;
+    int fmt;
 #endif
 
 #if (defined USE_PNG || defined USE_AEC)
@@ -79,7 +81,7 @@ int unpk_grib(unsigned char **sec, float *data) {
          fatal_error("unknown bitmap", "");
 
     if (packing == 4) {			// ieee
-        if (sec[5][11] != 1) fatal_error_i("unpk ieee grib file precision %d not supported", 
+        if (sec[5][11] != 1) fatal_error_i("unpk ieee grib file precision %d not supported",
 		(int) sec[5][11]);
 
         // ieee depacking -- simple no bitmap
@@ -144,7 +146,7 @@ int unpk_grib(unsigned char **sec, float *data) {
 
 	mask_pointer = (bitmap_flag == 255) ? NULL : sec[6] + 6;
 
-	unpk_0(data, sec[7]+5, mask_pointer, nbits, ndata, reference, 
+	unpk_0(data, sec[7]+5, mask_pointer, nbits, ndata, reference,
 		bin_scale,dec_scale);
 
 	if (packing == 61) {		// remove log prescaling
@@ -192,15 +194,23 @@ int unpk_grib(unsigned char **sec, float *data) {
             fatal_error("unknown bitmap", "");
         }
 
+        /* Initialize Jasper. */
+        if (jas_init())
+          fatal_error("jpeg2000 decoding", "");
+
 	// decode jpeg2000
 
         image = NULL;
 	opts = NULL;
         jpcstream=jas_stream_memopen((char *) sec[7]+5, (int) GB2_Sec7_size(sec)-5);
-	image = jpc_decode(jpcstream, opts);
+
+        /* Get jasper ID of JPEG encoder. */
+        fmt = jas_image_strtofmt("jpc");
+
+        image = jas_image_decode(jpcstream, fmt, opts);
 	if (image == NULL) fatal_error("jpeg2000 decoding", "");
 	pcmpt = image->cmpts_[0];
-        if (image->numcmpts_ != 1 ) 
+        if (image->numcmpts_ != 1 )
 		fatal_error("unpk: Found color image.  Grayscale expected","");
 
         jas_data=jas_matrix_create(jas_image_height(image), jas_image_width(image));
@@ -234,6 +244,9 @@ int unpk_grib(unsigned char **sec, float *data) {
 	jas_matrix_destroy(jas_data);
 	jas_stream_close(jpcstream);
 	jas_image_destroy(image);
+
+        /* Finalize jasper. */
+        jas_cleanup();
 	return 0;
     }
 #endif
@@ -278,7 +291,7 @@ int unpk_grib(unsigned char **sec, float *data) {
 //	check sizes
 
 	if (mask_pointer == NULL) {
-	    if (ndata != width*height) 
+	    if (ndata != width*height)
     		fatal_error_i("png size mismatch w*h=%d", width*height);
 	}
 	else {
@@ -286,7 +299,7 @@ int unpk_grib(unsigned char **sec, float *data) {
                 fatal_error("png size mismatch", "");
 	}
 
-	unpk_0(data, c, mask_pointer, nbits, ndata, reference, 
+	unpk_0(data, c, mask_pointer, nbits, ndata, reference,
 		bin_scale,dec_scale);
 	free(c);
 	return 0;

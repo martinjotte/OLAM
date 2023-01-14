@@ -180,7 +180,7 @@ static int add_to_ave_struct(struct ave_struct *save, unsigned char **sec, float
 
     if (save->npnts != ndata) fatal_error("time_processing: add_to_ave dimension mismatch","");
 
-    /* the data needs to be translated from we:sn to raw, need to 
+    /* the data needs to be translated from we:sn to raw, need to
        do it now, translation[] may be different if called from finalized phase */
 
     if (save->code_table_4_10 == AVE) {
@@ -299,10 +299,10 @@ static int do_ave(struct ave_struct *save) {
     double factor;
     unsigned char sec4[SET_PDT_SIZE], *sec[9], *p, *p_old;
 
-    if (save->has_val == 0 || save->n_fields == 0) return 0; 
+    if (save->has_val == 0 || save->n_fields == 0) return 0;
 
     ndata = save->npnts;
-    if ((data = (float *) malloc(sizeof(float) * ((size_t) ndata))) == NULL) 
+    if ((data = (float *) malloc(sizeof(float) * ((size_t) ndata))) == NULL)
             fatal_error("time_processing: do_ave memory allocation","");
 
     if (save->code_table_4_10 == AVE) {
@@ -323,7 +323,7 @@ static int do_ave(struct ave_struct *save) {
 	if (save->n_fields > 1) {
 #pragma omp parallel for private(i)
             for (i = 0; i < ndata; i++) {
-                data[i] = (save->n[i] == save->n_fields) ?  sqrt(save->S[i]/(save->n_fields - 1)) 
+                data[i] = (save->n[i] == save->n_fields) ?  sqrt(save->S[i]/(save->n_fields - 1))
 			: UNDEFINED;
 	    }
         }
@@ -391,7 +391,7 @@ static int do_ave(struct ave_struct *save) {
 	Save_time(&(save->verf_time), p);
 	p += 7;
 
-	//  write statistical processing 
+	//  write statistical processing
 	*p++ = 1;				// number of time ranges
 	uint_char(save->n_missing, p);
 	p += 4;
@@ -415,7 +415,7 @@ static int do_ave(struct ave_struct *save) {
 	p = stat_proc_verf_time_location(sec);
 	Save_time(&(save->verf_time), p);
 
-	// new statistical processing 
+	// new statistical processing
 
 	p_old = stat_proc_verf_time_location(save->first_sec);
 
@@ -450,8 +450,8 @@ static int do_ave(struct ave_struct *save) {
     p = save->first_sec[4];
     save->first_sec[4] = sec4;
 
-    grib_wrt(save->first_sec, data, ndata, save->nx, save->ny, 
-	save->use_scale, save->dec_scale, save->bin_scale, 
+    grib_wrt(save->first_sec, data, ndata, save->nx, save->ny,
+	save->use_scale, save->dec_scale, save->bin_scale,
 	save->wanted_bits, save->max_bits, save->grib_type, &(save->out));
 
     if (flush_mode) fflush_file(&(save->out));
@@ -564,7 +564,7 @@ if (mode == 98) fprintf(stderr, "time_processing: missing calculation\n");
 	}
 	if (i != 0) {
 	    new_type = 1;
-	    if (mode == 98) fprintf(stderr, "time_processing: no match - reference time code table 4.11=%d\n", 
+	    if (mode == 98) fprintf(stderr, "time_processing: no match - reference time code table 4.11=%d\n",
 		save->code_table_4_11);
 	}
 
@@ -578,11 +578,11 @@ if (mode == 98) fprintf(stderr, "time_processing: missing calculation\n");
 	}
     }
     else if (save->code_table_4_11 == 2) {		// analyses: ref time = constant, verf_time++
-	// see if reference times match 
+	// see if reference times match
 	Get_time(sec[1]+12, &time);
 	if (Cmp_time(&time, &(save->ref_time0))) {
 	    new_type = 1;
-	    if (mode == 98) fprintf(stderr, "time_processing: no match - reference time code table 4.11=%d\n", 
+	    if (mode == 98) fprintf(stderr, "time_processing: no match - reference time code table 4.11=%d\n",
 		save->code_table_4_11);
 	}
 	if (new_type == 0) {
@@ -600,7 +600,7 @@ if (mode == 98) fprintf(stderr, "time_processing: missing calculation\n");
     }
 
 
-if (mode == 98) fprintf(stderr, "time_processing: code 4.11 %d compare ref time new_type = %d missing=%d\n", 
+if (mode == 98) fprintf(stderr, "time_processing: code 4.11 %d compare ref time new_type = %d missing=%d\n",
 		save->code_table_4_11,new_type, missing);
 
     if (new_type == 0) {
@@ -608,7 +608,7 @@ if (mode == 98) fprintf(stderr, "time_processing: code 4.11 %d compare ref time 
 	if (same_sec0(sec,save->first_sec) == 0 || same_sec1_not_time(mode,sec,save->first_sec) == 0 ||
                 same_sec3(sec,save->first_sec) == 0) {
 	    new_type = 1;
-            if (mode == 98) fprintf(stderr, "time_processing: testsec same_sec0=%d same_sec1_not_time=%d same_sec3=%d\n", 
+            if (mode == 98) fprintf(stderr, "time_processing: testsec same_sec0=%d same_sec1_not_time=%d same_sec3=%d\n",
                 same_sec0(sec,save->first_sec),
                 same_sec1_not_time(1,sec,save->first_sec),
                 same_sec3(sec,save->first_sec));
@@ -617,7 +617,7 @@ if (mode == 98) fprintf(stderr, "time_processing: code 4.11 %d compare ref time 
     if (new_type == 0) {
         if (same_sec4_not_time(mode, sec,save->first_sec) == 0) {
 	    new_type = 1;
-	    if (mode == 98) fprintf(stderr, "time_processing: testsec same_sec4_not_time=%d\n", 
+	    if (mode == 98) fprintf(stderr, "time_processing: testsec same_sec4_not_time=%d\n",
 			same_sec4_not_time(0, sec,save->first_sec));
 	}
     }
@@ -646,7 +646,7 @@ if (mode == 98) fprintf(stderr, "time_processing: code 4.11 %d compare ref time 
 
     Get_time(sec[1]+12,&(save->ref_time0));
     save->ref_time = save->ref_time0;
-    if (Verf_time(sec, &(save->verf_time)) != 0) 
+    if (Verf_time(sec, &(save->verf_time)) != 0)
           fatal_error("time_processing: could not determine the verification time","");
     return 0;
 }

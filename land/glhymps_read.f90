@@ -1,43 +1,9 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
-
 subroutine glhymps_read()
 
   use mem_land,    only: land, nland, onland
   use mem_sfcg,    only: sfcg
-  use consts_coms, only: erad, piu180
+  use consts_coms, only: piu180
   use hdf5_utils,  only: shdf5_open, shdf5_close, shdf5_irec, shdf5_info
-  use misc_coms,   only: io6
   use max_dims,    only: pathlen
   use leaf_coms,   only: glhymps_database
 
@@ -58,7 +24,7 @@ subroutine glhymps_read()
 
   logical :: exists
 
-  ! This subroutine is simpler than land_database_read because it assumes that 
+  ! This subroutine is simpler than land_database_read because it assumes that
   ! each glhymps database file covers the entire geographic area of the model.
   ! If this ever changes, this subroutine must be modified.
 
@@ -113,7 +79,7 @@ subroutine glhymps_read()
 
      do iland = 2, nland
         iwsfc = iland + onland
-   
+
         glat = sfcg%glatw(iwsfc)
         glon = sfcg%glonw(iwsfc)
 
@@ -123,7 +89,7 @@ subroutine glhymps_read()
         jo = nint((glat +  90.) * yperdeg + yoffpix)
 
         ! Exclude "undefined" and "missing data values.
-        ! For idataset = 1 and 2, dato = log10(permeability). Convert this to ksat; 
+        ! For idataset = 1 and 2, dato = log10(permeability). Convert this to ksat;
         ! ksat is 1.e7 * permeability
 
         if (iwsfc == 13328) then

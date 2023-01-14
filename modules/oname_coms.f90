@@ -1,39 +1,7 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University;
-   ! Colorado State University Research Foundation ; ATMET, LLC
-
-   ! This software is free software; you can redistribute it and/or modify it
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version.
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
-
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
-   ! (http://www.gnu.org/licenses/gpl.html)
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 Module oname_coms
 
   use max_dims,    only: maxsndg, maxgrds, maxisdirs, maxnplt,  &
-                         maxpltfiles, maxngrdll, pathlen, maxlite
+                         maxpltfiles, maxngrdll, pathlen, maxlite, maxlatlon
   use consts_coms, only: r8
 
   implicit none
@@ -41,7 +9,7 @@ Module oname_coms
   ! Do not re-export symbols from other modules
 
   private :: maxsndg, maxgrds, maxisdirs, maxnplt, &
-             maxpltfiles, maxngrdll, pathlen, maxlite, r8
+             maxpltfiles, maxngrdll, pathlen, maxlite, maxlatlon, r8
 
   ! Derived type to hold the components of the plot specification fields
 
@@ -149,8 +117,7 @@ Module oname_coms
 
 !!    TIMESTEP RATIOS
 
-     integer :: ndtrat (maxgrds) = 1
-     integer :: nacoust(maxgrds) = 1
+     integer :: nacoust = 1
 
 !!    VARIABLE INITIALIZATION INPUT
 
@@ -180,15 +147,22 @@ Module oname_coms
      integer :: iclobber  = 0
      integer :: icompress = 0
      integer :: latlonplot = 0
+     integer :: nlatlonpd = 1
 
      real(r8):: frqstate  = 3600.0_r8
      real(r8):: frqlite   = 3600.0_r8
      real(r8):: frqlatlon = 3600.0_r8
 
+     real :: beglat =  -90.
+     real :: endlat =   90.
+     real :: beglon = -180.
+     real :: endlon =  180.
+
      character(pathlen) :: hfilin    = ' '
      character(pathlen) :: hfilepref = 'hist/'
      character(pathlen) :: lfilepref = 'hist/l'
      character(32)      :: lite_vars(maxlite) = ' '
+     character(32)      :: latlon_vars(maxlatlon) = ' '
 
 !!    MODEL/NUMERICAL OPTIONS
 
@@ -302,12 +276,13 @@ Module oname_coms
      real :: zcent_thpert   ! Center height of toroidal heating region (m)
      real :: zhwid_thpert   ! Vertical half-width of toroidal heating region (m)
 
-     real :: rcent_thpert   ! Center radius of toroidal heating region (m) 
+     real :: rcent_thpert   ! Center radius of toroidal heating region (m)
      real :: rhwid_thpert   ! Radial half-width of toroidal heating region (m)
 
      real :: maxrate_thpert ! Maximum heating rate (K/s) in toroidal heating region (K/s)
 
      real :: vtan_targ      ! Target maximum tangential wind speed (to modulate heating rate)
+     real :: pmsl_targ      ! Target minimum sea level pressure (to modulate heating rate)
 
 !!    SOUNDING SPECIFICATION
 
@@ -334,6 +309,7 @@ Module oname_coms
      integer :: nzs         =  1
      integer :: nzg         = 21
      integer :: nzpom       = 40
+     integer :: niter_swm   =  1
 
      real :: landgrid_dztop = 0.05
      real :: landgrid_depth = 5.00
@@ -362,9 +338,11 @@ Module oname_coms
      real    :: seatmp = 280.0
      real    :: seaice =   0.0
 
+     real    :: topodb_cutoff = 200.
+
      character(pathlen) :: gw_spinup_sfcgfile = ' '
      character(pathlen) :: gw_spinup_histfile = ' '
-     character(pathlen) :: topo_database      = ' '
+     character(pathlen) :: topo_database(2)   = ' '
      character(pathlen) :: bathym_database    = ' '
      character(pathlen) :: veg_database       = ' '
      character(pathlen) :: soil_database      = ' '

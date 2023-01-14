@@ -1,36 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
-
 module pbl_drivers
 
   real, parameter, private :: forw_imp = 1.5
@@ -39,7 +6,7 @@ contains
 
 !===============================================================================
 
-subroutine pbl_driver(mrl)
+subroutine pbl_driver()
 
   use mem_grid,       only: mza, lpw
   use misc_coms,      only: idiffk, iparallel
@@ -54,15 +21,13 @@ subroutine pbl_driver(mrl)
 
   implicit none
 
-  integer, intent(in) :: mrl
-
   integer :: j, k, ka, iw, mrlw
 
 ! Loop over all W/T points where PBL parameterization may be done
 
 !----------------------------------------------------------------------
   !$omp parallel do private(iw,mrlw,ka,k)
-  do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+  do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 
      ! MRL for current IW column
@@ -151,35 +116,33 @@ subroutine pbl_driver(mrl)
 
   if (iparallel == 1) then
 
-     call mpi_send_w(mrl, rvara1=vkm, rvara2=vkh, swvar1=akm_sfc, &
-                          r1dvara1=ustar, r1dvara2=pblh, &
-                          i1dvara1=khtop, i1dvara2=kmtop, i1dvara3=kpblh)
+     call mpi_send_w(rvara1=vkm, rvara2=vkh, swvar1=akm_sfc, &
+                     r1dvara1=ustar, r1dvara2=pblh, &
+                     i1dvara1=khtop, i1dvara2=kmtop, i1dvara3=kpblh)
 
-     call mpi_recv_w(mrl, rvara1=vkm, rvara2=vkh, swvar1=akm_sfc, &
-                          r1dvara1=ustar, r1dvara2=pblh, &
-                          i1dvara1=khtop, i1dvara2=kmtop, i1dvara3=kpblh)
-
+     call mpi_recv_w(rvara1=vkm, rvara2=vkh, swvar1=akm_sfc, &
+                     r1dvara1=ustar, r1dvara2=pblh, &
+                     i1dvara1=khtop, i1dvara2=kmtop, i1dvara3=kpblh)
   endif
 
  ! Lateral boundary copy of computed K's
 
-  call lbcopy_w(mrl, a1=vkm, a2=vkh, s1=akm_sfc, v1=ustar, v2=pblh, &
-                     iv1=khtop, iv2=kmtop, iv3=kpblh)
+  call lbcopy_w(a1=vkm, a2=vkh, s1=akm_sfc, v1=ustar, v2=pblh, &
+                iv1=khtop, iv2=kmtop, iv3=kpblh)
 
 end subroutine pbl_driver
 
 !===============================================================================
 
-subroutine comp_horiz_k(mrl)
+subroutine comp_horiz_k()
 
   use mem_ijtabs, only: jtab_v, jtv_wadj
   implicit none
 
-  integer, intent(in) :: mrl
   integer             :: j, iv
 
   !$omp parallel do private(iv)
-  do j = 1,jtab_v(jtv_wadj)%jend(mrl); iv = jtab_v(jtv_wadj)%iv(j)
+  do j = 1,jtab_v(jtv_wadj)%jend; iv = jtab_v(jtv_wadj)%iv(j)
 
      call comp_horiz_k_column(iv)
 
@@ -214,7 +177,7 @@ subroutine comp_horiz_k_column(iv)
   iw2 = itab_v(iv)%iw(2)
   mrl = itab_v(iv)%mrlv
 
-  dtl = dtlm(mrl)
+  dtl = dtlm
 
   fact1 = 0.95 / (dtl * itab_w(iw1)%npoly )
   fact2 = 0.95 / (dtl * itab_w(iw2)%npoly )
@@ -279,23 +242,21 @@ end subroutine comp_horiz_k_column
 
 subroutine pbl_init()
 
-  use mem_grid,      only: lsw, lpw, mwa, arw, arw0, zfacim2, nsw_max
-  use mem_ijtabs,    only: jtab_w, jtw_prog, itabg_w, itab_w
+  use mem_grid,      only: lsw, lpw, mwa, arw, zfacim2
+  use mem_ijtabs,    only: jtab_w, jtw_prog, itab_w
   use mem_turb,      only: frac_urb, frac_land, frac_sea, frac_lake, &
                            frac_sfc, frac_sfck, ustar, wstar, wtv0, moli
   use mem_sfcg,       only: sfcg, itab_wsfc
-  use misc_coms,     only: isubdomain, runtype, iparallel
+  use misc_coms,     only: runtype, iparallel
   use module_bl_acm2,only: acm2_pblhgt
   use leaf_coms,     only: isfcl
-  use mem_land,      only: mland
-  use mem_sea,       only: msea
   use consts_coms,   only: eps_virt, alvlocp
-  use obnd,          only: lbcopy_w1d
+  use obnd,          only: lbcopy_w
   use olam_mpi_atm,  only: mpi_send_w, mpi_recv_w
 
   implicit none
 
-  integer :: j, iw, iwsfc, k, km, ks, nland, nsea, jsfc, jasfc
+  integer :: j, iw, iwsfc, k, km, ks, jsfc, jasfc
 
 ! Populate urban and land, sea, and lake fraction arrays
 
@@ -308,7 +269,7 @@ subroutine pbl_init()
 
      ! Loop over all ATM grid cells
 
-     do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
+     do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
         ! Loop over surface cells that couple to current ATM cell
 
@@ -331,13 +292,13 @@ subroutine pbl_init()
      enddo
 
      if (iparallel == 1) then
-        call mpi_send_w(1, r1dvara1=frac_urb, r1dvara2=frac_land, &
-                           r1dvara3=frac_sea, r1dvara4=frac_lake  )
-        call mpi_recv_w(1, r1dvara1=frac_urb, r1dvara2=frac_land, &
-                           r1dvara3=frac_sea, r1dvara4=frac_lake  )
+        call mpi_send_w(r1dvara1=frac_urb, r1dvara2=frac_land, &
+                        r1dvara3=frac_sea, r1dvara4=frac_lake  )
+        call mpi_recv_w(r1dvara1=frac_urb, r1dvara2=frac_land, &
+                        r1dvara3=frac_sea, r1dvara4=frac_lake  )
      endif
 
-     call lbcopy_w1d(1, a1=frac_urb, a2=frac_land, a3=frac_sea, a4=frac_lake)
+     call lbcopy_w(v1=frac_urb, v2=frac_land, v3=frac_sea, v4=frac_lake)
 
   endif
 
@@ -385,7 +346,7 @@ subroutine pbl_init()
 ! Initialize PBL height and some PBL quantities
 
   !$omp parallel do private(iw)
-  do j = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
+  do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
      ustar(iw) = 0.2
      wstar(iw) = 0.0
@@ -406,7 +367,6 @@ subroutine apply_surface_fluxes( iw )
   use mem_grid,   only: mza, lpw, lsw, volti
   use misc_coms,  only: dtlm
   use mem_basic,  only: rho
-  use mem_ijtabs, only: itab_w
   use var_tables, only: sxfer_map, num_sxfer, emis_map, num_emis, scalar_tab
 
   implicit none
@@ -415,7 +375,7 @@ subroutine apply_surface_fluxes( iw )
   integer             :: ns, n, ks, k
   real                :: dtl, dtli
 
-  dtl  = dtlm(itab_w(iw)%mrlw)
+  dtl  = dtlm
   dtli = 1.0 / dtl
 
   ! Apply surface moisture and scalar fluxes directly to tendency arrays
@@ -460,15 +420,12 @@ end subroutine apply_surface_fluxes
 subroutine solve_eddy_diff_scalars( iw )
 
   use mem_grid,   only: mza, arw, volti, lpw, lsw, dzim, arw0i, volt
-  use mem_turb,   only: kpblh, vkh, sfluxr, sxfer_rk, akh_dzi, akhrv_dzi, agamma, khtop
-  use mem_basic,  only: rho, rr_w
+  use mem_turb,   only: kpblh, vkh, sfluxr, agamma, khtop
+  use mem_basic,  only: rho
   use mem_ijtabs, only: itab_w
   use misc_coms,  only: dtlm
   use tridiag,    only: tridv
   use var_tables, only: num_pblmix, pblmix_map, scalar_tab
-  use leaf_coms,  only: isfcl
-  use mem_micro,  only: rr_c, rr_p
-  use mem_tend,   only: rr_wt
   use oname_coms, only: nl
 
   use supercell_testm, only: rr_w_init
@@ -478,8 +435,8 @@ subroutine solve_eddy_diff_scalars( iw )
   integer, intent(in) :: iw
 
   real    :: dtomass(mza), dtorho(mza), akodz(mza)
-  integer :: ka, k, ks, jwl, iwl, jws, iws, kbot, n, ns, kmax
-  real    :: vctr2(mza), vctr5(mza), vctr6(mza), vctr7(mza)
+  integer :: ka, k, n, ns, kmax
+  real    :: vctr5(mza), vctr6(mza), vctr7(mza)
   real    :: soln(mza,num_pblmix), rhs(mza,num_pblmix), varp(mza)
   real    :: dtl, dtli, wc0
 
@@ -498,7 +455,7 @@ subroutine solve_eddy_diff_scalars( iw )
   if (khtop(iw) < lpw(iw) .or. num_pblmix == 0) return
 
   ka   = lpw(iw)
-  dtl  = dtlm(1)
+  dtl  = dtlm
   dtli = 1.0 / dtl
   kmax = khtop(iw) + 1
 
@@ -624,8 +581,8 @@ subroutine solve_eddy_diff_heat(iw, thilt)
   integer, intent(in )   :: iw
   real,    intent(inout) :: thilt(mza)  ! note: thilt assumed scaled by volume
 
-  integer :: ka, k, ks, jwl, iwl, jws, iws, kbot, kmax
-  real    :: dts, dtom, akodz, r4i, wt0
+  integer :: ka, k, kmax
+  real    :: dts, dtom, akodz, wt0
   real    :: dtomass(mza), varp(mza)
   real    :: vctr5(mza), vctr6(mza), vctr7(mza), rhs(mza), soln(mza)
 
@@ -644,7 +601,7 @@ subroutine solve_eddy_diff_heat(iw, thilt)
   if (khtop(iw) < lpw(iw)) return
 
   ka   = lpw(iw)
-  dts  = dtsm(1)
+  dts  = dtsm
   kmax = khtop(iw) + 1
 
   ! Vertical loop over T levels
@@ -739,7 +696,7 @@ subroutine solve_eddy_diff_vc( iv, vmt )
       nl%test_case == 121 .or. &
       nl%test_case == 122) return
 
-  dts = dtsm(1)
+  dts = dtsm
   iw1 = itab_v(iv)%iw(1)
   iw2 = itab_v(iv)%iw(2)
 
@@ -883,7 +840,7 @@ subroutine solve_eddy_diff_vxe( iw, vmxet, vmyet, vmzet )
       nl%test_case == 122) return
 
   ka  = lpw(iw)
-  dts = dtsm(1)
+  dts = dtsm
 
   kmax = max(kmtop(iw)+1, ka + lsw(iw) - 1)
 

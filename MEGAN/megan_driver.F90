@@ -307,7 +307,7 @@ contains
 
   subroutine read_pfts()
 
-    use mem_land,   only: land, mland, omland
+    use mem_land,   only: mland, omland
     use mem_sfcg,   only: sfcg
     use misc_coms,  only: iparallel
     use max_dims,   only: pathlen
@@ -495,8 +495,7 @@ contains
     use mem_sfcg,     only: sfcg
     use leaf4_canopy, only: vegndvi
     use consts_coms,  only: pio180, pi2
-    use misc_coms,    only: current_time, runtype, io6
-    use mem_grid,     only: mwa, glatw
+    use misc_coms,    only: current_time, runtype
     use cgrid_spcs,   only: n_gc_emis, gc_emis
     use utilio_defn,  only: index1
     use oname_coms,   only: nl
@@ -643,7 +642,7 @@ contains
                          0.413, 0.413, 0.413, 0.379, 0.379, 0.379, 0.339, 0.339 /)
     norm_fact(20,:) = (/ 0.456, 0.456, 0.456, 0.568, 0.499, 0.568, 0.499, 0.499, &
                          0.456, 0.456, 0.456, 0.418, 0.418, 0.418, 0.374, 0.374 /)
-    
+
     do n = 1, n_spca_spc
        ugphr_molpsec(n) = ug2g / spca_mwt(n) * hr2sec
     enddo
@@ -723,13 +722,12 @@ contains
   end subroutine megan_avg_temp
 
 
-  subroutine megan_driver(mrl)
+  subroutine megan_driver()
 
     use mem_land,    only: mland
 
     implicit none
 
-    integer, intent(in) :: mrl
     integer             :: iland
 
     !$omp parallel do
@@ -751,10 +749,9 @@ contains
   subroutine megan_driver1(iland)
 
     use leaf_coms,   only: nvtyp, veg_frac, tai_max
-    use mem_land,    only: omland, nzg, land
-    use misc_coms,   only: isubdomain, current_time
-    use mem_ijtabs,  only: itabg_w, itab_w
-    use mem_sfcg,    only: itab_wsfc, sfcg
+    use mem_land,    only: omland, land
+    use misc_coms,   only: current_time
+    use mem_sfcg,    only: sfcg
     use consts_coms, only: pio180
 
     implicit none
@@ -774,7 +771,7 @@ contains
     real :: tmper(n_spca_spc)
     real :: outer(n_mech_spc)
 
-    integer :: iw, kw, iwsfc, s, ip, lc
+    integer :: s, iwsfc, ip, lc
 
     real :: glat, glon, hour
     real :: LAIc, slai
@@ -1151,7 +1148,7 @@ contains
 
     real, parameter :: dsw = 0.06
     real            :: smk, soilwilt
-    integer         :: k, nts, s
+    integer         :: k
 
     gam_s = 1.0
 
@@ -1367,7 +1364,7 @@ contains
     integer, intent(in) :: Day
     real,    intent(in) :: lat, hour
 
-    real :: Rpi, SinDelta,  CosDelta, A, B, Sinbeta
+    real :: SinDelta,  CosDelta, A, B, Sinbeta
     real, parameter :: Pi = 3.141592654, Rpi180 = 57.29578
     real, parameter :: twopi = 2.0 * pi
     real, parameter :: Rpi180i = 1.0 / Rpi180

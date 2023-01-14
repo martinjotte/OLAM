@@ -1,57 +1,21 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 subroutine timestep()
 
-use misc_coms,   only: io6, time8, time_istp8, time_istp8p, time_bias, &
+use misc_coms,   only: time8, time_istp8, time_istp8p, time_bias, &
                        nqparm, initial, ilwrtyp, iswrtyp, dtsm, i_o3, &
                        iparallel, s1900_init, s1900_sim, do_chem, &
                        nrk_wrtv, nrk_scal
-use mem_ijtabs,  only: nstp, istp, mrls, leafstep, mrl_begl, mrl_endl, mrl_ends
+use mem_ijtabs,  only: nstp, istp, mrls, mrl_begl, mrl_endl
 use mem_nudge,   only: nudflag, nudnxp, o3nudflag
-use mem_grid,    only: mza, mva, mwa
-use mem_sfcg,    only: sfcg
+use mem_grid,    only: mza, mwa
 use micro_coms,  only: miclevel
 use leaf_coms,   only: isfcl
-use mem_basic,   only: thil, rho, wmc, wc, theta
+use mem_basic,   only: thil
 use olam_mpi_atm,only: mpi_send_w, mpi_recv_w, mpi_send_v, mpi_recv_v
-use var_tables,  only: nvar_par, vtab_r, nptonv
-use obnd,        only: trsets, lbcopy_v, lbcopy_w, set_bottom
-use oplot_coms,  only: op
+use obnd,        only: set_scalars_lbc, set_scalars_bottom
 use oname_coms,  only: nl
 use mem_flux_accum, only: flux_accum
 use consts_coms, only: r8
 use vel_t3d,     only: diag_uzonal_umerid
-use var_tables,  only: num_scalar, scalar_tab
 use mem_megan,   only: megan_avg_temp
 use emis_defn,   only: get_emis
 use depv_defn,   only: get_depv
@@ -59,13 +23,14 @@ use wrtv_rk,     only: prog_wrtv_rk
 use wrtv_orig,   only: prog_wrtv_orig
 use check_nan,   only: check_nans, compute_mass_sums
 use pbl_drivers, only: pbl_driver, comp_horiz_k
-use mem_cuparm,  only: conprr
 use olam_mpi_sfc,only: mpi_send_wsfc, mpi_recv_wsfc
-use hcane_rz,    only: ncycle_hurrinit, icycle_hurrinit, vortex_add_thetapert
+use hcane_rz,    only: ncycle_hurrinit, icycle_hurrinit, timmax_hurrinit, &
+                       vortex_add_thetapert
+!use oplot_coms,  only: op
 
 implicit none
 
-integer :: jstp, mrl, n
+integer :: jstp
 
 real(r8) :: rho_old(mza,mwa) ! density at beginning of long timestep [kg/m^3]
 real(r8) :: time0
@@ -93,7 +58,7 @@ if (time_istp8 < 1.e-3_r8) then
 
 endif
 
-do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
+do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm
    istp = jstp
 
    ! Bypass all processes except land/lake/sea if running groundwater spin-up simulation
@@ -104,13 +69,12 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
    if (nl%test_case >= 901 .and. nl%test_case <= 950) go to 1311
 
-   mrl = mrl_begl(istp)
-   if (mrl > 0) then
+   if (mrl_begl(istp) > 0) then
       call tend0(rho_old)
-      call comp_alpha_press(mrl)
-      call surface_turb_flux(mrl)
-      call sea_spray(mrl)
-      call dust_src(mrl)
+      call comp_alpha_press()
+      call surface_turb_flux()
+      call sea_spray()
+      call dust_src()
    endif
 
    ! call check_nans(1)
@@ -118,15 +82,15 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    if (any( nqparm(1:mrls) > 0 )) then
       call cuparm_driver()
 
-      if (isfcl == 1 .and. mrl > 0) then
+      if (isfcl == 1 .and. mrl_begl(istp) > 0) then
          call surface_cuparm_flux()
       endif
    endif
 
-   ! update cloud fraction following microphysics
+   ! update cloud fraction before radiation
 
-   if (mrl > 0) then
-      call calc_3d_cloud_fraction(mrl)
+   if (mrl_begl(istp) > 0) then
+      call calc_3d_cloud_fraction()
    endif
 
    ! call check_nans(2)
@@ -135,66 +99,64 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
       call radiate()
    endif
 
-   mrl = mrl_begl(istp)
-   if (mrl > 0) then
+   if (mrl_begl(istp) > 0) then
 
       ! Add incremental axisymmetric potential temperature perturbation
       ! inside the hurricane core to increase vortex intensity
 
       if (icycle_hurrinit < ncycle_hurrinit .or. &
-         (ncycle_hurrinit == 1 .and. time_istp8p < nl%timmax_hurrinit)) then
+         (ncycle_hurrinit == 1 .and. time_istp8p < timmax_hurrinit)) then
 
          call vortex_add_thetapert()
       endif
 
       ! small-scale vorticity damping
 
-      call vort_damp(mrl)
+      call vort_damp()
 
       ! Nudging tendencies
 
       if (initial == 2 .and. nudflag == 1) then
          if (nudnxp == 0) then
-            call  obs_nudge(mrl)
+            call  obs_nudge()
          else
-            call spec_nudge(mrl)
+            call spec_nudge()
          endif
       endif
 
       ! Nudging of ozone if it is in the scalar table
 
       if (initial == 2 .and. o3nudflag == 1 .and. i_o3 > 0) then
-         call obs_nudge_o3(mrl)
+         call obs_nudge_o3()
       endif
 
       ! CMAQ emissions and deposition
 
       if (do_chem == 1) then
-         call get_emis(mrl)
-         call get_depv(mrl)
+         call get_emis()
+         call get_depv()
       endif
 
       ! Long timestep PBL tendencies
 
-      call pbl_driver(mrl)
+      call pbl_driver()
 
       ! and lateral friction with terrain with shaved cells
 
-      if (isfcl == 1) call lateral_friction(mrl)
+      if (isfcl == 1) call lateral_friction()
 
       ! Computation of horizontal K's
 
-      call comp_horiz_k(mrl)
+      call comp_horiz_k()
 
-   endif
+   endif  ! mrl_begl(istp) > 0
 
    ! call check_nans(11)
 
    ! Call olam_dcmip_phys, which is the OLAM interface to DCMIP auxiliary
    ! physics subroutine that provides tendencies to some model fields
 
-   mrl = mrl_begl(istp)
-   if (mrl > 0) then
+   if (mrl_begl(istp) > 0) then
       !--------------------------------------
       if (nl%test_case ==  42 .or. &
           nl%test_case ==  43 .or. &
@@ -214,8 +176,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    ! Call olam_dcmip_terminator, which is the OLAM interface to DCMIP auxiliary
    ! chemistry subroutine terminator that provides chemical tendencies.
 
-   mrl = mrl_begl(istp)
-   if (mrl > 0) then
+   if (mrl_begl(istp) > 0) then
       !--------------------------------------
       if (nl%test_case == 110 .or. &
           nl%test_case == 111 .or. &
@@ -245,16 +206,13 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
       call prog_wrtv_rk()
    endif
 
-   33 continue
+   33 continue  ! test_case == 11, 12, or 13
 
-   mrl = mrl_endl(istp)
-   if (mrl > 0) then
-      call diag_uzonal_umerid(mrl)
-   !  call check_nans(12)
+   if (mrl_endl(istp) > 0) then
+      call diag_uzonal_umerid()
    endif
 
-   !    write(*,'(a)') ' calling mass_sums3 '
-   !    call compute_mass_sums()
+   ! call check_nans(12)
 
    !--------------------------------------
    ! Get flow update if using DCMIP prescribed flow
@@ -265,7 +223,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
       ! Set time0 to half-forward time (of grid-1 short timestep)
       ! for time-centered advective tendencies
 
-      time0 = time8 + .5 * dtsm(1)
+      time0 = time8 + .5 * dtsm
 
       call olam_dcmip_prescribedflow(time0,rho_old)
 
@@ -287,23 +245,20 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
 
    ! call check_nans(13)
 
-   mrl = mrl_endl(istp)
-   if (mrl > 0) then
-
+   if (mrl_endl(istp) > 0) then
       if (nrk_scal == 1) then
-         call scalar_transport_orig(mrl,rho_old)
+         call scalar_transport_orig(rho_old)
       else
-         call scalar_transport_rk(mrl,rho_old)
+         call scalar_transport_rk(rho_old)
       endif
-
-   ! call check_nans(14)
-   ! call check_nans(15)
-
    endif
 
+   ! call check_pos(1)
+   ! call check_nans(14)
 
-   ! Special diagnosis of water vapor for DCMIP tests; thil is dry theta in that case
-   !---------------------------------------------------------------------------------
+   ! Special diagnosis of water vapor for DCMIP tests;
+   ! thil is dry theta in these cases
+
    if (nl%test_case == 110 .or. &
        nl%test_case == 111 .or. &
        nl%test_case == 112 .or. &
@@ -313,20 +268,80 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
        nl%test_case == 122 .or. &
        nl%test_case == 131) then
 
-      call thermo_dcmip()
-
-      go to 35
+      if (mrl_endl(istp) > 0) then
+         call thermo_dcmip()
+         go to 35
+      endif
    endif
-   !--------------------------------------
 
-   if (miclevel /= 3) then
+   if (mrl_endl(istp) > 0 .and. miclevel /= 3) then
       call thermo()
+   endif
+
+   1311 continue
+
+   if (mrl_endl(istp) > 0 .and. miclevel == 3) then
+      call micro()
+   endif
+
+   ! call check_pos(2)
+   ! call check_nans(16)
+
+   ! Bypass all processes except microphyics if running microphysics parcel simulation
+
+   if (nl%test_case >= 901 .and. nl%test_case <= 950) go to 1312
+
+   ! Call atmospheric chemistry here
+
+   if (do_chem == 1) then
+      call cmaq_driver()
    endif
 
    35 continue
 
+   ! call check_pos(3)
+   ! call check_nans(20,rvara1=alpha_press)
+
+   if (mrl_endl(istp) > 0) then
+
+      ! Bottom boundary for scalars
+      call set_scalars_bottom()
+
+      ! Parallel send/recv of scalars
+      if (iparallel == 1) call mpi_send_w(rvara1=thil, scalars='S')  ! Send scalars
+      if (iparallel == 1) call mpi_recv_w(rvara1=thil, scalars='S')  ! Recv scalars
+
+      ! Lateral boundary copy of scalars for limited-area runs
+      call set_scalars_lbc()
+
+   endif
+
+   1400 continue  ! nl%igw_spinup == 1
+
+   if (isfcl > 0 .and. mrl_endl(jstp) > 0) then
+      call surface_driver()
+
+      if (nl%igw_spinup /= 1) then
+         call sfcg_avgatm()
+         if (do_chem == 1) call megan_avg_temp()
+      endif
+
+   endif
+
+   ! call check_nans(21,rvara1=alpha_press)
+
+   1312 continue
+
+   time_istp8  = time8 + istp * dtsm  ! Update precise time
+   time_istp8p = time_istp8 + time_bias
+   s1900_sim   = s1900_init + time_istp8
+
+   ! Add current fluxes to time integrals
+
+   call flux_accum()
+
    ! SPECIAL PLOT SECTION - - - - - - - - - - - - - - - - - - - -
-   !if (mod(time8,op%frqplt) < dtlm(1) .and. istp == nstp+1000) then
+   !if (mod(time8,op%frqplt) < dtlm .and. istp == nstp+1000) then
    !
    !   allocate (op%extfld(mza,mwa))
    !   op%extfld(:,:) = thil(:,:)
@@ -349,101 +364,10 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm(1)
    !endif
    ! END SPECIAL PLOT SECTION - - - - - - - - - - - - - - - - - -
 
-   1311 continue
-
-   mrl = mrl_endl(istp)
-   if (miclevel == 3 .and. mrl > 0) then
-      call micro(mrl)  ! maybe later make freq. uniform
-
-      ! call les_diag()
-      ! call check_nans(16)
-   endif
-
-
-   ! Bypass all processes except microphyics if running microphysics parcel simulation
-
-   if (nl%test_case >= 901 .and. nl%test_case <= 950) go to 1312
-
-   ! Call atmospheric chemistry here
-
-   if (do_chem == 1) call cmaq_driver()
-
-   ! Cyclic lateral boundaries and bottom boundary for scalars
-
-!   call trsets(mrl)
-
-   ! Bottom boundary for scalars
-
-   if (mrl_endl(istp) > 0) then
-      call set_bottom()
-   endif
-
-   ! call check_nans(18)
-
-!   mrl = mrl_ends(istp)
-
-!   if (iparallel == 1) then
-!      call mpi_send_w(mrl, dvara1=rho, rvara1=wmc, &
-!                           rvara2=wc,  rvara3=thil)
-!
-!      call mpi_recv_w(mrl, dvara1=rho, rvara1=wmc, &
-!                           rvara2=wc,  rvara3=thil)
-!   endif
-
-!   if (mrl_ends(istp) > 0) then
-!      call lbcopy_w(mrl, a1=thil, a2=wmc, a3=wc, d1=rho)
-!   else
-!      call lbcopy_w(mrl, a1=thil, a2=wmc, a3=wc)
-!   endif
-
-   ! call check_nans(19,rvara1=alpha_press)
-
-   mrl = mrl_endl(istp)
-   if (mrl > 0) then
-
-      if (iparallel == 1) call mpi_send_w(mrl, rvara1=thil, scalars='S')  ! Send scalars
-
-      if (iparallel == 1) call mpi_recv_w(mrl, rvara1=thil, scalars='S')  ! Recv scalars
-
-      ! Lateral boundary conditions for limited-area runs
-
-      call lbcopy_w(mrl, a1=thil)
-      do n = 1, nvar_par
-         call lbcopy_w(mrl, a1=vtab_r(nptonv(n))%rvar2_p)
-      enddo
-
-   endif
-
-   ! call check_pos(3)
-   ! call check_nans(20,rvara1=alpha_press)
-
-   1400 continue
-
-   if (isfcl > 0 .and. leafstep(istp) > 0) then
-      call surface_driver()
-
-      if (nl%igw_spinup /= 1) then
-         call sfcg_avgatm()
-         if (do_chem == 1) call megan_avg_temp()
-      endif
-
-   endif
-
-   ! call check_nans(21,rvara1=alpha_press)
-
-   1312 continue
-
-   time_istp8  = time8 + istp * dtsm(mrls)  ! Update precise time
-   time_istp8p = time_istp8 + time_bias
-   s1900_sim   = s1900_init + time_istp8
-
-   ! Add current fluxes to time integrals
-
-   call flux_accum()
-
-!!   if (jstp == nstp) then
-!!      call compute_mass_sums()
-!!   endif
+   ! if (mrl_endl(istp) > 0) then
+   !    write(io6,'(a)') ' calling mass_sums3 '
+   !    call compute_mass_sums()
+   ! endif
 
 enddo
 
@@ -459,127 +383,51 @@ end subroutine timestep
 
 subroutine modsched()
 
-use mem_ijtabs,  only: nstp, mrls,  &
-                       mrl_endl, mrl_ends, mrl_begl, mrl_begs, leafstep
-use misc_coms,   only: io6, nacoust, ndtrat, dtlm, dtlong, dtsm
-use leaf_coms,   only: dt_leaf, mrl_leaf
-use lake_coms,   only: dt_lake
-use sea_coms,    only: dt_sea
-use consts_coms, only: r8
+  use mem_ijtabs,  only: nstp, mrl_endl, mrl_ends, mrl_begl, mrl_begs
+  use misc_coms,   only: io6, dtlong, nacoust, dtlm, dtsm
+  use leaf_coms,   only: dt_leaf
+  use lake_coms,   only: dt_lake
+  use sea_coms,    only: dt_sea
+  use consts_coms, only: r8
 
-implicit none
+  implicit none
 
-integer :: ndts
-integer :: jstp
-integer :: mrl
+  integer :: jstp
 
-integer :: nshort(mrls)  ! automatic array
-integer :: nlong(mrls)   ! automatic array
+  nstp = nacoust
 
-! Find number of short timesteps of most refined mesh done per long and short
-!    timestep of every refinement level.
+  write(io6,'(/,a)') '=== Timestep Schedule ===='
+  write(io6,'(a,/)') '              jstp    mrl_begl  mrl_begs  mrl_endl  mrl_ends'
 
-nshort(mrls) = 1
-nlong(mrls) = nacoust(mrls)
+  ! Set timestep lengths
 
-do mrl = mrls-1,1,-1
-   nlong(mrl) = nlong(mrl+1) * ndtrat(mrl+1)
-   nshort(mrl) = nlong(mrl) / nacoust(mrl)
-   ndts = nshort(mrl) / nshort(mrl+1)
-   if (nshort(mrl) /= ndts * nshort(mrl+1)) then
-      write(io6,'(/,a)')   'Short timesteps not integer ratio between consec MRLs.'
-      write(io6,'(a,2i5)') 'mrl, nshort(mrl) = ',mrl,nshort(mrl)
-      write(io6,'(a,2i5)') 'mrl+1, nshort(mrl+1) = ',mrl+1,nshort(mrl+1)
-      stop 'stop modsched_1'
-   endif
-enddo
+  dtlm = dtlong
+  dtsm = dtlm / real(nacoust)
 
-nstp = nlong(1)
+  dt_leaf = dtlm
+  dt_sea  = dtlm
+  dt_lake = dtlm
 
-do mrl = 1,mrls
-   write(io6,*) 'modsched-0 ',mrl,nlong(mrl),nshort(mrl)
-enddo
+  ! Allocate mrl-schedule arrays
 
-write(io6,'(/,a)') '=== Timestep Schedule ===='
-write(io6,'(a,/)') '              jstp    mrl_l  mrl_s'
+  allocate (mrl_begl(nstp)) ; mrl_begl = 0
+  allocate (mrl_begs(nstp)) ; mrl_begs = 0
+  allocate (mrl_endl(nstp)) ; mrl_endl = 0
+  allocate (mrl_ends(nstp)) ; mrl_ends = 0
 
-! Long timestep for each mesh refinement level
+  ! Fill acoustic timestep sub-cycling flags for processes
+  ! to carry out for each jstp value
 
-dtlm(1) = dtlong
-dtsm(1) = dtlm(1) / nacoust(1)
+  do jstp = 1,nstp
+     if (mod(jstp-1, nacoust) == 0) mrl_begl(jstp) = 1
+     if (mod(jstp  , nacoust) == 0) mrl_endl(jstp) = 1
 
-do mrl = 2,mrls
-   dtlm(mrl) = dtlm(mrl-1) / ndtrat(mrl)
-   dtsm(mrl) = dtlm(mrl) / nacoust(mrl)
-enddo
+     mrl_begs(jstp) = 1
+     mrl_ends(jstp) = 1
 
-! Default:  Fill dt_leaf, mrl_leaf with values for MRL = 1
-
-dt_leaf = dtlm(1)
-mrl_leaf = 1
-
-! Allocate mrl-schedule arrays
-
-allocate (mrl_begl(nstp))
-allocate (mrl_begs(nstp))
-allocate (mrl_endl(nstp))
-allocate (mrl_ends(nstp))
-
-allocate (leafstep(nstp))
-
-leafstep(1:nstp) = 0
-
-! Fill mrl-table values
-
-do jstp = 1,nstp
-
-   mrl_begl(jstp) = 0
-   mrl_begs(jstp) = 0
-   mrl_endl(jstp) = 0
-   mrl_ends(jstp) = 0
-
-! Fill lowest MRL value for which loop processes are to be carried out when
-! jstp has its current value.  (However, a zero MRL value indicates process
-! is inactive on current jstp.)
-
-   do mrl = mrls,1,-1
-      if (mod(jstp-1, nlong(mrl)) == 0) mrl_begl(jstp) = mrl
-      if (mod(jstp-1,nshort(mrl)) == 0) mrl_begs(jstp) = mrl
-
-      if (mod(jstp  , nlong(mrl)) == 0) mrl_endl(jstp) = mrl
-      if (mod(jstp  ,nshort(mrl)) == 0) mrl_ends(jstp) = mrl
-   enddo
-
-   write(io6,333) jstp,mrl_begl(jstp),mrl_begs(jstp),mrl_endl(jstp),mrl_ends(jstp)
-   333 format('modsched0 ',5i7)
-
-   if (mrl_ends(jstp) == 0 .or. mrl_begs(jstp) == 0) then
-      write(io6,*) 'mrl_s value = 0 is not allowed'
-      stop 'stop - modsched_2'
-   endif
-
-! Set LEAFSTEP = 1 to do leaf timestep for selected jstp value(s):
-!    1. Always do leaf at end of long timestep for mrl = 1
-!    2. Also do leaf at end of long timestep for any mrl > 1 whose dtlm > 30 s
-
-   mrl = mrl_endl(jstp)
-   if (mrl > 0) then
-      if (mrl == 1 .or. dtlm(mrl) > 30.0_r8) then
-         leafstep(jstp) = 1
-
-! Set leaf mrl and timestep according to highest selected mrl
-
-         mrl_leaf = max(mrl_leaf, mrl)
-         dt_leaf  = min(dt_leaf, real(dtlm(mrl)))
-      endif
-   endif
-
-enddo
-
-! Set dt_sea and dt_lake equal to dt_leaf
-
-dt_sea  = dt_leaf
-dt_lake = dt_sea
+     write(io6,333) jstp,mrl_begl(jstp),mrl_begs(jstp),mrl_endl(jstp),mrl_ends(jstp)
+     333 format('modsched0 ',5i10)
+  enddo
 
 end subroutine modsched
 
@@ -587,11 +435,10 @@ end subroutine modsched
 
 subroutine tend0(rho_old)
 
-  use mem_ijtabs,  only: istp, mrl_begl, mrl_begs
   use var_tables,  only: scalar_tab, num_scalar
   use mem_tend,    only: thilt, vmxet, vmyet, vmzet, vmt
   use misc_coms,   only: nrk_scal
-  use mem_sfcg,    only: mwsfc, itab_wsfc, sfcg
+  use mem_sfcg,    only: mwsfc, sfcg
   use mem_basic,   only: vmsc, wmsc, rho, vxesc, vyesc, vzesc
   use mem_grid,    only: mza, mwa, mva, lpw, lpv
   use consts_coms, only: r8
@@ -659,52 +506,55 @@ end subroutine tend0
 
 !==========================================================================
 
-subroutine comp_alpha_press(mrl)
+subroutine comp_alpha_press()
 
   use mem_grid,    only: lpw, lpv, mza, dzim, dniv, zfacit
   use mem_ijtabs,  only: jtab_w, jtw_prog, jtab_v, jtv_prog, itab_v
   use consts_coms, only: pc1, rdry, rvap, cpocv, r8, gravo2
   use mem_basic,   only: rr_v, rr_w, theta, thil, alpha_press, &
                          pwfac, pvfac
-  use oname_coms,  only: nl
 
   implicit none
 
-  integer, intent(in)  :: mrl
-  integer              :: j, iw, k, iv, iw1, iw2
-  real                 :: rw
+  integer :: j, iw, k, iv, iw1, iw2
+  real    :: rw
 
   !$omp parallel
   !$omp do private(iw,k,rw)
-  do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+  do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
      ! Evaluate alpha coefficient for pressure
+
      do k = lpw(iw), mza
-!       alpha_press(k,iw) = pc1 * (rdry + rvap * rr_v(k,iw)) ** cpocv
         alpha_press(k,iw) = pc1 * ( (rdry + rvap * rr_v(k,iw)) &
                                   * theta(k,iw) / thil(k,iw) ) ** cpocv
      enddo
 
-     do k = lpw(iw), mza-1
-!       pwfac(k,iw) = dzim(k) * ( zwgt_bot(k) / (1. + rr_w(k  ,iw)) &
-!                               + zwgt_top(k) / (1. + rr_w(k+1,iw)) )
+     ! Factor muliplying pressure gradient in vertical eq. of motion
+     ! rho_dry / rho_total / dz
 
-        rw = 0.5 * (rr_w(k+1,iw) + rr_w(k,iw))
+     do k = lpw(iw), mza-1
+      ! pwfac(k,iw) = dzim(k) * ( zwgt_bot(k) / (1. + rr_w(k  ,iw)) &
+      !                         + zwgt_top(k) / (1. + rr_w(k+1,iw)) )
+        rw          = 0.5 * (rr_w(k+1,iw) + rr_w(k,iw))
         pwfac(k,iw) = dzim(k) * (1.0 - rw + rw * rw)
      enddo
+
   enddo
   !$omp end do nowait
 
   !$omp do private(iv,iw1,iw2,k,rw)
-  do j = 1,jtab_v(jtv_prog)%jend(mrl); iv = jtab_v(jtv_prog)%iv(j)
+  do j = 1,jtab_v(jtv_prog)%jend; iv = jtab_v(jtv_prog)%iv(j)
      iw1 = itab_v(iv)%iw(1)
      iw2 = itab_v(iv)%iw(2)
 
-     do k = lpv(iv), mza
-!       pvfac(k,iv) = dnivo2(iv) * zfacit(k) * ( 1. / (1. + rr_w(k,iw1)) &
-!                                              + 1. / (1. + rr_w(k,iw2)) )
+     ! Factor muliplying pressure gradient in horizontal eq. of motion
+     ! rho_dry / rho_total / dx
 
-        rw =  0.5 * (rr_w(k,iw1) + rr_w(k,iw2))
+     do k = lpv(iv), mza
+      ! pvfac(k,iv) = dnivo2(iv) * zfacit(k) * ( 1. / (1. + rr_w(k,iw1)) &
+      !                                        + 1. / (1. + rr_w(k,iw2)) )
+        rw          = 0.5 * (rr_w(k,iw1) + rr_w(k,iw2))
         pvfac(k,iv) = dniv(iv) * zfacit(k) * (1.0 - rw + rw * rw)
      enddo
   enddo
@@ -728,7 +578,7 @@ subroutine timeavg_momsc()
   real    :: acoi
 
   if (mrl_endl(istp) > 0) then
-     acoi = 1.0 / nacoust(1)
+     acoi = 1.0 / nacoust
 
      !$omp parallel
      !$omp do private(k)
@@ -754,161 +604,32 @@ end subroutine timeavg_momsc
 
 !==========================================================================
 
-subroutine predtr(mrl, rho_old)
-
-use var_tables, only: num_scalar, scalar_tab
-use mem_ijtabs, only: jtab_w, itab_w, jtw_prog
-use mem_grid,   only: mza, mwa, lpw
-use misc_coms,  only: dtlm
-!use consts_coms,only: r8
-use mem_basic,  only: rho
-use oname_coms, only: nl
-use mem_nudge,  only: nudflag, rhot_nud
-
-implicit none
-
-integer,  intent(in) :: mrl
-!real(r8), intent(in) :: rho_old(mza,mwa)
-real, intent(in) :: rho_old(mza,mwa)
-
-integer  :: n,iw,j,k
-!real(r8) :: dtl
-real :: dtl
-
-!   -  Step thermodynamic variables from  t  to  t+1.
-!   -  Set top, lateral and bottom boundary conditions on some variables
-!        if needed.
-!   -  Call adjustment to assure all positive definite quantities
-!        remain positive.
-!   -  Rediagnose some thermodynamic quantities for use on the small
-!        timestep.
-
-!     Update the scalars and apply lateral, top, and bottom boundary
-!     conditions.
-
-if (mrl > 0) then
-
-   !$omp parallel do collapse(2) private(n,j,iw,dtl,k)
-   do n = 1, num_scalar
-      do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
-
-         dtl = dtlm(itab_w(iw)%mrlw)
-
-         ! If we are nudging, compensate for the added mass to preserve
-         ! scalar mixing ratios
-
-         if ( nudflag > 0 .and. nl%nud_preserve_mix_ratio .and. &
-              itab_w(iw)%mrlw <= nl%max_nud_mrl ) then
-
-            !dir$ ivdep
-            do k = lpw(iw), mza
-               scalar_tab(n)%var_p(k,iw) = ( scalar_tab(n)%var_p(k,iw) * rho_old(k,iw)  &
-                                           + dtl * scalar_tab(n)%var_t(k,iw) )          &
-                                         / (rho(k,iw) - dtl * rhot_nud(k,iw))
-            enddo
-
-         else
-
-            !dir$ ivdep
-            do k = lpw(iw), mza
-               scalar_tab(n)%var_p(k,iw) = ( scalar_tab(n)%var_p(k,iw) * rho_old(k,iw)  &
-                                           + dtl * scalar_tab(n)%var_t(k,iw) ) / rho(k,iw)
-            enddo
-
-         endif
-
-         if ( nl%zero_neg_scalars .and. scalar_tab(n)%pdef ) then
-            do k = lpw(iw), mza
-               scalar_tab(n)%var_p(k,iw) = max( scalar_tab(n)%var_p(k,iw), 0.0 )
-            enddo
-         endif
-
-      enddo
-   enddo
-   !$omp end parallel do
-
-endif
-
-end subroutine predtr
-
-!==========================================================================
-
 subroutine bubble()
 
-use mem_basic, only: thil, theta
-!use mem_grid
-!use mem_ijtabs
-
-implicit none
-
-integer :: k
-
-   do k = 2,2
-      thil(k,17328) = thil(k,17328) + 5.
-      theta(k,17328) = theta(k,17328) + 5.
-
-      thil(k,17329) = thil(k,17329) + 5.
-      theta(k,17329) = theta(k,17329) + 5.
-
-      thil(k,17333) = thil(k,17333) + 5.
-      theta(k,17333) = theta(k,17333) + 5.
-
-      thil(k,17334) = thil(k,17334) + 5.
-      theta(k,17334) = theta(k,17334) + 5.
-
-      thil(k,17335) = thil(k,17335) + 5.
-      theta(k,17335) = theta(k,17335) + 5.
-
-      thil(k,17336) = thil(k,17336) + 5.
-      theta(k,17336) = theta(k,17336) + 5.
-   enddo
-
-end subroutine bubble
-
-!==========================================================================
-
-subroutine predtr_split(mrl,rho_old)
-
-  use var_tables,  only: num_scalar, scalar_tab
-  use mem_ijtabs,  only: jtab_w, itab_w, jtw_prog
-  use mem_grid,    only: mza, mwa, lpw
-  use misc_coms,   only: dtlm
-  use consts_coms, only: r8
-  use oname_coms,  only: nl
+  use mem_basic, only: thil, theta
 
   implicit none
 
-  integer,  intent(in) :: mrl
-! real(r8), intent(in) :: rho_old(mza,mwa)
-  real :: rho_old(mza,mwa)
-  integer              :: iw, j, n, k
-  real                 :: dtl
+  integer :: k
 
-  ! Step scalars from t to t+1 in a time-split sub step
+  do k = 2, 2
+     thil(k,17328) = thil(k,17328) + 5.
+     theta(k,17328) = theta(k,17328) + 5.
 
-  if (mrl > 0) then
+     thil(k,17329) = thil(k,17329) + 5.
+     theta(k,17329) = theta(k,17329) + 5.
 
-     !$omp parallel do collapse(2) private(n,j,iw,dtl,k)
-     do n = 1, num_scalar
-        do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+     thil(k,17333) = thil(k,17333) + 5.
+     theta(k,17333) = theta(k,17333) + 5.
 
-           dtl = dtlm(itab_w(iw)%mrlw)
+     thil(k,17334) = thil(k,17334) + 5.
+     theta(k,17334) = theta(k,17334) + 5.
 
-           !dir$ ivdep
-           do k = lpw(iw), mza
-              scalar_tab(n)%var_p(k,iw) = scalar_tab(n)%var_p(k,iw)  &
-                                        + dtl * scalar_tab(n)%var_t(k,iw) / real(rho_old(k,iw))
-              scalar_tab(n)%var_t(k,iw) = 0.0
+     thil(k,17335) = thil(k,17335) + 5.
+     theta(k,17335) = theta(k,17335) + 5.
 
-              if (nl%zero_neg_scalars .and. scalar_tab(n)%pdef) then
-                 scalar_tab(n)%var_p(k,iw) = max( scalar_tab(n)%var_p(k,iw), 0.0)
-              endif
-           enddo
+     thil(k,17336) = thil(k,17336) + 5.
+     theta(k,17336) = theta(k,17336) + 5.
+  enddo
 
-        enddo
-     enddo
-     !$omp end parallel do
-
-  endif
-
-end subroutine predtr_split
+end subroutine bubble

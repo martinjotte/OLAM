@@ -44,7 +44,7 @@ static int egrep_type[GREP_MAX];
 extern int warn_nonzero_min_sec;
 /*
  *  match, if use extended regex library call (like in egrep)
- * 
+ *
  *  sometimes want match patterns (like in grep) - i.e. no metacharacters
  *     to do this, we quote all the metacharacters
  *
@@ -57,7 +57,7 @@ static char *preprocess_match(const char *arg) {
 
     i = strlen(arg)+1;
 
-    if ((str = p = (char *) malloc(regex_type == 0 ? i : i+i)) == NULL) 
+    if ((str = p = (char *) malloc(regex_type == 0 ? i : i+i)) == NULL)
 		fatal_error("Match: ran out of memory in preprocess_match","");
 
     // regex_type == 0   use extended POSIX regular expressions
@@ -69,7 +69,7 @@ static char *preprocess_match(const char *arg) {
     // regex_type == 1   patterns
     if (regex_type == 1) {
 	while ((c = *arg++)) {
-	   if (c == '?' || c == '+' || c == '|' || c == '.' || c == '[' || c == ']' || c == '^' || c == '*' || 
+	   if (c == '?' || c == '+' || c == '|' || c == '.' || c == '[' || c == ']' || c == '^' || c == '*' ||
 			  c == '$' || c == '(' || c == ')' || c == '}' || c == '{' || c == '\\') {
 		*p++ = '\\';
 	   }
@@ -108,7 +108,7 @@ int f_match(ARG1)  {
         if (match_count >= MATCH_MAX) fatal_error("too many -match, -not options","");
         match = 1;
         s = preprocess_match(arg1);
-        if (regcomp(&(preg[match_count]), s, REG_EXTENDED | REG_NOSUB | REG_NEWLINE)) 
+        if (regcomp(&(preg[match_count]), s, REG_EXTENDED | REG_NOSUB | REG_NEWLINE))
             fatal_error("bad regular expression \"%s\"", arg1);
         type[match_count] = 1;
 	*local = &(preg[match_count]);	// pattern buffer to free at end
@@ -130,7 +130,7 @@ int f_not(ARG1)  {
         if (match_count >= MATCH_MAX) fatal_error("too many -match, -not options","");
         match = 1;
         s = preprocess_match(arg1);
-        if (regcomp(&(preg[match_count]), s, REG_EXTENDED | REG_NOSUB | REG_NEWLINE)) 
+        if (regcomp(&(preg[match_count]), s, REG_EXTENDED | REG_NOSUB | REG_NEWLINE))
             fatal_error("bad regular expression \"%s\"", arg1);
         type[match_count] = 0;
 	*local = &(preg[match_count]);	// pattern buffer to free at end
@@ -159,7 +159,7 @@ int f_if(ARG1)  {
         if (match_count >= MATCH_MAX) fatal_error("too many -match, -not -if options","");
         match = 1;
         s = preprocess_match(arg1);
-        if (regcomp(&(preg[match_count]), s, REG_EXTENDED | REG_NOSUB | REG_NEWLINE)) 
+        if (regcomp(&(preg[match_count]), s, REG_EXTENDED | REG_NOSUB | REG_NEWLINE))
             fatal_error("bad regular expression \"%s\"", arg1);
         type[match_count] = 2;
 	free(s);
@@ -250,7 +250,7 @@ int is_match(const char *s) {
 #pragma omp parallel for private(i)
     for (i = 0; i < match_count; i++) {
         if (type[i] == 2) match_val[i] = regexec(&(preg[i]), s, (size_t) 0, NULL, 0);
-    } 
+    }
 
     return 0;
 }
@@ -269,7 +269,7 @@ int is_egrep(const char *s) {
 
 
 /*
- * HEADER:100:set_regex:setup:1:set regex mode X = 0:extended regex (default) 1:pattern 2:extended regex & quote metacharacters 
+ * HEADER:100:set_regex:setup:1:set regex mode X = 0:extended regex (default) 1:pattern 2:extended regex & quote metacharacters
  */
 
 int f_set_regex(ARG1)  {
@@ -280,7 +280,7 @@ int f_set_regex(ARG1)  {
 	else fatal_error("-set_regex %s", arg1);
     }
     return 0;
-} 
+}
 
 /*
  * HEADER:100:egrep:setup:1:egrep X | wgrib2 (X is POSIX regular expression)
@@ -395,7 +395,7 @@ int f_match_inv_add(ARG3) {
 	    // initialize fn(..)
             match_extra_fn[match_extra_fn_n](-1, NULL, NULL, 0, inv_out, &(match_extra_fn_local[match_extra_fn_n]),arg1);
             i = strlen(arg1) + 1;
-            if ((match_extra_fn_arg1[match_extra_fn_n] = (char *) malloc(i)) == NULL) 
+            if ((match_extra_fn_arg1[match_extra_fn_n] = (char *) malloc(i)) == NULL)
 		fatal_error("match_inv_add: memory allocation","");
             strncpy(match_extra_fn_arg1[match_extra_fn_n], arg1, i);
         }
@@ -403,11 +403,11 @@ int f_match_inv_add(ARG3) {
 	    // initialize fn(..)
             match_extra_fn[match_extra_fn_n](-1, NULL, NULL, 0, inv_out, &(match_extra_fn_local[match_extra_fn_n]),arg1,arg2);
             i = strlen(arg1) + 1;
-            if ((match_extra_fn_arg1[match_extra_fn_n] = (char *) malloc(i)) == NULL) 
+            if ((match_extra_fn_arg1[match_extra_fn_n] = (char *) malloc(i)) == NULL)
 		fatal_error("match_inv_add: memory allocation","");
             strncpy(match_extra_fn_arg1[match_extra_fn_n], arg1, i);
             i = strlen(arg2) + 1;
-            if ((match_extra_fn_arg2[match_extra_fn_n] = (char *) malloc(i)) == NULL) 
+            if ((match_extra_fn_arg2[match_extra_fn_n] = (char *) malloc(i)) == NULL)
 		fatal_error("match_inv_add: memory allocation","");
             strncpy(match_extra_fn_arg2[match_extra_fn_n], arg2, i);
         }
@@ -560,11 +560,11 @@ int match_inv(int type_datecode, ARG0) {
 
 	/* added 8/2017 */
         for (j = 0; j < match_extra_fn_n; j++) {
-	    if (match_extra_fn_nargs[j] == 0) 
+	    if (match_extra_fn_nargs[j] == 0)
                 match_extra_fn[j](mode, sec, data, ndata, inv_out, &(match_extra_fn_local[j]));
-	    else if (match_extra_fn_nargs[j] == 1) 
+	    else if (match_extra_fn_nargs[j] == 1)
                 match_extra_fn[j](mode, sec, data, ndata, inv_out, &(match_extra_fn_local[j]),match_extra_fn_arg1[j]);
-	    else if (match_extra_fn_nargs[j] == 2) 
+	    else if (match_extra_fn_nargs[j] == 2)
                 match_extra_fn[j](mode, sec, data, ndata, inv_out, &(match_extra_fn_local[j]),
 			match_extra_fn_arg1[j], match_extra_fn_arg2[j]);
             strcat(inv_out,":");

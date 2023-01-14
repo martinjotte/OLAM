@@ -1,35 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University;
-   ! Colorado State University Research Foundation ; ATMET, LLC
-
-   ! This software is free software; you can redistribute it and/or modify it
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version.
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
-
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
-   ! (http://www.gnu.org/licenses/gpl.html)
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 Module mem_grid
 
   use consts_coms, only: r8
@@ -103,8 +71,6 @@ Module mem_grid
         volti, &          ! 1 / (Volume of T cell)
         volwi, &          ! 1 / (Volumes of adjacent T cells)
         volvi             ! 1 / (Volumes of adjacent T cells)
-
-   integer :: impent(12)  ! Scratch array for storing 12 pentagonal IM indices
 
 ! "Derived" variables computed at beginning of integration rather than
 ! at the MAKEGRID stage
@@ -423,13 +389,13 @@ Contains
      ! during the MAKEGRID stage
 
      use consts_coms, only: r8, eradi
-     use mem_ijtabs,  only: itab_w, itab_v, jtab_v, jtv_wadj
+     use mem_ijtabs,  only: itab_w, itab_v, jtab_v, jtv_prog
      use misc_coms,   only: mdomain
 
      implicit none
 
      integer :: iw, j, iv, iw1, iw2, k, n1, n2
-     real    :: raxis, vxn_ewv, vyn_ewv, vxn_nsv, vyn_nsv, vzn_nsv
+     real    :: raxis, raxisi, vxn_ewv, vyn_ewv, vxn_nsv, vyn_nsv, vzn_nsv
 
      ! Allocate and define variables defined at V faces
 
@@ -464,26 +430,13 @@ Contains
      volwi(:,1) = 0.0
 
      !$omp parallel
-     !$omp do
+     !$omp do private(raxis,raxisi,vxn_ewv,vyn_ewv,vxn_nsv,vyn_nsv,vzn_nsv)
      do iv = 2, mva
+
         vnxo2 (iv) = vnx (iv) * 0.5
         vnyo2 (iv) = vny (iv) * 0.5
         vnzo2 (iv) = vnz (iv) * 0.5
         dnivo2(iv) = dniv(iv) * 0.5
-     enddo
-     !omp end do nowait
-
-     !$omp do private(iv,iw1,iw2,k,vxn_ewv,vyn_ewv,vxn_nsv,vyn_nsv,vzn_nsv)
-     do j = 1,jtab_v(jtv_wadj)%jend(1); iv = jtab_v(jtv_wadj)%iv(j)
-        iw1 = itab_v(iv)%iw(1)
-        iw2 = itab_v(iv)%iw(2)
-
-        volvi(1:lpv(iv)-1,iv) = 0.0
-        do k = lpv(iv), mza
-           volvi(k,iv) = real( 1.0_r8 / (volt(k,iw1) + volt(k,iw2)) )
-        enddo
-
-        lpvmax(iv) = max( lpw(iw1)+lve2(iw1), lpw(iw2)+lve2(iw2) )
 
         if (mdomain > 1) then
 
@@ -512,6 +465,21 @@ Contains
 
            endif
         endif
+
+     enddo
+     !omp end do nowait
+
+     !$omp do private(iv,iw1,iw2,k)
+     do j = 1,jtab_v(jtv_prog)%jend; iv = jtab_v(jtv_prog)%iv(j)
+        iw1 = itab_v(iv)%iw(1)
+        iw2 = itab_v(iv)%iw(2)
+
+        volvi(1:lpv(iv)-1,iv) = 0.0
+        do k = lpv(iv), mza
+           volvi(k,iv) = real( 1.0_r8 / (volt(k,iw1) + volt(k,iw2)) )
+        enddo
+
+        lpvmax(iv) = max( lpw(iw1)+lve2(iw1), lpw(iw2)+lve2(iw2) )
 
      enddo
      !$omp end do nowait

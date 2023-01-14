@@ -1,35 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 Module ccnbin_coms
 
   ! Physical parameters used in CCN nucleation calculations
@@ -505,7 +473,7 @@ subroutine ccnbin_init()
 
      ! Limit ccntyp_dmax to values no larger than 2 microns since GCCN are treated
      ! separately in the model (as the GCCN category).  However, allow dust2 category
-     ! to have larger (unlimited) sizes to represent large mineral dust without 
+     ! to have larger (unlimited) sizes to represent large mineral dust without
      ! significant solute content.
 
      ! DISABLE THIS ACTION FOR NOW...EXPLORING ALTERNATIVE (AND MORE CONTROLLED)
@@ -814,7 +782,7 @@ subroutine ccnbin_init()
   ! diameter characteristic of each type, diagnose selected points on the
   ! Kohler curve using calls to subroutine satkap.  The diagnosed wet diameters
   ! for different relative humidity values are used to compute gravitational
-  ! settling velocity for deposition. 
+  ! settling velocity for deposition.
 
   do inuc = 1,nnuc
 
@@ -1046,7 +1014,7 @@ end subroutine ccnbin_init
 ! (3) Subroutine vode, which solved a system of ODEs in PARCEL, was found to
 !     be too slow, especially with a large number of bins, so it was replaced
 !     by a more direct in-line solver that exploits the known behavior of the
-!     physical system to gain efficiency.  Vode also would have required 
+!     physical system to gain efficiency.  Vode also would have required
 !     restructuring (e.g., replacement of common blocks) for multi-threaded
 !     applications of OLAM.
 ! (4) Very small (sub-micron size) unactivated droplets are in highly stable
@@ -1147,9 +1115,9 @@ subroutine ccnbin(iw0, k, ntim, timespan, &
 
   ! If cloud droplets and/or pristine ice already exist in this parcel, assume
   ! that they have nucleated from the most hygroscopic bins of CCN and that
-  ! those bins are therefore not currently available for nucleation.  Set bin 
+  ! those bins are therefore not currently available for nucleation.  Set bin
   ! concentrations to zero, beginning with the most hygroscopic, until reaching
-  ! the number of already-activated hydrometeors input to this routine.  (If 
+  ! the number of already-activated hydrometeors input to this routine.  (If
   ! pristine ice has nucleated from IN, its concentrations will be insignificant
   ! compared to CCN, so the zeroing will have negligible effect.  If pristine
   ! ice was homogeneously frozen from cloud droplets, it will be at high
@@ -1528,14 +1496,13 @@ end subroutine satkap
 
 !=============================================================================
 
-subroutine cldnuc(iw0,lpw0,dtli0,nbincall, &
-                  rx,cx,qr,qx,con_ccnx,con_gccnx,rhov,rhoi,rhoa,press0, &
-                  tair,tairc,wc0,rhovslair,rnuc_vc,rnuc_vd,cnuc_vc,cnuc_vd)
+subroutine cldnuc(iw0,lpw0,dtl0,nbincall, &
+                  rx,cx,qr,qx,con_ccnx,con_gccnx,rhov,rhoa,press0, &
+                  tair,tairc,rhovslair,rnuc_vc,rnuc_vd,cnuc_vc,cnuc_vd)
 
 use micro_coms,  only: jnmb, emb0, emb0i, emb1, mza0, ncat, &
                        igccn, rxmin
 use ccnbin_coms, only: nccntyp
-use misc_coms,   only: io6, dtlm
 use consts_coms, only: rvap, grav, alvl, cp, cliq, alli, eps_vapi
 use therm_lib,   only: rhovsl
 
@@ -1543,8 +1510,7 @@ implicit none
 
 integer, intent(in) :: iw0
 integer, intent(in) :: lpw0
-
-real, intent(in) :: dtli0
+real,    intent(in) :: dtl0
 
 integer, intent(inout) :: nbincall
 
@@ -1557,11 +1523,9 @@ real, intent(inout) :: con_ccnx (mza0,nccntyp)
 real, intent(inout) :: con_gccnx(mza0)
 
 real, intent(inout) :: rhov  (mza0)
-real, intent(in) :: rhoi     (mza0)
 real, intent(in) :: press0   (mza0)
 real, intent(in) :: tair     (mza0)
 real, intent(in) :: tairc    (mza0)
-real, intent(in) :: wc0      (mza0)
 real, intent(in) :: rhovslair(mza0)
 
 real, intent(inout) :: cnuc_vc(mza0)
@@ -1585,7 +1549,7 @@ real :: cactivated, rx_wbc
   real ::   rhoaA,   rhoaB ! initial & final air densities   [kg_a/m^3]
   real ::   rhovA,   rhovB ! initial & final vapor densities [kg_v/m^3]
   real :: satenvA, satenvB
-  real :: timespan, con_cp
+  real :: con_cp
   real :: con_ccny(nccntyp)
 
   integer, parameter :: ntim = 50
@@ -1666,7 +1630,7 @@ real :: cactivated, rx_wbc
         cnuc_vc(k) = min(cnuc_vc(k), excessrhov * emb0i(1))
 
         ! Assume that half of available supersaturation vapor is transferred to
-        ! newly-nucleated cloud droplets, subject however to limits on cloud 
+        ! newly-nucleated cloud droplets, subject however to limits on cloud
         ! droplet size and number nucleated.
 
         rnuc_vc_min = cnuc_vc(k) * emb0(1)
@@ -1743,10 +1707,9 @@ real :: cactivated, rx_wbc
         rhovA   = rhovslair(k)
         satenvA = 1.0
 
-        timespan = dtlm(1)
         nbincall = nbincall + 1
 
-        call ccnbin(iw0, k, ntim, timespan, &
+        call ccnbin(iw0, k, ntim, dtl0, &
                     tempkA, pressA, rhoaA, rhovA, satenvA, &
                     tempkB, pressB, rhoaB, rhovB, satenvB, &
                     con_cp, con_ccny, cactivated, rx_wbc)
@@ -1786,9 +1749,8 @@ end subroutine cldnuc
 
 !===============================================================================
 
-subroutine icenuc(k1,k2,lpw0,mrl0,iw0, &
-   rx,cx,qr,qx,emb,vap,tx,rhov,rhoa,press0,dynvisc,thrmcon, &
-   tair,tairc,rhovslair,rhovsiair,con_ccnx,con_ifnx,dtl0, &
+subroutine icenuc(k1,k2,lpw0,iw0,rx,cx,qr,qx,emb,rhov, &
+   tairc,rhovslair,rhovsiair,con_ccnx,con_ifnx,dtl0, &
    rnuc_cp_hom,rnuc_dp_hom,rnuc_vp_haze,rnuc_vp_immers, &
    cnuc_cp_hom,cnuc_dp_hom,cnuc_vp_haze,cnuc_vp_immers)
 
@@ -1797,7 +1759,6 @@ subroutine icenuc(k1,k2,lpw0,mrl0,iw0, &
                          fracc
   use ccnbin_coms, only: nccntyp, ccntyp_alpha
   use consts_coms, only: cice, cliq, alli
-  use misc_coms,   only: io6
 
   implicit none
 
@@ -1805,7 +1766,6 @@ subroutine icenuc(k1,k2,lpw0,mrl0,iw0, &
   integer, intent(inout) :: k2(11)
 
   integer, intent(in) :: lpw0
-  integer, intent(in) :: mrl0
   integer, intent(in) :: iw0
 
   real, intent(inout) :: rx (mza0,ncat)
@@ -1813,19 +1773,13 @@ subroutine icenuc(k1,k2,lpw0,mrl0,iw0, &
   real, intent(inout) :: qr (mza0,ncat)
   real, intent(inout) :: qx (mza0,ncat)
   real, intent(in)    :: emb(mza0,ncat)
-  real, intent(in)    :: vap(mza0,ncat)
-  real, intent(in)    :: tx (mza0,ncat)
 
   real, intent(inout) :: rhov  (mza0)
-  real, intent(in) :: press0   (mza0)
-  real, intent(in) :: dynvisc  (mza0)
-  real, intent(in) :: thrmcon  (mza0)
-  real, intent(in) :: tair     (mza0)
-  real, intent(in) :: tairc    (mza0)
-  real, intent(in) :: rhovslair(mza0)
-  real, intent(in) :: rhovsiair(mza0)
-  real, intent(in) :: con_ccnx (mza0,nccntyp)
-  real, intent(in) :: con_ifnx (mza0)
+  real, intent(in)    :: tairc    (mza0)
+  real, intent(in)    :: rhovslair(mza0)
+  real, intent(in)    :: rhovsiair(mza0)
+  real, intent(in)    :: con_ccnx (mza0,nccntyp)
+  real, intent(in)    :: con_ifnx (mza0)
 
   real, intent(inout) :: rnuc_cp_hom   (mza0)
   real, intent(inout) :: rnuc_dp_hom   (mza0)
@@ -1837,9 +1791,7 @@ subroutine icenuc(k1,k2,lpw0,mrl0,iw0, &
   real, intent(inout) :: cnuc_vp_haze  (mza0)
   real, intent(inout) :: cnuc_vp_immers(mza0)
 
-  real, intent(in) :: rhoa(mza0)
-
-  real, intent(in) :: dtl0
+  real, intent(in)    :: dtl0
 
   integer :: k,idnc,itc,irhhz,ithz
 
@@ -1874,10 +1826,10 @@ subroutine icenuc(k1,k2,lpw0,mrl0,iw0, &
         itc = int(ritc)
         wtc2 = ritc - real(itc)
 
-        fraccld = (1.-wdnc2) * (1.-wtc2) * fracc(idnc  ,itc  ,mrl0) &
-                +     wdnc2  * (1.-wtc2) * fracc(idnc+1,itc  ,mrl0) &
-                + (1.-wdnc2) *     wtc2  * fracc(idnc  ,itc+1,mrl0) &
-                +     wdnc2  *     wtc2  * fracc(idnc+1,itc+1,mrl0)
+        fraccld = (1.-wdnc2) * (1.-wtc2) * fracc(idnc  ,itc  ) &
+                +     wdnc2  * (1.-wtc2) * fracc(idnc+1,itc  ) &
+                + (1.-wdnc2) *     wtc2  * fracc(idnc  ,itc+1) &
+                +     wdnc2  *     wtc2  * fracc(idnc+1,itc+1)
 
         ! cnuc_cp_hom is the number of cloud droplets that are diagnosed to
         ! homogeneously freeze at the given temperature of tairc.  The number
@@ -1886,11 +1838,11 @@ subroutine icenuc(k1,k2,lpw0,mrl0,iw0, &
         ! length.  Repeated application of homogeneous freezing over successive
         ! timesteps would lead to freezing scavenging of (essentially) all cloud
         ! droplets unless the number nucleated were limited in some manner based
-        ! on the freezing that already occurred on previous time steps.  The 
+        ! on the freezing that already occurred on previous time steps.  The
         ! number concentration of pristine ice [cx(k,3)] is used as a proxy for
         ! the number of cloud droplets previously frozen in the limiter below.
         ! Saleeby (2009, RAMS) argued that this limit should not be used when
-        ! cloud number concentration and CCN are prognosed. 
+        ! cloud number concentration and CCN are prognosed.
 
         if (jnmb(1) == 5 .and. iccn > 0) then
            cnuc_cp_hom(k) = max(0.,fraccld * cx(k,1)) ! x rhoa
@@ -1936,19 +1888,19 @@ subroutine icenuc(k1,k2,lpw0,mrl0,iw0, &
      !----------------------------------------------------------------------
 
      !if (cifnx(k) > 0.) .and. tairc(k) < 0.) then
-     !   ! saved as #/cm3 
+     !   ! saved as #/cm3
      !   N_0 = cifnx(k)
-  
-     !   aux1 = (cf * N_0) ** (-d14a*tairc(k) + d14b)    
+
+     !   aux1 = (cf * N_0) ** (-d14a*tairc(k) + d14b)
      !   aux2 = exp(-d14c*tairc(k) + d14d)
-     !   ! D14 result is  STP #/L 
-     !   N_a = aux1 * aux2 
+     !   ! D14 result is  STP #/L
+     !   N_a = aux1 * aux2
      !   N_a = N_a/1000.*(dn0(k)/dn0d10) !ambient per cm3
-  
+
      !   N_a = min(N_0,N_a)
 
      !   !from #/cc to #/kg
-     !   N_a = N_a * 1.0e6/dn0(k)  
+     !   N_a = N_a * 1.0e6/dn0(k)
      !   if (N_a>1e-4) diagni = N_a
      !endif
 
@@ -2116,10 +2068,10 @@ subroutine icenuc(k1,k2,lpw0,mrl0,iw0, &
      itc = int(ritc)
      wtc2 = ritc - real(itc)
 
-     fraccld = (1.-wdnc2) * (1.-wtc2) * fracc(idnc  ,itc  ,mrl0) &
-             +     wdnc2  * (1.-wtc2) * fracc(idnc+1,itc  ,mrl0) &
-             + (1.-wdnc2) *     wtc2  * fracc(idnc  ,itc+1,mrl0) &
-             +     wdnc2  *     wtc2  * fracc(idnc+1,itc+1,mrl0)
+     fraccld = (1.-wdnc2) * (1.-wtc2) * fracc(idnc  ,itc  ) &
+             +     wdnc2  * (1.-wtc2) * fracc(idnc+1,itc  ) &
+             + (1.-wdnc2) *     wtc2  * fracc(idnc  ,itc+1) &
+             +     wdnc2  *     wtc2  * fracc(idnc+1,itc+1)
 
      ! cnuc_dp_hom is the number of drizzle droplets that are diagnosed to
      ! homogeneously freeze at the given temperature of tairc.  The number
@@ -2128,11 +2080,11 @@ subroutine icenuc(k1,k2,lpw0,mrl0,iw0, &
      ! length.  Repeated application of homogeneous freezing over successive
      ! timesteps would lead to freezing scavenging of (essentially) all
      ! drizzle unless the number nucleated were limited in some manner based
-     ! on the freezing that already occurred on previous time steps.  The 
+     ! on the freezing that already occurred on previous time steps.  The
      ! number concentration of pristine ice [cx(k,3)] is used as a proxy for
      ! the number of cloud droplets previously frozen in the limiter below.
      ! Saleeby (2009, RAMS) argued that this limit should not be used when
-     ! GCCN are prognosed. 
+     ! GCCN are prognosed.
 
      if (igccn == 2) then
         cnuc_dp_hom(k) = max(0.,fraccld * cx(k,8)) ! x rhoa

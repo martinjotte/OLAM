@@ -1,35 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the ame team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 Module leaf4_soil
 
   implicit none
@@ -55,20 +23,16 @@ Module leaf4_soil
                   soil_tempk, soil_fracliq, dheight, energyin,           &
                   thermcond_soil               )
 
-  use leaf_coms, only: nzs, dt_leaf, z_root, kroot
-  use mem_sfcg,  only: itab_wsfc
-  use mem_land,  only: nzg, slz, dslz, dslzi, slzt, dslzo2, kperc
-
-  use consts_coms, only: cliq1000, cice1000, alli1000, alvi
-  use misc_coms,   only: io6
-  use tridiag,     only: tridiffo
-  use leaf4_plot,  only: leaf_plot
+  use leaf_coms,      only: nzs, dt_leaf, z_root
+  use mem_land,       only: nzg, slz, dslz, dslzi, slzt, dslzo2, kperc
+  use consts_coms,    only: cliq1000, cice1000, alli1000, alvi
+  use tridiag,        only: tridiffo
+  use leaf4_plot,     only: leaf_plot
   use mem_flux_accum, only: wxferi_accum, wxferp_accum, wxfer1_accum
-  use oname_coms,  only: nl
 
   implicit none
 
-  integer, intent(in)    :: iland           ! current land cell number 
+  integer, intent(in)    :: iland           ! current land cell number
   integer, intent(in)    :: iwsfc           ! index of current SFC grid cell
   integer, intent(in)    :: ktrans          ! k index of soil layer supplying transpiration
   real,    intent(in)    :: transp          ! transpiration loss [kg/m^2]
@@ -107,7 +71,7 @@ Module leaf4_soil
 
   real :: hxferg(nzg+1) ! soil internal heat xfer (J/m^2]
   real :: wxfer (nzg+1) ! soil water xfer [m]
-  real :: qwxfer(nzg+1) ! soil energy xfer from water xfer [J/m^2] 
+  real :: qwxfer(nzg+1) ! soil energy xfer from water xfer [J/m^2]
 
   real :: hydresist_bot(nzg) ! hydraulic resistance of bottom half of layer [s]
   real :: hydresist_top(nzg) ! hydraulic resistance of top half of layer [s]
@@ -128,14 +92,11 @@ Module leaf4_soil
   real :: vctr7(nzg+1)
   real :: vctr8(nzg+1)
 
-  integer :: k, kk, km ! vertical index over soil layers
+  integer :: k     ! vertical index over soil layers
 
   real :: wloss    ! soil water loss from transpiration [vol_water/vol_tot]
   real :: qwloss   ! soil energy loss from transpiration [J/vol_tot]
-  real :: flxlim   ! water flux limiter (prior to implicit solution)
   real :: khyd_top, khyd_bot
-
-  real :: awx
 
   integer, parameter :: iland_print = 0
 
@@ -174,7 +135,7 @@ Module leaf4_soil
   do k = 2,nzg
      soil_watfracw(k) = .5 * (soil_watfrac(k-1) + soil_watfrac(k))
      hxferg(k) = dt_leaf * (soil_tempk(k-1) - soil_tempk(k)) &
-               / (soil_rfactor(k-1) + soil_rfactor(k))      
+               / (soil_rfactor(k-1) + soil_rfactor(k))
   enddo
 
   ! At top, soil_watfracw assumes mean between nzg cell value and saturation
@@ -192,8 +153,8 @@ Module leaf4_soil
   ! to soil moisture.  What is the best value for hydraulic conductivity (or
   ! resistivity) at the interface between the two layers?  The answer is
   ! definitely not the average of the resistivity values of the layers
-  ! because a very dry layer would shut down xfer of water into it.  The average 
-  ! conductivity would, on the other hand, over-estimate water xfer between layers 
+  ! because a very dry layer would shut down xfer of water into it.  The average
+  ! conductivity would, on the other hand, over-estimate water xfer between layers
   ! when one is wet and the other dry.  A good compromise seems to be to average
   ! the fractional moisture content between the two layers and to apply this
   ! average value in computing hydraulic resistance for the bottom half of the
@@ -320,9 +281,9 @@ Module leaf4_soil
 
      if (wxfer(nzg+1) > -1.e-3 * wfree1) then
 
-        ! If wxfer(nzg+1) is negative but does not deplete all of free 
+        ! If wxfer(nzg+1) is negative but does not deplete all of free
         ! sfcwater in level 1 (wfree1), compute qwxfer(nzg+1) based on sfcwater
-        ! energy at k = 1.  Apply full magnitude of wxfer(nzg+1).  
+        ! energy at k = 1.  Apply full magnitude of wxfer(nzg+1).
         ! (Factor of 1.e-3 converts from kg/m^2 to m depth.)
 
         qwxfer(nzg+1) = wxfer(nzg+1) * qow(nzg+1)
@@ -604,7 +565,7 @@ Module leaf4_soil
   ! Compute soil water content based on soil water potential in the soil layer
 
   if (psi >= 0.) then
-      
+
      ! For water potential zero or higher, use linear relationship
      ! assuming a constant specific storage parameter.
 
@@ -624,7 +585,7 @@ Module leaf4_soil
      wfrac_low1 = ((psi_low1 * alpha_vg)**en_vg + 1.)**(-em_vg)
      wfrac_inc12  = wfrac_low2 - wfrac_low1
 
-     ! Estimate soil_water from low-end linear water potential equation       
+     ! Estimate soil_water from low-end linear water potential equation
 
      soil_watfrac_ul = wfrac_low1 + (psi - psi_low1) * wfrac_inc12 / psi_inc12
 
@@ -639,7 +600,7 @@ Module leaf4_soil
 
      soil_water = wresid_vg + soil_watfrac_ul * (wsat_vg - wresid_vg)
 
-  endif  
+  endif
 
   end subroutine soil_pot2wat
 
@@ -760,8 +721,6 @@ Module leaf4_soil
 
   ! Diagnose hydraulic head (relative to local topographic datum) and
   ! its derivative with respect to soil water.
-
-  use leaf_coms,  only: dt_leaf
 
   implicit none
 

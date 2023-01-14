@@ -17,7 +17,7 @@ set times = ( 00 06 12 18 )
 # Set the start and end dates and the desired times.
 # All files between the start and end times will be downloaded.
 #
-# This script uses "wget" to download the files. 
+# This script uses "wget" to download the files.
 #
 #################################################################
 
@@ -61,7 +61,7 @@ while ( $year <= $end_year )
         else
             @ day = 01
         endif
-        
+
         if ( ($year == $end_year) && ($month == $end_month) ) then
             @ eday = $end_day
         else
@@ -73,7 +73,7 @@ while ( $year <= $end_year )
             set zdy = `printf "%02d" $day`
 
             foreach tim ( $times )
-            
+
                 set ztm = `printf "%02d" $tim`
 
                 if ( (($year == 2011) && ($month >= 4)) || ($year > 2011) ) then

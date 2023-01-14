@@ -1,41 +1,8 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!=========================================================================
-
 subroutine init_spec_nudge()
 
   use mem_ijtabs,   only: jtab_w, itab_w, jtw_init
   use mem_grid,     only: mza, volt
-! use olam_mpi_atm, only: mpi_send_wnud, mpi_recv_wnud
+  use olam_mpi_nud, only: mpi_send_wnud, mpi_recv_wnud
   use misc_coms,    only: iparallel
   use consts_coms,  only: r8
   use misc_coms,    only: rinit
@@ -50,42 +17,28 @@ subroutine init_spec_nudge()
   if (nudflag < 1) return
   if (nudnxp  < 1) return
 
-  !$omp parallel
-
-  !$omp sections
   allocate (    rho_sim(mza,mwnud)) ; rho_sim    = rinit
-  !$omp section
   allocate (  theta_sim(mza,mwnud)) ; theta_sim  = rinit
-  !$omp section
   allocate (    rrw_sim(mza,mwnud)) ; rrw_sim    = rinit
-  !$omp section
   allocate ( uzonal_sim(mza,mwnud)) ; uzonal_sim = rinit
-  !$omp section
   allocate ( umerid_sim(mza,mwnud)) ; umerid_sim = rinit
-  !$omp section
   allocate (   volwnudi(mza,mwnud)) ; volwnudi   = 0.0_r8
-  !$omp section
+
   volni = 0._r8
-  !$omp end sections nowait
 
-  !$omp do private(iw,iwnud,k) reduction(+:volni)
-  do j = 1, jtab_w(jtw_init)%jend(1)
-
+  do j = 1, jtab_w(jtw_init)%jend
      iw    = jtab_w(jtw_init)%iw(j)
      iwnud = itab_w(iw)%iwnud(1)
 
      do k = 2, mza
         volni(k,iwnud) = volni(k,iwnud) + volt(k,iw)
      enddo
-
   enddo
-  !$omp end do nowait
-  !$omp end parallel
 
   ! MPI SEND/RECV of nudging arrays
 
-!!  if (iparallel == 1) call mpi_send_wnud(dvara1=volni)
-!!  if (iparallel == 1) call mpi_recv_wnud(dvara1=volni)
+  if (iparallel == 1) call mpi_send_wnud(dvara1=volni)
+  if (iparallel == 1) call mpi_recv_wnud(dvara1=volni)
 
   !$omp parallel do private(k)
   do iwnud = 2, mwnud
@@ -110,7 +63,7 @@ subroutine nudge_prep_spec(iaction, o_rho, o_theta, o_rrw, o_uzonal, o_umerid)
   use mem_grid,    only: mza, mwa, volt
   use misc_coms,   only: iparallel
   use mem_ijtabs,  only: jtab_w, itab_w, jtw_init
-! use olam_mpi_atm,only: mpi_send_wnud, mpi_recv_wnud
+  use olam_mpi_nud,only: mpi_send_wnud, mpi_recv_wnud
   use consts_coms, only: r8
 
   implicit none
@@ -131,47 +84,30 @@ subroutine nudge_prep_spec(iaction, o_rho, o_theta, o_rrw, o_uzonal, o_umerid)
   real(r8), allocatable :: duzonal(:,:)
   real(r8), allocatable :: dumerid(:,:)
 
-  !$omp parallel
-
   ! Allocate and zero out nudging polygon arrays
 
-  !$omp sections
   allocate(drho   (mza,mwnud)) ; drho    = 0._r8
-  !$omp section
   allocate(dtheta (mza,mwnud)) ; dtheta  = 0._r8
-  !$omp section
   allocate(drrw   (mza,mwnud)) ; drrw    = 0._r8
-  !$omp section
   allocate(duzonal(mza,mwnud)) ; duzonal = 0._r8
-  !$omp section
   allocate(dumerid(mza,mwnud)) ; dumerid = 0._r8
-  !$omp end sections nowait
 
   ! Swap future data time into past data time if necessary.
 
   if (iaction == 1) then
 
-     !$omp sections
-     rho_obsp = rho_obsf
-     !$omp section
-     theta_obsp = theta_obsf
-     !$omp section
-     rrw_obsp = rrw_obsf
-     !$omp section
+     rho_obsp    = rho_obsf
+     theta_obsp  = theta_obsf
+     rrw_obsp    = rrw_obsf
      uzonal_obsp = uzonal_obsf
-     !$omp section
      umerid_obsp = umerid_obsf
-     !$omp end sections
 
   endif
 
   ! If doing spectral nudging, sum data to nudging polygon arrays
 
   !----------------------------------------------------------------------
-  !$omp do private(iw,iwnud1,k) reduction(+:drho)  &
-  !$omp    reduction(+:dtheta)  reduction(+:drrw)  &
-  !$omp    reduction(+:duzonal) reduction(+:dumerid)
-  do j = 1, jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
+  do j = 1, jtab_w(jtw_init)%jend; iw = jtab_w(jtw_init)%iw(j)
      iwnud1 = itab_w(iw)%iwnud(1)
   !---------------------------------------------------------------------
 
@@ -184,25 +120,22 @@ subroutine nudge_prep_spec(iaction, o_rho, o_theta, o_rrw, o_uzonal, o_umerid)
      enddo
 
   enddo
-  !$omp end do nowait
-  !$omp end parallel
 
   ! MPI SEND/RECV of nudging arrays
 
   if (iparallel == 1) then
 
-!!     call mpi_send_wnud(dvara1=drho, dvara2=dtheta,  &
-!!                        dvara3=drrw, dvara4=duzonal, dvara5=dumerid)
-!!
-!!     call mpi_recv_wnud(dvara1=drho, dvara2=dtheta,  &
-!!                        dvara3=drrw, dvara4=duzonal, dvara5=dumerid)
+     call mpi_send_wnud(dvara1=drho, dvara2=dtheta,  &
+                        dvara3=drrw, dvara4=duzonal, dvara5=dumerid)
+
+     call mpi_recv_wnud(dvara1=drho, dvara2=dtheta,  &
+                        dvara3=drrw, dvara4=duzonal, dvara5=dumerid)
   endif
 
   ! Normalize nudging point sums to get average values
   ! Horizontal loop over nudging polygons
 
-  !$omp parallel
-  !$omp do private(k)
+  !$omp parallel do private(k)
   do iwnud = 2, mwnud
      do k = 2, mza
         rho_obsf   (k,iwnud) =    drho(k,iwnud) * volwnudi(k,iwnud)
@@ -212,26 +145,19 @@ subroutine nudge_prep_spec(iaction, o_rho, o_theta, o_rrw, o_uzonal, o_umerid)
         umerid_obsf(k,iwnud) = dumerid(k,iwnud) * volwnudi(k,iwnud)
      enddo
   enddo
-  !$omp end do
+  !$omp end parallel do
 
-  !$omp sections
   deallocate(drho)
-  !$omp section
   deallocate(dtheta)
-  !$omp section
   deallocate(drrw)
-  !$omp section
   deallocate(duzonal)
-  !$omp section
   deallocate(dumerid)
-  !$omp end sections nowait
-  !$omp end parallel
 
 end subroutine nudge_prep_spec
 
 !==============================================================================
 
-subroutine spec_nudge(mrl)
+subroutine spec_nudge()
 
   use mem_nudge, only:   tnudcent,      mwnud,    volwnudi,   rhot_nud,  &
                           rho_sim,    rho_obs,    rho_obsp,    rho_obsf, &
@@ -248,16 +174,14 @@ subroutine spec_nudge(mrl)
   use consts_coms, only: r8
   use mem_tend,    only: thilt, rr_wt, vmxet, vmyet, vmzet
   use isan_coms,   only: ifgfile, s1900_fg
-!  use olam_mpi_atm,only: mpi_send_wnud, mpi_recv_wnud
+  use olam_mpi_nud,only: mpi_send_wnud, mpi_recv_wnud
 
   implicit none
 
   ! Nudge selected model fields (rho, thil, rr_w, vmc) to observed data
   ! using polygon filtering
 
-  integer, intent(in) :: mrl
-
-  integer :: iwnud,k,j,iw,iwnud1,iwnud2,iwnud3,kb
+  integer :: iwnud,k,j,iw,iwnud1,iwnud2,iwnud3
 
   real :: umzonalt, ummeridt
   real :: uzonal, umerid
@@ -312,10 +236,6 @@ subroutine spec_nudge(mrl)
 ! endif
 !----------------------------------------------------------------------
 
-  ! Check whether it is time to nudge
-
-  if (mrl < 1) return
-
   ! Time interpolation coefficients
 
   tf = real ( (s1900_sim         - s1900_fg(ifgfile-1)) &
@@ -323,37 +243,25 @@ subroutine spec_nudge(mrl)
 
   tp = 1. - tf
 
-  !$omp parallel
-
   ! If doing spectral nudging, zero out nudging polygon arrays and volume counter
   ! prior to summing
 
   ! Allocate and zero out nudging polygon arrays
 
-  !$omp sections
   allocate(drho   (mza,mwnud)) ; drho    = 0._r8
-  !$omp section
   allocate(dtheta (mza,mwnud)) ; dtheta  = 0._r8
-  !$omp section
   allocate(drrw   (mza,mwnud)) ; drrw    = 0._r8
-  !$omp section
   allocate(duzonal(mza,mwnud)) ; duzonal = 0._r8
-  !$omp section
   allocate(dumerid(mza,mwnud)) ; dumerid = 0._r8
-  !$omp end sections
 
   ! Horizontal loop over W columns
   !----------------------------------------------------------------------
-  !$omp do private(iw,iwnud1,kb,k,uzonal,umerid)   &
-  !$omp    reduction(+:drho)                       &
-  !$omp    reduction(+:dtheta)  reduction(+:drrw)  &
-  !$omp    reduction(+:duzonal) reduction(+:dumerid)
-  do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+  do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
      iwnud1 = itab_w(iw)%iwnud(1)
   !---------------------------------------------------------------------
 
      ! Sum model fields to nudging polygon arrays
-     do k = kb, mza
+     do k = 2, mza
 
         uzonal = vxe(k,iw) * vxn_ew(iw) + vye(k,iw) * vyn_ew(iw)
         umerid = vxe(k,iw) * vxn_ns(iw) + vye(k,iw) * vyn_ns(iw) &
@@ -367,18 +275,16 @@ subroutine spec_nudge(mrl)
      enddo
 
   enddo
-  !$omp end do
-  !$omp end parallel
 
 ! MPI SEND/RECV of nudging arrays
 
   if (iparallel == 1) then
 
-!!     call mpi_send_wnud(dvara1=drho, dvara2=dtheta,  &
-!!                        dvara3=drrw, dvara4=duzonal, dvara5=dumerid)
-!!
-!!     call mpi_recv_wnud(dvara1=drho, dvara2=dtheta,  &
-!!                        dvara3=drrw, dvara4=duzonal, dvara5=dumerid)
+     call mpi_send_wnud(dvara1=drho, dvara2=dtheta,  &
+                        dvara3=drrw, dvara4=duzonal, dvara5=dumerid)
+
+     call mpi_recv_wnud(dvara1=drho, dvara2=dtheta,  &
+                        dvara3=drrw, dvara4=duzonal, dvara5=dumerid)
   endif
 
   ! Horizontal loop over nudging polygons
@@ -416,7 +322,7 @@ subroutine spec_nudge(mrl)
   !----------------------------------------------------------------------
   !$omp do private (iw,iwnud1,iwnud2,iwnud3,fnud1,fnud2,fnud3,tnudi, &
   !$omp             rho4,umzonalt,ummeridt)
-  do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+  do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
      iwnud1 = itab_w(iw)%iwnud(1);  fnud1 = itab_w(iw)%fnud(1)
      iwnud2 = itab_w(iw)%iwnud(2);  fnud2 = itab_w(iw)%fnud(2)
      iwnud3 = itab_w(iw)%iwnud(3);  fnud3 = itab_w(iw)%fnud(3)
@@ -473,18 +379,12 @@ subroutine spec_nudge(mrl)
 
   enddo
   !$omp end do
-
-  !$omp sections
-  deallocate(drho)
-  !$omp section
-  deallocate(dtheta)
-  !$omp section
-  deallocate(drrw)
-  !$omp section
-  deallocate(duzonal)
-  !$omp section
-  deallocate(dumerid)
-  !$omp end sections
   !$omp end parallel
+
+  deallocate(drho)
+  deallocate(dtheta)
+  deallocate(drrw)
+  deallocate(duzonal)
+  deallocate(dumerid)
 
 end subroutine spec_nudge

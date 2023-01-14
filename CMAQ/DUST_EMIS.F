@@ -320,8 +320,6 @@ C   in each soil type [Kg/Kg]. from Menut et al. [JGR,2013]
 
          use mem_land,   only: land, mland, nzg
 
-         use oname_coms, only: nl
-
 ! Arguments:
          integer, intent( in ) :: jdate   ! current model date, coded YYYYDDD
          integer, intent( in ) :: jtime   ! current model time, coded HHMMSS
@@ -751,7 +749,7 @@ C   in each soil type [Kg/Kg]. from Menut et al. [JGR,2013]
          use mem_land,  only: mland, omland
          use mem_para,  only: myrank
          use mem_sfcg,  only: itab_wsfc
-         use misc_coms, only: isubdomain
+         use misc_coms, only: iparallel
 
          implicit none
 
@@ -770,7 +768,7 @@ C   in each soil type [Kg/Kg]. from Menut et al. [JGR,2013]
             iwsfc = iland + omland
 
             ! Skip this cell if running in parallel and cell rank is not MYRANK
-            if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+            if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
             call get_dust_emis1(iland)
          enddo
@@ -788,10 +786,7 @@ C   in each soil type [Kg/Kg]. from Menut et al. [JGR,2013]
          use mem_land,   only: land, omland, nzg
          use leaf_coms,  only: wcap_min
          use mem_grid,   only: volti, gdz_abov
-         use misc_coms,  only: isubdomain
-         use mem_ijtabs, only: itabg_w
          use mem_sfcg,   only: itab_wsfc, sfcg
-         use mem_basic,  only: vxe, vye, vze, rho
          use mem_megan,  only: pfts
          use consts_coms, only: vonk
 
@@ -858,7 +853,7 @@ C   in each soil type [Kg/Kg]. from Menut et al. [JGR,2013]
          real       :: m3k              ! 3rd moment coarse mode (K) emis rates [m3/m3/s]
 
 
-         real       :: vegfree, lambda, lambdav, fruf2, fruf, ftot, vegheight, z0
+         real       :: vegfree, lambda, lambdav, fruf, ftot, vegheight, z0
 
 ! Threshold Friction Velocity [m/s] for 13 soil types and 3 land use types, which are:
 !    1 -shrubland,

@@ -38,7 +38,7 @@ int f_csv(ARG1) {
     if (mode == -1) {
         WxText = decode = latlon = 1;
         if ((*local = (void *) ffopen(arg1,file_append ? "a" : "w")) == NULL)
-		fatal_error("csv could not open file %s", arg1);  
+		fatal_error("csv could not open file %s", arg1);
 	return 0;
     }
 

@@ -46,7 +46,7 @@ int ieee_grib_out(unsigned char **sec, float *data, unsigned int ndata, struct s
     sec6[4] = 6;			// section 5
     sec6[5] = 255;			// no bitmap
 #endif
-    
+
     /* data representation section */
 
     sec5 = (unsigned char *) malloc(12 * sizeof(unsigned char));
@@ -60,7 +60,7 @@ int ieee_grib_out(unsigned char **sec, float *data, unsigned int ndata, struct s
 
     /* data section */
     i = (unsigned int) (4 * (size_t) n_defined);
-    if (i != (4 * (size_t) n_defined)) 
+    if (i != (4 * (size_t) n_defined))
 	fatal_error("ieee_pk: grib2 data section is limited to 4G bytes","");
     sec7 = (unsigned char *) malloc(5 + ((size_t) n_defined) * 4);
     if (sec7 == NULL) fatal_error("ieee_pk: memory allocation sec7","");
@@ -76,7 +76,7 @@ int ieee_grib_out(unsigned char **sec, float *data, unsigned int ndata, struct s
 #else
 	flt2ieee_nan(data[i], p + (i<<2) );
 #endif
-    } 
+    }
 
 #ifdef IEEE_BITMAP
     free(data_tmp);

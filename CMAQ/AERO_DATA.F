@@ -165,7 +165,7 @@ C 09/17/14 change by Kathleen Fahey - see Revision History, above
 ! Factors for converting 3rd moment emission rates into number and 2nd
 ! moment emission rates.  See Equation 7b of Binkowski & Roselle (2003)
       real,    parameter :: lsgem ( n_mode ) = log( sgem )
-      
+
       real,    parameter :: facnuma( n_mode ) = EXP( 4.5 * lsgem ** 2 )
       real,    parameter :: facnum ( n_mode ) = facnuma / dgvem ** 3
 
@@ -347,7 +347,7 @@ C Primary Organic Aerosol Volatility Distributions
 ! This helps prevent numerical issues with shrinking the particles
 ! instantaneously.
       Real, Parameter :: poa_amf( n_vbs_bin ) = (/ 1.0, 0.5, 0.0, 0.0, 0.0 /)
- 
+
 C number of lognormal modes in windblown dust aerosol = n_mode
 C - but only accumulation and coarse modes used
       Type emis_table
@@ -360,22 +360,22 @@ C For the wind-blown dust speciation factors, we used the median of the Desert S
 C profiles 3398, 3403, 3408, and 3413 for the J mode from the SPECIATE database and
 C profiles 3399, 3404, 3409, and 3414 for coarse PM. (G. Pouliot - private communication)
 C See Ref. (4), above and https://cfpub.epa.gov/si/speciate/
-! For toxic metal species, more recent sources were consulted because the above profiles give large uncertainties in their 
+! For toxic metal species, more recent sources were consulted because the above profiles give large uncertainties in their
 ! speciation factors
 ! For the air toxics version of manganese, nickel, chromium(III), arsenic, and lead:
-!    Table 2 in Y. Su, and R. Yang., Background concentrations of elements in surface soils and 
+!    Table 2 in Y. Su, and R. Yang., Background concentrations of elements in surface soils and
 !    their changes as affected by agriculture use in the desert-oasis ecotone in the middle of Heihe
 !    River Basin, North-west China, Journal of Geochemical Exploration, 98, 2008, 57–64 was used.
-!    The table represents natural desert soils prior to cultivation. Note that all chromium is 
-!    to be trivalent based on assuming low pH or anoxics conditions. 
+!    The table represents natural desert soils prior to cultivation. Note that all chromium is
+!    to be trivalent based on assuming low pH or anoxics conditions.
 ! For cadmium:
-!    The background mixing ratio was used from Table 3 in Su, C., Jiang, L.,and Zhang, W., 
-!    A review on heavy metal contamination in the soil worldwide: Situation, impact and 
-!    remediation techniques, Environmental Skeptics and Critics, 2014, 3(2): 24-38. 
+!    The background mixing ratio was used from Table 3 in Su, C., Jiang, L.,and Zhang, W.,
+!    A review on heavy metal contamination in the soil worldwide: Situation, impact and
+!    remediation techniques, Environmental Skeptics and Critics, 2014, 3(2): 24-38.
 !    The table reviews worldwide cultivation soils.
 ! For mercury:
-!    Table 2 in D. Obrist et al., A synthesis of terrestrial mercury in the western United States: 
-!    Spatial distribution defined by land cover and plant productivity, Science of the Total Environment, 
+!    Table 2 in D. Obrist et al., A synthesis of terrestrial mercury in the western United States:
+!    Spatial distribution defined by land cover and plant productivity, Science of the Total Environment,
 !    568, 2016, 522–535.
 !    Factors were based on mixing ratios for barren and cultivated land cover type
 ! Speciation factors between j and k modes were assumed constant because no data was found.
@@ -384,7 +384,7 @@ C maximum number of chemical species in windblown dust aerosol
       Integer, Parameter :: ndust_list = 26
       Integer            :: ndust_spc
 
-       
+
       Type( emis_table ), Save :: dust_spc_list( ndust_list ) = (/
 C                    --description--           -------- name --------             -------- spcfac --------
 C                                           Aitken     accum       coarse          Aitken  accum   coarse
@@ -418,7 +418,7 @@ C                                           Aitken     accum       coarse       
       Type( emis_table ), Allocatable :: dust_spc( : )
 
 C Sea-Salt Speciation factors based on seawater composition:
-! For toxic metal species, Use Table 1 in K.W. Bruland and M.C. Lohan, 6.02 - Controls of Trace Metals in Seawater, 
+! For toxic metal species, Use Table 1 in K.W. Bruland and M.C. Lohan, 6.02 - Controls of Trace Metals in Seawater,
 ! In Treatise on Geochemistry, edited by Heinrich D. Holland and Karl K. Turekian, Pergamon, Oxford, 2003, Pages 23-47,
 ! ISBN 9780080437514, http://dx.doi.org/10.1016/B0-08-043751-6/06105-3.
 
@@ -443,7 +443,7 @@ C                                           Aitken    accum     coarse          
      &   emis_table( 'Lead          ', (/'         ','APBJ     ','APBK     '/), (/ 0.0, 6.0E-11, 6.0E-11/) ),   ! accumaltion and coarse mode Lead
      &   emis_table( 'Cadmium       ', (/'         ','ACDJ     ','ACDK     '/), (/ 0.0, 1.93E-9, 1.93E-9/) ),   ! accumaltion and coarse mode cadmium
      &   emis_table( 'Air Toxics Mn ', (/'         ','AMN_HAPSJ','AMN_HAPSK'/), (/ 0.0, 4.7E-11, 4.7E-11/) ) /) ! accumaltion and coarse mode Air toxics Manganese
- 
+
       Real, Allocatable, Save :: aerospc_ssf( :,: )
 
 C Constants used in other routines:
@@ -669,7 +669,7 @@ C-----------------------------------------------------------------------
       Subroutine map_aero()
 
 C  Defines aerosol mapping from CGRID for species concentration and moments.
- 
+
 C  Revision History:
 C     First version was coded in April 2010 by Steve Howard with
 C     Prakash Bhave, Jeff Young, and Sergey Napelenok.
@@ -930,7 +930,7 @@ C Find indices of required species
       If ( aphgj_idx .Gt. 0 ) Then
          ae6hg     = .True.
       Else
-         aphgj_idx = 0 
+         aphgj_idx = 0
          ae6hg     = .False.
       End If
 
@@ -1085,7 +1085,7 @@ C Adjust Dust Emissions list for Organic Species, if running with semivolatile P
                         xmsg = 'Aitken'
                      Case( 2 )
                         xmsg = Trim( xmsg ) // ' Accum.'
-                     Case( 3 ) 
+                     Case( 3 )
                        xmsg = Trim( xmsg ) // ' Coarse'
                    End Select
 #endif
@@ -1158,14 +1158,14 @@ C Adjust Dust Emissions list for Organic Species, if running with semivolatile P
           Write( logdev,'( 5x, a, i4 )' ) 'adim_idx:   ', adim_idx
           Write( logdev,'( 5x, a, i4 )' ) 'aimga_idx:  ', aimga_idx
           Write( logdev,'( 5x, a, i4 )' ) 'aimos_idx:  ', aimos_idx
-      End If      
+      End If
       If ( ae6hg ) Then
           Write( logdev,'( 5x, a, i4 )' ) 'aphgj_idx:  ', aphgj_idx
-      Else 
+      Else
           Write( logdev,'( 5x, a, i4 )' ) 'PHGJ not found so aphgj_idx: ', aphgj_idx
       End If
 #endif
- 
+
       Do m = 1, n_mode
          If ( m .Lt. n_mode ) Then
             aeromode_minNum( m ) = aerospc_m3fac( aso4_idx ) * aerospc( aso4_idx )%min_conc( m ) /
@@ -1177,19 +1177,19 @@ C Adjust Dust Emissions list for Organic Species, if running with semivolatile P
          aeromode_minM2( m ) = aeromode_minNum( m ) *
      &             def_diam( m )**2 * Exp( 2.0 * Log( def_sigma_g( m ) )**2 )
       End do
- 
+
       if( AE_eflag )Then
          Write(logdev,99901) Trim( mechname )
              xmsg = 'The FATAL errors found in namelist used. Check '
      &         //  'the log of exiting processor if more details are needed.'
          Call m3exit( pname, 0, 0, xmsg, xstat3 )
-      End If 
+      End If
 
       mapped = .True.
 
       Write( logdev,'( 5x, a )' ) ' --- Aero Species Mapped ---'
 
-99901 Format( 'FATAL Error(s) found in the AE namelist used. Check that ' 
+99901 Format( 'FATAL Error(s) found in the AE namelist used. Check that '
      &     /  'this AE namelist contains the above required data as the file in '
      &     /  'the respository version of the mechanism: ', a )
       Return
@@ -1197,7 +1197,7 @@ C Adjust Dust Emissions list for Organic Species, if running with semivolatile P
 
 C-----------------------------------------------------------------------
       Subroutine map_pmemis ( nvars3d, vname3d, units3d )
- 
+
 C  Set the emissions units from the header of EMIS_1 file
 C  Verify that all the units on the file are consistent
 
@@ -1287,7 +1287,7 @@ C are the same and set pmem_units
               n_emis_pm = n_emis_pm + 1
               pmem_map( n_emis_pm ) = v
               pmem_map_name (n_emis_pm ) = 'PNCOM'
-            End If  
+            End If
 
 C Change UNITS to upper case
             units = units3d( indx )

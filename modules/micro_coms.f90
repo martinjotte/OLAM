@@ -1,35 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University;
-   ! Colorado State University Research Foundation ; ATMET, LLC
-
-   ! This software is free software; you can redistribute it and/or modify it
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version.
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
-
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
-   ! (http://www.gnu.org/licenses/gpl.html)
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 Module micro_coms
 
   implicit none
@@ -140,8 +108,8 @@ Module micro_coms
   real :: cfvt     (nhcat) ! fall velocity power law coefficient for each category
   real :: pwvt     (nhcat) ! fall velocity power law exponent for each category
   real :: dpsmi    (nhcat) ! (1/mass) of 125 micron diameter pristine ice or snow
-  real :: cfemb0   (nhcat) ! constant dependent on gamma function and mass power law
-  real :: cfen0    (nhcat) ! constant dependent on gamma function and mass power law
+! real :: cfemb0   (nhcat) ! constant dependent on gamma function and mass power law
+! real :: cfen0    (nhcat) ! constant dependent on gamma function and mass power law
   real :: pwemb0   (nhcat) ! constant dependent on gamma function and mass power law
   real :: pwen0    (nhcat) ! constant dependent on gamma function and mass power law
   real :: vtfac    (nhcat) ! constant dependent on gamma function and mass and fall power laws
@@ -153,11 +121,11 @@ Module micro_coms
   real :: ch3      (nhcat) ! constant dependent on gamma function and mass power law
   real :: cdp1     (nhcat) ! constant dependent on mass and fall power laws
   real :: pwvtmasi (nhcat) ! constant dependent on mass and fall power laws
-  real :: reffcof  (nhcat) ! constant dependent on gamma function and mass power law
-! for computing effective diameter
   real :: dmncof   (nhcat) ! constant dependent on gamma function and mass power law
-! for computing mean diameter
+                           ! for computing mean diameter
   real :: dmncofi  (nhcat) ! 1. / dmncof
+  real :: reffcof  (nhcat) ! factor for computing effective radius
+  real :: defac    (nhcat) ! factor for computing effective diameter
 
   real :: coltabc(nembc,nembc,npairc) ! collection table for bulk number
   real :: coltabx(nembc,nembc,npairx) ! collection table for x bulk density
@@ -165,8 +133,8 @@ Module micro_coms
 
   real :: driz_gammq(nembc)
 
-  real :: frachz(nrhhz,nthz)       ! Haze nucleation table
-  real :: fracc(ndnc,ntc,maxgrds0) ! Homogeneous freezing table
+  real :: frachz(nrhhz,nthz) ! Haze nucleation table
+  real :: fracc(ndnc,ntc)    ! Homogeneous freezing table
 
   real :: gamm(4)          ! complete gamma func of nu, nu+1
   real :: gamn1(4)         ! complete gamma func of nu, nu+1
@@ -186,23 +154,6 @@ Module micro_coms
   real, allocatable :: zfactor_ccn(:)  ! height-based CCN concentration weight factor (when ICCN = 1)
   real, allocatable :: zfactor_gccn(:) ! height-based GCCN concentration weight factor (when IGCCN = 1)
   real, allocatable :: zfactor_ifn(:)  ! height-based IFN concentration weight factor (when IIFN = 1)
-
-! Sedimentation table section
-
-  real :: ch2      (nhcat) ! sedimentation table increment for each category
-  real :: dispemb0 (nhcat) ! minimum vertical displacement in sedim table for each category
-  real :: dispemb0i(nhcat) ! inverse of dispemb0
-  real :: dispemb1 (nhcat) ! maximum vertical displacement in sedim table for each category
-  real :: vf_max
-
-  integer, parameter :: nembfall = 80 ! # of mass values spanning sedimentation table
-
-  real, allocatable :: pcpfillc(:,:,:,:) ! sedim table for bulk number
-  real, allocatable :: pcpfillr(:,:,:,:) ! sedim table for bulk density
-
-  integer, allocatable :: kfall(:,:,:)
-
-  integer, private :: iefcx, iefcy, ix, iy
 
   integer :: ipair(nhcat,nhcat,6)
 
@@ -318,6 +269,8 @@ Module micro_coms
 
   integer, parameter :: nefcx(6) = [ 21,16,16,16,16,16 ]
   integer, parameter :: nefcy(6) = [ 12, 8, 8, 8,14,14 ]
+
+  integer, private :: iefcx, iefcy, ix, iy
 
   real :: defcx(21,6)
   real :: defcy(14,6)

@@ -300,7 +300,7 @@ C phase as model species
 !     &                     // ' namelist used. Required for modeling '
 !     &                     // Trim ( vaporlist( spc )%soa_name ) // '.'
                       SOA_eflag  = .True.
-                      write(logdev,99902)Trim( vaporlist( spc )%name ), 
+                      write(logdev,99902)Trim( vaporlist( spc )%name ),
      &                Trim ( vaporlist( spc )%soa_name )
 !                      Call m3warn( pname, 0, 0, xmsg )
                     End If
@@ -414,7 +414,7 @@ C determine if gas-phase IEPOX uptake occurs for the mechanism
                orgprod( 2 )%parent = 'XYLMN'
                orgprod( 3 )%parent = 'XYLMN'
                IEPOX_SOA_mechanism = .True.
-            Else 
+            Else
                xmsg =  'FATAL: The ' // MECHNAME // ' mechanism '
      &             // ' is not supported in this version of the model.'
      &             // ' Change CCTM build script to use a mechanism based on '
@@ -447,7 +447,7 @@ C Build mapping to CGRID for each ORGPROD species and find MW of parent
                Else
                   xmsg = 'FATAL: Species ' // orgprod( spc )%parent
      &                 // ' in ORGPROD parent name is not in the G2AE values'
-     &                 // ' of the GC namelist for the ' // TRIM ( MECHNAME ) 
+     &                 // ' of the GC namelist for the ' // TRIM ( MECHNAME )
      &                 // ' mechanism '
                   SOA_eflag  = .True.
 !                 Call m3warn( pname, 0, 0, xmsg )
@@ -460,8 +460,8 @@ C Build mapping to CGRID for each ORGPROD species and find MW of parent
          write(logdev,'(2(a16),1x,a4,1x,a7)')"    orgprod    ","    parent    ","INDX","Mol.Wei"
          Do spc = 1, n_orgprod
            If ( orgprod_map( spc ) .Lt. 1 )Cycle
-           write(logdev,'(2(a16),1x,i4,1x,f7.2)')orgprod( spc )%name,orgprod( spc )%parent, 
-     &                                        orgprod_map( spc ),orgprod_mw( spc ) 
+           write(logdev,'(2(a16),1x,i4,1x,f7.2)')orgprod( spc )%name,orgprod( spc )%parent,
+     &                                        orgprod_map( spc ),orgprod_mw( spc )
          End Do
 #endif
 
@@ -478,8 +478,8 @@ C Find indices of required species
 #ifdef verbose_soa
       ! Mandatory Species
          Write( logdev,'( /5x, a )' ) 'soa_defn: required species'
-         Write( logdev,'( 5x, a, i4 )' ) 'iso1_idx:   ', iso1_idx 
-         Write( logdev,'( 5x, a, i4 )' ) 'iso2_idx:   ', iso2_idx 
+         Write( logdev,'( 5x, a, i4 )' ) 'iso1_idx:   ', iso1_idx
+         Write( logdev,'( 5x, a, i4 )' ) 'iso2_idx:   ', iso2_idx
          Write( logdev,'( 5x, a, i4 )' ) 'aiso1_idx:  ', aiso1_idx
          Write( logdev,'( 5x, a, i4 )' ) 'aiso2_idx:  ', aiso2_idx
          Write( logdev,'( 5x, a, i4 )' ) 'aiso3_idx:  ', aiso3_idx
@@ -497,9 +497,9 @@ C Find indices of required species
 #ifdef verbose_soa
            Write( logdev,'( /5x, a )' )
      &      'SAPRC07TIC_AE6I soa_defn: required species'
-           Write( logdev,'( 5x, a, i4 )' ) 'mtno3_idx:   ', mtno3_idx  
-           Write( logdev,'( 5x, a, i4 )' ) 'isopnn_idx:  ', isopnn_idx 
-           Write( logdev,'( 5x, a, i4 )' ) 'amtno3_idx:  ', amtno3_idx 
+           Write( logdev,'( 5x, a, i4 )' ) 'mtno3_idx:   ', mtno3_idx
+           Write( logdev,'( 5x, a, i4 )' ) 'isopnn_idx:  ', isopnn_idx
+           Write( logdev,'( 5x, a, i4 )' ) 'amtno3_idx:  ', amtno3_idx
            Write( logdev,'( 5x, a, i4 )' ) 'aisopnn_idx: ', aisopnn_idx
 #endif
          End If
@@ -511,12 +511,12 @@ C Species they correspond to (aerospc is used inside findAero)
 #ifdef verbose_soa
            Write( logdev,'( /5x, a )' )
      &      'soa_defn: vapor species'
-#endif     
+#endif
          Do spc = 1, n_vapor
             If ( vaporspc( spc )%soa_name .Ne. ' ' ) Then
                soa_aeroMap( spc ) = findAero( vaporspc( spc )%soa_name, .True. )
 #ifdef verbose_soa
-           Write( logdev,'( 5x, a20, i4 )' ) Trim(vaporspc( spc )%soa_name) // ':', 
+           Write( logdev,'( 5x, a20, i4 )' ) Trim(vaporspc( spc )%soa_name) // ':',
      &                                       soa_aeroMap( spc )
 #endif
                If( soa_aeroMap( spc ) .Lt. 1 ) write(logdev,99904) Trim( vaporspc( spc )%name )
@@ -530,12 +530,12 @@ C (aerospc is used inside findAero)
 #ifdef verbose_soa
            Write( logdev,'( /5x, a )' )
      &      'soa_defn: orgprod_aero species'
-#endif     
+#endif
          Do spc = 1, n_orgprod
             If ( orgprod( spc )%aerospc .Ne. ' ' ) Then
                orgprod_aeroMap( spc ) = findAero( orgprod( spc )%aerospc, .True. )
 #ifdef verbose_soa
-           Write( logdev,'( 5x, a20, i4 )' ) Trim(orgprod( spc )%aerospc) // ':', 
+           Write( logdev,'( 5x, a20, i4 )' ) Trim(orgprod( spc )%aerospc) // ':',
      &                                       orgprod_aeroMap( spc )
 #endif
                If( orgprod_aeroMap( spc ) .Lt. 1 ) write(logdev,99905) Trim( orgprod( spc )%name )
@@ -548,12 +548,12 @@ C Reactive variables that store their production rates (orgprod)
 #ifdef verbose_soa
            Write( logdev,'( /5x, a )' )
      &      'soa_defn: drog species'
-#endif     
+#endif
          Do spc = 1, n_vapor
             If ( vaporspc( spc )%drog_name .Ne. ' ' ) Then
                drog_map( spc ) = findOrgprod( vaporspc( spc )%drog_name )
 #ifdef verbose_soa
-           Write( logdev,'( 5x, a20, i4 )' ) Trim(vaporspc( spc )%drog_name) // ':', 
+           Write( logdev,'( 5x, a20, i4 )' ) Trim(vaporspc( spc )%drog_name) // ':',
      &                                       drog_map( spc )
 #endif
                If( drog_map( spc ) .Lt. 1 ) write(logdev,99905) Trim( orgprod( spc )%name )
@@ -565,7 +565,7 @@ C Reactive variables that store their production rates (orgprod)
              xmsg = 'The FATAL errors found in namelist used. Check '
      &          //  'the log of exiting processor if more details are needed.'
              Call m3exit( pname, 0, 0, xmsg, xstat3 )
-         End If 
+         End If
 
 C     Set unit conversion
 
@@ -591,7 +591,7 @@ C     Set unit conversion
 99904 Format(1X,'aerosol product from namelist species: ', a /)
 99905 Format(1X,'aerosol by-product from namelist species : ', a /)
 C99906 Format(1X,'precursor from namelist species : ', a /)
-  
+
       End Subroutine Map_soa
 
 C-----------------------------------------------------------------------
@@ -773,6 +773,7 @@ C Local Variables:
       Character( 80 ) :: xmsg
       Integer         :: spc
 
+      ndx = 0
       Do spc = 1, n_orgprod
          If ( orgprod( spc )%name .Eq. vname ) Then
             ndx = spc
@@ -1311,14 +1312,14 @@ C hard-coded values.
       ! the vaporspc table.
       totorg = totorgsw
       Do i = 1, n_vapor
-         totorg = totorg + ( aerospc_conc( soa_aeroMap( i ),2 ) + 
+         totorg = totorg + ( aerospc_conc( soa_aeroMap( i ),2 ) +
      &                       aerospc_conc( soa_aeroMap( i ),1 ) ) * vapor_mwi( i )
       End Do
 
 C Initialize ctoti as sum of vapor-phase and particle-phase SVOCs
 C Note: all of these CBLK species are in [ug/m**3]
       Do i = 1, n_vapor
-         caer0( i ) = aerospc_conc( soa_aeroMap( i ),2 )  
+         caer0( i ) = aerospc_conc( soa_aeroMap( i ),2 )
      &              + aerospc_conc( soa_aeroMap( i ),1 )
 
          ctoti( i ) = vapor_conc( i ) + caer0( i )
@@ -1478,7 +1479,7 @@ C-----------------------------------------------------------------------
 
 !     Determines the root of an equation, nroot, that is located
 !     between the lowerb and upperb. The equation of interest is defined
-!     in the function soaequation. Before calling soabisect, the threshold 
+!     in the function soaequation. Before calling soabisect, the threshold
 !     for SOA should have already been checked which should ensure a solution.
 !     The recommended lower bound is the number of moles of nonvolatile aerosol
 !     and the recommended upper bound is the total number of organic moles
@@ -1491,11 +1492,11 @@ C-----------------------------------------------------------------------
       implicit none
 
 !     Function arguments
-      Real, Intent(IN) :: lowerb, upperb      ! lower bound, upper bound 
+      Real, Intent(IN) :: lowerb, upperb      ! lower bound, upper bound
       Real, Intent(IN) :: nonvolmol           ! nonvolatile aerosol in moles = POA + non-voltile SOA
       Real, Intent(IN) :: cstaratt(n_vapor)   ! Cstars at T of interest
       Real, Intent(IN) :: totsemivol(n_vapor) ! total semivolatile in ug/m3 (gas+aer+newlyformed)
-!      Real, Intent(IN) :: mlwt(n_vapor)       ! molecular weight of semivolatiles 
+!      Real, Intent(IN) :: mlwt(n_vapor)       ! molecular weight of semivolatiles
 
 !     Result
       Real             :: nroot               ! solution (final nguess)
@@ -1590,7 +1591,7 @@ C-----------------------------------------------------------------------
       Function soaequation( nonvmol, cstar, semivol, currentN ) Result ( eqnerror )
 
 C     Evaluates the following function of total aerosol moles, N
-C     Function evaluates to zero at equilibrium 
+C     Function evaluates to zero at equilibrium
 C
 C                      totalsemivol_i        mols nonvolatile POA + SOA
 C     f(N) = sum_i (  ----------------   ) + ---------------------------  - 1.0

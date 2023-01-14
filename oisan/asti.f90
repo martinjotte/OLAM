@@ -1,35 +1,3 @@
-
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 subroutine isnstage(iaction)
 
   use mem_basic,    only: vmc, vc, thil, rr_w, rr_v, vxe, vye, vze, tair, &
@@ -59,7 +27,7 @@ subroutine isnstage(iaction)
   write(io6,*) "Performing iterative hydrostatic balancing."
 
   !$omp parallel do private(iw)
-  do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
+  do j = 1,jtab_w(jtw_init)%jend; iw = jtab_w(jtw_init)%iw(j)
 
      ! Perform iterative hydrostatic balance and copy to main model arrays
      call vterpp_s(iw)
@@ -74,7 +42,7 @@ subroutine isnstage(iaction)
   ! Copy to model arrays
 
   !$omp parallel do private(iw,ka,k,cond,tt,ccn)
-  do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
+  do j = 1,jtab_w(jtw_init)%jend; iw = jtab_w(jtw_init)%iw(j)
 
      ka = lpw(iw)
 
@@ -109,7 +77,8 @@ subroutine isnstage(iaction)
               rr_c(k,iw) = cond / o_rho(k,iw)
               rr_v(k,iw) = rr_w(k,iw) - rr_c(k,iw)
 
-              tt         = max(tair(k,iw),253.) * (1.0 + rr_v(k,iw))
+              ! THIIL is defined using mixing ratios in Tripoli and Cotton
+              tt         = max(tair(k,iw),253.)
               thil(k,iw) = theta(k,iw) * tt / (tt + alvlocp * rr_c(k,iw))
            endif
 
@@ -156,24 +125,24 @@ subroutine isnstage(iaction)
   ! LBC copy (THETA and TAIR and OZONE will be copied later with the scalars)
 
   if (iparallel == 1) then
-     call mpi_send_w(1, dvara1=press, dvara2=rho, &
+     call mpi_send_w(dvara1=press, dvara2=rho, &
                      rvara2=wc, rvara3=wmc, rvara4=thil, &
                      rvara5=ue, rvara6=ve, &
                      rvara7=vxe, rvara8=vye, rvara9=vze)
 
-     call mpi_recv_w(1, dvara1=press, dvara2=rho, &
+     call mpi_recv_w(dvara1=press, dvara2=rho, &
                      rvara2=wc, rvara3=wmc, rvara4=thil, &
                      rvara5=ue, rvara6=ve, &
                      rvara7=vxe, rvara8=vye, rvara9=vze)
   endif
 
-  call lbcopy_w(1, a1=wc, a2=wmc, a3=thil, a4=ue, a5=ve, a6=vxe, a7=vye, &
+  call lbcopy_w(a1=wc, a2=wmc, a3=thil, a4=ue, a5=ve, a6=vxe, a7=vye, &
                 a8=vze, d1=press, d2=rho)
 
   ! Initialize VMC, VC
 
   !$omp parallel do private(iv,iw1,iw2,k)
-  do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)
+  do j = 1,jtab_v(jtv_init)%jend; iv = jtab_v(jtv_init)%iv(j)
 
      iw1 = itab_v(iv)%iw(1)
      iw2 = itab_v(iv)%iw(2)
@@ -197,13 +166,13 @@ subroutine isnstage(iaction)
   ! MPI parallel send/recv of V group
 
   if (iparallel == 1) then
-     call mpi_send_v(1, rvara1=vmc, rvara2=vc)
-     call mpi_recv_v(1, rvara1=vmc, rvara2=vc)
+     call mpi_send_v(rvara1=vmc, rvara2=vc)
+     call mpi_recv_v(rvara1=vmc, rvara2=vc)
   endif
 
   ! LBC copy of VMC, VC
 
-  call lbcopy_v(1, vmc=vmc, vc=vc)
+  call lbcopy_v(vmc=vmc, vc=vc)
 
   ! Print out initial state from 1st jtw_init column
 
@@ -235,8 +204,7 @@ subroutine vterpp_s(iw)
   use isan_coms,   only: o_rho, o_press, o_theta, o_rrw, npd, pcol_p, pcol_z
   use consts_coms, only: grav2, grav, cvocp, p00kord, rvap, p00, p00i, &
                          t00, cp, rocp, gravi, eps_virt, eps_vapi
-  use mem_grid,    only: mza, lpw, zt, gravm, volt, volwi, dzm, &
-                         gdz_belo, gdz_abov
+  use mem_grid,    only: mza, lpw, zt, gdz_belo, gdz_abov
   use micro_coms,  only: miclevel
   use therm_lib,   only: rhovsl
 

@@ -23,7 +23,7 @@ C $Header$
 C what(1) key, module and SID; SCCS file; date and time of last delta:
 C %W% %P% %G% %U%
 
-      subroutine chem( mrl )
+      subroutine chem( )
 
       USE RXNS_DATA
       USE UTILIO_DEFN
@@ -40,7 +40,6 @@ C %W% %P% %G% %U%
 
       implicit none
 
-      integer, intent(in) :: mrl
       LOGICAL, SAVE       :: LFIRST = .TRUE.
       integer             :: j, iw, n, v, s, l
       CHARACTER( 132 )    :: MSG
@@ -49,9 +48,11 @@ C %W% %P% %G% %U%
       REAL    :: SMEBI
       INTEGER :: NCALL
 
+#ifdef EBI_STATS
       integer :: maxebi, avgebi
       real    :: sumebi
       integer :: ncall_ebi
+#endif
 
       IF ( NUMB_MECH_SPC .EQ. 0 ) RETURN
 
@@ -116,13 +117,17 @@ C %W% %P% %G% %U%
 
       END IF      ! First time
 
+#ifdef EBI_STATS
       maxebi = 0
       sumebi = 0.
       ncall_ebi = 0
+#endif
 
-!$omp parallel do private(iw,s,mxebi,smebi,ncall) schedule(guided)
-!$omp&            reduction(+:sumebi,ncall_ebi) reduction(max:maxebi)
-      do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+      !$omp parallel do private(iw,s,mxebi,smebi,ncall) schedule(guided)
+#ifdef EBI_STATS
+      !$omp& reduction(+:sumebi,ncall_ebi) reduction(max:maxebi)
+#endif
+      do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
          do s = 1, nrxn
             cgrid(:,iw,irxns(s)) = 1.e-30
@@ -130,9 +135,11 @@ C %W% %P% %G% %U%
 
          call chem1(iw,mxebi,smebi,ncall)
 
+#ifdef EBI_STATS
          maxebi    = max(maxebi,mxebi)
          sumebi    = sumebi + smebi
          ncall_ebi = ncall_ebi + ncall
+#endif
 
       enddo
       !$omp end parallel do
@@ -196,7 +203,7 @@ C**********************************************************************
       use misc_coms,  only: dtlm
       use mem_grid,   only: lpw, mza
       use mem_ijtabs, only: itab_w
-      use mem_sfcg,   only: sfcg, itab_wsfc
+      use mem_sfcg,   only: itab_wsfc
       use mem_basic,  only: tair, rr_v, press, rho
       use mem_sea,    only: sea, omsea
       use mem_turb,   only: frac_land
@@ -226,7 +233,7 @@ C..Scratch Local Variables:
 !      CHARACTER( 132 ) :: MSG           ! Message text
 !      CHARACTER(  16 ) :: VNAME         ! Name of I/O API data variable
 
-      integer :: s, k, j, jsfc, iwsfc, jasfc, isea, mrlw
+      integer :: s, k, jsfc, iwsfc, jasfc, isea, mrlw
       real    :: area, frac_ice
 
 !     INTEGER DELT_SEC        ! EBI max time step in seconds
@@ -274,7 +281,7 @@ C..Scratch Local Variables:
 
       mrlw = itab_w(iw)%mrlw
 
-      EBI_TMSTEP = dtlm(mrlw) / 60.d0
+      EBI_TMSTEP = dtlm / 60.d0
 
          do k = mza-1, lpw(iw), -1
             if (press(k,iw) > 100.d2) exit

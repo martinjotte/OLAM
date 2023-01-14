@@ -1,34 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
 subroutine read_press_header()
 
   use isan_coms,  only: iyear, nprz, levpr, ivertcoord, secondlat, cntlat, &
@@ -531,7 +500,7 @@ subroutine pressure_stage()
   ! to OLAM vertical coordinate levels
 
   !$omp parallel do private(iw,dg)
-  do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
+  do j = 1,jtab_w(jtw_init)%jend; iw = jtab_w(jtw_init)%iw(j)
      dg           = pcol_z(4,iw) - pcol_z(3,iw)
      pcol_z(2,iw) = pcol_z(3,iw) - dg * dprat2
      pcol_z(1,iw) = pcol_z(2,iw) - dg * dprat1
@@ -590,7 +559,7 @@ subroutine pressure_stage()
 
   !$omp parallel private(pcol_thet)
   !$omp do private(iw,k)
-  do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
+  do j = 1,jtab_w(jtw_init)%jend; iw = jtab_w(jtw_init)%iw(j)
 
      do k = 3, npd
         pcol_thet(k) = field(k,iw) * pcol_exneri(k)
@@ -760,7 +729,7 @@ subroutine pressure_stage()
 
   !$omp parallel private(pvect)
   !$omp do private(iw,k)
-  do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
+  do j = 1,jtab_w(jtw_init)%jend; iw = jtab_w(jtw_init)%iw(j)
 
      ! Copy humidity pressure levels to temprorary vector
      pvect(3:npd) = field(3:npd,iw)
@@ -847,7 +816,7 @@ subroutine pressure_stage()
   endif
 
   !$omp parallel do private(iw)
-  do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
+  do j = 1,jtab_w(jtw_init)%jend; iw = jtab_w(jtw_init)%iw(j)
      call hintrp_cc(npd, field(:,iw), pcol_z(:,iw), mza, o_uzonal(:,iw), zt)
   enddo
   !$omp end parallel do
@@ -908,7 +877,7 @@ subroutine pressure_stage()
   call hinterp_plevs( gdxi, gdyi, xoffset, yoffset, p3d, field )
 
   !$omp parallel do private(iw)
-  do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
+  do j = 1,jtab_w(jtw_init)%jend; iw = jtab_w(jtw_init)%iw(j)
 
      if (npd > nprz+2) then
         field(nprz+3:npd,iw) = 0.0
@@ -986,7 +955,7 @@ subroutine pressure_stage()
 
      !$omp parallel private(pvect)
      !$omp do private(iw,k)
-     do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
+     do j = 1,jtab_w(jtw_init)%jend; iw = jtab_w(jtw_init)%iw(j)
 
         ! Copy ozone pressure levels to temprorary vector
         pvect(nbot_o3+2:npd) = field(nbot_o3:npd,iw)
@@ -1055,7 +1024,7 @@ subroutine hinterp_plevs( gdxi, gdyi, xoffset, yoffset, p3d, field )
   real    :: grx, gry
 
   !$omp parallel do private(iw,grx,gry,ilat,k)
-  do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
+  do j = 1,jtab_w(jtw_init)%jend; iw = jtab_w(jtw_init)%iw(j)
 
      if (inproj == 1) then
 
@@ -1126,7 +1095,7 @@ subroutine hinterp_zonavg(field, zona)
   if (npd <= nprz+2) return
 
   !$omp parallel do private(iw,rlat,ilat,wt2,levp,k)
-  do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
+  do j = 1,jtab_w(jtw_init)%jend; iw = jtab_w(jtw_init)%iw(j)
 
      rlat = .4 * (glatw(iw) + 93.75)
      ilat = int(rlat)

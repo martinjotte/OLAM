@@ -16,7 +16,7 @@
 !    GAS_CHEM_SPC   = Names of gas species in chemical mechanism
 !    CHEMISTRY_SPC  = Names of species in chemical mechanism
 !    CGRID_INDEX    = CGRID Index of species in chemical mechanism
-!    SPECIES_TYPE   = Group or type of species 
+!    SPECIES_TYPE   = Group or type of species
 !    SPECIES_MOLWT  = Molecular Weight of species (gm/mole)
 !    NRXNS          = Number of mechanism reactions
 !    KUNITS         = Units of mechanism reactions
@@ -46,7 +46,7 @@
 !    GAS_CHEM_SPC   = Names of gas species in chemical mechanism
 !    CHEMISTRY_SPC  = Names of species in chemical mechanism
 !    CGRID_INDEX    = CGRID Index of species in chemical mechanism
-!    SPECIES_TYPE   = Group or type of species 
+!    SPECIES_TYPE   = Group or type of species
 !    SPECIES_MOLWT  = Molecular Weight of species (gm/mole)
 !    NRXNS          = Number of mechanism reactions
 !    KUNITS         = Units of mechanism reactions
@@ -116,9 +116,9 @@
       LOGICAL         :: CONVERT_CONC(  NUMB_MECH_SPC )
       REAL            :: SPECIES_MOLWT( NUMB_MECH_SPC )
 
-! The below character and integer arrays list the model species names used in the 
-! chemical mechanism. The gas species and their order should agree with 
-! the GC_SPC array for the gas phase chemistry to work correctly. 
+! The below character and integer arrays list the model species names used in the
+! chemical mechanism. The gas species and their order should agree with
+! the GC_SPC array for the gas phase chemistry to work correctly.
 ! If present, the CHEMISTRY_SPC names and species type should agree with the CGRID_SPCS module
 
       DATA GAS_CHEM_SPC(   1 ) / 'NO2             ' /
@@ -240,7 +240,7 @@
       DATA GAS_CHEM_SPC( 117 ) / 'VSVOO3          ' /
       DATA GAS_CHEM_SPC( 118 ) / 'VSVOO1          ' /
 
-      LOGICAL   :: HALOGEN_PARAMETER = .TRUE. 
+      LOGICAL   :: HALOGEN_PARAMETER = .TRUE.
 
       DATA CHEMISTRY_SPC(   1 ), SPECIES_MOLWT(   1 ) / 'NO2             ',   46.00 /
       DATA CHEMISTRY_SPC(   2 ), SPECIES_MOLWT(   2 ) / 'NO              ',   30.00 /
@@ -385,7 +385,7 @@
 
       LOGICAL   :: MAPPED_TO_CGRID   = .FALSE.
 
-! MAPPED_TO_CGRID declares whether CMAQ namelists were used to determine 
+! MAPPED_TO_CGRID declares whether CMAQ namelists were used to determine
 ! the below values of CGRID_INDEX, SPECIES_TYPE, SPECIES_MOLWT, and CONVERT_CONC
       LOGICAL, PARAMETER, PRIVATE :: F = .FALSE.
       LOGICAL, PARAMETER, PRIVATE :: T = .TRUE.
@@ -566,54 +566,54 @@
       INTEGER, PARAMETER :: NMPHOT =  38
       INTEGER            :: IPH( NMPHOT,3 )
 
-      DATA ( IPH( IRXXN,1 ), IRXXN = 1, NMPHOT ) / & 
-     &      1,    8,    9,   21,   27,   28,   38,   43,   47,   50, & 
-     &     56,   64,   88,   90,   92,   97,   98,  108,  112,  114, & 
-     &    117,  119,  128,  129,  161,  163,  197,  198,  202,  221, & 
+      DATA ( IPH( IRXXN,1 ), IRXXN = 1, NMPHOT ) / &
+     &      1,    8,    9,   21,   27,   28,   38,   43,   47,   50, &
+     &     56,   64,   88,   90,   92,   97,   98,  108,  112,  114, &
+     &    117,  119,  128,  129,  161,  163,  197,  198,  202,  221, &
      &    222,  228,  246,  301,  302,  307,  316,  321/
 
-      DATA ( IPH( IRXXN,2 ), IRXXN = 1, NMPHOT ) / & 
-     &      1,    2,    3,    4,    5,    6,    7,    8,    9,   10, & 
-     &     11,   11,   12,   12,   13,   14,   15,   16,   17,   18, & 
-     &     19,   20,   21,   22,   23,   24,   13,    1,    1,   25, & 
+      DATA ( IPH( IRXXN,2 ), IRXXN = 1, NMPHOT ) / &
+     &      1,    2,    3,    4,    5,    6,    7,    8,    9,   10, &
+     &     11,   11,   12,   12,   13,   14,   15,   16,   17,   18, &
+     &     19,   20,   21,   22,   23,   24,   13,    1,    1,   25, &
      &     26,   27,   28,   14,   15,   16,   29,   29/
 
-      DATA ( IPH( IRXXN,3 ), IRXXN = 1, NMPHOT ) / & 
-     &      1,    2,    3,    4,    5,    6,    7,    8,    9,   10, & 
-     &     11,   12,   13,   14,   15,   16,   17,   18,   19,   20, & 
-     &     21,   22,   23,   24,   25,   26,   27,   28,   29,   30, & 
+      DATA ( IPH( IRXXN,3 ), IRXXN = 1, NMPHOT ) / &
+     &      1,    2,    3,    4,    5,    6,    7,    8,    9,   10, &
+     &     11,   12,   13,   14,   15,   16,   17,   18,   19,   20, &
+     &     21,   22,   23,   24,   25,   26,   27,   28,   29,   30, &
      &     31,   32,   33,   34,   35,   36,   37,   38/
 
       INTEGER, PARAMETER :: MHETERO =  12
       INTEGER            :: IHETERO( MHETERO,2 )
 
-      DATA ( IHETERO( IRXXN,1 ), IRXXN = 1, MHETERO ) / & 
-     &    259,  260,  261,  262,  263,  264,  265,  266,  267,  269, & 
+      DATA ( IHETERO( IRXXN,1 ), IRXXN = 1, MHETERO ) / &
+     &    259,  260,  261,  262,  263,  264,  265,  266,  267,  269, &
      &    270,  271/
 
-      DATA ( IHETERO( IRXXN,2 ), IRXXN = 1, MHETERO ) / & 
-     &      1,    2,    3,    4,    5,    6,    6,    7,    8,    9, & 
+      DATA ( IHETERO( IRXXN,2 ), IRXXN = 1, MHETERO ) / &
+     &      1,    2,    3,    4,    5,    6,    6,    7,    8,    9, &
      &     10,   11/
 
       INTEGER, PARAMETER :: NPHOTAB =  28
       CHARACTER( 16 )    :: PHOTAB( NPHOTAB )
 
-      DATA ( PHOTAB( IRXXN ), IRXXN = 1, NPHOTAB ) / & 
-     &   'NO2_IUPAC10     ', 'O3_O3P_IUPAC10  ', 'O3_O1D_IUPAC10  ', & 
-     &   'H2O2_IUPAC10    ', 'NO3NO2_06       ', 'NO3NO_06        ', & 
-     &   'N2O5_IUPAC10    ', 'HONO_IUPAC10    ', 'HNO3_IUPAC10    ', & 
-     &   'PNA_IUPAC10     ', 'PAN_IUPAC10     ', 'MEPX_IUPAC10    ', & 
-     &   'NTR_IUPAC10     ', 'FORM_R_IUPAC10  ', 'FORM_M_IUPAC10  ', & 
-     &   'ALD2_R_IUPAC10  ', 'ALDX_R_IUPAC10  ', 'GLYD_IUPAC10    ', & 
-     &   'GLY_R_IUPAC10   ', 'MGLY_IUPAC10    ', 'KET_IUPAC10     ', & 
-     &   'ACET_IUPAC10    ', 'ISPD            ', 'HPALD           ', & 
-     &   'CL2_IUPAC04     ', 'HOCL_IUPAC04    ', 'FMCL_IUPAC04    ', & 
+      DATA ( PHOTAB( IRXXN ), IRXXN = 1, NPHOTAB ) / &
+     &   'NO2_IUPAC10     ', 'O3_O3P_IUPAC10  ', 'O3_O1D_IUPAC10  ', &
+     &   'H2O2_IUPAC10    ', 'NO3NO2_06       ', 'NO3NO_06        ', &
+     &   'N2O5_IUPAC10    ', 'HONO_IUPAC10    ', 'HNO3_IUPAC10    ', &
+     &   'PNA_IUPAC10     ', 'PAN_IUPAC10     ', 'MEPX_IUPAC10    ', &
+     &   'NTR_IUPAC10     ', 'FORM_R_IUPAC10  ', 'FORM_M_IUPAC10  ', &
+     &   'ALD2_R_IUPAC10  ', 'ALDX_R_IUPAC10  ', 'GLYD_IUPAC10    ', &
+     &   'GLY_R_IUPAC10   ', 'MGLY_IUPAC10    ', 'KET_IUPAC10     ', &
+     &   'ACET_IUPAC10    ', 'ISPD            ', 'HPALD           ', &
+     &   'CL2_IUPAC04     ', 'HOCL_IUPAC04    ', 'FMCL_IUPAC04    ', &
      &   'CLNO2           '/
 
       INTEGER, PARAMETER :: NHETERO =  11
       CHARACTER( 16 )    :: HETERO( NHETERO )
 
-      DATA ( HETERO( IRXXN ), IRXXN = 1, NHETERO ) / & 
+      DATA ( HETERO( IRXXN ), IRXXN = 1, NHETERO ) / &
      &   'HETERO_NTR2     ', 'HETERO_N2O5IJ   ', 'HETERO_N2O5K    ', &
      &   'HETERO_H2NO3PAIJ', 'HETERO_H2NO3PAK ', 'HETERO_H2NO3PBIJ', &
      &   'HETERO_H2NO3PBK ', 'HETERO_NO2      ', 'HETERO_IEPOX    ', &
@@ -621,117 +621,117 @@
 
       CHARACTER( 16 )    :: RXLABEL( NRXNS )
 
-      DATA ( RXLABEL( IRXXN ), IRXXN = 1, NRXNS ) / & 
-     &    'R1              ', 'R2              ', 'R3              ', & ! 0   
-     &    'R4              ', 'R5              ', 'R6              ', & ! 1   
-     &    'R7              ', 'R8              ', 'R9              ', & ! 2   
-     &    'R10             ', 'R11             ', 'R12             ', & ! 3   
-     &    'R13             ', 'R14             ', 'R15             ', & ! 4   
-     &    'R16             ', 'R17             ', 'R18             ', & ! 5   
-     &    'R19             ', 'R20             ', 'R21             ', & ! 6   
-     &    'R22             ', 'R23             ', 'R24             ', & ! 7   
-     &    'R25             ', 'R26             ', 'R27             ', & ! 8   
-     &    'R28             ', 'R29             ', 'R30             ', & ! 9   
-     &    'R31             ', 'R32             ', 'R33             ', & ! 0   
-     &    'R34             ', 'R35             ', 'R36             ', & ! 1   
-     &    'R37             ', 'R38             ', 'R39             ', & ! 2   
-     &    'R40             ', 'R41             ', 'R42             ', & ! 3   
-     &    'R43             ', 'R44             ', 'R45             ', & ! 4   
-     &    'R46             ', 'R47             ', 'R48             ', & ! 5   
-     &    'R49             ', 'R50             ', 'R51             ', & ! 6   
-     &    'R52             ', 'R53             ', 'R54             ', & ! 7   
-     &    'R55             ', 'R56             ', 'R57             ', & ! 8   
-     &    'R58             ', 'R59             ', 'R60             ', & ! 9   
-     &    'R61             ', 'R62             ', 'R63             ', & ! 0   
-     &    'R64             ', 'R65             ', 'R66             ', & ! 1   
-     &    'R67             ', 'R68             ', 'R69             ', & ! 2   
-     &    'R70             ', 'R71             ', 'R72             ', & ! 3   
-     &    'R73             ', 'R74             ', 'R75             ', & ! 4   
-     &    'R76             ', 'R77             ', 'R78             ', & ! 5   
-     &    'R79             ', 'R80             ', 'R81             ', & ! 6   
-     &    'R82             ', 'R83             ', 'R84             ', & ! 7   
-     &    'R85             ', 'R86             ', 'R87             ', & ! 8   
-     &    'R88             ', 'R89             ', 'R90             ', & ! 9   
-     &    'R91             ', 'R92             ', 'R93             ', & ! 0   
-     &    'R94             ', 'R95             ', 'R96             ', & ! 1   
-     &    'R97             ', 'R98             ', 'R99             ', & ! 2   
-     &    'R100            ', 'R101            ', 'R102            ', & ! 3   
-     &    'R103            ', 'R104            ', 'R105            ', & ! 4   
-     &    'R106            ', 'R107            ', 'R108            ', & ! 5   
-     &    'R109            ', 'R110            ', 'R111            ', & ! 6   
-     &    'R112            ', 'R113            ', 'R114            ', & ! 7   
-     &    'R115            ', 'R116            ', 'R117            ', & ! 8   
-     &    'R118            ', 'R119            ', 'R120            ', & ! 9   
-     &    'R121            ', 'R122            ', 'R123            ', & ! 0   
-     &    'R124            ', 'R125            ', 'R126            ', & ! 1   
-     &    'R127            ', 'R128            ', 'R129            ', & ! 2   
-     &    'R130            ', 'R131            ', 'R132            ', & ! 3   
-     &    'R133            ', 'R134            ', 'R135            ', & ! 4   
-     &    'R136            ', 'R137            ', 'R138            ', & ! 5   
-     &    'R139            ', 'R140            ', 'R141            ', & ! 6   
-     &    'R142            ', 'R143            ', 'R144            ', & ! 7   
-     &    'R145            ', 'R146            ', 'R147            ', & ! 8   
-     &    'R148            ', 'R149            ', 'R150            ', & ! 9   
-     &    'R151            ', 'R152            ', 'R153            ', & ! 0   
-     &    'R154            ', 'R155            ', 'R156            ', & ! 1   
-     &    'R157            ', 'R158            ', 'R159            ', & ! 2   
-     &    'R160            ', 'R161            ', 'R162            ', & ! 3   
-     &    'R163            ', 'R164            ', 'R165            ', & ! 4   
-     &    'R166            ', 'R167            ', 'R168            ', & ! 5   
-     &    'R169            ', 'R170            ', 'R171            ', & ! 6   
-     &    'R172            ', 'R173            ', 'R174            ', & ! 7   
-     &    'R175            ', 'R176            ', 'R177            ', & ! 8   
-     &    'R178            ', 'R179            ', 'R180            ', & ! 9   
-     &    'R181            ', 'R182            ', 'R183            ', & ! 0   
-     &    'R184            ', 'R185            ', 'R185a           ', & ! 1   
-     &    'R186            ', 'R187            ', 'R188            ', & ! 2   
-     &    'R189            ', 'R190            ', 'R191            ', & ! 3   
-     &    'R192            ', 'R193            ', 'R194            ', & ! 4   
-     &    'R195            ', 'R196            ', 'R197            ', & ! 5   
-     &    'R198            ', 'R199            ', 'R200            ', & ! 6   
-     &    'R201            ', 'R202            ', 'R203            ', & ! 7   
-     &    'R204            ', 'R205            ', 'R206            ', & ! 8   
-     &    'R207            ', 'R208            ', 'R209            ', & ! 9   
-     &    'R210            ', 'R211            ', 'R212            ', & ! 0   
-     &    'R213            ', 'R214            ', 'R216            ', & ! 1   
-     &    'R217            ', 'R218            ', 'R219            ', & ! 2   
-     &    'R220            ', 'CL1             ', 'CL2             ', & ! 3   
-     &    'CL3             ', 'CL4             ', 'CL5             ', & ! 4   
-     &    'CL6             ', 'CL7             ', 'CL8             ', & ! 5   
-     &    'CL9             ', 'CL10            ', 'CL11            ', & ! 6   
-     &    'CL12            ', 'CL13            ', 'CL14            ', & ! 7   
-     &    'CL15            ', 'CL16            ', 'CL17            ', & ! 8   
-     &    'CL18            ', 'CL19            ', 'CL20            ', & ! 9   
-     &    'CL21            ', 'CL22            ', 'CL23            ', & ! 0   
-     &    'CL23a           ', 'CL24            ', 'CL25            ', & ! 1   
-     &    'SA01            ', 'SA02            ', 'SA03            ', & ! 2   
-     &    'SA04            ', 'SA06            ', 'SA07            ', & ! 3   
-     &    'SA08            ', 'SA09            ', 'SA10            ', & ! 4   
-     &    'SA11            ', 'SA12            ', 'SA13            ', & ! 5   
-     &    'HET_NTR2        ', 'HET_N2O5IJ      ', 'HET_N2O5K       ', & ! 6   
-     &    'HET_H2NO3PIJA   ', 'HET_H2NO3PKA    ', 'HET_H2NO3PIB    ', & ! 7   
-     &    'HET_H2NO3PJB    ', 'HET_H2NO3PKB    ', 'HET_N02         ', & ! 8   
-     &    'HAL_Ozone       ', 'HET_IEPOX       ', 'HET_GLY         ', & ! 9   
-     &    'HET_MGLY        ', 'OLIG_XYLENE1    ', 'OLIG_XYLENE2    ', & ! 0   
-     &    'OLIG_TOLUENE1   ', 'OLIG_TOLUENE2   ', 'OLIG_BENZENE1   ', & ! 1   
-     &    'OLIG_BENZENE2   ', 'OLIG_TERPENE1   ', 'OLIG_TERPENE2   ', & ! 2   
-     &    'OLIG_ISOPRENE1  ', 'OLIG_ISOPRENE2  ', 'OLIG_SESQT1     ', & ! 3   
-     &    'OLIG_PAH1       ', 'OLIG_PAH2       ', 'OLIG_ALK1       ', & ! 4   
-     &    'OLIG_ALK2       ', 'PCSOA           ', 'POA_AGE1        ', & ! 5   
-     &    'POA_AGE2        ', 'POA_AGE3        ', 'POA_AGE4        ', & ! 6   
-     &    'POA_AGE5        ', 'POA_AGE6        ', 'POA_AGE7        ', & ! 7   
-     &    'POA_AGE8        ', 'POA_AGE9        ', 'POA_AGE10       '/   ! 8   
+      DATA ( RXLABEL( IRXXN ), IRXXN = 1, NRXNS ) / &
+     &    'R1              ', 'R2              ', 'R3              ', & ! 0
+     &    'R4              ', 'R5              ', 'R6              ', & ! 1
+     &    'R7              ', 'R8              ', 'R9              ', & ! 2
+     &    'R10             ', 'R11             ', 'R12             ', & ! 3
+     &    'R13             ', 'R14             ', 'R15             ', & ! 4
+     &    'R16             ', 'R17             ', 'R18             ', & ! 5
+     &    'R19             ', 'R20             ', 'R21             ', & ! 6
+     &    'R22             ', 'R23             ', 'R24             ', & ! 7
+     &    'R25             ', 'R26             ', 'R27             ', & ! 8
+     &    'R28             ', 'R29             ', 'R30             ', & ! 9
+     &    'R31             ', 'R32             ', 'R33             ', & ! 0
+     &    'R34             ', 'R35             ', 'R36             ', & ! 1
+     &    'R37             ', 'R38             ', 'R39             ', & ! 2
+     &    'R40             ', 'R41             ', 'R42             ', & ! 3
+     &    'R43             ', 'R44             ', 'R45             ', & ! 4
+     &    'R46             ', 'R47             ', 'R48             ', & ! 5
+     &    'R49             ', 'R50             ', 'R51             ', & ! 6
+     &    'R52             ', 'R53             ', 'R54             ', & ! 7
+     &    'R55             ', 'R56             ', 'R57             ', & ! 8
+     &    'R58             ', 'R59             ', 'R60             ', & ! 9
+     &    'R61             ', 'R62             ', 'R63             ', & ! 0
+     &    'R64             ', 'R65             ', 'R66             ', & ! 1
+     &    'R67             ', 'R68             ', 'R69             ', & ! 2
+     &    'R70             ', 'R71             ', 'R72             ', & ! 3
+     &    'R73             ', 'R74             ', 'R75             ', & ! 4
+     &    'R76             ', 'R77             ', 'R78             ', & ! 5
+     &    'R79             ', 'R80             ', 'R81             ', & ! 6
+     &    'R82             ', 'R83             ', 'R84             ', & ! 7
+     &    'R85             ', 'R86             ', 'R87             ', & ! 8
+     &    'R88             ', 'R89             ', 'R90             ', & ! 9
+     &    'R91             ', 'R92             ', 'R93             ', & ! 0
+     &    'R94             ', 'R95             ', 'R96             ', & ! 1
+     &    'R97             ', 'R98             ', 'R99             ', & ! 2
+     &    'R100            ', 'R101            ', 'R102            ', & ! 3
+     &    'R103            ', 'R104            ', 'R105            ', & ! 4
+     &    'R106            ', 'R107            ', 'R108            ', & ! 5
+     &    'R109            ', 'R110            ', 'R111            ', & ! 6
+     &    'R112            ', 'R113            ', 'R114            ', & ! 7
+     &    'R115            ', 'R116            ', 'R117            ', & ! 8
+     &    'R118            ', 'R119            ', 'R120            ', & ! 9
+     &    'R121            ', 'R122            ', 'R123            ', & ! 0
+     &    'R124            ', 'R125            ', 'R126            ', & ! 1
+     &    'R127            ', 'R128            ', 'R129            ', & ! 2
+     &    'R130            ', 'R131            ', 'R132            ', & ! 3
+     &    'R133            ', 'R134            ', 'R135            ', & ! 4
+     &    'R136            ', 'R137            ', 'R138            ', & ! 5
+     &    'R139            ', 'R140            ', 'R141            ', & ! 6
+     &    'R142            ', 'R143            ', 'R144            ', & ! 7
+     &    'R145            ', 'R146            ', 'R147            ', & ! 8
+     &    'R148            ', 'R149            ', 'R150            ', & ! 9
+     &    'R151            ', 'R152            ', 'R153            ', & ! 0
+     &    'R154            ', 'R155            ', 'R156            ', & ! 1
+     &    'R157            ', 'R158            ', 'R159            ', & ! 2
+     &    'R160            ', 'R161            ', 'R162            ', & ! 3
+     &    'R163            ', 'R164            ', 'R165            ', & ! 4
+     &    'R166            ', 'R167            ', 'R168            ', & ! 5
+     &    'R169            ', 'R170            ', 'R171            ', & ! 6
+     &    'R172            ', 'R173            ', 'R174            ', & ! 7
+     &    'R175            ', 'R176            ', 'R177            ', & ! 8
+     &    'R178            ', 'R179            ', 'R180            ', & ! 9
+     &    'R181            ', 'R182            ', 'R183            ', & ! 0
+     &    'R184            ', 'R185            ', 'R185a           ', & ! 1
+     &    'R186            ', 'R187            ', 'R188            ', & ! 2
+     &    'R189            ', 'R190            ', 'R191            ', & ! 3
+     &    'R192            ', 'R193            ', 'R194            ', & ! 4
+     &    'R195            ', 'R196            ', 'R197            ', & ! 5
+     &    'R198            ', 'R199            ', 'R200            ', & ! 6
+     &    'R201            ', 'R202            ', 'R203            ', & ! 7
+     &    'R204            ', 'R205            ', 'R206            ', & ! 8
+     &    'R207            ', 'R208            ', 'R209            ', & ! 9
+     &    'R210            ', 'R211            ', 'R212            ', & ! 0
+     &    'R213            ', 'R214            ', 'R216            ', & ! 1
+     &    'R217            ', 'R218            ', 'R219            ', & ! 2
+     &    'R220            ', 'CL1             ', 'CL2             ', & ! 3
+     &    'CL3             ', 'CL4             ', 'CL5             ', & ! 4
+     &    'CL6             ', 'CL7             ', 'CL8             ', & ! 5
+     &    'CL9             ', 'CL10            ', 'CL11            ', & ! 6
+     &    'CL12            ', 'CL13            ', 'CL14            ', & ! 7
+     &    'CL15            ', 'CL16            ', 'CL17            ', & ! 8
+     &    'CL18            ', 'CL19            ', 'CL20            ', & ! 9
+     &    'CL21            ', 'CL22            ', 'CL23            ', & ! 0
+     &    'CL23a           ', 'CL24            ', 'CL25            ', & ! 1
+     &    'SA01            ', 'SA02            ', 'SA03            ', & ! 2
+     &    'SA04            ', 'SA06            ', 'SA07            ', & ! 3
+     &    'SA08            ', 'SA09            ', 'SA10            ', & ! 4
+     &    'SA11            ', 'SA12            ', 'SA13            ', & ! 5
+     &    'HET_NTR2        ', 'HET_N2O5IJ      ', 'HET_N2O5K       ', & ! 6
+     &    'HET_H2NO3PIJA   ', 'HET_H2NO3PKA    ', 'HET_H2NO3PIB    ', & ! 7
+     &    'HET_H2NO3PJB    ', 'HET_H2NO3PKB    ', 'HET_N02         ', & ! 8
+     &    'HAL_Ozone       ', 'HET_IEPOX       ', 'HET_GLY         ', & ! 9
+     &    'HET_MGLY        ', 'OLIG_XYLENE1    ', 'OLIG_XYLENE2    ', & ! 0
+     &    'OLIG_TOLUENE1   ', 'OLIG_TOLUENE2   ', 'OLIG_BENZENE1   ', & ! 1
+     &    'OLIG_BENZENE2   ', 'OLIG_TERPENE1   ', 'OLIG_TERPENE2   ', & ! 2
+     &    'OLIG_ISOPRENE1  ', 'OLIG_ISOPRENE2  ', 'OLIG_SESQT1     ', & ! 3
+     &    'OLIG_PAH1       ', 'OLIG_PAH2       ', 'OLIG_ALK1       ', & ! 4
+     &    'OLIG_ALK2       ', 'PCSOA           ', 'POA_AGE1        ', & ! 5
+     &    'POA_AGE2        ', 'POA_AGE3        ', 'POA_AGE4        ', & ! 6
+     &    'POA_AGE5        ', 'POA_AGE6        ', 'POA_AGE7        ', & ! 7
+     &    'POA_AGE8        ', 'POA_AGE9        ', 'POA_AGE10       '/   ! 8
 
 !    NSPECIAL     = Number of special rate coefficients
 !    SPECIAL      = Names of special rate coefficients
 !    NSPECIAL_RXN = Number of reactions with special rates
 !    ISPECIAL     = Pointers to reactions using special rates and their special rate coefficients
 !    MAXSPECTERMS = Max Number of terms type used by special rate coefficients
-!    KC_COEFFS    = Coefficients of standard rate coefficients  times concentration terms 
+!    KC_COEFFS    = Coefficients of standard rate coefficients  times concentration terms
 !    INDEX_KTERMS  = Pointers to standard rate coefficients in  special rate coefficients
 !    INDEX_CTERMS  = Pointers to species concentrations in  special rate coefficients
-!    OPERATOR_COEFFS = Coefficients of preceeding special  rate coefficients used in special coefficient 
-!    OPERATORS       = Pointers to preceeding special  rate coefficients used in special coefficient 
+!    OPERATOR_COEFFS = Coefficients of preceeding special  rate coefficients used in special coefficient
+!    OPERATORS       = Pointers to preceeding special  rate coefficients used in special coefficient
 
 ! Special Rate information not available ..
       INTEGER, PARAMETER :: NSPECIAL_RXN = 0
@@ -780,7 +780,7 @@
       INTEGER            :: SS_PROD_RXNS( 1, 1 )
       INTEGER            :: SS_RCT_IND( 1 )
 
-      REAL               :: SS_PROD_COEF( 1,1 ) 
+      REAL               :: SS_PROD_COEF( 1,1 )
        LOGICAL,  PARAMETER :: USE_SPECIAL_RATES = .FALSE.
 ! pointers and names to specific photolysis rates
        INTEGER, PARAMETER  :: IJ_NO2_IUPAC10      =   1

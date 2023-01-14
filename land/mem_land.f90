@@ -1,35 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 Module mem_land
 
   implicit none
@@ -44,7 +12,7 @@ Module mem_land
 
   integer :: kperc = 2   ! Vertical index of percolation level; perc depth is slz(kperc)
 
-  real :: landgrid_dztop ! Thickness (m) of top (shallowest) soil grid level 
+  real :: landgrid_dztop ! Thickness (m) of top (shallowest) soil grid level
   real :: landgrid_depth ! Depth (m) of soil grid lower boundary
 
   real, save, allocatable :: slz   (:) ! height (negative) of soil layer M pt [m]
@@ -80,7 +48,7 @@ Module mem_land
 !     real, allocatable :: par_diffuse (:) ! diffuse photosynthetic active radiation (W/m^2)
       real, allocatable :: ppfd        (:) ! total photosynthetic photon flux density (uMol/m^2/s)
       real, allocatable :: ppfd_diffuse(:) ! diffuse photosynthetic photon flux density (uMol/m^2/s)
-      
+
      ! Canopy and surface quantities:
 
      integer, allocatable :: nlev_sfcwater (:) ! # of active surface water levels
@@ -170,9 +138,7 @@ Contains
 
   subroutine alloc_land(mland, nzg, nzs)
 
-  use misc_coms,  only: rinit
-  use oname_coms, only: nl
-
+  use misc_coms,  only: rinit, do_chem
   implicit none
 
   integer, intent(in) :: mland, nzg, nzs
@@ -190,10 +156,15 @@ Contains
 
   allocate (land%cosz               (mland)) ; land%cosz            = rinit
 
+! Photosynthetically active radiation (PAR) currently unused
 ! allocate (land%par                (mland)) ; land%par             = rinit
 ! allocate (land%par_diffuse        (mland)) ; land%par_diffuse     = rinit
-  allocate (land%ppfd               (mland)) ; land%ppfd            = rinit
-  allocate (land%ppfd_diffuse       (mland)) ; land%ppfd_diffuse    = rinit
+
+  ! Photosynthetic photon flux density (PPFD) only needed with full chemistry
+  if (do_chem == 1) then
+     allocate (land%ppfd            (mland)) ; land%ppfd            = rinit
+     allocate (land%ppfd_diffuse    (mland)) ; land%ppfd_diffuse    = rinit
+  endif
 
   allocate (land%nlev_sfcwater      (mland)) ; land%nlev_sfcwater   = 0
   allocate (land%sfcwater_mass  (nzs,mland)) ; land%sfcwater_mass   = rinit
@@ -291,7 +262,7 @@ Contains
 ! if (allocated(land%par_diffuse))  call increment_vtable('LAND%PAR_DIFFUSE',  'LW', rvar1=land%par_diffuse)
   if (allocated(land%ppfd))         call increment_vtable('LAND%PPFD',         'LW', rvar1=land%ppfd)
   if (allocated(land%ppfd_diffuse)) call increment_vtable('LAND%PPFD_DIFFUSE', 'LW', rvar1=land%ppfd_diffuse)
-     
+
   ! Soil quantities
 
   if (allocated(land%soil_water))  call increment_vtable('LAND%SOIL_WATER',  'LW', rvar2=land%soil_water)

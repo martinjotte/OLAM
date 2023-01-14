@@ -1,36 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University;
-   ! Colorado State University Research Foundation ; ATMET, LLC
-
-   ! This software is free software; you can redistribute it and/or modify it
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version.
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
-
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
-   ! (http://www.gnu.org/licenses/gpl.html)
-   !----------------------------------------------------------------------------
-
-!===============================================================================
-
 Module mem_plot
 
   use consts_coms, only: r8
@@ -73,27 +40,6 @@ Module mem_plot
 
   real, allocatable :: rlongup_top_accum_prev0(:)
   real, allocatable :: rlongup_top_accum_prev1(:)
-
-  real, allocatable :: rshort_clr_accum_prev0(:)
-  real, allocatable :: rshort_clr_accum_prev1(:)
-
-  real, allocatable :: rshortup_clr_accum_prev0(:)
-  real, allocatable :: rshortup_clr_accum_prev1(:)
-
-  real, allocatable :: rlong_clr_accum_prev0(:)
-  real, allocatable :: rlong_clr_accum_prev1(:)
-
-  real, allocatable :: rlongup_clr_accum_prev0(:)
-  real, allocatable :: rlongup_clr_accum_prev1(:)
-
-  real, allocatable :: rshort_top_clr_accum_prev0(:)
-  real, allocatable :: rshort_top_clr_accum_prev1(:)
-
-  real, allocatable :: rshortup_top_clr_accum_prev0(:)
-  real, allocatable :: rshortup_top_clr_accum_prev1(:)
-
-  real, allocatable :: rlongup_top_clr_accum_prev0(:)
-  real, allocatable :: rlongup_top_clr_accum_prev1(:)
 
   real, allocatable :: vc_accum_prev0(:,:)
   real, allocatable :: vc_accum_prev1(:,:)
@@ -161,16 +107,16 @@ Module mem_plot
   real, allocatable :: pcp_accum_prev2(:) ! fast can nud
   real, allocatable :: pcp_accum_prev3(:) ! fast can nud
 
-  real, allocatable :: runoff_accum_prev0(:)
-  real, allocatable :: runoff_accum_prev1(:)
-  real, allocatable :: runoff_accum_prev2(:)
-  real, allocatable :: runoff_accum_prev3(:)
-
   real, allocatable :: sfctemp_accum_prev0(:) ! fast can nud
   real, allocatable :: sfctemp_accum_prev1(:) ! fast can nud
 
   real, allocatable :: fracliq_accum_prev0(:) ! fast can nud
   real, allocatable :: fracliq_accum_prev1(:) ! fast can nud
+
+  real, allocatable :: runoff_accum_prev0(:)
+  real, allocatable :: runoff_accum_prev1(:)
+  real, allocatable :: runoff_accum_prev2(:)
+  real, allocatable :: runoff_accum_prev3(:)
 
   real, allocatable :: wxferi_accum_prev0(:)
   real, allocatable :: wxferi_accum_prev1(:)
@@ -355,16 +301,16 @@ Contains
     allocate ( pcp_accum_prev2(mwsfc)) ; pcp_accum_prev2(:) = 0. ! fast can nud
     allocate ( pcp_accum_prev3(mwsfc)) ; pcp_accum_prev3(:) = 0. ! fast can nud
 
-    allocate ( runoff_accum_prev0(mwsfc)) ; runoff_accum_prev0(:) = 0.
-    allocate ( runoff_accum_prev1(mwsfc)) ; runoff_accum_prev1(:) = 0.
-    allocate ( runoff_accum_prev2(mwsfc)) ; runoff_accum_prev2(:) = 0.
-    allocate ( runoff_accum_prev3(mwsfc)) ; runoff_accum_prev3(:) = 0.
-
     allocate ( sfctemp_accum_prev0(mwsfc)) ; sfctemp_accum_prev0(:) = 0. ! fast can nud
     allocate ( sfctemp_accum_prev1(mwsfc)) ; sfctemp_accum_prev1(:) = 0. ! fast can nud
 
     allocate ( fracliq_accum_prev0(mwsfc)) ; fracliq_accum_prev0(:) = 0. ! fast can nud
     allocate ( fracliq_accum_prev1(mwsfc)) ; fracliq_accum_prev1(:) = 0. ! fast can nud
+
+    allocate ( runoff_accum_prev0(mwsfc)) ; runoff_accum_prev0(:) = 0.
+    allocate ( runoff_accum_prev1(mwsfc)) ; runoff_accum_prev1(:) = 0.
+    allocate ( runoff_accum_prev2(mwsfc)) ; runoff_accum_prev2(:) = 0.
+    allocate ( runoff_accum_prev3(mwsfc)) ; runoff_accum_prev3(:) = 0.
 
     allocate ( wxferi_accum_prev0(mland)) ; wxferi_accum_prev0(:) = 0.
     allocate ( wxferi_accum_prev1(mland)) ; wxferi_accum_prev1(:) = 0.
@@ -462,19 +408,15 @@ Contains
                                rlong_accum,          rlongup_accum, &
                           rshort_top_accum,     rshortup_top_accum, &
                          rlongup_top_accum,                         &
-                          rshort_clr_accum,     rshortup_clr_accum, &
-                           rlong_clr_accum,      rlongup_clr_accum, &
-                      rshort_top_clr_accum, rshortup_top_clr_accum, &
-                     rlongup_top_clr_accum,                         &
-                              sfluxt_accum,           sfluxr_accum, & ! ---/nud
-                                 pcp_accum,           runoff_accum, & ! nud/---
-                             sfctemp_accum,          fracliq_accum, & ! nud/nud
                                   vc_accum,               wc_accum, &
                                press_accum,             tair_accum, &
                                 rr_v_accum,             vels_accum, &
                          latheat_liq_accum,      latheat_ice_accum, &
                              airtemp_accum,           airrrv_accum, &
                              cantemp_accum,           canrrv_accum, &
+                              sfluxt_accum,           sfluxr_accum, & ! ---/nud
+                                 pcp_accum,          sfctemp_accum, & ! nud/nud
+                             fracliq_accum,           runoff_accum, & ! nud/---
                             skintemp_accum,           wxferi_accum, &
                               wxferp_accum,           wxfer1_accum, &
                         airtemp_dmin_accum,     airtemp_dmax_accum, &
@@ -586,12 +528,12 @@ Contains
     pcp_accum_prev2(:) = pcp_accum_prev1(:) ! fast can nud
     pcp_accum_prev1(:) = pcp_accum_prev0(:) ! fast can nud
 
+    sfctemp_accum_prev1(:) = sfctemp_accum_prev0(:) ! fast can nud
+    fracliq_accum_prev1(:) = fracliq_accum_prev0(:) ! fast can nud
+
     runoff_accum_prev3(:) = runoff_accum_prev2(:)
     runoff_accum_prev2(:) = runoff_accum_prev1(:)
     runoff_accum_prev1(:) = runoff_accum_prev0(:)
-
-    sfctemp_accum_prev1(:) = sfctemp_accum_prev0(:) ! fast can nud
-    fracliq_accum_prev1(:) = fracliq_accum_prev0(:) ! fast can nud
 
     wxferi_accum_prev3(:) = wxferi_accum_prev2(:)
     wxferi_accum_prev2(:) = wxferi_accum_prev1(:)
@@ -678,9 +620,9 @@ Contains
       sfluxt_accum_prev0(:) = 0.
       sfluxr_accum_prev0(:) = 0. ! fast can nud
          pcp_accum_prev0(:) = 0. ! fast can nud
-      runoff_accum_prev0(:) = 0.
      sfctemp_accum_prev0(:) = 0. ! fast can nud
      fracliq_accum_prev0(:) = 0. ! fast can nud
+      runoff_accum_prev0(:) = 0.
       wxferi_accum_prev0(:) = 0.
       wxferp_accum_prev0(:) = 0.
       wxfer1_accum_prev0(:) = 0.
@@ -743,34 +685,6 @@ Contains
     if (allocated(rlongup_top_accum)) rlongup_top_accum_prev0(:) = &
                                       rlongup_top_accum_prev0(:) + &
                                  real(rlongup_top_accum(:))
-
-    if (allocated(rshort_clr_accum)) rshort_clr_accum_prev0(:) = &
-                                     rshort_clr_accum_prev0(:) + &
-                                real(rshort_clr_accum(:))
-
-    if (allocated(rshortup_clr_accum)) rshortup_clr_accum_prev0(:) = &
-                                       rshortup_clr_accum_prev0(:) + &
-                                  real(rshortup_clr_accum(:))
-
-    if (allocated(rlong_clr_accum)) rlong_clr_accum_prev0(:) = &
-                                    rlong_clr_accum_prev0(:) + &
-                               real(rlong_clr_accum(:))
-
-    if (allocated(rlongup_clr_accum)) rlongup_clr_accum_prev0(:) = &
-                                      rlongup_clr_accum_prev0(:) + &
-                                 real(rlongup_clr_accum(:))
-
-    if (allocated(rshort_top_clr_accum)) rshort_top_clr_accum_prev0(:) = &
-                                         rshort_top_clr_accum_prev0(:) + &
-                                    real(rshort_top_clr_accum(:))
-
-    if (allocated(rshortup_top_clr_accum)) rshortup_top_clr_accum_prev0(:) = &
-                                           rshortup_top_clr_accum_prev0(:) + &
-                                      real(rshortup_top_clr_accum(:))
-
-    if (allocated(rlongup_top_clr_accum)) rlongup_top_clr_accum_prev0(:) = &
-                                          rlongup_top_clr_accum_prev0(:) + &
-                                     real(rlongup_top_clr_accum(:))
 
     if (allocated(vc_accum)) vc_accum_prev0(:,:) = &
                              vc_accum_prev0(:,:) + &
@@ -836,10 +750,6 @@ Contains
                                pcp_accum_prev0(:) + &
                           real(pcp_accum(:))
 
-    if (allocated(runoff_accum))  runoff_accum_prev0(:) = &
-                                  runoff_accum_prev0(:) + &
-                             real(runoff_accum(:))
-
     if (allocated(sfctemp_accum))  sfctemp_accum_prev0(:) = & ! fast can nud
                                    sfctemp_accum_prev0(:) + &
                               real(sfctemp_accum(:))
@@ -847,6 +757,10 @@ Contains
     if (allocated(fracliq_accum))  fracliq_accum_prev0(:) = & ! fast can nud
                                    fracliq_accum_prev0(:) + &
                               real(fracliq_accum(:))
+
+    if (allocated(runoff_accum))  runoff_accum_prev0(:) = &
+                                  runoff_accum_prev0(:) + &
+                             real(runoff_accum(:))
 
     if (allocated(wxferi_accum))  wxferi_accum_prev0(:) = &
                                   wxferi_accum_prev0(:) + &

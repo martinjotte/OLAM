@@ -34,8 +34,8 @@ MODULE DEPVVARS
 !                        UTILIO_DEFN
 !           11 May 2011 J.Bash: Updated for NH3 bidirectional exchange
 !           04 Jan 2012 J.Young: Initialize char variables with blank padding
-!           28 Aug 2014  G. Sarwar: added deposition for CLNO2 
-!           07 Nov 14 J.Bash: Updated for the ASX_DATA_MOD shared data module. 
+!           28 Aug 2014  G. Sarwar: added deposition for CLNO2
+!           07 Nov 14 J.Bash: Updated for the ASX_DATA_MOD shared data module.
 !           05 May 2015: H.Pye: Added ISOPNN and MTNO3 with Donna Schwede
 !           24 Aug 2015: H.Pye: Added IEPOX and HACET with Donna Schwede
 !           26 Jan 2016: H. Pye added info for SOA SVOCs
@@ -359,9 +359,7 @@ CONTAINS
     IMPLICIT NONE
 
     LOGICAL         :: SUCCESS
-    INTEGER         :: ALLOCSTAT
     INTEGER         :: L
-    CHARACTER( 96 ) :: XMSG
     REAL, PARAMETER :: TWOTHIRD = 2.0 / 3.0
 
     SUCCESS = .TRUE.

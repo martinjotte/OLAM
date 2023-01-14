@@ -1,7 +1,7 @@
 /******************************************************************************************
  Copyright (C) 2005-2006  Karl Pfeiffer
- This file is part of wgrib2 and is distributed under terms of the GNU General Public License 
- For details see, Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, 
+ This file is part of wgrib2 and is distributed under terms of the GNU General Public License
+ For details see, Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
     Boston, MA  02110-1301  USA
   mods made Wesley Ebisuzaki
   4/2006 Bug found by Naoya Suda (lambert2ll) Thanks
@@ -25,7 +25,7 @@
  * 10/2010 rotated lat-lon (experimental)
  * 1/2012 regional Gaussian grid
  * 12/2013 added staggering to regular2ll .. adds to rotated lat-lon grids
- * 02/2014 added staggering to lambert2ll 
+ * 02/2014 added staggering to lambert2ll
  * 04/2014 add the new args to stagger()
  */
 #include <stdio.h>
@@ -61,11 +61,11 @@ extern enum output_order_type output_order;
 static double todegrees(double x) { return x * (180.0/M_PI); }
 
 int regular2ll(unsigned char **sec, double **lat, double **lon) {
- 
+
     int basic_ang, sub_ang;
     double units, dlat, dlon, lat1, lat2, lon1, lon2;
     double e, w, n, s, dx, dy;
- 
+
     unsigned int i, j;
     double *llat, *llon;
     unsigned char *gds;
@@ -127,7 +127,7 @@ int regular2ll(unsigned char **sec, double **lat, double **lon) {
             if (fabs(dy - dlat) > 0.001) fatal_error("lat-lon grid: dlat is inconsistent, bad grid definition","");
         }
     }
-    else { 
+    else {
         dy = 0.0;
     }
 // fprintf(stderr,">>> geo:  dy %lf dlat %lf nres %d has dy %d has dx %d\n", dy, dlat, nres, nres & 16, nres & 32);
@@ -208,7 +208,7 @@ int regular2ll(unsigned char **sec, double **lat, double **lon) {
             }
         }
     return 0;
-} /* end regular2ll() */ 
+} /* end regular2ll() */
 
 /* adapted from grib2ctl.pl */
 
@@ -283,7 +283,7 @@ int rot_regular2ll(unsigned char **sec, double **lat, double **lon) {
 /* adapted from iplib */
 
 int polar2ll(unsigned char **sec, double **llat, double **llon) {
-    
+
     double *lat, *lon;
     unsigned char *gds;
 
@@ -293,7 +293,7 @@ int polar2ll(unsigned char **sec, double **llat, double **llon) {
     unsigned int nnx, nny;
     int nres, nscan;
     unsigned int nnpnts;
-    size_t nx;    
+    size_t nx;
 
     get_nxny_(sec, &nnx, &nny, &nnpnts, &nres, &nscan);
 
@@ -343,7 +343,7 @@ int polar2ll(unsigned char **sec, double **llat, double **llon) {
     "Grid length is in units of 10-3 m at the latitude specified by LaD"
      do use GDS_Polar_lad(gds) instead of 60?
      Do use fabs for southern hemisphere?
-    */ 
+    */
 
     de = (1.0 + sin(fabs(LatD)*(M_PI/180.0))) * radius_earth(sec);
     dr = de * cos(lat1) / (1 + h*sin(lat1));
@@ -436,12 +436,12 @@ int lambert2ll(unsigned char **sec, double **llat, double **llon) {
         n = sin(latin1r);
     }
     else {
-        n = log(cos(latin1r)/cos(latin2r)) / 
+        n = log(cos(latin1r)/cos(latin2r)) /
         log(tan(M_PI_4 + latin2r/2.0) / tan(M_PI_4 + latin1r/2.0));
     }
-  
+
     f = (cos(latin1r) * pow(tan(M_PI_4 + latin1r/2.0), n)) / n;
-  
+
     rho = earth_radius * f * pow(tan(M_PI_4 + lat1r/2.0),-n);
     // old rhoref = earth_radius * f * pow(tan(M_PI_4 + latin1r/2.0),-n);
     rhoref = earth_radius * f * pow(tan(M_PI_4 + latDr/2.0),-n);
@@ -450,8 +450,8 @@ int lambert2ll(unsigned char **sec, double **llat, double **llon) {
     d_lon = lon1r - lon2r;
     if (d_lon > M_PI) d_lon -= 2*M_PI;
     if (d_lon < -M_PI) d_lon += 2*M_PI;
-    theta = n * d_lon; 
-    // 2/2009 theta = n * (lon1r - lon2r); 
+    theta = n * d_lon;
+    // 2/2009 theta = n * (lon1r - lon2r);
 
     startx = rho * sin(theta);
     starty = rhoref - rho * cos(theta);
@@ -612,7 +612,7 @@ int mercator2ll(unsigned char **sec, double **lat, double **lon) {
 
 
 /*  kdp 2005-08-22
- *  
+ *
  *  Code for computing Gaussian latitudes was adapted from
  *  the wonderful gauss2lats.m Matlab program from Tom Holt.
  *  The code gauss2lats.m also works quite well with Octave.
@@ -624,11 +624,11 @@ int mercator2ll(unsigned char **sec, double **lat, double **lon) {
  * Note: adapted from an NCAR fortran program by Tom Holt
  */
 double gord(int n, double x) {
-  
+
   double colat = acos(x);
   double c1 = M_SQRT2;
   int i;
-  
+
   double fn = (double) n;
   double ang = fn * colat;
   double s1 =  0.0;
@@ -639,33 +639,33 @@ double gord(int n, double x) {
 
   for (i=1; i <= n; i++) {
     c1 = c1 * sqrt(1.0 - 1.0/(4.0*i*i));
-  } 
-  
+  }
+
   for (i = 0; i <= n; i = i + 2) {
     if ( i == n ) { c4 = 0.5 * c4; }
     s1  = s1 + c4*cos(ang);
     a   = a + 2.0;
     b   = b + 1.0;
     fi = (double) i;
-    ang = colat*(fn - fi - 2.0); 
+    ang = colat*(fn - fi - 2.0);
     c4 = (a*(fn-b+1.0)/(b*(fn+fn-a)))*c4;
   }
-  
+
   return ( s1 * c1 );
-  
+
 } /* end gord() */
 
 
 double *gauss2lats(int nlat, double *ylat) {
-  
+
   const double xlim = 1.0E-7;
-  
+
   double *cosc  = (double *) malloc(sizeof(double) * (nlat + 1));
   double *sinc  = (double *) malloc(sizeof(double) * (nlat + 1));
   double *colat = (double *) malloc(sizeof(double) * (nlat + 1));
-  
+
   int nzero = (nlat / 2);
-  
+
   int i;
   double fi = nlat;
   double fi1 = fi + 1.0;
@@ -677,7 +677,7 @@ double *gauss2lats(int nlat, double *ylat) {
   for (i = 1; i <= nzero; i++) {
     cosc[i] = sin((i - 0.5)*M_PI/nlat + M_PI*0.5);
   }
-  
+
   for (i = 1; i <= nzero; i++) {
     g = gord(nlat, cosc[i]);
     gm = gord(nlat - 1, cosc[i]);
@@ -685,7 +685,7 @@ double *gauss2lats(int nlat, double *ylat) {
     gt = (cosc[i]*cosc[i] - 1.0)/(a * gp - b * gm);
     delta = g*gt;
     cosc[i] = cosc[i] - delta;
-    
+
     while ( fabs(delta) > xlim ) {
       g = gord(nlat,cosc[i]);
       gm = gord(nlat - 1, cosc[i]);
@@ -693,16 +693,16 @@ double *gauss2lats(int nlat, double *ylat) {
       gt = (cosc[i]*cosc[i] - 1.0)/(a * gp - b * gm);
       delta = g*gt;
       cosc[i] = cosc[i] - delta;
-      
+
     } /* end while */
-    
+
   } /* end for */
-  
+
   for (i = 1; i <= nzero; i++) {
     colat[i] = acos(cosc[i]);
     sinc[i] = sin(colat[i]);
   }
-  
+
   /*
    * ... deal with equator if odd number of points
    */
@@ -714,7 +714,7 @@ double *gauss2lats(int nlat, double *ylat) {
     colat[i] = M_PI * 0.5;
     sinc[i] = 1.0;
   } /* end if() */
-  
+
   /*
    *  ... deal with southern hemisphere by symmetry
    */
@@ -723,7 +723,7 @@ double *gauss2lats(int nlat, double *ylat) {
     colat[i] = M_PI - colat[nlat + 1 - i];
     sinc[i]  = sinc[nlat + 1 - i];
   } /* end for(i) */
-  
+
   for (i = 1; i <= nlat; i++) {
     ylat[i-1] = todegrees(acos(sinc[i]));
     if ( i > (nlat / 2) ) ylat[i-1] = -ylat[i-1];
@@ -734,19 +734,19 @@ double *gauss2lats(int nlat, double *ylat) {
   free(cosc);
   free(sinc);
   free(colat);
-  
+
   return ylat;
-  
+
 } /* end gauss2lats() */
 
 #define LATERR		(0.01 * 180.0 / (double) nlat)
 
 
 int gauss2ll(unsigned char **sec, double **llat, double **llon) {
- 
- 
+
+
     int nlat; /* in grib, number of latitudes must be even! */
-  
+
     double dx, e, w, south, north, lat1, lon1, lat2, lon2, *ylat;
     int isouth, inorth;
     double units;
@@ -805,7 +805,7 @@ int gauss2ll(unsigned char **sec, double **llat, double **llon) {
     lon = *llon;
 
     /* do latitudes first */
- 
+
     ylat = (double *) malloc(sizeof(double) * nlat);
 
     /* calculate Gaussian latitudes */
@@ -847,10 +847,10 @@ int gauss2ll(unsigned char **sec, double **llat, double **llon) {
         }
     }
 
-    free(ylat); 
+    free(ylat);
 
     /* now for the longitudes */
-  
+
     if (GDS_Scan_x(nscan)) {
         e = lon1;
         w = lon2;
@@ -876,7 +876,7 @@ int gauss2ll(unsigned char **sec, double **llat, double **llon) {
 {
 #pragma omp for private(i)
 	for (i = 0; i < nnx; i++) {
-            lon[i] = e + (dx * i) >= 360.0 ?  e + (dx * i) - 360.0 : e + (dx * i);  
+            lon[i] = e + (dx * i) >= 360.0 ?  e + (dx * i) - 360.0 : e + (dx * i);
 	}
 #pragma omp for private(i,j)
 	for (j = 1; j < nny; j++) {
@@ -905,7 +905,7 @@ int gauss2ll(unsigned char **sec, double **llat, double **llon) {
 
 
 
-/* closest_init:  location of grid point in x-y-z space, assume r=1 */ 
+/* closest_init:  location of grid point in x-y-z space, assume r=1 */
 
 static double *x = NULL, *y = NULL, *z = NULL;
 extern int use_gctpc;
@@ -963,7 +963,7 @@ int closest_init(unsigned char **sec) {
 }
 
 /*
- * closest: 
+ * closest:
  *    * 6/2018 2G+ rewrote OpenMP
  */
 long int closest(unsigned char **sec, double plat, double plon) {

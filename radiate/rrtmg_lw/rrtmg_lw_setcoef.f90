@@ -222,7 +222,7 @@
 !  reference pressure) is nearest the layer temperature but does
 !  not exceed it.  Store these indices in JT and JT1, resp.
 !  Store in FT (resp. FT1) the fraction of the way between JT
-!  (JT1) and the next highest reference temperature that the 
+!  (JT1) and the next highest reference temperature that the
 !  layer temperature falls.
 
          jt(lay) = max(1, min(4, int(3._rb + (tavel(lay)-tref(jp(lay)))/15._rb)))

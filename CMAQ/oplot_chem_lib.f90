@@ -2,13 +2,13 @@ subroutine oplot_chem_lib(kk,ii,infotyp,fldname0,wtbot,wttop,fldval,notavail)
 
   use oplot_coms,   only: op
   use mem_para,     only: myrank
-  use mem_grid,     only: mza, mva, mwa, lpm, lpv, lpw, lsw, arw0
+  use mem_grid,     only: mza, lpm, lpv, lpw, arw0
   use soil_nox,     only: soilnox, pfactor, drytime
   use misc_coms,    only: do_chem, io6
   use mem_ijtabs,   only: itab_w, jtab_w, jtab_v, jtab_m, jtw_prog, jtv_prog, jtm_vadj
   use mem_sfcg,     only: itab_wsfc, sfcg
-  use mem_land,     only: land, mland, omland
-  use mem_sea,      only: sea, msea, omsea
+  use mem_land,     only: mland, omland
+  use mem_sea,      only: msea, omsea
   use soil_nox,     only: soilnox, pfactor, drytime
   use ltng_defn,    only: column_ltng_no, vdemis_lt
   use depv_defn,    only: depvel_gas, n_gas_depv, gas_depv_sur
@@ -30,7 +30,7 @@ subroutine oplot_chem_lib(kk,ii,infotyp,fldname0,wtbot,wttop,fldval,notavail)
   integer, parameter :: nfields = 9
   character(40)      :: fldlib(4,nfields)
   character(40)      :: fldname
-  integer            :: i, k, ifield, kp, n, jsfc, iwsfc, jasfc, iland, isea
+  integer            :: i, k, ifield, kp, n, jsfc, iwsfc, jasfc, isea
   integer, save      :: icase
 
   integer, save      :: io3_depv = -1

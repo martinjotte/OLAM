@@ -63,7 +63,7 @@ contains
     call shdf5_close()
 
   contains
-    
+
     subroutine read_cmaq_file(num, start, end, delr, extsw, ssasw, asysw, name)
       use csqy_data,  only: nwl
       use hdf5_utils, only: shdf5_irec

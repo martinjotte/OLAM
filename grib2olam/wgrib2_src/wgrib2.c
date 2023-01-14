@@ -223,7 +223,7 @@ int wgrib2(int argc, const char **argv) {
 
 	/* filename: either - or string that does not start with - */
 	if (new_argv[i][0] != '-' || (strcmp(new_argv[i],"-") == 0))  {
-	    if (file_arg) 
+	    if (file_arg)
 		fatal_error_ss("too many grib files .. 1st=%s 2nd=%s", new_argv[file_arg], new_argv[i]);
 	    file_arg = i;
 	    fopen_file(&in_file, new_argv[file_arg],"rb");
@@ -344,10 +344,10 @@ int wgrib2(int argc, const char **argv) {
 	else fatal_error("missing input file %s", new_argv[file_arg]);
     }
 
-    if (latlon == 1 && output_order_wanted != wesn) 
+    if (latlon == 1 && output_order_wanted != wesn)
            fatal_error("latitude-longitude information is only available with -order we:sn","");
 
-    if (input == inv_mode && (in_file.file_type != DISK && in_file.file_type != MEM)) 
+    if (input == inv_mode && (in_file.file_type != DISK && in_file.file_type != MEM))
 	fatal_error("wgrib2 cannot random access grib input file","");
 
 #ifdef DEBUG
@@ -384,13 +384,13 @@ int wgrib2(int argc, const char **argv) {
 #endif
     }
 
-    /* 
+    /*
      * submsg = 0 .. beginning of unread record
      * submsg = i .. start at ith submsg
      * num_submsgs = number of submessages in grib message
      */
 
-    /* inventory loop */ 
+    /* inventory loop */
 
     for (;last_message == 0;) {
 
@@ -592,13 +592,13 @@ int wgrib2(int argc, const char **argv) {
 	j = code_table_5_0(sec);		// type of compression
 
 	/* yes this can be simplified but want to split it up in case other decoders have problems */
-	if (j == 0 && sec[5][19] == 0 && int2(sec[5] + 17) != 0 && ieee2flt(sec[5]+11) != 0.0) 
+	if (j == 0 && sec[5][19] == 0 && int2(sec[5] + 17) != 0 && ieee2flt(sec[5]+11) != 0.0)
 		fprintf(stderr,"Warning: g2lib/g2clib/grib-api simple encode/decode may differ from WMO standard, use -g2clib 0 for WMO standard\n");
-	if ((j == 2 || j == 3) && int2(sec[5]+17) != 0 && int4(sec[5] + 31) == 0 && ieee2flt(sec[5]+11) != 0.0) 
+	if ((j == 2 || j == 3) && int2(sec[5]+17) != 0 && int4(sec[5] + 31) == 0 && ieee2flt(sec[5]+11) != 0.0)
 		fprintf(stderr,"Warning: g2lib/g2clib complex encode/decode may differ from WMO standard, use -g2clib 0 for WMO standard\n");
-	if (j == 40 && sec[5][19] == 0 && int2(sec[5] + 17) != 0 && ieee2flt(sec[5]+11) != 0.0) 
+	if (j == 40 && sec[5][19] == 0 && int2(sec[5] + 17) != 0 && ieee2flt(sec[5]+11) != 0.0)
 		fprintf(stderr,"Warning: g2lib/g2clib jpeg encode/deocde may differ from WMO standard, use -g2clib 0 for WMO standard\n");
-	if (j == 41 && sec[5][19] == 0 && int2(sec[5] + 17) != 0 && ieee2flt(sec[5]+11) != 0.0) 
+	if (j == 41 && sec[5][19] == 0 && int2(sec[5] + 17) != 0 && ieee2flt(sec[5]+11) != 0.0)
 		fprintf(stderr,"Warning: g2lib/g2clib/grib-api png encode/decode may differ from WMO standard, use -g2clib 0 for WMO standard\n");
 
 	/* check the size of Section 7 */
@@ -712,7 +712,7 @@ int wgrib2(int argc, const char **argv) {
 		    /* g2clib ignores decimal scaling for constant fields make internal decoders look like g2clib*/
                     if ( (j == 0 && sec[5][19] == 0) || ((j == 2 || j == 3) && int4(sec[5] + 31) == 0) ||
                          (j == 40 && sec[5][19] == 0) || (j == 41 && sec[5][19] == 0) ||
-                         (center == NCEP && j == 40000 && sec[5][19] == 0) || 
+                         (center == NCEP && j == 40000 && sec[5][19] == 0) ||
                          (center == NCEP && j == 40010 && sec[5][19] == 0)  ) {
 			dscale[0] = sec[5][17];
 			dscale[1] = sec[5][18];
@@ -723,11 +723,11 @@ int wgrib2(int argc, const char **argv) {
 		err = unpk_grib(sec, data);
                 if (err != 0) fatal_error_i("Fatal decode packing type %d",err);
 
-		if (use_g2clib == 1) {  // fix up data 
+		if (use_g2clib == 1) {  // fix up data
 		    /* restore decimal scaling */
                     if ( (j == 0 && sec[5][19] == 0) || ((j == 2 || j == 3) && int4(sec[5] + 31) == 0) ||
                          (j == 40 && sec[5][19] == 0) || (j == 41 && sec[5][19] == 0) ||
-                         (center == NCEP && j == 40000 && sec[5][19] == 0) || 
+                         (center == NCEP && j == 40000 && sec[5][19] == 0) ||
                          (center == NCEP && j == 40010 && sec[5][19] == 0)  ) {
 			sec[5][17] = dscale[0];
 			sec[5][18] = dscale[1];
@@ -793,7 +793,7 @@ int wgrib2(int argc, const char **argv) {
             if (functions[arglist[j].fn].type != setup) {
 		new_inv_out();	// inv_out[0] = 0;
 	        n_arg = functions[arglist[j].fn].nargs;
-		if (n_arg == 0) 
+		if (n_arg == 0)
                     functions[arglist[j].fn].fn(mode, sec, data, ndata, inv_out, local+j);
 		else if (n_arg == 1)
 		    functions[arglist[j].fn].fn(mode, sec, data, ndata, inv_out, local+j,
@@ -879,7 +879,7 @@ int wgrib2(int argc, const char **argv) {
 //        if (functions[arglist[j].fn].type != setup) {
 	    n_arg = functions[arglist[j].fn].nargs;
 	    new_inv_out();	// inv_out[0] = 0;
-	    if (n_arg == 0) 
+	    if (n_arg == 0)
                 err |= functions[arglist[j].fn].fn(-2, NULL, NULL, 0, inv_out, local+j);
 	    else if (n_arg == 1)
 		err |= functions[arglist[j].fn].fn(-2, NULL, NULL, 0, inv_out, local+j,

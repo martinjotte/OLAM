@@ -1,39 +1,6 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
+subroutine effxy(lpw0,k1,k2,qr,emb,tx,eff)
 
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
-subroutine effxy(lpw0,k1,k2,rx,qr,emb,tx,eff)
-
-use micro_coms, only: mza0, ncat, jnmb, rxmin, neff, cfmasi, pwmasi
-use misc_coms,  only: io6
+use micro_coms, only: mza0, ncat, jnmb, neff, cfmasi, pwmasi
 
 implicit none
 
@@ -42,7 +9,6 @@ integer, intent(in) :: lpw0
 integer, intent(in) :: k1(11)
 integer, intent(in) :: k2(11)
 
-real, intent(in) :: rx (mza0,ncat)
 real, intent(in) :: qr (mza0,ncat)
 real, intent(in) :: emb(mza0,ncat)
 real, intent(in) :: tx (mza0,ncat)
@@ -186,7 +152,6 @@ subroutine cols(mx,meff,j1,j2, &
    jhcat,ict1,ict2,wct1,wct2,rx,cx,eff,colfac,exxxx)
 
 use micro_coms, only: mza0, ncat, rxmin, ipair, coltabc, neff
-use misc_coms,  only: io6
 
 implicit none
 
@@ -240,7 +205,6 @@ subroutine col1188(mx,mz,meff,j1,j2, &
 
 use micro_coms, only: mza0, ncat, rxmin, ipair, jnmb, neff, &
                       coltabc, coltabx
-use misc_coms,  only: io6
 
 implicit none
 
@@ -267,9 +231,9 @@ real, intent(inout) :: rxxxz(mza0,2)
 real, intent(inout) :: exxxx(mza0)
 real, intent(inout) :: exxxz(mza0)
 
-integer :: k,ipc,ipc2,ipx,indx
+integer :: k,ipc,ipx
 
-real :: c1,c2,tabc,tabc2,tabx,embxzi,colc
+real :: c1,c2,tabc,tabx,embxzi,colc
 
 if (mx == 1) then         ! Cloud-cloud (mx = 1 and mz = 8)
    embxzi = 1. / 15.e-12  ! Droplet mass for transfer to drizzle
@@ -322,18 +286,16 @@ end subroutine col1188
 
 !===============================================================================
 
-subroutine col1882(mx,my,mz,meff,j1,j2, &
+subroutine col1882(mx,my,meff,j1,j2, &
    jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,rxyxy,rxyxz,rxyyz,exyxx,exyyz)
 
-use micro_coms, only: mza0, ncat, rxmin, ipair, jnmb, neff, &
+use micro_coms, only: mza0, ncat, rxmin, ipair, neff, &
                       coltabc, coltabx, coltaby, driz_gammq
-use misc_coms,  only: io6
 
 implicit none
 
 integer, intent(in) :: mx
 integer, intent(in) :: my
-integer, intent(in) :: mz
 integer, intent(in) :: meff
 integer, intent(in) :: j1
 integer, intent(in) :: j2
@@ -359,7 +321,7 @@ real, intent(inout) :: exyyz(mza0)
 
 integer :: k,ipc,ipx,ipx2,ipy2
 
-real :: c1,tabc,tabc2,tabx,tabx2,taby2,gammq
+real :: c1,tabc,tabx,tabx2,taby2,gammq
 
 real, parameter :: embxzi = 1. / 4.e-9 ! Droplet mass for transfer to rain
 
@@ -448,7 +410,6 @@ subroutine col3344(mx,mz,meff,j1,j2, &
 
 use micro_coms, only: mza0, ncat, rxmin, ipair, jnmb, neff,  &
                       coltabc, coltabx
-use misc_coms,  only: io6
 
 implicit none
 
@@ -524,7 +485,6 @@ subroutine col3443(meff,j1,j2,iw0, &
 
 use micro_coms, only: mza0, ncat, rxmin, neff, ipair, &
                       coltabc, coltabx, coltaby
-use misc_coms,  only: io6
 
 implicit none
 
@@ -620,18 +580,16 @@ end subroutine col3443
 
 !===============================================================================
 
-subroutine col1(mx,my,mz,meff,j1,j2, &
+subroutine col1(mx,my,meff,j1,j2, &
    jhcat,ict1,ict2,wct1,wct2,rx,cx,qx,eff,colfac,rxyxz,exyxx)
 
 use micro_coms, only: mza0, ncat, neff, rxmin, ipair, jnmb, &
                       coltabc, coltabx
-use misc_coms,  only: io6
 
 implicit none
 
 integer, intent(in) :: mx
 integer, intent(in) :: my
-integer, intent(in) :: mz
 integer, intent(in) :: meff
 integer, intent(in) :: j1
 integer, intent(in) :: j2
@@ -704,7 +662,6 @@ subroutine col2(mx,my,mz,meff,j1,j2, &
 use micro_coms, only: mza0, ncat, rxmin, ipair, coltabx, coltaby, coltabc, &
                       sipfac, pwmasi, emb1i, gamsip13, gamsip24, emb0, neff, &
                       jnmb, ngam
-use misc_coms,  only: io6
 use therm_lib,  only: qtc
 
 implicit none
@@ -889,7 +846,6 @@ subroutine col3(my,mz,meff,j1,j2, &
 
 use micro_coms, only: mza0, ncat, rxmin, ipair, jnmb, neff, &
                       coltabx, coltaby, coltabc
-use misc_coms,  only: io6
 use therm_lib,  only: qtc
 
 implicit none
@@ -1065,18 +1021,17 @@ subroutine colxfers(iw0,k1,k2,rx,cx,qr, &
    r8486,r8484,r8446,r8583,r8586,r8585,r8556,r8683,r8686,r1713, &
    r1717,r8783,r8787,r2332,r2327,r2323,r2337,r2442,r2427,r2424, &
    r2447,r2552,r2527,r2525,r2557,r2662,r2627,r2626,r2667,r2772, &
-   r2727,r0000,r1812,r1882, &
+   r2727,r1812,r1882, &
    e1111,e1118,e8888,e8882,e1112,e1811,e1211,e8288,e2222,e5555, &
    e6666,e7777,e3333,e3335,e4444,e4445,e3433,e3444,e3435,e3445, &
    e3533,e3633,e3733,e4544,e4644,e4744,e5655,e5755,e6766,e1413, &
    e1411,e1446,e1513,e1511,e1556,e1613,e1611,e8483,e8488,e8446, &
    e8583,e8588,e8556,e8683,e8688,e1713,e1711,e8783,e8788,e2322, &
    e2327,e2333,e2337,e2422,e2427,e2444,e2447,e2522,e2527,e2555, &
-   e2557,e2622,e2627,e2666,e2667,e2722,e2727,e2777,e0000,e1882, &
+   e2557,e2622,e2627,e2666,e2667,e2722,e2727,e2777,e1882, &
    con_ccnx)
 
 use micro_coms,  only: mza0, ncat, jnmb, iccn, rxmin
-use misc_coms,   only: io6
 use ccnbin_coms, only: nccntyp, nbins, relcon_bin, ihyg, iccntyp
 
 implicit none
@@ -1102,7 +1057,7 @@ real, intent(inout) :: &
   r2323(mza0,2),r2337(mza0,2),r2442(mza0,2),r2427(mza0,2),r2424(mza0,2), &
   r2447(mza0,2),r2552(mza0,2),r2527(mza0,2),r2525(mza0,2),r2557(mza0,2), &
   r2662(mza0,2),r2627(mza0,2),r2626(mza0,2),r2667(mza0,2),r2772(mza0,2), &
-  r2727(mza0,2),r0000(mza0,2),r1812(mza0,2),r1882(mza0,2)
+  r2727(mza0,2),r1812(mza0,2),r1882(mza0,2)
 
 real, intent(inout) :: &
   e1111(mza0),e1118(mza0),e8888(mza0),e8882(mza0),e1112(mza0), &
@@ -1118,23 +1073,20 @@ real, intent(inout) :: &
   e2327(mza0),e2333(mza0),e2337(mza0),e2422(mza0),e2427(mza0), &
   e2444(mza0),e2447(mza0),e2522(mza0),e2527(mza0),e2555(mza0), &
   e2557(mza0),e2622(mza0),e2627(mza0),e2666(mza0),e2667(mza0), &
-  e2722(mza0),e2727(mza0),e2777(mza0),e0000(mza0),e1882(mza0)
+  e2722(mza0),e2727(mza0),e2777(mza0),e1882(mza0)
 
 real, intent(inout) :: con_ccnx(mza0,nccntyp)
-
-integer :: lcat,jcat,kd1,kd2,k
-real :: fac
 
 real ::  rloss(mza0,ncat)
 real :: qrloss(mza0,ncat)
 real :: enloss(mza0,ncat)
 
-integer :: ibin, jbin, jc
+integer :: ibin, jbin, jc, k
 real :: con_ccny(nccntyp)
-real :: ccnloss, tot, con_bin
+real :: ccnloss, tot, con_bin, fac
 
 ! Limit rxfer and enxfer values so no hydrometeor category gets over-depleted.
-! Limit the losses to each category without accounting for potential 
+! Limit the losses to each category without accounting for potential
 ! compensating gains.
 
 ! All enxfer and rxfer values are nonnegative.
@@ -1520,7 +1472,7 @@ if (jnmb(8) >= 1) then
 
 endif
 
-! Transfer bulk density, energy, and number between hydrometeor categories 
+! Transfer bulk density, energy, and number between hydrometeor categories
 ! as a result of hydrometeor collisions.
 
 ! CLOUD as donor
@@ -1572,14 +1524,14 @@ if (jnmb(2) >= 1) then
       rx(k,3) = rx(k,3) + r2323(k,1)
       rx(k,4) = rx(k,4) + r2424(k,1)
       rx(k,5) = rx(k,5) + r2525(k,1)
-      rx(k,6) = rx(k,6) + r2626(k,1) 
+      rx(k,6) = rx(k,6) + r2626(k,1)
       rx(k,7) = rx(k,7) + r2327(k,1) + r2427(k,1) + r2527(k,1) &
                         + r2627(k,1) + r2727(k,1)
 
       qr(k,3) = qr(k,3) + r2323(k,2)
       qr(k,4) = qr(k,4) + r2424(k,2)
       qr(k,5) = qr(k,5) + r2525(k,2)
-      qr(k,6) = qr(k,6) + r2626(k,2) 
+      qr(k,6) = qr(k,6) + r2626(k,2)
       qr(k,7) = qr(k,7) + r2327(k,2) + r2427(k,2) + r2527(k,2) &
                         + r2627(k,2) + r2727(k,2)
 
@@ -1603,15 +1555,15 @@ if (jnmb(3) >= 1) then
 
       rx(k,2) = rx(k,2) + r2332(k,1)
       rx(k,5) = rx(k,5) + r3335(k,1) + r3435(k,1) + r3535(k,1)
-      rx(k,6) = rx(k,6) + r3636(k,1) 
+      rx(k,6) = rx(k,6) + r3636(k,1)
       rx(k,7) = rx(k,7) + r3737(k,1) + r2337(k,1)
 
       qr(k,2) = qr(k,2) + r2332(k,2)
       qr(k,5) = qr(k,5) + r3335(k,2) + r3435(k,2) + r3535(k,2)
-      qr(k,6) = qr(k,6) + r3636(k,2) 
+      qr(k,6) = qr(k,6) + r3636(k,2)
       qr(k,7) = qr(k,7) + r3737(k,2) + r2337(k,2)
 
-      cx(k,5) = cx(k,5) + e3335(k) + e3435(k) 
+      cx(k,5) = cx(k,5) + e3335(k) + e3435(k)
       cx(k,7) = cx(k,7) + e2337(k)
    enddo
 
@@ -1628,7 +1580,7 @@ if (jnmb(4) >= 1) then
       qr(k,4) = qr(k,4) - qrloss(k,4)
       cx(k,4) = cx(k,4) - enloss(k,4)
 
-      rx(k,2) = rx(k,2) + r2442(k,1) 
+      rx(k,2) = rx(k,2) + r2442(k,1)
       rx(k,5) = rx(k,5) + r4445(k,1) + r3445(k,1) + r4545(k,1)
       rx(k,6) = rx(k,6) + r4646(k,1) + r1446(k,1) + r8446(k,1)
       rx(k,7) = rx(k,7) + r4747(k,1) + r2447(k,1)
@@ -1656,12 +1608,12 @@ if (jnmb(5) >= 1) then
       qr(k,5) = qr(k,5) - qrloss(k,5)
       cx(k,5) = cx(k,5) - enloss(k,5)
 
-      rx(k,2) = rx(k,2) + r2552(k,1) 
-      rx(k,6) = rx(k,6) + r5656(k,1) + r1556(k,1) + r8556(k,1) 
+      rx(k,2) = rx(k,2) + r2552(k,1)
+      rx(k,6) = rx(k,6) + r5656(k,1) + r1556(k,1) + r8556(k,1)
       rx(k,7) = rx(k,7) + r5757(k,1) + r2557(k,1)
 
-      qr(k,2) = qr(k,2) + r2552(k,2) 
-      qr(k,6) = qr(k,6) + r5656(k,2) + r1556(k,2) + r8556(k,2) 
+      qr(k,2) = qr(k,2) + r2552(k,2)
+      qr(k,6) = qr(k,6) + r5656(k,2) + r1556(k,2) + r8556(k,2)
       qr(k,7) = qr(k,7) + r5757(k,2) + r2557(k,2)
 
       cx(k,6) = cx(k,6) + e1556(k) + e8556(k)
@@ -1726,14 +1678,14 @@ if (jnmb(8) >= 1) then
       rx(k,2) = rx(k,2) + r8882(k,1) + r8282(k,1) + r1882(k,1)
       rx(k,3) = rx(k,3) + r8483(k,1) + r8583(k,1) + r8683(k,1) + r8783(k,1)
       rx(k,4) = rx(k,4) + r8484(k,1)
-      rx(k,5) = rx(k,5) + r8585(k,1) 
-      rx(k,6) = rx(k,6) + r8486(k,1) + r8586(k,1) + r8686(k,1) 
+      rx(k,5) = rx(k,5) + r8585(k,1)
+      rx(k,6) = rx(k,6) + r8486(k,1) + r8586(k,1) + r8686(k,1)
       rx(k,7) = rx(k,7) + r8787(k,1)
 
       qr(k,2) = qr(k,2) + r8882(k,2) + r8282(k,2) + r1882(k,2)
       qr(k,3) = qr(k,3) + r8483(k,2) + r8583(k,2) + r8683(k,2) + r8783(k,2)
       qr(k,4) = qr(k,4) + r8484(k,2)
-      qr(k,5) = qr(k,5) + r8585(k,2) 
+      qr(k,5) = qr(k,5) + r8585(k,2)
       qr(k,6) = qr(k,6) + r8486(k,2) + r8586(k,2) + r8686(k,2)
       qr(k,7) = qr(k,7) + r8787(k,2)
 
@@ -1747,7 +1699,7 @@ endif
 ! Scavenge CCN in accordance with collisional losses of cloud number and
 ! pristine ice number.  Loop through all bins, using ihyg array to reorder bins
 ! from lowest to highest critical supersaturation (as used for activation).
-! Scavenge CCN in this order until the correct number to scavenge is reached. 
+! Scavenge CCN in this order until the correct number to scavenge is reached.
 
 ! NOTE: GCCN are scavenged immediately when nucleated to drizzle.
 ! Pure IFN are not currently scavenged in the model, but CCN that have

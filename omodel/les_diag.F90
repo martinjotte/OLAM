@@ -1,10 +1,10 @@
 subroutine les_diag()
 
-  use mem_basic,  only: rr_w,rho,thil,rr_v,wc,wmc,press,ue,ve
-  use mem_grid,   only: mza,mwa,lpw,zm,arw0
+  use mem_basic,  only: thil,rr_v,wc,press,ue,ve
+  use mem_grid,   only: mza,lpw,zm,arw0
   use mem_ijtabs, only: jtab_w, jtw_prog
-  use misc_coms,  only: io6, iparallel
-  use mem_para,   only: myrank, mgroupsize
+  use misc_coms,  only: iparallel, naddsc
+  use mem_para,   only: myrank
   use consts_coms,only: r8
   use mem_addsc
 
@@ -33,7 +33,7 @@ subroutine les_diag()
      allocate(arwm_tot(mza))
 
      arwm_tot = 0.0
-     do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
+     do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
         do k = lpw(iw), mza
            arwm_tot(k) = arwm_tot(k) + real(arw0(iw),8)
         enddo
@@ -75,7 +75,7 @@ subroutine les_diag()
   aw_avg => bufferb(:,13)
 
   !$omp parallel do private(iw,k) reduction(+:buffera)
-  do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
+  do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
      do k = lpw(iw), mza
         buffera(k,1) = buffera(k,1) + arw0(iw) * wc(k,iw)
         buffera(k,2) = buffera(k,2) + arw0(iw) * ue(k,iw)
@@ -83,7 +83,8 @@ subroutine les_diag()
         buffera(k,4) = buffera(k,4) + arw0(iw) * thil(k,iw)
         buffera(k,5) = buffera(k,5) + arw0(iw) * rr_v(k,iw)
         buffera(k,6) = buffera(k,6) + arw0(iw) * press(k,iw)
-!       buffera(k,7) = buffera(k,7) + arw0(iw) * addsc(1)%sclp(k,iw)
+        if (naddsc >= 1) &
+             buffera(k,7) = buffera(k,7) + arw0(iw) * addsc(1)%sclp(k,iw)
      enddo
   end do
   !$omp end parallel do
@@ -100,7 +101,7 @@ subroutine les_diag()
 
   !$omp parallel private(wprime,uprime,vprime,tprime,qprime,pprime,aprime)
   !$omp do private(iw,k,arwo2) reduction(+:bufferb)
-  do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
+  do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
      do k = lpw(iw), mza
         wprime(k) = wc(k,iw) - w_avg(k)
@@ -109,7 +110,8 @@ subroutine les_diag()
         tprime(k) = thil(k,iw) - t_avg(k)
         qprime(k) = rr_v(k,iw) - q_avg(k)
         pprime(k) = press(k,iw) - p_avg(k)
-!       aprime(k) = addsc(1)%sclp(k,iw) - a_avg(k)
+        if (naddsc >= 1) &
+             aprime(k) = addsc(1)%sclp(k,iw) - a_avg(k)
 
         bufferb(k,1) = bufferb(k,1) + arw0(iw) * wprime(k) * wprime(k)
         bufferb(k,2) = bufferb(k,2) + arw0(iw) * uprime(k) * uprime(k)
@@ -117,7 +119,8 @@ subroutine les_diag()
         bufferb(k,4) = bufferb(k,4) + arw0(iw) * tprime(k) * tprime(k)
         bufferb(k,5) = bufferb(k,5) + arw0(iw) * qprime(k) * qprime(k)
         bufferb(k,6) = bufferb(k,6) + arw0(iw) * pprime(k) * pprime(k)
-!       bufferb(k,7) = bufferb(k,7) + arw0(iw) * aprime(k) * aprime(k)
+        if (naddsc >= 1) &
+             bufferb(k,7) = bufferb(k,7) + arw0(iw) * aprime(k) * aprime(k)
      enddo
 
      arwo2 = 0.5 * arw0(iw)
@@ -128,7 +131,8 @@ subroutine les_diag()
         bufferb(k,10) = bufferb(k,10) + arwo2 * wprime(k) * (tprime(k+1) + tprime(k))
         bufferb(k,11) = bufferb(k,11) + arwo2 * wprime(k) * (qprime(k+1) + qprime(k))
         bufferb(k,12) = bufferb(k,12) + arwo2 * wprime(k) * (pprime(k+1) + pprime(k))
-!       bufferb(k,13) = bufferb(k,13) + arwo2 * wprime(k) * (aprime(k+1) + aprime(k))
+        if (naddsc >= 1) &
+             bufferb(k,13) = bufferb(k,13) + arwo2 * wprime(k) * (aprime(k+1) + aprime(k))
      enddo
 
   enddo

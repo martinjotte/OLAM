@@ -41,7 +41,7 @@
 
 
 unsigned char *mem_buffer[N_mem_buffers] = {NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 
+    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
     NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
 
 size_t mem_buffer_size[N_mem_buffers] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -53,8 +53,8 @@ size_t mem_buffer_pos[N_mem_buffers] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
 
 extern int file_append;
 
-/* 
-   When we allocate or reallocate memory, want to request more than the 
+/*
+   When we allocate or reallocate memory, want to request more than the
    minimal needed memory so that we can avoid some reallocs. Also
    try to make it a multiple of because that is the page size on many machines.
 
@@ -69,13 +69,13 @@ static size_t calc_new_size(size_t size)
 }
 
 void init_mem_buffers(void) {
-    if (sizeof(mem_buffer) / sizeof (unsigned char *) != N_mem_buffers) 
+    if (sizeof(mem_buffer) / sizeof (unsigned char *) != N_mem_buffers)
 	fatal_error("Mem_buffer.c: mem_buffer improper initialization","");
-    if (sizeof(mem_buffer_size) / sizeof (size_t) != N_mem_buffers) 
+    if (sizeof(mem_buffer_size) / sizeof (size_t) != N_mem_buffers)
 	fatal_error("Mem_buffer.c: mem_buffer_size improper initialization","");
-    if (sizeof(mem_buffer_allocated) / sizeof (size_t) != N_mem_buffers) 
+    if (sizeof(mem_buffer_allocated) / sizeof (size_t) != N_mem_buffers)
 	fatal_error("Mem_buffer.c: mem_buffer_allocated improper initialization","");
-    if (sizeof(mem_buffer_pos) / sizeof (size_t) != N_mem_buffers) 
+    if (sizeof(mem_buffer_pos) / sizeof (size_t) != N_mem_buffers)
 	fatal_error("Mem_buffer.c: mem_buffer_pos improper initialization","");
     return;
 }
@@ -200,7 +200,7 @@ size_t fread_mem(void *ptr, size_t size, size_t nmemb, int n) {
 /*
  * fseek for memory file n
  */
- 
+
 int fseek_mem(int n, long position, int whence) {
 
     if (n < 0 || n >= N_mem_buffers) return -1;
@@ -216,7 +216,7 @@ int fseek_mem(int n, long position, int whence) {
     if (mem_buffer_pos[n] > mem_buffer_size[n]) {
 	mem_buffer_pos[n] = 0;
 	return -1;
-    } 
+    }
     return 0;
 }
 
@@ -305,7 +305,7 @@ int f_mem_final(ARG2) {
     else if (mode == -2) {
         n = atoi(arg1);
         if (mem_buffer_size[n] > 0) {
-            i = fwrite(mem_buffer[n], sizeof(unsigned char), mem_buffer_size[n], (FILE *) *local) != 
+            i = fwrite(mem_buffer[n], sizeof(unsigned char), mem_buffer_size[n], (FILE *) *local) !=
 		mem_buffer_size[n];
             ffclose((FILE *) *local);
 	}

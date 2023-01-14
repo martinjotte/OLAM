@@ -31,12 +31,12 @@ C Description:
 C   Computes cosine of zenith angle for routine HRBIO()
 C   The zenith angle is the angle measured from the zenith to the line of
 C   sight to the sun
- 
+
 C Preconditions:
 C   JDATE:JTIME represented in GMT
- 
+
 C Subroutines and Functions called:  none
- 
+
 C Revision History:
 C   11/99: by Jeff Vukovich taken from v4.2 SMOKE prototype
 C   10/06: yoj
@@ -44,7 +44,7 @@ C   02/11: Shawn Roselle: Replaced I/O API include files with UTILIO_DEFN
 C   03/12: J. Bash: Bound COSZEN against numerical rounding errors
 C   11/14: J. Bash: Lat and Lon now stored in ASX_DATA_MOD to reduce redundent
 C             memory allocation and reads from file.
-C   07 Nov 14 J.Bash: Updated for the ASX_DATA_MOD shared data module. 
+C   07 Nov 14 J.Bash: Updated for the ASX_DATA_MOD shared data module.
 C----------------------------------------------------------------------
 C Modified from:
 
@@ -58,7 +58,7 @@ C 137 E. Franklin St., CB# 6116
 C Chapel Hill, NC 27599-6116
 C smoke@unc.edu
 C Pathname: $Source: /project/yoj/arc/CCTM/src/biog/beis3/czangle.F,v $
-C Last updated: $Date: 2012/03/28 16:05:37 $ 
+C Last updated: $Date: 2012/03/28 16:05:37 $
 C----------------------------------------------------------------------
 
       USE UTILIO_DEFN
@@ -78,7 +78,7 @@ C Arguments:
       REAL,    INTENT( OUT ) :: COSZEN( mwa ) !  cos of zenith angle
 
 C Parameters:
- 
+
       REAL, PARAMETER ::
      &            AA =   0.15,
      &            BB =   3.885,
@@ -92,16 +92,14 @@ C Parameters:
 
 C Local variables:
 
-      INTEGER    IOS, R, C
+      INTEGER    IOS
       REAL       SLA, GMT,  TK, DAD, DF,
      &           DESIN, DECOS, DESIN2, DECOS2, SIG, DECSIN, DECCOS,
      &           EQT, TST, HRANGL
-                     
+
       LOGICAL, SAVE :: FIRSTIME = .TRUE.
       REAL, ALLOCATABLE, SAVE :: SINLAT( : )
-      REAL, ALLOCATABLE, SAVE :: COSLAT( : )  
-
-      CHARACTER( 16 ) :: PNAME = 'CZANGLE'   !  procedure name
+      REAL, ALLOCATABLE, SAVE :: COSLAT( : )
 
       integer, external :: julday
       integer           :: jda, iw
@@ -126,31 +124,31 @@ C compute sine of lat and lon first time through
       END IF   ! if firstime
 
 C Convert time to hours and add time-zone offset
-      
+
       gmt = current_time%time / 3600.0
       jda = julday( current_time%month, current_time%date, current_time%year )
 
       DAD    = GMT * D24 + jda
       DF     = ROTDAY * PI180 * DAD      !  The terrestrial-rotation angle
-           
+
       DESIN  = SIN( DF )          !  SINE   of this angle
       DECOS  = COS( DF )          !  COSINE of this angle
-           
+
       DESIN2 = SIN( DF + DF )     !  SINE   of twice the angle
       DECOS2 = COS( DF + DF )     !  COSINE of twice the angle
-           
+
       SIG  =  DF
      &     +  PI180 * ( SIGA
      &                + 1.914827 * DESIN  - 0.079525 * DECOS
      &                + 0.019938 * DESIN2 - 0.00162  * DECOS2 )
-           
+
 C The sine and cosine of the declination
-      
+
       DECSIN = SDEC * SIN( SIG )
       DECCOS = SQRT( 1.0 - DECSIN * DECSIN )
-           
+
 C The equation of time adjustment
-      
+
       EQT = 0.123470 * DESIN  - 0.004289 * DECOS
      &    + 0.153809 * DESIN2 + 0.060783 * DECOS2
 
@@ -160,16 +158,16 @@ C The equation of time adjustment
          TK     =  GMT + GLONW( IW ) * D15 !  Distance in hours from LON=0
          TST    =  TK - EQT     !  true solar time
          HRANGL =  PI180 * 15.0 * ABS( TST - 12.0 ) !  hour angle
-                   
+
 C Compute the cosine of zenith angle (sine of the solar elevation)
-          
+
          COSZEN( IW ) = DECSIN * SINLAT( IW )
      &                + DECCOS * COSLAT( IW ) * COS( HRANGL )
 
 C Bound against numerical rounding errors
 
          COSZEN( IW ) = MIN( MAX( COSZEN( IW ), -1.0 ), 1.0 )
-                   
+
       END DO
       !$omp end parallel do
 

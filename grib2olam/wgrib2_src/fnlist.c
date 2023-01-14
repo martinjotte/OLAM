@@ -376,5 +376,5 @@ struct function functions[] = {
    {"tigge",f_tigge, setup, 0, "use modified-TIGGE grib table", 100},
    {"transient",f_transient, setup, 1, "make file X transient, CW2", 100},
 };
- 
+
 int nfunctions = sizeof functions / sizeof functions[0];

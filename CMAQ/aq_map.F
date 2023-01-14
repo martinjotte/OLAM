@@ -48,9 +48,9 @@ C       6 03/01/11 sjr  replaced I/O API include files with UTILIO_DEFN;
 C       7 07/01/01 gs   calculate zenith angle to determine daytime and nightime
 C                       needed for sulfur oxidation via metal catalysis
 C  Called by:  RADMCLD and RESCLD
- 
+
 C  Calls the following subroutines:  AQCHEM
- 
+
 C  ARGUMENTS    TYPE      I/O       DESCRIPTION
 C  ---------   -------  ------  --------------------------------
 C    WTBAR      real     input  avg total water content (kg/m3)

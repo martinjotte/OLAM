@@ -72,7 +72,7 @@ MODULE module_cu_tiedtke
 
 CONTAINS
 
-   subroutine cuparm_tiedtke(iw,km,km1,dtlong4,confrq4,confrq4i)
+   subroutine cuparm_tiedtke(iw,km,km1,confrq4)
 
    use mem_grid,    only: mza, lpv, lpw, zt, zm, dzit, arv, arw, volti, lsw
    use mem_cuparm,  only: thsrc, rtsrc, conprr, kcubot, kudbot, kddbot, &
@@ -86,7 +86,7 @@ CONTAINS
    implicit none
 
    integer, intent(in) :: iw, km, km1
-   real,    intent(in) :: dtlong4, confrq4, confrq4i
+   real,    intent(in) :: confrq4
 
    real :: u1  (km) ! zonal wind component
    real :: v1  (km) ! meridional wind component
@@ -127,7 +127,7 @@ CONTAINS
    integer :: lndj  ! 0 over land, 1 over water
    integer :: ktype ! Convective closure type; output from Tiedtke param
 
-   real :: evap  ! vapor flux at surface 
+   real :: evap  ! vapor flux at surface
    real :: hfx   ! sensible heat flux at surface [W/m^2]
    real :: rhosf ! air density at lpw level
 
@@ -136,10 +136,11 @@ CONTAINS
 
    real :: dQdt_sav(km)
    real :: vflux(mza), vflux_vap(mza), pcpflx(mza)
+   real :: hflux(mza), hflux_vap(mza)
 
    integer :: ka, k, kt, ks, jv, iv, iwn, npoly
 
-   real :: hflux, hflux_vap, dirv, flx, fqvadv
+   real :: dirv, flx
    real :: gnpoly1
 
    ka = lpw(iw)
@@ -164,10 +165,31 @@ CONTAINS
    vflux_vap(ka-1) = 0.
    vflux_vap(mza) = 0.
 
+! Horizontal advective mass and water vapor fluxes (T levels)
+
+   hflux = 0.
+   hflux_vap = 0.
+
+   do jv = 1, npoly
+      iv   = itab_w(iw)%iv(jv)
+      dirv = itab_w(iw)%dirv(jv)
+      iwn  = itab_w(iw)%iw(jv)
+
+      do k = lpv(iv), mza
+         flx      = dirv * vmc(k,iv) * arv(k,iv)
+         hflux(k) = hflux(k) + flx
+
+         ! upwinded
+         if (flx >= 0.0) then
+            hflux_vap(k) = hflux_vap(k) + flx * rr_v(k,iwn)
+         else
+            hflux_vap(k) = hflux_vap(k) + flx * rr_v(k,iw)
+         endif
+      enddo
+   enddo
+
 ! Loop over T levels
 
-   !dir$ ivdep
-   !dir$ simd
    do k = ka,mza
       kt = mza + 1 - k
 
@@ -176,41 +198,10 @@ CONTAINS
       u1(kt) = ue(k,iw)
       v1(kt) = ve(k,iw)
 
-      ! Horizontal advective mass and water vapor fluxes
-
-      hflux = 0.
-      hflux_vap = 0.
-
-      !dir$ loop count max=7
-      do jv = 1, npoly
-         iv   = itab_w(iw)%iv(jv)
-
-         if (k >= lpv(iv)) then
-            dirv = itab_w(iw)%dirv(jv)
-            iwn  = itab_w(iw)%iw(jv)
-
-            flx   = dirv * vmc(k,iv) * arv(k,iv)
-            hflux = hflux + flx
-
-            ! upwinded
-            if (flx >= 0.0) then
-               hflux_vap = hflux_vap + flx * rr_v(k,iwn)
-            else
-               hflux_vap = hflux_vap + flx * rr_v(k,iw)
-            endif
-         endif
-      enddo
-
       t1  (kt) = tair(k,iw)
       ght (kt) = g * zt(k)
 
       prst(kt) = press(k,iw)
-
-      if (k == mza) then
-         prsw(kt) = 2. * press(k,iw) - press(k-1,iw)
-      else
-         prsw(kt) = 0.5 * (press(k,iw) + press(k+1,iw))
-      endif
 
       sig1(kt) = (press(k,iw)  - press(mza,iw)) &
                / (press(ka,iw) - press(mza,iw))
@@ -234,11 +225,9 @@ CONTAINS
 
       ! Tiedtke scheme requires large scale moisture tendency
 
-      fqvadv = ((vflux_vap(k-1) - vflux_vap(k) + hflux_vap) &
-               - (vflux(k-1) - vflux(k) + hflux) * rr_v(k,iw)) &
+      dQdt(kt) = ((vflux_vap(k-1) - vflux_vap(k) + hflux_vap(k)) &
+               - (vflux(k-1) - vflux(k) + hflux(k)) * rr_v(k,iw)) &
                * volti(k,iw) / real(rho(k,iw))
-
-      dQdt(kt) = fqvadv
    enddo
 
    ! Add surface moisture flux to large scale moisture tendency
@@ -261,8 +250,14 @@ CONTAINS
 
    ! prsw(1) is press at zm(mza); prsw(km1) is press at zm(ka-1)
 
-   prsw(1) = max(1.e-3,real(1.5 * press(mza,iw) - 0.5 * press(mza-1,iw)))
-   prsw(km1) = 1.5 * press(ka,iw) - 0.5 * press(ka+1,iw)
+   prsw(km1) = 1.5 * press( ka,iw) - 0.5 * press( ka+1,iw)
+   prsw(1)   = 1.5 * press(mza,iw) - 0.5 * press(mza-1,iw)
+   prsw(1)   = max(prsw(1), 1.e-3)
+
+   do k = ka, mza-1
+      kt = mza + 1 - k
+      prsw(kt) =  0.5 * (press(k,iw) + press(k+1,iw))
+   enddo
 
    evap  = sfluxr(iw)
    hfx   = sfluxt(iw) * tair(ka,iw) / theta(ka,iw)
@@ -495,7 +490,7 @@ CONTAINS
               PTTE(KLEV),        PQTE(KLEV),  &
               PVOM(KLEV),        PVOL(KLEV),  &
               PQSEN(KLEV),       PGEO(KLEV),  &
-              PAP(KLEV),         PAPH(KLEVP1),& 
+              PAP(KLEV),         PAPH(KLEVP1),&
               PVERV(KLEV),       PQHFL,       &
               PHHFL,             RHO
       REAL     PTU(KLEV),        PQU(KLEV),   &
@@ -509,20 +504,20 @@ CONTAINS
               ZTD(KLEV),         ZQD(KLEV),   &
               ZMFUS(KLEV),       ZMFDS(KLEV), &
               ZMFUQ(KLEV),       ZMFDQ(KLEV), &
-              ZDMFUP(KLEV),      ZDMFDP(KLEV),& 
+              ZDMFUP(KLEV),      ZDMFDP(KLEV),&
               ZMFUL(KLEV),       ZRFL,       &
               ZUU(KLEV),         ZVU(KLEV),   &
               ZUD(KLEV),         ZVD(KLEV)
       REAL     ZENTR,            ZHCBASE,   &
               ZMFUB,            ZMFUB1,     &
-              ZDQPBL,           ZDQCV 
+              ZDQPBL,           ZDQCV
       REAL     ZSFL,             ZDPMEL(KLEV), &
               PCTE(KLEV),        ZCAPE,        &
               ZHEAT,            ZHHATT(KLEV),  &
               ZHMIN,            ZRELH
       REAL     sig1(KLEV)
       INTEGER  ILAB(KLEV),        IDTOP,   &
-              ICTOP0,           ILWMIN    
+              ICTOP0,           ILWMIN
       INTEGER  KCBOT,            KCTOP,   &
               KTYPE,            IHMIN,    &
               KTOP0,                  lndj
@@ -656,7 +651,7 @@ CONTAINS
         ZRH = -ALV*(ZQSENH(JK)-ZQENH(JK))*ZFAC
         IF (ZHMIN.GT.ZRH) IHMIN = JK
       END IF
- 450  CONTINUE 
+ 450  CONTINUE
       IF (LDCUM.AND.KTYPE.EQ.1) THEN
         IF (IHMIN.LT.ICTOP0) IHMIN = ICTOP0
       END IF
@@ -672,7 +667,7 @@ CONTAINS
          (KLEV,     KLEVP1,   KLEVM1,   ZTENH,             &
           ZQENH,    PUEN,     PVEN,     PTEN,     PQEN,    &
           PQSEN,    PGEO,     ZGEOH,    PAP,      PAPH,    &
-          PQTE,     PVERV,    ILWMIN,   LDCUM,    ZHCBASE, &
+          PVERV,    ILWMIN,   LDCUM,    ZHCBASE,           &
           KTYPE,    ILAB,     PTU,      PQU,      PLU,     &
           ZUU,      ZVU,      PMFU,     ZMFUB,    ZENTR,   &
           ZMFUS,    ZMFUQ,    ZMFUL,    PLUDE,    ZDMFUP,  &
@@ -835,7 +830,7 @@ CONTAINS
          (KLEV,     KLEVP1,   KLEVM1,   ZTENH,            &
           ZQENH,    PUEN,     PVEN,     PTEN,     PQEN,   &
           PQSEN,    PGEO,     ZGEOH,    PAP,      PAPH,   &
-          PQTE,     PVERV,    ILWMIN,   LDCUM,    ZHCBASE,& 
+          PVERV,    ILWMIN,   LDCUM,    ZHCBASE,          &
           KTYPE,    ILAB,     PTU,      PQU,      PLU,    &
           ZUU,      ZVU,      PMFU,     ZMFUB,    ZENTR,  &
           ZMFUS,    ZMFUQ,    ZMFUL,    PLUDE,    ZDMFUP, &
@@ -935,7 +930,7 @@ CONTAINS
               PMFU(KLEV),        PMFD(KLEV),     &
               PMFUS(KLEV),       PMFDS(KLEV),    &
               PMFUQ(KLEV),       PMFDQ(KLEV),    &
-              PDMFUP(KLEV),      PDMFDP(KLEV),   & 
+              PDMFUP(KLEV),      PDMFDP(KLEV),   &
               PLU(KLEV),         PLUDE(KLEV)
       REAL     ZWMAX,            ZPH,          &
               PDPMEL(KLEV)
@@ -1010,11 +1005,11 @@ CONTAINS
       KLAB(JK)=0
   230 CONTINUE
       RETURN
-      END SUBROUTINE CUINI   
+      END SUBROUTINE CUINI
 
 !**********************************************
 !       SUBROUTINE CUBASE
-!********************************************** 
+!**********************************************
       SUBROUTINE CUBASE &
          (KLEV,     KLEVP1,   KLEVM1,   PTENH,           &
           PQENH,    PGEOH,    PAPH,     PTU,      PQU,   &
@@ -1053,7 +1048,7 @@ CONTAINS
       REAL     PTU(KLEV),         PQU(KLEV),   &
               PLU(KLEV)
       REAL     PUEN(KLEV),        PVEN(KLEV),  &
-              PUU(KLEV),         PVU(KLEV) 
+              PUU(KLEV),         PVU(KLEV)
       REAL     ZQOLD(KLEV),       ZPH
       INTEGER  KLAB(KLEV),        KCBOT
       LOGICAL  LDCUM,            LOFLAG
@@ -1149,7 +1144,7 @@ CONTAINS
 
 !**********************************************
 !       SUBROUTINE CUTYPE
-!********************************************** 
+!**********************************************
       SUBROUTINE CUTYPE    &
         ( KLEV,     KLEVP1,   KLEVM1,                  &
           PTENH,   PQENH,     PQSENH,    PGEOH,   PAPH,&
@@ -1177,8 +1172,8 @@ CONTAINS
 !                        influence on triggering, updraft properties, and model climate, Mon.Wea.Rev.
 !                        131, 2765-2778
 !            and
-!                        IFS Documentation - Cy33r1 
-!          
+!                        IFS Documentation - Cy33r1
+!
 !***EXTERNALS
 !   ---------
 !          *CUADJTQ* FOR ADJUSTING T AND Q DUE TO CONDENSATION IN ASCENT
@@ -1186,18 +1181,17 @@ CONTAINS
 !-------------------------------------------------------------------
       IMPLICIT NONE
 !-------------------------------------------------------------------
-      INTEGER   KLEV, KLEVP1
-      INTEGER   klevm1
-      INTEGER   JK,IS,IK,ICALL,IKB,LEVELS
-      REAL     PTENH(KLEV),       PQENH(KLEV), &
-                                       PQSENH(KLEV),&
-               PGEOH(KLEV),       PAPH(KLEVP1)
+      INTEGER  KLEV, KLEVP1
+      INTEGER  klevm1
+      INTEGER  JK,IK,ICALL,LEVELS
+      REAL     PTENH(KLEV), PQENH(KLEV), PQSENH(KLEV), PGEOH(KLEV)
+      REAL     PAPH(KLEVP1)
       REAL     ZRELH
       REAL     QFX,RHO,HFX
-      REAL     ZQOLD(KLEV),       ZPH
+      REAL     ZQOLD(KLEV), ZPH
       INTEGER  KCTOP,KCBOT
       INTEGER  KTYPE,LCLFLAG
-      LOGICAL  TOPFLAG,DEEPFLAG,MYFLAG
+      LOGICAL  TOPFLAG,MYFLAG
 
       REAL     part1, part2, root
       REAL     conw,deltT,deltQ
@@ -1254,7 +1248,7 @@ CONTAINS
       do JK=KLEVM1,2,-1
           ZPH=PAPH(JK)
 
-! define the variables at the first level      
+! define the variables at the first level
       if(jk .eq. KLEVM1) then
         part1 = 1.5*0.4*pgeoh(jk+1)/(rho*ptenh(jk+1))
         part2 = hfx/cpd+0.61*ptenh(jk+1)*qfx
@@ -1359,7 +1353,7 @@ CONTAINS
       do JK=levels,2,-1
           ZPH=PAPH(JK)
 
-! define the variables at the first level      
+! define the variables at the first level
       if(jk .eq. levels) then
         deltT = 0.2
         deltQ = 1.0e-4
@@ -1371,7 +1365,7 @@ CONTAINS
                       deltT
         dh(jk+1) = 0.25*(pgeoh(jk+1)+pgeoh(jk)+ &
                             pgeoh(jk-1)+pgeoh(jk-2)) + &
-                      Tup(jk+1)*cpd 
+                      Tup(jk+1)*cpd
         qh(jk+1) = 0.25*(pqenh(jk+1)+pqenh(jk)+ &
                             pqenh(jk-1)+pqenh(jk-2))+ &
                       deltQ + ql(jk+1)
@@ -1455,15 +1449,15 @@ CONTAINS
 !
 !**********************************************
 !       SUBROUTINE CUASC_NEW
-!********************************************** 
+!**********************************************
       SUBROUTINE CUASC_NEW &
          (KLEV,     KLEVP1,   KLEVM1,   PTENH,            &
           PQENH,    PUEN,     PVEN,     PTEN,     PQEN,   &
           PQSEN,    PGEO,     PGEOH,    PAP,      PAPH,   &
-          PQTE,     PVERV,    KLWMIN,   LDCUM,    PHCBASE,& 
+          PVERV,    KLWMIN,   LDCUM,    PHCBASE,          &
           KTYPE,    KLAB,     PTU,      PQU,      PLU,    &
           PUU,      PVU,      PMFU,     PMFUB,    PENTR,  &
-          PMFUS,    PMFUQ,    PMFUL,    PLUDE,    PDMFUP, & 
+          PMFUS,    PMFUQ,    PMFUL,    PLUDE,    PDMFUP, &
           KCBOT,    KCTOP,    KCTOP0,   KCUM,     ZTMST,  &
           KHMIN,    PHHATT,   PQSENH)
 !     THIS ROUTINE DOES THE CALCULATIONS FOR CLOUD ASCENTS
@@ -1508,7 +1502,6 @@ CONTAINS
 !       PGEOH [ZGEOH] - Geopotential on half levels, (MSSFLX)
 !       PAP - Pressure in Pa.  (MSSFLX)
 !       PAPH - Pressure of half levels. (MSSFLX)
-!       PQTE - Moisture convergence (Delta q/Delta t). (MSSFLX)
 !       PVERV - Large Scale Vertical Velocity (Omega). (MSSFLX)
 !       KLWMIN [ILWMIN] - Level of Minimum Omega. (CUINI)
 !       KLAB [ILAB] - Level Label - 1: Sub-cloud layer.
@@ -1552,8 +1545,8 @@ CONTAINS
               PTEN(KLEV),        PQEN(KLEV),   &
               PGEO(KLEV),        PGEOH(KLEV),  &
               PAP(KLEV),         PAPH(KLEVP1), &
-              PQSEN(KLEV),       PQTE(KLEV),   &
-              PVERV(KLEV),       PQSENH(KLEV)  
+              PQSEN(KLEV),       &
+              PVERV(KLEV),       PQSENH(KLEV)
       REAL     PTU(KLEV),         PQU(KLEV),   &
               PUU(KLEV),         PVU(KLEV),    &
               PMFU(KLEV),        ZPH,         &
@@ -1672,7 +1665,7 @@ CONTAINS
       end do
       leveltop = min(KLEV-15,leveltop)
       levelbot = KLEVM1 - 4
-        
+
       DO 480 JK=KLEVM1,2,-1
 !                  SPECIFY CLOUD BASE VALUES FOR MIDLEVEL CONVECTION
 !                  IN *CUBASMC* IN CASE THERE IS NOT ALREADY CONVECTION
@@ -1680,7 +1673,7 @@ CONTAINS
       IK=JK
       IF(LMFMID.AND.IK.LT.levelbot.AND.IK.GT.leveltop) THEN
       CALL CUBASMC  &
-         (KLEV,     KLEVM1,   IK,      PTEN,            &
+         (KLEV,     IK,      PTEN,                      &
           PQEN,     PQSEN,    PUEN,     PVEN,    PVERV, &
           PGEO,     PGEOH,    LDCUM,    KTYPE,   KLAB,  &
           PMFU,     PMFUB,    PENTR,    KCBOT,   PTU,   &
@@ -1842,9 +1835,9 @@ CONTAINS
               ZDMFDU=ZDMFDE+ZZ*ZDMFDE
               ZDMFDU=MIN(ZDMFDU,0.75*PMFU(JK+1))
               ZMFUU=ZMFUU+                              &
-                       ZDMFEU*PUEN(JK)-ZDMFDU*PUU(JK+1)   
+                       ZDMFEU*PUEN(JK)-ZDMFDU*PUU(JK+1)
               ZMFUV=ZMFUV+                              &
-                       ZDMFEU*PVEN(JK)-ZDMFDU*PVU(JK+1)   
+                       ZDMFEU*PVEN(JK)-ZDMFDU*PVU(JK+1)
               IF(PMFU(JK).GT.0.) THEN
                  PUU(JK)=ZMFUU*(1./PMFU(JK))
                  PVU(JK)=ZMFUV*(1./PMFU(JK))
@@ -1882,7 +1875,7 @@ CONTAINS
         zoentr(jk-1) = 1.E-3*(1.3-PQEN(jk-1)/PQSEN(jk-1))*fscale
         zoentr(jk-1) = MIN(zoentr(jk-1),1.E-3)
         zoentr(jk-1) = MAX(zoentr(jk-1),0.)
-!        write(6,*) "zoentr=",zoentr(jk-1) 
+!        write(6,*) "zoentr=",zoentr(jk-1)
        end if
        END IF
 !
@@ -1928,7 +1921,7 @@ CONTAINS
 
 !**********************************************
 !       SUBROUTINE CUDLFS
-!********************************************** 
+!**********************************************
       SUBROUTINE CUDLFS &
          (KLEV,     KLEVP1,   PTENH,    PQENH,            &
           PUEN,     PVEN,     PGEOH,    PAPH,     PTU,    &
@@ -1973,7 +1966,7 @@ CONTAINS
       REAL     PTD(KLEV),         PQD(KLEV),     &
               PUD(KLEV),         PVD(KLEV),      &
               PMFD(KLEV),        PMFDS(KLEV),    &
-              PMFDQ(KLEV),       PDMFDP(KLEV)    
+              PMFDQ(KLEV),       PDMFDP(KLEV)
       REAL     ZTENWB(KLEV),      ZQENWB(KLEV),  &
               ZCOND,            ZPH
       INTEGER  KCBOT,            KCTOP,        &
@@ -2057,7 +2050,7 @@ CONTAINS
 
 !**********************************************
 !       SUBROUTINE CUDDRAF
-!********************************************** 
+!**********************************************
       SUBROUTINE CUDDRAF &
          (KLEV,     KLEVP1,   PTENH,    PQENH,           &
           PUEN,     PVEN,     PGEOH,    PAPH,     PRFL,  &
@@ -2097,14 +2090,14 @@ CONTAINS
       REAL      ZBUO, ZDMFDP, ZMFDUK, ZMFDVK
       REAL     PTENH(KLEV),       PQENH(KLEV),  &
               PUEN(KLEV),        PVEN(KLEV),    &
-              PGEOH(KLEV),       PAPH(KLEVP1) 
+              PGEOH(KLEV),       PAPH(KLEVP1)
       REAL     PTD(KLEV),         PQD(KLEV),    &
               PUD(KLEV),         PVD(KLEV),     &
               PMFD(KLEV),        PMFDS(KLEV),   &
               PMFDQ(KLEV),       PDMFDP(KLEV),  &
               PRFL
       REAL     ZDMFEN,           ZDMFDE,      &
-              ZCOND,            ZPH       
+              ZCOND,            ZPH
       LOGICAL  LDDRAF,           LLO2
 !--------------------------------------------------------------
 !     1.       CALCULATE MOIST DESCENT FOR CUMULUS DOWNDRAFT BY
@@ -2187,7 +2180,7 @@ CONTAINS
 
 !**********************************************
 !       SUBROUTINE CUFLX
-!********************************************** 
+!**********************************************
       SUBROUTINE CUFLX &
          (KLEV,     KLEVP1,   PQEN,    PQSEN,            &
           PTENH,    PQENH,    PAPH,     PGEOH,   KCBOT,    &
@@ -2218,7 +2211,7 @@ CONTAINS
       REAL      ZRMIN, ZRFLN, ZDRFL, ZDPEVAP
       REAL     PQEN(KLEV),        PQSEN(KLEV),  &
               PTENH(KLEV),       PQENH(KLEV),   &
-              PAPH(KLEVP1),      PGEOH(KLEV)    
+              PAPH(KLEVP1),      PGEOH(KLEV)
       REAL     PMFU(KLEV),        PMFD(KLEV),   &
               PMFUS(KLEV),       PMFDS(KLEV),   &
               PMFUQ(KLEV),       PMFDQ(KLEV),   &
@@ -2344,7 +2337,7 @@ CONTAINS
 
 !**********************************************
 !       SUBROUTINE CUDTDQ
-!********************************************** 
+!**********************************************
       SUBROUTINE CUDTDQ &
          (KLEV,     KLEVP1,   KTOPM2,   PAPH,             &
           LDCUM,    PTEN,     PTTE,     PQTE,     PMFUS,  &
@@ -2363,25 +2356,25 @@ CONTAINS
 !-------------------------------------------------------------------
       IMPLICIT NONE
 !-------------------------------------------------------------------
-      INTEGER   KLEV, KLEVP1
-      INTEGER   KTOPM2, JK
-      REAL      ZTMST, PSRAIN, PSEVAP, PSHEAT, PSMELT, ZDIAGT, ZDIAGW
-      REAL      ZALV, RHK, RHCOE, PLDFD, ZDTDT, ZDQDT
-      REAL     PTTE(KLEV),        PQTE(KLEV),  &
-              PTEN(KLEV),        PLUDE(KLEV),  &
-              PGEO(KLEV),        PAPH(KLEVP1), &
+      INTEGER KLEV, KLEVP1
+      INTEGER KTOPM2, JK
+      REAL    ZTMST, PSRAIN, PSEVAP, PSHEAT, PSMELT, ZDIAGT, ZDIAGW
+      REAL    ZALV, RHK, RHCOE, PLDFD, ZDTDT, ZDQDT
+      REAL    PTTE(KLEV),       PQTE(KLEV),  &
+              PTEN(KLEV),       PLUDE(KLEV), &
+              PAPH(KLEVP1),                  &
               PAPRC,            PAPRS,       &
-              PAPRSM,           PCTE(KLEV),   &
+              PAPRSM,           PCTE(KLEV),  &
               PRSFC,            PSSFC
-      REAL     PMFUS(KLEV),       PMFDS(KLEV), &
-              PMFUQ(KLEV),       PMFDQ(KLEV), &
-              PMFUL(KLEV),       PQSEN(KLEV), &
-              PDMFUP(KLEV),      PDMFDP(KLEV),& 
-              PRFL,             PRAIN,      &
+      REAL    PMFUS(KLEV),      PMFDS(KLEV), &
+              PMFUQ(KLEV),      PMFDQ(KLEV), &
+              PMFUL(KLEV),      PQSEN(KLEV), &
+              PDMFUP(KLEV),     PDMFDP(KLEV),&
+              PRFL,             PRAIN,       &
               PQEN(KLEV)
-      REAL     PDPMEL(KLEV),      PSFL
-      REAL     ZSHEAT,           ZMELT
-      LOGICAL  LDCUM
+      REAL    PDPMEL(KLEV),      PSFL
+      REAL    ZSHEAT,           ZMELT
+      LOGICAL LDCUM
 !--------------------------------
 !*    1.0      SPECIFY PARAMETERS
 !--------------------------------
@@ -2411,7 +2404,7 @@ CONTAINS
               -ZALV*(PMFUL(JK+1)-PMFUL(JK)-pldfd-      &
               (PDMFUP(JK)+PDMFDP(JK))))
             PTTE(JK)=PTTE(JK)+ZDTDT
-            ZDQDT=(G/(PAPH(JK+1)-PAPH(JK)))*& 
+            ZDQDT=(G/(PAPH(JK+1)-PAPH(JK)))*&
               (PMFUQ(JK+1)-PMFUQ(JK)+       &
               PMFDQ(JK+1)-PMFDQ(JK)+        &
               PMFUL(JK+1)-PMFUL(JK)-pldfd-  &
@@ -2433,11 +2426,11 @@ CONTAINS
             pldfd=MAX(0.0,RHCOE*fdbk*PLUDE(JK))
             ZDTDT=-(G/(PAPH(JK+1)-PAPH(JK)))*RCPD*           &
                 (PMFUS(JK)+PMFDS(JK)+ALF*PDPMEL(JK)-ZALV* &
-                (PMFUL(JK)+PDMFUP(JK)+PDMFDP(JK)+pldfd))  
+                (PMFUL(JK)+PDMFUP(JK)+PDMFDP(JK)+pldfd))
             PTTE(JK)=PTTE(JK)+ZDTDT
             ZDQDT=-(G/(PAPH(JK+1)-PAPH(JK)))*                &
                      (PMFUQ(JK)+PMFDQ(JK)+pldfd+             &
-                     (PMFUL(JK)+PDMFUP(JK)+PDMFDP(JK)))   
+                     (PMFUL(JK)+PDMFUP(JK)+PDMFDP(JK)))
             PQTE(JK)=PQTE(JK)+ZDQDT
             PCTE(JK)=(G/(PAPH(JK+1)-PAPH(JK)))*pldfd
             ZSHEAT=ZSHEAT+ZALV*(PDMFUP(JK)+PDMFDP(JK))
@@ -2464,7 +2457,7 @@ CONTAINS
 !
 !**********************************************
 !       SUBROUTINE CUDUDV
-!********************************************** 
+!**********************************************
       SUBROUTINE CUDUDV &
          (KLEV,     KLEVP1,   KTOPM2,   KTYPE,            &
           KCBOT,    PAPH,     LDCUM,    PUEN,     PVEN,   &
@@ -2567,12 +2560,12 @@ CONTAINS
 !             SUBROUTINE CUBASMC
 !**************************************************************
       SUBROUTINE CUBASMC   &
-         (KLEV,     KLEVM1,  KK,     PTEN,            &
+         (KLEV,     KK,       PTEN,                   &
           PQEN,     PQSEN,    PUEN,    PVEN,   PVERV, &
           PGEO,     PGEOH,    LDCUM,   KTYPE,  KLAB,  &
           PMFU,     PMFUB,    PENTR,   KCBOT,  PTU,   &
           PQU,      PLU,      PUU,     PVU,    PMFUS, &
-          PMFUQ,    PMFUL,    PDMFUP,  PMFUU,  PMFUV) 
+          PMFUQ,    PMFUL,    PDMFUP,  PMFUU,  PMFUV)
 !      M.TIEDTKE         E.C.M.W.F.     12/89
 !***PURPOSE.
 !   --------
@@ -2593,12 +2586,11 @@ CONTAINS
 !-------------------------------------------------------------------
       IMPLICIT NONE
 !-------------------------------------------------------------------
-      INTEGER   KLEV, KLEVP1
-      INTEGER   KLEVM1,KK
+      INTEGER   KLEV, KK
       REAL      zzzmb
       REAL     PTEN(KLEV),        PQEN(KLEV),  &
               PUEN(KLEV),        PVEN(KLEV),   &
-              PQSEN(KLEV),       PVERV(KLEV),  & 
+              PQSEN(KLEV),       PVERV(KLEV),  &
               PGEO(KLEV),        PGEOH(KLEV)
       REAL     PTU(KLEV),         PQU(KLEV),   &
               PUU(KLEV),         PVU(KLEV),    &
@@ -2791,7 +2783,7 @@ CONTAINS
 !**********************************************************
 !        SUBROUTINE CUENTR_NEW
 !**********************************************************
-      SUBROUTINE CUENTR_NEW                              &   
+      SUBROUTINE CUENTR_NEW                              &
          (KLEV,     KLEVP1,   KK,       PTENH,           &
           PAPH,     PAP,      PGEOH,    KLWMIN,   LDCUM, &
           KTYPE,    KCBOT,    KCTOP0,   ZPBASE,   PMFU,  &

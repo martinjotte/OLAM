@@ -110,7 +110,7 @@
       real(kind=rb) :: reflect(nbndlw,nsfc)
       real(kind=rb) :: transtot(ngptlw,nlayers)
       real(kind=rb) :: secdif, secdiff(ngptlw)  ! secant of diffusivity angle
-      real(kind=rb) :: atot, odtot, tf0, rad0
+      real(kind=rb) :: atot, odtot, rad0
 
       real(kind=rb) :: bbtot    (ngptlw,nlayers)
 !     real(kind=rb) :: bbdtot    (ngptlw,nlayers)
@@ -253,7 +253,7 @@
 !!         odtot                = secdiff(ig) * taut(ig,nlayers)
 !!         transtot(ig,nlayers) = exp(odtot)
 !!         atot                 = fracs(ig,nlayers) - fracs(ig,nlayers) * transtot(ig,nlayers)
-!!         bbutot(ig,nlayers)   = 
+!!         bbutot(ig,nlayers)   =
 !!         bbdtot(ig,nlayers)   = atot * planklayb(iband,nlayers)
 !!      enddo
 

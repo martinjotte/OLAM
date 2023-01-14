@@ -1,40 +1,8 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 subroutine fields2_ll()
 
 ! This subroutine is a template, intended for user modification, for
 ! interpolating selected fields from the OLAM grid to a structured lat-lon
-! grid of either limited or global area.  
+! grid of either limited or global area.
 
 ! The following tasks are performed:
 
@@ -187,7 +155,7 @@ subroutine fields2_ll()
   real(r8), parameter :: dmissing = -999.9_r8
 
 !--------------------------------------------------------------------------------
-! THE FOLLOWING ARRAYS WILL CONTAIN THE FIELDS THAT ARE DEFINED ON THE 
+! THE FOLLOWING ARRAYS WILL CONTAIN THE FIELDS THAT ARE DEFINED ON THE
 ! LATITUDE-LONGITUDE GRID.  EXCEPT FOR THE 1D VERTICAL ARRAYS, THEY ARE
 ! DIMENSIONED USING THE ABOVE NLON,NLAT PARAMETERS.  THE USER SHOULD ADD
 ! NEW ARRAYS AS REQUIRED.
@@ -205,7 +173,7 @@ subroutine fields2_ll()
 !----------
 ! 2D FIELDS
 !----------
-  
+
   real, allocatable :: topo_ll              (:) ! topography height (m)
   real, allocatable :: u_lpw_ll             (:) ! lpw zonal wind component (m/s)
   real, allocatable :: v_lpw_ll             (:) ! lpw meridional wind component (m/s)
@@ -371,7 +339,7 @@ subroutine fields2_ll()
         if (nlon < 2) stop 'stop: nlon < 2 in fields2_ll '
         dlon = (endlon + 360. - beglon) / real(nlon-1)
      endif
-     
+
      allocate(alon(nlon))
 
      do ilon = 1, nlon
@@ -397,9 +365,9 @@ subroutine fields2_ll()
      do k = 2, mza
         zlev(k-1) = zt(k)
      enddo
-     
+
      ! Find the 3 IW points and weights for interpolation to each lat/lon point
-     
+
      call find_3iws_ll(nlon,nlat,alon,alat,iws_ll,wts_ll)
 
      ! Compute number of lat/lon points
@@ -443,7 +411,7 @@ subroutine fields2_ll()
         npts = count(iws_ll(:,:,1) > 1)
 
      endif
-     
+
      ! Store node-local copies of the interpolation IW indices and weights
 
      allocate(iws_loc(npts,3)); iws_loc = 0  ! local iw points for interpolating each lat/lon point
@@ -455,8 +423,8 @@ subroutine fields2_ll()
         do ilon = 1, nlon
            if (iws_ll(ilon,ilat,1) > 1) then
               n = n + 1
-              iws_loc(n,1:3) = iws_ll(ilon,ilat,1:3) 
-              wts_loc(n,1:3) = wts_ll(ilon,ilat,1:3) 
+              iws_loc(n,1:3) = iws_ll(ilon,ilat,1:3)
+              wts_loc(n,1:3) = wts_ll(ilon,ilat,1:3)
               lls_loc(n)     = ilon + (ilat-1)*nlon
            endif
         enddo
@@ -669,10 +637,10 @@ subroutine fields2_ll()
   if (allocated(v_lpw_ll)) call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1b,v_lpw_ll)
 
 !------------------------------------------------------------
-! Compute temperature on OLAM grid and copy its value at 
+! Compute temperature on OLAM grid and copy its value at
 ! lowest prognosed model level to separate array.
 ! Compute sea level pressure based on values at lowest
-! prognosed model level. 
+! prognosed model level.
 !------------------------------------------------------------
 
   do iw = 2, mwa
@@ -1029,7 +997,7 @@ subroutine fields2_ll()
               if (raxis > 1.e3) then
                  scr2a(k,iw) = (vy * xew(iw) - vx * yew(iw)) / raxis
                  scr2b(k,iw) = vz * raxis / erad &
-                    - (vx * xew(iw) + vy * yew(iw)) * zew(iw) / (raxis * erad) 
+                    - (vx * xew(iw) + vy * yew(iw)) * zew(iw) / (raxis * erad)
               else
                  scr2a(k,iw) = 0.
                  scr2b(k,iw) = 0.
@@ -1093,7 +1061,7 @@ subroutine fields2_ll()
    if (allocated(pcpcon_dif2_ll)) &
       pcpcon_dif2_ll(:) = pcpcon_dif2_ll(:) * 1.e-3 ! converting to m/s for DCMIP 2016
 !--------------------------------------------------------------------------------------
- 
+
    if (allocated(pcpboth_dif2_ll)) &
       pcpboth_dif2_ll(:) =              pcpmic_dif2_ll(:) +       pcpcon_dif2_ll(:)
    if (allocated(rshort_dif2_ll)) &
@@ -1126,7 +1094,7 @@ subroutine fields2_ll()
 !!  olam.163.r25.L30.voronoi.nonhydro.variable_220_25km.PS.nc
 
      call makefnam(hnamel, hfilepref, current_time, 'DLL', '$', 'h5')
-     call shdf5_open(hnamel,'W',iclobber) 
+     call shdf5_open(hnamel,'W',iclobber)
 
      ! Write any global attributes to file
 
@@ -1143,26 +1111,26 @@ subroutine fields2_ll()
 
 
      if     (nl%test_case == 110) then
-        call shdf5_write_global_attribute("experiment_id",      cvalue = "2016_1-dry") 
+        call shdf5_write_global_attribute("experiment_id",      cvalue = "2016_1-dry")
         call shdf5_write_global_attribute("frequency",          cvalue = "1day")
         call shdf5_write_global_attribute("mdt",                cvalue = "900s")
      elseif (nl%test_case == 111) then
-        call shdf5_write_global_attribute("experiment_id",      cvalue = "2016_1-preciponly") 
+        call shdf5_write_global_attribute("experiment_id",      cvalue = "2016_1-preciponly")
         call shdf5_write_global_attribute("frequency",          cvalue = "1day")
         call shdf5_write_global_attribute("mdt",                cvalue = "900s")
      elseif (nl%test_case == 112) then
-        call shdf5_write_global_attribute("experiment_id",      cvalue = "2016_1-rjpbl") 
-        call shdf5_write_global_attribute("frequency",          cvalue = "1day") 
+        call shdf5_write_global_attribute("experiment_id",      cvalue = "2016_1-rjpbl")
+        call shdf5_write_global_attribute("frequency",          cvalue = "1day")
         call shdf5_write_global_attribute("mdt",                cvalue = "900s")
      elseif (nl%test_case == 121) then
-        call shdf5_write_global_attribute("experiment_id",      cvalue = "2016_2-rjpbl") 
-        call shdf5_write_global_attribute("frequency",          cvalue = "6hr") 
+        call shdf5_write_global_attribute("experiment_id",      cvalue = "2016_2-rjpbl")
+        call shdf5_write_global_attribute("frequency",          cvalue = "6hr")
      elseif (nl%test_case == 122) then
-        call shdf5_write_global_attribute("experiment_id",      cvalue = "2016_2-bryanpbl") 
-        call shdf5_write_global_attribute("frequency",          cvalue = "6hr") 
+        call shdf5_write_global_attribute("experiment_id",      cvalue = "2016_2-bryanpbl")
+        call shdf5_write_global_attribute("frequency",          cvalue = "6hr")
      elseif (nl%test_case == 131) then
-        call shdf5_write_global_attribute("experiment_id",      cvalue = "2016_3") 
-        call shdf5_write_global_attribute("frequency",          cvalue = "300s") 
+        call shdf5_write_global_attribute("experiment_id",      cvalue = "2016_3")
+        call shdf5_write_global_attribute("frequency",          cvalue = "300s")
      endif
 
      if     (nxp < 40 .and. ngrids == 1) then
@@ -1235,7 +1203,7 @@ subroutine fields2_ll()
                         positive = "down"                               )
      endif
 
-     ! Now write lat/lon interpolated variables to disk.  
+     ! Now write lat/lon interpolated variables to disk.
      ! THESE WRITES NEED THE ROUTINE SHDF5_OREC_LL TO WORK IN PARALLEL!!
 
      ndims    = 2
@@ -1386,7 +1354,7 @@ subroutine fields2_ll()
                            standard_name = "integral_of_surface_upwelling_shortwave_flux_wrt_time",     &
                            units = "J m-2",                                                             &
                            rmissing = rmissing                                                          )
-                  
+
      if (allocated(rlong_accum_ll)) &
         CALL shdf5_orec_ll(ndims, idims, 'RLONG_ACCUM_LL', rvar1=rlong_accum_ll, gpoints=lls_loc,    &
                            dimnames = dimnames,                                                      &
@@ -1447,7 +1415,7 @@ subroutine fields2_ll()
                            standard_name = "integral_of_surface_upwelling_clear_air_shortwave_flux_wrt_time",   &
                            units = "J m-2",                                                                     &
                            rmissing = rmissing                                                                  )
-                    
+
      if (allocated(rlong_clr_accum_ll)) &
         CALL shdf5_orec_ll(ndims, idims, 'RLONG_CLR_ACCUM_LL', rvar1=rlong_clr_accum_ll, gpoints=lls_loc,      &
                            dimnames = dimnames,                                                                &
@@ -1564,7 +1532,7 @@ subroutine fields2_ll()
                            standard_name = "als_average_of_integral_of_skin_temperature_wrt_time",                 &
                            units = "J m-2",                                                                        &
                            rmissing = rmissing                                                                     )
-   
+
      if (allocated(als_sensflux_accum_ll)) &
         CALL shdf5_orec_ll(ndims, idims, 'ALS_SENSFLUX_ACCUM_LL' , rvar1=als_sensflux_accum_ll, gpoints=lls_loc, &
                            dimnames = dimnames,                                                                  &
@@ -1866,7 +1834,7 @@ subroutine fields2_ll()
   if (allocated(slp_ll)) then
      ! Preserve missing values
      where( abs(slp_ll(:) - rmissing) > 1.e-7 )
-       scr2_ll(:) =  slp_ll(:) * .01 
+       scr2_ll(:) =  slp_ll(:) * .01
      elsewhere
         scr2_ll(:) = rmissing
      endwhere
@@ -1896,13 +1864,13 @@ subroutine fields2_ll()
                       "Accum surface vapor", "(kg/m^2)", rmissing)
 
   if (allocated(sensflux_accum_ll)) then
-     scr2_ll(:) = sensflux_accum_ll(:) * 1.e-6 
+     scr2_ll(:) = sensflux_accum_ll(:) * 1.e-6
      call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,scr2_ll,304, &
                       "Accum surface sensible heat", "(MJ/m^2)", rmissing)
   endif
 
   if (allocated(latflux_accum_ll)) then
-     scr2_ll(:) = latflux_accum_ll(:) * 1.e-6 
+     scr2_ll(:) = latflux_accum_ll(:) * 1.e-6
      call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,scr2_ll,304, &
                       "Accum surface latent heat", "(MJ/m^2)", rmissing)
   endif
@@ -2527,12 +2495,12 @@ subroutine tileplot_ll(nlon,nlat,nlev,ilev,alon,alat,npts,lls_loc,fld,itab, &
   endif
 
   ! Tile plot each lat/lon point
- 
+
   do nn = 1, npts
 
      ! 1d global lat/lon index
 
-     n = lls_loc(nn)            
+     n = lls_loc(nn)
 
      ! convert 1d lat/lon index to 2d
 
@@ -2544,7 +2512,7 @@ subroutine tileplot_ll(nlon,nlat,nlev,ilev,alon,alat,npts,lls_loc,fld,itab, &
      fldval = fld(nn,ilev)
 
      if (abs(fldval - rmissing) < 1.e-7) cycle
-     
+
      ! get lat/lon cell boundaries
 
      if (ilat == 1) then
@@ -2629,7 +2597,7 @@ subroutine tileplot_ll(nlon,nlat,nlev,ilev,alon,alat,npts,lls_loc,fld,itab, &
               ipos = 0
 
               do j = 1, nus(n)
-               
+
                  call MPI_Unpack(buffer, buffsize, ipos, htpn,   4, MPI_REAL,    MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, vtpn,   4, MPI_REAL,    MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, icolor, 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
@@ -2641,7 +2609,7 @@ subroutine tileplot_ll(nlon,nlat,nlev,ilev,alon,alat,npts,lls_loc,fld,itab, &
            endif
         enddo
      endif
-        
+
      deallocate(buffer)
   endif
 #endif
@@ -2737,7 +2705,7 @@ subroutine mkmap_ll()
   use mem_para,    only: myrank
 
   implicit none
-  
+
   if (myrank /= 0) return
 
   ! Set plot color (black)

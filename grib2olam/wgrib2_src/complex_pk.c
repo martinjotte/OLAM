@@ -238,7 +238,7 @@ static void move_one_right(struct section *s, int *v) {
 	return;
     }
     return;
-} 
+}
 
 static void exchange(struct section *s, int *v, int has_undef, int LEN_SEC_MAX) {
 	struct section *t;
@@ -261,7 +261,7 @@ static void exchange(struct section *s, int *v, int has_undef, int LEN_SEC_MAX) 
 	    if (nbit_s == nbit_t) { s = t; continue; }
 
 	    val0 = v[s->i1];
-	    val1 = v[t->i0]; 
+	    val1 = v[t->i0];
 
 	    if (s->missing == 1 || t->missing == 1) { s=t; continue; }
 //	    if (val0 == INT_MAX || val1 == INT_MAX) { s=t; continue; }
@@ -300,7 +300,7 @@ static void exchange(struct section *s, int *v, int has_undef, int LEN_SEC_MAX) 
 
 
 
-static void merge_j(struct section *h, int ref_bits, int width_bits, int has_undef, 
+static void merge_j(struct section *h, int ref_bits, int width_bits, int has_undef,
 	int param, int LEN_SEC_MAX) {
     struct section *t, *m;
     int size_head, size_mid, size_tail, saving_mt, saving_hm;
@@ -333,7 +333,7 @@ static void merge_j(struct section *h, int ref_bits, int width_bits, int has_und
 	    if (max0-min0 <= param) {
 	        if (size_head == 0) size_head = sizeofsection(h, ref_bits, width_bits, has_undef);
 		if (size_mid == 0) size_mid = sizeofsection(m, ref_bits, width_bits, has_undef);
-	        saving_hm = size_head + size_mid - sizeofsection2(min0, max0, m->i1-h->i0+1, ref_bits, 
+	        saving_hm = size_head + size_mid - sizeofsection2(min0, max0, m->i1-h->i0+1, ref_bits,
 		    width_bits, h->missing || m->missing , has_undef);
 	    }
 	}
@@ -356,7 +356,7 @@ static void merge_j(struct section *h, int ref_bits, int width_bits, int has_und
 	    if (max1-min1 <= param) {
 		if (size_mid == 0) size_mid = sizeofsection(m, ref_bits, width_bits, has_undef);
 	        if (size_tail == 0) size_tail = sizeofsection(t, ref_bits, width_bits, has_undef);
-	        saving_mt = size_mid + size_tail - sizeofsection2(min1, max1, t->i1-m->i0+1, ref_bits, 
+	        saving_mt = size_mid + size_tail - sizeofsection2(min1, max1, t->i1-m->i0+1, ref_bits,
 		width_bits, m->missing || t->missing,  has_undef);
 	    }	
 	}
@@ -400,8 +400,8 @@ static void merge_j(struct section *h, int ref_bits, int width_bits, int has_und
  */
 
 
-int complex_grib_out(unsigned char **sec, float *data, unsigned int ndata, 
-   int use_scale, int dec_scale, int bin_scale, int wanted_bits, int max_bits, 
+int complex_grib_out(unsigned char **sec, float *data, unsigned int ndata,
+   int use_scale, int dec_scale, int bin_scale, int wanted_bits, int max_bits,
    int packing_mode, int use_bitmap, struct seq_file *out) {
 
     int j, j0, k, *v, binary_scale, nbits, has_undef, extra_0, extra_1;
@@ -507,7 +507,7 @@ int complex_grib_out(unsigned char **sec, float *data, unsigned int ndata,
 
     v = (int *) malloc( ((size_t) nndata) * sizeof(int));
     sec5 = (unsigned char *) malloc(packing_mode == 1 ? 47 : 49);
- 
+
     if (v == NULL || sec5 == NULL) fatal_error("complex_grib_out memory allocation v","");
 
     if (min_max_array(data, ndata, &mn, &mx) != 0) fatal_error("complex_pk: min max error","");
@@ -832,7 +832,7 @@ printf("2: vmx %d vmn %d nbits %d\n", vmx, vmn, find_nbits(vmx-vmn+has_undef));
     itmp = (int *) malloc(((size_t) ngroups) * sizeof(int));
     itmp2 = (int *) malloc(((size_t) ngroups) * sizeof(int));
 
-    if (lens == NULL || widths == NULL || refs == NULL || itmp == NULL || itmp2 == NULL) 
+    if (lens == NULL || widths == NULL || refs == NULL || itmp == NULL || itmp2 == NULL)
 	fatal_error("complex grib_out: memory allocation","");
 // printf("linked list ngroups=%d\n", ngroups);
 /*
@@ -888,7 +888,7 @@ printf("2: vmx %d vmn %d nbits %d\n", vmx, vmn, find_nbits(vmx-vmn+has_undef));
     grefmx_thread = refs[0] != INT_MAX ? refs[0] : 0;
 
 #pragma omp for nowait
-    for (i = 1; i < ngroups; i++) { 
+    for (i = 1; i < ngroups; i++) {
         glenmx_thread = glenmx_thread >= lens[i] ? glenmx_thread : lens[i];
         glenmn_thread = glenmn_thread <= lens[i] ? glenmn_thread : lens[i];
         gwidmx_thread = gwidmx_thread >= widths[i] ? gwidmx_thread : widths[i];
@@ -950,7 +950,7 @@ printf("group widthmn = %d, gwidmx %d, width bits max %d\n", gwidmn, gwidmx, sec
     // extra octets
     if (packing_mode == 2) size_sec7 += 2*sec5[48];
     else if (packing_mode == 3) size_sec7 += 3*sec5[48];
-  
+
     // group reference value
     size_sec7 +=  (ngroups * sec5[19] + 7)/8;
 
@@ -1038,7 +1038,7 @@ printf("group widthmn = %d, gwidmx %d, width bits max %d\n", gwidmn, gwidmx, sec
 	}
     }
 */
-    
+
     s = start.tail;
     for (i = 0; i < ngroups; i++, s=s->tail) {
 	itmp[i] = s->i0;
@@ -1056,7 +1056,7 @@ printf("group widthmn = %d, gwidmx %d, width bits max %d\n", gwidmn, gwidmx, sec
 	if (widths[i]) {
             add_many_bitstream(v+itmp[i], lens[i], widths[i]);
 	}
-    }  
+    }
 
     finish_bitstream();
 

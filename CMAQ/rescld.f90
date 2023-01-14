@@ -17,17 +17,16 @@
 !  subject to their copyright restrictions.                              !
 !------------------------------------------------------------------------!
 
-subroutine rescld ( mrl )
+subroutine rescld ( )
 
   use mem_ijtabs, only: jtab_w, jtw_prog
 
   implicit none
 
-  integer, intent(in) :: mrl
   integer             :: j, iw
 
   !$omp parallel do private(iw) schedule(guided)
-  do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+  do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
      call rescld1( iw )
 
@@ -211,7 +210,7 @@ subroutine rescld1 ( iw )
   mrlw = itab_w(iw)%mrlw
 
   ! Set the cloud lifetime (=adv timestep)
-  taucld = dtlm(mrlw)
+  taucld = dtlm
 
   tot_wdep(iw,:) = 0.0
 

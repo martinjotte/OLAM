@@ -48,7 +48,7 @@ Module gchem_aeros
 
   ! Nudging array (containing geoschem fields interpolated to OLAM grid)
 
-  real, allocatable :: geoschem_nud(:,:,:) ! Dimensions (mza,mwa,nccntyp) 
+  real, allocatable :: geoschem_nud(:,:,:) ! Dimensions (mza,mwa,nccntyp)
 
 Contains
 
@@ -356,7 +356,7 @@ Contains
 
   use misc_coms,   only: io6, s1900_sim
   use mem_grid,    only: mza, mwa
-  use ccnbin_coms, only: nccntyp 
+  use ccnbin_coms, only: nccntyp
 
   implicit none
 
@@ -441,7 +441,7 @@ Contains
   write(io6,'(a,i5)') 'geoschem_read1 ',igchemfile
 
   igchemfile = igchemfile + 1
-   
+
   if (igchemfile > ngchemfiles) then
      write(io6,*) ' '
      write(io6,*) 'No future gchem file is available for nudging '
@@ -557,10 +557,10 @@ Contains
   !$omp parallel private(press4,presscol,aeroscol,vctr)
   !$omp do private(iw,kb,glat,glon,ids,xperdeg,yperdeg,rio,rjo,io1,jo1, &
   !$omp            wio2,wjo2,wio1,wjo1,nlon,io2,jo2,iaer)
-  do j = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
+  do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
      kb = lpw(iw)
-   
+
      glat = glatw(iw)
      glon = glonw(iw)
 
@@ -592,10 +592,10 @@ Contains
 
      io1 = int(rio)
      jo1 = int(rjo)
-         
+
      wio2 = rio - real(io1)
      wjo2 = rjo - real(jo1)
-           
+
      wio1 = 1. - wio2
      wjo1 = 1. - wjo2
 
@@ -693,7 +693,7 @@ Contains
 
      ! Copy data from columns of vctr array to respective locations in
      ! geoschem_nud array, whose third index corresponds to index in ccntyp
-     ! array.  Some geos-chem aerosols get combined into a single OLAM ccn 
+     ! array.  Some geos-chem aerosols get combined into a single OLAM ccn
      ! nudging array.
 
      geoschem_nud(kb:mza,iw,1) = vctr(kb:mza,1)                                     ! Dust1
@@ -756,7 +756,7 @@ Contains
      do while(ka < na-1 .and. pressb(kb) < pressa(ka+1))
         ka = ka + 1
      enddo
-     
+
      if (pressb(kb) >= pressa(1)) then
         vctrb(kb) = vctra(1)
      elseif (pressb(kb) <= pressa(na)) then
@@ -794,7 +794,7 @@ Contains
   ! Compute ozone nudging tendency using point-by-point (non-spectral) information
 
   !$omp parallel do private(iw,ic,k)
-  do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+  do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
      do ic = 1,nccntyp
 
@@ -826,7 +826,7 @@ Contains
   ! For start of new simulation, set CCN fields equal to geoschem nudging fields
 
   !$omp parallel do private(iw,ic,k)
-  do j = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
+  do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
      do ic = 1,nccntyp
 
@@ -1043,7 +1043,7 @@ Contains
 
      enddo ! itim
 
-     ! Deallocate arrays for current ids region 
+     ! Deallocate arrays for current ids region
 
      deallocate (gchem(ids)%dust1)
      deallocate (gchem(ids)%dust2)

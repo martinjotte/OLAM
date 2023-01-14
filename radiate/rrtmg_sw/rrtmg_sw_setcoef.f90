@@ -172,7 +172,7 @@
       enddo
 
 !  Find tropopause level
-      
+
       laytrop = 1
       do lay = 1, nlayers
          if (jp(lay) >= 13) exit

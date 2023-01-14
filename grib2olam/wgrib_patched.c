@@ -4,8 +4,8 @@
 #include <stddef.h>
 #include <math.h>
 #include <float.h>
-/* 
- * version 1.2.1 of grib headers  w. ebisuzaki 
+/*
+ * version 1.2.1 of grib headers  w. ebisuzaki
  *         1.2.2 added access to spectral reference value l. kornblueh
  */
 
@@ -236,7 +236,7 @@ struct ParmTable {
 #define GDS_ss2dBgrid_Lo2(gds)    INT3(gds[20],gds[21],gds[22])
 #define GDS_ss2dBgrid_di(gds)     (gds[16] & 128 ? INT2(gds[23],gds[24]) : 0)
 #define GDS_ss2dBgrid_dj(gds)     (gds[16] & 128 ? INT2(gds[25],gds[26]) : 0)
-#define GDS_ss2dBgrid_scan(gds)   (gds[27]) 
+#define GDS_ss2dBgrid_scan(gds)   (gds[27])
 
 
 #define GDS_Merc_nx(gds)	UINT2(gds[6],gds[7])
@@ -274,9 +274,9 @@ struct ParmTable {
 #define GDS_Triangular_nd(gds)  INT3(gds[10],gds[11],gds[12])
 
 /* Harmonics data */
-#define GDS_Harmonic_nj(gds)     ((int) ((gds[6] << 8) + gds[7])) 
-#define GDS_Harmonic_nk(gds)     ((int) ((gds[8] << 8) + gds[9])) 
-#define GDS_Harmonic_nm(gds)     ((int) ((gds[10] << 8) + gds[11])) 
+#define GDS_Harmonic_nj(gds)     ((int) ((gds[6] << 8) + gds[7]))
+#define GDS_Harmonic_nk(gds)     ((int) ((gds[8] << 8) + gds[9]))
+#define GDS_Harmonic_nm(gds)     ((int) ((gds[10] << 8) + gds[11]))
 #define GDS_Harmonic_type(gds)   (gds[12])
 #define GDS_Harmonic_mode(gds)   (gds[13])
 
@@ -286,7 +286,7 @@ struct ParmTable {
 
 enum Def_NCEP_Table {rean, opn, rean_nowarn, opn_nowarn};
 
-unsigned char *seek_grib(FILE *file, unsigned long *pos, long *len_grib, 
+unsigned char *seek_grib(FILE *file, unsigned long *pos, long *len_grib,
         unsigned char *buffer, unsigned int buf_len);
 
 int read_grib(FILE *file, long pos, long len_grib, unsigned char *buffer);
@@ -294,7 +294,7 @@ int read_grib(FILE *file, long pos, long len_grib, unsigned char *buffer);
 long echack(FILE *file, long pos, long len_grib);
 
 double ibm2flt(unsigned char *ibm);
- 
+
 void BDS_unpack(float *flt, unsigned char *bds, unsigned char *bitmap,
         int n_bits, int n, double ref, double scale);
 
@@ -308,14 +308,14 @@ int wrtieee(float *array, int n, int header, FILE *output);
 int wrtieee_header(unsigned int n, FILE *output);
 
 void levels(int, int, int, int verbose);
- 
+
 void PDStimes(int time_range, int p1, int p2, int time_unit);
 
 int missing_points(unsigned char *bitmap, int n);
 
 void EC_ext(unsigned char *pds, char *prefix, char *suffix, int verbose);
 
-int GDS_grid(unsigned char *gds, unsigned char *bds, int *nx, int *ny, 
+int GDS_grid(unsigned char *gds, unsigned char *bds, int *nx, int *ny,
              long int *nxny);
 
 void GDS_prt_thin_lon(unsigned char *gds);
@@ -454,10 +454,10 @@ void ensemble(unsigned char *pds, int mode);
  * wgrib.c is placed into the public domain.  While you could
  * legally do anything you want with the code, telling the world
  * that you wrote it would be uncool.  Selling it would be really
- * uncool.  The code was originally written for NMC/NCAR Reanalysis 
+ * uncool.  The code was originally written for NMC/NCAR Reanalysis
  * and handles most GRIB files except for the ECMWF spectral files.
  * (ECMWF's spectral->grid code are copyrighted and in FORTRAN.)
- * The code, as usual, is not waranteed to be fit for any purpose 
+ * The code, as usual, is not waranteed to be fit for any purpose
  * what so ever.  However, wgrib is operational NCEP code, so it
  * better work for our files.
  */
@@ -505,7 +505,7 @@ int main(int argc, char **argv) {
     FILE *input, *dump_file = NULL;
     char line[2000];
     enum {BINARY, TEXT, IEEE, GRIB, NONE} output_type = NONE;
-    enum {DUMP_ALL, DUMP_RECORD, DUMP_POSITION, DUMP_LIST, INVENTORY} 
+    enum {DUMP_ALL, DUMP_RECORD, DUMP_POSITION, DUMP_LIST, INVENTORY}
 	mode = INVENTORY;
     enum {none, dwd, simple} header = simple;
 
@@ -817,7 +817,7 @@ int main(int argc, char **argv) {
         if (pointer[0] != 0x37 || pointer[1] != 0x37 ||
             pointer[2] != 0x37 || pointer[3] != 0x37) {
             fprintf(stderr,"\n\n    missing end section\n");
-            fprintf(stderr, "%2x %2x %2x %2x\n", pointer[0], pointer[1], 
+            fprintf(stderr, "%2x %2x %2x %2x\n", pointer[0], pointer[1],
 		pointer[2], pointer[3]);
 #ifdef DEBUG
 	    printf("ignoring missing end section\n");
@@ -865,10 +865,10 @@ int main(int argc, char **argv) {
 		    ny = 1;
 	        }
 	    }
- 
+
         }
 #endif
- 
+
         if (verbose <= 0 && dump_file != stdout) {
 	    printf("%ld:%lu:d=", count, pos);
 	    PDS_date(pds,year_4,v_time);
@@ -908,8 +908,8 @@ int main(int argc, char **argv) {
         else if (verbose == 2 && dump_file != stdout) {
 	    printf("rec %ld:%lu:date ", count, pos);
 	    PDS_date(pds, 1, v_time);
-	    printf(" %s kpds5=%d kpds6=%d kpds7=%d levels=(%d,%d) grid=%d ", 
-	        k5toa(pds), PDS_PARAM(pds), PDS_KPDS6(pds), PDS_KPDS7(pds), 
+	    printf(" %s kpds5=%d kpds6=%d kpds7=%d levels=(%d,%d) grid=%d ",
+	        k5toa(pds), PDS_PARAM(pds), PDS_KPDS6(pds), PDS_KPDS7(pds),
                 PDS_LEVEL1(pds), PDS_LEVEL2(pds), PDS_Grid(pds));
 	        levels(PDS_KPDS6(pds),PDS_KPDS7(pds),PDS_Center(pds),verbose);
 
@@ -918,24 +918,24 @@ int main(int argc, char **argv) {
 	    ensemble(pds, verbose);
 	    PDStimes(PDS_TimeRange(pds),PDS_P1(pds),PDS_P2(pds),
                  PDS_ForecastTimeUnit(pds));
-	    if (bms != NULL) 
+	    if (bms != NULL)
 		printf(" bitmap: %d undef", missing_points(BMS_bitmap(bms),nxny));
             printf("\n  %s=%s\n", k5toa(pds), k5_comments(pds));
 	
             printf("  timerange %d P1 %d P2 %d TimeU %d  nx %d ny %d GDS grid %d "
-		"num_in_ave %d missing %d\n", 
-	        PDS_TimeRange(pds),PDS_P1(pds),PDS_P2(pds), 
-                PDS_ForecastTimeUnit(pds), nx, ny, 
-                gds == NULL ? -1 : GDS_DataType(gds), 
+		"num_in_ave %d missing %d\n",
+	        PDS_TimeRange(pds),PDS_P1(pds),PDS_P2(pds),
+                PDS_ForecastTimeUnit(pds), nx, ny,
+                gds == NULL ? -1 : GDS_DataType(gds),
                 PDS_NumAve(pds), PDS_NumMissing(pds));
 
-	    printf("  center %d subcenter %d process %d Table %d", 
+	    printf("  center %d subcenter %d process %d Table %d",
 		PDS_Center(pds),PDS_Subcenter(pds),PDS_Model(pds),
                 PDS_Vsn(pds));
 	    GDS_winds(gds, verbose);
 	    printf("\n");
 
-	    if (gds && GDS_LatLon(gds) && nx != -1) 
+	    if (gds && GDS_LatLon(gds) && nx != -1)
 		printf("  latlon: lat  %f to %f by %f  nxny %ld\n"
                        "          long %f to %f by %f, (%d x %d) scan %d "
                        "mode %d bdsgrid %d\n",
@@ -960,7 +960,7 @@ int main(int argc, char **argv) {
                        "            long %f to %f by %f, (%d x %d) scan %d"
 			" mode %d bdsgrid %d\n",
 		  0.001*GDS_LatLon_La1(gds), 0.001*GDS_LatLon_La2(gds),
-		  0.001*GDS_LatLon_Lo1(gds), 0.001*GDS_LatLon_Lo2(gds), 
+		  0.001*GDS_LatLon_Lo1(gds), 0.001*GDS_LatLon_Lo2(gds),
 		  0.001*GDS_LatLon_dx(gds),
 	    	  nx, ny, GDS_LatLon_scan(gds), GDS_LatLon_mode(gds),
 		  BDS_Grid(bds));
@@ -1014,14 +1014,14 @@ int main(int argc, char **argv) {
 		  0.001*GDS_Merc_La1(gds), 0.001*GDS_Merc_La2(gds),
 		  0.001*GDS_Merc_dy(gds), nxny, 0.001*GDS_Merc_Lo1(gds),
 		  0.001*GDS_Merc_Lo2(gds), 0.001*GDS_Merc_dx(gds),
-	    	  nx, ny, GDS_Merc_scan(gds), GDS_Merc_mode(gds), 
+	    	  nx, ny, GDS_Merc_scan(gds), GDS_Merc_mode(gds),
 		  0.001*GDS_Merc_Latin(gds), BDS_Grid(bds));
 	    else if (gds && GDS_ssEgrid(gds))
 		printf("  Semi-staggered Arakawa E-Grid: lat0 %f lon0 %f nxny %d\n"
                        "    dLat %f dLon %f (%d x %d) scan %d mode %d\n",
-		  0.001*GDS_ssEgrid_La1(gds), 0.001*GDS_ssEgrid_Lo1(gds), 
-                  GDS_ssEgrid_n(gds)*GDS_ssEgrid_n_dum(gds), 
-                  0.001*GDS_ssEgrid_dj(gds), 0.001*GDS_ssEgrid_di(gds), 
+		  0.001*GDS_ssEgrid_La1(gds), 0.001*GDS_ssEgrid_Lo1(gds),
+                  GDS_ssEgrid_n(gds)*GDS_ssEgrid_n_dum(gds),
+                  0.001*GDS_ssEgrid_dj(gds), 0.001*GDS_ssEgrid_di(gds),
                   GDS_ssEgrid_Lo2(gds), GDS_ssEgrid_La2(gds),
                   GDS_ssEgrid_scan(gds), GDS_ssEgrid_mode(gds));
             else if (gds && GDS_ss2dEgrid(gds))
@@ -1039,20 +1039,20 @@ int main(int argc, char **argv) {
                    GDS_ss2dBgrid_nx(gds)*GDS_ss2dBgrid_ny(gds),
                    0.001*GDS_ss2dBgrid_dj(gds), 0.001*GDS_ss2dBgrid_di(gds),
                    0.001*GDS_ss2dBgrid_Lo2(gds), 0.001*GDS_ss2dBgrid_La2(gds),
-                   GDS_ss2dBgrid_scan(gds), GDS_ss2dBgrid_mode(gds)); 
-	    else if (gds && GDS_fEgrid(gds)) 
+                   GDS_ss2dBgrid_scan(gds), GDS_ss2dBgrid_mode(gds));
+	    else if (gds && GDS_fEgrid(gds))
 		printf("  filled Arakawa E-Grid: lat0 %f lon0 %f nxny %d\n"
                        "    dLat %f dLon %f (%d x %d) scan %d mode %d\n",
-		  0.001*GDS_fEgrid_La1(gds), 0.001*GDS_fEgrid_Lo1(gds), 
-                  GDS_fEgrid_n(gds)*GDS_fEgrid_n_dum(gds), 
-                  0.001*GDS_fEgrid_dj(gds), 0.001*GDS_fEgrid_di(gds), 
+		  0.001*GDS_fEgrid_La1(gds), 0.001*GDS_fEgrid_Lo1(gds),
+                  GDS_fEgrid_n(gds)*GDS_fEgrid_n_dum(gds),
+                  0.001*GDS_fEgrid_dj(gds), 0.001*GDS_fEgrid_di(gds),
                   GDS_fEgrid_Lo2(gds), GDS_fEgrid_La2(gds),
                   GDS_fEgrid_scan(gds), GDS_fEgrid_mode(gds));
 	    else if (gds && GDS_RotLL(gds))
 		printf("  rotated LatLon grid  lat %f to %f  lon %f to %f\n"
 		       "    nxny %ld  (%d x %d)  dx %d dy %d  scan %d  mode %d\n"
-		       "    transform: south pole lat %f lon %f  rot angle %f\n", 
-		   0.001*GDS_RotLL_La1(gds), 0.001*GDS_RotLL_La2(gds), 
+		       "    transform: south pole lat %f lon %f  rot angle %f\n",
+		   0.001*GDS_RotLL_La1(gds), 0.001*GDS_RotLL_La2(gds),
 		   0.001*GDS_RotLL_Lo1(gds), 0.001*GDS_RotLL_Lo2(gds),
 		   nxny, GDS_RotLL_nx(gds), GDS_RotLL_ny(gds),
 		   GDS_RotLL_dx(gds), GDS_RotLL_dy(gds),
@@ -1069,11 +1069,11 @@ int main(int argc, char **argv) {
 		  printf("  Associated Legendre polynomials\n");
             else if (gds && GDS_Triangular(gds))
                 printf("  Triangular grid:  nd %d ni %d (= 2^%d x 3^%d)\n",
-		    GDS_Triangular_nd(gds), GDS_Triangular_ni(gds), 
+		    GDS_Triangular_nd(gds), GDS_Triangular_ni(gds),
                     GDS_Triangular_ni2(gds), GDS_Triangular_ni3(gds) );
-	    if (print_PDS || print_PDS10) 
+	    if (print_PDS || print_PDS10)
                 print_pds(pds, print_PDS, print_PDS10, verbose);
-	    if (gds && (print_GDS || print_GDS10)) 
+	    if (gds && (print_GDS || print_GDS10))
                  print_gds(gds, print_GDS, print_GDS10, verbose);
 	}
 
@@ -1086,7 +1086,7 @@ int main(int argc, char **argv) {
 
 	if ((mode != INVENTORY && output_type != GRIB) || verbose > 1) {
 	    /* decode numeric data */
- 
+
             if ((array = (float *) malloc(sizeof(float) * nxny)) == NULL) {
                 fprintf(stderr,"memory problems\n");
                 exit(8);
@@ -1107,7 +1107,7 @@ int main(int argc, char **argv) {
 		    }
 	        }
 	        printf("  min/max data %g %g  num bits %d "
-			" BDS_Ref %g  DecScale %d BinScale %d\n", 
+			" BDS_Ref %g  DecScale %d BinScale %d\n",
 		    rmin, rmax, BDS_NumBits(bds), BDS_RefValue(bds),
 		    PDS_DecimalScale(pds), BDS_BinScale(bds));
 	    }
@@ -1119,27 +1119,27 @@ int main(int argc, char **argv) {
 	            if (output_type == BINARY || output_type == IEEE) {
 			/* write PDS */
 			i = PDS_LEN(pds) + 4;
-	                if (header == simple && output_type == BINARY) 
+	                if (header == simple && output_type == BINARY)
 				fwrite((void *) &i, sizeof(int), 1, dump_file);
 	                if (header == simple && output_type == IEEE) wrtieee_header(i, dump_file);
 	                fwrite((void *) "PDS ", 1, 4, dump_file);
 	                fwrite((void *) pds, 1, i - 4, dump_file);
-	                if (header == simple && output_type == BINARY) 
+	                if (header == simple && output_type == BINARY)
 				fwrite((void *) &i, sizeof(int), 1, dump_file);
 	                if (header == simple && output_type == IEEE) wrtieee_header(i, dump_file);
 
 			/* write GDS */
 			i = (gds) ?  GDS_LEN(gds) + 4 : 4;
-	                if (header == simple && output_type == BINARY) 
+	                if (header == simple && output_type == BINARY)
 				fwrite((void *) &i, sizeof(int), 1, dump_file);
 	                if (header == simple && output_type == IEEE) wrtieee_header(i, dump_file);
 	                fwrite((void *) "GDS ", 1, 4, dump_file);
 	                if (gds) fwrite((void *) gds, 1, i - 4, dump_file);
-	                if (header == simple && output_type == BINARY) 
+	                if (header == simple && output_type == BINARY)
 				fwrite((void *) &i, sizeof(int), 1, dump_file);
 	                if (header == simple && output_type == IEEE) wrtieee_header(i, dump_file);
 		    }
-		} 
+		}
 
 	        if (output_type == BINARY) {
 	            i = nxny * sizeof(float);
@@ -1172,7 +1172,7 @@ int main(int argc, char **argv) {
 
 	if (output_type != NONE && dump_file != stdout) fflush(dump_file);
 	fflush(stdout);
-	    
+	
         pos += len_grib;
         count++;
     }
@@ -1280,8 +1280,8 @@ void print_gds(unsigned char *gds, int print_GDS, int print_GDS10, int verbose) 
  * v1.1 9/94 Wesley Ebisuzaki
  * v1.2 3/96 Wesley Ebisuzaki handles short records at end of file
  * v1.3 8/96 Wesley Ebisuzaki increase NTRY from 3 to 100 for the folks
- *      at Automation decided a 21 byte WMO bulletin header wasn't long 
- *      enough and decided to go to an 8K header.  
+ *      at Automation decided a 21 byte WMO bulletin header wasn't long
+ *      enough and decided to go to an 8K header.
  * v1.4 11/10/2001 D. Haalman, looks at entire file, does not try
  *      to read past EOF
  *      3/8/2010 echack added by Brian Doty
@@ -1297,7 +1297,7 @@ void print_gds(unsigned char *gds, int print_GDS, int print_GDS10, int verbose) 
 
 int ec_large_grib = 0,  len_ec_bds;
 
-unsigned char *seek_grib(FILE *file, unsigned long *pos, long *len_grib, 
+unsigned char *seek_grib(FILE *file, unsigned long *pos, long *len_grib,
         unsigned char *buffer, unsigned int buf_len) {
 
     int i, len;
@@ -1307,10 +1307,10 @@ unsigned char *seek_grib(FILE *file, unsigned long *pos, long *len_grib,
     while ( !feof(file) ) {
 
         if (fseek(file, *pos, SEEK_SET) == -1) break;
-	i = fread(buffer, sizeof (unsigned char), buf_len, file);     
+	i = fread(buffer, sizeof (unsigned char), buf_len, file);
         if (ferror(file)) break;
         len = i - LEN_HEADER_PDS;
-     
+
         for (i = 0; i < len; i++) {
             if (buffer[i] == 'G' && buffer[i+1] == 'R' && buffer[i+2] == 'I'
                 && buffer[i+3] == 'B') {
@@ -1520,7 +1520,7 @@ double int_power(double x, int y) {
  * Add DWD tables 2, 201, 202, 203      Helmut P. Frank, DWD, FE13
  *                                      Thu Aug 23 09:28:34 GMT 2001
  * add DWD tables 204, 205              H. Frank, 10-19-2005
- * LAMI => DWD				11/2008 Davide Sacchetti 
+ * LAMI => DWD				11/2008 Davide Sacchetti
  * add JRA-55 table 200
  */
 
@@ -1598,8 +1598,8 @@ static const struct ParmTable *Parm_Table(unsigned char *pds) {
 	if (subcenter == 1) return &parm_table_ncep_reanal[0];
 	if (subcenter == 14) return &parm_table_mdl_nceptab[0];
         process = PDS_Model(pds);
-	if (subcenter != 0 || (process != 80 && process != 180) || 
-		(ptable != 1 && ptable != 2)) 
+	if (subcenter != 0 || (process != 80 && process != 180) ||
+		(ptable != 1 && ptable != 2))
             return &parm_table_ncep_opn[0];
 
 	/* at this point could be either the opn or reanalysis table */
@@ -1609,7 +1609,7 @@ static const struct ParmTable *Parm_Table(unsigned char *pds) {
 	    fprintf(stderr, "Using NCEP %s table, see -ncep_opn, -ncep_rean options\n",
                (def_ncep_table == opn) ?  "opn" : "reanalysis");
 	}
-        return (def_ncep_table == opn) ?  &parm_table_ncep_opn[0] 
+        return (def_ncep_table == opn) ?  &parm_table_ncep_opn[0]
 		: &parm_table_ncep_reanal[0];
     }
 
@@ -1711,8 +1711,8 @@ char *k5_comments(unsigned char *pds) {
  *
  * 7/98 v1.2.1 fix bug for bitmaps and nbit >= 25 found by Larry Brasfield
  * 2/01 v1.2.2 changed jj from long int to double
- * 3/02 v1.2.3 added unpacking extensions for spectral data 
- *             Luis Kornblueh, MPIfM 
+ * 3/02 v1.2.3 added unpacking extensions for spectral data
+ *             Luis Kornblueh, MPIfM
  * 7/06 v.1.2.4 fixed some bug complex packed data was not set to undefined
  */
 
@@ -1743,10 +1743,10 @@ void BDS_unpack(float *flt, unsigned char *bds, unsigned char *bitmap,
         bits = bds + 15;
         /* fill in global mean */
         *flt++ = BDS_Harmonic_RefValue(bds);
-        n -= 1; 
+        n -= 1;
     }
     else {
-        bits = bds + 11;  
+        bits = bds + 11;
     }
 
     tbits = bbits = 0;
@@ -1987,7 +1987,7 @@ int wrtieee_header(unsigned int n, FILE *output) {
  *    (kpds values are from NMC's grib routines)
  *  center = PDS_Center(pds) .. NMC, ECMWF, etc
  *
- * the description of the levels is 
+ * the description of the levels is
  *   (1) incomplete
  *   (2) include some NMC-only values (>= 200?)
  *
@@ -2003,7 +2003,7 @@ int wrtieee_header(unsigned int n, FILE *output) {
 void levels(int kpds6, int kpds7, int center, int verbose) {
 
 	int o11, o12;
-    
+
 	/* octets 11 and 12 */
 	o11 = kpds7 / 256;
 	o12 = kpds7 % 256;
@@ -2040,7 +2040,7 @@ void levels(int kpds6, int kpds7, int center, int verbose) {
 		break;
 	case 14: printf("low cld lay");
 		break;
-	case 20: 
+	case 20:
 		if (verbose == 2) printf("temp=%fK", kpds7/100.0);
 		else printf("T=%fK", kpds7/100.0);
 		break;
@@ -2073,11 +2073,11 @@ void levels(int kpds6, int kpds7, int center, int verbose) {
 		break;
 	case 209: printf("bndary-layer cld bot");
 		break;
-	case 210: 
+	case 210:
                 if (center == NMC) printf("bndary-layer cld top");
 		else printf("%.2f mb",kpds7*0.01);
 		break;
-	case 211: 
+	case 211:
 		if (center == JMA) printf("soil column");
 		else printf("bndary-layer cld layer");
 		break;
@@ -2165,7 +2165,7 @@ void levels(int kpds6, int kpds7, int center, int verbose) {
 	 	break;
 	case 112: printf("%d-%d cm down",o11,o12);
 	 	break;
-	case 113: 
+	case 113:
 		if (verbose == 2) printf("pot-temp=%dK",kpds7);
 		else printf("%dK",kpds7);
 	 	break;
@@ -2185,7 +2185,7 @@ void levels(int kpds6, int kpds7, int center, int verbose) {
 	 	break;
 	case 125: printf("%d cm above gnd",kpds7);
 	 	break;
-	case 126: 
+	case 126:
 		if (center == NMC) printf("%.2f mb",kpds7*0.01);
 	 	break;
 	case 128: printf("%.3f-%.3f (sigma)",1.1-o11/1000.0, 1.1-o12/1000.0);
@@ -2242,7 +2242,7 @@ static char *units[] = {
         "??", "??", "??", "??", "??", "??", "??", "??", "??", "??",
         "??", "??", "??", "??", "??", "??", "??", "??", "??", "??",
         "??", "??", "??", "??", "??", "??", "??", "??", "??", "??",
-        "??", " sec"}; 
+        "??", " sec"};
 
 void PDStimes(int time_range, int p1, int p2, int time_unit) {
 
@@ -2276,7 +2276,7 @@ void PDStimes(int time_range, int p1, int p2, int time_unit) {
 	    p1 *= 15; p2 *= 15;
 	    time_unit = MINUTE;
         }
-	/* turn off 5/13/2010 
+	/* turn off 5/13/2010
 	if (time_unit == MINUTE && p1 % 60 == 0 && p2 % 60 == 0) {
 	    p1 /= 60; p2 /= 60;
 	    time_unit = HOUR;
@@ -2396,7 +2396,7 @@ void PDStimes(int time_range, int p1, int p2, int time_unit) {
 	case 116:
 		printf("acc of fcst:%d to %d%s:",p1,p2,unit);
 		break;
-	case 118: 
+	case 118:
 		printf("var@%d%s:",p2,unit);
 		break;
 	case 128:
@@ -2453,21 +2453,21 @@ void PDStimes(int time_range, int p1, int p2, int time_unit) {
  */
 
 static int bitsum[256] = {
-    8, 7, 7, 6, 7, 6, 6, 5, 7, 6, 6, 5, 6, 5, 5, 4, 
-    7, 6, 6, 5, 6, 5, 5, 4, 6, 5, 5, 4, 5, 4, 4, 3, 
-    7, 6, 6, 5, 6, 5, 5, 4, 6, 5, 5, 4, 5, 4, 4, 3, 
-    6, 5, 5, 4, 5, 4, 4, 3, 5, 4, 4, 3, 4, 3, 3, 2, 
-    7, 6, 6, 5, 6, 5, 5, 4, 6, 5, 5, 4, 5, 4, 4, 3, 
-    6, 5, 5, 4, 5, 4, 4, 3, 5, 4, 4, 3, 4, 3, 3, 2, 
-    6, 5, 5, 4, 5, 4, 4, 3, 5, 4, 4, 3, 4, 3, 3, 2, 
-    5, 4, 4, 3, 4, 3, 3, 2, 4, 3, 3, 2, 3, 2, 2, 1, 
-    7, 6, 6, 5, 6, 5, 5, 4, 6, 5, 5, 4, 5, 4, 4, 3, 
-    6, 5, 5, 4, 5, 4, 4, 3, 5, 4, 4, 3, 4, 3, 3, 2, 
-    6, 5, 5, 4, 5, 4, 4, 3, 5, 4, 4, 3, 4, 3, 3, 2, 
-    5, 4, 4, 3, 4, 3, 3, 2, 4, 3, 3, 2, 3, 2, 2, 1, 
-    6, 5, 5, 4, 5, 4, 4, 3, 5, 4, 4, 3, 4, 3, 3, 2, 
-    5, 4, 4, 3, 4, 3, 3, 2, 4, 3, 3, 2, 3, 2, 2, 1, 
-    5, 4, 4, 3, 4, 3, 3, 2, 4, 3, 3, 2, 3, 2, 2, 1, 
+    8, 7, 7, 6, 7, 6, 6, 5, 7, 6, 6, 5, 6, 5, 5, 4,
+    7, 6, 6, 5, 6, 5, 5, 4, 6, 5, 5, 4, 5, 4, 4, 3,
+    7, 6, 6, 5, 6, 5, 5, 4, 6, 5, 5, 4, 5, 4, 4, 3,
+    6, 5, 5, 4, 5, 4, 4, 3, 5, 4, 4, 3, 4, 3, 3, 2,
+    7, 6, 6, 5, 6, 5, 5, 4, 6, 5, 5, 4, 5, 4, 4, 3,
+    6, 5, 5, 4, 5, 4, 4, 3, 5, 4, 4, 3, 4, 3, 3, 2,
+    6, 5, 5, 4, 5, 4, 4, 3, 5, 4, 4, 3, 4, 3, 3, 2,
+    5, 4, 4, 3, 4, 3, 3, 2, 4, 3, 3, 2, 3, 2, 2, 1,
+    7, 6, 6, 5, 6, 5, 5, 4, 6, 5, 5, 4, 5, 4, 4, 3,
+    6, 5, 5, 4, 5, 4, 4, 3, 5, 4, 4, 3, 4, 3, 3, 2,
+    6, 5, 5, 4, 5, 4, 4, 3, 5, 4, 4, 3, 4, 3, 3, 2,
+    5, 4, 4, 3, 4, 3, 3, 2, 4, 3, 3, 2, 3, 2, 2, 1,
+    6, 5, 5, 4, 5, 4, 4, 3, 5, 4, 4, 3, 4, 3, 3, 2,
+    5, 4, 4, 3, 4, 3, 3, 2, 4, 3, 3, 2, 3, 2, 2, 1,
+    5, 4, 4, 3, 4, 3, 3, 2, 4, 3, 3, 2, 3, 2, 2, 1,
     4, 3, 3, 2, 3, 2, 2, 1, 3, 2, 2, 1, 2, 1, 1, 0};
 
 
@@ -2766,7 +2766,7 @@ const struct ParmTable parm_table_ncep_opn[256] = {
  *
  * Some ways to tell Reanalysis files from OPN files
  *  Reanalysis: always generated by process 80 - T62 28 level model
- * Original subcenter=0 Reanalysis files had 
+ * Original subcenter=0 Reanalysis files had
  *  2.5x2.5 (144x73) lat-long grid or 192x94 Gaussian grid (PDS grid=255?)
  */
 
@@ -10853,12 +10853,12 @@ void EC_ext(unsigned char *pds, char *prefix, char *suffix, int verbose) {
             case 3: strcpy(string, "init analysis"); break;
             case 4: strcpy(string, "OI analysis"); break;
             /* case 10: strcpy(string, "Control forecast"); break; */
-            case 10: sprintf(string, "Control forecast %d",PDS_EcFcstNo(pds)); 
+            case 10: sprintf(string, "Control forecast %d",PDS_EcFcstNo(pds));
 		break;
-            case 11: 
-		if (ec_stream == 1035) 
+            case 11:
+		if (ec_stream == 1035)
               	   sprintf(string, "Perturbed forecast %d",
-                   PDS_EcFcstNo(pds)); 
+                   PDS_EcFcstNo(pds));
 		else
 		    strcpy(string, "Perturbed forecasts"); break;
 		break;
@@ -10908,13 +10908,13 @@ void EC_ext(unsigned char *pds, char *prefix, char *suffix, int verbose) {
  * get grid size from GDS
  *
  * added calculation of nxny of spectral data and clean up of triangular
- * grid nnxny calculation     l. kornblueh 
+ * grid nnxny calculation     l. kornblueh
  * 7/25/03 wind fix Dusan Jovic
  * 9/17/03 fix scan mode
  */
 extern int ec_large_grib, len_ec_bds;
 
-int GDS_grid(unsigned char *gds, unsigned char *bds, int *nx, int *ny, 
+int GDS_grid(unsigned char *gds, unsigned char *bds, int *nx, int *ny,
              long int *nxny) {
 
     int i, d, ix, iy, pl;
@@ -11050,13 +11050,13 @@ void GDS_winds(unsigned char *gds, int verbose) {
 	}
         else if (GDS_ss2dBgrid(gds)) {
            scan = GDS_ss2dBgrid_scan(gds);
-           mode = GDS_ss2dBgrid_mode(gds); 
+           mode = GDS_ss2dBgrid_mode(gds);
 	}
     }
     if (verbose == 1) {
 	if (mode != -1) {
 	    if (mode & 8) printf("winds in grid direction:");
-	    else printf("winds are N/S:"); 
+	    else printf("winds are N/S:");
 	}
     }
     else if (verbose == 2) {
@@ -11065,7 +11065,7 @@ void GDS_winds(unsigned char *gds, int verbose) {
         }
 	if (mode != -1) {
 	    if (mode & 8) printf(" winds(grid) ");
-	    else printf(" winds(N/S) "); 
+	    else printf(" winds(N/S) ");
 	}
     }
 }
@@ -11471,7 +11471,7 @@ void ensemble(unsigned char *pds, int mode) {
 	        printf("ens%c%d%c", pds[41] == 3 ? '+' : '-', pds[42],char_end);
 	    }
 	    else {
-		printf("ens_perturbation=%c%d ",pds[41] == 3 ? '+' : '-', 
+		printf("ens_perturbation=%c%d ",pds[41] == 3 ? '+' : '-',
 		    pds[42]);
 	    }
 	}
@@ -11525,7 +11525,7 @@ void ensemble(unsigned char *pds, int mode) {
 		printf("prob(%s>%f)%c", k5toa(pds), ibm2flt(pds+51), char_end);
 	    }
 	    else if (pds[46] == 3 && pdslen >= 54) {
-		printf("prob(%f<%s<%f)%c", ibm2flt(pds+47), k5toa(pds), 
+		printf("prob(%f<%s<%f)%c", ibm2flt(pds+47), k5toa(pds),
 			ibm2flt(pds+51), char_end);
 	    }
             PDS_PARAM(pds) = ctmp;

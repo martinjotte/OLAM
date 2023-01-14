@@ -1,35 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 subroutine date_abs_secs(cdate,seconds)
 
 use consts_coms, only: r8
@@ -53,8 +21,8 @@ call date_unmake_big(year1,month1,date1,hour1,cdate)
 nyears = year1 - 1900
 ndays = nyears * 365 + (nyears-1)/4 + julday(month1,date1,year1) - 1
 
-! Integer arithmetic in ndays calculation correctly treats 1900 as 
-! non-leapyear and 2000 as leapyear.  Correct for non-leapyears 
+! Integer arithmetic in ndays calculation correctly treats 1900 as
+! non-leapyear and 2000 as leapyear.  Correct for non-leapyears
 ! 2100, 2200, and 2300 if necessary.
 
 if (year1 > 2100) ndays = ndays - 1
@@ -92,8 +60,8 @@ integer, external :: julday
 nyears = year1 - 1900
 ndays = nyears * 365 + (nyears-1)/4 + julday(month1,date1,year1) - 1
 
-! Integer arithmetic in ndays calculation correctly treats 1900 as 
-! non-leapyear and 2000 as leapyear.  Correct for non-leapyears 
+! Integer arithmetic in ndays calculation correctly treats 1900 as
+! non-leapyear and 2000 as leapyear.  Correct for non-leapyears
 ! 2100, 2200, and 2300 if necessary.
 
 if (year1 > 2100) ndays = ndays - 1
@@ -125,9 +93,6 @@ character(len=1), intent(in) :: tunits
 ! add (or subracts) a time increment to a date and output new date
 ! -> uses hhmmss for hours, 4 digit year
 
-integer :: mondays(12)
-data mondays/31,28,31,30,31,30,31,31,30,31,30,31/
-integer :: year1,month1,date1,hour1,year2,month2,date2,hour2
 real(r8) :: secs1,secs2
 real :: ttinc
 
@@ -156,13 +121,11 @@ implicit none
 real(r8), intent(in) :: seconds
 integer, intent(out) :: iyear1,imonth1,idate1,ihour1
 
-! compute real time given number of seconds past 1 January 1900 12:00 am  
+! compute real time given number of seconds past 1 January 1900 12:00 am
 
 real(r8) :: s1, secs_in_year, secs_in_month
-integer :: iyear, ileap, imonth, iday, ihour, iminute, isecond, days_in_month
-integer :: mondays(12)
-
-data mondays/31,28,31,30,31,30,31,31,30,31,30,31/
+integer  :: iyear, ileap, imonth, ihour, iminute, isecond, days_in_month
+integer  :: mondays(12) = [ 31,28,31,30,31,30,31,31,30,31,30,31 ]
 
 ! Get what year it is
 
@@ -282,7 +245,7 @@ integer :: n,nm,nmm
 do n = 1,ni
    mini = '99999999999999'
    do nm = n,ni
-   
+
       if (chnums(nm) < mini) then
          nmm = nm
          mini = chnums(nm)
@@ -448,7 +411,7 @@ subroutine makefnam(fname, prefix, ctime, ftype, post, fmt)
   use misc_coms, only: simtime
 
   implicit none
-  
+
 ! Creates standard timestamped filename from date/time
 
   character(len=*), intent(out) :: fname
@@ -487,7 +450,7 @@ integer function timetohhmmss(time)
 
 ! Converts # of seconds since begining of day to hhmmss format
 
-  t = time + .0001_r8    ! Adding small bias 
+  t = time + .0001_r8    ! Adding small bias
   ihr = int(t/3600._r8)
 
   t = t - ihr*3600._r8
@@ -525,7 +488,7 @@ integer :: nmm
 do n = 1,ni
    mini = '99999999999999'
    do nm = n,ni
-   
+
       if (chnums(nm) < mini) then
          nmm = nm
          mini = chnums(nm)
@@ -539,11 +502,11 @@ do n = 1,ni
    cscr      = cstr(n)
    cstr(n)   = cstr(nmm)
    cstr(nmm) = cscr
-   
+
    aa          = array8(n)
    array8(n)   = array8(nmm)
    array8(nmm) = aa
-   
+
 enddo
 
 return
@@ -563,10 +526,10 @@ subroutine update_model_time(ctime,dtlong8)
   logical                      :: isleap
 
 ! Update the year, month, day, and time structure based on the current timestep
-  
+
   isleap = ( (mod(ctime%year,400) == 0) .or. &
              (mod(ctime%year,100) /= 0 .and. mod(ctime%year,4) == 0) )
-  
+
   ctime%time = ctime%time + dtlong8
 
   if (ctime%time + .0001_r8 >= 86400.0_r8) then  ! Using a small bias of .0001_r8

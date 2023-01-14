@@ -1,47 +1,15 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 Module land_db
 
 Contains
 
-  subroutine land_database_read(nqa,glatq,glonq,ofn,ofn2,iaction,idatq,datq)
+  subroutine land_database_read(nqa,glatq,glonq,ofn,ofn2,iaction,idatq,datq,area)
 
   ! The letter "q" represents any point in the grid stagger, as determined by
   ! the routine that calls this subroutine.
 
-  use consts_coms, only: erad, piu180
+  use consts_coms, only: piu180
   use hdf5_utils,  only: shdf5_open, shdf5_close, shdf5_irec
-  use misc_coms,   only: io6
+  use misc_coms,   only: io6, topodb_cutoff
   use max_dims,    only: pathlen
 
   implicit none
@@ -54,6 +22,7 @@ Contains
 
   integer, optional, intent(out) :: idatq(nqa)
   real,    optional, intent(out) ::  datq(nqa)
+  real,    optional, intent(in)  ::  area(nqa)
 
   integer :: qtable(nqa)
 
@@ -72,9 +41,11 @@ Contains
   integer :: iq
   integer :: nperdeg
   integer :: ndims, idims(2)
+  integer :: klat, klon, latt, lato, lont, lono
+  integer :: j, jj, i
 
-  real :: offpix 
-  real :: qlat1, qlon1
+  real :: offpix
+  real :: qlat1, qlon1, area_cutoff
   real :: wio1, wio2, wjo1, wjo2
   real :: rio_full, rjo_full
 
@@ -85,8 +56,10 @@ Contains
   integer, allocatable :: numqind1(:,:)
   integer, allocatable :: numqind2(:,:) ! (ifiles,jfiles)
 
-  character(len=3)   :: title1
-  character(len=4)   :: title2
+  character(2)       :: title0
+  character(3)       :: title1
+  character(4)       :: title2
+  character(5)       :: line
   character(pathlen) :: fname
 
   logical :: l1,l2
@@ -142,11 +115,17 @@ Contains
      enddo
   enddo
 
+  area_cutoff = topodb_cutoff ** 2
+
   ! Loop over all geographic points that need data filled, determine which
   ! file to read for each one, and count number of points to be read from
   ! each file.
 
   do iq = 2,nqa
+
+     if (present(area)) then
+        if (area(iq) > area_cutoff) cycle
+     endif
 
      qlat1 = max(-89.9999,min(89.9999,glatq(iq)))
      qlon1 = glonq(iq)
@@ -188,6 +167,10 @@ Contains
   ! Fill qtable array
 
   do iq = 2,nqa
+
+     if (present(area)) then
+        if (area(iq) > area_cutoff) cycle
+     endif
 
      qlat1 = max(-89.9999,min(89.9999,glatq(iq)))
      qlon1 = glonq(iq)
@@ -232,25 +215,49 @@ Contains
 
            ! Construct filename
 
-           isocpt = abs(isoc) / 10
-           isocpo = abs(isoc) - isocpt*10
-           iwocph = abs(iwoc) / 100
-           iwocpt = (abs(iwoc) - iwocph * 100) / 10
-           iwocpo = abs(iwoc) - iwocph * 100 - iwocpt * 10
+           if (iaction == 'topo2') then
 
-           if (isoc >= 0) then
-              write(title1,'(2i1,a1)') isocpt,isocpo,'N'
+              ! This is tailored for srtm3s dataset in esri-ascii format
+
+              klat = (60 - isoc) / 5
+              klon = (iwoc + 185) / 5
+
+              latt = klat / 10
+              lato = klat - latt * 10
+
+              lont = klon / 10
+              lono = klon - lont * 10
+
+              write(title0,'(2i1)')lont,lono
+              write(title1,'(a1,2i1)')'_',latt,lato
+
+              fname = trim(ofn2)//'_'//title0//title1//'.asc'
+
            else
-              write(title1,'(2i1,a1)') isocpt,isocpo,'S'
-           endif
 
-           if (iwoc >= 0) then
-              write(title2,'(3i1,a1)') iwocph,iwocpt,iwocpo,'E'
-           else
-              write(title2,'(3i1,a1)') iwocph,iwocpt,iwocpo,'W'
-           endif
+              ! This is tailored for standard OLAM database files in hdf5 format
 
-           fname = trim(ofn2)//title1//title2//'.h5'
+              isocpt = abs(isoc) / 10
+              isocpo = abs(isoc) - isocpt*10
+              iwocph = abs(iwoc) / 100
+              iwocpt = (abs(iwoc) - iwocph * 100) / 10
+              iwocpo = abs(iwoc) - iwocph * 100 - iwocpt * 10
+
+              if (isoc >= 0) then
+                 write(title1,'(2i1,a1)') isocpt,isocpo,'N'
+              else
+                 write(title1,'(2i1,a1)') isocpt,isocpo,'S'
+              endif
+
+              if (iwoc >= 0) then
+                 write(title2,'(3i1,a1)') iwocph,iwocpt,iwocpo,'E'
+              else
+                 write(title2,'(3i1,a1)') iwocph,iwocpt,iwocpo,'W'
+              endif
+
+              fname = trim(ofn2)//title1//title2//'.h5'
+
+           endif
 
 !D Modification for reading Amazon deforestation OGE files
 
@@ -267,43 +274,76 @@ Contains
 
            inquire(file=fname,exist=l1,opened=l2)
 
-           ! Read file
+           if (trim(iaction) == 'topo2') then
 
-           if (l1) then
-              write(io6,*) 'getting file ',trim(fname)
+              ! This section is for srtm3s dataset in esri-ascii format
 
-              call shdf5_open(fname,'R')
+              if (l1) then
+                 write(io6,*) 'getting file ',trim(fname)
 
-              ndims = 2
-              idims(1) = nio
-              idims(2) = njo
+                 open(50, file=trim(fname), status='OLD', form='FORMATTED', action='READ')
 
-              if     (trim(iaction) == 'topo') then
-                 call shdf5_irec(ndims,idims,'topo',rvar2=dato)
-              elseif (trim(iaction) == 'leaf_class') then
-                 call shdf5_irec(ndims,idims,'oge2',ivar2=idato)
-              elseif (trim(iaction) == 'soil_text') then
-                 call shdf5_irec(ndims,idims,'fao',ivar2=idato)
-              elseif (trim(iaction) == 'ndvi') then
-                 call shdf5_irec(ndims,idims,'ndvi',rvar2=dato)
-              elseif (trim(iaction) == 'wtd') then
-                 call shdf5_irec(ndims,idims,'WTD',rvar2=dato)
-              elseif (iaction == 'orog') then
-                 call shdf5_irec(ndims,idims,'orog',rvar2=dato)
-              elseif (iaction == 'etopo1') then
-                 call shdf5_irec(ndims,idims,'etopo1',rvar2=dato)
+                 read(50,*) line
+                 read(50,*) line
+                 read(50,*) line
+                 read(50,*) line
+                 read(50,*) line
+                 read(50,*) line
+
+                 do j = 1,njo
+                    jj = njo + 1 - j
+                    read(50,*) (dato(i,jj),i=1,nio)
+                 enddo
+                 close(50)
+
               else
-                 write(io6,*) 'incorrect action specified in leaf_database'
-                 write(io6,*) 'stopping run'
-                 stop 'stop landuse_input1'
+
+                 print*, 'topo2 file ', trim(fname), ' not found; skipping file '
+                 cycle
+
               endif
 
-              call shdf5_close()
            else
-              write(io6,*) 'In landuse_input, ',iaction,' file is missing'
-              write(io6,*) 'Filename = ',trim(fname)
-              write(io6,*) 'Stopping model run'
-              stop 'stop_landuse_input2'
+
+              ! This section is for standard OLAM database files in hdf5 format
+
+              if (l1) then
+                 write(io6,*) 'getting file ',trim(fname)
+
+                 call shdf5_open(fname,'R')
+
+                 ndims = 2
+                 idims(1) = nio
+                 idims(2) = njo
+
+                 if     (trim(iaction) == 'topo') then
+                    call shdf5_irec(ndims,idims,'topo',rvar2=dato)
+                 elseif (trim(iaction) == 'leaf_class') then
+                    call shdf5_irec(ndims,idims,'oge2',ivar2=idato)
+                 elseif (trim(iaction) == 'soil_text') then
+                    call shdf5_irec(ndims,idims,'fao',ivar2=idato)
+                 elseif (trim(iaction) == 'ndvi') then
+                    call shdf5_irec(ndims,idims,'ndvi',rvar2=dato)
+                 elseif (trim(iaction) == 'wtd') then
+                    call shdf5_irec(ndims,idims,'WTD',rvar2=dato)
+                 elseif (iaction == 'orog') then
+                    call shdf5_irec(ndims,idims,'orog',rvar2=dato)
+                 elseif (iaction == 'etopo1') then
+                    call shdf5_irec(ndims,idims,'etopo1',rvar2=dato)
+                 else
+                    write(io6,*) 'incorrect action specified in leaf_database'
+                    write(io6,*) 'stopping run'
+                    stop 'stop landuse_input1'
+                 endif
+
+                 call shdf5_close()
+              else
+                 write(io6,*) 'In landuse_input, ',iaction,' file is missing'
+                 write(io6,*) 'Filename = ',trim(fname)
+                 write(io6,*) 'Stopping model run'
+                 stop 'stop_landuse_input2'
+              endif
+
            endif
 
            !$omp parallel do private(iq,qlat1,qlon1,rio_full,rjo_full,io_full, &
@@ -356,9 +396,10 @@ Contains
               wio1 = 1. - wio2
               wjo1 = 1. - wjo2
 
-              if (iaction == 'topo' .or. &
-                  iaction == 'ndvi' .or. &
-                  iaction == 'orog' .or. &
+              if (iaction == 'topo'  .or. &
+                  iaction == 'topo2' .or. &
+                  iaction == 'ndvi'  .or. &
+                  iaction == 'orog'  .or. &
                   iaction == 'etopo1') then
 
                  ! Interpolate from 4 surrounding values
@@ -380,7 +421,7 @@ Contains
 
                  else
 
-                    ! If any values are missing, set datp to maximum of surrounding values
+                    ! If any values are missing, set datq to maximum of surrounding values
 
                     datq(iq) = max(dato(io1,jo1), dato(io1,jo2), &
                                    dato(io2,jo1), dato(io2,jo2))

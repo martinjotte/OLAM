@@ -1,36 +1,4 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
-subroutine sea_spray(mrl)
+subroutine sea_spray()
 
   ! Compute sea spray number concentration fluxes, applied as tendencies in
   ! the grid level adjacent to the sea surface.  Based on O'Dowd, C. D.,
@@ -39,18 +7,16 @@ subroutine sea_spray(mrl)
   ! Res., 98, 1132-1136.  Updated for O'Dowd (1997, 1999).
 
   use mem_grid,    only: dzt_bot, volti
-  use mem_basic,   only: vxe, vye, vze, rho
+  use mem_basic,   only: rho
   use mem_ijtabs,  only: jtab_w, jtw_prog, itab_w
   use mem_sfcg,    only: itab_wsfc, sfcg
-  use micro_coms,  only: iccn, igccn
+  use micro_coms,  only: igccn
   use ccnbin_coms, only: isalt
   use mem_micro,   only: ccntyp, con_gccn
   use mem_tend,    only: con_gccnt
   use mem_sea,     only: sea, omsea
 
   implicit none
-
-  integer, intent(in) :: mrl
 
   real, parameter :: timescale_salt = 3600.0 ! relaxation time [s]
   real, parameter :: depthscale_salt = 100.  ! assumed depth scale filled by fluxes [m]
@@ -66,7 +32,7 @@ subroutine sea_spray(mrl)
 
   !$omp parallel do private(iw, jsfc, iwsfc, jasfc, kw, isea, vels10, &
   !$omp                     film_diag, jet_diag, film_flux, jet_flux)
-  do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+  do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
      ! Check for sea area beneath this atmospheric grid column; cycle if none
 
@@ -102,7 +68,7 @@ subroutine sea_spray(mrl)
         ! in a time scale of timescale_salt, assuming that the model deficit
         ! applies and must be filled over a depth scale of depthscale_salt.
         ! Fixing the depth scale in this way makes the fluxes independent of
-        ! the chosen vertical grid spacing.  
+        ! the chosen vertical grid spacing.
 
         ! Convert surface fluxes to concentration tendency [#/(m^3 s)] in
         ! atmospheric cells that are adjacent to the sea surface.  Tendency is
@@ -138,23 +104,17 @@ end subroutine sea_spray
 
 !===============================================================================
 
-subroutine dust_src(mrl)
+subroutine dust_src()
 
   use mem_grid,    only: dzt_bot, volti
-  use mem_basic,   only: vxe, vye, vze, rho
   use mem_ijtabs,  only: jtab_w, jtw_prog, itab_w
   use mem_sfcg,    only: itab_wsfc, sfcg
-  use micro_coms,  only: iccn, igccn
   use ccnbin_coms, only: idust1, idust2, idust3, idust4
-  use mem_micro,   only: ccntyp, con_gccn
+  use mem_micro,   only: ccntyp
   use mem_land,    only: land, omland, nzg
-  use mem_tend,    only: con_gccnt
-
   use nuclei_coms, only: nbin, fact, sp, nodust, amassi, uth
 
   implicit none
-
-  integer, intent(in) :: mrl
 
   integer :: j, iw, iland, kw
   integer :: leaf_class, ibin
@@ -173,7 +133,7 @@ subroutine dust_src(mrl)
   !$omp parallel private(flux_n)
   !$omp do private(iw,jsfc,iwsfc,jasfc,kw,iland,leaf_class,gwet, &
   !$omp            vels10,wprime,wetfac,vels10_cm,flux_m)
-  do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+  do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
      ! Check for land area beneath this atmospheric grid column; cycle if none
 
@@ -209,7 +169,7 @@ subroutine dust_src(mrl)
         vels10_cm = 100. * vels10
 
         ! Diagnose wprime, which is used in parameterization by
-        ! Fecan et al. and is based on clay percentage using the formula 
+        ! Fecan et al. and is based on clay percentage using the formula
         ! wprime = 0.0014(%clay)^2 + 0.17(%clay).
 
         wprime = (14. * land%clay(nzg,iland) + 17.) * land%clay(nzg,iland)
@@ -260,87 +220,3 @@ subroutine dust_src(mrl)
   !$omp end parallel
 
 end subroutine dust_src
-
-!===============================================================================
-
-subroutine ccn_sfcflux(mrl)
-
-  ! Compute generic fluxes for various CCN categories, applied as tendencies in
-  ! the grid level adjacent to the surface.  This routine is optional and intended
-  ! as a vehicle for customizing the CCN fluxes.
-
-  use mem_grid,    only: dzt_bot, dzit, dzt, mza
-  use mem_ijtabs,  only: jtab_w, jtw_prog, itab_w
-  use mem_basic,   only: rho
-  use mem_micro,   only: ccntyp
-  use ccnbin_coms, only: nccntyp
-  use micro_coms,  only: iccn
-
-
-  implicit none
-
-  integer, intent(in) :: mrl
-
-  integer :: j, iw, kw, k
-
-  real, parameter :: timescale_ccn = 86400.0 ! relaxation time [s]
-
-  real :: flux_ccn1, flux_ccn2, flux_ccn3
-  real :: sum1, sum2, sum3
-
-! SPECIAL PRINT
-
-!  sum1 = 0.
-!  sum2 = 0.
-!  sum3 = 0.
-
-!  do k = 2,mza
-
-!     sum1 = sum1 + ccntyp(1)%con_ccn(k,1050) * rho(k,1050) * dzt(k)
-!     sum2 = sum2 + ccntyp(2)%con_ccn(k,1050) * rho(k,1050) * dzt(k)
-!     sum3 = sum3 + ccntyp(3)%con_ccn(k,1050) * rho(k,1050) * dzt(k)
-
-!     write(6,'(a,i8,9e12.3)') 'ccnsums ', k, sum1, sum2, sum3, &
-!                               ccntyp(1)%con_ccn(k,1050), rho(k,1050), dzt(k)
-
-!  enddo
-
-! END SPECIAL PRINT
-
-  return
-
-  !Bob: This routine was used for an idealized LES of moist convection where
-  !     a generic surface source of aerosol was required.  The routine can be
-  !     removed if there is no further use for it.
-
-  if (nccntyp == 1 .and. iccn==1) return
-
-  ! Number flux [#/(m^2 s)]
-
-  flux_ccn1 = 0.185e11 / timescale_ccn
-  flux_ccn2 = 0.220e12 / timescale_ccn
-  flux_ccn3 = 0.855e12 / timescale_ccn
-
-  kw = 2 ! This assumes no topography; used in LES run
-
-  ! Loop over prognosed atmospheric grid columns
-
-  !-----------------------------------------------------------------------------
-  !$omp parallel do private(iw)
-  do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
-  !-----------------------------------------------------------------------------
-
-     ! Convert surface fluxes to concentration tendency [#/(m^3 s)] in
-     ! atmospheric cells that are adjacent to the surface.  Tendency is
-     ! obtained by multiplying fluxes by surface area and dividing by grid
-     ! cell volume.
-
-     if (nccntyp > 0) ccntyp(1)%con_ccnt(kw,iw) = ccntyp(1)%con_ccnt(kw,iw) + flux_ccn1 * dzit(kw)
-     if (nccntyp > 1) ccntyp(2)%con_ccnt(kw,iw) = ccntyp(2)%con_ccnt(kw,iw) + flux_ccn2 * dzit(kw)
-     if (nccntyp > 2) ccntyp(3)%con_ccnt(kw,iw) = ccntyp(3)%con_ccnt(kw,iw) + flux_ccn3 * dzit(kw)
-
-  enddo  ! iw
-  !$omp end parallel do
-
-end subroutine ccn_sfcflux
-

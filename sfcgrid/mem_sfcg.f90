@@ -1,36 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University;
-   ! Colorado State University Research Foundation ; ATMET, LLC
-
-   ! This software is free software; you can redistribute it and/or modify it
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version.
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
-
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
-   ! (http://www.gnu.org/licenses/gpl.html)
-   !----------------------------------------------------------------------------
-
-!===============================================================================
-
 Module mem_sfcg
 
   use max_dims,     only: maxnlspoly, maxgrds, maxngrdll, pathlen, maxremote
@@ -99,8 +66,9 @@ Module mem_sfcg
      real :: ecvec_vy(7) = 0. ! factors converting V to earth cart. velocity
      real :: ecvec_vz(7) = 0. ! factors converting V to earth cart. velocity
 
-     ! Dimension of (8) is estimate of max possible number of atm cells that could
-     ! overlap this sfc cell
+     ! The following ITAB_WSFC members are written to the GRIDFILE.  All other
+     ! members are written to the SFCGRIDFILE.  Dimension of (8) is estimate
+     ! of max possible number of atm cells that could overlap this sfc cell.
 
      integer :: nwatm        = 0  ! number of atm cells coupled to this sfc cell
      integer :: iwatm    (8) = 0  ! local-rank atm index of atm cell coupled to this sfc cell
@@ -228,7 +196,6 @@ Module mem_sfcg
      integer, allocatable :: leaf_class (:) ! leaf ("vegetation") class
      integer, allocatable :: ioge       (:) ! integer array for storing database data
      logical, allocatable :: swm_active (:) ! shallow-water/flood model active in these sfcg cells
-     logical, allocatable :: pom_active (:) ! POM1D model active in these sfcg cells
 
      ! Atmospheric near-surface properties
 
@@ -260,7 +227,6 @@ Module mem_sfcg
      real, allocatable :: albedo_diffuse(:) ! surface s/w diffuse albedo [0-1]
      real, allocatable :: rshort        (:) ! downward can-top s/w flux [W/m^2]
      real, allocatable :: rshort_diffuse(:) ! downward diffuse can-top s/w flux [W/m2]
-     real, allocatable :: rshort_clr    (:) ! downward can-top s/w clr flux [W/m^2]
      real, allocatable :: rlong         (:) ! downward can-top l/w flux [W/m^2]
      real, allocatable :: rlong_albedo  (:) ! surface l/w lbedo [0-1]
      real, allocatable :: rlongup       (:) ! upward can-top l/w flux [W/m^2]
@@ -299,8 +265,6 @@ Module mem_sfcg
 
   type (surface_grid_vars), target :: sfcg
 
-  integer, allocatable :: im_orig(:)
-
 ! TRI-GRID INFORMATION FOR INDEPENDENT REFINING OF SFC GRID
 
   integer :: nsfcgrids
@@ -327,7 +291,7 @@ Contains
 
   subroutine alloc_sfcgrid1(mmsfc0, mvsfc0, mwsfc0, alloc_xyzew)
 
-  use misc_coms, only: rinit, runtype
+  use misc_coms, only: rinit
 
   implicit none
 
@@ -386,7 +350,6 @@ Contains
   allocate (sfcg%wnx     (mwsfc0)) ; sfcg%wnx      = rinit
   allocate (sfcg%wny     (mwsfc0)) ; sfcg%wny      = rinit
   allocate (sfcg%wnz     (mwsfc0)) ; sfcg%wnz      = rinit
-  allocate (sfcg%dzt_bot (mwsfc0)) ; sfcg%dzt_bot  = rinit
 
   allocate (sfcg%gxps_coef (mwsfc0)) ; sfcg%gxps_coef  = rinit
   allocate (sfcg%gyps_coef (mwsfc0)) ; sfcg%gyps_coef  = rinit
@@ -394,7 +357,6 @@ Contains
   allocate (sfcg%leaf_class(mwsfc0)) ; sfcg%leaf_class = 0
   allocate (sfcg%ioge      (mwsfc0)) ; sfcg%ioge       = 0
   allocate (sfcg%swm_active(mwsfc0)) ; sfcg%swm_active = .false.
-  allocate (sfcg%pom_active(mwsfc0)) ; sfcg%pom_active = .false.
 
   end subroutine alloc_sfcgrid1
 
@@ -437,7 +399,6 @@ Contains
      allocate (sfcg%albedo_diffuse(mwsfc)) ; sfcg%albedo_diffuse = 0.0
      allocate (sfcg%rshort        (mwsfc)) ; sfcg%rshort         = 0.0
      allocate (sfcg%rshort_diffuse(mwsfc)) ; sfcg%rshort_diffuse = 0.0
-     allocate (sfcg%rshort_clr    (mwsfc)) ; sfcg%rshort_clr     = 0.0
      allocate (sfcg%rlong         (mwsfc)) ; sfcg%rlong          = 0.0
      allocate (sfcg%rlong_albedo  (mwsfc)) ; sfcg%rlong_albedo   = 0.0
      allocate (sfcg%rlongup       (mwsfc)) ; sfcg%rlongup        = 0.0
@@ -495,7 +456,6 @@ Contains
      if (allocated(sfcg%albedo_diffuse)) call increment_vtable('SFCG%ALBEDO_DIFFUSE', 'CW', rvar1=sfcg%albedo_diffuse)
      if (allocated(sfcg%rshort))         call increment_vtable('SFCG%RSHORT',         'CW', rvar1=sfcg%rshort)
      if (allocated(sfcg%rshort_diffuse)) call increment_vtable('SFCG%RSHORT_DIFFUSE', 'CW', rvar1=sfcg%rshort_diffuse)
-     if (allocated(sfcg%rshort_clr))     call increment_vtable('SFCG%RSHORT_CLR',     'CW', rvar1=sfcg%rshort_clr)
      if (allocated(sfcg%rlong))          call increment_vtable('SFCG%RLONG',          'CW', rvar1=sfcg%rlong)
      if (allocated(sfcg%rlong_albedo))   call increment_vtable('SFCG%RLONG_ALBEDO',   'CW', rvar1=sfcg%rlong_albedo)
      if (allocated(sfcg%rlongup))        call increment_vtable('SFCG%RLONGUP',        'CW', rvar1=sfcg%rlongup)
@@ -519,12 +479,12 @@ Contains
 
   subroutine fill_jtab_sfcg(mwa)
 
-  use mem_ijtabs, only: mrls, itab_w
+  use mem_ijtabs, only: itab_w
   implicit none
 
   integer, intent(in) :: mwa
 
-  integer :: jend, iwsfc, ivsfc, imsfc, iw1, iw2, iw3, j, j1
+  integer :: iwsfc, ivsfc, imsfc, iw1, iw2, iw3, j, j1
   integer :: iw, ipass, jsfc2
 
   ! JTAB_WSFC_SWM, restricted to SEA points that are SWM-active
@@ -547,14 +507,13 @@ Contains
      endif
   enddo
 
-  ! JTAB_VSFC_SWM, restricted to VSFC edges between 2 SEA cells that are SWM-active
+  ! JTAB_VSFC_SWM, includes all VSFC edges adjacent to at least one SWM-active cell
 
   j = 0
   do ivsfc = 2,mvsfc
      iw1 = itab_vsfc(ivsfc)%iwn(1)
      iw2 = itab_vsfc(ivsfc)%iwn(2)
-     if ((sfcg%swm_active(iw1) .and. sfcg%leaf_class(iw1) == 0) .and. &
-         (sfcg%swm_active(iw2) .and. sfcg%leaf_class(iw2) == 0)) j = j + 1
+     if (sfcg%swm_active(iw1) .or. sfcg%swm_active(iw2)) j = j + 1
   enddo
   jtab_vsfc_swm%jend = j
 
@@ -566,8 +525,7 @@ Contains
   do ivsfc = 2,mvsfc
      iw1 = itab_vsfc(ivsfc)%iwn(1)
      iw2 = itab_vsfc(ivsfc)%iwn(2)
-     if ((sfcg%swm_active(iw1) .and. sfcg%leaf_class(iw1) == 0) .and. &
-         (sfcg%swm_active(iw2) .and. sfcg%leaf_class(iw2) == 0)) then
+     if (sfcg%swm_active(iw1) .or. sfcg%swm_active(iw2)) then
         j = j + 1
         jtab_vsfc_swm%ivsfc(j) = ivsfc
      endif

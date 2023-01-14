@@ -55,11 +55,10 @@
                                               ! (J kg-1 K-1)
 ! ------- Local -------
 
-      integer(kind=im) :: itr, ibnd, igc, ig, ind, ipr
+      integer(kind=im) :: ibnd, igc, ig, ind, ipr
       integer(kind=im) :: igcsm, iprsm
 
       real(kind=rb) :: wtsum, wtsm(mg)        !
-      real(kind=rb) :: tfn                    !
 
       real(kind=rb), parameter :: expeps = 1.e-20_rb   ! Smallest value for exponential table
       logical :: exists

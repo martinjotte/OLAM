@@ -1,34 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
 subroutine init_nudgrid()
 
   use misc_coms, only: iparallel
@@ -48,36 +17,23 @@ end subroutine init_nudgrid
 
 !===============================================================================
 
-
 subroutine para_init_nud()
 
-  use misc_coms,  only: io6, mdomain, isubdomain, iparallel
-
-  use mem_ijtabs, only: itab_m,      itab_v,      itab_w,      &
-                        itab_m_vars, itab_v_vars, itab_w_vars, &
-                        itabg_m,     itabg_v,     itabg_w,     &
-                        itab_w_pd,   &
-                        alloc_itabs, mrls, &
-                                  jtm_prog, jtm_wadj, jtm_vadj,           jtm_lbcp, &
-                        jtv_init, jtv_prog, jtv_wadj,           jtv_wstn, jtv_lbcp, &
-                        jtw_init, jtw_prog, jtw_wadj, jtw_vadj, jtw_wstn, jtw_lbcp
-
-  use mem_grid,   only: nza, nma, nua, nva, nwa, mma, mua, mva, mwa, mza, &
-                        alloc_gridz, alloc_xyzem, alloc_xyzew, &
-                        alloc_grid1, alloc_grid2
+  use misc_coms,    only: mdomain
+  use mem_ijtabs,   only: itab_w, itabg_w, itab_w_pd
+  use mem_grid,     only: nwa, mwa, mza
   use max_dims,     only: maxremote
-  use mem_para,     only: mgroupsize, myrank, nbytes_int, nbytes_real, nbytes_real8
+  use mem_para,     only: mgroupsize, myrank, nbytes_real8
   use olam_mpi_nud, only: nsends_wnud, nrecvs_wnud, send_wnud, recv_wnud
   use mem_nudge,    only: nudflag, nudnxp, nwnud, mwnud, itab_wnud, itabg_wnud, &
                           alloc_nudge1, xewnud, yewnud, zewnud
 
   implicit none
 
-  integer :: j,imn,ivn,iwn,jnud
-  integer :: im,iv,iw,iw1,iw2,iwnud,iwnud1,iwnud2,iwnud3
-  integer :: imp,ivp,iwp,ips
+  integer :: j,jnud
+  integer :: iw,iwnud,iwnud1,iwnud2,iwnud3
+  integer :: ips
   integer :: jsend, jrecv, jend
-  integer :: npoly,nv
   integer :: iwnud_myrank ! Counter for WNUD points to be included on this rank
   integer :: nbytes_per_iwnud
 
@@ -352,35 +308,13 @@ end subroutine para_init_nud
 
 subroutine serial_init_nud()
 
-  use misc_coms,  only: io6, mdomain, isubdomain, iparallel
-
-  use mem_ijtabs, only: itab_m,      itab_v,      itab_w,      &
-                        itab_m_vars, itab_v_vars, itab_w_vars, &
-                        itabg_m,     itabg_v,     itabg_w,     &
-                        itab_w_pd,   &
-                        alloc_itabs, mrls, &
-                                  jtm_prog, jtm_wadj, jtm_vadj,           jtm_lbcp, &
-                        jtv_init, jtv_prog, jtv_wadj,           jtv_wstn, jtv_lbcp, &
-                        jtw_init, jtw_prog, jtw_wadj, jtw_vadj, jtw_wstn, jtw_lbcp
-
-  use mem_grid,   only: nza, nma, nua, nva, nwa, mma, mua, mva, mwa, mza, &
-                        alloc_gridz, alloc_xyzem, alloc_xyzew, &
-                        alloc_grid1, alloc_grid2
-  use max_dims,     only: maxremote
-  use mem_para,     only: mgroupsize, myrank, nbytes_int, nbytes_real, nbytes_real8
-  use olam_mpi_nud, only: nsends_wnud, nrecvs_wnud, send_wnud, recv_wnud
-  use mem_nudge,    only: nudflag, nudnxp, nwnud, mwnud, itab_wnud, itabg_wnud, &
-                          alloc_nudge1, xewnud, yewnud, zewnud
+  use misc_coms,  only: mdomain
+  use mem_nudge,  only: nudflag, nudnxp, nwnud, mwnud, itab_wnud, itabg_wnud, &
+                        alloc_nudge1
 
   implicit none
 
-  integer :: j,imn,ivn,iwn,jnud
-  integer :: im,iv,iw,iw1,iw2,iwnud,iwnud1,iwnud2,iwnud3
-  integer :: imp,ivp,iwp,ips
-  integer :: jsend, jrecv, jend
-  integer :: npoly,nv
-  integer :: iwnud_myrank ! Counter for WNUD points to be included on this rank
-  integer :: nbytes_per_iwnud
+  integer :: iwnud
 
   ! Skip if we are not doing spectral-like nudging
 

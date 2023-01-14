@@ -1,35 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 subroutine cart_hex()
 
   use mem_delaunay, only: itab_md, itab_ud, itab_wd, alloc_itabsd, &
@@ -44,12 +12,12 @@ subroutine cart_hex()
                           jtm_vadj,           jtw_vadj, mrls
 
   use mem_grid,     only: mma, mua, mwa
-  use misc_coms,    only: io6, nxp, deltax
+  use misc_coms,    only: nxp, deltax
   use oplot_coms,   only: op
 
   implicit none
 
-  integer :: i, j, im, iu, iw, ir, irm, irp, jw0, iup, iwp, iskip
+  integer :: i, j, im, iu, iw, ir, irm, irp, jw0, iskip
   integer :: im1, im2, im3, im4, iu1, iu2, iu3, iu4, iu5, iw1, iw2, iw3, iw4
 
   real :: unit_dist, xstart, ystart, xm, ym, rxx, rxy, ryx, ryy
@@ -511,7 +479,7 @@ subroutine cart4_hex()
                         xem, yem, zem, xew, yew, zew, &
                         alloc_xyzem, alloc_xyzew
 
-  use misc_coms,  only: io6, nxp, deltax
+  use misc_coms,  only: nxp, deltax
 
   implicit none
 
@@ -521,8 +489,6 @@ subroutine cart4_hex()
   integer :: jv(28), jav(28), jzv(28)
 
   real :: centx, unit_dist
-
-  character(10) :: string
 
   ! Constructs hexagon grid directly (not beginning from triangle grid), and
   ! therefore is not succeeded by calls to tri_neighbors, voronoi and pcvt.
@@ -555,7 +521,7 @@ subroutine cart4_hex()
 
 ! Allocate itab and earth-coordinate arrays
 
-  call alloc_itabs(nma,nva,nwa,0)
+  call alloc_itabs(nma,nva,nwa)
 
   call alloc_xyzew(nwa)
   call alloc_xyzem(nma)
@@ -683,14 +649,14 @@ subroutine cart4_hex()
      xem(jm(23      )) = centx + 0.75 * unit_dist
      xem(jm(18:29:11)) = centx + 1.25 * unit_dist
 
-     yem(jm( 9     )) =  2.75 * unit_dist / sqrt(3.) 
-     yem(jm( 2:18:8)) =  1.75 * unit_dist / sqrt(3.) 
-     yem(jm(11:19:8)) =  1.25 * unit_dist / sqrt(3.) 
-     yem(jm( 4:20:8)) =  0.25 * unit_dist / sqrt(3.) 
-     yem(jm(13:29:8)) = -0.25 * unit_dist / sqrt(3.) 
-     yem(jm(14:22:8)) = -1.25 * unit_dist / sqrt(3.) 
+     yem(jm( 9     )) =  2.75 * unit_dist / sqrt(3.)
+     yem(jm( 2:18:8)) =  1.75 * unit_dist / sqrt(3.)
+     yem(jm(11:19:8)) =  1.25 * unit_dist / sqrt(3.)
+     yem(jm( 4:20:8)) =  0.25 * unit_dist / sqrt(3.)
+     yem(jm(13:29:8)) = -0.25 * unit_dist / sqrt(3.)
+     yem(jm(14:22:8)) = -1.25 * unit_dist / sqrt(3.)
      yem(jm( 7:23:8)) = -1.75 * unit_dist / sqrt(3.)
-     yem(jm(16     )) = -2.75 * unit_dist / sqrt(3.) 
+     yem(jm(16     )) = -2.75 * unit_dist / sqrt(3.)
 
      call wloopf('f',jw(5), jtw_lbcp, jtw_wadj, jtw_wstn, jtw_vadj, 0, 0)
      call wloopf('f',jw(6), jtw_grid, jtw_init, jtw_prog, jtw_wadj, jtw_wstn, jtw_vadj)

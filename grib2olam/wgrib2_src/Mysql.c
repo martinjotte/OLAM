@@ -4,7 +4,7 @@
 
 
  Example of mysql table structure for use with this script:
- create table wgrib2 (rt datetime, vt datetime, lat double, lon double, param varchar(80), level varchar(30), value double); 
+ create table wgrib2 (rt datetime, vt datetime, lat double, lon double, param varchar(80), level varchar(30), value double);
 
  v1.0 5/2008
       10/2009 Jerry Stueve, tmpnam -> mkstemp, "LOAD DATA <<LOCAL>>" added
@@ -39,7 +39,7 @@ int f_mysql(ARG5) {
     char sql[300];
     char server[100];
     char user[100];
-    char password[100]; 
+    char password[100];
     char database[100];
     char table[100];
 
@@ -72,7 +72,7 @@ int f_mysql(ARG5) {
 
     if (mode == -1) {
         decode = latlon = 1;
-            
+
 	*local = save = (struct local_struct *) malloc(sizeof(struct local_struct));
 	if (save == NULL) fatal_error("mysql memory allocation ","");
 
@@ -108,7 +108,7 @@ int f_mysql(ARG5) {
         // f_lev(mode, sec, data, ndata, level_buf, local);
         f_lev(call_ARG0(level_buf, NULL));
 
-   
+
         if (strcmp(level_buf, "reserved") == 0) return 0;
 
         strcpy(save->filename, "/tmp/wgrib2_mysqlXXXXXX");

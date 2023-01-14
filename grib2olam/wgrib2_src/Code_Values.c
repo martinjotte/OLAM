@@ -8,7 +8,7 @@
 /*
  * 2016 Public Domain Wesley Ebisuzaki
  *
- * this file contains nice to know values 
+ * this file contains nice to know values
  */
 
 /*
@@ -146,11 +146,11 @@ unsigned char *forecast_time_in_units_location(unsigned char **sec, int *size) {
     if (code_4_4 == NULL) return NULL;
     *size = code_table_4_0(sec) == 44 ? 2 : 4;
     return code_4_4 + 1;
-} 
+}
 
 /* returns the values of fixed surfaces */
 
-void fixed_surfaces(unsigned char **sec, int *type1, float *surface1, 
+void fixed_surfaces(unsigned char **sec, int *type1, float *surface1,
 	int *undef_val1, int *type2, float *surface2, int *undef_val2) {
 
     unsigned char *p1, *p2;
@@ -409,7 +409,7 @@ unsigned char *year_of_model_version_date_location(unsigned char **sec) {
     pdt = code_table_4_0(sec);
 
     switch (pdt) {
-      case 60: 
+      case 60:
       case 61: p = sec[4] + 37; break;
       default: p = NULL; break;
     }
@@ -560,7 +560,7 @@ int smallest_pdt_len(int pdt) {
  */
 int f_post_processing(ARG0) {
     int i;
-    
+
     if (mode >= 0) {
         i = type_of_post_processing(sec);
         if (i >= 0) sprintf(inv_out,"post_processing=%d", i);

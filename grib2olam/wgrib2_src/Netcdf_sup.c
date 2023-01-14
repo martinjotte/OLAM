@@ -95,7 +95,7 @@ int match_str(const char *s, const char *match) {
    }
    return 1;
 }
- 
+
 
 /*
 * makes units COARDS compliant: C -> Celsius, g -> gram, prob -> 1, gpm -> m
@@ -133,7 +133,7 @@ void fix_units(char *s, int n)
       *s++ = 'm';
       p++;
     }
-    else if (toupper((unsigned char) *p) == '%') 
+    else if (toupper((unsigned char) *p) == '%')
     {
       *s++ = 'p';
       *s++ = 'e';

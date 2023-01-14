@@ -1,4 +1,4 @@
-subroutine calc_3d_cloud_fraction(mrl)
+subroutine calc_3d_cloud_fraction()
 
   use mem_ijtabs,  only: jtab_w, jtw_prog
   use mem_grid,    only: mza, lpw
@@ -9,7 +9,6 @@ subroutine calc_3d_cloud_fraction(mrl)
 
   implicit none
 
-  integer, intent(in) :: mrl
   integer             :: j, iw, ka, k
   real                :: cond
   real                :: frac(mza)
@@ -17,11 +16,9 @@ subroutine calc_3d_cloud_fraction(mrl)
   real,     parameter :: cond_min = 1.e-8
   real,     parameter :: frac_min = 0.10
 
-  if (mrl == 0) return
-
   !$omp parallel private(frac)
   !$omp do private(iw, ka, k, cond) schedule(guided)
-  do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+  do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
      ka = lpw(iw)
 

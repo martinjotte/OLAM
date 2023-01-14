@@ -813,7 +813,7 @@ contains
 
     !$omp parallel do private(jw,iw,day,itz,hour,timefac,j,n,fact1,fact2,&
     !$omp                     fact3,ns,ka,ks,k,emisn,v,i)
-    do jw = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(jw)
+    do jw = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(jw)
 
        edgar42_emis(:,iw,:) = 0.0
 
@@ -1326,7 +1326,7 @@ contains
 #endif
 
        !$omp parallel do private(jw,iw,n)
-       do jw = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(jw)
+       do jw = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(jw)
 
           ! sum the emission overlaps that contribute to this cell and
           ! multiply by area to get emissions in kg/sec
@@ -1385,7 +1385,7 @@ contains
 #endif
 
        !$omp parallel do private(jw,iw,n)
-       do jw = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(jw)
+       do jw = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(jw)
 
           ! sum the emission overlaps that contribute to this cell and
           ! multiply by area to get emissions in kg/sec
@@ -1445,7 +1445,7 @@ contains
 #endif
 
        !$omp parallel do private(jw,iw,n)
-       do jw = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(jw)
+       do jw = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(jw)
 
           ! sum the emission overlaps that contribute to this cell and
           ! multiply by area to get emissions in kg/sec
@@ -1505,7 +1505,7 @@ contains
 #endif
 
        !$omp parallel do private(jw,iw,n)
-       do jw = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(jw)
+       do jw = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(jw)
 
           ! sum the emission overlaps that contribute to this cell and
           ! multiply by area to get emissions in kg/sec
@@ -1565,7 +1565,7 @@ contains
 #endif
 
        !$omp parallel do private(jw,iw,n)
-       do jw = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(jw)
+       do jw = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(jw)
 
           ! sum the emission overlaps that contribute to this cell and
           ! multiply by area to get emissions in kg/sec
@@ -1625,7 +1625,7 @@ contains
 #endif
 
        !$omp parallel do private(jw,iw,n)
-       do jw = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(jw)
+       do jw = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(jw)
 
           do n = 1, emis_w(iw)%ncells
              edgar42_vars(iw)%pm2_5(j) = edgar42_vars(iw)%pm2_5(j) + &
@@ -1682,7 +1682,7 @@ contains
 #endif
 
        !$omp parallel do private(jw,iw,n)
-       do jw = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(jw)
+       do jw = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(jw)
 
           do n = 1, emis_w(iw)%ncells
              edgar42_vars(iw)%pm10(j) = edgar42_vars(iw)%pm10(j) + &
@@ -1739,7 +1739,7 @@ contains
 #endif
 
        !$omp parallel do private(jw,iw,n)
-       do jw = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(jw)
+       do jw = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(jw)
 
           ! sum the emission overlaps that contribute to this cell and
           ! multiply by area to get emissions in kg/sec
@@ -1773,23 +1773,24 @@ contains
     integer :: np, i, j, n, ng, nn, ngrp, jw, iw, im
     integer :: js, je, is(2), ie(2), ijsize
     real    :: max180, min180
-    real    :: dx, dy, area, x, y, sumarea, areaij
+    real    :: dx, dy, area, sumarea, areaij
     real    :: lats(4), lons(4)
 
-    real(r8):: xg(4), yg(4), alpha(maxvert)
+    real(r8):: xg(4), yg(4)
     real(r8):: xf(maxvert), yf(maxvert)
+    real    :: x(maxvert), y(maxvert)
     real    :: flats(maxvert), flons(maxvert)
 
-    integer :: jtrap
-    real :: xtrap (4,30+4+30*4)  ! trapezoid x coordinates
-    real :: ytrap (4,30+4+30*4)  ! trapezoid y coordinates
-    real :: traparea(30+4+30*4)  ! trapezoid area
+!    integer :: jtrap
+!    real :: xtrap (4,30+4+30*4)  ! trapezoid x coordinates
+!    real :: ytrap (4,30+4+30*4)  ! trapezoid y coordinates
+!    real :: traparea(30+4+30*4)  ! trapezoid area
 
     real :: tolerance
     real, parameter :: lat0 = -90.0
     real, parameter :: lon0 =   0.0
 
-    real :: dxe, dye, dze
+    real :: dxe(4), dye(4), dze(4)
     real :: coswlon, sinwlon
     real :: coswlat, sinwlat
     real :: raxis, raxisi
@@ -1810,14 +1811,14 @@ contains
     !$omp do private(jw,iw,np,tolerance,sumarea,n,im,flats,flons,ngrp,max180,&
     !$omp            min180,js,je,is,ie,sinwlat,coswlat,sinwlon,coswlon,&
     !$omp            dxe,dye,dze,x,y,xf,yf,ng,nn,j,i,lons,lats,xg,yg,areaij,&
-    !$omp            alpha,area,jtrap,xtrap,ytrap,traparea,ijsize,raxis,raxisi)&
+    !$omp            area,ijsize,raxis,raxisi)&
     !$omp schedule(guided)
-    do jw = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(jw)
+    do jw = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(jw)
 
        np = itab_w(iw)%npoly
 
        if (mod(jw,1000) == 0) &
-            write(io6,*) "Hex cells:", jw, jtab_w(jtw_prog)%jend(1), glatw(iw), glonw(iw)
+            write(io6,*) "Hex cells:", jw, jtab_w(jtw_prog)%jend, glatw(iw), glonw(iw)
 
        ! Skip cells near poles - small emissions and many lat-lon cells
 
@@ -1890,15 +1891,15 @@ contains
           do n = 1, np
              im = itab_w(iw)%im(n)
 
-             dxe = xem(im) - xew(iw)
-             dye = yem(im) - yew(iw)
-             dze = zem(im) - zew(iw)
-
-             call de_ps(dxe, dye, dze, coswlat, sinwlat, coswlon, sinwlon, x, y)
-
-             xf(n) = x
-             yf(n) = y
+             dxe(n) = xem(im) - xew(iw)
+             dye(n) = yem(im) - yew(iw)
+             dze(n) = zem(im) - zew(iw)
           enddo
+
+          call de_ps_mult(np, dxe, dye, dze, coswlat, sinwlat, coswlon, sinwlon, x, y)
+
+          xf(1:np) = real(x(1:np),r8)
+          yf(1:np) = real(y(1:np),r8)
 
           ng = 0
 
@@ -1915,56 +1916,58 @@ contains
 
                    do n = 1, 4
                       call ll_xy2(lats(n), lons(n), coswlat, sinwlat, coswlon, sinwlon, &
-                                  xew(iw), yew(iw), zew(iw), x, y)
-                      xg(n) = x
-                      yg(n) = y
+                                  xew(iw), yew(iw), zew(iw), x(n), y(n))
                    enddo
+
+                   xg(1:4) = real(x(1:4),r8)
+                   yg(1:4) = real(y(1:4),r8)
 
                    areaij =  pio180 * erad**2 * abs(sin(lats(2)*pio180)-sin(lats(1)*pio180)) * dx
 
-                   alpha(:) = 0.0_r8
-
-                   ! check if emis cell is entirely within the olam cell
-
-                   if (areaij < arw0(iw)) then
-                      do n = 1, 4
-                         call inout_check(np, xf, yf, xg(n), yg(n), alpha(n))
-                         if (alpha(n) < 1.0_r8) exit
-                      enddo
-                   endif
-
-                   if (all(alpha(1:4) > 1.0_r8)) then
-
-                      ! emis cell is entirely within this olam cell
-                      area = areaij
-
-                   else
-
-                      alpha(:) = 0.0_r8
-
-                      ! check if olam cell is entirely within the emis cell
-
-                      if (arw0(iw) < areaij) then
-                         do n = 1, np
-                            call inout_check(4, xg, yg, xf(n), yf(n), alpha(n))
-                            if (alpha(n) < 1.0_r8) exit
-                         enddo
-                      endif
-
-                      if (all(alpha(1:np) > 1.0_r8)) then
-
-                         ! olam cell is entirely within this emissions cell
-                         area = arw0(iw)
-
-                      else
+!!                   alpha(:) = 0.0_r8
+!!
+!!                   ! check if emis cell is entirely within the olam cell
+!!
+!!                   if (areaij < arw0(iw)) then
+!!                      do n = 1, 4
+!!                         call inout_check(np, xf, yf, xg(n), yg(n), alpha(n))
+!!                         if (alpha(n) < 1.0_r8) exit
+!!                      enddo
+!!                   endif
+!!
+!!                   if (all(alpha(1:4) > 1.0_r8)) then
+!!
+!!                      ! emis cell is entirely within this olam cell
+!!                      area = areaij
+!!
+!!                   else
+!!
+!!                      alpha(:) = 0.0_r8
+!!
+!!                      ! check if olam cell is entirely within the emis cell
+!!
+!!                      if (arw0(iw) < areaij) then
+!!                         do n = 1, np
+!!                            call inout_check(4, xg, yg, xf(n), yf(n), alpha(n))
+!!                            if (alpha(n) < 1.0_r8) exit
+!!                         enddo
+!!                      endif
+!!
+!!                      if (all(alpha(1:np) > 1.0_r8)) then
+!!
+!!                         ! olam cell is entirely within this emissions cell
+!!                         area = arw0(iw)
+!!
+!!                      else
 
                          ! compute any overlap
-                         call polygon_overlap(iw, np, 4, xf, yf, xg, yg, area, &
-                              jtrap, xtrap, ytrap, traparea)
+                         !call polygon_overlap(iw, np, 4, xf, yf, xg, yg, area, &
+                         !     jtrap, xtrap, ytrap, traparea)
+                         call polygon_overlap(np, 4, xf, yf, xg, yg, arw0(iw), areaij, area)
 
-                      endif
+!!                      endif
 
-                   endif
+!!                   endif
 
                    if (area > tolerance) then
                       ng = ng + 1

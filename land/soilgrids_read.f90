@@ -1,35 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 Module soilgrids_db
 
 Contains
@@ -39,7 +7,7 @@ Contains
   ! The letter "q" represents any point in the grid stagger, as determined by
   ! the routine that calls this subroutine.
 
-  use consts_coms, only: erad, piu180
+  use consts_coms, only: piu180
   use hdf5_utils,  only: shdf5_open, shdf5_close, shdf5_irec
   use misc_coms,   only: io6
   use max_dims,    only: pathlen
@@ -67,7 +35,7 @@ Contains
   integer :: ndims, idims(2)
   integer :: idataset
 
-  real :: offpix 
+  real :: offpix
   real :: qlat1, qlon1
   real :: wio1, wio2, wjo1, wjo2
   real :: rio_full, rjo_full
@@ -111,7 +79,7 @@ Contains
 
      write(6,'(a,3i5,3f10.4)') 'ksg,wsg ',k,ksg1(k),ksg2(k),wsg1(k),wsg2(k),slzt(k)
 
-  enddo 
+  enddo
 
   ! Open, read, and close dataset header file
 
@@ -121,11 +89,11 @@ Contains
   if (.not. l1) then
      write(io6,*)
      write(io6,*) '==================================================='
-     write(io6,*) '| Problem in land_database_read:'
+     write(io6,*) '| Problem in soilgrids_read:'
      write(io6,*) '| Header file ', trim(fname)
      write(io6,*) '| not found!'
      write(io6,*) '==================================================='
-     stop 'land_database_read'
+     stop 'soilgrids_read'
   endif
 
   open(29, file=fname, form='FORMATTED', status='OLD', action='READ')
@@ -347,7 +315,7 @@ Contains
                  ! Read file
 
                  if (l1) then
-                    write(io6,*) 'getting file ',trim(fname)    
+                    write(io6,*) 'getting file ',trim(fname)
 
                     call shdf5_open(trim(fname),'R')
 
@@ -369,8 +337,8 @@ Contains
 
               do ind = ind1,ind2-1
 
-                 iland = qtable(ind)     
-                 iwsfc = iland + onland    
+                 iland = qtable(ind)
+                 iwsfc = iland + onland
 
                  qlat1 = max(-89.9999,min(89.9999,sfcg%glatw(iwsfc)))
                  qlon1 = sfcg%glonw(iwsfc)
@@ -466,9 +434,9 @@ Contains
 
                  ! Apply soilgrids data to OLAM-SOIL grid.  For soilgrids datasets
                  ! that are multi-leveled (covering the uppermost 2 m), interpolate
-                 ! vertically to the OLAM-SOIL grid within that vertical range and 
+                 ! vertically to the OLAM-SOIL grid within that vertical range and
                  ! assign deepest ('sl7') dataset value to deeper OLAM-SOIL grid
-                 ! levels.  (Some of these deeper values will be ignored, depending 
+                 ! levels.  (Some of these deeper values will be ignored, depending
                  ! on bedrock depth and model input parameters.)
 
                  if (data_name == 'GPP') then

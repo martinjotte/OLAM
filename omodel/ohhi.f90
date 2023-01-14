@@ -1,35 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 subroutine inithh()
 
   ! Horizontally-homogeneous initialization of model fields
@@ -644,7 +612,7 @@ enddo
 !----------------------------------------------------------------------
 !$omp parallel private(rho_tot)
 !$omp do private(iw,ka,k,iter,temp,exner,ccn,pkhyd)
-do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
+do j = 1,jtab_w(jtw_init)%jend; iw = jtab_w(jtw_init)%iw(j)
 !---------------------------------------------------------------------
 
    ka = lpw(iw)
@@ -716,10 +684,13 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 
    do k = ka, mza
       tair(k,iw) = theta(k,iw) * (real(press(k,iw)) * p00i) ** rocp
+
+      ! THIIL is defined using mixing ratios in Tripoli and Cotton
       if (miclevel > 1) then
-         thil(k,iw) = theta(k,iw) / (1. + alvlocp * rr_c(k,iw) / &
-                                        ((1.0 + rr_c(k,iw)) * max(temp,253.)))
+         temp = max(tair(k,iw),253.)
+         thil(k,iw) = theta(k,iw) * temp / ( temp + alvlocp * rr_c(k,iw) )
       endif
+
    enddo
 
    do k = 1, ka-1
@@ -750,25 +721,25 @@ enddo
 
 if (iparallel == 1) then
 
-   call mpi_send_w(1, dvara1=press, dvara2=rho, &
+   call mpi_send_w(dvara1=press, dvara2=rho, &
                    rvara1=wc,rvara2=wmc,rvara3=thil, &
                    rvara4=ue,rvara5=ve, &
                    rvara6=vxe, rvara7=vye, rvara8=vze)
 
-   call mpi_recv_w(1, dvara1=press, dvara2=rho, &
+   call mpi_recv_w(dvara1=press, dvara2=rho, &
                    rvara1=wc,rvara2=wmc,rvara3=thil, &
                    rvara4=ue,rvara5=ve, &
                    rvara6=vxe, rvara7=vye, rvara8=vze)
 endif
 
-call lbcopy_w(1, a1=wc,  a2=wmc, a3=thil, a4=ue, a5=ve, a6=vxe, a7=vye, a8=vze, &
-                 d1=rho, d2=press)
+call lbcopy_w(a1=wc,  a2=wmc, a3=thil, a4=ue, a5=ve, a6=vxe, a7=vye, a8=vze, &
+              d1=rho, d2=press)
 
 ! Initialize VMC, VC
 
 !----------------------------------------------------------------------
 !$omp parallel do private(iv,iw1,iw2,ka,k)
-do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)
+do j = 1,jtab_v(jtv_init)%jend; iv = jtab_v(jtv_init)%iv(j)
    iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
 !----------------------------------------------------------------------
 
@@ -807,12 +778,12 @@ enddo
 ! MPI parallel send/recv of V group
 
 if (iparallel == 1) then
-   call mpi_send_v(1, rvara1=vmc, rvara2=vc)
-   call mpi_recv_v(1, rvara1=vmc, rvara2=vc)
+   call mpi_send_v(rvara1=vmc, rvara2=vc)
+   call mpi_recv_v(rvara1=vmc, rvara2=vc)
 endif
 
 ! LBC copy of VMC, VC
 
-call lbcopy_v(1, vmc=vmc, vc=vc)
+call lbcopy_v(vmc=vmc, vc=vc)
 
 end subroutine fldshhi

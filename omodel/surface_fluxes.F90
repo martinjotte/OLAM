@@ -1,43 +1,12 @@
 !===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 
 ! TURB and CUPARM flux scheduling:
 
 ! 1. Cuparm gives precip RATES
 ! 2. Stars gives heat and vapor flux RATES
-! 3. Fluxes computed once per interval of dtlong = dtlm(1) = dt_leaf = dt_sea,
+! 3. Fluxes computed once per interval of dtlong = dtlm = dt_leaf = dt_sea,
 !    which (as of July 2011) are hardwired to be all the same.
-! 4. Fluxes converted to AMOUNTS TRANSFERED based on rate * dtlm(1) 
+! 4. Fluxes converted to AMOUNTS TRANSFERED based on rate * dtlm
 ! 5. Each time leaf runs, it uses at once all it has gotten and zeroes xfer arrays
 ! 6. When fluxes are done, they are done for all MRL = 1 atm points
 
@@ -46,38 +15,30 @@
 ! 1. Radiative fluxes transfer RATES only, with no timestep information
 
 !----------------------------------------------------------------------------
-! AS OF JULY 2011, SUBROUTINE SURFACE_TURB_FLUXP IS HARDWIRED FOR 
-! DT_LEAF = DTLM(1) AND MRL_LEAF = 1, WHICH FOR A LONG TIME HAS BEEN 
-! ASSIGNED IN SUBROUTINE MODSCHED AND USED SUCCESSFULLY.
-! IF DT_LEAF EVER GETS LARGE ENOUGH TO CAUSE INSTABILITY, THE INSTABILITY
-! SHOULD BE CONTROLLED BY INCREASING CAPACITANCE OF THE LEAF COMPONENTS, 
-! NOT BY REDUCING TIMESTEP; I.E., WE WANT LEAF TO BE CAPABLE OF RUNNING ON
-! AS LONG A TIMESTEP AS THE ATMOSPHERIC MODEL.
+! AS OF JULY 2011, SUBROUTINE SURFACE_TURB_FLUXP IS HARDWIRED FOR
+! DT_LEAF = DTLM.
 !----------------------------------------------------------------------------
 
-subroutine surface_turb_flux(mrl)
+subroutine surface_turb_flux()
 
   use leaf_coms,   only: isfcl
   use mem_land,    only: omland, land
   use mem_sea,     only: omsea, sea
-  use mem_ijtabs,  only: itab_w, itabg_w, jtab_w, jtw_prog, jtw_wstn
+  use mem_basic,   only: theta, tair, rr_v
+  use mem_ijtabs,  only: itab_w, jtab_w, jtw_prog, jtw_wstn
   use mem_sfcg,    only: itab_wsfc, sfcg, mwsfc
   use misc_coms,   only: iparallel, dtlm
   use mem_grid,    only: lsw, lpw, arw
   use mem_turb,    only: akm_sfc, vkm_sfc, ustar, sfluxt, sfluxr, &
                          sxfer_tk, sxfer_rk, wstar, wtv0, pblh, moli, &
-                         akh_dzi, akhth_dzi, akhrv_dzi, ustar_k, wtv0_k
-  use mem_basic,   only: press, rho, theta, tair, rr_v, vxe, vye, vze
-  use mem_micro,   only: rr_c
+                         ustar_k, wtv0_k
   use consts_coms, only: grav, p00, rocp, cp, alvl, eps_virt, vonk, p00i
   use oname_coms,  only: nl
   use mem_para,    only: myrank
 
   implicit none
 
-  integer, intent(in) :: mrl
-
-  integer :: j,iw,isea,iland
+  integer :: j,iw,isea
   integer :: ks,kw,ka
   integer :: jsfc, jasfc, iwsfc
 
@@ -87,11 +48,9 @@ subroutine surface_turb_flux(mrl)
   real :: shflx  ! Specified surface sensible heat flux for ISFCL = 0 case [W/m^2]
   real :: srflx  ! Specified surface latent heat flux for ISFCL = 0 case [W/m^2]
 
-  real :: sfc_cantheta(mwsfc)
-
   real, parameter :: onethird = 1./3.
 
-  dtl = dtlm(1)
+  dtl = dtlm
 
   if (isfcl == 0) then
 
@@ -109,7 +68,7 @@ subroutine surface_turb_flux(mrl)
      !  shflx = 150. / alvl
 
      !$omp parallel do private(iw,ks,kw,exneri)
-     do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+     do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
         sfluxt(iw) = 0.
         sfluxr(iw) = 0.
@@ -144,15 +103,14 @@ subroutine surface_turb_flux(mrl)
 
   ! ISFCL = 1 is the LEAF option...
 
-  ! Reset to zero the atm values of VKM_SFC, USTAR, SFLUXT, and SFLUXR
-  ! for same mrl's that fluxes will be evaluated for this time.
-  ! THUS, VKM_SFC, USTAR, SFLUXT, AND SFLUXR ARE ONLY SUMMED OVER
+  ! Reset to zero the atm values of VKM_SFC, USTAR, SFLUXT, and SFLUXR.
+  ! VKM_SFC, USTAR, SFLUXT, AND SFLUXR ARE ONLY SUMMED OVER
   ! SPACE, BUT NOT OVER TIME. (ON THE OTHER HAND, SXFER_TK AND SXFER_RK ARE SUMMED
   ! OVER BOTH SPACE AND TIME; THEY ARE RESET TO ZERO IN THILTEND_LONG AND
   ! SCALAR_TRANSPORT AFTER THEY ARE TRANSFERRED TO THE ATMOSPHERE.)
 
   ! Set sea and land fluxes to be done for SURFACE SIMILARITY:
-  !    Do fluxes at beginning of long timestep at given mrl
+  !    Do fluxes at beginning of long timestep
 
   ustar   = 0.
   wtv0    = 0.
@@ -209,6 +167,13 @@ subroutine surface_turb_flux(mrl)
                    sfcg%sfluxr  (iwsfc), &
                    sfcg%ustar   (iwsfc), &
                    sfcg%ggaer   (iwsfc)  )
+
+        sfcg%wthv(iwsfc) = ( sfcg%sfluxt(iwsfc) * (1.0 + eps_virt * sfcg%airrrv(iwsfc)) &
+             + sfcg%sfluxr(iwsfc) * eps_virt * sfcg%airtheta(iwsfc) ) / sfcg%rhos(iwsfc)
+
+        if (nl%iorogslopeflg > 1 .and. sfcg%leaf_class(iwsfc) > 1) then
+           sfcg%vkmsfc(iwsfc) = sfcg%vkmsfc(iwsfc) * land%slope_fact(iwsfc-omland)
+        endif
 
      else
 
@@ -351,7 +316,7 @@ subroutine surface_turb_flux(mrl)
   ! Loop over ATM grid columns that are primary in this subdomain
 
   !$omp do private(iw, jsfc, iwsfc, jasfc, kw, ka, ks)
-  do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+  do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
      ! Loop over all SFC grid cells that couple to this ATM grid column
 
@@ -370,10 +335,8 @@ subroutine surface_turb_flux(mrl)
         sfluxt (iw) = sfluxt (iw) + itab_wsfc(iwsfc)%arcoariw(jasfc) * sfcg%sfluxt(iwsfc)
         sfluxr (iw) = sfluxr (iw) + itab_wsfc(iwsfc)%arcoariw(jasfc) * sfcg%sfluxr(iwsfc)
         vkm_sfc(iw) = vkm_sfc(iw) + itab_wsfc(iwsfc)%arcoariw(jasfc) * sfcg%vkmsfc(iwsfc)
-                    ! * land%slope_fact(iwsfc-omland)
 
         akm_sfc(ks,iw) = akm_sfc(ks,iw) + itab_wsfc(iwsfc)%arc(jasfc) * sfcg%vkmsfc(iwsfc)
-                       ! * land%slope_fact(iwsfc-omland)
 
         sxfer_tk(ks,iw) = sxfer_tk(ks,iw) &
                         + itab_wsfc(iwsfc)%arc(jasfc) * dtl * sfcg%sfluxt(iwsfc)
@@ -395,7 +358,7 @@ subroutine surface_turb_flux(mrl)
   ! Compute some derived surface quantities
 
   !$omp do private(iw,ka)
-  do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+  do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
      ka = lpw(iw)
 
@@ -462,7 +425,7 @@ subroutine stars( zts, rough, vels, rhos, ufree,  &
   real, parameter :: csh = 5.
   real, parameter :: d = 5.
   real, parameter :: ustmin = .05 ! lower bound on ustar (friction velocity)
-  real, parameter :: ubmin  = .1  ! lower bound on wind speed 
+  real, parameter :: ubmin  = .1  ! lower bound on wind speed
 
   ! Local variables
 
@@ -528,70 +491,66 @@ end subroutine stars
 subroutine surface_cuparm_flux()
 
   use mem_cuparm,  only: conprr, iactcu
-  use mem_ijtabs,  only: istp, mrl_begl, itabg_w
+  use mem_ijtabs,  only: istp, mrl_begl
   use mem_sfcg,    only: itab_wsfc
   use consts_coms, only: cliq, cice, alli, t00
   use mem_basic,   only: tair, rho, rr_v
-  use leaf_coms,   only: mrl_leaf
   use mem_sfcg,    only: mwsfc, itab_wsfc, sfcg
-  use misc_coms,   only: io6, isubdomain, dtlm
+  use misc_coms,   only: iparallel, dtlm
   use therm_lib,   only: rhovsl
   use mem_para,    only: myrank
 
   implicit none
 
-  integer :: mrl
   integer :: iw
   integer :: iwsfc, j
   integer :: kw
 
   real :: dtl, airtempc, tempc, qpcp
 
-  ! Subroutine to transfer atmospheric cumulus parameterization 
+  ! Subroutine to transfer atmospheric cumulus parameterization
   ! precipitation FLUX to surface cells
 
-  ! Set land fluxes to be done for CUPARM
-  !    1. for mrl = 0, no fluxes 
-  !    2. For mrl > mrl_leaf, no fluxes
-  !    3. For mrl <= mrl_leaf, do fluxes at beginning of long timestep 
-  !                            for all points in mrl = 1
+  if (mrl_begl(istp) > 0) then
 
-  mrl = mrl_begl(istp)
-  if (mrl > 0) then
-
-     dtl = dtlm(1)
+     dtl = dtlm
 
      ! Transfer precipitation FLUX to SFC grid cells
 
-     !$omp parallel do private(j, iw, kw, airtempc, tempc, qpcp) 
+     !$omp parallel do private(j,iw,kw,airtempc,tempc,qpcp) schedule(guided)
      do iwsfc = 2, mwsfc
 
         ! Skip this cell if running in parallel and cell rank is not MYRANK
-        if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+        if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
         do j = 1,itab_wsfc(iwsfc)%nwatm
            iw = itab_wsfc(iwsfc)%iwatm(j)  ! local index
            kw = itab_wsfc(iwsfc)%kwatm(j)
 
-           ! Compute air temperature in C
+           if (iactcu(iw) > 0) then
 
-           airtempc = tair(kw,iw) - t00
+              ! Compute air temperature in C
 
-           ! Estimate wet bulb temp using computation from subroutine each_column in micphys.
-           ! Assume that convective precip reaches surface at this wet bulb temp.
+              airtempc = tair(kw,iw) - t00
 
-           tempc = airtempc - min(25., max(0., &
+              ! Estimate wet bulb temp using computation from subroutine
+              ! each_column in micphys. Assume that convective precip reaches
+              ! surface at this wet bulb temp.
+
+              tempc = airtempc - min(25., max(0., &
                    700. * (rhovsl(airtempc) / real(rho(kw,iw)) - rr_v(kw,iw))))
 
-           if (tempc < 0.) then
-              qpcp = cice * tempc
-           else
-              qpcp = cliq * tempc + alli
-           endif
+              if (tempc < 0.) then
+                 qpcp = cice * tempc
+              else
+                 qpcp = cliq * tempc + alli
+              endif
 
-           sfcg%pcpg (iwsfc) = sfcg%pcpg (iwsfc) + itab_wsfc(iwsfc)%arcoarsfc(j) * dtl * conprr(iw)
-           sfcg%qpcpg(iwsfc) = sfcg%qpcpg(iwsfc) + itab_wsfc(iwsfc)%arcoarsfc(j) * dtl * conprr(iw) * qpcp
-           sfcg%dpcpg(iwsfc) = sfcg%dpcpg(iwsfc) + itab_wsfc(iwsfc)%arcoarsfc(j) * dtl * conprr(iw) * .001
+              sfcg%pcpg (iwsfc) = sfcg%pcpg (iwsfc) + itab_wsfc(iwsfc)%arcoarsfc(j) * dtl * conprr(iw)
+              sfcg%qpcpg(iwsfc) = sfcg%qpcpg(iwsfc) + itab_wsfc(iwsfc)%arcoarsfc(j) * dtl * conprr(iw) * qpcp
+              sfcg%dpcpg(iwsfc) = sfcg%dpcpg(iwsfc) + itab_wsfc(iwsfc)%arcoarsfc(j) * dtl * conprr(iw) * .001
+
+           endif
         enddo
 
      enddo
@@ -600,4 +559,71 @@ subroutine surface_cuparm_flux()
   endif
 
 end subroutine surface_cuparm_flux
+
+!==============================================================================
+
+subroutine sfclyr_profile (vels, ustar, tstar, rstar, dzt_bot, zrough, ufree, &
+                           cantheta, canthetav, canrrv, airthetav, &
+                           zobs, wind_zobs, theta_zobs, rrv_zobs)
+
+  ! This subroutine diagnoses wind speed, temperature, and vapor mixing ratio
+  ! over a sfc grid cell at height zobs that is within the surface layer profile
+
+  use consts_coms, only: grav, cp, vonk
+
+  implicit none
+
+  real, intent(in) :: vels
+  real, intent(in) :: ustar
+  real, intent(in) :: tstar
+  real, intent(in) :: rstar
+  real, intent(in) :: dzt_bot
+  real, intent(in) :: zrough
+  real, intent(in) :: ufree
+  real, intent(in) :: cantheta
+  real, intent(in) :: canthetav
+  real, intent(in) :: canrrv
+  real, intent(in) :: airthetav
+  real, intent(in) :: zobs
+
+  real, intent(inout) :: theta_zobs 
+  real, intent(inout) ::  wind_zobs
+  real, intent(inout) ::   rrv_zobs
+
+  real :: vels0, a2, richnum
+
+  real, parameter :: ubmin  = .1  ! lower bound on wind speed 
+
+  vels0 = max(vels,ubmin,ufree)
+
+  a2 = (vonk / log(zobs / zrough)) ** 2
+
+  richnum = 2.0 * grav * dzt_bot * (airthetav - canthetav)  &
+          / ( (airthetav + canthetav) * vels0 * vels0 )
+
+  if (airthetav >= canthetav) then
+
+     wind_zobs = sqrt((ustar**2 / a2) &
+               * (1. + 10. * richnum / sqrt(1. + 5. * richnum)) )
+
+     theta_zobs = cantheta + (ustar * tstar / (a2 * vels0)) &
+                * (1. + 15. * richnum / sqrt(1. + 5. * richnum))
+
+     rrv_zobs = canrrv + (ustar * rstar / (a2 * vels0)) &
+                * (1. + 15. * richnum / sqrt(1. + 5. * richnum))
+
+  else
+
+     wind_zobs = sqrt((ustar**2 / a2) &
+               / (1. - 10. * richnum / (1. + 75. * a2 * sqrt(-zobs * richnum/zrough))))
+
+     theta_zobs = cantheta + (ustar * tstar / (a2 * vels0)) &
+                / (1. - 15. * richnum / (1. + 75. * a2 * sqrt(-zobs * richnum / zrough)))
+
+     rrv_zobs = canrrv + (ustar * rstar / (a2 * vels0)) &
+                / (1. - 15. * richnum / (1. + 75. * a2 * sqrt(-zobs * richnum / zrough)))
+
+  endif
+
+end subroutine sfclyr_profile
 

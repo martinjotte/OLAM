@@ -1,47 +1,11 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 subroutine parcel_env(iw)
 
 ! This subroutine specifies environmental parameters (pressure, etc.) as
 ! a function of time for parcel simulations
 
-  use mem_basic,   only: thil, press, wc, rho, rr_w, rr_v, theta
-
-  use mem_micro,   only: rr_c, rr_d, rr_r, rr_p, rr_s, rr_a, rr_g, rr_h, &
-                         q2, q6, q7
-
-  use misc_coms,   only: time8, timmax8, dtlm
-  use micro_coms,  only: cfmasi, pwmasi, rxmin
+  use mem_basic,   only: thil, press, rho, rr_w, rr_v, theta
+  use mem_micro,   only: rr_c, rr_r, rr_h, q2, q7
+  use misc_coms,   only: time8, dtlm
   use consts_coms, only: cvocp, p00k, rdry, rvap, p00i, rocp, cpi
   use oname_coms,  only: nl
 
@@ -76,7 +40,7 @@ subroutine parcel_env(iw)
 !                 0.0,   15.0,   80.0,   0.0,   0.0,  ! P1
 !              1000.0,    8.5,   80.0,   0.0,   0.0,  ! P1
 
-     press(k,iw) = press(k,iw) * (1. - dtlm(1) * .0005)
+     press(k,iw) = press(k,iw) * (1. - dtlm * .0005)
 
      rho(k,iw) = press(k,iw) ** cvocp * p00k &
                / (theta(k,iw) * (1. - rr_c(k,iw)) &
@@ -100,7 +64,7 @@ subroutine parcel_env(iw)
 ! representing a temperature of 0 deg C and 1000% ice content.
 
 ! OLAMIN microphysics settings are: ICLOUD = 4, IDRIZ = 5, IRAIN = 2,
-! IPRIS = 0, ISNOW = 0, IAGGR = 0, IGRAUP = 0, IHAIL = 2, 
+! IPRIS = 0, ISNOW = 0, IAGGR = 0, IGRAUP = 0, IHAIL = 2,
 ! CCNPARM = 1000.E6, GCCNPARM = 10., HPARM = 2.0e-3
 ! Sounding levels are:
 !               0.0,   20.0,   30.0,   0.0,   0.0,  ! P2
@@ -133,7 +97,7 @@ subroutine parcel_env(iw)
         thildif = - thil(k,iw) * thil(k,iw) &
            * (2820. * addhail - cpi * (q7(k,iw) * rr_h(k,iw) )) &
            / (max(tairk, 253.) * theta(k,iw))
- 
+
         thil(k,iw) = thil(k,iw) + thildif
      endif
 
@@ -142,7 +106,7 @@ subroutine parcel_env(iw)
 
   elseif (nl%test_case == 903) then
 
-     press(k,iw) = press(k,iw) * (1. - dtlm(1) * .0001) ! This represents approximately 0.8 m/s ascent rate
+     press(k,iw) = press(k,iw) * (1. - dtlm * .0001) ! This represents approximately 0.8 m/s ascent rate
 
      rho(k,iw) = press(k,iw) ** cvocp * p00k &
                / (theta(k,iw) * (1. - rr_c(k,iw)) &
@@ -150,7 +114,7 @@ subroutine parcel_env(iw)
 
   elseif (nl%test_case == 904) then
 
-     press(k,iw) = press(k,iw) * (1. - dtlm(1) * .0002) ! This represents approximately 1.6 m/s ascent rate
+     press(k,iw) = press(k,iw) * (1. - dtlm * .0002) ! This represents approximately 1.6 m/s ascent rate
 
      rho(k,iw) = press(k,iw) ** cvocp * p00k &
                / (theta(k,iw) * (1. - rr_c(k,iw)) &
@@ -158,7 +122,7 @@ subroutine parcel_env(iw)
 
   elseif (nl%test_case == 905) then
 
-     press(k,iw) = press(k,iw) * (1. - dtlm(1) * .0005) ! This represents approximately 4 m/s ascent rate
+     press(k,iw) = press(k,iw) * (1. - dtlm * .0005) ! This represents approximately 4 m/s ascent rate
 
      rho(k,iw) = press(k,iw) ** cvocp * p00k &
                / (theta(k,iw) * (1. - rr_c(k,iw)) &
@@ -166,7 +130,7 @@ subroutine parcel_env(iw)
 
   elseif (nl%test_case == 906) then
 
-     press(k,iw) = press(k,iw) * (1. - dtlm(1) * .0015) ! This represents approximately 12 m/s ascent rate
+     press(k,iw) = press(k,iw) * (1. - dtlm * .0015) ! This represents approximately 12 m/s ascent rate
 
      rho(k,iw) = press(k,iw) ** cvocp * p00k &
                / (theta(k,iw) * (1. - rr_c(k,iw)) &
@@ -202,7 +166,7 @@ subroutine parcel_plot(k,kend,mza0,iw0,ncat,dtli0,jhcat,rx,cx,emb,qx,tx,vap, &
   use consts_coms, only: r8
   use misc_coms,   only: time8, timmax8, dtlm
   use micro_coms,  only: cfmasi, pwmasi, rxmin
-  use ccnbin_coms, only: nccntyp, nbins, relcon_bin, ihyg, iccntyp
+  use ccnbin_coms, only: nccntyp
   use oname_coms,  only: nl
   use mem_grid,    only: zt
 
@@ -372,17 +336,17 @@ subroutine parcel_plot(k,kend,mza0,iw0,ncat,dtli0,jhcat,rx,cx,emb,qx,tx,vap, &
 
   real :: time, tot
 
-  time = real(time8) + dtlm(1) ! (micphys plot called just before time8 update)
+  time = real(time8) + dtlm ! (micphys plot called just before time8 update)
 
 print*, 'parc1:ncnt,nval,k,kend ',ncnt,nval,k,kend
 
   if (nval == 0) then
 
      if (nl%test_case < 950) then
-        nval = nint(real(timmax8) / dtlm(1))
+        nval = nint(real(timmax8) / dtlm)
         allocate(xval(nval))
         do ii = 1,nval
-           xval(ii) = real(ii) * dtlm(1)
+           xval(ii) = real(ii) * dtlm
         enddo
      else
         nval = mza0 - 1
@@ -2208,7 +2172,6 @@ end subroutine parcel_plot
 subroutine plotpar(ipanel,npanel,ncnt,xval,time,ylab1,ylab2,qmin,qmax,qinc)
 
   use oname_coms, only: nl
-  use mem_grid,   only: mza
 
   implicit none
 
@@ -2220,13 +2183,12 @@ subroutine plotpar(ipanel,npanel,ncnt,xval,time,ylab1,ylab2,qmin,qmax,qinc)
   character(len=*), intent(in) :: ylab1, ylab2
 
   real, parameter :: sizelab = 11.
-  
+
   real :: ybot, ymid, ytop, x, y, p, dx_tick
 
-  integer :: ntick, i, ii, nyint, j, ipcnt
+  integer :: ntick, i, nyint, j, ipcnt
 
-  CHARACTER :: TITLE*88
-  character(len=10)  :: numbr,numbr2
+  character(len=10)  :: numbr
 
   real :: pmin, pmax, pinc, ybotp, yspc
   common / omicp / pmin, pmax, pinc, ybotp, yspc
@@ -2261,7 +2223,7 @@ subroutine plotpar(ipanel,npanel,ncnt,xval,time,ylab1,ylab2,qmin,qmax,qinc)
   if (ipanel == 1) then
      if (nl%test_case >= 951 .and. nl%test_case <= 999) then
         call o_plchhq(.55,.01,'Z (M)',sizelab,0.,0.)
-     else   
+     else
         call o_plchhq(.55,.01,'TIME (S)',sizelab,0.,0.)
      endif
   endif
@@ -2320,7 +2282,7 @@ subroutine plotpar(ipanel,npanel,ncnt,xval,time,ylab1,ylab2,qmin,qmax,qinc)
         else
            write (numbr,'(f7.4)') p
         endif
-   
+
         call o_plchhq(.14,y,trim(adjustl(numbr)),sizelab, 0.,1.)
 
      endif

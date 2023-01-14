@@ -1,36 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University;
-   ! Colorado State University Research Foundation ; ATMET, LLC
-
-   ! This software is free software; you can redistribute it and/or modify it
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version.
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
-
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
-   ! (http://www.gnu.org/licenses/gpl.html)
-   !----------------------------------------------------------------------------
-
-!===============================================================================
-
 Module olam_mpi_sfc
 
   integer, parameter :: itagwsfc = 11
@@ -79,7 +46,7 @@ subroutine olam_mpi_sfc_start()
   implicit none
 
 #ifdef OLAM_MPI
-  integer :: ierr, jsend, jrecv
+  integer :: ierr, jrecv
 
   allocate( ireqs_wsfc(nsends_wsfc,2) ) ; ireqs_wsfc = MPI_REQUEST_NULL
   allocate( ireqr_wsfc(nrecvs_wsfc,2) ) ; ireqr_wsfc = MPI_REQUEST_NULL
@@ -118,12 +85,13 @@ subroutine mpi_send_wsfc(set, soil_watfrac, div2d_ex)
   use mpi
 #endif
 
-  use mem_sfcg,    only: sfcg, mwsfc
-  use mem_land,    only: nzg, land, mland, omland
-  use mem_lake,    only: lake, omlake
-  use mem_sea,     only: sea, msea, omsea
-  use leaf_coms,   only: nzs
-  use sea_coms,    only: nzi
+  use mem_sfcg,  only: sfcg
+  use mem_land,  only: nzg, land, mland, omland
+  use mem_lake,  only: lake, omlake
+  use mem_sea,   only: sea, msea, omsea
+  use leaf_coms, only: nzs
+  use sea_coms,  only: nzi
+  use misc_coms, only: do_chem
 
   implicit none
 
@@ -161,7 +129,7 @@ subroutine mpi_send_wsfc(set, soil_watfrac, div2d_ex)
 
         ! Pack the messages into send buffers
 
-        if (set == 'head_swm_grad') then
+        if (set == 'head') then
 
            if (sfcg%leaf_class(iwsfc) >= 2) then
               iland = iwsfc - omland
@@ -171,7 +139,11 @@ subroutine mpi_send_wsfc(set, soil_watfrac, div2d_ex)
               call MPI_Pack(soil_watfrac(1,iland),nzg,MPI_REAL, &
                             send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
 
-           elseif (sfcg%leaf_class(iwsfc) == 0 .and. sfcg%swm_active(iwsfc)) then
+           endif
+
+        elseif (set == 'swm_grad') then
+
+           if (sfcg%leaf_class(iwsfc) == 0 .and. sfcg%swm_active(iwsfc)) then
               isea = iwsfc - omsea
 
               call MPI_Pack(sea%gxps_vxe(isea),1,MPI_REAL, &
@@ -221,8 +193,8 @@ subroutine mpi_send_wsfc(set, soil_watfrac, div2d_ex)
               call MPI_Pack(div2d_ex(isea),1,MPI_REAL, &
                             send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
            endif
-  
-        elseif (set == 'swm_diagvel') then  ! [W call from surface_driver after swm_diagvel]
+
+        elseif (set == 'swm_diagvel') then  ! [call from swm_driver after swm_diagvel]
 
            if (sfcg%swm_active(iwsfc) .and. sfcg%leaf_class(iwsfc) == 0) then
 
@@ -306,10 +278,14 @@ subroutine mpi_send_wsfc(set, soil_watfrac, div2d_ex)
                             send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
               call MPI_Pack(land%soil_energy    (1,iland),nzg, MPI_REAL, &
                             send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
+
+              if (do_chem ==1) then
               call MPI_Pack(land%ppfd             (iland),1,   MPI_REAL, &
                             send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
               call MPI_Pack(land%ppfd_diffuse     (iland),1,   MPI_REAL, &
                             send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
+              endif
+
               call MPI_Pack(land%cosz             (iland),1,   MPI_REAL, &
                             send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
 
@@ -369,7 +345,7 @@ end subroutine mpi_send_wsfc
 
 !===============================================================================
 
-subroutine mpi_send_vsfc(watflux, energyflux, vc_ex)
+subroutine mpi_send_vsfc(set, watflux, energyflux, vc_ex)
 
   ! Subroutine to perform a parallel MPI send of a "VSFC group"
   ! of field variables
@@ -384,6 +360,7 @@ subroutine mpi_send_vsfc(watflux, energyflux, vc_ex)
 
   implicit none
 
+  character(*), optional, intent(in) :: set
   real, optional, intent(inout) :: watflux   (nzg,mvsfc)
   real, optional, intent(inout) :: energyflux(nzg,mvsfc)
   real, optional, intent(inout) :: vc_ex         (mvsfc)
@@ -426,6 +403,8 @@ subroutine mpi_send_vsfc(watflux, energyflux, vc_ex)
            call MPI_Pack(energyflux(1,ivsfc),nzg,MPI_REAL,send_vsfc(jsend)%buff, &
                                                  nb,ipos,MPI_COMM_WORLD,ierr)
 
+        elseif (set == 'swm_hflux') then
+
            ! Updates from swm_hflux; limited to swm_active points
 
            if ((sfcg%swm_active(iw1) .or. sfcg%swm_active(iw2)) .and. &
@@ -460,7 +439,7 @@ subroutine mpi_send_vsfc(watflux, energyflux, vc_ex)
 
            endif
 
-        else  ! follows swm_progv call in surface_driver
+        else  ! follows swm_progv call in swm_driver
 
            if ((sfcg%swm_active(iw1) .and. sfcg%leaf_class(iw1) == 0) .and. &
                (sfcg%swm_active(iw2) .and. sfcg%leaf_class(iw2) == 0)) then
@@ -508,17 +487,18 @@ subroutine mpi_recv_wsfc(set, soil_watfrac, div2d_ex)
   use mpi
 #endif
 
-  use mem_sfcg,  only: sfcg, mwsfc
+  use mem_sfcg,  only: sfcg
   use leaf_coms, only: nzs
   use sea_coms,  only: nzi
-  use mem_land,  only: nzg, land, omland
+  use mem_land,  only: nzg, mland, land, omland
   use mem_lake,  only: lake, omlake
   use mem_sea,   only: sea, msea, omsea
+  use misc_coms, only: do_chem
 
   implicit none
 
   character(*), optional, intent(in) :: set
-  real, optional, intent(inout) :: soil_watfrac(nzg,mwsfc)
+  real, optional, intent(inout) :: soil_watfrac(nzg,mland)
   real, optional, intent(inout) :: div2d_ex(msea)
 
 #ifdef OLAM_MPI
@@ -553,7 +533,7 @@ subroutine mpi_recv_wsfc(set, soil_watfrac, div2d_ex)
      do jj = 1, recv_wsfc(jrecv)%jend
         iwsfc = recv_wsfc(jrecv)%ipts(jj)
 
-        if (set == 'head_swm_grad') then
+        if (set == 'head') then
 
            if (sfcg%leaf_class(iwsfc) >= 2) then
               iland = iwsfc - omland
@@ -563,7 +543,11 @@ subroutine mpi_recv_wsfc(set, soil_watfrac, div2d_ex)
               call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
                               soil_watfrac(1,iland),nzg,MPI_REAL,MPI_COMM_WORLD,ierr)
 
-           elseif (sfcg%leaf_class(iwsfc) == 0 .and. sfcg%swm_active(iwsfc)) then
+           endif
+
+        elseif (set == 'swm_grad') then
+
+           if (sfcg%leaf_class(iwsfc) == 0 .and. sfcg%swm_active(iwsfc)) then
               isea = iwsfc - omsea
 
               call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
@@ -699,10 +683,14 @@ subroutine mpi_recv_wsfc(set, soil_watfrac, div2d_ex)
                               land%soil_water     (1,iland),nzg,MPI_REAL,MPI_COMM_WORLD,ierr)
               call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
                               land%soil_energy    (1,iland),nzg,MPI_REAL,MPI_COMM_WORLD,ierr)
+
+              if (do_chem ==1) then
               call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
                               land%ppfd             (iland),  1,MPI_REAL,MPI_COMM_WORLD,ierr)
               call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
                               land%ppfd_diffuse     (iland),  1,MPI_REAL,MPI_COMM_WORLD,ierr)
+              endif
+
               call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
                               land%cosz             (iland),  1,MPI_REAL,MPI_COMM_WORLD,ierr)
 
@@ -756,7 +744,7 @@ end subroutine mpi_recv_wsfc
 
 !=============================================================================
 
-subroutine mpi_recv_vsfc(watflux, energyflux, vc_ex)
+subroutine mpi_recv_vsfc(set, watflux, energyflux, vc_ex)
 
   ! Subroutine to perform a parallel MPI receive of a "VSFC group"
   ! of field variables
@@ -766,11 +754,12 @@ subroutine mpi_recv_vsfc(watflux, energyflux, vc_ex)
 #endif
 
   use mem_sfcg,   only: sfcg, mvsfc, itab_vsfc
-  use mem_land,   only: nzg, land, omland
+  use mem_land,   only: nzg
   use oname_coms, only: nl
 
   implicit none
 
+  character(*), optional, intent(in) :: set
   real, optional, intent(inout) :: watflux   (nzg,mvsfc)
   real, optional, intent(inout) :: energyflux(nzg,mvsfc)
   real, optional, intent(inout) :: vc_ex         (mvsfc)
@@ -817,6 +806,8 @@ subroutine mpi_recv_vsfc(watflux, energyflux, vc_ex)
            call MPI_Unpack(recv_vsfc(jrecv)%buff,recv_vsfc(jrecv)%nbytes,ipos, &
                            energyflux(1,ivsfc),nzg,MPI_REAL,MPI_COMM_WORLD,ierr)
 
+        elseif (set == 'swm_hflux') then
+
            ! Updates from swm_hflux; limited to swm_active points
 
            if ((sfcg%swm_active(iw1) .or. sfcg%swm_active(iw2)) .and. &
@@ -851,7 +842,7 @@ subroutine mpi_recv_vsfc(watflux, energyflux, vc_ex)
 
            endif
 
-        else  ! follows swm_progv call in surface_driver
+        else  ! follows swm_progv call in swm_driver
 
            if ((sfcg%swm_active(iw1) .and. sfcg%leaf_class(iw1) == 0) .and. &
                (sfcg%swm_active(iw2) .and. sfcg%leaf_class(iw2) == 0)) then

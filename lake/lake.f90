@@ -1,44 +1,9 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 subroutine lakecells()
 
-  use mem_ijtabs,  only: itabg_w
   use mem_sfcg,    only: itab_wsfc, sfcg
   use mem_lake,    only: lake, mlake, omlake
-  use misc_coms,   only: io6, time8, isubdomain
+  use misc_coms,   only: iparallel
   use mem_para,    only: myrank
-  use mem_basic,   only: rho, press, theta, tair, vxe, vye, vze, rr_v
-  use mem_micro,   only: rr_c
   use consts_coms, only: grav
   use mem_sfcnud,  only: sfcwat_nud, sfctemp_nud, fracliq_nud
   use oname_coms,  only: nl
@@ -57,7 +22,7 @@ subroutine lakecells()
      iwsfc = ilake + omlake
 
      ! Skip this cell if running in parallel and cell rank is not MYRANK
-     if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+     if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
 ! Update LAKE fields
 
@@ -101,7 +66,7 @@ subroutine lakecells()
 
      endif
 
-! Zero out sfcg%SXFER_T(iwsfc) and sfcg%SXFER_R(iwsfc) now that they have 
+! Zero out sfcg%SXFER_T(iwsfc) and sfcg%SXFER_R(iwsfc) now that they have
 ! been applied to the canopy
 
      sfcg%sxfer_t(iwsfc) = 0.
@@ -122,7 +87,6 @@ subroutine lakecell(iwsfc, ilake, depth, lake_energy, surface_srrv, topw, bathym
 
   use lake_coms,   only: dt_lake
   use consts_coms, only: cp, grav, t00, cliq1000, alvl
-  use misc_coms,   only: io6
   use therm_lib,   only: rhovsil, qtk
   use sea_swm,     only: depthmin_flux
 
@@ -132,7 +96,7 @@ subroutine lakecell(iwsfc, ilake, depth, lake_energy, surface_srrv, topw, bathym
   integer, intent(in)    :: ilake       ! current lake cell index
   real,    intent(inout) :: depth       ! lake mean depth [m]
   real,    intent(inout) :: lake_energy ! lake energy lake energy [J/kg]
-  real,    intent(out)   :: surface_srrv! lake surface sat mixing ratio [kg_vap/kg_dryair] 
+  real,    intent(out)   :: surface_srrv! lake surface sat mixing ratio [kg_vap/kg_dryair]
   real,    intent(in)    :: topw        ! topographic height of sfc W points [m]
   real,    intent(in)    :: bathym      ! bathymetric height of sfc W points [m]
   real,    intent(in)    :: rhos        ! air density [kg/m^3]
@@ -142,7 +106,7 @@ subroutine lakecell(iwsfc, ilake, depth, lake_energy, surface_srrv, topw, bathym
   real,    intent(in)    :: can_depth   ! "canopy" depth for heat and vap capacity [m]
   real,    intent(inout) :: cantemp     ! "canopy" air temp [K]
   real,    intent(inout) :: canrrv      ! "canopy" air vapor mixing ratio [kg_vap/kg_dryair]
-  real,    intent(out)   :: rough       ! lake cell roughess height [m] 
+  real,    intent(out)   :: rough       ! lake cell roughess height [m]
   real,    intent(inout) :: head1       ! lake water hydraulic head (rel to topo datum) [m]
   real,    intent(in)    :: rshort      ! downward can-top s/w flux [W/m^2]
   real,    intent(in)    :: rlong       ! downward can-top l/w flux [W/m^2]
@@ -244,7 +208,6 @@ subroutine lakecell_nud(iwsfc, ilake, depth, lake_energy, topw, bathym, head1, &
                     runoff, sfcwat_nud, sfctemp_nud, fracliq_nud)
 
   use lake_coms,   only: dt_lake
-  use misc_coms,   only: io6
   use therm_lib,   only: qtk
 
   implicit none

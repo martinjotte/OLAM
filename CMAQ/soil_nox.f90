@@ -2,7 +2,7 @@ module soil_nox
 
   real, allocatable :: soilnox(:) ! Soil NOx emissions (mol/sec)
   real, allocatable :: pfactor(:) ! Soil NOx pulse factor
-  real, allocatable :: drytime(:) ! Time since last precip (hr) 
+  real, allocatable :: drytime(:) ! Time since last precip (hr)
 
   integer, allocatable      :: lbiome(:)
 
@@ -54,7 +54,7 @@ module soil_nox
        9999.,2000.,9999.,2000.                                     /)
 
   real, parameter :: snirclo(0:nbiom) = (/                          &
-       9999.,1000.,1000.,9999.,1000.,9999.,1000.,1000.,1000.,1000., & 
+       9999.,1000.,1000.,9999.,1000.,9999.,1000.,1000.,1000.,1000., &
        1000.,1000.,1000.,1000.,1000.,9999.,1000.,1000.,1000.,1000., &
        9999.,1000.,9999.,1000.                                     /)
 
@@ -67,26 +67,41 @@ module soil_nox
 contains
 
 
-  subroutine get_soil_nox(mrl)
+  subroutine get_soil_nox()
 
-    use mem_land,  only: mland, omland
-    use misc_coms, only: isubdomain
-    use mem_sfcg,  only: itab_wsfc
-    use mem_para,  only: myrank
+    use mem_land,    only: mland, omland
+    use misc_coms,   only: iparallel
+    use mem_sfcg,    only: itab_wsfc
+    use mem_para,    only: myrank
+    use mem_grid,    only: mwa, mza, lpw
+    use mem_ijtabs,  only: jtab_w, jtw_prog
+    use mem_radiate, only: cloud_frac
+    use olam_mpi_atm,only: mpi_send_w, mpi_recv_w
 
     implicit none
 
-    integer, intent(in) :: mrl
-    integer             :: iland, iwsfc
+    integer :: iland, iwsfc, j, iw
+    real    :: cfracw(mwa)
+
+    !$omp parallel do private(iw)
+    do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
+       cfracw(iw) = maxval( cloud_frac(lpw(iw):mza,iw) )
+    enddo
+    !$omp end parallel do
+
+    if (iparallel == 1) then
+       call mpi_send_w(r1dvara1=cfracw)
+       call mpi_recv_w(r1dvara1=cfracw)
+    endif
 
     !$omp parallel do
     do iland = 2, mland
        iwsfc = iland + omland
 
        ! Skip this cell if running in parallel and cell rank is not MYRANK
-       if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+       if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
-       call get_soil_nox_driver(iland)
+       call get_soil_nox_driver(iland, cfracw)
 
     enddo
     !$omp end parallel do
@@ -95,29 +110,26 @@ contains
 
 
 
-  subroutine get_soil_nox_driver(iland)
+  subroutine get_soil_nox_driver(iland, cfracw)
 
-    use mem_land,    only: land, mland, omland, nzg
-    use mem_ijtabs,  only: itabg_w
-    use mem_sfcg,    only: sfcg
+    use mem_land,    only: land, omland, nzg
+    use mem_sfcg,    only: sfcg, itab_wsfc
     use consts_coms, only: t00
-    use misc_coms,   only: isubdomain, dtlm
-    use mem_radiate, only: cosz, rshort, cloud_frac
-    use mem_basic,   only: rho, vxe, vye, vze
+    use misc_coms,   only: dtlm
     use therm_lib,   only: qtk
-    use mem_grid,    only: mza, lpw
+    use mem_grid,    only: mwa
 
     implicit none
 
     integer, intent(in) :: iland
+    real,    intent(in) :: cfracw(mwa)
 
     real, parameter :: ng2g    = 1.e-9
     real, parameter :: molwt_N = 14.0
     real, parameter :: ng2molN = ng2g / molwt_N
 
     logical :: arid
-    integer :: iw, kw, iwsfc
-    integer :: kb, nts
+    integer :: j, iw, iwsfc, kb
     real    :: wfps, pcprate, ts_emis
     real    :: lai, tempc, tempk, rhos
     real    :: tsfcwater, liqfrac, cfrac
@@ -129,7 +141,7 @@ contains
     real    :: crf_term
 
     iwsfc = iland + omland
-   
+
     snfac = land%snowfac(iland)
     lai   = land%veg_lai(iland) * (1. - snfac)
     tempk = sfcg%cantemp(iwsfc)
@@ -188,17 +200,21 @@ contains
 
     wet_term  = soilwet_term( wfps, arid )
 
-    ! Cumulative multiplication factor (over baseline emissions) 
+    ! Cumulative multiplication factor (over baseline emissions)
     ! that accounts for soil pulsing
 
-    pcprate = sfcg%pcpg(iwsfc) / dtlm(1)
-    ts_emis = dtlm(1)
+    pcprate = sfcg%pcpg(iwsfc) / dtlm
+    ts_emis = dtlm
 
     call PULSING( wfps, ts_emis, pcprate, PFACTOR(iland), drytime(iland) )
 
     ! Compute NOx canopy resistance
 
-    cfrac = maxval( cloud_frac(lpw(iw):mza,iw) )
+    cfrac = 0.0
+    do j = 1,itab_wsfc(iwsfc)%nwatm
+       iw = itab_wsfc(iwsfc)%iwatm(j)  ! local index
+       cfrac = cfrac + itab_wsfc(iwsfc)%arcoarsfc(j) * cfracw(iw)
+    enddo
 
     r_canopy = get_canopy_nox( tempk, rhos, kb, lai,       &
                                sfcg%rshort(iwsfc), land%cosz(iland), cfrac )
@@ -247,13 +263,13 @@ contains
 
   end subroutine filltab_soil_nox
 
-    
+
   subroutine soil_nox_init()
     use mem_land,    only: land, mland, nzg, omland
     use mem_sfcg,    only: sfcg, itab_wsfc
     use utilio_defn, only: index1, m3exit, xstat1
     use cgrid_spcs,  only: n_gc_emis, gc_emis
-    use misc_coms,   only: runtype, isubdomain
+    use misc_coms,   only: runtype, iparallel
     use mem_para,    only: myrank
 
     implicit none
@@ -272,7 +288,7 @@ contains
           iwsfc = iland + omland
 
           ! Skip this cell if running in parallel and cell rank is not MYRANK
-          if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+          if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
           pfactor(iland) = 1.0
           soilnox(iland) = 0.0
@@ -302,7 +318,7 @@ contains
        iwsfc = iland + omland
 
        ! Skip this cell if running in parallel and cell rank is not MYRANK
-       if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+       if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
        lbiome(iland) = olam2sl10( sfcg%leaf_class(iwsfc), sfcg%glatw(iwsfc) )
     enddo
@@ -312,22 +328,22 @@ contains
 
   pure real function soiltemp_term ( tc )
     implicit none
-    
+
     real, intent(in) :: tc   ! Top layer soil temperature [C]
 
     ! Computes the temperature-dependent term of soil NOx emissions
 
-    ! Based on Ormeci et al., [1999] and Otter et al., [1999]     
-    ! there exists and entirely exponential relationship between 
+    ! Based on Ormeci et al., [1999] and Otter et al., [1999]
+    ! there exists and entirely exponential relationship between
     ! temperature and soil NOx emissions at constant soil moisture
-    ! Therefore we use the following relationship based 
-    ! on Yienger and Levy et al., [1995] for temperatures 0-30C:        
-    ! 
-    !      f(T) =  exp( 0.103+/-0.04 * T ) 
-    !        in ng N/m2/s    
+    ! Therefore we use the following relationship based
+    ! on Yienger and Levy et al., [1995] for temperatures 0-30C:
     !
-    !  where T is the temperature in degrees Celsius....Below 
-    !  0 C, we assume emissions are zero because they are insignificant 
+    !      f(T) =  exp( 0.103+/-0.04 * T )
+    !        in ng N/m2/s
+    !
+    !  where T is the temperature in degrees Celsius....Below
+    !  0 C, we assume emissions are zero because they are insignificant
 
     if ( tc <= 0.0 ) then
        soiltemp_term = 0.0
@@ -347,25 +363,25 @@ contains
 
     ! Computes the soil moisture scaling of soil NOx emissions
 
-    ! SNOx dependence on soil moisture is best described as a 
-    ! Poisson function [Parsons et al., 1996; Otter et al., 1999; 
-    ! Pierce and Aneja, 2000; Kirkman et al., 2001; 
+    ! SNOx dependence on soil moisture is best described as a
+    ! Poisson function [Parsons et al., 1996; Otter et al., 1999;
+    ! Pierce and Aneja, 2000; Kirkman et al., 2001;
     ! van Dijk and Meixner, 2001; van Dijk et al., 2002]:
     !
-    !    scaling = a*x*exp(-b*x^2) 
+    !    scaling = a*x*exp(-b*x^2)
     !
-    ! where the values of a and b are chosen such that the maximum value 
+    ! where the values of a and b are chosen such that the maximum value
     ! (unity) occurs for WFPS=0.3, which laboratory and field measurements
     ! have found to be the optimal value for emissions in most soils. The
-    ! typical range of values are 0.2 (arid) up to 0.45 (floodplain) 
-    ! [Yang and Meixner, 1997; Ormeci et al., 1999].  
+    ! typical range of values are 0.2 (arid) up to 0.45 (floodplain)
+    ! [Yang and Meixner, 1997; Ormeci et al., 1999].
 
-    if ( arid ) then 
+    if ( arid ) then
        ! max at wfps = 0.2
        soilwet_term = 8.24 * gwet * exp(-12.5 * gwet * gwet)
     else
        ! max at wfps = 0.3
-       soilwet_term = 5.5 * gwet * exp( -5.55 * gwet * gwet) 
+       soilwet_term = 5.5 * gwet * exp( -5.55 * gwet * gwet)
     endif
 
   end function soilwet_term
@@ -407,21 +423,21 @@ contains
     TEMPC = tempk - 273.15
     TEMPC = max(TEMPC, -40.0)
 
-    ! Adjust external surface resistances for temperature; 
-    ! from Wesely [1989], expression given in text on p. 1296.        
+    ! Adjust external surface resistances for temperature;
+    ! from Wesely [1989], expression given in text on p. 1296.
     RT = 1000.0 * EXP( -TEMPC - 4.0 )
 
-    ! Read the internal resistance RI (minimum stomatal resistance 
-    ! for water vapor, per unit area of leaf) from the IRI array; 
-    ! a '9999' value means no deposition to stomata so we impose a 
+    ! Read the internal resistance RI (minimum stomatal resistance
+    ! for water vapor, per unit area of leaf) from the IRI array;
+    ! a '9999' value means no deposition to stomata so we impose a
     ! very large value for RI.
     RI = SNIRI(KK)
     IF ( RI > 9998.99 ) RI = 1.e+12
 
     ! Cuticular resistances IRLU read in from 'drydep.table'
-    ! are per unit area of leaf; divide them by the leaf area index 
-    ! to get a cuticular resistance for the bulk canopy.  If IRLU is 
-    !'9999' it means there are no cuticular surfaces on which to 
+    ! are per unit area of leaf; divide them by the leaf area index
+    ! to get a cuticular resistance for the bulk canopy.  If IRLU is
+    !'9999' it means there are no cuticular surfaces on which to
     ! deposit so we impose a very large value for RLU.
     IF ( SNIRLU(KK) > 9998.99 .OR. LAI < 1.e-3 ) THEN
        RLU = 1.e+6
@@ -431,47 +447,47 @@ contains
 
     ! The following are the remaining resistances for the Wesely
     ! resistance-in-series model for a surface canopy
-    ! (see Atmos. Environ. paper, Fig.1).  
+    ! (see Atmos. Environ. paper, Fig.1).
     RAC  = MAX( SNIRAC (KK)     , 1.0 )
     RGSS = MAX( SNIRGSS(KK) + RT, 1.0 )
-    RGSO = MAX( SNIRGSO(KK) + RT, 1.0 ) 
-    RCLS =      SNIRCLS(KK) + RT           
-    RCLO =      SNIRCLO(KK) + RT 
+    RGSO = MAX( SNIRGSO(KK) + RT, 1.0 )
+    RCLS =      SNIRCLS(KK) + RT
+    RCLO =      SNIRCLO(KK) + RT
 
     IF (  RAC >= 9998.99 ) RAC  = 1.e+12
     IF ( RGSS >= 9998.99 ) RGSS = 1.e+12
     IF ( RGSO >= 9998.99 ) RGSO = 1.e+12
-    IF ( RCLS >= 9998.99 ) RCLS = 1.e+12         
+    IF ( RCLS >= 9998.99 ) RCLS = 1.e+12
     IF ( RCLO >= 9998.99 ) RCLO = 1.e+12
 
     !-------------------------------------------------------------
-    ! Adjust stomatal resistances for insolation and temperature:  
-    ! 
+    ! Adjust stomatal resistances for insolation and temperature:
+    !
     ! Temperature adjustment is from Wesely [1989], equation (3).
-    ! 
-    ! Light adjustment by the function BIOFIT is described by Wang 
+    !
+    ! Light adjustment by the function BIOFIT is described by Wang
     ! [1996].  It combines:
     !
-    ! - Local dependence of stomal resistance on the intensity I 
-    !   of light impinging the leaf; this is expressed as a 
-    !   multiplicative factor I/(I+b) to the stomatal resistance 
+    ! - Local dependence of stomal resistance on the intensity I
+    !   of light impinging the leaf; this is expressed as a
+    !   multiplicative factor I/(I+b) to the stomatal resistance
     !   where b = 50 W m-2
     !   (equation (7) of Baldocchi et al. [1987])
-    ! - Radiative transfer of direct and diffuse radiation in the 
-    !   canopy using equations (12)-(16) from Guenther et al. 
+    ! - Radiative transfer of direct and diffuse radiation in the
+    !   canopy using equations (12)-(16) from Guenther et al.
     !   [1995]
     ! - Separate accounting of sunlit and shaded leaves using
     !   equation (12) of Guenther et al. [1995]
-    ! - Partitioning of the radiation at the top of the canopy 
-    !   into direct and diffuse components using a 
-    !   parameterization to results from an atmospheric radiative 
+    ! - Partitioning of the radiation at the top of the canopy
+    !   into direct and diffuse components using a
+    !   parameterization to results from an atmospheric radiative
     !   transfer model [Wang, 1996]
     !
-    ! The dependent variables of the function BIOFIT are the leaf 
-    ! area index (XYLAI), the cosine of zenith angle (SUNCOS) and 
-    ! the fractional cloud cover (CFRAC).  The factor GFACI 
+    ! The dependent variables of the function BIOFIT are the leaf
+    ! area index (XYLAI), the cosine of zenith angle (SUNCOS) and
+    ! the fractional cloud cover (CFRAC).  The factor GFACI
     ! integrates the light dependence over the canopy depth; so
-    ! be scaled by LAI to yield a bulk canopy value because that's 
+    ! be scaled by LAI to yield a bulk canopy value because that's
     ! already done in the GFACI formulation.
     !-------------------------------------------------------------
 
@@ -495,7 +511,7 @@ contains
 
           GFACI= 1.0 / BIO_RESULT
        ENDIF
-            
+
        RIX = RIX * GFACT * GFACI
     ENDIF
 
@@ -518,25 +534,25 @@ contains
        rluxx = 1.e+12
     endif
 
-    ! To prevent virtually zero resistance to species with huge HSTAR, 
-    ! such as HNO3, a minimum value of RLUXX needs to be set. 
-    ! The rationality of the existence of such a minimum is 
-    ! demonstrated by the observed relationship between Vd(NOy-NOx) 
-    ! and Ustar in Munger et al.[1996]; Vd(HNO3) never exceeds 2 cm/s 
+    ! To prevent virtually zero resistance to species with huge HSTAR,
+    ! such as HNO3, a minimum value of RLUXX needs to be set.
+    ! The rationality of the existence of such a minimum is
+    ! demonstrated by the observed relationship between Vd(NOy-NOx)
+    ! and Ustar in Munger et al.[1996]; Vd(HNO3) never exceeds 2 cm/s
     ! in observations. The corresponding minimum resistance is 50 s/m.
     ! was introduced by J.Y. Liang on 7/9/95.
     RGSX = RGSS * RGSO / ( RGSO * HSTAR * 1.e-5 + F0 * RGSS )
     RCLX = RCLS * RCLO / ( RCLO * HSTAR * 1.e-5 + F0 * RCLS )
 
     ! Get the bulk surface resistance of the canopy
-    ! from the network of resistances in parallel and in series 
+    ! from the network of resistances in parallel and in series
     ! (Fig. 1 of Wesely [1989])
     DTMP1 = 1. / RIXX
     DTMP2 = 1. / RLUXX
     DTMP3 = 1. / ( RAC + RGSX )
     DTMP4 = 1. / ( RDC + RCLX )
 
-    ! Save the within canopy depvel of NOx, used in calculating 
+    ! Save the within canopy depvel of NOx, used in calculating
     ! the canopy reduction factor for soil emissions [1/s]
     get_canopy_nox = dtmp1 + dtmp2 + dtmp3 + dtmp4
 
@@ -550,20 +566,20 @@ contains
     real,    intent(in) :: suncos1         ! Cosine( Solar Zenith Angle )
     real,    intent(in) :: cfrac1          ! Cloud fraction [unitless]
 
-    integer, parameter :: npoly = 20  
+    integer, parameter :: npoly = 20
     real,    parameter :: coeff1(npoly) = (/                                    &
-         -3.58E-01, 3.02E+00, 3.85E+00,-9.78E-02,-3.66E+00, 1.20E+01, 2.52E-01, & 
+         -3.58E-01, 3.02E+00, 3.85E+00,-9.78E-02,-3.66E+00, 1.20E+01, 2.52E-01, &
          -7.80E+00, 2.26E-01, 2.74E-01, 1.14E+00,-2.19E+00, 2.61E-01,-4.62E+00, &
           6.85E-01,-2.54E-01, 4.37E+00,-2.66E-01,-1.59E-01,-2.06E-01 /)
 
     ! !REMARKS:
     !  This routine is ancient code from Yuhang Wang.  It was part of the old
-    !  Harvard-GISS CTM and was ported into GEOS-Chem.  See this reference for 
-    !  more information: 
+    !  Harvard-GISS CTM and was ported into GEOS-Chem.  See this reference for
+    !  more information:
     !                                                                             .
-    !    Wang, Y., D.J. Jacob, and J.A. Logan, "Global simulation of tropospheric 
-    !     O3-NOx-hydrocarbon chemistry, 1. Model formulation", J. Geophys. Res., 
-    !     103/D9, 10,713-10,726, 1998. 
+    !    Wang, Y., D.J. Jacob, and J.A. Logan, "Global simulation of tropospheric
+    !     O3-NOx-hydrocarbon chemistry, 1. Model formulation", J. Geophys. Res.,
+    !     103/D9, 10,713-10,726, 1998.
 
     integer, parameter :: kk = 4
     real               :: term(kk)
@@ -606,12 +622,12 @@ contains
 
     ! !REMARKS:
     !  This routine is ancient code from Yuhang Wang.  It was part of the old
-    !  Harvard-GISS CTM and was ported into GEOS-Chem.  See this reference for 
-    !  more information: 
+    !  Harvard-GISS CTM and was ported into GEOS-Chem.  See this reference for
+    !  more information:
     !                                                                             .
-    !    Wang, Y., D.J. Jacob, and J.A. Logan, "Global simulation of tropospheric 
-    !     O3-NOx-hydrocarbon chemistry, 1. Model formulation", J. Geophys. Res., 
-    !     103/D9, 10,713-10,726, 1998. 
+    !    Wang, Y., D.J. Jacob, and J.A. Logan, "Global simulation of tropospheric
+    !     O3-NOx-hydrocarbon chemistry, 1. Model formulation", J. Geophys. Res.,
+    !     103/D9, 10,713-10,726, 1998.
 
     real               :: xlow
     integer            :: i
@@ -644,11 +660,11 @@ contains
     real, intent(in) :: rho     ! air density [kg/m3]
     real, intent(in) :: xm      ! Molecular weight of gas [kg]
 
-! Function DiffG calculates the molecular diffusivity [m2/s] in 
-! air for a gas X of molecular weight XM [kg] at temperature TK [K] and 
+! Function DiffG calculates the molecular diffusivity [m2/s] in
+! air for a gas X of molecular weight XM [kg] at temperature TK [K] and
 ! density RHO [kg/m3].
 
-    real, parameter  :: xmair  = 28.8e-3 
+    real, parameter  :: xmair  = 28.8e-3
     real, parameter  :: radair = 1.2e-10
     real, parameter  :: pi     = 3.1415926535897932
     real, parameter  :: pii    = 1.0 / pi
@@ -658,9 +674,9 @@ contains
     real, parameter  :: pdiam2 = pi * (radx + radair)**2
     real, parameter  :: const1 = 8.0 * rgas / pi
     real, parameter  :: const2 = 3.0 * pi / 32.0
-    real             :: z, frpath, speed      
+    real             :: z, frpath, speed
 
-    ! Calculate the mean free path for gas X in air: 
+    ! Calculate the mean free path for gas X in air:
     ! eq. 8.5 of Seinfeld [1986];
     z      = xm  / xmair
     frpath = 1.0 / ( pdiam2 * sqrt(1.0 + z) * rho )
@@ -668,7 +684,7 @@ contains
     ! Calculate average speed of gas X; eq. 15.47 of Levine [1988]
     speed  = sqrt( const1 * tk / xm )
 
-    ! Calculate diffusion coefficient of gas X in air; 
+    ! Calculate diffusion coefficient of gas X in air;
     ! eq. 8.9 of Seinfeld [1986]
     diffg = const2 * ( 1.0 + z ) * frpath * speed
 
@@ -703,8 +719,8 @@ contains
     ! of the canopy to NOx deposition are both nonzero ...
     IF ( LAI > 1.e-3 .and. CPYNOX > 1.e-3 ) THEN
 
-       ! Adjust the ventilation velocity.  
-       ! NOTE: SOILEXC(20) is the canopy wind extinction 
+       ! Adjust the ventilation velocity.
+       ! NOTE: SOILEXC(20) is the canopy wind extinction
        ! coefficient for the tropical rainforest biome.
        VFNEW = VFNEW * SQRT(WINDSQR / 9. * 7. / LAI) * SOILEXC(20) / SOILEXC(K)
 
@@ -712,7 +728,7 @@ contains
        SOILCRF = CPYNOX / ( CPYNOX + VFNEW )
 
     ELSE
-     
+
        ! Otherwise set the soil canopy reduction factor to zero
        SOILCRF = 0.0
 
@@ -725,16 +741,16 @@ contains
   subroutine Pulsing( GWET, TS_EMIS, pcprate, PFACTOR, DRYPERIOD )
     implicit none
 
-    ! Function "pulsing" calculates the increase (or "pulse") of 
-    ! soil NOx emission that happens after preciptiation falls on dry soil.  
+    ! Function "pulsing" calculates the increase (or "pulse") of
+    ! soil NOx emission that happens after preciptiation falls on dry soil.
     !                                                                             .
-    ! According to  Yan et al., [2005] , this pulsing process is thought to  
-    ! be due to a release of inorganic nitrogen trapped on top of the dry soil 
-    ! and a subsequent reactivation of water-stressed bacteria, which then 
+    ! According to  Yan et al., [2005] , this pulsing process is thought to
+    ! be due to a release of inorganic nitrogen trapped on top of the dry soil
+    ! and a subsequent reactivation of water-stressed bacteria, which then
     ! metabolize the excess nitrogen. This can happen in seasonally dry
     ! grasslands and savannahs or over freshly fertilized fields.
 
-    REAL, INTENT(IN)    :: GWET        ! Soil Moisture 
+    REAL, INTENT(IN)    :: GWET        ! Soil Moisture
     REAL, INTENT(IN)    :: TS_EMIS     ! Emissions timestep [s]
     real, intent(in)    :: pcprate     ! precipitation rate (mm/sec)
     REAL, INTENT(INOUT) :: PFACTOR     ! Pulsing Factor
@@ -743,7 +759,7 @@ contains
 
     ! Soil NOx emissions consist of baseline emissions plus discrete "pulsing"
     ! episodes.  We follow thw Yan et al., [2005] algorithm, where the pulse
-    ! (relative to the flux prewetting) is determined by the antecedent dry 
+    ! (relative to the flux prewetting) is determined by the antecedent dry
     ! period, with a simple logarithmic relationship,
     !
     !     PFACTOR = 13.01 ln ( DRYPERIOD ) -  53.6
@@ -758,7 +774,7 @@ contains
     !  References:
     !  Yan, X., T. Ohara, and H. Akimoto (2005), Statistical modeling of
     !      global soil NOx emissions, Global Biogeochem. Cycles, 19, GB3019
-    
+
     ! Emission timestep [s --> hours]
     DTSRCE = TS_EMIS / 3600.0
 
@@ -800,7 +816,7 @@ contains
 
        ! If end of pulse
        IF ( PFACTOR < 1.0 ) PFACTOR = 1.0
-      
+
     ENDIF
 
   END subroutine Pulsing
@@ -810,7 +826,7 @@ contains
 
   pure integer function olam2sl10( lclass, glat )
     implicit none
-    
+
     integer, intent(in) :: lclass
     real,    intent(in) :: glat
 
@@ -880,7 +896,7 @@ contains
        else
           olam2sl10 = 19
        endif
-       
+
     case(7,20)  ! Evergreen broadleaf tree
 
        if (abs(glat) > 23.0) then
@@ -888,7 +904,7 @@ contains
        else
           olam2sl10 = 20
        endif
-  
+
     case(8,9)  ! Short and tall grass
 
        if (abs(glat) > 60.0) then
@@ -896,7 +912,7 @@ contains
        else
           olam2sl10 = 12
        endif
-       
+
     case (10)  ! semi-desert
 
        if (abs(glat) > 60.0) then
@@ -916,7 +932,7 @@ contains
     case(14)  ! Mixed woodland
 
        olam2sl10 = 14
-       
+
     case(15,16)  ! Crop
 
        olam2sl10 = 21
@@ -924,19 +940,19 @@ contains
     case(17)  ! Bog or marsh
 
        olam2sl10 = 1
-       
+
     case(18)  ! Wooded grassland
 
        olam2sl10 = 13
-       
+
     case(19,21)  ! Urban or Very Urban
 
        olam2sl10 = 22
-       
+
     case default
-       
+
        olam2sl10 = 0
-       
+
     end select
 
   end function olam2sl10

@@ -6,17 +6,13 @@ Contains
 
 subroutine check_nans(icall,rvara1,rvara2)
 
-  use mem_basic,  only: rr_w,rho,thil,rr_v,wc,wmc,press,vmc,vc,vxe,vye,vze
-  use mem_micro,  only: rr_c,rr_r
-  use mem_grid,   only: mza,mwa,lpw,volti,mva,lpv,glatw,glonw,glatv,glonv
-  use mem_tend,   only: thilt,rr_wt,vmxet,vmyet,vmzet
-  use misc_coms,  only: io6, iparallel
-  use mem_ijtabs, only: itab_v, itab_w
-  use mem_para,   only: myrank
-
-#ifdef IEEE_ARITHMETIC
   use, intrinsic :: ieee_arithmetic, only: ieee_is_nan
-#endif
+
+  use mem_basic,  only: rr_w,rho,thil,rr_v,wc,wmc,press,vmc,vc,vxe,vye,vze
+  use mem_grid,   only: mza,mwa,lpw,mva,lpv,glatw,glonw,glatv,glonv
+  use mem_tend,   only: thilt,rr_wt,vmxet,vmyet,vmzet
+  use misc_coms,  only: io6
+  use mem_para,   only: myrank
 
   implicit none
 
@@ -25,8 +21,6 @@ subroutine check_nans(icall,rvara1,rvara2)
 
   real, optional, intent(in) :: rvara1 (mza,mwa)
   real, optional, intent(in) :: rvara2 (mza,mwa)
-
-#ifdef IEEE_ARITHMETIC
 
   istop = 0
 
@@ -47,7 +41,7 @@ subroutine check_nans(icall,rvara1,rvara2)
              ieee_is_nan(vye  (k,i)) .or.  &
              ieee_is_nan(vze  (k,i)) .or.  &
              ieee_is_nan(rr_v (k,i)) ) then
-           
+
            write(*,*) 'Node ', myrank
            write(*,*) 'NaN at: k, i, icall ', k, i, icall
            write(io6,*) ''
@@ -112,14 +106,13 @@ subroutine check_nans(icall,rvara1,rvara2)
 
   if (istop > 0) stop 'stop: check_nans '
 
-#endif
 end subroutine check_nans
 
-
+!===============================================================================
 
 subroutine check_pos(icall)
 
-  use mem_ijtabs, only: jtab_w, jtw_prog, itab_w, istp, mrl_endl
+  use mem_ijtabs, only: jtab_w, jtw_prog, istp, mrl_endl
   use mem_grid,   only: lpw, mza
   use var_tables, only: num_scalar, scalar_tab
   use oname_coms, only: nl
@@ -128,20 +121,20 @@ subroutine check_pos(icall)
   implicit none
 
   integer, intent(in) :: icall
-  
-  integer :: j, iw, k, mrl, n
+
+  integer :: j, iw, k, n
 
   if (nl%iscal_monot < 1) return
 
-  ! Return if this is not the end of the long timestep on any MRL
-  mrl = mrl_endl(istp)
-  if (mrl == 0) return
+  ! Return if this is not the end of the long timestep
+
+  if (mrl_endl(istp) == 0) return
 
   do n = 1, num_scalar
 
      if (.not. scalar_tab(n)%pdef) cycle
 
-     do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+     do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
         do k = lpw(iw), mza
            if ( scalar_tab(n)%var_p(k,iw) < 0.0 .or. &
                 scalar_tab(n)%var_p(k,iw) /= scalar_tab(n)%var_p(k,iw) ) then
@@ -154,8 +147,7 @@ subroutine check_pos(icall)
 
 end subroutine check_pos
 
-
-
+!===============================================================================
 
 subroutine compute_mass_sums()
 
@@ -166,6 +158,7 @@ subroutine compute_mass_sums()
   use mem_addsc,   only: addsc
   use consts_coms, only: r8
   use mem_basic,   only: rho, rr_w
+
 #ifdef OLAM_MPI
   use mpi
 #endif
@@ -190,12 +183,12 @@ subroutine compute_mass_sums()
   wat_mass_sum  = 0.0_r8
   sclp_mass_sum = 0.0_r8
 
-  do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
+  do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
      do k = lpw(iw),mza
 
         tot_mass_sum = tot_mass_sum + rho(k,iw) * volt(k,iw)
         wat_mass_sum = wat_mass_sum + rho(k,iw) * volt(k,iw) * rr_w(k,iw)
-        
+
         if (naddsc > 0) then
            sclp_mass_sum = sclp_mass_sum + rho(k,iw) * volt(k,iw) * addsc(1)%sclp(k,iw)
         endif
@@ -205,22 +198,22 @@ subroutine compute_mass_sums()
 
 #ifdef OLAM_MPI
   if (iparallel == 1) then
- 
+
      call MPI_Gather( tot_mass_sum, 1, MPI_DOUBLE, &
                       tmasses,      1, MPI_DOUBLE, 0, MPI_COMM_WORLD, ier )
-     
+
      if (myrank == 0) tot_mass_sum = sum(tmasses)
 
      call MPI_Gather( wat_mass_sum, 1, MPI_DOUBLE, &
                       tmasses,      1, MPI_DOUBLE, 0, MPI_COMM_WORLD, ier )
-     
+
      if (myrank == 0) wat_mass_sum = sum(tmasses)
 
      if (naddsc > 0) then
 
         call MPI_Gather( sclp_mass_sum, 1, MPI_DOUBLE, &
                          tmasses,       1, MPI_DOUBLE, 0, MPI_COMM_WORLD, ier )
-     
+
         if (myrank == 0) sclp_mass_sum = sum(tmasses)
      endif
 

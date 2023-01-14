@@ -57,10 +57,8 @@
 
       integer(kind=im) :: ibnd, igc, ig, ind, ipr
       integer(kind=im) :: igcsm, iprsm
-      integer(kind=im) :: itr
 
       real(kind=rb) :: wtsum, wtsm(mg)
-      real(kind=rb) :: tfn
 
       real(kind=rb), parameter :: expeps = 1.e-20_rb   ! Smallest value for exponential table
 
@@ -69,7 +67,7 @@
 
 ! ------- Definitions -------
 !     Arrays for 10000-point look-up tables:
-!     TAU_TBL  Clear-sky optical depth 
+!     TAU_TBL  Clear-sky optical depth
 !     EXP_TBL  Exponential lookup table for transmittance
 !     PADE     Pade approximation constant (= 0.278)
 !     BPADE    Inverse of the Pade approximation constant
@@ -174,7 +172,7 @@
 !  The subroutines CMBGB16->CMBGB29 input the absorption coefficient
 !  data for each band, which are defined for 16 g-points and 14 spectral
 !  bands. The data are combined with appropriate weighting following the
-!  g-point mapping arrays specified in RRTMG_SW_INIT.  Solar source 
+!  g-point mapping arrays specified in RRTMG_SW_INIT.  Solar source
 !  function data in array SFLUXREF are combined without weighting.  All
 !  g-point reduced data are put into new arrays for use in RRTMG_SW.
 !
@@ -1329,7 +1327,7 @@
 ! Explanation of the method for each value of INFLAG.  A value of
 !  0 for INFLAG do not distingish being liquid and ice clouds.
 !  INFLAG = 2 does distinguish between liquid and ice clouds, and
-!    requires further user input to specify the method to be used to 
+!    requires further user input to specify the method to be used to
 !    compute the aborption due to each.
 !  INFLAG = 0:  For each cloudy layer, the cloud fraction, the cloud optical
 !    depth, the cloud single-scattering albedo, and the
@@ -1337,17 +1335,17 @@
 !    that these values are delta-m scaled within this
 !    subroutine.
 
-!  INFLAG = 2:  For each cloudy layer, the cloud fraction, cloud 
+!  INFLAG = 2:  For each cloudy layer, the cloud fraction, cloud
 !    water path (g/m2), and cloud ice fraction are input.
 !  ICEFLAG = 2:  The ice effective radius (microns) is input and the
 !    optical properties due to ice clouds are computed from
-!    the optical properties stored in the RT code, STREAMER v3.0 
-!    (Reference: Key. J., Streamer User's Guide, Cooperative 
+!    the optical properties stored in the RT code, STREAMER v3.0
+!    (Reference: Key. J., Streamer User's Guide, Cooperative
 !    Institute for Meteorological Satellite Studies, 2001, 96 pp.).
 !    Valid range of values for re are between 5.0 and
 !    131.0 micron.
-!    This version uses Ebert and Curry, JGR, (1992) method for 
-!    ice particles larger than 131.0 microns. 
+!    This version uses Ebert and Curry, JGR, (1992) method for
+!    ice particles larger than 131.0 microns.
 !  ICEFLAG = 3:  The ice generalized effective size (dge) is input
 !    and the optical depths, single-scattering albedo,
 !    and phase function moments are calculated as in
@@ -1356,18 +1354,18 @@
 !    bands in RRTM_SW.  Linear interpolation is used to
 !    get the coefficients from the stored tables.
 !    Valid range of values for dge are between 5.0 and
-!    140.0 micron. 
-!    This version uses Ebert and Curry, JGR, (1992) method for 
-!    ice particles larger than 140.0 microns. 
-!  LIQFLAG = 1:  The water droplet effective radius (microns) is input 
-!    and the optical depths due to water clouds are computed 
+!    140.0 micron.
+!    This version uses Ebert and Curry, JGR, (1992) method for
+!    ice particles larger than 140.0 microns.
+!  LIQFLAG = 1:  The water droplet effective radius (microns) is input
+!    and the optical depths due to water clouds are computed
 !    as in Hu and Stamnes, J., Clim., 6, 728-742, (1993) with
-!    modified coefficients derived from Mie scattering calculations. 
+!    modified coefficients derived from Mie scattering calculations.
 !    The values for absorption coefficients appropriate for
-!    the spectral bands in RRTM/RRTMG have been obtained for a 
-!    range of effective radii by an averaging procedure 
+!    the spectral bands in RRTM/RRTMG have been obtained for a
+!    range of effective radii by an averaging procedure
 !    based on the work of J. Pinto (private communication).
-!    Linear interpolation is used to get the absorption 
+!    Linear interpolation is used to get the absorption
 !    coefficients for the input effective radius.
 !
 !     ------------------------------------------------------------------

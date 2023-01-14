@@ -120,8 +120,8 @@ contains
 
     implicit none
 
-    integer, intent(in)    :: n 
-    real,    intent(inout) :: bes(n) 
+    integer, intent(in)    :: n
+    real,    intent(inout) :: bes(n)
 
     integer :: j, nn
 
@@ -142,15 +142,15 @@ contains
          140.5871603528, 143.7287335737, 146.8703076258, 150.0118824570, &
          153.1534580192, 156.2950342685 /)
 
-    nn = n 
-    if (n > 50) then 
-       bes(50) = bz(50) 
-       do j = 51, n 
-          bes(j) = bes(j-1) + pi 
+    nn = n
+    if (n > 50) then
+       bes(50) = bz(50)
+       do j = 51, n
+          bes(j) = bes(j-1) + pi
        end do
-       nn = 49 
+       nn = 49
     endif
-    bes(:nn) = bz(:nn) 
+    bes(:nn) = bz(:nn)
 
   end subroutine bsslzr
 

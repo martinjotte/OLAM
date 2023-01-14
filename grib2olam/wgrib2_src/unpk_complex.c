@@ -50,7 +50,7 @@ int unpk_complex(unsigned char **sec, float *data, unsigned int ndata) {
     bitmap_flag = code_table_6_0(sec);
     ctable_5_6 = code_table_5_6(sec);
 
-    if (pack == 3 && (ctable_5_6 != 1 && ctable_5_6 != 2)) 
+    if (pack == 3 && (ctable_5_6 != 1 && ctable_5_6 != 2))
 	fatal_error_i("unsupported: code table 5.6=%d", ctable_5_6);
 
     extra_octets = (pack == 2) ? 0 : sec[5][48];
@@ -98,7 +98,7 @@ int unpk_complex(unsigned char **sec, float *data, unsigned int ndata) {
     group_clocation = (unsigned int *) malloc(sizeof (unsigned int) * (size_t) ngroups);
     group_offset = (int *) malloc(sizeof (unsigned int) * (size_t) ngroups);
     udata = (int *) malloc(sizeof (unsigned int) * (size_t) npnts);
-    if (group_refs == NULL || group_widths == NULL || group_lengths == NULL || 
+    if (group_refs == NULL || group_widths == NULL || group_lengths == NULL ||
 	group_location == NULL || group_clocation == NULL || group_offset == NULL
 	|| udata == NULL) fatal_error("unpk_complex: memory allocation","");
 
@@ -123,7 +123,7 @@ int unpk_complex(unsigned char **sec, float *data, unsigned int ndata) {
 {
 #pragma omp sections
     {
-    
+
 
 #pragma omp section
         {
@@ -218,7 +218,7 @@ int unpk_complex(unsigned char **sec, float *data, unsigned int ndata) {
 	group_clocation[i] += (group_offset[i] / 8);
 	group_offset[i] = (group_offset[i] % 8);
 
-	rd_bitstream(d + group_clocation[i], group_offset[i], udata+group_location[i], 
+	rd_bitstream(d + group_clocation[i], group_offset[i], udata+group_location[i],
 		group_widths[i], group_lengths[i]);
     }
 
@@ -338,7 +338,7 @@ int unpk_complex(unsigned char **sec, float *data, unsigned int ndata) {
 	if (bitmap_flag == 255) {
 #pragma omp parallel for schedule(static) private(i)
 	    for (i = 0; i < ndata; i++) {
-		data[i] = (udata[i] == INT_MAX) ? UNDEFINED : 
+		data[i] = (udata[i] == INT_MAX) ? UNDEFINED :
 			ref_val + udata[i] * factor;
 	    }
 	}

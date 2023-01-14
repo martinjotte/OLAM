@@ -247,7 +247,7 @@ C     Reference:
 C     Binkowski F. S., and U. Shankar, The regional particulate
 C     model 1. Model description and preliminary results.
 C     J. Geophys. Res., 100, D12, 26191-26209, 1995.
- 
+
 C    May 05 D.Schwede: added impaction term to coarse mode dry deposition
 C 25 May 05 J.Pleim:  Updated dry dep velocity calculation for aerosols
 C                     to Venkatram and Pleim (1999)
@@ -363,8 +363,8 @@ C Scalar variables for VARIABLE standard deviations.
       REAL    ESCO08           ! coarse       "
 
       REAL    ESAT12           ! Aitken       " **12
-      REAL    ESAC12           ! accumulation "     
-      REAL    ESCO12           ! coarse       "     
+      REAL    ESAC12           ! accumulation "
+      REAL    ESCO12           ! coarse       "
 
       REAL    ESAT16           ! Aitken       " **16
       REAL    ESAC16           ! accumulation "
@@ -387,8 +387,8 @@ C Scalar variables for VARIABLE standard deviations.
       REAL    ESCO36           ! coarse       "
 
       REAL    ESAT48           ! Aitken       " **48
-      REAL    ESAC48           ! accumulation "     
-      REAL    ESCO48           ! coarse       "     
+      REAL    ESAC48           ! accumulation "
+      REAL    ESCO48           ! coarse       "
 
       REAL    ESAT64           ! Aitken       " **64
       REAL    ESAC64           ! accumulation "
@@ -403,12 +403,12 @@ C Scalar variables for VARIABLE standard deviations.
       REAL    ESCO160          ! coarse       "
 
       REAL    ESATM12          ! Aitken       " **(-12)
-      REAL    ESACM12          ! accumulation "        
-      REAL    ESCOM12          ! coarse       "        
+      REAL    ESACM12          ! accumulation "
+      REAL    ESCOM12          ! coarse       "
 
       REAL    ESATM16          ! Aitken       " **(-16)
-      REAL    ESACM16          ! accumulation "        
-      REAL    ESCOM16          ! coarse       "        
+      REAL    ESACM16          ! accumulation "
+      REAL    ESCOM16          ! coarse       "
 
       REAL    ESATM20          ! Aitken       " **(-20)
       REAL    ESACM20          ! accumulation "
@@ -563,7 +563,7 @@ C accumulation mode
       SC0AI2 = (NUI * DCHAT0A) ** 2
       EIM    = MIN( STOKEAF * ESAC64, 1.0 )
       RD0A   = UTSCALI / ( SC0AI2**ONE3 + EIM )
-      
+
 !     VDEP( VDNACC ) = VGHAT0A
 !    &               / ( 1.0 - EXP( -VGHAT0A * ( RA + RD0A ) ) )
       VDEP( VDNACC ) = 1.0 / ( RA + RD0A )

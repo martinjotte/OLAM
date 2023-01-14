@@ -1,41 +1,10 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
 subroutine tileslab_horiz_mp(iplt,action)
 
   use oplot_coms, only: op
-  use mem_grid,   only: mza, mma, mwa, lpw, zm, zt, xem, yem, zem, &
-                        xev, yev, zev, xew, yew, zew, arm0
-  use mem_ijtabs, only: itab_m, itabg_m, jtab_m, jtm_prog
-  use misc_coms,  only: io6, iparallel
+  use mem_grid,   only: mma, mwa, xem, yem, zem, xev, yev, zev, &
+                        xew, yew, zew, arm0
+  use mem_ijtabs, only: itab_m, jtab_m, jtm_prog
+  use misc_coms,  only: iparallel
   use mem_para,   only: myrank, mgroupsize, nbytes_int, nbytes_real
 
 #ifdef OLAM_MPI
@@ -47,10 +16,10 @@ subroutine tileslab_horiz_mp(iplt,action)
   integer,      intent(in) :: iplt
   character(1), intent(in) :: action
 
-  integer :: j, jn, jnn, jj, jm, im, iw, npoly, iv1, iv2
+  integer :: j, jn, jnn, jj, im, iw, npoly, iv1, iv2
   integer :: notavail, navail
 
-  real :: hpt, vpt, psiz, vsprd
+  real :: hpt, vpt
   real :: fldval
 
   real :: htpn(7), vtpn(7)
@@ -92,11 +61,8 @@ subroutine tileslab_horiz_mp(iplt,action)
 
   ! Loop over M points
 
-  mloop: do jm = 1, jtab_m(jtm_prog)%jend(1)
-            im = jtab_m(jtm_prog)%im(jm)
-
-     ! For now, skip pts that don't read in topm
-     ! if (.not. itab_m(im)%loop(1)) cycle mloop
+  mloop: do im = 2, mma
+     if (iparallel == 1 .and. itab_m(im)%irank /= myrank) cycle
 
      ! Get tile plot coordinates.
 
@@ -114,7 +80,7 @@ subroutine tileslab_horiz_mp(iplt,action)
         iw = itab_m(im)%iw(j)
 
         ! Skip this M point if current IW point index < 2 (which occurs at
-        ! lateral boundary of limited-area domain or parallel subdomain)      
+        ! lateral boundary of limited-area domain or parallel subdomain)
 
         if (iw < 2) cycle mloop
 
@@ -141,7 +107,7 @@ subroutine tileslab_horiz_mp(iplt,action)
 
      if (navail == 0) cycle mloop
 
-     ! Jump out of loop if entire cell is outside plot window. 
+     ! Jump out of loop if entire cell is outside plot window.
 
      if ( all(htpn(1:npoly) < op%xmin) .or. &
           all(htpn(1:npoly) > op%xmax) .or. &
@@ -160,11 +126,9 @@ subroutine tileslab_horiz_mp(iplt,action)
 
      if (navail == npoly) then
 
-        call get_psiz(iplt,sqrt(arm0(im)),psiz,vsprd)
-
         if (myrank == 0) then
 
-           call celltile(iplt,npoly,htpn,vtpn,hpt,vpt,psiz,vsprd,fldval,action)
+           call celltile(iplt,npoly,htpn,vtpn,hpt,vpt,op%psiz,op%vsprd,fldval,action)
 
         else
 
@@ -182,13 +146,11 @@ subroutine tileslab_horiz_mp(iplt,action)
            call MPI_Pack(vtpn,   npoly, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
            call MPI_Pack(hpt,    1,     MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
            call MPI_Pack(vpt,    1,     MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-           call MPI_Pack(psiz,   1,     MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-           call MPI_Pack(vsprd,  1,     MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
            call MPI_Pack(fldval, 1,     MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
 #endif
 
         endif
-        
+
         ! If this polygon crosses +/- 180 degrees longitude in lat/lon plot, re-plot
         ! at other end
 
@@ -200,7 +162,7 @@ subroutine tileslab_horiz_mp(iplt,action)
 
            if (myrank == 0) then
 
-              call celltile(iplt,npoly,htpn,vtpn,hpt,vpt,psiz,vsprd,fldval,action)
+              call celltile(iplt,npoly,htpn,vtpn,hpt,vpt,op%psiz,op%vsprd,fldval,action)
 
            else
 
@@ -218,8 +180,6 @@ subroutine tileslab_horiz_mp(iplt,action)
               call MPI_Pack(vtpn,   npoly, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
               call MPI_Pack(hpt,    1,     MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
               call MPI_Pack(vpt,    1,     MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-              call MPI_Pack(psiz,   1,     MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-              call MPI_Pack(vsprd,  1,     MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
               call MPI_Pack(fldval, 1,     MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
 #endif
 
@@ -249,7 +209,7 @@ subroutine tileslab_horiz_mp(iplt,action)
               hqpn(3) = htpn(j)
               vqpn(3) = vtpn(j)
 
-              ! Specific way to get IV1 and IV2 since ordering of W and U/V 
+              ! Specific way to get IV1 and IV2 since ordering of W and U/V
               ! neighbors of M is not identical for both grid systems
 
               iv1 = itab_m(im)%iv(jn)
@@ -270,7 +230,7 @@ subroutine tileslab_horiz_mp(iplt,action)
 
               if (myrank == 0) then
 
-                 call celltile(iplt,4,hqpn,vqpn,hpt,vpt,psiz,vsprd,fldval,action)
+                 call celltile(iplt,4,hqpn,vqpn,hpt,vpt,op%psiz,op%vsprd,fldval,action)
 
               else
 
@@ -288,8 +248,6 @@ subroutine tileslab_horiz_mp(iplt,action)
                  call MPI_Pack(vqpn,   4, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
                  call MPI_Pack(hpt,    1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
                  call MPI_Pack(vpt,    1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-                 call MPI_Pack(psiz,   1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-                 call MPI_Pack(vsprd,  1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
                  call MPI_Pack(fldval, 1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
 #endif
 
@@ -306,7 +264,7 @@ subroutine tileslab_horiz_mp(iplt,action)
 
                  if (myrank == 0) then
 
-                    call celltile(iplt,4,hqpn,vqpn,hpt,vpt,psiz,vsprd,fldval,action)
+                    call celltile(iplt,4,hqpn,vqpn,hpt,vpt,op%psiz,op%vsprd,fldval,action)
 
                  else
 
@@ -324,8 +282,6 @@ subroutine tileslab_horiz_mp(iplt,action)
                     call MPI_Pack(vqpn,   4, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
                     call MPI_Pack(hpt,    1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
                     call MPI_Pack(vpt,    1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-                    call MPI_Pack(psiz,   1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-                    call MPI_Pack(vsprd,  1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
                     call MPI_Pack(fldval, 1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
 #endif
 
@@ -360,24 +316,22 @@ subroutine tileslab_horiz_mp(iplt,action)
               ipos = 0
 
               do j = 1, nus(n)
-               
+
                  call MPI_Unpack(buffer, buffsize, ipos, npoly,  1,     MPI_INTEGER, MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, htpn,   npoly, MPI_REAL,    MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, vtpn,   npoly, MPI_REAL,    MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, hpt,    1,     MPI_REAL,    MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, vpt,    1,     MPI_REAL,    MPI_COMM_WORLD, ier)
-                 call MPI_Unpack(buffer, buffsize, ipos, psiz,   1,     MPI_REAL,    MPI_COMM_WORLD, ier)
-                 call MPI_Unpack(buffer, buffsize, ipos, vsprd,  1,     MPI_REAL,    MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, fldval, 1,     MPI_REAL,    MPI_COMM_WORLD, ier)
 
-                 call celltile(iplt,npoly,htpn,vtpn,hpt,vpt,psiz,vsprd,fldval,action)
+                 call celltile(iplt,npoly,htpn,vtpn,hpt,vpt,op%psiz,op%vsprd,fldval,action)
 
               enddo
 
            endif
         enddo
      endif
-        
+
      deallocate(buffer)
   endif
 #endif
@@ -389,9 +343,9 @@ end subroutine tileslab_horiz_mp
 subroutine tileslab_horiz_tw(iplt,action)
 
   use oplot_coms, only: op, xepc, yepc, zepc
-  use mem_grid,   only: mza, mwa, zm, zt, xew, yew, zew, xem, yem, zem, lpw, arw0
+  use mem_grid,   only: mwa, xew, yew, zew, xem, yem, zem, arw0
   use mem_ijtabs, only: itab_w, jtab_w, jtw_wadj
-  use misc_coms,  only: io6, iparallel
+  use misc_coms,  only: iparallel
   use mem_para,   only: myrank, mgroupsize, nbytes_int, nbytes_real
 
 #ifdef OLAM_MPI
@@ -403,13 +357,12 @@ subroutine tileslab_horiz_tw(iplt,action)
   integer,      intent(in) :: iplt
   character(1), intent(in) :: action
 
-  integer :: npoly, j, jw, im
-  integer :: iw
+  integer :: npoly, j, iw, im
   integer :: iv1,iv2
   integer :: iok
   integer :: notavail
 
-  real :: hpt, vpt, psiz, vsprd
+  real :: hpt, vpt
   real :: fldval
 
   real :: topo1, topo2
@@ -463,10 +416,8 @@ subroutine tileslab_horiz_tw(iplt,action)
 
   ! Loop over W points
 
-  wloop: do jw = 1, jtab_w(jtw_wadj)%jend(1)
-     iw = jtab_w(jtw_wadj)%iw(jw)
-
-     if (itab_w(iw)%irank /= myrank) cycle wloop
+  wloop: do iw = 2, mwa
+     if (iparallel == 1 .and. itab_w(iw)%irank /= myrank) cycle wloop
 
      npoly = itab_w(iw)%npoly
 
@@ -480,12 +431,14 @@ subroutine tileslab_horiz_tw(iplt,action)
      if (ktf(iw) /= 0) cycle wloop
 
      ! Initialize iflag180
-     
+
      iflag180 = 0
 
-     ! Get tile plot coordinates.  
+     ! Get tile plot coordinates.
 
-     call oplot_transform(iplt,xew(iw),yew(iw),zew(iw),hpt,vpt)
+     if (op%projectn(iplt) == 'L' .or. action == 'P') then
+        call oplot_transform(iplt,xew(iw),yew(iw),zew(iw),hpt,vpt)
+     endif
 
      ! If only printing value, skip polygon section
 
@@ -528,10 +481,8 @@ subroutine tileslab_horiz_tw(iplt,action)
      arw0_tot  = arw0_tot  + arw0(iw)
      field_tot = field_tot + fldval * arw0(iw)
 
-     call get_psiz(iplt,sqrt(arw0(iw)),psiz,vsprd)
-
      if (myrank == 0) then
-        call celltile(iplt,npoly,htpn,vtpn,hpt,vpt,psiz,vsprd,fldval,action)
+        call celltile(iplt,npoly,htpn,vtpn,hpt,vpt,op%psiz,op%vsprd,fldval,action)
      endif
 
      ! Plot cone circle if so specified
@@ -539,7 +490,7 @@ subroutine tileslab_horiz_tw(iplt,action)
      if (op%pltcone(iplt) == 'C' .and. action == 'T') then
 
         call coneplot_w(iw,iv1,iv2,topo1,topo2,iok,htpn)
-  
+
         if (iok == 1) then
 
            call oplot_transform(iplt,xepc(1),yepc(1),zepc(1),xq(1),yq(1))
@@ -551,7 +502,7 @@ subroutine tileslab_horiz_tw(iplt,action)
            endif
 
         endif
- 
+
      endif
 
 #ifdef OLAM_MPI
@@ -564,18 +515,18 @@ subroutine tileslab_horiz_tw(iplt,action)
            buffsize = size(buffer)
         endif
 
-        call MPI_Pack(npoly,  1,     MPI_INTEGER, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-        call MPI_Pack(htpn,   npoly, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-        call MPI_Pack(vtpn,   npoly, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-        call MPI_Pack(hpt,    1,     MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-        call MPI_Pack(vpt,    1,     MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-        call MPI_Pack(psiz,   1,     MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-        call MPI_Pack(vsprd,  1,     MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+        if (action == 'T') then
+           call MPI_Pack(npoly,  1,     MPI_INTEGER, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+           call MPI_Pack(htpn,   npoly, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+           call MPI_Pack(vtpn,   npoly, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+        elseif (action == 'P') then
+           call MPI_Pack(hpt,    1,     MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+           call MPI_Pack(vpt,    1,     MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+        endif
         call MPI_Pack(fldval, 1,     MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
 
         if (op%pltcone(iplt) == 'C' .and. action == 'T') then
            call MPI_Pack(iok, 1, MPI_INTEGER, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-
            if (iok == 1) then
               call MPI_Pack(xq, 2, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
               call MPI_Pack(yq, 2, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
@@ -595,7 +546,7 @@ subroutine tileslab_horiz_tw(iplt,action)
 
         if (myrank == 0) then
 
-           call celltile(iplt,npoly,htpn,vtpn,hpt,vpt,psiz,vsprd,fldval,action)
+           call celltile(iplt,npoly,htpn,vtpn,hpt,vpt,op%psiz,op%vsprd,fldval,action)
 
         else
 
@@ -608,18 +559,19 @@ subroutine tileslab_horiz_tw(iplt,action)
               buffsize = size(buffer)
            endif
 
-           call MPI_Pack(npoly,  1,     MPI_INTEGER, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-           call MPI_Pack(htpn,   npoly, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-           call MPI_Pack(vtpn,   npoly, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-           call MPI_Pack(hpt,    1,     MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-           call MPI_Pack(vpt,    1,     MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-           call MPI_Pack(psiz,   1,     MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-           call MPI_Pack(vsprd,  1,     MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+
+           if (action == 'T') then
+              call MPI_Pack(npoly,  1,     MPI_INTEGER, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+              call MPI_Pack(htpn,   npoly, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+              call MPI_Pack(vtpn,   npoly, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+           elseif (action == 'P') then
+              call MPI_Pack(hpt,    1,     MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+              call MPI_Pack(vpt,    1,     MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+           endif
            call MPI_Pack(fldval, 1,     MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
 
            if (op%pltcone(iplt) == 'C' .and. action == 'T') then
               call MPI_Pack(iok, 1, MPI_INTEGER, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-
               if (iok == 1) then
                  call MPI_Pack(xq, 2, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
                  call MPI_Pack(yq, 2, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
@@ -628,7 +580,7 @@ subroutine tileslab_horiz_tw(iplt,action)
 #endif
 
         endif
-            
+
      endif ! iflag180
 
   enddo wloop
@@ -665,17 +617,18 @@ subroutine tileslab_horiz_tw(iplt,action)
               ipos = 0
 
               do j = 1, nus(n)
-               
-                 call MPI_Unpack(buffer, buffsize, ipos, npoly,  1,     MPI_INTEGER, MPI_COMM_WORLD, ier)
-                 call MPI_Unpack(buffer, buffsize, ipos, htpn,   npoly, MPI_REAL,    MPI_COMM_WORLD, ier)
-                 call MPI_Unpack(buffer, buffsize, ipos, vtpn,   npoly, MPI_REAL,    MPI_COMM_WORLD, ier)
-                 call MPI_Unpack(buffer, buffsize, ipos, hpt,    1,     MPI_REAL,    MPI_COMM_WORLD, ier)
-                 call MPI_Unpack(buffer, buffsize, ipos, vpt,    1,     MPI_REAL,    MPI_COMM_WORLD, ier)
-                 call MPI_Unpack(buffer, buffsize, ipos, psiz,   1,     MPI_REAL,    MPI_COMM_WORLD, ier)
-                 call MPI_Unpack(buffer, buffsize, ipos, vsprd,  1,     MPI_REAL,    MPI_COMM_WORLD, ier)
+
+                 if (action == 'T') then
+                    call MPI_Unpack(buffer, buffsize, ipos, npoly,  1,     MPI_INTEGER, MPI_COMM_WORLD, ier)
+                    call MPI_Unpack(buffer, buffsize, ipos, htpn,   npoly, MPI_REAL,    MPI_COMM_WORLD, ier)
+                    call MPI_Unpack(buffer, buffsize, ipos, vtpn,   npoly, MPI_REAL,    MPI_COMM_WORLD, ier)
+                 elseif (action == 'P') then
+                    call MPI_Unpack(buffer, buffsize, ipos, hpt,    1,     MPI_REAL,    MPI_COMM_WORLD, ier)
+                    call MPI_Unpack(buffer, buffsize, ipos, vpt,    1,     MPI_REAL,    MPI_COMM_WORLD, ier)
+                 endif
                  call MPI_Unpack(buffer, buffsize, ipos, fldval, 1,     MPI_REAL,    MPI_COMM_WORLD, ier)
 
-                 call celltile(iplt,npoly,htpn,vtpn,hpt,vpt,psiz,vsprd,fldval,action)
+                 call celltile(iplt,npoly,htpn,vtpn,hpt,vpt,op%psiz,op%vsprd,fldval,action)
 
                  if (op%pltcone(iplt) == 'C' .and. action == 'T') then
                     call MPI_Unpack(buffer, buffsize, ipos, iok, 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
@@ -692,7 +645,7 @@ subroutine tileslab_horiz_tw(iplt,action)
            endif
         enddo
      endif
-        
+
      deallocate(buffer)
   endif
 #endif
@@ -709,11 +662,11 @@ end subroutine tileslab_horiz_tw
 subroutine tileslab_horiz_vn(iplt,action)
 
   use oplot_coms, only: op
-  use mem_grid,   only: mza, mva, mwa, zm, xev, yev, zev, &
-                        xem, yem, zem, xew, yew, zew, lpw, dnv
-  use mem_ijtabs, only: itab_v, jtab_v, jtv_wadj
-  use misc_coms,  only: io6, iparallel
-  use mem_para,   only: myrank, mgroupsize, nbytes_int, nbytes_real
+  use mem_grid,   only: mva, mwa, xev, yev, zev, xem, yem, zem, &
+                        xew, yew, zew, dnv
+  use mem_ijtabs, only: itab_v
+  use misc_coms,  only: iparallel
+  use mem_para,   only: myrank, mgroupsize, nbytes_real
 
 #ifdef OLAM_MPI
   use mpi
@@ -731,7 +684,7 @@ subroutine tileslab_horiz_vn(iplt,action)
   integer :: notavail
 
   real :: fldval
-  real :: hpt, vpt, psiz, vsprd
+  real :: hpt, vpt
   real :: htpn(4), vtpn(4)
 
   integer :: ktf(mwa), kv(mva)
@@ -770,14 +723,11 @@ subroutine tileslab_horiz_vn(iplt,action)
 
   ! Loop over V points
 
-! do jv = 1, jtab_v(jtv_wadj)%jend(1)
-  do iv = 2,mva
+  do iv = 2, mva
+     if (iparallel == 1 .and. itab_v(iv)%irank /= myrank) cycle
 
-     if (itab_v(iv)%irank /= myrank) cycle 
+     ! Transform tile plot X and Y coordinates.
 
-     ! Transform tile plot X and Y coordinates.  
-
-!     iv  = jtab_v(jtv_wadj)%iv(jv)
      call oplot_transform(iplt,xev(iv),yev(iv),zev(iv),hpt,vpt)
 
      im1 = itab_v(iv)%im(1)
@@ -833,7 +783,7 @@ subroutine tileslab_horiz_vn(iplt,action)
 
      if (any(htpn(1:4) > 1.e11)) cycle
 
-     ! Jump out of loop if entire cell is outside plot window. 
+     ! Jump out of loop if entire cell is outside plot window.
 
      if ( all(htpn(1:4) < op%xmin) .or. all(htpn(1:4) > op%xmax) .or.  &
           all(vtpn(1:4) < op%ymin) .or. all(vtpn(1:4) > op%ymax)) cycle
@@ -841,9 +791,9 @@ subroutine tileslab_horiz_vn(iplt,action)
      ! Get cell value and 'available' flag
 
      call oplot_lib(kv(iv),iv,'VALUE',op%fldname(iplt),wtbot(iv),wttop(iv), &
-                    fldval,notavail)    
+                    fldval,notavail)
 
-     if (notavail > 0) cycle 
+     if (notavail > 0) cycle
 
      ! If both W neighbors are above ground, plot full cell
 
@@ -868,7 +818,7 @@ subroutine tileslab_horiz_vn(iplt,action)
      endif
 
      ! Set iflag180
-        
+
      if (op%projectn(iplt) == 'L') then
         do itpn = 1,4
            if (htpn(itpn) < -180.001) iflag180 =  1
@@ -876,12 +826,10 @@ subroutine tileslab_horiz_vn(iplt,action)
         enddo
      endif
 
-     call get_psiz(iplt,dnv(iv),psiz,vsprd)
-
      if (myrank == 0) then
 
-        call celltile(iplt,4,htpn,vtpn,hpt,vpt,psiz,vsprd,fldval,action)
-        
+        call celltile(iplt,4,htpn,vtpn,hpt,vpt,op%psiz,op%vsprd,fldval,action)
+
      else
 
 #ifdef OLAM_MPI
@@ -897,8 +845,6 @@ subroutine tileslab_horiz_vn(iplt,action)
         call MPI_Pack(vtpn,   4, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
         call MPI_Pack(hpt,    1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
         call MPI_Pack(vpt,    1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-        call MPI_Pack(psiz,   1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-        call MPI_Pack(vsprd,  1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
         call MPI_Pack(fldval, 1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
 #endif
 
@@ -915,7 +861,7 @@ subroutine tileslab_horiz_vn(iplt,action)
 
         if (myrank == 0) then
 
-           call celltile(iplt,4,htpn,vtpn,hpt,vpt,psiz,vsprd,fldval,action)
+           call celltile(iplt,4,htpn,vtpn,hpt,vpt,op%psiz,op%vsprd,fldval,action)
 
         else
 
@@ -932,8 +878,6 @@ subroutine tileslab_horiz_vn(iplt,action)
            call MPI_Pack(vtpn,   4, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
            call MPI_Pack(hpt,    1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
            call MPI_Pack(vpt,    1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-           call MPI_Pack(psiz,   1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-           call MPI_Pack(vsprd,  1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
            call MPI_Pack(fldval, 1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
 #endif
 
@@ -965,23 +909,21 @@ subroutine tileslab_horiz_vn(iplt,action)
               ipos = 0
 
               do j = 1, nus(n)
-               
+
                  call MPI_Unpack(buffer, buffsize, ipos, htpn,   4, MPI_REAL,    MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, vtpn,   4, MPI_REAL,    MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, hpt,    1, MPI_REAL,    MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, vpt,    1, MPI_REAL,    MPI_COMM_WORLD, ier)
-                 call MPI_Unpack(buffer, buffsize, ipos, psiz,   1, MPI_REAL,    MPI_COMM_WORLD, ier)
-                 call MPI_Unpack(buffer, buffsize, ipos, vsprd,  1, MPI_REAL,    MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, fldval, 1, MPI_REAL,    MPI_COMM_WORLD, ier)
 
-                 call celltile(iplt,4,htpn,vtpn,hpt,vpt,psiz,vsprd,fldval,action)
-           
+                 call celltile(iplt,4,htpn,vtpn,hpt,vpt,op%psiz,op%vsprd,fldval,action)
+
               enddo
 
            endif
         enddo
      endif
-        
+
      deallocate(buffer)
   endif
 #endif
@@ -997,7 +939,7 @@ subroutine tileslab_horiz_wsfc(iplt,action)
   use mem_sfcg,   only: mwsfc, itab_wsfc, sfcg
   use mem_land,   only: nzg
   use leaf_coms,  only: nzs
-  use misc_coms,  only: io6, isubdomain, iparallel
+  use misc_coms,  only: iparallel
   use mem_para,   only: myrank, mgroupsize, nbytes_int, nbytes_real
 
 #ifdef OLAM_MPI
@@ -1014,7 +956,7 @@ subroutine tileslab_horiz_wsfc(iplt,action)
   integer :: iwsfc, imsfc
   integer :: npoly
 
-  real :: hpt, vpt, psiz, vsprd
+  real :: hpt, vpt
   real :: fldval
 
   real :: htpn(maxnlspoly), vtpn(maxnlspoly)
@@ -1059,8 +1001,7 @@ subroutine tileslab_horiz_wsfc(iplt,action)
   endif
 
   do iwsfc = 2, mwsfc
-
-     if (itab_wsfc(iwsfc)%irank /= myrank) cycle
+     if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
      if (op%stagpt == 'L' .and. sfcg%leaf_class(iwsfc) <  2) cycle
      if (op%stagpt == 'R' .and. sfcg%leaf_class(iwsfc) /= 1) cycle
@@ -1068,7 +1009,7 @@ subroutine tileslab_horiz_wsfc(iplt,action)
 
      npoly = itab_wsfc(iwsfc)%npoly
 
-     ! Get tile plot coordinates.  
+     ! Get tile plot coordinates.
 
      call oplot_transform(iplt,sfcg%xew(iwsfc),sfcg%yew(iwsfc),sfcg%zew(iwsfc),hpt,vpt)
 
@@ -1076,7 +1017,7 @@ subroutine tileslab_horiz_wsfc(iplt,action)
 
      iflag180 = 0
 
-     do j = 1,npoly      
+     do j = 1,npoly
         imsfc = itab_wsfc(iwsfc)%imn(j)
 
         call oplot_transform(iplt, sfcg%xem(imsfc), sfcg%yem(imsfc), sfcg%zem(imsfc), &
@@ -1103,17 +1044,15 @@ subroutine tileslab_horiz_wsfc(iplt,action)
      ! Plot cell
 
      call oplot_lib(k,iwsfc,'VALUE',op%fldname(iplt),wtbot,wttop, &
-                    fldval,notavail)    
-     if (notavail > 0) cycle 
+                    fldval,notavail)
+     if (notavail > 0) cycle
 
      area_tot  = area_tot  + sfcg%area(iwsfc)
      field_tot = field_tot + fldval * sfcg%area(iwsfc)
 
-     call get_psiz(iplt,sqrt(sfcg%area(iwsfc)),psiz,vsprd)
-
      if (myrank == 0) then
 
-        call celltile(iplt,npoly,htpn,vtpn,hpt,vpt,psiz,vsprd,fldval,action)
+        call celltile(iplt,npoly,htpn,vtpn,hpt,vpt,op%psiz,op%vsprd,fldval,action)
 
      else
 
@@ -1131,8 +1070,6 @@ subroutine tileslab_horiz_wsfc(iplt,action)
         call MPI_Pack(vtpn,   npoly,  MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
         call MPI_Pack(hpt,    1,      MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
         call MPI_Pack(vpt,    1,      MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-        call MPI_Pack(psiz,   1,      MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-        call MPI_Pack(vsprd,  1,      MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
         call MPI_Pack(fldval, 1,      MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
 #endif
 
@@ -1149,7 +1086,7 @@ subroutine tileslab_horiz_wsfc(iplt,action)
 
         if (myrank == 0) then
 
-           call celltile(iplt,npoly,htpn,vtpn,hpt,vpt,psiz,vsprd,fldval,action)
+           call celltile(iplt,npoly,htpn,vtpn,hpt,vpt,op%psiz,op%vsprd,fldval,action)
 
         else
 
@@ -1167,8 +1104,6 @@ subroutine tileslab_horiz_wsfc(iplt,action)
            call MPI_Pack(vtpn,   npoly,  MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
            call MPI_Pack(hpt,    1,      MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
            call MPI_Pack(vpt,    1,      MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-           call MPI_Pack(psiz,   1,      MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-           call MPI_Pack(vsprd,  1,      MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
            call MPI_Pack(fldval, 1,      MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
 #endif
 
@@ -1210,24 +1145,22 @@ subroutine tileslab_horiz_wsfc(iplt,action)
               ipos = 0
 
               do j = 1, nus(n)
-               
+
                  call MPI_Unpack(buffer, buffsize, ipos, npoly,  1,      MPI_INTEGER, MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, htpn,   npoly,  MPI_REAL,    MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, vtpn,   npoly,  MPI_REAL,    MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, hpt,    1,      MPI_REAL,    MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, vpt,    1,      MPI_REAL,    MPI_COMM_WORLD, ier)
-                 call MPI_Unpack(buffer, buffsize, ipos, psiz,   1,      MPI_REAL,    MPI_COMM_WORLD, ier)
-                 call MPI_Unpack(buffer, buffsize, ipos, vsprd,  1,      MPI_REAL,    MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, fldval, 1,      MPI_REAL,    MPI_COMM_WORLD, ier)
 
-                 call celltile(iplt,npoly,htpn,vtpn,hpt,vpt,psiz,vsprd,fldval,action)
+                 call celltile(iplt,npoly,htpn,vtpn,hpt,vpt,op%psiz,op%vsprd,fldval,action)
 
               enddo
 
            endif
         enddo
      endif
-        
+
      deallocate(buffer)
   endif
 #endif
@@ -1245,10 +1178,8 @@ subroutine tileslab_horiz_vsfc(iplt,action)
 
   use oplot_coms, only: op
   use mem_sfcg,   only: mvsfc, itab_vsfc, sfcg
-  use mem_land,   only: nzg
-  use leaf_coms,  only: nzs
-  use misc_coms,  only: io6, iparallel
-  use mem_para,   only: myrank, mgroupsize, nbytes_int, nbytes_real
+  use misc_coms,  only: iparallel
+  use mem_para,   only: myrank, mgroupsize, nbytes_real
 
 #ifdef OLAM_MPI
   use mpi
@@ -1266,7 +1197,7 @@ subroutine tileslab_horiz_vsfc(iplt,action)
   integer :: notavail
 
   real :: fldval
-  real :: hpt, vpt, psiz, vsprd
+  real :: hpt, vpt
   real :: htpn(4), vtpn(4)
 
   integer, allocatable :: buffer(:), bcopy(:)
@@ -1291,10 +1222,9 @@ subroutine tileslab_horiz_vsfc(iplt,action)
   endif
 
   do ivsfc = 2,mvsfc
+     if (iparallel == 1 .and. itab_vsfc(ivsfc)%irank /= myrank) cycle
 
-     if (itab_vsfc(ivsfc)%irank /= myrank) cycle 
-
-     ! Get tile plot coordinates.  
+     ! Get tile plot coordinates.
 
      call oplot_transform(iplt,sfcg%xev(ivsfc),sfcg%yev(ivsfc),sfcg%zev(ivsfc),hpt,vpt)
 
@@ -1347,7 +1277,7 @@ subroutine tileslab_horiz_vsfc(iplt,action)
 
      if (any(htpn(1:4) > 1.e11)) cycle
 
-     ! Jump out of loop if entire cell is outside plot window. 
+     ! Jump out of loop if entire cell is outside plot window.
 
      if ( all(htpn(1:4) < op%xmin) .or. all(htpn(1:4) > op%xmax) .or.  &
           all(vtpn(1:4) < op%ymin) .or. all(vtpn(1:4) > op%ymax)) cycle
@@ -1355,12 +1285,12 @@ subroutine tileslab_horiz_vsfc(iplt,action)
      ! Get cell value and 'available' flag
 
      call oplot_lib(1,ivsfc,'VALUE',op%fldname(iplt),1.,0., &
-                    fldval,notavail)    
+                    fldval,notavail)
 
-     if (notavail > 0) cycle 
+     if (notavail > 0) cycle
 
      ! Set iflag180
-        
+
      if (op%projectn(iplt) == 'L') then
         do itpn = 1,4
            if (htpn(itpn) < -180.001) iflag180 =  1
@@ -1368,12 +1298,10 @@ subroutine tileslab_horiz_vsfc(iplt,action)
         enddo
      endif
 
-     call get_psiz(iplt,sfcg%dnv(ivsfc),psiz,vsprd)
-
      if (myrank == 0) then
 
-        call celltile(iplt,4,htpn,vtpn,hpt,vpt,psiz,vsprd,fldval,action)
-        
+        call celltile(iplt,4,htpn,vtpn,hpt,vpt,op%psiz,op%vsprd,fldval,action)
+
      else
 
 #ifdef OLAM_MPI
@@ -1389,8 +1317,6 @@ subroutine tileslab_horiz_vsfc(iplt,action)
         call MPI_Pack(vtpn,   4, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
         call MPI_Pack(hpt,    1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
         call MPI_Pack(vpt,    1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-        call MPI_Pack(psiz,   1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-        call MPI_Pack(vsprd,  1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
         call MPI_Pack(fldval, 1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
 #endif
 
@@ -1407,7 +1333,7 @@ subroutine tileslab_horiz_vsfc(iplt,action)
 
         if (myrank == 0) then
 
-           call celltile(iplt,4,htpn,vtpn,hpt,vpt,psiz,vsprd,fldval,action)
+           call celltile(iplt,4,htpn,vtpn,hpt,vpt,op%psiz,op%vsprd,fldval,action)
 
         else
 
@@ -1424,8 +1350,6 @@ subroutine tileslab_horiz_vsfc(iplt,action)
            call MPI_Pack(vtpn,   4, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
            call MPI_Pack(hpt,    1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
            call MPI_Pack(vpt,    1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-           call MPI_Pack(psiz,   1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-           call MPI_Pack(vsprd,  1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
            call MPI_Pack(fldval, 1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
 #endif
 
@@ -1457,23 +1381,21 @@ subroutine tileslab_horiz_vsfc(iplt,action)
               ipos = 0
 
               do j = 1, nus(n)
-               
+
                  call MPI_Unpack(buffer, buffsize, ipos, htpn,   4, MPI_REAL,    MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, vtpn,   4, MPI_REAL,    MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, hpt,    1, MPI_REAL,    MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, vpt,    1, MPI_REAL,    MPI_COMM_WORLD, ier)
-                 call MPI_Unpack(buffer, buffsize, ipos, psiz,   1, MPI_REAL,    MPI_COMM_WORLD, ier)
-                 call MPI_Unpack(buffer, buffsize, ipos, vsprd,  1, MPI_REAL,    MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, fldval, 1, MPI_REAL,    MPI_COMM_WORLD, ier)
 
-                 call celltile(iplt,4,htpn,vtpn,hpt,vpt,psiz,vsprd,fldval,action)
-           
+                 call celltile(iplt,4,htpn,vtpn,hpt,vpt,op%psiz,op%vsprd,fldval,action)
+
               enddo
 
            endif
         enddo
      endif
-        
+
      deallocate(buffer)
   endif
 #endif
@@ -1482,13 +1404,219 @@ end subroutine tileslab_horiz_vsfc
 
 !===============================================================================
 
+subroutine tileslab_horiz_msfc(iplt,action)
+
+  use max_dims,   only: maxnlspoly
+  use oplot_coms, only: op
+  use mem_sfcg,   only: mmsfc, itab_msfc, sfcg
+  use misc_coms,  only: iparallel
+  use mem_para,   only: myrank, mgroupsize, nbytes_int, nbytes_real
+
+#ifdef OLAM_MPI
+  use mpi
+#endif
+
+  implicit none
+
+  integer,      intent(in) :: iplt
+  character(1), intent(in) :: action
+
+  integer :: k
+  integer :: notavail
+  integer :: iwsfc, imsfc
+  integer :: npoly
+
+  real :: hpt, vpt
+  real :: fldval
+
+  real :: htpn(maxnlspoly), vtpn(maxnlspoly)
+  real :: wtbot = 1., wttop = 0.
+
+  integer, allocatable :: buffer(:), bcopy(:)
+  integer :: nu, ier, buffsize, ipos, base, inc, n, j, nr
+  integer :: nus(mgroupsize)
+  integer, parameter :: itag = 40
+  integer :: iflag180
+
+  nu   = 0
+  ipos = 0
+
+  nr   = 2 * maxnlspoly + 5
+  base = nr * nbytes_real + nbytes_int
+  if (op%windowin(iplt) == 'W') then
+     inc = ceiling( real(mmsfc) / 5. )
+  else
+     inc = mmsfc
+  endif
+
+  if (myrank > 0) then
+     buffsize = inc * base
+     allocate( buffer( buffsize ) )
+  endif
+
+  k = 1
+
+  do imsfc = 2, mmsfc
+     if (iparallel == 1 .and. itab_msfc(imsfc)%irank /= myrank) cycle
+
+     npoly = 3
+
+     ! Get tile plot coordinates.
+
+     call oplot_transform(iplt,sfcg%xem(imsfc),sfcg%yem(imsfc),sfcg%zem(imsfc),hpt,vpt)
+
+     ! Initialize iflag180
+
+     iflag180 = 0
+
+     do j = 1,npoly
+        iwsfc = itab_msfc(imsfc)%iwn(j)
+
+        call oplot_transform(iplt, sfcg%xew(iwsfc), sfcg%yew(iwsfc), sfcg%zew(iwsfc), &
+                             htpn(j), vtpn(j))
+
+        ! Avoid wrap-around for lat-lon plot and set iflag180
+
+        if (op%projectn(iplt) == 'L') then
+           call ll_unwrap(hpt,htpn(j))
+           if (htpn(j) < -180.001) iflag180 =  1
+           if (htpn(j) >  180.001) iflag180 = -1
+        endif
+     enddo
+
+     ! Jump out of loop if any cell corner is on other side of earth
+
+     if (any(htpn(1:npoly) > 1.e11)) cycle
+
+     ! Jump out of loop if entire cell is outside plot window.
+
+     if ( all(htpn(1:npoly) < op%xmin) .or. all(htpn(1:npoly) > op%xmax) .or. &
+          all(vtpn(1:npoly) < op%ymin) .or. all(vtpn(1:npoly) > op%ymax)) cycle
+
+     ! Plot cell
+
+     call oplot_lib(k,imsfc,'VALUE',op%fldname(iplt),wtbot,wttop, &
+                    fldval,notavail)
+
+     if (notavail > 0) cycle
+
+     if (myrank == 0) then
+
+        call celltile(iplt,npoly,htpn,vtpn,hpt,vpt,op%psiz,op%vsprd,fldval,action)
+
+     else
+
+#ifdef OLAM_MPI
+        nu = nu + 1
+        if (buffsize < ipos + base) then
+           allocate( bcopy (buffsize + inc * base) )
+           bcopy(1:buffsize) = buffer
+           call move_alloc(bcopy, buffer)
+           buffsize = size(buffer)
+        endif
+
+        call MPI_Pack(npoly,  1,      MPI_INTEGER, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+        call MPI_Pack(htpn,   npoly,  MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+        call MPI_Pack(vtpn,   npoly,  MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+        call MPI_Pack(hpt,    1,      MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+        call MPI_Pack(vpt,    1,      MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+        call MPI_Pack(fldval, 1,      MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+#endif
+
+     endif
+
+     ! If this polygon crosses +/- 180 degrees longitude in lat/lon plot, re-plot
+     ! at other end
+
+     if (iflag180 /= 0) then
+
+        do j = 1,npoly
+           htpn(j) = htpn(j) + 360. * iflag180
+        enddo
+
+        if (myrank == 0) then
+
+           call celltile(iplt,npoly,htpn,vtpn,hpt,vpt,op%psiz,op%vsprd,fldval,action)
+
+        else
+
+#ifdef OLAM_MPI
+           nu = nu + 1
+           if (buffsize < ipos + base) then
+              allocate( bcopy (buffsize + inc * base) )
+              bcopy(1:buffsize) = buffer
+              call move_alloc(bcopy, buffer)
+              buffsize = size(buffer)
+           endif
+
+           call MPI_Pack(npoly,  1,      MPI_INTEGER, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+           call MPI_Pack(htpn,   npoly,  MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+           call MPI_Pack(vtpn,   npoly,  MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+           call MPI_Pack(hpt,    1,      MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+           call MPI_Pack(vpt,    1,      MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+           call MPI_Pack(fldval, 1,      MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+#endif
+
+        endif
+
+     endif ! iflag180
+
+  enddo
+
+#ifdef OLAM_MPI
+  if (iparallel == 1) then
+
+     call MPI_Gather(nu, 1, MPI_INTEGER, nus, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ier)
+
+     if (myrank > 0 .and. nu > 0) then
+        call MPI_Send(buffer, ipos, MPI_PACKED, 0, itag, MPI_COMM_WORLD, ier)
+     endif
+
+     if (myrank == 0) then
+
+        buffsize = maxval(nus(2:mgroupsize)) * base
+        allocate( buffer( buffsize ) )
+
+        do n = 2, mgroupsize
+
+           if (nus(n) > 0) then
+
+              call MPI_Recv( buffer, buffsize, MPI_PACKED, n-1, itag, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier )
+
+              ipos = 0
+
+              do j = 1, nus(n)
+
+                 call MPI_Unpack(buffer, buffsize, ipos, npoly,  1,      MPI_INTEGER, MPI_COMM_WORLD, ier)
+                 call MPI_Unpack(buffer, buffsize, ipos, htpn,   npoly,  MPI_REAL,    MPI_COMM_WORLD, ier)
+                 call MPI_Unpack(buffer, buffsize, ipos, vtpn,   npoly,  MPI_REAL,    MPI_COMM_WORLD, ier)
+                 call MPI_Unpack(buffer, buffsize, ipos, hpt,    1,      MPI_REAL,    MPI_COMM_WORLD, ier)
+                 call MPI_Unpack(buffer, buffsize, ipos, vpt,    1,      MPI_REAL,    MPI_COMM_WORLD, ier)
+                 call MPI_Unpack(buffer, buffsize, ipos, fldval, 1,      MPI_REAL,    MPI_COMM_WORLD, ier)
+
+                 call celltile(iplt,npoly,htpn,vtpn,hpt,vpt,op%psiz,op%vsprd,fldval,action)
+
+              enddo
+
+           endif
+        enddo
+     endif
+
+     deallocate(buffer)
+  endif
+#endif
+
+end subroutine tileslab_horiz_msfc
+
+!===============================================================================
+
 subroutine tileslab_vert_tw(iplt,action)
 
   use oplot_coms, only: op
   use mem_grid,   only: mwa, mza, zm, zt, lpw
-  use mem_ijtabs, only: jtab_w, jtw_prog
-  use misc_coms,  only: io6, iparallel
-  use mem_para,   only: myrank, mgroupsize, nbytes_int, nbytes_real
+  use mem_ijtabs, only: itab_w
+  use misc_coms,  only: iparallel
+  use mem_para,   only: myrank, mgroupsize, nbytes_real
 
 #ifdef OLAM_MPI
   use mpi
@@ -1505,7 +1633,7 @@ subroutine tileslab_vert_tw(iplt,action)
   integer :: iok
   integer :: notavail
 
-  real :: hpt,  vpt, psiz, vsprd
+  real :: hpt, vpt
   real :: fldval
 
   real :: htpn(4), vtpn(4)
@@ -1530,8 +1658,8 @@ subroutine tileslab_vert_tw(iplt,action)
 
   ! Loop over W points
 
-  do jw = 1, jtab_w(jtw_prog)%jend(1)
-     iw = jtab_w(jtw_prog)%iw(jw)
+  do iw = 2, mwa
+     if (iparallel == 1 .and. itab_w(iw)%irank /= myrank) cycle
 
      ! Get horizontal plot coordinates for this W point
 
@@ -1550,7 +1678,7 @@ subroutine tileslab_vert_tw(iplt,action)
      ! Skip if entire cell is outside plot window
 
      if ( (htpn(1) < op%xmin .and. htpn(2) < op%xmin) .or.  &
-          (htpn(1) > op%xmax .and. htpn(2) > op%xmax) ) cycle         
+          (htpn(1) > op%xmax .and. htpn(2) > op%xmax) ) cycle
 
      do k = lpw(iw)-1, mza
 
@@ -1589,14 +1717,11 @@ subroutine tileslab_vert_tw(iplt,action)
 
         call oplot_lib(k,iw,'VALUE',op%fldname(iplt),wtbot,wttop, &
                        fldval,notavail)
-        if (notavail > 0) cycle 
- 
-        psiz = op%psiz
-        vsprd = op%vsprd
+        if (notavail > 0) cycle
 
         if (myrank == 0) then
 
-           call celltile(iplt,4,htpn,vtpn,hpt,vpt,psiz,vsprd,fldval,action)
+           call celltile(iplt,4,htpn,vtpn,hpt,vpt,op%psiz,op%vsprd,fldval,action)
 
         else
 
@@ -1613,8 +1738,6 @@ subroutine tileslab_vert_tw(iplt,action)
            call MPI_Pack(vtpn,   4, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
            call MPI_Pack(hpt,    1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
            call MPI_Pack(vpt,    1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-           call MPI_Pack(psiz,   1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-           call MPI_Pack(vsprd,  1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
            call MPI_Pack(fldval, 1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
 #endif
         endif
@@ -1643,27 +1766,25 @@ subroutine tileslab_vert_tw(iplt,action)
               ipos = 0
 
               do j = 1, nus(n)
-               
+
                  call MPI_Unpack(buffer, buffsize, ipos, htpn,   4, MPI_REAL, MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, vtpn,   4, MPI_REAL, MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, hpt,    1, MPI_REAL, MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, vpt,    1, MPI_REAL, MPI_COMM_WORLD, ier)
-                 call MPI_Unpack(buffer, buffsize, ipos, psiz,   1, MPI_REAL, MPI_COMM_WORLD, ier)
-                 call MPI_Unpack(buffer, buffsize, ipos, vsprd,  1, MPI_REAL, MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, fldval, 1, MPI_REAL, MPI_COMM_WORLD, ier)
 
-                 call celltile(iplt,4,htpn,vtpn,hpt,vpt,psiz,vsprd,fldval,action)
+                 call celltile(iplt,4,htpn,vtpn,hpt,vpt,op%psiz,op%vsprd,fldval,action)
 
               enddo
 
            endif
         enddo
      endif
-        
+
      deallocate(buffer)
   endif
 #endif
-  
+
   ! Now plot underground T cells with underground color
   if (action == 'T') call plot_underground_w(iplt,(/0/))
 
@@ -1675,9 +1796,9 @@ subroutine tileslab_vert_v(iplt,action)
 
   use oplot_coms, only: op
   use mem_grid,   only: mwa, mza, zm, zt, lpw, lpv
-  use mem_ijtabs, only: itab_v, jtab_w, jtw_prog
-  use misc_coms,  only: io6, iparallel
-  use mem_para,   only: myrank, mgroupsize, nbytes_int, nbytes_real
+  use mem_ijtabs, only: itab_w
+  use misc_coms,  only: iparallel
+  use mem_para,   only: myrank, mgroupsize, nbytes_real
 
 #ifdef OLAM_MPI
   use mpi
@@ -1689,12 +1810,12 @@ subroutine tileslab_vert_v(iplt,action)
   character(1), intent(in) :: action
 
   integer :: k
-  integer :: iw,jw
+  integer :: iw
   integer :: iv1,iv2
   integer :: iok
   integer :: notavail
 
-  real :: hptl,hptr,hpt,vpt, psiz, vsprd
+  real :: hptl,hptr,hpt,vpt
   real :: fldvall, fldvalr, fldval
   real :: topo1, topo2
 
@@ -1721,8 +1842,8 @@ subroutine tileslab_vert_v(iplt,action)
 
   ! Loop over W points
 
-  do jw = 1, jtab_w(jtw_prog)%jend(1)
-     iw = jtab_w(jtw_prog)%iw(jw)
+  do iw = 2, mwa
+     if (iparallel == 1 .and. itab_w(iw)%irank /= myrank) cycle
 
      ! Get horizontal plot coordinates for IW point
 
@@ -1742,14 +1863,14 @@ subroutine tileslab_vert_v(iplt,action)
         call ll_unwrap(hcpn(1),hcpn(2))
      endif
 
-     ! Skip current IV point if entire cell is outside plot window. 
+     ! Skip current IV point if entire cell is outside plot window.
 
      if ( (hcpn(1) < op%xmin .and. hcpn(2) < op%xmin) .or.  &
-          (hcpn(1) > op%xmax .and. hcpn(2) > op%xmax) ) cycle         
-   
+          (hcpn(1) > op%xmax .and. hcpn(2) > op%xmax) ) cycle
+
      hcpn(3) = hcpn(2)
      hcpn(4) = hcpn(1)
-   
+
      htpnl(1) = hcpn(1)
      htpnl(2) = .5 * (hcpn(1) + hcpn(2))
      htpnl(3) = htpnl(2)
@@ -1767,7 +1888,7 @@ subroutine tileslab_vert_v(iplt,action)
         ! Skip this K point if entire cell center is above or below plot window
 
         if (zm(k) < op%ymin .or. zm(k-1) > op%ymax) cycle
-   
+
         ! Get vertical coordinates
 
         vtpn(1) = zm(k-1)
@@ -1782,7 +1903,7 @@ subroutine tileslab_vert_v(iplt,action)
         endif
 
         ! Get value for left half of cell
-   
+
         if (k >= lpv(iv1)) then
 
            ! extend lowest cell down slightly to avoid gaps in plotted terain
@@ -1796,13 +1917,10 @@ subroutine tileslab_vert_v(iplt,action)
 
            call oplot_lib(k,iv1,'VALUE',op%fldname(iplt),wtbot,wttop, &
                           fldvall,notavail)
-           if (notavail > 0) cycle 
-
-           psiz = op%psiz
-           vsprd = op%vsprd
+           if (notavail > 0) cycle
 
            if (myrank ==0) then
-              call celltile(iplt,4,htpnl,vtpn,hptl,vpt,psiz,vsprd,fldvall,action)
+              call celltile(iplt,4,htpnl,vtpn,hptl,vpt,op%psiz,op%vsprd,fldvall,action)
            else
               nu = nu + 1
 #ifdef OLAM_MPI
@@ -1817,16 +1935,14 @@ subroutine tileslab_vert_v(iplt,action)
               call MPI_Pack(vtpn,    4, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
               call MPI_Pack(hptl,    1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
               call MPI_Pack(vpt,     1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-              call MPI_Pack(psiz,    1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-              call MPI_Pack(vsprd,   1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
               call MPI_Pack(fldvall, 1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
 #endif
            endif
 
         endif
-           
+
         ! Get value for right half of cell
-        
+
         if (k >= lpv(iv2)) then
 
            ! extend lowest cell down slightly to avoid gaps in plotted terain
@@ -1840,10 +1956,10 @@ subroutine tileslab_vert_v(iplt,action)
 
            call oplot_lib(k,iv2,'VALUE',op%fldname(iplt),wtbot,wttop, &
                           fldvalr,notavail)
-           if (notavail > 0) cycle 
+           if (notavail > 0) cycle
 
            if (myrank ==0) then
-              call celltile(iplt,4,htpnr,vtpn,hptr,vpt,psiz,vsprd,fldvalr,action)
+              call celltile(iplt,4,htpnr,vtpn,hptr,vpt,op%psiz,op%vsprd,fldvalr,action)
            else
 
 #ifdef OLAM_MPI
@@ -1859,13 +1975,11 @@ subroutine tileslab_vert_v(iplt,action)
               call MPI_Pack(vtpn,    4, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
               call MPI_Pack(hptr,    1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
               call MPI_Pack(vpt,     1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-              call MPI_Pack(psiz,    1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
-              call MPI_Pack(vsprd,   1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
               call MPI_Pack(fldvalr, 1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
 #endif
 
            endif
-           
+
         endif
      enddo
   enddo
@@ -1892,16 +2006,14 @@ subroutine tileslab_vert_v(iplt,action)
               ipos = 0
 
               do j = 1, nus(n)
-               
+
                  call MPI_Unpack(buffer, buffsize, ipos, htpn,   4, MPI_REAL, MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, vtpn,   4, MPI_REAL, MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, hpt,    1, MPI_REAL, MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, vpt,    1, MPI_REAL, MPI_COMM_WORLD, ier)
-                 call MPI_Unpack(buffer, buffsize, ipos, psiz,   1, MPI_REAL, MPI_COMM_WORLD, ier)
-                 call MPI_Unpack(buffer, buffsize, ipos, vsprd,  1, MPI_REAL, MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, fldval, 1, MPI_REAL, MPI_COMM_WORLD, ier)
 
-                 call celltile(iplt,4,htpn,vtpn,hpt,vpt,psiz,vsprd,fldval,action)
+                 call celltile(iplt,4,htpn,vtpn,hpt,vpt,op%psiz,op%vsprd,fldval,action)
 
               enddo
 
@@ -1982,7 +2094,7 @@ end subroutine tileslab_vert_v
 !!
 !!! Get vertical coordinates for soil layers
 !!
-!!      vtpn(1) = delzk * (float(k-1) + botk) 
+!!      vtpn(1) = delzk * (float(k-1) + botk)
 !!      vtpn(2) = vtpn(1)
 !!      vtpn(3) = delzk * (float(k)   + botk)
 !!      vtpn(4) = vtpn(3)
@@ -2012,12 +2124,12 @@ end subroutine tileslab_vert_v
 !!                     fldval,notavail)
 !!
 !!      if (fldval > 0.) then
-!!      
+!!
 !!! Get vertical coordinates for sfcwater layer k
 !!
-!!         vtpn(1) = delzk * (float(nzg+k-1) + .5 + botk) 
+!!         vtpn(1) = delzk * (float(nzg+k-1) + .5 + botk)
 !!         vtpn(2) = vtpn(1)
-!!         vtpn(3) = delzk * (float(nzg+k)   + .5 + botk) 
+!!         vtpn(3) = delzk * (float(nzg+k)   + .5 + botk)
 !!         vtpn(4) = vtpn(3)
 !!         vpt = .5 * (vtpn(1) + vtpn(3))
 !!
@@ -2034,16 +2146,16 @@ end subroutine tileslab_vert_v
 !!               call o_vector(htpn(itpn),vtpn(itpn))
 !!            enddo
 !!         endif
-!!         
+!!
 !!      endif
-!!      
+!!
 !!   enddo
 !!
 !!! plot vegetation layer
 !!
-!!   vtpn(1) = delzk * (float(nzg+nzs) + 1. + botk) 
+!!   vtpn(1) = delzk * (float(nzg+nzs) + 1. + botk)
 !!   vtpn(2) = vtpn(1)
-!!   vtpn(3) = delzk * (float(nzg+nzs+1) + 1. + botk) 
+!!   vtpn(3) = delzk * (float(nzg+nzs+1) + 1. + botk)
 !!   vtpn(4) = vtpn(3)
 !!   vpt = .5 * (vtpn(1) + vtpn(3))
 !!
@@ -2061,9 +2173,9 @@ end subroutine tileslab_vert_v
 !!
 !!! plot canopy air layer
 !!
-!!   vtpn(1) = delzk * (float(nzg+nzs+1) + 1.5 + botk) 
+!!   vtpn(1) = delzk * (float(nzg+nzs+1) + 1.5 + botk)
 !!   vtpn(2) = vtpn(1)
-!!   vtpn(3) = delzk * (float(nzg+nzs+2) + 1.5 + botk) 
+!!   vtpn(3) = delzk * (float(nzg+nzs+2) + 1.5 + botk)
 !!   vtpn(4) = vtpn(3)
 !!   vpt = .5 * (vtpn(1) + vtpn(3))
 !!
@@ -2080,7 +2192,7 @@ end subroutine tileslab_vert_v
 !!   endif
 !!
 !!enddo
-!!   
+!!
 !!return
 !!end subroutine tileslab_vert_l
 
@@ -2134,9 +2246,9 @@ end subroutine tileslab_vert_v
 !!
 !!! plot (top) sea layer
 !!
-!!   vtpn(1) = delzk * (float(nzg-1) + botk) 
+!!   vtpn(1) = delzk * (float(nzg-1) + botk)
 !!   vtpn(2) = vtpn(1)
-!!   vtpn(3) = delzk * (float(nzg) + botk) 
+!!   vtpn(3) = delzk * (float(nzg) + botk)
 !!   vtpn(4) = vtpn(3)
 !!   vpt = .5 * (vtpn(1) + vtpn(3))
 !!
@@ -2154,9 +2266,9 @@ end subroutine tileslab_vert_v
 !!
 !!! plot canopy air layer
 !!
-!!   vtpn(1) = delzk * (float(nzg+nzs+1) + 1.5 + botk) 
+!!   vtpn(1) = delzk * (float(nzg+nzs+1) + 1.5 + botk)
 !!   vtpn(2) = vtpn(1)
-!!   vtpn(3) = delzk * (float(nzg+nzs+2) + 1.5 + botk) 
+!!   vtpn(3) = delzk * (float(nzg+nzs+2) + 1.5 + botk)
 !!   vtpn(4) = vtpn(3)
 !!   vpt = .5 * (vtpn(1) + vtpn(3))
 !!
@@ -2173,7 +2285,7 @@ end subroutine tileslab_vert_v
 !!   endif
 !!
 !!enddo
-!!   
+!!
 !!return
 !!end subroutine tileslab_vert_s
 
@@ -2183,7 +2295,6 @@ subroutine celltile(iplt,npoly,htpn,vtpn,hpt,vpt,psiz,vsprd,fldval,action)
 
   use oplot_coms, only: op
   use plotcolors, only: clrtab
-  use misc_coms,  only: io6
 
   implicit none
 
@@ -2230,11 +2341,8 @@ subroutine celltile(iplt,npoly,htpn,vtpn,hpt,vpt,psiz,vsprd,fldval,action)
         ival = ival + 1
      enddo
      icolor = clrtab(itab)%ipal(ival)
-   
-     call fillpolyg(npoly,htpn,vtpn,icolor)
 
-     if (op%fldval_min > fldval) op%fldval_min = fldval
-     if (op%fldval_max < fldval) op%fldval_max = fldval
+     call fillpolyg(npoly,htpn,vtpn,icolor)
 
   elseif (action == 'P') then
      if ( (hpt > op%xmin) .and. (hpt < op%xmax) .and. &
@@ -2242,6 +2350,9 @@ subroutine celltile(iplt,npoly,htpn,vtpn,hpt,vpt,psiz,vsprd,fldval,action)
         call oplot_prtvalue(fldval,hpt,vpt,vsprd,psiz,op%icolortab(iplt))
      endif
   endif
+
+  if (op%fldval_min > fldval) op%fldval_min = fldval
+  if (op%fldval_max < fldval) op%fldval_max = fldval
 
 end subroutine celltile
 
@@ -2257,7 +2368,6 @@ subroutine xyplot_w(iplt,iw,iv1,iv2,topo1,topo2,iok,htpn)
   use mem_ijtabs,  only: itab_w
   use consts_coms, only: pio180
   use oname_coms,  only: nl
-  use misc_coms,  only: io6
 
   implicit none
 
@@ -2297,7 +2407,7 @@ subroutine xyplot_w(iplt,iw,iv1,iv2,topo1,topo2,iok,htpn)
 
     if (smin > sm(j)) then
        jmin = j
-       smin = sm(j) 
+       smin = sm(j)
     endif
 
     if (smax < sm(j)) then
@@ -2322,22 +2432,22 @@ subroutine xyplot_w(iplt,iw,iv1,iv2,topo1,topo2,iok,htpn)
 
      if (jm1 > npoly) jm1 = jm1 - npoly
      if (jm2 > npoly) jm2 = jm2 - npoly
-   
+
      im1 = itab_w(iw)%im(jm1)
      im2 = itab_w(iw)%im(jm2)
 
      jv = jm2
      iv  = itab_w(iw)%iv(jv)
-      
+
      xem1 = xem(im1)
      yem1 = yem(im1)
 
      xem2 = xem(im2)
      yem2 = yem(im2)
-   
+
      topm1 = topm(im1)
      topm2 = topm(im2)
-   
+
      sm1 = sm(jm1)
      sm2 = sm(jm2)
 
@@ -2349,7 +2459,7 @@ subroutine xyplot_w(iplt,iw,iv1,iv2,topo1,topo2,iok,htpn)
 
         if (sm1 == sm2) then
 
-! This interval is tangent to slab      
+! This interval is tangent to slab
 
            if (jm1 == 1 .or. jm2 == 1) then
 
@@ -2384,7 +2494,7 @@ subroutine xyplot_w(iplt,iw,iv1,iv2,topo1,topo2,iok,htpn)
            exit
 
         else
-         
+
 ! This interval touches slab at 1 point
 
            wt2 = (op%slabloc(iplt) - sm1) / (sm2 - sm1)
@@ -2396,7 +2506,7 @@ subroutine xyplot_w(iplt,iw,iv1,iv2,topo1,topo2,iok,htpn)
            iv2     = iv
 
         endif
-      
+
      elseif (sm1 > op%slabloc(iplt) .and. sm2 <= op%slabloc(iplt)) then
 
 ! This interval touches slab at 1 point
@@ -2420,7 +2530,7 @@ subroutine xyplot_w(iplt,iw,iv1,iv2,topo1,topo2,iok,htpn)
 
   htpn(2) = (xepc(2) - nl%plotspecs(iplt)%plotcoord1) * sinvaz  &
           - (yepc(2) - nl%plotspecs(iplt)%plotcoord2) * cosvaz
-           
+
   htpn(3) = htpn(2)
   htpn(4) = htpn(1)
 

@@ -6,7 +6,7 @@
 #include "wgrib2.h"
 
 /*
- * write fatal error message .. so to have common format 
+ * write fatal error message .. so to have common format
  */
 #ifdef CALLABLE_WGRIB2
 extern jmp_buf fatal_err;

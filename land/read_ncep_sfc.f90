@@ -1,6 +1,6 @@
 subroutine read_soil_moist_temp(soil_tempc)
 
-  use misc_coms, only: io6, iyear1, imonth1, idate1, itime1, isubdomain
+  use misc_coms, only: io6, iyear1, imonth1, idate1, itime1, iparallel
   use leaf_coms, only: soilstate_db
   use mem_land,  only: land, mland, omland, nzg, slz, wresid_vg, wsat_vg
   use mem_sfcg,   only: sfcg, itab_wsfc
@@ -37,13 +37,13 @@ subroutine read_soil_moist_temp(soil_tempc)
   integer :: k
 
   ! Acquire soil temperature, moisture, and snow depth from reanalysis.
-  ! Input data is on a 2.5 x 2.5 degree grid.  Latitudes start at 90N, 
+  ! Input data is on a 2.5 x 2.5 degree grid.  Latitudes start at 90N,
   ! longitudes at 1.25 E.
 
   call cdc_stw(iyear1, imonth1, idate1, itime1,   &
        trim(soilstate_db)//char(0), soilt1, soilt2, soilw1, soilw2, snow)
 
-  ! Determine which grid cells have missing data.  
+  ! Determine which grid cells have missing data.
 
   do ilatd = 1,73
      do ilond = 1,144
@@ -74,7 +74,7 @@ subroutine read_soil_moist_temp(soil_tempc)
      latd = pio180 * (92.5 - ilatd *2.5)
      do ilond = 1, 144
         lond = pio180 * (2.5 * ilond - 1.25)
-        i = 144 * (ilatd-1) + ilond 
+        i = 144 * (ilatd-1) + ilond
         if(miss_flag(i) == 1)then
            ! Find nearest neighbor with viable data
            best_dist = 1.0e30
@@ -82,7 +82,7 @@ subroutine read_soil_moist_temp(soil_tempc)
               latdd = pio180 * (92.5 - ilatdd *2.5)
               do ilondd = 1, 144
                  londd = pio180 * (2.5 * ilondd - 1.25)
-                 ii = 144 * (ilatdd-1) + ilondd 
+                 ii = 144 * (ilatdd-1) + ilondd
                  ! Make sure we are comparing to a viable datum
                  if(miss_flag(ii) == 0)then
                     dist = sqrt((cos(latdd)*cos(londd)-cos(latd)*  &
@@ -101,26 +101,26 @@ subroutine read_soil_moist_temp(soil_tempc)
         endif
      enddo
   enddo
-  
+
   ! Now, fill the land% arrays.
   do ilatd = 1,73
      do ilond = 1,144
-        i = 144 * (ilatd-1) + ilond 
+        i = 144 * (ilatd-1) + ilond
 
         ! Loop over land points
         do iland = 2,mland
            iwsfc = iland + omland
-           
+
            ! Skip this cell if running in parallel and cell rank is not MYRANK
-           if (isubdomain == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+           if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
            ! Land point lat, lon
 
            glat = sfcg%glatw(iwsfc)
            glon = sfcg%glonw(iwsfc)
-           
+
            if (glon < 0.0) glon = glon + 360.0
-           
+
            ! Find reanalysis point corresponding to this land point
 
            if (glat >= 0.0) then
@@ -129,17 +129,17 @@ subroutine read_soil_moist_temp(soil_tempc)
               ilatdd = 73 - nint((90.0 - abs(glat))/2.5)
            endif
            ilondd = int(glon/2.5) + 1
-           
+
            ! If there we are at the right point, fill the array
 
            if (ilatdd == ilatd .and. ilondd == ilond) then
-              
+
               if (snow(i) > 1.0e-3 .and. snow(i) == snow(i)) then
                  land%sfcwater_mass(1,iland) = snow(i)
                  land%sfcwater_energy(1,iland) = min(0.,   &
-                      (sfcg%cantemp(iwsfc) - 273.15) * cice) 
-                 ! snow density calculation comes from CLM3.0 documentation 
-                 ! which is based on Anderson 1975 NWS Technical Doc # 19 
+                      (sfcg%cantemp(iwsfc) - 273.15) * cice)
+                 ! snow density calculation comes from CLM3.0 documentation
+                 ! which is based on Anderson 1975 NWS Technical Doc # 19
                  if (sfcg%cantemp(iwsfc) > 258.15) then
                     snowdens = 50.0 + 1.5 * (sfcg%cantemp(iwsfc) - 258.15)**1.5
                  else
@@ -152,7 +152,7 @@ subroutine read_soil_moist_temp(soil_tempc)
 
               do k = 1,nzg
 
-                 ! Determine if this layer corresponds to the first 
+                 ! Determine if this layer corresponds to the first
                  ! or second 'data' layer.
 
                  if (abs(slz(k)) < 0.1) then
@@ -167,9 +167,9 @@ subroutine read_soil_moist_temp(soil_tempc)
                  land%soil_water(k,iland) * land%wsat_vg(k,iland)
 
               enddo
-              
+
            endif
-           
+
         enddo
 
      enddo

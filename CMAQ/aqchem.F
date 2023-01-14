@@ -428,13 +428,12 @@ C...........Local Variables (scalars):
       REAL( 8 ) :: FE_SOL          ! Fractional Fe solubility, GS - July 1, 2011
       REAL( 8 ) :: MN_SOL          ! Fractional Mn solubility, GS - July 1, 2011
       real( 8 ) :: f2o2f, fo3f, fmhpf, fpaaf, fglyf, fmglyf, fhof
-      real      :: ts6_prev, so2_prev, ts6_rat, so2_rat
+      real      :: ts6_prev, so2_prev
 
-      real(8) :: c1, c2, c3, dhoh
-      real(8) :: s1, s2, s3
-      real(8) :: dso3, dso4, dhso3, dhso4, ds
-
-      real(8) :: dco3, dhco3, dnh4, dhco2, doh
+!     real(8) :: c1, c2, c3, dhoh
+!     real(8) :: s1, s2, s3
+!     real(8) :: dso3, dso4, dhso3, dhso4, ds
+!     real(8) :: dco3, dhco3, dnh4, dhco2, doh
 
 !For Varaible used by TXHG Version
 !     REAL( 8 ) :: TRACER           ! TRACER acc aerosol in cloudwater (mol/liter)
@@ -477,7 +476,7 @@ C...........Local Variables (arrays):
       REAL      :: EWASHM, XL_EWASH, XL_EWASHM
       LOGICAL   :: DO_WETDEP
       real      :: faa, fbb, haa, hba
-      real :: hcl1
+!     real :: hcl1
 
 C...initialize counters and compute several conversion factors
 

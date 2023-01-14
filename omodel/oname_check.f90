@@ -1,35 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 subroutine oname_check()
 
 ! THIS ROUTINE CHECKS THE OPTION SPECIFICATIONS OF THE NAMELIST FILE OLAMIN
@@ -83,13 +51,14 @@ write(io6,*) ' '
 if ( (nl%runtype /= 'MAKEGRID'     ) .and. &
      (nl%runtype /= 'INITIAL'      ) .and. &
      (nl%runtype /= 'HISTORY'      ) .and. &
+     (nl%runtype /= 'MAKEADDGRID'  ) .and. &
      (nl%runtype /= 'HISTADDGRID'  ) .and. &
      (nl%runtype /= 'PLOTONLY'     ) .and. &
      (nl%runtype /= 'MAKEGRID_PLOT') ) then
    write(io6,*) " -- FATAL -- RUNTYPE = "//trim(nl%runtype)
    write(io6,*) "             RUNTYPE must be either 'MAKEGRID', 'INITIAL', "
-   write(io6,*) "             'HISTORY', 'HISTADDGRID', 'MAKEGRID_PLOT', "
-   write(io6,*) "             or 'PLOTONLY'"
+   write(io6,*) "             'HISTORY', 'MAKEADDGRID', 'HISTADDGRID', "
+   write(io6,*) "             'MAKEGRID_PLOT', or 'PLOTONLY'"
    nfatal = nfatal + 1
 endif
 
@@ -129,8 +98,8 @@ call rchk_bnds( nl%deltax,   "DELTAX",  dzxmin,  r_huge, 0, nfatal, nwarn )
 call ichk_bnds( nl%ndz,         "NDZ",       1,      10, 0, nfatal, nwarn )
 
 do idz=1, nl%ndz
-   call rchk_bnds( nl%hdz(idz), "HDZ",   0.0,  r_huge, 0, nfatal, nwarn )
-   call rchk_bnds( nl%dz (idz),  "DZ",   0.0,  r_huge, 0, nfatal, nwarn )
+   call rchk_bnds( nl%hdz(idz), "HDZ", -2000.0, r_huge, 0, nfatal, nwarn )
+   call rchk_bnds( nl%dz (idz),  "DZ",     0.0, r_huge, 0, nfatal, nwarn )
 
    if (idz > 1) then
       if (nl%hdz(idz) <= nl%hdz(idz-1) ) then
@@ -222,19 +191,6 @@ if (nl%mdomain < 2) then
       enddo
    enddo
 endif
-
-!--------------------------------------------------------------------------
-! TIMESTEP RATIOS
-!--------------------------------------------------------------------------
-
-do ng=1, nl%ngrids
-
- ! call ichk_bnds( nl%ndtrat(ng), "NDTRAT", 1,  2, 0, nfatal, nwarn ) ! future
-   call ichk_bnds( nl%ndtrat(ng), "NDTRAT", 1,  1, 2, nfatal, nwarn,   &
-        msgboth="NDTRAT must = 1 for all MRLs in this version of OLAM.")
-
-   call ichk_bnds( nl%nacoust(ng), "NACOUST", 1, 20, 0, nfatal, nwarn )
-enddo
 
 !--------------------------------------------------------------------------
 ! VARIABLE INITIALIZATION INPUT
@@ -398,37 +354,37 @@ elseif (nl%miclevel == 3) then
       write(io6,*) 'FATAL - icloud must be set to 0, 4, or 5.'
       nfatal = nfatal + 1
    endif
-   
+
    if (.not. any(nl%idriz == (/0, 5/) )) then
       write(io6,*) 'FATAL - idriz must be set to 0 or 5.'
       nfatal = nfatal + 1
    endif
-   
+
    if (.not. any(nl%irain == (/0, 2, 5/) )) then
       write(io6,*) 'FATAL - irain must be set to 0, 2, or 5.'
       nfatal = nfatal + 1
    endif
-   
+
    if (.not. any(nl%ipris == (/0, 5/) )) then
       write(io6,*) 'FATAL - ipris must be set to 0 or 5.'
       nfatal = nfatal + 1
    endif
-   
+
    if (.not. any(nl%isnow == (/0, 2, 5/) )) then
       write(io6,*) 'FATAL - isnow must be set to 0, 2, or 5.'
       nfatal = nfatal + 1
    endif
-   
+
    if (.not. any(nl%iaggr == (/0, 2, 5/) )) then
       write(io6,*) 'FATAL - iaggr must be set to 0, 2, or 5.'
       nfatal = nfatal + 1
    endif
-   
+
    if (.not. any(nl%igraup == (/0, 2, 5/) )) then
       write(io6,*) 'FATAL - igraup must be set to 0, 2, or 5.'
       nfatal = nfatal + 1
    endif
-   
+
    if (.not. any(nl%ihail == (/0, 2, 5/) )) then
       write(io6,*) 'FATAL - ihail must be set to 0, 2, or 5.'
       nfatal = nfatal + 1
@@ -458,7 +414,7 @@ elseif (nl%miclevel == 3) then
       write(io6,*) 'FATAL - idriz must set to 5 if both cloud and rain are turned on.'
       nfatal = nfatal + 1
    endif
- 
+
    if (nl%irain == 2) &
       call rchk_bnds( nl%rparm, "RPARM", 0., 1.e-2, 0, nfatal, nwarn )
 
@@ -578,7 +534,7 @@ if (nl%isfcl == 1) then
 
    if (nl%ivegflg == 2) &
         call ichk_bnds( nl%nvgcon, "NVGCON", 0, 20, 0, nfatal, nwarn )
-   
+
    if (nl%isstflg == 0) &
         call rchk_bnds( nl%seatmp, "SEATMP", 100., 500., 0, nfatal, nwarn )
 
@@ -621,7 +577,7 @@ if (nl%isfcl == 1) then
          nwarn = nwarn + 1
       endif
    endif
-   
+
 endif
 
 !--------------------------------------------------------------------------
@@ -662,9 +618,9 @@ if (nl%initial == 2 .and. nl%do_chem == 1) then
    endif
 
 endif
-      
+
 !--------------------------------------------------------------------------
-! ISENTROPIC CONTROL 
+! ISENTROPIC CONTROL
 !--------------------------------------------------------------------------
 
 !--------------------------------------------------------------------------
@@ -735,11 +691,11 @@ do iplt = 1, nl%nplt
         nfatal = nfatal + 1
 
 ! Planning to relax this condition eventually.
-! At present (12/20/2012), also may not use C plot projection for contouring at V 
+! At present (12/20/2012), also may not use C plot projection for contouring at V
 ! point, but this is not checked for.
 
    endif
-enddo    
+enddo
 
 ! TODO - add checks for the plotting variables
 
@@ -753,16 +709,6 @@ if (nl%mdomain /= 0 .and. nl%mdomain /= 3 .and. &
     nl%mdomain /= 4 .and. nl%mdomain /= 5) then
    write(io6,*) ' FATAL - MDOMAIN temporarily restricted to values of 0, 3, 4, or 5.'
    nfatal = nfatal + 1
-endif
-
-! TEMPORARY!! NACOUST MUST BE SAME ON ALL MESHES FOR THIS VERSION
-
-if (nl%ngrids > 1) then
-   if (any(nl%nacoust(2:nl%ngrids) /= nl%nacoust(1))) then
-      write(io6,*) 'FATAL - NACOUST must be at least the same for each mesh'
-      write(io6,*) 'refinement level IN THIS VERSION OF OLAM.'
-      nfatal = nfatal + 1
-   endif
 endif
 
 ! IF THIS IS A GLOBAL SIMULATION, PRINT MESSAGE THAT DELTAX WILL BE
@@ -786,7 +732,7 @@ if ((nl%initial == 2 .or. nl%initial == 3) .and. nl%mdomain /= 0) then
    write(io6,*) ' FATAL  - mdomain must be 0 if INITIAL = 2 or 3.'
    nfatal = nfatal + 1
 endif
-  
+
 ! CONVECTIVE PARAMETERIZATION MUST HAVE AT LEAST WATER VAPOR
 
 if (any(nl%nqparm(1:nl%ngrids) > 0) .and. nl%miclevel == 0) then
@@ -838,8 +784,8 @@ if (nfatal > 0) stop 'ONAME_CHECK'
 
 
 contains
-  
-  
+
+
   subroutine ichk_bnds(ivar, name, iminv, imaxv, iflag, nfatal, nwarn,  &
                        msgmin, msgmax, msgboth)
     implicit none
@@ -1010,7 +956,7 @@ contains
     else
        fstring = "F0.7"
     endif
-    
+
   end subroutine rsetformat
 
 
@@ -1095,9 +1041,9 @@ contains
     if (present(msgboth) .and. ((dvar < dminv) .or. (dvar > dmaxv))) &
          write(io6,*) msgboth
     if ((dvar < dminv) .or. (dvar > dmaxv)) write(io6,*) ''
-    
+
   end subroutine dchk_bnds
-    
+
 
 
   subroutine dsetformat(fstring, var)
@@ -1108,7 +1054,7 @@ contains
     else
        fstring = "F0.7"
     endif
-      
+
   end subroutine dsetformat
 
 

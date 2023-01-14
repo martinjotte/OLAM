@@ -1,36 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
-
 Module hdf5_utils
 
   use mem_para,    only: myrank
@@ -84,15 +51,15 @@ subroutine shdf5_open(locfn, access, idelete)
         if (access == 'R ') iaccess = 1
         if (access == 'RW') iaccess = 2
         call fh5f_open(locfn, iaccess, hdferr)
-        
+
         if (hdferr < 0) then
            print*, 'shdf5_open:'
            print*, '   Error opening hdf5 file - error -', hdferr
            print*, '   Filename: ',trim(locfn)
-           stop    'shdf5_open: open error'      
+           stop    'shdf5_open: open error'
         endif
      endif
-     
+
   elseif (access(1:1) == 'W') then
 
      if (.not. exists) then
@@ -103,7 +70,7 @@ subroutine shdf5_open(locfn, access, idelete)
            print*, 'shdf5_open: idelete not specified when access=W'
            stop    'shdf5_open: no idelete'
         endif
-      
+
         if (idelete == 0) then
            print*, 'In shdf5_open:'
            print*, '   Attempt to open an existing file for writing,'
@@ -208,7 +175,7 @@ subroutine shdf5_orec(ndims,dims,dsetname,bvars,ivars,rvars,cvars,dvars,lvars, &
   character(2), intent(in), optional :: stagpt
 
 ! Local variables
-  integer :: hdferr, ids
+  integer :: hdferr
 
 ! Check dimensions and set compression chunk size
 
@@ -299,7 +266,7 @@ subroutine shdf5_orec(ndims,dims,dsetname,bvars,ivars,rvars,cvars,dvars,lvars, &
   endif
 
 ! Link each variable to its dimensions
-  
+
   if ((present(dimnames)) .and. (.not. present(isdim))) then
      if (size(dimnames) >= ndims) call fh5f_attach_dims(ndims, dimnames, hdferr)
   endif
@@ -425,7 +392,7 @@ subroutine shdf5_orec2(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar1, 
   is      = 1
   do n = ndims-1, 1, -1
      maxbuff = maxbuff * dims(n)
-     locbuff = locbuff * dims(n) 
+     locbuff = locbuff * dims(n)
      is      = is      * dims(n)
   enddo
 
@@ -445,7 +412,7 @@ subroutine shdf5_orec2(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar1, 
   endif
 
   if (myrank > 0 .and. nu > 0) then
-     
+
      call MPI_Send(gpoints, nu, MPI_INTEGER, 0, itag, MPI_COMM_WORLD, ier)
 
      if (present(ivar1) .or. present(ivar2) .or. present(ivar3) .or. present(ivar4)) then
@@ -642,7 +609,7 @@ subroutine shdf5_orec2(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar1, 
   endif
 
 ! Link each variable to its dimensions
-  
+
   if ((present(dimnames)) .and. (.not. present(isdim))) then
      if (size(dimnames) >= ndims) call fh5f_attach_dims(ndims, dimnames, hdferr)
   endif
@@ -881,7 +848,7 @@ subroutine shdf5_orec_ll(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar1
                                              units, long_name, positive,     &
                                              imissing, rmissing, dmissing,   &
                                              isdim, dimnames, standard_name, &
-                                             cell_methods, cache_id          )
+                                             cell_methods                    )
 
   use oname_coms,  only: nl
   use misc_coms,   only: iparallel
@@ -919,9 +886,6 @@ subroutine shdf5_orec_ll(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar1
 
 ! Indicate names of each dimension
   character(*), intent(in), optional, contiguous :: dimnames(:)
-
-! Dataspace cache id
-  integer,      intent(in), optional :: cache_id
 
 ! Local variables
   integer :: hdferr
@@ -1059,8 +1023,7 @@ subroutine shdf5_orec_ll2(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar
                                               isdim, dimnames, standard_name, &
                                               cell_methods                    )
 
-  use oname_coms,  only: nl
-  use mem_para,    only: mgroupsize, myrank
+  use mem_para, only: mgroupsize, myrank
   use hdf5_f2f
   use mpi
 

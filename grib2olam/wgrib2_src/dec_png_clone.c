@@ -47,12 +47,12 @@ int dec_png_clone(unsigned char *pngbuf,int *width,int *height,char *cout)
 
 /*  check if stream is a valid PNG format   */
 
-    if ( png_sig_cmp(pngbuf,0,8) != 0) 
+    if ( png_sig_cmp(pngbuf,0,8) != 0)
        return (-3);
 
 /* create and initialize png_structs  */
 
-    png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, (png_voidp)NULL, 
+    png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, (png_voidp)NULL,
                                       NULL, NULL);
     if (!png_ptr)
        return (-1);

@@ -330,7 +330,7 @@ int f_new_grid(ARG4) {
 
 
         else if (strncmp(arg1,"mercator:",9) == 0) {
-            if (sscanf(arg1,"mercator:%lf",  &lad) != 1) 
+            if (sscanf(arg1,"mercator:%lf",  &lad) != 1)
                 fatal_error("new_grid: LaD (latitude interesection) not specified","");
             if (sscanf(arg2,"%lf:%d:%lf:%lf", &x0, &nnx, &dx, &xn) != 4)
                 fatal_error("new_grid: XDEF wrong:%s",arg2);
@@ -527,7 +527,7 @@ int f_new_grid(ARG4) {
 
 	        ref_lon = x0;
 	        ref_lat = y0;
- 
+
 	        i = new_grid_lambertc(nnx, nny, ref_lon, ref_lat, latin1, latin2, lov, lad, r_maj, r_min, dx, dy, &x0, &y0);
 	        if (i) fatal_error_i("new_grid_lambertc: error code %d", i);
 
@@ -605,7 +605,7 @@ int f_new_grid(ARG4) {
         bitmap_out = (unsigned char *) malloc(sizeof(unsigned char) * (size_t) n_out);
 	data_out = (float *) malloc((1 + (is_v != 0)) * sizeof(float) * (size_t) n_out);
 
-	if (data_in == NULL || data_out == NULL || bitmap == NULL || bitmap_out == NULL) 
+	if (data_in == NULL || data_out == NULL || bitmap == NULL || bitmap_out == NULL)
 	    fatal_error("new_grid: memory allocation problem","");
 
 	if (is_v) {
@@ -650,13 +650,13 @@ int f_new_grid(ARG4) {
 	ftn_npnts = (int) npnts;
 	ftn_nout = (int) n_out;
 	if (is_v) {
-	    IPOLATEV(&interpol_type, ipopt,kgds,save->kgds_out, 
-		&ftn_npnts, &n_out, &km, &ibi, bitmap, data_in, data_in+npnts, 
+	    IPOLATEV(&interpol_type, ipopt,kgds,save->kgds_out,
+		&ftn_npnts, &n_out, &km, &ibi, bitmap, data_in, data_in+npnts,
 		&ftn_nout,save->rlat,save->rlon, save->crot, save->srot,
                 &ibo, bitmap_out, data_out, data_out + n_out, &iret);
 	}
 	else {
-	    IPOLATES(&interpol_type, ipopt,kgds,save->kgds_out, 
+	    IPOLATES(&interpol_type, ipopt,kgds,save->kgds_out,
 		&ftn_npnts, &n_out, &km, &ibi, bitmap, data_in, &ftn_nout,
 		save->rlat,save->rlon, &ibo, bitmap_out, data_out, &iret);
 	}
@@ -667,7 +667,7 @@ int f_new_grid(ARG4) {
 	    if (iret == 2) fatal_error("IPOLATES failed, unrecognized input grid or no grid point of output grid is in input grid","");
 	    if (iret == 3) fatal_error("IPOLATES failed, unrecognized output grid","");
 	    fatal_error_i("IPOLATES failed, error %d",iret);
-	   
+	
 	}
 	n_out = (unsigned int) ftn_nout;
 
@@ -683,7 +683,7 @@ int f_new_grid(ARG4) {
 		    if (bitmap_out[i] == 0) data_out[i] = UNDEFINED;
 		}
             }
-	} 
+	}
 
 	// now to write out the grib file
 
@@ -762,7 +762,7 @@ static int interpol_type = 0;
 static int ipopt[20] = {-1,-1,0, 0,0,0, 0,0,0, 0};
 
 int f_new_grid_interpolation(ARG1) {
-   
+
 #ifdef USE_SPECTRAL
    char type;
    int max_wave;
@@ -1088,7 +1088,7 @@ int f_new_grid(ARG4) {
 	    save->defined_lat_lon = 1;
 
 	    /* setup sec3 */
-	    
+	
 	    int_char(35, unstruct_grid_sec3 + 0);	/* size of sec 3 */
 	    unstruct_grid_sec3[4] = 3;			/* this is sec 3 */
 	    unstruct_grid_sec3[5] = 0;
@@ -1159,8 +1159,8 @@ int f_new_grid(ARG4) {
         save->data_out = (double *) malloc(2 * sizeof(double) * (size_t) n_out);
         save->data_wrt = (float *) malloc(sizeof(double) * (size_t) n_out);
         save->bitmap_out = (unsigned char *) malloc(sizeof(char) * (size_t) n_out);
-	if (save->rlat == NULL || save->rlon == NULL || save->crot == NULL || save->srot == NULL || 
-		save->data_out == NULL || save->data_wrt == NULL || save->bitmap_out == NULL) 
+	if (save->rlat == NULL || save->rlon == NULL || save->crot == NULL || save->srot == NULL ||
+		save->data_out == NULL || save->data_wrt == NULL || save->bitmap_out == NULL)
                 fatal_error("new_grid memory allocation","");
         return 0;
     }
@@ -1313,7 +1313,7 @@ int f_new_grid(ARG4) {
             return 0;
         }
 
-        // if U field - to sec 
+        // if U field - to sec
 
         if (is_u) {
             if (save->has_u > 0) {
@@ -1393,9 +1393,9 @@ int f_new_grid(ARG4) {
 
 	/* data format for ipolates, calling double precision ip2lib
            double precision data_in[0..npts-1] for scalar
-           double precision data_in[0..2*npts-1] for vector 
+           double precision data_in[0..2*npts-1] for vector
            ibi = 0 if bitmap[] is not used (all defined)
-                 1 if bitmap[] is used 
+                 1 if bitmap[] is used
          */
 
 	ibi = 0;
@@ -1443,15 +1443,15 @@ int f_new_grid(ARG4) {
 
         if (is_v) {
             IPOLATEV(&tmp_interpol_type, ipopt, &gdtnum_in, &(gdt_in[0]), &gdt_in_size,
-                &(save->gdtnum_out), 
+                &(save->gdtnum_out),
 		&(save->gdt_out[0]), &(save->gdt_out_size),
                 &ftn_npnts, &ftn_nout, &km, &ibi, bitmap, data_in, data_in+ndata, &n_out,
-                save->rlat,save->rlon,save->crot,save->srot, &ibo, save->bitmap_out, save->data_out, 
+                save->rlat,save->rlon,save->crot,save->srot, &ibo, save->bitmap_out, save->data_out,
                 save->data_out + n_out, &iret);
         }
         else {
             IPOLATES(&tmp_interpol_type, ipopt, &gdtnum_in, &(gdt_in[0]), &gdt_in_size,
-                &(save->gdtnum_out), 
+                &(save->gdtnum_out),
 		&(save->gdt_out[0]), &(save->gdt_out_size),
                 &ftn_npnts, &ftn_nout, &km, &ibi, bitmap, data_in, &n_out,
                 save->rlat,save->rlon, &ibo, save->bitmap_out, save->data_out, &iret);
@@ -1567,7 +1567,7 @@ int f_new_grid(ARG4) {
         }
 
 	if (flush_mode) fflush_file(&(save->out));
-	/* cleanup for u/v case */    
+	/* cleanup for u/v case */
         if (is_v != 0) {
             save->has_u = 0;
             free(save->u_val);

@@ -1,16 +1,16 @@
 !
 ! Copyright (C) 1991-2003  ; All Rights Reserved ; ATMET, LLC
-! 
+!
 ! This file is free software; you can redistribute it and/or modify it under the
-! terms of the GNU General Public License as published by the Free Software 
+! terms of the GNU General Public License as published by the Free Software
 ! Foundation; either version 2 of the License, or (at your option) any later version.
-! 
-! This software is distributed in the hope that it will be useful, but WITHOUT ANY 
-! WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A 
+!
+! This software is distributed in the hope that it will be useful, but WITHOUT ANY
+! WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
 ! PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 !
-! You should have received a copy of the GNU General Public License along with this 
-! program; if not, write to the Free Software Foundation, Inc., 
+! You should have received a copy of the GNU General Public License along with this
+! program; if not, write to the Free Software Foundation, Inc.,
 ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 !======================================================================================
 
@@ -646,7 +646,7 @@ contains
 !************************************************************************
 
   subroutine ir_popen_integer(nbuff, buff, cmd, len)
-    use, intrinsic :: iso_c_binding, only: c_ptr, c_loc, c_sizeof
+    use, intrinsic :: iso_c_binding, only: c_ptr, c_char, c_loc, c_sizeof
     implicit none
 
     integer,      intent(in)            :: nbuff
@@ -655,17 +655,19 @@ contains
     integer,      intent(in)            :: len
     type(c_ptr)                         :: buffc
     integer                             :: ibuff
+    character(len=len_trim(cmd)+1, kind=c_char) :: cstring
 
     buffc = c_loc(buff(1))
     ibuff = nbuff * c_sizeof(1)
 
-    call ir_popenc(ibuff, buffc, f2cstring(cmd), len)
+    cstring = f2cstring(cmd)
+    call ir_popenc(ibuff, buffc, cstring, len)
   end subroutine ir_popen_integer
 
 !************************************************************************
 
   subroutine ir_popen_real(nbuff, buff, cmd, len)
-    use, intrinsic :: iso_c_binding, only: c_ptr, c_loc, c_sizeof
+    use, intrinsic :: iso_c_binding, only: c_ptr, c_char, c_loc, c_sizeof
     implicit none
 
     integer,      intent(in)            :: nbuff
@@ -674,17 +676,19 @@ contains
     integer,      intent(in)            :: len
     type(c_ptr)                         :: buffc
     integer                             :: ibuff
+    character(len=len_trim(cmd)+1, kind=c_char) :: cstring
 
     buffc = c_loc(buff(1))
     ibuff = nbuff * c_sizeof(1.0)
 
-    call ir_popenc(ibuff, buffc, f2cstring(cmd), len)
+    cstring = f2cstring(cmd)
+    call ir_popenc(ibuff, buffc, cstring, len)
   end subroutine ir_popen_real
 
 !************************************************************************
 
   subroutine ir_popen_chars(nbuff, buff, cmd, len)
-    use, intrinsic :: iso_c_binding, only: c_ptr, c_loc
+    use, intrinsic :: iso_c_binding, only: c_ptr, c_char, c_loc
     implicit none
 
     integer,      intent(in)                          :: nbuff
@@ -692,10 +696,12 @@ contains
     character(*), intent(in)                          :: cmd
     integer,      intent(in)                          :: len
     type(c_ptr)                                       :: buffc
+    character(len=len_trim(cmd)+1, kind=c_char)       :: cstring
 
     buffc = c_loc(buff(1))
 
-    call ir_popenc(nbuff, buffc, f2cstring(cmd), len)
+    cstring = f2cstring(cmd)
+    call ir_popenc(nbuff, buffc, cstring, len)
   end subroutine ir_popen_chars
 
 end module grib_get_mod

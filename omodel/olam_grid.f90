@@ -1,67 +1,37 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University;
-   ! Colorado State University Research Foundation ; ATMET, LLC
-
-   ! This software is free software; you can redistribute it and/or modify it
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version.
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
-
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
-   ! (http://www.gnu.org/licenses/gpl.html)
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 subroutine gridinit()
 
-  use misc_coms,   only: io6, mdomain, ngrids, initial, nxp, nzp, &
-                         alloc_misc, runtype, &
-                         iyear1, imonth1, idate1, itime1
-
-  use mem_land,    only: nland
-  use mem_sea,     only: nsea
-
-  use mem_ijtabs,  only: istp, mrls, fill_jtabs, itab_w
+  use misc_coms,   only: io6, mdomain, ngrids, nxp, alloc_misc, runtype
+  use consts_coms, only: r8
+  use mem_ijtabs,  only: mrls, fill_jtabs, itab_w
 
   use mem_delaunay,only: itab_md, itab_ud, itab_wd, xemd, yemd, zemd, &
                          copy_tri_grid, copyback_tri_grid, nmd, nud, nwd
 
-  use oplot_coms,  only: op
-  use mem_grid,    only: nza, nma, nua, nva, nwa, &
-                         zm, zt, dzt, xem, yem, zem, xew, yew, zew, glatw, glonw, &
+  use mem_grid,    only: nza, nma, nua, nva, nwa, mma, mva, mwa, zm, &
+                         xew, yew, zew, glatw, glonw, arw0, &
                          alloc_grid1, alloc_grid2, alloc_gridz_other
+
   use mem_nudge,   only: nudflag, nudnxp, nwnud, itab_wnud, alloc_nudge1, &
                          xewnud, yewnud, zewnud
-  use mem_sfcg,    only: sfcgrid_res_factor, nsfcgrids, nmsfc, nvsfc, nwsfc
+
+  use mem_sfcg,    only: sfcg, sfcgrid_res_factor, itab_wsfc, &
+                         nmsfc, nvsfc, nwsfc, mmsfc, mvsfc, mwsfc
 
   implicit none
 
   integer :: npoly
   integer :: j, jmaxneg, jminpos
-  integer :: imd,imd1,imd2,iud,iwd,iwnud,iwnudn,iw
+  integer :: imd,imd1,imd2,iud,iwnud,iwnudn,iw
+  integer :: kw_sea, kw_land, iwsfc
+  integer :: nn, nxp00
 
   real :: scalprod, vecprodz, vecprodz_maxneg, vecprodz_minpos
   real :: b11,b21,b31,b12,b22,b32,b13,b23,b33
   real :: dist_wnud,dist,dist_min,xi,yi
   real :: xin(6),yin(6)
+
+  real(r8), allocatable :: tot_area(:)
+  real(r8)              :: area_tot
 
   ! Vertical ATM grid coordinate setup
 
@@ -146,7 +116,24 @@ subroutine gridinit()
 
      mrls = 1  ! default value
 
-     call icosahedron(nxp)  ! global spherical domain; calls 2 allocs
+     nxp00 = nxp
+     nn = 1
+
+     do while( mod(nxp00,3)==0 .and. nxp00/3 >= 21 )
+        nxp00 = nxp00 / 3
+        nn = nn * 3
+     enddo
+
+     do while( mod(nxp00,2)==0 .and. nxp00/2 >= 21 )
+        nxp00 = nxp00 / 2
+        nn = nn * 2
+     enddo
+
+     call icosahedron(nxp00)  ! global spherical domain; calls 2 allocs
+
+     if (nn > 1) then
+        call expand_delaunay_mesh(nn, .true.)
+     endif
 
      write(io6,'(/,a)') 'gridinit after icosahedron'
      write(io6,'(a,i0)')    ' nmd = ',nmd
@@ -176,9 +163,6 @@ subroutine gridinit()
 
   endif
 
-  ! If independent refinement of surface grid will be done and uses ATM grid 1
-  ! as its root, copy grid 1 quantities to surface grid
-
   if (ngrids > 1 .and. (mdomain == 0 .or. mdomain == 5)) then
 
      write(io6,'(/,a,i0)') 'gridinit calling spawn_nest for ngrids = ',ngrids
@@ -199,7 +183,7 @@ subroutine gridinit()
      nwa = nmd
   endif
 
-  if (mdomain /= 4) then
+  if (mdomain /= 4 .and. runtype /= 'MAKEADDGRID') then
      ! Store a temporaty copy of the full Delaunay mesh
      ! to be used later to construct the surface grid
      call copy_tri_grid()
@@ -225,8 +209,7 @@ subroutine gridinit()
 
      call alloc_grid1(nma, nva, nwa)
 
-     ! Initialize dtlm, dtsm, ndtrat, and nacoust,
-     ! and compute the timestep schedule for all grid operations.
+     ! Initialize long and short timesteps, and compute the timestep schedule for all operations
 
      write(io6,'(/,a)') 'gridinit calling modsched'
 
@@ -234,7 +217,7 @@ subroutine gridinit()
 
      write(io6,'(/,a)') 'gridinit calling fill_jtabs'
 
-     call fill_jtabs(nma,nva,nwa,0)
+     call fill_jtabs(nma,nva,nwa)
 
      ! Fill remaining GRID FOOTPRINT geometry for full domain
 
@@ -244,23 +227,29 @@ subroutine gridinit()
 
   endif
 
-  if (mdomain /= 4) then
-     call copyback_tri_grid()
+  ! Generate SFCGRID only if runtype = 'MAKEGRID' or 'MAKEGRID_PLOT'
 
-     if (sfcgrid_res_factor > 1) then
-        call expand_delaunay_mesh(sfcgrid_res_factor, .false.)
+  if (runtype == 'MAKEGRID' .or. runtype == 'MAKEGRID_PLOT') then
+
+     if (mdomain /= 4) then
+        call copyback_tri_grid()
+
+        if (sfcgrid_res_factor > 1) then
+           call expand_delaunay_mesh(sfcgrid_res_factor, .false.)
+        endif
      endif
-  endif
 
-  write(io6,'(/,a)') 'gridinit calling makesfc3'
+     write(io6,'(/,a)') 'gridinit calling makesfc3'
 
-  if (mdomain <= 1) call makesfc3()
+     if (mdomain <= 1) call makesfc3()
 
-  if (runtype == 'MAKEGRID_PLOT') then
-     nmsfc = nwd
-     nvsfc = nud
-     nwsfc = nmd
-     return
+     if (runtype == 'MAKEGRID_PLOT') then
+        nmsfc = nwd
+        nvsfc = nud
+        nwsfc = nmd
+        return
+     endif
+
   endif
 
   ! Allocate remaining unstructured grid geometry arrays
@@ -268,6 +257,70 @@ subroutine gridinit()
   write(io6,'(/,a)') 'gridinit calling alloc_grid2'
 
   call alloc_grid2(nma, nva, nwa)
+
+  ! read selected SFCGRID values for MAKEADDGRID run
+  if (runtype == 'MAKEADDGRID') call sfcgfile_read_makeaddgrid()
+
+  ! Compute overlay of ATM and SFC grids
+  call sfc_atm_hex_overlay()
+
+  ! Vertical index for sea (ocean) cells
+
+  kw_sea = 2
+  do while(zm(kw_sea) < 0.1) ! .1-meter threshold
+     kw_sea = kw_sea + 1
+  enddo
+
+  do iwsfc = 2, nwsfc
+     if (sfcg%leaf_class(iwsfc) == 0) then
+
+        itab_wsfc(iwsfc)%kwatm = kw_sea
+
+     else
+
+        kw_land = 2
+        do while(zm(kw_land) < .1 + sfcg%topw(iwsfc)) ! .1-meter threshold
+           kw_land = kw_land + 1
+        enddo
+
+        itab_wsfc(iwsfc)%kwatm = kw_land
+
+     endif
+  enddo
+
+  allocate(tot_area(nwa))
+  tot_area(:) = 0.0_r8
+
+  ! Loop over all surface cells
+
+  do iwsfc = 2,nwsfc
+
+     ! Loop over ATM coupling areas of current surface cell
+
+     do j = 1,itab_wsfc(iwsfc)%nwatm
+        iw = itab_wsfc(iwsfc)%iwatm(j)
+        tot_area(iw) = tot_area(iw) + itab_wsfc(iwsfc)%arc(j)
+     enddo
+  enddo
+
+  ! Scale surface cell and ATM coupling areas slightly so that coupling areas sum
+  ! almost exactly to arw0 within an ATM column
+
+  do iwsfc = 2,nwsfc
+     area_tot = 0.
+
+     do j = 1,itab_wsfc(iwsfc)%nwatm
+        iw  = itab_wsfc(iwsfc)%iwatm(j)
+
+        itab_wsfc(iwsfc)%arc(j) = itab_wsfc(iwsfc)%arc(j) * arw0(iw) / tot_area(iw)
+
+        area_tot = area_tot + itab_wsfc(iwsfc)%arc(j)
+     enddo
+
+     sfcg%area(iwsfc) = area_tot
+  enddo
+
+  deallocate(tot_area)
 
   ! Set up control volumes in atmospheric grid
 
@@ -414,10 +467,20 @@ subroutine gridinit()
   write(io6,'(/,a)') 'gridinit calling gridfile_write'
   call gridfile_write()
 
-  if (mdomain <= 1) then
+  if (mdomain <= 1 .and. runtype /= 'MAKEADDGRID') then
      write(io6,'(/,a)') 'calling sfcgfile_write'
      call sfcgfile_write()
   endif
+
+  ! Do the following in case plotting will be done
+
+  mma = nma
+  mva = nva
+  mwa = nwa
+
+  mmsfc = nmsfc
+  mvsfc = nvsfc
+  mwsfc = nwsfc
 
   write(io6,'(/,a)') 'gridinit completed'
 
@@ -437,9 +500,9 @@ subroutine gridset2()
 
   implicit none
 
-  integer :: idz, kvec, nseries, iseries, k
+  integer :: idz, kvec, nseries, iseries, k, kd
 
-  real :: zend, dzend, dzbeg, ztarg, dzr, rdzr
+  real :: zend, dzend, dzbeg, ztarg, dzr, rdzr, zshift
 
   real, allocatable :: zmvec(:),ztvec(:)
 
@@ -529,9 +592,35 @@ subroutine gridset2()
 
      5 continue
 
+     ! If hdz(1) < 0 in order to accomodate geographic areas that are below
+     ! sea level, determine the height of the lowest zmvec level that is above
+     ! sea level.  Reduce all zmvec and ztvec values by the amount of that height
+     ! so that one zmvec value exactly coincides with sea level.  Then, determine
+     ! how many zmvec values are below the value of hdz(1).  Discard all such
+     ! levels and copy the remainder to arrays zm and zt.
+
+     kd = 0
+
+     if (hdz(1) < 0) then
+        k = 2
+        do while (zmvec(k) < 0.)
+           k = k + 1
+        enddo
+
+        zshift = zmvec(k)
+
+        zmvec(:) = zmvec(:) - zshift
+        ztvec(:) = ztvec(:) - zshift
+
+        kd = 0
+        do while (zmvec(kd+2) < hdz(1))
+           kd = kd + 1
+        enddo
+     endif
+
      ! Fill NZA and MZA values
 
-     nza = kvec
+     nza = kvec - kd
      mza = nza
 
      if (nza < 2) then
@@ -542,11 +631,11 @@ subroutine gridset2()
 
      ! Fill top 2 ZMVEC and ZTVEC values
 
-     zmvec(nza)   = zmvec(nza-1) * 2. - zmvec(nza-2)
-     zmvec(nza+1) = zmvec(nza)   * 2. - zmvec(nza-1)
+     zmvec(kvec)   = zmvec(kvec-1) * 2. - zmvec(kvec-2)
+     zmvec(kvec+1) = zmvec(kvec)   * 2. - zmvec(kvec-1)
 
-     ztvec(nza)   = .5 * (zmvec(nza-1) + zmvec(nza))
-     ztvec(nza+1) = .5 * (zmvec(nza) + zmvec(nza+1))
+     ztvec(kvec)   = .5 * (zmvec(kvec-1) + zmvec(kvec))
+     ztvec(kvec+1) = .5 * (zmvec(kvec) + zmvec(kvec+1))
 
   endif
 
@@ -557,11 +646,11 @@ subroutine gridset2()
   ! Other vertical coordinate values
 
   do k = 1,nza
-     zm(k) = zmvec(k)
-     zt(k) = ztvec(k)
+     zm(k) = zmvec(k+kd)
+     zt(k) = ztvec(k+kd)
 
-     dzm(k) = ztvec(k+1) - ztvec(k)
-     dzt(k) = zmvec(k) - zmvec(k-1)
+     dzm(k) = ztvec(k+kd+1) - ztvec(k+kd)
+     dzt(k) = zmvec(k+kd) - zmvec(k+kd-1)
 
      dzim(k) = 1. / dzm(k)
      dzit(k) = 1. / dzt(k)
@@ -608,7 +697,7 @@ end subroutine gridset2
 
 subroutine grav_init()
 
-  use mem_grid,    only: mza, zfacim, zfacit, gravm, gravt
+  use mem_grid,    only: zfacim, zfacit, gravm, gravt
   use consts_coms, only: grav
   use oname_coms,  only: nl
 
@@ -637,7 +726,7 @@ end subroutine grav_init
 subroutine gridset_print()
 
 use misc_coms, only: io6, runtype, mdomain
-use mem_grid,  only: nza, zm, zt, dzt, nma, nua, nva, nwa
+use mem_grid,  only: nza, zm, zt, dzt, nma, nva, nwa
 use mem_sfcg,  only: nwsfc
 use mem_land,  only: nland
 use mem_lake,  only: nlake
@@ -701,19 +790,20 @@ subroutine gridfile_write()
 
   use max_dims,   only: maxngrdll, pathlen
   use misc_coms,  only: io6, ngrids, gridfile, mdomain, nzp, nxp, &
-       iclobber, itopoflg, deltax, ndz, hdz, dz, ngrdll, grdrad, grdlat, grdlon
-  use mem_ijtabs, only: mloops, mrls, &
-       itab_m, itab_v, itab_w
+                        iclobber, itopoflg, deltax, ndz, hdz, dz, &
+                        ngrdll, grdrad, grdlat, grdlon
+  use mem_ijtabs, only: mloops, mrls, itab_m, itab_v, itab_w
   use mem_grid,   only: nza, nma, nua, nva, nwa, nsw_max, &
-       zm, zt, dzm, dzt, dzim, dzit, &
-       zfacm, zfact, zfacim, zfacit, zfacm2, zfacim2, &
-       lpm, lpv, lpw, lsw, lve2, nve2_max, &
-       topm, topw, xem, yem, zem, &
-       xev, yev, zev, xew, yew, zew, &
-       unx, uny, unz, vnx, vny, vnz, wnx, wny, wnz, &
-       dnu, dniu, dnv, dniv, arw0, arm0, &
-       glatw, glonw, glatm, glonm, glatv, glonv, &
-       arv, arw, volt
+                        zm, zt, dzm, dzt, dzim, dzit, &
+                        zfacm, zfact, zfacim, zfacit, zfacm2, zfacim2, &
+                        lpm, lpv, lpw, lsw, lve2, nve2_max, &
+                        topm, topw, xem, yem, zem, &
+                        xev, yev, zev, xew, yew, zew, &
+                        unx, uny, unz, vnx, vny, vnz, wnx, wny, wnz, &
+                        dnu, dniu, dnv, dniv, arw0, arm0, &
+                        glatw, glonw, glatm, glonm, glatv, glonv, &
+                        arv, arw, volt
+  use mem_sfcg,   only: sfcg, nwsfc, itab_wsfc
   use leaf_coms,  only: isfcl
 
   use hdf5_utils, only: shdf5_orec, shdf5_open, shdf5_close
@@ -1248,6 +1338,69 @@ subroutine gridfile_write()
 
   endif
 
+  ! If SFCGRID is active, write ATM-SFCGRID coupling information
+
+  if (mdomain <= 1) then
+
+     ! Write the grid dimensions
+
+     ndims = 1
+     idims(1) = 1
+
+     call shdf5_orec(ndims, idims, 'nwsfc'  , ivars=nwsfc)
+
+     ndims    = 1
+     idims(1) = nwsfc
+
+     call shdf5_orec(ndims, idims, 'dzt_bot'   , rvar1=sfcg%dzt_bot)
+
+     allocate (iscr1(nwsfc))
+     do iw = 1,nwsfc
+        iscr1(iw) = itab_wsfc(iw)%nwatm
+     enddo
+     call shdf5_orec(ndims,idims,'itab_wsfc%nwatm'    ,ivar1=iscr1)
+     deallocate(iscr1)
+
+     ndims = 2
+     idims(1) = 8
+     idims(2) = nwsfc
+
+     allocate (iscr2(8,nwsfc))
+     do iw = 1,nwsfc
+        iscr2(1:8,iw) = itab_wsfc(iw)%iwatm(1:8)
+     enddo
+     call shdf5_orec(ndims,idims,'itab_wsfc%iwatm',ivar2=iscr2)
+
+     do iw = 1,nwsfc
+        iscr2(1:8,iw) = itab_wsfc(iw)%kwatm(1:8)
+     enddo
+     call shdf5_orec(ndims,idims,'itab_wsfc%kwatm',ivar2=iscr2)
+     deallocate(iscr2)
+
+     allocate (rscr2(8,nwsfc))
+     do iw = 1,nwsfc
+        rscr2(1:8,iw) = itab_wsfc(iw)%arc(1:8)
+     enddo
+     call shdf5_orec(ndims,idims,'itab_wsfc%arc',rvar2=rscr2)
+
+     do iw = 1,nwsfc
+        rscr2(1:8,iw) = itab_wsfc(iw)%arcoarsfc(1:8)
+     enddo
+     call shdf5_orec(ndims,idims,'itab_wsfc%arcoarsfc',rvar2=rscr2)
+
+     do iw = 1,nwsfc
+        rscr2(1:8,iw) = itab_wsfc(iw)%arcoariw(1:8)
+     enddo
+     call shdf5_orec(ndims,idims,'itab_wsfc%arcoariw',rvar2=rscr2)
+
+     do iw = 1,nwsfc
+        rscr2(1:8,iw) = itab_wsfc(iw)%arcoarkw(1:8)
+     enddo
+     call shdf5_orec(ndims,idims,'itab_wsfc%arcoarkw',rvar2=rscr2)
+     deallocate(rscr2)
+
+  endif
+
   ! Close GRIDFILE
 
   call shdf5_close()
@@ -1269,8 +1422,8 @@ subroutine gridfile_read_pd()
                         itab_m_pd, itab_v_pd, itab_w_pd, alloc_itabs_pd
   use mem_grid,   only: nza, nma, nua, nva, nwa, &
                         mza, mma, mua, mva, mwa, nsw_max, nve2_max, &
-                        xem, yem, zem, xew, yew, zew, arw0, &
-                        alloc_xyzem, alloc_xyzew
+                        xew, yew, zew, arw0, alloc_xyzem, alloc_xyzew
+  use mem_sfcg,   only: nwsfc, itab_wsfc_pd
   use leaf_coms,  only: isfcl
 
   use hdf5_utils, only: shdf5_irec, shdf5_open, shdf5_close
@@ -1285,7 +1438,7 @@ subroutine gridfile_read_pd()
 
   implicit none
 
-  integer :: im, iv, iw, idz
+  integer :: im, iv, iw, idz, iwsfc
 
   integer :: ierr
 
@@ -1310,8 +1463,6 @@ subroutine gridfile_read_pd()
 
   integer, allocatable :: iscr1(:)
   integer, allocatable :: iscr2(:,:)
-  real,    allocatable :: rscr2(:,:)
-  logical, allocatable :: lscr2(:,:)
 
   character(pathlen) :: flnm
 
@@ -1690,6 +1841,43 @@ subroutine gridfile_read_pd()
 
   endif
 
+  ! If SFCGRID is active, read ATM-SFCGRID coupling information
+
+  if (mdomain <= 1) then
+
+     ! Read the grid dimensions
+
+     ndims = 1
+     idims(1) = 1
+
+     call shdf5_irec(ndims, idims, 'nwsfc'  , ivars=nwsfc)
+
+   !!  allocate (itab_wsfc_pd(nwsfc))
+
+     ! Read ATM-SFCGRID coupling information
+
+     idims(1) = nwsfc
+
+     allocate (iscr1(nwsfc))
+     call shdf5_irec(ndims,idims,'itab_wsfc%nwatm'     ,ivar1=iscr1)
+     do iwsfc = 1,nwsfc
+        itab_wsfc_pd(iwsfc)%nwatm = iscr1(iwsfc)
+     enddo
+     deallocate(iscr1)
+
+     ndims    = 2
+     idims(1) = 8
+     idims(2) = nwsfc
+
+     allocate (iscr2(8,nwsfc))
+     call shdf5_irec(ndims,idims,'itab_wsfc%iwatm',ivar2=iscr2)
+     do iwsfc = 1,nwsfc
+        itab_wsfc_pd(iwsfc)%iwatm(1:8) = iscr2(1:8,iwsfc)
+     enddo
+     deallocate(iscr2)
+
+  endif
+
   ! Close the GRIDFILE
 
   call shdf5_close()
@@ -1704,27 +1892,19 @@ end subroutine gridfile_read_pd
 subroutine gridfile_read()
 
   use max_dims,   only: pathlen
-  use misc_coms,  only: io6, ngrids, gridfile, mdomain, nzp, nxp, &
-                        itopoflg, deltax, ndz, hdz, dz
-  use mem_ijtabs, only: mloops, mrls, &
-                        itab_m, itab_v, itab_w
-  use mem_grid,   only: nza, &
-                        mza, mma, mua, mva, mwa, &
+  use misc_coms,  only: io6, gridfile, mdomain
+  use mem_ijtabs, only: mloops,itab_m, itab_v, itab_w
+  use mem_grid,   only: nza, mma, mva, mwa, &
                         zm, zt, dzm, dzt, dzim, dzit, &
                         zfacm, zfact, zfacim, zfacit, zfacm2, zfacim2, &
-                        lpm, lpv, lpw, lsw, lve2, &
-                        topm, topw, &
-                        xem, yem, zem, xev, yev, zev, xew, yew, zew, &
+                        lpm, lpv, lpw, lsw, lve2, topm, topw, &
+                        xem, yem, zem, xev, yev, zev, &
                         unx, uny, unz, vnx, vny, vnz, wnx, wny, wnz, &
-                        dnu, dniu, dnv, dniv, arw0, arm0, &
+                        dnu, dniu, dnv, dniv, arm0, &
                         glatw, glonw, glatm, glonm, glatv, glonv, &
                         arv, arw, volt
-  use leaf_coms,  only: isfcl
-
   use hdf5_utils, only: shdf5_irec, shdf5_open, shdf5_close
-
-  use mem_nudge,  only: nudflag, nudnxp, nwnud, mwnud, itab_wnud, &
-                        xewnud, yewnud, zewnud
+  use mem_nudge,  only: nudflag, nudnxp
 
   ! This subroutine checks for the existence of a gridfile, and if it exists,
   ! also checks for agreement of grid configuration between the file and the
@@ -1733,17 +1913,8 @@ subroutine gridfile_read()
 
   implicit none
 
-  integer :: im, iv, iw, iwnud
-
-  integer :: ierr
-
-  integer :: ngr, i
+  integer :: im, iv, iw
   integer :: ndims, idims(2)
-
-  integer :: ngrids0, mdomain0, nxp0, nzp0, itopoflg0, isfcl0
-
-  real    :: deltax0, deltaz0, dzrat0, dzmax0, zbase0
-
   logical :: exans
 
   character(2) :: type
@@ -1752,7 +1923,6 @@ subroutine gridfile_read()
 
   integer, allocatable :: iscr1(:)
   real,    allocatable :: rscr1(:)
-  integer, allocatable :: iscr2(:,:)
   real,    allocatable :: rscr2(:,:)
   logical, allocatable :: lscr2(:,:)
 
@@ -1761,13 +1931,12 @@ subroutine gridfile_read()
   integer :: lgma(mma)
   integer :: lgva(mva)
   integer :: lgwa(mwa)
-  integer :: lgwnud(mwnud)
 
   character(pathlen) :: flnm
 
-  lgma = itab_m(1:mma)%imglobe
-  lgva = itab_v(1:mva)%ivglobe
-  lgwa = itab_w(1:mwa)%iwglobe
+  lgma   = itab_m(1:mma)%imglobe
+  lgva   = itab_v(1:mva)%ivglobe
+  lgwa   = itab_w(1:mwa)%iwglobe
 
   ! Check if gridfile exists
 
@@ -2123,12 +2292,12 @@ end subroutine gridfile_read
 
 !===============================================================================
 
-subroutine gridfile_read_nudge()
+subroutine gridfile_read_sfc()
 
   use max_dims,   only: pathlen
-  use misc_coms,  only: io6, ngrids, gridfile, mdomain, nzp, nxp
+  use misc_coms,  only: io6, gridfile, mdomain
+  use mem_sfcg,   only: sfcg, mwsfc, itab_wsfc
   use hdf5_utils, only: shdf5_irec, shdf5_open, shdf5_close
-  use mem_nudge,  only: nudflag, nudnxp, nwnud, mwnud, itab_wnud
 
   ! This subroutine checks for the existence of a gridfile, and if it exists,
   ! also checks for agreement of grid configuration between the file and the
@@ -2137,13 +2306,121 @@ subroutine gridfile_read_nudge()
 
   implicit none
 
-  integer :: im, iv, iw, iwnud
+  integer      :: iw, ndims, idims(2)
+  logical      :: exans
+  character(2) :: type
 
-  integer :: ierr
+  ! Scratch arrays for copying input
 
-  integer :: ngr, i
+  integer, allocatable :: iscr2(:,:)
+  real,    allocatable :: rscr2(:,:)
+
+  ! Pointers to the global index of the local point
+
+  integer :: lgwsfc(mwsfc)
+
+  character(pathlen) :: flnm
+
+  ! If SFCGRID is active, read ATM-SFCGRID coupling information
+
+  if (mdomain > 1) return
+
+  ! Check if gridfile exists
+
+  flnm = trim(gridfile)//'.h5'
+
+  inquire(file=flnm, exist=exans)
+
+  if (.not. exans) then
+
+     ! Gridfile does not exist.
+
+     write(io6,*) '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+     write(io6,*) '!!!  Gridfile does not exist:'
+     write(io6,*) '!!!  '//flnm
+     write(io6,*) '!!!  Stopping run'
+     write(io6,*) '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+
+     stop 'stop - no gridfile'
+
+  endif
+
+  ! Gridfile exists; open it
+
+  write(io6,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++'
+  write(io6,*) 'Opening grid file ', trim(flnm)
+  write(io6,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++'
+
+  call shdf5_open(flnm,'R')
+
+  lgwsfc = itab_wsfc(1:mwsfc)%iwglobe
+
+  ndims    = 1
+  idims(1) = mwsfc
+  type     = 'CW'
+
+  call shdf5_irec(ndims, idims, 'dzt_bot' , rvar1=sfcg%dzt_bot, points=lgwsfc, stagpt=type)
+
+  ndims    = 2
+  idims(1) = 8
+  idims(2) = mwsfc
+  type     = 'CW'
+
+  allocate (iscr2(8,mwsfc))
+  call shdf5_irec(ndims,idims,'itab_wsfc%kwatm',ivar2=iscr2, points=lgwsfc, stagpt=type)
+  do iw = 1,mwsfc
+     itab_wsfc(iw)%kwatm(1:8) = iscr2(1:8,iw)
+  enddo
+  deallocate(iscr2)
+
+  allocate (rscr2(8,mwsfc))
+  call shdf5_irec(ndims,idims,'itab_wsfc%arc',rvar2=rscr2, points=lgwsfc, stagpt=type)
+  do iw = 1,mwsfc
+     itab_wsfc(iw)%arc(1:8) = rscr2(1:8,iw)
+  enddo
+
+  call shdf5_irec(ndims,idims,'itab_wsfc%arcoarsfc',rvar2=rscr2, points=lgwsfc, stagpt=type)
+  do iw = 1,mwsfc
+     itab_wsfc(iw)%arcoarsfc(1:8) = rscr2(1:8,iw)
+  enddo
+
+  call shdf5_irec(ndims,idims,'itab_wsfc%arcoariw',rvar2=rscr2, points=lgwsfc, stagpt=type)
+  do iw = 1,mwsfc
+     itab_wsfc(iw)%arcoariw(1:8) = rscr2(1:8,iw)
+  enddo
+
+  call shdf5_irec(ndims,idims,'itab_wsfc%arcoarkw',rvar2=rscr2, points=lgwsfc, stagpt=type)
+  do iw = 1,mwsfc
+     itab_wsfc(iw)%arcoarkw(1:8) = rscr2(1:8,iw)
+  enddo
+  deallocate(rscr2)
+
+  ! Close the GRIDFILE
+
+  call shdf5_close()
+
+  write(io6,*) 'end of gridfile_read_sfc'
+
+end subroutine gridfile_read_sfc
+
+!===============================================================================
+
+subroutine gridfile_read_nudge()
+
+  use max_dims,   only: pathlen
+  use misc_coms,  only: io6, gridfile, mdomain
+  use hdf5_utils, only: shdf5_irec, shdf5_open, shdf5_close
+  use mem_nudge,  only: nudflag, nudnxp, mwnud, itab_wnud
+
+  ! This subroutine checks for the existence of a gridfile, and if it exists,
+  ! also checks for agreement of grid configuration between the file and the
+  ! current model run.  If the file does not exist or does not match grid
+  ! configuration, the run is stopped.
+
+  implicit none
+
+  integer :: iwnud
   integer :: ndims, idims(2)
-
   logical :: exans
 
   character(2) :: type
@@ -2229,39 +2506,28 @@ end subroutine gridfile_read_nudge
 
 !===============================================================================
 
-! This subroutine reads a few quantities from the OLD gridfile for a history
-! start on which new grids (local mesh refinements) are being added.
+! This subroutine reads a few quantities from the OLD gridfile for a HISTADDGRID
+! start, i.e., with a modified horizontal structure of the ATM grid.
 
 subroutine gridfile_read_oldgrid()
 
   use max_dims,   only: maxngrdll, pathlen
-  use misc_coms,  only: io6, ngrids, gridfile, mdomain, nzp, nxp, &
-                        itopoflg, deltax, ndz, hdz, dz, &
-                        ngrdll, grdrad, grdlat, grdlon
-  use mem_grid,   only: xew, yew, zew
-  use leaf_coms,  only: isfcl
-
+  use misc_coms,  only: io6, gridfile, mdomain, nzp, ndz, hdz, dz
   use hdf5_utils, only: shdf5_irec, shdf5_open, shdf5_close
-  use mem_addgrid,only: nzp_og, nxp_og, mdomain_og, ngrids_og, isfcl_og, &
-                        itopoflg_og, ndz_og, deltax_og, hdz_og, dz_og, &
-                        nza_og, nma_og, nua_og, nva_og, nwa_og, mrls_og, &
-                        xew_og, yew_og, zew_og, wnx_og, wny_og, wnz_og, &
-                        itab_wog, lpw_og, lve2_og, nve2_max_og
+
+  use mem_addgrid,only: nzp_og, mdomain_og, ndz_og, hdz_og, dz_og, &
+                        nza_og, nwa_og, xew_og, yew_og, zew_og, &
+                        wnx_og, wny_og, wnz_og, glatw_og, glonw_og, &
+                        lpw_og
+
+  use ll_bins,    only: itab_w0
 
   implicit none
 
-  integer :: iw, idz, iw_og
+  integer :: idz, iw_og
   integer :: ierr
-
-  integer :: ngr, i
   integer :: ndims, idims(2)
-
   logical :: exans
-
-  integer, allocatable :: ngrdll_og(:)
-  real,    allocatable :: grdrad_og(:,:)
-  real,    allocatable :: grdlat_og(:,:)
-  real,    allocatable :: grdlon_og(:,:)
 
   ! Scratch array for copying input
 
@@ -2270,7 +2536,7 @@ subroutine gridfile_read_oldgrid()
 
   character(pathlen) :: flnm
 
-  ! Check if gridfile exists
+  ! Check if OLD gridfile exists
 
   flnm = trim(gridfile)//'-OG'//'.h5'
 
@@ -2278,22 +2544,22 @@ subroutine gridfile_read_oldgrid()
 
   if (.not. exans) then
 
-  ! Gridfile does not exist.
+  ! OLD gridfile does not exist.
 
      write(io6,*) '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
-     write(io6,*) '!!!  Gridfile does not exist:'
+     write(io6,*) '!!!  OLD GRIDFILE does not exist:'
      write(io6,*) '!!!  '//flnm
      write(io6,*) '!!!  Stopping run'
      write(io6,*) '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
 
-     stop 'stop - no gridfile'
+     stop 'stop - no old gridfile'
 
   endif
 
   ! Gridfile exists; open it
 
   write(io6,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++'
-  write(io6,*) 'Opening grid file ', flnm
+  write(io6,*) 'Opening OLD GRIDFILE ', flnm
   write(io6,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++'
 
   call shdf5_open(flnm,'R')
@@ -2305,21 +2571,11 @@ subroutine gridfile_read_oldgrid()
   idims(2) = 1
 
   call shdf5_irec(ndims, idims, 'NZP'     , ivars=nzp_og)
-  call shdf5_irec(ndims, idims, 'NXP'     , ivars=nxp_og)
   call shdf5_irec(ndims, idims, 'MDOMAIN' , ivars=mdomain_og)
-  call shdf5_irec(ndims, idims, 'NGRIDS'  , ivars=ngrids_og)
-  call shdf5_irec(ndims, idims, 'ISFCL'   , ivars=isfcl_og)
-  call shdf5_irec(ndims, idims, 'ITOPOFLG', ivars=itopoflg_og)
   call shdf5_irec(ndims, idims, 'NDZ'     , ivars=ndz_og)
-  call shdf5_irec(ndims, idims, 'DELTAX'  , rvars=deltax_og)
 
   allocate( hdz_og(ndz_og))
   allocate( dz_og (ndz_og))
-
-  allocate( ngrdll_og (ngrids_og) )
-  allocate( grdrad_og (ngrids_og, maxngrdll) )
-  allocate( grdlat_og (ngrids_og, maxngrdll) )
-  allocate( grdlon_og (ngrids_og, maxngrdll) )
 
   if (ndz_og > 1) then
      idims(1) = ndz_og
@@ -2328,41 +2584,13 @@ subroutine gridfile_read_oldgrid()
      call shdf5_irec(ndims, idims, 'DZ'  , rvar1=dz_og)
   endif
 
-  ndims    = 1
-  idims(1) = ngrids_og
-
-  call shdf5_irec(ndims, idims, 'NGRDLL' , ivar1=ngrdll_og)
-
-  ndims    = 2
-  idims(1) = ngrids_og
-  idims(2) = maxngrdll
-
-  call shdf5_irec(ndims, idims, 'GRDRAD', rvar2=grdrad_og)
-  call shdf5_irec(ndims, idims, 'GRDLAT', rvar2=grdlat_og)
-  call shdf5_irec(ndims, idims, 'GRDLON', rvar2=grdlon_og)
-
   ! Check equality between grid file information and namelist variables
 
   ierr = 0
 
   if (nzp_og      /= nzp     ) ierr = 1
-  if (nxp_og      /= nxp     ) ierr = 1
   if (mdomain_og  /= mdomain ) ierr = 1
-  if (isfcl_og    /= isfcl   ) ierr = 1
-  if (itopoflg_og /= itopoflg) ierr = 1
   if (ndz_og      /= ndz     ) ierr = 1
-
-  if (abs(deltax_og - deltax) > 1.e-3) ierr = 1
-
-  do ngr = 2, min(ngrids_og,ngrids)
-     if (abs(ngrdll_og (ngr) - ngrdll (ngr)) > 1.e1 ) ierr = 1
-
-     do i = 1,ngrdll_og(ngr)
-        if (abs(grdrad_og(ngr,i) - grdrad(ngr,i)) > 1.e1 ) ierr = 1
-        if (abs(grdlat_og(ngr,i) - grdlat(ngr,i)) > 1.e-3) ierr = 1
-        if (abs(grdlon_og(ngr,i) - grdlon(ngr,i)) > 1.e-3) ierr = 1
-     enddo
-  enddo
 
   do idz = 1, min(ndz_og,ndz)
      if (abs(hdz_og(idz) - hdz(idz)) > 1.e1 ) ierr = 1
@@ -2375,11 +2603,7 @@ subroutine gridfile_read_oldgrid()
      write(io6,*) 'Values: oldgridfile, namelist'
      write(io6,*) '-----------------------------------------------'
      write(io6,*)              'nzp:      ',nzp_og     ,nzp
-     write(io6,*)              'nxp:      ',nxp_og     ,nxp
      write(io6,*)              'mdomain:  ',mdomain_og ,mdomain
-     write(io6,*)              'isfcl:    ',isfcl_og   ,isfcl
-     write(io6,*)              'itopoflg: ',itopoflg_og,itopoflg
-     write(io6,*)              'deltax:   ',deltax_og  ,deltax
      write(io6,*)              'ndz:      ',ndz_og     ,ndz
      write(io6,*) ' '
      write(io6, '(a,20f10.1)') 'hdz_og:   ',hdz_og(1:ndz_og)
@@ -2401,15 +2625,9 @@ subroutine gridfile_read_oldgrid()
   idims(2) = 1
 
   call shdf5_irec(ndims, idims, 'NZA'     , ivars=nza_og)
-  call shdf5_irec(ndims, idims, 'NMA'     , ivars=nma_og)
-  call shdf5_irec(ndims, idims, 'NUA'     , ivars=nua_og)
-  call shdf5_irec(ndims, idims, 'NVA'     , ivars=nva_og)
   call shdf5_irec(ndims, idims, 'NWA'     , ivars=nwa_og)
-  call shdf5_irec(ndims, idims, 'MRLS'    , ivars=mrls_og)
-  call shdf5_irec(ndims, idims, 'NVE2_MAX', ivars=nve2_max_og)
 
   allocate (lpw_og(nwa_og))
-  allocate (lve2_og(nwa_og))
 
   allocate (xew_og(nwa_og))
   allocate (yew_og(nwa_og))
@@ -2419,12 +2637,14 @@ subroutine gridfile_read_oldgrid()
   allocate (wny_og(nwa_og))
   allocate (wnz_og(nwa_og))
 
-  allocate (itab_wog(nwa_og))
+  allocate (glatw_og(nwa_og))
+  allocate (glonw_og(nwa_og))
+
+  allocate (itab_w0(nwa_og))
 
   idims(1) = nwa_og
 
   call shdf5_irec(ndims, idims, 'LPW',  ivar1=lpw_og)
-  call shdf5_irec(ndims, idims, 'LVE2', ivar1=lve2_og)
 
   call shdf5_irec(ndims, idims, 'XEW', rvar1=xew_og)
   call shdf5_irec(ndims, idims, 'YEW', rvar1=yew_og)
@@ -2434,10 +2654,13 @@ subroutine gridfile_read_oldgrid()
   call shdf5_irec(ndims, idims, 'WNY', rvar1=wny_og)
   call shdf5_irec(ndims, idims, 'WNZ', rvar1=wnz_og)
 
+  call shdf5_irec(ndims, idims, 'GLATW', rvar1=glatw_og)
+  call shdf5_irec(ndims, idims, 'GLONW', rvar1=glonw_og)
+
   allocate (iscr1(nwa_og))
   call shdf5_irec(ndims,idims,'itab_w%npoly',ivar1=iscr1)
   do iw_og = 1,nwa_og
-     itab_wog(iw_og)%npoly = iscr1(iw_og)
+     itab_w0(iw_og)%npoly = iscr1(iw_og)
   enddo
   deallocate(iscr1)
 
@@ -2447,14 +2670,9 @@ subroutine gridfile_read_oldgrid()
 
   allocate (iscr2(7,nwa_og))
 
-  call shdf5_irec(ndims,idims,'itab_w%iv',ivar2=iscr2)
-  do iw_og = 1,nwa_og
-     itab_wog(iw_og)%iv(1:7) = iscr2(1:7,iw_og)
-  enddo
-
   call shdf5_irec(ndims,idims,'itab_w%iw',ivar2=iscr2)
   do iw_og = 1,nwa_og
-     itab_wog(iw_og)%iw(1:7) = iscr2(1:7,iw_og)
+     itab_w0(iw_og)%iw(1:7) = iscr2(1:7,iw_og)
   enddo
 
   deallocate (iscr2)

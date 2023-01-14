@@ -1,50 +1,16 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 subroutine olam_run(name_name)
 
-#ifdef IEEE_ARITHMETIC
   use, intrinsic :: ieee_arithmetic
-#endif
 
-  use misc_coms,   only: io6, mstp, time8, time8p, time_istp8, time_istp8p, iflag, &
-                         expnme, mdomain, initial, iswrtyp, ilwrtyp, timeunit,     &
-                         runtype, hfilin, timmax8, alloc_misc, iparallel,          &
-                         iyear1, imonth1, idate1, itime1, s1900_init, s1900_sim,   &
-                         time_prevhist, rinit, rinit8, debug_fp, init_nans,        &
-                         isubdomain, do_chem, time_bias, dtlong, ioutput, nrk_wrtv
+  use misc_coms,   only: io6, mstp, time8, time8p, time_istp8, time_istp8p,      &
+                         iflag, expnme, mdomain, initial, iswrtyp, ilwrtyp,      &
+                         runtype, hfilin, timmax8, alloc_misc, iparallel,        &
+                         iyear1, imonth1, idate1, itime1, s1900_init, s1900_sim, &
+                         time_prevhist, rinit, rinit8, debug_fp, init_nans,      &
+                         do_chem, time_bias, dtlong, ioutput, nrk_wrtv
 
   use olam_mpi_atm,only: olam_mpi_atm_start, olam_mpi_atm_stop, &
-                         mpi_send_w, mpi_recv_w
+                         mpi_send_w, mpi_recv_w, mpi_send_v, mpi_recv_v
 
   use olam_mpi_sfc,only: olam_mpi_sfc_start, olam_mpi_sfc_stop, &
                          mpi_send_wsfc, mpi_recv_wsfc
@@ -53,31 +19,28 @@ subroutine olam_run(name_name)
 
   use mem_para,    only: myrank, compute_pario_points
 
-  use leaf_coms,   only: isfcl, iupdndvi, nzs
+  use leaf_coms,   only: isfcl, iupdndvi
   use sea_coms,    only: iupdsst, iupdseaice
-  use mem_ijtabs,  only: istp, mrls, fill_jtabs, itab_v, itab_w
-  use mem_sfcg,    only: nwsfc, mwsfc, nvsfc, mvsfc, alloc_sfcgrid2, &
-                         filltab_sfcg, fill_jtab_sfcg, sfcg
+  use mem_ijtabs,  only: istp, fill_jtabs, itab_v, itab_w
+  use mem_sfcg,    only: mwsfc, alloc_sfcgrid2, filltab_sfcg, fill_jtab_sfcg
   use sea_swm,     only: swm_init, swm_diagvel
   use oplot_coms,  only: op, iplt_file
-  use mem_grid,    only: mma, mva, mwa, mza, alloc_gridz_other
+  use mem_grid,    only: mma, mva, mwa, mza, alloc_gridz_other, volvi, lpvmax
   use mem_nudge,   only: nudflag, nudnxp, fill_jnudge, o3nudflag
   use mem_rayf,    only: rayf_init
   use consts_coms, only: r8, init_consts
   use oname_coms,  only: nl
   use hcane_rz,    only: ncycle_hurrinit, icycle_hurrinit, hurricane_init, &
-                         vortex_center_diagnose, vortex_azim_avg,          &
+                         timmax_hurrinit, vortex_center_diagnose, vortex_azim_avg, &
                          vortex_reloc3d, vortex_relocated, htc0, &
                          hlat, hlon, hlat0, hlon0, hlat_hist, hlon_hist
-  use obnd,        only: trsets, lbcopy_w
-  use var_tables,  only: nvar_par, vtab_r, nptonv
+  use obnd,        only: set_scalars_bottom, set_scalars_lbc, lbcopy_v
   use mem_plot,    only: alloc_plot, copy_plot
   use lite_vars,   only: prepare_lite, lite_write, lite_read
   use mem_addgrid, only: init_addgrid
-  use mem_land,    only: land, nland, mland, nzg
-  use mem_sea,     only: sea, nsea, msea
-  use vel_t3d,     only: init_velt3d, diagvel_t3d_init, diagvel_t3d, &
-                         diag_uzonal_umerid
+  use mem_land,    only: land, mland
+  use mem_sea,     only: sea, msea
+  use vel_t3d,     only: diagvel_t3d, diag_uzonal_umerid
   use mem_adv,     only: alloc_adv
   use mem_co2,     only: co2init
   use wrtv_rk,     only: init_wrtv_rk
@@ -104,21 +67,12 @@ subroutine olam_run(name_name)
 
   character(len=*), intent(in) :: name_name
 
-  integer :: i, mrl, idavg_file, ilite_file
-  integer :: mwa_prog, mva_prog, nthr
+  integer :: i, idavg_file, ilite_file
+  integer :: mwa_prog, mva_prog
   real :: w1,w2,t1,t2,wtime_start
   real, external :: walltime
   character(len=128) :: davgfile, litefile
   logical :: result
-  real(r8) :: tfact
-
-  ! integer, external :: omp_get_max_threads
-
-  ! Useful code for setting and checking number of threads
-
-  ! call omp_set_num_threads(8)
-  ! nthr = omp_get_max_threads()
-  ! print*, 'nthr ',nthr
 
   wtime_start = walltime(0.)
   w1 = walltime(wtime_start)
@@ -139,12 +93,6 @@ subroutine olam_run(name_name)
 
   write(io6,'(/,a)') 'olam_run calling namelist copy'
   call copy_nl()
-
-  isubdomain = 0
-
-  if (iparallel == 1) isubdomain = 1
-
-  write(io6,'(/,a,i6,/)') ' isubdomain = ',isubdomain
 
   if (runtype == 'HISTORY' .or. runtype == 'HISTADDGRID') then
      write(io6,'(/,a)') 'olam_run reading some namelist values from history file'
@@ -168,29 +116,23 @@ subroutine olam_run(name_name)
   rinit  = 0.0
   rinit8 = 0.0_r8
 
-#ifdef IEEE_ARITHMETIC
   if (init_nans) then
      if (ieee_support_nan(1.0)) then
         rinit = ieee_value(1.0, ieee_signaling_nan)
      endif
   endif
-#endif
 
-#ifdef IEEE_ARITHMETIC
   if (init_nans) then
      if (ieee_support_nan(1.0_r8)) then
         rinit8 = ieee_value(1.0_r8, ieee_signaling_nan)
      endif
   endif
-#endif
 
   ! If debugging, halt on illegal floating operations if supported
 
-#ifdef IEEE_ARITHMETIC
   if (ieee_support_halting(ieee_invalid) .and. debug_fp) then
      call ieee_set_halting_mode(ieee_usual, .true.)
   endif
-#endif
 
   ! Get abs seconds of simulation start and current simulation time
   ! Note that itime1 has format of hhmm, and date_abs_secs2 needs hhmmss
@@ -209,11 +151,10 @@ subroutine olam_run(name_name)
 
   ! MAKEGRID runs must be single-processor
 
-  if ( runtype == 'MAKEGRID' .or. runtype == 'MAKEGRID_PLOT' ) then
+  if ( runtype == 'MAKEGRID' .or. runtype == 'MAKEADDGRID' .or. runtype == 'MAKEGRID_PLOT' ) then
      if (iparallel == 1) then
         write(io6,*) trim(runtype)//' will only be done on a single process.'
         iparallel  = 0
-        isubdomain = 0
         if (myrank > 0) go to 1000
      endif
   endif
@@ -223,22 +164,19 @@ subroutine olam_run(name_name)
   call oplot_init()
 
   ! If RUNTYPE = 'MAKEGRID', generate full-domain ATM and SFC grids
+  ! If RUNTYPE = 'MAKEADDGRID', generate full-domain ATM grid and use OLD SFC grid
 
-  if (runtype == 'MAKEGRID' .or. runtype == 'MAKEGRID_PLOT') then
+  if (runtype == 'MAKEGRID' .or. runtype == 'MAKEADDGRID' .or. runtype == 'MAKEGRID_PLOT') then
      call gridinit()
 
      call gridset_print()
+
+     if (runtype /= 'MAKEGRID_PLOT') call plot_fields(0)
+
      write(io6,*)
      write(io6,*) trim(runtype) // ' run complete'
      go to 1000
   endif
-
-  ! Read from GRIDFILE the fields that are needed by para_decomp
-
-  write(io6,*)
-  write(io6,*) 'olam_run calling gridfile_read_pd'
-
-  call gridfile_read_pd()
 
   ! If land/sea models are active, read SFCGFILE iw points
 
@@ -247,6 +185,13 @@ subroutine olam_run(name_name)
      write(io6,*) 'olam_run calling sfcgfile_read_pd'
      call sfcgfile_read_pd()
   endif
+
+  ! Read from GRIDFILE the fields that are needed by para_decomp
+
+  write(io6,*)
+  write(io6,*) 'olam_run calling gridfile_read_pd'
+
+  call gridfile_read_pd()
 
   ! If run is parallel, assign each grid cell (ATM and SFCG)
   ! to one of multiple subdomains. If not, the grid remains unchanged
@@ -316,8 +261,7 @@ subroutine olam_run(name_name)
      write(io6,'(a,i8)') ' msea  = ', msea
   endif
 
-  ! Initialize dtlm, dtsm, ndtrat, and nacoust,
-  ! and compute the timestep schedule for all grid operations.
+  ! Initialize long and short timesteps, and compute the timestep schedule for all operations
 
   write(io6,'(/,a)') 'olam_run calling modsched'
 
@@ -325,7 +269,7 @@ subroutine olam_run(name_name)
 
   write(io6,'(/,a)') 'olam_run calling fill_jtabs'
 
-  call fill_jtabs(mma,mva,mwa,1)
+  call fill_jtabs(mma,mva,mwa)
 
   if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) call fill_jnudge()
 
@@ -344,10 +288,6 @@ subroutine olam_run(name_name)
 
   call jnmbinit()
   call micinit_tabs()
-
-  ! Extra arrays for computing Earth Cartesian velocities
-
-  call init_velt3d()
 
   ! Setup CMAQ chemical species
 
@@ -383,6 +323,12 @@ subroutine olam_run(name_name)
      endif
 
   endif
+
+  if (iparallel == 1) then
+     call mpi_send_v(rvara1=volvi, i1dvara1=lpvmax)
+     call mpi_recv_v(rvara1=volvi, i1dvara1=lpvmax)
+  endif
+  call lbcopy_v(vmc=volvi, iv1=lpvmax)
 
   ! Allocate memory for advection and pre-compute arrays for 3rd order advection
   ! (needs MPI to have been initialized)
@@ -435,17 +381,16 @@ subroutine olam_run(name_name)
   if (nl%test_case > 7 .and. nl%test_case < 500) call olam_dcmip_init()
   !----------------------------------------------------------------------
 
-  ! Initial diagnosis of vxe1,vye1,vze1 and of vxe,vye,vze
+  ! Initial diagnosis of vxe,vye,vze
 
   if (runtype == 'INITIAL') then
-     call diagvel_t3d_init(1)
-     call diagvel_t3d(1)
+     call diagvel_t3d()
   endif
 
   ! Initialize cloud fraction
 
   if (runtype == 'INITIAL') then
-     call calc_3d_cloud_fraction(1)
+     call calc_3d_cloud_fraction()
   endif
 
   !----------------------------------------------------------------------
@@ -457,7 +402,6 @@ subroutine olam_run(name_name)
   ! Initialize CMAQ chemical species
 
   if (do_chem == 1 .and. runtype == 'INITIAL') then
-     mrl = 1
      write(io6,'(/,1x,a)') 'Initializing chemical concentrations'
      call init_cgrid()
   endif
@@ -470,20 +414,20 @@ subroutine olam_run(name_name)
 
   call co2init()
 
-  mrl = 1
+  ! Set dummy values for scalars below lpw
 
-  call trsets(mrl)
+  call set_scalars_bottom()
 
   ! For parallel run, send and receive initialized scalars
 
   if (iparallel == 1) then
-     call mpi_send_w(mrl, scalars='S')  ! Send scalars
-     call mpi_recv_w(mrl, scalars='S')  ! Recv scalars
+     call mpi_send_w(scalars='S')  ! Send scalars
+     call mpi_recv_w(scalars='S')  ! Recv scalars
   endif
 
-  do i = 1, nvar_par
-     call lbcopy_w(mrl, a1=vtab_r(nptonv(i))%rvar2_p)
-  enddo
+  ! Lateral boundary copy of scalars for limited-area run
+
+  call set_scalars_lbc()
 
   ! Start up radiation scheme
 
@@ -560,7 +504,7 @@ subroutine olam_run(name_name)
 
         ! If using surface nudging files, initialize file info and read current file
 
-        if (runtype == 'INITIAL' .or. runtype == 'HISTORY') then
+        if (runtype == 'INITIAL' .or. runtype == 'HISTORY' .or. runtype == 'HISTADDGRID') then
            call sfcnud_read_init()
         endif
 
@@ -631,7 +575,7 @@ subroutine olam_run(name_name)
 
   call alloc_plot()
 
-  ! If this is 'PLOTONLY' run, loop through input history files, plot 
+  ! If this is 'PLOTONLY' run, loop through input history files, plot
   ! specified fields, and exit
 
   if (runtype == 'PLOTONLY') then
@@ -681,11 +625,15 @@ subroutine olam_run(name_name)
         !     iplt_file == 30 .or. &
         !     iplt_file == 40 .or. &
         !     iplt_file == 50) then
- 
+
        ! if (mod(iplt_file,240) == 0) then
 
            call plot_fields(0)
-           call fields2_ll()
+
+           if (nl%ioutput_latlon == 1 .or. nl%latlonplot == 1) then
+              call diag_uzonal_umerid()
+              call fields3_ll()
+           endif
 
         ! endif
 
@@ -718,11 +666,9 @@ subroutine olam_run(name_name)
 
   if (runtype == 'HISTADDGRID') then
      call gridfile_read_oldgrid()
-!     call landfile_read_oldgrid()
-!     call  seafile_read_oldgrid()
 
-      print*, 'calling init_addgrid'
-      call init_addgrid()
+     print*, 'calling init_addgrid'
+     call init_addgrid()
   endif
 
   icycle_hurrinit = 0
@@ -767,7 +713,7 @@ subroutine olam_run(name_name)
 
      call reset_cuparm()
 
-     ! If not updating SST/SEAICE/NDVI, copy the curent values to 
+     ! If not updating SST/SEAICE/NDVI, copy the curent values to
      ! the past and future arrays
 
      if (iupdsst /= 1) then
@@ -790,21 +736,22 @@ subroutine olam_run(name_name)
   ! If this is not a history start AND if it is not the second or later
   ! cycle of hurricane initialization, write initial history file
 
-  if (runtype /= 'HISTORY' .and. icycle_hurrinit < 2 .and. ioutput /= 0) then
-     if (icycle_hurrinit == 1) then
+  if (runtype /= 'HISTORY' .and. icycle_hurrinit < 2) then
+     if (icycle_hurrinit == 1 .and. ncycle_hurrinit > 1) then
         write(io6,'(/,a)') 'olam_run calling history_write with HTC0 vtype'
         call history_write('HTC0')
-     else
+        write(io6,'(/,a)') 'olam_run finished history_write'
+     else if (ioutput /= 0) then
         write(io6,'(/,a)') 'olam_run calling history_write with STATE vtype'
         call history_write('STATE')
+        write(io6,'(/,a)') 'olam_run finished history_write'
      endif
-     write(io6,'(/,a)') 'olam_run finished history_write'
   endif
 
   ! Initialize cloud fraction in case there is any initial saturation
 
   if (runtype == 'INITIAL') then
-     call calc_3d_cloud_fraction(1)
+     call calc_3d_cloud_fraction()
   endif
 
   time_prevhist = time8
@@ -820,7 +767,7 @@ subroutine olam_run(name_name)
 
      if (nl%ioutput_lite == 1) then
         call prepare_lite()
-        if (runtype /= 'HISTORY') call lite_write()
+        if (runtype /= 'HISTORY' .and. runtype /= 'HISTADDGRID') call lite_write()
      endif
 
      ! Initialize field average arrays
@@ -839,7 +786,7 @@ subroutine olam_run(name_name)
         hlat = hlat0      ! Value specified in namelist
         hlon = hlon0      ! Value specified in namelist
         call vortex_center_diagnose()
-     elseif (runtype == 'HISTORY') then
+     elseif (runtype == 'HISTORY' .or. runtype == 'HISTADDGRID') then
         hlat = hlat_hist  ! Current value in history file
         hlon = hlon_hist  ! Current value in history file
      endif
@@ -858,7 +805,7 @@ subroutine olam_run(name_name)
 
      ! If INITIAL runtype, write secondary history file with 'HTC' in name.
 
-     if (runtype == 'INITIAL') then
+     if (runtype == 'INITIAL' .and. ncycle_hurrinit > 1) then
         write(io6,'(/,a)') 'olam_run calling history_write with HTC1 vtype'
         call history_write('HTC1')
         write(io6,'(/,a)') 'olam_run finished history_write with HTC1 vtype'
@@ -872,7 +819,7 @@ subroutine olam_run(name_name)
 
   call copy_plot(0)
   call plot_fields(0)
-  call fields2_ll()
+  call fields3_ll()
   if (mdomain == 5 .and. nl%les_diag_freq > 0._r8) call les_diag()
 
   ! Compute azimuthal averages of dynamic, thermodynamic, and moisture
@@ -941,7 +888,7 @@ subroutine model()
                        s1900_init, s1900_sim
   use consts_coms, only: r8
   use oname_coms,  only: nl
-  use hcane_rz,    only: ncycle_hurrinit, icycle_hurrinit
+  use hcane_rz,    only: ncycle_hurrinit, icycle_hurrinit, timmax_hurrinit
 
   implicit none
 
@@ -962,7 +909,7 @@ subroutine model()
   wtime_start = walltime(0.)
 
   if (ncycle_hurrinit > 0 .and. icycle_hurrinit < ncycle_hurrinit) then
-     timmax8_model = nl%timmax_hurrinit
+     timmax8_model = timmax_hurrinit
   else
      timmax8_model = timmax8
   endif
@@ -981,19 +928,19 @@ subroutine model()
      wtime1 = walltime(wtime_start)
 
      ! Start the timestep schedule to loop through all grids and advance them
-     ! in time an increment equal to dtlm(1).
+     ! in time an increment equal to dtlm.
 
      call timestep()
 
      mstp = mstp + 1
-     time8       = time8 + dtlm(1)
+     time8       = time8 + dtlm
      time8p      = time8 + time_bias   ! Slightly forward biased time
      time_istp8  = time8
      time_istp8p = time8p              ! Slightly forward biased time
 
      s1900_sim = s1900_init + time8
 
-     call update_model_time(current_time, dtlm(1))
+     call update_model_time(current_time, dtlm)
 
      wtime2 = walltime(wtime_start)
      call cpu_time(t2)
@@ -1009,7 +956,7 @@ subroutine model()
      stepc3 = ' = '//trim(adjustl(stepc3))//' days]'
      stepc4 = '   [cpu,wall(sec) = '//trim(adjustl(stepc4))
      stepc5 = ' , '//trim(adjustl(stepc5))//']'
-   
+
      write(io6,'(a)')  &
         trim(stepc1)//trim(stepc2)//trim(stepc3)//trim(stepc4)//trim(stepc5)
 
@@ -1017,10 +964,10 @@ subroutine model()
 
      if (nl%ioutput_davg == 1) call inc_davg_vars()
 
-     ! Check schedule for I/O operations and perform those that are due 
+     ! Check schedule for I/O operations and perform those that are due
 
      call olam_output()
-   
+
   enddo
 
   wtime_tot = walltime(wtime_start)
@@ -1065,7 +1012,7 @@ subroutine olam_output()
   ! Save a copy of some fields; used later to compute & plot difference fields,
   ! and plot fields
 
-  if (mod(time8p,op%frqplt) < dtlm(1) .or. time8p >= timmax8 .or. iflag == 1) then
+  if (mod(time8p,op%frqplt) < dtlm .or. time8p >= timmax8 .or. iflag == 1) then
      call copy_plot(0)
      call plot_fields(0)
 
@@ -1079,8 +1026,8 @@ subroutine olam_output()
 
   ! Output full history restart file
 
-  if (mod(time8p,frqstate) < dtlm(1)   .or. &
-     (outdate == 1 .and. mod(time8p,86400.0_r8) < dtlm(1) .and. nl%igw_spinup /= 1) .or. &
+  if (mod(time8p,frqstate) < dtlm   .or. &
+     (outdate == 1 .and. mod(time8p,86400.0_r8) < dtlm .and. nl%igw_spinup /= 1) .or. &
      time8p >= timmax8 .or. iflag == 1) then
      call history_write('INST')
      time_prevhist = time8
@@ -1088,19 +1035,19 @@ subroutine olam_output()
 
   ! Ouput lat/lon interpolated quantities
 
-  if (nl%ioutput_latlon == 1 .and. mod(time8p,nl%frqlatlon) < dtlm(1)) then
-     call fields2_ll()
+  if (nl%ioutput_latlon == 1 .and. mod(time8p,nl%frqlatlon) < dtlm) then
+     call fields3_ll()
   endif
 
   ! Output of "lite" quantities
 
-  if (nl%ioutput_lite == 1 .and. mod(time8p,nl%frqlite) < dtlm(1)) then
+  if (nl%ioutput_lite == 1 .and. mod(time8p,nl%frqlite) < dtlm) then
      call lite_write()
   endif
 
   ! Output of time-averaged quantities
 
-  if (mod(time8p,86400.0_r8) < dtlm(1)) then
+  if (mod(time8p,86400.0_r8) < dtlm) then
      call date_add_to8(iyear1,imonth1,idate1,itime1,time8p,'s',outyear,  &
           outmonth,outdate,outhour)
 
@@ -1115,7 +1062,7 @@ subroutine olam_output()
   ! Print LES area-averaged statistics
 
   if (mdomain == 5 .and. nl%les_diag_freq > 1.e-5_r8) then
-     if (mod(time8p,nl%les_diag_freq) < dtlm(1)) then
+     if (mod(time8p,nl%les_diag_freq) < dtlm) then
         call les_diag()
      endif
   endif

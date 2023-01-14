@@ -1,44 +1,11 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
-
-subroutine spring_dynamics( mrows, moveint, ngr, nxp, nma, nua, nwa, &
+subroutine spring_dynamics( niter, moveint, ngr, nxp, nma, nua, nwa, &
                             xem, yem, zem, itab_md, itab_ud, itab_wd )
 
   use mem_delaunay, only: itab_md_vars, itab_ud_vars, itab_wd_vars
 
   implicit none
 
-  integer, intent(in) :: mrows, moveint, ngr, nxp, nma, nua, nwa
+  integer, intent(in) :: niter, moveint, ngr, nxp, nma, nua, nwa
 
   real, intent(inout) :: xem(nma), yem(nma), zem(nma)
 
@@ -46,37 +13,36 @@ subroutine spring_dynamics( mrows, moveint, ngr, nxp, nma, nua, nwa, &
   type (itab_ud_vars), intent(inout) :: itab_ud(nua)
   type (itab_wd_vars), intent(inout) :: itab_wd(nwa)
 
+  if (niter < 1) return
+
   if (ngr <= 1) then
 
-     call spring_dynamics1( mrows, moveint, ngr, nxp, nma, nua, nwa, &
-                            xem, yem, zem, itab_md, itab_ud, itab_wd )
-
+     call spring_dynamics_globe( niter, nxp, nma, nua, nwa, xem, yem, zem, &
+                                 itab_md, itab_ud, itab_wd )
   else
 
-     call spring_dynamics_nest( mrows, moveint, ngr, nxp, nma, nua, nwa, &
+     call spring_dynamics_nest( niter, moveint, ngr, nxp, nma, nua, nwa, &
                                 xem, yem, zem, itab_md, itab_ud, itab_wd )
-
   endif
 
 end subroutine spring_dynamics
 
 !===============================================================================
 
-subroutine spring_dynamics_nest( mrows, moveint, ngr, nxp, nma, nua, nwa, &
+subroutine spring_dynamics_nest( niter, moveint, ngr, nxp, nma, nua, nwa, &
                                  xem, yem, zem, itab_md, itab_ud, itab_wd )
 
   ! Subroutine spring_dynamics_nest is used only for mesh refinements (on both the
   ! atm and sfc grids).  Call subroutine spring_dynamics1 to adjust base global grid
 
   use mem_delaunay, only: itab_md_vars, itab_ud_vars, itab_wd_vars
-  use mem_grid,     only: impent
   use consts_coms,  only: pi2, erad, r8
-  use misc_coms,    only: io6, mdomain, deltax, runtype
+  use misc_coms,    only: mdomain, deltax, runtype, io6
   use oplot_coms,   only: op
 
   implicit none
 
-  integer, intent(in) :: mrows, moveint, ngr, nxp, nma, nua, nwa
+  integer, intent(in) :: niter, moveint, ngr, nxp, nma, nua, nwa
 
   real, intent(inout) :: xem(nma), yem(nma), zem(nma)
 
@@ -84,11 +50,9 @@ subroutine spring_dynamics_nest( mrows, moveint, ngr, nxp, nma, nua, nwa, &
   type (itab_ud_vars), intent(inout) :: itab_ud(nua)
   type (itab_wd_vars), intent(inout) :: itab_wd(nwa)
 
-  integer            :: niter
   integer, parameter :: nprnt = 50
-  real,    parameter :: relax = .04
-! real,    parameter :: beta  = 1.242
-  real               :: beta
+  real,    parameter :: relax = .035
+  real,    parameter :: beta  = 1.242
 
   real, allocatable :: dist (:)
   real, allocatable :: dist0(:)
@@ -101,16 +65,14 @@ subroutine spring_dynamics_nest( mrows, moveint, ngr, nxp, nma, nua, nwa, &
   integer :: iu,iu1,iu3
   integer :: im,im1,im2,im3,im4
   integer :: iw,iw1,iw2,j
-  integer :: iter,mrow1,mrow2,ngrw,mrmax,mrmin
+  integer :: iter,mrow1,mrow2,mrmax,mrmin
 
   integer :: iskip
   real :: xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2
 
   real :: twocosphi3, twocosphi4, ratio
 
-  real :: dist00, distm, frac_change
-
-  integer :: ipic
+  real :: dist00, distm, frac_change, disto12
 
   ! Array MOVEM is used to flag selected MD points that will be allowed to move
   ! in the spring dynamics procedure.  If MOVEM = .true. the point is allowed to
@@ -151,16 +113,6 @@ subroutine spring_dynamics_nest( mrows, moveint, ngr, nxp, nma, nua, nwa, &
 
   integer, allocatable :: npoly_jm(:)
 
-  if (runtype == 'MAKEGRID_PLOT') then
-     niter = 50
-  elseif (mrows == 3) then
-     niter = 5000
-     beta  = 1.242
-  else
-     niter = 3000
-     beta  = 1.1
-  endif
-
   erad8 = real(erad,r8)
 
   allocate(movem(nma))
@@ -184,13 +136,6 @@ subroutine spring_dynamics_nest( mrows, moveint, ngr, nxp, nma, nua, nwa, &
 
      if (itab_md(im)%ngr /= ngr) cycle
 
-     ! For preventing either polar M point from moving:
-     ! if (im == impent(1 )) cycle
-     ! if (im == impent(12)) cycle
-
-     ! For preventing all pentagonal points from moving:
-     ! if (any(im == impent(1:12))) cycle
-
      ! If interior M points are flagged to move, then all M points on ngr will
      ! be moved, so set movem flag to 1.
 
@@ -201,34 +146,18 @@ subroutine spring_dynamics_nest( mrows, moveint, ngr, nxp, nma, nua, nwa, &
         movem(im) = .true.
         jm_im(im) = nmovem
 
-     else
+     elseif ( any( itab_wd( itab_md(im)%iw(1:itab_md(im)%npoly) )%mrow /= 0 ) ) then
 
         ! Even if interior points are not to be moved, M points in the
         ! transition row must always be moveable, so set their movem flag to 1.
 
-        do j = 1, itab_md(im)%npoly
-           iw = itab_md(im)%iw(j)
-
-!          ngrw = itab_wd(iw)%ngr
-!
-!          if (ngrw /= ngr) cycle
-!
-!          if (itab_wd(iw)%mrow == -3 .or. &
-!              itab_wd(iw)%mrow == -2 .or. &
-!              itab_wd(iw)%mrow == -1 .or. &
-!              itab_wd(iw)%mrow ==  1) then
-           if (itab_wd(iw)%ngr == ngr .and. itab_wd(iw)%mrow /= 0) then
-
-              nmovem = nmovem + 1
-              im_jm( nmovem ) = im
-              movem(im) = .true.
-              jm_im(im) = nmovem
-
-              exit  ! once this point has been flagged, we can move on
-           endif
-        enddo
+        nmovem = nmovem + 1
+        im_jm( nmovem ) = im
+        movem(im) = .true.
+        jm_im(im) = nmovem
 
      endif
+
   enddo
 
 ! Find U points adjacent to our flagged M points
@@ -292,7 +221,7 @@ subroutine spring_dynamics_nest( mrows, moveint, ngr, nxp, nma, nua, nwa, &
   deallocate(moveu)
   deallocate(compu)
 
-! Add M points adjacent to flagged U points for our computational stencil
+! Include M points adjacent to our flagged U points to our computational stencil
 
   mend = nmovem
 
@@ -320,7 +249,8 @@ subroutine spring_dynamics_nest( mrows, moveint, ngr, nxp, nma, nua, nwa, &
   allocate( ju_ju(nmoveu,4) )
   allocate( dist0(nmoveu) )
 
-  write(*,'(4(A,I0))') "In spring dynamics: ngr = ", ngr, &
+  write(io6,*)
+  write(io6,'(4(A,I0))') "In spring_dynamics: ngr = ", ngr, &
        ", nma = ", nma, ", nmovem = ", nmovem, ", niter = ", niter
 
   ! Compute mean length of coarse mesh U segments
@@ -331,8 +261,10 @@ subroutine spring_dynamics_nest( mrows, moveint, ngr, nxp, nma, nua, nwa, &
      dist00 = deltax * sqrt( 2.0 / sqrt(3.0) )
   endif
 
+  disto12 = dist00 / 1.2
+
   ! Compute target length of each triangle U segment
-  ! Loop over all U points
+  ! Loop over U points adjactent to M points that will be moved
 
   !$omp parallel private(iter)
   !$omp do private(iu,iw1,iw2,mrow1,mrow2,mrmax,mrmin)
@@ -351,7 +283,7 @@ subroutine spring_dynamics_nest( mrows, moveint, ngr, nxp, nma, nua, nwa, &
 
      ! Compute target distance for any MRL value
 
-     dist0(ju) = dist00 / real( 2**(itab_ud(iu)%mrlu - 1) )
+     dist0(ju) = disto12 / real( 2**(itab_ud(iu)%mrlu - 1) )
 
      ! Modified distance in MRL border zone
 
@@ -366,68 +298,17 @@ subroutine spring_dynamics_nest( mrows, moveint, ngr, nxp, nma, nua, nwa, &
         mrmax = max(mrow1,mrow2)
         mrmin = min(mrow1,mrow2)
 
-        if (mrows >= 3) then
 
-           if (.true.) then  ! Martin's adjustments to expand smallest cells
-
-              if (mrmax == -4 .and. mrmin == -5) then
-                 dist0(ju) = dist0(ju) * 12.1 / 12.
-              elseif (mrmax == -4 .and. mrmin == -4) then
-                 dist0(ju) = dist0(ju) * 12.4 / 12.
-              elseif (mrmax == -3 .and. mrmin == -4) then
-                 dist0(ju) = dist0(ju) * 12.8 / 12.
-              elseif (mrmax == -3 .and. mrmin == -3) then
-                 dist0(ju) = dist0(ju) * 13.2 / 12.
-              elseif (mrmax == -2 .and. mrmin == -3) then
-                 dist0(ju) = dist0(ju) * 13.6 / 12.
-              elseif  (mrmax == -2 .and. mrmin == -2) then
-                 dist0(ju) = dist0(ju) * 14.0 / 12.
-              elseif (mrmax == -1 .and. mrmin == -2) then
-                 dist0(ju) = dist0(ju) * 16.0 / 12.
-              elseif (mrmax == -1 .and. mrmin == -1) then
-                 dist0(ju) = dist0(ju) * 17.0 / 12.
-              elseif (mrmax == 1 .and. mrmin == -1) then
-                 dist0(ju) = dist0(ju) * 18.0 / 12.
-              elseif (mrmax == 1 .and. mrmin == 1) then
-                 dist0(ju) = dist0(ju) * 11.0 / 12.
-              elseif (mrmax == 2 .and. mrmin == 1) then
-                 dist0(ju) = dist0(ju) * 11.3 / 12.
-              elseif (mrmax == 2 .and. mrmin == 2) then
-                 dist0(ju) = dist0(ju) * 11.5 / 12.
-              elseif (mrmax == 3 .and. mrmin == 2) then
-                 dist0(ju) = dist0(ju) * 11.6 / 12.
-              elseif (mrmax == 3 .and. mrmin == 3) then
-                 dist0(ju) = dist0(ju) * 11.7 / 12.
-              elseif (mrmax == 4 .and. mrmin == 3) then
-                 dist0(ju) = dist0(ju) * 11.8 / 12.
-              elseif (mrmax == 4 .and. mrmin == 4) then
-                 dist0(ju) = dist0(ju) * 11.9 / 12.
-              elseif (mrmax == 5 .and. mrmin == 4) then
-                 dist0(ju) = dist0(ju) * 11.95 / 12.
-              endif
-
-           else
-
-              if     (mrmax == -2 .and. mrmin == -2) then
-                 dist0(ju) = dist0(ju) *  7. / 6.  !* .90
-              elseif (mrmax == -1 .and. mrmin == -2) then
-                 dist0(ju) = dist0(ju) *  8. / 6.  !* .90
-              elseif (mrmax == -1 .and. mrmin == -1) then
-                 dist0(ju) = dist0(ju) *  9. / 6.  !* .90
-              elseif (mrmax == 1 .and. mrmin == -1) then
-                 dist0(ju) = dist0(ju) * 10. / 6.  !* .90
-              elseif (mrmax == 1 .and. mrmin == 1) then
-                 dist0(ju) = dist0(ju) * 11. / 12. !* .90
-              endif
-
-           endif
-
-        else ! (mrows = 1) Can be used for sfc grid but not atm grid
-
-           if (mrmax == 1 .and. mrmin == 1) then
-              dist0(ju) = dist0(ju) * 0.75
-           endif
-
+        if     (mrmax == -2 .and. mrmin == -2) then
+           dist0(ju) = dist0(ju) *  7. / 6.  !* .90
+        elseif (mrmax == -1 .and. mrmin == -2) then
+           dist0(ju) = dist0(ju) *  8. / 6.  !* .90
+        elseif (mrmax == -1 .and. mrmin == -1) then
+           dist0(ju) = dist0(ju) *  9. / 6.  !* .90
+        elseif (mrmax == 1 .and. mrmin == -1) then
+           dist0(ju) = dist0(ju) * 10. / 6.  !* .90
+        elseif (mrmax == 1 .and. mrmin == 1) then
+           dist0(ju) = dist0(ju) * 11. / 12. !* .90
         endif
 
      endif ! ngr
@@ -455,6 +336,8 @@ subroutine spring_dynamics_nest( mrows, moveint, ngr, nxp, nma, nua, nwa, &
      enddo
   enddo
   !$omp end do
+
+  ! Allocate additional storage
 
   !$omp single
   deallocate( ju_iu )
@@ -556,15 +439,11 @@ subroutine spring_dynamics_nest( mrows, moveint, ngr, nxp, nma, nua, nwa, &
         twocosphi3 = (dist(ju1)**2 + dist(ju2)**2 - dist(ju)**2) / (dist(ju1) * dist(ju2))
         twocosphi4 = (dist(ju3)**2 + dist(ju4)**2 - dist(ju)**2) / (dist(ju3) * dist(ju4))
 
-        ! Decrease dist0 if smaller twocosine is less than limiting value of two*cos(72 deg)
+        ! Decrease dist0 if average twocosine is less than limiting value of two*cos(72 deg)
 
-        ratio = min(twocosphi3,twocosphi4)
+        ratio = max(0.15, min(twocosphi3 + twocosphi4, 1.2))
 
-        if (ratio < .61) then
-           distm = dist0(ju) * max(ratio / .61, 0.1)
-        else
-           distm = dist0(ju)
-        endif
+        distm = dist0(ju) * ratio
 
         ! Fractional change to dist that would make it equal dist0
 
@@ -714,23 +593,22 @@ end subroutine spring_dynamics_nest
 
 !===============================================================================
 
-subroutine spring_dynamics1( mrows, moveint, ngr, nxp, nma, nua, nwa, &
-                             xem, yem, zem, itab_md, itab_ud, itab_wd )
+subroutine spring_dynamics_globe( niter, nxp, nma, nua, nwa, xem, yem, zem, &
+                                  itab_md, itab_ud, itab_wd )
 
   ! Subroutine spring_dynamics1 is used only for adjusting grid 1 (i.e.,
   ! the quasi-uniform global atm grid) prior to any mesh refinements.
   ! Call subroutine spring_dynamics to adjust mesh refinements of either
   ! the atm or surface grids.
 
-  use mem_delaunay, only: itab_md_vars, itab_ud_vars, itab_wd_vars
-  use mem_grid,     only: impent
+  use mem_delaunay, only: itab_md_vars, itab_ud_vars, itab_wd_vars, impent
   use consts_coms,  only: pi2, erad, r8, piu180
   use misc_coms,    only: io6, mdomain, deltax, runtype
   use oplot_coms,   only: op
 
   implicit none
 
-  integer, intent(in) :: mrows, moveint, ngr, nxp, nma, nua, nwa
+  integer, intent(in) :: niter, nxp, nma, nua, nwa
 
   real, intent(inout) :: xem(nma), yem(nma), zem(nma)
 
@@ -738,7 +616,6 @@ subroutine spring_dynamics1( mrows, moveint, ngr, nxp, nma, nua, nwa, &
   type (itab_ud_vars), intent(inout) :: itab_ud(nua)
   type (itab_wd_vars), intent(inout) :: itab_wd(nwa)
 
-  integer            :: niter
   integer, parameter :: nprnt = 50
   real,    parameter :: relax = .035
   real,    parameter :: beta  = 1.242
@@ -746,7 +623,7 @@ subroutine spring_dynamics1( mrows, moveint, ngr, nxp, nma, nua, nwa, &
 ! Automatic arrays
 
   real     :: dist(nua), distm
-  real     :: ratio(nua), frac_change
+  real     :: ratio, frac_change
   real     :: dx(nua), dy(nua), dz(nua)
   real     :: dirs(7,nma)
 
@@ -758,7 +635,7 @@ subroutine spring_dynamics1( mrows, moveint, ngr, nxp, nma, nua, nwa, &
   integer  :: iskip
   real     :: xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2
   real     :: twocosphi3, twocosphi4
-  real     :: dist00, disto61
+  real     :: dist00, disto12
   real     :: dsm(nma)
 
   real(r8) :: xem8(nma),yem8(nma),zem8(nma)
@@ -770,9 +647,6 @@ subroutine spring_dynamics1( mrows, moveint, ngr, nxp, nma, nua, nwa, &
   integer :: iumn(nua,2)
   integer :: iuun(nua,4)
   integer :: imnp(nma), imiu(7,nma)
-
-  niter = 5000
-  if (runtype == 'MAKEGRID_PLOT') niter = 50
 
 ! special
 ! RETURN
@@ -794,9 +668,10 @@ subroutine spring_dynamics1( mrows, moveint, ngr, nxp, nma, nua, nwa, &
      dist00 = deltax * sqrt( 2.0 / sqrt(3.0) )
   endif
 
-  disto61 = dist00 / .61
+  disto12 = dist00 / 1.2
 
-  write(io6,'(a,4i9)') "In spring dynamics: ngr,nma,niter = ",1,nma,niter
+  write(io6,*)
+  write(io6,'(a,4i9)') "In spring_dynamics_globe: nma, niter = ", nma, niter
 
   !$omp parallel private(iter)
   !$omp do
@@ -869,7 +744,7 @@ subroutine spring_dynamics1( mrows, moveint, ngr, nxp, nma, nua, nwa, &
 
 ! Adjustment of dist0 based on opposite angles of triangles
 
-     !$omp do private(iu1,iu2,iu3,iu4,twocosphi3,twocosphi4)
+     !$omp do private(iu1,iu2,iu3,iu4,twocosphi3,twocosphi4,ratio,distm,frac_change)
      do iu = 2, nua
         iu1 = iuun(iu,1)
         iu2 = iuun(iu,2)
@@ -881,20 +756,11 @@ subroutine spring_dynamics1( mrows, moveint, ngr, nxp, nma, nua, nwa, &
         twocosphi3 = (dist(iu1)**2 + dist(iu2)**2 - dist(iu)**2) / (dist(iu1) * dist(iu2))
         twocosphi4 = (dist(iu3)**2 + dist(iu4)**2 - dist(iu)**2) / (dist(iu3) * dist(iu4))
 
-        ! Ratio of smaller cosine to limiting value of cos(72 deg)
+        ! Ratio of average cosine to limiting value of cos(72 deg)
 
-        ratio(iu) = min(twocosphi3,twocosphi4)
-     enddo
-     !$omp end do nowait
+        ratio = max(.15, min(twocosphi3 + twocosphi4, 1.2))
 
-     !$omp do private(distm,frac_change)
-     do iu = 2, nua
-
-        if (ratio(iu) < .61) then
-           distm = disto61 * ratio(iu)
-        else
-           distm = dist00
-        endif
+        distm = disto12 * ratio
 
         ! Fractional change to dist that would make it equal dist0
 
@@ -912,12 +778,8 @@ subroutine spring_dynamics1( mrows, moveint, ngr, nxp, nma, nua, nwa, &
      !$omp do private(j,iu)
      do im = 2, nma
 
-        ! For preventing either polar M point from moving:
-        if (im == impent(1 )) cycle
-        if (im == impent(12)) cycle
-
-        ! For preventing all pentagonal points from moving:
-        ! if (any(im == impent(1:12))) cycle
+        ! Prevent all pentagonal points from moving:
+        if (any(im == impent(1:12))) cycle
 
         ! Apply the displacement components to each M point
         do j = 1, imnp(im)
@@ -1031,4 +893,4 @@ subroutine spring_dynamics1( mrows, moveint, ngr, nxp, nma, nua, nwa, &
   yem(:) = real(yem8(:))
   zem(:) = real(zem8(:))
 
-end subroutine spring_dynamics1
+end subroutine spring_dynamics_globe
