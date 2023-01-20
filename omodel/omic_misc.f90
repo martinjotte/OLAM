@@ -198,20 +198,13 @@ if (jnmb(lcat) == 2) then
       cx(k,lcat) = rx(k,lcat) / emb(k,lcat)
    enddo
 
-elseif (jnmb(lcat) == 4) then ! As of version 5.0.0, can only apply to cloud
+elseif (jnmb(lcat) == 4) then ! As of version 5.0.0, only applies to cloud
+                              ! water with number density set to con_ccnx(k,1)
 
-   if (nccntyp == 1) then
-      do k = k1(lcat), k2(lcat)
-         emb(k,lcat) = max(emb0(lcat), min(emb1(lcat), rx(k,lcat) / max(1.e-12,con_ccnx(k,1))))
-         cx(k,lcat) = rx(k,lcat) / emb(k,lcat)
-      enddo
-   else
-      do k = k1(lcat), k2(lcat)
-         emb(k,lcat) = max(emb0(lcat), min(emb1(lcat), &
-                       rx(k,lcat) / max(1.e-12,sum(con_ccnx(k,1:nccntyp)))))
-         cx(k,lcat) = rx(k,lcat) / emb(k,lcat)
-      enddo
-   endif
+   do k = k1(lcat), k2(lcat)
+      emb(k,lcat) = max(emb0(lcat), min(emb1(lcat), rx(k,lcat) / max(1.e-12,con_ccnx(k,1))))
+      cx(k,lcat) = rx(k,lcat) / emb(k,lcat)
+   enddo
 
 elseif (jnmb(lcat) == 5) then
 
