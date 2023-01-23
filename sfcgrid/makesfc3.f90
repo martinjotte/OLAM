@@ -1805,7 +1805,7 @@ end subroutine sfcgfile_read
 
 !==========================================================================
 
-subroutine sfcgfile_read_makeaddgrid()
+subroutine sfcgfile_read_makeregrid()
 
   use max_dims,   only: pathlen
   use mem_sfcg,   only: nwsfc, mwsfc, nmsfc, mmsfc, itab_wsfc, sfcg, sfcgfile
@@ -1823,7 +1823,7 @@ subroutine sfcgfile_read_makeaddgrid()
 
   flnm = trim(sfcgfile)//'.h5'
 
-  write(io6,*) 'sfcgfile_read_makeaddgrid - checking sfcgfile (1) ',flnm
+  write(io6,*) 'sfcgfile_read_makeregrid - checking sfcgfile (1) ',flnm
 
   inquire(file=flnm, exist=there)
 
@@ -1917,7 +1917,7 @@ subroutine sfcgfile_read_makeaddgrid()
 
   call shdf5_close()
 
-end subroutine sfcgfile_read_makeaddgrid
+end subroutine sfcgfile_read_makeregrid
 
 !===============================================================================
 

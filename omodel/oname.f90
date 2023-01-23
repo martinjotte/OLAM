@@ -139,7 +139,7 @@ subroutine copy_nl()
   real(r8) :: tfact
 
 ! Copy namelist variables to their counterparts that are used within the model.
-! If this model run is a 'HISTORY', 'HISTADDGRID', or 'PLOTONLY' runtype, some
+! If this model run is a 'HISTORY', 'HISTREGRID', or 'PLOTONLY' runtype, some
 ! of the copied namelist values will be overwritten by their values read from
 ! the history file in order to ensure that they are not changed from previous
 ! runs.
@@ -165,11 +165,11 @@ subroutine copy_nl()
   imonth1   = nl%imonth1
   iyear1    = nl%iyear1
 
-  ! If this is not a 'HISTORY', 'HISTADDGRID', or 'PLOTONLY' runtype, set
+  ! If this is not a 'HISTORY', 'HISTREGRID', or 'PLOTONLY' runtype, set
   ! current time to initial time here.  Otherwise, current time will be
   ! set in subroutine history_start.
 
-  if (runtype /= 'HISTORY' .and. runtype /= 'HISTADDGRID' .and. &
+  if (runtype /= 'HISTORY' .and. runtype /= 'HISTREGRID' .and. &
       runtype /= 'PLOTONLY') then
 
      ihrs = itime1 / 100

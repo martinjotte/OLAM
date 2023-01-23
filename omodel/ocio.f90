@@ -26,7 +26,7 @@ subroutine commio(action)
 
 ! The following are namelist variables that are read from a history file
 ! anytime subroutine commio is called, which occurs for runtype = 'HISTORY',
-! 'HISTADDGRID', or 'PLOTONLY'.  This overrides values copied from the namelist,
+! 'HISTREGRID', or 'PLOTONLY'.  This overrides values copied from the namelist,
 ! ensuring against inadvertent changes in their namelist values, which is not
 ! compatible with history restarts.
 
@@ -69,7 +69,7 @@ subroutine commio(action)
   ! The following are namelist variables that specify the horizontal structure
   ! of the ATM grid, and they are read from a history file (to maintain their
   ! value from previous model runs) unless the horizontal grid structure is
-  ! being changed, in which case runtype = 'HISTADDGRID'.
+  ! being changed, in which case runtype = 'HISTREGRID'.
 
   if (action == 'WRITE' .or. &
       runtype == 'HISTORY' .or. runtype == 'PLOTONLY') then

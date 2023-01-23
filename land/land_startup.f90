@@ -21,7 +21,7 @@ subroutine land_startup()
   ! Fill ndvi values
 
   if ( (iupdndvi /= 1) .and. &
-       (runtype == 'HISTORY' .or. runtype == 'HISTADDGRID') ) then
+       (runtype == 'HISTORY' .or. runtype == 'HISTREGRID') ) then
 
      ! Do nothing if we are restarting and keeping NDVI constant.
      ! It will be read in from the history file. However, we still
@@ -45,7 +45,7 @@ subroutine land_startup()
 
   elseif (runtype == 'INITIAL' .or. &
           runtype == 'HISTORY' .or. &
-          runtype == 'HISTADDGRID') then
+          runtype == 'HISTREGRID') then
 
      ! Make inventory of ndvi files and initialize current/past time
      ! Not needed for a PLOTONLY run.

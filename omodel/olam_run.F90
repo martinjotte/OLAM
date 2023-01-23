@@ -37,7 +37,7 @@ subroutine olam_run(name_name)
   use obnd,        only: set_scalars_bottom, set_scalars_lbc, lbcopy_v
   use mem_plot,    only: alloc_plot, copy_plot
   use lite_vars,   only: prepare_lite, lite_write, lite_read
-  use mem_addgrid, only: init_addgrid
+  use mem_regrid,  only: init_regrid
   use mem_land,    only: land, mland
   use mem_sea,     only: sea, msea
   use vel_t3d,     only: diagvel_t3d, diag_uzonal_umerid
@@ -94,7 +94,7 @@ subroutine olam_run(name_name)
   write(io6,'(/,a)') 'olam_run calling namelist copy'
   call copy_nl()
 
-  if (runtype == 'HISTORY' .or. runtype == 'HISTADDGRID') then
+  if (runtype == 'HISTORY' .or. runtype == 'HISTREGRID') then
      write(io6,'(/,a)') 'olam_run reading some namelist values from history file'
      call history_start('COMMIO')
   elseif (runtype == 'PLOTONLY') then
@@ -151,7 +151,7 @@ subroutine olam_run(name_name)
 
   ! MAKEGRID runs must be single-processor
 
-  if ( runtype == 'MAKEGRID' .or. runtype == 'MAKEADDGRID' .or. runtype == 'MAKEGRID_PLOT' ) then
+  if ( runtype == 'MAKEGRID' .or. runtype == 'MAKEREGRID' .or. runtype == 'MAKEGRID_PLOT' ) then
      if (iparallel == 1) then
         write(io6,*) trim(runtype)//' will only be done on a single process.'
         iparallel  = 0
@@ -164,9 +164,9 @@ subroutine olam_run(name_name)
   call oplot_init()
 
   ! If RUNTYPE = 'MAKEGRID', generate full-domain ATM and SFC grids
-  ! If RUNTYPE = 'MAKEADDGRID', generate full-domain ATM grid and use OLD SFC grid
+  ! If RUNTYPE = 'MAKEREGRID', generate full-domain ATM grid and use OLD SFC grid
 
-  if (runtype == 'MAKEGRID' .or. runtype == 'MAKEADDGRID' .or. runtype == 'MAKEGRID_PLOT') then
+  if (runtype == 'MAKEGRID' .or. runtype == 'MAKEREGRID' .or. runtype == 'MAKEGRID_PLOT') then
      call gridinit()
 
      call gridset_print()
@@ -504,7 +504,7 @@ subroutine olam_run(name_name)
 
         ! If using surface nudging files, initialize file info and read current file
 
-        if (runtype == 'INITIAL' .or. runtype == 'HISTORY' .or. runtype == 'HISTADDGRID') then
+        if (runtype == 'INITIAL' .or. runtype == 'HISTORY' .or. runtype == 'HISTREGRID') then
            call sfcnud_read_init()
         endif
 
@@ -664,11 +664,11 @@ subroutine olam_run(name_name)
   ! gridfile and sfcgfile, and initialize procedure for mapping
   ! model fields from OLD history file to NEW model grid
 
-  if (runtype == 'HISTADDGRID') then
+  if (runtype == 'HISTREGRID') then
      call gridfile_read_oldgrid()
 
-     print*, 'calling init_addgrid'
-     call init_addgrid()
+     print*, 'calling init_regrid'
+     call init_regrid()
   endif
 
   icycle_hurrinit = 0
@@ -687,7 +687,7 @@ subroutine olam_run(name_name)
   ! (Trying to history restart while hurricane initialization cycles are in
   ! progress does not work correctly.)
 
-  if (runtype == 'HISTORY' .or. runtype == 'HISTADDGRID' .or. &
+  if (runtype == 'HISTORY' .or. runtype == 'HISTREGRID' .or. &
      icycle_hurrinit > 1) then
 
      if (runtype == 'INITIAL' .and. icycle_hurrinit > 1) then
@@ -767,7 +767,7 @@ subroutine olam_run(name_name)
 
      if (nl%ioutput_lite == 1) then
         call prepare_lite()
-        if (runtype /= 'HISTORY' .and. runtype /= 'HISTADDGRID') call lite_write()
+        if (runtype /= 'HISTORY' .and. runtype /= 'HISTREGRID') call lite_write()
      endif
 
      ! Initialize field average arrays
@@ -786,7 +786,7 @@ subroutine olam_run(name_name)
         hlat = hlat0      ! Value specified in namelist
         hlon = hlon0      ! Value specified in namelist
         call vortex_center_diagnose()
-     elseif (runtype == 'HISTORY' .or. runtype == 'HISTADDGRID') then
+     elseif (runtype == 'HISTORY' .or. runtype == 'HISTREGRID') then
         hlat = hlat_hist  ! Current value in history file
         hlon = hlon_hist  ! Current value in history file
      endif

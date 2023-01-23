@@ -51,13 +51,13 @@ write(io6,*) ' '
 if ( (nl%runtype /= 'MAKEGRID'     ) .and. &
      (nl%runtype /= 'INITIAL'      ) .and. &
      (nl%runtype /= 'HISTORY'      ) .and. &
-     (nl%runtype /= 'MAKEADDGRID'  ) .and. &
-     (nl%runtype /= 'HISTADDGRID'  ) .and. &
+     (nl%runtype /= 'MAKEREGRID'  ) .and. &
+     (nl%runtype /= 'HISTREGRID'  ) .and. &
      (nl%runtype /= 'PLOTONLY'     ) .and. &
      (nl%runtype /= 'MAKEGRID_PLOT') ) then
    write(io6,*) " -- FATAL -- RUNTYPE = "//trim(nl%runtype)
    write(io6,*) "             RUNTYPE must be either 'MAKEGRID', 'INITIAL', "
-   write(io6,*) "             'HISTORY', 'MAKEADDGRID', 'HISTADDGRID', "
+   write(io6,*) "             'HISTORY', 'MAKEREGRID', 'HISTREGRID', "
    write(io6,*) "             'MAKEGRID_PLOT', or 'PLOTONLY'"
    nfatal = nfatal + 1
 endif
@@ -636,7 +636,7 @@ if (nl%runtype == 'PLOTONLY') &
 
 if ((nl%runtype == 'INITIAL') .or. &
     (nl%runtype == 'HISTORY') .or. &
-    (nl%runtype == 'HISTADDGRID')) &
+    (nl%runtype == 'HISTREGRID')) &
      call dchk_bnds( nl%frqplt, "FRQPLT", nl%dtlong, d_huge, 2, nfatal, nwarn )
 
 call rchk_bnds( nl%dtvec,     "DTVEC",     1.e-3, r_huge, 2, nfatal, nwarn )

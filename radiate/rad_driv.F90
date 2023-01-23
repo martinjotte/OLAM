@@ -48,7 +48,7 @@ subroutine radiate()
   ! Check whether it is time to update radiative fluxes and heating rates
 
   if ((istp == 1 .and. mod(time8p, radfrq) < dtlong) .or. &
-      (istp == 1 .and. mstp == 0 .and. runtype == 'HISTADDGRID')) then
+      (istp == 1 .and. mstp == 0 .and. runtype == 'HISTREGRID')) then
 
      ! Print message that radiative transfer is being computed
 

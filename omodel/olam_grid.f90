@@ -183,7 +183,7 @@ subroutine gridinit()
      nwa = nmd
   endif
 
-  if (mdomain /= 4 .and. runtype /= 'MAKEADDGRID') then
+  if (mdomain /= 4 .and. runtype /= 'MAKEREGRID') then
      ! Store a temporaty copy of the full Delaunay mesh
      ! to be used later to construct the surface grid
      call copy_tri_grid()
@@ -258,8 +258,8 @@ subroutine gridinit()
 
   call alloc_grid2(nma, nva, nwa)
 
-  ! read selected SFCGRID values for MAKEADDGRID run
-  if (runtype == 'MAKEADDGRID') call sfcgfile_read_makeaddgrid()
+  ! read selected SFCGRID values for MAKEREGRID run
+  if (runtype == 'MAKEREGRID') call sfcgfile_read_makeregrid()
 
   ! Compute overlay of ATM and SFC grids
   call sfc_atm_hex_overlay()
@@ -467,7 +467,7 @@ subroutine gridinit()
   write(io6,'(/,a)') 'gridinit calling gridfile_write'
   call gridfile_write()
 
-  if (mdomain <= 1 .and. runtype /= 'MAKEADDGRID') then
+  if (mdomain <= 1 .and. runtype /= 'MAKEREGRID') then
      write(io6,'(/,a)') 'calling sfcgfile_write'
      call sfcgfile_write()
   endif
@@ -2506,7 +2506,7 @@ end subroutine gridfile_read_nudge
 
 !===============================================================================
 
-! This subroutine reads a few quantities from the OLD gridfile for a HISTADDGRID
+! This subroutine reads a few quantities from the OLD gridfile for a HISTREGRID
 ! start, i.e., with a modified horizontal structure of the ATM grid.
 
 subroutine gridfile_read_oldgrid()
@@ -2514,12 +2514,10 @@ subroutine gridfile_read_oldgrid()
   use max_dims,   only: maxngrdll, pathlen
   use misc_coms,  only: io6, gridfile, mdomain, nzp, ndz, hdz, dz
   use hdf5_utils, only: shdf5_irec, shdf5_open, shdf5_close
-
-  use mem_addgrid,only: nzp_og, mdomain_og, ndz_og, hdz_og, dz_og, &
+  use mem_regrid, only: nzp_og, mdomain_og, ndz_og, hdz_og, dz_og, &
                         nza_og, nwa_og, xew_og, yew_og, zew_og, &
                         wnx_og, wny_og, wnz_og, glatw_og, glonw_og, &
                         lpw_og
-
   use ll_bins,    only: itab_w0
 
   implicit none

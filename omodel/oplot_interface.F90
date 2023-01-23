@@ -228,7 +228,7 @@ subroutine plot_fields(id)
      ! If running hurricane tracking, plot trajectory of this simulation
 
      if (icycle_hurrinit > 0 .and. &
-        (runtype == 'INITIAL' .or. runtype == 'HISTORY' .or. runtype == 'HISTADDGRID')) then
+        (runtype == 'INITIAL' .or. runtype == 'HISTORY' .or. runtype == 'HISTREGRID')) then
 
         if (iplt == 1) then
            call vortex_trajec_plot(iplt)

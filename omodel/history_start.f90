@@ -76,7 +76,7 @@ subroutine hist_read()
   use mem_sea,     only: itab_sea, nsea, msea
   use mem_nudge,   only: nwnud, mwnud, itab_wnud
   use consts_coms, only: r8
-  use mem_addgrid, only: interp_addgrid
+  use mem_regrid, only: interp_regrid
   use olam_mpi_atm,only: mpi_send_w, mpi_recv_w, mpi_send_v, mpi_recv_v
 
   implicit none
@@ -114,9 +114,9 @@ subroutine hist_read()
 
      call shdf5_info(varn, ndims, idims)
 
-     if (runtype == 'HISTADDGRID') then
+     if (runtype == 'HISTREGRID') then
 
-        ! In a HISTADDGRID restart, the following need not or should not be read
+        ! In a HISTREGRID restart, the following need not or should not be read
         ! from the OLD grid history file.  Most are diagnostic or auxiliary
         ! variables and are initialized or computed elsewhere, no later than on
         ! the first timestep of the history restart.  The remaining ones are
@@ -209,10 +209,10 @@ subroutine hist_read()
      ! Identify the points we want to read from the history file
 
      if     (stagpt == 'AW') then
-        if (runtype /= 'HISTADDGRID' .and. idims(ndims) == nwa) then
+        if (runtype /= 'HISTREGRID' .and. idims(ndims) == nwa) then
            ilocal(1:mwa) = itab_w(1:mwa)%iwglobe
            idims(ndims) = mwa
-        elseif (runtype == 'HISTADDGRID') then
+        elseif (runtype == 'HISTREGRID') then
            jdims = idims
            jdims(ndims) = nwa
         else
@@ -253,10 +253,10 @@ subroutine hist_read()
 
      if     (associated(vtab_r(nv)%ivar1_p)) then
 
-        if (stagpt == 'AW' .and. runtype == 'HISTADDGRID') then
+        if (stagpt == 'AW' .and. runtype == 'HISTREGRID') then
            allocate(iscr1(idims(1)))
            call shdf5_irec(ndims, idims, varn, ivar1=iscr1)
-           call interp_addgrid(ndims, idims, jdims, varn, stagpt, &
+           call interp_regrid(ndims, idims, jdims, varn, stagpt, &
                                ivara1=iscr1, ivarb1=vtab_r(nv)%ivar1_p)
            deallocate(iscr1)
         else
@@ -277,10 +277,10 @@ subroutine hist_read()
 
      elseif (associated(vtab_r(nv)%rvar1_p)) then
 
-        if (stagpt == 'AW' .and. runtype == 'HISTADDGRID') then
+        if (stagpt == 'AW' .and. runtype == 'HISTREGRID') then
            allocate(rscr1(idims(1)))
            call shdf5_irec(ndims, idims, varn, rvar1=rscr1)
-           call interp_addgrid(ndims, idims, jdims, varn, stagpt, &
+           call interp_regrid(ndims, idims, jdims, varn, stagpt, &
                                rvara1=rscr1, rvarb1=vtab_r(nv)%rvar1_p)
            deallocate(rscr1)
         else
@@ -290,10 +290,10 @@ subroutine hist_read()
 
      elseif (associated(vtab_r(nv)%rvar2_p)) then
 
-        if (stagpt == 'AW' .and. runtype == 'HISTADDGRID') then
+        if (stagpt == 'AW' .and. runtype == 'HISTREGRID') then
            allocate(rscr2(idims(1),idims(2)))
            call shdf5_irec(ndims, idims, varn, rvar2=rscr2)
-           call interp_addgrid(ndims, idims, jdims, varn, stagpt, &
+           call interp_regrid(ndims, idims, jdims, varn, stagpt, &
                                rvara2=rscr2, rvarb2=vtab_r(nv)%rvar2_p)
            deallocate(rscr2)
         else
@@ -308,10 +308,10 @@ subroutine hist_read()
 
      elseif (associated(vtab_r(nv)%dvar1_p)) then
 
-        if (stagpt == 'AW' .and. runtype == 'HISTADDGRID') then
+        if (stagpt == 'AW' .and. runtype == 'HISTREGRID') then
            allocate(dscr1(idims(1)))
            call shdf5_irec(ndims, idims, varn, dvar1=dscr1)
-           call interp_addgrid(ndims, idims, jdims, varn, stagpt, &
+           call interp_regrid(ndims, idims, jdims, varn, stagpt, &
                                dvara1=dscr1, dvarb1=vtab_r(nv)%dvar1_p)
            deallocate(dscr1)
         else
@@ -321,10 +321,10 @@ subroutine hist_read()
 
      elseif (associated(vtab_r(nv)%dvar2_p)) then
 
-        if (stagpt == 'AW' .and. runtype == 'HISTADDGRID') then
+        if (stagpt == 'AW' .and. runtype == 'HISTREGRID') then
            allocate(dscr2(idims(1),idims(2)))
            call shdf5_irec(ndims, idims, varn, dvar2=dscr2)
-           call interp_addgrid(ndims, idims, jdims, varn, stagpt, &
+           call interp_regrid(ndims, idims, jdims, varn, stagpt, &
                                dvara2=dscr2, dvarb2=vtab_r(nv)%dvar2_p)
            deallocate(dscr2)
         else
@@ -344,9 +344,9 @@ subroutine hist_read()
 
   enddo
 
-  ! For HISTADDGRID history start, diagnose VC and VMC from VXE, VYE, VZE
+  ! For HISTREGRID history start, diagnose VC and VMC from VXE, VYE, VZE
 
-  if (runtype == 'HISTADDGRID') then
+  if (runtype == 'HISTREGRID') then
 
      do j = 1,jtab_v(jtv_prog)%jend; iv = jtab_v(jtv_prog)%iv(j)
         iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)

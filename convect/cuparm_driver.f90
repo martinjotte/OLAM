@@ -45,7 +45,7 @@ subroutine cuparm_driver()
 ! Check whether it is time to update cumulus parameterization tendencies
 
   if ((istp == 1 .and. mod(time_istp8p, confrq) < dtlm) .or. &
-      (istp == 1 .and. mstp == 0 .and. runtype == 'HISTADDGRID')) then
+      (istp == 1 .and. mstp == 0 .and. runtype == 'HISTREGRID')) then
 
 ! Print message that cumulus parameterization is being computed
 
@@ -234,7 +234,7 @@ subroutine cuparm_driver()
 
   if (iparallel == 1) then
      if ((istp == 1 .and. mod(time_istp8p, confrq) < dtlm) .or. &
-         (istp == 1 .and. mstp == 0 .and. runtype == 'HISTADDGRID')) then
+         (istp == 1 .and. mstp == 0 .and. runtype == 'HISTREGRID')) then
 
         call mpi_recv_w(i1dvara1=kcutop, i1dvara2=kcubot, i1dvara3=iactcu, &
                         r1dvara1=cbmf, r1dvara2=conprr)

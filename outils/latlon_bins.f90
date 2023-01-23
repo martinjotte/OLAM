@@ -27,7 +27,7 @@ Module ll_bins
 
   type(binset_vars), allocatable :: bset(:)
 
-  ! itab_w0 stores a copy of the OLD ATM grid structure for a HISTADDGRID runtype,
+  ! itab_w0 stores a copy of the OLD ATM grid structure for a HISTREGRID runtype,
   ! and it stores the normal ATM grid structure for computing overlay with SFCGRID.
 
   Type itab_w0_vars

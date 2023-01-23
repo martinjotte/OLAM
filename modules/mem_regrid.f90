@@ -1,4 +1,4 @@
-Module mem_addgrid
+Module mem_regrid
 
   implicit none
 
@@ -36,7 +36,7 @@ Contains
 
 !==============================================================================
 
-  subroutine init_addgrid()
+  subroutine init_regrid()
 
   use misc_coms,  only: io6
   use mem_grid,   only: mwa, xew, yew, zew, glatw, glonw
@@ -67,7 +67,7 @@ Contains
 
   do iw = 2,mwa
 
-     if (mod(iw,100000) == 0) write(io6,*) 'init_addgrid iw, mwa ',iw,mwa
+     if (mod(iw,100000) == 0) write(io6,*) 'init_regrid iw, mwa ',iw,mwa
 
      ! Get ATM bin indices for this IW point of NEW grid
 
@@ -209,11 +209,11 @@ Contains
 
   deallocate(itab_w0)
 
-  end subroutine init_addgrid
+  end subroutine init_regrid
 
 !=========================================================================
 
-  subroutine interp_addgrid(ndims, idims, jdims, varn, stagpt, &
+  subroutine interp_regrid(ndims, idims, jdims, varn, stagpt, &
                             ivara1,rvara1,rvara2,dvara1,dvara2, &
                             ivarb1,rvarb1,rvarb2,dvarb1,dvarb2  )
 
@@ -307,6 +307,6 @@ Contains
 
   enddo
 
-  end subroutine interp_addgrid
+  end subroutine interp_regrid
 
-End Module mem_addgrid
+End Module mem_regrid

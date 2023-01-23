@@ -34,7 +34,7 @@ SOURCE_FILES= \
              $(LAND)/soilgrids_read.f90 \
              $(MODEL_MODS)/consts_coms.f90 \
              $(MODEL_MODS)/max_dims.f90 \
-             $(MODEL_MODS)/mem_addgrid.f90 \
+             $(MODEL_MODS)/mem_regrid.f90 \
              $(MODEL_MODS)/mem_addsc.f90 \
              $(MODEL_MODS)/mem_adv.f90 \
              $(MODEL_MODS)/mem_average_vars.f90 \

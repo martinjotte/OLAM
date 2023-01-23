@@ -28,7 +28,7 @@ call filltab_sea()
 !-------------------------------------------------------------------------------
 
 if ( (iupdsst /= 1) .and. &
-     (runtype == 'HISTORY' .or. runtype == 'HISTADDGRID') ) then
+     (runtype == 'HISTORY' .or. runtype == 'HISTREGRID') ) then
 
 ! Do nothing if we are restarting and keeping SST constant.
 ! It will be read in from the history file
@@ -46,7 +46,7 @@ elseif (isstflg == 1) then
 
    if (runtype == 'INITIAL' .or. &
        runtype == 'HISTORY' .or. &
-       runtype == 'HISTADDGRID') then
+       runtype == 'HISTREGRID') then
 
 ! Read standard SST database
 ! Not needed for a plotonly run
@@ -67,7 +67,7 @@ elseif (isstflg == 2) then
 
    if (runtype == 'INITIAL' .or. &
        runtype == 'HISTORY' .or. &
-       runtype == 'HISTADDGRID') then
+       runtype == 'HISTREGRID') then
 
 ! Read SST from degribbed analysis files
 ! Not needed for a plotonly run
@@ -91,7 +91,7 @@ endif
 !-------------------------------------------------------------------------------
 
 if ( (iupdseaice /= 1) .and. &
-     (runtype == 'HISTORY' .or. runtype == 'HISTADDGRID') ) then
+     (runtype == 'HISTORY' .or. runtype == 'HISTREGRID') ) then
 
 ! Do nothing if we are restarting and keeping SEAICE constant.
 ! It will be read in from the history file.
@@ -109,7 +109,7 @@ elseif (iseaiceflg == 1) then
 
    if (runtype == 'INITIAL' .or. &
        runtype == 'HISTORY' .or. &
-       runtype == 'HISTADDGRID') then
+       runtype == 'HISTREGRID') then
 
 ! Read standard SEAICE database
 ! Not needed for a plotonly run
@@ -130,7 +130,7 @@ elseif (iseaiceflg == 2) then
 
    if (runtype == 'INITIAL' .or. &
        runtype == 'HISTORY' .or. &
-       runtype == 'HISTADDGRID') then
+       runtype == 'HISTREGRID') then
 
 ! Read SEAICE from degribbed analysis files
 ! Not needed for a plotonly run

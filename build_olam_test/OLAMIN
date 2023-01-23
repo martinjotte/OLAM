@@ -33,7 +33,8 @@
    NL%TEST_CASE = 0
 
  !--------------------------------------------------------------------------
- ! Runtype: either MAKEGRID, INITIAL, HISTORY, HISTADDGRID, or PLOTONLY
+ ! Runtype: either MAKEGRID, INITIAL, HISTORY, PLOTONLY, MAKEGRID_PLOT, 
+ !                 MAKEREGRID, or HISTREGRID
  !--------------------------------------------------------------------------
 
  ! NL%RUNTYPE  = 'MAKEGRID'
@@ -41,15 +42,15 @@
  ! NL%RUNTYPE  = 'HISTORY'
  ! NL%RUNTYPE  = 'PLOTONLY'
  ! NL%RUNTYPE  = 'MAKEGRID_PLOT'
- ! NL%RUNTYPE  = 'MAKEADDGRID'
- ! NL%RUNTYPE  = 'HISTADDGRID'
+ ! NL%RUNTYPE  = 'MAKEREGRID'
+ ! NL%RUNTYPE  = 'HISTREGRID'
 
  !--------------------------------------------------------------------------
  ! Simulation ending time
  !--------------------------------------------------------------------------
 
-   NL%TIMEUNIT = 'h'      ! Time units of TIMMAX: 's','m','h','d'
-   NL%TIMMAX   = 17.76    ! Ending time of this model run
+   NL%TIMEUNIT = 'd'      ! Time units of TIMMAX: 's','m','h','d'
+   NL%TIMMAX   =  1.     ! Ending time of this model run
 
  !--------------------------------------------------------------------------
  ! Start of simulation (when model time counter TIME8 = 0.)
@@ -70,7 +71,7 @@
                   ! Exception: NDZ = 1 is flag to use ZZ instead of (HDZ,DZ) pairs
 
    NL%HDZ  =   0.,  2000., 20000., 45000.  ! Heights at which DZ is specified
-   NL%DZ   =  100.,  200.,  1000.,  2250.  ! Vertical grid spacing at each HDZ
+   NL%DZ   =  100.,   200.,  2000.,   2500.  ! Vertical grid spacing at each HDZ
 
    ! Vertical levels if NDZ = 1
    NL%ZZ       = 0.0,
@@ -97,17 +98,31 @@
                       !    4 = Horizontally-periodic long/narrow Cartesian domain
                       !    5 = Horizontally-periodic hexagonal Cartesian domain
 
-   NL%NXP = 36        ! Number of grid points spanning one side of
+   NL%NXP =  66       ! Number of grid points spanning one side of
                       ! any icosahedral triangle when MDOMAIN = 0 
-                      ! or spanning X direction when MDOMAIN = 3
+                      ! or spanning X direction when MDOMAIN = 4
+                      ! or radius of prognostic region for MDOMAIN = 5
 
-   NL%DELTAX = 1000.  ! Coarse grid horizontal spacing (used if MDOMAIN > 0)
+ !--------------------------------------------------------------------------
+ ! Cartesian grid parameters (Only used if MDOMAIN > 0)
+ !--------------------------------------------------------------------------
+
+   NL%DELTAX = 1000.  ! Coarse grid horizontal spacing
+
+   NL%U_GEOSTROPHIC = 0.0  ! Large-scale pressure gradient defined by
+   NL%V_GEOSTROPHIC = 0.0  ! geostrophic wind for idealized limted-area runs.
+
+   NL%RLAT0 = 45.0  ! Center lat/lon of Cartesian domain
+   NL%RLON0 =  0.0  ! (currently only used to set Coriolis parameter)
+
+   NL%LES_DIAG_FREQ = 0.0  ! Frequency (s) to output LES area-averaged statistics
+                           ! for MDOMAIN=5 run (set to 0.0 to disable)
 
  !--------------------------------------------------------------------------
  ! Horizontal grid refinement ("nested grid") definition
  !--------------------------------------------------------------------------
 
-   NL%NGRIDS = 2     ! Total number of grids to generate on any MAKEGRID run
+   NL%NGRIDS = 4      ! Total number of grids to generate on any MAKEGRID run
 
    NL%GRIDPLOT_BASE = 2  ! The mesh number to center plot on when doing a
                          ! MAKEGRID_PLOT run.
@@ -124,38 +139,40 @@
  ! GRDLON(NG,:)   sequence for grid NG
 
    ! Grid 2:
-   NL%NGRDLL(2)   =  1
-   NL%GRDRAD(2,:) =  4000.e3,
-   NL%GRDLAT(2,:) =  26.670,
-   NL%GRDLON(2,:) =  -78.432,
+   NL%NGRDLL(2)   =  2
+   NL%GRDRAD(2,:) =  3000.e3,3000.e3
+   NL%GRDLAT(2,:) =     25.0,   26.0
+   NL%GRDLON(2,:) =    -94.0,  -95.0
 
    ! Grid 3:
-   NL%NGRDLL(3)   =  1
-   NL%GRDRAD(3,:) =  2000.e3,
-   NL%GRDLAT(3,:) =  26.670,
-   NL%GRDLON(3,:) =  -78.432,
-
+   NL%NGRDLL(3)   =  2
+   NL%GRDRAD(3,:) =  1800.e3,1800.e3
+   NL%GRDLAT(3,:) =     25.0,   26.0
+   NL%GRDLON(3,:) =    -94.0,  -95.0
 
    ! Grid 4:
-   NL%NGRDLL(4)   =  1
-   NL%GRDRAD(4,:) =  1000.e3,
-   NL%GRDLAT(4,:) =  26.670,
-   NL%GRDLON(4,:) =  -78.432,
-
+   NL%NGRDLL(4)   =  2
+   NL%GRDRAD(4,:) =  1200.e3,1200.e3
+   NL%GRDLAT(4,:) =     25.0,   26.0
+   NL%GRDLON(4,:) =    -94.0,  -95.0
 
    ! Grid 5:
-   NL%NGRDLL(5)   =  1
-   NL%GRDRAD(5,:) =  500.e3,
-   NL%GRDLAT(5,:) =  26.670,
-   NL%GRDLON(5,:) =  -78.432,
-
+   NL%NGRDLL(5)   =  2
+   NL%GRDRAD(5,:) =  800.e3,800.e3
+   NL%GRDLAT(5,:) =    25.0,  26.0
+   NL%GRDLON(5,:) =   -94.0, -95.0
 
    ! Grid 6:
-   NL%NGRDLL(6)   =  1
-   NL%GRDRAD(6,:) =  250.e3,
-   NL%GRDLAT(6,:) =  26.670,
-   NL%GRDLON(6,:) =  -78.432,
+   NL%NGRDLL(6)   =  2
+   NL%GRDRAD(6,:) =  500.e3,500.e3
+   NL%GRDLAT(6,:) =    25.0,  26.0
+   NL%GRDLON(6,:) =   -94.0, -95.0
 
+   ! Grid 7:
+   NL%NGRDLL(7)   =  2
+   NL%GRDRAD(7,:) =  300.e3,300.e3
+   NL%GRDLAT(7,:) =    25.0,  26.0
+   NL%GRDLON(7,:) =   -94.0, -95.0
 
    NL%SFCGRID_RES_FACTOR = 2    ! Resolution factor for the surface grid.
 
@@ -181,7 +198,7 @@
    NL%SFCGRDLAT(2,:) =   30.0
    NL%SFCGRDLON(2,:) =  -100.
 
-!--------------------------------------------------------------------------
+ !--------------------------------------------------------------------------
  ! For shallow water coastal flood model:
  !--------------------------------------------------------------------------
 
@@ -199,13 +216,31 @@
    NL%SWMZONLAT(2,:) =   25.1,  27.6,  28.7,  29.3,  29.1,  29.7
    NL%SWMZONLON(2,:) =  -81.7, -83.5, -83.4, -84.1, -85.4, -86.5
 
+ !--------------------------------------------------------------------------
+ ! For 1D version of Princeton Ocean Model:
+ !--------------------------------------------------------------------------
+
+   NL%NPOMZONS   =  0
+
+   ! POM Zone 1:
+   NL%NPOMZONLL(1)   =  1
+   NL%POMZONRAD(1,:) =  10.e5,
+   NL%POMZONLAT(1,:) =   24.5,
+   NL%POMZONLON(1,:) =  -90.0,
+
+   ! POM Zone 2:
+   NL%NPOMZONLL(2)   =  4
+   NL%POMZONRAD(2,:) =  10.e5, 12.e5, 20.e5, 20.e5,
+   NL%POMZONLAT(2,:) =   24.5,  22.0,  24.0,  20.0,
+   NL%POMZONLON(2,:) =  -90.0, -80.0, -62.0, -40.0,
+
  !------------------------------------------------------------------------------
  ! Timestep and timestep ratios (One ratio for each Mesh Refinement Level (MRL))
  !------------------------------------------------------------------------------
 
-  NL%DTLONG  = 120.      ! Long timestep
+   NL%DTLONG  = 60.      ! Long timestep(s)
 
-  NL%NACOUST  = 3
+  NL%NACOUST  = 3        ! # acoustic timesteps per long timestep
 
  !--------------------------------------------------------------------------
  ! Variable initialization input
@@ -238,7 +273,7 @@
                                        ! FALSE: Nudging preserves tracer mass
 
  !--------------------------------------------------------------------------
- ! History file, Month-average, and Day-average I/O
+ ! History file, Day-average file, Lite file, and Lat/Lon file I/O
  !--------------------------------------------------------------------------
 
    NL%SAVE_NODE_LOGS = .false.
@@ -248,7 +283,7 @@
    NL%IOUTPUT_LITE = 0         ! Lite files: 0-no files, 1-write files
    NL%IOUTPUT_LATLON = 0       ! Lat/Lon:    0-no files, 1-write files
 
-   NL%HFILEPREF = 'hist/Bahamas'     ! History file output path/prefix
+   NL%HFILEPREF = 'hist/harvSR' ! History file output path/prefix
    NL%ICLOBBER  = 1             ! 0 = stop if files exist, 1 = overwite files
    NL%ICOMPRESS = 0             ! 0 (no compres, fast) <-> 9 (max compres, slow)
    NL%LATLONPLOT = 0            ! 1 = plot generated lat/lon fields too
@@ -261,8 +296,7 @@
    NL%FRQLITE   =  3600.0      ! Time interval between lite files
    NL%FRQLATLON =  3600.0      ! Time interval between lat/lon output files
 
-   NL%HFILIN   = 'hist/Bahamas-H-2019-10-04-084500.h5'      ! History file intput
-!  NL%HFILIN   = 'hist/Bahamas-H-2019-10-04-174500.h5'      ! History file intput
+   NL%HFILIN   = 'hist/harvSR-H-2017-08-26-120000.h5'      ! History file intput
 
    ! Variables output in lite files:
    NL%LITE_VARS = 'TAIR', 'WC', 'SH_V', 'PRESS', 'RHO', 'RSHORT', 'RLONG'
@@ -310,7 +344,6 @@
    !                                                                     'AL_SFCWATER_TOT_LL',  
    !                                                                   'AL_SOIL_WATER_TOT_LL', 
 
-
  !--------------------------------------------------------------------------
  ! Model options / Numerical schemes
  !--------------------------------------------------------------------------
@@ -323,17 +356,17 @@
    NL%HORIZ_ADV_ORDER = 2 ! Horizontal advection order (2 or 3) for scalars and
                           ! temperature. 
 
-   NL%ACOUST_TIMESTEP_LEVEL = 3  ! Time stepping scheme for variables on acoustic
-   NL%SCALAR_TIMESTEP_LEVEL = 2  ! or scalar (long) timesteps.
+   NL%ACOUST_TIMESTEP_LEVEL = 3  ! Acoustic time-stepping scheme
+   NL%SCALAR_TIMESTEP_LEVEL = 2  ! Long (scalar) time-stepping scheme
                                  ! 1 = Bob's original 1-step scheme
-                                 ! 2 = Runge-Kutta 2-step scheme (RK3)
+                                 ! 2 = Runge-Kutta 2-step scheme (RK2)
                                  ! 3 = Runge-Kutta 3-step scheme (RK3)
 
-   NL%AKMIN_VORT     = 0.4  ! Rotio of vorticity damping coefficient to typical
+   NL%AKMIN_VORT     = 0.4  ! Ratio of vorticity damping coefficient to typical
                             ! value from deformation K. Typical range 0.2 - 1.0
 
-   NL%DIVH_DAMP_FACT = 0.12 ! Fraction of horizontal divergence to damp in one timestep.
-                            ! Set to 0 to disable. Should be no larger than about 0.18
+   NL%DIVH_DAMP_FACT = 0.12 ! Fraction of horizontal divergence Laplacian damped in one
+                            ! timestep.  Set to 0.0 to disable.  Typical range 0.08 to 0.14
 
    NL%ZERO_NEG_SCALARS = .false. ! Force negative scalar concentrations to zero?
 
@@ -348,20 +381,20 @@
  ! Rayleigh friction parameters at model top
  !--------------------------------------------------------------------------
 
-   NL%RAYF_ZMIN  = 25000.  ! Damping for U, THIL - minimum height (m)
-   NL%RAYF_FACT  = 0.0     ! Damping for U, THIL - fraction damped in one timestep
+   NL%RAYF_ZMIN  = 27000.  ! Damping for U, THIL - minimum height (m)
+   NL%RAYF_FACT  = 0.0     ! Damping for U, THIL - fraction damped in one acoustic timestep
    NL%RAYF_EXPON = 1.0     ! Damping for U, THIL - exponent for profile
    
-   NL%RAYFW_ZMIN  = 25000. ! Damping for W - minimum height (m)
-   NL%RAYFW_FACT  = 0.50   ! Damping for W - fraction damped in one timestep
+   NL%RAYFW_ZMIN  = 27000. ! Damping for W - minimum height (m)
+   NL%RAYFW_FACT  = 0.5    ! Damping for W - fraction damped in one acoustic timestep
    NL%RAYFW_EXPON = 1.0    ! Damping for W - exponent for profile
 
-   NL%RAYFDIV_ZMIN  = 25000. ! Damping for horiz. div. - minimum height (m)
-   NL%RAYFDIV_FACT  = 0.15   ! Damping for horiz. div. - fraction damped in one timestep
+   NL%RAYFDIV_ZMIN  = 27000. ! Damping for horiz. div. - minimum height (m)
+   NL%RAYFDIV_FACT  = 0.15   ! Damping for horiz. div. - fraction damped in one acoustic timestep
    NL%RAYFDIV_EXPON = 1.0    ! Damping for horiz. div. - exponent for profile
 
-   NL%RAYFMIX_ZMIN  = 25000. ! Extra mixing of V - minimum height (m)
-   NL%RAYFMIX_FACT  = 0.25   ! Extra mixing of V - fraction damped in one timestep
+   NL%RAYFMIX_ZMIN  = 27000. ! Extra mixing of V - minimum height (m)
+   NL%RAYFMIX_FACT  = 0.25   ! Extra mixing of V - fraction damped in one acoustic timestep
    NL%RAYFMIX_EXPON = 1.0    ! Extra mixing of V - exponent for profile
 
  !--------------------------------------------------------------------------
@@ -414,7 +447,7 @@
                                            !  viscosity coefficient to typical
                                            !  value from deformation K
 
-   NL%MOIST_BUOY = 2   ! Determines how subgrid buoyancy is computed:
+   NL%MOIST_BUOY = 3   ! Determines how subgrid buoyancy is computed:
                        ! 0 - Subgrid buoyancy is not affected by condensate
                        ! 1 - Reslvd cld drops affect SGS buoyancy
                        ! 2 - Reslvd cld drops and pristine ice
@@ -456,7 +489,7 @@
    NL%GPARM   = 1.0e-3  ! Graupel mean diameter (m); used if IGRAUP = 2
    NL%HPARM   = 3.0e-3  ! Hail mean diameter (m); used if IHAIL = 2
 
-   NL%CCNPARM = 1000.e6 ! CCN concentration (#/kg_air); used if ICCN = 1
+   NL%CCNPARM = 0.e6    ! CCN concentration (#/kg_air); used if ICCN = 1
                         ! [If CCNPARM < 1.e6, CCN concentration assigned
                         ! from geospatial observed time-mean data]
 
@@ -512,7 +545,7 @@
                         !    0 = pressure(mb) 
                         !    1 = heights(m MSL)
  
-   NL%ITSFLG  = 0       ! Specifies what is in TS array:
+   NL%ITSFLG  = 1       ! Specifies what is in TS array:
                         !    0 = temp(C)
                         !    1 = temp(K)
                         !    2 = pot. temp(K)
@@ -531,43 +564,44 @@
    NL%HS      = 0.0     ! Height (m MSL) of lowest sounding level
                         ! Only used for IPSFLG=0 (if PS array is pressure)
 
-   NL%P_SFC   = 1010.0  ! Surface Pressure (mb)
+   NL%P_SFC   = 1000.0  ! Surface Pressure (mb)
                         ! Only used for IPSFLG=1 (if PS array is height)
 
  !--------------------------------------------------------------------------
  ! Sounding:      PS      TS      RTS     US     VS
  !--------------------------------------------------------------------------
-   NL%SOUNDING = 0.0,   25.0,   10.0,   0.0,   0.0,
-              1000.0,   16.0,   10.0,   0.0,   0.0,
-              2000.0,    7.0,   10.0,   0.0,   0.0,
-              3000.0,   -2.0,   10.0,   0.0,   0.0,
-              4000.0,  -11.0,   10.0,   0.0,   0.0,
-              5000.0,  -17.5,   10.0,   0.0,   0.0,
-              6000.0,  -24.0,   80.0,   0.0,   0.0,
-              7000.0,  -30.5,   50.0,   0.0,   0.0,
-              8000.0,  -37.0,   50.0,   0.0,   0.0,
-              9000.0,  -43.5,    5.0,   0.0,   0.0,
-             10000.0,  -50.0,    1.0,   0.0,   0.0,
-             11000.0,  -56.5,    1.0,   0.0,   0.0,
-             12000.0,  -56.5,    1.0,   0.0,   0.0,
-             14000.0,  -56.5,    1.0,   0.0,   0.0,
-             16000.0,  -56.5,    1.0,   0.0,   0.0,
-             18000.0,  -56.5,    1.0,   0.0,   0.0,
-             18500.0,  -56.5,    1.0,   0.0,   0.0,
-             20000.0,  -56.5,    1.0,   0.0,   0.0,
-             25000.0,  -56.5,    1.0,   0.0,   0.0,
-             30000.0,  -56.5,    1.0,   0.0,   0.0,
-             35000.0,  -56.5,    1.0,   0.0,   0.0,
-             40000.0,  -56.5,    1.0,   0.0,   0.0,
-             45000.0,  -56.5,    1.0,   0.0,   0.0,
-             50000.0,  -56.5,    1.0,   0.0,   0.0,
+   NL%SOUNDING = 
+                 0.0,  300.0,   10.0,   10.0,   0.0,
+              1000.0,  300.0,   10.0,   10.0,   0.0,
+              2000.0,  300.0,   10.0,   10.0,   0.0,
+              3000.0,  300.0,   10.0,   10.0,   0.0,
+              4000.0,  300.0,   10.0,   10.0,   0.0,
+              5000.0,  300.0,   10.0,   10.0,   0.0,
+              6000.0,  300.0,   10.0,   10.0,   0.0,
+              7000.0,  300.0,   10.0,   10.0,   0.0,
+              8000.0,  300.0,   10.0,   10.0,   0.0,
+              9000.0,  300.0,    5.0,   10.0,   0.0,
+             10000.0,  300.0,    1.0,   10.0,   0.0,
+             11000.0,  300.0,    1.0,   10.0,   0.0,
+             12000.0,  300.0,    1.0,   10.0,   0.0,
+             14000.0,  300.0,    1.0,   10.0,   0.0,
+             16000.0,  300.0,    1.0,   10.0,   0.0,
+             18000.0,  300.0,    1.0,   10.0,   0.0,
+             18500.0,  300.0,    1.0,   10.0,   0.0,
+             20000.0,  300.0,    1.0,   10.0,   0.0,
+             25000.0,  300.0,    1.0,   10.0,   0.0,
+             30000.0,  300.0,    1.0,   10.0,   0.0,
+             35000.0,  300.0,    1.0,   10.0,   0.0,
+             40000.0,  300.0,    1.0,   10.0,   0.0,
+             45000.0,  300.0,    1.0,   10.0,   0.0,
+             50000.0,  300.0,    1.0,   10.0,   0.0,
 
  !--------------------------------------------------------------------------
- ! Grid, Land, and Sea files path/names; Sea grid configuration
+ ! Atmosphere and Surface Grid files and pathnames
  !--------------------------------------------------------------------------
 
-   NL%GRIDFILE    = 'gridfiles/gridfile9'   ! path/prefix for grid file. 
-   NL%SFCGFILE    = 'gridfiles/sfcgfile9'   ! path/prefix for sfcg file. 
+   NL%GRIDFILE    = 'gridfiles/gridfileSR'   ! path/prefix for grid file. 
+   NL%SFCGFILE    = 'gridfiles/sfcgfileSR'   ! path/prefix for sfcg file. 
 
  !--------------------------------------------------------------------------
  !  Topography, Leaf, and Sea Variables
@@ -579,51 +613,113 @@
                   !      may modify them)
                   !  1 = LEAF3 is used
 
-   NL%IGW_SPINUP = 0  ! This flag is used to guide a series of model runs aimed
-                      ! at generating and utilizing a distribution of groundwater
-                      ! mass, energy, and flow that is in approximate equilibrium
-                      ! with surface climate.  All model runs in this series must
-                      ! have the same grid configurations, except that the spin-up
-                      ! simulation itself can (and usually does) use fewer vertical
-                      ! soil layers such that none are thinner than 0.5 m.
-
-                      ! 0 = OLAM-SOIL is run in standard way, with no spin-up of
-                      !     groundwater being performed or utilized, and no results
-                      !     from prior spin-up being used to initialize the simulation.
+   NL%IGW_SPINUP = 0  ! This flag instructs OLAM to prepare, perform, and utilize
+                      ! a long-term (e.g. century duration) spin-up simulation of
+                      ! groundwater and soil temperature that is in approximate
+                      ! equilibrium with surface climate forcing.  The value of
+                      ! IGW_SPINUP is used in combination with RUNTYPE as 
+                      ! described in the following steps, which are listed in
+                      ! the order that they should be performed:
                       !
-                      !     If subsequent groundwater spin-up is to be performed, use 
-                      !     this flag setting (i.e., 0) to perform the 1st model run
-                      !     in the series, which is a global simulation of 2 or more 
-                      !     years in duration.  Save history files at monthly intervals,
-                      !     results from which will provide surface climate variables
-                      !     for the spin-up simulation.
-                      !  
-                      ! 1 = In a PLOTONLY run, which is the 2nd model run of the 
-                      !     series, results from the global climate run (i.e., the 1st
-                      !     in the series) are read and processed to produce monthly
-                      !     surface climate variables for the groundwater spin-up
-                      !     simulation.  Twelve output files (one for each month of the
-                      !     year) are thus generated, and the (century-long) spin-up
-                      !     simulation will cycle through the same 12 files each year.
+            ! Step 1: ! IGW_SPINUP = 0
+                      !    This value is used whenever groundwater spin-up is not 
+                      !    being performed, prepared, or utilized.  This includes
+                      !    a multi-year climate simulation from which surface 
+                      !    climate statistics can be extracted to force the
+                      !    groundwater spin-up simulation.  For that climate
+                      !    simulation, history files should be written monthly.
                       !
-                      ! 1 = In an INITIAL run (with optional HISTORY restarts), which
-                      !     is the 3rd model run of the series, surface/ground model is
-                      !     run stand-alone (without a prognostic atmosphere), and surface
-                      !     water and energy are nudged to the surface climate variables
-                      !     generated in the preceding PLOTONLY run.  This run uses
-                      !     fewer/thicker layers in the shallow part of the ground and
-                      !     typically runs for a century with a 6-hour time step.
+            ! Step 2: ! IGW_SPINUP = 1
+                      ! RUNTYPE = 'PLOTONLY'
+                      !    These values are used together to instruct OLAM to read
+                      !    in a set of history files at 1-month intervals (from
+                      !    the climate simulation described in Step 1) and write
+                      !    a set of 12 files, one for each month, of monthly mean
+                      !    surface climate conditions.  If the input history
+                      !    files span multiple years, modify the commented-out
+                      !    templates in subroutines olam_run and copy_plot to
+                      !    combine multiple years of history files for each
+                      !    calendar month.  The input history files are
+                      !    specified with NPLT_FILES and PLT_FILES. For 
+                      !    multiple-year climate simulations, list files for a
+                      !    given month together in PLT_FILES, e.g.,
+                      !       NL%PLT_FILES =
+                      !          './hist/clim4-H-2001-01-01-000000.h5',
+                      !          './hist/clim4-H-2002-01-01-000000.h5',
+                      !          './hist/clim4-H-2003-01-01-000000.h5',
+                      !          './hist/clim4-H-2004-01-01-000000.h5',
+                      !          './hist/clim4-H-2001-02-01-000000.h5',
+                      !          './hist/clim4-H-2002-02-01-000000.h5',
+                      !          './hist/clim4-H-2003-02-01-000000.h5',
+                      !          './hist/clim4-H-2004-02-01-000000.h5',
+                      !          './hist/clim4-H-2001-03-01-000000.h5',
+                      !          etc.
+                      !    The output file names use the same prefix as the
+                      !    input file names, but the identifier is changed from
+                      !    'H' to 'SN', and the generic year of 0000 is assigned
+                      !    to each monthly file.  An additional single file is written
+                      !    with the same prefix and identifier 'GN' and contains
+                      !    the grid configuration information of the 'SN' files. 
                       !
-                      ! 2 = In the 4th and final simulation of the series (an INITIAL
-                      !     run with optional HISTORY restarts), the actual climate
-                      !     simulation is run, just as if IGW_SPINUP is set to 0, except
-                      !     that soil/groundwater mass and energy and lake energy are
-                      !     initialized from the final results of the long-term spin-up
-                      !     simulation.  For this case, the soil initialization file is
-                      !     specified in IGW_SPINUP_FILE.
+            ! Step 3: ! IGW_SPINUP = 1
+                      ! RUNTYPE = 'MAKEGRID'
+                      !    These values are used together to instruct OLAM to
+                      !    set up atmosphere and surface grids that will be used
+                      !    for the groundwater spin-up simulation.  This grid
+                      !    configuration must be identical to that of any follow-on
+                      !    simulation that will use the spun-up soil water and
+                      !    temperature as an initial condition.  The only caveat is
+                      !    that the spin-up simulation will generally have fewer
+                      !    soil levels so that they will be vertically thicker for
+                      !    numerical stability.  However, this is done automatically
+                      !    in the code, and the settings of NZG, LANDGRID_DZTOP, and
+                      !    LANDGRID_DEPTH must be identical between the spin-up and
+                      !    follow-on simulations.
+                      !
+            ! Step 4: ! IGW_SPINUP = 1
+                      ! RUNTYPE = 'INITIAL' (but with optional history restarts)
+                      !    These values are used together to instruct OLAM to input
+                      !    the 'SN' and 'GN' surface climate files described in 
+                      !    Step 2 and perform the long-term groundwater spin-up
+                      !    simulation.  Names of the 'SN' and 'GN' files are
+                      !    hardwired in mem_sfcnud.f90 and can be changed there if
+                      !    necessary.  The sfcgrid horizontal grid spacing of the
+                      !    spin-up simulation need not be the same as the previous
+                      !    climate simulation (from Step 1), and if they are
+                      !    different, the spin-up simulation will horizontally
+                      !    interpolate from the surface climate files.  However,
+                      !    the horizontal and vertical spacing of the sfcgrid and
+                      !    soil layers must be specified in OLAMIN identically to
+                      !    their specification in any subsequent simulation that
+                      !    uses the spin-up results to initialize the soil model.
+                      !
+            ! Step 5: ! IGW_SPINUP = 2
+                      ! RUNTYPE = 'MAKEGRID'
+                      !    These values are used together to instruct OLAM to
+                      !    set up atmosphere and surface grids that will be used
+                      !    for the subsequent simulation that uses the spun-up
+                      !    groundwater.  The grid configurations specified for
+                      !    this step must be identical with those in Step 3.  
+                      !    The only reason that Step 5 is required is to produce
+                      !    a sfcgfile that will not have the reduced NZG of 
+                      !    Steps 3 and 4.  The atmosphere gridfile generated
+                      !    will be identical with that generated in Step 3.
+                      !    (Step 5 could just as well use IGW_SPINUP = 0.)
+                      ! 
+            ! Step 6: ! IGW_SPINUP = 2
+                      ! RUNTYPE = 'INITIAL' (but with optional history restarts)
+                      !    These values are used together to instruct OLAM to
+                      !    initialize its soil and lake model with the results
+                      !    of the spin-up simulation performed in Step 4.  The
+                      !    path/name of the spin-up simulation's final history
+                      !    file must be specified in GW_SPINUP_HISTFILE, and
+                      !    the path/name of the sfcgfile from Step 3 must be
+                      !    specified in GW_SPINUP_SFCGFILE.  Apart from this
+                      !    form of initialization, this simulation is identical
+                      !    to a normal simulation with IGW_SPINUP = 0.
 
    NL%GW_SPINUP_SFCGFILE = './gridfiles/sfcgfile_sp.h5'
-   NL%GW_SPINUP_HISTFILE = './hist/gwspinup-H-2100-01-01-000000.h5'
+   NL%GW_SPINUP_HISTFILE = './hist/gwspinup-H-2100-08-25-000000.h5'
 
    NL%NZS = 1     ! Maximum number of snowcover layers
 
@@ -634,6 +730,17 @@
    NL%LANDGRID_DZTOP =   .10    ! Thickness (m) of top (shallowest) soil grid level 
    NL%LANDGRID_DEPTH = 200.0    ! Depth (m) of soil grid lower boundary
 
+   NL%NITER_SWM = 1             ! Number of subcycling timesteps used in SWM storm surge & 
+                                ! coastal flooding model per long model timestep; Can usually
+                                ! be 1 unless sfcgrid resolution is higher than ATM grid 
+
+ ! POM1D model grid vertical profile geometry
+
+   NL%NZPOM          = 40       ! Number of POM1D layers in deepest columns; Must be <= 
+                                ! (POM_DEPTH / POM_DZTOP); Should normally be > 30  
+   NL%POM_DZTOP =   5.          ! Thickness (m) of top (shallowest) POM1D grid level 
+   NL%POM_DEPTH = 4500.0        ! Depth (m) of deepest POM1D columns
+
    NL%ISOILFLG   = 2      ! 1 -- Read soil composition from SoilGrids data files
                           ! 2 -- Read soil type from FAO data file, convert to
                           !      USDA text class, and use tabulated soil composition
@@ -643,9 +750,9 @@
                           ! 3 -- Hydraulic parameters from USDA classification (only with ISOILFLG = 2)
 
    NL%ITOPOFLG   = 1      ! 1 -- Read data from standard database file
-   NL%IBATHFLG   = 2      ! 1 -- Read data from standard database file
-   NL%IVEGFLG    = 1      ! 2 -- Use default value assigned in topo_init
-   NL%NDVIFLG    = 1      !      or mksfc.f90
+   NL%IBATHFLG   = 1      ! 2 -- Use default value assigned in topo_init
+   NL%IVEGFLG    = 1      !      or mksfc.f90
+   NL%NDVIFLG    = 1      !
 
    NL%ISSTFLG    = 2      ! 0 -- use default seatmp, seaice value set below
    NL%ISEAICEFLG = 2      ! 1 -- read climatological mean SST/SEAICE from file
@@ -661,25 +768,30 @@
                           ! 1 -- read subgrid orographic roughness from file
 
 ! Surface database file paths and names
-   NL%TOPO_DATABASE      = '/nas/rstor/akumar/OLAM_Model/olam_data/gmted30s/TM'
-   NL%BATHYM_DATABASE    = '/nas/rstor/akumar/OLAM_Model/olam_data/etopo1/BM'
-   NL%VEG_DATABASE       = '/nas/rstor/akumar/OLAM_Model/olam_data/oge2/OGE2_/OGE2_'
-   NL%SOIL_DATABASE      = '/nas/rstor/akumar/OLAM_Model/olam_data/fao/FAO_/FAO_'
-   NL%SOILGRIDS_DATABASE = '/nas/rstor/akumar/OLAM_Model/olam_data/soilgrids/'
-   NL%GLHYMPS_DATABASE   = '/nas/rstor/akumar/OLAM_Model/olam_data/glhymps/'
-   NL%NDVI_DATABASE      = '/nas/rstor/akumar/OLAM_Model/olam_data/ndvi/NDVI/NDVI'
-   NL%WATERTAB_DB        = '/nas/rstor/akumar/OLAM_Model/olam_data/wtd/WTD'
-   NL%OROG_SLOPE_DB      = '/nas/rstor/akumar/OLAM_Model/olam_data/slope/ORO'
+
+   NL%TOPODB_CUTOFF      = 800.  ! SFCG cell spacing (m) below which topo is filled from
+                                 ! TOPO_DATABASE(2)
+
+   NL%TOPO_DATABASE(1)   = '../../olamdatah5/gmted30s/TM'
+   NL%TOPO_DATABASE(2)   = '../../olamdatah5/srtm3s_rawdata/srtm'
+   NL%BATHYM_DATABASE    = '../../olamdatah5/etopo1/BM'
+   NL%VEG_DATABASE       = '../../olamdatah5/oge2/OGE2_'
+   NL%SOIL_DATABASE      = '../../olamdatah5/fao/FAO_'
+   NL%SOILGRIDS_DATABASE = '../../olamdatah5/soilgrids/'
+   NL%GLHYMPS_DATABASE   = '../../olamdatah5/glhymps/'
+   NL%NDVI_DATABASE      = '../../olamdatah5/ndvi/NDVI'
+   NL%WATERTAB_DB        = '../../olamdatah5/wtd/WTD'
+   NL%OROG_SLOPE_DB      = '../../olamdatah5/slope/ORO'
 
 ! These point to a .txt listing of sst/seaice files, and are used only
  ! if isstflg/iseaiceflg = 1
 
-   NL%SST_DATABASE    = '/glade/u/olamdatah5/sst7100/sstfiles.txt'
-   NL%SEAICE_DATABASE = '/glade/u/olamdatah5/ice8100/icefiles.txt'
+   NL%SST_DATABASE    = '../../olamdatah5/sst7100/sstfiles.txt'
+   NL%SEAICE_DATABASE = '../../olamdatah5/ice8100/icefiles.txt'
 
  ! Update flags for surface data
 
-   NL%IUPDNDVI   = 0  ! 0/1 = No/Yes update of NDVI values during run
+   NL%IUPDNDVI   = 1  ! 0/1 = No/Yes update of NDVI values during run
    NL%IUPDSST    = 0  ! 0/1 = No/Yes update of SST values during run
    NL%IUPDSEAICE = 0  ! 0/1 = No/Yes update of SEAICE values during run
 
@@ -725,36 +837,34 @@
                                   ! 2: Use core-shell mixing model to get
                                   !    aersol optical properties
 
-   NL%EMIS_DIR       = '/Users/otte/olamdatah5/edgar42'
+   NL%EMIS_DIR       = '../../olamdatah5/edgar42'
    NL%GEIA_EMIS_FILE = '../etc/geia_emis.nc4'
    
    ! Set these to read the global plant functional type database provided with
    ! the MEGAN biogenic emission module; else we estimate these from the OLAM
    ! land use files.
    NL%MEGAN_USE_PFTS_FILE = .FALSE.
-   NL%MEGAN_PFTS_FILE     = '/Users/otte/olamdatah5/megan/pfts.nc4'
+   NL%MEGAN_PFTS_FILE     = '../../olamdatah5/megan/pfts.nc4'
 
    NL%O3NUDFLAG  = 0
    NL%O3NUDPRESS = 150.
    NL%O3TNUDCENT = 43200.
 
  !------------------------------------------------------------------------
- ! History files to read from for RUNTYPE = 'PLOTONLY'
+ ! History files to read from when RUNTYPE = 'PLOTONLY'
  !------------------------------------------------------------------------
 
-  NL%NPLT_FILES = 3   ! Number of history files to plot from for
+  NL%NPLT_FILES = 1   ! Number of history files to plot from when
                        ! RUNTYPE = 'PLOTONLY' (limit of maxpltfiles)
 
   NL%PLT_FILES =
-     './hist/harveySOIL9O-H-2006-10-11-120000.h5',
-     './hist/harveySOIL9O-H-2006-10-11-120000.h5',
-     './hist/harveySOIL9O-H-2006-10-11-120000.h5',
-
+     './hist/harvSR-HTC1-2017-08-24-120000.h5',
+ 
  !------------------------------------------------------------------------
- ! Day-average files to plot from for RUNTYPE = 'PLOTONLY'
+ ! Day-average files to plot from when RUNTYPE = 'PLOTONLY'
  !------------------------------------------------------------------------
 
-  NL%NDAVG_FILES = 0  ! Number of day-average files to plot from for
+  NL%NDAVG_FILES = 0  ! Number of day-average files to plot from when
                       ! RUNTYPE = 'PLOTONLY' (limit of maxpltfiles)
 
   NL%DAVG_FILES =
@@ -765,22 +875,22 @@
  ! Plotting parameters
  !--------------------------------------------------------------------------
 
-  NL%NPLT    =  1    ! Number of fields plotted at each time 
+  NL%NPLT    =  14    ! Number of fields plotted at each time 
                       ! (limit of maxnplt fields in max_dims.f90)
 
-  NL%FRQPLT =  1800.    ! Plot frequency (for RUNTYPE = 'INITIAL' or 'HISTORY')
+  NL%FRQPLT =  3600.  ! Plot frequency (for RUNTYPE = 'INITIAL' or 'HISTORY')
                             
-  NL%DTVEC = 1200.    ! Scaling time (seconds) for plotted velocity vectors
+  NL%DTVEC =   1800.     ! Scaling time (seconds) for plotted velocity vectors
 
-  NL%HEADSPEED = 3.   ! Scaling speed for arrow head length in plotted
+  NL%HEADSPEED = 5.   ! Scaling speed for arrow head length in plotted
                       ! velocity vectors
 
   NL%STEMLENGTH = 10.e3 ! Geographic distance (m) of windbarb stem for size scaling
 
-  NL%VEC_MAXMRL = 5   ! The maximum mesh refinement level when plotting 
+  NL%VEC_MAXMRL = 6   ! The maximum mesh refinement level when plotting 
                       ! velocity vectors with the "V" pltspec
 
-  NL%PRTVAL_SIZE = 'large' ! Relative size of font when printing values on the
+  NL%PRTVAL_SIZE = 'medium' ! Relative size of font when printing values on the
                            ! plot: 'small', 'medium', or 'large'
 
   NL%PLTTYPE = 0      ! 0 = NCAR graphics meta file
@@ -795,7 +905,7 @@
                       ! (only for postscript or pdf output)
 
   NL%ZPLOT_MIN = -1.0   ! For vertical or cone plots, these specify the vertical
-  NL%ZPLOT_MAX = 14000.0   ! extent of the plots (m); use -1.0 to indicate the
+  NL%ZPLOT_MAX = 20000.0   ! extent of the plots (m); use -1.0 to indicate the
                         ! default top and bottom of the model
 
   NL%MAPCOLOR = 13     ! Color of map outlines.  Useful colors: 10 - black
@@ -835,63 +945,73 @@
  !                   |  color   |        lon/lat      height,  width     or 'V'   
  !FLDNAME            |  table   |        or x/y      or p-lev   (m)     projectn  cscale cmin cmax  cinc zhfwid
  !-------------------------------------------------------------------------------------------------------------
- 'SPEEDW'           ,'O',511,'TVmscotW',  -26.91,70.24,  1000.,   1500.e3,     0.,    'lin',    0., 100.,  5.0,  0.
- 'RR_TOTCOND'       ,'O',512,'TwmscotW',  -26.91,70.24,  1000.,   3000.e3,     0.,    'lin',    0.,  20.,  1.0,  0.
- 'LEAF_CLASS'       ,'O',  1,'TimcotW',   -26.91,70.24,  1000.,   3000.e3,     0.,    'lin',    0.,   0.,   0.,  0.
- 'SFCG_TOPW'        ,'O',470,'FmcotW',    -26.91,70.24,  1000.,   3000.e3,     0.,    'lin',    0.,   0.,   0.,  0.
- 'SFCG_BATHYM'      ,'O',470,'FmcotW',    -26.91,70.24,  1000.,   3000.e3,     0.,    'lin',    0.,   0.,   0.,  0.
- 'HEAD1'            ,'O',513,'FmcotW',     -96.5,27.7,  1000.,   400.e3,     0.,    'log',  -10.,  10.,0.001,  0.999
- 'HEAD1_MSL'        ,'O',514,'FmcotW',     -96.5,27.7,  1000.,   400.e3,     0.,    'log',  -10., 1.e4, 0.01,  0.999
- 'WDEPTH'           ,'O',515,'TYmcotW',    -96.5,27.7,  1000.,   400.e3,     0.,    'log',   -1.,9000.,  0.1,  0.999
- 'SFCWATER_TOT'     ,'O',200,'TymcotW',    -96.5,27.7,  1000.,   400.e3,     0.,    'lin',    0.,   0.,   0.,  0.0
- 'WAT_DEPTH'        ,'O',516,'FmcotW',     -96.5,27.7,  1000.,   400.e3,     0.,    'log',    0., 2.e4,  0.1,  0.0
- 'WAT_TEMPK'        ,'O',517,'FmcotW',     -96.5,27.7,  1000.,   400.e3,     0.,    'lin',  270., 330.,  2.0,  0.0
+ 'TOPW'            ,'L',401,'Fmcot',       0.0,0.0,   1000.,   300.e3,     0.,    'lin',    0.,   0.,   0.,  0.
+ 'LEAF_CLASS'      ,'L',  1,'Tmcot',       0.0,0.0,   1000.,   300.e3,     0.,    'lin',    0.,   0.,   0.,  0.
+ 'WAT_TEMPK'       ,'L',527,'Tmcot',       0.0,0.0,   1000.,   300.e3,     0.,    'lin',  270., 330.,  2.0,  0.0
+ 'LEAF_CLASS'      ,'L',  1,'Fmcot',       0.0,0.0,   1000.,   300.e3,     0.,    'lin',    0.,   0.,   0.,  0.
+ 'WAT_TEMPK'       ,'L',527,'Fmcot',       0.0,0.0,   1000.,   300.e3,     0.,    'lin',  270., 330.,  2.0,  0.0
+ 'SFCG_VELS'       ,'L', 79,'Fmcot',       0.0,0.0,   1000.,   300.e3,     0.,    'lin',    0.,  50.,  2.0,  0.0
+ 'SFCG_SPEED10M'   ,'L', 79,'Fmcot',       0.0,0.0,   1000.,   300.e3,     0.,    'lin',    0.,  50.,  2.0,  0.0
+ 'SFCG_SPEED2M'    ,'L', 79,'Fmcot',       0.0,0.0,   1000.,   300.e3,     0.,    'lin',    0.,  50.,  2.0,  0.0
+ 'SFCG_AIRTEMPK'   ,'L',527,'Fmcot',       0.0,0.0,   1000.,   300.e3,     0.,    'lin',  270., 330.,  2.0,  0.0
+ 'SFCG_TEMPK2M'    ,'L',527,'Fmcot',       0.0,0.0,   1000.,   300.e3,     0.,    'lin',  270., 330.,  2.0,  0.0
+ 'SFCG_SKINTEMPK'  ,'L',527,'Fmcot',       0.0,0.0,   1000.,   300.e3,     0.,    'lin',  270., 330.,  2.0,  0.0
+ 'SFCG_AIRRRV'     ,'L',  5,'Fmcot',       0.0,0.0,   1000.,   300.e3,     0.,    'lin',    0.,  20.,  1.0,  0.0
+ 'SFCG_RVAP2M'     ,'L',  5,'Fmcot',       0.0,0.0,   1000.,   300.e3,     0.,    'lin',    0.,  20.,  1.0,  0.0
+ 'SFCG_CANRRV'     ,'L',  5,'Fmcot',       0.0,0.0,   1000.,   300.e3,     0.,    'lin',    0.,  20.,  1.0,  0.0
 
- 'SPEEDW'           ,'O',521,'TGJwmscntW', -97.0,28.2,  1000.,   100.e3,     0.,    'lin',    0., 100.,  5.0,  0.
- 'RR_TOTCOND'       ,'O',522,'TGJVmscntW', -97.0,28.2,  1000.,   100.e3,     0.,    'lin',    0.,  20.,  1.0,  0.
- 'LEAF_CLASS'       ,'O',  1,'TgjmcotW',   -97.0,28.2,  1000.,   100.e3,     0.,    'lin',    0.,   0.,   0.,  0.
- 'SFCG_TOPW'        ,'O',470,'FgjmcotW',   -97.0,28.2,  1000.,   100.e3,     0.,    'lin',    0.,   0.,   0.,  0.
- 'WAT_TEMPK'        ,'O',527,'FgicotW',    -97.0,28.2,  1000.,   100.e3,     0.,    'lin',  270., 330.,  2.0,  0.0
- 'SFCG_CANTEMPK'    ,'O',  4,'TgiPmctnW',  -97.0,28.2,  1000.,   100.e3,     0.,    'lin',    0., 100.,  5.0,  0.
- 'SFCG_CANRRV'      ,'O',  5,'TgiPmctnW',  -97.0,28.2,  1000.,   100.e3,     0.,    'lin',    0., 100.,  5.0,  0.
- 'SFCG_AIRTEMPK'    ,'O',  4,'TgiPmctnW',  -97.0,28.2,  1000.,   100.e3,     0.,    'lin',    0., 100.,  5.0,  0.
- 'SFCG_AIRRRV'      ,'O',  5,'TgiPmctnW',  -97.0,28.2,  1000.,   100.e3,     0.,    'lin',    0., 100.,  5.0,  0.
- 'SFCG_SKINTEMPK'   ,'O',  4,'TgiPmctnW',  -97.0,28.2,  1000.,   100.e3,     0.,    'lin',    0., 100.,  5.0,  0.
- 'VEG_TEMPK'        ,'O',  4,'TgiPmctnW',  -97.0,28.2,  1000.,   100.e3,     0.,    'lin',    0., 100.,  5.0,  0.
- 'SFCWATER_TOT'     ,'O',200,'TgiPmctnW',  -97.0,28.2,  1000.,   100.e3,     0.,    'lin',    0., 100.,  5.0,  0.
- 'SFCWATER_TOP_TEMP','O',  4,'TgiPmctnW',  -97.0,28.2,  1000.,   100.e3,     0.,    'lin',    0., 100.,  5.0,  0.
- 'SOIL_TOP_TEMP'    ,'O',  4,'TgiPmctnW',  -97.0,28.2,  1000.,   100.e3,     0.,    'lin',    0., 100.,  5.0,  0.
+ 'SFCG_TOPW'       ,'O',401,'FGgmcotW',  -96.0,27.7,  1000.,   1000.e3,     0.,    'lin',    0.,   0.,   0.,  0.
+ 'PMSL'            ,'O',474,'OmoctwW',   -96.0,27.7,  1000.,   1000.e3,     0.,    'lin',    0., 100.,   .0,  0.
+ 'SPEEDW'          ,'O',521,'TwmscntW',  -96.0,27.7,  1000.,   1000.e3,     0.,    'lin',    0., 100.,  5.0,  0.
+ 'RR_TOTCOND'      ,'O',522,'TwmscntW',  -96.0,27.7,  1000.,   1000.e3,     0.,    'lin',    0.,  20.,  1.0,  0.
+ 'SFCG_CANTEMPK'   ,'O', 20,'TgimscotW', -96.0,27.7,  1000.,   1000.e3,     0.,    'lin',    0.,   0.,   .0,  0.
 
- 'SFWAT_TEMPK'     ,'O',517,'TgiPYmcotW', -97.33,25.6,  1000.,   600.e3,     0.,    'lin',  270., 330.,  2.0,  0.0
+ 'SPEEDW'          ,'O',521,'FGwmscot', -97.5,25.9,   1000.,   1000.e3,     0.,    'lin',    0., 100.,  5.0,  0.
+ 'SPEEDW'          ,'O',521,'Fwmcot',   -97.5,25.9,   3000.,    300.e3,     0.,    'lin',    0., 100.,  5.0,  0.
+ 'PRESS'           ,'O',401,'FGmcot',   -97.5,25.9,   5000.,   2000.e3,     0.,    'lin',    0.,   0.,   0.,  0.
+ 'PRESS'           ,'O',401,'Fwmcot',   -97.5,25.9,   5000.,   2000.e3,     0.,    'lin',    0.,   0.,   0.,  0.
 
- 'SPEEDW'          ,'O',513,'TGJwmscntW',  -97.2,27.7,  1000.,   200.e3,     0.,    'lin',    0., 100.,  5.0,  0.
- 'SPEEDW'          ,'O',513,'TGJwmcntW',   -97.2,27.7,  1000.,   200.e3,     0.,    'lin',    0., 100.,  5.0,  0.
- 'SPEEDW'          ,'O',513,'TGJwmcntW',   -97.2,27.7,  2000.,   200.e3,     0.,    'lin',    0., 100.,  5.0,  0.
- 'RR_TOTCOND'      ,'O',514,'TGJwmscntW',  -97.2,27.7,  1000.,   200.e3,     0.,    'lin',    0.,  20.,  1.0,  0.
- 'RR_TOTCOND'      ,'O',514,'TGJwmcntW',   -97.2,27.7,  1000.,   200.e3,     0.,    'lin',    0.,  20.,  1.0,  0.
- 'RR_TOTCOND'      ,'O',514,'TGJwmcntW',   -97.2,27.7,  2000.,   200.e3,     0.,    'lin',    0.,  20.,  1.0,  0.
+ 'SFCG_TOPW'       ,'O',401,'FGgmcot',   -90.,0.,    1000.,   2000.e3,     0.,    'lin',    0.,   0.,   0.,  0.
+ 'TOPM'            ,'O',401,'TGgmcot',   -90.,0.,    1000.,   2000.e3,     0.,    'lin',    0.,   0.,   0.,  0.
+ 'TOPW'            ,'O',401,'FGmcot',    -90.,0.,    1000.,   2000.e3,     0.,    'lin',    0.,   0.,   0.,  0.
+ 'TOPM'            ,'O',401,'FGmcot',    -90.,0.,    1000.,   2000.e3,     0.,    'lin',    0.,   0.,   0.,  0.
+ 'TOPMW'           ,'O',401,'FGmcot',    -90.,0.,    1000.,   2000.e3,     0.,    'lin',    0.,   0.,   0.,  0.
 
+ 'SFCG_TOPW'       ,'O',401,'FgmcotW',   -112.0,90.,  1000.,   300.e3,     0.,    'lin',    0.,   0.,   0.,  0.
+ 'SFCG_TOPW'       ,'O',401,'FgmcotW',   -112.0,36.0,  1000.,   100.e3,     0.,    'lin',    0.,   0.,   0.,  0.
+ 'SFCG_TOPW'       ,'O',401,'FgmcotW',   -112.0,36.0,  1000.,    30.e3,     0.,    'lin',    0.,   0.,   0.,  0.
+ 'SFCG_TOPW'       ,'O',401,'FgmcotW',   -112.0,36.0,  1000.,    10.e3,     0.,    'lin',    0.,   0.,   0.,  0.
 
- 'SFCG_TOPW'       ,'O',470,'FGiPgmcotW', -90.66,29.28,  1000.,   30.e3,     0.,    'lin',    0.,   0.,   0.,  0.
- 'SFCG_BATHYM'     ,'O',470,'FGiPgmcotW', -90.66,29.28,  1000.,   30.e3,     0.,    'lin',    0.,   0.,   0.,  0.
- 'LEAF_CLASS'      ,'O',  1,'TGiPgymcotW',-90.66,29.28,  1000.,   30.e3,     0.,    'lin',    0.,   0.,   0.,  0.
- 'HEAD1'           ,'O',511,'FGiPgYmcotW',-90.66,29.28,  1000.,   30.e3,     0.,    'log',  -10.,  10.,0.001,  0.999
- 'WDEPTH'          ,'O',512,'FGiPgYmcotW',-90.66,29.28,  1000.,   30.e3,     0.,    'log',   -1.,9000., 0.01,  0.999
+ 'HEAD1'           ,'O',523,'FmcotW',    -96.0,27.7,  1000.,   300.e3,     0.,    'log',  -10.,  10.,0.001,  0.999
+ 'HEAD1_MSL'       ,'O',524,'FmycotW',   -96.0,27.7,  1000.,   300.e3,     0.,    'log',  -10., 1.e4, 0.01,  0.999
+ 'HEAD1_MSL'       ,'O',524,'FgYmcotW',  -96.0,27.7,  1000.,   300.e3,     0.,    'log',  -10., 1.e4, 0.01,  0.999
+ 'SFCG_BATHYM'     ,'O',470,'FmcotW',    -96.0,27.7,  1000.,   300.e3,     0.,    'lin',    0.,   0.,   0.,  0.
+ 'SFCG_BATHYM'     ,'O',470,'FmcotW',    -89.0,27.7,  1000.,  2000.e3,     0.,    'lin',    0.,   0.,   0.,  0.
 
- 'THIL'            ,'O',511,'TGIPmscntW', -67.5,4.5,   500.,    400.e3,     0.,    'lin', 270., 320., 2.0,  0.
- 'SPEEDW'          ,'O',512,'TGIPmscntW', -67.5,4.5,   500.,    400.e3,     0.,    'lin',   0., 100., 5.0,  0.
- 'LEAF_CLASS'       ,'O',  1,'TgiPmcbnW', -67.5,4.5,  1000.,    400.e3,     0.,    'lin',   0., 100., 5.0,  0.
- 'SFCG_CANTEMPK'    ,'O',  4,'TgiPmcbnW', -67.5,4.5,  1000.,    400.e3,     0.,    'lin',   0., 100., 5.0,  0.
- 'SFCG_CANRRV'      ,'O',  5,'TgiPmcbnW', -67.5,4.5,  1000.,    400.e3,     0.,    'lin',   0., 100., 5.0,  0.
- 'SFCG_AIRTEMPK'    ,'O',  4,'TgiPmcbnW', -67.5,4.5,  1000.,    400.e3,     0.,    'lin',   0., 100., 5.0,  0.
- 'SFCG_AIRRRV'      ,'O',  5,'TgiPmcbnW', -67.5,4.5,  1000.,    400.e3,     0.,    'lin',   0., 100., 5.0,  0.
- 'SFCG_SKINTEMPK'   ,'O',  4,'TgiPmcbnW', -67.5,4.5,  1000.,    400.e3,     0.,    'lin',   0., 100., 5.0,  0.
- 'VEG_TEMPK'        ,'O',  4,'TgiPmcbnW', -67.5,4.5,  1000.,    400.e3,     0.,    'lin',   0., 100., 5.0,  0.
- 'SFCWATER_TOT'     ,'O',200,'TgiPmcbnW', -67.5,4.5,  1000.,    400.e3,     0.,    'lin',   0., 100., 5.0,  0.
- 'SFCWATER_TOP_TEMP','O',  4,'TgiPmcbnW', -67.5,4.5,  1000.,    400.e3,     0.,    'lin',   0., 100., 5.0,  0.
- 'SOIL_TOP_TEMP'    ,'O',  4,'TgiPmcbnW', -67.5,4.5,  1000.,    400.e3,     0.,    'lin',   0., 100., 5.0,  0.
+ 'HEAD1_MSL'       ,'O',524,'FgjmcotW'   -96.0,27.7,  1000.,   300.e3,     0.,    'log',  -10., 1.e4, 0.01,  0.999
 
+ 'PMSL'            ,'O',474,'OmoctwW',   -96.0,27.7,  1000.,   300.e3,     0.,    'lin',    0., 100.,   .0,  0.
+ 'SPEEDW'          ,'O',521,'TwmscntW',  -96.0,27.7,  1000.,   300.e3,     0.,    'lin',    0., 100.,  5.0,  0.
+ 'RR_TOTCOND'      ,'O',522,'TwmscntW',  -96.0,27.7,  1000.,   300.e3,     0.,    'lin',    0.,  20.,  1.0,  0.
+ 'LEAF_CLASS'      ,'O',  1,'TmcotW',    -96.0,27.7,  1000.,   300.e3,     0.,    'lin',    0.,   0.,   0.,  0.
+ 'SFCG_TOPW'       ,'O',470,'FmcotW',    -96.0,27.7,  1000.,   300.e3,     0.,    'lin',    0.,   0.,   0.,  0.
+ 'SFCG_BATHYM'     ,'O',470,'FmcotW',    -96.0,27.7,  1000.,   300.e3,     0.,    'lin',    0.,   0.,   0.,  0.
+ 'HEAD1'           ,'O',523,'FmcotW',    -96.0,27.7,  1000.,   300.e3,     0.,    'log',  -10.,  10.,0.001,  0.999
+ 'HEAD1_MSL'       ,'O',524,'FmycotW',   -96.0,27.7,  1000.,   300.e3,     0.,    'log',  -10., 1.e4, 0.01,  0.999
+ 'HEAD1_MSL'       ,'O',524,'FgYmcotW',  -96.0,27.7,  1000.,   300.e3,     0.,    'log',  -10., 1.e4, 0.01,  0.999
+ 'HEAD1_MSL'       ,'O',524,'FgjmcotW'   -96.0,27.7,  1000.,   300.e3,     0.,    'log',  -10., 1.e4, 0.01,  0.999
+ 'WDEPTH'          ,'O',525,'TmcotW',    -96.0,27.7,  1000.,   300.e3,     0.,    'log',   -1.,9000.,  0.1,  0.999
+ 'WAT_DEPTH'       ,'O',526,'FmcotW',    -96.0,27.7,  1000.,   300.e3,     0.,    'log',    0., 2.e4,  0.1,  0.0
+ 'WAT_TEMPK'       ,'O',527,'FmcotW',    -96.0,27.7,  1000.,   300.e3,     0.,    'lin',  270., 330.,  2.0,  0.0
 
+ 'PMSL'             ,'O',474,'OmoctwW',  -93.5,24.0,  1000.,   400.e3,     0.,    'lin',    0., 100.,   .0,  0.
+ 'SPEEDW'           ,'O', 54,'OmoctW',   -93.5,24.0,    80.,   400.e3,     0.,    'lin',    0., 100.,  5.0,  0.
+ 'RR_TOTCOND'       ,'O',440,'OmoctW',   -93.5,24.0,  2000.,   400.e3,     0.,    'lin',    0., 100.,  5.0,  0.
+
+ 'WC'               ,'V',520,'FGcot',       0.,0.,    -1000.,   80.e3,     0.,     'lin',   -2.0,  2.0,   .2,  0.
+ 'VXE'              ,'V',521,'FGcot',       0.,0.,    -1000.,   80.e3,     0.,     'lin',  -15.0, 40.0,   1.,  0.
+ 'VYE'              ,'V',522,'FGcot',       0.,0.,    -1000.,   80.e3,     0.,     'lin',  -10.0, 10.0,   1.,  0.
+ 'PRESS_P'          ,'V',523,'FGcot',       0.,0.,    -1000.,   80.e3,     0.,     'lin', -100.0,100.0,  10.,  0.
 
 
 / 
