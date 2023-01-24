@@ -535,8 +535,8 @@ subroutine plot_index(iplt)
 
   integer, intent(in) :: iplt
 
-  integer :: im,img,iv,ivg,iw,iwg
-  real :: hpt,vpt
+  integer :: im,img,iv,ivg,iw,iwg,iwn
+  real :: hpt,vpt,psiz,vsprd
 
   integer, allocatable :: buffer(:), bcopy(:)
   integer :: nu, ier, buffsize, ipos, base, inc, n, j, i
@@ -585,14 +585,17 @@ subroutine plot_index(iplt)
         if (iparallel == 1 .and. itab_m(im)%irank /= myrank) cycle
 
         img = itab_m(im)%imglobe
+        iwn = itab_m(im)%iw(1)
 
         call oplot_transform(iplt,xem(im),yem(im),zem(im),hpt,vpt)
         if ( hpt < op%xmin .or. hpt > op%xmax .or.  &
              vpt < op%ymin .or. vpt > op%ymax ) cycle
 
+        call get_psiz(iplt,sqrt(arw0(iwn)),psiz,vsprd)
+
         if (myrank == 0) then
 
-           call oplot_locindex(img,hpt,vpt,op%psiz)
+           call oplot_locindex(img,hpt,vpt,psiz)
 
         else
 
@@ -608,6 +611,7 @@ subroutine plot_index(iplt)
            call MPI_Pack(img, 1, MPI_INTEGER, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
            call MPI_Pack(hpt, 1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
            call MPI_Pack(vpt, 1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+           call MPI_Pack(psiz,1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
 #endif
 
         endif
@@ -625,14 +629,17 @@ subroutine plot_index(iplt)
         if (iparallel == 1 .and. itab_v(iv)%irank /= myrank) cycle
 
         ivg = itab_v(iv)%ivglobe
+        iwn = itab_v(iv)%iw(1)
 
         call oplot_transform(iplt,xev(iv),yev(iv),zev(iv),hpt,vpt)
         if ( hpt < op%xmin .or. hpt > op%xmax .or.  &
              vpt < op%ymin .or. vpt > op%ymax ) cycle
 
+        call get_psiz(iplt,sqrt(arw0(iwn)),psiz,vsprd)
+
         if (myrank == 0) then
 
-           call oplot_locindex(ivg,hpt,vpt,op%psiz)
+           call oplot_locindex(ivg,hpt,vpt,psiz)
 
         else
 
@@ -648,6 +655,7 @@ subroutine plot_index(iplt)
            call MPI_Pack(ivg, 1, MPI_INTEGER, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
            call MPI_Pack(hpt, 1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
            call MPI_Pack(vpt, 1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+           call MPI_Pack(psiz,1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
 #endif
 
         endif
@@ -670,9 +678,11 @@ subroutine plot_index(iplt)
         if ( hpt < op%xmin .or. hpt > op%xmax .or.  &
              vpt < op%ymin .or. vpt > op%ymax ) cycle
 
+        call get_psiz(iplt,sqrt(arw0(iw)),psiz,vsprd)
+
         if (myrank == 0) then
 
-           call oplot_locindex(iwg,hpt,vpt,op%psiz)
+           call oplot_locindex(iwg,hpt,vpt,psiz)
 
         else
 
@@ -688,6 +698,7 @@ subroutine plot_index(iplt)
            call MPI_Pack(iwg, 1, MPI_INTEGER, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
            call MPI_Pack(hpt, 1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
            call MPI_Pack(vpt, 1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+           call MPI_Pack(psiz,1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
 #endif
 
         endif
@@ -721,8 +732,9 @@ subroutine plot_index(iplt)
                  call MPI_Unpack(buffer, buffsize, ipos, i,   1, MPI_INTEGER, MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, hpt, 1, MPI_REAL,    MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, vpt, 1, MPI_REAL,    MPI_COMM_WORLD, ier)
+                 call MPI_Unpack(buffer, buffsize, ipos, psiz,1, MPI_REAL,    MPI_COMM_WORLD, ier)
 
-                 call oplot_locindex(i,hpt,vpt,op%psiz)
+                 call oplot_locindex(i,hpt,vpt,psiz)
 
               enddo
 
@@ -753,11 +765,11 @@ subroutine plot_index_sfc(iplt)
 
   integer, intent(in) :: iplt
 
-  integer :: img,ivg,iwg
+  integer :: img,ivg,iwg,iwn
 
   integer :: imsfc, ivsfc, iwsfc
 
-  real :: hpt,vpt
+  real :: hpt,vpt,psiz,vsprd
 
   integer, allocatable :: buffer(:), bcopy(:)
   integer :: nu, ier, buffsize, ipos, base, inc, n, j, i
@@ -799,6 +811,21 @@ subroutine plot_index_sfc(iplt)
      do imsfc = 2,mmsfc
         if (iparallel == 1 .and. itab_msfc(imsfc)%irank /= myrank) cycle
 
+        ! Loop over adjacent W cell and use W cell size
+        ! to get psiz and vsprd for M point plot
+
+        do j = 1,3
+           iwn = itab_msfc(imsfc)%iwn(j)
+           if (iwn > 1) then
+              call get_psiz(iplt,sqrt(sfcg%area(iwn)),psiz,vsprd)
+              exit
+           endif
+
+           ! If no adjacent W cell found, do not plot this M point
+
+           if (j == 3) go to 10
+        enddo
+
         img = itab_msfc(imsfc)%imglobe
 
         call oplot_transform(iplt,sfcg%xem(imsfc),sfcg%yem(imsfc),sfcg%zem(imsfc),hpt,vpt)
@@ -807,7 +834,7 @@ subroutine plot_index_sfc(iplt)
 
         if (myrank == 0) then
 
-           call oplot_locindex(img,hpt,vpt,op%psiz)
+           call oplot_locindex(img,hpt,vpt,psiz)
 
         else
 
@@ -823,6 +850,7 @@ subroutine plot_index_sfc(iplt)
            call MPI_Pack(img, 1, MPI_INTEGER, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
            call MPI_Pack(hpt, 1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
            call MPI_Pack(vpt, 1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+           call MPI_Pack(psiz,1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
 #endif
 
         endif
@@ -846,14 +874,17 @@ subroutine plot_index_sfc(iplt)
         if (iparallel == 1 .and. itab_vsfc(ivsfc)%irank /= myrank) cycle
 
         ivg = itab_vsfc(ivsfc)%ivglobe
+        iwn = itab_vsfc(ivsfc)%iwn(1)
 
         call oplot_transform(iplt,sfcg%xev(ivsfc),sfcg%yev(ivsfc),sfcg%zev(ivsfc),hpt,vpt)
         if ( hpt < op%xmin .or. hpt > op%xmax .or.  &
              vpt < op%ymin .or. vpt > op%ymax ) cycle
 
+        call get_psiz(iplt,sqrt(sfcg%area(iwn)),psiz,vsprd)
+
         if (myrank == 0) then
 
-           call oplot_locindex(ivg,hpt,vpt,op%psiz)
+           call oplot_locindex(ivg,hpt,vpt,psiz)
 
         else
 
@@ -869,6 +900,7 @@ subroutine plot_index_sfc(iplt)
            call MPI_Pack(ivg, 1, MPI_INTEGER, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
            call MPI_Pack(hpt, 1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
            call MPI_Pack(vpt, 1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+           call MPI_Pack(psiz,1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
 #endif
 
         endif
@@ -899,9 +931,11 @@ subroutine plot_index_sfc(iplt)
         if ( hpt < op%xmin .or. hpt > op%xmax .or.  &
              vpt < op%ymin .or. vpt > op%ymax ) cycle
 
+        call get_psiz(iplt,sqrt(sfcg%area(iwsfc)),psiz,vsprd)
+
         if (myrank == 0) then
 
-           call oplot_locindex(iwg,hpt,vpt,op%psiz)
+           call oplot_locindex(iwg,hpt,vpt,psiz)
 
         else
 
@@ -917,6 +951,7 @@ subroutine plot_index_sfc(iplt)
            call MPI_Pack(iwg, 1, MPI_INTEGER, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
            call MPI_Pack(hpt, 1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
            call MPI_Pack(vpt, 1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+           call MPI_Pack(psiz,1, MPI_REAL,    buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
 #endif
 
         endif
@@ -950,8 +985,9 @@ subroutine plot_index_sfc(iplt)
                  call MPI_Unpack(buffer, buffsize, ipos, i,   1, MPI_INTEGER, MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, hpt, 1, MPI_REAL,    MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, vpt, 1, MPI_REAL,    MPI_COMM_WORLD, ier)
+                 call MPI_Unpack(buffer, buffsize, ipos, psiz,1, MPI_REAL,    MPI_COMM_WORLD, ier)
 
-                 call oplot_locindex(i,hpt,vpt,op%psiz)
+                 call oplot_locindex(i,hpt,vpt,psiz)
 
               enddo
 
@@ -1714,7 +1750,7 @@ subroutine plot_grid(iplt)
 
   use oplot_coms, only: op
   use mem_grid,   only: mva, mza, xem, yem, zem, zm
-  use mem_ijtabs, only: itab_w, itab_v, jtab_v, jtab_w, jtv_wadj, jtw_prog
+  use mem_ijtabs, only: itab_v, jtab_v, jtv_wadj, jtw_prog
   use misc_coms,  only: iparallel
   use mem_para,   only: myrank, mgroupsize, nbytes_real
 
@@ -3319,3 +3355,61 @@ subroutine oplot_set(iplt)
   endif
 
 end subroutine oplot_set
+
+!===============================================================================
+
+subroutine get_psiz(iplt,delx,psiz,vsprd)
+
+  use oplot_coms,  only: op
+  use consts_coms, only: erad
+  use mem_grid,    only: zm, zt
+
+  implicit none
+
+  integer, intent(in) :: iplt
+  real,    intent(in) :: delx
+  real, intent(inout) :: psiz
+  real, intent(inout) :: vsprd
+
+  if ( op%projectn(iplt) == 'L' .or.  &
+       op%projectn(iplt) == 'P' .or.  &
+       op%projectn(iplt) == 'G' .or.  &
+       op%projectn(iplt) == 'O' .or.  &
+       op%projectn(iplt) == 'Z' ) then   ! Horizontal cross section
+
+     if (op%projectn(iplt) == 'L') then
+
+        if     (op%prtval_size == 'small' .or. op%prtval_size == 'SMALL') then
+           psiz = 0.04 * (delx / (6. * erad)) * (400. / (op%xmax - op%xmin))
+           vsprd = .05 * (delx / (6. * erad)) * 400.
+        elseif (op%prtval_size == 'large' .or. op%prtval_size == 'LARGE') then
+           psiz = 0.12 * (delx / (6. * erad)) * (400. / (op%xmax - op%xmin))
+           vsprd = .15 * (delx / (6. * erad)) * 400.
+        else
+           psiz = 0.08 * (delx / (6. * erad)) * (400. / (op%xmax - op%xmin))
+           vsprd = .10 * (delx / (6. * erad)) * 400.
+        endif
+
+     else
+
+        if     (op%prtval_size == 'small' .or. op%prtval_size == 'SMALL') then
+           psiz = 0.04 * delx / (op%xmax - op%xmin)
+           vsprd = .05 * delx
+        elseif (op%prtval_size == 'large' .or. op%prtval_size == 'LARGE') then
+           psiz = 0.12 * delx / (op%xmax - op%xmin)
+           vsprd = .15 * delx
+        else
+           psiz = 0.08 * delx / (op%xmax - op%xmin)
+           vsprd = .10 * delx
+        endif
+
+     endif
+
+  else   ! Vertical cross section (projectn = C or V)
+
+     psiz  = .07 * delx / (op%xmax - op%xmin)
+     vsprd = 0.2 * (zm(2) - zt(2))
+
+  endif
+
+end subroutine get_psiz
