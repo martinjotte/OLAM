@@ -23,7 +23,7 @@ subroutine spawn_nest(iatmgrid)
   use mem_sfcg,     only: nsfcgrids, nsfcgrdll, sfcgrdrad, sfcgrdlat, &
                           sfcgrdlon, nxp_sfc
 
-  use consts_coms,  only: pio180, erad, pi1, pi2, piu180
+  use consts_coms,  only: pio180, erad, pi1, pi2, piu180, r8
   use oname_coms,   only: nl
   use oplot_coms,   only: op
 
@@ -83,6 +83,7 @@ subroutine spawn_nest(iatmgrid)
   real,    pointer :: grdrad0(:,:)
   real,    pointer :: grdlat0(:,:)
   real,    pointer :: grdlon0(:,:)
+  real(r8)         :: expansion, erad8, xd, yd, zd
 
   character(12) :: string
 
@@ -939,6 +940,28 @@ subroutine spawn_nest(iatmgrid)
      deallocate (imper,iuper,igsize,nearpent,nwdivg)
      deallocate (npolyper,nwdivper)
      deallocate (imnew,iwnew,iunew)
+
+     ! Push coordinates out to Earth radius
+     if (mdomain < 2) then
+        erad8 = real(erad,r8)
+
+        !$omp do private(expansion,xd,yd,zd)
+        do im = 2, nmd
+
+           xd = real(xemd(im), r8)
+           yd = real(yemd(im), r8)
+           zd = real(zemd(im), r8)
+
+           expansion = erad8 / sqrt( xd*xd + yd*yd + zd*zd)
+
+           xemd(im) = real( xd * expansion )
+           yemd(im) = real( yd * expansion )
+           zemd(im) = real( zd * expansion )
+
+        enddo
+        !$omp end do
+
+     endif
 
      ! Plot grid lines
 
