@@ -10,10 +10,6 @@ subroutine read_sst_analysis(iaction)
   use hdf5_utils, only: shdf5_open, shdf5_irec, shdf5_info, shdf5_close
   use prfill_mod, only: prfill
 
-#ifdef OLAM_MPI
-  use mpi
-#endif
-
   implicit none
 
   integer, intent(in) :: iaction

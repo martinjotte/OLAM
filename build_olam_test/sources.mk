@@ -30,7 +30,7 @@ SOURCE_FILES= \
              $(LAND)/land_startup.f90 \
              $(LAND)/mem_land.f90 \
              $(LAND)/ndvi_database_read.f90 \
-             $(LAND)/read_soil_analysis.F90 \
+             $(LAND)/read_soil_analysis.f90 \
              $(LAND)/soilgrids_read.f90 \
              $(MODEL_MODS)/consts_coms.f90 \
              $(MODEL_MODS)/max_dims.f90 \
@@ -58,7 +58,7 @@ SOURCE_FILES= \
              $(MODEL_MODS)/plotcolors.f90 \
              $(MODEL_MODS)/var_tables.f90 \
              $(OISAN)/asti.f90 \
-             $(OISAN)/astp.F90 \
+             $(OISAN)/astp.f90 \
              $(OISAN)/file_inv.f90 \
              $(OISAN)/init_nudgrid.f90 \
              $(OISAN)/isan_coms.f90 \
@@ -93,7 +93,7 @@ SOURCE_FILES= \
              $(OMODEL)/olam_mpi_atm.F90 \
              $(OMODEL)/olammain.F90 \
              $(OMODEL)/olamplot.f90 \
-             $(OMODEL)/olam_run.F90 \
+             $(OMODEL)/olam_run.f90 \
              $(OMODEL)/olhi.f90 \
              $(OMODEL)/omic_coll.f90 \
              $(OMODEL)/omic_driv.f90 \
@@ -117,7 +117,7 @@ SOURCE_FILES= \
              $(OMODEL)/scalar_transport_rk.F90 \
              $(OMODEL)/spawn_nest.f90 \
              $(OMODEL)/spring_dynamics.f90 \
-             $(OMODEL)/surface_fluxes.F90 \
+             $(OMODEL)/surface_fluxes.f90 \
              $(OMODEL)/tileslab.F90 \
              $(OMODEL)/timeseries_plots.f90 \
              $(OMODEL)/timestep.f90 \
@@ -150,7 +150,7 @@ SOURCE_FILES= \
              $(RADIATE)/clouds_gno.f90 \
              $(RADIATE)/mem_mclat.f90 \
              $(RADIATE)/mem_radiate.f90 \
-             $(RADIATE)/rad_driv.F90 \
+             $(RADIATE)/rad_driv.f90 \
              $(RADIATE)/rrtmg_cloud_optics.f90 \
              $(RADIATE)/rrtmg_raddriv.f90 \
              $(RADIATE)/rrtmg_lw/mcica_subcol_gen_lw.f90 \
@@ -216,8 +216,8 @@ SOURCE_FILES= \
              $(SEA)/mem_sea.f90 \
              $(SEA)/pom_interface.f90 \
              $(SEA)/pom2k1d.f90 \
-             $(SEA)/read_seaice_analysis.F90 \
-             $(SEA)/read_sst_analysis.F90 \
+             $(SEA)/read_seaice_analysis.f90 \
+             $(SEA)/read_sst_analysis.f90 \
              $(SEA)/sea_coms.f90 \
              $(SEA)/sea.f90 \
              $(SEA)/seaice_database_read.f90 \
@@ -232,7 +232,7 @@ SOURCE_FILES= \
              $(SFCG)/mem_sfcg.f90 \
              $(SFCG)/mem_sfcnud.f90 \
              $(SFCG)/olam_mpi_sfc.F90 \
-             $(SFCG)/surface_driver.F90 \
+             $(SFCG)/surface_driver.f90 \
              $(HURRICANE)/hurricane_init.F90 \
              $(HURRICANE)/plot_trajecfile.f90 \
              $(TEST_CASES)/mem_swtc5_refsoln_cubic.f90 \
@@ -261,8 +261,8 @@ SOURCE_FILES= \
              $(CMAQ)/aqchem.F \
              $(CMAQ)/AQ_DATA.F \
              $(CMAQ)/aq_map.F \
-             $(CMAQ)/cb6r3_ae6_aq/RXNS_DATA_MODULE.F90 \
-             $(CMAQ)/cb6r3_ae6_aq/RXNS_FUNC_MODULE.F90 \
+             $(CMAQ)/cb6r3_ae6_aq/RXNS_DATA_MODULE.f90 \
+             $(CMAQ)/cb6r3_ae6_aq/RXNS_FUNC_MODULE.f90 \
              $(CMAQ)/cgrid_defn.f90 \
              $(CMAQ)/CGRID_SPCS.F \
              $(CMAQ)/cmaq_cloud_optics.f90 \
@@ -275,11 +275,11 @@ SOURCE_FILES= \
              $(CMAQ)/DEPV_DEFN.F \
              $(CMAQ)/DEPVVARS.f90 \
              $(CMAQ)/DUST_EMIS.F \
-             $(CMAQ)/edgar_42_emis.F90 \
+             $(CMAQ)/edgar_42_emis.f90 \
              $(CMAQ)/EMIS_DEFN.F \
              $(CMAQ)/findex.f \
              $(CMAQ)/gas_depv_map.F \
-             $(CMAQ)/geia_emis.F90 \
+             $(CMAQ)/geia_emis.f90 \
              $(CMAQ)/getalpha.F \
              $(CMAQ)/getpar.f \
              $(CMAQ)/hlconst.F \
@@ -314,10 +314,10 @@ SOURCE_FILES= \
              $(CMAQ)/SOA_DEFN.F \
              $(CMAQ)/soil_nox.f90 \
              $(CMAQ)/SSEMIS.F \
-             $(CMAQ)/twoway_rrtmg_aero_optics.F90 \
+             $(CMAQ)/twoway_rrtmg_aero_optics.f90 \
              $(CMAQ)/UTILIO_DEFN.F \
              $(CMAQ)/washout.f90 \
              $(MEGAN)/CONSTS_MEGAN.f90 \
              $(MEGAN)/EMIS_MAPS_MEGAN.f90 \
-             $(MEGAN)/megan_driver.F90
+             $(MEGAN)/megan_driver.f90
 
