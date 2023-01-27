@@ -5,24 +5,16 @@ subroutine read_press_header()
                         xswlat, xswlon, npry, nprx, ihh, idd, imm, iyy, &
                         isversion, innpr, imonth, idate, ihour, ipoffset, &
                         glat, pnpr, o3name, haso3
-  use misc_coms,  only: io6, iparallel
+  use misc_coms,  only: io6
   use hdf5_utils, only: shdf5_open, shdf5_irec, shdf5_info
-  use mem_para,   only: myrank, nbytes_int, nbytes_real
-
-#ifdef OLAM_MPI
-  use mpi
-#endif
 
   implicit none
 
   character(len=16) :: ext
 
   logical :: exists
-  integer :: ier, igloberr, ipry, k
+  integer :: igloberr, ipry, k
   integer :: ndims, idims(3)
-  integer :: bytes, isize
-
-  integer, allocatable :: buffer(:)
 
   ndims = 0
   idims = 0
@@ -44,149 +36,70 @@ subroutine read_press_header()
 
   ! Read header only on processor rank 0
 
-  if (myrank == 0) then
-     call shdf5_open (innpr, 'R')
+  call shdf5_open (innpr, 'R', trypario=.true.)
+
+  ndims    = 1
+  idims(1) = 1
+
+  call shdf5_irec(ndims, idims, 'version',ivars=isversion)
+  call shdf5_irec(ndims, idims, 'year'   ,ivars=iyy)
+  call shdf5_irec(ndims, idims, 'month'  ,ivars=imm)
+  call shdf5_irec(ndims, idims, 'day'    ,ivars=idd)
+  call shdf5_irec(ndims, idims, 'hour'   ,ivars=ihh)
+  call shdf5_irec(ndims, idims, 'ftime'  ,ivars=itinc)
+  call shdf5_irec(ndims, idims, 'nx'     ,ivars=nprx)
+  call shdf5_irec(ndims, idims, 'ny'     ,ivars=npry)
+  call shdf5_irec(ndims, idims, 'nlev'   ,ivars=nprz)
+  call shdf5_irec(ndims, idims, 'iproj'  ,ivars=inproj)
+  call shdf5_irec(ndims, idims, 'vcoord' ,ivars=ivertcoord)
+  call shdf5_irec(ndims, idims, 'swlat'  ,rvars=xswlat)
+  call shdf5_irec(ndims, idims, 'swlon'  ,rvars=xswlon)
+  call shdf5_irec(ndims, idims, 'nelat'  ,rvars=xnelat)
+  call shdf5_irec(ndims, idims, 'nelon'  ,rvars=xnelon)
+  call shdf5_irec(ndims, idims, 'dx'     ,rvars=gdatdx)
+  call shdf5_irec(ndims, idims, 'dy'     ,rvars=gdatdy)
+  call shdf5_irec(ndims, idims, 'reflat1',rvars=cntlat)
+  call shdf5_irec(ndims, idims, 'reflat2',rvars=secondlat)
+
+  if (allocated(levpr)) deallocate(levpr)
+  allocate(levpr(nprz))
+
+  ndims    = 1
+  idims(1) = nprz
+  call shdf5_irec(ndims, idims, 'levels' ,ivar1=levpr)
+
+  if (inproj == 2) then
+     if (allocated(glat)) deallocate(glat)
+     allocate(glat(npry))
 
      ndims    = 1
-     idims(1) = 1
+     idims(1) = npry
+     call shdf5_irec(ndims, idims, 'glat' ,rvar1=glat)
+  endif
 
-     call shdf5_irec(ndims, idims, 'version',ivars=isversion)
-     call shdf5_irec(ndims, idims, 'year'   ,ivars=iyy)
-     call shdf5_irec(ndims, idims, 'month'  ,ivars=imm)
-     call shdf5_irec(ndims, idims, 'day'    ,ivars=idd)
-     call shdf5_irec(ndims, idims, 'hour'   ,ivars=ihh)
-     call shdf5_irec(ndims, idims, 'ftime'  ,ivars=itinc)
-     call shdf5_irec(ndims, idims, 'nx'     ,ivars=nprx)
-     call shdf5_irec(ndims, idims, 'ny'     ,ivars=npry)
-     call shdf5_irec(ndims, idims, 'nlev'   ,ivars=nprz)
-     call shdf5_irec(ndims, idims, 'iproj'  ,ivars=inproj)
-     call shdf5_irec(ndims, idims, 'vcoord' ,ivars=ivertcoord)
-     call shdf5_irec(ndims, idims, 'swlat'  ,rvars=xswlat)
-     call shdf5_irec(ndims, idims, 'swlon'  ,rvars=xswlon)
-     call shdf5_irec(ndims, idims, 'nelat'  ,rvars=xnelat)
-     call shdf5_irec(ndims, idims, 'nelon'  ,rvars=xnelon)
-     call shdf5_irec(ndims, idims, 'dx'     ,rvars=gdatdx)
-     call shdf5_irec(ndims, idims, 'dy'     ,rvars=gdatdy)
-     call shdf5_irec(ndims, idims, 'reflat1',rvars=cntlat)
-     call shdf5_irec(ndims, idims, 'reflat2',rvars=secondlat)
+  ! Check for ozone variable in file
 
-     if (allocated(levpr)) deallocate(levpr)
-     allocate(levpr(nprz))
+  ndims = 0
+  idims = 0
+  haso3 = .false.
 
-     ndims    = 1
-     idims(1) = nprz
-     call shdf5_irec(ndims, idims, 'levels' ,ivar1=levpr)
+  call shdf5_info('O3MR', ndims, idims)
 
-     if (inproj == 2) then
-        if (allocated(glat)) deallocate(glat)
-        allocate(glat(npry))
+  if (ndims == 3 .and. all( idims == [nprx,npry,nprz] ) ) then
 
-        ndims    = 1
-        idims(1) = npry
-        call shdf5_irec(ndims, idims, 'glat' ,rvar1=glat)
-     endif
+     haso3  = .true.
+     o3name = 'O3MR'
 
-     ! Check for ozone variable in file
+  else
 
-     ndims = 0
-     idims = 0
-     haso3 = .false.
-
-     call shdf5_info('O3MR', ndims, idims)
+     call shdf5_info('OZONE', ndims, idims)
 
      if (ndims == 3 .and. all( idims == [nprx,npry,nprz] ) ) then
-
         haso3  = .true.
-        o3name = 'O3MR'
-
-     else
-
-        call shdf5_info('OZONE', ndims, idims)
-
-        if (ndims == 3 .and. all( idims == [nprx,npry,nprz] ) ) then
-           haso3  = .true.
-           o3name = 'OZONE'
-        endif
-
+        o3name = 'OZONE'
      endif
-
-  endif  ! myrank == 0
-
-  ! If parallel run, communicate header data to other ranks
-
-#ifdef OLAM_MPI
-  if (iparallel == 1) then
-
-     bytes = 0
-     isize = nbytes_int*13 + nbytes_real*9
-     allocate( buffer( isize ) )
-
-     if (myrank == 0) then
-        call MPI_Pack(isversion , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
-        call MPI_Pack(iyy       , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
-        call MPI_Pack(imm       , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
-        call MPI_Pack(idd       , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
-        call MPI_Pack(ihh       , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
-        call MPI_Pack(itinc     , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
-        call MPI_Pack(nprx      , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
-        call MPI_Pack(npry      , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
-        call MPI_Pack(nprz      , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
-        call MPI_Pack(inproj    , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
-        call MPI_Pack(ivertcoord, 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
-        call MPI_Pack(haso3     , 1, MPI_LOGICAL, buffer, isize, bytes, MPI_COMM_WORLD, ier)
-        call MPI_Pack(xswlat    , 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
-        call MPI_Pack(xswlon    , 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
-        call MPI_Pack(xnelat    , 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
-        call MPI_Pack(xnelon    , 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
-        call MPI_Pack(gdatdx    , 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
-        call MPI_Pack(gdatdy    , 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
-        call MPI_Pack(cntlat    , 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
-        call MPI_Pack(secondlat , 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
-     endif
-
-     call MPI_Bcast(buffer, isize, MPI_PACKED, 0, MPI_COMM_WORLD, ier)
-
-     if (myrank /= 0) then
-        call MPI_Unpack(buffer, isize, bytes, isversion , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
-        call MPI_Unpack(buffer, isize, bytes, iyy       , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
-        call MPI_Unpack(buffer, isize, bytes, imm       , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
-        call MPI_Unpack(buffer, isize, bytes, idd       , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
-        call MPI_Unpack(buffer, isize, bytes, ihh       , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
-        call MPI_Unpack(buffer, isize, bytes, itinc     , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
-        call MPI_Unpack(buffer, isize, bytes, nprx      , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
-        call MPI_Unpack(buffer, isize, bytes, npry      , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
-        call MPI_Unpack(buffer, isize, bytes, nprz      , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
-        call MPI_Unpack(buffer, isize, bytes, inproj    , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
-        call MPI_Unpack(buffer, isize, bytes, ivertcoord, 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
-        call MPI_Unpack(buffer, isize, bytes, haso3     , 1, MPI_LOGICAL, MPI_COMM_WORLD, ier)
-        call MPI_Unpack(buffer, isize, bytes, xswlat    , 1, MPI_REAL   , MPI_COMM_WORLD, ier)
-        call MPI_Unpack(buffer, isize, bytes, xswlon    , 1, MPI_REAL   , MPI_COMM_WORLD, ier)
-        call MPI_Unpack(buffer, isize, bytes, xnelat    , 1, MPI_REAL   , MPI_COMM_WORLD, ier)
-        call MPI_Unpack(buffer, isize, bytes, xnelon    , 1, MPI_REAL   , MPI_COMM_WORLD, ier)
-        call MPI_Unpack(buffer, isize, bytes, gdatdx    , 1, MPI_REAL   , MPI_COMM_WORLD, ier)
-        call MPI_Unpack(buffer, isize, bytes, gdatdy    , 1, MPI_REAL   , MPI_COMM_WORLD, ier)
-        call MPI_Unpack(buffer, isize, bytes, cntlat    , 1, MPI_REAL   , MPI_COMM_WORLD, ier)
-        call MPI_Unpack(buffer, isize, bytes, secondlat , 1, MPI_REAL   , MPI_COMM_WORLD, ier)
-
-        if (allocated(levpr)) deallocate(levpr)
-        allocate(levpr(nprz))
-
-        if (inproj == 2) then
-           if (allocated(glat)) deallocate(glat)
-           allocate(glat(npry))
-        endif
-     endif
-
-     call MPI_Bcast(levpr, nprz, MPI_INTEGER, 0, MPI_COMM_WORLD, ier)
-
-     if (inproj == 2) then
-        call MPI_Bcast(glat, npry, MPI_INTEGER, 0, MPI_COMM_WORLD, ier)
-     endif
-
-     deallocate(buffer)
 
   endif
-#endif
 
   write(io6,*) 'nprz1 ',nprz,nprx,npry
 
@@ -341,18 +254,13 @@ subroutine pressure_stage()
                          inproj, plat, glat, xswlat, o_press, o_theta, o_rho, &
                          o_rrw, o_uzonal, o_umerid, o_ozone, haso3, o3name
   use hdf5_utils,  only: shdf5_info, shdf5_irec, shdf5_close
-  use mem_para,    only: myrank
-  use misc_coms,   only: rinit, io6, iparallel, i_o3
+  use misc_coms,   only: rinit, i_o3, io6
   use mem_ijtabs,  only: jtab_w, jtw_init
   use mem_zonavg,  only: zonz, zont, zonr, zonu, zono, zonp_vect
   use consts_coms, only: p00, rocp, eps_vap, cvocp, p00kord, eps_vapi
   use therm_lib,   only: eslf
   use mem_grid,    only: mza, mwa, zt
   use prfill_mod,  only: prfill, prfill3
-
-#ifdef OLAM_MPI
-  use mpi
-#endif
 
   implicit none
 
@@ -388,10 +296,6 @@ subroutine pressure_stage()
   ! model horizontal (iw) location
   real, allocatable :: field(:,:)
 
-#ifdef OLAM_MPI
-  integer :: ier, ireq
-#endif
-
   yoffset = 3.0
   xoffset = 1.0 + real(ipoffset)
 
@@ -424,9 +328,7 @@ subroutine pressure_stage()
 
   ! Allocate space for 3d arrays
 
-  if (myrank == 0) then
-     allocate( as3(nprx,npry,nprz) )
-  endif
+  allocate(as3(nprx,npry,nprz) )
   allocate(p3d(nprx+4,npry+4,nprz))
 
   allocate(field (npd,mwa)) ; field  = rinit
@@ -454,31 +356,17 @@ subroutine pressure_stage()
 ! Read geopotential height
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-  if (myrank == 0) then
+  varname = 'GEO'
+  call shdf5_info(varname, ndims, idims)
 
-     ndims = 0
-     idims = 0
-
-     varname = 'GEO'
-     call shdf5_info(varname, ndims, idims)
-
-     if (ndims /= 3 .or. any( idims /= [nprx,npry,nprz] ) ) then
-        write(*,*) "Geopotential height (GEO) not found in analysis file."
-        stop
-     endif
-
-     write(io6,*) "Reading geopotential height " // trim(varname)
-     call shdf5_irec(ndims, idims,varname,rvar3 = as3)
-     call prfill3(nprx,npry,nprz,as3,p3d,gdatdy,xswlat,ipoffset,inproj)
+  if (ndims /= 3 .or. any( idims /= [nprx,npry,nprz] ) ) then
+     write(*,*) "Geopotential height (GEO) not found in analysis file."
+     stop
   endif
 
-#ifdef OLAM_MPI
-  if (iparallel == 1) then
-     call MPI_Ibcast( p3d, (nprx+4)*(npry+4)*nprz, MPI_REAL, 0, MPI_COMM_WORLD, &
-                     ireq, ier )
-     if (myrank > 0) call MPI_Wait( ireq, MPI_STATUS_IGNORE, ier )
-  endif
-#endif
+  write(io6,*) "Reading geopotential height " // trim(varname)
+  call shdf5_irec(ndims, idims,varname,rvar3 = as3)
+  call prfill3(nprx,npry,nprz,as3,p3d,gdatdy,xswlat,ipoffset,inproj)
 
   ! Horizontally interpolate geopotential of each pressure level
   ! to the model column lat/lon locations
@@ -513,35 +401,17 @@ subroutine pressure_stage()
 ! Read temperature
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-  if (myrank == 0) then
-     ndims = 0
-     idims = 0
+  varname = 'TEMP'
+  call shdf5_info(varname, ndims, idims)
 
-     varname = 'TEMP'
-     call shdf5_info(varname, ndims, idims)
-
-     if (ndims /= 3 .or. any( idims /= [nprx,npry,nprz] ) ) then
-        write(*,*) "Air temperature (TEMP) not found in analysis file."
-        stop
-     endif
-
-     write(io6,*) "Reading air temperature " // trim(varname)
-     call shdf5_irec(ndims, idims,varname,rvar3 = as3)
-
-#ifdef OLAM_MPI
-     if (iparallel == 1) call MPI_Wait( ireq, MPI_STATUS_IGNORE, ier )
-#endif
-     call prfill3(nprx,npry,nprz,as3,p3d,gdatdy,xswlat,ipoffset,inproj)
-
+  if (ndims /= 3 .or. any( idims /= [nprx,npry,nprz] ) ) then
+     write(*,*) "Air temperature (TEMP) not found in analysis file."
+     stop
   endif
 
-#ifdef OLAM_MPI
-  if (iparallel == 1) then
-     call MPI_Ibcast( p3d, (nprx+4)*(npry+4)*nprz, MPI_REAL, 0, MPI_COMM_WORLD, &
-                      ireq, ier )
-     if (myrank > 0) call MPI_Wait( ireq, MPI_STATUS_IGNORE, ier )
-  endif
-#endif
+  write(io6,*) "Reading air temperature " // trim(varname)
+  call shdf5_irec(ndims, idims,varname,rvar3 = as3)
+  call prfill3(nprx,npry,nprz,as3,p3d,gdatdy,xswlat,ipoffset,inproj)
 
   ! Horizontally interpolate geopotential of each pressure level
   ! to the model column lat/lon locations
@@ -577,135 +447,117 @@ subroutine pressure_stage()
 ! Read water vapor
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-  if (myrank == 0) then
+  ! First check if specific humidity is in analysis file
 
-     ndims = 0
-     idims = 0
+  varname = 'SHV'
+  isrh    = .false.
+  call shdf5_info(varname, ndims, idims)
 
-     ! First check if specific humidity is in analysis file
+  if (ndims /= 3) then
 
-     varname = 'SHV'
-     isrh    = .false.
+     ! If we don't have specific humidity, check for relative humidity.
+     ! It may be called RELHUM or RH
+
+     varname = 'RH'
+     isrh   = .true.
      call shdf5_info(varname, ndims, idims)
 
      if (ndims /= 3) then
 
-        ! If we don't have specific humidity, check for relative humidity.
-        ! It may be called RELHUM or RH
-
-        varname = 'RH'
+        varname = 'RELHUM'
         isrh   = .true.
         call shdf5_info(varname, ndims, idims)
 
-        if (ndims /= 3) then
-
-           varname = 'RELHUM'
-           isrh   = .true.
-           call shdf5_info(varname, ndims, idims)
-
-           if (ndims /= 3 .or. any( idims /= [nprx,npry,nprz] ) ) then
-              write(*,*) "Water vapor not found in analysis file."
-              stop
-           endif
-
-        endif
-     endif
-
-     ! If we need temperature to convert RH to mixing ratio, store it in
-     ! p3d. Note: as3 is still the air temperature read in from the reanalysis
-
-     if (isrh) then
-        allocate( at3(nprx,npry,nprz) )
-        at3 = as3
-     endif
-
-     write(io6,*) "Reading water vapor " // trim(varname)
-     call shdf5_irec(ndims, idims, varname, rvar3=as3)
-
-     if (isrh) then
-
-        ! RH should be stored as a ratio (0-1). If there are larger values,
-        ! assume RH is in percent and convert to decimal RH. This is probably
-        ! not necessary with recent versions of grib2olam but we will keep
-        ! this check anyway. TODO: Read and store units from grib2olam.
-        if ( any(as3(:,:,1) > 2.0) ) then
-           write(io6, *) '    Converting relative humidity (%) to ratio (0-1)'
-           as3 = 0.01 * as3
+        if (ndims /= 3 .or. any( idims /= [nprx,npry,nprz] ) ) then
+           write(*,*) "Water vapor not found in analysis file."
+           stop
         endif
 
-        ! Convert relative humidity to mixing ratio
+     endif
+  endif
 
-        write(io6,*) '    Converting relative humidity to mixing ratio'
+  ! If we need temperature to convert RH to mixing ratio, store it in
+  ! p3d. Note: as3 is still the air temperature read in from the reanalysis
 
-        !$omp parallel do collapse(2) private(k,j,i,vapor_press)
-        do k = 1, nprz
-           do j = 1, npry
-              do i = 1, nprx
+  if (isrh) then
+     allocate( at3(nprx,npry,nprz) )
+     at3 = as3
+  endif
 
-                 ! Compute ambient vapor pressure based on R.H.
-                 ! and saturation vapor pressure (eslf) (at3 temporarily
-                 ! stores air temperature).
+  write(io6,*) "Reading water vapor " // trim(varname)
+  call shdf5_irec(ndims, idims, varname, rvar3=as3)
 
-                 vapor_press = as3(i,j,k) * eslf(at3(i,j,k)-273.15)
+  if (isrh) then
 
-                 ! Do not allow vapor pressure to exceed ambient pressure
+     ! RH should be stored as a ratio (0-1). If there are larger values,
+     ! assume RH is in percent and convert to decimal RH. This is probably
+     ! not necessary with recent versions of grib2olam but we will keep
+     ! this check anyway. TODO: Read and store units from grib2olam.
+     if ( any(as3(:,:,1) > 2.0) ) then
+        write(io6, *) '    Converting relative humidity (%) to ratio (0-1)'
+        as3 = 0.01 * as3
+     endif
 
-                 vapor_press = min( 0.9*pnpr(k), vapor_press )
+     ! Convert relative humidity to mixing ratio
 
-                 ! Compute mixing ratio from vapor press and ambient press
+     write(io6,*) '    Converting relative humidity to mixing ratio'
 
-                 as3(i,j,k) = eps_vap * vapor_press &
-                            / ( pnpr(k) - vapor_press )
-              enddo
+     !$omp parallel do collapse(2) private(k,j,i,vapor_press)
+     do k = 1, nprz
+        do j = 1, npry
+           do i = 1, nprx
+
+              ! Compute ambient vapor pressure based on R.H.
+              ! and saturation vapor pressure (eslf) (at3 temporarily
+              ! stores air temperature).
+
+              vapor_press = as3(i,j,k) * eslf(at3(i,j,k)-273.15)
+
+              ! Do not allow vapor pressure to exceed ambient pressure
+
+              vapor_press = min( 0.9*pnpr(k), vapor_press )
+
+              ! Compute mixing ratio from vapor press and ambient press
+
+              as3(i,j,k) = eps_vap * vapor_press &
+                         / ( pnpr(k) - vapor_press )
            enddo
         enddo
-        !$omp end parallel do
+     enddo
+     !$omp end parallel do
 
-        deallocate(at3)
+     deallocate(at3)
 
-     else
+  else
 
-        ! If any specific humidities at lowest level are greater than 1,
-        ! assume it is g/kg and convert to kg/kg. This is probably not
-        ! necessary with recent versions of grib2olam but we will keep
-        ! this check anyway. TODO: Read and store units from grib2olam.
-        if ( any(as3(:,:,1) > 1.0) ) then
-           write(io6, *) ' '
-           write(io6, *) 'Converting g/kg specific humidity to kg/kg'
-           as3 = 0.001 * as3
-        endif
-
-        ! Convert specific humidity to mixing ratio
-
+     ! If any specific humidities at lowest level are greater than 1,
+     ! assume it is g/kg and convert to kg/kg. This is probably not
+     ! necessary with recent versions of grib2olam but we will keep
+     ! this check anyway. TODO: Read and store units from grib2olam.
+     if ( any(as3(:,:,1) > 1.0) ) then
         write(io6, *) ' '
-        write(io6, *) 'Converting specific humidity to mixing ratio'
-
-        !$omp parallel do
-        do k = 1, nprz
-           as3(:,:,k) = as3(:,:,k) / (1.0 - as3(:,:,k))
-        enddo
-        !$omp end parallel do
-
+        write(io6, *) 'Converting g/kg specific humidity to kg/kg'
+        as3 = 0.001 * as3
      endif
 
-#ifdef OLAM_MPI
-     if (iparallel == 1) call MPI_Wait( ireq, MPI_STATUS_IGNORE, ier )
-#endif
-     call prfill3(nprx,npry,nprz,as3,p3d,gdatdy,xswlat,ipoffset,inproj)
+     ! Convert specific humidity to mixing ratio
+
+     write(io6, *) ' '
+     write(io6, *) 'Converting specific humidity to mixing ratio'
+
+     !$omp parallel do
+     do k = 1, nprz
+        as3(:,:,k) = as3(:,:,k) / (1.0 - as3(:,:,k))
+     enddo
+     !$omp end parallel do
 
   endif
 
-#ifdef OLAM_MPI
-  if (iparallel == 1) then
-     call MPI_Ibcast( p3d, (nprx+4)*(npry+4)*nprz, MPI_REAL, 0, MPI_COMM_WORLD, &
-                      ireq, ier )
-     if (myrank > 0) call MPI_Wait( ireq, MPI_STATUS_IGNORE, ier )
-  endif
-#endif
+  call prfill3(nprx,npry,nprz,as3,p3d,gdatdy,xswlat,ipoffset,inproj)
 
-! Special for RH:
-! Reanalysis typically only reports RH up to 100mb, but still reports the other
-! fields up to higher levels. Check for the highest level that reports RH:
+  ! Special for RH:
+  ! Reanalysis typically only reports RH up to 100mb, but still reports the other
+  ! fields up to higher levels. Check for the highest level that reports RH:
 
   nprz_rh = 0
 
@@ -758,51 +610,32 @@ subroutine pressure_stage()
 !!! Read zonal wind
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-  if (myrank == 0) then
+  ! East-wst velocity may be called UP, UE, or U
 
-     ndims = 0
-     idims = 0
+  varname = 'U'
+  call shdf5_info(varname, ndims, idims)
 
-     ! East-wst velocity may be called UP, UE, or U
+  if (ndims /= 3) then
 
-     varname = 'U'
+     varname = 'UP'
      call shdf5_info(varname, ndims, idims)
 
      if (ndims /= 3) then
 
-        varname = 'UP'
+        varname = 'UE'
         call shdf5_info(varname, ndims, idims)
 
-        if (ndims /= 3) then
-
-           varname = 'UE'
-           call shdf5_info(varname, ndims, idims)
-
-           if (ndims /= 3 .or. any( idims /= [nprx,npry,nprz] ) ) then
-              write(*,*) "Zonal wind (U) not found in analysis file."
-              stop
-           endif
-
+        if (ndims /= 3 .or. any( idims /= [nprx,npry,nprz] ) ) then
+           write(*,*) "Zonal wind (U) not found in analysis file."
+           stop
         endif
+
      endif
-
-     write(io6,*) "Reading zonal wind " // trim(varname)
-     call shdf5_irec(ndims, idims, varname, rvar3 = as3)
-
-#ifdef OLAM_MPI
-     if (iparallel == 1) call MPI_Wait( ireq, MPI_STATUS_IGNORE, ier )
-#endif
-     call prfill3(nprx,npry,nprz,as3,p3d,gdatdy,xswlat,ipoffset,inproj)
-
   endif
 
-#ifdef OLAM_MPI
-  if (iparallel == 1) then
-     call MPI_Ibcast( p3d, (nprx+4)*(npry+4)*nprz, MPI_REAL, 0, MPI_COMM_WORLD, &
-                     ireq, ier )
-     if (myrank > 0) call MPI_Wait( ireq, MPI_STATUS_IGNORE, ier )
-  endif
-#endif
+  write(io6,*) "Reading zonal wind " // trim(varname)
+  call shdf5_irec(ndims, idims, varname, rvar3 = as3)
+  call prfill3(nprx,npry,nprz,as3,p3d,gdatdy,xswlat,ipoffset,inproj)
 
   ! Horizontally interpolate zonal wind at each pressure level
   ! to the model column lat/lon locations
@@ -825,51 +658,32 @@ subroutine pressure_stage()
 !!! Read meridional wind
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-  if (myrank == 0) then
+  ! East-wst velocity may be called VP, VE, or V
 
-     ndims = 0
-     idims = 0
+  varname = 'V'
+  call shdf5_info(varname, ndims, idims)
 
-     ! East-wst velocity may be called VP, VE, or V
+  if (ndims /= 3) then
 
-     varname = 'V'
+     varname = 'VP'
      call shdf5_info(varname, ndims, idims)
 
      if (ndims /= 3) then
 
-        varname = 'VP'
+        varname = 'VE'
         call shdf5_info(varname, ndims, idims)
 
-        if (ndims /= 3) then
-
-           varname = 'VE'
-           call shdf5_info(varname, ndims, idims)
-
-           if (ndims /= 3 .or. any( idims /= [nprx,npry,nprz] ) ) then
-              write(*,*) "Meridional wind (V) not found in analysis file."
-              stop
-           endif
-
+        if (ndims /= 3 .or. any( idims /= [nprx,npry,nprz] ) ) then
+           write(*,*) "Meridional wind (V) not found in analysis file."
+           stop
         endif
+
      endif
-
-     write(io6,*) "Reading meridional wind " // trim(varname)
-     call shdf5_irec(ndims, idims, varname, rvar3 = as3)
-
-#ifdef OLAM_MPI
-     if (iparallel == 1) call MPI_Wait( ireq, MPI_STATUS_IGNORE, ier )
-#endif
-     call prfill3(nprx,npry,nprz,as3,p3d,gdatdy,xswlat,ipoffset,inproj)
-
   endif
 
-#ifdef OLAM_MPI
-  if (iparallel == 1) then
-     call MPI_Ibcast( p3d, (nprx+4)*(npry+4)*nprz, MPI_REAL, 0, MPI_COMM_WORLD, &
-                      ireq, ier )
-     if (myrank > 0) call MPI_Wait( ireq, MPI_STATUS_IGNORE, ier )
-  endif
-#endif
+  write(io6,*) "Reading meridional wind " // trim(varname)
+  call shdf5_irec(ndims, idims, varname, rvar3 = as3)
+  call prfill3(nprx,npry,nprz,as3,p3d,gdatdy,xswlat,ipoffset,inproj)
 
   ! Horizontally interpolate meridional wind at each pressure level
   ! to the model column lat/lon locations
@@ -897,54 +711,34 @@ subroutine pressure_stage()
 
      if (haso3) then
 
-        if (myrank == 0) then
+        call shdf5_info(o3name, ndims, idims)
 
-           ndims = 0
-           idims = 0
-
-           call shdf5_info(o3name, ndims, idims)
-
-           if (ndims /= 3 .or. any( idims /= [nprx,npry,nprz] ) ) then
-              write(*,*) "Ozone mixing ration not found in analysis file."
-              stop
-           endif
-
-           write(io6,*) "Reading ozone mixing ratio " // trim(varname)
-           call shdf5_irec(ndims, idims, varname, rvar3 = as3)
-
-#ifdef OLAM_MPI
-           if (iparallel == 1) call MPI_Wait( ireq, MPI_STATUS_IGNORE, ier )
-#endif
-           call prfill3(nprx,npry,nprz,as3,p3d,gdatdy,xswlat,ipoffset,inproj)
-
+        if (ndims /= 3 .or. any( idims /= [nprx,npry,nprz] ) ) then
+           write(*,*) "Ozone mixing ration not found in analysis file."
+           stop
         endif
 
-#ifdef OLAM_MPI
-        if (iparallel == 1) then
-           call MPI_Ibcast( p3d, (nprx+4)*(npry+4)*nprz, MPI_REAL, 0, MPI_COMM_WORLD, &
-                            ireq, ier )
-           if (myrank > 0) call MPI_Wait( ireq, MPI_STATUS_IGNORE, ier )
+        write(io6,*) "Reading ozone mixing ratio " // trim(varname)
+        call shdf5_irec(ndims, idims, varname, rvar3 = as3)
+
+     endif
+
+     ! Special for OZONE:
+     ! Some analysis only reports ozone ABOVE 100 mb. Check for the lowest
+     ! level at which ozone is reported in the analysis file
+
+     do k = 1, nprz
+        if (all(p3d(:,:,k) > -998.)) then
+           nbot_o3 = k
+           exit
         endif
-#endif
+     enddo
 
-        ! Special for OZONE:
-        ! Some analysis only reports ozone ABOVE 100 mb. Check for the lowest
-        ! level at which ozone is reported in the analysis file
+     ! Horizontally interpolate ozone at each pressure level
+     ! to the model column lat/lon locations
 
-        do k = 1, nprz
-           if (all(p3d(:,:,k) > -998.)) then
-              nbot_o3 = k
-              exit
-           endif
-        enddo
-
-        ! Horizontally interpolate ozone at each pressure level
-        ! to the model column lat/lon locations
-
-        if (nbot_o3 < nprz+1) then
-           call hinterp_plevs( gdxi, gdyi, xoffset, yoffset, p3d, field )
-        endif
-
+     if (nbot_o3 < nprz+1) then
+        call hinterp_plevs( gdxi, gdyi, xoffset, yoffset, p3d, field )
      endif
 
      ! Extra levels above analysis (from zonavg arrays)
@@ -983,22 +777,12 @@ subroutine pressure_stage()
 
   endif
 
-#ifdef OLAM_MPI
-  if (iparallel == 1 .and. myrank == 0) then
-     call MPI_Wait( ireq , MPI_STATUS_IGNORE, ier )
-  endif
-#endif
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!! Deallocate arrays and close HDF5
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  ! Deallocate arrays and close HDF5
 
   if (allocated(as3)) deallocate(as3)
   if (allocated(p3d)) deallocate(p3d)
 
-  if (myrank == 0) then
-     call shdf5_close()
-  endif
+  call shdf5_close()
 
 end subroutine pressure_stage
 

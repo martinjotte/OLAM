@@ -1,7 +1,7 @@
 subroutine fields3_ll()
 
 ! This subroutine interpolates selected fields from the OLAM grid to a
-! structured lat-lon grid of either limited or global area.  
+! structured lat-lon grid of either limited or global area.
 
 ! The following tasks are performed:
 
@@ -1023,7 +1023,7 @@ subroutine fields3_ll()
 !!  olam.163.r25.L30.voronoi.nonhydro.variable_220_25km.PS.nc
 
      call makefnam(hnamel, hfilepref, current_time, 'LL', '$', 'h5')
-     call shdf5_open(hnamel,'W',iclobber)
+     call shdf5_open(hnamel,'W',iclobber,trypario=.true.)
 
      ! Write any global attributes to file
 
@@ -1141,7 +1141,7 @@ subroutine fields3_ll()
                         positive = "down"                               )
      endif
 
-     ! Now write lat/lon interpolated variables to file.  
+     ! Now write lat/lon interpolated variables to file.
      ! THESE WRITES NEED THE ROUTINE SHDF5_OREC_LL TO WORK IN PARALLEL!!
 
      ndims    = 2
@@ -2482,7 +2482,7 @@ subroutine tileplot_ll(nlon,nlat,nlev,ilev,alon,alat,npts,lls_loc,fld,itab, &
 
      ! 1d global lat/lon index
 
-     n = lls_loc(nn)            
+     n = lls_loc(nn)          
 
      ! convert 1d lat/lon index to 2d
 
@@ -2494,7 +2494,7 @@ subroutine tileplot_ll(nlon,nlat,nlev,ilev,alon,alat,npts,lls_loc,fld,itab, &
      fldval = fld(nn,ilev)
 
      if (abs(fldval - rmissing) < 1.e-7) cycle
-     
+   
      ! get lat/lon cell boundaries
 
      if (ilat == 1) then
@@ -2579,7 +2579,7 @@ subroutine tileplot_ll(nlon,nlat,nlev,ilev,alon,alat,npts,lls_loc,fld,itab, &
               ipos = 0
 
               do j = 1, nus(n)
-               
+             
                  call MPI_Unpack(buffer, buffsize, ipos, htpn,   4, MPI_REAL,    MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, vtpn,   4, MPI_REAL,    MPI_COMM_WORLD, ier)
                  call MPI_Unpack(buffer, buffsize, ipos, icolor, 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
@@ -2591,7 +2591,7 @@ subroutine tileplot_ll(nlon,nlat,nlev,ilev,alon,alat,npts,lls_loc,fld,itab, &
            endif
         enddo
      endif
-        
+      
      deallocate(buffer)
   endif
 #endif
@@ -2683,7 +2683,7 @@ subroutine mkmap_ll()
   use mem_para,    only: myrank
 
   implicit none
-  
+
   if (myrank /= 0) return
 
   ! Set plot color (black)

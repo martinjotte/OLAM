@@ -174,7 +174,7 @@ subroutine lite_write()
   write(io6,*) 'lite_write: opening file: ',trim(hnamel)
   write(io6,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++'
 
-  call shdf5_open(hnamel,'W',iclobber)
+  call shdf5_open(hnamel,'W',iclobber,trypario=.true.)
 
   ! Write the common fields
 
@@ -324,7 +324,7 @@ subroutine lite_read(litefile)
      write(io6,*) 'Opening lite file ', trim(litefile)
      write(io6,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++'
 
-     call shdf5_open(trim(litefile),'R')
+     call shdf5_open(trim(litefile),'R',trypario=.true.)
 
      ! Read the common variables
      call commio('READ')

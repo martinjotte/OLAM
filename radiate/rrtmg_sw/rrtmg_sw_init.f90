@@ -89,7 +89,7 @@
          stop       "RRTMg shortwave datafile cannot be found"
       endif
 
-      call shdf5_open(inputfile, 'R')
+      call shdf5_open(inputfile, 'R', trypario=.true.)
 
       call sw_kgb16_h5              ! molecular absorption coefficients
       call sw_kgb17_h5

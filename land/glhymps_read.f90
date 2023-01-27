@@ -6,6 +6,7 @@ subroutine glhymps_read()
   use hdf5_utils,  only: shdf5_open, shdf5_close, shdf5_irec, shdf5_info
   use max_dims,    only: pathlen
   use leaf_coms,   only: glhymps_database
+  use misc_coms,   only: io6
 
   implicit none
 
@@ -46,17 +47,17 @@ subroutine glhymps_read()
 
      ! Open the sst filelist and read through the files
 
-     print*, 'glhymps_read reading ',trim(fullname)
+     write(io6,*) 'glhymps_read reading ', trim(fullname)
 
-     INQUIRE(file=fullname, exist=exists)
-     IF (.not. exists) THEN
-        WRITE(*,*) 'glhymps: Error opening glhymps file ' // trim(fullname)
-        STOP
-     ENDIF
+     inquire(file=fullname, exist=exists)
+     if (.not. exists) then
+        write(io6,*) 'glhymps: error opening glhymps file ' // trim(fullname)
+        stop
+     endif
 
      ! Open and read glhymps_database file
 
-     call shdf5_open(trim(fullname),'R')
+     call shdf5_open(fullname,'R',trypario=.true.)
      call shdf5_info('Band1',ndims,idims)
 
      nio = idims(1)
@@ -91,10 +92,6 @@ subroutine glhymps_read()
         ! Exclude "undefined" and "missing data values.
         ! For idataset = 1 and 2, dato = log10(permeability). Convert this to ksat;
         ! ksat is 1.e7 * permeability
-
-        if (iwsfc == 13328) then
-           print*, 'glhymps_read1 ',idataset,iland,io,jo,dato(io,jo)
-        endif
 
         if     (idataset == 1) then
            if (dato(io,jo) >= -20. .and. dato(io,jo) < -10.) then

@@ -259,7 +259,7 @@ subroutine write_davg_vars(outyear,outmonth,outdate)
   write(io6,*)'+++++++++++++++++++++++++++++++++++++'
   write(io6,*)'history_write:open file:',trim(hnamel)
   write(io6,*)'+++++++++++++++++++++++++++++++++++++'
-  call shdf5_open(hnamel,'W',iclobber)
+  call shdf5_open(hnamel,'W',iclobber,trypario=.true.)
 
   !  Write day-average variables
 
@@ -388,7 +388,7 @@ subroutine read_davg_vars(davgfile)
      write(io6,*) 'Opening day-average file ', trim(davgfile)
      write(io6,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++'
 
-     call shdf5_open(trim(davgfile),'R')
+     call shdf5_open(davgfile,'R',trypario=.true.)
 
  ! Read day-average variables
 

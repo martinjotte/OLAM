@@ -1387,7 +1387,7 @@ subroutine sfcgfile_read_pd()
      stop 'stop: no sfcgfile'
   endif
 
-  call shdf5_open(flnm,'R')
+  call shdf5_open(flnm,'R',trypario=.true.)
 
   ndims    = 1
   idims(1) = 1
@@ -1593,7 +1593,7 @@ subroutine sfcgfile_read()
      stop 'stop: no sfcgfile'
   endif
 
-  call shdf5_open(flnm,'R')
+  call shdf5_open(flnm,'R',trypario=.true.)
 
   ! Read ITAB_VSFC ARRAYS
 
@@ -1832,7 +1832,7 @@ subroutine sfcgfile_read_makeregrid()
      stop 'stop: no sfcgfile'
   endif
 
-  call shdf5_open(flnm,'R')
+  call shdf5_open(flnm,'R',trypario=.true.)
 
   ndims    = 1
   idims(1) = 1

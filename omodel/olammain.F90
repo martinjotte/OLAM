@@ -26,6 +26,14 @@ program main
   character(10)      :: dowrite
 #endif
 
+  ! Some versions of parallel HDF5 hang without this set:
+  call set_environment_variable("HDF5_USE_FILE_LOCKING", "FALSE")
+
+  ! OpenMPI up to version 4.1.4 has a bad bug with parallel IO
+  ! https://www.hdfgroup.org/2022/11/workarounds-for-openmpi-bug-exposed-by-make-check-in-hdf5-1-13-3
+  call set_environment_variable("OMPI_MCA_io_ompio_priority", "1")
+  call set_environment_variable("OMPI_MCA_fbtl_posix_read_datasieving", "0")
+
 ! If run is sequential, default choice is to set io6 to standard output unit 6.
 
   io6 = 6
@@ -39,10 +47,6 @@ program main
   else
      iparallel = 0
   endif
-
-! For parallel HDF5
-
-  call set_environment_variable("HDF5_USE_FILE_LOCKING", "FALSE")
 
 ! Initialize HDF5 library
 

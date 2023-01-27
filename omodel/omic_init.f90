@@ -51,7 +51,7 @@ end subroutine jnmbinit
 
 subroutine micinit_tabs()
 
-  use misc_coms,  only: io6, dtlm, iparallel
+  use misc_coms,  only: io6, dtlm
   use mem_grid,   only: mza, zt
   use mem_para,   only: myrank
   use micro_coms, only: mza0, miclevel, nembc, npairx, npairy, npairc, &
@@ -101,7 +101,7 @@ subroutine micinit_tabs()
      write(io6,*) 'Opening collection table file ', trim(coltabfile)
      write(io6,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++'
 
-     call shdf5_open(trim(coltabfile),'R')
+     call shdf5_open(coltabfile, 'R', trypario=.true.)
 
      ndims = 3
      idims(1) = nembc
@@ -144,10 +144,7 @@ subroutine micinit_tabs()
         ! The collection table is only writen from one node.
         ! Disable parallel I/O for these writes
 
-        ipar_tmp = iparallel
-        iparallel = 0
-
-        call shdf5_open(trim(coltabfile),'W',0)
+        call shdf5_open(coltabfile, 'W', 1, trypario=.false.)
 
         ndims = 3
         idims(1) = nembc
@@ -171,11 +168,9 @@ subroutine micinit_tabs()
 
         call shdf5_orec(ndims, idims, 'DRIZ_GAMMQ', rvar1=driz_gammq)
 
-! Close the collection table file
+        ! Close the collection table file
 
         call shdf5_close()
-
-        iparallel = ipar_tmp
 
      endif
   endif

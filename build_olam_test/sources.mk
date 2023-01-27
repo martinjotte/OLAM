@@ -129,6 +129,7 @@ SOURCE_FILES= \
              $(OUTILS)/check_nans.F90 \
              $(OUTILS)/dateutils.f90 \
              $(OUTILS)/hdf5_f2f.F90 \
+             $(OUTILS)/hdf5_f2f_compat.f90 \
              $(OUTILS)/hdf5_utils.F90 \
              $(OUTILS)/interp_lib.f90 \
              $(OUTILS)/lapack.f90 \

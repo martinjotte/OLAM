@@ -309,16 +309,12 @@ contains
 
     use mem_land,   only: mland, omland
     use mem_sfcg,   only: sfcg
-    use misc_coms,  only: iparallel
+    use misc_coms,  only: io6
     use max_dims,   only: pathlen
     use prfill_mod, only: prfill
     use mem_para,   only: myrank
     use oname_coms, only: nl
-
     use hdf5_utils
-#ifdef OLAM_MPI
-    use mpi
-#endif
 
     implicit none
 
@@ -339,50 +335,35 @@ contains
 
     integer :: ips, ip, iland, iwsfc
     logical :: exists
-    integer :: ier
     real    :: grx, gry
 
     has_pft_dataset = .false.
 
     filename = nl%megan_pfts_file
 
-    if (myrank == 0) then
-       inquire(file=filename, exist=exists)
-       if (.not. exists) then
-          write(*,*) "megan_init:  Cannot find plant functional types dataset."
-       else
-          has_pft_dataset = .true.
-       endif
-
-       if (has_pft_dataset) then
-          write(*,*) "Reading " // trim(filename)
-          call shdf5_open(filename, 'R')
-
-          ndims = 0
-          idims = 0
-          call shdf5_info('LANDMASK', ndims, idims)
-
-          if ( ndims /= 2 .or. all(idims(1:2) /= (/nx_pft, ny_pft/)) ) then
-             write(*,*) "Cannot find plant functional types dataset."
-             has_pft_dataset = .false.
-          endif
-
-          ndims = 0
-          idims = 0
-          call shdf5_info('PCT_PFT', ndims, idims)
-
-          if ( ndims /= 3 .or. all(idims(1:3) /= (/nx_pft, ny_pft, 17/)) ) then
-             write(*,*) "Cannot find plant functional types dataset."
-             has_pft_dataset = .false.
-          endif
-       endif
+    inquire(file=filename, exist=exists)
+    if (.not. exists) then
+       write(io6,*) "megan_init:  Cannot find plant functional types dataset."
+    else
+       has_pft_dataset = .true.
     endif
 
-#ifdef OLAM_MPI
-    if (iparallel == 1) then
-       call MPI_Bcast( has_pft_dataset, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ier )
+    if (has_pft_dataset) then
+       write(io6,*) "Reading " // trim(filename)
+       call shdf5_open(filename, 'R', trypario=.true.)
+
+       call shdf5_info('LANDMASK', ndims, idims)
+       if ( ndims /= 2 .or. all(idims(1:2) /= (/nx_pft, ny_pft/)) ) then
+          write(*,*) "Cannot find plant functional types dataset."
+          has_pft_dataset = .false.
+       endif
+
+       call shdf5_info('PCT_PFT', ndims, idims)
+       if ( ndims /= 3 .or. all(idims(1:3) /= (/nx_pft, ny_pft, 17/)) ) then
+          write(*,*) "Cannot find plant functional types dataset."
+          has_pft_dataset = .false.
+       endif
     endif
-#endif
 
     if (has_pft_dataset) then
        allocate(landmask(nio,njo))
@@ -400,19 +381,12 @@ contains
        endif
 
        ! First read land/sea mask
-       if (myrank == 0) then
-          call shdf5_irec(2, (/nx_pft,ny_pft/), 'LANDMASK', bvar2=rawdata)
+       call shdf5_irec(2, (/nx_pft,ny_pft/), 'LANDMASK', bvar2=rawdata)
 
-          call prfill( nx_pft, ny_pft, rawdata, landmask, &
-                       gdatdy, xswlat, ipoffset, inproj )
-       endif
+       call prfill(nx_pft, ny_pft, rawdata, landmask, &
+                   gdatdy, xswlat, ipoffset, inproj)
 
        ! Communicate landmask to other nodes
-#ifdef OLAM_MPI
-       if (iparallel == 1) then
-          call MPI_Bcast( landmask, nio*njo, MPI_INTEGER1, 0, MPI_COMM_WORLD, ier )
-       endif
-#endif
 
        ! Loop over all pfts in file. Skip 17 (other crop) which is 0 in file
        do ips = 1, 16
@@ -425,25 +399,16 @@ contains
           endif
 
           ! Read PFT from file
-          if (myrank == 0) then
-             call shdf5_irec(ndims, idims, 'PCT_PFT', bvar2=rawdata, &
-                  start = (/1, 1, ips/), counts=(/nx_pft,ny_pft,1/) )
+          call shdf5_irec(ndims, idims, 'PCT_PFT', bvar2=rawdata, &
+                          start=[1,1,ips], counts=[nx_pft,ny_pft,1] )
 
-             call prfill( nx_pft, ny_pft, rawdata, pfts_ll,&
-                          gdatdy, xswlat, ipoffset, inproj )
+          call prfill(nx_pft, ny_pft, rawdata, pfts_ll, &
+                      gdatdy, xswlat, ipoffset, inproj)
 
-             ! Mask out sea points
-             where (landmask == 0)
-                pfts_ll = -127
-             end where
-          endif
-
-          ! Communicate PFTs to other nodes
-#ifdef OLAM_MPI
-          if (iparallel == 1) then
-             call MPI_Bcast( pfts_ll, nio*njo, MPI_INTEGER1, 0, MPI_COMM_WORLD, ier )
-          endif
-#endif
+          ! Mask out sea points
+          where (landmask == 0)
+             pfts_ll = -127
+          end where
 
           !$omp parallel do private(iwsfc,gry,grx)
           do iland = 2, mland

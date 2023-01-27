@@ -50,7 +50,7 @@ contains
        stop       "RRTMg shortwave datafile cannot be found"
     endif
 
-    call shdf5_open(inputfile, 'R')
+    call shdf5_open(inputfile, 'R', trypario=.true.)
 
     do i = 1, ncats
 
@@ -127,7 +127,7 @@ contains
        stop       "RRTMg shortwave datafile cannot be found"
     endif
 
-    call shdf5_open(inputfile, 'R')
+    call shdf5_open(inputfile, 'R', trypario=.true.)
 
     do i = 1, ncats
 

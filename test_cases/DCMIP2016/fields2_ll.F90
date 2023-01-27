@@ -1094,7 +1094,7 @@ subroutine fields2_ll()
 !!  olam.163.r25.L30.voronoi.nonhydro.variable_220_25km.PS.nc
 
      call makefnam(hnamel, hfilepref, current_time, 'DLL', '$', 'h5')
-     call shdf5_open(hnamel,'W',iclobber)
+     call shdf5_open(hnamel,'W',iclobber,trypario=.true.)
 
      ! Write any global attributes to file
 

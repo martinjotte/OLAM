@@ -21,9 +21,9 @@ subroutine history_start(action)
      write(io6,*) 'Opening history file '//trim(hfilin)//' for '//trim(action)
      write(io6,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++'
 
-     call shdf5_open(hfilin,'R')
+     call shdf5_open(hfilin,'R',trypario=.true.)
 
-     if (trim(action) == 'COMMIO') then
+     if (action == 'COMMIO') then
 
         ! Read the common variables
         call commio('READ')

@@ -1109,10 +1109,6 @@ contains
     use oname_coms, only: nl
     use hdf5_utils
 
-#ifdef OLAM_MPI
-    use mpi
-#endif
-
     implicit none
 
     integer :: year, n, j, jw, iw, ier
@@ -1286,44 +1282,34 @@ contains
     do j = 1, n_ch4
        n = ch4_sects(j)
 
-       if (myrank == 0) then
+       rawdata(:,:) = 0.0
 
-          rawdata(:,:) = 0.0
+       filename = trim(nl%emis_dir) // "/" // trim(secname(n)) // "/ch4/v42_CH4_" // &
+                  yyear // trim(ch4suf(j))
 
-          filename = trim(nl%emis_dir) // "/" // trim(secname(n)) // "/ch4/v42_CH4_" // &
-                     yyear // trim(ch4suf(j))
+       write(io6,'(A)') "reading: ", trim(filename)
 
-          write(*,'(A)') "reading: ", trim(filename)
+       inquire(file=filename, exist=exists)
 
-          inquire(file=filename, exist=exists)
+       if (.not. exists) then
 
-          if (.not. exists) then
+          write(io6,'(A)') "Cannot find emissions file ", trim(filename)
 
-             write(*,'(A)') "Cannot find emissions file ", trim(filename)
+       else
 
+          call shdf5_open(filename, 'R', trypario=.true.)
+
+          call shdf5_info('emi_ch4', ndims, idims)
+
+          if ( ndims /= 2 .and. idims(1) /= nx_e42 .and. idims(2) /= ny_e42 ) then
+             write(*,*) "Cannot find emissions field ", trim(SECNAME(n)), " CH4"
           else
-
-             call shdf5_open(filename, 'R')
-
-             ndims = 0
-             idims = 0
-             call shdf5_info('emi_ch4', ndims, idims)
-
-             if ( ndims /= 2 .and. idims(1) /= nx_e42 .and. idims(2) /= ny_e42 ) then
-                write(*,*) "Cannot find emissions field ", trim(SECNAME(n)), " CH4"
-             else
-                call shdf5_irec(ndims, idims, 'emi_ch4', rvar2=rawdata)
-             endif
-
-             call shdf5_close()
+             call shdf5_irec(ndims, idims, 'emi_ch4', rvar2=rawdata)
           endif
-       endif
 
-#ifdef OLAM_MPI
-       if (iparallel == 1) then
-          call MPI_Bcast( rawdata, nx_e42*ny_e42, MPI_REAL, 0, MPI_COMM_WORLD, ier )
+          call shdf5_close()
+
        endif
-#endif
 
        !$omp parallel do private(jw,iw,n)
        do jw = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(jw)
@@ -1345,44 +1331,34 @@ contains
     do j = 1, n_co
        n = co_sects(j)
 
-       if (myrank == 0) then
+       rawdata(:,:) = 0.0
 
-          rawdata(:,:) = 0.0
+       filename = trim(nl%emis_dir) // "/" // trim(secname(n)) // "/co/v42_CO_" // &
+                  yyear // trim(cosuf(j))
 
-          filename = trim(nl%emis_dir) // "/" // trim(secname(n)) // "/co/v42_CO_" // &
-                     yyear // trim(cosuf(j))
+       write(io6,'(A)') "reading: ", trim(filename)
 
-          write(*,'(A)') "reading: ", trim(filename)
+       inquire(file=filename, exist=exists)
 
-          inquire(file=filename, exist=exists)
+       if (.not. exists) then
 
-          if (.not. exists) then
+          write(io6,'(A)') "Cannot find emissions file ", trim(filename)
 
-             write(*,'(A)') "Cannot find emissions file ", trim(filename)
+       else
 
+          call shdf5_open(filename, 'R', trypario=.true.)
+
+          call shdf5_info('emi_co', ndims, idims)
+
+          if ( ndims /= 2 .and. idims(1) /= nx_e42 .and. idims(2) /= ny_e42 ) then
+             write(*,*) "Cannot find emissions field ", trim(SECNAME(n)), " CO"
           else
-
-             call shdf5_open(filename, 'R')
-
-             ndims = 0
-             idims = 0
-             call shdf5_info('emi_co', ndims, idims)
-
-             if ( ndims /= 2 .and. idims(1) /= nx_e42 .and. idims(2) /= ny_e42 ) then
-                write(*,*) "Cannot find emissions field ", trim(SECNAME(n)), " CO"
-             else
-                call shdf5_irec(ndims, idims, 'emi_co', rvar2=rawdata)
-             endif
-
-             call shdf5_close()
+             call shdf5_irec(ndims, idims, 'emi_co', rvar2=rawdata)
           endif
-       endif
 
-#ifdef OLAM_MPI
-       if (iparallel == 1) then
-          call MPI_Bcast( rawdata, nx_e42*ny_e42, MPI_REAL, 0, MPI_COMM_WORLD, ier )
+          call shdf5_close()
+
        endif
-#endif
 
        !$omp parallel do private(jw,iw,n)
        do jw = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(jw)
@@ -1405,44 +1381,33 @@ contains
     do j = 1, n_nh3
        n = nh3_sects(j)
 
-       if (myrank == 0) then
+       rawdata(:,:) = 0.0
 
-          rawdata(:,:) = 0.0
+       filename = trim(nl%emis_dir) // "/" // trim(secname(n)) // "/nh3/v42_NH3_" // &
+                  yyear // trim(nh3suf(j))
 
-          filename = trim(nl%emis_dir) // "/" // trim(secname(n)) // "/nh3/v42_NH3_" // &
-                     yyear // trim(nh3suf(j))
+       write(io6,'(A)') "reading: ", trim(filename)
 
-          write(*,'(A)') "reading: ", trim(filename)
+       inquire(file=filename, exist=exists)
 
-          inquire(file=filename, exist=exists)
+       if (.not. exists) then
 
-          if (.not. exists) then
+          write(io6,'(A)') "Cannot find emissions file ", trim(filename)
 
-             write(*,'(A)') "Cannot find emissions file ", trim(filename)
+       else
 
+          call shdf5_open(filename, 'R', trypario=.true.)
+
+          call shdf5_info('emi_nh3', ndims, idims)
+
+          if ( ndims /= 2 .and. idims(1) /= nx_e42 .and. idims(2) /= ny_e42 ) then
+             write(*,*) "Cannot find emissions field ", trim(SECNAME(n)), " NH3"
           else
-
-             call shdf5_open(filename, 'R')
-
-             ndims = 0
-             idims = 0
-             call shdf5_info('emi_nh3', ndims, idims)
-
-             if ( ndims /= 2 .and. idims(1) /= nx_e42 .and. idims(2) /= ny_e42 ) then
-                write(*,*) "Cannot find emissions field ", trim(SECNAME(n)), " NH3"
-             else
-                call shdf5_irec(ndims, idims, 'emi_nh3', rvar2=rawdata)
-             endif
-
-             call shdf5_close()
+             call shdf5_irec(ndims, idims, 'emi_nh3', rvar2=rawdata)
           endif
-       endif
 
-#ifdef OLAM_MPI
-       if (iparallel == 1) then
-          call MPI_Bcast( rawdata, nx_e42*ny_e42, MPI_REAL, 0, MPI_COMM_WORLD, ier )
+          call shdf5_close()
        endif
-#endif
 
        !$omp parallel do private(jw,iw,n)
        do jw = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(jw)
@@ -1465,44 +1430,33 @@ contains
     do j = 1, n_nmvoc
        n = nmvoc_sects(j)
 
-       if (myrank == 0) then
+       rawdata(:,:) = 0.0
 
-          rawdata(:,:) = 0.0
+       filename = trim(nl%emis_dir) // "/" // trim(secname(n)) // "/nmvoc/v42_NMVOC_" // &
+                  yyear // trim(nmvocsuf(j))
 
-          filename = trim(nl%emis_dir) // "/" // trim(secname(n)) // "/nmvoc/v42_NMVOC_" // &
-                     yyear // trim(nmvocsuf(j))
+       write(io6,'(A)') "reading: ", trim(filename)
 
-          write(*,'(A)') "reading: ", trim(filename)
+       inquire(file=filename, exist=exists)
 
-          inquire(file=filename, exist=exists)
+       if (.not. exists) then
 
-          if (.not. exists) then
+          write(io6,'(A)') "Cannot find emissions file ", trim(filename)
 
-             write(*,'(A)') "Cannot find emissions file ", trim(filename)
+       else
 
+          call shdf5_open(filename, 'R', trypario=.true.)
+
+          call shdf5_info('emi_nmvoc', ndims, idims)
+
+          if ( ndims /= 2 .and. idims(1) /= nx_e42 .and. idims(2) /= ny_e42 ) then
+             write(*,*) "Cannot find emissions field ", trim(SECNAME(n)), " NMVOC"
           else
-
-             call shdf5_open(filename, 'R')
-
-             ndims = 0
-             idims = 0
-             call shdf5_info('emi_nmvoc', ndims, idims)
-
-             if ( ndims /= 2 .and. idims(1) /= nx_e42 .and. idims(2) /= ny_e42 ) then
-                write(*,*) "Cannot find emissions field ", trim(SECNAME(n)), " NMVOC"
-             else
-                call shdf5_irec(ndims, idims, 'emi_nmvoc', rvar2=rawdata)
-             endif
-
-             call shdf5_close()
+             call shdf5_irec(ndims, idims, 'emi_nmvoc', rvar2=rawdata)
           endif
-       endif
 
-#ifdef OLAM_MPI
-       if (iparallel == 1) then
-          call MPI_Bcast( rawdata, nx_e42*ny_e42, MPI_REAL, 0, MPI_COMM_WORLD, ier )
+          call shdf5_close()
        endif
-#endif
 
        !$omp parallel do private(jw,iw,n)
        do jw = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(jw)
@@ -1525,44 +1479,33 @@ contains
     do j = 1, n_nox
        n = nox_sects(j)
 
-       if (myrank == 0) then
+       rawdata(:,:) = 0.0
 
-          rawdata(:,:) = 0.0
+       filename = trim(nl%emis_dir) // "/" // trim(secname(n)) // "/nox/v42_NOx_" // &
+                  yyear // trim(noxsuf(j))
 
-          filename = trim(nl%emis_dir) // "/" // trim(secname(n)) // "/nox/v42_NOx_" // &
-                     yyear // trim(noxsuf(j))
+       write(io6,'(A)') "reading: ", trim(filename)
 
-          write(*,'(A)') "reading: ", trim(filename)
+       inquire(file=filename, exist=exists)
 
-          inquire(file=filename, exist=exists)
+       if (.not. exists) then
 
-          if (.not. exists) then
+          write(*,'(A)') "Cannot find emissions file ", trim(filename)
 
-             write(*,'(A)') "Cannot find emissions file ", trim(filename)
+       else
 
+          call shdf5_open(filename, 'R', trypario=.true.)
+
+          call shdf5_info('emi_nox', ndims, idims)
+
+          if ( ndims /= 2 .and. idims(1) /= nx_e42 .and. idims(2) /= ny_e42 ) then
+             write(*,*) "Cannot find emissions field ", trim(SECNAME(n)), " NOX"
           else
-
-             call shdf5_open(filename, 'R')
-
-             ndims = 0
-             idims = 0
-             call shdf5_info('emi_nox', ndims, idims)
-
-             if ( ndims /= 2 .and. idims(1) /= nx_e42 .and. idims(2) /= ny_e42 ) then
-                write(*,*) "Cannot find emissions field ", trim(SECNAME(n)), " NOX"
-             else
-                call shdf5_irec(ndims, idims, 'emi_nox', rvar2=rawdata)
-             endif
-
-             call shdf5_close()
+             call shdf5_irec(ndims, idims, 'emi_nox', rvar2=rawdata)
           endif
-       endif
 
-#ifdef OLAM_MPI
-       if (iparallel == 1) then
-          call MPI_Bcast( rawdata, nx_e42*ny_e42, MPI_REAL, 0, MPI_COMM_WORLD, ier )
+          call shdf5_close()
        endif
-#endif
 
        !$omp parallel do private(jw,iw,n)
        do jw = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(jw)
@@ -1585,44 +1528,33 @@ contains
     do j = 1, n_pm2_5
        n = pm2_5_sects(j)
 
-       if (myrank == 0) then
+       rawdata(:,:) = 0.0
 
-          rawdata(:,:) = 0.0
+       filename = trim(nl%emis_dir) // "/" // trim(secname(n)) // "/pm2.5/v42_PM25_" // &
+                  yyear // trim(pm2_5suf(j))
 
-          filename = trim(nl%emis_dir) // "/" // trim(secname(n)) // "/pm2.5/v42_PM25_" // &
-                     yyear // trim(pm2_5suf(j))
+       write(io6,'(A)') "reading: ", trim(filename)
 
-          write(io6,'(A)') "reading: ", trim(filename)
+       inquire(file=filename, exist=exists)
 
-          inquire(file=filename, exist=exists)
+       if (.not. exists) then
 
-          if (.not. exists) then
+          write(io6,'(A)') "Cannot find emissions file ", trim(filename)
 
-             write(*,'(A)') "Cannot find emissions file ", trim(filename)
+       else
 
+          call shdf5_open(filename, 'R', trypario=.true.)
+
+          call shdf5_info('emi_pm2.5', ndims, idims)
+
+          if ( ndims /= 2 .and. idims(1) /= nx_e42 .and. idims(2) /= ny_e42 ) then
+             write(*,*) "Cannot find emissions field ", trim(SECNAME(n)), " PM2.5"
           else
-
-             call shdf5_open(filename, 'R')
-
-             ndims = 0
-             idims = 0
-             call shdf5_info('emi_pm2.5', ndims, idims)
-
-             if ( ndims /= 2 .and. idims(1) /= nx_e42 .and. idims(2) /= ny_e42 ) then
-                write(*,*) "Cannot find emissions field ", trim(SECNAME(n)), " PM2.5"
-             else
-                call shdf5_irec(ndims, idims, 'emi_pm2.5', rvar2=rawdata)
-             endif
-
-             call shdf5_close()
+             call shdf5_irec(ndims, idims, 'emi_pm2.5', rvar2=rawdata)
           endif
-       endif
 
-#ifdef OLAM_MPI
-       if (iparallel == 1) then
-          call MPI_Bcast( rawdata, nx_e42*ny_e42, MPI_REAL, 0, MPI_COMM_WORLD, ier )
+          call shdf5_close()
        endif
-#endif
 
        !$omp parallel do private(jw,iw,n)
        do jw = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(jw)
@@ -1642,44 +1574,33 @@ contains
     do j = 1, n_pm10
        n = pm10_sects(j)
 
-       if (myrank == 0) then
+       rawdata(:,:) = 0.0
 
-          rawdata(:,:) = 0.0
+       filename = trim(nl%emis_dir) // "/" // trim(secname(n)) // "/pm10/v42_PM10_" // &
+                  yyear // trim(pm10suf(j))
 
-          filename = trim(nl%emis_dir) // "/" // trim(secname(n)) // "/pm10/v42_PM10_" // &
-                     yyear // trim(pm10suf(j))
+       write(io6,'(A)') "reading: ", trim(filename)
 
-          write(io6,'(A)') "reading: ", trim(filename)
+       inquire(file=filename, exist=exists)
 
-          inquire(file=filename, exist=exists)
+       if (.not. exists) then
 
-          if (.not. exists) then
+          write(io6,'(A)') "Cannot find emissions file ", trim(filename)
 
-             write(*,'(A)') "Cannot find emissions file ", trim(filename)
+       else
 
+          call shdf5_open(filename, 'R', trypario=.true.)
+
+          call shdf5_info('emi_pm10', ndims, idims)
+
+          if ( ndims /= 2 .and. idims(1) /= nx_e42 .and. idims(2) /= ny_e42 ) then
+             write(*,*) "Cannot find emissions field ", trim(SECNAME(n)), " PM10"
           else
-
-             call shdf5_open(filename, 'R')
-
-             ndims = 0
-             idims = 0
-             call shdf5_info('emi_pm10', ndims, idims)
-
-             if ( ndims /= 2 .and. idims(1) /= nx_e42 .and. idims(2) /= ny_e42 ) then
-                write(*,*) "Cannot find emissions field ", trim(SECNAME(n)), " PM10"
-             else
-                call shdf5_irec(ndims, idims, 'emi_pm10', rvar2=rawdata)
-             endif
-
-             call shdf5_close()
+             call shdf5_irec(ndims, idims, 'emi_pm10', rvar2=rawdata)
           endif
-       endif
 
-#ifdef OLAM_MPI
-       if (iparallel == 1) then
-          call MPI_Bcast( rawdata, nx_e42*ny_e42, MPI_REAL, 0, MPI_COMM_WORLD, ier )
+          call shdf5_close()
        endif
-#endif
 
        !$omp parallel do private(jw,iw,n)
        do jw = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(jw)
@@ -1699,44 +1620,33 @@ contains
     do j = 1, n_so2
        n = so2_sects(j)
 
-       if (myrank == 0) then
+       rawdata(:,:) = 0.0
 
-          rawdata(:,:) = 0.0
+       filename = trim(nl%emis_dir) // "/" // trim(secname(n)) // "/so2/v42_SO2_" // &
+                  yyear // trim(so2suf(j))
 
-          filename = trim(nl%emis_dir) // "/" // trim(secname(n)) // "/so2/v42_SO2_" // &
-                     yyear // trim(so2suf(j))
+       write(io6,'(A)') "reading: ", trim(filename)
 
-          write(*,'(A)') "reading: ", trim(filename)
+       inquire(file=filename, exist=exists)
 
-          inquire(file=filename, exist=exists)
+       if (.not. exists) then
 
-          if (.not. exists) then
+          write(io6,'(A)') "Cannot find emissions file ", trim(filename)
 
-             write(*,'(A)') "Cannot find emissions file ", trim(filename)
+       else
 
+          call shdf5_open(filename, 'R', trypario=.true.)
+
+          call shdf5_info('emi_so2', ndims, idims)
+
+          if ( ndims /= 2 .and. idims(1) /= nx_e42 .and. idims(2) /= ny_e42 ) then
+             write(*,*) "Cannot find emissions field ", trim(SECNAME(n)), " SO2"
           else
-
-             call shdf5_open(filename, 'R')
-
-             ndims = 0
-             idims = 0
-             call shdf5_info('emi_so2', ndims, idims)
-
-             if ( ndims /= 2 .and. idims(1) /= nx_e42 .and. idims(2) /= ny_e42 ) then
-                write(*,*) "Cannot find emissions field ", trim(SECNAME(n)), " SO2"
-             else
-                call shdf5_irec(ndims, idims, 'emi_so2', rvar2=rawdata)
-             endif
-
-             call shdf5_close()
+             call shdf5_irec(ndims, idims, 'emi_so2', rvar2=rawdata)
           endif
-       endif
 
-#ifdef OLAM_MPI
-       if (iparallel == 1) then
-          call MPI_Bcast( rawdata, nx_e42*ny_e42, MPI_REAL, 0, MPI_COMM_WORLD, ier )
+          call shdf5_close()
        endif
-#endif
 
        !$omp parallel do private(jw,iw,n)
        do jw = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(jw)

@@ -68,7 +68,7 @@ subroutine history_write(vtype)
   write(io6,*) 'history_write: opening file: ',trim(hnamel)
   write(io6,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++'
 
-  call shdf5_open(hnamel,'W',iclobber)
+  call shdf5_open(hnamel,'W',iclobber,trypario=.true.)
 
 ! Write the common fields
 

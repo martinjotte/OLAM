@@ -2,9 +2,10 @@ Module hdf5_utils
 
   use mem_para,    only: myrank
   use consts_coms, only: r8, i1
+  use max_dims,    only: pathlen
 
-  character(1), save :: prevaccess = ' '
-  private            :: myrank, r8, i1, prevaccess
+  character(1) :: prevaccess = ' '
+  private      :: myrank, r8, i1, prevaccess, pathlen
 
 #if defined(OLAM_MPI) && !defined(OLAM_PARALLEL_HDF5)
   logical, parameter :: mpi_does_parallel_io = .false.
@@ -12,9 +13,11 @@ Module hdf5_utils
   logical, parameter :: mpi_does_parallel_io = .true.
 #endif
 
+  character(pathlen) :: shdf5_fname = ' '
+
 Contains
 
-subroutine shdf5_open(locfn, access, idelete)
+subroutine shdf5_open(locfn, access, idelete, trypario)
 
   use hdf5_f2f
   implicit none
@@ -23,6 +26,8 @@ subroutine shdf5_open(locfn, access, idelete)
   character(*),      intent(in) :: access  ! File access ('R','W','RW')
   integer, optional, intent(in) :: idelete ! If W, overwrite file if exists?
                                            !    1=yes, 0=no
+  logical, optional, intent(in) :: trypario! Use parallel I/O if MPI run and
+                                           ! compiled with PHDF5
 
   integer                       :: hdferr  ! Error flag
   integer                       :: iaccess ! int access flag
@@ -50,7 +55,7 @@ subroutine shdf5_open(locfn, access, idelete)
      else
         if (access == 'R ') iaccess = 1
         if (access == 'RW') iaccess = 2
-        call fh5f_open(locfn, iaccess, hdferr)
+        call fh5f_open(locfn, iaccess, hdferr, pario=trypario)
 
         if (hdferr < 0) then
            print*, 'shdf5_open:'
@@ -64,7 +69,7 @@ subroutine shdf5_open(locfn, access, idelete)
 
      if (.not. exists) then
         iaccess = 2
-        call fh5f_create(locfn, iaccess, hdferr)
+        call fh5f_create(locfn, iaccess, hdferr, pario=trypario)
      else
         if (.not. present(idelete) ) then
            print*, 'shdf5_open: idelete not specified when access=W'
@@ -79,7 +84,7 @@ subroutine shdf5_open(locfn, access, idelete)
            stop    'shdf5_open'
         else
            iaccess = 1
-           call fh5f_create(locfn, iaccess, hdferr)
+           call fh5f_create(locfn, iaccess, hdferr, pario=trypario)
         endif
 
      endif
@@ -91,28 +96,57 @@ subroutine shdf5_open(locfn, access, idelete)
      endif
   endif
 
+  shdf5_fname = locfn
+
 end subroutine shdf5_open
 
 !===============================================================================
 
-subroutine shdf5_info(dsetname, ndims, dims)
-  use hdf5_f2f
+subroutine shdf5_info(dsetname, ndims, dims, dimname, attached_dimnames, units)
 
+  use hdf5_f2f
   implicit none
 
   character(*),        intent(in)    :: dsetname ! Dataset name
   integer, contiguous, intent(inout) :: dims(:)
   integer,             intent(inout) :: ndims    ! Dataset rank (in file)
-  integer                            :: hdferr   ! Error flag
+
+! Optional arrays to read common NetCDF convention attributes or dimension information
+  character(*), intent(inout), optional :: units
+  character(*), intent(inout), optional :: dimname
+  character(*), intent(inout), optional :: attached_dimnames(:)
 
 ! Open the dataset.
 
-  call fh5_get_info(dsetname, ndims, dims, hdferr)
+  call fh5_get_info(dsetname, ndims, dims)
 
-  if (hdferr < 0) then
-     ndims   = -1
-     dims(1) =  0
+! Return if there was an error
+
+  if (ndims < 0) return
+
+! Is this variable a dimension?
+
+  if (present(dimname)) then
+     call fh5f_query_dimname(dimname)
   endif
+
+! Does the variable have dimension scales?
+
+  if (present(attached_dimnames)) then
+     attached_dimnames(:) = ' '
+     call fh5_get_attached_scales(attached_dimnames)
+  endif
+
+! Read any attributes
+
+  if (present(units)) then
+     units = ' '
+     call fh5f_read_attribute("units", cvalue=units)
+  endif
+
+! Close the dataset
+
+  call fh5_close_info()
 
 end subroutine shdf5_info
 
@@ -663,7 +697,13 @@ subroutine shdf5_irec(ndims,dims,dsetname,bvars,ivars,rvars,cvars,dvars,lvars,  
                                           bvar2,ivar2,rvar2,cvar2,dvar2,lvar2,  &
                                           bvar3,ivar3,rvar3,cvar3,dvar3,lvar3,  &
                                           bvar4,ivar4,rvar4,      dvar4,        &
-                                          points, start, counts, stagpt)
+                                          points, start, counts, stagpt,        &
+                                          imissing, rmissing, dmissing,         &
+                                          dimname, attached_dimnames, units,    &
+                                          standard_name, long_name,             &
+                                          rscale, roffset, dscale, doffset,     &
+                                          have_missing, have_scaling)
+
   use hdf5_f2f
   implicit none
 
@@ -692,8 +732,19 @@ subroutine shdf5_irec(ndims,dims,dsetname,bvars,ivars,rvars,cvars,dvars,lvars,  
   integer,      intent(IN), optional, contiguous :: counts(:)
   character(2), intent(IN), optional             :: stagpt
 
+! Optional arrays to read common NetCDF convention attributes or dimension information
+  character(*), intent(inout), optional :: units
+  character(*), intent(inout), optional :: dimname
+  character(*), intent(inout), optional :: attached_dimnames(:)
+  character(*), intent(inout), optional :: standard_name, long_name
+  integer,      intent(inout), optional :: imissing
+  real,         intent(inout), optional :: rmissing, rscale, roffset
+  real(r8),     intent(inout), optional :: dmissing, dscale, doffset
+  logical,      intent(inout), optional :: have_missing, have_scaling
+
 ! Local variables
   integer :: hdferr  ! Error flag
+  logical :: exists
 
 ! Check dimensions
 
@@ -760,6 +811,81 @@ subroutine shdf5_irec(ndims,dims,dsetname,bvars,ivars,rvars,cvars,dvars,lvars,  
      stop
   endif
 
+! Is this variable a dimension?
+
+  if (present(dimname)) then
+     call fh5f_query_dimname(dimname)
+  endif
+
+! Does the variable have dimension scales?
+
+  if (present(attached_dimnames)) then
+     attached_dimnames(:) = ' '
+     call fh5_get_attached_scales(attached_dimnames)
+  endif
+
+! Read any attributes
+
+  if (present(have_missing)) have_missing = .false.
+  if (present(have_scaling)) have_scaling = .false.
+
+  if (present(units)) then
+     units = ' '
+     call fh5f_read_attribute("units", cvalue=units)
+  endif
+
+  if (present(imissing)) then
+     imissing = -huge(imissing)
+     call fh5f_read_attribute("missing_value", ivalue=imissing, exists=exists)
+     if (present(have_missing)) have_missing = exists
+  endif
+
+  if (present(rmissing)) then
+     rmissing = -huge(rmissing)
+     call fh5f_read_attribute("missing_value", rvalue=rmissing, exists=exists)
+     if (present(have_missing)) have_missing = exists
+  endif
+
+  if (present(dmissing)) then
+     dmissing = -huge(dmissing)
+     call fh5f_read_attribute("missing_value", dvalue=dmissing, exists=exists)
+     if (present(have_missing)) have_missing = exists
+  endif
+
+  if (present(rscale)) then
+     rscale = 1.0
+     call fh5f_read_attribute("scale_factor", rvalue=rscale, exists=exists)
+     if (present(have_scaling) .and. exists) have_scaling = .true.
+  endif
+
+  if (present(dscale)) then
+     dscale = 1.0_r8
+     call fh5f_read_attribute("scale_factor", dvalue=dscale, exists=exists)
+     if (present(have_scaling) .and. exists) have_scaling = .true.
+  endif
+
+  if (present(roffset)) then
+     roffset = 0.0
+     call fh5f_read_attribute("add_offset", rvalue=roffset, exists=exists)
+     if (present(have_scaling) .and. exists) have_scaling = .true.
+  endif
+
+  if (present(doffset)) then
+     doffset = 0.0_r8
+     call fh5f_read_attribute("add_offset", dvalue=doffset, exists=exists)
+     if (present(have_scaling) .and. exists) have_scaling = .true.
+  endif
+
+  if (present(long_name)) then
+     long_name = ' '
+     call fh5f_read_attribute("long_name", cvalue=long_name)
+  endif
+
+  if (present(standard_name)) then
+     standard_name = ' '
+     call fh5f_read_attribute("standard_name", cvalue=standard_name)
+  endif
+
 ! Close the dataset, the dataspace for the dataset, and the memory space.
 
   call fh5_close_read(hdferr)
@@ -769,7 +895,10 @@ end subroutine shdf5_irec
 !===============================================================================
 
 subroutine shdf5_close()
+
+  use misc_coms, only: io6
   use hdf5_f2f
+
   implicit none
 
   integer :: hdferr  ! Error flags
@@ -778,10 +907,12 @@ subroutine shdf5_close()
   if (prevaccess == 'W' .and. myrank /= 0) return
 #endif
 
-! Close hdf file.
-
+  ! Close hdf file.
   call fh5f_close(hdferr)
-end  subroutine shdf5_close
+
+  shdf5_fname = ' '
+
+end subroutine shdf5_close
 
 !===============================================================================
 

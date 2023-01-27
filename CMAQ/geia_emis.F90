@@ -8,16 +8,11 @@ contains
 subroutine geia_init()
 
   use hdf5_utils, only: shdf5_open, shdf5_irec, shdf5_info, shdf5_close
-  use mem_para,   only: myrank
-  use misc_coms,  only: io6, iparallel
-  use mem_ijtabs, only: jtab_w, itab_w, jtw_prog
+  use misc_coms,  only: io6
+  use mem_ijtabs, only: jtab_w, jtw_prog
   use mem_grid,   only: mwa, arw0, glatw, glonw
   use oname_coms, only: nl
   use prfill_mod, only: prfill
-
-#ifdef OLAM_MPI
-  use mpi
-#endif
 
   implicit none
 
@@ -37,16 +32,13 @@ subroutine geia_init()
   integer :: ipoffset, inproj
   real    :: grx, gry
 
-  real :: buffer(nlon, nlat, 2)
+  real :: buffer(nlon,nlat)
 
   real ::  cl(nio, njo)
   real :: hcl(nio, njo)
 
   allocate( cl_emis(mwa))
   allocate(hcl_emis(mwa))
-
-   cl = 0.0
-  hcl = 0.0
 
    cl_emis = 0.0
   hcl_emis = 0.0
@@ -58,24 +50,14 @@ subroutine geia_init()
      return
   endif
 
-  if (myrank == 0) then
-     call shdf5_open(nl%geia_emis_file, 'R')
+  call shdf5_open(nl%geia_emis_file, 'R', trypario=.true.)
 
-     ndims    = 2
-     idims(1) = nlon
-     idims(2) = nlat
+   cl = 0.0
+  hcl = 0.0
 
-     call shdf5_irec(ndims, idims,  'CL', rvar2=buffer(:,:,1))
-     call shdf5_irec(ndims, idims, 'HCL', rvar2=buffer(:,:,2))
-
-     call shdf5_close()
-  endif
-
-#ifdef OLAM_MPI
-  if (iparallel == 1) then
-     call MPI_Bcast(buffer, nlon*nlat*2, MPI_REAL, 0, MPI_COMM_WORLD, ier)
-  endif
-#endif
+  ndims    = 2
+  idims(1) = nlon
+  idims(2) = nlat
 
   gdatdx = 1.0
   gdatdy = 1.0
@@ -86,8 +68,13 @@ subroutine geia_init()
   ipoffset = int((xswlon + 180.) / gdatdx) + 2
   inproj = 1
 
-  call prfill(nlon, nlat, buffer(:,:,1),  cl, gdatdy, xswlat, ipoffset, inproj)
-  call prfill(nlon, nlat, buffer(:,:,2), hcl, gdatdy, xswlat, ipoffset, inproj)
+  call shdf5_irec(ndims, idims,  'CL', rvar2=buffer)
+  call prfill(nlon, nlat, buffer,  cl, gdatdy, xswlat, ipoffset, inproj)
+
+  call shdf5_irec(ndims, idims, 'HCL', rvar2=buffer)
+  call prfill(nlon, nlat, buffer, hcl, gdatdy, xswlat, ipoffset, inproj)
+
+  call shdf5_close()
 
   ! Fill emissions arrays by interpolation
 

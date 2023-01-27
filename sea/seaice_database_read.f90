@@ -270,7 +270,7 @@ subroutine seaice_database_read(iaction)
 
   write(io6,*) 'seaice_database_read2 ', iseaicefile, trim(fnames_seaice(iseaicefile))
 
-  call shdf5_open(fnames_seaice(iseaicefile),'R')
+  call shdf5_open(fnames_seaice(iseaicefile),'R',trypario=.true.)
   call shdf5_info('ice',ndims,idims)
   nio = idims(1)
   njo = idims(2)

@@ -108,7 +108,7 @@ contains
        stop       "Bony-Emanuel look table datafile cannot be found"
     endif
 
-    call shdf5_open(inputfile, 'R')
+    call shdf5_open(inputfile, 'R', trypario=.true.)
 
     ndims=1 ; idims(1)=1
     call shdf5_irec(ndims, idims, "rh_start", rvars=rh_start)

@@ -1494,7 +1494,7 @@ subroutine gridfile_read_pd()
   write(io6,*) 'Opening grid file ', trim(flnm)
   write(io6,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++'
 
-  call shdf5_open(flnm,'R')
+  call shdf5_open(flnm,'R',trypario=.true.)
 
   ! Read the grid information that exists in namelist
 
@@ -1964,7 +1964,7 @@ subroutine gridfile_read()
   write(io6,*) 'Opening grid file ', trim(flnm)
   write(io6,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++'
 
-  call shdf5_open(flnm,'R')
+  call shdf5_open(flnm,'R',trypario=.true.)
 
   ndims    = 1
   idims(1) = nza
@@ -2351,7 +2351,7 @@ subroutine gridfile_read_sfc()
   write(io6,*) 'Opening grid file ', trim(flnm)
   write(io6,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++'
 
-  call shdf5_open(flnm,'R')
+  call shdf5_open(flnm,'R',trypario=.true.)
 
   lgwsfc = itab_wsfc(1:mwsfc)%iwglobe
 
@@ -2463,7 +2463,7 @@ subroutine gridfile_read_nudge()
      write(io6,*) 'Opening nuding grid file ', trim(flnm)
      write(io6,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++'
 
-     call shdf5_open(flnm,'R')
+     call shdf5_open(flnm,'R',trypario=.true.)
 
      allocate(lgwnud(mwnud))
 
@@ -2560,7 +2560,7 @@ subroutine gridfile_read_oldgrid()
   write(io6,*) 'Opening OLD GRIDFILE ', flnm
   write(io6,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++'
 
-  call shdf5_open(flnm,'R')
+  call shdf5_open(flnm,'R',trypario=.true.)
 
   ! Read the grid information that exists in namelist
 

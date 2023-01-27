@@ -10,12 +10,8 @@ subroutine read_soil_analysis(soil_tempc)
   use isan_coms,  only: nfgfiles, s1900_fg, fnames_fg, nprx, npry, glat, &
                         inproj, xswlat, xswlon, gdatdx, gdatdy, ipoffset
   use hdf5_utils, only: shdf5_open, shdf5_irec, shdf5_info, shdf5_close
-  use mem_para,   only: myrank, nbytes_int, nbytes_real
   use prfill_mod, only: prfill, prfill3
-
-#ifdef OLAM_MPI
-  use mpi
-#endif
+  use mem_para,   only: myrank
 
   implicit none
 
@@ -31,7 +27,7 @@ subroutine read_soil_analysis(soil_tempc)
   integer            :: nio, njo, ngnd
   integer            :: iland, iwsfc, i, j, k, kk
   logical            :: has_snow, has_soilt, has_soilw
-  integer            :: bytes, isize, ier, igloberr, ilat, ipry
+  integer            :: igloberr, ilat, ipry
 
   real, allocatable  :: snow (:,:)   ! snow mass  [kg/m2]
   real, allocatable  :: soilt(:,:,:) ! soil temp  [K]
@@ -42,7 +38,6 @@ subroutine read_soil_analysis(soil_tempc)
   real, allocatable  :: zcol(:), ztmp(:)
   real               :: wprof(nzg)
 
-  integer, allocatable :: buffer(:)
   real,    allocatable :: plat(:)
 
   has_snow  = .false.
@@ -98,125 +93,60 @@ subroutine read_soil_analysis(soil_tempc)
 
   write(io6,'(A)') ' read_soil: opening ' // trim(fname)
 
-#ifdef OLAM_MPI
-  if (iparallel == 1) then
-     bytes = 0
-     isize = nbytes_int*4 + nbytes_real*4
-     allocate( buffer( isize ) )
+  call shdf5_open(fname, 'R', trypario=.true.)
+
+  ndims    = 1
+  idims(1) = 1
+
+  call shdf5_irec(ndims, idims, 'nx'   , ivars=nprx)
+  call shdf5_irec(ndims, idims, 'ny'   , ivars=npry)
+  call shdf5_irec(ndims, idims, 'iproj', ivars=inproj)
+  call shdf5_irec(ndims, idims, 'swlat', rvars=xswlat)
+  call shdf5_irec(ndims, idims, 'swlon', rvars=xswlon)
+  call shdf5_irec(ndims, idims, 'dx'   , rvars=gdatdx)
+  call shdf5_irec(ndims, idims, 'dy'   , rvars=gdatdy)
+
+  if (inproj == 2) then
+     if (allocated(glat)) deallocate(glat)
+     allocate(glat(npry))
+
+     idims(1) = npry
+     call shdf5_irec(ndims, idims, 'glat' ,rvar1=glat)
   endif
-#endif
 
-  if (myrank == 0) then
+  ! Check if ngnd, the # of soil levels, is in the analysis file and read it
 
-     call shdf5_open (fname, 'R')
+  ngnd = 0
+  call shdf5_info('ngnd', ndims, idims)
+  if (ndims > 0) call shdf5_irec(ndims, idims, 'ngnd' , ivars=ngnd)
 
-     ndims    = 1
-     idims(1) = 1
-     idims(2) = 1
-     idims(3) = 1
+  ! Check if sdepths, the soil depth array, is in the analysis file and read it
 
-     call shdf5_irec(ndims, idims, 'nx'   , ivars=nprx)
-     call shdf5_irec(ndims, idims, 'ny'   , ivars=npry)
-     call shdf5_irec(ndims, idims, 'iproj', ivars=inproj)
-     call shdf5_irec(ndims, idims, 'swlat', rvars=xswlat)
-     call shdf5_irec(ndims, idims, 'swlon', rvars=xswlon)
-     call shdf5_irec(ndims, idims, 'dx'   , rvars=gdatdx)
-     call shdf5_irec(ndims, idims, 'dy'   , rvars=gdatdy)
+  call shdf5_info('sdepths', ndims, idims)
+  if (ndims > 0) then
 
-     if (inproj == 2) then
-        if (allocated(glat)) deallocate(glat)
-        allocate(glat(npry))
-
-        idims(1) = npry
-        call shdf5_irec(ndims, idims, 'glat' ,rvar1=glat)
+     if (ngnd /= idims(1)) then
+        ngnd = idims(1)
      endif
 
-     ! Check if ngnd, the # of soil levels, is in the analysis file and read it
+     allocate( ztmp(ngnd), zcol(ngnd) )
+     call shdf5_irec(ndims, idims, 'sdepths', rvar1=ztmp)
+
+     ! OLAM stores the soil arrays from bottom to top, so we need to reverse
+     ! the input soil depth array, and convert to m
+
+     do k = 1, ngnd
+        kk = ngnd - k + 1
+        zcol(kk) = ztmp(k) * 0.01
+     enddo
+
+     deallocate(ztmp)
+
+  else
 
      ngnd = 0
-     call shdf5_info('ngnd', ndims, idims)
-     if (ndims > 0) call shdf5_irec(ndims, idims, 'ngnd' , ivars=ngnd)
-
-     ! Check if sdepths, the soil depth array, is in the analysis file and read it
-
-     call shdf5_info('sdepths', ndims, idims)
-     if (ndims > 0) then
-
-        if (ngnd /= idims(1)) then
-           ngnd = idims(1)
-        endif
-
-        allocate( ztmp(ngnd), zcol(ngnd) )
-        call shdf5_irec(ndims, idims, 'sdepths', rvar1=ztmp)
-
-        ! OLAM stores the soil arrays from bottom to top, so we need to reverse
-        ! the input soil depth array, and convert to m
-
-        do k = 1, ngnd
-           kk = ngnd - k + 1
-           zcol(kk) = ztmp(k) * 0.01
-        enddo
-
-        deallocate(ztmp)
-
-     else
-
-        ngnd = 0
-
-     endif
-
-#ifdef OLAM_MPI
-     if (iparallel == 1) then
-        call MPI_Pack(nprx  , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
-        call MPI_Pack(npry  , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
-        call MPI_Pack(inproj, 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
-        call MPI_Pack(xswlat, 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
-        call MPI_Pack(xswlon, 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
-        call MPI_Pack(gdatdx, 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
-        call MPI_Pack(gdatdy, 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
-        call MPI_Pack(ngnd  , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
-     endif
-#endif
 
   endif
-
-#ifdef OLAM_MPI
-  if (iparallel == 1) then
-
-     call MPI_Bcast(buffer, isize, MPI_PACKED, 0, MPI_COMM_WORLD, ier)
-
-     if (myrank /= 0) then
-        call MPI_Unpack(buffer, isize, bytes, nprx  , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
-        call MPI_Unpack(buffer, isize, bytes, npry  , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
-        call MPI_Unpack(buffer, isize, bytes, inproj, 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
-        call MPI_Unpack(buffer, isize, bytes, xswlat, 1, MPI_REAL   , MPI_COMM_WORLD, ier)
-        call MPI_Unpack(buffer, isize, bytes, xswlon, 1, MPI_REAL   , MPI_COMM_WORLD, ier)
-        call MPI_Unpack(buffer, isize, bytes, gdatdx, 1, MPI_REAL   , MPI_COMM_WORLD, ier)
-        call MPI_Unpack(buffer, isize, bytes, gdatdy, 1, MPI_REAL   , MPI_COMM_WORLD, ier)
-        call MPI_Unpack(buffer, isize, bytes, ngnd  , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
-        if (ngnd > 0) allocate(zcol(ngnd))
-     endif
-
-     if (ngnd > 0) call MPI_Bcast(zcol, ngnd, MPI_REAL, 0, MPI_COMM_WORLD, ier)
-
-     if (inproj == 2) then
-        if (myrank /= 0) then
-           if (allocated(glat)) deallocate(glat)
-           allocate(glat(npry))
-        endif
-        call MPI_Bcast(glat, npry, MPI_INTEGER, 0, MPI_COMM_WORLD, ier)
-     endif
-
-     deallocate(buffer)
-
-  endif
-#endif
-
-! if (ngnd == 0) then
-!    write(io6,*) "Gridded analysis dataset does not contain soil depth information."
-!    write(io6,*) "Soil initialization from analysis file will be skipped."
-!    write(io6,*)
-! endif
 
   ! Check data domain size, location, and type
 
@@ -257,7 +187,7 @@ subroutine read_soil_analysis(soil_tempc)
         write(io6,*) 'nprx,npry = ',nprx,npry
         write(io6,*) 'gdatdx,gdatdy = ',gdatdx,gdatdy
         write(io6,*) 'xswlat,xswlon= ',xswlat,xswlon
-        if (myrank == 0) call shdf5_close()
+        call shdf5_close()
         stop 'astp stop1 - non-global domain in input soil data'
      endif
 
@@ -325,75 +255,52 @@ subroutine read_soil_analysis(soil_tempc)
   nio = nprx + 4
   njo = npry + 4
 
-  if (myrank == 0) then
+  ! Check if snow mass is in the analysis file, and read it
 
-     ! Check if snow mass is in the analysis file, and read it
+  call shdf5_info('SNOWMASS', ndims, idims)
 
-     call shdf5_info('SNOWMASS', ndims, idims)
+  if (ndims > 0) then
+
+     allocate(a2d(nprx,npry))
+     allocate(snow(nio,njo))
+
+     call shdf5_irec(ndims, idims, 'SNOWMASS', rvar2 = a2d)
+     call prfill(nprx, npry, a2d, snow, gdatdy, xswlat, ipoffset, inproj)
+
+     has_snow = .true.
+     deallocate(a2d)
+  endif
+
+  ! Check if soil temperature and/or soil moisture are in the analysis file,
+  ! and read them
+
+  if (ngnd > 0 .and. allocated(zcol)) then
+     allocate(a3d(nprx,npry,ngnd))
+
+     call shdf5_info('SOILT', ndims, idims)
 
      if (ndims > 0) then
+        allocate(soilt(nio,njo,ngnd))
 
-        allocate(a2d(nprx,npry))
-        allocate(snow(nio,njo))
-
-        call shdf5_irec(ndims, idims, 'SNOWMASS', rvar2 = a2d)
-        call prfill(nprx, npry, a2d, snow, gdatdy, xswlat, ipoffset, inproj)
-
-        has_snow = .true.
-        deallocate(a2d)
+        call shdf5_irec(ndims, idims, 'SOILT', rvar3 = a3d)
+        call prfill3(nprx, npry, ngnd, a3d, soilt, gdatdy, xswlat, ipoffset, inproj)
+        has_soilt = .true.
      endif
 
-     ! Check if soil temperature and/or soil moisture are in the analysis file,
-     ! and read them
+     call shdf5_info('SOILW', ndims, idims)
 
-     if (ngnd > 0 .and. allocated(zcol)) then
-        allocate(a3d(nprx,npry,ngnd))
+     if (ndims > 0) then
+        allocate(soilw(nio,njo,ngnd))
 
-        call shdf5_info('SOILT', ndims, idims)
-
-        if (ndims > 0) then
-           allocate(soilt(nio,njo,ngnd))
-
-           call shdf5_irec(ndims, idims, 'SOILT', rvar3 = a3d)
-           call prfill3(nprx, npry, ngnd, a3d, soilt, gdatdy, xswlat, ipoffset, inproj)
-           has_soilt = .true.
-        endif
-
-        call shdf5_info('SOILW', ndims, idims)
-
-        if (ndims > 0) then
-           allocate(soilw(nio,njo,ngnd))
-
-           call shdf5_irec(ndims, idims, 'SOILW', rvar3 = a3d)
-           call prfill3(nprx, npry, ngnd, a3d, soilw, gdatdy, xswlat, ipoffset, inproj)
-           has_soilw = .true.
-        endif
-
-        deallocate(a3d)
+        call shdf5_irec(ndims, idims, 'SOILW', rvar3 = a3d)
+        call prfill3(nprx, npry, ngnd, a3d, soilw, gdatdy, xswlat, ipoffset, inproj)
+        has_soilw = .true.
      endif
 
-     call shdf5_close()
+     deallocate(a3d)
   endif
 
-#ifdef OLAM_MPI
-  if (iparallel == 1) then
-     call MPI_Bcast(has_snow , 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ier)
-     call MPI_Bcast(has_soilt, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ier)
-     call MPI_Bcast(has_soilw, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ier)
-  endif
-#endif
-
-  if (myrank > 0 .and. has_snow ) allocate(snow (nio,njo))
-  if (myrank > 0 .and. has_soilt) allocate(soilt(nio,njo,ngnd))
-  if (myrank > 0 .and. has_soilw) allocate(soilw(nio,njo,ngnd))
-
-#ifdef OLAM_MPI
-  if (iparallel == 1) then
-     if (has_snow ) call MPI_Bcast(snow,  nio*njo     , MPI_REAL, 0, MPI_COMM_WORLD, ier)
-     if (has_soilt) call MPI_Bcast(soilt, nio*njo*ngnd, MPI_REAL, 0, MPI_COMM_WORLD, ier)
-     if (has_soilw) call MPI_Bcast(soilw, nio*njo*ngnd, MPI_REAL, 0, MPI_COMM_WORLD, ier)
-  endif
-#endif
+  call shdf5_close()
 
   if (.not. has_snow) then
      write(io6,*) "read_soil: Analysis file does not contain snow mass."

@@ -77,7 +77,7 @@
          stop       "RRTMg longwave datafile cannot be found"
       endif
 
-      call shdf5_open(inputfile, 'R')
+      call shdf5_open(inputfile, 'R', trypario=.true.)
 
       call lw_kgb01_h5               ! molecular absorption coefficients
       call lw_kgb02_h5

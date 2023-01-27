@@ -3,17 +3,12 @@ subroutine read_seaice_analysis(iaction)
   use mem_sea,    only: sea, msea, omsea
   use mem_sfcg,   only: sfcg
   use sea_coms,   only: iseaicefile, iseaiceflg
-  use misc_coms,  only: io6, s1900_sim, iparallel
+  use misc_coms,  only: io6, s1900_sim
   use max_dims,   only: pathlen
   use isan_coms,  only: nfgfiles, s1900_fg, fnames_fg, nprx, npry, glat, &
                         inproj, xswlat, xswlon, gdatdx, gdatdy, ipoffset
   use hdf5_utils, only: shdf5_open, shdf5_irec, shdf5_info, shdf5_close
-  use mem_para,   only: myrank, nbytes_int, nbytes_real
   use prfill_mod, only: prfill
-
-#ifdef OLAM_MPI
-  use mpi
-#endif
 
   implicit none
 
@@ -26,11 +21,10 @@ subroutine read_seaice_analysis(iaction)
   real               :: grx, gry
   integer            :: nio, njo, isea, iwsfc
   logical            :: exists, has_seaice
-  integer            :: bytes, isize, ier, igloberr, ilat, ipry
+  integer            :: igloberr, ilat, ipry
 
   real,    allocatable :: ice(:,:)  ! sea ice concentration [0 - 1]
   real,    allocatable :: a2d(:,:)
-  integer, allocatable :: buffer(:)
   real,    allocatable :: plat(:)
 
 ! Nothing to do here if iseaiceflg is not 2
@@ -104,80 +98,26 @@ subroutine read_seaice_analysis(iaction)
 
   write(io6,'(A)') ' read_seaice: opening ' // trim(fname)
 
-#ifdef OLAM_MPI
-  if (iparallel == 1) then
-     bytes = 0
-     isize = nbytes_int*3 + nbytes_real*4
-     allocate( buffer( isize ) )
+  call shdf5_open (fname, 'R', trypario=.true.)
+
+  ndims    = 1
+  idims(1) = 1
+
+  call shdf5_irec(ndims, idims, 'nx'   , ivars=nprx)
+  call shdf5_irec(ndims, idims, 'ny'   , ivars=npry)
+  call shdf5_irec(ndims, idims, 'iproj', ivars=inproj)
+  call shdf5_irec(ndims, idims, 'swlat', rvars=xswlat)
+  call shdf5_irec(ndims, idims, 'swlon', rvars=xswlon)
+  call shdf5_irec(ndims, idims, 'dx'   , rvars=gdatdx)
+  call shdf5_irec(ndims, idims, 'dy'   , rvars=gdatdy)
+
+  if (inproj == 2) then
+     if (allocated(glat)) deallocate(glat)
+     allocate(glat(npry))
+
+     idims(1) = npry
+     call shdf5_irec(ndims, idims, 'glat' ,rvar1=glat)
   endif
-#endif
-
-  if (myrank == 0) then
-
-     call shdf5_open (fname, 'R')
-
-     ndims    = 1
-     idims(1) = 1
-     idims(2) = 1
-     idims(3) = 1
-
-     call shdf5_irec(ndims, idims, 'nx'   , ivars=nprx)
-     call shdf5_irec(ndims, idims, 'ny'   , ivars=npry)
-     call shdf5_irec(ndims, idims, 'iproj', ivars=inproj)
-     call shdf5_irec(ndims, idims, 'swlat', rvars=xswlat)
-     call shdf5_irec(ndims, idims, 'swlon', rvars=xswlon)
-     call shdf5_irec(ndims, idims, 'dx'   , rvars=gdatdx)
-     call shdf5_irec(ndims, idims, 'dy'   , rvars=gdatdy)
-
-     if (inproj == 2) then
-        if (allocated(glat)) deallocate(glat)
-        allocate(glat(npry))
-
-        idims(1) = npry
-        call shdf5_irec(ndims, idims, 'glat' ,rvar1=glat)
-     endif
-
-#ifdef OLAM_MPI
-     if (iparallel == 1) then
-        call MPI_Pack(nprx  , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
-        call MPI_Pack(npry  , 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
-        call MPI_Pack(inproj, 1, MPI_INTEGER, buffer, isize, bytes, MPI_COMM_WORLD, ier)
-        call MPI_Pack(xswlat, 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
-        call MPI_Pack(xswlon, 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
-        call MPI_Pack(gdatdx, 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
-        call MPI_Pack(gdatdy, 1, MPI_REAL   , buffer, isize, bytes, MPI_COMM_WORLD, ier)
-     endif
-#endif
-
-  endif
-
-#ifdef OLAM_MPI
-  if (iparallel == 1) then
-
-     call MPI_Bcast(buffer, isize, MPI_PACKED, 0, MPI_COMM_WORLD, ier)
-
-     if (myrank /= 0) then
-        call MPI_Unpack(buffer, isize, bytes, nprx  , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
-        call MPI_Unpack(buffer, isize, bytes, npry  , 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
-        call MPI_Unpack(buffer, isize, bytes, inproj, 1, MPI_INTEGER, MPI_COMM_WORLD, ier)
-        call MPI_Unpack(buffer, isize, bytes, xswlat, 1, MPI_REAL   , MPI_COMM_WORLD, ier)
-        call MPI_Unpack(buffer, isize, bytes, xswlon, 1, MPI_REAL   , MPI_COMM_WORLD, ier)
-        call MPI_Unpack(buffer, isize, bytes, gdatdx, 1, MPI_REAL   , MPI_COMM_WORLD, ier)
-        call MPI_Unpack(buffer, isize, bytes, gdatdy, 1, MPI_REAL   , MPI_COMM_WORLD, ier)
-     endif
-
-     if (inproj == 2) then
-        if (myrank /= 0) then
-           if (allocated(glat)) deallocate(glat)
-           allocate(glat(npry))
-        endif
-        call MPI_Bcast(glat, npry, MPI_INTEGER, 0, MPI_COMM_WORLD, ier)
-     endif
-
-     deallocate(buffer)
-
-  endif
-#endif
 
   ! Check data domain size, location, and type
 
@@ -218,7 +158,7 @@ subroutine read_seaice_analysis(iaction)
         write(io6,*) 'nprx,npry = ',nprx,npry
         write(io6,*) 'gdatdx,gdatdy = ',gdatdx,gdatdy
         write(io6,*) 'xswlat,xswlon= ',xswlat,xswlon
-        if (myrank == 0) call shdf5_close()
+        call shdf5_close()
         stop 'astp stop1 - non-global domain in input sst/seaice data'
      endif
 
@@ -290,39 +230,25 @@ subroutine read_seaice_analysis(iaction)
 
   ! Check if seaice is in the analysis file, and read it
 
-  if (myrank == 0) then
-     call shdf5_info('ICEC', ndims, idims)
+  call shdf5_info('ICEC', ndims, idims)
 
-     if (ndims > 0) then
-        allocate(a2d(nprx,npry))
+  if (ndims > 0) then
+     allocate(a2d(nprx,npry))
 
-        call shdf5_irec(ndims, idims, 'ICEC', rvar2 = a2d)
-        call prfill(nprx, npry, a2d, ice, gdatdy, xswlat, ipoffset, inproj)
+     call shdf5_irec(ndims, idims, 'ICEC', rvar2 = a2d)
+     call prfill(nprx, npry, a2d, ice, gdatdy, xswlat, ipoffset, inproj)
 
-        has_seaice = .true.
-        deallocate(a2d)
-     endif
-
-     call shdf5_close()
+     has_seaice = .true.
+     deallocate(a2d)
   endif
 
-#ifdef OLAM_MPI
-  if (iparallel == 1) then
-     call MPI_Bcast(has_seaice, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ier)
-  endif
-#endif
+  call shdf5_close()
 
   if (.not. has_seaice) then
      write(io6,*) "read_seaice: Analysis file does not contain seaice."
      write(io6,*) "Stopping run."
      stop
   endif
-
-#ifdef OLAM_MPI
-  if (iparallel == 1) then
-     call MPI_Bcast(ice, nio*njo, MPI_REAL, 0, MPI_COMM_WORLD, ier)
-  endif
-#endif
 
   if (inproj == 2) then
      allocate(plat(npry+4))

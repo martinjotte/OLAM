@@ -270,7 +270,7 @@ subroutine sst_database_read(iaction)
 
   write(io6,*) 'sst_database_read2 ', isstfile, trim(fnames_sst(isstfile))
 
-  call shdf5_open(fnames_sst(isstfile),'R')
+  call shdf5_open(fnames_sst(isstfile),'R',trypario=.true.)
   call shdf5_info('sst',ndims,idims)
   nio = idims(1)
   njo = idims(2)
