@@ -15,10 +15,6 @@ module hdf5_f2f
   integer(HID_T)   :: propid
   integer(HID_T)   :: dsetid
 
-  ! temp
-  integer(HID_T) :: access_id
-
-
   integer(HSIZE_T) :: dimsf(7)
   integer          :: ndimsf
   integer          :: id = 0
@@ -140,7 +136,7 @@ contains
     integer,           intent(OUT) :: hdferr
     logical, optional, intent(IN)  :: pario
 
-!   integer(HID_T) :: access_id
+    integer(HID_T) :: access_id
     integer        :: flags
     logical        :: ish5
 
@@ -198,7 +194,7 @@ contains
 
 #if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
     if (dopario) then
-!      call h5pclose_f(access_id, hdferr)
+       call h5pclose_f(access_id, hdferr)
        call h5pcreate_f(h5p_dataset_xfer_f, xferid, hdferr)
        call h5pset_dxpl_mpio_f(xferid, h5fd_mpio_collective_f, hdferr)
     endif
@@ -1723,8 +1719,8 @@ contains
     integer(hid_t)           :: typeid
     logical                  :: istype
     integer                  :: ii, jj, j
-    integer,     allocatable :: i4(:,:)
-    integer(i2), allocatable :: i2(:,:)
+    integer,     allocatable :: il(:,:)
+    integer(i2), allocatable :: is(:,:)
 
     call h5dget_type_f(dsetid, typeid, hdferr)
 
@@ -1732,12 +1728,12 @@ contains
     if (istype) then
        ii = size(buf_real,dim=1)
        jj = size(buf_real,dim=2)
-       allocate(i4(ii,jj))
-       call h5dread_f(dsetid, H5T_NATIVE_INTEGER, i4, dimsf, &
+       allocate(il(ii,jj))
+       call h5dread_f(dsetid, H5T_NATIVE_INTEGER, il, dimsf, &
             hdferr, mspcidr(id), dspcidr(id), xferid)
        !$omp parallel do
        do j = 1, jj
-          buf_real(:,j) = real( i4(:,j) )
+          buf_real(:,j) = real( il(:,j) )
        enddo
        !$omp end parallel do
        call h5tclose_f(typeid, hdferr)
@@ -1748,12 +1744,12 @@ contains
     if (istype) then
        ii = size(buf_real,dim=1)
        jj = size(buf_real,dim=2)
-       allocate(i2(ii,jj))
-       call h5dread_f(dsetid, FORTRAN_INT2_TYPE, i2, dimsf, &
+       allocate(is(ii,jj))
+       call h5dread_f(dsetid, FORTRAN_INT2_TYPE, is, dimsf, &
             hdferr, mspcidr(id), dspcidr(id), xferid)
        !$omp parallel do
        do j = 1, jj
-          buf_real(:,j) = real( i2(:,j) )
+          buf_real(:,j) = real( is(:,j) )
        enddo
        !$omp end parallel do
        call h5tclose_f(typeid, hdferr)
@@ -1778,8 +1774,8 @@ contains
     integer(hid_t)           :: typeid
     logical                  :: istype
     integer                  :: ii, jj, kk, j, k
-    integer,     allocatable :: i4(:,:,:)
-    integer(i2), allocatable :: i2(:,:,:)
+    integer,     allocatable :: il(:,:,:)
+    integer(i2), allocatable :: is(:,:,:)
 
     call h5dget_type_f(dsetid, typeid, hdferr)
 
@@ -1788,13 +1784,13 @@ contains
        ii = size(buf_real,dim=1)
        jj = size(buf_real,dim=2)
        kk = size(buf_real,dim=3)
-       allocate(i4(ii,jj,kk))
-       call h5dread_f(dsetid, H5T_NATIVE_INTEGER, i4, dimsf, &
+       allocate(il(ii,jj,kk))
+       call h5dread_f(dsetid, H5T_NATIVE_INTEGER, il, dimsf, &
             hdferr, mspcidr(id), dspcidr(id), xferid)
        !$omp parallel do collapse(2) private(k,j)
        do k = 1, kk
           do j = 1, jj
-             buf_real(:,j,k) = real( i4(:,j,k) )
+             buf_real(:,j,k) = real( il(:,j,k) )
           enddo
        enddo
        !$omp end parallel do
@@ -1807,13 +1803,13 @@ contains
        ii = size(buf_real,dim=1)
        jj = size(buf_real,dim=2)
        kk = size(buf_real,dim=3)
-       allocate(i2(ii,jj,kk))
-       call h5dread_f(dsetid, FORTRAN_INT2_TYPE, i2, dimsf, &
+       allocate(is(ii,jj,kk))
+       call h5dread_f(dsetid, FORTRAN_INT2_TYPE, is, dimsf, &
             hdferr, mspcidr(id), dspcidr(id), xferid)
        !$omp parallel do collapse(2) private(k,j)
        do k = 1, kk
           do j = 1, jj
-             buf_real(:,j,k) = real( i2(:,j,k) )
+             buf_real(:,j,k) = real( is(:,j,k) )
           enddo
        enddo
        !$omp end parallel do
