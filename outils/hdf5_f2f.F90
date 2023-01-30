@@ -124,8 +124,9 @@ contains
 
   subroutine fh5f_open(locfn, iaccess, hdferr, pario)
 
-#if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
     use misc_coms, only: io6, iparallel
+
+#if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
     use mpi
 #endif
 
