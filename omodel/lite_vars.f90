@@ -118,7 +118,7 @@ subroutine lite_write()
   use oname_coms, only: nl
   use var_tables, only: num_var, vtab_r, get_vtab_dims
   use misc_coms,  only: io6, current_time, iclobber
-  use hdf5_utils, only: shdf5_orec, shdf5_open, shdf5_close, mpi_does_parallel_io
+  use hdf5_utils, only: shdf5_orec, shdf5_open, shdf5_close
   use max_dims,   only: pathlen
   use mem_grid,   only: nma, nva, nwa
   use mem_sfcg,   only: nwsfc, nvsfc, nmsfc

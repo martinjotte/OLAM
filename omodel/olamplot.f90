@@ -93,21 +93,18 @@ end subroutine oplot_prtvalue
 
 !===============================================================================
 
-subroutine oplot_locindex(i,x,y,psiz)
+subroutine oplot_locindex(ind,x,y,psiz)
 
-implicit none
+  implicit none
 
-integer, intent(in) :: i
-real, intent(in) :: x,y,psiz
+  integer, intent(in) :: ind
+  real,    intent(in) :: x,y,psiz
 
-character(len=8) :: number3
+  character(10) :: string
 
-!call o_gsplci(10)
-!call o_gstxci(10)
+  write(string,'(i0)') ind
 
-write(number3,'(i8)') i
-
-call o_plchlq (x,y,trim(adjustl(number3)),psiz,0.,0.)
+  call o_plchlq (x, y, trim(string), psiz, 0., 0.)
 
 end subroutine oplot_locindex
 

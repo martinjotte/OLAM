@@ -106,7 +106,7 @@ subroutine plot_trajecfile(iplt)
   call o_pcsetr('CL',2.)
   bsize = .016 * (op%hp2 - op%hp1) ! * 0.3
 
-  call gslwsc(2.) ! line width
+  call o_gslwsc(2.) ! line width
 
   ! Plot hurricane tracks from other models (now all in one group; iplt is 1 only)
 

@@ -27,7 +27,7 @@ subroutine fields3_ll()
                          mdomain, time8, nxp, ngrids
   use consts_coms, only: p00, p00i, rocp, cp, alvl, rvap, r8, grav, eps_virt
   use hdf5_utils,  only: shdf5_open, shdf5_orec, shdf5_orec_ll, shdf5_close, &
-                         shdf5_write_global_attribute, mpi_does_parallel_io
+                         shdf5_write_global_attribute
   use max_dims,    only: pathlen, maxlatlon
   use mem_addsc,   only: addsc
   use oname_coms,  only: nl
