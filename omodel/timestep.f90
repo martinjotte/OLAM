@@ -388,7 +388,7 @@ subroutine modsched()
   use leaf_coms,   only: dt_leaf
   use lake_coms,   only: dt_lake
   use sea_coms,    only: dt_sea
-  use consts_coms, only: r8
+  use sea_swm,     only: dt_swm, niter_swm
 
   implicit none
 
@@ -407,6 +407,7 @@ subroutine modsched()
   dt_leaf = dtlm
   dt_sea  = dtlm
   dt_lake = dtlm
+  dt_swm  = dtlm / real(niter_swm)
 
   ! Allocate mrl-schedule arrays
 
@@ -510,7 +511,7 @@ subroutine comp_alpha_press()
 
   use mem_grid,    only: lpw, lpv, mza, dzim, dniv, zfacit
   use mem_ijtabs,  only: jtab_w, jtw_prog, jtab_v, jtv_prog, itab_v
-  use consts_coms, only: pc1, rdry, rvap, cpocv, r8, gravo2
+  use consts_coms, only: pc1, rdry, rvap, cpocv, gravo2
   use mem_basic,   only: rr_v, rr_w, theta, thil, alpha_press, &
                          pwfac, pvfac
 

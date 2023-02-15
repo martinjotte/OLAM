@@ -40,6 +40,8 @@ subroutine makesfc3()
 
   use mem_sfcnud,  only: nzg_nl, nzg_sp, kspm
 
+  use sea_swm,     only: depthmax_swe
+
   implicit none
 
   integer :: k, iw, j, iv, im, np, kpom
@@ -463,14 +465,14 @@ subroutine makesfc3()
   endif
 
   ! Set logical flag for IWSFC cells that use Shallow Water Model (SWM).
-  ! Require that bathym depth be no greater than 100 m.
+  ! Require that bathym depth be no greater than depthmax_swe
 
   do iswmzon = 1,nswmzons
      do iwsfc = 2,nwsfc
         call ngr_area(iswmzon,minside,sfcg%xew(iwsfc),sfcg%yew(iwsfc),sfcg%zew(iwsfc), &
                       nswmzonll, swmzonrad, swmzonlat, swmzonlon)
 
-        if (minside == 1 .and. sfcg%bathym(iwsfc) > -100.) sfcg%swm_active(iwsfc) = .true.
+        if (minside == 1 .and. sfcg%bathym(iwsfc) > depthmax_swe) sfcg%swm_active(iwsfc) = .true.
      enddo
   enddo
 
@@ -483,12 +485,12 @@ subroutine makesfc3()
      do isea = 2,nsea
         iwsfc = isea + onsea
 
-        call ngr_area(ipomzon,minside,sfcg%xew(iwsfc),sfcg%yew(iwsfc),sfcg%zew(iwsfc), &
-                      npomzonll, pomzonrad, pomzonlat, pomzonlon)
+        call ngr_area(ipomzon,minside,sfcg%xew(iwsfc),sfcg%yew(iwsfc), &
+                      sfcg%zew(iwsfc), npomzonll, pomzonrad, pomzonlat, pomzonlon)
 
-        if (minside == 1 .and. .not. sfcg%swm_active(iwsfc) .and. sfcg%bathym(iwsfc) < -30.) then
-           sea%pom_active(isea) = .true.
-        endif
+        if ( minside == 1 .and. (.not. sfcg%swm_active(iwsfc)) .and. &
+             sfcg%bathym(iwsfc) < -30. ) sea%pom_active(isea) = .true.
+
      enddo
   enddo
 
@@ -512,7 +514,6 @@ subroutine makesfc3()
            endif
         enddo
      endif
-
   enddo
 
   ! Initialize soil static properties
@@ -1280,6 +1281,7 @@ subroutine sfcgfile_write()
   call shdf5_orec(ndims, idims, 'zem'       , rvar1=sfcg%zem)
   call shdf5_orec(ndims, idims, 'glatm'     , rvar1=sfcg%glatm)
   call shdf5_orec(ndims, idims, 'glonm'     , rvar1=sfcg%glonm)
+  call shdf5_orec(ndims, idims, 'arm0'      , rvar1=sfcg%arm0)
 ! call shdf5_orec(ndims, idims, 'topm'      , rvar1=sfcg%topm)
 
   idims(1) = nvsfc
@@ -1715,6 +1717,7 @@ subroutine sfcgfile_read()
   call shdf5_irec(ndims, idims, 'zem'       , rvar1=sfcg%zem,   points=lgmsfc, stagpt=type)
   call shdf5_irec(ndims, idims, 'glatm'     , rvar1=sfcg%glatm, points=lgmsfc, stagpt=type)
   call shdf5_irec(ndims, idims, 'glonm'     , rvar1=sfcg%glonm, points=lgmsfc, stagpt=type)
+  call shdf5_irec(ndims, idims, 'arm0'      , rvar1=sfcg%arm0,  points=lgmsfc, stagpt=type)
 ! call shdf5_irec(ndims, idims, 'topm'      , rvar1=sfcg%topm,  points=lgmsfc, stagpt=type)
 
   idims(1) = mvsfc

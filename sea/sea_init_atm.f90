@@ -4,10 +4,11 @@ subroutine sea_init_atm()
   use sea_coms,    only: iupdsst, s1900_sst, isstfile, nsstfiles, dt_sea,  &
                          iupdseaice, s1900_seaice, iseaicefile, nseaicefiles, nzi
   use misc_coms,   only: s1900_sim, iparallel, runtype
-  use mem_sfcg,    only: itab_wsfc, sfcg
+  use mem_sfcg,    only: itab_wsfc, sfcg, nswmzons
   use consts_coms, only: t00, p00i, rocp
   use therm_lib,   only: rhovsl, rhovsil
   use mem_para,    only: myrank
+  use sea_swm,     only: depthmax_swe
 
   implicit none
 
@@ -37,9 +38,7 @@ subroutine sea_init_atm()
      ! Skip this cell if running in parallel and cell rank is not MYRANK
      ! if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
-     ! Initialize sea depth, sea temperature, sea ice, and canopy depth
-
-     sea%wdepth(isea) = sfcg%topw(iwsfc) - sfcg%bathym(iwsfc)
+     ! Initialize sea temperature, sea ice, and canopy depth
 
      sea%seatc(isea) = sea%seatp(isea)  &
                      + (sea%seatf(isea) - sea%seatp(isea)) * timefac_sst

@@ -7,13 +7,15 @@ subroutine pom_startup()
 
   use mem_sfcg,    only: sfcg
 
-  use mem_sea,     only: sea, msea, omsea
+  use mem_sea,     only: sea, msea, omsea, npomzons
 
   use leaf_coms,   only: dt_leaf
 
   implicit none
 
   integer :: isea, iwsfc, k
+
+  if (npomzons < 1) return
 
   ! Later, get these from OLAM simulation parameters
 
@@ -47,7 +49,7 @@ end subroutine pom_startup
 
 subroutine pom_init()
 
-  use mem_sea,  only: sea, msea, omsea
+  use mem_sea,  only: sea, msea, omsea, npomzons
   use pom2k1d,  only: nzpom, pom, y, yy, small
 
   implicit none
@@ -55,6 +57,8 @@ subroutine pom_init()
   integer :: k, isea, iwsfc
   real    :: tlen  ! turbulent length scale [m]
   real    :: seatempc
+
+  if (npomzons < 1) return
 
   do isea = 2,msea
      iwsfc = isea + omsea

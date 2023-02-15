@@ -2,11 +2,13 @@ module sea_swm
 
   implicit none
 
-  real, parameter :: depthmin_flux = 0.1  ! Minimum depth [m] for sfcwater flow
-                                          ! across V edge of sfcgrid
+  real, parameter :: depthmin_flux = 0.1   ! Minimum depth [m] for sfcwater flow
+                                           ! across V edge of sfcgrid
 
-  real, parameter :: depthmin_swe  = 1.0  ! Minimum depth [m] for application
-                                          ! full SW equations
+  real, parameter :: depthmin_swe  = 1.0   ! Minimum depth [m] for application
+                                           ! full SW equations
+
+  real, parameter :: depthmax_swe  = 100.0
 
   real, parameter :: mc_land = 0.10       ! Manning coefficient (relatively rough surface)
   real, parameter :: mc_sea  = 0.03       ! Manning coefficient (relatively smooth surface)
@@ -14,7 +16,7 @@ module sea_swm
   real, parameter :: minusonethird = -1./3.
 
   integer :: niter_swm
-  real :: dt_swm
+  real    :: dt_swm
 
   ! Definitions related to height/depth
 
@@ -27,7 +29,7 @@ module sea_swm
   !                   sfcg%topo for land areas, and is less than sfcg%topo
   !                   for permanent water bodies.
   !
-  ! sea%wdepth(iw)           Depth [m] of ocean water in SWM.
+  ! sea%swmdepth(iw)         Depth [m] of ocean water in SWM.
   ! land%sfcwater_depth(iw)  Depth [m] of surface water over land.
   ! lake%_depth(iw)          Depth [m] of lake water
   !
@@ -43,22 +45,30 @@ contains
 
 subroutine swm_driver()
 
-  use misc_coms,     only: iparallel
-  use mem_sfcg,      only: itab_wsfc, itab_vsfc, sfcg, jtab_wsfc_swm, jtab_vsfc_swm
-  use leaf_coms,     only: dt_leaf, wcap_min
-  use mem_land,      only: land, mland, omland
-  use mem_lake,      only: lake, mlake, omlake
-  use olam_mpi_sfc,  only: mpi_send_wsfc, mpi_recv_wsfc, mpi_send_vsfc, mpi_recv_vsfc
-  use mem_para,      only: myrank
-  use oname_coms,    only: nl
+  use misc_coms,    only: iparallel
+  use mem_sfcg,     only: jtab_vsfc_swm, sfcg, jtab_wsfc_swm, itab_wsfc, itab_vsfc, &
+                          nswmzons, mvsfc
+  use leaf_coms,    only: dt_leaf, wcap_min
+  use mem_land,     only: land, mland, omland
+  use mem_lake,     only: lake, mlake, omlake
+  use olam_mpi_sfc, only: mpi_send_wsfc, mpi_recv_wsfc, mpi_send_vsfc, mpi_recv_vsfc
+  use mem_para,     only: myrank
+  use oname_coms,   only: nl
 
   implicit none
 
-  integer :: iter_swm, ivsfc, iw1, iw2, j, iwsfc, ilake, iland, ivn, iwn
-  real :: factor, dheight, energyin, energy_per_m2
-  real :: dirv
+  integer :: iter_swm, ivsfc, iw1, iw2, j, iwsfc, ilake, iland, ivn, iwn, isea
+  real    :: factor, dheight, energyin, energy_per_m2, dirv
 
-  dt_swm = dt_leaf / real(niter_swm)
+  real, allocatable :: vmt(:)
+
+  if (nswmzons < 1) return
+
+  allocate(vmt(mvsfc)) ; vmt = 0.0
+
+  call vort_damp_swm(vmt)
+
+  call divh_damp_swm(vmt, dt_swm)
 
   ! START MAIN SWM LOOP
 
@@ -81,19 +91,16 @@ subroutine swm_driver()
 
      ! Evaluate horizontal fluxes of temp, VXE, VYE, and VZE for all cells
      ! that are updated with Shallow Water Model (SWM).
-
      !$omp parallel do private(ivsfc, iw1, iw2)
-     do j = 2,jtab_vsfc_swm%jend
+     do j = 1,jtab_vsfc_swm%jend
         ivsfc = jtab_vsfc_swm%ivsfc(j)
-
-        iw1 = itab_vsfc(ivsfc)%iwn(1)
-        iw2 = itab_vsfc(ivsfc)%iwn(2)
-
-        if (iw1 < 2 .or. iw2 < 2) cycle
 
         ! Skip this vsfc face if running in parallel and cell rank is not MYRANK
 
-        if (iparallel == 1 .and. itab_vsfc(ivsfc)%irank /= myrank) cycle
+        if (itab_vsfc(ivsfc)%irank /= myrank) cycle
+
+        iw1 = itab_vsfc(ivsfc)%iwn(1)
+        iw2 = itab_vsfc(ivsfc)%iwn(2)
 
         ! LAND-LAND, LAND-LAKE, LAND-SEA, LAKE-LAND, SEA-LAND, SEA-SEA horiz SWM fluxes
 
@@ -116,7 +123,14 @@ subroutine swm_driver()
 
      !$omp parallel do private(iwsfc)
      do j = 1,jtab_wsfc_swm%jend; iwsfc = jtab_wsfc_swm%iwsfc(j)
-        call swm_progw(iwsfc)
+        if (itab_wsfc(iwsfc)%irank /= myrank) cycle
+
+        if (sfcg%swm_active(iwsfc)) then
+           call swm_progw(iwsfc)
+        else
+           call swm_progw_lbc(iwsfc)
+        endif
+
      enddo
      !$omp end parallel do
 
@@ -129,7 +143,7 @@ subroutine swm_driver()
 
      ! UPDATE SFCG%VMC AND SFCG%VC for sea cells that use SWM
 
-     call swm_progv()
+     call swm_progv(vmt)
 
      ! MPI send/recv of SFCG%VMC, SFCG%VC
 
@@ -151,13 +165,15 @@ subroutine swm_driver()
 
      ! Change in lake height from SWM fluxes
 
-     !$omp parallel do private(iwsfc, dheight, energyin, j, ivn, iwn, dirv, factor)
+     !$omp parallel
+     !$omp do private(iwsfc, dheight, energyin, j, ivn, iwn, dirv, factor)
      do ilake = 2,mlake
         iwsfc = ilake + omlake
 
         ! Skip this cell if running in parallel and cell rank is not MYRANK
 
         if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+        if (.not. sfcg%swm_active(iwsfc)) cycle
 
         dheight  = 0.
         energyin = 0.
@@ -174,7 +190,7 @@ subroutine swm_driver()
               dirv = -1.0
            endif
 
-           if (sfcg%leaf_class(iwn) >= 2) then
+!           if (sfcg%leaf_class(iwn) >= 2) then
 
               ! Neighbor cell is land
 
@@ -185,7 +201,7 @@ subroutine swm_driver()
               dheight  = dheight  + factor * sfcg%hflux_wat(ivn) ! [m] or [m^3/m^2]
               energyin = energyin + factor * sfcg%hflux_enr(ivn) ! [J/m^2]
 
-           endif
+!           endif
 
         enddo ! j
 
@@ -200,13 +216,16 @@ subroutine swm_driver()
 
         sfcg%head1(iwsfc) = lake%depth(ilake) + sfcg%bathym(iwsfc) - sfcg%topw(iwsfc)
      enddo
-     !$omp end parallel do
+     !$omp end do
 
      ! Change in LAND sfcwater height from SWM fluxes
 
-     !$omp do private(iwsfc, energy_per_m2, j, ivn, dirv, factor)
+     !$omp do private(iwsfc,energy_per_m2,j,ivn,dirv,factor) schedule(guided)
      do iland = 2,mland
         iwsfc = iland + omland
+
+        ! Skip if not swm active
+        if (.not. sfcg%swm_active(iwsfc)) cycle
 
         ! Skip this cell if running in parallel and cell rank is not MYRANK
         if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
@@ -260,6 +279,8 @@ subroutine swm_driver()
         endif
 
      enddo
+     !$omp end do
+     !$omp end parallel
 
   enddo ! iter_swm
 
@@ -271,6 +292,7 @@ subroutine swm_grad2d()
 
   use mem_sfcg, only: itab_wsfc, jtab_wsfc_swm, sfcg
   use mem_sea,  only: sea, omsea
+  use mem_para, only: myrank
 
   implicit none
 
@@ -284,6 +306,8 @@ subroutine swm_grad2d()
   do j = 1,jtab_wsfc_swm%jend; iw = jtab_wsfc_swm%iwsfc(j)
      isea = iw - omsea
 
+     if (itab_wsfc(iw)%irank /= myrank) cycle
+
      sea%gxps_vxe(isea) = 0.
      sea%gxps_vye(isea) = 0.
      sea%gxps_vze(isea) = 0.
@@ -292,7 +316,7 @@ subroutine swm_grad2d()
      sea%gyps_vye(isea) = 0.
      sea%gyps_vze(isea) = 0.
 
-     if (sea%wdepth(isea) < depthmin_swe) cycle
+     if (sea%swmdepth(isea) < depthmin_swe) cycle
 
      npoly = itab_wsfc(iw)%npoly
 
@@ -316,16 +340,14 @@ subroutine swm_grad2d()
         dvye = 0.
         dvze = 0.
 
-        if (sfcg%leaf_class(iwn) == 0 .and. &
-            sfcg%swm_active(iwn)) then
+        if ( sfcg%leaf_class(iwn) == 0 .and. &
+             sfcg%swm_active(iwn) ) then
 
            isean = iwn - omsea
 
-           if (sea%wdepth(isean) > depthmin_swe) then
-              dvxe = sea%vxe(isean) - sea%vxe(isea)
-              dvye = sea%vye(isean) - sea%vye(isea)
-              dvze = sea%vze(isean) - sea%vze(isea)
-           endif
+           dvxe = sea%vxe(isean) - sea%vxe(isea)
+           dvye = sea%vye(isean) - sea%vye(isea)
+           dvze = sea%vze(isean) - sea%vze(isea)
         endif
 
         sea%gxps_vxe(isea) = sea%gxps_vxe(isea) + gxps_coef * dvxe
@@ -375,8 +397,13 @@ subroutine swm_hflux(iv, iw1, iw2)
   ! No ocean-to-lake or lake-to-lake fluxes (lake-to-lake done elsewhere),
   ! and no fluxes to/from non-swm_active cells unless they are sea cells
 
-  if ((sfcg%leaf_class(iw1) <  2  .and. sfcg%leaf_class(iw2) == 1) .or. &
-      (sfcg%leaf_class(iw1) == 1  .and. sfcg%leaf_class(iw2) <  2) .or. &
+!  if ((sfcg%leaf_class(iw1) <  2  .and. sfcg%leaf_class(iw2) == 1) .or. &
+!      (sfcg%leaf_class(iw1) == 1  .and. sfcg%leaf_class(iw2) <  2) .or. &
+!      (.not. sfcg%swm_active(iw1) .and. sfcg%leaf_class(iw1) >  0) .or. &
+!      (.not. sfcg%swm_active(iw2) .and. sfcg%leaf_class(iw2) >  0)) then
+
+  if ( ( sfcg%leaf_class(iw1) == 1 .and. sfcg%leaf_class(iw2) == 1 &
+              .and. (abs(sfcg%topw(iw2) - sfcg%topw(iw1)) < .02) ) .or. &
       (.not. sfcg%swm_active(iw1) .and. sfcg%leaf_class(iw1) >  0) .or. &
       (.not. sfcg%swm_active(iw2) .and. sfcg%leaf_class(iw2) >  0)) then
 
@@ -389,13 +416,14 @@ subroutine swm_hflux(iv, iw1, iw2)
 
   if (sfcg%leaf_class(iw1) == 0) then
      isea1 = iw1 - omsea
-     wdepth1 = sea%wdepth(isea1)
+     wdepth1 = sea%swmdepth(isea1)
      mc1 = mc_sea
      tempk1 = sea%seatc(isea1)
      fracliq1 = 1.0
   elseif (sfcg%leaf_class(iw1) == 1) then
      ilake1 = iw1 - omlake
-     wdepth1 = lake%depth(ilake1)
+!    wdepth1 = lake%depth(ilake1)
+     wdepth1 = lake%depth(ilake1) - sfcg%topw(iw1) + sfcg%bathym(iw1)
      mc1 = mc_sea
      call qtk(lake%lake_energy(ilake1), tempk1, fracliq1)
   else
@@ -407,13 +435,14 @@ subroutine swm_hflux(iv, iw1, iw2)
 
   if (sfcg%leaf_class(iw2) == 0) then
      isea2 = iw2 - omsea
-     wdepth2 = sea%wdepth(isea2)
+     wdepth2 = sea%swmdepth(isea2)
      mc2 = mc_sea
      tempk2 = sea%seatc(isea2)
      fracliq2 = 1.0
   elseif (sfcg%leaf_class(iw2) == 1) then
      ilake2 = iw2 - omlake
-     wdepth2 = lake%depth(ilake2)
+!    wdepth2 = lake%depth(ilake2)
+     wdepth2 = lake%depth(ilake2) - sfcg%topw(iw2) + sfcg%bathym(iw2)
      mc2 = mc_sea
      call qtk(lake%lake_energy(ilake2), tempk2, fracliq2)
   else
@@ -468,8 +497,8 @@ subroutine swm_hflux(iv, iw1, iw2)
 
      ! Both adjacent cells are sea cells with depth > depthmin_swe.
 
-     if (sfcg%swm_active(iw1) .and. &
-         sfcg%swm_active(iw2)) then
+!!     if (sfcg%swm_active(iw1) .and. &
+!!         sfcg%swm_active(iw2)) then
 
         ! If both cells are swm_active, use full SWE model, which
         ! extrapolates VM to time T + 1/2.
@@ -477,17 +506,17 @@ subroutine swm_hflux(iv, iw1, iw2)
         vmcf         = 1.5 * sfcg%vmc(iv) - 0.5 * sfcg%vmp(iv)
         sfcg%vmp(iv) = sfcg%vmc(iv)
 
-     else
-
-        ! If one cell is not swm_active, prognose vmc solely from pgf (defined in progv)
-
-        vmcf = sfcg%vmc(iv) + dt_swm * slope * grav * vdepth
-
-        sfcg%vmc(iv) = vmcf
-        sfcg%vmp(iv) = vmcf
-        sfcg%vc(iv)  = vmcf / vdepth
-
-     endif
+!!     else
+!!
+!!        ! If one cell is not swm_active, prognose vmc solely from pgf (defined in progv)
+!!
+!!        vmcf = sfcg%vmc(iv) + dt_swm * slope * grav * vdepth
+!!
+!!        sfcg%vmc(iv) = vmcf
+!!        sfcg%vmp(iv) = vmcf
+!!        sfcg%vc(iv)  = vmcf / vdepth
+!!
+!!     endif
 
   endif
 
@@ -610,9 +639,9 @@ subroutine swm_progw(iw)
 
   ! Current T cell depth-weighted velocity
 
-  vmxe1 = sea%wdepth(isea) * sea%vxe(isea)
-  vmye1 = sea%wdepth(isea) * sea%vye(isea)
-  vmze1 = sea%wdepth(isea) * sea%vze(isea)
+  vmxe1 = sea%swmdepth(isea) * sea%vxe(isea)
+  vmye1 = sea%swmdepth(isea) * sea%vye(isea)
+  vmze1 = sea%swmdepth(isea) * sea%vze(isea)
 
   ! Evaluate momentum tendencies from top and bottom drag forces and Coriolis force
 
@@ -630,7 +659,7 @@ subroutine swm_progw(iw)
   speed = sqrt(sea%vxe(isea)**2 + sea%vye(isea)**2 + sea%vze(isea)**2)
 
   cdtop = sfcg%vkmsfc(iw) / (sfcg%dzt_bot(iw) * rhow)
-  cdbot = grav * mc_sea2 * speed * ( max(depthmin_flux,sea%wdepth(isea)) )**minusonethird
+  cdbot = grav * mc_sea2 * speed * ( max(depthmin_flux,sea%swmdepth(isea)) )**minusonethird
 
   sea%vmxet(isea) = cdtop * (sea%windxe(isea) - sea%vxe(isea)) - cdbot * sea%vxe(isea) + omega2 * vmye1
   sea%vmyet(isea) = cdtop * (sea%windye(isea) - sea%vye(isea)) - cdbot * sea%vye(isea) - omega2 * vmxe1
@@ -661,19 +690,20 @@ subroutine swm_progw(iw)
 
   delex_wd = dt_swm * (wd_tend + tide_tend)
 
-  ! Update wdepth from (t) to (t+1)
-
-  sea%wdepth(isea) = max(0.,sea%wdepth(isea) + delex_wd)
-
   ! Update head1 at forward-biased intermediate time t + fp for horiz pgf
 
-  sfcg%head1(iw) = sea%wdepth(isea) + fp * delex_wd + sfcg%bathym(iw)
+! sfcg%head1(iw) = max(0., sea%swmdepth(isea) + fp * delex_wd) + sfcg%bathym(iw)
+  sfcg%head1(iw) = max(0., sea%swmdepth(isea) + fp * delex_wd) - min(depthmax_swe, -sfcg%bathym(iw))
+
+  ! Update wdepth from (t) to (t+1)
+
+  sea%swmdepth(isea) = max(0., sea%swmdepth(isea) + delex_wd)
 
   ! IN CASE this IW cell has any closed V faces, estimate velocity in T cells
   ! at (t+1) by prognostic method.  This will be used only in cut cells to
   ! project onto closed faces for re-diagnosis of vxe,vye,vze
 
-  wdepthi = 1.0 / max(depthmin_flux,sea%wdepth(isea))
+  wdepthi = 1.0 / max(depthmin_flux,sea%swmdepth(isea))
 
   sea%vxe1(isea) = (vmxe1 + dt_swm * (sea%vmxet(isea) + sea%vmxet_area(isea) * areai)) * wdepthi
   sea%vye1(isea) = (vmye1 + dt_swm * (sea%vmyet(isea) + sea%vmyet_area(isea) * areai)) * wdepthi
@@ -681,9 +711,86 @@ subroutine swm_progw(iw)
 
 end subroutine swm_progw
 
+!=========================================================================
+
+subroutine swm_progw_lbc(iw)
+
+  use mem_sfcg,    only: itab_wsfc, sfcg
+  use mem_sea,     only: sea, omsea
+  use consts_coms, only: omega2, grav
+  use misc_coms,   only: time8
+
+  implicit none
+
+  integer, intent(in) :: iw
+
+  integer :: npoly, jv, ivn, iwn, isea
+
+  real :: areai, dirv
+  real :: wdepthi, tide_tend, depth0, dtfact
+
+  real :: wd_tend   ! Water depth tendency [m/s]
+  real :: delex_wd  ! Change in water depth [m]
+
+  real :: vmxe1, vmye1, vmze1
+  real :: speed         ! Water flow speed [m/s]
+  real :: cdtop, cdbot  ! Top and bottom drag coefficients [m/s]
+
+  real, parameter :: fp = .80  ! head1 forward bias coefficient
+! real, parameter :: rhow = 1000. ! Density of liquid water [kg/m^3]
+
+!  real, parameter :: tide_amp    = 0.0     ! [m] for testing only
+!  real, parameter :: tide_period = 14400.  ! [s] for testing only
+
+  real, parameter :: relax = 1000.0
+
+  isea = iw - omsea
+
+  areai = 1.0 / sfcg%area(iw)
+  wd_tend = 0.
+
+  ! Flux tendencies with fully prognosed neighbors
+
+  npoly = itab_wsfc(iw)%npoly
+  do jv = 1,npoly
+
+     iwn = itab_wsfc(iw)%iwn(jv)
+     if (sfcg%swm_active(iwn)) then
+
+        ivn = itab_wsfc(iw)%ivn(jv)
+        dirv = itab_wsfc(iw)%dirv(jv)
+        wd_tend = wd_tend + sfcg%hflux_wat(ivn) * dirv
+
+     endif
+  enddo
+
+  wd_tend = wd_tend * areai
+
+  ! Relaxation term
+
+  depth0 = min(depthmax_swe, sfcg%topw(iw) - sfcg%bathym(iw))
+  dtfact = min(0.5, depth0 / relax)
+
+  wd_tend = wd_tend - dtfact * (sea%swmdepth(isea) - depth0)
+
+  ! Depth change this timestep
+
+  delex_wd = dt_swm * wd_tend
+
+  ! Update head1 at forward-biased intermediate time t + fp for horiz pgf
+
+! sfcg%head1(iw) = max(0., sea%swmdepth(isea) + fp * delex_wd) + sfcg%bathym(iw))
+  sfcg%head1(iw) = max(0., sea%swmdepth(isea) + fp * delex_wd) - min(depthmax_swe, -sfcg%bathym(iw))
+
+  ! Update wdepth from (t) to (t+1)
+
+  sea%swmdepth(isea) = max(0., sea%swmdepth(isea) + delex_wd)
+
+end subroutine swm_progw_lbc
+
 !============================================================================
 
-subroutine swm_progv()
+subroutine swm_progv(vmt)
 
   use mem_sfcg,    only: sfcg, jtab_vsfc_swm, jtab_msfc_swm, jtab_wsfc_swm, &
                          itab_vsfc, itab_msfc, itab_wsfc, mmsfc, mvsfc
@@ -691,181 +798,35 @@ subroutine swm_progv()
   use misc_coms,   only: iparallel
   use consts_coms, only: grav
   use olam_mpi_sfc,only: mpi_send_wsfc, mpi_recv_wsfc, mpi_send_vsfc, mpi_recv_vsfc
+  use mem_para,    only: myrank
 
   implicit none
 
-  integer                 :: iv, iw, iw1, iw2, j, jv, im, isea, isea1, isea2, iwn, isean
-  integer                 :: im1, im2
-  real                    :: vortp_ex(mmsfc)
-  real                    :: vc_ex   (mvsfc)
-  real                    :: div2d_ex(msea)
-  logical,           save :: firstime = .true.
-  real, allocatable, save :: c1(:), c2(:)
-  real,              save :: dti_swm
-  real                    :: cd
-  real                    :: vdepth, slope, pgf, vmt_vortdamp, vmt_divdamp
+  real, intent(in) :: vmt(mvsfc)
 
-  real, parameter         :: onethird = 1./3.
-  real, parameter         :: vort_damp_swm = 0.01
-  real, parameter         :: akmin_div2d_swm = 0.01
-
-  ! Initialize c1 & c2 arrays on first call
-
-  if (firstime) then
-     firstime = .false.
-
-     dti_swm = 1.0 / dt_swm
-
-     allocate(c1(mvsfc))
-     allocate(c2(mvsfc))
-
-     cd = akmin_div2d_swm * 0.075
-
-     !$omp parallel do private(iv,iw1,iw2)
-     do j = 1,jtab_vsfc_swm%jend; iv = jtab_vsfc_swm%ivsfc(j)
-
-        iw1 = itab_vsfc(iv)%iwn(1)
-        iw2 = itab_vsfc(iv)%iwn(2)
-
-        ! Skip this IV point unless both adjacent IW cells are swm_active
-
-        if (.not. (sfcg%swm_active(iw1) .and. sfcg%swm_active(iw2))) cycle
-
-        c1(iv) = cd * (sfcg%area(iw1)**onethird)**2 * sfcg%dniv(iv)
-        c2(iv) = cd * (sfcg%area(iw2)**onethird)**2 * sfcg%dniv(iv)
-     enddo
-     !$omp end parallel do
-
-  endif  ! firstime
-
-  ! Compute excess V velocity and set vorticity = 0 at V endpoints
-
-  vc_ex(:) = 0.  ! Could move this to progw for more selective zeroing
-
-  !$omp parallel do private(iv, iw1, iw2, isea1, isea2)
-  do j = 1,jtab_vsfc_swm%jend
-     iv = jtab_vsfc_swm%ivsfc(j)
-
-     iw1 = itab_vsfc(iv)%iwn(1)
-     iw2 = itab_vsfc(iv)%iwn(2)
-
-     ! Skip this IV point unless both adjacent IW cells are sea cells and swm_active
-
-     if (sfcg%leaf_class(iw1) > 0 .or. sfcg%leaf_class(iw2) > 0) cycle
-     if (.not. (sfcg%swm_active(iw1) .and. sfcg%swm_active(iw2))) cycle
-
-     im1 = itab_vsfc(iv)%imn(1)
-     im2 = itab_vsfc(iv)%imn(2)
-
-     isea1 = iw1 - omsea
-     isea2 = iw2 - omsea
-
-     vortp_ex(im1) = 0.
-     vortp_ex(im2) = 0.
-
-     if (sea%wdepth(isea1) > depthmin_swe .and. &
-         sea%wdepth(isea2) > depthmin_swe) then
-
-        vc_ex(iv) = sfcg%vc(iv) &
-                  - 0.5 * (sfcg%vnx(iv) * (sea%vxe(isea1) + sea%vxe(isea2)) &
-                         + sfcg%vny(iv) * (sea%vye(isea1) + sea%vye(isea2)) &
-                         + sfcg%vnz(iv) * (sea%vze(isea1) + sea%vze(isea2)))
-
-     endif
-  enddo
-  !$omp end parallel do
-
-  if (iparallel == 1) then
-     call mpi_send_vsfc(vc_ex=vc_ex)
-     call mpi_recv_vsfc(vc_ex=vc_ex)
-  endif
-
-  ! Compute vorticity for vorticity damping at all swm-active msfc points in
-  ! this subdomain (vortp_ex does not require mpi send/recv)
-
-  !$omp parallel
-  !$omp do private(im,jv,iv,iw,isea)
-  do j = 1,jtab_msfc_swm%jend; im = jtab_msfc_swm%imsfc(j)
-
-     ! Loop over V neighbors to evaluate circulation around M (at time T)
-
-     do jv = 1, 3
-        iv = itab_msfc(im)%ivn(jv)
-        iw = itab_msfc(im)%iwn(jv)
-
-        isea = iw - omsea
-
-        if (sea%wdepth(isea) < depthmin_swe) then
-           vortp_ex(im) = 0.
-           exit
-        endif
-
-        if (itab_vsfc(iv)%imn(2) == im) then
-           vortp_ex(im) = vortp_ex(im) + sfcg%dnv(iv) * vc_ex(iv)
-        else
-           vortp_ex(im) = vortp_ex(im) - sfcg%dnv(iv) * vc_ex(iv)
-        endif
-     enddo
-
-  enddo
-  !$omp end do
-
-  ! Compute divergence for divergence damping
-
-  !$omp do private(iw,isea,jv,iv,iwn,isean)
-  do j = 1, jtab_wsfc_swm%jend; iw = jtab_wsfc_swm%iwsfc(j)
-     isea = iw - omsea
-
-     div2d_ex(isea) = 0.0
-
-     if (sea%wdepth(isea) < depthmin_swe) cycle
-
-     do jv = 1, itab_wsfc(iw)%npoly
-        iv    = itab_wsfc(iw)%ivn(jv)
-        iwn   = itab_wsfc(iw)%iwn(jv)
-
-        if (sfcg%leaf_class(iwn) == 0 .and. &
-            sfcg%swm_active(iwn)) then
-
-           isean = iwn - omsea
-
-           if (sea%wdepth(isean) >= depthmin_swe) then
-              div2d_ex(isea) = div2d_ex(isea) - itab_wsfc(iw)%dirv(jv) &
-                             * vc_ex(iv) * sfcg%dnu(iv) / sfcg%area(iw)
-           endif
-
-        endif
-
-     enddo
-  enddo
-  !$omp end do
-  !$omp end parallel
-
-  ! MPI send/recv of div2d
-
-  if (iparallel == 1) then
-     call mpi_send_wsfc(set='swm_div2d_ex', div2d_ex=div2d_ex)
-     call mpi_recv_wsfc(set='swm_div2d_ex', div2d_ex=div2d_ex)
-  endif
+  integer          :: iv, iw, iw1, iw2, j, jv, im, isea, isea1, isea2, iwn, isean
+  integer          :: im1, im2
+  real             :: vdepth, slope, pgf, vmt_vortdamp, vmt_divdamp
 
   !$omp parallel do private(iv,iw1,iw2,isea1,isea2,im1,im2,vdepth, &
   !$omp                     vmt_vortdamp,vmt_divdamp,pgf)
   do j = 1,jtab_vsfc_swm%jend
      iv = jtab_vsfc_swm%ivsfc(j)
 
+     if (itab_vsfc(iv)%irank /= myrank) cycle
+
      iw1 = itab_vsfc(iv)%iwn(1)
      iw2 = itab_vsfc(iv)%iwn(2)
 
-     ! Skip this IV point unless both adjacent IW cells are sea cells and swm_active
+     ! Skip this IV point unless both adjacent IW cells are sea cells
 
      if (sfcg%leaf_class(iw1) > 0 .or. sfcg%leaf_class(iw2) > 0) cycle
-     if (.not. (sfcg%swm_active(iw1) .and. sfcg%swm_active(iw2))) cycle
 
      isea1 = iw1 - omsea
      isea2 = iw2 - omsea
 
-     if (sea%wdepth(isea1) < depthmin_swe .or. &
-         sea%wdepth(isea2) < depthmin_swe) then
+     if (sea%swmdepth(isea1) < depthmin_swe .or. &
+         sea%swmdepth(isea2) < depthmin_swe) then
 
         sfcg%vmp(iv) = 0.
         sfcg%vmc(iv) = 0.
@@ -877,13 +838,7 @@ subroutine swm_progv()
      im1 = itab_vsfc(iv)%imn(1)
      im2 = itab_vsfc(iv)%imn(2)
 
-     vdepth = 0.5 * (sea%wdepth(isea1) + sea%wdepth(isea2))
-
-     vmt_vortdamp = vdepth * vort_damp_swm * sfcg%dniv(iv) * dti_swm &
-                  * (vortp_ex(im1) - vortp_ex(im2))
-
-     vmt_divdamp = sea%wdepth(isea2) * c2(iv) * div2d_ex(isea2) &
-                 - sea%wdepth(isea1) * c1(iv) * div2d_ex(isea1)
+     vdepth = 0.5 * (sea%swmdepth(isea1) + sea%swmdepth(isea2))
 
      ! The following "pressure gradient force" term has a form convenient for the
      ! shallow water equations with units of [m^2/s^2], which is acceleration
@@ -898,16 +853,46 @@ subroutine swm_progv()
 
      ! Update VMC
 
-     sfcg%vmc(iv) = sfcg%vmc(iv) + dt_swm * (vmt_vortdamp + vmt_divdamp + pgf &
+     if (.not. sfcg%swm_active(iw2)) then
 
-              + (sfcg%vnx(iv) * (sea%vmxet(isea1) + sea%vmxet(isea2))  &
-              +  sfcg%vny(iv) * (sea%vmyet(isea1) + sea%vmyet(isea2))  &
-              +  sfcg%vnz(iv) * (sea%vmzet(isea1) + sea%vmzet(isea2))) * 0.5 &
+        sfcg%vmc(iv) = sfcg%vmc(iv) + dt_swm * (vmt(iv) + pgf &
 
-              + (sfcg%vnx(iv) * (sea%vmxet_area(isea1) + sea%vmxet_area(isea2))  &
-              +  sfcg%vny(iv) * (sea%vmyet_area(isea1) + sea%vmyet_area(isea2))  &
-              +  sfcg%vnz(iv) * (sea%vmzet_area(isea1) + sea%vmzet_area(isea2))) &
-              / (sfcg%area(iw1) + sfcg%area(iw2)))
+             + sfcg%vnx(iv) * sea%vmxet(isea1) &
+             + sfcg%vny(iv) * sea%vmyet(isea1) &
+             + sfcg%vnz(iv) * sea%vmzet(isea1) &
+
+             + ( sfcg%vnx(iv) * sea%vmxet_area(isea1) &
+               + sfcg%vny(iv) * sea%vmyet_area(isea1) &
+               + sfcg%vnz(iv) * sea%vmzet_area(isea1) &
+               ) / sfcg%area(iw1) )
+
+     elseif (.not. sfcg%swm_active(iw1)) then
+
+        sfcg%vmc(iv) = sfcg%vmc(iv) + dt_swm * (vmt(iv) + pgf &
+
+             + sfcg%vnx(iv) * sea%vmxet(isea2) &
+             + sfcg%vny(iv) * sea%vmyet(isea2) &
+             + sfcg%vnz(iv) * sea%vmzet(isea2) &
+
+             + ( sfcg%vnx(iv) * sea%vmxet_area(isea2) &
+               + sfcg%vny(iv) * sea%vmyet_area(isea2) &
+               + sfcg%vnz(iv) * sea%vmzet_area(isea2) &
+               ) / sfcg%area(iw2) )
+
+     else
+
+        sfcg%vmc(iv) = sfcg%vmc(iv) + dt_swm * (vmt(iv) + pgf &
+
+             + ( sfcg%vnx(iv) * (sea%vmxet(isea1) + sea%vmxet(isea2)) &
+             + sfcg%vny(iv) * (sea%vmyet(isea1) + sea%vmyet(isea2)) &
+             + sfcg%vnz(iv) * (sea%vmzet(isea1) + sea%vmzet(isea2)) ) * 0.5 &
+
+             + ( sfcg%vnx(iv) * (sea%vmxet_area(isea1) + sea%vmxet_area(isea2)) &
+               + sfcg%vny(iv) * (sea%vmyet_area(isea1) + sea%vmyet_area(isea2)) &
+               + sfcg%vnz(iv) * (sea%vmzet_area(isea1) + sea%vmzet_area(isea2)) &
+               ) / (sfcg%area(iw1) + sfcg%area(iw2)) )
+
+     endif
 
      sfcg%vc(iv) = sfcg%vmc(iv) / max(depthmin_flux,vdepth)
 
@@ -919,23 +904,30 @@ end subroutine swm_progv
 
 subroutine swm_diagvel()
 
-  use mem_sfcg,    only: sfcg, jtab_wsfc_swm, itab_wsfc
+  use mem_sfcg,    only: sfcg, jtab_wsfc_swm, itab_wsfc, nswmzons
   use mem_sea,     only: sea, omsea
+  use mem_para,    only: myrank
 
   implicit none
 
   integer :: j, iw, isea, npoly, jv, iv, iwn, isean
-  real :: vcwall
+  real    :: vcwall
+
+  if (nswmzons < 1) return
 
   !$omp parallel do private(iw, isea, npoly, jv, iv, iwn, isean, vcwall)
   do j = 1,jtab_wsfc_swm%jend; iw = jtab_wsfc_swm%iwsfc(j)
      isea = iw - omsea
 
+     if (itab_wsfc(iw)%irank /= myrank) cycle
+
      sea%vxe(isea) = 0.
      sea%vye(isea) = 0.
      sea%vze(isea) = 0.
 
-     if (sea%wdepth(isea) < depthmin_swe) cycle
+     if (sea%swmdepth(isea) < depthmin_swe) cycle
+
+     if (.not. sfcg%swm_active(iw)) cycle
 
      ! Loop over V neighbors of this W cell
 
@@ -948,7 +940,7 @@ subroutine swm_diagvel()
         if (sfcg%leaf_class(iwn) == 0 .and. sfcg%swm_active(iwn)) then
            isean = iwn - omsea
 
-           if (sea%wdepth(isean) >= depthmin_swe) then
+           if (sea%swmdepth(isean) >= depthmin_swe) then
 
               sea%vxe(isea) = sea%vxe(isea) + itab_wsfc(iw)%ecvec_vx(jv) * sfcg%vc(iv)
               sea%vye(isea) = sea%vye(isea) + itab_wsfc(iw)%ecvec_vy(jv) * sfcg%vc(iv)
@@ -989,13 +981,15 @@ end subroutine swm_diagvel
 
 subroutine swm_init()
 
-  use mem_sfcg, only: sfcg, jtab_wsfc_swm, itab_wsfc
+  use mem_sfcg, only: sfcg, jtab_wsfc_swm, itab_wsfc, nswmzons
   use mem_sea,  only: sea, omsea
 
   implicit none
 
   integer :: j, iwsfc, isea, npoly, jv, iv
-  real :: tide
+  real    :: tide
+
+  if (nswmzons < 1) return
 
   tide = 0.
 
@@ -1008,11 +1002,12 @@ subroutine swm_init()
      sea%vye1(isea) = 0.
      sea%vze1(isea) = 0.
 
-     sea%wdepth(isea) = max(depthmin_flux, tide - sfcg%bathym(iwsfc))
+!    sea%swmdepth(isea) = max(depthmin_flux, tide - sfcg%bathym(iwsfc))
+     sea%swmdepth(isea) = tide + min(depthmax_swe, -sfcg%bathym(iwsfc))
 
-     sfcg%head1(iwsfc) = sea%wdepth(isea) + sfcg%bathym(iwsfc)
+     sfcg%head1(iwsfc) = sea%swmdepth(isea) - min(depthmax_swe, -sfcg%bathym(iwsfc))
 
-     if (sea%wdepth(isea) < depthmin_swe) cycle
+     if (sea%swmdepth(isea) < depthmin_swe) cycle
 
      ! Loop over adjacent V faces, regardless of whether prognosed or underground,
      ! to diagnose initial vxe1,vye2,vze1 from initial vc.
@@ -1030,5 +1025,285 @@ subroutine swm_init()
   !$omp end parallel do
 
 end subroutine swm_init
+
+!===============================================================================
+
+subroutine vort_damp_swm(vmt)
+
+  use olam_mpi_sfc, only: mpi_send_msfc, mpi_recv_msfc
+  use mem_sfcg,     only: sfcg, jtab_vsfc_swm, jtab_msfc_swm, &
+                          itab_vsfc, itab_msfc, itab_wsfc, mmsfc, mvsfc
+  use mem_sea,      only: sea, omsea
+  use misc_coms,    only: iparallel
+  use mem_para,     only: myrank
+  use oname_coms,   only: nl
+
+  implicit none
+
+  real, intent(inout) :: vmt(mvsfc)
+
+  integer                 :: iv, iw1, iw2, k, j, jv, im, kb
+  integer                 :: iv1, iv2, iv3
+  integer                 :: im1, im2, im3, isea1, isea2
+  real                    :: vort(mmsfc), del_vort(mmsfc)
+  real                    :: arm0i, cv, vbar, dnui, vdepth
+  real, allocatable, save :: cm(:)
+  logical,           save :: firstime = .true.
+
+  real, parameter         :: onethird = 1./3.
+  real, parameter         :: twothird = 2./3.
+
+  if (nl%akmin_vort < 1.e-7) return
+
+  if (firstime) then
+     firstime = .false.
+
+     allocate(cm(mmsfc))
+
+     cv = nl%akmin_vort  * 0.075
+
+     !$omp parallel do private(im,iv1,iv2,iv3)
+     do j = 1,jtab_msfc_swm%jend; im = jtab_msfc_swm%imsfc(j)
+
+        if (itab_msfc(im)%irank /= myrank) cycle
+
+        iv1  = itab_msfc(im)%ivn(1)
+        iv2  = itab_msfc(im)%ivn(2)
+        iv3  = itab_msfc(im)%ivn(3)
+
+        cm(im) = cv * sfcg%arm0(im)**twothird * sfcg%dnu(iv1) * sfcg%dnu(iv2) * sfcg%dnu(iv3) / &
+                 ( sfcg%dnu(iv1) *sfcg%dnu(iv2) *sfcg%dnv(iv3) &
+                 + sfcg%dnu(iv1) *sfcg%dnv(iv2) *sfcg%dnu(iv3) &
+                 + sfcg%dnv(iv1) *sfcg%dnu(iv2) *sfcg%dnu(iv3) )
+
+     enddo
+     !$omp end parallel do
+
+  endif  ! firstime
+
+  vort(:) = 0.
+
+  !$omp parallel do private(im,jv,iv)
+  do j = 1,jtab_msfc_swm%jend; im = jtab_msfc_swm%imsfc(j)
+
+     if (itab_msfc(im)%irank /= myrank) cycle
+
+!    if ( any( sea%swmdepth( itab_msfc(im)%iwn(1:3) ) < depthmin_swe ) ) cycle
+
+     ! Loop over V neighbors to evaluate circulation around M (at time T)
+     do jv = 1, 3
+        iv = itab_msfc(im)%ivn(jv)
+
+        if (itab_vsfc(iv)%imn(2) == im) then
+
+           vort(im) = vort(im) + sfcg%vc(iv) * sfcg%dnv(iv)
+
+        else
+
+           vort(im) = vort(im) - sfcg%vc(iv) * sfcg%dnv(iv)
+
+        endif
+     enddo
+
+     ! Convert circulation to relative vertical vorticity at M
+     ! (DNV lacks the zfact factor and ARM0 lacks the zfact**2 factor, so we
+     ! divide their quotient by zfact)
+
+     vort(im) = vort(im) / sfcg%arm0(im)
+
+  enddo
+  !$omp end parallel do
+
+  if (iparallel == 1) then
+     call mpi_send_msfc(vort=vort)
+     call mpi_recv_msfc(vort=vort)
+  endif
+
+  del_vort(:) = 0.0
+
+  !$omp parallel do private(im,im1,im2,im3,vbar)
+  do j = 1,jtab_msfc_swm%jend; im = jtab_msfc_swm%imsfc(j)
+
+     if (itab_msfc(im)%irank /= myrank) cycle
+
+!    if ( any( sea%swmdepth( itab_msfc(im)%iwn(1:3) ) < depthmin_swe ) ) cycle
+
+     im1  = itab_msfc(im)%imn(1)
+     im2  = itab_msfc(im)%imn(2)
+     im3  = itab_msfc(im)%imn(3)
+
+     vbar = onethird * (vort(im1) + vort(im2) + vort(im3))
+     del_vort(im) = cm(im) * (vbar - vort(im))
+
+  enddo
+  !$omp end parallel do
+
+  if (iparallel == 1) then
+     call mpi_send_msfc(vort=del_vort)
+     call mpi_recv_msfc(vort=del_vort)
+  endif
+
+  !$omp parallel do private(iv,iw1,iw2,isea1,isea2,im1,im2)
+  do j = 1,jtab_vsfc_swm%jend; iv = jtab_vsfc_swm%ivsfc(j)
+
+     if (itab_vsfc(iv)%irank /= myrank) cycle
+
+     iw1 = itab_vsfc(iv)%iwn(1); iw2 = itab_vsfc(iv)%iwn(2)
+
+    ! Skip this IV point unless both adjacent IW cells are sea cells and swm_active
+
+     if (sfcg%leaf_class(iw1) > 0 .or. sfcg%leaf_class(iw2) > 0) cycle
+     if (.not. (sfcg%swm_active(iw1) .and. sfcg%swm_active(iw2))) cycle
+
+     isea1 = iw1 - omsea
+     isea2 = iw2 - omsea
+
+     if ( sea%swmdepth(isea1) < depthmin_swe .or. &
+          sea%swmdepth(isea2) < depthmin_swe ) cycle
+
+     im1 = itab_vsfc(iv)%imn(1)
+     im2 = itab_vsfc(iv)%imn(2)
+
+     vdepth = 0.5 * (sea%swmdepth(isea1) + sea%swmdepth(isea2))
+
+     ! Horizontal filter for vertical vorticity
+
+     vmt(iv) = vmt(iv) + vdepth * (del_vort(im2) - del_vort(im1)) / sfcg%dnu(iv)
+
+  enddo
+  !$omp end parallel do
+
+end subroutine vort_damp_swm
+
+!===============================================================================
+
+subroutine divh_damp_swm(vmt, dtsm)
+
+  use olam_mpi_sfc, only: mpi_send_wsfc, mpi_recv_wsfc
+  use mem_sfcg,     only: sfcg, jtab_vsfc_swm, jtab_wsfc_swm, &
+                          itab_vsfc, itab_wsfc, mwsfc, mvsfc
+  use mem_sea,      only: omsea, sea
+  use misc_coms,    only: iparallel
+  use oname_coms,   only: nl
+  use mem_para,     only: myrank
+
+  implicit none
+
+  real,    intent(inout)  :: vmt(mvsfc)
+  real,    intent(in)     :: dtsm
+
+  integer                 :: iv, iw, iw1, iw2, k, j, jv, ivn, iwn
+  integer                 :: isea, isean, isea1, isea2
+  real                    :: fact1, fact2
+  real                    :: div2d(mwsfc)
+  real                    :: del2d(mwsfc)
+
+  real, allocatable, save :: fdiv(:), lplfct(:,:)
+  logical,           save :: firstime = .true.
+
+  if (nl%divh_damp_fact < 1.e-7) return
+
+  if (firstime) then
+     firstime = .false.
+
+     allocate(fdiv(mvsfc)) ; fdiv = 0.0
+
+     fact2 = nl%divh_damp_fact**2 / real(dtsm)
+
+     do j = 1,jtab_vsfc_swm%jend; iv = jtab_vsfc_swm%jend
+        if (itab_vsfc(iv)%irank /= myrank) cycle
+        iw1 = itab_vsfc(iv)%iwn(1)
+        iw2 = itab_vsfc(iv)%iwn(2)
+        fdiv(iv) = -fact2 * min(sfcg%area(iw1),sfcg%area(iw2))**2 / sfcg%dnv(iv)
+     enddo
+
+     allocate(lplfct(7,mwsfc)) ; lplfct(:,:) = 0.0
+
+     do j = 1,jtab_wsfc_swm%jend; iw = jtab_wsfc_swm%iwsfc(j)
+        if (itab_wsfc(iw)%irank /= myrank) cycle
+        do jv = 1, itab_wsfc(iw)%npoly
+           ivn = itab_wsfc(iw)%ivn(jv)
+           lplfct(jv,iw) = sfcg%dnu(ivn) / (sfcg%dnv(ivn) * sfcg%area(iw))
+        enddo
+     enddo
+
+  endif  ! firstime
+
+  div2d = 0.0
+
+  !$omp parallel do private(iw,isea,jv,iv)
+  do j = 1,jtab_wsfc_swm%jend; iw = jtab_wsfc_swm%iwsfc(j)
+     if (itab_wsfc(iw)%irank /= myrank) cycle
+     isea = iw - omsea
+
+     do jv = 1, itab_wsfc(iw)%npoly
+        iv = itab_wsfc(iw)%ivn(jv)
+        div2d(iw) = div2d(iw) - itab_wsfc(iw)%dirv(jv) * sfcg%dnu(iv) * sfcg%vmc(iv)
+     enddo
+
+     div2d(iw) = div2d(iw) / (sfcg%area(iw) * max(depthmin_flux,sea%swmdepth(isea)))
+
+  enddo
+  !$omp end parallel do
+
+  ! MPI send/recv of div2d
+  if (iparallel == 1) then
+     call mpi_send_wsfc(set='swm_div2d_ex', div2d_ex=div2d)
+     call mpi_recv_wsfc(set='swm_div2d_ex', div2d_ex=div2d)
+  endif
+
+  del2d = 0.0
+
+  !$omp parallel do private(iw,jv,ivn,iwn,isea,isean)
+  do j = 1,jtab_wsfc_swm%jend; iw = jtab_wsfc_swm%iwsfc(j)
+     if (itab_wsfc(iw)%irank /= myrank) cycle
+     isea = iw - omsea
+     if (sea%swmdepth(isea) < depthmin_swe) cycle
+
+     do jv = 1, itab_wsfc(iw)%npoly
+        ivn = itab_wsfc(iw)%ivn(jv)
+        iwn = itab_wsfc(iw)%iwn(jv)
+        isean = iwn - omsea
+        if (sfcg%swm_active(iwn) .and. (sea%swmdepth(isean) > depthmin_swe)) then
+           del2d(iw) = del2d(iw) + (div2d(iwn) - div2d(iw)) * lplfct(jv,iw)
+        endif
+     enddo
+
+  enddo
+  !$end parallel do
+
+  ! MPI send/recv of del2d
+  if (iparallel == 1) then
+     call mpi_send_wsfc(set='swm_div2d_ex', div2d_ex=del2d)
+     call mpi_recv_wsfc(set='swm_div2d_ex', div2d_ex=del2d)
+  endif
+
+  !$omp parallel do private(iv,iw1,iw2,isea1,isea2)
+  do j = 1,jtab_vsfc_swm%jend; iv = jtab_vsfc_swm%ivsfc(j)
+
+     if (itab_vsfc(iv)%irank /= myrank) cycle
+
+     iw1 = itab_vsfc(iv)%iwn(1)
+     iw2 = itab_vsfc(iv)%iwn(2)
+
+     ! Skip this IV point unless both adjacent IW cells are sea cells and swm_active
+
+     if (sfcg%leaf_class(iw1) > 0 .or. sfcg%leaf_class(iw2) > 0) cycle
+     if (.not. (sfcg%swm_active(iw1) .and. sfcg%swm_active(iw2))) cycle
+
+     isea1 = iw1 - omsea
+     isea2 = iw2 - omsea
+
+     if ( sea%swmdepth(isea1) < depthmin_swe .or. &
+          sea%swmdepth(isea2) < depthmin_swe ) cycle
+
+     ! Damp (remove) laplacian of horizontal divergence
+
+     vmt(iv) = vmt(iv) + fdiv(iv) * (del2d(iw2) - del2d(iw1))
+
+  enddo
+  !$omp end parallel do
+
+end subroutine divh_damp_swm
 
 end module sea_swm

@@ -99,37 +99,37 @@ Module mem_sea
       real, allocatable :: seaice_energy(:,:)
       real, allocatable :: seaice_tempk (:,:)
 
-     ! Shallow Water Model (SWM) quantities:
+      ! Shallow Water Model (SWM) quantities:
 
-     real, allocatable :: wdepth(:) ! Depth of water at T point [m]
-     real, allocatable :: vxe(:)
-     real, allocatable :: vye(:)
-     real, allocatable :: vze(:)
+      real, allocatable :: swmdepth(:) ! Depth of water at T point [m]
+      real, allocatable :: vxe(:)
+      real, allocatable :: vye(:)
+      real, allocatable :: vze(:)
 
-     real, allocatable :: vmxet(:) ! Tendency of (velocity * depth) [m^2/s^2]
-     real, allocatable :: vmyet(:) ! Tendency of (velocity * depth) [m^2/s^2]
-     real, allocatable :: vmzet(:) ! Tendency of (velocity * depth) [m^2/s^2]
+      real, allocatable :: vmxet(:) ! Tendency of (velocity * depth) [m^2/s^2]
+      real, allocatable :: vmyet(:) ! Tendency of (velocity * depth) [m^2/s^2]
+      real, allocatable :: vmzet(:) ! Tendency of (velocity * depth) [m^2/s^2]
 
-     real, allocatable :: vmxet_area(:) ! Advective tendency of (velocity * depth * area) [m^4/s^2]
-     real, allocatable :: vmyet_area(:) ! Advective tendency of (velocity * depth * area) [m^4/s^2]
-     real, allocatable :: vmzet_area(:) ! Advective tendency of (velocity * depth * area) [m^4/s^2]
+      real, allocatable :: vmxet_area(:) ! Advective tendency of (velocity * depth * area) [m^4/s^2]
+      real, allocatable :: vmyet_area(:) ! Advective tendency of (velocity * depth * area) [m^4/s^2]
+      real, allocatable :: vmzet_area(:) ! Advective tendency of (velocity * depth * area) [m^4/s^2]
 
-     real, allocatable :: vxe1(:)
-     real, allocatable :: vye1(:)
-     real, allocatable :: vze1(:)
+      real, allocatable :: vxe1(:)
+      real, allocatable :: vye1(:)
+      real, allocatable :: vze1(:)
 
-     real, allocatable :: gxps_vxe(:)
-     real, allocatable :: gyps_vxe(:)
+      real, allocatable :: gxps_vxe(:)
+      real, allocatable :: gyps_vxe(:)
 
-     real, allocatable :: gxps_vye(:)
-     real, allocatable :: gyps_vye(:)
+      real, allocatable :: gxps_vye(:)
+      real, allocatable :: gyps_vye(:)
 
-     real, allocatable :: gxps_vze(:)
-     real, allocatable :: gyps_vze(:)
+      real, allocatable :: gxps_vze(:)
+      real, allocatable :: gyps_vze(:)
 
-     ! 1-D Princeton Ocean Model (POM1D) active flag:
+      ! 1-D Princeton Ocean Model (POM1D) active flag:
 
-     logical, allocatable :: pom_active (:) ! POM1D model active in these sfcg cells
+      logical, allocatable :: pom_active(:) ! POM1D model active in these sfcg cells
 
    End Type sea_vars
 
@@ -153,6 +153,7 @@ Contains
      use misc_coms, only: rinit
      use sea_coms,  only: nzi
      use mem_co2,   only: co2flag
+     use mem_sfcg,  only: nswmzons
 
      implicit none
 
@@ -230,32 +231,36 @@ Contains
      allocate (sea%seaice_energy(nzi,msea)) ; sea%seaice_energy = rinit
      allocate (sea%seaice_tempk (nzi,msea)) ; sea%seaice_tempk  = rinit
 
-     allocate (sea%wdepth        (msea)) ; sea%wdepth         = 0.0
+     if (nswmzons > 0) then
 
-     allocate (sea%vxe           (msea)) ; sea%vxe            = 0.0
-     allocate (sea%vye           (msea)) ; sea%vye            = 0.0
-     allocate (sea%vze           (msea)) ; sea%vze            = 0.0
+        allocate (sea%swmdepth      (msea)) ; sea%swmdepth    = 0.0
 
-     allocate (sea%vmxet         (msea)) ; sea%vmxet          = 0.0
-     allocate (sea%vmyet         (msea)) ; sea%vmyet          = 0.0
-     allocate (sea%vmzet         (msea)) ; sea%vmzet          = 0.0
+        allocate (sea%vxe           (msea)) ; sea%vxe         = 0.0
+        allocate (sea%vye           (msea)) ; sea%vye         = 0.0
+        allocate (sea%vze           (msea)) ; sea%vze         = 0.0
 
-     allocate (sea%vmxet_area    (msea)) ; sea%vmxet_area     = 0.0
-     allocate (sea%vmyet_area    (msea)) ; sea%vmyet_area     = 0.0
-     allocate (sea%vmzet_area    (msea)) ; sea%vmzet_area     = 0.0
+        allocate (sea%vmxet         (msea)) ; sea%vmxet       = 0.0
+        allocate (sea%vmyet         (msea)) ; sea%vmyet       = 0.0
+        allocate (sea%vmzet         (msea)) ; sea%vmzet       = 0.0
 
-     allocate (sea%vxe1          (msea)) ; sea%vxe1           = 0.0
-     allocate (sea%vye1          (msea)) ; sea%vye1           = 0.0
-     allocate (sea%vze1          (msea)) ; sea%vze1           = 0.0
+        allocate (sea%vmxet_area    (msea)) ; sea%vmxet_area  = 0.0
+        allocate (sea%vmyet_area    (msea)) ; sea%vmyet_area  = 0.0
+        allocate (sea%vmzet_area    (msea)) ; sea%vmzet_area  = 0.0
 
-     allocate (sea%gxps_vxe      (msea)) ; sea%gxps_vxe       = 0.0
-     allocate (sea%gyps_vxe      (msea)) ; sea%gyps_vxe       = 0.0
+        allocate (sea%vxe1          (msea)) ; sea%vxe1        = 0.0
+        allocate (sea%vye1          (msea)) ; sea%vye1        = 0.0
+        allocate (sea%vze1          (msea)) ; sea%vze1        = 0.0
 
-     allocate (sea%gxps_vye      (msea)) ; sea%gxps_vye       = 0.0
-     allocate (sea%gyps_vye      (msea)) ; sea%gyps_vye       = 0.0
+        allocate (sea%gxps_vxe      (msea)) ; sea%gxps_vxe    = 0.0
+        allocate (sea%gyps_vxe      (msea)) ; sea%gyps_vxe    = 0.0
 
-     allocate (sea%gxps_vze      (msea)) ; sea%gxps_vze       = 0.0
-     allocate (sea%gyps_vze      (msea)) ; sea%gyps_vze       = 0.0
+        allocate (sea%gxps_vye      (msea)) ; sea%gxps_vye    = 0.0
+        allocate (sea%gyps_vye      (msea)) ; sea%gyps_vye    = 0.0
+
+        allocate (sea%gxps_vze      (msea)) ; sea%gxps_vze    = 0.0
+        allocate (sea%gyps_vze      (msea)) ; sea%gyps_vze    = 0.0
+
+     endif
 
    end subroutine alloc_sea
 
@@ -307,7 +312,8 @@ Contains
      if (allocated(sea%ice_rough))      call increment_vtable('SEA%ICE_ROUGH',      'SW', rvar1=sea%ice_rough)
      if (allocated(sea%seaice_energy))  call increment_vtable('SEA%SEAICE_ENERGY',  'SW', rvar2=sea%seaice_energy)
      if (allocated(sea%seaice_tempk))   call increment_vtable('SEA%SEAICE_TEMPK',   'SW', rvar2=sea%seaice_tempk)
-     if (allocated(sea%wdepth))         call increment_vtable('SEA%WDEPTH',         'SW', rvar1=sea%wdepth)
+
+     if (allocated(sea%swmdepth))       call increment_vtable('SEA%SWMDEPTH',       'SW', rvar1=sea%swmdepth)
      if (allocated(sea%vxe))            call increment_vtable('SEA%VXE',            'SW', rvar1=sea%vxe)
      if (allocated(sea%vye))            call increment_vtable('SEA%VYE',            'SW', rvar1=sea%vye)
      if (allocated(sea%vze))            call increment_vtable('SEA%VZE',            'SW', rvar1=sea%vze)

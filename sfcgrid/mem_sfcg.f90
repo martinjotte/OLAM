@@ -412,17 +412,19 @@ Contains
      allocate (sfcg%rough         (mwsfc)) ; sfcg%rough          = rinit
      allocate (sfcg%head1         (mwsfc)) ; sfcg%head1          = 0.0
 
-     allocate (sfcg%iwdepv        (mvsfc)) ; sfcg%iwdepv         = 0
+     if (nswmzons > 0) then
+        allocate (sfcg%iwdepv        (mvsfc)) ; sfcg%iwdepv         = 0
 
-     allocate (sfcg%vc            (mvsfc)) ; sfcg%vc             = 0.0
-     allocate (sfcg%vmp           (mvsfc)) ; sfcg%vmp            = 0.0
-     allocate (sfcg%vmc           (mvsfc)) ; sfcg%vmc            = 0.0
+        allocate (sfcg%vc            (mvsfc)) ; sfcg%vc             = 0.0
+        allocate (sfcg%vmp           (mvsfc)) ; sfcg%vmp            = 0.0
+        allocate (sfcg%vmc           (mvsfc)) ; sfcg%vmc            = 0.0
 
-     allocate (sfcg%hflux_wat     (mvsfc)) ; sfcg%hflux_wat      = 0.0
-     allocate (sfcg%hflux_enr     (mvsfc)) ; sfcg%hflux_enr      = 0.0
-     allocate (sfcg%hflux_vxe     (mvsfc)) ; sfcg%hflux_vxe      = 0.0
-     allocate (sfcg%hflux_vye     (mvsfc)) ; sfcg%hflux_vye      = 0.0
-     allocate (sfcg%hflux_vze     (mvsfc)) ; sfcg%hflux_vze      = 0.0
+        allocate (sfcg%hflux_wat     (mvsfc)) ; sfcg%hflux_wat      = 0.0
+        allocate (sfcg%hflux_enr     (mvsfc)) ; sfcg%hflux_enr      = 0.0
+        allocate (sfcg%hflux_vxe     (mvsfc)) ; sfcg%hflux_vxe      = 0.0
+        allocate (sfcg%hflux_vye     (mvsfc)) ; sfcg%hflux_vye      = 0.0
+        allocate (sfcg%hflux_vze     (mvsfc)) ; sfcg%hflux_vze      = 0.0
+     endif
 
   end subroutine alloc_sfcgrid2
 
@@ -485,13 +487,21 @@ Contains
   integer, intent(in) :: mwa
 
   integer :: iwsfc, ivsfc, imsfc, iw1, iw2, iw3, j, j1
-  integer :: iw, ipass, jsfc2
+  integer :: iw, ipass, jsfc2, np
 
   ! JTAB_WSFC_SWM, restricted to SEA points that are SWM-active
+  ! (and their immediate neighbors)
 
   j = 0
   do iwsfc = 2,mwsfc
-     if (sfcg%swm_active(iwsfc) .and. sfcg%leaf_class(iwsfc) == 0) j = j + 1
+!    if (sfcg%swm_active(iwsfc) .and. sfcg%leaf_class(iwsfc) == 0) j = j + 1
+     if (sfcg%leaf_class(iwsfc) == 0) then
+
+        np = itab_wsfc(iwsfc)%npoly
+        if ( sfcg%swm_active(iwsfc) .or. &
+             any(sfcg%swm_active( itab_wsfc(iwsfc)%iwn(1:np) )) ) j = j + 1
+
+     endif
   enddo
   jtab_wsfc_swm%jend = j
 
@@ -501,9 +511,19 @@ Contains
 
   j = 0
   do iwsfc = 2,mwsfc
-     if (sfcg%swm_active(iwsfc) .and. sfcg%leaf_class(iwsfc) == 0) then
-        j = j + 1
-        jtab_wsfc_swm%iwsfc(j) = iwsfc
+!    if (sfcg%swm_active(iwsfc) .and. sfcg%leaf_class(iwsfc) == 0) then
+!       j = j + 1
+!       jtab_wsfc_swm%iwsfc(j) = iwsfc
+!    endif
+     if (sfcg%leaf_class(iwsfc) == 0) then
+
+        np = itab_wsfc(iwsfc)%npoly
+        if ( sfcg%swm_active(iwsfc) .or. &
+             any(sfcg%swm_active( itab_wsfc(iwsfc)%iwn(1:np) )) ) then
+           j = j + 1
+           jtab_wsfc_swm%iwsfc(j) = iwsfc
+        endif
+
      endif
   enddo
 

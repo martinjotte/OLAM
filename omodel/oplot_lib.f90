@@ -127,6 +127,7 @@ use mem_plot, only: &
   soiltemp_dmax_accum_prev0, soiltemp_dmax_accum_prev1, soiltemp_dmax_accum_prev2, soiltemp_dmax_accum_prev3
 
 use mem_sfcnud, only: sfcwat_nud, sfctemp_nud, fracliq_nud ! fast can nud
+use sea_swm,    only: depthmin_swe
 
 implicit none
 
@@ -399,7 +400,7 @@ data fldlib(1:4,230:250)/ &
 
 ! LAND_CELLS - ATM averages
 
-data fldlib(1:4,251:280)/ &
+data fldlib(1:4,251:281)/ &
  'AL_SFCWATER_TOT'        ,'T2' ,'AL TOTAL SFCWATER MASS',' (kg m:S2:-2  )'  ,& ! 251
  'AL_SOIL_WATER_TOT'      ,'T2' ,'AL TOTAL SOIL WATER',' (m)'                ,& ! 252
 
@@ -438,7 +439,8 @@ data fldlib(1:4,251:280)/ &
  'SEAICEC'       ,'S2' ,'SEAICE FRACTION (CURRENT)',' ( )'                   ,& ! 277
  'WDEPTH'        ,'S2' ,'SEA WDEPTH',' (m)'                                  ,& ! 278
  'POM_KBA'       ,'S2' ,'POM LEVELS',' (#)'                                  ,& ! 279
- 'POM_TEMPSFC'   ,'S2' ,'POM SURFACE TEMP',' (K)'                             / ! 280
+ 'POM_TEMPSFC'   ,'S2' ,'POM SURFACE TEMP',' (K)'                            ,& ! 280
+ 'SWM_DIVERG'    ,'S2' ,'SWM HORIZONTAL DIVERGENCE',' (s:S2:-1  )'            / ! 281
 
 ! SFC GRID CELLS - 2D
 
@@ -3304,15 +3306,34 @@ case(277) ! 'SEAICEC'
 
 case(278) ! 'WDEPTH'
 
-   fldval = sea%wdepth(isea)
+   if (.not. allocated(sea%swmdepth)) go to 1000
+   fldval = sea%swmdepth(isea)
 
 case(279) ! 'POM_KBA'
 
+   if (.not. allocated(pom%kba)) go to 1000
    fldval = pom%kba(isea)
 
 case(280) ! 'POM_TEMPSFC'
 
+   if (.not. allocated(pom%potmp)) go to 1000
    fldval = pom%potmp(1,isea)
+
+case(281) ! 'SWM_DIVERG'
+
+   if (.not. allocated(sfcg%vmc))     goto 1000
+   if (.not. allocated(sea%swmdepth)) goto 1000
+
+   fldval = 0.
+
+   if (sfcg%swm_active(i) .and. (sea%swmdepth(isea) > depthmin_swe)) then
+      do j = 1, itab_wsfc(i)%npoly
+         iv = itab_wsfc(i)%ivn(j)
+         fldval = fldval - itab_wsfc(i)%dirv(j) * sfcg%dnu(iv) * sfcg%vmc(iv)
+      enddo
+
+      fldval = fldval / ( sfcg%area(i) * sea%swmdepth(isea) )
+   endif
 
 !-----------------------------------------
 ! SFC GRID CELLS - 2D
@@ -3537,19 +3558,7 @@ case(329) ! 'SFCG_VC'
 
 case(330) ! 'WAT_DEPTH'
 
-   if (sfcg%leaf_class(i) == 0) then
-      isea = i - omsea
-      fldval = sea%wdepth(isea)
-   elseif (sfcg%leaf_class(i) == 1) then
-      ilake = i - omlake
-      fldval = lake%depth(ilake)
-   elseif (sfcg%leaf_class(i) >= 2) then
-      iland = i - omland
-      fldval = 0.
-      do klev = 1,land%nlev_sfcwater(iland)
-         fldval = fldval + land%sfcwater_depth(klev,iland)
-      enddo
-   endif
+   fldval = sfcg%head1(i) + sfcg%topw(i) - sfcg%bathym(i)
 
 case(331) ! 'WAT_TEMPK'
 
