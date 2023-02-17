@@ -66,4 +66,6 @@ subroutine lake_init_atm()
   enddo
   !$omp end parallel do
 
+  call read_lake_analysis()
+
 end subroutine lake_init_atm

@@ -19,6 +19,7 @@ SOURCE_FILES= \
              $(LAKE)/lake_init_atm.f90 \
              $(LAKE)/lake_startup.f90 \
              $(LAKE)/mem_lake.f90 \
+             $(LAKE)/read_lake_analysis.f90 \
              $(LAND)/glhymps_read.f90 \
              $(LAND)/land_database_read.f90 \
              $(LAND)/leaf4_canopy.f90 \
