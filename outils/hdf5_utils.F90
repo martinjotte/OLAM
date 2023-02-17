@@ -3,23 +3,23 @@ Module hdf5_utils
   use mem_para,    only: myrank
   use consts_coms, only: r8, i1
   use max_dims,    only: pathlen
+  use hdf5_f2f
 
   character(1) :: prevaccess = ' '
-  private      :: myrank, r8, i1, prevaccess, pathlen
 
-#if defined(OLAM_MPI) && !defined(OLAM_PARALLEL_HDF5)
-  logical, parameter :: mpi_does_parallel_io = .false.
-#else
-  logical, parameter :: mpi_does_parallel_io = .true.
-#endif
-
-  character(pathlen) :: shdf5_fname = ' '
+  private
+  public :: shdf5_open, shdf5_info, shdf5_orec, shdf5_irec, shdf5_close, &
+            shdf5_io, shdf5_orec_ll, shdf5_write_global_attribute, &
+            FORTRAN_INT1_TYPE, FORTRAN_INT2_TYPE, FORTRAN_INTEGER_TYPE, &
+            FORTRAN_REAL_TYPE, FORTRAN_REAL8_TYPE, FORTRAN_LOGICAL_TYPE, &
+            FORTRAN_CHARACTER_TYPE
 
 Contains
 
+!===============================================================================
+
 subroutine shdf5_open(locfn, access, idelete, trypario)
 
-  use hdf5_f2f
   implicit none
 
   character(*),      intent(in) :: locfn   ! file name
@@ -36,7 +36,7 @@ subroutine shdf5_open(locfn, access, idelete, trypario)
   prevaccess = access(1:1)
 
 #if defined(OLAM_MPI) && !defined(OLAM_PARALLEL_HDF5)
-  if (access(1:1) == 'W' .and. myrank /= 0) return
+  if (prevaccess == 'W' .and. myrank /= 0) return
 #endif
 
 ! Check for existence of RAMS file.
@@ -96,15 +96,12 @@ subroutine shdf5_open(locfn, access, idelete, trypario)
      endif
   endif
 
-  shdf5_fname = locfn
-
 end subroutine shdf5_open
 
 !===============================================================================
 
 subroutine shdf5_info(dsetname, ndims, dims, dimname, attached_dimnames, units)
 
-  use hdf5_f2f
   implicit none
 
   character(*),        intent(in)    :: dsetname ! Dataset name
@@ -161,11 +158,10 @@ subroutine shdf5_orec(ndims,dims,dsetname,bvars,ivars,rvars,cvars,dvars,lvars, &
                                           units, long_name, positive,          &
                                           imissing, rmissing, dmissing,        &
                                           isdim, dimnames, standard_name,      &
-                                          cell_methods                         )
+                                          cell_methods, storage_type           )
 
   use oname_coms,  only: nl
   use misc_coms,   only: iparallel
-  use hdf5_f2f
 
   implicit none
 
@@ -206,10 +202,12 @@ subroutine shdf5_orec(ndims,dims,dsetname,bvars,ivars,rvars,cvars,dvars,lvars, &
   character(*), intent(in), optional, contiguous :: dimnames(:)
 
 ! Type of variable
-  character(2), intent(in), optional :: stagpt
+  character(2),   intent(in), optional :: stagpt
+  integer(HID_T), intent(in), optional :: storage_type
 
 ! Local variables
-  integer :: hdferr
+  integer        :: hdferr
+  integer(HID_T) :: stype
 
 ! Check dimensions and set compression chunk size
 
@@ -231,7 +229,7 @@ subroutine shdf5_orec(ndims,dims,dsetname,bvars,ivars,rvars,cvars,dvars,lvars, &
                                           units, long_name, positive,     &
                                           imissing, rmissing, dmissing,   &
                                           isdim, dimnames, standard_name, &
-                                          cell_methods                    )
+                                          cell_methods, storage_type      )
      return
   else
      if (myrank /= 0) return
@@ -240,9 +238,25 @@ subroutine shdf5_orec(ndims,dims,dsetname,bvars,ivars,rvars,cvars,dvars,lvars, &
 
   ! Prepare memory and options for the write
 
-  call fh5_prepare_write(ndims, dims, hdferr, icompress=nl%icompress, &
-                         type=stagpt, mcoords=lpoints, fcoords=gpoints, &
-                         ifsize=nglobe)
+  if (present(storage_type)) then
+     stype = storage_type
+  elseif (present(bvars) .or. present(bvar1) .or. present(bvar2) .or. present(bvar3) .or. present(bvar4)) then
+     stype = FORTRAN_INT1_TYPE
+  elseif (present(ivars) .or. present(ivar1) .or. present(ivar2) .or. present(ivar3) .or. present(ivar4)) then
+     stype = FORTRAN_INTEGER_TYPE
+  elseif (present(rvars) .or. present(rvar1) .or. present(rvar2) .or. present(rvar3) .or. present(rvar4)) then
+     stype = FORTRAN_REAL_TYPE
+  elseif (present(dvars) .or. present(dvar1) .or. present(dvar2) .or. present(dvar3) .or. present(dvar4)) then
+     stype = FORTRAN_REAL8_TYPE
+  elseif (present(cvars) .or. present(cvar1) .or. present(cvar2) .or. present(cvar3)) then
+     stype = FORTRAN_CHARACTER_TYPE
+  elseif (present(lvars) .or. present(lvar1) .or. present(lvar2) .or. present(lvar3)) then
+     stype = FORTRAN_LOGICAL_TYPE
+  endif
+
+  call fh5_prepare_write(ndims, dims, dsetname, stype, hdferr, &
+                         icompress=nl%icompress, type=stagpt, &
+                         mcoords=lpoints, fcoords=gpoints, ifsize=nglobe)
 
   if (hdferr < 0) then
      print*, "shdf5_orec: can't prepare requested field:", trim(dsetname)
@@ -251,37 +265,37 @@ subroutine shdf5_orec(ndims,dims,dsetname,bvars,ivars,rvars,cvars,dvars,lvars, &
 
 ! Write the dataset.
 
-      if (present(ivars)) then ; call fh5_write(ivars, dsetname, hdferr)
-  elseif (present(rvars)) then ; call fh5_write(rvars, dsetname, hdferr)
-  elseif (present(cvars)) then ; call fh5_write(cvars, dsetname, hdferr)
-  elseif (present(dvars)) then ; call fh5_write(dvars, dsetname, hdferr)
-  elseif (present(lvars)) then ; call fh5_write(lvars, dsetname, hdferr)
-  elseif (present(bvars)) then ; call fh5_write(bvars, dsetname, hdferr)
+      if (present(ivars)) then ; call fh5_write(ivars, hdferr)
+  elseif (present(rvars)) then ; call fh5_write(rvars, hdferr)
+  elseif (present(cvars)) then ; call fh5_write(cvars, hdferr)
+  elseif (present(dvars)) then ; call fh5_write(dvars, hdferr)
+  elseif (present(lvars)) then ; call fh5_write(lvars, hdferr)
+  elseif (present(bvars)) then ; call fh5_write(bvars, hdferr)
 
-  elseif (present(ivar1)) then ; call fh5_write(ivar1, dsetname, hdferr)
-  elseif (present(rvar1)) then ; call fh5_write(rvar1, dsetname, hdferr)
-  elseif (present(cvar1)) then ; call fh5_write(cvar1, dsetname, hdferr)
-  elseif (present(dvar1)) then ; call fh5_write(dvar1, dsetname, hdferr)
-  elseif (present(lvar1)) then ; call fh5_write(lvar1, dsetname, hdferr)
-  elseif (present(bvar1)) then ; call fh5_write(bvar1, dsetname, hdferr)
+  elseif (present(ivar1)) then ; call fh5_write(ivar1, hdferr)
+  elseif (present(rvar1)) then ; call fh5_write(rvar1, hdferr)
+  elseif (present(cvar1)) then ; call fh5_write(cvar1, hdferr)
+  elseif (present(dvar1)) then ; call fh5_write(dvar1, hdferr)
+  elseif (present(lvar1)) then ; call fh5_write(lvar1, hdferr)
+  elseif (present(bvar1)) then ; call fh5_write(bvar1, hdferr)
 
-  elseif (present(ivar2)) then ; call fh5_write(ivar2, dsetname, hdferr)
-  elseif (present(rvar2)) then ; call fh5_write(rvar2, dsetname, hdferr)
-  elseif (present(cvar2)) then ; call fh5_write(cvar2, dsetname, hdferr)
-  elseif (present(dvar2)) then ; call fh5_write(dvar2, dsetname, hdferr)
-  elseif (present(lvar2)) then ; call fh5_write(lvar2, dsetname, hdferr)
-  elseif (present(bvar2)) then ; call fh5_write(bvar2, dsetname, hdferr)
+  elseif (present(ivar2)) then ; call fh5_write(ivar2, hdferr)
+  elseif (present(rvar2)) then ; call fh5_write(rvar2, hdferr)
+  elseif (present(cvar2)) then ; call fh5_write(cvar2, hdferr)
+  elseif (present(dvar2)) then ; call fh5_write(dvar2, hdferr)
+  elseif (present(lvar2)) then ; call fh5_write(lvar2, hdferr)
+  elseif (present(bvar2)) then ; call fh5_write(bvar2, hdferr)
 
-  elseif (present(ivar3)) then ; call fh5_write(ivar3, dsetname, hdferr)
-  elseif (present(rvar3)) then ; call fh5_write(rvar3, dsetname, hdferr)
-  elseif (present(cvar3)) then ; call fh5_write(cvar3, dsetname, hdferr)
-  elseif (present(dvar3)) then ; call fh5_write(dvar3, dsetname, hdferr)
-  elseif (present(bvar3)) then ; call fh5_write(bvar3, dsetname, hdferr)
+  elseif (present(ivar3)) then ; call fh5_write(ivar3, hdferr)
+  elseif (present(rvar3)) then ; call fh5_write(rvar3, hdferr)
+  elseif (present(cvar3)) then ; call fh5_write(cvar3, hdferr)
+  elseif (present(dvar3)) then ; call fh5_write(dvar3, hdferr)
+  elseif (present(bvar3)) then ; call fh5_write(bvar3, hdferr)
 
-  elseif (present(ivar4)) then ; call fh5_write(ivar4, dsetname, hdferr)
-  elseif (present(rvar4)) then ; call fh5_write(rvar4, dsetname, hdferr)
-  elseif (present(dvar4)) then ; call fh5_write(dvar4, dsetname, hdferr)
-  elseif (present(bvar4)) then ; call fh5_write(bvar4, dsetname, hdferr)
+  elseif (present(ivar4)) then ; call fh5_write(ivar4, hdferr)
+  elseif (present(rvar4)) then ; call fh5_write(rvar4, hdferr)
+  elseif (present(dvar4)) then ; call fh5_write(dvar4, hdferr)
+  elseif (present(bvar4)) then ; call fh5_write(bvar4, hdferr)
 
   else
      print*, 'Incorrect or missing data field argument in shdf5_orec'
@@ -357,11 +371,10 @@ subroutine shdf5_orec2(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar1, 
                                            units, long_name, positive,     &
                                            imissing, rmissing, dmissing,   &
                                            isdim, dimnames, standard_name, &
-                                           cell_methods                    )
+                                           cell_methods, storage_type      )
 
   use oname_coms,  only: nl
   use mem_para,    only: mgroupsize, myrank
-  use hdf5_f2f
   use mpi
 
   implicit none
@@ -395,8 +408,12 @@ subroutine shdf5_orec2(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar1, 
 ! Indicate names of each dimension
   character(*), intent(in), optional, contiguous :: dimnames(:)
 
+! Type of variable
+  integer(HID_T), intent(in), optional :: storage_type
+
 ! Local variables
-  integer :: hdferr  ! Error flag
+  integer        :: hdferr  ! Error flag
+  integer(HID_T) :: stype
 
   integer,     allocatable :: ibuff(:), points(:)
   real,        allocatable :: rbuff(:)
@@ -431,19 +448,30 @@ subroutine shdf5_orec2(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar1, 
   enddo
 
   if (myrank == 0) then
+
      allocate(points(base))
      if     (present(ivar1) .or. present(ivar2) .or. present(ivar3) .or. present(ivar4)) then
         allocate(ibuff(maxbuff))
+        stype = FORTRAN_INTEGER_TYPE
      elseif (present(rvar1) .or. present(rvar2) .or. present(rvar3) .or. present(rvar4)) then
         allocate(rbuff(maxbuff))
+        stype = FORTRAN_REAL_TYPE
      elseif (present(dvar1) .or. present(dvar2) .or. present(dvar3) .or. present(dvar4)) then
         allocate(dbuff(maxbuff))
+        stype = FORTRAN_REAL8_TYPE
      elseif (present(bvar1) .or. present(bvar2) .or. present(bvar3) .or. present(bvar4)) then
         allocate(bbuff(maxbuff))
+        stype = FORTRAN_INT1_TYPE
      elseif (present(lvar1) .or. present(lvar2) .or. present(lvar3)                    ) then
         allocate(lbuff(maxbuff))
+        stype = FORTRAN_LOGICAL_TYPE
      endif
-  endif
+
+     if (present(storage_type)) then
+        stype = storage_type
+     endif
+
+   endif
 
   if (myrank > 0 .and. nu > 0) then
 
@@ -551,13 +579,13 @@ subroutine shdf5_orec2(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar1, 
      ! Prepare memory and options for the write
 
      if (n == 1) then
-        call fh5_prepare_write(ndims, dims, hdferr, 0, &
+        call fh5_prepare_write(ndims, dims, dsetname, stype, hdferr, &
                                mcoords=lpoints, fcoords=gpoints, ifsize=nglobe)
      else
         call MPI_Recv(points, base, MPI_INTEGER, n-1, itag, MPI_COMM_WORLD, &
                       MPI_STATUS_IGNORE, ier)
         dimsn(1:ndims) = (/ dims(1:ndims-1), nus(n) /)
-        call fh5_prepare_write(ndims, dimsn, hdferr, 0, &
+        call fh5_prepare_write(ndims, dimsn, dsetname, stype, hdferr, &
                                fcoords=points(1:nus(n)), ifsize=nglobe)
      endif
 
@@ -570,57 +598,57 @@ subroutine shdf5_orec2(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar1, 
 
      if (present(ivar1) .or. present(ivar2) .or. present(ivar3) .or. present(ivar4)) then
         if (n == 1) then
-               if (present(ivar1)) then ; call fh5_write(ivar1, dsetname, hdferr)
-           elseif (present(ivar2)) then ; call fh5_write(ivar2, dsetname, hdferr)
-           elseif (present(ivar3)) then ; call fh5_write(ivar3, dsetname, hdferr)
-           elseif (present(ivar4)) then ; call fh5_write(ivar4, dsetname, hdferr)
+               if (present(ivar1)) then ; call fh5_write(ivar1, hdferr)
+           elseif (present(ivar2)) then ; call fh5_write(ivar2, hdferr)
+           elseif (present(ivar3)) then ; call fh5_write(ivar3, hdferr)
+           elseif (present(ivar4)) then ; call fh5_write(ivar4, hdferr)
            endif
         else
            call MPI_Recv( ibuff, maxbuff, MPI_INTEGER, n-1, itag, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
-           call fh5_write(ibuff, dsetname, hdferr, n)
+           call fh5_write(ibuff, hdferr)
         endif
      elseif (present(rvar1) .or. present(rvar2) .or. present(rvar3) .or. present(rvar4)) then
         if (n == 1) then
-               if (present(rvar1)) then ; call fh5_write(rvar1, dsetname, hdferr)
-           elseif (present(rvar2)) then ; call fh5_write(rvar2, dsetname, hdferr)
-           elseif (present(rvar3)) then ; call fh5_write(rvar3, dsetname, hdferr)
-           elseif (present(rvar4)) then ; call fh5_write(rvar4, dsetname, hdferr)
+               if (present(rvar1)) then ; call fh5_write(rvar1, hdferr)
+           elseif (present(rvar2)) then ; call fh5_write(rvar2, hdferr)
+           elseif (present(rvar3)) then ; call fh5_write(rvar3, hdferr)
+           elseif (present(rvar4)) then ; call fh5_write(rvar4, hdferr)
            endif
         else
            call MPI_Recv( rbuff, maxbuff, MPI_REAL,    n-1, itag, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
-           call fh5_write(rbuff, dsetname, hdferr, n)
+           call fh5_write(rbuff, hdferr)
         endif
      elseif (present(dvar1) .or. present(dvar2) .or. present(dvar3) .or. present(dvar4)) then
         if (n == 1) then
-               if (present(dvar1)) then ; call fh5_write(dvar1, dsetname, hdferr)
-           elseif (present(dvar2)) then ; call fh5_write(dvar2, dsetname, hdferr)
-           elseif (present(dvar3)) then ; call fh5_write(dvar3, dsetname, hdferr)
-           elseif (present(dvar4)) then ; call fh5_write(dvar4, dsetname, hdferr)
+               if (present(dvar1)) then ; call fh5_write(dvar1, hdferr)
+           elseif (present(dvar2)) then ; call fh5_write(dvar2, hdferr)
+           elseif (present(dvar3)) then ; call fh5_write(dvar3, hdferr)
+           elseif (present(dvar4)) then ; call fh5_write(dvar4, hdferr)
            endif
         else
            call MPI_Recv( dbuff, maxbuff, MPI_REAL8,   n-1, itag, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
-           call fh5_write(dbuff, dsetname, hdferr, n)
+           call fh5_write(dbuff, hdferr)
         endif
      elseif (present(bvar1) .or. present(bvar2) .or. present(bvar3) .or. present(bvar4)) then
         if (n == 1) then
-               if (present(bvar1)) then ; call fh5_write(bvar1, dsetname, hdferr)
-           elseif (present(bvar2)) then ; call fh5_write(bvar2, dsetname, hdferr)
-           elseif (present(bvar3)) then ; call fh5_write(bvar3, dsetname, hdferr)
-           elseif (present(bvar4)) then ; call fh5_write(bvar4, dsetname, hdferr)
+               if (present(bvar1)) then ; call fh5_write(bvar1, hdferr)
+           elseif (present(bvar2)) then ; call fh5_write(bvar2, hdferr)
+           elseif (present(bvar3)) then ; call fh5_write(bvar3, hdferr)
+           elseif (present(bvar4)) then ; call fh5_write(bvar4, hdferr)
            endif
         else
            call MPI_Recv( bbuff, maxbuff, MPI_INTEGER1, n-1, itag, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
-           call fh5_write(bbuff, dsetname, hdferr, n)
+           call fh5_write(bbuff, hdferr)
         endif
      elseif (present(lvar1) .or. present(lvar2) .or. present(lvar3)) then
         if (n == 1) then
-               if (present(lvar1)) then ; call fh5_write(lvar1, dsetname, hdferr)
-           elseif (present(lvar2)) then ; call fh5_write(lvar2, dsetname, hdferr)
-           elseif (present(lvar3)) then ; call fh5_write(lvar3, dsetname, hdferr)
+               if (present(lvar1)) then ; call fh5_write(lvar1, hdferr)
+           elseif (present(lvar2)) then ; call fh5_write(lvar2, hdferr)
+           elseif (present(lvar3)) then ; call fh5_write(lvar3, hdferr)
            endif
         else
            call MPI_Recv( lbuff, maxbuff, MPI_LOGICAL, n-1, itag, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
-           call fh5_write(lbuff, dsetname, hdferr, n)
+           call fh5_write(lbuff, hdferr)
         endif
      else
         print*, 'Incorrect or missing data field argument in shdf5_orec2'
@@ -704,7 +732,6 @@ subroutine shdf5_irec(ndims,dims,dsetname,bvars,ivars,rvars,cvars,dvars,lvars,  
                                           rscale, roffset, dscale, doffset,     &
                                           have_missing, have_scaling)
 
-  use hdf5_f2f
   implicit none
 
   character(*), intent(IN)             :: dsetname ! Dataset name
@@ -897,7 +924,6 @@ end subroutine shdf5_irec
 subroutine shdf5_close()
 
   use misc_coms, only: io6
-  use hdf5_f2f
 
   implicit none
 
@@ -910,8 +936,6 @@ subroutine shdf5_close()
   ! Close hdf file.
   call fh5f_close(hdferr)
 
-  shdf5_fname = ' '
-
 end subroutine shdf5_close
 
 !===============================================================================
@@ -921,8 +945,6 @@ subroutine shdf5_io(action,ndims,dims,dsetname,bvars,ivars,rvars,cvars,dvars,lva
                                                bvar2,ivar2,rvar2,cvar2,dvar2,lvar2, &
                                                bvar3,ivar3,rvar3,cvar3,dvar3,lvar3, &
                                                bvar4,ivar4,rvar4,      dvar4        )
-  use hdf5_f2f
-
   implicit none
 
   character(*), intent(in)             :: dsetname, action
@@ -979,11 +1001,10 @@ subroutine shdf5_orec_ll(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar1
                                              units, long_name, positive,     &
                                              imissing, rmissing, dmissing,   &
                                              isdim, dimnames, standard_name, &
-                                             cell_methods                    )
+                                             cell_methods, storage_type      )
 
   use oname_coms,  only: nl
-  use misc_coms,   only: iparallel
-  use hdf5_f2f
+  use misc_coms,   only: iparallel, io6
 
   implicit none
 
@@ -1010,7 +1031,8 @@ subroutine shdf5_orec_ll(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar1
   real(r8),     intent(in), optional :: dmissing
 
 ! Type of variable
-  character(2), intent(in), optional :: stagpt
+  character(2),   intent(in), optional :: stagpt
+  integer(HID_T), intent(in), optional :: storage_type
 
 ! Indicates if this variable is a global dimension
   logical,      intent(in), optional :: isdim
@@ -1019,7 +1041,8 @@ subroutine shdf5_orec_ll(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar1
   character(*), intent(in), optional, contiguous :: dimnames(:)
 
 ! Local variables
-  integer :: hdferr
+  integer        :: hdferr
+  integer(HID_T) :: stype
 
 ! Check dimensions and set compression chunk size
 
@@ -1027,6 +1050,8 @@ subroutine shdf5_orec_ll(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar1
      print*, 'Dimension error in shdf5_orec_ll:', ndims, dims(1:ndims)
      stop    'shdf5_orec_ll: bad dims'
   endif
+
+  write(io6,'(A,8(1x,I0))') " Writing: "//trim(dsetname), dims(1:ndims)
 
 #if defined(OLAM_MPI) && !defined(OLAM_PARALLEL_HDF5)
   if (present(gpoints) .and. iparallel == 1) then
@@ -1038,7 +1063,7 @@ subroutine shdf5_orec_ll(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar1
                                              units, long_name, positive,     &
                                              imissing, rmissing, dmissing,   &
                                              isdim, dimnames, standard_name, &
-                                             cell_methods                    )
+                                             cell_methods, storage_type      )
      return
   else
      if (myrank /= 0) return
@@ -1047,38 +1072,52 @@ subroutine shdf5_orec_ll(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar1
 
 ! Prepare memory and options for the write
 
-  hdferr = 0
+  if (present(storage_type)) then
+     stype = storage_type
+  elseif (present(bvar1) .or. present(bvar2) .or. present(bvar3)) then
+     stype = FORTRAN_INT1_TYPE
+  elseif (present(ivar1) .or. present(ivar2) .or. present(ivar3)) then
+     stype = FORTRAN_INTEGER_TYPE
+  elseif (present(rvar1) .or. present(rvar2) .or. present(rvar3)) then
+     stype = FORTRAN_REAL_TYPE
+  elseif (present(dvar1) .or. present(dvar2) .or. present(dvar3)) then
+     stype = FORTRAN_REAL8_TYPE
+  elseif (present(cvar1) .or. present(cvar2) .or. present(cvar3)) then
+     stype = FORTRAN_CHARACTER_TYPE
+  elseif (present(lvar1) .or. present(lvar2) .or. present(lvar3)) then
+     stype = FORTRAN_LOGICAL_TYPE
+  endif
 
-  call fh5_prepare_write_ll( ndims, dims, hdferr, nl%icompress, &
-                             type=stagpt, fcoords=gpoints )
+  call fh5_prepare_write_ll( ndims, dims, dsetname, stype, hdferr, &
+                             icompress=nl%icompress, type=stagpt, fcoords=gpoints )
 
-  if (hdferr /= 0) then
+  if (hdferr < 0) then
      print*, "shdf5_orec_ll: can't prepare requested field:", trim(dsetname)
      return
   endif
 
 ! Write the dataset
 
-      if (present(ivar1)) then ; call fh5_write(ivar1, dsetname, hdferr)
-  elseif (present(rvar1)) then ; call fh5_write(rvar1, dsetname, hdferr)
-  elseif (present(cvar1)) then ; call fh5_write(cvar1, dsetname, hdferr)
-  elseif (present(dvar1)) then ; call fh5_write(dvar1, dsetname, hdferr)
-  elseif (present(lvar1)) then ; call fh5_write(lvar1, dsetname, hdferr)
-  elseif (present(bvar1)) then ; call fh5_write(bvar1, dsetname, hdferr)
+      if (present(ivar1)) then ; call fh5_write(ivar1, hdferr)
+  elseif (present(rvar1)) then ; call fh5_write(rvar1, hdferr)
+  elseif (present(cvar1)) then ; call fh5_write(cvar1, hdferr)
+  elseif (present(dvar1)) then ; call fh5_write(dvar1, hdferr)
+  elseif (present(lvar1)) then ; call fh5_write(lvar1, hdferr)
+  elseif (present(bvar1)) then ; call fh5_write(bvar1, hdferr)
 
-  elseif (present(ivar2)) then ; call fh5_write(ivar2, dsetname, hdferr)
-  elseif (present(rvar2)) then ; call fh5_write(rvar2, dsetname, hdferr)
-  elseif (present(cvar2)) then ; call fh5_write(cvar2, dsetname, hdferr)
-  elseif (present(dvar2)) then ; call fh5_write(dvar2, dsetname, hdferr)
-  elseif (present(lvar2)) then ; call fh5_write(lvar2, dsetname, hdferr)
-  elseif (present(bvar2)) then ; call fh5_write(bvar2, dsetname, hdferr)
+  elseif (present(ivar2)) then ; call fh5_write(ivar2, hdferr)
+  elseif (present(rvar2)) then ; call fh5_write(rvar2, hdferr)
+  elseif (present(cvar2)) then ; call fh5_write(cvar2, hdferr)
+  elseif (present(dvar2)) then ; call fh5_write(dvar2, hdferr)
+  elseif (present(lvar2)) then ; call fh5_write(lvar2, hdferr)
+  elseif (present(bvar2)) then ; call fh5_write(bvar2, hdferr)
 
-  elseif (present(ivar3)) then ; call fh5_write(ivar3, dsetname, hdferr)
-  elseif (present(rvar3)) then ; call fh5_write(rvar3, dsetname, hdferr)
-  elseif (present(cvar3)) then ; call fh5_write(cvar3, dsetname, hdferr)
-  elseif (present(dvar3)) then ; call fh5_write(dvar3, dsetname, hdferr)
-  elseif (present(lvar3)) then ; call fh5_write(lvar3, dsetname, hdferr)
-  elseif (present(bvar3)) then ; call fh5_write(bvar3, dsetname, hdferr)
+  elseif (present(ivar3)) then ; call fh5_write(ivar3, hdferr)
+  elseif (present(rvar3)) then ; call fh5_write(rvar3, hdferr)
+  elseif (present(cvar3)) then ; call fh5_write(cvar3, hdferr)
+  elseif (present(dvar3)) then ; call fh5_write(dvar3, hdferr)
+  elseif (present(lvar3)) then ; call fh5_write(lvar3, hdferr)
+  elseif (present(bvar3)) then ; call fh5_write(bvar3, hdferr)
   else
      print*, 'Incorrect or missing data field argument in shdf5_orec_ll'
      stop    'shdf5_orec_ll: bad data field'
@@ -1143,7 +1182,7 @@ end subroutine shdf5_orec_ll
 
 !===============================================================================
 
-#ifdef OLAM_MPI
+#if defined(OLAM_MPI) && !defined(OLAM_PARALLEL_HDF5)
 
 subroutine shdf5_orec_ll2(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar1, &
                                               bvar2,ivar2,rvar2,cvar2,dvar2,lvar2, &
@@ -1152,10 +1191,9 @@ subroutine shdf5_orec_ll2(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar
                                               units, long_name, positive,     &
                                               imissing, rmissing, dmissing,   &
                                               isdim, dimnames, standard_name, &
-                                              cell_methods                    )
+                                              cell_methods, storage_type      )
 
   use mem_para, only: mgroupsize, myrank
-  use hdf5_f2f
   use mpi
 
   implicit none
@@ -1182,6 +1220,9 @@ subroutine shdf5_orec_ll2(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar
   real,         intent(in), optional :: rmissing
   real(r8),     intent(in), optional :: dmissing
 
+! Type of variable
+  integer(HID_T), intent(in), optional :: storage_type
+
 ! Indicates if this variable is a global dimension
   logical,      intent(in), optional :: isdim
 
@@ -1189,7 +1230,8 @@ subroutine shdf5_orec_ll2(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar
   character(*), intent(in), optional, contiguous :: dimnames(:)
 
 ! Local variables
-  integer :: hdferr  ! Error flag
+  integer        :: hdferr  ! Error flag
+  integer(HID_T) :: stype
 
   integer,     allocatable :: ibuff(:), points(:)
   real,        allocatable :: rbuff(:)
@@ -1221,13 +1263,29 @@ subroutine shdf5_orec_ll2(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar
   enddo
 
   if (myrank == 0) then
+
      allocate(points(base))
-     if     (present(ivar1) .or. present(ivar2) .or. present(ivar3)) then ; allocate(ibuff(maxbuff))
-     elseif (present(rvar1) .or. present(rvar2) .or. present(rvar3)) then ; allocate(rbuff(maxbuff))
-     elseif (present(dvar1) .or. present(dvar2) .or. present(dvar3)) then ; allocate(dbuff(maxbuff))
-     elseif (present(lvar1) .or. present(lvar2) .or. present(lvar3)) then ; allocate(lbuff(maxbuff))
-     elseif (present(bvar1) .or. present(bvar2) .or. present(bvar3)) then ; allocate(bbuff(maxbuff))
+     if     (present(ivar1) .or. present(ivar2) .or. present(ivar3)) then
+        allocate(ibuff(maxbuff))
+        stype = FORTRAN_INTEGER_TYPE
+     elseif (present(rvar1) .or. present(rvar2) .or. present(rvar3)) then
+        allocate(rbuff(maxbuff))
+        stype = FORTRAN_REAL_TYPE
+     elseif (present(dvar1) .or. present(dvar2) .or. present(dvar3)) then
+        allocate(dbuff(maxbuff))
+        stype = FORTRAN_REAL8_TYPE
+     elseif (present(lvar1) .or. present(lvar2) .or. present(lvar3)) then
+        allocate(lbuff(maxbuff))
+        stype = FORTRAN_LOGICAL_TYPE
+     elseif (present(bvar1) .or. present(bvar2) .or. present(bvar3)) then
+        allocate(bbuff(maxbuff))
+        stype = FORTRAN_INT1_TYPE
      endif
+
+     if (present(storage_type)) then
+        stype = storage_type
+     endif
+
   endif
 
   if (myrank > 0 .and. nu > 0) then
@@ -1263,10 +1321,10 @@ subroutine shdf5_orec_ll2(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar
 ! Prepare memory and options for the write
 
      if (n == 1) then
-        call fh5_prepare_write_ll(ndims, dims, hdferr, 0, fcoords=gpoints)
+        call fh5_prepare_write_ll(ndims, dims, dsetname, stype, hdferr, fcoords=gpoints)
      else
         call MPI_Recv(points, base, MPI_INTEGER, n-1, itag, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
-        call fh5_prepare_write_ll(ndims, dims, hdferr, 0, fcoords=points(1:nus(n)))
+        call fh5_prepare_write_ll(ndims, dims, dsetname, stype, hdferr, fcoords=points(1:nus(n)))
      endif
 
      if (hdferr /= 0) then
@@ -1278,53 +1336,53 @@ subroutine shdf5_orec_ll2(ndims,dims,dsetname,bvar1,ivar1,rvar1,cvar1,dvar1,lvar
 
      if (present(ivar1) .or. present(ivar2) .or. present(ivar3)) then
         if (n == 1) then
-               if (present(ivar1)) then ; call fh5_write(ivar1, dsetname, hdferr)
-           elseif (present(ivar2)) then ; call fh5_write(ivar2, dsetname, hdferr)
-           elseif (present(ivar3)) then ; call fh5_write(ivar3, dsetname, hdferr)
+               if (present(ivar1)) then ; call fh5_write(ivar1, hdferr)
+           elseif (present(ivar2)) then ; call fh5_write(ivar2, hdferr)
+           elseif (present(ivar3)) then ; call fh5_write(ivar3, hdferr)
            endif
         else
            call MPI_Recv( ibuff, maxbuff, MPI_INTEGER, n-1, itag, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
-           call fh5_write(ibuff, dsetname, hdferr, n)
+           call fh5_write(ibuff, hdferr)
         endif
      elseif (present(rvar1) .or. present(rvar2) .or. present(rvar3)) then
         if (n == 1) then
-               if (present(rvar1)) then ; call fh5_write(rvar1, dsetname, hdferr)
-           elseif (present(rvar2)) then ; call fh5_write(rvar2, dsetname, hdferr)
-           elseif (present(rvar3)) then ; call fh5_write(rvar3, dsetname, hdferr)
+               if (present(rvar1)) then ; call fh5_write(rvar1, hdferr)
+           elseif (present(rvar2)) then ; call fh5_write(rvar2, hdferr)
+           elseif (present(rvar3)) then ; call fh5_write(rvar3, hdferr)
            endif
         else
            call MPI_Recv( rbuff, maxbuff, MPI_REAL,    n-1, itag, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
-           call fh5_write(rbuff, dsetname, hdferr, n)
+           call fh5_write(rbuff, hdferr)
         endif
      elseif (present(dvar1) .or. present(dvar2) .or. present(dvar3)) then
         if (n == 1) then
-               if (present(dvar1)) then ; call fh5_write(dvar1, dsetname, hdferr)
-           elseif (present(dvar2)) then ; call fh5_write(dvar2, dsetname, hdferr)
-           elseif (present(dvar3)) then ; call fh5_write(dvar3, dsetname, hdferr)
+               if (present(dvar1)) then ; call fh5_write(dvar1, hdferr)
+           elseif (present(dvar2)) then ; call fh5_write(dvar2, hdferr)
+           elseif (present(dvar3)) then ; call fh5_write(dvar3, hdferr)
            endif
         else
            call MPI_Recv( dbuff, maxbuff, MPI_REAL8,   n-1, itag, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
-           call fh5_write(dbuff, dsetname, hdferr, n)
+           call fh5_write(dbuff, hdferr)
         endif
      elseif (present(lvar1) .or. present(lvar2) .or. present(lvar3)) then
         if (n == 1) then
-               if (present(lvar1)) then ; call fh5_write(lvar1, dsetname, hdferr)
-           elseif (present(lvar2)) then ; call fh5_write(lvar2, dsetname, hdferr)
-           elseif (present(lvar3)) then ; call fh5_write(lvar3, dsetname, hdferr)
+               if (present(lvar1)) then ; call fh5_write(lvar1, hdferr)
+           elseif (present(lvar2)) then ; call fh5_write(lvar2, hdferr)
+           elseif (present(lvar3)) then ; call fh5_write(lvar3, hdferr)
            endif
        else
            call MPI_Recv( lbuff, maxbuff, MPI_LOGICAL, n-1, itag, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
-           call fh5_write(lbuff, dsetname, hdferr, n)
+           call fh5_write(lbuff, hdferr)
         endif
      elseif (present(bvar1) .or. present(bvar2) .or. present(bvar3)) then
         if (n == 1) then
-               if (present(bvar1)) then ; call fh5_write(bvar1, dsetname, hdferr)
-           elseif (present(bvar2)) then ; call fh5_write(bvar2, dsetname, hdferr)
-           elseif (present(bvar3)) then ; call fh5_write(bvar3, dsetname, hdferr)
+               if (present(bvar1)) then ; call fh5_write(bvar1, hdferr)
+           elseif (present(bvar2)) then ; call fh5_write(bvar2, hdferr)
+           elseif (present(bvar3)) then ; call fh5_write(bvar3, hdferr)
            endif
        else
            call MPI_Recv( bbuff, maxbuff, MPI_INTEGER1, n-1, itag, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
-           call fh5_write(bbuff, dsetname, hdferr, n)
+           call fh5_write(bbuff, hdferr)
         endif
      else
         print*, 'Incorrect or missing data field argument in shdf5_orec_ll2'
@@ -1394,9 +1452,9 @@ end subroutine shdf5_orec_ll2
 
 #endif
 
-subroutine shdf5_write_global_attribute(name, ivalue, rvalue, dvalue, cvalue)
+!===============================================================================
 
-  use hdf5_f2f,    only: fh5f_write_global_attribute
+subroutine shdf5_write_global_attribute(name, ivalue, rvalue, dvalue, cvalue)
 
   implicit none
 
@@ -1422,4 +1480,6 @@ subroutine shdf5_write_global_attribute(name, ivalue, rvalue, dvalue, cvalue)
 
 end subroutine shdf5_write_global_attribute
 
-end module
+!===============================================================================
+
+end module hdf5_utils
