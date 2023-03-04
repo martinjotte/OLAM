@@ -15,16 +15,18 @@ subroutine plot_trajecfile(iplt)
 
   integer, intent(in) :: iplt
 
-  real :: zeh, reh, xeh, yeh, bsize
-  character(len=2) :: title
+  real :: zeh, reh, xeh, yeh, bsize_hour, bsize_modelid
+  character(len=3) :: title
 
-  integer :: imodel, jmodel, ihour, im1, im2, icolor
+  integer :: imodel, imodlab, ihour, icolor
   character(2) :: basin
   character(4) :: pastid, modelid
   integer :: cyclone_num, yymmddhh, technum, tau, idlat, idlon, vmax, mslp
 
   integer, parameter :: nmodels = 40, nhours = 50
   logical, save :: newcall = .true.
+
+  integer, save :: kmodel
 
   integer,      allocatable, save :: mhour(:,:)
   integer,      allocatable, save :: numhours(:)
@@ -35,6 +37,7 @@ subroutine plot_trajecfile(iplt)
   real :: xpt, ypt
 
   ! if (iplt > 1) return
+  ! return
 
   if (newcall) then
      newcall = .false.
@@ -52,10 +55,12 @@ subroutine plot_trajecfile(iplt)
      imodel = 0
      pastid = '0000'
 
-     open(32,file='aug24_12z.dat2_olamA',status='old',form='formatted')
-     do
+     open(32,file='aal_olam_2022sep27_12z.dati4',status='old',form='formatted')
 
-        read(32,'(a2,2x,i2,2x,i10,2x,i2,2x,a4,2x,i3,2x,i3,3x,i4,3x,i3,2x,i4)') &
+     do 
+
+!STD    read(32,'(a2,2x,i2,2x,i10,2x,i2,2x,a4,2x,i3,2x,i3,3x,i4,3x,i3,2x,i4)') &  ! STD read
+        read(32,'(a2,2x,i2,2x,i10,2x,i2,2x,a4,2x,i3,2x,i4,3x,i5,3x,i3,2x,i4)') &  ! lat,lon x 10
            basin, cyclone_num, yymmddhh, technum, modelid, tau, idlat, idlon, vmax, mslp
 
         ! Check model id
@@ -75,9 +80,11 @@ subroutine plot_trajecfile(iplt)
 
         model_id(imodel,ihour) = modelid
         mhour   (imodel,ihour) = tau
-        mlat    (imodel,ihour) =  0.1 * real(idlat)
-        mlon    (imodel,ihour) = -0.1 * real(idlon) + 0.01 * real(imodel - 17) ! offset for visual separation
-                                                                               ! (OL01 is model 17)
+!STD    mlat    (imodel,ihour) =  0.1 * real(idlat)
+!STD    mlon    (imodel,ihour) = -0.1 * real(idlon)  ! + 0.01 * real(imodel - 17) ! offset for visual separation
+        mlat    (imodel,ihour) =  0.01 * real(idlat)
+        mlon    (imodel,ihour) = -0.01 * real(idlon) ! + 0.01 * real(imodel - 17) ! offset for visual separation
+                                                                                ! (OL01 is model 17)
         ! Find "earth" coordinates of sims hurricane center
 
         zeh = erad * sin(mlat(imodel,ihour) * pio180)
@@ -98,46 +105,50 @@ subroutine plot_trajecfile(iplt)
      enddo
      close(32)
 
+     kmodel = imodel
+
   endif
 
   ! Set character font, line width, and plotted size
 
   call o_pcseti ('FN',4)  ! set font number to 4 (font 2 is similar but wider spacing)
-  call o_pcsetr('CL',2.)
-  bsize = .016 * (op%hp2 - op%hp1) ! * 0.3
-
+  call o_pcsetr('CL',2.)  ! line width for characters
+  bsize_hour    = .010 * (op%hp2 - op%hp1)
+  bsize_modelid = .012 * (op%hp2 - op%hp1)
   call o_gslwsc(2.) ! line width
 
   ! Plot hurricane tracks from other models (now all in one group; iplt is 1 only)
 
-  im1 = 16; im2 = 19
-
-  do imodel = im1, im2
-     jmodel = imodel
+  imodlab = 0
+  do imodel = 1, kmodel
 
      ! Set plot line color
 
-     call o_sflush()
+     if     (model_id(imodel,1) == 'AVNO') then; cycle; icolor = 142 ! GFS Model Forecast
+     elseif (model_id(imodel,1) == 'AC00') then; cycle; icolor = 118 ! GFS Ensemble Control Forecast
+     elseif (model_id(imodel,1) == 'AEMN') then; cycle; icolor = 108 ! GFS Ensemble Mean Forecast
+     elseif (model_id(imodel,1) == ' CMC') then; cycle; icolor = 137 ! Canadian Global Forecast Model
+     elseif (model_id(imodel,1) == 'CEMN') then; cycle; icolor =  91 ! Canadian Ensemble Mean Forecast
+     elseif (model_id(imodel,1) == 'COTC') then; cycle; icolor = 123 ! U.S. Navy COAMPS-TC Model Forecast
+     elseif (model_id(imodel,1) == 'CTCX') then; cycle; icolor = 111 ! U.S. Navy Experimental COAMPS-TC Forecast
+     elseif (model_id(imodel,1) == 'NVGM') then; cycle; icolor = 126 ! U.S. Navy NAVGEM Model Forecast
+     elseif (model_id(imodel,1) == ' NGX') then; cycle; icolor = 113 ! U.S. Navy NOGAPS Model Forecast (deprecated)
+     elseif (model_id(imodel,1) == 'EGRR') then; cycle; icolor = 121 ! UKMET/UKX Model Forecast
+     elseif (model_id(imodel,1) == ' UKM') then; cycle; icolor = 134 ! UKMET Model
+     elseif (model_id(imodel,1) == 'UKM2') then; cycle; icolor = 105 ! UKMET Model (interpolated 12 hours)
+     elseif (model_id(imodel,1) == 'HMON') then; cycle; icolor = 120 ! Hurricanes in a Multiscale Ocean-Coupled Non-Hydrostatic...
+     elseif (model_id(imodel,1) == 'HWRF') then; cycle; icolor = 143 ! Hurricane WRF
+     elseif (model_id(imodel,1) == 'OFCL') then; cycle; icolor =  10 ! NHC Official Forecast 
+     elseif (model_id(imodel,1) == 'BEST') then; cycle;        icolor =  97 ! BEST TRACK
+     elseif (model_id(imodel,1) == 'OLAM') then;        icolor =  92 ! OLAM
+     elseif (model_id(imodel,1) == 'OL01') then; cycle;        icolor =  88 ! OLAM-1
+     elseif (model_id(imodel,1) == 'OL02') then; cycle;        icolor =  78 ! OLAM-2
+     elseif (model_id(imodel,1) == 'OL03') then; cycle;        icolor =  73 ! OLAM-3
+     elseif (model_id(imodel,1) == 'OL04') then;         icolor =  68 ! OLAM-4
+     elseif (model_id(imodel,1) == 'OL05') then; cycle;        icolor =  68 ! OLAM-5
+     endif
 
-     if (jmodel ==  1) icolor =  98
-     if (jmodel ==  2) icolor = 101
-     if (jmodel ==  3) icolor = 104
-     if (jmodel ==  4) icolor = 106
-     if (jmodel ==  5) icolor = 110
-     if (jmodel ==  6) icolor = 113
-     if (jmodel ==  7) icolor = 115
-     if (jmodel ==  8) icolor = 117
-     if (jmodel ==  9) icolor = 118
-     if (jmodel == 10) icolor =   2
-     if (jmodel == 11) icolor = 122
-     if (jmodel == 12) icolor = 126
-     if (jmodel == 13) icolor = 127
-     if (jmodel == 14) icolor = 135
-     if (jmodel == 15) icolor = 136
-     if (jmodel == 16) icolor =  10
-     if (jmodel == 17) icolor = 143
-     if (jmodel == 18) icolor = 144
-     if (jmodel == 19) icolor = 145
+     call o_sflush()
 
      call o_gsplci(icolor)
      call o_gstxci(icolor)
@@ -145,26 +156,33 @@ subroutine plot_trajecfile(iplt)
 
      ! Plot color code
 
-     xpt = 235.e3
-     ypt = 215.e3 - 18.e3 * real(imodel - im1)
+     imodlab = imodlab + 1
+     xpt = op%xmin + (op%xmax - op%xmin) * 0.15 * real((imodlab-1)/4)         ! Uses geographic coordinates in meters
+     ypt = op%ymin - (op%ymax - op%ymin) * (0.133 + 0.033 * mod(imodlab-1,4)) ! that are set for a given plot frame
 
-     ! call o_plchhq(xpt,ypt,model_id(jmodel,1),1.1*bsize,0.,-1.)
+     call o_plchhq(xpt,ypt,model_id(imodel,1),bsize_modelid,0.,-1.)
 
      ! Plot results
 
-     do ihour = 1,numhours(jmodel)
+     do ihour = 1,numhours(imodel)
 
-        if (mhour(jmodel,ihour) > 72.1) exit    ! Plot only up to a selected time
+!if (mod(mhour(imodel,ihour),6) /= 0) cycle
+ if (mhour(imodel,ihour) < 18) cycle
 
-        if (ihour == 1) then
-           call o_frstpt(xsims(jmodel,ihour),ysims(jmodel,ihour))
+        if (mhour(imodel,ihour) > 42.1)  exit    ! Plot only up to a selected time
+  !     if (mhour(imodel,ihour) > 72.1)  exit    ! Plot only up to a selected time
+  !     if (mhour(imodel,ihour) > 120.1) exit    ! Plot only up to a selected time
+
+!        if (ihour == 1) then
+        if (mhour(imodel,ihour) == 18) then
+           call o_frstpt(xsims(imodel,ihour),ysims(imodel,ihour))
         else
-           call o_vector(xsims(jmodel,ihour),ysims(jmodel,ihour))
+           call o_vector(xsims(imodel,ihour),ysims(imodel,ihour))
         endif
 
-        write(title,'(i2)') mhour(jmodel,ihour)
-        if (ihour > 1 .or. jmodel == 16) then   ! BEST TRACK is model 16
-           call o_plchhq (xsims(jmodel,ihour),ysims(jmodel,ihour),trim(adjustl(title)),bsize,0.,0.)
+        write(title,'(i3)') mhour(imodel,ihour)
+        if (ihour > 1 .or. model_id(imodel,1) == 'BEST') then   ! plot 0 HRS only for BEST TRACK
+           call o_plchhq (xsims(imodel,ihour),ysims(imodel,ihour),trim(adjustl(title)),bsize_hour,0.,0.)
         endif
 
      enddo
@@ -172,3 +190,4 @@ subroutine plot_trajecfile(iplt)
   enddo
 
 end subroutine plot_trajecfile
+

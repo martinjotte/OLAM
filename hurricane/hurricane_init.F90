@@ -214,8 +214,6 @@ Contains
   integer :: ierr
 #endif
 
-  write(io6,'(a,2f10.3)') 'vortex_center_diagnose BEGIN ',hlat,hlon
-
   ! Find "earth" coordinates of previous vortex center location (hlat,hlon)
 
   reh = erad * cos(hlat * pio180)  ! distance from earth center
@@ -336,6 +334,9 @@ Contains
 
   call e_ec(xew_avg,yew_avg,zew_avg,rlon,rlat)
 
+  write(io6,'(a,f8.3,f9.3,a,f8.3,f9.3,f12.2)') &
+     '     vortex_center/pmin: (', hlat, hlon, ' )', rlat, rlon, pmsl_min
+
   hlat = rlat
   hlon = rlon
 
@@ -349,9 +350,6 @@ Contains
   hlata(mstp,icycle_hurrinit) = rlat
   hlona(mstp,icycle_hurrinit) = rlon
   htima(mstp,icycle_hurrinit) = real(time8)
-
-  write(io6,'(a,i8,2f10.3,f12.2)') &
-     'vortex_center_diagnose END: mstp, hlat, hlon, pmsl_min   ', mstp, hlat, hlon, pmsl_min
 
   end subroutine vortex_center_diagnose
 
@@ -993,7 +991,7 @@ Contains
   thtend0 = maxrate_thpert * tfact * (sqrt( (1.0+vterm) * (1.0+pterm) ) - 1.0)
 
   if (myrank == 0) then
-     write(*,*) "Theta Pert: ", thtend0, tfact, vtan_max, vterm, pterm
+     write(*,'(a,4f8.5,f8.2)') "     Theta Pert/vtan_max: ", thtend0, tfact, vterm, pterm, vtan_max
   endif
 
   if (thtend0 < 1.e-6) return
@@ -1214,6 +1212,7 @@ end subroutine vortex_get_vtanmax
 
   real :: rad,wrad1,wrad2
   real :: vtan_ax0, vrad_ax0, ss_liq, ss_thetadif
+  character(30) :: palette
 
   ! Axisymmmetric vortex profile arrays
 
@@ -1446,12 +1445,14 @@ end subroutine vortex_get_vtanmax
      if (zt(k) > 20000.) exit
   enddo
 
-  call make_colortable(500,'lin',280.0,500.0,5.0,1.)
-  call make_colortable(501,'lin',  0.0, 80.0,5.0,1.)
-  call make_colortable(502,'lin',-20.0, 50.0,2.0,1.)
-  call make_colortable(503,'lin', -2.0,  8.0,0.2,1.)
-  call make_colortable(504,'lin',250.0,310.0,2.0,1.)
-  call make_colortable(505,'lin',  0.0, 30.0,1.0,.1)
+  palette = 'STDR'
+
+  call make_colortable(500,palette,'lin',280.0,500.0,5.0,1.)
+  call make_colortable(501,palette,'lin',  0.0, 80.0,5.0,1.)
+  call make_colortable(502,palette,'lin',-20.0, 50.0,2.0,1.)
+  call make_colortable(503,palette,'lin', -2.0,  8.0,0.2,1.)
+  call make_colortable(504,palette,'lin',250.0,310.0,2.0,1.)
+  call make_colortable(505,palette,'lin',  0.0, 30.0,1.0,.1)
 
   call o_reopnwk()
 
@@ -1543,11 +1544,13 @@ end subroutine vortex_get_vtanmax
 
   integer :: icolor, lhour, khour, kstp, kstp_max, jcyc
   real :: reh, zeh, xeh, yeh, rhour, bsize, xs, ys
-  character(len=2) :: title
+  character(len=3) :: title
 
   if (myrank /= 0) return
 
-  bsize = .016 * (op%hp2 - op%hp1) ! * 0.3
+  call o_pcseti ('FN',4)  ! set font number to 4 (font 2 is similar but wider spacing)
+
+  bsize = .016 * (op%hp2 - op%hp1) * 0.3
 
   do jcyc = 1,icycle_hurrinit
 
@@ -1600,7 +1603,7 @@ end subroutine vortex_get_vtanmax
         khour = int(rhour)
 
         if (khour > 0 .and. khour > lhour) then
-           write(title,'(i2)') khour
+           write(title,'(i3)') khour
            call o_plchhq (xs,ys,trim(adjustl(title)),bsize,0.,0.)
            lhour = khour
         endif
@@ -1609,5 +1612,57 @@ end subroutine vortex_get_vtanmax
   enddo
 
   end subroutine vortex_trajec_plot
+
+!==================================================================================
+
+  subroutine vortex_center_plot(iplt)
+
+  ! This subroutine plots the current simulation hour at the hurricane center location.
+  ! Intended for some 'PLOTONLY' runs.
+
+  use misc_coms,   only: mstp, dtlong, time8
+  use oplot_coms,  only: op
+  use consts_coms, only: pio180, erad
+  use mem_para,    only: myrank
+
+  implicit none
+
+  integer, intent(in) :: iplt
+
+  integer :: icolor, lhour, khour, kstp, kstp_max, jcyc
+  real :: reh, zeh, xeh, yeh, rhour, bsize, xs, ys
+  character(len=3) :: title
+
+  if (myrank /= 0) return
+
+  bsize = .016 * (op%hp2 - op%hp1) * 1.5
+
+  icolor = 10
+
+  call o_sflush()
+
+  call o_pcseti ('FN',4)  ! set font number to 4 (font 2 is similar but wider spacing)
+
+  call o_gsplci(icolor)
+  call o_gstxci(icolor)
+  call o_gsfaci(icolor)
+
+  reh = erad * cos(hlat * pio180)  ! distance from earth center
+  zeh = erad * sin(hlat * pio180)
+  xeh = reh  * cos(hlon * pio180)
+  yeh = reh  * sin(hlon * pio180)
+
+  ! Transform hurricane earth coords to whatever projection is in use
+
+  call oplot_transform(iplt,xeh,yeh,zeh,xs,ys)
+
+  rhour = (real(time8) + 0.1) / 3600.
+  khour = int(rhour)
+
+  write(title,'(i3)') khour
+  call o_plchhq (xs,ys,trim(adjustl(title)),bsize,0.,0.)
+  lhour = khour
+
+  end subroutine vortex_center_plot
 
 end module hcane_rz

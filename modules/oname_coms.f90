@@ -11,7 +11,17 @@ Module oname_coms
   private :: maxsndg, maxgrds, maxisdirs, maxnplt, &
              maxpltfiles, maxngrdll, pathlen, maxlite, maxlatlon, r8
 
-  ! Derived type to hold the components of the plot specification fields
+  ! Derived types to hold the components of the plot specification fields
+
+  Type oname_colortab
+     integer       :: icolortab   = 0
+     character(30) :: palette     = ' '
+     character(3)  :: cscale      = ' '
+     real          :: cmin        = 0.0
+     real          :: cmax        = 0.0
+     real          :: cinc        = 0.0
+     real          :: zerohalfwid = 0.0
+  End Type oname_colortab
 
   Type oname_plot
      character(30) :: fldname    = ' '
@@ -23,12 +33,6 @@ Module oname_coms
      real          :: slabloc    = 0.0
      real          :: plotwid    = 0.0
      real          :: viewazim   = 0.0
-
-     character(3)  :: cscale      = ' '
-     real          :: cmin        = 0.0
-     real          :: cmax        = 0.0
-     real          :: cinc        = 0.0
-     real          :: zerohalfwid = 0.0
   End Type oname_plot
 
   ! Derived type to hold the namelist variables
@@ -396,6 +400,7 @@ Module oname_coms
      real    :: zplot_max  = -1.0
      integer :: mapcolor   = 13
      integer :: llcolor    = 13
+     integer :: ncolortabs = 0
 
      character(pathlen) :: pltname     = 'gmeta'
      character(10)      :: prtval_size = 'medium'
@@ -409,7 +414,8 @@ Module oname_coms
 
 !!    THE ARRAYS OF FIELDS TO PLOT
 
-     type(oname_plot) :: plotspecs(maxnplt)
+     type(oname_colortab) :: colortabs(maxnplt)
+     type(oname_plot)     :: plotspecs(maxnplt)
 
 !!    NCAR DCMIP 2012 PARAMETERS
 

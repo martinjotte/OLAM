@@ -443,6 +443,7 @@ subroutine copy_nl()
      if (index(nl%plotspecs(i)%pltspec2,'o') > 0) op%labelbar(i) = 'o'
 
      if (index(nl%plotspecs(i)%pltspec2,'c') > 0) op%colorbar(i) = 'c'
+     if (index(nl%plotspecs(i)%pltspec2,'r') > 0) op%colorbar(i) = 'r'
 
      if (index(nl%plotspecs(i)%pltspec2,'M') > 0) op%pltll(i) = 'M'
      if (index(nl%plotspecs(i)%pltspec2,'m') > 0) op%maptyp(i) = 'm'

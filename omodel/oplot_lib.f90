@@ -178,10 +178,10 @@ character(len=40), save :: fldname
 ! ATMOSPHERE - 3D
 
 data fldlib(1:4,  1:36)/ &
- 'VMC'           ,'V3' ,'V-NORMAL MOMENTUM',' (kg m:S2:-2   s:S2:-1  )'     ,& !p  1
+ 'VMC'           ,'V3' ,'V-NORM MOMENTUM',' (kg m:S2:-2   s:S2:-1  )'       ,& !p  1
  'WMC'           ,'W3' ,'W MOMENTUM',' (kg m:S2:-2   s:S2:-1  )'            ,& !p  2
- 'VMP'           ,'V3' ,'V-NORMAL MOMENTUM',' (kg m:S2:-2   s:S2:-1  )'     ,& !p  3
- 'VC'            ,'V3' ,'V-NORMAL VELOCITY',' (m s:S2:-1  )'                ,& !p  4
+ 'VMP'           ,'V3' ,'V-NORM MOMENTUM',' (kg m:S2:-2   s:S2:-1  )'       ,& !p  3
+ 'VC'            ,'V3' ,'V-NORM VELOCITY',' (m s:S2:-1  )'                  ,& !p  4
  'WC'            ,'W3' ,'W',' (m s:S2:-1  )'                                ,& !p  5
  'RHO'           ,'T3' ,'AIR DENSITY',' (kg m:S2:-3  )'                     ,& !p  6
  'PRESS'         ,'T3' ,'PRESSURE',' (hPa)'                                 ,& !   7
@@ -217,16 +217,16 @@ data fldlib(1:4,  1:36)/ &
 
 data fldlib(1:4, 37:61)/ &
  'VKM'           ,'T3' ,'VERT TURB MOMENTUM K',' (N s m:S2:-2  )'           ,& !p 37
- 'FTHRD'         ,'T3' ,'RADIATIVE THETA TENDENCY',' (K s:S2:-1  )'         ,& !p 38
+ 'FTHRD'         ,'T3' ,'RAD THETA TEND',' (K s:S2:-1  )'                   ,& !p 38
  'SPEEDW'        ,'T3' ,'WIND SPEED AT W',' (m s:S2:-1  )'                  ,& !p 39
  'AZIMW'         ,'T3' ,'WIND AZIMUTH AT W',' (deg)'                        ,& !p 40
  'ZONAL_WINDW'   ,'T3' ,'ZONAL WIND AT W',' (m s:S2:-1  )'                  ,& !p 41
- 'MERID_WINDW'   ,'T3' ,'MERIDIONAL WIND AT W',' (m s:S2:-1  )'             ,& !p 42
- 'RVORTZM'       ,'P3' ,'REL VERT VORTICITY AT M',' (s:S2:-1  )'            ,& !p 43
- 'TVORTZM'       ,'P3' ,'TOT VERT VORTICITY AT M',' (s:S2:-1  )'            ,& !p 44
- 'RVORTZM_P'     ,'P3' ,'REL VERT VORTICITY PERT AT M',' (s:S2:-1  )'       ,& !p 45
- 'DIVERG'        ,'T3' ,'HORIZONTAL DIVERGENCE',' (s:S2:-1  )'              ,& !p 46
- 'VMASSFLUX'     ,'V3' ,'GRID CELL V-FACE MASS FLUX',' (kg s:S2:-1  )'      ,& !  47
+ 'MERID_WINDW'   ,'T3' ,'MERID WIND AT W',' (m s:S2:-1  )'                  ,& !p 42
+ 'RVORTZM'       ,'P3' ,'REL VORTZ AT M',' (s:S2:-1  )'                     ,& !p 43
+ 'TVORTZM'       ,'P3' ,'TOT VORTZ AT M',' (s:S2:-1  )'                     ,& !p 44
+ 'RVORTZM_P'     ,'P3' ,'REL VORTZ PERT AT M',' (s:S2:-1  )'                ,& !p 45
+ 'DIVERG'        ,'T3' ,'HORIZ DIVERG',' (s:S2:-1  )'                       ,& !p 46
+ 'VMASSFLUX'     ,'V3' ,'GRID V-FACE MASS FLX',' (kg s:S2:-1  )'            ,& !  47
  'VC_P'          ,'V3' ,'NORMAL WIND PERT AT V',' (m s:S2:-1  )'            ,& !p 48
  'PRESS_P'       ,'T3' ,'PRESSURE PERT',' (hPa)'                            ,& !  49
  'RHO_P'         ,'T3' ,'DENSITY PERT',' (kg m:S2:-3  )'                    ,& !  50
@@ -234,10 +234,10 @@ data fldlib(1:4, 37:61)/ &
  'AIRTEMPK_P'    ,'T3' ,'AIR TEMP PERT',' (K)'                              ,& !p 52
  'VMT'           ,'V3' ,'V-NORM MOMENTUM TEND',' (kg m:S2:-2   s:S2:-2  )'  ,& !  53
  'WMT'           ,'W3' ,'W MOMENTUM TEND',' (kg m:S2:-2   s:S2:-2  )'       ,& !  54
- 'ADDSC'         ,'T3' ,'ADDED SCALAR AMOUNT PER KG AIR','( )'              ,& !p 55
+ 'ADDSC'         ,'T3' ,'ADDED SCALAR PER KG AIR','( )'                     ,& !p 55
  'ADDSCP'        ,'T3' ,'SCALAR PERTURBATION',' ( )'                        ,& !  56
  'ZPLEV'         ,'T3' ,'HEIGHT OF CONST P SFC',' (m)'                      ,& !p 57
- 'QWCON'         ,'T3' ,'CUPARM CONDENSATE MIX RATIO',' (g kg:S2:-1  )'     ,& !p 58
+ 'QWCON'         ,'T3' ,'CUPARM CONDENSATE MIXR',' (g kg:S2:-1  )'          ,& !p 58
  'CO2CON'        ,'T3' ,'CO2 CONCENTRATION',' (ppmV dry air)'               ,& !p 59
  'CO2PERT'       ,'T3' ,'CO2 CHANGE',' (ppmV dry air)'                      ,& !p 60
  'RH_LIQ'        ,'T3' ,'RH_LIQUID',' (%)'                                   / !p 61
@@ -245,32 +245,32 @@ data fldlib(1:4, 37:61)/ &
 ! ATMOSPHERE - 2D
 
 data fldlib(1:4, 62:98)/ &
- 'RSHORT_TOP'    ,'T2' ,'TOP DOWN SHORTWV FLX',' (W m:S2:-2  )'             ,& !  62
- 'RSHORTUP_TOP'  ,'T2' ,'TOP UP SHORTWV FLX',' (W m:S2:-2  )'               ,& !  63
- 'RLONGUP_TOP'   ,'T2' ,'TOP UP LONGWV FLX',' (W m:S2:-2  )'                ,& !  64
+ 'RSHORT_TOP'    ,'T2' ,'TOP DOWN SW FLX',' (W m:S2:-2  )'                  ,& !  62
+ 'RSHORTUP_TOP'  ,'T2' ,'TOP UP SW FLX',' (W m:S2:-2  )'                    ,& !  63
+ 'RLONGUP_TOP'   ,'T2' ,'TOP UP LW FLX',' (W m:S2:-2  )'                    ,& !  64
 
 ! ATMOSPHERE SURFACE - 2D
 
- 'RSHORT'        ,'T2' ,'SFC DOWN SHORTWV FLX',' (W m:S2:-2  )'             ,& !  65
- 'RSHORTUP'      ,'T2' ,'SFC UP SHORTWV FLX',' (W m:S2:-2  )'               ,& !  66
- 'RLONG'         ,'T2' ,'SFC DOWN LONGWV FLX',' (W m:S2:-2  )'              ,& !  67
- 'RLONGUP'       ,'T2' ,'SFC UP LONGWV FLX',' (W m:S2:-2  )'                ,& !  68
+ 'RSHORT'        ,'T2' ,'SFC DOWN SW FLX',' (W m:S2:-2  )'                  ,& !  65
+ 'RSHORTUP'      ,'T2' ,'SFC UP SW FLX',' (W m:S2:-2  )'                    ,& !  66
+ 'RLONG'         ,'T2' ,'SFC DOWN LW FLX',' (W m:S2:-2  )'                  ,& !  67
+ 'RLONGUP'       ,'T2' ,'SFC UP LW FLX',' (W m:S2:-2  )'                    ,& !  68
  'ALBEDT'        ,'T2' ,'NET GRID COLUMN SFC ALBEDO',' ( )'                 ,& !  69
  'VKM_SFC'       ,'T2' ,'SFC TURB K FOR MOMENTUM',' (N s m:S2:-2  )'        ,& !  70
- 'USTAR'         ,'T2' ,'SFC FRICTION VELOCITY',' (m s:S2:-1  )'            ,& !  71
- 'SENSFLUX'      ,'T2' ,'ATM SFC SENSIBLE HEAT FLUX',' (W m:S2:-2  )'       ,& !  72
- 'VAPFLUX'       ,'T2' ,'ATM SFC VAPOR FLUX',' (kg m:S2:-2   s:S2:-1  )'    ,& !  73
- 'LATFLUX'       ,'T2' ,'ATM SFC LATENT HEAT FLUX',' (W m:S2:-2  )'         ,& !  74
- 'PCPRD'         ,'T2' ,'DRIZZLE PRECIP RATE',' (kg m:S2:-2   h:S2:-1  )'   ,& !  75
- 'PCPRR'         ,'T2' ,'RAIN PRECIP RATE',' (kg m:S2:-2   h:S2:-1  )'      ,& !  76
+ 'USTAR'         ,'T2' ,'USTAR',' (m s:S2:-1  )'                            ,& !  71
+ 'SENSFLUX'      ,'T2' ,'ATM SFC SENS FLX',' (W m:S2:-2  )'                 ,& !  72
+ 'VAPFLUX'       ,'T2' ,'ATM SFC VAPOR FLX',' (kg m:S2:-2   s:S2:-1  )'     ,& !  73
+ 'LATFLUX'       ,'T2' ,'ATM SFC LAT FLX',' (W m:S2:-2  )'                  ,& !  74
+ 'PCPRD'         ,'T2' ,'DRIZZLE PCP RATE',' (kg m:S2:-2   h:S2:-1  )'      ,& !  75
+ 'PCPRR'         ,'T2' ,'RAIN PCP RATE',' (kg m:S2:-2   h:S2:-1  )'         ,& !  76
  'PCPRP'         ,'T2' ,'PRIST ICE PCP RATE',' (kg m:S2:-2   h:S2:-1  )'    ,& !  77
  'PCPRS'         ,'T2' ,'SNOW PCP RATE',' (kg m:S2:-2   h:S2:-1  )'         ,& !  78
  'PCPRA'         ,'T2' ,'AGGREGATES PCP RATE',' (kg m:S2:-2   h:S2:-1  )'   ,& !  79
  'PCPRG'         ,'T2' ,'GRAUPEL PCP RATE',' (kg m:S2:-2   h:S2:-1  )'      ,& !  80
  'PCPRH'         ,'T2' ,'HAIL PCP RATE',' (kg m:S2:-2   h:S2:-1  )'         ,& !  81
  'PCPRMIC'       ,'T2' ,'MICROPHYS PCP RATE',' (kg m:S2:-2   h:S2:-1  )'    ,& !  82
- 'PCPRCON'       ,'T2' ,'CONV PCP RATE',' (kg m:S2:-2   h:S2:-1  )'         ,& !  83
- 'PCPRBOTH'      ,'T2' ,'MIC+CONV PCP RATE',' (kg m:S2:-2   h:S2:-1  )'     ,& !  84
+ 'PCPRCON'       ,'T2' ,'CUPARM PCP RATE',' (kg m:S2:-2   h:S2:-1  )'       ,& !  83
+ 'PCPRBOTH'      ,'T2' ,'MIC+CUPARM PCP RATE',' (kg m:S2:-2   h:S2:-1  )'   ,& !  84
  'ACCPD'         ,'T2' ,'ACCUM DRIZZLE',' (kg m:S2:-2  )'                   ,& !  85
  'ACCPR'         ,'T2' ,'ACCUM RAIN',' (kg m:S2:-2  )'                      ,& !  86
  'ACCPP'         ,'T2' ,'ACCUM PRIST ICE',' (kg m:S2:-2  )'                 ,& !  87
@@ -279,71 +279,72 @@ data fldlib(1:4, 62:98)/ &
  'ACCPG'         ,'T2' ,'ACCUM GRAUPEL',' (kg m:S2:-2  )'                   ,& !  90
  'ACCPH'         ,'T2' ,'ACCUM HAIL',' (kg m:S2:-2  )'                      ,& !  91
  'ACCPMIC'       ,'T2' ,'ACCUM MIC PCP',' (kg m:S2:-2  )'                   ,& !  92
- 'ACCPCON'       ,'T2' ,'ACCUM CONV PCP',' (kg m:S2:-2  )'                  ,& !  93
- 'ACCPBOTH'      ,'T2' ,'ACCUM MIC+CONV PCP',' (kg m:S2:-2  )'              ,& !  94
- 'WSTAR'         ,'T2' ,'PBL CONVECTIVE VELOCITY',' (m s:S2:-1  )'          ,& !  95
- 'PSFC'          ,'T2' ,'SURFACE PRESSURE',' (hPa)'                         ,& !  96
- 'PMSL'          ,'T2' ,'SEA LEVEL PRESSURE',' (hPa)'                       ,& !  97
- 'CBMF'          ,'T2' ,'CUPARM CLOUD BASE MASS FLUX','(kg m:S2:-2 s:S2:-1 )'/ !  98
+ 'ACCPCON'       ,'T2' ,'ACCUM CUPARM PCP',' (kg m:S2:-2  )'                ,& !  93
+ 'ACCPBOTH'      ,'T2' ,'ACCUM MIC+CUPARM PCP',' (kg m:S2:-2  )'            ,& !  94
+ 'WSTAR'         ,'T2' ,'WSTAR',' (m s:S2:-1  )'                            ,& !  95
+ 'PSFC'          ,'T2' ,'SFC PRESS',' (hPa)'                                ,& !  96
+ 'PMSL'          ,'T2' ,'SEA LEVEL PRESS',' (hPa)'                          ,& !  97
+ 'CBMF'          ,'T2' ,'CUPARM CLDBASE MASS FLX','(kg m:S2:-2 s:S2:-1 )'   / !  98
 
 ! ATMOSPHERE DIF2 fields (3D & 2D)
 
-data fldlib(1:4,101:118)/ &
- 'ZONAL_WINDW_DIF2' ,'T3' ,'ATM ZONAL VELOCITY DIF2',' (m s:S2:-1  )'       ,& ! 101
- 'MERID_WINDW_DIF2' ,'T3' ,'ATM MERID VELOCITY DIF2',' (m s:S2:-1  )'       ,& ! 102
- 'WC_DIF2'          ,'T3' ,'ATM VERT VELOCITY DIF2',' (m s:S2:-1  )'        ,& ! 103
- 'PRESS_DIF2'       ,'T3' ,'ATM PRESSURE DIF2',' (hPa)'                     ,& ! 104
- 'AIRTEMPK_DIF2'    ,'T3' ,'ATM TEMP DIF2',' (K)'                           ,& ! 105
- 'RR_V_DIF2'        ,'T3' ,'ATM VAP MIX RATIO DIF2',' (g kg:S2:-1  )'       ,& ! 106
- 'LATHEAT_LIQ_DIF2' ,'T3' ,'ATM LATENT HEAT LIQ DIF2',' (K hr:S2:-1  )'     ,& ! 107
- 'LATHEAT_ICE_DIF2' ,'T3' ,'ATM LATENT HEAT ICE DIF2',' (K hr:S2:-1  )'     ,& ! 108
- 'PCPMIC_DIF2'      ,'T2' ,'MICPHYS PRECIP DIF2',' (mm/day)'                ,& ! 109
- 'PCPCON_DIF2'      ,'T2' ,'CONV PRECIP DIF2',' (mm/day)'                   ,& ! 110
- 'PCPBOTH_DIF2'     ,'T2' ,'MICPHYS + CONV PRECIP DIF2',' (mm/day)'         ,& ! 111
- 'RSHORT_DIF2'      ,'T2' ,'SFC DOWN SHORTWV FLX DIF2',' (W m:S2:-2  )'     ,& ! 112
- 'RSHORTUP_DIF2'    ,'T2' ,'SFC UP SHORTWV FLX DIF2',' (W m:S2:-2  )'       ,& ! 113
- 'RLONG_DIF2'       ,'T2' ,'SFC DOWN LONGWV FLX DIF2',' (W m:S2:-2  )'      ,& ! 114
- 'RLONGUP_DIF2'     ,'T2' ,'SFC UP LONGWV FLX DIF2',' (W m:S2:-2  )'        ,& ! 115
- 'RSHORT_TOP_DIF2'  ,'T2' ,'TOP DOWN SHORTWV FLX DIF2',' (W m:S2:-2  )'     ,& ! 116
- 'RSHORTUP_TOP_DIF2','T2' ,'TOP UP SHORTWV FLX DIF2',' (W m:S2:-2  )'       ,& ! 117
- 'RLONGUP_TOP_DIF2' ,'T2' ,'TOP UP LONGWV FLX DIF2',' (W m:S2:-2  )'         / ! 118
+data fldlib(1:4,101:119)/ &
+ 'ZONAL_WINDW_DIF2' ,'T3' ,'ZONAL VEL DIF2',' (m s:S2:-1  )'        ,& ! 101
+ 'MERID_WINDW_DIF2' ,'T3' ,'MERID VEL DIF2',' (m s:S2:-1  )'        ,& ! 102
+ 'WC_DIF2'          ,'T3' ,'VERT VEL DIF2',' (m s:S2:-1  )'         ,& ! 103
+ 'PRESS_DIF2'       ,'T3' ,'PRESS DIF2',' (hPa)'                    ,& ! 104
+ 'AIRTEMPK_DIF2'    ,'T3' ,'TEMP DIF2',' (K)'                       ,& ! 105
+ 'RR_V_DIF2'        ,'T3' ,'VAP MIXR DIF2',' (g kg:S2:-1  )'        ,& ! 106
+ 'LATHEAT_LIQ_DIF2' ,'T3' ,'LATHEAT LIQ DIF2',' (K hr:S2:-1  )'     ,& ! 107
+ 'LATHEAT_ICE_DIF2' ,'T3' ,'LATHEAT ICE DIF2',' (K hr:S2:-1  )'     ,& ! 108
+ 'PCPMIC_DIF2'      ,'T2' ,'MIC PCP DIF2',' (mm/day)'               ,& ! 109
+ 'PCPCON_DIF2'      ,'T2' ,'CUPARM PCP DIF2',' (mm/day)'            ,& ! 110
+ 'PCPBOTH_DIF2'     ,'T2' ,'MIC + CUPARM PCP DIF2',' (mm/day)'      ,& ! 111
+ 'RSHORT_DIF2'      ,'T2' ,'SFC DOWN SW FLX DIF2',' (W m:S2:-2  )'  ,& ! 112
+ 'RSHORTUP_DIF2'    ,'T2' ,'SFC UP SW FLX DIF2',' (W m:S2:-2  )'    ,& ! 113
+ 'RLONG_DIF2'       ,'T2' ,'SFC DOWN LW FLX DIF2',' (W m:S2:-2  )'  ,& ! 114
+ 'RLONGUP_DIF2'     ,'T2' ,'SFC UP LW FLX DIF2',' (W m:S2:-2  )'    ,& ! 115
+ 'RSHORT_TOP_DIF2'  ,'T2' ,'TOP DOWN SW FLX DIF2',' (W m:S2:-2  )'  ,& ! 116
+ 'RSHORTUP_TOP_DIF2','T2' ,'TOP UP SW FLX DIF2',' (W m:S2:-2  )'    ,& ! 117
+ 'RLONGUP_TOP_DIF2' ,'T2' ,'TOP UP LW FLX DIF2',' (W m:S2:-2  )'    ,& ! 118
+ 'LATHEAT_ZINT_DIF2','T3' ,'LATHEAT ZINT DIF2',' (K hr:S2:-1  )'     / ! 119
 
 ! ATMOSPHERE DIF4 fields (2D)
 
 data fldlib(1:4,129:134)/ &
- 'PCPMIC_DIF4'    ,'T2' ,'MICPHYS PRECIP DIFF4',' (mm/day)'                  ,& ! 129
- 'PCPCON_DIF4'    ,'T2' ,'CONV PRECIP DIFF4',' (mm/day)'                     ,& ! 130
- 'PCPBOTH_DIF4'   ,'T2' ,'MICPHYS + CONV PRECIP DIFF4',' (mm/day)'           ,& ! 131
- 'PCPMIC_REL4'    ,'T2' ,'MICPHYS PRECIP RELATIVE DIFF4',' '                 ,& ! 132
- 'PCPCON_REL4'    ,'T2' ,'CONV PRECIP RELATIVE DIFF4',' '                    ,& ! 133
- 'PCPBOTH_REL4'   ,'T2' ,'MICPHYS + CONV PRECIP RELATIVE DIFF4',' '           / ! 134
+ 'PCPMIC_DIF4'    ,'T2' ,'MIC PCP DIFF4',' (mm/day)'                  ,& ! 129
+ 'PCPCON_DIF4'    ,'T2' ,'CUPARM PCP DIFF4',' (mm/day)'               ,& ! 130
+ 'PCPBOTH_DIF4'   ,'T2' ,'MIC+CUPARM PCP DIFF4',' (mm/day)'           ,& ! 131
+ 'PCPMIC_REL4'    ,'T2' ,'MIC PCP RELATIVE DIFF4',' '                 ,& ! 132
+ 'PCPCON_REL4'    ,'T2' ,'CUPARM PCP RELATIVE DIFF4',' '              ,& ! 133
+ 'PCPBOTH_REL4'   ,'T2' ,'MIC+CUPARM PCP RELATIVE DIFF4',' '           / ! 134
 
 ! LAND_CELLS - 3D
 
 data fldlib(1:4,181:203)/ &
- 'SAND'              ,'L3G','SOIL SAND FRACTION',' ( )'                     ,& ! 181
- 'CLAY'              ,'L3G','SOIL CLAY FRACTION',' ( )'                     ,& ! 182
- 'SILT'              ,'L3G','SOIL SILT FRACTION',' ( )'                     ,& ! 183
- 'ORGAN'             ,'L3G','SOIL ORGANIC SPECIFIC DENSITY',' (g/kg )'      ,& ! 184
- 'BULKDENS_DRYSOIL'  ,'L3G','SOIL DRY BULK DENSITY',' (kg m:S2:-3  )'       ,& ! 185
- 'PH_SOIL'           ,'L3G','SOIL PH',' ( )'                                ,& ! 186
- 'CEC_SOIL'          ,'L3G','SOIL CATION EXCHANGE CAPACITY',' (cmol+/kg )'  ,& ! 187
- 'WRESID_VG'         ,'L3G','SOIL RESIDUAL WATER CONTENT (VG)',' ( )'       ,& ! 188
- 'WSAT_VG'           ,'L3G','SOIL SATURATION WATER CONTENT (VG)',' ( )'     ,& ! 189
- 'KSAT_VG'           ,'L3G','SOIL SATURATION HYD CONDUCTIVITY (VG)',' (m/s)',& ! 190
- 'ALPHA_VG'          ,'L3G','SOIL ALPHA_VG',' (1/m)'                        ,& ! 191
- 'EN_VG'             ,'L3G','SOIL EN_VG',' ( )'                             ,& ! 192
- 'LAMBDA_VG'         ,'L3G','SOIL LAMBDA_VG',' ( )'                         ,& ! 193
- 'SPECIFHEAT_DRYSOIL','L3G','SOIL DRY SPECIFIC HEAT',' ( )'                 ,& ! 194
- 'SOIL_ENERGY'       ,'L3G','SOIL ENERGY',' (J cm:S2:-3  )'                 ,& ! 195
- 'SOIL_TEMPK'        ,'L3G','SOIL TEMP',' (K)'                              ,& ! 196
- 'SOIL_FRACLIQ'      ,'L3G','LIQUID FRACTION OF SOIL WATER',' ( )'          ,& ! 197
- 'SOIL_WATER'        ,'L3G','SOIL WATER CONTENT',' ( )'                     ,& ! 198
- 'SFWAT_MASS'        ,'L3S','SFCWATER MASS',' (kg m:S2:-2  )'               ,& ! 199
- 'SFWAT_ENERGY'      ,'L3S','SFCWATER ENERGY',' (J g:S2:-1  )'              ,& ! 200
- 'SFWAT_TEMPK'       ,'L3S','SFCWATER TEMP',' (K)'                          ,& ! 201
- 'SFWAT_FRACLIQ'     ,'L3S','SFCWATER LIQUID FRACTION',' ( )'               ,& ! 202
- 'SFWAT_DEPTH'       ,'L3S','SFCWATER DEPTH',' (m)'                          / ! 203
+ 'SAND'              ,'L3G','SOIL SAND FRACTION',' ( )'                  ,& ! 181
+ 'CLAY'              ,'L3G','SOIL CLAY FRACTION',' ( )'                  ,& ! 182
+ 'SILT'              ,'L3G','SOIL SILT FRACTION',' ( )'                  ,& ! 183
+ 'ORGAN'             ,'L3G','SOIL ORGANIC SPECIF DENS',' (g/kg )'        ,& ! 184
+ 'BULKDENS_DRYSOIL'  ,'L3G','SOIL DRY BULK DENS',' (kg m:S2:-3  )'       ,& ! 185
+ 'PH_SOIL'           ,'L3G','SOIL PH',' ( )'                             ,& ! 186
+ 'CEC_SOIL'          ,'L3G','SOIL CATION EXCHANGE CAP',' (cmol+/kg )'    ,& ! 187
+ 'WRESID_VG'         ,'L3G','SOIL RESIDUAL WATER CONTENT (VG)',' ( )'    ,& ! 188
+ 'WSAT_VG'           ,'L3G','SOIL SAT WATER CONTENT (VG)',' ( )'         ,& ! 189
+ 'KSAT_VG'           ,'L3G','SOIL SAT HYD CONDUCTIVITY (VG)',' (m/s)'    ,& ! 190
+ 'ALPHA_VG'          ,'L3G','SOIL ALPHA_VG',' (1/m)'                     ,& ! 191
+ 'EN_VG'             ,'L3G','SOIL EN_VG',' ( )'                          ,& ! 192
+ 'LAMBDA_VG'         ,'L3G','SOIL LAMBDA_VG',' ( )'                      ,& ! 193
+ 'SPECIFHEAT_DRYSOIL','L3G','SOIL DRY SPECIFIC HEAT',' ( )'              ,& ! 194
+ 'SOIL_ENERGY'       ,'L3G','SOIL ENERGY',' (J cm:S2:-3  )'              ,& ! 195
+ 'SOIL_TEMPK'        ,'L3G','SOIL TEMP',' (K)'                           ,& ! 196
+ 'SOIL_FRACLIQ'      ,'L3G','LIQUID FRACTION OF SOIL WATER',' ( )'       ,& ! 197
+ 'SOIL_WATER'        ,'L3G','SOIL WATER CONTENT',' ( )'                  ,& ! 198
+ 'SFWAT_MASS'        ,'L3S','SFCWATER MASS',' (kg m:S2:-2  )'            ,& ! 199
+ 'SFWAT_ENERGY'      ,'L3S','SFCWATER ENERGY',' (J g:S2:-1  )'           ,& ! 200
+ 'SFWAT_TEMPK'       ,'L3S','SFCWATER TEMP',' (K)'                       ,& ! 201
+ 'SFWAT_FRACLIQ'     ,'L3S','SFCWATER LIQUID FRACTION',' ( )'            ,& ! 202
+ 'SFWAT_DEPTH'       ,'L3S','SFCWATER DEPTH',' (m)'                       / ! 203
 
 ! LAND_CELLS - 2D
 
@@ -363,7 +364,7 @@ data fldlib(1:4,205:224)/ &
  'SFCWATER_TOT'     ,'L2' ,'TOTAL SFCWATER MASS',' (kg m:S2:-2  )'           ,& ! 217
  'SFCWATER_TOP_TEMP','L2' ,'SFCWATER TOPLAYER TEMP',' (K)'                   ,& ! 218
  'SOIL_TOP_TEMP'    ,'L2' ,'SOIL TOPLAYER TEMP',' (K)'                       ,& ! 219
- 'GROUND_RRV'       ,'L2' ,'EQUIL VAP MIX RATIO OF SOIL',' (g kg:S2:-1  )'   ,& ! 220
+ 'GROUND_RRV'       ,'L2' ,'EQUIL VAP MIXR OF SOIL',' (g kg:S2:-1  )'        ,& ! 220
  'SOIL_DEPTH'       ,'L2' ,'SOIL DEPTH',' (m)'                               ,& ! 221
  'SOIL_WATER_TOT'   ,'L2' ,'TOTAL SOIL WATER',' (m)'                         ,& ! 222
  'HEAD0'            ,'L2' ,'HEAD0',' (m)'                                    ,& ! 223
@@ -373,9 +374,9 @@ data fldlib(1:4,205:224)/ &
 ! LAND_CELLS - DIF2 fields
 
 data fldlib(1:4,230:250)/ &
- 'WXFERI_DIF2'         ,'L2' ,'INFILTRATION FLUX DIF2',' (mm/day)'       ,& ! 230
- 'WXFERP_DIF2'         ,'L2' ,'PERCOLATION FLUX DIF2',' (mm/day)'        ,& ! 231
- 'WXFER1_DIF2'         ,'L2' ,'SOIL BOTTOM WATER FLUX DIF2',' (mm/day)'  ,& ! 232
+ 'WXFERI_DIF2'         ,'L2' ,'INFILTRATION FLX DIF2',' (mm/day)'        ,& ! 230
+ 'WXFERP_DIF2'         ,'L2' ,'PERCOLATION FLX DIF2',' (mm/day)'         ,& ! 231
+ 'WXFER1_DIF2'         ,'L2' ,'SOIL BOTTOM WATER FLX DIF2',' (mm/day)'   ,& ! 232
  'SOIL_WATER_TOT_DIF2' ,'L2' ,'TOTAL SOIL WATER DIF2',' (m)'             ,& ! 233
  'VEGTEMPK_DMIN_DIF2'  ,'L2' ,'VEG DMIN TEMP DIF2',' (K)'                ,& ! 234
  'VEGTEMPK_DMAX_DIF2'  ,'L2' ,'VEG DMAX TEMP DIF2',' (K)'                ,& ! 235
@@ -387,9 +388,9 @@ data fldlib(1:4,230:250)/ &
 
 ! LAND_CELLS - DIF4 fields
 
- 'WXFERI_DIF4'         ,'L2' ,'INFILTRATION FLUX DIF4',' (mm/day)'       ,& ! 241
- 'WXFERP_DIF4'         ,'L2' ,'PERCOLATION FLUX DIF4',' (mm/day)'        ,& ! 242
- 'WXFER1_DIF4'         ,'L2' ,'SOIL BOTTOM WATER FLUX DIF4',' (mm/day)'  ,& ! 243
+ 'WXFERI_DIF4'         ,'L2' ,'INFILTRATION FLX DIF4',' (mm/day)'        ,& ! 241
+ 'WXFERP_DIF4'         ,'L2' ,'PERCOLATION FLX DIF4',' (mm/day)'         ,& ! 242
+ 'WXFER1_DIF4'         ,'L2' ,'SOIL BOTTOM WATER FLX DIF4',' (mm/day)'   ,& ! 243
  'VEGTEMPK_DMIN_DIF4'  ,'L2' ,'VEG DMIN TEMP DIF4',' (K)'                ,& ! 244
  'VEGTEMPK_DMAX_DIF4'  ,'L2' ,'VEG DMAX TEMP DIF4',' (K)'                ,& ! 245
  'VEGTEMPK_DSPAN_DIF4' ,'L2' ,'VEG DSPAN TEMP DIF4',' (K)'               ,& ! 246
@@ -401,14 +402,14 @@ data fldlib(1:4,230:250)/ &
 ! LAND_CELLS - ATM averages
 
 data fldlib(1:4,251:281)/ &
- 'AL_SFCWATER_TOT'        ,'T2' ,'AL TOTAL SFCWATER MASS',' (kg m:S2:-2  )'  ,& ! 251
- 'AL_SOIL_WATER_TOT'      ,'T2' ,'AL TOTAL SOIL WATER',' (m)'                ,& ! 252
+ 'AL_SFCWATER_TOT'        ,'T2' ,'AL TOTAL SFCWATER MASS',' (kg m:S2:-2  )'   ,& ! 251
+ 'AL_SOIL_WATER_TOT'      ,'T2' ,'AL TOTAL SOIL WATER',' (m)'                 ,& ! 252
 
 ! LAND_CELLS - ATM averages of DIF2 fields
 
- 'AL_WXFERI_DIF2'         ,'T2' ,'AL INFILTRATION FLUX DIF2',' (mm/day)'      ,& ! 253
- 'AL_WXFERP_DIF2'         ,'T2' ,'AL PERCOLATION FLUX DIF2',' (mm/day)'       ,& ! 254
- 'AL_WXFER1_DIF2'         ,'T2' ,'AL SOIL BOTTOM WATER FLUX DIF2',' (mm/day)' ,& ! 255
+ 'AL_WXFERI_DIF2'         ,'T2' ,'AL INFILTRATION FLX DIF2',' (mm/day)'       ,& ! 253
+ 'AL_WXFERP_DIF2'         ,'T2' ,'AL PERCOLATION FLX DIF2',' (mm/day)'        ,& ! 254
+ 'AL_WXFER1_DIF2'         ,'T2' ,'AL SOIL BOTTOM WATER FLX DIF2',' (mm/day)'  ,& ! 255
  'AL_SOIL_WATER_TOT_DIF2' ,'T2' ,'AL TOTAL SOIL WATER DIF2',' (m)'            ,& ! 256
  'AL_VEGTEMPK_DMIN_DIF2'  ,'T2' ,'AL VEG DMIN TEMP DIF2',' (K)'               ,& ! 257
  'AL_VEGTEMPK_DMAX_DIF2'  ,'T2' ,'AL VEG DMAX TEMP DIF2',' (K)'               ,& ! 258
@@ -419,9 +420,9 @@ data fldlib(1:4,251:281)/ &
 
 ! LAND_CELLS - ATM averages of DIF4 fields
 
- 'AL_WXFERI_DIF4'         ,'T2' ,'AL INFILTRATION FLUX DIF4',' (mm/day)'      ,& ! 263
- 'AL_WXFERP_DIF4'         ,'T2' ,'AL PERCOLATION FLUX DIF4',' (mm/day)'       ,& ! 264
- 'AL_WXFER1_DIF4'         ,'T2' ,'AL SOIL BOTTOM WATER FLUX DIF4',' (mm/day)' ,& ! 265
+ 'AL_WXFERI_DIF4'         ,'T2' ,'AL INFILTRATION FLX DIF4',' (mm/day)'       ,& ! 263
+ 'AL_WXFERP_DIF4'         ,'T2' ,'AL PERCOLATION FLX DIF4',' (mm/day)'        ,& ! 264
+ 'AL_WXFER1_DIF4'         ,'T2' ,'AL SOIL BOTTOM WATER FLX DIF4',' (mm/day)'  ,& ! 265
  'AL_VEGTEMPK_DMIN_DIF4'  ,'T2' ,'AL VEG DMIN TEMP DIF4',' (K)'               ,& ! 266
  'AL_VEGTEMPK_DMAX_DIF4'  ,'T2' ,'AL VEG DMAX TEMP DIF4',' (K)'               ,& ! 267
  'AL_VEGTEMPK_DSPAN_DIF4' ,'T2' ,'AL VEG DSPAN TEMP DIF4',' (K)'              ,& ! 268
@@ -445,42 +446,42 @@ data fldlib(1:4,251:281)/ &
 ! SFC GRID CELLS - 2D
 
 data fldlib(1:4,297:332)/ &
- 'LEAF_CLASS'         ,'C2' ,'LEAF CLASS',' ( )'                               ,& ! 297
- 'SFCG_AREA'          ,'C2' ,'SFCG CELL AREA',' (m:S2:2  )'                    ,& ! 298
- 'SFCG_GLATW'         ,'C2' ,'SFCG CELL LATITUDE',' (deg)'                     ,& ! 299
- 'SFCG_GLONW'         ,'C2' ,'SFCG CELL LONGITUDE',' (deg)'                    ,& ! 300
- 'SFCG_TOPW'          ,'C2' ,'SFCG CELL TOPW',' (m)'                           ,& ! 301
- 'SFCG_ROUGH'         ,'C2' ,'SFCG NET ROUGHNESS HEIGHT',' (m)'                ,& ! 302
- 'SFCG_VELS'          ,'C2' ,'SFCG WIND SPEED',' (m s:S2:-1  )'                ,& ! 303
- 'SFCG_PRSS'          ,'C2' ,'SFCG PRESSURE',' (hPa)'                          ,& ! 304
- 'SFCG_RHOS'          ,'C2' ,'SFCG DENSITY',' (kg m:S2:-3  )'                  ,& ! 305
- 'SFCG_AIRTEMPK'      ,'C2' ,'SFCG ATM TEMP',' (K)'                            ,& ! 306
- 'SFCG_AIRRRV'        ,'C2' ,'SFCG ATM RRV',' (g kg:S2:-1  )'                  ,& ! 307
- 'SFCG_CANTEMPK'      ,'C2' ,'SFCG CANOPY AIR TEMP',' (K)'                     ,& ! 308
- 'SFCG_CANRRV'        ,'C2' ,'SFCG CANOPY VAPOR MIX RATIO',' (g kg:S2:-1  )'   ,& ! 309
- 'SFCG_SKINTEMPK'     ,'C2' ,'SFCG SKIN TEMP',' (K)'                           ,& ! 310
- 'SFCG_GSS_SRRV'      ,'C2' ,'SFCG SAT VAP MIX RATIO',' (g kg:S2:-1  )'        ,& ! 311
- 'HEAD1'              ,'C2' ,'WATER SFC HEAD',' (m)'                           ,& ! 312
- 'HEAD_WTAB'          ,'C2' ,'HEAD AT WATER TABLE',' (m)'                      ,& ! 313
- 'SFCG_SENSFLUX'      ,'C2','SFCG SENS HEAT FLX',' (W m:S2:-2  )'              ,& ! 314
- 'SFCG_LATFLUX'       ,'C2','SFCG LAT HEAT FLX',' (W m:S2:-2  )'               ,& ! 315
- 'SFCG_VAPFLUX'       ,'C2','SFCG VAP FLX',' (kg m:S2:-2   s:S2:-1  )'         ,& ! 316
- 'SFCG_SPEED10M'      ,'C2','SFCG 10M WIND SPEED',' (m s:S2:-1  )'             ,& ! 317
- 'SFCG_SPEED2M'       ,'C2','SFCG 2M WIND SPEED',' (m s:S2:-1  )'              ,& ! 318
- 'SFCG_TEMPK2M'       ,'C2','SFCG 2M TEMP',' (K)'                              ,& ! 319
- 'SFCG_RVAP2M'        ,'C2','SFCG 2M RRV',' (g kg:S2:-1  )'                    ,& ! 320
- 'SFCG_RSHORT'        ,'C2','SFCG DOWN SW FLX',' (W m:S2:-2  )'                ,& ! 321
- 'SFCG_RLONG'         ,'C2','SFCG DOWN LW FLX',' (W m:S2:-2  )'                ,& ! 322
- 'SFCG_RLONGUP'       ,'C2','SFCG UP LW FLX',' (W m:S2:-2  )'                  ,& ! 323
- 'SFCG_RLONG_ALBEDO'  ,'C2','SFCG NET LW ALBEDO',' ( )'                        ,& ! 324
- 'SFCG_ALBEDO_BEAM'   ,'C2','SFCG NET BEAM ALBEDO',' ( )'                      ,& ! 325
- 'SFCG_ALBEDO_DIFFUSE','C2','SFCG NET DIFFUSE ALBEDO',' ( )'                   ,& ! 326
- 'SFCG_BATHYM'        ,'C2','SFCG CELL BATHYMETRY',' (m)'                      ,& ! 327
- 'SFCG_PCPG'          ,'C2','SFCG PCPG',' (kg m:S2:-2  )'                      ,& ! 328
- 'SFCG_VC'            ,'B2','SFCG VC',' (m s:S2:-1  )'                         ,& ! 329
- 'WAT_DEPTH'          ,'C2','WAT_DEPTH',' (m)'                                 ,& ! 330
- 'WAT_TEMPK'          ,'C2','WAT_TEMP',' (K)'                                  ,& ! 331
- 'HEAD1_MSL'          ,'C2','WATER SFC HEAD REL TO MSL',' (m)'                  / ! 332
+ 'LEAF_CLASS'         ,'C2' ,'LEAF CLASS',' ( )'                          ,& ! 297
+ 'SFCG_AREA'          ,'C2' ,'SFCG CELL AREA',' (m:S2:2  )'               ,& ! 298
+ 'SFCG_GLATW'         ,'C2' ,'SFCG CELL LATITUDE',' (deg)'                ,& ! 299
+ 'SFCG_GLONW'         ,'C2' ,'SFCG CELL LONGITUDE',' (deg)'               ,& ! 300
+ 'SFCG_TOPW'          ,'C2' ,'SFCG CELL TOPW',' (m)'                      ,& ! 301
+ 'SFCG_ROUGH'         ,'C2' ,'SFCG NET ROUGHNESS HEIGHT',' (m)'           ,& ! 302
+ 'SFCG_VELS'          ,'C2' ,'SFCG WIND SPEED',' (m s:S2:-1  )'           ,& ! 303
+ 'SFCG_PRSS'          ,'C2' ,'SFCG PRESSURE',' (hPa)'                     ,& ! 304
+ 'SFCG_RHOS'          ,'C2' ,'SFCG DENSITY',' (kg m:S2:-3  )'             ,& ! 305
+ 'SFCG_AIRTEMPK'      ,'C2' ,'SFCG ATM TEMP',' (K)'                       ,& ! 306
+ 'SFCG_AIRRRV'        ,'C2' ,'SFCG ATM RRV',' (g kg:S2:-1  )'             ,& ! 307
+ 'SFCG_CANTEMPK'      ,'C2' ,'SFCG CANOPY AIR TEMP',' (K)'                ,& ! 308
+ 'SFCG_CANRRV'        ,'C2' ,'SFCG CANOPY VAP MIXR',' (g kg:S2:-1  )'     ,& ! 309
+ 'SFCG_SKINTEMPK'     ,'C2' ,'SFCG SKIN TEMP',' (K)'                      ,& ! 310
+ 'SFCG_GSS_SRRV'      ,'C2' ,'SFCG SAT VAP MIXR',' (g kg:S2:-1  )'        ,& ! 311
+ 'HEAD1'              ,'C2' ,'WATER SFC HEAD',' (m)'                      ,& ! 312
+ 'HEAD_WTAB'          ,'C2' ,'HEAD AT WATER TABLE',' (m)'                 ,& ! 313
+ 'SFCG_SENSFLUX'      ,'C2','SFCG SENS FLX',' (W m:S2:-2  )'              ,& ! 314
+ 'SFCG_LATFLUX'       ,'C2','SFCG LAT FLX',' (W m:S2:-2  )'               ,& ! 315
+ 'SFCG_VAPFLUX'       ,'C2','SFCG VAP FLX',' (kg m:S2:-2   s:S2:-1  )'    ,& ! 316
+ 'SFCG_SPEED10M'      ,'C2','SFCG 10M WIND SPEED',' (m s:S2:-1  )'        ,& ! 317
+ 'SFCG_SPEED2M'       ,'C2','SFCG 2M WIND SPEED',' (m s:S2:-1  )'         ,& ! 318
+ 'SFCG_TEMPK2M'       ,'C2','SFCG 2M TEMP',' (K)'                         ,& ! 319
+ 'SFCG_RVAP2M'        ,'C2','SFCG 2M RRV',' (g kg:S2:-1  )'               ,& ! 320
+ 'SFCG_RSHORT'        ,'C2','SFCG DOWN SW FLX',' (W m:S2:-2  )'           ,& ! 321
+ 'SFCG_RLONG'         ,'C2','SFCG DOWN LW FLX',' (W m:S2:-2  )'           ,& ! 322
+ 'SFCG_RLONGUP'       ,'C2','SFCG UP LW FLX',' (W m:S2:-2  )'             ,& ! 323
+ 'SFCG_RLONG_ALBEDO'  ,'C2','SFCG NET LW ALBEDO',' ( )'                   ,& ! 324
+ 'SFCG_ALBEDO_BEAM'   ,'C2','SFCG NET BEAM ALBEDO',' ( )'                 ,& ! 325
+ 'SFCG_ALBEDO_DIFFUSE','C2','SFCG NET DIFFUSE ALBEDO',' ( )'              ,& ! 326
+ 'SFCG_BATHYM'        ,'C2','SFCG CELL BATHYMETRY',' (m)'                 ,& ! 327
+ 'SFCG_PCPG'          ,'C2','SFCG PCPG',' (kg m:S2:-2  )'                 ,& ! 328
+ 'SFCG_VC'            ,'B2','SFCG VC',' (m s:S2:-1  )'                    ,& ! 329
+ 'WAT_DEPTH'          ,'C2','WAT_DEPTH',' (m)'                            ,& ! 330
+ 'WAT_TEMPK'          ,'C2','WAT_TEMP',' (K)'                             ,& ! 331
+ 'HEAD1_MSL'          ,'C2','WATER SFC HEAD REL TO MSL',' (m)'             / ! 332
 
 !SFCG_SWM_ACTIVE
 
@@ -498,11 +499,11 @@ data fldlib(1:4,341:361)/ &
  'SFCG_AIRTEMPK_DIF2'  ,'C2' ,'SFCG ATM TEMP DIF2',' (K)'                       ,& ! 342
  'SFCG_AIRRRV_DIF2'    ,'C2' ,'SFCG ATM RRV DIF2',' (g kg:S2:-1  )'             ,& ! 343
  'SFCG_CANTEMPK_DIF2'  ,'C2' ,'SFCG CANOPY AIR TEMP DIF2',' (K)'                ,& ! 344
- 'SFCG_CANRRV_DIF2'    ,'C2' ,'SFCG CANOPY VAP MIX RATIO DIF2',' (g kg:S2:-1  )',& ! 345
+ 'SFCG_CANRRV_DIF2'    ,'C2' ,'SFCG CANOPY VAP MIXR DIF2',' (g kg:S2:-1  )'     ,& ! 345
  'SFCG_SKINTEMPK_DIF2' ,'C2' ,'SFCG VEG/GROUND/SFCWATER/SEA TEMP DIF2',' (K)'   ,& ! 346
- 'SFCG_SENSFLUX_DIF2'  ,'C2' ,'SFCG SENS HEAT FLUX DIF2',' (W m:S2:-2  )'       ,& ! 347
- 'SFCG_LATFLUX_DIF2'   ,'C2' ,'SFCG LAT HEAT FLUX DIF2',' (W m:S2:-2  )'        ,& ! 348
- 'SFCG_VAPFLUX_DIF2'   ,'C2' ,'SFCG VAP FLUX DIF2',' (mm/day)'                  ,& ! 349 ! fast can nud
+ 'SFCG_SENSFLUX_DIF2'  ,'C2' ,'SFCG SENS FLX DIF2',' (W m:S2:-2  )'             ,& ! 347
+ 'SFCG_LATFLUX_DIF2'   ,'C2' ,'SFCG LAT FLX DIF2',' (W m:S2:-2  )'              ,& ! 348
+ 'SFCG_VAPFLUX_DIF2'   ,'C2' ,'SFCG VAP FLX DIF2',' (mm/day)'                   ,& ! 349 ! fast can nud
  'SFCG_PCP_DIF2'       ,'C2' ,'SFCG PCP DIF2',' (mm/day)'                       ,& ! 350 ! fast can nud
  'SFCG_RUNOFF_DIF2'    ,'C2' ,'SFCG RUNOFF DIF2',' (mm/day)'                    ,& ! 351
  'SFCG_SFCTEMP_DIF2'   ,'C2' ,'SFCG SFCTEMP DIF2',' (k)'                        ,& ! 352 ! fast can nud
@@ -520,11 +521,11 @@ data fldlib(1:4,341:361)/ &
 
 data fldlib(1:4,362:372)/ &
  'SFCG_CANTEMPK_DIF4'  ,'C2' ,'SFCG CANOPY AIR TEMP DIF4',' (K)'                ,& ! 362
- 'SFCG_CANRRV_DIF4'    ,'C2' ,'SFCG CANOPY VAP MIX RATIO DIF4',' (g kg:S2:-1  )',& ! 363
+ 'SFCG_CANRRV_DIF4'    ,'C2' ,'SFCG CANOPY VAP MIXR DIF4',' (g kg:S2:-1  )'     ,& ! 363
  'SFCG_SKINTEMPK_DIF4' ,'C2' ,'SFCG VEG/GROUND/SFCWATER/SEA TEMP DIF4',' (K)'   ,& ! 364
- 'SFCG_SENSFLUX_DIF4'  ,'C2' ,'SFCG SENS HEAT FLUX DIF4',' (W m:S2:-2  )'       ,& ! 365
- 'SFCG_LATFLUX_DIF4'   ,'C2' ,'SFCG LAT HEAT FLUX DIF4',' (W m:S2:-2  )'        ,& ! 366
- 'SFCG_VAPFLUX_DIF4'   ,'C2' ,'SFCG VAP FLUX DIF4',' (kg m:S2:-2   s:S2:-1  )'  ,& ! 367
+ 'SFCG_SENSFLUX_DIF4'  ,'C2' ,'SFCG SENS FLX DIF4',' (W m:S2:-2  )'             ,& ! 365
+ 'SFCG_LATFLUX_DIF4'   ,'C2' ,'SFCG LAT FLX DIF4',' (W m:S2:-2  )'              ,& ! 366
+ 'SFCG_VAPFLUX_DIF4'   ,'C2' ,'SFCG VAP FLX DIF4',' (kg m:S2:-2   s:S2:-1  )'   ,& ! 367
  'SFCG_RUNOFF_DIF4'    ,'C2' ,'SFCG RUNOFF DIF4',' (mm/day)'                    ,& ! 368
  'SFCG_CANTEMPK_DMIN_DIF4' ,'C2' ,'SFCG CAN DMIN TEMP DIF4',' (K)'              ,& ! 369
  'SFCG_CANTEMPK_DMAX_DIF4' ,'C2' ,'SFCG CAN DMAX TEMP DIF4',' (K)'              ,& ! 370
@@ -536,12 +537,12 @@ data fldlib(1:4,362:372)/ &
 data fldlib(1:4,401:409)/ &
  'ASFCG_VELS'         ,'T2' ,'ASFCG WIND SPEED',' (m s:S2:-1  )'                ,& ! 401
  'ASFCG_AIRTEMPK'     ,'T2' ,'ASFCG ATM TEMP',' (K)'                            ,& ! 402
- 'ASFCG_AIRRRV'       ,'T2' ,'ASFCG ATM VAP MIX RATIO',' (g kg:S2:-1  )'        ,& ! 403
+ 'ASFCG_AIRRRV'       ,'T2' ,'ASFCG ATM VAP MIXR',' (g kg:S2:-1  )'             ,& ! 403
  'ASFCG_CANTEMPK'     ,'T2' ,'ASFCG CANOPY AIR TEMP',' (K)'                     ,& ! 404
- 'ASFCG_CANRRV'       ,'T2' ,'ASFCG CANOPY VAP MIX RATIO',' (g kg:S2:-1  )'     ,& ! 405
+ 'ASFCG_CANRRV'       ,'T2' ,'ASFCG CANOPY VAP MIXR',' (g kg:S2:-1  )'          ,& ! 405
  'ASFCG_SKINTEMPK'    ,'T2' ,'ASFCG SKIN TEMP',' (K)'                           ,& ! 406
- 'ASFCG_SENSFLUX'     ,'T2' ,'ASFCG SENS HEAT FLUX',' (W m:S2:-2  )'            ,& ! 407
- 'ASFCG_LATFLUX'      ,'T2' ,'ASFCG LAT HEAT FLUX',' (W m:S2:-2  )'             ,& ! 408
+ 'ASFCG_SENSFLUX'     ,'T2' ,'ASFCG SENS FLX',' (W m:S2:-2  )'                  ,& ! 407
+ 'ASFCG_LATFLUX'      ,'T2' ,'ASFCG LAT FLX',' (W m:S2:-2  )'                   ,& ! 408
  'ASFCG_VAPFLUX'      ,'T2' ,'ASFCG VAP FLUX',' (kg m:S2:-2   s:S2:-1  )'        / ! 409
 
 ! SFC GRID CELLS - ATM averages of DIF2 fields
@@ -551,10 +552,10 @@ data fldlib(1:4,421:435)/ &
  'ASFCG_AIRTEMPK_DIF2' ,'T2' ,'ASFCG ATM TEMP DIF2',' (K)'                       ,& ! 422
  'ASFCG_AIRRRV_DIF2'   ,'T2' ,'ASFCG ATM RRV DIF2',' (g kg:S2:-1  )'             ,& ! 423
  'ASFCG_CANTEMPK_DIF2' ,'T2' ,'ASFCG CANOPY AIR TEMP DIF2',' (K)'                ,& ! 424
- 'ASFCG_CANRRV_DIF2'   ,'T2' ,'ASFCG CANOPY VAP MIX RATIO DIF2',' (g kg:S2:-1  )',& ! 425
+ 'ASFCG_CANRRV_DIF2'   ,'T2' ,'ASFCG CANOPY VAP MIXR DIF2',' (g kg:S2:-1  )'     ,& ! 425
  'ASFCG_SKINTEMPK_DIF2','T2' ,'ASFCG VEG/GROUND/SFCWATER/SEA TEMP DIF2',' (K)'   ,& ! 426
- 'ASFCG_SENSFLUX_DIF2' ,'T2' ,'ASFCG SENS HEAT FLUX DIF2',' (W m:S2:-2  )'       ,& ! 427
- 'ASFCG_LATFLUX_DIF2'  ,'T2' ,'ASFCG LAT HEAT FLUX DIF2',' (W m:S2:-2  )'        ,& ! 428
+ 'ASFCG_SENSFLUX_DIF2' ,'T2' ,'ASFCG SENS FLX DIF2',' (W m:S2:-2  )'             ,& ! 427
+ 'ASFCG_LATFLUX_DIF2'  ,'T2' ,'ASFCG LAT FLX DIF2',' (W m:S2:-2  )'              ,& ! 428
  'ASFCG_VAPFLUX_DIF2'  ,'T2' ,'ASFCG VAP FLUX DIF2',' (kg m:S2:-2   s:S2:-1  )'  ,& ! 429
  'ASFCG_AIRTEMPK_DMIN_DIF2' ,'T2' ,'ASFCG ATM DMIN TEMP DIF2',' (K)'             ,& ! 430
  'ASFCG_AIRTEMPK_DMAX_DIF2' ,'T2' ,'ASFCG ATM DMAX TEMP DIF2',' (K)'             ,& ! 431
@@ -568,13 +569,13 @@ data fldlib(1:4,421:435)/ &
 data fldlib(1:4,451:465)/ &
  'ASFCG_VELS_DIF4'     ,'T2' ,'ASFCG WIND SPEED DIF4',' (m s:S2:-1  )'           ,& ! 451
  'ASFCG_AIRTEMPK_DIF4' ,'T2' ,'ASFCG ATM TEMP DIF4',' (K)'                       ,& ! 452
- 'ASFCG_AIRRRV_DIF4'   ,'T2' ,'ASFCG ATM MIX RATIO DIF4',' (g kg:S2:-1  )'       ,& ! 453
+ 'ASFCG_AIRRRV_DIF4'   ,'T2' ,'ASFCG ATM MIXR DIF4',' (g kg:S2:-1  )'            ,& ! 453
  'ASFCG_CANTEMPK_DIF4' ,'T2' ,'ASFCG CANOPY AIR TEMP DIF4',' (K)'                ,& ! 454
- 'ASFCG_CANRRV_DIF4'   ,'T2' ,'ASFCG CANOPY VAP MIX RATIO DIF4',' (g kg:S2:-1  )',& ! 455
- 'ASFCG_SKINTEMPK_DIF4','T2' ,'ASFCG VEG/GROUND/SFCWATER/SEA TEMP DIF4',' (K)'   ,& ! 456
- 'ASFCG_SENSFLUX_DIF4' ,'T2' ,'ASFCG SENS HEAT FLUX DIF4',' (W m:S2:-2  )'       ,& ! 457
- 'ASFCG_LATFLUX_DIF4'  ,'T2' ,'ASFCG LAT HEAT FLUX DIF4',' (W m:S2:-2  )'        ,& ! 458
- 'ASFCG_VAPFLUX_DIF4'  ,'T2' ,'ASFCG VAP FLUX DIF4',' (kg m:S2:-2   s:S2:-1  )'  ,& ! 459
+ 'ASFCG_CANRRV_DIF4'   ,'T2' ,'ASFCG CANOPY VAP MIXR DIF4',' (g kg:S2:-1  )'     ,& ! 455
+ 'ASFCG_SKINTEMPK_DIF4','T2' ,'ASFCG SKINTEMP DIF4',' (K)'                       ,& ! 456
+ 'ASFCG_SENSFLUX_DIF4' ,'T2' ,'ASFCG SENS FLX DIF4',' (W m:S2:-2  )'             ,& ! 457
+ 'ASFCG_LATFLUX_DIF4'  ,'T2' ,'ASFCG LAT FLX DIF4',' (W m:S2:-2  )'              ,& ! 458
+ 'ASFCG_VAPFLUX_DIF4'  ,'T2' ,'ASFCG VAP FLX DIF4',' (kg m:S2:-2   s:S2:-1  )'   ,& ! 459
  'ASFCG_AIRTEMPK_DMIN_DIF4' ,'T2' ,'ASFCG ATM DMIN TEMP DIF4',' (K)'             ,& ! 460
  'ASFCG_AIRTEMPK_DMAX_DIF4' ,'T2' ,'ASFCG ATM DMAX TEMP DIF4',' (K)'             ,& ! 461
  'ASFCG_AIRTEMPK_DSPAN_DIF4','T2' ,'ASFCG ATM DSPAN TEMP DIF4',' (K)'            ,& ! 462
@@ -585,167 +586,167 @@ data fldlib(1:4,451:465)/ &
 ! GRID GEOMETRY - 3D
 
 data fldlib(1:4,501:503)/ &
- 'ARV'           ,'V3' ,'AREA OF GRID CELL V-FACE',' (m:S2:2  )'            ,& ! 501
- 'ARW'           ,'W3' ,'AREA OF GRID CELL W-FACE',' (m:S2:2  )'            ,& ! 502
- 'VOLT'          ,'T3' ,'GRID T-CELL VOLUME',' (m:S2:3  )'                   / ! 503
+ 'ARV'           ,'V3' ,'AREA OF GRID CELL V-FACE',' (m:S2:2  )'           ,& ! 501
+ 'ARW'           ,'W3' ,'AREA OF GRID CELL W-FACE',' (m:S2:2  )'           ,& ! 502
+ 'VOLT'          ,'T3' ,'GRID T-CELL VOLUME',' (m:S2:3  )'                  / ! 503
 
 ! GRID GEOMETRY - 2D
 
 data fldlib(1:4,511:537)/ &
- 'TOPM'          ,'M2' ,'TOPOGRAPHY HEIGHT',' (m)'                          ,& ! 511
- 'TOPW'          ,'W2' ,'TOPOGRAPHY HEIGHT AT W',' (m)'                     ,& ! 512
- 'GLATM'         ,'M2' ,'LATITUDE AT M',' (deg)'                            ,& ! 513
- 'GLONM'         ,'M2' ,'LONGITUDE AT M',' (deg)'                           ,& ! 514
- 'GLATV'         ,'V2' ,'LATITUDE AT V',' (deg)'                            ,& ! 515
- 'GLONV'         ,'V2' ,'LONGITUDE AT V',' (deg)'                           ,& ! 516
- 'GLATW'         ,'T2' ,'LATITUDE',' (deg)'                                 ,& ! 517
- 'GLONW'         ,'T2' ,'LONGITUDE',' (deg)'                                ,& ! 518
- 'LPM'           ,'M2' ,'LOWEST PREDICTED M LEVEL',' ( )'                   ,& ! 519
- 'LPV'           ,'V2' ,'LOWEST PREDICTED V LEVEL',' ( )'                   ,& ! 520
- 'LCV'           ,'V2' ,'LOWEST ACTIVE V CONTROL VOL',' ( )'                ,& ! 521
- 'LPW'           ,'W2' ,'LOWEST PREDICTED W LEVEL',' ( )'                   ,& ! 522
- 'LSW'           ,'W2' ,'NUMBER OF SFC W LEVELS',' ( )'                     ,& ! 523
- 'XEM'           ,'M2' ,'EARTH-X COORD OF M POINT',' ( )'                   ,& ! 524
- 'YEM'           ,'M2' ,'EARTH-Y COORD OF M POINT',' ( )'                   ,& ! 525
- 'ZEM'           ,'M2' ,'EARTH-Z COORD OF M POINT',' ( )'                   ,& ! 526
- 'XEV'           ,'V2' ,'EARTH-X COORD OF V POINT',' ( )'                   ,& ! 527
- 'YEV'           ,'V2' ,'EARTH-Y COORD OF V POINT',' ( )'                   ,& ! 528
- 'ZEV'           ,'V2' ,'EARTH-Z COORD OF V POINT',' ( )'                   ,& ! 529
- 'XEW'           ,'W2' ,'EARTH-X COORD OF W POINT',' ( )'                   ,& ! 530
- 'YEW'           ,'W2' ,'EARTH-Y COORD OF W POINT',' ( )'                   ,& ! 531
- 'ZEW'           ,'W2' ,'EARTH-Z COORD OF W POINT',' ( )'                   ,& ! 532
- 'DNU'           ,'V2' ,'DNU',' (m)'                                        ,& ! 533
- 'DNV'           ,'V2' ,'DNV',' (m)'                                        ,& ! 534
- 'ARM0'          ,'W2' ,'SFC AREA OF M CELL',' (m:S2:2  )'                  ,& ! 535
- 'ARW0'          ,'W2' ,'SFC AREA OF W CELL',' (m:S2:2  )'                  ,& ! 536
- 'TOPMW'         ,'H2' ,'TOPOGRAPHY HEIGHT',' (m)'                           / ! 537
+ 'TOPM'          ,'M2' ,'TOPOGRAPHY HEIGHT',' (m)'                         ,& ! 511
+ 'TOPW'          ,'W2' ,'TOPOGRAPHY HEIGHT AT W',' (m)'                    ,& ! 512
+ 'GLATM'         ,'M2' ,'LATITUDE AT M',' (deg)'                           ,& ! 513
+ 'GLONM'         ,'M2' ,'LONGITUDE AT M',' (deg)'                          ,& ! 514
+ 'GLATV'         ,'V2' ,'LATITUDE AT V',' (deg)'                           ,& ! 515
+ 'GLONV'         ,'V2' ,'LONGITUDE AT V',' (deg)'                          ,& ! 516
+ 'GLATW'         ,'T2' ,'LATITUDE',' (deg)'                                ,& ! 517
+ 'GLONW'         ,'T2' ,'LONGITUDE',' (deg)'                               ,& ! 518
+ 'LPM'           ,'M2' ,'LOWEST PREDICTED M LEVEL',' ( )'                  ,& ! 519
+ 'LPV'           ,'V2' ,'LOWEST PREDICTED V LEVEL',' ( )'                  ,& ! 520
+ 'LCV'           ,'V2' ,'LOWEST ACTIVE V CONTROL VOL',' ( )'               ,& ! 521
+ 'LPW'           ,'W2' ,'LOWEST PREDICTED W LEVEL',' ( )'                  ,& ! 522
+ 'LSW'           ,'W2' ,'NUMBER OF SFC W LEVELS',' ( )'                    ,& ! 523
+ 'XEM'           ,'M2' ,'EARTH-X COORD OF M POINT',' ( )'                  ,& ! 524
+ 'YEM'           ,'M2' ,'EARTH-Y COORD OF M POINT',' ( )'                  ,& ! 525
+ 'ZEM'           ,'M2' ,'EARTH-Z COORD OF M POINT',' ( )'                  ,& ! 526
+ 'XEV'           ,'V2' ,'EARTH-X COORD OF V POINT',' ( )'                  ,& ! 527
+ 'YEV'           ,'V2' ,'EARTH-Y COORD OF V POINT',' ( )'                  ,& ! 528
+ 'ZEV'           ,'V2' ,'EARTH-Z COORD OF V POINT',' ( )'                  ,& ! 529
+ 'XEW'           ,'W2' ,'EARTH-X COORD OF W POINT',' ( )'                  ,& ! 530
+ 'YEW'           ,'W2' ,'EARTH-Y COORD OF W POINT',' ( )'                  ,& ! 531
+ 'ZEW'           ,'W2' ,'EARTH-Z COORD OF W POINT',' ( )'                  ,& ! 532
+ 'DNU'           ,'V2' ,'DNU',' (m)'                                       ,& ! 533
+ 'DNV'           ,'V2' ,'DNV',' (m)'                                       ,& ! 534
+ 'ARM0'          ,'W2' ,'SFC AREA OF M CELL',' (m:S2:2  )'                 ,& ! 535
+ 'ARW0'          ,'W2' ,'SFC AREA OF W CELL',' (m:S2:2  )'                 ,& ! 536
+ 'TOPMW'         ,'H2' ,'TOPOGRAPHY HEIGHT',' (m)'                          / ! 537
 
 ! ITAB_M MEMBERS - 2D
 
 data fldlib(1:4,541:550)/ &
- 'ITAB_M_NPOLY'  ,'M2' ,'ITAB_M_NPOLY',' ( )'                               ,& ! 541
- 'ITAB_M_IMGLOBE','M2' ,'ITAB_M_IMGLOBE',' ( )'                             ,& ! 542
- 'ITAB_M_MRLM'   ,'M2' ,'ITAB_M_MRLM',' ( )'                                ,& ! 543
- 'ITAB_M_MRLM_OR','M2' ,'ITAB_M_MRLM_ORIG',' ( )'                           ,& ! 544
- 'ITAB_M_MROW'   ,'M2' ,'ITAB_M_MROW',' ( )'                                ,& ! 545
- 'ITAB_M_NGR'    ,'M2' ,'ITAB_M_NGR',' ( )'                                 ,& ! 546
- 'ITAB_M_IV'     ,'M2' ,'ITAB_M_IV',' ( )'                                  ,& ! 547
- 'ITAB_M_IW'     ,'M2' ,'ITAB_M_IW',' ( )'                                  ,& ! 548
- 'ITAB_M_IM'     ,'M2' ,'ITAB_M_IM',' ( )'                                  ,& ! 549
- 'ITAB_M_IRANK'  ,'M2' ,'ITAB_M_IRANK',' ( )'                                / ! 550
+ 'ITAB_M_NPOLY'  ,'M2' ,'ITAB_M_NPOLY',' ( )'                              ,& ! 541
+ 'ITAB_M_IMGLOBE','M2' ,'ITAB_M_IMGLOBE',' ( )'                            ,& ! 542
+ 'ITAB_M_MRLM'   ,'M2' ,'ITAB_M_MRLM',' ( )'                               ,& ! 543
+ 'ITAB_M_MRLM_OR','M2' ,'ITAB_M_MRLM_ORIG',' ( )'                          ,& ! 544
+ 'ITAB_M_MROW'   ,'M2' ,'ITAB_M_MROW',' ( )'                               ,& ! 545
+ 'ITAB_M_NGR'    ,'M2' ,'ITAB_M_NGR',' ( )'                                ,& ! 546
+ 'ITAB_M_IV'     ,'M2' ,'ITAB_M_IV',' ( )'                                 ,& ! 547
+ 'ITAB_M_IW'     ,'M2' ,'ITAB_M_IW',' ( )'                                 ,& ! 548
+ 'ITAB_M_IM'     ,'M2' ,'ITAB_M_IM',' ( )'                                 ,& ! 549
+ 'ITAB_M_IRANK'  ,'M2' ,'ITAB_M_IRANK',' ( )'                               / ! 550
 
 ! ITAB_V MEMBERS - 2D
 
 data fldlib(1:4,551:557)/  &
- 'ITAB_V_IVP'    ,'V2' ,'ITAB_V_IVP',' ( )'                                 ,& ! 551
- 'ITAB_V_IRANK'  ,'V2' ,'ITAB_V_IRANK',' ( )'                               ,& ! 552
- 'ITAB_V_IVGLOBE','V2' ,'ITAB_V_IVGLOBE',' ( )'                             ,& ! 553
- 'ITAB_V_MRLV'   ,'V2' ,'ITAB_V_MRLV',' ( )'                                ,& ! 554
- 'ITAB_V_FARW'   ,'V2' ,'ITAB_V_FARW',' ( )'                                ,& ! 555
- 'ITAB_V_IM'     ,'V2' ,'ITAB_V_IM',' ( )'                                  ,& ! 556
- 'ITAB_V_IW'     ,'V2' ,'ITAB_V_IW',' ( )'                                   / ! 557
-!'ITAB_V_IV'     ,'V2' ,'ITAB_V_IV',' ( )'                                  ,& ! 558
+ 'ITAB_V_IVP'    ,'V2' ,'ITAB_V_IVP',' ( )'                                ,& ! 551
+ 'ITAB_V_IRANK'  ,'V2' ,'ITAB_V_IRANK',' ( )'                              ,& ! 552
+ 'ITAB_V_IVGLOBE','V2' ,'ITAB_V_IVGLOBE',' ( )'                            ,& ! 553
+ 'ITAB_V_MRLV'   ,'V2' ,'ITAB_V_MRLV',' ( )'                               ,& ! 554
+ 'ITAB_V_FARW'   ,'V2' ,'ITAB_V_FARW',' ( )'                               ,& ! 555
+ 'ITAB_V_IM'     ,'V2' ,'ITAB_V_IM',' ( )'                                 ,& ! 556
+ 'ITAB_V_IW'     ,'V2' ,'ITAB_V_IW',' ( )'                                  / ! 557
+!'ITAB_V_IV'     ,'V2' ,'ITAB_V_IV',' ( )'                                 ,& ! 558
 
 ! ITAB_W MEMBERS - 2D
 
 data fldlib(1:4,561:584)/ &
 
- 'ITAB_W_NPOLY'     ,'W2' ,'ITAB_W_NPOLY',' ( )'                            ,& ! 561
- 'ITAB_W_IWP'       ,'W2' ,'ITAB_W_IWP',' ( )'                              ,& ! 562
- 'ITAB_W_IRANK'     ,'W2' ,'ITAB_W_IRANK',' ( )'                            ,& ! 563
- 'ITAB_W_IWGLOBE'   ,'W2' ,'ITAB_W_IWGLOBE',' ( )'                          ,& ! 564
- 'ITAB_W_MRLW'      ,'W2' ,'ITAB_W_MRLW',' ( )'                             ,& ! 565
- 'ITAB_W_MRLW_OR'   ,'W2' ,'ITAB_W_MRLW_ORIG',' ( )'                        ,& ! 566
- 'ITAB_W_NGR'       ,'W2' ,'ITAB_W_NGR',' ( )'                              ,& ! 567
- 'ITAB_W_IM'        ,'W2' ,'ITAB_W_IM',' ( )'                               ,& ! 568
- 'ITAB_W_IV'        ,'W2' ,'ITAB_W_IV',' ( )'                               ,& ! 569
- 'ITAB_W_IW'        ,'W2' ,'ITAB_W_IW',' ( )'                               ,& ! 570
- 'ITAB_W_DIRV'      ,'W2' ,'ITAB_W_DIRV',' ( )'                             ,& ! 571
- 'ITAB_W_FARM'      ,'W2' ,'ITAB_W_FARM',' ( )'                             ,& ! 572
- 'ITAB_W_FARV'      ,'W2' ,'ITAB_W_FARV',' ( )'                             ,& ! 573
- 'ITAB_W_IWNUD'     ,'W2' ,'ITAB_W_IWNUD',' ( )'                            ,& ! 574
- 'ITAB_W_FNUD'      ,'W2' ,'ITAB_W_FNUD',' ( )'                             ,& ! 575
- 'ITAB_W_JLAND1'    ,'W2' ,'ITAB_W_JLAND1',' ( )'                           ,& ! 576
- 'ITAB_W_JLAND2'    ,'W2' ,'ITAB_W_JLAND2',' ( )'                           ,& ! 577
- 'ITAB_W_JLAKE1'    ,'W2' ,'ITAB_W_JLAKE1',' ( )'                           ,& ! 578
- 'ITAB_W_JLAKE2'    ,'W2' ,'ITAB_W_JLAKE2',' ( )'                           ,& ! 579
- 'ITAB_W_JSEA1'     ,'W2' ,'ITAB_W_JSEA1',' ( )'                            ,& ! 580
- 'ITAB_W_JSEA2'     ,'W2' ,'ITAB_W_JSEA2',' ( )'                            ,& ! 581
- 'ITAB_W_JSFC2'     ,'W2' ,'ITAB_W_J2SFC',' ( )'                            ,& ! 582
- 'ITAB_W_IWSFC'     ,'W2' ,'ITAB_W_IWSFC',' ( )'                            ,& ! 583
- 'ITAB_W_JASFC'     ,'W2' ,'ITAB_W_JASFC',' ( )'                             / ! 584
+ 'ITAB_W_NPOLY'     ,'W2' ,'ITAB_W_NPOLY',' ( )'                           ,& ! 561
+ 'ITAB_W_IWP'       ,'W2' ,'ITAB_W_IWP',' ( )'                             ,& ! 562
+ 'ITAB_W_IRANK'     ,'W2' ,'ITAB_W_IRANK',' ( )'                           ,& ! 563
+ 'ITAB_W_IWGLOBE'   ,'W2' ,'ITAB_W_IWGLOBE',' ( )'                         ,& ! 564
+ 'ITAB_W_MRLW'      ,'W2' ,'ITAB_W_MRLW',' ( )'                            ,& ! 565
+ 'ITAB_W_MRLW_OR'   ,'W2' ,'ITAB_W_MRLW_ORIG',' ( )'                       ,& ! 566
+ 'ITAB_W_NGR'       ,'W2' ,'ITAB_W_NGR',' ( )'                             ,& ! 567
+ 'ITAB_W_IM'        ,'W2' ,'ITAB_W_IM',' ( )'                              ,& ! 568
+ 'ITAB_W_IV'        ,'W2' ,'ITAB_W_IV',' ( )'                              ,& ! 569
+ 'ITAB_W_IW'        ,'W2' ,'ITAB_W_IW',' ( )'                              ,& ! 570
+ 'ITAB_W_DIRV'      ,'W2' ,'ITAB_W_DIRV',' ( )'                            ,& ! 571
+ 'ITAB_W_FARM'      ,'W2' ,'ITAB_W_FARM',' ( )'                            ,& ! 572
+ 'ITAB_W_FARV'      ,'W2' ,'ITAB_W_FARV',' ( )'                            ,& ! 573
+ 'ITAB_W_IWNUD'     ,'W2' ,'ITAB_W_IWNUD',' ( )'                           ,& ! 574
+ 'ITAB_W_FNUD'      ,'W2' ,'ITAB_W_FNUD',' ( )'                            ,& ! 575
+ 'ITAB_W_JLAND1'    ,'W2' ,'ITAB_W_JLAND1',' ( )'                          ,& ! 576
+ 'ITAB_W_JLAND2'    ,'W2' ,'ITAB_W_JLAND2',' ( )'                          ,& ! 577
+ 'ITAB_W_JLAKE1'    ,'W2' ,'ITAB_W_JLAKE1',' ( )'                          ,& ! 578
+ 'ITAB_W_JLAKE2'    ,'W2' ,'ITAB_W_JLAKE2',' ( )'                          ,& ! 579
+ 'ITAB_W_JSEA1'     ,'W2' ,'ITAB_W_JSEA1',' ( )'                           ,& ! 580
+ 'ITAB_W_JSEA2'     ,'W2' ,'ITAB_W_JSEA2',' ( )'                           ,& ! 581
+ 'ITAB_W_JSFC2'     ,'W2' ,'ITAB_W_J2SFC',' ( )'                           ,& ! 582
+ 'ITAB_W_IWSFC'     ,'W2' ,'ITAB_W_IWSFC',' ( )'                           ,& ! 583
+ 'ITAB_W_JASFC'     ,'W2' ,'ITAB_W_JASFC',' ( )'                            / ! 584
 
 ! ITAB_WSFC MEMBERS - 2D
 
 data fldlib(1:4,602:614)/ &
 
- 'ITAB_WSFC_IWGLOBE'   ,'C2' ,'ITAB_WSFC_IWGLOBE',' ( )'                      ,& ! 602
- 'ITAB_WSFC_IRANK'     ,'C2' ,'ITAB_WSFC_IRANK',' ( )'                        ,& ! 603
- 'ITAB_WSFC_NWATM'     ,'C2' ,'ITAB_WSFC_NWATM',' ( )'                        ,& ! 604
- 'ITAB_WSFC_IWATM'     ,'C2' ,'ITAB_WSFC_IWATM',' ( )'                        ,& ! 605
- 'ITAB_WSFC_KWATM'     ,'C2' ,'ITAB_WSFC_KWATM',' ( )'                        ,& ! 606
- 'ITAB_WSFC_ARC'       ,'C2' ,'ITAB_WSFC_ARC',' ( )'                          ,& ! 607
- 'ITAB_WSFC_ARCOARSFC' ,'C2' ,'ITAB_WSFC_ARCOARSFC',' ( )'                    ,& ! 608
- 'ITAB_WSFC_ARCOARIW'  ,'C2' ,'ITAB_WSFC_ARCOARIW',' ( )'                     ,& ! 609
- 'ITAB_WSFC_ARCOARKW'  ,'C2' ,'ITAB_WSFC_ARCOARKW',' ( )'                     ,& ! 610
- 'ITAB_WSFC_NPOLY'     ,'C2' ,'ITAB_WSFC_NPOLY',' ( )'                        ,& ! 611
- 'ITAB_WSFC_IMN'       ,'C2' ,'ITAB_WSFC_IMN',' ( )'                          ,& ! 612
- 'ITAB_WSFC_IVN'       ,'C2' ,'ITAB_WSFC_IVN',' ( )'                          ,& ! 613
- 'ITAB_WSFC_IWN'       ,'C2' ,'ITAB_WSFC_IWN',' ( )'                           / ! 614
+ 'ITAB_WSFC_IWGLOBE'   ,'C2' ,'ITAB_WSFC_IWGLOBE',' ( )'                   ,& ! 602
+ 'ITAB_WSFC_IRANK'     ,'C2' ,'ITAB_WSFC_IRANK',' ( )'                     ,& ! 603
+ 'ITAB_WSFC_NWATM'     ,'C2' ,'ITAB_WSFC_NWATM',' ( )'                     ,& ! 604
+ 'ITAB_WSFC_IWATM'     ,'C2' ,'ITAB_WSFC_IWATM',' ( )'                     ,& ! 605
+ 'ITAB_WSFC_KWATM'     ,'C2' ,'ITAB_WSFC_KWATM',' ( )'                     ,& ! 606
+ 'ITAB_WSFC_ARC'       ,'C2' ,'ITAB_WSFC_ARC',' ( )'                       ,& ! 607
+ 'ITAB_WSFC_ARCOARSFC' ,'C2' ,'ITAB_WSFC_ARCOARSFC',' ( )'                 ,& ! 608
+ 'ITAB_WSFC_ARCOARIW'  ,'C2' ,'ITAB_WSFC_ARCOARIW',' ( )'                  ,& ! 609
+ 'ITAB_WSFC_ARCOARKW'  ,'C2' ,'ITAB_WSFC_ARCOARKW',' ( )'                  ,& ! 610
+ 'ITAB_WSFC_NPOLY'     ,'C2' ,'ITAB_WSFC_NPOLY',' ( )'                     ,& ! 611
+ 'ITAB_WSFC_IMN'       ,'C2' ,'ITAB_WSFC_IMN',' ( )'                       ,& ! 612
+ 'ITAB_WSFC_IVN'       ,'C2' ,'ITAB_WSFC_IVN',' ( )'                       ,& ! 613
+ 'ITAB_WSFC_IWN'       ,'C2' ,'ITAB_WSFC_IWN',' ( )'                        / ! 614
 
 ! Monthly and Daily averaged fields; daily min & max fields - 2D
 
 data fldlib(1:4,722:753)/ &
 
- 'PRESS_DAVG'       ,'T2','DAY-AVG SFC PRESSURE',' (hPa)'                   ,& ! 722
- 'ZONAL_WINDW_DAVG' ,'T2','DAY-AVG SFC ZONAL WIND',' (m s:S2:-1  )'         ,& ! 723
- 'MERID_WINDW_DAVG' ,'T2','DAY-AVG SFC MERID WIND',' (m s:S2:-1  )'         ,& ! 724
- 'RSHORT_DAVG'      ,'T2','DAY-AVG SFC DOWNWARD S/W FLX',' (W m:S2:-2  )'   ,& ! 725
- 'TEMPK_DAVG'       ,'T2','DAY-AVG SFC TEMPERATURE',' (K)'                  ,& ! 726
- 'TEMPK_DMIN'       ,'T2','DAY-MIN SFC TEMPERATURE',' (K)'                  ,& ! 727
- 'TEMPK_DMAX'       ,'T2','DAY-MAX SFC TEMPERATURE',' (K)'                  ,& ! 728
- 'ACCPMIC_DTOT'     ,'T2','DAY-ACCUM MICPHYS PRECIP',' (kg m:S2:-2  )'      ,& ! 729
- 'ACCPCON_DTOT'     ,'T2','DAY-ACCUM CUPARM PRECIP',' (kg m:S2:-2  )'       ,& ! 730
- 'ACCPBOTH_DTOT'    ,'T2','DAY-ACCUM MICPHYS + CONV PCP',' (kg m:S2:-2  )'  ,& ! 731
- 'PRESS_UL_DAVG'      ,'T2','DAY-AVG UL PRESSURE',' (hPa)'                  ,& ! 732
- 'ZONAL_WINDW_UL_DAVG','T2','DAY-AVG UL ZONAL WIND',' (m s:S2:-1  )'        ,& ! 733
- 'MERID_WINDW_UL_DAVG','T2','DAY-AVG UL MERID WIND',' (m s:S2:-1  )'        ,& ! 734
- 'CANTEMPK_DAVG'    ,'C2','DAY-AVG CANOPY TEMPERATURE',' (K)'               ,& ! 735
- 'CANTEMPK_DMIN'    ,'C2','DAY-MIN CANOPY TEMPERATURE',' (K)'               ,& ! 736
- 'CANTEMPK_DMAX'    ,'C2','DAY-MAX CANOPY TEMPERATURE',' (K)'               ,& ! 737
- 'VEGTEMPK_DAVG'    ,'L2','DAY-AVG VEG TEMPERATURE',' (K)'                  ,& ! 738
- 'VEGTEMPK_DMIN'    ,'L2','DAY-MIN VEG TEMPERATURE',' (K)'                  ,& ! 739
- 'VEGTEMPK_DMAX'    ,'L2','DAY-MAX VEG TEMPERATURE',' (K)'                  ,& ! 740
- 'SOILTEMPK_DAVG'   ,'L2','DAY-AVG SOIL TEMPERATURE',' (K)'                 ,& ! 741
- 'SOILTEMPK_DMIN'   ,'L2','DAY-MIN SOIL TEMPERATURE',' (K)'                 ,& ! 742
- 'SOILTEMPK_DMAX'   ,'L2','DAY-MAX SOIL TEMPERATURE',' (K)'                 ,& ! 743
- 'SFCG_AIRTEMPK_DAVG' ,'C2','SFCG DAY-AVG ATM TEMP',' (K)'                  ,& ! 744
- 'SFCG_AIRTEMPK_DMIN' ,'C2','SFCG DAY-MIN ATM TEMP',' (K)'                  ,& ! 745
- 'SFCG_AIRTEMPK_DMAX' ,'C2','SFCG DAY-MAX ATM TEMP',' (K)'                  ,& ! 746
- 'SFCG_CANTEMPK_DAVG' ,'C2','SFCG DAY-AVG CAN TEMP',' (K)'                  ,& ! 747
- 'SFCG_CANTEMPK_DMIN' ,'C2','SFCG DAY-MIN CAN TEMP',' (K)'                  ,& ! 748
- 'SFCG_CANTEMPK_DMAX' ,'C2','SFCG DAY-MAX CAN TEMP',' (K)'                  ,& ! 749
- 'SFCG_SENSFLUX_DAVG' ,'C2','SFCG DAY-AVG SENS HEAT FLUX',' (W m:S2:-2  )'  ,& ! 750
- 'SFCG_LATFLUX_DAVG'  ,'C2','SFCG DAY-AVG LAT HEAT FLUX',' (W m:S2:-2  )'   ,& ! 751
- 'SENSFLUX_DAVG'    ,'T2','DAY-AVG SENS HEAT FLUX',' (W m:S2:-2  )'         ,& ! 752
- 'LATFLUX_DAVG'     ,'T2','DAY-AVG LAT HEAT FLUX',' (W m:S2:-2  )'           / ! 753
+ 'PRESS_DAVG'       ,'T2','DAY-AVG SFC PRESSURE',' (hPa)'                  ,& ! 722
+ 'ZONAL_WINDW_DAVG' ,'T2','DAY-AVG SFC ZONAL WIND',' (m s:S2:-1  )'        ,& ! 723
+ 'MERID_WINDW_DAVG' ,'T2','DAY-AVG SFC MERID WIND',' (m s:S2:-1  )'        ,& ! 724
+ 'RSHORT_DAVG'      ,'T2','DAY-AVG SFC DOWNWARD S/W FLX',' (W m:S2:-2  )'  ,& ! 725
+ 'TEMPK_DAVG'       ,'T2','DAY-AVG SFC TEMPERATURE',' (K)'                 ,& ! 726
+ 'TEMPK_DMIN'       ,'T2','DAY-MIN SFC TEMPERATURE',' (K)'                 ,& ! 727
+ 'TEMPK_DMAX'       ,'T2','DAY-MAX SFC TEMPERATURE',' (K)'                 ,& ! 728
+ 'ACCPMIC_DTOT'     ,'T2','DAY-ACCUM MIC PCP',' (kg m:S2:-2  )'            ,& ! 729
+ 'ACCPCON_DTOT'     ,'T2','DAY-ACCUM CUPARM PCP',' (kg m:S2:-2  )'         ,& ! 730
+ 'ACCPBOTH_DTOT'    ,'T2','DAY-ACCUM MIC+CUPARM PCP',' (kg m:S2:-2  )'     ,& ! 731
+ 'PRESS_UL_DAVG'      ,'T2','DAY-AVG UL PRESSURE',' (hPa)'                 ,& ! 732
+ 'ZONAL_WINDW_UL_DAVG','T2','DAY-AVG UL ZONAL WIND',' (m s:S2:-1  )'       ,& ! 733
+ 'MERID_WINDW_UL_DAVG','T2','DAY-AVG UL MERID WIND',' (m s:S2:-1  )'       ,& ! 734
+ 'CANTEMPK_DAVG'    ,'C2','DAY-AVG CANOPY TEMPERATURE',' (K)'              ,& ! 735
+ 'CANTEMPK_DMIN'    ,'C2','DAY-MIN CANOPY TEMPERATURE',' (K)'              ,& ! 736
+ 'CANTEMPK_DMAX'    ,'C2','DAY-MAX CANOPY TEMPERATURE',' (K)'              ,& ! 737
+ 'VEGTEMPK_DAVG'    ,'L2','DAY-AVG VEG TEMPERATURE',' (K)'                 ,& ! 738
+ 'VEGTEMPK_DMIN'    ,'L2','DAY-MIN VEG TEMPERATURE',' (K)'                 ,& ! 739
+ 'VEGTEMPK_DMAX'    ,'L2','DAY-MAX VEG TEMPERATURE',' (K)'                 ,& ! 740
+ 'SOILTEMPK_DAVG'   ,'L2','DAY-AVG SOIL TEMPERATURE',' (K)'                ,& ! 741
+ 'SOILTEMPK_DMIN'   ,'L2','DAY-MIN SOIL TEMPERATURE',' (K)'                ,& ! 742
+ 'SOILTEMPK_DMAX'   ,'L2','DAY-MAX SOIL TEMPERATURE',' (K)'                ,& ! 743
+ 'SFCG_AIRTEMPK_DAVG' ,'C2','SFCG DAY-AVG ATM TEMP',' (K)'                 ,& ! 744
+ 'SFCG_AIRTEMPK_DMIN' ,'C2','SFCG DAY-MIN ATM TEMP',' (K)'                 ,& ! 745
+ 'SFCG_AIRTEMPK_DMAX' ,'C2','SFCG DAY-MAX ATM TEMP',' (K)'                 ,& ! 746
+ 'SFCG_CANTEMPK_DAVG' ,'C2','SFCG DAY-AVG CAN TEMP',' (K)'                 ,& ! 747
+ 'SFCG_CANTEMPK_DMIN' ,'C2','SFCG DAY-MIN CAN TEMP',' (K)'                 ,& ! 748
+ 'SFCG_CANTEMPK_DMAX' ,'C2','SFCG DAY-MAX CAN TEMP',' (K)'                 ,& ! 749
+ 'SFCG_SENSFLUX_DAVG' ,'C2','SFCG DAY-AVG SENS FLX',' (W m:S2:-2  )'       ,& ! 750
+ 'SFCG_LATFLUX_DAVG'  ,'C2','SFCG DAY-AVG LAT FLX',' (W m:S2:-2  )'        ,& ! 751
+ 'SENSFLUX_DAVG'    ,'T2','DAY-AVG SENS FLX',' (W m:S2:-2  )'              ,& ! 752
+ 'LATFLUX_DAVG'     ,'T2','DAY-AVG LAT FLX',' (W m:S2:-2  )'                / ! 753
 
 ! Miscellaneous and new additions
 
 data fldlib(1:4,771:796)/ &
  'RHO_OBS'       ,'T3' ,'NUDGING OBS AIR DENSITY',' (kg m:S2:-3  )'         ,& ! 771
  'THETA_OBS'     ,'T3' ,'NUDGING OBS THETA',' (K)'                          ,& ! 772
- 'RRW_OBS'       ,'T3' ,'NUDGING OBS VAPOR MIX RATIO',' (g kg:S2:-1  )'     ,& ! 773
+ 'RRW_OBS'       ,'T3' ,'NUDGING OBS VAPOR MIXR',' (g kg:S2:-1  )'          ,& ! 773
  'UZONAL_OBS'    ,'T3' ,'NUDGING OBS ZONAL WIND',' (m s:S2:-1  )'           ,& ! 774
  'UMERID_OBS'    ,'T3' ,'NUDGING OBS MERID WIND',' (m s:S2:-1  )'           ,& ! 775
  'RHO_SIM'       ,'T3' ,'NUDGING SIM AIR DENSITY',' (kg m:S2:-3  )'         ,& ! 776
  'THETA_SIM'     ,'T3' ,'NUDGING SIM THETA',' (K)'                          ,& ! 777
- 'RRW_SIM'       ,'T3' ,'NUDGING SIM VAPOR MIX RATIO',' (g kg:S2:-1  )'     ,& ! 778
+ 'RRW_SIM'       ,'T3' ,'NUDGING SIM VAPOR MIXR',' (g kg:S2:-1  )'          ,& ! 778
  'UZONAL_SIM'    ,'T3' ,'NUDGING SIM ZONAL WIND',' (m s:S2:-1  )'           ,& ! 779
  'UMERID_SIM'    ,'T3' ,'NUDGING SIM MERID WIND',' (m s:S2:-1  )'           ,& ! 780
  'RHO_OBS_SIM'   ,'T3' ,'NUDGING DIF AIR DENSITY',' (kg m:S2:-3  )'         ,& ! 781
  'THETA_OBS_SIM' ,'T3' ,'NUDGING DIF THETA',' (K)'                          ,& ! 782
- 'RRW_OBS_SIM'   ,'T3' ,'NUDGING DIF VAPOR MIX RATIO',' (g kg:S2:-1  )'     ,& ! 783
+ 'RRW_OBS_SIM'   ,'T3' ,'NUDGING DIF VAPOR MIXR',' (g kg:S2:-1  )'          ,& ! 783
  'UZONAL_OBS_SIM','T3' ,'NUDGING DIF ZONAL WIND',' (m s:S2:-1  )'           ,& ! 784
  'UMERID_OBS_SIM','T3' ,'NUDGING DIF MERID WIND',' (m s:S2:-1  )'           ,& ! 785
  'VXE'           ,'T3' ,'EARTH CARTESIAN X WIND',' (m s:S2:-1  )'           ,& ! 786
@@ -756,9 +757,9 @@ data fldlib(1:4,771:796)/ &
  'RRW_HCONV'     ,'T2' ,'TOTAL WATER HORIZ CONV',' (kg m:S2:-2   s:S2:-1  )',& ! 791
  'RRV_HCONV'     ,'T2' ,'WATER VAPOR HORIZ CONV',' (kg m:S2:-2   s:S2:-1  )',& ! 792
  'CLDNUM'        ,'T2' ,'CLOUD # CONCEN (GEOG)',' (# mg:S2:-1  )'           ,& ! 793
- 'ADDSC1_ZINT'   ,'T2' ,'VERTICAL INTEGRAL OF ADDED SCALAR 1',' ( )'        ,& ! 794
- 'ADDSC2_ZINT'   ,'T2' ,'VERTICAL INTEGRAL OF ADDED SCALAR 2',' ( )'        ,& ! 795
- 'ADDSC1P2_ZINT' ,'T2' ,'VERTICAL INTEGRAL OF ADDED SCALARS 1+2',' ( )'      / ! 796
+ 'ADDSC1_ZINT'   ,'T2' ,'VERTICAL INTEGRAL ADDED SCALAR 1',' ( )'           ,& ! 794
+ 'ADDSC2_ZINT'   ,'T2' ,'VERTICAL INTEGRAL ADDED SCALAR 2',' ( )'           ,& ! 795
+ 'ADDSC1P2_ZINT' ,'T2' ,'VERTICAL INTEGRAL ADDED SCALARS 1+2',' ( )'         / ! 796
 
 ! External fields
 
@@ -2044,6 +2045,29 @@ case(118) ! 'RLONGUP_TOP_DIF2'
 
    if (abs(time8_prev0 - time8_prev1) > .99) then
       fldval = fldval / (time8_prev0 - time8_prev1)
+   endif
+
+case(119) ! 'LATHEAT_ZINT_DIF2'
+
+   if (.not. allocated(latheat_liq_accum)) go to 1000
+   if (.not. allocated(latheat_ice_accum)) go to 1000
+
+   ! Vertical integral of LATHEAT_LIQ + LATHEAT_ICE
+
+   fldval = 0.
+   denom = 0.
+
+   do k = lpw(i),kk  ! MAX HEIGHT SET IN OLAMIN AS HEIGHT OF HORIZ PLOT SLAB
+      fldval = fldval + dzt(k) * rho(k,i) &
+                      * (latheat_liq_accum_prev0(k,i) - latheat_liq_accum_prev1(k,i)  &
+                       + latheat_ice_accum_prev0(k,i) - latheat_ice_accum_prev1(k,i))
+      denom = denom + dzt(k) * rho(k,i)
+   enddo
+
+   fldval = fldval / denom
+
+   if (abs(time8_prev0 - time8_prev1) > .99) then
+      fldval = fldval * 3600. / (time8_prev0 - time8_prev1)
    endif
 
 case(129) ! 'PCPMIC_DIF4'

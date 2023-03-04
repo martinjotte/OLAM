@@ -930,7 +930,7 @@ if (op%pltborder(iplt) == 't') then  ! Exclude inner axis labels in multi-panel 
 
       ! Expanded panels in 3x3 configuration (with some axis labels suppressed)
 
-      bsize = .018 * (op%hp2 - op%hp1)
+      bsize = .016 * (op%hp2 - op%hp1)
    endif
 endif
 
@@ -947,7 +947,7 @@ call o_plchhq(op%fx1,op%fnamey,trim(fldname)//trim(units),1.0*bsize,0.,-1.)
 ! Plot UTC time and date
 
 write (title, '(i6.6,a4)') ihour,' UTC'
-write (title1,'(3x,i2.2,a5,i4.4)') idate,plotmonth(imonth),iyear
+write (title1,'(1x,i2.2,a5,i4.4)') idate,plotmonth(imonth),iyear
 call o_plchhq(op%fx2,op%fnamey,trim(title)//trim(title1),bsize,0.,1.)
 
 ! RETURN if not plotting information block

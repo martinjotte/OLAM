@@ -1911,7 +1911,7 @@ Contains
 
      ! Compute vegetation roughness height, albedo, and fractional area
 
-     veg_rough = veg_height * (1. - bz * exp(-hz * veg_tai))
+     veg_rough = veg_height * (1. - bz * exp(-hz * veg_tai))  * 0.3  ! Bob's test of reduced veg_rough
      veg_albedo = albv_green(leaf_class) * green_frac  &
                 + albv_brown(leaf_class) * (1. - green_frac)
      veg_fracarea = veg_frac(leaf_class) * (1. - exp(-extinc_veg * veg_tai))

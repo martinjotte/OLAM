@@ -575,6 +575,8 @@ subroutine olam_run(name_name)
 
   call alloc_plot()
 
+  if (ncycle_hurrinit > 0) call hurricane_init()
+
   ! If this is 'PLOTONLY' run, loop through input history files, plot
   ! specified fields, and exit
 
@@ -628,6 +630,10 @@ subroutine olam_run(name_name)
 
        ! if (mod(iplt_file,240) == 0) then
 
+  if (ncycle_hurrinit > 0) then
+     hlat = hlat_hist
+     hlon = hlon_hist
+  endif
            call plot_fields(0)
 
            if (nl%ioutput_latlon == 1 .or. nl%latlonplot == 1) then
@@ -636,6 +642,10 @@ subroutine olam_run(name_name)
            endif
 
         ! endif
+
+  if (ncycle_hurrinit > 0) then
+     call vortex_azim_avg('plot')
+  endif
 
         ! Write sfcnud file to be used for nudged spin-up simulation
 
@@ -672,8 +682,6 @@ subroutine olam_run(name_name)
   endif
 
   icycle_hurrinit = 0
-
-  if (ncycle_hurrinit > 0) call hurricane_init()
 
   70 continue ! HURRICANE INITIALIZATION CYCLE BEGINS HERE
 
@@ -733,10 +741,33 @@ subroutine olam_run(name_name)
 
   endif
 
+  ! If hurricane dynamic initialization or tracking is to be done...
+
+  if (ncycle_hurrinit > 0) then
+
+     ! Initialize hurricane location
+
+     if (runtype == 'INITIAL' .and. icycle_hurrinit == 1) then
+        hlat = hlat0      ! Value specified in namelist
+        hlon = hlon0      ! Value specified in namelist
+        call vortex_center_diagnose()
+        hlat_hist = hlat
+        hlon_hist = hlon
+     elseif (runtype == 'HISTORY' .or. runtype == 'HISTREGRID') then
+        hlat = hlat_hist  ! Current value in history file
+        hlon = hlon_hist  ! Current value in history file
+     endif
+
+  endif
+
   ! If this is not a history start AND if it is not the second or later
   ! cycle of hurricane initialization, write initial history file
 
   if (runtype /= 'HISTORY' .and. icycle_hurrinit < 2) then
+     if (runtype == 'INITIAL' .and. icycle_hurrinit == 1) then
+        hlat_hist = hlat0      ! Value specified in namelist
+        hlon_hist = hlon0      ! Value specified in namelist
+     endif
      if (icycle_hurrinit == 1 .and. ncycle_hurrinit > 1) then
         write(io6,'(/,a)') 'olam_run calling history_write with HTC0 vtype'
         call history_write('HTC0')
@@ -779,17 +810,6 @@ subroutine olam_run(name_name)
   ! If hurricane dynamic initialization or tracking is to be done...
 
   if (ncycle_hurrinit > 0) then
-
-     ! Initialize hurricane location
-
-     if (runtype == 'INITIAL' .and. icycle_hurrinit == 1) then
-        hlat = hlat0      ! Value specified in namelist
-        hlon = hlon0      ! Value specified in namelist
-        call vortex_center_diagnose()
-     elseif (runtype == 'HISTORY' .or. runtype == 'HISTREGRID') then
-        hlat = hlat_hist  ! Current value in history file
-        hlon = hlon_hist  ! Current value in history file
-     endif
 
      ! In 'INITIAL' run, on second or later cycle, relocate hurricane fields
      ! (that were prognosed on previous cycle) back to initial location

@@ -75,7 +75,8 @@ subroutine plot_fields(id)
   use mem_para,   only: myrank, mgroupsize
   use plotcolors, only: make_colortable
   use oname_coms, only: nl
-  use hcane_rz,   only: icycle_hurrinit, vortex_trajec_plot
+  use hcane_rz,   only: ncycle_hurrinit, icycle_hurrinit, vortex_trajec_plot, vortex_center_plot, &
+                        hlat, hlon
 
 #ifdef OLAM_MPI
   use mpi
@@ -85,7 +86,7 @@ subroutine plot_fields(id)
 
   integer, intent(in) :: id
 
-  integer :: iplt,labincx,labincy,notavail,k,iw,iok
+  integer :: iplt,labincx,labincy,notavail,k,iw,iok,ict
   real    :: fldval,bsize,dum1(1),dum2(1)
   integer :: outyear,outmonth,outdate,outhour
   real    :: xinc,yinc
@@ -114,13 +115,17 @@ subroutine plot_fields(id)
 
   do iplt = 1,op%nplt
 
-     ! If colortable number for current (iplt) plot field is in the 500's, make
-     ! the colortable from specified parameters if not already done
+     ! When iplt = 1, generate any new colortables that are specified in OLAMIN
 
-     if (op%icolortab(iplt) >= 500) then
-        call make_colortable(op%icolortab(iplt), nl%plotspecs(iplt)%cscale, &
-                        nl%plotspecs(iplt)%cmin, nl%plotspecs(iplt)%cmax,   &
-                        nl%plotspecs(iplt)%cinc, nl%plotspecs(iplt)%zerohalfwid)
+     if (iplt == 1 .and. nl%ncolortabs > 0) then
+        do ict = 1, nl%ncolortabs
+
+           call make_colortable(nl%colortabs(ict)%icolortab, nl%colortabs(ict)%palette, &
+                                nl%colortabs(ict)%cscale,    nl%colortabs(ict)%cmin,    &
+                                nl%colortabs(ict)%cmax,      nl%colortabs(ict)%cinc,    &
+                                nl%colortabs(ict)%zerohalfwid)
+
+        enddo
      endif
 
      ! Use code such as the following to plot fields from multiple iplt history
@@ -151,6 +156,19 @@ subroutine plot_fields(id)
      ! loop that are NOT listed as external 'e' fields
 
      if (.not. allocated(op%extfld) .and. op%ext(iplt) == 'e') cycle
+
+     ! Special:  For coneplots that need to follow current hurricane location, reset location coordinates.
+     !           Latitude offset is in degrees (lat) when plotwid is in km, and assumes that viewazim = 0.
+
+     if (.false. .and. op%projectn(iplt) == 'C') then
+        nl%plotspecs(iplt)%plotcoord1 = hlon
+
+        if (nl%plotspecs(iplt)%slabloc > 89.) then ! For a cone plot, slabloc is the cone angle
+           nl%plotspecs(iplt)%plotcoord2 = hlat    ! For cross section running through hurricane center
+        else
+           nl%plotspecs(iplt)%plotcoord2 = hlat + nl%plotspecs(iplt)%slabloc ! For concentric cross section
+        endif
+     endif
 
      ! Plot a white background for this frame
 
@@ -225,21 +243,30 @@ subroutine plot_fields(id)
 
      call vectslab(iplt)
 
-     ! If running hurricane tracking, plot trajectory of this simulation
+     ! If running hurricane tracking, location and/or trajectory can be plotted 
+     ! in various ways:
 
-     if (icycle_hurrinit > 0 .and. &
-        (runtype == 'INITIAL' .or. runtype == 'HISTORY' .or. runtype == 'HISTREGRID')) then
+     if (ncycle_hurrinit > 0) then
 
-        if (iplt == 1) then
-           call vortex_trajec_plot(iplt)
+        ! Plot hurricane trajectory up to current time in actual model simulation
+
+        if (runtype == 'INITIAL' .or. runtype == 'HISTORY' .or. runtype == 'HISTREGRID') then
+           if (iplt == 1) then
+              call vortex_trajec_plot(iplt)
+           endif
         endif
-     endif
 
-     ! If running hurricane tracking, plot trajectories of multiple simulations
+        ! Plot current simulation hour at hurricane center location in 'PLOTONLY' run
 
-     if (icycle_hurrinit > 0) then
-        if (iplt == 1) then
-           ! call plot_trajecfile(iplt)
+        if (iplt == 1 .and. runtype == 'PLOTONLY') then
+           call vortex_center_plot(iplt)
+        endif
+
+        ! Plot trajectories of prior model runs that are entered in separate data file
+
+        if (.false. .and. iplt == 1) then
+           print*, 'calling plot_trajecfile ',iplt
+           call plot_trajecfile(iplt)
         endif
      endif
 
@@ -2829,7 +2856,7 @@ subroutine oplot_panel(panel,frameoff,pltborder,colorbar0,aspect,projectn)
 
   ! Expand plot area if no colorbar
 
-  if (colorbar0 /= 'c') then
+  if (colorbar0 /= 'c' .and. colorbar0 /= 'r') then
 
 !! goto 44
 
