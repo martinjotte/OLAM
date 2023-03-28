@@ -160,7 +160,11 @@ contains
 
           call tokenize_ws(lines(5),tokens,ntok)
           read(tokens(3),*) alat1
+          read(tokens(5),*) alat2
           read(tokens(7),*) dy
+
+          ! Handle case of reversed lats (N-S)
+          alat1 = min(alat1,alat2)
 
           allocate(alats(ny))
           alats(1) = alat1

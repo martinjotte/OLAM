@@ -21,7 +21,7 @@ program grib_to_gdf
   integer :: nsd
 
   integer :: iyyyy,imm,idd,ihh,nuyyyy,numm,nudd,nuhh
-  real :: tinc,xnelat,xnelon,aver
+  real :: tinc,xnelat,xnelon,aver,tmp
   logical :: exists, dousage
 
   integer, parameter :: maxlev=200, maxvar=100, maxgnd=9
@@ -269,7 +269,6 @@ program grib_to_gdf
   ivertcoord=1
   if (projection(1:6)=="latlon") then
      inproj=1
-     if (iscan == 0 ) alat1=alat1 - dy * (ny-1)
   elseif (projection(1:8)=="gaussian") then
      inproj=2
   elseif (projection(1:7)=="Lambert") then
