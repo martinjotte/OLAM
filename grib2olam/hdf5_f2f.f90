@@ -149,33 +149,26 @@ contains
 !===============================================================================
 
   subroutine fh5_prepare_write(ndims, dims, hdferr, icompress, &
-                               mcoords, fcoords, ifsize)
+                               mcoords, fcoords, ifsize, dims_chunk)
     implicit none
 
     integer, intent(IN)                       :: ndims
-    integer, intent(IN),           contiguous :: dims(:)
+    integer, intent(IN)                       :: dims(ndims)
     integer, intent(OUT)                      :: hdferr
-    integer, intent(IN), optional             :: icompress, ifsize
-    integer, intent(IN), optional, contiguous :: mcoords(:), fcoords(:)
+    integer, intent(IN),             optional :: icompress, ifsize
+    integer, intent(IN), contiguous, optional :: mcoords(:), fcoords(:)
+    integer, intent(IN),             optional :: dims_chunk(ndims)
 
     logical          :: docompress
     integer          :: i, j, iop
-    integer(HSIZE_T) :: dims_file(ndims)
+    integer(HSIZE_T) :: dims_file(ndims), dims_compress(ndims)
     integer(HSIZE_T) :: offset(ndims), countf(ndims)
 
     ! Output dimensions
 
-    dimsf = 1
-    ndimsf = ndims
-
-    do i = 1, ndims
-       dimsf(i) = dims(i)
-    end do
-
-    dims_file = 1
-     do i = 1, ndims
-       dims_file(i) = dims(i)
-    end do
+    ndimsf         = ndims
+    dimsf(1:ndims) = dims
+    dims_file      = dims
 
     ! For distributed output, global data (file) size will be different then
     ! the local array size
@@ -199,12 +192,22 @@ contains
 
        if (docompress) then
 
-          ! Create a property list for compression/chunking/filters
+          if (present(dims_chunk)) then
+             dims_compress = dims_chunk
+          else
+             dims_compress = dims
+          endif
 
-          call h5pcreate_f(H5P_DATASET_CREATE_F, propid, hdferr)
-          call h5pset_chunk_f(propid, ndims, dimsf, hdferr)
-          call h5pset_shuffle_f(propid, hdferr)
-          call h5pset_deflate_f(propid, icompress, hdferr)
+          if (product(dims_compress) > 1) then
+
+             ! Create a property list for compression/chunking/filters
+
+             call h5pcreate_f(H5P_DATASET_CREATE_F, propid, hdferr)
+             call h5pset_chunk_f(propid, ndims, dims_compress, hdferr)
+             call h5pset_shuffle_f(propid, hdferr)
+             call h5pset_deflate_f(propid, icompress, hdferr)
+
+          endif
 
        endif
 

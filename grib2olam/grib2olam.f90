@@ -27,7 +27,7 @@ program grib_to_gdf
   integer, parameter :: maxlev=200, maxvar=100, maxgnd=9
   integer :: iplevs(maxlev), iswlevs(maxgnd), istlevs(maxgnd), islevs(maxgnd)
 
-  integer :: nvar3d, nvarsfc, nvargnd, gdf_file_ver, ndims, idims(3)
+  integer :: nvar3d, nvarsfc, nvargnd, gdf_file_ver, ndims, idims(3), cdims(3)
   character(len=10) :: var3d(maxvar), varsfc(maxvar) !, vargnd(maxvar)
   character(len=10) :: out3d(maxvar), outsfc(maxvar) !, outgnd(maxvar)
 
@@ -907,11 +907,12 @@ program grib_to_gdf
         write(*,*) out3d(i)
         ndims = 3
         idims(1:3) = [nx, ny, nlev]
+        cdims(1:3) = [nx, ny, 1]
         dimnames(1) = 'lon'
         dimnames(2) = 'lat'
         dimnames(3) = 'pres'
         call shdf5_orec(ndims, idims, out3d(i), rvar3=a3(:,:,:,i), &
-                        dimnames=dimnames)
+                        dimnames=dimnames, dims_chunk=cdims)
      enddo
 
      do i = 1, nvarsfc

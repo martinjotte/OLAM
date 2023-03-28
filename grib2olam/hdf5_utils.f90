@@ -1,13 +1,18 @@
 Module hdf5_utils
 
-  integer, parameter, private :: r8 = selected_real_kind(13,300)
-  integer, parameter, private :: i1 = selected_int_kind(2)
+  use hdf5_f2f
+  implicit none
+
+  integer, parameter :: r8 = selected_real_kind(13,300)
+  integer, parameter :: i1 = selected_int_kind(2)
+
+  private
+  public :: shdf5_open, shdf5_info, shdf5_orec, shdf5_irec, shdf5_close, &
+            shdf5_io, shdf5_write_global_attribute
 
 Contains
 
 subroutine shdf5_open(locfn, access, idelete)
-
-  use hdf5_f2f
 
   implicit none
 
@@ -82,8 +87,6 @@ end subroutine shdf5_open
 !===============================================================================
 
 subroutine shdf5_info(dsetname, ndims, dims)
-  use hdf5_f2f
-
   implicit none
 
   character(*), intent(in)    :: dsetname ! Dataset name
@@ -121,24 +124,31 @@ subroutine shdf5_orec(ndims,dims,dsetname,bvars,ivars,rvars,cvars,dvars,lvars, &
                                           units, long_name, positive,     &
                                           imissing, rmissing, dmissing,   &
                                           isdim, dimnames, standard_name, &
-                                          cell_methods                    )
-  use hdf5_f2f
+                                          cell_methods, dims_chunk        )
   implicit none
 
-  character(*), intent(in) :: dsetname ! Variable label
-  integer,      intent(in) :: ndims    ! Number of dimensions or rank
-  integer,      intent(in) :: dims(:)  ! Dataset dimensions.
+  character(*), intent(in) :: dsetname    ! Variable label
+  integer,      intent(in) :: ndims       ! Number of dimensions or rank
+  integer,      intent(in) :: dims(ndims) ! Dataset dimensions.
 
 ! Array and scalar arguments for different types. Only specify one in each call
-  integer(i1),  intent(in), optional :: bvars, bvar1(:), bvar2(:,:), bvar3(:,:,:), bvar4(:,:,:,:)
-  integer,      intent(in), optional :: ivars, ivar1(:), ivar2(:,:), ivar3(:,:,:), ivar4(:,:,:,:)
-  real,         intent(in), optional :: rvars, rvar1(:), rvar2(:,:), rvar3(:,:,:), rvar4(:,:,:,:)
-  character,    intent(in), optional :: cvars, cvar1(:), cvar2(:,:), cvar3(:,:,:)
-  real(r8),     intent(in), optional :: dvars, dvar1(:), dvar2(:,:), dvar3(:,:,:), dvar4(:,:,:,:)
-  logical,      intent(in), optional :: lvars, lvar1(:), lvar2(:,:), lvar3(:,:,:)
+  integer(i1),  intent(in), optional :: bvars
+  integer,      intent(in), optional :: ivars
+  real,         intent(in), optional :: rvars
+  character,    intent(in), optional :: cvars
+  real(r8),     intent(in), optional :: dvars
+  logical,      intent(in), optional :: lvars
+
+  integer(i1),  intent(in), optional, contiguous :: bvar1(:), bvar2(:,:), bvar3(:,:,:), bvar4(:,:,:,:)
+  integer,      intent(in), optional, contiguous :: ivar1(:), ivar2(:,:), ivar3(:,:,:), ivar4(:,:,:,:)
+  real,         intent(in), optional, contiguous :: rvar1(:), rvar2(:,:), rvar3(:,:,:), rvar4(:,:,:,:)
+  character,    intent(in), optional, contiguous :: cvar1(:), cvar2(:,:), cvar3(:,:,:)
+  real(r8),     intent(in), optional, contiguous :: dvar1(:), dvar2(:,:), dvar3(:,:,:), dvar4(:,:,:,:)
+  logical,      intent(in), optional, contiguous :: lvar1(:), lvar2(:,:), lvar3(:,:,:)
 
 ! Optional arrays to determine cells for partial/parallel IO
-  integer,      intent(in), optional :: lpoints(:), gpoints(:), nglobe
+  integer,      intent(in), optional, contiguous :: lpoints(:), gpoints(:)
+  integer,      intent(in), optional             :: nglobe
 
 ! Optional arrays to write common NetCDF convention attributes
   character(*), intent(in), optional :: units, long_name, positive
@@ -151,7 +161,10 @@ subroutine shdf5_orec(ndims,dims,dsetname,bvars,ivars,rvars,cvars,dvars,lvars, &
   logical,      intent(in), optional :: isdim
 
 ! Indicate names of each dimension
-  character(*), intent(in), optional :: dimnames(:)
+  character(*), intent(in), optional :: dimnames(ndims)
+
+! Compression/chunking options
+  integer,      intent(in), optional :: dims_chunk(ndims) ! Compression dimensions.
 
 ! Local variables
   integer :: hdferr  ! Error flag
@@ -164,9 +177,8 @@ subroutine shdf5_orec(ndims,dims,dsetname,bvars,ivars,rvars,cvars,dvars,lvars, &
   endif
 
 ! Prepare memory and options for the write
-
   call fh5_prepare_write(ndims, dims, hdferr, 3, &
-       mcoords=lpoints, fcoords=gpoints, ifsize=nglobe)
+       mcoords=lpoints, fcoords=gpoints, ifsize=nglobe, dims_chunk=dims_chunk)
 
   if (hdferr /= 0) then
      print*, "shdf5_orec: can't prepare requested field:", trim(dsetname)
@@ -277,7 +289,6 @@ subroutine shdf5_irec(ndims,dims,dsetname,bvars,ivars,rvars,cvars,dvars,lvars,  
                                           bvar3,ivar3,rvar3,cvar3,dvar3,lvar3,  &
                                           bvar4,ivar4,rvar4,      dvar4,        &
                                           points, start, counts)
-  use hdf5_f2f
   implicit none
 
   character(*), intent(IN) :: dsetname ! Dataset name
@@ -374,7 +385,6 @@ end subroutine shdf5_irec
 !===============================================================================
 
 subroutine shdf5_close()
-  use hdf5_f2f
   implicit none
 
   integer :: hdferr  ! Error flags
@@ -391,8 +401,6 @@ subroutine shdf5_io(action,ndims,dims,dsetname,bvars,ivars,rvars,cvars,dvars,lva
                                                bvar2,ivar2,rvar2,cvar2,dvar2,lvar2, &
                                                bvar3,ivar3,rvar3,cvar3,dvar3,lvar3, &
                                                bvar4,ivar4,rvar4,      dvar4        )
-  use hdf5_f2f
-
   implicit none
 
   character(*), intent(in)           :: dsetname, action
@@ -432,9 +440,6 @@ subroutine shdf5_io(action,ndims,dims,dsetname,bvars,ivars,rvars,cvars,dvars,lva
 end subroutine shdf5_io
 
 subroutine shdf5_write_global_attribute(name, ivalue, rvalue, dvalue, cvalue)
-
-  use hdf5_f2f,    only: fh5f_write_global_attribute
-
   implicit none
 
   character(*),           intent(in) :: name

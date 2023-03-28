@@ -486,13 +486,7 @@ contains
 
           elseif ( index(lines(n),'below ground:') > 0 .or. index(lines(n),' down:') > 0 ) then
 
-             write(*,*) vlevs(1)
-             write(*,*) vlevs(2)
-
              call tokenize(vlevs(1), sdepths, ntok2, "-")
-
-             write(*,*) sdepths(1)
-             write(*,*) sdepths(2)
 
              ! NCEP gives a range for soil layers (like 0.5-1.0 m)
              ! Need to check how other reanalysis products handle this
