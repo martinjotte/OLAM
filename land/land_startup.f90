@@ -1,8 +1,10 @@
 subroutine land_startup()
 
-  use leaf_coms, only: nzs, ndviflg, iupdndvi, isoilflg
-  use mem_land,  only: alloc_land, filltab_land, land, mland, nzg, slzt, omland
-  use misc_coms, only: runtype
+  use leaf_coms,   only: nzs, ndviflg, iupdndvi, isoilflg
+  use mem_land,    only: alloc_land, filltab_land, land, mland, nzg, slzt, omland
+  use misc_coms,   only: runtype
+  use mem_sfcg,    only: sfcg
+  use consts_coms, only: cice
 
   implicit none
 
@@ -131,6 +133,17 @@ subroutine land_startup()
                          land%lambda_vg         (k,iland), &
                          land%specifheat_drysoil(k,iland)  )
 
+        endif
+
+        ! If the landuse type of this land cell is glacier/firn/ice cap, then
+        ! reset some physical properties related to heat and water content
+        ! that are more appropriate for firn.
+
+        if (sfcg%leaf_class(iwsfc) == 2) then
+           land%wsat_vg           (k,iland) = 0.1 ! 10% porosity assumed (limits soil water content)
+           land%wresid_vg         (k,iland) = land%wsat_vg(k,iland) * 0.2 ! wresid must be < wsat
+           land%ksat_vg           (k,iland) = 0.  ! prevents water fluxes
+           land%specifheat_drysoil(k,iland) = cice * 600. ! Assumes firn density of 600 kg/m^3
         endif
 
      enddo
@@ -274,7 +287,7 @@ subroutine soil_ptf(iland, k, slzt, usdatext, sand, clay, silt,   &
   ! Soil composition and van Genuchten hydraulic parameters based on USDA
   ! soil textural class (van Genuchten, 1980; Carsel and Parrish, 1988)
 
-  ! Soil compositoin parameters are not applied here; they are included in the following
+  ! Soil composition parameters are not applied here; they are included in the following
   ! parameter statement only to keep it identical with subroutine usda_composition.
 
   !   wsat_vg - sat volumetric moisture content (soil porosity) [m^3_wat/m^3_tot]

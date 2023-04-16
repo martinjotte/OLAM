@@ -79,7 +79,7 @@ subroutine surface_driver()
   real :: thermcond_sat_soil
   real :: kersten_liq, kersten_ice
   real :: kersten
-  real :: thermcond_soil(nzg)
+  real :: thermcond_soil(nzg) ! soil thermal conductivity [W/(K m)]
 
   integer, parameter :: iland_print = 0
 
@@ -606,9 +606,17 @@ subroutine surface_driver()
         call qwtk(land%soil_energy(k,iland),land%soil_water(k,iland)*1.e3, &
            land%specifheat_drysoil(k,iland),soil_tempk(k),soil_fracliq(k))
 
-        ! Check whether bedrock or soil (negative ph_soil has been set as a flag for bedrock)
+        if (sfcg%leaf_class(iw1) >= 2) then
 
-        if (land%ph_soil(k,iland) < 0.) then
+           ! Case for firn/glacier locations
+
+           thermcond_soil(k) = 0.8 ! based on firn density of 600 kg/M^3 and the following reference:
+                                   ! Oster, S.E. and M.R. Albert (2002): Thermal conductivity of polar firn,
+                                   ! Journal of Glaciology, Vol. 68, Issue 272.
+
+        elseif (land%ph_soil(k,iland) < 0.) then
+
+           ! Case for bedrock (negative ph_soil has been set as a flag for bedrock)
 
            thermcond_soil(k) = thermcond_bedrock  ! Assuming that porosity is accounted for
 

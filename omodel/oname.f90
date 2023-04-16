@@ -86,7 +86,7 @@ subroutine copy_nl()
                          itime1, idate1, imonth1, iyear1, ngrids, &
                          nzp, mdomain, itopoflg, ibathflg, nxp, &
                          ngrdll, grdrad, grdlat, grdlon, deltax, ndz, hdz, dz, &
-                         current_time, debug_fp, init_nans, do_chem, &
+                         current_time, initial_time, debug_fp, init_nans, do_chem, &
                          nrk_wrtv, nrk_scal, topodb_cutoff
 
   use micro_coms,  only: miclevel, icloud, idriz, irain, ipris, isnow, iaggr, &
@@ -165,15 +165,20 @@ subroutine copy_nl()
   imonth1   = nl%imonth1
   iyear1    = nl%iyear1
 
+  ihrs = itime1 / 100
+  imns = mod(itime1, 100)
+
+  initial_time%year  = iyear1
+  initial_time%month = imonth1
+  initial_time%date  = idate1
+  initial_time%time  = ihrs * 3600.0_r8 + imns * 60.0_r8
+
   ! If this is not a 'HISTORY', 'HISTREGRID', or 'PLOTONLY' runtype, set
   ! current time to initial time here.  Otherwise, current time will be
   ! set in subroutine history_start.
 
   if (runtype /= 'HISTORY' .and. runtype /= 'HISTREGRID' .and. &
       runtype /= 'PLOTONLY') then
-
-     ihrs = itime1 / 100
-     imns = mod(itime1, 100)
 
      current_time%year  = iyear1
      current_time%month = imonth1
@@ -445,8 +450,9 @@ subroutine copy_nl()
      if (index(nl%plotspecs(i)%pltspec2,'c') > 0) op%colorbar(i) = 'c'
      if (index(nl%plotspecs(i)%pltspec2,'r') > 0) op%colorbar(i) = 'r'
 
-     if (index(nl%plotspecs(i)%pltspec2,'M') > 0) op%pltll(i) = 'M'
      if (index(nl%plotspecs(i)%pltspec2,'m') > 0) op%maptyp(i) = 'm'
+
+     if (index(nl%plotspecs(i)%pltspec2,'l') > 0) op%pltll(i) = 'l'
 
      if (index(nl%plotspecs(i)%pltspec2,'C') > 0) op%pltcone(i) = 'C'
 

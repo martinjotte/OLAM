@@ -52,27 +52,27 @@ Module oplot_coms
      integer :: icolortab(maxnplt) ! Color table number for plotting given field
 
      character(len=1), dimension(maxnplt) ::  &
-          projectn    = ' ' & ! Plot projection & cross section ['P','G','E','O','C','X','Y']
+          projectn    = ' ' & ! Plot projection & cross section ['L','P','G','O','Z','C','V']
          ,contrtyp    = 'N' & ! Contour type ['T','F','L','O']
          ,prtval      = 'N' & ! Flag to print value ['P']
          ,pltindx1    = 'N' & ! Print ATM grid index ['I','J']
          ,pltindx2    = 'N' & ! Print SFC grid index ['i','j']
-         ,vectbarb    = 'N' & ! Plot vectors or windbarbs ['B','U','V','v']
+         ,vectbarb    = 'N' & ! Plot vectors or windbarbs ['B','V','w','Y','y']
          ,pltgrid     = 'N' & ! Plot grid lines ['G']
          ,pltgrid_sfc = 'N' & ! Plot surface grid lines ['g']
          ,pltdualgrid = 'N' & ! Plot grid lines ['D']
          ,pltborder   = 'N' & ! Plot border, +ticks+outer_axlabs, +inner_axlabs ['b','t','a']
-         ,maptyp      = 'N' & ! Type of map plot ['M','m']
+         ,labelbar    = 'N' & ! Print field name, field name + info block ['n','o']
+         ,colorbar    = 'N' & ! Print colorbar, no colorbar but reserve space ['c','r']
+         ,maptyp      = 'N' & ! Flag to plot land, country, state outlines ['m']
          ,pltll       = 'N' & ! Flag to plot lat/lon lines ['l']
          ,pltcone     = 'N' & ! Flag to plot cone circle ['C']
-         ,windowin    = 'N' & ! Flag to window in ['W']
-         ,frameoff    = 'N' & ! Flag to suppress frame call ['f']
-         ,panel       = 'N' & ! Panel number if reduced-size plot ['1','2','3','4']
-         ,colorbar    = 'N' & ! Print colorbar ['c']
-         ,labelbar    = 'N' & ! Print title, title + info block ['t','o']
          ,pltlev      = 'N' & ! Plot on const press level or near sfc ['p','s']
+         ,windowin    = 'N' & ! Flag to window in ['W']
          ,ext         = 'N' & ! Flag indicating "external" plot field ['e']
-         ,noundrg     = 'N'  ! Suppress masking underground cells ['u']
+         ,frameoff    = 'N' & ! Flag to suppress frame call ['f','h']
+         ,panel       = 'N' & ! Panel number if reduced-size plot ['1' to '9']
+         ,noundrg     = 'N'   ! Suppress masking underground cells ['u']
 
      real :: slabloc(maxnplt) ! Z-coord of plot slab in x/y/z or lat/lon/z space
 
