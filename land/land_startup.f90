@@ -69,6 +69,21 @@ subroutine land_startup()
 
      do k = 1,nzg
 
+        ! If the landuse type of this land cell is glacier/firn/ice cap, then
+        ! set some physical properties related to heat and water content
+        ! that are more appropriate for firn.
+
+        if (sfcg%leaf_class(iwsfc) == 2) then
+
+           land%wsat_vg           (k,iland) = 0.1 ! 10% porosity assumed (limits soil water content)
+           land%wresid_vg         (k,iland) = land%wsat_vg(k,iland) * 0.2 ! wresid must be < wsat
+           land%ksat_vg           (k,iland) = 0.  ! prevents water fluxes
+           land%specifheat_drysoil(k,iland) = cice * 600. ! Assumes firn density of 600 kg/m^3
+
+           land%alpha_vg          (k,iland) = -2.0
+           land%en_vg             (k,iland) = 1.4
+           land%lambda_vg         (k,iland) = 0.5
+
         ! If isoilflg = 1, meaning that SoilGrids and GLHYMPS datasets are used,
         ! define a level in the soil above which SoilGrids composition and PTFs
         ! are used and below which GLHYMPS permeability and porosity are used.
@@ -80,7 +95,7 @@ subroutine land_startup()
         ! GLHYMPS applies to roughly the top 100 m.  For now, we choose the
         ! transition level to be no greater than 10 meters below the surface.
 
-        if (isoilflg == 1 .and. slzt(k) < max(-10.0, land%z_bedrock(iland))) then
+        elseif (isoilflg == 1 .and. slzt(k) < max(-10.0, land%z_bedrock(iland))) then
 
            ! ISOILFLG = 1 and this soil grid level is below transition level;
            ! therefore, assign wsat and ksat based on glhymps dataset.
@@ -133,17 +148,6 @@ subroutine land_startup()
                          land%lambda_vg         (k,iland), &
                          land%specifheat_drysoil(k,iland)  )
 
-        endif
-
-        ! If the landuse type of this land cell is glacier/firn/ice cap, then
-        ! reset some physical properties related to heat and water content
-        ! that are more appropriate for firn.
-
-        if (sfcg%leaf_class(iwsfc) == 2) then
-           land%wsat_vg           (k,iland) = 0.1 ! 10% porosity assumed (limits soil water content)
-           land%wresid_vg         (k,iland) = land%wsat_vg(k,iland) * 0.2 ! wresid must be < wsat
-           land%ksat_vg           (k,iland) = 0.  ! prevents water fluxes
-           land%specifheat_drysoil(k,iland) = cice * 600. ! Assumes firn density of 600 kg/m^3
         endif
 
      enddo
@@ -438,7 +442,7 @@ subroutine soil_ptf(iland, k, slzt, usdatext, sand, clay, silt,   &
         topsoil = 1. ! Topsoil flag
      endif
 
-     if (sand > 2.0) then
+     if (sand > 0.02) then
         wresid_vg = a11a
      else
         wresid_vg = a11b
