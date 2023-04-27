@@ -15,6 +15,7 @@ Module misc_coms
   end type simtime
 
   type(simtime) :: current_time ! current simulation time
+  type(simtime) :: initial_time ! initial simulation time
 
   real :: topodb_cutoff
 

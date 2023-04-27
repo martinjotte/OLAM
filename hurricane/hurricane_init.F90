@@ -38,8 +38,9 @@ module hcane_rz
     50.e3,  55.e3,  60.e3,  70.e3,  80.e3,  90.e3, 100.e3, 120.e3, 140.e3, 160.e3, &
    180.e3, 200.e3, 240.e3, 280.e3, 320.e3, 360.e3, 400.e3, 440.e3 /)
 
-  integer :: ncycle_hurrinit ! Number of initialization cycles to perform
-  integer :: icycle_hurrinit ! Ending integration time of each cycle (s)
+  integer :: ncycle_hurrinit = 0      ! Number of initialization cycles to perform
+  integer :: icycle_hurrinit = 1      ! Current integration cycle
+  integer :: icycle_hurrinit_hist = 1 ! Current integration cycle on history file
 
   real(r8) :: timmax_hurrinit
 
@@ -78,8 +79,6 @@ module hcane_rz
   real, allocatable :: hlata(:,:)
   real, allocatable :: hlona(:,:)
   real, allocatable :: htima(:,:)
-
-  character(128) :: htc0 = 'n'  ! pathlen = 128 in max_dims.f90
 
   ! rad1_blend and rad2_blend control how a relocated vortex is blended in with
   ! model initial fields at the beginning of the second and subsequent dynamic
@@ -439,7 +438,7 @@ Contains
 
         dxe = xew(iw) - xeh_reloc
         dye = yew(iw) - yeh_reloc
-        dze = yew(iw) - zeh_reloc
+        dze = zew(iw) - zeh_reloc
         call de_ps( dxe,dye,dze,cos_hlat_reloc,sin_hlat_reloc,&
                     cos_hlon_reloc,sin_hlon_reloc,xw(1),yw(1) )
 
@@ -1620,7 +1619,7 @@ end subroutine vortex_get_vtanmax
   ! This subroutine plots the current simulation hour at the hurricane center location.
   ! Intended for some 'PLOTONLY' runs.
 
-  use misc_coms,   only: mstp, dtlong, time8
+  use misc_coms,   only: dtlong, time8
   use oplot_coms,  only: op
   use consts_coms, only: pio180, erad
   use mem_para,    only: myrank

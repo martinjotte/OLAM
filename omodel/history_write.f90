@@ -1,7 +1,7 @@
 subroutine history_write(vtype)
 
   use var_tables, only: num_var, vtab_r, get_vtab_dims
-  use misc_coms,  only: io6, ioutput, hfilepref, current_time, iclobber
+  use misc_coms,  only: io6, ioutput, hfilepref, current_time, initial_time, iclobber
   use hdf5_utils, only: shdf5_orec, shdf5_open, shdf5_close
   use max_dims,   only: pathlen
   use mem_grid,   only: nma, nva, nwa
@@ -10,7 +10,6 @@ subroutine history_write(vtype)
   use mem_lake,   only: nlake
   use mem_sea,    only: nsea
   use mem_nudge,  only: nwnud
-  use hcane_rz,   only: htc0
   use mem_para,   only: iva_globe_primary, iva_local_primary, &
                         iwa_globe_primary, iwa_local_primary, &
                         ima_globe_primary, ima_local_primary, &
@@ -37,20 +36,12 @@ subroutine history_write(vtype)
 
   integer, pointer, contiguous :: ilpts(:), igpts(:)
 
-  ! Always write output for hurricane initialization even if ioutput = 0
-
-  if (vtype(1:3) /= 'HTC') then
-     if (ioutput == 0) return
-  endif
-
 ! Construct h5 file name and open the file
 
-  if (trim(vtype) == 'HTC0') then
-     call makefnam(hnamel, hfilepref, current_time, 'HTC0', '$', 'h5')
-     htc0 = hnamel
-  elseif (trim(vtype) == 'HTC1') then
-     call makefnam(hnamel, hfilepref, current_time, 'HTC1', '$', 'h5')
+  if (trim(vtype) == 'HTC1') then
+     call makefnam(hnamel, hfilepref, initial_time, 'HTC1', '$', 'h5')
   else
+     if (ioutput == 0) return
      call makefnam(hnamel, hfilepref, current_time, 'H', '$', 'h5')
   endif
 

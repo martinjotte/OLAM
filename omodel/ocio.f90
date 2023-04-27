@@ -12,7 +12,7 @@ subroutine commio(action)
   use leaf_coms,  only: nzs, ivegflg, isfcl
   use mem_land,   only: nzg, landgrid_dztop, landgrid_depth
   use hdf5_utils, only: shdf5_orec, shdf5_irec, shdf5_io
-  use hcane_rz,   only: hlat_hist, hlon_hist
+  use hcane_rz,   only: hlat_hist, hlon_hist, icycle_hurrinit_hist
 
   implicit none
   integer          :: ndims, idims(2)
@@ -58,13 +58,14 @@ subroutine commio(action)
 
   ndims=1
   idims(1) = 1
-  call shdf5_io(action, ndims, idims, 'time8',     dvars=time8)
-  call shdf5_io(action, ndims, idims, 'cur%year',  ivars=current_time%year)
-  call shdf5_io(action, ndims, idims, 'cur%month', ivars=current_time%month)
-  call shdf5_io(action, ndims, idims, 'cur%date',  ivars=current_time%date)
-  call shdf5_io(action, ndims, idims, 'cur%time',  dvars=current_time%time)
-  call shdf5_io(action, ndims, idims, 'hlat_hist', rvars=hlat_hist)
-  call shdf5_io(action, ndims, idims, 'hlon_hist', rvars=hlon_hist)
+  call shdf5_io(action, ndims, idims, 'time8'               , dvars=time8)
+  call shdf5_io(action, ndims, idims, 'cur%year'            , ivars=current_time%year)
+  call shdf5_io(action, ndims, idims, 'cur%month'           , ivars=current_time%month)
+  call shdf5_io(action, ndims, idims, 'cur%date'            , ivars=current_time%date)
+  call shdf5_io(action, ndims, idims, 'cur%time'            , dvars=current_time%time)
+  call shdf5_io(action, ndims, idims, 'hlat_hist'           , rvars=hlat_hist)
+  call shdf5_io(action, ndims, idims, 'hlon_hist'           , rvars=hlon_hist)
+  call shdf5_io(action, ndims, idims, 'icycle_hurrinit_hist', ivars=icycle_hurrinit_hist)
 
   ! The following are namelist variables that specify the horizontal structure
   ! of the ATM grid, and they are read from a history file (to maintain their

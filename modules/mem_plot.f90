@@ -53,8 +53,20 @@ Module mem_plot
   real, allocatable :: tair_accum_prev0(:,:)
   real, allocatable :: tair_accum_prev1(:,:)
 
+  real, allocatable :: tair_prev0(:,:)
+  real, allocatable :: tair_prev1(:,:)
+
   real, allocatable :: rr_v_accum_prev0(:,:)
   real, allocatable :: rr_v_accum_prev1(:,:)
+
+  real, allocatable :: rr_v_prev0(:,:)
+  real, allocatable :: rr_v_prev1(:,:)
+
+  real, allocatable :: ue_prev0(:,:)
+  real, allocatable :: ue_prev1(:,:)
+
+  real, allocatable :: ve_prev0(:,:)
+  real, allocatable :: ve_prev1(:,:)
 
   real, allocatable :: latheat_liq_accum_prev0(:,:)
   real, allocatable :: latheat_liq_accum_prev1(:,:)
@@ -247,8 +259,20 @@ Contains
     allocate ( tair_accum_prev0(mza,mwa)) ; tair_accum_prev0(:,:) = 0.
     allocate ( tair_accum_prev1(mza,mwa)) ; tair_accum_prev1(:,:) = 0.
 
+    allocate ( tair_prev0(mza,mwa)) ; tair_prev0(:,:) = 0.
+    allocate ( tair_prev1(mza,mwa)) ; tair_prev1(:,:) = 0.
+
     allocate ( rr_v_accum_prev0(mza,mwa)) ; rr_v_accum_prev0(:,:) = 0.
     allocate ( rr_v_accum_prev1(mza,mwa)) ; rr_v_accum_prev1(:,:) = 0.
+
+    allocate ( rr_v_prev0(mza,mwa)) ; rr_v_prev0(:,:) = 0.
+    allocate ( rr_v_prev1(mza,mwa)) ; rr_v_prev1(:,:) = 0.
+
+    allocate ( ue_prev0(mza,mwa)) ; ue_prev0(:,:) = 0.
+    allocate ( ue_prev1(mza,mwa)) ; ue_prev1(:,:) = 0.
+
+    allocate ( ve_prev0(mza,mwa)) ; ve_prev0(:,:) = 0.
+    allocate ( ve_prev1(mza,mwa)) ; ve_prev1(:,:) = 0.
 
     allocate ( latheat_liq_accum_prev0(mza,mwa)) ; latheat_liq_accum_prev0(:,:) = 0.
     allocate ( latheat_liq_accum_prev1(mza,mwa)) ; latheat_liq_accum_prev1(:,:) = 0.
@@ -397,6 +421,7 @@ Contains
 
     use mem_cuparm,     only: aconpr
     use mem_micro,      only: accpd, accpr, accpp, accps, accpa, accpg, accph
+    use mem_basic,      only: tair, rr_v, ue, ve
     use misc_coms,      only: time8
     use mem_sfcg,       only: sfcg, mwsfc, itab_wsfc
     use mem_land,       only: land, mland, omland, nzg, dslz, slzt
@@ -488,7 +513,11 @@ Contains
              wc_accum_prev1(:,:) =          wc_accum_prev0(:,:)
           press_accum_prev1(:,:) =       press_accum_prev0(:,:)
            tair_accum_prev1(:,:) =        tair_accum_prev0(:,:)
+                 tair_prev1(:,:) =              tair_prev0(:,:)
            rr_v_accum_prev1(:,:) =        rr_v_accum_prev0(:,:)
+                 rr_v_prev1(:,:) =              rr_v_prev0(:,:)
+                   ue_prev1(:,:) =                ue_prev0(:,:)
+                   ve_prev1(:,:) =                ve_prev0(:,:)
     latheat_liq_accum_prev1(:,:) = latheat_liq_accum_prev0(:,:)
     latheat_ice_accum_prev1(:,:) = latheat_ice_accum_prev0(:,:)
 
@@ -607,7 +636,11 @@ Contains
              wc_accum_prev0(:,:) = 0.
           press_accum_prev0(:,:) = 0.
            tair_accum_prev0(:,:) = 0.
+                 tair_prev0(:,:) = 0.
            rr_v_accum_prev0(:,:) = 0.
+                 rr_v_prev0(:,:) = 0.
+                   ue_prev0(:,:) = 0.
+                   ve_prev0(:,:) = 0.
     latheat_liq_accum_prev0(:,:) = 0.
     latheat_ice_accum_prev0(:,:) = 0.
 
@@ -702,9 +735,25 @@ Contains
                                tair_accum_prev0(:,:) + &
                           real(tair_accum(:,:))
 
+    if (allocated(tair)) tair_prev0(:,:) = &
+                         tair_prev0(:,:) + &
+                    real(tair(:,:))
+
     if (allocated(rr_v_accum)) rr_v_accum_prev0(:,:) = &
                                rr_v_accum_prev0(:,:) + &
                           real(rr_v_accum(:,:))
+
+    if (allocated(rr_v)) rr_v_prev0(:,:) = &
+                         rr_v_prev0(:,:) + &
+                    real(rr_v(:,:))
+
+                       ue_prev0(:,:) = &
+                       ue_prev0(:,:) + &
+                  real(ue(:,:))
+
+                       ve_prev0(:,:) = &
+                       ve_prev0(:,:) + &
+                  real(ve(:,:))
 
     if (allocated(latheat_liq_accum)) latheat_liq_accum_prev0(:,:) = &
                                       latheat_liq_accum_prev0(:,:) + &

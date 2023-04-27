@@ -11,7 +11,7 @@ use pom2k1d,     only: pom
 use leaf4_soil,  only: soil_wat2pot
 
 use mem_basic,   only: vmc, wmc, vc, wc, rho, press, &
-                       thil, theta, tair, rr_w, rr_v, vxe, vye, vze
+                       thil, theta, tair, rr_w, rr_v, vxe, vye, vze, ue, ve
 use mem_cuparm,  only: conprr, aconpr, qwcon, cbmf
 
 use mem_grid,    only: mza, lpm, lpv, lpw, lsw, &
@@ -96,7 +96,11 @@ use mem_plot, only: &
              wc_accum_prev0,           wc_accum_prev1, &
           press_accum_prev0,        press_accum_prev1, &
            tair_accum_prev0,         tair_accum_prev1, &
+                 tair_prev0,               tair_prev1, &
            rr_v_accum_prev0,         rr_v_accum_prev1, &
+                 rr_v_prev0,               rr_v_prev1, &
+                   ue_prev0,                 ue_prev1, &
+                   ve_prev0,                 ve_prev1, &
     latheat_liq_accum_prev0,  latheat_liq_accum_prev1, &
     latheat_ice_accum_prev0,  latheat_ice_accum_prev1, &
            vels_accum_prev0,         vels_accum_prev1,     vels_accum_prev2,     vels_accum_prev3, &
@@ -288,7 +292,7 @@ data fldlib(1:4, 62:98)/ &
 
 ! ATMOSPHERE DIF2 fields (3D & 2D)
 
-data fldlib(1:4,101:119)/ &
+data fldlib(1:4,101:121)/ &
  'ZONAL_WINDW_DIF2' ,'T3' ,'ZONAL VEL DIF2',' (m s:S2:-1  )'        ,& ! 101
  'MERID_WINDW_DIF2' ,'T3' ,'MERID VEL DIF2',' (m s:S2:-1  )'        ,& ! 102
  'WC_DIF2'          ,'T3' ,'VERT VEL DIF2',' (m s:S2:-1  )'         ,& ! 103
@@ -307,7 +311,9 @@ data fldlib(1:4,101:119)/ &
  'RSHORT_TOP_DIF2'  ,'T2' ,'TOP DOWN SW FLX DIF2',' (W m:S2:-2  )'  ,& ! 116
  'RSHORTUP_TOP_DIF2','T2' ,'TOP UP SW FLX DIF2',' (W m:S2:-2  )'    ,& ! 117
  'RLONGUP_TOP_DIF2' ,'T2' ,'TOP UP LW FLX DIF2',' (W m:S2:-2  )'    ,& ! 118
- 'LATHEAT_ZINT_DIF2','T3' ,'LATHEAT ZINT DIF2',' (K hr:S2:-1  )'     / ! 119
+ 'LATHEAT_ZINT_DIF2','T3' ,'LATHEAT ZINT DIF2',' (K hr:S2:-1  )'    ,& ! 119
+ 'UE_DIF2'          ,'T3' ,'ZONAL VEL DIF2',' (g kg:S2:-1  )'       ,& ! 120
+ 'VE_DIF2'          ,'T3' ,'MERID VEL DIF2',' (g kg:S2:-1  )'        / ! 121
 
 ! ATMOSPHERE DIF4 fields (2D)
 
@@ -1897,23 +1903,39 @@ case(104) ! 'PRESS_DIF2'
 
 case(105) ! 'AIRTEMPK_DIF2'
 
-   if (.not. allocated(tair_accum)) go to 1000
+ !  if (.not. allocated(tair_accum)) go to 1000
 
-   fldval = tair_accum_prev0(k,i) - tair_accum_prev1(k,i)
+ !  fldval = tair_accum_prev0(k,i) - tair_accum_prev1(k,i)
 
-   if (abs(time8_prev0 - time8_prev1) > .99) then
-      fldval = fldval / (time8_prev0 - time8_prev1)
-   endif
+ !  if (abs(time8_prev0 - time8_prev1) > .99) then
+ !     fldval = fldval / (time8_prev0 - time8_prev1)
+ !  endif
+
+   if (.not. allocated(tair)) go to 1000
+
+   fldval = tair_prev0(k,i) - tair_prev1(k,i)
+
+ !  if (abs(time8_prev0 - time8_prev1) > .99) then
+ !     fldval = fldval / (time8_prev0 - time8_prev1)
+ !  endif
 
 case(106) ! 'RR_V_DIF2'
 
-   if (.not. allocated(rr_v_accum)) go to 1000
+ !  if (.not. allocated(rr_v_accum)) go to 1000
 
-   fldval = rr_v_accum_prev0(k,i) - rr_v_accum_prev1(k,i)
+ !  fldval = rr_v_accum_prev0(k,i) - rr_v_accum_prev1(k,i)
 
-   if (abs(time8_prev0 - time8_prev1) > .99) then
-      fldval = fldval * 1.e3 / (time8_prev0 - time8_prev1)
-   endif
+ !  if (abs(time8_prev0 - time8_prev1) > .99) then
+ !     fldval = fldval * 1.e3 / (time8_prev0 - time8_prev1)
+ !  endif
+
+   if (.not. allocated(rr_v)) go to 1000
+
+   fldval = 1.e3 * (rr_v_prev0(k,i) - rr_v_prev1(k,i))
+
+ !  if (abs(time8_prev0 - time8_prev1) > .99) then
+ !     fldval = fldval * 1.e3 / (time8_prev0 - time8_prev1)
+ !  endif
 
 case(107) ! 'LATHEAT_LIQ_DIF2'
 
@@ -2069,6 +2091,14 @@ case(119) ! 'LATHEAT_ZINT_DIF2'
    if (abs(time8_prev0 - time8_prev1) > .99) then
       fldval = fldval * 3600. / (time8_prev0 - time8_prev1)
    endif
+
+case(120) ! 'UE_DIF2'
+
+   fldval = ue_prev0(k,i) - ue_prev1(k,i)
+
+case(121) ! 'UE_DIF2'
+
+   fldval = ve_prev0(k,i) - ve_prev1(k,i)
 
 case(129) ! 'PCPMIC_DIF4'
 

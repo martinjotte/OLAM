@@ -470,6 +470,13 @@ if (  nl%ncycle_hurrinit > 0 .and. &
    nfatal = nfatal + 1
 endif
 
+if (  nl%ncycle_hurrinit > 1 .and. &
+      nl%runtype == 'HISTREGRID') then
+   write(io6,*) " -- FATAL -- Hurricane relocation (for which ncycle_hurrinit > 1) "
+   write(io6,*) "             cannot be done in a HISTREGRID run "
+   nfatal = nfatal + 1
+endif
+
 !--------------------------------------------------------------------------
 ! SOUNDING SPECIFICATION
 !--------------------------------------------------------------------------

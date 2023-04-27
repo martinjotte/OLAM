@@ -3,6 +3,7 @@ subroutine olam_run(name_name)
   use, intrinsic :: ieee_arithmetic
 
   use misc_coms,   only: io6, mstp, time8, time8p, time_istp8, time_istp8p,      &
+                         initial_time, hfilepref,                                &
                          iflag, expnme, mdomain, initial, iswrtyp, ilwrtyp,      &
                          runtype, hfilin, timmax8, alloc_misc, iparallel,        &
                          iyear1, imonth1, idate1, itime1, s1900_init, s1900_sim, &
@@ -30,9 +31,9 @@ subroutine olam_run(name_name)
   use mem_rayf,    only: rayf_init
   use consts_coms, only: r8, init_consts
   use oname_coms,  only: nl
-  use hcane_rz,    only: ncycle_hurrinit, icycle_hurrinit, hurricane_init, &
-                         timmax_hurrinit, vortex_center_diagnose, vortex_azim_avg, &
-                         vortex_reloc3d, vortex_relocated, htc0, &
+  use hcane_rz,    only: ncycle_hurrinit, icycle_hurrinit, icycle_hurrinit_hist,  &
+                         hurricane_init, timmax_hurrinit, vortex_center_diagnose, &
+                         vortex_azim_avg, vortex_reloc3d, vortex_relocated,       &
                          hlat, hlon, hlat0, hlon0, hlat_hist, hlon_hist
   use obnd,        only: set_scalars_bottom, set_scalars_lbc, lbcopy_v
   use mem_plot,    only: alloc_plot, copy_plot
@@ -590,6 +591,21 @@ subroutine olam_run(name_name)
         call history_start('COMMIO')
         call history_start('HISTREAD')
 
+        ! Diagnose zonal and meridional wind components, which are not on hist file
+
+        call diag_uzonal_umerid()
+
+        ! Save a copy of some fields; used later to plot difference fields
+
+        call copy_plot(iplt_file)
+
+        ! For hurricane tracking cases, copy center location read from hist file
+
+        if (ncycle_hurrinit > 0) then
+           hlat = hlat_hist
+           hlon = hlon_hist
+        endif
+
         ! If day-average plots are specified, do them when
         ! iplt_file = 1 and then exit iplt_file do loop.  IT IS ASSUMED THAT
         ! DAY-AVERAGE FILES ARE SINGLE NON-PARALLEL FILES.
@@ -613,11 +629,7 @@ subroutine olam_run(name_name)
            exit
         endif
 
-        ! If day-average plots are NOT specified, do regular
-        ! plots from history files.  First, save a copy of some fields; used
-        ! later to plot difference fields
-
-        call copy_plot(iplt_file)
+        ! If day-average plots are NOT specified, do regular plots from history files.
 
         ! The following commented-out IF block is a template for cases where
         ! fields need not be plotted for every call to copy_plot
@@ -630,22 +642,17 @@ subroutine olam_run(name_name)
 
        ! if (mod(iplt_file,240) == 0) then
 
-  if (ncycle_hurrinit > 0) then
-     hlat = hlat_hist
-     hlon = hlon_hist
-  endif
            call plot_fields(0)
 
            if (nl%ioutput_latlon == 1 .or. nl%latlonplot == 1) then
-              call diag_uzonal_umerid()
               call fields3_ll()
            endif
 
         ! endif
 
-  if (ncycle_hurrinit > 0) then
-     call vortex_azim_avg('plot')
-  endif
+!  if (ncycle_hurrinit > 0) then
+!     call vortex_azim_avg('plot')
+!  endif
 
         ! Write sfcnud file to be used for nudged spin-up simulation
 
@@ -670,38 +677,19 @@ subroutine olam_run(name_name)
 
   endif
 
-  ! If adding new grids (new mesh refinements), read information from old
-  ! gridfile and sfcgfile, and initialize procedure for mapping
-  ! model fields from OLD history file to NEW model grid
+  ! HISTORY START: Replace initial fields with HISTORY read.
 
-  if (runtype == 'HISTREGRID') then
-     call gridfile_read_oldgrid()
+  if (runtype == 'HISTORY' .or. runtype == 'HISTREGRID') then
 
-     print*, 'calling init_regrid'
-     call init_regrid()
-  endif
+     ! If adding new grids (new mesh refinements), read information from old
+     ! gridfile and sfcgfile, and initialize procedure for mapping
+     ! model fields from OLD history file to NEW model grid
 
-  icycle_hurrinit = 0
+     if (runtype == 'HISTREGRID') then
+        call gridfile_read_oldgrid()
 
-  70 continue ! HURRICANE INITIALIZATION CYCLE BEGINS HERE
-
-  if (ncycle_hurrinit > 0) then
-     icycle_hurrinit = icycle_hurrinit + 1
-  endif
-
-  ! For HISTORY start or for second and later cycles of hurricane dynamic
-  ! initialization, replace initial fields with HISTORY read.
-
-  ! (Trying to history restart while hurricane initialization cycles are in
-  ! progress does not work correctly.)
-
-  if (runtype == 'HISTORY' .or. runtype == 'HISTREGRID' .or. &
-     icycle_hurrinit > 1) then
-
-     if (runtype == 'INITIAL' .and. icycle_hurrinit > 1) then
-        hfilin = trim(htc0)
-     else
-        hfilin = nl%hfilin
+        print*, 'calling init_regrid'
+        call init_regrid()
      endif
 
      write(io6,*) 'olam_run calling history_start'
@@ -739,66 +727,34 @@ subroutine olam_run(name_name)
         land%veg_ndvif(:) = land%veg_ndvic(:)
      endif
 
-  endif
+     if (ncycle_hurrinit > 0) then
+        icycle_hurrinit = icycle_hurrinit_hist
 
-  ! If hurricane dynamic initialization or tracking is to be done...
+        hlat = hlat_hist
+        hlon = hlon_hist
+     endif
 
-  if (ncycle_hurrinit > 0) then
+  elseif (runtype  == 'INITIAL') then
 
-     ! Initialize hurricane location
+     ! Initial hurricane location (in case vortex tracking will be used)
 
-     if (runtype == 'INITIAL' .and. icycle_hurrinit == 1) then
-        hlat = hlat0      ! Value specified in namelist
-        hlon = hlon0      ! Value specified in namelist
+     icycle_hurrinit      = 1
+     icycle_hurrinit_hist = 1
+
+     hlat = hlat0      ! Value specified in namelist
+     hlon = hlon0      ! Value specified in namelist
+
+     if (ncycle_hurrinit > 0) then
         call vortex_center_diagnose()
         hlat_hist = hlat
         hlon_hist = hlon
-     elseif (runtype == 'HISTORY' .or. runtype == 'HISTREGRID') then
-        hlat = hlat_hist  ! Current value in history file
-        hlon = hlon_hist  ! Current value in history file
      endif
-
-  endif
-
-  ! If this is not a history start AND if it is not the second or later
-  ! cycle of hurricane initialization, write initial history file
-
-  if (runtype /= 'HISTORY' .and. icycle_hurrinit < 2) then
-     if (runtype == 'INITIAL' .and. icycle_hurrinit == 1) then
-        hlat_hist = hlat0      ! Value specified in namelist
-        hlon_hist = hlon0      ! Value specified in namelist
-     endif
-     if (icycle_hurrinit == 1 .and. ncycle_hurrinit > 1) then
-        write(io6,'(/,a)') 'olam_run calling history_write with HTC0 vtype'
-        call history_write('HTC0')
-        write(io6,'(/,a)') 'olam_run finished history_write'
-     else if (ioutput /= 0) then
-        write(io6,'(/,a)') 'olam_run calling history_write with STATE vtype'
-        call history_write('STATE')
-        write(io6,'(/,a)') 'olam_run finished history_write'
-     endif
-  endif
-
-  ! Initialize cloud fraction in case there is any initial saturation
-
-  if (runtype == 'INITIAL') then
-     call calc_3d_cloud_fraction()
-  endif
-
-  time_prevhist = time8
-  w2 = walltime(wtime_start)
-  call cpu_time(t2)
-  write(io6,'(a,2f13.3)') '++++++++++ CPU - wall time: olam initialization: ',t2-t1,w2-w1
-
-  write(io6,'(/,a)') 'olam_run completed initialization'
-
-  if (icycle_hurrinit == ncycle_hurrinit) then ! Includes case where ncycle_hurrinit = 0
 
      ! Setup lite variable output
 
      if (nl%ioutput_lite == 1) then
         call prepare_lite()
-        if (runtype /= 'HISTORY' .and. runtype /= 'HISTREGRID') call lite_write()
+        call lite_write()
      endif
 
      ! Initialize field average arrays
@@ -807,30 +763,14 @@ subroutine olam_run(name_name)
 
   endif
 
-  ! If hurricane dynamic initialization or tracking is to be done...
+  ! If this INITIAL or HISTREGRID run, write initial history file
 
-  if (ncycle_hurrinit > 0) then
-
-     ! In 'INITIAL' run, on second or later cycle, relocate hurricane fields
-     ! (that were prognosed on previous cycle) back to initial location
-
-     if (runtype == 'INITIAL' .and. icycle_hurrinit > 1) then
-        print*, 'olam_run calling vortex_relocated'
-
-        call vortex_relocated()
-
-        print*, 'returned from vortex_relocated'
-
+  if (runtype == 'INITIAL' .or. runtype == 'HISTREGRID') then
+     if (ioutput /= 0 .or. ncycle_hurrinit > 1) then
+        write(io6,'(/,a)') 'olam_run calling history_write with STATE vtype'
+        call history_write('STATE')
+        write(io6,'(/,a)') 'olam_run finished history_write'
      endif
-
-     ! If INITIAL runtype, write secondary history file with 'HTC' in name.
-
-     if (runtype == 'INITIAL' .and. ncycle_hurrinit > 1) then
-        write(io6,'(/,a)') 'olam_run calling history_write with HTC1 vtype'
-        call history_write('HTC1')
-        write(io6,'(/,a)') 'olam_run finished history_write with HTC1 vtype'
-     endif
-
   endif
 
   ! Plot initial fields
@@ -849,6 +789,15 @@ subroutine olam_run(name_name)
      call vortex_azim_avg('plot')
   endif
 
+  70 continue ! HURRICANE INITIALIZATION CYCLE BEGINS HERE
+
+  time_prevhist = time8
+  w2 = walltime(wtime_start)
+  call cpu_time(t2)
+  write(io6,'(a,2f13.3)') '++++++++++ CPU - wall time: olam initialization: ',t2-t1,w2-w1
+
+  write(io6,'(/,a)') 'olam_run completed initialization'
+
   ! Exit if doing a zero time run
   if (time8 >= timmax8) go to 1000
 
@@ -861,12 +810,65 @@ subroutine olam_run(name_name)
   ! PREPARE FOR NEXT HURRICANE DYNAMIC INITIALIZATION CYCLE (if
   ! any more are to be done)
 
-  if (icycle_hurrinit > 0 .and. icycle_hurrinit < ncycle_hurrinit) then
+  if (ncycle_hurrinit > 1 .and. icycle_hurrinit < ncycle_hurrinit) then
 
      ! Remap 3D hurricane fields from grid cells at present location to
      ! grid cells at initial location; store in arrays
 
      call vortex_reloc3d()
+
+     ! Reset fields to initial state by reading initial HISTORY file
+
+     call makefnam(hfilin, hfilepref, initial_time, 'H', '$', 'h5')  ! Initial-time histfile
+
+     write(io6,*) 'olam_run calling history_start from initial file for hurrinit cycle'
+     call history_start('COMMIO')
+     call history_start('HISTREAD')
+     write(io6,*) 'olam_run finished history_start'
+
+     ! Reset time variables
+
+     time8p      = time8 + time_bias   ! Slightly forward biased time
+     time_istp8  = time8
+     time_istp8p = time8p              ! Slightly forward biased time
+
+     mstp = 0
+
+     ! Relocate hurricane fields (that were stored in vortex_reloc3d) back to initial location
+
+     print*, 'olam_run calling vortex_relocated'
+
+     call vortex_relocated()
+
+     print*, 'returned from vortex_relocated'
+
+     ! Write secondary history file with 'HTC1' in name.
+
+     icycle_hurrinit = icycle_hurrinit + 1
+     icycle_hurrinit_hist = icycle_hurrinit
+
+     write(io6,'(/,a)') 'olam_run calling history_write with HTC1 vtype'
+     call history_write('HTC1')
+     write(io6,'(/,a)') 'olam_run finished history_write with HTC1 vtype'
+
+     ! Re-compute cloud fraction following vortex reloation in case there is saturation
+
+     call calc_3d_cloud_fraction()
+
+     ! Plot fields following vortex relocation
+
+     write(io6,'(/,a)') 'olam_run calling plot_fields after vortex relocation'
+
+     call copy_plot(0)
+     call plot_fields(0)
+     call fields3_ll()
+
+     ! Compute azimuthal averages of dynamic, thermodynamic, and moisture
+     ! fields, and plot averages (in radial-height cross sections)
+
+     if (ncycle_hurrinit > 0) then
+        call vortex_azim_avg('plot')
+     endif
 
      ! Return to starting point of next initialization cycle
 
@@ -892,7 +894,6 @@ subroutine olam_run(name_name)
      if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) then
         call olam_mpi_nud_stop()
      endif
-
   endif
 
   write(io6,'(/,a)') 'olam_run returning to olammain'
