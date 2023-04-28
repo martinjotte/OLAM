@@ -1012,8 +1012,7 @@ subroutine olam_output()
   use consts_coms, only: r8
   use oname_coms,  only: nl
   use mem_plot,    only: copy_plot
-  use hcane_rz,    only: ncycle_hurrinit, icycle_hurrinit, vortex_center_diagnose, &
-                         vortex_azim_avg
+  use hcane_rz,    only: ncycle_hurrinit, vortex_center_diagnose, vortex_azim_avg
   use lite_vars,   only: lite_write
   use mem_megan,   only: megan_store_lai
 
@@ -1026,7 +1025,7 @@ subroutine olam_output()
 
   ! Track location of hurricane every timestep
 
-  if (icycle_hurrinit > 0) then
+  if (ncycle_hurrinit > 0) then
      call vortex_center_diagnose()
   endif
 
