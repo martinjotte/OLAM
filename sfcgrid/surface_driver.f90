@@ -452,7 +452,7 @@ subroutine surface_driver()
   ! Loop over ALL LAKE CELLS
   !-----------------------------------------------------------------------
 
-  !$omp parallel private(dheight, energyin)
+  !$omp parallel private(dheight, energyin, energy_per_m2)
   !$omp do private(iwsfc, j, ivn, iwn, dirv, k, factor)
   do ilake = 2,mlake
      iwsfc = ilake + omlake
@@ -606,7 +606,7 @@ subroutine surface_driver()
         call qwtk(land%soil_energy(k,iland),land%soil_water(k,iland)*1.e3, &
            land%specifheat_drysoil(k,iland),soil_tempk(k),soil_fracliq(k))
 
-        if (sfcg%leaf_class(iw1) == 2) then
+        if (sfcg%leaf_class(iwsfc) == 2) then
 
            ! Case for firn/glacier locations
 

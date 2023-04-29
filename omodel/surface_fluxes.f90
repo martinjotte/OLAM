@@ -453,7 +453,7 @@ subroutine stars( zts, rough, vels, rhos, ufree,  &
   ri = 2.0 * grav * zts * (air_thetav - can_thetav)  &
      / ( (air_thetav + can_thetav) * vels0 * vels0 )
 
-  if (air_thetav >= can_thetav) then
+  if (ri > 0.) then
 
      fm = 1. / (1. + (2. * b * ri / sqrt(1. + d * ri)))
      fh = 1. / (1. + (3. * b * ri * sqrt(1. + d * ri)))
