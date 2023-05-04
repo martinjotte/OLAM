@@ -858,7 +858,8 @@
  !          |                   b,t,a   = grid border, +ticks+outer_axlabs, +inner_axlabs
  !          |                   n,o     = field name, field name + info block
  !          |                   c,r     = colorbar, no colorbar but allow room for it
- !          |                   m,l     = map lined, lat/lon lines
+ !          |                   m       = draw outlines of land areas, countries, states
+ !          |                   l       = draw lat/lon lines
  !           \                  C       = Cone circle plotted
  !            \                 p,s     = plot on const p sfc, plot near-sfc value
  !             \                W       = Window dimensions as specified
@@ -866,7 +867,7 @@
  !               \              f,h     = frameoff (no frame call)
  !                \             1,2,3,4 = panel number in frame window
  !                 \            u       = Do not mask out underground cells
- !                  \           N       = No extras
+ !                  \           |
  !                   \          |                                          view azim
  !                    \         |          plot center    coneang,  window   for 'C'
  !                     |  color |            lon/lat       height,  width     or 'V'
