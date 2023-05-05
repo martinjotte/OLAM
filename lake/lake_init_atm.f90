@@ -43,7 +43,7 @@ subroutine lake_init_atm()
      iwsfc = ilake + omlake
 
      ! Skip this cell if running in parallel and cell rank is not MYRANK
-     if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+     ! if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
      ! Apply initial atmospheric properties to lake "canopy"
 

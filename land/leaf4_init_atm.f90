@@ -173,21 +173,21 @@ subroutine leaf4_init_atm()
   do iland = 2,mland
      iwsfc = iland + omland
 
-     ! Skip this cell if running in parallel and cell rank is not MYRANK
-     if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
-
      ! Apply initial atmospheric properties to land canopy
 
      sfcg%cantemp  (iwsfc) = sfcg%airtheta(iwsfc) * (sfcg%prss(iwsfc) * p00i)**rocp
      sfcg%canrrv   (iwsfc) = sfcg%airrrv(iwsfc)
-     land%veg_temp (iland) = sfcg%cantemp(iwsfc)
-     land%veg_water(iland) = 0.
      sfcg%ustar    (iwsfc) = 0.1
      sfcg%sfluxt   (iwsfc) = 0.
      sfcg%sfluxr   (iwsfc) = 0.
      sfcg%wthv     (iwsfc) = 0.
 
+     ! Skip the rest if running in parallel and cell rank is not MYRANK
+     if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+
      land%veg_energy(iland) = (land%veg_temp(iland) - 273.15) * land%hcapveg(iland)
+     land%veg_temp  (iland) = sfcg%cantemp(iwsfc)
+     land%veg_water (iland) = 0.
 
      ! Default initialization of sfcwater_mass, soil_tempc, and soil_water
 

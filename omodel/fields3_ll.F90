@@ -16,7 +16,7 @@ subroutine fields3_ll()
 
 ! New fields may be added following the examples in this file.
 
-  use mem_ijtabs,  only: itab_w, itabg_w
+  use mem_ijtabs,  only: itab_w, itabg_w, jtab_w, jtw_prog
   use mem_basic,   only: wc, rho, press, theta, rr_w, rr_v, tair, ue, ve
   use mem_grid,    only: mza, mwa, lpw, topw, zt, dzt, &
                          vxn_ew, vyn_ew, vxn_ns, vyn_ns, vzn_ns
@@ -834,7 +834,7 @@ subroutine fields3_ll()
 
   if (isfcl == 1) then
 
-     do iw = 2, mwa
+     do n = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(n)
         scr1a(iw) = 0.
         scr1b(iw) = 0.
         scr1c(iw) = 0.
@@ -904,12 +904,12 @@ subroutine fields3_ll()
               vwind = ve(kwatm,iw) * frac
 
               if (k == 0) then
-                 scr1s(iw) = scr1s(iw) + uwind                   * itab_wsfc(iwsfc)%arcoariw(jasfc) 
-                 scr1t(iw) = scr1t(iw) + vwind                   * itab_wsfc(iwsfc)%arcoariw(jasfc) 
+                 scr1s(iw) = scr1s(iw) + uwind                   * itab_wsfc(iwsfc)%arcoariw(jasfc)
+                 scr1t(iw) = scr1t(iw) + vwind                   * itab_wsfc(iwsfc)%arcoariw(jasfc)
                  scr1o(iw) = scr1o(iw) + wind_zobs               * itab_wsfc(iwsfc)%arcoariw(jasfc)
               else
-                 scr1u(iw) = scr1u(iw) + uwind                   * itab_wsfc(iwsfc)%arcoariw(jasfc) 
-                 scr1v(iw) = scr1v(iw) + vwind                   * itab_wsfc(iwsfc)%arcoariw(jasfc) 
+                 scr1u(iw) = scr1u(iw) + uwind                   * itab_wsfc(iwsfc)%arcoariw(jasfc)
+                 scr1v(iw) = scr1v(iw) + vwind                   * itab_wsfc(iwsfc)%arcoariw(jasfc)
                  scr1p(iw) = scr1p(iw) + wind_zobs               * itab_wsfc(iwsfc)%arcoariw(jasfc)
                  scr1q(iw) = scr1q(iw) + theta_zobs * exner_zobs * itab_wsfc(iwsfc)%arcoariw(jasfc)
                  scr1r(iw) = scr1r(iw) + rrv_zobs                * itab_wsfc(iwsfc)%arcoariw(jasfc)
