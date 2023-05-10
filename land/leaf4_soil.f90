@@ -23,7 +23,7 @@ Module leaf4_soil
                   soil_tempk, soil_fracliq, dheight, energyin,           &
                   thermcond_soil               )
 
-  use leaf_coms,      only: nzs, dt_leaf, z_root
+  use leaf_coms,      only: nzs, dt_leaf, z_root, wcap_min
   use mem_land,       only: nzg, slz, dslz, dslzi, slzt, dslzo2, kperc
   use consts_coms,    only: cliq1000, cice1000, alli1000, alvi
   use tridiag,        only: tridiffo
@@ -387,7 +387,7 @@ Module leaf4_soil
 
   ! Check for minimum sfcwater_mass
 
-  if (sfcwater_mass > 1.e-6) then
+  if (sfcwater_mass >= wcap_min) then
 
      ! Sfcwater mass is above minimum
 

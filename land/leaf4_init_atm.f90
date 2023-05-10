@@ -185,8 +185,8 @@ subroutine leaf4_init_atm()
      ! Skip the rest if running in parallel and cell rank is not MYRANK
      if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
-     land%veg_energy(iland) = (land%veg_temp(iland) - 273.15) * land%hcapveg(iland)
      land%veg_temp  (iland) = sfcg%cantemp(iwsfc)
+     land%veg_energy(iland) = (land%veg_temp(iland) - 273.15) * land%hcapveg(iland)
      land%veg_water (iland) = 0.
 
      ! Default initialization of sfcwater_mass, soil_tempc, and soil_water
