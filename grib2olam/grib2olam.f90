@@ -2,7 +2,8 @@ program grib_to_gdf
 
   use grib_get_mod
   use hdf5_utils
-  use hdf5
+  use bit_shave, only: scalfield
+  use hdf5,      only: h5open_f, h5close_f
 
   implicit none
 
@@ -58,11 +59,11 @@ program grib_to_gdf
   logical       :: have_snow
 
   real, allocatable :: zlev(:), plev(:)
+  integer :: compress_level
 
   namelist /dgrib_in/ nvar3d, var3d, nvarsfc, varsfc, c_date, num_hours, c_hr, &
                      filein, out3d, outsfc, wgrib1_exe, wgrib2_exe, out_prefix, &
-!                    nvargnd, vargnd, outgnd, &
-                     sstvar, landmask, icevar, &
+                     compress_level, sstvar, landmask, icevar, &
                      soilw_var, soilt_var, snow_var
 
   dousage = .false.
@@ -76,28 +77,30 @@ program grib_to_gdf
   num_hours  = 1
   c_date     = '99999999'
   c_hr(:)    = '99999999'
-  out_prefix = ''
-  var3d(:)   = ''
-  varsfc(:)  = ''
-!  vargnd(:)  = ''
-  out3d(:)   = ''
-  outsfc(:)  = ''
-!  outgnd(:)  = ''
+  out_prefix = ' '
+  var3d(:)   = ' '
+  varsfc(:)  = ' '
+  out3d(:)   = ' '
+  outsfc(:)  = ' '
   nvar3d     = 0
   nvarsfc    = 0
-!  nvargnd    = 0
-  filein     = ''
+  filein     = ' '
 
-  sstvar     = ''
-  icevar     = ''
-  landmask   = ''
-  soilw_var  = ''
-  soilt_var  = ''
-  snow_var   = ''
+  sstvar     = ' '
+  icevar     = ' '
+  landmask   = ' '
+  soilw_var  = ' '
+  soilt_var  = ' '
+  snow_var   = ' '
+
+  compress_level = 3
 
   do i = 1, 3
-     dimnames(i) = ''
+     dimnames(i) = ' '
   enddo
+
+  ndims    = 0
+  idims(:) = 0
 
   ia = command_argument_count()
 ! write(*,*) 'num args: ', ia
@@ -745,37 +748,37 @@ program grib_to_gdf
         if (out3d(i) == 'TEMP' .or. out3d(i) == 'GEO') nsd = 4
         do j=1,nlev
            call prepfield(a3(:,:,j,i),nx,ny,projection,var3d(i))
-           call scalfield(a3(:,:,j,i),nx,ny,nsd)
+           call scalfield(a3(:,:,j,i),nx,ny,nsd,rmiss=amiss)
         enddo
      enddo
 
      do i=1, nvarsfc
         call prepfield(a2(:,:,i),nx,ny,projection,varsfc(i))
-        call scalfield(a2(:,:,i),nx,ny,4)
+        call scalfield(a2(:,:,i),nx,ny,4,rmiss=amiss)
      enddo
 
      if (have_soilw .and. allocated(soilw)) then
         do i=1,nsoilw
-           call scalfield(soilw(:,:,i),nx,ny,3)
+           call scalfield(soilw(:,:,i),nx,ny,3,rmiss=amiss)
         enddo
      endif
 
      if (have_soilt .and. allocated(soilt)) then
         do i=1,nsoilt
-           call scalfield(soilt(:,:,i),nx,ny,4)
+           call scalfield(soilt(:,:,i),nx,ny,4,rmiss=amiss)
         enddo
      endif
 
      if (have_sst .and. allocated(sst)) then
-        call scalfield(sst,nx,ny,4)
+        call scalfield(sst,nx,ny,4,rmiss=amiss)
      endif
 
      if (have_ice .and. allocated(ice)) then
-        call scalfield(ice,nx,ny,3)
+        call scalfield(ice,nx,ny,3,rmiss=amiss)
      endif
 
      if (have_snow .and. allocated(snow)) then
-        call scalfield(snow,nx,ny,3)
+        call scalfield(snow,nx,ny,3,rmiss=amiss)
      endif
 
 !!     do i=1,nvargnd
@@ -813,32 +816,33 @@ program grib_to_gdf
 ! Write coordinate variables to disk (lat, lon, height)
 
      ndims    = 1
-     idims(2) = 0
-     idims(3) = 0
-
      idims(1) = nx
 
      CALL shdf5_orec(ndims, idims, 'lon', rvar1=alons, isdim=.true., &
+                     icompress = compress_level,                     &
                      long_name = "longitude",                        &
                      standard_name = "longitude",                    &
                      units = "degrees_east"                          )
 
+     ndims    = 1
      idims(1) = ny
 
      CALL shdf5_orec(ndims, idims, 'lat', rvar1=alats, isdim=.true., &
+                     icompress = compress_level,                     &
                      long_name = "latitude",                         &
                      standard_name = "latitude",                     &
                      units = "degrees_north"                         )
 
 
      if (nlev > 0) then
+        ndims    = 1
         idims(1) = nlev
 
         allocate(plev(nlev))
-
         plev = real(iplevs(1:nlev))
 
         CALL shdf5_orec(ndims, idims, 'pres', rvar1=plev, isdim=.true., &
+                        icompress = compress_level,                     &
                         long_name = "pressure",                         &
                         standard_name = "air_pressure",                 &
                         units = "Pa",                                   &
@@ -848,13 +852,14 @@ program grib_to_gdf
      endif
 
      if (ngnd > 0) then
+        ndims    = 1
         idims(1) = ngnd
 
         allocate(zlev(ngnd))
-
         zlev = -0.01 * real(islevs(1:ngnd))
 
         CALL shdf5_orec(ndims, idims, 'depth', rvar1=zlev, isdim=.true., &
+                        icompress = compress_level,                      &
                         long_name = "soil depth relative to surface",    &
                         standard_name = "depth",                         &
                         units = "m",                                     &
@@ -890,17 +895,23 @@ program grib_to_gdf
 
      if (allocated(alats)) then
         ndims=1 ; idims(1)=ny
-        call shdf5_orec(ndims, idims, 'glat', rvar1=alats)
+        dimnames(1) = 'lat'
+        call shdf5_orec(ndims, idims, 'glat', rvar1=alats, &
+                        dimnames=dimnames, icompress=compress_level)
      endif
 
      if (nlev > 0) then
         ndims=1 ; idims(1)=nlev
-        call shdf5_orec(ndims, idims, 'levels', ivar1=iplevs)
+        dimnames(1) = 'pres'
+        call shdf5_orec(ndims, idims, 'levels', ivar1=iplevs, &
+                        dimnames=dimnames, icompress=compress_level)
      endif
 
      if (ngnd > 0) then
         ndims=1 ; idims(1)=ngnd
-        call shdf5_orec(ndims, idims, 'sdepths', ivar1=islevs)
+        dimnames(1) = 'depth'
+        call shdf5_orec(ndims, idims, 'sdepths', ivar1=islevs, &
+                        dimnames=dimnames, icompress=compress_level)
      endif
 
      do i = 1, nvar3d
@@ -911,8 +922,8 @@ program grib_to_gdf
         dimnames(1) = 'lon'
         dimnames(2) = 'lat'
         dimnames(3) = 'pres'
-        call shdf5_orec(ndims, idims, out3d(i), rvar3=a3(:,:,:,i), &
-                        dimnames=dimnames, dims_chunk=cdims)
+        call shdf5_orec(ndims, idims, out3d(i), rvar3=a3(:,:,:,i), rmissing=amiss, &
+                        dimnames=dimnames, dims_chunk=cdims, icompress=compress_level)
      enddo
 
      do i = 1, nvarsfc
@@ -921,8 +932,8 @@ program grib_to_gdf
         idims(1:2) = [nx, ny]
         dimnames(1) = 'lon'
         dimnames(2) = 'lat'
-        call shdf5_orec(ndims, idims, outsfc(i), rvar2=a2(:,:,i), &
-                        dimnames=dimnames)
+        call shdf5_orec(ndims, idims, outsfc(i), rvar2=a2(:,:,i), rmissing=amiss, &
+                        dimnames=dimnames, icompress=compress_level)
      enddo
 
      if (have_sst .and. allocated(sst)) then
@@ -931,8 +942,8 @@ program grib_to_gdf
         idims(1:2) = [nx, ny]
         dimnames(1) = 'lon'
         dimnames(2) = 'lat'
-        call shdf5_orec(ndims, idims, 'SST', rvar2=sst, &
-                        dimnames=dimnames)
+        call shdf5_orec(ndims, idims, 'SST', rvar2=sst, rmissing=amiss, &
+                        dimnames=dimnames, icompress=compress_level)
         deallocate(sst)
      endif
 
@@ -942,8 +953,8 @@ program grib_to_gdf
         idims(1:2) = [nx, ny]
         dimnames(1) = 'lon'
         dimnames(2) = 'lat'
-        call shdf5_orec(ndims, idims, 'ICEC', rvar2=ice, &
-                        dimnames=dimnames)
+        call shdf5_orec(ndims, idims, 'ICEC', rvar2=ice, rmissing=amiss, &
+                        dimnames=dimnames, icompress=compress_level)
         deallocate(ice)
      endif
 
@@ -951,22 +962,24 @@ program grib_to_gdf
         write(*,*) 'SOILW'
         ndims = 3
         idims(1:3) = [nx, ny, ngnd]
+        cdims(1:3) = [nx, ny, 1]
         dimnames(1) = 'lon'
         dimnames(2) = 'lat'
         dimnames(3) = 'depth'
-        call shdf5_orec(ndims, idims, 'SOILW', rvar3=soilw, &
-                        dimnames=dimnames)
+        call shdf5_orec(ndims, idims, 'SOILW', rvar3=soilw, rmissing=amiss, &
+                        dimnames=dimnames, dims_chunk=cdims, icompress=compress_level)
      endif
 
      if (have_soilt .and. allocated(soilt) .and. ngnd > 0) then
         write(*,*) 'SOILT'
         ndims = 3
         idims(1:3) = [nx, ny, ngnd]
+        cdims(1:3) = [nx, ny, 1]
         dimnames(1) = 'lon'
         dimnames(2) = 'lat'
         dimnames(3) = 'depth'
-        call shdf5_orec(ndims, idims, 'SOILT', rvar3=soilt, &
-                        dimnames=dimnames)
+        call shdf5_orec(ndims, idims, 'SOILT', rvar3=soilt, rmissing=amiss, &
+                        dimnames=dimnames, dims_chunk=cdims, icompress=compress_level)
      endif
 
      if (have_snow .and. allocated(snow)) then
@@ -975,8 +988,8 @@ program grib_to_gdf
         idims(1:2) = [nx, ny]
         dimnames(1) = 'lon'
         dimnames(2) = 'lat'
-        call shdf5_orec(ndims, idims, 'SNOWMASS', rvar2=snow, &
-                        dimnames=dimnames)
+        call shdf5_orec(ndims, idims, 'SNOWMASS', rvar2=snow, rmissing=amiss, &
+                        dimnames=dimnames, icompress=compress_level)
      endif
 
      call shdf5_close()
@@ -1209,20 +1222,3 @@ subroutine date_add_to (inyear,inmonth,indate,inhour,  &
 end subroutine date_add_to
 
 !************************************************************************
-
-subroutine scalfield(a,nx,ny,nsd)
-
-  use grib_get_mod, only: amiss0
-  implicit none
-
-  integer, intent(in)    :: nx, ny, nsd
-  real,    intent(inout) :: a(nx,ny)
-  integer                :: i, j
-
-  do j = 1, ny
-     do i = 1, nx
-        call bit_shave( a(i,j), nsd )
-     enddo
-  enddo
-
-end subroutine scalfield

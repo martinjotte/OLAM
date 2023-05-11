@@ -44,9 +44,7 @@ module grib_get_mod
   real, parameter :: amiss  = -2.e20
   real, parameter :: amiss0 = -1.e20
 
-
   character(len=20), allocatable :: units
-
 
   ! Interface to C function ir_popen
 
@@ -702,4 +700,7 @@ contains
     call ir_popenc(nbuff, buffc, cstring, len)
   end subroutine ir_popen_chars
 
+!************************************************************************
+
 end module grib_get_mod
+

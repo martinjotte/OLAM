@@ -74,7 +74,7 @@ clean:
 
 # Dependencies
 
-grib2olam.o: grib_get.o hdf5_utils.o
+grib2olam.o: grib_get.o bit_shave.o hdf5_utils.o
 
 hdf5_utils.o: hdf5_f2f.o
 

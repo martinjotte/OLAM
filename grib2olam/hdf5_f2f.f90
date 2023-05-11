@@ -1,18 +1,19 @@
 module hdf5_f2f
 
   use hdf5
-  use h5ds
+  use h5ds, only: H5DSset_scale_f      ,  H5DSis_scale_f    , &
+                  H5Dsget_scale_name_f , H5DSattach_scale_f , &
+                  H5DSget_num_scales_f
 
   implicit none
 
   integer, parameter :: r8 = selected_real_kind(13,300)
   integer, parameter :: i1 = selected_int_kind(2)
+  integer, parameter :: i2 = selected_int_kind(4)
   logical, parameter :: bigendian = ichar(transfer(1,'a')) == 0
 
   integer(HID_T)   :: fileid
-  integer(HID_T)   :: propid
-  integer(HID_T)   :: dsetid
-  integer(HID_T)   :: fspcid
+  integer(HID_T)   :: dsetid = -1
   integer(HID_T)   :: mspcid
   integer(HID_T)   :: dspcid
   integer(HSIZE_T) :: dimsf(7)
@@ -23,25 +24,21 @@ module hdf5_f2f
           fh5_write_int1_scalar,      &
           fh5_write_integer_scalar,   &
           fh5_write_real_scalar,      &
-          fh5_write_character_scalar, &
           fh5_write_real8_scalar,     &
           fh5_write_logical_scalar,   &
           fh5_write_int1_array1,      &
           fh5_write_integer_array1,   &
           fh5_write_real_array1,      &
-          fh5_write_character_array1, &
           fh5_write_real8_array1,     &
           fh5_write_logical_array1,   &
           fh5_write_int1_array2,      &
           fh5_write_integer_array2,   &
           fh5_write_real_array2,      &
-          fh5_write_character_array2, &
           fh5_write_real8_array2,     &
           fh5_write_logical_array2,   &
           fh5_write_int1_array3,      &
           fh5_write_integer_array3,   &
           fh5_write_real_array3,      &
-          fh5_write_character_array3, &
           fh5_write_real8_array3,     &
           fh5_write_logical_array3,   &
           fh5_write_int1_array4,      &
@@ -55,25 +52,21 @@ module hdf5_f2f
           fh5_read_int1_scalar,       &
           fh5_read_integer_scalar,    &
           fh5_read_real_scalar,       &
-          fh5_read_character_scalar,  &
           fh5_read_real8_scalar,      &
           fh5_read_logical_scalar,    &
           fh5_read_int1_array1,       &
           fh5_read_integer_array1,    &
           fh5_read_real_array1,       &
-          fh5_read_character_array1,  &
           fh5_read_real8_array1,      &
           fh5_read_logical_array1,    &
           fh5_read_int1_array2,       &
           fh5_read_integer_array2,    &
           fh5_read_real_array2,       &
-          fh5_read_character_array2,  &
           fh5_read_real8_array2,      &
           fh5_read_logical_array2,    &
           fh5_read_int1_array3,       &
           fh5_read_integer_array3,    &
           fh5_read_real_array3,       &
-          fh5_read_character_array3,  &
           fh5_read_real8_array3,      &
           fh5_read_logical_array3,    &
           fh5_read_int1_array4,       &
@@ -87,7 +80,9 @@ module hdf5_f2f
             fh5_write, fh5_close_write, fh5d_open, fh5s_get_ndims, &
             fh5s_get_dims, fh5d_close, fh5_prepare_read, &
             fh5_read, fh5_close_read, fh5f_write_attribute, &
-            fh5f_create_dim, fh5f_attach_dims, fh5f_write_global_attribute
+            fh5f_create_dim, fh5f_attach_dims, fh5f_write_global_attribute, &
+            HID_T, H5T_IEEE_F32LE, H5T_IEEE_F64LE, &       ! 4 and 8 byte reals
+            H5T_STD_I8LE, H5T_STD_I16LE, H5T_STD_I32LE     ! 1, 2, and 4 byte ints
 
 contains
 
@@ -102,15 +97,27 @@ contains
 
     integer(HID_T) :: access_id
     integer        :: flags
+    logical        :: ish5
 
     ! turn off default error handling
-!    call h5eset_auto_f(0, hdferr)
+    ! call h5eset_auto_f(0, hdferr)
 
     access_id = H5P_DEFAULT_F
     if(iaccess == 1) flags = H5F_ACC_RDONLY_F
     if(iaccess == 2) flags = H5F_ACC_RDWR_F
 
+    call h5fis_hdf5_f(locfn, ish5, hdferr)
+    if (.not. ish5 .or. hdferr < 0) then
+       write(*,*) "File " // trim(locfn) // " does not appear to be a hdf5/nc4 file."
+       write(*,*) "If this file is an older NetCDF3 format file convert it to NetCDF4 using:"
+       write(*,*) "nccopy -k nc4 INFILE OUTFILE"
+       write(*,*)
+       hdferr = -1
+       return
+    endif
+
     call h5fopen_f(locfn, flags, fileid, hdferr, access_id)
+
   end subroutine fh5f_open
 
 !=============================================================================
@@ -121,6 +128,7 @@ contains
     integer, intent(OUT) :: hdferr
 
     call h5fclose_f(fileid, hdferr)
+
   end subroutine fh5f_close
 
 !===============================================================================
@@ -148,21 +156,26 @@ contains
 
 !===============================================================================
 
-  subroutine fh5_prepare_write(ndims, dims, hdferr, icompress, &
+  subroutine fh5_prepare_write(ndims, dims, dname, stype, hdferr, icompress, &
                                mcoords, fcoords, ifsize, dims_chunk)
     implicit none
 
-    integer, intent(IN)                       :: ndims
-    integer, intent(IN)                       :: dims(ndims)
-    integer, intent(OUT)                      :: hdferr
-    integer, intent(IN),             optional :: icompress, ifsize
-    integer, intent(IN), contiguous, optional :: mcoords(:), fcoords(:)
-    integer, intent(IN),             optional :: dims_chunk(ndims)
+    integer,        intent(IN)                       :: ndims
+    integer,        intent(IN)                       :: dims(ndims)
+    character(*),   intent(IN)                       :: dname
+    integer(HID_T), intent(IN)                       :: stype
+    integer,        intent(OUT)                      :: hdferr
+    integer,        intent(IN), optional             :: icompress, ifsize
+    integer,        intent(IN), optional, contiguous :: mcoords(:), fcoords(:)
+    integer,        intent(IN), optional             :: dims_chunk(ndims)
 
-    logical          :: docompress
+    logical          :: docompress, valid
     integer          :: i, j, iop
     integer(HSIZE_T) :: dims_file(ndims), dims_compress(ndims)
     integer(HSIZE_T) :: offset(ndims), countf(ndims)
+    integer(HID_T)   :: propid
+    integer(HID_T)   :: fspcid
+    integer          :: dtype
 
     ! Output dimensions
 
@@ -170,45 +183,38 @@ contains
     dimsf(1:ndims) = dims
     dims_file      = dims
 
-    ! For distributed output, global data (file) size will be different then
-    ! the local array size
+    ! For distributed/partial output, global data (file) size will be different
+    ! then the local array size
 
     if (present(fcoords) .and. present(ifsize)) then
        dims_file(ndims) = ifsize
     endif
 
-    hdferr = 0
-    propid = H5P_DEFAULT_F
+    hdferr     = 0
+    propid     = H5P_DEFAULT_F
+    docompress = .false.
 
-    ! Setup HFS compression
+    ! Setup HFS compression if not doing partial writes
 
-    if (present(icompress)) then
+    if ( present(icompress) .and. (.not. present(fcoords)) ) then
 
-       if (icompress > 0 .and. icompress < 10) then
-          docompress = .true.
+       if (present(dims_chunk)) then
+          dims_compress = dims_chunk
        else
-          docompress = .false.
+          dims_compress = dims
        endif
 
+       if (icompress > 0 .and. icompress < 10 .and. product(dims_compress) > 1) then
+          docompress = .true.
+       endif
+
+       ! Create a property list for compression/chunking/filters
+
        if (docompress) then
-
-          if (present(dims_chunk)) then
-             dims_compress = dims_chunk
-          else
-             dims_compress = dims
-          endif
-
-          if (product(dims_compress) > 1) then
-
-             ! Create a property list for compression/chunking/filters
-
-             call h5pcreate_f(H5P_DATASET_CREATE_F, propid, hdferr)
-             call h5pset_chunk_f(propid, ndims, dims_compress, hdferr)
-             call h5pset_shuffle_f(propid, hdferr)
-             call h5pset_deflate_f(propid, icompress, hdferr)
-
-          endif
-
+          call h5pcreate_f(H5P_DATASET_CREATE_F, propid, hdferr)
+          call h5pset_chunk_f(propid, ndims, dims_compress, hdferr)
+          call h5pset_shuffle_f(propid, hdferr)
+          call h5pset_deflate_f(propid, icompress, hdferr)
        endif
 
     endif
@@ -216,6 +222,10 @@ contains
     ! Create the global file space for the data
 
     call h5screate_simple_f(ndims, dims_file, fspcid, hdferr)
+    call h5dcreate_f(fileid, dname, stype, fspcid, dsetid, hdferr, dcpl_id=propid)
+    call h5sclose_f(fspcid, hdferr)
+
+    if (docompress) call h5pclose_f(propid, hdferr)
 
     ! Create the local memory space for the data
 
@@ -307,220 +317,68 @@ contains
 
 !===============================================================================
 
-  subroutine fh5_write_int1_array1(buf_integer1, dname, hdferr, n)
+  subroutine fh5_write_int1_array1(buf_integer1, hdferr)
 
-    use, intrinsic :: iso_c_binding
     implicit none
 
-    integer(i1), target, contiguous, intent(IN)  :: buf_integer1(:)
-    character(*),                    intent(IN)  :: dname
-    integer,                         intent(OUT) :: hdferr
-    integer,               optional, intent(IN)  :: n
+    integer(i1), contiguous, intent(IN)  :: buf_integer1(:)
+    integer,                 intent(OUT) :: hdferr
 
-    logical                      :: create
-    type(c_ptr)                  :: cptr
-    integer, pointer, contiguous :: fptr(:)
-
-    ! This is to remain compatible with both HDF5 1.8 and 1.10.
-    ! In hdf5 1.8 and older, fortran integer*1 is H5T_NATIVE_INTEGER_1,
-    ! but in hdf5 1.10 and newer it is H5T_NATIVE_INTEGER_KIND(1)
-    integer(HID_T) :: FORTRAN_INT1_TYPE
-
-    if (bigendian) then
-       FORTRAN_INT1_TYPE = H5T_STD_I8BE
-    else
-       FORTRAN_INT1_TYPE = H5T_STD_I8LE
-    endif
-
-    create = .true.
-    if (present(n)) then
-       if (n > 1) create = .false.
-    endif
-
-    if (create) then
-       call h5dcreate_f(fileid, dname, FORTRAN_INT1_TYPE, fspcid, dsetid, &
-                        hdferr, propid)
-    endif
-
-    ! HDF5 1.8 does not like passing integer*1
-!   call h5dwrite_f(dsetid, FORTRAN_INT1_TYPE, buf_integer1, dimsf, &
-!                   hdferr, mspcid, dspcid
-
-    cptr = c_loc(buf_integer1(1))
-    call c_f_pointer(cptr, fptr, (/1/))
-
-    call h5dwrite_f(dsetid, FORTRAN_INT1_TYPE, fptr, dimsf, &
+    call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer1, dimsf, &
                     hdferr, mspcid, dspcid)
 
   end subroutine fh5_write_int1_array1
 
 !===============================================================================
 
-  subroutine fh5_write_int1_array2(buf_integer1, dname, hdferr, n)
+  subroutine fh5_write_int1_array2(buf_integer1, hdferr)
 
-    use, intrinsic :: iso_c_binding
     implicit none
 
-    integer(i1), target, contiguous, intent(IN)  :: buf_integer1(:,:)
-    character(*),                    intent(IN)  :: dname
-    integer,                         intent(OUT) :: hdferr
-    integer,               optional, intent(IN)  :: n
+    integer(i1), contiguous, intent(IN)  :: buf_integer1(:,:)
+    integer,                 intent(OUT) :: hdferr
 
-    logical                      :: create
-    type(c_ptr)                  :: cptr
-    integer, pointer, contiguous :: fptr(:,:)
-
-    ! This is to remain compatible with both HDF5 1.8 and 1.10.
-    ! In hdf5 1.8 and older, fortran integer*1 is H5T_NATIVE_INTEGER_1,
-    ! but in hdf5 1.10 and newer it is H5T_NATIVE_INTEGER_KIND(1)
-    integer(HID_T) :: FORTRAN_INT1_TYPE
-
-    if (bigendian) then
-       FORTRAN_INT1_TYPE = H5T_STD_I8BE
-    else
-       FORTRAN_INT1_TYPE = H5T_STD_I8LE
-    endif
-
-    create = .true.
-    if (present(n)) then
-       if (n > 1) create = .false.
-    endif
-
-    if (create) then
-       call h5dcreate_f(fileid, dname, FORTRAN_INT1_TYPE, fspcid, dsetid, &
-                        hdferr, propid)
-    endif
-
-    ! HDF5 1.8 does not like passing integer*1
-!   call h5dwrite_f(dsetid, FORTRAN_INT1_TYPE, buf_integer1(1,1), dimsf, &
-!                   hdferr, mspcid, dspcid)
-
-    cptr = c_loc(buf_integer1(1,1))
-    call c_f_pointer(cptr, fptr, (/1,1/))
-
-    call h5dwrite_f(dsetid, FORTRAN_INT1_TYPE, fptr, dimsf, &
+    call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer1, dimsf, &
                     hdferr, mspcid, dspcid)
 
   end subroutine fh5_write_int1_array2
 
 !===============================================================================
 
-  subroutine fh5_write_int1_array3(buf_integer1, dname, hdferr, n)
+  subroutine fh5_write_int1_array3(buf_integer1, hdferr)
 
-    use, intrinsic :: iso_c_binding
     implicit none
 
-    integer(i1), target, contiguous, intent(IN)  :: buf_integer1(:,:,:)
-    character(*),                    intent(IN)  :: dname
-    integer,                         intent(OUT) :: hdferr
-    integer,               optional, intent(IN)  :: n
+    integer(i1), contiguous, intent(IN)  :: buf_integer1(:,:,:)
+    integer,                 intent(OUT) :: hdferr
 
-    logical                      :: create
-    type(c_ptr)                  :: cptr
-    integer, pointer, contiguous :: fptr(:,:,:)
-
-    ! This is to remain compatible with both HDF5 1.8 and 1.10.
-    ! In hdf5 1.8 and older, fortran integer*1 is H5T_NATIVE_INTEGER_1,
-    ! but in hdf5 1.10 and newer it is H5T_NATIVE_INTEGER_KIND(1)
-    integer(HID_T) :: FORTRAN_INT1_TYPE
-
-    if (bigendian) then
-       FORTRAN_INT1_TYPE = H5T_STD_I8BE
-    else
-       FORTRAN_INT1_TYPE = H5T_STD_I8LE
-    endif
-
-    create = .true.
-    if (present(n)) then
-       if (n > 1) create = .false.
-    endif
-
-    if (create) then
-       call h5dcreate_f(fileid, dname, FORTRAN_INT1_TYPE, fspcid, dsetid, &
-                        hdferr, propid)
-    endif
-
-    ! HDF5 1.8 does not like passing integer*1
-!   call h5dwrite_f(dsetid, FORTRAN_INT1_TYPE, buf_integer1(1,1,1), dimsf, &
-!                   hdferr, mspcid, dspcid)
-
-    cptr = c_loc(buf_integer1(1,1,1))
-    call c_f_pointer(cptr, fptr, (/1,1,1/))
-
-    call h5dwrite_f(dsetid, FORTRAN_INT1_TYPE, fptr, dimsf, &
+    call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer1, dimsf, &
                     hdferr, mspcid, dspcid)
 
   end subroutine fh5_write_int1_array3
 
 !===============================================================================
 
-  subroutine fh5_write_int1_array4(buf_integer1, dname, hdferr, n)
+  subroutine fh5_write_int1_array4(buf_integer1, hdferr)
 
-    use, intrinsic :: iso_c_binding
     implicit none
 
-    integer(i1), target, contiguous, intent(IN)  :: buf_integer1(:,:,:,:)
-    character(*),                    intent(IN)  :: dname
-    integer,                         intent(OUT) :: hdferr
-    integer,               optional, intent(IN)  :: n
+    integer(i1), contiguous, intent(IN)  :: buf_integer1(:,:,:,:)
+    integer,                 intent(OUT) :: hdferr
 
-    logical                      :: create
-    type(c_ptr)                  :: cptr
-    integer, pointer, contiguous :: fptr(:,:,:,:)
-
-    ! This is to remain compatible with both HDF5 1.8 and 1.10.
-    ! In hdf5 1.8 and older, fortran integer*1 is H5T_NATIVE_INTEGER_1,
-    ! but in hdf5 1.10 and newer it is H5T_NATIVE_INTEGER_KIND(1)
-    integer(HID_T) :: FORTRAN_INT1_TYPE
-
-    if (bigendian) then
-       FORTRAN_INT1_TYPE = H5T_STD_I8BE
-    else
-       FORTRAN_INT1_TYPE = H5T_STD_I8LE
-    endif
-
-    create = .true.
-    if (present(n)) then
-       if (n > 1) create = .false.
-    endif
-
-    if (create) then
-       call h5dcreate_f(fileid, dname, FORTRAN_INT1_TYPE, fspcid, dsetid, &
-                        hdferr, propid)
-    endif
-
-    ! HDF5 1.8 does not like passing integer*1
-!   call h5dwrite_f(dsetid, FORTRAN_INT1_TYPE, buf_integer1(1,1,1,1), dimsf, &
-!                   hdferr, mspcid, dspcid)
-
-    cptr = c_loc(buf_integer1(1,1,1,1))
-    call c_f_pointer(cptr, fptr, (/1,1,1,1/))
-
-    call h5dwrite_f(dsetid, FORTRAN_INT1_TYPE, fptr, dimsf, &
+    call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer1, dimsf, &
                     hdferr, mspcid, dspcid)
 
   end subroutine fh5_write_int1_array4
 
 !===============================================================================
 
-  subroutine fh5_write_integer_array1(buf_integer, dname, hdferr, n)
+  subroutine fh5_write_integer_array1(buf_integer, hdferr)
+
     implicit none
 
     integer, contiguous, intent(IN)  :: buf_integer(:)
-    character(*),        intent(IN)  :: dname
     integer,             intent(OUT) :: hdferr
-    integer,   optional, intent(IN)  :: n
-    logical                          :: create
-
-    create = .true.
-    if (present(n)) then
-       if (n > 1) create = .false.
-    endif
-
-    if (create) then
-       call h5dcreate_f(fileid, dname, H5T_NATIVE_INTEGER, fspcid, dsetid, &
-                        hdferr, propid)
-    endif
 
     call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, &
                     hdferr, mspcid, dspcid)
@@ -529,24 +387,12 @@ contains
 
 !===============================================================================
 
-  subroutine fh5_write_integer_array2(buf_integer, dname, hdferr, n)
+  subroutine fh5_write_integer_array2(buf_integer, hdferr)
+
     implicit none
 
     integer, contiguous, intent(IN)  :: buf_integer(:,:)
-    character(*),        intent(IN)  :: dname
     integer,             intent(OUT) :: hdferr
-    integer,   optional, intent(IN)  :: n
-    logical                          :: create
-
-    create = .true.
-    if (present(n)) then
-       if (n > 1) create = .false.
-    endif
-
-    if (create) then
-       call h5dcreate_f(fileid, dname, H5T_NATIVE_INTEGER, fspcid, dsetid, &
-                        hdferr, propid)
-    endif
 
     call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, &
                     hdferr, mspcid, dspcid)
@@ -555,24 +401,12 @@ contains
 
 !===============================================================================
 
-  subroutine fh5_write_integer_array3(buf_integer, dname, hdferr, n)
+  subroutine fh5_write_integer_array3(buf_integer, hdferr)
+
     implicit none
 
     integer, contiguous, intent(IN)  :: buf_integer(:,:,:)
-    character(*),        intent(IN)  :: dname
     integer,             intent(OUT) :: hdferr
-    integer,   optional, intent(IN)  :: n
-    logical                          :: create
-
-    create = .true.
-    if (present(n)) then
-       if (n > 1) create = .false.
-    endif
-
-    if (create) then
-       call h5dcreate_f(fileid, dname, H5T_NATIVE_INTEGER, fspcid, dsetid, &
-                        hdferr, propid)
-    endif
 
     call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, &
                     hdferr, mspcid, dspcid)
@@ -581,24 +415,12 @@ contains
 
 !===============================================================================
 
-  subroutine fh5_write_integer_array4(buf_integer, dname, hdferr, n)
+  subroutine fh5_write_integer_array4(buf_integer, hdferr)
+
     implicit none
 
     integer, contiguous, intent(IN)  :: buf_integer(:,:,:,:)
-    character(*),        intent(IN)  :: dname
     integer,             intent(OUT) :: hdferr
-    integer,   optional, intent(IN)  :: n
-    logical                          :: create
-
-    create = .true.
-    if (present(n)) then
-       if (n > 1) create = .false.
-    endif
-
-    if (create) then
-       call h5dcreate_f(fileid, dname, H5T_NATIVE_INTEGER, fspcid, dsetid, &
-                        hdferr, propid)
-    endif
 
     call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, &
                     hdferr, mspcid, dspcid)
@@ -607,24 +429,12 @@ contains
 
 !===============================================================================
 
-  subroutine fh5_write_real_array1(buf_real, dname, hdferr, n)
+  subroutine fh5_write_real_array1(buf_real, hdferr)
+
     implicit none
 
     real,  contiguous, intent(IN)  :: buf_real(:)
-    character(*),      intent(IN)  :: dname
     integer,           intent(OUT) :: hdferr
-    integer, optional, intent(IN)  :: n
-    logical                        :: create
-
-    create = .true.
-    if (present(n)) then
-       if (n > 1) create = .false.
-    endif
-
-    if (create) then
-       call h5dcreate_f(fileid, dname, H5T_NATIVE_REAL, fspcid, dsetid, &
-                        hdferr, propid)
-    endif
 
     call h5dwrite_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, &
                     hdferr, mspcid, dspcid)
@@ -633,24 +443,12 @@ contains
 
 !===============================================================================
 
-  subroutine fh5_write_real_array2(buf_real, dname, hdferr, n)
+  subroutine fh5_write_real_array2(buf_real, hdferr)
+
     implicit none
 
     real,  contiguous, intent(IN)  :: buf_real(:,:)
-    character(*),      intent(IN)  :: dname
     integer,           intent(OUT) :: hdferr
-    integer, optional, intent(IN)  :: n
-    logical                        :: create
-
-    create = .true.
-    if (present(n)) then
-       if (n > 1) create = .false.
-    endif
-
-    if (create) then
-       call h5dcreate_f(fileid, dname, H5T_NATIVE_REAL, fspcid, dsetid, &
-                        hdferr, propid)
-    endif
 
     call h5dwrite_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, &
                     hdferr, mspcid, dspcid)
@@ -659,24 +457,12 @@ contains
 
 !===============================================================================
 
-  subroutine fh5_write_real_array3(buf_real, dname, hdferr, n)
+  subroutine fh5_write_real_array3(buf_real, hdferr)
+
     implicit none
 
     real,  contiguous, intent(IN)  :: buf_real(:,:,:)
-    character(*),      intent(IN)  :: dname
     integer,           intent(OUT) :: hdferr
-    integer, optional, intent(IN)  :: n
-    logical                        :: create
-
-    create = .true.
-    if (present(n)) then
-       if (n > 1) create = .false.
-    endif
-
-    if (create) then
-       call h5dcreate_f(fileid, dname, H5T_NATIVE_REAL, fspcid, dsetid, &
-                        hdferr, propid)
-    endif
 
     call h5dwrite_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, &
                     hdferr, mspcid, dspcid)
@@ -685,24 +471,12 @@ contains
 
 !===============================================================================
 
-  subroutine fh5_write_real_array4(buf_real, dname, hdferr, n)
+  subroutine fh5_write_real_array4(buf_real, hdferr)
+
     implicit none
 
     real,  contiguous, intent(IN)  :: buf_real(:,:,:,:)
-    character(*),      intent(IN)  :: dname
     integer,           intent(OUT) :: hdferr
-    integer, optional, intent(IN)  :: n
-    logical                        :: create
-
-    create = .true.
-    if (present(n)) then
-       if (n > 1) create = .false.
-    endif
-
-    if (create) then
-       call h5dcreate_f(fileid, dname, H5T_NATIVE_REAL, fspcid, dsetid, &
-                        hdferr, propid)
-    endif
 
     call h5dwrite_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, &
                     hdferr, mspcid, dspcid)
@@ -711,494 +485,136 @@ contains
 
 !===============================================================================
 
-  subroutine fh5_write_character_array1(buf_character, dname, hdferr, n)
-    implicit none
+  subroutine fh5_write_real8_array1(buf_real8, hdferr)
 
-    character(*), contiguous, intent(IN)  :: buf_character(:)
-    character(*),             intent(IN)  :: dname
-    integer,                  intent(OUT) :: hdferr
-    integer,        optional, intent(IN)  :: n
-    logical                               :: create
-
-    create = .true.
-    if (present(n)) then
-       if (n > 1) create = .false.
-    endif
-
-    if (create) then
-       call h5dcreate_f(fileid, dname, H5T_NATIVE_CHARACTER, fspcid, dsetid, &
-                        hdferr, propid)
-    endif
-
-    call h5dwrite_f(dsetid, H5T_NATIVE_CHARACTER, buf_character, dimsf, &
-                    hdferr, mspcid, dspcid)
-
-  end subroutine fh5_write_character_array1
-
-!===============================================================================
-
-  subroutine fh5_write_character_array2(buf_character, dname, hdferr, n)
-    implicit none
-
-    character(*), contiguous, intent(IN)  :: buf_character(:,:)
-    character(*),             intent(IN)  :: dname
-    integer,                  intent(OUT) :: hdferr
-    integer,        optional, intent(IN)  :: n
-    logical                               :: create
-
-    create = .true.
-    if (present(n)) then
-       if (n > 1) create = .false.
-    endif
-
-    if (create) then
-       call h5dcreate_f(fileid, dname, H5T_NATIVE_CHARACTER, fspcid, dsetid, &
-                        hdferr, propid)
-    endif
-
-    call h5dwrite_f(dsetid, H5T_NATIVE_CHARACTER, buf_character, dimsf, &
-                    hdferr, mspcid, dspcid)
-
-  end subroutine fh5_write_character_array2
-
-!===============================================================================
-
-  subroutine fh5_write_character_array3(buf_character, dname, hdferr, n)
-    implicit none
-
-    character(*), contiguous, intent(IN)  :: buf_character(:,:,:)
-    character(*),             intent(IN)  :: dname
-    integer,                  intent(OUT) :: hdferr
-    integer,        optional, intent(IN)  :: n
-    logical                               :: create
-
-    create = .true.
-    if (present(n)) then
-       if (n > 1) create = .false.
-    endif
-
-    if (create) then
-       call h5dcreate_f(fileid, dname, H5T_NATIVE_CHARACTER, fspcid, dsetid, &
-                        hdferr, propid)
-    endif
-
-    call h5dwrite_f(dsetid, H5T_NATIVE_CHARACTER, buf_character, dimsf, &
-                    hdferr, mspcid, dspcid)
-
-  end subroutine fh5_write_character_array3
-
-!===============================================================================
-
-  subroutine fh5_write_real8_array1(buf_real8, dname, hdferr, n)
     implicit none
 
     real(r8), contiguous, intent(IN)  :: buf_real8(:)
-    character(*),         intent(IN)  :: dname
     integer,              intent(OUT) :: hdferr
-    integer,    optional, intent(IN)  :: n
-    logical                           :: create
 
-    ! This is to remain compatible with both HDF5 1.8 and 1.10.
-    ! In hdf5 1.8 and older, fortran real*8 is H5T_NATIVE_REAL_8
-    ! but this is removed in 1.10 and later
-    integer(HID_T) :: FORTRAN_REAL8_TYPE
-
-    if (bigendian) then
-       FORTRAN_REAL8_TYPE = H5T_IEEE_F64BE
-    else
-       FORTRAN_REAL8_TYPE = H5T_IEEE_F64LE
-    endif
-
-    create = .true.
-    if (present(n)) then
-       if (n > 1) create = .false.
-    endif
-
-    if (create) then
-       call h5dcreate_f(fileid, dname, FORTRAN_REAL8_TYPE, fspcid, dsetid, &
-                        hdferr, propid)
-    endif
-
-    call h5dwrite_f(dsetid, FORTRAN_REAL8_TYPE, buf_real8, dimsf, &
+    call h5dwrite_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, &
                     hdferr, mspcid, dspcid)
 
   end subroutine fh5_write_real8_array1
 
 !===============================================================================
 
-  subroutine fh5_write_real8_array2(buf_real8, dname, hdferr, n)
+  subroutine fh5_write_real8_array2(buf_real8, hdferr)
+
     implicit none
 
     real(r8), contiguous, intent(IN)  :: buf_real8(:,:)
-    character(*),         intent(IN)  :: dname
     integer,              intent(OUT) :: hdferr
-    integer,    optional, intent(IN)  :: n
-    logical                           :: create
 
-    ! This is to remain compatible with both HDF5 1.8 and 1.10.
-    ! In hdf5 1.8 and older, fortran real*8 is H5T_NATIVE_REAL_8
-    ! but this is removed in 1.10 and later
-    integer(HID_T) :: FORTRAN_REAL8_TYPE
-
-    if (bigendian) then
-       FORTRAN_REAL8_TYPE = H5T_IEEE_F64BE
-    else
-       FORTRAN_REAL8_TYPE = H5T_IEEE_F64LE
-    endif
-
-    create = .true.
-    if (present(n)) then
-       if (n > 1) create = .false.
-    endif
-
-    if (create) then
-       call h5dcreate_f(fileid, dname, FORTRAN_REAL8_TYPE, fspcid, dsetid, &
-                        hdferr, propid)
-    endif
-
-    call h5dwrite_f(dsetid, FORTRAN_REAL8_TYPE, buf_real8, dimsf, &
+    call h5dwrite_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, &
                     hdferr, mspcid, dspcid)
 
   end subroutine fh5_write_real8_array2
 
 !===============================================================================
 
-  subroutine fh5_write_real8_array3(buf_real8, dname, hdferr, n)
+  subroutine fh5_write_real8_array3(buf_real8, hdferr)
+
     implicit none
 
     real(r8), contiguous, intent(IN)  :: buf_real8(:,:,:)
-    character(*),         intent(IN)  :: dname
     integer,              intent(OUT) :: hdferr
-    integer,    optional, intent(IN)  :: n
-    logical                           :: create
 
-    ! This is to remain compatible with both HDF5 1.8 and 1.10.
-    ! In hdf5 1.8 and older, fortran real*8 is H5T_NATIVE_REAL_8
-    ! but this is removed in 1.10 and later
-    integer(HID_T) :: FORTRAN_REAL8_TYPE
-
-    if (bigendian) then
-       FORTRAN_REAL8_TYPE = H5T_IEEE_F64BE
-    else
-       FORTRAN_REAL8_TYPE = H5T_IEEE_F64LE
-    endif
-
-    create = .true.
-    if (present(n)) then
-       if (n > 1) create = .false.
-    endif
-
-    if (create) then
-       call h5dcreate_f(fileid, dname, FORTRAN_REAL8_TYPE, fspcid, dsetid, &
-                        hdferr, propid)
-    endif
-
-    call h5dwrite_f(dsetid, FORTRAN_REAL8_TYPE, buf_real8, dimsf, &
+    call h5dwrite_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, &
                     hdferr, mspcid, dspcid)
 
   end subroutine fh5_write_real8_array3
 
 !===============================================================================
 
-  subroutine fh5_write_real8_array4(buf_real8, dname, hdferr, n)
+  subroutine fh5_write_real8_array4(buf_real8, hdferr)
+
     implicit none
 
     real(r8), contiguous, intent(IN)  :: buf_real8(:,:,:,:)
-    character(*),         intent(IN)  :: dname
     integer,              intent(OUT) :: hdferr
-    integer,    optional, intent(IN)  :: n
-    logical                           :: create
 
-    ! This is to remain compatible with both HDF5 1.8 and 1.10.
-    ! In hdf5 1.8 and older, fortran real*8 is H5T_NATIVE_REAL_8
-    ! but this is removed in 1.10 and later
-    integer(HID_T) :: FORTRAN_REAL8_TYPE
-
-    if (bigendian) then
-       FORTRAN_REAL8_TYPE = H5T_IEEE_F64BE
-    else
-       FORTRAN_REAL8_TYPE = H5T_IEEE_F64LE
-    endif
-
-    create = .true.
-    if (present(n)) then
-       if (n > 1) create = .false.
-    endif
-
-    if (create) then
-       call h5dcreate_f(fileid, dname, FORTRAN_REAL8_TYPE, fspcid, dsetid, &
-                        hdferr, propid)
-    endif
-
-    call h5dwrite_f(dsetid, FORTRAN_REAL8_TYPE, buf_real8, dimsf, &
+    call h5dwrite_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, &
                     hdferr, mspcid, dspcid)
 
   end subroutine fh5_write_real8_array4
 
 !===============================================================================
 
-  subroutine fh5_write_logical_array1(buf_logical, dname, hdferr, n)
+  subroutine fh5_write_logical_array1(buf_logical, hdferr)
 
-    use, intrinsic :: iso_c_binding
     implicit none
 
     logical, contiguous, intent(IN)  :: buf_logical(:)
-    character(*),        intent(IN)  :: dname
     integer,             intent(OUT) :: hdferr
-    integer,   optional, intent(IN)  :: n
-    logical                          :: create
 
-    type(c_ptr)                      :: cptr
-    integer, pointer, contiguous     :: fptr(:)
+    integer(i1), allocatable         :: buf_integer(:)
 
-    integer(i1), allocatable, target :: buf_integer(:)
-    integer                          :: i, size
+    allocate(buf_integer, source=merge(-1_i1, 0_i1, buf_logical))
 
-    ! This is to remain compatible with both HDF5 1.8 and 1.10.
-    ! In hdf5 1.8 and older, fortran integer*1 is H5T_NATIVE_INTEGER_1,
-    ! but in hdf5 1.10 and newer it is H5T_NATIVE_INTEGER_KIND(1)
-    integer(HID_T) :: FORTRAN_INT1_TYPE
-
-    if (bigendian) then
-       FORTRAN_INT1_TYPE = H5T_STD_I8BE
-    else
-       FORTRAN_INT1_TYPE = H5T_STD_I8LE
-    endif
-
-    create = .true.
-    if (present(n)) then
-       if (n > 1) create = .false.
-    endif
-
-    if (create) then
-       call h5dcreate_f(fileid, dname, FORTRAN_INT1_TYPE, fspcid, dsetid, &
-                        hdferr, propid)
-    endif
-
-    ! converting logical to integer
-    size = 1
-    do i = 1, ndimsf
-       size = size * dimsf(i)
-    enddo
-
-    allocate (buf_integer(size))
-    buf_integer = 0
-
-    do i = 1, size
-       if(buf_logical(i)) buf_integer(i) = -1
-    enddo
-
-    ! HDF5 1.8 does not like passing integer*1
-!   call h5dwrite_f(dsetid, FORTRAN_INT1_TYPE, buf_integer, dimsf, &
-!                   hdferr, mspcid, dspcid)
-
-    cptr = c_loc(buf_integer(1))
-    call c_f_pointer(cptr, fptr, (/1/))
-
-    call h5dwrite_f(dsetid, FORTRAN_INT1_TYPE, fptr, dimsf, &
+    call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer, dimsf, &
                     hdferr, mspcid, dspcid)
-
-    deallocate(buf_integer)
 
   end subroutine fh5_write_logical_array1
 
 !===============================================================================
 
-  subroutine fh5_write_logical_array2(buf_logical, dname, hdferr, n)
+  subroutine fh5_write_logical_array2(buf_logical, hdferr)
 
-    use, intrinsic :: iso_c_binding
     implicit none
 
     logical, contiguous, intent(IN)  :: buf_logical(:,:)
-    character(*),        intent(IN)  :: dname
     integer,             intent(OUT) :: hdferr
-    integer,   optional, intent(IN)  :: n
-    logical                          :: create
 
-    type(c_ptr)                      :: cptr
-    integer, pointer, contiguous     :: fptr(:)
+    integer(i1), allocatable         :: buf_integer(:,:)
 
-    integer(i1), allocatable, target :: buf_integer(:,:)
-    integer                          :: i, j, is, js
+    allocate(buf_integer, source=merge(-1_i1, 0_i1, buf_logical))
 
-    ! This is to remain compatible with both HDF5 1.8 and 1.10.
-    ! In hdf5 1.8 and older, fortran integer*1 is H5T_NATIVE_INTEGER_1,
-    ! but in hdf5 1.10 and newer it is H5T_NATIVE_INTEGER_KIND(1)
-    integer(HID_T) :: FORTRAN_INT1_TYPE
-
-    if (bigendian) then
-       FORTRAN_INT1_TYPE = H5T_STD_I8BE
-    else
-       FORTRAN_INT1_TYPE = H5T_STD_I8LE
-    endif
-
-    create = .true.
-    if (present(n)) then
-       if (n > 1) create = .false.
-    endif
-
-    if (create) then
-       call h5dcreate_f(fileid, dname, FORTRAN_INT1_TYPE, fspcid, dsetid, &
-                        hdferr, propid)
-    endif
-
-    ! converting logical to integer
-    is = size(buf_logical, dim=1)
-    js = size(buf_logical, dim=2)
-
-    allocate(buf_integer(is,js))
-    buf_integer = 0
-
-    do j = 1, js
-       do i = 1, is
-          if(buf_logical(i,j)) then
-             buf_integer(i,j) = -1
-          else
-             buf_integer(i,j) = 0
-          endif
-       enddo
-    enddo
-
-    ! HDF5 1.8 does not like passing integer*1
-!   call h5dwrite_f(dsetid, FORTRAN_INT1_TYPE, buf_integer, dimsf, &
-!                   hdferr, mspcid, dspcid)
-
-    cptr = c_loc(buf_integer(1,1))
-    call c_f_pointer(cptr, fptr, (/1/))
-
-    call h5dwrite_f(dsetid, FORTRAN_INT1_TYPE, fptr, dimsf, &
+    call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer, dimsf, &
                     hdferr, mspcid, dspcid)
-
-    deallocate(buf_integer)
 
   end subroutine fh5_write_logical_array2
 
 !===============================================================================
 
-  subroutine fh5_write_logical_array3(buf_logical, dname, hdferr, n)
+  subroutine fh5_write_logical_array3(buf_logical, hdferr)
 
-    use, intrinsic :: iso_c_binding
     implicit none
 
     logical, contiguous, intent(IN)  :: buf_logical(:,:,:)
-    character(*),        intent(IN)  :: dname
     integer,             intent(OUT) :: hdferr
-    integer,   optional, intent(IN)  :: n
-    logical                          :: create
 
-    type(c_ptr)                      :: cptr
-    integer, pointer, contiguous     :: fptr(:)
+    integer(i1), allocatable         :: buf_integer(:,:,:)
 
-    integer(i1), allocatable, target :: buf_integer(:,:,:)
-    integer                          :: i, j, k, is, js, ks
+    allocate(buf_integer, source=merge(-1_i1, 0_i1, buf_logical))
 
-    ! This is to remain compatible with both HDF5 1.8 and 1.10.
-    ! In hdf5 1.8 and older, fortran integer*1 is H5T_NATIVE_INTEGER_1,
-    ! but in hdf5 1.10 and newer it is H5T_NATIVE_INTEGER_KIND(1)
-    integer(HID_T) :: FORTRAN_INT1_TYPE
-
-    if (bigendian) then
-       FORTRAN_INT1_TYPE = H5T_STD_I8BE
-    else
-       FORTRAN_INT1_TYPE = H5T_STD_I8LE
-    endif
-
-    create = .true.
-    if (present(n)) then
-       if (n > 1) create = .false.
-    endif
-
-    if (create) then
-       call h5dcreate_f(fileid, dname, FORTRAN_INT1_TYPE, fspcid, dsetid, &
-                        hdferr, propid)
-    endif
-
-    ! converting logical to integer
-    is = size(buf_logical, dim=1)
-    js = size(buf_logical, dim=2)
-    ks = size(buf_logical, dim=3)
-
-    allocate(buf_integer(is,js,ks))
-    buf_integer = 0
-
-    do k = 1, ks
-       do j = 1, js
-          do i = 1, is
-             if(buf_logical(i,j,k)) then
-                buf_integer(i,j,k) = -1
-             else
-                buf_integer(i,j,k) = 0
-             endif
-          enddo
-       enddo
-    enddo
-
-    ! HDF5 1.8 does not like passing integer*1
-!   call h5dwrite_f(dsetid, FORTRAN_INT1_TYPE, buf_integer, dimsf, &
-!                   hdferr, mspcid, dspcid)
-
-    cptr = c_loc(buf_integer(1,1,1))
-    call c_f_pointer(cptr, fptr, (/1/))
-
-    call h5dwrite_f(dsetid, FORTRAN_INT1_TYPE, fptr, dimsf, &
+    call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer, dimsf, &
                     hdferr, mspcid, dspcid)
-
-    deallocate(buf_integer)
 
   end subroutine fh5_write_logical_array3
 
 !===============================================================================
 
-  subroutine fh5_write_int1_scalar(buf_integer1, dname, hdferr)
+  subroutine fh5_write_int1_scalar(buf_integer1, hdferr)
 
-    use, intrinsic :: iso_c_binding
     implicit none
 
-    integer(i1), target, intent(IN)  :: buf_integer1
-    character(*),        intent(IN)  :: dname
-    integer,             intent(OUT) :: hdferr
+    integer(i1), intent(IN)  :: buf_integer1
+    integer,     intent(OUT) :: hdferr
 
-    type(c_ptr)      :: cptr
-    integer, pointer :: fptr
-
-    ! This is to remain compatible with both HDF5 1.8 and 1.10.
-    ! In hdf5 1.8 and older, fortran integer*1 is H5T_NATIVE_INTEGER_1,
-    ! but in hdf5 1.10 and newer it is H5T_NATIVE_INTEGER_KIND(1)
-    integer(HID_T) :: FORTRAN_INT1_TYPE
-
-    if (bigendian) then
-       FORTRAN_INT1_TYPE = H5T_STD_I8BE
-    else
-       FORTRAN_INT1_TYPE = H5T_STD_I8LE
-    endif
-
-    call h5dcreate_f(fileid, dname, FORTRAN_INT1_TYPE, fspcid, dsetid, &
-                     hdferr, propid)
-
-    ! HDF5 1.8 does not like passing integer*1
-!   call h5dwrite_f(dsetid, FORTRAN_INT1_TYPE, buf_integer1, dimsf, &
-!                   hdferr, mspcid, dspcid)
-
-    cptr = c_loc(buf_integer1)
-    call c_f_pointer(cptr, fptr)
-
-    call h5dwrite_f(dsetid, FORTRAN_INT1_TYPE, fptr, dimsf, &
+    call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer1, dimsf, &
                     hdferr, mspcid, dspcid)
-
 
   end subroutine fh5_write_int1_scalar
 
 !===============================================================================
 
-  subroutine fh5_write_integer_scalar(buf_integer, dname, hdferr)
+  subroutine fh5_write_integer_scalar(buf_integer, hdferr)
+
     implicit none
 
-    integer,      intent(IN)  :: buf_integer
-    character(*), intent(IN)  :: dname
-    integer,      intent(OUT) :: hdferr
-
-    call h5dcreate_f(fileid, dname, H5T_NATIVE_INTEGER, fspcid, dsetid, &
-                     hdferr, propid)
+    integer, intent(IN)  :: buf_integer
+    integer, intent(OUT) :: hdferr
 
     call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, &
                     hdferr, mspcid, dspcid)
@@ -1207,15 +623,12 @@ contains
 
 !===============================================================================
 
-  subroutine fh5_write_real_scalar(buf_real, dname, hdferr)
+  subroutine fh5_write_real_scalar(buf_real, hdferr)
+
     implicit none
 
-    real,         intent(IN)  :: buf_real
-    character(*), intent(IN)  :: dname
-    integer,      intent(OUT) :: hdferr
-
-    call h5dcreate_f(fileid, dname, H5T_NATIVE_REAL, fspcid, dsetid, &
-                     hdferr, propid)
+    real,    intent(IN)  :: buf_real
+    integer, intent(OUT) :: hdferr
 
     call h5dwrite_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, &
                     hdferr, mspcid, dspcid)
@@ -1224,86 +637,32 @@ contains
 
 !===============================================================================
 
-  subroutine fh5_write_character_scalar(buf_character, dname, hdferr)
+  subroutine fh5_write_real8_scalar(buf_real8, hdferr)
+
     implicit none
 
-    character(*), intent(IN)  :: buf_character
-    character(*), intent(IN)  :: dname
-    integer,      intent(OUT) :: hdferr
+    real(r8), intent(IN)  :: buf_real8
+    integer,  intent(OUT) :: hdferr
 
-    call h5dcreate_f(fileid, dname, H5T_NATIVE_CHARACTER, fspcid, dsetid, &
-                     hdferr, propid)
-
-    call h5dwrite_f(dsetid, H5T_NATIVE_CHARACTER, buf_character, dimsf, &
-                    hdferr, mspcid, dspcid)
-
-  end subroutine fh5_write_character_scalar
-
-!===============================================================================
-
-  subroutine fh5_write_real8_scalar(buf_real8, dname, hdferr)
-    implicit none
-
-    real(r8),     intent(IN)  :: buf_real8
-    character(*), intent(IN)  :: dname
-    integer,      intent(OUT) :: hdferr
-
-    ! This is to remain compatible with both HDF5 1.8 and 1.10.
-    ! In hdf5 1.8, fortran real*8 is H5T_NATIVE_REAL_8, but
-    ! in 1.10 and older is called H5T_NATIVE_DOUBLE
-    integer(HID_T) :: FORTRAN_REAL8_TYPE
-
-    if (bigendian) then
-       FORTRAN_REAL8_TYPE = H5T_IEEE_F64BE
-    else
-       FORTRAN_REAL8_TYPE = H5T_IEEE_F64LE
-    endif
-
-    call h5dcreate_f(fileid, dname, FORTRAN_REAL8_TYPE, fspcid, dsetid, &
-                     hdferr, propid)
-
-    call h5dwrite_f(dsetid, FORTRAN_REAL8_TYPE, buf_real8, dimsf, &
+    call h5dwrite_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, &
                     hdferr, mspcid, dspcid)
 
   end subroutine fh5_write_real8_scalar
 
 !===============================================================================
 
-  subroutine fh5_write_logical_scalar(buf_logical, dname, hdferr)
+  subroutine fh5_write_logical_scalar(buf_logical, hdferr)
 
-    use, intrinsic :: iso_c_binding
     implicit none
 
-    logical,         intent(IN)  :: buf_logical
-    character(*),    intent(IN)  :: dname
-    integer,         intent(OUT) :: hdferr
+    logical, intent(IN)  :: buf_logical
+    integer, intent(OUT) :: hdferr
 
-    integer(i1), target          :: buf_integer
-    integer(HID_T)               :: FORTRAN_INT1_TYPE
+    integer(i1)          :: buf_integer
 
-    type(c_ptr)      :: cptr
-    integer, pointer :: fptr
+    buf_integer = merge(-1_i1, 0_i1, buf_logical)
 
-    if (bigendian) then
-       FORTRAN_INT1_TYPE = H5T_STD_I8BE
-    else
-       FORTRAN_INT1_TYPE = H5T_STD_I8LE
-    endif
-
-    call h5dcreate_f(fileid, dname, FORTRAN_INT1_TYPE, fspcid, dsetid, &
-                     hdferr, propid)
-
-    buf_integer = 0
-    if(buf_logical) buf_integer = -1
-
-    ! HDF5 1.8 does not like passing integer*1
-!   call h5dwrite_f(dsetid, FORTRAN_INT1_TYPE, buf_integer, dimsf, &
-!                   hdferr, mspcid, dspcid)
-
-    cptr = c_loc(buf_integer)
-    call c_f_pointer(cptr, fptr)
-
-    call h5dwrite_f(dsetid, FORTRAN_INT1_TYPE, fptr, dimsf, &
+    call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer, dimsf, &
                     hdferr, mspcid, dspcid)
 
   end subroutine fh5_write_logical_scalar
@@ -1315,12 +674,8 @@ contains
 
     integer, intent(OUT) :: hdferr
 
-    call h5sclose_f(fspcid, hdferr)
     call h5sclose_f(dspcid, hdferr)
     call h5sclose_f(mspcid, hdferr)
-
-    call h5dclose_f(dsetid, hdferr)
-    call h5pclose_f(propid, hdferr)
 
   end subroutine fh5_close_write
 
@@ -1400,35 +755,13 @@ contains
 
   subroutine fh5_read_int1_array1(buf_integer1, hdferr)
 
-    use, intrinsic :: iso_c_binding
     implicit none
 
-    integer(i1), target, contiguous, intent(INOUT) :: buf_integer1(:)
-    integer,                         intent(  OUT) :: hdferr
+    integer(i1), contiguous, intent(INOUT) :: buf_integer1(:)
+    integer,                 intent(  OUT) :: hdferr
 
-    type(c_ptr)                  :: cptr
-    integer, pointer, contiguous :: fptr(:)
-
-    ! This is to remain compatible with both HDF5 1.8 and 1.10.
-    ! In hdf5 1.8 and older, fortran integer*1 is H5T_NATIVE_INTEGER_1,
-    ! but in hdf5 1.10 and newer it is H5T_NATIVE_INTEGER_KIND(1)
-    integer(HID_T) :: FORTRAN_INT1_TYPE
-
-    if (bigendian) then
-       FORTRAN_INT1_TYPE = H5T_STD_I8BE
-    else
-       FORTRAN_INT1_TYPE = H5T_STD_I8LE
-    endif
-
-    ! HDF5 1.8 does not like passing integer*1
-!   call h5dread_f(dsetid, FORTRAN_INT1_TYPE, buf_integer1, dimsf, &
-!                  hdferr, file_space_id=dspcid, mem_space_id=mspcid)
-
-    cptr = c_loc(buf_integer1(1))
-    call c_f_pointer(cptr, fptr, (/1/))
-
-    call h5dread_f(dsetid, FORTRAN_INT1_TYPE, fptr, dimsf, &
-                   hdferr, file_space_id=dspcid, mem_space_id=mspcid)
+    call h5dread_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer1, dimsf, &
+                   hdferr, mspcid, dspcid)
 
   end subroutine fh5_read_int1_array1
 
@@ -1436,35 +769,13 @@ contains
 
   subroutine fh5_read_int1_array2(buf_integer1, hdferr)
 
-    use, intrinsic :: iso_c_binding
     implicit none
 
-    integer(i1), target, contiguous, intent(INOUT) :: buf_integer1(:,:)
-    integer,                         intent(  OUT) :: hdferr
+    integer(i1), contiguous, intent(INOUT) :: buf_integer1(:,:)
+    integer,                 intent(  OUT) :: hdferr
 
-    type(c_ptr)                  :: cptr
-    integer, pointer, contiguous :: fptr(:,:)
-
-    ! This is to remain compatible with both HDF5 1.8 and 1.10.
-    ! In hdf5 1.8 and older, fortran integer*1 is H5T_NATIVE_INTEGER_1,
-    ! but in hdf5 1.10 and newer it is H5T_NATIVE_INTEGER_KIND(1)
-    integer(HID_T) :: FORTRAN_INT1_TYPE
-
-    if (bigendian) then
-       FORTRAN_INT1_TYPE = H5T_STD_I8BE
-    else
-       FORTRAN_INT1_TYPE = H5T_STD_I8LE
-    endif
-
-    ! HDF5 1.8 does not like passing integer*1
-!   call h5dread_f(dsetid, FORTRAN_INT1_TYPE, buf_integer1, dimsf, &
-!                  hdferr, file_space_id=dspcid, mem_space_id=mspcid)
-
-    cptr = c_loc(buf_integer1(1,1))
-    call c_f_pointer(cptr, fptr, (/1,1/))
-
-    call h5dread_f(dsetid, FORTRAN_INT1_TYPE, fptr, dimsf, &
-                   hdferr, file_space_id=dspcid, mem_space_id=mspcid)
+    call h5dread_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer1, dimsf, &
+                   hdferr, mspcid, dspcid)
 
   end subroutine fh5_read_int1_array2
 
@@ -1472,35 +783,13 @@ contains
 
   subroutine fh5_read_int1_array3(buf_integer1, hdferr)
 
-    use, intrinsic :: iso_c_binding
     implicit none
 
-    integer(i1), target, contiguous, intent(INOUT) :: buf_integer1(:,:,:)
-    integer,                         intent(  OUT) :: hdferr
+    integer(i1), contiguous, intent(INOUT) :: buf_integer1(:,:,:)
+    integer,                 intent(  OUT) :: hdferr
 
-    type(c_ptr)                  :: cptr
-    integer, pointer, contiguous :: fptr(:,:,:)
-
-    ! This is to remain compatible with both HDF5 1.8 and 1.10.
-    ! In hdf5 1.8 and older, fortran integer*1 is H5T_NATIVE_INTEGER_1,
-    ! but in hdf5 1.10 and newer it is H5T_NATIVE_INTEGER_KIND(1)
-    integer(HID_T) :: FORTRAN_INT1_TYPE
-
-    if (bigendian) then
-       FORTRAN_INT1_TYPE = H5T_STD_I8BE
-    else
-       FORTRAN_INT1_TYPE = H5T_STD_I8LE
-    endif
-
-    ! HDF5 1.8 does not like passing integer*1
-!   call h5dread_f(dsetid, FORTRAN_INT1_TYPE, buf_integer1(1,1,1), dimsf, &
-!                  hdferr, file_space_id=dspcid, mem_space_id=mspcid)
-
-    cptr = c_loc(buf_integer1(1,1,1))
-    call c_f_pointer(cptr, fptr, (/1,1,1/))
-
-    call h5dread_f(dsetid, FORTRAN_INT1_TYPE, fptr, dimsf, &
-                   hdferr, file_space_id=dspcid, mem_space_id=mspcid)
+    call h5dread_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer1, dimsf, &
+                   hdferr, mspcid, dspcid)
 
   end subroutine fh5_read_int1_array3
 
@@ -1508,360 +797,246 @@ contains
 
   subroutine fh5_read_int1_array4(buf_integer1, hdferr)
 
-    use, intrinsic :: iso_c_binding
     implicit none
 
-    integer(i1), target, contiguous, intent(INOUT) :: buf_integer1(:,:,:,:)
-    integer,                         intent(  OUT) :: hdferr
+    integer(i1), contiguous, intent(INOUT) :: buf_integer1(:,:,:,:)
+    integer,                 intent(  OUT) :: hdferr
 
-    type(c_ptr)                  :: cptr
-    integer, pointer, contiguous :: fptr(:,:,:,:)
-
-    ! This is to remain compatible with both HDF5 1.8 and 1.10.
-    ! In hdf5 1.8 and older, fortran integer*1 is H5T_NATIVE_INTEGER_1,
-    ! but in hdf5 1.10 and newer it is H5T_NATIVE_INTEGER_KIND(1)
-    integer(HID_T) :: FORTRAN_INT1_TYPE
-
-    if (bigendian) then
-       FORTRAN_INT1_TYPE = H5T_STD_I8BE
-    else
-       FORTRAN_INT1_TYPE = H5T_STD_I8LE
-    endif
-
-    ! HDF5 1.8 does not like passing integer*1
-!   call h5dread_f(dsetid, FORTRAN_INT1_TYPE, buf_integer1(1,1,1,1), dimsf, &
-!                  hdferr, file_space_id=dspcid, mem_space_id=mspcid)
-
-    cptr = c_loc(buf_integer1(1,1,1,1))
-    call c_f_pointer(cptr, fptr, (/1,1,1,1/))
-
-    call h5dread_f(dsetid, FORTRAN_INT1_TYPE, fptr, dimsf, &
-                   hdferr, file_space_id=dspcid, mem_space_id=mspcid)
+    call h5dread_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer1, dimsf, &
+                   hdferr, mspcid, dspcid)
 
   end subroutine fh5_read_int1_array4
 
 !===============================================================================
 
   subroutine fh5_read_integer_array1(buf_integer, hdferr)
+
     implicit none
 
     integer, contiguous, intent(INOUT) :: buf_integer(:)
     integer,             intent(  OUT) :: hdferr
 
     call h5dread_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, &
-                   hdferr, file_space_id=dspcid, mem_space_id=mspcid)
+                   hdferr, mspcid, dspcid)
 
   end subroutine fh5_read_integer_array1
 
 !===============================================================================
 
   subroutine fh5_read_integer_array2(buf_integer, hdferr)
+
     implicit none
 
     integer, contiguous, intent(INOUT) :: buf_integer(:,:)
     integer,             intent(  OUT) :: hdferr
 
     call h5dread_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, &
-                   hdferr, file_space_id=dspcid, mem_space_id=mspcid)
+                   hdferr, mspcid, dspcid)
 
   end subroutine fh5_read_integer_array2
 
 !===============================================================================
 
   subroutine fh5_read_integer_array3(buf_integer, hdferr)
+
     implicit none
 
     integer, contiguous, intent(INOUT) :: buf_integer(:,:,:)
     integer,             intent(  OUT) :: hdferr
 
     call h5dread_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, &
-                   hdferr, file_space_id=dspcid, mem_space_id=mspcid)
+                   hdferr, mspcid, dspcid)
 
   end subroutine fh5_read_integer_array3
 
 !===============================================================================
 
   subroutine fh5_read_integer_array4(buf_integer, hdferr)
+
     implicit none
 
     integer, contiguous, intent(INOUT) :: buf_integer(:,:,:,:)
     integer,             intent(  OUT) :: hdferr
 
     call h5dread_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, &
-                   hdferr, file_space_id=dspcid, mem_space_id=mspcid)
+                   hdferr, mspcid, dspcid)
 
   end subroutine fh5_read_integer_array4
 
 !===============================================================================
 
   subroutine fh5_read_real_array1(buf_real, hdferr)
+
     implicit none
 
     real, contiguous, intent(INOUT) :: buf_real(:)
     integer,          intent(  OUT) :: hdferr
 
     call h5dread_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, &
-                   hdferr, file_space_id=dspcid, mem_space_id=mspcid)
+                   hdferr, mspcid, dspcid)
 
   end subroutine fh5_read_real_array1
 
 !===============================================================================
 
   subroutine fh5_read_real_array2(buf_real, hdferr)
+
     implicit none
 
     real, contiguous, intent(INOUT) :: buf_real(:,:)
     integer,          intent(  OUT) :: hdferr
 
     call h5dread_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, &
-                   hdferr, file_space_id=dspcid, mem_space_id=mspcid)
+                   hdferr, mspcid, dspcid)
 
   end subroutine fh5_read_real_array2
 
 !===============================================================================
 
   subroutine fh5_read_real_array3(buf_real, hdferr)
+
     implicit none
 
     real, contiguous, intent(INOUT) :: buf_real(:,:,:)
     integer,          intent(  OUT) :: hdferr
 
     call h5dread_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, &
-                   hdferr, file_space_id=dspcid, mem_space_id=mspcid)
+                   hdferr, mspcid, dspcid)
 
   end subroutine fh5_read_real_array3
 
 !===============================================================================
 
   subroutine fh5_read_real_array4(buf_real, hdferr)
+
     implicit none
 
     real, contiguous, intent(INOUT) :: buf_real(:,:,:,:)
     integer,          intent(  OUT) :: hdferr
 
     call h5dread_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, &
-                   hdferr, file_space_id=dspcid, mem_space_id=mspcid)
+                   hdferr, mspcid, dspcid)
 
   end subroutine fh5_read_real_array4
 
 !===============================================================================
 
-  subroutine fh5_read_character_array1(buf_character, hdferr)
-    implicit none
-
-    character, contiguous, intent(INOUT) :: buf_character(:)
-    integer,               intent(  OUT) :: hdferr
-
-    call h5dread_f(dsetid, H5T_NATIVE_CHARACTER, buf_character, dimsf, &
-                   hdferr, file_space_id=dspcid, mem_space_id=mspcid)
-
-  end subroutine fh5_read_character_array1
-
-!===============================================================================
-
-  subroutine fh5_read_character_array2(buf_character, hdferr)
-    implicit none
-
-    character, contiguous, intent(INOUT) :: buf_character(:,:)
-    integer,               intent(  OUT) :: hdferr
-
-    call h5dread_f(dsetid, H5T_NATIVE_CHARACTER, buf_character, dimsf, &
-                   hdferr, file_space_id=dspcid, mem_space_id=mspcid)
-
-  end subroutine fh5_read_character_array2
-
-!===============================================================================
-
-  subroutine fh5_read_character_array3(buf_character, hdferr)
-    implicit none
-
-    character, contiguous, intent(INOUT) :: buf_character(:,:,:)
-    integer,               intent(  OUT) :: hdferr
-
-    call h5dread_f(dsetid, H5T_NATIVE_CHARACTER, buf_character, dimsf, &
-                   hdferr, file_space_id=dspcid, mem_space_id=mspcid)
-
-  end subroutine fh5_read_character_array3
-
-!===============================================================================
-
   subroutine fh5_read_real8_array1(buf_real8, hdferr)
+
     implicit none
 
     real(r8), contiguous, intent(INOUT) :: buf_real8(:)
     integer,              intent(OUT)   :: hdferr
 
-    ! This is to remain compatible with both HDF5 1.8 and 1.10.
-    ! In hdf5 1.8 and older, fortran real*8 is H5T_NATIVE_REAL_8
-    ! but this is removed in 1.10 and later
-    integer(HID_T) :: FORTRAN_REAL8_TYPE
-
-    if (bigendian) then
-       FORTRAN_REAL8_TYPE = H5T_IEEE_F64BE
-    else
-       FORTRAN_REAL8_TYPE = H5T_IEEE_F64LE
-    endif
-
-    call h5dread_f(dsetid, FORTRAN_REAL8_TYPE, buf_real8, dimsf, &
-                   hdferr, file_space_id=dspcid, mem_space_id=mspcid)
+    call h5dread_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, &
+                   hdferr, mspcid, dspcid)
 
   end subroutine fh5_read_real8_array1
 
 !===============================================================================
 
   subroutine fh5_read_real8_array2(buf_real8, hdferr)
+
     implicit none
 
     real(r8), contiguous, intent(INOUT) :: buf_real8(:,:)
     integer,              intent(  OUT) :: hdferr
 
-    ! This is to remain compatible with both HDF5 1.8 and 1.10.
-    ! In hdf5 1.8 and older, fortran real*8 is H5T_NATIVE_REAL_8
-    ! but this is removed in 1.10 and later
-    integer(HID_T) :: FORTRAN_REAL8_TYPE
-
-    if (bigendian) then
-       FORTRAN_REAL8_TYPE = H5T_IEEE_F64BE
-    else
-       FORTRAN_REAL8_TYPE = H5T_IEEE_F64LE
-    endif
-
-    call h5dread_f(dsetid, FORTRAN_REAL8_TYPE, buf_real8, dimsf, &
-                   hdferr, file_space_id=dspcid, mem_space_id=mspcid)
+    call h5dread_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, &
+                   hdferr, mspcid, dspcid)
 
   end subroutine fh5_read_real8_array2
 
 !===============================================================================
 
   subroutine fh5_read_real8_array3(buf_real8, hdferr)
+
     implicit none
 
     real(r8), contiguous, intent(INOUT) :: buf_real8(:,:,:)
     integer,              intent(  OUT) :: hdferr
 
-    ! This is to remain compatible with both HDF5 1.8 and 1.10.
-    ! In hdf5 1.8 and older, fortran real*8 is H5T_NATIVE_REAL_8
-    ! but this is removed in 1.10 and later
-    integer(HID_T) :: FORTRAN_REAL8_TYPE
-
-    if (bigendian) then
-       FORTRAN_REAL8_TYPE = H5T_IEEE_F64BE
-    else
-       FORTRAN_REAL8_TYPE = H5T_IEEE_F64LE
-    endif
-
-    call h5dread_f(dsetid, FORTRAN_REAL8_TYPE, buf_real8, dimsf, &
-                   hdferr, file_space_id=dspcid, mem_space_id=mspcid)
+    call h5dread_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, &
+                   hdferr, mspcid, dspcid)
 
   end subroutine fh5_read_real8_array3
 
 !===============================================================================
 
   subroutine fh5_read_real8_array4(buf_real8, hdferr)
+
     implicit none
 
     real(r8), contiguous, intent(INOUT) :: buf_real8(:,:,:,:)
     integer,              intent(  OUT) :: hdferr
 
-    ! This is to remain compatible with both HDF5 1.8 and 1.10.
-    ! In hdf5 1.8 and older, fortran real*8 is H5T_NATIVE_REAL_8
-    ! but this is removed in 1.10 and later
-    integer(HID_T) :: FORTRAN_REAL8_TYPE
-
-    if (bigendian) then
-       FORTRAN_REAL8_TYPE = H5T_IEEE_F64BE
-    else
-       FORTRAN_REAL8_TYPE = H5T_IEEE_F64LE
-    endif
-
-    call h5dread_f(dsetid, FORTRAN_REAL8_TYPE, buf_real8, dimsf, &
-                   hdferr, file_space_id=dspcid, mem_space_id=mspcid)
+    call h5dread_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, &
+                   hdferr, mspcid, dspcid)
 
   end subroutine fh5_read_real8_array4
 
 !===============================================================================
 
   subroutine fh5_read_logical_array1(buf_logical, hdferr)
+
     implicit none
 
     logical, contiguous, intent(INOUT) :: buf_logical(:)
     integer,             intent(  OUT) :: hdferr
 
-    integer, allocatable               :: buf_integer(:)
-    integer                            :: i, size
+    integer(i1), allocatable           :: buf_integer(:)
 
-    hdferr = 1
+    allocate( buf_integer( size(buf_logical) ) )
 
-    size = 1
-    do i = 1, ndimsf
-       size = size * dimsf(i)
-    enddo
-    allocate (buf_integer(size))
-
-    call h5dread_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, &
-                   hdferr, file_space_id=dspcid, mem_space_id=mspcid)
+    call h5dread_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer, dimsf, &
+                   hdferr, mspcid, dspcid)
 
     ! converting integer to logical
-    do i = 1, size
-       if(buf_integer(i) == -1) then
-          buf_logical(i) = .true.
-       else
-          buf_logical(i) = .false.
-       endif
-    enddo
-
-    deallocate(buf_integer)
+    buf_logical = buf_integer /= 0_i1
 
   end subroutine fh5_read_logical_array1
 
 !===============================================================================
 
   subroutine fh5_read_logical_array2(buf_logical, hdferr)
+
     implicit none
 
     logical, contiguous, intent(INOUT) :: buf_logical(:,:)
     integer,             intent(  OUT) :: hdferr
 
-    integer, allocatable               :: buf_integer(:,:)
-    integer                            :: i, j, is, js
-
-    hdferr = 1
+    integer(i1), allocatable           :: buf_integer(:,:)
+    integer                            :: j, is, js
 
     is = size(buf_logical,dim=1)
     js = size(buf_logical,dim=2)
 
     allocate(buf_integer(is,js))
 
-    call h5dread_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, &
-                   hdferr, file_space_id=dspcid, mem_space_id=mspcid)
+    call h5dread_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer, dimsf, &
+                   hdferr, mspcid, dspcid)
 
-    ! converting integer to logical
+    ! Convert integer to logical
+
+    !$omp parallel do
     do j = 1, js
-       do i = 1, is
-          if(buf_integer(i,j) == -1) then
-             buf_logical(i,j) = .true.
-          else
-             buf_logical(i,j) = .false.
-          endif
-       enddo
+       buf_logical(:,j) = buf_integer(:,j) /= 0_i1
     enddo
-
-    deallocate(buf_integer)
+    !$omp end parallel do
 
   end subroutine fh5_read_logical_array2
 
 !===============================================================================
 
   subroutine fh5_read_logical_array3(buf_logical, hdferr)
+
     implicit none
 
     logical, contiguous, intent(INOUT) :: buf_logical(:,:,:)
     integer,             intent(  OUT) :: hdferr
 
-    integer, allocatable               :: buf_integer(:,:,:)
-    integer                            :: i, j, k, is, js, ks
-
-    hdferr = 1
+    integer(i1), allocatable           :: buf_integer(:,:,:)
+    integer                            :: j, k, is, js, ks
 
     is = size(buf_logical,dim=1)
     js = size(buf_logical,dim=2)
@@ -1869,23 +1044,18 @@ contains
 
     allocate(buf_integer(is,js,ks))
 
-    call h5dread_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, &
-                   hdferr, file_space_id=dspcid, mem_space_id=mspcid)
+    call h5dread_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer, dimsf, &
+                   hdferr, mspcid, dspcid)
 
-    ! converting integer to logical
+    ! Convert integer to logical
+
+    !$omp parallel do collapse(2)
     do k = 1, ks
        do j = 1, js
-          do i = 1, is
-             if(buf_integer(i,j,k) == -1) then
-                buf_logical(i,j,k) = .true.
-             else
-                buf_logical(i,j,k) = .false.
-             endif
-          enddo
+          buf_logical(:,j,k) = buf_integer(:,j,k) /= 0_i1
        enddo
     enddo
-
-    deallocate(buf_integer)
+    !$omp end parallel do
 
   end subroutine fh5_read_logical_array3
 
@@ -1893,110 +1063,73 @@ contains
 
   subroutine fh5_read_int1_scalar(buf_integer1, hdferr)
 
-    use, intrinsic :: iso_c_binding
     implicit none
 
-    type(c_ptr)      :: cptr
-    integer, pointer :: fptr
+    integer(i1), intent(INOUT) :: buf_integer1
+    integer,     intent(  OUT) :: hdferr
 
-    integer(i1), target, intent(INOUT) :: buf_integer1
-    integer,             intent(  OUT) :: hdferr
-
-    ! This is to remain compatible with both HDF5 1.8 and 1.10.
-    ! In hdf5 1.8 and older, fortran integer*1 is H5T_NATIVE_INTEGER_1,
-    ! but in hdf5 1.10 and newer it is H5T_NATIVE_INTEGER_KIND(1)
-    integer(HID_T) :: FORTRAN_INT1_TYPE
-
-    if (bigendian) then
-       FORTRAN_INT1_TYPE = H5T_STD_I8BE
-    else
-       FORTRAN_INT1_TYPE = H5T_STD_I8LE
-    endif
-
-    ! HDF5 1.8 does not like passing integer*1
-!   call h5dread_f(dsetid, FORTRAN_INT1_TYPE, buf_integer1, dimsf, hdferr)
-
-    cptr = c_loc(buf_integer1)
-    call c_f_pointer(cptr, fptr)
-
-    call h5dread_f(dsetid, FORTRAN_INT1_TYPE, fptr, dimsf, hdferr)
+    call h5dread_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer1, dimsf, &
+                   hdferr, mspcid, dspcid)
 
   end subroutine fh5_read_int1_scalar
 
 !===============================================================================
 
   subroutine fh5_read_integer_scalar(buf_integer, hdferr)
+
     implicit none
 
     integer, intent(INOUT) :: buf_integer
     integer, intent(OUT)   :: hdferr
 
-    call h5dread_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, hdferr)
+    call h5dread_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, &
+                   hdferr, mspcid, dspcid)
 
   end subroutine fh5_read_integer_scalar
 
 !===============================================================================
 
   subroutine fh5_read_real_scalar(buf_real, hdferr)
+
     implicit none
 
     real,    intent(INOUT) :: buf_real
     integer, intent(OUT)   :: hdferr
 
-    call h5dread_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, hdferr)
+    call h5dread_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, &
+                   hdferr, mspcid, dspcid)
 
   end subroutine fh5_read_real_scalar
 
 !===============================================================================
 
-  subroutine fh5_read_character_scalar(buf_character, hdferr)
-    implicit none
-
-    character, intent(INOUT) :: buf_character
-    integer,   intent(OUT)   :: hdferr
-
-    call h5dread_f(dsetid, H5T_NATIVE_CHARACTER, buf_character, dimsf, hdferr)
-
-  end subroutine fh5_read_character_scalar
-
-!===============================================================================
-
   subroutine fh5_read_real8_scalar(buf_real8, hdferr)
+
     implicit none
 
     real(r8), intent(INOUT) :: buf_real8
     integer,  intent(OUT)   :: hdferr
 
-    ! This is to remain compatible with both HDF5 1.8 and 1.10.
-    ! In hdf5 1.8 and older, fortran real*8 is H5T_NATIVE_REAL_8
-    ! but this is removed in 1.10 and later
-    integer(HID_T) :: FORTRAN_REAL8_TYPE
-
-    if (bigendian) then
-       FORTRAN_REAL8_TYPE = H5T_IEEE_F64BE
-    else
-       FORTRAN_REAL8_TYPE = H5T_IEEE_F64LE
-    endif
-
-    call h5dread_f(dsetid, FORTRAN_REAL8_TYPE, buf_real8, dimsf, hdferr)
+    call h5dread_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, &
+                   hdferr, mspcid, dspcid)
 
   end subroutine fh5_read_real8_scalar
 
 !===============================================================================
 
   subroutine fh5_read_logical_scalar(buf_logical, hdferr)
+
     implicit none
 
     logical, intent(INOUT) :: buf_logical
     integer, intent(OUT)   :: hdferr
-    integer                :: buf_integer
 
-    hdferr = 1
+    integer(i1)            :: buf_integer
 
-    call h5dread_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, hdferr)
+    call h5dread_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer, dimsf, &
+                   hdferr, mspcid, dspcid)
 
-    buf_logical = .false.
-    if(buf_integer == -1) buf_logical = .true.
+    buf_logical = buf_integer == -1_i1
 
   end subroutine fh5_read_logical_scalar
 
@@ -2008,7 +1141,7 @@ contains
 
     character(*),      intent(IN)             :: dname
     integer,           intent(IN)             :: ndims
-    integer,           intent(IN), contiguous :: dims(:)
+    integer,           intent(IN)             :: dims(ndims)
     integer,           intent(OUT)            :: hdferr
 
     integer, optional, intent(IN), contiguous :: coords(:)
@@ -2016,7 +1149,7 @@ contains
     integer, optional, intent(IN), contiguous :: counts(:)
 
     integer          :: i, j, iop, ndims_file
-    integer(HSIZE_T) :: dims_file(7), maxdims_file(7)
+    integer(HSIZE_T) :: dims_file(ndims), maxdims_file(ndims)
     integer(HSIZE_T) :: offset(ndims), countf(ndims)
     logical          :: exists
 
