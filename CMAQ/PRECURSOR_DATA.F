@@ -43,7 +43,7 @@ C    -added req_OH and OH_idx variables
 C    -changed precursor_conc to Real(8)
 
 C H.Pye 05/22/11: added ALK5RXN to precursor list for SAPRC mechanisms
- 
+
 C JY  06/08/12 remove full character blank padding put in for GNU Fortran (GCC) 4.1.2
 C H. Pye 09/2014: added alkane and PAH SOA precursor
 C-----------------------------------------------------------------------
@@ -113,9 +113,11 @@ C Indices of required species
       Integer :: PHGRXN_idx
 
       Real( 8 ) :: precursor_mw  ( n_precursor )  ! mol wt from cgrid_spcs [g/mol]
+      Real( 8 ) :: precursor_mw6 ( n_precursor )  ! 10^6 X mol wt from cgrid_spcs [g/mol]
       Real( 8 ) :: precursor_mwi ( n_precursor )  ! 1 / mol wt from cgrid_spcs [mol/g]
       Real( 8 ) :: precursor_mwi6( n_precursor )  ! 10^-6 / mol wt from cgrid_spcs [mol/g]
       Real( 8 ) :: precursor_conc( n_precursor )  ! precursor concentration [ug/m^3]
+      Integer   :: precursor_map ( n_precursor )  ! pointers to CGRID
 
       Real    :: so4rate                       ! sulfate gas-phase production rate [ug/m^3*s]
       Real    :: phg_rate                      ! particulate mercury gas-phase production rate [ug/m^3*s]
@@ -123,7 +125,6 @@ C Indices of required species
       !$omp threadprivate(precursor_conc,so4rate,phg_rate)
 
 C Private variables for loading and unloading to CGRID array
-      Integer          :: precursor_map( n_precursor )  ! pointers to CGRID
       Logical, Private, Save :: mapped          = .False.
       Logical, Private, Save :: Precursor_eflag = .False.
       Integer, Private, Save :: logdev
@@ -164,6 +165,7 @@ C If the species are mapped already, skip the mapping algorithm
       logdev = setup_logdev()
 
       precursor_mw   = 0.0d0
+      precursor_mw6  = 0.0d0
       precursor_mwi  = 0.0d0
       precursor_mwi6 = 0.0d0
       precursor_map  = 0
@@ -173,6 +175,7 @@ C Build mapping to CGRID for each precursor species
          n = index1( precursor( spc )%name, n_gc_g2ae, gc_g2ae )
          If ( n .Ne. 0 ) Then
             precursor_mw  ( spc ) = real( gc_molwt( gc_g2ae_map( n ) ), 8 )
+            precursor_mw6 ( spc ) = 1.d+6 * precursor_mw ( spc )
             precursor_mwi ( spc ) = 1.d00 / precursor_mw ( spc )
             precursor_mwi6( spc ) = 1.d-6 / precursor_mw ( spc )
             precursor_map ( spc ) = gc_strt - 1 + gc_g2ae_map( n )
@@ -180,6 +183,7 @@ C Build mapping to CGRID for each precursor species
             n = index1( precursor( spc )%name, n_nr_n2ae, nr_n2ae )
             If ( n .Ne. 0 ) Then
                precursor_mw  ( spc ) = real( nr_molwt( nr_n2ae_map( n ) ), 8 )
+               precursor_mw6 ( spc ) = 1.d+6 * precursor_mw ( spc )
                precursor_mwi ( spc ) = 1.d00 / precursor_mw ( spc )
                precursor_mwi6( spc ) = 1.d-6 / precursor_mw ( spc )
                precursor_map ( spc ) = nr_strt - 1 + nr_n2ae_map( n )
@@ -191,7 +195,7 @@ C Build mapping to CGRID for each precursor species
                   Call m3warn( 'map_precursor', 0, 0, xmsg )
                 Else
                   write(logdev,99902)Trim( precursor( spc )%name )
-                End If 
+                End If
             End If
          End If
       End Do
@@ -212,9 +216,9 @@ C Find indices of required species
            xmsg = ' Gas Phase Precursor ' // Trim( req_PHGRXN )
      &         // ' not found -> NO gas production of APHG species'
            Call m3warn( 'map_precursor', 0, 0, xmsg )
-         End If 
+         End If
 #ifdef verbose_aero
-      Else 
+      Else
          xmsg = ' NO particulate mercury in model.'
          Call m3warn( 'map_precursor', 0, 0, xmsg )
          PHGRXN_idx = 0
@@ -242,7 +246,7 @@ C Find indices of required species
              xmsg = 'The FATAL errors found in namelist used. Check '
      &          //  'the log of exiting processor if more details are needed.'
          Call m3exit( pname, 0, 0, xmsg, xstat3 )
-      End If 
+      End If
 
       mapped = .True.
 
@@ -259,7 +263,7 @@ C Find indices of required species
       End Subroutine map_precursor
 
 C-----------------------------------------------------------------------
-      Subroutine extract_precursor( conc, airdens )
+      Subroutine extract_precursor( k, iw, airdens )
 
 C  Extracts the required precursor data from CGRID into conc.
 
@@ -271,18 +275,17 @@ C SH  03/10/11 Renamed met_data to aeromet_data
 C HS  03/10/11 Changed vtmp and gasconv to real(8)
 C-----------------------------------------------------------------------
 
-      Use const_data, only: inv_mwairkg, dmin_gasconc
-      Use cgrid_spcs, only: nspcsd
+      use const_data, only: inv_mwairkg, dmin_gasconc
+      use cgrid_defn, only: cgrid
 
       Implicit None
 
 C Arguments:
-      Real, Intent( In ) :: conc( nspcsd )
-      Real, Intent( In ) :: airdens
+      Integer, Intent( In ) :: k, iw
+      Real,    Intent( In ) :: airdens
 
 C Local Variables:
       Real( 8 )       :: gasconv       ! converts from [ppm] to [ug/m^3]
-      Real( 8 )       :: vtmp
       Integer         :: n
       Integer         :: spc
 
@@ -292,18 +295,21 @@ C Compute gas conversion constant
 C Copy grid cell concentrations of precursor species
       precursor_conc = 0.0d0
 
-      Do spc = 1, n_precursor
+      !dir$ novector
+      do spc = 1, n_precursor
          n = precursor_map( spc )
-         If ( n .Ne. 0 ) Then
-            vtmp = gasconv * precursor_mw( spc )
-            precursor_conc( spc ) = Max( conc( n ) * vtmp, dmin_gasconc )
-         End If
-      End Do
+         if ( n /= 0 ) precursor_conc( spc ) = cgrid(k,iw,n)
+      enddo
+
+      do spc = 1, n_precursor
+         precursor_conc( spc ) = Max( dmin_gasconc,
+     &                                precursor_conc( spc ) * gasconv * precursor_mw( spc ) )
+      enddo
 
       End Subroutine extract_precursor
 
 C------------------------------------------------------------------------
-      Subroutine update_precursor( conc, airdens )
+      Subroutine update_precursor( k, iw, airdens )
 
 C  Updates CGRID aerosol precursor values from the conc array.
 
@@ -317,15 +323,15 @@ C    -changed vtmp and gasconv to real(8)
 C SR  03/25/11 Replaced I/O API include files with UTILIO_DEFN
 C-----------------------------------------------------------------------
 
-      Use const_data, only: mwairkg, min_gasconc
-      Use cgrid_spcs, only: nspcsd
-      Use utilio_defn
+      use const_data, only: mwairkg, min_gasconc
+      use cgrid_defn, only: cgrid
+      use utilio_defn
 
       Implicit None
 
 C arguments:
-      Real, Intent( Out ) :: conc( nspcsd )
-      Real, Intent( In  ) :: airdens
+      Integer, Intent( In ) :: k, iw
+      Real,    Intent( In ) :: airdens
 
 C local variables:
       Character( 80 ) :: xmsg
@@ -347,11 +353,12 @@ C copy precursor_conc back to grid cell concentrations
          n = precursor_map( spc )
          If ( n .Ne. 0 ) Then
             If ( precursor( spc )%update ) Then
-               If ( precursor( spc )%rxncounter ) Then
-                  conc( n ) = min_gasconc
-               Else
+!               If ( precursor( spc )%rxncounter ) Then
+!                  cgrid(k,iw,n) = min_gasconc
+!               Else
+               If ( .not. precursor( spc )%rxncounter ) Then
                   vtmp = precursor_mwi( spc ) * gasconv
-                  conc( n ) = Max( real(precursor_conc( spc ) * vtmp), min_gasconc  )
+                  cgrid(k,iw,n) = Max( real(precursor_conc( spc ) * vtmp), min_gasconc  )
                End If
             End If
          End If
@@ -378,7 +385,7 @@ C-----------------------------------------------------------------------
 C Arguments:
       Character( * ) :: vname
       Logical        :: required
-      
+
       Integer ndx
 
 C Local Variables:
@@ -386,7 +393,7 @@ C Local Variables:
       Character( 80 ) :: xmsg
 
       ndx = 0
-      
+
       Do spc = 1, n_precursor
          If ( Index( precursor( spc )%name, Trim( vname ) ) .Gt. 0 ) Then
             ndx = spc

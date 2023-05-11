@@ -9,7 +9,7 @@
  * HEADER:100:ncpu:setup:1:number of threads, default is environment variable OMP_NUM_THREADS/number of cpus
  */
 
-#ifdef USE_OPENMP
+#ifdef _OPENMP
 #include <omp.h>
 int f_ncpu(ARG1) {
     int nthreads;

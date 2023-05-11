@@ -41,14 +41,14 @@ int f_merge_fcst(ARG2) {
 	enum output_grib_type grib_type;
 	int n_idx;				// idx of n_number_time_ranges
 	int time_units;				// time unit for statistical processing
-	int ndata;				// size of grid
+	unsigned int ndata;			// size of grid
 	int fhour;				// last fhour
 	int dt;					// stat processing interval
 	enum processing_type processing;	// ave, acc, max, min
         unsigned char *clone_sec[9];		// copy of original sec
 	unsigned char last_end_time[7];		// copy of the last end_of_overal_period
 	int num_to_merge;			// number of intervals to merge
-        FILE *output;				// output file
+        struct seq_file out;			// output file
     };
     struct local_struct *save;
 
@@ -62,23 +62,22 @@ int f_merge_fcst(ARG2) {
 
 	// allocate static variables
 
-        save = (struct local_struct *) malloc( sizeof(struct local_struct));
-        if (save == NULL) fatal_error("memory allocation f_merge","");
+        *local = save = (struct local_struct *) malloc( sizeof(struct local_struct));
+        if (save == NULL) fatal_error("merge_fcst: memory allocation","");
 
 	if ((save->num_to_merge = atoi(arg1)) < 0) fatal_error("merge_fcst: bad number","");
-        if ((save->output = ffopen(arg2, file_append ? "ab" : "wb")) == NULL) 
-	    fatal_error("merge_fcst: could not open file %s", arg1);
-	
+        if (fopen_file(&(save->out), arg2, file_append ? "ab" : "wb") != 0) {
+            free(save);
+            fatal_error("Could not open %s", arg2);
+        }
 	save->has_val = 0;
 	init_sec(save->clone_sec);
-        *local = save;
 	return 0;
     }
 
     save = (struct local_struct *) *local;
-
     if (mode == -2) {			// cleanup
-	ffclose(save->output);
+	fclose_file(&(save->out));
 	if (save->has_val) {
 	    free(save->val);
 	    free_sec(save->clone_sec);
@@ -112,8 +111,15 @@ if (mode == 99)  fprintf(stderr,"merge_fcst: save->has_val=%d  ",save->has_val);
 	// translate the data into raw mode now because the translation table
 	// will be different for a new grid or missing at mode == -2
 
-        if ((data_tmp = (float *) malloc(ndata * sizeof(float))) == NULL)
-                fatal_error("memory allocation - data_tmp","");
+        if ((data_tmp = (float *) malloc(sizeof(float) * (size_t) ndata)) == NULL) {
+	    fclose_file(&(save->out));
+	    if (save->has_val) {
+	        free(save->val);
+	        free_sec(save->clone_sec);
+	    }
+	    free(save);
+            fatal_error("merge: memory allocation","");
+	}
 
 	// grib_wrt wants data in original order
         undo_output_order(data, data_tmp, ndata);
@@ -124,21 +130,20 @@ if (mode == 99)  fprintf(stderr,"merge_fcst: save->has_val=%d  ",save->has_val);
 	if (save->has_val == 1) {
 	    new_type = 0;
 
-	    if (save->fhour + save->dt * (save->n - 1) == (int) forecast_time_in_units(sec))
+	    if (save->fhour + save->dt * (save->n - 1) == forecast_time_in_units(sec))
 			new_type = 1;
 
             if (same_sec0(sec,save->clone_sec) == 0 ||
             same_sec1(sec,save->clone_sec) == 0 ||
             same_sec3(sec,save->clone_sec) == 0 ||
-            same_sec4_for_merge(sec,save->clone_sec) == 0) {
+            same_sec4_for_merge(0, sec,save->clone_sec) == 0) {
                 new_type = 1;
                 if (mode == 99) {
                    fprintf(stderr,"test sec0=%d\n",same_sec0(sec,save->clone_sec));
                    fprintf(stderr,"test sec1=%d\n",same_sec1(sec,save->clone_sec));
                    fprintf(stderr,"test sec3=%d\n",same_sec3(sec,save->clone_sec));
-                   fprintf(stderr,"test sec4=%d\n",same_sec4_for_merge(sec,save->clone_sec));
+                   fprintf(stderr,"test sec4=%d\n",same_sec4_for_merge(mode, sec,save->clone_sec));
                 }
-
             }
         }
 
@@ -150,14 +155,14 @@ if (mode == 99)  fprintf(stderr,"merge_fcst: save->has_val=%d\n",save->has_val);
 	if (new_type == 1) {
 	    if (mode == 99) fprintf(stderr,"\nmerge: new_type == 1, first field\n");
             copy_sec(sec, save->clone_sec);
-            copy_data(data_tmp,ndata,&(save->val));
+            copy_data(data_tmp, ndata, &(save->val));
 
 //	    save last_end_time
 	    memcpy(save->last_end_time,sec[4]+idx+35-42,7);
-	    
+	
             save->has_val = 1;
             save->n = 1;
-	    save->fhour = (int) forecast_time_in_units(sec); 
+	    save->fhour = forecast_time_in_units(sec);
 	    save->dt = int4(sec[4]+idx+50-42);		// delta-time
 	    save->nx = nx;
 	    save->ny = ny;
@@ -172,10 +177,10 @@ if (mode == 99)  fprintf(stderr,"merge_fcst: save->has_val=%d\n",save->has_val);
 	    save->n_idx = idx;
 
 	    if (save->num_to_merge == 0) {
-                grib_wrt(save->clone_sec, data_tmp, save->ndata, save->nx, save->ny, save->use_scale, 
-		    save->dec_scale, save->bin_scale, save->wanted_bits, save->max_bits, 
-		    save->grib_type, save->output);
-                if (flush_mode) fflush(save->output);
+                grib_wrt(save->clone_sec, data_tmp, save->ndata, save->nx, save->ny, save->use_scale,
+		    save->dec_scale, save->bin_scale, save->wanted_bits, save->max_bits,
+		    save->grib_type, &(save->out));
+                if (flush_mode) fflush_file(&(save->out));
 	    }
 	    free(data_tmp);
 	    return 0;
@@ -234,10 +239,13 @@ if (mode == 99)  fprintf(stderr,"merge_fcst: save->has_val=%d\n",save->has_val);
 	    memcpy(temp_date, save->clone_sec[4]+idx+34-42,7);
 	    memcpy(save->clone_sec[4]+idx+34-42,sec[4]+idx+34-42,7);
 
-            grib_wrt(save->clone_sec, data_tmp, save->ndata, save->nx, save->ny, save->use_scale, 
-		save->dec_scale, save->bin_scale, save->wanted_bits, save->max_bits, 
-		save->grib_type, save->output);
-            if (flush_mode) fflush(save->output);
+            // grib_wrt wants data in original order
+            undo_output_order(data_tmp, save->val, ndata);
+
+            grib_wrt(save->clone_sec, data_tmp, save->ndata, save->nx, save->ny, save->use_scale,
+		save->dec_scale, save->bin_scale, save->wanted_bits, save->max_bits,
+		save->grib_type, &(save->out));
+            if (flush_mode) fflush_file(&(save->out));
 
 	    if (save->num_to_merge == 0) {
 	        // restore clone_sec

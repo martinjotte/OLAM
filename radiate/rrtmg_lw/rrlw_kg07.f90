@@ -1,9 +1,10 @@
       module rrlw_kg07
 
-      use parkind ,only : im => kind_im, rb => kind_rb
+      use parkind, only: im => kind_im, rb => kind_rb
 
       implicit none
-      save
+
+      private :: im, rb
 
 !-----------------------------------------------------------------
 ! rrtmg_lw ORIGINAL abs. coefficients for interval 7
@@ -16,17 +17,17 @@
 !
 !  name     type     purpose
 !  ----   : ----   : ---------------------------------------------
-!fracrefao: real    
-!fracrefbo: real    
-! kao     : real     
-! kbo     : real     
-! kao_mco2: real     
-! kbo_mco2: real     
-! selfrefo: real     
-! forrefo : real     
+!fracrefao: real
+!fracrefbo: real
+! kao     : real
+! kbo     : real
+! kao_mco2: real
+! kbo_mco2: real
+! selfrefo: real
+! forrefo : real
 !-----------------------------------------------------------------
 
-      integer(kind=im), parameter :: no7  = 16
+      integer(kind=im), parameter :: no7 = 16
 
       real(kind=rb) , dimension(no7) :: fracrefbo
       real(kind=rb) :: fracrefao(no7,9)
@@ -48,29 +49,30 @@
 !
 !  name     type     purpose
 !  ----   : ----   : ---------------------------------------------
-!fracrefa : real    
-!fracrefb : real    
-! ka      : real     
-! kb      : real     
-! ka_mco2 : real     
-! kb_mco2 : real     
-! selfref : real     
-! forref  : real     
+!fracrefa : real
+!fracrefb : real
+! ka      : real
+! kb      : real
+! ka_mco2 : real
+! kb_mco2 : real
+! selfref : real
+! forref  : real
 !
 ! absa    : real
 !-----------------------------------------------------------------
 
-      integer(kind=im), parameter :: ng7  = 12
+      integer(kind=im), parameter :: ng7 = 12
 
       real(kind=rb) , dimension(ng7) :: fracrefb
       real(kind=rb) :: fracrefa(ng7,9)
-      real(kind=rb) :: ka(9,5,13,ng7) ,absa(585,ng7)
-      real(kind=rb) :: kb(5,13:59,ng7),absb(235,ng7)
-      real(kind=rb) :: ka_mco2(9,19,ng7)
-      real(kind=rb) :: kb_mco2(19,ng7)
-      real(kind=rb) :: selfref(10,ng7)
-      real(kind=rb) :: forref(4,ng7)
-
-      equivalence (ka(1,1,1,1),absa(1,1)),(kb(1,13,1),absb(1,1))
+      real(kind=rb) :: dfracrefa(ng7,9)
+      real(kind=rb) :: absa(ng7,585)
+      real(kind=rb) :: absb(ng7,235)
+      real(kind=rb) :: ka_mco2(ng7,9,19)
+      real(kind=rb) :: kb_mco2(ng7,19)
+      real(kind=rb) :: dka_mco2(ng7,9,19)
+      real(kind=rb) :: dkb_mco2(ng7,19)
+      real(kind=rb) :: selfref(ng7,10)
+      real(kind=rb) :: forref(ng7,4)
 
       end module rrlw_kg07

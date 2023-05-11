@@ -33,18 +33,18 @@ int f_grid_def(ARG0) {
 	return 0;
     }
     if (mode < 0) return 0;
-    if (msg_no >= 1 && msg_no <= 2 && data != NULL) {
+    if (data != NULL) {
         getName(sec,  mode, NULL, name, NULL, NULL);
-        if (strcmp("LAUV",name) == 0 || strcmp("LAPP",name) == 0 || strcmp("NLAT",name) == 0) {
-            free(lat);
-	    lat = (double *) malloc(ndata * sizeof(double));
-	    if (lat == NULL) fatal_error_i("memory allocation error in grid_def #lat=%d",ndata);
+        if (strcmp("LAUV",name) == 0 || strcmp("LAPP",name) == 0 || strcmp("NLAT",name) == 0 || strcmp("GEOLAT",name) == 0) {
+            if (lat != NULL) free(lat);
+	    lat = (double *) malloc(sizeof(double) * (size_t) ndata);
+	    if (lat == NULL) fatal_error_i("memory allocation error in grid_def #lat=%d", (int) ndata);
 	    for (i = 0; i < ndata; i++) lat[i] = data[i];
         }
-        if (strcmp("LOUV",name) == 0 || strcmp("LOPP",name) == 0 || strcmp("ELON",name) == 0) {
-            free(lon);
-	    lon = (double *) malloc(ndata * sizeof(double));
-	    if (lon == NULL) fatal_error_i("memory allocation error in grid_def #lon=%d",ndata);
+        if (strcmp("LOUV",name) == 0 || strcmp("LOPP",name) == 0 || strcmp("ELON",name) == 0 || strcmp("GEOLON",name) == 0) {
+            if (lon != NULL) free(lon);
+	    lon = (double *) malloc(sizeof(double) * (size_t) ndata);
+	    if (lon == NULL) fatal_error_i("memory allocation error in grid_def #lon=%d", (int) ndata);
 	    for (i = 0; i < ndata; i++) lon[i] = data[i];
         }
     }

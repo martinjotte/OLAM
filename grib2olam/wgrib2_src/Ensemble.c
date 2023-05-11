@@ -6,6 +6,8 @@
 
 /*
  * 2/2007 Public Domain: Wesley Ebisuzaki
+ * 1/2016 Wesley Ebisuzaki: for PDT=2 and 12 (derived fcst based on ALL ensemble members)
+ *               changed the descriptions to remove mention of clusters
  */
 
 /*
@@ -13,22 +15,29 @@
  */
 
 int f_ens(ARG0) {
-    int type, typefcst, center;
+    int type, typefcst, pdt, center;
     const char *string;
     if (mode >= 0) {
 	typefcst = code_table_4_7(sec);
 	type = code_table_4_6(sec);
 	center = GB2_Center(sec);
+        pdt =  GB2_ProdDefTemplateNo(sec);
+
 	if (type >= 0) {
 	    switch(type) {
 	        case 0: sprintf(inv_out,"ENS=hi-res ctl"); break;
 	        case 1: sprintf(inv_out,"ENS=low-res ctl"); break;
-	        case 2: 
+	        case 2:
 			sprintf(inv_out,"ENS=-%d", perturbation_number(sec)); break;
-	        case 3: 
+	        case 3:
 			sprintf(inv_out,"ENS=+%d", perturbation_number(sec)); break;
-	        case 4: 
+	        case 4:
 			sprintf(inv_out,"MM-ENS=%d", perturbation_number(sec)); break;
+		case 192:
+			if (center == NCEP) {
+			    sprintf(inv_out,"ENS=%d", perturbation_number(sec)); break;
+			}
+
 	        default:
 			sprintf(inv_out,"ENS=? table4.6=%d pert=%d",type,perturbation_number(sec)); break;
 	    }
@@ -41,13 +50,22 @@ int f_ens(ARG0) {
 	if (typefcst >= 0) {
 	    string = "unknown derived fcst";
 	    switch(typefcst) {
-	        case 0: string = "mean all members"; break;
-	        case 1: string = "wt mean all members"; break;
-	        case 2: string = "std dev (cluster mean)"; break;
-	        case 3: string = "normalized std dev (cluster mean)"; break;
-	        case 4: string = "spread all members"; break;
-	        case 5: string = "large anom index all members"; break;
-	        case 6: string = "unwt mean of cluster members"; break;
+	        case 0: string = "ens mean"; break;
+	        case 1: string = "wt ens mean"; break;
+	        case 2: if ((pdt == 2) || (pdt == 12)) {
+			    string = "ens std dev"; break;
+			}
+			string = "cluster std dev"; break;
+	        case 3: if ((pdt == 2) || (pdt == 12)) {
+			    string = "normalized ens std dev"; break;
+			}
+			string = "normalized cluster std dev"; break;
+	        case 4: string = "ens spread"; break;
+	        case 5: string = "ens large anom index"; break;
+	        case 6: if ((pdt == 2) || (pdt == 12)) {
+			    string = "unwt ens mean"; break;
+			}
+			string = "unwt cluster mean"; break;
 	        case 7: string = "25%-75% range"; break;
 	        case 8: string = "min all members"; break;
 	        case 9: string = "max all members"; break;
@@ -57,6 +75,10 @@ int f_ens(ARG0) {
 	        case 195: if (center == NCEP)  string = "90% all members"; break;
 	        case 196: if (center == NCEP)  string = "stat. weight for each members"; break;
 	        case 197: if (center == NCEP)  string = "percentile from climate distribution"; break;
+	        case 198: if (center == NCEP)  string = "deviation of ens mean from daily climo"; break;
+	        case 199: if (center == NCEP)  string = "extreme forecast index"; break;
+	        case 200: if (center == NCEP)  string = "25% all members"; break;
+	        case 201: if (center == NCEP)  string = "75% all members"; break;
 	    }
 	    sprintf(inv_out,"%s", string);
 	    inv_out += strlen(inv_out);
@@ -70,10 +92,15 @@ int f_ens(ARG0) {
  */
 int f_N_ens(ARG0) {
     int n;
+    unsigned char *p;
 
     if (mode >= 0) {
-	n = number_of_forecasts_in_the_ensemble(sec);
-	if (n > 0) sprintf(inv_out,"%d ens members", n); 
+	p = number_of_forecasts_in_the_ensemble_location(sec);
+	if (p) {
+	    n = *p;
+	    if (n == 255) n = -1;
+	    sprintf(inv_out,"%d ens members", n);
+	}
     }
     return 0;
 }

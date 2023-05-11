@@ -17,7 +17,7 @@ int f_hybrid(ARG0) {
         n = uint2(&(sec[4][5]));                // number of vert coordinate values
 	if (n % 2 != 0) fatal_error_i("vertical coordinate parameters should be in pairs, n=%d", n);
 	if (n == 0) return 0;
-	if (pdtsize + 4*n > secsize) 
+	if (pdtsize + 4*n > secsize)
 	    fatal_error("not enough space allocated for vertical coordinate data","");
 	sprintf(inv_out,"Hybrid levels=%d", n/2);
 	inv_out += strlen(inv_out);

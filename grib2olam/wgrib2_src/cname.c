@@ -78,13 +78,14 @@ int getName(unsigned char **sec, int mode, char *inv_out, char *name, char *desc
 	if (unit) strcpy(unit,p_unit);
 
 	if (inv_out) {
-            if (parmnum < 192 && parmcat < 192) {
-                sprintf(inv_out,"var discipline=%d master_table=%d parmcat=%d parm=%d", 
-                  discipline, mastertab, parmcat, parmnum);
-            }
-            else {
+	    if ((parmnum >= 192 && parmnum <= 254) || (parmcat >= 192 && parmcat <= 254)
+		      || (discipline >= 192 && discipline <= 254) ) {
 	        sprintf(inv_out,"var discipline=%d center=%d local_table=%d parmcat=%d parm=%d",
                   discipline, center, localtab, parmcat, parmnum);
+	    }
+	    else {
+                sprintf(inv_out,"var discipline=%d master_table=%d parmcat=%d parm=%d",
+                  discipline, mastertab, parmcat, parmnum);
             }
 	}
     }
@@ -111,12 +112,10 @@ static struct gribtable_s *search_gribtable(struct gribtable_s *p, unsigned char
     parmcat = GB2_ParmCat(sec);
     parmnum = GB2_ParmNum(sec);
 
-//    // if (mastertab == 0) mastertab = 1;
-//    if (mastertab >= 0 && mastertab <= 10) mastertab = 1;
-
     use_local_table = (mastertab == 255) ? 1 : 0;
-    if (parmnum >= 192 || parmcat >= 192) use_local_table = 1;
-   
+    if ((parmnum >= 192 && parmnum <= 254) || (parmcat >= 192 && parmcat <= 254)
+	|| (discipline >= 192 && discipline <= 254) ) use_local_table = 1;
+
     if (use_local_table == 1 && localtab == 0) {
 	if (count++ < 6 ) fprintf(stderr,"**** ERROR: local table = 0 is not allowed, set to 1 ***\n");
 	localtab = 1;
@@ -136,7 +135,7 @@ static struct gribtable_s *search_gribtable(struct gribtable_s *p, unsigned char
     else {
 //	printf(">> cname local find: disc %d center %d localtab %d pcat %d pnum %d\n", discipline, center, localtab, parmcat, parmnum);
         for (; p->disc >= 0; p++) {
-            if (discipline == p->disc && center == p->cntr && localtab == p->ltab && 
+            if (discipline == p->disc && center == p->cntr && localtab == p->ltab &&
                 parmcat == p->pcat && parmnum == p->pnum) {
                 return p;
 	    }

@@ -4,7 +4,8 @@
       use parrrtm, only : nbndlw, mg, ngptlw, maxinpx, maxxsec
 
       implicit none
-      save
+
+      private :: im, rb, nbndlw, mg, ngptlw, maxinpx, maxxsec, i
 
 !------------------------------------------------------------------
 ! rrtmg_lw spectral information
@@ -20,7 +21,7 @@
 ! nspa   :  integer: For the lower atmosphere, the number of reference
 !                    atmospheres that are stored for each spectral band
 !                    per pressure level and temperature.  Each of these
-!                    atmospheres has different relative amounts of the 
+!                    atmospheres has different relative amounts of the
 !                    key species for the band (i.e. different binary
 !                    species parameters).
 ! nspb   :  integer: Same as nspa for the upper atmosphere
@@ -31,7 +32,7 @@
 !                    includes total from 2600 cm-1 to infinity)
 !                    Used for calculation across total spectrum
 !totplk16:  real   : Integrated Planck value for band 16 (2600-3250 cm-1)
-!                    Used for calculation in band 16 only if 
+!                    Used for calculation in band 16 only if
 !                    individual band output requested
 !totplnkderiv: real: Integrated Planck function derivative with respect
 !                    to temperature for each band; (band 16
@@ -39,19 +40,19 @@
 !                    Used for calculation across total spectrum
 !totplk16deriv:real: Integrated Planck function derivative with respect
 !                    to temperature for band 16 (2600-3250 cm-1)
-!                    Used for calculation in band 16 only if 
+!                    Used for calculation in band 16 only if
 !                    individual band output requested
 !
 ! ngc    :  integer: The number of new g-intervals in each band
 ! ngs    :  integer: The cumulative sum of new g-intervals for each band
 ! ngm    :  integer: The index of each new g-interval relative to the
 !                    original 16 g-intervals in each band
-! ngn    :  integer: The number of original g-intervals that are 
+! ngn    :  integer: The number of original g-intervals that are
 !                    combined to make each new g-intervals in each band
 ! ngb    :  integer: The band index for each new g-interval
 ! wt     :  real   : RRTM weights for the original 16 g-intervals
-! rwgt   :  real   : Weights for combining original 16 g-intervals 
-!                    (256 total) into reduced set of g-intervals 
+! rwgt   :  real   : Weights for combining original 16 g-intervals
+!                    (256 total) into reduced set of g-intervals
 !                    (140 total)
 ! nxmol  :  integer: Number of cross-section molecules
 ! ixindx :  integer: Flag for active cross-sections in calculation
@@ -77,18 +78,38 @@
             2250._rb,2380._rb,2600._rb,3250._rb/)
 
       real(kind=rb), parameter :: delwave(nbndlw) = &
-           (/340._rb, 150._rb, 130._rb,  70._rb, 120._rb, 160._rb, &
-             100._rb, 100._rb, 210._rb,  90._rb, 320._rb, 280._rb, &
-             170._rb, 130._rb, 220._rb, 650._rb/)
+           (/ 340._rb, 150._rb, 130._rb,  70._rb, 120._rb, 160._rb, &
+              100._rb, 100._rb, 210._rb,  90._rb, 320._rb, 280._rb, &
+              170._rb, 130._rb, 220._rb, 650._rb/)
 
-      real(kind=rb) :: totplnk(181,nbndlw)
-      real(kind=rb) :: totplk16(181)
+      integer :: i
 
-      real(kind=rb) :: totplnkderiv(181,nbndlw)
-      real(kind=rb) :: totplk16deriv(181)
+      real(kind=rb), parameter :: delwaveg(ngptlw) = &
+           (/ (340._rb, i=1,10), &
+              (150._rb, i=1,12), &
+              (130._rb, i=1,16), &
+              ( 70._rb, i=1,14), &
+              (120._rb, i=1,16), &
+              (160._rb, i=1, 8), &
+              (100._rb, i=1,12), &
+              (100._rb, i=1, 8), &
+              (210._rb, i=1,12), &
+              ( 90._rb, i=1, 6), &
+              (320._rb, i=1, 8), &
+              (280._rb, i=1, 8), &
+              (170._rb, i=1, 4), &
+              (130._rb, i=1, 2), &
+              (220._rb, i=1, 2), &
+              (650._rb, i=1, 2) /)
+
+      real(kind=rb), allocatable ::  totplnk(:,:)
+      real(kind=rb), allocatable :: dtotplnk(:,:)
 
       integer(kind=im), parameter :: ngc(nbndlw) = &
            (/10,12,16,14,16,8,12,8,12,6,8,8,4,2,2,2/)
+
+      integer(kind=im), parameter :: nga(nbndlw) = &
+           (/1,11,23,39,53,69,77,89,97,109,115,123,131,135,137,139/)
 
       integer(kind=im), parameter :: ngs(nbndlw) = &
            (/10,22,38,52,68,76,88,96,108,114,122,130,134,136,138,140/)

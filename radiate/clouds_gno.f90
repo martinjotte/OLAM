@@ -29,11 +29,11 @@ contains
 ! Parameterization of the cloudiness associated with cumulus convection.
 !
 ! This routine reads in a lookup table of parameterized values of cloud fraction
-! as a function of resolved relative humidity (defined as total resolved water 
+! as a function of resolved relative humidity (defined as total resolved water
 ! specific humidity devided by saturation specific humidity) and the square root
 ! of subgrid convective cloud water normalized by the total resolved water in
-! the grid box. The routine to create the lookup table is in the etc/ directory 
-! in the bony_emanuel_table subdirectory, and uses the routine described in 
+! the grid box. The routine to create the lookup table is in the etc/ directory
+! in the bony_emanuel_table subdirectory, and uses the routine described in
 ! Bony and Emanuel (JAS, 2001, pp. 3158 - 3183).
 !
 !===============================================================================
@@ -91,7 +91,7 @@ contains
     use oname_coms, only: nl
 
     implicit none
-    
+
     logical :: exists
 
     character(20),     parameter :: gno_file = "bony_eman_table.h5"
@@ -108,7 +108,7 @@ contains
        stop       "Bony-Emanuel look table datafile cannot be found"
     endif
 
-    call shdf5_open(inputfile, 'R')
+    call shdf5_open(inputfile, 'R', trypario=.true.)
 
     ndims=1 ; idims(1)=1
     call shdf5_irec(ndims, idims, "rh_start", rvars=rh_start)

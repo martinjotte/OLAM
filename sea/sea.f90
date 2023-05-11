@@ -1,54 +1,20 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 subroutine seacells()
 
-  use sea_coms,  only: mws, nzi, iupdsst, s1900_sst, isstfile, nsstfiles,  &
-                       iupdseaice, s1900_seaice, iseaicefile, nseaicefiles
-  use mem_ijtabs,only: itabg_w
-  use mem_sea,   only: sea, itab_ws
-  use misc_coms, only: io6, time8, s1900_sim, isubdomain
-  use mem_para,  only: myrank
-  use mem_basic, only: rho
+  use sea_coms,    only: nzi, iupdsst, s1900_sst, isstfile, nsstfiles,  &
+                         iupdseaice, s1900_seaice, iseaicefile, nseaicefiles
+  use mem_sfcg,    only: itab_wsfc, sfcg
+  use mem_sea,     only: sea, msea, omsea
+  use misc_coms,   only: s1900_sim, iparallel
+  use mem_para,    only: myrank
 
   implicit none
 
 ! Local variables
 
-  integer :: iws      ! sea cell loop counter
-  integer :: iw, kw
+  integer :: isea      ! sea cell loop counter
+  integer :: iwsfc
   real    :: timefac_sst   ! fraction of elapsed time from past to future SST obs
   real    :: timefac_seaice   ! fraction of elapsed time from past to future SEA ICE obs
-  real    :: rhos
 
 ! Time interpolation factors for updating SST and SEA ICE
 
@@ -67,126 +33,109 @@ subroutine seacells()
 
 ! Loop over ALL SEA CELLS
 
-  !$omp parallel do private(iw,kw,rhos)
-  do iws = 2, mws
+  !$omp parallel do private (iwsfc)
+  do isea = 2, msea
+     iwsfc = isea + omsea
 
-     iw = itab_ws(iws)%iw  ! global index
-     if (isubdomain == 1) then
-        iw = itabg_w(iw)%iw_myrank
+     ! Skip this cell if running in parallel and cell rank is not MYRANK
+     if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+
+     ! Zero runoff for sea cells
+
+     sfcg%runoff(iwsfc) = 0.
+
+     ! Update seaice fraction
+
+     sea%seaicec(isea) = sea%seaicep(isea) &
+                       + timefac_seaice * (sea%seaicef(isea) - sea%seaicep(isea))
+
+     ! Update SEATC if isea cell is not pom_active or is is swm_active
+
+     if (.not. sea%pom_active(isea) .or. sfcg%swm_active(iwsfc)) then
+
+        sea%seatc(isea) = sea%seatp(isea) &
+                        + timefac_sst * (sea%seatf(isea) - sea%seatp(isea))
      endif
 
-     kw = itab_ws(iws)%kw
+     ! Update SEA fields
 
-! Update SEATC and seaice fraction
-
-     sea%seatc(iws) = sea%seatp(iws) + &
-                      timefac_sst * (sea%seatf(iws) - sea%seatp(iws))
-
-     sea%seaicec(iws) = sea%seaicep(iws) + &
-                        timefac_seaice * (sea%seaicef(iws) - sea%seaicep(iws))
-
-     rhos = rho(kw,iw)
-
-! Update SEA fields
-
-     call seacell(iws                 ,  &
-                  rhos                ,  &
-                  sea%sea_ustar  (iws),  &
-                  sea%sea_sxfer_t(iws),  &
-                  sea%sea_sxfer_r(iws),  &
-                  sea%can_depth  (iws),  &
-                  sea%seatc      (iws),  &
-                  sea%sea_cantemp(iws),  &
-                  sea%sea_canshv (iws),  &
-                  sea%sea_sfc_ssh(iws),  &
-                  sea%sea_rough  (iws)   )
+     call seacell(isea, iwsfc,             &
+                  sfcg%rhos      (iwsfc),  &
+                  sea%sea_ustar   (isea),  &
+                  sea%sea_sxfer_t (isea),  &
+                  sea%sea_sxfer_r (isea),  &
+                  sfcg%can_depth (iwsfc),  &
+                  sea%seatc       (isea),  &
+                  sea%sea_cantemp (isea),  &
+                  sea%sea_canrrv  (isea),  &
+                  sea%sea_sfc_srrv(isea),  &
+                  sea%sea_rough   (isea)   )
 
 ! Update sea ice based on seaice fraction
 
-     call prep_seaice(sea%seatc              (iws), &      
-                      sea%seaicec            (iws), &
-                      sea%sea_cantemp        (iws), &
-                      sea%ice_cantemp        (iws), &
-                      sea%seaice_energy(1:nzi,iws), &
-                      sea%seaice_tempk (1:nzi,iws), &
-                      sea%nlev_seaice        (iws), &
-                      sea%ice_albedo         (iws), &
-                      sea%ice_rlongup        (iws), &
-                      sea%ice_net_rshort     (iws), &
-                      sea%ice_net_rlong      (iws), &
-                      sea%rshort             (iws), &
-                      sea%rlong              (iws), &
-                      sea%ice_rough          (iws), &
-                      sea%sea_canshv         (iws), &
-                      sea%ice_canshv         (iws), &
-                      sea%sea_ustar          (iws), &
-                      sea%ice_ustar          (iws), &
-                      sea%sea_ggaer          (iws), &
-                      sea%ice_ggaer          (iws), &
-                      sea%sea_wthv           (iws), &
-                      sea%ice_wthv           (iws), &
-                      sea%ice_sxfer_t        (iws), &
-                      sea%ice_sxfer_r        (iws)  )
+     call prep_seaice(sea%seatc              (isea), &
+                      sea%seaicec            (isea), &
+                      sea%sea_cantemp        (isea), &
+                      sea%ice_cantemp        (isea), &
+                      sea%seaice_energy(1:nzi,isea), &
+                      sea%seaice_tempk (1:nzi,isea), &
+                      sea%nlev_seaice        (isea), &
+                      sea%ice_albedo         (isea), &
+                      sea%ice_rlongup        (isea), &
+                      sea%ice_net_rshort     (isea), &
+                      sea%ice_net_rlong      (isea), &
+                      sfcg%rshort           (iwsfc), &
+                      sfcg%rlong            (iwsfc), &
+                      sea%ice_rough          (isea), &
+                      sea%sea_canrrv         (isea), &
+                      sea%ice_canrrv         (isea), &
+                      sea%sea_ustar          (isea), &
+                      sea%ice_ustar          (isea), &
+                      sea%sea_ggaer          (isea), &
+                      sea%ice_ggaer          (isea), &
+                      sea%sea_wthv           (isea), &
+                      sea%ice_wthv           (isea), &
+                      sea%ice_sxfer_t        (isea), &
+                      sea%ice_sxfer_r        (isea)  )
 
 ! If ice exists, compute seaice canopy fluxes
 
-     if (sea%nlev_seaice(iws) > 0) then
+     if (sea%nlev_seaice(isea) > 0) then
 
-        call seaice(sea%seaice_energy(1:nzi,iws), &
-                    sea%seaice_tempk (1:nzi,iws), &
-                    sea%nlev_seaice        (iws), &
-                    sea%ice_net_rshort     (iws), &
-                    sea%ice_net_rlong      (iws), &
-                    rhos                        , &
-                    sea%ice_ustar          (iws), &
-                    sea%can_depth          (iws), &
-                    sea%ice_cantemp        (iws), &
-                    sea%ice_canshv         (iws), &
-                    sea%ice_sfc_ssh        (iws), &
-                    sea%ice_sxfer_t        (iws), &
-                    sea%ice_sxfer_r        (iws)  )
+        call seaice(sea%seaice_energy(1:nzi,isea), &
+                    sea%seaice_tempk (1:nzi,isea), &
+                    sea%nlev_seaice        (isea), &
+                    sea%ice_net_rshort     (isea), &
+                    sea%ice_net_rlong      (isea), &
+                    sfcg%rhos             (iwsfc), &
+                    sea%ice_ustar          (isea), &
+                    sfcg%can_depth        (iwsfc), &
+                    sea%ice_cantemp        (isea), &
+                    sea%ice_canrrv         (isea), &
+                    sea%ice_sfc_srrv       (isea), &
+                    sea%ice_sxfer_t        (isea), &
+                    sea%ice_sxfer_r        (isea)  )
 
-        sea%rough      (iws) = (1.0 - sea%seaicec(iws)) * sea%sea_rough  (iws) + &
-                                      sea%seaicec(iws)  * sea%ice_rough  (iws)
+        sfcg%rough    (iwsfc) = (1.0 - sea%seaicec(isea)) * sea%sea_rough  (isea) + &
+                                       sea%seaicec(isea)  * sea%ice_rough  (isea)
 
-        sea%cantemp    (iws) = (1.0 - sea%seaicec(iws)) * sea%sea_cantemp(iws) + &
-                                      sea%seaicec(iws)  * sea%ice_cantemp(iws)
+        sfcg%cantemp  (iwsfc) = (1.0 - sea%seaicec(isea)) * sea%sea_cantemp(isea) + &
+                                       sea%seaicec(isea)  * sea%ice_cantemp(isea)
 
-        sea%canshv     (iws) = (1.0 - sea%seaicec(iws)) * sea%sea_canshv (iws) + &
-                                      sea%seaicec(iws)  * sea%ice_canshv (iws)
+        sfcg%canrrv   (iwsfc) = (1.0 - sea%seaicec(isea)) * sea%sea_canrrv (isea) + &
+                                       sea%seaicec(isea)  * sea%ice_canrrv (isea)
 
-        sea%surface_ssh(iws) = (1.0 - sea%seaicec(iws)) * sea%sea_sfc_ssh(iws) + &
-                                      sea%seaicec(iws)  * sea%ice_sfc_ssh(iws)
+        sea%surface_srrv(isea) = (1.0 - sea%seaicec(isea)) * sea%sea_sfc_srrv(isea) + &
+                                        sea%seaicec(isea)  * sea%ice_sfc_srrv(isea)
+
      else
 
-        sea%rough      (iws) = sea%sea_rough  (iws)
-        sea%cantemp    (iws) = sea%sea_cantemp (iws)
-        sea%canshv     (iws) = sea%sea_canshv  (iws)
-        sea%surface_ssh(iws) = sea%sea_sfc_ssh(iws)
+        sfcg%rough      (iwsfc) = sea%sea_rough   (isea)
+        sfcg%cantemp    (iwsfc) = sea%sea_cantemp (isea)
+        sfcg%canrrv     (iwsfc) = sea%sea_canrrv  (isea)
+        sea%surface_srrv (isea) = sea%sea_sfc_srrv(isea)
 
      endif
-
-! Zero out SEA%SXFER_T(IWS) and SEA%SXFER_R(IWS) now that they have 
-! been applied to the canopy
-
-     sea%sxfer_t(iws) = 0.
-     sea%sxfer_r(iws) = 0.
-   ! sea%sxfer_c(iws) = 0.
-
-     sea%sea_sxfer_t(iws) = 0.
-     sea%sea_sxfer_r(iws) = 0.
-   ! sea%sea_sxfer_c(iws) = 0.
-
-     sea%ice_sxfer_t(iws) = 0.
-     sea%ice_sxfer_r(iws) = 0.
-   ! sea%ice_sxfer_c(iws) = 0.
-
-   ! At this point, any precipitation has been added to sea & ice components,
-   ! (a future model development) so zero out precipitation variables
-
-     sea%pcpg(iws)  = 0.
-     sea%qpcpg(iws) = 0.
-     sea%dpcpg(iws) = 0.
 
   enddo
   !$omp end parallel do
@@ -195,45 +144,51 @@ end subroutine seacells
 
 !===============================================================================
 
-subroutine seacell( iws, rhos, ustar, sxfer_t, sxfer_r, can_depth, &
-                    seatc, cantemp, canshv, surface_ssh, rough     )
+subroutine seacell( isea, iwsfc, rhos, ustar, sxfer_t, sxfer_r, can_depth, &
+                    seatc, cantemp, canrrv, surface_srrv, rough     )
 
+  use mem_sfcg,    only: sfcg
+  use mem_sea,     only: sea
   use sea_coms,    only: dt_sea
-  use consts_coms, only: cp, grav
-  use misc_coms,   only: io6
-  use therm_lib,   only: rhovsil
+  use consts_coms, only: cp, grav, cliq1000, erad, eradi
+  use therm_lib,   only: rhovsl
+  use pom2k1d,     only: pom, rhoref, pom_column
 
   implicit none
 
-  integer, intent(in)    :: iws         ! current sea cell index
-  real,    intent(in)    :: rhos        ! air density [kg/m^3]
-  real,    intent(in)    :: ustar       ! friction velocity [m/s]
-  real,    intent(in)    :: sxfer_t     ! can_air to atm heat xfer this step [kg_air K/m^2]
-  real,    intent(in)    :: sxfer_r     ! can_air to atm vapor xfer this step (kg_vap/m^2]
-  real,    intent(in)    :: can_depth   ! "canopy" depth for heat and vap capacity [m]
-  real,    intent(in)    :: seatc       ! current sea temp (obs time) [K]
-  real,    intent(inout) :: cantemp     ! "canopy" air temp [K]
-  real,    intent(inout) :: canshv      ! "canopy" air vapor spec hum [kg_vap/kg_air]
-  real,    intent(out)   :: surface_ssh ! sea surface sat spec hum [kg_vap/kg_air] 
-  real,    intent(out)   :: rough       ! sea cell roughess height [m] 
-  
+  integer, intent(in)    :: isea         ! current sea cell index
+  integer, intent(in)    :: iwsfc        ! current sfcg cell index
+  real,    intent(in)    :: rhos         ! air density [kg/m^3]
+  real,    intent(in)    :: ustar        ! friction velocity [m/s]
+  real,    intent(in)    :: sxfer_t      ! can_air to atm heat xfer this step [kg_air K/m^2]
+  real,    intent(in)    :: sxfer_r      ! can_air to atm vapor xfer this step (kg_vap/m^2]
+  real,    intent(in)    :: can_depth    ! "canopy" depth for heat and vap capacity [m]
+  real,    intent(in)    :: seatc        ! current sea temp (obs time) [K]
+  real,    intent(inout) :: cantemp      ! "canopy" air temp [K]
+  real,    intent(inout) :: canrrv       ! "canopy" air vapor mixing ratio [kg_vap/kg_dryair]
+  real,    intent(out)   :: surface_srrv ! sea surface sat mixing ratio [kg_vap/kg_dryair]
+  real,    intent(out)   :: rough        ! sea cell roughess height [m]
+
 ! Local parameter
 
-  real, parameter :: z0fac_water = .016 / grav  ! factor for Charnok roughness height
-  real, parameter :: ozo = 1.59e-5              ! base roughness height in HWRF
+  real, parameter :: z0fac = 0.011 / grav  ! factor for Charnok roughness height
+  real, parameter :: ozo   = 1.59e-5       ! base roughness height in HWRF
+  real, parameter :: one3  = 1./ 3.
 
 ! Local variables
 
   real :: rdi     ! canopy conductance [m/s]
+  real :: hfluxgc ! heat flux from sea surface to can_air [kg K/(m^2 s)]
   real :: hxfergc ! heat xfer from sea surface to can_air this step [J/m^2]
   real :: hxferca ! heat xfer from can_air to atm this step [J/m^2]
   real :: wxfergc ! vapor xfer from sea surface to can_air this step [kg_vap/m^2]
 
-  real :: zn1, zn2, zw
+  real :: zn1, zn2, zw, usti
+  real :: raxis, windu, windv, cdtop, wusurf, wvsurf, wtsurf, wssurf, swrad
 
 ! Evaluate surface saturation specific humidity
 
-  surface_ssh = rhovsil(seatc-273.15) / rhos
+  surface_srrv = rhovsl(seatc-273.15) / rhos
 
 ! Update temperature and vapor specific humidity of "canopy" from
 ! divergence of xfers with water surface and atmosphere.  rdi = ustar/5
@@ -241,13 +196,15 @@ subroutine seacell( iws, rhos, ustar, sxfer_t, sxfer_r, can_depth, &
 
   rdi = .2 * ustar
 
-  hxfergc = dt_sea * cp * rhos * rdi * (seatc - cantemp)
-  wxfergc = dt_sea *      rhos * rdi * (surface_ssh - canshv)
+  hfluxgc = rhos * rdi * (seatc - cantemp)
+
+  hxfergc = dt_sea * cp * hfluxgc
+  wxfergc = dt_sea * rhos * rdi * (surface_srrv - canrrv)
 
   hxferca = cp * sxfer_t  ! sxfer_t and sxfer_r already incorporate dt_sea
 
   cantemp = cantemp + (hxfergc - hxferca) / (can_depth * rhos * cp)
-  canshv  = canshv  + (wxfergc - sxfer_r) / (can_depth * rhos)             
+  canrrv  = canrrv  + (wxfergc - sxfer_r) / (can_depth * rhos)
 
 ! Evaluate sea roughness height
 
@@ -260,10 +217,50 @@ subroutine seacell( iws, rhos, ustar, sxfer_t, sxfer_r, can_depth, &
 
 ! 2012 HWRF scheme; interpolates between the Charnok scheme at low wind
 ! and the Davis et al. curve fit at high wind speeds
-  zw    = min( (ustar/1.06)**0.3, 1.0)
-  zn1   = 0.011 * ustar * ustar /grav + ozo
-  zn2   = 10. * exp(-9.5 * ustar**(-.3333333)) + 1.65e-6 / ustar
+
+  usti  = 1.0 / ustar
+  zw    = min( (ustar/1.06)**one3, 1.0 )
+  zn1   = z0fac * ustar * ustar + ozo
+  zn2   = 10. * exp(-9.5 * usti**one3) + 1.65e-6 * usti
   rough = (1.0-zw) * zn1 + zw * zn2
   rough = min( rough, 2.85e-3)
+
+  ! Update POM1D vertical column variables if this sea cell is pom_active and is not swm_active
+
+  if (sea%pom_active(isea) .and. .not. sfcg%swm_active(iwsfc)) then
+
+     ! Eastward and northward surface wind components for sea cell
+
+     raxis = sqrt(sfcg%xew(iwsfc) ** 2 + sfcg%yew(iwsfc) ** 2)  ! dist from earth axis
+
+     if (raxis > 1.e-3) then
+        windu = (sea%windye(isea) * sfcg%xew(iwsfc) &
+               - sea%windxe(isea) * sfcg%yew(iwsfc)) / raxis
+
+        windv =  sea%windze(isea) * raxis * eradi    &
+              - (sea%windxe(isea) * sfcg%xew(iwsfc)  &
+               + sea%windye(isea) * sfcg%yew(iwsfc)) &
+              * sfcg%zew(iwsfc) / (raxis * erad)
+     else
+        windu = 0.
+        windv = 0.
+     endif
+
+     ! CDTOP is the drag coefficient between wind and water at the top water surface
+     ! and is based on vkmsfc computed in subroutine stars for surface wind stress.
+
+     cdtop = sfcg%vkmsfc(iwsfc) / (sfcg%dzt_bot(iwsfc) * rhoref)
+
+     wusurf = cdtop * (pom%ub(1,isea) - windu)
+     wvsurf = cdtop * (pom%vb(1,isea) - windv)
+     wtsurf = hfluxgc / rhoref + (sfcg%rlong(iwsfc) - sfcg%rlongup(iwsfc)) / cliq1000
+     wssurf = 0.
+     swrad = sfcg%rshort(iwsfc) * (1. - sfcg%albedo_beam(iwsfc)) / cliq1000
+
+     call pom_column(isea, pom%kba(isea), wusurf, wvsurf, wtsurf, wssurf, swrad)
+
+!TMP     sea%seatc(isea) = pom%potmp(1,isea)
+
+  endif
 
 end subroutine seacell

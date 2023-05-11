@@ -31,15 +31,15 @@ end subroutine set_environment_variable
 
 
 
-pure function arr2str(array)  result (string)
+pure function arr2str(array) result (string)
 
   implicit none
 
   ! copies null-terminated char array to string"
 
-  character(len=1),intent(in)  :: array(:)
-  character(len=size(array))   :: string
-  integer                      :: i
+  character(1), contiguous, intent(in)  :: array(:)
+  character(size(array))                :: string
+  integer                               :: i
 
   string=' '
   do i = 1, size(array)

@@ -1,39 +1,7 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 subroutine isan_file_inv()
 
   use max_dims,  only: pathlen, maxisdirs
-  use misc_coms, only: io6, iyear1, imonth1, idate1, itime1
+  use misc_coms, only: io6
   use isan_coms, only: iapr, fnames_fg, s1900_fg, ctotdate_fg, nfgfiles
 
   implicit none
@@ -89,14 +57,14 @@ subroutine isan_file_inv()
 
       ! iostat /= 0 indicates end-of-file or error so exit loop
       IF (istat /= 0) exit
-      
+
       ! Skip over any blank lines in filelist
       IF (len_trim(filename) < 1) cycle
 
       ! Remove leading blanks from filenames
       filename = adjustl(filename)
 
-      ! If the filename is a relative path, make it relative 
+      ! If the filename is a relative path, make it relative
       ! to the text listing path
 
       if ( filename(1:1) /= '/' .and. filename(1:1) /= '~' ) then
@@ -161,14 +129,14 @@ do nf = 1, nfgfiles
       lnf      = lns - 1
    endif
 
-   ! With any suffix removed, assume files have the form *2005-09-01-hhmm 
+   ! With any suffix removed, assume files have the form *2005-09-01-hhmm
    ! or *2005-09-01-hhmmss so check if seconds are present by counting how many
    ! characters are present after the last '-' character.
 
    lns = index( filename, "-", back=.true.)
 
    if (lnf-lns == 4) then
-      
+
       ! time is in hhmm
       read (filename(lnf-14:lnf), '(i4,1x,i2,1x,i2,1x,i4)') iyear, imonth, idate, ihour
 

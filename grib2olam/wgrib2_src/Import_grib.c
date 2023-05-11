@@ -1,4 +1,5 @@
 #include <stdio.h>
+
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
@@ -7,7 +8,7 @@
 #include "fnlist.h"
 
 /*
- * Import_grib1.c
+ * Import_grib.c
  *
  * 12/2014: Public Domain: Wesley Ebisuzaki
   *
@@ -17,7 +18,7 @@ extern int decode, use_g2clib;
 extern enum output_order_type output_order, output_order_wanted;
 
 /*
- * HEADER:100:import_grib:misc:1:read grib1 file (X) for data
+ * HEADER:100:import_grib:misc:1:read grib2 file (X) for data
  */
 
 int f_import_grib(ARG1) {
@@ -34,19 +35,20 @@ int f_import_grib(ARG1) {
 	unsigned char *sec[10];       /* sec[9] = last valid bitmap */
     };
     struct local_struct *save;
- 
+
     if (mode == -1) {
         *local = save = (struct local_struct *) malloc( sizeof(struct local_struct));
         if (save == NULL) fatal_error("import_grib: memory allocation","");
         decode = 1;
-	i = ffopen_file(&(save->input), arg1, "rb");
+	i = fopen_file(&(save->input), arg1, "rb");
 	if (i != 0) fatal_error("import_grib: %s could not be opened", arg1);
 	save->submsg = 0;
 	save->pos = 0;
     }
     else if (mode == -2) {
 	save = *local;
-	ffclose_file(&(save->input));
+	fclose_file(&(save->input));
+	free(save);
     }
     else if (mode >= 0) {
 	save = *local;
@@ -64,8 +66,8 @@ int f_import_grib(ARG1) {
 	/* save->sec[] is defined */
         get_nxny(save->sec, &nx, &ny, &npnts, &res, &scan);
 
-        if (npnts != ndata) 
-             fatal_error_ii("import_grib: size mismatch (%d/%d)", npnts, ndata); 
+        if (npnts != ndata)
+             fatal_error_uu("import_grib: size mismatch (%u/%u)", npnts, ndata);
 
         if (use_g2clib != 0 && use_g2clib != 1)
              fatal_error_i("import_grib: only g2clib = 0 or 1 supported (%d)", use_g2clib);

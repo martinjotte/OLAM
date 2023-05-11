@@ -23,12 +23,13 @@ CONTAINS
 
 SUBROUTINE cuparm_emanuel(iw, dtlong)
 
-  use mem_grid,    only: lpw, zm, zt, xew, yew, zew, dzt, volt, volti, arw0
-  use mem_basic,   only: tair, press, rho, sh_v, vxe, vye, vze, theta
-  use consts_coms, only: t00, grav, eradi
-  use mem_cuparm , only: thsrc, rtsrc, conprr, cbmf, vxsrc, vysrc, vzsrc, &
-                         kcutop, kcubot, qwcon, iactcu, kddtop, cddf, rdsrc
-  use oname_coms,  only: nl
+  use mem_grid,    only: lpw, zm, zt, dzt, lsw
+  use mem_basic,   only: tair, press, rho, rr_v, ue, ve
+  use consts_coms, only: t00, grav
+  use mem_cuparm , only: thsrc, rtsrc, conprr, cbmf, kcutop, kcubot, kudbot, &
+                         qwcon, iactcu, kddbot, kddtop, kddmax, cddf, &
+                         umsrc, vmsrc
+  use mem_turb,    only: frac_sfc
   use therm_lib,   only: rhovsil
 
   implicit none
@@ -37,12 +38,11 @@ SUBROUTINE cuparm_emanuel(iw, dtlong)
   real,    intent(in)  :: dtlong
 
   real, dimension(mza) :: tc, qc, qsc, u, v, pc, pfc, gz, den, dz
-  real, dimension(mza) :: tt, qt, ut, vt, qcldc, mp, qce
+  real, dimension(mza) :: tt, qt, ut, vt, qcldc, mp, qflux
 
-  integer :: k, ka, kc, kp, nd, na, nm
+  integer :: k, ka, kc, kp, ks, nd, na, nm, kmax
   real    :: pcprate, wprime, tprime, qprime
   integer :: iflag, kcbase, kctop, kup
-  real    :: raxis, raxisi, uvtr
 
   ka = lpw(iw)
 
@@ -71,7 +71,7 @@ SUBROUTINE cuparm_emanuel(iw, dtlong)
 
      gz (kc) = grav * (zt(k) - zt(ka)) ! geopotential height relative to 1st level
      tc (kc) = tair(k,iw)
-     qc (kc) = max(sh_v(k,iw), 1.e-10)
+     qc (kc) = max(rr_v(k,iw), 1.e-10)
      pc (kc) = 0.01  *  press(k,iw)
      pfc(kp) = 0.005 * (press(k,iw) + press(k+1,iw))
      den(kc) = rho(k,iw)
@@ -82,26 +82,11 @@ SUBROUTINE cuparm_emanuel(iw, dtlong)
 
   pfc(1) =  0.01 * (press(ka,iw) + (zt(ka)-zm(ka-1))*rho(ka,iw)*grav)
 
-  ! Compute zonal and meridional winds
-
-  raxis  = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis
-  raxisi = 1.0 / max(raxis, 1.e-12)
-
-  if (raxis > 1.e3) then
-     do kc = 1, nd
-        k  = kc + ka - 1
-        u(kc) = (vye(k,iw) * xew(iw) - vxe(k,iw) * yew(iw)) * raxisi
-        v(kc) = vze(k,iw) * raxis * eradi  &
-                - (vxe(k,iw) * xew(iw) + vye(k,iw) * yew(iw)) &
-                * zew(iw) * raxisi * eradi
-     enddo
-  else
-     do kc = 1, nd
-        k  = kc + ka - 1
-        u(kc) = vxe(k,iw)
-        v(kc) = vye(k,iw)
-     enddo
-  endif
+  do kc = 1, nd
+     k  = kc + ka - 1
+     u(kc) = ue(k,iw)
+     v(kc) = ve(k,iw)
+  enddo
 
   ! Saturated vapor pressure
 
@@ -113,24 +98,30 @@ SUBROUTINE cuparm_emanuel(iw, dtlong)
   call convect43c (     iw,     den,    dz,                                 &
        tc,      qc,     qsc,    u,      v,        pc,    pfc, gz,           &
        nd,      nm,     dtlong, iflag,  tt,       qt,    ut,  vt, mp,       &
-       pcprate, wprime, tprime, qprime, cbmf(iw), qcldc, qce, kup, kcbase, kctop )
+       pcprate, wprime, tprime, qprime, cbmf(iw), qcldc, qflux, kup, kcbase, kctop )
 
   if (iflag == 1 .or. iflag == 4) then
 
      kcutop(iw) = kctop  + ka - 1
      kcubot(iw) = kcbase + ka - 1
+     kudbot(iw) = kup    + ka - 1
      iactcu(iw) = 1
-     conprr(iw) = pcprate
 
-     if (mp(kcbase) > 1.e-9) then
-        cddf(iw) = mp(kcbase)
+     kmax = maxloc(mp(1:kctop),dim=1)
+     if (mp(kmax) > 1.e-6) then
 
-        do kc = kctop, kcbase, -1
-           if (mp(kc) > 0.33 * cddf(iw)) then
-              kddtop(iw) = kc + ka - 1
-              exit
-           endif
+        kddmax(iw) = kmax + ka - 1
+        cddf  (iw) = mp(kmax)
+
+        do kc = kctop, kmax+1, -1
+           if (mp(kc) > 1.e-7) exit
         enddo
+        kddtop(iw) = kc + ka - 1
+
+        do kc = 1, kmax-1
+           if (mp(kc) > 1.e-7) exit
+        enddo
+        kddbot(iw) = max(kc + ka - 2, ka)
      endif
 
      do kc = 1, kctop
@@ -138,36 +129,14 @@ SUBROUTINE cuparm_emanuel(iw, dtlong)
         thsrc(k,iw) = tt(kc) * den(kc)
         rtsrc(k,iw) = qt(kc) * den(kc)
         qwcon(k,iw) = qcldc(kc)
-        rdsrc(k,iw) = -qce(kc) * arw0(iw) * real(volti(k,iw))
-
-        ut(kc) = ut(kc) * den(kc)
-        vt(kc) = vt(kc) * den(kc)
+        umsrc(k,iw) = ut(kc) * den(kc)
+        vmsrc(k,iw) = vt(kc) * den(kc)
      enddo
 
-     if (nl%conv_uv_mix > 0) then
-
-        if (raxis > 1.e3) then
-
-           do kc = 1, kctop
-              k  = kc + ka - 1
-              uvtr = -vt(kc) * zew(iw) * eradi
-              vxsrc(k,iw) = (-ut(kc) * yew(iw) + uvtr * xew(iw)) * raxisi
-              vysrc(k,iw) = ( ut(kc) * xew(iw) + uvtr * yew(iw)) * raxisi
-              vzsrc(k,iw) =   vt(kc) * raxis * eradi
-           enddo
- 
-        else
-
-           do kc = 1, kctop
-              k  = kc + ka - 1
-              vxsrc(k,iw) = ut(kc)
-              vysrc(k,iw) = vt(kc)
-              vzsrc(k,iw) = 0.0
-           enddo
-
-        endif
-
-     endif
+     ! Surface precipitation
+     do ks = 1, min(lsw(iw), kctop)
+        conprr(iw) = conprr(iw) + frac_sfc(ks,iw) * qflux(kc)
+     enddo
 
   endif
 
@@ -176,9 +145,9 @@ END SUBROUTINE cuparm_emanuel
 
 SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
      T,      Q,  QS,     U,      V,    P,      PH, gz,      &
-     ND,     NL, DELT,   IFLAG,  FT,   FQ,     FU, FV,  mp, & 
-     PRECIP, WD, TPRIME, QPRIME, CBMF, QCONDC, qce, nk, icb, inb )
-  
+     ND,     NL, DELT,   IFLAG,  FT,   FQ,     FU, FV,  mp, &
+     PRECIP, WD, TPRIME, QPRIME, CBMF, QCONDC, qflux, nk, icb, inb )
+
 !-----------------------------------------------------------------------------
 !    *** On input:      ***
 !
@@ -222,7 +191,7 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
 !            the first value of the array P.
 !
 !     ND:  The dimension of the arrays T, Q, QS, P, PH, FT and FQ
-! 
+!
 !     NL:  The maximum number of levels to which convection can
 !            penetrate, plus 1.
 !            NL MUST be less than or equal to ND-1.
@@ -232,14 +201,14 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
 !
 !     NTRA:The number of different tracers. If no tracer transport
 !            is needed, set this equal to 1. (On most compilers, setting
-!            NTRA to 0 will bypass tracer calculation, saving some CPU.)  
+!            NTRA to 0 will bypass tracer calculation, saving some CPU.)
 !
 !     DELT: The model time step (sec) between calls to CONVECT
 !
 ! -- sb: interface with the cloud parameterization:
 !
-!     QCONDC: mixing ratio of condensed water within clouds (kg/kg) 
-!               For use in the Bony-Emanuel cloud parameterization 
+!     QCONDC: mixing ratio of condensed water within clouds (kg/kg)
+!               For use in the Bony-Emanuel cloud parameterization
 ! sb --
 !----------------------------------------------------------------------------
 !    ***   On Output:         ***
@@ -308,7 +277,7 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
 
   integer, intent(out) :: iflag, icb, inb, nk
   real,    intent(out) :: ft(nd), fq(nd), fu(nd), fv(nd)
-  real,    intent(out) :: qcondc(nd), qce(nd) !, ftra(nd,ntra)
+  real,    intent(out) :: qcondc(nd), qflux(nd) !, ftra(nd,ntra)
   real,    intent(out) :: wd, tprime, qprime, precip
   real,    intent(inout) :: cbmf
   real,    intent(out) :: mp(nd)
@@ -321,8 +290,8 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
        qsm, qstm, qti, rat, revap, rh, scrit, siga, sigt, sjmax, sjmin, smid, &
        smin, stemp, tca, tvaplcl, tvpplcl, wdtrain
 
-  integer :: i, ihmin, inb1, j, jtt, k
-
+  integer :: i, ihmin, j, jtt, k
+! integer :: inb1
   integer ::  nent(mza)
   real    ::  uent(mza,mza), vent(mza,mza) !, traent(mza,mza,ntra), tratm(mza)
   real    ::  up(mza), vp(mza) !, trap(mza,ntra)
@@ -332,7 +301,6 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
   real    ::  sigp(mza), tp(mza), cpn(mza)
   real    ::  lv(mza), lvcp(mza), h(mza), hp(mza), hm(mza)
   real    ::  qcond(mza), nqcond(mza), wa(mza), ma(mza), ax(mza)
-  real    ::  qtemp(mza)
 
   integer :: nkmax
   real    :: dbmax, deltv
@@ -379,7 +347,7 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
 !   ***   (THEIR STANDARD VALUES ARE  0.20 AND 0.1, RESPECTIVELY)    ***
 !   ***                   (DAMP MUST BE LESS THAN 1)                 ***
 
-  real, parameter :: &  
+  real, parameter :: &
        ELCRIT=.0011, &
        TLCRIT=-55.0, &
        ENTP=1.0,     & ! 1.5
@@ -401,7 +369,7 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
 !   ***             THESE SHOULD BE CONSISTENT WITH             ***
 !   ***              THOSE USED IN CALLING PROGRAM              ***
 !   ***     NOTE: THESE ARE ALSO SPECIFIED IN SUBROUTINE TLIFT  ***
-  
+
   real, parameter :: &
        CPD=1005.7,   &
        CPV=1870.0,   &
@@ -431,8 +399,7 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
      QCOND(I)=0.0
      NQCOND(I)=0.0
      ma(i) = 0.0
-     qtemp(i) = 0.
-     qce(i) = 0.
+     qflux(i) = 0.
 
 !     DO J=1,NTRA
 !        FTRA(I,J)=0.0
@@ -516,7 +483,7 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
            endif
         enddo
         IF (ICB >= NL-1) cycle
-        
+
         call tlift(p,t,q,qs,gz,icb,i,tvp,tp,clw,nd,nl,1)
         deltv = tvp(icb) - tp(icb)*q(i) - tv(icb)
 
@@ -592,7 +559,7 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
            exit
         endif
      enddo
-     
+
      if (i >= nk) then
         iflag = 0
         cbmf  = 0.0
@@ -669,7 +636,7 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
 !        TRAP(I,J)=TRA(I-1,J)
 !     ENDDO
   ENDDO
-  
+
 !  ***  FIND THE FIRST MODEL LEVEL (INB1) ABOVE THE PARCEL'S      ***
 !  ***          HIGHEST LEVEL OF NEUTRAL BUOYANCY                 ***
 !  ***     AND THE HIGHEST LEVEL OF POSITIVE CAPE (INB)           ***
@@ -696,7 +663,7 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
   FRAC=-CAPE/DEFRAC
 ! FRAC=MIN(FRAC,1.0)
   FRAC=MAX(FRAC,0.0)
-  
+
   if (frac >= 1.0) then
      inb  = inb - 1
      frac = 00
@@ -738,9 +705,9 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
 ! CBMFOLD=CBMF
 ! DELT0=300.0
 ! DELT0=600.0
-! DAMPS=DAMP*DELT/DELT0 
-! CBMF=(1.-DAMPS)*CBMF+0.1*ALPHA*DTMA 
-  CBMF = (1.-DAMP)*CBMF + 0.1*ALPHA*DTMA 
+! DAMPS=DAMP*DELT/DELT0
+! CBMF=(1.-DAMPS)*CBMF+0.1*ALPHA*DTMA
+  CBMF = (1.-DAMP)*CBMF + 0.1*ALPHA*DTMA
   CBMF=MAX(CBMF,0.0)
   CBMF=MIN(CBMF,xmbmax)
 !
@@ -1012,7 +979,7 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
     precip=wt(1)*sigd*water(1)/g
 
     do j = 1, inb
-       qtemp(j) = wt(j)*sigd*water(j)/g
+       qflux(j) = wt(j)*sigd*water(j)/g
     enddo
 
   ENDIF
@@ -1172,7 +1139,7 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
 !  DO K=1,NTRA
 !     FTRAOLD=FTRA(INB,K)
 !     FTRA(INB,K)=FTRA(INB,K)*(1.-FRAC)
-!     FTRA(INB-1,K)=FTRA(INB-1,K)+FRAC*FTRAOLD*(PH(INB)-PH(INB+1)) / & 
+!     FTRA(INB-1,K)=FTRA(INB-1,K)+FRAC*FTRAOLD*(PH(INB)-PH(INB+1)) / &
 !          (PH(INB-1)-PH(INB))
 !  END DO
 
@@ -1213,10 +1180,6 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
      fv(i) = (fv(i) - vav * abs(fv(i))) * (1.-cu)
   enddo
 
-  do i = 1, inb
-     qce(i) = qtemp(i) - qtemp(i+1)
-  enddo
-
 !  DO K=1,NTRA
 !     TRAAV=0.0
 !     DO I=1,INB
@@ -1251,8 +1214,8 @@ SUBROUTINE CONVECT43C (  iw,     rho,  dz,                  &
 
   do i=icb,inb
      siga = ma(i) / ( rho(i) * wa(i) * delta )
-     SIGA = MIN(SIGA,0.9) 
-     SIGA = MAX(SIGA,0.1) 
+     SIGA = MIN(SIGA,0.9)
+     SIGA = MAX(SIGA,0.1)
      QCONDC(I) = SIGA * CLW(I)*(1.-EP(I)) + (1.-SIGA) * QCOND(I)
   ENDDO
 
@@ -1309,7 +1272,7 @@ SUBROUTINE TLIFT(P,T,Q,QS,GZ,ICB,NK,TVP,TPK,CLW,ND,NL,KK)
 
   NST=ICB
   NSB=ICB
-  IF(KK.EQ.2)THEN  
+  IF(KK.EQ.2)THEN
      NST=NL
      NSB=ICB+1
   END IF
@@ -1325,9 +1288,9 @@ SUBROUTINE TLIFT(P,T,Q,QS,GZ,ICB,NK,TVP,TPK,CLW,ND,NL,KK)
         TG=MAX(TG,35.0)
         TC=TG-273.15
         DENOM=243.5+TC
-        IF(TC.GE.0.0)THEN  
+        IF(TC.GE.0.0)THEN
            ES=6.112*EXP(17.67*TC/DENOM)
-        ELSE  
+        ELSE
            ES=EXP(23.33086-6111.72784/TG+0.15215*LOG(TG))
         END IF
         QG=EPS*ES/(P(I)-ES*(1.-EPS))

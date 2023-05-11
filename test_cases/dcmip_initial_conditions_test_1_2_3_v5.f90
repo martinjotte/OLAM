@@ -11,9 +11,9 @@ MODULE dcmip_initial_conditions_test_1_2_3
   !  21 and 22 - Non-Hydrostatic Mountain Waves Over A Schaer-Type Mountain without and with vertical wind shear
   !  31 - Non-Hydrostatic Gravity Waves
   !
-  !  Given a point specified by: 
-  !     lon     longitude (radians) 
-  !     lat     latitude (radians) 
+  !  Given a point specified by:
+  !     lon     longitude (radians)
+  !     lat     latitude (radians)
   !     p/z     pressure/height
   !  the functions will return:
   !     u       zonal wind (m s^-1)
@@ -28,7 +28,7 @@ MODULE dcmip_initial_conditions_test_1_2_3
   !     p       pressure if height based (Pa)
   !
   !
-  !  Authors: James Kent, Paul Ullrich, Christiane Jablonowski 
+  !  Authors: James Kent, Paul Ullrich, Christiane Jablonowski
   !             (University of Michigan, dcmip@ucar.edu)
   !          version 4
   !          July/8/2012
@@ -43,8 +43,8 @@ MODULE dcmip_initial_conditions_test_1_2_3
   ! v4: added subroutine test1_advection_orography for test 1-3
   ! v4: added subroutine test2_steady_state_mountain for test 2-0
   ! v4: modified parameter list for tests 2-1 and 2-2 (routine test2_schaer_mountain): addition of parameters hybrid_eta, hyam, hybm
-  !     if the logical flag hybrid_eta is true then the pressure in pressure-based model with hybrid sigma-p (eta) coordinates is 
-  !     computed internally. In that case the hybrid coefficients hyam and hybm need to be supplied via the parameter list, 
+  !     if the logical flag hybrid_eta is true then the pressure in pressure-based model with hybrid sigma-p (eta) coordinates is
+  !     computed internally. In that case the hybrid coefficients hyam and hybm need to be supplied via the parameter list,
   !     otherwise they are not used.
   ! v5: Change in test 11 - change to u and w, cutoff altitudes (introduced in v4) are removed again
   ! v5: Change in test 12 - velocities multiplies by rho0/rho, different w0 and vertical location of the initial tracer
@@ -75,9 +75,9 @@ CONTAINS
 ! TEST CASE 11 - PURE ADVECTION - 3D DEFORMATIONAL FLOW
 !==========================================================================================
 
-! The 3D deformational flow test is based on the deformational flow test of Nair and Lauritzen (JCP 2010), 
+! The 3D deformational flow test is based on the deformational flow test of Nair and Lauritzen (JCP 2010),
 ! with a prescribed vertical wind velocity which makes the test truly 3D. An unscaled planet (with scale parameter
-! X = 1) is selected. 
+! X = 1) is selected.
 
 SUBROUTINE test1_advection_deformation (lon,lat,p,z,zcoords,u,v,w,t,phis,ps,rho,q,q1,q2,q3,q4,time)
 
@@ -90,7 +90,7 @@ IMPLICIT NONE
                                 lat, &          ! Latitude (radians)
                                 z               ! Height (m)
 
-        real(8), intent(inout) :: p             ! Pressure  (Pa)                                
+        real(8), intent(inout) :: p             ! Pressure  (Pa)
 
         integer,  intent(in) :: zcoords         ! 0 or 1 see below
 
@@ -111,11 +111,11 @@ IMPLICIT NONE
                                                                 ! to be modified when used in dycore
 
         ! if zcoords = 1, then we use z and output p
-        ! if zcoords = 0, then we use p 
+        ! if zcoords = 0, then we use p
 
 !-----------------------------------------------------------------------
 !     test case parameters
-!----------------------------------------------------------------------- 
+!-----------------------------------------------------------------------
         real(8), parameter ::   tau     = 12.d0 * 86400.d0,     &       ! period of motion 12 days
                                 u0      = (2.d0*pi*a)/tau,      &       ! 2 pi a / 12 days
                                 k0      = (10.d0*a)/tau,        &       ! Velocity Magnitude
@@ -128,11 +128,11 @@ IMPLICIT NONE
                                 lambda0 = 5.d0*pi/6.d0,         &       ! center point in longitudes
                                 lambda1 = 7.d0*pi/6.d0,         &       ! center point in longitudes
                                 phi0    = 0.d0,                 &       ! center point in latitudes
-                                phi1    = 0.d0                      
-                            
+                                phi1    = 0.d0
+
       real(8) :: height                                                 ! The height of the model levels
       real(8) :: sin_tmp, cos_tmp, sin_tmp2, cos_tmp2                   ! Calculate great circle distances
-      real(8) :: d1, d2, r, r2, d3, d4                                  ! For tracer calculations 
+      real(8) :: d1, d2, r, r2                                          ! For tracer calculations
       real(8) :: s, bs                                                  ! Shape function, and parameter
       real(8) :: lonp                                                   ! Translational longitude, depends on time
       real(8) :: ud                                                     ! Divergent part of u
@@ -141,7 +141,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------
 !    HEIGHT AND PRESSURE
 !-----------------------------------------------------------------------
-        
+
         ! Height and pressure are aligned (p = p0 exp(-z/H))
 
         if (zcoords .eq. 1) then
@@ -170,14 +170,14 @@ IMPLICIT NONE
 
         ! Shape function
 !********
-! change in version 5: shape function 
+! change in version 5: shape function
 !********
         bs = 0.2d0
         s = 1.d0 + exp( (ptop-p0)/(bs*ptop) ) - exp( (p-p0)/(bs*ptop)) - exp( (ptop-p)/(bs*ptop))
 
         ! Zonal Velocity
 !********
-! change in version 5: ud 
+! change in version 5: ud
 !********
 
         ud = (omega0*a)/(bs*ptop) * cos(lonp) * (cos(lat)**2) * cos(2.d0*pi*time/tau) * &
@@ -189,7 +189,7 @@ IMPLICIT NONE
 
         v = k0*sin(2.d0*lonp)*cos(lat)*cos(pi*time/tau)
 
-        ! Vertical Velocity - can be changed to vertical pressure velocity by 
+        ! Vertical Velocity - can be changed to vertical pressure velocity by
         ! omega = -(g*p)/(Rd*T0)*w
         !
 !********
@@ -207,9 +207,9 @@ IMPLICIT NONE
         t = T0
 
 !-----------------------------------------------------------------------
-!    PHIS (surface geopotential) 
+!    PHIS (surface geopotential)
 !-----------------------------------------------------------------------
-      
+
         phis = 0.d0
 
 !-----------------------------------------------------------------------
@@ -225,7 +225,7 @@ IMPLICIT NONE
         rho = p/(Rd*T0)
 
 !-----------------------------------------------------------------------
-!     initialize Q, set to zero 
+!     initialize Q, set to zero
 !-----------------------------------------------------------------------
 
         q = 0.d0
@@ -244,12 +244,12 @@ IMPLICIT NONE
         cos_tmp2 = cos(lat) * cos(phi1)
 
                 ! great circle distance without 'a'
-        
-        r  = ACOS (sin_tmp + cos_tmp*cos(lon-lambda0)) 
-        r2  = ACOS (sin_tmp2 + cos_tmp2*cos(lon-lambda1)) 
+
+        r  = ACOS (sin_tmp + cos_tmp*cos(lon-lambda0))
+        r2  = ACOS (sin_tmp2 + cos_tmp2*cos(lon-lambda1))
         d1 = min( 1.d0, (r/RR)**2 + ((height-z0)/ZZ)**2 )
         d2 = min( 1.d0, (r2/RR)**2 + ((height-z0)/ZZ)**2 )
-        
+
         q1 = 0.5d0 * (1.d0 + cos(pi*d1)) + 0.5d0 * (1.d0 + cos(pi*d2))
 
         ! Tracer 2 - Correlated Cosine Bells
@@ -269,10 +269,10 @@ IMPLICIT NONE
         endif
 
                 ! Put in the slot
-        
-        if (height .gt. z0 .and. abs(lat) .lt. 0.125d0) then 
 
-                q3 = 0.1d0      
+        if (height .gt. z0 .and. abs(lat) .lt. 0.125d0) then
+
+                q3 = 0.1d0
 
         endif
 
@@ -281,19 +281,19 @@ IMPLICIT NONE
 
         q4 = 1.d0 - 0.3d0*(q1+q2+q3)
 
-!************   
+!************
 ! change in version 4: added cutoff altitudes, tracers are set to zero outside this region
 ! prevents tracers from being trapped near the bottom and top of the domain
 !************
         ! use a cutoff altitude for
         ! tracer 2 3 and 4
         ! Set them to zero outside `buffer zone'
-!************   
+!************
 ! change in version 5: change from v4 reversed, no cutoff altitudes due to continuity equation being satisfied
 !       commented out below
 !************
 
-        !if (height .gt. (z0+1.25*ZZ) .or. height .lt. (z0-1.25*ZZ)) then 
+        !if (height .gt. (z0+1.25*ZZ) .or. height .lt. (z0-1.25*ZZ)) then
 
         !       q2 = 0.0
         !       q3 = 0.0
@@ -317,8 +317,8 @@ SUBROUTINE test1_advection_deformation_w(lon,lat,kbot,ktop,pin,zin,zcoords,w,rho
 
         integer, intent(in) :: kbot, ktop
 
-        real(8), intent(in) :: pin(ktop)        ! Pressure (Pa)                         
-        real(8), intent(in) :: zin(ktop)        ! Height (m)                            
+        real(8), intent(in) :: pin(ktop)        ! Pressure (Pa)
+        real(8), intent(in) :: zin(ktop)        ! Height (m)
 
         integer, intent(in) :: zcoords          ! 0 or 1 see below
 
@@ -329,11 +329,11 @@ SUBROUTINE test1_advection_deformation_w(lon,lat,kbot,ktop,pin,zin,zcoords,w,rho
                                                 ! to be modified when used in dycore
 
         ! if zcoords = 1, then we use z and output p
-        ! if zcoords = 0, then we use p 
+        ! if zcoords = 0, then we use p
 
 !-----------------------------------------------------------------------
 !     test case parameters
-!----------------------------------------------------------------------- 
+!-----------------------------------------------------------------------
         real(8), parameter ::   tau     = 12.d0 * 86400.d0,     &       ! period of motion 12 days
                                 u0      = (2.d0*pi*a)/tau,      &       ! 2 pi a / 12 days
                                 k0      = (10.d0*a)/tau,        &       ! Velocity Magnitude
@@ -351,18 +351,14 @@ SUBROUTINE test1_advection_deformation_w(lon,lat,kbot,ktop,pin,zin,zcoords,w,rho
                                 ptop    = p0*exp(-12000.d0/H),  &       ! Model top in p
                                 s0      = 1.d0 + exp((ptop-p0)/(bs*ptop))
 
-      real(8) :: height                                                 ! The height of the model levels
-      real(8) :: sin_tmp, cos_tmp, sin_tmp2, cos_tmp2                   ! Calculate great circle distances
-      real(8) :: d1, d2, r, r2, d3, d4                                  ! For tracer calculations 
       real(8) :: s                                                      ! Shape function
       real(8) :: lonp                                                   ! Translational longitude, depends on time
-      real(8) :: ud                                                     ! Divergent part of u
       real(8) :: w_xy
       real(8) :: p(ktop)
 
       integer       :: k
       logical, save :: firstime = .true.
-      
+
       real, allocatable, save :: psave(:), rsave(:)
 
 !-----------------------------------------------------------------------
@@ -384,11 +380,11 @@ SUBROUTINE test1_advection_deformation_w(lon,lat,kbot,ktop,pin,zin,zcoords,w,rho
          do k = 1, ktop
             rsave(k) = psave(k) / (Rd*T0)
          enddo
-         
+
          firstime = .false.
          !$omp end single
       endif
-         
+
       ! Height and pressure are aligned (p = p0 exp(-z/H))
 
       if (zcoords .eq. 1) then
@@ -409,7 +405,7 @@ SUBROUTINE test1_advection_deformation_w(lon,lat,kbot,ktop,pin,zin,zcoords,w,rho
         lonp = lon - 2.d0*pi*time/tau
 
 !********
-! change in version 5: shape function 
+! change in version 5: shape function
 !********
 !********
 ! change in version 4: cos(2.0*pi*time/tau) is now used instead of cos(pi*time/tau)
@@ -419,7 +415,7 @@ SUBROUTINE test1_advection_deformation_w(lon,lat,kbot,ktop,pin,zin,zcoords,w,rho
 !********
         w_xy = -(Rd*T0)/(g)*omega0*sin(lonp)*cos(lat)*cos(2.0*pi*time/tau)
 
-        ! Vertical Velocity - can be changed to vertical pressure velocity by 
+        ! Vertical Velocity - can be changed to vertical pressure velocity by
         ! omega = -(g*p)/(Rd*T0)*w
 
         do k = kbot, ktop
@@ -443,8 +439,8 @@ SUBROUTINE test1_advection_deformation_uv(lon,lat,kbot,ktop,pin,zin,zcoords,u,v,
 
         integer, intent(in) :: kbot, ktop
 
-        real(8), intent(in) :: pin(ktop)        ! Pressure (Pa)                         
-        real(8), intent(in) :: zin(ktop)        ! Height (m)                            
+        real(8), intent(in) :: pin(ktop)        ! Pressure (Pa)
+        real(8), intent(in) :: zin(ktop)        ! Height (m)
 
         integer, intent(in) :: zcoords          ! 0 or 1 see below
 
@@ -456,11 +452,11 @@ SUBROUTINE test1_advection_deformation_uv(lon,lat,kbot,ktop,pin,zin,zcoords,u,v,
                                                 ! to be modified when used in dycore
 
         ! if zcoords = 1, then we use z and output p
-        ! if zcoords = 0, then we use p 
+        ! if zcoords = 0, then we use p
 
 !-----------------------------------------------------------------------
 !     test case parameters
-!----------------------------------------------------------------------- 
+!-----------------------------------------------------------------------
         real(8), parameter ::   tau     = 12.d0 * 86400.d0,     &       ! period of motion 12 days
                                 u0      = (2.d0*pi*a)/tau,      &       ! 2 pi a / 12 days
                                 k0      = (10.d0*a)/tau,        &       ! Velocity Magnitude
@@ -478,10 +474,6 @@ SUBROUTINE test1_advection_deformation_uv(lon,lat,kbot,ktop,pin,zin,zcoords,u,v,
                                 ptop    = p0*exp(-12000.d0/H),  &       ! Model top in p
                                 s0      = 1.d0 + exp((ptop-p0)/(bs*ptop))
 
-      real(8) :: height                                                 ! The height of the model levels
-      real(8) :: sin_tmp, cos_tmp, sin_tmp2, cos_tmp2                   ! Calculate great circle distances
-      real(8) :: d1, d2, r, r2, d3, d4                                  ! For tracer calculations 
-      real(8) :: s                                                      ! Shape function
       real(8) :: lonp                                                   ! Translational longitude, depends on time
       real(8) :: ud                                                     ! Divergent part of u
       real(8) :: ud_xy, u_xy, v_xy
@@ -489,7 +481,7 @@ SUBROUTINE test1_advection_deformation_uv(lon,lat,kbot,ktop,pin,zin,zcoords,u,v,
 
       integer       :: k
       logical, save :: firstime = .true.
-      
+
       real, allocatable, save :: psave(:), rsave(:)
 
 !-----------------------------------------------------------------------
@@ -515,7 +507,7 @@ SUBROUTINE test1_advection_deformation_uv(lon,lat,kbot,ktop,pin,zin,zcoords,u,v,
          firstime = .false.
          !$omp end single
       endif
-         
+
       ! Height and pressure are aligned (p = p0 exp(-z/H))
 
       if (zcoords .eq. 1) then
@@ -536,7 +528,7 @@ SUBROUTINE test1_advection_deformation_uv(lon,lat,kbot,ktop,pin,zin,zcoords,u,v,
         lonp = lon - 2.d0*pi*time/tau
 
 !********
-! change in version 5: ud 
+! change in version 5: ud
 !********
 
         ud_xy = (omega0*a)/(bs*ptop) * cos(lonp) * (cos(lat)**2) * cos(2.d0*pi*time/tau)
@@ -571,7 +563,7 @@ IMPLICIT NONE
                                 z               ! Height (m)
 
         real(8), intent(inout) :: p             ! Pressure  (Pa)
-                                
+
         integer,  intent(in) :: zcoords         ! 0 or 1 see below
 
         real(8), intent(out) :: u, &            ! Zonal wind (m s^-1)
@@ -591,19 +583,19 @@ IMPLICIT NONE
 
 !-----------------------------------------------------------------------
 !     test case parameters
-!----------------------------------------------------------------------- 
+!-----------------------------------------------------------------------
         real(8), parameter ::   tau     = 1.d0 * 86400.d0,      &       ! period of motion 1 day (in s)
                                 u0      = 40.d0,                &       ! Zonal velocity magnitude (m/s)
                                 w0      = 0.15d0,               &       ! Vertical velocity magnitude (m/s), changed in v5
                                 T0      = 300.d0,               &       ! temperature (K)
                                 H       = Rd * T0 / g,          &       ! scale height
                                 K       = 5.d0,                 &       ! number of Hadley-like cells
-                                z1      = 2000.d0,              &       ! position of lower tracer bound (m), changed in v5       
-                                z2      = 5000.d0,              &       ! position of upper tracer bound (m), changed in v5       
-                                z0      = 0.5d0*(z1+z2),        &       ! midpoint (m)       
-                                ztop    = 12000.d0,             &       ! model top (m)       
+                                z1      = 2000.d0,              &       ! position of lower tracer bound (m), changed in v5
+                                z2      = 5000.d0,              &       ! position of upper tracer bound (m), changed in v5
+                                z0      = 0.5d0*(z1+z2),        &       ! midpoint (m)
+                                ztop    = 12000.d0,             &       ! model top (m)
                                 rho0    = p0/(Rd*T0)                    ! reference density at z=0 m
-                            
+
       real(8) :: height                                                 ! Model level heights
                                                                         ! to be modified when used in dycore
 
@@ -633,7 +625,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------
 !    PHIS (surface geopotential)
 !-----------------------------------------------------------------------
-      
+
         phis = 0.d0
 
 !-----------------------------------------------------------------------
@@ -662,22 +654,22 @@ IMPLICIT NONE
 
         ! Meridional Velocity
 
-!************   
-! change in version 5: multiply v and w by rho0/rho 
+!************
+! change in version 5: multiply v and w by rho0/rho
 !************
 
         v = -(rho0/rho) * (a*w0*pi)/(K*ztop) *cos(lat)*sin(K*lat)*cos(pi*height/ztop)*cos(pi*time/tau)
 
-        ! Vertical Velocity - can be changed to vertical pressure velocity by 
+        ! Vertical Velocity - can be changed to vertical pressure velocity by
         ! omega = -g*rho*w
 
         w = (rho0/rho) *(w0/K)*(-2.d0*sin(K*lat)*sin(lat) + K*cos(lat)*cos(K*lat)) &
                 *sin(pi*height/ztop)*cos(pi*time/tau)
 
-        if (time > 0.1d0) return 
+        if (time > 0.1d0) return
 
 !-----------------------------------------------------------------------
-!     initialize Q, set to zero 
+!     initialize Q, set to zero
 !-----------------------------------------------------------------------
 
         q = 0.d0
@@ -689,7 +681,7 @@ IMPLICIT NONE
         ! Tracer 1 - Layer
 
         if (height .lt. z2 .and. height .gt. z1) then
-        
+
                 q1 = 0.5d0 * (1.d0 + cos( 2.d0*pi*(height-z0)/(z2-z1) ) )
 
         else
@@ -718,13 +710,13 @@ IMPLICIT NONE
                                 z, &            ! Height (m)
                                 hyam, &         ! A coefficient for hybrid-eta coordinate, at model level midpoint
                                 hybm, &         ! B coefficient for hybrid-eta coordinate, at model level midpoint
-                                gc              ! bar{z} for Gal-Chen coordinate 
+                                gc              ! bar{z} for Gal-Chen coordinate
 
         logical, intent(in)  :: hybrid_eta      ! flag to indicate whether the hybrid sigma-p (eta) coordinate is used
-                                                ! if set to .true., then the pressure will be computed via the 
+                                                ! if set to .true., then the pressure will be computed via the
                                                 !    hybrid coefficients hyam and hybm, they need to be initialized
                                                 ! if set to .false. (for pressure-based models): the pressure is already pre-computed
-                                                !    and is an input value for this routine 
+                                                !    and is an input value for this routine
                                                 ! for height-based models: pressure will always be computed based on the height and
                                                 !    hybrid_eta is not used
 
@@ -732,7 +724,7 @@ IMPLICIT NONE
         ! gc for the Gal-Chen coordinates. If not required then they become dummy variables
 
         real(8), intent(inout) :: p             ! Pressure  (Pa)
-                                
+
         integer,  intent(in) :: zcoords         ! 0 or 1 see below
         integer,  intent(in) :: cfv             ! 0, 1 or 2 see below
 
@@ -763,31 +755,31 @@ IMPLICIT NONE
 
 !-----------------------------------------------------------------------
 !     test case parameters
-!----------------------------------------------------------------------- 
+!-----------------------------------------------------------------------
         real(8), parameter ::   tau     = 12.d0 * 86400.d0,     &       ! period of motion 12 days (s)
                                 u0      = 2.d0*pi*a/tau,        &       ! Velocity Magnitude (m/s)
                                 T0      = 300.d0,               &       ! temperature (K)
                                 H       = Rd * T0 / g,          &       ! scale height (m)
-                                alpha   = pi/6.d0,              &       ! rotation angle (radians), 30 degrees   
-                                lambdam = 3.d0*pi/2.d0,         &       ! mountain longitude center point (radians)   
-                                phim    = 0.d0,                 &       ! mountain latitude center point (radians)    
+                                alpha   = pi/6.d0,              &       ! rotation angle (radians), 30 degrees
+                                lambdam = 3.d0*pi/2.d0,         &       ! mountain longitude center point (radians)
+                                phim    = 0.d0,                 &       ! mountain latitude center point (radians)
                                 h0      = 2000.d0,              &       ! peak height of the mountain range (m)
                                 Rm      = 3.d0*pi/4.d0,         &       ! mountain radius (radians)
-                                zetam   = pi/16.d0,             &       ! mountain oscillation half-width (radians) 
-                                lambdap = pi/2.d0,              &       ! cloud-like tracer longitude center point (radians) 
-                                phip    = 0.d0,                 &       ! cloud-like tracer latitude center point (radians)    
-                                Rp      = pi/4.d0,              &       ! cloud-like tracer radius (radians)    
-                                zp1     = 3050.d0,              &       ! midpoint of first (lowermost) tracer (m)           
-                                zp2     = 5050.d0,              &       ! midpoint of second tracer (m)          
-                                zp3     = 8200.d0,              &       ! midpoint of third (topmost) tracer (m)    
-                                dzp1    = 1000.d0,              &       ! thickness of first (lowermost) tracer (m)           
+                                zetam   = pi/16.d0,             &       ! mountain oscillation half-width (radians)
+                                lambdap = pi/2.d0,              &       ! cloud-like tracer longitude center point (radians)
+                                phip    = 0.d0,                 &       ! cloud-like tracer latitude center point (radians)
+                                Rp      = pi/4.d0,              &       ! cloud-like tracer radius (radians)
+                                zp1     = 3050.d0,              &       ! midpoint of first (lowermost) tracer (m)
+                                zp2     = 5050.d0,              &       ! midpoint of second tracer (m)
+                                zp3     = 8200.d0,              &       ! midpoint of third (topmost) tracer (m)
+                                dzp1    = 1000.d0,              &       ! thickness of first (lowermost) tracer (m)
                                 dzp2    = 1000.d0,              &       ! thickness of second tracer (m)
-                                dzp3    = 400.d0,               &       ! thickness of third (topmost) tracer (m)       
-                                ztop    = 12000.d0                      ! model top (m)         
-                            
+                                dzp3    = 400.d0,               &       ! thickness of third (topmost) tracer (m)
+                                ztop    = 12000.d0                      ! model top (m)
+
       real(8) :: height                                                 ! Model level heights (m)
       real(8) :: r                                                      ! Great circle distance (radians)
-      real(8) :: rz                                                     ! height differences 
+      real(8) :: rz                                                     ! height differences
       real(8) :: zs                                                     ! Surface elevation (m)
 
 
@@ -795,7 +787,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------
 !    PHIS (surface geopotential)
 !-----------------------------------------------------------------------
-      
+
         r = acos( sin(phim)*sin(lat) + cos(phim)*cos(lat)*cos(lon - lambdam) )
 
         if (r .lt. Rm) then
@@ -836,7 +828,7 @@ IMPLICIT NONE
         endif
 
 !-----------------------------------------------------------------------
-!    THE VELOCITIES ARE TIME INDEPENDENT 
+!    THE VELOCITIES ARE TIME INDEPENDENT
 !-----------------------------------------------------------------------
 
         ! Zonal Velocity
@@ -860,19 +852,19 @@ IMPLICIT NONE
         rho = p/(Rd*t)
 
 !-----------------------------------------------------------------------
-!     initialize Q, set to zero 
+!     initialize Q, set to zero
 !-----------------------------------------------------------------------
 
         q = 0.d0
 
 !-----------------------------------------------------------------------
-!    VERTICAL VELOCITY IS TIME INDEPENDENT 
+!    VERTICAL VELOCITY IS TIME INDEPENDENT
 !-----------------------------------------------------------------------
 
-        ! Vertical Velocity - can be changed to vertical pressure velocity by 
+        ! Vertical Velocity - can be changed to vertical pressure velocity by
         ! omega = -(g*p)/(Rd*T0)*w
 
-        ! NOTE that if orography-following coordinates are used then the vertical 
+        ! NOTE that if orography-following coordinates are used then the vertical
         ! velocity needs to be translated into the new coordinate system due to
         ! the variation of the height along coordinate surfaces
         ! See section 1.3 and the appendix of the test case document
@@ -893,12 +885,12 @@ IMPLICIT NONE
         elseif (cfv .eq. 2) then
 
                 ! if the horizontal velocities follow Gal Chen coordinates then
-                ! the perceived vertical velocity is    
+                ! the perceived vertical velocity is
 
-                call test1_advection_orograph_Gal_Chen_velocity(w)      
+                call test1_advection_orograph_Gal_Chen_velocity(w)
 
 !        else
-!               compute your own vertical velocity if other orography-following 
+!               compute your own vertical velocity if other orography-following
 !               vertical coordinate is used
 !
         endif
@@ -910,7 +902,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------
 
         ! Tracer 1 - Cloud Layer
-      
+
         r = acos( sin(phip)*sin(lat) + cos(phip)*cos(lat)*cos(lon - lambdap) )
 
         rz = abs(height - zp1)
@@ -955,7 +947,7 @@ IMPLICIT NONE
         CONTAINS
 
         !-----------------------------------------------------------------------
-        !    SUBROUTINE TO CALCULATE THE PERCEIVED VERTICAL VELOCITY 
+        !    SUBROUTINE TO CALCULATE THE PERCEIVED VERTICAL VELOCITY
         !               UNDER HYBRID-ETA COORDINATES
         !-----------------------------------------------------------------------
 
@@ -993,7 +985,7 @@ IMPLICIT NONE
                 if (1.d0-cos(r)**2 .gt. 0.d0) then
                         dzsdlambda = dzsdx * (cos(phim)*cos(lat)*sin(lon-lambdam)) &
                                         /sqrt(1.d0-cos(r)**2)
-                        dzsdphi    = dzsdx * (-sin(phim)*cos(lat) + cos(phim)*sin(lat)*cos(lon-lambdam)) & 
+                        dzsdphi    = dzsdx * (-sin(phim)*cos(lat) + cos(phim)*sin(lat)*cos(lon-lambdam)) &
                                         /sqrt(1.d0-cos(r)**2)
                 else
                         dzsdlambda = 0.d0
@@ -1023,7 +1015,7 @@ IMPLICIT NONE
 
 
         !-----------------------------------------------------------------------
-        !    SUBROUTINE TO CALCULATE THE PERCEIVED VERTICAL VELOCITY 
+        !    SUBROUTINE TO CALCULATE THE PERCEIVED VERTICAL VELOCITY
         !               UNDER GAL-CHEN COORDINATES
         !-----------------------------------------------------------------------
 
@@ -1056,7 +1048,7 @@ IMPLICIT NONE
                 if (1.d0-cos(r)**2 .gt. 0.d0) then
                         dzsdlambda = dzsdx * (cos(phim)*cos(lat)*sin(lon-lambdam)) &
                                         /sqrt(1.d0-cos(r)**2)
-                        dzsdphi    = dzsdx * (-sin(phim)*cos(lat) + cos(phim)*sin(lat)*cos(lon-lambdam)) & 
+                        dzsdphi    = dzsdx * (-sin(phim)*cos(lat) + cos(phim)*sin(lat)*cos(lon-lambdam)) &
                                         /sqrt(1.d0-cos(r)**2)
                 else
                         dzsdlambda = 0.d0
@@ -1086,20 +1078,20 @@ END SUBROUTINE test1_advection_orography
 !==========================================================================================
 ! TEST CASE 2X - IMPACT OF OROGRAPHY ON A NON-ROTATING PLANET
 !==========================================================================================
-! The tests in section 2-x examine the impact of 3D Schaer-like circular mountain profiles on an 
-! atmosphere at rest (2-0), and on flow fields with wind shear (2-1) and without vertical wind shear (2-2).  
-! A non-rotating planet is used for all configurations. Test 2-0 is conducted on an unscaled regular-size 
-! planet and primarily examines the accuracy of the pressure gradient calculation in a steady-state 
-! hydrostatically-balanced atmosphere at rest. This test is especially appealing for models with 
-! orography-following vertical coordinates. It increases the complexity of test 1-3, that investigated 
-! the impact of the same Schaer-type orographic profile on the accuracy of purely-horizontal passive 
+! The tests in section 2-x examine the impact of 3D Schaer-like circular mountain profiles on an
+! atmosphere at rest (2-0), and on flow fields with wind shear (2-1) and without vertical wind shear (2-2).
+! A non-rotating planet is used for all configurations. Test 2-0 is conducted on an unscaled regular-size
+! planet and primarily examines the accuracy of the pressure gradient calculation in a steady-state
+! hydrostatically-balanced atmosphere at rest. This test is especially appealing for models with
+! orography-following vertical coordinates. It increases the complexity of test 1-3, that investigated
+! the impact of the same Schaer-type orographic profile on the accuracy of purely-horizontal passive
 ! tracer advection.
 !
-! Tests 2-1 and 2-2 increase the complexity even further since non-zero flow fields are now prescribed 
-! with and without vertical wind shear. In order to trigger non-hydrostatic responses the two tests are 
-! conducted on a reduced-size planet with reduction factor $X=500$ which makes the horizontal and 
-! vertical grid spacing comparable. This test clearly discriminates between non-hydrostatic and hydrostatic 
-! models since the expected response is in the non-hydrostatic regime. Therefore, the flow response is 
+! Tests 2-1 and 2-2 increase the complexity even further since non-zero flow fields are now prescribed
+! with and without vertical wind shear. In order to trigger non-hydrostatic responses the two tests are
+! conducted on a reduced-size planet with reduction factor $X=500$ which makes the horizontal and
+! vertical grid spacing comparable. This test clearly discriminates between non-hydrostatic and hydrostatic
+! models since the expected response is in the non-hydrostatic regime. Therefore, the flow response is
 ! captured differently by hydrostatic models.
 
 
@@ -1122,15 +1114,15 @@ IMPLICIT NONE
                                 hybm            ! B coefficient for hybrid-eta coordinate, at model level midpoint
 
         logical, intent(in)  :: hybrid_eta      ! flag to indicate whether the hybrid sigma-p (eta) coordinate is used
-                                                ! if set to .true., then the pressure will be computed via the 
+                                                ! if set to .true., then the pressure will be computed via the
                                                 !    hybrid coefficients hyam and hybm, they need to be initialized
                                                 ! if set to .false. (for pressure-based models): the pressure is already pre-computed
-                                                !    and is an input value for this routine 
+                                                !    and is an input value for this routine
                                                 ! for height-based models: pressure will always be computed based on the height and
                                                 !    hybrid_eta is not used
 
         real(8), intent(inout) :: p             ! Pressure  (Pa)
-                                
+
         integer,  intent(in) :: zcoords         ! 0 or 1 see below
 
         real(8), intent(out) :: u, &            ! Zonal wind (m s^-1)
@@ -1147,20 +1139,20 @@ IMPLICIT NONE
         !
         ! In hybrid-eta coords: p = hyam p0 + hybm ps
         !
-        ! The grid-point based initial data are computed in this routine. 
+        ! The grid-point based initial data are computed in this routine.
 
 !-----------------------------------------------------------------------
 !     test case parameters
-!----------------------------------------------------------------------- 
+!-----------------------------------------------------------------------
         real(8), parameter ::   T0      = 300.d0,               &       ! temperature (K)
-                                gamma   = 0.0065d0,             &       ! temperature lapse rate (K/m)      
-                                lambdam = 3.d0*pi/2.d0,         &       ! mountain longitude center point (radians)   
-                                phim    = 0.d0,                 &       ! mountain latitude center point (radians)    
+                                gamma   = 0.0065d0,             &       ! temperature lapse rate (K/m)
+                                lambdam = 3.d0*pi/2.d0,         &       ! mountain longitude center point (radians)
+                                phim    = 0.d0,                 &       ! mountain latitude center point (radians)
                                 h0      = 2000.d0,              &       ! peak height of the mountain range (m)
                                 Rm      = 3.d0*pi/4.d0,         &       ! mountain radius (radians)
-                                zetam   = pi/16.d0,             &       ! mountain oscillation half-width (radians) 
-                                ztop    = 12000.d0                      ! model top (m)         
-                            
+                                zetam   = pi/16.d0,             &       ! mountain oscillation half-width (radians)
+                                ztop    = 12000.d0                      ! model top (m)
+
       real(8) :: height                                                 ! Model level heights (m)
       real(8) :: r                                                      ! Great circle distance (radians)
       real(8) :: zs                                                     ! Surface elevation (m)
@@ -1169,7 +1161,7 @@ IMPLICIT NONE
 
 
 !-----------------------------------------------------------------------
-!    compute exponents 
+!    compute exponents
 !-----------------------------------------------------------------------
      exponent     = g/(Rd*gamma)
      exponent_rev = 1.d0/exponent
@@ -1177,7 +1169,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------
 !    PHIS (surface geopotential)
 !-----------------------------------------------------------------------
-      
+
         r = acos( sin(phim)*sin(lat) + cos(phim)*cos(lat)*cos(lon - lambdam) )
 
         if (r .lt. Rm) then
@@ -1246,7 +1238,7 @@ IMPLICIT NONE
         rho = p/(Rd*t)
 
 !-----------------------------------------------------------------------
-!     initialize Q, set to zero 
+!     initialize Q, set to zero
 !-----------------------------------------------------------------------
 
         q = 0.d0
@@ -1273,15 +1265,15 @@ IMPLICIT NONE
                                 hybm            ! B coefficient for hybrid-eta coordinate, at model level midpoint
 
         logical, intent(in)  :: hybrid_eta      ! flag to indicate whether the hybrid sigma-p (eta) coordinate is used
-                                                ! if set to .true., then the pressure will be computed via the 
+                                                ! if set to .true., then the pressure will be computed via the
                                                 !    hybrid coefficients hyam and hybm, they need to be initialized
                                                 ! if set to .false. (for pressure-based models): the pressure is already pre-computed
-                                                !    and is an input value for this routine 
+                                                !    and is an input value for this routine
                                                 ! for height-based models: pressure will always be computed based on the height and
                                                 !    hybrid_eta is not used
 
         real(8), intent(inout) :: p             ! Pressure  (Pa)
-                                
+
 
         integer,  intent(in) :: zcoords, &      ! 0 or 1 see below
                                 shear           ! 0 or 1 see below
@@ -1303,21 +1295,21 @@ IMPLICIT NONE
 
 !-----------------------------------------------------------------------
 !     test case parameters
-!----------------------------------------------------------------------- 
+!-----------------------------------------------------------------------
         real(8), parameter ::   X       = 500.d0,               &       ! Reduced Earth reduction factor
                                 Om      = 0.d0,                 &       ! Rotation Rate of Earth
-                                as      = a/X,                  &       ! New Radius of small Earth     
-                                ueq     = 20.d0,                &       ! Reference Velocity 
-                                Teq     = 300.d0,               &       ! Temperature at Equator    
+                                as      = a/X,                  &       ! New Radius of small Earth
+                                ueq     = 20.d0,                &       ! Reference Velocity
+                                Teq     = 300.d0,               &       ! Temperature at Equator
                                 Peq     = 100000.d0,            &       ! Reference PS at Equator
-                                ztop    = 30000.d0,             &       ! Model Top       
+                                ztop    = 30000.d0,             &       ! Model Top
                                 lambdac = pi/4.d0,              &       ! Lon of Schar Mountain Center
                                 phic    = 0.d0,                 &       ! Lat of Schar Mountain Center
                                 h0      = 250.d0,               &       ! Height of Mountain
                                 d       = 5000.d0,              &       ! Mountain Half-Width
                                 xi      = 4000.d0,              &       ! Mountain Wavelength
                                 cs      = 0.00025d0                     ! Wind Shear (shear=1)
-                            
+
       real(8) :: height                                                 ! Model level heights
       real(8) :: sin_tmp, cos_tmp                                       ! Calculation of great circle distance
       real(8) :: r                                                      ! Great circle distance
@@ -1330,10 +1322,10 @@ IMPLICIT NONE
 
         sin_tmp = sin(lat) * sin(phic)
         cos_tmp = cos(lat) * cos(phic)
-        
-        ! great circle distance with 'a/X'  
 
-        r  = as * ACOS (sin_tmp + cos_tmp*cos(lon-lambdac))     
+        ! great circle distance with 'a/X'
+
+        r  = as * ACOS (sin_tmp + cos_tmp*cos(lon-lambdac))
         zs   = h0 * exp(-(r**2)/(d**2))*(cos(pi*r/xi)**2)
         phis = g*zs
 
@@ -1352,7 +1344,7 @@ IMPLICIT NONE
         endif
 
 !-----------------------------------------------------------------------
-!    TEMPERATURE 
+!    TEMPERATURE
 !-----------------------------------------------------------------------
 
         t = Teq *(1.d0 - (c*ueq*ueq/(g))*(sin(lat)**2) )
@@ -1364,7 +1356,7 @@ IMPLICIT NONE
         ps = peq*exp( -(ueq*ueq/(2.d0*Rd*Teq))*(sin(lat)**2) - phis/(Rd*t)    )
 
 !-----------------------------------------------------------------------
-!    HEIGHT AND PRESSURE 
+!    HEIGHT AND PRESSURE
 !-----------------------------------------------------------------------
 
         if (zcoords .eq. 1) then
@@ -1401,7 +1393,7 @@ IMPLICIT NONE
         rho = p/(Rd*t)
 
 !-----------------------------------------------------------------------
-!     initialize Q, set to zero 
+!     initialize Q, set to zero
 !-----------------------------------------------------------------------
 
         q = 0.d0
@@ -1424,7 +1416,7 @@ END SUBROUTINE test2_schaer_mountain
 ! The non-hydrostatic gravity wave test examines the response of models to short time-scale wavemotion
 ! triggered by a localized perturbation. The formulation presented in this document is new,
 ! but is based on previous approaches by Skamarock et al. (JAS 1994), Tomita and Satoh (FDR 2004), and
-! Jablonowski et al. (NCAR Tech Report 2008) 
+! Jablonowski et al. (NCAR Tech Report 2008)
 
 
 !==========
@@ -1442,7 +1434,7 @@ IMPLICIT NONE
                                 z               ! Height (m)
 
         real(8), intent(inout) :: p             ! Pressure  (Pa)
-                                
+
 
         integer,  intent(in) :: zcoords         ! 0 or 1 see below
 
@@ -1460,14 +1452,14 @@ IMPLICIT NONE
 
 !-----------------------------------------------------------------------
 !     test case parameters
-!----------------------------------------------------------------------- 
+!-----------------------------------------------------------------------
         real(8), parameter ::   X       = 125.d0,               &       ! Reduced Earth reduction factor
                                 Om      = 0.d0,                 &       ! Rotation Rate of Earth
-                                as      = a/X,                  &       ! New Radius of small Earth     
-                                u0      = 20.d0,                &       ! Reference Velocity 
-                                Teq     = 300.d0,               &       ! Temperature at Equator    
+                                as      = a/X,                  &       ! New Radius of small Earth
+                                u0      = 20.d0,                &       ! Reference Velocity
+                                Teq     = 300.d0,               &       ! Temperature at Equator
                                 Peq     = 100000.d0,            &       ! Reference PS at Equator
-                                ztop    = 10000.d0,             &       ! Model Top       
+                                ztop    = 10000.d0,             &       ! Model Top
                                 lambdac = 2.d0*pi/3.d0,         &       ! Lon of Pert Center
                                 d       = 5000.d0,              &       ! Width for Pert
                                 phic    = 0.d0,                 &       ! Lat of Pert Center
@@ -1476,7 +1468,7 @@ IMPLICIT NONE
                                 N       = 0.01d0,               &       ! Brunt-Vaisala frequency
                                 N2      = N*N,                  &       ! Brunt-Vaisala frequency Squared
                                 bigG    = (g*g)/(N2*cp)                 ! Constant
-                            
+
       real(8) :: height                                                 ! Model level height
       real(8) :: sin_tmp, cos_tmp                                       ! Calculation of great circle distance
       real(8) :: r, s                                                   ! Shape of perturbation
@@ -1488,7 +1480,7 @@ IMPLICIT NONE
 !    THE VELOCITIES
 !-----------------------------------------------------------------------
 
-        ! Zonal Velocity 
+        ! Zonal Velocity
 
         u = u0 * cos(lat)
 
@@ -1507,10 +1499,10 @@ IMPLICIT NONE
         phis = 0.d0
 
 !-----------------------------------------------------------------------
-!    SURFACE TEMPERATURE 
+!    SURFACE TEMPERATURE
 !-----------------------------------------------------------------------
 
-        TS = bigG + (Teq-bigG)*exp( -(u0*N2/(4.d0*g*g))*(u0+2.d0*om*as)*(cos(2.d0*lat)-1.d0)    ) 
+        TS = bigG + (Teq-bigG)*exp( -(u0*N2/(4.d0*g*g))*(u0+2.d0*om*as)*(cos(2.d0*lat)-1.d0)    )
 
 !-----------------------------------------------------------------------
 !    PS (surface pressure)
@@ -1547,7 +1539,7 @@ IMPLICIT NONE
         rho = p/(Rd*t_mean)
 
 !-----------------------------------------------------------------------
-!    POTENTIAL TEMPERATURE PERTURBATION, 
+!    POTENTIAL TEMPERATURE PERTURBATION,
 !    here: converted to temperature and added to the temperature field
 !    models with a prognostic potential temperature field can utilize
 !    the potential temperature perturbation theta_pert directly and add it
@@ -1557,9 +1549,9 @@ IMPLICIT NONE
         sin_tmp = sin(lat) * sin(phic)
         cos_tmp = cos(lat) * cos(phic)
 
-                ! great circle distance with 'a/X' 
+                ! great circle distance with 'a/X'
 
-        r  = as * ACOS (sin_tmp + cos_tmp*cos(lon-lambdac)) 
+        r  = as * ACOS (sin_tmp + cos_tmp*cos(lon-lambdac))
 
         s = (d**2)/(d**2 + r**2)
 
@@ -1570,7 +1562,7 @@ IMPLICIT NONE
         t = t_mean + t_pert
 
 !-----------------------------------------------------------------------
-!     initialize Q, set to zero 
+!     initialize Q, set to zero
 !-----------------------------------------------------------------------
 
         q = 0.d0

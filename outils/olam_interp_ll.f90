@@ -1,36 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
-
 subroutine interp_htw_ll(npts,iws_loc,wts_loc,nlevin,nlevout,field,field_ll)
 
   use mem_grid,     only: mwa, mza, lpw
@@ -50,7 +17,7 @@ subroutine interp_htw_ll(npts,iws_loc,wts_loc,nlevin,nlevout,field,field_ll)
 
   if (nlevin == mza) then
      !$omp parallel do private (iw,ka,k)
-     do j = 1,jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
+     do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
         ka = lpw(iw)
         do k = ka-1, 1, -1
            field(k,iw) = field(ka,iw)
@@ -60,8 +27,8 @@ subroutine interp_htw_ll(npts,iws_loc,wts_loc,nlevin,nlevout,field,field_ll)
   endif
 
   if (iparallel == 1) then
-     call mpi_send_w(1,svara1=field)
-     call mpi_recv_w(1,svara1=field)
+     call mpi_send_w(svara1=field)
+     call mpi_recv_w(svara1=field)
   endif
 
   !$omp parallel do private (kout,kin)
@@ -81,9 +48,9 @@ end subroutine interp_htw_ll
 
 subroutine find_3iws_ll(nlon,nlat,alon,alat,iws_ll,wts_ll)
 
-  use mem_grid,   only: glatw, glonw, mwa, xew, yew, zew, dnv
+  use mem_grid,   only: xew, yew, zew, dnv
   use mem_ijtabs, only: itab_w, jtab_w, jtw_prog
-  use consts_coms,only: pio180, r8, erad
+  use consts_coms,only: pio180, r8, erad, eradi
 
   implicit none
 
@@ -92,41 +59,70 @@ subroutine find_3iws_ll(nlon,nlat,alon,alat,iws_ll,wts_ll)
   integer, intent(inout) :: iws_ll(nlon,nlat,3)
   real,    intent(inout) :: wts_ll(nlon,nlat,3)
 
-  integer :: ilat, ilon, j, j1, j2, jw, iw, iwn, np, jnext, npoly
+  integer :: ilat, ilon, j, j1, j2, jw, iw, iwn, npoly
 
   real :: xwn(7), ywn(7), dot00(7), dot01(7), dot11(7), denomi(7), dn(7)
-  real :: qx, qy, raxis, dnvmax, dist, distn
+  real :: qx, qy, dnvmax, dist, distn
   real :: dot02,dot12,u,v
 
   real :: xea(nlon,nlat), yea(nlon,nlat), zea(nlat)
-  real :: dxe, dye, dze
+  real :: dxe, dye, dze, rads
 
   real :: coswlon, sinwlon
   real :: coswlat, sinwlat
+
+  real :: cosalon(nlon), sinalon(nlon)
+  real :: cosalat(nlat), sinalat(nlat)
+
+  real :: raxis, raxisi
 
   real, parameter :: fuzz = 0.001
 
   ! Compute and store earth coordinates (xea,yea,zea) of each lat/lon point
 
   do ilat = 1, nlat
-     zea(ilat) = erad * sin(alat(ilat) * pio180)
-     raxis     = erad * cos(alat(ilat) * pio180)
+     rads          = alat(ilat) * pio180
+     cosalat(ilat) = cos(rads)
+     sinalat(ilat) = sin(rads)
+  enddo
 
+  do ilon = 1, nlon
+     rads          = alon(ilon) * pio180
+     cosalon(ilon) = cos(rads)
+     sinalon(ilon) = sin(rads)
+  enddo
+
+  do ilat = 1, nlat
+     zea(ilat) = erad * sinalat(ilat)
+     raxis     = erad * cosalat(ilat)
      do ilon = 1, nlon
-        xea(ilon,ilat) = raxis * cos(alon(ilon) * pio180)
-        yea(ilon,ilat) = raxis * sin(alon(ilon) * pio180)
+        xea(ilon,ilat) = raxis * cosalon(ilon)
+        yea(ilon,ilat) = raxis * sinalon(ilon)
      enddo
   enddo
 
   ! Loop over all prognostic W points
 
-  do jw = 1, jtab_w(jtw_prog)%jend(1)
+  do jw = 1, jtab_w(jtw_prog)%jend
      iw = jtab_w(jtw_prog)%iw(jw)
 
-     sinwlat = sin(glatw(iw) * pio180)
-     coswlat = cos(glatw(iw) * pio180)
-     sinwlon = sin(glonw(iw) * pio180)
-     coswlon = cos(glonw(iw) * pio180)
+     raxis  = sqrt( xew(iw)**2 + yew(iw)**2 )
+
+     sinwlat = zew(iw) * eradi
+     coswlat = raxis   * eradi
+
+     ! For points less than 100 m from Earth's polar axis, make arbitrary
+     ! assumption that longitude = 0 deg.  This is just to settle on a PS
+     ! planar coordinate system in which to do the algebra.
+
+     if (raxis >= 1.e2) then
+        raxisi = 1.0 / raxis
+        sinwlon = yew(iw) * raxisi
+        coswlon = xew(iw) * raxisi
+     else
+        sinwlon = 0.
+        coswlon = 1.
+     endif
 
      ! Find max distance to neighbor W points
 
@@ -146,7 +142,7 @@ subroutine find_3iws_ll(nlon,nlat,alon,alat,iws_ll,wts_ll)
 
         call de_ps(dxe,dye,dze,coswlat,sinwlat,coswlon,sinwlon,xwn(j),ywn(j))
      enddo
-           
+
      ! Loop over each pair of consecutive neighbor W points, and set up
      ! triangle-check coefficients that depend only on W points
 
@@ -159,9 +155,9 @@ subroutine find_3iws_ll(nlon,nlat,alon,alat,iws_ll,wts_ll)
         dot11(j1) = xwn(j2) * xwn(j2) + ywn(j2) * ywn(j2)
 
         denomi(j1) = 1. / (dot00(j1) * dot11(j1) - dot01(j1) * dot01(j1))
-        dn(j1)     = 1. / (xwn(j2) * ywn(j1) - xwn(j1) * ywn(j2))
+        dn    (j1) = 1. / (xwn(j2) * ywn(j1) - xwn(j1) * ywn(j2))
      enddo
-           
+
      ! Loop over all lat/lon points and determine which are closer to current
      ! W point than to any other W point on globe.  It is sufficient to show
      ! that a lat/lon point is closer to current W point than to any neighbor W
@@ -207,7 +203,7 @@ subroutine find_3iws_ll(nlon,nlat,alon,alat,iws_ll,wts_ll)
 
               ! If lat/lon point is closer to IWN point than to IW point, move
               ! on to next lat/lon point.  Bias is used to reduce chance of
-              ! lat/lon point being rejected by all IW points in domain; this 
+              ! lat/lon point being rejected by all IW points in domain; this
               ! might lead to a few lat/lon values being interpolated on
               ! multiple MPI subdomains, but this is sorted out later.
 
@@ -224,7 +220,7 @@ subroutine find_3iws_ll(nlon,nlat,alon,alat,iws_ll,wts_ll)
 
            call de_ps(dxe,dye,dze,coswlat,sinwlat,coswlon,sinwlon,qx,qy)
 
-           ! Loop over each pair of consecutive neighbor W points 
+           ! Loop over each pair of consecutive neighbor W points
 
            do j1 = 1,npoly
               j2 = j1 + 1

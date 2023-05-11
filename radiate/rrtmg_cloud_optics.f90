@@ -50,7 +50,7 @@ contains
        stop       "RRTMg shortwave datafile cannot be found"
     endif
 
-    call shdf5_open(inputfile, 'R')
+    call shdf5_open(inputfile, 'R', trypario=.true.)
 
     do i = 1, ncats
 
@@ -64,7 +64,7 @@ contains
     call shdf5_close()
 
   contains
-    
+
     subroutine read_sw_file(num, start, end, delr, extsw, ssasw, asysw, name)
       use parrrsw,    only: nbndsw
       use hdf5_utils, only: shdf5_irec
@@ -127,7 +127,7 @@ contains
        stop       "RRTMg shortwave datafile cannot be found"
     endif
 
-    call shdf5_open(inputfile, 'R')
+    call shdf5_open(inputfile, 'R', trypario=.true.)
 
     do i = 1, ncats
 
@@ -140,7 +140,7 @@ contains
     call shdf5_close()
 
   contains
-    
+
     subroutine read_lw_file(num, start, end, delr, abslw, name)
       use parrrtm,    only: nbndlw
       use hdf5_utils, only: shdf5_irec

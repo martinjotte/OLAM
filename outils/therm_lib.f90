@@ -1,39 +1,8 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
-
 module therm_lib
 
 contains
+
+!===============================================================================
 
 !dir$ attributes vector :: eslf
 elemental real function eslf(t)
@@ -80,6 +49,28 @@ end function esif
 
 !===============================================================================
 
+!dir$ attributes vector :: esilf
+elemental real function esilf(tc)
+
+implicit none
+
+!dir$ attributes value :: tc
+real, intent(in) :: tc
+
+!     This function calculates the density of water vapor at saturation,
+!     over liquid or ice depending on temperature, as a function of
+!     Celsius temperature
+
+if (tc >= 0.) then
+   esilf = eslf(tc)
+else
+   esilf = esif(tc)
+endif
+
+end function esilf
+
+!===============================================================================
+
 !dir$ attributes vector :: eslpf
 elemental real function eslpf(t)
 
@@ -123,6 +114,28 @@ x = max(-80.,t)
 esipf = d0+x*(d1+x*(d2+x*(d3+x*(d4+x*(d5+x*(d6+x*(d7+x*d8)))))))
 
 end function esipf
+
+!===============================================================================
+
+!dir$ attributes vector :: esilpf
+elemental real function esilpf(tc)
+
+implicit none
+
+!dir$ attributes value :: tc
+real, intent(in) :: tc
+
+!     This function calculates the density of water vapor at saturation,
+!     over liquid or ice depending on temperature, as a function of
+!     Celsius temperature
+
+if (tc >= 0.) then
+   esilpf = eslpf(tc)
+else
+   esilpf = esipf(tc)
+endif
+
+end function esilpf
 
 !===============================================================================
 
@@ -305,8 +318,8 @@ end function rhovsil
 !dir$ attributes vector :: rhovsl_inv
 elemental real function rhovsl_inv(tc)
 
-!     This function calculates the density of water vapor at saturation
-!     over liquid as a function of Celsius temperature
+!     This function calculates the inverse of the density of water vapor
+!     at saturation over liquid as a function of Celsius temperature
 
 use consts_coms, only: t00
 implicit none
@@ -331,8 +344,8 @@ end function rhovsl_inv
 !dir$ attributes vector :: rhovsi_inv
 elemental real function rhovsi_inv(tc)
 
-!     This function calculates the density of water vapor at saturation
-!     over ice as a function of Celsius temperature
+!     This function calculates the inverse of the density of water vapor
+!     at saturation over ice as a function of Celsius temperature
 
 use consts_coms, only: t00
 implicit none

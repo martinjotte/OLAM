@@ -1,36 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
-
 Module mem_radiate
 
   integer :: jday ! Julian day
@@ -82,14 +49,14 @@ Module mem_radiate
 
   ! clear-sky values
 
-  real, allocatable :: rshort_clr      (:)
-  real, allocatable :: rshortup_clr    (:)
-  real, allocatable :: rshort_top_clr  (:)
-  real, allocatable :: rshortup_top_clr(:)
+! real, allocatable :: rshort_clr      (:)
+! real, allocatable :: rshortup_clr    (:)
+! real, allocatable :: rshort_top_clr  (:)
+! real, allocatable :: rshortup_top_clr(:)
 
-  real, allocatable :: rlong_clr       (:)
-  real, allocatable :: rlongup_clr     (:)
-  real, allocatable :: rlongup_top_clr (:)
+! real, allocatable :: rlong_clr       (:)
+! real, allocatable :: rlongup_clr     (:)
+! real, allocatable :: rlongup_top_clr (:)
 
 ! RRTMg random cloud overlap seed
 
@@ -151,14 +118,14 @@ Contains
        allocate (albedt_diffuse(mwa)) ; albedt_diffuse = rinit
        allocate (cosz          (mwa)) ; cosz           = rinit
 
-       allocate (rshort_clr      (mwa)) ; rshort_clr       = 0.0
-       allocate (rshortup_clr    (mwa)) ; rshortup_clr     = 0.0
-       allocate (rshort_top_clr  (mwa)) ; rshort_top_clr   = 0.0
-       allocate (rshortup_top_clr(mwa)) ; rshortup_top_clr = 0.0
+!      allocate (rshort_clr      (mwa)) ; rshort_clr       = 0.0
+!      allocate (rshortup_clr    (mwa)) ; rshortup_clr     = 0.0
+!      allocate (rshort_top_clr  (mwa)) ; rshort_top_clr   = 0.0
+!      allocate (rshortup_top_clr(mwa)) ; rshortup_top_clr = 0.0
 
-       allocate (rlong_clr      (mwa)) ; rlong_clr       = 0.0
-       allocate (rlongup_clr    (mwa)) ; rlongup_clr     = 0.0
-       allocate (rlongup_top_clr(mwa)) ; rlongup_top_clr = 0.0
+!      allocate (rlong_clr      (mwa)) ; rlong_clr       = 0.0
+!      allocate (rlongup_clr    (mwa)) ; rlongup_clr     = 0.0
+!      allocate (rlongup_top_clr(mwa)) ; rlongup_top_clr = 0.0
 
        allocate (mcica_seed   (4,mwa)) ; mcica_seed = 0
 
@@ -197,14 +164,14 @@ Contains
     if (allocated(albedt_diffuse)) deallocate (albedt_diffuse)
     if (allocated(cosz))           deallocate (cosz)
 
-    if (allocated(rshort_clr))       deallocate (rshort_clr)
-    if (allocated(rshortup_clr))     deallocate (rshortup_clr)
-    if (allocated(rshort_top_clr))   deallocate (rshort_top_clr)
-    if (allocated(rshortup_top_clr)) deallocate (rshortup_top_clr)
+!   if (allocated(rshort_clr))       deallocate (rshort_clr)
+!   if (allocated(rshortup_clr))     deallocate (rshortup_clr)
+!   if (allocated(rshort_top_clr))   deallocate (rshort_top_clr)
+!   if (allocated(rshortup_top_clr)) deallocate (rshortup_top_clr)
 
-    if (allocated(rlong_clr))        deallocate (rlong_clr)
-    if (allocated(rlongup_clr))      deallocate (rlongup_clr)
-    if (allocated(rlongup_top_clr))  deallocate (rlongup_top_clr)
+!   if (allocated(rlong_clr))        deallocate (rlong_clr)
+!   if (allocated(rlongup_clr))      deallocate (rlongup_clr)
+!   if (allocated(rlongup_top_clr))  deallocate (rlongup_top_clr)
 
     if (allocated(par))              deallocate (par)
     if (allocated(par_diffuse))      deallocate (par_diffuse)
@@ -246,19 +213,19 @@ Contains
 
     if (allocated(cosz))             call increment_vtable('COSZ',            'AW', rvar1=cosz)
 
-    if (allocated(rshort_clr))       call increment_vtable('RSHORT_CLR',      'AW', rvar1=rshort_clr)
+!   if (allocated(rshort_clr))       call increment_vtable('RSHORT_CLR',      'AW', rvar1=rshort_clr)
 
-    if (allocated(rshortup_clr))     call increment_vtable('RSHORTUP_CLR',    'AW', rvar1=rshortup_clr)
+!   if (allocated(rshortup_clr))     call increment_vtable('RSHORTUP_CLR',    'AW', rvar1=rshortup_clr)
 
-    if (allocated(rshort_top_clr))   call increment_vtable('RSHORT_TOP_CLR',  'AW', rvar1=rshort_top_clr)
+!   if (allocated(rshort_top_clr))   call increment_vtable('RSHORT_TOP_CLR',  'AW', rvar1=rshort_top_clr)
 
-    if (allocated(rshortup_top_clr)) call increment_vtable('RSHORTUP_TOP_CLR','AW', rvar1=rshortup_top_clr)
+!   if (allocated(rshortup_top_clr)) call increment_vtable('RSHORTUP_TOP_CLR','AW', rvar1=rshortup_top_clr)
 
-    if (allocated(rlong_clr))        call increment_vtable('RLONG_CLR',       'AW', rvar1=rlong_clr)
+!   if (allocated(rlong_clr))        call increment_vtable('RLONG_CLR',       'AW', rvar1=rlong_clr)
 
-    if (allocated(rlongup_clr))      call increment_vtable('RLONGUP_CLR',     'AW', rvar1=rlongup_clr)
+!   if (allocated(rlongup_clr))      call increment_vtable('RLONGUP_CLR',     'AW', rvar1=rlongup_clr)
 
-    if (allocated(rlongup_top_clr))  call increment_vtable('RLONGUP_TOP_CLR', 'AW', rvar1=rlongup_top_clr)
+!   if (allocated(rlongup_top_clr))  call increment_vtable('RLONGUP_TOP_CLR', 'AW', rvar1=rlongup_top_clr)
 
     if (allocated(pbl_cld_forc))     call increment_vtable('PBL_CLD_FORC',    'AW', rvar1=pbl_cld_forc)
 

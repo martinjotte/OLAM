@@ -1,39 +1,8 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
-
 ! The wrapper subroutines in this file call NCAR Graphics library routines.
-! Use the "dummy" wrappers in o_ncar_dummy.f90 instead if you do not have 
+! Use the "dummy" wrappers in o_ncar_dummy.f90 instead if you do not have
 ! the NCAR graphics library.
+
+!===============================================================================
 
 subroutine o_opngks()
 
@@ -64,7 +33,7 @@ subroutine o_opngks()
      else
         iwtype = 26
      endif
-   
+
      op%pltname = trim(op%pltname)//".ps"
 
   elseif (op%plttype == 2) then
@@ -140,15 +109,11 @@ end subroutine o_frame
 
 !===============================================================================
 
-subroutine o_frstpt(o_x,o_y)
+subroutine o_frstpt(x,y)
 
   implicit none
 
-  real, intent(in) :: o_x,o_y
-  real             :: x,y
-
-  x = o_x
-  y = o_y
+  real, intent(in) :: x,y
 
   call frstpt(x,y)
 
@@ -156,15 +121,11 @@ end subroutine o_frstpt
 
 !===============================================================================
 
-subroutine o_vector(o_x,o_y)
+subroutine o_vector(x,y)
 
   implicit none
 
-  real, intent(in) :: o_x,o_y
-  real             :: x,y
-
-  x = o_x
-  y = o_y
+  real, intent(in) :: x,y
 
   call vector(x,y)
 
@@ -172,17 +133,11 @@ end subroutine o_vector
 
 !===============================================================================
 
-subroutine o_mappos(o_x1,o_x2,o_y1,o_y2)
+subroutine o_mappos(x1,x2,y1,y2)
 
   implicit none
 
-  real, intent(in) :: o_x1,o_x2,o_y1,o_y2
-  real             :: x1,x2,y1,y2
-
-  x1 = o_x1
-  x2 = o_x2
-  y1 = o_y1
-  y2 = o_y2
+  real, intent(in) :: x1,x2,y1,y2
 
   call mappos(x1,x2,y1,y2)
 
@@ -190,18 +145,12 @@ end subroutine o_mappos
 
 !===============================================================================
 
-subroutine o_maproj(chr,o_x,o_y,o_r)
+subroutine o_maproj(chr,x,y,r)
 
   implicit none
 
   character(*), intent(in) :: chr
-  real,         intent(in) :: o_x,o_y,o_r
-
-  real :: x,y,r
-
-  x = o_x
-  y = o_y
-  r = o_r
+  real,         intent(in) :: x,y,r
 
   call maproj(chr,x,y,r)
 
@@ -209,18 +158,12 @@ end subroutine o_maproj
 
 !===============================================================================
 
-subroutine o_mapset(chr,o_x1,o_x2,o_y1,o_y2)
+subroutine o_mapset(chr,x1,x2,y1,y2)
 
   implicit none
 
   character(*), intent(in) :: chr
-  real,         intent(in) :: o_x1,o_x2,o_y1,o_y2
-  real                     :: x1,x2,y1,y2
-
-  x1 = o_x1
-  x2 = o_x2
-  y1 = o_y1
-  y2 = o_y2
+  real,         intent(in) :: x1,x2,y1,y2
 
   call mapset(chr,x1,x2,y1,y2)
 
@@ -228,22 +171,12 @@ end subroutine o_mapset
 
 !===============================================================================
 
-subroutine o_set(o_x1,o_x2,o_y1,o_y2,o_fx1,o_fx2,o_fy1,o_fy2,i)
+subroutine o_set(x1,x2,y1,y2,fx1,fx2,fy1,fy2,i)
 
   implicit none
 
-  real,    intent(in) :: o_x1,o_x2,o_y1,o_y2,o_fx1,o_fx2,o_fy1,o_fy2
+  real,    intent(in) :: x1,x2,y1,y2,fx1,fx2,fy1,fy2
   integer, intent(in) :: i
-  real                :: x1,x2,y1,y2,fx1,fx2,fy1,fy2
-
-  x1 = o_x1
-  x2 = o_x2
-  y1 = o_y1
-  y2 = o_y2
-  fx1 = o_fx1
-  fx2 = o_fx2
-  fy1 = o_fy1
-  fy2 = o_fy2
 
   call set(x1,x2,y1,y2,fx1,fx2,fy1,fy2,i)
 
@@ -251,19 +184,12 @@ end subroutine o_set
 
 !===============================================================================
 
-subroutine o_plchhq(o_x,o_y,chr,o_r1,o_r2,o_r3)
+subroutine o_plchhq(x,y,chr,r1,r2,r3)
 
   implicit none
 
-  real,         intent(in) :: o_x,o_y,o_r1,o_r2,o_r3
+  real,         intent(in) :: x,y,r1,r2,r3
   character(*), intent(in) :: chr
-  real                     :: x,y,r1,r2,r3
-
-  x = o_x
-  y = o_y
-  r1 = o_r1
-  r2 = o_r2
-  r3 = o_r3
 
   call plchhq(x,y,chr,r1,r2,r3)
 
@@ -271,19 +197,12 @@ end subroutine o_plchhq
 
 !===============================================================================
 
-subroutine o_plchmq(o_x,o_y,chr,o_r1,o_r2,o_r3)
+subroutine o_plchmq(x,y,chr,r1,r2,r3)
 
   implicit none
 
-  real,         intent(in) :: o_x,o_y,o_r1,o_r2,o_r3
+  real,         intent(in) :: x,y,r1,r2,r3
   character(*), intent(in) :: chr
-  real                     :: x,y,r1,r2,r3
-
-  x = o_x
-  y = o_y
-  r1 = o_r1
-  r2 = o_r2
-  r3 = o_r3
 
   call plchmq(x,y,chr,r1,r2,r3)
 
@@ -291,19 +210,12 @@ end subroutine o_plchmq
 
 !===============================================================================
 
-subroutine o_plchlq(o_x,o_y,chr,o_r1,o_r2,o_r3)
+subroutine o_plchlq(x,y,chr,r1,r2,r3)
 
   implicit none
 
-  real,         intent(in) :: o_x,o_y,o_r1,o_r2,o_r3
+  real,         intent(in) :: x,y,r1,r2,r3
   character(*), intent(in) :: chr
-  real                     :: x,y,r1,r2,r3
-
-  x = o_x
-  y = o_y
-  r1 = o_r1
-  r2 = o_r2
-  r3 = o_r3
 
   call plchlq(x,y,chr,r1,r2,r3)
 
@@ -311,38 +223,31 @@ end subroutine o_plchlq
 
 !===============================================================================
 
-subroutine o_sfsgfa(o_x,o_y,nr,icolor)
+subroutine o_sfsgfa(x,y,nr,icolor)
 
   implicit none
 
-  real,    intent(in) :: o_x(*),o_y(*)
-  integer, intent(in) :: nr,icolor
-  integer             :: ind(18)
-  real                :: dst(12)
-  real, dimension(nr) :: x,y
+  real,    intent(in) :: x(nr), y(nr)
+  integer, intent(in) :: nr, icolor
+! integer             :: ind(21)
+! real                :: dst(14)
+!
+!  call sfsgfa(x,y,nr,dst,14,ind,21,icolor)
 
-  x(1:nr) = o_x(1:nr)
-  y(1:nr) = o_y(1:nr)
-
-  call sfsgfa (x,y,nr,dst,12,ind,18,icolor)
+  call gsfaci(icolor)
+  call gfa(nr,x,y)
 
 end subroutine o_sfsgfa
 
 !===============================================================================
 
-subroutine o_hls(iwk,ic,o_h,o_l,o_s)
+subroutine o_hls(iwk,ic,h,l,s)
 
   implicit none
 
   integer, intent(in) :: iwk,ic
-  real,    intent(in) :: o_h,o_l,o_s
- 
-  real :: h,l,s
-  real :: r,g,b
-
-  h = o_h
-  l = o_l
-  s = o_s
+  real,    intent(in) :: h,l,s
+  real                :: r,g,b
 
   call hlsrgb (h,l,s,r,g,b)
   call gscr (iwk,ic,r,g,b)
@@ -351,18 +256,12 @@ end subroutine o_hls
 
 !===============================================================================
 
-subroutine o_gscr(iwk,ic,o_r,o_g,o_b)
+subroutine o_gscr(iwk,ic,r,g,b)
 
   implicit none
 
   integer, intent(in) :: iwk, ic
-  real,    intent(in) :: o_r, o_g, o_b
-
-  real :: r, g, b
-
-  r = o_r
-  g = o_g
-  b = o_b
+  real,    intent(in) :: r, g, b
 
   call gscr (iwk, ic, r, g, b)
 
@@ -442,6 +341,18 @@ end subroutine o_gsfais
 
 !===============================================================================
 
+subroutine o_gslwsc(x)
+
+  implicit none
+
+  real, intent(in) :: x
+
+  call gslwsc(x)
+
+end subroutine o_gslwsc
+
+!===============================================================================
+
 subroutine o_sfseti(a,i)
 
   implicit none
@@ -459,7 +370,11 @@ subroutine o_sflush()
 
   implicit none
 
-  call sflush()
+! Flushes line buffers, updates worksatations, and flushes all I/O buffers:
+! call sflush()
+
+! Just flushing the line buffers is probably all that is necessary:
+  call plotif(0.,0.,2)
 
 end subroutine o_sflush
 
@@ -472,6 +387,29 @@ subroutine o_mapint()
   call mapint()
 
 end subroutine o_mapint
+
+!===============================================================================
+
+subroutine o_mapgrd()
+
+  implicit none
+
+  call mapgrd()
+
+end subroutine o_mapgrd
+
+!===============================================================================
+
+subroutine o_mapstr(a,r)
+
+  implicit none
+
+  character(*), intent(in) :: a
+  real,         intent(in) :: r
+
+  call mapstr(a,r)
+
+end subroutine o_mapstr
 
 !===============================================================================
 
@@ -510,6 +448,19 @@ end subroutine o_maplot
 
 !===============================================================================
 
+subroutine o_mplndr(a,i)
+
+  implicit none
+
+  character(*), intent(in) :: a
+  integer,      intent(in) :: i
+
+  call mplndr(a,i)
+
+end subroutine o_mplndr
+
+!===============================================================================
+
 subroutine o_pcsetr(a,r)
 
   implicit none
@@ -533,6 +484,19 @@ subroutine o_pcseti(a,i)
   call pcseti(a,i)
 
 end subroutine o_pcseti
+
+!===============================================================================
+
+subroutine o_gngpat(a,b,i)
+
+  implicit none
+
+  character(*), intent( in) :: a, b
+  integer,      intent(out) :: i
+
+  call gngpat(a,b,i)
+
+end subroutine o_gngpat
 
 !===============================================================================
 

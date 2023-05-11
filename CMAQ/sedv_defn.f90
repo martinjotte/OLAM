@@ -22,7 +22,7 @@ module sedv_defn
   implicit none
 
   ! no. of surrogates for aero settling velocities
-  integer, parameter :: n_ae_sed_spc = 6 
+  integer, parameter :: n_ae_sed_spc = 6
 
   ! set up species indices for settling velocity internal array vsed
   integer, parameter :: vgnacc = 1, & ! accumulation mode number
@@ -54,22 +54,23 @@ contains
 
   !:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-  subroutine aero_sedi( mrl )
+  subroutine aero_sedi( )
 
     use mem_ijtabs,  only: jtab_w, jtw_prog
     use mem_grid,    only: mwa
     use utilio_defn, only: index1, xstat1, m3exit, init3
     use cgrid_spcs,  only: n_ae_spc, n_ae_depv, ae_depv
+    use oname_coms,  only: nl
 
     implicit none
-
-    integer, intent(in) :: mrl
 
     integer :: j, iw, v, n
     integer :: astat
 
     character( 120 )           :: xmsg = ' '
     character( 16 ), parameter :: pname = 'aero_sedi'
+
+    if (nl%do_aesedi == 0) return
 
     if ( firstime ) then
 
@@ -102,12 +103,12 @@ contains
           end if
        end do
 
-       allocate(sedi_sfc( n_ae_spc, mwa )) ; sedi_sfc( :,: ) = 0.0
+       allocate(sedi_sfc( n_ae_spc, mwa )) ; sedi_sfc = 0.0
 
     endif  ! firstime
 
     !$omp parallel do private(iw)
-    do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+    do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
        call aero_sedi2( iw )
 
@@ -122,7 +123,6 @@ contains
 
     use mem_grid,    only: mza, lpw, volt, volti, arw, voa0, &
                            lsw, zm, zfacm2, zfacim2
-    use mem_ijtabs,  only: itab_w
     use misc_coms,   only: dtlm
     use cgrid_spcs,  only: n_gc_spc, n_ae_spc
     use cgrid_defn,  only: cgrid
@@ -143,7 +143,7 @@ contains
 
     call aero_sedv( iw, vsed_ae )
 
-    dt = dtlm(itab_w(iw)%mrlw)
+    dt = dtlm
 
     ! Ratio of grid cell volume to top horizontal area arw projected onto W(k-1) level
 
@@ -237,16 +237,18 @@ contains
     ! used Binkowski`s aerosol dry deposition routine as a guide
     ! 08 Feb 13 J.Young: initial
     ! 20 Jun 14 J.Young: restructure
-    ! 22 Oct 14 J.Bash:  replaced P0 with STDATMPA from CONST.EXT and shared 
+    ! 22 Oct 14 J.Bash:  replaced P0 with STDATMPA from CONST.EXT and shared
     !                    variables in the asx_data_mod
     !-----------------------------------------------------------------------
 
-    use aero_data     ! aero variable data
-    use const_data, only: stdatmpa, grav
+    use aero_data,  only: aer_str, aer_end, aer_num, aer_m3, mode_map, aer_trac, &
+                          n_mode, aeromode, m0_min, m2_min, num_str, srf_str
+    use const_data, only: stdatmpa, grav, oneovpi
     use mem_grid,   only: mza, lpw
     use mem_basic,  only: tair, press
     use cgrid_defn, only: cgrid
-    use getpar_mod, only: getpar
+    use getpar_mod, only: getpar, getdens_conc
+    use cgrid_spcs, only: nspcsd, ae_strt, ae_fini
 
     implicit none
 
@@ -261,31 +263,27 @@ contains
 
     ! Local variables:
 
-    real :: xxlsgac   ! log of stnd dev
-    real :: xxlsgco
-    real :: dgacc     ! geometric mean diameter
-    real :: dgcor  
-    real :: pdensac   ! particle density
-    real :: pdensco
+    real :: xxlsgac(mza)   ! log of stnd dev
+    real :: xxlsgco(mza)
+    real :: dgacc  (mza)   ! geometric mean diameter
+    real :: dgcor  (mza)
+    real :: pdensac(mza)   ! particle density
+    real :: pdensco(mza)
 
     real :: airtemp
     real :: airpres
 
-    real :: xlm       ! mean free path [ m ]
-    real :: amu       ! dynamic viscosity [ kg/m/s ]
+    real :: xlm
+    real :: amu
 
-    integer :: l      ! loop counters
+    integer :: k, i, n, s  ! loop counters
+
+    real :: conc(nspcsd)
 
     ! modal Knudsen numbers X bhat
 
-    real :: bknacc   ! accumulation mode 
+    real :: bknacc   ! accumulation mode
     real :: bkncor   ! coarse mode
-
-    ! modal sedimentation velocities for 0th (number), 2nd (srf area), and 3rd (mass) moments
-
-    real :: vghat0a, vghat0c
-    real :: vghat2a, vghat2c
-    real :: vghat3a, vghat3c
 
     real :: dconst2, dconst3a, dconst3c
     real :: bxlm
@@ -309,43 +307,70 @@ contains
     real :: esac07           ! accumu mode " ** 28
     real :: esco07           ! coarse      "
 
-    real :: esac12           ! accumu mode " ** 48    
-    real :: esco12           ! coarse      "     
+    real :: esac12           ! accumu mode " ** 48
+    real :: esco12           ! coarse      "
 
     real :: esac16           ! accumu mode " ** 64
     real :: esco16           ! coarse      "
 
+    real :: aeromode_mass(n_mode)
+    real :: aeromode_dens(n_mode)
+    real :: aeromode_lnsg(n_mode)
+    real :: aeromode_diam(n_mode)
+    real :: moment0_conc (n_mode)
+    real :: moment2_conc (n_mode)
+    real :: moment3_conc (n_mode)
+    real :: m3           (aer_num)
+
     !-----------------------------------------------------------------------
 
-    do l = lpw(iw), mza
-
-       ! Set meteorological data for the grid cell.
-
-       airtemp = tair ( l,iw )
-       airpres = press( l,iw )
+    do k = lpw(iw), mza
 
        ! extract grid cell concentrations of aero species from CGRID
-       ! into aerospc_conc in aero_data module
-       ! Also converts dry surface area to wet 2nd moment
 
-       call extract_aero( cgrid( l,iw,: ), .true. )  ! set minimum floor
+       conc(ae_strt:ae_fini) = cgrid(k,iw,ae_strt:ae_fini)
 
-       ! Get the geometric mean diameters and standard deviations of the
-       ! "wet" size distribution
+       ! compute aerosol moments directly from concentration array
 
-       call getpar( .false., noM3=.true. )
-                       ! do not fix stnd dev`s to existing value
+       m3 = conc(aer_str:aer_end) * aer_m3
+
+       do i = 2, 3
+          n = num_str + i - 1
+          s = srf_str + i - 1
+          moment3_conc( i ) = Max( sum(m3, mask=(mode_map==i .and. .not. aer_trac) ), &
+                                   aeromode( i )%min_m3conc )
+          moment0_conc( i ) = Max( conc( n ), m0_min( i ) )
+          moment2_conc( i ) = Max( conc( s ) * oneovpi, m2_min( i ) )
+       enddo
+
+       ! compute aerosol diameters and geometric standard deviation
+
+       call getpar( .false., moment0_conc, moment2_conc, moment3_conc, &
+                     aeromode_lnsg, aeromode_diam, 2, 3 )
+
+       ! Compute mean particle densities
+
+       call getdens_conc(aeromode_mass, aeromode_dens, conc, moment3_conc, 2, 3)
 
        ! Save getpar values
 
-       xxlsgac = aeromode_lnsg( 2 )
-       xxlsgco = aeromode_lnsg( 3 )
+       xxlsgac(k) = aeromode_lnsg( 2 )
+       xxlsgco(k) = aeromode_lnsg( 3 )
 
-       dgacc   = aeromode_diam( 2 )
-       dgcor   = aeromode_diam( 3 )
+       dgacc(k)   = aeromode_diam( 2 )
+       dgcor(k)   = aeromode_diam( 3 )
 
-       pdensac = aeromode_dens( 2 )
-       pdensco = aeromode_dens( 3 )
+       pdensac(k) = aeromode_dens( 2 )
+       pdensco(k) = aeromode_dens( 3 )
+    enddo
+
+
+    do k = lpw(iw), mza
+
+       ! Set meteorological data for the grid cell.
+
+       airtemp = tair ( k,iw )
+       airpres = press( k,iw )
 
        ! Calculate mean free path [ m ]:
 
@@ -358,13 +383,13 @@ contains
        ! Calculate Knudsen numbers * bhat
 
        bxlm = bhat * xlm
-       bknacc = bxlm / dgacc
-       bkncor = bxlm / dgcor
+       bknacc = bxlm / dgacc(k)
+       bkncor = bxlm / dgcor(k)
 
        ! Calculate functions of variable standard deviation
 
-       l2sgac = xxlsgac * xxlsgac
-       l2sgco = xxlsgco * xxlsgco
+       l2sgac = xxlsgac(k) * xxlsgac(k)
+       l2sgco = xxlsgco(k) * xxlsgco(k)
 
        esac01  = exp( 0.5 * l2sgac )
        esco01  = exp( 0.5 * l2sgco )
@@ -388,37 +413,23 @@ contains
        esco16  = esco12 * esco04
 
        dconst2  = grav / ( 18.0 * amu )
-       dconst3a = dconst2 * pdensac * dgacc * dgacc
-       dconst3c = dconst2 * pdensco * dgcor * dgcor
+       dconst3a = dconst2 * pdensac(k) * dgacc(k) * dgacc(k)
+       dconst3c = dconst2 * pdensco(k) * dgcor(k) * dgcor(k)
 
-       ! acc mode
+       ! acc mode settling velocities
 
-       vghat0a  = dconst3a * ( esac04  + bknacc * esac01 )
-       vghat2a  = dconst3a * ( esac12  + bknacc * esac05 )
-       vghat3a  = dconst3a * ( esac16  + bknacc * esac07 )
+       vsed_ae( k,vgnacc ) = dconst3a * ( esac04  + bknacc * esac01 ) ! 0th moment for number
+       vsed_ae( k,vgsacc ) = dconst3a * ( esac12  + bknacc * esac05 ) ! 2nd moment for area
+       vsed_ae( k,vgmacc ) = dconst3a * ( esac16  + bknacc * esac07 ) ! 3rd moment for mass
 
-       ! coarse mode
+       ! coarse mode settling velocities
 
-       vghat0c  = dconst3c * ( esco04  + bkncor * esco01 )
-       vghat2c  = dconst3c * ( esco12  + bkncor * esco05 )
-       vghat3c  = dconst3c * ( esco16  + bkncor * esco07 )
-
-       ! settling velocities
-
-       ! vsed of 0th moment for the number 
-       vsed_ae( l,vgnacc ) = vghat0a   ! accum mode
-       vsed_ae( l,vgncor ) = vghat0c   ! coarse mode
-
-       ! vsed of 2nd moment for the surface area 
-       vsed_ae( l,vgsacc ) = vghat2a   ! accum mode
-       vsed_ae( l,vgscor ) = vghat2c   ! coarse mode
-
-       ! vsed of 3rd moment for the mass 
-       vsed_ae( l,vgmacc ) = vghat3a   ! accum mode
-       vsed_ae( l,vgmcor ) = vghat3c   ! coarse mode
+       vsed_ae( k,vgncor ) = dconst3c * ( esco04  + bkncor * esco01 ) ! 0th moment for number
+       vsed_ae( k,vgscor ) = dconst3c * ( esco12  + bkncor * esco05 ) ! 2nd moment for area
+       vsed_ae( k,vgmcor ) = dconst3c * ( esco16  + bkncor * esco07 ) ! 3rd moment for mass
 
     end do
-    
+
   end subroutine aero_sedv
 
 end module sedv_defn

@@ -2,13 +2,13 @@
  * NCEP_uv
  *
  * duplicate ncep files by puting U and V into one grib messsage
- *  
+ *
  * U and V must be adjacent
  *
  * if (cleanup) {
  *    if (saved_U) write saved_U
  *    return
- *  } 
+ *  }
  *  if (saved_U) {
  *     if (current_message != V) {
  *        write saved_U
@@ -44,14 +44,15 @@ int f_ncep_uv(ARG1) {
     struct local_struct {
 	int has_U;
         unsigned char *sec[9];
-        FILE *output;
+	struct seq_file out;
     };
 
     struct local_struct *save;
     int i, is_u, is_v;
-    unsigned long int size;
+    unsigned int sec_size;
+    size_t size;
     char name[NAMELEN];
-    unsigned char s[8];
+    unsigned char s[16];
 
     if (mode == -1) {		// initialization
 
@@ -59,9 +60,9 @@ int f_ncep_uv(ARG1) {
 
         *local = save = (struct local_struct *) malloc( sizeof(struct local_struct) );
         if (save == NULL) fatal_error("NCEP_uv: memory allocation","");
-
-        if ((save->output = ffopen(arg1, file_append ? "ab" : "wb")) == NULL) {
-            fatal_error("NCEP_uv: could not open file %s", arg1);
+        if (fopen_file(&(save->out), arg1, file_append ? "ab" : "wb") != 0) {
+            free(save);
+            fatal_error("Could not open %s", arg1);
         }
 	save->has_U = 0;
         init_sec(save->sec);
@@ -72,12 +73,12 @@ int f_ncep_uv(ARG1) {
 
     if (mode == -2)  {		// cleanup
 	if (save->has_U) {
-	   i = wrt_sec(save->sec[0], save->sec[1], save->sec[2], save->sec[3], 
-		save->sec[4], save->sec[5], save->sec[6], save->sec[7], save->output);
+	   i = wrt_sec(save->sec[0], save->sec[1], save->sec[2], save->sec[3],
+		save->sec[4], save->sec[5], save->sec[6], save->sec[7], &(save->out));
 	   if (i) fatal_error_i("NCEP_uv: last record problem %i",i);
            free_sec(save->sec);
 	}
-	ffclose(save->output);
+	fclose_file(&(save->out));
         free(save);
 	return 0;
     }
@@ -86,6 +87,9 @@ int f_ncep_uv(ARG1) {
         i = getName(sec, mode, NULL, name, NULL, NULL);
         is_u = strcmp(name,"UGRD") == 0;
 	is_v = 1;
+
+	// is_u and has_U are defined
+	//   is_v is true if same metadata as saved U field and but VGRD
 	if (save->has_U && is_v) {
             if (same_sec0(sec,save->sec) == 0) is_v = 0;
             if (same_sec1(sec,save->sec) == 0) is_v = 0;
@@ -101,7 +105,7 @@ int f_ncep_uv(ARG1) {
 
 	// merge U and V
 	if (save->has_U && is_v) {
-	    size = (unsigned long int) GB2_Sec0_size + GB2_Sec8_size +
+	    size = (size_t) GB2_Sec0_size + GB2_Sec8_size +
 	    (sec[1] ? uint4(sec[1]) : 0) +
 	    (sec[2] ? uint4(sec[2]) : 0) +
 	    (sec[3] ? uint4(sec[3]) : 0) +
@@ -114,57 +118,33 @@ int f_ncep_uv(ARG1) {
 	    (save->sec[6] ? uint4(save->sec[6]) : 0) +
 	    (save->sec[7] ? uint4(save->sec[7]) : 0);
 
-	    fwrite((void *) sec[0], sizeof(char), 8, save->output);
-            uint8_char(size, s);
-            fwrite((void *) s, sizeof(char), 8, save->output);
+	    // section 0
+	    for (i = 0; i < 8; i++) s[i] = sec[0][i];
+            uint8_char(size, s+8);
+            fwrite_file((void *) s, sizeof(char), 16, &(save->out));
 
-	    if (sec[1]) {
-		i = uint4(sec[1]);
-	        if (fwrite((void *)sec[1], sizeof(char), i, save->output) != i) return 1;
+	    for (i = 1; i <= 3; i++) {
+		if (sec[i]) {
+		   sec_size = uint4(sec[i]);
+	           if (fwrite_file((void *)sec[i], sizeof(char), sec_size, &(save->out)) != sec_size) return 1;
+		}
 	    }
-	    if (sec[2]) {
-		i = uint4(sec[2]);
-	        if (fwrite((void *)sec[2], sizeof(char), i, save->output) != i) return 1;
+	    for (i = 4; i <= 7; i++) {
+		if (save->sec[i]) {
+		   sec_size = uint4(save->sec[i]);
+	           if (fwrite_file((void *)save->sec[i], sizeof(char), sec_size, &(save->out)) != sec_size) return 1;
+		}
 	    }
-	    if (sec[3]) {
-		i = uint4(sec[3]);
-	        if (fwrite((void *)sec[3], sizeof(char), i, save->output) != i) return 1;
-	    }
-	    if (save->sec[4]) {
-		i = uint4(save->sec[4]);
-	        if (fwrite((void *)save->sec[4], sizeof(char), i, save->output) != i) return 1;
-	    }
-	    if (save->sec[5]) {
-		i = uint4(save->sec[5]);
-	        if (fwrite((void *)save->sec[5],sizeof(char), i, save->output) != i) return 1;
-	    }
-	    if (save->sec[6]) {
-		i = uint4(save->sec[6]);
-	        if (fwrite((void *)save->sec[6],sizeof(char), i, save->output) != i) return 1;
-	    }
-	    if (save->sec[7]) {
-		i = uint4(save->sec[7]);
-	        if (fwrite((void *)save->sec[7],sizeof(char), i, save->output) != i) return 1;
-	    }
-	    if (sec[4]) {
-		i = uint4(sec[4]);
-	        if (fwrite((void *)sec[4], sizeof(char), i, save->output) != i) return 1;
-	    }
-	    if (sec[5]) {
-		i = uint4(sec[5]);
-	        if (fwrite((void *)sec[5], sizeof(char), i, save->output) != i) return 1;
-	    }
-	    if (sec[6]) {
-		i = uint4(sec[6]);
-	        if (fwrite((void *)sec[6], sizeof(char), i, save->output) != i) return 1;
-	    }
-	    if (sec[7]) {
-		i = uint4(sec[7]);
-	        if (fwrite((void *)sec[7], sizeof(char), i, save->output) != i) return 1;
+	    for (i = 4; i <= 7; i++) {
+		if (sec[i]) {
+		   sec_size = uint4(sec[i]);
+	           if (fwrite_file((void *)sec[i], sizeof(char), sec_size, &(save->out)) != sec_size) return 1;
+		}
 	    }
 
+	    // section 8
             s[0] = s[1] = s[2] = s[3] = 55; /* s = "7777" */
-            if (fwrite((void *) s, sizeof(char), 4, save->output) != 4) return 1;
+            if (fwrite_file((void *) s, sizeof(char), 4, &(save->out)) != 4) return 1;
 
 	    save->has_U = 0;
 	    free_sec(save->sec);
@@ -173,8 +153,8 @@ int f_ncep_uv(ARG1) {
 
 	// U and not V
 	if (save->has_U) {
-	   i = wrt_sec(save->sec[0], save->sec[1], save->sec[2], save->sec[3], 
-		save->sec[4], save->sec[5], save->sec[6], save->sec[7], save->output);
+	   i = wrt_sec(save->sec[0], save->sec[1], save->sec[2], save->sec[3],
+		save->sec[4], save->sec[5], save->sec[6], save->sec[7], &(save->out));
 	   if (i) fatal_error_i("NCEP_uv: last field problem %i",i);
 	   free_sec(save->sec);
 	   save->has_U = 0;
@@ -187,7 +167,7 @@ int f_ncep_uv(ARG1) {
 	    return 0;
 	}
 
-	i = wrt_sec(sec[0], sec[1], sec[2], sec[3], sec[4], sec[5], sec[6], sec[7], save->output);
+	i = wrt_sec(sec[0], sec[1], sec[2], sec[3], sec[4], sec[5], sec[6], sec[7], &(save->out));
 	if (i) fatal_error_i("NCEP_uv: write problem %i",i);
 	return 0;
     }

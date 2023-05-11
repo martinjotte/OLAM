@@ -23,11 +23,11 @@
 int f_set_ts_dates(ARG3) {
 
     int year, month, day, hour, minute, second, i, j, units, n;
-    unsigned int dtime;
+    int dtime;
     struct local_struct {
         int year, month, day, hour, minute, second;
         int unit;
-	unsigned int dtime;
+	int dtime;
 	int count, block_size;
     } *save;
 
@@ -38,7 +38,7 @@ int f_set_ts_dates(ARG3) {
 	save->month = save->day = 1;
 	save->hour = save->minute = save->second = 0;
 
-	i = sscanf(arg1,"%4d%2d%2d%2d%2d%2d" , &(save->year), &(save->month), 
+	i = sscanf(arg1,"%4d%2d%2d%2d%2d%2d" , &(save->year), &(save->month),
 		&(save->day), &(save->hour), &(save->minute), &(save->second));
 
 	save->dtime = 0;
@@ -47,7 +47,7 @@ int f_set_ts_dates(ARG3) {
 
         if (sscanf(arg2,"%i%n", &i, &n) != 1) fatal_error("set_ts_date: bad dt=%s",arg2);
 	if (i < 0) fatal_error("set_ts_date: dt has to be positive %s",arg2);
-	save->dtime =  (unsigned int) i;
+	save->dtime =  i;
 	arg2 += n;
 
 	if (strcmp(arg2,"second") == 0) save->unit = 13;
@@ -90,7 +90,7 @@ int f_set_ts_dates(ARG3) {
     save_time(year,month,day,hour,minute,second, sec[1]+12);
 
     j = stat_proc_n_time_ranges_index(sec);
-    if (j == -1) return 0;
+    if (j == -1) return 0;	// return if not stat proc
     n = sec[4][j];              // number of stat proc elements
     j = j - 7;			// j is now the index to the start of end date code
 
@@ -104,7 +104,7 @@ int f_set_ts_dates(ARG3) {
         // add statistical processing time to time
         units = (int) sec[4][48-34+j+i*12];
         dtime = uint4(sec[4]+49-34+j+i*12);
-       add_time(&year, &month, &day, &hour, &minute, &second, dtime, units);
+        add_time(&year, &month, &day, &hour, &minute, &second, (unsigned int) dtime, units);
     }
 
     save_time(year,month,day,hour,minute,second, sec[4]+j);

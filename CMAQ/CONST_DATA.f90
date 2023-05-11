@@ -1,6 +1,6 @@
 
 ! RCS file, release, date & time of last delta, author, state, [and locker]
-! $Header: /project/yoj/arc/ICL/src/fixed/const/CONST.EXT,v 1.4 2012/01/18 20:01:03 yoj Exp $ 
+! $Header: /project/yoj/arc/ICL/src/fixed/const/CONST.EXT,v 1.4 2012/01/18 20:01:03 yoj Exp $
 
 ! what(1) key, module and SID; SCCS file; date and time of last delta:
 ! @(#)CONST.EXT 4.1 /project/mod3/ICL/src/fixed/const/SCCS/s.CONST.EXT 29 May 1997 10:50:26
@@ -10,43 +10,43 @@
 module const_data
 
 !  INCLUDE FILE  CONST.EXT
- 
+
 !  Contains:  Fundamental constants for air quality modeling
- 
+
 !  Dependent Upon:  none
- 
-!  Revision History: 
- 
+
+!  Revision History:
+
 !    Adapted 6/92 by CJC from ROM's PI.EXT.
- 
+
 !    3/1/93 John McHenry - include constants needed by LCM aqueous chemistry
 !    9/93 by John McHenry - include additional constants needed for FMEM clouds
 !    and aqueous chemistry
- 
+
 !    3/4/96 Dr. Francis S. Binkowski - reflect current Models3 view that MKS
 !    units should be used wherever possible and that sources be documented.
 !    Some variables have been added, names changed, and values revised.
- 
+
 !    3/7/96 - add universal gas constant and compute gas constant in chemical
-!    form. TWOPI is now calculated rather than input. 
- 
+!    form. TWOPI is now calculated rather than input.
+
 !    3/13/96 - group declarations and parameter statements
 !    9/13/96 - include more physical constants
 !    12/24/96 - eliminate silly EPSILON, AMISS
 !    1/06/97 - eliminate most derived constants - YOJ
-!    1/17/97 (comments only) to provide numerical values as reference - DWB 
+!    1/17/97 (comments only) to provide numerical values as reference - DWB
 !    4/30/08 - Changed REARTH to match default value in MM5 and WRF - TLO
 !    12/22/11 - upgraded non-standard code to F95
- 
+
 ! FSB References:
- 
+
 !      CRC76,        "CRC Handbook of Chemistry and Physics (76th Ed)",
-!                     CRC Press, 1995 
+!                     CRC Press, 1995
 !      Hobbs, P.V.   "Basic Physical Chemistry for the Atmospheric Sciences",
-!                     Cambridge Univ. Press, 206 pp, 1995.  
+!                     Cambridge Univ. Press, 206 pp, 1995.
 !      Snyder, J.P., "Map Projections-A Working Manual, U.S. Geological Survey
 !                     Paper 1395 U.S.GPO, Washington, DC, 1987.
-!      Stull, R. B., "An Introduction to Bounday Layer Meteorology", Kluwer, 
+!      Stull, R. B., "An Introduction to Bounday Layer Meteorology", Kluwer,
 !                     Dordrecht, 1988
 !.......................................................................
 
@@ -62,7 +62,7 @@ module const_data
   Real,      Parameter :: f6pi = 6.0 / pi
   Real( 8 ), Parameter :: dpi6 = dpi / 6.0D0
   Real,      Parameter :: pi6 = pi / 6.0
-  
+
   Real,      Parameter :: oneovpi  = 1.0 / pi
   Real,      Parameter :: f6piove9 = 6.0 / pi * 1.0e-9
 
@@ -71,17 +71,17 @@ module const_data
   Real( 8 ), Parameter :: dmin_gasconc = 1.0D-30        ! [ ug/m^3 ]
 
 ! Geodetic Constants:
- 
+
 ! radius of the earth [ m ]
 ! FSB: radius of sphere having same surface area as
 ! Clarke ellipsoid of 1866 ( Source: Snyder, 1987)
 ! REAL, PARAMETER :: REARTH = 6370997.0
   REAL, PARAMETER :: REARTH = 6370000.0    ! default Re in MM5 and WRF
- 
+
 ! length of a sidereal day [ sec ]
-! FSB: Source: CRC76 pp. 14-6 
+! FSB: Source: CRC76 pp. 14-6
   REAL, PARAMETER :: SIDAY = 86164.09
- 
+
 ! mean gravitational acceleration [ m/sec**2 ]
 ! FSB: Value is mean of polar and equatorial values.
 ! Source: CRC Handbook (76th Ed) pp. 14-6
@@ -90,7 +90,7 @@ module const_data
 ! latitude degrees to meters
   REAL, PARAMETER :: DG2M = REARTH * PI180
 
-! Solar Constant: 
+! Solar Constant:
 ! Solar constant [ W/m**2 ], p14-2 CRC76
   REAL, PARAMETER :: SOLCNST = 1373.0
 
@@ -108,7 +108,7 @@ module const_data
 ! The NIST Reference on Constants, Units, and Uncertainty. US National
 ! Institute of Standards and Technology. June 2015. Retrieved 2017-04-21.
 ! http://physics.nist.gov/cgi-bin/cuu/Value?r
-  REAL, PARAMETER :: DRGASUNIV = 8.314459848D0
+  REAL( 8 ), PARAMETER :: DRGASUNIV = 8.314459848D0
 
   Real( 8 ), Parameter :: boltzmann = drgasuniv / davo  ! [ J/K ]
 
@@ -121,13 +121,13 @@ module const_data
 ! Stefan-Boltzmann [ W/(m**2 K**4) ]
   REAL, PARAMETER :: STFBLZ = 5.67051E-8
 
-! Molar volume at STP [ L/mol ] Non MKS units 
+! Molar volume at STP [ L/mol ] Non MKS units
   REAL, PARAMETER :: MOLVOL = 22.41410
 
-! Atmospheric Constants: 
+! Atmospheric Constants:
 
 ! mean molecular weight for dry air [ g/mol ]
-! FSB: 78.06% N2, 21% O2, and 0.943% A on a mole 
+! FSB: 78.06% N2, 21% O2, and 0.943% A on a mole
 ! fraction basis ( Source : Hobbs, 1995) pp. 69-70
   REAL, PARAMETER :: MWAIR = 28.9628
   Real, PARAMETER :: INV_MWAIR = 1.0 / mwair  ! [ 1/g ]
@@ -149,7 +149,7 @@ module const_data
 ! to internal energy.
 
 ! specific heat of dry air at constant pressure [ J/kg-K ]
-  REAL, PARAMETER :: CPD = 7.0 * RDGAS / 2.0            ! 1004.7642148 
+  REAL, PARAMETER :: CPD = 7.0 * RDGAS / 2.0            ! 1004.7642148
 
 ! specific heat of dry air at constant volume [ J/kg-K ]
   REAL, PARAMETER :: CVD = 5.0 * RDGAS / 2.0            ! 717.68872485

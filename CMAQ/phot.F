@@ -154,7 +154,7 @@
          else
             jyfreq = twopi / 365.0
          endif
- 
+
          ! Interpolate Mclatchy soundings between summer and winter values,
          ! and prepare spline coefficients for interpolation by latitude.
 
@@ -169,7 +169,7 @@
          ! MAIN loop over all rows and columns
 
          !$omp parallel do private(iw,koff,nlays,nlays_model) schedule(guided)
-         do j = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(j)
+         do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
             ! K index offset for radiation column arrays
             koff = lpw(iw) - 1
@@ -189,7 +189,7 @@
 
 !-----------------------------------------------------------------------
 
-      subroutine phot1( iw, currhr, julian_day, jyfreq, 
+      subroutine phot1( iw, currhr, julian_day, jyfreq,
      &                  nlays, nlays_model, koff)
 
 ! Function:  Calculates the photolysis rate constant to be used by the
@@ -201,9 +201,9 @@
 !     DRIVER
 !
 ! Subroutines/Functions called: INIT3, M3EXIT, SUBHFILE, CGRID_MAP,
-!     OPPHOT, LOAD_CSQY_DATA, LOAD_OPTICS_DATA, INITIALIZE_ALBEDO, 
-!     GET_PHOT_MET, UPDATE_SUN, GET_ALBEDO, GET_DROPLET_OPTICS, 
-!     GET_ICE_OPTICS, GET_AGGREGATE_OPTICS, CLEAR_HYDROMETEOR_OPTICS, 
+!     OPPHOT, LOAD_CSQY_DATA, LOAD_OPTICS_DATA, INITIALIZE_ALBEDO,
+!     GET_PHOT_MET, UPDATE_SUN, GET_ALBEDO, GET_DROPLET_OPTICS,
+!     GET_ICE_OPTICS, GET_AGGREGATE_OPTICS, CLEAR_HYDROMETEOR_OPTICS,
 !     GET_AERO_DATA, O3TOTCOL, and NEW_OPTICS
 !
 ! Revision History.
@@ -264,7 +264,7 @@
 !                          3) reading and calculation of met and geo data
 !                             now acomplished by a fortran module
 !                          4) changed description and accounting of cloud effects
-!                             from 2D liquid water clouds to 3D resolved and subgrid 
+!                             from 2D liquid water clouds to 3D resolved and subgrid
 !                             clouds with multi-phases of water
 !                          5) inserted calculation of aerosol optical properites via
 !                             fortran module to improve efficiency in radiative
@@ -296,15 +296,13 @@ C...modules
       use mem_radiate, only: cloud_frac
       use mem_grid,    only: mza, glatw, glonw, zt, zm, lpw, dzt
       use cgrid_defn
-      use mem_basic,   only: tair, press, rho, sh_v
+      use mem_basic,   only: tair, press, rho, rr_v
       use consts_coms, only: r8, t00, alvl, eps_vap, cp
       use mem_mclat,   only: rad_mclat
       use cmaq_cloud
-      use micro_coms,  only: ncat, rxmin, emb0, reffcof, pwmasi,
-     &                       dmncof, jhabtab, emb2, zfactor_ccn
-      use mem_micro,   only: cldnum
-      use mem_cuparm,  only: kcutop, kcubot, qwcon, conprr, iactcu
+      use micro_coms,  only: ncat, reffcof, pwmasi
       use therm_lib,   only: rhovsl
+      use oname_coms,  only: nl
 
       IMPLICIT NONE
 
@@ -331,7 +329,7 @@ C...modules
       REAL, PARAMETER :: PRES_CONV = 1.0 / STDATMPA ! conversion factor Pa to atm
       REAL, PARAMETER :: ZTOA      = 50.0E3   ! height of top of atmosphere [ m ] (=50km)
                                               ! based a 2005 WRF model Documentation
-                                                 
+
       REAL, PARAMETER :: EPSLON  = 1.0E-30  ! Small number
 
       real, parameter :: mwo3    = 48.0    ! molecular weight of ozone
@@ -364,7 +362,7 @@ C...modules
 !     INTEGER V, N, MODE
 !     LOGICAL JTIME_CHK            ! To check for JTIME to write RJ values
 !     INTEGER ODATE                ! output date
-!     INTEGER OTIME                ! output time 
+!     INTEGER OTIME                ! output time
 !     INTEGER ALLOCSTAT
 
       integer :: k, nlays_chem
@@ -400,9 +398,9 @@ C...modules
       REAL MSCALE          ! combined factor to scale ppm to Molecules / cm**3
                            ! and correct for ambient temperaure and pressure
 
-      real :: sctop( nwl )
-      real :: extop( nwl )
-      real :: astop( nwl )
+      real :: sctop
+      real :: extop
+      real :: astop
 
 !     REAL, ALLOCATABLE, SAVE :: TAUO3_TOP( : )    ! optical depth of ozone above model domain
 !     REAL, ALLOCATABLE, SAVE :: TAU_RAY  ( : )    ! Rayleigh optical depth above model domain
@@ -414,7 +412,7 @@ C...modules
 !     REAL :: SSA            ( nwl )  ! aerosol single scattering albedo, column average
 
       real :: alb        ( nsw_max,nwl )  ! surface albedo
-      real :: alb_dif    ( nsw_max,nwl ) 
+      real :: alb_dif    ( nsw_max,nwl )
 
 ! FSB new arrays for new on-line cloud version
 
@@ -436,7 +434,7 @@ C...modules
       REAL :: BLKRJ  ( nlays,nphotab ) ! photolysis rates
 
 !     LOGICAL :: NEW_PROFILE    ! Has atmospheric temperature and density profile changed?
-      
+
 !...Variables for diagnostic outputs
 
 !      REAL, ALLOCATABLE, SAVE :: TOC( :,: )              ! total ozone column
@@ -449,10 +447,10 @@ C...modules
 !      REAL, ALLOCATABLE, SAVE :: CLR_TRANSMISSION( :,: ) ! diffuse transmission coefficient of clouds
 !      REAL, ALLOCATABLE, SAVE :: CLR_REFLECTION  ( :,: ) ! reflection coefficient of cloud
 !      REAL, ALLOCATABLE, SAVE :: CLR_TRANS_DIRECT( :,: ) ! direct transmission coefficient of clouds
-!#ifdef phot_debug      
+!#ifdef phot_debug
 !      REAL, ALLOCATABLE, SAVE :: ASY_CLOUD_WL( :,:,: ) ! columm average of cloud asymmetry factor
 !      REAL, ALLOCATABLE, SAVE :: SSA_CLOUD_WL( :,:,: ) ! columm average of cloud single scattering albedo
-!#endif      
+!#endif
 !      REAL, ALLOCATABLE, SAVE :: TAU_TOT_WL  ( :,:,: ) ! total optical depth
 !      REAL, ALLOCATABLE, SAVE :: TAUO3_TOP_WL( :,:,: ) ! optical depth of ozone above model domain
 !
@@ -476,21 +474,20 @@ C...modules
       real, parameter :: rliqland  = 14.0
       real, parameter :: rliqocean =  8.0
 
-      integer :: jhcat(mza,ncat) ! hydrom category table with ice habits
+      integer :: jhcat(mza,ncat+1) ! hydrom category table with ice habits
 
-      real :: rhov (mza)        ! vapor density [kg_vap/m^3]
-      real :: rx   (mza,ncat)   ! hydrom bulk spec dens [kg_hyd/kg_air]
-      real :: cx   (mza,ncat)   ! hydrom bulk number [num_hyd/kg_air]
-      real :: emb  (mza,ncat)   ! hydrom mean particle mass [kg/particle]
+      real :: rhov (mza)         ! vapor density [kg_vap/m^3]
+      real :: rx   (mza,ncat+1)  ! hydrom bulk spec dens [kg_hyd/kg_air]
+      real :: emb  (mza,ncat+1)  ! hydrom mean particle mass [kg/particle]
 
-      real :: r_ef, dmean, watp, twc, prate, tc, rh
-      logical :: dosnow
+      integer :: ktop(ncat+1)
+      real :: r_ef, watp
 
       real :: tauclds(nwl, nlays)
       real :: ssaclds(nwl, nlays)
       real :: asmclds(nwl, nlays)
 
-      integer :: mc, mcat, ih, krad, ns, nt, ib
+      integer :: mc, mcat, ih, krad, ib, iwl
 
 ! Array kradcat maps RAMS/OLAM microphysics hydrometeor categories to those
 ! represented in the cloud optics tables according to the following numbering:
@@ -539,30 +536,30 @@ C...modules
 
 !               IF ( COSZEN .LE. 0.0 ) THEN
 !                  RJ( COL,ROW, :,: ) = 0.0
-!   
+!
 !                  IF ( JTIME_CHK ) THEN
-!                     TOC( COL,ROW )             = 0.0                            
+!                     TOC( COL,ROW )             = 0.0
 !                     ETOT_SFC_WL ( COL,ROW, : ) = 0.0
 !                     TAUO3_TOP_WL( COL,ROW, : ) = 0.0
 !                     TAU_AERO_WL ( COL,ROW, : ) = 0.0
 !                     TAU_CLOUD_WL( COL,ROW, : ) = 0.0
-!#ifdef phot_debug                   
+!#ifdef phot_debug
 !                     SSA_CLOUD_WL( COL,ROW, : ) = 0.0
 !                     ASY_CLOUD_WL( COL,ROW, : ) = 0.0
-!#endif                   
+!#endif
 !                     TAU_TOT_WL( COL,ROW, : )   = 0.0
 !                     TAU       ( COL,ROW, :,: ) = 0.0
 !                     TAU_AERO  ( COL,ROW, :,: ) = 0.0
 !                     AERO_SSA  ( COL,ROW, :,: ) = 0.0
 !                     AERO_ASYM ( COL,ROW, :,: ) = 0.0
 !                     ACTINIC_FX( COL,ROW, :,: ) = 0.0
-!                   
+!
 !                     TRANSMIS_DIFFUSE( COL,ROW ) = 0.0
 !                     TRANSMIS_DIRECT ( COL,ROW ) = 0.0
 !                     REFLECT_COEFF   ( COL,ROW ) = 0.0
 !                     CLR_TRANSMISSION( COL,ROW ) = 0.0
 !                     CLR_TRANS_DIRECT( COL,ROW ) = 0.0
-!                     CLR_REFLECTION  ( COL,ROW ) = 0.0 
+!                     CLR_REFLECTION  ( COL,ROW ) = 0.0
 !                  END IF
 !
 !                  CYCLE LOOP_COLS
@@ -588,13 +585,13 @@ C...modules
 
 !...get total ozone column based on OMI observations
 !               CALL O3TOTCOL ( LAT( COL,ROW ), LON( COL,ROW ), JDATE, TOTAL_O3_COLUMN )
-            
+
 !               IF ( USE_ACM_CLOUD .OR. CLDATT ) THEN
 !                  OWATER_FRAC = MAX( ( 1.0 - SEAICE( COL,ROW ) ), 0.0 )
 !     &                        * WATER_FRACTION( COL,ROW )
 !                  SEAICE_FRAC = SEAICE( COL,ROW ) * WATER_FRACTION( COL,ROW )
 !                  SNOW_FRAC   = SNOCOV( COL,ROW )
-!                  COL_CLOUD   = PHOT_COL 
+!                  COL_CLOUD   = PHOT_COL
 !                  ROW_CLOUD   = PHOT_ROW
 !               END IF
 
@@ -627,27 +624,21 @@ C...modules
                   BLKO3 ( L ) = max(CGRID( k, iw, LGC_O3  ), 0.0) * MSCALE
                   BLKNO2( L ) = max(CGRID( k, iw, LGC_NO2 ), 0.0) * MSCALE
 
-                  rhov   ( k ) = max(0.,sh_v(k,iw)) * rho(k,iw)
-                  
+                  rhov   ( k ) = max(0.,rr_v(k,iw)) * rho(k,iw)
+
                END DO           ! loop on layers ambient conditions and gases
 
 !..calculate needed aerosol properties in column
 
-!              IF ( CORE_SHELL ) THEN
-                  CALL GET_AERO_DATA ( iw, nlays_model, koff )
-!              ELSE
-!                 CALL AERO_OPTICS_INTERNAL( COL,ROW, NLAYS, CGRID )
-!              END IF
+               if (nl%aerosol_optics_photol > 0) then
+                  call GET_AERO_DATA ( iw, nlays_model, koff )
+               endif
 
 !...Fill ozone column and any extra radiation layers at model top
 
                blkprs(mza-koff) = press(mza,iw)
                call rad_mclat( iw, nlays, koff, glatw(iw), blkdens, blkprs, blkshv, blkta,
      &                         blko3, blkzf(2:nlays+1), blkzh, blkdz, o3col=.false. )
-
-               sctop(1:nwl) = aero_scat_coef(mza-koff,1:nwl) / blkdens(mza-koff)
-               extop(1:nwl) = aero_exti_coef(mza-koff,1:nwl) / blkdens(mza-koff)
-               astop(1:nwl) = aero_asym_fac (mza-koff,1:nwl)
 
                do l = 2, nlays+1
                   blkzf(l) = blkzf(l) - zsfc
@@ -660,23 +651,33 @@ C...modules
                   mscale       = blkdens(l)   * ppm_mcm3
                   blko3  (l)   = blko3  (l)   * o3_conv * mscale / dens
                   blkno2 (l)   = 0.5e-3       * mscale
-
-                  aero_scat_coef(l,1:nwl) = sctop(1:nwl) * blkdens(l)
-                  aero_exti_coef(l,1:nwl) = extop(1:nwl) * blkdens(l)
-                  aero_asym_fac (l,1:nwl) = astop(1:nwl)
                enddo
+
+               if (nl%aerosol_optics_photol > 0) then
+                  do iwl = 1, nwl
+                     sctop = aero_scat_coef(mza-koff,iwl) / blkdens(mza-koff)
+                     extop = aero_exti_coef(mza-koff,iwl) / blkdens(mza-koff)
+                     astop = aero_asym_fac (mza-koff,iwl)
+
+                     do l = mza-koff+1, nlays
+                        aero_scat_coef(l,1:nwl) = sctop * blkdens(l)
+                        aero_exti_coef(l,1:nwl) = extop * blkdens(l)
+                        aero_asym_fac (l,1:nwl) = astop
+                     enddo
+                  enddo
+               endif
 
 ! Fill arrays rx, cx, and emb with hydrometeor properties
 
-               call cloudprep_rad(iw,lpw(iw),mcat,jhcat,rhov,rx,cx,emb)
+               call cloudprep_rad(iw,lpw(iw),mcat,jhcat,rhov,rx,emb,ktop)
 
-! Get optical properties of resolved clouds
+! Get optical properties of resolved and subgrid clouds
 
                do mc = 1, mcat
-                  do k = lpw(iw), mza
+                  do k = lpw(iw), ktop(mc)
                      krad = k - koff
 
-                     if (rx(k,mc) >= rxmin(mc) .and. emb(k,mc) >= emb0(mc)) then
+                     if (rx(k,mc) > 1.e-10) then
 
                         ! Set lower bound on cldfrac because there is condensate
                         cldfrac(krad) = max(cloud_frac(k,iw), 0.1)
@@ -698,149 +699,12 @@ C...modules
                   enddo
                enddo
 
-! Include the optical properties of subgrid convective clouds
-
-               if (iactcu(iw) == 1) then
-
-                  do k = kcubot(iw), kcutop(iw)
-                     krad = k - koff
-
-                     ! Set lower bound on cldfrac because there is condensate
-                     cldfrac(krad) = max(cloud_frac(k,iw), 0.1)
-
-                     ! water path in g/m^2
-                     watp = qwcon(k,iw) * real(rho(k,iw)) * 1000. * dzt(k)
-                     watp = watp / cldfrac(krad)
-
-                     tc = tair(k,iw) - t00
-
-                     if (tc > -10.0) then
-
-                        ! Add convective cloud water to cloud drops if warmer then -10C
-                        ih = 1
-                        l  = kradcat(ih)
-
-                        ! effective radius in microns
-                        r_ef = 1.e6 * reffcof(ih)
-     &                       * ( qwcon(k,iw) / (cldnum(iw) * zfactor_ccn(k)) ) ** pwmasi(ih)
-
-                     else
-
-                        ! Add convective cloud water to pristine ice. Diagnose habit
-                        ! from temperature and humidity
-                        rh = min( 1., rhov(k) / rhovsl(tc) )
-                        ns = max( 1, nint(100. * rh) )
-                        nt = max( 1, min(31,-nint(tc)) )
-                        ih = jhabtab(nt,ns,1)
-                        l  = kradcat(ih)
-
-                        ! Mean maximum dimension of ice crystals as a function of T
-                        ! (see Kristjansson et al., 2000, JGR)
-                        dmean = 1030.7 * exp(0.05522*(tair(k,iw)-279.5))
-
-                        ! Convert mean diameter to an effective radius using the
-                        ! microphysics power laws
-                        r_ef = reffcof(ih) / dmncof(ih) * dmean
-
-                     endif
-
-                     call lookup_cmaq_cld_optics( l, r_ef, watp, krad )
-
-                  enddo
-
-! Also include the optical properties of convective rain/snow
-
-                  if (conprr(iw) > 1.e-10) then
-
-                     ! Estimate rain/snow from parameterization used in EPA's CMAQ model
-
-                     prate = conprr(iw) * 3600.0 ! precip rate: mm / hr
-                     twc   = 0.06 * prate**0.846 ! tot wat: g / m3
-
-                     ! if entire cloud is below freezing, map to snow
-                     dosnow = all(tair(kcubot(iw):kcutop(iw),iw) < 273.)
-
-                     do k = lpw(iw), kcutop(iw)
-                        krad = k - koff
-
-                        tc = tair(k,iw) - t00
-
-                        ! Set lower bound on cldfrac because there is condensate
-                        cldfrac(krad) = max(cloud_frac(k,iw), 0.1)
-
-                        ! Water/ice path: g / m^2
-                        watp = twc * dzt(k) / cldfrac(krad)
-
-                        if (dosnow) then
-
-                           if (tc > 0.0) then
-                              ! rain
-                              mc = 2
-                              ih = 2
-                           else
-                              ! snow
-                              mc = 4
-                              rh = min( 1., rhov(k) / rhovsl(tc) )
-                              ns = max( 1, nint(100. * rh) )
-                              nt = max( 1, min(31,-nint(tc)) )
-                              ih = jhabtab(nt,ns,2)
-                           endif
-
-                        else
-
-                           if (tc > -10.) then
-                              ! rain
-                              mc = 2
-                              ih = 2
-                           else
-                              ! hail
-                              mc = 7
-                              ih = 7
-                           endif
-
-                        endif
-
-                        ! cloud optics category
-                        l  = kradcat(ih)
-
-                        ! effective radius of convctive rain/snow
-                        r_ef = 1.e6 * reffcof(ih) * emb2(mc) ** pwmasi(ih)
-
-                        call lookup_cmaq_cld_optics( l, r_ef, watp, krad )
-
-                     enddo
-
-                  endif         ! convective rain/snow
-
-               endif            ! convective clouds
-
-! Combine cloud optical properties
-
-               do k = lpw(iw), mza
-                  krad = k - koff
-
-                  if ( all(tauclds(1:nwl,krad) < 2.e-5) ) then
-                     tauclds(1:nwl,krad) = 0.0
-                     ssaclds(1:nwl,krad) = 1.0
-                     asmclds(1:nwl,krad) = 0.0
-                     cldfrac      (krad) = 0.0
-                  else
-                     do ib = 1, nwl
-                        if (tauclds(ib,krad) > 1.e-9 .and. ssaclds(ib,krad) > 1.e-9) then
-                           asmclds(ib,krad) = asmclds(ib,krad) / ssaclds(ib,krad)
-                           ssaclds(ib,krad) = ssaclds(ib,krad) / tauclds(ib,krad)
-                        endif
-                     enddo
-                  endif
-
-               enddo
-
 ! Get optical properties of resolved clouds
 
 
 !               IF ( CLDATT .AND. CFRAC_2D( COL,ROW ) .GT. 0.0 ) THEN
 !                  DO L = 1, NLAYS
-!                 
+!
 !                     IF ( CFRAC_3D( COL,ROW,L ) .GT. 0.0 ) THEN
 !                        CLOUDS ( L )        = .TRUE.
 !                        CLOUD_LAYERING( L ) = .TRUE.
@@ -849,7 +713,7 @@ C...modules
 !                        MSCALE   = 1.0E+3 * DENS ( COL,ROW,L )
 !                        IWC( L ) = MSCALE * QI( COL,ROW,L )
 !                        GWC( L ) = MSCALE * QG( COL,ROW,L )
-!                        SWC( L ) = MSCALE * QS( COL,ROW,L )    
+!                        SWC( L ) = MSCALE * QS( COL,ROW,L )
 !                        LWC( L ) = MSCALE * QC( COL,ROW,L )
 !                        RWC( L ) = MSCALE * QR( COL,ROW,L )
 !                     ELSE
@@ -858,15 +722,15 @@ C...modules
 !                        CLDFRAC( L )        = 0.0
 !                        IWC( L ) = 0.0
 !                        GWC( L ) = 0.0
-!                        SWC( L ) = 0.0    
+!                        SWC( L ) = 0.0
 !                        LWC( L ) = 0.0
 !                        RWC( L ) = 0.0
 !                     END IF
 !                  END DO ! loop on layers clouds
 !! get optical properties of resolved cloud hydrometeors
-!                  CALL GET_DROPLET_OPTICS( NLAYS, BLKTA, OWATER_FRAC, SEAICE_FRAC, SNOW_FRAC, LWC )     
+!                  CALL GET_DROPLET_OPTICS( NLAYS, BLKTA, OWATER_FRAC, SEAICE_FRAC, SNOW_FRAC, LWC )
 !                  CALL GET_ICE_OPTICS( NLAYS, BLKTA, IWC )
-!                  CALL GET_AGGREGATE_OPTICS( NLAYS, RWC, SWC, GWC )     
+!                  CALL GET_AGGREGATE_OPTICS( NLAYS, RWC, SWC, GWC )
 !               ELSE
 !                  CLOUDS         = .FALSE.
 !!                 CLOUD_LAYERING = .FALSE.
@@ -879,7 +743,7 @@ C...modules
 !                  RWC = 0.0
 !                 CALL CLEAR_HYDROMETEOR_OPTICS()
 !               END IF
-            
+
 ! set surface albedo
 
                call phot_albedo(iw, coszen, currhr_lst, julian_day, jyfreq, alb, alb_dif)
@@ -891,12 +755,12 @@ C...modules
 
 !...calculate resolved-sky photolysis rates at all layers:
 
-!              NEW_PROFILE    = .TRUE. 
-!              ONLY_SOLVE_RAD = .FALSE. 
+!              NEW_PROFILE    = .TRUE.
+!              ONLY_SOLVE_RAD = .FALSE.
 
                CALL NEW_OPTICS ( iw, NLAYS, nlays_model, nlays_chem,
      &                           BLKTA, BLKDENS, BLKZF,
-     &                           BLKO3, BLKNO2, alb, 
+     &                           BLKO3, BLKNO2, alb,
      &                           ZSFC, COSZEN, SINZEN,
      &                           CLDFRAC, BLKRJ,
      &                           tauclds, ssaclds, asmclds )
@@ -914,15 +778,15 @@ C...modules
 !                     TAU_AERO_WL ( COL,ROW,IWL ) = TAUC_AERO( 1,IWL )
 !                     TAU_TOT_WL  ( COL,ROW,IWL ) = TAU_TOT  ( 1,IWL )
 !                     TAU_CLOUD_WL( COL,ROW,IWL ) = TAU_CLOUD( 1,IWL )
-!#ifdef phot_debug                      
+!#ifdef phot_debug
 !                     SSA_CLOUD_WL( COL,ROW,IWL ) = AVE_SSA_CLD  ( IWL )
 !                     ASY_CLOUD_WL( COL,ROW,IWL ) = AVE_ASYMM_CLD( IWL )
-!#endif                      
+!#endif
 !                  END FORALL
 !                  FORALL ( LEV = 1:NLAYS, IWL = 1:NWL  )
 !                     ACTINIC_FX( COL,ROW,LEV,IWL ) = ACTINIC_FLUX( LEV,IWL )
 !                  END FORALL
-!                  
+!
 !                  DO L = 1, N_DIAG_WVL
 !                     IWL = DIAG_WVL( L )
 !                     FORALL ( LEV = 1:NLAYS )
@@ -943,7 +807,7 @@ C...modules
 
 !Set Photolysis rates to resolved sky values
 !               FORALL ( L = 1:NLAYS, IPHOT = 1:NPHOTAB )
-!                  RJ( COL,ROW, L,IPHOT ) = 60.0 * BLKRJ_RES( L,IPHOT ) 
+!                  RJ( COL,ROW, L,IPHOT ) = 60.0 * BLKRJ_RES( L,IPHOT )
 !               END FORALL  ! Loop on layers and NPHOTAB
 
                do l = 1, nlays_chem
@@ -988,14 +852,14 @@ C...modules
 !                     END DO
 !!                    write(logdev,*)'ACM cloud present fraction, cloud lwc(lev),iwc(lev),rwc(1),gwc(1) = ',
 !!     &              ACM_CLOUDS( COL,ROW ),lwc(lev),iwc(lev),rwc(1),gwc(1)
-!                 
+!
 !! get optical properties of of subgrid cloud hydrometeors
-!                     CALL GET_DROPLET_OPTICS( LEV, BLKTA, OWATER_FRAC, SEAICE_FRAC, SNOW_FRAC, LWC )     
-!                     CALL GET_ICE_OPTICS( LEV, BLKTA, IWC )     
-!                     CALL GET_AGGREGATE_OPTICS( LEV, RWC, SWC, GWC )     
+!                     CALL GET_DROPLET_OPTICS( LEV, BLKTA, OWATER_FRAC, SEAICE_FRAC, SNOW_FRAC, LWC )
+!                     CALL GET_ICE_OPTICS( LEV, BLKTA, IWC )
+!                     CALL GET_AGGREGATE_OPTICS( LEV, RWC, SWC, GWC )
 !
 !!...calculate the acm-cloud photolysis rates for all layers:
-!                     NEW_PROFILE = .FALSE.   
+!                     NEW_PROFILE = .FALSE.
 !                     CALL NEW_OPTICS ( JDATE, JTIME, NLAYS,
 !     &                                 BLKTA, BLKPRS, BLKDENS, BLKZH, BLKZF,
 !     &                                 BLKO3, BLKNO2,
@@ -1059,7 +923,7 @@ C...modules
 !                        CLOUDS         = .FALSE.
 !                        NEW_PROFILE    = .FALSE.
 !                        ONLY_SOLVE_RAD = .TRUE.
-!                        CALL NEW_OPTICS ( JDATE, JTIME, NLAYS, 
+!                        CALL NEW_OPTICS ( JDATE, JTIME, NLAYS,
 !     &                                    BLKTA, BLKPRS, BLKDENS, BLKZH, BLKZF,
 !     &                                    BLKO3, BLKNO2,
 !     &                                    ZSFC, COSZEN, SINZEN, RSQD,
@@ -1255,7 +1119,7 @@ C...modules
 !              XMSG = 'Could not write ' // TRIM( VARNM ) // ' to ' // CTM_RJ_2 // ' file'
 !              CALL M3EXIT ( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
 !         END IF
-!         
+!
 !         DO IWL = 1, NWL
 !            VARNM = 'ACTINIC_FX_W' // WLTXT( IWL )
 !            IF ( .NOT. WRITE3( CTM_RJ_2, VARNM, ODATE, OTIME, ACTINIC_FX( :,:,:,IWL ) ) ) THEN
@@ -1296,7 +1160,7 @@ C...modules
 !     &          'RJ and Optical Data written to', CTM_RJ_2,
 !     &          'for date and time', ODATE, OTIME
 !
-!      END IF   ! if JTIME_CHK 
+!      END IF   ! if JTIME_CHK
 
        contains
 

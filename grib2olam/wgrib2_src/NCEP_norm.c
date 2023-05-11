@@ -27,15 +27,13 @@ extern enum output_grib_type grib_type;
  * HEADER:100:ncep_norm:output:1:normalize NCEP-type ave/acc X=output grib file
  */
 
-
-
 int f_ncep_norm(ARG1) {
 
     struct local_struct {
         float *val;
         int has_val;
         unsigned char *clone_sec[9];
-        FILE *output;
+        struct seq_file out;
     };
     struct local_struct *save;
 
@@ -51,10 +49,11 @@ int f_ncep_norm(ARG1) {
 
         *local = save = (struct local_struct *) malloc( sizeof(struct local_struct));
         if (save == NULL) fatal_error("memory allocation f_ncep_norm","");
+        if (fopen_file(&(save->out), arg1, file_append ? "ab" : "wb") != 0) {
+            free(save);
+            fatal_error("Could not open %s", arg1);
+        }
 
-        if ((save->output = ffopen(arg1, file_append ? "ab" : "wb")) == NULL) {
-	    fatal_error("f_ncep_norm: could not open file %s", arg1);
-	}
 	save->has_val = 0;
 	init_sec(save->clone_sec);
 	return 0;
@@ -63,7 +62,7 @@ int f_ncep_norm(ARG1) {
     save = (struct local_struct *) *local;
 
     if (mode == -2) {			// cleanup
-	ffclose(save->output);
+	fclose_file(&(save->out));
 	if (save->has_val == 1) {
 	    free(save->val);
 	    free_sec(save->clone_sec);
@@ -84,27 +83,32 @@ int f_ncep_norm(ARG1) {
 
 	// only process averages or accumulations
 	j = code_table_4_10(sec);
-	if (mode == 99) fprintf(stderr,"\nncep_norm: code table 4.10 (ave/acc/etc)=%d\n",j);
 	if (j == 0) is_ave = 1;			// average
 	else if (j == 1) is_ave = 0;		// accumulation
 	else return 0;				// only process average or accumulations
 
         fhr_2 = forecast_time_in_units(sec);		// start time
         dt2 = int4(sec[4]+idx+50-42);			// delta-time
-	if (mode == 99) fprintf(stderr,"\nncep_norm: fhr_2=%d dt2=%d index of dt2=%d\n",fhr_2, dt2, idx+50-42);
 	if (dt2 == 0) return 0;	 			// dt == 0
 
 	// units of fcst and stat proc should be the same if fcst time != 0
-	if (fhr_2 != 0 && code_table_4_4(sec) != sec[4][49-42+idx]) return 0;
+	if (fhr_2 != 0 && code_table_4_4(sec) != sec[4][49-42+idx]) {
+	    if (mode == 98) fprintf(stderr,"ncep_norm: units of fcst and stat_proc do not match %d %u\n",
+	           code_table_4_4(sec),sec[4][49-42+idx]);
+	    return 0;
+	}
+
+	if (mode == 98) fprintf(stderr,"ncep_norm: code table 4.10 (ave/acc/etc)=%d\n",j);
+	if (mode == 98) fprintf(stderr,"ncep_norm: fhr_2=%d dt2=%d index of dt2=%d\n",fhr_2, dt2, idx+50-42);
 
 	if (save->has_val == 0) {			// new data: write and save
-            if ((data_tmp = (float *) malloc(ndata * sizeof(float))) == NULL)
+            if ((data_tmp = (float *) malloc(sizeof(float) * (size_t) ndata)) == NULL)
                 fatal_error("memory allocation - data_tmp","");
             undo_output_order(data, data_tmp, ndata);
             grib_wrt(sec, data_tmp, ndata, nx, ny, use_scale, dec_scale, bin_scale,
-                wanted_bits, max_bits, grib_type, save->output);
+                wanted_bits, max_bits, grib_type, &(save->out));
 
-            if (flush_mode) fflush(save->output);
+            if (flush_mode) fflush_file(&(save->out));
             free(data_tmp);
 
             if (save->has_val  == 1) {			// copy data to save
@@ -114,7 +118,7 @@ int f_ncep_norm(ARG1) {
             copy_sec(sec, save->clone_sec);
             copy_data(data,ndata,&(save->val));
             save->has_val = 1;
-	    if (mode == 99) fprintf(stderr," ncep_norm: saved as new field\n");
+	    if (mode == 99) fprintf(stderr,"ncep_norm: saved as new field\n");
             return 0;
         }
 
@@ -123,10 +127,13 @@ int f_ncep_norm(ARG1) {
         fhr_1 = forecast_time_in_units(save->clone_sec);		// start_time of save message
         dt1 = int4(save->clone_sec[4]+idx+50-42);			// delta-time
 
-	if (mode == 99) fprintf(stderr,"ncep_norm: is_ave = %d\n fhr_1 %d dt1 %d fhr_2 %d dt2 %d\n",is_ave,
+	if (mode == 98) fprintf(stderr,"ncep_norm: is_ave = %d\n fhr_1 %d dt1 %d fhr_2 %d dt2 %d\n",is_ave,
 		fhr_1, dt1, fhr_2, dt2);
 
-	if (fhr_1 != fhr_2) new_type = 1;
+	if (fhr_1 != fhr_2) {
+	    if (mode == 98) fprintf(stderr,"ncep_norm: new_type=1 because fhr1 != fhr2 %d %d\n", fhr_1, fhr_2);
+	    new_type = 1;
+	}
 
 	if (new_type == 0) {
 	    if (same_sec0(sec,save->clone_sec) == 0 ||
@@ -134,22 +141,23 @@ int f_ncep_norm(ARG1) {
             same_sec3(sec,save->clone_sec) == 0 ||
             same_sec4_diff_ave_period(sec,save->clone_sec) == 0) {
 	
-               if (mode == 99) fprintf(stderr,"ncep_norm: new_type sec test %d %d %d %d\n",
+               if (mode == 98) fprintf(stderr,
+		    "ncep_norm: test sec same_sec0=%d same_sec1=%d same_sec3=%d same_sec4_diff_ave_period=%d\n",
   		same_sec0(sec,save->clone_sec), same_sec1(sec,save->clone_sec), same_sec3(sec,save->clone_sec),
 	            same_sec4_diff_ave_period(sec,save->clone_sec));
                 new_type = 1;
 	    }
         }
-	if (mode == 99) fprintf(stderr,"ncep_norm: new_type=%d write and save\n",new_type);
+	if (mode == 98) fprintf(stderr,"ncep_norm: new_type=%d write and save\n",new_type);
 
         if (new_type == 1) {                    // fields dont match: write and save
-            if ((data_tmp = (float *) malloc(ndata * sizeof(float))) == NULL)
+            if ((data_tmp = (float *) malloc(sizeof(float) * (size_t) ndata)) == NULL)
                 fatal_error("memory allocation - data_tmp","");
             undo_output_order(data, data_tmp, ndata);
             grib_wrt(sec, data_tmp, ndata, nx, ny, use_scale, dec_scale, bin_scale,
-                wanted_bits, max_bits, grib_type, save->output);
+                wanted_bits, max_bits, grib_type, &(save->out));
 
-            if (flush_mode) fflush(save->output);
+            if (flush_mode) fflush_file(&(save->out));
             free(data_tmp);
 
             if (save->has_val  == 1) {                  // copy data to save
@@ -159,7 +167,7 @@ int f_ncep_norm(ARG1) {
             copy_sec(sec, save->clone_sec);
             copy_data(data,ndata,&(save->val));
             save->has_val = 1;
-	    if (mode == 99) fprintf(stderr," ncep_norm: saved as new type/sequence\n");
+	    if (mode == 98) fprintf(stderr," ncep_norm: saved as new type/sequence\n");
             return 0;
         }
 
@@ -204,13 +212,13 @@ int f_ncep_norm(ARG1) {
 
         // write grib output
 
-        if ((data_tmp = (float *) malloc(ndata * sizeof(float))) == NULL)
+        if ((data_tmp = (float *) malloc(sizeof(float) * (size_t) ndata)) == NULL)
                 fatal_error("memory allocation - data_tmp","");
         undo_output_order(save->val, data_tmp, ndata);
         grib_wrt(save->clone_sec, data_tmp, ndata, nx, ny, use_scale, dec_scale, bin_scale,
-            wanted_bits, max_bits, grib_type, save->output);
+            wanted_bits, max_bits, grib_type, &(save->out));
 
-        if (flush_mode) fflush(save->output);
+        if (flush_mode) fflush_file(&(save->out));
         free(data_tmp);
 
 	// save data

@@ -69,7 +69,7 @@ C *** Species in aerosol core
 
       CHARACTER( 16 ), PARAMETER :: CORE_SPCS( NUMB_COR_SPCS ) =
      &                              (/ 'AECI', 'AECJ', 'AECK' /)
-      
+
       CONTAINS
 
 C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -95,13 +95,13 @@ C Local:
          CHARACTER(  32 ) :: PNAME             = 'INIT_AERO_DATA'
 !        CHARACTER(  16 ) :: CORE_SHELL_OPTICS = 'CORESHELL_OPTICS'
 !        CHARACTER(  16 ) :: OPTICS_MIE_CALC   = 'MIE_OPTICS'
-         CHARACTER( 120 ) :: XMSG 
+         CHARACTER( 120 ) :: XMSG
 
          INTEGER          :: ALLOCSTAT
 !        INTEGER          :: ESTAT          ! status from environment var check
          INTEGER          :: JDATE, JTIME
          INTEGER          :: M, N, SPC, V   ! loop counters
-      
+
          LOGICAL, SAVE    :: INITIALIZED  = .FALSE.
 
 #ifdef verbose_phot
@@ -111,14 +111,15 @@ C Local:
          IF ( INITIALIZED ) THEN
             RETURN
          END IF
-          
+
+         INITIALIZED = .TRUE.
          LOGDEV = INIT3()
          JDATE  = 0
          JTIME  = 0
 
 !...Get flag to use core-shell mixing model for aerosol optical properties
 
-         core_shell = nl%core_shell_photolysis
+         core_shell = ( nl%aerosol_optics_photol > 1 )
 !         CORE_SHELL = .false.         ! default
 !         XMSG = 'Use core-shell mixing model for aerosol optical properties'
 !         CORE_SHELL = ENVYN( CORE_SHELL_OPTICS, XMSG, CORE_SHELL, ESTAT )
@@ -137,8 +138,7 @@ C Local:
 
 !...Get flag to use fast optics for volume mixing model for aerosol optical properties
 
-         mie_calc = nl%mie_calc_photolysis
-!         MIE_CALC = .FALSE.         ! default
+          MIE_CALC = .FALSE.         ! default
 !         XMSG = 'Use Mie theory for aerosol optical properties of Internal mixing model'
 !         MIE_CALC = ENVYN( OPTICS_MIE_CALC, XMSG, MIE_CALC, ESTAT )
 !         IF ( ESTAT .NE. 0 ) WRITE( LOGDEV, '(5X, A)' ) XMSG
@@ -155,6 +155,11 @@ C Local:
 !         END IF
 
 C...Allocate needed arrays
+
+          if (nl%aerosol_optics_photol < 1) then
+             call m3mesg( 'Aerosol optics not considered in photolysis calculations.')
+             return
+          endif
 
          ALLOCATE ( VOL_MINS( N_MODE ), STAT = ALLOCSTAT )
          IF ( ALLOCSTAT .NE. 0 ) THEN
@@ -235,26 +240,26 @@ C...Allocate needed arrays
          !$omp end parallel
 
          CALL MAP_AERO()
-                  
+
 !         ALLOCATE( M3_FACTOR( N_AEROSPC ), STAT = ALLOCSTAT )
 !         IF ( ALLOCSTAT .NE. 0 ) THEN
 !            XMSG = 'Failure allocating  M3_FACTOR'
 !            CALL M3EXIT ( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
 !         END IF
-         
+
          ALLOCATE( REFRACT_INDX_MAP( N_AEROSPC ), STAT = ALLOCSTAT )
          IF ( ALLOCSTAT .NE. 0 ) THEN
             XMSG = 'Failure allocating REFRACT_INDX_MAP'
             CALL M3EXIT ( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
          END IF
-         
+
 !        IF( CORE_SHELL )THEN
             ALLOCATE( IS_CORE_SPCS( N_AEROSPC,N_MODE ), STAT = ALLOCSTAT )
             IF ( ALLOCSTAT .NE. 0 ) THEN
                XMSG = 'Failure allocating IS_CORE_SPCS'
                CALL M3EXIT ( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
             END IF
-         
+
             IS_CORE_SPCS = .FALSE.
 
 !            ALLOCATE ( CORE_MOMENT3( N_MODE,NLAYS ), STAT = ALLOCSTAT )
@@ -262,19 +267,19 @@ C...Allocate needed arrays
 !               XMSG = 'Failure allocating CORE_MOMENT3'
 !               CALL M3EXIT ( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
 !            END IF
-      
+
 !            ALLOCATE ( AE_DGN_CORE( N_MODE,NLAYS ), STAT = ALLOCSTAT )
 !            IF ( ALLOCSTAT .NE. 0 ) THEN
 !               XMSG = 'Failure allocating AE_DGN_CORE'
 !               CALL M3EXIT ( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
 !            END IF
-      
+
 !            ALLOCATE ( AE_NR_CORE( nwl,N_MODE ), STAT = ALLOCSTAT )
 !            IF ( ALLOCSTAT .NE. 0 ) THEN
 !               XMSG = 'Failure allocating AE_NR_CORE'
 !               CALL M3EXIT ( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
 !            END IF
-      
+
 !            ALLOCATE ( AE_NI_CORE( nwl,N_MODE ), STAT = ALLOCSTAT )
 !            IF ( ALLOCSTAT .NE. 0 ) THEN
 !               XMSG = 'Failure allocating AE_NI_CORE'
@@ -286,11 +291,11 @@ C ***    Create map for refactive index for each species
 #ifdef verbose_phot
          allocate( lambda_list( nwl ) )
          do v = 1, nwl
-            write( lambda_list( v ), 5000)int(wavelength( v )), 
+            write( lambda_list( v ), 5000)int(wavelength( v )),
      &      int(wavelength( v ))
          end do
          write( logdev, 5001)(lambda_list( v ), v = 1, nwl)
-#endif 
+#endif
 
          IF ( MIE_CALC .AND. .NOT. CORE_SHELL ) THEN
             CALL M3MESG('For optics of internally mixed aerosol, Mie calculation used')
@@ -325,12 +330,12 @@ C ***    Create map for refactive index for each species
                      END IF
 #ifdef verbose_phot
                      if ( aero_missing(spc,n) ) cycle
-                     write( logdev, 5002)trim( aerospc( spc )%name( n ) ), 
+                     write( logdev, 5002)trim( aerospc( spc )%name( n ) ),
      &               trim( refractive_index( m )%name ),is_core_spcs( spc,n ),
-     &               (refractive_index( m )%real_part( n,v ), 
+     &               (refractive_index( m )%real_part( n,v ),
      &                refractive_index( m )%imag_part( n,v ), v = 1, nwl)
-#endif                  
-                  END DO 
+#endif
+                  END DO
                   EXIT
                END IF
             END DO
@@ -343,7 +348,7 @@ C ***    Create map for refactive index for each species
                END DO
             END IF
          END DO
-         
+
          allocate(lamda_um  (nwl))
          allocate(inv_lambda(nwl))
 
@@ -366,7 +371,7 @@ C ***    Create map for refactive index for each species
       RETURN
 
 5000  FORMAT(2X,'NR_',I3.3,7X,'NI_',I3.3,5X)
-5002  FORMAT(2(A16,1X),L12,1X,200(ES12.4,1X))                    
+5002  FORMAT(2(A16,1X),L12,1X,200(ES12.4,1X))
 5001  FORMAT('     AE_SPC     ',1X,'  REFRACT_INDX  ',1X,'PART_OF_CORE',1X,200(A26))
 
       END SUBROUTINE INIT_AERO_DATA
@@ -376,10 +381,10 @@ C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
       SUBROUTINE GET_AERO_DATA ( iw, NLAYS, koff )
 
 C-----------------------------------------------------------------------
-C  FUNCTION:  This subroutine calculates the volume, the natural logs of 
-C     geometric standard of all 3 modes. It assumes that aerosols have inner 
-C     core with an outer shell to compute a core and total diameter per mode.  
-C     The code also calculates the average modal aerosol refractive indices 
+C  FUNCTION:  This subroutine calculates the volume, the natural logs of
+C     geometric standard of all 3 modes. It assumes that aerosols have inner
+C     core with an outer shell to compute a core and total diameter per mode.
+C     The code also calculates the average modal aerosol refractive indices
 C     for the inner core and outer shell.
 C
 C     Internally mixed wet aerosols are assumed.
@@ -387,15 +392,15 @@ C
 C     NOTE
 C       2nd moment concentrations (M2) are passed into GETPAR in the
 C       CBLK array.  The GETPAR calculations implicitly assume
-C       that the input value of M2 is up to date.  
+C       that the input value of M2 is up to date.
 C       If, for example, the input M2 value was calculated
 C       for a "dry" aerosol and the Wet_Moments_FLAG is .TRUE., GETPAR would
 C       incorrectly adjust the M2 concentrations!
 C
 C  KEY SUBROUTINES/FUNCTIONS CALLED:  EXTRACT_AERO, EXTRACT_SOA, GETPAR
-C                                     AERO_OPTICAL2, AERO_OPTICAL_CS  
+C                                     AERO_OPTICAL2, AERO_OPTICAL_CS
 C  REVISION HISTORY
-C     06/13/13 B.Hutzell - initial version created for aero_photdata.F 
+C     06/13/13 B.Hutzell - initial version created for aero_photdata.F
 C                          from version 5.01
 C     05/2016 H. Pye and B. Murphy - updated treatment of aerosol
 C                          moments
@@ -418,9 +423,7 @@ C-----------------------------------------------------------------------
       USE AERO_DATA         ! aero variable data
       USE CONST_DATA, ONLY: PI, PI6
       USE CSQY_DATA,  ONLY: NWL, NUM_REFRACTIVE, WAVELENGTH => EFFWL_REF
-
       USE RRTMG_AERO_OPTICAL_UTIL_MODULE, ONLY : AERO_OPTICAL2, AERO_OPTICAL_CS
-      use cgrid_defn, only: cgrid
 
       IMPLICIT NONE
 
@@ -479,7 +482,7 @@ C***  variables for calculating modal averaged properties per layer and lambda
       INTEGER SPC                   ! species loop counter
       INTEGER MODE                  ! aerosol mode loop counter
       LOGICAL SUCCESS
-      
+
       real, parameter :: asym_max = 0.990
       real, parameter :: exti_min = 1.e-9
       real, parameter :: scat_min = 1.e-9
@@ -500,13 +503,14 @@ C-----------------------------------------------------------------------
 
          k = l + koff
 
-         ! *** extract grid cell concentrations of aero species from CGRID into aerospc_conc 
+         ! *** extract grid cell concentrations of aero species from CGRID into aerospc_conc
          ! *** in aero_data module
-         !     Also converts dry surface area to wet second moment
-         CALL EXTRACT_AERO ( CGRID( k,IW,: ), .TRUE. )
+
+         CALL EXTRACT_AERO ( k, iw, .TRUE. )
 
          ! *** Calculate geometric mean diameters and standard deviations of "wet" size distribution
-         CALL GETPAR ( .FALSE., noM3=.true. )
+         CALL GETPAR ( .FALSE., MOMENT0_CONC, MOMENT2_CONC, MOMENT3_CONC,
+     &                 AEROMODE_LNSG, AEROMODE_DIAM, 1, 3 )
 
          G_BAR(1:nwl) = 0.0
          BEXT (1:nwl) = 0.0
@@ -539,7 +543,7 @@ C-----------------------------------------------------------------------
 
                M = REFRACT_INDX_MAP( SPC )
 
-               IF( IS_CORE_SPCS( SPC,MODE ) ) THEN  
+               IF( IS_CORE_SPCS( SPC,MODE ) ) THEN
 
                   CORE_MOMENT3 = CORE_MOMENT3 + MOMENT3_PORTION
                   DO V = 1, NWL
@@ -555,7 +559,7 @@ C-----------------------------------------------------------------------
                      AE_NI_SHELL(v) = AE_NI_SHELL(v) + MOMENT3_PORTION * ri_i(v,m,mode)
                   ENDDO
 
-               END IF 
+               END IF
 
             END DO SPC_LOOP
 
@@ -585,12 +589,12 @@ C-----------------------------------------------------------------------
                   AE_NR_CORE(v) = AE_NR_CORE(v) / max(CORE_MOMENT3, 1.e-36)
                   AE_NI_CORE(v) = AE_NI_CORE(v) / max(CORE_MOMENT3, 1.e-36)
                END IF
-               
+
                AE_NR_SHELL(v) = AE_NR_SHELL(v) / max(SHELL_MOMENT3, 1.e-36)
                AE_NI_SHELL(v) = AE_NI_SHELL(v) / max(SHELL_MOMENT3, 1.e-36)
 
             enddo
-               
+
             if (CORE_SHELL .and. DGN_CORE > 1.e-20) then
 
                VOL_CORE  = PI6 * CORE_MOMENT3
@@ -612,8 +616,8 @@ C-----------------------------------------------------------------------
                   IF ( AE_NI_SHELL( v ) .LT. 1.e-30 ) cycle
 
                   ! *** Core-Shell case for optics
-                  CALL AERO_OPTICAL_CS( LAMDA_UM(v), NR_CORE, NR_SHELL,  
-     &                                   VOL_CORE, VOL_SHELL, DGN_CORE,      
+                  CALL AERO_OPTICAL_CS( LAMDA_UM(v), NR_CORE, NR_SHELL,
+     &                                   VOL_CORE, VOL_SHELL, DGN_CORE,
      &                                   DGN_SHELL, XXLSG,
      &                                   BEXT_MODE, BSCAT_MODE, GBAR_MODE, SUCCESS )
 
@@ -646,17 +650,17 @@ C-----------------------------------------------------------------------
 
                   IF ( MIE_CALC ) THEN
 
-                     !*** FSB Internal Volume mixture case for optics 
+                     !*** FSB Internal Volume mixture case for optics
                      NR_SHELL = CMPLX( AE_NR_SHELL( v ), AE_NI_SHELL( v ) )
-                     CALL AERO_OPTICAL2( LAMDA_UM(v), NR_SHELL, VOL, 
+                     CALL AERO_OPTICAL2( LAMDA_UM(v), NR_SHELL, VOL,
      &                                   DGN_SHELL, XXLSG,
      &                                   BEXT_MODE, BSCAT_MODE, GBAR_MODE, SUCCESS )
-                  ELSE 
+                  ELSE
 
                      ! use old fast optics method
-                     CALL FAST_OPTICS( AE_NR_SHELL(v), AE_NI_SHELL(v), 
-     &                                 WAVELENGTH(V), XXLSG, lsg, mie_parameter, 
-     &                                 expfac2, expfac3, 
+                     CALL FAST_OPTICS( AE_NR_SHELL(v), AE_NI_SHELL(v),
+     &                                 WAVELENGTH(V), XXLSG, lsg, mie_parameter,
+     &                                 expfac2, expfac3,
      &                                 BEXT_MODE, BSCAT_MODE, GBAR_MODE )
 
                      VFAC       = VOL * INV_LAMBDA(v)
@@ -690,7 +694,7 @@ C-----------------------------------------------------------------------
 
 C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-      SUBROUTINE FAST_OPTICS( NR, NI, LAMBDA, SIGMA_G, XLNSIG, MIE_PAR, 
+      SUBROUTINE FAST_OPTICS( NR, NI, LAMBDA, SIGMA_G, XLNSIG, MIE_PAR,
      &                        expfac2, expfac3, BETA_EXT, BETA_SCAT, G )
 C-----------------------------------------------------------------------
 C  A parameterization of the aerosol extinction and scattering code
@@ -903,7 +907,7 @@ C *** Maximum value of SIGMA_G allowed is 2.0
 C *** Minimum allowed value fo SIGMA_F is 1.05
 !     SIGMA_G = MAX( 1.05, SIGMA_G )
 C***FSB start calculation
-!     XLNSIG = LOG( SIGMA_G ) 
+!     XLNSIG = LOG( SIGMA_G )
 
       ALPHV  = SCALE * PI * MIE_PAR / LAMBDA
       ALPHV2 = ALPHV * ALPHV
@@ -1066,13 +1070,13 @@ C *** Adjust beta_ext for small particle absorption:
      &                 ( BETA_SCAT * FAC1 + ( 1.0 - FAC1 ) * PENN2 ) )
 
          END IF ! test for   XALPHA < 0.13
-        
+
 ! small highly absorbing  particles such as a Tyndall scatterers such as
 ! described in Jacobson (1999) in Fundmentals of Atmospheric Modeling. This
 ! is approximately consistent with Penndorf (1962).
 
          BETA_SCAT = MAX( 0.001 * BETA_EXT, BETA_SCAT )
-          
+
       END IF  ! test for 0.0  < NI
 
 C *** Calculate and adjust for large sphere limits(Irvine, 1965)

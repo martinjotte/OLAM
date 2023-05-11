@@ -26,7 +26,8 @@ C $Header: /project/yoj/arc/CCTM/src/aero/aero5/getpar.f,v 1.7 2012/01/19 13:13:
 
 C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
-      Subroutine getpar( limit_sg, noM3 )
+      Subroutine getpar( fixed_sg, moment0_conc, moment2_conc, moment3_conc,
+     &                   aeromode_lnsg, aeromode_diam, i1, i2 )
 
 C  Calculates the 3rd moments (M3), masses, aerosol densities, and
 C  geometric mean diameters (Dg) of all 3 modes, and the natural logs of
@@ -47,14 +48,14 @@ C  WET_MOMENTS_FLAG.  If, for example, the input M2 value was calculated
 C  for a "dry" aerosol and the WET_MOMENTS_FLAG is .TRUE., GETPAR would
 C  incorrectly adjust the M2 concentrations!
 C
-C  
-C  Outputs: 
-C    moment3_conc
-C    moment2_conc (adjusted if standard dev. hits limit)
-C    aeromode_dens
-C    aeromode_lnsg
-C    aeromode_diam
-C    aeromode_mass
+C  Outputs:
+C    moment3_conc  third moment, porportional to volume [ m3/m3 ]
+C    moment2_conc  second moment, prop. to surface area [ m2/m3 ]
+C                     (adjusted if standard dev. hits limit)
+C    aeromode_dens [ kg/m3 ]
+C    aeromode_lnsg log of geometric standard deviation
+C    aeromode_diam geometric mean diameter [ m ]
+C    aeromode_mass mass concentration: [ ug / m**3 ]
 C
 C SH  03/10/11 Renamed met_data to aeromet_data
 C HP and BM 4/2016: Updated use of wet_moments_flag which is now
@@ -62,96 +63,44 @@ C    available through AERO_DATA consistent with the moments it refers to
 
 C-----------------------------------------------------------------------
 
-      Use aero_data
-      Use const_data, only: f6piove9
+      Use aero_data,  only: min_diam_g, min_sigma_g, max_sigma_g, n_mode,
+     &                      min_l2sg, max_l2sg
 
       Implicit None
 
 C Arguments:
-      Logical, Intent( In ) :: limit_sg  ! fix coarse and accum Sg's to the input value?
-      Logical, Intent( In ), optional :: noM3  ! no need to recompute 3rd moment?
 
-C Output variables:
-C  updates arrays in aero_data module
-C  moment3_conc   3rd moment concentration [ ug /m**3 ]
-C  aeromode_mass  mass concentration: [ ug / m**3 ]
-C  aeromode_dens  avg particle density [ kg / m**3 ]
-C  aeromode_diam  geometric mean diameter [ m ]
-C  aeromode_lnsg  log of geometric standard deviation
+      Logical, Intent( In ) :: fixed_sg  ! If TRUE, then the second moment is modified
+                                         ! during each call in order to preserve the
+                                         ! standard deviaiton at the current value.
+                                         !
+                                         ! If FALSE, then the standard deviation is
+                                         ! recalculated to be consistent with the current
+                                         ! combination of the 0th, 2nd and 3rd moments.
+                                         ! During this calculation, standard deviaiton is
+                                         ! limited by parameters in AERO_DATA (min_sigma_g
+                                         ! and max_sigma_g)
+
+      Real,    Intent( In    ) :: moment0_conc ( n_mode )
+      Real,    Intent( In    ) :: moment3_conc ( n_mode )
+      Real,    Intent( InOut ) :: moment2_conc ( n_mode )
+      Real,    Intent( InOut ) :: aeromode_lnsg( n_mode ) ! log of geometric standard deviation
+      Real,    Intent( Out   ) :: aeromode_diam( n_mode ) ! geometric mean diameter [ m ]
+      Integer, Intent( In    ) :: i1, i2
 
 C Local Variables:
-!     Real :: xfsum       ! (ln(M0)+2ln(M3))/3; used in Sg calcs
-!     Real :: lxfm2       ! ln(M2); used in Sg calcs
+
       Real :: l2sg        ! square of ln(Sg); used in diameter calcs
-!     Real :: es36        ! exp(4.5*l2sg); used in diameter calcs
       real :: es36_one3
       real :: xm0_one3
       real :: xm3_one3
 
-      Real, Parameter :: one3    = 1.0 / 3.0
-      Real, Parameter :: densmin = 1.0E03  ! minimum particle density [ kg/m**3 ]
-
+      Real, Parameter :: one3     = 1.0 / 3.0
       Real, parameter :: minel2sg = exp( min_l2sg )
       Real, parameter :: maxel2sg = exp( max_l2sg )
 
-      Real( 8 ) :: sumM3  ( n_mode )
-      Real( 8 ) :: sumMass( n_mode )
-      Integer   :: n, spc   ! loop counters
-
-      real :: exfsum, el2sg
-
-C-----------------------------------------------------------------------
-
-C *** Calculate aerosol 3rd moment concentrations [ m**3 / m**3 ]
-
-      if (present(noM3)) then
-         if (noM3) then
-
-            Do n = 1, n_mode
-               sumMass(n) = 0.0_8
-            End Do
-
-            Do spc = 1, n_aerospc
-               If ( aerospc( spc )%tracer) cycle
-               If ( aerospc( spc )%no_M2Wet .AND. .Not. wet_moments_flag ) Cycle
-               do n = 1, n_mode
-                  if ( aero_missing(spc,n) ) cycle
-                  sumMass(n) = sumMass(n) + aerospc_conc(spc,n)
-               End Do
-            End Do
-
-            ! Calculate modal average particle densities [ kg/m**3 ]
-            do n = 1, n_mode
-               aeromode_mass(n) = sumMass(n)
-               aeromode_dens(n) = max(f6piove9 * aeromode_mass(n) / moment3_conc(n), densmin)
-            enddo
-
-         endif
-      else
-
-         Do n = 1, n_mode
-            sumM3  (n) = 0.0_8
-            sumMass(n) = 0.0_8
-         End Do
-
-         Do spc = 1, n_aerospc
-            If ( aerospc( spc )%tracer) cycle
-            If ( aerospc( spc )%no_M2Wet .AND. .Not. wet_moments_flag ) Cycle
-            do n = 1, n_mode
-               if ( aero_missing(spc,n) ) cycle
-               sumM3  (n) = sumM3  (n) + aerospc_conc(spc,n) * aerospc_m3fac(spc)
-               sumMass(n) = sumMass(n) + aerospc_conc(spc,n)
-            End Do
-         End Do
-
-         ! Calculate modal average particle densities [ kg/m**3 ]
-         do n = 1, n_mode
-            moment3_conc (n) = Max( Real(sumM3(n)), aeromode( n )%min_m3conc )
-            aeromode_mass(n) = sumMass(n)
-            aeromode_dens(n) = max(f6piove9 * aeromode_mass(n) / moment3_conc(n), densmin)
-         enddo
-
-      endif
+      Integer :: n, ns, ne
+      real    :: exfsum, el2sg
 
 C *** Calculate geometric standard deviations as follows:
 c        ln^2(Sg) = 1/3*ln(M0) + 2/3*ln(M3) - ln(M2)
@@ -165,13 +114,14 @@ c         In this manner, M2 is artificially increased when Sg exceeds
 c         the maximum limit.  M2 is artificially decreased when Sg falls
 c         below the minimum limit.
 
-C *** Aitken Mode:
+      ns = max(i1,1)
+      ne = min(i2,n_mode)
 
-      if ( limit_sg ) then
+      if ( fixed_sg ) then
 
-         Do n = 1, n_mode
+         Do n = ns, ne
             l2sg = aeromode_lnsg(n) ** 2
-            
+
             xm0_one3 = moment0_conc(n) ** one3
             xm3_one3 = moment3_conc(n) ** one3
 
@@ -184,7 +134,7 @@ C *** Aitken Mode:
 
       else
 
-         Do n = 1, n_mode
+         Do n = ns, ne
             xm0_one3 = moment0_conc(n) ** one3
             xm3_one3 = moment3_conc(n) ** one3
 
@@ -207,5 +157,81 @@ C *** Aitken Mode:
       endif
 
       End Subroutine getpar
+
+C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+      Subroutine getdens(aeromode_mass, aeromode_dens,
+     &                   aerospc_conc, moment3_conc, i1, i2)
+
+!     Calculates total aerosol mass and average particle density
+!     for each mode specified.
+
+      use const_data, only: f6piove9
+      use aero_data,  only: n_mode, idry_str, idry_end, iwet_end, n_aerospc
+
+      implicit None
+
+      real,    intent(in ) :: moment3_conc (n_mode)
+      real,    intent(in ) :: aerospc_conc (n_aerospc, n_mode)
+      integer, intent(in ) :: i1, i2
+      real,    intent(out) :: aeromode_mass(n_mode)
+      real,    intent(out) :: aeromode_dens(n_mode)
+
+      integer              :: n, ns, ne
+      real,      parameter :: densmin = 1.e3  ! minimum particle density [ kg/m**3 ]
+
+      ns = max(i1,1)
+      ne = min(i2,n_mode)
+
+      do n = ns, ne
+
+         ! dry species mass [ ug / m**3 ]
+         aeromode_mass(n) = sum( aerospc_conc( idry_str:idry_end(n), n ) )
+
+         ! add wet and volotile species [ ug / m**3 ]
+         aeromode_mass(n) = aeromode_mass(n) + sum( aerospc_conc( 1:iwet_end(n), n ) )
+
+         ! Calculate modal average particle densities [ kg/m**3 ]
+         aeromode_dens(n) = max( f6piove9 * aeromode_mass(n) / moment3_conc(n), densmin )
+
+      enddo
+
+      end subroutine getdens
+
+C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+      Subroutine getdens_conc(aeromode_mass, aeromode_dens,
+     &                        conc, moment3_conc, i1, i2)
+
+!     Calculates total aerosol mass and average particle density
+!     for each mode specified.
+
+      use const_data, only: f6piove9
+      use aero_data,  only: n_mode, mode_map, aer_trac, aer_str, aer_end
+      use cgrid_spcs, only: nspcsd
+
+      implicit None
+
+      real,    intent(in ) :: moment3_conc(n_mode)
+      real,    intent(in ) :: conc(nspcsd)
+      integer, intent(in ) :: i1, i2
+      real,    intent(out) :: aeromode_mass(n_mode)
+      real,    intent(out) :: aeromode_dens(n_mode)
+
+      integer              :: n, ns, ne
+      real,      parameter :: densmin = 1.e3  ! minimum particle density [ kg/m**3 ]
+
+      ns = max(i1,1)
+      ne = min(i2,n_mode)
+
+      do n = ns, ne
+         ! modal mass [ ug / m**3 ]
+         aeromode_mass(n) = sum( conc(aer_str:aer_end), mask=(mode_map==n .and. .not. aer_trac) )
+
+         ! modal mean particle densities [ kg/m**3 ]
+         aeromode_dens(n) = max( f6piove9 * aeromode_mass(n) / moment3_conc(n), densmin )
+      enddo
+
+      end subroutine getdens_conc
 
       end module getpar_mod

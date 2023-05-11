@@ -8,7 +8,7 @@
 #include "fnlist.h"
 
 
-#ifdef USE_IPOLATES
+#if USE_IPOLATES > 0
 
 /*
  * ncep_grids:
@@ -18,6 +18,8 @@
  * this routine converts the calls with "ncep grid I" to a regular call
  *
  * understands t382, various ncep grid numbers
+ *
+ * (arg1, arg2, arg3) -> new (arg1, arg2, arg3) if ncep grid
  */
 
 
@@ -67,19 +69,19 @@ void ncep_grids(const char **arg1, const char **arg2, const char **arg3) {
 		*arg3="90:73:-2.5";
 		break;
 
-	    case 3: 
+	    case 3:
 		*arg1="latlon";
 		*arg2="0:360:1";
 		*arg3="90:181:-1";
 		break;
 
-	    case 4: 
+	    case 4:
 		*arg1="latlon";
 		*arg2="0:720:0.5";
 		*arg3="90:361:-0.5";
 		break;
 
-	    case 45: 
+	    case 45:
 		*arg1="latlon";
 		*arg2="0:288:1.25";
 		*arg3="90:145:-1.25";
@@ -125,6 +127,18 @@ void ncep_grids(const char **arg1, const char **arg2, const char **arg3) {
 		*arg1 = "latlon";
 		*arg2 = "0.041666666667:4320:0.083333333333";
 		*arg3 = "89.95833333333:2160:-0.083333333333";
+		break;
+
+            case 184:
+                *arg1 = "lambert:265:25";
+                *arg2 = "238.446:2145:2540";
+                *arg3 = "20.192:1377:2540";
+                break;
+
+	    case 194:
+		*arg1 = "mercator:20";
+		*arg2 = "284.5:544:2500:297.491";
+		*arg3 = "15:310:2500:22.005";
 		break;
 
 	    case 221:

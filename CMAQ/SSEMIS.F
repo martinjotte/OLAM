@@ -22,7 +22,7 @@
 
 ! what(1) key, module and SID; SCCS file; date and time of last delta:
 ! %W% %P% %G% %U%
- 
+
       MODULE SSEMIS
 
 ! Revision History:
@@ -63,7 +63,7 @@
 
 ! Surf zone fraction
       real, allocatable, save :: szone(:)
-      
+
 ! Species names in the speciated sea-salt-emissions
       CHARACTER( 16 ), ALLOCATABLE :: WRSS_SPC( : )  ! species names
 
@@ -255,11 +255,10 @@
             USE AERO_DATA
             use mem_ijtabs,   only: itab_w, jtab_w, jtw_prog
             use mem_grid,     only: mwa, arw0, dnu
-            use mem_sea,      only: sea
-            use sea_coms,     only: mws
+            use mem_sea,      only: msea
             use mem_turb,     only: frac_sea
             use misc_coms,    only: iparallel
-            use obnd,         only: lbcopy_w1d
+            use obnd,         only: lbcopy_w
             use olam_mpi_atm, only: mpi_send_w, mpi_recv_w
 
             IMPLICIT NONE
@@ -319,14 +318,14 @@
             END DO
 
 ! Include H2O to mapping
-            NSSSPC = NSSSPC + 1      
+            NSSSPC = NSSSPC + 1
             KH2O = NSSSPC
             SSSPC_MAP( NSSSPC ) = AH2O_IDX
 
 ! Allocate SS arrays using NSSSPC value
-            ALLOCATE ( SSOUTM( NSSSPC,N_MODE,mws ),
-     &                 SSOUTN(        N_MODE,mws ),
-     &                 SSOUTS(        N_MODE,mws ), STAT = STATUS )
+            ALLOCATE ( SSOUTM( NSSSPC,N_MODE,msea ),
+     &                 SSOUTN(        N_MODE,msea ),
+     &                 SSOUTS(        N_MODE,msea ), STAT = STATUS )
             IF ( STATUS .NE. 0 ) THEN
                XMSG = '*** SSOUTM, SSOUTN or SSOUTS memory allocation failed'
                CALL M3WARN ( PNAME, JDATE, JTIME, XMSG )
@@ -336,50 +335,43 @@
 ! Surf zone estimate
 
             allocate( szone( mwa ) ) ; szone(:) = 0.0
-            
+
             !$omp parallel do private(j,iw,np,sea_area,n,iwp,iv)
-            do j = 1, jtab_w(jtw_prog)%jend(1)
+            do j = 1, jtab_w(jtw_prog)%jend
                iw = jtab_w(jtw_prog)%iw(j)
                np = itab_w(iw)%npoly
 
-               ! are any patches water?
-               if (itab_w(iw)%nsea > 0) then
+               ! If this ATM cell is partially but not completely coupled to ocean/sea area
+               if (itab_w(iw)%jsea2 > 0 .and. (itab_w(iw)%jland2 > 0 .or. itab_w(iw)%jlake2 > 0)) then
 
-                  ! are any water cells ocean/sea?
-                  if ( any( sea%leaf_class( itab_w(iw)%isea(1:itab_w(iw)%nsea) ) == 0 ) ) then
+                  sea_area = frac_sea(iw) * arw0(iw)
+                  szone(iw) = min( 50.0 / sqrt(sea_area), 0.2 )
 
-                     ! if any land patches in current cell
-                     if (itab_w(iw)%nland > 0) then
+               ! If this ATM cell is completely coupled to ocean/sea area
+               elseif (itab_w(iw)%jsea2 > 0) then
 
-                        sea_area  = sum( sea%area( itab_w(iw)%isea(1:itab_w(iw)%nsea) ) )
-                        szone(iw) = min( 50.0 / sqrt(sea_area), 0.2 )
-
-                     ! if cell is all water but any surrounding cells are not sea
-                     else
-
-                        do n = 1, np
-                           iwp = itab_w(iw)%iw(n)
-                           iv  = itab_w(iw)%iv(n)
-                           if (frac_sea(iwp) < 0.1) then
-                              szone(iw) = szone(iw) + 50.0 * dnu(iv) * (1.0-10.*frac_sea(iwp))
-                           endif
-                        enddo
-                           
-                        sea_area  = arw0(iw)
-                        szone(iw) = min( szone(iw) / sea_area, 0.1 )
-
+                  ! if cell is all water but any surrounding cells are mostly or completely not sea
+                  do n = 1, np
+                     iwp = itab_w(iw)%iw(n)
+                     iv  = itab_w(iw)%iv(n)
+                     if (frac_sea(iwp) < 0.1) then
+                        szone(iw) = szone(iw) + 50.0 * dnu(iv) * (1.0-10.*frac_sea(iwp))
                      endif
-                  endif
+                  enddo
+
+                  sea_area  = arw0(iw)
+                  szone(iw) = min( szone(iw) / sea_area, 0.1 )
+
                endif
             enddo
             !$omp end parallel do
 
             if (iparallel == 1) then
-               call mpi_send_w(1, r1dvara1=szone)
-               call mpi_recv_w(1, r1dvara1=szone)
+               call mpi_send_w(r1dvara1=szone)
+               call mpi_recv_w(r1dvara1=szone)
             endif
 
-            call lbcopy_w1d(1, a1=szone)
+            call lbcopy_w(v1=szone)
 
             ! Calculate dry sea-salt density (kg/m3)
             RHSUMDRY = 0.0
@@ -452,7 +444,7 @@
 !                  NSSDIAG = NSSDIAG + 1
 !                  WRSS_SPC( NSSDIAG ) = AEROMODE( N )%NUM_NAME
 !               END DO
-! 
+!
 !C Include Mode SURFACE_AREA to diagnostic
 !               DO N = 2, N_MODE
 !                  NSSDIAG = NSSDIAG + 1
@@ -577,15 +569,24 @@
 !-----------------------------------------------------------------------
 
          SUBROUTINE GET_SSEMIS ( )
-         
-         use sea_coms, only: mws
+
+         use mem_sea,   only: msea, omsea
+         use misc_coms, only: iparallel
+         use mem_sfcg,  only: itab_wsfc
+         use mem_para,  only: myrank
+
          implicit none
 
-         integer :: iws
+         integer :: isea, iwsfc
 
-         !$omp parallel do private(iws)
-         do iws = 2, mws
-            call get_ssemis1 ( iws )
+         !$omp parallel do private(isea)
+         do isea = 2, msea
+            iwsfc = isea + omsea
+
+            ! Skip this cell if running in parallel and cell rank is not MYRANK
+            if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+
+            call get_ssemis1 ( isea )
          enddo
          !$omp end parallel do
 
@@ -593,15 +594,15 @@
 
 !-----------------------------------------------------------------------
 
-         SUBROUTINE GET_SSEMIS1 ( iws )
+         SUBROUTINE GET_SSEMIS1 ( isea )
 
 ! GET_SSEMIS calculates the sea-salt emission rates in a grid cell
 ! given the fractional grid-cell area covered by open ocean and surf zone
- 
+
 ! Key Subroutines/Functions Called:  NONE
- 
+
 ! Revision History:
- 
+
 !   13 Jun 05 P.Bhave:  first version for public release
 !   11 Apr 08 J.Kelly:  added code for (1) emission of coarse surface area,
 !                       (2) emission of coarse water, (3) enhanced surf zone
@@ -615,13 +616,13 @@
 !                      emissions, (2) sea surface temperature dependence
 !                      of emissions, and (3) reduction of surf zone
 !                      emisions
- 
+
 ! References:
 !    Alduchov and Eskridge, "Improved Magnus Form Approximations of
 !          Saturation Vapor Pressure," Jour. of Applied Meteorology, vol. 35,
 !          pp 601-609, April, 1996.
-!    Binkowski F.S., S.J. Roselle. Models-3 Community Multiscale Air Quality 
-!          (CMAQ) model aerosol component 1: Model Description.  J. Geophys. 
+!    Binkowski F.S., S.J. Roselle. Models-3 Community Multiscale Air Quality
+!          (CMAQ) model aerosol component 1: Model Description.  J. Geophys.
 !          Res., Vol 108, No D6, 4183, doi:10.1029/2001JD001409 (2003).
 !    Seinfeld, J.H., S.N. Pandis.  "Atmospheric Chemistry and Physics - from
 !          air pollution to climate change"  John Wiley & Sons, Inc. (1998).
@@ -632,7 +633,7 @@
 !           emissions as a funciton of relative humidity", Atmospheric Environment,
 !           40, 588-590 (2006)
 !    Zhang, K.M., E.M. Knipping, A.S. Wexler, P.V. Bhave, G.S. Tonnesen, "Reply
-!           to comment on "Size distribution of sea-salt emissions as a funciton 
+!           to comment on "Size distribution of sea-salt emissions as a funciton
 !           of relative humidity", Atmospheric Environment, 40, 591-592 (2006)
 !    Clarke, A.D., S.R. Owens, and J. Zhou "An ultrafine sea-salt flux from
 !          breaking waves: Implications for cloud condensation nuclei in the
@@ -640,29 +641,28 @@
 !    Gong, S. L., A parameterization of sea-salt aerosol source function
 !          for sub- and super-micron particles, Global Biogeochem. Cycles, 17,
 !          1097, (2003).
-!    Jaeglé, L., P. K. Quinn, T. S. Bates, B. Alexander, and J. T. Lin, Global 
+!    Jaeglé, L., P. K. Quinn, T. S. Bates, B. Alexander, and J. T. Lin, Global
 !          distribution of sea salt aerosols: New constraints from in situ and
 !          remote sensing observations, Atmos. Chem. Phys., 11, 3137–3157,
 !          (2011).
-!    Ovadnevaite, J., Manders, A., de Leeuw, G., Ceburnis, D., Monahan, C., 
-!          Partanen, A.-I., Korhonen, H., and O'Dowd, C. D.: A sea spray 
-!          aerosol flux parameterization encapsulating wave state, Atmos. 
+!    Ovadnevaite, J., Manders, A., de Leeuw, G., Ceburnis, D., Monahan, C.,
+!          Partanen, A.-I., Korhonen, H., and O'Dowd, C. D.: A sea spray
+!          aerosol flux parameterization encapsulating wave state, Atmos.
 !          Chem. Phys., 14, 1837-1852, (2014).
 
             USE UTILIO_DEFN
             USE AERO_DATA
             USE CONST_DATA, only: pi, f6pi
-            use mem_sea,    only: sea, itab_ws
-            use mem_ijtabs, only: itabg_w
-            use misc_coms,  only: isubdomain
+
+            use mem_sea,    only: sea, omsea
+            use mem_sfcg,   only: itab_wsfc, sfcg
             use mem_grid,   only: volti
-            use mem_basic,  only: press, tair, sh_v, rho, vxe, vye, vze
             use therm_lib,  only: rhovsl
 
             IMPLICIT NONE
 
 ! Arguments
-            INTEGER, INTENT( IN ) :: iws
+            INTEGER, INTENT( IN ) :: isea
 
 ! Local Variables:
             REAL    :: OFRAC              ! fractional seawater cover
@@ -683,7 +683,7 @@
             REAL, PARAMETER :: A80 = 3.7 / 1.82
             REAL      :: RH               ! BLKRH constrained to 45-99% range
             REAL      :: C0               ! (Diam @ formation) / (Diam @ ambient RH)
-            REAL      :: C80              ! (Diam @ 80% RH) / (Diam @ ambient RH)    
+            REAL      :: C80              ! (Diam @ 80% RH) / (Diam @ ambient RH)
             REAL      :: XSW              ! fractional solute weight fraction
 
 ! Density of dry sea salt [kg/m3] using volume additivity
@@ -694,7 +694,7 @@
                                                ! numerical integrations
             REAL      :: DPMINO           ! minimum diameter for open-ocean flux
             REAL      :: DPMAXO           ! maximum diameter for open-ocean flux
-   
+
 ! Wind-speed-dependent scaling factors for emissions flux functions
             REAL      :: WDSCALO          ! Gong-Monahan open-ocean flux
 
@@ -726,7 +726,7 @@
             REAL      :: FACTNUMJ         ! conversion for accumulation mode M0
             REAL      :: FACTNUMK         ! conversion for coarse mode M0
             REAL      :: FACTM2J          ! conversion for accumulation mode M2
-            REAL      :: FACTM2K          ! conversion for coarse mode M2 
+            REAL      :: FACTM2K          ! conversion for coarse mode M2
 
 ! Variables for calculating fraction of mass emissions assigned to each mode
             REAL      :: FFINJ            ! finite integral for accumulation mode
@@ -743,35 +743,51 @@
             REAL      :: M3K              ! coarse mode, 3rd moment
 
 ! Variables for calculating dry surface-area emission rate for accum mode
-            REAL      :: WET_M3J, DRY_M3J ! wet & dry 3rd moment emis rates [m3/m3/s] 
-            REAL      :: WET_M2J, DRY_M2J ! wet & dry 2nd moment emis rates [m3/m3/s] 
-            REAL      :: WET_M3K, DRY_M3K ! wet & dry 3rd moment emis rates [m3/m3/s] 
-            REAL      :: WET_M2K, DRY_M2K ! wet & dry 2nd moment emis rates [m3/m3/s] 
+            REAL      :: WET_M3J, DRY_M3J ! wet & dry 3rd moment emis rates [m3/m3/s]
+            REAL      :: WET_M2J, DRY_M2J ! wet & dry 2nd moment emis rates [m3/m3/s]
+            REAL      :: WET_M3K, DRY_M3K ! wet & dry 3rd moment emis rates [m3/m3/s]
+            REAL      :: WET_M2K, DRY_M2K ! wet & dry 2nd moment emis rates [m3/m3/s]
 
 !           INTEGER, SAVE     :: WSTEP  = 0    ! local write counter
 !           INTEGER           :: MDATE, MTIME  ! SSEMIS write date&time
 
             REAL, PARAMETER :: ONE3 = 1.0 / 3.0
 
-            integer :: iw, kw
+            integer :: iw, kw, iwsfc, j
 
-            iw = itab_ws(iws)%iw
-            if (isubdomain == 1) then
-               iw = itabg_w(iw)%iw_myrank
-            endif
-            kw = itab_ws(iws)%kw
+            iwsfc = isea + omsea
 
-            OFRAC   = 1.0 - sea%seaicec(iws)
+ ! NOTE: This section of code references volti(kw,iw) and SZONE(IW), so it needs to know the ATM cell.
+ ! However, everything else about this subroutine is defined by the sea cell itself.
+ ! Can RLAY1HT, SFRAC, and SZONE be defined independently of the ATM cell?
+
+       !!   do j = 1,itab_wsfc(iwsfc)%nwatm
+
+            j = 1  ! Temporary setting (while question about volti is being answered)
+
+            iw = itab_wsfc(iwsfc)%iwatm(j) ! local index
+            kw = itab_wsfc(iwsfc)%kwatm(j)
+
+       !s     if (iparallel == 1) then
+       !s        iw = itabg_w(iw)%iw_myrank
+       !s     endif
+
+        !!  enddo
+
+            OFRAC   = 1.0 - sea%seaicec(isea)
             SFRAC   = SZONE(iw) * OFRAC
 
-            if ( sea%leaf_class(iws) == 0 .and. ofrac > 0.02) then
+           if ( sfcg%leaf_class(iwsfc) == 0 .and. ofrac > 0.02) then
 
-               BLKPRS  = press(kw,iw)
-               BLKTA   = tair(kw,iw)
-               blkrh   = sh_v(kw,iw) * rho(kw,iw) / rhovsl(blkta - 273.15)
-               U10     = sqrt(vxe(kw,iw)**2 + vye(kw,iw)**2 + vze(kw,iw)**2)
-               SST     = max( sea%seatc(iws) - 273.15, 0.0 )
-               RLAY1HT = sea%area(iws) * volti(kw,iw)
+               BLKPRS  = sfcg%prss(iwsfc)
+               BLKTA   = sfcg%airtemp(iwsfc)
+               blkrh   = sfcg%airrrv(iwsfc) * sfcg%rhos(iwsfc) / rhovsl(blkta - 273.15)
+               U10     = sfcg%vels(iwsfc)
+               SST     = max( sea%seatc(isea) - 273.15, 0.0 )
+
+! NOTE: Can we use RLAY1HT = 0.5 / sfcg%gdz_abov(iwsfc) !?
+
+               RLAY1HT = sfcg%area(iwsfc) * volti(kw,iw)
 
 ! Calculate RH-dependent size-correction factors and solute mass fraction
 ! using equations from Zhang et al. (2005), which are valid over the
@@ -779,7 +795,7 @@
                RH = BLKRH
                RH = MAX( 0.45, MIN( 0.99, RH ) )
 
-C Calculate inverse of size-correction factors from Equation 3 of Lewis & Schwartz 2006 and Zhang et al 2006 equation 2. 
+C Calculate inverse of size-correction factors from Equation 3 of Lewis & Schwartz 2006 and Zhang et al 2006 equation 2.
                C0  = A0  * ( (2.0-RH) / (1.0-RH) ) ** ONE3
                C80 = A80 * C0
 
@@ -805,7 +821,7 @@ C Calculate inverse of size-correction factors from Equation 3 of Lewis & Schwar
                DPMAXO = MIN( DPMAX, DPMAX * C80 )
 
 ! deLeeuw flux function is valid from 1.6-20 um diameter at formation
-!              DPMINO = 1.6E-6 * C0 
+!              DPMINO = 1.6E-6 * C0
 !              DPMAXO = MIN( DPMAX, DPMAX * C0 )
 
 ! Calculate scaling factors to correct the tabulated fluxes for the 10m
@@ -817,7 +833,7 @@ C Calculate inverse of size-correction factors from Equation 3 of Lewis & Schwar
 ! linearized by Ovadnevaite et al. (2014)
                SSTSCALO = 0.38 + 0.054 * SST
 
-! Calculate whitecap coverage fraction 
+! Calculate whitecap coverage fraction
                WCAP = 3.84E-6 * max(WDSCALO, 1.0) ! Eq. 5, Clarke et al. (2006) JGR
 
 ! Find position in the data arrays that corresponds to ambient RH in this
@@ -835,7 +851,7 @@ C Calculate inverse of size-correction factors from Equation 3 of Lewis & Schwar
                DGNJRH = DGNJ ( IPOS ) * 1.0E-6 ! convert to [m]
                DGNKRH = DGNK ( IPOS ) * 1.0E-6 ! convert to [m]
                SIGJRH = SIGJ ( IPOS )
-               SIGKRH = SIGK ( IPOS ) 
+               SIGKRH = SIGK ( IPOS )
                FNJRH  = FNJ  ( IPOS )
                FNKRH  = FNK  ( IPOS )
 
@@ -853,16 +869,16 @@ C Calculate inverse of size-correction factors from Equation 3 of Lewis & Schwar
                DGVJRH = DGNJRH * EXP( 3.0 * LNSGJ * LNSGJ )
                DGVKRH = DGNKRH * EXP( 3.0 * LNSGK * LNSGK )
 
-! Calculate modal volume fluxes [m3/m2/s] by evaluating finite integrals 
+! Calculate modal volume fluxes [m3/m2/s] by evaluating finite integrals
 ! from DPMIN to DPMAX over each lognormal distribution.  Use resulting
-! values to calculate the fraction of the total number emissions to 
+! values to calculate the fraction of the total number emissions to
 ! assign to each mode.  See Equations 19 and 20 of Uma Shankar`s
 ! "Integration of Sea-Salt Fluxes" memo.
                FFINJ  = 0.5 * FNJRH * DGVJRH ** 3 * EXP( -4.5 * LNSGJ * LNSGJ )
-     &                      * ( ERF( LOG( DPMAXO / DGVJRH ) * RDIVJ )  
+     &                      * ( ERF( LOG( DPMAXO / DGVJRH ) * RDIVJ )
      &                        - ERF( LOG( DPMINO / DGVJRH ) * RDIVJ ) )
                FFINK  = 0.5 * FNKRH * DGVKRH ** 3 * EXP( -4.5 * LNSGK * LNSGK )
-     &                      * ( ERF( LOG( DPMAXO / DGVKRH ) * RDIVK )  
+     &                      * ( ERF( LOG( DPMAXO / DGVKRH ) * RDIVK )
      &                        - ERF( LOG( DPMINO / DGVKRH ) * RDIVK ) )
                FRACMJ = FFINJ / ( FFINJ + FFINK )
                FRACMK = 1.0 - FRACMJ
@@ -878,15 +894,15 @@ C Calculate inverse of size-correction factors from Equation 3 of Lewis & Schwar
                ESEASK = VFLXRH * FRACMK * WDSCALO * RLAY1HT * RHOSW
 
                DO S = 1, NSSSPC
-                  SSOUTM( S,1,iws ) = 0.0
+                  SSOUTM( S,1,isea ) = 0.0
                   IF ( S .EQ. KH2O ) THEN ! Water
-                     SSOUTM( S,2,iws ) = ESEASJ * ( 1.0 - XSW )
-                     SSOUTM( S,3,iws ) = ESEASK * ( 1.0 - XSW )
+                     SSOUTM( S,2,isea ) = ESEASJ * ( 1.0 - XSW )
+                     SSOUTM( S,3,isea ) = ESEASK * ( 1.0 - XSW )
                   ELSE
-                     SSOUTM( S,2,iws ) = ESEASJ * XSW
-     &                                 * AEROSPC_SSF( 2,SSSPC_MAP( S ) )
-                     SSOUTM( S,3,iws ) = ESEASK * XSW
-     &                                 * AEROSPC_SSF( 3,SSSPC_MAP( S ) )
+                     SSOUTM( S,2,isea ) = ESEASJ * XSW
+     &                                  * AEROSPC_SSF( 2,SSSPC_MAP( S ) )
+                     SSOUTM( S,3,isea ) = ESEASK * XSW
+     &                                  * AEROSPC_SSF( 3,SSSPC_MAP( S ) )
                   END IF
                END DO
 
@@ -900,30 +916,30 @@ C Calculate inverse of size-correction factors from Equation 3 of Lewis & Schwar
                FACTNUMJ = EXP( 4.5 * LNSGJ * LNSGJ ) / DGVJRH ** 3
                FACTNUMK = EXP( 4.5 * LNSGK * LNSGK ) / DGVKRH ** 3
                FACTM2J  = EXP( 0.5 * LNSGJ * LNSGJ ) / DGVJRH
-               FACTM2K  = EXP( 0.5 * LNSGK * LNSGK ) / DGVKRH 
+               FACTM2K  = EXP( 0.5 * LNSGK * LNSGK ) / DGVKRH
 
 ! Calculate mode-specific emission rates of particle number [1/s]
-               SSOUTN( 1,iws ) = 0.0
-               SSOUTN( 2,iws ) = M3J * FACTNUMJ
-               SSOUTN( 3,iws ) = M3K * FACTNUMK
+               SSOUTN( 1,isea ) = 0.0
+               SSOUTN( 2,isea ) = M3J * FACTNUMJ
+               SSOUTN( 3,isea ) = M3K * FACTNUMK
 
-! Calculate mode-specific dry surface area emission rates [m2/m3/s].  
-! Subtract water from 3rd moment to obtain dry 3rd moment emission rate.  
+! Calculate mode-specific dry surface area emission rates [m2/m3/s].
+! Subtract water from 3rd moment to obtain dry 3rd moment emission rate.
 ! Calculate dry 2nd moment while holding the standard deviation constant.
 ! Multiply dry 2nd moment by PI to obtain dry surface area emission rate.
-               WET_M3J = M3J 
+               WET_M3J = M3J
                WET_M2J = M3J * FACTM2J
-               DRY_M3J = WET_M3J - F6PI * SSOUTM( KH2O,2,iws ) * 1.0E-06
+               DRY_M3J = WET_M3J - F6PI * SSOUTM( KH2O,2,isea ) * 1.0E-06
                DRY_M2J = WET_M2J * ((DRY_M3J/WET_M3J)**2) ** ONE3
 
                WET_M3K = M3K
                WET_M2K = M3K * FACTM2K
-               DRY_M3K = WET_M3K - F6PI * SSOUTM( KH2O,3,iws ) * 1.0E-06
+               DRY_M3K = WET_M3K - F6PI * SSOUTM( KH2O,3,isea ) * 1.0E-06
                DRY_M2K = WET_M2K * ((DRY_M3K/WET_M3K)**2) ** ONE3
 
-               SSOUTS( 1,iws ) = 0.0
-               SSOUTS( 2,iws ) = PI * DRY_M2J
-               SSOUTS( 3,iws ) = PI * DRY_M2K
+               SSOUTS( 1,isea ) = 0.0
+               SSOUTS( 2,isea ) = PI * DRY_M2J
+               SSOUTS( 3,isea ) = PI * DRY_M2K
 
 ! Update the SSBF array, for writing the diagnostic sea-salt-emission file.
 !                  IF ( SSEMDIAG ) THEN
@@ -959,10 +975,10 @@ C Calculate inverse of size-correction factors from Equation 3 of Lewis & Schwar
 
                DO N = 1, N_MODE
                   DO S = 1, NSSSPC
-                     SSOUTM( S,N,iws ) = 0.0
+                     SSOUTM( S,N,isea ) = 0.0
                   END DO
-                  SSOUTN( N,iws ) = 0.0
-                  SSOUTS( N,iws ) = 0.0
+                  SSOUTN( N,isea ) = 0.0
+                  SSOUTS( N,isea ) = 0.0
                END DO
 
             endif
@@ -1010,7 +1026,7 @@ C Calculate inverse of size-correction factors from Equation 3 of Lewis & Schwar
             ERF = SIGN( 1.0, X ) * SQRT( 1.0 - EXP( -4.0 * X * X / PI ) )
 
             end function erf
-            
+
       END SUBROUTINE GET_SSEMIS1
 
       END MODULE SSEMIS

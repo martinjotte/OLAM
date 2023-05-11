@@ -1,35 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 subroutine inithh()
 
   ! Horizontally-homogeneous initialization of model fields
@@ -63,12 +31,12 @@ use consts_coms, only: pio180, eps_virt, p00k, rocp, cpor, p00i, &
                        t00, eps_vap, rdryog, alvlocp, gocp
 use misc_coms,   only: nsndg, ipsflg, irtsflg, iusflg, ps, ts, rts, us, vs, &
                        hs, thds, p_sfc
-use therm_lib,   only: eslf
+use therm_lib,   only: rslf
 
 implicit none
 
 integer :: ksndg, iterate
-real    :: dir, spd, thavg, esat
+real    :: dir, spd, thavg
 real    :: tvirt1, tvirt2, press, theta, tair, qt, qv, qc, qsat
 real    :: qvap(nsndg)
 
@@ -104,14 +72,13 @@ if (ipsflg == 0) then
 
       do iterate = 1, 20
          theta = 0.7 * theta &
-               + 0.3 * ts(ksndg) * (1. + alvlocp * qc / max(tair,253.))
+               + 0.3 * ts(ksndg) * (1. + alvlocp * qc  &
+                                       / ((1.0 + qv) * max(tair,253.)))
 
          tair  = theta * (ps(ksndg) * p00i) ** rocp
 
          qt    = rts2qt(irtsflg, rts(ksndg), tair, ps(ksndg))
-         esat  = eslf(tair - t00)
-         qsat  = eps_vap * esat / (ps(ksndg) - esat * (1. - eps_vap))
-
+         qsat  = rslf(ps(ksndg),tair)
          qc    = max(0., qt - qsat)
          qv    = qt - qc
       enddo
@@ -149,14 +116,13 @@ elseif (ipsflg == 1) then
 
    do iterate = 1, 20
       theta = 0.7 * theta &
-            + 0.3 * ts(ksndg) * (1. + alvlocp * qc / max(tair,253.))
+            + 0.3 * ts(ksndg) * (1. + alvlocp * qc &
+                                    / ((1.0 + qv) * max(tair,253.)))
 
       tair  = theta * (ps(ksndg) * p00i) ** rocp
 
       qt    = rts2qt(irtsflg, rts(ksndg), tair, ps(ksndg))
-      esat  = eslf(tair - t00)
-      qsat  = eps_vap * esat / (ps(ksndg) - esat * (1. - eps_vap))
-
+      qsat  = rslf(ps(ksndg),tair)
       qc    = max(0., qt - qsat)
       qv    = qt - qc
    enddo
@@ -194,15 +160,13 @@ elseif (ipsflg == 1) then
          tair   = theta * (press * p00i)**rocp
 
          qt     = rts2qt(irtsflg, rts(ksndg), tair, press)
-         esat   = eslf(tair - t00)
-         qsat   = eps_vap * esat / (press - esat * (1. - eps_vap))
-
+         qsat   = rslf(press,tair)
          qc     = max(0., qt - qsat)
          qv     = qt - qc
 
          theta = 0.7 * theta &
-               + 0.3 * ts(ksndg) * (1. + alvlocp * qc / max(tair,253.))
-
+               + 0.3 * ts(ksndg) * (1. + alvlocp * qc &
+                                       / ((1.0 + qv) * max(tair,253.)))
       enddo
 
       rts (ksndg) = qt
@@ -224,12 +188,12 @@ use consts_coms, only: pio180, eps_virt, p00k, rocp, cpor, p00i, &
                        t00, eps_vap, rdryog, gocp
 use misc_coms,   only: nsndg, ipsflg, irtsflg, iusflg, ps, ts, rts, us, vs, &
                        hs, thds, p_sfc
-use therm_lib,   only: eslf
+use therm_lib,   only: rslf
 
 implicit none
 
 integer :: ksndg, iterate
-real    :: dir, spd, thavg, esat
+real    :: dir, spd, thavg
 real    :: tvirt1, tvirt2, press, theta, tair, qt, qv, qc, qsat
 real    :: qvap(nsndg)
 
@@ -256,9 +220,7 @@ if (ipsflg == 0) then
       thds(ksndg) = ts(ksndg)
       ts  (ksndg) = ts(ksndg) * (ps(ksndg) * p00i) ** rocp
       rts (ksndg) = rts2qt(irtsflg, (rts(ksndg)), ts(ksndg), ps(ksndg))
-
-      esat        = eslf(ts(ksndg) - t00)
-      qsat        = eps_vap * esat / (ps(ksndg) - esat * (1. - eps_vap))
+      qsat        = rslf(ps(ksndg), ts(ksndg))
       qvap(ksndg) = rts(ksndg) - max(0., rts(ksndg) - qsat)
    enddo
 
@@ -268,7 +230,6 @@ if (ipsflg == 0) then
              + ts(ksndg-1) * (1. + eps_virt * qvap(ksndg-1)))  &
            * log( ps(ksndg) / ps(ksndg-1) )
    enddo
-
 
 elseif (ipsflg == 1) then
 
@@ -284,9 +245,7 @@ elseif (ipsflg == 1) then
    thds(ksndg) = ts(ksndg)
    ts  (ksndg) = ts(ksndg) * (ps(ksndg) * p00i) ** rocp
    rts (ksndg) = rts2qt(irtsflg, (rts(ksndg)), ts(ksndg), ps(ksndg))
-
-   esat        = eslf(ts(ksndg) - t00)
-   qsat        = eps_vap * esat / (ps(ksndg) - esat * (1. - eps_vap))
+   qsat        = rslf(ps(ksndg), ts(ksndg))
    qvap(ksndg) = rts(ksndg) - max(0., rts(ksndg) - qsat)
 
    ! Above surface, we need to compute temperature, humidity, and pressure.
@@ -316,9 +275,7 @@ elseif (ipsflg == 1) then
          tair   = theta * (press * p00i)**rocp
 
          qt     = rts2qt(irtsflg, rts(ksndg), tair, press)
-         esat   = eslf(tair - t00)
-         qsat   = eps_vap * esat / (press - esat * (1. - eps_vap))
-
+         qsat   = rslf(press, tair)
          qc     = max(0., qt - qsat)
          qv     = qt - qc
 
@@ -343,12 +300,12 @@ use consts_coms, only: pio180, eps_virt, p00k, rocp, p00, t00, &
                        eps_vap, rdryog, gordry
 use misc_coms,   only: nsndg, ipsflg, irtsflg, iusflg, itsflg, &
                        ps, ts, rts, us, vs, hs, thds, p_sfc
-use therm_lib,   only: eslf
+use therm_lib,   only: rslf
 
 implicit none
 
 integer :: ksndg, iterate
-real    :: dir, spd, tavg, esat
+real    :: dir, spd, tavg
 real    :: tvirt1, tvirt2, press, qt, qv, qc, qsat
 real    :: qvap(nsndg)
 
@@ -382,9 +339,7 @@ if (ipsflg == 0) then
       ps  (ksndg) = ps(ksndg) * 100.
       thds(ksndg) = ts(ksndg) * (p00 / ps(ksndg)) * rocp
       rts (ksndg) = rts2qt(irtsflg, (rts(ksndg)), ts(ksndg), ps(ksndg))
-
-      esat        = eslf(ts(ksndg) - t00)
-      qsat        = eps_vap * esat / (ps(ksndg) - esat * (1. - eps_vap))
+      qsat        = rslf(ps(ksndg), ts(ksndg))
       qvap(ksndg) = rts(ksndg) - max(0., rts(ksndg) - qsat)
    enddo
 
@@ -408,9 +363,7 @@ elseif (ipsflg == 1) then
 
    thds(ksndg) = ts(ksndg) * (p00 / ps(ksndg)) ** rocp
    rts (ksndg) = rts2qt(irtsflg, (rts(ksndg)), ts(ksndg), ps(ksndg))
-
-   esat        = eslf(ts(ksndg) - t00)
-   qsat        = eps_vap * esat / (ps(ksndg) - esat * (1. - eps_vap))
+   qsat        = rslf(ps(ksndg), ts(ksndg))
    qvap(ksndg) = rts(ksndg) - max(0., rts(ksndg) - qsat)
 
    ! Above surface, we need to compute potential temperature, humidity,
@@ -436,9 +389,7 @@ elseif (ipsflg == 1) then
          press = ps(ksndg-1) * exp(gordry * (hs(ksndg-1) - hs(ksndg)) / tavg)
 
          qt     = rts2qt(irtsflg, rts(ksndg), ts(ksndg), press)
-         esat   = eslf(ts(ksndg) - t00)
-         qsat   = eps_vap * esat / (press - esat * (1. - eps_vap))
-
+         qsat   = rslf(press, ts(ksndg))
          qc     = max(0., qt - qsat)
          qv     = qt - qc
 
@@ -508,9 +459,9 @@ real function rts2qt(irtsflg, rts, tair, press)
 
      vapor_press = min(press, vapor_press)
 
-     ! Compute specific humidity from vapor pressure and ambient pressure
+     ! Compute mixing ratio from vapor pressure and ambient pressure
 
-     rts2qt = eps_vap * vapor_press  / (press - vapor_press * (1.0 - eps_vap))
+     rts2qt = eps_vap * vapor_press / (press - vapor_press)
 
   endif
 
@@ -526,17 +477,18 @@ subroutine refs1d()
 
 use misc_coms,   only: io6, nsndg, hs, thds, us, vs, ts, rts, ps, &
                        pr01d, dn01d, rt01d, th01d, u01d, v01d
-use consts_coms, only: cvocp, p00k, rdry, eps_virt, grav, gravo2, p00, &
-                       rocp, t00, p00i, eps_vap
-use mem_grid,    only: mza, zm, zt, dzt_top, dzt_bot
+use consts_coms, only: cvocp, p00kord, rdry, eps_virt, p00, rocp, t00, &
+                       p00i, eps_vapi, r8
+use mem_grid,    only: mza, zm, zt, gdz_belo, gdz_abov, gravm
 use micro_coms,  only: miclevel
-use therm_lib,   only: eslf
+use therm_lib,   only: rslf
 
 implicit none
 
 integer :: k, iter
-real    :: dens1, exner, temp
-real    :: esat, qsat, qv, tair
+real    :: dens1, dens1t, exner, temp
+real    :: qsat, qv, tair
+real    :: dt01d(mza)
 
 write(io6,*) 'Beginning refs1d '
 
@@ -560,38 +512,41 @@ endif
 
 call htint(nsndg,ps,hs,mza,pr01d,zt)
 
-esat  = eslf(ts(1) - t00)
-qsat  = eps_vap * esat / (ps(1) - esat * (1. - eps_vap))
-qv    = rts(1) - max(0., rts(1) - qsat)
-dens1 = ps(1) ** cvocp * p00k / (rdry * thds(1) * (1. + eps_virt * qv))
+qsat   = rslf(ps(1), ts(1))
+qv     = rts(1) - max(0., rts(1) - qsat)
+dens1  = ps(1) ** cvocp * p00kord / (thds(1) * (1.0 + eps_vapi * qv))
+dens1t = dens1 * (1.0 + qv)
 
 ! Use iterative method for hydrostatic integration
 
 do iter = 1,100
 
-   tair  = th01d(1) * (pr01d(1) * p00i) ** rocp
-   esat  = eslf(tair - t00)
-   qsat  = eps_vap * esat / (pr01d(1) - esat * (1. - eps_vap))
-   qv    = rt01d(1) - max(0., rt01d(1) - qsat)
+   tair = th01d(1) * (pr01d(1) * p00i) ** rocp
+   qsat = rslf(pr01d(1), tair)
+   qv   = rt01d(1) - max(0., rt01d(1) - qsat)
 
-   dn01d(1) = pr01d(1) ** cvocp * p00k  &
-            / (rdry * th01d(1) * (1. + eps_virt * qv))
-   pr01d(1) = ps(1) - gravo2 * (dens1 + dn01d(1)) * (zt(1) - hs(1))
+   dn01d(1) = pr01d(1) ** cvocp * p00kord / &
+              ( th01d(1) * (1. + eps_vapi * qv) )
+
+   dt01d(1) = dn01d(1) * (1.0 + qv)
+
+   pr01d(1) = ps(1) - 0.5 * gravm(1) * (dens1t + dt01d(1)) * (zt(1) - hs(1))
 
    do k = 2,mza
 
       tair  = th01d(k) * (pr01d(k) * p00i) ** rocp
-      esat  = eslf(tair - t00)
-      qsat  = eps_vap * esat / (pr01d(k) - esat * (1. - eps_vap))
+      qsat  = rslf(pr01d(k), tair)
       qv    = rt01d(k) - max(0., rt01d(k) - qsat)
 
-      dn01d(k) = pr01d(k) ** cvocp * p00k  &
-               / (rdry * th01d(k) * (1. + eps_virt * qv))
+      dn01d(k) = pr01d(k) ** cvocp * p00kord / &
+                 ( th01d(k) * (1. + eps_vapi * qv) )
+
+      dt01d(k) = dn01d(k) * (1.0 + qv)
 
       ! Impose minimum value of 1 Pa to avoid overshoot to negative values
       ! during iteration
-      pr01d(k) = max(1.,  &
-           pr01d(k-1) - grav * (dn01d(k-1) * dzt_top(k-1) + dn01d(k) * dzt_bot(k)))
+      pr01d(k) = max(1., pr01d(k-1) &
+                       - gdz_belo(k-1) * dt01d(k-1) - gdz_abov(k-1) * dt01d(k) )
    enddo
 enddo
 
@@ -610,7 +565,7 @@ write(io6,*) ' '
 
 do k = mza,2,-1
 
-   exner = (pr01d(k) / p00) ** rocp  ! exner WITHOUT CP factor
+   exner = (pr01d(k) * p00i) ** rocp  ! exner WITHOUT CP factor
    temp  = th01d(k) * exner
 
    write(io6, '(f10.2,1x,6(''-----------''))') zm(k)
@@ -627,29 +582,24 @@ end subroutine refs1d
 
 subroutine fldshhi()
 
-use mem_basic,   only: theta, thil, tair, press, rho, wc, wmc, &
-                       vc, vp, vmp, vmc, sh_w, sh_v
-use mem_micro,   only: sh_c
-use micro_coms,  only: miclevel
-use mem_ijtabs,  only: jtab_w, jtab_v, itab_v, jtv_init, jtw_init, jtv_wall
-use misc_coms,   only: mdomain, th01d, pr01d, dn01d, rt01d, u01d, v01d, &
-                       iparallel
-use consts_coms, only: cvocp, p00k, rdry, rvap, p00, p00i, rocp, alvlocp, &
-                       grav, erad
-use mem_grid,    only: mza, lpv, lpw, vnx, vny, vnz, xev, yev, zev, &
-                       dzt_top, dzt_bot
-use olam_mpi_atm,only: mpi_send_w, mpi_recv_w, &
-                       mpi_send_v, mpi_recv_v
+use mem_basic,   only: theta, thil, tair, press, rho, wc, wmc, vc, &
+                       vmc, rr_w, rr_v, ue, ve, vxe, vye, vze
+use mem_micro,   only: rr_c, con_c, cldnum
+use micro_coms,  only: miclevel, ccnparm, jnmb, rxmin, zfactor_ccn
+use mem_ijtabs,  only: jtab_w, jtab_v, itab_v, jtv_init, jtw_init
+use misc_coms,   only: th01d, pr01d, dn01d, rt01d, u01d, v01d, iparallel
+use consts_coms, only: cvocp, p00kord, p00i, rocp, alvlocp, eps_vapi, r8
+use mem_grid,    only: mza, lpv, lpw, gdz_abov8, gdz_belo8, vcn_ew, vcn_ns, &
+                       vnxo2, vnyo2, vnzo2
+use olam_mpi_atm,only: mpi_send_w, mpi_recv_w, mpi_send_v, mpi_recv_v
 use obnd,        only: lbcopy_v, lbcopy_w
 use therm_lib,   only: rhovsl
 
 implicit none
 
-integer :: j,iw,k,ka,iv,iter,iw1,iw2,kbc,mrl
-
-real :: temp, exner
-real :: uv01dx, uv01dy, uv01dz, uv01dr, raxis, rhovs
-real :: pkhyd
+integer  :: j,iw,k,ka,iv,iter,iw1,iw2,kbc
+real     :: temp, exner, ccn
+real(r8) :: pkhyd, rho_tot(mza)
 
 ! Choose as an internal pressure boundary condition the pressure level at or
 ! below (in elevation) the 49900 Pa surface.  Find the k index of this level.
@@ -660,7 +610,9 @@ do while (pr01d(kbc) < 49900.)
 enddo
 
 !----------------------------------------------------------------------
-do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
+!$omp parallel private(rho_tot)
+!$omp do private(iw,ka,k,iter,temp,exner,ccn,pkhyd)
+do j = 1,jtab_w(jtw_init)%jend; iw = jtab_w(jtw_init)%iw(j)
 !---------------------------------------------------------------------
 
    ka = lpw(iw)
@@ -669,48 +621,45 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 
    wc (1:mza,iw) = 0.
    wmc(1:mza,iw) = 0.
+   vze(1:mza,iw) = 0.
 
    do k = ka, mza
       theta(k,iw) = th01d(k)
-      thil(k,iw)  = theta(k,iw)
+      thil (k,iw) = th01d(k)
       press(k,iw) = pr01d(k)
-      rho(k,iw)   = dn01d(k)
-
-      if (miclevel == 0) then
-         sh_w(k,iw) = 0.
-         sh_v(k,iw) = 0.
-      elseif (miclevel == 1) then
-         sh_w(k,iw) = rt01d(k)
-         sh_v(k,iw) = rt01d(k)
-      else
-         sh_w(k,iw) = rt01d(k)
-         sh_v(k,iw) = rt01d(k)
-      endif
+      rho  (k,iw) = dn01d(k)
+      rr_w (k,iw) = rt01d(k)
+      rr_v (k,iw) = rt01d(k)
+      ue   (k,iw) =  u01d(k)
+      ve   (k,iw) =  v01d(k)
+      vxe  (k,iw) =  u01d(k)
+      vye  (k,iw) =  v01d(k)
    enddo
 
-   do iter = 1,100
+   do iter = 1, 100
 
 !  Compute density for all grid levels
 
       do k = ka, mza
 
          if (miclevel == 0) then
-            rho(k,iw) = press(k,iw) ** cvocp * p00k / (rdry * theta(k,iw))
+            rho (k,iw) = press(k,iw) ** cvocp * p00kord / theta(k,iw)
+            rho_tot(k) = rho(k,iw)
          elseif (miclevel == 1) then
-            rho(k,iw) = press(k,iw) ** cvocp * p00k &
-               / (theta(k,iw) * (rdry * (1. - sh_w(k,iw)) + rvap * sh_v(k,iw)))
+            rho (k,iw) = press(k,iw) ** cvocp * p00kord / &
+                 ( theta(k,iw) * (1.0 + eps_vapi * rr_v(k,iw)) )
+            rho_tot(k) = rho(k,iw) * (1. + rr_v(k,iw))
          else
-            exner = (press(k,iw) * p00i) ** rocp  ! Defined WITHOUT CP factor
+            exner = (real(press(k,iw)) * p00i) ** rocp  ! Defined WITHOUT CP factor
             temp = exner * theta(k,iw)
-            rhovs = rhovsl(temp-273.15)
 
-            sh_c(k,iw) = max(0., sh_w(k,iw) - rhovs/real(rho(k,iw)))
-            sh_v(k,iw) = sh_w(k,iw) - sh_c(k,iw)
+            rr_c(k,iw) = max(0., rr_w(k,iw) - rhovsl(temp-273.15) / real(rho(k,iw)))
+            rr_v(k,iw) = rr_w(k,iw) - rr_c(k,iw)
 
-            rho(k,iw) = press(k,iw) ** cvocp * p00k &
-               / (theta(k,iw) * (rdry * (1. - sh_w(k,iw)) + rvap * sh_v(k,iw)))
+            rho (k,iw) = press(k,iw) ** cvocp * p00kord / &
+                 ( theta(k,iw) * (1.0 + eps_vapi * rr_v(k,iw)) )
 
-            thil(k,iw) = theta(k,iw) / (1. + alvlocp * sh_c(k,iw) / max(temp,253.))
+            rho_tot(k) = rho(k,iw) * (1. + rr_v(k,iw))
          endif
 
       enddo
@@ -721,45 +670,76 @@ do j = 1,jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
 
       do k = kbc+1,mza
          pkhyd = press(k-1,iw) &
-               - grav * (rho(k-1,iw) * dzt_top(k-1) + rho(k,iw) * dzt_bot(k))
-         press(k,iw) = .05 * press(k,iw) + .95 * max(.1,pkhyd)
+               - gdz_belo8(k-1) * rho_tot(k-1) - gdz_abov8(k-1) * rho_tot(k)
+         press(k,iw) = .05_r8 * press(k,iw) + .95_r8 * max(.1_r8, pkhyd)
       enddo
 
       do k = kbc-1,ka,-1
          pkhyd = press(k+1,iw) &
-               + grav * (rho(k+1,iw) * dzt_bot(k+1) + rho(k,iw) * dzt_top(k))
-         press(k,iw) = .05 * press(k,iw) + .95 * max(.1,pkhyd)
+               + gdz_belo8(k) * rho_tot(k) + gdz_abov8(k) * rho_tot(k+1)
+         press(k,iw) = .05_r8 * press(k,iw) + .95_r8 * max(.1_r8, pkhyd)
       enddo
 
    enddo
 
-   do k = ka,mza
-      tair(k,iw) = theta(k,iw) * (press(k,iw) * p00i) ** rocp
+   do k = ka, mza
+      tair(k,iw) = theta(k,iw) * (real(press(k,iw)) * p00i) ** rocp
+
+      ! THIIL is defined using mixing ratios in Tripoli and Cotton
+      if (miclevel > 1) then
+         temp = max(tair(k,iw),253.)
+         thil(k,iw) = theta(k,iw) * temp / ( temp + alvlocp * rr_c(k,iw) )
+      endif
+
    enddo
 
    do k = 1, ka-1
       thil(k,iw) = thil(ka,iw)
    enddo
 
+   if (miclevel == 3 .and. jnmb(1) == 5) then
+      if (ccnparm > 1.e6) then
+         ccn = ccnparm
+      else
+         ccn = cldnum(iw)
+      endif
+
+      do k = ka, mza
+         if (rr_c(k,iw) > rxmin(1)) then
+            con_c(k,iw) = ccn * real(rho(k,iw)) * zfactor_ccn(k)
+         else
+            con_c(k,iw) = 0.0
+         endif
+      enddo
+   endif
+
 enddo
+!$omp end do
+!$omp end parallel
 
 ! LBC copy (THETA and TAIR will be copied later with the scalars)
 
-mrl = 1
-
 if (iparallel == 1) then
-   call mpi_send_w(mrl, dvara1=press, dvara2=rho, &
-                   rvara1=wc,rvara2=wmc,rvara3=thil)
-   call mpi_recv_w(mrl, dvara1=press, dvara2=rho, &
-                   rvara1=wc,rvara2=wmc,rvara3=thil)
+
+   call mpi_send_w(dvara1=press, dvara2=rho, &
+                   rvara1=wc,rvara2=wmc,rvara3=thil, &
+                   rvara4=ue,rvara5=ve, &
+                   rvara6=vxe, rvara7=vye, rvara8=vze)
+
+   call mpi_recv_w(dvara1=press, dvara2=rho, &
+                   rvara1=wc,rvara2=wmc,rvara3=thil, &
+                   rvara4=ue,rvara5=ve, &
+                   rvara6=vxe, rvara7=vye, rvara8=vze)
 endif
 
-call lbcopy_w(1, a1=wc, a2=wmc, a3=thil, d1=press, d2=rho)
+call lbcopy_w(a1=wc,  a2=wmc, a3=thil, a4=ue, a5=ve, a6=vxe, a7=vye, a8=vze, &
+              d1=rho, d2=press)
 
 ! Initialize VMC, VC
 
 !----------------------------------------------------------------------
-do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)
+!$omp parallel do private(iv,iw1,iw2,ka,k)
+do j = 1,jtab_v(jtv_init)%jend; iv = jtab_v(jtv_init)%iv(j)
    iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
 !----------------------------------------------------------------------
 
@@ -768,36 +748,24 @@ do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)
 
    ka = lpv(iv)
 
-! If sounding winds are to be interpreted as eastward (U) and
-! northward (V) components, rotate winds from geographic to
-! polar stereographic orientation
+   do k = ka, mza
+      vc(k,iv) = vnxo2(iv) * (vxe(k,iw1) + vxe(k,iw2)) &
+               + vnyo2(iv) * (vye(k,iw1) + vye(k,iw2)) &
+               + vnzo2(iv) * (vze(k,iw1) + vze(k,iw2))
 
-! V point coordinates and normal vector components
-
-   do k = ka,mza
-
-      if (mdomain <= 1) then  ! Model uses "earth" coordinates
-         raxis = sqrt(xev(iv) ** 2 + yev(iv) ** 2)  ! dist from earth axis
-
-         if (raxis > 1.e3) then
-            uv01dr = -v01d(k) * zev(iv) / erad  ! radially outward from axis
-
-            uv01dx = (-u01d(k) * yev(iv) + uv01dr * xev(iv)) / raxis
-            uv01dy = ( u01d(k) * xev(iv) + uv01dr * yev(iv)) / raxis
-            uv01dz =   v01d(k) * raxis / erad
-
-            vc(k,iv) = uv01dx * vnx(iv) + uv01dy * vny(iv) + uv01dz * vnz(iv)
-         else
-            vc(k,iv) = 0.
-         endif
-
-      else
-         vc(k,iv) = u01d(k) * vnx(iv) + v01d(k) * vny(iv)
-      endif
-
-      vmc(k,iv) = vc(k,iv) * .5 * (rho(k,iw1) + rho(k,iw2))
-
+      vmc(k,iv) = vc(k,iv) * 0.5 * (rho(k,iw1) + rho(k,iw2))
    enddo
+
+   ! If sounding winds are to be interpreted as eastward (U) and
+   ! northward (V) components, rotate winds from geographic to
+   ! polar stereographic orientation
+
+   ! V point coordinates and normal vector components
+
+   !do k = ka, mza
+   !   vc( k,iv) = u01d(k) * vcn_ew(iv) + v01d(k) * vcn_ns(iv)
+   !   vmc(k,iv) = vc(k,iv) * .5 * real(rho(k,iw1) + rho(k,iw2))
+   !enddo
 
 ! For below-ground points, set VC to 0
 
@@ -805,32 +773,17 @@ do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)
    vmc(1:ka-1,iv) = 0.0
 
 enddo
-
-! Set VMC, VC = 0 at channel (non-topo) walls
-
-!----------------------------------------------------------------------
-do j = 1,jtab_v(jtv_wall)%jend(1); iv = jtab_v(jtv_wall)%iv(j)
-!----------------------------------------------------------------------
-
-   vmc(:,iv) = 0.
-   vc (:,iv) = 0.
-
-enddo
+!$omp end parallel do
 
 ! MPI parallel send/recv of V group
 
 if (iparallel == 1) then
-   call mpi_send_v(mrl, rvara1=vmc, rvara2=vc)
-   call mpi_recv_v(mrl, rvara1=vmc, rvara2=vc)
+   call mpi_send_v(rvara1=vmc, rvara2=vc)
+   call mpi_recv_v(rvara1=vmc, rvara2=vc)
 endif
 
 ! LBC copy of VMC, VC
 
-call lbcopy_v(1, vmc=vmc, vc=vc)
-
-! Set VMP and VP
-
-if (allocated(vmp)) vmp(:,:) = vmc(:,:)
-if (allocated(vp )) vp (:,:) = vc (:,:)
+call lbcopy_v(vmc=vmc, vc=vc)
 
 end subroutine fldshhi

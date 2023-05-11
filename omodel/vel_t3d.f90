@@ -1,88 +1,10 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
 module vel_t3d
 
 contains
 
 !===============================================================================
 
-subroutine diag_earth_vels(mrl, vxesc, vyesc, vzesc)
-
-  use olam_mpi_atm, only: mpi_send_w, mpi_recv_w
-  use obnd,         only: lbcopy_w
-  use mem_ijtabs,   only: jtab_w, itab_w, jtw_prog, jtw_wadj, mrl_ends, mrl_endl
-  use mem_basic,    only: vxe, vye, vze
-  use misc_coms,    only: iparallel
-  use mem_grid,     only: mza, mwa
-
-  implicit none
-
-  integer, intent(in)    :: mrl
-  real,    intent(inout) :: vxesc(mza,mwa), vyesc(mza,mwa), vzesc(mza,mwa)
-  integer                :: j, iw, k
-
-  if (mrl == 0) return
-
-  !$omp parallel do private(iw,k)
-  do j = 1,jtab_w(jtw_wadj)%jend(mrl); iw = jtab_w(jtw_wadj)%iw(j)
-
-     do k = 2, mza
-        vxesc(k,iw) = vxesc(k,iw) + 0.5 * vxe(k,iw)
-        vyesc(k,iw) = vyesc(k,iw) + 0.5 * vye(k,iw)
-        vzesc(k,iw) = vzesc(k,iw) + 0.5 * vze(k,iw)
-     enddo
-
-  enddo
-  !$omp end parallel do
-
-  call diagvel_t3d(mrl)
-
-  !$omp parallel do private(iw,k)
-  do j = 1,jtab_w(jtw_wadj)%jend(mrl); iw = jtab_w(jtw_wadj)%iw(j)
-
-     do k = 2, mza
-        vxesc(k,iw) = vxesc(k,iw) + 0.5 * vxe(k,iw)
-        vyesc(k,iw) = vyesc(k,iw) + 0.5 * vye(k,iw)
-        vzesc(k,iw) = vzesc(k,iw) + 0.5 * vze(k,iw)
-     enddo
-
-  enddo
-  !$omp end parallel do
-
-end subroutine diag_earth_vels
-
-!===============================================================================
-
-subroutine diagvel_t3d(mrl)
+subroutine diagvel_t3d()
 
   use olam_mpi_atm, only: mpi_send_w, mpi_recv_w
   use obnd,         only: lbcopy_w
@@ -92,13 +14,10 @@ subroutine diagvel_t3d(mrl)
 
   implicit none
 
-  integer, intent(in) :: mrl
-  integer             :: j, iw
-
-  if (mrl == 0) return
+  integer :: j, iw
 
   !$omp parallel do private(iw)
-  do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+  do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
      call vel_t3d_hex(iw)
 
@@ -108,10 +27,10 @@ subroutine diagvel_t3d(mrl)
 ! Parallel send-recieve of Earth Cartesian velocities
 
   if (iparallel == 1) then
-     call mpi_send_w(mrl, rvara1=vxe, rvara2=vye, rvara3=vze)
-     call mpi_recv_w(mrl, rvara1=vxe, rvara2=vye, rvara3=vze)
+     call mpi_send_w(rvara1=vxe, rvara2=vye, rvara3=vze)
+     call mpi_recv_w(rvara1=vxe, rvara2=vye, rvara3=vze)
   endif
-  call lbcopy_w(mrl, a1=vxe, a2=vye, a3=vze)
+  call lbcopy_w(a1=vxe, a2=vye, a3=vze)
 
 end subroutine diagvel_t3d
 
@@ -120,63 +39,67 @@ end subroutine diagvel_t3d
 subroutine vel_t3d_hex(iw)
 
   use mem_ijtabs, only: itab_w
-  use mem_basic,  only: vc, wc, vxe, vye, vze, vxe2, vye2, vze2
-  use mem_grid,   only: mza, lpw, lve2, lpv, wnx, wny, wnz
-
+  use mem_basic,  only: vc, wc, vxe, vye, vze
+  use mem_grid,   only: mza, lpw, lpv, vnx, vny, vnz, wnxo2, wnyo2, wnzo2, &
+                        lve2, nve2_max
   implicit none
 
   integer, intent(in) :: iw
   integer             :: npoly,ka,k,jv,iv,ksw,kbv
-  real                :: wst
+  real                :: wst, vcwall
+  real                :: vxe1(nve2_max), vye1(nve2_max), vze1(nve2_max)
 
   npoly = itab_w(iw)%npoly
-  ka = lpw(iw)
+  ka    = lpw(iw)
 
-! Vertical loop over T levels
+  ! Store prognosed velocities in cells with closed V faces
 
-  do k = ka, mza
-
-! Diagnose 3D earth-velocity vector at T points; W contribution first
-
-     wst = 0.5 * (wc(k-1,iw) + wc(k,iw))
-
-     vxe(k,iw) = wst * wnx(iw)
-     vye(k,iw) = wst * wny(iw)
-     vze(k,iw) = wst * wnz(iw)
-
+  do ksw = 1, lve2(iw)
+     k = ksw + lpw(iw) - 1
+     vxe1(ksw) = vxe(k,iw)
+     vye1(ksw) = vye(k,iw)
+     vze1(ksw) = vze(k,iw)
   enddo
 
-! Effective contribution from submerged V faces
+  ! W contributions
 
-  if (lve2(iw) > 0) then
-     do ksw = 1,lve2(iw)
-        k = ka + ksw - 1
+  do k = ka, mza
+     wst       = wc(k-1,iw) + wc(k,iw)
+     vxe(k,iw) = wst * wnxo2(iw)
+     vye(k,iw) = wst * wnyo2(iw)
+     vze(k,iw) = wst * wnzo2(iw)
+  enddo
 
-        vxe(k,iw) = vxe(k,iw) + vxe2(ksw,iw)
-        vye(k,iw) = vye(k,iw) + vye2(ksw,iw)
-        vze(k,iw) = vze(k,iw) + vze2(ksw,iw)
-     enddo
-  endif
-
-! Loop over V neighbors of this W cell
+  ! VC contribution
 
   do jv = 1, npoly
-
      iv  = itab_w(iw)%iv(jv)
      kbv = lpv(iv)
 
-! Vertical loop over V levels that are above ground
-
+     ! Vertical loop over V levels that are above ground
      do k = kbv, mza
-
-! Diagnose 3D earth-velocity vector at T points; VC contribution
-
         vxe(k,iw) = vxe(k,iw) + itab_w(iw)%ecvec_vx(jv) * vc(k,iv)
         vye(k,iw) = vye(k,iw) + itab_w(iw)%ecvec_vy(jv) * vc(k,iv)
         vze(k,iw) = vze(k,iw) + itab_w(iw)%ecvec_vz(jv) * vc(k,iv)
      enddo
 
+     ! Vertical loop over all closed V faces
+     do k = ka, kbv-1
+        ksw = k - ka + 1
+
+        ! Use projected vcwall from prognosed cell-centered velocities
+        vcwall = vnx(iv) * vxe1(ksw) &
+               + vny(iv) * vye1(ksw) &
+               + vnz(iv) * vze1(ksw)
+
+        vxe(k,iw) = vxe(k,iw) + itab_w(iw)%ecvec_vx(jv) * vcwall
+        vye(k,iw) = vye(k,iw) + itab_w(iw)%ecvec_vy(jv) * vcwall
+        vze(k,iw) = vze(k,iw) + itab_w(iw)%ecvec_vz(jv) * vcwall
+     enddo
+
   enddo
+
+  ! Set underground points to values at first level
 
   vxe(1:ka-1,iw) = vxe(ka,iw)
   vye(1:ka-1,iw) = vye(ka,iw)
@@ -186,63 +109,48 @@ end subroutine vel_t3d_hex
 
 !===============================================================================
 
-subroutine diagvel_t3d_init(mrl)
+subroutine diag_uzonal_umerid()
 
-use mem_basic,  only: vc, vxe2, vye2, vze2
-use mem_ijtabs, only: jtab_w, itab_w, jtw_prog
-use mem_grid,   only: lpw, lve2, lpv
+  use mem_grid, only: mwa
+  implicit none
 
-implicit none
+  integer :: iw
 
-integer, intent(in) :: mrl
+  !$omp parallel do private(iw)
+  do iw = 2, mwa
+     call diag_uzonal_umerid_iw(iw)
+  enddo
+  !$omp end parallel do
 
-integer :: j,iw,npoly,ka,k,jv,iv,ksw,kbv
+end subroutine diag_uzonal_umerid
 
-if (mrl == 0) return
+!===============================================================================
 
-! Horizontal loop over W columns
+subroutine diag_uzonal_umerid_iw(iw)
 
-!----------------------------------------------------------------------
-!$omp parallel do private(iw,npoly,ka,k,jv,iv,kbv,ksw)
-do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
-!----------------------------------------------------------------------
+  use mem_basic, only: vxe, vye, vze, ue, ve
+  use mem_grid,  only: lpw, mza, vxn_ew, vyn_ew, vxn_ns, vyn_ns, vzn_ns
 
-   npoly = itab_w(iw)%npoly
-   ka = lpw(iw)
+  implicit none
 
-   vxe2(:,iw) = 0.
-   vye2(:,iw) = 0.
-   vze2(:,iw) = 0.
+  integer, intent(in) :: iw
+  integer             :: k
 
-   if (lve2(iw) > 0) then
+  ! Reconstruct UZONAL and UMERID from VXE, VYE, VZE
 
-! Loop over adjacent V faces
+  do k = lpw(iw), mza
+     ue(k,iw) = vxe(k,iw) * vxn_ew(iw) + vye(k,iw) * vyn_ew(iw)
+     ve(k,iw) = vxe(k,iw) * vxn_ns(iw) + vye(k,iw) * vyn_ns(iw) &
+              + vze(k,iw) * vzn_ns(iw)
+  enddo
 
-      do jv = 1, npoly
+  do k = 2, lpw(iw) - 1
+     ue(k,iw) = ue(lpw(iw),iw)
+     ve(k,iw) = ve(lpw(iw),iw)
+  enddo
 
-         iv  = itab_w(iw)%iv(jv)
-         kbv = lpv(iv)
+end subroutine diag_uzonal_umerid_iw
 
-! Check if any V faces are below ground
-
-         if (ka < kbv) then
-            do k = ka, kbv-1
-               ksw = k - ka + 1
-
-! Project INITIAL VC from below-ground V faces back to (vxe2, vye2, vze2)
-
-               vxe2(ksw,iw) = vxe2(ksw,iw) + itab_w(iw)%ecvec_vx(jv) * vc(kbv,iv)
-               vye2(ksw,iw) = vye2(ksw,iw) + itab_w(iw)%ecvec_vy(jv) * vc(kbv,iv)
-               vze2(ksw,iw) = vze2(ksw,iw) + itab_w(iw)%ecvec_vz(jv) * vc(kbv,iv)
-            enddo
-         endif
-
-      enddo
-   endif
-
-enddo
-!$omp end parallel do
-
-end subroutine diagvel_t3d_init
+!===============================================================================
 
 end module vel_t3d

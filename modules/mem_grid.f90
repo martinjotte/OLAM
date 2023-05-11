@@ -1,43 +1,11 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 Module mem_grid
 
-   use consts_coms, only: r8
-   implicit none
+  use consts_coms, only: r8
+  implicit none
 
-   private :: r8
+  private :: r8
 
-   integer :: &  ! N values for full-domain reference on any process
+  integer :: &  ! N values for full-domain reference on any process
 
       nza           &  ! Vertical number of all points
      ,nsw_max       &  ! Max # vert atm levels in IW column with sfc flux
@@ -97,12 +65,12 @@ Module mem_grid
 
    real(r8), allocatable, dimension(:,:) ::  &
 
-      volt, volti         ! Volume of T cell; (1/Volume) of T cell
+      volt                ! Volume of T cell
 
-   integer :: impent(12)  ! Scratch array for storing 12 pentagonal IM indices
-
-   integer, parameter :: nrows = 5
-   integer :: mrows
+   real, allocatable, dimension(:,:) :: &
+        volti, &          ! 1 / (Volume of T cell)
+        volwi, &          ! 1 / (Volumes of adjacent T cells)
+        volvi             ! 1 / (Volumes of adjacent T cells)
 
 ! "Derived" variables computed at beginning of integration rather than
 ! at the MAKEGRID stage
@@ -115,174 +83,200 @@ Module mem_grid
         dzt_top,              & ! distance between ZM(k) and ZT(k)
         dzt_bot,              & ! distance between ZT(k) and ZM(k-1)
 
+        dzit_top,             & ! distance between ZM(k) and ZT(k)
+        dzit_bot,             & ! distance between ZT(k) and ZM(k-1)
+
         zwgt_top, zwgt_bot,   & ! weights for interpolating T levels to W
         dzto2,    dzto4,      & ! dzt(k)    / 2, dzt(k)    / 4
         dztsqo2,  dztsqo4,    & ! dzt(k)**2 / 2, dzt(k)**2 / 4
-        dztsqo6,  dzimsq,     & ! dzt(k)**2 / 6, dzim(k)**2
+        dztsqo6,  dztsqo12,   & ! dzt(k)**2 / 6, dzt(k)**2 / 12
+        dzimsq,               & ! dzim(k)**2
 
         voa0,                 & ! ratio of cell volume to bottom area w/o terrain
 
-        gdzm_top, gdzm_bot,   & ! g dz_top(k), g dz_bot(k+1)
+        gdz_belo, gdz_abov,   & ! weights for hydrostatic integration
 
-        arw0i                   ! 1 / arw0
+        gdzim,                & ! gravm / dzm
+
+        arw0i,                & ! 1 / arw0
+        dnivo2                  ! 1/(2dxy) across V face
+
+   integer, allocatable :: lpvmax(:) ! max lpv of all iw1 and iw2 faces
 
    ! double precision weights for interpolating T levels to W
 
    real(r8), allocatable :: zwgt_top8(:), zwgt_bot8(:)
    real(r8), allocatable :: gdz_belo8(:), gdz_abov8(:)
+   real(r8), allocatable :: gdz_wgtm8(:), gdz_wgtp8(:)
+   real,     allocatable :: gdz_wgtm (:), gdz_wgtp (:)
 
    real, allocatable, dimension(:,:) ::  &
 
         gxps_coef, gyps_coef    ! combined weights for grad_t2d
 
+   real, allocatable, dimension(:) ::  &
+
+        vxn_ew, vyn_ew, vzn_ew, & ! unit normals of zonal (east-west) direction in earth cartesian coordinates
+        vxn_ns, vyn_ns, vzn_ns, & ! unit normals of meridional (north-south) direction in earth cartesian coordinates
+        vcn_ew, vcn_ns            ! components of zonal and merdional vectors in the direction of VC
+
 Contains
 
 !===============================================================================
 
-   subroutine alloc_gridz()
+  subroutine alloc_gridz()
 
-   implicit none
+    implicit none
 
-   allocate (zm    (mza));  zm    (:) = 0.
-   allocate (zt    (mza));  zt    (:) = 0.
-   allocate (dzm   (mza));  dzm   (:) = 0.
-   allocate (dzt   (mza));  dzt   (:) = 0.
-   allocate (dzim  (mza));  dzim  (:) = 0.
-   allocate (dzit  (mza));  dzit  (:) = 0.
-   allocate (zfacm (mza));  zfacm (:) = 0.
-   allocate (zfacim(mza));  zfacim(:) = 0.
-   allocate (zfact (mza));  zfact (:) = 0.
-   allocate (zfacit(mza));  zfacit(:) = 0.
-   allocate (zfacm2 (mza)); zfacm2 (:) = 0.
-   allocate (zfacim2(mza)); zfacim2(:) = 0.
+    allocate (zm    (mza));  zm    (:) = 0.
+    allocate (zt    (mza));  zt    (:) = 0.
+    allocate (dzm   (mza));  dzm   (:) = 0.
+    allocate (dzt   (mza));  dzt   (:) = 0.
+    allocate (dzim  (mza));  dzim  (:) = 0.
+    allocate (dzit  (mza));  dzit  (:) = 0.
+    allocate (zfacm (mza));  zfacm (:) = 0.
+    allocate (zfacim(mza));  zfacim(:) = 0.
+    allocate (zfact (mza));  zfact (:) = 0.
+    allocate (zfacit(mza));  zfacit(:) = 0.
+    allocate (zfacm2 (mza)); zfacm2 (:) = 0.
+    allocate (zfacim2(mza)); zfacim2(:) = 0.
 
-   allocate (gravm (mza));  gravm (:) = 0.
-   allocate (gravt (mza));  gravt (:) = 0.
-   
-   end subroutine alloc_gridz
-   
+    allocate (gravm (mza));  gravm (:) = 0.
+    allocate (gravt (mza));  gravt (:) = 0.
+
+  end subroutine alloc_gridz
+
 !===============================================================================
 
-   subroutine alloc_xyzem(lma)
+  subroutine alloc_xyzem(lma)
 
-   implicit none
-   
-   integer, intent(in) :: lma
+    implicit none
 
-   allocate (xem(lma));  xem(1:lma) = 0.
-   allocate (yem(lma));  yem(1:lma) = 0.
-   allocate (zem(lma));  zem(1:lma) = 0.
+    integer, intent(in) :: lma
 
-   end subroutine alloc_xyzem
-   
+    allocate (xem(lma));  xem(1:lma) = 0.
+    allocate (yem(lma));  yem(1:lma) = 0.
+    allocate (zem(lma));  zem(1:lma) = 0.
+
+  end subroutine alloc_xyzem
+
 !===============================================================================
 
-   subroutine alloc_xyzew(lwa)
+  subroutine alloc_xyzew(lwa)
 
-   implicit none
+    implicit none
 
-   integer, intent(in) :: lwa
+    integer, intent(in) :: lwa
 
-   allocate (xew(lwa));  xew(1:lwa) = 0.
-   allocate (yew(lwa));  yew(1:lwa) = 0.
-   allocate (zew(lwa));  zew(1:lwa) = 0.
+    allocate (xew(lwa));  xew(1:lwa) = 0.
+    allocate (yew(lwa));  yew(1:lwa) = 0.
+    allocate (zew(lwa));  zew(1:lwa) = 0.
 
-   end subroutine alloc_xyzew
-   
+    allocate (arw0(lwa)); arw0(1:lwa) = 0.
+
+  end subroutine alloc_xyzew
+
 !===============================================================================
 
-   subroutine alloc_grid1(lma, lva, lwa)
+  subroutine alloc_grid1(lma, lva, lwa)
 
-   use misc_coms, only: io6
+    use misc_coms, only: io6
+    implicit none
 
-   implicit none
-   
-   integer, intent(in) :: lma, lva, lwa
-   
+    integer, intent(in) :: lma, lva, lwa
+
 ! Allocate and initialize arrays (xem, yem, zem are already allocated)
 
-   allocate (lsw (lwa));  lsw (1:lwa) = 0
-   allocate (lve2(lwa));  lve2(1:lwa) = 0
+    allocate (lsw (lwa));  lsw (1:lwa) = 0
+    allocate (lve2(lwa));  lve2(1:lwa) = 0
 
-   allocate (xev(lva));  xev(1:lva) = 0.
-   allocate (yev(lva));  yev(1:lva) = 0.
-   allocate (zev(lva));  zev(1:lva) = 0.
+    allocate (xev(lva));  xev(1:lva) = 0.
+    allocate (yev(lva));  yev(1:lva) = 0.
+    allocate (zev(lva));  zev(1:lva) = 0.
 
-   allocate (glatv(lva));  glatv(1:lva) = 0.
-   allocate (glonv(lva));  glonv(1:lva) = 0.
-      
-   allocate (unx(lva));  unx(1:lva) = 0.
-   allocate (uny(lva));  uny(1:lva) = 0.
-   allocate (unz(lva));  unz(1:lva) = 0.
+    allocate (glatv(lva));  glatv(1:lva) = 0.
+    allocate (glonv(lva));  glonv(1:lva) = 0.
 
-   allocate (vnx(lva));  vnx(1:lva) = 0.
-   allocate (vny(lva));  vny(1:lva) = 0.
-   allocate (vnz(lva));  vnz(1:lva) = 0.
+    allocate (unx(lva));  unx(1:lva) = 0.
+    allocate (uny(lva));  uny(1:lva) = 0.
+    allocate (unz(lva));  unz(1:lva) = 0.
 
-   allocate (wnx(lwa));  wnx(1:lwa) = 0.
-   allocate (wny(lwa));  wny(1:lwa) = 0.
-   allocate (wnz(lwa));  wnz(1:lwa) = 0.
+    allocate (vnx(lva));  vnx(1:lva) = 0.
+    allocate (vny(lva));  vny(1:lva) = 0.
+    allocate (vnz(lva));  vnz(1:lva) = 0.
 
-   allocate (dnu  (lva));  dnu (1:lva) = 0.
-   allocate (dniu (lva));  dniu(1:lva) = 0.
+    allocate (wnx(lwa));  wnx(1:lwa) = 0.
+    allocate (wny(lwa));  wny(1:lwa) = 0.
+    allocate (wnz(lwa));  wnz(1:lwa) = 0.
 
-   allocate (dnv  (lva));  dnv (1:lva) = 0.
-   allocate (dniv (lva));  dniv(1:lva) = 0.
+    allocate (dnu  (lva));  dnu (1:lva) = 0.
+    allocate (dniu (lva));  dniu(1:lva) = 0.
 
-   allocate  (arw0(lwa));   arw0(1:lwa) = 0.
-   allocate  (topw(lwa));   topw(1:lwa) = 0.
-   allocate (glatw(lwa));  glatw(1:lwa) = 0.
-   allocate (glonw(lwa));  glonw(1:lwa) = 0.
+    allocate (dnv  (lva));  dnv (1:lva) = 0.
+    allocate (dniv (lva));  dniv(1:lva) = 0.
 
-   allocate  (arm0(lma));   arm0(1:lma) = 0.
-   allocate  (topm(lma));   topm(1:lma) = 0.
-   allocate (glatm(lma));  glatm(1:lma) = 0.
-   allocate (glonm(lma));  glonm(1:lma) = 0.
+!   allocate  (arw0(lwa));   arw0(1:lwa) = 0.
+    allocate  (topw(lwa));   topw(1:lwa) = 0.
+    allocate (glatw(lwa));  glatw(1:lwa) = 0.
+    allocate (glonw(lwa));  glonw(1:lwa) = 0.
 
-   write(io6,*) 'finishing alloc_grid1'
-            
-   end subroutine alloc_grid1
+    allocate  (arm0(lma));   arm0(1:lma) = 0.
+    allocate  (topm(lma));   topm(1:lma) = 0.
+    allocate (glatm(lma));  glatm(1:lma) = 0.
+    allocate (glonm(lma));  glonm(1:lma) = 0.
+
+    allocate (vxn_ew(lwa)) ; vxn_ew = 0.
+    allocate (vyn_ew(lwa)) ; vyn_ew = 0.
+    allocate (vzn_ew(lwa)) ; vzn_ew = 0.
+
+    allocate (vxn_ns(lwa)) ; vxn_ns = 0.
+    allocate (vyn_ns(lwa)) ; vyn_ns = 0.
+    allocate (vzn_ns(lwa)) ; vzn_ns = 0.
+
+    allocate (vcn_ew(lva)) ; vcn_ew = 0.
+    allocate (vcn_ns(lva)) ; vcn_ns = 0.
+
+    write(io6,*) 'finishing alloc_grid1'
+
+  end subroutine alloc_grid1
 
 !===============================================================================
 
    subroutine alloc_grid2(lma, lva, lwa)
 
-   use consts_coms, only: r8
-   use misc_coms,   only: io6
+     use consts_coms, only: r8
+     use misc_coms,   only: io6
 
-   implicit none
+     implicit none
 
-   integer, intent(in) :: lma, lva, lwa
-   
+     integer, intent(in) :: lma, lva, lwa
+
 ! Allocate  and initialize arrays
 
-   write(io6,*) 'alloc_grid2 ',lma,lva,lwa
+     write(io6,*) 'alloc_grid2 ',lma,lva,lwa
 
-   allocate (lpv(lva)); lpv(1:lva) = 0
-   allocate (lpm(lma)); lpm(1:lma) = 0
-   allocate (lpw(lwa)); lpw(1:lwa) = 0
+     allocate (lpv(lva)); lpv(1:lva) = 0
+     allocate (lpm(lma)); lpm(1:lma) = 0
+     allocate (lpw(lwa)); lpw(1:lwa) = 0
 
-   allocate (arv  (mza,lva));  arv  (1:mza,1:lva) = 0.
-   allocate (arw  (mza,lwa));  arw  (1:mza,1:lwa) = 0.
-   allocate (volt (mza,lwa));  volt (1:mza,1:lwa) = 0._r8
-            
-   write(io6,*) 'finishing alloc_grid2'
-  
+     allocate (arv  (mza,lva));  arv  (1:mza,1:lva) = 0.
+     allocate (arw  (mza,lwa));  arw  (1:mza,1:lwa) = 0.
+     allocate (volt (mza,lwa));  volt (1:mza,1:lwa) = 0._r8
+
+     write(io6,*) 'finishing alloc_grid2'
+
    end subroutine alloc_grid2
 
 !===============================================================================
 
-   subroutine alloc_grid_other()
-     
-     ! This routine allocates and defines grid arrays that were not computed
-     ! during the MAKEGRID stage
+   subroutine alloc_gridz_other()
 
-     use consts_coms, only: r8
-     use mem_ijtabs,  only: itab_w
+     ! This routine allocates and defines vertical grid arrays that were
+     ! not computed during the MAKEGRID stage
 
      implicit none
 
-     integer :: iw, iv, k, n1, n2
+     integer :: k
 
      ! Allocate and define 1D variables defined at T levels
 
@@ -298,27 +292,44 @@ Contains
         dzt_bot(k) = zt(k) - zm(k-1)
      enddo
 
+     allocate(dzit_top(mza))
+     allocate(dzit_bot(mza))
+
+     do k = 1, mza
+        dzit_top(k) = 1.0 / dzt_top(k)
+        dzit_bot(k) = 1.0 / dzt_bot(k)
+     enddo
+
      ! Allocate and define 1D variables defined at W levels
+
+     allocate(gdzim(mza))
+     gdzim = gravm * dzim
 
      ! weights for averaging T variables to W levels
      allocate(zwgt_top(mza))
      allocate(zwgt_bot(mza))
 
-     ! double-precision 
      allocate(zwgt_top8(mza))
      allocate(zwgt_bot8(mza))
 
-     ! double-precision weights for hydrostatic integration at W level
+     ! weights for hydrostatic integration at W level
+
+     allocate(gdz_belo(mza))
+     allocate(gdz_abov(mza))
+
      allocate(gdz_belo8(mza))
      allocate(gdz_abov8(mza))
 
+     allocate(gdz_wgtm8(mza))
+     allocate(gdz_wgtp8(mza))
+
+     allocate(gdz_wgtm(mza))
+     allocate(gdz_wgtp(mza))
+
      ! Loop over W levels
      do k = 1, mza-1
-        zwgt_top8(k) = dzt_top(k)   * dzim(k)
-        zwgt_bot8(k) = dzt_bot(k+1) * dzim(k)
-
-        zwgt_top(k) = real(zwgt_top8(k))
-        zwgt_bot(k) = real(zwgt_bot8(k))
+        zwgt_top8(k) = dzt_bot(k+1) * dzim(k)
+        zwgt_bot8(k) = dzt_top(k)   * dzim(k)
 
         gdz_abov8(k) = dzt_bot(k+1) * gravm(k)
         gdz_belo8(k) = dzt_top(k)   * gravm(k)
@@ -327,54 +338,169 @@ Contains
      zwgt_top8(mza) = zwgt_top8(mza-1)
      zwgt_bot8(mza) = zwgt_bot8(mza-1)
 
-     zwgt_top(mza) = zwgt_top(mza-1)
-     zwgt_bot(mza) = zwgt_bot(mza-1)
-
      gdz_abov8(mza) = gdz_abov8(mza-1)
      gdz_belo8(mza) = gdz_belo8(mza-1)
 
+     do k = 1, mza
+        gdz_wgtp8(k) = zwgt_top8(k) * gravm(k)
+        gdz_wgtm8(k) = zwgt_bot8(k) * gravm(k)
+
+        gdz_wgtp(k) = real(gdz_wgtp8(k))
+        gdz_wgtm(k) = real(gdz_wgtm8(k))
+
+        gdz_abov(k) = real(gdz_abov8(k))
+        gdz_belo(k) = real(gdz_belo8(k))
+
+        zwgt_top(k) = real(zwgt_top8(k))
+        zwgt_bot(k) = real(zwgt_bot8(k))
+     enddo
+
+     allocate(dzto2   (mza))
+     allocate(dzto4   (mza))
+     allocate(dztsqo2 (mza))
+     allocate(dztsqo4 (mza))
+     allocate(dztsqo6 (mza))
+     allocate(dztsqo12(mza))
+     allocate(dzimsq  (mza))
+     allocate(voa0    (mza))
+
+     do k = 1, mza
+        dzto2   (k) = dzt    (k) * 0.50
+        dzto4   (k) = dzt    (k) * 0.25
+        dztsqo2 (k) = dzto2  (k) * dzt(k)
+        dztsqo4 (k) = dztsqo2(k) * 0.5
+        dztsqo6 (k) = dztsqo2(k) / 3.0
+        dztsqo12(k) = dztsqo6(k) * 0.5
+        dzimsq  (k) = dzim   (k) * dzim(k)
+     enddo
+
+     do k = 2, mza
+        voa0(k) = dzt(k) * zfact(k)**2 * zfacim2(k-1)
+     enddo
+     voa0(1) = voa0(2)
+
+   end subroutine alloc_gridz_other
+
+!===============================================================================
+
+   subroutine alloc_grid_other()
+
+     ! This routine allocates and defines grid arrays that were not computed
+     ! during the MAKEGRID stage
+
+     use consts_coms, only: r8, eradi
+     use mem_ijtabs,  only: itab_w, itab_v, jtab_v, jtv_prog
+     use misc_coms,   only: mdomain
+
+     implicit none
+
+     integer :: iw, j, iv, iw1, iw2, k, n1, n2
+     real    :: raxis, raxisi, vxn_ewv, vyn_ewv, vxn_nsv, vyn_nsv, vzn_nsv
+
      ! Allocate and define variables defined at V faces
 
-     allocate(vnxo2(mva))
-     allocate(vnyo2(mva))
-     allocate(vnzo2(mva))
+     allocate(vnxo2     (mva))
+     allocate(vnyo2     (mva))
+     allocate(vnzo2     (mva))
+     allocate(dnivo2    (mva))
+     allocate(lpvmax    (mva))
+     allocate(volvi (mza,mva))
 
-     vnxo2(1) = 0.0
-     vnyo2(1) = 0.0
-     vnzo2(1) = 0.0
-
-     !$omp parallel do
-     do iv = 2, mva
-        vnxo2(iv) = vnx(iv) * 0.5
-        vnyo2(iv) = vny(iv) * 0.5
-        vnzo2(iv) = vnz(iv) * 0.5
-     enddo
-     !$omp end parallel do
-
-     ! Allocate and define variables defined at W columns
+     vnxo2  (1) = 0.0
+     vnyo2  (1) = 0.0
+     vnzo2  (1) = 0.0
+     dnivo2 (1) = 0.0
+     lpvmax (1) = 0
+     volvi(:,1) = 0.0
 
      allocate(wnxo2    (mwa))
      allocate(wnyo2    (mwa))
      allocate(wnzo2    (mwa))
-     allocate(volti(mza,mwa))
-     allocate(gxps_coef(mwa,7))
-     allocate(gyps_coef(mwa,7))
      allocate(arw0i    (mwa))
+     allocate(volti(mza,mwa))
+     allocate(volwi(mza,mwa))
+     allocate(gxps_coef(7,mwa))
+     allocate(gyps_coef(7,mwa))
 
-     wnxo2  (1) = 0.0
-     wnyo2  (1) = 0.0
-     wnzo2  (1) = 0.0
-     volti(:,1) = 0.0_r8
+     wnxo2(1) = 0.0
+     wnyo2(1) = 0.0
+     wnzo2(1) = 0.0
 
-     !$omp parallel do private(n1,n2)
+     volti(:,1) = 0.0
+     volwi(:,1) = 0.0
+
+     !$omp parallel
+     !$omp do private(raxis,raxisi,vxn_ewv,vyn_ewv,vxn_nsv,vyn_nsv,vzn_nsv)
+     do iv = 2, mva
+
+        vnxo2 (iv) = vnx (iv) * 0.5
+        vnyo2 (iv) = vny (iv) * 0.5
+        vnzo2 (iv) = vnz (iv) * 0.5
+        dnivo2(iv) = dniv(iv) * 0.5
+
+        if (mdomain > 1) then
+
+           vcn_ew(iv) = vnx(iv)
+           vcn_ns(iv) = vny(iv)
+
+        else
+
+           raxis = sqrt(xev(iv)**2 + yev(iv)**2)
+           if (raxis > 1.e3) then
+
+              vxn_ewv = -yev(iv) / raxis
+              vyn_ewv =  xev(iv) / raxis
+
+              vxn_nsv = -xev(iv) * zev(iv) * eradi / raxis
+              vyn_nsv = -yev(iv) * zev(iv) * eradi / raxis
+              vzn_nsv =  raxis * eradi
+
+              vcn_ew(iv) = vxn_ewv * vnx(iv) + vyn_ewv * vny(iv)
+              vcn_ns(iv) = vxn_nsv * vnx(iv) + vyn_nsv * vny(iv) + vzn_nsv * vnz(iv)
+
+           else
+
+              vcn_ew(iv) = 0.
+              vcn_ns(iv) = 0.
+
+           endif
+        endif
+
+     enddo
+     !omp end do nowait
+
+     !$omp do private(iv,iw1,iw2,k)
+     do j = 1,jtab_v(jtv_prog)%jend; iv = jtab_v(jtv_prog)%iv(j)
+        iw1 = itab_v(iv)%iw(1)
+        iw2 = itab_v(iv)%iw(2)
+
+        volvi(1:lpv(iv)-1,iv) = 0.0
+        do k = lpv(iv), mza
+           volvi(k,iv) = real( 1.0_r8 / (volt(k,iw1) + volt(k,iw2)) )
+        enddo
+
+        lpvmax(iv) = max( lpw(iw1)+lve2(iw1), lpw(iw2)+lve2(iw2) )
+
+     enddo
+     !$omp end do nowait
+
+     !$omp do private(k,n1,n2,raxis)
      do iw = 2, mwa
 
         wnxo2(iw) = wnx(iw) * 0.5
         wnyo2(iw) = wny(iw) * 0.5
         wnzo2(iw) = wnz(iw) * 0.5
 
-        volti(1:lpw(iw)-1,iw) = 0.0_r8
-        volti(lpw(iw):mza,iw) = 1.0_r8 / volt(lpw(iw):mza,iw)
+        volti(1:lpw(iw)-1,iw) = 0.0
+        do k = lpw(iw), mza
+           volti(k,iw) = real( 1.0_r8 / volt(k,iw) )
+        enddo
+
+        volwi(1:lpw(iw)-1,iw) = 0.0
+        do k = lpw(iw), mza-1
+           volwi(k,iw) = real( 1.0_r8 / (volt(k,iw) + volt(k+1,iw)) )
+        enddo
+        volwi(mza,iw) = 0.0
 
         arw0i(iw) = 1.0 / arw0(iw)
 
@@ -385,34 +511,35 @@ Contains
               n2 = n1 - 1
            endif
 
-           gxps_coef(iw,n1) = itab_w(iw)%gxps1(n1) + itab_w(iw)%gxps2(n2)
-           gyps_coef(iw,n1) = itab_w(iw)%gyps1(n1) + itab_w(iw)%gyps2(n2)
+           gxps_coef(n1,iw) = itab_w(iw)%gxps1(n1) + itab_w(iw)%gxps2(n2)
+           gyps_coef(n2,iw) = itab_w(iw)%gyps1(n1) + itab_w(iw)%gyps2(n2)
         enddo
 
-     enddo
-     !$omp end parallel do
+        raxis = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis
 
-     allocate(dzto2  (mza))
-     allocate(dzto4  (mza))
-     allocate(dztsqo2(mza))
-     allocate(dztsqo4(mza))
-     allocate(dztsqo6(mza))
-     allocate(dzimsq (mza))
-     allocate(voa0   (mza))
+        if (mdomain < 2 .and. raxis > 1.e3) then
 
-     do k = 1, mza
-        dzto2  (k) = dzt  (k) * 0.50
-        dzto4  (k) = dzt  (k) * 0.25
-        dztsqo2(k) = dzto2(k) * dzt(k) 
-        dztsqo4(k) = dzto4(k) * dzt(k)
-        dztsqo6(k) = dzt  (k) * dzt(k) / 6.
-        dzimsq (k) = dzim (k) * dzim(k)
-     enddo
+           vxn_ew(iw) = -yew(iw) / raxis
+           vyn_ew(iw) =  xew(iw) / raxis
+           vzn_ew(iw) =  0.0
 
-     do k = 2, mza
-        voa0(k) = dzt(k) * zfact(k)**2 * zfacim2(k-1)
+           vxn_ns(iw) = -xew(iw) * zew(iw) * eradi / raxis
+           vyn_ns(iw) = -yew(iw) * zew(iw) * eradi / raxis
+           vzn_ns(iw) =  raxis * eradi
+
+        else
+           vxn_ew(iw) = 1.0
+           vyn_ew(iw) = 0.0
+           vzn_ew(iw) = 0.0
+
+           vxn_ns(iw) = 0.0
+           vyn_ns(iw) = 1.0
+           vzn_ns(iw) = 0.0
+        endif
+
      enddo
-     voa0(1) = voa0(2)
+     !$omp end do
+     !$omp end parallel
 
    end subroutine alloc_grid_other
 

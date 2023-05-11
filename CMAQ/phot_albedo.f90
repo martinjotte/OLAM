@@ -4,8 +4,9 @@ subroutine phot_albedo(iw, coszens, currhr_lst, julian_day, jyfreq, &
   use phot_mod
   use csqy_data
   use mem_ijtabs, only: itab_w
-  use mem_sea,    only: sea, itab_ws
-  use mem_leaf,   only: land, itab_wl
+  use mem_sfcg,   only: itab_wsfc, sfcg
+  use mem_sea,    only: sea, omsea
+  use mem_land,   only: land, omland
   use mem_grid,   only: glatw, nsw_max, lpw
   use therm_lib,  only: qtk
 
@@ -29,9 +30,9 @@ subroutine phot_albedo(iw, coszens, currhr_lst, julian_day, jyfreq, &
    real    :: zfactor
    real    :: sfactor
    real    :: tempk, fracliq, snowfac
-   integer :: jws, iws, jwl, iwl
+   integer :: jsfc, iwsfc, jasfc, isea, iland
    integer :: ka, kw, ks
-   real    :: arf_kw
+   real    :: arcoarkw
    real    :: albedo_sea_dir(nwl)
    real    :: albedo_sea_dif(nwl)
    real    :: albedo_ice_dir(nwl)
@@ -41,7 +42,7 @@ subroutine phot_albedo(iw, coszens, currhr_lst, julian_day, jyfreq, &
    real    :: albedo_snow_dir(nwl)
    real    :: albedo_snow_dif(nwl)
 
-                                      
+
 !     CMAQ albedo category             LEAF category
 !----------------------------------------------------------------
 !   1 EVERGREEN NEEDLE FOREST           0  Ocean
@@ -91,12 +92,21 @@ subroutine phot_albedo(iw, coszens, currhr_lst, julian_day, jyfreq, &
 
   ka = lpw(iw)
 
-  if (itab_w(iw)%nsea > 0) then
-     do jws = 1, itab_w(iw)%nsea
+  ! Check for sea area beneath this atmospheric grid column
 
-        iws    = itab_w(iw)%isea(jws)
-        kw     = itab_ws(iws)%kw
-        arf_kw = itab_ws(iws)%arf_kw
+  if (itab_w(iw)%jsea2 > 0) then
+
+     ! Loop over sea cells beneath this atmospheric grid column
+
+     do jsfc = itab_w(iw)%jsea1, itab_w(iw)%jsea2
+        iwsfc = itab_w(iw)%iwsfc(jsfc)
+        jasfc = itab_w(iw)%jasfc(jsfc)
+
+        arcoarkw = itab_wsfc(iwsfc)%arcoarkw(jasfc)
+
+        kw = itab_wsfc(iwsfc)%kwatm(jasfc)
+
+        isea = iwsfc - omsea
 
         ! water
 
@@ -110,7 +120,7 @@ subroutine phot_albedo(iw, coszens, currhr_lst, julian_day, jyfreq, &
 
         ! ice
 
-        if (sea%nlev_seaice(iws) > 0) then
+        if (sea%nlev_seaice(isea) > 0) then
 
            zfactor = MAX( 0.8, ( 1.0 + ZENITH_COEFF_REF( lice ) )  &
                                / ( 1.0 + 2.0 * COSZENS * ZENITH_COEFF_REF( lice ) ) )
@@ -123,29 +133,38 @@ subroutine phot_albedo(iw, coszens, currhr_lst, julian_day, jyfreq, &
            albedo_ice_dif(1:nwl) = min(albedo_ice_dif(1:nwl), SPECTRAL_ALBEDO_REF(1:nwl,lsnow))
            albedo_ice_dir(1:nwl) = min(albedo_ice_dir(1:nwl), SPECTRAL_ALBEDO_REF(1:nwl,lsnow))
 
-           albedo_sea_dif(1:nwl) = (1.0 - sea%seaicec(iws)) * albedo_sea_dif(1:nwl) &
-                                 +        sea%seaicec(iws)  * albedo_ice_dif(1:nwl)
+           albedo_sea_dif(1:nwl) = (1.0 - sea%seaicec(isea)) * albedo_sea_dif(1:nwl) &
+                                 +        sea%seaicec(isea)  * albedo_ice_dif(1:nwl)
 
-           albedo_sea_dir(1:nwl) = (1.0 - sea%seaicec(iws)) * albedo_sea_dir(1:nwl) &
-                                 +        sea%seaicec(iws)  * albedo_ice_dir(1:nwl)
+           albedo_sea_dir(1:nwl) = (1.0 - sea%seaicec(isea)) * albedo_sea_dir(1:nwl) &
+                                 +        sea%seaicec(isea)  * albedo_ice_dir(1:nwl)
         endif
 
         ks = kw - ka + 1
 
-        albedo_dif(ks,1:nwl) = albedo_dif(ks,1:nwl) + arf_kw * albedo_sea_dif(1:nwl)
-        albedo_dir(ks,1:nwl) = albedo_dir(ks,1:nwl) + arf_kw * albedo_sea_dir(1:nwl)
+        albedo_dif(ks,1:nwl) = albedo_dif(ks,1:nwl) + arcoarkw * albedo_sea_dif(1:nwl)
+        albedo_dir(ks,1:nwl) = albedo_dir(ks,1:nwl) + arcoarkw * albedo_sea_dir(1:nwl)
 
      enddo
   endif
 
-  if (itab_w(iw)%nland > 0) then
-     do jwl = 1, itab_w(iw)%nland
+  ! Check for land area beneath this atmospheric grid column
 
-        iwl    = itab_w(iw)%iland(jwl)
-        kw     = itab_wl(iwl)%kw
-        arf_kw = itab_wl(iwl)%arf_kw
+  if (itab_w(iw)%jland2 > 0) then
 
-        lland = leaf2cmaq(land%leaf_class(iwl))
+     ! Loop over land cells beneath this atmospheric grid column
+
+     do jsfc = itab_w(iw)%jland1, itab_w(iw)%jland2
+        iwsfc = itab_w(iw)%iwsfc(jsfc)
+        jasfc = itab_w(iw)%jasfc(jsfc)
+
+        arcoarkw = itab_wsfc(iwsfc)%arcoarkw(jasfc)
+
+        kw = itab_wsfc(iwsfc)%kwatm(jasfc)
+
+        iland = iwsfc - omland
+
+        lland = leaf2cmaq(sfcg%leaf_class(iwsfc))
 
         zfactor = MAX( 0.8, ( 1.0 + ZENITH_COEFF_REF( lland ) )  &
                             / ( 1.0 + 2.0 * COSZENS * ZENITH_COEFF_REF( lland ) ) )
@@ -155,9 +174,9 @@ subroutine phot_albedo(iw, coszens, currhr_lst, julian_day, jyfreq, &
         albedo_land_dif(1:nwl) = sfactor * SPECTRAL_ALBEDO_REF(1:nwl, lland)
         albedo_land_dir(1:nwl) = zfactor * albedo_land_dif(1:nwl)
 
-        if (land%nlev_sfcwater(iwl) > 0) then
-           call qtk(land%sfcwater_energy(land%nlev_sfcwater(iwl),iwl),tempk,fracliq)
-           snowfac = (1.0 - fracliq) * land%snowfac(iwl)
+        if (land%nlev_sfcwater(iland) > 0) then
+           call qtk(land%sfcwater_energy(land%nlev_sfcwater(iland),iland),tempk,fracliq)
+           snowfac = (1.0 - fracliq) * land%snowfac(iland)
         else
            snowfac = 0.0
         endif
@@ -176,16 +195,16 @@ subroutine phot_albedo(iw, coszens, currhr_lst, julian_day, jyfreq, &
            albedo_snow_dir(1:nwl) = min(albedo_snow_dir(1:nwl), SPECTRAL_ALBEDO_REF(1:nwl,lsnow))
 
            albedo_land_dif(1:nwl) = (1.0 - snowfac) * albedo_land_dif(1:nwl) &
-                                  +        snowfac  * albedo_snow_dif(1:nwl)
+                                    +        snowfac  * albedo_snow_dif(1:nwl)
 
            albedo_land_dir(1:nwl) = (1.0 - snowfac) * albedo_land_dir(1:nwl) &
-                                  +        snowfac  * albedo_snow_dir(1:nwl)
+                                   +        snowfac  * albedo_snow_dir(1:nwl)
         endif
 
         ks = kw - ka + 1
 
-        albedo_dif(ks,1:nwl) = albedo_dif(ks,1:nwl) + arf_kw * albedo_land_dif(1:nwl)
-        albedo_dir(ks,1:nwl) = albedo_dir(ks,1:nwl) + arf_kw * albedo_land_dir(1:nwl)
+        albedo_dif(ks,1:nwl) = albedo_dif(ks,1:nwl) + arcoarkw * albedo_land_dif(1:nwl)
+        albedo_dir(ks,1:nwl) = albedo_dir(ks,1:nwl) + arcoarkw * albedo_land_dir(1:nwl)
 
      enddo
   endif

@@ -7,7 +7,7 @@
 #include "wgrib2.h"
 #include "fnlist.h"
 
-#ifdef USE_IPOLATES
+#if USE_IPOLATES == 1
 
 /* mk_kgds
  *
@@ -266,7 +266,6 @@ int mk_kgds(unsigned char **sec, int *kgds) {
     else {
 	fatal_error_i("mk_kgds: unsupported input grid code table 3.1=%d", gdt);
     }
-// fprintf(stderr,"kgpds[5] = resol flag = %d\n", kgds[5]);
     return 0;
 }
 

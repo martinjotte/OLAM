@@ -1,16 +1,18 @@
 module CONSTS_MEGAN
 
+  implicit none
+
   INTEGER, PARAMETER :: N_MGN_SPC = 20
   INTEGER, PARAMETER :: Layers = 5
 
-  REAL, PARAMETER ::                      & 
+  REAL, PARAMETER ::                      &
        ConvertWm2toUmolm2s = 4.766,       & ! Convert radiation from [W/m2] to [umol/m2/s1]
        SolarConstant       = 1367,        & ! Solar constant [W/m2]
        WaterAirRatio       = 18.016/28.97   ! Ratio between water and air molecules
 
   REAL, PARAMETER :: pstd_Sun = 200.0, pstd_Shade = 50.0
-  REAL, PARAMETER :: Cce =0.56  
-    
+  REAL, PARAMETER :: Cce =0.56
+
 !=======================================================================
 !  CANOPY.EXT
 !  This include file contains MEGAN species
@@ -29,7 +31,7 @@ module CONSTS_MEGAN
       DATA     MGN_SPC(  2), CLeo(2) ,   Ctm1(2)   &
                / 'MYRC ', 1.83, 80.0   /
       DATA     MGN_SPC(  3), CLeo(3) ,   Ctm1(3)   &
-               / 'SABI ', 1.83, 80.0   / 
+               / 'SABI ', 1.83, 80.0   /
       DATA     MGN_SPC(  4), CLeo(4) ,   Ctm1(4)   &
               / 'LIMO  ',  1.83, 80.0  /
       DATA     MGN_SPC(  5), CLeo(5) ,   Ctm1(5)   &
@@ -79,7 +81,7 @@ module CONSTS_MEGAN
     ! 8  = reflection coefficient for diffuse near IR
     ! 9  = clustering coefficient (accounts for leaf clumping influence on mean
     !    projected leaf area in the direction of the suns beam)
-    !    use 0.85 for default, corn=0.4-0.9; Pine=0.6-1.0; oak=0.53-0.67; 
+    !    use 0.85 for default, corn=0.4-0.9; Pine=0.6-1.0; oak=0.53-0.67;
     !    tropical rainforest=1.1
     ! 10 = leaf IR emissivity
     ! 11 = leaf stomata and cuticle factor: 1=hypostomatous, 2=amphistomatous,
@@ -181,7 +183,7 @@ module CONSTS_MEGAN
       CHARACTER(16)      :: LDF_SPC(N_LDF_SPC)
       REAL               :: LDF_FCT(N_LDF_SPC)
       INTEGER            :: LDF_MAP(N_LDF_SPC)
- 
+
       DATA     LDF_SPC(  1)      , LDF_FCT(  1), LDF_MAP(  1) &
              / 'ISOP            ', 0.999      , 1            /
 
@@ -327,7 +329,7 @@ module CONSTS_MEGAN
       INTEGER, PARAMETER :: N_REA_SPC = 20
       CHARACTER(16)      :: REA_SPC  (N_REA_SPC)
       INTEGER            :: REA_INDEX(N_REA_SPC)
-      
+
       DATA     REA_SPC(  1)      , REA_INDEX(  1) &
              / 'ISOP            ', 5                  /
 
@@ -595,7 +597,7 @@ module CONSTS_MEGAN
       DATA     MGN_NAM( 14) /'Warm C3 grass                       '/
       DATA     MGN_NAM( 15) /'Corn                                '/
       DATA     MGN_NAM( 16) /'Other crops                         '/
-                                      
+
 
 !=======================================================================
 !  EF_MGN20.EXT
@@ -743,7 +745,7 @@ module CONSTS_MEGAN
 !  Guenther A.  26/07/2011-Extend EFs for 16 PFTs
 !  Jiang X.     05/07/12 - Update EF factions with new values from Guenther
 !=======================================================================
-                                                                                                    
+
       INTEGER, PARAMETER :: N_EFFS_SPC = 150  ! Number of chemical species
 
 !     EFFS_NT_EG_TEMP EFFS_NT_DC_BORL EFFS_NT_EG_BORL EFFS_BT_EG_TROP EFFS_BT_EG_TEMP
@@ -1202,6 +1204,6 @@ module CONSTS_MEGAN
        0.00100 , 0.00100 , 0.00100 , 0.00100 , 0.00100 , 0.00100 , 0.00100 , 0.00100 ,  &
        0.00100 , 0.00100 , 0.00100 , 0.00100 , 0.00100 , 0.00100 , 0.00100 , 0.00100 /),&
              SHAPE=(/16,N_EFFS_SPC/)           ,  &
-                    ORDER=(/1,2/)                 )                       
+                    ORDER=(/1,2/)                 )
 
 end module CONSTS_MEGAN

@@ -22,6 +22,7 @@ int f_set_ens_num(ARG3) {
 
     int i, n, pdt, type_ens, ens_fcst, num_ens;
     unsigned char sec4[SET_PDT_SIZE];
+    unsigned char *p;
 
     if (mode < 0) return 0;
     pdt = code_table_4_0(sec);
@@ -30,15 +31,16 @@ int f_set_ens_num(ARG3) {
     ens_fcst = atoi(arg2);
     num_ens = atoi(arg3);
 
-    if (pdt == 1 || pdt == 11) {
-	if (type_ens >= 0) sec[4][34] = type_ens;
-	if (ens_fcst >= 0) sec[4][35] = ens_fcst;
-	if (num_ens >= 0) sec[4][36] = num_ens;
+    p = code_table_4_6_location(sec);
+    if (p != NULL) {
+	p[0] = (unsigned char) type_ens;
+	p[1] = (unsigned char) ens_fcst;
+	p[2] = (unsigned char) num_ens;
 	return 0;
     }
 
     if (pdt != 0 && pdt != 8) {
-	fprintf(stderr,"set_ens_num: only works with product defn template 0,1,8 and 11\n");
+	fprintf(stderr,"set_ens_num: only promotes pdt 0 and 8\n");
 	return 0;
     }
 

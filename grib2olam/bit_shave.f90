@@ -1,4 +1,43 @@
-subroutine bit_shave(x,nsd)
+module bit_shave
+
+contains
+
+!************************************************************************
+
+subroutine scalfield(a,nx,ny,nsd,rmiss)
+
+  implicit none
+
+  integer, intent(in)           :: nx, ny, nsd
+  real,    intent(inout)        :: a(nx,ny)
+  real,    intent(in), optional :: rmiss
+  integer                       :: i, j
+
+  if (present(rmiss)) then
+
+     do j = 1, ny
+        do i = 1, nx
+           if (a(i,j) /= rmiss) then
+              call shave_bits( a(i,j), nsd )
+           endif
+        enddo
+     enddo
+
+  else
+
+     do j = 1, ny
+        do i = 1, nx
+           call shave_bits( a(i,j), nsd )
+        enddo
+     enddo
+
+  endif
+
+end subroutine scalfield
+
+!************************************************************************
+
+subroutine shave_bits(x,nsd)
 
   implicit none
 
@@ -6,7 +45,7 @@ subroutine bit_shave(x,nsd)
   integer, parameter :: i4 = selected_int_kind(8)
 
   ! Bit shaving algorithm to set floating bits to zero depending on
-  ! the desired numerical precision. 
+  ! the desired numerical precision.
   ! This allows the HDF5 shuffle and deflate compression algorithms
   ! to better compress the datasets
 
@@ -30,7 +69,7 @@ subroutine bit_shave(x,nsd)
 
   ! real*4 has 23 precision bits
   bits_masked = 23 - bits_preserved_arr(nsd)
-  
+
   ! Add half the magnitude of the largest shaved bit to the floating
   ! point value before shaving so that values are rounded properly.
   ! Without this, values will always be rounded down.
@@ -47,4 +86,8 @@ subroutine bit_shave(x,nsd)
   ! Transfer back to real*4 type
   x = transfer(i,1._r4)
 
-end subroutine bit_shave
+end subroutine shave_bits
+
+!************************************************************************
+
+end module bit_shave

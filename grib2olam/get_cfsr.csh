@@ -12,14 +12,12 @@ set times = ( 00 06 12 18 )
 # set times = ( 00 12 )
 # set times = ( 00 )
 
-# This shell script downloads CFSRv1 (before April, 2011) or
-# CFSRv2 (from April, 20011) grib analysis files from NOAA. 
-# Just set the start and end dates and the desired times.
+# This shell script downloads CFSRv1 (Jan 1979 - April, 2011)
+# or CFSRv2 (from April, 20011) grib reanalysis files from NOAA.
+# Set the start and end dates and the desired times.
 # All files between the start and end times will be downloaded.
-# Analyses are available from Jan 01, 1979 till about a week
-# before the current date.
 #
-# This script uses "wget" to download the files. 
+# This script uses "wget" to download the files.
 #
 #################################################################
 
@@ -29,8 +27,8 @@ set head2 = "cdas1.t"
 set tail1 = ".grb2"
 set tail2 = "z.pgrbh00.grib2"
 
-set url1 = "https://nomads.ncdc.noaa.gov/modeldata/cmd_pgbh"
-set url2 = "https://nomads.ncdc.noaa.gov/modeldata/cfsv2_analysis_pgbh"
+set url1 = "https://www.ncei.noaa.gov/data/climate-forecast-system/access/reanalysis/6-hourly-by-pressure-level"
+set url2 = "https://www.ncei.noaa.gov/data/climate-forecast-system/access/operational-analysis/6-hourly-by-pressure"
 
 set ndays = ( 31 28 31 30 31 30 31 31 30 31 30 31 )
 
@@ -63,7 +61,7 @@ while ( $year <= $end_year )
         else
             @ day = 01
         endif
-        
+
         if ( ($year == $end_year) && ($month == $end_month) ) then
             @ eday = $end_day
         else
@@ -75,7 +73,7 @@ while ( $year <= $end_year )
             set zdy = `printf "%02d" $day`
 
             foreach tim ( $times )
-            
+
                 set ztm = `printf "%02d" $tim`
 
                 if ( (($year == 2011) && ($month >= 4)) || ($year > 2011) ) then

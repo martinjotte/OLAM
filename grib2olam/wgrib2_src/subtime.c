@@ -35,7 +35,7 @@ int num_days_in_month(int year, int month) {
 }
 
 
-    
+
 // CONDITION: time1 >= time0
 // return number of days difference
 
@@ -55,8 +55,8 @@ static int sub_day(int year1, int month1, int day1, int year0, int month0, int d
 }
 
 int sub_time(
-	int year1, int month1, int day1, int hour1, int minute1, int second1, 
-	int year0, int month0, int day0, int hour0, int minute0, int second0, 
+	int year1, int month1, int day1, int hour1, int minute1, int second1,
+	int year0, int month0, int day0, int hour0, int minute0, int second0,
    	int *dtime, int *unit) {
 
     int sign, i, dt;

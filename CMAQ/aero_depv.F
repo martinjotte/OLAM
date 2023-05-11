@@ -24,7 +24,7 @@ C $Header: /project/yoj/arc/CCTM/src/aero/aero5/aero_depv.F,v 1.12 2012/01/19 13
 C what(1) key, module and SID; SCCS file; date and time of last delta:
 C @(#)aero_depv.F       1.3 /project/mod3/CMAQ/src/ae_depv/aero_depv/SCCS/s.aero_depv.F 18 Jun 1997 12:55:48
 
-      SUBROUTINE AERO_DEPV ( iw )
+      SUBROUTINE AERO_DEPV ( iw, nsfc, vdep_aero )
 
 C aerosol dry deposition routine
 C   written 4/9/97 by Dr. Francis S. Binkowski
@@ -72,7 +72,7 @@ C 25 Mar 11 S.Roselle: Replaced I/O API include files with UTILIO_DEFN
 C 20 May 11 D.Schwede: Modified for mosaic
 C 31 Aug 11 J.Bash: Moved shared mosaic variables to MOSAIC_MOD
 C 27 Sep 11 David Wong: replaced all run time dynamic arrays with allocatable
-C                       arrays to avoid run time memory issue  
+C                       arrays to avoid run time memory issue
 C 08 Jun 12 J.Young: remove full character blank padding for GNU Fortran (GCC) 4.1.2
 C 07 Jul 14 B.Hutzell: replaced mechanism include file(s) with fortran module
 C 07 Nov 14 J.Bash: Updated for the ASX_DATA_MOD shared data module.
@@ -80,30 +80,31 @@ C    May 16 B. Murphy, H. Pye: Updated treatment of aerosol moments
 
       USE RXNS_DATA           ! chemical mechanism data
       USE CGRID_SPCS          ! CGRID mechanism species
-      USE UTILIO_DEFN      
-      USE AERO_DATA           ! aero variable data
+      USE UTILIO_DEFN
 
-      use const_data, only: grav, stdatmpa
-      use getpar_mod, only: getpar
+      use aero_data,  only: aer_str, aer_end, aer_num, aer_m3, mode_map,
+     &                      aer_trac, n_mode, aeromode, m0_min, m2_min,
+     &                      num_str, srf_str
+      use const_data, only: grav, stdatmpa, oneovpi
+      use getpar_mod, only: getpar, getdens_conc
       use cgrid_conv, only: rev_cgrid_sfc_iw
       use depv_defn
       use mem_ijtabs, only: itab_w
-      use mem_leaf,   only: land, itab_wl
-      use mem_sea,    only: sea,  itab_ws
-      use mem_turb,   only: pblh
-      use mem_basic,  only: rho, press, theta
-      use mem_grid,   only: lsw, lpw
+      use mem_sfcg,   only: itab_wsfc, sfcg
+      use mem_turb,   only: pblh, ustar_k, wtv0_k, frac_sfc
+      use mem_basic,  only: rho, press, theta, tair
+      use mem_grid,   only: lpw
 
       IMPLICIT NONE
 
 C Arguments
-      integer, intent(in) :: iw
+      integer, intent(in)  :: iw, nsfc
+      real,    intent(out) :: vdep_aero(n_ae_dep_spc, nsfc)  ! deposition  velocity [ m/s ]
 
 C Parameters
       REAL,    PARAMETER :: T0 = 288.15      ! [ K ] ! starting standard surface temp.
       REAL,    PARAMETER :: ONE3 = 1.0 / 3.0
       REAL,    PARAMETER :: TWO3 = 2.0 / 3.0
-      INTEGER, PARAMETER :: N_AE_DEP_SPC = 9 ! no. of surrogates for aerosol dry dep velocities
 
 C set up species dimension and indices for deposition velocity internal array VDEP
       INTEGER, PARAMETER :: VDNATK = 1,  ! Aitken mode number
@@ -116,34 +117,7 @@ C set up species dimension and indices for deposition velocity internal array VD
      &                      VDSACC = 8,  ! accumulation mode surface area
      &                      VDSCOR = 9   ! coarse mode surface area
 
-C Local variables:
-
-      CHARACTER( 16 ) :: VDAE_NAME( N_AE_DEP_SPC ) ! dep vel surrogate name table
-      DATA         VDAE_NAME( 1 ) / 'VNUMATKN' /
-      DATA         VDAE_NAME( 2 ) / 'VNUMACC ' /
-      DATA         VDAE_NAME( 3 ) / 'VNUMCOR ' /
-      DATA         VDAE_NAME( 4 ) / 'VMASSI  ' /
-      DATA         VDAE_NAME( 5 ) / 'VMASSJ  ' /
-      DATA         VDAE_NAME( 6 ) / 'VMASSC  ' /
-      DATA         VDAE_NAME( 7 ) / 'VSRFATKN' /
-      DATA         VDAE_NAME( 8 ) / 'VSRFACC ' /
-      DATA         VDAE_NAME( 9 ) / 'VSRFCOR ' /
-
-      INTEGER, ALLOCATABLE, SAVE :: DEPV_SUR( : )   ! pointer to surrogate
-
 C Meteorological variables
-
-      REAL :: XXLSGAT(lsw(iw))           ! log of standard deviation
-      REAL :: XXLSGAC(lsw(iw))
-      REAL :: XXLSGCO(lsw(iw))
- 
-      REAL :: DGATK(lsw(iw))             ! geometric mean diameter
-      REAL :: DGACC(lsw(iw))
-      REAL :: DGCOR(lsw(iw))
-
-      REAL :: PDENSAT(lsw(iw))           ! particle density         
-      REAL :: PDENSAC(lsw(iw))
-      REAL :: PDENSCO(lsw(iw))
 
       real :: airdens
       real :: airpres
@@ -151,189 +125,120 @@ C Meteorological variables
 
       REAL :: XLM               ! mean free path [ m ]
       REAL :: AMU               ! dynamic viscosity [ kg m**-1 s**-1 ]
+      real :: ra(nsfc)
 
-      real :: vdep(n_ae_dep_spc)  ! deposition  velocity [ m/s ]
+      real    :: ustar, wstar, arcoarkw
+      integer :: iwsfc, jasfc, jsfc, ks, kw, i, n, s
 
-      LOGICAL, SAVE :: FIRSTIME = .TRUE.
-      INTEGER, SAVE :: LOGDEV                   ! unit number for the log file
-      CHARACTER( 16 ), SAVE :: PNAME = 'AERO_DEPV'
-      CHARACTER( 96 ) :: XMSG = ' '
+      real :: cngrd(nsfc,nspcsd)
+      real :: conc (nspcsd)
 
-      INTEGER  V, N                  ! loop counters
-      INTEGER  ALLOCSTAT
+      real :: aeromode_mass(n_mode)
+      real :: aeromode_dens(n_mode)
+      real :: aeromode_lnsg(n_mode)
+      real :: aeromode_diam(n_mode)
+      real :: moment0_conc (n_mode)
+      real :: moment2_conc (n_mode)
+      real :: moment3_conc (n_mode)
+      real :: m3           (aer_num)
 
-      INTEGER :: JDATE               ! current model date , coded YYYYDDD
-      INTEGER :: JTIME               ! current model time , coded HHMMSS
+      IF ( N_AE_DEPV .LE. 0 ) RETURN
 
-      real    :: ustar, wstar, ra, wtv0
-      integer :: jwls, iwls, ks, kw
-
-      real :: cngrd(lsw(iw),nspcsd) 
-
-      jdate = 0
-      jtime = 0
-
-      IF ( FIRSTIME ) THEN
-
-         !$omp barrier
-         !$omp single
-         FIRSTIME = .FALSE.
-         LOGDEV = INIT3()
-
-         ALLOCATE ( DEPV_SUR( N_AE_DEPV ), STAT = ALLOCSTAT )
-         IF ( ALLOCSTAT .NE. 0 ) THEN
-            XMSG = 'Failure allocating DEPV_SUR'
-            CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
-         END IF
-
-         ! Set the dep vel surrogate pointers
-         DO V = 1, N_AE_DEPV
-            N = INDEX1( AE_DEPV( V ), N_AE_DEP_SPC, VDAE_NAME )
-            IF ( N .NE. 0 ) THEN
-               DEPV_SUR( V ) = N
-            ELSE
-               XMSG = 'Could not find ' // AE_DEPV( V ) // ' in aerosol' //
-     &                ' surrogate table. >>> Dep vel set to zero <<< '
-               CALL M3WARN( PNAME, JDATE, JTIME, XMSG )
-               DEPV_SUR( V ) = 0
-            END IF
-         END DO
-         !$omp end single
-
-      END IF
-
-      IF ( N_AE_SPC .LE. 0 ) RETURN
-
-cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-C  Put the grid cell physical data in the block arrays
-cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+      ! Put the grid cell physical data in the block arrays
 
       call rev_cgrid_sfc_iw( iw, cngrd )
 
-      do ks = 1, lsw(iw)
+      ! Surface aerodynamic resistance
 
-         ! Extract grid cell concentrations of aero species from CGRID
-         ! into aerospc_conc in aero_data module. Also determines
-         ! second moment from surface area and adds wet species.
+      ra = 0.0
 
-         call extract_aero( cngrd( ks,: ), .true. )
+      ! Loop over all sfcg cells (land + lake + sea) that overlap this iw cell
 
-         ! Calculate geometric mean diameters and standard deviations of
-         ! the "wet" size distribution
+      do jsfc = 1, itab_w(iw)%jsfc2
+         iwsfc = itab_w(iw)%iwsfc(jsfc)
+         jasfc = itab_w(iw)%jasfc(jsfc)
 
-         call getpar( .false., noM3=.true. )
+         kw = itab_wsfc(iwsfc)%kwatm(jasfc)
+         ks = kw - lpw(iw) + 1
 
-         ! Save getpar values to arrays
+         arcoarkw = itab_wsfc(iwsfc)%arcoarkw(jasfc)
 
-         XXLSGAT(ks) = AEROMODE_LNSG( 1 )
-         XXLSGAC(ks) = AEROMODE_LNSG( 2 )
-         XXLSGCO(ks) = AEROMODE_LNSG( 3 )
-
-         DGATK(ks)   = AEROMODE_DIAM( 1 )
-         DGACC(ks)   = AEROMODE_DIAM( 2 )
-         DGCOR(ks)   = AEROMODE_DIAM( 3 )
-
-         PDENSAT(ks) = AEROMODE_DENS( 1 )
-         PDENSAC(ks) = AEROMODE_DENS( 2 )
-         PDENSCO(ks) = AEROMODE_DENS( 3 )
-
+         ra(ks) = ra(ks) + arcoarkw / sfcg%ggaer(iwsfc)
       enddo
 
-      ! Land Cells
-      do jwls = 1, itab_w(iw)%nland
+      do ks = 1, nsfc
+         kw = lpw(iw) + ks - 1
 
-         iwls = itab_w(iw)%iland(jwls)
-         kw   = itab_wl(iwls)%kw
-         ks   = kw - lpw(iw) + 1
+         if (frac_sfc(ks,iw) < 1.e-5) then
 
-         ! Set meteorological data for this surface cell
-         AIRDENS = rho(kw,iw)
-         AIRPRES = press(kw,iw)
-         AIRTEMP = land%cantemp(iwls)
-         ra      = 1.0 / land%ggaer(iwls)
-         ustar   = land%ustar(iwls)
-         wtv0    = land%wthv(iwls)
+            ! skip small overlaps
+            vdep_aero(:,ks) = 0.0
 
-         if (wtv0 > 0.0) then
-            wstar = (grav * pblh(iw) * wtv0 / theta(kw,iw)) ** one3
          else
-            wstar = 0.0
-         endif
 
-         ! Calculate mean free path [ m ]:
-         XLM = 6.6328E-8 * STDATMPA * AIRTEMP / ( T0 * AIRPRES )
+            ! extract grid cell concentrations of aero species from CGRID
 
-         ! Calcualte dynamic viscosity [ kg m**-1 s**-1 ]:
-         AMU = 1.458E-6 * AIRTEMP * SQRT( AIRTEMP )
-     &       / ( AIRTEMP + 110.4 )
+            conc(ae_strt:ae_fini) = cngrd(ks,ae_strt:ae_fini)
 
-         ! get dry deposition velocities:
+            ! compute aerosol moments directly from concentration array
 
-         CALL GETDEP_V ( XLM, AMU, DGATK(ks), DGACC(ks), DGCOR(ks),
-     &                   XXLSGAT(ks), XXLSGAC(ks), XXLSGCO(ks),
-     &                   PDENSAT(ks), PDENSAC(ks), PDENSCO(ks), VDEP, 
-     &                   AIRTEMP, AIRDENS, ustar, wstar, ra )
+            m3 = conc(aer_str:aer_end) * aer_m3
 
-         DO V = 1, N_AE_DEPV
-            IF ( DEPV_SUR( V ) .GT. 0 ) THEN
-               adepv_land( iwls,V ) = VDEP( DEPV_SUR( V ) )
-            ELSE
-               adepv_land( iwls,V ) = 0.0
-            END IF
-         END DO
+            do i = 1, 3
+               n = num_str + i - 1
+               s = srf_str + i - 1
+               moment3_conc( i ) = Max( sum(m3, mask=(mode_map==i .and. .not. aer_trac) ),
+     &                                  aeromode( i )%min_m3conc )
+               moment0_conc( i ) = Max( conc( n ), m0_min( i ) )
+               moment2_conc( i ) = Max( conc( s ) * oneovpi, m2_min( i ) )
+            enddo
 
-      enddo
+            ! compute aerosol diameters and geometric standard deviation
 
-      ! SEA Cells
-      do jwls = 1, itab_w(iw)%nsea
-         iwls = itab_w(iw)%isea(jwls)
-         kw   = itab_ws(iwls)%kw
-         ks   = kw - lpw(iw) + 1
+            call getpar( .false., moment0_conc, moment2_conc, moment3_conc,
+     &                   aeromode_lnsg, aeromode_diam, 1, 3 )
 
-         ! Set meteorological data for this surface cell
-         AIRDENS = rho(kw,iw)
-         AIRPRES = press(kw,iw)
-         AIRTEMP = sea%cantemp(iwls)
-         ra      = 1.0 / sea%ggaer(iwls)
-         ustar   = sea%ustar(iwls)
-         wtv0    = sea%wthv(iwls)
+            ! Compute mean particle densities
 
-         if (wtv0 > 0.0) then
-            wstar = (grav * pblh(iw) * wtv0 / theta(kw,iw)) ** one3
-         else
-            wstar = 0.0
-         endif
+            call getdens_conc(aeromode_mass, aeromode_dens, conc, moment3_conc, 1, 3)
 
-         ! Calculate mean free path [ m ]:
-         XLM = 6.6328E-8 * STDATMPA * AIRTEMP / ( T0 * AIRPRES )
+            if (wtv0_k(ks,iw) > 0.0) then
+               wstar = (grav * pblh(iw) * wtv0_k(ks,iw) / theta(kw,iw)) ** one3
+            else
+               wstar = 0.0
+            endif
 
-         ! Calcualte dynamic viscosity [ kg m**-1 s**-1 ]:
-         AMU = 1.458E-6 * AIRTEMP * SQRT( AIRTEMP ) / ( AIRTEMP + 110.4 )
+            ustar   = ustar_k(ks,iw)
 
-         ! get dry deposition velocities:
+            airdens = rho  (kw,iw)
+            airpres = press(kw,iw)
+            airtemp = tair (kw,iw)
 
-         CALL GETDEP_V ( XLM, AMU, DGATK(ks), DGACC(ks), DGCOR(ks),
-     &                   XXLSGAT(ks), XXLSGAC(ks), XXLSGCO(ks),
-     &                   PDENSAT(ks), PDENSAC(ks), PDENSCO(ks), VDEP, 
-     &                   AIRTEMP, AIRDENS, ustar, wstar, ra )
+            ! Calculate mean free path [ m ]:
+            XLM = 6.6328E-8 * STDATMPA * AIRTEMP / ( T0 * AIRPRES )
 
-         DO V = 1, N_AE_DEPV
-            IF ( DEPV_SUR( V ) .GT. 0 ) THEN
-               adepv_sea( iwls,V ) = VDEP( DEPV_SUR( V ) )
-            ELSE
-               adepv_sea( iwls,V ) = 0.0
-            END IF
-         END DO
-            
-      enddo
+            ! Calcualte dynamic viscosity [ kg m**-1 s**-1 ]:
+            AMU = 1.458E-6 * AIRTEMP * SQRT( AIRTEMP ) / ( AIRTEMP + 110.4 )
 
-      contains
+            ! Get dry deposition velocities:
+
+            CALL GETDEP_V ( XLM, AMU,
+     &                      AEROMODE_DIAM(1), AEROMODE_DIAM(2), AEROMODE_DIAM(3),
+     &                      AEROMODE_LNSG(1), AEROMODE_LNSG(2), AEROMODE_LNSG(3),
+     &                      AEROMODE_DENS(1), AEROMODE_DENS(2), AEROMODE_DENS(3),
+     &                      VDEP_AERO(:,KS), AIRTEMP, AIRDENS, USTAR, WSTAR, RA(KS) )
+
+         ENDIF
+
+      ENDDO
+
+      END SUBROUTINE AERO_DEPV
 
 C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 
       SUBROUTINE GETDEP_V ( XLM, AMU, DGATK, DGACC, DGCOR,
      &                      XXLSGAT, XXLSGAC, XXLSGCO,
-     &                      PDENSAT, PDENSAC, PDENSCO,VDEP, 
+     &                      PDENSAT, PDENSAC, PDENSCO, VDEP,
      &                      TEMP2, DENS1, USTAR, WSTAR, RA )
 
 C *** Calculate deposition velocity for Aitken, accumulation, and
@@ -342,7 +247,7 @@ C     Reference:
 C     Binkowski F. S., and U. Shankar, The regional particulate
 C     model 1. Model description and preliminary results.
 C     J. Geophys. Res., 100, D12, 26191-26209, 1995.
- 
+
 C    May 05 D.Schwede: added impaction term to coarse mode dry deposition
 C 25 May 05 J.Pleim:  Updated dry dep velocity calculation for aerosols
 C                     to Venkatram and Pleim (1999)
@@ -356,6 +261,7 @@ C                     standardized names of all coarse-mode variables
 C-----------------------------------------------------------------------
 
       use const_data, only: pi, boltzmann, grav
+      use depv_defn,  only: n_ae_dep_spc
 
       IMPLICIT NONE
 
@@ -457,8 +363,8 @@ C Scalar variables for VARIABLE standard deviations.
       REAL    ESCO08           ! coarse       "
 
       REAL    ESAT12           ! Aitken       " **12
-      REAL    ESAC12           ! accumulation "     
-      REAL    ESCO12           ! coarse       "     
+      REAL    ESAC12           ! accumulation "
+      REAL    ESCO12           ! coarse       "
 
       REAL    ESAT16           ! Aitken       " **16
       REAL    ESAC16           ! accumulation "
@@ -481,8 +387,8 @@ C Scalar variables for VARIABLE standard deviations.
       REAL    ESCO36           ! coarse       "
 
       REAL    ESAT48           ! Aitken       " **48
-      REAL    ESAC48           ! accumulation "     
-      REAL    ESCO48           ! coarse       "     
+      REAL    ESAC48           ! accumulation "
+      REAL    ESCO48           ! coarse       "
 
       REAL    ESAT64           ! Aitken       " **64
       REAL    ESAC64           ! accumulation "
@@ -497,12 +403,12 @@ C Scalar variables for VARIABLE standard deviations.
       REAL    ESCO160          ! coarse       "
 
       REAL    ESATM12          ! Aitken       " **(-12)
-      REAL    ESACM12          ! accumulation "        
-      REAL    ESCOM12          ! coarse       "        
+      REAL    ESACM12          ! accumulation "
+      REAL    ESCOM12          ! coarse       "
 
       REAL    ESATM16          ! Aitken       " **(-16)
-      REAL    ESACM16          ! accumulation "        
-      REAL    ESCOM16          ! coarse       "        
+      REAL    ESACM16          ! accumulation "
+      REAL    ESCOM16          ! coarse       "
 
       REAL    ESATM20          ! Aitken       " **(-20)
       REAL    ESACM20          ! accumulation "
@@ -636,6 +542,7 @@ C now calculate the deposition velocities
 
       NUI     = DENS1 / AMU
       USTFAC  = NUI * GRAVI * USTAR ** 2
+
       STOKENF = 0.0025 * (DCONST3N * USTFAC) ** 2
       STOKEAF = 0.0025 * (DCONST3A * USTFAC) ** 2
       STOKECF = 0.0025 * (DCONST3C * USTFAC) ** 2
@@ -656,7 +563,7 @@ C accumulation mode
       SC0AI2 = (NUI * DCHAT0A) ** 2
       EIM    = MIN( STOKEAF * ESAC64, 1.0 )
       RD0A   = UTSCALI / ( SC0AI2**ONE3 + EIM )
-      
+
 !     VDEP( VDNACC ) = VGHAT0A
 !    &               / ( 1.0 - EXP( -VGHAT0A * ( RA + RD0A ) ) )
       VDEP( VDNACC ) = 1.0 / ( RA + RD0A )
@@ -729,5 +636,3 @@ C coarse mode
       VDEP( VDMCOR ) = 1.0 / ( RA + RD3C )
 
       END SUBROUTINE GETDEP_V
-
-      end subroutine aero_depv

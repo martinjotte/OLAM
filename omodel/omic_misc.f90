@@ -1,35 +1,4 @@
 !===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 
 !  collection efficiency for hail too high.  big hail should not
 !  coallesce.
@@ -41,8 +10,7 @@ subroutine each_column(lpw0,iw0,k1,k2,dtl0,                    &
    tx,sh,sm,sa,rhovsrefp)
 
 use micro_coms,  only: mza0, ncat, jhabtab
-use consts_coms, only: r8, alvl, alvi
-use misc_coms,   only: io6
+use consts_coms, only: alvl, alvi
 use therm_lib,   only: rhovsl, rhovsi
 
 implicit none
@@ -76,7 +44,7 @@ real, intent(out) :: sumuy    (mza0)
 real, intent(out) :: sumuz    (mza0)
 real, intent(out) :: sumvr    (mza0)
 
-real(r8), intent(in) :: rhoa(mza0)
+real, intent(in) :: rhoa(mza0)
 
 real, intent(out) :: tx(mza0,ncat)
 real, intent(out) :: sh(mza0,ncat)
@@ -199,8 +167,6 @@ subroutine enemb(lcat,jflag,k1,k2,con_ccnx,ict1,ict2,wct1,wct2,rx,cx,emb)
 use micro_coms,  only: mza0, ncat, jnmb, emb2, emb0, emb1, rxmin, &
                        dict, emb0log, rictmin, rictmax
 use ccnbin_coms, only: nccntyp
-use misc_coms,   only: io6
-use consts_coms, only: r8
 
 implicit none
 
@@ -232,20 +198,13 @@ if (jnmb(lcat) == 2) then
       cx(k,lcat) = rx(k,lcat) / emb(k,lcat)
    enddo
 
-elseif (jnmb(lcat) == 4) then ! As of version 5.0.0, can only apply to cloud
+elseif (jnmb(lcat) == 4) then ! As of version 5.0.0, only applies to cloud
+                              ! water with number density set to con_ccnx(k,1)
 
-   if (nccntyp == 1) then
-      do k = k1(lcat), k2(lcat)
-         emb(k,lcat) = max(emb0(lcat), min(emb1(lcat), rx(k,lcat) / max(1.e-12,con_ccnx(k,1))))
-         cx(k,lcat) = rx(k,lcat) / emb(k,lcat)
-      enddo
-   else
-      do k = k1(lcat), k2(lcat)
-         emb(k,lcat) = max(emb0(lcat), min(emb1(lcat), &
-                       rx(k,lcat) / max(1.e-12,sum(con_ccnx(k,1:nccntyp)))))
-         cx(k,lcat) = rx(k,lcat) / emb(k,lcat)
-      enddo
-   endif
+   do k = k1(lcat), k2(lcat)
+      emb(k,lcat) = max(emb0(lcat), min(emb1(lcat), rx(k,lcat) / max(1.e-12,con_ccnx(k,1))))
+      cx(k,lcat) = rx(k,lcat) / emb(k,lcat)
+   enddo
 
 elseif (jnmb(lcat) == 5) then
 
@@ -282,8 +241,7 @@ subroutine x02(iw0,lpw0,lcat,k1,k2,con_ccnx, &
 use micro_coms,  only: mza0, ncat, rxmin, enmlttab, dnfac, pwmasi, &
                        gnu, shedtab
 use ccnbin_coms, only: nccntyp
-use consts_coms, only: r8, alli
-use misc_coms,   only: io6
+use consts_coms, only: alli
 use therm_lib,   only: qtc
 
 implicit none
@@ -418,7 +376,7 @@ elseif (lcat == 4 .or. lcat == 5) then
 
          call qtc(qx(k,lcat),tx(k,lcat),fracliq)
 
-! If SNOW or AGGREGATES are melting, transfer liquid plus some ice 
+! If SNOW or AGGREGATES are melting, transfer liquid plus some ice
 ! to GRAUPEL category
 
          if (fracliq > 1.e-6) then
@@ -427,14 +385,14 @@ elseif (lcat == 4 .or. lcat == 5) then
 
             rmelt = rx(k,lcat) * fracliq
             rx(k,lcat) = rx(k,lcat) - rmelt
-            
+
             ricetor6 = min(rmelt, rx(k,lcat))
             rx(k,lcat) = rx(k,lcat) - ricetor6
 
             qr(k,lcat) = 0.
             qx(k,lcat) = 0.
             tx(k,lcat) = 0.
-            
+
             rx(k,6) = rx(k,6) + rmelt + ricetor6
             qr(k,6) = qr(k,6) + rmelt * alli
 
@@ -514,7 +472,7 @@ elseif (lcat == 7) then
             qr(k,7) = 0.
             qx(k,7) = 0.
             tx(k,7) = 0.
-         
+
 ! Otherwise, if HAIL is more than 30% liquid, compute amount to be shed to rain
 
 !  take out following IF statement?
@@ -559,17 +517,15 @@ end subroutine x02
 
 !===============================================================================
 
-subroutine sedim2(iw0,lpw0,k1,k2,jhcat,dtl0, &
-   voa, denfac, tair, thil0, theta0, dsed_thil, rhoi, rhoa, rhow, &
-   cx, rx, qx, qr, emb, dmb, pcpvel, pcpfluxc, pcpfluxr, pcpfluxq, accpx, pcprx)
+subroutine sedim2(iw0,lpw0,k1,k2,jhcat,dtl0,dtli0, &
+   voa, denfac, tair, thil0, theta0, dsed_thil, rhoi, rhow, &
+   cx, rx, qx, qr, emb, dmb, pcpvel, pcpfluxc, pcpfluxr, pcpfluxq, &
+   accpx, pcprx, pcpg, qpcpg, dpcpg)
 
 use micro_coms,  only: mza0, ncat, rxmin, cfmasi, pwmasi, cfvt, pwvt, jnmb, emb1
-use consts_coms, only: r8, cpi, alviocp
-use misc_coms,   only: io6
-use mem_grid,    only: zm, zfacm2, zfacim2, arw, volti
-use mem_ijtabs,  only: itab_w
-use mem_sea,     only: sea, itab_ws
-use mem_leaf,    only: land, itab_wl
+use consts_coms, only: cpi, alviocp
+use mem_grid,    only: zm, zfacm2, zfacim2, arw, volti, nsw_max, lsw
+use mem_turb,    only: frac_sfc
 
 implicit none
 
@@ -581,18 +537,16 @@ integer, intent(in) :: k2(11)
 
 integer, intent(in) :: jhcat(mza0,ncat)
 
-real, intent(in) :: dtl0
+real, intent(in) :: dtl0, dtli0
 
-real, intent(in)    :: voa   (mza0)
-real, intent(in)    :: denfac(mza0)
+real, intent(in)    :: voa      (mza0)
+real, intent(in)    :: denfac   (mza0)
 real, intent(in)    :: tair     (mza0)
 real, intent(in)    :: thil0    (mza0)
 real, intent(in)    :: theta0   (mza0)
 real, intent(inout) :: dsed_thil(mza0)
 real, intent(in)    :: rhoi     (mza0)
-
-real(r8), intent(inout) :: rhoa(mza0)
-real(r8), intent(inout) :: rhow(mza0)
+real, intent(inout) :: rhow     (mza0)
 
 real, intent(inout) :: cx      (mza0,ncat)
 real, intent(inout) :: rx      (mza0,ncat)
@@ -608,13 +562,17 @@ real, intent(inout) :: pcpfluxq(mza0,ncat)
 real, intent(inout) :: accpx(ncat)
 real, intent(inout) :: pcprx(ncat)
 
+real, intent(inout) ::  pcpg(nsw_max) ! New precipitation amount in coupling area [kg/m^2]
+real, intent(inout) :: qpcpg(nsw_max) ! New precipitation energy in coupling area [J/m^2]
+real, intent(inout) :: dpcpg(nsw_max) ! New precipitation depth  in coupling area [m]
+
 integer, parameter :: iplaws = 0
 
 real, parameter :: alphasfc(ncat) = (/.001,.001,.010,.010,.010,.003,.001,.001/)
 
-integer :: lcat, lhcat, k, kk, kw, nsea, nland, jws, iws, jwl, iwl
+integer :: lcat, lhcat, k, kk, ks
 
-real :: zbotnew, areascale, fracwkk
+real :: zbotnew, areascale, fracwkk, v4i, arwm
 
 real :: cxnew(mza0)
 real :: rxnew(mza0)
@@ -658,7 +616,7 @@ real :: qrnew(mza0)
 
            ! Horizontal area scale factor for current w(kk) level
 
-           areascale = zfacim2(k-1) * zfacm2(kk)
+           areascale = zfacm2(k-1) * zfacim2(kk)
 
            ! Depth of source grid cell precipitation that crosses w(kk) level
 
@@ -677,74 +635,45 @@ real :: qrnew(mza0)
      ! Apply number and mass transfers to obtain new hydrometeor concentrations
      ! Method should be positive definite, but check this.
 
-     do k = k2(lcat),lpw0,-1
-        cxnew(k) = cx(k,lcat) + volti(k,iw0) &
+     do k = lpw0+lsw(iw0), k2(lcat)
+        v4i = real(volti(k,iw0))
+
+        cxnew(k) = cx(k,lcat) + v4i &
            * (pcpfluxc(k,lcat) * arw(k,iw0) - pcpfluxc(k-1,lcat) * arw(k-1,iw0))
-        rxnew(k) = rx(k,lcat) + volti(k,iw0) &
+        rxnew(k) = rx(k,lcat) + v4i &
            * (pcpfluxr(k,lcat) * arw(k,iw0) - pcpfluxr(k-1,lcat) * arw(k-1,iw0))
-        qrnew(k) = qr(k,lcat) + volti(k,iw0) &
+        qrnew(k) = qr(k,lcat) + v4i &
            * (pcpfluxq(k,lcat) * arw(k,iw0) - pcpfluxq(k-1,lcat) * arw(k-1,iw0))
      enddo
 
-     ! Check for sea area beneath this atmospheric grid column
+     ! Loop over all layers that intersect with the surface
 
-     nsea = itab_w(iw0)%nsea
-     if (nsea > 0) then
+     do k = lpw0, min(k2(lcat), lpw0+lsw(iw0)-1)
+        v4i = real(volti(k,iw0))
+        ks  = k - lpw0 + 1
 
-        ! Loop over sea cells beneath this atmospheric grid column
+        ! top horizontal area projected onto k-1 level
+        arwm = arw(k,iw0) * zfacim2(k) * zfacm2(k-1)
 
-        do jws = 1,nsea
-           iws = itab_w(iw0)%isea(jws)
-           kw = itab_ws(iws)%kw
+        cxnew(k) = cx(k,lcat) + v4i &
+           * (pcpfluxc(k,lcat) * arw(k,iw0) - pcpfluxc(k-1,lcat) * arwm)
+        rxnew(k) = rx(k,lcat) + v4i &
+           * (pcpfluxr(k,lcat) * arw(k,iw0) - pcpfluxr(k-1,lcat) * arwm)
+        qrnew(k) = qr(k,lcat) + v4i &
+           * (pcpfluxq(k,lcat) * arw(k,iw0) - pcpfluxq(k-1,lcat) * arwm)
 
-           ! Skip if all cloud is below this level
-           if (k2(lcat) < kw) cycle
+         pcpg(ks) = pcpg (ks) + pcpfluxr(k-1,lcat)
+        qpcpg(ks) = qpcpg(ks) + pcpfluxq(k-1,lcat)
+        dpcpg(ks) = dpcpg(ks) + pcpfluxr(k-1,lcat) * alphasfc(lcat)
 
-           cxnew(kw) = cxnew(kw) - volti(kw,iw0) * pcpfluxc(kw-1,lcat) * sea%area(iws)
-           rxnew(kw) = rxnew(kw) - volti(kw,iw0) * pcpfluxr(kw-1,lcat) * sea%area(iws)
-           qrnew(kw) = qrnew(kw) - volti(kw,iw0) * pcpfluxq(kw-1,lcat) * sea%area(iws)
+        accpx(lcat) = accpx(lcat) + pcpfluxr(k-1,lcat) * frac_sfc(ks,iw0)
+     enddo
 
-           pcprx(lcat) = pcprx(lcat) + pcpfluxr(kw-1,lcat) * itab_ws(iws)%arf_iw / dtl0
-           accpx(lcat) = accpx(lcat) + pcpfluxr(kw-1,lcat) * itab_ws(iws)%arf_iw
+     pcprx(lcat) = accpx(lcat) * dtli0
 
-           sea%pcpg (iws) = sea%pcpg (iws) + pcpfluxr(kw-1,lcat)
-           sea%qpcpg(iws) = sea%qpcpg(iws) + pcpfluxq(kw-1,lcat)
-           sea%dpcpg(iws) = sea%dpcpg(iws) + pcpfluxr(kw-1,lcat) * alphasfc(lcat)
-        enddo
+     ! Loop over precipition source levels
 
-     endif
-
-     ! Check for land area beneath this atmospheric grid column
-
-     nland = itab_w(iw0)%nland
-     if (nland > 0) then
-
-        ! Loop over land cells beneath this atmospheric grid column
-
-        do jwl = 1,nland
-           iwl = itab_w(iw0)%iland(jwl)
-           kw = itab_wl(iwl)%kw
-
-           ! Skip if all cloud is below this level
-           if (k2(lcat) < kw) cycle
-
-           cxnew(kw) = cxnew(kw) - volti(kw,iw0) * pcpfluxc(kw-1,lcat) * land%area(iwl)
-           rxnew(kw) = rxnew(kw) - volti(kw,iw0) * pcpfluxr(kw-1,lcat) * land%area(iwl)
-           qrnew(kw) = qrnew(kw) - volti(kw,iw0) * pcpfluxq(kw-1,lcat) * land%area(iwl)
-
-           pcprx(lcat) = pcprx(lcat) + pcpfluxr(kw-1,lcat) * itab_wl(iwl)%arf_iw / dtl0
-           accpx(lcat) = accpx(lcat) + pcpfluxr(kw-1,lcat) * itab_wl(iwl)%arf_iw
-
-           land%pcpg (iwl) = land%pcpg (iwl) + pcpfluxr(kw-1,lcat)
-           land%qpcpg(iwl) = land%qpcpg(iwl) + pcpfluxq(kw-1,lcat)
-           land%dpcpg(iwl) = land%dpcpg(iwl) + pcpfluxr(kw-1,lcat) * alphasfc(lcat)
-        enddo
-
-     endif
-
-     ! Loop over precipation source levels
-
-     do k = lpw0,k2(lcat)
+     do k = lpw0, k2(lcat)
 
         if (rxnew(k) < rxmin(lcat)) then
            rxnew(k) = 0.
@@ -754,15 +683,14 @@ real :: qrnew(mza0)
            cxnew(k) = max(cxnew(k), rxnew(k) / emb1(lcat))
         endif
 
-        rhoa(k) = rhoa(k) + rxnew(k) - rx(k,lcat)
         rhow(k) = rhow(k) + rxnew(k) - rx(k,lcat)
 
-        dsed_thil(k) = dsed_thil(k) - alviocp * (rxnew(k) - rx(k,lcat)) &
+        dsed_thil(k) = dsed_thil(k) - alviocp * (rxnew(k) - rx(k,lcat))  &
                                     + cpi     * (qrnew(k) - qr(k,lcat))
 
 !        dsed_thil(k) = dsed_thil(k) - thil0(k) * thil0(k)  &
-!           * (alviocp * (rxnew(k) - rx(k,lcat))  &
-!           - cpi * (qrnew(k) - qr(k,lcat)))  &
+!           * (alviocp * (rxnew(k,lcat) - rx(k,lcat))  &
+!           - cpi * (qrnew(k,lcat) - qr(k,lcat)))  &
 !           / (max(tair(k), 253.) * theta0(k))
 
         ! Transfer "new" amounts to category arrays

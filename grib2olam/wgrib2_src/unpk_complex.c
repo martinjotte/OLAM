@@ -12,10 +12,12 @@
 //       (limit of bitstream unpacking routines)
 // note: assumption that all data can be stored as integers and have a value < INT_MAX
 
+// #define DEBUG
+
 int unpk_complex(unsigned char **sec, float *data, unsigned int ndata) {
 
-    unsigned int j, n;
-    int i, k, nbits, ref_group_length;
+    unsigned int i, j, n;
+    int k, nbits, ref_group_length;
     unsigned char *p, *d, *mask_pointer;
     double ref_val,factor_10, factor_2, factor;
     float missing1, missing2;
@@ -24,8 +26,8 @@ int unpk_complex(unsigned char **sec, float *data, unsigned int ndata) {
     unsigned clocation;
     unsigned int ngroups, ref_group_width, nbit_group_width, len_last, npnts;
     int nbits_group_len, group_length_factor;
-    int *group_refs, *group_widths, *group_lengths, *group_location, *group_offset, *udata;
-    unsigned int *group_clocation;
+    int *group_refs, *group_widths, *group_lengths, *group_offset, *udata;
+    unsigned int *group_clocation, *group_location;
 
     int m1, m2, mask, last, penultimate;
     int extra_vals[2];
@@ -48,7 +50,7 @@ int unpk_complex(unsigned char **sec, float *data, unsigned int ndata) {
     bitmap_flag = code_table_6_0(sec);
     ctable_5_6 = code_table_5_6(sec);
 
-    if (pack == 3 && (ctable_5_6 != 1 && ctable_5_6 != 2)) 
+    if (pack == 3 && (ctable_5_6 != 1 && ctable_5_6 != 2))
 	fatal_error_i("unsupported: code table 5.6=%d", ctable_5_6);
 
     extra_octets = (pack == 2) ? 0 : sec[5][48];
@@ -79,19 +81,26 @@ int unpk_complex(unsigned char **sec, float *data, unsigned int ndata) {
     len_last = uint4(p+42);
     nbits_group_len = p[46];
 
+#ifdef DEBUG
+    fprintf(stderr,"ctable 5.4 %d ref_group_width %u nbit_group_width %u ref_group_length %u group_length_factor %d\n",
+        ctable_5_4, ref_group_width, nbit_group_width, ref_group_length, group_length_factor);
+    fprintf(stderr,"len_last %u nbit_group_len %u\n", len_last, nbits_group_len);
+#endif
+
     npnts =  GB2_Sec5_nval(sec); 	// number of defined points
     n_sub_missing = sub_missing_values(sec, &missing1, &missing2);
 
     // allocate group widths and group lengths
-    group_refs = (int *) malloc(ngroups * sizeof (unsigned int));
-    group_widths = (int *) malloc(ngroups * sizeof (unsigned int));
-    group_lengths = (int *) malloc(ngroups * sizeof (unsigned int));
-    group_location = (int *) malloc(ngroups * sizeof (unsigned int));
-    group_clocation = (unsigned int *) malloc(ngroups * sizeof (unsigned int));
-    group_offset = (int *) malloc(ngroups * sizeof (unsigned int));
-    udata = (int *) malloc(npnts * sizeof (unsigned int));
-    if (group_refs == NULL || group_widths == NULL || group_lengths == 
-		NULL || udata == NULL) fatal_error("com unpack error","");
+    group_refs = (int *) malloc(sizeof (unsigned int) * (size_t) ngroups);
+    group_widths = (int *) malloc(sizeof (unsigned int) * (size_t) ngroups);
+    group_lengths = (int *) malloc(sizeof (unsigned int) * (size_t) ngroups);
+    group_location = (unsigned int *) malloc(sizeof (unsigned int) * (size_t) ngroups);
+    group_clocation = (unsigned int *) malloc(sizeof (unsigned int) * (size_t) ngroups);
+    group_offset = (int *) malloc(sizeof (unsigned int) * (size_t) ngroups);
+    udata = (int *) malloc(sizeof (unsigned int) * (size_t) npnts);
+    if (group_refs == NULL || group_widths == NULL || group_lengths == NULL ||
+	group_location == NULL || group_clocation == NULL || group_offset == NULL
+	|| udata == NULL) fatal_error("unpk_complex: memory allocation","");
 
     // read any extra values
     d = sec[7]+5;
@@ -114,7 +123,7 @@ int unpk_complex(unsigned char **sec, float *data, unsigned int ndata) {
 {
 #pragma omp sections
     {
-    
+
 
 #pragma omp section
         {
@@ -125,7 +134,7 @@ int unpk_complex(unsigned char **sec, float *data, unsigned int ndata) {
 
 #pragma omp section
 	{
-	    int i;
+	    unsigned int i;
 	    // read the group widths
 
 	    rd_bitstream(d+(nbits*ngroups+7)/8,0,group_widths,nbit_group_width,ngroups);
@@ -135,7 +144,7 @@ int unpk_complex(unsigned char **sec, float *data, unsigned int ndata) {
 
 #pragma omp section
 	{
-	    int i;
+	    unsigned int i;
 	    // read the group lengths
 
 	    if (ctable_5_4 == 1) {
@@ -168,7 +177,7 @@ int unpk_complex(unsigned char **sec, float *data, unsigned int ndata) {
 
 #pragma omp section
         {
-	    int i;
+	    unsigned int i;
             for (i = 0; i < ngroups; i++) {
 	        group_location[i] = j;
 	        j += group_lengths[i];
@@ -178,7 +187,7 @@ int unpk_complex(unsigned char **sec, float *data, unsigned int ndata) {
 
 #pragma omp section
 	{
-	    int i;
+	    unsigned int i;
             for (i = 0; i < ngroups; i++) {
 	        group_clocation[i] = clocation;
 	        clocation = clocation + group_lengths[i]*(group_widths[i]/8) +
@@ -188,7 +197,7 @@ int unpk_complex(unsigned char **sec, float *data, unsigned int ndata) {
 
 #pragma omp section
         {
-	    int i;
+	    unsigned int i;
             for (i = 0; i < ngroups; i++) {
 	        group_offset[i] = offset;
 	        offset += (group_lengths[i] % 8)*(group_widths[i] % 8);
@@ -197,7 +206,7 @@ int unpk_complex(unsigned char **sec, float *data, unsigned int ndata) {
     }
 }
 
-    if (j != npnts) fatal_error_i("bad complex packing: n points %d",j);
+    if (j != npnts) fatal_error_u("bad complex packing: n points %u",j);
     if (d + (n+7)/8 - sec[7] != GB2_Sec7_size(sec))
         fatal_error("complex unpacking size mismatch old test","");
 
@@ -209,7 +218,7 @@ int unpk_complex(unsigned char **sec, float *data, unsigned int ndata) {
 	group_clocation[i] += (group_offset[i] / 8);
 	group_offset[i] = (group_offset[i] % 8);
 
-	rd_bitstream(d + group_clocation[i], group_offset[i], udata+group_location[i], 
+	rd_bitstream(d + group_clocation[i], group_offset[i], udata+group_location[i],
 		group_widths[i], group_lengths[i]);
     }
 
@@ -328,8 +337,8 @@ int unpk_complex(unsigned char **sec, float *data, unsigned int ndata) {
 
 	if (bitmap_flag == 255) {
 #pragma omp parallel for schedule(static) private(i)
-	    for (i = 0; i < (int) ndata; i++) {
-		data[i] = (udata[i] == INT_MAX) ? UNDEFINED : 
+	    for (i = 0; i < ndata; i++) {
+		data[i] = (udata[i] == INT_MAX) ? UNDEFINED :
 			ref_val + udata[i] * factor;
 	    }
 	}

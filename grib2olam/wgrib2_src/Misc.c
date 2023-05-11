@@ -1,5 +1,5 @@
-#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "grb2.h"
 #include "wgrib2.h"
 #include "fnlist.h"
@@ -11,10 +11,10 @@ extern int ieee_little_endian;
 
 extern int file_append;
 extern const char *item_deliminator;
-extern FILE *inv_file;
+extern struct seq_file inv_file;
 extern const char *nl;
 extern const char *end_inv;
-extern FILE *rd_inventory_input;
+extern struct seq_file rd_inventory_input;
 
 extern int use_g2clib;
 
@@ -32,10 +32,13 @@ int f_i(ARG0) {
 int f_i_file(ARG1) {
     if (mode == -1) {
         input = inv_mode;
-	if ((rd_inventory_input = ffopen(arg1, "r")) == NULL) 
-	    fatal_error("i_file, error openeing %s", arg1);
+        if (fopen_file(&rd_inventory_input, arg1, "r") != 0) {
+            fatal_error("Could not open %s", arg1);
+        }
     }
-    else if (mode == -2) ffclose(rd_inventory_input);
+    else if (mode == -2) {
+	fclose_file(&rd_inventory_input);
+    }
     return 0;
 }
 
@@ -67,7 +70,16 @@ int f_v2(ARG0) {
 }
 
 /*
- * HEADER:-1:v98:misc:0:verbose mode for debugging only (v=98) 
+ * HEADER:-1:v97:misc:0:verbose mode for debugging only (v=97)
+ */
+
+int f_v97(ARG0) {
+    set_mode(97);
+    return 0;
+}
+
+/*
+ * HEADER:-1:v98:misc:0:verbose mode for debugging only (v=98)
  */
 
 int f_v98(ARG0) {
@@ -76,15 +88,13 @@ int f_v98(ARG0) {
 }
 
 /*
- * HEADER:-1:v99:misc:0:verbose mode for debugging only (v=99) 
+ * HEADER:-1:v99:misc:0:verbose mode for debugging only (v=99)
  */
 
 int f_v99(ARG0) {
     set_mode(99);
     return 0;
 }
-
-
 
 /*
  * HEADER:100:header:misc:0:f77 header or nx-ny header in text output (default)
@@ -109,7 +119,7 @@ int f_no_header(ARG0) {
  */
 
 int f_nl(ARG0) {
-    if (mode >= 0) sprintf(inv_out, "\n");
+    if (mode >= 0) strcpy(inv_out, "\n");
     return 0;
 }
 
@@ -117,15 +127,26 @@ int f_nl(ARG0) {
  * HEADER:100:nl_out:inv_output:1:write new line in file X
  */
 int f_nl_out(ARG1) {
+    struct seq_file *save;
+    char nl = '\n';
+
     if (mode == -1) {
-        if ((*local = (void *) ffopen(arg1,file_append ? "a" : "w")) == NULL)
-                fatal_error("Could not open %s", arg1);
+        *local = save = (struct seq_file *) malloc( sizeof(struct seq_file));
+        if (save == NULL) fatal_error("nl_out: memory allocation","");
+        if (fopen_file(save, arg1, file_append ? "ab" : "wb") != 0) {
+            free(save);
+            fatal_error("Could not open %s", arg1);
+        }
     }
     else if (mode == -2) {
-	ffclose((FILE *) *local);
+	save = *local;
+	fclose_file(save);
+	free(save);
     }
     else if (mode >= 0) {
-        fprintf((FILE *) *local, "\n");
+	save = *local;
+	if (fwrite_file(&nl, sizeof(char), 1, save) != 1)
+		fatal_error("nl_out: write error %s", arg1);
     }
     return 0;
 }
@@ -135,7 +156,9 @@ int f_nl_out(ARG1) {
  */
 
 int f_print(ARG1) {
-    if (mode >= 0) sprintf(inv_out,"%s", arg1);
+    if (mode >= 0) {
+	strcpy(inv_out, arg1);
+    }
     return 0;
 }
 
@@ -143,12 +166,27 @@ int f_print(ARG1) {
  * HEADER:100:print_out:inv_output:2:prints string (X) in file (Y)
  */
 int f_print_out(ARG2) {
+    struct seq_file *save;
+    int i;
+
     if (mode == -1) {
-        if ((*local = (void *) ffopen(arg2,file_append ? "a" : "w")) == NULL)
-                fatal_error("Could not open %s", arg1);
+        *local = save = (struct seq_file *) malloc( sizeof(struct seq_file));
+        if (save == NULL) fatal_error("nl_out: memory allocation","");
+        if (fopen_file(save, arg2, file_append ? "ab" : "wb") != 0) {
+            free(save);
+            fatal_error("Could not open %s", arg2);
+        }
     }
-    else if (mode == -2) ffclose((FILE *) *local);
-    else if (mode >= 0) fprintf((FILE *) *local, "%s", arg1);
+    else if (mode == -2) {
+	save = *local;
+	fclose_file(save);
+	free(save);
+    }
+    else if (mode >= 0) {
+	save = *local;
+        i = strlen(arg1);
+	if (fwrite_file(arg1,1, i, save) != i) return 1;
+    }
     return 0;
 }
 
@@ -195,20 +233,20 @@ int f_no_append(ARG0) {
 }
 
 /*
- * HEADER:100:inv:misc:1:write inventory to X
+ * HEADER:100:inv:setup:1:write inventory to X
  */
 
 int f_inv(ARG1) {
     if (mode == -1) {
-        if ((*local = (void *) ffopen(arg1, file_append ? "a" : "w")) == NULL)
+	fclose_file(&inv_file);
+        if (fopen_file(&inv_file, arg1, file_append ? "a+" : "w+") != 0) {
             fatal_error("Could not open %s", arg1);
-        inv_file = (FILE *) *local;
+	}
     }
     else if (mode == -2) {
-	ffclose((FILE *) *local);
-    }
-    else if (mode > 0) {
-        inv_file = (FILE *) *local;
+	fclose_file(&inv_file);
+	/* reopen inv to point to stdout */
+	if (fopen_file(&inv_file,"-","w") != 0) fatal_error("Could not set inv_file to stdout","");
     }
     return 0;
 }

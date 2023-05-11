@@ -101,6 +101,7 @@
          use edgar_42_emis, only: edgar_42_init, vinterp, nsec
          use soil_nox,      only: soil_nox_init
          use mem_ijtabs,    only: jtab_w, jtw_prog
+         use oname_coms,    only: nl
 
          IMPLICIT NONE
 
@@ -121,8 +122,10 @@
          integer :: n, jw, iw, ka
          integer, external :: julday
 
+         if (nl%do_emis == 0) return
+
          LOGDEV = INIT3()
-         
+
          jdate = iyear1 * 1000 + julday(imonth1,idate1,iyear1) ! YYYYDDD
          jtime = itime1 * 100                                  ! HHMMSS
          tstep = 0
@@ -133,7 +136,7 @@
          call edgar_42_init(nvars3d_emis, vname3d_emis, units3d_emis)
 
          allocate(edgar_kmax(mwa)) ; edgar_kmax = mza
-         do jw = 1, jtab_w(jtw_prog)%jend(1); iw = jtab_w(jtw_prog)%iw(jw)
+         do jw = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(jw)
             ka = lpw(iw) + lsw(iw) - 1
             edgar_kmax(iw) = maxval(vinterp(1:nsec,ka)%nlevs) + ka - 1
          enddo
@@ -152,7 +155,7 @@
                UNITSCK = UNITS3D_EMIS( V )
                CALL UPCASE ( UNITSCK )
                IF (GC_EMIS(n) == 'POC') then
-                  if ( unitsck .ne. 'G/S'   .and.  
+                  if ( unitsck .ne. 'G/S'   .and.
      &                 unitsck .ne. 'G/SEC' ) then
                      XMSG = 'GC units incorrect in emissions file'
                      CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT2 )
@@ -211,7 +214,7 @@
      &                                // 'Vertical diffusion ...'
             NEMIS_AE = N_AE_EMIS  ! from CGRID_SPCS (originally, AE_EMIS.EXT)
             ! set up PM emitted species mapping
-            CALL MAP_PMEMIS ( nvars3d_emis, vname3d_emis, units3d_emis ) 
+            CALL MAP_PMEMIS ( nvars3d_emis, vname3d_emis, units3d_emis )
          ELSE
             NEMIS_AE = 0
          END IF
@@ -239,7 +242,7 @@
 ! or Print Warnings if Mistakes Are Made.
 !        CALL EMIS_SPC_CHECK( JDATE, JTIME )
 
-C Warn the User if there are No Emissions Species On Any File         
+C Warn the User if there are No Emissions Species On Any File
          IF ( N_SPC_EMIS .LE. 0 ) THEN
             XMSG = 'There are no emissions: VDEMIS is set to zero' ! below
             CALL M3WARN ( PNAME, JDATE, JTIME, XMSG )
@@ -250,8 +253,8 @@ C Warn the User if there are No Emissions Species On Any File
       end subroutine emis_init
 
 !-----------------------------------------------------------------------
-         
-      subroutine get_emis ( mrl )
+
+      subroutine get_emis ( )
 
          USE CGRID_SPCS          ! CGRID mechanism species
          USE AERO_EMIS           ! inherits GRID_CONF
@@ -262,25 +265,24 @@ C Warn the User if there are No Emissions Species On Any File
          USE CONST_DATA
          use consts_coms,  only: r8
          use leaf_coms,    only: isfcl
-         use mem_leaf,     only: itab_wl
          use mem_grid,     only: mza, volti, lpw
          use mem_ijtabs,   only: jtab_w, jtw_prog, itab_w
+         use mem_land,     only: omland
+         use mem_sfcg,     only: itab_wsfc
          use mem_basic,    only: rho
          use mem_megan,    only: megan_driver, megan_emis, mgn_2_gc_map
          use edgar_42_emis,only: process_edgar_emis, edgar42_emis
          use soil_nox,     only: get_soil_nox, sn_map, soilnox
+         use oname_coms,   only: nl
 
          IMPLICIT NONE
-
-! Arguments:
-
-         integer, intent( in ) :: mrl
 
 ! Local Variables:
 
          REAL    :: CNVTC(mza)  ! combined conversion factor
          INTEGER :: N, S
-         integer :: j, k, iw, iwl, jwl
+         integer :: j, k, kw, iw, jsfc, iwsfc, jasfc, iland
+         real    :: arc, arcoarsfc, arcoariw, arcoarkw   ! Use only one of these
 
 ! Parameters
 
@@ -288,25 +290,26 @@ C Warn the User if there are No Emissions Species On Any File
          REAL, parameter :: CONVEM = 1.0E-03 ! conversion for emissions rates to Kg/s
          real, parameter :: CNVTE  = CMLMR * CONVEM * MWAIR ! conversion from moles / sec
                                                             ! to rho ppmV Vol / sec
+         if (nl%do_emis == 0) return
 
 ! Read and/or compute emissions
 
          call process_edgar_emis()
 
          if (ltng_no) then
-            call get_ltng( mrl )
+            call get_ltng( )
          endif
 
          if (isfcl == 1) then
-            call get_soil_nox(mrl)
-            call megan_driver(mrl)
+            call get_soil_nox()
+            call megan_driver()
          endif
 
 ! Apply gaseous emissions (gas chemistry and non-reacting species)
 
          !$omp parallel private(cnvtc)
-         !$omp do private(iw,k,s,n,jwl,iwl)
-         do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+         !$omp do private(iw,k,s,n,jsfc,iwsfc,jasfc,kw,iland)
+         do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
             ! Zero-out emissions arrays
 
@@ -315,7 +318,7 @@ C Warn the User if there are No Emissions Species On Any File
             vdemis_ae( :,iw,: ) = 0.0
 
             do k = lpw(iw), mza
-               cnvtc(k) = cnvte * volti(k,iw) / rho(k,iw)
+               cnvtc(k) = cnvte * volti(k,iw) / real(rho(k,iw))
             enddo
 
             ! Apply EDGAR gas chemistry emissions
@@ -382,12 +385,26 @@ C Warn the User if there are No Emissions Species On Any File
 
             if (isfcl == 1 .and. SN_MAP /= 0) then
 
-               do jwl = 1, itab_w(iw)%nland
-                  iwl = itab_w(iw)%iland(jwl)
-                  k   = itab_wl(iwl)%kw
+               ! Loop over land cells beneath this atmospheric grid column
+
+               do jsfc = itab_w(iw)%jland1, itab_w(iw)%jland2
+                  iwsfc = itab_w(iw)%iwsfc(jsfc)
+                  jasfc = itab_w(iw)%jasfc(jsfc)
+
+                  kw        = itab_wsfc(iwsfc)%kwatm(jasfc)
+
+                  arc       = itab_wsfc(iwsfc)%arc      (jasfc)  ! Use one of these
+                  arcoarsfc = itab_wsfc(iwsfc)%arcoarsfc(jasfc)  ! Use one of these
+                  arcoariw  = itab_wsfc(iwsfc)%arcoariw (jasfc)  ! Use one of these
+                  arcoarkw  = itab_wsfc(iwsfc)%arcoarkw (jasfc)  ! Use one of these
+
+                  iland = iwsfc - omland
+
+!BOB: What are units of [soilnox(iland) * cnvtc(kw)] and vdemis_gc?  In the following,
+!     soilnox needs a multiplier of arc, arcoarsfc, arcoarkw, or arcoariw.
 
                   ! Convert mol / sec emissions to ppmV / sec
-                  vdemis_gc(k,iw,SN_MAP) = vdemis_gc(k,iw,SN_MAP) + soilnox(iwl) * cnvtc(k)
+                  vdemis_gc(kw,iw,SN_MAP) = vdemis_gc(kw,iw,SN_MAP) + soilnox(iland) * cnvtc(kw)
                enddo
             endif
 
@@ -401,12 +418,27 @@ C Warn the User if there are No Emissions Species On Any File
                   n = mgn_2_gc_map(s)
                   if (n /= 0) then
 
-                     do jwl = 1, itab_w(iw)%nland
-                        iwl = itab_w(iw)%iland(jwl)
-                        k   = itab_wl(iwl)%kw
+                     ! Loop over land cells beneath this atmospheric grid column
+
+                     do jsfc = itab_w(iw)%jland1, itab_w(iw)%jland2
+                        iwsfc = itab_w(iw)%iwsfc(jsfc)
+                        jasfc = itab_w(iw)%jasfc(jsfc)
+
+                        kw        = itab_wsfc(iwsfc)%kwatm(jasfc)
+
+                        arc       = itab_wsfc(iwsfc)%arc      (jasfc)  ! Use one of these
+                        arcoarsfc = itab_wsfc(iwsfc)%arcoarsfc(jasfc)  ! Use one of these
+                        arcoariw  = itab_wsfc(iwsfc)%arcoariw (jasfc)  ! Use one of these
+                        arcoarkw  = itab_wsfc(iwsfc)%arcoarkw (jasfc)  ! Use one of these
+
+                        iland = iwsfc - omland
+
+!BOB: What are units of [megan_emis(iland,n) * cnvtc(kw)] and vdemis_gc?  In the following,
+!     megan_emis needs a multiplier of arc, arcoarsfc, arcoarkw, or arcoariw.
 
                         ! Convert mol / sec emissions to ppmV / sec
-                        vdemis_gc(k,iw,s) = vdemis_gc(k,iw,s) + megan_emis(iwl,n) * cnvtc(k)
+                        vdemis_gc(kw,iw,s) = vdemis_gc(kw,iw,s) + megan_emis(iland,n) * cnvtc(kw)
+
                      enddo
 
                   endif
@@ -421,7 +453,7 @@ C Warn the User if there are No Emissions Species On Any File
 ! GET_AERO_EMIS is in f90 module AERO_EMIS
 
          if ( n_ae_spc .gt. 0 ) then
-            CALL GET_AERO_EMIS ( mrl, nvars3d_emis, vname3d_emis, edgar_kmax )
+            CALL GET_AERO_EMIS ( nvars3d_emis, vname3d_emis, edgar_kmax )
          endif
 
       END SUBROUTINE GET_EMIS

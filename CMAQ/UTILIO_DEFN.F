@@ -1,5 +1,5 @@
       module utilio_defn
-      
+
       INTEGER, PARAMETER :: FSREAD3 =   1 !  OPEN3() flag:  "old read-only" file
       INTEGER, PARAMETER :: FSRDWR3 =   2 !  "old read-write" file
       INTEGER, PARAMETER :: FSNEW3  =   3 !  "new (read-write)" file
@@ -70,7 +70,7 @@ C.......   begin body of INDEX1()
 
       INDEX1 = 0                !  not found
       RETURN
-      
+
       END FUNCTION INDEX1
 
 
@@ -97,7 +97,7 @@ C  REVISION  HISTORY:
 C       prototype 5/1992 by CJC
 C       Revised   8/1996 to close currently-open POSIX-OK Fortran units.
 C       Modified  1/1997 by CJC to trim trailing blanks from MSGTXT
-C       Modified  2/1997 by CJC:  conditional definition of EXIT under AIX 
+C       Modified  2/1997 by CJC:  conditional definition of EXIT under AIX
 C       Modified 10/1998 by CJC:  Factor all output through m3msg2(), to
 C       get around SGI OpenMP bug.
 C       Caution:  messages may not be sequenced correctly when called by
@@ -125,7 +125,7 @@ C...........   ARGUMENTS and their descriptions:
       CHARACTER(*), INTENT(IN) :: MSGTXT !  error message
       INTEGER     , INTENT(IN) :: EXITSTAT !  exit status for program
 
-                 
+
 C...........   EXTERNAL FUNCTIONS and their descriptions:
 
 !       CHARACTER*24, EXTERNAL :: DT2STR
@@ -167,8 +167,8 @@ C   begin body of subroutine  M3EXIT
 !
 !        IF ( JDATE .GT. 0  .OR.  JTIME .GT. 0 ) THEN
 !        LINE = LINE + 1
-!            WRITE( MESG( LINE ), '( A, 2X, A, 2X, A, I7, A, I6.6, A )' ) 
-!     &      'Date and time', DT2STR( JDATE, JTIME ),  
+!            WRITE( MESG( LINE ), '( A, 2X, A, 2X, A, I7, A, I6.6, A )' )
+!     &      'Date and time', DT2STR( JDATE, JTIME ),
 !     &      '(', JDATE, ':', JTIME, ')'
 !        END IF
 !
@@ -216,7 +216,7 @@ C   begin body of subroutine  M3EXIT
 
 
 !      logical function open3( fname, fstat, pname )
-!      
+!
 !      use netcdf
 !      implicit none
 !
@@ -231,7 +231,7 @@ C   begin body of subroutine  M3EXIT
 !      open3 = .true.
 !
 !      if (fstat == fsread3 .or. fstat == fsrdwr3) then
-!         
+!
 !         inquire(file=fname, exist=exists)
 !         if (.not. exists) then
 !            write(*,*) 'open3: error opening input file ' // trim(fname)
@@ -351,7 +351,7 @@ C...........   ARGUMENTS and their descriptions:
       CHARACTER(*), INTENT(IN) :: CALLER !  name of the caller
       INTEGER     , INTENT(IN) :: JDATE, JTIME !  model date&time for the error
       CHARACTER(*), INTENT(IN) :: MSGTXT !  warning message
-                 
+
 C...........   EXTERNAL FUNCTIONS and their descriptions:
 
 !       CHARACTER*24, EXTERNAL :: DT2STR
@@ -393,8 +393,8 @@ C   begin body of subroutine  M3EXIT
 !
 !        IF ( JDATE .GT. 0  .OR.  JTIME .GT. 0 ) THEN
 !        LINE = LINE + 1
-!            WRITE( MESG( LINE ), '( A, 2X, A, 2X, A, I7, A, I6.6, A )' ) 
-!     &      'Date and time', DT2STR( JDATE, JTIME ),  
+!            WRITE( MESG( LINE ), '( A, 2X, A, 2X, A, I7, A, I6.6, A )' )
+!     &      'Date and time', DT2STR( JDATE, JTIME ),
 !     &      '(', JDATE, ':', JTIME, ')'
 !        END IF
 !
@@ -450,7 +450,7 @@ C...........   ARGUMENTS and their descriptions:
 
       END SUBROUTINE M3MESG
 
-      
+
 
       INTEGER FUNCTION INIT3 ()
 
@@ -463,7 +463,7 @@ C...........   ARGUMENTS and their descriptions:
       end module utilio_defn
 
 
-      
-      
+
+
 
 

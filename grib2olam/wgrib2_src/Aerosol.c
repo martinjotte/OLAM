@@ -19,7 +19,7 @@ int f_aerosol_size(ARG0) {
 
     if (mode >= 0) {
 	pdt = code_table_4_0(sec);
-	if (pdt != 48) return 0;
+	if (pdt < 44 || pdt > 48) return 0;
 	type = code_table_4_91(sec);
 	if (type == 255) return 0;
         sec4 = sec[4];

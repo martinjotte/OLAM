@@ -22,34 +22,32 @@ C RCS file, release, date & time of last delta, author, state, [and locker]
 C $Header: /project/yoj/arc/CCTM/src/aero/aero5/coags.f,v 1.4 2011/10/21 16:10:13 yoj Exp $
 
 C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-      SUBROUTINE GETCOAGS( LAMDA, KFMATAC, KFMAT, KFMAC, KNC, 
-     &                     DGATK, DGACC, SGATK, SGACC, XXLSGAT, XXLSGAC, 
-     &                     QS11, QN11, QS22, QN22, 
-     &                     QS12, QS21, QN12, QV12 )
+      SUBROUTINE GETCOAGS( LAMDA, KFMATAC, KFM, KNC, DG, XXLSG,
+     &                     QS11, QN11, QS22, QN22, QS12, QS21, QN12, coagatac3 )
 
 c  Calculates the coagulation rates using a new approximate algorithm
 c  for the 2nd moment.  The 0th and 3rd moments are done by analytic
 c  expressions from Whitby et al. (1991).  The correction factors are also
 c  similar to those from Whitby et al. (1991), but are derived from the
 c  Gauss-Hermite numerical quadratures used by Binkowski and Roselle (2003).
- 
+
 c  Revision History:
 c   FSB 08/25/03 Coded by Dr. Francis S. Binkowksi
 c   FSB 08/25/04 Added in-line documentation
- 
+
 c  References:
 c   1. Whitby, E. R., P. H. McMurry, U. Shankar, and F. S. Binkowski,
-c   Modal Aerosol Dynamics Modeling, Rep. 600/3-91/020, Atmospheric 
-c   Research and Exposure Assessment Laboratory, 
-c   U.S. Environmental Protection Agency, Research Triangle Park, N.C., 
+c   Modal Aerosol Dynamics Modeling, Rep. 600/3-91/020, Atmospheric
+c   Research and Exposure Assessment Laboratory,
+c   U.S. Environmental Protection Agency, Research Triangle Park, N.C.,
 c   (NTIS PB91-161729/AS), 1991
 c
 c   2. Binkowski, F.S. an U. Shankar, The Regional Particulate Matter
 c   Model 1. Model decsription and preliminary Results, Journal of
-c   Geophysical Research, 100, D12, pp 26,191-26,209, 
+c   Geophysical Research, 100, D12, pp 26,191-26,209,
 c   December 20, 1995.
 c
-c   3. Binkowski, F.S. and S.J. Roselle, Models-3 Community 
+c   3. Binkowski, F.S. and S.J. Roselle, Models-3 Community
 c      Multiscale Air Quality (CMAQ) model aerosol component 1:
 c      Model Description.  J. Geophys. Res., Vol 108, No D6, 4183
 c      doi:10.1029/2001JD001409, 2003.
@@ -58,116 +56,87 @@ C-----------------------------------------------------------------------
       IMPLICIT NONE
 
 C *** Arguments:
-      
-      REAL( 8 ) :: LAMDA   ! mean free path [ m ]
+
+      REAL, intent(in) :: LAMDA   ! mean free path [ m ]
 
                            ! coefficients for Free Molecular regime:
-      REAL( 8 ) :: KFMAT      ! Aitken mode
-      REAL( 8 ) :: KFMAC      ! accumulation mode 
-      REAL( 8 ) :: KFMATAC    ! Aitken to accumulation mode
+      real, intent(in)  :: kfm(2)
+!     REAL( 8 ) :: KFMAT      ! Aitken mode
+!     REAL( 8 ) :: KFMAC      ! accumulation mode
+      REAL, intent(in) :: KFMATAC    ! Aitken to accumulation mode
 
-      REAL( 8 ) :: KNC     ! coefficient for Near Continuum regime
+      REAL, intent(in) :: KNC     ! coefficient for Near Continuum regime
 
                            ! modal geometric mean diameters: [ m ]
-      REAL( 8 ) :: DGATK      ! Aitken mode
-      REAL( 8 ) :: DGACC      ! accumulation mode
+      real, intent(in) :: dg(2)
+!     REAL( 8 ) :: DGATK      ! Aitken mode
+!     REAL( 8 ) :: DGACC      ! accumulation mode
 
                            ! modal geometric standard deviation:
-      REAL( 8 ) :: SGATK      ! Atken mode
-      REAL( 8 ) :: SGACC      ! accumulation mode
+!      REAL( 8 ) :: SGATK      ! Atken mode
+!      REAL( 8 ) :: SGACC      ! accumulation mode
 
                            ! natural log of modal geometric standard deviation:
-      REAL( 8 ) :: XXLSGAT    ! Aitken mode
-      REAL( 8 ) :: XXLSGAC    ! accumulation mode
+      real, intent(in) :: XXLSG(2)
+!     REAL( 8 ) :: XXLSGAT    ! Aitken mode
+!     REAL( 8 ) :: XXLSGAC    ! accumulation mode
 
                            ! coagulation coefficients
-      REAL( 8 ) :: QS11, QN11, QS22, QN22,
-     &             QS12, QS21, QN12, QV12 
+      REAL, intent(out) :: QS11, QN11, QS22, QN22,
+     &                     QS12, QS21, QN12
+
+      real, intent(out) :: coagatac3
 
 C *** Local Variables:
 
-      INTEGER IBETA, N1, N2A, N2N ! indices for correction factors
+      real    :: SG(2)
+      integer :: n
 
-      REAL( 8 ) :: I1FM_AT
-      REAL( 8 ) :: I1NC_AT
-      REAL( 8 ) :: I1_AT
-      
-      REAL( 8 ) :: I1FM_AC
-      REAL( 8 ) :: I1NC_AC
-      REAL( 8 ) :: I1_AC
-      
-      REAL( 8 ) :: I1FM
-      REAL( 8 ) :: I1NC
-      REAL( 8 ) :: I1
-      
-      REAL( 8 ) :: KNGAT, KNGAC
+      integer :: n2(2)
 
-      REAL( 8 ), PARAMETER :: ONE = 1.0D0, TWO = 2.0D0, HALF = 0.5D0
-      REAL( 8 ), PARAMETER :: A = 1.246D0
-      REAL( 8 ), PARAMETER :: TWO3RDS = 2.D0 / 3.D0
-      REAL( 8 ), PARAMETER :: ONE3RDS = 1.D0 / 3.D0
+      INTEGER IBETA, N1 ! indices for correction factors
 
-      REAL( 8 ), parameter :: CONSTII = ONE - HALF * ( TWO ) ** TWO3RDS
-      REAL( 8 ), parameter :: DLGSQT2 = ONE / LOG( SQRT( TWO ) )
+      REAL :: I1FM
+      REAL :: I1NC
+      REAL :: I1
 
-      REAL( 8 ) :: ESAT01         ! Aitken mode exp( log^2( sigmag )/8 )
-      REAL( 8 ) :: ESAC01         ! accumulation mode exp( log^2( sigmag )/8 )
+      REAL :: KNG(2)
 
-      REAL( 8 ) :: ESAT04
-      REAL( 8 ) :: ESAC04
+      REAL, PARAMETER :: A       = 1.246D0
+      REAL, PARAMETER :: TWO3RDS = 2. / 3.
+      REAL, PARAMETER :: ONE3RDS = 1. / 3.
+      REAL, parameter :: CONSTII = 1.0 - 0.5 * ( 2.0 ) ** TWO3RDS
+      REAL, parameter :: DLGSQT2 = 1.0 / LOG( SQRT(2.0) )
 
-      REAL( 8 ) :: ESAT05
-      REAL( 8 ) :: ESAC05
+      REAL :: ES01(2)         ! mode exp( log^2( sigmag )/8 )
+      REAL :: ES04(2)
+      REAL :: ES05(2)
+      REAL :: ES08(2)
+      REAL :: ES09(2)
+      REAL :: ES16(2)
+      REAL :: ES20(2)
+      REAL :: ES24(2)
+      REAL :: ES25(2)
+      REAL :: ES36(2)
+      REAL :: ESAT49
+      REAL :: ES64(2)
+      REAL :: ESAT100
 
-      REAL( 8 ) :: ESAT08
-      REAL( 8 ) :: ESAC08
+      REAL    :: SQDG(2)
+      REAL(8) :: DG2 (2)
+      REAL(8) :: DG3 (2)
 
-      REAL( 8 ) :: ESAT09
-      REAL( 8 ) :: ESAC09
+      REAL :: R, R2, R3, R4, R5, R6, R8
+      REAL :: RI1, RI2, RI3, RI4
+      REAL :: RAT
+      REAL :: COAGFM,  COAGNC
 
-      REAL( 8 ) :: ESAT16
-      REAL( 8 ) :: ESAC16
-      
-      REAL( 8 ) :: ESAT20
-      REAL( 8 ) :: ESAC20
-      
-      REAL( 8 ) :: ESAT24
-      REAL( 8 ) :: ESAC24
-     
-      REAL( 8 ) :: ESAT25
-      REAL( 8 ) :: ESAC25
-      
-      REAL( 8 ) :: ESAT36
-      REAL( 8 ) :: ESAC36
+      real :: coag1(2), coag2(2)
 
-      REAL( 8 ) :: ESAT49
-      
-      REAL( 8 ) :: ESAT64
-      REAL( 8 ) :: ESAC64
-            
-      REAL( 8 ) :: ESAT100
-          
-      REAL( 8 ) :: DGAT2, DGAC2, DGAT3, DGAC3
-      REAL( 8 ) :: SQDGAT, SQDGAC
-      REAL( 8 ) :: SQDGAT5, SQDGAC5
-      REAL( 8 ) :: SQDGAT7
-      REAL( 8 ) :: R, R2, R3, R4, R5, R6, R8
-      REAL( 8 ) :: RI1, RI2, RI3, RI4
-      REAL( 8 ) :: RAT
-      REAL( 8 ) :: COAGFM0, COAGNC0
-      REAL( 8 ) :: COAGFM3, COAGNC3
-      REAL( 8 ) :: COAGFM_AT, COAGFM_AC
-      REAL( 8 ) :: COAGNC_AT, COAGNC_AC
-      REAL( 8 ) :: COAGATAT0
-      REAL( 8 ) :: COAGACAC0
-      REAL( 8 ) :: COAGATAT2
-      REAL( 8 ) :: COAGACAC2
-      REAL( 8 ) :: COAGATAC0, COAGATAC3
-      REAL( 8 ) :: COAGATAC2
-      REAL( 8 ) :: COAGACAT2
-      REAL( 8 ) :: XM2AT, XM3AT, XM2AC, XM3AC
+      REAL :: COAGFM0, COAGNC0
+      REAL :: COAGACAT2
 
-C *** correction factors for coagulation rates      
+C *** correction factors for coagulation rates
       REAL :: BM0    ( 10 )        ! M0 INTRAmodal FM - RPM values
       REAL :: BM0IJ  ( 10,10,10 )  ! M0 INTERmodal FM
       REAL :: BM3I   ( 10,10,10 )  ! M3 INTERmodal FM- RPM values
@@ -790,7 +759,7 @@ C RPM....   3rd moment nuclei mode corr. fac. for bimodal FM coag rate
      + 0.97977,0.98071,0.98270,0.98492,0.98695,0.98858,0.98970,0.99027,
      + 0.99026,0.98968/
 
-C FSB FM correction for INTRAmodal M2 coagulation  
+C FSB FM correction for INTRAmodal M2 coagulation
        DATA BM2II /
      &  0.707107,  0.720583,  0.745310,  0.748056,  0.696935,
      &  0.604164,  0.504622,  0.416559,  0.343394,  0.283641/
@@ -1404,115 +1373,86 @@ C FSB Total correction factor for M2 coagulation j from i
       DATA ( BM2JI( 10,10,IBETA ), IBETA = 1, 10 ) /
      &  6.119526,  6.127611,  6.171174,  6.286528,  6.508738,
      &  6.869521,  7.396912,  8.113749,  9.034683, 10.162190/
-        
-C *** end of data statements.       
+
+C *** end of data statements.
 
 C----------------------------------------------------------------------
 
-      ESAT01   = EXP( 0.125D0 * XXLSGAT * XXLSGAT )
-      ESAC01   = EXP( 0.125D0 * XXLSGAC * XXLSGAC )
+      DO N = 1, 2
+         SG(N) = EXP( XXLSG(N) )
 
-      ESAT04  = ESAT01 ** 4
-      ESAC04  = ESAC01 ** 4
+         ES01(n) = EXP( 0.125 * XXLSG(n) * XXLSG(n) )
+         ES04(n) = ES01(n) ** 4
+         ES05(n) = ES04(n) * ES01(n)
+         ES08(n) = ES04(n) * ES04(n)
+         ES09(n) = ES08(n) * ES01(n)
+         ES16(n) = ES08(n) * ES08(n)
+         ES20(n) = ES16(n) * ES04(n)
+         ES24(n) = ES20(n) * ES04(n)
+         ES25(n) = ES20(n) * ES05(n)
+         ES36(n) = ES20(n) * ES16(n)
+         ES64(n) = ES20(n) * ES20(n) * ES24(n)
 
-      ESAT05  = ESAT04 * ESAT01
-      ESAC05  = ESAC04 * ESAC01
+         DG2(n) = DG (n) * DG(n)
+         DG3(n) = DG2(n) * DG(n)
 
-      ESAT08  = ESAT04 * ESAT04
-      ESAC08  = ESAC04 * ESAC04
+         SQDG(n) = SQRT(DG(n))
 
-      ESAT09  = ESAT08 * ESAT01
-      ESAC09  = ESAC08 * ESAC01
+         KNG(n)   = 2.0 * LAMDA / DG(n)
+      enddo
 
-      ESAT16  = ESAT08 * ESAT08
-      ESAC16  = ESAC08 * ESAC08
+      ESAT49  = ES24(1) * ES25(1)
 
-      ESAT20  = ESAT16 * ESAT04
-      ESAC20  = ESAC16 * ESAC04
-
-      ESAT24  = ESAT20 * ESAT04
-      ESAC24  = ESAC20 * ESAC04
-
-      ESAT25  = ESAT20 * ESAT05
-      ESAC25  = ESAC20 * ESAC05
-
-      ESAT36  = ESAT20 * ESAT16
-      ESAC36  = ESAC20 * ESAC16
-
-      ESAT49  = ESAT24 * ESAT25
-
-      ESAT64  = ESAT20 * ESAT20 * ESAT24
-      ESAC64  = ESAC20 * ESAC20 * ESAC24
-
-      ESAT100 = ESAT64 * ESAT36
-
-      DGAT2   = DGATK * DGATK
-      DGAT3   = DGATK * DGATK * DGATK
-      DGAC2   = DGACC * DGACC
-      DGAC3   = DGACC * DGACC * DGACC
-
-      SQDGAT  = SQRT( DGATK )
-      SQDGAC  = SQRT( DGACC )
-      SQDGAT5 = DGAT2 * SQDGAT
-      SQDGAC5 = DGAC2 * SQDGAC
-      SQDGAT7 = DGAT3 * SQDGAT
-
-      XM2AT = DGAT2 * ESAT16
-      XM3AT = DGAT3 * ESAT36
-
-      XM2AC = DGAC2 * ESAC16
-      XM3AC = DGAC3 * ESAC36
+      ESAT100 = ES64(1) * ES36(1)
 
 C *** For the free molecular regime:  Page H.3 of Whitby et al. (1991)
-      R       = SQDGAC / SQDGAT
+      R       = SQDG(2) / SQDG(1)
       R2      = R * R
       R3      = R2 * R
       R4      = R2 * R2
       R5      = R3 * R2
       R6      = R3 * R3
       R8      = R4 * R4
-      RI1     = ONE / R
-      RI2     = ONE / R2
-      RI3     = ONE / R3
+      RI1     = 1.0 / R
+      RI2     = RI1 * RI1
+      RI3     = RI2 * RI1
       RI4     = RI2 * RI2
-      KNGAT   = TWO * LAMDA / DGATK
-      KNGAC   = TWO * LAMDA / DGACC
 
 C *** Calculate ratio of geometric mean diameters
-      RAT = DGACC / DGATK
+      RAT = DG(2) / DG(1)
 
-C *** Trap subscripts for BM0 and BM0I, between 1 and 10            
+C *** Trap subscripts for BM0 and BM0I, between 1 and 10
 c     See page H.5 of Whitby et al. (1991)
-      N2N = MAX( 1, MIN( 10, 
-     &      NINT( 4.0 * ( SGATK - 0.75D0 ) ) ) )
-      N2A = MAX( 1, MIN( 10, 
-     &      NINT( 4.0 * ( SGACC - 0.75D0 ) ) ) )
-      N1  = MAX( 1, MIN( 10,
-     &       1 + NINT( DLGSQT2 * LOG( RAT ) ) ) )
+
+      do n = 1, 2
+         N2(n) = MAX( 1, MIN( 10,
+     &           NINT( 4.0 * ( SG(n) - 0.75 ) ) ) )
+      enddo
+
+      N1 = MAX( 1, MIN( 10,
+     &     1 + NINT( DLGSQT2 * LOG( RAT ) ) ) )
 
 C *** Intermodal Coagulation
 
 C *** Set up for zeroth moment
 
 C *** Near-continuum form:  Equation H.10a of Whitby et al. (1991)
-         COAGNC0 = KNC * (         
-     &    TWO + A * ( KNGAT * ( ESAT04 + R2 * ESAT16 * ESAC04 )
-     &              + KNGAC * ( ESAC04 + RI2 * ESAC16 * ESAT04 ) )
-     &              + ( R2 + RI2 ) * ESAT04 * ESAC04  ) 
+         COAGNC0 = KNC * (
+     &    2.0 + A * ( KNG(1) * ( ES04(1) + R2 * ES16(1) * ES04(2) )
+     &              + KNG(2) * ( ES04(2) + RI2 * ES16(2) * ES04(1) ) )
+     &              + ( R2 + RI2 ) * ES04(1) * ES04(2) )
 
-     
+
 C *** Free-molecular form:  Equation H.7a of Whitby et al. (1991)
-         COAGFM0 = KFMATAC * SQDGAT * BM0IJ( N1,N2N,N2A ) * ( 
-     &             ESAT01 + R * ESAC01 + TWO * R2 * ESAT01 * ESAC04 
-     &           + R4 * ESAT09 * ESAC16 + RI3 * ESAT16 * ESAC09 
-     &           + TWO * RI1 * ESAT04 + ESAC01  )  
+         COAGFM0 = KFMATAC * SQDG(1) * BM0IJ( N1,N2(1),N2(2) ) * (
+     &             ES01(1) + R * ES01(2) + 2.0 * R2 * ES01(1) * ES04(2)
+     &           + R4 * ES09(1) * ES16(2) + RI3 * ES16(1) * ES09(2)
+     &           + 2.0 * RI1 * ES04(1) + ES01(2) )
 
 C *** Loss to accumulation mode
-
 C *** Harmonic Mean
-      COAGATAC0 = COAGNC0 * COAGFM0 / ( COAGNC0 + COAGFM0 )
-      
-      QN12 = COAGATAC0
+
+      QN12 = COAGNC0 * COAGFM0 / ( COAGNC0 + COAGFM0 )
 
 C *** Set up for second moment
 C     The second moment equations are new and begin with equations A1
@@ -1524,532 +1464,114 @@ C     Whitby et al. (1991)
 
 C *** The term ( dp1 + dp2 ) ** (2/3) in Equations A3 and A4 of
 C     Binkowski and Shankar (1995) is approximated by
-C     (DGAT ** 3 + DGAC **3 ) ** 2/3 
+C     (DGAT ** 3 + DGAC **3 ) ** 2/3
 
 C *** Near-continuum form
-      I1NC = KNC * DGAT2 * (
-     &       TWO * ESAT16
-     &     + R2 * ESAT04 * ESAC04
-     &     + RI2 * ESAT36 * ESAC04
-     &     + A * KNGAT * (
-     &           ESAT04
-     &     +     RI2 * ESAT16 * ESAC04
-     &     +     RI4 * ESAT36 * ESAC16
-     &     +     R2 * ESAC04 )  )
+      I1NC = KNC * (
+     &       2.0 * ES16(1)
+     &     + R2 * ES04(1) * ES04(2)
+     &     + RI2 * ES36(1) * ES04(2)
+     &     + A * KNG(1) * (
+     &           ES04(1)
+     &     +     RI2 * ES16(1) * ES04(2)
+     &     +     RI4 * ES36(1) * ES16(2)
+     &     +     R2 * ES04(2) )  )
 
 C *** Free-molecular form
-       I1FM = KFMATAC * SQDGAT5 * BM2IJ( N1,N2N,N2A ) * (
-     &        ESAT25
-     &      + TWO * R2 * ESAT09 * ESAC04
-     &      + R4 * ESAT01 * ESAC16
-     &      + RI3 * ESAT64 * ESAC09
-     &      + TWO * RI1 * ESAT36 * ESAC01
-     &      + R * ESAT16 * ESAC01  )
+      I1FM = KFMATAC * SQDG(1) * BM2IJ( N1,N2(1),N2(2) ) * (
+     &        ES25(1)
+     &      + 2.0 * R2 * ES09(1) * ES04(2)
+     &      + R4 * ES01(1) * ES16(2)
+     &      + RI3 * ES64(1) * ES09(2)
+     &      + 2.0 * RI1 * ES36(1) * ES01(2)
+     &      + R * ES16(1) * ES01(2)  )
 
 C *** Loss to accumulation mode
-
 C *** Harmonic mean
       I1 = ( I1FM * I1NC ) / ( I1FM + I1NC )
-      COAGATAC2 = I1 
-      QS12 = COAGATAC2 
+      QS12 = I1 * dg2(1)
 
 C *** Gain by accumulation mode
-      COAGACAT2 = ( ( ( ONE + R6 ) ** 2 ) ** ONE3RDS - R4 ) * I1 
-      QS21 = COAGACAT2 * BM2JI( N1,N2N,N2A )
+      COAGACAT2 = ( (( 1.0 + R6 )**ONE3RDS)**2 - R4 ) * QS12
+      QS21 = COAGACAT2 * BM2JI( N1,N2(1),N2(2) )
 
 C *** Set up for third moment
-     
+
 C *** Near-continuum form: Equation H.10b of Whitby et al. (1991)
-      COAGNC3 = KNC * DGAT3 * ( 
-     &          TWO * ESAT36       
-     &        + A * KNGAT * ( ESAT16 + R2 * ESAT04 * ESAC04 )                           
-     &        + A * KNGAC * ( ESAT36 * ESAC04 + RI2 * ESAT64 * ESAC16 )
-     &        + R2 * ESAT16 * ESAC04 + RI2 * ESAT64 * ESAC04 )
-           
+      COAGNC = KNC * (
+     &          2.0 * ES36(1)
+     &        + A * KNG(1) * ( ES16(1) + R2 * ES04(1) * ES04(2) )
+     &        + A * KNG(2) * ( ES36(1) * ES04(2) + RI2 * ES64(1) * ES16(2) )
+     &        + R2 * ES16(1) * ES04(2) + RI2 * ES64(1) * ES04(2) )
+
 C *** Free_molecular form: Equation H.7b of Whitby et al. (1991)
-      COAGFM3 = KFMATAC * SQDGAT7 * BM3I( N1, N2N, N2A ) * ( 
-     &          ESAT49 
-     &        + R * ESAT36  * ESAC01 
-     &        + TWO * R2 * ESAT25  * ESAC04
-     &        + R4 * ESAT09  * ESAC16
-     &        + RI3 * ESAT100 * ESAC09
-     &        + TWO * RI1 * ESAT64  * ESAC01 )   
+      COAGFM = KFMATAC * SQDG(1) * BM3I( N1, N2(1), N2(2) ) * (
+     &          ESAT49
+     &        + R * ES36(1)  * ES01(2)
+     &        + 2.0 * R2 * ES25(1)  * ES04(2)
+     &        + R4 * ES09(1)  * ES16(2)
+     &        + RI3 * ESAT100 * ES09(2)
+     &        + 2.0 * RI1 * ES64(1)  * ES01(2) )
 
 C *** gain by accumulation mode = loss from Aitken mode
 
-C *** Harmonic mean 
-      COAGATAC3 = COAGNC3 * COAGFM3 / ( COAGNC3 + COAGFM3 )
-      QV12 = COAGATAC3         
+C *** Harmonic mean
+      I1 = COAGNC * COAGFM / ( COAGNC + COAGFM )
+
+      COAGATAC3 = I1 * DG3(1)
 
 C *** Intramodal coagulation
 
-C *** Zeroeth moment
-
-C *** Aitken mode
-
 C *** Near-continuum form: Equation H.12a of Whitby et al. (1991)
-      COAGNC_AT = KNC * (ONE + ESAT08 + A * KNGAT * ( ESAT20 + ESAT04 ) )
+      do n = 1, 2
+         COAGNC = KNC * (1.0 + ES08(n) + A * KNG(n) * ( ES20(n) + ES04(n) ) )
 
 C *** Free-molecular form: Equation H.11a of Whitby et al. (1991)
-      COAGFM_AT = KFMAT * SQDGAT * BM0( N2N ) * 
-     &           ( ESAT01 + ESAT25 + TWO * ESAT05 )
 
-C *** Harmonic mean 
-      COAGATAT0 = COAGFM_AT * COAGNC_AT / ( COAGFM_AT + COAGNC_AT )
-      QN11 = COAGATAT0 
-      
-C *** Accumulation mode 
+         COAGFM = KFM(n) * SQDG(n) * BM0( N2(n) ) *
+     &             ( ES01(n) + ES25(n) + 2.0 * ES05(n) )
 
-C *** Near-continuum form: Equation H.12a of Whitby et al. (1991)
-      COAGNC_AC = KNC * (ONE + ESAC08 + A * KNGAC * ( ESAC20 + ESAC04 ) )
-
-C *** Free-molecular form: Equation H.11a of Whitby et al. (1991)
-      COAGFM_AC = KFMAC * SQDGAC * BM0( N2A ) * 
-     &           ( ESAC01 + ESAC25 + TWO * ESAC05 ) 
-       
-C *** Harmonic mean 
-      COAGACAC0 = COAGFM_AC * COAGNC_AC / ( COAGFM_AC + COAGNC_AC )
-      QN22 = COAGACAC0
+C *** Harmonic mean
+         COAG1(n) = COAGFM * COAGNC / ( COAGFM + COAGNC )
 
 C *** Set up for second moment
 C     The second moment equations are new and begin with 3.11a on Page
 c     45 of Whitby et al. (1991). After some algebraic rearrangement and
 c     application of the extended mean value theorem of integral calculus
-c     equations are obtained that can be solved analytically with 
+c     equations are obtained that can be solved analytically with
 c     correction factors as has been done by Whitby et al. (1991)
-           
-C *** Aitken mode
 
 C *** Near-continuum
-      I1NC_AT = KNC * DGAT2 * (
-     &          TWO * ESAT16
-     &        + ESAT04 * ESAT04
-     &        + ESAT36 * ESAT04
-     &        + A * KNGAT * (
-     &              TWO * ESAT04
-     &        +     ESAT16 * ESAT04
-     &        +     ESAT36 * ESAT16 )  )
-     
+
+         I1NC = KNC * (
+     &          2.0 * ES16(n)
+     &        + ES04(n) * ES04(n)
+     &        + ES36(n) * ES04(n)
+     &        + A * KNG(n) * (
+     &              2.0 * ES04(n)
+     &        +     ES16(n) * ES04(n)
+     &        +     ES36(n) * ES16(n) )  )
+
 C *** Free- molecular form
-       I1FM_AT = KFMAT * SQDGAT5 * BM2II( N2N ) * (
-     &           ESAT25
-     &         +  TWO * ESAT09 * ESAT04
-     &         +  ESAT01 * ESAT16
-     &         +  ESAT64 * ESAT09
-     &         +  TWO * ESAT36 * ESAT01
-     &         +  ESAT16 * ESAT01  ) 
 
-      I1_AT = ( I1NC_AT * I1FM_AT ) / ( I1NC_AT + I1FM_AT  )
-      COAGATAT2 = CONSTII * I1_AT
-      QS11 = COAGATAT2 * BM2IITT( N2N )
+         I1FM = KFM(n) * SQDG(n) * BM2II( N2(n) ) * (
+     &           ES25(n)
+     &         +  2.0 * ES09(n) * ES04(n)
+     &         +  ES01(n) * ES16(n)
+     &         +  ES64(n) * ES09(n)
+     &         +  2.0 * ES36(n) * ES01(n)
+     &         +  ES16(n) * ES01(n)  )
 
-C *** Accumulation mode
+         coag2(n) = CONSTII * ( I1NC * I1FM ) / ( I1NC + I1FM  )
+      enddo
 
-C *** Near-continuum
-      I1NC_AC = KNC * DGAC2 * (
-     &          TWO * ESAC16
-     &        + ESAC04 * ESAC04
-     &        + ESAC36 * ESAC04
-     &        + A * KNGAC * (
-     &             TWO * ESAC04
-     &        +    ESAC16 * ESAC04
-     &        +    ESAC36 * ESAC16 )  )
+      QN11 = COAG1(1)
 
-C *** Free-molecular form
-       I1FM_AC = KFMAC * SQDGAC5 * BM2II( N2A ) * (
-     &           ESAC25
-     &         + TWO * ESAC09 * ESAC04
-     &         + ESAC01 * ESAC16
-     &         + ESAC64 * ESAC09
-     &         + TWO * ESAC36 * ESAC01
-     &         + ESAC16 * ESAC01 )
-          
-      I1_AC = ( I1NC_AC * I1FM_AC ) / ( I1NC_AC + I1FM_AC  )
-      COAGACAC2 = CONSTII * I1_AC
-      QS22 = COAGACAC2 * BM2IITT( N2A )
-     
-      RETURN
+      QN22 = COAG1(2)
+
+      QS11 = BM2IITT( N2(1) ) * coag2(1) * dg2(1)
+
+      QS22 = BM2IITT( N2(2) ) * coag2(2) * dg2(2)
 
       END SUBROUTINE GETCOAGS
-
-C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-      subroutine intracoag_gh( lamda, kfm, knc, dg, xlnsig,
-     &                         quads11, quadn11 )
-
-c  Gauss-Hermite numerical quadrature to calculate intramodal coagulation
-c  rates for number and second moment
- 
-c FSB: This version runs in real*8 arithmetic
- 
-c *** This version calculates the coagulation coefficients using the harmonic
-c     mean approach for both fm and nc cases.
-c *** Does gauss-hermite quadrature for intra-modal coagulation integrals for
-c     2nd moment for a lognormal distribution defined by dg, xlnsig,
-c *** dg and xlnsig are the geometric mean diameters (meters) and the logarithms
-c     of the geometric standard deviations (dimensionless) whose meaning is
-c     defined below at the end of the routine ghxi, ghwi are the gauss-hermite
-c     weights and n is one-half the number of abscissas, since an even number
-c     of abscissas is used
-
-      implicit none
-
-c *** arguments:
-      real( 8 ), intent( in )  :: lamda   ! mean free path
-      real( 8 ), intent( in )  :: kfm, knc
-      real,      intent( in )  :: dg, xlnsig
-      real( 8 ), intent( out ) :: quads11, quadn11
-
-c *** parameters:
-      real( 8 ), parameter :: pi = 3.14159265358979324d0
-      real( 8 ), parameter :: two3rds = 2.0d0 / 3.0d0
-      real( 8 ), parameter :: sqrt2 = 1.414213562373095d0
-      real( 8 ), parameter :: A = 1.246d0    ! approx Cunningham corr. factor
-      real( 8 ), parameter :: twoA = 2.0d0 * A
-
-c *** local variables:
-      real( 8 ) :: sum1sfm, sum2sfm, sum1nfm, sum2nfm
-      real( 8 ) :: sum1snc, sum2snc, sum1nnc, sum2nnc
-      real( 8 ) :: xi, wxi, xf, dp1p, dp1m, dp1psq, dp1msq
-      real( 8 ) :: v1p,v1m, a2p, a2m, v2p, v2m
-      real( 8 ) :: yi, wyi, yf, dp2p, dp2m, dp2psq, dp2msq
-      real( 8 ) :: dspp, dsmp, dspm, dsmm
-      real( 8 ) :: bppfm, bmpfm, bpmfm, bmmfm
-      real( 8 ) :: bppnc, bmpnc, bpmnc, bmmnc
-      real( 8 ) :: xx1, xx2
-      real( 8 ) :: xbsfm, xbsnc, xbnfm, xbnnc
-      integer i, j
-
-c *** Has a fixed number of Gauss-Herimite abscissas (n)
-      integer, parameter :: n = 5   ! one-half the number of abscissas
-      real( 8 ) :: ghxi( n ) ! Gauss-Hermite abscissas
-      real( 8 ) :: ghwi( n ) ! Gauss-Hermite weights
-
-c *** Values from Table 25.10 (page 924) of Abramowitz and Stegun,
-c     Handbook of Mathematical Functions, National Bureau of Standards,
-c     December 1965.
-c    (Breaks in number to facilitate comparison with printed table.)
-
-c *** tests show that 10 point is adquate.
-
-      data ghxi/ 0.34290 13272 23705d0,
-     &           1.03661 08297 89514d0,
-     &           1.75668 36492 99882d0,
-     &           2.53273 16742 32790d0,
-     &           3.43615 91188 37738d0 /,
-
-     &     ghwi/ 6.10862 63373 53d-01,
-     &           2.40138 61108 23d-01,
-     &           3.38743 94455 48d-02,
-     &           1.34364 57467 81d-03,
-     &           7.64043 28552 33d-06 /
-
-c *** The following Statement Functions are based on expressions from
-c     Binkowski & Shanker, Jour. Geophys. Research. Vol. 100, no. d12,
-c     pp 26,191-26,209 December 20, 1995
-
-      real( 8 ) :: betafm, betanc
-
-c *** for Free Molecular, Eq. A5
-      betafm( xx1, xx2 ) = kfm
-     &                   * sqrt( 1.d0 / xx1 ** 3  + 1.d0 / xx2 ** 3 )
-     &                   * ( xx1 + xx2 ) ** 2
-
-c *** for Near Continuum, Eq. A6
-      betanc( xx1, xx2 ) = knc * ( xx1 + xx2 )
-     &                   * ( 1.0D0 / xx1 + 1.0d0 / xx2 + twoA * lamda
-     &                      * ( 1.0d0 / xx1 ** 2 + 1.0d0 / xx2 ** 2 ) )
-C-----------------------------------------------------------------------
-
-      sum1sfm = 0.d0
-      sum1snc = 0.d0
-      sum1nfm = 0.d0
-      sum1nnc = 0.d0
-      do 201 i = 1, n
-
-         sum2sfm = 0.d0
-         sum2snc = 0.d0
-         sum2nfm = 0.d0
-         sum2nnc = 0.d0
-
-         xi = ghxi( i )
-         wxi = ghwi( i )
-         xf = exp( sqrt2 * xi * xlnsig )
-         dp1p = dg * xf
-         dp1m = dg / xf
-         dp1psq = dp1p * dp1p
-         dp1msq = dp1m * dp1m
-         v1p = dp1p * dp1psq
-         v1m = dp1m * dp1msq
-         do 101 j = 1, n
-            yi = ghxi( j )
-            wyi = ghwi( j )
-            yf = exp( sqrt2 * yi * xlnsig )
-            dp2p = dg * yf
-            dp2m = dg / yf
-            dp2psq = dp2p * dp2p
-            dp2msq = dp2m * dp2m
-            a2p = dp2psq
-            a2m = dp2msq
-            v2p = dp2p * dp2psq
-            v2m = dp2m * dp2msq
-            dspp = 0.5d0 * ( v1p + v2p ) ** two3rds - a2p
-            dsmp = 0.5d0 * ( v1m + v2p ) ** two3rds - a2p
-            dspm = 0.5d0 * ( v1p + v2m ) ** two3rds - a2m
-            dsmm = 0.5d0 * ( v1m + v2m ) ** two3rds - a2m
-
-            bppfm = betafm( dp1p, dp2p )
-            bmpfm = betafm( dp1m, dp2p )
-            bpmfm = betafm( dp1p, dp2m )
-            bmmfm = betafm( dp1m, dp2m )
-
-            bppnc = betanc( dp1p, dp2p )
-            bmpnc = betanc( dp1m, dp2p )
-            bpmnc = betanc( dp1p, dp2m )
-            bmmnc = betanc( dp1m, dp2m )
-
-            sum2sfm = sum2sfm + wyi * ( dspp * bppfm + dspm * bpmfm
-     &                        + dsmp * bmpfm + dsmm * bmmfm )
-
-            sum2nfm = sum2nfm + wyi * ( bppfm + bmpfm + bpmfm + bmmfm )
-            sum2snc = sum2snc + wyi * ( dspp * bppnc + dspm * bpmnc
-     &                        + dsmp * bmpnc + dsmm * bmmnc )
-            sum2nnc = sum2nnc + wyi * ( bppnc + bmpnc + bpmnc + bmmnc )
-
-101      continue
-         sum1sfm = sum1sfm + wxi * sum2sfm
-         sum1nfm = sum1nfm + wxi * sum2nfm
-
-         sum1snc = sum1snc + wxi * sum2snc
-         sum1nnc = sum1nnc + wxi * sum2nnc
-
-201   continue
-
-c *** quads11 is the intra-modal coagulation term for 2nd moment
-      xbsfm = -sum1sfm / pi
-      xbsnc = -sum1snc / pi
-      quads11 = xbsfm * xbsnc / ( xbsfm + xbsnc )
-
-c *** quadn11 is the intra-modal coagulation term for number
-      xbnfm = 0.5D0 * sum1nfm / pi
-      xbnnc = 0.5D0 * sum1nnc / pi
-      quadn11 = xbnfm * xbnnc / ( xbnfm + xbnnc )
-
-      return
-      end subroutine intracoag_gh
-
-C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-      subroutine intercoag_gh( lamda, kfm, knc, dg1, dg2, xlnsig1, xlnsig2,
-     &                         quads12, quads21, quadn12, quadv12 )
-
-c  Gauss-Hermite numerical quadrature to calculate intermodal coagulation
-c  for number, 2nd, and 3rd moment
- 
-c FSB This version runs in real*8 arithmetic
- 
-c *** This version calculates the coagulation coefficients using the harmonic
-c     mean approach for both fm and nc cases.
-c *** Does gauss-hermite quadrature for inter-modal coagulation integrals
-c     for 2nd moment for two lognormal distributions defined by dg1, xlnsig1,
-c     dg2, xlnsig2.
-c *** dg and xlnsig are the geometric mean diameters (meters) and the logarithms
-c     of the geometric standard deviations (dimensionless), whose meaning is
-c     defined below at the end of the routine.
-c     ghxi, ghwi are the gauss-hermite weights and n is one-half the
-c     number of abscissas, since an even number of abscissas is used.
-
-      implicit none
-
-
-c *** arguments:
-      real( 8 ), intent( in )  :: lamda   ! mean free path
-      real( 8 ), intent( in )  :: kfm, knc
-      real,      intent( in )  :: dg1, dg2, xlnsig1, xlnsig2
-      real( 8 ), intent( out ) :: quads12, quads21, quadn12, quadv12
-
-c *** parameters:
-      real( 8 ), parameter :: pi = 3.14159265358979324d0
-      real( 8 ), parameter :: two3rds = 2.0d0 / 3.0d0
-      real( 8 ), parameter :: sqrt2 = 1.414213562373095d0
-      real( 8 ), parameter :: A = 1.246d0    ! approx Cunningham corr. factor
-      real( 8 ), parameter :: twoA = 2.0d0 * A
-
-c *** local variables:
-      real( 8 ) :: sum1s12fm, sum1s21fm, sum2s12fm, sum2s21fm
-      real( 8 ) :: sum1nfm, sum2nfm
-      real( 8 ) :: sum1vfm, sum2vfm
-      real( 8 ) :: sum1s12nc, sum1s21nc, sum2s12nc, sum2s21nc
-      real( 8 ) :: sum1nnc, sum2nnc
-      real( 8 ) :: sum1vnc, sum2vnc
-      real( 8 ) :: xi, wxi,xf, dp1p, dp1m, dp1psq, dp1msq
-      real( 8 ) :: a1p, a1m, v1p, v1m
-      real( 8 ) :: a2p, a2m, v2p, v2m
-      real( 8 ) :: yi, wyi, yf, dp2p, dp2m, dp2psq, dp2msq
-      real( 8 ) :: dspp, dsmp, dspm, dsmm
-      real( 8 ) :: bppfm, bmpfm, bpmfm, bmmfm
-      real( 8 ) :: bppnc, bmpnc, bpmnc, bmmnc
-      real( 8 ) :: xx1, xx2
-      real( 8 ) :: xbsfm, xbsnc, xbnfm, xbnnc, xbvfm, xbvnc
-      integer i, j
-
-c *** Has a fixed number of Gauss-Herimite abscissas (n)
-      integer, parameter :: n = 5   ! one-half the number of abscissas
-      real( 8 ) :: ghxi( n ) ! Gauss-Hermite abscissas
-      real( 8 ) :: ghwi( n ) ! Gauss-Hermite weights
-
-c *** Values from Table 25.10 (page 924) of Abramowitz and Stegun,
-c     Handbook of Mathematical Functions, National Bureau of Standards,
-c     December 1965.
-c    (Breaks in number to facilitate comparison with printed table.)
-
-c *** tests show that 10 point is adquate.
-
-      data ghxi/ 0.34290 13272 23705D0,
-     &           1.03661 08297 89514D0,
-     &           1.75668 36492 99882D0,
-     &           2.53273 16742 32790D0,
-     &           3.43615 91188 37738D0 /,
-
-     &     ghwi/ 6.10862 63373 53d-01,
-     &           2.40138 61108 23d-01,
-     &           3.38743 94455 48d-02,
-     &           1.34364 57467 81d-03,
-     &           7.64043 28552 33d-06 /
-
-c *** The following Statement Functions are based on expressions from
-c     Binkowski & Shanker, Jour. Geophys. Research. Vol. 100, no. d12,
-c     pp 26,191-26,209 December 20, 1995
-
-      real( 8 ) :: betafm, betanc
-
-c *** for Free Molecular, Eq. A5
-      betafm( xx1, xx2 ) = kfm
-     &                   * sqrt( 1.d0 / xx1 ** 3  + 1.d0 / xx2 ** 3 )
-     &                   * ( xx1 + xx2 ) ** 2
-
-c *** for Near Continuum, Eq. A6
-      betanc( xx1, xx2 ) = knc * ( xx1 + xx2 )
-     &                   * ( 1.0D0 / xx1 + 1.0d0 / xx2 + twoA * lamda
-     &                      * ( 1.0d0 / xx1 ** 2 + 1.0d0 / xx2 ** 2 ) )
-c-----------------------------------------------------------------------
-
-      sum1s12fm = 0.d0
-      sum1s12nc = 0.d0
-      sum1s21fm = 0.d0
-      sum1s21nc = 0.d0
-      sum1vnc = 0.d0
-      sum1vfm = 0.d0
-      sum1nfm = 0.d0
-      sum1nnc = 0.d0
-      do 201 i = 1, n
-
-         sum2s12fm = 0.d0
-         sum2s12nc = 0.d0
-         sum2s21fm = 0.d0
-         sum2s21nc = 0.d0
-         sum2nfm = 0.d0
-         sum2nnc = 0.d0
-         sum2vnc = 0.d0
-         sum2vfm = 0.d0
-         xi = ghxi( i )
-         wxi = ghwi( i )
-         xf = exp( sqrt2 * xi *xlnsig1 )
-         dp1p = dg1 * xf
-         dp1m = dg1 / xf
-         dp1psq = dp1p * dp1p
-         dp1msq = dp1m * dp1m
-         a1p = dp1psq
-         a1m = dp1msq
-         v1p = dp1p * dp1psq
-         v1m = dp1m * dp1msq
-
-         do 101 j = 1, n
-            yi  = ghxi( j )
-            wyi = ghwi( j )
-            yf = exp( sqrt2 * yi * xlnsig2 )
-            dp2p = dg2 * yf
-            dp2m = dg2 / yf
-            dp2psq = dp2p * dp2p
-            dp2msq = dp2m * dp2m
-            a2p  = dp2psq
-            a2m  = dp2msq
-            v2p  =  dp2p * dp2psq
-            v2m  = dp2m * dp2msq
-            dspp = ( v1p + v2p ) ** two3rds - a2p
-            dsmp = ( v1m + v2p ) ** two3rds - a2p
-            dspm = ( v1p + v2m ) ** two3rds - a2m
-            dsmm = ( v1m + v2m ) ** two3rds - a2m
-
-            bppfm = betafm( dp1p, dp2p )
-            bmpfm = betafm( dp1m, dp2p )
-            bpmfm = betafm( dp1p, dp2m )
-            bmmfm = betafm( dp1m, dp2m )
-
-            bppnc = betanc( dp1p, dp2p )
-            bmpnc = betanc( dp1m, dp2p )
-            bpmnc = betanc( dp1p, dp2m )
-            bmmnc = betanc( dp1m, dp2m )
-
-            sum2s12fm = sum2s12fm + wyi * ( a1p * bppfm + a1p * bpmfm
-     &                            + a1m * bmpfm + a1m * bmmfm )
-
-            sum2s21fm = sum2s21fm + wyi * ( dspp * bppfm + dspm * bpmfm
-     &                            + dsmp * bmpfm + dsmm * bmmfm )
-
-            sum2s12nc = sum2s12nc + wyi * ( a1p * bppnc + a1p * bpmnc
-     &                            + a1m * bmpnc + a1m * bmmnc )
- 
-            sum2s21nc = sum2s21nc + wyi * ( dspp * bppnc + dspm * bpmnc
-     &                            + dsmp * bmpnc + dsmm * bmmnc )
-
-            sum2nfm = sum2nfm + wyi * ( bppfm + bmpfm + bpmfm + bmmfm )
-  
-            sum2nnc = sum2nnc + wyi * ( bppnc + bmpnc + bpmnc + bmmnc )
-
-            sum2vfm = sum2vfm + wyi * ( v1p * ( bppfm + bpmfm )
-     &                        + v1m * ( bmpfm + bmmfm ) )
-
-            sum2vnc = sum2vnc + wyi * ( v1p * ( bppnc + bpmnc)
-     &                        + v1m * ( bmpnc + bmmnc) )
-
-101      continue
-
-         sum1s12fm = sum1s12fm + wxi * sum2s12fm
-         sum1s21fm = sum1s21fm + wxi * sum2s21fm
-         sum1nfm   = sum1nfm + wxi * sum2nfm
-         sum1vfm   = sum1vfm + wxi * sum2vfm
-
-         sum1s12nc = sum1s12nc + wxi * sum2s12nc
-         sum1s21nc = sum1s21nc + wxi * sum2s21nc
-         sum1nnc   = sum1nnc + wxi * sum2nnc
-         sum1vnc   = sum1vnc + wxi * sum2vnc
-
-201   continue
-
-C *** Second moment intermodal coagulation coefficients
-
-c FSB NOTE: the transfer of second moment is not symmetric.
-c     See equations A3 & A4 of Binkowski & Shankar (1995)
-
-c *** to accumulation mode from Aitken mode
-      xbsfm   = sum1s21fm / pi
-      xbsnc   = sum1s21nc / pi
-      quads21 = xbsfm * xbsnc / ( xbsfm + xbsnc )
-
-c *** from Aitken mode to accumulation mode
-      xbsfm   = sum1s12fm / pi
-      xbsnc   = sum1s12nc / pi
-      quads12 = xbsfm * xbsnc / ( xbsfm + xbsnc )
-
-c *** quadn12 is the intermodal coagulation coefficient for number
-      xbnfm   = sum1nfm / pi
-      xbnnc   = sum1nnc / pi
-      quadn12 = xbnfm * xbnnc / ( xbnfm + xbnnc )
-
-c *** quadv12 is the intermodal coagulation coefficient for 3rd moment
-      xbvfm = sum1vfm / pi
-      xbvnc = sum1vnc / pi
-      quadv12 = xbvfm * xbvnc / ( xbvfm + xbvnc )
-
-      return
-      end subroutine intercoag_gh
 

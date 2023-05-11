@@ -1,53 +1,18 @@
 module quadrature
-  use consts_coms, only: r8
-  implicit none
 
-  ! abscissas and weights for n = 2
-  real(r8), parameter :: x2(2) = (/ 0.577350269189626_r8, -0.577350269189626_r8 /)
-  real(r8), parameter :: w2(2) = (/ 1.000000000000000_r8,  1.000000000000000_r8 /)
-
-  ! abscissas and weights for n = 3
-  real(r8), parameter :: x3(3) = (/ 0.774596669241483_r8,  0.000000000000000_r8, -0.774596669241483_r8 /)
-  real(r8), parameter :: w3(3) = (/ 0.555555555555555_r8,  0.888888888888889_r8,  0.555555555555555_r8 /)
-
-  ! abscissas and weights for n = 4
-  real(r8), parameter :: x4(4) = (/ 0.861136311594053_r8,  0.339981043584856_r8, -0.339981043584856_r8, -0.861136311594053_r8 /)
-  real(r8), parameter :: w4(4) = (/ 0.347854845137454_r8,  0.652145154862546_r8,  0.652145154862546_r8,  0.347854845137454_r8 /)
-
-  ! abscissas and weights for n = 5
-  real(r8), parameter :: x5(5) = (/ 0.906179845938664_r8,  0.538469310105683_r8,  0.000000000000000_r8, -0.538469310105683_r8, &
-                                   -0.906179845938664_r8 /)
-  real(r8), parameter :: w5(5) = (/ 0.236926885056189_r8,  0.478628670499366_r8,  0.568888888888889_r8,  0.478628670499366_r8, &
-                                    0.236926885056189_r8 /)
-
-  ! abscissas and weights for n = 6
-  real(r8), parameter :: x6(6) = (/ 0.932469514203152_r8,  0.661209386466264_r8,  0.238619186083197_r8, -0.238619186083197_r8, &
-                                   -0.661209386466264_r8, -0.932469514203152_r8 /)
-  real(r8), parameter :: w6(6) = (/ 0.171324492379170_r8,  0.360761573048139_r8,  0.467913934572691_r8,  0.467913934572691_r8, &
-                                    0.360761573048139_r8,  0.171324492379170_r8 /)
-
-  ! abscissas and weights for n = 7
-  real(r8), parameter :: x7(7) = (/ 0.949107912342758_r8,  0.741531185599394_r8,  0.405845151377397_r8,  0.000000000000000_r8, &
-                                   -0.405845151377397_r8, -0.741531185599394_r8, -0.949107912342758_r8 /)
-  real(r8), parameter :: w7(7) = (/ 0.129484966168870_r8,  0.279705391489277_r8,  0.381830050505119_r8,  0.417959183673469_r8, &
-                                    0.381830050505119_r8,  0.279705391489277_r8,  0.129484966168870_r8 /)
-
-  ! abscissas and weights for n = 8
-  real(r8), parameter :: x8(8) = (/ 0.960289856497536_r8,  0.796666477413627_r8,  0.525532409916329_r8,  0.183434642495650_r8, &
-                                   -0.183434642495650_r8, -0.525532409916329_r8, -0.796666477413627_r8, -0.960289856497536_r8 /)
-  real(r8), parameter :: w8(8) = (/ 0.101228536290376_r8,  0.222381034453374_r8,  0.313706645877887_r8,  0.362683783378362_r8, &
-                                    0.362683783378362_r8,  0.313706645877887_r8,  0.222381034453374_r8,  0.101228536290376_r8 /)
-
-  private :: r8
-
+  private
+  public :: hex_quad
 
 contains
 
+!===============================================================================
 
   subroutine hex_quad(iw, n, fint, func)
-    use mem_grid
-    use mem_ijtabs
-    use misc_coms, only: mdomain
+
+    use mem_grid,    only: xem, yem, zem, glatw, glonw, xew, yew
+    use mem_ijtabs,  only: itab_w
+    use misc_coms,   only: mdomain
+    use consts_coms, only: r8
 
     implicit none
 
@@ -62,10 +27,10 @@ contains
        end function func
     end interface
 
-    real :: xm(7), ym(7)
+    real     :: xm(7), ym(7)
     real(r8) :: u1, v1, u2, v2, u3, v3
     real(r8) :: tri_int
-    integer :: im, jm, npoly, jm2, jm3
+    integer  :: im, jm, npoly, jm2, jm3
 
     npoly = itab_w(iw)%npoly
 
@@ -83,7 +48,7 @@ contains
     enddo
 
     ! Determine integral over each sub triangle of hexagon
-      
+
     u1   = 0.0_r8
     v1   = 0.0_r8
     fint = 0.0_r8
@@ -105,8 +70,11 @@ contains
 
   end subroutine hex_quad
 
+!===============================================================================
 
   subroutine dtria(n, u1, v1, u2, v2, u3, v3, approx, f)
+
+    use consts_coms, only: r8
     implicit none
 
     integer,  intent( in) :: n
@@ -126,6 +94,71 @@ contains
     real(r8) :: save1, save2, save3, save4, save5, save6
     real(r8) :: x, y, xx, yy, absjac, temp
     integer  :: nnp1, itest, l, m
+
+    ! abscissas and weights for n = 2
+
+    real(r8) :: x2(2) = [ 0.577350269189626_r8, -0.577350269189626_r8  ]
+    real(r8) :: w2(2) = [ 1.000000000000000_r8,  1.000000000000000_r8  ]
+
+    ! abscissas and weights for n = 3
+
+    real(r8) :: x3(3) = [ 0.774596669241483_r8,  0.000000000000000_r8, &
+                         -0.774596669241483_r8 ]
+
+    real(r8) :: w3(3) = [ 0.555555555555555_r8,  0.888888888888889_r8, &
+                          0.555555555555555_r8 ]
+
+    ! abscissas and weights for n = 4
+
+    real(r8) :: x4(4) = [ 0.861136311594053_r8,  0.339981043584856_r8, &
+                         -0.339981043584856_r8, -0.861136311594053_r8  ]
+
+    real(r8) :: w4(4) = [ 0.347854845137454_r8,  0.652145154862546_r8, &
+                          0.652145154862546_r8,  0.347854845137454_r8  ]
+
+    ! abscissas and weights for n = 5
+
+    real(r8) :: x5(5) = [ 0.906179845938664_r8,  0.538469310105683_r8, &
+                          0.000000000000000_r8, -0.538469310105683_r8, &
+                         -0.906179845938664_r8 ]
+
+    real(r8) :: w5(5) = [ 0.236926885056189_r8,  0.478628670499366_r8, &
+                          0.568888888888889_r8,  0.478628670499366_r8, &
+                          0.236926885056189_r8 ]
+
+    ! abscissas and weights for n = 6
+
+    real(r8) :: x6(6) = [ 0.932469514203152_r8,  0.661209386466264_r8, &
+                          0.238619186083197_r8, -0.238619186083197_r8, &
+                         -0.661209386466264_r8, -0.932469514203152_r8  ]
+
+    real(r8) :: w6(6) = [ 0.171324492379170_r8,  0.360761573048139_r8, &
+                          0.467913934572691_r8,  0.467913934572691_r8, &
+                          0.360761573048139_r8,  0.171324492379170_r8  ]
+
+    ! abscissas and weights for n = 7
+
+    real(r8) :: x7(7) = [ 0.949107912342758_r8,  0.741531185599394_r8, &
+                          0.405845151377397_r8,  0.000000000000000_r8, &
+                         -0.405845151377397_r8, -0.741531185599394_r8, &
+                         -0.949107912342758_r8 ]
+
+    real(r8) :: w7(7) = [ 0.129484966168870_r8,  0.279705391489277_r8, &
+                          0.381830050505119_r8,  0.417959183673469_r8, &
+                          0.381830050505119_r8,  0.279705391489277_r8, &
+                          0.129484966168870_r8 ]
+
+    ! abscissas and weights for n = 8
+
+    real(r8) :: x8(8) = [ 0.960289856497536_r8,  0.796666477413627_r8, &
+                          0.525532409916329_r8,  0.183434642495650_r8, &
+                         -0.183434642495650_r8, -0.525532409916329_r8, &
+                         -0.796666477413627_r8, -0.960289856497536_r8  ]
+
+    real(r8) :: w8(8) = [ 0.101228536290376_r8,  0.222381034453374_r8, &
+                          0.313706645877887_r8,  0.362683783378362_r8, &
+                          0.362683783378362_r8,  0.313706645877887_r8, &
+                          0.222381034453374_r8,  0.101228536290376_r8  ]
 
     nnp1   = n + 1
     itest  = nnp1/2
@@ -211,8 +244,11 @@ contains
 
   end subroutine dtria
 
+!===============================================================================
 
   subroutine grule (n, x, w)
+
+    use consts_coms, only: r8
     implicit none
 
     integer,  intent( in) :: n
@@ -228,22 +264,21 @@ contains
     ! P.J. DAVIS AND P. RABINOWITZ, PAGE 369.
 
     integer  :: m, i, it, k
-    real(r8) :: e1, t, x0, pk, pkm1, t1, pkp1, den, d1
+    real(r8) :: e1, t, x0, pk, pkm1, t1, pkp1, den, d1, n8
     real(r8) :: dpn, d2pn, d3pn, d4pn, u, v, h, p, dp, fx
 
-    real(r8), parameter :: zero  = 0.0_r8
-    real(r8), parameter :: one   = 1.0_r8
-    real(r8), parameter :: two   = 2.0_r8
-    real(r8), parameter :: three = 3.0_r8
-    real(r8), parameter :: four  = 4.0_r8
-    real(r8), parameter :: pi    = four * atan(one)
+    real(r8), parameter :: zero = 0.0_r8
+    real(r8), parameter :: one  = 1.0_r8
+    real(r8), parameter :: two  = 2.0_r8
+    real(r8), parameter :: pi   = 4.0_r8 * atan(one)
 
     m  = (n+1)/2
-    e1 = n*(n+1)
+    n8 = real(n,r8)
+    e1 = n8*(n8+one)
 
     do i = 1, m
        t = dble(4*i-1)*pi/dble(4*n+2)
-       x0 = (1.d0-(1.d0-1.d0/n)/(8.d0*n*n))*cos(t)
+       x0 = (1.d0-(1.d0-1.d0/n8)/(8.d0*n8*n8))*cos(t)
 
        ! ITERATE ON THE VALUE  (M.W. JAN. 1982)
        do it = 1, 3
@@ -252,13 +287,13 @@ contains
 
           do k = 2, n
              t1=x0*pk
-             pkp1=t1-pkm1-(t1-pkm1)/k+t1
+             pkp1=t1-pkm1-(t1-pkm1)/real(k,r8)+t1
              pkm1=pk
              pk=pkp1
           enddo
 
           den=one-x0*x0
-          d1=n*(pkm1-x0*pk)
+          d1=n8*(pkm1-x0*pk)
           dpn=d1/den
           d2pn=(2.d0*x0*dpn-e1*pk)/den
           d3pn=(4.d0*x0*d2pn+(2.d0-e1)*dpn)/den

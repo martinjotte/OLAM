@@ -81,7 +81,7 @@ C   Jim Kelly - Apr 08 - coarse mode updates
 C   - added code to account for new species (ANH4K & SRFCOR) and variable
 C     coarse std. deviation
 C   - removed MW coding now located in AERO_INFO.f
-C   - added LIMIT_Sg flag for call to GETPAR
+C   - added FIXED_sg flag for call to GETPAR
 C   Jeff Young - Aug 10 - convert for Namelist redesign (replace include files)
 C   Steve Howard - Mar 11 - Renamed met_data to aeromet_data
 C   S.Roselle- Mar 11 - replaced I/O API include files with UTILIO_DEFN
@@ -90,20 +90,20 @@ C   David Wong - Oct 11 - extended the twoway implementation to handle finer
 C                         time resolution
 C
 C   Bill Hutzell - Sept 13 - inserted module for AEROSOL_CHEMISTRY to support
-C                            diagnostic outputs on reaction gamma and yield 
-C                            values 
-C   HOT Pye - Jan 13 - Additional information for IEPOX aerosol 
+C                            diagnostic outputs on reaction gamma and yield
+C                            values
+C   HOT Pye - Jan 13 - Additional information for IEPOX aerosol
 C                      written to AERODIAG file
 C   David Wong - Aug 15 - Used IO_PE_INCLUSIVE rather than MYPE to facilitate
 C                         parallel I/O implementation
 C                       - Used a new logical variable, FIRST_CTM_VIS_1 to
-C                         determine when to open CTM_VIS_1 
+C                         determine when to open CTM_VIS_1
 C  B.Hutzell 22 Feb 16 - Added test to determine to write diagnostics from aerosol
 C                        chemistry
 C  H Pye and B Murphy April 2016 - Updated dry/wet moment process to use
 C                        Extract_aero and Update_aero for getting moment/saving surface area
 C  D. Wong 10 May 2016 - added calculation of average PMDIAG species w.r.t.
-C                        environment variable CTM_PMDIAG, APMDIAG_BLEV_ELEV, 
+C                        environment variable CTM_PMDIAG, APMDIAG_BLEV_ELEV,
 C                        and AVG_PMDIAG_SPCS
 C                      - added calculation of average visibility species w.r.t.
 C                        environment variable CTM_AVISDIAG
@@ -114,7 +114,7 @@ C  D. Wong 19 May 2016 - renamed ACONC_END_TIME to AVG_FILE_ENDTIME
 C                      - updated the way to define NUM_PMDIAG_SPC
 C                      - set CTM_PMDIAG default value to .TRUE.
 C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-      SUBROUTINE AERO ( mrl )
+      SUBROUTINE AERO ( )
 
 !     USE GRID_CONF           ! horizontal & vertical domain specifications
 
@@ -126,12 +126,11 @@ C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
       USE UTILIO_DEFN
       USE CGRID_SPCS
       USE PMDIAG_DATA_MODULE
-      USE GETPAR_MOD, only: getpar
-      use cgrid_defn, only: cgrid
+      USE GETPAR_MOD, only: getpar, getdens
       use mem_ijtabs, only: jtab_w, jtw_prog
-      use mem_grid,   only: mza, lpw
+      use mem_grid,   only: mza, lpw, dzt
       use misc_coms,  only: dtlm
-      use mem_basic,  only: tair, rho, press, sh_v
+      use mem_basic,  only: tair, rho, press, rr_v
       use therm_lib,  only: rhovsl
 
       IMPLICIT NONE
@@ -142,7 +141,6 @@ C *** Includes:
 
 C *** Arguments:
 
-      integer, intent(in) :: mrl
 C *** CGRID is conc field (including gas and aerosol variables)
 !     REAL, POINTER :: CGRID( :,:,:,: )              !  concentrations
 !     INTEGER      JDATE        ! Current model date , coded YYYYDDD
@@ -234,6 +232,10 @@ C Meteorological variables
       Real :: airpres      ! air pressure [ Pa]
       Real :: airdens      ! air density [ kg/m^3]
       Real :: airRH        ! fractional relative humidity
+      Real :: extinc
+
+      real :: aeromode_mass( n_mode )
+      real :: aeromode_dens( n_mode )
 
 C *** other internal aerosol variables
 !     INTEGER IND                         ! index to be used with INDEX1
@@ -244,9 +246,6 @@ C *** synchronization time step [ s ]
 C *** variables to set up for "dry transport "
 !     REAL M3_WET( N_MODE ), M3_DRY( N_MODE )   ! third moment with and without water
 !     REAL M2_WET( N_MODE ), M2_DRY( N_MODE )   ! second moment with and without water
-
-C *** if LIMIT_Sg = T, atkn & accum std. dev. are not changed by GETPAR
-      LOGICAL, PARAMETER :: LIMIT_Sg = .FALSE.
 
 C *** variables aerosol diagnostic file flag
 !     INTEGER      STATUS            ! ENV... status
@@ -340,7 +339,7 @@ C ------------------ begin body of AERO_DRIVER -------------------------
 
 !        ALLOCATE (   PMDIAG_SPC( NCOLS,NROWS,NLAYS,NUM_PMDIAG_SPC ),
 !    &              A_PMDIAG_SPC( NCOLS,NROWS,A_NLAYS,NUM_PMDIAG_SPC ),
-!    &              TEMP_DATA( NUM_PMDIAG_SPC ), 
+!    &              TEMP_DATA( NUM_PMDIAG_SPC ),
 !    &              AVIS_SPC( NCOLS,NROWS,N_AE_VIS_SPC ),
 !    &              STAT=ALLOCSTAT)
 
@@ -489,7 +488,7 @@ C *** Get domain decomp info from the MET_CRO_3D file
 
 C *** Set floating point synchronization time step:
 !     DT = FLOAT( MSTEP ) ! set time step in seconds
-      dt = dtlm(mrl)
+      dt = dtlm
 
 C *** Get Meteorological Variables
 
@@ -545,11 +544,14 @@ C --------------------- Begin loops over grid cells --------------------------
 C *** initialize conc arrays
 
 !     N_APMDIAG_STEP = N_APMDIAG_STEP + 1
-!     N_VIS_STEP     = N_VIS_STEP + 1 
+!     N_VIS_STEP     = N_VIS_STEP + 1
 
-!$omp parallel do private(iw,k,kmax,c,r,l,n,fpm1,fpm25,fpm10,fams,airtemp,airpres,airdens,airrh)
-!$omp&            schedule(guided)
-      do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+!$omp parallel private(aeromode_mass,aeromode_dens)
+!$omp do private(iw,k,kmax,c,r,l,n,fpm1,fpm25,fpm10,fams,airtemp,airpres,airdens,airrh)
+!$omp&   schedule(guided)
+      do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
+
+         aod_data(iw) = 0.0
 
          do k = mza-1, lpw(iw), -1
             if (press(k,iw) > 100.d2) exit
@@ -561,8 +563,23 @@ C *** initialize conc arrays
          ! minimum bounds on aerosols
 
          do k = kmax+1, mza
-            call extract_aero( cgrid( k,iw,: ), .true. )
-            call update_aero ( cgrid( k,iw,: ), .true. )
+
+            call extract_aero( k, iw, .true. )
+
+            IF ( WRITETIME .AND. AOD ) THEN
+
+               AIRTEMP  = tair ( k, iw )
+               AIRRH    = rr_v ( k, iw ) * airdens / rhovsl(airtemp - 273.15)
+               AIRRH    = MAX( 0.005, MIN( 0.99, AIRRH ) )
+
+               ! compute extinction, 1/km
+               call get_extinc( airrh, extinc )
+               aod_data( iw ) = aod_data( iw ) + extinc * 0.001 * dzt(k)
+
+            ENDIF
+
+            call update_aero( k, iw, .true. )
+
          enddo
 
          do k = lpw(iw), kmax
@@ -571,24 +588,26 @@ C *** initialize conc arrays
                r = iw
                l = 1
 
+!              conc(1:nspcsd) = cgrid(k,iw,1:nspcsd)
+
 C *** Grid cell meteorological data.
                AIRTEMP  = tair ( k, iw )
                AIRPRES  = press( k, iw )
                AIRDENS  = rho  ( k, iw )
-               AIRRH    = sh_v ( k, iw ) * airdens / rhovsl(airtemp - 273.15)
+               AIRRH    = rr_v ( k, iw ) * airdens / rhovsl(airtemp - 273.15)
                AIRRH    = MAX( 0.005, MIN( 0.99, AIRRH ) )
 
 C *** Extract grid cell concentrations of aero species from CGRID
 C     into aerospc_conc in aero_data module (set minimum)
-               CALL EXTRACT_AERO( CGRID( C,R,: ), .TRUE. )
+               CALL EXTRACT_AERO( k, iw, .TRUE. )
 
 C *** Extract grid cell concentrations of gas precursors from CGRID (ppm)
 C     into precursr_conc in precursor_data
-               CALL EXTRACT_PRECURSOR( CGRID( C,R,: ), airdens )
+               CALL EXTRACT_PRECURSOR( k, iw, airdens )
 
 C *** Calculate SO4RATE stored in module
                SO4RATE = PRECURSOR_CONC( SULPRD_IDX ) / DT
- 
+
                IF ( PHGRXN_IDX .GT. 0 ) THEN
 C *** Calculate PHG_RATE stored in module
                   PHG_RATE = PRECURSOR_CONC( PHGRXN_IDX ) / DT
@@ -596,30 +615,29 @@ C *** Calculate PHG_RATE stored in module
                   PHG_RATE = 0.0
                END IF
 
-C *** Extract soa concentrations from CGRID and 
+C *** Extract soa concentrations from CGRID and
 C     convert M2 to wet
-               CALL EXTRACT_SOA( CGRID( C,R,: ), airdens )
+               CALL EXTRACT_SOA( k, iw, airdens )
 
 C *** Aerosol process routines
                CALL AEROPROC( DT, C, R, L, airtemp, airpres, airdens, airrh)
 
-C *** Update aerosol variables conc back into CGRID (set minimum) 
+C *** Update aerosol variables conc back into CGRID (set minimum)
 C     and convert M2 to dry and save as surface area
-              CALL UPDATE_AERO( CGRID( C,R,: ), .TRUE. )
+               CALL UPDATE_AERO( k, iw, .TRUE. )
 
 C *** Update precursor variables conc back into CGRID
-              CALL UPDATE_PRECURSOR( CGRID( C,R,: ), airdens )
+               CALL UPDATE_PRECURSOR( k, iw, airdens )
 
 C *** Update gas soa concentrations back to CGRID
-               CALL UPDATE_SOA( CGRID( C,R,: ), airdens )
+               CALL UPDATE_SOA( k, iw, airdens )
 
 C *** OUTPUT DIAGNOSTIC INFORMATION
 
                if (writetime) then
-C *** Get wet moment info (dry will be converted to wet)
-               CALL calcmoments( .true. )
-               CALL GETPAR( LIMIT_Sg, noM3=.true. ) ! update AEROMODE_DIAM,DENS,SDEV
-                   
+
+               call getdens(aeromode_mass, aeromode_dens, aerospc_conc, moment3_conc, 1, n_mode)
+
 C *** Calculate volume fraction of each mode for measurement applications
                DO N = 1, N_MODE
                   ! Calculate transmission of each mode in aerosol impactors.
@@ -628,16 +646,28 @@ C *** Calculate volume fraction of each mode for measurement applications
                   CALL AERO_INLET ( AEROMODE_DIAM( N ), AEROMODE_LNSG( N ),
      &                              AEROMODE_DENS( N ), fPM1( N ), fPM25( N ),
      &                              fPM10( N ) )
-           
+
                   ! Calculate AMS Transmission Fraction. Aerosol water will
                   ! be excluded from the calculation since AMS standard
                   ! procedures recommend drying particles before they enter
                   ! the intstrument.
                   CALL AERO_AMS ( MOMENT3_CONC( N ), MOMENT2_CONC( N ),
-     &                            MOMENT0_CONC( N ), AEROSPC_CONC( AH2O_IDX,N ), 
-     &                            AEROMODE_DENS( N ),AEROSPC( AH2O_IDX)%DENSITY, 
+     &                            MOMENT0_CONC( N ), AEROSPC_CONC( AH2O_IDX,N ),
+     &                            AEROMODE_DENS( N ),AEROSPC( AH2O_IDX)%DENSITY,
      &                            fAMS( N ) )
+
                END DO
+
+               IF ( AOD ) THEN
+
+                  ! compute extinction, 1/km
+                  call get_extinc( airrh, extinc )
+                  aod_data( iw ) = aod_data( iw ) + extinc * 0.001 * dzt(k)
+
+               ENDIF
+
+
+             ! call GETVISBY( BLKDCV1, BLKEXT1, BLKDCV2, BLKEXT2, airrh, aeromode_mass )
                endif
 
 C *** Write aerosol extinction coefficients and deciviews to visibility
@@ -706,8 +736,7 @@ C *** Calculate 2nd and 3rd moments of the "dry" aerosol distribution
 C     NOTE! "dry" aerosol excludes both H2O and SOA  (Jan 2004 --SJR)
 C     EXCEPT!  nonvolatile SOA is part of dry aerosol (Oct 2007 --PVB)
 !              CALL CALCMOMENTS( .FALSE. )
-!              CALL GETPAR( LIMIT_Sg ) ! update AEROMODE_DIAM,DENS,SDEV
-
+!              CALL GETPAR( FIXED_sg ) ! update AEROMODE_DIAM,DENS,SDEV
 !              IF ( PMDIAG .OR. APMDIAG ) THEN
 !                 TEMP_DATA(  1 ) = EXP( AEROMODE_LNSG( 1 ) )
 !                 TEMP_DATA(  2 ) = EXP( AEROMODE_LNSG( 2 ) )
@@ -727,7 +756,7 @@ C *** Accumulate wet diameters, 2nd, and 3rd moments to average aerosol diagnost
 !                    IF ( A_PMDIAG_SPC_MAP( V ) .EQ. 1 ) THEN
 !                       A_PMDIAG_SPC( C,R,L,V ) = A_PMDIAG_SPC( C,R,L,V ) + TEMP_DATA( V )
 !                    END IF
-!                 END DO 
+!                 END DO
 !              END IF
 
 C *** Write dry aerosol distribution parameters to aerosol diagnostic array
@@ -746,9 +775,10 @@ C *** Write dry aerosol distribution parameters to aerosol diagnostic array
 
          enddo
       enddo
-      !$omp end parallel do
+!$omp end do
+!$omp end parallel
 
-      IF ( WRITETIME .AND. AOD ) CALL GET_AOD( mrl )
+!     IF ( WRITETIME .AND. AOD ) CALL GET_AOD( mrl )
 
 C *** From AEROPROC call to ORGAER...
 !     If ( pfc .gt. 0 ) Then
@@ -824,7 +854,7 @@ C *** Write data to the aerosol diagnostic file.
 !    &                     'for date and time', MDATE, MTIME
 
 !        END IF
-!    
+!
 C *** Write data to the AOD diagnostic file.
 !        IF ( AOD ) THEN
 
@@ -852,7 +882,7 @@ C *** Write data to the average aerosol diagnostic file.
 !           DO V = 1, NUM_PMDIAG_SPC
 !
 !              IF ( A_PMDIAG_SPC_MAP( V ) .EQ. 1 ) THEN
-!                 A_PMDIAG_SPC( :,:,:,V ) = A_PMDIAG_SPC( :,:,:,V ) / N_APMDIAG_STEP 
+!                 A_PMDIAG_SPC( :,:,:,V ) = A_PMDIAG_SPC( :,:,:,V ) / N_APMDIAG_STEP
 
 !                 IF ( .NOT. WRITE3( CTM_APMDIAG_1, PMDIAG_SPC_RECORD( V )%SPC_NAME,
 !    &                               MDATE, MTIME, A_PMDIAG_SPC( :,:,:,V ) ) ) THEN
@@ -869,7 +899,7 @@ C *** Write data to the average aerosol diagnostic file.
 
 !           N_APMDIAG_STEP = 0
 !        END IF
-!    
+!
 C *** Write data to the average visibility diagnostic file.
 !        IF ( AVISDIAG ) THEN
 !           AVIS_SPC = AVIS_SPC / N_VIS_STEP
@@ -878,7 +908,7 @@ C *** Write data to the average visibility diagnostic file.
 !              XMSG = 'Could not write ' // CTM_AVIS_1 // ' file'
 !              CALL M3EXIT ( PNAME, MDATE, MTIME, XMSG, XSTAT1 )
 !           END IF
-!           N_VIS_STEP = 0 
+!           N_VIS_STEP = 0
 !           AVIS_SPC = 0.0
 !        END IF
 

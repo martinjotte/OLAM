@@ -1,113 +1,127 @@
 !
 ! Copyright (C) 1991-2003  ; All Rights Reserved ; ATMET, LLC
-! 
+!
 ! This file is free software; you can redistribute it and/or modify it under the
-! terms of the GNU General Public License as published by the Free Software 
+! terms of the GNU General Public License as published by the Free Software
 ! Foundation; either version 2 of the License, or (at your option) any later version.
-! 
-! This software is distributed in the hope that it will be useful, but WITHOUT ANY 
-! WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A 
+!
+! This software is distributed in the hope that it will be useful, but WITHOUT ANY
+! WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
 ! PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 !
-! You should have received a copy of the GNU General Public License along with this 
-! program; if not, write to the Free Software Foundation, Inc., 
+! You should have received a copy of the GNU General Public License along with this
+! program; if not, write to the Free Software Foundation, Inc.,
 ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 !======================================================================================
 
+module token_mod
+
+contains
+
 subroutine tokenize_ws(str,tokens,ntok)
 
-implicit none
+  implicit none
 
-integer :: ntok
-character(len=*) :: str,tokens(*)
-character(len=1) :: sep,tab
+  integer          :: ntok
+  character(len=*) :: str, tokens(:)
+  character(len=1) :: sep,tab
 
-integer :: ntokmax=100,npt,nch,nc,ntbeg,ntend,n
+  integer :: ntokmax,nch,nc,ntbeg,ntend,n,nn
 
-! this routine "parses" character string str into different pieces
-! or tokens by looking for  possible token separators (toks
-! str contains nch characters.  the number of tokens identified is nto
-! the character string tokens are stored in tokens.
+! This routine "parses" character string str into different pieces
+! or tokens by looking for possible token separators. The number of
+! tokens identified is returned as ntok, and each token is returned
+! in the array of strings tokens.
 
 ! Modified 12/11/07: this version tokenizes by white space (spaces and tabs)
-sep = char(32)
-tab = char(9)
+  sep = char(32)
+  tab = char(9)
 
-ntok=0
-npt=1
-nch=len_trim(str)
-nc=1
-do ntok=1,ntokmax
-   do n=nc,nch
-      if(str(n:n) /= sep .and. str(n:n) /= tab) then
-         ntbeg=n
-         goto 21
-      endif
-   enddo
-   21 continue
-   do n=ntbeg,nch
-      if(str(n:n) == sep .or. str(n:n) == tab) then
-         ntend=n-1
-         goto 22
-      endif
-      if(n == nch) then
-         ntend=n
-         goto 22
-      endif
-   enddo
-   22 continue
-   tokens(ntok)=str(ntbeg:ntend)
-   nc=ntend+1
-   if(nc.ge.nch) goto 25
-enddo
+  ntok=0
+  nch=len_trim(str)
+  nc=1
 
-25 continue
+  ntokmax = size(tokens,dim=1)
 
-return
-end
+  do nn=1,ntokmax
+     ntok=ntok+1
+     do n=nc,nch
+        if (str(n:n) /= sep .and. str(n:n) /= tab) then
+           ntbeg=n
+           exit
+        endif
+     enddo
+
+     do n=ntbeg,nch
+        if (str(n:n) == sep .or. str(n:n) == tab) then
+           ntend=n-1
+           exit
+        endif
+        if (n == nch) then
+           ntend=n
+           exit
+        endif
+     enddo
+
+     tokens(ntok)=str(ntbeg:ntend)
+     nc=ntend+1
+     if(nc.ge.nch) exit
+  enddo
+
+  tokens(ntok+1:ntokmax) = ' '
+
+end subroutine tokenize_ws
 
 
 
 subroutine tokenize(str,tokens,ntok,sep)
-character*(*) str,tokens(*)
-character sep*1
-data ntokmax/100/
 
-! this routine "parses" character string str into different pieces
-! or tokens by looking for  possible token separators (toks
-! str contains nch characters.  the number of tokens identified is nto
-! the character string tokens are stored in tokens.
+  implicit none
 
-!sep=' '
-ntok=0
-npt=1
-nch=len_trim(str)
-nc=1
-do ntok=1,ntokmax
-   do n=nc,nch
-      if(str(n:n).ne.sep) then
-         ntbeg=n
-         goto 21
-      endif
-   enddo
-   21 continue
-   do n=ntbeg,nch
-      if(str(n:n).eq.sep) then
-         ntend=n-1
-         goto 22
-      endif
-      if(n.eq.nch) then
-         ntend=n
-         goto 22
-      endif
-   enddo
-   22 continue
-   tokens(ntok)=str(ntbeg:ntend)
-   nc=ntend+1
-   if(nc.ge.nch) goto 25
-enddo
+  integer          :: ntok
+  character(len=*) :: str, tokens(:)
+  character(len=1) :: sep
 
-25 continue
+  integer :: ntokmax,nch,nc,ntbeg,ntend,n,nn
 
-return
-end
+! This routine "parses" character string str into different pieces
+! or tokens by looking for the token separator sep. The number of
+! tokens identified is returned as ntok, and each token is returned
+! in the array of strings tokens.
+
+  ntok=0
+  nch=len_trim(str)
+  nc=1
+
+  ntokmax = size(tokens,dim=1)
+
+  do nn=1,ntokmax
+     ntok=ntok+1
+     do n=nc,nch
+        if (str(n:n) /= sep) then
+           ntbeg=n
+           exit
+        endif
+     enddo
+
+     do n=ntbeg,nch
+        if (str(n:n) == sep) then
+           ntend=n-1
+           exit
+        endif
+        if (n == nch) then
+           ntend=n
+           exit
+        endif
+     enddo
+
+     tokens(ntok)=str(ntbeg:ntend)
+     nc=ntend+1
+     if(nc.ge.nch) exit
+  enddo
+
+  tokens(ntok+1:ntokmax) = ' '
+
+end subroutine tokenize
+
+end module token_mod

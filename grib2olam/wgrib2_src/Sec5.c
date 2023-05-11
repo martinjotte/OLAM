@@ -5,6 +5,11 @@
 #include "fnlist.h"
 
 /*
+ *  6/2016 Public Domain  Wesley Ebisuzaki
+ *         support for AEC compression, DWD
+ */
+
+/*
  * HEADER:400:Sec5:inv:0:Sec 5 values (Data representation section)
  */
 int f_Sec5(ARG0) {
@@ -33,7 +38,7 @@ int f_packing(ARG0) {
 
     unsigned char *p;
     const char *string;
-    int pack,i;
+    int pack, i;
     float missing1, missing2;
 
     if (mode >= 0) {
@@ -55,22 +60,29 @@ int f_packing(ARG0) {
 	    inv_out += strlen(inv_out);
 
 	    if (pack == 0) sprintf(inv_out,",s");
-	    else if (pack == 2) sprintf(inv_out,",c1");
-	    else if (pack == 3) sprintf(inv_out,",c%d", code_table_5_6(sec)+1);
+	    else if (pack == 2 || pack == 3) {
+		if (pack == 2) sprintf(inv_out,",c1");
+	        if (pack == 3) sprintf(inv_out,",c%d", code_table_5_6(sec)+1);
+		if (GB2_Sec6_size(sec) > 6) {
+		    inv_out += strlen(inv_out);
+		    sprintf(inv_out,"b");
+		}
+	    }
 	    else if (pack == 40) sprintf(inv_out,",j");
+	    else if (pack == 42) sprintf(inv_out,",a");
 	    else sprintf(inv_out,",_");
 	    inv_out += strlen(inv_out);
 	}
 	if (mode > 0) {
-            if (pack == 0 || pack == 1 || pack == 2 || pack == 3 || pack == 40 || pack == 40000 || 
+            if (pack == 0 || pack == 1 || pack == 2 || pack == 3 || pack == 40 || pack == 40000 ||
 		pack == 41 || pack == 50 || pack == 40010) {
 		if (pack != 2 && pack != 3) {
-                    sprintf(inv_out," val=(%lg+i*2^%d)*10^%d, i=0..%d (#bits=%d)", 
+                    sprintf(inv_out," val=(%lg+i*2^%d)*10^%d, i=0..%d (#bits=%d)",
                     ieee2flt(p+11), int2(p+15), -int2(p+17), (1 << p[19])-1, p[19]);
 	            inv_out += strlen(inv_out);
 		}
 		if (pack == 2 || pack == 3) {
-                    sprintf(inv_out," val=(%lg+i*2^%d)*10^%d, ref=0..%d (#bits=%d) group width bits=%d", 
+                    sprintf(inv_out," val=(%lg+i*2^%d)*10^%d, ref=0..%d (#bits=%d) group width bits=%d",
                     ieee2flt(p+11), int2(p+15), -int2(p+17), (1 << p[19])-1, p[19],p[36]);
 	            inv_out += strlen(inv_out);
 		    sprintf(inv_out," #groups=%d", uint4(p+31));
@@ -89,20 +101,28 @@ int f_packing(ARG0) {
             else if (pack == 4) {
 		sprintf(inv_out," precision code=%u", p[11]);
             }
+	    else if (pack == 42) {
+		sprintf(inv_out," val=(%lg+i*2^%d)*10^%d, i=0..%d (#bits=%d)",
+			ieee2flt(p+11), int2(p+15), -int2(p+17), (1 << p[19])-1, p[19]);
+		inv_out += strlen(inv_out);
+		sprintf(inv_out," compression options mask=%d samples/block=%d reference sample interval=%u",
+			(int) p[21], (int) p[22], uint2(p+23) );
+		inv_out += strlen(inv_out);
+	    }
 	    else if (pack == 51) {
-                sprintf(inv_out," val=(%lg+i*2^%d)*10^%d, i=0..%d (#bits=%d)", 
+                sprintf(inv_out," val=(%lg+i*2^%d)*10^%d, i=0..%d (#bits=%d)",
                 ieee2flt(p+11), int2(p+15), -int2(p+17), (1 << p[19])-1, p[19]);
 	        inv_out += strlen(inv_out);
 		sprintf(inv_out," P-Laplacian scaling factor*10^-6=%d",int4(p+20));
 	        inv_out += strlen(inv_out);
-		sprintf(inv_out," Js=%u Ks=%u Ms=%u Ts=%d", uint2(p+24), uint2(p+26), uint2(p+28), 
+		sprintf(inv_out," Js=%u Ks=%u Ms=%u Ts=%d", uint2(p+24), uint2(p+26), uint2(p+28),
 			int4(p+30));
 	        inv_out += strlen(inv_out);
 		sprintf(inv_out," code_table_5.7=%d", (int) p[34]);
 /*		sprintf(inv_out," mean?=%lg", ieee2flt(sec[7]+5)); */
 	    }
 	    else if (pack == 61) {
-                sprintf(inv_out," val=(%lg+i*2^%d)*10^%d, i=0..%d (#bits=%d) pre-processing parameter=%lg", 
+                sprintf(inv_out," val=(%lg+i*2^%d)*10^%d, i=0..%d (#bits=%d) pre-processing parameter=%lg",
                 ieee2flt(p+11), int2(p+15), -int2(p+17), (1 << p[19])-1, p[19], ieee2flt(p+20));
 	    }
         }

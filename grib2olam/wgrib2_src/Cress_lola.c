@@ -48,7 +48,7 @@ int f_cress_lola(ARG4) {
     struct local_struct {
         int nlat, nlon, nRadius;
         double lat0, lon0, dlat, dlon, latn, lonn;
-        FILE *out;
+        struct seq_file out;
 	int last_GDS_change_no;
 	double Radius[MAX_SCANS];
 	double R_earth;
@@ -80,7 +80,7 @@ int f_cress_lola(ARG4) {
         save->dlon = dx;
         save->lonn = x0 + (nx-1) * dx;
 
-        if (sscanf(arg2,"%lf:%d:%lf", &y0, &ny, &dy) != 3) 
+        if (sscanf(arg2,"%lf:%d:%lf", &y0, &ny, &dy) != 3)
             fatal_error("cress_lola parsing latitudes lat0:nx:dlat  %s", arg2);
 
         if (dy < 0) fatal_error("cress_lola: dlat < 0","");
@@ -92,8 +92,9 @@ int f_cress_lola(ARG4) {
         if (save->latn > 90.0 || save->lat0 < -90.0) fatal_error("cress_lola: bad latitude","");
         nxny = nx*ny;
 
-        if ((save->out = ffopen(arg3,file_append ? "ab" : "wb")) == NULL) 
-              fatal_error("cress_lola could not open file %s", arg3);
+        if (fopen_file(&(save->out), arg3, file_append ? "ab" : "wb") != 0) {
+            fatal_error("Could not open %s", arg3);
+        }
 
 	iradius = 0;
 	save->mask = NULL;
@@ -102,7 +103,7 @@ int f_cress_lola(ARG4) {
             if (iradius >= MAX_SCANS) fatal_error("cres_lola: too many radius parameters","");
             save->Radius[iradius++] = tmp;
 	    if (tmp < 0.0 && save->mask == NULL) {
-		save->mask = (char *) malloc(nxny * sizeof(char));
+		save->mask = (char *) malloc(((size_t) nxny) * sizeof(char));
 		if (save->mask == NULL) fatal_error("cress_lola memory allocation ","");
 	    }
             arg4 += m;
@@ -110,12 +111,12 @@ int f_cress_lola(ARG4) {
 	}
 	save->nRadius = iradius;
 
-fprintf(stderr,"nRadius=%d nx=%d ny=%d\n",save->nRadius, nx, ny);
+// fprintf(stderr,"nRadius=%d nx=%d ny=%d\n",save->nRadius, nx, ny);
 
-	save->out_x = (double *) malloc(nxny * sizeof(double));
-	save->out_y = (double *) malloc(nxny * sizeof(double));
-	save->out_z = (double *) malloc(nxny * sizeof(double));
-	if (save->out_x == NULL || save->out_y == NULL || save->out_z == NULL) 
+	save->out_x = (double *) malloc(((size_t) nxny) * sizeof(double));
+	save->out_y = (double *) malloc(((size_t) nxny) * sizeof(double));
+	save->out_z = (double *) malloc(((size_t) nxny) * sizeof(double));
+	if (save->out_x == NULL || save->out_y == NULL || save->out_z == NULL)
 		fatal_error("cress_lola: memory allocation","");
 
 	save->in_x = save->in_y = save->in_z = NULL;
@@ -123,8 +124,8 @@ fprintf(stderr,"nRadius=%d nx=%d ny=%d\n",save->nRadius, nx, ny);
 
 	/* out_x, out_y, out_z have the 3-d coordinates of the lola grid */
 
-	cos_lon = (double *) malloc(nx * sizeof(double));
-	sin_lon = (double *) malloc(nx * sizeof(double));
+	cos_lon = (double *) malloc(((size_t) nx) * sizeof(double));
+	sin_lon = (double *) malloc(((size_t) nx) * sizeof(double));
 	if (cos_lon == NULL || sin_lon == NULL) fatal_error("cress_lola: memory allocation","");
 	for (i = 0; i < nx; i++) {
 	    x = (x0 + i*dx) * (M_PI / 180.0);
@@ -150,7 +151,8 @@ fprintf(stderr,"nRadius=%d nx=%d ny=%d\n",save->nRadius, nx, ny);
 
     save = (struct local_struct *) *local;
     if (mode == -2) {
-	ffclose(save->out);
+	fclose_file(&(save->out));
+	free(save);
         return 0;
     }
 
@@ -161,10 +163,10 @@ fprintf(stderr,">>processing\n");
     ny = save->nlat;
     nxny = nx*ny;
 
-    background = (float *) malloc(nxny * sizeof(float));
-    tmpv = (double *) malloc(nxny * sizeof(double));
-    inc = (double *) malloc(nxny * sizeof(double));
-    wt = (double *) malloc(nxny * sizeof(double));
+    background = (float *) malloc(((size_t) nxny) * sizeof(float));
+    tmpv = (double *) malloc(((size_t) nxny) * sizeof(double));
+    inc = (double *) malloc(((size_t) nxny) * sizeof(double));
+    wt = (double *) malloc(((size_t) nxny) * sizeof(double));
     if (background == NULL || tmpv == NULL || wt == NULL || inc == NULL) fatal_error("cress_lola: memory allocation","");
 
     /* Calculate x, y and z of input grid if new grid */
@@ -178,9 +180,9 @@ fprintf(stderr,">>processing\n");
 	if (save->in_y) free(save->in_y);
 	if (save->in_z) free(save->in_z);
 
-	save->in_x = (double *) malloc(npnts * sizeof(double));
-	save->in_y = (double *) malloc(npnts * sizeof(double));
-	save->in_z = (double *) malloc(npnts * sizeof(double));
+	save->in_x = (double *) malloc(((size_t) npnts) * sizeof(double));
+	save->in_y = (double *) malloc(((size_t) npnts) * sizeof(double));
+	save->in_z = (double *) malloc(((size_t) npnts) * sizeof(double));
 	if (save->in_x == NULL || save->in_y == NULL || save->in_z == NULL)
 	    fatal_error("cress_lola: memory allocation","");
 
@@ -198,7 +200,7 @@ fprintf(stderr,">>processing\n");
                 save->in_y[i] = c * sin(lon[i] * (M_PI / 180.0));
             }
         }
-fprintf(stderr,"done new gds processing npnts=%d\n", npnts);
+fprintf(stderr,"done new gds processing npnts=%u\n", npnts);
     }
 
     /* at this point x, y, and z of input and output grids have been made */
@@ -222,8 +224,8 @@ fprintf(stderr,"done new gds processing npnts=%d\n", npnts);
 	/* write undefined grid */
 	for (i = 0; i < nxny; i++) background[i] = UNDEFINED;
         grib_wrt(new_sec, background, nxny, nx, ny, use_scale, dec_scale, bin_scale,
-                wanted_bits, max_bits, grib_type, save->out);
-        if (flush_mode) fflush(save->out);
+                wanted_bits, max_bits, grib_type, &(save->out));
+        if (flush_mode) fflush_file(&(save->out));
 	free(background);
 	free(tmpv);
 	free(inc);
@@ -235,7 +237,7 @@ fprintf(stderr,"done new gds processing npnts=%d\n", npnts);
 fprintf(stderr,">>sum=%lf n %d background[1] %lf\n", sum, n, background[1]);
 
     for (iradius = 0; iradius < save->nRadius; iradius++) {
-fprintf(stderr,">>radias=%lf nxny %d npnts %d\n", save->Radius[iradius],nxny, npnts);
+fprintf(stderr,">>radias=%lf nxny %d npnts %u\n", save->Radius[iradius],nxny, npnts);
 	/* save->Radius has units of km */
 	/* normalize to a sphere of unit radius */
 	r_sq = save->Radius[iradius] / (save->R_earth / 1000.0);
@@ -302,9 +304,9 @@ fprintf(stderr,">>radias=%lf nxny %d npnts %d\n", save->Radius[iradius],nxny, np
 	}
     }
     grib_wrt(new_sec, background, nxny, nx, ny, use_scale, dec_scale, bin_scale,
-	wanted_bits, max_bits, grib_type, save->out);
+	wanted_bits, max_bits, grib_type, &(save->out));
 
-    if (flush_mode) fflush(save->out);
+    if (flush_mode) fflush_file(&(save->out));
     free(background);
     free(tmpv);
     free(wt);

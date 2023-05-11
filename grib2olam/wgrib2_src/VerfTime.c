@@ -88,7 +88,7 @@ int f_VT(ARG0) {
 int verftime(unsigned char **sec, int *year, int *month, int *day, int *hour, int *minute, int *second) {
 
     int units, i, j;
-    unsigned int dtime;
+    int dtime;
     static int error_count = 0;
     static int warning_count = 0;
 
@@ -102,8 +102,7 @@ int verftime(unsigned char **sec, int *year, int *month, int *day, int *hour, in
 
     // some products have no forecast time
 
-    if (i == 20  || i == 30 || i == 31)
-	return 0;
+    if (code_table_4_4(sec) == -1) return 0;
 
     // check the significance of the refernce time
     i = code_table_1_2(sec);
@@ -118,7 +117,7 @@ int verftime(unsigned char **sec, int *year, int *month, int *day, int *hour, in
 	return 0;
     }
     if (i == 3) {
-	// rt = observing time 
+	// rt = observing time
 	return 0;
     }
 
@@ -132,7 +131,9 @@ int verftime(unsigned char **sec, int *year, int *month, int *day, int *hour, in
 
     units = code_table_4_4(sec);
     dtime = forecast_time_in_units(sec);
-    return add_time(year, month, day, hour, minute, second, dtime, units);
+    if (dtime >= 0)
+        return add_time(year, month, day, hour, minute, second, (unsigned int) dtime, units);
+    return sub_dt(year, month, day, hour, minute, second, (unsigned int) (unsigned int) -dtime, units);
 }
 
 /*
@@ -235,7 +236,7 @@ int f_end_FT(ARG0) {
 int start_ft(unsigned char **sec, int *year, int *month, int *day, int *hour, int *minute, int *second) {
 
     int units, i;
-    unsigned int dtime;
+    int dtime;
     static int error_count = 0;
     static int warning_count = 0;
 
@@ -243,11 +244,9 @@ int start_ft(unsigned char **sec, int *year, int *month, int *day, int *hour, in
 
     // get reference time
     get_time(sec[1]+12, year, month, day, hour, minute, second);
+    // some products have no forecast time .. done
 
-    // some products have no forecast time
-
-    if (i == 20  || i == 30 || i == 31)
-        return 0;
+    if ( (units = code_table_4_4(sec)) == -1) return 0;
 
     // check the significance of the refernce time
     i = code_table_1_2(sec);
@@ -270,12 +269,10 @@ int start_ft(unsigned char **sec, int *year, int *month, int *day, int *hour, in
         }
     }
 
-    units = code_table_4_4(sec);
     dtime = forecast_time_in_units(sec);
-    return add_time(year, month, day, hour, minute, second, dtime, units);
+    add_time(year, month, day, hour, minute, second, dtime, units);
+    return 0;
 }
-
-
 
 int reftime(unsigned char **sec, int *year, int *month, int *day, int *hour, int *minute, int *second)
 {
@@ -291,5 +288,15 @@ int reftime(unsigned char **sec, int *year, int *month, int *day, int *hour, int
     *second = p[18];
 
     return 0;
+}
+
+int Ref_time(unsigned char **sec, struct full_date *date) {
+
+    return Get_time(sec[1]+12, date);
+
+}
+
+int Verf_time(unsigned char **sec, struct full_date *date) {
+    return verftime(sec, &date->year, &date->month, &date->day, &date->hour, &date->minute, &date->second);
 }
 

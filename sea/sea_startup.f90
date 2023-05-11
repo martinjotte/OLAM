@@ -1,47 +1,15 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 subroutine sea_startup()
 
-use sea_coms,  only: mms, mus, mws, isstflg, seatmp,  &
+use sea_coms,  only: isstflg, seatmp,  &
                      iupdsst, iseaiceflg, iupdseaice, seaice
 
-use mem_sea,   only: sea, alloc_sea, filltab_sea
+use mem_sea,   only: msea, sea, alloc_sea, filltab_sea
 
 use misc_coms, only: io6, runtype
 
 implicit none
 
-integer :: iws
+integer :: isea
 
 ! Subroutine SEA_STARTUP allocates some sea arrays and initializes sst
 
@@ -52,7 +20,7 @@ integer :: iws
 ! STEP 1: Call alloc_sea and filltab_sea (sea grid arrays already allocated)
 !-------------------------------------------------------------------------------
 
-call alloc_sea(mws)
+call alloc_sea(msea)
 call filltab_sea()
 
 !-------------------------------------------------------------------------------
@@ -60,7 +28,7 @@ call filltab_sea()
 !-------------------------------------------------------------------------------
 
 if ( (iupdsst /= 1) .and. &
-     (runtype == 'HISTORY' .or. runtype == 'HISTADDGRID') ) then
+     (runtype == 'HISTORY' .or. runtype == 'HISTREGRID') ) then
 
 ! Do nothing if we are restarting and keeping SST constant.
 ! It will be read in from the history file
@@ -69,16 +37,16 @@ elseif (isstflg == 0) then
 
 ! Default initialization of SST
 
-   do iws = 2,mws
-      sea%seatp(iws) = seatmp
-      sea%seatf(iws) = seatmp
+   do isea = 2,msea
+      sea%seatp(isea) = seatmp
+      sea%seatf(isea) = seatmp
    enddo
 
 elseif (isstflg == 1) then
 
    if (runtype == 'INITIAL' .or. &
        runtype == 'HISTORY' .or. &
-       runtype == 'HISTADDGRID') then
+       runtype == 'HISTREGRID') then
 
 ! Read standard SST database
 ! Not needed for a plotonly run
@@ -99,7 +67,7 @@ elseif (isstflg == 2) then
 
    if (runtype == 'INITIAL' .or. &
        runtype == 'HISTORY' .or. &
-       runtype == 'HISTADDGRID') then
+       runtype == 'HISTREGRID') then
 
 ! Read SST from degribbed analysis files
 ! Not needed for a plotonly run
@@ -123,7 +91,7 @@ endif
 !-------------------------------------------------------------------------------
 
 if ( (iupdseaice /= 1) .and. &
-     (runtype == 'HISTORY' .or. runtype == 'HISTADDGRID') ) then
+     (runtype == 'HISTORY' .or. runtype == 'HISTREGRID') ) then
 
 ! Do nothing if we are restarting and keeping SEAICE constant.
 ! It will be read in from the history file.
@@ -132,16 +100,16 @@ elseif (iseaiceflg == 0) then
 
 ! Default initialization of SEAICE
 
-   do iws = 2,mws
-      sea%seaicep(iws) = seaice
-      sea%seaicef(iws) = seaice
+   do isea = 2,msea
+      sea%seaicep(isea) = seaice
+      sea%seaicef(isea) = seaice
    enddo
 
 elseif (iseaiceflg == 1) then
 
    if (runtype == 'INITIAL' .or. &
        runtype == 'HISTORY' .or. &
-       runtype == 'HISTADDGRID') then
+       runtype == 'HISTREGRID') then
 
 ! Read standard SEAICE database
 ! Not needed for a plotonly run
@@ -155,14 +123,14 @@ elseif (iseaiceflg == 1) then
          write(io6,'(/,a)') 'calling seaice_database_read(1)'
          call seaice_database_read(1)
       endif
-   
+
    endif
 
 elseif (iseaiceflg == 2) then
 
    if (runtype == 'INITIAL' .or. &
        runtype == 'HISTORY' .or. &
-       runtype == 'HISTADDGRID') then
+       runtype == 'HISTREGRID') then
 
 ! Read SEAICE from degribbed analysis files
 ! Not needed for a plotonly run

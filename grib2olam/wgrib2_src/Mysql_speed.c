@@ -4,6 +4,7 @@
  v1.1 Jerry Stueve: tmpnam -> mkstemp
  1/2011 WNE change new_GDS to GDS_change_no
  4/2011 WNE change char temp_pathname[L_tmpnam] to char temp_pathname[STRING_SIZE];
+ 3/2017 WNE added MAX_SQL_INSERT: in response to overflow because of too many variables*levels
 */
 
 #include <stdio.h>
@@ -23,14 +24,14 @@ extern double *lat, *lon;
 
 //maximum number of rows to insert (similiar to number of gridpoints)
 #define MAX_NXNY   2000000
-
+#define MAX_SQL_INSERT 3000
 
 static double convunit(double val, char convstring[50]) {
 		
 	if (strcmp(convstring,"GPH_M")==0) val/=9.82;
 	else if (strcmp(convstring,"M_MM")==0) val*=1000;
 	else if (strcmp(convstring,"PERC_PART")==0 || strcmp(convstring,"PA_HPA")==0) val/=100;
-	else if (strcmp(convstring,"PART_PERC")==0) val*=100; 
+	else if (strcmp(convstring,"PART_PERC")==0) val*=100;
 	else if (strcmp(convstring,"K_C")==0) val-=273.16;
 	return val;
 }
@@ -42,10 +43,10 @@ static double convunit(double val, char convstring[50]) {
 int f_mysql_speed(ARG7) {
 
     char temp_pathname[STRING_SIZE];
-    char sql[1500];
+    char sql[MAX_SQL_INSERT];
     char server[100];
     char user[100];
-    char password[100]; 
+    char password[100];
     char database[100];
     char table[100];
     MYSQL_RES *res;
@@ -95,7 +96,7 @@ int f_mysql_speed(ARG7) {
 
     if (mode == -1) {
         decode = latlon = 1;
-        
+
 	*local = save = (struct local_struct *) malloc( sizeof(struct local_struct));
 	if (save == NULL) fatal_error("mysql_speed memory allocation ","");
 
@@ -106,7 +107,7 @@ int f_mysql_speed(ARG7) {
 	save->last_GDS_change_no = 0;
 	save->conn = mysql_init(NULL);
 	save->temp_fileptr= NULL;
-	save->params = (char *)  malloc(1500*sizeof(char));
+	save->params = (char *)  malloc(MAX_SQL_INSERT*sizeof(char));
 	sprintf(save->params,"%s","");
 	save->isset = 0;
 	save->runtime[0] = 0;
@@ -126,7 +127,7 @@ int f_mysql_speed(ARG7) {
 	/* Connect to database */
 	if (!mysql_real_connect(save->conn, server, user, password, database, 0, NULL, 0)) {
 	   fatal_error("f_mysql_speed: could not connect to %s", mysql_error(save->conn));
-	} 
+	}
 	return 0;
     }
 
@@ -174,7 +175,7 @@ int f_mysql_speed(ARG7) {
 
 	for (i = 0; i < ndata; i++) {
 	    if (save->rows[i] == NULL) {
-		save->rows[i] = (char *)  malloc(1500*sizeof(char));
+		save->rows[i] = (char *)  malloc(MAX_SQL_INSERT*sizeof(char));
 		if (save->rows[i] == NULL) fatal_error("f_mysql_speed: memory allocation problem","");
 	    }
 	    save->rows[i][0] = '\0';
@@ -186,7 +187,7 @@ int f_mysql_speed(ARG7) {
 	fatal_error("f_mysql_speed, grid definition has to be the same for all fields","");
    }
    save->last_GDS_change_no = GDS_change_no;
- 
+
     /*Collect runtime and validtime into vt and rt*/
 
     reftime(sec, &year, &month, &day, &hour, &minute, &second);
@@ -212,7 +213,7 @@ int f_mysql_speed(ARG7) {
     // f_lev(mode, sec, data, ndata, level_buf, local);
     f_lev(call_ARG0(level_buf, NULL));
     //if (ndata != save->npts && save->npts>0) fprintf(stderr,"ERROR: fields do not contain equally many gridpoints, %d , %d \n",save->npts,ndata);
- 	   
+ 	
     if (strcmp(level_buf, "reserved") == 0) return(0);
     getName(sec, mode, NULL, name, desc, unit);
     fprintf(stderr,"Start processing of %s at %s, runtime=%s, validtime=%s \n", name, level_buf,rt,vt);

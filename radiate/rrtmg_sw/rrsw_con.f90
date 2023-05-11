@@ -3,7 +3,6 @@
       use parkind, only : im => kind_im, rb => kind_rb
 
       implicit none
-      save
 
 !------------------------------------------------------------------
 ! rrtmg_sw constants
@@ -14,7 +13,7 @@
 
 !  name     type     purpose
 ! -----  :  ----   : ----------------------------------------------
-! fluxfac:  real   : radiance to flux conversion factor 
+! fluxfac:  real   : radiance to flux conversion factor
 ! heatfac:  real   : flux to heating rate conversion factor
 !oneminus:  real   : 1.-1.e-6
 ! pi     :  real   : pi
@@ -22,7 +21,7 @@
 ! planck :  real   : planck constant
 ! boltz  :  real   : boltzmann constant
 ! clight :  real   : speed of light
-! avogad :  real   : avogadro constant 
+! avogad :  real   : avogadro constant
 ! alosmt :  real   : loschmidt constant
 ! gascon :  real   : molar gas constant
 ! radcn1 :  real   : first radiation constant
@@ -31,7 +30,7 @@
 !  secdy :  real   : seconds per day
 !------------------------------------------------------------------
 
-      real(kind=rb) :: fluxfac, heatfac
+!     real(kind=rb) :: fluxfac, heatfac
 
       real(kind=rb), parameter :: zepsec = 1.e-06_rb
       real(kind=rb), parameter :: zepzen = 1.e-10_rb

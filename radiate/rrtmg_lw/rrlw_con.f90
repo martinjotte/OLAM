@@ -3,7 +3,6 @@
       use parkind, only : rb => kind_rb
 
       implicit none
-      save
 
 !------------------------------------------------------------------
 ! rrtmg_lw constants
@@ -14,7 +13,7 @@
 
 !  name     type     purpose
 ! -----  :  ----   : ----------------------------------------------
-! fluxfac:  real   : radiance to flux conversion factor 
+! fluxfac:  real   : radiance to flux conversion factor
 ! heatfac:  real   : flux to heating rate conversion factor
 !oneminus:  real   : 1.-1.e-6
 ! pi     :  real   : pi
@@ -22,13 +21,13 @@
 ! planck :  real   : planck constant
 ! boltz  :  real   : boltzmann constant
 ! clight :  real   : speed of light
-! avogad :  real   : avogadro constant 
+! avogad :  real   : avogadro constant
 ! alosmt :  real   : loschmidt constant
 ! gascon :  real   : molar gas constant
 ! radcn1 :  real   : first radiation constant
 ! radcn2 :  real   : second radiation constant
 ! sbcnst :  real   : stefan-boltzmann constant
-!  secdy :  real   : seconds per day  
+!  secdy :  real   : seconds per day
 !------------------------------------------------------------------
 
       real(kind=rb), parameter :: grav = 9.8066_rb           ! Acceleration of gravity
@@ -37,7 +36,7 @@
                                                              ! (ergs s; g cm2 s-1)
       real(kind=rb), parameter :: boltz = 1.3806503e-16_rb   ! Boltzmann constant
                                                              ! (ergs K-1; g cm2 s-2 K-1)
-      real(kind=rb), parameter :: clight = 2.99792458e+10_rb ! Speed of light in a vacuum  
+      real(kind=rb), parameter :: clight = 2.99792458e+10_rb ! Speed of light in a vacuum
                                                              ! (cm s-1)
       real(kind=rb), parameter :: avogad = 6.02214199e+23_rb ! Avogadro constant
                                                              ! (mol-1)
@@ -57,7 +56,7 @@
 
       real(kind=rb), parameter :: pi = 2._rb * asin(1._rb)
 
-      real(kind=rb), parameter :: fluxfac = pi * 2.e4_rb     ! orig:   fluxfac = pi * 2.d4  
+      real(kind=rb), parameter :: fluxfac = pi * 2.e4_rb     ! orig:   fluxfac = pi * 2.d4
 
       real(kind=rb), parameter :: heatfac = grav * secdy / (1004._rb * 1.e2_rb)
 

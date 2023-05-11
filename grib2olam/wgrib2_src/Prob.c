@@ -14,41 +14,12 @@
  * 11/2008: Public Domain: Wesley Ebisuzaki
  * 12/2008: fixed return code
  * 1/2008: ncep bug fix
+ * 3/2018: move ncep bug fix to Fix_ncep_2.c, more info for -v
  *
  */
 
 #define LOWER_LIMIT scaled2flt(INT1(p[1]), int4(p+2) )
 #define UPPER_LIMIT scaled2flt(INT1(p[6]), int4(p+7) )
-
-extern int fix_ncep_2_flag;
-
-
-/*
- * HEADER:100:fix_ncep_2:setup:0:ncep bug fix 2, probability observation < -ve number
- */
-
-int f_fix_ncep_2(ARG0) {
-    fix_ncep_2_flag = 1;
-    return 0;
-}
-
-int fix_ncep_2(unsigned char **sec) {
-    unsigned char *p;
-    int i;
-
-    p = code_table_4_9_location(sec);
-    if (p == NULL) return 0;
-
-    if ((p[2] & 0x0c) == 0x0c) {	// fix bug
-	i = int4_comp(p+2);
-	int_char(i, p+2);
-    }
-    if ((p[7] & 0x0c) == 0x0c) {	// fix bug
-	i = int4_comp(p+7);
-	int_char(i, p+7);
-    }
-    return 0;
-}
 
 /*
  * HEADER:100:prob:inv:0:probability information
@@ -76,12 +47,22 @@ int f_prob(ARG0) {
 		break;
 	case 4: sprintf(inv_out,"prob <%g", UPPER_LIMIT);
 		break;
+	case 5: sprintf(inv_out,"prob =%g", LOWER_LIMIT);
+		break;
+	case 6: sprintf(inv_out, "prob above normal");
+		break;
+	case 7: sprintf(inv_out, "prob near normal");
+		break;
+	case 8: sprintf(inv_out, "prob below normal");
+		break;
 	}
 	if (mode == 99) {
 	    inv_out += strlen(inv_out);
             sprintf(inv_out, " LOWER LIMIT scale=%d, val= 0x%.2x 0x%.2x 0x%.2x 0x%.2x",
 		INT1(p[1]), p[2], p[3], p[4], p[5]);
 	}
+	inv_out += strlen(inv_out);
+	sprintf(inv_out,":prob fcst %u/%u", p[-2], p[-1]);
     }
     return 0;
 }

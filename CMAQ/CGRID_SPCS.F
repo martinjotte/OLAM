@@ -129,7 +129,7 @@ c !! NO   and to populate the allocated arrays from the stnd gc_spc.ext  !!! NO
 
          function cgrid_spcs_init() result ( success )
             use UTILIO_DEFN
-            use max_dims,  only: pathlen      
+            use max_dims,  only: pathlen
             use misc_coms, only: io6
             use string_lib
             use RXNS_DATA           ! chemical mechanism data
@@ -138,7 +138,7 @@ c !! NO   and to populate the allocated arrays from the stnd gc_spc.ext  !!! NO
 
 
             integer :: logdev
-            
+
             logical success
             integer, parameter :: dev_gc_nml = 15, dev_ae_nml = 16, dev_nr_nml = 17, dev_tr_nml = 18
 !           integer, save :: dev_gc_nml, dev_ae_nml, dev_nr_nml, dev_tr_nml
@@ -241,7 +241,7 @@ c from namelist files
 
             open( file = gc_matrix, unit = dev_gc_nml,
      &            status = 'old', position = 'rewind' )
-            read( nml = GC_nml, unit = dev_gc_nml ) 
+            read( nml = GC_nml, unit = dev_gc_nml )
             close( dev_gc_nml )
 
 c create the surr1 table from the namelist header
@@ -277,7 +277,7 @@ c establish ctrl order in the namelist header (ctrl possibly rearranged)
             conc_ndx = index1a( 'CONC', 4, ctrl )
 
 c the surrogate and ctrl arrays active dimensions not known a priori
-            allocate ( 
+            allocate (
      &      gc_spc ( spc_dim ), gc_molwt   ( spc_dim ), gc_molwti  ( spc_dim ),
      &      gc_emis( spc_dim ), gc_emis_map( spc_dim ), gc_emis_fac( spc_dim ),
      &      gc_icbc( spc_dim ), gc_icbc_map( spc_dim ), gc_icbc_fac( spc_dim ),
@@ -419,7 +419,7 @@ c the surrogate and ctrl arrays active dimensions not known a priori
             n_gc_wdep = k3
             n_gc_conc = k4
 
-                 
+
             gc_fini = gc_strt + n_gc_spc - 1
 
 ! MJO don't add placehoder for density
@@ -453,7 +453,7 @@ c the surrogate and ctrl arrays active dimensions not known a priori
 
             open( file = ae_matrix, unit = dev_ae_nml,
      &            status = 'old', position = 'rewind' )
-            read( nml = AE_nml, unit = dev_ae_nml ) 
+            read( nml = AE_nml, unit = dev_ae_nml )
             close( dev_ae_nml )
 
 c create the surr1 table from the namelist header
@@ -486,7 +486,7 @@ c establish ctrl order in the namelist header (ctrl possibly rearranged)
             conc_ndx = index1a( 'CONC', 4, ctrl )
 
 c the surrogate and ctrl arrays active dimensions not known a priori
-            allocate ( 
+            allocate (
      &      ae_spc ( spc_dim ), ae_molwt   ( spc_dim ), ae_molwti  ( spc_dim ),
      &      ae_emis( spc_dim ), ae_emis_map( spc_dim ), ae_emis_fac( spc_dim ),
      &      ae_icbc( spc_dim ), ae_icbc_map( spc_dim ), ae_icbc_fac( spc_dim ),
@@ -651,7 +651,7 @@ c the surrogate and ctrl arrays active dimensions not known a priori
 
             open( file = nr_matrix, unit = dev_nr_nml,
      &            status = 'old', position = 'rewind' )
-            read( nml = NR_nml, unit = dev_nr_nml ) 
+            read( nml = NR_nml, unit = dev_nr_nml )
             close( dev_nr_nml )
 
 c create the surr1 table from the namelist header
@@ -687,7 +687,7 @@ c establish ctrl order in the namelist header (ctrl possibly rearranged)
             conc_ndx = index1a( 'CONC', 4, ctrl )
 
 c the surrogate and ctrl arrays active dimensions not known a priori
-            allocate ( 
+            allocate (
      &      nr_spc ( spc_dim ), nr_molwt   ( spc_dim ), nr_molwti  ( spc_dim ),
      &      nr_emis( spc_dim ), nr_emis_map( spc_dim ), nr_emis_fac( spc_dim ),
      &      nr_icbc( spc_dim ), nr_icbc_map( spc_dim ), nr_icbc_fac( spc_dim ),
@@ -1061,7 +1061,7 @@ c the surrogate and ctrl arrays active dimensions not known a priori
             nspcsd = n_gc_spcd + n_ae_spc + n_nr_spc + n_tr_spc
 
             write(io6,'(/A,I0,A)') " Chemistry requires ", nspcsd, " species."
-            
+
          return
 
          end function cgrid_spcs_init

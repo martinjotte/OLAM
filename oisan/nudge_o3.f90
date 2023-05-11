@@ -1,36 +1,3 @@
-!===============================================================================
-! OLAM version 4.0
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
-!===============================================================================
-
 subroutine nudge_prep_o3(iaction, o_ozone)
 
   use mem_nudge,  only: ozone_obsp, ozone_obsf
@@ -53,7 +20,7 @@ subroutine nudge_prep_o3(iaction, o_ozone)
   if (iaction == 1) then
 
      !$omp parallel do private(iw,k)
-     do j = 1, jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
+     do j = 1, jtab_w(jtw_init)%jend; iw = jtab_w(jtw_init)%iw(j)
         do k = 2, mza
            ozone_obsp(k,iw) = ozone_obsf(k,iw)
         enddo
@@ -65,7 +32,7 @@ subroutine nudge_prep_o3(iaction, o_ozone)
 ! Fill future observational arrays
 
   !$omp parallel do private(iw,k)
-  do j = 1, jtab_w(jtw_init)%jend(1); iw = jtab_w(jtw_init)%iw(j)
+  do j = 1, jtab_w(jtw_init)%jend; iw = jtab_w(jtw_init)%iw(j)
      do k = 2, mza
         ozone_obsf(k,iw) = o_ozone(k,iw)
      enddo
@@ -81,23 +48,23 @@ subroutine obs_nudge_o3()
   use mem_nudge,  only: ozone_obsp, ozone_obsf, o3nudflag, tnudi_o3, o3nudpress
   use mem_basic,  only: rho, press
   use mem_grid,   only: mza, lpw
-  use mem_ijtabs, only: istp, jtab_w, mrl_begl, jtw_prog, itab_w
+  use mem_ijtabs, only: jtab_w, jtw_prog
   use isan_coms,  only: ifgfile, s1900_fg
-  use misc_coms,  only: io6, time8, s1900_sim, dtlm, i_o3
+  use misc_coms,  only: s1900_sim, i_o3
   use var_tables, only: scalar_tab
 
   implicit none
 
-  integer :: k, j, iw, mrl, npoly, kbot
-  real    :: tp, tf, tnudi, dtli
+  integer :: k, j, iw, kbot
+  real    :: tp, tf
+
+  ! Skip if we don't nudge
+
+  if (o3nudflag == 0) return
 
   ! Do nothing if we do not prognose ozone
+
   if (i_o3 == 0) return
-
-  ! Check whether it is time to nudge
-
-  mrl = mrl_begl(istp)
-  if (mrl < 1) return
 
   ! Time interpolation coefficients
 
@@ -108,10 +75,8 @@ subroutine obs_nudge_o3()
 
   ! Compute ozone nudging tendency using point-by-point (non-spectral) information
 
-  !$omp parallel do private(iw,dtli,k,kbot)
-  do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
-
-     dtli = 1.0 / real(dtlm(itab_w(iw)%mrlw))
+  !$omp parallel do private(iw,k,kbot)
+  do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
      ! Find level above which we nudge ozone
 
@@ -125,12 +90,6 @@ subroutine obs_nudge_o3()
 
         scalar_tab(i_o3)%var_t(k,iw) = scalar_tab(i_o3)%var_t(k,iw) + tnudi_o3 * real(rho(k,iw)) * &
              ( (tp * ozone_obsp(k,iw) + tf * ozone_obsf(k,iw)) - scalar_tab(i_o3)%var_p(k,iw) )
-
-        ! With nudging, scalar mass is no longer conserved. Make sure the long timestep
-        ! tendency does not drive ozone negative when nudging is included:
-
-        scalar_tab(i_o3)%var_t(k,iw) = max( scalar_tab(i_o3)%var_t(k,iw), &
-             -0.999 * max(scalar_tab(i_o3)%var_p(k,iw), 0.0) * real(rho(k,iw)) * dtli )
 
      enddo
 

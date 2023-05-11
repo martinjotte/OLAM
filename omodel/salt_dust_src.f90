@@ -1,61 +1,28 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
-subroutine sea_spray(mrl)
+subroutine sea_spray()
 
   ! Compute sea spray number concentration fluxes, applied as tendencies in
-  ! the grid level adjacent to the sea surface.  Based on O’Dowd, C. D.,
+  ! the grid level adjacent to the sea surface.  Based on O'Dowd, C. D.,
   ! Smith, M. H., and Jennings, S. G., (1993): Submicron aerosol, radon and
   ! soot carbon characteristics over the North East Atlantic. J. Geophys.
   ! Res., 98, 1132-1136.  Updated for O'Dowd (1997, 1999).
 
   use mem_grid,    only: dzt_bot, volti
-  use mem_basic,   only: vxe, vye, vze, rho
+  use mem_basic,   only: rho
   use mem_ijtabs,  only: jtab_w, jtw_prog, itab_w
-  use micro_coms,  only: iccn, igccn
+  use mem_sfcg,    only: itab_wsfc, sfcg
+  use micro_coms,  only: igccn
   use ccnbin_coms, only: isalt
   use mem_micro,   only: ccntyp, con_gccn
   use mem_tend,    only: con_gccnt
-  use mem_sea,     only: sea, itab_ws
+  use mem_sea,     only: sea, omsea
 
   implicit none
-
-  integer, intent(in) :: mrl
 
   real, parameter :: timescale_salt = 3600.0 ! relaxation time [s]
   real, parameter :: depthscale_salt = 100.  ! assumed depth scale filled by fluxes [m]
   real, parameter :: dssotss = timescale_salt / depthscale_salt
-  integer :: j, iw, nsea, jws, iws, kw
-  real :: vels, vels10, film_diag, jet_diag, film_flux, jet_flux
+  integer :: j, iw, isea, kw, jsfc, iwsfc, jasfc
+  real :: vels10, film_diag, jet_diag, film_flux, jet_flux
 
   ! Return if neither ccn nor gccn are prognosed
 
@@ -63,33 +30,31 @@ subroutine sea_spray(mrl)
 
   ! Loop over prognosed atmospheric grid columns
 
-  !-----------------------------------------------------------------------------
-  !$omp parallel do private(iw,nsea,jws,iws,kw,vels,vels10,film_diag,jet_diag, &
-  !$omp                      film_flux,jet_flux)
-  do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
-  !-----------------------------------------------------------------------------
+  !$omp parallel do private(iw, jsfc, iwsfc, jasfc, kw, isea, vels10, &
+  !$omp                     film_diag, jet_diag, film_flux, jet_flux)
+  do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
      ! Check for sea area beneath this atmospheric grid column; cycle if none
 
-     nsea = itab_w(iw)%nsea
-     if (nsea == 0) cycle
+     if (itab_w(iw)%jsea2 == 0) cycle
 
      ! Loop over sea cells beneath this atmospheric grid column
 
-     do jws = 1,nsea
-        iws = itab_w(iw)%isea(jws)
-        kw = itab_ws(iws)%kw
+     do jsfc = itab_w(iw)%jsea1, itab_w(iw)%jsea2
+        iwsfc = itab_w(iw)%iwsfc(jsfc)
+        jasfc = itab_w(iw)%jasfc(jsfc)
+
+        kw = itab_wsfc(iwsfc)%kwatm(jasfc)
+
+        isea = iwsfc - omsea
 
         ! Skip if not seawater
-        if (sea%leaf_class(iws) /= 0) cycle
+        if (sfcg%leaf_class(iwsfc) /= 0) cycle
 
-        ! Diagnose wind speed in grid cell and at 10 m height, and limit the
-        ! latter to a maximum of 20 m/s.
+        ! Diagnose wind speed at 10 m height, and limit to a maximum of 20 m/s.
 
-        vels = sqrt(vxe(kw,iw)**2 + vye(kw,iw)**2 + vze(kw,iw)**2)
-
-        vels10 = min(20., vels * log(10.         / sea%sea_rough(iws)) &
-                               / log(dzt_bot(kw) / sea%sea_rough(iws)))
+        vels10 = min(20., sfcg%vels(iwsfc) * log(10.         / sea%sea_rough(isea)) &
+                                           / log(dzt_bot(kw) / sea%sea_rough(isea)))
 
         ! Diagnose equilibrium sea salt concentrations [#/m^3] for 10 m wind speed
 
@@ -103,7 +68,7 @@ subroutine sea_spray(mrl)
         ! in a time scale of timescale_salt, assuming that the model deficit
         ! applies and must be filled over a depth scale of depthscale_salt.
         ! Fixing the depth scale in this way makes the fluxes independent of
-        ! the chosen vertical grid spacing.  
+        ! the chosen vertical grid spacing.
 
         ! Convert surface fluxes to concentration tendency [#/(m^3 s)] in
         ! atmospheric cells that are adjacent to the sea surface.  Tendency is
@@ -116,7 +81,7 @@ subroutine sea_spray(mrl)
            if (film_flux > 0.) then
                 ccntyp(isalt)%con_ccnt(kw,iw) &
               = ccntyp(isalt)%con_ccnt(kw,iw) &
-              + film_flux * sea%area(iws) * volti(kw,iw) * (1.0 - sea%seaicec(iws))
+              + film_flux *  itab_wsfc(iwsfc)%arc(jasfc) * volti(kw,iw) * (1.0 - sea%seaicec(isea))
            endif
         endif
 
@@ -126,11 +91,11 @@ subroutine sea_spray(mrl)
            if (jet_flux > 0.) then
                 con_gccnt(kw,iw) &
               = con_gccnt(kw,iw) &
-              + jet_flux * sea%area(iws) * volti(kw,iw) * (1.0 - sea%seaicec(iws))
+              + jet_flux * itab_wsfc(iwsfc)%arc(jasfc) * volti(kw,iw) * (1.0 - sea%seaicec(isea))
            endif
         endif
 
-     enddo  ! jws/iws
+     enddo  ! jws/isea
 
   enddo  ! iw
   !$omp end parallel do
@@ -139,28 +104,24 @@ end subroutine sea_spray
 
 !===============================================================================
 
-subroutine dust_src(mrl)
+subroutine dust_src()
 
   use mem_grid,    only: dzt_bot, volti
-  use mem_basic,   only: vxe, vye, vze, rho
   use mem_ijtabs,  only: jtab_w, jtw_prog, itab_w
-  use micro_coms,  only: iccn, igccn
+  use mem_sfcg,    only: itab_wsfc, sfcg
   use ccnbin_coms, only: idust1, idust2, idust3, idust4
-  use mem_micro,   only: ccntyp, con_gccn
-  use mem_leaf,    only: land, itab_wl
-  use leaf_coms,   only: nzg, slmsts_ch, slmsts_vg
-  use mem_tend,    only: con_gccnt
-
-  use nuclei_coms, only: nbin, fact, sp, nodust, amassi, uth, wprime
+  use mem_micro,   only: ccntyp
+  use mem_land,    only: land, omland, nzg
+  use nuclei_coms, only: nbin, fact, sp, nodust, amassi, uth
 
   implicit none
 
-  integer, intent(in) :: mrl
-
-  integer :: j, iw, nland, jwl, iwl, kw
-  integer :: leaf_class, nts, ibin
-  real :: vels, vels10, vels10_cm
+  integer :: j, iw, iland, kw
+  integer :: leaf_class, ibin
+  integer :: jsfc, iwsfc, jasfc
+  real :: vels10, vels10_cm
   real :: gwet, wetfac, flux_m
+  real :: wprime
   real :: flux_n(nbin)
 
   ! Return if no ccn dust categories are prognosed
@@ -169,23 +130,26 @@ subroutine dust_src(mrl)
 
   ! Loop over prognosed atmospheric grid columns
 
-  !-----------------------------------------------------------------------------
   !$omp parallel private(flux_n)
-  !$omp do private(iw,nland,jwl,iwl,leaf_class,nts,gwet,kw,vels, &
-  !$omp            vels10,wetfac,vels10_cm,flux_m)
-  do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
-  !-----------------------------------------------------------------------------
+  !$omp do private(iw,jsfc,iwsfc,jasfc,kw,iland,leaf_class,gwet, &
+  !$omp            vels10,wprime,wetfac,vels10_cm,flux_m)
+  do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
      ! Check for land area beneath this atmospheric grid column; cycle if none
 
-     nland = itab_w(iw)%nland
-     if (nland == 0) cycle
+     if (itab_w(iw)%jland2 == 0) cycle
 
      ! Loop over land cells beneath this atmospheric grid column
 
-     do jwl = 1,nland
-        iwl = itab_w(iw)%iland(jwl)
-        leaf_class = land%leaf_class(iwl)
+     do jsfc = itab_w(iw)%jland1, itab_w(iw)%jland2
+        iwsfc = itab_w(iw)%iwsfc(jsfc)
+        jasfc = itab_w(iw)%jasfc(jsfc)
+
+        kw = itab_wsfc(iwsfc)%kwatm(jasfc)
+
+        iland = iwsfc - omland
+
+        leaf_class = sfcg%leaf_class(iwsfc)
 
         ! If leaf_class is not type that can generate dust, skip this land cell
 
@@ -193,36 +157,32 @@ subroutine dust_src(mrl)
 
         ! Diagnose fractional soil wetness, and cycle if >= 0.5
 
-        nts = land%ntext_soil(nzg,iwl)
-        if (land%flag_vg(iwl)) then
-           gwet = land%soil_water(nzg,iwl) / slmsts_vg(nts)
-        else
-           gwet = land%soil_water(nzg,iwl) / slmsts_ch(nts)
-        endif
+        gwet = land%soil_water(nzg,iland) / land%wsat_vg(nzg,iland)
 
         if (gwet >= 0.5) cycle
 
-        kw = itab_wl(iwl)%kw
+        ! Diagnose wind speed at 10 m height, and limit to a maximum of 20 m/s.
 
-        ! Diagnose wind speed in grid cell and at 10 m height, and limit the
-        ! latter to a maximum of 20 m/s.
-
-        vels = sqrt(vxe(kw,iw)**2 + vye(kw,iw)**2 + vze(kw,iw)**2)
-
-        vels10 = min(20., vels * log(10.         / land%rough(iwl)) &
-                               / log(dzt_bot(kw) / land%rough(iwl)))
+        vels10 = min(20., sfcg%vels(iwsfc) * log(10.         / sfcg%rough(iwsfc)) &
+                                           / log(dzt_bot(kw) / sfcg%rough(iwsfc)))
 
         vels10_cm = 100. * vels10
 
-        if (gwet * 100. > wprime(nts)) then
-           wetfac = sqrt(1. + 1.21 * (gwet * 100. - wprime(nts))**0.68)
+        ! Diagnose wprime, which is used in parameterization by
+        ! Fecan et al. and is based on clay percentage using the formula
+        ! wprime = 0.0014(%clay)^2 + 0.17(%clay).
+
+        wprime = (14. * land%clay(nzg,iland) + 17.) * land%clay(nzg,iland)
+
+        if (gwet * 100. > wprime) then
+           wetfac = sqrt(1. + 1.21 * (gwet * 100. - wprime)**0.68)
         else
            wetfac = 1.
         endif
 
         do ibin = 1,nbin
 
-           !> Mass flux [g cm^-2 s^-1] from Ginoux et al. 2001 (Eq. 2) 
+           !> Mass flux [g cm^-2 s^-1] from Ginoux et al. 2001 (Eq. 2)
 
            flux_m = fact * sp(ibin) * (vels10_cm**2.) * (vels10_cm - uth(ibin) * wetfac)
 
@@ -239,25 +199,24 @@ subroutine dust_src(mrl)
         if (idust1 > 0) ccntyp(idust1)%con_ccnt(kw,iw) &
                       = ccntyp(idust1)%con_ccnt(kw,iw) &
                       + (flux_n(1) + flux_n(2) + flux_n(3) + flux_n(4)) &
-                      * land%area(iwl) * volti(kw,iw)
+                      * itab_wsfc(iwsfc)%arc(jasfc) * volti(kw,iw)
 
         if (idust2 > 0) ccntyp(idust2)%con_ccnt(kw,iw) &
                       = ccntyp(idust2)%con_ccnt(kw,iw) &
-                      + flux_n(5) * land%area(iwl) * volti(kw,iw)
+                      + flux_n(5) * itab_wsfc(iwsfc)%arc(jasfc) * volti(kw,iw)
 
         if (idust3 > 0) ccntyp(idust3)%con_ccnt(kw,iw) &
                       = ccntyp(idust3)%con_ccnt(kw,iw) &
-                      + flux_n(6) * land%area(iwl) * volti(kw,iw)
+                      + flux_n(6) * itab_wsfc(iwsfc)%arc(jasfc) * volti(kw,iw)
 
         if (idust4 > 0) ccntyp(idust4)%con_ccnt(kw,iw) &
                       = ccntyp(idust4)%con_ccnt(kw,iw) &
-                      + flux_n(7) * land%area(iwl) * volti(kw,iw)
+                      + flux_n(7) * itab_wsfc(iwsfc)%arc(jasfc) * volti(kw,iw)
 
-     enddo  ! jws/iws
+     enddo  ! jwl/iland
 
   enddo  ! iw
   !$omp end do
   !$omp end parallel
 
 end subroutine dust_src
-

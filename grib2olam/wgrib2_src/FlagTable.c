@@ -42,16 +42,17 @@ int flag_table_3_3(unsigned char **sec) {
 int set_flag_table_3_3(unsigned char **sec, unsigned int flag) {
     unsigned char *p;
     p = flag_table_3_3_location(sec);
-    if (p == NULL) return -1;
+    if (p == NULL) return 1;
     *p = flag;
     return 0;
 }
 
 unsigned char *flag_table_3_3_location(unsigned char **sec) {
-    int grid_template;
+    int grid_template, center;
     unsigned char *gds;
 
     grid_template = code_table_3_1(sec);
+    center = GB2_Center(sec);
     gds = sec[3];
     switch (grid_template) {
         case 0:
@@ -65,7 +66,7 @@ unsigned char *flag_table_3_3_location(unsigned char **sec) {
 	case 140:
         case 204:
               return gds+54; break;
-        case 4:
+	case 4:
         case 5:
         case 10:
         case 12:
@@ -75,15 +76,21 @@ unsigned char *flag_table_3_3_location(unsigned char **sec) {
         case 90:
         case 110:
               return gds+46; break;
+#ifdef WMO_VALIDATION
+	case 60:
+              return gds+71; break;
+#endif
 	case 32768:
-		if (GB2_Center(sec) == NCEP) return gds+54;
+		if (center == NCEP) return gds+54;
 		return NULL;
 	case 32769:
-		if (GB2_Center(sec) == NCEP) return gds+54;
+		if (center == NCEP) return gds+54;
 		return NULL;
-
+	case 40110:
+		if ((center == JMA1) || (center == JMA2)) return gds+46;
+		return NULL;
 		break;
-        default: return NULL; break;
+        default: break;
     }
     return NULL;
 }
@@ -135,13 +142,13 @@ int set_flag_table_3_4(unsigned char **sec, unsigned int flag) {
     return 0;
 }
 
-
 unsigned char *flag_table_3_4_location(unsigned char **sec) {
-    int grid_template;
+    int grid_template, center;
     unsigned char *gds;
 
     gds = sec[3];
     grid_template = code_table_3_1(sec);
+    center = GB2_Center(sec);
 
     switch (grid_template) {
         case 0:
@@ -156,8 +163,8 @@ unsigned char *flag_table_3_4_location(unsigned char **sec) {
 	case 4:
 	case 5:
                  return gds+47; break;
-        case 10: 
-        case 12: 
+        case 10:
+        case 12:
                  return gds+59; break;
         case 20: return gds+64; break;
         case 30:
@@ -168,23 +175,31 @@ unsigned char *flag_table_3_4_location(unsigned char **sec) {
         case 53:
                  /* spectral modes don't have scan order */
                  return NULL; break;
-        case 90: 
-        case 140: 
+        case 90:
+        case 140:
 		  return gds+63; break;
         case 110: return gds+56; break;
-        case 190: 
+        case 190:
 	case 120: return gds+38; break;
 	case 204: return gds+71; break;
         case 1000: return gds+50; break;
+#ifdef WMO_VALIDATION
+	case 60:
+              return gds+72; break;
+#endif
 	case 32768:
-		if (GB2_Center(sec) == NCEP) return gds+71;
+		if (center == NCEP) return gds+71;
 		return NULL;
 		break;
 	case 32769:
-		if (GB2_Center(sec) == NCEP) return gds+71;
+		if (center == NCEP) return gds+71;
 		return NULL;
 		break;
-        default: return NULL; break;
+	case 40110:
+		if ((center == JMA1) || (center == JMA2)) return gds+56;
+		return NULL;
+		break;
+        default: break;
     }
     return NULL;
 }
@@ -204,17 +219,30 @@ int f_flag_table_3_5(ARG0) {
     return 0;
 }
 int flag_table_3_5(unsigned char **sec) {
+    unsigned char *p;
+    p = flag_table_3_5_location(sec);
+    if (p == NULL) return -1;
+    return (int) *p;
+}
 
+unsigned char *flag_table_3_5_location(unsigned char **sec) {
     unsigned char *gds;
+    int center;
 
     gds = sec[3];
+    center = GB2_Center(sec);
+
     switch (code_table_3_1(sec)) {
         case 20:
         case 30:
-        case 31: return gds[63];
-        case 110: return gds[55];
+        case 31: return gds+63; break;
+        case 110: return gds+55; break;
+	case 40110:
+	    if ((center == JMA1) || (center == JMA2)) return gds+55;
+	    break;
+	default: break;
     }
-    return -1;
+    return NULL;
 }
 
 /*

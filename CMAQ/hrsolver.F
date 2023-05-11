@@ -23,23 +23,19 @@ C $Header$
 C what(1) key, module and SID; SCCS file; date and time of last delta:
 C %W% %P% %G% %U%
 
-       SUBROUTINE HRSOLVER( JDATE, JTIME, C, R, L )
-
+       SUBROUTINE HRSOLVER( JDATE, JTIME, C, R, L)
 
 C**********************************************************************
 C
 C  FUNCTION: EBI solver
 C
-C  PRECONDITIONS: For the CB05TUCL family of mechanisms
+C  PRECONDITIONS: For the CB6R3 family of mechanisms
 C
 C  KEY SUBROUTINES/FUNCTIONS CALLED:  HRRATES, HRG1, HRG2, HRG3
 C                                     HRG4, HRPRODLOSS
+C                                     DEGRADE
 C
-C  REVISION HISTORY: Created by EBI solver program, March 12, 2015
-C                     Revised hrsolver.F by Golam Sarwar, December, 2007
-C                             rearranged a statement suggested by CARB
-C                             to reduce the chance of code crash; it does
-C                             not change results
+C  REVISION HISTORY: Created by EBI solver program, Mar 10, 2017
 C   21 Jun 10 J.Young: convert for Namelist redesign
 C   18 Jul 14 B.Hutzell: revised 1) to use the RXNS_DATA and RXNS_FUNCTION
 C                        modules instead of include files and 2) to use
@@ -88,18 +84,17 @@ C..SCRATCH LOCAL VARIABLES:
 #ifdef hrdebug
       INTEGER N               ! Loop index
 #endif
-      INTEGER EBI             ! Loop index
+!     INTEGER EBI             ! Loop index
       INTEGER NBKUPS          ! No. of times time step reduced
 !     INTEGER ERR             ! Allocate error flag
       integer n_inr_steps
 
       LOGICAL LEBI_CONV             ! Flag for EBI convergence
-      LOGICAL MXFL                  ! hit MAXPRED flag
+!     LOGICAL MXFL                  ! hit MAXPRED flag
 
       REAL( 8 ) DTC              ! Time step to take
       REAL( 8 ) FXDLOSS          ! Total loss due to negative stoichiometry
       REAL( 8 ) VARLOSS          ! Loss excluding negative stoichiometry
-
 
 #ifdef hrdebug
       CHARACTER( 8 ) :: NOTE  ! Convergence fail note
@@ -111,8 +106,8 @@ C..SCRATCH LOCAL VARIABLES:
 
       LOGICAL LDEBUG          ! Debug output flag
 !     LOGICAL, SAVE  :: LOPEN = .FALSE.
-#endif
 
+#endif
 
 C**********************************************************************
 
@@ -169,23 +164,17 @@ c++++++++++++++++++++++++Debug section++++++++++++++++++++++++++++++++++
       N_EBI_IT = 0
       DTC      = EBI_TMSTEP
 
-
-!     DO 3000 NEBI = 1, N_EBI_STEPS    ! outer EBI time-step loop
-
           NBKUPS      = 0
           N_INR_STEPS = 1
 
 100      CONTINUE                        !  Restart location
 
-         DO 2000 NINR = 1, N_INR_STEPS   ! No. of time steps for back-up
+         DO NINR = 1, N_INR_STEPS        ! No. of time steps for back-up
 
-            do s = 1, numb_mech_spc 
-               yc0( s ) = yc( s )
-            enddo
-
-            DO 1000 ITER = 1, NEBITER    ! EBI iteration loop
+            DO ITER = 1, NEBITER         ! EBI iteration loop
 
                N_EBI_IT = N_EBI_IT + 1
+
                CALL HRRATES
 
 c++++++++++++++++++++++++Debug section++++++++++++++++++++++++++++++++++
@@ -207,25 +196,12 @@ c++++++++++++++++++++++++Debug section++++++++++++++++++++++++++++++++++
 
 
 cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-c  Call routines to compute concentrations of groups 1-4
-cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
-
-               CALL HRG1( DTC )
-
-               CALL HRG2( DTC )
-
-               CALL HRG3( DTC )
-
-               CALL HRG4( DTC )
-
-
-cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 c  Do the Euler backward method
 cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+
                CALL HRPRODLOSS
 
-               DO EBI = 1, N_EBISP
-                  S = EBISP( EBI )
+               DO S = 1, numb_mech_spc
                   YCP( S ) =  YC( S ) * ( YC0( S ) + PROD( S ) * DTC )
      &                                / ( YC(  S ) + LOSS( S ) * DTC )
                END DO
@@ -237,51 +213,61 @@ c..Special treatment of PAR because of negative product stoichiometry
                      YCP( PAR ) = 0.0D0
                   ELSE
                      VARLOSS = MAX( LOSS( PAR ) - PNEG( PAR ), ZERO )
-                     YCP( PAR ) = YC( PAR ) * ( YC0( PAR ) + PROD( PAR ) * DTC - FXDLOSS ) /
-     &                                        ( YC ( PAR ) + VARLOSS     * DTC )
+                     YCP( PAR ) = YC( PAR ) * ( YC0( PAR ) + PROD( PAR ) * DTC - FXDLOSS )
+     &                                      / ( YC ( PAR ) + VARLOSS     * DTC )
                   END IF
                END IF
+
+cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+c  Call routines to compute concentrations of groups 1-4
+cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+
+               CALL HRG1( DTC )
+
+               CALL HRG2( DTC )
+
+               CALL HRG3( DTC )
+
+               CALL HRG4( DTC )
 
 cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 c  Check for convergence
 cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
                do s = 1, numb_mech_spc
-!                 LEBISPFL( S ) = .FALSE.
-                  YCP( S ) = MAX( ZERO, YCP( S ) )
+!                 YCP( S ) = MAX( ZERO, YCP( S ) )
+                  YCP( S ) = MAX( ZERO, MIN( MAXPRED, YCP( S ) ) )
+!                 YCP( S ) = MAX( ZERO, MIN( MAXPRED, .8 * YCP( S ) + .2 * yc0( s ) ) )
                enddo
 
                LEBI_CONV = .TRUE.
-               MXFL = .FALSE.
+!              MXFL = .FALSE.
 
-               do s = 1, numb_mech_spc
-                  IF( YCP( S ) .GT. MAXPRED ) THEN
-                     MXFL = .TRUE.
-                     GO TO 1010
-                  END IF
-               enddo
+!               do s = 1, numb_mech_spc
+!                  IF( YCP( S ) .GT. MAXPRED .AND. NOTMAX( S ) ) THEN
+!                     MXFL = .TRUE.
+!                     GO TO 1010
+!                  END IF
+!               enddo
 
                DO S = 1, NUMB_MECH_SPC
                   IF ( ABS(YC(S)-YCP(S)) .GT. max(RTOL(S)*(YC(S)+YCP(S)), 1.d-24) ) THEN
                      LEBI_CONV     = .FALSE.
-!                    LEBISPFL( S ) = .TRUE.
 
-!                    if (n_ebi_it > 10) write(logdev,'(1x,I4,I3,1x,A7,10g14.5)') n_ebi_it, s,
-!     &                    trim(CHEMISTRY_SPC( S )), real(yc(s)),
-!     &                    real(ycp(s)), real(ABS(YC(S)-YCP(S))), rtol(s),
-!     &                    max(RTOL(S)*(YC(S)+YCP(S)),1.d-27)
+!                    if (n_ebi_it > 5) write(logdev,'(1x,3I4,I6,1x,A7,10g14.5)') n_ebi_it, s,
+!     &                    l, c, trim(CHEMISTRY_SPC( S )), real(yc(s)),
+!     &                    real(ycp(s)), yc0(s)!, real(ABS(YC(S)-YCP(S))), rtol(s),
+!!     &                    max(RTOL(S)*(YC(S)+YCP(S)),1.d-24)
                      EXIT
                   END IF
                END DO
 
-               if (iter < 5) then
-                  do s = 1, numb_mech_spc
-                     yc(s) = ycp(s)
-                  enddo
-               else
-                  do s = 1, numb_mech_spc
-                     YC( S ) = 0.96d0 * YCP( S ) + 0.04d0 * yc( s )
-                  enddo
-               endif
+               IF (ITER <= 2 .OR. LEBI_CONV) THEN
+                  YC = YCP
+               ELSE
+                  DO S = 1, NUMB_MECH_SPC
+                     YC( S ) = 0.925D0 * YCP( S ) + 0.075D0 * YC( S )
+                  ENDDO
+               ENDIF
 
 c++++++++++++++++++++++++Debug section++++++++++++++++++++++++++++++++++
 #ifdef hrdebug
@@ -304,31 +290,24 @@ c++++++++++++++++++++++++Debug section++++++++++++++++++++++++++++++++++
 #endif
 c++++++++++++++++++++++++Debug section++++++++++++++++++++++++++++++++++
 
+                IF( LEBI_CONV ) RETURN
 
-                IF( LEBI_CONV )THEN
-                   GO TO 3000
-                END IF
-
-1000        CONTINUE
+            END DO  ! EBI ITER
 
 c...Convergence failure section; cut the inner time step in half &
 c.....start inner loop over unless max backups exceeded
-
-1010        CONTINUE
 
             NBKUPS = NBKUPS + 1
 
             IF( NBKUPS .LE. MXBKUPS ) THEN
 
-               IF ( MXFL ) THEN
-                  WRITE( LOGDEV, 92010 ) C, R, L, TRIM( CHEMISTRY_SPC( S ) ), NBKUPS
-               ELSE
+!              IF ( MXFL ) THEN
+!                 WRITE( LOGDEV, 92010 ) C, R, L, TRIM( CHEMISTRY_SPC( S ) ), NBKUPS
+!              ELSE
                   WRITE( LOGDEV, 92000 ) C, R, L, NBKUPS
-               END IF
+!              END IF
 
-               DO S = 1, NUMB_MECH_SPC
-                  YC( S ) = YC0( s )
-               END DO
+               YC = YC0
 
                DTC = 0.5D0 * DTC
 
@@ -341,21 +320,13 @@ c.....start inner loop over unless max backups exceeded
                WRITE( LOGDEV, 92040 ) C, R, L
 
                WRITE( LOGDEV, 92060 )
-!               DO S = 1, NUMB_MECH_SPC
-!                  IF( LEBISPFL( S ) ) WRITE( LOGDEV, 92080 ) CHEMISTRY_SPC( S )
-!               END DO
 
                MSG = 'ERROR: Stopping because of EBI convergence failures'
                CALL M3EXIT( PNAME, JDATE, JTIME, MSG, XSTAT2 )
 
             END IF
 
-2000     CONTINUE
-
-3000  CONTINUE
-
-      RETURN
-
+         END DO  ! NINR
 
 92000 FORMAT( 'WARNING: EBI Euler convergence failure' /
      &        '         Reducing EBI time step because of ',

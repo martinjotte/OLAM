@@ -28,8 +28,8 @@
 
 /* Section 1 */
 #define GB2_Sec1_size(sec)		(sec[1] ? uint4(sec[1]+0) : 0)
-#define GB2_Center(sec)			INT2(sec[1][5], sec[1][6])
-#define GB2_Subcenter(sec)		INT2(sec[1][7], sec[1][8])
+#define GB2_Center(sec)			UINT2(sec[1][5], sec[1][6])
+#define GB2_Subcenter(sec)		UINT2(sec[1][7], sec[1][8])
 #define GB2_MasterTable(sec)		((int) (sec[1][9]))
 #define GB2_LocalTable(sec)		((int) (sec[1][10]))
 
@@ -57,8 +57,8 @@
 #define GDS_Lambert_NP(gds)		(((gds[63]) & 128) == 0)
 #define GDS_Lambert_nx(gds)		(uint4_missing(gds+30))
 #define GDS_Lambert_ny(gds)		(uint4_missing(gds+34))
-#define GDS_Lambert_dx(gds)		(int4(gds+55) * 0.001) 
-#define GDS_Lambert_dy(gds)		(int4(gds+59) * 0.001) 
+#define GDS_Lambert_dx(gds)		(int4(gds+55) * 0.001)
+#define GDS_Lambert_dy(gds)		(int4(gds+59) * 0.001)
 
 #define GDS_Albers_La1(gds)		(int4(gds+38) * 0.000001)
 #define GDS_Albers_Lo1(gds)		(int4(gds+42) * 0.000001)
@@ -72,11 +72,11 @@
 #define GDS_Albers_NP(gds)		(((gds[63]) & 128) == 0)
 #define GDS_Albers_nx(gds)		(uint4_missing(gds+30))
 #define GDS_Albers_ny(gds)		(uint4_missing(gds+34))
-#define GDS_Albers_dx(gds)		(int4(gds+55) * 0.001) 
-#define GDS_Albers_dy(gds)		(int4(gds+59) * 0.001) 
+#define GDS_Albers_dx(gds)		(int4(gds+55) * 0.001)
+#define GDS_Albers_dy(gds)		(int4(gds+59) * 0.001)
 
 #define GDS_LatLon_basic_ang(gds)	int4(gds+38)
-#define GDS_LatLon_sub_ang(gds)		int4(gds+42)
+#define GDS_LatLon_sub_ang(gds)		sub_angle(gds+42)
 #define GDS_LatLon_lat1(gds)		int4(gds+46)
 #define GDS_LatLon_lon1(gds)		uint4(gds+50)
 #define GDS_LatLon_lat2(gds)		int4(gds+55)
@@ -93,7 +93,7 @@
 #define GDS_NCEP_B_LatLon_nx(gds)           (uint4(gds+30))
 #define GDS_NCEP_B_LatLon_ny(gds)           (uint4(gds+34))
 #define GDS_NCEP_B_LatLon_basic_ang(gds)    int4(gds+38)
-#define GDS_NCEP_B_LatLon_sub_ang(gds)      int4(gds+42)
+#define GDS_NCEP_B_LatLon_sub_ang(gds)      sub_angle(gds+42)
 #define GDS_NCEP_B_LatLon_lat1(gds)         int4(gds+46)
 #define GDS_NCEP_B_LatLon_lon1(gds)         uint4(gds+50)
 #define GDS_NCEP_B_LatLon_tph0d(gds)        int4(gds+55)
@@ -106,7 +106,7 @@
 #define GDS_NCEP_E_LatLon_nx(gds)           (uint4(gds+30))
 #define GDS_NCEP_E_LatLon_ny(gds)           (uint4(gds+34))
 #define GDS_NCEP_E_LatLon_basic_ang(gds)    int4(gds+38)
-#define GDS_NCEP_E_LatLon_sub_ang(gds)      int4(gds+42)
+#define GDS_NCEP_E_LatLon_sub_ang(gds)      sub_angle(gds+42)
 #define GDS_NCEP_E_LatLon_lat1(gds)         int4(gds+46)
 #define GDS_NCEP_E_LatLon_lon1(gds)         uint4(gds+50)
 #define GDS_NCEP_E_LatLon_tph0d(gds)        int4(gds+55)
@@ -141,7 +141,7 @@
 #define GDS_Gaussian_ny(gds)		(uint4(gds+34))
 #define GDS_Gaussian_nlat(gds)		(uint4(gds+67))
 #define GDS_Gaussian_basic_ang(gds)	int4(gds+38)
-#define GDS_Gaussian_sub_ang(gds)	int4(gds+42)
+#define GDS_Gaussian_sub_ang(gds)	sub_angle(gds+42)
 #define GDS_Gaussian_lat1(gds)		int4(gds+46)
 #define GDS_Gaussian_lon1(gds)		uint4(gds+50)
 #define GDS_Gaussian_lat2(gds)		int4(gds+55)
@@ -161,7 +161,8 @@
 #define GDS_Space_xp(gds)		(int4(gds+55)*1e-3)
 #define GDS_Space_yp(gds)		(int4(gds+59)*1e-3)
 #define GDS_Space_ori(gds)		(int4(gds+64)*1e-6)
-#define GDS_Space_altitude(gds)		(uint4_missing(gds+68) == -1 ? -1 : int4(gds+68)*1e-6)
+// #define GDS_Space_altitude(gds)		(uint4_missing(gds+68) == -1 ? -1 : int4(gds+68)*1e-6)
+#define GDS_Space_altitude(gds)		(uint4_missing(gds+68) == 0 ? -1 : int4(gds+68)*1e-6)
 #define GDS_Space_x0(gds)		(int4(gds+72))
 #define GDS_Space_y0(gds)		(int4(gds+76))
 
@@ -169,6 +170,30 @@
 #define GDS_AzRan_lon1(gds)		(uint4(gds+26)*1e-6)
 #define GDS_AzRan_dx(gds)		(uint4(gds+30)*1e-3)
 #define GDS_AzRan_dstart(gds)		(uint4(gds+34)*1e-3)
+
+
+#define GDS_Lambert_Az_La1(gds)         (int4(gds+38) * 0.000001)
+#define GDS_Lambert_Az_Lo1(gds)         (uint4(gds+42) * 0.000001)
+#define GDS_Lambert_Az_Std_Par(gds)     (int4(gds+46) * 0.000001)
+#define GDS_Lambert_Az_Cen_Lon(gds)     (int4(gds+50) * 0.000001)
+#define GDS_Lambert_Az_nx(gds)          (uint4_missing(gds+30))
+#define GDS_Lambert_Az_ny(gds)          (uint4_missing(gds+34))
+#define GDS_Lambert_Az_dx(gds)          (int4(gds+55) * 0.001)
+#define GDS_Lambert_Az_dy(gds)          (int4(gds+59) * 0.001)
+
+// #ifdef WMO_VALIDATION
+#define GDS_Gnom_face_size(gds)         uint4(gds+38)
+#define GDS_Gnom_i_offset(gds)		uint4(gds+42)
+#define GDS_Gnom_j_offset(gds)		uint4(gds+46)
+#define GDS_Gnom_tile(gds)              gds[50]
+#define GDS_Gnom_SP_Lat(gds)            (int4(gds+51) * 0.000001)
+#define GDS_Gnom_SP_Lon(gds)            (uint4(gds+55) * 0.000001)
+// not sure if rotation angle can be negative
+#define GDS_Gnom_SP_Rot(gds)            (int4(gds+59) * 0.000001)
+#define GDS_Gnom_Stretch(gds)           (int4(gds+63) * 0.000001)
+#define GDS_Gnom_B(gds)                 (int4(gds+67) * 0.000001)
+// #endif
+
 
 #define GDS_CrossSec_basic_ang(gds)	int4(gds+34)
 #define GDS_CrossSec_sub_ang(gds)	int4(gds+38)
@@ -221,3 +246,6 @@
 /* some center codes */
 #define NCEP 7
 #define ECMWF 98
+#define JMA1 34
+#define JMA2 35
+#define KMA 40

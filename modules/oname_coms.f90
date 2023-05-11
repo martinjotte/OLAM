@@ -1,369 +1,432 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 Module oname_coms
 
-   use max_dims,    only: nzgmax, maxsndg, maxgrds, maxisdirs, maxnplt,  &
-                          maxpltfiles, maxngrdll, pathlen, maxlite
-   use consts_coms, only: r8
+  use max_dims,    only: maxsndg, maxgrds, maxisdirs, maxnplt,  &
+                         maxpltfiles, maxngrdll, pathlen, maxlite, maxlatlon
+  use consts_coms, only: r8
 
-   ! Do not re-export symbols from other modules
+  implicit none
 
-   private :: nzgmax, maxsndg, maxgrds, maxisdirs, maxnplt, &
-              maxpltfiles, maxngrdll, pathlen, maxlite, r8
+  ! Do not re-export symbols from other modules
 
-   ! Derived type to hold the components of the plot specification fields
+  private :: maxsndg, maxgrds, maxisdirs, maxnplt, &
+             maxpltfiles, maxngrdll, pathlen, maxlite, maxlatlon, r8
 
-   Type oname_plot
-      character(30) :: fldname    = ''
-      character(1)  :: projectn   = ''
-      integer       :: icolortab  = 0
-      character(20) :: pltspec2   = 'N'
-      real          :: plotcoord1 = 0.0
-      real          :: plotcoord2 = 0.0
-      real          :: slabloc    = 0.0
-      real          :: plotwid    = 0.0
-      real          :: viewazim   = 0.0
-   End Type oname_plot
+  ! Derived types to hold the components of the plot specification fields
 
-   ! Derived type to hold the namelist variables
+  Type oname_colortab
+     integer       :: icolortab   = 0
+     character(30) :: palette     = ' '
+     character(3)  :: cscale      = ' '
+     real          :: cmin        = 0.0
+     real          :: cmax        = 0.0
+     real          :: cinc        = 0.0
+     real          :: zerohalfwid = 0.0
+  End Type oname_colortab
 
-   Type oname_vars
+  Type oname_plot
+     character(30) :: fldname    = ' '
+     character(1)  :: projectn   = ' '
+     integer       :: icolortab  = 0
+     character(20) :: pltspec2   = 'N'
+     real          :: plotcoord1 = 0.0
+     real          :: plotcoord2 = 0.0
+     real          :: slabloc    = 0.0
+     real          :: plotwid    = 0.0
+     real          :: viewazim   = 0.0
+  End Type oname_plot
+
+  ! Derived type to hold the namelist variables
+
+  Type oname_vars
 
 !!    RUNTYPE/NAME
 
-      character(64) :: expnme  = 'OLAM test'
-      character(16) :: runtype = ''
+     character(64) :: expnme  = 'OLAM test'
+     character(16) :: runtype = ' '
 
 !!    SIMULATION ENDING TIME
 
-      character(1) :: timeunit = ''
-      real(r8)     :: timmax   = 0.0_r8
+     character(1) :: timeunit = ' '
+     real(r8)     :: timmax   = 0.0_r8
 
 !!    START OF SIMULATION OR ISAN PROCESSING
 
-      integer :: itime1  = 0
-      integer :: idate1  = 0
-      integer :: imonth1 = 0
-      integer :: iyear1  = 0
+     integer :: itime1  = 0
+     integer :: idate1  = 0
+     integer :: imonth1 = 0
+     integer :: iyear1  = 0
 
 !!    GRID SPECIFICATIONS
 
-      integer :: mdomain  = 0
-      integer :: nzp      = 0
-      integer :: nxp      = 0
+     integer :: mdomain  = 0
+     integer :: nzp      = 0
+     integer :: nxp      = 0
 
-      real(r8) :: dtlong = 0.0_r8
-      real     :: deltax = 0.0
+     real(r8) :: dtlong = 0.0_r8
+     integer :: ndz = 0
 
-      integer :: ndz = 0
+     real :: hdz(10) = 0.
+     real :: dz (10) = 0.
 
-      real :: hdz(10) = 0.
-      real :: dz (10) = 0.
+     real :: zz(maxsndg) = 0.0
 
-      real :: zz(maxsndg) = 0.0
+!!    LIMITED-AREA RUN SPECIFICATION
+
+     real :: deltax = 1000.0
+
+     real :: u_geostrophic = 0.0
+     real :: v_geostrophic = 0.0
+
+     real :: rlat0 = 45.0
+     real :: rlon0 =  0.0
+
+     real(r8) :: les_diag_freq = 0.0_r8
 
 !!    NESTED GRID DEFINITION
 
-      integer :: ngrids     = 1
-      integer :: ngrids_old = 0
+     integer :: ngrids     = 1
+     integer :: gridplot_base = 2
 
-      integer :: ngrdll(maxgrds) = 0
+     integer :: ngrdll(maxgrds) = 0
 
-      real    :: grdrad(maxgrds,maxngrdll) = 0.0
-      real    :: grdlat(maxgrds,maxngrdll) = 0.0
-      real    :: grdlon(maxgrds,maxngrdll) = 0.0
+     real    :: grdrad(maxgrds,maxngrdll) = 0.0
+     real    :: grdlat(maxgrds,maxngrdll) = 0.0
+     real    :: grdlon(maxgrds,maxngrdll) = 0.0
+
+     integer :: nsfcgrids          =  0
+     integer :: sfcgrid_res_factor =  1
+     integer :: sfcgridplot_base   =  1
+
+     integer :: nsfcgrdll(maxgrds) = 0
+
+     real    :: sfcgrdrad(maxgrds,maxngrdll) = 0.0
+     real    :: sfcgrdlat(maxgrds,maxngrdll) = 0.0
+     real    :: sfcgrdlon(maxgrds,maxngrdll) = 0.0
+
+     integer :: nswmzons = 0
+
+     integer :: nswmzonll(maxgrds) = 0
+
+     real    :: swmzonrad(maxgrds,maxngrdll) = 0.0
+     real    :: swmzonlat(maxgrds,maxngrdll) = 0.0
+     real    :: swmzonlon(maxgrds,maxngrdll) = 0.0
+
+     integer :: npomzons = 0
+
+     integer :: npomzonll(maxgrds) = 0
+
+     real    :: pomzonrad(maxgrds,maxngrdll) = 0.0
+     real    :: pomzonlat(maxgrds,maxngrdll) = 0.0
+     real    :: pomzonlon(maxgrds,maxngrdll) = 0.0
 
 !!    TIMESTEP RATIOS
 
-      integer :: ndtrat (maxgrds) = 1
-      integer :: nacoust(maxgrds) = 1
+     integer :: nacoust = 1
 
 !!    VARIABLE INITIALIZATION INPUT
 
-      integer            :: initial  = 0
-      character(pathlen) :: zonclim  = '../etc/ZONAVG_CLIMATE'
+     integer            :: initial  = 0
+     character(pathlen) :: zonclim  = '../etc/ZONAVG_CLIMATE'
 
 !!    NUDGING PARAMETERS
 
-      integer :: nudflag     = 0
-      integer :: max_nud_mrl = maxgrds
-      integer :: nudnxp      = 0
-      real    :: tnudcent    = 86400.0
+     integer :: nudflag     = 0
+     integer :: max_nud_mrl = maxgrds
+     integer :: nudnxp      = 0
+     real    :: tnudcent    = 86400.0
+
+     logical :: nud_preserve_mix_ratio = .true.
 
 !!    HISTORY/OUTPUT FILES
 
-      integer :: ioutput      = 1
-      integer :: ioutput_mavg = 1
-      integer :: ioutput_davg = 1
-      integer :: ioutput_lite = 0
-      integer :: ioutput_latlon = 0
+     logical :: save_node_logs = .true.
 
-      integer :: iblocksize = -1
-      integer :: iclobber  = 0
-      integer :: icompress = 0
-      integer :: latlonplot = 0
+     integer :: ioutput      = 1
+     integer :: ioutput_mavg = 1
+     integer :: ioutput_davg = 1
+     integer :: ioutput_lite = 0
+     integer :: ioutput_latlon = 0
 
-      real(r8):: frqstate  = 3600.0_r8
-      real(r8):: frqlite   = 3600.0_r8
-      real(r8):: frqlatlon = 3600.0_r8
+     integer :: iblocksize = -1
+     integer :: iclobber  = 0
+     integer :: icompress = 0
+     integer :: latlonplot = 0
+     integer :: nlatlonpd = 1
 
-      character(pathlen) :: hfilin    = ''
-      character(pathlen) :: hfilepref = 'hist/'
-      character(pathlen) :: lfilepref = 'hist/l'
-      character(32)      :: lite_vars(maxlite) = ''
+     real(r8):: frqstate  = 3600.0_r8
+     real(r8):: frqlite   = 3600.0_r8
+     real(r8):: frqlatlon = 3600.0_r8
+
+     real :: beglat =  -90.
+     real :: endlat =   90.
+     real :: beglon = -180.
+     real :: endlon =  180.
+
+     character(pathlen) :: hfilin    = ' '
+     character(pathlen) :: hfilepref = 'hist/'
+     character(pathlen) :: lfilepref = 'hist/l'
+     character(32)      :: lite_vars(maxlite) = ' '
+     character(32)      :: latlon_vars(maxlatlon) = ' '
 
 !!    MODEL/NUMERICAL OPTIONS
 
-      integer :: naddsc      = 0
+     integer :: naddsc      = 0
 
-      integer :: ithil_monot = 0
-      integer :: ivelc_monot = 0
-      integer :: iscal_monot = 0
+     integer :: ithil_monot = 0
+     integer :: iscal_monot = 0
 
-      integer :: split_scalars = 0
+     integer :: horiz_adv_order = 2
 
-      integer :: vert_adv_order  = 3
-      integer :: horiz_adv_order = 2
+     integer :: acoust_timestep_level = 3
+     integer :: scalar_timestep_level = 2
 
-      real    :: akmin_vort  = 0.8
-      real    :: akmin_div2d = 0.4
+     real    :: akmin_vort     = 0.4
+     real    :: divh_damp_fact = 0.1
 
-      logical :: debug_fp    = .false.
-      logical :: init_nans   = .false.
+     logical :: zero_neg_scalars = .true.
+
+     logical :: debug_fp    = .false.
+     logical :: init_nans   = .false.
 
 !!    RAYLEIGH FRICTION PARAMETERS
 
-      real :: rayf_zmin    = 30000.0
-      real :: rayf_distim  = 0.0
-      real :: rayf_expon   = 1.0
+     real :: rayf_zmin  = 30000.0
+     real :: rayf_fact  = 0.0
+     real :: rayf_expon = 1.0
 
-      real :: rayfw_zmin   = 30000.0
-      real :: rayfw_distim = 0.0
-      real :: rayfw_expon  = 1.0
+     real :: rayfw_zmin  = 30000.0
+     real :: rayfw_fact  = 0.0
+     real :: rayfw_expon = 1.0
 
-      real :: rayfdiv_zmin   = 30000.0
-      real :: rayfdiv_distim = 0.0
-      real :: rayfdiv_expon  = 1.0
+     real :: rayfdiv_zmin  = 30000.0
+     real :: rayfdiv_fact  = 0.0
+     real :: rayfdiv_expon = 1.0
+
+     real :: rayfmix_zmin  = 30000.0
+     real :: rayfmix_fact  = 0.0
+     real :: rayfmix_expon = 1.0
 
 !!    RADIATION PARAMETERIZATION PARAMETERS
 
-      integer :: iswrtyp = 0
-      integer :: ilwrtyp = 0
-      real(r8):: radfrq  = 1800.0_r8
+     integer :: iswrtyp = 0
+     integer :: ilwrtyp = 0
+     real(r8):: radfrq  = 1800.0_r8
 
-      integer :: iclrsky = 1
+     character(pathlen) :: rrtmg_datadir = '../etc'
 
-      character(pathlen) :: rrtmg_datadir = '../etc'
-
-      integer :: icfrac   = 0
-      real    :: cfracrh1 = 0.8
-      real    :: cfracrh2 = 1.1
-      real    :: cfraccup = 0.7
+     integer :: icfrac   = 0
+     real    :: cfracrh1 = 0.8
+     real    :: cfracrh2 = 1.1
+     real    :: cfraccup = 0.7
 
 !!    CUMULUS PARAMETERIZATION PARAMETERS
 
-      integer  :: nqparm(maxgrds)     = 0
-      integer  :: conv_uv_mix         = 0
-      integer  :: conv_tracer_mix     = 0
-      real(r8) :: confrq              = 1800.0_r8
-      real     :: conv_akmin(maxgrds) = 0.0
+     integer :: nqparm(maxgrds) = 0
+     integer :: conv_uv_mix     = 0
+     integer :: conv_tracer_mix = 0
+
+     real(r8) :: confrq          = 1800.0_r8
 
 !!    EDDY DIFFUSION PARAMETERS
 
-      integer :: idiffk(maxgrds) = 2
-      real    :: csx   (maxgrds) = 0.2
-      real    :: csz   (maxgrds) = 0.2
-      real    :: akmin (maxgrds) = 0.0
-      integer :: moist_buoy      = 1
+     integer :: idiffk(maxgrds) = 2
+     real    :: csx   (maxgrds) = 0.2
+     real    :: csz   (maxgrds) = 0.2
+     real    :: akmin (maxgrds) = 0.0
+     integer :: moist_buoy      = 1
 
 !!    MICROPHYSICS PARAMETERS
 
-      integer :: miclevel  = 3
-      integer :: icloud = 4
-      integer :: idriz  = 5
-      integer :: ipris  = 5
-      integer :: irain  = 2
-      integer :: isnow  = 2
-      integer :: iaggr  = 2
-      integer :: igraup = 2
-      integer :: ihail  = 2
+     integer :: miclevel  = 3
+     integer :: icloud = 4
+     integer :: idriz  = 5
+     integer :: ipris  = 5
+     integer :: irain  = 2
+     integer :: isnow  = 2
+     integer :: iaggr  = 2
+     integer :: igraup = 2
+     integer :: ihail  = 2
 
-      integer :: iccn   = 1
-      integer :: igccn  = 1
-      integer :: iifn   = 1
+     integer :: iccn   = 1
+     integer :: igccn  = 1
+     integer :: iifn   = 1
 
-      real :: rparm  = .001   ! [m]
-      real :: sparm  = .003   ! [m]
-      real :: aparm  = .003   ! [m]
-      real :: gparm  = .003   ! [m]
-      real :: hparm  = .01    ! [m]
+     real :: rparm  = .001   ! [m]
+     real :: sparm  = .003   ! [m]
+     real :: aparm  = .003   ! [m]
+     real :: gparm  = .003   ! [m]
+     real :: hparm  = .01    ! [m]
 
-      real :: ccnparm  = 300.e6 ! [#/kg]
-      real :: gccnparm =   3.e0 ! [#/kg]
-      real :: ifnparm  =   0.e0 ! [#/kg]
+     real :: ccnparm  = 300.e6 ! [#/kg]
+     real :: gccnparm =   3.e0 ! [#/kg]
+     real :: ifnparm  =   0.e0 ! [#/kg]
 
 !!    CO2 PARAMETERS
 
-      integer :: co2flag       = 0
-      real    :: co2_ppmv_init = 400.0
+     integer :: co2flag       = 0
+     real    :: co2_ppmv_init = 400.0
+
+!!    HURRICANE DYNAMIC INITIALIZATION PARAMETERS
+
+     integer  :: ncycle_hurrinit
+     real(r8) :: timmax_hurrinit
+
+     real :: hlat0          ! Obs hurricane latitude (deg)
+     real :: hlon0          ! Obs hurricane longitude (deg)
+
+     real :: rad1_blend     ! Inner radius for relocation blending weights (m)
+     real :: rad2_blend     ! Outer radius for relocation blending weights (m)
+
+     real :: zcent_thpert   ! Center height of toroidal heating region (m)
+     real :: zhwid_thpert   ! Vertical half-width of toroidal heating region (m)
+
+     real :: rcent_thpert   ! Center radius of toroidal heating region (m)
+     real :: rhwid_thpert   ! Radial half-width of toroidal heating region (m)
+
+     real :: maxrate_thpert ! Maximum heating rate (K/s) in toroidal heating region (K/s)
+
+     real :: vtan_targ      ! Target maximum tangential wind speed (to modulate heating rate)
+     real :: pmsl_targ      ! Target minimum sea level pressure (to modulate heating rate)
 
 !!    SOUNDING SPECIFICATION
 
-      integer :: nsndg   = 0
-      integer :: ipsflg  = 1
-      integer :: itsflg  = 0
-      integer :: irtsflg = 3
-      integer :: iusflg  = 0
+     integer :: nsndg   = 0
+     integer :: ipsflg  = 1
+     integer :: itsflg  = 0
+     integer :: irtsflg = 3
+     integer :: iusflg  = 0
 
-      real :: hs    = 0.0
-      real :: p_sfc = 1000.0
+     real :: hs    = 0.0
+     real :: p_sfc = 1000.0
 
-      real :: sounding(5,maxsndg) = 0.0
+     real :: sounding(5,maxsndg) = 0.0
 
-!!    GRID, LAND, AND SEA FILES PATH/NAMES; LAND AND SEA GRID CONFIGURATIONS
+!!    ATM AND SFC GRID FILES PATH/NAMES
 
-      character(pathlen) :: gridfile    = 'sfcfiles/gridfile_0'
-      character(pathlen) :: landusefile = 'sfcfiles/landh'
-      character(pathlen) :: seafile     = 'sfcfiles/seah'
-
-      integer :: iseagrid  =  1
+     character(pathlen) :: gridfile   = 'sfcfiles/gridfile_0'
+     character(pathlen) :: sfcgfile   = 'sfcfiles/sfcgfile_0'
 
 !!    TOPOGRAPHY, LEAF, SEA VARIABLES
 
-      integer :: isfcl     =  1
-      integer :: nzg       = 11
-      integer :: nzs       =  1
+     integer :: isfcl       =  1
+     integer :: igw_spinup  =  0
+     integer :: nzs         =  1
+     integer :: nzg         = 21
+     integer :: nzpom       = 40
+     integer :: niter_swm   =  1
 
-      integer :: itopoflg   = 2
-      integer :: ivegflg    = 0
-      integer :: isoilflg   = 0
-      integer :: ndviflg    = 0
-      integer :: isstflg    = 0
-      integer :: iseaiceflg = 0
+     real :: landgrid_dztop = 0.05
+     real :: landgrid_depth = 5.00
 
-      integer :: isoilstateinit = 0
-      integer :: iwatertabflg   = 0
-      integer :: isoilmodel     = 0
-      integer :: iorogslopeflg  = 0
+     real :: pom_dztop = 5.0
+     real :: pom_depth = 4500.
 
-      integer :: iupdndvi   = 0
-      integer :: iupdsst    = 0
-      integer :: iupdseaice = 0
-      integer :: nvgcon     = 8
-      integer :: nslcon     = 6
+     integer :: isoilflg   = 2
+     integer :: isoilptf   = 3
+     integer :: itopoflg   = 2
+     integer :: ibathflg   = 2
+     integer :: ivegflg    = 2
+     integer :: ndviflg    = 2
+     integer :: isstflg    = 0
+     integer :: iseaiceflg = 0
 
-      real    :: seatmp = 280.0
-      real    :: seaice =   0.0
+     integer :: isoilstateinit = 0
+     integer :: iwatertabflg   = 0
+     integer :: iorogslopeflg  = 0
 
-      real :: slz(nzgmax) = (/ -1.00, -.85, -.70, -.60, -.50, -.40, &
-           -.30, -.20, -.15, -.10, -.05, (0.0, i=12,nzgmax) /)
+     integer :: iupdndvi   = 0
+     integer :: iupdsst    = 0
+     integer :: iupdseaice = 0
+     integer :: nvgcon     = 8
 
-      character(pathlen) :: topo_database   = ''
-      character(pathlen) :: veg_database    = ''
-      character(pathlen) :: soil_database   = ''
-      character(pathlen) :: ndvi_database   = ''
-      character(pathlen) :: sst_database    = ''
-      character(pathlen) :: seaice_database = ''
-      character(pathlen) :: watertab_db     = ''
-      character(pathlen) :: orog_slope_db   = ''
+     real    :: seatmp = 280.0
+     real    :: seaice =   0.0
 
-!!    ED MODEL VARIABLES
+     real    :: topodb_cutoff = 200.
 
-      character(pathlen) :: ed2_namelist = ''
-      integer            :: ed2_active   = 0
+     character(pathlen) :: gw_spinup_sfcgfile = ' '
+     character(pathlen) :: gw_spinup_histfile = ' '
+     character(pathlen) :: topo_database(2)   = ' '
+     character(pathlen) :: bathym_database    = ' '
+     character(pathlen) :: veg_database       = ' '
+     character(pathlen) :: soil_database      = ' '
+     character(pathlen) :: soilgrids_database = ' '
+     character(pathlen) :: glhymps_database   = ' '
+     character(pathlen) :: ndvi_database      = ' '
+     character(pathlen) :: sst_database       = ' '
+     character(pathlen) :: seaice_database    = ' '
+     character(pathlen) :: watertab_db        = ' '
+     character(pathlen) :: orog_slope_db      = ' '
 
 !!    ISENTROPIC CONTROL
 
-      character(pathlen) :: iapr(maxisdirs) = ''
+     character(pathlen) :: iapr(maxisdirs) = ' '
 
 !!    CMAQ Chemistry
 
-      integer :: do_chem               =   0
-      integer :: ltng_nox              =   0
-      real(r8):: photfrq               = 600.0_r8
-      logical :: core_shell_photolysis = .false.
-      logical :: mie_calc_photolysis   = .false.
+     integer :: do_chem               =   0
+     integer :: ltng_nox              =   0
+     real(r8):: photfrq               = 600.0_r8
+     integer :: aerosol_optics_photol = 0
+     integer :: do_emis               = 1
+     integer :: do_drydep             = 1
+     integer :: do_aesedi             = 1
 
-      character(pathlen) :: emis_dir  = '../../olamdatah5/edgar42'
-      character(pathlen) :: geia_emis_file = '../etc/geia_emis.nc4'
+     character(pathlen) :: emis_dir  = '../../olamdatah5/edgar42'
+     character(pathlen) :: geia_emis_file = '../etc/geia_emis.nc4'
 
-      logical            :: megan_use_pfts_file = .false.
-      character(pathlen) :: megan_pfts_file = '../../olamdatah5/megan/pfts.nc4'
+     logical            :: megan_use_pfts_file = .false.
+     character(pathlen) :: megan_pfts_file = '../../olamdatah5/megan/pfts.nc4'
 
-      integer :: o3nudflag  = 0
-      real    :: o3nudpress = 150.0
-      real    :: o3tnudcent = 86400.0
+     integer :: o3nudflag  = 0
+     real    :: o3nudpress = 150.0
+     real    :: o3tnudcent = 86400.0
 
 !!    MODEL_PLOT VARIABLES
 
-      integer :: nplt        = 0
-      integer :: nplt_files  = 0
-      integer :: nmavg_files = 0
-      integer :: ndavg_files = 0
-      real(r8):: frqplt     = 3600.0_r8
-      real    :: dtvec      = 1200.0
-      real    :: headspeed  = 3.0
-      real    :: stemlength = 3.0e3
-      integer :: plttype    = 0
-      integer :: pltorient  = 0
-      integer :: vec_maxmrl = maxgrds
-      real    :: zplot_min = -1.0
-      real    :: zplot_max = -1.0
+     integer :: nplt        = 0
+     integer :: nplt_files  = 0
+     integer :: nmavg_files = 0
+     integer :: ndavg_files = 0
+     integer :: nlite_files = 0
+     real(r8):: frqplt     = 3600.0_r8
+     real    :: dtvec      = 1200.0
+     real    :: headspeed  = 3.0
+     real    :: stemlength = 3.0e3
+     integer :: plttype    = 0
+     integer :: pltorient  = 0
+     integer :: vec_maxmrl = maxgrds
+     real    :: zplot_min  = -1.0
+     real    :: zplot_max  = -1.0
+     integer :: mapcolor   = 13
+     integer :: llcolor    = 13
+     integer :: ncolortabs = 0
 
-      character(pathlen) :: pltname     = 'gmeta'
-      character(10)      :: prtval_size = 'medium'
+     character(pathlen) :: pltname     = 'gmeta'
+     character(10)      :: prtval_size = 'medium'
 
 !!    THE LIST OF FILES TO PLOT FROM
 
-      character(pathlen) ::  plt_files(maxpltfiles) = ''
-      character(pathlen) :: mavg_files(maxpltfiles) = ''
-      character(pathlen) :: davg_files(maxpltfiles) = ''
+     character(pathlen) ::  plt_files(maxpltfiles) = ' '
+     character(pathlen) :: mavg_files(maxpltfiles) = ' '
+     character(pathlen) :: davg_files(maxpltfiles) = ' '
+     character(pathlen) :: lite_files(maxpltfiles) = ' '
 
 !!    THE ARRAYS OF FIELDS TO PLOT
 
-      type(oname_plot) :: plotspecs(maxnplt)
+     type(oname_colortab) :: colortabs(maxnplt)
+     type(oname_plot)     :: plotspecs(maxnplt)
 
 !!    NCAR DCMIP 2012 PARAMETERS
 
-      integer :: test_case
+     integer :: test_case
 
-   End Type oname_vars
+  End Type oname_vars
 
-   type (oname_vars), save :: nl
+  type (oname_vars) :: nl
+  integer           :: numcf =  0
 
-   integer, parameter :: maxcf = 10
-   integer            :: numcf =  0
-   character(40) :: cmdlne_runtype = ''
-   character(99) :: cmdlne_fields(maxcf) = ''
+  character(40)              :: cmdlne_runtype = ' '
+  character(99), allocatable :: cmdlne_fields(:)
 
 End Module oname_coms

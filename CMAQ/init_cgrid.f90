@@ -25,7 +25,6 @@ subroutine init_cgrid ()
   !   Environment variable can reference a previous CONC file to use as
   !   initial data.
   !   Write initial conc data as step "0" on output conc file
-  
   !   revised  6/12/97 by Jerry Gipson: Get ICs by species name, by surrogate
   !            name, or zero
   !   Jeff - Aug 97 - fixed problems, cleaned up
@@ -45,23 +44,35 @@ subroutine init_cgrid ()
   !   16 Feb 11 S.Roselle: replaced I/O API include files with UTILIO_DEFN;
   !                        removed deprecated TRIMLEN
   !    2 Sep 11 J.Young: change ICBC_FAC policy to always assigning factor,
-  !                      if specified, not just if a surrogate is also specified 
+  !                      if specified, not just if a surrogate is also specified
   !   11 Sep 15 B.Murphy: add condition for no surrogate name
   !-----------------------------------------------------------------------
 
-  use utilio_defn
-  use misc_coms,  only: imonth1, idate1, iyear1, itime1
-  use max_dims,   only: pathlen      
+  use utilio_defn, only: index1, m3exit, xstat3, init3
+  use misc_coms,   only: imonth1, idate1, iyear1, itime1
+  use max_dims,    only: pathlen
   use cgrid_spcs
-  use cgrid_defn, only: cgrid
+  use cgrid_defn,  only: cgrid
   use string_lib
   use rxns_data
-
+  use const_data
+  use mem_grid,    only: mza, lpw
+  use mem_basic,   only: rho, press
+  use mem_ijtabs,  only: jtab_w, jtw_init
+  use aero_data,   only: aer_str, aer_end, aer_num, srf_str, srf_end, &
+                         mode_map, aer_trac, aer_wet, aer_m3, num_str, num_end
   IMPLICIT NONE
 
 ! Parameters:
 
   REAL, PARAMETER :: CMIN = 1.0E-30
+  REAL, PARAMETER :: PTOP = 50.E2
+  REAL, PARAMETER :: ONETHIRD = 1. / 3.
+  REAL, PARAMETER :: MAOAVO1000 = 1.0E+03 * MWAIR / AVO
+
+  ! External Functions:
+
+  INTEGER, EXTERNAL :: FINDEX       !  looks up number in table.
 
 ! Local Variables
 
@@ -72,16 +83,44 @@ subroutine init_cgrid ()
   integer,             external :: julday
   real,             allocatable :: vglevs_in(:)
   real,             allocatable :: vglays_in(:)
-  real,             allocatable :: vghgts_in(:)
-  real,             allocatable :: inprof( :,: )
-  
+  real,             allocatable :: press_in (:)
+  real,             allocatable :: densi_in (:)
+  real,             allocatable :: vec_in   (:)
+  character(  10 ), allocatable :: units_in (:)
+  real,             allocatable :: inprof   (:,:)
+
+  integer :: lo3, lch4
+  INTEGER :: SPC_STRT
+  INTEGER :: N_SPCS                     ! no. of species for this call
+  INTEGER :: NDX                        ! loop copy of INDX
+  INTEGER :: ISUR                       ! surrogate index
+  INTEGER :: SPC, V, j, iw, k, ka       ! loop counters
+  integer :: i, len
+  real    :: psfc
+  real    :: vec(mza), press_out(mza), dens_out(mza)
+
+  character(50), parameter :: fmt9  = '( /, 5X, ''IC/BC Factors used for '', A, /)'
+  character(50), parameter :: fmt13 = '( 5X, I3, 2X, A, 1PG13.5 )'
+  CHARACTER(18), parameter :: ESTR1 = 'No IC for species '
+
+  CHARACTER( 16 ) :: CONCMIN
+  CHARACTER( 34 ) :: ESTR2 = ''
+  CHARACTER( 90 ) :: ESTR3 = ''
+
+  INTEGER :: INDX    ( NSPCSD ) ! Variable indices for all IC species
+  REAL    :: ICBC_FAC( NSPCSD ) ! Factor to be applied to ICs
+
+  real    :: conc(aer_num), m3(aer_num)
+  real    :: m3_dry, m3_wet
+
   logical :: exists
   INTEGER :: LOGDEV       ! FORTRAN unit number for log file
   INTEGER :: JDATE        ! starting date,    format YYYYDDD
   INTEGER :: JTIME        ! starting time,    format HHMMSS
   integer :: nvars3d
   integer :: nlays_in
-  integer :: n
+  integer :: n, iskip
+  logical :: icb6
 
 !-----------------------------------------------------------------------
 
@@ -95,9 +134,11 @@ subroutine init_cgrid ()
   ! Initialize the CGRID array (now done at allocation in cgrid_defn)
 
 ! CGRID = CMIN
-  
+
+  icb6 = (index(mechname, 'CB6R3') > 0)
+
   FNAME = '../CMAQ/' // to_lower(trim(MECHNAME)) // '/ic_profile.dat'
-  
+
   inquire(file=FNAME, exist=exists)
   if (.not. exists) then
      write(*,'(/,a)') 'init_cgrid: error opening input file ' // trim(fname)
@@ -105,511 +146,323 @@ subroutine init_cgrid ()
   endif
 
   open( unit=10, file=FNAME, status='old' )
-      
-  ! Skip the 3-line header
-  DO N = 1, 3
+
+  iskip = 3
+  if (icb6) iskip = 11
+
+  ! Skip the header
+  DO N = 1, iskip
      READ( 10, '(A)' ) LINEIN
   END DO
 
   ! Read the # of layers, # of species, and sigma levels
-  READ( 10, '(A)' ) LINEIN
-  read( linein, * ) nlays_in, nvars3d
+  READ( 10, * ) nlays_in, nvars3d
   allocate( vglevs_in( nlays_in + 1 ) )
   allocate( vglays_in( nlays_in ) )
-  allocate( vghgts_in( nlays_in ) )
+  allocate( press_in ( nlays_in ) )
+  allocate( densi_in ( nlays_in ) )
+  allocate( vec_in   ( nlays_in ) )
   allocate( vname3d( nvars3d ) )
   allocate( inprof( nlays_in, nvars3d ) )
-  read( linein, * ) nlays_in, nvars3d, vglevs_in(1:nlays_in+1)
 
-  ! Consume a date and time line
-  READ( 10, * ) 
+  if (icb6) allocate(units_in(nvars3d))
+
+  read( 10, * ) vglevs_in(1:nlays_in+1)
 
   ! Get file data
-  DO N = 1, NVARS3d
-     READ( 10, * ) vname3d(n), inprof(1:nlays_in,n)
+
+  DO N = 1, NVARS3D
+     IF (ICB6) THEN
+        READ( 10, * ) VNAME3D(N), UNITS_IN(N), INPROF(1:NLAYS_IN,N)
+     ELSE
+        READ( 10, * ) VNAME3D(N), INPROF(1:NLAYS_IN,N)
+     ENDIF
   END DO
 
   close ( 10 )
-  
+
   do n = 1, nlays_in
      vglays_in(n) = 0.5 * (vglevs_in(n) + vglevs_in(n+1))
   enddo
 
   ! Load CGRID
-  
-  if ( n_gc_spc .gt. 0 ) then
-     call load_cgrid ( 'GC' )
-  end if
-
-! Get aerosols IC's
-
-  if ( n_ae_spc .gt. 0 ) then
-     call load_cgrid ( 'AE' )
-  end if
-
-  ! Get non-reactives IC's
-
-  if ( n_nr_spc .gt. 0 ) then
-     call load_cgrid ( 'NR' )
-  end if
-
-!!  ! Get tracer IC's
-!!  if ( n_tr_spc .gt. 0 ) then
-!!     call load_cgrid ( 'TR' )
-!!  end if
-
-
-contains
-
-
-  subroutine load_cgrid ( spc_cat )
-
-    use const_data
-    use utilio_defn, only: index1, m3exit, xstat3
-    use mem_grid,    only: mza, lpw, zm, zt
-    use mem_basic,   only: rho, press
-    use mem_ijtabs,  only: jtab_w, jtw_init
-
-    implicit none
 
-    CHARACTER( 2 ),  intent(in) :: SPC_CAT
-
-    ! minimum aerosol sulfate concentration [ ug/m**3 ]
-    REAL, PARAMETER :: AEROCONCMIN = 0.001
-
-    ! The following two factors assume that sulfate density is 1.8e3 [ kg/m**3 ]
-    ! and that the geometric mean diameter and geometric standard deviations
-    ! for the Aitken mode are 0.01e-6 [ m ] and 1.7 respectively
-    ! and are 0.07e-6 and 2.0 respectively for the accumulation mode.
-    
-    ! factor to calculate aerosol number concentration from aerosol sulfate mass
-    ! concentration in the Aitken mode [ ug ].
-    REAL, PARAMETER :: NUMFACT_I = 2.988524E11
-  
-    ! factor to calculate aerosol number concentration from aerosol sulfate mass
-    ! concentration in the Accumulation mode [ ug ].
-    REAL, PARAMETER :: NUMFACT_J = 3.560191E08
-
-    ! fraction of sulfuric acid vapor taken as aerosol for first time step
-    REAL, PARAMETER :: SO4VAPTOAER = 0.999
-
-    ! initial fraction of total aerosol sulfate in the Aitken mode
-    REAL, PARAMETER :: IFRACATKN = 0.04
-
-    ! External Functions:
-
-    INTEGER, EXTERNAL :: FINDEX       !  looks up number in table.
+  ! The original policy for using surrogate names is first, check if the Namelist
+  ! species is on the I! file; if so ignore any surrogate. If the Namelist species
+  ! is not on the IC file, then check if the surrogate name is; if so also use the
+  ! scale factor (default = 1.0).
+  ! Note: parsing in CGRID_SPCS follows this policy for all the Namelist surrogate
+  ! types (EMIS, DEPV, ICBC, and SCAV).
+  ! => Change this for ICBC:
+  ! First check if there's a surrogate name in the Namelist and use it (and the
+  ! corresponding scale factor) if it exists. If it's not on the IC file, which it
+  ! wouldn`t be if it were blank, e.g., then look for the Namelist species name. If
+  ! that name is found on the IC file, then the default scale factor is applied
+  ! (default = 1.0). To use a scale factor other that 1.0, there must be a name in
+  ! the surrogate slot; it could be the same as the Namelist main species name.
 
-    ! Local Variables
+  indx    (:) = 0
+  icbc_fac(:) = 0.0
 
-    REAL    :: MWH2SO4                           ! H2SO4 molec. wt.
-    REAL    :: H2SO4CONV                         ! ppm -> ug/m**3
-    INTEGER :: LSULF, LO3                        ! Gas chem CGRID index
-    INTEGER :: ISO4AJ, ISO4AI, INUMATKN, INUMACC ! CGRID aerosol indices
-
-    INTEGER :: SPC_STRT
-    INTEGER :: N_SPCS                     ! no. of species for this call
-    INTEGER :: NDX                        ! loop copy of INDX
-    INTEGER :: ISUR                       ! surrogate index
-    INTEGER :: SPC, V, j, iw, k, ka, kr   ! loop counters
-    real    :: zbot, ztop
-    real    :: vec (mza)
-
-    character(50), parameter :: fmt9  = '( /, 5X, ''IC/BC Factors used for '', A, /)'
-    character(50), parameter :: fmt13 = '( 5X, I3, 2X, A, 1PG13.5 )'
-    
-    CHARACTER( 16 ) :: PNAME = 'LOAD_CGRID'
-    CHARACTER( 16 ) :: VNAME
-    CHARACTER( 16 ) :: CONCMIN
-    CHARACTER( 96 ) :: XMSG  = ''
-    CHARACTER( 24 ) :: ESTR1 = 'No IC for species '
-    CHARACTER( 34 ) :: ESTR2 = ''
-    CHARACTER( 34 ) :: ESTR3 = ''
-
-    INTEGER :: INDX    ( MAX( N_GC_SPC, N_AE_SPC, N_NR_SPC ) ) ! Variable indices for all IC species
-    REAL    :: ICBC_FAC( MAX( N_GC_SPC, N_AE_SPC, N_NR_SPC ) ) ! Factor to be applied to ICs
-    
-    ! The original policy for using surrogate names is first, check if the Namelist
-    ! species is on the I! file; if so ignore any surrogate. If the Namelist species
-    ! is not on the IC file, then check if the surrogate name is; if so also use the
-    ! scale factor (default = 1.0).
-    ! Note: parsing in CGRID_SPCS follows this policy for all the Namelist surrogate
-    ! types (EMIS, DEPV, ICBC, and SCAV).
-    ! => Change this for ICBC:
-    ! First check if there's a surrogate name in the Namelist and use it (and the
-    ! corresponding scale factor) if it exists. If it's not on the IC file, which it
-    ! wouldn`t be if it were blank, e.g., then look for the Namelist species name. If
-    ! that name is found on the IC file, then the default scale factor is applied
-    ! (default = 1.0). To use a scale factor other that 1.0, there must be a name in
-    ! the surrogate slot; it could be the same as the Namelist main species name.
+  WRITE( CONCMIN,'(1PE9.2)' ) CMIN
+  ESTR2 = ' in ' // TRIM( FNAME ) // '; Look for '
+  ESTR3 = ' in ' // TRIM( FNAME ) // '; set to ' // TRIM( CONCMIN )
 
-    indx    (:) = 0
-    icbc_fac(:) = 0.0
+  LO3  = INDEX1( 'O3'  , N_GC_SPC, GC_SPC ) + GC_STRT - 1
+  LCH4 = INDEX1( 'ECH4', N_GC_SPC, GC_SPC ) + GC_STRT - 1
 
-    WRITE( CONCMIN,'(1PE9.2)' ) CMIN
-    ESTR2 = ' in ' // TRIM( FNAME ) // '; Look for '
-    ESTR3 = ' in ' // TRIM( FNAME ) // '; set to ' // TRIM( CONCMIN )
+  WRITE( LOGDEV, fmt9 ) 'initializing CMAQ gas-phase species'
 
-    IF ( SPC_CAT .EQ. 'GC' ) THEN
+  SPC_STRT = GC_STRT
+  N_SPCS   = N_GC_SPC
 
-       WRITE( LOGDEV, fmt9 ) 'transported gas-phase species'
+  DO SPC = 1, N_SPCS
+     V = SPC + SPC_STRT - 1
 
-       SPC_STRT = GC_STRT
-       N_SPCS   = N_GC_SPC
+     ! skip dummy RXN counter species
+     len = len_trim(GC_SPC(SPC))
+     if (len > 2) then
+        if (gc_spc(spc)(len-2:len) == 'RXN') cycle
+     endif
 
-       LO3 = INDEX1( 'O3', N_GC_SPC, GC_SPC )
+     ! skip H2SO4
+     if (GC_SPC(SPC) == 'SULF') cycle
 
-       DO SPC = 1, N_SPCS
+     ! is there a surrogate name?
+     ISUR = FINDEX ( SPC, N_GC_ICBC, GC_ICBC_MAP )
+     NDX  = 0
 
-          ! is there a surrogate name?
-          ISUR = FINDEX ( SPC, N_GC_ICBC, GC_ICBC_MAP )
-          NDX  = 0
+     IF ( ISUR .NE. 0 ) THEN
 
-          IF ( ISUR .NE. 0 ) THEN
+        ! is it on the IC file?
+        NDX = INDEX1( GC_ICBC( ISUR ), NVARS3D, VNAME3D )
 
-             ! is it on the IC file?
-             NDX = INDEX1( GC_ICBC( ISUR ), NVARS3D, VNAME3D )
+        IF ( NDX .NE. 0 ) THEN
+           INDX( V ) = NDX   ! index in the IC file
+           ICBC_FAC( V ) = GC_ICBC_FAC( ISUR )
+           !  ELSE
+           !     XMSG = ESTR1 // TRIM( GC_ICBC( ISUR ) ) // ESTR2 &
+           !          // TRIM( GC_SPC( SPC ) )
+           !     write( logdev, '(a)') xmsg
+        END IF
 
-             IF ( NDX .NE. 0 ) THEN
-                INDX( SPC ) = NDX   ! index in the IC file
-                ICBC_FAC( SPC ) = GC_ICBC_FAC( ISUR )
-             ELSE
-                XMSG = ESTR1 // TRIM( GC_ICBC( ISUR ) ) // ESTR2 &
-                     // TRIM( GC_SPC( SPC ) )
-                write( logdev, '(a)') xmsg
-             END IF
+     END IF
 
-          END IF
+     ! Cannot find a surrogate, look for the (main) species name on the IC file
+     IF ( ISUR .EQ. 0 .OR. NDX .EQ. 0 ) THEN
 
-          ! Cannot find a surrogate, look for the (main) species name on the IC file
-          IF ( ISUR .EQ. 0 .OR. NDX .EQ. 0 ) THEN
+        NDX = INDEX1( GC_SPC( SPC ), NVARS3D, VNAME3D )
 
-             NDX = INDEX1( GC_SPC( SPC ), NVARS3D, VNAME3D )
+        IF ( NDX .NE. 0 ) THEN
+           INDX( V ) = NDX   ! index in the IC file
+           ICBC_FAC( V ) = 1.0
+        ELSE
+           write( logdev, '(a)') ESTR1 // TRIM( GC_SPC( SPC ) ) // trim(ESTR3)
+        END IF
 
-             IF ( NDX .NE. 0 ) THEN
-                INDX( SPC ) = NDX   ! index in the IC file
-                ICBC_FAC( SPC ) = 1.0
-             ELSE
-                XMSG = ESTR1 // TRIM( GC_SPC( SPC ) ) // ESTR3
-                write( logdev, '(a)') xmsg
-             END IF
-
-          END IF
+     END IF
 
-          IF ( INDX( SPC ) .GT. 0 ) &
-               WRITE( LOGDEV, fmt13 ) INDX( SPC ), GC_SPC( SPC ), ICBC_FAC( SPC )
-
-       END DO
+     IF ( INDX( V ) .GT. 0 ) &
+          WRITE( LOGDEV, fmt13 ) INDX( V ), GC_SPC( SPC ), ICBC_FAC( V )
 
-     
-    ELSE IF ( SPC_CAT .EQ. 'AE' ) THEN
-       
-       WRITE( LOGDEV, fmt9 ) 'transported aerosol species'
-       
-       SPC_STRT = AE_STRT
-       N_SPCS   = N_AE_SPC
-
-       DO SPC = 1, N_SPCS
-
-          ! is there a surrogate name?
-          ISUR = FINDEX ( SPC, N_AE_ICBC, AE_ICBC_MAP )
-          NDX  = 0
-
-          IF ( ISUR .NE. 0 ) THEN
-
-             ! is it on the IC file?
-             NDX = INDEX1( AE_ICBC( ISUR ), NVARS3D, VNAME3D )
-
-             IF ( NDX .NE. 0 ) THEN
-                INDX( SPC ) = NDX   ! index in the IC file
-                ICBC_FAC( SPC ) = AE_ICBC_FAC( ISUR )
-             ELSE
-                XMSG = ESTR1 // TRIM( AE_ICBC( ISUR ) ) // ESTR2 &
-                     // TRIM( AE_SPC( SPC ) )
-                write( logdev, '(a)') xmsg
-             END IF
-
-          END IF
-
-          ! Cannot find a surrogate, look for the (main) species name on the IC file
-          IF ( ISUR .EQ. 0 .OR. NDX .EQ. 0 ) THEN
-
-             NDX = INDEX1( AE_SPC( SPC ), NVARS3D, VNAME3D )
-
-             IF ( NDX .NE. 0 ) THEN
-                INDX( SPC ) = NDX
-                ICBC_FAC( SPC ) = 1.0
-             ELSE
-                XMSG = ESTR1 // TRIM( AE_SPC( SPC ) ) // ESTR3
-                write( logdev, '(a)') xmsg
-             END IF
-          END IF
-
-          IF ( INDX( SPC ) .GT. 0 ) &
-               WRITE( LOGDEV, fmt13 ) INDX( SPC ), AE_SPC( SPC ), ICBC_FAC( SPC )
-        
-       END DO
-       
-    ELSE IF ( SPC_CAT .EQ. 'NR' ) THEN
-
-       WRITE( LOGDEV, fmt9 ) 'transported non-reactive gas species'
-
-       SPC_STRT = NR_STRT
-       N_SPCS   = N_NR_SPC
-
-       DO SPC = 1, N_SPCS
-
-          ! is there a surrogate name?
-          ISUR = FINDEX ( SPC, N_NR_ICBC, NR_ICBC_MAP )
-          NDX  = 0
-          
-          IF ( ISUR .NE. 0 ) THEN
-
-             ! is it on the IC file?
-             NDX = INDEX1( NR_ICBC( ISUR ), NVARS3D, VNAME3D )
-
-             IF ( NDX .NE. 0 ) THEN
-                INDX( SPC ) = NDX   ! index in the IC file
-                ICBC_FAC( SPC ) = NR_ICBC_FAC( ISUR )
-             ELSE
-                XMSG = ESTR1 // TRIM( NR_ICBC( ISUR ) ) // ESTR2 &
-                     // TRIM( NR_SPC( SPC ) )
-                write( logdev, '(a)') xmsg
-             END IF
-
-          END IF
-
-          ! Cannot find a surrogate, look for the (main) species name on the IC file
-          IF ( ISUR .EQ. 0 .OR. NDX .EQ. 0 ) THEN
-
-             NDX = INDEX1( NR_SPC( SPC ), NVARS3D, VNAME3D )
-           
-             IF ( NDX .NE. 0 ) THEN
-                INDX( SPC ) = NDX
-                ICBC_FAC( SPC ) = 1.0
-             ELSE
-                  XMSG = ESTR1 // TRIM( NR_SPC( SPC ) ) // ESTR3
-                write( logdev, '(a)') xmsg
-             END IF
-
-          END IF
-
-          IF ( INDX( SPC ) .GT. 0 ) &
-               WRITE( LOGDEV, fmt13 ) INDX( SPC ), NR_SPC( SPC ), ICBC_FAC( SPC )
-        
-       END DO
-
-!!    ELSE IF ( SPC_CAT .EQ. 'TR' ) THEN
-!!
-!!       WRITE( LOGDEV, fmt9 ) 'transported inert tracer gas species'
-!!
-!!       SPC_STRT = TR_STRT
-!!       N_SPCS   = N_TR_SPC
-!!
-!!       DO SPC = 1, N_SPCS
-!!
-!!          ! is there a surrogate name?
-!!          ISUR = FINDEX ( SPC, N_TR_ICBC, TR_ICBC_MAP )
-!!
-!!          IF ( ISUR .NE. 0 ) THEN
-!!
-!!             ! is it on the IC file?
-!!             NDX = INDEX1( TR_ICBC( ISUR ), NVARS3D, VNAME3D )
-!!
-!!             IF ( NDX .NE. 0 ) THEN
-!!                INDX( SPC ) = NDX   ! index in the IC file
-!!                ICBC_FAC( SPC ) = TR_ICBC_FAC( ISUR )
-!!             ELSE
-!!                XMSG = ESTR1 // TRIM( TR_SPC( SPC ) ) // ESTR2
-!!                write( logdev, '(a)') xmsg
-!!             END IF
-!!
-!!          ELSE
-!!
-!!             ! is the (main) species name on the IC file?
-!!             NDX = INDEX1( TR_SPC( SPC ), NVARS3D, VNAME3D )
-!!             IF ( NDX .NE. 0 ) THEN
-!!                INDX( SPC ) = NDX
-!!                ICBC_FAC( SPC ) = 1.0
-!!             ELSE
-!!                XMSG = ESTR1 // TRIM( TR_SPC( SPC ) ) // ESTR2
-!!                write( logdev, '(a)') xmsg
-!!             END IF
-!!        
-!!          END IF
-!!        
-!!          IF ( INDX( SPC ) .GT. 0 ) &
-!!               WRITE( LOGDEV, fmt13 ) INDX( SPC ), TR_SPC( SPC ), ICBC_FAC( SPC )
-!!
-!!       END DO
-
-    ELSE
-
-       XMSG = 'Species categories incorrect for CGRID '
-       CALL M3EXIT ( PNAME, JDATE, JTIME, XMSG, 0 )
-
-    END IF
-
-    DO SPC = 1, N_SPCS
-
-       V   = SPC_STRT - 1 + SPC
-       NDX = INDX( SPC )
-
-       ! Skip ozone, since we use climatological values or reanalysis,
-       ! but set to a constant value of 0.025 ppmV in troposphere
-       if ( SPC_CAT .EQ. 'GC' ) THEN
-          if (V == LO3) then
-             
-             !$omp parallel do private(j,iw,ka,k)
-             do j = 1, jtab_w(jtw_init)%jend(1)
-                iw   = jtab_w(jtw_init)%iw(j)
-
-                ka = mza
-                do k = lpw(iw), mza
-                   if (press(k,iw) < 200.0e2) then
-                      ka = k
-                      exit
-                   endif
-                enddo
-
-                cgrid(1:ka,iw,v) = 0.025
-             enddo
-             !$omp end parallel do
-
-             NDX = 0
-          endif
-       endif
-
-       IF ( NDX .GT. 0 ) THEN
-
-          !$omp parallel private(vghgts_in,vec)
-          !$omp do private(j,iw,ka,ztop,zbot)
-          do j = 1, jtab_w(jtw_init)%jend(1)
-             iw   = jtab_w(jtw_init)%iw(j)
-             ka   = lpw(iw)
-             ztop = zm(mza)
-             zbot = zm(ka-1)
-
-             vghgts_in(:) = ztop - (ztop - zbot) * vglays_in(:) 
-
-             call hintrp_cc ( nlays_in, inprof(1,ndx), vghgts_in, mza, vec, zt )
-
-             cgrid(:,iw,v) = ICBC_FAC( SPC ) * vec(:)
-
-          enddo
-          !$omp end do
-          !$omp end parallel
-
-       endif
-    enddo
-
-    IF ( SPC_CAT .EQ. 'AE' ) THEN
-
-       ! are ASO4J IC`s available on the file?
-
-       VNAME = 'ASO4J'
-       NDX = INDEX1( VNAME, NVARS3D, VNAME3D )
-     
-       IF ( NDX .EQ. 0 ) THEN  ! ASO4J not on file
-
-          ! Set pointers for gas (vapor) phase sulfur species
-
-          NDX = INDEX1( VNAME, N_AE_SPC, AE_SPC )
-          IF ( NDX .NE. 0 ) THEN
-             ISO4AJ = AE_STRT - 1 + NDX
-          ELSE
-             XMSG = 'Could not find ' // VNAME // 'in aerosol table'
-             CALL M3EXIT ( PNAME, JDATE, JTIME, XMSG, XSTAT3 )
-          END IF
-
-          VNAME = 'SULF'
-          NDX = INDEX1( VNAME, N_GC_G2AE, GC_G2AE )
-          IF ( NDX .NE. 0 ) THEN
-             LSULF   = GC_STRT - 1 + GC_G2AE_MAP( NDX )
-             MWH2SO4 = GC_MOLWT( GC_G2AE_MAP( NDX ) )
-          ELSE
-             XMSG = 'Could not find ' // VNAME // 'in gas chem aerosol table'
-             CALL M3EXIT ( PNAME, JDATE, JTIME, XMSG, XSTAT3 )
-          END IF
-
-          VNAME = 'ASO4I'
-          NDX = INDEX1( VNAME, N_AE_SPC, AE_SPC )
-          IF ( NDX .NE. 0 ) THEN
-             ISO4AI = AE_STRT - 1 + NDX
-          ELSE
-             XMSG = 'Could not find ' // VNAME // 'in aerosol table'
-             CALL M3EXIT ( PNAME, JDATE, JTIME, XMSG, XSTAT3 )
-          END IF
-
-          VNAME = 'NUMATKN'
-          NDX = INDEX1( VNAME, N_AE_SPC, AE_SPC )
-          IF ( NDX .NE. 0 ) THEN
-             INUMATKN = AE_STRT - 1 + NDX
-          ELSE
-             XMSG = 'Could not find ' // VNAME // 'in aerosol table'
-             CALL M3EXIT ( PNAME, JDATE, JTIME, XMSG, XSTAT3 )
-          END IF
-
-          VNAME = 'NUMACC'
-          NDX = INDEX1( VNAME, N_AE_SPC, AE_SPC )
-          IF ( NDX .NE. 0 ) THEN
-             INUMACC = AE_STRT - 1 + NDX
-          ELSE
-             XMSG = 'Could not find ' // VNAME // 'in aerosol table'
-             CALL M3EXIT ( PNAME, JDATE, JTIME, XMSG, XSTAT3 )
-          END IF
-
-          ! Partition the aerosol sulfate arrays with a fraction of the initial SO4 
-
-          H2SO4CONV = 1.0E3 * MWH2SO4 / MWAIR * SO4VAPTOAER
-
-          !$omp parallel do private(j,iw,k,kr)
-          do j = 1, jtab_w(jtw_init)%jend(1) ; iw = jtab_w(jtw_init)%iw(j)
-             do k = 1, mza
-                kr = max(k, lpw(iw))
-
-                ! total accumulation mode sulfate:
-
-                CGRID( k,iw,ISO4AJ )   = MAX ( AEROCONCMIN,     &
-                                         ( 1.0 - IFRACATKN )    &
-                                       * H2SO4CONV              &
-                                       * real(rho(kr,iw))       &
-                                       * CGRID( K,IW,LSULF ) )
-
-                ! Accumulation mode number:
-    
-                CGRID( k,iw,INUMACC )  = NUMFACT_J              &
-                                       * CGRID( K,IW,ISO4AJ )
-
-                ! Aitken mode sulfate:
-    
-                CGRID( k,iw,ISO4AI )   = MAX ( AEROCONCMIN,     &
-                                         IFRACATKN              &
-                                       * H2SO4CONV              &
-                                       * real(rho(kr,iw))       &
-                                       * CGRID( K,IW,LSULF ) )
-    
-                ! Aitken mode number:
-
-                CGRID( k,iw,INUMATKN ) = NUMFACT_I              &
-                                       * CGRID( K,IW,ISO4AI )
-    
-                ! correct sulfate vapor concentration for part removed:
-    
-                CGRID( k,iw,LSULF )    = ( 1.0 - SO4VAPTOAER )  &
-                                       * CGRID( K,IW,LSULF )
-    
-             END DO
-          END DO
-          !$omp end parallel do
-
-          write(*,*) 'No IC''s found for aerosol sulfate. '
-          write(*,*) 'Gas Chem sulfate used for partitioning.'
-            
-       END IF  ! NDX .EQ. 0
-
-    END IF  !  SPC_CAT .EQ. 'AE'
-
-  end subroutine load_cgrid
+  END DO
+
+
+  WRITE( LOGDEV, fmt9 ) 'initializing CMAQ aerosol species'
+
+  SPC_STRT = AE_STRT
+  N_SPCS   = N_AE_SPC
+
+  DO SPC = 1, N_SPCS
+     V = SPC + SPC_STRT - 1
+
+     ! is there a surrogate name?
+     ISUR = FINDEX ( SPC, N_AE_ICBC, AE_ICBC_MAP )
+     NDX  = 0
+
+     IF ( ISUR .NE. 0 ) THEN
+
+        ! is it on the IC file?
+        NDX = INDEX1( AE_ICBC( ISUR ), NVARS3D, VNAME3D )
+
+        IF ( NDX .NE. 0 ) THEN
+           INDX( V ) = NDX   ! index in the IC file
+           ICBC_FAC( V ) = AE_ICBC_FAC( ISUR )
+           !  ELSE
+           !     XMSG = ESTR1 // TRIM( AE_ICBC( ISUR ) ) // ESTR2 &
+           !          // TRIM( AE_SPC( SPC ) )
+           !     write( logdev, '(a)') xmsg
+        END IF
+
+     END IF
+
+     ! Cannot find a surrogate, look for the (main) species name on the IC file
+     IF ( ISUR .EQ. 0 .OR. NDX .EQ. 0 ) THEN
+
+        NDX = INDEX1( AE_SPC( SPC ), NVARS3D, VNAME3D )
+
+        IF ( NDX .NE. 0 ) THEN
+           INDX( V ) = NDX
+           ICBC_FAC( V ) = 1.0
+        ELSE
+           write( logdev, '(a)') ESTR1 // TRIM( AE_SPC( SPC ) ) // trim(ESTR3)
+        END IF
+     END IF
+
+     IF ( INDX( V ) .GT. 0 ) &
+          WRITE( LOGDEV, fmt13 ) INDX( V ), AE_SPC( SPC ), ICBC_FAC( V )
+
+  END DO
+
+
+  WRITE( LOGDEV, fmt9 ) 'initializing CMAQ non-reactive gas species'
+
+  SPC_STRT = NR_STRT
+  N_SPCS   = N_NR_SPC
+
+  DO SPC = 1, N_SPCS
+     V = SPC + SPC_STRT - 1
+
+     ! is there a surrogate name?
+     ISUR = FINDEX ( SPC, N_NR_ICBC, NR_ICBC_MAP )
+     NDX  = 0
+
+     IF ( ISUR .NE. 0 ) THEN
+
+        ! is it on the IC file?
+        NDX = INDEX1( NR_ICBC( ISUR ), NVARS3D, VNAME3D )
+
+        IF ( NDX .NE. 0 ) THEN
+           INDX( V ) = NDX   ! index in the IC file
+           ICBC_FAC( V ) = NR_ICBC_FAC( ISUR )
+           ! ELSE
+           !    XMSG = ESTR1 // TRIM( NR_ICBC( ISUR ) ) // ESTR2 &
+           !         // TRIM( NR_SPC( SPC ) )
+           !    write( logdev, '(a)') xmsg
+        END IF
+
+     END IF
+
+     ! Cannot find a surrogate, look for the (main) species name on the IC file
+     IF ( ISUR .EQ. 0 .OR. NDX .EQ. 0 ) THEN
+
+        NDX = INDEX1( NR_SPC( SPC ), NVARS3D, VNAME3D )
+
+        IF ( NDX .NE. 0 ) THEN
+           INDX( V ) = NDX
+           ICBC_FAC( V ) = 1.0
+        ELSE
+           write( logdev, '(a)') ESTR1 // TRIM( NR_SPC( SPC ) ) // trim(ESTR3)
+        END IF
+
+     END IF
+
+     IF ( INDX( V ) .GT. 0 ) &
+          WRITE( LOGDEV, fmt13 ) INDX( V ), NR_SPC( SPC ), ICBC_FAC( V )
+
+  END DO
+
+  !$omp parallel private(press_in,press_out,densi_in,dens_out,vec_in,vec,conc,m3)
+  !$omp do private(iw,ka,psfc,spc,v,ndx,k,i,m3_dry,m3_wet)
+  do j = 1, jtab_w(jtw_init)%jend
+     iw   = jtab_w(jtw_init)%iw(j)
+     ka   = lpw(iw)
+
+     psfc        = press(ka,iw)
+     press_in(:) = vglays_in(:) * (psfc-ptop) + ptop
+
+     press_out(1:mza-ka+1) = press(ka:mza,iw)
+     dens_out (1:mza-ka+1) = rho(ka:mza,iw)
+
+     ! interpolate model density to the input chemistry levels
+     call pintrp_cc(mza-ka+1, dens_out, press_out, nlays_in, densi_in, press_in )
+
+     densi_in = 1.0 / densi_in
+
+     DO V = 1, NSPCSD
+        NDX = INDX( V )
+
+        ! do we have this species in the input file?
+        IF ( NDX .GT. 0 ) THEN
+
+           if (v >= ae_strt .and. v <= ae_fini) then
+
+              if (v >= num_str .and. v <= num_end) then
+
+                 ! number/m**3 aerosol -> ppmv
+                 vec_in = inprof(:,ndx) * densi_in(:) * MAOAVO1000
+
+              elseif (v >= srf_str .and. v <= srf_end) then
+
+                 ! m*2/m**3 aerosol -> m**2/mol air
+                 vec_in = inprof(:,ndx) * densi_in(:) * MWAIRKG
+
+              else
+
+                 ! micro-grams/m**3 aerosol -> ppmv
+                 vec_in = inprof(:,ndx) * densi_in(:) * ae_molwti(v-aer_str+1) * MWAIRKG
+
+              endif
+
+              call pintrp_cc( nlays_in, vec_in, press_in, mza-ka+1, vec, press_out )
+
+           else
+
+              call pintrp_cc( nlays_in, inprof(:,ndx), press_in, mza-ka+1, vec, press_out )
+
+           endif
+
+        else
+
+           vec = cmin
+
+        endif
+
+        if (V == LO3) then
+
+           do k = ka, mza-1
+              if (press(k,iw) < 200.d2) exit
+           enddo
+           cgrid(ka:k,iw,v) = max( ICBC_FAC( V ) * vec(1:k-ka+1), cmin)
+
+        elseif (V == LCH4) then
+
+!          cgrid(ka:mza,iw,v) = ATM_CH4 + cgrid(1:mza,iw,v)
+           cgrid(ka:mza,iw,v) = ATM_CH4
+
+        else
+
+           cgrid(ka:mza,iw,v) = max( ICBC_FAC( V ) * vec(1:mza-ka+1), cmin)
+
+        endif
+
+        cgrid(1:ka-1,iw,v) = cgrid(ka,iw,v)
+
+     enddo
+
+     ! Convert aerosol 2nd moment to wet
+
+     do k = ka, mza
+        conc = cgrid(k,iw,aer_str:aer_end)
+        m3   = conc * aer_m3 * ae_molwt(1:aer_num) * INV_MWAIRKG * real(rho(k,iw))
+
+        do i = 1, 3
+           v = srf_str + i - 1
+
+           m3_dry = sum(m3, mask=(mode_map==i .and. .not. aer_trac .and. .not. aer_wet))
+           m3_wet = sum(m3, mask=(mode_map==i .and. .not. aer_trac))
+           cgrid(k,iw,v) = cgrid(k,iw,v) * ( (m3_wet / m3_dry)**2 ) ** onethird
+        enddo
+     enddo
+
+     do v = srf_str, srf_end
+        do k = 1, ka-1
+           cgrid(k,iw,v) = cgrid(ka,iw,v)
+        enddo
+     enddo
+
+  enddo
+  !$omp end do
+  !$omp end parallel
 
 end subroutine init_cgrid

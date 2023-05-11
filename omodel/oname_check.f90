@@ -1,35 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 subroutine oname_check()
 
 ! THIS ROUTINE CHECKS THE OPTION SPECIFICATIONS OF THE NAMELIST FILE OLAMIN
@@ -39,7 +7,7 @@ subroutine oname_check()
 ! EACH ERROR WILL BE ASSIGNED A SEVERITY.  FATAL ERRORS WILL CAUSE
 ! THE RUN TO STOP IMMEDIATELY AND WARNING ERRORS WILL BE LISTED.
 
-use max_dims,    only: nzgmax, maxgrds, maxsndg, maxnplt, maxisdirs, &
+use max_dims,    only: maxgrds, maxsndg, maxnplt, maxisdirs, &
                        maxpltfiles, maxngrdll
 use oname_coms,  only: nl
 use consts_coms, only: erad2, pi1, pi2, p00, r8
@@ -47,11 +15,11 @@ use misc_coms,   only: io6
 
 implicit none
 
-integer  :: nfatal, nwarn, ifm, ng, i, k, iplt, i_huge, idz
+integer  :: nfatal, nwarn, ng, i, k, iplt, i_huge, idz
 real     :: r_huge, r_min, r_max, r_tiny, dzxmin, zb_min, zb_max, dtlong4
 real(r8) :: d_huge, d_tiny
 
-character(len=1), dimension(8) :: tunits = (/ 'd','D','h','H','m','M','s','S' /)
+character(len=1), dimension(8) :: tunits = [ 'd','D','h','H','m','M','s','S' ]
 
 nfatal = 0
 nwarn  = 0
@@ -80,14 +48,17 @@ write(io6,*) ' '
 ! RUNTYPE
 !--------------------------------------------------------------------------
 
-if ( (nl%runtype /= 'MAKEGRID'   ) .and. &
-     (nl%runtype /= 'INITIAL'    ) .and. &
-     (nl%runtype /= 'HISTORY'    ) .and. &
-     (nl%runtype /= 'HISTADDGRID') .and. &
-     (nl%runtype /= 'PLOTONLY'   ) ) then
+if ( (nl%runtype /= 'MAKEGRID'     ) .and. &
+     (nl%runtype /= 'INITIAL'      ) .and. &
+     (nl%runtype /= 'HISTORY'      ) .and. &
+     (nl%runtype /= 'MAKEREGRID'  ) .and. &
+     (nl%runtype /= 'HISTREGRID'  ) .and. &
+     (nl%runtype /= 'PLOTONLY'     ) .and. &
+     (nl%runtype /= 'MAKEGRID_PLOT') ) then
    write(io6,*) " -- FATAL -- RUNTYPE = "//trim(nl%runtype)
    write(io6,*) "             RUNTYPE must be either 'MAKEGRID', 'INITIAL', "
-   write(io6,*) "             'HISTORY', 'HISTADDGRID', or 'PLOTONLY'"
+   write(io6,*) "             'HISTORY', 'MAKEREGRID', 'HISTREGRID', "
+   write(io6,*) "             'MAKEGRID_PLOT', or 'PLOTONLY'"
    nfatal = nfatal + 1
 endif
 
@@ -127,8 +98,8 @@ call rchk_bnds( nl%deltax,   "DELTAX",  dzxmin,  r_huge, 0, nfatal, nwarn )
 call ichk_bnds( nl%ndz,         "NDZ",       1,      10, 0, nfatal, nwarn )
 
 do idz=1, nl%ndz
-   call rchk_bnds( nl%hdz(idz), "HDZ",   0.0,  r_huge, 0, nfatal, nwarn )
-   call rchk_bnds( nl%dz (idz),  "DZ",   0.0,  r_huge, 0, nfatal, nwarn )
+   call rchk_bnds( nl%hdz(idz), "HDZ", -2000.0, r_huge, 0, nfatal, nwarn )
+   call rchk_bnds( nl%dz (idz),  "DZ",     0.0, r_huge, 0, nfatal, nwarn )
 
    if (idz > 1) then
       if (nl%hdz(idz) <= nl%hdz(idz-1) ) then
@@ -155,8 +126,7 @@ endif
 call ichk_bnds( nl%ngrids,   "NGRIDS",       1, maxgrds, 0, nfatal, nwarn, &
      msgmax="Increase maxgrds in max_dims.f90 if more nests are needed." )
 
-call ichk_bnds( nl%ngrids_old, "NGRIDS_OLD", 0, maxgrds, 0, nfatal, nwarn, &
-     msgmax="Increase maxgrds in max_dims.f90 if more nests are needed." )
+call ichk_bnds( nl%gridplot_base, "GRIDPLOT_BASE", 2, maxgrds, 2, nfatal, nwarn )
 
 ! global mesh requires nxp to be divisible by 3
 
@@ -180,17 +150,47 @@ if (nl%mdomain < 2) then
 endif
 
 !--------------------------------------------------------------------------
-! TIMESTEP RATIOS
+! SURFACE NESTED GRID DEFINITION
 !--------------------------------------------------------------------------
 
-do ng=1, nl%ngrids
+call ichk_bnds( nl%nsfcgrids,   "NSFCGRIDS", 0, maxgrds, 0, nfatal, nwarn, &
+     msgmax="Increase maxgrds in max_dims.f90 if more sfc nests are needed." )
 
- ! call ichk_bnds( nl%ndtrat(ng), "NDTRAT", 1,  2, 0, nfatal, nwarn ) ! future
-   call ichk_bnds( nl%ndtrat(ng), "NDTRAT", 1,  1, 2, nfatal, nwarn,   &
-        msgboth="NDTRAT must = 1 for all MRLs in this version of OLAM.")
+call ichk_bnds( nl%sfcgridplot_base, "SFCGRIDPLOT_BASE", 1, maxgrds, 2, nfatal, nwarn )
 
-   call ichk_bnds( nl%nacoust(ng), "NACOUST", 1, 20, 0, nfatal, nwarn )
+! If greater than 1, sfcgrid_res_factor must have prime factors of 2 and/or 3
+
+ng = nl%sfcgrid_res_factor
+if (ng > 1) then
+
+   do while( mod(ng,2) == 0 )
+      ng = ng / 2
+   enddo
+
+   do while( mod(ng,3) == 0 )
+      ng = ng / 3
+   enddo
+
+   if (ng /= 1) then
+      stop "Error: sfcgrid_res_factor must be 1 or have prime factors of only 2 and/or 3."
+   endif
+elseif (ng < 1) then
+   stop "Error: sfcgrid_res_factor must be positive."
+endif
+
+do ng = 1, nl%nsfcgrids
+   call ichk_bnds(nl%nsfcgrdll(ng), "NSFCGRDLL", 1, maxngrdll, 0, nfatal, nwarn )
 enddo
+
+if (nl%mdomain < 2) then
+   do ng = 1, nl%nsfcgrids
+      do i = 1, nl%nsfcgrdll(ng)
+         call rchk_bnds( nl%sfcgrdrad(ng,i), "SFCGRDRAD", dzxmin, erad2, 0, nfatal, nwarn )
+         call rchk_bnds( nl%sfcgrdlat(ng,i), "SFCGRDLAT",   -90.,   90., 0, nfatal, nwarn )
+         call rchk_bnds( nl%sfcgrdlon(ng,i), "SFCGRDLON",  -180.,  180., 0, nfatal, nwarn )
+      enddo
+   enddo
+endif
 
 !--------------------------------------------------------------------------
 ! VARIABLE INITIALIZATION INPUT
@@ -239,6 +239,15 @@ call dchk_bnds( nl%frqlatlon, "FRQLATLON", nl%dtlong, d_huge, 2, nfatal, nwarn )
 !--------------------------------------------------------------------------
 
 call ichk_bnds( nl%itopoflg, "ITOPOFLG", 1,  2, 0, nfatal, nwarn )
+call ichk_bnds( nl%ibathflg, "IBATHFLG", 1,  2, 0, nfatal, nwarn )
+
+if (nl%nswmzons > 0) then
+   if (nl%itopoflg == 2 .or. nl%ibathflg == 2) then
+      write(*,*) "Shallow water tidal model requires both topography"
+      write(*,*) "and bathymetry databases."
+      stop "Error: topopgraphy and bathymetry must be present for nswmzons > 0"
+   endif
+endif
 
 !--------------------------------------------------------------------------
 ! MODEL OPTIONS / NUMERICAL SCHEMES
@@ -246,36 +255,34 @@ call ichk_bnds( nl%itopoflg, "ITOPOFLG", 1,  2, 0, nfatal, nwarn )
 
 call ichk_bnds( nl%naddsc, "NADDSC", 0, 1000, 0, nfatal, nwarn )
 
-call ichk_bnds( nl%ithil_monot, "ITHIL_MONOT", 0, 2, 0, nfatal, nwarn )
-call ichk_bnds( nl%ivelc_monot, "ITHIL_MONOT", 0, 1, 0, nfatal, nwarn )
+call ichk_bnds( nl%ithil_monot, "ITHIL_MONOT", 0, 1, 0, nfatal, nwarn )
 call ichk_bnds( nl%iscal_monot, "ISCAL_MONOT", 0, 2, 0, nfatal, nwarn )
 
 call ichk_bnds( nl%horiz_adv_order, "HORIZ_ADV_ORDER", 2, 3, 2, nfatal, nwarn )
+
+call rchk_bnds( nl%akmin_vort,     "AKMIN_VORT",     0.0, 10., 2, nfatal, nwarn )
+call rchk_bnds( nl%divh_damp_fact, "DIVH_DAMP_FACT", 0.0, 0.2, 2, nfatal, nwarn )
 
 !--------------------------------------------------------------------------
 ! RAYLEIGH FRICTION PARAMETERS
 !--------------------------------------------------------------------------
 
-call rchk_bnds( nl%rayf_distim, "RAYF_DISTIM", 0.0, r_huge, 0, nfatal, nwarn )
-if (nl%rayf_distim > r_tiny) &
-     call rchk_bnds( nl%rayf_distim, "RAYF_DISTIM", dtlong4, r_huge, 2, &
-                     nfatal, nwarn )
-call rchk_bnds( nl%rayf_expon, "RAYF_EXPON", 0.0,   5.0, 2, nfatal, nwarn )
+call rchk_bnds( nl%rayf_fact,  "RAYF_FACT",  0.0,    1.0, 2, nfatal, nwarn )
+call rchk_bnds( nl%rayf_expon, "RAYF_EXPON", 0.0,    5.0, 2, nfatal, nwarn )
 call rchk_bnds( nl%rayf_zmin,  "RAYF_ZMIN" , 0.0, r_huge, 2, nfatal, nwarn )
 
-call rchk_bnds( nl%rayfw_distim, "RAYFW_DISTIM", 0.0, r_huge, 2, nfatal, nwarn )
-if (nl%rayfw_distim > r_tiny) &
-     call rchk_bnds( nl%rayfw_distim, "RAYFW_DISTIM", dtlong4, r_huge, 2, &
-     nfatal, nwarn )
+
+call rchk_bnds( nl%rayfw_fact,  "RAYFW_FACT",  0.0, r_huge, 2, nfatal, nwarn )
 call rchk_bnds( nl%rayfw_expon, "RAYFW_EXPON", 0.0,    5.0, 2, nfatal, nwarn )
 call rchk_bnds( nl%rayfw_zmin,  "RAYFW_ZMIN" , 0.0, r_huge, 2, nfatal, nwarn )
 
-call rchk_bnds( nl%rayfdiv_distim, "RAYFDIV_DISTIM", 0.0, r_huge, 2, nfatal, nwarn )
-if (nl%rayfdiv_distim > r_tiny) &
-     call rchk_bnds( nl%rayfdiv_distim, "RAYFDIV_DISTIM", dtlong4, r_huge, 2, &
-     nfatal, nwarn )
+call rchk_bnds( nl%rayfdiv_fact,  "RAYFDIV_FACT",  0.0,    0.3, 2, nfatal, nwarn )
 call rchk_bnds( nl%rayfdiv_expon, "RAYFDIV_EXPON", 0.0,    5.0, 2, nfatal, nwarn )
 call rchk_bnds( nl%rayfdiv_zmin,  "RAYFDIV_ZMIN" , 0.0, r_huge, 2, nfatal, nwarn )
+
+call rchk_bnds( nl%rayfdiv_fact,  "RAYFMIX_FACT",  0.0,    2.0, 2, nfatal, nwarn )
+call rchk_bnds( nl%rayfdiv_expon, "RAYFMIX_EXPON", 0.0,    5.0, 2, nfatal, nwarn )
+call rchk_bnds( nl%rayfdiv_zmin,  "RAYFMIX_ZMIN" , 0.0, r_huge, 2, nfatal, nwarn )
 
 !--------------------------------------------------------------------------
 ! RADIATION PARAMETERIZATION PARAMETERS
@@ -284,8 +291,6 @@ call rchk_bnds( nl%rayfdiv_zmin,  "RAYFDIV_ZMIN" , 0.0, r_huge, 2, nfatal, nwarn
 ! With only RRTMg, 0 turns off rad and positive turns on rad
 call ichk_bnds( nl%iswrtyp, "ISWRTYP", 0, 3, 2, nfatal, nwarn )
 call ichk_bnds( nl%ilwrtyp, "ILWRTYP", 0, 3, 2, nfatal, nwarn )
-
-call ichk_bnds( nl%iclrsky, "ICLRSKY", 0, 1, 2, nfatal, nwarn )
 
 call dchk_bnds( nl%radfrq,    "RADFRQ", nl%dtlong, d_huge, 2, nfatal, nwarn )
 call ichk_bnds( nl%icfrac,    "ICFRAC", 0,   6,  0, nfatal, nwarn )
@@ -349,44 +354,44 @@ elseif (nl%miclevel == 3) then
       write(io6,*) 'FATAL - icloud must be set to 0, 4, or 5.'
       nfatal = nfatal + 1
    endif
-   
+
    if (.not. any(nl%idriz == (/0, 5/) )) then
       write(io6,*) 'FATAL - idriz must be set to 0 or 5.'
       nfatal = nfatal + 1
    endif
-   
+
    if (.not. any(nl%irain == (/0, 2, 5/) )) then
       write(io6,*) 'FATAL - irain must be set to 0, 2, or 5.'
       nfatal = nfatal + 1
    endif
-   
+
    if (.not. any(nl%ipris == (/0, 5/) )) then
       write(io6,*) 'FATAL - ipris must be set to 0 or 5.'
       nfatal = nfatal + 1
    endif
-   
+
    if (.not. any(nl%isnow == (/0, 2, 5/) )) then
       write(io6,*) 'FATAL - isnow must be set to 0, 2, or 5.'
       nfatal = nfatal + 1
    endif
-   
+
    if (.not. any(nl%iaggr == (/0, 2, 5/) )) then
       write(io6,*) 'FATAL - iaggr must be set to 0, 2, or 5.'
       nfatal = nfatal + 1
    endif
-   
+
    if (.not. any(nl%igraup == (/0, 2, 5/) )) then
       write(io6,*) 'FATAL - igraup must be set to 0, 2, or 5.'
       nfatal = nfatal + 1
    endif
-   
+
    if (.not. any(nl%ihail == (/0, 2, 5/) )) then
       write(io6,*) 'FATAL - ihail must be set to 0, 2, or 5.'
       nfatal = nfatal + 1
    endif
 
-   if (.not. any(nl%iccn == (/1, 2, 3, 4, 5, 6, 7/) )) then
-      write(io6,*) 'FATAL - iccn must be set to 1, 2, 3, 4, 5, 6, or 7.'
+   if (.not. any(nl%iccn == (/1, 2, 3, 4, 5, 6/) )) then
+      write(io6,*) 'FATAL - iccn must be set to 1, 2, 3, 4, 5, or 6.'
       nfatal = nfatal + 1
    endif
 
@@ -429,6 +434,20 @@ elseif (nl%miclevel == 3) then
    call rchk_bnds( nl%gccnparm, "GCCNPARM", 0., 100.e3, 0, nfatal, nwarn )
    call rchk_bnds( nl%ifnparm,  "IFNPARM",  0., 100.e3, 0, nfatal, nwarn )
 
+   if (nl%icloud == 4) then
+
+      if (nl%iccn /= 1) then
+         write(io6,*) 'FATAL - ICCN must be set to 1 when ICLOUD = 4'
+         nfatal = nfatal + 1
+      endif
+
+      if (nl%igccn /= 1) then
+         write(io6,*) 'FATAL - IGCCN must be set to 1 when ICLOUD = 4'
+         nfatal = nfatal + 1
+      endif
+
+   endif
+
 endif
 
 !--------------------------------------------------------------------------
@@ -436,6 +455,27 @@ endif
 !--------------------------------------------------------------------------
 
  call ichk_bnds( nl%co2flag       , "CO2FLAG"       , 0, 1, 2, nfatal, nwarn )
+
+!--------------------------------------------------------------------------
+! HURRICANE DYNAMIC INITIALIZATION PARAMETERS
+!--------------------------------------------------------------------------
+
+   call ichk_bnds( nl%ncycle_hurrinit,  "NCYCLE_HURRINIT",  0, 20, 0, nfatal, nwarn )
+
+if (  nl%ncycle_hurrinit > 0 .and. &
+     (nl%test_case /= 0      .or.  &
+      nl%initial   /= 2)   ) then
+   write(io6,*) " -- FATAL -- Hurricane dynamic initialization requires that "
+   write(io6,*) "             TEST_CASE must be 0 and INITIAL must be 2 "
+   nfatal = nfatal + 1
+endif
+
+if (  nl%ncycle_hurrinit > 1 .and. &
+      nl%runtype == 'HISTREGRID') then
+   write(io6,*) " -- FATAL -- Hurricane relocation (for which ncycle_hurrinit > 1) "
+   write(io6,*) "             cannot be done in a HISTREGRID run "
+   nfatal = nfatal + 1
+endif
 
 !--------------------------------------------------------------------------
 ! SOUNDING SPECIFICATION
@@ -479,21 +519,21 @@ call ichk_bnds( nl%isfcl, "ISFCL", 0, 1, 0, nfatal, nwarn )
 
 if (nl%isfcl == 1) then
 
-   call ichk_bnds( nl%nzg, "NZG", 2, nzgmax, 0, nfatal, nwarn, &
-        msgmin="At least 2 soil levels are needed for soil model.", &
-        msgmax="Increase nzgmax in max_dims.f90 if more soil layers are needed")
+   call ichk_bnds( nl%nzg, "NZG", 2, 100, 0, nfatal, nwarn, &
+        msgmin="At least 2 soil levels are needed for soil model.")
+   call rchk_bnds( nl%landgrid_dztop, "LANDGRID_DZTOP", 0.02, 1.1, 0, nfatal, nwarn )
+   call rchk_bnds( nl%landgrid_depth, "LANDGRID_DEPTH", 1.0, 1000.0, 0, nfatal, nwarn )
 
    call ichk_bnds( nl%nzs, "NZS", 0, 10, 0, nfatal, nwarn )
 
-   call ichk_bnds( nl%iseagrid,    "ISEAGRID",    0, 1, 0, nfatal, nwarn )
-   call ichk_bnds( nl%ivegflg,     "IVEGFLG",     1, 2, 0, nfatal, nwarn )
    call ichk_bnds( nl%isoilflg,    "ISOILFLG",    1, 2, 0, nfatal, nwarn )
+   call ichk_bnds( nl%isoilptf,    "ISOILPTF",    1, 3, 0, nfatal, nwarn )
+   call ichk_bnds( nl%ivegflg,     "IVEGFLG",     1, 2, 0, nfatal, nwarn )
    call ichk_bnds( nl%ndviflg,     "NDVIFLG",     1, 2, 0, nfatal, nwarn )
    call ichk_bnds( nl%isstflg,     "ISSTFLG",     0, 2, 0, nfatal, nwarn )
    call ichk_bnds( nl%iseaiceflg,  "ISEAICEFLG",  0, 2, 0, nfatal, nwarn )
 
    call ichk_bnds( nl%isoilstateinit, "ISOILSTATEINIT", 0, 2, 0, nfatal,nwarn )
-   call ichk_bnds( nl%isoilmodel,     "ISOILMODEL",     0, 1, 0, nfatal,nwarn )
 
    call ichk_bnds( nl%iupdndvi,  "IUPDNDVI",    0, 1, 0, nfatal, nwarn )
    call ichk_bnds( nl%iupdsst,   "IUPDSST",     0, 1, 0, nfatal, nwarn )
@@ -501,21 +541,12 @@ if (nl%isfcl == 1) then
 
    if (nl%ivegflg == 2) &
         call ichk_bnds( nl%nvgcon, "NVGCON", 0, 20, 0, nfatal, nwarn )
-   
-   if (nl%isoilflg == 2) &
-        call ichk_bnds( nl%nslcon, "NSLCON", 1, 12, 0, nfatal, nwarn )
 
    if (nl%isstflg == 0) &
         call rchk_bnds( nl%seatmp, "SEATMP", 100., 500., 0, nfatal, nwarn )
 
    if (nl%iseaiceflg == 0) &
         call rchk_bnds( nl%seaice, "SEAICE", 0., 1., 2, nfatal, nwarn )
-
-   call rchk_bnds( nl%slz(nl%nzg), "SLZ", -r_huge, -0.02, 0, nfatal, nwarn )
-   do k=nl%nzg-1, 1, -1
-      r_max =  nl%slz(k+1) - 0.02
-      call rchk_bnds( nl%slz(k), "SLZ", -r_huge, -0.02, 0, nfatal, nwarn )
-   enddo
 
    ! Set iupdndvi to 0 if not reading NDVI files
    if (nl%ndviflg == 2) then
@@ -553,7 +584,7 @@ if (nl%isfcl == 1) then
          nwarn = nwarn + 1
       endif
    endif
-   
+
 endif
 
 !--------------------------------------------------------------------------
@@ -594,9 +625,9 @@ if (nl%initial == 2 .and. nl%do_chem == 1) then
    endif
 
 endif
-      
+
 !--------------------------------------------------------------------------
-! ISENTROPIC CONTROL 
+! ISENTROPIC CONTROL
 !--------------------------------------------------------------------------
 
 !--------------------------------------------------------------------------
@@ -612,15 +643,17 @@ if (nl%runtype == 'PLOTONLY') &
 
 if ((nl%runtype == 'INITIAL') .or. &
     (nl%runtype == 'HISTORY') .or. &
-    (nl%runtype == 'HISTADDGRID')) &
+    (nl%runtype == 'HISTREGRID')) &
      call dchk_bnds( nl%frqplt, "FRQPLT", nl%dtlong, d_huge, 2, nfatal, nwarn )
 
 call rchk_bnds( nl%dtvec,     "DTVEC",     1.e-3, r_huge, 2, nfatal, nwarn )
 call rchk_bnds( nl%headspeed, "HEADSPEED", 1.e-3, r_huge, 2, nfatal, nwarn )
-call rchk_bnds( nl%stemlength, "STEMLENGTH",1.e-3, r_huge, 2, nfatal, nwarn )
+call rchk_bnds( nl%stemlength,"STEMLENGTH",1.e-3, r_huge, 2, nfatal, nwarn )
 call ichk_bnds( nl%plttype,   "PLTTYPE",   0, 2, 2, nfatal, nwarn )
 call ichk_bnds( nl%pltorient, "PLTORIENT", 0, 1, 2, nfatal, nwarn )
-      
+call ichk_bnds( nl%mapcolor,  "MAPCOLOR",  0, 255, 2, nfatal, nwarn)
+call ichk_bnds( nl%llcolor,   "LLCOLOR",   0, 255, 2, nfatal, nwarn)
+
 !------------------------------------------------------------------------
 ! PLOTTING SPECIFICATIONS
 !------------------------------------------------------------------------
@@ -665,11 +698,11 @@ do iplt = 1, nl%nplt
         nfatal = nfatal + 1
 
 ! Planning to relax this condition eventually.
-! At present (12/20/2012), also may not use C plot projection for contouring at V 
+! At present (12/20/2012), also may not use C plot projection for contouring at V
 ! point, but this is not checked for.
 
    endif
-enddo    
+enddo
 
 ! TODO - add checks for the plotting variables
 
@@ -683,16 +716,6 @@ if (nl%mdomain /= 0 .and. nl%mdomain /= 3 .and. &
     nl%mdomain /= 4 .and. nl%mdomain /= 5) then
    write(io6,*) ' FATAL - MDOMAIN temporarily restricted to values of 0, 3, 4, or 5.'
    nfatal = nfatal + 1
-endif
-
-! TEMPORARY!! NACOUST MUST BE SAME ON ALL MESHES FOR THIS VERSION
-
-if (nl%ngrids > 1) then
-   if (any(nl%nacoust(2:nl%ngrids) /= nl%nacoust(1))) then
-      write(io6,*) 'FATAL - NACOUST must be at least the same for each mesh'
-      write(io6,*) 'refinement level IN THIS VERSION OF OLAM.'
-      nfatal = nfatal + 1
-   endif
 endif
 
 ! IF THIS IS A GLOBAL SIMULATION, PRINT MESSAGE THAT DELTAX WILL BE
@@ -716,7 +739,7 @@ if ((nl%initial == 2 .or. nl%initial == 3) .and. nl%mdomain /= 0) then
    write(io6,*) ' FATAL  - mdomain must be 0 if INITIAL = 2 or 3.'
    nfatal = nfatal + 1
 endif
-  
+
 ! CONVECTIVE PARAMETERIZATION MUST HAVE AT LEAST WATER VAPOR
 
 if (any(nl%nqparm(1:nl%ngrids) > 0) .and. nl%miclevel == 0) then
@@ -729,6 +752,13 @@ endif
 if (nl%isfcl > 0 .and. (nl%ilwrtyp == 0 .or. nl%iswrtyp == 0)) then
    write(io6,'(A)') ' FATAL - longwave and shortwave radiation schemes must be&
         & activated when using the surface model.'
+   nfatal = nfatal + 1
+endif
+
+! CHECK FOR CONSISTENCY BETWEEN ISOILFLG AND ISOILPTF
+
+if (nl%isfcl == 0 .and. nl%isoilflg == 1 .and. nl%isoilptf == 3) then
+   write(io6,'(A)') ' FATAL - isoilptf = 3 may not be used with isoilflg = 1'
    nfatal = nfatal + 1
 endif
 
@@ -761,8 +791,8 @@ if (nfatal > 0) stop 'ONAME_CHECK'
 
 
 contains
-  
-  
+
+
   subroutine ichk_bnds(ivar, name, iminv, imaxv, iflag, nfatal, nwarn,  &
                        msgmin, msgmax, msgboth)
     implicit none
@@ -933,7 +963,7 @@ contains
     else
        fstring = "F0.7"
     endif
-    
+
   end subroutine rsetformat
 
 
@@ -1018,9 +1048,9 @@ contains
     if (present(msgboth) .and. ((dvar < dminv) .or. (dvar > dmaxv))) &
          write(io6,*) msgboth
     if ((dvar < dminv) .or. (dvar > dmaxv)) write(io6,*) ''
-    
+
   end subroutine dchk_bnds
-    
+
 
 
   subroutine dsetformat(fstring, var)
@@ -1031,7 +1061,7 @@ contains
     else
        fstring = "F0.7"
     endif
-      
+
   end subroutine dsetformat
 
 

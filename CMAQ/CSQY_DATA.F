@@ -23,14 +23,14 @@
       MODULE CSQY_DATA
 
       IMPLICIT NONE
-      
+
       integer, parameter :: nwl = 7
 
       CHARACTER( 32 ), PUBLIC :: JTABLE_REF
 
-      INTEGER, PUBLIC :: NPHOT_REF  ! # ref phot reactions 
-      INTEGER, PUBLIC :: NTEMP_REF  ! # ref temperatures 
-      INTEGER, PUBLIC :: NWL_REF    ! # ref wavelengths 
+      INTEGER, PUBLIC :: NPHOT_REF  ! # ref phot reactions
+      INTEGER, PUBLIC :: NTEMP_REF  ! # ref temperatures
+      INTEGER, PUBLIC :: NWL_REF    ! # ref wavelengths
 
 !...Names of the mapped photolysis reactions (available to chemical)
 !... mechanisms) and their pointers to the reference photolysis rxn
@@ -39,14 +39,14 @@
 
 !...Setup the Mapping from CMAQ chemical reactions to the reference data
 
-      INTEGER, PUBLIC :: NPHOT_MAP  ! #  phot mapped reactions 
+      INTEGER, PUBLIC :: NPHOT_MAP  ! #  phot mapped reactions
 
       CHARACTER( 16 ), ALLOCATABLE, PUBLIC :: PNAME_MAP( : )
       INTEGER, ALLOCATABLE,         PUBLIC :: PHOT_MAP ( : )
-      
-      REAL, PUBLIC, ALLOCATABLE :: STWL_REF ( : ) 
-      REAL, PUBLIC, ALLOCATABLE :: EFFWL_REF( : ) 
-      REAL, PUBLIC, ALLOCATABLE :: ENDWL_REF( : ) 
+
+      REAL, PUBLIC, ALLOCATABLE :: STWL_REF ( : )
+      REAL, PUBLIC, ALLOCATABLE :: EFFWL_REF( : )
+      REAL, PUBLIC, ALLOCATABLE :: ENDWL_REF( : )
 
       REAL, ALLOCATABLE, PUBLIC :: CLD_BETA_REF    ( : )  ! cloud extinction coef divided by LWC
       REAL, ALLOCATABLE, PUBLIC :: CLD_COALBEDO_REF( : )  ! cloud coalbedo
@@ -69,7 +69,7 @@
 !...    interval integrations for the cross sections and for the
 !...    effective cross sections (cs*qy) (calculated on the finer
 !...    wavelength grid.  The effective quantum yield values
-!...    were then calculated for the 7 wavelength intervals by 
+!...    were then calculated for the 7 wavelength intervals by
 !...    dividing the effective cross sections by the interval average
 !...    cross sections (eQY=eCS/CS).
 
@@ -87,21 +87,21 @@
 
       INTEGER, PUBLIC :: IWLR  ! wavelength loop variable
       INTEGER, PUBLIC :: ITTR  ! temperature loop variable
-      
+
 ! arrays for the size and optical properties of liquid droplets. The latter
 ! is a function of radius and wavelength
       INTEGER, PUBLIC  :: NRADIUS_LIQUID
-      
+
       REAL, ALLOCATABLE, PUBLIC  ::  RADIUS_LIQUID( : )       ! droplet radius, um
-      REAL, PUBLIC               ::  INIT_RADIUS_LIQUID         
-      REAL, PUBLIC               ::  MAXI_RADIUS_LIQUID         
-      REAL, PUBLIC               ::  MINI_RADIUS_LIQUID         
-      REAL, PUBLIC               ::  FREQ_RADIUS_LIQUID         
-     
+      REAL, PUBLIC               ::  INIT_RADIUS_LIQUID
+      REAL, PUBLIC               ::  MAXI_RADIUS_LIQUID
+      REAL, PUBLIC               ::  MINI_RADIUS_LIQUID
+      REAL, PUBLIC               ::  FREQ_RADIUS_LIQUID
+
       REAL, ALLOCATABLE, PUBLIC ::  LIQUID_EXTINCT( :, : )   ! extinction coefficient, m**3/g
       REAL, ALLOCATABLE, PUBLIC :: LIQUID_ASYMFACT( :, : )   ! asymmetery factor, dimensionaless
       REAL, ALLOCATABLE, PUBLIC :: LIQUID_COALBEDO( :, : )   ! One minus single scattering albebo, dimensionaless
-      
+
 ! arrays for the size and optical properties of ice particles. The latter
 ! is a function of effective diameter and wavelength
 
@@ -111,15 +111,15 @@
       REAL, PUBLIC              ::  INIT_DIAMETER_ICE
       REAL, PUBLIC              ::  MAXI_DIAMETER_ICE
       REAL, PUBLIC              ::  MINI_DIAMETER_ICE
-      REAL, PUBLIC              ::  FREQ_DIAMETER_ICE        
-      
+      REAL, PUBLIC              ::  FREQ_DIAMETER_ICE
+
       REAL, ALLOCATABLE, PUBLIC ::  ICE_EXTINCT( :, : )   ! extinction coefficient, m**3/g
       REAL, ALLOCATABLE, PUBLIC :: ICE_ASYMFACT( :, : )   ! asymmetery factor, dimensionaless
       REAL, ALLOCATABLE, PUBLIC :: ICE_COALBEDO( :, : )   ! One minus single scattering albebo, dimensionaless
       REAL, ALLOCATABLE, PUBLIC :: ICE_DELTRANS( :, : )   ! Delta Transmission Function at zero scattering angle, dimensionaless
-      
+
       PUBLIC            :: LOAD_CSQY_DATA, LOAD_OPTICS_DATA, GET_CSQY
-     
+
 
 !***Information for photolysis
 
@@ -162,19 +162,19 @@
 !***Indices for special case photolysis cross sections
 
       INTEGER :: LNO2
-      INTEGER :: LO3O1D 
+      INTEGER :: LO3O1D
       INTEGER :: LO3O3P
       INTEGER :: LACETONE
       INTEGER :: LKETONE
       INTEGER :: LMGLY_ADJ
       INTEGER :: LMGLY_ABS
       INTEGER :: LHCHOR_06
-      INTEGER :: LACETONE_CO    
-      INTEGER :: LACETONE_CH3CO  
+      INTEGER :: LACETONE_CO
+      INTEGER :: LACETONE_CH3CO
 
-      LOGICAL :: ACETONE_CHANNELS  
+      LOGICAL :: ACETONE_CHANNELS
 
-! integer pointer for specific density correction to cross-section 
+! integer pointer for specific density correction to cross-section
 ! and/or quantum yield values
             INTEGER, PARAMETER :: ACETALDEHYDE           =  1
             INTEGER, PARAMETER :: HIGHER_ALDEHYDES       =  2
@@ -185,31 +185,31 @@
             INTEGER, PARAMETER :: ACROLEIN               =  7
             INTEGER, PARAMETER :: FORMALDEHYDE_MOLECULAR =  8
             INTEGER, PARAMETER :: ACETONE                =  9
-            INTEGER, PARAMETER :: KETONE_LEGACY          = 10  
-            INTEGER, PARAMETER :: KETONE_RACM2           = 11 
+            INTEGER, PARAMETER :: KETONE_LEGACY          = 10
+            INTEGER, PARAMETER :: KETONE_RACM2           = 11
             INTEGER, PARAMETER :: GLYOXAL_RACM2          = 12
             INTEGER, PARAMETER :: METHYL_GLYOXAL_LEGACY  = 13
             INTEGER, PARAMETER :: NBUTYRALDEHYDE         = 14
             INTEGER, PARAMETER :: BIACETYL               = 15
             INTEGER, PARAMETER :: ACETONE_CH3CO          = 16
             INTEGER, PARAMETER :: GLYOXAL_IUPAC_2013     = 17
-            INTEGER, PARAMETER :: CH3CHO_IUPAC2013       = 18 
-                   
+            INTEGER, PARAMETER :: CH3CHO_IUPAC2013       = 18
+
             CHARACTER( 32 ) :: CSQY_ADJUSTMENTS( 0:18 )
-            DATA CSQY_ADJUSTMENTS / 
+            DATA CSQY_ADJUSTMENTS /
      &                             'NO_ADJUSTMENT',
-     &                             'ACETALDEHYDE',          
-     &                             'HIGHER_ALDEHYDES',    
-     &                             'METHYL_VINYL_KETONE',   
-     &                             'METHYL_ACROLEIN',       
-     &                             'METHYL_ETHYL_KETONE',   
+     &                             'ACETALDEHYDE',
+     &                             'HIGHER_ALDEHYDES',
+     &                             'METHYL_VINYL_KETONE',
+     &                             'METHYL_ACROLEIN',
+     &                             'METHYL_ETHYL_KETONE',
      &                             'METHYL_GLYOXAL_IUPAC04',
-     &                             'ACROLEIN',              
+     &                             'ACROLEIN',
      &                             'FORMALDEHYDE_MOLECULAR',
-     &                             'ACETONE',               
-     &                             'KETONE_LEGACY',         
-     &                             'KETONE_RACM2',          
-     &                             'GLYOXAL_RACM2',                    
+     &                             'ACETONE',
+     &                             'KETONE_LEGACY',
+     &                             'KETONE_RACM2',
+     &                             'GLYOXAL_RACM2',
      &                             'METHYL_GLYOXAL_LEGACY',
      &                             'NBUTYRALDEHYDE',
      &                             'BIACETYL',
@@ -217,18 +217,18 @@
      &                             'GLYOXAL_IUPAC_2013',
      &                             'CH3CHO_IUPAC2013'      /
 
-! integer pointer for density correction to a photolysis rates' cross-section 
-! and/or quantum yield values            
-            INTEGER, ALLOCATABLE :: CSQY_ADJUST( : ) 
-            
+! integer pointer for density correction to a photolysis rates' cross-section
+! and/or quantum yield values
+            INTEGER, ALLOCATABLE :: CSQY_ADJUST( : )
+
             REAL,    ALLOCATABLE :: IPHI0_MGLY( : ) ! Reciprocal Methyl Glyoxal Quantum Yields at zero pressure
             REAL,    ALLOCATABLE :: KMGLY    ( : )  ! Quenching Coefficient for Methyl Glyoxal Quantum Yields
 
-! coefficients used correct acetaldehyde Quantum Yields based on IUPAC 2013 recommendations             
+! coefficients used correct acetaldehyde Quantum Yields based on IUPAC 2013 recommendations
             REAL,    ALLOCATABLE :: IPHIS_CH3CHO( : ) ! Reciprocal acetaldehyde Quantum Yields at surface pressure
             REAL,    ALLOCATABLE :: IPHI0_CH3CHO( : ) ! Reciprocal acetaldehyde Quantum Yields at zero pressure
             REAL,    ALLOCATABLE :: KCH3CHO     ( : ) ! Quenching Coefficient for acetaldehyde Quantum Yields
-             
+
 
 
       INTEGER :: IREFTEMPS  ! number of ref. temperatures
@@ -297,7 +297,7 @@
      &     1.262E-19, 1.306E-19, 1.548E-19, 0.0 /
 
       REAL :: OPTT                ! variable needed for acetone
-      
+
       INTEGER, PRIVATE :: CSQY_DATA_LOG
 
       REAL, ALLOCATABLE :: DELTA_REFTI( :, : )
@@ -306,7 +306,7 @@
 
       SUBROUTINE LOAD_CSQY_DATA ( )
 !-----------------------------------------------------------------------
-!  Purpose: read input file for 
+!  Purpose: read input file for
 !           -wavelength bin and temperature structure.
 !           -photolysis cross-sections and quantum
 !
@@ -329,35 +329,35 @@ C     NONE
 
 !***local
 
-      LOGICAL :: WRITE_LOG = .TRUE.
+!     LOGICAL :: WRITE_LOG = .TRUE.
 
       CHARACTER(  32 ) :: PNAME = 'LOAD_CSQY_DATA'
       CHARACTER(  16 ) :: CSQY_FILE = 'CSQY_DATA' ! CSQY_DATA i/o logical name
       CHARACTER(  16 ) :: PHOT_EXPECT
-      CHARACTER(  30 ) :: LAND_EXPECT
+!     CHARACTER(  30 ) :: LAND_EXPECT
       CHARACTER( 120 ) :: MSG                     ! buffer for messages to output
       CHARACTER( 240 ) :: FILE_LINE
 
-      CHARACTER(  16 ),  ALLOCATABLE :: AE_RERACT_REF( : )
+!     CHARACTER(  16 ),  ALLOCATABLE :: AE_RERACT_REF( : )
 
 !     INTEGER, INTENT(OUT) :: NWL_PHOT    ! # of wavelengths used in PHOT_MOD.F
 !     INTEGER :: NWL_PHOT    ! # of wavelengths used in PHOT_MOD.F
-      INTEGER :: IOST        ! IOST returned from OPEN function
-      INTEGER :: JDATE = 0
+!     INTEGER :: IOST        ! IOST returned from OPEN function
+!     INTEGER :: JDATE = 0
       INTEGER :: LOG_UNIT
       INTEGER, parameter :: PHOTAB_UNIT = 88
       INTEGER :: IPHOT, IPHOT_LOAD ! loop indices
-      INTEGER :: ITT, ITT_LOAD     ! loop indices 
+      INTEGER :: ITT, ITT_LOAD     ! loop indices
       INTEGER :: IP_MAP, IP_REF    ! photolysis reaction indicies
       INTEGER :: IWL, IWL_LOAD
-      INTEGER :: STRT, FINI
+!     INTEGER :: STRT, FINI
 
       character(pathlen) :: photab_file
 
-      INTEGER :: NAE_REFRACT_REF 
+!     INTEGER :: NAE_REFRACT_REF
 
-      REAL,       ALLOCATABLE :: AE_IMAG_REFRACT( :, : )
-      REAL,       ALLOCATABLE :: AE_REAL_REFRACT( :, : )
+!     REAL,       ALLOCATABLE :: AE_IMAG_REFRACT( :, : )
+!     REAL,       ALLOCATABLE :: AE_REAL_REFRACT( :, : )
       logical                 :: exists
       LOGICAL                 :: ERROR_FLAG = .FALSE.
 
@@ -365,7 +365,7 @@ C     NONE
 
       LOG_UNIT = INIT3()
       CSQY_DATA_LOG = INIT3()
-      
+
 !     PHOTAB_UNIT = GETEFILE( CSQY_FILE, .TRUE., .TRUE., PNAME )
 
 !     IF ( PHOTAB_UNIT .LT. 0 ) THEN
@@ -478,7 +478,7 @@ C...begin read
       write( log_unit,'(17x,i3)' ) nwl_ref
 #endif
 
-      
+
 4999  FORMAT(17X,I3,2X,17X,I3)
 
 !      NWL       = NWL_REF
@@ -509,7 +509,7 @@ C...begin read
          READ( PHOTAB_UNIT, * )iphot_load,
      &         STWL_REF( IWL_LOAD ), EFFWL_REF( IWL_LOAD ),
      &         ENDWL_REF( IWL_LOAD ), FSOLAR_REF( IWL_LOAD )
-     
+
 #ifdef verbose_phot
          write( log_unit,'(4x,3(f8.3,2x),2x,2(es12.4,2x),f8.3,2x,12(es12.4,2x))' )
      &          stwl_ref( iwl_load ), effwl_ref( iwl_load ),
@@ -517,7 +517,7 @@ C...begin read
 #endif
          WAVELENGTH( IWL_LOAD ) = EFFWL_REF ( IWL_LOAD )
          WAVENUMBER( IWL_LOAD ) = 1.0E7 / EFFWL_REF ( IWL_LOAD )
-         FEXT      ( IWL_LOAD ) = FSOLAR_REF( IWL_LOAD ) 
+         FEXT      ( IWL_LOAD ) = FSOLAR_REF( IWL_LOAD )
       END DO
 
 
@@ -644,10 +644,10 @@ C...begin read
        ALLOCATE( XXCS( IREFTEMPS, NWL, NPHOTAB ) )
        ALLOCATE( XXQY( IREFTEMPS, NWL, NPHOTAB ) )
        ALLOCATE( RTEMP_S( IREFTEMPS, NPHOTAB ) )
-       
+
        MECHANISM_RATES = NPHOTAB
 
-       
+
        DO IPHOT = 1, NPHOTAB
           IP_MAP = INDEXR( PHOTAB( IPHOT ), NPHOT_MAP, PNAME_MAP )
           IF ( IP_MAP .LE. 0 ) THEN
@@ -722,7 +722,7 @@ C...begin read
        END IF
 
       WRITE( LOG_UNIT,* ) 'Sucessfully Loaded CSQY_DATA file'
-      
+
 !!!      CLOSE(LOG_UNIT)
       CLOSE(PHOTAB_UNIT)
 
@@ -752,9 +752,9 @@ C...begin read
 
       SUBROUTINE LOAD_OPTICS_DATA()
 !-----------------------------------------------------------------------
-!  Purpose: read input file for 
+!  Purpose: read input file for
 !           -wavelength bin for cross check against
-!           -size dependent optical data for liquid droplets and ice 
+!           -size dependent optical data for liquid droplets and ice
 !            ice particles
 !           -landuse type data for surface alebdo
 !
@@ -776,7 +776,7 @@ C...begin read
 
 !***local
 
-      LOGICAL :: WRITE_LOG = .TRUE.
+!     LOGICAL :: WRITE_LOG = .TRUE.
 
       CHARACTER(  32 ) :: PNAME         = 'LOAD_OPTICS_DATA'
 !     CHARACTER(  16 ) :: OPTICS_FILE   = 'OPTICS_DATA'      ! OPTICS_DATA i/o logical name
@@ -790,20 +790,20 @@ C...begin read
 
 !     INTEGER, INTENT(OUT) :: NWL_OPTICS    ! # of wavelengths used in PHOT_MOD.F
       INTEGER :: NWL_OPTICS    ! # of wavelengths used in PHOT_MOD.F
-      INTEGER :: IOST        ! IOST returned from OPEN function
-      INTEGER :: JDATE = 0
+!     INTEGER :: IOST        ! IOST returned from OPEN function
+!     INTEGER :: JDATE = 0
       INTEGER :: LOG_UNIT
       INTEGER, parameter :: OPTICS_UNIT = 88
-      INTEGER :: IPHOT, IPHOT_LOAD ! loop indices
-      INTEGER :: ITT, ITT_LOAD     ! loop indices 
-      INTEGER :: IP_MAP, IP_REF    ! photolysis reaction indicies
+      INTEGER :: IPHOT_LOAD ! loop indices
+      INTEGER :: ITT_LOAD     ! loop indices
+!     INTEGER :: IP_MAP, IP_REF    ! photolysis reaction indicies
       INTEGER :: IWL_LOAD
       INTEGER :: STRT, FINI
 
       character(pathlen) :: optics_file
 
-      INTEGER :: NAE_REFRACT_REF 
-      
+      INTEGER :: NAE_REFRACT_REF
+
       REAL,       ALLOCATABLE :: AE_IMAG_REFRACT( :, : )
       REAL,       ALLOCATABLE :: AE_REAL_REFRACT( :, : )
       REAL                    :: DELTA
@@ -827,7 +827,7 @@ C...begin read
       open( file = optics_file, unit = optics_unit, status = 'old', position = 'rewind' )
 
       READ( OPTICS_UNIT,'(A)' ) FILE_LINE
-      
+
 #ifdef verbose_phot
       write( log_unit, '(A)' )TRIM(FILE_LINE)
 #endif
@@ -836,7 +836,7 @@ C...begin read
 #ifdef verbose_phot
       write( log_unit,'(17x,i3)' ) nwl_ref
 #endif
-      
+
       NWL_OPTICS = NWL_REF
 
       DO ITT_LOAD = 1, 15 ! skip next 15 lines
@@ -856,13 +856,13 @@ C...begin read
       IF( .NOT. ALLOCATED( EFFWL_REF  ) ) ALLOCATE( EFFWL_REF ( NWL_REF ) )
       IF( .NOT. ALLOCATED( FEXT       ) ) ALLOCATE( FEXT      ( NWL_REF ) )
       IF( .NOT. ALLOCATED( WAVELENGTH ) ) ALLOCATE( WAVELENGTH( NWL_REF ) )
-      
+
       DO IWL_LOAD = 1, NWL_REF
          READ( OPTICS_UNIT, * )IPHOT_LOAD,
      &   STWL_REF( IWL_LOAD ), EFFWL_REF( IWL_LOAD ), ENDWL_REF( IWL_LOAD ),
      &   CLD_BETA_REF( IWL_LOAD ), CLD_G_REF( IWL_LOAD ), CLD_COALBEDO_REF( IWL_LOAD )
 
-     
+
 #ifdef verbose_phot
          write( log_unit, 99946 )
      &   stwl_ref( iwl_load ), effwl_ref( iwl_load ), endwl_ref( iwl_load ),
@@ -870,14 +870,14 @@ C...begin read
 #endif
 
          WAVELENGTH( IWL_LOAD ) = EFFWL_REF ( IWL_LOAD )
-         FEXT      ( IWL_LOAD ) = FSOLAR_REF( IWL_LOAD ) 
+         FEXT      ( IWL_LOAD ) = FSOLAR_REF( IWL_LOAD )
 
          CLOUD_BETA_LWC( IWL_LOAD ) = CLD_BETA_REF    ( IWL_LOAD )
-         CLOUD_COALBEDO( IWL_LOAD ) = CLD_COALBEDO_REF( IWL_LOAD ) 
+         CLOUD_COALBEDO( IWL_LOAD ) = CLD_COALBEDO_REF( IWL_LOAD )
          CLOUD_G       ( IWL_LOAD ) = CLD_G_REF       ( IWL_LOAD )
 
       END DO
-      
+
       DO ITT_LOAD = 1, 7 ! skip next 7 lines
          READ( OPTICS_UNIT,'(A)' ) FILE_LINE
 #ifdef verbose_phot
@@ -903,11 +903,11 @@ C...begin read
          CALL M3WARN( PNAME, 0, 0, MSG )
          ERROR_FLAG = .TRUE.
       END IF
-      
+
       ALLOCATE( AE_RERACT_REF   ( NAE_REFRACT_REF ) )
 
       READ( OPTICS_UNIT,'(A)' ) FILE_LINE
-                
+
 #ifdef verbose_phot
       write( log_unit, '(a)')TRIM(FILE_LINE)
 #endif
@@ -915,12 +915,12 @@ C...begin read
       STRT = SCAN(FILE_LINE, '=', BACK = .TRUE.) + 1
       FINI =  LEN(FILE_LINE)
 
-      READ( FILE_LINE( STRT:FINI ), * )( AE_RERACT_REF( ITT_LOAD ), 
+      READ( FILE_LINE( STRT:FINI ), * )( AE_RERACT_REF( ITT_LOAD ),
      &                                   ITT_LOAD = 1, NAE_REFRACT_REF )
 
 #ifdef verbose_phot
       write( log_unit, 99947)'REFRACTIVE_INDICES'
-      write( log_unit, 99948 )(AE_RERACT_REF( ITT_LOAD ),ITT_LOAD = 1, 
+      write( log_unit, 99948 )(AE_RERACT_REF( ITT_LOAD ),ITT_LOAD = 1,
      &                                 NAE_REFRACT_REF )
 #endif
 
@@ -928,13 +928,13 @@ C...begin read
       ALLOCATE( AE_REAL_REFRACT ( NAE_REFRACT_REF, NWL_REF ) )
       ALLOCATE( AE_IMAG_REFRACT ( NAE_REFRACT_REF, NWL_REF ) )
 
-      DO ITT_LOAD = 1, NAE_REFRACT_REF 
+      DO ITT_LOAD = 1, NAE_REFRACT_REF
 ! set up refractive indices used by aero_photdata routine
 
           REFRACTIVE_INDEX( ITT_LOAD )%NAME = AE_RERACT_REF( ITT_LOAD )
-          ALLOCATE( REFRACTIVE_INDEX( ITT_LOAD )%REAL_PART( N_MODE, NWL_REF ) )         
-          ALLOCATE( REFRACTIVE_INDEX( ITT_LOAD )%IMAG_PART( N_MODE, NWL_REF )  ) 
-           
+          ALLOCATE( REFRACTIVE_INDEX( ITT_LOAD )%REAL_PART( N_MODE, NWL_REF ) )
+          ALLOCATE( REFRACTIVE_INDEX( ITT_LOAD )%IMAG_PART( N_MODE, NWL_REF )  )
+
 #ifdef verbose_phot
           write( log_unit, '(i3, 1x, a16)')itt_load, refractive_index( itt_load )%name
 #endif
@@ -948,14 +948,14 @@ C...begin read
 
       DO IWL_LOAD = 1, NWL_REF
          READ( OPTICS_UNIT, * )iphot_load,
-     &   STWL_REF( IWL_LOAD ), EFFWL_REF( IWL_LOAD ), ENDWL_REF( IWL_LOAD ), 
+     &   STWL_REF( IWL_LOAD ), EFFWL_REF( IWL_LOAD ), ENDWL_REF( IWL_LOAD ),
      &   (AE_REAL_REFRACT( ITT_LOAD, IWL_LOAD ), AE_IMAG_REFRACT( ITT_LOAD, IWL_LOAD ),
      &    ITT_LOAD = 1, NAE_REFRACT_REF)
 
                DO ITT_LOAD = 1, NAE_REFRACT_REF
-                  REFRACTIVE_INDEX( ITT_LOAD )%REAL_PART( 1:N_MODE, IWL_LOAD ) 
+                  REFRACTIVE_INDEX( ITT_LOAD )%REAL_PART( 1:N_MODE, IWL_LOAD )
      &                                      = AE_REAL_REFRACT( ITT_LOAD, IWL_LOAD )
-                  REFRACTIVE_INDEX( ITT_LOAD )%IMAG_PART( 1:N_MODE, IWL_LOAD ) 
+                  REFRACTIVE_INDEX( ITT_LOAD )%IMAG_PART( 1:N_MODE, IWL_LOAD )
      &                                      = AE_IMAG_REFRACT( ITT_LOAD, IWL_LOAD )
                END DO
 #ifdef verbose_phot
@@ -984,7 +984,7 @@ C...begin read
 #endif
 
       ALLOCATE(RADIUS_LIQUID( NRADIUS_LIQUID ))
-      
+
       ALLOCATE( LIQUID_EXTINCT(NRADIUS_LIQUID, NWL_OPTICS),
      &         LIQUID_ASYMFACT(NRADIUS_LIQUID, NWL_OPTICS),
      &         LIQUID_COALBEDO(NRADIUS_LIQUID, NWL_OPTICS))
@@ -995,7 +995,7 @@ C...begin read
 #ifdef verbose_phot
       write( log_unit, '(a)' )TRIM(FILE_LINE)
 #endif
-      
+
       DO ITT_LOAD = 1, NRADIUS_LIQUID
          READ( OPTICS_UNIT, * )
      &         OPTICS_EXPECT, RADIUS_LIQUID( ITT_LOAD ),
@@ -1016,7 +1016,7 @@ C...begin read
 
 
       QUANTITY = 'LIQ_ASY'
-      
+
       READ( OPTICS_UNIT,'(A)' ) FILE_LINE
 #ifdef verbose_phot
       write( log_unit, '(a)' )TRIM(FILE_LINE)
@@ -1045,7 +1045,7 @@ C...begin read
 #endif
 
       QUANTITY = 'LIQ_COA'
-      
+
       DO ITT_LOAD = 1, NRADIUS_LIQUID
          READ( OPTICS_UNIT, * )
      &         OPTICS_EXPECT, RADIUS_LIQUID( ITT_LOAD ),
@@ -1081,7 +1081,7 @@ C...begin read
 #endif
 
       ALLOCATE(DIAMETER_ICE( NDIAMETER_ICE ))
-      
+
       ALLOCATE( ICE_EXTINCT(NDIAMETER_ICE, NWL_OPTICS),
      &         ICE_ASYMFACT(NDIAMETER_ICE, NWL_OPTICS),
      &         ICE_COALBEDO(NDIAMETER_ICE, NWL_OPTICS),
@@ -1093,7 +1093,7 @@ C...begin read
 #endif
 
       QUANTITY = 'ICE_EXT'
-      
+
       DO ITT_LOAD = 1, NDIAMETER_ICE
          READ( OPTICS_UNIT, * )
      &         OPTICS_EXPECT, DIAMETER_ICE( ITT_LOAD ),
@@ -1111,14 +1111,14 @@ C...begin read
                ERROR_FLAG = .TRUE.
             END IF
       END DO
- 
+
       READ( OPTICS_UNIT,'(A)' ) FILE_LINE
 #ifdef verbose_phot
       write( log_unit, '(a)' )TRIM(FILE_LINE)
 #endif
 
       QUANTITY = 'ICE_ASY'
-      
+
       DO ITT_LOAD = 1, NDIAMETER_ICE
          READ( OPTICS_UNIT, * )
      &         OPTICS_EXPECT, DIAMETER_ICE( ITT_LOAD ),
@@ -1143,7 +1143,7 @@ C...begin read
 #endif
 
       QUANTITY = 'ICE_COA'
-      
+
       DO ITT_LOAD = 1, NDIAMETER_ICE
          READ( OPTICS_UNIT, * )
      &         OPTICS_EXPECT, DIAMETER_ICE( ITT_LOAD ),
@@ -1168,7 +1168,7 @@ C...begin read
 #endif
 
       QUANTITY = 'ICE_DEL'
-      
+
       DO ITT_LOAD = 1, NDIAMETER_ICE
          READ( OPTICS_UNIT, * )
      &         OPTICS_EXPECT, DIAMETER_ICE( ITT_LOAD ),
@@ -1187,38 +1187,38 @@ C...begin read
             END IF
       END DO
 
-! Determine limit and frequencies of liquid and ice inputs  
-      MAXI_RADIUS_LIQUID = MAXVAL( RADIUS_LIQUID )  
-      MINI_RADIUS_LIQUID = MINVAL( RADIUS_LIQUID ) 
-      
+! Determine limit and frequencies of liquid and ice inputs
+      MAXI_RADIUS_LIQUID = MAXVAL( RADIUS_LIQUID )
+      MINI_RADIUS_LIQUID = MINVAL( RADIUS_LIQUID )
+
       DELTA = (RADIUS_LIQUID( 2 ) - RADIUS_LIQUID( 1 ))
-      
+
       IF( DELTA  .LE. EPSILON )THEN
          WRITE( MSG, 99951)DELTA
                CALL M3WARN( PNAME, 0, 0, MSG )
                ERROR_FLAG = .TRUE.
       ELSE
-         FREQ_RADIUS_LIQUID = 1.0 / DELTA 
-         INIT_RADIUS_LIQUID = MINI_RADIUS_LIQUID 
+         FREQ_RADIUS_LIQUID = 1.0 / DELTA
+         INIT_RADIUS_LIQUID = MINI_RADIUS_LIQUID
      &                      - DELTA
       END IF
-         
-      MAXI_DIAMETER_ICE = MAXVAL( DIAMETER_ICE )  
-      MINI_DIAMETER_ICE = MINVAL( DIAMETER_ICE ) 
-      
+
+      MAXI_DIAMETER_ICE = MAXVAL( DIAMETER_ICE )
+      MINI_DIAMETER_ICE = MINVAL( DIAMETER_ICE )
+
       DELTA = (DIAMETER_ICE( 2 ) - DIAMETER_ICE( 1 ))
-      
+
       IF( DELTA  .LE. EPSILON )THEN
          WRITE( MSG, 99952)DELTA
          CALL M3WARN( PNAME, 0, 0, MSG )
          ERROR_FLAG = .TRUE.
       ELSE
-         FREQ_DIAMETER_ICE = 1.0 / DELTA 
-         INIT_DIAMETER_ICE = MINI_DIAMETER_ICE 
+         FREQ_DIAMETER_ICE = 1.0 / DELTA
+         INIT_DIAMETER_ICE = MINI_DIAMETER_ICE
      &                     - DELTA
       END IF
 
-!  read data for calculating surface albedo   
+!  read data for calculating surface albedo
 
       DO ITT_LOAD = 1, 6 ! skip next 6 lines
          READ( OPTICS_UNIT,'(A)' ) FILE_LINE
@@ -1368,7 +1368,7 @@ C...begin read
       END DO
 
       NO_NLCD40 = .TRUE.  ! default condition that file does not contain NLCD40 Landuse data
-      
+
       READ( OPTICS_UNIT,5013, END = 101 ) NUMB_LANDUSE_NLCD40
       READ( OPTICS_UNIT,'(A)' ) FILE_LINE ! skip line
 #ifdef verbose_phot
@@ -1392,7 +1392,7 @@ C...begin read
 #endif
 
       END DO
-      
+
       NO_NLCD40 = .FALSE.
 
 101   IF( NO_NLCD40 )THEN
@@ -1405,7 +1405,7 @@ C...begin read
 
 ! set the default values for surface albedo
 !      ALLOCATE( ALB( NWL_OPTICS ) )
-      
+
 !      DO IWL_LOAD = 1, NWL_OPTICS
 !         IF ( WAVELENGTH( IWL_LOAD ) .LE. 380.1 ) THEN
 !            ALB( IWL_LOAD ) = 0.05
@@ -1418,12 +1418,12 @@ C...begin read
          MSG = 'The above fatal error(s) found in CSQY data! '
          CALL M3EXIT( PNAME, 0, 0, MSG, -1 )
       END IF
-      
+
 
       CLOSE(OPTICS_UNIT)
 
       WRITE( LOG_UNIT,* ) 'Sucessfully Loaded OPTICS_DATA file'
-      
+
 
 4999  FORMAT(17X,I3,2X,17X,I3)
 5012  FORMAT( 4X,A30,1X,3(F8.3,2X) )
@@ -1515,7 +1515,7 @@ C-----------------------------------------------------------------------
 !  Apr 2014: Bill Hutzell
 !     -revised method to determine what density corrections for a
 !      specific photolysis reactions from name select to index selection
-!     -revision agrument an variable names to use data available in CSQY_DATA 
+!     -revision agrument an variable names to use data available in CSQY_DATA
 !      and GRID_CONF modules
 !  Sept 2014: Bill Hutzell
 !     -revised fortrans looping constructs attempting to improve computational
@@ -1583,7 +1583,7 @@ C-----------------------------------------------------------------------
 !***fetch temperature data
                XTEMP = TEMP( LAYS )
                IT    = ITEMP( LAYS, IPHOT )
-               
+
                IF ( IT .EQ. 0 ) THEN
 !***if the ambient temperature is cooler than the minimum
 !***  reference temperature, then use the value at the minimum reference temperature
@@ -1602,7 +1602,7 @@ C-----------------------------------------------------------------------
      &                                    + ( XXQY( IT+1, IWL, IPHOT )
      &                                      - XXQY(   IT, IWL, IPHOT ) )
      &                                    * YTEMP
-               ELSE 
+               ELSE
 !***if the ambient temperature is warmer than the maximum
 !***  reference temperature, then use the value at the maximum reference temperature
                   CSZ( LAYS, IWL, IPHOT ) = XXCS( IT, IWL, IPHOT )
@@ -1614,7 +1614,7 @@ C-----------------------------------------------------------------------
 !***Note specific acetone channels are treated outside these three nested loops
 
         IF( CSQY_ADJUST( IPHOT ) .LT. 1 )CYCLE
-               
+
         SELECT CASE (  CSQY_ADJUST( IPHOT ) )
            CASE ( ACETALDEHYDE )      ! 'CH3CHO -> CH3 + HCO'
               DO IWL = 1, NWL_REF
@@ -1625,10 +1625,10 @@ C-----------------------------------------------------------------------
                   END DO
                END DO
            CASE( CH3CHO_IUPAC2013 ) ! IUPAC 2013 correction for acetaldehyde
-! density correction to quantum yield recommended in 
-! http://iupac.pole-ether.fr/htdocs/datasheets/pdf/P2_CH3CHO+hv.pdf dated June 2013   
-! and based on 
-! Warneck, P. and Moortgat, G.K. (2012). Quantum yields and photodissociation coefficients of 
+! density correction to quantum yield recommended in
+! http://iupac.pole-ether.fr/htdocs/datasheets/pdf/P2_CH3CHO+hv.pdf dated June 2013
+! and based on
+! Warneck, P. and Moortgat, G.K. (2012). Quantum yields and photodissociation coefficients of
 ! acetaldehyde in the troposphere, Atmos. Environ., 62, 153-163.
               DO IWL = 1, NWL_REF
                  DO LAYS = 1, NRAD_CHEM
@@ -1672,7 +1672,7 @@ C-----------------------------------------------------------------------
 !***remove wavelength dependence
               DO IWL = 1, NWL_REF
                  DO LAYS = 1, NRAD_CHEM
-                    QYZ( LAYS, IWL, IPHOT ) = QYZ( LAYS, IWL, IPHOT ) * 118.4 
+                    QYZ( LAYS, IWL, IPHOT ) = QYZ( LAYS, IWL, IPHOT ) * 118.4
      &                                      / ( 5.5 + 4.6E-19 * DENS( LAYS ) )
                     QYZ( LAYS, IWL, IPHOT ) = MAX(0.0, MIN( QYZ( LAYS, IWL, IPHOT ), 1.0 ) )
                  END DO
@@ -1689,7 +1689,7 @@ C-----------------------------------------------------------------------
 !***remove wavelength dependence
               DO IWL = 1, NWL_REF
                  DO LAYS = 1, NRAD_CHEM
-                    QYZ( LAYS, IWL, IPHOT ) = QYZ( LAYS, IWL, IPHOT ) * 118.4 
+                    QYZ( LAYS, IWL, IPHOT ) = QYZ( LAYS, IWL, IPHOT ) * 118.4
      &                                      / ( 5.5 + 4.6E-19 * DENS( LAYS ) )
                     QYZ( LAYS, IWL, IPHOT ) = MAX(0.0, MIN( QYZ( LAYS, IWL, IPHOT ), 1.0 ) )
                  END DO
@@ -1706,10 +1706,10 @@ C-----------------------------------------------------------------------
                  DO LAYS = 1, NRAD_CHEM
 ! skips SAPRC07T cases where qy is set to one and photolysis rate is scaled in mech.def
 !***  Carter adjusted to 0.175 based on chamber tests and sets the values in
-!***  mechanism definition file. The photolysis data submitted for SAPRC07T sets this 
+!***  mechanism definition file. The photolysis data submitted for SAPRC07T sets this
 !***  quantum yield to one.
 !                     IF( QYZ( LAYS, IWL, IPHOT ) .GE.  1.0 )THEN
-!                          CYCLE 
+!                          CYCLE
 !                     END IF
 !                     PRESSURE = ( 1.03547E-19 * DENS( LAYS ) * TEMP( LAYS ) ) ! TORR
 !                     IF ( PRESSURE  .LT. 18.02 ) THEN
@@ -1718,9 +1718,9 @@ C-----------------------------------------------------------------------
 !                        QYZ( LAYS, IWL, IPHOT ) =  1.0 / ( 0.96 + 2.22E-3 * PRESSURE )
 !                     END IF
                      QYZ( LAYS, IWL, IPHOT ) =  QYZ( LAYS, IWL, IPHOT )
-     &                                       * ( 0.96 + 5.66639E-03 * TEMP( LAYS ) ) 
+     &                                       * ( 0.96 + 5.66639E-03 * TEMP( LAYS ) )
      &                                       / ( 0.96 + 2.29874E-22 * DENS( LAYS ) * TEMP( LAYS ) )
-                     QYZ( LAYS, IWL, IPHOT ) = MAX( 0.0, MIN( 1.0, QYZ( LAYS, IWL, IPHOT ) ) ) 
+                     QYZ( LAYS, IWL, IPHOT ) = MAX( 0.0, MIN( 1.0, QYZ( LAYS, IWL, IPHOT ) ) )
                    END DO
                END DO
            CASE ( BIACETYL )
@@ -1733,16 +1733,16 @@ C-----------------------------------------------------------------------
               DO IWL = 1, NWL_REF
                  DO LAYS = 1, NRAD_CHEM
                      QYZ( LAYS, IWL, IPHOT ) =  QYZ( LAYS, IWL, IPHOT )
-     &                                       * ( 1.0 + 1.37662E-02 * TEMP( LAYS ) ) 
+     &                                       * ( 1.0 + 1.37662E-02 * TEMP( LAYS ) )
      &                                       / ( 1.0 + 5.19481E-22 * DENS( LAYS ) * TEMP( LAYS ) )
-                     QYZ( LAYS, IWL, IPHOT ) = MAX( 0.0, MIN( 1.0, QYZ( LAYS, IWL, IPHOT ) ) ) 
+                     QYZ( LAYS, IWL, IPHOT ) = MAX( 0.0, MIN( 1.0, QYZ( LAYS, IWL, IPHOT ) ) )
                    END DO
                END DO
            CASE ( METHYL_GLYOXAL_IUPAC04 )
               DO IWL = 1, NWL_REF
                  IF( WAVELENGTH( IWL ) .GE. 500.0 .OR. WAVELENGTH( IWL ) .LE. 240.0 )CYCLE
                  DO LAYS = 1, NRAD_CHEM
-! Replaced the following method used in CMAQ 5.01                   
+! Replaced the following method used in CMAQ 5.01
 !***  Pressure dependence based on Koch and Moortgat (1998),
 !***  J. Phys. Chem. A, vol 102, pages 9142. The application contradicts
 !***  NASA (2006) & IUPAC (2005) and is used based recommendations for
@@ -1753,21 +1753,21 @@ C-----------------------------------------------------------------------
 !     &                                         / ( 1.0 / QYZ( LAYS, IWL, IPHOT ) - 1.0 )
 !                       QYZ( LAYS, IWL, IPHOT ) = QYZ( LAYS, IWL, IPHOT )
 !     &                                         / ( QYZ( LAYS, IWL, IPHOT ) + 1.36E8 * PRESSURE )
-! by using the relative correction recommended in NASA JPL (2011).  Note that linearily interpolated 
+! by using the relative correction recommended in NASA JPL (2011).  Note that linearily interpolated
 ! values are assumed to be at air number density equal to 2.465E19 molecules/cm3. Pressure units are Torrs.
-! New correction is based on recommendation in 
+! New correction is based on recommendation in
 ! http://iupac.pole-ether.fr/htdocs/datasheets/pdf/P6_CH3COCHO+hv.pdf dated 2003
 ! but places lower limit on pressure of 4 Torrs based on source of recommendation:
 !     Y. Chen, W. Wang and L. Zhu, J. Phys. Chem. A, 104 11126 (2000).
                        PRESSURE = 1.03547E-19 * TEMP( LAYS ) * DENS( LAYS )
                        FACTOR   = 2.5524 * TEMP( LAYS ) ! pressure for dens at 2.465e19 molec/cm3
-                       IF( WAVELENGTH( IWL ) .LE. 370.0 )THEN 
+                       IF( WAVELENGTH( IWL ) .LE. 370.0 )THEN
                            PRESSURE = MAX( 400.0, PRESSURE )
                            FACTOR   = MAX( 400.0, FACTOR   )
                        END IF
                        QYZ( LAYS, IWL, IPHOT ) =  QYZ( LAYS, IWL, IPHOT )
-     &                                         * ( IPHI0_MGLY( IWL ) + KMGLY( IWL ) * FACTOR ) 
-     &                                         / ( IPHI0_MGLY( IWL ) + KMGLY( IWL ) * PRESSURE ) 
+     &                                         * ( IPHI0_MGLY( IWL ) + KMGLY( IWL ) * FACTOR )
+     &                                         / ( IPHI0_MGLY( IWL ) + KMGLY( IWL ) * PRESSURE )
                        QYZ( LAYS, IWL, IPHOT ) = MAX( 0.0, MIN( 1.0, QYZ( LAYS, IWL, IPHOT ) ) )
                    END DO
                END DO
@@ -1777,13 +1777,13 @@ C-----------------------------------------------------------------------
                  DO LAYS = 1, NRAD_CHEM
 !***Number density dependence based on Gardner et. al (1987),
 !***  J. Phys. Chem., vol 91, pages 1922. The application uses
-!***  the quantum yields set in in cross-section file. 
+!***  the quantum yields set in in cross-section file.
 !***  For SAPRC07T CSQY data, yields set approximately four times NASA (2006)
 !***  because the mechanism developer sums over all possible channels and
 !***  Gardner et. al may support this conclusion.
                     IF ( DENS( LAYS ) .GE. 8.0E+17 ) THEN
                        QYZ( LAYS, IWL, IPHOT ) = 153.5 * QYZ( LAYS, IWL, IPHOT )
-     &                                         * ( 4.0E-3 + 1.0 / ( 8.6E-2 + 1.613E-17 * DENS( LAYS ) ) )                       
+     &                                         * ( 4.0E-3 + 1.0 / ( 8.6E-2 + 1.613E-17 * DENS( LAYS ) ) )
                     ELSE IF ( DENS( LAYS ) .LT. 8.0E+17 ) THEN
                        QYZ( LAYS, IWL, IPHOT ) = 12.431 * QYZ( LAYS, IWL, IPHOT )
                     END IF
@@ -1792,7 +1792,7 @@ C-----------------------------------------------------------------------
               END DO
            CASE ( FORMALDEHYDE_MOLECULAR )  ! 'CH2O -> H2 + CO'
 !***temperature/density correction to quantum yield
-! based on 
+! based on
 ! Sander, S. P., Friedl, R. R., Abbatt, J. P. D., Barker, J. R.,
 ! Burkholder, J. B., Golden, D. M., Kolb, C. E., Kurylo, M. J.,
 ! Moortgat, G. K., Wine, P. H., Huie, R. E., and Orkin, V. L.:
@@ -1805,10 +1805,10 @@ C-----------------------------------------------------------------------
                  DO LAYS = 1, NRAD_CHEM
                     IF ( QYZ( LAYS, IWL, IPHOT ) .LE. 0.0 ) CYCLE
 
-                    BETA = 1.0 / ( 1.0 - QYZ( LAYS, IWL, LHCHOR_06 ) ) 
+                    BETA = 1.0 / ( 1.0 - QYZ( LAYS, IWL, LHCHOR_06 ) )
                     IF ( TEMP( LAYS ) .LT. 300.0 .AND. TEMP( LAYS ) .GT. 220.0 ) THEN
                         PRESSURE = 1.36312E-22  * DENS( LAYS ) * TEMP( LAYS )   ! pressure units, atm
-                        ALPHA = ( 1.0 / QYZ( LAYS, IWL, IPHOT ) - BETA ) 
+                        ALPHA = ( 1.0 / QYZ( LAYS, IWL, IPHOT ) - BETA )
      &                        * ( 1.0 + 0.05 * ( WAVELENGTH( IWL ) - 329.0 )
      &                        * ( ( TEMP( LAYS ) - 80.0 ) * 0.0125 ) )
                     ELSE IF ( TEMP( LAYS ) .LE. 220.0 ) THEN
@@ -1822,9 +1822,9 @@ C-----------------------------------------------------------------------
                     END IF
 !***use relative change assuming that air density for interpolated value is 2.465e19 molecules/cm3
                     QYZ( LAYS, IWL, IPHOT ) = QYZ( LAYS, IWL, IPHOT )
-     &                                      * ( BETA + 3.3601E-3 * TEMP( LAYS ) * ALPHA ) 
-     &                                      / ( BETA + PRESSURE * ALPHA )                    
-     
+     &                                      * ( BETA + 3.3601E-3 * TEMP( LAYS ) * ALPHA )
+     &                                      / ( BETA + PRESSURE * ALPHA )
+
                     QYZ( LAYS, IWL, IPHOT ) = MAX( 0.0, MIN( 1.0, QYZ( LAYS, IWL, IPHOT ) ) )
                  END DO
               END DO
@@ -1845,7 +1845,7 @@ C-----------------------------------------------------------------------
      &                                            / ( DTTX * ( 1.0 + YY30( IWL ) * DENS( LAYS ) ) )
                        QYZ( LAYS, IWL, LACETONE ) = 1.0
                     END DO
-                 END DO   
+                 END DO
               ELSE
                  DO IWL = 1, NWL_REF
                       DO LAYS = 1, NRAD_CHEM
@@ -1858,7 +1858,7 @@ C-----------------------------------------------------------------------
          CASE (  ACETONE_CH3CO  )
              DO IWL = 1, NWL_REF
                 DO LAYS = 1, NRAD_CHEM
-                   QYZ( LAYS, IWL, IPHOT ) = RQY_ACETONE_CH3CO( TEMP( LAYS ), DENS( LAYS ), IWL ) 
+                   QYZ( LAYS, IWL, IPHOT ) = RQY_ACETONE_CH3CO( TEMP( LAYS ), DENS( LAYS ), IWL )
      &                                     * QYZ( LAYS, IWL, IPHOT )
                    QYZ( LAYS, IWL, IPHOT ) = MAX( 0.0, MIN( 1.0, QYZ( LAYS, IWL, IPHOT ) ) )
                 END DO
@@ -1866,7 +1866,7 @@ C-----------------------------------------------------------------------
          CASE( GLYOXAL_IUPAC_2013 )
              DO IWL = 1, NWL_REF
                 DO LAYS = 1, NRAD_CHEM
-                   QYZ( LAYS, IWL, IPHOT ) = RQY_GLYOXAL( TEMP( LAYS ), DENS( LAYS ), IWL ) 
+                   QYZ( LAYS, IWL, IPHOT ) = RQY_GLYOXAL( TEMP( LAYS ), DENS( LAYS ), IWL )
      &                                     * QYZ( LAYS, IWL, IPHOT )
                    QYZ( LAYS, IWL, IPHOT ) = MAX( 0.0, MIN( 1.0, QYZ( LAYS, IWL, IPHOT ) ) )
                 END DO
@@ -1901,26 +1901,26 @@ C-----------------------------------------------------------------------
             END DO
 
          END SELECT
- 
-      END DO   ! loop on IPHOT   
+
+      END DO   ! loop on IPHOT
 
       END SUBROUTINE GET_CSQY
 
       SUBROUTINE DEFINE_CSQY_ADJUST()
-! Purpose determine whether a phototlysis rate uses specific corrections to 
-! CSQY data 
-!          Apr  2014 B.Hutzell Initial version 
+! Purpose determine whether a phototlysis rate uses specific corrections to
+! CSQY data
+!          Apr  2014 B.Hutzell Initial version
 !          Sept 2014 B.Hutzell corrected acetaldehyde case to include CCHO_R_SAPRC99,
 !                    the photolysis rate used in original CB05 mechanism
 
                IMPLICIT NONE
-            
+
                INTEGER :: IPHOT, IWL
 
                REAL( 8 ) :: ILAMBDA
-               
+
                ALLOCATE( CSQY_ADJUST( MECHANISM_RATES ) )
-                        
+
                DO IPHOT = 1, MECHANISM_RATES
                   SELECT CASE ( TRIM( PHOTOLYSIS_RATE( IPHOT ) ) )
                      CASE ( 'CCHO_R', 'CCHO_R_SAPRC99', 'CH3CHO_RACM2', 'ALD2_R_IUPAC10' )      ! 'CH3CHO -> CH3 + HCO'
@@ -1933,7 +1933,7 @@ C-----------------------------------------------------------------------
                         DO IWL = 1, NWL_REF
                            IF(  WAVELENGTH( IWL ) .LE. 608.0 )THEN
                              ILAMBDA = REAL( 1.0D0 / WAVELENGTH( IWL ), 8 )
-                             KCH3CHO( IWL )   = REAL( 1.0D-21 
+                             KCH3CHO( IWL )   = REAL( 1.0D-21
      &                                        * (1.04D27*EXP(-1.792D4*ILAMBDA) + 1.48D6*EXP(-3.211D3*ILAMBDA)))
                              IPHI0_CH3CHO( IWL ) = 1.0 + EXP( 0.2627801*(  WAVELENGTH( IWL ) - 320.56 ) )
                              IPHIS_CH3CHO( IWL ) = IPHI0_CH3CHO( IWL ) + 2.465E19 *  KCH3CHO( IWL )
@@ -1941,11 +1941,11 @@ C-----------------------------------------------------------------------
                              KCH3CHO( IWL )      = 1.64731E-07
                              IPHI0_CH3CHO( IWL ) = 5.50947E+32
                              IPHIS_CH3CHO( IWL ) = 5.50946E+32
-                           END IF                               
+                           END IF
 !                WRITE(CSQY_DATA_LOG, 99951)'DENS, CH3CHO_IUPAC2013 QYZ factor =  ', ' ',2.465E19,
 !     &          IPHIS_CH3CHO( IWL ),IPHI0_CH3CHO( IWL ),KCH3CHO( IWL )
                         END DO
-                     CASE ( 'NC3CHO_R_MCMv32', 'NC3CHO_M_MCMv32' ) ! n-C3H7CHO (n-butyraldehyde, n-butanal) 
+                     CASE ( 'NC3CHO_R_MCMv32', 'NC3CHO_M_MCMv32' ) ! n-C3H7CHO (n-butyraldehyde, n-butanal)
                         CSQY_ADJUST( IPHOT ) = NBUTYRALDEHYDE
                      CASE ( 'C2CHO', 'ALD_RACM2', 'BALD_RACM2', 'UALD_RACM2', 'ALDX_R_IUPAC10'  )  ! C3 and higher aldehydes
                         CSQY_ADJUST( IPHOT ) = HIGHER_ALDEHYDES
@@ -1964,7 +1964,7 @@ C-----------------------------------------------------------------------
                             KMGLY      = 7.08021E-03
                         ELSE WHERE ! maximim value correspond to wavelength = 711.8954 nm
                             IPHI0_MGLY =  MAX( 2.755E+06 * EXP( -5639.0 / WAVELENGTH ), 1.0E+03 )
-                            KMGLY       = MAX(  1.93E+04 * EXP( -5639.0 / WAVELENGTH ), 7.00590 )  
+                            KMGLY       = MAX(  1.93E+04 * EXP( -5639.0 / WAVELENGTH ), 7.00590 )
                         END WHERE
                      CASE (  'ACRO_09' )
                         CSQY_ADJUST( IPHOT ) = ACROLEIN
@@ -1989,7 +1989,7 @@ C-----------------------------------------------------------------------
                      CASE DEFAULT
                         CSQY_ADJUST( IPHOT ) =  0
                      END SELECT
-!                      WRITE(CSQY_DATA_LOG,'(A)')'For rate ' // TRIM( PHOTOLYSIS_RATE( IPHOT ) ) 
+!                      WRITE(CSQY_DATA_LOG,'(A)')'For rate ' // TRIM( PHOTOLYSIS_RATE( IPHOT ) )
 !     &               // ' using CSQY_ADJUSTMENT ' // TRIM( CSQY_ADJUSTMENTS( CSQY_ADJUST( IPHOT ) ) )
                END DO
               RETURN
@@ -2017,7 +2017,7 @@ C-----------------------------------------------------------------------
 
 !***local
       REAL, PARAMETER  :: ONE_OVER_295K  = 1.0 / 295  ! 1/K
-      
+
       REAL A0           ! 1st coef for qy
       REAL A1           ! 2nd coef for qy
       REAL A2           ! 3rd coef for qy
@@ -2029,13 +2029,13 @@ C-----------------------------------------------------------------------
       REAL AA           ! scratch variable for IUPAC (2013) acetone QYZ
       REAL BB           ! scratch variable for IUPAC (2013) acetone QYZ
       REAL CC           ! scratch variable for IUPAC (2013) acetone QYZ
-      
+
       REAL TEMP_OVER 295K   ! temperature divided by 295 K
       REAL ONE_OVER_LAMBDA  ! reciporcal of wavelenght, 10E7/nm or 1/cm
 
       TEMP_OVER 295K  = TEMP * ONE_OVER_295K
       ONE_OVER_LAMBDA = 1.0E7 / LAMBDA
-      
+
       IF ( LAMBDA .GE. 248.0 .AND. LAMBDA .LE. 349.0 ) THEN
 
          AA = 0.350 * ( TEMP_OVER 295K )**(-1.28)
@@ -2091,7 +2091,7 @@ C-----------------------------------------------------------------------
 
 
       RETURN
-      END FUNCTION QUANTUM_ACETONE                  
+      END FUNCTION QUANTUM_ACETONE
       SUBROUTINE QY_ACETONE_CHANNELS( TEMP, DENS_NUMB, LAMBDA, PHI_CO, PHI_CH3CO )
 
 C-----------------------------------------------------------------------
@@ -2115,7 +2115,7 @@ C-----------------------------------------------------------------------
 
 !***local
       REAL, PARAMETER  :: ONE_OVER_295K  = 1.0 / 295.0  ! 1/K
-      
+
       REAL A0           ! 1st coef for qy
       REAL A1           ! 2nd coef for qy
       REAL A2           ! 3rd coef for qy
@@ -2125,13 +2125,13 @@ C-----------------------------------------------------------------------
       REAL AA           ! scratch variable for IUPAC (2013) acetone QYZ
       REAL BB           ! scratch variable for IUPAC (2013) acetone QYZ
       REAL CC           ! scratch variable for IUPAC (2013) acetone QYZ
-      
+
       REAL TEMP_OVER 295K   ! temperature divided by 295 K
       REAL ONE_OVER_LAMBDA  ! reciporcal of wavelenght, 10E7/nm or 1/cm
 
       TEMP_OVER 295K  = TEMP * ONE_OVER_295K
       ONE_OVER_LAMBDA = 1.0E7 / LAMBDA
-      
+
       IF ( LAMBDA .GE. 248.0 .AND. LAMBDA .LE. 349.0 ) THEN
 
          AA = 0.350 * ( TEMP_OVER 295K )**(-1.28)
@@ -2220,29 +2220,29 @@ C-----------------------------------------------------------------------
 
 !***local
       REAL, PARAMETER  :: ONE_OVER_295K  = 1.0 / 295.0  ! 1/K
-      REAL, PARAMETER  :: DENS0          = 2.46E19      ! air number at STP, molecules/cm^3 
+      REAL, PARAMETER  :: DENS0          = 2.46E19      ! air number at STP, molecules/cm^3
 
-      REAL A0           ! 1st coef for qy
+!     REAL A0           ! 1st coef for qy
       REAL A1           ! 2nd coef for qy
       REAL A2           ! 3rd coef for qy
       REAL A3           ! 4th coef for qy
       REAL A4           ! 5th coef for qy
 
-      REAL PHI_CO       ! CO qy  at (TEMP, DENS_NUMB)
+!     REAL PHI_CO       ! CO qy  at (TEMP, DENS_NUMB)
       REAL PHI_CH3CO    ! CH3CO qy at (TEMP, DENS_NUMB)
-      REAL PHI_COS      ! CO qy branch at (TEMP, DENS0)
+!     REAL PHI_COS      ! CO qy branch at (TEMP, DENS0)
       REAL PHI_CH3COS   ! inverse of CH3CO qy at (TEMP, DENS0)
       REAL AA           ! scratch variable for acetone QY
       REAL BB           ! scratch variable for acetone QY
       REAL CC           ! scratch variable for acetone QY
-      
+
       REAL TEMP_OVER 295K   ! temperature divided by 295 K
       REAL ONE_OVER_LAMBDA  ! wavenumber, 10E7/nm or 1/cm
 #ifndef preprocessor
-      REAL LAMBDA           ! wavelenght, nm 
+      REAL LAMBDA           ! wavelenght, nm
 
-      LAMBDA          = WAVELENGTH( IWAVE )     
-      ONE_OVER_LAMBDA = WAVENUMBER( IWAVE )  
+      LAMBDA          = WAVELENGTH( IWAVE )
+      ONE_OVER_LAMBDA = WAVENUMBER( IWAVE )
 #else
       ONE_OVER_LAMBDA = 1.0E7 / LAMBDA
 #endif
@@ -2279,12 +2279,12 @@ C-----------------------------------------------------------------------
 
 !***below qy_ch3co values are normalized by (1 - qy_co) which does not depend on
 !***number density
-            PHI_CH3CO  = ( 1.0 + A4 * DENS_NUMB + A3 ) 
+            PHI_CH3CO  = ( 1.0 + A4 * DENS_NUMB + A3 )
      &                 / ( ( 1.0 + A2 * DENS_NUMB + A3 ) * ( 1.0 + A4 * DENS_NUMB ) )
 
             PHI_CH3COS = ( ( 1.0 + A2 * DENS0 + A3 ) * ( 1.0 + A4 * DENS0 ) )
      &                 / ( 1.0 + A4 * DENS0 + A3 )
-       
+
             RQY_ACETONE_CH3CO = PHI_CH3CO * PHI_CH3COS
 
          END IF
@@ -2302,7 +2302,7 @@ C-----------------------------------------------------------------------
 #else
       REAL FUNCTION RQUANTUM_ACETONE( TEMP, DENS_NUMB, IWAVE )
 #endif
-         
+
 
 C-----------------------------------------------------------------------
 C Computes total acetone quantum yields at (TEMP, DENS_NUMB)  relative to
@@ -2328,8 +2328,8 @@ C-----------------------------------------------------------------------
 
 !***local
       REAL, PARAMETER  :: ONE_OVER_295K  = 1.0 / 295.0  ! 1/K
-      REAL, PARAMETER  :: DENS0          = 2.46E19      ! air number at STP, molecules/cm^3 
-      
+      REAL, PARAMETER  :: DENS0          = 2.46E19      ! air number at STP, molecules/cm^3
+
       REAL A0           ! 1st coef for qy
       REAL A1           ! 2nd coef for qy
       REAL A2           ! 3rd coef for qy
@@ -2343,20 +2343,20 @@ C-----------------------------------------------------------------------
       REAL AA           ! scratch variable for IUPAC (2013) acetone QYZ
       REAL BB           ! scratch variable for IUPAC (2013) acetone QYZ
       REAL CC           ! scratch variable for IUPAC (2013) acetone QYZ
-      
+
       REAL TEMP_OVER 295K   ! temperature divided by 295 K
       REAL ONE_OVER_LAMBDA  ! reciporcal of wavelenght, 10E7/nm or 1/cm
 #ifndef preprocessor
       REAL LAMBDA           ! wavelength, nm
-      
-      LAMBDA          = WAVELENGTH( IWAVE )  
+
+      LAMBDA          = WAVELENGTH( IWAVE )
       ONE_OVER_LAMBDA = WAVENUMBER( IWAVE )
-#else 
+#else
       ONE_OVER_LAMBDA = 1.0E7 / LAMBDA
 #endif
 
       TEMP_OVER 295K  = TEMP * ONE_OVER_295K
-      
+
       IF ( LAMBDA .GE. 248.0 .AND. LAMBDA .LE. 349.0 ) THEN
 
          AA = 0.350 * ( TEMP_OVER 295K )**(-1.28)
@@ -2419,22 +2419,22 @@ C-----------------------------------------------------------------------
 
       RETURN
       END FUNCTION RQUANTUM_ACETONE
-#ifdef preprocessor                  
+#ifdef preprocessor
       REAL FUNCTION RQY_GLYOXAL( TEMP, DENS_NUMB, LAMBDA )
 #else
       REAL FUNCTION RQY_GLYOXAL( TEMP, DENS_NUMB, IWAVE )
 #endif
 
 !-----------------------------------------------------------------------
-! Computes total glyoxal (CHOCHO) quantum yield at (TEMP, DENS_NUMB)  
+! Computes total glyoxal (CHOCHO) quantum yield at (TEMP, DENS_NUMB)
 ! relative to total yield at (TEMP0, DENS_NUMB = 2.46E19) according to
 !  IUPAC (2013) recommendation
-!  http://iupac.pole-ether.fr/htdocs/datasheets/pdf/P4_%28CHO%292+hv.pdf 
+!  http://iupac.pole-ether.fr/htdocs/datasheets/pdf/P4_%28CHO%292+hv.pdf
 ! that is based on
-!  Salter, R. J., Blitz, M. A., Heard, D. E., Kovacs, T., Pilling, M. J., 
-!  Rickard, A. R. and Seakins, P. W. (2013), Quantum yields for the photolysis 
-!  of glyoxal below 350 nm and parameterisations for its photolysis rate in 
-!  the troposphere, Phys. Chem. Chem. Phys., 15, 4984-4994, 
+!  Salter, R. J., Blitz, M. A., Heard, D. E., Kovacs, T., Pilling, M. J.,
+!  Rickard, A. R. and Seakins, P. W. (2013), Quantum yields for the photolysis
+!  of glyoxal below 350 nm and parameterisations for its photolysis rate in
+!  the troposphere, Phys. Chem. Chem. Phys., 15, 4984-4994,
 !  doi:10.1039/c3cp43597k.
 !-----------------------------------------------------------------------
 
@@ -2450,8 +2450,8 @@ C-----------------------------------------------------------------------
 #endif
 !***local
         REAL,      PARAMETER  :: ONE_OVER_295K  = 1.0 / 295.0  ! 1/K
-        REAL( 8 ), PARAMETER  :: DENS0          = 2.46D19      ! air number at STP, molecules/cm^3 
-      
+        REAL( 8 ), PARAMETER  :: DENS0          = 2.46D19      ! air number at STP, molecules/cm^3
+
         REAL( 8 ) TEMP_OVER 295K   ! temperature divided by 295 K
 
         REAL( 8 ) AA           ! scratch variable for qy
@@ -2460,20 +2460,20 @@ C-----------------------------------------------------------------------
         REAL( 8 ) A2           ! 3rd coef for qy
         REAL( 8 ) A3           ! 4th coef for qy
         REAL( 8 ) WN_OFFSET    ! adjusted wavenumber, 1/cm
-        REAL( 8 ) R8_DENS      ! air number density, 1/cm^3 
+        REAL( 8 ) R8_DENS      ! air number density, 1/cm^3
 
-        REAL ONE_OVER_LAMBDA  ! wavenumber, 10E7/nm or 1/cm
+!       REAL ONE_OVER_LAMBDA  ! wavenumber, 10E7/nm or 1/cm
         REAL QY_DENS_NUMB     ! total qy at DENS_NUMB
         REAL IQY_DENS0        ! reciporcal of total qy at DENS0
 #ifndef preprocessor
         REAL LAMBDA           ! wavelength, nm
-      
-        LAMBDA    = WAVELENGTH( IWAVE )  
+
+        LAMBDA    = WAVELENGTH( IWAVE )
         WN_OFFSET = REAL( WAVENUMBER( IWAVE ) - 23800.0, 8 )
-#else 
+#else
         WN_OFFSET = REAL( 1.0E7 / LAMBDA - 23800.0, 8 )
 #endif
-      
+
         TEMP_OVER 295K  = REAL( TEMP * ONE_OVER_295K, 8 )
         R8_DENS         = REAL( DENS_NUMB, 8 )
 
@@ -2481,15 +2481,15 @@ C-----------------------------------------------------------------------
          IF( LAMBDA .LT. 460.0 .AND. LAMBDA .GT. 250.0 )THEN
             AA = 6.48D-19 * TEMP_OVER 295K**(-1.83D0)
             BB = 7.60D-04 * TEMP_OVER 295K**(-0.515D0)
-            A1 = AA * EXP( -BB * WN_OFFSET ) 
+            A1 = AA * EXP( -BB * WN_OFFSET )
 
             AA = 1.128D02 * TEMP_OVER 295K**(-1.53D0)
             BB = 4.61D-03 * TEMP_OVER 295K**(-0.507D0)
-            A2 = AA * EXP( -BB * WN_OFFSET  ) 
+            A2 = AA * EXP( -BB * WN_OFFSET  )
 
             AA = 2.25D-16 * TEMP_OVER 295K**(-9.18D0)
             BB = 7.80D-04 * TEMP_OVER 295K**(-7.03D0)
-            A3 = AA * EXP( -BB * WN_OFFSET ) 
+            A3 = AA * EXP( -BB * WN_OFFSET )
 
 !*** note that values are normalized by total qy at DENS = 0.0 but
 !    its values equals 1.0
@@ -2497,7 +2497,7 @@ C-----------------------------------------------------------------------
             IQY_DENS0 = REAL( (1.0D0 + A1*DENS0 + A2) * (1.0D0 + A3*DENS0)
      &                / (1.0D0 + A2 + A3*DENS0 ) )
 
-            QY_DENS_NUMB  = REAL( (1.0D0 + A2 + A3*R8_DENS) 
+            QY_DENS_NUMB  = REAL( (1.0D0 + A2 + A3*R8_DENS)
      &                    / ((1.0D0 + A1*R8_DENS + A2)*(1.0D0 + A3*R8_DENS)) )
 
             RQY_GLYOXAL  = QY_DENS_NUMB * IQY_DENS0
@@ -2505,7 +2505,7 @@ C-----------------------------------------------------------------------
           ELSE
 
             RQY_GLYOXAL  = 1.0
-      
+
           END IF
 
           RETURN

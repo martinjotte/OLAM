@@ -16,13 +16,13 @@
  * v 0.2 4/2013 added PDT=4.1
  * v 0.3 12/2014 set use_scale = 0, optimize
  * v 0.4 1/2015 remove set use_scale = 0
- * 
+ *
  */
 
 // #define DEBUG
 
 extern int decode, file_append, nx, ny, save_translation;
-extern int *translation;
+extern unsigned int *translation;
 extern int flush_mode;
 extern int use_scale, dec_scale, bin_scale, wanted_bits, max_bits;
 extern enum output_grib_type grib_type;
@@ -40,7 +40,7 @@ struct ave_struct {
         int ref_year, ref_month, ref_day, ref_hour, ref_minute, ref_second;
         int fcst_year, fcst_month, fcst_day, fcst_hour, fcst_minute, fcst_second;
         int year2, month2, day2, hour2, minute2, second2;  // verification time
-        FILE *output;
+	struct seq_file out;
 };
 
 static int do_ave(struct ave_struct *save);
@@ -73,9 +73,9 @@ printf(" init ");
 	    free(save->sum);
 	    free(save->n);
 	}
-        if ((save->sum = (double *) malloc(ndata * sizeof(double))) == NULL)
+        if ((save->sum = (double *) malloc(((size_t) ndata) * sizeof(double))) == NULL)
           fatal_error("ave: memory allocation problem: val","");
-        if ((save->n = (int *) malloc(ndata * sizeof(int))) == NULL)
+        if ((save->n = (int *) malloc(((size_t) ndata) * sizeof(int))) == NULL)
           fatal_error("ave: memory allocation problem: val","");
     }
 
@@ -138,8 +138,6 @@ static int add_to_ave_struct(struct ave_struct *save, unsigned char **sec, float
     return 0;
 }
 
-
-
 static int do_ave(struct ave_struct *save) {
     int i, j, n, ndata, pdt;
     float *data;
@@ -147,13 +145,13 @@ static int do_ave(struct ave_struct *save) {
     double factor;
 
     sec4 = NULL;
-    if (save->has_val == 0) return 0; 
+    if (save->has_val == 0) return 0;
 #ifdef DEBUG
 printf(" ave nfields=%d missing=%d\n",save->n_fields,save->n_missing);
 #endif
 
     ndata = save->n_sum;
-    if ((data = (float *) malloc(sizeof(float) * ndata)) == NULL) fatal_error("ave: memory allocation","");
+    if ((data = (float *) malloc(((size_t) ndata) * sizeof(float))) == NULL) fatal_error("ave: memory allocation","");
     factor = 1.0 / save->n_fields;
     for (i = 0; i < ndata; i++) {
     	if (save->n[i] != save->n_fields) data[i] = UNDEFINED;
@@ -233,7 +231,7 @@ printf(" ave nfields=%d missing=%d\n",save->n_fields,save->n_missing);
 	// number of stat-proc loops is increased by 1
 	sec4[41] = n + 1;
 
-	// copy old stat-proc loops 
+	// copy old stat-proc loops
 	// for (j = n*12-1;  j >= 0; j--) sec4[58+j] = save->first_sec[4][46+j];
 	for (j = 0; j < n*12; j++) sec4[46+12+j] = save->first_sec[4][46+j];
 
@@ -258,11 +256,11 @@ printf("save->n_missing =%d save->n_fields=%d\n",save->n_missing,save->n_fields)
     p = save->first_sec[4];
     save->first_sec[4] = sec4;
 
-    grib_wrt(save->first_sec, data, ndata, save->nx, save->ny, 
-	save->use_scale, save->dec_scale, save->bin_scale, 
-	save->wanted_bits, save->max_bits, save->grib_type, save->output);
+    grib_wrt(save->first_sec, data, ndata, save->nx, save->ny,
+	save->use_scale, save->dec_scale, save->bin_scale,
+	save->wanted_bits, save->max_bits, save->grib_type, &(save->out));
 
-    if (flush_mode) fflush(save->output);
+    if (flush_mode) fflush_file(&(save->out));
     save->first_sec[4] = p;
     free(data);
     free(sec4);
@@ -270,10 +268,10 @@ printf("save->n_missing =%d save->n_fields=%d\n",save->n_missing,save->n_fields)
 }
 
 /*
- * HEADER:000:fcst_ave:output:2:average X=time step, Y=output grib file needs file is special order
+ * HEADER:000:fcst_ave0:output:2:average X=time step, Y=output grib file needs file is special order
  */
 
-int f_fcst_ave(ARG2) {
+int f_fcst_ave0(ARG2) {
 
     struct ave_struct *save;
 
@@ -302,9 +300,10 @@ int f_fcst_ave(ARG2) {
 	else if (strcmp(string,"yr") == 0) save->dt_unit = 4;
 	if (save->dt_unit == -1) fatal_error("fcst_ave: unsupported time unit %s", string);
 
-        if ((save->output = ffopen(arg2, file_append ? "ab" : "wb")) == NULL) {
-	    fatal_error("fcst_ave: could not open file %s", arg2);
-	}
+        if (fopen_file(&(save->out), arg2, file_append ? "ab" : "wb") != 0) {
+            free(save);
+            fatal_error("Could not open %s", arg2);
+        }
 
 	save->has_val = 0;
 	save->n = NULL;
@@ -321,7 +320,7 @@ int f_fcst_ave(ARG2) {
 	if (save->has_val == 1) {
 	    do_ave(save);
 	}
-	ffclose(save->output);
+	fclose_file(&(save->out));
 	free_ave_struct(save);
 	return 0;
     }
@@ -349,7 +348,7 @@ if (mode == 98) fprintf(stderr,"fcst_ave: pdt=%d\n",pdt);
 	    // get reference time and save it
             get_time(sec[1]+12,&save->ref_year, &save->ref_month, &save->ref_day, &save->ref_hour, &save->ref_minute, &save->ref_second);
 
-	    if (start_ft(sec, &save->fcst_year, &save->fcst_month, &save->fcst_day, &save->fcst_hour, 
+	    if (start_ft(sec, &save->fcst_year, &save->fcst_month, &save->fcst_day, &save->fcst_hour,
 			&save->fcst_minute, &save->fcst_second) != 0) {
 		fatal_error("fcst_ave: could not determine the start FT time","");
 	    }
@@ -380,14 +379,14 @@ if (mode == 98) fprintf(stderr,"fcst_ave: pdt=%d\n",pdt);
 
         if (new_type == 0) {
 	    if (same_sec0(sec,save->first_sec) == 0 ||
-                same_sec1_not_time(sec,save->first_sec) == 0 ||
+                same_sec1_not_time(mode,sec,save->first_sec) == 0 ||
                 same_sec3(sec,save->first_sec) == 0 ||
-                same_sec4_not_time(sec,save->first_sec) == 0) 
+                same_sec4_not_time(mode,sec,save->first_sec) == 0)
 	        new_type = 1;
 if (mode == 98) fprintf(stderr, "fcst_ave: testsec %d %d %d %d\n", same_sec0(sec,save->first_sec),
-                same_sec1_not_time(sec,save->first_sec),
+                same_sec1_not_time(0,sec,save->first_sec),
                 same_sec3(sec,save->first_sec),
-                same_sec4_not_time(sec,save->first_sec));
+                same_sec4_not_time(0,sec,save->first_sec));
         }
 if (mode == 98) fprintf(stderr, "fcst_ave: new_type %d\n", new_type);
 
@@ -402,7 +401,7 @@ if (mode == 98) fprintf(stderr, "fcst_ave: new_type %d\n", new_type);
 	    tminute = save->fcst_minute;
 	    tsecond = save->fcst_second;
             add_time(&tyear, &tmonth, &tday, &thour, &tminute, &tsecond, save->dt, save->dt_unit);
-	    if (start_ft(sec, &year, &month, &day, &hour, &minute, &second) != 0) 
+	    if (start_ft(sec, &year, &month, &day, &hour, &minute, &second) != 0)
 		fatal_error("fcst_ave: could not determine the start_ft time","");
             if (cmp_time(year,month,day,hour,minute,second,tyear,tmonth,tday,thour,tminute,tsecond)) {
 		new_type = 1;
@@ -422,7 +421,7 @@ if (mode == 98) fprintf(stderr, "fcst_ave: unexpected verf time, new_type=1\n");
 
         missing = 0;
 	if (new_type == 0) {
-	    if (verftime(sec, &year, &month, &day, &hour, &minute, &second) != 0) 
+	    if (verftime(sec, &year, &month, &day, &hour, &minute, &second) != 0)
 		fatal_error("fcst_ave: could not determine the verification time","");
 	    tyear = save->year2;
 	    tmonth = save->month2;

@@ -1,10 +1,10 @@
       module rrsw_kg18
 
-      use parkind ,only : im => kind_im, rb => kind_rb
-      use parrrsw, only : ng18
+      use parkind, only: im => kind_im, rb => kind_rb
+      use parrrsw, only: ng18
 
       implicit none
-      save
+      private :: im, rb
 
 !-----------------------------------------------------------------
 ! rrtmg_sw ORIGINAL abs. coefficients for interval 18
@@ -17,11 +17,11 @@
 !
 !  name     type     purpose
 !  ----   : ----   : ---------------------------------------------
-! kao     : real     
-! kbo     : real     
-! selfrefo: real     
+! kao     : real
+! kbo     : real
+! selfrefo: real
 ! forrefo : real
-!sfluxrefo: real     
+!sfluxrefo: real
 !-----------------------------------------------------------------
 
       integer(kind=im), parameter :: no18 = 16
@@ -44,21 +44,19 @@
 !
 !  name     type     purpose
 !  ----   : ----   : ---------------------------------------------
-! ka      : real     
-! kb      : real     
+! ka      : real
+! kb      : real
 ! absa    : real
 ! absb    : real
-! selfref : real     
+! selfref : real
 ! forref  : real
-! sfluxref: real     
+! sfluxref: real
 !-----------------------------------------------------------------
 
-      real(kind=rb) :: ka(9,5,13,ng18), absa(585,ng18)
-      real(kind=rb) :: kb(5,13:59,ng18), absb(235,ng18)
-      real(kind=rb) :: selfref(10,ng18), forref(3,ng18)
-      real(kind=rb) :: sfluxref(ng18,9)
-
-      equivalence (ka(1,1,1,1),absa(1,1)), (kb(1,13,1),absb(1,1))
+      real(kind=rb) :: absa(ng18,585)
+      real(kind=rb) :: absb(ng18,235)
+      real(kind=rb) :: selfref(ng18,10), forref(ng18,3)
+      real(kind=rb) :: sfluxref(ng18,9), dsfluxref(ng18,9)
 
       end module rrsw_kg18
 

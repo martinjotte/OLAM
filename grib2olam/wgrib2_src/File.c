@@ -37,45 +37,66 @@ extern const char *nl;
 
 int f_bin(ARG1) {
     unsigned int i, j;
+    struct seq_file *save;
+
     if (mode == -1) {
-        if ((*local = (void *) ffopen(arg1, file_append ? "ab" : "wb")) == NULL) {
-	    fatal_error("Could not open %s", arg1);
-	}
+	*local = save = (struct seq_file *) malloc( sizeof(struct seq_file));
+	if (save == NULL) fatal_error("bin: memory allocation","");
+        if (fopen_file(save, arg1, file_append ? "ab" : "wb") != 0) {
+            free(save);
+            fatal_error("Could not open %s", arg1);
+        }
         decode = 1;
     }
     else if (mode == -2) {
-	ffclose((FILE *) *local);
+	save = *local;
+	fclose_file(save);
+	free(save);
     }
     else if (mode >= 0) {
-        i = ndata * sizeof(float);
-        if (header) fwrite((void *) &i, sizeof(int),1, (FILE *) *local);
-        j = fwrite((void *) data, sizeof(float), ndata, (FILE *) *local);
-	if (j != ndata) fatal_error_i("bin: error writing grid point written=%d", j);
-        if (header) fwrite((void *) &i, sizeof(int),1, (FILE *) *local);
-        if (flush_mode) fflush((FILE *) *local);
+	save = *local;
+	if (header) {
+	    if (ndata > 4294967295U / sizeof(float))
+	        fatal_error("bin: 4-byte header overflow","");
+	    i = ndata * sizeof(float);
+            fwrite_file((void *) &i, sizeof(int), 1, save);
+	}
+        j = fwrite_file((void *) data, sizeof(float), ndata, save);
+	if (j != ndata) fatal_error_u("bin: error writing grid point written=%u", j);
+        if (header) {
+	    i = ndata * sizeof(float);
+	    fwrite_file((void *) &i, sizeof(int),1, save);
+	}
+        if (flush_mode) fflush_file(save);
     }
     return 0;
 }
-
 
 /*
  * HEADER:100:ieee:output:1:write (default:big-endian) IEEE data to X
  */
 
 int f_ieee(ARG1) {
+    struct seq_file *save;
 
     if (mode == -1) {
-        if ((*local = (void *) ffopen(arg1, file_append ? "ab" : "wb")) == NULL) {
-	    fatal_error("Could not open %s", arg1);
-	}
+	*local = save = (struct seq_file *) malloc( sizeof(struct seq_file));
+	if (save == NULL) fatal_error("ieee: memory allocation","");
+        if (fopen_file(save, arg1, file_append ? "ab" : "wb") != 0) {
+            free(save);
+            fatal_error("Could not open %s", arg1);
+        }
         decode = 1;
     }
     else if (mode == -2) {
-	ffclose((FILE *) *local);
+	save = *local;
+	fclose_file(save);
+	free(save);
     }
     else if (mode >= 0) {
-	wrtieee(data, ndata, header, (FILE *) *local);
-        if (flush_mode) fflush((FILE *) *local);
+	save = *local;
+	wrtieee(data, ndata, header, save);
+        if (flush_mode) fflush_file(save);
     }
     return 0;
 }
@@ -106,12 +127,13 @@ int f_text(ARG1) {
     unsigned int i;
 
     if (mode == -1) {
-	if ((*local = (void *) ffopen(arg1,file_append ? "a" : "w")) == NULL) 
+	if ((*local = (void *) ffopen(arg1,file_append ? "a" : "w")) == NULL)
 	        fatal_error("Could not open %s", arg1);
         decode = 1;
     }
     else if (mode == -2) {
 	ffclose((FILE *) *local);
+	// free(*local);
     }
     else if (mode >= 0) {
         if (header == 1) {
@@ -157,13 +179,13 @@ int f_spread(ARG1) {
 
 	if (WxNum > 0) {
 	    for (i = 0; i < ndata; i++) {
-	        if(!UNDEFINED_VAL(data[i])) 
+	        if(!UNDEFINED_VAL(data[i]))
 	            fprintf((FILE *) *local,"%lf,%lf,\"%s\"\n",lon[i],lat[i],WxLabel(data[i]));
 	    }
 	}
 	else {
 	    for (i = 0; i < ndata; i++) {
-	        if(!UNDEFINED_VAL(data[i])) 
+	        if(!UNDEFINED_VAL(data[i]))
 	            fprintf((FILE *) *local,"%lf,%lf,%g\n",lon[i],lat[i],data[i]);
 	    }
 	}
@@ -175,81 +197,76 @@ int f_spread(ARG1) {
     return 0;
 }
 
-
 /*
  * HEADER:100:GRIB:output:1:writes entire GRIB record (all submessages)
  */
 
 int f_GRIB(ARG1) {
-    long unsigned int size;
+    size_t size;
+    struct seq_file *save;
 
     if (mode == -1) {
-        if ((*local = (void *) ffopen(arg1,file_append ? "ab" : "wb")) == NULL) {
+	*local = save = (struct seq_file *) malloc( sizeof(struct seq_file));
+	if (save == NULL) fatal_error("GRIB: memory allocation","");
+	if (fopen_file(save, arg1, file_append ? "ab" : "wb") != 0) {
+	    free(save);
 	    fatal_error("Could not open %s", arg1);
 	}
     }
     else if (mode == -2) {
-	ffclose((FILE *) *local);
+	save = *local;
+	fclose_file(save);
+	free(save);
     }
     else if (mode >= 0) {
+	save = *local;
         /* figure out size of grib file */
         size = uint8(sec[0]+8);
         /* write entire record to out */
-        fwrite((void *) sec[0], sizeof(char), size, (FILE *) *local);
-        if (flush_mode) fflush((FILE *) *local);
+        fwrite_file((void *) sec[0], sizeof(char), size, save);
+        if (flush_mode) fflush_file(save);
     }
     return 0;
 }
-
 
 /*
  * HEADER:100:grib:output:1:writes GRIB record (one submessage) to X
  */
 
 int f_grib(ARG1) {
-    unsigned long int size;
     int i;
-    unsigned char s[8];
+    struct seq_file *save;
 
+    i = 0;
     if (mode == -1) {
-        if ((*local = (void *) ffopen(arg1, file_append ? "ab" : "wb")) == NULL) {
+	*local = save = (struct seq_file *) malloc( sizeof(struct seq_file));
+	if (save == NULL) fatal_error("grib: memory allocation","");
+
+	if (fopen_file(save, arg1, file_append ? "ab" : "wb") != 0) {
+	    free(save);
 	    fatal_error("Could not open %s", arg1);
 	}
     }
     else if (mode == -2) {
-	ffclose((FILE *) *local);
+	save = (struct seq_file *) *local;
+	fclose_file(save);
+	free(save);
     }
     else if (mode >= 0) {
-        /* figure out size of grib file */
-        size = (unsigned long int) GB2_Sec0_size + GB2_Sec1_size(sec) + GB2_Sec2_size(sec) + 
-          + GB2_Sec3_size(sec) + GB2_Sec4_size(sec) + GB2_Sec5_size(sec) + GB2_Sec6_size(sec) 
-          + GB2_Sec7_size(sec) + GB2_Sec8_size;
-
-        /* section 0 */
-        fwrite((void *) sec[0], sizeof(char), 8, (FILE *) *local);
-        uint8_char(size, s);
-        fwrite((void *) s, sizeof(char), 8, (FILE *) *local);
-        for (i = 1; i <= 7; i++) {
-            if (sec[i]) {
-                size = uint4(sec[i]);
-                fwrite((void *) sec[i], sizeof(char), size, (FILE *) *local);
-            }
-        }
-        s[0] = s[1] = s[2] = s[3] = 55; /* s = "7777" */
-        fwrite((void *) s, sizeof(char), 4, (FILE *) *local);
-//      fwrite((void *) "7777", sizeof(char), 4, (FILE *) *local);
-
-        if (flush_mode) fflush((FILE *) *local);
+	save = (struct seq_file *) *local;
+	i = wrt_sec(sec[0], sec[1], sec[2], sec[3], sec[4], sec[5], sec[6],
+             sec[7], save);
+        if (flush_mode) fflush_file(save);
     }
-    return 0;
+    return i;
 }
 
 /*
- * HEADER:100:persistent_file:setup:1:makes file persistent if already opened, X=filename CW2
+ * HEADER:100:persistent:setup:1:makes file X persistent if already opened (default on open), CW2
  *   only useful when wgrib is called as a subroutine, no error if failure
  */
 
-int f_persistent_file(ARG1) {
+int f_persistent(ARG1) {
     if (mode == -1) {
 	mk_file_persistent(arg1);
     }
@@ -257,11 +274,11 @@ int f_persistent_file(ARG1) {
 }
 
 /*
- * HEADER:100:close_persistent_file:setup:1:close persistent file, X=filename CW2
+ * HEADER:100:transient:setup:1:make file X transient, CW2
  *   only useful when wgrib is called as a subroutine, no error if failure
  */
 
-int f_close_persistent_file(ARG1) {
+int f_transient(ARG1) {
     if (mode == -1) {
 	mk_file_transient(arg1);
     }
@@ -269,13 +286,42 @@ int f_close_persistent_file(ARG1) {
 }
 
 /*
- * HEADER:100:rewind_file:setup:1:rewinds file if already opened, X=filename, CW2
+ * HEADER:100:rewind_init:setup:1:rewinds file X on initialization if already opened, CW2
  *   only useful when wgrib is called as a subroutine, no error if failure
  */
-int f_rewind_file(ARG1) {
+int f_rewind_init(ARG1) {
+    int i;
     if (mode == -1) {
-	rewind_file(arg1);
+	i = rewind_file(arg1);
+	if (i) fprintf(stderr,"WARNING: -rewind_init failed on %s\n", arg1);
     }
     return 0;
 }
 
+/*
+ * HEADER:100:rewind_proc:misc:1:rewinds file X on processing step if already opened, CW2
+ *   only useful when wgrib is called as a subroutine, no error if failure
+ */
+int f_rewind_proc(ARG1) {
+    int i;
+    if (mode >= 0) {
+        i = rewind_file(arg1);
+        if (i) fprintf(stderr,"WARNING: -rewind failed on %s\n", arg1);
+        return i;
+    }
+    return 0;
+}
+
+/*
+ * HEADER:100:rewind_final:misc:1:rewinds file X on cleanup step if already opened, CW2
+ *   only useful when wgrib is called as a subroutine, no error if failure
+ */
+int f_rewind_final(ARG1) {
+    int i;
+    if (mode == -2) {
+        i = rewind_file(arg1);
+        if (i) fprintf(stderr,"WARNING: -rewind failed on %s\n", arg1);
+        return i;
+    }
+    return 0;
+}

@@ -11,9 +11,9 @@ MODULE supercell_testm
 !  SUBROUTINE supercell_test(
 !    lon,lat,p,z,zcoords,u,v,t,thetav,ps,rho,q,pert)
 !
-!  Given a point specified by: 
-!      lon    longitude (radians) 
-!      lat    latitude (radians) 
+!  Given a point specified by:
+!      lon    longitude (radians)
+!      lat    latitude (radians)
 !      p/z    pressure (Pa) / height (m)
 !  zcoords    1 if z is specified, 0 if p is specified
 !     pert    1 if thermal perturbation included, 0 if not
@@ -83,7 +83,7 @@ MODULE supercell_testm
        uc         = 15.d0      ,      & ! coordinate reference velocity
        zs         = 5000.d0    ,      & ! lower altitude of maximum velocity
        zt         = 1000.d0             ! transition distance of velocity
- 
+
   REAL(8), PARAMETER ::               &
        pert_dtheta = 3.d0         ,   & ! perturbation magnitude
        pert_lonc   = 0.d0         ,   & ! perturbation longitude
@@ -94,7 +94,7 @@ MODULE supercell_testm
 
 !-----------------------------------------------------------------------
 !    Coefficients computed from initialization
-!----------------------------------------------------------------------- 
+!-----------------------------------------------------------------------
   INTEGER(4)                  :: initialized = 0
 
   REAL(8), DIMENSION(nphi)    :: phicoord
@@ -111,7 +111,7 @@ MODULE supercell_testm
   real, allocatable :: vye_init(:,:)
   real, allocatable :: vze_init(:,:)
   real, allocatable :: thil_init(:,:)
-  real, allocatable :: sh_w_init(:,:)
+  real, allocatable :: rr_w_init(:,:)
 
 CONTAINS
 
@@ -149,7 +149,7 @@ CONTAINS
 
     ! Buffer matrices for iteration
     REAL(8), DIMENSION(nphi, nz) :: phicoordmat, dztheta, rhs, irhs
-  
+
     ! Buffer for sampled potential temperature at equator
     REAL(8), DIMENSION(nz) :: thetaeq
 
@@ -157,10 +157,7 @@ CONTAINS
     REAL(8), DIMENSION(nz) :: exnereq, H
 
     ! Variables for calculation of equatorial profile
-    REAL(8) :: exnereqs, p, T, qvs, qv
-
-    ! Error metric
-    REAL(8) :: err
+    REAL(8) :: exnereqs, p, T, qvs
 
     ! Loop indices
     INTEGER(4) :: i, k, iter
@@ -326,10 +323,6 @@ CONTAINS
       end do
       irhs(1,:) = thetavyz(1,:)
 
-      ! Compute difference after iteration
-      !err = sum(irhs - thetavyz)
-      !write(*,*) iter, err
-
       ! Update iteration
       thetavyz = irhs
     end do
@@ -358,7 +351,7 @@ CONTAINS
 !-----------------------------------------------------------------------
   SUBROUTINE supercell_test(lon,lat,p,z,zcoords,u,v,t,thetav,ps,rho,q,pert) &
     BIND(c, name = "supercell_test")
- 
+
     IMPLICIT NONE
 
     !------------------------------------------------
@@ -623,7 +616,7 @@ CONTAINS
     end if
 
     zonal_velocity = zonal_velocity * cos(lat)
-      
+
   END FUNCTION zonal_velocity
 
 !-----------------------------------------------------------------------
@@ -705,7 +698,7 @@ CONTAINS
 
     ! Loop indices
     INTEGER(4) :: i, j
-    
+
     ! Compute the Lagrangian polynomial coefficients
     do i = 1, npts
       coeffs(i) = 1.0d0

@@ -201,7 +201,7 @@ C...  Atmospheric Chemistry and Physics, 1997
       DATA SUBNAME(127), A(127), E(127) / 'HYDROXY_PEROXIDE', 8.30E+04, 7.40E+03 /  ! using value for H2O2
       DATA SUBNAME(128), A(128), E(128) / 'PROPNN          ', 1.00E+04, 0.00E+00 /  ! Nguyen et al. (2015) PNAS using Shepson (1996)
       DATA SUBNAME(129), A(129), E(129) / 'HACET           ', 2.93E+03, 0.00E+00 /  ! Spaulding et al. (2002)
-      DATA SUBNAME(130), A(130), E(130) / 'PYRUVIC_ACID    ', 3.00E+05, 5.20E+03 /  ! Staudinger and Roberts (1996) 
+      DATA SUBNAME(130), A(130), E(130) / 'PYRUVIC_ACID    ', 3.00E+05, 5.20E+03 /  ! Staudinger and Roberts (1996)
       DATA SUBNAME(131), A(131), E(131) / 'XYLENOL         ', 1.05E+03, 0.00E+03 /  ! experimental value from EPA SUITE PROGRAM  (2008)
       DATA SUBNAME(132), A(132), E(132) / 'CATECHOL        ', 3.16E+05, 0.00E+03 /  ! experimental value from EPA SUITE PROGRAM  (2008)
       DATA SUBNAME(133), A(133), E(133) / 'IEPOX           ', 3.0E+07,  0.00E+00 /  ! Nguyen et al. ACP (2014)
@@ -210,14 +210,14 @@ C...  Atmospheric Chemistry and Physics, 1997
       DATA SUBNAME(135), A(135), E(135) / 'DIETHYLKETONE   ', 2.00E+01, 9.2E+03 /   ! ROLF SANDERS COMPILATION (1999)/JANINI AND QUADDORA (1986)
       DATA SUBNAME(136), A(136), E(136) / 'N-PROPANOL      ', 1.10E+02, 0.0E+00 /   ! ROLF SANDERS COMPILATION (1999)/YAWS AND YANG (1992)
       DATA SUBNAME(137), A(137), E(137) / 'ETHYLENEGLYCOL  ', 4.00E+06, 0.0E+00 /   ! ROLF SANDERS COMPILATION (1999)/BONE ET AL. (1983)
-      DATA SUBNAME(138), A(138), E(138) / 'HYDROXY-ACETONE ', 2.00E+04, 0.0E+00 /   ! MATSUNAGA ET AL., 41, 790-796, AE, (2007)            
-      DATA SUBNAME(139), A(139), E(139) / '2NITRO_1BUTNL   ', 6.30E+03, 9.6E+03 /   ! Shepson et al., 1992 
-      DATA SUBNAME(140), A(140), E(140) / 'PYROCATECHOL    ', 4.60E+03, 0.0E+00 /   ! Mackay et al., 1995            
+      DATA SUBNAME(138), A(138), E(138) / 'HYDROXY-ACETONE ', 2.00E+04, 0.0E+00 /   ! MATSUNAGA ET AL., 41, 790-796, AE, (2007)
+      DATA SUBNAME(139), A(139), E(139) / '2NITRO_1BUTNL   ', 6.30E+03, 9.6E+03 /   ! Shepson et al., 1992
+      DATA SUBNAME(140), A(140), E(140) / 'PYROCATECHOL    ', 4.60E+03, 0.0E+00 /   ! Mackay et al., 1995
       DATA SUBNAME(141), A(141), E(141) / 'NTR_ALK         ', 6.50E-01, 5.4E+03 /   ! 2-butylnitrate, from Sander
       DATA SUBNAME(142), A(142), E(142) / 'NTR_OH          ', 6.50E+03, 9.5E+03 /   ! 3-nitrooxy-butanol, from Sander
       DATA SUBNAME(143), A(143), E(143) / 'DINTR           ', 1.80E+01, 0.0E+00 /   ! 2,3-pentanedinitrate
-      DATA SUBNAME(144), A(144), E(144) / 'NTR_PX          ', 3.40E+02, 6.0E+03 /   ! ethylhydroperoxide 
-      DATA SUBNAME(145), A(145), E(145) / 'MTNO3           ', 1.5E+06,  0.0E+00 /   ! monoterpene nitrates HenryWin v3.2 
+      DATA SUBNAME(144), A(144), E(144) / 'NTR_PX          ', 3.40E+02, 6.0E+03 /   ! ethylhydroperoxide
+      DATA SUBNAME(145), A(145), E(145) / 'MTNO3           ', 1.5E+06,  0.0E+00 /   ! monoterpene nitrates HenryWin v3.2
       DATA SUBNAME(146), A(146), E(146) / 'ISOPNN          ', 4.5E+08,  0.0E+00 /   ! isoprene dinitrate HenryWin v3.2
       DATA SUBNAME(147), A(147), E(147) / 'SVALK1          ', 6.2E+08,  6.0E+03 /   ! Pye 2016 est based on Hodzic 2014 GRL
       DATA SUBNAME(148), A(148), E(148) / 'SVALK2          ', 4.5E+06,  6.0E+03 /   ! Pye 2016 est based on Hodzic 2014 GRL
@@ -384,7 +384,7 @@ C     and Seinfeld, J. H.: Organic aerosol formation from the reactive
 C     uptake of isoprene epoxydiols (IEPOX) onto non-acidified inorganic
 C     seeds, Atmos. Chem. Phys., 14, 3497-3510,
 C     doi:10.5194/acp-14-3497-2014, 2014.
-C 
+C
 C  revision history:
 C    who        when           what
 C  ---------  --------  -------------------------------------
@@ -401,19 +401,19 @@ C  J.Gipson   08/06/03  added Henry's Law constants 77-79
 C  G.Sarwar   11/21/04  added constants for chlorine chemistry (Henry's
 C                       law constants 80-85 and dissociation constants
 C                       14-16
-C  R.Bullock  07/05/05  added Henry's Law constants 86-87 for mercury 
-C                       with enthalpy calculated from cited laboratory 
+C  R.Bullock  07/05/05  added Henry's Law constants 86-87 for mercury
+C                       with enthalpy calculated from cited laboratory
 C                       data fit to an Arrhenius equation
 C  W.Hutzell  02/14/06  added HLC 88 to 116, dissociation constant for
 C                       17 (hydrazine)
-C  A.Carlton  09/20/06  updated Henry's Law constants for 1,7,19,20,21,30 
+C  A.Carlton  09/20/06  updated Henry's Law constants for 1,7,19,20,21,30
 C                       O3, NO3, hexane, octane, nonane, methanol and
 C                       isoprene reference
 C  S.Roselle  10/10/07  changed pointers to parameters; reformatted
 C                       variable declarations
 C  W.Hutzell  03/07/08  added Henry's Law constants for 117 to 120
 C  W.Hutzell  01/01/09  added Henry's Law constants for 121 to 125 for
-C                       for SAPRC07T mechanism                 
+C                       for SAPRC07T mechanism
 C  S.Roselle  03/01/11  replaced I/O API include files with UTILIO_DEFN;
 C                       removed deprecated TRIMLEN
 C  W.Hutzell  08/16/12  updated IOAPI and Henry Constant names to V5.01
@@ -429,10 +429,10 @@ C  H.Pye      01/26/2016 added SOA SVOCs
 C  G.Sarwar   03/24/15  added iodine and bromine species
 C  H.Pye      05/31/16  updated IEPOX H-law from 2.7e6 to 3.0e7 M/atm
 C                       to reflect Nguyen et al. 2014.
-C  D. Luecken 09/21/2016 
-C       1. added HAPs in 194-200; 
-C       2. modified existing HEXANE (19),N-HEXANE (117), and STYRENE (119); 
-C       3. removed dissociation  calculation for formaldedhyde because the listed value 
+C  D. Luecken 09/21/2016
+C       1. added HAPs in 194-200;
+C       2. modified existing HEXANE (19),N-HEXANE (117), and STYRENE (119);
+C       3. removed dissociation  calculation for formaldedhyde because the listed value
 C          is already an effective rate (Sander ACP, 2015, note 187)
 C       4. added dissociation constant for acrylic acid (LACRYACID) (via B. Hutzell)
 C-----------------------------------------------------------------------
@@ -621,8 +621,8 @@ C...assign a value for clminus.  use 2.0 mM based on Lin and Pehkonene, 1998, JG
           AKEQ1   = B( LHI ) !* EXP( D( LHI ) * TFAC )
           HLCONST = KH * ( 1.0 + AKEQ1 * HPLUSI )
 
-        CASE ( I_ACRYACID )    ! CH3C(O)OH <=> H + CH3C(O)O 
-!       CASE ( 'ACRYACID' )    ! CH3C(O)OH <=> H + CH3C(O)O 
+        CASE ( I_ACRYACID )    ! CH3C(O)OH <=> H + CH3C(O)O
+!       CASE ( 'ACRYACID' )    ! CH3C(O)OH <=> H + CH3C(O)O
 
           AKEQ1   = B( LACRYACID ) !* EXP( D( LACRYACID ) * TFAC )
           HLCONST = KH * ( 1.0 + AKEQ1 * HPLUSI )

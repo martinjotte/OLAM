@@ -11,13 +11,13 @@
  *
  * 2011-4-11 Public Domain Wesley Ebisuzaki
  *
- * this routine assigns lat/lon to the grid points of a space view 
+ * this routine assigns lat/lon to the grid points of a space view
  * perspective grid
  *
  * based on algorithms from
  *
  * LRIT/HRIT Global Specification, Coordination Group for Meteorological Satellites
- * Doc No CGMS 03 isssue 2.6 
+ * Doc No CGMS 03 isssue 2.6
  * date 12 August 1999
  *
  * This document assumed certain constants: satellite height
@@ -28,6 +28,9 @@
  *
  * code limited to orient == 0 and sat lat = 0
  *  v1.0 4-2011
+ *
+ * 4/2015: L. Majewski fixed defn of lop
+ * 9/2017: W. Ebisuzaki lop does not need to be changed to radians
  */
 
 
@@ -62,7 +65,7 @@ int space_view2ll(unsigned char **sec, double **lat, double **lon) {
 
     get_nxny(sec, &nnx, &nny, &nnpnts, &nres, &nscan);
 
-fprintf(stderr,"ALPHA: experimental space_view2ll scan=%d\n", nscan >> 4);
+//fprintf(stderr,"ALPHA: experimental space_view2ll scan=%d\n", nscan >> 4);
 
     axes_earth(sec, &major, &minor);
 //fprintf(stderr,">> axes %lf minor %lf\n", major,minor);
@@ -75,8 +78,9 @@ fprintf(stderr,"ALPHA: experimental space_view2ll scan=%d\n", nscan >> 4);
 //fprintf(stderr,">> sat height %lf\n",sat_height);
 
     lap = int4(sec[3]+38);
-    lop = int4(sec[3]+38);
-    /* I am guessing that a scale factor has to be added */
+    lop = int4(sec[3]+42);
+
+    /* apply default scaling factor */
     lap *= 1e-6;
     lop *= 1e-6;
 //fprintf(stderr,">> lap  %lf lop %lf degrees\n",lap, lop);
@@ -84,12 +88,11 @@ fprintf(stderr,"ALPHA: experimental space_view2ll scan=%d\n", nscan >> 4);
 
     /* convert to radians */
     lap *= (180.0/M_PI);
-    lop *= (180.0/M_PI);
+    // lop *= (180.0/M_PI);
 
     orient_angle = int4(sec[3]+64);
-    /* I am guessing that a scale factor has to be added */
+    /* apply default scaling factor */
     orient_angle *= 1e-6;
-//fprintf(stderr,">> orientation angle %lf\n", orient_angle);
     if (orient_angle != 0.0) return 0;	// need to extend code
 
     xp = int4(sec[3]+55) * 0.001;
@@ -103,23 +106,23 @@ fprintf(stderr,"ALPHA: experimental space_view2ll scan=%d\n", nscan >> 4);
 
     dx = int4(sec[3]+47);
     dy = int4(sec[3]+51);
-// fprintf(stderr,">> dia: dx %lf dy %lf pixels\n",dx, dy);
+//fprintf(stderr,">> dia: dx %lf dy %lf pixels\n",dx, dy);
 
     rx = angular_size / dx;
     ry = (r_pol/r_eq) * angular_size / dy;
 
-// fprintf(stderr,">> factor %.17lg %.18lg, q: %.18lg %.18lg\n", 256*256.0/(-781648343.0), 
+//fprintf(stderr,">> factor %.17lg %.18lg, q: %.18lg %.18lg\n", 256*256.0/(-781648343.0),
 //	256*256.0/(-781648343.0), rx, ry);
 
-    if (nnx == -1 || nny == -1 || nnx*nny != nnpnts) {
+    if (nnx < 1 || nny  < 1 || nnx*nny != nnpnts) {
         fprintf(stderr,"space_view2ll need rectangular grid\n");
         return 0;
     }
 
-    if ((*lat = (double *) malloc(nnpnts * sizeof(double))) == NULL) {
+    if ((*lat = (double *) malloc(sizeof(double) * (size_t) nnpnts)) == NULL) {
         fatal_error("space_view2ll memory allocation failed","");
     }
-    if ((*lon = (double *) malloc(nnpnts * sizeof(double))) == NULL) {
+    if ((*lon = (double *) malloc(sizeof(double) * (size_t) nnpnts)) == NULL) {
         fatal_error("space_view2ll memory allocation failed","");
     }
     llat = *lat;
@@ -146,8 +149,8 @@ fprintf(stderr,"ALPHA: experimental space_view2ll scan=%d\n", nscan >> 4);
     factor_1 = sat_height * sat_height - r_eq * r_eq;
 //fprintf(stderr," factor_1 %lf factor_2 %lf\n",factor_1,factor_2);
 
-    s_x = (double *) malloc(nnx * sizeof(double));
-    c_x = (double *) malloc(nnx * sizeof(double));
+    s_x = (double *) malloc(sizeof(double) * (size_t) nnx);
+    c_x = (double *) malloc(sizeof(double) * (size_t) nnx);
     if (s_x == NULL || c_x == NULL) fatal_error("space_view: memory allocation","");
 
     for (ix = 0; ix < nnx; ix++) {
@@ -155,7 +158,7 @@ fprintf(stderr,"ALPHA: experimental space_view2ll scan=%d\n", nscan >> 4);
 	s_x[ix] = sin(x);
 	c_x[ix] = sqrt(1.0 - s_x[ix]*s_x[ix]);
     }
-    
+
     for (iy = 0; iy < nny; iy++) {
 	y = (iy - yp) * ry;
 	sin_y = sin(y);
@@ -187,6 +190,8 @@ fprintf(stderr,"ALPHA: experimental space_view2ll scan=%d\n", nscan >> 4);
 	        S3 = Sn * sin_y;
 	        Sxy = sqrt(S1*S1 + S2*S2);
 	        llon[i] = atan(S2/S1)*(180.0/M_PI) + lop;
+		if (llon[i] > 360.0) llon[i] -= 360.0;
+		// if (llon[i] < 0.0) llon[i] += 360.0;  should never happen as lop >= 0
 	        llat[i] = atan(factor_2*S3/Sxy)*(180.0/M_PI);
 /*
 if ((iy == 1588 || iy == 300) && ix ==  1588) {
@@ -206,5 +211,3 @@ printf("lat %lf lon %lf i=%d\n", llat[i] , llon[i], i);
 //fprintf(stderr,">>return\n");
     return 0;
 }
-
-

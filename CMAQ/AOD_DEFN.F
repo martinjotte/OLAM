@@ -17,7 +17,7 @@
 !------------------------------------------------------------------------!
 
 C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-      module aod_defn 
+      module aod_defn
 C Calculates the aerosol optical thickness using reconstructed extinction
 C values from the IMPROVE monitoring network updated from Malm and Hand,
 C (Atmos. Env. 41, 3407-3427, 2007) See comments in AERO_DATA.F
@@ -134,131 +134,26 @@ c Open the diagnostic file
 
       end function aod_init
 
-!-----------------------------------------------------------------------
-      subroutine get_aod ( mrl )
-
-C compute extinction and aod from conc files similar to getvisby.f as a template
-C Revisions:
-C 4/2016: H Pye, removed m3_wet_flag since it is now tracked via
-C         AERO_DATA.F. Moments are wet after extract_aero
-
-         use aero_data          
-!        use asx_data_mod     ! meteorology data, includes SUBST_CONST
-         use utilio_defn
-         use getpar_mod, only: getpar
-         use cgrid_defn, only: cgrid
-         use mem_ijtabs, only: jtab_w, jtw_prog
-         use mem_grid,   only: mza, lpw, dzt
-         use mem_basic,  only: tair, rho, sh_v
-         use therm_lib,  only: rhovsl
-
-         implicit none
-
-         integer, intent(in) :: mrl
-
-       ! character( 16 ) :: aod_file  = 'AOD'
-!        character( 16 ) :: ext_file  = 'EXTINC'
-!        character( 16 ) :: pname = 'Get_Aod'
-         integer :: k, iw, j
-!        real    :: tot_thickness
-!        real    :: lvl_thickness
-!        real    :: blkesat
-!        real    :: blkevap
-         real    :: airrh
-         real    :: extinc
-!        logical :: output_ext
-
-!         real, parameter :: epswater = mwwat / mwair
-!
-!         real, parameter :: al = 610.94
-!         real, parameter :: bl = 17.625
-!         real, parameter :: cl = 243.04
-!         real    :: tt
-!         real    :: esatl
-!         esatl( tt ) = al * exp( bl * ( tt - stdtemp ) / ( tt - stdtemp + cl ) )
-
-!        logical, save :: once = .true.
-
-!-----------------------------------------------------------------------
-
-!        logdev = init3()
-
-!        output_ext = envyn( 'output_ext', 'flag to output 3D extiction file',
-!    &                       .false., ios)
-
-!        if ( output_ext ) then
-!           vname3d( 1 ) = 'EXTINCTION'
-!           units3d( 1 ) = '1/km'
-!           write ( vdesc3d( 1 ), '(a)') 'block extinction (Reconstructed)'
-!           if ( .not. open3( ext_file, fsnew3, pname ) ) then
-!              write( logdev,* ) ' could not open file:', ext_file
-!              stop
-!           end if
-!        end if
-
-!         do r = 1, my_nrows
-!            do c = 1, my_ncols
-
-         !$omp parallel do private(iw,k,airrh,extinc)
-         do j = 1,jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
-
-!              conc_cr = cgrid( iw,:,: )
-!              zh_cr   = Met_Data%zh( c,r,: )
-!              ta_cr   = Met_Data%ta( c,r,: )
-!              pres_cr = Met_Data%pres( c,r,: )
-!              qv_cr   = Met_Data%qv( c,r,: )
-
-               aod_data( iw ) = 0.0
-!              tot_thickness  = 0.0
-
-               do k = lpw(iw), mza-1
-
-!                 lvl_thickness = dzt(k)
-!                 tot_thickness = tot_thickness + lvl_thickness
-!                 if (once) then
-!                    write( logdev,* ) k, lvl_thickness, tot_thickness
-!                 end if
-
-! compute fractional relative humidity
-                  
-                  airrh = sh_v(k,iw) * real(rho(k,iw)) / rhovsl(tair(k,iw)-273.15)
-                  airrh = max( 0.005, min( 0.99, airrh ) )
-
-! compute extinction, 1/km
-! extract_aero will compute the wet second and third moments
-                  call extract_aero( cgrid( k,iw,: ), .false. )
-                  call getpar( .false., noM3=.true. )
-
-                  call get_extinc( airrh, extinc )
-! compute aod
-                  aod_data( iw ) = aod_data( iw )
-     &                           + extinc * 0.001 * dzt(k)
-               end do
-
-         end do
-         !$omp end parallel do
-
-         end subroutine get_aod
 
 !-----------------------------------------------------------------------
       subroutine get_extinc( airrh, ext2 )
- 
+
 C *** adapted from getvisby.F
 C Revisions:
 C 05/2016: P Liu, 1) update humfac and add humfac_large, because ammonium sulfate, nitrate and OM
 C                 are splitted into small and large modes,humfac will be used for small mode
-C                 2) update algorithm for estimating light extinction efficiency based on IMPROVE 
+C                 2) update algorithm for estimating light extinction efficiency based on IMPROVE
 C                 for both updates see Pitchford et al., Journal of the Air & Waste Management Association (57)(2007), pp 1326.
 C-----------------------------------------------------------------------
- 
+
          use aero_data
 
          implicit none
- 
+
          real, intent( in )  :: airrh  ! rel hum [ fraction ]
          real, intent( out ) :: ext2   ! extinction [ 1/km ] (Reconstructed)
 
-C *** Parameters 
+C *** Parameters
 C factor to rescale units from [ 1/Mm ] to [ 1/km ]
          real, parameter :: scale = 1.0e-03
 
@@ -269,7 +164,7 @@ C *** Internal Variables:
          real    frh_large ! RH correction factor for large mode sulfate, nitrate, and ammonium aerosols
          real    frh_ss ! RH correction factor: sea salt aerosols (Malm & Hand, AE,2007)
 
-C air humidity scaling factors at 1% RH intervals for small mode                                                               
+C air humidity scaling factors at 1% RH intervals for small mode
 C values for RH96%-99% are the same as value for RH95%, based on the
 C Regional Haze Rule protocal: "Values are presented to RH = 95%, to
 C which higher RH are 'rolled back' under the RHR protocol to mitigate
@@ -363,7 +258,7 @@ C *** IMPROVE reconstructed method
 C *** NOTE in the following the fine primary mass "other" is
 C     treated as though it were fine mass soil.
 
-      
+
 C     split aerosol mass of sulfate nitrate and OM to small and large
 C     modes based on their individual total mass
 
@@ -401,13 +296,13 @@ C     modes based on their individual total mass
          end do
 C  convert mass of sulfate and nitrate to ammonium sulfate and ammounium nitrate
          total_mass_so4 = total_mass_so4 * (aerospc_mw(anh4_idx)*2+aerospc_mw(aso4_idx))
-     &                    /aerospc_mw(aso4_idx) 
+     &                    /aerospc_mw(aso4_idx)
          total_mass_no3 = total_mass_no3 * (aerospc_mw(anh4_idx)+aerospc_mw(ano3_idx))
-     &                    /aerospc_mw(ano3_idx)       
+     &                    /aerospc_mw(ano3_idx)
 
 C     get the extinction efficiency for all species
          ext2 = 0.0
-         
+
          do n = 1, n_aerospc
 
             if (  aerospc( n )%tracer ) cycle
@@ -420,16 +315,16 @@ C     get the extinction efficiency for all species
                      if (total_mass_so4 .lt. 20.0)  then  ! if total mass less than 20ug/m3, split to 2 modes
                        ext2 = ext2 + frh*aerospc( n )%visual_idx *(mass_with_nh4-mass_with_nh4/20.0)
      &                        + frh_large * aerospc(n)%visual_idx_large*mass_with_nh4/20.0
-     
+
                      else                               ! else  all mass goes to large mode
                        ext2 = ext2 + frh_large * aerospc( n )%visual_idx_large *mass_with_nh4
-                          
+
                      end if
                   end if
                end do
                cycle
             end if
-        
+
             if (n .eq. ano3_idx ) then        ! for ammonium nitrate
                 do m = 1, n_mode
                   if ( .not. aero_missing( n,m ) ) then
@@ -442,7 +337,7 @@ C     get the extinction efficiency for all species
                      else                               ! else  all mass goes to large mode
                        ext2 = ext2 + frh_large * aerospc( n)%visual_idx_large *mass_with_nh4
 
-                     end if 
+                     end if
                   end if
                 end do
                 cycle

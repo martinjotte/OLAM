@@ -14,7 +14,8 @@
 
 int copy_sec(unsigned char **sec, unsigned char **clone_sec) {
 
-    int size[9], i;
+    int i;
+    unsigned int size[9];
 
 //  get size of each secion
 
@@ -33,7 +34,7 @@ int copy_sec(unsigned char **sec, unsigned char **clone_sec) {
 
     for (i = 0; i < 9; i++) {
 	if (size[i] > 0) {
-	    if ((clone_sec[i] = (unsigned char *) malloc(size[i])) == NULL) 
+	    if ((clone_sec[i] = (unsigned char *) malloc(size[i])) == NULL)
 	        fatal_error_i("memory allocation failed copy_sec %d",i);
 	    memcpy(clone_sec[i], sec[i], size[i]);
 	}
@@ -68,7 +69,7 @@ int copy_data(float *data, unsigned int ndata, float **clone_data) {
     float *fp;
     unsigned int i;
 
-    *clone_data = fp = (float *) malloc(ndata * sizeof(float));
+    *clone_data = fp = (float *) malloc(((size_t) ndata) * sizeof(float));
     if (fp == NULL) fatal_error("memory allocation clone_data","");
 
     for (i = 0; i < ndata; i++) {

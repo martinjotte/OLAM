@@ -24,7 +24,7 @@
 
 int grid_id(GRID_ID_ARGS) {
 
-    int gdt, res, scan, nx, ny, n;
+    int gdt, res, scan, nx, ny;
     unsigned int npnts;
 
     if (axes_earth(sec, r_major, r_minor)) fatal_error("grid_id: axes undefined","");
@@ -39,9 +39,8 @@ int grid_id(GRID_ID_ARGS) {
 	default: *proj_id = p_unknown; break;
     }
 
-    /* get nx, ny n */
+    /* get nx, ny */
     get_nxny(sec, &nx, &ny, &npnts, &res, &scan);
-    n = (int) npnts;
 
     grid_defn->nx = nx;
     grid_defn->ny = ny;

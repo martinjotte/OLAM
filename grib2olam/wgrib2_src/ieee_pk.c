@@ -3,7 +3,6 @@
 #include <string.h>
 #include <math.h>
 #include <limits.h>
-#include <jasper/jasper.h>
 #include "grb2.h"
 #include "wgrib2.h"
 #include "fnlist.h"
@@ -13,7 +12,7 @@
  * public domain 2008 Wesley Ebisuzaki
  */
 
-int ieee_grib_out(unsigned char **sec, float *data, unsigned int ndata, FILE *out) {
+int ieee_grib_out(unsigned char **sec, float *data, unsigned int ndata, struct seq_file *out) {
 
     unsigned int n_defined, i;
     int j;
@@ -32,7 +31,7 @@ int ieee_grib_out(unsigned char **sec, float *data, unsigned int ndata, FILE *ou
     /* make a new section 6 */
 
 #ifdef IEEE_BITMAP
-    data_tmp = (float *) malloc(ndata * sizeof(float));
+    data_tmp = (float *) malloc(((size_t) ndata) * sizeof(float));
     for (i = 0; i < ndata; i++) {
 	data_tmp[i] = data[i];
     }
@@ -47,7 +46,7 @@ int ieee_grib_out(unsigned char **sec, float *data, unsigned int ndata, FILE *ou
     sec6[4] = 6;			// section 5
     sec6[5] = 255;			// no bitmap
 #endif
-    
+
     /* data representation section */
 
     sec5 = (unsigned char *) malloc(12 * sizeof(unsigned char));
@@ -60,20 +59,25 @@ int ieee_grib_out(unsigned char **sec, float *data, unsigned int ndata, FILE *ou
 
 
     /* data section */
-    sec7 = (unsigned char *) malloc(5 + n_defined * 4);
-    if (sec7 == NULL) fatal_error("grib_out ieee memory allocation sec7","");
-    uint_char(5+n_defined*4, sec7);
+    i = (unsigned int) (4 * (size_t) n_defined);
+    if (i != (4 * (size_t) n_defined))
+	fatal_error("ieee_pk: grib2 data section is limited to 4G bytes","");
+    sec7 = (unsigned char *) malloc(5 + ((size_t) n_defined) * 4);
+    if (sec7 == NULL) fatal_error("ieee_pk: memory allocation sec7","");
+    uint_char(5 + 4 * (size_t) n_defined, sec7);
     sec7[4] = 7;
     p = sec7 + 5;
     j = 0;
+
+#pragma omp parallel for private(i) schedule(static)
     for (i = 0; i < n_defined; i++) {
 #ifdef IEEE_BITMAP
-	flt2ieee_nan(data_tmp[i], p);
+	flt2ieee_nan(data_tmp[i], p + (i<<2) );
 #else
-	flt2ieee_nan(data[i], p);
+	flt2ieee_nan(data[i], p + (i<<2) );
 #endif
-	p += 4;
     }
+
 #ifdef IEEE_BITMAP
     free(data_tmp);
 #endif
@@ -85,5 +89,4 @@ int ieee_grib_out(unsigned char **sec, float *data, unsigned int ndata, FILE *ou
     free(sec7);
 
     return j;
-
 }

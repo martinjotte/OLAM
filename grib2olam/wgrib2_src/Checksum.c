@@ -21,7 +21,7 @@ extern int decode;
  */
 int f_checksum(ARG1) {
     unsigned int crc;
-    unsigned long len;
+    size_t len;
     char *s;
     int i;
 
@@ -34,7 +34,7 @@ int f_checksum(ARG1) {
         /* Message data */
 	if (strcmp("data",arg1) == 0) {
 	    if (data) {
-		crc = cksum((char unsigned *) data, sizeof(float) * ndata);
+		crc = cksum((char unsigned *) data, sizeof(float) * (size_t) ndata);
 	        if (mode == 1) sprintf(inv_out, "Data checksum = 0x%08X", crc);     // hex, the default
                 else if (mode == 2) sprintf(inv_out, "Data checksum = %u", crc); // decimal
                 else sprintf(inv_out, "data_cksum=%u", crc); // decimal, for sorting
@@ -46,7 +46,7 @@ int f_checksum(ARG1) {
 
         i = (int) strtol(arg1, &s, 10);
 	if (strcmp("message",arg1) == 0 || i == -1) {
-            crc = cksum( sec[0], GB2_MsgLen(sec) );
+            crc = cksum( sec[0], (size_t) GB2_MsgLen(sec) );
 	    if (mode == 1) sprintf(inv_out, "Msg checksum = 0x%08X", crc);     // hex, the default
             else if (mode == 2) sprintf(inv_out, "Msg checksum = %u", crc); // decimal
             else sprintf(inv_out, "msg_cksum=%u", crc); // decimal, for sorting

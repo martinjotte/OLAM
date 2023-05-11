@@ -121,7 +121,7 @@ int f_ctl_inv(ARG0) {
     sprintf(inv_out," %d", code_table_4_5a(sec));
     inv_out += strlen(inv_out);
 
-    /* i is number of fields to print */    
+    /* i is number of fields to print */
     i = 3;
     if (level_type2 == 255) i = 1;
     if (level_type1 == level_type2) i = 2;
@@ -162,7 +162,7 @@ int f_ctl_inv(ARG0) {
     if (pdt == 6 || pdt == 10) {		/* percentiles */
         sprintf(inv_out," a%d", percentile_value(sec));
         inv_out += strlen(inv_out);
-    } 
+    }
 
     if (pdt == 48) {			/* dust */
         sprintf(inv_out,",a%d", code_table_4_233(sec));
@@ -314,6 +314,7 @@ int f_lev0(ARG0) {
        case 2: strcpy(inv_out,"clb"); break;
        case 3: strcpy(inv_out,"clt"); break;
        case 4: strcpy(inv_out,"0C"); break;
+       case 5: strcpy(inv_out,"adcl"); break;
        case 6: strcpy(inv_out,"mwl"); break;
        case 7: strcpy(inv_out,"trop"); break;
        case 8: strcpy(inv_out,"toa"); break;
@@ -321,6 +322,9 @@ int f_lev0(ARG0) {
        case 10: strcpy(inv_out,"clm"); break;
        case 11: strcpy(inv_out,"cbb"); break;
        case 12: strcpy(inv_out,"cbt"); break;
+       case 14: strcpy(inv_out,"lfc"); break;
+       case 15: strcpy(inv_out,"ccl"); break;
+       case 16: strcpy(inv_out,"lnb"); break;
        case 20: sprintf(inv_out,"%d_K",RINT(val1)); break;		// temperature
        case 100: sprintf(inv_out,"%dmb",RINT(val1/100)); break;
        case 101: strcpy(inv_out,"msl"); break;
@@ -343,8 +347,21 @@ int f_lev0(ARG0) {
 		     inv_out++;
 		 }
                  break;
+       case 118: sprintf(inv_out,"hyh%d",RINT(val1)); break;
+       case 119: sprintf(inv_out,"hyp%d",RINT(val1)); break;
+       case 151: sprintf(inv_out,"soil%d",RINT(val1)); break;
        case 160: sprintf(inv_out,"bsl%dm",RINT(val1)); break;
        case 161: sprintf(inv_out,"bwl%dm",RINT(val1)); break;
+       case 174: strcpy(inv_out,"icet"); break;
+       case 175: strcpy(inv_out,"sice"); break;
+       case 176: strcpy(inv_out,"iceb"); break;
+       case 177: strcpy(inv_out,"dsoil"); break;
+       case 179: strcpy(inv_out,"glct"); break;
+       case 180: strcpy(inv_out,"glc"); break;
+       case 181: strcpy(inv_out,"lfrc"); break;
+       case 182: strcpy(inv_out,"wfrc"); break;
+       case 183: strcpy(inv_out,"ifrc"); break;
+       case 184: strcpy(inv_out,"gfrc"); break;
        case 255: break;				// no level information
        default: sprintf(inv_out,"l%d",level_type1); break;
        }
@@ -368,6 +385,14 @@ int f_lev0(ARG0) {
         case 106: sprintf(inv_out, "%d_%dcm",RINT(100*val1),RINT(100*val2)); break;
         case 107: sprintf(inv_out,"%d_%dK",RINT(val1),RINT(val2)); break;		// pot temp
         case 108: sprintf(inv_out, "%d_%dmb",RINT(val1/100),RINT(val2/100)); break;
+	case 118: if ((val1 - val2) >= 0.9999 && (val1 - val2) <= 1.0001) {
+		    sprintf(inv_out,"hyh%dp5", (int) val1); break;	// 1 layer   .. hy10.5
+		}
+		sprintf(inv_out,"hyh%d_%d", (int) val1, (int) val2); break; // multiple layers hy10_20
+	case 119: if ((val1 - val2) >= 0.9999 && (val1 - val2) <= 1.0001) {
+		    sprintf(inv_out,"hyp%dp5", (int) val1); break;	// 1 layer   .. hy10.5
+		}
+		sprintf(inv_out,"hyp%d_%d", (int) val1, (int) val2); break; // multiple layers hy10_20
         default: sprintf(inv_out,"l%d_%d",level_type1,level_type2); break;
         }
         return 0;
@@ -475,14 +500,18 @@ int f_domain(ARG0) {
  */
 
 int f_ctl_ens(ARG0) {
-    int type, n;
+    int pdt, typefcst, type, n;
     if (mode >= 0) {
-        type = code_table_4_6(sec);
-	if (type >= 0) {
+        pdt = code_table_4_0(sec);
+        typefcst = code_table_4_7(sec);
+        if (pdt == 1 || pdt == 11) {
             type = code_table_4_6(sec);
-            n = perturbation_number(sec);
-	    sprintf(inv_out,"ens=%d,%d", type, n);
-	}
+            n = sec[4][35];
+            sprintf(inv_out,"ens=%d,%d", type, n);
+        }
+        else if (pdt == 2  || pdt == 12) {
+            sprintf(inv_out,"ens=%d", typefcst);
+        }
     }
     return 0;
 }

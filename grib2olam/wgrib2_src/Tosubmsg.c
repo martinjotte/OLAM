@@ -18,9 +18,9 @@
 
 struct submsg {
     long start_pos;
-    unsigned long saved_space, written_count, written_bytes;
+    size_t saved_space, written_count, written_bytes;
     unsigned char *last_sec[9];
-    FILE *output;
+    struct seq_file out;
 };
 
 extern int   file_append;
@@ -52,9 +52,6 @@ static int same_sec(unsigned char *seca, unsigned char *secb) {
 int f_tosubmsg(ARG1) {
     struct submsg *save;
 
-    if (flush_mode)
-      fatal_error("Tosubmsg: requires random access I/O, incompatible with -flush" ,"");
-
     if (mode == -1) {
         *local = save = (struct submsg *) malloc( sizeof(struct submsg));
         if (save == NULL) fatal_error("memory allocation tosubmsg","");
@@ -81,16 +78,18 @@ int init_tosubmsg(ARG1, struct submsg *save) {
     /* Note that we have to use rb+ instead of ab in append mode, otherwise we cannot
        overwrite section 0 somewhere in the middle of the file */
 
-    if ((save->output  = ffopen(arg1, file_append ? "rb+" : "wb")) == NULL) {
-        fatal_error("Tosubmsg: Could not open %s", arg1);
+    if (fopen_file(&(save->out), arg1, file_append ? "rb+" : "wb") != 0) {
+        free(save);
+        fatal_error("Could not open %s", arg1);
     }
     if (file_append) {
         /* rb+ mode positions file at the beginning */
-        fseek(save->output, 0L, SEEK_END);
+        fseek_file(&(save->out), 0L, SEEK_END);
     }
+    if (save->out.file_type == PIPE) fatal_error("tosubmsg: does not work with pipes %s", arg1);
 
     /* save start position in file for rewriting section 0 */
-    save->start_pos = ftell(save->output);
+    save->start_pos = ftell_file(&(save->out));
     save->saved_space = 0;
     save->written_count = 0;
     save->written_bytes = 0;
@@ -116,12 +115,12 @@ int write_tosubmsg(ARG1, struct submsg *save) {
 
 	/* write sections 0..7 */
 
-        fwrite((void *) sec[0], sizeof(char), GB2_Sec0_size, save->output);
-        save->written_bytes = (unsigned long int) GB2_Sec0_size;
+        fwrite_file((void *) sec[0], sizeof(char), GB2_Sec0_size, &(save->out));
+        save->written_bytes = (size_t) GB2_Sec0_size;
 
         for (i = 1; i <= 7; i++) {
             if (sec[i]) {
-                fwrite((void *) sec[i], sizeof(char), GB2_Sec_i_size(i), save->output);
+                fwrite_file((void *) sec[i], sizeof(char), GB2_Sec_i_size(i), &(save->out));
                 save->written_bytes += GB2_Sec_i_size(i);
             }
 	}
@@ -153,14 +152,14 @@ int write_tosubmsg(ARG1, struct submsg *save) {
 	if (ok == 0) {
 	    if (i == 6 && GB2_Sec6_size(sec) > 6 && same_sec(sec[i],save->last_sec[i])) {
 		// if same bitmap as before .. use special code
-                fwrite(sec6_repeat, sizeof(char), 6, save->output);
+                fwrite_file(sec6_repeat, sizeof(char), 6, &(save->out));
                 save->written_bytes += 6;
     		save->saved_space += GB2_Sec6_size(sec) - 6;
                 if (mode == 99) fprintf(stdout, ":Bitmap indicator set to 254");
 	    }
 	    else {
 		if (sec[i] != NULL) {
-                    fwrite((void *) sec[i], sizeof(char), GB2_Sec_i_size(i), save->output);
+                    fwrite_file((void *) sec[i], sizeof(char), GB2_Sec_i_size(i), &(save->out));
                     save->written_bytes += GB2_Sec_i_size(i);
 		}
 	    }
@@ -192,13 +191,13 @@ static int cleanup_tosubmsg(ARG1, struct submsg *save) {
     if (save->written_count > 0) {
         /* Write section 8 */
         s[0] = s[1] = s[2] = s[3] = 55; /* 7777 */
-        fwrite((void *) s, sizeof(char), GB2_Sec8_size, save->output);
-        save->written_bytes += (unsigned long int) GB2_Sec8_size;
+        fwrite_file((void *) s, sizeof(char), GB2_Sec8_size, &(save->out));
+        save->written_bytes += (size_t) GB2_Sec8_size;
 
         /* Rewrite section 0 with correct total size */
-        fseek(save->output, save->start_pos, SEEK_SET);
+        fseek_file(&(save->out), save->start_pos, SEEK_SET);
         uint8_char(save->written_bytes, save->last_sec[0]+8);
-        fwrite(save->last_sec[0], sizeof(char), GB2_Sec0_size, save->output);
+        fwrite_file(save->last_sec[0], sizeof(char), GB2_Sec0_size, &(save->out));
     }
 
 
@@ -208,7 +207,7 @@ static int cleanup_tosubmsg(ARG1, struct submsg *save) {
                   "- Kbytes written         : %ld\n"
                         ,save->written_count, save->saved_space/1024, save->written_bytes/1024);
 
-    ffclose(save->output);
+    fclose_file(&(save->out));
     free_sec(save->last_sec);
     return 0;
 }

@@ -13,6 +13,7 @@
  * 5/2008: more symbols
  * 5/2008: fix "tail"
  * 5/2008: keep original scan order
+ * 7/2017: write sections into *.h file
  *
  */
 
@@ -32,7 +33,7 @@ int f_grib_ieee(ARG1) {
 
     struct local_struct {
         FILE *grib, *head, *tail, *c;
-    }; 
+    };
     struct local_struct *save;
     char filename[STRING_SIZE];
 
@@ -71,7 +72,7 @@ int f_grib_ieee(ARG1) {
     else if (mode >= 0) {
         save = *local;
         grib_ieee(sec, data, ndata, save->grib, save->head, save->tail, save->c);
-        last_message = 1;
+        last_message = 1;			// stop
     }
     else if (mode == -2) {
         save = *local;
@@ -94,7 +95,7 @@ int grib_ieee(unsigned char **sec, float *data, unsigned int ndata, FILE *out, F
     int i;
     unsigned int n_defined, j;
 //    int flag;
-    unsigned long int size;
+    size_t size;
     unsigned char *p, *sec0, *sec1, *sec2, *sec3, *sec4, *sec5, *sec6, *sec7;
     unsigned char s[8];
     float *new_data;
@@ -116,10 +117,10 @@ int grib_ieee(unsigned char **sec, float *data, unsigned int ndata, FILE *out, F
     sec6 = (unsigned char *) malloc(6);
     if (sec6 == NULL) fatal_error("grib_out ieee memory allocation sec6","");
     uint_char(6 * sizeof (unsigned char), sec6);
-    sec6[4] = 6;			// section 5
+    sec6[4] = 6;			// section 6
     sec6[5] = 255;			// no bitmap
 
-    
+
     /* data representation section */
 
     sec5 = (unsigned char *) malloc(12 * sizeof(unsigned char));
@@ -133,11 +134,11 @@ int grib_ieee(unsigned char **sec, float *data, unsigned int ndata, FILE *out, F
 
     /* data section */
 
-    new_data = (float *) malloc(n_defined * sizeof(float));
+    new_data = (float *) malloc(sizeof(float) * (size_t) n_defined);
     if (new_data == NULL) fatal_error("grib_out ieee memory allocation data","");
     undo_output_order(data, new_data, n_defined);
 
-    sec7 = (unsigned char *) malloc(5 + n_defined * 4);
+    sec7 = (unsigned char *) malloc(5 + 4 * (size_t) n_defined);
     if (sec7 == NULL) fatal_error("grib_out ieee memory allocation sec7","");
     uint_char(5+n_defined*4, sec7);
     sec7[4] = 7;
@@ -148,7 +149,7 @@ int grib_ieee(unsigned char **sec, float *data, unsigned int ndata, FILE *out, F
     }
     free(new_data);
 
-    size = (unsigned long int) GB2_Sec0_size + GB2_Sec8_size +
+    size = (size_t) GB2_Sec0_size + GB2_Sec8_size +
          (sec1 ? uint4(sec1) : 0) +
          (sec2 ? uint4(sec2) : 0) +
          (sec3 ? uint4(sec3) : 0) +
@@ -257,21 +258,70 @@ int grib_ieee(unsigned char **sec, float *data, unsigned int ndata, FILE *out, F
 	i = i +  uint4(sec4);
     }
 
+    /* write out all the sections */
+
+    fprintf(c,"unsigned char sec0[] = { ");
+    for (i = 0; i < 8; i++) {
+	fprintf(c,"%u, ", sec0[i]);
+    }
+    fprintf(c,"};\n");
+
+    j = uint4(sec1);
+    fprintf(c,"unsigned char sec1[] = { ");
+    for (i = 0; i < j; i++) {
+	fprintf(c,"%u, ", sec1[i]);
+    }
+    fprintf(c,"};\n");
+
+    if (sec2) {
+	j = uint4(sec2);
+        fprintf(c,"unsigned char sec2[] = { ");
+        for (i = 0; i < j; i++) {
+	    fprintf(c,"%u, ", sec2[i]);
+        }
+        fprintf(c,"};\n");
+    }
+
+    if (sec3) {
+	j = uint4(sec3);
+        fprintf(c,"unsigned char sec3[] = { ");
+        for (i = 0; i < j; i++) {
+            if (i % 20 == 0) fprintf(c, "\n");
+	    fprintf(c,"%u, ", sec3[i]);
+        }
+        fprintf(c,"};\n");
+    }
+
+    if (sec4) {
+	j = uint4(sec4);
+        fprintf(c,"unsigned char sec4[] = { ");
+        for (i = 0; i < j; i++) {
+            if (i % 20 == 0) fprintf(c, "\n");
+	    fprintf(c,"%u, ", sec4[i]);
+        }
+        fprintf(c,"};\n");
+    }
+    fprintf(c,"unsigned char sec7[4] = {55, 55, 55, 55};\n");
+
+
     free(sec5);
     free(sec6);
     free(sec7);
 
 //    /* set scan mode to original order */
 //    set_flag_table_3_4(sec, flag);
-    
+
     return 0;
 }
 
 static int output_c(FILE *c, unsigned char *s, unsigned int n) {
-    static int j = 0;
+    static unsigned int j = 0;
     while (n-- > 0) {
         if (j++ % 20 == 0) fprintf(c, "\n");
         fprintf(c," %u,", *s++);
     }
     return 0;
 }
+
+
+

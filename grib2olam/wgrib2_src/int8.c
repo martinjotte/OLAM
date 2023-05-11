@@ -14,50 +14,53 @@
 
 /* routines to return various sized integers from GRIB file */
 
-unsigned int uint2(unsigned char *p) {
+unsigned int uint2(unsigned char const *p) {
 	return (p[0] << 8) + p[1];
 }
 
-unsigned int uint4(unsigned char *p) {
+unsigned int uint4(unsigned const char *p) {
     return ((p[0] << 24) + (p[1] << 16) + (p[2] << 8) + p[3]);
 }
 
 /*
- * uint4_missing
- * if missing return (uint) -1
+ * if len character is 255 -> return 1 (missing)
  */
-int uint4_missing(unsigned char *p) {
+int is_missing(unsigned const char *p, int len) {
+    int i;
+    for (i = 0; i < len; i++) {
+	if (p[i] != 255) return 0;
+    }
+    return 1;
+}
+/*
+ * uint4_missing
+ * if missing return 0
+ * uint4_missing is only used in Sec3.c where an undefined nx/ny == 0 is a good responce
+ */
+unsigned int uint4_missing(unsigned const char *p) {
     int t;
-
-    /* old
-    t = p[0] & 128 ? -1 : 0;
-    t = t << 8 | p[0];
-    t = t << 8 | p[1];
-    t = t << 8 | p[2];
-    t = t << 8 | p[3];
-    */
 
     t = p[0];
     t = t << 8 | p[1];
     t = t << 8 | p[2];
     t = t << 8 | p[3];
 
-    if (t == 0xffffffff) return -1;
+    if (t == 0xffffffff) return 0;
     return t;
 }
 
-unsigned long int uint8(unsigned char *p) {
+unsigned long int uint8(unsigned const char *p) {
 
-#if (ULONG_MAX == 4294967295UL) 
+#if (ULONG_MAX == 4294967295UL)
 	if (p[0] || p[1] || p[2] || p[3]) {
-		fatal_error("unsigned value (8 byte integer) too large for machine\n" 
+		fatal_error("unsigned value (8 byte integer) too large for machine\n"
 		   "fatal error .. run on 64-bit machine","");
 	}
-	return  ((unsigned long int)p[4] << 24) + ((unsigned long int)p[5] << 16) + 
+	return  ((unsigned long int)p[4] << 24) + ((unsigned long int)p[5] << 16) +
                 ((unsigned long int)p[6] << 8) + (unsigned long int)p[7];
 #else
-	return  ((unsigned long int)p[0] << 56) + ((unsigned long int)p[1] << 48) + 
-                ((unsigned long int)p[2] << 40) + ((unsigned long int)p[3] << 32) + 
+	return  ((unsigned long int)p[0] << 56) + ((unsigned long int)p[1] << 48) +
+                ((unsigned long int)p[2] << 40) + ((unsigned long int)p[3] << 32) +
                 ((unsigned long int)p[4] << 24) + ((unsigned long int)p[5] << 16) +
 		((unsigned long int)p[6] << 8) + (unsigned long int)p[7];
 #endif
@@ -65,7 +68,7 @@ unsigned long int uint8(unsigned char *p) {
 
 /*  uint_n: converts n bytes to unsigned int */
 
-unsigned  int uint_n(unsigned char *p, int n) {
+unsigned  int uint_n(unsigned const char *p, int n) {
     unsigned int i;
     i = 0;
     while (n-- > 0) {
@@ -74,7 +77,7 @@ unsigned  int uint_n(unsigned char *p, int n) {
     return i;
 }
 
-int int1(unsigned char *p) {
+int int1(unsigned const char *p) {
 	int i;
 	if (*p & 0x80) {
 		i = -(*p & 0x7f);
@@ -85,7 +88,7 @@ int int1(unsigned char *p) {
 	return i;
 }
 
-int int2(unsigned char *p) {
+int int2(unsigned const char *p) {
 	int i;
 	if (p[0] & 0x80) {
 		i = -(((p[0] & 0x7f) << 8) + p[1]);
@@ -96,7 +99,7 @@ int int2(unsigned char *p) {
 	return i;
 }
 
-int int4(unsigned char *p) {
+int int4(unsigned const char *p) {
 	int i;
 	if (p[0] & 0x80) {
 		i = -(((p[0] & 0x7f) << 24) + (p[1] << 16) + (p[2] << 8) + p[3]);
@@ -109,7 +112,7 @@ int int4(unsigned char *p) {
 
 /*  int_n: converts n bytes to int */
 
-int int_n(unsigned char *p, int n) {
+int int_n(unsigned const char *p, int n) {
     int i, sign;
 
     if (n == 0) return 0;
@@ -125,7 +128,7 @@ int int_n(unsigned char *p, int n) {
 //
 // 2's complement integer4 -- normal storage
 //
-int int4_comp(unsigned char *p) {
+int int4_comp(unsigned const char *p) {
     int i;
     unsigned int j;
 
@@ -253,3 +256,43 @@ void int2_char(int i, unsigned char *p) {
     p[1] = i & 255;
     return;
 }
+
+/*
+ * originally nx and ny were int with -1 == variable
+ * with the large grib conversions, nx and ny became unsigned int
+ * and zero became indicator of a variable size
+ *
+ * to keep the output the same .. have a function that returns a string variable
+ * non-threaded!
+ */
+
+char *nx_str(unsigned int nx) {
+   static char string[30];
+   if (nx == 0) return "-1";
+   sprintf(string,"%u", nx);
+   return string;
+}
+char *ny_str(unsigned int ny) {
+   static char string[30];
+   if (ny == 0) return "-1";
+   sprintf(string,"%u", ny);
+   return string;
+}
+
+/*
+ *  return sub_angle
+ *    note: 0 -> 1
+ *          undefined -> 1e6
+ *    documentation does not say that subangle is unsigned, assumed signed
+ */
+
+
+int sub_angle(unsigned const char *p) {
+
+   /* 0 -> 1 */
+   if (p[0] == 0 && p[1] == 0 && p[2] == 0 && p[3] == 0) return 1;
+   if (p[0] == 255 && p[1] == 255 && p[2] == 255 && p[3] == 255) return 1000000;
+   return int4(p);
+
+}
+

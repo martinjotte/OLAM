@@ -146,6 +146,7 @@ C Indices of required species
 
       Real, Allocatable    :: vapor_mw  ( : )   ! Molecular weights
       Real, Allocatable    :: vapor_mwi ( : )   ! 1 / Molecular weights
+      Real, Allocatable    :: sq_vapor_mwi( : ) ! 1 / sqrt( Molecular weights )
       Real, Allocatable    :: vapor_conc( : )   ! vapor concentration
       Integer, Allocatable :: drog_map  ( : )   ! drog mapping assignments
 
@@ -251,6 +252,7 @@ C namelist or in the NR namelist.
           Allocate ( vaporspc   ( n_vapor ))
           Allocate ( vapor_mw   ( n_vapor ))
           Allocate ( vapor_mwi  ( n_vapor ))
+          Allocate ( sq_vapor_mwi( n_vapor ))
 !         Allocate ( vapor_conc ( n_vapor ))
           Allocate ( drog_map   ( n_vapor ))
           Allocate ( soa_aeroMap( n_vapor ))
@@ -298,7 +300,7 @@ C phase as model species
 !     &                     // ' namelist used. Required for modeling '
 !     &                     // Trim ( vaporlist( spc )%soa_name ) // '.'
                       SOA_eflag  = .True.
-                      write(logdev,99902)Trim( vaporlist( spc )%name ), 
+                      write(logdev,99902)Trim( vaporlist( spc )%name ),
      &                Trim ( vaporlist( spc )%soa_name )
 !                      Call m3warn( pname, 0, 0, xmsg )
                     End If
@@ -326,8 +328,8 @@ C Add option to have species in GC.nml (for real semivolatiles)
      &                 // ' is not found in the N2AE values of NR namelist'
      &                 // ' used. '
                   SOA_eflag  = .True.
-                  Call m3warn( pname, 0, 0, xmsg )
-!                 Call m3exit( pname, 0, 0, xmsg, xstat3 )
+!                 Call m3warn( pname, 0, 0, xmsg )
+                  Call m3exit( pname, 0, 0, xmsg, xstat3 )
                End If
             Else ! vaporspc is a real species in GC (alpha=0 )
                n = index1( vaporspc( spc )%name, n_gc_g2ae, gc_g2ae )
@@ -340,16 +342,18 @@ C Add option to have species in GC.nml (for real semivolatiles)
      &                 // ' is not found in the G2AE values of GC namelist'
      &                 // ' used. '
                   SOA_eflag  = .True.
-                  Call m3warn( pname, 0, 0, xmsg )
-!                 Call m3exit( pname, 0, 0, xmsg, xstat3 )
+!                 Call m3warn( pname, 0, 0, xmsg )
+                  Call m3exit( pname, 0, 0, xmsg, xstat3 )
                End If
             End If
          End Do
 
+         sq_vapor_mwi(1:n_vapor) = sqrt( vapor_mwi(1:n_vapor) )
+
 #ifdef verbose_soa
          write(logdev,'(a16,1x,a4,1x,a7)')"    vaporspc    ","INDX","Mol.Wei"
          Do spc = 1, n_vapor
-           write(logdev,'(a16,1x,i4,1x,f7.2)')vaporspc( spc )%name, vapor_map( spc ), 
+           write(logdev,'(a16,1x,i4,1x,f7.2)')vaporspc( spc )%name, vapor_map( spc ),
      &                                        vapor_mw( spc )
          End Do
 #endif
@@ -410,7 +414,7 @@ C determine if gas-phase IEPOX uptake occurs for the mechanism
                orgprod( 2 )%parent = 'XYLMN'
                orgprod( 3 )%parent = 'XYLMN'
                IEPOX_SOA_mechanism = .True.
-            Else 
+            Else
                xmsg =  'FATAL: The ' // MECHNAME // ' mechanism '
      &             // ' is not supported in this version of the model.'
      &             // ' Change CCTM build script to use a mechanism based on '
@@ -443,11 +447,11 @@ C Build mapping to CGRID for each ORGPROD species and find MW of parent
                Else
                   xmsg = 'FATAL: Species ' // orgprod( spc )%parent
      &                 // ' in ORGPROD parent name is not in the G2AE values'
-     &                 // ' of the GC namelist for the ' // TRIM ( MECHNAME ) 
+     &                 // ' of the GC namelist for the ' // TRIM ( MECHNAME )
      &                 // ' mechanism '
                   SOA_eflag  = .True.
-                  Call m3warn( pname, 0, 0, xmsg )
-!                 Call m3exit( pname, 0, 0, xmsg, xstat3 )
+!                 Call m3warn( pname, 0, 0, xmsg )
+                  Call m3exit( pname, 0, 0, xmsg, xstat3 )
                End If
             End If
          End Do
@@ -456,8 +460,8 @@ C Build mapping to CGRID for each ORGPROD species and find MW of parent
          write(logdev,'(2(a16),1x,a4,1x,a7)')"    orgprod    ","    parent    ","INDX","Mol.Wei"
          Do spc = 1, n_orgprod
            If ( orgprod_map( spc ) .Lt. 1 )Cycle
-           write(logdev,'(2(a16),1x,i4,1x,f7.2)')orgprod( spc )%name,orgprod( spc )%parent, 
-     &                                        orgprod_map( spc ),orgprod_mw( spc ) 
+           write(logdev,'(2(a16),1x,i4,1x,f7.2)')orgprod( spc )%name,orgprod( spc )%parent,
+     &                                        orgprod_map( spc ),orgprod_mw( spc )
          End Do
 #endif
 
@@ -474,8 +478,8 @@ C Find indices of required species
 #ifdef verbose_soa
       ! Mandatory Species
          Write( logdev,'( /5x, a )' ) 'soa_defn: required species'
-         Write( logdev,'( 5x, a, i4 )' ) 'iso1_idx:   ', iso1_idx 
-         Write( logdev,'( 5x, a, i4 )' ) 'iso2_idx:   ', iso2_idx 
+         Write( logdev,'( 5x, a, i4 )' ) 'iso1_idx:   ', iso1_idx
+         Write( logdev,'( 5x, a, i4 )' ) 'iso2_idx:   ', iso2_idx
          Write( logdev,'( 5x, a, i4 )' ) 'aiso1_idx:  ', aiso1_idx
          Write( logdev,'( 5x, a, i4 )' ) 'aiso2_idx:  ', aiso2_idx
          Write( logdev,'( 5x, a, i4 )' ) 'aiso3_idx:  ', aiso3_idx
@@ -493,9 +497,9 @@ C Find indices of required species
 #ifdef verbose_soa
            Write( logdev,'( /5x, a )' )
      &      'SAPRC07TIC_AE6I soa_defn: required species'
-           Write( logdev,'( 5x, a, i4 )' ) 'mtno3_idx:   ', mtno3_idx  
-           Write( logdev,'( 5x, a, i4 )' ) 'isopnn_idx:  ', isopnn_idx 
-           Write( logdev,'( 5x, a, i4 )' ) 'amtno3_idx:  ', amtno3_idx 
+           Write( logdev,'( 5x, a, i4 )' ) 'mtno3_idx:   ', mtno3_idx
+           Write( logdev,'( 5x, a, i4 )' ) 'isopnn_idx:  ', isopnn_idx
+           Write( logdev,'( 5x, a, i4 )' ) 'amtno3_idx:  ', amtno3_idx
            Write( logdev,'( 5x, a, i4 )' ) 'aisopnn_idx: ', aisopnn_idx
 #endif
          End If
@@ -507,12 +511,12 @@ C Species they correspond to (aerospc is used inside findAero)
 #ifdef verbose_soa
            Write( logdev,'( /5x, a )' )
      &      'soa_defn: vapor species'
-#endif     
+#endif
          Do spc = 1, n_vapor
             If ( vaporspc( spc )%soa_name .Ne. ' ' ) Then
                soa_aeroMap( spc ) = findAero( vaporspc( spc )%soa_name, .True. )
 #ifdef verbose_soa
-           Write( logdev,'( 5x, a20, i4 )' ) Trim(vaporspc( spc )%soa_name) // ':', 
+           Write( logdev,'( 5x, a20, i4 )' ) Trim(vaporspc( spc )%soa_name) // ':',
      &                                       soa_aeroMap( spc )
 #endif
                If( soa_aeroMap( spc ) .Lt. 1 ) write(logdev,99904) Trim( vaporspc( spc )%name )
@@ -526,12 +530,12 @@ C (aerospc is used inside findAero)
 #ifdef verbose_soa
            Write( logdev,'( /5x, a )' )
      &      'soa_defn: orgprod_aero species'
-#endif     
+#endif
          Do spc = 1, n_orgprod
             If ( orgprod( spc )%aerospc .Ne. ' ' ) Then
                orgprod_aeroMap( spc ) = findAero( orgprod( spc )%aerospc, .True. )
 #ifdef verbose_soa
-           Write( logdev,'( 5x, a20, i4 )' ) Trim(orgprod( spc )%aerospc) // ':', 
+           Write( logdev,'( 5x, a20, i4 )' ) Trim(orgprod( spc )%aerospc) // ':',
      &                                       orgprod_aeroMap( spc )
 #endif
                If( orgprod_aeroMap( spc ) .Lt. 1 ) write(logdev,99905) Trim( orgprod( spc )%name )
@@ -544,12 +548,12 @@ C Reactive variables that store their production rates (orgprod)
 #ifdef verbose_soa
            Write( logdev,'( /5x, a )' )
      &      'soa_defn: drog species'
-#endif     
+#endif
          Do spc = 1, n_vapor
             If ( vaporspc( spc )%drog_name .Ne. ' ' ) Then
                drog_map( spc ) = findOrgprod( vaporspc( spc )%drog_name )
 #ifdef verbose_soa
-           Write( logdev,'( 5x, a20, i4 )' ) Trim(vaporspc( spc )%drog_name) // ':', 
+           Write( logdev,'( 5x, a20, i4 )' ) Trim(vaporspc( spc )%drog_name) // ':',
      &                                       drog_map( spc )
 #endif
                If( drog_map( spc ) .Lt. 1 ) write(logdev,99905) Trim( orgprod( spc )%name )
@@ -561,7 +565,7 @@ C Reactive variables that store their production rates (orgprod)
              xmsg = 'The FATAL errors found in namelist used. Check '
      &          //  'the log of exiting processor if more details are needed.'
              Call m3exit( pname, 0, 0, xmsg, xstat3 )
-         End If 
+         End If
 
 C     Set unit conversion
 
@@ -587,12 +591,12 @@ C     Set unit conversion
 99904 Format(1X,'aerosol product from namelist species: ', a /)
 99905 Format(1X,'aerosol by-product from namelist species : ', a /)
 C99906 Format(1X,'precursor from namelist species : ', a /)
-  
+
       End Subroutine Map_soa
 
 C-----------------------------------------------------------------------
 
-      Subroutine extract_soa( conc, airdens )
+      Subroutine extract_soa( k, iw, airdens )
 
 C  Extracts the required soa data from CGRID into the conc array.
 
@@ -609,17 +613,17 @@ C              reflects the fact that alkane SOA precursor
 C              emissions are dominated by compounds smaller than dodecane.
 C-----------------------------------------------------------------------
 
-      Use const_data, only: inv_mwairkg, min_gasconc
+      use const_data, only: inv_mwairkg, min_gasconc
+      use cgrid_defn, only: cgrid
 
       Implicit None
 
 C Arguments:
-      Real, Intent( In ) :: conc( : )
-      Real, Intent( In ) :: airdens
-      
+      Integer, Intent( In ) :: k, iw
+      Real,    Intent( In ) :: airdens
+
 C Local Variables:
       Real            :: gasconv
-      Real            :: vtmp
       Integer         :: n
       Integer         :: spc
 
@@ -629,30 +633,35 @@ C Compute gas conversion constant
       gasconv = airdens * inv_mwairkg
 
 C Copy grid cell concentrations of vapor species
-      vapor_conc = 0.0
 
+      !dir$ novector
       Do spc = 1, n_vapor
          n = vapor_map( spc )
-         If ( n .Ne. 0 ) Then
-            vtmp = gasconv * vapor_mw( spc )
-            vapor_conc( spc ) = Max( conc( n ) * vtmp, min_gasconc )
-         End If
+         vapor_conc( spc ) = cgrid(k,iw,n)
+      End Do
+
+      Do spc = 1, n_vapor
+         vapor_conc( spc ) = max( min_gasconc,
+     &                            vapor_conc( spc ) * gasconv * vapor_mw( spc ) )
       End Do
 
 C Copy grid cell concentrations of ORGPROD species
-      orgprod_conc = 0.0
+
+      !dir$ novector
       Do spc = 1, n_orgprod
          n = orgprod_map( spc )
-         If ( n .Ne. 0 ) Then
-            orgprod_conc( spc ) = Max( conc( n ), min_gasconc )
-         End If
+         orgprod_conc( spc ) = cgrid(k,iw,n)
+      End Do
+
+      Do spc = 1, n_orgprod
+         orgprod_conc( spc ) = Max( orgprod_conc( spc ), min_gasconc )
       End Do
 
       End Subroutine extract_soa
 
 C-----------------------------------------------------------------------
 
-      Subroutine update_soa( conc, airdens )
+      Subroutine update_soa( k, iw, airdens )
 
 C  Populates CGRID from the conc array with updated SOA values.
 
@@ -664,14 +673,15 @@ C SH  03/10/11 Renamed met_data to aeromet_data
 C SR  03/25/11 Replaced I/O API include files with UTILIO_DEFN
 C-----------------------------------------------------------------------
 
-      Use const_data,  only: mwairkg, min_gasconc
+      Use const_data, only: mwairkg, min_gasconc
+      use cgrid_defn, only: cgrid
       Use utilio_defn
 
       Implicit None
 
 C Arguments:
-      Real, Intent( Out ) :: conc( : )
-      Real, Intent( In )  :: airdens
+      Integer, Intent( In ) :: k, iw
+      Real,    Intent( In ) :: airdens
 
 C Local Variables:
       Character( 80 ) :: xmsg
@@ -692,7 +702,7 @@ C Copy vapor_conc back to grid cell concentrations
       Do spc = 1, n_vapor
          n = vapor_map( spc )
          vtmp = vapor_mwi( spc ) * gasconvi
-         conc( n ) = Max ( vapor_conc( spc ) * vtmp, min_gasconc )
+         cgrid(k,iw,n) = Max ( vapor_conc( spc ) * vtmp, min_gasconc )
       End Do
 
       End Subroutine update_soa
@@ -763,6 +773,7 @@ C Local Variables:
       Character( 80 ) :: xmsg
       Integer         :: spc
 
+      ndx = 0
       Do spc = 1, n_orgprod
          If ( orgprod( spc )%name .Eq. vname ) Then
             ndx = spc
@@ -781,7 +792,7 @@ C Local Variables:
       End Function findOrgprod
 
 C-----------------------------------------------------------------------
-      Subroutine orgaer( dt, layer, airtemp, airpres )
+      Subroutine orgaer( dt, layer, airtemp, airpres, sqrt_temp, diffcorr )
 
 C Updates CGRID via several pathways for secondary organic aerosol (SOA)
 C formation, as recommended by Edney et al. (2007).  These include SOA
@@ -1068,7 +1079,8 @@ C Key Subroutines/Functions called:  newt, soabisection
       Use aero_data
       Use const_data
       Use utilio_defn
-      Use rxns_data, only : MECHNAME
+      Use rxns_data,  only: MECHNAME
+      Use getpar_mod, only: getpar
 
       Implicit None
 
@@ -1077,6 +1089,8 @@ C Arguments:
       Integer, intent( in ) :: layer         ! model layer number
       Real,    intent( in ) :: airtemp
       Real,    intent( in ) :: airpres
+      Real,    intent( in ) :: sqrt_temp
+      Real,    intent( in ) :: diffcorr
 
 C Local variables:
 !     Character( 300 ) :: xmsg
@@ -1116,14 +1130,18 @@ C Variables used in acid-enhanced isoprene SOA calculations
 C Variables used in equilibrium partitioning calculations
       Real drog( n_orgprod ) ! change in precursor conc [ ug/m3 ]
       Real totrog( n_vapor ) ! drog conc mapped to each SVOC [ ug/m3 ]
-      Real(8) GR3( n_vapor,n_mode ) ! 3rd Moment Growth for each mode and compound
-      Real GR3FRAC( n_vapor,n_mode ) ! Fraction of each mode growing/shrinking
+      Real GR3   ( 2 )       ! 3rd Moment Growth for each mode and compound
+      Real GR3FRAC(n_vapor,2)! Fraction of each mode growing/shrinking
       Real c0    ( n_vapor ) ! cstar at AIRTEMP [ ug/m3 ]
       Real caer0 ( n_vapor ) ! SVOC conc before current time step [ ug/m3 ]
       Real ctoti ( n_vapor ) ! SVOC conc before current time step [ ug/m3 ]
       Real prod  ( n_vapor ) ! SVOC generated during current step [ ug/m3 ]
       Real ctotf ( n_vapor ) ! SVOC conc after current time step [ ug/m3 ]
       Real caer  ( n_vapor ) ! SVOC conc in aerosol phase [ ug/m3 ]
+
+      Real ctotm ( n_vapor )
+      Real c1    ( n_vapor )
+
       Real dcaer             ! Change in SVOC conc after partitioning happens[ ug/m3 ]
       Real cbar_org(n_vapor) ! On-line molecular speed of each organic
       Real dv_org            ! On-line gas-phase diffusivity of each organic
@@ -1136,16 +1154,23 @@ C Variables used in equilibrium partitioning calculations
       Real totaer, fact      ! total aerosol-phase mass of each semivolaitle component
 
       real, parameter :: cbar_fac = sqrt( 8.0 * RGASUNIV * oneovpi * 1.e3 )
+      real, parameter :: twopi    = 2.0 * pi
+      real, parameter :: pi4      = .25 * pi
 
 C Variables for updating 2nd and 3rd moments
-      Real(8) m0_init( 2 )  ! initial 0 moment, wet [ mom/m3 ]
-      Real(8) m1wet_init( 2 )  ! initial 1st moment, wet [ mom/m3 ]
-      Real(8) m2wet_initD( 2 )  ! initial 2nd moment, wet [ mom/m3 ]
       Real m3wet_init( 2 )  ! initial 3rd moment, wet [ mom/m3 ]
       Real m2wet_init( 2 )  ! initial 2nd moment, wet [ mom/m3 ]
+      Real moment1_conc( 2 )
 
 C Added for new SOA bisection (hotp 7/6/11)
       Real               :: upb, orgmoles      ! upper bound, total aerosol moles
+
+C Variables for inline HCOND3 calculation
+      Real :: gnc2 ! integrals used to calculate f(1) [m^2 / m^3 s]
+      Real :: gfm2 !
+      Real :: gnc3 ! integrals used to calculate f(2) [m^3 / m^3 s]
+      Real :: gfm3 !
+      Real :: gncfac, gfmfac
 
 C-----------------------------------------------------------------------
 
@@ -1158,33 +1183,55 @@ C Set Mass Transfer Properties (although each condensing organic
 C will have its own diffusivity and molecular speed, just assume
 C as a first guess that they are all uniform and given by a rep-
 C resentative compound.
-      Dv_org = difforg * ( STDATMPA / AIRPRES ) * ( AIRTEMP / 273.16 ) ** 1.75
-      cbar_org( : ) = cbar_fac * SQRT( AIRTEMP * vapor_mwi(:) )
+      Dv_org = difforg * diffcorr
+      cbar_org( : ) = cbar_fac * SQRT_TEMP * sq_vapor_mwi(:)
 
-C Compute 3rd moment, 2nd moment. moment_conc arrays are wet
-      Call calcmoments ( .true. )
-      m3wet_init( : ) = moment3_conc( 1:2 )
-      m2wet_init( : ) = moment2_conc( 1:2 )
+C Compute aerosol diameter and standard deviation
+      Call getpar( FIXED_sg, moment0_conc, moment2_conc, moment3_conc,
+     &             aeromode_lnsg, aeromode_diam, 1, 3 )
 
-      GR3( :,: ) = 1.d-30
-      m0_init    ( : ) = moment0_conc( 1:2 )
-      m2wet_initD( : ) = m2wet_init  ( 1:2 )
+      do im = 1, 2
+         m2wet_init  ( im ) = moment2_conc(im)
+         m3wet_init  ( im ) = moment3_conc(im)
+         moment1_conc( im ) = moment0_conc(im) * aeromode_diam(im) * exp(0.5 * aeromode_lnsg(im)**2)
+      enddo
 
-      m1wet_init( : ) = m0_init( : ) * aeromode_diam( 1:2 ) * 
-     &                      exp( 0.5 * aeromode_lnsg( 1:2 ) ** 2 )
+      gr3frac(:,1) = 0.0
+      gr3frac(:,2) = 1.0
 
-      Do im = 1,2
-        Do i = 1, n_vapor
-          If ( aero_missing( soa_aeroMap( i ),im ) ) Cycle
-          
-          Call HCOND3_l( m1wet_init( im ), m2wet_initD( im ), 
-     &                   Dv_org, cbar_org(i), GR3( i,im ) )
-        End Do
-      End Do
+      gncfac = twopi * Dv_org
 
-      ! Calculate fraction of mass transfer to/from each mode
-      gr3frac(:,1) = gr3(:,1) / ( GR3(:,1) + GR3(:,2) )
-      gr3frac(:,2) = 1.0 - gr3frac(:,1)
+      Do i = 1, n_vapor
+         If (.not. aero_missing( soa_aeroMap( i ),1 ) ) then
+
+            gfmfac = pi4 * cbar_org(i)
+
+            do im = 1, 2
+
+               ! Implement equation A15 of Binkowski & Shankar (1995) for the
+               ! 2nd and 3rd moments of a lognormal mode of arbitrary size.
+
+               gnc2 = gncfac * moment0_conc(im) ! 2nd moment, near-continuum
+               gnc3 = gncfac * moment1_conc(im) ! 3rd moment, near-continuum
+
+               gfm2 = gfmfac * moment1_conc(im) ! 2nd moment, free-molecular
+               gfm3 = gfmfac * moment2_conc(im) ! 3rd moment, free-molecular
+
+               ! Implement equation A13 of Binkowski & Shankar (1995) for a
+               ! lognormal mode of arbitrary size.  These are the size-dependent
+               ! terms in the condensational-growth rate expression, given in
+               ! equation 7a of B&S (1995).
+
+               gr3(im) = gnc2 * gfm2 / ( gnc2 + gfm2 ) ! 2nd moment
+               gr3(im) = gnc3 * gfm3 / ( gnc3 + gfm3 ) ! 3rd moment
+
+            enddo
+
+            gr3frac(i,1) = gr3(1) / ( GR3(1) + GR3(2) )
+            gr3frac(i,2) = 1.0 - gr3frac(i,1)
+
+         endif
+      enddo
 
 C Initialize drog from ORGPROD and change units to [ ug / m**3 ]
       drog( : ) = orgprod_conc( : ) * drog_ppm2ug( : ) * convfac
@@ -1192,7 +1239,7 @@ C Initialize drog from ORGPROD and change units to [ ug / m**3 ]
 C Assignment of drog to totrog. This moving mass from the reactive
 C gas tracer species to the array that will be multiplied by alpha
 C to give newly formed semivolatile vapors.
-      totrog( : ) = 0.0
+      totrog = 0.0
       Do i = 1, n_vapor
          If ( drog_map( i ) .Gt. 0 ) Then
             totrog( i ) = drog( drog_map( i ) )
@@ -1265,14 +1312,14 @@ C hard-coded values.
       ! the vaporspc table.
       totorg = totorgsw
       Do i = 1, n_vapor
-         totorg = totorg + ( aerospc_conc( soa_aeroMap( i ),2 ) + 
+         totorg = totorg + ( aerospc_conc( soa_aeroMap( i ),2 ) +
      &                       aerospc_conc( soa_aeroMap( i ),1 ) ) * vapor_mwi( i )
       End Do
 
 C Initialize ctoti as sum of vapor-phase and particle-phase SVOCs
 C Note: all of these CBLK species are in [ug/m**3]
       Do i = 1, n_vapor
-         caer0( i ) = aerospc_conc( soa_aeroMap( i ),2 )  
+         caer0( i ) = aerospc_conc( soa_aeroMap( i ),2 )
      &              + aerospc_conc( soa_aeroMap( i ),1 )
 
          ctoti( i ) = vapor_conc( i ) + caer0( i )
@@ -1298,7 +1345,9 @@ C    caer = ctotf / ( 1 + c0/MW / totorg )
          prod( i )  = vaporspc( i )%alpha * totrog( i )     ! Total Vapor Produced
          ctotf( i ) = ctoti( i ) + prod( i )                ! Vapor + Particle
          threshold  = threshold +  ctotf( i ) / c0( i )
-         upb        = upb + ctotf( i ) * vapor_mwi( i )      ! upper: all moles (semi and nonvolatile)
+         c1   ( i ) = c0   ( i ) * vapor_mwi( i )
+         ctotm( i ) = ctotf( i ) * vapor_mwi( i )
+         upb        = upb + ctotm( i )
       End Do
 
 C Check If gas/particle equilibrium can be established
@@ -1317,20 +1366,20 @@ C        Solve for total number of organic moles in aerosol (hotp 7/5/11)
             orgmoles = totorgsw
          Else
             upb       = totorgsw + upb
-            orgmoles  = soabisect( totorgsw, upb, totorgsw, c0, ctotf, vapor_mw )
+            orgmoles  = soabisect( totorgsw, upb, totorgsw, c1, ctotm )
          End If
 
 C        Determine concentration of each semivoltile (hotp 7/5/11)
 C        Constrain caer to values between evapmin and ctotf
          Do i = 1, n_vapor
-            caer(i) = max( 1.e-7*caer0(i), min( ctotf(i), ctotf(i) * vapor_mw(i) * orgmoles
-     &                                                   / ( c0(i) + vapor_mw(i) * orgmoles ) ) )
+            caer(i) = max( 1.e-7*caer0(i), min( ctotf(i), ctotf(i) * orgmoles
+     &                                                   / ( c1(i) + orgmoles ) ) )
 
             ! Check for overshoot in any of the specific modes
             indx = soa_aeroMap( i )
 
             ! Calculate total change in OA Species Concentration
-            dcaer = caer( i ) - caer0( i )  
+            dcaer = caer( i ) - caer0( i )
 
             if (dcaer < 0.) then
 
@@ -1353,7 +1402,7 @@ C        Constrain caer to values between evapmin and ctotf
             endif
 
          End Do
- 
+
       Else   ! threshold not exceeded; no material transferred to aerosol phase
 
          Do i = 1, n_vapor
@@ -1379,15 +1428,7 @@ C range of experimental conditions (530 nmol/m3) tested by Surratt et al.
 C (2007).  In future code updates, molecular weights of inorganic ions should
 C be inherited from include or namelist files to avoid hard-coded values.
 
-      hplus = aerospc_conc(aso4_idx,2) * aerospc_chomw(aso4_idx)
-     &      + aerospc_conc(ano3_idx,2) * aerospc_chomw(ano3_idx)
-     &      + aerospc_conc(acl_idx,2)  * aerospc_chomw(acl_idx)
-     &      + aerospc_conc(anh4_idx,2) * aerospc_chomw(anh4_idx)
-     &      + aerospc_conc(ana_idx,2)  * aerospc_chomw(ana_idx)
-     &      + aerospc_conc(amg_idx,2)  * aerospc_chomw(amg_idx)
-     &      + aerospc_conc(ak_idx,2)   * aerospc_chomw(ak_idx)
-     &      + aerospc_conc(aca_idx,2)  * aerospc_chomw(aca_idx)
-
+      hplus = sum( aerospc_conc(idry_str:icrg_end(2),2) * aerospc_chomw(idry_str:icrg_end(2)) )
       hplus = Min( .530, Max ( 0.0, hplus ) ) ! restrict extrapolation
 
 C Compute amount of acid-enhanced isoprene SOA that is produced during the current
@@ -1419,80 +1460,26 @@ C of SO2, based on the lab experiments of Kleindienst et al. (2007)
 C Update 3rd moment, 2nd moment, and Dg in CBLK array by assuming that SOA
 C condensation/evaporation does not affect the geometric standard deviation.
 
-      ! Get new third moment of all species, do not get second moment
-      ! directly from the calcmoments diagnostic. Instead, update it
-      ! manually to account for condensation in ORGAER.
-      Call calcmoments( .true. )
-      moment2_conc( 1 ) = m2wet_init( 1 ) * ((moment3_conc(1)/m3wet_init(1))**2) ** ( 1.0 / 3.0 )
-      moment2_conc( 2 ) = m2wet_init( 2 ) * ((moment3_conc(2)/m3wet_init(2))**2) ** ( 1.0 / 3.0 )
+      moment3_conc(1) = sum( aerospc_m3fac( 1:idry_end(1) ) * aerospc_conc( 1:idry_end(1),1 ),
+     &                       mask = (.not. aero_missing(1:idry_end(1),1) ) )
+
+      moment3_conc(2) = sum( aerospc_m3fac( 1:idry_end(2) ) * aerospc_conc( 1:idry_end(2),2 ),
+     &                       mask = (.not. aero_missing(1:idry_end(2),2) ) )
+
+      do im = 1, 2
+         moment2_conc( im ) = m2wet_init( im ) * ((moment3_conc(im)/m3wet_init(im))**2) ** ( 1.0 / 3.0 )
+      enddo
 
       End Subroutine orgaer
 
 C-----------------------------------------------------------------------
 
-      subroutine hcond3_l( am1, am2, dv, cbar, f )
-
-C  calculates the size-dependent term in the condensational-growth rate
-C  expression for the 2nd and 3rd moments of a lognormal aerosol mode
-C  using the harmonic mean method.  This code follows Section A2 of
-C  Binkowski & Shankar (1995).
- 
-C  Key Subroutines/Functions called:  none
- 
-C  Revision History:
-C     coded November 7, 2003 by Dr. Francis S. Binkowski
-C     Revised November 20, 2003 by F. Binkowski to have am1 and
-C     am2 as inputs
- 
-C  Reference:
-C   1. Binkowski, F.S. and U. Shankar, The regional particulate matter
-C      model 1. Model description and preliminary results, J. Geophys.
-C      Res., Vol 100, No D12, 26101-26209, 1995.
-
-      use const_data, only: pi
-      implicit none
-
-C *** Arguments:
-
-      real( 8 ), intent( in ) :: am1   ! first moment of mode   [ m/m**3 ]
-      real( 8 ), intent( in ) :: am2   ! second moment of mode  [ m**2/m**3 ]
-      real,      intent( in ) :: dv    ! molecular diffusivity of the
-                                       ! condensing vapor  [ m**2/s ]
-      real,      intent( in ) :: cbar  ! kinetic velocity of condensing vapor [ m/s ]
-
-      real( 8 ), intent( out ) :: f    ! size-dependent term in condensational-growth
-                                       ! rate: F = 3rd moment [ m**3/m**3 s ]
-C *** Local Variables:
-
-      real( 8 ) :: gnc3 ! integrals used to calculate F(2) [m^3 / m^3 s]
-      real( 8 ) :: gfm3 !
-
-      real( 8 ), parameter :: twopi = 2.0d0 * pi
-      real( 8 ), parameter :: pi4 = 0.25d0 * pi
-
-C *** Implement equation A15 of Binkowski & Shankar (1995) for the
-C     2nd and 3rd moments of a lognormal mode of arbitrary size.
-
-      gnc3 = twopi * dv * am1   ! 3rd moment, near-continuum
-      gfm3 = pi4 * cbar * am2   ! 3rd moment, free-molecular
-
-C *** Implement equation A13 of Binkowski & Shankar (1995) for a
-C     lognormal mode of arbitrary size.  These are the size-dependent
-C     terms in the condensational-growth rate expression, given in
-C     equation 7a of B&S (1995).
-
-      f = max( gnc3 * gfm3 / ( gnc3 + gfm3 ), 1.d-30 ) ! 3rd moment
-
-      end subroutine hcond3_l
-
-C-----------------------------------------------------------------------
-
-      function soabisect( lowerb, upperb, nonvolmol, cstaratt, totsemivol,
-     &                    mlwt) result ( nroot )
+      function soabisect( lowerb, upperb, nonvolmol, cstaratt, totsemivol )
+     &         result ( nroot )
 
 !     Determines the root of an equation, nroot, that is located
 !     between the lowerb and upperb. The equation of interest is defined
-!     in the function soaequation. Before calling soabisect, the threshold 
+!     in the function soaequation. Before calling soabisect, the threshold
 !     for SOA should have already been checked which should ensure a solution.
 !     The recommended lower bound is the number of moles of nonvolatile aerosol
 !     and the recommended upper bound is the total number of organic moles
@@ -1505,11 +1492,11 @@ C-----------------------------------------------------------------------
       implicit none
 
 !     Function arguments
-      Real, Intent(IN) :: lowerb, upperb      ! lower bound, upper bound 
+      Real, Intent(IN) :: lowerb, upperb      ! lower bound, upper bound
       Real, Intent(IN) :: nonvolmol           ! nonvolatile aerosol in moles = POA + non-voltile SOA
       Real, Intent(IN) :: cstaratt(n_vapor)   ! Cstars at T of interest
       Real, Intent(IN) :: totsemivol(n_vapor) ! total semivolatile in ug/m3 (gas+aer+newlyformed)
-      Real, Intent(IN) :: mlwt(n_vapor)       ! molecular weight of semivolatiles 
+!      Real, Intent(IN) :: mlwt(n_vapor)       ! molecular weight of semivolatiles
 
 !     Result
       Real             :: nroot               ! solution (final nguess)
@@ -1534,14 +1521,14 @@ C-----------------------------------------------------------------------
       x2  = upperb
 
 !     Evaluate at lower bound; check if it's a root
-      f1 = soaequation( nonvolmol, cstaratt, totsemivol, mlwt, x1 )
+      f1 = soaequation( nonvolmol, cstaratt, totsemivol, x1 )
       if (abs(f1) < eps) then
          nroot = x1
          return
       endif
 
 !     Evaluate at upper bound; check if it's a root
-      f2 = soaequation( nonvolmol, cstaratt, totsemivol, mlwt, x2 )
+      f2 = soaequation( nonvolmol, cstaratt, totsemivol, x2 )
       if (abs(f2) < eps) then
          nroot = x2
          return
@@ -1554,7 +1541,7 @@ C-----------------------------------------------------------------------
          xn = (f2 * x1 - f1 * x2) / (f2 - f1)
 
 !        Function evaluated at new guess
-         fn = soaequation( nonvolmol, cstaratt, totsemivol, mlwt, xn )
+         fn = soaequation( nonvolmol, cstaratt, totsemivol, xn )
 
 !        Check and end iteration if we aren't moving much
          if (abs(x2 - xn) < fractol * xn .and. abs(fn) < 1.e-4) then
@@ -1591,7 +1578,7 @@ C-----------------------------------------------------------------------
              nroot = xn
              return
           endif
- 
+
       enddo
 
       nroot = xn
@@ -1601,13 +1588,13 @@ C-----------------------------------------------------------------------
 
 C-----------------------------------------------------------------------
 
-      Function soaequation( nonvmol, cstar, semivol, mlwt, currentN ) Result ( eqnerror )
+      Function soaequation( nonvmol, cstar, semivol, currentN ) Result ( eqnerror )
 
 C     Evaluates the following function of total aerosol moles, N
-C     Function evaluates to zero at equilibrium 
-C     
+C     Function evaluates to zero at equilibrium
+C
 C                      totalsemivol_i        mols nonvolatile POA + SOA
-C     f(N) = sum_i (  ----------------   ) + ---------------------------  - 1.0 
+C     f(N) = sum_i (  ----------------   ) + ---------------------------  - 1.0
 C                     cstar_i + mw_i*N                  N
 C
 C     History
@@ -1617,17 +1604,16 @@ C     Created 7/2011 HOT Pye
 
 C     Function inputs and output
       Real, INTENT(IN) :: nonvmol, currentN                ! nonvolatile moles, total moles
-      Real, INTENT(IN) :: mlwt(n_vapor)                    ! molecular weights of semivolatiles
       Real, INTENT(IN) :: semivol(n_vapor), cstar(n_vapor) ! semivolatile mass, sat conc in ug/m3
       Real             :: eqnerror                         ! result, deviation from 0.0 in equation
 
 C     Local variables
       Integer          :: i                                ! counter
 
-C     Compute function value for current value of N 
+C     Compute function value for current value of N
       eqnerror = nonvmol / currentN - 1.0
       Do i = 1, n_vapor
-         eqnerror = eqnerror + semivol(i) / ( cstar(i) + mlwt(i) * currentN )
+         eqnerror = eqnerror + semivol(i) / ( cstar(i) + currentN )
       End Do
 
       End function soaequation

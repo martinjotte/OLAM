@@ -18,7 +18,7 @@
 
 extern int decode, latlon;
 extern double *lat, *lon;
-extern int nx, ny, scan;
+extern int nx_, ny_, scan;
 
 /*
  * HEADER:100:undefine:misc:3:sets grid point values to undefined X=(in-box|out-box) Y=lon0:lon1 Z=lat0:lat1
@@ -56,7 +56,7 @@ int f_undefine(ARG3) {
         if (x > y) y += 360.0;
         if (x > y) fatal_error("undef: bad longitudes lon0:lon1  %s", arg2);
         if (y-360 > x ) fatal_error("undef: bad longitudes lon1 too big %s", arg2);
-        
+
         if (x < 0.0) { x += 360.0; y += 360.0; }
 
         save->lon0 = x;
@@ -71,6 +71,10 @@ int f_undefine(ARG3) {
         save->lat0 = x;
         save->lat1 = y;
     }
+    else if (mode == -2) {
+	free(*local);
+    }
+
     if (mode < 0) return 0;
     save = (struct local_struct *) *local;
 
@@ -112,13 +116,12 @@ int f_undefine(ARG3) {
 int f_ijundefine(ARG3) {
     struct local_struct {
         int in;
-        int ix0, ix1, iy0, iy1;
+        unsigned int ix0, ix1, iy0, iy1;
     };
     struct local_struct *save;
-    int x,y;
-    int ix, iy;
-    unsigned int i;
-    int x0, x1, y0, y1, nyy, nxx;
+    long unsigned int x,y;
+    unsigned int i, ix, iy, nyy, nxx;
+    unsigned int x0, x1, y0, y1;
 
     if (mode == -1) {
         decode = 1;
@@ -130,20 +133,24 @@ int f_ijundefine(ARG3) {
         }
         save->in =(strcmp("in-box", arg1) == 0);
 
-        if (sscanf(arg2,"%d:%d", &x, &y) != 2) {
+        if (sscanf(arg2,"%lu:%lu", &x, &y) != 2) {
             fatal_error("undef: bad ix0:ix1  %s", arg2);
         }
 
         save->ix0 = x-1;
         save->ix1 = y-1;
 
-        if (sscanf(arg3,"%d:%d", &x, &y) != 2) {
+        if (sscanf(arg3,"%lu:%lu", &x, &y) != 2) {
             fatal_error("undef: bad iy0:iy0  %s", arg3);
         }
         save->iy0 = x-1;
         save->iy1 = y-1;
     }
+    else if (mode == -2) {
+	free(*local);
+    }
     if (mode < 0) return 0;
+
     save = (struct local_struct *) *local;
     x0 = save->ix0;
     x1 = save->ix1;
@@ -152,8 +159,8 @@ int f_ijundefine(ARG3) {
 
     if (GDS_Scan_staggered(scan)) fatal_error("ijundefine does not support staggered grids","");
 
-    nxx = nx > 0 ? nx : 1;
-    nyy = ny > 0 ? ny : 1;
+    nxx = nx_ > 0 ? nx_ : 1;
+    nyy = ny_ > 0 ? ny_ : 1;
 
     if (save->in == 0) {
         i = 0;
@@ -178,7 +185,7 @@ int f_ijundefine(ARG3) {
 
 /*
  * HEADER:100:undefine_val:misc:1:grid point set to undefined if X=val or X=low:high
- */ 
+ */
 
 int f_undefine_val(ARG1) {
 
@@ -188,7 +195,7 @@ int f_undefine_val(ARG1) {
         double val_low, val_high;
     };
     struct local_struct *save;
-    
+
     double val;
     unsigned int i;
     int j;
@@ -197,7 +204,7 @@ int f_undefine_val(ARG1) {
         decode = 1;
         *local = save = (struct local_struct *) malloc(sizeof(struct local_struct));
         if (save == NULL) fatal_error("memory allocation f_undefine_val","");
-   
+
         j = sscanf(arg1,"%lf:%lf", &(save->val_low), &(save->val_high));
         if (j != 2) {
             val = atof(arg1);
@@ -210,6 +217,9 @@ int f_undefine_val(ARG1) {
                 save->val_high = val * (1.0-DELTA);
             }
         }
+    }
+    else if (mode == -2) {
+	free(*local);
     }
     if (mode < 0) return 0;
 

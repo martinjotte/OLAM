@@ -1,57 +1,31 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
-
 Module var_tables
+
   use consts_coms, only: r8
   implicit none
 
   private :: r8
 
   type var_tables_r
-     integer,  pointer :: ivar0_p        => null()
-     integer,  pointer :: ivar1_p(:)     => null()
-     integer,  pointer :: ivar2_p(:,:)   => null()
-     integer,  pointer :: ivar3_p(:,:,:) => null()
 
-     real,     pointer :: rvar0_p        => null()
-     real,     pointer :: rvar1_p(:)     => null()
-     real,     pointer :: rvar2_p(:,:)   => null()
-     real,     pointer :: rvar3_p(:,:,:) => null()
+     logical,  pointer             :: lvar0_p        => null()
+     logical,  pointer, contiguous :: lvar1_p(:)     => null()
+     logical,  pointer, contiguous :: lvar2_p(:,:)   => null()
+     logical,  pointer, contiguous :: lvar3_p(:,:,:) => null()
 
-     real(r8), pointer :: dvar0_p        => null()
-     real(r8), pointer :: dvar1_p(:)     => null()
-     real(r8), pointer :: dvar2_p(:,:)   => null()
-     real(r8), pointer :: dvar3_p(:,:,:) => null()
+     integer,  pointer             :: ivar0_p        => null()
+     integer,  pointer, contiguous :: ivar1_p(:)     => null()
+     integer,  pointer, contiguous :: ivar2_p(:,:)   => null()
+     integer,  pointer, contiguous :: ivar3_p(:,:,:) => null()
+
+     real,     pointer             :: rvar0_p        => null()
+     real,     pointer, contiguous :: rvar1_p(:)     => null()
+     real,     pointer, contiguous :: rvar2_p(:,:)   => null()
+     real,     pointer, contiguous :: rvar3_p(:,:,:) => null()
+
+     real(r8), pointer             :: dvar0_p        => null()
+     real(r8), pointer, contiguous :: dvar1_p(:)     => null()
+     real(r8), pointer, contiguous :: dvar2_p(:,:)   => null()
+     real(r8), pointer, contiguous :: dvar3_p(:,:,:) => null()
 
      character(32) :: name
      character( 2) :: stagpt
@@ -69,7 +43,12 @@ Module var_tables
   integer :: nvar_par = 0
   integer :: num_lite = 0
 
-!-------------------------------------------------------------------
+  character(2) :: vtypes(16) = &
+       [ 'AV', 'AW', 'AM', 'AN', &  ! Atmos V, W, M, NUDGE array
+         'CV', 'CW', 'CM',       &  ! "Common" SFC grid V, W, M array
+         'LV', 'LW', 'LM',       &  ! Land  V, W, M array
+         'RV', 'RW', 'RM',       &  ! Lake  V, W, M array
+         'SV', 'SW', 'SM'        ]  ! Sea   V, W, M array
 
   type scalar_table
 
@@ -78,52 +57,33 @@ Module var_tables
      real, pointer, contiguous :: sxfer(:,:) => null()
      real, pointer, contiguous :: emis (:,:) => null()
 
-     character (len=32) :: name = ""
-     logical            :: pdef = .true.
+     character (len=32) :: name  = ""
+     logical            :: pdef  = .true.
+     logical            :: do_sgsmix = .true.
+     logical            :: do_cumix  = .false.
+     logical            :: do_sxfer  = .false.
+     logical            :: do_emis   = .false.
 
   end type scalar_table
 
   type(scalar_table), allocatable :: scalar_tab(:)
   integer,            allocatable :: sxfer_map (:)
   integer,            allocatable :: emis_map  (:)
+  integer,            allocatable :: pblmix_map(:)
   integer,            allocatable :: cumix_map (:)
 
   integer :: num_scalar = 0
   integer :: num_sxfer  = 0
   integer :: num_emis   = 0
+  integer :: num_pblmix = 0
   integer :: num_cumix  = 0
-
-!-------------------------------------------------------------------
-
-  type ED_table
-
-     integer,      pointer :: ivar1_p(:)   => null()
-     integer,      pointer :: ivar2_p(:,:) => null()
-     real,         pointer :: rvar1_p(:)   => null()
-     real,         pointer :: rvar2_p(:,:) => null()
-     real(kind=8), pointer :: dvar1_p(:)   => null()
-     real(kind=8), pointer :: dvar2_p(:,:) => null()
-
-     integer :: ndims
-     integer :: idims(3) 
-
-     logical :: mavg = .false. ! write-out on the monthly average?
-     logical :: yavg = .false. ! write-out on the yearly average?
-     logical :: hist = .false.
-
-     character (len=32) :: name
-
-  end type ED_table
-
-  type(ED_table), allocatable :: vtab_ED(:)
-
-  integer :: num_ED = 0
 
 Contains
 
 !===============================================================================
 
   subroutine increment_vtable(name, stagpt, hist, noread, mpt1, lite, &
+                              lvar0, lvar1, lvar2, lvar3,             &
                               ivar0, ivar1, ivar2, ivar3,             &
                               rvar0, rvar1, rvar2, rvar3,             &
                               dvar0, dvar1, dvar2, dvar3              )
@@ -133,28 +93,27 @@ Contains
     character(*),      intent(in) :: name, stagpt
     logical, optional, intent(in) :: hist, noread, mpt1, lite
 
-    integer,  target, optional, intent(in) :: ivar0
-    integer,  target, optional, intent(in) :: ivar1(:)
-    integer,  target, optional, intent(in) :: ivar2(:,:)
-    integer,  target, optional, intent(in) :: ivar3(:,:,:)
+    logical,  target, optional,             intent(in) :: lvar0
+    logical,  target, optional, contiguous, intent(in) :: lvar1(:)
+    logical,  target, optional, contiguous, intent(in) :: lvar2(:,:)
+    logical,  target, optional, contiguous, intent(in) :: lvar3(:,:,:)
 
-    real,     target, optional, intent(in) :: rvar0
-    real,     target, optional, intent(in) :: rvar1(:)
-    real,     target, optional, intent(in) :: rvar2(:,:)
-    real,     target, optional, intent(in) :: rvar3(:,:,:)
+    integer,  target, optional,             intent(in) :: ivar0
+    integer,  target, optional, contiguous, intent(in) :: ivar1(:)
+    integer,  target, optional, contiguous, intent(in) :: ivar2(:,:)
+    integer,  target, optional, contiguous, intent(in) :: ivar3(:,:,:)
 
-    real(r8), target, optional, intent(in) :: dvar0
-    real(r8), target, optional, intent(in) :: dvar1(:)
-    real(r8), target, optional, intent(in) :: dvar2(:,:)
-    real(r8), target, optional, intent(in) :: dvar3(:,:,:)
+    real,     target, optional,             intent(in) :: rvar0
+    real,     target, optional, contiguous, intent(in) :: rvar1(:)
+    real,     target, optional, contiguous, intent(in) :: rvar2(:,:)
+    real,     target, optional, contiguous, intent(in) :: rvar3(:,:,:)
 
-    character(2), parameter :: ptypes(11) = (/  &
-         'AV', 'AW', 'AM', 'AN',  &  ! Atmos V, W, M, NUDGE array
-         'LU', 'LW', 'LM',        &  ! Land  U, W, M array
-         'SU', 'SW', 'SM',        &  ! Sea   U, W, M array
-         'CN'                     /) ! Contstant (scalar)
+    real(r8), target, optional,             intent(in) :: dvar0
+    real(r8), target, optional, contiguous, intent(in) :: dvar1(:)
+    real(r8), target, optional, contiguous, intent(in) :: dvar2(:,:)
+    real(r8), target, optional, contiguous, intent(in) :: dvar3(:,:,:)
 
-    integer :: ntsize, iv
+    integer            :: ntsize, iv
     integer, parameter :: ialloc = 20 ! Increment to increase tables
 
     type(var_tables_r),  allocatable :: vtab_copy(:)
@@ -169,9 +128,16 @@ Contains
 
     ! ERROR CHECKING: MAKE SURE VARIABLE HAS A STAGGER POINT
 
-    if (len_trim(stagpt) == 0) then
+    if (len_trim(stagpt) /= 2) then
        write(io6,*) "Error in subroutine increment_vtable:"
-       stop         "vtables called with no stagger point."
+       stop         "vtables called with invalid stagger point."
+    endif
+
+    ! ERROR CHECKING: MAKE SURE VARIABLE STAGGER POINT IS VALID
+
+    if ( all( vtypes /= stagpt ) ) then
+       write(io6,*) "Error in subroutine increment_vtable:"
+       stop         "Vtables called with invalid stagger point."
     endif
 
     ! ERROR CHECKING: MAKE SURE NAMES ARE UNIQUE
@@ -194,13 +160,13 @@ Contains
     ntsize = size(vtab_r)
 
     ! INCREASE VTAB SIZE IF NECESSARY
-    
+
     if (num_var > ntsize) then
        allocate (vtab_copy (ntsize+ialloc) )
        vtab_copy(1:ntsize) = vtab_r
-       call move_alloc(vtab_copy, vtab_r) 
+       call move_alloc(vtab_copy, vtab_r)
     endif
-    
+
     vtab_r(num_var)%name   = name
     vtab_r(num_var)%stagpt = stagpt
 
@@ -208,7 +174,16 @@ Contains
     if (present(noread)) vtab_r(num_var)%nread = noread
     if (present(lite))   vtab_r(num_var)%ilite = lite
 
-     if     (present(ivar0)) then
+     if     (present(lvar0)) then
+        vtab_r(num_var)%lvar0_p => lvar0
+     elseif (present(lvar1)) then
+        vtab_r(num_var)%lvar1_p => lvar1
+     elseif (present(lvar2)) then
+        vtab_r(num_var)%lvar2_p => lvar2
+     elseif (present(lvar3)) then
+        vtab_r(num_var)%lvar3_p => lvar3
+
+     elseif (present(ivar0)) then
         vtab_r(num_var)%ivar0_p => ivar0
      elseif (present(ivar1)) then
         vtab_r(num_var)%ivar1_p => ivar1
@@ -238,7 +213,7 @@ Contains
 
 !   Parallel communication table for scalars
 !   (Currently only implemented for 2-D real variables)
-    
+
     if (present(mpt1)) then
 
        nvar_par = nvar_par + 1
@@ -249,7 +224,7 @@ Contains
        if (nvar_par > ntsize) then
           allocate( nptonv_copy( ntsize+ialloc ))
           nptonv_copy( 1:ntsize ) = nptonv
-          call move_alloc( nptonv_copy, nptonv) 
+          call move_alloc( nptonv_copy, nptonv)
        endif
 
        nptonv(nvar_par) = num_var
@@ -259,79 +234,8 @@ Contains
 
 !===============================================================================
 
-  subroutine increment_EDtab(name, mavg, yavg, hist, &
-                             ivar1, ivar2,           &
-                             rvar1, rvar2,           &
-                             dvar1, dvar2            )
+  subroutine vtables_scalar(varp,vart,name,sxfer,emis,cu_mix,pos_def,pbl_mix)
 
-    use misc_coms, only: io6
-    implicit none
-
-    character(*), intent(in) :: name
-    logical, intent(in), optional :: mavg, yavg, hist
-
-    type(ED_table), allocatable :: ED_copy(:)
-    integer, parameter :: ialloc = 20 ! Increment to increase tables
-    integer :: ntsize
-
-    integer,  target, optional, intent(in) :: ivar1(:)
-    integer,  target, optional, intent(in) :: ivar2(:,:)
-
-    real,     target, optional, intent(in) :: rvar1(:)
-    real,     target, optional, intent(in) :: rvar2(:,:)
-
-    real(r8), target, optional, intent(in) :: dvar1(:)
-    real(r8), target, optional, intent(in) :: dvar2(:,:)
-
-    ! ERROR CHECKING: MAKE SURE VARIABLE HAS A NAME
-
-    if (len_trim(name) == 0) then
-       write(io6,*) "Error in subroutine vtables_ED:"
-       stop         "Vtables_ED called with no variable name."
-    endif
-
-    ! INITIAL ALLOCATION OF TABLES IF THIS IS THE FIRST CALL
-
-    if (.not. allocated(vtab_ED))  allocate(vtab_ED(ialloc))
-
-    num_ED = num_ED + 1
-    ntsize = size(vtab_ED)
-
-    ! INCREASE VTAB SIZE IF NECESSARY
-
-    if (num_ED > ntsize) then
-       allocate(ED_copy(ntsize+ialloc))
-       ED_copy(1:ntsize) = vtab_ED
-       call move_alloc(ED_copy, vtab_ED) 
-    endif
-
-    vtab_ED(num_ED)%name = name
-
-    if (present(hist)) vtab_ED(num_ED)%hist = hist
-    if (present(mavg)) vtab_ED(num_ED)%mavg = mavg
-    if (present(yavg)) vtab_ED(num_ED)%yavg = yavg
-
-    if     (present(ivar1)) then
-       vtab_r(num_var)%ivar1_p => ivar1
-    elseif (present(ivar2)) then
-       vtab_r(num_var)%ivar2_p => ivar2
-
-    elseif (present(rvar1)) then
-       vtab_r(num_var)%rvar1_p => rvar1
-    elseif (present(rvar2)) then
-       vtab_r(num_var)%rvar2_p => rvar2
-
-    elseif (present(dvar1)) then
-       vtab_r(num_var)%dvar1_p => dvar1
-    elseif (present(dvar2)) then
-       vtab_r(num_var)%dvar2_p => dvar2
-    endif
-
-  end subroutine increment_EDtab
-
-!===============================================================================
-
-  subroutine vtables_scalar(varp,vart,name,sxfer,emis,cu_mix,pos_def)
     use misc_coms, only: io6
     implicit none
 
@@ -343,21 +247,33 @@ Contains
     real, target, contiguous, optional, intent(in) :: emis (:,:)
     logical,      optional, intent(in) :: cu_mix
     logical,      optional, intent(in) :: pos_def
+    logical,      optional, intent(in) :: pbl_mix
 
     integer                         :: ntsize
     integer,            parameter   :: ialloc = 20
     logical                         :: cumix
+    logical                         :: pblmix
 
     type(scalar_table), allocatable :: scalar_copy(:)
     integer,            allocatable ::  sxfer_copy(:)
     integer,            allocatable ::   emis_copy(:)
     integer,            allocatable ::  cumix_copy(:)
+    integer,            allocatable :: pblmix_copy(:)
 
     if (present(cu_mix)) then
        cumix = cu_mix
     else
        cumix = .false.
     endif
+
+    if (present(pbl_mix)) then
+       pblmix = pbl_mix
+    else
+       pblmix = .true.
+    endif
+
+    if (present(sxfer)) pblmix = .true.
+    if (present(emis))  pblmix = .true.
 
     ! Initial allocation of tables if this is the first call
 
@@ -375,6 +291,10 @@ Contains
        if (.not. allocated(cumix_map)) allocate(cumix_map(ialloc))
     endif
 
+    if (pblmix) then
+       if (.not. allocated(pblmix_map)) allocate(pblmix_map(ialloc))
+    endif
+
     num_scalar = num_scalar + 1
     ntsize = size(scalar_tab)
 
@@ -382,7 +302,7 @@ Contains
     if (num_scalar > ntsize) then
        allocate(scalar_copy(ntsize+ialloc))
        scalar_copy(1:ntsize) = scalar_tab
-       call move_alloc(scalar_copy, scalar_tab) 
+       call move_alloc(scalar_copy, scalar_tab)
     endif
 
     scalar_tab(num_scalar)%name  =  name
@@ -396,8 +316,12 @@ Contains
     endif
 
     ! If this species has surface transfer, include it in the table
-    
+
+    scalar_tab(num_scalar)%do_sxfer = .false.
+
     if (present(sxfer)) then
+
+       scalar_tab(num_scalar)%do_sxfer = .true.
 
        num_sxfer = num_sxfer + 1
        ntsize = size(sxfer_map)
@@ -411,12 +335,16 @@ Contains
 
        scalar_tab(num_scalar)%sxfer => sxfer
        sxfer_map(num_sxfer) = num_scalar
-       
+
     endif
 
     ! If this species has emissions, include it in the table
-    
+
+    scalar_tab(num_scalar)%do_emis = .false.
+
     if (present(emis)) then
+
+       scalar_tab(num_scalar)%do_emis = .true.
 
        num_emis = num_emis + 1
        ntsize = size(emis_map)
@@ -430,12 +358,14 @@ Contains
 
        scalar_tab(num_scalar)%emis => emis
        emis_map(num_emis) = num_scalar
-       
+
        write(io6,*) "Emissions:", scalar_tab(num_scalar)%name, num_emis, num_scalar
 
     endif
 
     ! If this species will be mixed by subgrid cumulus, include it in table
+
+    scalar_tab(num_scalar)%do_cumix = cumix
 
     if (cumix) then
 
@@ -453,6 +383,26 @@ Contains
 
     endif
 
+    ! If this species will be mixed by subgrid turbulence, include it in table
+
+    scalar_tab(num_scalar)%do_sgsmix = pblmix
+
+    if (pblmix) then
+
+       num_pblmix = num_pblmix + 1
+       ntsize = size(pblmix_map)
+
+       ! Increase pblmix table size if necessary
+       if (num_pblmix > ntsize) then
+          allocate(pblmix_copy(ntsize+ialloc))
+          pblmix_copy(1:ntsize) = pblmix_map
+          call move_alloc(pblmix_copy, pblmix_map)
+       endif
+
+       pblmix_map(num_pblmix) = num_scalar
+
+    endif
+
   end subroutine vtables_scalar
 
 !===============================================================================
@@ -467,7 +417,27 @@ Contains
     ndims = 0
     idims = 0
 
-    if     (associated(vtab_r(nv)%ivar0_p)) then
+    if     (associated(vtab_r(nv)%lvar0_p)) then
+
+       ndims      = 1
+       idims(1)   = 1
+
+    elseif (associated(vtab_r(nv)%lvar1_p)) then
+
+       ndims      = 1
+       idims(1:1) = shape(vtab_r(nv)%lvar1_p)
+
+    elseif (associated(vtab_r(nv)%lvar2_p)) then
+
+       ndims      = 2
+       idims(1:2) = shape(vtab_r(nv)%lvar2_p)
+
+    elseif (associated(vtab_r(nv)%lvar3_p)) then
+
+       ndims      = 3
+       idims(1:3) = shape(vtab_r(nv)%lvar3_p)
+
+    elseif (associated(vtab_r(nv)%ivar0_p)) then
 
        ndims      = 1
        idims(1)   = 1

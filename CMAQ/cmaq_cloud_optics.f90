@@ -49,7 +49,7 @@ contains
        stop       "RRTMg shortwave datafile cannot be found"
     endif
 
-    call shdf5_open(inputfile, 'R')
+    call shdf5_open(inputfile, 'R', trypario=.true.)
 
     do i = 1, ncats
 
@@ -63,7 +63,7 @@ contains
     call shdf5_close()
 
   contains
-    
+
     subroutine read_cmaq_file(num, start, end, delr, extsw, ssasw, asysw, name)
       use csqy_data,  only: nwl
       use hdf5_utils, only: shdf5_irec

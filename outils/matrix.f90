@@ -29,7 +29,6 @@ subroutine matrix8_NxN(nsiz,AA,Y,X,sing)
   real(r8)                                    :: multip ! Multiplier
   integer                                     :: r      ! Row index
   integer                                     :: b      ! Row below index
-  integer                                     :: c      ! Column index
   integer                                     :: p      ! Pivot index
   real(r8)                                    :: dumsca ! Dummy scalar, for row swapping
 
@@ -94,7 +93,7 @@ subroutine matrix8_NxN(nsiz,AA,Y,X,sing)
 
   !---------------------------------------------------------------------------------------!
   ! 2. We may be unlucky and discover that the matrix is singular at the last line, so we !
-  !    check the last pivot too.                                                          ! 
+  !    check the last pivot too.                                                          !
   !---------------------------------------------------------------------------------------!
   if (abs(EE(nsiz,nsiz)) < tinyoff) then
      sing = .true.
@@ -134,9 +133,6 @@ subroutine matrix8_2x2(AA,Y,X,sing)
   real(r8), dimension(nsiz)                   :: dumvec ! Dummy vector, for row swapping
   real(r8), dimension(nsiz)                   :: diagm1 ! The inverse of the pivot values
   real(r8)                                    :: multip ! Multiplier
-  integer                                     :: r      ! Row index
-  integer                                     :: b      ! Row below index
-  integer                                     :: c      ! Column index
   integer                                     :: p      ! Pivot index
   real(r8)                                    :: dumsca ! Dummy scalar, for row swapping
 
@@ -197,7 +193,7 @@ subroutine matrix8_2x2(AA,Y,X,sing)
 
   !---------------------------------------------------------------------------------------!
   ! 2. We may be unlucky and discover that the matrix is singular at the last line, so we !
-  !    check the last pivot too.                                                          ! 
+  !    check the last pivot too.                                                          !
   !---------------------------------------------------------------------------------------!
   if (abs(EE(nsiz,nsiz)) < tinyoff) then
      sing = .true.
@@ -235,7 +231,6 @@ subroutine matrix8_3x3(AA,Y,X,sing)
   real(r8)                                    :: multip ! Multiplier
   integer                                     :: r      ! Row index
   integer                                     :: b      ! Row below index
-  integer                                     :: c      ! Column index
   integer                                     :: p      ! Pivot index
   real(r8)                                    :: dumsca ! Dummy scalar, for row swapping
 
@@ -300,7 +295,7 @@ subroutine matrix8_3x3(AA,Y,X,sing)
 
   !---------------------------------------------------------------------------------------!
   ! 2. We may be unlucky and discover that the matrix is singular at the last line, so we !
-  !    check the last pivot too.                                                          ! 
+  !    check the last pivot too.                                                          !
   !---------------------------------------------------------------------------------------!
   if (abs(EE(nsiz,nsiz)) < tinyoff) then
      sing = .true.
@@ -342,7 +337,6 @@ subroutine matrix8_4x4(AA,Y,X,sing)
   real(r8)                                    :: multip ! Multiplier
   integer                                     :: r      ! Row index
   integer                                     :: b      ! Row below index
-  integer                                     :: c      ! Column index
   integer                                     :: p      ! Pivot index
   real(r8)                                    :: dumsca ! Dummy scalar, for row swapping
 
@@ -407,7 +401,7 @@ subroutine matrix8_4x4(AA,Y,X,sing)
 
   !---------------------------------------------------------------------------------------!
   ! 2. We may be unlucky and discover that the matrix is singular at the last line, so we !
-  !    check the last pivot too.                                                          ! 
+  !    check the last pivot too.                                                          !
   !---------------------------------------------------------------------------------------!
   if (abs(EE(nsiz,nsiz)) < tinyoff) then
      sing = .true.
@@ -446,7 +440,6 @@ subroutine matrix_NxN(nsiz,AA,Y,X,sing)
   real                                        :: multip ! Multiplier
   integer                                     :: r      ! Row index
   integer                                     :: b      ! Row below index
-  integer                                     :: c      ! Column index
   integer                                     :: p      ! Pivot index
   real                                        :: dumsca ! Dummy scalar, for row swapping
 
@@ -511,7 +504,7 @@ subroutine matrix_NxN(nsiz,AA,Y,X,sing)
 
   !---------------------------------------------------------------------------------------!
   ! 2. We may be unlucky and discover that the matrix is singular at the last line, so we !
-  !    check the last pivot too.                                                          ! 
+  !    check the last pivot too.                                                          !
   !---------------------------------------------------------------------------------------!
   if (abs(EE(nsiz,nsiz)) < tinyoff) then
      sing = .true.
@@ -549,9 +542,6 @@ subroutine matrix_2x2(AA,Y,X,sing)
   real,     dimension(nsiz)                   :: dumvec ! Dummy vector, for row swapping
   real,     dimension(nsiz)                   :: diagm1 ! The inverse of the pivot values
   real                                        :: multip ! Multiplier
-  integer                                     :: r      ! Row index
-  integer                                     :: b      ! Row below index
-  integer                                     :: c      ! Column index
   integer                                     :: p      ! Pivot index
   real                                        :: dumsca ! Dummy scalar, for row swapping
 
@@ -612,7 +602,7 @@ subroutine matrix_2x2(AA,Y,X,sing)
 
   !---------------------------------------------------------------------------------------!
   ! 2. We may be unlucky and discover that the matrix is singular at the last line, so we !
-  !    check the last pivot too.                                                          ! 
+  !    check the last pivot too.                                                          !
   !---------------------------------------------------------------------------------------!
   if (abs(EE(nsiz,nsiz)) < tinyoff) then
      sing = .true.
@@ -648,7 +638,6 @@ subroutine matrix_3x3(AA,Y,X,sing)
   real                                        :: multip ! Multiplier
   integer                                     :: r      ! Row index
   integer                                     :: b      ! Row below index
-  integer                                     :: c      ! Column index
   integer                                     :: p      ! Pivot index
   real                                        :: dumsca ! Dummy scalar, for row swapping
 
@@ -713,7 +702,7 @@ subroutine matrix_3x3(AA,Y,X,sing)
 
   !---------------------------------------------------------------------------------------!
   ! 2. We may be unlucky and discover that the matrix is singular at the last line, so we !
-  !    check the last pivot too.                                                          ! 
+  !    check the last pivot too.                                                          !
   !---------------------------------------------------------------------------------------!
   if (abs(EE(nsiz,nsiz)) < tinyoff) then
      sing = .true.
@@ -753,7 +742,6 @@ subroutine matrix_4x4(AA,Y,X,sing)
   real                                        :: multip ! Multiplier
   integer                                     :: r      ! Row index
   integer                                     :: b      ! Row below index
-  integer                                     :: c      ! Column index
   integer                                     :: p      ! Pivot index
   real                                        :: dumsca ! Dummy scalar, for row swapping
 
@@ -818,7 +806,7 @@ subroutine matrix_4x4(AA,Y,X,sing)
 
   !---------------------------------------------------------------------------------------!
   ! 2. We may be unlucky and discover that the matrix is singular at the last line, so we !
-  !    check the last pivot too.                                                          ! 
+  !    check the last pivot too.                                                          !
   !---------------------------------------------------------------------------------------!
   if (abs(EE(nsiz,nsiz)) < tinyoff) then
      sing = .true.

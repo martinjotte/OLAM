@@ -1,53 +1,25 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 subroutine history_write(vtype)
 
   use var_tables, only: num_var, vtab_r, get_vtab_dims
-  use misc_coms,  only: io6, ioutput, hfilepref, current_time, iclobber, &
-                        iparallel
+  use misc_coms,  only: io6, ioutput, hfilepref, current_time, initial_time, iclobber
   use hdf5_utils, only: shdf5_orec, shdf5_open, shdf5_close
   use max_dims,   only: pathlen
   use mem_grid,   only: nma, nva, nwa
-  use leaf_coms,  only: nwl
-  use sea_coms,   only: nws
+  use mem_sfcg,   only: nwsfc, nvsfc, nmsfc
+  use mem_land,   only: nland
+  use mem_lake,   only: nlake
+  use mem_sea,    only: nsea
   use mem_nudge,  only: nwnud
-  use mem_para,   only: iva_globe_primary, iva_local_primary, mva_primary, &
-                        iwa_globe_primary, iwa_local_primary, mwa_primary, &
-                        ima_globe_primary, ima_local_primary, mma_primary, &
-                        iwl_globe_primary, iwl_local_primary, mwl_primary, &
-                        iws_globe_primary, iws_local_primary, mws_primary, &
-                        iwnud_globe_primary, iwnud_local_primary, mwnud_primary, &
-                        myrank
+  use mem_para,   only: iva_globe_primary, iva_local_primary, &
+                        iwa_globe_primary, iwa_local_primary, &
+                        ima_globe_primary, ima_local_primary, &
+                        iwsfc_globe_primary, iwsfc_local_primary, &
+                        ivsfc_globe_primary, ivsfc_local_primary, &
+                        imsfc_globe_primary, imsfc_local_primary, &
+                        iland_globe_primary, iland_local_primary, &
+                        ilake_globe_primary, ilake_local_primary, &
+                        isea_globe_primary,  isea_local_primary, &
+                        iwnud_globe_primary, iwnud_local_primary
   implicit none
 
 ! This routine writes the chosen variables on the history file.
@@ -60,14 +32,18 @@ subroutine history_write(vtype)
   logical            :: exans
   integer            :: nv, nvcnt
   integer            :: ndims, idims(3)
-  integer, pointer   :: ilpts(:), igpts(:)
   integer            :: nglobe
 
-  if (ioutput == 0) return
+  integer, pointer, contiguous :: ilpts(:), igpts(:)
 
 ! Construct h5 file name and open the file
 
-  call makefnam(hnamel, hfilepref, current_time, 'H', '$', 'h5')
+  if (trim(vtype) == 'HTC1') then
+     call makefnam(hnamel, hfilepref, initial_time, 'HTC1', '$', 'h5')
+  else
+     if (ioutput == 0) return
+     call makefnam(hnamel, hfilepref, current_time, 'H', '$', 'h5')
+  endif
 
   inquire(file=hnamel,exist=exans)
   if (exans .and. iclobber == 0) then
@@ -83,7 +59,7 @@ subroutine history_write(vtype)
   write(io6,*) 'history_write: opening file: ',trim(hnamel)
   write(io6,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++'
 
-  call shdf5_open(hnamel,'W',iclobber)
+  call shdf5_open(hnamel,'W',iclobber,trypario=.true.)
 
 ! Write the common fields
 
@@ -119,14 +95,30 @@ subroutine history_write(vtype)
            ilpts => ima_local_primary
            igpts => ima_globe_primary
            nglobe = nma
-        elseif (stagpt == 'LW') then
-           ilpts => iwl_local_primary
-           igpts => iwl_globe_primary
-           nglobe = nwl
-        elseif (stagpt == 'SW') then
-           ilpts => iws_local_primary
-           igpts => iws_globe_primary
-           nglobe = nws
+        elseif (stagpt == 'CW') then ! Common surface cells
+           ilpts => iwsfc_local_primary
+           igpts => iwsfc_globe_primary
+           nglobe = nwsfc
+        elseif (stagpt == 'CV') then ! Common surface cells (V pts)
+           ilpts => ivsfc_local_primary
+           igpts => ivsfc_globe_primary
+           nglobe = nvsfc
+        elseif (stagpt == 'CM') then ! Common surface cells (M pts)
+           ilpts => imsfc_local_primary
+           igpts => imsfc_globe_primary
+           nglobe = nmsfc
+        elseif (stagpt == 'LW') then ! Lake cells
+           ilpts => iland_local_primary
+           igpts => iland_globe_primary
+           nglobe = nland
+        elseif (stagpt == 'RW') then ! Lake cells
+           ilpts => ilake_local_primary
+           igpts => ilake_globe_primary
+           nglobe = nlake
+        elseif (stagpt == 'SW') then ! Sea cells
+           ilpts => isea_local_primary
+           igpts => isea_globe_primary
+           nglobe = nsea
         elseif (stagpt == 'AN') then
            ilpts => iwnud_local_primary
            igpts => iwnud_globe_primary
@@ -138,48 +130,44 @@ subroutine history_write(vtype)
            stop "invalid array size in history_write for parallel output"
         endif
 
+        if (idims(1) == 1 .and. ndims > 1) then
+           idims(1:ndims-1) = idims(2:ndims)
+           ndims = ndims - 1
+        endif
+
         ! Now do the writes
 
-        if     (associated(vtab_r(nv)%ivar0_p)) then
-           call shdf5_orec(ndims, idims, varn, ivars=vtab_r(nv)%ivar0_p, &
-                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
-        elseif (associated(vtab_r(nv)%ivar1_p)) then
+        if     (associated(vtab_r(nv)%ivar1_p)) then
            call shdf5_orec(ndims, idims, varn, ivar1=vtab_r(nv)%ivar1_p, &
-                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
+                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe, stagpt=stagpt)
         elseif (associated(vtab_r(nv)%ivar2_p)) then
            call shdf5_orec(ndims, idims, varn, ivar2=vtab_r(nv)%ivar2_p, &
-                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
+                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe, stagpt=stagpt)
         elseif (associated(vtab_r(nv)%ivar3_p)) then
            call shdf5_orec(ndims, idims, varn, ivar3=vtab_r(nv)%ivar3_p, &
-                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
-              
-        elseif (associated(vtab_r(nv)%rvar0_p)) then
-           call shdf5_orec(ndims, idims, varn, rvars=vtab_r(nv)%rvar0_p, &
-                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
+                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe, stagpt=stagpt)
+
         elseif (associated(vtab_r(nv)%rvar1_p)) then
            call shdf5_orec(ndims, idims, varn, rvar1=vtab_r(nv)%rvar1_p, &
-                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
+                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe, stagpt=stagpt)
         elseif (associated(vtab_r(nv)%rvar2_p)) then
            call shdf5_orec(ndims, idims, varn, rvar2=vtab_r(nv)%rvar2_p, &
-                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
+                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe, stagpt=stagpt)
         elseif (associated(vtab_r(nv)%rvar3_p)) then
            call shdf5_orec(ndims, idims, varn, rvar3=vtab_r(nv)%rvar3_p, &
-                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
+                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe, stagpt=stagpt)
 
-        elseif (associated(vtab_r(nv)%dvar0_p)) then
-           call shdf5_orec(ndims, idims, varn, dvars=vtab_r(nv)%dvar0_p, &
-                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
         elseif (associated(vtab_r(nv)%dvar1_p)) then
            call shdf5_orec(ndims, idims, varn, dvar1=vtab_r(nv)%dvar1_p, &
-                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
+                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe, stagpt=stagpt)
         elseif (associated(vtab_r(nv)%dvar2_p)) then
            call shdf5_orec(ndims, idims, varn, dvar2=vtab_r(nv)%dvar2_p, &
-                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
+                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe, stagpt=stagpt)
         elseif (associated(vtab_r(nv)%dvar3_p)) then
            call shdf5_orec(ndims, idims, varn, dvar3=vtab_r(nv)%dvar3_p, &
-                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
+                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe, stagpt=stagpt)
         endif
-           
+
         nvcnt = nvcnt + 1
 
      endif

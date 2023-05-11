@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <limits.h>
 #include <math.h>
+#include <ctype.h>
 #include <string.h>
 #include "grb2.h"
 #include "wgrib2.h"
@@ -18,26 +19,126 @@
 
 extern int header, decode;
 extern const char *level_table[192];
+extern const char *ncep_level_table[64];
 extern int use_scale, dec_scale, bin_scale;
+
+/*
+ * this takes a string and returns a fixed surface
+ */
+
+int parse_level1(unsigned char **sec, const char *string, int *table_4_5, int *scale_factor, int *scale_value) {
+
+    int i, n_percent, slen, n, ival, len_string, center;
+    const char *t;
+    char tmp_string[100];
+    float val;
+    double dval;
+
+    len_string = strlen(string);
+    for (i = 1; i < 192; i++) {		// can skip i==0 because it is not allowed resevered
+        if (strcmp("reserved", level_table[i]) == 0) continue;
+        // count the number of % characters in the level table
+        n_percent = 0;
+        t = level_table[i];
+	/* %% -> quoted %, otherwise a read */
+
+        while (*t) {
+	    if (*t++ == '%') {
+		if (*t == 0) break;
+	        if (*t++ != '%') n_percent++;
+	    }
+	}
+        if (n_percent == 0) {
+            if (strcmp(string, level_table[i]) == 0) {
+                *table_4_5 = i;
+		*scale_factor = *scale_value = 255;
+                return 0;
+            }
+        }
+	else if (n_percent == 1) {
+	    slen=strlen(level_table[i]);
+	    if (slen > sizeof(tmp_string) - 3) fatal_error("parse_level1: string overflow","");
+	    strncpy(tmp_string,level_table[i],slen);
+	    strncpy(tmp_string+slen,"%n",3);
+
+            if (n = -1, sscanf(string,tmp_string,&val,&n), n == len_string) {
+                 dval = (double) val;
+                 *table_4_5 = i;
+                 if (i == 100 || i == 108) dval = dval * 100; // convert mb to Pa
+
+                 best_scaled_value(dval, &n, &ival);
+                 *scale_factor = INT1(n);
+		 *scale_value = ival;
+                 return 0;
+             }
+        }
+
+    }
+
+    /* check local level tables (see Level.c) */
+    center = GB2_Center(sec);
+    if (center == NCEP) {
+        for (i = 0; i < 64; i++) {
+            if (strcmp("reserved", ncep_level_table[i]) == 0) continue;
+            n_percent = 0;
+            t = ncep_level_table[i];
+	    /* %% -> quoted %, otherwise a read */
+
+            while (*t) {
+	        if (*t++ == '%') {
+		    if (*t == 0) break;
+	            if (*t++ != '%') n_percent++;
+	        }
+	    }
+            if (n_percent == 0) {
+                if (strcmp(string, ncep_level_table[i]) == 0) {
+                    *table_4_5 = i + 192;
+		    *scale_factor = *scale_value = 255;
+                    return 0;
+                }
+            }
+	    else if (n_percent == 1) {
+	        slen=strlen(ncep_level_table[i]);
+	        if (slen > sizeof(tmp_string) - 3) fatal_error("parse_level1: string overflow","");
+	        strncpy(tmp_string,ncep_level_table[i],slen);
+	        strncpy(tmp_string+slen,"%n",3);
+
+                if (n = -1, sscanf(string,tmp_string,&val,&n), n == len_string) {
+                    dval = (double) val;
+                    *table_4_5 = i + 192;
+                    if (i + 192 == 235) dval = dval * 10; // convert C to 1/10C
+
+                    best_scaled_value(dval, &n, &ival);
+                    *scale_factor = INT1(n);
+		    *scale_value = ival;
+                    return 0;
+		}
+            }
+        }
+    }
+
+    return 1;
+}
 
 /*
  * HEADER:100:set_lev:misc:1:changes level code .. not complete
  */
 
 int f_set_lev(ARG1) {
-    unsigned char *p, *p1, *p2;
-    const char *s, *t;
+    unsigned char *p1, *p2;
     float val1, val2;
-    double dval1;
-    int pdt, i, n, n_percent, len_arg1, ival, center;
-    char string[100];
- 
-    if (mode < 0) return 0;
-    pdt = code_table_4_0(sec);
-    len_arg1 = strlen(arg1);
-    p = sec[4];
+    int i, n, len_arg1, ival, dash;
+    char string[STRING_SIZE];
+    char layer_type1[20], layer_type2[20];
 
-if (mode == 99) fprintf(stderr,"set_lev: pdt=%d arg=%s\n", pdt, arg1);
+    int table_4_5, scale_factor, scale_value;
+
+    if (mode < 0) return 0;
+
+    len_arg1 = strlen(arg1);
+    if (len_arg1 > STRING_SIZE+1) fatal_error("set_lev: time string too long","");
+
+if (mode == 99) fprintf(stderr,"set_lev: arg=%s\n", arg1);
 
     /* get fixed surface pointers */
     p1 = code_table_4_5a_location(sec);
@@ -52,52 +153,90 @@ if (mode == 99) fprintf(stderr,"set_lev: pdt=%d arg=%s\n", pdt, arg1);
 	for (i = 0; i < 6; i++) p2[i] = (unsigned char) 255;
     }
 
-    for (i = 1; i < 192; i++) {
-        if (strcmp("reserved", level_table[i]) == 0) continue;
+    // (level)
 
-        // count the number of % characters in the level table
-        n_percent = 0;
-        t = level_table[i];
-        while (*t) { if (*t++ == '%') n_percent++; }
-
-        if (n_percent == 0) {
-            if (strcmp(arg1, level_table[i]) == 0) {
-                p1[0] = i;
-                return 0;
-            }
-        }
-
-        else if (n_percent == 1) {
-            // add %n to the format given by level_table[i]
-            strncpy(string,level_table[i],100-20);
-	    string[100-20] = 0;
-            strncat(string,"%n",19);
-	    string[100-1] = 0;
-            if (n = -1, sscanf(arg1,string,&val1,&n), n == len_arg1) {
-                 dval1 = (double) val1;
-                 p1[0] = i;
-                 if (i == 100 || i == 108) dval1 = dval1 * 100; // convert mb to Pa
-
-                 best_scaled_value(dval1, &n, &ival);
-                 p1[1] = INT1(n);
-                 int_char(ival, p1+2);
-                 return 0;
-             }
-        }
-    }
-
-//  check for NCEP special levels
-    ival = -1;
-    s = arg1;
-    center = GB2_Center(sec);
-#include "NCEP_local_levels_test.h"
-    if (ival >= 0) {
-        p1[0] = ival;
+    if (parse_level1(sec, arg1, &table_4_5, &scale_factor, &scale_value) == 0) {
+	p1[0] = table_4_5;
+        p1[1] = INT1(scale_factor);
+        int_char(scale_value, p1+2);
         return 0;
     }
 
+    // (level) - (level)
+    if (p2 != NULL) {
+        for (dash = 1; dash < len_arg1-4; dash++) {
+            if (arg1[dash] != ' ') continue;
+            if (arg1[dash+1] != '-') continue;
+            if (arg1[dash+2] != ' ') continue;
+            for (i = 0; i < dash; i++) {
+	        string[i] = arg1[i];
+	    }
+	    string[dash] = 0;
+            if (parse_level1(sec, string, &table_4_5, &scale_factor, &scale_value) == 0) {
+	        p1[0] = table_4_5;
+                p1[1] = INT1(scale_factor);
+                int_char(scale_value, p1+2);
+                for (i = dash+3; i <= len_arg1; i++) {
+	            string[i-dash-3] = arg1[i];
+	        }
+                if (parse_level1(sec, string, &table_4_5, &scale_factor, &scale_value) == 0) {
+	            p2[0] = table_4_5;
+                    p2[1] = INT1(scale_factor);
+                    int_char(scale_value, p2+2);
+		    return 0;
+	        }
+	        else {
+                    for (i = 0; i < 6; i++) p1[i] = (unsigned char) 255;
+	        }
+	    }
+        }
+    }
+
 if (mode == 99) fprintf(stderr,"in set_lev arg1=%s\n", arg1);
-         
+
+    // n-n (string) layer
+    if (n=-1, sscanf(arg1,"%g-%g %19s layer%n",&val1,&val2, layer_type1, &n), n == len_arg1) {
+       layer_type1[19] = 0;
+       i = -1;
+       if (strncmp(layer_type1,"sigma",20) == 0)  i = 104;
+       else if (strncmp(layer_type1,"hybrid",20) == 0)  i = 105;
+       else if (strncmp(layer_type1,"Eta",20) == 0)  i = 111;
+       if (i != -1) {
+	    p1[0] = p2[0] = i;
+            best_scaled_value(val1, &n, &ival);
+            p1[1] = INT1(n);
+            int_char(ival, p1+2);
+
+            best_scaled_value(val2, &n, &ival);
+            p2[1] = INT1(n);
+            int_char(ival, p2+2);
+
+            return 0;
+        }
+    }
+
+    // n-n (string) (string) layer
+    if (n=-1, sscanf(arg1,"%g-%g %19s %19s layer%n",&val1,&val2, layer_type1, layer_type2, &n), n == len_arg1) {
+       layer_type1[19] = layer_type2[19] = 0;
+       i = -1;
+       if (strncmp(layer_type1,"sigma",20) == 0 && strncmp(layer_type2,"height",20) == 0)  i = 115;
+       else if (strncmp(layer_type1,"hybrid",20) == 0 && strncmp(layer_type2,"height",20) == 0)  i = 118;
+       else if (strncmp(layer_type1,"hybrid",20) == 0 && strncmp(layer_type2,"pressure",20) == 0)  i = 119;
+       else if (strncmp(layer_type1,"m",20) == 0 && strncmp(layer_type2,"ocean",20) == 0)  i = 161;
+       if (i != -1) {
+	    p1[0] = p2[0] = i;
+            best_scaled_value(val1, &n, &ival);
+            p1[1] = INT1(n);
+            int_char(ival, p1+2);
+
+            best_scaled_value(val2, &n, &ival);
+            p2[1] = INT1(n);
+            int_char(ival, p2+2);
+
+            return 0;
+        }
+    }
+
     if (n=-1, sscanf(arg1,"%g-%g mb above ground%n",&val1,&val2,&n), n == len_arg1) {
 	if (p2 == NULL) fatal_error("set_lev: PDT has only 1 fixed surface, set_lev needs 2","");
 	val1 *= 100.0;
@@ -147,20 +286,6 @@ if (mode == 99) fprintf(stderr,"in set_lev arg1=%s\n", arg1);
 
         return 0;
     }
-    if (n=-1, sscanf(arg1,"%g-%g sigma layer%n",&val1,&val2,&n), n == len_arg1) {
-	if (p2 == NULL) fatal_error("set_lev: PDT has only 1 fixed surface, set_lev needs 2","");
-	p1[0] = p2[0] = 104;
-
-        best_scaled_value(val1, &n, &ival);
-        p1[1] = INT1(n);
-        int_char(ival, p1+2);
-
-        best_scaled_value(val2, &n, &ival);
-        p2[1] = INT1(n);
-        int_char(ival, p2+2);
-
-        return 0;
-    }
     if (n=-1, sscanf(arg1,"%g-%g m below sea level%n",&val1,&val2,&n), n == len_arg1) {
 	if (p2 == NULL) fatal_error("set_lev: PDT has only 1 fixed surface, set_lev needs 2","");
 	p1[0] = p2[0] = 160;
@@ -175,17 +300,6 @@ if (mode == 99) fprintf(stderr,"in set_lev arg1=%s\n", arg1);
 
         return 0;
     }
-    if (center == NCEP) {
-        if (n=-1, sscanf(arg1,"%gC ocean isotherm%n",&val1,&n), n == len_arg1) {
-            p1[0] = 235;
-	    val1 *= 10.0;
-            best_scaled_value(val1, &n, &ival);
-            p1[1] = INT1(n);
-            int_char(ival, p1+2);
-            return 0;
-	}
-    }
-
     if (strcmp("atmos col", arg1) == 0 ||	// wgrib2 compatible
             strcmp("Entire atmosphere (considered as a single layer)", arg1) == 0) {
 	if (p2 == NULL) fatal_error("set_lev: PDT has only 1 fixed surface, set_lev needs 2","");
@@ -208,15 +322,57 @@ extern struct gribtable_s gribtable[], *user_gribtable;
  *                 new match that is not in local tables,
  *                 if nothing, return match in local tables
  *                   not perfect, doesn't know center.
+ * 1.2 4/2017 WNE: understands
+ *                 var discipline=0 center=34 local_table=1 parmcat=1 parm=203
+ *                 var discipline=10 master_table=2 parmcat=0 parm=11
+ *                 var10_2_1_7_0_11
  */
 
 
 
 int f_set_var(ARG1) {
     struct gribtable_s *p;
-    int center;
+    int i;
+    unsigned int discipline, mastertab, localtab, center, parmcat, parmnum;
 
+    /* this function needs to be called with changing parameters */
     if (mode < 0) return 0;
+
+    /* var discipline=0 center=34 local_table=1 parmcat=1 parm=203 */
+    /* var discipline=10 master_table=2 parmcat=0 parm=11 */
+    /* var10_2_1_7_0_11 */
+    if (arg1[0] == 'v' && arg1[1] == 'a' && arg1[2] == 'r') {
+        i = sscanf(arg1,"var%u_%u_%u_%u_%u_%u", &discipline, &mastertab, &localtab, &center, &parmcat, &parmnum);
+	if (i == 6) {
+            sec[0][6] = discipline;
+            sec[1][9] = mastertab;
+	    uint2_char(center,sec[1]+5);
+            sec[1][10] = localtab;
+            sec[4][9] = parmcat;
+            sec[4][10] = parmnum;
+	    return 0;
+	}
+	i = sscanf(arg1,"var discipline=%u master_table=%u parmcat=%u parm=%u",&discipline,&mastertab,&parmcat,&parmnum);
+	if (i == 4) {
+            sec[0][6] = discipline;
+            sec[1][9] = mastertab;
+            sec[4][9] = parmcat;
+            sec[4][10] = parmnum;
+	    return 0;
+	}
+        i = sscanf(arg1,"var discipline=%u center=%u local_table=%u parmcat=%u parm=%u",
+                  &discipline, &center, &localtab, &parmcat, &parmnum);
+	if (i == 5) {
+            sec[0][6] = discipline;
+	    uint2_char(center,sec[1]+5);
+            sec[1][10] = localtab;
+            sec[4][9] = parmcat;
+            sec[4][10] = parmnum;
+	    return 0;
+	}
+fprintf(stderr,">>> i = %d\n",i);
+    }
+
 
         p = NULL;
         /* try user table */
@@ -288,16 +444,21 @@ int f_set_center(ARG1) {
  */
 
 static const char *set_options="discipline, center, subcenter, master_table, local_table, background_process_id, "
-        "analysis_or_forecast_process_id, model_version_date, table_1.2, table_1.3, table_1.4, "
-        "table_3.0, table_3.1/GDT, table_3.2, " 
-	"table_3.3, table_3.4, table_4.0/PDT, table_4.1, table_4.2, table_4.3, table_4.6, table_4.7, table_4.8, table_4.10, "
-        "table_4.11, table_5.0/DRT, table_6.0, %";
+        "analysis_or_forecast_process_id, model_version_date, chemical, table_1.2, table_1.3, table_1.4, "
+        "table_3.0, table_3.1/GDT, table_3.2, "
+	"table_3.3, table_3.4, table_4.0/PDT, table_4.1, table_4.2, table_4.3, table_4.5a, table_4.5b, table_4.6, "
+        "table_4.7, table_4.8, table_4.10, "
+        "table_4.11, table_4.230, table_5.0/DRT, table_6.0, %";
+extern struct codetable_4_230  codetable_4_230_table[];
 
 
 int f_set(ARG2) {
-    int i;
+    int i, j;
+    double val;
     int year,mon,day,hr,minute,second;
     unsigned char *p;
+    char *endptr;
+    unsigned int k;
 
     if (mode == -1) {
 	if (strcmp(arg1,"help") == 0) {
@@ -309,9 +470,52 @@ int f_set(ARG2) {
 
     if (mode >= 0) {
 
+
+	if (strcmp(arg1,"data_*") == 0) {
+	    val = strtod(arg2, &endptr);
+	    if (*endptr == 0) {
+		if (decode == 1 && data != NULL) {
+#pragma omp parallel for private(k)
+		    for (k = 0; k < ndata; k++) {
+			if (DEFINED_VAL(data[k])) {
+			    data[k] *= val;
+			}
+		    }
+		}
+		else {
+		    fatal_error("set data_*: need option that uses grid data","");
+		}
+	    }
+	    else {
+		fatal_error("set data_*: bad value %s", arg2);
+	    }
+	    return 0;
+	}
+
+	if (strcmp(arg1,"data_+") == 0) {
+	    val = strtod(arg2, &endptr);
+	    if (*endptr == 0) {
+		if (decode == 1 && data != NULL) {
+#pragma omp parallel for private(k)
+		    for (k = 0; k < ndata; k++) {
+			if (DEFINED_VAL(data[k])) {
+			    data[k] += val;
+			}
+		    }
+		}
+		else {
+		    fatal_error("set data_+: need option that uses grid data","");
+		}
+	    }
+	    else {
+		fatal_error("set data_+: bad value %s", arg2);
+	    }
+	    return 0;
+	}
+
 	i = atoi(arg2);
 	if (strcmp(arg1,"discipline") == 0 || strcmp(arg1,"table_0.0") == 0) {
-	    sec[1][10] = (unsigned char) i;
+	    sec[0][6] = (unsigned char) i;
 	    return 0;
 	}
 	if (strcmp(arg1,"local_table") == 0 || strcmp(arg1,"table_1.1") == 0) {
@@ -402,7 +606,17 @@ int f_set(ARG2) {
 	    p = code_table_4_3_location(sec);
 	    if (p) *p = (unsigned char) i;
 	    return 0;
-	}     
+	}
+	if (strcmp(arg1,"table_4.5a") == 0) {
+	    p = code_table_4_5a_location(sec);
+	    if (p) *p = (unsigned char) i;
+	    return 0;
+	}
+	if (strcmp(arg1,"table_4.5b") == 0) {
+	    p = code_table_4_5b_location(sec);
+	    if (p) *p = (unsigned char) i;
+	    return 0;
+	}
 	if (strcmp(arg1,"table_4.6") == 0) {
 	    p = code_table_4_6_location(sec);
 	    if (p) *p = (unsigned char) i;
@@ -428,6 +642,25 @@ int f_set(ARG2) {
 	    if (p) *p = (unsigned char) i;
 	    return 0;
 	}
+	if (strcmp(arg1,"table_4.230") == 0 || strcmp(arg1, "chemical") == 0) {		// chemical
+	    p = code_table_4_230_location(sec);
+	    if (p) {
+		j = 0;
+		while (codetable_4_230_table[j].no != 65535) {
+		    if (strcmp(arg2, codetable_4_230_table[j].name) == 0) {
+		        uint2_char(codetable_4_230_table[j].no, p);
+			return 0;
+		    }
+		    j++;
+		}
+		if (i == 0 && arg2[0] != '0') fatal_error("set table_4.230/chemical wrong chemical=%s\n", arg2);
+		uint2_char(i, p);
+		return 0;
+	    }
+	    /* could not change chemical type */
+	    fatal_error("set table_4.230/chemical wrong template chemical=%s\n", arg2);
+	    return 0;
+	}
 	if (strcmp(arg1,"table_5.0") == 0 || strcmp(arg1,"DRT") == 0) {
             uint2_char(i, sec[5]+9);
 	    return 0;
@@ -449,11 +682,12 @@ int f_set(ARG2) {
     return 0;
 }
 
+
 /*
- * HEADER:100:set_ave:misc:1:set ave/acc .. only on pdt=4.0 only anl/fcst
+ * HEADER:100:set_ave:misc:1:set ave/acc .. only use on pdt=4.0/4.8 (old code)
  */
 
-/* not finished */
+/* the old set_ftime/set_ave is being replaced by a new version of set_ftime */
 
 int f_set_ave(ARG1) {
     int i, tr, tr2, len, len_arg1;
@@ -484,7 +718,7 @@ int f_set_ave(ARG1) {
         uint_char(58, new_sec4);
         uint2_char(8, new_sec4+7);              // pdt = 8
         new_sec4[17] = tr;		    	// hour, etc
-        uint_char(0, new_sec4+18);              // start time
+        int_char(0, new_sec4+18);              // start time
         new_sec4[41] = 1;                       // number of time ranges
         uint_char(0, new_sec4+42);              // missing
 
@@ -524,7 +758,7 @@ int f_set_ave(ARG1) {
         uint_char(58, new_sec4);
         uint2_char(8, new_sec4+7);              // pdt = 8
         new_sec4[17] = tr;			// hour
-        uint_char(j, new_sec4+18);		// start time
+        int_char(j, new_sec4+18);		// start time
         new_sec4[41] = 1;			// number of time ranges
         uint_char(0, new_sec4+42);		// missing
 
@@ -577,7 +811,7 @@ int f_set_ave(ARG1) {
         uint2_char(8, new_sec4+7);              // pdt = 8
 
         new_sec4[17] = tr;                      // hour
-        uint_char(0, new_sec4+18);              // start time 0 = analysis
+        int_char(0, new_sec4+18);              // start time 0 = analysis
 
         new_sec4[41] = 1;                       // number of time ranges
         uint_char(missing, new_sec4+42);        // missing
@@ -613,7 +847,7 @@ int f_set_ave(ARG1) {
         uint2_char(8, new_sec4+7);              // pdt = 8
 
         new_sec4[17] = tr2;                     // forecast time range
-        uint_char(m, new_sec4+18);              // start time 0 = analysis
+        int_char(m, new_sec4+18) ;              // start time 0 = analysis
 
         new_sec4[41] = 1;                       // number of time ranges
         uint_char(missing, new_sec4+42);        // missing
@@ -649,7 +883,7 @@ int f_set_ave(ARG1) {
         uint2_char(8, new_sec4+7);              // pdt = 8
 
         new_sec4[17] = tr2;                     // forecast time range
-        uint_char(m, new_sec4+18);              // start time 0 = analysis
+        int_char(m, new_sec4+18);               // start time 0 = analysis
 
         new_sec4[41] = 1;                       // number of time ranges
         uint_char(missing, new_sec4+42);        // missing
@@ -699,7 +933,7 @@ int f_set_ave(ARG1) {
         uint2_char(8, new_sec4+7);              // pdt = 8
 
         new_sec4[17] = tr2;                     // forecast time range
-        uint_char(m, new_sec4+18);              // start time 0 = analysis
+        int_char(m, new_sec4+18);               // start time 0 = analysis
 
         new_sec4[41] = 2;                       // number of time ranges
         uint_char(missing, new_sec4+42);        // missing
@@ -765,7 +999,7 @@ int f_set_ave(ARG1) {
         uint2_char(8, new_sec4+7);              // pdt = 8
 
         new_sec4[17] = tr2;                     // forecast time range
-        uint_char(m, new_sec4+18);              // start time 0 = analysis
+        int_char(m, new_sec4+18);               // start time 0 = analysis
 
         new_sec4[41] = 2;                       // number of time ranges
         uint_char(missing, new_sec4+42);        // missing
@@ -819,13 +1053,13 @@ fprintf(stderr,">>> need to check out climo1\n");
         add_time(&year, &month, &day, &hour, &minute, &second, (j-1)*k, tr);
         add_time(&year, &month, &day, &hour, &minute, &second, (j2-1)*k2, tr2);
         save_time(year, month, day, hour, minute, second, new_sec4+34);
-        
+
 
         uint_char(58, new_sec4);                // length of section
         uint2_char(8, new_sec4+7);              // pdt = 8
 
         new_sec4[17] = tr;                      // hour
-        uint_char(0, new_sec4+18);              // start time 0 = analysis
+        int_char(0, new_sec4+18);               // start time 0 = analysis
 
         new_sec4[41] = 2;                       // number of time ranges
         uint_char(missing, new_sec4+42);        // missing
@@ -854,187 +1088,6 @@ fprintf(stderr,">>> need to check out climo1\n");
 
 
     fatal_error("set_ave: not implemented %s", arg1);
-    return 0;
-}
-
-/*
- * HEADER:100:set_metadata:misc:1:read meta-data for grib writing from file X
- */
-
-int f_set_metadata(ARG1) {
-
-    char line[STRING_SIZE];
-    char date[STRING_SIZE];
-    char var[STRING_SIZE];
-    char lev[STRING_SIZE];
-    char string[STRING_SIZE];
-    char ftime[STRING_SIZE];
-    char *p;
-    int i, len, len_arg1, n, j, i0, i1;
-    /* to alter field dimension .. need to alter sscanf format too */
-    char field[5][100], str1[100],str2[100];
-    double value1, value2;
-
-    if (mode == -1) {
-        if ((*local = (void *) ffopen(arg1,"r")) == NULL) {
-            fatal_error("Could not open %s", arg1);
-        }
-    }
-    else if (mode == -2) {
-        ffclose((FILE *) *local);
-    }
-    else if (mode >= 0) {
-	if (fgets(line, STRING_SIZE, (FILE *)*local) == NULL) {
-	    return 1;
-	}
-
-	i = sizeof(field[0]);
-	n = sizeof(field) / i;
-	for (j = 0; j < n; j++) field[j][i-1] = 0;
-
-//12/2014
-//      i = sscanf(line, "%*[^:]:%*[^:]:d=%99[^:]:%[^:]:%[^:]:%[^:]:%99[^:]:%99[^:]:%99[^:]:%99[^:]", 
-//		date, var, lev, ftime,field[0],field[1],field[2],field[3]);
-        i = sscanf(line, "%*[^:]:%*[^:]:d=%99[^:]:%[^:]:%[^:]:%[^:]:%99[^:]:%99[^:]:%99[^:]:%99[^:]:%99[^:]", 
-		date, var, lev, ftime,field[0],field[1],field[2],field[3],field[4]);
-	if (i < 4) fatal_error("set_metadata: bad input %s",line);
-	n = i - 4;
-
-	if (mode == 99) fprintf(stderr,"set_metadata: ftime %s, f0=%s f1=%s\n",ftime,field[0],field[1]);
-
-	if (strlen(date)) {
-	   if (f_set_date(call_ARG1(inv_out, NULL, date)) != 0) return 1;
-	}
-	if (strlen(var)) {
-  	    if (f_set_var(call_ARG1(inv_out,NULL,var)) != 0) return 1;
-	}
-
-	if (strlen(lev)) {
-	    if (f_set_lev(call_ARG1(inv_out,NULL,lev)) != 0) return 1;
-	}
-
-	if ((len_arg1 = strlen(ftime))) {
-	    // if "anl" or "(number) %s %s" call set_ftime
-	    // else call set_ave
-	    if (strcmp(ftime,"anl") == 0) f_set_ftime(call_ARG1(inv_out,NULL,ftime));
-	    else if ( ((i = sscanf(ftime,"%*d %*s %s%n", string, &len)) == 1) && len == len_arg1) 
-                    f_set_ftime(call_ARG1(inv_out,NULL,ftime));
-            else f_set_ave(call_ARG1(inv_out,NULL,ftime));
-	}
-
-
-	// process arguments that can be in any order
-	for (i = 0; i < n; i++) {
-	    p = field[i];
-	    if (mode == 99) fprintf(stderr,"set_metadata field[%i]=%s\n",i,p);
-	    // get rid of training newline
-	    j = strlen(p);
-	    if (j == 0) continue;
-	    if (p[j-1] == '\n') p[j-1] = 0;
-	    if (p[0] == 0) continue;
-
-	    j = sscanf(p,"scale=%d,%d", &i0, &i1);
-	    if (j == 2) {
-		dec_scale = i0;
-		bin_scale = i1;
-		use_scale = 1;
-		continue;
-	    }
-
-	    j = sscanf(p,"packing=%s", string);
-	    if (j == 1) {
-                f_set_grib_type(call_ARG1(inv_out,NULL,string) );
-		continue;
-	    }
-
-	    // percentile   N% level note: ignores characters after level
-	    i1 = 0;
-	    j = sscanf(p, "%d%% level%n", &i0, &i1);
-	    if (i1 > 0) {
-		sprintf(str1,"%d", i0);
-		f_set_percentile(call_ARG1(inv_out,NULL,str1));
-		continue;
-	    }
-
-	    // probability
-	    j = sscanf(p,"prob <%lf",&value1);
-	    if (j == 1) {
-		sprintf(str1,"%lg", value1);
-		f_set_prob(call_ARG5(inv_out,NULL,"255","255","0", str1, str1));
-		continue;
-	    }
-	    j = sscanf(p,"prob >%lf",&value1);
-	    if (j == 1) {
-		sprintf(str1,"%lg", value1);
-		f_set_prob(call_ARG5(inv_out,NULL,"255","255","1", str1, str1));
-		continue;
-	    }
-	    j = sscanf(p,"prob =%lf",&value1);
-	    if (j == 1) {
-		sprintf(str1,"%lg", value1);
-		f_set_prob(call_ARG5(inv_out,NULL,"255","255","2", str1, str1));
-		continue;
-	    }
-	    j = sscanf(p,"prob >=%lf <%lf",&value1, &value2);
-	    if (j == 2) {
-		sprintf(str1,"%lg", value1);
-		sprintf(str2,"%lg", value2);
-		f_set_prob(call_ARG5(inv_out,NULL,"255","255","2", str1, str2));
-		continue;
-	    }
-
-	    // ensemble
-	    j = sscanf(p,"ENS=%s", str1);
-	    if (j == 1) {
-	        // if (strcmp(str1,"hi-res ctl") == 0) {
-	        if (strcmp(str1,"hi-res") == 0) {
-		    f_set_ens_num(call_ARG3(inv_out,NULL,"0", str1, "-1"));
-		    continue;
-		}
-	        // if (strcmp(str1,"low-res ctl") == 0) {
-	        if (strcmp(str1,"low-res") == 0) {
-		    f_set_ens_num(call_ARG3(inv_out,NULL,"1", str1, "-1"));
-		    continue;
-		}
-	        j = sscanf(p,"ENS=+%[0-9]", str1);
-	        if (j == 1) {
-		    f_set_ens_num(call_ARG3(inv_out,NULL,"3", str1, "-1"));
-		    continue;
-	        }
-	        j = sscanf(p,"ENS=-%[0-9]", str1);
-	        if (j == 1) {
-		    f_set_ens_num(call_ARG3(inv_out,NULL,"2", str1, "-1"));
-		    continue;
-	        }
-		fatal_error("set_metadata: unknown ENS=%s", str1);
-	    }
-	    j = sscanf(p,"%[0-9] ens members", str1);
-	    if (j == 1) {
-		f_set_ens_num(call_ARG3(inv_out,NULL,"-1", "-1", str1));
-		continue;
-	    }
-
-
-	    /* do better
-	    j = sscanf(p,"background generating process=%d forecast generating process=%d", &i0, &i1);
-	    if (j == 2) {
-		p = background_generating_process_identifier_location(sec);
-		if (p) *p = i0;
-		p = analysis_or_forecast_generating_process_identifier_location(sec);
-		if (p) *p = i1;
-		continue;
-	    }
-	    */
-
-	    // see if -set X T will work
-	    j = sscanf(p,"%[^=]=%s",str1, str2);
-	    if (j == 2) {
-	        if (f_set(call_ARG2(inv_out,NULL,str1,str2)) == 0) continue;
-	    }
-
-	    fatal_error("set_metadata: field not understood = %s", p);
-	}
-    }
     return 0;
 }
 

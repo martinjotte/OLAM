@@ -25,16 +25,15 @@ C what(1) key, module and SID; SCCS file; date and time of last delta:
 C %W% %P% %G% %U%
 
 C:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-      SUBROUTINE AQ_MAP ( JDATE, JTIME, WTBAR, WCBAR, TBARC, PBARC,
-     &                    CTHK1, AIRM, PRATE1, TAUCLD, POLC, CEND,
-     &                    REMOV, REMOVAC, ALFAC, DARK )
+      SUBROUTINE AQ_MAP ( k, iw, WCBAR, TBARC, PBARC, TAUCLD, CONC, AIRM,
+     &                    ACTIV, REMOV, HPLUS, REMOVAC, EWASH, DARK )
 
 C-----------------------------------------------------------------------
 C  DESCRIPTION:  This is an interface processor between the cloud dynamics
 C     module(s) and the aqueous chemistry module.  It uses indices to
 C     map species from their order in the array POLC, CEND, REMOV to
 C     the species that are expected for AQCHEM, ie GAS and AEROSOL.
- 
+
 C  Revision History:
 C      No   Date   Who  What
 C      -- -------- ---  -----------------------------------------
@@ -46,29 +45,22 @@ C       4 04/11/08 jtk  added logic for coarse ammonium
 C       5 10/10/10 yoj  update to use aero_reeng by Steve Howard, Prakash Bhave,
 C                       Jeff Young, Sergey Napelenok, and Shawn Roselle
 C       6 03/01/11 sjr  replaced I/O API include files with UTILIO_DEFN;
-C       7 07/01/01 gs   calculate zenith angle to determine daytime and nightime 
+C       7 07/01/01 gs   calculate zenith angle to determine daytime and nightime
 C                       needed for sulfur oxidation via metal catalysis
 C  Called by:  RADMCLD and RESCLD
- 
+
 C  Calls the following subroutines:  AQCHEM
- 
+
 C  ARGUMENTS    TYPE      I/O       DESCRIPTION
 C  ---------   -------  ------  --------------------------------
-C    JDATE     integer   input  current model julian date (yyyyddd)
-C    JTIME     integer   input  current model time (hhmmss)
 C    WTBAR      real     input  avg total water content (kg/m3)
 C    WCBAR      real     input  avg liquid water content (kg/m3)
 C    TBARC      real     input  avg cloud temperature (K)
 C    PBARC      real     input  avg cloud pressure (Pa)
-C    CTHK1      real     input  cloud thickness (m)
-C    AIRM       real     input  total air mass (moles/m2) in cloudy air
-C    PRATE1     real     input  precipitation rate (mm/hr)
 C    TAUCLD     real     input  cloud lifetime (s)
-C    POLC       real     input  ave vert conc incloud (moles sp/ mole air)
-C    CEND       real    output  ending incloud conc (moles/mole)
+C    CONC       real    output  incloud conc (moles/mole)
 C    REMOV      real    output  moles/m2 or mm*mol/lit scavenged
 C    REMOVAC    real    output  variable storing H+ deposition
-C    ALFAC      real     input  scav coef for aerosol
 C    DARK       logical  input DARK = TRUE is night,  DARK = FALSE is day
 C-----------------------------------------------------------------------
 
@@ -76,6 +68,9 @@ C-----------------------------------------------------------------------
       USE AQ_DATA        ! aqueous chemistry shared parameters
       USE AERO_DATA      ! aerosol shared parameters
       USE UTILIO_DEFN
+
+      ! temp
+      use cgrid_defn
 
       IMPLICIT NONE
 
@@ -90,22 +85,18 @@ C Parameters:
 
 C Arguments:
 
-      INTEGER, INTENT( IN )    :: JDATE     ! current model date, coded YYYYDDD
-      INTEGER, INTENT( IN )    :: JTIME     ! current model time, coded HHMMSS
-
-      REAL,    INTENT( IN )    :: WTBAR     ! total wat cont (kg/m2) int. thru cld
+      integer, intent( in )    :: k, iw
       REAL,    INTENT( IN )    :: WCBAR     ! liq water content of cloud (kg/m3)
       REAL,    INTENT( IN )    :: TBARC     ! mean cloud temp (K)
       REAL,    INTENT( IN )    :: PBARC     ! mean cloud pressure (Pa)
-      REAL,    INTENT( IN )    :: CTHK1     ! aq chem calc cloud thickness
-      REAL,    INTENT( IN )    :: AIRM      ! total air mass (moles/m2) in cloudy air
-      REAL,    INTENT( IN )    :: PRATE1    ! storm rainfall rate (mm/hr)
       REAL,    INTENT( IN )    :: TAUCLD    ! cloud lifetime
-      REAL,    INTENT( IN )    :: POLC ( : )  ! avg vert conc incloud (moles/mole)
-      REAL,    INTENT( INOUT ) :: CEND ( : )  ! ending incloud conc (moles/mole)
-      REAL,    INTENT( INOUT ) :: REMOV( : )  ! moles/m2 or mm*mol/lit scavenged
+      REAL,    INTENT( IN )    :: AIRM
+      REAL,    INTENT( IN )    :: ACTIV     ! fraction of accum and coarse activated
+      REAL,    INTENT( INOUT ) :: CONC ( NSPCSD+1 )  ! incloud conc (moles/mole)
+      REAL,    INTENT( INOUT ) :: REMOV( NSPCSD+1 )  ! moles/m2 or mm*mol/lit scavenged
       REAL,    INTENT( INOUT ) :: REMOVAC   ! variable storing H+ deposition
-      REAL,    INTENT( IN )    :: ALFAC     ! scav coef for aerosols
+      REAL,    INTENT( INOUT ) :: HPLUS     ! H+ concentration
+      REAL,    INTENT( IN )    :: EWASH     ! scav coef for rainout
       LOGICAL, INTENT( IN )    :: DARK      ! DARK = TRUE is night,  DARK = FALSE is day
 
 C Local Variables (scalars):
@@ -121,178 +112,131 @@ C Local Variables (scalars):
       INTEGER       PNTR                ! relative pointer variable
 !     INTEGER       SPC                 ! liquid species loop counter
 
-      REAL( 8 )  :: BETASO4
-      REAL       :: EALFA2T             ! EXP( -ALFAC * TAUCLD )
-      REAL       :: M3OLD( NMODES )     ! modal mass at time 0
-      REAL       :: M3NEW( NMODES )     ! modal mass at time t
-!     REAL( 8 )  :: SUM
+!     REAL       :: EBETASO4T
+!     REAL       :: EALFA2T             ! EXP( -ALFAC * TAUCLD )
+      REAL       :: M3OLD( 2:NMODES )        ! modal mass at time 0
+      REAL       :: M3NEW( 2:NMODES )        ! modal mass at time t
 
-      real       :: airm1                         
-      REAL       :: HPWDEP                        ! hydrogen wet dep (mm mol/liter)
+      REAL       :: CONC2
+      REAL       :: RATIO
 
       REAL( 8 )  :: GAS    ( NGAS )               ! gas phase conc (mol/mol)
-      REAL( 8 )  :: GASWDEP( NGAS )               ! gas phase wet dep array (mm mol/liter)
-      REAL( 8 )  :: WSRGGAS( NGAS,MXSRG )         ! weights for surrogate
+      REAL       :: GASWDEP( NGAS )               ! gas phase wet dep array (mm mol/liter)
+!     REAL( 8 )  :: WSRGGAS( NGAS,MXSRG )         ! weights for surrogate
 
-      REAL( 8 )  :: AEROSOL( MAX_NAER,NMODES )        ! aerosol conc (mol/mol)
-      REAL( 8 )  :: AERWDEP( MAX_NAER,NMODES )        ! aerosol wet dep array (mm mol/liter)
-      REAL( 8 )  :: WSRGAER( MAX_NAER,NMODES,MXSRG )  ! weights for surrogate
-      real       :: ratio1, ratio2, ratio3
-C External Functions:
-
-!     INTEGER, EXTERNAL :: INDEXN           ! external func to get species pointers
-
-      INTERFACE
-        SUBROUTINE AQCHEM ( JDATE, JTIME, TEMP, PRES_PA, TAUCLD, PRCRATE,
-     &                      WCAVG, WTAVG, AIRM, ALFAC, GAS,
-     &                      AEROSOL, GASWDEP, AERWDEP, HPWDEP, BETASO4, DARK, cthk1 )
-           INTEGER,   INTENT( IN )  :: JDATE  ! current model date, coded YYYYDDD
-           INTEGER,   INTENT( IN )  :: JTIME  ! current model time, coded HHMMSS
-           REAL,      INTENT( IN )  :: AIRM      ! total air mass in cloudy layers (mol/m2)
-           REAL,      INTENT( IN )  :: ALFAC     ! scav coef
-           REAL,      INTENT( OUT ) :: HPWDEP    ! hydrogen wet deposition (mm mol/liter)
-           REAL( 8 ), INTENT( OUT ) :: BETASO4  
-           REAL,      INTENT( IN )  :: PRCRATE   ! precip rate (mm/hr)
-           REAL,      INTENT( IN )  :: PRES_PA   ! pressure (Pa)
-           REAL,      INTENT( IN )  :: TAUCLD    ! timestep for cloud (s)
-           REAL,      INTENT( IN )  :: TEMP      ! temperature (K)
-           REAL,      INTENT( IN )  :: WCAVG     ! liquid water content (kg/m3)
-           REAL,      INTENT( IN )  :: WTAVG     ! total water content (kg/m3)
-           REAL( 8 ), INTENT( INOUT ) :: GAS    ( : )   ! gas phase concentrations (mol/molV)
-           REAL( 8 ), INTENT( INOUT ) :: AEROSOL( :,: ) ! aerosol concentrations (mol/molV)
-           REAL( 8 ), INTENT( INOUT ) :: GASWDEP( : )   ! gas phase wet deposition array (mm mol/liter)
-           REAL( 8 ), INTENT( INOUT ) :: AERWDEP( :,: ) ! aerosol wet deposition array (mm mol/liter)
-           LOGICAL,   INTENT( IN )    :: DARK ! DARK = TRUE is night,  DARK = FALSE is day
-           real,      intent( in )    :: cthk1
-        END SUBROUTINE AQCHEM
-      END INTERFACE
+      REAL( 8 )  :: AEROSOL(       NAER,2:NMODES )  ! aerosol conc (mol/mol)
+      REAL( 8 )  :: WSRGAER( NXSRG,NAER,2:NMODES )  ! weights for surrogate
 
 C-----------------------------------------------------------------------
 
 C...  for subsequent calls, check to make sure some surrogates were
 C...  specified, otherwise there is no need to perform aqueous chemistry
 
-      IF ( SIZE( CGRID2AQ_MAP ) .EQ. 0 ) THEN
-        RETURN
-      END IF
+      IF (N_CGRID2AQ <= 0) RETURN
 
 C...load gas-phase concentrations
 
-      gaswdep = 0.0d0
-      gas     = 0.0d0
+      gaswdep = 0.0
 
       DO IGAS = 1, NGAS
-
-         DO ISRG = 1, NSRGGAS( IGAS )
-            PNTR = CGRID2AQ_MAP( LSRGGAS( IGAS, ISRG ) )
-            GAS( IGAS ) = GAS( IGAS ) + POLC( PNTR )
-         END DO
-
-        IF      ( NSRGGAS( IGAS ) == 0 ) THEN
-           GAS( IGAS ) = SRGGAS( IGAS )%BACKGND
-        ELSE IF ( NSRGGAS( IGAS ) == 1 ) THEN
-           WSRGGAS( IGAS,1 ) = 1.0D0
-        ELSE
-           DO ISRG = 1, NSRGGAS( IGAS )
-              PNTR = CGRID2AQ_MAP( LSRGGAS( IGAS, ISRG ) )
-              WSRGGAS( IGAS,ISRG ) = POLC( PNTR ) / GAS( IGAS )
-           END DO
-        END IF
-
-      END DO
+         GAS( IGAS ) = CONC( LSRGGAS( IGAS ) )
+      ENDDO
 
 C...load aerosol concentrations
 
-      airm1   = 1.0 / airm
-      aerwdep = 0.0d0
       aerosol = 0.0d0
 
-      DO IAER = 1, NAER
-         DO IMODE = 1, NMODES
+      DO IMODE = 2, NMODES
+         DO IAER = 1, NAER
 
-            IF ( srgaerm( iaer,imode ) ) THEN
+            DO ISRG = 1, NSRGAER( IAER, IMODE )
+               PNTR = LSRGAER( ISRG, IAER, IMODE )
+               AEROSOL( IAER, IMODE ) = AEROSOL( IAER, IMODE ) + max(CONC( PNTR ), 1.e-36)
+            END DO
 
+            IF (AQ_UPDATE(IAER, IMODE) .AND. NSRGAER(IAER,IMODE) > 1) THEN
                DO ISRG = 1, NSRGAER( IAER, IMODE )
-                  PNTR = CGRID2AQ_MAP( LSRGAER( IAER, IMODE, ISRG ) )
-                  AEROSOL( IAER, IMODE ) = AEROSOL( IAER, IMODE ) + POLC( PNTR )
+                  PNTR = LSRGAER( ISRG, IAER, IMODE )
+                  WSRGAER( ISRG, IAER, IMODE ) = CONC( PNTR ) / AEROSOL( IAER, IMODE )
                END DO
+            ENDIF
 
-               IF      ( NSRGAER(IAER,IMODE) == 0 ) THEN
-                  AEROSOL( IAER, IMODE ) = SRGAER( IAER )%BACKGND * CTHK1 * AIRM1
-               ELSE IF ( NSRGAER(IAER,IMODE) == 1 ) THEN
-                  WSRGAER( IAER, IMODE, 1 ) = 1.0D0
-               ELSE
-                  DO ISRG = 1, NSRGAER( IAER, IMODE )
-                     PNTR = CGRID2AQ_MAP( LSRGAER( IAER, IMODE, ISRG ) )
-                     WSRGAER( IAER, IMODE, ISRG ) = POLC( PNTR ) / AEROSOL( IAER, IMODE )
-                  END DO
-               END IF
-
-            END IF
          END DO
       END DO
 
-C *** extract grid cell concentrations of aero species from CGRID
-C     into aerospc_conc in aero_data module
+C...save original 3rd moments
 
-      CALL EXTRACT_AERO ( POLC, .FALSE., dry=.true. )
+      m3old = 0.0
 
-      m3old(2:3) = moment3_conc(2:3)
+      do iaer = 1, naccum
+         isrg = iaccum_map(iaer)
+         m3old(2) = m3old(2) + CONC(isrg) * accum_m3c(iaer)
+      enddo
+
+      do iaer = 1, ncoars
+         isrg = icoars_map(iaer)
+         m3old(3) = m3old(3) + CONC(isrg) * coars_m3c(iaer)
+      enddo
+
+      M3NEW = M3OLD
+
+C...limit aerosol loading based on how much aerosol is activated
+C   (for mixed-phase clouds)
+
+      aerosol = aerosol * activ
 
 C...perform aqueous-phase chemistry calculations
 
-      CALL AQCHEM ( JDATE, JTIME, TBARC, PBARC, TAUCLD, PRATE1,
-     &              WCBAR, WTBAR, AIRM, ALFAC, GAS, AEROSOL, 
-     &              GASWDEP, AERWDEP, HPWDEP, BETASO4, DARK, cthk1 )
-
-C...  compute the scavenging coefficient
-      EALFA2T = EXP( -ALFAC * TAUCLD )
-
-C...store the amount of hydrogen deposition
-
-      REMOVAC = HPWDEP
+      CALL AQCHEM ( k, iw, TBARC, PBARC, TAUCLD, WCBAR, GAS, AEROSOL,
+     &              GASWDEP, AIRM, HPLUS, REMOVAC, EWASH, DARK )
 
 C...Now, re-apportion mass back into cend/remov (cgrid-type) array
 
       DO IGAS = 1, NGAS
-        DO ISRG = 1, NSRGGAS( IGAS )
-          PNTR = CGRID2AQ_MAP( LSRGGAS( IGAS, ISRG ) )
-          CEND ( PNTR ) = GAS    ( IGAS ) * WSRGGAS( IGAS, ISRG )
-          REMOV( PNTR ) = GASWDEP( IGAS ) * WSRGGAS( IGAS, ISRG )
-        END DO
+         IF (LSRGGAS(IGAS) > 0) THEN
+            PNTR = LSRGGAS( IGAS )
+            CONC ( PNTR ) = MAX(GAS( IGAS ), 1.D-36)
+            REMOV( PNTR ) = GASWDEP( IGAS )
+         ENDIF
       END DO
 
-      DO IAER = 1, NAER
-         DO IMODE = 1, NMODES
-            DO ISRG = 1, NSRGAER( IAER, IMODE )
-               PNTR = CGRID2AQ_MAP( LSRGAER( IAER, IMODE, ISRG ) )
-               CEND ( PNTR ) = AEROSOL( IAER, IMODE ) * WSRGAER( IAER, IMODE, ISRG )
-               REMOV( PNTR ) = AERWDEP( IAER, IMODE ) * WSRGAER( IAER, IMODE, ISRG )
-            END DO
+      DO IMODE = 2, NMODES
+         DO IAER = 1, NAER
+
+            IF (AQ_UPDATE(IAER, IMODE)) THEN
+               IF (NSRGAER(IAER,IMODE) > 1) THEN
+
+                  DO ISRG = 1, NSRGAER( IAER, IMODE )
+                     PNTR  = LSRGAER( ISRG, IAER, IMODE )
+
+                     CONC2 = MAX(AEROSOL( IAER, IMODE ) * WSRGAER( ISRG, IAER, IMODE ), 1.D-36)
+     &                     + (1. - activ) * CONC (PNTR)
+
+                     M3NEW(IMODE) = M3NEW(IMODE) + (CONC2 - CONC(PNTR)) * ACCUM_M3C(IAER)
+                     CONC (PNTR)  = CONC2
+                  END DO
+
+               ELSE
+
+                  PNTR  = LSRGAER( 1, IAER, IMODE )
+                  CONC2 = MAX(AEROSOL( IAER, IMODE ), 1.D-36) + (1. - ACTIV) * CONC (PNTR)
+
+                  M3NEW(IMODE) = M3NEW(IMODE) + (CONC2 - CONC(PNTR)) * ACCUM_M3C(IAER)
+                  CONC (PNTR)  = CONC2
+
+               ENDIF
+            ENDIF
+
          END DO
       END DO
 
-C *** extract grid cell concentrations of aero species from CGRID
-C     into aerospc_conc in aero_data module
-
-      CALL EXTRACT_AERO ( CEND, .FALSE., dry=.true. )
-
-      m3new(2:3) = moment3_conc(2:3)
-
 C...Update surface area
 
-      ratio1 = CEND( AERONUM_MAP(3) ) / POLC( AERONUM_MAP(3) )
-      ratio2 = m3new(2) / m3old(2)
-      ratio3 = m3new(3) / m3old(3)
+      DO IMODE = 2, 3
+         PNTR  = SRF_STR + IMODE - 1
+         RATIO = ( (M3NEW(IMODE) / M3OLD(IMODE)) ** ONETHIRD ) ** 2
 
-      CEND( AEROSRF_MAP( 1 ) ) = POLC( AEROSRF_MAP( 1 ) ) * EALFA2T
-      
-      CEND( AEROSRF_MAP( 2 ) ) = POLC( AEROSRF_MAP( 2 ) )
-     &                         * EXP( -BETASO4 * TAUCLD * ONETHIRD )
-     &                         * ( ratio2**2 ) ** ONETHIRD
+         CONC( PNTR ) = CONC( PNTR ) * RATIO
+      ENDDO
 
-      CEND( AEROSRF_MAP( 3 ) ) = POLC( AEROSRF_MAP( 3 ) )
-     &                         * ( ratio3**2 * ratio1 ) ** ONETHIRD
-
-      RETURN
-      END
+      END SUBROUTINE AQ_MAP

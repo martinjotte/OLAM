@@ -32,21 +32,22 @@ contains
 subroutine comp_buoy(iw, buoy, a, b, adry, bdry, awet, bwet)
 
   use mem_grid,    only: mza, dzim, lpw
-  use mem_basic,   only: theta, tair, sh_v, sh_w, rho
+  use mem_basic,   only: theta, tair, rr_v, rr_w, rho
   use consts_coms, only: t00, eps_vapi, eps_virt, alvl, rdry, rvap, &
                          alvlocp, alviocp
   use therm_lib,   only: rhovsl
   use mem_radiate, only: cloud_frac
   use mem_cuparm,  only: iactcu, qwcon, kcutop, kcubot
-  use mem_micro,   only: sh_c, sh_p
+  use mem_micro,   only: rr_c, rr_p
   use micro_coms,  only: miclevel
   use oname_coms,  only: nl
 
   implicit none
 
   integer,        intent( in) :: iw
-  real, optional, intent(out) :: buoy(mza) ! vertical gradient of buoyancy
+  real,           intent(out) :: buoy(mza) ! vertical gradient of buoyancy
                                            ! variable (dB/dz)
+
   real, optional, intent(out) :: a   (mza), b   (mza)
   real, optional, intent(out) :: awet(mza), bwet(mza)
   real, optional, intent(out) :: adry(mza), bdry(mza)
@@ -56,9 +57,9 @@ subroutine comp_buoy(iw, buoy, a, b, adry, bdry, awet, bwet)
   real, parameter      :: c_aw      = alvlocp * alvlorvap
 
   real                 :: qsat(mza), qliq(mza), qice(mza), frac(mza)
-  real                 :: thlo(mza), qto(mza)
+  real                 :: thlo(mza), qto(mza), ex(mza)
   real                 :: qt, qs, qc, aa, bb, ad, bd, aw, bw
-  real                 :: th, ta, dthl, dqw, thl, xsat, fracm
+  real                 :: th, ta, tai, dthl, dqw, thl, xsat, fracm, fac
   integer              :: k
 
 !  moist_buoy = 0  buoyancy does not take into account condensate
@@ -70,116 +71,152 @@ subroutine comp_buoy(iw, buoy, a, b, adry, bdry, awet, bwet)
   qice(:) = 0.
 
   if (nl%moist_buoy >= 1) then
+
      if (miclevel < 3) then
+
         do k = lpw(iw), mza
-           qliq(k) = sh_w(k,iw) - sh_v(k,iw)
+           qliq(k) = rr_w(k,iw) - rr_v(k,iw)
         enddo
+
      else
-        if (allocated(sh_c)) then
+
+        if (allocated(rr_c)) then
            do k = lpw(iw), mza
-              qliq(k) = sh_c(k,iw)
+              qliq(k) = rr_c(k,iw)
            enddo
         endif
-        if (nl%moist_buoy >= 2 .and. allocated(sh_p)) then
+        if (nl%moist_buoy >= 2 .and. allocated(rr_p)) then
            do k = lpw(iw), mza
-              qice(k) = sh_p(k,iw)
+              qice(k) = rr_p(k,iw)
            enddo
         endif
+
      endif
 
      if (nl%moist_buoy >= 3 .and. iactcu(iw) > 0) then
+
         do k = kcubot(iw), kcutop(iw)
            qliq(k) = qliq(k) + qwcon(k,iw)
         enddo
-     endif
-  endif
 
-  ! loop over T levels
-  do k = lpw(iw), mza
-     qsat(k) = rhovsl(tair(k,iw)-t00) / real(rho(k,iw))
-
-     if (qliq(k) < 1.e-8) then
-        frac(k) = 0.0
-     else
-        frac(k) = max(0.1, cloud_frac(k,iw))
      endif
 
-     thlo(k) = theta(k,iw) / ( 1.0 + (alvlocp * qliq(k) + alviocp * qice(k)) / max(tair(k,iw),253.0))
-     qto (k) = sh_v(k,iw) + qliq(k) + qice(k)
-  enddo
+     ! loop over T levels
+     do k = lpw(iw), mza
 
-  ! loop over W levels
-  do k = lpw(iw), mza-1
+        fac = 1.0 / (1.0 + rr_v(k,iw))
 
-     thl = 0.5 * (thlo(k) + thlo(k+1))
-     qs  = 0.5 * (qsat(k) + qsat(k+1))
-     qt  = 0.5 * (qto (k) + qto (k+1))
-     th  = 0.5 * (theta(k,iw) + theta(k+1,iw))
-     qc  = 0.5 * (qliq(k) + qice(k) + qliq(k+1) + qice(k+1))
+        qliq(k) = qliq(k) * fac
+        qice(k) = qice(k) * fac
+        qsat(k) = rhovsl(tair(k,iw)-t00) / real(rho(k,iw)) * fac
 
-     dthl = thlo(k+1) - thlo(k)
-     dqw  = qto (k+1) - qto (k)
-
-     ta = 0.5 * ( tair(k  ,iw) / theta(k  ,iw) &
-                + tair(k+1,iw) / theta(k+1,iw) ) * th
-
-     ! Dry coefficients
-
-     ad = eps_virt * qt + 1.0
-     bd = eps_virt * th
-
-     ! Wet coefficients
-
-     aw = (1.0 - qt + qs * ( eps_vapi + alvlordry / ta )) &
-        / (1.0 + c_aw  * qs / ta**2)
-     bw = th * (aw * alvlocp / ta - 1.0)
-
-     ! Is the mixture of air between the adjacent layers saturated?
-
-     aa = ad
-     bb = bd
-
-     if (qc > 1.e-7) then
-        xsat = qc * (ad * alvlocp - eps_vapi * thl) &
-             / max(abs( (ad - aw) * dthl + (bd - bw) * dqw ), 1.e-7)
-
-        if (xsat > 0.5) then
-           fracm = max( frac(k), frac(k+1) )
+        if (qliq(k) + qice(k) < 1.e-8) then
+           frac(k) = 0.0
         else
-           fracm = min( frac(k), frac(k+1) )
+           frac(k) = max(0.1, cloud_frac(k,iw))
         endif
 
-        ! Weight the wet and dry coefficients to get the total buoyancy
+        thlo(k) = theta(k,iw) / ( 1.0 + (alvlocp * qliq(k) + alviocp * qice(k)) / max(tair(k,iw),253.0))
+        qto (k) = rr_v(k,iw) * fac + qliq(k) + qice(k)
+        ex  (k) = tair(k,iw) / theta(k,iw)
+     enddo
 
-        aa = fracm * aw + (1. - fracm) * ad
-        bb = fracm * bw + (1. - fracm) * bd
-     endif
+     ! loop over W levels
+     do k = lpw(iw), mza-1
 
-     ! Output variables
+        thl = 0.5 * (thlo(k) + thlo(k+1))
+        qs  = 0.5 * (qsat(k) + qsat(k+1))
+        qt  = 0.5 * (qto (k) + qto (k+1))
+        th  = 0.5 * (theta(k,iw) + theta(k+1,iw))
+        qc  = 0.5 * (qliq(k) + qice(k) + qliq(k+1) + qice(k+1))
+        ta  = 0.5 * (ex(k) + ex(k+1)) * th
+        tai = 1.0 / ta
 
-     if (present(a)) a(k) = aa
-     if (present(b)) b(k) = bb
+        dthl = thlo(k+1) - thlo(k)
+        dqw  = qto (k+1) - qto (k)
 
-     if (present(awet)) awet(k) = aw
-     if (present(bwet)) bwet(k) = bw
+        ! Dry coefficients
 
-     if (present(adry)) adry(k) = ad
-     if (present(bdry)) bdry(k) = bd
+        ad = eps_virt * qt + 1.0
+        bd = eps_virt * th
 
-     if (present(buoy)) buoy(k) = (aa * dthl + bb * dqw) * dzim(k)
+        ! Wet coefficients
 
-  enddo
+        aw = (1.0 - qt + qs * ( eps_vapi + alvlordry * tai )) &
+           / (1.0 + c_aw  * qs * tai**2)
+        bw = th * (aw * alvlocp * tai - 1.0)
 
-  if (present(a)) a(mza) = a(mza-1)
-  if (present(b)) b(mza) = b(mza-1)
+        ! Is the mixture of air between the adjacent layers saturated?
 
-  if (present(adry)) adry(mza) = adry(mza-1)
-  if (present(bdry)) bdry(mza) = bdry(mza-1)
+        aa = ad
+        bb = bd
 
-  if (present(awet)) awet(mza) = awet(mza-1)
-  if (present(bwet)) bwet(mza) = bwet(mza-1)
+        if (qc > 1.e-7) then
+           xsat = qc * (ad * alvlocp - eps_vapi * thl) &
+                / max(abs( (ad - aw) * dthl + (bd - bw) * dqw ), 1.e-7)
 
-  if (present(buoy)) buoy(mza) = buoy(mza-1)
+           if (xsat > 0.5) then
+              fracm = max( frac(k), frac(k+1) )
+           else
+              fracm = min( frac(k), frac(k+1) )
+           endif
+
+           ! Weight the wet and dry coefficients to get the total buoyancy
+
+           aa = fracm * aw + (1. - fracm) * ad
+           bb = fracm * bw + (1. - fracm) * bd
+        endif
+
+        ! Output variables
+
+        buoy(k) = (aa * dthl + bb * dqw) * dzim(k)
+
+        if (present(a)) a(k) = aa
+        if (present(b)) b(k) = bb
+
+        if (present(awet)) awet(k) = aw
+        if (present(bwet)) bwet(k) = bw
+
+        if (present(adry)) adry(k) = ad
+        if (present(bdry)) bdry(k) = bd
+
+     enddo
+
+  else
+
+     ! loop over T levels
+     do k = lpw(iw), mza
+        qto(k) = rr_v (k,iw) / (1. + rr_v(k,iw))
+     enddo
+
+     ! loop over W levels
+     do k = lpw(iw), mza-1
+
+        th = 0.5 * (theta(k,iw) + theta(k+1,iw))
+        qt = 0.5 * (qto  (k)    + qto  (k+1))
+
+        dthl = theta(k+1,iw) - theta(k,iw)
+        dqw  = qto  (k+1)    - qto  (k)
+
+        aa = eps_virt * qt + 1.0
+        bb = eps_virt * th
+
+        buoy(k) = (aa * dthl + bb * dqw) * dzim(k)
+
+        ! Output variables
+
+        if (present(a)) a(k) = aa
+        if (present(b)) b(k) = bb
+
+        if (present(awet)) awet(k) = aa
+        if (present(bwet)) bwet(k) = bb
+
+        if (present(adry)) adry(k) = aa
+        if (present(bdry)) bdry(k) = bb
+
+     enddo
+
+  endif
 
 end subroutine comp_buoy
 

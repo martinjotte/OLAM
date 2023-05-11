@@ -26,13 +26,13 @@
  *
  * used a different test to see if the grid point is visible than suggested
  * by the code MSG_navigation_v1.01.c  by EUMETSAT
- * 
- * code limited to orientatin == 0 and satellite location = 0N
+ *
+ * code limited to orientation == 0 and satellite location = 0N
  *  v1.0 4-2011
+ *
+ *  v1.1 9/2017 fix defintion of lop (was using lap = 0.0)
+ *              correct conversion of lap, lop to radians
  */
-
-
-
 
 
 
@@ -56,8 +56,8 @@
 extern double *lat, *lon;
 extern enum output_order_type output_order;
 
-static int nnx, nny;
-static double sat_height, r_pol, r_eq, r_pol_eq, factor_10, lap, lop, 
+static unsigned int nnx, nny;
+static double sat_height, r_pol, r_eq, r_pol_eq, factor_10, lap, lop,
 	inv_rx, inv_ry;
 static double xp, yp, dx, dy;
 
@@ -70,13 +70,13 @@ int space_view_init(unsigned char **sec) {
 
 fprintf(stderr,"ALPHA: experimental space_view2ij\n");
     if (sec == NULL || sec[3] == NULL) fatal_error("space_view_init: sec/sec[3] == NULL","");
- 
+
     if (code_table_3_1(sec) != 90) fatal_error("space_view_init: not space view grid","");
     if (output_order != wesn) fatal_error("space_view_init: order must be we:sn","");
 
 //printf("space_view_init >>>> table 3.1 %d\n", code_table_3_1(sec));
 
-    get_nxny(sec, &nnx, &nny, &nnpnts, &nres, &nscan);
+    get_nxny_(sec, &nnx, &nny, &nnpnts, &nres, &nscan);
     axes_earth(sec, &major, &minor);
 //fprintf(stderr,">> axes %lf minor %lf\n", major,minor);
 
@@ -94,7 +94,7 @@ fprintf(stderr,"ALPHA: experimental space_view2ij\n");
 //fprintf(stderr,">> sat height %lf\n",sat_height);
 
     lap = int4(sec[3]+38);
-    lop = int4(sec[3]+38);
+    lop = int4(sec[3]+42);
     /* I am guessing that a scale factor has to be added */
     lap *= 1e-6;
     lop *= 1e-6;
@@ -102,8 +102,8 @@ fprintf(stderr,"ALPHA: experimental space_view2ij\n");
     if (lap != 0.0) return 0;   // need to extend code
 
     /* convert to radians */
-    lap *= (180.0/M_PI);
-    lop *= (180.0/M_PI);
+    lap *= (M_PI/180.0);
+    lop *= (M_PI/180.0);
 
     orient_angle = int4(sec[3]+64);
     /* I am guessing that a scale factor has to be added */
@@ -148,11 +148,11 @@ fprintf(stderr,"ALPHA: experimental space_view2ij\n");
     return 0;
 }
 
-int space_view_closest(unsigned char **sec, double plat, double plon) {
+long int space_view_closest(unsigned char **sec, double plat, double plon) {
 
     double phi_e, cos_phi_e, r_e;
     double r1, r2, r3, rn, x, y;
-    int ix, iy;
+    long int ix, iy;
 
 // fprintf(stderr,"space_view_closest want lat %lf lon %lf\n",plat, plon);
 
@@ -193,7 +193,7 @@ int space_view_closest(unsigned char **sec, double plat, double plon) {
     x *= inv_rx;
     y *= inv_ry;
 
-// fprintf(stderr,"origin center values X %lf Y %lf nnx %d nny %d\n", x, y, nnx, nny);
+// fprintf(stderr,"origin center values X %lf Y %lf nnx %u nny %u\n", x, y, nnx, nny);
     x += xp;
     y += yp;
 
@@ -201,7 +201,7 @@ int space_view_closest(unsigned char **sec, double plat, double plon) {
 
     ix = floor(x + 0.5);
     iy = floor(y + 0.5);
-    if (ix < 0 || ix >= nnx || iy < 0 || iy > nny) {
+    if (ix < 0 || ix >= nnx || iy < 0 || iy >= nny) {
 	return -1;
     }
     return (ix + iy*nnx);

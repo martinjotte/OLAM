@@ -9,6 +9,9 @@
 
 /*
  * use this routine to update sec4/pdt
+ * NOTE: this routine assumes that nobody
+ * will use the old sec4
+ * NOT thread safe, can only be used for one **sec
  *
  * 10/2013 Public Domain by Wesley Ebisuzaki
  */
@@ -26,3 +29,4 @@ int update_sec4(unsigned char **sec, unsigned char *sec4) {
     sec[4] = &(new_sec4[0]);
     return 0;
 }
+

@@ -1,37 +1,4 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
-
-! The subroutines in this file copy real quantities to real*4 quantities 
+! The subroutines in this file copy real quantities to real*4 quantities
 ! and call NCAR Graphics subroutines with the latter.
 
 subroutine o_opngks()
@@ -194,6 +161,13 @@ end subroutine o_gsfais
 
 !===============================================================================
 
+subroutine o_gslwsc(x)
+  implicit none
+  real, intent(in) :: x
+end subroutine o_gslwsc
+
+!===============================================================================
+
 subroutine o_sfseti(a,i)
   implicit none
   integer,      intent(in) :: i
@@ -211,6 +185,20 @@ end subroutine o_sflush
 subroutine o_mapint()
   implicit none
 end subroutine o_mapint
+
+!===============================================================================
+
+subroutine o_mapgrd()
+  implicit none
+end subroutine o_mapgrd
+
+!===============================================================================
+
+subroutine o_mapstr(a,r)
+  implicit none
+  character(*), intent(in) :: a
+  real,         intent(in) :: r
+end subroutine o_mapstr
 
 !===============================================================================
 
@@ -235,6 +223,14 @@ end subroutine o_maplot
 
 !===============================================================================
 
+subroutine o_mplndr(a,i)
+  implicit none
+  character(*), intent(in) :: a
+  integer,      intent(in) :: i
+end subroutine o_mplndr
+
+!===============================================================================
+
 subroutine o_pcsetr(a,r)
   implicit none
   character(*), intent(in) :: a
@@ -248,6 +244,15 @@ subroutine o_pcseti(a,i)
   character(*), intent(in) :: a
   integer,      intent(in) :: i
 end subroutine o_pcseti
+
+!===============================================================================
+
+subroutine o_gngpat(a,b,i)
+  implicit none
+  character(*), intent( in) :: a, b
+  integer,      intent(out) :: i
+  i = 0
+end subroutine o_gngpat
 
 !===============================================================================
 

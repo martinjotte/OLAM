@@ -19,7 +19,7 @@
 
 module cgrid_conv
 
-  use const_data
+  use const_data, only: mwair, avo, mwairkg, inv_mwairkg
 
   implicit none
 
@@ -35,15 +35,14 @@ module cgrid_conv
   real,    allocatable, save :: molwt ( : ) ! only for "QAE" species
   real,    allocatable, save :: molwti( : ) ! only for "QAE" species
 
-  real, parameter :: gpkg = 1.0e+03        ! g/kg
-  real, parameter :: maogpkg = mwair / gpkg
-  real, parameter :: gpkgoma = 1.0 / maogpkg
   real, parameter :: maoavo1000 = 1.0e+03 * mwair / avo
   real, parameter :: avooma_001 = 1.0 / maoavo1000
 
   public :: conv_cgrid, rev_cgrid, conv_cgrid_iw, rev_cgrid_iw, rev_cgrid_sfc_iw
+  public :: rev_cgrid_one
+
   private
-      
+
 
 contains
 
@@ -51,7 +50,7 @@ contains
   subroutine setup_conv()
 
     use cgrid_spcs
-    use utilio_defn 
+    use utilio_defn
 
     implicit none
 
@@ -102,7 +101,7 @@ contains
   end subroutine setup_conv
 
 
-  subroutine conv_cgrid ( mrl )
+  subroutine conv_cgrid ( )
 
     !-----------------------------------------------------------------------
     ! Function:
@@ -122,25 +121,20 @@ contains
 
     implicit none
 
-    integer, intent(in) :: mrl
-
     integer :: iw, k, n, v, j
     real    :: fac
     real    :: rhoi(mza)
 
     if ( firstime ) then
-       !$omp barrier
-       !$omp single
        firstime = .false.
        call setup_conv()
-       !$omp end single
     endif
 
     ! Gas and non-reactive - no conversions necessary (always ppmV)
 
     !$omp parallel private(rhoi)
-    !$omp do private(j,iw,k,v,n,fac)
-    do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+    !$omp do private(iw,k,v,n,fac)
+    do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
        do k = lpw(iw), mza
           rhoi(k) = 1.0 / real(rho(k,iw))
@@ -153,7 +147,7 @@ contains
        if ( nqae .gt. 0 ) then
           do v = 1, nqae
              n = qae( v )
-             fac = maogpkg * molwti(v)
+             fac = mwairkg * molwti(v)
              do k = lpw(iw), mza
                 cgrid(k,iw,n) = cgrid(k,iw,n) * fac * rhoi(k)
              enddo
@@ -179,11 +173,11 @@ contains
           do v = 1, nsae
              n = sae( v )
              do k = lpw(iw), mza
-                cgrid(k,iw,n) = cgrid(k,iw,n) * MAOGPKG * rhoi(k)
+                cgrid(k,iw,n) = cgrid(k,iw,n) * MWAIRKG * rhoi(k)
              enddo
           enddo
        endif
-      
+
     enddo
     !$omp end do
     !$omp end parallel
@@ -191,7 +185,7 @@ contains
   end subroutine conv_cgrid
 
 
-  subroutine rev_cgrid ( mrl )
+  subroutine rev_cgrid ( )
 
     !-----------------------------------------------------------------------
     ! Function:
@@ -211,24 +205,20 @@ contains
 
     implicit none
 
-    integer, intent(in) :: mrl
-
     integer :: iw, k, n, v, j
     real    :: fac
     real    :: rho4(mza)
 
     if ( firstime ) then
-       !$omp barrier
-       !$omp single
        firstime = .false.
        call setup_conv()
-       !$omp end single
     endif
 
     ! Gas and non-reactive - no conversions necessary (always ppmV)
 
-    !$omp parallel do private(j,iw,v,n,fac,k)
-    do j = 1, jtab_w(jtw_prog)%jend(mrl); iw = jtab_w(jtw_prog)%iw(j)
+    !$omp parallel private(rho4)
+    !$omp do private(iw,k,v,n,fac)
+    do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
        do k = lpw(iw), mza
           rho4(k) = rho(k,iw)
@@ -241,13 +231,13 @@ contains
        if ( nqae .gt. 0 ) then
           do v = 1, nqae
              n = qae( v )
-             fac = gpkgoma * molwt( v )
+             fac = inv_mwairkg * molwt( v )
              do k = lpw(iw), mza
                 cgrid(k,iw,n) = cgrid(k,iw,n) * fac * rho4(k)
              enddo
           enddo
        endif
-     
+
        ! aerosol ppmv -> number/m**3
        ! (Don't multiply by MGPG, etc. See note above)
 
@@ -267,13 +257,14 @@ contains
           do v = 1, nsae
              n = sae( v )
              do k = lpw(iw), mza
-                cgrid(k,iw,n) = cgrid(k,iw,n) * GPKGOMA * rho4(k)
+                cgrid(k,iw,n) = cgrid(k,iw,n) * INV_MWAIRKG * rho4(k)
              enddo
           enddo
        endif
 
     enddo
-    !$omp end parallel do
+    !$omp end do
+    !$omp end parallel
 
   end subroutine rev_cgrid
 
@@ -334,13 +325,13 @@ contains
     if ( nqae .gt. 0 ) then
        do v = 1, nqae
           n = qae( v )
-          fac = maogpkg * molwti(v)
+          fac = mwairkg * molwti(v)
           do k = lpw(iw), mza
              cngrd(k,n) = cgrid(k,iw,n) * fac * rhoi(k)
           enddo
        enddo
     endif
-     
+
     ! number/m**3 aerosol -> ppmv
     ! (Don't divide by MGPG, etc. See note above)
 
@@ -360,7 +351,7 @@ contains
        do v = 1, nsae
           n = sae( v )
           do k = lpw(iw), mza
-             cngrd(k,n) = cgrid(k,iw,n) * MAOGPKG * rhoi(k)
+             cngrd(k,n) = cgrid(k,iw,n) * MWAIRKG * rhoi(k)
           enddo
        enddo
     endif
@@ -430,13 +421,13 @@ contains
     if ( nqae .gt. 0 ) then
        do v = 1, nqae
           n = qae( v )
-          fac = gpkgoma * molwt( v )
+          fac = inv_mwairkg * molwt( v )
           do k = lpw(iw), mza
              cngrd(k,n) = cgrid(k,iw,n) * fac * real(rho(k,iw))
           enddo
        enddo
     endif
-     
+
     ! aerosol ppmv -> number/m**3
     ! (Don't multiply by MGPG, etc. See note above)
 
@@ -456,7 +447,7 @@ contains
        do v = 1, nsae
           n = sae( v )
           do k = lpw(iw), mza
-             cngrd(k,n) = cgrid(k,iw,n) * GPKGOMA * real(rho(k,iw))
+             cngrd(k,n) = cgrid(k,iw,n) * INV_MWAIRKG * real(rho(k,iw))
           enddo
        enddo
     endif
@@ -533,7 +524,7 @@ contains
     if ( nqae .gt. 0 ) then
        do v = 1, nqae
           n = qae( v )
-          fac = gpkgoma * molwt(v)
+          fac = inv_mwairkg * molwt(v)
           do ks = 1, lsw(iw)
              k  = ks + lpw(iw) - 1
              cngrd(ks,n) = cgrid(k,iw,n) * fac * rho4(ks)
@@ -562,11 +553,11 @@ contains
           n = sae( v )
           do ks = 1, lsw(iw)
              k  = ks + lpw(iw) - 1
-             cngrd(ks,n) = cgrid(k,iw,n) * GPKGOMA * rho4(ks)
+             cngrd(ks,n) = cgrid(k,iw,n) * INV_MWAIRKG * rho4(ks)
           enddo
        enddo
     endif
-      
+
     ! Non-reactives - no conversion
 
     if ( n_nr_spc .gt. 0 ) then
@@ -580,6 +571,59 @@ contains
     endif
 
   end subroutine rev_cgrid_sfc_iw
+
+
+  subroutine rev_cgrid_one( cngrd, dens )
+
+    !-----------------------------------------------------------------------
+    ! Function:
+    !   Revert non-molar mixing ratio aerosol species back to densities
+    !
+    ! Revision History:
+    !   Written by: J.Young 21 Aug 03
+    !   J.Young 31 Jan 05: dyn alloc - establish both horizontal & vertical
+    !                      domain specifications in one module
+    !   16 Feb 11 S.Roselle: replaced I/O API include files with UTILIO_DEFN
+    !-----------------------------------------------------------------------
+
+    use cgrid_spcs, only: nspcsd, ae_molwt
+    use aero_data,  only: aer_str, aer_end, num_str, num_end, srf_str, srf_end
+
+    implicit none
+
+    real, intent(in   ) :: dens
+    real, intent(inout) :: cngrd(nspcsd)
+
+    integer :: n, v
+    real    :: fac1, fac2
+
+    fac1 = dens * inv_mwairkg
+    fac2 = dens * avooma_001
+
+    ! aerosol ppmv -> micro-grams/m**3
+    ! (Don't multiply by MGPG, then divide by 1.0E+6: 1/MGPG = 10**-6 cancels out
+    ! ppm = 10**6)
+
+    do n = aer_str, aer_end
+       v = n - aer_str + 1
+       cngrd(n) = cngrd(n) * ae_molwt(v) * fac1
+    enddo
+
+    ! aerosol ppmv -> number/m**3
+    ! (Don't multiply by MGPG, etc. See note above)
+
+    do n = num_str, num_end
+       cngrd(n) = cngrd(n) * fac2
+    enddo
+
+    ! aerosol surface area
+    ! m**2/mol air -> m**2/m**3
+
+    do n = srf_str, srf_end
+       cngrd(n) = cngrd(n) * fac1
+    enddo
+
+  end subroutine rev_cgrid_one
 
 
 end module cgrid_conv

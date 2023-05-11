@@ -31,6 +31,8 @@ contains
                           n_gc_depv, n_ae_depv, n_nr_depv, &
                           nspcsd
     use misc_coms,  only: rinit
+    use oname_coms, only: nl
+
     implicit none
 
     integer, intent(in) :: mza, mwa
@@ -49,23 +51,27 @@ contains
     allocate( nr_tend( mza, mwa, n_nr_trns) )
     nr_tend = rinit
 
-    allocate( vdemis_gc( mza, mwa, n_gc_emis) )
-    vdemis_gc = rinit
+    if (nl%do_emis /= 0) then
+       allocate( vdemis_gc( mza, mwa, n_gc_emis) )
+       vdemis_gc = rinit
 
-    allocate( vdemis_ae( mza, mwa, n_ae_emis) )
-    vdemis_ae = rinit
+       allocate( vdemis_ae( mza, mwa, n_ae_emis) )
+       vdemis_ae = rinit
 
-    allocate( vdemis_nr( mza, mwa, n_nr_emis) )
-    vdemis_nr = rinit
+       allocate( vdemis_nr( mza, mwa, n_nr_emis) )
+       vdemis_nr = rinit
+    endif
 
-    allocate( sxfer_gc( nsw_max, mwa, n_gc_depv ) )
-    sxfer_gc = rinit
+    if (nl%do_drydep /= 0) then
+       allocate( sxfer_gc( nsw_max, mwa, n_gc_depv ) )
+       sxfer_gc = 0.0
 
-    allocate( sxfer_ae( nsw_max, mwa, n_ae_depv ) )
-    sxfer_ae = rinit
+       allocate( sxfer_ae( nsw_max, mwa, n_ae_depv ) )
+       sxfer_ae = 0.0
 
-    allocate( sxfer_nr( nsw_max, mwa, n_nr_depv ) )
-    sxfer_nr = rinit
+       allocate( sxfer_nr( nsw_max, mwa, n_nr_depv ) )
+       sxfer_nr = 0.0
+    endif
 
     allocate(cgrid_names(nspcsd))
     cgrid_names = ''
@@ -130,11 +136,11 @@ contains
 
     do n = 1, n_nr_spc
        ns = nr_strt - 1 + n
-       
+
        cgrid_names(ns) = nr_spc(n)
 
        if (any( n == nr_trns_map(1:n_nr_trns) )) then
-          
+
           ! transported species need to be communicated and saved
           call increment_vtable( nr_spc(n), 'AW', rvar2=cgrid(:,:,ns), mpt1=.true.)
 
@@ -148,11 +154,13 @@ contains
 
   end subroutine filltab_cgrid
 
-  
+
   subroutine cgrid_scalar_tabs()
-    
+
     use cgrid_spcs
     use var_tables, only: vtables_scalar, scalar_tab, num_scalar
+    use oname_coms, only: nl
+
     implicit none
 
     integer           :: n, nc, indxe, indxd, ng, nr, na
@@ -164,32 +172,37 @@ contains
        ng = gc_trns_map(n)
        nc = gc_strt - 1 + ng
 
-       indxe = findex( ng, n_gc_emis, gc_emis_map )
-       indxd = findex( ng, n_gc_depv, gc_depv_map )
+       if (nl%do_emis /= 0) then
+          indxe = findex( ng, n_gc_emis, gc_emis_map )
+       else
+          indxe = 0
+       endif
+
+       if (nl%do_drydep /= 0) then
+          indxd = findex( ng, n_gc_depv, gc_depv_map )
+       else
+          indxd = 0
+       endif
 
        if (indxe > 0 .and. indxd > 0) then
 
           call vtables_scalar( cgrid(:,:,nc), gc_tend(:,:,n), gc_trns(n), &
                                emis   = vdemis_gc(:,:,indxe),             &
-                               sxfer  = sxfer_gc(:,:,indxd),              &
-                               cu_mix = .true. )
+                               sxfer  = sxfer_gc(:,:,indxd)               )
 
        elseif (indxe > 0) then
 
           call vtables_scalar( cgrid(:,:,nc), gc_tend(:,:,n), gc_trns(n), &
-                               emis   = vdemis_gc(:,:,indxe),             &
-                               cu_mix = .true. )
+                               emis   = vdemis_gc(:,:,indxe)              )
 
        elseif (indxd > 0) then
 
           call vtables_scalar( cgrid(:,:,nc), gc_tend(:,:,n), gc_trns(n), &
-                               sxfer  = sxfer_gc(:,:,indxd),              &
-                               cu_mix = .true. )
+                               sxfer  = sxfer_gc(:,:,indxd)               )
 
        else
 
-          call vtables_scalar( cgrid(:,:,nc), gc_tend(:,:,n), gc_trns(n), &
-                               cu_mix = .true. )
+          call vtables_scalar( cgrid(:,:,nc), gc_tend(:,:,n), gc_trns(n)  )
 
        endif
 
@@ -201,8 +214,17 @@ contains
        na = ae_trns_map(n)
        nc = ae_strt - 1 + na
 
-       indxe = findex( na, n_ae_emis, ae_emis_map )
-       indxd = findex( na, n_ae_depv, ae_depv_map )
+       if (nl%do_emis /= 0) then
+          indxe = findex( na, n_ae_emis, ae_emis_map )
+       else
+          indxe = 0
+       endif
+
+       if (nl%do_drydep /= 0) then
+          indxd = findex( na, n_ae_depv, ae_depv_map )
+       else
+          indxd = 0
+       endif
 
        if (indxe > 0 .and. indxd > 0) then
 
@@ -238,8 +260,17 @@ contains
        nr = nr_trns_map(n)
        nc = nr_strt - 1 + nr
 
-       indxe = findex( nr, n_nr_emis, nr_emis_map )
-       indxd = findex( nr, n_nr_depv, nr_depv_map )
+       if (nl%do_emis /= 0) then
+          indxe = findex( nr, n_nr_emis, nr_emis_map )
+       else
+          indxe = 0
+       endif
+
+       if (nl%do_drydep /= 0) then
+          indxd = findex( nr, n_nr_depv, nr_depv_map )
+       else
+          indxd = 0
+       endif
 
        if (indxe > 0 .and. indxd > 0) then
 

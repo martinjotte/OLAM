@@ -21,56 +21,75 @@
 
 int f_set_byte(ARG3) {
 
-    int i, j, k, m, val, seclen;
+    int i, j, k, m, seclen;
+    unsigned int val;
 
+    if (mode < 0) return 0;
     i = atoi(arg1);
-    if (mode < 0) {
-	if (i < 0 || i > 8) fatal_error("set_byte - bad section number %s", arg1);
-	return 0;
-    }
     j = atoi(arg2);
+    if (i < 0 || i > 8) fatal_error("set_byte: bad section number %s", arg1);
+    if (j <= 0) fatal_error("set_byte: octet number must >= 1","");
 
     if (i == 0) seclen = GB2_Sec0_size;
     else if (i == 8)  seclen = GB2_Sec8_size;
     else seclen = uint4(sec[i]);
 
-    k = sscanf(arg3, "%d%n", &val, &m);
+    k = sscanf(arg3, "%u%n", &val, &m);
     while (k == 1) {
 	if (j > seclen) fatal_error("set_byte out of bounds section %s",arg1);
 	sec[i][j++ -1] = val;
 	arg3 += m;
-        k = sscanf(arg3, ":%d%n", &val, &m);
+        k = sscanf(arg3, ":%u%n", &val, &m);
     }
     return 0;
 }
 
 /*
- * HEADER:100:set_hex:misc:3:set bytes in Section X, Octet Y, bytes Z (a|a:b:c) in hexadecimal
+ * HEADER:100:set_hex:misc:3:set bytes in Section X, Octet Y, bytes Z (a|a:b:c|abc) in hexadecimal
  */
 
 int f_set_hex(ARG3) {
 
-    int i, j, k, m, val, seclen;
+    int i, j, k, m, seclen, has_colon;
+    unsigned int val;
+    const char *str;
 
-    i = atoi(arg1);
-    if (mode < 0) {
-        if (i < 0 || i > 8) fatal_error("set_byte - bad section number %s", arg1);
-        return 0;
-    }
-
+    if (mode < 0) return 0;
     i = atoi(arg1);
     j = atoi(arg2);
+    if (i < 0 || i > 8) fatal_error("set_byte: bad section number %s", arg1);
+    if (j <= 0) fatal_error("set_hex: octet number must >= 1","");
 
     if (i == 0) seclen = GB2_Sec0_size;
     else if (i == 8)  seclen = GB2_Sec8_size;
     else seclen = uint4(sec[i]);
 
-    k = sscanf(arg3, "%x%n", &val, &m);
-    while (k == 1) {
-        if (j > seclen) fatal_error("set_byte out of bounds section %s",arg1);
-        sec[i][j++ -1] = val;
-        arg3 += m;
-        k = sscanf(arg3, ":%x%n", &val, &m);
+    /* see if there is a colon */
+    str = arg3;
+    has_colon = 0;
+    while (*str) {
+	if (*str++ == ':') {
+	    has_colon = 1;
+	    break;
+	}
+    }
+    if (has_colon) {
+        k = sscanf(arg3, "%x%n", &val, &m);
+        while (k == 1) {
+            if (j > seclen) fatal_error("set_byte out of bounds section %s",arg1);
+            sec[i][j++ -1] = val;
+            arg3 += m;
+            k = sscanf(arg3, ":%x%n", &val, &m);
+        }
+    }
+    else {
+        k = sscanf(arg3, "%2x%n", &val, &m);
+	while (k == 1) {
+            if (j > seclen) fatal_error("set_byte out of bounds section %s",arg1);
+            sec[i][j++ -1] = val;
+            arg3 += m;
+            k = sscanf(arg3, "%2x%n", &val, &m);
+        }
     }
     return 0;
 }
@@ -84,12 +103,11 @@ int f_set_int(ARG3) {
 
     int i, j, k, m, val, seclen;
 
+    if (mode < 0) return 0;
     i = atoi(arg1);
-    if (mode < 0) {
-        if (i < 0 || i > 8) fatal_error("set_int - bad section number %s", arg1);
-        return 0;
-    }
     j = atoi(arg2);
+    if (i < 0 || i > 8) fatal_error("set_int: bad section number %s", arg1);
+    if (j <= 0) fatal_error("set_hex: octet number must >= 1","");
 
     if (i == 0) seclen = GB2_Sec0_size;
     else if (i == 8)  seclen = GB2_Sec8_size;
@@ -114,12 +132,11 @@ int f_set_int2(ARG3) {
 
     int i, j, k, m, val, seclen;
 
+    if (mode < 0) return 0;
     i = atoi(arg1);
-    if (mode < 0) {
-        if (i < 0 || i > 8) fatal_error("set_int2 - bad section number %s", arg1);
-        return 0;
-    }
     j = atoi(arg2);
+    if (i < 0 || i > 8) fatal_error("set_int2: bad section number %s", arg1);
+    if (j <= 0) fatal_error("set_int2: octet number must >= 1","");
 
     if (i == 0) seclen = GB2_Sec0_size;
     else if (i == 8)  seclen = GB2_Sec8_size;
@@ -145,12 +162,11 @@ int f_set_ieee(ARG3) {
     int i, j, k, m, seclen;
     float val;
 
+    if (mode < 0) return 0;
     i = atoi(arg1);
-    if (mode < 0) {
-        if (i < 0 || i > 8) fatal_error("set_ieee - bad section number %s", arg1);
-        return 0;
-    }
     j = atoi(arg2);
+    if (i < 0 || i > 8) fatal_error("set_ieee - bad section number %s", arg1);
+    if (j <= 0) fatal_error("set_ieee: octet number must >= 1","");
 
     if (i == 0) seclen = GB2_Sec0_size;
     else if (i == 8)  seclen = GB2_Sec8_size;
@@ -187,13 +203,12 @@ int f_get_byte(ARG3) {
     int i, j, k, m, seclen;
     double tot;
 
+    if (mode < 0) return 0;
     i = atoi(arg1);
-    if (mode < 0) {
-        if (i < 0 || i > 8) fatal_error("get_byte - bad section number %s", arg1);
-        return 0;
-    }
-
     j = atoi(arg2);
+    if (i < 0 || i > 8) fatal_error("get_byte: bad section number %s", arg1);
+    if (j <= 0) fatal_error("get_byte: octet number must >= 1","");
+
     k = atoi(arg3);
 
     if (i == 0) seclen = GB2_Sec0_size;
@@ -231,14 +246,12 @@ int f_get_hex(ARG3) {
     int i, j, k, m, seclen;
     double tot;
 
-    i = atoi(arg1);
-    if (mode < 0) {
-        if (i < 0 || i > 8) fatal_error("get_hex - bad section number %s", arg1);
-        return 0;
-    }
-
+    if (mode < 0) return 0;
     i = atoi(arg1);
     j = atoi(arg2);
+    if (i < 0 || i > 8) fatal_error("get_hex: bad section number %s", arg1);
+    if (j <= 0) fatal_error("get_hex: octet number must >= 1","");
+
     k = atoi(arg3);
 
     if (i == 0) seclen = GB2_Sec0_size;
@@ -271,12 +284,11 @@ int f_get_int(ARG3) {
     int i, j, k, m, seclen, len;
     double tot;
 
+    if (mode < 0) return 0;
     i = atoi(arg1);
-    if (mode < 0) {
-        if (i < 0 || i > 8) fatal_error("get_int - bad section number %s", arg1);
-        return 0;
-    }
     j = atoi(arg2);
+    if (i < 0 || i > 8) fatal_error("get_int: bad section number %s", arg1);
+    if (j <= 0) fatal_error("get_int: octet number must >= 1","");
     k = atoi(arg3);
 
     if (i == 0) seclen = GB2_Sec0_size;
@@ -308,12 +320,11 @@ int f_get_int2(ARG3) {
     int i, j, k, m, seclen, len;
     double tot;
 
+    if (mode < 0) return 0;
     i = atoi(arg1);
-    if (mode < 0) {
-        if (i < 0 || i > 8) fatal_error("get_int2 - bad section number %s", arg1);
-        return 0;
-    }
     j = atoi(arg2);
+    if (i < 0 || i > 8) fatal_error("get_int2: bad section number %s", arg1);
+    if (j <= 0) fatal_error("get_int2: octet number must >= 1","");
     k = atoi(arg3);
 
     if (i == 0) seclen = GB2_Sec0_size;
@@ -345,12 +356,11 @@ int f_get_ieee(ARG3) {
     int i, j, k, m, seclen, len;
     double tot;
 
+    if (mode < 0) return 0;
     i = atoi(arg1);
-    if (mode < 0) {
-        if (i < 0 || i > 8) fatal_error("get_ieee - bad section number %s", arg1);
-        return 0;
-    }
     j = atoi(arg2);
+    if (i < 0 || i > 8) fatal_error("get_ieee - bad section number %s", arg1);
+    if (j <= 0) fatal_error("get_ieee: octet number must >= 1","");
     k = atoi(arg3);
 
     if (i == 0) seclen = GB2_Sec0_size;
@@ -373,4 +383,3 @@ int f_get_ieee(ARG3) {
     }
     return 0;
 }
-

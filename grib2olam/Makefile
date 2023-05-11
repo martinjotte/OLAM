@@ -10,7 +10,7 @@ include ./include.mk
 F_COMMAND = $(F_COMP) -c $(F_OPTS) $(FORT_INCS)
 C_COMMAND = $(C_COMP) -c $(C_OPTS) $(DEFINES)
 
-WGRIB2_FLAGS  = $(C_OPTS) $(PNG_INCS) $(JASPER_INCS) -DUSE_PNG -DUSE_JPEG2000 -DUSE_JASPER
+WGRIB2_FLAGS  = $(C_OPTS) $(PNG_INCS) $(JASPER_INCS) -DUSE_PNG -DUSE_JASPER
 WGRIB2_LDFLGS = $(C_OPTS) $(JASPER_LIBS) $(PNG_LIBS)
 #
 #     Define run archive and executable file names.
@@ -47,7 +47,7 @@ all:  $(EXE) wgrib wgrib2
 
 $(EXE): $(OBJS)
 	@echo ""
-	$(LOADER) -o $(EXE) $(OBJS)
+	$(LOADER) -o $(EXE) $(OBJS) $(LOADER_OPTS)
 	@echo ""
 	@echo Finished building === $(EXE)
 	@echo ""
@@ -74,8 +74,8 @@ clean:
 
 # Dependencies
 
-grib2olam.o: grib_get.o hdf5_utils.o
+grib2olam.o: grib_get.o bit_shave.o hdf5_utils.o
 
 hdf5_utils.o: hdf5_f2f.o
 
-grib_get.o: gaussian.o
+grib_get.o: gaussian.o tokenize.o

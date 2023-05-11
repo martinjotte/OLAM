@@ -10,7 +10,7 @@
  * Set_percentile.c
  *
  * converts PDT 0..6 -> 6    8..15 -> 10
- *   
+ *
  *
  * 2/2015: Public Domain: Wesley Ebisuzaki
  *
@@ -22,7 +22,7 @@
 
 int f_set_percentile(ARG1) {
 
-    int i,pdt, percent;
+    int pdt, percent;
     unsigned char *p;
 
     if (mode < 0) return 0;

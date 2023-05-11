@@ -9,19 +9,15 @@
 
 #ifdef USE_JASPER
 
-#include "grib2.h"
 #include <jasper/jasper.h>
-
-int enc_jpeg2000(unsigned char *cin, g2int width,g2int height,g2int nbits, g2int ltype, 
-   g2int ratio, g2int retry, char *outjpc, g2int jpclen);
-
 
 /*
  *  writes out jpeg2000 compressed grib message
  */
 
-int jpeg2000_grib_out(unsigned char **sec, float *data, unsigned int ndata, 
-  int nx, int ny, int use_scale, int dec_scale, int bin_scale, int wanted_bits, int max_bits, FILE *out) {
+int jpeg2000_grib_out(unsigned char **sec, float *data, unsigned int ndata,
+  int nx, int ny, int use_scale, int dec_scale, int bin_scale, int wanted_bits,
+  int max_bits, struct seq_file *out) {
 
     unsigned int n_defined, j;
     int iy, ix, jpclen;
@@ -54,10 +50,13 @@ int jpeg2000_grib_out(unsigned char **sec, float *data, unsigned int ndata,
  	iy = 1;
     }
 
-    for (max_val = min_val = data[0], j = 1; j < n_defined; j++) {
-        if (min_val > data[j]) min_val = data[j];
-        if (max_val < data[j]) max_val = data[j];
+    if (n_defined != 0) {
+	min_max_array_all_defined(data, n_defined, &min_val,  &max_val);
     }
+    else {
+	min_val = max_val = 0.0;
+    }
+
     ncep_min_val = min_val;
 
     if (use_scale == 0) {
@@ -91,8 +90,9 @@ int jpeg2000_grib_out(unsigned char **sec, float *data, unsigned int ndata,
 	}
 	ref = min_val;
         scale = ldexp(1.0, -bin_scale);
-        i = (int) ( (max_val - ref)*scale + 0.5);
-	frange = (double) i;
+//      i = (int) ( (max_val - ref)*scale + 0.5);
+//	frange = (double) i;
+        frange  = floor( (max_val - ref)*scale + 0.5);
         frexp(frange, &nbits);
 
         if (nbits > max_bits) {
@@ -119,9 +119,9 @@ int jpeg2000_grib_out(unsigned char **sec, float *data, unsigned int ndata,
 
         /* Pack integers into bytes */
 
-        cdata = (unsigned char *) malloc(n_defined * nbytes);
+        cdata = (unsigned char *) malloc(nbytes * (size_t) n_defined);
         if (cdata == NULL) fatal_error("memory alloc jpeg encoding","");
-        p = cdata; 
+        p = cdata;
         if (nbytes == 1) {
             for (j = 0; j < n_defined; j++) {
     	        i = (int) floor(data[j]+0.5);
@@ -155,12 +155,12 @@ int jpeg2000_grib_out(unsigned char **sec, float *data, unsigned int ndata,
         jpclen = 4*n_defined+200;
         outjpc = (char *) malloc(jpclen);
 
-        i = enc_jpeg2000(cdata,ix,iy,nbits,ltype,ratio,retry,outjpc,jpclen);
+        i = enc_jpeg2000_clone(cdata,ix,iy,nbits,ltype,ratio,retry,outjpc,jpclen);
 
         // we try to catch following error: "error: too few guard bits (need at least x)"
         if (i == -3) {
             retry = 1;
-            i = enc_jpeg2000(cdata,ix,iy,nbits,ltype,ratio,retry,outjpc,jpclen);
+            i = enc_jpeg2000_clone(cdata,ix,iy,nbits,ltype,ratio,retry,outjpc,jpclen);
         }
 
 	free(cdata);
@@ -193,13 +193,12 @@ int jpeg2000_grib_out(unsigned char **sec, float *data, unsigned int ndata,
     sec5[20] = 0;			// 0 - float 1=int
     sec5[21] = 0;			//code 5.40 -lossless
     sec5[22] = 255;			// undefined
-    
+
     sec7 = (unsigned char *) malloc(i+5);
     if (sec7 == NULL) fatal_error("grib_out jpeg memory allocation sec7","");
     uint_char(i+5, sec7);
     sec7[4] = 7;                        // section 7
-    for (k = 0; k < i; k++)
-	sec7[5+k] = outjpc[k];
+    for (k = 0; k < i; k++) sec7[5+k] = outjpc[k];
 
     i = wrt_sec(sec0, sec1, sec2, sec3, sec4, sec5, sec6, sec7, out);
 
@@ -209,15 +208,6 @@ int jpeg2000_grib_out(unsigned char **sec, float *data, unsigned int ndata,
     free(sec7);
 
     return i;
-}
-
-
-#else
-
-int jpeg2000_grib_out(unsigned char **sec, float *data, unsigned int ndata, 
-  int nx, int ny, int use_scale, int dec_scale, int bin_scale, int wanted_bits, int max_bits, FILE *out) {
-	fatal_error("grib_out jpeg2000 write: Jasper library not installed","");
-         return 0;
 }
 
 #endif

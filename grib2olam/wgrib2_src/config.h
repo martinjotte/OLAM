@@ -1,18 +1,7 @@
 /* config.h */
 #define USE_REGEX
 #define USE_TIGGE
-#define USE_G2CLIB
-/* #define USE_PROJ4 */
-/* #define USE_JASPER */
-/* #define DISABLE_TIMEZONE */
-/* #define USE_NETCDF3 */
-/* #define USE_NETCDF4 */
-/* #define USE_MYSQL */
-/* #define USE_IPOLATES */
-/* #define USE_UDF */
-/* #define USE_OPENMP */
-/* #define CC "gcc" */
-/* #define FORTRAN "gfortran" */
-/* #define BUILD_COMMENTS "stock build" */
-/* #define USE_PNG */
-/* #define WMO_VALIDATION */
+#define USE_IPOLATES 0
+#define BUILD_COMMENTS "Compiled for grib2olam"
+#define CC ""
+#define CPPFLAGS ""

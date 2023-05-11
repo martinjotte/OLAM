@@ -20,7 +20,7 @@
  * To handle the current and future extentions
  *
  *  Part A:  -f_misc
- *           inventory to print out the extensions  
+ *           inventory to print out the extensions
  *           format :A=value:B=value:C=value:
  *  Part B   getExtName
  *           like getName but returns extended name
@@ -28,6 +28,7 @@
  * public domain 10/2010: Wesley Ebisuzaki
  */
 
+extern struct codetable_4_230  codetable_4_230_table[];
 
 /*
  * HEADER:100:misc:inv:0:variable name qualifiers like chemical, ensemble, probability, etc
@@ -36,7 +37,7 @@ int f_misc(ARG0) {
 
     const char *string;
     int need_space = 0;
-    int pdt, val;
+    int pdt, val, j;
     static int error_count = 0;
 
     if (mode < 0) return 0;
@@ -48,30 +49,49 @@ int f_misc(ARG0) {
     if (strlen(inv_out)) {
 	if (need_space) strcat(inv_out,":");
 	need_space = 1;
+        inv_out += strlen(inv_out);
     }
-    inv_out += strlen(inv_out);
 
     f_prob(call_ARG0(inv_out,NULL));
     if (strlen(inv_out)) {
 	if (need_space) strcat(inv_out,":");
 	need_space = 1;
+        inv_out += strlen(inv_out);
     }
-    inv_out += strlen(inv_out);
 
-    
     f_spatial_proc(call_ARG0(inv_out,NULL));
     if (strlen(inv_out)) {
 	if (need_space) strcat(inv_out,":");
 	need_space = 1;
+        inv_out += strlen(inv_out);
     }
-    inv_out += strlen(inv_out);
 
     f_wave_partition(call_ARG0(inv_out,NULL) );
     if (strlen(inv_out)) {
 	if (need_space) strcat(inv_out,":");
 	need_space = 1;
+        inv_out += strlen(inv_out);
     }
     inv_out += strlen(inv_out);
+
+    f_post_processing(call_ARG0(inv_out,NULL) );
+    if (strlen(inv_out)) {
+	if (need_space) strcat(inv_out,":");
+	need_space = 1;
+        inv_out += strlen(inv_out);
+    }
+    inv_out += strlen(inv_out);
+
+    f_JMA(call_ARG0(inv_out,NULL) );
+    if (strlen(inv_out)) {
+	if (need_space) strcat(inv_out,":");
+	need_space = 1;
+        inv_out += strlen(inv_out);
+    }
+
+
+    /* end of f_XXX(call_ARG0(inv_out,NULL) ); */
+
 
     val = code_table_4_3(sec);
     if (val == 5) {
@@ -93,7 +113,17 @@ int f_misc(ARG0) {
 	strcat(inv_out,"Confidence Indicator");
 	need_space = 1;
     }
-
+    else if (GB2_Center(sec) == 7 && val == 194) {
+	if (need_space) strcat(inv_out,":");
+	strcat(inv_out,"Neighborhood Probability");
+	need_space = 1;
+    }
+    else if (val >= 192 && val != 255) {
+	if (need_space) strcat(inv_out,":");
+	inv_out += strlen(inv_out);
+	sprintf(inv_out,"process=%d", val);
+	need_space = 1;
+    }
 
     if (pdt == 7) {
 	if (need_space) strcat(inv_out,":");
@@ -102,10 +132,17 @@ int f_misc(ARG0) {
     }
     else if (pdt == 6 || pdt == 10) {
 	if (need_space) strcat(inv_out,":");
+	inv_out += strlen(inv_out);
         f_percent(call_ARG0(inv_out,NULL) );
 	strcat(inv_out," level");
 	need_space = 1;
-   }
+    }
+    else if (pdt >= 31 && pdt <= 34) {
+	if (need_space) strcat(inv_out,":");
+	inv_out += strlen(inv_out);
+        f_spectral_bands_extname(call_ARG0(inv_out,local));
+	need_space = 1;
+    }
 
    if ( (val = code_table_4_230(sec)) != -1) {
 	if (need_space) strcat(inv_out,":");
@@ -114,7 +151,7 @@ int f_misc(ARG0) {
         if (val >= 0) {
             if (GB2_MasterTable(sec) <= 4) {
                 if (error_count++ <= 10) {
-		    if (GB2_Center(sec) == ECMWF) 
+		    if (GB2_Center(sec) == ECMWF)
 			fprintf(stderr, "Warning: possible incompatible chemistry table .. table turned off.\n");
 		    else if (GB2_Center(sec) != NCEP)
 			fprintf(stderr,
@@ -122,17 +159,23 @@ int f_misc(ARG0) {
 		}
             }
 
-            string = NULL;
-            switch(val) {
-#include "CodeTable_4.230.dat"
-            }
+	    j = 0;
+	    string=NULL;
+	    while (codetable_4_230_table[j].no != 65365) {
+		if (codetable_4_230_table[j].no == val) {
+		    string = codetable_4_230_table[j].name;
+		    break;
+		}
+		j++;
+	    }
+
             if (GB2_MasterTable(sec) <= 4 && GB2_Center(sec) == ECMWF) {
                 string = NULL;
             }
             if (string != NULL)  strcat(inv_out,string);
             else {
 		inv_out += strlen(inv_out);
-		sprintf(inv_out,"chemical_%d",val);
+		sprintf(inv_out,"%d",val);
 	    }
 	}
 	need_space = 1;
@@ -156,7 +199,7 @@ int f_misc(ARG0) {
         need_space = 1;
     }
 
-    if (pdt == 44) {
+    if (pdt >= 44 && pdt <= 47) {
 	if (need_space) strcat(inv_out,":");
 	inv_out += strlen(inv_out);
         f_aerosol_size(call_ARG0(inv_out,NULL));
@@ -171,6 +214,7 @@ int f_misc(ARG0) {
         f_aerosol_wavelength(call_ARG0(inv_out,NULL));
 	need_space = 1;
     }
+
     return 0;
 }
 
@@ -201,11 +245,11 @@ int f_ext_name(ARG0) {
 }
 
 
-/* 
+/*
 
   getExtName : if (use_ext_name == 0) return old name
                else return extended name
-   
+
   get extend name - need to change some characters   ... version 2 for the format
   space -> *space
   colon -> *space
@@ -250,7 +294,10 @@ int getExtName(unsigned char **sec, int mode, char *inv_out, char *name, char *d
 int f_full_name(ARG0) {
     int i;
     if (mode >= 0) {
+        i = use_ext_name;
+        use_ext_name = 1;
         getExtName(sec, mode, NULL, inv_out, NULL, NULL,".","_");
+	use_ext_name = i;
 	inv_out += strlen(inv_out);
 	*inv_out++ = '.';
 	*inv_out = 0;

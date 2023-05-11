@@ -165,10 +165,10 @@ static int init_crctab(void)
   Note: cksum needs to be 32-bit+ unsigned integer
 */
 
-unsigned int cksum(unsigned char const *buf, unsigned long length)
+unsigned int cksum(unsigned char const *buf, size_t length)
 {
   uint32_t crc = 0;
-  unsigned long bytes = length;
+  size_t bytes = length;
 
 #ifndef STATIC_CRCTAB
   static short inited = 0;

@@ -1,102 +1,79 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 Module mem_rayf
+
+  implicit none
 
 ! Memory for Rayleigh friction layer
 
   real :: rayf_zmin
-  real :: rayf_distim
   real :: rayf_expon
+  real :: rayf_fact
 
   real :: rayfw_zmin
-  real :: rayfw_distim
-  real :: rayfw_expon  
+  real :: rayfw_expon
+  real :: rayfw_fact
 
   real :: rayfdiv_zmin
-  real :: rayfdiv_distim
-  real :: rayfdiv_expon  
+  real :: rayfdiv_expon
+  real :: rayfdiv_fact
 
-  real, allocatable :: rayf_cof(:)
-  real, allocatable :: rayf_cofw(:)
+  real :: rayfmix_zmin
+  real :: rayfmix_expon
+  real :: rayfmix_fact
+
+  real, allocatable :: rayf_cof   (:)
+  real, allocatable :: rayf_cofw  (:)
   real, allocatable :: rayf_cofdiv(:)
+  real, allocatable :: rayf_cofmix(:)
 
   real, allocatable :: vc03d(:,:)
-  real, allocatable :: dn03d(:,:)
 
   integer :: krayf_bot
   integer :: krayfw_bot
   integer :: krayfdiv_bot
+  integer :: krayfmix_bot
 
   logical :: dorayf    = .false.
   logical :: dorayfw   = .false.
   logical :: dorayfdiv = .false.
+  logical :: dorayfmix = .false.
 
 Contains
 
-  subroutine rayf_init(mva,mwa,mza)
+  subroutine rayf_init()
 
 ! Initialize Rayleigh friction vertical profile coefficients
 
-    use misc_coms,    only: initial, rinit, iparallel
-    use mem_grid,     only: lpv, zm, zt
-    use mem_ijtabs,   only: jtab_v, jtv_init, itab_v
-    use mem_basic,    only: rho, vc
-    use olam_mpi_atm, only: mpi_send_v, mpi_recv_v
+    use misc_coms,  only: dtsm, initial
+    use mem_grid,   only: mza, mva, lpv, zm, zt
+    use oname_coms, only: nl
+    use mem_basic,  only: vc
 
     implicit none
-    
-    integer, intent(in) :: mva, mwa, mza
 
-    integer :: k, j, iv, iu, iw1, iw2, mrl
-    real    :: distimi
+    integer :: k, iv
+    real    :: distimi, distim0, dti
+
+    dti = 1.0 / real(dtsm)
 
     allocate( rayf_cof   (mza) )
     allocate( rayf_cofw  (mza) )
     allocate( rayf_cofdiv(mza) )
+    allocate( rayf_cofmix(mza) )
 
-    krayf_bot    = mza
-    krayfw_bot   = mza
-    krayfdiv_bot = mza
+    rayf_cof    = 0.0
+    rayf_cofw   = 0.0
+    rayf_cofdiv = 0.0
+    rayf_cofmix = 0.0
 
-! RAYF coefficient for THIL and VMC  
+    krayf_bot    = mza + 1
+    krayfw_bot   = mza + 1
+    krayfdiv_bot = mza + 1
+    krayfmix_bot = mza + 1
 
-    rayf_cof(1:mza) = 0.
+! RAYF COEFFICIENT FOR THIL AND VMC (ONLY FOR HORIZ. HOMOG. INITIALIZATION)
 
-    if (rayf_distim > 1.e-6) then
+    if (rayf_fact > 1.e-7 .and. initial == 1) then
 
-       dorayf = .true.
-       distimi = 1. / rayf_distim
-       
        do k = 2, mza
           if (zt(k) > rayf_zmin) then
              krayf_bot = k
@@ -104,44 +81,46 @@ Contains
           endif
        enddo
 
-       do k = krayf_bot, mza
-          rayf_cof(k) = distimi   &
-               * ((zt(k) - rayf_zmin) / (zm(mza) - rayf_zmin)) ** rayf_expon
-       enddo
+       if (krayf_bot <= mza) then
 
+          dorayf  = .true.
+          distimi = rayf_fact * dti
+
+          do k = krayf_bot, mza
+             rayf_cof(k) = distimi   &
+                  * ((zt(k) - rayf_zmin) / (zm(mza) - rayf_zmin)) ** rayf_expon
+          enddo
+
+       endif
     endif
 
-! RAYF coefficient for WMC
+! RAYF coefficient for WMC damping
 
-    rayf_cofw(1:mza) = 0.
+    if (rayfw_fact > 1.e-7) then
 
-    if (rayfw_distim > 1.e-6) then
-
-       dorayfw = .true.
-       distimi = 1. / rayfw_distim
-
-       do k = 2, mza
+       do k = 2, mza-1
           if (zm(k) > rayfw_zmin) then
              krayfw_bot = k
              exit
           endif
        enddo
 
-       do k = krayfw_bot, mza-1
-          rayf_cofw(k) = distimi   &
-               * ((zm(k) - rayfw_zmin) / (zm(mza) - rayfw_zmin)) ** rayfw_expon
-       enddo
+       if (krayfw_bot < mza) then
 
+          dorayfw = .true.
+          distimi = rayfw_fact * dti
+
+          do k = krayfw_bot, mza-1
+             rayf_cofw(k) = distimi   &
+                  * ((zm(k) - rayfw_zmin) / (zm(mza) - rayfw_zmin)) ** rayfw_expon
+          enddo
+
+       endif
     endif
 
 ! RAYF coefficient for Horiz Divergence
 
-    rayf_cofdiv(1:mza) = 0.
-
-    if (rayfdiv_distim > 1.e-6) then
-
-       dorayfdiv = .true.
-       distimi = 1. / rayfdiv_distim
+    if (rayfdiv_fact > 1.e-7) then
 
        do k = 2, mza
           if (zt(k) > rayfdiv_zmin) then
@@ -150,48 +129,104 @@ Contains
           endif
        enddo
 
-       do k = krayfdiv_bot, mza
-          rayf_cofdiv(k) = distimi   &
-               * ((zt(k) - rayfdiv_zmin) / (zm(mza) - rayfdiv_zmin)) ** rayfdiv_expon
-       enddo
+       if (krayfdiv_bot <= mza) then
 
+          dorayfdiv = .true.
+          distim0   = max(nl%divh_damp_fact, 0.) * dti
+          distimi   = max(rayfdiv_fact,nl%divh_damp_fact) * dti - distim0
+
+          do k = krayfdiv_bot, mza
+             rayf_cofdiv(k) = distim0 + distimi   &
+                  * ((zt(k) - rayfdiv_zmin) / (zm(mza) - rayfdiv_zmin)) ** rayfdiv_expon
+          enddo
+
+       endif
     endif
 
-! For a horizontally or latitudinally homogeneous run, allocate the arrays
-! to store the momentum values that the model will relax towards
+! RAYF coefficient for horizontal velocity (VC) mixing
 
-    if (dorayf .and. (initial == 1 .or. initial == 3)) then
-       allocate( vc03d(mza,mva) ) ; vc03d = rinit
-       allocate( dn03d(mza,mva) ) ; dn03d = rinit
+    if (rayfmix_fact > 1.e-7) then
+
+       do k = 2, mza-1
+          if (zm(k) > rayfmix_zmin) then
+             krayfmix_bot = k
+             exit
+          endif
+       enddo
+
+       if (krayfmix_bot < mza) then
+
+          dorayfmix = .true.
+
+          do k = krayfmix_bot, mza-1
+             rayf_cofmix(k) = 0.5 * rayfmix_fact &
+                  * ((zm(k) - rayfmix_zmin) / (zm(mza) - rayfw_zmin)) ** rayfmix_expon
+          enddo
+
+       endif
     endif
 
-! For a horizontally homogeneous run, the initial momentum that the model will
-! relax towards can be saved here, after inithh() and before history_read()
-    
-    if (dorayf .and. initial == 1) then
+! For horizontally homogeneous run using Rayleigh friction, allocate and fill
+! vc03d with initial horiz velocity that the model will relax towards
 
-       do j = 1,jtab_v(jtv_init)%jend(1); iv = jtab_v(jtv_init)%iv(j)
-          iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
-          do k = lpv(iv), mza
-             dn03d(k,iv) = 0.5 * (rho(k,iw1) + rho(k,iw2))
-          enddo
-       enddo
+    if (dorayf) then
+        allocate( vc03d(mza,mva) ) ; vc03d = 0.
 
-       mrl = 1
+        do iv = 2, mva
+           do k = lpv(iv), mza
+              vc03d(k,iv) = vc(k,iv)
+           enddo
+        enddo
+     endif
 
-       if (iparallel == 1) call mpi_send_v(mrl, rvara1=dn03d)
-          
-       do iv = 2, mva
-          do k = lpv(iv), mza
-             vc03d(k,iv) = vc(k,iv)
-          enddo
-       enddo
-          
-       if (iparallel == 1) call mpi_recv_v(mrl, rvara1=dn03d)
-
-    endif ! (dorayf .and. initial)
-
-    return
   end subroutine rayf_init
+
+
+
+  subroutine rayf_mix_top_vxe( iw, vmxet, vmyet, vmzet )
+
+    use mem_basic,   only: vxe, vye, vze, rho
+    use mem_grid,    only: mza, arw0, lpw
+
+    implicit none
+
+    integer, intent(in   ) :: iw
+    real,    intent(inout) :: vmxet(mza) ! xe-mom tend scaled by volume
+    real,    intent(inout) :: vmyet(mza) ! ye-mom tend scaled by volume
+    real,    intent(inout) :: vmzet(mza) ! ze-mom tend scaled by volume
+
+    real    :: vxflux(mza)
+    real    :: vyflux(mza)
+    real    :: vzflux(mza)
+    real    :: fact
+    integer :: ka, k
+
+    ka = max(krayfmix_bot, lpw(iw))
+
+    vxflux(mza)  = 0.0
+    vxflux(ka-1) = 0.0
+
+    vyflux(mza)  = 0.0
+    vyflux(ka-1) = 0.0
+
+    vzflux(mza)  = 0.0
+    vzflux(ka-1) = 0.0
+
+    do k = ka, mza-1
+       fact = arw0(iw) * rayf_cofmix(k) * real(rho(k+1,iw) + rho(k,iw))
+
+       vxflux(k) = fact * (vxe(k,iw) - vxe(k+1,iw))
+       vyflux(k) = fact * (vye(k,iw) - vye(k+1,iw))
+       vzflux(k) = fact * (vze(k,iw) - vze(k+1,iw))
+    enddo
+
+    do k = ka, mza
+       vmxet(k) = vmxet(k) + vxflux(k-1) - vxflux(k)
+       vmyet(k) = vmyet(k) + vyflux(k-1) - vyflux(k)
+       vmzet(k) = vmzet(k) + vzflux(k-1) - vzflux(k)
+    enddo
+
+  end subroutine rayf_mix_top_vxe
+
 
 end module mem_rayf

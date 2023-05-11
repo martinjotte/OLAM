@@ -10,9 +10,9 @@ program test
   idims = 0
 
   print*,'Writing HDF5 file:',fileout
-  
+
   call shdf5_open(fileout,'W',1)
-   
+
   gdf_file_ver=3
   ndims=1 ; idims(1)=1
   call shdf5_orec(ndims,idims,'version',ivars=gdf_file_ver)

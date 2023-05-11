@@ -32,6 +32,7 @@ C----------------------------------------------------------------------
       USE CGRID_SPCS            ! CGRID mechanism species
       USE DEPVVARS
       USE UTILIO_DEFN
+      USE HLCONST_MOD, ONLY: HLCONST_SPCS_INIT, IS_EFFECT_SPC
 
       IMPLICIT NONE
 
@@ -54,8 +55,7 @@ C Local variables:
       CHARACTER( 16 ) :: VNAME            ! scratch string
 
       INTEGER LOGDEV
-      INTEGER ALLOCSTAT
-      INTEGER V, N
+      INTEGER V, N, L
       INTEGER STRT, FINI
 
 C----------------------------------------------------------------------
@@ -87,13 +87,13 @@ C Set up the DEPV pointers to calculated deposition velocities
          IF ( N .NE. 0 ) THEN
             IF ( .NOT. USE_DEPSPC( N ) ) THEN
                USE_DEPSPC( N ) = .TRUE.
-               N_USE_DEPSPC = N_USE_DEPSPC + 1
+!              N_USE_DEPSPC = N_USE_DEPSPC + 1
 #ifdef Verbose
                WRITE( LOGDEV,1005 ) V, DEPV_NAMES( V ), N, DEPSPC( N )
 #endif
-            END IF    
+            END IF
          ELSE
-            XMSG = 'Could not find ' // TRIM( DEPV_NAMES( V ) ) // 
+            XMSG = 'Could not find ' // TRIM( DEPV_NAMES( V ) ) //
      &             ' in '            // TRIM( DEPV_METHOD )     //
      &             ' surrogate table.'
 !    &             ' surrogate table. >>> Dep vel set to zero <<< '
@@ -109,7 +109,7 @@ C Sort DEPV_NAMES based on the order in DEPSPC (DEPVVARS module)
 #endif
 
       N = 0
-      DO V = 1, LTOTG            
+      DO V = 1, LTOTG
 !        IF ( .NOT. USE_DEPSPC( V ) ) CYCLE
          IF ( .NOT. USE_DEPSPC( V ) ) THEN
 #ifdef Verbose
@@ -134,13 +134,13 @@ C Locate model species' DEPVs in the unique DEPV_NAMES list
             DEPV_SUR( V ) = N
          ELSE
             XMSG = 'Could not find ' // TRIM( GC_DEPV( V ) )
-     &           // ' in DEPV table.'  
+     &           // ' in DEPV table.'
             CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
          END IF
       END DO
 
       STRT = N_GC_DEPV + 1
-      FINI = N_GC_DEPV + N_NR_DEPV 
+      FINI = N_GC_DEPV + N_NR_DEPV
       DO V = STRT, FINI
          VNAME = NR_DEPV( V - ( STRT-1 ) )
          N = INDEX1( VNAME, N_DEPV_NAMES, DEPV_NAMES )
@@ -148,7 +148,7 @@ C Locate model species' DEPVs in the unique DEPV_NAMES list
             DEPV_SUR( V ) = N
          ELSE
             XMSG = 'Could not find ' // TRIM( NR_DEPV( V ) )
-     &           // ' in DEPV table.'  
+     &           // ' in DEPV table.'
             CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
          END IF
       END DO
@@ -162,7 +162,7 @@ C Locate model species' DEPVs in the unique DEPV_NAMES list
             DEPV_SUR( V ) = N
          ELSE
             XMSG = 'Could not find ' // TRIM( TR_DEPV( V ) )
-     &           // ' in DEPV table.'  
+     &           // ' in DEPV table.'
             CALL M3EXIT( PNAME, JDATE, JTIME, XMSG, XSTAT1 )
          END IF
       END DO
@@ -183,23 +183,27 @@ C Locate model species' DEPVs in the unique DEPV_NAMES list
      &                        DEPV_NAMES( DEPV_SUR( V+STRT) )
       END DO
 
-      STRT = N_GC_DEPV + N_NR_DEPV 
+      STRT = N_GC_DEPV + N_NR_DEPV
       DO V = 1, N_TR_DEPV
          WRITE( LOGDEV,1019 ) V, TR_DEPV( V ), DEPV_SUR( V+STRT ),
      &                        DEPV_NAMES( DEPV_SUR( V+STRT) )
       END DO
 #endif
 
-      RETURN
- 
-      RETURN
+      ! SET UP HENRY'S LAW SPECIES INDICES
+
+      HLSPC = 0
+      HLEFF = .FALSE.
+
+      DO L = 1, N_SPC_M3DRY
+         IF ( USE_DEPSPC( L ) ) THEN
+            CALL HLCONST_SPCS_INIT ( SUBNAME( L ), HLSPC( L ) )
+            HLEFF( L ) = IS_EFFECT_SPC( HLSPC( L ) )
+         ENDIF
+      ENDDO
 
 1005  FORMAT( I5, 1X, A16, I3, 1X, A16 )
-
-!009  FORMAT( I5, 1X, I4, 1X, A16 )
 1009  FORMAT( I5, 1X, L3, 1X, I4, 1X, A16 )
-
 1019  FORMAT( 3( I3, 1X, A16, 1X ) )
 
       END SUBROUTINE GAS_DEPV_MAP
-

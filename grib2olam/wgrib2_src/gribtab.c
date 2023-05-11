@@ -54,6 +54,9 @@ struct gribtable_s gribtable[] = {
 #include "gribtable.dat"
 #include "misc_gribtable.dat"
 #include "NDFD_gribtable.dat"
+#include "MRMS_gribtable.dat"
+#include "BOM_gribtable.dat"
+#include "KMA_gribtable.dat"
 
   /* END MARKER */
   { -1, -1, -1, -1, -1, -1, -1, -1, NULL, NULL, NULL }

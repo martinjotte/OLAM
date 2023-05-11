@@ -9,7 +9,7 @@
  */
 
 /*
- * HEADER:200:wave_partition:inv:0:ocean surface wave partition (pdt=52)
+ * HEADER:200:wave_partition:inv:0:ocean surface wave partition (pdt=4.52)
  */
 
 int f_wave_partition(ARG0) {

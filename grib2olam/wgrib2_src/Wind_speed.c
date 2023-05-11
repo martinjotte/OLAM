@@ -16,7 +16,8 @@
  *
  */
 
-extern int decode, file_append, nx, ny, save_translation;
+extern int decode, file_append, save_translation;
+extern unsigned int nx_, ny_;
 extern int flush_mode;
 extern int use_scale, dec_scale, bin_scale, wanted_bits, max_bits;
 
@@ -26,20 +27,19 @@ extern enum output_grib_type grib_type;
  * HEADER:100:wind_speed:output:1:calculate wind speed, X = output gribfile (U then V in datafile)
  */
 
-
-
 int f_wind_speed(ARG1) {
 
     struct local_struct {
         float *val;
         int has_u;
         unsigned char *clone_sec[9];
-        FILE *output;
+        struct seq_file out;
     };
     struct local_struct *save;
 
     unsigned int i;
-    int is_u;
+    int is_u, is_v;
+    int test_s0, test_s1, test_s3, test_s4;
     float *d1, *data_tmp;
     int discipline, mastertab, parmcat, parmnum;
 
@@ -49,11 +49,13 @@ int f_wind_speed(ARG1) {
 	// allocate static variables
 
         *local = save = (struct local_struct *) malloc( sizeof(struct local_struct));
-        if (save == NULL) fatal_error("memory allocation -wind_speed","");
+        if (save == NULL) fatal_error("wind_speed: memory allocation","");
 
-        if ((save->output = ffopen(arg1, file_append ? "ab" : "wb")) == NULL) {
-	    fatal_error("-wind_speed: could not open file %s", arg1);
-	}
+        if (fopen_file(&(save->out), arg1, file_append ? "ab" : "wb") != 0) {
+            free(save);
+            fatal_error("Could not open %s", arg1);
+        }
+
 	save->has_u = 0;
 	init_sec(save->clone_sec);
 	return 0;
@@ -62,10 +64,11 @@ int f_wind_speed(ARG1) {
     save = *local;
     if (mode == -2) {			// cleanup
 	if (save->has_u == 1) {
+	    fprintf(stderr,"WARNING: -wind_speed, unused UGRD\n");
 	    free(save->val);
 	    free_sec(save->clone_sec);
 	}
-	ffclose(save->output);
+	fclose_file(&(save->out));
 	free(save);
 	return 0;
     }
@@ -87,6 +90,7 @@ int f_wind_speed(ARG1) {
 
 	if (is_u) {		// save data
 	    if (save->has_u) {
+                fprintf(stderr,"WARNING: -wind_speed, unused UGRD\n");
 	        free(save->val);
 	        free_sec(save->clone_sec);
 	    }
@@ -97,44 +101,57 @@ int f_wind_speed(ARG1) {
 	    return 0;
 	}
 
-        if (save->has_u == 0) return 0;
+	/* if not V return */
+	is_v = (mastertab != 255) && (discipline == 0) && (parmcat == 2) && (parmnum == 3);
+	if (!is_v) return 0;
 
-	// check for V
+        if (save->has_u == 0) {
+	    fprintf(stderr,"WARNING: -wind_speed, unused VGRD\n");
+	    return 0;
+	}
 
-        if (same_sec0(sec,save->clone_sec) == 1 &&
-            same_sec1(sec,save->clone_sec) == 1 &&
-            same_sec3(sec,save->clone_sec) == 1 &&
-            same_sec4(sec,save->clone_sec) == 1) {
+	// check for correspond U and V
+
+	test_s0 = test_s1 = test_s3 = test_s4 = 0;
+        if ((test_s0 = same_sec0(sec,save->clone_sec)) == 1 &&
+            (test_s1 = same_sec1(sec,save->clone_sec)) == 1 &&
+            (test_s3 = same_sec3(sec,save->clone_sec)) == 1 &&
+            (test_s4 = same_sec4(sec,save->clone_sec)) == 1) {
 
 	    // calculate wind speed
 
-	    if (mode == 99) fprintf(stderr,"\n-wind_speed: calc wind speed\n");
-
-            d1= save->val;
+            d1 = save->val;
+#pragma omp parallel for private(i)
 	    for (i = 0; i < ndata; i++) {
-                if (!UNDEFINED_VAL(data[i]) && !UNDEFINED_VAL(*d1)) {
-	            *d1 = sqrt(data[i]*data[i] + *d1 * *d1);
+                if (!UNDEFINED_VAL(data[i]) && !UNDEFINED_VAL(d1[i])) {
+	            d1[i] = sqrt(data[i]*data[i] + d1[i] * d1[i]);
 		}
-	        else *d1 = UNDEFINED;
-	        d1++;
+	        else d1[i] = UNDEFINED;
 	    }
             GB2_ParmNum(save->clone_sec) = 1;		// set id to wind speed
 
 	    // copy data to temp space
 
-            if ((data_tmp = (float *) malloc(ndata * sizeof(float))) == NULL)
-                fatal_error("memory allocation - data_tmp","");
+            if ((data_tmp = (float *) malloc(sizeof(float) * (size_t) ndata)) == NULL)
+                fatal_error("wind_speed: memory allocation","");
             undo_output_order(save->val, data_tmp, ndata);
-            grib_wrt(save->clone_sec, data_tmp, ndata, nx, ny, use_scale, dec_scale, 
-		bin_scale, wanted_bits, max_bits, grib_type, save->output);
+            grib_wrt(save->clone_sec, data_tmp, ndata, nx_, ny_, use_scale, dec_scale,
+		bin_scale, wanted_bits, max_bits, grib_type, &(save->out));
 
-            if (flush_mode) fflush(save->output);
-            free(data_tmp);
+            if (flush_mode) fflush_file(&(save->out));
 
             // cleanup
+            free(data_tmp);
             free(save->val);
             free_sec(save->clone_sec);
 	    save->has_u = 0;
+	}
+	else {
+            if (mode) {
+                fprintf(stderr,"wind_speed: match failed sec0 %d sec1 %d sec3 %d sec4 %d\n",
+                test_s0, test_s1, test_s3, test_s4);
+            }
+	    fprintf(stderr,"WARNING: -wind_speed, unused VGRD, not corresponding, -v to see more\n");
 	}
     }
     return 0;

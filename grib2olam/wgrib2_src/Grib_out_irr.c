@@ -22,26 +22,33 @@ extern int use_scale, dec_scale, bin_scale, max_bits, wanted_bits;
 extern enum output_grib_type grib_type;
 
 /*
- * HEADER:100:grib_out_irr:output:2:writes irregular grid grib  X=(all|defined) Y=(output file)
+ * HEADER:100:grib_out_irr:output:2:writes irregular grid grib  (GDT=130 not adopted) X=(all|defined) Y=(output file)
  */
 
 int f_grib_out_irr(ARG2) {
 
     float *data_tmp;
-    int all, i, j;
-    unsigned int n;
+    int all, j;
+    unsigned int i, n;
     unsigned char *gds, *old_gds, *p;
+    struct seq_file *save;
 
     if (mode == -1) {
         latlon = decode = 1;
 	if (strcmp(arg1,"defined") && strcmp(arg1,"all")) fatal_error("grib_out_irr: %s should be all or defined", arg1);
-	*local = (void *) ffopen(arg2, file_append? "ab" : "wb" );
-        if (*local == NULL) fatal_error("Could not open %s", arg2);
+	*local = save = (struct seq_file *) malloc(sizeof(struct seq_file));
+	if (save == NULL) fatal_error("grib_out_irr: memory allocation","");
+        if (fopen_file(save, arg2, file_append ? "ab" : "wb") != 0) {
+            free(save);
+            fatal_error("Could not open %s", arg1);
+        }
 	return 0;
     }
+    save = (struct seq_file *) *local;
 
     if (mode == -2) {
-	ffclose((FILE *) *local);
+	fclose_file(save);
+        free(save);
 	return 0;
     }
 
@@ -62,8 +69,12 @@ int f_grib_out_irr(ARG2) {
 	return 0;
     }
 
-    if ((gds = (unsigned char *) malloc(n * 8 + 30)) == NULL) fatal_error("grib_out_irr: memory allocation","");
-    if ((data_tmp = (float *) malloc(n* sizeof(float))) == NULL) fatal_error("grib_out_irr: memory allocation","");
+    if ( (30 + 8 * (size_t) n) != (size_t) (30 + 8 * n))
+	fatal_error("grib_out_irr: too many grid points, sec3 overflow","");
+
+    if ((gds = (unsigned char *) malloc(30 + 8 * (size_t) n)) == NULL) fatal_error("grib_out_irr: memory allocation","");
+
+    if ((data_tmp = (float *) malloc(sizeof(float) * (size_t) n)) == NULL) fatal_error("grib_out_irr: memory allocation","");
 
     /* sec3 = grid defintion */
     uint_char(30+n*8, gds);
@@ -105,10 +116,10 @@ int f_grib_out_irr(ARG2) {
 
     old_gds = sec[3];
     sec[3] = gds;
-    grib_wrt(sec, data_tmp, n, n, 1, use_scale, dec_scale, 
-		bin_scale, wanted_bits, max_bits, grib_type, (FILE *) *local);
+    grib_wrt(sec, data_tmp, n, n, 1, use_scale, dec_scale,
+		bin_scale, wanted_bits, max_bits, grib_type, save);
     sec[3] = old_gds;
-    if (flush_mode) fflush((FILE *) *local);
+    if (flush_mode) fflush_file(save);
 
     free(data_tmp);
     free(gds);

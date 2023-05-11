@@ -4,7 +4,6 @@
       use parkind ,only : im => kind_im
 
       implicit none
-      save
 
 !------------------------------------------------------------------
 ! rrtmg_lw main parameters
@@ -22,7 +21,7 @@
 ! nbndlw :  integer: number of spectral bands
 ! maxxsec:  integer: maximum number of cross-section molecules
 !                    (e.g. cfcs)
-! maxinpx:  integer: 
+! maxinpx:  integer:
 ! ngptlw :  integer: total number of reduced g-intervals for rrtmg_lw
 ! ngNN   :  integer: number of reduced g-intervals per spectral band
 ! ngsNN  :  integer: cumulative number of g-intervals per band
@@ -35,10 +34,12 @@
       integer(kind=im), parameter :: mxmol  = 38
       integer(kind=im), parameter :: maxinpx= 38
       integer(kind=im), parameter :: nmol   = 7
-! Use for 140 g-point model 
-      integer(kind=im), parameter :: ngptlw = 140
-! Use for 256 g-point model 
-!      integer(kind=im), parameter :: ngptlw = 256
+! Use for 140 g-point model
+      integer(kind=im), parameter :: ngptlw  = 140
+      integer(kind=im), parameter :: ngptlwa = ngptlw-mod(ngptlw-1,8) + 7
+! Use for 256 g-point model
+!      integer(kind=im), parameter :: ngptlw  = 256
+!      integer(kind=im), parameter :: ngptlwa = 256
 
 ! Use for 140 g-point model
       integer(kind=im), parameter :: ng1  = 10
@@ -73,6 +74,7 @@
       integer(kind=im), parameter :: ngs13 = 134
       integer(kind=im), parameter :: ngs14 = 136
       integer(kind=im), parameter :: ngs15 = 138
+      integer(kind=im), parameter :: ngs16 = 140
 
 ! Use for 256 g-point model
 !      integer(kind=im), parameter :: ng1  = 16

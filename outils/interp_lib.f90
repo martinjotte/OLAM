@@ -1,36 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
-
 subroutine gdtost(a,ix,iy,stax,stay,staval)
   implicit none
   integer, intent(in)  :: ix,iy
@@ -248,7 +215,7 @@ real function quad_avg ( x , x0, x1, x2, x3, y0, y1, y2, y3 )
   real, external :: quad
   real :: x , x0, x1, x2, x3, y0, y1, y2, y3, q1, q2
 
-  !  Since there are three points required for a quadratic, we compute it twice 
+  !  Since there are three points required for a quadratic, we compute it twice
   !  (once with x0, x1, x2 and once with x1, x2, x3), and then average those.
   !  This will reduce overshoot. The "x" point is where we are interpolating to.
 
@@ -282,7 +249,7 @@ end function quad_avg
 
 real function quad ( x , x0, x1, x2, y0, y1, y2 )
 
-  implicit none 
+  implicit none
 
   real    :: x , x0, x1, x2, y0, y1, y2, ymax, ymin
   integer :: n
@@ -299,8 +266,8 @@ real function quad ( x , x0, x1, x2, y0, y1, y2 )
 
   !  Lagrange = sum     prod    ( x  - xj )
   !             i=0,n ( j=0,n    ---------  * yi )
-  !                     j<>i    ( xi - xj ) 
-     
+  !                     j<>i    ( xi - xj )
+
   !  For a quadratic, in the above equation, we are setting n=2. Three points
   !  required for a quadratic, points x0, x1, x2 (hence n=2).
 
@@ -455,7 +422,7 @@ implicit none
 ! Interpolates vctra values at eleva heights linearly by height vctrb
 ! values at elevb heights.  For any elevb heights outside the range of
 ! eleva heights, vctrb values are extrapolated from the first or last two
-! vctra values. 
+! vctra values.
 
 integer, intent(in) :: na
 integer, intent(in) :: nb
@@ -490,8 +457,8 @@ implicit none
 
 ! Interpolates vctra values at eleva heights linearly by height vctrb
 ! values at elevb heights.  For any elevb heights outside the range of
-! eleva heights, vctrb values are held constant with height and set equal 
-! to the first or last vctra value. 
+! eleva heights, vctrb values are held constant with height and set equal
+! to the first or last vctra value.
 
 integer, intent(in) :: na
 integer, intent(in) :: nb
@@ -578,7 +545,7 @@ subroutine pintrp_cc(na,vctra,pressa,nb,vctrb,pressb)
      do while(ka < na-1 .and. pressb(kb) < pressa(ka+1))
         ka = ka + 1
      enddo
-     
+
      if (pressb(kb) >= pressa(1)) then
         vctrb(kb) = vctra(1)
      elseif (pressb(kb) <= pressa(na)) then

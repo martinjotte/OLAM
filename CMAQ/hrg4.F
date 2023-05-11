@@ -29,11 +29,11 @@ C**********************************************************************
 C
 C  FUNCTION:  To solve for the concentration of NO3 and N2O5
 C
-C  PRECONDITIONS: For the CB05TUCL family of mechanisms
+C  PRECONDITIONS: For the CB6R3 family of mechanisms
 C
 C  KEY SUBROUTINES/FUNCTIONS CALLED: None
 C
-C  REVISION HISTORY: Created by EBI solver program, May 26, 2017
+C  REVISION HISTORY: Created by EBI solver program, Mar 10, 2017
 C
 C   18 Jul 14 B.Hutzell: revised to use real(8) variables
 C**********************************************************************
@@ -60,7 +60,7 @@ C..SAVED LOCAL VARIABLES:
 
 
 C..SCRATCH LOCAL VARIABLES:
-      REAL( 8 ) ::   A, B, C, Q   ! Quadratic equation terms
+      REAL( 8 ) ::   A, B, C      ! Quadratic equation terms
       REAL( 8 ) ::   CMN          ! Temp scalar
       REAL( 8 ) ::   L15          ! Loss of NO3
       REAL( 8 ) ::   L16          ! Loss of N2O5
@@ -74,51 +74,58 @@ C**********************************************************************
 
 
 c..Production of NO3 (except from N2O5 )
-      P15 =                 RXRAT(   5 )      ! O+NO2=NO3
-     &    +                 RXRAT(   7 )      ! NO2+O3=NO3
-     &    +                 RXRAT(  29 )      ! OH+HNO3=NO3
-     &    +    3.9000D-01 * RXRAT(  51 )      ! PNA=0.3900D+00*NO3+0.6100D+...
+      P15 =                 RXRAT(   6 )      ! O+NO2=NO3
+     &    +                 RXRAT(  26 )      ! NO2+O3=NO3
+     &    +                 RXRAT(  46 )      ! HNO3+OH=NO3
+     &    +    4.1000D-01 * RXRAT(  50 )      ! PNA=0.4100D+00*NO3+0.5900D+...
+     &    +    4.0000D-01 * RXRAT(  56 )      ! PAN=0.4000D+00*NO3+0.6000D+...
+     &    +    4.0000D-01 * RXRAT(  64 )      ! PANX=0.4000D+00*NO3+...
+     &    +    1.8500D-01 * RXRAT( 170 )      ! INTR+OH=0.1850D+00*NO3+...
 
 c..Loss frequency of NO3 ( except NO3 + NO3 if present )
-      L15 =                 RKI(  14 )                    ! NO3=NO2+O
-     &    +                 RKI(  15 )                    ! NO3=NO
-     &    +                 RKI(  16 ) * YC( NO       )   ! NO3+NO=0.2000D+...
-     &    +                 RKI(  17 ) * YC( NO2      )   ! NO3+NO2=NO+NO2
-     &    +                 RKI(  18 ) * YC( NO2      )   ! NO3+NO2=N2O5
-     &    +                 RKI(  46 ) * YC( O        )   ! NO3+O=NO2
-     &    +                 RKI(  47 ) * YC( OH       )   ! NO3+OH=HO2+NO2
-     &    +                 RKI(  48 ) * YC( HO2      )   ! NO3+HO2=HNO3
-     &    +                 RKI(  49 ) * YC( O3       )   ! NO3+O3=NO2
-     &    +                 RKI(  77 ) * YC( FORM     )   ! NO3+FORM=HNO3+HO2+CO
-     &    +                 RKI(  85 ) * YC( ALD2     )   ! NO3+ALD2=C2O3+HNO3
-     &    +                 RKI( 100 ) * YC( ALDX     )   ! NO3+ALDX=CXO3+HNO3
-     &    +                 RKI( 119 ) * YC( OLE      )   ! NO3+OLE=NO2+FORM+...
-     &    +                 RKI( 123 ) * YC( ETH      )   ! NO3+ETH=NO2+XO2+...
-     &    +                 RKI( 127 ) * YC( IOLE     )   ! NO3+IOLE=0.1180D+...
-     &    +                 RKI( 132 ) * YC( CRES     )   ! NO3+CRES=0.3000D+...
-     &    +                 RKI( 136 ) * YC( CRON     )   ! NO3+CRON=CRNO+HNO3
-     &    +                 RKI( 146 ) * YC( OPEN     )   ! NO3+OPEN=OPO3+HNO3
-     &    +                 RKI( 148 ) * YC( CAT1     )   ! NO3+CAT1=CRO+HNO3
-     &    +                 RKI( 161 ) * YC( ISOP     )   ! NO3+ISOP=0.2000D+...
-     &    +                 RKI( 164 ) * YC( ISPD     )   ! NO3+ISPD=0.3570D+...
-     &    +                 RKI( 169 ) * YC( TERP     )   ! NO3+TERP=0.4700D+...
+      L15 =                 RKI(  27 )                        ! NO3=NO2+O
+     &    +                 RKI(  28 )                        ! NO3=NO
+     &    +                 RKI(  29 ) * YC( NO           )   ! NO3+NO=0.2000D+...
+     &    +                 RKI(  30 ) * YC( NO2          )   ! NO3+NO2=NO+NO2
+     &    +                 RKI(  31 ) * YC( O            )   ! NO3+O=NO2
+     &    +                 RKI(  32 ) * YC( OH           )   ! NO3+OH=HO2+NO2
+     &    +                 RKI(  33 ) * YC( HO2          )   ! NO3+HO2=OH+NO2
+     &    +                 RKI(  34 ) * YC( O3           )   ! NO3+O3=NO2
+     &    +                 RKI(  36 ) * YC( NO2          )   ! NO3+NO2=N2O5
+     &    +                 RKI( 100 ) * YC( FORM         )   ! NO3+FORM=HNO3+HO2+CO
+     &    +                 RKI( 107 ) * YC( ALD2         )   ! NO3+ALD2=C2O3+HNO3
+     &    +                 RKI( 111 ) * YC( ALDX         )   ! NO3+ALDX=CXO3+HNO3
+     &    +                 RKI( 115 ) * YC( GLYD         )   ! NO3+GLYD=HNO3+C2O3
+     &    +                 RKI( 118 ) * YC( GLY          )   ! NO3+GLY=HNO3+...
+     &    +                 RKI( 120 ) * YC( MGLY         )   ! NO3+MGLY=HNO3+...
+     &    +                 RKI( 140 ) * YC( ETH          )   ! NO3+ETH=0.5000D+...
+     &    +                 RKI( 144 ) * YC( OLE          )   ! NO3+OLE=0.5000D+...
+     &    +                 RKI( 148 ) * YC( IOLE         )   ! NO3+IOLE=0.5000D+...
+     &    +                 RKI( 157 ) * YC( ISOP         )   ! NO3+ISOP=0.3500D+...
+     &    +                 RKI( 160 ) * YC( ISPD         )   ! NO3+ISPD=0.7170D+...
+     &    +                 RKI( 164 ) * YC( HPLD         )   ! NO3+HPLD=HNO3+ISPD
+     &    +                 RKI( 174 ) * YC( TERP         )   ! NO3+TERP=0.4700D+...
+     &    +                 RKI( 192 ) * YC( CRES         )   ! NO3+CRES=0.3000D+...
+     &    +                 RKI( 196 ) * YC( CRON         )   ! NO3+CRON=NTR2+...
+     &    +                 RKI( 201 ) * YC( XOPN         )   ! NO3+XOPN=0.5000D+...
+     &    +                 RKI( 205 ) * YC( OPEN         )   ! NO3+OPEN=OPO3+HNO3
+     &    +                 RKI( 207 ) * YC( CAT1         )   ! NO3+CAT1=CRO+HNO3
 
 c..Loss frequency of N2O5
-      L16 =                 RKI(  19 )                    ! N2O5=0.2000D+01*HNO3
-     &    +                 RKI(  20 )                    ! N2O5=0.2000D+01*HNO3
-     &    +                 RKI(  21 )                    ! N2O5=NO3+NO2
-     &    +                 RKI(  53 )                    ! N2O5=NO2+NO3
-     &    +                 RKI( 212 )                    ! N2O5=HNO3+H2NO3PIJ
-     &    +                 RKI( 213 )                    ! N2O5=HNO3+H2NO3PK
+      L16 =                 RKI(  37 )                        ! N2O5=NO3+NO2
+     &    +                 RKI(  38 )                        ! N2O5=NO2+NO3
+     &    +                 RKI(  39 )                        ! N2O5=0.2000D+01*HNO3
+     &    +                 RKI( 260 )                        ! N2O5=HNO3+H2NO3PIJ
+     &    +                 RKI( 261 )                        ! N2O5=HNO3+H2NO3PK
 
 c..K15_15, R15_16, and R16_15 terms
-      K15_15  = RKI(  50 ) * DTC
+      K15_15  = RKI(  35 ) * DTC
 
-      R15_16  = ( RKI(  21 )
-     &        +   RKI(  53 ) ) * DTC 
+      R15_16  = ( RKI(  37 )
+     &        +   RKI(  38 ) ) * DTC
 
 
-      R16_15  = RKI(  18 ) * YC( NO2 ) * DTC
+      R16_15  = RKI(  36 ) * YC( NO2 ) * DTC
 
 c..Solution of quadratic equation to get NO3 & N2O5
       CMN = 1.0D0 + L16 * DTC
@@ -126,8 +133,12 @@ c..Solution of quadratic equation to get NO3 & N2O5
       B = CMN * ( 1.0D0 + L15 * DTC ) - R15_16 * R16_15
       C = CMN * ( YC0( NO3 ) + P15 * DTC ) +  R15_16 * YC0( N2O5 )
 
-      Q = -0.5D0 * ( B + SIGN( 1.0D0, B ) * SQRT( B * B + 4.0D0 * A * C ) )
-      YCP( NO3 ) = MAX( Q / A , -C / Q  )
+      if (b >= 0.0d0) then
+         ycp(no3) = 2. * c / (b + sqrt(B * B + 4.0D0 * A * C ))
+      else
+         ycp(no3) = 0.5 * (sqrt(B * B + 4.0D0 * A * C ) - b) / a
+      endif
+
       YCP( N2O5 ) = ( YC0( N2O5 ) + R16_15 * YCP( NO3 ) ) / CMN
 
       RETURN

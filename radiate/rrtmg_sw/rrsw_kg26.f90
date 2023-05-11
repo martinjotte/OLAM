@@ -1,10 +1,10 @@
       module rrsw_kg26
 
-      use parkind ,only : im => kind_im, rb => kind_rb
-      use parrrsw, only : ng26
+      use parkind, only: im => kind_im, rb => kind_rb
+      use parrrsw, only: ng26
 
       implicit none
-      save
+      private :: im, rb
 
 !-----------------------------------------------------------------
 ! rrtmg_sw ORIGINAL abs. coefficients for interval 26
@@ -17,8 +17,8 @@
 !
 !  name     type     purpose
 !  ----   : ----   : ---------------------------------------------
-!sfluxrefo: real     
-! raylo   : real     
+!sfluxrefo: real
+! raylo   : real
 !-----------------------------------------------------------------
 
       integer(kind=im), parameter :: no26 = 16
@@ -37,8 +37,8 @@
 !
 !  name     type     purpose
 !  ----   : ----   : ---------------------------------------------
-! sfluxref: real     
-! rayl    : real     
+! sfluxref: real
+! rayl    : real
 !-----------------------------------------------------------------
 
       real(kind=rb) :: sfluxref(ng26)

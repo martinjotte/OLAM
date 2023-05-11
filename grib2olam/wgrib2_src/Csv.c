@@ -22,6 +22,7 @@ extern int decode, latlon;
  * HEADER:100:csv:output:1:make comma separated file, X=file (WxText enabled)
  */
 
+
 int f_csv(ARG1) {
 
     char new_inv_out[STRING_SIZE];
@@ -37,7 +38,7 @@ int f_csv(ARG1) {
     if (mode == -1) {
         WxText = decode = latlon = 1;
         if ((*local = (void *) ffopen(arg1,file_append ? "a" : "w")) == NULL)
-		fatal_error("csv could not open file %s", arg1);  
+		fatal_error("csv could not open file %s", arg1);
 	return 0;
     }
 
@@ -90,10 +91,10 @@ int f_csv(ARG1) {
 	}
     }
     else {
-        for (j = 0; j < ndata; j++) {
-            if (!UNDEFINED_VAL(data[j])) {
-	        fprintf(out,"\"%s\",\"%s\",\"%s\",\"%s\",%g,%g,%lg\n",rt,vt,name,
-		    new_inv_out,lon[j] > 180.0 ?  lon[j]-360.0 : lon[j],lat[j],data[j]);
+	for (j = 0; j < ndata; j++) {
+	    if (!UNDEFINED_VAL(data[j])) {
+		fprintf(out, "\"%s\",\"%s\",\"%s\",\"%s\",%g,%g,%lg\n",rt,vt,name,
+	        new_inv_out,lon[j] > 180.0 ?  lon[j]-360.0 : lon[j],lat[j],data[j]);
 	    }
 	}
     }

@@ -29,11 +29,11 @@ C*************************************************************************
 C
 C  FUNCTION:  Mechanism & solver data for EBI solver
 C
-C  PRECONDITIONS: For the CB05TUCL family of mechanisms
+C  PRECONDITIONS: For the CB6R3 family of mechanisms
 C
 C  KEY SUBROUTINES/FUNCTIONS CALLED: None
 C
-C  REVISION HISTORY: Created by EBI solver program, May 26, 2017
+C  REVISION HISTORY: Created by EBI solver program, Mar 10, 2017
 C
 C   18 Jul 14 B.Hutzell: revised to use real(8) variables for solution
 C*************************************************************************
@@ -57,12 +57,19 @@ c..Control flags
       LOGICAL   L_AE_VRSN    ! Flag for aerosol version of mech
       LOGICAL   L_AQ_VRSN    ! Flag for aqueous chemistry version of mech
 
+  ! SWITCH for calling DEGRADE routine
+      LOGICAL, SAVE :: CALL_DEG = .TRUE.
+
 c..Miscellaneous variables
       INTEGER   LOGDEV        ! Unit number of output log
       INTEGER   N_EBI_IT      ! No. of iterations for EBI
-      INTEGER, parameter :: N_EBI_STEPS = 1   ! No. of time steps for EBI
+
+!     INTEGER   N_EBI_STEPS   ! No. of time steps for EBI
 !     INTEGER   N_INR_STEPS   ! No. of inner time steps for EBI
-      REAL( 8 )    EBI_TMSTEP          ! Time step for EBI loops (min)
+
+      INTEGER, PARAMETER :: N_EBI_STEPS = 1
+
+      REAL( 8 ) EBI_TMSTEP    ! Time step for EBI loops (min)
 
       !$omp threadprivate(n_ebi_it,ebi_tmstep)
 
@@ -70,32 +77,31 @@ c...Allocatable arrays
       INTEGER, ALLOCATABLE :: EBISP( : )         ! Index of EBI species
       INTEGER, ALLOCATABLE :: SSASP( : )         ! Index of ss species
       INTEGER, ALLOCATABLE :: ACTSP( : )         ! Index of active species
-      INTEGER, ALLOCATABLE :: IOLD2NEW( :,: )    ! YC species map, used if NSPECIAL > 0
+      LOGICAL, ALLOCATABLE :: ISEBI( : )
 
-      REAL( 8 ), ALLOCATABLE ::  RKI(  : )     ! Rate constants
-      REAL( 8 ), ALLOCATABLE ::  RKI_SAV(  :,  : )  ! Saved values of RKI for SS species calcs
+      REAL( 8 ), ALLOCATABLE ::  RKI(  : )       ! Rate constants
+      REAL( 8 ), ALLOCATABLE ::  YC (  : )       ! Species concentrations
+      REAL( 8 ), ALLOCATABLE ::  YC0(  : )       ! Species concentrations
+      REAL( 8 ), ALLOCATABLE ::  YCP(  : )       ! Species concentrations
 
-      REAL( 8 ), ALLOCATABLE ::  YC (  : )      ! Species concentrations
-      REAL( 8 ), ALLOCATABLE ::  YC0(  : )      ! Species concentrations
-      REAL( 8 ), ALLOCATABLE ::  YCP(  : )      ! Species concentrations
-      REAL( 8 ), ALLOCATABLE ::  SYC(  :, : )   ! Species concentrations
+      !$omp threadprivate( rki,yc,yc0,ycp )
 
       REAL, ALLOCATABLE      :: FORWARD_CONV( : )  ! CGRID to CHEM Species conversion factor
       REAL, ALLOCATABLE      :: REVERSE_CONV( : )  ! CHEM to CGRID Species conversion factor
+      REAL, ALLOCATABLE      :: M3_CONV     ( : )
 
       REAL( 8 ), ALLOCATABLE ::  RXRAT( : )     ! Reaction rates
       REAL( 8 ), ALLOCATABLE ::  RTOL(  : )     ! Species tolerances
       REAL( 8 ), ALLOCATABLE ::  PROD(  : )     ! Prod of species
       REAL( 8 ), ALLOCATABLE ::  LOSS(  : )     ! Loss of species
       REAL( 8 ), ALLOCATABLE ::  PNEG(  : )     ! Negative production rates
-
-      !$omp threadprivate( rki,rki_sav,yc,yc0,ycp,syc )
+!     LOGICAL,   ALLOCATABLE ::  NOTMAX( : )
       !$omp threadprivate( rxrat,prod,loss,pneg )
 
 !     REAL, ALLOCATABLE      :: PRES( :, :, : )          ! pressure (Pa)
 !     REAL, ALLOCATABLE      :: QV  ( :, :, : )          ! water vapor (Kg/Kg air)
 !     REAL, ALLOCATABLE      :: TA  ( :, :, : )          ! temperature (K)
-      REAL(8), ALLOCATABLE   :: RJ  ( :, :, : )          ! J-values (min-1)
+      REAL( 8), ALLOCATABLE  :: RJ  ( :, :, : )          ! J-values (min-1)
 
 !     REAL, ALLOCATABLE      :: SEAICE ( :, :)            ! fractional seaice cover, [-]
 !     REAL, ALLOCATABLE      :: DENS( :, :, : )           ! mass density (Kg/m^3)
@@ -105,12 +111,15 @@ c...Allocatable arrays
 !     LOGICAL, ALLOCATABLE   :: LAND_ZONE   ( :,: )       ! Is the surface totally land?
 
 !     REAL( 8 ), ALLOCATABLE ::  ATMPRES ( : )     ! Cell pressure, Atm
-!     REAL( 8 ), ALLOCATABLE ::  PRESCELL( : )         ! Cell pressure, Pa
+!     REAL( 8 ), ALLOCATABLE ::  PRESCELL( : )     ! Cell pressure, Pa
 !     REAL( 8 ), ALLOCATABLE ::  H2O     ( : )     ! Cell H2O mixing ratio (ppmV)
 !     REAL( 8 ), ALLOCATABLE ::  TEMP    ( : )     ! Cell Temperature
 !     REAL( 8 ), ALLOCATABLE ::  HET     ( :, : )  ! cell heterogeneous reaction rates
 !     REAL( 8 ), ALLOCATABLE ::  RJIN    ( :, : )  ! J-values for a cell
 !     LOGICAL, ALLOCATABLE   ::  LAND    ( : )     ! land_zone value for specific cell
+
+      integer              :: nrxn
+      integer, allocatable :: irxns(:)
 
 c..Species indices
       INTEGER, PARAMETER :: NO2              =    1
@@ -121,118 +130,137 @@ c..Species indices
       INTEGER, PARAMETER :: O1D              =    6
       INTEGER, PARAMETER :: OH               =    7
       INTEGER, PARAMETER :: HO2              =    8
-      INTEGER, PARAMETER :: N2O5             =    9
-      INTEGER, PARAMETER :: HNO3             =   10
-      INTEGER, PARAMETER :: HONO             =   11
-      INTEGER, PARAMETER :: PNA              =   12
-      INTEGER, PARAMETER :: H2O2             =   13
-      INTEGER, PARAMETER :: XO2              =   14
-      INTEGER, PARAMETER :: XO2N             =   15
-      INTEGER, PARAMETER :: NTR              =   16
-      INTEGER, PARAMETER :: ROOH             =   17
-      INTEGER, PARAMETER :: FORM             =   18
-      INTEGER, PARAMETER :: ALD2             =   19
-      INTEGER, PARAMETER :: ALDX             =   20
-      INTEGER, PARAMETER :: PAR              =   21
-      INTEGER, PARAMETER :: CO               =   22
-      INTEGER, PARAMETER :: MEO2             =   23
-      INTEGER, PARAMETER :: MEPX             =   24
-      INTEGER, PARAMETER :: MEOH             =   25
-      INTEGER, PARAMETER :: HCO3             =   26
-      INTEGER, PARAMETER :: FACD             =   27
-      INTEGER, PARAMETER :: C2O3             =   28
-      INTEGER, PARAMETER :: PAN              =   29
-      INTEGER, PARAMETER :: PACD             =   30
-      INTEGER, PARAMETER :: AACD             =   31
-      INTEGER, PARAMETER :: CXO3             =   32
-      INTEGER, PARAMETER :: PANX             =   33
-      INTEGER, PARAMETER :: ROR              =   34
-      INTEGER, PARAMETER :: OLE              =   35
-      INTEGER, PARAMETER :: ETH              =   36
-      INTEGER, PARAMETER :: IOLE             =   37
-      INTEGER, PARAMETER :: TOL              =   38
-      INTEGER, PARAMETER :: CRES             =   39
-      INTEGER, PARAMETER :: TO2              =   40
-      INTEGER, PARAMETER :: TOLRO2           =   41
-      INTEGER, PARAMETER :: OPEN             =   42
-      INTEGER, PARAMETER :: MGLY             =   43
-      INTEGER, PARAMETER :: CRO              =   44
-      INTEGER, PARAMETER :: CAT1             =   45
-      INTEGER, PARAMETER :: CRON             =   46
-      INTEGER, PARAMETER :: CRNO             =   47
-      INTEGER, PARAMETER :: CRN2             =   48
-      INTEGER, PARAMETER :: CRPX             =   49
-      INTEGER, PARAMETER :: OPO3             =   50
-      INTEGER, PARAMETER :: CAO2             =   51
-      INTEGER, PARAMETER :: OPAN             =   52
-      INTEGER, PARAMETER :: XYLMN            =   53
-      INTEGER, PARAMETER :: XYLRO2           =   54
-      INTEGER, PARAMETER :: NAPH             =   55
-      INTEGER, PARAMETER :: PAHRO2           =   56
-      INTEGER, PARAMETER :: ISOP             =   57
+      INTEGER, PARAMETER :: H2O2             =    9
+      INTEGER, PARAMETER :: N2O5             =   10
+      INTEGER, PARAMETER :: HNO3             =   11
+      INTEGER, PARAMETER :: HONO             =   12
+      INTEGER, PARAMETER :: PNA              =   13
+      INTEGER, PARAMETER :: SO2              =   14
+      INTEGER, PARAMETER :: SULF             =   15
+      INTEGER, PARAMETER :: SULRXN           =   16
+      INTEGER, PARAMETER :: C2O3             =   17
+      INTEGER, PARAMETER :: MEO2             =   18
+      INTEGER, PARAMETER :: RO2              =   19
+      INTEGER, PARAMETER :: PAN              =   20
+      INTEGER, PARAMETER :: PACD             =   21
+      INTEGER, PARAMETER :: AACD             =   22
+      INTEGER, PARAMETER :: CXO3             =   23
+      INTEGER, PARAMETER :: ALD2             =   24
+      INTEGER, PARAMETER :: XO2H             =   25
+      INTEGER, PARAMETER :: PANX             =   26
+      INTEGER, PARAMETER :: FORM             =   27
+      INTEGER, PARAMETER :: MEPX             =   28
+      INTEGER, PARAMETER :: MEOH             =   29
+      INTEGER, PARAMETER :: ROOH             =   30
+      INTEGER, PARAMETER :: XO2              =   31
+      INTEGER, PARAMETER :: XO2N             =   32
+      INTEGER, PARAMETER :: NTR1             =   33
+      INTEGER, PARAMETER :: NTR2             =   34
+      INTEGER, PARAMETER :: FACD             =   35
+      INTEGER, PARAMETER :: CO               =   36
+      INTEGER, PARAMETER :: HCO3             =   37
+      INTEGER, PARAMETER :: ALDX             =   38
+      INTEGER, PARAMETER :: GLYD             =   39
+      INTEGER, PARAMETER :: GLY              =   40
+      INTEGER, PARAMETER :: MGLY             =   41
+      INTEGER, PARAMETER :: ETHA             =   42
+      INTEGER, PARAMETER :: ETOH             =   43
+      INTEGER, PARAMETER :: KET              =   44
+      INTEGER, PARAMETER :: PAR              =   45
+      INTEGER, PARAMETER :: ACET             =   46
+      INTEGER, PARAMETER :: PRPA             =   47
+      INTEGER, PARAMETER :: XPRP             =   48
+      INTEGER, PARAMETER :: XPAR             =   49
+      INTEGER, PARAMETER :: ROR              =   50
+      INTEGER, PARAMETER :: ETHY             =   51
+      INTEGER, PARAMETER :: ETH              =   52
+      INTEGER, PARAMETER :: OLE              =   53
+      INTEGER, PARAMETER :: IOLE             =   54
+      INTEGER, PARAMETER :: ISOP             =   55
+      INTEGER, PARAMETER :: ISO2             =   56
+      INTEGER, PARAMETER :: ISOPRXN          =   57
       INTEGER, PARAMETER :: ISPD             =   58
-      INTEGER, PARAMETER :: ISOPRXN          =   59
-      INTEGER, PARAMETER :: TERP             =   60
-      INTEGER, PARAMETER :: TRPRXN           =   61
-      INTEGER, PARAMETER :: SO2              =   62
-      INTEGER, PARAMETER :: SULF             =   63
-      INTEGER, PARAMETER :: SULRXN           =   64
-      INTEGER, PARAMETER :: ETOH             =   65
-      INTEGER, PARAMETER :: ETHA             =   66
-      INTEGER, PARAMETER :: CL2              =   67
-      INTEGER, PARAMETER :: CL               =   68
-      INTEGER, PARAMETER :: HOCL             =   69
-      INTEGER, PARAMETER :: CLO              =   70
-      INTEGER, PARAMETER :: FMCL             =   71
-      INTEGER, PARAMETER :: HCL              =   72
-      INTEGER, PARAMETER :: CLNO2            =   73
-      INTEGER, PARAMETER :: TOLNRXN          =   74
-      INTEGER, PARAMETER :: TOLHRXN          =   75
-      INTEGER, PARAMETER :: XYLNRXN          =   76
-      INTEGER, PARAMETER :: XYLHRXN          =   77
-      INTEGER, PARAMETER :: BENZENE          =   78
-      INTEGER, PARAMETER :: BENZRO2          =   79
-      INTEGER, PARAMETER :: BNZNRXN          =   80
-      INTEGER, PARAMETER :: BNZHRXN          =   81
-      INTEGER, PARAMETER :: SESQ             =   82
-      INTEGER, PARAMETER :: SESQRXN          =   83
-      INTEGER, PARAMETER :: PAHNRXN          =   84
-      INTEGER, PARAMETER :: PAHHRXN          =   85
-      INTEGER, PARAMETER :: SOAALK           =   86
-      INTEGER, PARAMETER :: ALKRXN           =   87
-      INTEGER, PARAMETER :: H2NO3PIJ         =   88
-      INTEGER, PARAMETER :: H2NO3PK          =   89
-      INTEGER, PARAMETER :: ACLI             =   90
-      INTEGER, PARAMETER :: ACLJ             =   91
-      INTEGER, PARAMETER :: ACLK             =   92
-      INTEGER, PARAMETER :: AXYL1J           =   93
-      INTEGER, PARAMETER :: AOLGAJ           =   94
-      INTEGER, PARAMETER :: AXYL2J           =   95
-      INTEGER, PARAMETER :: ATOL1J           =   96
-      INTEGER, PARAMETER :: ATOL2J           =   97
-      INTEGER, PARAMETER :: ABNZ1J           =   98
-      INTEGER, PARAMETER :: ABNZ2J           =   99
-      INTEGER, PARAMETER :: ATRP1J           =  100
-      INTEGER, PARAMETER :: AOLGBJ           =  101
-      INTEGER, PARAMETER :: ATRP2J           =  102
-      INTEGER, PARAMETER :: AISO1J           =  103
-      INTEGER, PARAMETER :: AISO2J           =  104
-      INTEGER, PARAMETER :: ASQTJ            =  105
-      INTEGER, PARAMETER :: APAH1J           =  106
-      INTEGER, PARAMETER :: APAH2J           =  107
-      INTEGER, PARAMETER :: AALK1J           =  108
-      INTEGER, PARAMETER :: AALK2J           =  109
-      INTEGER, PARAMETER :: PCVOC            =  110
-      INTEGER, PARAMETER :: PCSOARXN         =  111
-      INTEGER, PARAMETER :: VLVPO1           =  112
-      INTEGER, PARAMETER :: VSVPO1           =  113
-      INTEGER, PARAMETER :: VSVPO2           =  114
-      INTEGER, PARAMETER :: VSVPO3           =  115
-      INTEGER, PARAMETER :: VIVPO1           =  116
-      INTEGER, PARAMETER :: VLVOO1           =  117
-      INTEGER, PARAMETER :: VLVOO2           =  118
-      INTEGER, PARAMETER :: VSVOO2           =  119
-      INTEGER, PARAMETER :: VSVOO3           =  120
-      INTEGER, PARAMETER :: VSVOO1           =  121
+      INTEGER, PARAMETER :: INTR             =   59
+      INTEGER, PARAMETER :: ISPX             =   60
+      INTEGER, PARAMETER :: HPLD             =   61
+      INTEGER, PARAMETER :: OPO3             =   62
+      INTEGER, PARAMETER :: EPOX             =   63
+      INTEGER, PARAMETER :: EPX2             =   64
+      INTEGER, PARAMETER :: TERP             =   65
+      INTEGER, PARAMETER :: TRPRXN           =   66
+      INTEGER, PARAMETER :: BENZENE          =   67
+      INTEGER, PARAMETER :: CRES             =   68
+      INTEGER, PARAMETER :: BZO2             =   69
+      INTEGER, PARAMETER :: OPEN             =   70
+      INTEGER, PARAMETER :: BENZRO2          =   71
+      INTEGER, PARAMETER :: TOL              =   72
+      INTEGER, PARAMETER :: TO2              =   73
+      INTEGER, PARAMETER :: TOLRO2           =   74
+      INTEGER, PARAMETER :: XOPN             =   75
+      INTEGER, PARAMETER :: XYLMN            =   76
+      INTEGER, PARAMETER :: XLO2             =   77
+      INTEGER, PARAMETER :: XYLRO2           =   78
+      INTEGER, PARAMETER :: NAPH             =   79
+      INTEGER, PARAMETER :: PAHRO2           =   80
+      INTEGER, PARAMETER :: CRO              =   81
+      INTEGER, PARAMETER :: CAT1             =   82
+      INTEGER, PARAMETER :: CRON             =   83
+      INTEGER, PARAMETER :: OPAN             =   84
+      INTEGER, PARAMETER :: ECH4             =   85
+      INTEGER, PARAMETER :: CL2              =   86
+      INTEGER, PARAMETER :: CL               =   87
+      INTEGER, PARAMETER :: HOCL             =   88
+      INTEGER, PARAMETER :: CLO              =   89
+      INTEGER, PARAMETER :: FMCL             =   90
+      INTEGER, PARAMETER :: HCL              =   91
+      INTEGER, PARAMETER :: CLNO2            =   92
+      INTEGER, PARAMETER :: TOLNRXN          =   93
+      INTEGER, PARAMETER :: TOLHRXN          =   94
+      INTEGER, PARAMETER :: XYLNRXN          =   95
+      INTEGER, PARAMETER :: XYLHRXN          =   96
+      INTEGER, PARAMETER :: BNZNRXN          =   97
+      INTEGER, PARAMETER :: BNZHRXN          =   98
+      INTEGER, PARAMETER :: SESQ             =   99
+      INTEGER, PARAMETER :: SESQRXN          =  100
+      INTEGER, PARAMETER :: PAHNRXN          =  101
+      INTEGER, PARAMETER :: PAHHRXN          =  102
+      INTEGER, PARAMETER :: SOAALK           =  103
+      INTEGER, PARAMETER :: ALKRXN           =  104
+      INTEGER, PARAMETER :: H2NO3PIJ         =  105
+      INTEGER, PARAMETER :: H2NO3PK          =  106
+      INTEGER, PARAMETER :: ACLI             =  107
+      INTEGER, PARAMETER :: ACLJ             =  108
+      INTEGER, PARAMETER :: ACLK             =  109
+      INTEGER, PARAMETER :: AISO3J           =  110
+      INTEGER, PARAMETER :: AGLYJ            =  111
+      INTEGER, PARAMETER :: AXYL1J           =  112
+      INTEGER, PARAMETER :: AOLGAJ           =  113
+      INTEGER, PARAMETER :: AXYL2J           =  114
+      INTEGER, PARAMETER :: ATOL1J           =  115
+      INTEGER, PARAMETER :: ATOL2J           =  116
+      INTEGER, PARAMETER :: ABNZ1J           =  117
+      INTEGER, PARAMETER :: ABNZ2J           =  118
+      INTEGER, PARAMETER :: ATRP1J           =  119
+      INTEGER, PARAMETER :: AOLGBJ           =  120
+      INTEGER, PARAMETER :: ATRP2J           =  121
+      INTEGER, PARAMETER :: AISO1J           =  122
+      INTEGER, PARAMETER :: AISO2J           =  123
+      INTEGER, PARAMETER :: ASQTJ            =  124
+      INTEGER, PARAMETER :: APAH1J           =  125
+      INTEGER, PARAMETER :: APAH2J           =  126
+      INTEGER, PARAMETER :: AALK1J           =  127
+      INTEGER, PARAMETER :: AALK2J           =  128
+      INTEGER, PARAMETER :: PCVOC            =  129
+      INTEGER, PARAMETER :: PCSOARXN         =  130
+      INTEGER, PARAMETER :: VLVPO1           =  131
+      INTEGER, PARAMETER :: VSVPO1           =  132
+      INTEGER, PARAMETER :: VSVPO2           =  133
+      INTEGER, PARAMETER :: VSVPO3           =  134
+      INTEGER, PARAMETER :: VIVPO1           =  135
+      INTEGER, PARAMETER :: VLVOO1           =  136
+      INTEGER, PARAMETER :: VLVOO2           =  137
+      INTEGER, PARAMETER :: VSVOO2           =  138
+      INTEGER, PARAMETER :: VSVOO3           =  139
+      INTEGER, PARAMETER :: VSVOO1           =  140
 
       END MODULE HRDATA

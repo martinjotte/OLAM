@@ -25,111 +25,96 @@ extern double *lat, *lon;
  * HEADER:100:stats:inv:0:statistical summary of data values
  */
 
-
 int f_stats(ARG0) {
-    double sum, sum_wt, wt, min, max, t;
-    int do_wt, i;
-    unsigned int n;
+    double sum, sum_wt, wt, t, sum_thread, sum_wt_thread, wt_thread, last_t, last_lat;
+    int do_wt;
+    unsigned int n, n_thread, first, i;
+    float mn, mx, min_thread, max_thread;
 
     if (mode == -1) {
         latlon = decode = 1;
     }
-    else if (mode >= 0) {
-	do_wt = lat != NULL;
-	sum = wt = sum_wt = 0.0;
-	n = 0;
+    if (mode < 0) return 0;
 
-#pragma omp parallel private(i,t)
-{
-        double sum_thread, sum_wt_thread, wt_thread, min_thread, max_thread;
-        int n_thread;
+    sum = wt = sum_wt = 0.0;
 
-        max_thread = min_thread = 0.0;
-	sum_thread = 0.0;
-	wt_thread = sum_wt_thread = 0.0;
-        n_thread = 0;
-	
-	if (do_wt) { 
-#pragma omp for nowait
-            for (i = 0; i < ndata; i++) {
-                if (!UNDEFINED_VAL(data[i])) {
-		   { t = cos(CONV*lat[i]);  wt_thread += t; sum_wt_thread += data[i]*t; }
-	        }
-	    }
-        }
+    /* find first = first defined value */
+    for (first = 0; first < ndata; first++) {
+        if (DEFINED_VAL(data[first])) break;
+    }
+    if (first >= ndata) {
+        sprintf(inv_out,"ndata=%u:undef=%u:mean=%lg:min=%lg:max=%lg", ndata, ndata, sum, sum, sum);
+	return 0;
+    }
 
+    mn = mx = data[first];
+    do_wt = (lat != NULL);
+    n = 0;
+    sum = wt = sum_wt = 0.0;
 
-#pragma omp for nowait
-        for (i = 0; i < ndata; i++) {
-            if (!UNDEFINED_VAL(data[i])) {
-		if (n_thread++ == 0) {
-                    sum_thread = min_thread = max_thread = data[i];
-		}
-		else {
-                    max_thread = max_thread < data[i]? data[i] : max_thread;
-                    min_thread = min_thread > data[i]? data[i] : min_thread;
-                    sum_thread += data[i];
+#pragma omp parallel private(min_thread, max_thread, n_thread, sum_thread, t, wt_thread, sum_wt_thread, last_t, last_lat)
+    {
+        min_thread = max_thread = mx;
+	n_thread = 0;
+	sum_thread = wt_thread = sum_wt_thread = 0.0;
+        last_t = 1.0;
+	last_lat = 0.0;
+#pragma omp for private(i) schedule(static) nowait
+        for (i = first; i < ndata; i++) {
+            if (DEFINED_VAL(data[i])) {
+                min_thread = (min_thread > data[i]) ? data[i] : min_thread;
+                max_thread = (max_thread < data[i]) ? data[i] : max_thread;
+		sum_thread += data[i];
+		n_thread++;
+		if (do_wt) {
+		    if (lat[i] == last_lat) {
+			t = last_t;
+		    }
+		    else {
+		        last_t = t = cosf((float) CONV*lat[i]);
+			last_lat = lat[i];
+		    }
+		    wt_thread += t;
+		    sum_wt_thread += data[i]*t;
 		}
             }
         }
-#pragma omp critical
-	{
-	    if (n_thread) {
-		if (n == 0) {
-		    min = min_thread;
-		    max = max_thread;
-		}
-		else {
-		    min = min > min_thread ? min_thread : min;
-		    max = max < max_thread ? max_thread : max;
-		}
-		sum += sum_thread;
-		wt += wt_thread;
-		sum_wt += sum_wt_thread;
-		n += n_thread;
-	    }
-	}
-}
 
-        if (n) sum /= n;
-        sprintf(inv_out,"ndata=%u:undef=%u:mean=%lg:min=%lg:max=%lg", ndata, ndata-n, sum, min, max);
-	if (wt > 0) {
-	    sum_wt = sum_wt/wt;
-	    inv_out += strlen(inv_out);
-            sprintf(inv_out,":cos_wt_mean=%lg", sum_wt);
-	}
+#pragma omp critical
+        {
+            if (min_thread < mn) mn = min_thread;
+            if (max_thread > mx) mx = max_thread;
+	    sum += sum_thread;
+	    n += n_thread;
+	    wt += wt_thread;
+	    sum_wt += sum_wt_thread;
+        }
+    }
+    sum /= n;
+    sprintf(inv_out,"ndata=%u:undef=%u:mean=%lg:min=%g:max=%g", ndata, ndata-n, sum, mn, mx);
+    if (wt > 0) {
+	sum_wt = sum_wt/wt;
+	inv_out += strlen(inv_out);
+        sprintf(inv_out,":cos_wt_mean=%lg", sum_wt);
     }
     return 0;
 }
+
 /*
  * HEADER:100:max:inv:0:print maximum value
  */
 
 int f_max(ARG0) {
-    double mx;
+    float mn, mx;
     int ok;
-    unsigned int i;
 
     if (mode == -1) {
         decode = 1;
     }
     else if (mode >= 0) {
-        mx = 0.0;
-        ok = 0;
-        for (i = 0; i < ndata; i++) {
-            if (!UNDEFINED_VAL(data[i])) {
-                if (ok) {
-                    mx = mx > data[i] ? mx : data[i];
-                }
-                else {
-                    ok = 1;
-                    mx = data[i];
-               }
-            }
-        }
-        if (ok) sprintf(inv_out,"max=%lg",mx);
+	ok = min_max_array(data, ndata, &mn, &mx);
+        if (ok == 0) sprintf(inv_out,"max=%g", (double) mx);
         else sprintf(inv_out,"max=undefined");
-
     }
     return 0;
 }
@@ -139,30 +124,16 @@ int f_max(ARG0) {
  */
 
 int f_min(ARG0) {
-    double mx;
+    float mx, mn;
     int ok;
-    unsigned int i;
 
     if (mode == -1) {
         decode = 1;
     }
     else if (mode >= 0) {
-        mx = 0.0;
-        ok = 0;
-        for (i = 0; i < ndata; i++) {
-            if (!UNDEFINED_VAL(data[i])) {
-                if (ok) {
-                    mx = mx < data[i] ? mx : data[i];
-                }
-                else {
-                    ok = 1;
-                    mx = data[i];
-               }
-            }
-        }
-        if (ok) sprintf(inv_out,"min=%lg",mx);
+        ok = min_max_array(data, ndata, &mn, &mx);
+        if (ok == 0) sprintf(inv_out,"min=%g", (double) mn);
         else sprintf(inv_out,"min=undefined");
-
     }
     return 0;
 }

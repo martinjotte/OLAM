@@ -1,9 +1,10 @@
       module rrlw_kg02
 
-      use parkind ,only : im => kind_im, rb => kind_rb
+      use parkind, only: im => kind_im, rb => kind_rb
 
       implicit none
-      save
+
+      private :: im, rb
 
 !-----------------------------------------------------------------
 ! rrtmg_lw ORIGINAL abs. coefficients for interval 2
@@ -16,15 +17,15 @@
 !
 !  name     type     purpose
 !  ----   : ----   : ---------------------------------------------
-!fracrefao: real    
+!fracrefao: real
 !fracrefbo: real
-! kao     : real     
-! kbo     : real     
-! selfrefo: real     
+! kao     : real
+! kbo     : real
+! selfrefo: real
 ! forrefo : real
 !-----------------------------------------------------------------
 
-      integer(kind=im), parameter :: no2  = 16
+      integer(kind=im), parameter :: no2 = 16
 
       real(kind=rb) :: fracrefao(no2)   , fracrefbo(no2)
       real(kind=rb) :: kao(5,13,no2)
@@ -42,28 +43,26 @@
 !
 !  name     type     purpose
 !  ----   : ----   : ---------------------------------------------
-!fracrefa : real    
+!fracrefa : real
 !fracrefb : real
-! ka      : real     
-! kb      : real     
+! ka      : real
+! kb      : real
 ! absa    : real
 ! absb    : real
-! selfref : real     
+! selfref : real
 ! forref  : real
 !
 ! refparam: real
 !-----------------------------------------------------------------
 
-      integer(kind=im), parameter :: ng2  = 12
+      integer(kind=im), parameter :: ng2 = 12
 
       real(kind=rb) :: fracrefa(ng2)  , fracrefb(ng2)
-      real(kind=rb) :: ka(5,13,ng2)   , absa(65,ng2)
-      real(kind=rb) :: kb(5,13:59,ng2), absb(235,ng2)
-      real(kind=rb) :: selfref(10,ng2), forref(4,ng2)
+      real(kind=rb) :: absa(ng2,65)
+      real(kind=rb) :: absb(ng2,235)
+      real(kind=rb) :: selfref(ng2,10), forref(ng2,4)
 
       real(kind=rb) :: refparam(13)
-
-      equivalence (ka(1,1,1),absa(1,1)),(kb(1,13,1),absb(1,1))
 
       end module rrlw_kg02
 

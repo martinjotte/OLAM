@@ -1,35 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 subroutine olam_mem_alloc()
 
   use mem_basic,   only: alloc_basic, filltab_basic
@@ -40,21 +8,17 @@ subroutine olam_mem_alloc()
   use mem_addsc,   only: alloc_addsc, filltab_addsc
   use mem_tend,    only: alloc_tend, filltab_tend
   use mem_turb,    only: alloc_turb, filltab_turb
-  use mem_grid,    only: alloc_grid_other, mza, nsw_max, mva, mwa, nve2_max
+  use mem_grid,    only: alloc_grid_other, mza, nsw_max, mva, mwa
   use mem_nudge,   only: nudflag, nudnxp, mwnud, alloc_nudge2, filltab_nudge, &
                          o3nudflag, alloc_nudge_o3, filltab_nudge_o3
   use mem_ijtabs,  only: mrls
-  use oname_coms,  only: nl
-  use mem_thuburn, only: alloc_thuburn
-
   use misc_coms,   only: io6, naddsc, initial, idiffk, ilwrtyp, iswrtyp,  &
                          nqparm, do_chem
-
   use micro_coms,  only: miclevel, ncat, jnmb, iccn, igccn, iifn
   use ccnbin_coms, only: nccntyp
-                       
-  use leaf_coms,   only: mwl, isfcl
-  use sea_coms,    only: mws
+  use leaf_coms,   only: isfcl
+  use mem_sfcg,    only: mwsfc
+  use mem_land,    only: mland
 
   use mem_flux_accum, only: alloc_flux_accum, filltab_flux_accum
 
@@ -65,17 +29,17 @@ subroutine olam_mem_alloc()
   use mem_megan,   only: alloc_megan, filltab_megan
   use soil_nox,    only: alloc_soil_nox, filltab_soil_nox
 
-  implicit none 
+  implicit none
 
 ! Allocate basic memory and fill variable tables
 
   call alloc_grid_other()
 
-  call alloc_basic(mza,mva,mwa,nve2_max)
+  call alloc_basic(mza,mva,mwa)
   call filltab_basic()
 
   call alloc_cuparm(mza, mwa, mrls, nqparm)
-  call filltab_cuparm() 
+  call filltab_cuparm(mrls, nqparm)
 
   call alloc_micro(mza,mwa,miclevel,ncat,nccntyp,iccn,igccn,iifn,jnmb)
   call filltab_micro(nccntyp)
@@ -89,7 +53,7 @@ subroutine olam_mem_alloc()
   call alloc_turb(mza,mwa,mva,nsw_max,idiffk,mrls)
   call filltab_turb()
 
-  call alloc_flux_accum(mza,mva,mwa,mwl,mws)
+  call alloc_flux_accum(mza,mva,mwa,mwsfc,mland)
   call filltab_flux_accum()
 
   if (do_chem == 1) then
@@ -97,7 +61,7 @@ subroutine olam_mem_alloc()
      call filltab_cgrid()
 
      if (isfcl > 0) then
-        call alloc_megan(mwl,mwa)
+        call alloc_megan(mland,mwa)
         call filltab_megan()
 
         call alloc_soil_nox()
@@ -107,7 +71,7 @@ subroutine olam_mem_alloc()
 
 ! Allocate field average arrays
 
-  call alloc_average_vars(mwa,mwl,mws)
+  call alloc_average_vars(mwa,mwsfc,mland)
 
   if (initial == 2 .and. nudflag > 0) then
 
@@ -115,7 +79,7 @@ subroutine olam_mem_alloc()
 
       if (nudnxp == 0) mwnud = mwa
 
-      call alloc_nudge2(mza)
+      call alloc_nudge2(mza,mwa)
       call filltab_nudge()
   endif
 
@@ -135,11 +99,6 @@ subroutine olam_mem_alloc()
 
   call alloc_tend(mza,mva,mwa,naddsc,nccntyp)
   call filltab_tend(naddsc,nccntyp)
-
-! Extra memory for Thuburn's monotonic advection or positive definite scheme
-
-  call alloc_thuburn( nl%iscal_monot, nl%ithil_monot, nl%ivelc_monot, &
-                      mza, mwa, mva )
 
 ! Extra memory if nudging ozone. Must be called after scalar tables are set up
 
@@ -163,7 +122,7 @@ end subroutine olam_mem_alloc
 !use mem_basic
 !use mem_cuparm
 !use mem_grid
-!use mem_leaf
+!use mem_land
 !use mem_micro
 !use mem_radiate
 !use mem_addsc

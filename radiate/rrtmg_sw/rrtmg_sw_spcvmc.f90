@@ -17,35 +17,27 @@
 
 ! ------- Modules -------
 
-      use parkind, only : im => kind_im, rb => kind_rb
-      use parrrsw, only : nbndsw, ngptsw, mxmol, jpband, jpb1, jpb2
-      use rrsw_tbl, only : tblint, bpade, od_lo, exp_tbl
-      use rrsw_vsn, only : hvrspc, hnamspc, hvrrft, hnamrft
-      use rrsw_wvn, only : ngc, ngs
-      use rrtmg_sw_taumol, only: taumol_sw
-
-      implicit none
+      private
+      public :: spcvmc_sw_noclr
 
       contains
 
 ! ---------------------------------------------------------------------------
-      subroutine spcvmc_sw &
-            (nlayers, icpr, idelm, nsfc, frac_sfck, &
-             pavel, tavel, pz, tz, tbound, palbd, palbp, &
-             pcldfmc, ptaucmc, pasycmc, pomgcmc, ptaormc, &
-             ptaua, pasya, pomga, prmu0, coldry, wkl, adjflux, &
-             laytrop, layswtch, laylow, jp, jt, jt1, &
-             co2mult, colch4, colco2, colh2o, colmol, coln2o, colo2, colo3, &
-             fac00, fac01, fac10, fac11, &
-             selffac, selffrac, indself, forfac, forfrac, indfor, &
-             zbbfd, zbbfu, zbbcd, zbbcu, &
-             zbbfd_sfc, zbbfu_sfc, zbbcd_sfc, zbbcu_sfc, &
-             zbbfddir_sfc, zbbcddir_sfc)
+      subroutine spcvmc_sw_noclr &
+            (nlayers, iaer, &
+             nsfc, frac_sfck, colmol, &
+             palbd, palbp, &
+             ztaug, zsflxzen, &
+             ztauc, zasyc, zomgc, cldf, &
+             ptaua, pasya, pomga, &
+             prmu0, adjflux, &
+             swuflx, swdflx, &
+             zbbfd_sfc, zbbfu_sfc, zbbfddir_sfc)
 ! ---------------------------------------------------------------------------
 !
-! Purpose: Contains spectral loop to compute the shortwave radiative fluxes, 
+! Purpose: Contains spectral loop to compute the shortwave radiative fluxes,
 !          using the two-stream method of H. Barker and McICA, the Monte-Carlo
-!          Independent Column Approximation, for the representation of 
+!          Independent Column Approximation, for the representation of
 !          sub-grid cloud variability (i.e. cloud overlap).
 !
 ! Interface:  *spcvmc_sw* is called from *rrtmg_sw.F90* or rrtmg_sw.1col.F90*
@@ -64,1521 +56,255 @@
 ! Revision: Bug fix to apply delta scaling to clear sky: AER, Dec 2004
 ! Revision: Code modified so that delta scaling is not done in cloudy profiles
 !           if routine cldprop is used; delta scaling can be applied by swithcing
-!           code below if cldprop is not used to get cloud properties. 
+!           code below if cldprop is not used to get cloud properties.
 !           AER, Jan 2005
 ! Revision: Modified to use McICA: MJIacono, AER, Nov 2005
-! Revision: Uniform formatting for RRTMG: MJIacono, AER, Jul 2006 
-! Revision: Use exponential lookup table for transmittance: MJIacono, AER, 
-!           Aug 2007 
+! Revision: Uniform formatting for RRTMG: MJIacono, AER, Jul 2006
+! Revision: Use exponential lookup table for transmittance: MJIacono, AER,
+!           Aug 2007
 !
 ! ------------------------------------------------------------------
 
 ! ------- Declarations ------
 
+      use parkind,  only: im => kind_im, rb => kind_rb, cldmin
+      use parrrsw,  only: nbndsw, ngptsw, mxmol, jpband, jpb1, jpb2
+      use rrsw_wvn, only: ngc, ngs, ngs1, raylt
+
+      implicit none
+
 ! ------- Input -------
 
       integer(kind=im), intent(in) :: nlayers
-      integer(kind=im), intent(in) :: icpr
-      integer(kind=im), intent(in) :: idelm   ! delta-m scaling flag
-                                              ! [0 = direct and diffuse fluxes are unscaled]
-                                              ! [1 = direct and diffuse fluxes are scaled]
+      integer(kind=im), intent(in) :: iaer
       integer(kind=im), intent(in) :: nsfc
-      integer(kind=im), intent(in) :: laytrop
-      integer(kind=im), intent(in) :: layswtch
-      integer(kind=im), intent(in) :: laylow
-
-      integer(kind=im), intent(in) :: indfor(:)
-                                                               !   Dimensions: (nlayers)
-      integer(kind=im), intent(in) :: indself(:)
-                                                               !   Dimensions: (nlayers)
-      integer(kind=im), intent(in) :: jp(:)
-                                                               !   Dimensions: (nlayers)
-      integer(kind=im), intent(in) :: jt(:)
-                                                               !   Dimensions: (nlayers)
-      integer(kind=im), intent(in) :: jt1(:)
-                                                               !   Dimensions: (nlayers)
 
       real(kind=rb), intent(in) :: frac_sfck(nsfc)
+      real(kind=rb), intent(in) :: palbd(nsfc,nbndsw)      ! surface albedo (diffuse)
+      real(kind=rb), intent(in) :: palbp(nsfc,nbndsw)      ! surface albedo (direct)
 
-      real(kind=rb), intent(in) :: pavel(:)                    ! layer pressure (hPa, mb) 
-                                                               !   Dimensions: (nlayers)
-      real(kind=rb), intent(in) :: tavel(:)                    ! layer temperature (K)
-                                                               !   Dimensions: (nlayers)
-      real(kind=rb), intent(in) :: pz(0:)                      ! level (interface) pressure (hPa, mb)
-                                                               !   Dimensions: (0:nlayers)
-      real(kind=rb), intent(in) :: tz(0:)                      ! level temperatures (hPa, mb)
-                                                               !   Dimensions: (0:nlayers)
-      real(kind=rb), intent(in) :: tbound                      ! surface temperature (K)
-      real(kind=rb), intent(in) :: wkl(:,:)                    ! molecular amounts (mol/cm2) 
-                                                               !   Dimensions: (mxmol,nlayers)
-      real(kind=rb), intent(in) :: coldry(:)                   ! dry air column density (mol/cm2)
-                                                               !   Dimensions: (nlayers)
-      real(kind=rb), intent(in) :: colmol(:)
-                                                               !   Dimensions: (nlayers)
-      real(kind=rb), intent(in) :: adjflux(:)                  ! Earth/Sun distance adjustment
-                                                               !   Dimensions: (jpband)
+      real(kind=rb), intent(in) :: ztauc(ngptsw,nlayers)   ! cloud optical depth [mcica]
+      real(kind=rb), intent(in) :: zasyc(ngptsw,nlayers)   ! cloud asymmetry parameter [mcica]
+      real(kind=rb), intent(in) :: zomgc(ngptsw,nlayers)   ! cloud single scattering albedo [mcica]
 
-      real(kind=rb), intent(in) :: palbd(nsfc,nbndsw)          ! surface albedo (diffuse)
-                                                               !   Dimensions: (nbndsw)
-      real(kind=rb), intent(in) :: palbp(nsfc,nbndsw)          ! surface albedo (direct)
-                                                               !   Dimensions: (nbndsw)
-      real(kind=rb), intent(in) :: prmu0                       ! cosine of solar zenith angle
-      real(kind=rb), intent(in) :: pcldfmc(nlayers+1,ngptsw)   ! cloud fraction [mcica]
-                                                               !   Dimensions: (nlayers,ngptsw)
-      real(kind=rb), intent(in) :: ptaucmc(nlayers+1,ngptsw)   ! cloud optical depth [mcica]
-                                                               !   Dimensions: (nlayers,ngptsw)
-      real(kind=rb), intent(in) :: pasycmc(nlayers+1,ngptsw)   ! cloud asymmetry parameter [mcica]
-                                                               !   Dimensions: (nlayers,ngptsw)
-      real(kind=rb), intent(in) :: pomgcmc(nlayers+1,ngptsw)   ! cloud single scattering albedo [mcica]
-                                                               !   Dimensions: (nlayers,ngptsw)
-      real(kind=rb), intent(in) :: ptaormc(nlayers+1,ngptsw)   ! cloud optical depth, non-delta scaled [mcica]
-                                                               !   Dimensions: (nlayers,ngptsw)
-      real(kind=rb), intent(in) :: ptaua(nlayers+1,nbndsw)     ! aerosol optical depth
-                                                               !   Dimensions: (nlayers,nbndsw)
-      real(kind=rb), intent(in) :: pasya(nlayers+1,nbndsw)     ! aerosol asymmetry parameter
-                                                               !   Dimensions: (nlayers,nbndsw)
-      real(kind=rb), intent(in) :: pomga(nlayers+1,nbndsw)     ! aerosol single scattering albedo
-                                                               !   Dimensions: (nlayers,nbndsw)
+      real(kind=rb), intent(in) :: cldf(nlayers)           ! cloud fraction
+      real(kind=rb), intent(in) :: colmol(nlayers)
 
-      real(kind=rb), intent(in) :: colh2o(:)
-                                                               !   Dimensions: (nlayers)
-      real(kind=rb), intent(in) :: colco2(:)
-                                                               !   Dimensions: (nlayers)
-      real(kind=rb), intent(in) :: colch4(:)
-                                                               !   Dimensions: (nlayers)
-      real(kind=rb), intent(in) :: co2mult(:)
-                                                               !   Dimensions: (nlayers)
-      real(kind=rb), intent(in) :: colo3(:)
-                                                               !   Dimensions: (nlayers)
-      real(kind=rb), intent(in) :: colo2(:)
-                                                               !   Dimensions: (nlayers)
-      real(kind=rb), intent(in) :: coln2o(:)
-                                                               !   Dimensions: (nlayers)
+      real(kind=rb), intent(in) :: ptaua(nbndsw,nlayers)   ! aerosol optical depth
+      real(kind=rb), intent(in) :: pasya(nbndsw,nlayers)   ! aerosol asymmetry parameter
+      real(kind=rb), intent(in) :: pomga(nbndsw,nlayers)   ! aerosol single scattering albedo
 
-      real(kind=rb), intent(in) :: forfac(:)
-                                                               !   Dimensions: (nlayers)
-      real(kind=rb), intent(in) :: forfrac(:)
-                                                               !   Dimensions: (nlayers)
-      real(kind=rb), intent(in) :: selffac(:)
-                                                               !   Dimensions: (nlayers)
-      real(kind=rb), intent(in) :: selffrac(:)
-                                                               !   Dimensions: (nlayers)
-      real(kind=rb), intent(in) :: fac00(:)
-                                                               !   Dimensions: (nlayers)
-      real(kind=rb), intent(in) :: fac01(:)
-                                                               !   Dimensions: (nlayers)
-      real(kind=rb), intent(in) :: fac10(:)
-                                                               !   Dimensions: (nlayers)
-      real(kind=rb), intent(in) :: fac11(:)
-                                                               !   Dimensions: (nlayers)
+      real(kind=rb), intent(in) :: prmu0                   ! cosine of solar zenith angle
+      real(kind=rb), intent(in) :: adjflux                 ! Earth/Sun distance adjustment
+
+! Arrays from rrtmg_sw_taumol routines
+
+      real(kind=rb), intent(in) :: ztaug(ngptsw,nlayers)
+      real(kind=rb), intent(in) :: zsflxzen(ngptsw)
 
 ! ------- Output -------
-                                                               !   All Dimensions: (nlayers+1)
-!!      real(kind=rb), intent(out) :: pbbcd(:)
-!!      real(kind=rb), intent(out) :: pbbcu(:)
-!!      real(kind=rb), intent(out) :: pbbfd(:)
-!!      real(kind=rb), intent(out) :: pbbfu(:)
-!!      real(kind=rb), intent(out) :: pbbfddir(:)
-!!      real(kind=rb), intent(out) :: pbbcddir(:)
-!!
-!!      real(kind=rb), intent(out) :: puvcd(:)
-!!      real(kind=rb), intent(out) :: puvfd(:)
-!!      real(kind=rb), intent(out) :: puvcddir(:)
-!!      real(kind=rb), intent(out) :: puvfddir(:)
-!!
-!!      real(kind=rb), intent(out) :: pnicd(:)
-!!      real(kind=rb), intent(out) :: pnifd(:)
-!!      real(kind=rb), intent(out) :: pnicddir(:)
-!!      real(kind=rb), intent(out) :: pnifddir(:)
 
-! Output - inactive                                            !   All Dimensions: (nlayers+1)
-!      real(kind=rb), intent(out) :: puvcu(:)
-!      real(kind=rb), intent(out) :: puvfu(:)
-!      real(kind=rb), intent(out) :: pnicu(:)
-!      real(kind=rb), intent(out) :: pnifu(:)
-!      real(kind=rb), intent(out) :: pvscd(:)
-!      real(kind=rb), intent(out) :: pvscu(:)
-!      real(kind=rb), intent(out) :: pvsfd(:)
-!      real(kind=rb), intent(out) :: pvsfu(:)
+      real(kind=rb), intent(out) :: swuflx(nlayers)
+      real(kind=rb), intent(out) :: swdflx(nlayers)
+
+      real(kind=rb), intent(out) :: zbbfd_sfc   (nsfc,nbndsw), zbbfu_sfc(nsfc,nbndsw)
+      real(kind=rb), intent(out) :: zbbfddir_sfc(nsfc,nbndsw)
 
 ! ------- Local -------
 
-      logical :: lrtchkcld(nlayers)
+      integer(kind=im) :: ibm, ikl
+      integer(kind=im) :: ig, jb, jk, js
 
-      integer(kind=im)  :: klev, kmax, kmin, js
-      integer(kind=im) :: ib1, ib2, ibm, igt, ikl, ikp, ikx
-      integer(kind=im) :: iw, jb, jg, jl, jk
-!      integer(kind=im), parameter :: nuv = ?? 
-!      integer(kind=im), parameter :: nvs = ?? 
-!      integer(kind=im) :: itind
+      real(kind=rb) :: zref (ngptsw,nlayers+1)  ! direct albedo
+      real(kind=rb) :: zrefd(ngptsw,nlayers+1)  ! diffuse albedo
+      real(kind=rb) :: ztra (ngptsw,nlayers+1)  ! direct transmittance
+      real(kind=rb) :: ztrad(ngptsw,nlayers+1)  ! diffuse transmittance
+      real(kind=rb) :: zdbt (ngptsw,nlayers+1)  ! direct beam transmittance
+      real(kind=rb) :: ztdbt(ngptsw,nlayers+1)  ! total direct beam transmittance
 
-!     real(kind=rb) :: tblind, ze1
-!     real(kind=rb) :: zclear, zcloud
-      real(kind=rb) :: zdbt(nlayers+1)!, zdbt_nodel(nlayers+1)
-      real(kind=rb) :: zgc(nlayers), zgcc(nlayers), zgco(nlayers)
-      real(kind=rb) :: zomc(nlayers), zomcc(nlayers), zomco(nlayers)
-      real(kind=rb) :: zrdnd(nlayers+1), zrdndc(nlayers+1)
-      real(kind=rb) :: zref(nlayers+1), zrefc(nlayers+1)!, zrefo(nlayers+1)
-      real(kind=rb) :: zrefd(nlayers+1), zrefdc(nlayers+1)!, zrefdo(nlayers+1)
-      real(kind=rb) :: zrup(nlayers+1), zrupd(nlayers+1)
-      real(kind=rb) :: zrupc(nlayers+1), zrupdc(nlayers+1)
-      real(kind=rb) :: zs1(nlayers+1)
-      real(kind=rb) :: ztauc(nlayers), ztauo(nlayers)
-      real(kind=rb) :: ztdn(nlayers+1), ztdnc(nlayers+1), ztdbt(nlayers+1)
-      real(kind=rb) :: ztoc(nlayers), ztor(nlayers)
-      real(kind=rb) :: ztra(nlayers+1), ztrac(nlayers+1)!, ztrao(nlayers+1)
-      real(kind=rb) :: ztrad(nlayers+1), ztradc(nlayers+1)!, ztrado(nlayers+1)
-      real(kind=rb) :: zdbtc(nlayers+1), ztdbtc(nlayers+1)
-      real(kind=rb) :: zincflx !, zdbtc_nodel(nlayers+1) 
-!     real(kind=rb) :: ztdbt_nodel(nlayers+1), ztdbtc_nodel(nlayers+1)
+      real(kind=rb) :: ztauo(ngptsw)
+      real(kind=rb) :: zomco(ngptsw)
+      real(kind=rb) :: zggco(ngptsw)
 
-      real(kind=rb) :: zdbtmc, zdbtmo, zf, zgw, zreflect
-      real(kind=rb) :: zwf, tauorig, ap
+      real(kind=rb) :: zincflx(ngptsw)
 
-      real(kind=rb) :: ptXpo(nlayers+1), ptXpoXpa(nlayers+1)
-!     real(kind=rb) :: zincflux                                   ! inactive
+      real(kind=rb) :: zf, zwf, ap
+      real(kind=rb) :: prmu0m1, zom, ztaur
 
-      real(kind=rb)            :: prmu0m1
-      real(kind=rb), parameter :: repclc = 2.e-7_rb
+      real(kind=rb) :: ztaua(ngptsw,nlayers)   ! aerosol optical depth
+      real(kind=rb) :: zasya(ngptsw,nlayers)   ! aerosol asymmetry parameter
+      real(kind=rb) :: zomga(ngptsw,nlayers)   ! aerosol single scattering albedo
 
-! Arrays from rrtmg_sw_taumoln routines
+      real(kind=rb), parameter :: onem = 1.0 - 3.0 * epsilon(1.0)
 
-!      real(kind=rb) :: ztaug(nlayers,16), ztaur(nlayers,16)
-!      real(kind=rb) :: zsflxzen(16)
-      real(kind=rb) :: ztaug(nlayers,ngptsw), ztaur(nlayers,ngptsw)
-      real(kind=rb) :: zsflxzen(ngptsw)
+      ! Arrays from rrtmg_sw_vrtqdr routine
 
-! Arrays from rrtmg_sw_vrtqdr routine
+      real(kind=rb) :: zfd(ngptsw,nlayers+1)
+      real(kind=rb) :: zfu(ngptsw,nlayers+1)
 
-      real(kind=rb) :: zcd(nlayers+1), zcu(nlayers+1)
-      real(kind=rb) :: zfd(nlayers+1), zfu(nlayers+1)
+      real(kind=rb) :: zfd_sfc(ngptsw,nlayers-nsfc+2:nlayers+1)
+      real(kind=rb) :: zfu_sfc(ngptsw,nlayers-nsfc+2:nlayers+1)
 
-      real(kind=rb) :: zcd_sfc(nlayers-nsfc+2:nlayers+1), zcu_sfc(nlayers-nsfc+2:nlayers+1)
-      real(kind=rb) :: zfd_sfc(nlayers-nsfc+2:nlayers+1), zfu_sfc(nlayers-nsfc+2:nlayers+1)
-
-      real(kind=rb) :: zrup_sfc(nlayers-nsfc+2:nlayers+1), zrupd_sfc(nlayers-nsfc+2:nlayers+1)
-
-! Inactive arrays
-      real(kind=rb), intent(out) :: zbbcd   (nlayers+1,nbndsw), zbbcu   (nlayers+1,nbndsw)
-      real(kind=rb), intent(out) :: zbbfd   (nlayers+1,nbndsw), zbbfu   (nlayers+1,nbndsw)
-!     real(kind=rb), intent(out) :: zbbfddir(nlayers+1,nbndsw), zbbcddir(nlayers+1,nbndsw)
-
-      real(kind=rb), intent(out) :: zbbcd_sfc   (nsfc,nbndsw), zbbcu_sfc   (nsfc,nbndsw)
-      real(kind=rb), intent(out) :: zbbfd_sfc   (nsfc,nbndsw), zbbfu_sfc   (nsfc,nbndsw)
-      real(kind=rb), intent(out) :: zbbfddir_sfc(nsfc,nbndsw), zbbcddir_sfc(nsfc,nbndsw)
-
-! ------------------------------------------------------------------
-
-! Initializations
-
-!     ib1 = istart
-!     ib2 = iend
-      klev = nlayers
-      iw = 0
-!      repclc = 1.e-12_rb
-!      zincflux = 0.0_rb
-
-!!      do jk=1,klev+1
-!!         pbbcd(jk)=0._rb
-!!         pbbcu(jk)=0._rb
-!!         pbbfd(jk)=0._rb
-!!         pbbfu(jk)=0._rb
-!!         pbbcddir(jk)=0._rb
-!!         pbbfddir(jk)=0._rb
-!!         puvcd(jk)=0._rb
-!!         puvfd(jk)=0._rb
-!!         puvcddir(jk)=0._rb
-!!         puvfddir(jk)=0._rb
-!!         pnicd(jk)=0._rb
-!!         pnifd(jk)=0._rb
-!!         pnicddir(jk)=0._rb
-!!         pnifddir(jk)=0._rb
-!!      enddo
-
-      do ibm = 1, nbndsw
-         do jk = 1, klev + 1
-            zbbcd   (jk,ibm) = 0._rb
-            zbbcu   (jk,ibm) = 0._rb
-            zbbfd   (jk,ibm) = 0._rb
-            zbbfu   (jk,ibm) = 0._rb
-!           zbbcddir(jk,ibm) = 0._rb
-!           zbbfddir(jk,ibm) = 0._rb
-         enddo
-
-         do jk = 1, nsfc
-            zbbcd_sfc   (jk,ibm) = 0._rb
-            zbbcu_sfc   (jk,ibm) = 0._rb
-            zbbfd_sfc   (jk,ibm) = 0._rb
-            zbbfu_sfc   (jk,ibm) = 0._rb
-            zbbcddir_sfc(jk,ibm) = 0._rb
-            zbbfddir_sfc(jk,ibm) = 0._rb
-         enddo
-      enddo
+      real(kind=rb) :: zrup_sfc (ngptsw,nlayers-nsfc+2:nlayers+1)
+      real(kind=rb) :: zrupd_sfc(ngptsw,nlayers-nsfc+2:nlayers+1)
 
       prmu0m1 = 1.0_rb / prmu0
 
-! Calculate the optical depths for gaseous absorption and Rayleigh scattering
+      ap = adjflux * prmu0
 
-      call taumol_sw(klev, &
-                     colh2o, colco2, colch4, colo2, colo3, colmol, &
-                     laytrop, jp, jt, jt1, &
-                     fac00, fac01, fac10, fac11, &
-                     selffac, selffrac, indself, forfac, forfrac, indfor, &
-                     zsflxzen, ztaug, ztaur)
-
-! Top of shortwave spectral band loop, jb = 16 -> 29; ibm = 1 -> 14
-
-! Clear-sky    
-!   TOA direct beam    
-      ztdbtc(1)=1.0_rb
-      ztdnc(1)=1.0_rb
-
-!      zrdndc(1)=0.0_rb
-!   Surface values
-!      zdbtc(klev+1) =0.0_rb
-!      ztrac(klev+1) =0.0_rb
-!      ztradc(klev+1)=0.0_rb
-           
-! Total sky    
-!   TOA direct beam    
-      ztdbt(1)=1.0_rb
-      ztdn(1)=1.0_rb
-
-!     zrdnd(1)=0.0_rb
-!   Surface values
-!      zdbt(klev+1) =0.0_rb
-!      ztra(klev+1) =0.0_rb
-!      ztrad(klev+1)=0.0_rb
+      do ig = 1, ngptsw
+         ztdbt(ig,1)=1.0_rb
+         zincflx(ig) = ap * zsflxzen(ig)
+      enddo
 
       do jb = jpb1, jpb2
          ibm = jb-15
-!        igt = ngc(ibm)
-
-! Reinitialize g-point counter for each band if output for each band is requested.
-!        if (iout.gt.0.and.ibm.ge.2) iw = ngs(ibm-1)
-
-!        do jk=1,klev+1
-!           zbbcd(jk)=0.0_rb
-!           zbbcu(jk)=0.0_rb
-!           zbbfd(jk)=0.0_rb
-!           zbbfu(jk)=0.0_rb
-!        enddo
-
-! Clear-sky    
-!   Surface values
-!         zrefc(klev+1) =palbp(ibm)
-!         zrefdc(klev+1)=palbd(ibm)
-!         zrupc(klev+1) =palbp(ibm)
-!         zrupdc(klev+1)=palbd(ibm)
-           
-! Total sky    
-!   Surface values
-!         zref(klev+1) =palbp(ibm)
-!         zrefd(klev+1)=palbd(ibm)
-!         zrup(klev+1) =palbp(ibm)
-!         zrupd(klev+1)=palbd(ibm)
-    
-         do jk = klev-nsfc+2, klev+1
-            js = klev+2-jk
-            zrup_sfc (jk) = palbp(js,ibm)
-            zrupd_sfc(jk) = palbd(js,ibm)
+         do jk = nlayers-nsfc+2, nlayers+1
+            js = nlayers+2-jk
+            do ig = ngs1(ibm), ngs(ibm)
+               zrup_sfc (ig,jk) = palbp(js,ibm)
+               zrupd_sfc(ig,jk) = palbd(js,ibm)
+            enddo
          enddo
 
-         ap = adjflux(jb) * prmu0
-
-         do jk=1,klev
-            ptXpo   (jk) = ptaua(jk,ibm) * pomga(jk,ibm)
-            ptXpoXpa(jk) = pasya(jk,ibm) * ptXpo(jk)
-         enddo
-
-! Top of g-point interval loop within each band (iw is cumulative counter) 
-         do jg = 1, ngc(ibm)
-            iw = iw+1
-
-! Apply adjustment for correct Earth/Sun distance and zenith angle to incoming solar flux
-            zincflx = ap * zsflxzen(iw)
-
-! Compute layer reflectances and transmittances for direct and diffuse sources, 
-! first clear then cloudy
-
-! zrefc(jk)  direct albedo for clear
-! zrefo(jk)  direct albedo for cloud
-! zrefdc(jk) diffuse albedo for clear
-! zrefdo(jk) diffuse albedo for cloud
-! ztrac(jk)  direct transmittance for clear
-! ztrao(jk)  direct transmittance for cloudy
-! ztradc(jk) diffuse transmittance for clear
-! ztrado(jk) diffuse transmittance for cloudy
-!  
-! zref(jk)   direct reflectance
-! zrefd(jk)  diffuse reflectance
-! ztra(jk)   direct transmittance
-! ztrad(jk)  diffuse transmittance
-!
-! zdbtc(jk)  clear direct beam transmittance
-! zdbto(jk)  cloudy direct beam transmittance
-! zdbt(jk)   layer mean direct beam transmittance
-! ztdbt(jk)  total direct beam transmittance at levels
-
-! Top of layer loop
-            do jk=1,klev
-
-! Note: two-stream calculations proceed from top to bottom; 
-!   RRTMG_SW quantities are given bottom to top and are reversed here
-
-               ikl=klev+1-jk
-
-! Set logical flag to do REFTRA calculation
-!   Do REFTRA for all clear layers
-!              lrtchkclr(jk)=.true.
-
-!   Do REFTRA only for cloudy layers in profile, since already done for clear layers
-!              lrtchkcld(jk)=.false.
-!              lrtchkcld(jk)=(pcldfmc(ikl,iw) > repclc)
-
-! Clear-sky optical parameters - this section inactive     
-!   Original
-!               ztauc(jk) = ztaur(ikl,iw) + ztaug(ikl,iw)
-!               zomcc(jk) = ztaur(ikl,iw) / ztauc(jk)
-!               zgcc(jk) = 0.0001_rb
-!   Total sky optical parameters        
-!               ztauo(jk) = ztaur(ikl,iw) + ztaug(ikl,iw) + ptaucmc(ikl,iw)
-!               zomco(jk) = ptaucmc(ikl,iw) * pomgcmc(ikl,iw) + ztaur(ikl,iw)
-!               zgco (jk) = (ptaucmc(ikl,iw) * pomgcmc(ikl,iw) * pasycmc(ikl,iw) + &
-!                           ztaur(ikl,iw) * 0.0001_rb) / zomco(jk)
-!               zomco(jk) = zomco(jk) / ztauo(jk)
-
-! Clear-sky optical parameters including aerosols
-               ztauc(jk) = ztaur(ikl,iw) + ztaug(ikl,iw) + ptaua(ikl,ibm)
-               zomcc(jk) = ztaur(ikl,iw) + ptXpo(ikl)
-               zgcc(jk)  = ptXpoXpa(ikl) / zomcc(jk)
-               zomcc(jk) = zomcc(jk) / ztauc(jk)
-
-! Pre-delta-scaling clear and cloudy direct beam transmittance (must use 'orig', unscaled cloud OD)       
-!   \/\/\/ This block of code is only needed for unscaled direct beam calculation
-!!               if (idelm .eq. 0) then
-!!!     
-!!                  zclear = 1.0_rb - pcldfmc(ikl,iw)
-!!                  zcloud = pcldfmc(ikl,iw)
-!!
-!!! Clear
-!!!                   zdbtmc = exp(-ztauc(jk) / prmu0)
-!!
-!!! Use exponential lookup table for transmittance, or expansion of exponential for low tau
-!!                  ze1 = ztauc(jk) / prmu0
-!!                  if (ze1 .le. od_lo) then
-!!                     zdbtmc = 1._rb - ze1 + 0.5_rb * ze1 * ze1
-!!                  else 
-!!                     tblind = ze1 / (bpade + ze1)
-!!                     itind = tblint * tblind + 0.5_rb
-!!                     zdbtmc = exp_tbl(itind)
-!!                  endif
-!!
-!!                  zdbtc_nodel(jk) = zdbtmc
-!!                  ztdbtc_nodel(jk+1) = zdbtc_nodel(jk) * ztdbtc_nodel(jk)
-!!
-!!! Clear + Cloud
-!!                  tauorig = ztauc(jk) + ptaormc(ikl,iw)
-!!!                   zdbtmo = exp(-tauorig / prmu0)
-!!
-!!! Use exponential lookup table for transmittance, or expansion of exponential for low tau
-!!                  ze1 = tauorig / prmu0
-!!                  if (ze1 .le. od_lo) then
-!!                     zdbtmo = 1._rb - ze1 + 0.5_rb * ze1 * ze1
-!!                  else
-!!                     tblind = ze1 / (bpade + ze1)
-!!                     itind = tblint * tblind + 0.5_rb
-!!                     zdbtmo = exp_tbl(itind)
-!!                  endif
-!!
-!!                  zdbt_nodel(jk) = zclear*zdbtmc + zcloud*zdbtmo
-!!                  ztdbt_nodel(jk+1) = zdbt_nodel(jk) * ztdbt_nodel(jk)
-!!
-!!               endif
-!   /\/\/\ Above code only needed for unscaled direct beam calculation
-
-
-! Delta scaling - clear   
-               zf = zgcc(jk) * zgcc(jk)
-               zwf = zomcc(jk) * zf
-               ztauc(jk) = (1.0_rb - zwf) * ztauc(jk)
-               zomcc(jk) = (zomcc(jk) - zwf) / (1.0_rb - zwf)
-               zgcc (jk) = (zgcc(jk) - zf) / (1.0_rb - zf)
-
-            enddo
-
-            do jk=1,klev
-               ikl=klev+1-jk
-               
-               lrtchkcld(jk)=(pcldfmc(ikl,iw) > repclc)
-
-! Total sky optical parameters (cloud properties already delta-scaled)
-!   Use this code if cloud properties are derived in rrtmg_sw_cldprop       
-
-               if (lrtchkcld(jk)) then
-                  ztauo(jk) = ztauc(jk) + ptaucmc(ikl,iw)
-                  zomco(jk) = ztauc(jk) * zomcc(jk) + ptaucmc(ikl,iw) * pomgcmc(ikl,iw) 
-                  zgco (jk) = (ptaucmc(ikl,iw) * pomgcmc(ikl,iw) * pasycmc(ikl,iw) + &
-                              ztauc(jk) * zomcc(jk) * zgcc(jk)) / zomco(jk)
-                  zomco(jk) = zomco(jk) / ztauo(jk)
-               endif
-
-! Total sky optical parameters (if cloud properties not delta scaled)
-!   Use this code if cloud properties are not derived in rrtmg_sw_cldprop       
-!               elseif (icpr .eq. 0) then
-!                  ztauo(jk) = ztaur(ikl,iw) + ztaug(ikl,iw) + ptaua(ikl,ibm) + ptaucmc(ikl,iw)
-!                  zomco(jk) = ptaua(ikl,ibm) * pomga(ikl,ibm) + ptaucmc(ikl,iw) * pomgcmc(ikl,iw) + &
-!                              ztaur(ikl,iw) * 1.0_rb
-!                  zgco (jk) = (ptaucmc(ikl,iw) * pomgcmc(ikl,iw) * pasycmc(ikl,iw) + &
-!                              ptaua(ikl,ibm)*pomga(ikl,ibm)*pasya(ikl,ibm)) / zomco(jk)
-!                  zomco(jk) = zomco(jk) / ztauo(jk)
-
-! Delta scaling - clouds 
-!   Use only if subroutine rrtmg_sw_cldprop is not used to get cloud properties and to apply delta scaling
-!                  zf = zgco(jk) * zgco(jk)
-!                  zwf = zomco(jk) * zf
-!                  ztauo(jk) = (1._rb - zwf) * ztauo(jk)
-!                  zomco(jk) = (zomco(jk) - zwf) / (1.0_rb - zwf)
-!                  zgco (jk) = (zgco(jk) - zf) / (1.0_rb - zf)
-!               endif 
-
-! End of layer loop
-            enddo    
-
-            ! Clear sky reflectivities
-            call reftra_sw (klev, &
-                            zgcc, prmu0, prmu0m1, ztauc, zomcc, &
-                            zrefc, zrefdc, ztrac, ztradc, zdbtc )
-
-            ! Clear-sky direct beam transmittance        
-            do jk = 1, klev
-               ztdbtc(jk+1) = zdbtc(jk)*ztdbtc(jk)
-            enddo
-
-            ! Total sky reflectivities      
-            if (any(lrtchkcld(1:klev))) then
-
-               call reftra_sw_cld (klev, &
-                                   lrtchkcld, zgco, prmu0, prmu0m1, ztauo, zomco, &
-                                   zref, zrefd, ztra, ztrad, zdbt)
-
-               do jk = 1, klev
-                  ! Combine clear and cloudy contributions for total sky
-                  if (.not. lrtchkcld(jk)) then
-                     zref(jk) = zrefc(jk)
-                     zrefd(jk)= zrefdc(jk)
-                     ztra(jk) = ztrac(jk)
-                     ztrad(jk)= ztradc(jk)
-                     zdbt(jk) = zdbtc(jk)
-                  endif
+         if (iaer > 0) then
+            do jk=1,nlayers
+               do ig = ngs1(ibm), ngs(ibm)
+                  ztaua(ig,jk) = ptaua(ibm,jk)
+                  zasya(ig,jk) = pasya(ibm,jk)
+                  zomga(ig,jk) = pomga(ibm,jk)
                enddo
+            enddo
+         endif
 
-               ! Total-sky direct beam transmittance        
-               do jk = 1, klev
-                  ztdbt(jk+1) = zdbt(jk)*ztdbt(jk)
+      enddo
+
+      ! Note: two-stream calculations proceed from top to bottom;
+      ! RRTMG_SW quantities are given bottom to top and are reversed here
+
+      do jk=1,nlayers
+         ikl=nlayers+1-jk
+
+         ! Total sky optical parameters
+
+         if (iaer <= 0) then
+
+            if (cldf(ikl) <= cldmin) then
+
+               do ig = 1, ngptsw
+                  ztaur = colmol(ikl) * raylt(ig)
+
+                  ztauo(ig) = ztaur + ztaug(ig,ikl)
+                  zomco(ig) = min(ztaur / ztauo(ig), onem)
+                  zggco(ig) = 0._rb
                enddo
-
-            endif
-
-
-! Vertical quadrature for clear-sky fluxes
-
-            call vrtqdr_sw(klev, nsfc, zrup_sfc, zrupd_sfc, frac_sfck, &
-                           zrefc, zrefdc, ztrac, ztradc, zdbtc, ztdbtc, &
-                           zcd, zcu, zcd_sfc, zcu_sfc)
-
-
-! Vertical quadrature for cloudy fluxes
-
-            if (any(lrtchkcld(1:klev))) then
-
-               call vrtqdr_sw(klev, nsfc, zrup_sfc, zrupd_sfc, frac_sfck, &
-                              zref, zrefd, ztra, ztrad, zdbt, ztdbt, &
-                              zfd, zfu, zfd_sfc, zfu_sfc)
 
             else
 
-               do jk = 1, klev+1
-                  zfd  (jk) = zcd   (jk)
-                  zfu  (jk) = zcu   (jk)
-                  ztdbt(jk) = ztdbtc(jk)
-               enddo
+               do ig = 1, ngptsw
+                  ztaur = colmol(ikl) * raylt(ig)
 
-               do jk = klev-nsfc+2, klev+1
-                  zfd_sfc(jk) = zcd_sfc(jk)
-                  zfu_sfc(jk) = zcu_sfc(jk)
+                  ztauo(ig) = ztaur + ztaug(ig,ikl) + ztauc(ig,ikl)
+                  zom       = ztaur + zomgc(ig,ikl)
+                  zggco(ig) = zasyc(ig,ikl) / zom
+                  zomco(ig) = min(zom / ztauo(ig), onem)
                enddo
-
             endif
 
-! Upwelling and downwelling fluxes at levels
-!   Two-stream calculations go from top to bottom; 
-!   layer indexing is reversed to go bottom to top for output arrays
+         else
 
-            do ikl = klev+1,1,-1
-               jk = klev+2-ikl
+            if (cldf(ikl) <= cldmin) then
+               do ig = 1, ngptsw
+                  ztaur = colmol(ikl) * raylt(ig)
 
-! Accumulate spectral fluxes over bands - inactive
-               zbbfu   (ikl,ibm) = zbbfu   (ikl,ibm) + zincflx * zfu   (jk)  
-               zbbfd   (ikl,ibm) = zbbfd   (ikl,ibm) + zincflx * zfd   (jk)
-               zbbcu   (ikl,ibm) = zbbcu   (ikl,ibm) + zincflx * zcu   (jk)
-               zbbcd   (ikl,ibm) = zbbcd   (ikl,ibm) + zincflx * zcd   (jk)
-!              zbbfddir(ikl,ibm) = zbbfddir(ikl,ibm) + zincflx * ztdbt (jk)
-!              zbbcddir(ikl,ibm) = zbbcddir(ikl,ibm) + zincflx * ztdbtc(jk)
+                  ztauo(ig) = ztaur + ztaug(ig,ikl) + ztaua(ig,ikl)
+                  zom       = ztaur + zomga(ig,ikl)
+                  zggco(ig) = zasya(ig,ikl) / zom
+                  zomco(ig) = min(zom / ztauo(ig), onem)
+               enddo
+            else
+               do ig = 1, ngptsw
+                  ztaur = colmol(ikl) * raylt(ig)
+
+                  ztauo(ig) =  ztaur + ztaug(ig,ikl) + ztaua(ig,ikl) + ztauc(ig,ikl)
+                  zom       =  ztaur + zomga(ig,ikl) + zomgc(ig,ikl)
+                  zggco(ig) = (zasya(ig,ikl) + zasyc(ig,ikl)) / zom
+                  zomco(ig) = min(zom / ztauo(ig), onem)
+               enddo
+            endif
+
+         endif
+
+         ! Delta scaling - clouds and aerosols
+
+         if (iaer > 0 .or. cldf(ikl) > cldmin) then
+            do ig = 1, ngptsw
+               zf        = zggco(ig) * zggco(ig)
+               zwf       = zomco(ig) * zf
+               ztauo(ig) = (1._rb - zwf) * ztauo(ig)
+               zomco(ig) = (zomco(ig) - zwf) / (1.0_rb - zwf)
+               zggco(ig) = (zggco(ig) - zf ) / (1.0_rb - zf)
             enddo
+         endif
 
-            do ikl = 1, nsfc
-               jk = klev+2-ikl
-               zbbfu_sfc(ikl,ibm) = zbbfu_sfc(ikl,ibm) + zincflx * zfu_sfc(jk)  
-               zbbfd_sfc(ikl,ibm) = zbbfd_sfc(ikl,ibm) + zincflx * zfd_sfc(jk)
-               zbbcu_sfc(ikl,ibm) = zbbcu_sfc(ikl,ibm) + zincflx * zcu_sfc(jk)
-               zbbcd_sfc(ikl,ibm) = zbbcd_sfc(ikl,ibm) + zincflx * zcd_sfc(jk)
-               zbbfddir_sfc(ikl,ibm) = zbbfddir_sfc(ikl,ibm) + zincflx * ztdbt(jk)
-               zbbcddir_sfc(ikl,ibm) = zbbcddir_sfc(ikl,ibm) + zincflx * ztdbtc(jk)
-            enddo
- 
-! Accumulate spectral fluxes over whole spectrum  
-!!               pbbfu(ikl) = pbbfu(ikl) + zincflx(iw)*zfu(jk,iw)
-!!               pbbfd(ikl) = pbbfd(ikl) + zincflx(iw)*zfd(jk,iw)
-!!               pbbcu(ikl) = pbbcu(ikl) + zincflx(iw)*zcu(jk,iw)
-!!               pbbcd(ikl) = pbbcd(ikl) + zincflx(iw)*zcd(jk,iw)
-!!               if (idelm .eq. 0) then 
-!!                  pbbfddir(ikl) = pbbfddir(ikl) + zincflx(iw)*ztdbt_nodel(jk)
-!!                  pbbcddir(ikl) = pbbcddir(ikl) + zincflx(iw)*ztdbtc_nodel(jk)
-!!               elseif (idelm .eq. 1) then
-!!                  pbbfddir(ikl) = pbbfddir(ikl) + zincflx(iw)*ztdbt(jk)
-!!                  pbbcddir(ikl) = pbbcddir(ikl) + zincflx(iw)*ztdbtc(jk)
-!!               endif
+         ! Reflectivities
 
-! Accumulate direct fluxes for UV/visible bands
-!!               if (ibm >= 10 .and. ibm <= 13) then
-!!                  puvcd(ikl) = puvcd(ikl) + zincflx(iw)*zcd(jk,iw)
-!!                  puvfd(ikl) = puvfd(ikl) + zincflx(iw)*zfd(jk,iw)
-!!                  if (idelm .eq. 0) then 
-!!                     puvfddir(ikl) = puvfddir(ikl) + zincflx(iw)*ztdbt_nodel(jk)
-!!                     puvcddir(ikl) = puvcddir(ikl) + zincflx(iw)*ztdbtc_nodel(jk)
-!!                  elseif (idelm .eq. 1) then
-!!                     puvfddir(ikl) = puvfddir(ikl) + zincflx(iw)*ztdbt(jk)
-!!                     puvcddir(ikl) = puvcddir(ikl) + zincflx(iw)*ztdbtc(jk)
-!!                  endif
-! Accumulate direct fluxes for near-IR bands
-!!               else if (ibm == 14 .or. ibm <= 9) then  
-!!                  pnicd(ikl) = pnicd(ikl) + zincflx(iw)*zcd(jk,iw)
-!!                  pnifd(ikl) = pnifd(ikl) + zincflx(iw)*zfd(jk,iw)
-!!                  if (idelm .eq. 0) then 
-!!                     pnifddir(ikl) = pnifddir(ikl) + zincflx(iw)*ztdbt_nodel(jk)
-!!                     pnicddir(ikl) = pnicddir(ikl) + zincflx(iw)*ztdbtc_nodel(jk)
-!!                  elseif (idelm .eq. 1) then
-!!                     pnifddir(ikl) = pnifddir(ikl) + zincflx(iw)*ztdbt(jk)
-!!                     pnicddir(ikl) = pnicddir(ikl) + zincflx(iw)*ztdbtc(jk)
-!!                  endif
-!!               endif
-!!
-!!            enddo
+         call reftra_sw (jk, nlayers, zggco, prmu0, prmu0m1, ztauo, &
+                         zomco, zref, zrefd, ztra, ztrad, zdbt)
 
-! End loop on jg, g-point interval
-         enddo             
+         ! End of layer loop
+      enddo
 
-! End loop on jb, spectral band
-      enddo                    
+      ! Direct beam transmittance
 
-    end subroutine spcvmc_sw
-
-! ---------------------------------------------------------------------------
-      subroutine spcvmc_sw_noclr &
-            (nlayers, icpr, idelm, nsfc, frac_sfck, &
-             pavel, tavel, pz, tz, tbound, palbd, palbp, &
-             pcldfmc, ptaucmc, pasycmc, pomgcmc, ptaormc, &
-             ptaua, pasya, pomga, prmu0, coldry, wkl, adjflux, &
-             laytrop, layswtch, laylow, jp, jt, jt1, &
-             co2mult, colch4, colco2, colh2o, colmol, coln2o, colo2, colo3, &
-             fac00, fac01, fac10, fac11, &
-             selffac, selffrac, indself, forfac, forfrac, indfor, &
-             zbbfd, zbbfu, zbbcd, zbbcu, &
-             zbbfd_sfc, zbbfu_sfc, zbbcd_sfc, zbbcu_sfc, &
-             zbbfddir_sfc, zbbcddir_sfc)
-! ---------------------------------------------------------------------------
-!
-! Purpose: Contains spectral loop to compute the shortwave radiative fluxes, 
-!          using the two-stream method of H. Barker and McICA, the Monte-Carlo
-!          Independent Column Approximation, for the representation of 
-!          sub-grid cloud variability (i.e. cloud overlap).
-!
-! Interface:  *spcvmc_sw* is called from *rrtmg_sw.F90* or rrtmg_sw.1col.F90*
-!
-! Method:
-!    Adapted from two-stream model of H. Barker;
-!    Two-stream model options (selected with kmodts in rrtmg_sw_reftra.F90):
-!        1: Eddington, 2: PIFM, Zdunkowski et al., 3: discret ordinates
-!
-! Modifications:
-!
-! Original: H. Barker
-! Revision: Merge with RRTMG_SW: J.-J.Morcrette, ECMWF, Feb 2003
-! Revision: Add adjustment for Earth/Sun distance : MJIacono, AER, Oct 2003
-! Revision: Bug fix for use of PALBP and PALBD: MJIacono, AER, Nov 2003
-! Revision: Bug fix to apply delta scaling to clear sky: AER, Dec 2004
-! Revision: Code modified so that delta scaling is not done in cloudy profiles
-!           if routine cldprop is used; delta scaling can be applied by swithcing
-!           code below if cldprop is not used to get cloud properties. 
-!           AER, Jan 2005
-! Revision: Modified to use McICA: MJIacono, AER, Nov 2005
-! Revision: Uniform formatting for RRTMG: MJIacono, AER, Jul 2006 
-! Revision: Use exponential lookup table for transmittance: MJIacono, AER, 
-!           Aug 2007 
-!
-! ------------------------------------------------------------------
-
-! ------- Declarations ------
-
-! ------- Input -------
-
-      integer(kind=im), intent(in) :: nlayers
-      integer(kind=im), intent(in) :: icpr
-      integer(kind=im), intent(in) :: idelm   ! delta-m scaling flag
-                                              ! [0 = direct and diffuse fluxes are unscaled]
-                                              ! [1 = direct and diffuse fluxes are scaled]
-      integer(kind=im), intent(in) :: nsfc
-      integer(kind=im), intent(in) :: laytrop
-      integer(kind=im), intent(in) :: layswtch
-      integer(kind=im), intent(in) :: laylow
-
-      integer(kind=im), intent(in) :: indfor(:)
-                                                               !   Dimensions: (nlayers)
-      integer(kind=im), intent(in) :: indself(:)
-                                                               !   Dimensions: (nlayers)
-      integer(kind=im), intent(in) :: jp(:)
-                                                               !   Dimensions: (nlayers)
-      integer(kind=im), intent(in) :: jt(:)
-                                                               !   Dimensions: (nlayers)
-      integer(kind=im), intent(in) :: jt1(:)
-                                                               !   Dimensions: (nlayers)
-
-      real(kind=rb), intent(in) :: frac_sfck(nsfc)
-
-      real(kind=rb), intent(in) :: pavel(:)                    ! layer pressure (hPa, mb) 
-                                                               !   Dimensions: (nlayers)
-      real(kind=rb), intent(in) :: tavel(:)                    ! layer temperature (K)
-                                                               !   Dimensions: (nlayers)
-      real(kind=rb), intent(in) :: pz(0:)                      ! level (interface) pressure (hPa, mb)
-                                                               !   Dimensions: (0:nlayers)
-      real(kind=rb), intent(in) :: tz(0:)                      ! level temperatures (hPa, mb)
-                                                               !   Dimensions: (0:nlayers)
-      real(kind=rb), intent(in) :: tbound                      ! surface temperature (K)
-      real(kind=rb), intent(in) :: wkl(:,:)                    ! molecular amounts (mol/cm2) 
-                                                               !   Dimensions: (mxmol,nlayers)
-      real(kind=rb), intent(in) :: coldry(:)                   ! dry air column density (mol/cm2)
-                                                               !   Dimensions: (nlayers)
-      real(kind=rb), intent(in) :: colmol(:)
-                                                               !   Dimensions: (nlayers)
-      real(kind=rb), intent(in) :: adjflux(:)                  ! Earth/Sun distance adjustment
-                                                               !   Dimensions: (jpband)
-
-      real(kind=rb), intent(in) :: palbd(nsfc,nbndsw)          ! surface albedo (diffuse)
-                                                               !   Dimensions: (nbndsw)
-      real(kind=rb), intent(in) :: palbp(nsfc,nbndsw)          ! surface albedo (direct)
-                                                               !   Dimensions: (nbndsw)
-      real(kind=rb), intent(in) :: prmu0                       ! cosine of solar zenith angle
-      real(kind=rb), intent(in) :: pcldfmc(nlayers+1,ngptsw)   ! cloud fraction [mcica]
-                                                               !   Dimensions: (nlayers,ngptsw)
-      real(kind=rb), intent(in) :: ptaucmc(nlayers+1,ngptsw)   ! cloud optical depth [mcica]
-                                                               !   Dimensions: (nlayers,ngptsw)
-      real(kind=rb), intent(in) :: pasycmc(nlayers+1,ngptsw)   ! cloud asymmetry parameter [mcica]
-                                                               !   Dimensions: (nlayers,ngptsw)
-      real(kind=rb), intent(in) :: pomgcmc(nlayers+1,ngptsw)   ! cloud single scattering albedo [mcica]
-                                                               !   Dimensions: (nlayers,ngptsw)
-      real(kind=rb), intent(in) :: ptaormc(nlayers+1,ngptsw)   ! cloud optical depth, non-delta scaled [mcica]
-                                                               !   Dimensions: (nlayers,ngptsw)
-      real(kind=rb), intent(in) :: ptaua(nlayers+1,nbndsw)     ! aerosol optical depth
-                                                               !   Dimensions: (nlayers,nbndsw)
-      real(kind=rb), intent(in) :: pasya(nlayers+1,nbndsw)     ! aerosol asymmetry parameter
-                                                               !   Dimensions: (nlayers,nbndsw)
-      real(kind=rb), intent(in) :: pomga(nlayers+1,nbndsw)     ! aerosol single scattering albedo
-                                                               !   Dimensions: (nlayers,nbndsw)
-
-      real(kind=rb), intent(in) :: colh2o(:)
-                                                               !   Dimensions: (nlayers)
-      real(kind=rb), intent(in) :: colco2(:)
-                                                               !   Dimensions: (nlayers)
-      real(kind=rb), intent(in) :: colch4(:)
-                                                               !   Dimensions: (nlayers)
-      real(kind=rb), intent(in) :: co2mult(:)
-                                                               !   Dimensions: (nlayers)
-      real(kind=rb), intent(in) :: colo3(:)
-                                                               !   Dimensions: (nlayers)
-      real(kind=rb), intent(in) :: colo2(:)
-                                                               !   Dimensions: (nlayers)
-      real(kind=rb), intent(in) :: coln2o(:)
-                                                               !   Dimensions: (nlayers)
-
-      real(kind=rb), intent(in) :: forfac(:)
-                                                               !   Dimensions: (nlayers)
-      real(kind=rb), intent(in) :: forfrac(:)
-                                                               !   Dimensions: (nlayers)
-      real(kind=rb), intent(in) :: selffac(:)
-                                                               !   Dimensions: (nlayers)
-      real(kind=rb), intent(in) :: selffrac(:)
-                                                               !   Dimensions: (nlayers)
-      real(kind=rb), intent(in) :: fac00(:)
-                                                               !   Dimensions: (nlayers)
-      real(kind=rb), intent(in) :: fac01(:)
-                                                               !   Dimensions: (nlayers)
-      real(kind=rb), intent(in) :: fac10(:)
-                                                               !   Dimensions: (nlayers)
-      real(kind=rb), intent(in) :: fac11(:)
-                                                               !   Dimensions: (nlayers)
-
-! ------- Output -------
-                                                               !   All Dimensions: (nlayers+1)
-!!      real(kind=rb), intent(out) :: pbbcd(:)
-!!      real(kind=rb), intent(out) :: pbbcu(:)
-!!      real(kind=rb), intent(out) :: pbbfd(:)
-!!      real(kind=rb), intent(out) :: pbbfu(:)
-!!      real(kind=rb), intent(out) :: pbbfddir(:)
-!!      real(kind=rb), intent(out) :: pbbcddir(:)
-!!
-!!      real(kind=rb), intent(out) :: puvcd(:)
-!!      real(kind=rb), intent(out) :: puvfd(:)
-!!      real(kind=rb), intent(out) :: puvcddir(:)
-!!      real(kind=rb), intent(out) :: puvfddir(:)
-!!
-!!      real(kind=rb), intent(out) :: pnicd(:)
-!!      real(kind=rb), intent(out) :: pnifd(:)
-!!      real(kind=rb), intent(out) :: pnicddir(:)
-!!      real(kind=rb), intent(out) :: pnifddir(:)
-
-! Output - inactive                                            !   All Dimensions: (nlayers+1)
-!      real(kind=rb), intent(out) :: puvcu(:)
-!      real(kind=rb), intent(out) :: puvfu(:)
-!      real(kind=rb), intent(out) :: pnicu(:)
-!      real(kind=rb), intent(out) :: pnifu(:)
-!      real(kind=rb), intent(out) :: pvscd(:)
-!      real(kind=rb), intent(out) :: pvscu(:)
-!      real(kind=rb), intent(out) :: pvsfd(:)
-!      real(kind=rb), intent(out) :: pvsfu(:)
-
-! ------- Local -------
-
-      integer(kind=im)  :: klev, kmax, kmin
-      integer(kind=im) :: ib1, ib2, ibm, igt, ikl, ikp, ikx
-      integer(kind=im) :: iw, jb, jg, jl, jk, js
-!      integer(kind=im), parameter :: nuv = ?? 
-!      integer(kind=im), parameter :: nvs = ?? 
-!      integer(kind=im) :: itind
-
-!     real(kind=rb) :: tblind, ze1
-!     real(kind=rb) :: zclear, zcloud
-      real(kind=rb) :: zdbt(nlayers+1)!, zdbt_nodel(nlayers+1)
-      real(kind=rb) :: zgc(nlayers), zgcc(nlayers), zgco(nlayers)
-      real(kind=rb) :: zomc(nlayers), zomcc(nlayers), zomco(nlayers)
-      real(kind=rb) :: zrdnd(nlayers+1), zrdndc(nlayers+1)
-      real(kind=rb) :: zref(nlayers+1), zrefc(nlayers+1)!, zrefo(nlayers+1)
-      real(kind=rb) :: zrefd(nlayers+1), zrefdc(nlayers+1)!, zrefdo(nlayers+1)
-      real(kind=rb) :: zrup(nlayers+1), zrupd(nlayers+1)
-      real(kind=rb) :: zrupc(nlayers+1), zrupdc(nlayers+1)
-      real(kind=rb) :: zs1(nlayers+1)
-      real(kind=rb) :: ztauc(nlayers), ztauo(nlayers)
-      real(kind=rb) :: ztdn(nlayers+1), ztdnc(nlayers+1), ztdbt(nlayers+1)
-      real(kind=rb) :: ztoc(nlayers), ztor(nlayers)
-      real(kind=rb) :: ztra(nlayers+1), ztrac(nlayers+1)!, ztrao(nlayers+1)
-      real(kind=rb) :: ztrad(nlayers+1), ztradc(nlayers+1)!, ztrado(nlayers+1)
-      real(kind=rb) :: zdbtc(nlayers+1), ztdbtc(nlayers+1)
-
-      real(kind=rb) :: zincflx !, zdbtc_nodel(nlayers+1) 
-!     real(kind=rb) :: ztdbt_nodel(nlayers+1), ztdbtc_nodel(nlayers+1)
-
-      real(kind=rb) :: zdbtmc, zdbtmo, zf, zgw, zreflect
-      real(kind=rb) :: zwf, tauorig, ap
-
-      real(kind=rb) :: ptXpo(nlayers+1), ptXpoXpa(nlayers+1)
-!     real(kind=rb) :: zincflux                                   ! inactive
-
-      real(kind=rb)            :: prmu0m1
-      real(kind=rb), parameter :: repclc = 2.e-7_rb
-
-! Arrays from rrtmg_sw_taumoln routines
-
-!      real(kind=rb) :: ztaug(nlayers,16), ztaur(nlayers,16)
-!      real(kind=rb) :: zsflxzen(16)
-      real(kind=rb) :: ztaug(nlayers,ngptsw), ztaur(nlayers,ngptsw)
-      real(kind=rb) :: zsflxzen(ngptsw)
-
-! Arrays from rrtmg_sw_vrtqdr routine
-
-!     real(kind=rb) :: zcd(nlayers+1), zcu(nlayers+1)
-      real(kind=rb) :: zfd(nlayers+1), zfu(nlayers+1)
-
-!     real(kind=rb) :: zcd_sfc(nlayers-nsfc+2:nlayers+1), zcu_sfc(nlayers-nsfc+2:nlayers+1)
-      real(kind=rb) :: zfd_sfc(nlayers-nsfc+2:nlayers+1), zfu_sfc(nlayers-nsfc+2:nlayers+1)
-
-      real(kind=rb) :: zrup_sfc(nlayers-nsfc+2:nlayers+1), zrupd_sfc(nlayers-nsfc+2:nlayers+1)
-
-! Inactive arrays
-      real(kind=rb), intent(out) :: zbbcd   (nlayers+1,nbndsw), zbbcu   (nlayers+1,nbndsw)
-      real(kind=rb), intent(out) :: zbbfd   (nlayers+1,nbndsw), zbbfu   (nlayers+1,nbndsw)
-!     real(kind=rb), intent(out) :: zbbfddir(nlayers+1,nbndsw), zbbcddir(nlayers+1,nbndsw)
-
-      real(kind=rb), intent(out) :: zbbcd_sfc   (nsfc,nbndsw), zbbcu_sfc   (nsfc,nbndsw)
-      real(kind=rb), intent(out) :: zbbfd_sfc   (nsfc,nbndsw), zbbfu_sfc   (nsfc,nbndsw)
-      real(kind=rb), intent(out) :: zbbfddir_sfc(nsfc,nbndsw), zbbcddir_sfc(nsfc,nbndsw)
-
-! ------------------------------------------------------------------
-
-! Initializations
-
-!     ib1 = istart
-!     ib2 = iend
-      klev = nlayers
-      iw = 0
-!      repclc = 1.e-12_rb
-!      zincflux = 0.0_rb
-
-!!      do jk=1,klev+1
-!!         pbbcd(jk)=0._rb
-!!         pbbcu(jk)=0._rb
-!!         pbbfd(jk)=0._rb
-!!         pbbfu(jk)=0._rb
-!!         pbbcddir(jk)=0._rb
-!!         pbbfddir(jk)=0._rb
-!!         puvcd(jk)=0._rb
-!!         puvfd(jk)=0._rb
-!!         puvcddir(jk)=0._rb
-!!         puvfddir(jk)=0._rb
-!!         pnicd(jk)=0._rb
-!!         pnifd(jk)=0._rb
-!!         pnicddir(jk)=0._rb
-!!         pnifddir(jk)=0._rb
-!!      enddo
-
-      do ibm = 1, nbndsw
-         do jk = 1, klev + 1
-            zbbcd   (jk,ibm) =0._rb
-            zbbcu   (jk,ibm) =0._rb
-            zbbfd   (jk,ibm) =0._rb
-            zbbfu   (jk,ibm) =0._rb
-!           zbbcddir(jk,ibm) = 0._rb
-!           zbbfddir(jk,ibm) = 0._rb
-         enddo
-
-         do jk = 1, nsfc
-            zbbcd_sfc   (jk,ibm) = 0._rb
-            zbbcu_sfc   (jk,ibm) = 0._rb
-            zbbfd_sfc   (jk,ibm) = 0._rb
-            zbbfu_sfc   (jk,ibm) = 0._rb
-            zbbcddir_sfc(jk,ibm) = 0._rb
-            zbbfddir_sfc(jk,ibm) = 0._rb
+      do jk = 2, nlayers+1
+         !dir$ ivdep
+         do ig = 1, ngptsw
+            ztdbt(ig,jk) = zdbt(ig,jk-1) * ztdbt(ig,jk-1)
          enddo
       enddo
 
-      prmu0m1 = 1.0_rb / prmu0
+      ! Vertical quadrature for total-sky fluxes
 
-! Calculate the optical depths for gaseous absorption and Rayleigh scattering
+      call vrtqdr_sw(nlayers, nsfc, zrup_sfc, zrupd_sfc, frac_sfck, &
+                     zref, zrefd, ztra, ztrad, zdbt, ztdbt, &
+                     zfd, zfu, zfd_sfc, zfu_sfc, zincflx)
 
-      call taumol_sw(klev, &
-                     colh2o, colco2, colch4, colo2, colo3, colmol, &
-                     laytrop, jp, jt, jt1, &
-                     fac00, fac01, fac10, fac11, &
-                     selffac, selffrac, indself, forfac, forfrac, indfor, &
-                     zsflxzen, ztaug, ztaur)
+      ! Upwelling and downwelling fluxes at levels
+      ! Two-stream calculations go from top to bottom;
+      ! layer indexing is reversed to go bottom to top for output arrays
 
-! Top of shortwave spectral band loop, jb = 16 -> 29; ibm = 1 -> 14
+      do ikl = 1, nlayers
+         jk = nlayers+1-ikl
+         swuflx(ikl) = sum( zfu(1:ngptsw,jk) )
+         swdflx(ikl) = sum( zfd(1:ngptsw,jk) )
+      enddo
 
-! Clear-sky    
-!   TOA direct beam    
-!      ztdbtc(1)=1.0_rb
-!      ztdnc(1)=1.0_rb
-!      zrdndc(1)=0.0_rb
-!   Surface values
-!      zdbtc(klev+1) =0.0_rb
-!      ztrac(klev+1) =0.0_rb
-!      ztradc(klev+1)=0.0_rb
-           
-! Total sky    
-!   TOA direct beam    
-      ztdbt(1)=1.0_rb
-      ztdn(1)=1.0_rb
+      ! Special at surface and with shaved cells
 
-!     zrdnd(1)=0.0_rb
-!   Surface values
-!      zdbt(klev+1) =0.0_rb
-!      ztra(klev+1) =0.0_rb
-!      ztrad(klev+1)=0.0_rb
+      do ikl = 1, nsfc
+         jk = nlayers+2-ikl
 
-      do jb = jpb1, jpb2
-         ibm = jb-15
-!        igt = ngc(ibm)
-
-! Reinitialize g-point counter for each band if output for each band is requested.
-!        if (iout.gt.0.and.ibm.ge.2) iw = ngs(ibm-1)
-
-!        do jk=1,klev+1
-!           zbbcd(jk)=0.0_rb
-!           zbbcu(jk)=0.0_rb
-!           zbbfd(jk)=0.0_rb
-!           zbbfu(jk)=0.0_rb
-!        enddo
-
-! Clear-sky    
-!   Surface values
-!         zrefc(klev+1) =palbp(ibm)
-!         zrefdc(klev+1)=palbd(ibm)
-!         zrupc(klev+1) =palbp(ibm)
-!         zrupdc(klev+1)=palbd(ibm)
-           
-! Total sky    
-!   Surface values
-!        zref(klev+1) =palbp(ibm)
-!        zrefd(klev+1)=palbd(ibm)
-!        zrup(klev+1) =palbp(ibm)
-!        zrupd(klev+1)=palbd(ibm)
-
-         do jk = klev-nsfc+2, klev+1
-            js = klev+2-jk
-            zrup_sfc (jk) = palbp(js,ibm)
-            zrupd_sfc(jk) = palbd(js,ibm)
+         do ig = 1, ngptsw
+            ztdbt(ig,jk) = ztdbt(ig,jk) * zincflx(ig)
          enddo
 
-         ap = adjflux(jb) * prmu0
-
-         do jk=1,klev
-            ptXpo   (jk) = ptaua(jk,ibm) * pomga(jk,ibm)
-            ptXpoXpa(jk) = pasya(jk,ibm) * ptXpo(jk)
+         do ibm = 1, nbndsw
+            zbbfu_sfc   (ikl,ibm) = sum( zfu_sfc( ngs1(ibm):ngs(ibm), jk ) )
+            zbbfd_sfc   (ikl,ibm) = sum( zfd_sfc( ngs1(ibm):ngs(ibm), jk ) )
+            zbbfddir_sfc(ikl,ibm) = sum( ztdbt  ( ngs1(ibm):ngs(ibm), jk ) )
          enddo
-
-! Top of g-point interval loop within each band (iw is cumulative counter) 
-         do jg = 1, ngc(ibm)
-            iw = iw+1
-
-! Apply adjustment for correct Earth/Sun distance and zenith angle to incoming solar flux
-            zincflx = ap * zsflxzen(iw)
-
-! Compute layer reflectances and transmittances for direct and diffuse sources, 
-! first clear then cloudy
-
-! zrefc(jk)  direct albedo for clear
-! zrefo(jk)  direct albedo for cloud
-! zrefdc(jk) diffuse albedo for clear
-! zrefdo(jk) diffuse albedo for cloud
-! ztrac(jk)  direct transmittance for clear
-! ztrao(jk)  direct transmittance for cloudy
-! ztradc(jk) diffuse transmittance for clear
-! ztrado(jk) diffuse transmittance for cloudy
-!  
-! zref(jk)   direct reflectance
-! zrefd(jk)  diffuse reflectance
-! ztra(jk)   direct transmittance
-! ztrad(jk)  diffuse transmittance
-!
-! zdbtc(jk)  clear direct beam transmittance
-! zdbto(jk)  cloudy direct beam transmittance
-! zdbt(jk)   layer mean direct beam transmittance
-! ztdbt(jk)  total direct beam transmittance at levels
-
-! Top of layer loop
-            do jk=1,klev
-
-! Note: two-stream calculations proceed from top to bottom; 
-!   RRTMG_SW quantities are given bottom to top and are reversed here
-
-               ikl=klev+1-jk
-
-! Clear-sky optical parameters - this section inactive     
-!   Original
-!               ztauc(jk) = ztaur(ikl,iw) + ztaug(ikl,iw)
-!               zomcc(jk) = ztaur(ikl,iw) / ztauc(jk)
-!               zgcc(jk) = 0.0001_rb
-!   Total sky optical parameters        
-!               ztauo(jk) = ztaur(ikl,iw) + ztaug(ikl,iw) + ptaucmc(ikl,iw)
-!               zomco(jk) = ptaucmc(ikl,iw) * pomgcmc(ikl,iw) + ztaur(ikl,iw)
-!               zgco (jk) = (ptaucmc(ikl,iw) * pomgcmc(ikl,iw) * pasycmc(ikl,iw) + &
-!                           ztaur(ikl,iw) * 0.0001_rb) / zomco(jk)
-!               zomco(jk) = zomco(jk) / ztauo(jk)
-
-! Clear-sky optical parameters including aerosols
-               ztauc(jk) = ztaur(ikl,iw) + ztaug(ikl,iw) + ptaua(ikl,ibm)
-               zomcc(jk) = ztaur(ikl,iw) + ptXpo(ikl)
-               zgcc(jk)  = ptXpoXpa(ikl) / zomcc(jk)
-               zomcc(jk) = zomcc(jk) / ztauc(jk)
-
-! Pre-delta-scaling clear and cloudy direct beam transmittance (must use 'orig', unscaled cloud OD)       
-!   \/\/\/ This block of code is only needed for unscaled direct beam calculation
-!!               if (idelm .eq. 0) then
-!!!     
-!!                  zclear = 1.0_rb - pcldfmc(ikl,iw)
-!!                  zcloud = pcldfmc(ikl,iw)
-!!
-!!! Clear
-!!!                   zdbtmc = exp(-ztauc(jk) / prmu0)
-!!
-!!! Use exponential lookup table for transmittance, or expansion of exponential for low tau
-!!                  ze1 = ztauc(jk) / prmu0
-!!                  if (ze1 .le. od_lo) then
-!!                     zdbtmc = 1._rb - ze1 + 0.5_rb * ze1 * ze1
-!!                  else 
-!!                     tblind = ze1 / (bpade + ze1)
-!!                     itind = tblint * tblind + 0.5_rb
-!!                     zdbtmc = exp_tbl(itind)
-!!                  endif
-!!
-!!                  zdbtc_nodel(jk) = zdbtmc
-!!                  ztdbtc_nodel(jk+1) = zdbtc_nodel(jk) * ztdbtc_nodel(jk)
-!!
-!!! Clear + Cloud
-!!                  tauorig = ztauc(jk) + ptaormc(ikl,iw)
-!!!                   zdbtmo = exp(-tauorig / prmu0)
-!!
-!!! Use exponential lookup table for transmittance, or expansion of exponential for low tau
-!!                  ze1 = tauorig / prmu0
-!!                  if (ze1 .le. od_lo) then
-!!                     zdbtmo = 1._rb - ze1 + 0.5_rb * ze1 * ze1
-!!                  else
-!!                     tblind = ze1 / (bpade + ze1)
-!!                     itind = tblint * tblind + 0.5_rb
-!!                     zdbtmo = exp_tbl(itind)
-!!                  endif
-!!
-!!                  zdbt_nodel(jk) = zclear*zdbtmc + zcloud*zdbtmo
-!!                  ztdbt_nodel(jk+1) = zdbt_nodel(jk) * ztdbt_nodel(jk)
-!!
-!!               endif
-!   /\/\/\ Above code only needed for unscaled direct beam calculation
-
-
-! Delta scaling - clear   
-               zf = zgcc(jk) * zgcc(jk)
-               zwf = zomcc(jk) * zf
-               ztauc(jk) = (1.0_rb - zwf) * ztauc(jk)
-               zomcc(jk) = (zomcc(jk) - zwf) / (1.0_rb - zwf)
-               zgcc (jk) = (zgcc(jk) - zf) / (1.0_rb - zf)
-
-            enddo
-
-            do jk=1,klev
-               ikl=klev+1-jk
-               
-! Total sky optical parameters (cloud properties already delta-scaled)
-! Use this code if cloud properties are derived in rrtmg_sw_cldprop       
-
-               if (pcldfmc(ikl,iw) > repclc) then
-                  ztauo(jk) = ztauc(jk) + ptaucmc(ikl,iw)
-                  zomco(jk) = ztauc(jk) * zomcc(jk) + ptaucmc(ikl,iw) * pomgcmc(ikl,iw) 
-                  zgco (jk) = (ptaucmc(ikl,iw) * pomgcmc(ikl,iw) * pasycmc(ikl,iw) + &
-                              ztauc(jk) * zomcc(jk) * zgcc(jk)) / zomco(jk)
-                  zomco(jk) = zomco(jk) / ztauo(jk)
-               else
-                  ztauo(jk) = ztauc(jk)
-                  zomco(jk) = zomcc(jk)
-                  zgco (jk) = zgcc (jk)
-               endif
-
-! Total sky optical parameters (if cloud properties not delta scaled)
-!   Use this code if cloud properties are not derived in rrtmg_sw_cldprop       
-!               elseif (icpr .eq. 0) then
-!                  ztauo(jk) = ztaur(ikl,iw) + ztaug(ikl,iw) + ptaua(ikl,ibm) + ptaucmc(ikl,iw)
-!                  zomco(jk) = ptaua(ikl,ibm) * pomga(ikl,ibm) + ptaucmc(ikl,iw) * pomgcmc(ikl,iw) + &
-!                              ztaur(ikl,iw) * 1.0_rb
-!                  zgco (jk) = (ptaucmc(ikl,iw) * pomgcmc(ikl,iw) * pasycmc(ikl,iw) + &
-!                              ptaua(ikl,ibm)*pomga(ikl,ibm)*pasya(ikl,ibm)) / zomco(jk)
-!                  zomco(jk) = zomco(jk) / ztauo(jk)
-
-! Delta scaling - clouds 
-!   Use only if subroutine rrtmg_sw_cldprop is not used to get cloud properties and to apply delta scaling
-!                  zf = zgco(jk) * zgco(jk)
-!                  zwf = zomco(jk) * zf
-!                  ztauo(jk) = (1._rb - zwf) * ztauo(jk)
-!                  zomco(jk) = (zomco(jk) - zwf) / (1.0_rb - zwf)
-!                  zgco (jk) = (zgco(jk) - zf) / (1.0_rb - zf)
-!               endif 
-
-! End of layer loop
-            enddo    
-
-            ! Total sky reflectivities
-
-            call reftra_sw (klev, &
-                            zgco, prmu0, prmu0m1, ztauo, zomco, &
-                            zref, zrefd, ztra, ztrad, zdbt)
-
-            ! Direct beam transmittance        
-
-            do jk = 1, klev
-               ztdbt(jk+1) = zdbt(jk)*ztdbt(jk)
-            enddo
-
-! Vertical quadrature for total-sky fluxes
-
-            call vrtqdr_sw(klev, nsfc, zrup_sfc, zrupd_sfc, frac_sfck, &
-                           zref, zrefd, ztra, ztrad, zdbt, ztdbt, &
-                           zfd, zfu, zfd_sfc, zfu_sfc)
-
-! Upwelling and downwelling fluxes at levels
-!   Two-stream calculations go from top to bottom; 
-!   layer indexing is reversed to go bottom to top for output arrays
-
-            do ikl = 1, klev+1
-               jk = klev+2-ikl
-
-! Accumulate spectral fluxes over bands - inactive
-               zbbfu   (ikl,ibm) = zbbfu   (ikl,ibm) + zincflx * zfu   (jk)  
-               zbbfd   (ikl,ibm) = zbbfd   (ikl,ibm) + zincflx * zfd   (jk)
-!              zbbcu   (ikl,ibm) = zbbcu   (ikl,ibm) + zincflx * zcu   (jk)
-!              zbbcd   (ikl,ibm) = zbbcd   (ikl,ibm) + zincflx * zcd   (jk)
-!              zbbfddir(ikl,ibm) = zbbfddir(ikl,ibm) + zincflx * ztdbt (jk)
-!              zbbcddir(ikl,ibm) = zbbcddir(ikl,ibm) + zincflx * ztdbtc(jk)
-            enddo
-
-            do ikl = 1, nsfc
-               jk = klev+2-ikl
-               zbbfu_sfc(ikl,ibm) = zbbfu_sfc(ikl,ibm) + zincflx * zfu_sfc(jk)  
-               zbbfd_sfc(ikl,ibm) = zbbfd_sfc(ikl,ibm) + zincflx * zfd_sfc(jk)
-!              zbbcu_sfc(ikl,ibm) = zbbcu_sfc(ikl,ibm) + zincflx * zcu_sfc(jk)
-!              zbbcd_sfc(ikl,ibm) = zbbcd_sfc(ikl,ibm) + zincflx * zcd_sfc(jk)
-               zbbfddir_sfc(ikl,ibm) = zbbfddir_sfc(ikl,ibm) + zincflx * ztdbt(jk)
-!              zbbcddir_sfc(ikl,ibm) = zbbcddir_sfc(ikl,ibm) + zincflx * ztdbtc(jk)
-            enddo
-
-! Accumulate spectral fluxes over whole spectrum  
-!!               pbbfu(ikl) = pbbfu(ikl) + zincflx(iw)*zfu(jk,iw)
-!!               pbbfd(ikl) = pbbfd(ikl) + zincflx(iw)*zfd(jk,iw)
-!!               pbbcu(ikl) = pbbcu(ikl) + zincflx(iw)*zcu(jk,iw)
-!!               pbbcd(ikl) = pbbcd(ikl) + zincflx(iw)*zcd(jk,iw)
-!!               if (idelm .eq. 0) then 
-!!                  pbbfddir(ikl) = pbbfddir(ikl) + zincflx(iw)*ztdbt_nodel(jk)
-!!                  pbbcddir(ikl) = pbbcddir(ikl) + zincflx(iw)*ztdbtc_nodel(jk)
-!!               elseif (idelm .eq. 1) then
-!!                  pbbfddir(ikl) = pbbfddir(ikl) + zincflx(iw)*ztdbt(jk)
-!!                  pbbcddir(ikl) = pbbcddir(ikl) + zincflx(iw)*ztdbtc(jk)
-!!               endif
-
-! Accumulate direct fluxes for UV/visible bands
-!!               if (ibm >= 10 .and. ibm <= 13) then
-!!                  puvcd(ikl) = puvcd(ikl) + zincflx(iw)*zcd(jk,iw)
-!!                  puvfd(ikl) = puvfd(ikl) + zincflx(iw)*zfd(jk,iw)
-!!                  if (idelm .eq. 0) then 
-!!                     puvfddir(ikl) = puvfddir(ikl) + zincflx(iw)*ztdbt_nodel(jk)
-!!                     puvcddir(ikl) = puvcddir(ikl) + zincflx(iw)*ztdbtc_nodel(jk)
-!!                  elseif (idelm .eq. 1) then
-!!                     puvfddir(ikl) = puvfddir(ikl) + zincflx(iw)*ztdbt(jk)
-!!                     puvcddir(ikl) = puvcddir(ikl) + zincflx(iw)*ztdbtc(jk)
-!!                  endif
-! Accumulate direct fluxes for near-IR bands
-!!               else if (ibm == 14 .or. ibm <= 9) then  
-!!                  pnicd(ikl) = pnicd(ikl) + zincflx(iw)*zcd(jk,iw)
-!!                  pnifd(ikl) = pnifd(ikl) + zincflx(iw)*zfd(jk,iw)
-!!                  if (idelm .eq. 0) then 
-!!                     pnifddir(ikl) = pnifddir(ikl) + zincflx(iw)*ztdbt_nodel(jk)
-!!                     pnicddir(ikl) = pnicddir(ikl) + zincflx(iw)*ztdbtc_nodel(jk)
-!!                  elseif (idelm .eq. 1) then
-!!                     pnifddir(ikl) = pnifddir(ikl) + zincflx(iw)*ztdbt(jk)
-!!                     pnicddir(ikl) = pnicddir(ikl) + zincflx(iw)*ztdbtc(jk)
-!!                  endif
-!!               endif
-!!
-!!            enddo
-
-! End loop on jg, g-point interval
-         enddo             
-
-! End loop on jb, spectral band
-      enddo                    
+      enddo
 
     end subroutine spcvmc_sw_noclr
 
-! --------------------------------------------------------------------
-
-    subroutine reftra_sw_cld(nlayers, lrtchk, pgg, prmuz, prmuzm1, ptau, pw, &
-                             pref, prefd, ptra, ptrad, pdbt)
 
 ! --------------------------------------------------------------------
-! Purpose: computes the reflectivity and transmissivity of a clear or 
-!   cloudy layer using a choice of various approximations.
-!
-! Interface:  *rrtmg_sw_reftra* is called by *rrtmg_sw_spcvrt*
-!
-! Description:
-! explicit arguments :
-! --------------------
-! inputs
-! ------ 
-!      lrtchk  = .t. for all layers in clear profile
-!      lrtchk  = .t. for cloudy layers in cloud profile 
-!              = .f. for clear layers in cloud profile
-!      pgg     = assymetry factor
-!      prmuz   = cosine solar zenith angle
-!      ptau    = optical thickness
-!      pw      = single scattering albedo
-!
-! outputs
-! -------
-!      pref    : collimated beam reflectivity
-!      prefd   : diffuse beam reflectivity 
-!      ptra    : collimated beam transmissivity
-!      ptrad   : diffuse beam transmissivity
-!
-!
-! Method:
-! -------
-!      standard delta-eddington, p.i.f.m., or d.o.m. layer calculations.
-!      kmodts  = 1 eddington (joseph et al., 1976)
-!              = 2 pifm (zdunkowski et al., 1980)
-!              = 3 discrete ordinates (liou, 1973)
-!
-!
-! Modifications:
-! --------------
-! Original: J-JMorcrette, ECMWF, Feb 2003
-! Revised for F90 reformatting: MJIacono, AER, Jul 2006
-! Revised to add exponential lookup table: MJIacono, AER, Aug 2007
-! ------------------------------------------------------------------
-
-! ------- Declarations ------
-
-      implicit none
-
-! ------- Input -------
-
-      integer(kind=im), intent(in) :: nlayers
-
-      logical, intent(in) :: lrtchk(nlayers)                   ! Logical flag for reflectivity and
-                                                               ! and transmissivity calculation; 
-                                                               !   Dimensions: (nlayers)
-
-      real(kind=rb), intent(in) :: pgg(nlayers)                ! asymmetry parameter
-                                                               !   Dimensions: (nlayers)
-      real(kind=rb), intent(in) :: ptau(nlayers)               ! optical depth
-                                                               !   Dimensions: (nlayers)
-      real(kind=rb), intent(in) :: pw(nlayers)                 ! single scattering albedo 
-                                                               !   Dimensions: (nlayers)
-      real(kind=rb), intent(in) :: prmuz                       ! cosine of solar zenith angle
-      real(kind=rb), intent(in) :: prmuzm1                     ! cosine of solar zenith angle
-
-! ------- Output -------
-
-      real(kind=rb), intent(inout) :: pref(nlayers+1)          ! direct beam reflectivity
-                                                               !   Dimensions: (nlayers+1)
-      real(kind=rb), intent(inout) :: prefd(nlayers)           ! diffuse beam reflectivity
-                                                               !   Dimensions: (nlayers+1)
-      real(kind=rb), intent(inout) :: ptra(nlayers+1)          ! direct beam transmissivity
-                                                               !   Dimensions: (nlayers+1)
-      real(kind=rb), intent(inout) :: ptrad(nlayers+1)         ! diffuse beam transmissivity
-                                                               !   Dimensions: (nlayers+1)
-      real(kind=rb), intent(inout) :: pdbt(nlayers+1)          ! total transmissivity
-                                                               !   Dimensions: (nlayers+1)
-! ------- Local -------
-
-      integer(kind=im) :: jk, jl, kmodts
-      integer(kind=im) :: itind
-
-      real(kind=rb) :: tblind
-      real(kind=rb) :: za, za1, za2
-      real(kind=rb) :: zbeta, zdend, zdenr, zdent
-      real(kind=rb) :: ze1, ze2, zem1, zem2, zemm, zep1, zep2
-      real(kind=rb) :: zg, zg3, zgamma1, zgamma2, zgamma3, zgamma4, zgt
-      real(kind=rb) :: zr1, zr2, zr3, zr4, zr5
-      real(kind=rb) :: zrk, zrk2, zrkg, zrm1, zrp, zrp1, zrpp
-      real(kind=rb) :: zt1, zt2, zt3, zt4, zt5, zto1
-      real(kind=rb) :: zw, zwo
-
-      real(kind=rb), parameter :: eps = 1.e-08_rb
-      real(kind=rb), parameter :: zsr3 = sqrt(3._rb)
-      real(kind=rb), parameter :: zwcrit = 0.9999995_rb
-!     ------------------------------------------------------------------
-
-! Initialize
-
-!     hvrrft = '$Revision: 11661 $'
-
-!     zsr3=sqrt(3._rb)
-!     zwcrit=0.9999995_rb
-!     kmodts=2
-
-      do jk=1, nlayers
-         if (lrtchk(jk)) then
-
-            zto1=ptau(jk)
-            zw  =pw(jk)
-            zg  =pgg(jk)  
-
-! General two-stream expressions
-
-            zg3= 3._rb * zg
-!            if (kmodts == 1) then
-!               zgamma1= (7._rb - zw * (4._rb + zg3)) * 0.25_rb
-!               zgamma2=-(1._rb - zw * (4._rb - zg3)) * 0.25_rb
-!               zgamma3= (2._rb - zg3 * prmuz ) * 0.25_rb
-!            else if (kmodts == 2) then  
-               zgamma1= (8._rb - zw * (5._rb + zg3)) * 0.25_rb
-               zgamma2=  3._rb *(zw * (1._rb - zg )) * 0.25_rb
-               zgamma3= (2._rb - zg3 * prmuz ) * 0.25_rb
-!            else if (kmodts == 3) then  
-!               zgamma1= zsr3 * (2._rb - zw * (1._rb + zg)) * 0.5_rb
-!               zgamma2= zsr3 * zw * (1._rb - zg ) * 0.5_rb
-!               zgamma3= (1._rb - zsr3 * zg * prmuz ) * 0.5_rb
-!            end if
-            zgamma4= 1._rb - zgamma3
-
-            ze2  = min( zto1 * prmuzm1 , 46._rb)
-            zem2 = exp( -ze2 )
-            pdbt(jk) = zem2
-
-! Recompute original s.s.a. to test for conservative solution
-
-!           zwo= zw / (1._rb - (1._rb - zw) * (zg / (1._rb - zg))**2)
-            zwo= zw * (1._rb - zg)**2 / ( 1._rb - 2._rb*zg + zw*zg**2 )
-
-            if (zwo >= zwcrit) then
-
-! Conservative scattering
-
-               za  = zgamma1 * prmuz 
-               za1 = za - zgamma3
-               zgt = zgamma1 * zto1
-        
-! Homogeneous reflectance and transmittance,
-! collimated beam
-
-!              ze2  = min( zto1 * prmuzm1 , 46._rb)
-!              zem2 = exp( -ze1 )
-
-! Use exponential lookup table for transmittance, or expansion of 
-! exponential for low tau
-!
-!              if (ze1 .le. od_lo) then 
-!                 zem2 = 1._rb - ze2 + 0.5_rb * ze2 * ze2
-!              else
-!                 tblind = ze2 / (bpade + ze2)
-!                 itind = tblint * tblind + 0.5_rb
-!                 zem2 = exp_tbl(itind)
-!              endif
-
-!              pdbt(jk) = zem2
-               pref(jk) = (zgt - za1 * (1._rb - zem2)) / (1._rb + zgt)
-               ptra(jk) = 1._rb - pref(jk)
-
-! isotropic incidence
-
-               prefd(jk) = zgt / (1._rb + zgt)
-               ptrad(jk) = 1._rb - prefd(jk)        
-
-! This is applied for consistency between total (delta-scaled) and direct (unscaled) 
-! calculations at very low optical depths (tau < 1.e-4) when the exponential lookup
-! table returns a transmittance of 1.0.
-!              if (ze2 .eq. 1.0_rb) then 
-!                 pref(jk) = 0.0_rb
-!                 ptra(jk) = 1.0_rb
-!                 prefd(jk) = 0.0_rb
-!                 ptrad(jk) = 1.0_rb
-!              endif
-
-            else
-! Non-conservative scattering
-
-               za1 = zgamma1 * zgamma4 + zgamma2 * zgamma3
-               za2 = zgamma1 * zgamma3 + zgamma2 * zgamma4
-               zrk = sqrt ( zgamma1**2 - zgamma2**2)
-               zrp = zrk * prmuz               
-               zrp1 = 1._rb + zrp
-               zrm1 = 1._rb - zrp
-               zrk2 = 2._rb * zrk
-               zrpp = 1._rb - zrp*zrp
-               zrkg = zrk + zgamma1
-               zr1  = zrm1 * (za2 + zrk * zgamma3)
-               zr2  = zrp1 * (za2 - zrk * zgamma3)
-               zr3  = zrk2 * (zgamma3 - za2 * prmuz )
-               zr4  = zrpp * zrkg
-               zr5  = zrpp * (zrk - zgamma1)
-               zt1  = zrp1 * (za1 + zrk * zgamma4)
-               zt2  = zrm1 * (za1 - zrk * zgamma4)
-               zt3  = zrk2 * (zgamma4 + za1 * prmuz )
-!              zt4  = zr4
-!              zt5  = zr5
-
-! mji - reformulated code to avoid potential floating point exceptions
-!              zbeta = - zr5 / zr4
-               zbeta = (zgamma1 - zrk) / zrkg
-        
-! Homogeneous reflectance and transmittance
-
-               ze1 = min ( zrk * zto1, 46._rb)
-!              ze2 = min ( zto1 * prmuzm1 , 46._rb)
-
-! Original
-!              zep1 = exp( ze1 )
-!              zem1 = exp(-ze1 )
-!              zep2 = exp( ze2 )
-!              zem2 = exp(-ze2 )
-!
-! Revised original, to reduce exponentials
-               zem1 = exp( -ze1 )
-               zep1 = 1._rb / zem1
-!              zem2 = exp( -ze2 )
-               zep2 = 1._rb / zem2
-
-! Use exponential lookup table for transmittance, or expansion of 
-! exponential for low tau
-!              if (ze1 .le. od_lo) then 
-!                 zem1 = 1._rb - ze1 + 0.5_rb * ze1 * ze1
-!                 zep1 = 1._rb / zem1
-!              else
-!                 tblind = ze1 / (bpade + ze1)
-!                 itind = tblint * tblind + 0.5_rb
-!                 zem1 = exp_tbl(itind)
-!                 zep1 = 1._rb / zem1
-!              endif
-!
-!              if (ze2 .le. od_lo) then 
-!                 zem2 = 1._rb - ze2 + 0.5_rb * ze2 * ze2
-!                 zep2 = 1._rb / zem2
-!              else
-!                 tblind = ze2 / (bpade + ze2)
-!                 itind = tblint * tblind + 0.5_rb
-!                 zem2 = exp_tbl(itind)
-!                 zep2 = 1._rb / zem2
-!              endif
-
-! collimated beam
-
-! mji - reformulated code to avoid potential floating point exceptions
-               zdenr = zr4*zep1 + zr5*zem1
-!              pref(jk) = zw * (zr1*zep1 - zr2*zem1 - zr3*zem2) / zdenr
-!              zdent = zt4*zep1 + zt5*zem1
-!              ptra(jk) = zem2 - zem2 * zw * (zt1*zep1 - zt2*zem1 - zt3*zep2) / zdent
-!              pdbt(jk) = zem2
-               
-               if (zdenr .ge. -eps .and. zdenr .le. eps) then
-                  pref(jk) = eps
-                  ptra(jk) = zem2
-               else 
-                  pref(jk) = zw * (zr1*zep1 - zr2*zem1 - zr3*zem2) / zdenr
-                  ptra(jk) = zem2 - zem2 * zw * (zt1*zep1 - zt2*zem1 - zt3*zep2) / zdenr
-               
-                  pref(jk) = max(pref(jk), 0.0 )
-                  ptra(jk) = min(ptra(jk), 1.0 )
-                  ptra(jk) = max(ptra(jk), zem2)
-               endif
-
-! diffuse beam
-
-               zemm = zem1*zem1
-               zdend = 1._rb / ( (1._rb - zbeta*zemm ) * zrkg)
-               prefd(jk) =  zgamma2 * (1._rb - zemm) * zdend
-               ptrad(jk) =  zrk2*zem1*zdend
-
-            endif
-
-         endif         
-
-      enddo    
-
-    end subroutine reftra_sw_cld
-
-! --------------------------------------------------------------------
-
-    subroutine reftra_sw(nlayers, pgg, prmuz, prmuzm1, ptau, pw, &
+    subroutine reftra_sw(jk, nlayers, pgg, prmuz, prmuzm1, ptau, pw, &
                          pref, prefd, ptra, ptrad, pdbt)
-
 ! --------------------------------------------------------------------
-! Purpose: computes the reflectivity and transmissivity of a clear or 
+
+! Purpose: computes the reflectivity and transmissivity of a clear or
 !   cloudy layer using a choice of various approximations.
 !
 ! Interface:  *rrtmg_sw_reftra* is called by *rrtmg_sw_spcvrt*
@@ -1587,9 +313,9 @@
 ! explicit arguments :
 ! --------------------
 ! inputs
-! ------ 
+! ------
 !      lrtchk  = .t. for all layers in clear profile
-!      lrtchk  = .t. for cloudy layers in cloud profile 
+!      lrtchk  = .t. for cloudy layers in cloud profile
 !              = .f. for clear layers in cloud profile
 !      pgg     = assymetry factor
 !      prmuz   = cosine solar zenith angle
@@ -1599,7 +325,7 @@
 ! outputs
 ! -------
 !      pref    : collimated beam reflectivity
-!      prefd   : diffuse beam reflectivity 
+!      prefd   : diffuse beam reflectivity
 !      ptra    : collimated beam transmissivity
 !      ptrad   : diffuse beam transmissivity
 !
@@ -1621,243 +347,135 @@
 
 ! ------- Declarations ------
 
+      use parkind, only: im => kind_im, rb => kind_rb
+      use parrrsw, only: ngptsw
+
       implicit none
 
 ! ------- Input -------
 
+      integer(kind=im), intent(in) :: jk
       integer(kind=im), intent(in) :: nlayers
 
-      real(kind=rb), intent(in) :: pgg(nlayers)                ! asymmetry parameter
+      real(kind=rb), intent(in) :: pgg(ngptsw)                ! asymmetry parameter
                                                                !   Dimensions: (nlayers)
-      real(kind=rb), intent(in) :: ptau(nlayers)               ! optical depth
+      real(kind=rb), intent(in) :: ptau(ngptsw)               ! optical depth
                                                                !   Dimensions: (nlayers)
-      real(kind=rb), intent(in) :: pw(nlayers)                 ! single scattering albedo 
+      real(kind=rb), intent(in) :: pw(ngptsw)                 ! single scattering albedo
                                                                !   Dimensions: (nlayers)
       real(kind=rb), intent(in) :: prmuz                       ! cosine of solar zenith angle
-      real(kind=rb), intent(in) :: prmuzm1                     ! cosine of solar zenith angle
+      real(kind=rb), intent(in) :: prmuzm1                     ! 1 / cosine of solar zenith angle
 
 ! ------- Output -------
 
-      real(kind=rb), intent(inout) :: pref(nlayers+1)          ! direct beam reflectivity
+      real(kind=rb), intent(inout) :: pref(ngptsw,nlayers+1)          ! direct beam reflectivity
                                                                !   Dimensions: (nlayers+1)
-      real(kind=rb), intent(inout) :: prefd(nlayers)           ! diffuse beam reflectivity
+      real(kind=rb), intent(inout) :: prefd(ngptsw,nlayers+1)           ! diffuse beam reflectivity
                                                                !   Dimensions: (nlayers+1)
-      real(kind=rb), intent(inout) :: ptra(nlayers+1)          ! direct beam transmissivity
+      real(kind=rb), intent(inout) :: ptra(ngptsw,nlayers+1)          ! direct beam transmissivity
                                                                !   Dimensions: (nlayers+1)
-      real(kind=rb), intent(inout) :: ptrad(nlayers+1)         ! diffuse beam transmissivity
+      real(kind=rb), intent(inout) :: ptrad(ngptsw,nlayers+1)         ! diffuse beam transmissivity
                                                                !   Dimensions: (nlayers+1)
-      real(kind=rb), intent(inout) :: pdbt(nlayers+1)          ! total transmissivity
+      real(kind=rb), intent(inout) :: pdbt(ngptsw,nlayers+1)          ! total transmissivity
                                                                !   Dimensions: (nlayers+1)
 ! ------- Local -------
 
-      integer(kind=im) :: jk, jl, kmodts
-      integer(kind=im) :: itind
+      real(kind=rb) :: za1, za2
+      real(kind=rb) :: zdend, zdenr, denom
+      real(kind=rb) :: zem1, zem2, zemm, zemm1, zemp1
+      real(kind=rb) :: zg, zg3, zgamma1, zgamma2, zgamma3, zgamma4
+      real(kind=rb) :: zr1, zr2, zr3
+      real(kind=rb) :: zrk, zrk2, zrm1, zrp, zrp1
+      real(kind=rb) :: zt1, zt2, zt3, zto1
+      real(kind=rb) :: zw
 
-      real(kind=rb) :: tblind
-      real(kind=rb) :: za, za1, za2
-      real(kind=rb) :: zbeta, zdend, zdenr, zdent
-      real(kind=rb) :: ze1, ze2, zem1, zem2, zemm, zep1, zep2
-      real(kind=rb) :: zg, zg3, zgamma1, zgamma2, zgamma3, zgamma4, zgt
-      real(kind=rb) :: zr1, zr2, zr3, zr4, zr5
-      real(kind=rb) :: zrk, zrk2, zrkg, zrm1, zrp, zrp1, zrpp
-      real(kind=rb) :: zt1, zt2, zt3, zt4, zt5, zto1
-      real(kind=rb) :: zw, zwo
+      integer(kind=im) :: ig
 
-      real(kind=rb), parameter :: eps = 1.e-08_rb
-      real(kind=rb), parameter :: zsr3 = sqrt(3._rb)
-      real(kind=rb), parameter :: zwcrit = 0.9999995_rb
-!     ------------------------------------------------------------------
+      real(kind=rb), parameter :: zsr3 = 0.5_rb * sqrt(3._rb)
+      real(kind=rb), parameter :: one  = nearest(1._rb, -1._rb)
 
-! Initialize
+      do ig = 1, ngptsw
 
-!     hvrrft = '$Revision: 11661 $'
-
-!     zsr3=sqrt(3._rb)
-!     zwcrit=0.9999995_rb
-!     kmodts=2
-
-      do jk=1, nlayers
-
-            zto1=ptau(jk)
-            zw  =pw(jk)
-            zg  =pgg(jk)  
+         zto1 = -ptau(ig)
+         zw   =  pw  (ig)
+         zg   =  pgg (ig)
 
 ! General two-stream expressions
 
-            zg3= 3._rb * zg
-!            if (kmodts == 1) then
-!               zgamma1= (7._rb - zw * (4._rb + zg3)) * 0.25_rb
-!               zgamma2=-(1._rb - zw * (4._rb - zg3)) * 0.25_rb
-!               zgamma3= (2._rb - zg3 * prmuz ) * 0.25_rb
-!            else if (kmodts == 2) then  
-               zgamma1= (8._rb - zw * (5._rb + zg3)) * 0.25_rb
-               zgamma2=  3._rb *(zw * (1._rb - zg )) * 0.25_rb
-               zgamma3= (2._rb - zg3 * prmuz ) * 0.25_rb
-!            else if (kmodts == 3) then  
-!               zgamma1= zsr3 * (2._rb - zw * (1._rb + zg)) * 0.5_rb
-!               zgamma2= zsr3 * zw * (1._rb - zg ) * 0.5_rb
-!               zgamma3= (1._rb - zsr3 * zg * prmuz ) * 0.5_rb
-!            end if
-            zgamma4= 1._rb - zgamma3
+         ! kmodts == 1
+!        zg3 = 3._rb * zg
+!        zgamma1 = (7._rb - zw * (4._rb + zg3)) * 0.25_rb
+!        zgamma2 =-(1._rb - zw * (4._rb - zg3)) * 0.25_rb
+!        zgamma3 = (2._rb - zg3 * prmuz ) * 0.25_rb
 
-            ze2  = min( zto1 * prmuzm1 , 46._rb)
-            zem2 = exp( -ze2 )
-            pdbt(jk) = zem2
+         ! kmodts == 2
+         zg3 = 0.75_rb * zg
+         zgamma1 = 2._rb - zw * (1.25_rb + zg3)
+         zgamma2 = zw * (0.75_rb - zg3)
+         zgamma3 = 0.50_rb - zg3 * prmuz
 
-! Recompute original s.s.a. to test for conservative solution
+         ! kmodts == 3
+!        zgamma1 = zsr3 * (2._rb - zw * (1._rb + zg))
+!        zgamma2 = zsr3 * zw * (1._rb - zg )
+!        zgamma3 = (0.5_rb - zsr3 * zg * prmuz )
 
-!           zwo= zw / (1._rb - (1._rb - zw) * (zg / (1._rb - zg))**2)
-            zwo= zw * (1._rb - zg)**2 / ( 1._rb - 2._rb*zg + zw*zg**2 )
+         zgamma4 = 1._rb - zgamma3
 
-            if (zwo >= zwcrit) then
-
-! Conservative scattering
-
-               za  = zgamma1 * prmuz 
-               za1 = za - zgamma3
-               zgt = zgamma1 * zto1
-        
-! Homogeneous reflectance and transmittance,
-! collimated beam
-
-!              ze2  = min( zto1 * prmuzm1 , 46._rb)
-!              zem2 = exp( -ze1 )
-
-! Use exponential lookup table for transmittance, or expansion of 
-! exponential for low tau
-!
-!              if (ze1 .le. od_lo) then 
-!                 zem2 = 1._rb - ze2 + 0.5_rb * ze2 * ze2
-!              else
-!                 tblind = ze2 / (bpade + ze2)
-!                 itind = tblint * tblind + 0.5_rb
-!                 zem2 = exp_tbl(itind)
-!              endif
-
-!              pdbt(jk) = zem2
-               pref(jk) = (zgt - za1 * (1._rb - zem2)) / (1._rb + zgt)
-               ptra(jk) = 1._rb - pref(jk)
-
-! isotropic incidence
-
-               prefd(jk) = zgt / (1._rb + zgt)
-               ptrad(jk) = 1._rb - prefd(jk)        
-
-! This is applied for consistency between total (delta-scaled) and direct (unscaled) 
-! calculations at very low optical depths (tau < 1.e-4) when the exponential lookup
-! table returns a transmittance of 1.0.
-!              if (ze2 .eq. 1.0_rb) then 
-!                 pref(jk) = 0.0_rb
-!                 ptra(jk) = 1.0_rb
-!                 prefd(jk) = 0.0_rb
-!                 ptrad(jk) = 1.0_rb
-!              endif
-
-            else
 ! Non-conservative scattering
 
-               za1 = zgamma1 * zgamma4 + zgamma2 * zgamma3
-               za2 = zgamma1 * zgamma3 + zgamma2 * zgamma4
-               zrk = sqrt ( zgamma1**2 - zgamma2**2)
-               zrp = zrk * prmuz               
-               zrp1 = 1._rb + zrp
-               zrm1 = 1._rb - zrp
-               zrk2 = 2._rb * zrk
-               zrpp = 1._rb - zrp*zrp
-               zrkg = zrk + zgamma1
-               zr1  = zrm1 * (za2 + zrk * zgamma3)
-               zr2  = zrp1 * (za2 - zrk * zgamma3)
-               zr3  = zrk2 * (zgamma3 - za2 * prmuz )
-               zr4  = zrpp * zrkg
-               zr5  = zrpp * (zrk - zgamma1)
-               zt1  = zrp1 * (za1 + zrk * zgamma4)
-               zt2  = zrm1 * (za1 - zrk * zgamma4)
-               zt3  = zrk2 * (zgamma4 + za1 * prmuz )
-!              zt4  = zr4
-!              zt5  = zr5
+         za1 = zgamma1 * zgamma4 + zgamma2 * zgamma3
+         za2 = zgamma1 * zgamma3 + zgamma2 * zgamma4
+         zrk = sqrt ( zgamma1**2 - zgamma2**2)
+         zrp = zrk * prmuz
 
-! mji - reformulated code to avoid potential floating point exceptions
-!              zbeta = - zr5 / zr4
-               zbeta = (zgamma1 - zrk) / zrkg
-        
-! Homogeneous reflectance and transmittance
+         zrp1 = 1._rb + zrp
+         zrm1 = 1._rb - zrp
 
-               ze1 = min ( zrk * zto1, 46._rb)
-!              ze2 = min ( zto1 * prmuzm1 , 46._rb)
+         zrk2 = 2._rb * zrk
 
-! Original
-!              zep1 = exp( ze1 )
-!              zem1 = exp(-ze1 )
-!              zep2 = exp( ze2 )
-!              zem2 = exp(-ze2 )
-!
-! Revised original, to reduce exponentials
-               zem1 = exp( -ze1 )
-               zep1 = 1._rb / zem1
-!              zem2 = exp( -ze2 )
-               zep2 = 1._rb / zem2
+         zr1  = zrm1 * (za2 + zrk * zgamma3)
+         zr2  = zrp1 * (za2 - zrk * zgamma3)
+         zr3  = zrk2 * (zgamma3 - za2 * prmuz )
 
-! Use exponential lookup table for transmittance, or expansion of 
-! exponential for low tau
-!              if (ze1 .le. od_lo) then 
-!                 zem1 = 1._rb - ze1 + 0.5_rb * ze1 * ze1
-!                 zep1 = 1._rb / zem1
-!              else
-!                 tblind = ze1 / (bpade + ze1)
-!                 itind = tblint * tblind + 0.5_rb
-!                 zem1 = exp_tbl(itind)
-!                 zep1 = 1._rb / zem1
-!              endif
-!
-!              if (ze2 .le. od_lo) then 
-!                 zem2 = 1._rb - ze2 + 0.5_rb * ze2 * ze2
-!                 zep2 = 1._rb / zem2
-!              else
-!                 tblind = ze2 / (bpade + ze2)
-!                 itind = tblint * tblind + 0.5_rb
-!                 zem2 = exp_tbl(itind)
-!                 zep2 = 1._rb / zem2
-!              endif
+         zt1  = zrp1 * (za1 + zrk * zgamma4)
+         zt2  = zrm1 * (za1 - zrk * zgamma4)
+         zt3  = zrk2 * (zgamma4 + za1 * prmuz )
+
+         zem1 = exp( zto1 * zrk)
+         zem2 = exp( zto1 * prmuzm1 )
+
+         zemm  = zem1 * zem1
+         zemm1 = 1._rb - zemm
+         zemp1 = 1._rb + zemm
+
+         pdbt(ig,jk) = zem2
 
 ! collimated beam
 
-! mji - reformulated code to avoid potential floating point exceptions
-               zdenr = zr4*zep1 + zr5*zem1
-!              pref(jk) = zw * (zr1*zep1 - zr2*zem1 - zr3*zem2) / zdenr
-!              zdent = zt4*zep1 + zt5*zem1
-!              ptra(jk) = zem2 - zem2 * zw * (zt1*zep1 - zt2*zem1 - zt3*zep2) / zdent
-!              pdbt(jk) = zem2
-               
-               if (zdenr .ge. -eps .and. zdenr .le. eps) then
-                  pref(jk) = eps
-                  ptra(jk) = zem2
-               else 
-                  pref(jk) = zw * (zr1*zep1 - zr2*zem1 - zr3*zem2) / zdenr
-                  ptra(jk) = zem2 - zem2 * zw * (zt1*zep1 - zt2*zem1 - zt3*zep2) / zdenr
-               
-                  pref(jk) = max(pref(jk), 0.0 )
-                  ptra(jk) = min(ptra(jk), 1.0 )
-                  ptra(jk) = max(ptra(jk), zem2)
-               endif
+         denom = zrp1 * ( zrk * zemp1 + zgamma1 * zemm1 ) * max(1.e-9,abs(zrm1))
+         zdenr = zw / denom
+
+         pref(ig,jk) = abs(zr1 - zr2*zemm - zr3*zem2*zem1) * zdenr
+         ptra(ig,jk) = zem2 + abs(zem2*zt1 - zem2*zt2*zemm - zt3*zem1) * zdenr
+
+         ptra(ig,jk) = min(ptra(ig,jk), one)
 
 ! diffuse beam
 
-               zemm = zem1*zem1
-               zdend = 1._rb / ( (1._rb - zbeta*zemm ) * zrkg)
-               prefd(jk) =  zgamma2 * (1._rb - zemm) * zdend
-               ptrad(jk) =  zrk2*zem1*zdend
+         zdend = 1.0 / (zrk2 + zemm1 * (zgamma1 - zrk))
 
-            endif
+         prefd(ig,jk) = zgamma2 * zemm1 * zdend
+         ptrad(ig,jk) = zrk2 * zem1 * zdend
 
-      enddo    
+      enddo
 
       end subroutine reftra_sw
 
 ! --------------------------------------------------------------------------
 
-      subroutine vrtqdr_sw(klev, nsfc, prup_sfc, prupd_sfc, frac_sfck, &
+      subroutine vrtqdr_sw(nlay, nsfc, prup_sfc, prupd_sfc, frac_sfck, &
                            pref, prefd, ptra, ptrad, pdbt, ptdbt, &
-                           pfd, pfu, pfd_sfc, pfu_sfc)
+                           pfd, pfu, pfd_sfc, pfu_sfc, pincflx)
 
 ! --------------------------------------------------------------------------
 ! Purpose: This routine performs the vertical quadrature integration
@@ -1865,186 +483,171 @@
 ! Interface:  *vrtqdr_sw* is called from *spcvrt_sw* and *spcvmc_sw*
 !
 ! Modifications.
-! 
+!
 ! Original: H. Barker
 ! Revision: Integrated with rrtmg_sw, J.-J. Morcrette, ECMWF, Oct 2002
 ! Revision: Reformatted for consistency with rrtmg_lw: MJIacono, AER, Jul 2006
 !-----------------------------------------------------------------------
 
-        use parrrsw, only : ngptsw
+        use parkind, only: im => kind_im, rb => kind_rb
+        use parrrsw, only: ngptsw
+
         implicit none
 
 ! ------- Declarations -------
 
 ! Input
 
-      integer(kind=im), intent (in) :: klev                   ! number of model layers
+      integer(kind=im), intent (in) :: nlay                ! number of model layers
 
       integer(kind=im), intent (in) :: nsfc
 
-      real(kind=rb), intent(in) :: prup_sfc (klev-nsfc+2:klev+1)
+      real(kind=rb), intent(in) :: prup_sfc (ngptsw,nlay-nsfc+2:nlay+1)
 
-      real(kind=rb), intent(in) :: prupd_sfc(klev-nsfc+2:klev+1)
+      real(kind=rb), intent(in) :: prupd_sfc(ngptsw,nlay-nsfc+2:nlay+1)
 
       real(kind=rb), intent(in) :: frac_sfck(nsfc)
 
-      real(kind=rb), intent(in) :: pref(klev+1)               ! direct beam reflectivity
-                                                              !   Dimensions: (nlayers+1)
-      real(kind=rb), intent(in) :: prefd(klev+1)              ! diffuse beam reflectivity
-                                                              !   Dimensions: (nlayers+1)
-      real(kind=rb), intent(in) :: ptra(klev+1)               ! direct beam transmissivity
-                                                              !   Dimensions: (nlayers+1)
-      real(kind=rb), intent(in) :: ptrad(klev+1)              ! diffuse beam transmissivity
-                                                              !   Dimensions: (nlayers+1)
-      real(kind=rb), intent(in) :: pdbt(klev+1)
-                                                              !   Dimensions: (nlayers+1)
-      real(kind=rb), intent(in) :: ptdbt(klev+1)
-                                                              !   Dimensions: (nlayers+1)
+      real(kind=rb), intent(in) :: pref(ngptsw,nlay+1)     ! direct beam reflectivity
+
+      real(kind=rb), intent(in) :: prefd(ngptsw,nlay+1)    ! diffuse beam reflectivity
+
+      real(kind=rb), intent(in) :: ptra(ngptsw,nlay+1)     ! direct beam transmissivity
+
+      real(kind=rb), intent(in) :: ptrad(ngptsw,nlay+1)    ! diffuse beam transmissivity
+
+      real(kind=rb), intent(in) :: pdbt(ngptsw,nlay+1)     ! layer mean direct transmittance
+
+      real(kind=rb), intent(in) :: ptdbt(ngptsw,nlay+1)    ! total direct transmittance
+
+      real(kind=rb), intent(in) :: pincflx(ngptsw)
+
 ! Output
-      real(kind=rb), intent(out) :: pfd(klev+1)               ! downwelling flux (W/m2)
-                                                              !   Dimensions: (nlayers+1,ngptsw)
-                                                              ! unadjusted for earth/sun distance or zenith angle
-      real(kind=rb), intent(out) :: pfu(klev+1)               ! upwelling flux (W/m2)
-                                                              !   Dimensions: (nlayers+1,ngptsw)
-                                                              ! unadjusted for earth/sun distance or zenith angle
-      real(kind=rb), intent(out) :: pfd_sfc(klev-nsfc+2:klev+1)! downwelling flux (W/m2)
-                                                              !   Dimensions: (nlayers+1,ngptsw)
-                                                              ! unadjusted for earth/sun distance or zenith angle
-      real(kind=rb), intent(out) :: pfu_sfc(klev-nsfc+2:klev+1)! upwelling flux (W/m2)
-                                                              !   Dimensions: (nlayers+1,ngptsw)
+      real(kind=rb), intent(out) :: pfd(ngptsw,nlay+1)     ! downwelling flux (W/m2) unadjusted for
+                                                           ! earth/sun distance or zenith angle
+      real(kind=rb), intent(out) :: pfu(ngptsw,nlay+1)     ! upwelling flux (W/m2) unadjusted for
+                                                           ! earth/sun distance or zenith angle
+      real(kind=rb), intent(out) :: pfd_sfc(ngptsw,nlay-nsfc+2:nlay+1)
+
+      real(kind=rb), intent(out) :: pfu_sfc(ngptsw,nlay-nsfc+2:nlay+1)
+
 ! Local
-      real(kind=rb) :: prdn (klev+1)
-      real(kind=rb) :: prdnd(klev+1)
+      real(kind=rb) :: prdn (ngptsw,nlay+1)
+      real(kind=rb) :: prdnd(ngptsw,nlay+1)
 
-      real(kind=rb) :: prup (klev+1)
-      real(kind=rb) :: prupd(klev+1)
+      real(kind=rb) :: prup (ngptsw,nlay+1)
+      real(kind=rb) :: prupd(ngptsw,nlay+1)
 
-      integer(kind=im) :: ikp, jk, js
+      integer(kind=im) :: ikp, jk, js, ig
 
-      real(kind=rb) :: zreflect, prup_tot, prupd_tot
+      real(kind=rb) :: zreflect, prup_tot(ngptsw), prupd_tot(ngptsw)
 
-! Definitions
-!
-! pref(jk)   direct reflectance
-! prefd(jk)  diffuse reflectance
-! ptra(jk)   direct transmittance
-! ptrad(jk)  diffuse transmittance
-!
-! pdbt(jk)   layer mean direct beam transmittance
-! ptdbt(jk)  total direct beam transmittance at levels
-!
 !-----------------------------------------------------------------------------
 
 ! Link lowest layers with surface
-             
-      prup (klev+1) = prup_sfc (klev+1)
-      prupd(klev+1) = prupd_sfc(klev+1)
 
-      prup_tot  = prup_sfc (klev+1)
-      prupd_tot = prupd_sfc(klev+1)
+      do ig = 1, ngptsw
+         prup (ig,nlay+1) = prup_sfc (ig,nlay+1)
+         prupd(ig,nlay+1) = prupd_sfc(ig,nlay+1)
+
+         prup_tot (ig) = prup_sfc (ig,nlay+1)
+         prupd_tot(ig) = prupd_sfc(ig,nlay+1)
+      enddo
 
       do js = 2, nsfc+1
-         jk = klev-js+2
+         jk = nlay-js+2
          ikp = jk + 1
 
-         zreflect = 1._rb / (1._rb - prupd_tot * prefd(jk))
-         prup(jk) = pref(jk) + (ptrad(jk) * &
-                   ((ptra(jk) - pdbt(jk)) * prupd_tot + &
-                     pdbt(jk) * prup_tot)) * zreflect
-         prupd(jk) = prefd(jk) + ptrad(jk) * ptrad(jk) * &
-                      prupd_tot * zreflect
+         do ig = 1, ngptsw
+            zreflect = ptrad(ig,jk) / (1._rb - prupd_tot(ig) * prefd(ig,jk))
+
+            prup(ig,jk) = pref(ig,jk) + &
+                        ((ptra(ig,jk) - pdbt(ig,jk)) * prupd_tot(ig) + &
+                          pdbt(ig,jk) * prup_tot(ig)) * zreflect
+
+            prupd(ig,jk) = prefd(ig,jk) + ptrad(ig,jk) * prupd_tot(ig) * zreflect
+         enddo
 
          if (js <= nsfc) then
-            prup_tot  = prup_sfc (jk) * frac_sfck(js) + prup (jk) * (1.0 - frac_sfck(js))
-            prupd_tot = prupd_sfc(jk) * frac_sfck(js) + prupd(jk) * (1.0 - frac_sfck(js))
+            do ig = 1, ngptsw
+               prup_tot (ig) = prup_sfc (ig,jk) * frac_sfck(js) + prup (ig,jk) * (1.0 - frac_sfck(js))
+               prupd_tot(ig) = prupd_sfc(ig,jk) * frac_sfck(js) + prupd(ig,jk) * (1.0 - frac_sfck(js))
+            enddo
          endif
       enddo
 
-! Pass from bottom to top 
+! Pass from bottom to top
 
-      do jk = klev-nsfc, 1, -1
-         ikp = jk+1                    
-         zreflect = 1._rb / (1._rb - prupd(ikp) * prefd(jk))
-         prup(jk) = pref(jk) + (ptrad(jk) * &
-                   ((ptra(jk) - pdbt(jk)) * prupd(ikp) + &
-                     pdbt(jk) * prup(ikp))) * zreflect
-         prupd(jk) = prefd(jk) + ptrad(jk) * ptrad(jk) * &
-                      prupd(ikp) * zreflect
+      do jk = nlay-nsfc, 1, -1
+         ikp = jk+1
+         do ig = 1, ngptsw
+            zreflect = ptrad(ig,jk) / (1._rb - prupd(ig,ikp) * prefd(ig,jk))
+
+            prup(ig,jk) = pref(ig,jk) + &
+                        ((ptra(ig,jk) - pdbt(ig,jk)) * prupd(ig,ikp) + &
+                          pdbt(ig,jk) * prup(ig,ikp)) * zreflect
+
+            prupd(ig,jk) = prefd(ig,jk) + ptrad(ig,jk) * prupd(ig,ikp) * zreflect
+         enddo
       enddo
-    
+
 ! Upper boundary conditions
 
-      prdn(1) = 1.0_rb
-      prdn(2) = ptra(1)
+      do ig = 1, ngptsw
+         prdn(ig,1) = 1.0_rb
+         prdn(ig,2) = ptra(ig,1)
 
-      prdnd(1) = 0.0_rb
-      prdnd(2) = prefd(1)
+         prdnd(ig,1) = 0.0_rb
+         prdnd(ig,2) = prefd(ig,1)
+      enddo
 
 ! Pass from top to bottom
 
-      do jk = 2,klev
+      do jk = 2,nlay
          ikp = jk+1
-         zreflect = 1._rb / (1._rb - prefd(jk) * prdnd(jk))
-         prdn(ikp) = ptdbt(jk) * ptra(jk) + &
-                    (ptrad(jk) * ((prdn(jk) - ptdbt(jk)) + &
-                     ptdbt(jk) * pref(jk) * prdnd(jk))) * zreflect
-         prdnd(ikp) = prefd(jk) + ptrad(jk) * ptrad(jk) * &
-                      prdnd(jk) * zreflect
+         !dir$ ivdep
+         do ig = 1, ngptsw
+            zreflect = ptrad(ig,jk) / (1._rb - prefd(ig,jk) * prdnd(ig,jk))
+
+            prdn(ig,ikp) = ptdbt(ig,jk) * ptra(ig,jk) + &
+                          (ptdbt(ig,jk) * pref(ig,jk) * prdnd(ig,jk) + &
+                           prdn(ig,jk) - ptdbt(ig,jk)) * zreflect
+
+            prdnd(ig,ikp) = prefd(ig,jk) + ptrad(ig,jk) * prdnd(ig,jk) * zreflect
+         enddo
       enddo
 
 ! Up and down-welling fluxes at levels
 
-      do jk = 1,klev+1
-         zreflect = 1._rb / (1._rb - prdnd(jk) * prupd(jk))
-         pfu(jk) = (ptdbt(jk) * prup(jk) + &
-                  (prdn(jk) - ptdbt(jk)) * prupd(jk)) * zreflect
-         pfd(jk) = ptdbt(jk) + (prdn(jk) - ptdbt(jk)+ &
-                  ptdbt(jk) * prup(jk) * prdnd(jk)) * zreflect
+      do jk = 1,nlay+1
+         !dir$ ivdep
+         do ig = 1, ngptsw
+            zreflect = pincflx(ig) / (1._rb - prdnd(ig,jk) * prupd(ig,jk))
+
+            pfu(ig,jk) = (ptdbt(ig,jk) * prup(ig,jk) + &
+                         (prdn(ig,jk) - ptdbt(ig,jk)) * prupd(ig,jk)) * zreflect
+
+            pfd(ig,jk) = ptdbt(ig,jk) * pincflx(ig) + (prdn(ig,jk) - ptdbt(ig,jk) + &
+                         ptdbt(ig,jk) * prup(ig,jk) * prdnd(ig,jk)) * zreflect
+         enddo
       enddo
 
       if (nsfc > 1) then
-         do jk = klev-nsfc+2, klev
-            zreflect = 1._rb / (1._rb - prdnd(jk) * prupd_sfc(jk))
-            pfu_sfc(jk) = (ptdbt(jk) * prup_sfc(jk) + &
-                         (prdn(jk) - ptdbt(jk)) * prupd_sfc(jk)) * zreflect
-            pfd_sfc(jk) = ptdbt(jk) + (prdn(jk) - ptdbt(jk)+ &
-                         ptdbt(jk) * prup_sfc(jk) * prdnd(jk)) * zreflect
+         do jk = nlay-nsfc+2, nlay
+            do ig = 1, ngptsw
+               zreflect = pincflx(ig) / (1._rb - prdnd(ig,jk) * prupd_sfc(ig,jk))
+               pfu_sfc(ig,jk) = (ptdbt(ig,jk) * prup_sfc(ig,jk) + &
+                                (prdn(ig,jk) - ptdbt(ig,jk)) * prupd_sfc(ig,jk)) * zreflect
+               pfd_sfc(ig,jk) = ptdbt(ig,jk) * pincflx(ig) + (prdn(ig,jk) - ptdbt(ig,jk)+ &
+                                ptdbt(ig,jk) * prup_sfc(ig,jk) * prdnd(ig,jk)) * zreflect
+            enddo
          enddo
       endif
 
-      pfu_sfc(klev+1) = pfu(klev+1)
-      pfd_sfc(klev+1) = pfd(klev+1)
-
-!!      do jk = klev-nsfc+2, klev+1
-!!         zreflect = 1._rb / (1._rb - prdnd(jk) * prupd_tot(jk))
-!!         pfu_tot(jk) = (ptdbt(jk) * prup_tot(jk) + &
-!!                      (prdn(jk) - ptdbt(jk)) * prupd_tot(jk)) * zreflect
-!!         pfd_tot(jk) = ptdbt(jk) + (prdn(jk) - ptdbt(jk)+ &
-!!                      ptdbt(jk) * prup_tot(jk) * prdnd(jk)) * zreflect
-!!      enddo
-!!
-!!      write(*,*) prup_sfc(klev+1), prup_tot(klev+1), prup(klev+1)
-!!      write(*,*) prupd_sfc(klev+1), prupd_tot(klev+1), prupd(klev+1)
-!!      write(*,*)
-!!
-!!
-!!      do jk = 1, klev - nsfc +1
-!!         write(*,'(10g13.5)') pfu(jk,kw), pfd(jk,kw), ptdbt(jk)
-!!      enddo
-!!
-!!      write(*,*)
-!!      do jk = klev-nsfc+2, klev+1
-!!         js = klev+2-jk
-!!         write(*,'(20g13.5)') pfu(jk,kw), pfd(jk,kw), ptdbt(jk), pfu_sfc(jk), pfd_sfc(jk), pfu_tot(jk), pfd_tot(jk), &
-!!              pfu_sfc (jk) * frac_sfck(js) + pfu(jk,kw) * (1.0 - frac_sfck(js)), &
-!!              pfd_sfc (jk) * frac_sfck(js) + pfd(jk,kw) * (1.0 - frac_sfck(js))
-!!
-!!         
-!!!                              prup(jk), prupd(jk), prup_tot(jk), prupd_tot(jk),  prupd_sfc(jk), prupd_sfc(jk)
-!!      enddo
-!!
-!!
-!!      stop
+      do ig = 1, ngptsw
+         pfu_sfc(ig,nlay+1) = pfu(ig,nlay+1)
+         pfd_sfc(ig,nlay+1) = pfd(ig,nlay+1)
+      enddo
 
       end subroutine vrtqdr_sw
 

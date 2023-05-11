@@ -1,30 +1,26 @@
-!> \brief \b IEEECK
-!
 !  =========== DOCUMENTATION ===========
 !
-! Online html documentation available at 
-!            http://www.netlib.org/lapack/explore-html/ 
+! Online html documentation available at
+!            http://www.netlib.org/lapack/explore-html/
 !
-!> \htmlonly
-!> Download IEEECK + dependencies 
-!> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/ieeeck.f"> 
-!> [TGZ]</a> 
-!> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/ieeeck.f"> 
-!> [ZIP]</a> 
-!> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/ieeeck.f"> 
-!> [TXT]</a>
-!> \endhtmlonly 
+! Download IEEECK + dependencies
+! <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/ieeeck.f">
+! [TGZ]</a>
+! <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/ieeeck.f">
+! [ZIP]</a>
+! <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/ieeeck.f">
+! [TXT]</a>
 !
 !  Definition:
 !  ===========
 !
 !       INTEGER          FUNCTION IEEECK( ISPEC, ZERO, ONE )
-! 
+!
 !       .. Scalar Arguments ..
 !       INTEGER            ISPEC
 !       REAL               ONE, ZERO
 !       ..
-!  
+!
 !
 !> \par Purpose:
 !  =============
@@ -70,10 +66,10 @@
 !  Authors:
 !  ========
 !
-!> \author Univ. of Tennessee 
-!> \author Univ. of California Berkeley 
-!> \author Univ. of Colorado Denver 
-!> \author NAG Ltd. 
+!> \author Univ. of Tennessee
+!> \author Univ. of California Berkeley
+!> \author Univ. of Colorado Denver
+!> \author NAG Ltd.
 !
 !> \date November 2011
 !
@@ -81,6 +77,8 @@
 !
 !  =====================================================================
       INTEGER          FUNCTION IEEECK( ISPEC, ZERO, ONE )
+!
+      IMPLICIT NONE
 !
 !  -- LAPACK auxiliary routine (version 3.4.0) --
 !  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -205,29 +203,29 @@
 !
 !  =========== DOCUMENTATION ===========
 !
-! Online html documentation available at 
-!            http://www.netlib.org/lapack/explore-html/ 
+! Online html documentation available at
+!            http://www.netlib.org/lapack/explore-html/
 !
 !> \htmlonly
-!> Download ILAENV + dependencies 
-!> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/ilaenv.f"> 
-!> [TGZ]</a> 
-!> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/ilaenv.f"> 
-!> [ZIP]</a> 
-!> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/ilaenv.f"> 
+!> Download ILAENV + dependencies
+!> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/ilaenv.f">
+!> [TGZ]</a>
+!> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/ilaenv.f">
+!> [ZIP]</a>
+!> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/ilaenv.f">
 !> [TXT]</a>
-!> \endhtmlonly 
+!> \endhtmlonly
 !
 !  Definition:
 !  ===========
 !
 !       INTEGER FUNCTION ILAENV( ISPEC, NAME, OPTS, N1, N2, N3, N4 )
-! 
+!
 !       .. Scalar Arguments ..
 !       CHARACTER*( * )    NAME, OPTS
 !       INTEGER            ISPEC, N1, N2, N3, N4
 !       ..
-!  
+!
 !
 !> \par Purpose:
 !  =============
@@ -330,10 +328,10 @@
 !  Authors:
 !  ========
 !
-!> \author Univ. of Tennessee 
-!> \author Univ. of California Berkeley 
-!> \author Univ. of Colorado Denver 
-!> \author NAG Ltd. 
+!> \author Univ. of Tennessee
+!> \author Univ. of California Berkeley
+!> \author Univ. of Colorado Denver
+!> \author NAG Ltd.
 !
 !> \date November 2011
 !
@@ -365,13 +363,15 @@
 !  =====================================================================
       INTEGER FUNCTION ILAENV( ISPEC, NAME, OPTS, N1, N2, N3, N4 )
 !
+      IMPLICIT NONE
+!
 !  -- LAPACK auxiliary routine (version 3.4.0) --
 !  -- LAPACK is a software package provided by Univ. of Tennessee,    --
 !  -- Univ. of California Berkeley, Univ. of Colorado Denver and NAG Ltd..--
 !     November 2011
 !
 !     .. Scalar Arguments ..
-      CHARACTER*( * )    NAME, OPTS
+      CHARACTER( * )     NAME, OPTS
       INTEGER            ISPEC, N1, N2, N3, N4
 !     ..
 !
@@ -381,9 +381,6 @@
       INTEGER            I, IC, IZ, NB, NBMIN, NX
       LOGICAL            CNAME, SNAME
       CHARACTER          C1*1, C2*2, C4*2, C3*3, SUBNAM*6
-!     ..
-!     .. Intrinsic Functions ..
-      INTRINSIC          CHAR, ICHAR, INT, MIN, REAL
 !     ..
 !     .. External Functions ..
       INTEGER            IEEECK, IPARMQ
@@ -817,7 +814,7 @@
 !
   160 CONTINUE
 !
-!     12 <= ISPEC <= 16: xHSEQR or one of its subroutines. 
+!     12 <= ISPEC <= 16: xHSEQR or one of its subroutines.
 !
       ILAENV = IPARMQ( ISPEC, NAME, OPTS, N1, N2, N3, N4 )
       RETURN
@@ -829,31 +826,31 @@
 !
 !  =========== DOCUMENTATION ===========
 !
-! Online html documentation available at 
-!            http://www.netlib.org/lapack/explore-html/ 
+! Online html documentation available at
+!            http://www.netlib.org/lapack/explore-html/
 !
 !> \htmlonly
-!> Download ILASLC + dependencies 
-!> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/ilaslc.f"> 
-!> [TGZ]</a> 
-!> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/ilaslc.f"> 
-!> [ZIP]</a> 
-!> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/ilaslc.f"> 
+!> Download ILASLC + dependencies
+!> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/ilaslc.f">
+!> [TGZ]</a>
+!> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/ilaslc.f">
+!> [ZIP]</a>
+!> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/ilaslc.f">
 !> [TXT]</a>
-!> \endhtmlonly 
+!> \endhtmlonly
 !
 !  Definition:
 !  ===========
 !
 !       INTEGER FUNCTION ILASLC( M, N, A, LDA )
-! 
+!
 !       .. Scalar Arguments ..
 !       INTEGER            M, N, LDA
 !       ..
 !       .. Array Arguments ..
 !       REAL               A( LDA, * )
 !       ..
-!  
+!
 !
 !> \par Purpose:
 !  =============
@@ -893,10 +890,10 @@
 !  Authors:
 !  ========
 !
-!> \author Univ. of Tennessee 
-!> \author Univ. of California Berkeley 
-!> \author Univ. of Colorado Denver 
-!> \author NAG Ltd. 
+!> \author Univ. of Tennessee
+!> \author Univ. of California Berkeley
+!> \author Univ. of Colorado Denver
+!> \author NAG Ltd.
 !
 !> \date September 2012
 !
@@ -904,6 +901,8 @@
 !
 !  =====================================================================
       INTEGER FUNCTION ILASLC( M, N, A, LDA )
+!
+      IMPLICIT NONE
 !
 !  -- LAPACK auxiliary routine (version 3.4.2) --
 !  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -947,31 +946,33 @@
 !
 !  =========== DOCUMENTATION ===========
 !
-! Online html documentation available at 
-!            http://www.netlib.org/lapack/explore-html/ 
+! Online html documentation available at
+!            http://www.netlib.org/lapack/explore-html/
 !
 !> \htmlonly
-!> Download ILASLR + dependencies 
-!> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/ilaslr.f"> 
-!> [TGZ]</a> 
-!> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/ilaslr.f"> 
-!> [ZIP]</a> 
-!> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/ilaslr.f"> 
+!> Download ILASLR + dependencies
+!> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/ilaslr.f">
+!> [TGZ]</a>
+!> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/ilaslr.f">
+!> [ZIP]</a>
+!> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/ilaslr.f">
 !> [TXT]</a>
-!> \endhtmlonly 
+!> \endhtmlonly
 !
 !  Definition:
 !  ===========
 !
 !       INTEGER FUNCTION ILASLR( M, N, A, LDA )
-! 
+!
+!       IMPLICIT NONE
+!
 !       .. Scalar Arguments ..
 !       INTEGER            M, N, LDA
 !       ..
 !       .. Array Arguments ..
 !       REAL               A( LDA, * )
 !       ..
-!  
+!
 !
 !> \par Purpose:
 !  =============
@@ -1011,10 +1012,10 @@
 !  Authors:
 !  ========
 !
-!> \author Univ. of Tennessee 
-!> \author Univ. of California Berkeley 
-!> \author Univ. of Colorado Denver 
-!> \author NAG Ltd. 
+!> \author Univ. of Tennessee
+!> \author Univ. of California Berkeley
+!> \author Univ. of Colorado Denver
+!> \author NAG Ltd.
 !
 !> \date September 2012
 !
@@ -1022,6 +1023,8 @@
 !
 !  =====================================================================
       INTEGER FUNCTION ILASLR( M, N, A, LDA )
+!
+      IMPLICIT NONE
 !
 !  -- LAPACK auxiliary routine (version 3.4.2) --
 !  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -1068,28 +1071,30 @@
 !
 !  =========== DOCUMENTATION ===========
 !
-! Online html documentation available at 
-!            http://www.netlib.org/lapack/explore-html/ 
+! Online html documentation available at
+!            http://www.netlib.org/lapack/explore-html/
 !
 !> \htmlonly
-!> Download IPARMQ + dependencies 
-!> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/iparmq.f"> 
-!> [TGZ]</a> 
-!> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/iparmq.f"> 
-!> [ZIP]</a> 
-!> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/iparmq.f"> 
+!> Download IPARMQ + dependencies
+!> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/iparmq.f">
+!> [TGZ]</a>
+!> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/iparmq.f">
+!> [ZIP]</a>
+!> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/iparmq.f">
 !> [TXT]</a>
-!> \endhtmlonly 
+!> \endhtmlonly
 !
 !  Definition:
 !  ===========
 !
 !       INTEGER FUNCTION IPARMQ( ISPEC, NAME, OPTS, N, ILO, IHI, LWORK )
-! 
+!
+!       IMPLICIT NONE
+!
 !       .. Scalar Arguments ..
 !       INTEGER            IHI, ILO, ISPEC, LWORK, N
 !       CHARACTER          NAME*( * ), OPTS*( * )
-!  
+!
 !
 !> \par Purpose:
 !  =============
@@ -1097,7 +1102,7 @@
 !> \verbatim
 !>
 !>      This program sets problem and machine dependent parameters
-!>      useful for xHSEQR and its subroutines. It is called whenever 
+!>      useful for xHSEQR and its subroutines. It is called whenever
 !>      ILAENV is called with 12 <= ISPEC <= 16
 !> \endverbatim
 !
@@ -1200,10 +1205,10 @@
 !  Authors:
 !  ========
 !
-!> \author Univ. of Tennessee 
-!> \author Univ. of California Berkeley 
-!> \author Univ. of Colorado Denver 
-!> \author NAG Ltd. 
+!> \author Univ. of Tennessee
+!> \author Univ. of California Berkeley
+!> \author Univ. of Colorado Denver
+!> \author NAG Ltd.
 !
 !> \date November 2011
 !
@@ -1280,6 +1285,8 @@
 !  =====================================================================
       INTEGER FUNCTION IPARMQ( ISPEC, NAME, OPTS, N, ILO, IHI, LWORK )
 !
+      IMPLICIT NONE
+!
 !  -- LAPACK auxiliary routine (version 3.4.0) --
 !  -- LAPACK is a software package provided by Univ. of Tennessee,    --
 !  -- Univ. of California Berkeley, Univ. of Colorado Denver and NAG Ltd..--
@@ -1302,9 +1309,6 @@
 !     ..
 !     .. Local Scalars ..
       INTEGER            NH, NS
-!     ..
-!     .. Intrinsic Functions ..
-      INTRINSIC          LOG, MAX, MOD, NINT, REAL
 !     ..
 !     .. Executable Statements ..
       IF( ( ISPEC.EQ.ISHFTS ) .OR. ( ISPEC.EQ.INWIN ) .OR. &
@@ -1390,18 +1394,20 @@
 !
 !  =========== DOCUMENTATION ===========
 !
-! Online html documentation available at 
-!            http://www.netlib.org/lapack/explore-html/ 
+! Online html documentation available at
+!            http://www.netlib.org/lapack/explore-html/
 !
 !  Definition:
 !  ===========
 !
 !      LOGICAL FUNCTION LSAME( CA, CB )
 !
+!      IMPLICIT NONE
+!
 !     .. Scalar Arguments ..
 !      CHARACTER          CA, CB
 !     ..
-!  
+!
 !
 !> \par Purpose:
 !  =============
@@ -1427,10 +1433,10 @@
 !  Authors:
 !  ========
 !
-!> \author Univ. of Tennessee 
-!> \author Univ. of California Berkeley 
-!> \author Univ. of Colorado Denver 
-!> \author NAG Ltd. 
+!> \author Univ. of Tennessee
+!> \author Univ. of California Berkeley
+!> \author Univ. of Colorado Denver
+!> \author NAG Ltd.
 !
 !> \date November 2011
 !
@@ -1438,6 +1444,8 @@
 !
 !  =====================================================================
       LOGICAL FUNCTION LSAME( CA, CB )
+!
+      IMPLICIT NONE
 !
 !  -- LAPACK auxiliary routine (version 3.4.0) --
 !  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -1450,8 +1458,6 @@
 !
 ! =====================================================================
 !
-!     .. Intrinsic Functions ..
-      INTRINSIC          ICHAR
 !     ..
 !     .. Local Scalars ..
       INTEGER            INTA, INTB, ZCODE
@@ -1515,18 +1521,20 @@
 !
 !  =========== DOCUMENTATION ===========
 !
-! Online html documentation available at 
-!            http://www.netlib.org/lapack/explore-html/ 
+! Online html documentation available at
+!            http://www.netlib.org/lapack/explore-html/
 !
 !  Definition:
 !  ===========
 !
 !      REAL             FUNCTION SLAMCH( CMACH )
 !
+!       IMPLICIT NONE
+!
 !     .. Scalar Arguments ..
 !      CHARACTER          CMACH
 !     ..
-!  
+!
 !
 !> \par Purpose:
 !  =============
@@ -1568,10 +1576,10 @@
 !  Authors:
 !  ========
 !
-!> \author Univ. of Tennessee 
-!> \author Univ. of California Berkeley 
-!> \author Univ. of Colorado Denver 
-!> \author NAG Ltd. 
+!> \author Univ. of Tennessee
+!> \author Univ. of California Berkeley
+!> \author Univ. of Colorado Denver
+!> \author NAG Ltd.
 !
 !> \date November 2011
 !
@@ -1579,6 +1587,8 @@
 !
 !  =====================================================================
       REAL             FUNCTION SLAMCH( CMACH )
+!
+      IMPLICIT NONE
 !
 !  -- LAPACK auxiliary routine (version 3.4.0) --
 !  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -1602,9 +1612,6 @@
       LOGICAL            LSAME
       EXTERNAL           LSAME
 !     ..
-!     .. Intrinsic Functions ..
-      INTRINSIC          DIGITS, EPSILON, HUGE, MAXEXPONENT, &
-                         MINEXPONENT, RADIX, TINY
 !     ..
 !     .. Executable Statements ..
 !
@@ -1667,7 +1674,8 @@
 !> the addition of  A  and  B ,  for use in situations where optimizers
 !> might hold one of these in a register.
 !> \endverbatim
-!> \author LAPACK is a software package provided by Univ. of Tennessee, Univ. of California Berkeley, Univ. of Colorado Denver and NAG Ltd..
+!> \author LAPACK is a software package provided by Univ. of Tennessee,
+!> Univ. of California Berkeley, Univ. of Colorado Denver and NAG Ltd..
 !> \date November 2011
 !> \ingroup auxOTHERauxiliary
 !>
@@ -1682,6 +1690,8 @@
 !>
 !
       REAL             FUNCTION SLAMC3( A, B )
+!
+      IMPLICIT NONE
 !
 !  -- LAPACK auxiliary routine (version 3.4.0) --
 !     Univ. of Tennessee, Univ. of California Berkeley and NAG Ltd..
@@ -1707,29 +1717,29 @@
 !
 !  =========== DOCUMENTATION ===========
 !
-! Online html documentation available at 
-!            http://www.netlib.org/lapack/explore-html/ 
+! Online html documentation available at
+!            http://www.netlib.org/lapack/explore-html/
 !
 !> \htmlonly
-!> Download XERBLA + dependencies 
-!> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/xerbla.f"> 
-!> [TGZ]</a> 
-!> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/xerbla.f"> 
-!> [ZIP]</a> 
-!> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/xerbla.f"> 
+!> Download XERBLA + dependencies
+!> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/xerbla.f">
+!> [TGZ]</a>
+!> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/xerbla.f">
+!> [ZIP]</a>
+!> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/xerbla.f">
 !> [TXT]</a>
-!> \endhtmlonly 
+!> \endhtmlonly
 !
 !  Definition:
 !  ===========
 !
 !       SUBROUTINE XERBLA( SRNAME, INFO )
-! 
+!
 !       .. Scalar Arguments ..
 !       CHARACTER*(*)      SRNAME
 !       INTEGER            INFO
 !       ..
-!  
+!
 !
 !> \par Purpose:
 !  =============
@@ -1763,10 +1773,10 @@
 !  Authors:
 !  ========
 !
-!> \author Univ. of Tennessee 
-!> \author Univ. of California Berkeley 
-!> \author Univ. of Colorado Denver 
-!> \author NAG Ltd. 
+!> \author Univ. of Tennessee
+!> \author Univ. of California Berkeley
+!> \author Univ. of Colorado Denver
+!> \author NAG Ltd.
 !
 !> \date November 2011
 !
@@ -1775,20 +1785,20 @@
 !  =====================================================================
       SUBROUTINE XERBLA( SRNAME, INFO )
 !
+      IMPLICIT NONE
+!
 !  -- LAPACK auxiliary routine (version 3.4.0) --
 !  -- LAPACK is a software package provided by Univ. of Tennessee,    --
 !  -- Univ. of California Berkeley, Univ. of Colorado Denver and NAG Ltd..--
 !     November 2011
 !
 !     .. Scalar Arguments ..
-      CHARACTER*(*)      SRNAME
+      CHARACTER(*)       SRNAME
       INTEGER            INFO
 !     ..
 !
 ! =====================================================================
 !
-!     .. Intrinsic Functions ..
-      INTRINSIC          LEN_TRIM
 !     ..
 !     .. Executable Statements ..
 !
@@ -1803,6 +1813,8 @@
 !
       END
       SUBROUTINE SGELQ2( M, N, A, LDA, TAU, WORK, INFO )
+!
+      IMPLICIT NONE
 !
 !  -- LAPACK routine (version 3.3.1) --
 !  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -1880,8 +1892,6 @@
 !     .. External Subroutines ..
       EXTERNAL           SLARF, SLARFG, XERBLA
 !     ..
-!     .. Intrinsic Functions ..
-      INTRINSIC          MAX, MIN
 !     ..
 !     .. Executable Statements ..
 !
@@ -1925,6 +1935,8 @@
 !
       END
       SUBROUTINE SGELQF( M, N, A, LDA, TAU, WORK, LWORK, INFO )
+!
+      IMPLICIT NONE
 !
 !  -- LAPACK routine (version 3.3.1) --
 !  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -2010,8 +2022,6 @@
 !     .. External Subroutines ..
       EXTERNAL           SGELQ2, SLARFB, SLARFT, XERBLA
 !     ..
-!     .. Intrinsic Functions ..
-      INTRINSIC          MAX, MIN
 !     ..
 !     .. External Functions ..
       INTEGER            ILAENV
@@ -2123,6 +2133,8 @@
       SUBROUTINE SGELS( TRANS, M, N, NRHS, A, LDA, B, LDB, WORK, LWORK, &
                         INFO )
 !
+      IMPLICIT NONE
+!
 !  -- LAPACK driver routine (version 3.3.1) --
 !  -- LAPACK is a software package provided by Univ. of Tennessee,    --
 !  -- Univ. of California Berkeley, Univ. of Colorado Denver and NAG Ltd..--
@@ -2143,7 +2155,7 @@
 !  involving an M-by-N matrix A, or its transpose, using a QR or LQ
 !  factorization of A.  It is assumed that A has full rank.
 !
-!  The following options are provided: 
+!  The following options are provided:
 !
 !  1. If TRANS = 'N' and m >= n:  find the least squares solution of
 !     an overdetermined system, i.e., solve the least squares problem
@@ -2159,9 +2171,9 @@
 !     an overdetermined system, i.e., solve the least squares problem
 !                  minimize || B - A**T * X ||.
 !
-!  Several right hand side vectors b and solution vectors x can be 
+!  Several right hand side vectors b and solution vectors x can be
 !  handled in a single call; they are stored as the columns of the
-!  M-by-NRHS right hand side matrix B and the N-by-NRHS solution 
+!  M-by-NRHS right hand side matrix B and the N-by-NRHS solution
 !  matrix X.
 !
 !  Arguments
@@ -2169,7 +2181,7 @@
 !
 !  TRANS   (input) CHARACTER*1
 !          = 'N': the linear system involves A;
-!          = 'T': the linear system involves A**T. 
+!          = 'T': the linear system involves A**T.
 !
 !  M       (input) INTEGER
 !          The number of rows of the matrix A.  M >= 0.
@@ -2195,7 +2207,7 @@
 !  B       (input/output) REAL array, dimension (LDB,NRHS)
 !          On entry, the matrix B of right hand side vectors, stored
 !          columnwise; B is M-by-NRHS if TRANS = 'N', or N-by-NRHS
-!          if TRANS = 'T'.  
+!          if TRANS = 'T'.
 !          On exit, if INFO = 0, B is overwritten by the solution
 !          vectors, stored columnwise:
 !          if TRANS = 'N' and m >= n, rows 1 to n of B contain the least
@@ -2260,9 +2272,6 @@
 !     .. External Subroutines ..
       EXTERNAL           SGELQF, SGEQRF, SLABAD, SLASCL, SLASET, SORMLQ, &
                          SORMQR, STRTRS, XERBLA
-!     ..
-!     .. Intrinsic Functions ..
-      INTRINSIC          MAX, MIN, REAL
 !     ..
 !     .. Executable Statements ..
 !
@@ -2545,6 +2554,8 @@
       END
       SUBROUTINE SGEQR2( M, N, A, LDA, TAU, WORK, INFO )
 !
+      IMPLICIT NONE
+!
 !  -- LAPACK routine (version 3.3.1) --
 !  -- LAPACK is a software package provided by Univ. of Tennessee,    --
 !  -- Univ. of California Berkeley, Univ. of Colorado Denver and NAG Ltd..--
@@ -2621,9 +2632,6 @@
 !     .. External Subroutines ..
       EXTERNAL           SLARF, SLARFG, XERBLA
 !     ..
-!     .. Intrinsic Functions ..
-      INTRINSIC          MAX, MIN
-!     ..
 !     .. Executable Statements ..
 !
 !     Test the input arguments
@@ -2666,6 +2674,8 @@
 !
       END
       SUBROUTINE SGEQRF( M, N, A, LDA, TAU, WORK, LWORK, INFO )
+!
+      IMPLICIT NONE
 !
 !  -- LAPACK routine (version 3.3.1) --
 !  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -2715,7 +2725,7 @@
 !
 !  LWORK   (input) INTEGER
 !          The dimension of the array WORK.  LWORK >= max(1,N).
-!          For optimum performance LWORK >= N*NB, where NB is 
+!          For optimum performance LWORK >= N*NB, where NB is
 !          the optimal blocksize.
 !
 !          If LWORK = -1, then a workspace query is assumed; the routine
@@ -2751,9 +2761,6 @@
 !     ..
 !     .. External Subroutines ..
       EXTERNAL           SGEQR2, SLARFB, SLARFT, XERBLA
-!     ..
-!     .. Intrinsic Functions ..
-      INTRINSIC          MAX, MIN
 !     ..
 !     .. External Functions ..
       INTEGER            ILAENV
@@ -2862,7 +2869,9 @@
 !     End of SGEQRF
 !
       END
-      LOGICAL FUNCTION SISNAN( SIN )
+      LOGICAL FUNCTION SISNAN( SSIN )
+!
+      IMPLICIT NONE
 !
 !  -- LAPACK auxiliary routine (version 3.2.2) --
 !  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -2870,7 +2879,7 @@
 !     June 2010
 !
 !     .. Scalar Arguments ..
-      REAL               SIN
+      REAL               SSIN
 !     ..
 !
 !  Purpose
@@ -2893,10 +2902,12 @@
       EXTERNAL SLAISNAN
 !  ..
 !  .. Executable Statements ..
-      SISNAN = SLAISNAN(SIN,SIN)
+      SISNAN = SLAISNAN(SSIN,SSIN)
       RETURN
       END
       SUBROUTINE SLABAD( SMALL, LARGE )
+!
+      IMPLICIT NONE
 !
 !  -- LAPACK auxiliary routine (version 3.2) --
 !  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -2934,8 +2945,6 @@
 !
 !  =====================================================================
 !
-!     .. Intrinsic Functions ..
-      INTRINSIC          LOG10, SQRT
 !     ..
 !     .. Executable Statements ..
 !
@@ -2953,6 +2962,8 @@
 !
       END
       LOGICAL FUNCTION SLAISNAN( SIN1, SIN2 )
+!
+      IMPLICIT NONE
 !
 !  -- LAPACK auxiliary routine (version 3.2.2) --
 !  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -2995,6 +3006,8 @@
       RETURN
       END
       REAL             FUNCTION SLANGE( NORM, M, N, A, LDA, WORK )
+!
+      IMPLICIT NONE
 !
 !  -- LAPACK auxiliary routine (version 3.2) --
 !  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -3076,9 +3089,6 @@
       LOGICAL            LSAME
       EXTERNAL           LSAME
 !     ..
-!     .. Intrinsic Functions ..
-      INTRINSIC          ABS, MAX, MIN, SQRT
-!     ..
 !     .. Executable Statements ..
 !
       IF( MIN( M, N ).EQ.0 ) THEN
@@ -3141,6 +3151,8 @@
       END
       REAL             FUNCTION SLAPY2( X, Y )
 !
+      IMPLICIT NONE
+!
 !  -- LAPACK auxiliary routine (version 3.2) --
 !  -- LAPACK is a software package provided by Univ. of Tennessee,    --
 !  -- Univ. of California Berkeley, Univ. of Colorado Denver and NAG Ltd..--
@@ -3173,9 +3185,6 @@
 !     ..
 !     .. Local Scalars ..
       REAL               W, XABS, YABS, Z
-!     ..
-!     .. Intrinsic Functions ..
-      INTRINSIC          ABS, MAX, MIN, SQRT
 !     ..
 !     .. Executable Statements ..
 !
@@ -4015,6 +4024,8 @@
       END
       SUBROUTINE SLARFG( N, ALPHA, X, INCX, TAU )
 !
+      IMPLICIT NONE
+!
 !  -- LAPACK auxiliary routine (version 3.3.1) --
 !  -- LAPACK is a software package provided by Univ. of Tennessee,    --
 !  -- Univ. of California Berkeley, Univ. of Colorado Denver and NAG Ltd..--
@@ -4085,9 +4096,6 @@
 !     .. External Functions ..
       REAL               SLAMCH, SLAPY2, SNRM2
       EXTERNAL           SLAMCH, SLAPY2, SNRM2
-!     ..
-!     .. Intrinsic Functions ..
-      INTRINSIC          ABS, SIGN
 !     ..
 !     .. External Subroutines ..
       EXTERNAL           SSCAL
@@ -4401,6 +4409,8 @@
       END
       SUBROUTINE SLASCL( TYPE, KL, KU, CFROM, CTO, M, N, A, LDA, INFO )
 !
+      IMPLICIT NONE
+!
 !  -- LAPACK auxiliary routine (version 3.3.0) --
 !  -- LAPACK is a software package provided by Univ. of Tennessee,    --
 !  -- Univ. of California Berkeley, Univ. of Colorado Denver and NAG Ltd..--
@@ -4489,9 +4499,6 @@
       LOGICAL            LSAME, SISNAN
       REAL               SLAMCH
       EXTERNAL           LSAME, SLAMCH, SISNAN
-!     ..
-!     .. Intrinsic Functions ..
-      INTRINSIC          ABS, MAX, MIN
 !     ..
 !     .. External Subroutines ..
       EXTERNAL           XERBLA
@@ -4685,6 +4692,8 @@
       END
       SUBROUTINE SLASET( UPLO, M, N, ALPHA, BETA, A, LDA )
 !
+      IMPLICIT NONE
+!
 !  -- LAPACK auxiliary routine (version 3.2) --
 !  -- LAPACK is a software package provided by Univ. of Tennessee,    --
 !  -- Univ. of California Berkeley, Univ. of Colorado Denver and NAG Ltd..--
@@ -4749,9 +4758,6 @@
       LOGICAL            LSAME
       EXTERNAL           LSAME
 !     ..
-!     .. Intrinsic Functions ..
-      INTRINSIC          MIN
-!     ..
 !     .. Executable Statements ..
 !
       IF( LSAME( UPLO, 'U' ) ) THEN
@@ -4799,6 +4805,8 @@
 !
       END
       SUBROUTINE SLASSQ( N, X, INCX, SCALE, SUMSQ )
+!
+      IMPLICIT NONE
 !
 !  -- LAPACK auxiliary routine (version 3.2) --
 !  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -4864,9 +4872,6 @@
       INTEGER            IX
       REAL               ABSXI
 !     ..
-!     .. Intrinsic Functions ..
-      INTRINSIC          ABS
-!     ..
 !     .. Executable Statements ..
 !
       IF( N.GT.0 ) THEN
@@ -4889,6 +4894,8 @@
       END
       SUBROUTINE SORM2R( SIDE, TRANS, M, N, K, A, LDA, TAU, C, LDC, &
                          WORK, INFO )
+!
+      IMPLICIT NONE
 !
 !  -- LAPACK routine (version 3.3.1) --
 !  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -4995,9 +5002,6 @@
 !     .. External Subroutines ..
       EXTERNAL           SLARF, XERBLA
 !     ..
-!     .. Intrinsic Functions ..
-      INTRINSIC          MAX
-!     ..
 !     .. Executable Statements ..
 !
 !     Test the input arguments
@@ -5087,6 +5091,8 @@
       END
       SUBROUTINE SORML2( SIDE, TRANS, M, N, K, A, LDA, TAU, C, LDC, &
                          WORK, INFO )
+!
+      IMPLICIT NONE
 !
 !  -- LAPACK routine (version 3.3.1) --
 !  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -5193,9 +5199,6 @@
 !     .. External Subroutines ..
       EXTERNAL           SLARF, XERBLA
 !     ..
-!     .. Intrinsic Functions ..
-      INTRINSIC          MAX
-!     ..
 !     .. Executable Statements ..
 !
 !     Test the input arguments
@@ -5285,6 +5288,8 @@
       END
       SUBROUTINE SORMLQ( SIDE, TRANS, M, N, K, A, LDA, TAU, C, LDC, &
                          WORK, LWORK, INFO )
+!
+      IMPLICIT NONE
 !
 !  -- LAPACK routine (version 3.3.1) --
 !  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -5405,9 +5410,6 @@
 !     .. External Subroutines ..
       EXTERNAL           SLARFB, SLARFT, SORML2, XERBLA
 !     ..
-!     .. Intrinsic Functions ..
-      INTRINSIC          MAX, MIN
-!     ..
 !     .. Executable Statements ..
 !
 !     Test the input arguments
@@ -5453,7 +5455,7 @@
                    -1 ) )
          LWKOPT = MAX( 1, NW )*NB
          WORK( 1 ) = LWKOPT
-      END IF 
+      END IF
 !
       IF( INFO.NE.0 ) THEN
          CALL XERBLA( 'SORMLQ', -INFO )
@@ -5554,6 +5556,8 @@
       END
       SUBROUTINE SORMQR( SIDE, TRANS, M, N, K, A, LDA, TAU, C, LDC, &
                          WORK, LWORK, INFO )
+!
+      IMPLICIT NONE
 !
 !  -- LAPACK routine (version 3.3.1) --
 !  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -5672,9 +5676,6 @@
 !     ..
 !     .. External Subroutines ..
       EXTERNAL           SLARFB, SLARFT, SORM2R, XERBLA
-!     ..
-!     .. Intrinsic Functions ..
-      INTRINSIC          MAX, MIN
 !     ..
 !     .. Executable Statements ..
 !
@@ -5817,6 +5818,8 @@
       SUBROUTINE STRTRS( UPLO, TRANS, DIAG, N, NRHS, A, LDA, B, LDB, &
                          INFO )
 !
+      IMPLICIT NONE
+!
 !  -- LAPACK routine (version 3.2) --
 !  -- LAPACK is a software package provided by Univ. of Tennessee,    --
 !  -- Univ. of California Berkeley, Univ. of Colorado Denver and NAG Ltd..--
@@ -5907,9 +5910,6 @@
 !     .. External Subroutines ..
       EXTERNAL           STRSM, XERBLA
 !     ..
-!     .. Intrinsic Functions ..
-      INTRINSIC          MAX
-!     ..
 !     .. Executable Statements ..
 !
 !     Test the input parameters.
@@ -5969,25 +5969,25 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*> \htmlonly
-!*> Download DGESVD + dependencies 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dgesvd.f"> 
-!*> [TGZ]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dgesvd.f"> 
-!*> [ZIP]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dgesvd.f"> 
+!*> Download DGESVD + dependencies
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dgesvd.f">
+!*> [TGZ]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dgesvd.f">
+!*> [ZIP]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dgesvd.f">
 !*> [TXT]</a>
-!*> \endhtmlonly 
+!*> \endhtmlonly
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       SUBROUTINE DGESVD( JOBU, JOBVT, M, N, A, LDA, S, U, LDU, VT, LDVT,
 !*                          WORK, LWORK, INFO )
-!* 
+!*
 !*       .. Scalar Arguments ..
 !*       CHARACTER          JOBU, JOBVT
 !*       INTEGER            INFO, LDA, LDU, LDVT, LWORK, M, N
@@ -5996,7 +5996,7 @@
 !*       DOUBLE PRECISION   A( LDA, * ), S( * ), U( LDU, * ), &
 !*                          VT( LDVT, * ), WORK( * )
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -6140,7 +6140,7 @@
 !*>          LWORK is INTEGER
 !*>          The dimension of the array WORK.
 !*>          LWORK >= MAX(1,5*MIN(M,N)) for the paths (see comments inside code):
-!*>             - PATH 1  (M much larger than N, JOBU='N') 
+!*>             - PATH 1  (M much larger than N, JOBU='N')
 !*>             - PATH 1t (N much larger than M, JOBVT='N')
 !*>          LWORK >= MAX(1,3*MIN(M,N)+MAX(M,N),5*MIN(M,N)) for the other paths
 !*>          For good performance, LWORK should generally be larger.
@@ -6165,10 +6165,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date April 2012
 !*
@@ -6177,6 +6177,8 @@
 !*  =====================================================================
       SUBROUTINE DGESVD( JOBU, JOBVT, M, N, A, LDA, S, U, LDU, &
                          VT, LDVT, WORK, LWORK, INFO )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK driver routine (version 3.4.1) --
 !*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -6223,9 +6225,6 @@
       INTEGER            ILAENV
       DOUBLE PRECISION   DLAMCH, DLANGE
       EXTERNAL           LSAME, ILAENV, DLAMCH, DLANGE
-!*     ..
-!*     .. Intrinsic Functions ..
-      INTRINSIC          MAX, MIN, SQRT
 !*     ..
 !*     .. Executable Statements ..
 !*
@@ -9465,25 +9464,25 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*> \htmlonly
-!*> Download DBDSQR + dependencies 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dbdsqr.f"> 
-!*> [TGZ]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dbdsqr.f"> 
-!*> [ZIP]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dbdsqr.f"> 
+!*> Download DBDSQR + dependencies
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dbdsqr.f">
+!*> [TGZ]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dbdsqr.f">
+!*> [ZIP]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dbdsqr.f">
 !*> [TXT]</a>
-!*> \endhtmlonly 
+!*> \endhtmlonly
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       SUBROUTINE DBDSQR( UPLO, N, NCVT, NRU, NCC, D, E, VT, LDVT, U,
 !*                          LDU, C, LDC, WORK, INFO )
-!* 
+!*
 !*       .. Scalar Arguments ..
 !*       CHARACTER          UPLO
 !*       INTEGER            INFO, LDC, LDU, LDVT, N, NCC, NCVT, NRU
@@ -9492,7 +9491,7 @@
 !*       DOUBLE PRECISION   C( LDC, * ), D( * ), E( * ), U( LDU, * ),
 !*                          VT( LDVT, * ), WORK( * )
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -9503,9 +9502,9 @@
 !*> left singular vectors from the singular value decomposition (SVD) of
 !*> a real N-by-N (upper or lower) bidiagonal matrix B using the implicit
 !*> zero-shift QR algorithm.  The SVD of B has the form
-!*> 
+!*>
 !*>    B = Q * S * P**T
-!*> 
+!*>
 !*> where S is the diagonal matrix of singular values, Q is an orthogonal
 !*> matrix of left singular vectors, and P is an orthogonal matrix of
 !*> right singular vectors.  If left singular vectors are requested, this
@@ -9576,7 +9575,7 @@
 !*> \verbatim
 !*>          E is DOUBLE PRECISION array, dimension (N-1)
 !*>          On entry, the N-1 offdiagonal elements of the bidiagonal
-!*>          matrix B. 
+!*>          matrix B.
 !*>          On exit, if INFO = 0, E is destroyed; if INFO > 0, D and E
 !*>          will contain the diagonal and superdiagonal elements of a
 !*>          bidiagonal matrix orthogonally equivalent to the one given
@@ -9642,7 +9641,7 @@
 !*>                = 1, a split was marked by a positive value in E
 !*>                = 2, current block of Z not diagonalized after 30*N
 !*>                     iterations (in inner while loop)
-!*>                = 3, termination criterion of outer while loop not met 
+!*>                = 3, termination criterion of outer while loop not met
 !*>                     (program created more than N unreduced blocks)
 !*>             else NCVT = NRU = NCC = 0,
 !*>                   the algorithm did not converge; D and E contain the
@@ -9680,10 +9679,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date November 2011
 !*
@@ -9692,6 +9691,8 @@
 !*  =====================================================================
       SUBROUTINE DBDSQR( UPLO, N, NCVT, NRU, NCC, D, E, VT, LDVT, U, &
                          LDU, C, LDC, WORK, INFO )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK computational routine (version 3.4.0) --
 !*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -9745,9 +9746,6 @@
       EXTERNAL           DLARTG, DLAS2, DLASQ1, DLASR, DLASV2, DROT, &
                          DSCAL, DSWAP, XERBLA
 !*     ..
-!*     .. Intrinsic Functions ..
-      INTRINSIC          ABS, DBLE, MAX, MIN, SIGN, SQRT
-!*     ..
 !*     .. Executable Statements ..
 !*
 !*     Test the input parameters.
@@ -9792,7 +9790,7 @@
          CALL DLASQ1( N, D, E, WORK, INFO )
 !*
 !*     If INFO equals 2, dqds didn't finish, try to finish
-!*         
+!*
          IF( INFO .NE. 2 ) RETURN
          INFO = 0
       END IF
@@ -10318,25 +10316,25 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*> \htmlonly
-!*> Download DGEBRD + dependencies 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dgebrd.f"> 
-!*> [TGZ]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dgebrd.f"> 
-!*> [ZIP]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dgebrd.f"> 
+!*> Download DGEBRD + dependencies
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dgebrd.f">
+!*> [TGZ]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dgebrd.f">
+!*> [ZIP]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dgebrd.f">
 !*> [TXT]</a>
-!*> \endhtmlonly 
+!*> \endhtmlonly
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       SUBROUTINE DGEBRD( M, N, A, LDA, D, E, TAUQ, TAUP, WORK, LWORK,
 !*                          INFO )
-!* 
+!*
 !*       .. Scalar Arguments ..
 !*       INTEGER            INFO, LDA, LWORK, M, N
 !*       ..
@@ -10344,7 +10342,7 @@
 !*       DOUBLE PRECISION   A( LDA, * ), D( * ), E( * ), TAUP( * ), &
 !*                          TAUQ( * ), WORK( * )
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -10458,10 +10456,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date November 2011
 !*
@@ -10520,6 +10518,8 @@
 !*  =====================================================================
       SUBROUTINE DGEBRD( M, N, A, LDA, D, E, TAUQ, TAUP, WORK, LWORK, &
                          INFO )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK computational routine (version 3.4.0) --
 !*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -10548,9 +10548,6 @@
 !*     ..
 !*     .. External Subroutines ..
       EXTERNAL           DGEBD2, DGEMM, DLABRD, XERBLA
-!*     ..
-!*     .. Intrinsic Functions ..
-      INTRINSIC          DBLE, MAX, MIN
 !*     ..
 !*     .. External Functions ..
       INTEGER            ILAENV
@@ -10674,31 +10671,31 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*> \htmlonly
-!*> Download DGELQF + dependencies 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dgelqf.f"> 
-!*> [TGZ]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dgelqf.f"> 
-!*> [ZIP]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dgelqf.f"> 
+!*> Download DGELQF + dependencies
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dgelqf.f">
+!*> [TGZ]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dgelqf.f">
+!*> [ZIP]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dgelqf.f">
 !*> [TXT]</a>
-!*> \endhtmlonly 
+!*> \endhtmlonly
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       SUBROUTINE DGELQF( M, N, A, LDA, TAU, WORK, LWORK, INFO )
-!* 
+!*
 !*       .. Scalar Arguments ..
 !*       INTEGER            INFO, LDA, LWORK, M, N
 !*       ..
 !*       .. Array Arguments ..
 !*       DOUBLE PRECISION   A( LDA, * ), TAU( * ), WORK( * )
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -10777,10 +10774,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date November 2011
 !*
@@ -10806,6 +10803,8 @@
 !*>
 !*  =====================================================================
       SUBROUTINE DGELQF( M, N, A, LDA, TAU, WORK, LWORK, INFO )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK computational routine (version 3.4.0) --
 !*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -10828,9 +10827,6 @@
 !*     ..
 !*     .. External Subroutines ..
       EXTERNAL           DGELQ2, DLARFB, DLARFT, XERBLA
-!*     ..
-!*     .. Intrinsic Functions ..
-      INTRINSIC          MAX, MIN
 !*     ..
 !*     .. External Functions ..
       INTEGER            ILAENV
@@ -10946,31 +10942,31 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*> \htmlonly
-!*> Download DGEQRF + dependencies 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dgeqrf.f"> 
-!*> [TGZ]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dgeqrf.f"> 
-!*> [ZIP]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dgeqrf.f"> 
+!*> Download DGEQRF + dependencies
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dgeqrf.f">
+!*> [TGZ]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dgeqrf.f">
+!*> [ZIP]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dgeqrf.f">
 !*> [TXT]</a>
-!*> \endhtmlonly 
+!*> \endhtmlonly
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       SUBROUTINE DGEQRF( M, N, A, LDA, TAU, WORK, LWORK, INFO )
-!* 
+!*
 !*       .. Scalar Arguments ..
 !*       INTEGER            INFO, LDA, LWORK, M, N
 !*       ..
 !*       .. Array Arguments ..
 !*       DOUBLE PRECISION   A( LDA, * ), TAU( * ), WORK( * )
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -11050,10 +11046,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date November 2011
 !*
@@ -11079,6 +11075,8 @@
 !*>
 !*  =====================================================================
       SUBROUTINE DGEQRF( M, N, A, LDA, TAU, WORK, LWORK, INFO )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK computational routine (version 3.4.0) --
 !*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -11101,9 +11099,6 @@
 !*     ..
 !*     .. External Subroutines ..
       EXTERNAL           DGEQR2, DLARFB, DLARFT, XERBLA
-!*     ..
-!*     .. Intrinsic Functions ..
-      INTRINSIC          MAX, MIN
 !*     ..
 !*     .. External Functions ..
       INTEGER            ILAENV
@@ -11219,31 +11214,31 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*> \htmlonly
-!*> Download DORGQR + dependencies 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dorgqr.f"> 
-!*> [TGZ]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dorgqr.f"> 
-!*> [ZIP]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dorgqr.f"> 
+!*> Download DORGQR + dependencies
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dorgqr.f">
+!*> [TGZ]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dorgqr.f">
+!*> [ZIP]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dorgqr.f">
 !*> [TXT]</a>
-!*> \endhtmlonly 
+!*> \endhtmlonly
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       SUBROUTINE DORGQR( M, N, K, A, LDA, TAU, WORK, LWORK, INFO )
-!* 
+!*
 !*       .. Scalar Arguments ..
 !*       INTEGER            INFO, K, LDA, LWORK, M, N
 !*       ..
 !*       .. Array Arguments ..
 !*       DOUBLE PRECISION   A( LDA, * ), TAU( * ), WORK( * )
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -11333,10 +11328,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date November 2011
 !*
@@ -11344,6 +11339,8 @@
 !*
 !*  =====================================================================
       SUBROUTINE DORGQR( M, N, K, A, LDA, TAU, WORK, LWORK, INFO )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK computational routine (version 3.4.0) --
 !*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -11370,9 +11367,6 @@
 !*     ..
 !*     .. External Subroutines ..
       EXTERNAL           DLARFB, DLARFT, DORG2R, XERBLA
-!*     ..
-!*     .. Intrinsic Functions ..
-      INTRINSIC          MAX, MIN
 !*     ..
 !*     .. External Functions ..
       INTEGER            ILAENV
@@ -11512,14 +11506,16 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*  Definition:
 !*  ===========
 !*
 !*      DOUBLE PRECISION FUNCTION DLAMCH( CMACH )
-!*  
+!
+!       IMPLICIT NONE
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -11561,10 +11557,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date November 2011
 !*
@@ -11572,6 +11568,8 @@
 !*
 !*  =====================================================================
       DOUBLE PRECISION FUNCTION DLAMCH( CMACH )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK auxiliary routine (version 3.4.0) --
 !*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -11583,7 +11581,7 @@
 !*     ..
 !*
 !*     .. Scalar Arguments ..
-      DOUBLE PRECISION   A, B
+!*    DOUBLE PRECISION   A, B
 !*     ..
 !*
 !* =====================================================================
@@ -11598,10 +11596,6 @@
 !*     .. External Functions ..
       LOGICAL            LSAME
       EXTERNAL           LSAME
-!*     ..
-!*     .. Intrinsic Functions ..
-      INTRINSIC          DIGITS, EPSILON, HUGE, MAXEXPONENT, &
-                         MINEXPONENT, RADIX, TINY
 !*     ..
 !*     .. Executable Statements ..
 !*
@@ -11664,7 +11658,8 @@
 !*> the addition of  A  and  B ,  for use in situations where optimizers
 !*> might hold one of these in a register.
 !*> \endverbatim
-!*> \author LAPACK is a software package provided by Univ. of Tennessee, Univ. of California Berkeley, Univ. of Colorado Denver and NAG Ltd..
+!*> \author LAPACK is a software package provided by Univ. of Tennessee,
+!*> Univ. of California Berkeley, Univ. of Colorado Denver and NAG Ltd..
 !*> \date November 2011
 !*> \ingroup auxOTHERauxiliary
 !*>
@@ -11680,6 +11675,8 @@
 !*> \endverbatim
 !*>
       DOUBLE PRECISION FUNCTION DLAMC3( A, B )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK auxiliary routine (version 3.4.0) --
 !*     Univ. of Tennessee, Univ. of California Berkeley and NAG Ltd..
@@ -11708,24 +11705,24 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*> \htmlonly
-!*> Download DLACPY + dependencies 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlacpy.f"> 
-!*> [TGZ]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlacpy.f"> 
-!*> [ZIP]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlacpy.f"> 
+!*> Download DLACPY + dependencies
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlacpy.f">
+!*> [TGZ]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlacpy.f">
+!*> [ZIP]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlacpy.f">
 !*> [TXT]</a>
-!*> \endhtmlonly 
+!*> \endhtmlonly
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       SUBROUTINE DLACPY( UPLO, M, N, A, LDA, B, LDB )
-!* 
+!*
 !*       .. Scalar Arguments ..
 !*       CHARACTER          UPLO
 !*       INTEGER            LDA, LDB, M, N
@@ -11733,7 +11730,7 @@
 !*       .. Array Arguments ..
 !*       DOUBLE PRECISION   A( LDA, * ), B( LDB, * )
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -11797,10 +11794,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date September 2012
 !*
@@ -11808,6 +11805,8 @@
 !*
 !*  =====================================================================
       SUBROUTINE DLACPY( UPLO, M, N, A, LDA, B, LDB )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK auxiliary routine (version 3.4.2) --
 !*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -11830,9 +11829,6 @@
 !*     .. External Functions ..
       LOGICAL            LSAME
       EXTERNAL           LSAME
-!*     ..
-!*     .. Intrinsic Functions ..
-      INTRINSIC          MIN
 !*     ..
 !*     .. Executable Statements ..
 !*
@@ -11863,28 +11859,31 @@
 
 !==========================================================================
 
-!*> \brief \b DLANGE returns the value of the 1-norm, Frobenius norm, infinity-norm, or the largest absolute value of any element of a general rectangular matrix.
+!*> \brief \b DLANGE returns the value of the 1-norm, Frobenius norm, infinity-norm,
+!*> or the largest absolute value of any element of a general rectangular matrix.
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*> \htmlonly
-!*> Download DLANGE + dependencies 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlange.f"> 
-!*> [TGZ]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlange.f"> 
-!*> [ZIP]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlange.f"> 
+!*> Download DLANGE + dependencies
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlange.f">
+!*> [TGZ]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlange.f">
+!*> [ZIP]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlange.f">
 !*> [TXT]</a>
-!*> \endhtmlonly 
+!*> \endhtmlonly
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       DOUBLE PRECISION FUNCTION DLANGE( NORM, M, N, A, LDA, WORK )
-!* 
+!
+!        IMPLICIT NONE
+!*
 !*       .. Scalar Arguments ..
 !*       CHARACTER          NORM
 !*       INTEGER            LDA, M, N
@@ -11892,7 +11891,7 @@
 !*       .. Array Arguments ..
 !*       DOUBLE PRECISION   A( LDA, * ), WORK( * )
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -11967,10 +11966,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date September 2012
 !*
@@ -11978,6 +11977,8 @@
 !*
 !*  =====================================================================
       DOUBLE PRECISION FUNCTION DLANGE( NORM, M, N, A, LDA, WORK )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK auxiliary routine (version 3.4.2) --
 !*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -12008,9 +12009,6 @@
 !*     .. External Functions ..
       LOGICAL            LSAME, DISNAN
       EXTERNAL           LSAME, DISNAN
-!*     ..
-!*     .. Intrinsic Functions ..
-      INTRINSIC          ABS, MIN, SQRT
 !*     ..
 !*     .. Executable Statements ..
 !*
@@ -12081,24 +12079,24 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*> \htmlonly
-!*> Download DLASCL + dependencies 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlascl.f"> 
-!*> [TGZ]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlascl.f"> 
-!*> [ZIP]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlascl.f"> 
+!*> Download DLASCL + dependencies
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlascl.f">
+!*> [TGZ]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlascl.f">
+!*> [ZIP]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlascl.f">
 !*> [TXT]</a>
-!*> \endhtmlonly 
+!*> \endhtmlonly
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       SUBROUTINE DLASCL( TYPE, KL, KU, CFROM, CTO, M, N, A, LDA, INFO )
-!* 
+!*
 !*       .. Scalar Arguments ..
 !*       CHARACTER          TYPE
 !*       INTEGER            INFO, KL, KU, LDA, M, N
@@ -12107,7 +12105,7 @@
 !*       .. Array Arguments ..
 !*       DOUBLE PRECISION   A( LDA, * )
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -12206,10 +12204,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date September 2012
 !*
@@ -12217,6 +12215,8 @@
 !*
 !*  =====================================================================
       SUBROUTINE DLASCL( TYPE, KL, KU, CFROM, CTO, M, N, A, LDA, INFO )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK auxiliary routine (version 3.4.2) --
 !*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -12247,9 +12247,6 @@
       LOGICAL            LSAME, DISNAN
       DOUBLE PRECISION   DLAMCH
       EXTERNAL           LSAME, DLAMCH, DISNAN
-!*     ..
-!*     .. Intrinsic Functions ..
-      INTRINSIC          ABS, MAX, MIN
 !*     ..
 !*     .. External Subroutines ..
       EXTERNAL           XERBLA
@@ -12448,24 +12445,24 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*> \htmlonly
-!*> Download DLASET + dependencies 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlaset.f"> 
-!*> [TGZ]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlaset.f"> 
-!*> [ZIP]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlaset.f"> 
+!*> Download DLASET + dependencies
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlaset.f">
+!*> [TGZ]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlaset.f">
+!*> [ZIP]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlaset.f">
 !*> [TXT]</a>
-!*> \endhtmlonly 
+!*> \endhtmlonly
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       SUBROUTINE DLASET( UPLO, M, N, ALPHA, BETA, A, LDA )
-!* 
+!*
 !*       .. Scalar Arguments ..
 !*       CHARACTER          UPLO
 !*       INTEGER            LDA, M, N
@@ -12474,7 +12471,7 @@
 !*       .. Array Arguments ..
 !*       DOUBLE PRECISION   A( LDA, * )
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -12544,10 +12541,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date September 2012
 !*
@@ -12555,6 +12552,8 @@
 !*
 !*  =====================================================================
       SUBROUTINE DLASET( UPLO, M, N, ALPHA, BETA, A, LDA )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK auxiliary routine (version 3.4.2) --
 !*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -12579,8 +12578,6 @@
       LOGICAL            LSAME
       EXTERNAL           LSAME
 !*     ..
-!*     .. Intrinsic Functions ..
-      INTRINSIC          MIN
 !*     ..
 !*     .. Executable Statements ..
 !*
@@ -12635,24 +12632,24 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*> \htmlonly
-!*> Download DORGBR + dependencies 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dorgbr.f"> 
-!*> [TGZ]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dorgbr.f"> 
-!*> [ZIP]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dorgbr.f"> 
+!*> Download DORGBR + dependencies
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dorgbr.f">
+!*> [TGZ]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dorgbr.f">
+!*> [ZIP]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dorgbr.f">
 !*> [TXT]</a>
-!*> \endhtmlonly 
+!*> \endhtmlonly
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       SUBROUTINE DORGBR( VECT, M, N, K, A, LDA, TAU, WORK, LWORK, INFO )
-!* 
+!*
 !*       .. Scalar Arguments ..
 !*       CHARACTER          VECT
 !*       INTEGER            INFO, K, LDA, LWORK, M, N
@@ -12660,7 +12657,7 @@
 !*       .. Array Arguments ..
 !*       DOUBLE PRECISION   A( LDA, * ), TAU( * ), WORK( * )
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -12778,10 +12775,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date April 2012
 !*
@@ -12789,6 +12786,8 @@
 !*
 !*  =====================================================================
       SUBROUTINE DORGBR( VECT, M, N, K, A, LDA, TAU, WORK, LWORK, INFO )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK computational routine (version 3.4.1) --
 !*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -12821,8 +12820,6 @@
 !*     .. External Subroutines ..
       EXTERNAL           DORGLQ, DORGQR, XERBLA
 !*     ..
-!*     .. Intrinsic Functions ..
-      INTRINSIC          MAX, MIN
 !*     ..
 !*     .. Executable Statements ..
 !*
@@ -12976,31 +12973,31 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*> \htmlonly
-!*> Download DORGLQ + dependencies 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dorglq.f"> 
-!*> [TGZ]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dorglq.f"> 
-!*> [ZIP]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dorglq.f"> 
+!*> Download DORGLQ + dependencies
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dorglq.f">
+!*> [TGZ]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dorglq.f">
+!*> [ZIP]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dorglq.f">
 !*> [TXT]</a>
-!*> \endhtmlonly 
+!*> \endhtmlonly
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       SUBROUTINE DORGLQ( M, N, K, A, LDA, TAU, WORK, LWORK, INFO )
-!* 
+!*
 !*       .. Scalar Arguments ..
 !*       INTEGER            INFO, K, LDA, LWORK, M, N
 !*       ..
 !*       .. Array Arguments ..
 !*       DOUBLE PRECISION   A( LDA, * ), TAU( * ), WORK( * )
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -13089,10 +13086,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date November 2011
 !*
@@ -13100,6 +13097,8 @@
 !*
 !*  =====================================================================
       SUBROUTINE DORGLQ( M, N, K, A, LDA, TAU, WORK, LWORK, INFO )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK computational routine (version 3.4.0) --
 !*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -13127,8 +13126,6 @@
 !*     .. External Subroutines ..
       EXTERNAL           DLARFB, DLARFT, DORGL2, XERBLA
 !*     ..
-!*     .. Intrinsic Functions ..
-      INTRINSIC          MAX, MIN
 !*     ..
 !*     .. External Functions ..
       INTEGER            ILAENV
@@ -13268,25 +13265,25 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*> \htmlonly
-!*> Download DORMBR + dependencies 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dormbr.f"> 
-!*> [TGZ]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dormbr.f"> 
-!*> [ZIP]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dormbr.f"> 
+!*> Download DORMBR + dependencies
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dormbr.f">
+!*> [TGZ]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dormbr.f">
+!*> [ZIP]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dormbr.f">
 !*> [TXT]</a>
-!*> \endhtmlonly 
+!*> \endhtmlonly
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       SUBROUTINE DORMBR( VECT, SIDE, TRANS, M, N, K, A, LDA, TAU, C,
 !*                          LDC, WORK, LWORK, INFO )
-!* 
+!*
 !*       .. Scalar Arguments ..
 !*       CHARACTER          SIDE, TRANS, VECT
 !*       INTEGER            INFO, K, LDA, LDC, LWORK, M, N
@@ -13294,7 +13291,7 @@
 !*       .. Array Arguments ..
 !*       DOUBLE PRECISION   A( LDA, * ), C( LDC, * ), TAU( * ), WORK( * )
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -13448,10 +13445,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date November 2011
 !*
@@ -13460,6 +13457,8 @@
 !*  =====================================================================
       SUBROUTINE DORMBR( VECT, SIDE, TRANS, M, N, K, A, LDA, TAU, C, &
                          LDC, WORK, LWORK, INFO )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK computational routine (version 3.4.0) --
 !*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -13489,8 +13488,6 @@
 !*     .. External Subroutines ..
       EXTERNAL           DORMLQ, DORMQR, XERBLA
 !*     ..
-!*     .. Intrinsic Functions ..
-      INTRINSIC          MAX, MIN
 !*     ..
 !*     .. Executable Statements ..
 !*
@@ -13643,28 +13640,30 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*> \htmlonly
-!*> Download DISNAN + dependencies 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/disnan.f"> 
-!*> [TGZ]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/disnan.f"> 
-!*> [ZIP]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/disnan.f"> 
+!*> Download DISNAN + dependencies
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/disnan.f">
+!*> [TGZ]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/disnan.f">
+!*> [ZIP]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/disnan.f">
 !*> [TXT]</a>
-!*> \endhtmlonly 
+!*> \endhtmlonly
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       LOGICAL FUNCTION DISNAN( DIN )
-!* 
+!
+!        IMPLICIT NONE
+!*
 !*       .. Scalar Arguments ..
 !*       DOUBLE PRECISION   DIN
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -13688,10 +13687,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date September 2012
 !*
@@ -13699,6 +13698,8 @@
 !*
 !*  =====================================================================
       LOGICAL FUNCTION DISNAN( DIN )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK auxiliary routine (version 3.4.2) --
 !*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -13726,31 +13727,31 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*> \htmlonly
-!*> Download DORGL2 + dependencies 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dorgl2.f"> 
-!*> [TGZ]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dorgl2.f"> 
-!*> [ZIP]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dorgl2.f"> 
+!*> Download DORGL2 + dependencies
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dorgl2.f">
+!*> [TGZ]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dorgl2.f">
+!*> [ZIP]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dorgl2.f">
 !*> [TXT]</a>
-!*> \endhtmlonly 
+!*> \endhtmlonly
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       SUBROUTINE DORGL2( M, N, K, A, LDA, TAU, WORK, INFO )
-!* 
+!*
 !*       .. Scalar Arguments ..
 !*       INTEGER            INFO, K, LDA, M, N
 !*       ..
 !*       .. Array Arguments ..
 !*       DOUBLE PRECISION   A( LDA, * ), TAU( * ), WORK( * )
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -13825,10 +13826,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date November 2011
 !*
@@ -13836,6 +13837,8 @@
 !*
 !*  =====================================================================
       SUBROUTINE DORGL2( M, N, K, A, LDA, TAU, WORK, INFO )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK computational routine (version 3.4.0) --
 !*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -13860,9 +13863,6 @@
 !*     ..
 !*     .. External Subroutines ..
       EXTERNAL           DLARF, DSCAL, XERBLA
-!*     ..
-!*     .. Intrinsic Functions ..
-      INTRINSIC          MAX
 !*     ..
 !*     .. Executable Statements ..
 !*
@@ -13933,24 +13933,24 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*> \htmlonly
-!*> Download DLARFT + dependencies 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlarft.f"> 
-!*> [TGZ]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlarft.f"> 
-!*> [ZIP]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlarft.f"> 
+!*> Download DLARFT + dependencies
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlarft.f">
+!*> [TGZ]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlarft.f">
+!*> [ZIP]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlarft.f">
 !*> [TXT]</a>
-!*> \endhtmlonly 
+!*> \endhtmlonly
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       SUBROUTINE DLARFT( DIRECT, STOREV, N, K, V, LDV, TAU, T, LDT )
-!* 
+!*
 !*       .. Scalar Arguments ..
 !*       CHARACTER          DIRECT, STOREV
 !*       INTEGER            K, LDT, LDV, N
@@ -13958,7 +13958,7 @@
 !*       .. Array Arguments ..
 !*       DOUBLE PRECISION   T( LDT, * ), TAU( * ), V( LDV, * )
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -14056,10 +14056,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date September 2012
 !*
@@ -14093,6 +14093,8 @@
 !*>
 !*  =====================================================================
       SUBROUTINE DLARFT( DIRECT, STOREV, N, K, V, LDV, TAU, T, LDT )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK auxiliary routine (version 3.4.2) --
 !*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -14152,7 +14154,7 @@
                   END DO
                   DO J = 1, I-1
                      T( J, I ) = -TAU( I ) * V( I , J )
-                  END DO   
+                  END DO
                   J = MIN( LASTV, PREVLASTV )
 !*
 !*                 T(1:i-1,i) := - tau(i) * V(i:j,1:i-1)**T * V(i:j,i)
@@ -14167,7 +14169,7 @@
                   END DO
                   DO J = 1, I-1
                      T( J, I ) = -TAU( I ) * V( J , I )
-                  END DO   
+                  END DO
                   J = MIN( LASTV, PREVLASTV )
 !*
 !*                 T(1:i-1,i) := - tau(i) * V(1:i-1,i:j) * V(i,i:j)**T
@@ -14211,7 +14213,7 @@
                      END DO
                      DO J = I+1, K
                         T( J, I ) = -TAU( I ) * V( N-K+I , J )
-                     END DO   
+                     END DO
                      J = MAX( LASTV, PREVLASTV )
 !*
 !*                    T(i+1:k,i) = -tau(i) * V(j:n-k+i,i+1:k)**T * V(j:n-k+i,i)
@@ -14226,7 +14228,7 @@
                      END DO
                      DO J = I+1, K
                         T( J, I ) = -TAU( I ) * V( J, N-K+I )
-                     END DO   
+                     END DO
                      J = MAX( LASTV, PREVLASTV )
 !*
 !*                    T(i+1:k,i) = -tau(i) * V(i+1:k,j:n-k+i) * V(i,j:n-k+i)**T
@@ -14262,25 +14264,25 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*> \htmlonly
-!*> Download DLARFB + dependencies 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlarfb.f"> 
-!*> [TGZ]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlarfb.f"> 
-!*> [ZIP]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlarfb.f"> 
+!*> Download DLARFB + dependencies
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlarfb.f">
+!*> [TGZ]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlarfb.f">
+!*> [ZIP]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlarfb.f">
 !*> [TXT]</a>
-!*> \endhtmlonly 
+!*> \endhtmlonly
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       SUBROUTINE DLARFB( SIDE, TRANS, DIRECT, STOREV, M, N, K, V, LDV,
 !*                          T, LDT, C, LDC, WORK, LDWORK )
-!* 
+!*
 !*       .. Scalar Arguments ..
 !*       CHARACTER          DIRECT, SIDE, STOREV, TRANS
 !*       INTEGER            K, LDC, LDT, LDV, LDWORK, M, N
@@ -14289,7 +14291,7 @@
 !*       DOUBLE PRECISION   C( LDC, * ), T( LDT, * ), V( LDV, * ), &
 !*                          WORK( LDWORK, * )
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -14414,10 +14416,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date June 2013
 !*
@@ -14454,6 +14456,8 @@
 !*  =====================================================================
       SUBROUTINE DLARFB( SIDE, TRANS, DIRECT, STOREV, M, N, K, V, LDV, &
                          T, LDT, C, LDC, WORK, LDWORK )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK auxiliary routine (version 3.5.0) --
 !*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -14975,31 +14979,31 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*> \htmlonly
-!*> Download DGELQ2 + dependencies 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dgelq2.f"> 
-!*> [TGZ]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dgelq2.f"> 
-!*> [ZIP]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dgelq2.f"> 
+!*> Download DGELQ2 + dependencies
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dgelq2.f">
+!*> [TGZ]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dgelq2.f">
+!*> [ZIP]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dgelq2.f">
 !*> [TXT]</a>
-!*> \endhtmlonly 
+!*> \endhtmlonly
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       SUBROUTINE DGELQ2( M, N, A, LDA, TAU, WORK, INFO )
-!* 
+!*
 !*       .. Scalar Arguments ..
 !*       INTEGER            INFO, LDA, M, N
 !*       ..
 !*       .. Array Arguments ..
 !*       DOUBLE PRECISION   A( LDA, * ), TAU( * ), WORK( * )
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -15064,10 +15068,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date September 2012
 !*
@@ -15093,6 +15097,8 @@
 !*>
 !*  =====================================================================
       SUBROUTINE DGELQ2( M, N, A, LDA, TAU, WORK, INFO )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK computational routine (version 3.4.2) --
 !*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -15118,9 +15124,6 @@
 !*     ..
 !*     .. External Subroutines ..
       EXTERNAL           DLARF, DLARFG, XERBLA
-!*     ..
-!*     .. Intrinsic Functions ..
-      INTRINSIC          MAX, MIN
 !*     ..
 !*     .. Executable Statements ..
 !*
@@ -15170,24 +15173,24 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*> \htmlonly
-!*> Download DLASSQ + dependencies 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlassq.f"> 
-!*> [TGZ]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlassq.f"> 
-!*> [ZIP]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlassq.f"> 
+!*> Download DLASSQ + dependencies
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlassq.f">
+!*> [TGZ]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlassq.f">
+!*> [ZIP]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlassq.f">
 !*> [TXT]</a>
-!*> \endhtmlonly 
+!*> \endhtmlonly
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       SUBROUTINE DLASSQ( N, X, INCX, SCALE, SUMSQ )
-!* 
+!*
 !*       .. Scalar Arguments ..
 !*       INTEGER            INCX, N
 !*       DOUBLE PRECISION   SCALE, SUMSQ
@@ -15195,7 +15198,7 @@
 !*       .. Array Arguments ..
 !*       DOUBLE PRECISION   X( * )
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -15259,10 +15262,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date September 2012
 !*
@@ -15270,6 +15273,8 @@
 !*
 !*  =====================================================================
       SUBROUTINE DLASSQ( N, X, INCX, SCALE, SUMSQ )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK auxiliary routine (version 3.4.2) --
 !*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -15298,9 +15303,6 @@
       LOGICAL            DISNAN
       EXTERNAL           DISNAN
 !*     ..
-!*     .. Intrinsic Functions ..
-      INTRINSIC          ABS
-!*     ..
 !*     .. Executable Statements ..
 !*
       IF( N.GT.0 ) THEN
@@ -15328,25 +15330,25 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*> \htmlonly
-!*> Download DORMQR + dependencies 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dormqr.f"> 
-!*> [TGZ]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dormqr.f"> 
-!*> [ZIP]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dormqr.f"> 
+!*> Download DORMQR + dependencies
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dormqr.f">
+!*> [TGZ]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dormqr.f">
+!*> [ZIP]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dormqr.f">
 !*> [TXT]</a>
-!*> \endhtmlonly 
+!*> \endhtmlonly
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       SUBROUTINE DORMQR( SIDE, TRANS, M, N, K, A, LDA, TAU, C, LDC,
 !*                          WORK, LWORK, INFO )
-!* 
+!*
 !*       .. Scalar Arguments ..
 !*       CHARACTER          SIDE, TRANS
 !*       INTEGER            INFO, K, LDA, LDC, LWORK, M, N
@@ -15354,7 +15356,7 @@
 !*       .. Array Arguments ..
 !*       DOUBLE PRECISION   A( LDA, * ), C( LDC, * ), TAU( * ), WORK( * )
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -15482,10 +15484,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date November 2011
 !*
@@ -15494,6 +15496,8 @@
 !*  =====================================================================
       SUBROUTINE DORMQR( SIDE, TRANS, M, N, K, A, LDA, TAU, C, LDC, &
                          WORK, LWORK, INFO )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK computational routine (version 3.4.0) --
 !*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -15529,9 +15533,6 @@
 !*     ..
 !*     .. External Subroutines ..
       EXTERNAL           DLARFB, DLARFT, DORM2R, XERBLA
-!*     ..
-!*     .. Intrinsic Functions ..
-      INTRINSIC          MAX, MIN
 !*     ..
 !*     .. Executable Statements ..
 !*
@@ -15678,25 +15679,25 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*> \htmlonly
-!*> Download DORMLQ + dependencies 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dormlq.f"> 
-!*> [TGZ]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dormlq.f"> 
-!*> [ZIP]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dormlq.f"> 
+!*> Download DORMLQ + dependencies
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dormlq.f">
+!*> [TGZ]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dormlq.f">
+!*> [ZIP]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dormlq.f">
 !*> [TXT]</a>
-!*> \endhtmlonly 
+!*> \endhtmlonly
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       SUBROUTINE DORMLQ( SIDE, TRANS, M, N, K, A, LDA, TAU, C, LDC,
 !*                          WORK, LWORK, INFO )
-!* 
+!*
 !*       .. Scalar Arguments ..
 !*       CHARACTER          SIDE, TRANS
 !*       INTEGER            INFO, K, LDA, LDC, LWORK, M, N
@@ -15704,7 +15705,7 @@
 !*       .. Array Arguments ..
 !*       DOUBLE PRECISION   A( LDA, * ), C( LDC, * ), TAU( * ), WORK( * )
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -15832,10 +15833,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date November 2011
 !*
@@ -15844,6 +15845,8 @@
 !*  =====================================================================
       SUBROUTINE DORMLQ( SIDE, TRANS, M, N, K, A, LDA, TAU, C, LDC, &
                          WORK, LWORK, INFO )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK computational routine (version 3.4.0) --
 !*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -15880,9 +15883,6 @@
 !*     ..
 !*     .. External Subroutines ..
       EXTERNAL           DLARFB, DLARFT, DORML2, XERBLA
-!*     ..
-!*     .. Intrinsic Functions ..
-      INTRINSIC          MAX, MIN
 !*     ..
 !*     .. Executable Statements ..
 !*
@@ -16035,31 +16035,31 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*> \htmlonly
-!*> Download DGEQR2 + dependencies 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dgeqr2.f"> 
-!*> [TGZ]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dgeqr2.f"> 
-!*> [ZIP]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dgeqr2.f"> 
+!*> Download DGEQR2 + dependencies
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dgeqr2.f">
+!*> [TGZ]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dgeqr2.f">
+!*> [ZIP]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dgeqr2.f">
 !*> [TXT]</a>
-!*> \endhtmlonly 
+!*> \endhtmlonly
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       SUBROUTINE DGEQR2( M, N, A, LDA, TAU, WORK, INFO )
-!* 
+!*
 !*       .. Scalar Arguments ..
 !*       INTEGER            INFO, LDA, M, N
 !*       ..
 !*       .. Array Arguments ..
 !*       DOUBLE PRECISION   A( LDA, * ), TAU( * ), WORK( * )
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -16124,10 +16124,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date September 2012
 !*
@@ -16153,6 +16153,8 @@
 !*>
 !*  =====================================================================
       SUBROUTINE DGEQR2( M, N, A, LDA, TAU, WORK, INFO )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK computational routine (version 3.4.2) --
 !*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -16178,9 +16180,6 @@
 !*     ..
 !*     .. External Subroutines ..
       EXTERNAL           DLARF, DLARFG, XERBLA
-!*     ..
-!*     .. Intrinsic Functions ..
-      INTRINSIC          MAX, MIN
 !*     ..
 !*     .. Executable Statements ..
 !*
@@ -16226,35 +16225,36 @@
 
 !==========================================================================
 
-!*> \brief \b DORG2R generates all or part of the orthogonal matrix Q from a QR factorization determined by sgeqrf (unblocked algorithm).
+!*> \brief \b DORG2R generates all or part of the orthogonal matrix Q from a QR
+!*> factorization determined by sgeqrf (unblocked algorithm).
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*> \htmlonly
-!*> Download DORG2R + dependencies 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dorg2r.f"> 
-!*> [TGZ]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dorg2r.f"> 
-!*> [ZIP]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dorg2r.f"> 
+!*> Download DORG2R + dependencies
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dorg2r.f">
+!*> [TGZ]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dorg2r.f">
+!*> [ZIP]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dorg2r.f">
 !*> [TXT]</a>
-!*> \endhtmlonly 
+!*> \endhtmlonly
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       SUBROUTINE DORG2R( M, N, K, A, LDA, TAU, WORK, INFO )
-!* 
+!*
 !*       .. Scalar Arguments ..
 !*       INTEGER            INFO, K, LDA, M, N
 !*       ..
 !*       .. Array Arguments ..
 !*       DOUBLE PRECISION   A( LDA, * ), TAU( * ), WORK( * )
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -16330,10 +16330,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date September 2012
 !*
@@ -16341,6 +16341,8 @@
 !*
 !*  =====================================================================
       SUBROUTINE DORG2R( M, N, K, A, LDA, TAU, WORK, INFO )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK computational routine (version 3.4.2) --
 !*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -16365,9 +16367,6 @@
 !*     ..
 !*     .. External Subroutines ..
       EXTERNAL           DLARF, DSCAL, XERBLA
-!*     ..
-!*     .. Intrinsic Functions ..
-      INTRINSIC          MAX
 !*     ..
 !*     .. Executable Statements ..
 !*
@@ -16433,25 +16432,25 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*> \htmlonly
-!*> Download DLABRD + dependencies 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlabrd.f"> 
-!*> [TGZ]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlabrd.f"> 
-!*> [ZIP]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlabrd.f"> 
+!*> Download DLABRD + dependencies
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlabrd.f">
+!*> [TGZ]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlabrd.f">
+!*> [ZIP]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlabrd.f">
 !*> [TXT]</a>
-!*> \endhtmlonly 
+!*> \endhtmlonly
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       SUBROUTINE DLABRD( M, N, NB, A, LDA, D, E, TAUQ, TAUP, X, LDX, Y,
 !*                          LDY )
-!* 
+!*
 !*       .. Scalar Arguments ..
 !*       INTEGER            LDA, LDX, LDY, M, N, NB
 !*       ..
@@ -16459,7 +16458,7 @@
 !*       DOUBLE PRECISION   A( LDA, * ), D( * ), E( * ), TAUP( * ), &
 !*                          TAUQ( * ), X( LDX, * ), Y( LDY, * )
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -16582,10 +16581,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date September 2012
 !*
@@ -16640,6 +16639,8 @@
 !*  =====================================================================
       SUBROUTINE DLABRD( M, N, NB, A, LDA, D, E, TAUQ, TAUP, X, LDX, Y, &
                          LDY )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK auxiliary routine (version 3.4.2) --
 !*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -16665,9 +16666,6 @@
 !*     ..
 !*     .. External Subroutines ..
       EXTERNAL           DGEMV, DLARFG, DSCAL
-!*     ..
-!*     .. Intrinsic Functions ..
-      INTRINSIC          MIN
 !*     ..
 !*     .. Executable Statements ..
 !*
@@ -16817,24 +16815,24 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*> \htmlonly
-!*> Download DGEBD2 + dependencies 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dgebd2.f"> 
-!*> [TGZ]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dgebd2.f"> 
-!*> [ZIP]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dgebd2.f"> 
+!*> Download DGEBD2 + dependencies
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dgebd2.f">
+!*> [TGZ]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dgebd2.f">
+!*> [ZIP]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dgebd2.f">
 !*> [TXT]</a>
-!*> \endhtmlonly 
+!*> \endhtmlonly
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       SUBROUTINE DGEBD2( M, N, A, LDA, D, E, TAUQ, TAUP, WORK, INFO )
-!* 
+!*
 !*       .. Scalar Arguments ..
 !*       INTEGER            INFO, LDA, M, N
 !*       ..
@@ -16842,7 +16840,7 @@
 !*       DOUBLE PRECISION   A( LDA, * ), D( * ), E( * ), TAUP( * ), &
 !*                          TAUQ( * ), WORK( * )
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -16942,10 +16940,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date September 2012
 !*
@@ -17003,6 +17001,8 @@
 !*>
 !*  =====================================================================
       SUBROUTINE DGEBD2( M, N, A, LDA, D, E, TAUQ, TAUP, WORK, INFO )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK computational routine (version 3.4.2) --
 !*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -17028,9 +17028,6 @@
 !*     ..
 !*     .. External Subroutines ..
       EXTERNAL           DLARF, DLARFG, XERBLA
-!*     ..
-!*     .. Intrinsic Functions ..
-      INTRINSIC          MAX, MIN
 !*     ..
 !*     .. Executable Statements ..
 !*
@@ -17140,28 +17137,28 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*> \htmlonly
-!*> Download DLARTG + dependencies 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlartg.f"> 
-!*> [TGZ]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlartg.f"> 
-!*> [ZIP]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlartg.f"> 
+!*> Download DLARTG + dependencies
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlartg.f">
+!*> [TGZ]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlartg.f">
+!*> [ZIP]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlartg.f">
 !*> [TXT]</a>
-!*> \endhtmlonly 
+!*> \endhtmlonly
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       SUBROUTINE DLARTG( F, G, CS, SN, R )
-!* 
+!*
 !*       .. Scalar Arguments ..
 !*       DOUBLE PRECISION   CS, F, G, R, SN
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -17223,10 +17220,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date September 2012
 !*
@@ -17234,6 +17231,8 @@
 !*
 !*  =====================================================================
       SUBROUTINE DLARTG( F, G, CS, SN, R )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK auxiliary routine (version 3.4.2) --
 !*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -17262,9 +17261,6 @@
 !*     .. External Functions ..
       DOUBLE PRECISION   DLAMCH
       EXTERNAL           DLAMCH
-!*     ..
-!*     .. Intrinsic Functions ..
-      INTRINSIC          ABS, INT, LOG, MAX, SQRT
 !*     ..
 !*     .. Save statement ..
 !*     SAVE               FIRST, SAFMX2, SAFMIN, SAFMN2
@@ -17347,24 +17343,24 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*> \htmlonly
-!*> Download DLASR + dependencies 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlasr.f"> 
-!*> [TGZ]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlasr.f"> 
-!*> [ZIP]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlasr.f"> 
+!*> Download DLASR + dependencies
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlasr.f">
+!*> [TGZ]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlasr.f">
+!*> [ZIP]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlasr.f">
 !*> [TXT]</a>
-!*> \endhtmlonly 
+!*> \endhtmlonly
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       SUBROUTINE DLASR( SIDE, PIVOT, DIRECT, M, N, C, S, A, LDA )
-!* 
+!*
 !*       .. Scalar Arguments ..
 !*       CHARACTER          DIRECT, PIVOT, SIDE
 !*       INTEGER            LDA, M, N
@@ -17372,7 +17368,7 @@
 !*       .. Array Arguments ..
 !*       DOUBLE PRECISION   A( LDA, * ), C( * ), S( * )
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -17381,35 +17377,35 @@
 !*>
 !*> DLASR applies a sequence of plane rotations to a real matrix A,
 !*> from either the left or the right.
-!*> 
+!*>
 !*> When SIDE = 'L', the transformation takes the form
-!*> 
+!*>
 !*>    A := P*A
-!*> 
+!*>
 !*> and when SIDE = 'R', the transformation takes the form
-!*> 
+!*>
 !*>    A := A*P**T
-!*> 
+!*>
 !*> where P is an orthogonal matrix consisting of a sequence of z plane
 !*> rotations, with z = M when SIDE = 'L' and z = N when SIDE = 'R',
 !*> and P**T is the transpose of P.
-!*> 
+!*>
 !*> When DIRECT = 'F' (Forward sequence), then
-!*> 
+!*>
 !*>    P = P(z-1) * ... * P(2) * P(1)
-!*> 
+!*>
 !*> and when DIRECT = 'B' (Backward sequence), then
-!*> 
+!*>
 !*>    P = P(1) * P(2) * ... * P(z-1)
-!*> 
+!*>
 !*> where P(k) is a plane rotation matrix defined by the 2-by-2 rotation
-!*> 
+!*>
 !*>    R(k) = (  c(k)  s(k) )
 !*>         = ( -s(k)  c(k) ).
-!*> 
+!*>
 !*> When PIVOT = 'V' (Variable pivot), the rotation is performed
 !*> for the plane (k,k+1), i.e., P(k) has the form
-!*> 
+!*>
 !*>    P(k) = (  1                                            )
 !*>           (       ...                                     )
 !*>           (              1                                )
@@ -17418,13 +17414,13 @@
 !*>           (                                1              )
 !*>           (                                     ...       )
 !*>           (                                            1  )
-!*> 
+!*>
 !*> where R(k) appears as a rank-2 modification to the identity matrix in
 !*> rows and columns k and k+1.
-!*> 
+!*>
 !*> When PIVOT = 'T' (Top pivot), the rotation is performed for the
 !*> plane (1,k+1), so P(k) has the form
-!*> 
+!*>
 !*>    P(k) = (  c(k)                    s(k)                 )
 !*>           (         1                                     )
 !*>           (              ...                              )
@@ -17433,12 +17429,12 @@
 !*>           (                                 1             )
 !*>           (                                      ...      )
 !*>           (                                             1 )
-!*> 
+!*>
 !*> where R(k) appears in rows and columns 1 and k+1.
-!*> 
+!*>
 !*> Similarly, when PIVOT = 'B' (Bottom pivot), the rotation is
 !*> performed for the plane (k,z), giving P(k) the form
-!*> 
+!*>
 !*>    P(k) = ( 1                                             )
 !*>           (      ...                                      )
 !*>           (             1                                 )
@@ -17447,7 +17443,7 @@
 !*>           (                              ...              )
 !*>           (                                     1         )
 !*>           (                 -s(k)                    c(k) )
-!*> 
+!*>
 !*> where R(k) appears in rows and columns k and z.  The rotations are
 !*> performed without ever forming P(k) explicitly.
 !*> \endverbatim
@@ -17532,10 +17528,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date September 2012
 !*
@@ -17543,6 +17539,8 @@
 !*
 !*  =====================================================================
       SUBROUTINE DLASR( SIDE, PIVOT, DIRECT, M, N, C, S, A, LDA )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK auxiliary routine (version 3.4.2) --
 !*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -17573,9 +17571,6 @@
 !*     ..
 !*     .. External Subroutines ..
       EXTERNAL           XERBLA
-!*     ..
-!*     .. Intrinsic Functions ..
-      INTRINSIC          MAX
 !*     ..
 !*     .. Executable Statements ..
 !*
@@ -17786,28 +17781,28 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*> \htmlonly
-!*> Download DLASV2 + dependencies 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlasv2.f"> 
-!*> [TGZ]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlasv2.f"> 
-!*> [ZIP]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlasv2.f"> 
+!*> Download DLASV2 + dependencies
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlasv2.f">
+!*> [TGZ]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlasv2.f">
+!*> [ZIP]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlasv2.f">
 !*> [TXT]</a>
-!*> \endhtmlonly 
+!*> \endhtmlonly
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       SUBROUTINE DLASV2( F, G, H, SSMIN, SSMAX, SNR, CSR, SNL, CSL )
-!* 
+!*
 !*       .. Scalar Arguments ..
 !*       DOUBLE PRECISION   CSL, CSR, F, G, H, SNL, SNR, SSMAX, SSMIN
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -17886,10 +17881,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date September 2012
 !*
@@ -17921,6 +17916,8 @@
 !*>
 !*  =====================================================================
       SUBROUTINE DLASV2( F, G, H, SSMIN, SSMAX, SNR, CSR, SNL, CSL )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK auxiliary routine (version 3.4.2) --
 !*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -17950,9 +17947,6 @@
       INTEGER            PMAX
       DOUBLE PRECISION   A, CLT, CRT, D, FA, FT, GA, GT, HA, HT, L, M, &
                          MM, R, S, SLT, SRT, T, TEMP, TSIGN, TT
-!*     ..
-!*     .. Intrinsic Functions ..
-      INTRINSIC          ABS, SIGN, SQRT
 !*     ..
 !*     .. External Functions ..
       DOUBLE PRECISION   DLAMCH
@@ -18114,14 +18108,14 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       SUBROUTINE DROT(N,DX,INCX,DY,INCY,C,S)
-!* 
+!*
 !*       .. Scalar Arguments ..
 !*       DOUBLE PRECISION C,S
 !*       INTEGER INCX,INCY,N
@@ -18129,7 +18123,7 @@
 !*       .. Array Arguments ..
 !*       DOUBLE PRECISION DX(*),DY(*)
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -18142,10 +18136,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date November 2011
 !*
@@ -18162,6 +18156,8 @@
 !*>
 !*  =====================================================================
       SUBROUTINE DROT(N,DX,INCX,DY,INCY,C,S)
+!
+      IMPLICIT NONE
 !*
 !*  -- Reference BLAS level1 routine (version 3.4.0) --
 !*  -- Reference BLAS is a software package provided by Univ. of Tennessee,    --
@@ -18218,31 +18214,31 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*> \htmlonly
-!*> Download DLASQ1 + dependencies 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlasq1.f"> 
-!*> [TGZ]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlasq1.f"> 
-!*> [ZIP]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlasq1.f"> 
+!*> Download DLASQ1 + dependencies
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlasq1.f">
+!*> [TGZ]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlasq1.f">
+!*> [ZIP]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlasq1.f">
 !*> [TXT]</a>
-!*> \endhtmlonly 
+!*> \endhtmlonly
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       SUBROUTINE DLASQ1( N, D, E, WORK, INFO )
-!* 
+!*
 !*       .. Scalar Arguments ..
 !*       INTEGER            INFO, N
 !*       ..
 !*       .. Array Arguments ..
 !*       DOUBLE PRECISION   D( * ), E( * ), WORK( * )
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -18305,17 +18301,17 @@
 !*>                  represent a matrix with the same singular values
 !*>                  which the calling subroutine could use to finish the
 !*>                  computation, or even feed back into DLASQ1
-!*>             = 3, termination criterion of outer while loop not met 
+!*>             = 3, termination criterion of outer while loop not met
 !*>                  (program created more than N unreduced blocks)
 !*> \endverbatim
 !*
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date September 2012
 !*
@@ -18323,6 +18319,8 @@
 !*
 !*  =====================================================================
       SUBROUTINE DLASQ1( N, D, E, WORK, INFO )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK computational routine (version 3.4.2) --
 !*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -18352,9 +18350,6 @@
 !*     .. External Functions ..
       DOUBLE PRECISION   DLAMCH
       EXTERNAL           DLAMCH
-!*     ..
-!*     .. Intrinsic Functions ..
-      INTRINSIC          ABS, MAX, SQRT
 !*     ..
 !*     .. Executable Statements ..
 !*
@@ -18405,7 +18400,7 @@
       CALL DCOPY( N-1, E, 1, WORK( 2 ), 2 )
       CALL DLASCL( 'G', 0, 0, SIGMX, SCALE, 2*N-1, 1, WORK, 2*N-1, &
                    IINFO )
-!*         
+!*
 !*     Compute the q's and e's.
 !*
       DO 30 I = 1, 2*N - 1
@@ -18445,28 +18440,28 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*> \htmlonly
-!*> Download DLAS2 + dependencies 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlas2.f"> 
-!*> [TGZ]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlas2.f"> 
-!*> [ZIP]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlas2.f"> 
+!*> Download DLAS2 + dependencies
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlas2.f">
+!*> [TGZ]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlas2.f">
+!*> [ZIP]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlas2.f">
 !*> [TXT]</a>
-!*> \endhtmlonly 
+!*> \endhtmlonly
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       SUBROUTINE DLAS2( F, G, H, SSMIN, SSMAX )
-!* 
+!*
 !*       .. Scalar Arguments ..
 !*       DOUBLE PRECISION   F, G, H, SSMAX, SSMIN
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -18516,10 +18511,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date September 2012
 !*
@@ -18549,6 +18544,8 @@
 !*>
 !*  =====================================================================
       SUBROUTINE DLAS2( F, G, H, SSMIN, SSMAX )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK auxiliary routine (version 3.4.2) --
 !*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -18571,9 +18568,6 @@
 !*     ..
 !*     .. Local Scalars ..
       DOUBLE PRECISION   AS, AT, AU, C, FA, FHMN, FHMX, GA, HA
-!*     ..
-!*     .. Intrinsic Functions ..
-      INTRINSIC          ABS, MAX, MIN, SQRT
 !*     ..
 !*     .. Executable Statements ..
 !*
@@ -18631,21 +18625,21 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       SUBROUTINE DSWAP(N,DX,INCX,DY,INCY)
-!* 
+!*
 !*       .. Scalar Arguments ..
 !*       INTEGER INCX,INCY,N
 !*       ..
 !*       .. Array Arguments ..
 !*       DOUBLE PRECISION DX(*),DY(*)
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -18659,10 +18653,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date November 2011
 !*
@@ -18679,6 +18673,8 @@
 !*>
 !*  =====================================================================
       SUBROUTINE DSWAP(N,DX,INCX,DY,INCY)
+!
+      IMPLICIT NONE
 !*
 !*  -- Reference BLAS level1 routine (version 3.4.0) --
 !*  -- Reference BLAS is a software package provided by Univ. of Tennessee,    --
@@ -18697,9 +18693,6 @@
 !*     .. Local Scalars ..
       DOUBLE PRECISION DTEMP
       INTEGER I,IX,IY,M,MP1
-!*     ..
-!*     .. Intrinsic Functions ..
-      INTRINSIC MOD
 !*     ..
       IF (N.LE.0) RETURN
       IF (INCX.EQ.1 .AND. INCY.EQ.1) THEN
@@ -18756,28 +18749,30 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*> \htmlonly
-!*> Download DLAISNAN + dependencies 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlaisnan.f"> 
-!*> [TGZ]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlaisnan.f"> 
-!*> [ZIP]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlaisnan.f"> 
+!*> Download DLAISNAN + dependencies
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlaisnan.f">
+!*> [TGZ]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlaisnan.f">
+!*> [ZIP]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlaisnan.f">
 !*> [TXT]</a>
-!*> \endhtmlonly 
+!*> \endhtmlonly
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       LOGICAL FUNCTION DLAISNAN( DIN1, DIN2 )
-!* 
+!
+!        IMPLICIT NONE
+!*
 !*       .. Scalar Arguments ..
 !*       DOUBLE PRECISION   DIN1, DIN2
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -18816,10 +18811,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date September 2012
 !*
@@ -18827,6 +18822,8 @@
 !*
 !*  =====================================================================
       LOGICAL FUNCTION DLAISNAN( DIN1, DIN2 )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK auxiliary routine (version 3.4.2) --
 !*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -18850,24 +18847,24 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*> \htmlonly
-!*> Download DLARF + dependencies 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlarf.f"> 
-!*> [TGZ]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlarf.f"> 
-!*> [ZIP]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlarf.f"> 
+!*> Download DLARF + dependencies
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlarf.f">
+!*> [TGZ]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlarf.f">
+!*> [ZIP]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlarf.f">
 !*> [TXT]</a>
-!*> \endhtmlonly 
+!*> \endhtmlonly
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       SUBROUTINE DLARF( SIDE, M, N, V, INCV, TAU, C, LDC, WORK )
-!* 
+!*
 !*       .. Scalar Arguments ..
 !*       CHARACTER          SIDE
 !*       INTEGER            INCV, LDC, M, N
@@ -18876,7 +18873,7 @@
 !*       .. Array Arguments ..
 !*       DOUBLE PRECISION   C( LDC, * ), V( * ), WORK( * )
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -18960,10 +18957,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date September 2012
 !*
@@ -18971,6 +18968,8 @@
 !*
 !*  =====================================================================
       SUBROUTINE DLARF( SIDE, M, N, V, INCV, TAU, C, LDC, WORK )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK auxiliary routine (version 3.4.2) --
 !*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -19080,21 +19079,21 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       SUBROUTINE DCOPY(N,DX,INCX,DY,INCY)
-!* 
+!*
 !*       .. Scalar Arguments ..
 !*       INTEGER INCX,INCY,N
 !*       ..
 !*       .. Array Arguments ..
 !*       DOUBLE PRECISION DX(*),DY(*)
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -19108,10 +19107,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date November 2011
 !*
@@ -19128,6 +19127,8 @@
 !*>
 !*  =====================================================================
       SUBROUTINE DCOPY(N,DX,INCX,DY,INCY)
+!
+      IMPLICIT NONE
 !*
 !*  -- Reference BLAS level1 routine (version 3.4.0) --
 !*  -- Reference BLAS is a software package provided by Univ. of Tennessee,    --
@@ -19146,9 +19147,6 @@
 !*     .. Local Scalars ..
       INTEGER I,IX,IY,M,MP1
 !*     ..
-!*     .. Intrinsic Functions ..
-      INTRINSIC MOD
-!*     ..
       IF (N.LE.0) RETURN
       IF (INCX.EQ.1 .AND. INCY.EQ.1) THEN
 !*
@@ -19163,7 +19161,7 @@
                DY(I) = DX(I)
             END DO
             IF (N.LT.7) RETURN
-         END IF   
+         END IF
          MP1 = M + 1
          DO I = MP1,N,7
             DY(I) = DX(I)
@@ -19174,7 +19172,7 @@
             DY(I+5) = DX(I+5)
             DY(I+6) = DX(I+6)
          END DO
-      ELSE      
+      ELSE
 !*
 !*        code for unequal increments or equal increments
 !*          not equal to 1
@@ -19198,14 +19196,14 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       SUBROUTINE DTRMM(SIDE,UPLO,TRANSA,DIAG,M,N,ALPHA,A,LDA,B,LDB)
-!* 
+!*
 !*       .. Scalar Arguments ..
 !*       DOUBLE PRECISION ALPHA
 !*       INTEGER LDA,LDB,M,N
@@ -19214,7 +19212,7 @@
 !*       .. Array Arguments ..
 !*       DOUBLE PRECISION A(LDA,*),B(LDB,*)
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -19347,10 +19345,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date November 2011
 !*
@@ -19372,6 +19370,8 @@
 !*>
 !*  =====================================================================
       SUBROUTINE DTRMM(SIDE,UPLO,TRANSA,DIAG,M,N,ALPHA,A,LDA,B,LDB)
+!
+      IMPLICIT NONE
 !*
 !*  -- Reference BLAS level3 routine (version 3.4.0) --
 !*  -- Reference BLAS is a software package provided by Univ. of Tennessee,    --
@@ -19395,9 +19395,6 @@
 !*     ..
 !*     .. External Subroutines ..
       EXTERNAL XERBLA
-!*     ..
-!*     .. Intrinsic Functions ..
-      INTRINSIC MAX
 !*     ..
 !*     .. Local Scalars ..
       DOUBLE PRECISION TEMP
@@ -19616,14 +19613,14 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       SUBROUTINE DGEMV(TRANS,M,N,ALPHA,A,LDA,X,INCX,BETA,Y,INCY)
-!* 
+!*
 !*       .. Scalar Arguments ..
 !*       DOUBLE PRECISION ALPHA,BETA
 !*       INTEGER INCX,INCY,LDA,M,N
@@ -19632,7 +19629,7 @@
 !*       .. Array Arguments ..
 !*       DOUBLE PRECISION A(LDA,*),X(*),Y(*)
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -19743,10 +19740,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date November 2011
 !*
@@ -19769,6 +19766,8 @@
 !*>
 !*  =====================================================================
       SUBROUTINE DGEMV(TRANS,M,N,ALPHA,A,LDA,X,INCX,BETA,Y,INCY)
+!
+      IMPLICIT NONE
 !*
 !*  -- Reference BLAS level2 routine (version 3.4.0) --
 !*  -- Reference BLAS is a software package provided by Univ. of Tennessee,    --
@@ -19800,9 +19799,6 @@
 !*     ..
 !*     .. External Subroutines ..
       EXTERNAL XERBLA
-!*     ..
-!*     .. Intrinsic Functions ..
-      INTRINSIC MAX
 !*     ..
 !*
 !*     Test the input parameters.
@@ -19953,14 +19949,14 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       SUBROUTINE DTRMV(UPLO,TRANS,DIAG,N,A,LDA,X,INCX)
-!* 
+!*
 !*       .. Scalar Arguments ..
 !*       INTEGER INCX,LDA,N
 !*       CHARACTER DIAG,TRANS,UPLO
@@ -19968,7 +19964,7 @@
 !*       .. Array Arguments ..
 !*       DOUBLE PRECISION A(LDA,*),X(*)
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -20071,10 +20067,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date November 2011
 !*
@@ -20097,6 +20093,8 @@
 !*>
 !*  =====================================================================
       SUBROUTINE DTRMV(UPLO,TRANS,DIAG,N,A,LDA,X,INCX)
+!
+      IMPLICIT NONE
 !*
 !*  -- Reference BLAS level2 routine (version 3.4.0) --
 !*  -- Reference BLAS is a software package provided by Univ. of Tennessee,    --
@@ -20128,9 +20126,6 @@
 !*     ..
 !*     .. External Subroutines ..
       EXTERNAL XERBLA
-!*     ..
-!*     .. Intrinsic Functions ..
-      INTRINSIC MAX
 !*     ..
 !*
 !*     Test the input parameters.
@@ -20298,24 +20293,24 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*> \htmlonly
-!*> Download DLARFG + dependencies 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlarfg.f"> 
-!*> [TGZ]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlarfg.f"> 
-!*> [ZIP]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlarfg.f"> 
+!*> Download DLARFG + dependencies
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlarfg.f">
+!*> [TGZ]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlarfg.f">
+!*> [ZIP]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlarfg.f">
 !*> [TXT]</a>
-!*> \endhtmlonly 
+!*> \endhtmlonly
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       SUBROUTINE DLARFG( N, ALPHA, X, INCX, TAU )
-!* 
+!*
 !*       .. Scalar Arguments ..
 !*       INTEGER            INCX, N
 !*       DOUBLE PRECISION   ALPHA, TAU
@@ -20323,7 +20318,7 @@
 !*       .. Array Arguments ..
 !*       DOUBLE PRECISION   X( * )
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -20390,10 +20385,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date September 2012
 !*
@@ -20401,6 +20396,8 @@
 !*
 !*  =====================================================================
       SUBROUTINE DLARFG( N, ALPHA, X, INCX, TAU )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK auxiliary routine (version 3.4.2) --
 !*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -20428,9 +20425,6 @@
 !*     .. External Functions ..
       DOUBLE PRECISION   DLAMCH, DLAPY2, DNRM2
       EXTERNAL           DLAMCH, DLAPY2, DNRM2
-!*     ..
-!*     .. Intrinsic Functions ..
-      INTRINSIC          ABS, SIGN
 !*     ..
 !*     .. External Subroutines ..
       EXTERNAL           DSCAL
@@ -20493,29 +20487,30 @@
 
 !==========================================================================
 
-!*> \brief \b DORM2R multiplies a general matrix by the orthogonal matrix from a QR factorization determined by sgeqrf (unblocked algorithm).
+!*> \brief \b DORM2R multiplies a general matrix by the orthogonal matrix from a
+!*> QR factorization determined by sgeqrf (unblocked algorithm).
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*> \htmlonly
-!*> Download DORM2R + dependencies 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dorm2r.f"> 
-!*> [TGZ]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dorm2r.f"> 
-!*> [ZIP]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dorm2r.f"> 
+!*> Download DORM2R + dependencies
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dorm2r.f">
+!*> [TGZ]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dorm2r.f">
+!*> [ZIP]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dorm2r.f">
 !*> [TXT]</a>
-!*> \endhtmlonly 
+!*> \endhtmlonly
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       SUBROUTINE DORM2R( SIDE, TRANS, M, N, K, A, LDA, TAU, C, LDC,
 !*                          WORK, INFO )
-!* 
+!*
 !*       .. Scalar Arguments ..
 !*       CHARACTER          SIDE, TRANS
 !*       INTEGER            INFO, K, LDA, LDC, M, N
@@ -20523,7 +20518,7 @@
 !*       .. Array Arguments ..
 !*       DOUBLE PRECISION   A( LDA, * ), C( LDC, * ), TAU( * ), WORK( * )
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -20641,10 +20636,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date September 2012
 !*
@@ -20653,6 +20648,8 @@
 !*  =====================================================================
       SUBROUTINE DORM2R( SIDE, TRANS, M, N, K, A, LDA, TAU, C, LDC, &
                          WORK, INFO )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK computational routine (version 3.4.2) --
 !*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -20684,9 +20681,6 @@
 !*     ..
 !*     .. External Subroutines ..
       EXTERNAL           DLARF, XERBLA
-!*     ..
-!*     .. Intrinsic Functions ..
-      INTRINSIC          MAX
 !*     ..
 !*     .. Executable Statements ..
 !*
@@ -20778,29 +20772,30 @@
 
 !==========================================================================
 
-!*> \brief \b DORML2 multiplies a general matrix by the orthogonal matrix from a LQ factorization determined by sgelqf (unblocked algorithm).
+!*> \brief \b DORML2 multiplies a general matrix by the orthogonal matrix from a
+!*> LQ factorization determined by sgelqf (unblocked algorithm).
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*> \htmlonly
-!*> Download DORML2 + dependencies 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dorml2.f"> 
-!*> [TGZ]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dorml2.f"> 
-!*> [ZIP]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dorml2.f"> 
+!*> Download DORML2 + dependencies
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dorml2.f">
+!*> [TGZ]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dorml2.f">
+!*> [ZIP]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dorml2.f">
 !*> [TXT]</a>
-!*> \endhtmlonly 
+!*> \endhtmlonly
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       SUBROUTINE DORML2( SIDE, TRANS, M, N, K, A, LDA, TAU, C, LDC,
 !*                          WORK, INFO )
-!* 
+!*
 !*       .. Scalar Arguments ..
 !*       CHARACTER          SIDE, TRANS
 !*       INTEGER            INFO, K, LDA, LDC, M, N
@@ -20808,7 +20803,7 @@
 !*       .. Array Arguments ..
 !*       DOUBLE PRECISION   A( LDA, * ), C( LDC, * ), TAU( * ), WORK( * )
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -20926,10 +20921,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date September 2012
 !*
@@ -20938,6 +20933,8 @@
 !*  =====================================================================
       SUBROUTINE DORML2( SIDE, TRANS, M, N, K, A, LDA, TAU, C, LDC, &
                          WORK, INFO )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK computational routine (version 3.4.2) --
 !*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -20969,9 +20966,6 @@
 !*     ..
 !*     .. External Subroutines ..
       EXTERNAL           DLARF, XERBLA
-!*     ..
-!*     .. Intrinsic Functions ..
-      INTRINSIC          MAX
 !*     ..
 !*     .. Executable Statements ..
 !*
@@ -21063,42 +21057,44 @@
 
 !==========================================================================
 
-!*> \brief \b DLASQ2 computes all the eigenvalues of the symmetric positive definite tridiagonal matrix associated with the qd Array Z to high relative accuracy. Used by sbdsqr and sstegr.
+!*> \brief \b DLASQ2 computes all the eigenvalues of the symmetric positive definite
+!*> tridiagonal matrix associated with the qd Array Z to high relative accuracy.
+!*> Used by sbdsqr and sstegr.
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*> \htmlonly
-!*> Download DLASQ2 + dependencies 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlasq2.f"> 
-!*> [TGZ]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlasq2.f"> 
-!*> [ZIP]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlasq2.f"> 
+!*> Download DLASQ2 + dependencies
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlasq2.f">
+!*> [TGZ]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlasq2.f">
+!*> [ZIP]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlasq2.f">
 !*> [TXT]</a>
-!*> \endhtmlonly 
+!*> \endhtmlonly
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       SUBROUTINE DLASQ2( N, Z, INFO )
-!* 
+!*
 !*       .. Scalar Arguments ..
 !*       INTEGER            INFO, N
 !*       ..
 !*       .. Array Arguments ..
 !*       DOUBLE PRECISION   Z( * )
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
 !*>
 !*> \verbatim
 !*>
-!*> DLASQ2 computes all the eigenvalues of the symmetric positive 
+!*> DLASQ2 computes all the eigenvalues of the symmetric positive
 !*> definite tridiagonal matrix associated with the qd array Z to high
 !*> relative accuracy are computed to high relative accuracy, in the
 !*> absence of denormalization, underflow and overflow.
@@ -21148,17 +21144,17 @@
 !*>              = 2, current block of Z not diagonalized after 100*N
 !*>                   iterations (in inner while loop).  On exit Z holds
 !*>                   a qd array with the same eigenvalues as the given Z.
-!*>              = 3, termination criterion of outer while loop not met 
+!*>              = 3, termination criterion of outer while loop not met
 !*>                   (program created more than N unreduced blocks)
 !*> \endverbatim
 !*
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date September 2012
 !*
@@ -21176,6 +21172,8 @@
 !*>
 !*  =====================================================================
       SUBROUTINE DLASQ2( N, Z, INFO )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK computational routine (version 3.4.2) --
 !*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -21216,11 +21214,8 @@
       DOUBLE PRECISION   DLAMCH
       EXTERNAL           DLAMCH, ILAENV
 !*     ..
-!*     .. Intrinsic Functions ..
-      INTRINSIC          ABS, DBLE, MAX, MIN, SQRT
-!*     ..
 !*     .. Executable Statements ..
-!*      
+!*
 !*     Test the input arguments.
 !*     (in case DLASQ2 is not called by DLASQ1)
 !*
@@ -21260,7 +21255,7 @@
          END IF
          Z( 5 ) = Z( 1 ) + Z( 2 ) + Z( 3 )
          IF( Z( 2 ).GT.Z( 3 )*TOL2 ) THEN
-            T = HALF*( ( Z( 1 )-Z( 3 ) )+Z( 2 ) ) 
+            T = HALF*( ( Z( 1 )-Z( 3 ) )+Z( 2 ) )
             S = Z( 3 )*( Z( 2 ) / T )
             IF( S.LE.T ) THEN
                S = Z( 3 )*( Z( 2 ) / ( T*( ONE+SQRT( ONE+S / T ) ) ) )
@@ -21329,19 +21324,19 @@
          Z( 2*N-1 ) = ZERO
          RETURN
       END IF
-!*         
+!*
 !*     Check whether the machine is IEEE conformable.
-!*         
+!*
       IEEE = ILAENV( 10, 'DLASQ2', 'N', 1, 2, 3, 4 ).EQ.1 .AND. &
-             ILAENV( 11, 'DLASQ2', 'N', 1, 2, 3, 4 ).EQ.1      
-!*         
+             ILAENV( 11, 'DLASQ2', 'N', 1, 2, 3, 4 ).EQ.1
+!*
 !*     Rearrange data for locality: Z=(q1,qq1,e1,ee1,q2,qq2,e2,ee2,...).
 !*
       DO 30 K = 2*N, 2, -2
-         Z( 2*K ) = ZERO 
-         Z( 2*K-1 ) = Z( K ) 
-         Z( 2*K-2 ) = ZERO 
-         Z( 2*K-3 ) = Z( K-1 ) 
+         Z( 2*K ) = ZERO
+         Z( 2*K-1 ) = Z( K )
+         Z( 2*K-2 ) = ZERO
+         Z( 2*K-3 ) = Z( K-1 )
    30 CONTINUE
 !*
       I0 = 1
@@ -21398,7 +21393,7 @@
                D = Z( I4+1 )*( D / Z( I4-2*PP-2 ) )
             END IF
             EMIN = MIN( EMIN, Z( I4-2*PP ) )
-   60    CONTINUE 
+   60    CONTINUE
          Z( 4*N0-PP-2 ) = D
 !*
 !*        Now find qmax.
@@ -21432,11 +21427,11 @@
          IF( N0.LT.1 )  &
             GO TO 170
 !*
-!*        While array unfinished do 
+!*        While array unfinished do
 !*
 !*        E(N0) holds the value of SIGMA when submatrix in I0:N0
 !*        splits from the rest of the array, but is negated.
-!*      
+!*
          DESIG = ZERO
          IF( N0.EQ.N ) THEN
             SIGMA = ZERO
@@ -21451,7 +21446,7 @@
 !*        Find last unreduced submatrix's top index I0, find QMAX and
 !*        EMIN. Find Gershgorin-type bound if Q's much greater than E's.
 !*
-         EMAX = ZERO 
+         EMAX = ZERO
          IF( N0.GT.I0 ) THEN
             EMIN = ABS( Z( 4*N0-5 ) )
          ELSE
@@ -21469,7 +21464,7 @@
             QMAX = MAX( QMAX, Z( I4-7 )+Z( I4-5 ) )
             EMIN = MIN( EMIN, Z( I4-5 ) )
    90    CONTINUE
-         I4 = 4 
+         I4 = 4
 !*
   100    CONTINUE
          I0 = I4 / 4
@@ -21511,10 +21506,10 @@
 !*
          DMIN = -MAX( ZERO, QMIN-TWO*SQRT( QMIN )*SQRT( EMAX ) )
 !*
-!*        Now I0:N0 is unreduced. 
+!*        Now I0:N0 is unreduced.
 !*        PP = 0 for ping, PP = 1 for pong.
 !*        PP = 2 indicates that flipping was applied to the Z array and
-!*               and that the tests for deflation upon entry in DLASQ3 
+!*               and that the tests for deflation upon entry in DLASQ3
 !*               should not be performed.
 !*
          NBIG = 100*( N0-I0+1 )
@@ -21562,8 +21557,8 @@
   140    CONTINUE
 !*
          INFO = 2
-!*       
-!*        Maximum number of iterations exceeded, restore the shift 
+!*
+!*        Maximum number of iterations exceeded, restore the shift
 !*        SIGMA and place the new d's and e's in a qd array.
 !*        This might need to be done for several blocks
 !*
@@ -21614,16 +21609,16 @@
       INFO = 3
       RETURN
 !*
-!*     end IWHILA   
+!*     end IWHILA
 !*
   170 CONTINUE
-!*      
+!*
 !*     Move q's to the front.
-!*      
+!*
       DO 180 K = 2, N
          Z( K ) = Z( 4*K-3 )
   180 CONTINUE
-!*      
+!*
 !*     Sort and compute sum of eigenvalues.
 !*
       CALL DLASRT( 'D', N, Z, IINFO )
@@ -21635,7 +21630,7 @@
 !*
 !*     Store trace, sum(eigenvalues) and information on performance.
 !*
-      Z( 2*N+1 ) = TRACE 
+      Z( 2*N+1 ) = TRACE
       Z( 2*N+2 ) = E
       Z( 2*N+3 ) = DBLE( ITER )
       Z( 2*N+4 ) = DBLE( NDIV ) / DBLE( N**2 )
@@ -21652,24 +21647,24 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*> \htmlonly
-!*> Download DLASRT + dependencies 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlasrt.f"> 
-!*> [TGZ]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlasrt.f"> 
-!*> [ZIP]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlasrt.f"> 
+!*> Download DLASRT + dependencies
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlasrt.f">
+!*> [TGZ]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlasrt.f">
+!*> [ZIP]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlasrt.f">
 !*> [TXT]</a>
-!*> \endhtmlonly 
+!*> \endhtmlonly
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       SUBROUTINE DLASRT( ID, N, D, INFO )
-!* 
+!*
 !*       .. Scalar Arguments ..
 !*       CHARACTER          ID
 !*       INTEGER            INFO, N
@@ -21677,7 +21672,7 @@
 !*       .. Array Arguments ..
 !*       DOUBLE PRECISION   D( * )
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -21726,10 +21721,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date September 2012
 !*
@@ -21737,6 +21732,8 @@
 !*
 !*  =====================================================================
       SUBROUTINE DLASRT( ID, N, D, INFO )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK computational routine (version 3.4.2) --
 !*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -21958,31 +21955,33 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*> \htmlonly
-!*> Download ILADLR + dependencies 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/iladlr.f"> 
-!*> [TGZ]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/iladlr.f"> 
-!*> [ZIP]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/iladlr.f"> 
+!*> Download ILADLR + dependencies
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/iladlr.f">
+!*> [TGZ]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/iladlr.f">
+!*> [ZIP]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/iladlr.f">
 !*> [TXT]</a>
-!*> \endhtmlonly 
+!*> \endhtmlonly
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       INTEGER FUNCTION ILADLR( M, N, A, LDA )
-!* 
+!
+!        IMPLICIT NONE
+!*
 !*       .. Scalar Arguments ..
 !*       INTEGER            M, N, LDA
 !*       ..
 !*       .. Array Arguments ..
 !*       DOUBLE PRECISION   A( LDA, * )
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -22022,10 +22021,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date September 2012
 !*
@@ -22033,6 +22032,8 @@
 !*
 !*  =====================================================================
       INTEGER FUNCTION ILADLR( M, N, A, LDA )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK auxiliary routine (version 3.4.2) --
 !*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -22082,14 +22083,14 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       SUBROUTINE DGER(M,N,ALPHA,X,INCX,Y,INCY,A,LDA)
-!* 
+!*
 !*       .. Scalar Arguments ..
 !*       DOUBLE PRECISION ALPHA
 !*       INTEGER INCX,INCY,LDA,M,N
@@ -22097,7 +22098,7 @@
 !*       .. Array Arguments ..
 !*       DOUBLE PRECISION A(LDA,*),X(*),Y(*)
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -22184,10 +22185,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date November 2011
 !*
@@ -22209,6 +22210,8 @@
 !*>
 !*  =====================================================================
       SUBROUTINE DGER(M,N,ALPHA,X,INCX,Y,INCY,A,LDA)
+!
+      IMPLICIT NONE
 !*
 !*  -- Reference BLAS level2 routine (version 3.4.0) --
 !*  -- Reference BLAS is a software package provided by Univ. of Tennessee,    --
@@ -22235,9 +22238,6 @@
 !*     ..
 !*     .. External Subroutines ..
       EXTERNAL XERBLA
-!*     ..
-!*     .. Intrinsic Functions ..
-      INTRINSIC MAX
 !*     ..
 !*
 !*     Test the input parameters.
@@ -22312,21 +22312,23 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       DOUBLE PRECISION FUNCTION DNRM2(N,X,INCX)
-!* 
+!
+!        IMPLICIT NONE
+!*
 !*       .. Scalar Arguments ..
 !*       INTEGER INCX,N
 !*       ..
 !*       .. Array Arguments ..
 !*       DOUBLE PRECISION X(*)
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -22342,10 +22344,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date November 2011
 !*
@@ -22363,6 +22365,8 @@
 !*>
 !*  =====================================================================
       DOUBLE PRECISION FUNCTION DNRM2(N,X,INCX)
+!
+      IMPLICIT NONE
 !*
 !*  -- Reference BLAS level1 routine (version 3.4.0) --
 !*  -- Reference BLAS is a software package provided by Univ. of Tennessee,    --
@@ -22385,9 +22389,6 @@
 !*     .. Local Scalars ..
       DOUBLE PRECISION ABSXI,NORM,SCALE,SSQ
       INTEGER IX
-!*     ..
-!*     .. Intrinsic Functions ..
-      INTRINSIC ABS,SQRT
 !*     ..
       IF (N.LT.1 .OR. INCX.LT.1) THEN
           NORM = ZERO
@@ -22427,28 +22428,30 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*> \htmlonly
-!*> Download DLAPY2 + dependencies 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlapy2.f"> 
-!*> [TGZ]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlapy2.f"> 
-!*> [ZIP]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlapy2.f"> 
+!*> Download DLAPY2 + dependencies
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlapy2.f">
+!*> [TGZ]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlapy2.f">
+!*> [ZIP]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlapy2.f">
 !*> [TXT]</a>
-!*> \endhtmlonly 
+!*> \endhtmlonly
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       DOUBLE PRECISION FUNCTION DLAPY2( X, Y )
-!* 
+!
+!        IMPLICIT NONE
+!*
 !*       .. Scalar Arguments ..
 !*       DOUBLE PRECISION   X, Y
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -22476,10 +22479,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date September 2012
 !*
@@ -22487,6 +22490,8 @@
 !*
 !*  =====================================================================
       DOUBLE PRECISION FUNCTION DLAPY2( X, Y )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK auxiliary routine (version 3.4.2) --
 !*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -22507,9 +22512,6 @@
 !*     ..
 !*     .. Local Scalars ..
       DOUBLE PRECISION   W, XABS, YABS, Z
-!*     ..
-!*     .. Intrinsic Functions ..
-      INTRINSIC          ABS, MAX, MIN, SQRT
 !*     ..
 !*     .. Executable Statements ..
 !*
@@ -22534,31 +22536,33 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*> \htmlonly
-!*> Download ILADLC + dependencies 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/iladlc.f"> 
-!*> [TGZ]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/iladlc.f"> 
-!*> [ZIP]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/iladlc.f"> 
+!*> Download ILADLC + dependencies
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/iladlc.f">
+!*> [TGZ]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/iladlc.f">
+!*> [ZIP]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/iladlc.f">
 !*> [TXT]</a>
-!*> \endhtmlonly 
+!*> \endhtmlonly
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       INTEGER FUNCTION ILADLC( M, N, A, LDA )
-!* 
+!
+!        IMPLICIT NONE
+!*
 !*       .. Scalar Arguments ..
 !*       INTEGER            M, N, LDA
 !*       ..
 !*       .. Array Arguments ..
 !*       DOUBLE PRECISION   A( LDA, * )
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -22598,10 +22602,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date September 2012
 !*
@@ -22609,6 +22613,8 @@
 !*
 !*  =====================================================================
       INTEGER FUNCTION ILADLC( M, N, A, LDA )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK auxiliary routine (version 3.4.2) --
 !*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -22655,18 +22661,18 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*> \htmlonly
-!*> Download DLASQ3 + dependencies 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlasq3.f"> 
-!*> [TGZ]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlasq3.f"> 
-!*> [ZIP]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlasq3.f"> 
+!*> Download DLASQ3 + dependencies
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlasq3.f">
+!*> [TGZ]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlasq3.f">
+!*> [ZIP]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlasq3.f">
 !*> [TXT]</a>
-!*> \endhtmlonly 
+!*> \endhtmlonly
 !*
 !*  Definition:
 !*  ===========
@@ -22674,7 +22680,7 @@
 !*       SUBROUTINE DLASQ3( I0, N0, Z, PP, DMIN, SIGMA, DESIG, QMAX, NFAIL,
 !*                          ITER, NDIV, IEEE, TTYPE, DMIN1, DMIN2, DN, DN1,
 !*                          DN2, G, TAU )
-!* 
+!*
 !*       .. Scalar Arguments ..
 !*       LOGICAL            IEEE
 !*       INTEGER            I0, ITER, N0, NDIV, NFAIL, PP
@@ -22684,7 +22690,7 @@
 !*       .. Array Arguments ..
 !*       DOUBLE PRECISION   Z( * )
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -22721,8 +22727,8 @@
 !*> \verbatim
 !*>          PP is INTEGER
 !*>         PP=0 for ping, PP=1 for pong.
-!*>         PP=2 indicates that flipping was applied to the Z array   
-!*>         and that the initial tests for deflation should not be 
+!*>         PP=2 indicates that flipping was applied to the Z array
+!*>         and that the initial tests for deflation should not be
 !*>         performed.
 !*> \endverbatim
 !*>
@@ -22821,10 +22827,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date September 2012
 !*
@@ -22834,6 +22840,8 @@
       SUBROUTINE DLASQ3( I0, N0, Z, PP, DMIN, SIGMA, DESIG, QMAX, NFAIL, &
                          ITER, NDIV, IEEE, TTYPE, DMIN1, DMIN2, DN, DN1, &
                          DN2, G, TAU )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK computational routine (version 3.4.2) --
 !*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -22870,9 +22878,6 @@
       DOUBLE PRECISION   DLAMCH
       LOGICAL            DISNAN
       EXTERNAL           DISNAN, DLAMCH
-!*     ..
-!*     .. Intrinsic Functions ..
-      INTRINSIC          ABS, MAX, MIN, SQRT
 !*     ..
 !*     .. Executable Statements ..
 !*
@@ -23042,7 +23047,7 @@
             GO TO 70
          END IF
       ELSE
-!*            
+!*
 !*        Possible underflow. Play it safe.
 !*
          GO TO 80
@@ -23075,29 +23080,30 @@
 
 !==========================================================================
 
-!*> \brief \b DLASQ4 computes an approximation to the smallest eigenvalue using values of d from the previous transform. Used by sbdsqr.
+!*> \brief \b DLASQ4 computes an approximation to the smallest eigenvalue using values
+!*> of d from the previous transform. Used by sbdsqr.
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*> \htmlonly
-!*> Download DLASQ4 + dependencies 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlasq4.f"> 
-!*> [TGZ]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlasq4.f"> 
-!*> [ZIP]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlasq4.f"> 
+!*> Download DLASQ4 + dependencies
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlasq4.f">
+!*> [TGZ]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlasq4.f">
+!*> [ZIP]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlasq4.f">
 !*> [TXT]</a>
-!*> \endhtmlonly 
+!*> \endhtmlonly
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       SUBROUTINE DLASQ4( I0, N0, Z, PP, N0IN, DMIN, DMIN1, DMIN2, DN,
 !*                          DN1, DN2, TAU, TTYPE, G )
-!* 
+!*
 !*       .. Scalar Arguments ..
 !*       INTEGER            I0, N0, N0IN, PP, TTYPE
 !*       DOUBLE PRECISION   DMIN, DMIN1, DMIN2, DN, DN1, DN2, G, TAU
@@ -23105,7 +23111,7 @@
 !*       .. Array Arguments ..
 !*       DOUBLE PRECISION   Z( * )
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -23207,10 +23213,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date September 2012
 !*
@@ -23227,6 +23233,8 @@
 !*  =====================================================================
       SUBROUTINE DLASQ4( I0, N0, Z, PP, N0IN, DMIN, DMIN1, DMIN2, DN, &
                          DN1, DN2, TAU, TTYPE, G )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK computational routine (version 3.4.2) --
 !*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -23256,9 +23264,6 @@
       INTEGER            I4, NN, NP
       DOUBLE PRECISION   A2, B1, B2, GAM, GAP1, GAP2, S
 !*     ..
-!*     .. Intrinsic Functions ..
-      INTRINSIC          MAX, MIN, SQRT
-!*     ..
 !*     .. Executable Statements ..
 !*
 !*     A negative DMIN forces the shift to take that absolute value
@@ -23269,7 +23274,7 @@
          TTYPE = -1
          RETURN
       END IF
-!*       
+!*
       NN = 4*N0 + PP
       IF( N0IN.EQ.N0 ) THEN
 !*
@@ -23408,7 +23413,7 @@
 !*
 !*        One eigenvalue just deflated. Use DMIN1, DN1 for DMIN and DN.
 !*
-         IF( DMIN1.EQ.DN1 .AND. DMIN2.EQ.DN2 ) THEN 
+         IF( DMIN1.EQ.DN1 .AND. DMIN2.EQ.DN2 ) THEN
 !*
 !*           Cases 7 and 8.
 !*
@@ -23435,7 +23440,7 @@
             GAP2 = HALF*DMIN2 - A2
             IF( GAP2.GT.ZERO .AND. GAP2.GT.B2*A2 ) THEN
                S = MAX( S, A2*( ONE-CNST2*A2*( B2 / GAP2 )*B2 ) )
-            ELSE 
+            ELSE
                S = MAX( S, A2*( ONE-CNST2*B2 ) )
                TTYPE = -8
             END IF
@@ -23455,7 +23460,7 @@
 !*
 !*        Cases 10 and 11.
 !*
-         IF( DMIN2.EQ.DN2 .AND. TWO*Z( NN-5 ).LT.Z( NN-7 ) ) THEN 
+         IF( DMIN2.EQ.DN2 .AND. TWO*Z( NN-5 ).LT.Z( NN-7 ) ) THEN
             TTYPE = -10
             S = THIRD*DMIN2
             IF( Z( NN-5 ).GT.Z( NN-7 ) ) &
@@ -23479,7 +23484,7 @@
                    SQRT( Z( NN-11 ) )*SQRT( Z( NN-9 ) ) - A2
             IF( GAP2.GT.ZERO .AND. GAP2.GT.B2*A2 ) THEN
                S = MAX( S, A2*( ONE-CNST2*A2*( B2 / GAP2 )*B2 ) )
-            ELSE 
+            ELSE
                S = MAX( S, A2*( ONE-CNST2*B2 ) )
             END IF
          ELSE
@@ -23490,7 +23495,7 @@
 !*
 !*        Case 12, more than two eigenvalues deflated. No information.
 !*
-         S = ZERO 
+         S = ZERO
          TTYPE = -12
       END IF
 !*
@@ -23507,25 +23512,25 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*> \htmlonly
-!*> Download DLASQ5 + dependencies 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlasq5.f"> 
-!*> [TGZ]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlasq5.f"> 
-!*> [ZIP]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlasq5.f"> 
+!*> Download DLASQ5 + dependencies
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlasq5.f">
+!*> [TGZ]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlasq5.f">
+!*> [ZIP]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlasq5.f">
 !*> [TXT]</a>
-!*> \endhtmlonly 
+!*> \endhtmlonly
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       SUBROUTINE DLASQ5( I0, N0, Z, PP, TAU, SIGMA, DMIN, DMIN1, DMIN2, DN,
 !*                          DNM1, DNM2, IEEE, EPS )
-!* 
+!*
 !*       .. Scalar Arguments ..
 !*       LOGICAL            IEEE
 !*       INTEGER            I0, N0, PP
@@ -23534,7 +23539,7 @@
 !*       .. Array Arguments ..
 !*       DOUBLE PRECISION   Z( * )
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -23636,10 +23641,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date September 2012
 !*
@@ -23648,6 +23653,8 @@
 !*  =====================================================================
       SUBROUTINE DLASQ5( I0, N0, Z, PP, TAU, SIGMA, DMIN, DMIN1, DMIN2, &
                          DN, DNM1, DNM2, IEEE, EPS )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK computational routine (version 3.4.2) --
 !*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -23674,9 +23681,6 @@
       INTEGER            J4, J4P2
       DOUBLE PRECISION   D, EMIN, TEMP, DTHRESH
 !*     ..
-!*     .. Intrinsic Functions ..
-      INTRINSIC          MIN
-!*     ..
 !*     .. Executable Statements ..
 !*
       IF( ( N0-I0-1 ).LE.0 ) &
@@ -23686,7 +23690,7 @@
       IF( TAU.LT.DTHRESH*HALF ) TAU = ZERO
       IF( TAU.NE.ZERO ) THEN
       J4 = 4*I0 + PP - 3
-      EMIN = Z( J4+4 ) 
+      EMIN = Z( J4+4 )
       D = Z( J4 ) - TAU
       DMIN = D
       DMIN1 = -Z( J4 )
@@ -23697,7 +23701,7 @@
 !*
          IF( PP.EQ.0 ) THEN
             DO 10 J4 = 4*I0, 4*( N0-3 ), 4
-               Z( J4-2 ) = D + Z( J4-1 ) 
+               Z( J4-2 ) = D + Z( J4-1 )
                TEMP = Z( J4+1 ) / Z( J4-2 )
                D = D*TEMP - TAU
                DMIN = MIN( DMIN, D )
@@ -23706,7 +23710,7 @@
    10       CONTINUE
          ELSE
             DO 20 J4 = 4*I0, 4*( N0-3 ), 4
-               Z( J4-3 ) = D + Z( J4 ) 
+               Z( J4-3 ) = D + Z( J4 )
                TEMP = Z( J4+2 ) / Z( J4-3 )
                D = D*TEMP - TAU
                DMIN = MIN( DMIN, D )
@@ -23715,7 +23719,7 @@
    20       CONTINUE
          END IF
 !*
-!*        Unroll last two steps. 
+!*        Unroll last two steps.
 !*
          DNM2 = D
          DMIN2 = DMIN
@@ -23740,10 +23744,10 @@
 !*
          IF( PP.EQ.0 ) THEN
             DO 30 J4 = 4*I0, 4*( N0-3 ), 4
-               Z( J4-2 ) = D + Z( J4-1 ) 
+               Z( J4-2 ) = D + Z( J4-1 )
                IF( D.LT.ZERO ) THEN
                   RETURN
-               ELSE 
+               ELSE
                   Z( J4 ) = Z( J4+1 )*( Z( J4-1 ) / Z( J4-2 ) )
                   D = Z( J4+1 )*( D / Z( J4-2 ) ) - TAU
                END IF
@@ -23752,10 +23756,10 @@
    30       CONTINUE
          ELSE
             DO 40 J4 = 4*I0, 4*( N0-3 ), 4
-               Z( J4-3 ) = D + Z( J4 ) 
+               Z( J4-3 ) = D + Z( J4 )
                IF( D.LT.ZERO ) THEN
                   RETURN
-               ELSE 
+               ELSE
                   Z( J4-1 ) = Z( J4+2 )*( Z( J4 ) / Z( J4-3 ) )
                   D = Z( J4+2 )*( D / Z( J4-3 ) ) - TAU
                END IF
@@ -23764,7 +23768,7 @@
    40       CONTINUE
          END IF
 !*
-!*        Unroll last two steps. 
+!*        Unroll last two steps.
 !*
          DNM2 = D
          DMIN2 = DMIN
@@ -23795,17 +23799,17 @@
       ELSE
 !*     This is the version that sets d's to zero if they are small enough
          J4 = 4*I0 + PP - 3
-         EMIN = Z( J4+4 ) 
+         EMIN = Z( J4+4 )
          D = Z( J4 ) - TAU
          DMIN = D
          DMIN1 = -Z( J4 )
          IF( IEEE ) THEN
-!*     
+!*
 !*     Code for IEEE arithmetic.
-!*     
+!*
             IF( PP.EQ.0 ) THEN
                DO 50 J4 = 4*I0, 4*( N0-3 ), 4
-                  Z( J4-2 ) = D + Z( J4-1 ) 
+                  Z( J4-2 ) = D + Z( J4-1 )
                   TEMP = Z( J4+1 ) / Z( J4-2 )
                   D = D*TEMP - TAU
                   IF( D.LT.DTHRESH ) D = ZERO
@@ -23815,7 +23819,7 @@
  50            CONTINUE
             ELSE
                DO 60 J4 = 4*I0, 4*( N0-3 ), 4
-                  Z( J4-3 ) = D + Z( J4 ) 
+                  Z( J4-3 ) = D + Z( J4 )
                   TEMP = Z( J4+2 ) / Z( J4-3 )
                   D = D*TEMP - TAU
                   IF( D.LT.DTHRESH ) D = ZERO
@@ -23824,9 +23828,9 @@
                   EMIN = MIN( Z( J4-1 ), EMIN )
  60            CONTINUE
             END IF
-!*     
-!*     Unroll last two steps. 
-!*     
+!*
+!*     Unroll last two steps.
+!*
             DNM2 = D
             DMIN2 = DMIN
             J4 = 4*( N0-2 ) - PP
@@ -23835,7 +23839,7 @@
             Z( J4 ) = Z( J4P2+2 )*( Z( J4P2 ) / Z( J4-2 ) )
             DNM1 = Z( J4P2+2 )*( DNM2 / Z( J4-2 ) ) - TAU
             DMIN = MIN( DMIN, DNM1 )
-!*     
+!*
             DMIN1 = DMIN
             J4 = J4 + 4
             J4P2 = J4 + 2*PP - 1
@@ -23843,17 +23847,17 @@
             Z( J4 ) = Z( J4P2+2 )*( Z( J4P2 ) / Z( J4-2 ) )
             DN = Z( J4P2+2 )*( DNM1 / Z( J4-2 ) ) - TAU
             DMIN = MIN( DMIN, DN )
-!*     
+!*
          ELSE
-!*     
+!*
 !*     Code for non IEEE arithmetic.
-!*     
+!*
             IF( PP.EQ.0 ) THEN
                DO 70 J4 = 4*I0, 4*( N0-3 ), 4
-                  Z( J4-2 ) = D + Z( J4-1 ) 
+                  Z( J4-2 ) = D + Z( J4-1 )
                   IF( D.LT.ZERO ) THEN
                      RETURN
-                  ELSE 
+                  ELSE
                      Z( J4 ) = Z( J4+1 )*( Z( J4-1 ) / Z( J4-2 ) )
                      D = Z( J4+1 )*( D / Z( J4-2 ) ) - TAU
                   END IF
@@ -23863,10 +23867,10 @@
  70            CONTINUE
             ELSE
                DO 80 J4 = 4*I0, 4*( N0-3 ), 4
-                  Z( J4-3 ) = D + Z( J4 ) 
+                  Z( J4-3 ) = D + Z( J4 )
                   IF( D.LT.ZERO ) THEN
                      RETURN
-                  ELSE 
+                  ELSE
                      Z( J4-1 ) = Z( J4+2 )*( Z( J4 ) / Z( J4-3 ) )
                      D = Z( J4+2 )*( D / Z( J4-3 ) ) - TAU
                   END IF
@@ -23875,9 +23879,9 @@
                   EMIN = MIN( EMIN, Z( J4-1 ) )
  80            CONTINUE
             END IF
-!*     
-!*     Unroll last two steps. 
-!*     
+!*
+!*     Unroll last two steps.
+!*
             DNM2 = D
             DMIN2 = DMIN
             J4 = 4*( N0-2 ) - PP
@@ -23890,7 +23894,7 @@
                DNM1 = Z( J4P2+2 )*( DNM2 / Z( J4-2 ) ) - TAU
             END IF
             DMIN = MIN( DMIN, DNM1 )
-!*     
+!*
             DMIN1 = DMIN
             J4 = J4 + 4
             J4P2 = J4 + 2*PP - 1
@@ -23902,10 +23906,10 @@
                DN = Z( J4P2+2 )*( DNM1 / Z( J4-2 ) ) - TAU
             END IF
             DMIN = MIN( DMIN, DN )
-!*     
+!*
          END IF
       END IF
-!*     
+!*
       Z( J4+2 ) = DN
       Z( 4*N0-PP ) = EMIN
       RETURN
@@ -23920,25 +23924,25 @@
 !*
 !*  =========== DOCUMENTATION ===========
 !*
-!* Online html documentation available at 
-!*            http://www.netlib.org/lapack/explore-html/ 
+!* Online html documentation available at
+!*            http://www.netlib.org/lapack/explore-html/
 !*
 !*> \htmlonly
-!*> Download DLASQ6 + dependencies 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlasq6.f"> 
-!*> [TGZ]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlasq6.f"> 
-!*> [ZIP]</a> 
-!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlasq6.f"> 
+!*> Download DLASQ6 + dependencies
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.tgz?format=tgz&filename=/lapack/lapack_routine/dlasq6.f">
+!*> [TGZ]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.zip?format=zip&filename=/lapack/lapack_routine/dlasq6.f">
+!*> [ZIP]</a>
+!*> <a href="http://www.netlib.org/cgi-bin/netlibfiles.txt?format=txt&filename=/lapack/lapack_routine/dlasq6.f">
 !*> [TXT]</a>
-!*> \endhtmlonly 
+!*> \endhtmlonly
 !*
 !*  Definition:
 !*  ===========
 !*
 !*       SUBROUTINE DLASQ6( I0, N0, Z, PP, DMIN, DMIN1, DMIN2, DN,
 !*                          DNM1, DNM2 )
-!* 
+!*
 !*       .. Scalar Arguments ..
 !*       INTEGER            I0, N0, PP
 !*       DOUBLE PRECISION   DMIN, DMIN1, DMIN2, DN, DNM1, DNM2
@@ -23946,7 +23950,7 @@
 !*       .. Array Arguments ..
 !*       DOUBLE PRECISION   Z( * )
 !*       ..
-!*  
+!*
 !*
 !*> \par Purpose:
 !*  =============
@@ -24024,10 +24028,10 @@
 !*  Authors:
 !*  ========
 !*
-!*> \author Univ. of Tennessee 
-!*> \author Univ. of California Berkeley 
-!*> \author Univ. of Colorado Denver 
-!*> \author NAG Ltd. 
+!*> \author Univ. of Tennessee
+!*> \author Univ. of California Berkeley
+!*> \author Univ. of Colorado Denver
+!*> \author NAG Ltd.
 !*
 !*> \date September 2012
 !*
@@ -24036,6 +24040,8 @@
 !*  =====================================================================
       SUBROUTINE DLASQ6( I0, N0, Z, PP, DMIN, DMIN1, DMIN2, DN, &
                          DNM1, DNM2 )
+!
+      IMPLICIT NONE
 !*
 !*  -- LAPACK computational routine (version 3.4.2) --
 !*  -- LAPACK is a software package provided by Univ. of Tennessee,    --
@@ -24064,9 +24070,6 @@
       DOUBLE PRECISION   DLAMCH
       EXTERNAL           DLAMCH
 !*     ..
-!*     .. Intrinsic Functions ..
-      INTRINSIC          MIN
-!*     ..
 !*     .. Executable Statements ..
 !*
       IF( ( N0-I0-1 ).LE.0 ) &
@@ -24074,13 +24077,13 @@
 !*
       SAFMIN = DLAMCH( 'Safe minimum' )
       J4 = 4*I0 + PP - 3
-      EMIN = Z( J4+4 ) 
+      EMIN = Z( J4+4 )
       D = Z( J4 )
       DMIN = D
 !*
       IF( PP.EQ.0 ) THEN
          DO 10 J4 = 4*I0, 4*( N0-3 ), 4
-            Z( J4-2 ) = D + Z( J4-1 ) 
+            Z( J4-2 ) = D + Z( J4-1 )
             IF( Z( J4-2 ).EQ.ZERO ) THEN
                Z( J4 ) = ZERO
                D = Z( J4+1 )
@@ -24091,7 +24094,7 @@
                TEMP = Z( J4+1 ) / Z( J4-2 )
                Z( J4 ) = Z( J4-1 )*TEMP
                D = D*TEMP
-            ELSE 
+            ELSE
                Z( J4 ) = Z( J4+1 )*( Z( J4-1 ) / Z( J4-2 ) )
                D = Z( J4+1 )*( D / Z( J4-2 ) )
             END IF
@@ -24100,7 +24103,7 @@
    10    CONTINUE
       ELSE
          DO 20 J4 = 4*I0, 4*( N0-3 ), 4
-            Z( J4-3 ) = D + Z( J4 ) 
+            Z( J4-3 ) = D + Z( J4 )
             IF( Z( J4-3 ).EQ.ZERO ) THEN
                Z( J4-1 ) = ZERO
                D = Z( J4+2 )
@@ -24111,7 +24114,7 @@
                TEMP = Z( J4+2 ) / Z( J4-3 )
                Z( J4-1 ) = Z( J4 )*TEMP
                D = D*TEMP
-            ELSE 
+            ELSE
                Z( J4-1 ) = Z( J4+2 )*( Z( J4 ) / Z( J4-3 ) )
                D = Z( J4+2 )*( D / Z( J4-3 ) )
             END IF
@@ -24120,7 +24123,7 @@
    20    CONTINUE
       END IF
 !*
-!*     Unroll last two steps. 
+!*     Unroll last two steps.
 !*
       DNM2 = D
       DMIN2 = DMIN
@@ -24174,4 +24177,996 @@
 
 
 
+
+      SUBROUTINE DGELS( TRANS, M, N, NRHS, A, LDA, B, LDB, WORK, LWORK, &
+                        INFO )
+
+      IMPLICIT NONE
+
+!  -- LAPACK driver routine (version 3.3.1) --
+!  -- LAPACK is a software package provided by Univ. of Tennessee,    --
+!  -- Univ. of California Berkeley, Univ. of Colorado Denver and NAG Ltd..--
+!  -- April 2011                                                      --
+!
+!     .. Scalar Arguments ..
+      CHARACTER          TRANS
+      INTEGER            INFO, LDA, LDB, LWORK, M, N, NRHS
+!     ..
+!     .. Array Arguments ..
+      DOUBLE PRECISION   A( LDA, * ), B( LDB, * ), WORK( * )
+!     ..
+!
+!  Purpose
+!  =======
+!
+!  DGELS solves overdetermined or underdetermined real linear systems
+!  involving an M-by-N matrix A, or its transpose, using a QR or LQ
+!  factorization of A.  It is assumed that A has full rank.
+!
+!  The following options are provided:
+!
+!  1. If TRANS = 'N' and m >= n:  find the least squares solution of
+!     an overdetermined system, i.e., solve the least squares problem
+!                  minimize || B - A*X ||.
+!
+!  2. If TRANS = 'N' and m < n:  find the minimum norm solution of
+!     an underdetermined system A * X = B.
+!
+!  3. If TRANS = 'T' and m >= n:  find the minimum norm solution of
+!     an undetermined system A**T * X = B.
+!
+!  4. If TRANS = 'T' and m < n:  find the least squares solution of
+!     an overdetermined system, i.e., solve the least squares problem
+!                  minimize || B - A**T * X ||.
+!
+!  Several right hand side vectors b and solution vectors x can be
+!  handled in a single call; they are stored as the columns of the
+!  M-by-NRHS right hand side matrix B and the N-by-NRHS solution
+!  matrix X.
+!
+!  Arguments
+!  =========
+!
+!  TRANS   (input) CHARACTER*1
+!          = 'N': the linear system involves A;
+!          = 'T': the linear system involves A**T.
+!
+!  M       (input) INTEGER
+!          The number of rows of the matrix A.  M >= 0.
+!
+!  N       (input) INTEGER
+!          The number of columns of the matrix A.  N >= 0.
+!
+!  NRHS    (input) INTEGER
+!          The number of right hand sides, i.e., the number of
+!          columns of the matrices B and X. NRHS >=0.
+!
+!  A       (input/output) DOUBLE PRECISION array, dimension (LDA,N)
+!          On entry, the M-by-N matrix A.
+!          On exit,
+!            if M >= N, A is overwritten by details of its QR
+!                       factorization as returned by DGEQRF;
+!            if M <  N, A is overwritten by details of its LQ
+!                       factorization as returned by DGELQF.
+!
+!  LDA     (input) INTEGER
+!          The leading dimension of the array A.  LDA >= max(1,M).
+!
+!  B       (input/output) DOUBLE PRECISION array, dimension (LDB,NRHS)
+!          On entry, the matrix B of right hand side vectors, stored
+!          columnwise; B is M-by-NRHS if TRANS = 'N', or N-by-NRHS
+!          if TRANS = 'T'.
+!          On exit, if INFO = 0, B is overwritten by the solution
+!          vectors, stored columnwise:
+!          if TRANS = 'N' and m >= n, rows 1 to n of B contain the least
+!          squares solution vectors; the residual sum of squares for the
+!          solution in each column is given by the sum of squares of
+!          elements N+1 to M in that column;
+!          if TRANS = 'N' and m < n, rows 1 to N of B contain the
+!          minimum norm solution vectors;
+!          if TRANS = 'T' and m >= n, rows 1 to M of B contain the
+!          minimum norm solution vectors;
+!          if TRANS = 'T' and m < n, rows 1 to M of B contain the
+!          least squares solution vectors; the residual sum of squares
+!          for the solution in each column is given by the sum of
+!          squares of elements M+1 to N in that column.
+!
+!  LDB     (input) INTEGER
+!          The leading dimension of the array B. LDB >= MAX(1,M,N).
+!
+!  WORK    (workspace/output) DOUBLE PRECISION array, dimension (MAX(1,LWORK))
+!          On exit, if INFO = 0, WORK(1) returns the optimal LWORK.
+!
+!  LWORK   (input) INTEGER
+!          The dimension of the array WORK.
+!          LWORK >= max( 1, MN + max( MN, NRHS ) ).
+!          For optimal performance,
+!          LWORK >= max( 1, MN + max( MN, NRHS )*NB ).
+!          where MN = min(M,N) and NB is the optimum block size.
+!
+!          If LWORK = -1, then a workspace query is assumed; the routine
+!          only calculates the optimal size of the WORK array, returns
+!          this value as the first entry of the WORK array, and no error
+!          message related to LWORK is issued by XERBLA.
+!
+!  INFO    (output) INTEGER
+!          = 0:  successful exit
+!          < 0:  if INFO = -i, the i-th argument had an illegal value
+!          > 0:  if INFO =  i, the i-th diagonal element of the
+!                triangular factor of A is zero, so that A does not have
+!                full rank; the least squares solution could not be
+!                computed.
+!
+!  =====================================================================
+!
+!     .. Parameters ..
+      DOUBLE PRECISION   ZERO, ONE
+      PARAMETER          ( ZERO = 0.0D0, ONE = 1.0D0 )
+!     ..
+!     .. Local Scalars ..
+      LOGICAL            LQUERY, TPSD
+      INTEGER            BROW, I, IASCL, IBSCL, J, MN, NB, SCLLEN, WSIZE
+      DOUBLE PRECISION   ANRM, BIGNUM, BNRM, SMLNUM
+!     ..
+!     .. Local Arrays ..
+      DOUBLE PRECISION   RWORK( 1 )
+!     ..
+!     .. External Functions ..
+      LOGICAL            LSAME
+      INTEGER            ILAENV
+      DOUBLE PRECISION   DLAMCH, DLANGE
+      EXTERNAL           LSAME, ILAENV, DLABAD, DLAMCH, DLANGE
+!     ..
+!     .. External Subroutines ..
+      EXTERNAL           DGELQF, DGEQRF, DLASCL, DLASET, DORMLQ, DORMQR, &
+                         DTRTRS, XERBLA
+!     ..
+!     .. Intrinsic Functions ..
+      INTRINSIC          DBLE, MAX, MIN
+!     ..
+!     .. Executable Statements ..
+!
+!     Test the input arguments.
+!
+      INFO = 0
+      MN = MIN( M, N )
+      LQUERY = ( LWORK.EQ.-1 )
+      IF( .NOT.( LSAME( TRANS, 'N' ) .OR. LSAME( TRANS, 'T' ) ) ) THEN
+         INFO = -1
+      ELSE IF( M.LT.0 ) THEN
+         INFO = -2
+      ELSE IF( N.LT.0 ) THEN
+         INFO = -3
+      ELSE IF( NRHS.LT.0 ) THEN
+         INFO = -4
+      ELSE IF( LDA.LT.MAX( 1, M ) ) THEN
+         INFO = -6
+      ELSE IF( LDB.LT.MAX( 1, M, N ) ) THEN
+         INFO = -8
+      ELSE IF( LWORK.LT.MAX( 1, MN+MAX( MN, NRHS ) ) .AND. .NOT.LQUERY ) &
+                THEN
+         INFO = -10
+      END IF
+!
+!     Figure out optimal block size
+!
+      IF( INFO.EQ.0 .OR. INFO.EQ.-10 ) THEN
+!
+         TPSD = .TRUE.
+         IF( LSAME( TRANS, 'N' ) ) &
+            TPSD = .FALSE.
+!
+         IF( M.GE.N ) THEN
+            NB = ILAENV( 1, 'DGEQRF', ' ', M, N, -1, -1 )
+            IF( TPSD ) THEN
+               NB = MAX( NB, ILAENV( 1, 'DORMQR', 'LN', M, NRHS, N, &
+                    -1 ) )
+            ELSE
+               NB = MAX( NB, ILAENV( 1, 'DORMQR', 'LT', M, NRHS, N, &
+                    -1 ) )
+            END IF
+         ELSE
+            NB = ILAENV( 1, 'DGELQF', ' ', M, N, -1, -1 )
+            IF( TPSD ) THEN
+               NB = MAX( NB, ILAENV( 1, 'DORMLQ', 'LT', N, NRHS, M, &
+                    -1 ) )
+            ELSE
+               NB = MAX( NB, ILAENV( 1, 'DORMLQ', 'LN', N, NRHS, M, &
+                    -1 ) )
+            END IF
+         END IF
+!
+         WSIZE = MAX( 1, MN+MAX( MN, NRHS )*NB )
+         WORK( 1 ) = DBLE( WSIZE )
+!
+      END IF
+!
+      IF( INFO.NE.0 ) THEN
+         CALL XERBLA( 'DGELS ', -INFO )
+         RETURN
+      ELSE IF( LQUERY ) THEN
+         RETURN
+      END IF
+!
+!     Quick return if possible
+!
+      IF( MIN( M, N, NRHS ).EQ.0 ) THEN
+         CALL DLASET( 'Full', MAX( M, N ), NRHS, ZERO, ZERO, B, LDB )
+         RETURN
+      END IF
+!
+!     Get machine parameters
+!
+      SMLNUM = DLAMCH( 'S' ) / DLAMCH( 'P' )
+      BIGNUM = ONE / SMLNUM
+      CALL DLABAD( SMLNUM, BIGNUM )
+!
+!     Scale A, B if max element outside range [SMLNUM,BIGNUM]
+!
+      ANRM = DLANGE( 'M', M, N, A, LDA, RWORK )
+      IASCL = 0
+      IF( ANRM.GT.ZERO .AND. ANRM.LT.SMLNUM ) THEN
+!
+!        Scale matrix norm up to SMLNUM
+!
+         CALL DLASCL( 'G', 0, 0, ANRM, SMLNUM, M, N, A, LDA, INFO )
+         IASCL = 1
+      ELSE IF( ANRM.GT.BIGNUM ) THEN
+!
+!        Scale matrix norm down to BIGNUM
+!
+         CALL DLASCL( 'G', 0, 0, ANRM, BIGNUM, M, N, A, LDA, INFO )
+         IASCL = 2
+      ELSE IF( ANRM.EQ.ZERO ) THEN
+!
+!        Matrix all zero. Return zero solution.
+!
+         CALL DLASET( 'F', MAX( M, N ), NRHS, ZERO, ZERO, B, LDB )
+
+         WORK( 1 ) = DBLE( WSIZE )
+         RETURN
+      END IF
+!
+      BROW = M
+      IF( TPSD ) BROW = N
+      BNRM = DLANGE( 'M', BROW, NRHS, B, LDB, RWORK )
+      IBSCL = 0
+      IF( BNRM.GT.ZERO .AND. BNRM.LT.SMLNUM ) THEN
+!
+!        Scale matrix norm up to SMLNUM
+!
+         CALL DLASCL( 'G', 0, 0, BNRM, SMLNUM, BROW, NRHS, B, LDB, &
+                      INFO )
+         IBSCL = 1
+      ELSE IF( BNRM.GT.BIGNUM ) THEN
+!
+!        Scale matrix norm down to BIGNUM
+!
+         CALL DLASCL( 'G', 0, 0, BNRM, BIGNUM, BROW, NRHS, B, LDB, &
+                      INFO )
+         IBSCL = 2
+      END IF
+!
+      IF( M.GE.N ) THEN
+!
+!        compute QR factorization of A
+!
+         CALL DGEQRF( M, N, A, LDA, WORK( 1 ), WORK( MN+1 ), LWORK-MN, &
+                      INFO )
+!
+!        workspace at least N, optimally N*NB
+!
+         IF( .NOT.TPSD ) THEN
+!
+!           Least-Squares Problem min || A * X - B ||
+!
+!           B(1:M,1:NRHS) := Q**T * B(1:M,1:NRHS)
+!
+            CALL DORMQR( 'Left', 'Transpose', M, NRHS, N, A, LDA, &
+                         WORK( 1 ), B, LDB, WORK( MN+1 ), LWORK-MN, &
+                         INFO )
+!
+!           workspace at least NRHS, optimally NRHS*NB
+!
+!           B(1:N,1:NRHS) := inv(R) * B(1:N,1:NRHS)
+!
+            CALL DTRTRS( 'Upper', 'No transpose', 'Non-unit', N, NRHS, &
+                         A, LDA, B, LDB, INFO )
+!
+            IF( INFO.GT.0 ) THEN
+               RETURN
+            END IF
+!
+            SCLLEN = N
+!
+         ELSE
+!
+!           Overdetermined system of equations A**T * X = B
+!
+!           B(1:N,1:NRHS) := inv(R**T) * B(1:N,1:NRHS)
+!
+            CALL DTRTRS( 'Upper', 'Transpose', 'Non-unit', N, NRHS, &
+                         A, LDA, B, LDB, INFO )
+!
+            IF( INFO.GT.0 ) THEN
+               RETURN
+            END IF
+!
+!           B(N+1:M,1:NRHS) = ZERO
+!
+            DO J = 1, NRHS
+               DO I = N + 1, M
+                  B( I, J ) = ZERO
+               END DO
+            END DO
+!
+!           B(1:M,1:NRHS) := Q(1:N,:) * B(1:N,1:NRHS)
+!
+            CALL DORMQR( 'Left', 'No transpose', M, NRHS, N, A, LDA, &
+                         WORK( 1 ), B, LDB, WORK( MN+1 ), LWORK-MN, &
+                         INFO )
+!
+!           workspace at least NRHS, optimally NRHS*NB
+!
+            SCLLEN = M
+!
+         END IF
+!
+      ELSE
+!
+!        Compute LQ factorization of A
+!
+         CALL DGELQF( M, N, A, LDA, WORK( 1 ), WORK( MN+1 ), LWORK-MN, &
+                      INFO )
+!
+!        workspace at least M, optimally M*NB.
+!
+         IF( .NOT.TPSD ) THEN
+!
+!           underdetermined system of equations A * X = B
+!
+!           B(1:M,1:NRHS) := inv(L) * B(1:M,1:NRHS)
+!
+            CALL DTRTRS( 'Lower', 'No transpose', 'Non-unit', M, NRHS, &
+                         A, LDA, B, LDB, INFO )
+!
+            IF( INFO.GT.0 ) THEN
+               RETURN
+            END IF
+!
+!           B(M+1:N,1:NRHS) = 0
+!
+            DO J = 1, NRHS
+               DO I = M + 1, N
+                  B( I, J ) = ZERO
+               END DO
+            END DO
+!
+!           B(1:N,1:NRHS) := Q(1:N,:)**T * B(1:M,1:NRHS)
+!
+            CALL DORMLQ( 'Left', 'Transpose', N, NRHS, M, A, LDA, &
+                         WORK( 1 ), B, LDB, WORK( MN+1 ), LWORK-MN, &
+                         INFO )
+!
+!           workspace at least NRHS, optimally NRHS*NB
+!
+            SCLLEN = N
+!
+         ELSE
+!
+!           overdetermined system min || A**T * X - B ||
+!
+!           B(1:N,1:NRHS) := Q * B(1:N,1:NRHS)
+!
+            CALL DORMLQ( 'Left', 'No transpose', N, NRHS, M, A, LDA, &
+                         WORK( 1 ), B, LDB, WORK( MN+1 ), LWORK-MN, &
+                         INFO )
+!
+!           workspace at least NRHS, optimally NRHS*NB
+!
+!           B(1:M,1:NRHS) := inv(L**T) * B(1:M,1:NRHS)
+!
+            CALL DTRTRS( 'Lower', 'Transpose', 'Non-unit', M, NRHS, &
+                         A, LDA, B, LDB, INFO )
+!
+            IF( INFO.GT.0 ) THEN
+               RETURN
+            END IF
+!
+            SCLLEN = M
+!
+         END IF
+!
+      END IF
+!
+!     Undo scaling
+!
+      IF( IASCL.EQ.1 ) THEN
+         CALL DLASCL( 'G', 0, 0, ANRM, SMLNUM, SCLLEN, NRHS, B, LDB, &
+                      INFO )
+      ELSE IF( IASCL.EQ.2 ) THEN
+         CALL DLASCL( 'G', 0, 0, ANRM, BIGNUM, SCLLEN, NRHS, B, LDB, &
+                      INFO )
+      END IF
+      IF( IBSCL.EQ.1 ) THEN
+         CALL DLASCL( 'G', 0, 0, SMLNUM, BNRM, SCLLEN, NRHS, B, LDB, &
+                      INFO )
+      ELSE IF( IBSCL.EQ.2 ) THEN
+         CALL DLASCL( 'G', 0, 0, BIGNUM, BNRM, SCLLEN, NRHS, B, LDB, &
+                      INFO )
+      END IF
+!
+      WORK( 1 ) = DBLE( WSIZE )
+!
+!     End of DGELS
+!
+      END SUBROUTINE DGELS
+
+      SUBROUTINE DLABAD( SMALL, LARGE )
+
+      IMPLICIT NONE
+
+!  -- LAPACK auxiliary routine (version 3.2) --
+!  -- LAPACK is a software package provided by Univ. of Tennessee,    --
+!  -- Univ. of California Berkeley, Univ. of Colorado Denver and NAG Ltd..--
+!     November 2006
+!
+!     .. Scalar Arguments ..
+      DOUBLE PRECISION   LARGE, SMALL
+!     ..
+!
+!  Purpose
+!  =======
+!
+!  DLABAD takes as input the values computed by DLAMCH for underflow and
+!  overflow, and returns the square root of each of these values if the
+!  log of LARGE is sufficiently large.  This subroutine is intended to
+!  identify machines with a large exponent range, such as the Crays, and
+!  redefine the underflow and overflow limits to be the square roots of
+!  the values computed by DLAMCH.  This subroutine is needed because
+!  DLAMCH does not compensate for poor arithmetic in the upper half of
+!  the exponent range, as is found on a Cray.
+!
+!  Arguments
+!  =========
+!
+!  SMALL   (input/output) DOUBLE PRECISION
+!          On entry, the underflow threshold as computed by DLAMCH.
+!          On exit, if LOG10(LARGE) is sufficiently large, the square
+!          root of SMALL, otherwise unchanged.
+!
+!  LARGE   (input/output) DOUBLE PRECISION
+!          On entry, the overflow threshold as computed by DLAMCH.
+!          On exit, if LOG10(LARGE) is sufficiently large, the square
+!          root of LARGE, otherwise unchanged.
+!
+!  =====================================================================
+!
+!     ..
+!     .. Executable Statements ..
+!
+!     If it looks like we're on a Cray, take the square root of
+!     SMALL and LARGE to avoid overflow and underflow problems.
+!
+      IF( LOG10( LARGE ).GT.2000.D0 ) THEN
+         SMALL = SQRT( SMALL )
+         LARGE = SQRT( LARGE )
+      END IF
+
+      END SUBROUTINE DLABAD
+
+      SUBROUTINE DTRTRS( UPLO, TRANS, DIAG, N, NRHS, A, LDA, B, LDB, &
+                         INFO )
+
+       IMPLICIT NONE
+
+!  -- LAPACK routine (version 3.2) --
+!  -- LAPACK is a software package provided by Univ. of Tennessee,    --
+!  -- Univ. of California Berkeley, Univ. of Colorado Denver and NAG Ltd..--
+!     November 2006
+!
+!     .. Scalar Arguments ..
+      CHARACTER          DIAG, TRANS, UPLO
+      INTEGER            INFO, LDA, LDB, N, NRHS
+!     ..
+!     .. Array Arguments ..
+      DOUBLE PRECISION   A( LDA, * ), B( LDB, * )
+!     ..
+!
+!  Purpose
+!  =======
+!
+!  DTRTRS solves a triangular system of the form
+!
+!     A * X = B  or  A**T * X = B,
+!
+!  where A is a triangular matrix of order N, and B is an N-by-NRHS
+!  matrix.  A check is made to verify that A is nonsingular.
+!
+!  Arguments
+!  =========
+!
+!  UPLO    (input) CHARACTER*1
+!          = 'U':  A is upper triangular;
+!          = 'L':  A is lower triangular.
+!
+!  TRANS   (input) CHARACTER*1
+!          Specifies the form of the system of equations:
+!          = 'N':  A * X = B  (No transpose)
+!          = 'T':  A**T * X = B  (Transpose)
+!          = 'C':  A**H * X = B  (Conjugate transpose = Transpose)
+!
+!  DIAG    (input) CHARACTER*1
+!          = 'N':  A is non-unit triangular;
+!          = 'U':  A is unit triangular.
+!
+!  N       (input) INTEGER
+!          The order of the matrix A.  N >= 0.
+!
+!  NRHS    (input) INTEGER
+!          The number of right hand sides, i.e., the number of columns
+!          of the matrix B.  NRHS >= 0.
+!
+!  A       (input) DOUBLE PRECISION array, dimension (LDA,N)
+!          The triangular matrix A.  If UPLO = 'U', the leading N-by-N
+!          upper triangular part of the array A contains the upper
+!          triangular matrix, and the strictly lower triangular part of
+!          A is not referenced.  If UPLO = 'L', the leading N-by-N lower
+!          triangular part of the array A contains the lower triangular
+!          matrix, and the strictly upper triangular part of A is not
+!          referenced.  If DIAG = 'U', the diagonal elements of A are
+!          also not referenced and are assumed to be 1.
+!
+!  LDA     (input) INTEGER
+!          The leading dimension of the array A.  LDA >= max(1,N).
+!
+!  B       (input/output) DOUBLE PRECISION array, dimension (LDB,NRHS)
+!          On entry, the right hand side matrix B.
+!          On exit, if INFO = 0, the solution matrix X.
+!
+!  LDB     (input) INTEGER
+!          The leading dimension of the array B.  LDB >= max(1,N).
+!
+!  INFO    (output) INTEGER
+!          = 0:  successful exit
+!          < 0: if INFO = -i, the i-th argument had an illegal value
+!          > 0: if INFO = i, the i-th diagonal element of A is zero,
+!               indicating that the matrix is singular and the solutions
+!               X have not been computed.
+!
+!  =====================================================================
+!
+!     .. Parameters ..
+      DOUBLE PRECISION   ZERO, ONE
+      PARAMETER          ( ZERO = 0.0D+0, ONE = 1.0D+0 )
+!     ..
+!     .. Local Scalars ..
+      LOGICAL            NOUNIT
+!     ..
+!     .. External Functions ..
+      LOGICAL            LSAME
+      EXTERNAL           LSAME
+!     ..
+!     .. External Subroutines ..
+      EXTERNAL           DTRSM, XERBLA
+!     ..
+!     .. Executable Statements ..
+!
+!     Test the input parameters.
+!
+      INFO = 0
+      NOUNIT = LSAME( DIAG, 'N' )
+      IF( .NOT.LSAME( UPLO, 'U' ) .AND. .NOT.LSAME( UPLO, 'L' ) ) THEN
+         INFO = -1
+      ELSE IF( .NOT.LSAME( TRANS, 'N' ) .AND. .NOT. &
+               LSAME( TRANS, 'T' ) .AND. .NOT.LSAME( TRANS, 'C' ) ) THEN
+         INFO = -2
+      ELSE IF( .NOT.NOUNIT .AND. .NOT.LSAME( DIAG, 'U' ) ) THEN
+         INFO = -3
+      ELSE IF( N.LT.0 ) THEN
+         INFO = -4
+      ELSE IF( NRHS.LT.0 ) THEN
+         INFO = -5
+      ELSE IF( LDA.LT.MAX( 1, N ) ) THEN
+         INFO = -7
+      ELSE IF( LDB.LT.MAX( 1, N ) ) THEN
+         INFO = -9
+      END IF
+      IF( INFO.NE.0 ) THEN
+         CALL XERBLA( 'DTRTRS', -INFO )
+         RETURN
+      END IF
+!
+!     Quick return if possible
+!
+      IF( N.EQ.0 ) RETURN
+!
+!     Check for singularity.
+!
+      IF( NOUNIT ) THEN
+         DO INFO = 1, N
+            IF( A( INFO, INFO ).EQ.ZERO ) RETURN
+         END DO
+      END IF
+      INFO = 0
+!
+!     Solve A * x = b  or  A**T * x = b.
+!
+      CALL DTRSM( 'Left', UPLO, TRANS, DIAG, N, NRHS, ONE, A, LDA, B, &
+                  LDB )
+
+      END SUBROUTINE DTRTRS
+
+      SUBROUTINE DTRSM(SIDE,UPLO,TRANSA,DIAG,M,N,ALPHA,A,LDA,B,LDB)
+
+      IMPLICIT NONE
+
+!     .. Scalar Arguments ..
+      DOUBLE PRECISION ALPHA
+      INTEGER LDA,LDB,M,N
+      CHARACTER DIAG,SIDE,TRANSA,UPLO
+!     ..
+!     .. Array Arguments ..
+      DOUBLE PRECISION A(LDA,*),B(LDB,*)
+!     ..
+!
+!  Purpose
+!  =======
+!
+!  DTRSM  solves one of the matrix equations
+!
+!     op( A )*X = alpha*B,   or   X*op( A ) = alpha*B,
+!
+!  where alpha is a scalar, X and B are m by n matrices, A is a unit, or
+!  non-unit,  upper or lower triangular matrix  and  op( A )  is one  of
+!
+!     op( A ) = A   or   op( A ) = A**T.
+!
+!  The matrix X is overwritten on B.
+!
+!  Arguments
+!  ==========
+!
+!  SIDE   - CHARACTER*1.
+!           On entry, SIDE specifies whether op( A ) appears on the left
+!           or right of X as follows:
+!
+!              SIDE = 'L' or 'l'   op( A )*X = alpha*B.
+!
+!              SIDE = 'R' or 'r'   X*op( A ) = alpha*B.
+!
+!           Unchanged on exit.
+!
+!  UPLO   - CHARACTER*1.
+!           On entry, UPLO specifies whether the matrix A is an upper or
+!           lower triangular matrix as follows:
+!
+!              UPLO = 'U' or 'u'   A is an upper triangular matrix.
+!
+!              UPLO = 'L' or 'l'   A is a lower triangular matrix.
+!
+!           Unchanged on exit.
+!
+!  TRANSA - CHARACTER*1.
+!           On entry, TRANSA specifies the form of op( A ) to be used in
+!           the matrix multiplication as follows:
+!
+!              TRANSA = 'N' or 'n'   op( A ) = A.
+!
+!              TRANSA = 'T' or 't'   op( A ) = A**T.
+!
+!              TRANSA = 'C' or 'c'   op( A ) = A**T.
+!
+!           Unchanged on exit.
+!
+!  DIAG   - CHARACTER*1.
+!           On entry, DIAG specifies whether or not A is unit triangular
+!           as follows:
+!
+!              DIAG = 'U' or 'u'   A is assumed to be unit triangular.
+!
+!              DIAG = 'N' or 'n'   A is not assumed to be unit
+!                                  triangular.
+!
+!           Unchanged on exit.
+!
+!  M      - INTEGER.
+!           On entry, M specifies the number of rows of B. M must be at
+!           least zero.
+!           Unchanged on exit.
+!
+!  N      - INTEGER.
+!           On entry, N specifies the number of columns of B.  N must be
+!           at least zero.
+!           Unchanged on exit.
+!
+!  ALPHA  - DOUBLE PRECISION.
+!           On entry,  ALPHA specifies the scalar  alpha. When  alpha is
+!           zero then  A is not referenced and  B need not be set before
+!           entry.
+!           Unchanged on exit.
+!
+!  A      - DOUBLE PRECISION array of DIMENSION ( LDA, k ), where k is m
+!           when  SIDE = 'L' or 'l'  and is  n  when  SIDE = 'R' or 'r'.
+!           Before entry  with  UPLO = 'U' or 'u',  the  leading  k by k
+!           upper triangular part of the array  A must contain the upper
+!           triangular matrix  and the strictly lower triangular part of
+!           A is not referenced.
+!           Before entry  with  UPLO = 'L' or 'l',  the  leading  k by k
+!           lower triangular part of the array  A must contain the lower
+!           triangular matrix  and the strictly upper triangular part of
+!           A is not referenced.
+!           Note that when  DIAG = 'U' or 'u',  the diagonal elements of
+!           A  are not referenced either,  but are assumed to be  unity.
+!           Unchanged on exit.
+!
+!  LDA    - INTEGER.
+!           On entry, LDA specifies the first dimension of A as declared
+!           in the calling (sub) program.  When  SIDE = 'L' or 'l'  then
+!           LDA  must be at least  max( 1, m ),  when  SIDE = 'R' or 'r'
+!           then LDA must be at least max( 1, n ).
+!           Unchanged on exit.
+!
+!  B      - DOUBLE PRECISION array of DIMENSION ( LDB, n ).
+!           Before entry,  the leading  m by n part of the array  B must
+!           contain  the  right-hand  side  matrix  B,  and  on exit  is
+!           overwritten by the solution matrix  X.
+!
+!  LDB    - INTEGER.
+!           On entry, LDB specifies the first dimension of B as declared
+!           in  the  calling  (sub)  program.   LDB  must  be  at  least
+!           max( 1, m ).
+!           Unchanged on exit.
+!
+!  Further Details
+!  ===============
+!
+!  Level 3 Blas routine.
+!
+!
+!  -- Written on 8-February-1989.
+!     Jack Dongarra, Argonne National Laboratory.
+!     Iain Duff, AERE Harwell.
+!     Jeremy Du Croz, Numerical Algorithms Group Ltd.
+!     Sven Hammarling, Numerical Algorithms Group Ltd.
+!
+!  =====================================================================
+!
+!     .. External Functions ..
+      LOGICAL LSAME
+      EXTERNAL LSAME
+!     ..
+!     .. External Subroutines ..
+      EXTERNAL XERBLA
+!     ..
+!     .. Local Scalars ..
+      DOUBLE PRECISION TEMP
+      INTEGER I,INFO,J,K,NROWA
+      LOGICAL LSIDE,NOUNIT,UPPER
+!     ..
+!     .. Parameters ..
+      DOUBLE PRECISION ONE,ZERO
+      PARAMETER (ONE=1.0D+0,ZERO=0.0D+0)
+!     ..
+!
+!     Test the input parameters.
+!
+      LSIDE = LSAME(SIDE,'L')
+      IF (LSIDE) THEN
+          NROWA = M
+      ELSE
+          NROWA = N
+      END IF
+      NOUNIT = LSAME(DIAG,'N')
+      UPPER = LSAME(UPLO,'U')
+!
+      INFO = 0
+      IF ((.NOT.LSIDE) .AND. (.NOT.LSAME(SIDE,'R'))) THEN
+          INFO = 1
+      ELSE IF ((.NOT.UPPER) .AND. (.NOT.LSAME(UPLO,'L'))) THEN
+          INFO = 2
+      ELSE IF ((.NOT.LSAME(TRANSA,'N')) .AND. &
+               (.NOT.LSAME(TRANSA,'T')) .AND. &
+               (.NOT.LSAME(TRANSA,'C'))) THEN
+          INFO = 3
+      ELSE IF ((.NOT.LSAME(DIAG,'U')) .AND. (.NOT.LSAME(DIAG,'N'))) THEN
+          INFO = 4
+      ELSE IF (M.LT.0) THEN
+          INFO = 5
+      ELSE IF (N.LT.0) THEN
+          INFO = 6
+      ELSE IF (LDA.LT.MAX(1,NROWA)) THEN
+          INFO = 9
+      ELSE IF (LDB.LT.MAX(1,M)) THEN
+          INFO = 11
+      END IF
+      IF (INFO.NE.0) THEN
+          CALL XERBLA('DTRSM ',INFO)
+          RETURN
+      END IF
+!
+!     Quick return if possible.
+!
+      IF (M.EQ.0 .OR. N.EQ.0) RETURN
+!
+!     And when  alpha.eq.zero.
+!
+      IF (ALPHA.EQ.ZERO) THEN
+          DO J = 1,N
+              DO I = 1,M
+                  B(I,J) = ZERO
+              END DO
+          END DO
+          RETURN
+      END IF
+!
+!     Start the operations.
+!
+      IF (LSIDE) THEN
+          IF (LSAME(TRANSA,'N')) THEN
+!
+!           Form  B := alpha*inv( A )*B.
+!
+              IF (UPPER) THEN
+                  DO 60 J = 1,N
+                      IF (ALPHA.NE.ONE) THEN
+                          DO 30 I = 1,M
+                              B(I,J) = ALPHA*B(I,J)
+   30                     CONTINUE
+                      END IF
+                      DO 50 K = M,1,-1
+                          IF (B(K,J).NE.ZERO) THEN
+                              IF (NOUNIT) B(K,J) = B(K,J)/A(K,K)
+                              DO 40 I = 1,K - 1
+                                  B(I,J) = B(I,J) - B(K,J)*A(I,K)
+   40                         CONTINUE
+                          END IF
+   50                 CONTINUE
+   60             CONTINUE
+              ELSE
+                  DO 100 J = 1,N
+                      IF (ALPHA.NE.ONE) THEN
+                          DO 70 I = 1,M
+                              B(I,J) = ALPHA*B(I,J)
+   70                     CONTINUE
+                      END IF
+                      DO 90 K = 1,M
+                          IF (B(K,J).NE.ZERO) THEN
+                              IF (NOUNIT) B(K,J) = B(K,J)/A(K,K)
+                              DO 80 I = K + 1,M
+                                  B(I,J) = B(I,J) - B(K,J)*A(I,K)
+   80                         CONTINUE
+                          END IF
+   90                 CONTINUE
+  100             CONTINUE
+              END IF
+          ELSE
+!
+!           Form  B := alpha*inv( A**T )*B.
+!
+              IF (UPPER) THEN
+                  DO 130 J = 1,N
+                      DO 120 I = 1,M
+                          TEMP = ALPHA*B(I,J)
+                          DO 110 K = 1,I - 1
+                              TEMP = TEMP - A(K,I)*B(K,J)
+  110                     CONTINUE
+                          IF (NOUNIT) TEMP = TEMP/A(I,I)
+                          B(I,J) = TEMP
+  120                 CONTINUE
+  130             CONTINUE
+              ELSE
+                  DO 160 J = 1,N
+                      DO 150 I = M,1,-1
+                          TEMP = ALPHA*B(I,J)
+                          DO 140 K = I + 1,M
+                              TEMP = TEMP - A(K,I)*B(K,J)
+  140                     CONTINUE
+                          IF (NOUNIT) TEMP = TEMP/A(I,I)
+                          B(I,J) = TEMP
+  150                 CONTINUE
+  160             CONTINUE
+              END IF
+          END IF
+      ELSE
+          IF (LSAME(TRANSA,'N')) THEN
+!
+!           Form  B := alpha*B*inv( A ).
+!
+              IF (UPPER) THEN
+                  DO 210 J = 1,N
+                      IF (ALPHA.NE.ONE) THEN
+                          DO 170 I = 1,M
+                              B(I,J) = ALPHA*B(I,J)
+  170                     CONTINUE
+                      END IF
+                      DO 190 K = 1,J - 1
+                          IF (A(K,J).NE.ZERO) THEN
+                              DO 180 I = 1,M
+                                  B(I,J) = B(I,J) - A(K,J)*B(I,K)
+  180                         CONTINUE
+                          END IF
+  190                 CONTINUE
+                      IF (NOUNIT) THEN
+                          TEMP = ONE/A(J,J)
+                          DO 200 I = 1,M
+                              B(I,J) = TEMP*B(I,J)
+  200                     CONTINUE
+                      END IF
+  210             CONTINUE
+              ELSE
+                  DO 260 J = N,1,-1
+                      IF (ALPHA.NE.ONE) THEN
+                          DO 220 I = 1,M
+                              B(I,J) = ALPHA*B(I,J)
+  220                     CONTINUE
+                      END IF
+                      DO 240 K = J + 1,N
+                          IF (A(K,J).NE.ZERO) THEN
+                              DO 230 I = 1,M
+                                  B(I,J) = B(I,J) - A(K,J)*B(I,K)
+  230                         CONTINUE
+                          END IF
+  240                 CONTINUE
+                      IF (NOUNIT) THEN
+                          TEMP = ONE/A(J,J)
+                          DO 250 I = 1,M
+                              B(I,J) = TEMP*B(I,J)
+  250                     CONTINUE
+                      END IF
+  260             CONTINUE
+              END IF
+          ELSE
+!
+!           Form  B := alpha*B*inv( A**T ).
+!
+              IF (UPPER) THEN
+                  DO 310 K = N,1,-1
+                      IF (NOUNIT) THEN
+                          TEMP = ONE/A(K,K)
+                          DO 270 I = 1,M
+                              B(I,K) = TEMP*B(I,K)
+  270                     CONTINUE
+                      END IF
+                      DO 290 J = 1,K - 1
+                          IF (A(J,K).NE.ZERO) THEN
+                              TEMP = A(J,K)
+                              DO 280 I = 1,M
+                                  B(I,J) = B(I,J) - TEMP*B(I,K)
+  280                         CONTINUE
+                          END IF
+  290                 CONTINUE
+                      IF (ALPHA.NE.ONE) THEN
+                          DO 300 I = 1,M
+                              B(I,K) = ALPHA*B(I,K)
+  300                     CONTINUE
+                      END IF
+  310             CONTINUE
+              ELSE
+                  DO 360 K = 1,N
+                      IF (NOUNIT) THEN
+                          TEMP = ONE/A(K,K)
+                          DO 320 I = 1,M
+                              B(I,K) = TEMP*B(I,K)
+  320                     CONTINUE
+                      END IF
+                      DO 340 J = K + 1,N
+                          IF (A(J,K).NE.ZERO) THEN
+                              TEMP = A(J,K)
+                              DO 330 I = 1,M
+                                  B(I,J) = B(I,J) - TEMP*B(I,K)
+  330                         CONTINUE
+                          END IF
+  340                 CONTINUE
+                      IF (ALPHA.NE.ONE) THEN
+                          DO 350 I = 1,M
+                              B(I,K) = ALPHA*B(I,K)
+  350                     CONTINUE
+                      END IF
+  360             CONTINUE
+              END IF
+          END IF
+      END IF
+
+      END SUBROUTINE DTRSM
 

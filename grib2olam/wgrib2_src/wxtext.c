@@ -33,8 +33,8 @@ const char *WxLabel(float f) {
 
 int mk_WxKeys(unsigned char **sec) {
 
-    int template, n_bits, i, j, ok;
-    unsigned int n;
+    int template, n_bits, ok;
+    unsigned int i, j, n;
     double ref_val, dec_scale, bin_scale;
     float *dat;
 
@@ -64,8 +64,8 @@ int mk_WxKeys(unsigned char **sec) {
 
     n_bits = (int) sec[2][18];
 
-    dat = (float *) malloc(n * sizeof(float));
-    WxTable = (char *) malloc((n + 1) * sizeof(char));
+    dat = (float *) malloc(sizeof(float) * (size_t) n);
+    WxTable = (char *) malloc(sizeof(char) * ((size_t) n + 1));
     if (dat == NULL || WxTable == NULL) fatal_error("mk_WxKeys: memory allocation","");
 
     unpk_0(dat, sec[2] + 20, NULL, n_bits, n, ref_val, bin_scale, dec_scale);
@@ -77,7 +77,7 @@ int mk_WxKeys(unsigned char **sec) {
     free(dat);
     WxTable[n] = 0;
     j++;
-    WxKeys = (char **) malloc(j * sizeof(char *) );
+    WxKeys = (char **) malloc(sizeof(char *) * (size_t) j);
     if (WxKeys == NULL) fatal_error("mk_WxKeys: memory allocation","");
 
     WxKeys[0] = WxTable;

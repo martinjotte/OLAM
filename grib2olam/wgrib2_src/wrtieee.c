@@ -17,82 +17,52 @@
  *     Bob Farquhar
  * v1.4 3/2008 w. ebisuzaki added little-endian output
  * v1.5 11/2013 w. ebisuzaki remove h4[] to cleanup not ititialized warning
- *                use OpenMP
+ * v1.6 7/2015 w. ebisuzaki OpenMP support, write to fwrite_file, bigger buffer
+ * v1.7 12/2017 w. ebisuzaki: size(float) -> 4
  */
 
-/* BSIZ MUST be a multiple of 4 */
+/* BSIZ has to be a multiple of 4 */
 
-#define BSIZ (4*1024*4)
-
+#define BSIZ (64u*1024u*4u)
 
 extern int ieee_little_endian;
 
-int wrtieee(float *array, unsigned int n, int header, FILE *output) {
+int wrtieee(float *array, unsigned int n, int header, struct seq_file *out) {
 
-	unsigned int l;
-	unsigned int nbuf;
+	unsigned int i, j, l, nbuf, loop;
 	unsigned char buff[BSIZ];
-	int i, j, lim1, lim2;
 
 	nbuf = 0;
-	l = n * 4;
 	if (header) {
+		if (n >= 4294967295U / 4) 	// size(ieee) == 4
+			fatal_error("wrtieee: grid too large for 4-byte header","");
+		l = n * 4;
+
 		buff[nbuf  ] = (l >> 24) & 255;
 		buff[nbuf+1] = (l >> 16) & 255;
 		buff[nbuf+2] = (l >>  8) & 255;
 		buff[nbuf+3] = l         & 255;
 		nbuf += 4;
 	}
-
 	i = 0;
-
-#pragma omp parallel
 	while (i < n) {
-#pragma omp single
-{
-	    if (nbuf >= BSIZ) {
-		if (ieee_little_endian) swap_buffer(buff, BSIZ);
-		fwrite(buff, 1, BSIZ, output);
-		nbuf = 0;
-	    }
-	    lim1 = (n - i); 
-	    lim2 = (BSIZ - nbuf) >> 2; 
-	    lim1 = lim1 < lim2 ? lim1 : lim2;
+		loop = (BSIZ - nbuf)/4;
+		loop  = (n-i) > loop ? loop : (n-i);
+#pragma omp parallel for private(j) schedule(static)
+		for (j = 0 ; j < loop; j++) {
+		    flt2ieee(array[i+j], buff + nbuf + j*4);
+		}
+		i += loop;
+		nbuf += 4*loop;
 
-	    i += lim1;
-	    nbuf += lim1*4;
-}
-
-#pragma omp for schedule(static) private(j)
-	    for (j = 0; j < lim1; j++) {
-		flt2ieee(array[i - lim1 + j], buff + nbuf - lim1*4 + j*4 );
-	    }
-
-	}
-
-/* old code
-	for (i = 0; i < n; i++) {
-		if (nbuf >= BSIZ) {
+		if (nbuf >= BSIZ) {		// nbuf should never be > BSIZ
 		    if (ieee_little_endian) swap_buffer(buff, BSIZ);
-		    fwrite(buff, 1, BSIZ, output);
+		    fwrite_file(buff, 1, BSIZ, out);
 		    nbuf = 0;
 		}
-		flt2ieee(array[i], buff + nbuf);
-		nbuf += 4;
 	}
-*/
-	if (nbuf >= BSIZ) {
-	    if (ieee_little_endian) swap_buffer(buff, BSIZ);
-	    fwrite(buff, 1, BSIZ, output);
-	    nbuf = 0;
-	}
-
 	if (header) {
-		if (nbuf == BSIZ) {
-		    if (ieee_little_endian) swap_buffer(buff, BSIZ);
-		    fwrite(buff, 1, BSIZ, output);
-		    nbuf = 0;
-		}
+		l = n * 4;
 		buff[nbuf  ] = (l >> 24) & 255;
 		buff[nbuf+1] = (l >> 16) & 255;
 		buff[nbuf+2] = (l >>  8) & 255;
@@ -101,8 +71,7 @@ int wrtieee(float *array, unsigned int n, int header, FILE *output) {
 	}
 	if (nbuf) {
 	    if (ieee_little_endian) swap_buffer(buff, nbuf);
-	    fwrite(buff, 1, nbuf, output);
+	    fwrite_file(buff, 1, nbuf, out);
 	}
-
 	return 0;
 }

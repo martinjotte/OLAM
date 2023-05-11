@@ -12,7 +12,7 @@
  *   1/2007: Caser Tejeda Hernandez found error in meter underground
  *   2/2007: level 11
  *   2/2007: spelling error fixed
- *   9/2008: type 241 added Nick Lott 
+ *   9/2008: type 241 added Nick Lott
  */
 
 
@@ -36,19 +36,19 @@ const char *level_table[192] = {
 /* 10 */ "entire atmosphere",
 /* 11 */ "cumulonimbus base",
 /* 12 */ "cumulonimbus top",
-/* 13 */ "reserved",
-/* 14 */ "reserved",
-/* 15 */ "reserved",
-/* 16 */ "reserved",
+/* 13 */ "lowest level %g%% integrated cloud cover",
+/* 14 */ "level of free convection",
+/* 15 */ "convection condensation level",
+/* 16 */ "level of neutral buoyancy",
 /* 17 */ "reserved",
 /* 18 */ "reserved",
 /* 19 */ "reserved",
 /* 20 */ "%g K level",
-/* 21 */ "reserved",
-/* 22 */ "reserved",
-/* 23 */ "reserved",
-/* 24 */ "reserved",
-/* 25 */ "reserved",
+/* 21 */ "lowest level > %g kg/m^3",
+/* 22 */ "highest level > %g kg/m^3",
+/* 23 */ "lowest level > %g Bq/m^3",
+/* 24 */ "highest level > %g Bg/m^3",
+/* 25 */ "highest level > %g dBZ",
 /* 26 */ "reserved",
 /* 27 */ "reserved",
 /* 28 */ "reserved",
@@ -136,13 +136,13 @@ const char *level_table[192] = {
 /* 110 */ "reserved",
 /* 111 */ "%g Eta level",
 /* 112 */ "reserved",
-/* 113 */ "logarithmic hybrid level",
+/* 113 */ "%g logarithmic hybrid level",
 /* 114 */ "snow level",
-/* 115 */ "reserved",
+/* 115 */ "%g sigma height level",
 /* 116 */ "reserved",
 /* 117 */ "mixed layer depth",
-/* 118 */ "hybrid height level",
-/* 119 */ "hybrid pressure level",
+/* 118 */ "%g hybrid height level",
+/* 119 */ "%g hybrid pressure level",
 /* 120 */ "reserved",
 /* 121 */ "reserved",
 /* 122 */ "reserved",
@@ -174,7 +174,7 @@ const char *level_table[192] = {
 /* 148 */ "reserved",
 /* 149 */ "reserved",
 /* 150 */ "%g generalized vertical height coordinate",
-/* 151 */ "reserved",
+/* 151 */ "soil level %g",
 /* 152 */ "reserved",
 /* 153 */ "reserved",
 /* 154 */ "reserved",
@@ -191,23 +191,23 @@ const char *level_table[192] = {
 /* 165 */ "bottom of sediment layer penetrated by thermal wave",
 /* 166 */ "maxing layer",
 /* 167 */ "bottom of root zone",
-/* 168 */ "reserved",
-/* 169 */ "reserved",
-/* 170 */ "reserved",
+/* 168 */ "ocean model level %g",
+/* 169 */ "ocean level %g (kg*m-3) density difference to near surface",
+/* 170 */ "ocean level %g (K) pot. temperature difference to near surface",
 /* 171 */ "reserved",
 /* 172 */ "reserved",
 /* 173 */ "reserved",
-/* 174 */ "reserved",
-/* 175 */ "reserved",
-/* 176 */ "reserved",
-/* 177 */ "reserved",
+/* 174 */ "top surface of ice on sea, lake or river",
+/* 175 */ "top surface of ice, und snow on sea, lake or river",
+/* 176 */ "bottom surface ice on sea, lake or river",
+/* 177 */ "deep soil",
 /* 178 */ "reserved",
-/* 179 */ "reserved",
-/* 180 */ "reserved",
-/* 181 */ "reserved",
-/* 182 */ "reserved",
-/* 183 */ "reserved",
-/* 184 */ "reserved",
+/* 179 */ "top surface of glacier ice and inland ice",
+/* 180 */ "deep inland or glacier ice",
+/* 181 */ "grid tile land fraction as a model surface",
+/* 182 */ "grid tile water fraction as a model surface",
+/* 183 */ "grid tile ice fraction on sea, lake or river as a model surface",
+/* 184 */ "grid tile glacier ice and inland ice fraction as a model surface",
 /* 185 */ "reserved",
 /* 186 */ "reserved",
 /* 187 */ "reserved",
@@ -217,9 +217,144 @@ const char *level_table[192] = {
 /* 191 */ "reserved"
 };
 
+// 192..255
+const char *ncep_level_table[64] = {
+/* 192 */ "reserved",
+/* 193 */ "reserved",
+/* 194 */ "reserved",
+/* 195 */ "reserved",
+/* 196 */ "reserved",
+/* 197 */ "reserved",
+/* 198 */ "reserved",
+/* 199 */ "reserved",
+/* 200 */ "entire atmosphere (considered as a single layer)",
+/* 201 */ "entire ocean (considered as a single layer)",
+/* 202 */ "reserved",
+/* 203 */ "reserved",
+/* 204 */ "highest tropospheric freezing level",
+/* 205 */ "reserved",
+/* 206 */ "grid scale cloud bottom level",
+/* 207 */ "grid scale cloud top level",
+/* 208 */ "reserved",
+/* 209 */ "boundary layer cloud bottom level",
+/* 210 */ "boundary layer cloud top level",
+/* 211 */ "boundary layer cloud layer",
+/* 212 */ "low cloud bottom level",
+/* 213 */ "low cloud top level",
+/* 214 */ "low cloud layer",
+/* 215 */ "cloud ceiling",
+/* 216 */ "reserved",
+/* 217 */ "reserved",
+/* 218 */ "reserved",
+/* 219 */ "reserved",
+/* 220 */ "planetary boundary layer",
+/* 221 */ "layer between two hybrid levels",
+/* 222 */ "middle cloud bottom level",
+/* 223 */ "middle cloud top level",
+/* 224 */ "middle cloud layer",
+/* 225 */ "reserved",
+/* 226 */ "reserved",
+/* 227 */ "reserved",
+/* 228 */ "reserved",
+/* 229 */ "reserved",
+/* 230 */ "reserved",
+/* 231 */ "reserved",
+/* 232 */ "high cloud bottom level",
+/* 233 */ "high cloud top level",
+/* 234 */ "high cloud layer",
+/* 235 */ "%gC ocean isotherm",
+/* 236 */ "layer between two depths below ocean surface",
+/* 237 */ "bottom of ocean mixed layer",
+/* 238 */ "bottom of ocean isothermal layer",
+/* 239 */ "layer ocean surface and 26C ocean isothermal level",
+/* 240 */ "ocean mixed layer",
+/* 241 */ "%g in sequence",
+/* 242 */ "convective cloud bottom level",
+/* 243 */ "convective cloud top level",
+/* 244 */ "convective cloud layer",
+/* 245 */ "lowest level of the wet bulb zero",
+/* 246 */ "maximum equivalent potential temperature level",
+/* 247 */ "equilibrium level",
+/* 248 */ "shallow convective cloud bottom level",
+/* 249 */ "shallow convective cloud top level",
+/* 250 */ "reserved",
+/* 251 */ "deep convective cloud bottom level",
+/* 252 */ "deep convective cloud top level",
+/* 253 */ "lowest bottom level of supercooled liquid water layer",
+/* 254 */ "highest top level of supercooled liquid water layer",
+/* 255 */ "missing"
+};
+
+// 192..255
+const char *kma_level_table[64] = {
+/* 192 */ "reserved",
+/* 193 */ "reserved",
+/* 194 */ "reserved",
+/* 195 */ "hybrid sigma pressure",
+/* 196 */ "Height from ground KFT",
+/* 197 */ "canopy",
+/* 198 */ "ICAO convective cloud top level",
+/* 199 */ "ICAO convective cloud base level",
+/* 200 */ "entire atmosphere (considered as a single layer)",
+/* 201 */ "entire ocean (considered as a single layer)",
+/* 202 */ "reserved",
+/* 203 */ "reserved",
+/* 204 */ "highest tropospheric freezing level",
+/* 205 */ "reserved",
+/* 206 */ "grid scale cloud bottom level",
+/* 207 */ "grid scale cloud top level",
+/* 208 */ "reserved",
+/* 209 */ "boundary layer cloud bottom level",
+/* 210 */ "boundary layer cloud top level",
+/* 211 */ "boundary layer cloud layer",
+/* 212 */ "low cloud bottom level",
+/* 213 */ "low cloud top level",
+/* 214 */ "low cloud layer",
+/* 215 */ "cloud ceiling",
+/* 216 */ "reserved",
+/* 217 */ "reserved",
+/* 218 */ "reserved",
+/* 219 */ "reserved",
+/* 220 */ "planetary boundary layer",
+/* 221 */ "layer between two hybrid levels",
+/* 222 */ "middle cloud bottom level",
+/* 223 */ "middle cloud top level",
+/* 224 */ "middle cloud layer",
+/* 225 */ "reserved",
+/* 226 */ "reserved",
+/* 227 */ "reserved",
+/* 228 */ "reserved",
+/* 229 */ "reserved",
+/* 230 */ "reserved",
+/* 231 */ "reserved",
+/* 232 */ "high cloud bottom level",
+/* 233 */ "high cloud top level",
+/* 234 */ "high cloud layer",
+/* 235 */ "%gC ocean isotherm",
+/* 236 */ "layer between two depths below ocean surface",
+/* 237 */ "bottom of ocean mixed layer",
+/* 238 */ "bottom of ocean isothermal layer",
+/* 239 */ "layer ocean surface and 26C ocean isothermal level",
+/* 240 */ "ocean mixed layer",
+/* 241 */ "%g in sequence",
+/* 242 */ "convective cloud bottom level",
+/* 243 */ "convective cloud top level",
+/* 244 */ "convective cloud layer",
+/* 245 */ "lowest level of the wet bulb zero",
+/* 246 */ "maximum equivalent potential temperature level",
+/* 247 */ "equilibrium level",
+/* 248 */ "shallow convective cloud bottom level",
+/* 249 */ "shallow convective cloud top level",
+/* 250 */ "reserved",
+/* 251 */ "deep convective cloud bottom level",
+/* 252 */ "deep convective cloud top level",
+/* 253 */ "lowest bottom level of supercooled liquid water layer",
+/* 254 */ "highest top level of supercooled liquid water layer",
+/* 255 */ "missing"
+};
 
 int level1(int mode, int type, int undef_val, float value, int center, int subcenter, char *inv_out);
-int level2(int mode, int type1, int undef_val1, float value1, int type2, int undef_val2, 
+int level2(int mode, int type1, int undef_val1, float value1, int type2, int undef_val2,
    float value2, int center, int subcenter, char *inv_out);
 
 int f_lev(ARG0) {
@@ -282,8 +417,23 @@ int level2(int mode, int type1, int undef_val1, float value1, int type2, int und
     else if (type1 == 108 && type2 == 108) {
 	sprintf(inv_out,"%g-%g mb above ground",value1/100,value2/100);
     }
+    else if (type1 == 111 && type2 == 111) {
+	sprintf(inv_out,"%g-%g Eta layer",value1,value2);
+    }
+    else if (type1 == 115 && type2 == 115) {
+	sprintf(inv_out,"%g-%g sigma height layer",value1,value2);
+    }
+    else if (type1 == 118 && type2 == 118) {
+	sprintf(inv_out,"%g-%g hybrid height layer",value1,value2);
+    }
+    else if (type1 == 119 && type2 == 119) {
+	sprintf(inv_out,"%g-%g hybrid pressure layer",value1,value2);
+    }
     else if (type1 == 160 && type2 == 160) {
 	sprintf(inv_out,"%g-%g m below sea level",value1,value2);
+    }
+    else if (type1 == 161 && type2 == 161) {
+	sprintf(inv_out,"%g-%g m ocean layer",value1,value2);
     }
     else if (type1 == 1 && type2 == 8) {
 	sprintf(inv_out,"atmos col");		// compatible with wgrib
@@ -318,41 +468,28 @@ int level2(int mode, int type1, int undef_val1, float value1, int type2, int und
 
 int level1(int mode, int type, int undef_val, float val, int center, int subcenter,char *inv_out) {
 
-    const char *string;
+    /* WMO defined levels */
 
-    /* local table for NCEP */
-    if (center == NCEP && type >= 192 && type <= 254) {
-	if (type == 235) {
-	    sprintf(inv_out,"%gC ocean isotherm", val/10);
-	    return 0;
-	}
-	if (type == 241) {
-	    sprintf(inv_out,"%g in sequence", val);
-	    return 0;
-	}
-
-	string = NULL;
-        switch (type) {
-#include "CodeTable_4.5_ncep.dat"
-	}
-	if (string != NULL) {
-	    sprintf(inv_out,string, val);
-	    return 0;
-	}
+    if (type < 192) {
+        if (type == 100 || type == 108) val = val * 0.01;  // Pa -> mb
+	sprintf(inv_out,level_table[type], val);
+	return 0;
     }
-
-    if (type == 100 || type == 108) val = val * 0.01;  // Pa -> mb
 
     // no numeric information
     if (type == 255) return 8;
 
-    if (type < 192) {
-	sprintf(inv_out,level_table[type], val);
+    /* local table for NCEP */
+    if (center == NCEP && type >= 192 && type <= 254) {
+        if (type == 235) val *= 0.01;  // C -> 0.1C
+	sprintf(inv_out,ncep_level_table[type-192], val);
     }
-    else if (center == NCEP){
-	if (undef_val == 0) sprintf(inv_out,"NCEP level type %d %g", type, val);
-	else sprintf(inv_out,"NCEP level type %d", type);
+
+    else if (center == KMA && type >= 192 && type <= 254) {
+        if (type == 235) val *= 0.01;  // C -> 0.1C
+	sprintf(inv_out,kma_level_table[type-192], val);
     }
+
     else {
         if (undef_val == 0) sprintf(inv_out,"local level type %d %g", type, val);
         else sprintf(inv_out,"local level type %d", type);

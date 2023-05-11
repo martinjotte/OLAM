@@ -1,9 +1,10 @@
       module rrlw_kg09
 
-      use parkind ,only : im => kind_im, rb => kind_rb
+      use parkind, only: im => kind_im, rb => kind_rb
 
       implicit none
-      save
+
+      private :: im, rb
 
 !-----------------------------------------------------------------
 ! rrtmg_lw ORIGINAL abs. coefficients for interval 9
@@ -16,17 +17,17 @@
 !
 !  name     type     purpose
 !  ----   : ----   : ---------------------------------------------
-!fracrefao: real    
-!fracrefbo: real    
-! kao     : real     
-! kbo     : real     
-! kao_mn2o: real     
-! kbo_mn2o: real     
-! selfrefo: real     
-! forrefo : real     
+!fracrefao: real
+!fracrefbo: real
+! kao     : real
+! kbo     : real
+! kao_mn2o: real
+! kbo_mn2o: real
+! selfrefo: real
+! forrefo : real
 !-----------------------------------------------------------------
 
-      integer(kind=im), parameter :: no9  = 16
+      integer(kind=im), parameter :: no9 = 16
 
       real(kind=rb) , dimension(no9) :: fracrefbo
 
@@ -49,30 +50,31 @@
 !
 !  name     type     purpose
 !  ----   : ----   : ---------------------------------------------
-!fracrefa : real    
-!fracrefb : real    
-! ka      : real     
-! kb      : real     
-! ka_mn2o : real     
-! kb_mn2o : real     
-! selfref : real     
-! forref  : real     
+!fracrefa : real
+!fracrefb : real
+! ka      : real
+! kb      : real
+! ka_mn2o : real
+! kb_mn2o : real
+! selfref : real
+! forref  : real
 !
 ! absa    : real
 ! absb    : real
 !-----------------------------------------------------------------
 
-      integer(kind=im), parameter :: ng9  = 12
+      integer(kind=im), parameter :: ng9 = 12
 
       real(kind=rb) , dimension(ng9) :: fracrefb
       real(kind=rb) :: fracrefa(ng9,9)
-      real(kind=rb) :: ka(9,5,13,ng9) ,absa(585,ng9)
-      real(kind=rb) :: kb(5,13:59,ng9) ,absb(235,ng9)
-      real(kind=rb) :: ka_mn2o(9,19,ng9)
-      real(kind=rb) :: kb_mn2o(19,ng9)
-      real(kind=rb) :: selfref(10,ng9)
-      real(kind=rb) :: forref(4,ng9)
-
-      equivalence (ka(1,1,1,1),absa(1,1)),(kb(1,13,1),absb(1,1))
+      real(kind=rb) :: dfracrefa(ng9,9)
+      real(kind=rb) :: absa(ng9,585)
+      real(kind=rb) :: absb(ng9,235)
+      real(kind=rb) :: ka_mn2o(ng9,9,19)
+      real(kind=rb) :: kb_mn2o(ng9,19)
+      real(kind=rb) :: dka_mn2o(ng9,9,19)
+      real(kind=rb) :: dkb_mn2o(ng9,19)
+      real(kind=rb) :: selfref(ng9,10)
+      real(kind=rb) :: forref(ng9,4)
 
       end module rrlw_kg09

@@ -19,7 +19,7 @@
 
 
 C RCS file, release, date & time of last delta, author, state, [and locker]
-C $Header: /project/yoj/arc/CCTM/src/util/util/findex.f,v 1.2 2011/10/21 16:11:37 yoj Exp $ 
+C $Header: /project/yoj/arc/CCTM/src/util/util/findex.f,v 1.2 2011/10/21 16:11:37 yoj Exp $
 
 C what(1) key, module and SID; SCCS file; date and time of last delta:
 C @(#)findex.f  1.1 /project/mod3/CMAQ/src/util/util/SCCS/s.findex.f 03 Jun 1997 12:08:19
@@ -31,7 +31,7 @@ C Searches for INDX in list NLIST and returns the subscript
 C (1...N) at which it is found, or returns 0 if INDX not found
 
       IMPLICIT NONE
- 
+
       INTEGER INDX        !  index being searched for
       INTEGER N           !  Length of array to be searched
       INTEGER NLIST(*)    !  array to be searched

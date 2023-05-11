@@ -19,7 +19,7 @@
 
 
 C RCS file, release, date & time of last delta, author, state, [and locker]
-C $Header: /project/yoj/arc/CCTM/src/cloud/cloud_acm_ae5/indexn.f,v 1.4 2011/10/21 16:10:27 yoj Exp $ 
+C $Header: /project/yoj/arc/CCTM/src/cloud/cloud_acm_ae5/indexn.f,v 1.4 2011/10/21 16:10:27 yoj Exp $
 
 C what(1) key, module and SID; SCCS file; date and time of last delta:
 C %W% %P% %G% %U%
@@ -62,10 +62,10 @@ C***********************************************************************
       INTEGER     I
       INTEGER     INDICES(*)
 
-      CHARACTER*(*) NAME1
-      CHARACTER*(*) NAME2(*)
+      CHARACTER(*) NAME1
+      CHARACTER(*) NAME2(*)
 
-C...Assume NAME1 is not in list NAME2    
+C...Assume NAME1 is not in list NAME2
 
       INDEXN = 0
 
@@ -78,5 +78,4 @@ C...Assume NAME1 is not in list NAME2
 
       END DO
 
-      RETURN
-      END              
+      END FUNCTION INDEXN

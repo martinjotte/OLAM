@@ -140,7 +140,7 @@ do ibox = 1,nvals
    rjf(3) = rjf(2) + yinc
    rjf(4) = rjf(3)
    rjf(5) = rjf(1)
-      
+
    write (number,'(f7.0)') vals(ibox)
 
    call deblank(number,numbr,nnn)
@@ -278,7 +278,7 @@ real, dimension(5) :: rif,rjf
 real, dimension(8) :: dst,ind
 integer, dimension(18) :: iasf
 data iasf / 18*1 /
-    
+
 !  This subroutine plots a white background for the entire plot.
 
 call gsclip (0)
@@ -294,7 +294,7 @@ call gsfais (1)
 call set (0.,1.,0.,1.,0.,1.,0.,1.,1)
 
 call sfseti ('TYPE OF FILL',0)
-     
+
 rif(1) = 0.
 rif(2) = 1.
 rif(3) = 1.

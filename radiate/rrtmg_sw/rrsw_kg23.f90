@@ -1,10 +1,10 @@
       module rrsw_kg23
 
-      use parkind ,only : im => kind_im, rb => kind_rb
-      use parrrsw, only : ng23
+      use parkind, only: im => kind_im, rb => kind_rb
+      use parrrsw, only: ng23
 
       implicit none
-      save
+      private :: im, rb
 
 !-----------------------------------------------------------------
 ! rrtmg_sw ORIGINAL abs. coefficients for interval 23
@@ -17,11 +17,11 @@
 !
 !  name     type     purpose
 !  ----   : ----   : ---------------------------------------------
-! kao     : real     
-! kbo     : real     
-! selfrefo: real     
+! kao     : real
+! kbo     : real
+! selfrefo: real
 ! forrefo : real
-!sfluxrefo: real     
+!sfluxrefo: real
 !-----------------------------------------------------------------
 
       integer(kind=im), parameter :: no23 = 16
@@ -42,20 +42,18 @@
 !
 !  name     type     purpose
 !  ----   : ----   : ---------------------------------------------
-! ka      : real     
-! kb      : real     
+! ka      : real
+! kb      : real
 ! absa    : real
 ! absb    : real
-! selfref : real     
+! selfref : real
 ! forref  : real
-! sfluxref: real     
+! sfluxref: real
 !-----------------------------------------------------------------
 
-      real(kind=rb) :: ka(5,13,ng23), absa(65,ng23)
-      real(kind=rb) :: selfref(10,ng23), forref(3,ng23)
+      real(kind=rb) :: absa(ng23,65)
+      real(kind=rb) :: selfref(ng23,10), forref(ng23,3)
       real(kind=rb) :: sfluxref(ng23), rayl(ng23)
-
-      equivalence (ka(1,1,1),absa(1,1))
 
       end module rrsw_kg23
 

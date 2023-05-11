@@ -16,6 +16,7 @@
  * 1/2008 S. Varlamov fixed to code_table_5.5
  * 5/2013 W. Ebisuzaki fixed code table 0.0 in response to error report M. Foster
  * 7/2013 W. Ebisuzaki added more *_location() functions, needed by set_pdt()
+ * 5/2013 G. Schnee add case for DRT 5.42
  */
 
 /*
@@ -212,7 +213,7 @@ int code_table_1_6(unsigned char **sec) {
     return (int) *p;
 }
 unsigned char *code_table_1_6_location(unsigned char **sec) {
-    return  (GB2_Sec1_size(sec) >= 24 && sec[1][21] == 0 && sec[1][22] == 0) 
+    return  (GB2_Sec1_size(sec) >= 24 && sec[1][21] == 0 && sec[1][22] == 0)
 	?  sec[1] + 23 : NULL;
 }
 
@@ -290,27 +291,34 @@ int code_table_3_2(unsigned char **sec) {
 }
 
 unsigned char *code_table_3_2_location(unsigned char **sec) {
-    int grid_def;
+    int grid_def, center;
     grid_def = code_table_3_1(sec);
 
     if (grid_def < 50) return sec[3]+14;
 
     switch (grid_def) {
         case 90:
+        case 101:
         case 110:
         case 130:
         case 140:
         case 204:
         case 1000:
         case 1100:
+#ifdef WMO_VALIDATION
+        case 60:
+#endif
             return sec[3]+14; break;
         default: break;
     }
 
-    if (GB2_Center(sec) == NCEP) {
+    center = GB2_Center(sec);
+    if (center == NCEP) {
         if (grid_def == 32768 || (grid_def == 32769)) return sec[3]+14;
     }
-
+    if ((center == JMA1) || (center == JMA2)) {
+        if (grid_def == 40110) return sec[3]+14;
+    }
     return  NULL;
 }
 
@@ -535,12 +543,25 @@ int f_code_table_4_1(ARG0) {
     return 0;
 }
 int code_table_4_1(unsigned char **sec) {
-    int p;
+    unsigned char *p;
+    p = code_table_4_1_location(sec);
+    return (p != NULL) ? (int) *p : -1;
+}
+
+unsigned char *code_table_4_1_location(unsigned char **sec) {
+    int p, center;
+
     p = GB2_ProdDefTemplateNo(sec);
-    if (p <= 15 || p == 20 || (p >= 30 && p <= 32) || (p >= 40 && p <= 48) || (p >= 50 && p <= 52) || 
-           p == 60 || p == 61 || p == 91 ||
-           p == 254 || (p >= 1000 && p <= 1002) || p == 1100 || p == 1101) return (int) sec[4][9];
-    return -1;
+    if (p <= 15 || p == 20 || (p >= 30 && p <= 35) || (p >= 40 && p <= 49) || p == 51 ||
+	   (p >= 53 && p <= 61) || p == 67 || p == 68 || (p >= 70 && p <= 74) || p == 91 ||
+           p == 254 || (p >= 1000 && p <= 1002) || p == 1100 || p == 1101) return sec[4]+ 9;
+    center = GB2_Center(sec);
+    if ((center == JMA1) || (center == JMA2)) {
+        if (p == 50000 || p == 50008 || p == 50009 || p == 50010 || p == 50011 || p == 50020
+	    || p == 51020 || p == 51021 || p == 51022 || p == 52020)
+		return sec[4] + 9;
+    }
+    return NULL;
 }
 
 /*
@@ -556,14 +577,30 @@ int f_code_table_4_2(ARG0) {
     return 0;
 }
 int code_table_4_2(unsigned char **sec) {
-    int p;
-    p = GB2_ProdDefTemplateNo(sec);
-    if (p <= 15 || p == 20 || (p >= 30 && p <= 32) || (p >= 40 && p <= 48) ||  (p >= 50 && p <= 52) || 
-           p == 60 || p == 61 || p == 91 ||
-           p == 254 || (p >= 1000 && p <= 1002) || p == 1100 || p == 1101) 
-        return (int) sec[4][10];
-    return -1;
+    unsigned char *p;
+    p = code_table_4_2_location(sec);
+    return (p != NULL) ? (int) *p : -1;
 }
+
+unsigned char *code_table_4_2_location(unsigned char **sec) {
+    int p, center;
+
+    p = GB2_ProdDefTemplateNo(sec);
+    if (p <= 15 || p == 20 || (p >= 30 && p <= 35) || (p >= 40 && p <= 49) || p == 51 ||
+	   (p >= 53 && p <= 61) || p == 67 || p == 68 || (p >= 70 && p <= 74) || p == 91 ||
+           p == 254 || (p >= 1000 && p <= 1002) || p == 1100 || p == 1101) return sec[4] + 10;
+
+    center = GB2_Center(sec);
+    if (p == 50008 && ((center == JMA1) || (center == JMA2))) return sec[4] + 10;
+    if ((center == JMA1) || (center == JMA2)) {
+        if (p == 50000 || p == 50008 || p == 50009 || p == 50010 || p == 50011 || p == 50020
+	    || p == 51020 || p == 51021 || p == 51022 || p == 52020)
+		return sec[4] + 10;
+    }
+
+    return NULL;
+}
+
 
 /*
  * HEADER:-1:code_table_4.3:inv:0:code table 4.3 Type of Generating Process
@@ -587,13 +624,14 @@ int f_code_table_4_3(ARG0) {
 int code_table_4_3(unsigned char **sec) {
     unsigned char *p;
     p = code_table_4_3_location(sec);
-    if (p == NULL) return -1;
-    return (int) *p;
+    return (p != NULL) ? (int) *p : -1;
 }
 
 unsigned char *code_table_4_3_location(unsigned char **sec) {
-    int pdt;
+    int pdt, center, n;
+
     pdt =  GB2_ProdDefTemplateNo(sec);
+    center = GB2_Center(sec);
     switch(pdt) {
     case 0:
     case 1:
@@ -614,6 +652,11 @@ unsigned char *code_table_4_3_location(unsigned char **sec) {
     case 20:
     case 30:
     case 31:
+    case 32:
+    case 33:
+    case 34:
+    case 35:
+    case 47:
     case 60:
     case 61:
     case 1000:
@@ -628,19 +671,44 @@ unsigned char *code_table_4_3_location(unsigned char **sec) {
     case 43:
         return sec[4]+13; break;
     case 44:
+    case 45:
+    case 46:
         return sec[4]+24; break;
     case 48:
         return sec[4]+35; break;
     case 52:
         return sec[4]+13; break;
+    case 57:
+	n = number_of_mode(sec);
+	if (n <= 0 || n == 65535) fatal_error_i("PDT 4.57 bad number of mode %d", n);
+	return sec[4]+20+5*n; break;
+    case 70:
+    case 71:
+    case 72:
+    case 73:
+	return sec[4]+16; break;
+    case 50000:
+    case 50008:
+    case 50009:
+    case 50010:
+    case 50011:
+    case 50020:
+    case 51020:
+    case 51021:
+    case 51022:
+    case 52020:
+	if ((center == JMA1) || (center == JMA2)) return sec[4]+11;
+	return NULL;
+	break;
     default:
         return NULL;
+	break;
     }
     return NULL;
 }
 
 /*
- * HEADER:-1:code_table_4.4:inv:0:code table 4.4
+ * HEADER:-1:code_table_4.4:inv:0:code table 4.4  (first)
  */
 int f_code_table_4_4(ARG0) {
     int val;
@@ -663,8 +731,9 @@ int code_table_4_4(unsigned char **sec) {
     return (int) *p;
 }
 unsigned char *code_table_4_4_location(unsigned char **sec) {
-    int pdt;
+    int pdt, center, n;
     pdt = GB2_ProdDefTemplateNo(sec);
+    center = GB2_Center(sec);
 
     switch(pdt) {
     case 0:
@@ -692,20 +761,46 @@ unsigned char *code_table_4_4_location(unsigned char **sec) {
     case 1001:
     case 1002:
 	return sec[4] + 17;
+	break;
     case 40:
     case 41:
     case 42:
     case 43:
 	return sec[4] + 19;
+	break;
     case 44:
     case 45:
     case 46:
     case 47:
 	return sec[4] + 30;
+	break;
     case 48:
 	return sec[4] + 41;
+	break;
     case 52:
 	return sec[4] + 20;
+	break;
+    case 57:
+        n = number_of_mode(sec);
+        if (n <= 0 || n == 65535) fatal_error_i("PDT 4.57 bad number of mode %d", n);
+        return sec[4]+26+5*n; break;
+    case 70:
+    case 71:
+    case 72:
+    case 73:
+	return sec[4]+22; break;
+    case 50008:
+	if (center == JMA1 || center == JMA2) return sec[4]+17;
+	return NULL;
+	break;
+    case 50009:
+	if (center == JMA1 || center == JMA2) return sec[4]+17;
+	return NULL;
+	break;
+    case 50011:
+	if (center == JMA1 || center == JMA2) return sec[4]+17;
+	return NULL;
+	break;
    }
    return NULL;
 }
@@ -717,7 +812,7 @@ unsigned char *code_table_4_4_location(unsigned char **sec) {
  *   3. not used (example radar or satellite images)
  *
  *   returns 1 if code table 4.4 is not used
- */ 
+ */
 
 int code_table_4_4_not_used(unsigned char **sec) {
     int pdt;
@@ -744,8 +839,26 @@ int code_table_4_5a(unsigned char **sec) {
     return (int) *p;
 }
 unsigned char *code_table_4_5a_location(unsigned char **sec) {
-    int pdt;
+    int pdt, center, n;
     pdt = GB2_ProdDefTemplateNo(sec);
+    center = GB2_Center(sec);
+
+    if (center == JMA1 || center == JMA2) {
+        switch (pdt) {
+    	case 50008: return sec[4] + 22; break;
+    	case 50009: return sec[4] + 22; break;
+    	case 51020:
+    	case 51021:
+    	case 51022:
+    	case 51122:
+    	case 52020:
+		return NULL; break;
+	case 50010:
+	case 50011:
+         	return sec[4]+22; break;
+        default: break;
+	}
+    }
 
     switch (pdt) {
     case 0:
@@ -764,8 +877,10 @@ unsigned char *code_table_4_5a_location(unsigned char **sec) {
     case 13:
     case 14:
     case 15:
+    case 51:
     case 60:
     case 61:
+    case 91:
     case 1100:
     case 1101:
          return sec[4]+22; break;
@@ -776,13 +891,27 @@ unsigned char *code_table_4_5a_location(unsigned char **sec) {
         return sec[4]+24; break;
     case 44:
         return sec[4]+33; break;
+    case 45:
+    case 46:
+    case 47:
+        return sec[4]+35; break;
     case 48:
         return sec[4]+46; break;
     case 52: // validation
         return sec[4]+25; break;
+    case 57:
+        n = number_of_mode(sec);
+        if (n <= 0 || n == 65535) fatal_error_i("PDT 4.57 bad number of mode %d", n);
+        return sec[4]+31+5*n; break;
+    case 70:
+    case 71:
+    case 72:
+    case 73:
+	return sec[4] + 27; break;
     case 20:
     case 30:
     case 31:
+    case 32:
     case 1000:
     case 1001:
     case 1002:
@@ -814,8 +943,25 @@ int code_table_4_5b(unsigned char **sec) {
     return *p;
 }
 unsigned char *code_table_4_5b_location(unsigned char **sec) {
-    int pdt;
+    int pdt, center, n;
     pdt = GB2_ProdDefTemplateNo(sec);
+    center = GB2_Center(sec);
+
+    if (center == JMA1 || center == JMA2) {
+        switch (pdt) {
+        case 50008: return sec[4] + 28; break;
+        case 50009: return sec[4] + 28; break;
+    	case 51020:
+    	case 51021:
+    	case 51022:
+    	case 51122:
+		return NULL; break;
+	case 50010:
+	case 50011:
+         	return sec[4]+28; break;
+        default: break;
+        }
+    }
 
     switch (pdt) {
     case 0:
@@ -834,8 +980,10 @@ unsigned char *code_table_4_5b_location(unsigned char **sec) {
     case 13:
     case 14:
     case 15:
+    case 51:
     case 60:
     case 61:
+    case 91:
     case 1100:
     case 1101:
         return sec[4]+28; break;
@@ -846,13 +994,27 @@ unsigned char *code_table_4_5b_location(unsigned char **sec) {
         return sec[4]+30; break;
     case 44:
         return sec[4]+39; break;
+    case 45:
+    case 46:
+    case 47:
+        return sec[4]+41; break;
     case 48:
         return sec[4]+52; break;
-    case 52: 
+    case 52:
         return NULL; break;
+    case 57:
+        n = number_of_mode(sec);
+        if (n <= 0 || n == 65535) fatal_error_i("PDT 4.57 bad number of mode %d", n);
+        return sec[4]+37+5*n; break;
+    case 70:
+    case 71:
+    case 72:
+    case 73:
+	return sec[4]+33; break;
     case 20:
     case 30:
     case 31:
+    case 32:
     case 1000:
     case 1001:
     case 1002:
@@ -884,10 +1046,16 @@ int code_table_4_6(unsigned char **sec) {
     return *p;
 }
 unsigned char *code_table_4_6_location(unsigned char **sec) {
-    int p;
+    int p, nb;
     p = GB2_ProdDefTemplateNo(sec);
     if (p == 1 || p == 11|| p == 60 || p == 61) return  sec[4]+34;
-    if (p >= 40 && p <= 43) return sec[4]+36;
+    // bad: if (p >= 40 && p <= 43) return sec[4]+36;
+    if (p == 41 || p == 43) return sec[4]+36;
+    if (p == 33 || p == 34) {		/* synthetic sat data */
+	nb = sec[4][22];
+	return sec[4]+23+11*nb;
+    }
+    if (p == 71 || p == 73) return sec[4]+39;
     return NULL;
 }
 
@@ -936,11 +1104,10 @@ unsigned char *code_table_4_7_location(unsigned char **sec) {
  * HEADER:-1:code_table_4.8:inv:0:code table 4.7 derived forecast
  */
 int f_code_table_4_8(ARG0) {
-    int val, center;
+    int val;
     const char *string;
     if (mode >= 0) {
         val = code_table_4_8(sec);
-        center = GB2_Center(sec);
         if (val >= 0) {
             string = NULL;
             switch(val) {
@@ -1012,7 +1179,7 @@ unsigned char *code_table_4_9_location(unsigned char **sec) {
 
 
 /*
- * HEADER:-1:code_table_4.10:inv:0:code table 4.10 statistical processing
+ * HEADER:-1:code_table_4.10:inv:0:code table 4.10 statistical processing .. first occurence
  */
 int f_code_table_4_10(ARG0) {
     int val;
@@ -1039,27 +1206,34 @@ int code_table_4_10(unsigned char **sec) {
 }
 
 unsigned char *code_table_4_10_location(unsigned char **sec) {
-    int val;
-    unsigned char *p;
-    val = GB2_ProdDefTemplateNo(sec);
-    switch (val) {
-        case 8: p = sec[4] + 46; break;
-        case 9: p = sec[4] + 59; break;
-        case 10: p = sec[4] + 47; break;
-        case 11: p = sec[4] + 49; break;
-        case 12: p = sec[4] + 48; break;
-        case 13: p = sec[4] + 80; break;
-        case 14: p = sec[4] + 76; break;
-        case 15: p = sec[4] + 34; break;
-        case 42: p = sec[4] + 48; break;
-        case 43: p = sec[4] + 51; break;
-        case 1001: p = sec[4] + 26; break;
-        case 1002: p = sec[4] + 24; break;
-        case 1101: p = sec[4] + 38; break;
-        default: p = NULL; break;
+    int pdt, i, center;
+
+    pdt = GB2_ProdDefTemplateNo(sec);
+    if (pdt == -1) return NULL;
+
+    switch(pdt) {
+        case 8: i = 46; break;
+        case 9: i = 59; break;
+        case 10: i = 47; break;
+        case 11: i = 49; break;
+        case 12: i = 48; break;
+        case 13: i = 80; break;
+        case 14: i = 76; break;
+        case 15: i = 34; break;
+        case 42: i = 48; break;
+        case 43: i = 51; break;
+        case 1001: i = 26; break;
+        case 1002: i = 24; break;
+        case 1101: i = 38; break;
+	case 50011:
+    		center = GB2_Center(sec);
+		if (center != JMA1 && center != JMA2) return NULL;
+		i = 46; break;
+        default: return NULL; break;
     }
-    return p;
+    return sec[4] + i;
 }
+
 
 
 /*
@@ -1112,7 +1286,7 @@ int code_table_4_11(unsigned char **sec) {
 }
 
 unsigned char *code_table_4_11_location(unsigned char **sec) {
-    int val;
+    int val, center;
     unsigned char *p;
     val = GB2_ProdDefTemplateNo(sec);
     switch (val) {
@@ -1127,6 +1301,11 @@ unsigned char *code_table_4_11_location(unsigned char **sec) {
         case 43: p = sec[4] + 52; break;
         case 1001: p = sec[4] + 27; break;
         case 1101: p = sec[4] + 39; break;
+	case 50011:
+    		center = GB2_Center(sec);
+		if (center == JMA1 || center == JMA2) p = sec[4] + 47;
+		else p = NULL;
+		break;
         default: p = NULL; break;
     }
     return p;
@@ -1155,14 +1334,23 @@ int f_code_table_4_15(ARG0) {
 }
 
 int code_table_4_15(unsigned char **sec) {
-    int val, i;
+    unsigned char *p;
+    p = code_table_4_15_location(sec);
+    if (p == NULL) return -1;
+    return (int) *p;
+}
+
+unsigned char *code_table_4_15_location(unsigned char **sec) {
+    int val;
+    unsigned char *p;
     val = GB2_ProdDefTemplateNo(sec);
     switch (val) {
-        case 15: i = sec[4][35]; break;
-        default: i = -1; break;
+        case 15: p = sec[4]+35; break;
+        default: p = NULL; break;
     }
-    return i;
+    return p;
 }
+
 
 /*
  * HEADER:-1:code_table_4.91:inv:0:code table 4.91 type of interval
@@ -1170,7 +1358,7 @@ int code_table_4_15(unsigned char **sec) {
 int f_code_table_4_91(ARG0) {
     int val;
     const char *string;
-    
+
     if (mode >= 0) {
         val = code_table_4_91(sec);
 	if (val >= 0) {
@@ -1198,7 +1386,10 @@ unsigned char *code_table_4_91_location(unsigned char **sec) {
     val = GB2_ProdDefTemplateNo(sec);
     switch (val) {
         case 44:
+        case 45:
+        case 46:
         case 48: p = sec[4] + 13; break;
+        case 47: p = sec[4] + 14; break;
         default: p = NULL; break;
     }
     return p;
@@ -1210,7 +1401,7 @@ unsigned char *code_table_4_91_location(unsigned char **sec) {
 int f_code_table_4_91b(ARG0) {
     int val;
     const char *string;
-   
+
     if (mode >= 0) {
         val = code_table_4_91b(sec);
         if (val >= 0) {
@@ -1269,48 +1460,64 @@ int prt_code_table_4_91(int type_of_interval, double val1, double val2, char *in
 }
 
 
-
-
 /*
  * HEADER:-1:code_table_4.230:inv:0:code table 4.230 chemical constituent type
  */
+
+extern struct codetable_4_230  codetable_4_230_table[];
+
 int f_code_table_4_230(ARG0) {
-    int val;
+    int val, i;
     const char *string;
     static int error_count = 0;
 
     if (mode >= 0) {
         val = code_table_4_230(sec);
-        if (val >= 0) {
-            string = NULL;
-	    if (GB2_MasterTable(sec) <= 4) {
-		if (error_count++ <= 10) fprintf(stderr,
-		    "Warning: if file made with ECMWF API, may be using incompatible chemistry table\n");
+	if (val < 0) return 0;
+
+	i = 0;
+	string = NULL;
+	if (GB2_MasterTable(sec) <= 4) {
+	    if (error_count++ <= 10) fprintf(stderr,
+		"Warning: if file made with ECMWF API, may be using incompatible chemistry table\n");
+	}
+	while (codetable_4_230_table[i].no != 65535) {
+	    if (codetable_4_230_table[i].no == val) {
+		string = codetable_4_230_table[i].name;
+		break;
 	    }
-            switch(val) {
-#include "CodeTable_4.230.dat"
-            }
-	    if (GB2_MasterTable(sec) <= 4 && GB2_Center(sec) == ECMWF) string = NULL;
-	    
-            if (string == NULL) sprintf(inv_out,"code table 4.230=%d", val);
-            else sprintf(inv_out,"code table 4.230=%d %s", val, string);
-        }
+	    i++;
+	}
+	if (GB2_MasterTable(sec) <= 4 && GB2_Center(sec) == ECMWF) string = NULL;
+        if (string == NULL) sprintf(inv_out,"code table 4.230=%d", val);
+        else sprintf(inv_out,"code table 4.230=%d %s", val, string);
+	inv_out += strlen(inv_out);
     }
     return 0;
 }
 
 int code_table_4_230(unsigned char **sec) {
-    int val, i;
-    val = GB2_ProdDefTemplateNo(sec);
-    switch (val) {
-        case 40: 
+    unsigned char *p;
+    p = code_table_4_230_location(sec);
+    return  (p == NULL) ? -1 : uint2(p);
+}
+
+unsigned char *code_table_4_230_location(unsigned char **sec) {
+    int pdt;
+    pdt = GB2_ProdDefTemplateNo(sec);
+    unsigned char *p;
+    switch(pdt) {
+        case 40:
 	case 41:
 	case 42:
 	case 43:
-		i = uint2(sec[4]+11); break;
-        default: i = -1; break;
+	case 57:
+	case 67:
+	case 68:
+		p = sec[4]+11; break;
+	default: p = NULL; break;
     }
-    return i;
+    return  p;
 }
 
 /*
@@ -1337,18 +1544,16 @@ int f_code_table_4_233(ARG0) {
 
 int code_table_4_233(unsigned char **sec) {
     unsigned char *p;
-    int i;
     p = code_table_4_233_location(sec);
     if (p == NULL) return -1;
-    i = uint2(p);
-    return i;
+    return (int) uint2(p);
 }
 
 unsigned char *code_table_4_233_location(unsigned char **sec) {
     int pdt;
     pdt = GB2_ProdDefTemplateNo(sec);
-    if (pdt == 44) return sec[4]+11;
-    if (pdt == 48) return sec[4]+11;
+    if (pdt == 47) return sec[4]+12;
+    if (pdt >= 44 && pdt <= 48) return sec[4]+11;
     return  NULL;
 }
 
@@ -1376,6 +1581,48 @@ int code_table_4_235(unsigned char **sec) {
     pdt = GB2_ProdDefTemplateNo(sec);
     if (pdt == 52) return sec[4][11];
     return -1;
+}
+/*
+ * HEADER:-1:code_table_4.240:inv:0:code table 4.240 Type of distribution function
+ */
+int f_code_table_4_240(ARG0) {
+    int val;
+    const char *string;
+    if (mode >= 0) {
+        val = code_table_4_240(sec);
+        if (val >= 0) {
+            string = NULL;
+            switch(val) {
+#include "CodeTable_4.240.dat"
+            }
+            if (string == NULL) sprintf(inv_out,"code table 4.240=%d", val);
+            else sprintf(inv_out,"code table 4.240=%d %s", val, string);
+        }
+    }
+    return 0;
+}
+
+int code_table_4_240(unsigned char **sec) {
+    unsigned char *p;
+    p = code_table_4_240_location(sec);
+    if (p == NULL) return -1;
+    return (int) uint2(p);
+}
+
+unsigned char *code_table_4_240_location(unsigned char **sec) {
+    int pdt;
+    unsigned char *p;
+
+    pdt = GB2_ProdDefTemplateNo(sec);
+    switch(pdt) {
+	case 57:
+	case 67:
+	case 68:
+	    p = sec[4]+17; break;
+	default:
+	    p = NULL; break;
+    }
+    return  p;
 }
 
 /*
@@ -1432,6 +1679,7 @@ int code_table_5_1(unsigned char **sec) {
     case 3:
     case 40:
     case 41:
+    case 42:
         return (int) (sec[5][20]);
         break;
     default:

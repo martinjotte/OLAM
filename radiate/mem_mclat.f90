@@ -1,35 +1,3 @@
-!===============================================================================
-! OLAM was originally developed at Duke University by Robert Walko, Martin Otte,
-! and David Medvigy in the project group headed by Roni Avissar.  Development
-! has continued by the same team working at other institutions (University of
-! Miami (rwalko@rsmas.miami.edu), the Environmental Protection Agency, and
-! Princeton University), with significant contributions from other people.
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-!===============================================================================
 Module mem_mclat
 
   private
@@ -46,10 +14,12 @@ Module mem_mclat
   real :: mclat(33,6,13)
   real :: ypp_mclat(33,6,13)  ! Expanded arrays for spline intp
 
+  integer :: ilev, ifld
+
 !---------------------------------------------------------------------
 !  arctic winter
 !---------------------------------------------------------------------
-!  height  pressure      temp     vapor       ozone        air 
+!  height  pressure      temp     vapor       ozone        air
 !                                density     density     density
 !   [m]     [Pa]         [K]     [kg/m^3]    [kg/m^3]    [kg/m^3]
 
@@ -93,7 +63,7 @@ Module mem_mclat
 !---------------------------------------------------------------------
 !  arctic summer
 !---------------------------------------------------------------------
-!  height  pressure      temp     vapor       ozone        air 
+!  height  pressure      temp     vapor       ozone        air
 !                                density     density     density
 !   [m]     [Pa]         [K]     [kg/m^3]    [kg/m^3]    [kg/m^3]
 
@@ -137,7 +107,7 @@ Module mem_mclat
 !---------------------------------------------------------------------
 !  sub-arctic winter
 !---------------------------------------------------------------------
-!  height  pressure      temp     vapor       ozone        air 
+!  height  pressure      temp     vapor       ozone        air
 !                                density     density     density
 !   [m]     [Pa]         [K]     [kg/m^3]    [kg/m^3]    [kg/m^3]
 
@@ -181,7 +151,7 @@ Module mem_mclat
 !---------------------------------------------------------------------
 !  sub-arctic summer
 !---------------------------------------------------------------------
-!  height  pressure      temp     vapor       ozone        air 
+!  height  pressure      temp     vapor       ozone        air
 !                                density     density     density
 !   [m]     [Pa]         [K]     [kg/m^3]    [kg/m^3]    [kg/m^3]
 
@@ -225,7 +195,7 @@ Module mem_mclat
 !---------------------------------------------------------------------
 !  mid-latitude winter
 !---------------------------------------------------------------------
-!  height  pressure      temp     vapor       ozone        air 
+!  height  pressure      temp     vapor       ozone        air
 !                                density     density     density
 !   [m]     [Pa]         [K]     [kg/m^3]    [kg/m^3]    [kg/m^3]
 
@@ -269,7 +239,7 @@ Module mem_mclat
 !---------------------------------------------------------------------
 !  mid-latitude summer
 !---------------------------------------------------------------------
-!  height  pressure      temp     vapor       ozone        air 
+!  height  pressure      temp     vapor       ozone        air
 !                                density     density     density
 !   [m]     [Pa]         [K]     [kg/m^3]    [kg/m^3]    [kg/m^3]
 
@@ -313,7 +283,7 @@ Module mem_mclat
 !---------------------------------------------------------------------
 !  subtropical winter
 !---------------------------------------------------------------------
-!  height  pressure      temp     vapor       ozone        air 
+!  height  pressure      temp     vapor       ozone        air
 !                                density     density     density
 !   [m]     [Pa]         [K]     [kg/m^3]    [kg/m^3]    [kg/m^3]
 
@@ -357,7 +327,7 @@ Module mem_mclat
 !---------------------------------------------------------------------
 !  subtropical summer
 !---------------------------------------------------------------------
-!  height  pressure      temp     vapor       ozone        air 
+!  height  pressure      temp     vapor       ozone        air
 !                                density     density     density
 !   [m]     [Pa]         [K]     [kg/m^3]    [kg/m^3]    [kg/m^3]
 
@@ -401,7 +371,7 @@ Module mem_mclat
 !---------------------------------------------------------------------
 !  tropical
 !---------------------------------------------------------------------
-!  height  pressure      temp     vapor       ozone        air 
+!  height  pressure      temp     vapor       ozone        air
 !                                density     density     density
 !   [m]     [Pa]         [K]     [kg/m^3]    [kg/m^3]    [kg/m^3]
 
@@ -449,14 +419,14 @@ Contains
   subroutine mclat_copy(jday)
 
     implicit none
-   
+
     integer, intent(in) :: jday
 
     integer :: lv
     integer :: lf
 
     real :: fjday
-   
+
 ! Interpolate arctic, sub-arctic, mid-latitude, and subtropical, Mclatchy
 ! soundings between summer and winter values by time of year using cosine
 ! function.  Assume that extreme values occur on January 16 and 1/2 year later.
@@ -491,7 +461,7 @@ Contains
   subroutine mclat_spline(jday)
 
     implicit none
-    
+
     integer, intent(in) :: jday
 
     integer :: lv, lf, ii
@@ -552,7 +522,7 @@ Contains
     ! Local array
     real :: mcol(33,6)
 
-    integer :: lv, lf, k, kadd
+    integer :: k, kadd
     real    :: deltaz, tavg
     logical :: do_o3col
 
@@ -560,7 +530,7 @@ Contains
 ! in time between summer and winter values, and spline coefficients for latitudinal
 ! interpolation have been pre-computed.
 !
-! The following call to spline2 completes the latitudinal spline interpolation 
+! The following call to spline2 completes the latitudinal spline interpolation
 ! of a complete vertical column for a specific latitude.
 ! The result is in mcol(lv,lf).
 
@@ -595,8 +565,8 @@ Contains
     else
        do_o3col = .true.
     endif
-    
-    ! If we want ozone column, interpolate O3 from Mclatchy sounding 
+
+    ! If we want ozone column, interpolate O3 from Mclatchy sounding
     ! to all levels in the radiation column.
 
     if (do_o3col) then
@@ -619,7 +589,7 @@ Contains
        endif
 
        ! Compute pressure and density added levels by hydrostatic integration.
-   
+
        do k = kadd, nrad
           tavg = 0.5 * (tl(k)+tl(k-1))
           pl(k) = pl(k-1) * exp( -gordry * (ztl(k) - ztl(k-1)) / tavg )

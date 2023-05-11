@@ -1,35 +1,3 @@
-!===============================================================================
-! OLAM version 4.0
-
-! Portions of this software are copied or derived from the RAMS software
-! package.  The following copyright notice pertains to RAMS and its derivatives,
-! including OLAM:  
-
-   !----------------------------------------------------------------------------
-   ! Copyright (C) 1991-2006  ; All Rights Reserved ; Colorado State University; 
-   ! Colorado State University Research Foundation ; ATMET, LLC 
-
-   ! This software is free software; you can redistribute it and/or modify it 
-   ! under the terms of the GNU General Public License as published by the Free
-   ! Software Foundation; either version 2 of the License, or (at your option)
-   ! any later version. 
-
-   ! This software is distributed in the hope that it will be useful, but
-   ! WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   ! or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
-   ! for more details.
- 
-   ! You should have received a copy of the GNU General Public License along
-   ! with this program; if not, write to the Free Software Foundation, Inc.,
-   ! 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA 
-   ! (http://www.gnu.org/licenses/gpl.html) 
-   !----------------------------------------------------------------------------
-
-! OLAM was developed at Duke University and the University of Miami, Florida. 
-! For additional information, including published references, please contact
-! the software authors, Robert L. Walko (rwalko@rsmas.miami.edu)
-! or Roni Avissar (ravissar@rsmas.miami.edu).
-!===============================================================================
 subroutine history_write_ll(nlon,nlat)
 
 use mem_ijtabs,  only: itab_w, itab_u, rotation_angle
@@ -84,7 +52,7 @@ integer :: kll
 
 real :: scr(mza,mwa), scr1(mwa), scr2(mwa)
 
-! Interpolate some model fields to uniform lat-lon grid with spacing 
+! Interpolate some model fields to uniform lat-lon grid with spacing
 ! comparable to global grid (at equator).
 
 real :: phis_ll(nlon,nlat)
@@ -205,7 +173,7 @@ if (ncall == 0) then
    else
       zscalar = '0'
    endif
-   
+
    if (nlon <= 92) then
       zres = 'low'
    elseif (nlon <= 182) then
@@ -264,9 +232,14 @@ do iu = 2,mua
 
       raxis = sqrt(xeu(iu) ** 2 + yeu(iu) ** 2)  ! dist from earth axis
 
-      uzonal(k,iu) = (vy * xeu(iu) - vx * yeu(iu)) / raxis
-      umerid(k,iu) = vz * raxis / erad  &
-         - (vx * xeu(iu) + vy * yeu(iu)) * zeu(iu) / (raxis * erad) 
+      if (raxis > 1.e3) then
+         uzonal(k,iu) = (vy * xeu(iu) - vx * yeu(iu)) / raxis
+         umerid(k,iu) = vz * raxis / erad  &
+            - (vx * xeu(iu) + vy * yeu(iu)) * zeu(iu) / (raxis * erad)
+      else
+         uzonal(k,iu) = 0.
+         umerid(k,iu) = 0.
+      endif
 
    enddo
 enddo
@@ -289,9 +262,9 @@ do iw = 2,mwa
    im1 = itab_w(iw)%im1
    im2 = itab_w(iw)%im2
    im3 = itab_w(iw)%im3
-   
+
    ka = lpw(iw)
-   
+
    scr1(iw) = (topm(im1) + topm(im2) + topm(im3)) / 3.  ! PHIS
 
    scr2(iw) = press(ka,iw) + grav * rho(ka,iw) * (zt(ka) - scr1(iw))  ! PS
@@ -440,7 +413,7 @@ if (ncar_testcase == 6) then
          scr(k,iw) = theta(k,iw) - theta_bar
       enddo
    enddo
-   
+
    call interp_htw_ll(nlon,nlat,mza,mza-2,scr,theta_pert_ll)
 
 endif
@@ -484,12 +457,12 @@ if (ncar_testcase == 1) then
             dnorm1 = dnorm1 + dnorm
             dnorm2 = dnorm2 + dnorm
          enddo
-      
+
          anorm2 = anorm2 + (ubar - ubar_init(ilat,kll))**2 * dnorm2
 
       enddo
    enddo
-   
+
 endif
 
 ncall = ncall + 1
@@ -549,14 +522,14 @@ if (time8 + 1.5 * dtlong > timmax8) then
    if (ncar_testcase == 1) then
 !----------------------------------------------------------------------
       call plotback()
-      call oplot_xy2log10('0','N','N',aspect,scalelab   &
+      call oplot_xy2log10('0','N','a','N',aspect,scalelab   &
                     ,ncall,  vctr18,unorm1            &
                     ,'time(days)','UNORM1' &
                     ,timebeg,timeend,timeinc,5  ,-4,1  )
       call o_frame()
 !----------------------------------------------------------------------
       call plotback()
-      call oplot_xy2('0','N','N',aspect,scalelab   &
+      call oplot_xy2('0','N','a','N',aspect,scalelab   &
                     ,ncall,  vctr18,unorm2            &
                     ,'time(days)','UNORM2' &
                     ,timebeg,timeend,timeinc,5  ,0.,12.,.5,4  )
@@ -689,7 +662,7 @@ contains
   end subroutine create_ncdf
 
   subroutine netcdf_output()
-    
+
     integer :: count_3(3), start_3(3)
     integer :: count_4(4), start_4(4)
     integer :: i, j
@@ -789,7 +762,7 @@ do ilat = 1,nlat
          ival = ival + 1
       enddo
       icolor = clrtab(itab)%ipal(ival)
-      
+
       call fillpolyg(4,htpn,vtpn,icolor)
 
    enddo
@@ -931,7 +904,7 @@ elseif (trim(slab) == 'Z') then
       do ilon1 = 1,nlon
          ilon2 = ilon1 + 1
          if (ilon1 == nlon) ilon2 = 1
-      
+
          htpn(1) = 0. + 360. * real(ilon1-1) / real(nlon)
          htpn(2) = 0. + 360. * real(ilon1  ) / real(nlon)
          htpn(3) = htpn(2)
@@ -951,7 +924,7 @@ elseif (trim(slab) == 'Z') then
    enddo
 
 endif
-   
+
 call o_frame()
 
 return

@@ -2,17 +2,16 @@ subroutine oplot_chem_lib(kk,ii,infotyp,fldname0,wtbot,wttop,fldval,notavail)
 
   use oplot_coms,   only: op
   use mem_para,     only: myrank
-  use mem_grid,     only: mza, mva, mwa, lpm, lpv, lpw, lsw, arw0
+  use mem_grid,     only: mza, lpm, lpv, lpw, arw0
   use soil_nox,     only: soilnox, pfactor, drytime
-  use leaf_coms,    only: mwl
-  use sea_coms,     only: mws
   use misc_coms,    only: do_chem, io6
   use mem_ijtabs,   only: itab_w, jtab_w, jtab_v, jtab_m, jtw_prog, jtv_prog, jtm_vadj
-  use mem_leaf,     only: itab_wl, land
-  use mem_sea,      only: itab_ws, sea
+  use mem_sfcg,     only: itab_wsfc, sfcg
+  use mem_land,     only: mland, omland
+  use mem_sea,      only: msea, omsea
   use soil_nox,     only: soilnox, pfactor, drytime
   use ltng_defn,    only: column_ltng_no, vdemis_lt
-  use depv_defn,    only: depvel_gas_land, depvel_gas_sea, n_gas_depv, gas_depv_sur
+  use depv_defn,    only: depvel_gas, n_gas_depv, gas_depv_sur
   use cgrid_spcs,   only: gc_spc, gc_depv_map
 
 
@@ -28,10 +27,10 @@ subroutine oplot_chem_lib(kk,ii,infotyp,fldname0,wtbot,wttop,fldval,notavail)
                                         ! 3 - field not available in this run
                                         ! 4 - field not available in current grid cell
                                         !     (e.g., no sfcwater fracliq when no sfcwater)
-  integer, parameter :: nfields = 10
+  integer, parameter :: nfields = 9
   character(40)      :: fldlib(4,nfields)
   character(40)      :: fldname
-  integer            :: i, k, ifield, kp, n
+  integer            :: i, k, ifield, kp, n, jsfc, iwsfc, jasfc, isea
   integer, save      :: icase
 
   integer, save      :: io3_depv = -1
@@ -55,9 +54,8 @@ subroutine oplot_chem_lib(kk,ii,infotyp,fldname0,wtbot,wttop,fldval,notavail)
     'LTNGNOX'       ,'T3' ,'LTNG NOX', ' [mol (N) s:S:-1:N:]'                       / !  8
 
   ! Deposition velocities
-  data fldlib(1:4,  9:10) / &
-    'O3_DEPV'       ,'B2' ,'OZONE DEPOSITION VELOCITY', ' [cm s:S2:-1:]' ,& !  9
-    'O3_DEPV_W'     ,'T2' ,'OZONE DEPOSITION VELOCITY', ' [cm s:S2:-1:]'  / ! 10
+  data fldlib(1:4,  9) / &
+    'O3_DEPV'       ,'T2' ,'OZONE DEPOSITION VELOCITY', ' [cm s:S2:-1:]'  / ! 10
 
   if (do_chem /= 1) then
      write(*,*) 'Plot field ',trim(fldname0),' not available; chemistry not selected.'
@@ -128,12 +126,12 @@ subroutine oplot_chem_lib(kk,ii,infotyp,fldname0,wtbot,wttop,fldval,notavail)
      endif
   endif
 
-  if (op%stagpt == 'L' .and. mwl < 2) then
+  if (op%stagpt == 'L' .and. mland < 2) then
      notavail = 3
      return
   endif
 
-  if (op%stagpt == 'S' .and. mws < 2) then
+  if (op%stagpt == 'S' .and. msea < 2) then
      notavail = 3
      return
   endif
@@ -150,7 +148,8 @@ subroutine oplot_chem_lib(kk,ii,infotyp,fldname0,wtbot,wttop,fldval,notavail)
   case(1) ! SOILNOX
 
      if (.not. allocated(soilnox)) goto 1000
-     fldval = soilnox(i) * 14.0 / land%area(i) * 1.e6  ! convert moles N to grams N
+     iwsfc = i
+     fldval = soilnox(i) * 14.0 / sfcg%area(iwsfc) * 1.e6  ! convert moles N to grams N
 
   case(2) ! SOILNOXT
 
@@ -189,51 +188,38 @@ subroutine oplot_chem_lib(kk,ii,infotyp,fldname0,wtbot,wttop,fldval,notavail)
 
   case(9)
 
-     if (io3_depv < 1) goto 1000
-     if (.not. allocated(DEPVEL_GAS_sea)) goto 1000
-     if (.not. allocated(DEPVEL_GAS_land)) goto 1000
-
-     if (op%stagpt == 'S') then
-        fldval = DEPVEL_GAS_sea (i,io3_depv) * 100.0
-     elseif (op%stagpt == 'L') then
-        fldval = DEPVEL_GAS_land(i,io3_depv) * 100.0
-     endif
-
-  case(10)
-
-     if (io3_depv < 1) goto 1000
-     if (.not. allocated(DEPVEL_GAS_sea)) goto 1000
-     if (.not. allocated(DEPVEL_GAS_land)) goto 1000
-
-     fldval = ( average_land(i,DEPVEL_GAS_land(:,io3_depv)) &
-              + average_sea (i,DEPVEL_GAS_sea (:,io3_depv)) ) * 100.0
+     fldval = DEPVEL_GAS(i,io3_depv) * 100.0
 
   end select
 
-     return
+  return
 
 1000 continue
-  
+
   notavail = 3
 
 
-  contains
+contains
 
 
     real function average_land(iw,field)
       implicit none
 
-      real,    intent(in) :: field(mwl)
+      real,    intent(in) :: field(mland)
       integer, intent(in) :: iw
-      integer             :: jland, iland
+      integer             :: iland
 
       average_land = 0.0
 
-      if (itab_w(iw)%nland > 0) then
+      if (itab_w(iw)%jland2 > 0) then
 
-         do jland = 1, itab_w(iw)%nland
-            iland = itab_w(iw)%iland(jland)
-            average_land = average_land + field(iland) * itab_wl(iland)%arf_iw
+         do jsfc = itab_w(iw)%jland1, itab_w(iw)%jland2
+            iwsfc = itab_w(iw)%iwsfc(jsfc)
+            jasfc = itab_w(iw)%jasfc(jsfc)
+
+            iland = iwsfc - omland
+
+            average_land = average_land + field(iland) * itab_wsfc(iwsfc)%arcoariw(jasfc)
          enddo
 
       endif
@@ -244,17 +230,20 @@ subroutine oplot_chem_lib(kk,ii,infotyp,fldname0,wtbot,wttop,fldval,notavail)
     real function average_sea(iw,field)
       implicit none
 
-      real,    intent(in) :: field(mws)
+      real,    intent(in) :: field(msea)
       integer, intent(in) :: iw
-      integer             :: jsea, isea
 
       average_sea = 0.0
 
-      if (itab_w(iw)%nsea > 0) then
+      if (itab_w(iw)%jsea2 > 0) then
 
-         do jsea = 1, itab_w(iw)%nsea
-            isea = itab_w(iw)%isea(jsea)
-            average_sea = average_sea + field(isea) * itab_ws(isea)%arf_iw
+         do jsfc = itab_w(iw)%jsea1, itab_w(iw)%jsea2
+            iwsfc = itab_w(iw)%iwsfc(jsfc)
+            jasfc = itab_w(iw)%jasfc(jsfc)
+
+            isea = iwsfc - omsea
+
+            average_sea = average_sea + field(isea) * itab_wsfc(iwsfc)%arcoariw(jasfc)
          enddo
 
       endif
