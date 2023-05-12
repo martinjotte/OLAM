@@ -86,5 +86,15 @@ Module leaf_coms
   real, parameter :: emisg = 0.98      ! Ground surface longwave emissivity []
   real, parameter :: emisw = 1.0       ! Surface water longwave emissivity []
 
+  real, parameter :: thermcond_dry_organic = 0.05  ! [W/(m K)]
+  real, parameter :: thermcond_sat_organic = 0.25  ! [W/(m K)]
+  real, parameter :: thermcond_bedrock     = 3.0   ! [W/(m K)]
+  real, parameter :: thermcond_liq         = 0.6   ! [W/(m K)]
+  real, parameter :: thermcond_ice         = 2.29  ! [W/(m K)]
+  real, parameter :: thermcond_firn        = 0.8   ! [W/(m K)] Based on firn density of 600 kg/m^3
+                                                   !           and the following reference:
+                             ! Oster, S.E. and M.R. Albert (2002): Thermal conductivity of polar firn,
+                             ! Journal of Glaciology, Vol. 68, Issue 272.
+
 End Module leaf_coms
 

@@ -634,6 +634,8 @@
    NL%LANDGRID_DZTOP =   .10    ! Thickness (m) of top (shallowest) soil grid level 
    NL%LANDGRID_DEPTH = 200.0    ! Depth (m) of soil grid lower boundary
 
+   NL%IHORIZ_GNDWATER_TRANSPORT = 0 ! Flag to turn lateral ground water fluxes on (1) or off (0)
+
    NL%NITER_SWM = 1             ! Number of subcycling timesteps used in SWM storm surge & 
                                 ! coastal flooding model per long model timestep; Can usually
                                 ! be 1 unless sfcgrid resolution is higher than ATM grid 

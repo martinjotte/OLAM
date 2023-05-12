@@ -339,6 +339,8 @@ Module oname_coms
      integer :: iupdseaice = 0
      integer :: nvgcon     = 8
 
+     integer :: ihoriz_gndwater_transport = 0
+
      real    :: seatmp = 280.0
      real    :: seaice =   0.0
 
