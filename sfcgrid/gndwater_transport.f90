@@ -399,7 +399,7 @@ subroutine apply_lake_fluxes( ilake, watflux,    energyflux, &
                                      lake_depth, lake_energy )
 
   use mem_land,  only: nzg, dslz
-  use mem_lake,  only: lake, omlake
+  use mem_lake,  only: omlake
   use mem_sfcg,  only: mvsfc, itab_wsfc, itab_vsfc, sfcg
   use mem_para,  only: myrank
   use misc_coms, only: iparallel
@@ -418,7 +418,9 @@ subroutine apply_lake_fluxes( ilake, watflux,    energyflux, &
   real    :: dheight
   real    :: energyin
   real    :: energy_per_m2
+  real    :: dtoa
   real    :: dirv
+  real    :: fconv
   real    :: factor
 
   iwsfc = ilake + omlake
@@ -428,6 +430,8 @@ subroutine apply_lake_fluxes( ilake, watflux,    energyflux, &
 
   dheight  = 0.
   energyin = 0.
+
+  dtoa = dt_leaf / sfcg%area(iwsfc) ! [s/m^s]
 
   ! Loop over all lateral faces of this ilake cell
 
@@ -441,14 +445,15 @@ subroutine apply_lake_fluxes( ilake, watflux,    energyflux, &
         dirv = -1.0
      endif
 
+     fconv = dirv * dtoa * sfcg%dnu(ivn) ! [s/m]
+
      if (sfcg%leaf_class(iwn) >= 2) then
 
         ! Neighbor cell is land; loop over its vertical levels and sum
         ! mass and energy fluxes.
 
         do k = 1,nzg
-           factor = dirv * dt_leaf * sfcg%dnu(ivn) * dslz(k) / sfcg%area(iwsfc) ! [s] to here
-
+           factor   = fconv * dslz(k)                       ! [s]
            dheight  = dheight  + factor * watflux   (k,ivn) ! [m]
            energyin = energyin + factor * energyflux(k,ivn) ! [J/m^2]
         enddo
@@ -457,8 +462,7 @@ subroutine apply_lake_fluxes( ilake, watflux,    energyflux, &
 
         ! Neighbor cell is lake; only top-level flux is nonzero.
 
-        factor = dirv * dt_leaf * sfcg%dnu(ivn) * dslz(nzg) / sfcg%area(iwsfc) ! [s]
-
+        factor   = fconv * dslz(k)                         ! [s]
         dheight  = dheight  + factor * watflux   (nzg,ivn) ! [m]
         energyin = energyin + factor * energyflux(nzg,ivn) ! [J/m^2]
 
@@ -466,11 +470,11 @@ subroutine apply_lake_fluxes( ilake, watflux,    energyflux, &
 
   enddo ! j
 
-  ! Add height and energy changes to cell
+  ! Apply height and energy changes to cell
 
   energy_per_m2 = lake_energy * lake_depth * 1000.
 
-  lake_depth  = lake%depth(ilake) + dheight
+  lake_depth  = lake_depth + dheight
 
   lake_energy = (energy_per_m2 + energyin) &
                           / (max(wcap_min, lake_depth) * 1000.) ! water density = 1000 kg/m^3
@@ -506,7 +510,7 @@ subroutine apply_land_fluxes( iland, watflux,      energyflux,  head_slope, &
   real    :: dheight (nzg)
   real    :: energyin(nzg)
 
-  real    :: dirv, factor
+  real    :: dtoa, dirv, factor
   integer :: iwsfc, j, ivn, k
 
   iwsfc = iland + omland
@@ -519,6 +523,8 @@ subroutine apply_land_fluxes( iland, watflux,      energyflux,  head_slope, &
   dheight (:) = 0.
   energyin(:) = 0.
 
+  dtoa = dt_leaf / sfcg%area(iwsfc) ! [s/m^s]
+
   ! Loop over all lateral faces of this iland cell
 
   do j = 1,itab_wsfc(iwsfc)%npoly
@@ -530,27 +536,27 @@ subroutine apply_land_fluxes( iland, watflux,      energyflux,  head_slope, &
         dirv = -1.0
      endif
 
+     factor = dirv * dtoa * sfcg%dnu(ivn) ! [s/m]
+
      ! Loop over vertical levels; sum mass and energy fluxes over j faces
 
      do k = 1, nzg
-        factor = dirv * dt_leaf * sfcg%dnu(ivn) / sfcg%area(iwsfc) ! [s/m]
-
         dheight (k) = dheight (k) + factor * watflux   (k,ivn) ! [Vol/Vol]
         energyin(k) = energyin(k) + factor * energyflux(k,ivn) ! [J/m^3]
-     enddo ! k
-
-     ! Add mass and energy changes to cell, and adjust hydraulic head due to
-     ! water mass change according to constant slope fit for current timestep
-
-     do k = 1, nzg
-        factor =  wsat_vg(k) - wresid_vg(k)
-
-        soil_water  (k) = soil_water  (k) + dheight (k)
-        soil_energy (k) = soil_energy (k) + energyin(k)
-        head        (k) = head        (k) + dheight (k) * head_slope(k)
-        soil_watfrac(k) = soil_watfrac(k) + dheight (k) / factor
      enddo
 
+  enddo
+
+  ! Apply mass and energy changes to cell, and adjust hydraulic head due to
+  ! water mass change according to constant slope fit for current timestep
+
+  do k = 1, nzg
+     factor =  wsat_vg(k) - wresid_vg(k)
+
+     soil_water  (k) = soil_water  (k) + dheight (k)
+     soil_energy (k) = soil_energy (k) + energyin(k)
+     head        (k) = head        (k) + dheight (k) * head_slope(k)
+     soil_watfrac(k) = soil_watfrac(k) + dheight (k) / factor
   enddo
 
 end subroutine apply_land_fluxes
