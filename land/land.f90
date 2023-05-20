@@ -18,10 +18,10 @@ subroutine landcells(iland, timefac_ndvi, head_slope, soil_watfrac)
 
   implicit none
 
-  integer, intent(in) :: iland
-  real,    intent(in) :: timefac_ndvi
-  real,    intent(in) :: head_slope  (nzg)
-  real,    intent(in) :: soil_watfrac(nzg)
+  integer, intent(in)    :: iland
+  real,    intent(in)    :: timefac_ndvi
+  real,    intent(in)    :: head_slope  (nzg)
+  real,    intent(inout) :: soil_watfrac(nzg)
 
   ! Local arrays
 

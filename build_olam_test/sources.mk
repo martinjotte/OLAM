@@ -22,6 +22,7 @@ SOURCE_FILES= \
              $(LAKE)/read_lake_analysis.f90 \
              $(LAND)/glhymps_read.f90 \
              $(LAND)/land_database_read.f90 \
+             $(LAND)/land.f90 \
              $(LAND)/leaf4_canopy.f90 \
              $(LAND)/leaf4_coms.f90 \
              $(LAND)/leaf4_init_atm.f90 \
@@ -227,6 +228,7 @@ SOURCE_FILES= \
              $(SEA)/sea_swm.f90 \
              $(SEA)/sst_database_read.f90 \
              $(SFCG)/init_sfcgrid.f90 \
+             $(SFCG)/gndwater_transport.f90 \
              $(SFCG)/hex_grid_sfc.f90 \
              $(SFCG)/makesfc3.f90 \
              $(SFCG)/mem_sfcg.f90 \
