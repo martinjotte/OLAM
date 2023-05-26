@@ -15,11 +15,11 @@ Module mem_land
   real :: landgrid_dztop ! Thickness (m) of top (shallowest) soil grid level
   real :: landgrid_depth ! Depth (m) of soil grid lower boundary
 
-  real, save, allocatable :: slz   (:) ! height (negative) of soil layer M pt [m]
-  real, save, allocatable :: dslz  (:) ! soil layer thickness at T pt [m]
-  real, save, allocatable :: dslzo2(:) ! HALF soil layer thickness at T pt [m]
-  real, save, allocatable :: dslzi (:) ! inverse soil layer thickness at T pt [1/m]
-  real, save, allocatable :: slzt  (:) ! height (negative) of soil T pt [m]
+  real, allocatable :: slz   (:) ! height (negative) of soil layer M pt [m]
+  real, allocatable :: dslz  (:) ! soil layer thickness at T pt [m]
+  real, allocatable :: dslzo2(:) ! HALF soil layer thickness at T pt [m]
+  real, allocatable :: dslzi (:) ! inverse soil layer thickness at T pt [1/m]
+  real, allocatable :: slzt  (:) ! height (negative) of soil T pt [m]
 
   ! LAND GRID TABLES
 
@@ -57,8 +57,6 @@ Module mem_land
      real, allocatable :: sfcwater_depth (:,:) ! surface water depth [m]
 
      real, allocatable :: hcapveg     (:) ! veg heat capacity [J/(m^2 K)]
-     real, allocatable :: surface_srrv(:) ! surface saturation vapor mixing ratio [kg_vap/kg_dryair]
-     real, allocatable :: ground_rrv  (:) ! soil vapor mixing ratio [kg_vap/kg_dryair]
      real, allocatable :: veg_fracarea(:) ! veg fractional area
      real, allocatable :: veg_lai     (:) ! veg leaf area index
      real, allocatable :: veg_rough   (:) ! veg roughness height [m]
@@ -91,7 +89,7 @@ Module mem_land
      real, allocatable :: z_bedrock         (:) ! height (non-positive) of top of bedrock [m]
      real, allocatable :: gpp               (:) ! gross primary production (of carbon) [gC/(m^2 yr)]
      real, allocatable :: glhymps_ksat      (:) ! glhymps ksat [m/s]
-     real, allocatable :: glhymps_ksat_pfr  (:) ! glhymps ksat with permafrost [m/s]
+!    real, allocatable :: glhymps_ksat_pfr  (:) ! glhymps ksat with permafrost [m/s]
      real, allocatable :: glhymps_poros     (:) ! glhymps porosity []
 
      real, allocatable :: sand            (:,:) ! soil sand fraction []
@@ -111,6 +109,13 @@ Module mem_land
      real, allocatable :: en_vg              (:,:) ! van Genuchten N term []
      real, allocatable :: lambda_vg          (:,:) ! van Genuchten lambda term []
      real, allocatable :: specifheat_drysoil (:,:) ! Specific heat of dry soil [J/(m^3 K)]
+     real, allocatable :: wfrac_low          (:,:)
+
+     ! Other constant derived soil quantities
+
+     integer, allocatable :: k_bedrock (:) ! level of the heighest bedrock/transition layer
+     real,    allocatable :: soilfldcap(:) ! field capacity [Vol/Vol] of top soil layer
+     real,    allocatable :: soilwilt  (:) ! wilting point [Vol/Vol] of top soil layer
 
   End Type land_vars
 
@@ -172,8 +177,6 @@ Contains
   allocate (land%sfcwater_depth (nzs,mland)) ; land%sfcwater_depth  = rinit
 
   allocate (land%hcapveg            (mland)) ; land%hcapveg         = rinit
-  allocate (land%surface_srrv       (mland)) ; land%surface_srrv    = rinit
-  allocate (land%ground_rrv         (mland)) ; land%ground_rrv      = rinit
   allocate (land%veg_fracarea       (mland)) ; land%veg_fracarea    = rinit
   allocate (land%veg_lai            (mland)) ; land%veg_lai         = rinit
   allocate (land%veg_rough          (mland)) ; land%veg_rough       = rinit
@@ -217,6 +220,11 @@ Contains
   allocate (land%en_vg             (nzg,mland)) ; land%en_vg              = rinit
   allocate (land%lambda_vg         (nzg,mland)) ; land%lambda_vg          = rinit
   allocate (land%specifheat_drysoil(nzg,mland)) ; land%specifheat_drysoil = rinit
+  allocate (land%wfrac_low         (nzg,mland)) ; land%wfrac_low          = rinit
+
+  allocate (land%k_bedrock             (mland)) ; land%k_bedrock          = 0
+  allocate (land%soilfldcap            (mland)) ; land%soilfldcap         = rinit
+  allocate (land%soilwilt              (mland)) ; land%soilwilt           = rinit
 
   end subroutine alloc_land
 
@@ -242,8 +250,6 @@ Contains
   if (allocated(land%sfcwater_energy)) call increment_vtable('LAND%SFCWATER_ENERGY', 'LW', rvar2=land%sfcwater_energy)
   if (allocated(land%sfcwater_depth))  call increment_vtable('LAND%SFCWATER_DEPTH',  'LW', rvar2=land%sfcwater_depth)
   if (allocated(land%hcapveg))         call increment_vtable('LAND%HCAPVEG',         'LW', rvar1=land%hcapveg)
-  if (allocated(land%surface_srrv))    call increment_vtable('LAND%SURFACE_SRRV',    'LW', rvar1=land%surface_srrv)
-  if (allocated(land%ground_rrv))      call increment_vtable('LAND%GROUND_RRV',      'LW', rvar1=land%ground_rrv)
   if (allocated(land%veg_fracarea))    call increment_vtable('LAND%VEG_FRACAREA',    'LW', rvar1=land%veg_fracarea)
   if (allocated(land%veg_lai))         call increment_vtable('LAND%VEG_LAI',         'LW', rvar1=land%veg_lai)
   if (allocated(land%veg_rough))       call increment_vtable('LAND%VEG_ROUGH',       'LW', rvar1=land%veg_rough)

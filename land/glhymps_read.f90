@@ -37,6 +37,7 @@ subroutine glhymps_read()
         fname = 'permeability_no_permafrost_5km.h5'
      elseif (idataset == 2) then
         fname = 'permeability_permafrost_5km.h5'
+        cycle  !! skip reading for now; not used
      elseif (idataset == 3) then
         fname = 'porosity_5km.h5'
      endif
@@ -99,12 +100,12 @@ subroutine glhymps_read()
            else
               land%glhymps_ksat(iland) = 10.0**(-20.0 + 7.0) ! Require a nonzero minimum value
            endif
-        elseif (idataset == 2) then
-           if (dato(io,jo) >= -20. .and. dato(io,jo) < -10.) then
-              land%glhymps_ksat_pfr(iland) = 10.0**(dato(io,jo) + 7.0)
-           else
-              land%glhymps_ksat_pfr(iland) = 10.0**(-20.0 + 7.0) ! Require a nonzero minimum value
-           endif
+!!      elseif (idataset == 2) then
+!!         if (dato(io,jo) >= -20. .and. dato(io,jo) < -10.) then
+!!            land%glhymps_ksat_pfr(iland) = 10.0**(dato(io,jo) + 7.0)
+!!         else
+!!            land%glhymps_ksat_pfr(iland) = 10.0**(-20.0 + 7.0) ! Require a nonzero minimum value
+!!         endif
         elseif (idataset == 3) then
            if (dato(io,jo) >= 0.01 .and. dato(io,jo) < 0.5) then
               land%glhymps_poros(iland) = dato(io,jo)

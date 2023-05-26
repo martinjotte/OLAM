@@ -455,7 +455,7 @@ Contains
     integer :: k, iwsfc, iland, klev
 
     real :: head(nzg)
-    real :: psi, psi_slope
+    real :: psi
 
 ! The following IF/ENDIF statements (but not the lines between them) should be
 ! commented out for most applications.  Uncommenting them provides the ability
@@ -883,9 +883,9 @@ Contains
              iland = iwsfc - omland
 
              do klev = nzg,1,-1
-                call soil_wat2pot(klev, iland, land%soil_water(klev,iland), &
+                call soil_wat2pot(land%soil_water(klev,iland), land%wfrac_low(klev,iland), &
                      land%wresid_vg(klev,iland), land%wsat_vg(klev,iland), &
-                     land%alpha_vg(klev,iland), land%en_vg(klev,iland), psi, psi_slope)
+                     land%alpha_vg(klev,iland), land%en_vg(klev,iland), psi)
 
                 ! Trial algorithm: Get head_wtab from highest saturated soil level
 

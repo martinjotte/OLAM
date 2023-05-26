@@ -54,6 +54,7 @@ subroutine surface_driver()
      call head_column(nzg, iland,                &
                       slzt            (:),       &
                       land%soil_water (:,iland), &
+                      land%wfrac_low  (:,iland), &
                       land%wresid_vg  (:,iland), &
                       land%wsat_vg    (:,iland), &
                       land%alpha_vg   (:,iland), &
@@ -262,4 +263,3 @@ subroutine sfcg_avgatm()
   endif
 
 end subroutine sfcg_avgatm
-

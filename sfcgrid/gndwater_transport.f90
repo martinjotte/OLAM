@@ -557,6 +557,8 @@ subroutine apply_land_fluxes( iland, watflux,      energyflux,  head_slope, &
      soil_energy (k) = soil_energy (k) + energyin(k)
      head        (k) = head        (k) + dheight (k) * head_slope(k)
      soil_watfrac(k) = soil_watfrac(k) + dheight (k) / factor
+
+     soil_watfrac(k) = max(0., min(1., soil_watfrac(k)))
   enddo
 
 end subroutine apply_land_fluxes

@@ -522,7 +522,7 @@ subroutine makesfc3()
   allocate (land%z_bedrock           (nland)) ; land%z_bedrock        = 0.
   allocate (land%gpp                 (nland)) ; land%gpp              = 0.
   allocate (land%glhymps_ksat        (nland)) ; land%glhymps_ksat     = 0.
-  allocate (land%glhymps_ksat_pfr    (nland)) ; land%glhymps_ksat_pfr = 0.
+! allocate (land%glhymps_ksat_pfr    (nland)) ; land%glhymps_ksat_pfr = 0.
   allocate (land%glhymps_poros       (nland)) ; land%glhymps_poros    = 0.
   allocate (land%sand            (nzg,nland)) ; land%sand             = 0.
   allocate (land%clay            (nzg,nland)) ; land%clay             = 0.
@@ -536,32 +536,47 @@ subroutine makesfc3()
   ! permanently to fill in holes in the SoilGrids maps.
 
 ! allocate (qlat(nqa), qlon(nqa), topq(nqa))
-  allocate(iscr(nland))
 
-  call land_database_read(nland, &
-       sfcg%glatw(1:nland),      &
-       sfcg%glonw(1:nland),      &
-       soil_database,            &
-       soil_database,            &
-       'soil_text',              &
-       idatq=iscr)
+  if (isoilflg == 3) then
 
-  ! Loop over all land cells (already defined and filled with leaf_class)
+     do iland = 2, nland
+        land%usdatext(iland) = nl%isoiltext
 
-  do iland = 2,nland
+        ! Customization of soil composition can be done inside subroutine
+        ! usda_composition by modifying usdatext(iland) and/or how it is used
+        call usda_composition(iland, land%usdatext(iland))
+     enddo
 
-     ! Convert from FAO soil type to USDA soil textural class
+  else
 
-     call fao_usda(iscr(iland), land%usdatext(iland))
+     allocate(iscr(nland))
 
-     ! Customization of soil composition can be done inside subroutine
-     ! usda_composition by modifying usdatext(iland) and/or how it is used
+     call land_database_read(nland, &
+          sfcg%glatw(1:nland),      &
+          sfcg%glonw(1:nland),      &
+          soil_database,            &
+          soil_database,            &
+          'soil_text',              &
+          idatq=iscr)
 
-     call usda_composition(iland, land%usdatext(iland))
+     ! Loop over all land cells (already defined and filled with leaf_class)
 
-  enddo
+     do iland = 2,nland
 
-  deallocate(iscr)
+        ! Convert from FAO soil type to USDA soil textural class
+
+        call fao_usda(iscr(iland), land%usdatext(iland))
+
+        ! Customization of soil composition can be done inside subroutine
+        ! usda_composition by modifying usdatext(iland) and/or how it is used
+
+        call usda_composition(iland, land%usdatext(iland))
+
+     enddo
+
+     deallocate(iscr)
+
+  endif
 
   if (isoilflg == 1) then
 
@@ -962,7 +977,8 @@ end subroutine fao_usda
 
 subroutine usda_composition(iland,usdatext)
 
-  use mem_land, only: land, nzg, slzt
+  use mem_land,   only: land, nzg, slzt
+  use oname_coms, only: nl
 
   implicit none
 
@@ -1000,32 +1016,23 @@ subroutine usda_composition(iland,usdatext)
     .10,   .06,   .84,   .05,   .034,    .46,    .694e-6,     1.6,   1.37,  .200/), & ! 12 silt
      (/10,12/) )
 
-  land%z_bedrock       (iland) = -100.
+  land%z_bedrock       (iland) = nl%zbedrock
   land%gpp             (iland) = 0.
-  land%glhymps_ksat    (iland) = 0.
-  land%glhymps_ksat_pfr(iland) = 0.
-  land%glhymps_poros   (iland) = 0.
+  land%glhymps_ksat    (iland) = nl%gnd_ksat
+! land%glhymps_ksat_pfr(iland) = 0.
+  land%glhymps_poros   (iland) = nl%gnd_poros
 
   ! For this option, assign single-level FAO textural class to all soil layers.
 
-  do k = 1,nzg
+  do k = 1, nzg
 
-     if (slzt(k) > land%z_bedrock(iland)) then
-        land%sand            (k,iland) = soilparms4(1,usdatext)
-        land%clay            (k,iland) = soilparms4(2,usdatext)
-        land%silt            (k,iland) = soilparms4(3,usdatext)
-        land%organ           (k,iland) = soilparms4(4,usdatext)
-        land%bulkdens_drysoil(k,iland) = 2700. * (1. - soilparms4(6,usdatext))
-     else
-        land%sand            (k,iland) = -0.001 ! Negative sand indicates bedrock
-        land%clay            (k,iland) = 0.
-        land%silt            (k,iland) = 0.
-        land%organ           (k,iland) = 0.
-        land%bulkdens_drysoil(k,iland) = 2700. ! [kg/m^3]
-     endif
-
-     land%pH_soil (k,iland) = 7.
-     land%cec_soil(k,iland) = 0.
+     land%sand            (k,iland) = soilparms4(1,usdatext)
+     land%clay            (k,iland) = soilparms4(2,usdatext)
+     land%silt            (k,iland) = soilparms4(3,usdatext)
+     land%organ           (k,iland) = soilparms4(4,usdatext)
+     land%bulkdens_drysoil(k,iland) = 2700. * (1. - soilparms4(6,usdatext))
+     land%pH_soil         (k,iland) = 7.
+     land%cec_soil        (k,iland) = 30.
 
   enddo
 
@@ -1326,7 +1333,7 @@ subroutine sfcgfile_write()
   call shdf5_orec(ndims, idims, 'z_bedrock'       , rvar1=land%z_bedrock)
   call shdf5_orec(ndims, idims, 'gpp'             , rvar1=land%gpp)
   call shdf5_orec(ndims, idims, 'glhymps_ksat'    , rvar1=land%glhymps_ksat)
-  call shdf5_orec(ndims, idims, 'glhymps_ksat_pfr', rvar1=land%glhymps_ksat_pfr)
+! call shdf5_orec(ndims, idims, 'glhymps_ksat_pfr', rvar1=land%glhymps_ksat_pfr)
   call shdf5_orec(ndims, idims, 'glhymps_poros'   , rvar1=land%glhymps_poros)
 
   ndims    = 2
@@ -1373,10 +1380,13 @@ subroutine sfcgfile_read_pd()
 
   integer            :: ndims, idims(2)
   integer            :: imsfc, ivsfc, iwsfc
+  integer            :: nzg0, nzpom0, ierr
   character(pathlen) :: flnm
   logical            :: there
   integer, allocatable :: iscr1(:)
   integer, allocatable :: iscr2(:,:)
+
+  ierr = 0
 
   flnm = trim(sfcgfile)//'.h5'
 
@@ -1404,8 +1414,24 @@ subroutine sfcgfile_read_pd()
   call shdf5_irec(ndims, idims, 'onland', ivars=onland)
   call shdf5_irec(ndims, idims, 'onlake', ivars=onlake)
   call shdf5_irec(ndims, idims, 'onsea' , ivars=onsea)
-  call shdf5_irec(ndims, idims, 'nzg'   , ivars=nzg)
-  call shdf5_irec(ndims, idims, 'nzpom' , ivars=nzpom)
+  call shdf5_irec(ndims, idims, 'nzg'   , ivars=nzg0)
+  call shdf5_irec(ndims, idims, 'nzpom' , ivars=nzpom0)
+
+  if (nzg0   /= nzg  ) ierr = 1
+  if (nzpom0 /= nzpom) ierr = 1
+
+  if (ierr == 1) then
+
+     write(io6,*) 'SFCGFILE mismatch with OLAMIN namelist: Stopping model run'
+     write(io6,*) 'Values: gridfile, namelist'
+     write(io6,*) '-----------------------------------------------'
+     write(io6,*)              'nzg:      ', nzg0  , nzg
+     write(io6,*)              'nzpom:    ', nzpom0, nzpom
+     write(io6,*) '-----------------------------------------------'
+
+     stop 'stop - surface gridfile mismatch'
+
+  endif
 
   ! Copy grid dimensions
 
@@ -1762,7 +1788,7 @@ subroutine sfcgfile_read()
   allocate (land%z_bedrock           (mland)) ; land%z_bedrock        = 0.
   allocate (land%gpp                 (mland)) ; land%gpp              = 0.
   allocate (land%glhymps_ksat        (mland)) ; land%glhymps_ksat     = 0.
-  allocate (land%glhymps_ksat_pfr    (mland)) ; land%glhymps_ksat_pfr = 0.
+! allocate (land%glhymps_ksat_pfr    (mland)) ; land%glhymps_ksat_pfr = 0.
   allocate (land%glhymps_poros       (mland)) ; land%glhymps_poros    = 0.
   allocate (land%sand            (nzg,mland)) ; land%sand             = 0.
   allocate (land%clay            (nzg,mland)) ; land%clay             = 0.
@@ -1779,7 +1805,7 @@ subroutine sfcgfile_read()
   call shdf5_irec(ndims, idims, 'z_bedrock'       , rvar1=land%z_bedrock,       points=lgland, stagpt=type)
   call shdf5_irec(ndims, idims, 'gpp'             , rvar1=land%gpp,             points=lgland, stagpt=type)
   call shdf5_irec(ndims, idims, 'glhymps_ksat'    , rvar1=land%glhymps_ksat,    points=lgland, stagpt=type)
-  call shdf5_irec(ndims, idims, 'glhymps_ksat_pfr', rvar1=land%glhymps_ksat_pfr,points=lgland, stagpt=type)
+! call shdf5_irec(ndims, idims, 'glhymps_ksat_pfr', rvar1=land%glhymps_ksat_pfr,points=lgland, stagpt=type)
   call shdf5_irec(ndims, idims, 'glhymps_poros'   , rvar1=land%glhymps_poros,   points=lgland, stagpt=type)
 
   ndims    = 2

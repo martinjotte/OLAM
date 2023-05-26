@@ -5,7 +5,6 @@ subroutine leaf4_init_atm()
                           dt_leaf, isoilstateinit, iwatertabflg, watertab_db, &
                           wcap_min
   use mem_land,     only: mland, land, omland, nzg, slzt
-  use leaf4_surface,only: grndvap
   use misc_coms,    only: s1900_sim, iparallel, runtype, initial
   use mem_sfcg,     only: itab_wsfc, sfcg
   use consts_coms,  only: cliq, cice, alli, cliq1000, cice1000, alli1000, &
@@ -13,7 +12,7 @@ subroutine leaf4_init_atm()
   use mem_para,     only: myrank
   use leaf4_canopy, only: vegndvi
   use land_db,      only: land_database_read
-  use leaf4_soil,   only: soil_pot2wat, soil_wat2pot
+  use leaf4_soil,   only: soil_pot2wat
   use oname_coms,   only: nl
 
   implicit none
@@ -206,10 +205,9 @@ subroutine leaf4_init_atm()
 
         psi = land%head0(iland) - slzt(k)
 
-        call soil_pot2wat(psi, land%wresid_vg(k,iland), land%wsat_vg(k,iland), &
-                          land%alpha_vg(k,iland), land%en_vg(k,iland), &
-                          land%soil_water(k,iland))
-
+        call soil_pot2wat( psi, land%wresid_vg(k,iland), land%wsat_vg   (k,iland), &
+                                land%alpha_vg (k,iland), land%en_vg     (k,iland), &
+                                land%wfrac_low(k,iland), land%soil_water(k,iland)  )
      enddo
 
   enddo  ! iland
@@ -347,26 +345,6 @@ subroutine leaf4_init_atm()
         endif
      enddo
 
-     ! Initialize ground (soil) and surface vapor specific humidity
-
-     nlsw1 = max(1,land%nlev_sfcwater(iland))
-
-     call soil_wat2pot(nzg, iland, land%soil_water(nzg,iland), land%wresid_vg(nzg,iland), &
-                       land%wsat_vg(nzg,iland), land%alpha_vg(nzg,iland), &
-                       land%en_vg(nzg,iland), psi, psi_slope)
-
-     call grndvap(iland,                              &
-                  sfcg%rhos                  (iwsfc), &
-                  sfcg%canrrv                (iwsfc), &
-                  land%nlev_sfcwater         (iland), &
-                  land%surface_srrv          (iland), &
-                  land%ground_rrv            (iland), &
-                  land%sfcwater_energy (nlsw1,iland), &
-                  land%soil_water        (nzg,iland), &
-                  land%soil_energy       (nzg,iland), &
-                  psi                               , &
-                  land%specifheat_drysoil(nzg,iland)  )
-
      ! Initialize snowfac
 
      land%snowfac(iland) = 0.
@@ -377,7 +355,7 @@ subroutine leaf4_init_atm()
      if (land%snowfac(iland) > 0.9) land%snowfac(iland) = 1.0
 
      sfcg%rough(iwsfc) = max(snow_rough, &
-        max(soil_rough, land%veg_rough(iland)) * (1. - land%snowfac(iland)))
+          max(soil_rough, land%veg_rough(iland)) * (1. - land%snowfac(iland)))
 
      ! Diagnose head1 based on sfcwater mass
 

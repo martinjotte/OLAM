@@ -791,7 +791,7 @@ subroutine gridfile_write()
   use max_dims,   only: maxngrdll, pathlen
   use misc_coms,  only: io6, ngrids, gridfile, mdomain, nzp, nxp, &
                         iclobber, itopoflg, deltax, ndz, hdz, dz, &
-                        ngrdll, grdrad, grdlat, grdlon
+                        ngrdll, grdrad, grdlat, grdlon, ibathflg
   use mem_ijtabs, only: mloops, mrls, itab_m, itab_v, itab_w
   use mem_grid,   only: nza, nma, nua, nva, nwa, nsw_max, &
                         zm, zt, dzm, dzt, dzim, dzit, &
@@ -804,7 +804,7 @@ subroutine gridfile_write()
                         glatw, glonw, glatm, glonm, glatv, glonv, &
                         arv, arw, volt
   use mem_sfcg,   only: sfcg, nwsfc, itab_wsfc
-  use leaf_coms,  only: isfcl
+  use leaf_coms,  only: isfcl, isoilflg, ivegflg
 
   use hdf5_utils, only: shdf5_orec, shdf5_open, shdf5_close
 
@@ -851,6 +851,9 @@ subroutine gridfile_write()
   call shdf5_orec(ndims, idims, 'NGRIDS'  , ivars=ngrids)
   call shdf5_orec(ndims, idims, 'ISFCL'   , ivars=isfcl)
   call shdf5_orec(ndims, idims, 'ITOPOFLG', ivars=itopoflg)
+  call shdf5_orec(ndims, idims, 'IBATHFLG', ivars=ibathflg)
+  call shdf5_orec(ndims, idims, 'ISOILFLG', ivars=isoilflg)
+  call shdf5_orec(ndims, idims, 'IVEGFLG' , ivars=ivegflg)
   call shdf5_orec(ndims, idims, 'DELTAX'  , rvars=deltax)
   call shdf5_orec(ndims, idims, 'NDZ'     , ivars=ndz)
   call shdf5_orec(ndims, idims, 'NUDFLAG' , ivars=nudflag)
@@ -1416,7 +1419,7 @@ subroutine gridfile_read_pd()
 
   use max_dims,   only: maxngrdll, pathlen
   use misc_coms,  only: io6, ngrids, gridfile, mdomain, nzp, nxp, &
-                        itopoflg, deltax, ndz, hdz, dz, &
+                        itopoflg, ibathflg, deltax, ndz, hdz, dz, &
                         ngrdll, grdrad, grdlat, grdlon
   use mem_ijtabs, only: mloops, mrls,  &
                         itab_m_pd, itab_v_pd, itab_w_pd, alloc_itabs_pd
@@ -1424,7 +1427,7 @@ subroutine gridfile_read_pd()
                         mza, mma, mua, mva, mwa, nsw_max, nve2_max, &
                         xew, yew, zew, arw0, alloc_xyzem, alloc_xyzew
   use mem_sfcg,   only: nwsfc, itab_wsfc_pd
-  use leaf_coms,  only: isfcl
+  use leaf_coms,  only: isfcl, isoilflg, ivegflg
 
   use hdf5_utils, only: shdf5_irec, shdf5_open, shdf5_close
 
@@ -1446,7 +1449,7 @@ subroutine gridfile_read_pd()
   integer :: ndims, idims(2)
 
   integer :: ngrids0, mdomain0, nxp0, nzp0, itopoflg0, isfcl0, ndz0
-  integer :: nudflag0, nudnxp0
+  integer :: nudflag0, nudnxp0, ibathflg0, isoilflg0, ivegflg0
 
   real    :: deltax0
 
@@ -1508,8 +1511,10 @@ subroutine gridfile_read_pd()
   call shdf5_irec(ndims, idims, 'NGRIDS'  , ivars=ngrids0)
   call shdf5_irec(ndims, idims, 'ISFCL'   , ivars=isfcl0)
   call shdf5_irec(ndims, idims, 'ITOPOFLG', ivars=itopoflg0)
+  call shdf5_irec(ndims, idims, 'IBATHFLG', ivars=ibathflg0)
+  call shdf5_irec(ndims, idims, 'ISOILFLG', ivars=isoilflg0)
+  call shdf5_irec(ndims, idims, 'IVEGFLG' , ivars=ivegflg0)
   call shdf5_irec(ndims, idims, 'DELTAX'  , rvars=deltax0)
-
   call shdf5_irec(ndims, idims, 'NDZ'     , ivars=ndz0)
 
   if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) then
@@ -1554,6 +1559,9 @@ subroutine gridfile_read_pd()
   if (ngrids0   /= ngrids  ) ierr = 1
   if (isfcl0    /= isfcl   ) ierr = 1
   if (itopoflg0 /= itopoflg) ierr = 1
+  if (ibathflg0 /= ibathflg) ierr = 1
+  if (isoilflg0 /= isoilflg) ierr = 1
+  if (ivegflg0  /= ivegflg)  ierr = 1
   if (ndz0      /= ndz     ) ierr = 1
 
   if (abs(deltax0 - deltax) > 1.e-3) ierr = 1

@@ -736,9 +736,9 @@ Contains
 
            psi = head_sp(ksp,iland) - slzt(k)
 
-           call soil_pot2wat(psi, land%wresid_vg(k,iland), land%wsat_vg(k,iland), &
-                             land%alpha_vg(k,iland), land%en_vg(k,iland), &
-                             land%soil_water(k,iland))
+           call soil_pot2wat(psi, land%wresid_vg(k,iland), land%wsat_vg   (k,iland), &
+                                  land%alpha_vg (k,iland), land%en_vg     (k,iland), &
+                                  land%wfrac_low(k,iland), land%soil_water(k,iland)  )
 
            land%soil_water(k,iland) = max(land%wresid_vg(k,iland), &
                                       min(land%wsat_vg(k,iland),   &

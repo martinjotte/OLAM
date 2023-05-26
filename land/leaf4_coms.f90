@@ -96,5 +96,9 @@ Module leaf_coms
                              ! Oster, S.E. and M.R. Albert (2002): Thermal conductivity of polar firn,
                              ! Journal of Glaciology, Vol. 68, Issue 272.
 
-End Module leaf_coms
+  real, parameter :: specifheat_bedrock = 2.2e6   ! Volumetric heat capacity of deep ground [J/(m^3 K)]
+  real, parameter :: specifheat_coarse  = 2.128e6 ! Volumetric heat capacity of sand [J/(m^3 K)]
+  real, parameter :: specifheat_fine    = 2.385e6 ! Volumetric heat capacity of silt/clay [J/(m^3 K)]
+  real, parameter :: specifheat_organic = 2.5e6   ! Volumetric heat capacity of organic matter [J/(m^3 K)]
 
+End Module leaf_coms

@@ -5,11 +5,11 @@ subroutine landcells(iland, timefac_ndvi, head_slope, soil_watfrac)
                            thermcond_bedrock, thermcond_liq, thermcond_ice, &
                            thermcond_firn
   use mem_land,      only: land, omland, nzg
-  use misc_coms,     only: io6, iparallel
+  use misc_coms,     only: iparallel
   use mem_sfcg,      only: itab_wsfc, sfcg
   use leaf4_canopy,  only: canopy, vegndvi, fast_canopy
-  use leaf4_surface, only: sfcwater, sfcwater_adjust, remove_runoff, grndvap
-  use leaf4_soil,    only: soil, soil_wat2khyd, head_column
+  use leaf4_surface, only: sfcwater, sfcwater_adjust, remove_runoff
+  use leaf4_soil,    only: soil, soil_wat2khyd
   use leaf4_plot,    only: leaf_plot
   use therm_lib,     only: qwtk, qtk
   use mem_para,      only: myrank
@@ -74,26 +74,31 @@ subroutine landcells(iland, timefac_ndvi, head_slope, soil_watfrac)
   icomb = 1  ! Default initialization
   nlsw1 = max(land%nlev_sfcwater(iland),1)
 
-  ! Diagnose soil temperature, liquid fraction, and thermal conductivity
+  ! Diagnose soil temperature and liquid fraction
 
   do k = 1,nzg
-
      call qwtk(land%soil_energy(k,iland),land%soil_water(k,iland)*1.e3, &
                land%specifheat_drysoil(k,iland),soil_tempk(k),soil_fracliq(k))
+  enddo
 
-     if (sfcg%leaf_class(iwsfc) == 2) then
+  ! Diagnose thermal conductivity
 
-        ! Case for firn/glacier locations
+  if (sfcg%leaf_class(iwsfc) == 2) then
 
+     ! Case for firn/glacier locations
+     do k = 1, nzg
         thermcond_soil(k) = thermcond_firn
+     enddo
 
-     elseif (land%ph_soil(k,iland) < 0.) then
+  else
 
-        ! Case for bedrock (negative ph_soil has been set as a flag for bedrock)
-
+     ! Case for bedrock
+     do k = 1, land%k_bedrock(iland)
         thermcond_soil(k) = thermcond_bedrock  ! Assuming that porosity is accounted for
+     enddo
 
-     else
+     ! Case for soil
+     do k = land%k_bedrock(iland)+1, nzg
 
         ! Bulk density of mineral part of soil
 
@@ -121,8 +126,9 @@ subroutine landcells(iland, timefac_ndvi, head_slope, soil_watfrac)
 
         ! Thermal conductivity for saturated soil material
 
-        thermcond_sat_mineral = (8.80 * land%sand(k,iland) + 2.92 * land%clay(k,iland)) &
-                              / (land%sand(k,iland) + land%clay(k,iland))
+!       thermcond_sat_mineral = (8.80 * land%sand(k,iland) + 2.92 * land%clay(k,iland)) &
+!                             / (land%sand(k,iland) + land%clay(k,iland))
+        thermcond_sat_mineral = 8.80 * land%sand(k,iland) + 2.92 * (1. - land%sand(k,iland))
 
         thermcond_sat_solids = mineral             * thermcond_sat_mineral &
                              + land%organ(k,iland) * thermcond_sat_organic
@@ -135,16 +141,15 @@ subroutine landcells(iland, timefac_ndvi, head_slope, soil_watfrac)
                            * thermcond_liq**(land%wsat_vg(k,iland)*soil_fracliq(k)) &
                            * thermcond_ice**(land%wsat_vg(k,iland)*(1.-soil_fracliq(k)))
 
-        kersten_liq = max(0.,log10(soil_watfrac(k)) + 1.)
+        kersten_liq = 1. + log10( max(.1, soil_watfrac(k)) )
         kersten_ice = soil_watfrac(k)
         kersten = kersten_liq * soil_fracliq(k) + kersten_ice * (1. - soil_fracliq(k))
 
         thermcond_soil(k) = kersten * thermcond_sat_soil &
                    + (1. - kersten) * thermcond_drysoil
+     enddo
 
-     endif
-
-  enddo
+  endif
 
   ! Loop over all possible sfcwater (a.k.a. snowcover) layers
 
@@ -284,9 +289,12 @@ subroutine landcells(iland, timefac_ndvi, head_slope, soil_watfrac)
                  energy_per_m2       (nlsw1),       &
                  sfcwater_tempk      (nlsw1),       &
                  sfcwater_fracliq    (nlsw1),       &
+                 soil_watfrac           (1:nzg),       &
                  land%soil_water        (1:nzg,iland), &
                  land%soil_energy       (1:nzg,iland), &
                  land%wsat_vg           (1:nzg,iland), &
+                 land%wresid_vg         (1:nzg,iland), &
+                 land%soilfldcap              (iland), &
                  land%ksat_vg           (1:nzg,iland), &
                  land%specifheat_drysoil(1:nzg,iland), &
                  land%head              (1:nzg,iland), &
@@ -337,7 +345,6 @@ subroutine landcells(iland, timefac_ndvi, head_slope, soil_watfrac)
             land%ksat_vg       (1:nzg,iland), &
             land%lambda_vg     (1:nzg,iland), &
             land%en_vg         (1:nzg,iland), &
-            land%alpha_vg      (1:nzg,iland), &
             soil_watfrac       (1:nzg),       &
             head_slope         (1:nzg),       &
             land%head          (1:nzg,iland), &
@@ -359,23 +366,6 @@ subroutine landcells(iland, timefac_ndvi, head_slope, soil_watfrac)
                           land%sfcwater_depth (1:nzs,iland), &
                           energy_per_m2       (1:nzs)        )
   endif
-
-  ! Compute surface and ground vap mxrat for next timestep; put into surface_srrv
-  ! and ground_rrv.
-
-  nlsw1 = max(land%nlev_sfcwater(iland),1)
-
-  call grndvap(iland,                              &
-               sfcg%rhos                  (iwsfc), &
-               sfcg%canrrv                (iwsfc), &
-               land%nlev_sfcwater         (iland), &
-               land%surface_srrv          (iland), &
-               land%ground_rrv            (iland), &
-               land%sfcwater_energy (nlsw1,iland), &
-               land%soil_water        (nzg,iland), &
-               land%soil_energy       (nzg,iland), &
-               land%head              (nzg,iland), &
-               land%specifheat_drysoil(nzg,iland)  )
 
   !-----------------------------------------------------------------------------
   ! TEMPORARY UNTIL FULL LEAF-HYDRO MODEL IS COMPLETED WITH STREAM/RIVER RUNOFF:
@@ -434,8 +424,6 @@ subroutine landcells(iland, timefac_ndvi, head_slope, soil_watfrac)
         hcapveg          = land%hcapveg              (iland), &
         snowfac          = land%snowfac              (iland), &
         vf               = land%vf                   (iland), &
-        surface_srrv     = land%surface_srrv         (iland), &
-        ground_rrv       = land%ground_rrv           (iland), &
         veg_water        = land%veg_water            (iland), &
         veg_temp         = land%veg_temp             (iland), &
         transp           = transp                           , &

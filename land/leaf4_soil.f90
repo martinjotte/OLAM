@@ -2,26 +2,22 @@ Module leaf4_soil
 
   implicit none
 
-  real, parameter :: psi_slope_static = 5000. ! Inverse specific storage (asymptotic)
-                                               ! of single grid cell at supersaturation
+  real, parameter :: psi_slope_high = 5.e3 ! Inverse specific storage (asymptotic)
+                                             ! at supersaturation
 
-  real, parameter :: wfrac_inc = 0.0001 ! Small increment of wfrac for computing
-                                        ! slope within normal range of wfrac
+  real, parameter :: psi_slope_low  = 5.e5 ! Inverse specific storage (asymptotic)
+                                           ! at residual soil moisture
 
-  real, parameter :: psi_low2 =  -50000.
-  real, parameter :: psi_low1 = -100000.
-  real, parameter :: psi_inc12 = psi_low2 - psi_low1
-
-  Contains
+Contains
 
   subroutine soil(iland, iwsfc, ktrans, transp, wfree1, qwfree1,         &
                   leaf_class, glatw, glonw, head1, head0, nlev_sfcwater, &
                   gpp, sfcwater_mass, sfcwater_energy, sfcwater_depth,   &
                   energy_per_m2, soil_water, soil_energy,                &
-                  wresid_vg, wsat_vg, ksat_vg, lambda_vg, en_vg,alpha_vg,&
+                  wresid_vg, wsat_vg, ksat_vg, lambda_vg, en_vg,         &
                   soil_watfrac, head_slope, head,                        &
                   soil_tempk, soil_fracliq, dheight, energyin,           &
-                  thermcond_soil               )
+                  thermcond_soil                                         )
 
   use leaf_coms,      only: nzs, dt_leaf, z_root, wcap_min
   use mem_land,       only: nzg, slz, dslz, dslzi, slzt, dslzo2, kperc
@@ -57,8 +53,7 @@ Module leaf4_soil
   real, intent(in   ) :: ksat_vg       (nzg) ! saturation hydraulic conductivity [m/s]
   real, intent(in   ) :: lambda_vg     (nzg) ! van Genuchten lambda parameter [ ]
   real, intent(in   ) :: en_vg         (nzg) ! van Genuchten n parameter [ ]
-  real, intent(in   ) :: alpha_vg      (nzg) ! van Genuchten alpha parameter [ ]
-  real, intent(in   ) :: soil_watfrac  (nzg) ! fractional water content within vG range [limited to (0,1)]
+  real, intent(inout) :: soil_watfrac  (nzg) ! fractional water content within vG range [limited to (0,1)]
   real, intent(in   ) :: head_slope    (nzg) ! derivative of head with respect to soil_water [m]
   real, intent(inout) :: head          (nzg) ! hydraulic head [m] (relative to local topo datum)
   real, intent(in   ) :: soil_tempk    (nzg) ! soil temperature (K)
@@ -83,7 +78,7 @@ Module leaf4_soil
   real :: xfercoef     (nzg+1) ! hydraulic transfer coefficient
 
   real :: qow(0:nzg+1)
-  real :: wx
+  real :: wx, fact
 
   ! Defined at soil layer centers
 
@@ -111,6 +106,7 @@ Module leaf4_soil
      qow(k) = cliq1000 * (soil_tempk(k) - 273.15) + alli1000
 
   enddo
+
   qow(0) = alli1000
   if (wfree1 > 0.) then
      qow(nzg+1) = 1000. * qwfree1 / wfree1
@@ -124,10 +120,12 @@ Module leaf4_soil
   if (ktrans > 0) then
      wloss  = transp * dslzi(ktrans) * 1.e-3
      qwloss = wloss * qow(ktrans)
+     fact   = wsat_vg(ktrans) - wresid_vg(ktrans)
 
-     soil_water (ktrans) = soil_water (ktrans) - wloss
-     soil_energy(ktrans) = soil_energy(ktrans) - qwloss
-     head       (ktrans) = head       (ktrans) - wloss * head_slope(ktrans)
+     soil_water  (ktrans) = soil_water  (ktrans) - wloss
+     soil_energy (ktrans) = soil_energy (ktrans) - qwloss
+     head        (ktrans) = head        (ktrans) - wloss * head_slope(ktrans)
+     soil_watfrac(ktrans) = soil_watfrac(ktrans) - wloss / fact
   endif
 
   ! Loop over soil W levels - fractional water content and heat transfer
@@ -431,176 +429,92 @@ Module leaf4_soil
 
 ! ===============================================================================
 
-  subroutine soil_wat2pot( k, iland, soil_water, wresid_vg, wsat_vg, alpha_vg, &
-                           en_vg, psi, psi_slope          )
+  subroutine soil_wat2pot(soil_water, wfrac_low, wresid_vg, wsat_vg, alpha_vg, en_vg, psi)
 
-  implicit none
+    implicit none
 
-  integer, intent(in) :: k,iland
-  real, intent(in   ) :: soil_water
-  real, intent(in   ) :: wresid_vg
-  real, intent(in   ) :: wsat_vg
-  real, intent(in   ) :: alpha_vg
-  real, intent(in   ) :: en_vg
-  real, intent(inout) :: psi
-  real, intent(inout) :: psi_slope
+    real, intent(in   ) :: soil_water
+    real, intent(in   ) :: wfrac_low
+    real, intent(in   ) :: wresid_vg
+    real, intent(in   ) :: wsat_vg
+    real, intent(in   ) :: alpha_vg
+    real, intent(in   ) :: en_vg
+    real, intent(inout) :: psi
 
-  real :: eni_vg
-  real :: em_vg
-  real :: emi_vg
+    real :: eni_vg
+    real :: mmi_vg
+    real :: soil_watfrac_ul, soil_watfrac, ws_wr
 
-  real, parameter :: psi_slope_static = 5000. ! Inverse specific storage (asymptotic)
-                                               ! of single grid cell at supersaturation
+    real, parameter :: wfrac_high = 1. - 3. * epsilon(1.)
 
-  real, parameter :: wfrac_inc = 0.0001 ! Small increment of wfrac for computing
-                                        ! slope within normal range of wfrac
+    ! van Genuchten auxiliary variables. Option for em_vg should be identical
+    ! between subroutines soil_wat2pot, soil_pot2wat, and soil_wat2khyd.
 
-  real, parameter :: psi_low2 =  -50000.
-  real, parameter :: psi_low1 = -100000.
-  real, parameter :: psi_inc12 = psi_low2 - psi_low1
+    eni_vg = 1.0 / en_vg
+    mmi_vg = 1.0 / (eni_vg - 1.0)
 
-  real :: wfrac_low2, wfrac_low1, wfrac_inc12, soil_watfrac_ul
+    ws_wr = wsat_vg - wresid_vg
 
-  real :: psi0
+    ! Compute soil water potential and its derivative with respect to water content
+    ! based on water content in the soil layer
 
-  ! van Genuchten auxiliary variables. Option for em_vg should be identical
-  ! between subroutines soil_wat2pot, soil_pot2wat, and soil_wat2khyd.
+    soil_watfrac_ul = (soil_water - wresid_vg) / ws_wr
+    soil_watfrac    = max( wfrac_low, min( wfrac_high, soil_watfrac_ul ) )
 
-  eni_vg = 1.0 / en_vg
-  em_vg  = 1.0 - eni_vg  ! Option 1
- !em_vg  = 1.0           ! Option 2
-  emi_vg = 1.0 / em_vg
+    psi = (soil_watfrac**mmi_vg - 1.)**eni_vg / alpha_vg
 
-  ! Compute soil water potential and its derivative with respect to water content
-  ! based on water content in the soil layer
+    ! Linear adjustment to psi if supersaturated or below wfrac_low
 
-  if (soil_water >= wsat_vg) then
-
-     ! For soil water exceeding saturation value, use linear relationship
-     ! assuming a constant specific storage parameter.  Use more elastic
-     ! specific storage value for water potential slope
-
-     psi = (soil_water - wsat_vg) * psi_slope_static
-     psi_slope = psi_slope_static
-
-  else
-
-     ! Evaluate two water fraction values near the dry limit for this soil
-     ! layer and compare with actual water fraction
-
-     wfrac_low2 = ((psi_low2 * alpha_vg)**en_vg + 1.)**(-em_vg)
-     wfrac_low1 = ((psi_low1 * alpha_vg)**en_vg + 1.)**(-em_vg)
-
-     soil_watfrac_ul = (soil_water - wresid_vg) / (wsat_vg - wresid_vg)
-
-     if (soil_watfrac_ul < wfrac_low2) then
-
-        ! At the lower end of the range of soil water content in the van Genuchten
-        ! model, the matric potential becomes singular.  To avoid computational
-        ! problems associated with the singularity and nearby steepness of the
-        ! matric potential curve, the matric potential is approximated by a linear
-        ! function of water content.  The constant slope is defined using two
-        ! values of matric potential, psi_low2 and psi_low1, along with a
-        ! corresponding value of water fraction for each.
-
-        wfrac_inc12  = wfrac_low2 - wfrac_low1
-
-        psi_slope = psi_inc12 / (wfrac_inc12 * (wsat_vg - wresid_vg))
-
-        psi = psi_low1 + (soil_watfrac_ul - wfrac_low1) &
-            * psi_slope * (wsat_vg - wresid_vg)
-
-     else
-
-        ! For water fraction within the range (wfrac_low2, wsat_vg), use standard
-        ! van Genuchten potential formula
-
-        psi = ((soil_watfrac_ul)**(-emi_vg) - 1.)**eni_vg / alpha_vg
-
-        if (soil_watfrac_ul - wfrac_inc > wfrac_low1) then
-
-           psi0 = ((soil_watfrac_ul - wfrac_inc)**(-emi_vg) - 1.)**eni_vg / alpha_vg
-           psi_slope = (psi - psi0) / (wfrac_inc * (wsat_vg - wresid_vg))
-
-        else
-
-           psi_slope = (psi - psi_low1) &
-                     / ((soil_watfrac_ul - wfrac_low1) * (wsat_vg - wresid_vg))
-        endif
-
-     endif
-
-  endif
+    if (soil_watfrac_ul > wfrac_high) then
+       psi = psi + ws_wr * (soil_watfrac_ul - wfrac_high) * psi_slope_high
+    elseif (soil_watfrac_ul < wfrac_low) then
+       psi = psi + ws_wr * (soil_watfrac_ul - wfrac_low) * psi_slope_low
+    endif
 
   end subroutine soil_wat2pot
 
 !===============================================================================
 
-  subroutine soil_pot2wat( psi, wresid_vg, wsat_vg, alpha_vg, en_vg, soil_water)
+  subroutine soil_pot2wat(psi, wresid_vg, wsat_vg, alpha_vg, en_vg, wfrac_low, soil_water)
 
-  implicit none
+    implicit none
 
-  real, intent(in) :: psi
-  real, intent(in) :: wresid_vg
-  real, intent(in) :: wsat_vg
-  real, intent(in) :: alpha_vg
-  real, intent(in) :: en_vg
+    real, intent(in) :: psi
+    real, intent(in) :: wresid_vg
+    real, intent(in) :: wsat_vg
+    real, intent(in) :: alpha_vg
+    real, intent(in) :: en_vg
+    real, intent(in) :: wfrac_low
 
-  real, intent(inout) :: soil_water
+    real, intent(inout) :: soil_water
 
-  real :: eni_vg
-  real :: em_vg
-  real :: emi_vg
+    real :: mm_vg, soil_watfrac, psi0
 
-  real :: wfrac_low2, wfrac_low1, wfrac_inc12, soil_watfrac_ul
+    ! van Genuchten auxiliary variables. Option for em_vg should be identical
+    ! between subroutines soil_wat2pot, soil_pot2wat, and soil_wat2khyd.
 
-  ! van Genuchten auxiliary variables. Option for em_vg should be identical
-  ! between subroutines soil_wat2pot, soil_pot2wat, and soil_wat2khyd.
+    mm_vg = 1.0 / en_vg - 1.
 
-  eni_vg = 1.0 / en_vg
-  em_vg  = 1.0 - eni_vg  ! Option 1
- !em_vg  = 1.0           ! Option 2
-  emi_vg = 1.0 / em_vg
+    if (psi >= 0.) then
 
-  ! Compute soil water content based on soil water potential in the soil layer
+       ! For water potential zero or higher, use linear relationship
+       ! assuming a constant specific storage parameter.
 
-  if (psi >= 0.) then
+       soil_water = wsat_vg + psi / psi_slope_high
 
-     ! For water potential zero or higher, use linear relationship
-     ! assuming a constant specific storage parameter.
+    else
 
-     soil_water = wsat_vg + psi / psi_slope_static
+       soil_watfrac = ((psi * alpha_vg)**en_vg + 1.)**mm_vg
+       soil_water = wresid_vg + max(soil_watfrac,wfrac_low) * (wsat_vg - wresid_vg)
 
-  elseif (psi <= psi_low2) then
+       if (soil_watfrac < wfrac_low) then
 
-     ! At the lower end of the range of soil water content in the van Genuchten
-     ! model, the matric potential becomes singular.  To avoid computational
-     ! problems associated with the singularity and nearby steepness of the
-     ! matric potential curve, the matric potential is approximated by a linear
-     ! function of water content.  The constant slope is defined using two
-     ! values of matric potential, psi_low2 and psi_low1, along with a
-     ! corresponding value of water fraction for each.
+          call soil_wat2pot(soil_water, wfrac_low, wresid_vg, wsat_vg, alpha_vg, en_vg, psi0)
+          soil_water = soil_water + min(0., psi - psi0) / psi_slope_low
 
-     wfrac_low2 = ((psi_low2 * alpha_vg)**en_vg + 1.)**(-em_vg)
-     wfrac_low1 = ((psi_low1 * alpha_vg)**en_vg + 1.)**(-em_vg)
-     wfrac_inc12  = wfrac_low2 - wfrac_low1
+       endif
 
-     ! Estimate soil_water from low-end linear water potential equation
-
-     soil_watfrac_ul = wfrac_low1 + (psi - psi_low1) * wfrac_inc12 / psi_inc12
-
-     soil_water = wresid_vg + soil_watfrac_ul * (wsat_vg - wresid_vg)
-
-  else
-
-     ! For water potential within the range (psi_low2, 0.0), use standard
-     ! van Genuchten inverse potential formula
-
-     soil_watfrac_ul = ((psi * alpha_vg)**en_vg + 1.)**(-em_vg)
-
-     soil_water = wresid_vg + soil_watfrac_ul * (wsat_vg - wresid_vg)
-
-  endif
+    endif
 
   end subroutine soil_pot2wat
 
@@ -608,29 +522,36 @@ Module leaf4_soil
 
   subroutine soil_wat2khydX( soil_watfrac, ksat_vg, lambda_vg, en_vg, khyd)
 
-  implicit none
+    implicit none
 
-  real, intent(in   ) :: soil_watfrac
-  real, intent(in   ) :: ksat_vg
-  real, intent(in   ) :: lambda_vg
-  real, intent(in   ) :: en_vg
-  real, intent(inout) :: khyd
+    real, intent(in   ) :: soil_watfrac
+    real, intent(in   ) :: ksat_vg
+    real, intent(in   ) :: lambda_vg
+    real, intent(in   ) :: en_vg
+    real, intent(inout) :: khyd
 
-  real :: eni_vg
-  real :: em_vg
-  real :: emi_vg
+    real :: eni_vg
+    real :: em_vg
+    real :: emi_vg
+    real :: watfrac
 
-  ! van Genuchten auxiliary variables. Option for em_vg should be identical
-  ! between subroutines soil_wat2pot, soil_pot2wat, and soil_wat2khyd.
+    real, parameter :: wf_high  = 1. - 3. * epsilon(1.)
+    real, parameter :: wf_low   = 1.e-3
 
-  eni_vg = 1.0 / en_vg
-  em_vg  = 1.0 - eni_vg  ! Option 1
- !em_vg  = 1.0           ! Option 2
-  emi_vg = 1.0 / em_vg
+    ! van Genuchten auxiliary variables. Option for em_vg should be identical
+    ! between subroutines soil_wat2pot, soil_pot2wat, and soil_wat2khyd.
 
-  ! Compute hydraulic conductivity
+    eni_vg = 1.0 / en_vg
+    em_vg  = 1.0 - eni_vg
+    emi_vg = 1.0 / em_vg
 
-  khyd = ksat_vg * ((soil_watfrac**lambda_vg) * (1. - (1. - soil_watfrac**emi_vg)**em_vg)**2)
+    watfrac = max(wf_low, min(wf_high, soil_watfrac))
+
+    ! Compute hydraulic conductivity
+
+    khyd = ksat_vg * watfrac**lambda_vg * (1. - (1. - watfrac**emi_vg)**em_vg)**2
+
+    khyd = max(khyd, 1.e-15) ! to prevent division by zero outside this subroutine
 
   end subroutine soil_wat2khydX
 
@@ -639,122 +560,180 @@ Module leaf4_soil
   subroutine soil_wat2khyd( soil_watfrac, ksat_vg, lambda_vg, en_vg, khyd, &
                             gpp, slzt, z_root, head)
 
-  implicit none
+    implicit none
 
-  real, intent(in   ) :: soil_watfrac
-  real, intent(in   ) :: ksat_vg
-  real, intent(in   ) :: lambda_vg
-  real, intent(in   ) :: en_vg
-  real, intent(inout) :: khyd
+    real, intent(in   ) :: soil_watfrac
+    real, intent(in   ) :: ksat_vg
+    real, intent(in   ) :: lambda_vg
+    real, intent(in   ) :: en_vg
+    real, intent(inout) :: khyd
 
-  ! The following input quantities are for soil structure effect
+    ! The following input quantities are for soil structure effect
 
-  real, intent(in) :: gpp
-  real, intent(in) :: slzt
-  real, intent(in) :: z_root
-  real, intent(in) :: head
+    real, intent(in) :: gpp
+    real, intent(in) :: slzt
+    real, intent(in) :: z_root
+    real, intent(in) :: head
 
-  real :: ksokt_gpp, ksokt_root, ksokt_head, ksokt
+    real :: ksokt_gpp, ksokt_root, ksokt_head, ksokt
 
-  real :: eni_vg
-  real :: em_vg
-  real :: emi_vg
+    real :: eni_vg
+    real :: em_vg
+    real :: emi_vg
+    real :: watfrac
 
-  real, parameter :: khyd_max = 0.0001  ! Maximum allowed hydraulic conductivity [m/s]
+    real, parameter :: khyd_max = 0.0001  ! Maximum allowed hydraulic conductivity [m/s]
+    real, parameter :: wf_high  = 1. - 3. * epsilon(1.)
+    real, parameter :: wf_low   = 1.e-3
 
-  ! van Genuchten auxiliary variables. Option for em_vg should be identical
-  ! between subroutines soil_wat2pot, soil_pot2wat, and soil_wat2khyd.
+    ! van Genuchten auxiliary variables. Option for em_vg should be identical
+    ! between subroutines soil_wat2pot, soil_pot2wat, and soil_wat2khyd.
 
-  eni_vg = 1.0 / en_vg
-  em_vg  = 1.0 - eni_vg  ! Option 1
- !em_vg  = 1.0           ! Option 2
-  emi_vg = 1.0 / em_vg
+    eni_vg = 1.0 / en_vg
+    em_vg  = 1.0 - eni_vg
+    emi_vg = 1.0 / em_vg
 
-  ! Compute hydraulic conductivity
+    watfrac = max(wf_low, min(wf_high, soil_watfrac))
 
-  khyd = ksat_vg * ((soil_watfrac**lambda_vg) * (1. - (1. - soil_watfrac**emi_vg)**em_vg)**2)
+    ! Compute hydraulic conductivity
+
+    khyd = ksat_vg * watfrac**lambda_vg * (1. - (1. - watfrac**emi_vg)**em_vg)**2
 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ! SOIL STRUCTURE EXPERIMENT: BYPASS SOIL STRUCTURE EFFECT
 !  GO TO 10
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-  ! Compute and apply soil structure factor if GPP > 0, soil layer is
-  ! inside root zone, and head > -0.1 m
+    ! Compute and apply soil structure factor if GPP > 0, soil layer is
+    ! inside root zone, and head > -0.1 m
 
-  if (gpp > 0. .and. slzt > z_root .and. head > -0.1) then
+    if (gpp > 0. .and. slzt > z_root .and. head > -0.1) then
 
-     ksokt_gpp = min(1., .333333e-3 * gpp)  ! gpp / 3000
+       ksokt_gpp = min(1., .333333e-3 * gpp)  ! gpp / 3000
 
-     ! Soil structure hydraulic conductivity factor from root depth
-     ! (slzt is negative; z_root is negative or zero)
+       ! Soil structure hydraulic conductivity factor from root depth
+       ! (slzt is negative; z_root is negative or zero)
 
-     ksokt_root = (z_root - slzt) / z_root
+       ksokt_root = (z_root - slzt) / z_root
 
-     ! Soil structure hydraulic conductivity factor from head
+       ! Soil structure hydraulic conductivity factor from head
 
-     ksokt_head = min(1., 10. * (head + 0.1))
+       ksokt_head = min(1., 10. * (head + 0.1))
 
-     ! Scaling factor of 999.0 suggested by Fatichi, but it could instead
-     ! range from 9.0 for sand to 99999.0 for clay
+       ! Scaling factor of 999.0 suggested by Fatichi, but it could instead
+       ! range from 9.0 for sand to 99999.0 for clay
 
-     ksokt = 1.0 + 999.0 * ksokt_gpp * ksokt_root * ksokt_head
+       ksokt = 1.0 + 999.0 * ksokt_gpp * ksokt_root * ksokt_head
 
-     khyd = min(ksokt * khyd, khyd_max)
+       khyd = min(ksokt * khyd, khyd_max)
 
-  endif
+    endif
 
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ! END OF CODE FOR SOIL STRUCTURE EXPERIMENT: BYPASS SOIL STRUCTURE EFFECT
-  10 CONTINUE
+!  10 CONTINUE
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-  khyd = max(khyd,1.e-15) ! to prevent division by zero outside this subroutine
+    khyd = max(khyd,1.e-15) ! to prevent division by zero outside this subroutine
 
   end subroutine soil_wat2khyd
 
 !===============================================================================
 
-  subroutine head_column(nzg, iland, slzt, &
-                         soil_water, wresid_vg, wsat_vg, alpha_vg, en_vg, &
-                         head, head_slope, soil_watfrac)
+  subroutine head_column(nzg, iland, slzt, soil_water, watfrac_low, &
+                         wres, wsat, alpha, en, head, head_slope, soil_watfrac)
 
-  ! Diagnose hydraulic head (relative to local topographic datum) and
-  ! its derivative with respect to soil water.
+    ! Diagnose hydraulic head (relative to local topographic datum) and
+    ! its derivative with respect to soil water.
 
-  implicit none
+    implicit none
 
-  integer, intent(in) :: nzg, iland
+    integer, intent(in) :: nzg, iland
 
-  real, intent(in)    :: slzt        (nzg)
-  real, intent(in)    :: soil_water  (nzg)
-  real, intent(in)    :: wresid_vg   (nzg)
-  real, intent(in)    :: wsat_vg     (nzg)
-  real, intent(in)    :: alpha_vg    (nzg)
-  real, intent(in)    :: en_vg       (nzg)
-  real, intent(inout) :: head        (nzg)
-  real, intent(inout) :: head_slope  (nzg)
-  real, intent(inout) :: soil_watfrac(nzg)
+    real, intent(in)    :: slzt        (nzg)
+    real, intent(in)    :: soil_water  (nzg)
+    real, intent(in)    :: watfrac_low (nzg)
+    real, intent(in)    :: wres        (nzg)
+    real, intent(in)    :: wsat        (nzg)
+    real, intent(in)    :: alpha       (nzg)
+    real, intent(in)    :: en          (nzg)
+    real, intent(inout) :: head        (nzg)
+    real, intent(inout) :: head_slope  (nzg)
+    real, intent(inout) :: soil_watfrac(nzg)
 
-  integer :: k
+    integer :: k
 
-  real :: psi, psi_slope
-  real :: soil_watfrac_ul
+    real :: psi, psi_slope
+    real :: watfrac, watfrac_lim, wf_low, wf_high
+    real :: eni, emi, ws_wr, wf_em, wf_em1
 
-  do k = 1,nzg
+    real, parameter :: watfrac_high = 1. - 3. * epsilon(1.)
 
-     soil_watfrac_ul = (soil_water(k) - wresid_vg(k)) / (wsat_vg(k) - wresid_vg(k))
+    do k = 1,nzg
 
-     soil_watfrac(k) = min(1.0,max(0.001,soil_watfrac_ul))
+       eni = 1.0 / en(k)
+       emi = en(k) / (en(k) - 1.)
 
-     call soil_wat2pot(k, iland, soil_water(k), wresid_vg(k), wsat_vg(k), &
-                       alpha_vg(k), en_vg(k), psi, psi_slope)
+       ws_wr = wsat(k) - wres(k)
 
-     head(k) = psi + slzt(k)
-     head_slope(k) = psi_slope
+       watfrac     = (soil_water(k) - wres(k)) / ws_wr
+       watfrac_lim = max( watfrac_low(k), min(watfrac_high, watfrac) )
 
-  enddo
+       wf_em  = watfrac_lim**(-emi)
+       wf_em1 = wf_em - 1.0
+
+       psi       = wf_em1**eni / alpha(k)
+       psi_slope = -psi * emi * eni * wf_em / (ws_wr * watfrac_lim * wf_em1)
+
+       ! Linear correction to psi when watfrac is greater than 1 or less
+       ! than watfrac_low. This prevents numerical issues when d(psi)/d(wat)
+       ! gets too large (or infinite).
+
+       wf_high = max(0., watfrac        - watfrac_high)
+       wf_low  = max(0., watfrac_low(k) - watfrac     )
+
+       psi = psi + ws_wr * ( wf_high * psi_slope_high &
+                           - wf_low  * psi_slope_low  )
+
+       if (watfrac > watfrac_high) psi_slope = psi_slope_high
+
+       head        (k) = psi + slzt(k)
+       head_slope  (k) = psi_slope
+       soil_watfrac(k) = max(0., min(1., watfrac))
+
+    enddo
 
   end subroutine head_column
+
+!===============================================================================
+
+  subroutine calc_wfrac_low(nzg, wfrac_low, wsat_vg, wres_vg, en_vg, alpha_vg)
+
+    implicit none
+
+    integer, intent(in)  :: nzg
+    real,    intent(in)  :: wsat_vg  (nzg)
+    real,    intent(in)  :: wres_vg  (nzg)
+    real,    intent(in)  :: en_vg    (nzg)
+    real,    intent(in)  :: alpha_vg (nzg)
+    real,    intent(out) :: wfrac_low(nzg)
+
+    integer              :: k
+    real                 :: em_vg
+
+    ! This routine estimates the soil water fraction at which
+    ! d(head) / d(vol_wat_content) = psi_slope_low, given the behavior
+    ! of the derivative of the Van-Genuchten water retention curve in
+    ! the limit as the water fraction goes to 0
+
+    do k = 1, nzg
+       em_vg = 1.0 - 1.0 / en_vg(k)
+       wfrac_low(k) = ( alpha_vg(k) * em_vg * en_vg(k) * &
+                        (wres_vg(k) - wsat_vg(k)) * psi_slope_low )**(-em_vg)
+    enddo
+
+  end subroutine calc_wfrac_low
+
+!===============================================================================
 
 End Module leaf4_soil
