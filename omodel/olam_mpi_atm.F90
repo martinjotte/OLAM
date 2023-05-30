@@ -42,13 +42,19 @@ Contains
 subroutine olam_mpi_atm_start()
 
 #ifdef OLAM_MPI
+  use var_tables, only: nvar_par
+  use mem_grid,   only: mza
+  use mem_para,   only: nbytes_int, nbytes_real, nbytes_real8
   use mpi
 #endif
 
   implicit none
 
 #ifdef OLAM_MPI
-  integer :: ierr, jrecv
+  integer :: ierr, jrecv, jsend, nv
+  integer :: nbytes_per_iw
+  integer :: nbytes_per_iv
+  integer :: nbytes_per_im
 
   allocate( ireqs_w(nsends_w,2) ) ; ireqs_w = MPI_REQUEST_NULL
   allocate( ireqr_w(nrecvs_w,2) ) ; ireqr_w = MPI_REQUEST_NULL
@@ -58,6 +64,54 @@ subroutine olam_mpi_atm_start()
 
   allocate( ireqs_m(nsends_m,2) ) ; ireqs_m = MPI_REQUEST_NULL
   allocate( ireqr_m(nrecvs_m,2) ) ; ireqr_m = MPI_REQUEST_NULL
+
+  ! Compute W communication buffer sizes
+
+  nv = max(nvar_par, 20)
+
+  nbytes_per_iw =  2 * mza * nbytes_real8 &
+                + nv * mza * nbytes_real
+
+  do jrecv = 1, nrecvs_w
+     recv_w(jrecv)%nbytes = recv_w(jrecv)%jend * nbytes_per_iw
+     allocate( recv_w(jrecv)%buff( recv_w(jrecv)%nbytes ) )
+  enddo
+
+  do jsend = 1, nsends_w
+     send_w(jsend)%nbytes = send_w(jsend)%jend * nbytes_per_iw
+     allocate( send_w(jsend)%buff( send_w(jsend)%nbytes ) )
+  enddo
+
+  ! Compute V communication buffer sizes
+
+  nbytes_per_iv = 3       * nbytes_int &
+                + 4 * mza * nbytes_real
+
+  do jrecv = 1, nrecvs_v
+     recv_v(jrecv)%nbytes  = recv_v(jrecv)%jend * nbytes_per_iv
+     allocate( recv_v(jrecv)%buff( recv_v(jrecv)%nbytes ) )
+  enddo
+
+  do jsend = 1, nsends_v
+     send_v(jsend)%nbytes  = send_v(jsend)%jend * nbytes_per_iv
+     allocate( send_v(jsend)%buff( send_v(jsend)%nbytes ) )
+  enddo
+
+  ! Compute M communication buffer sizes
+
+  nbytes_per_im = 2 * mza * nbytes_real
+
+  do jrecv = 1, nrecvs_m
+     recv_m(jrecv)%nbytes  = recv_m(jrecv)%jend * nbytes_per_im
+     allocate( recv_m(jrecv)%buff( recv_m(jrecv)%nbytes ) )
+  enddo
+
+  do jsend = 1, nsends_m
+     send_m(jsend)%nbytes  = send_m(jsend)%jend * nbytes_per_im
+     allocate( send_m(jsend)%buff( send_m(jsend)%nbytes ) )
+  enddo
+
+  ! Pre-post MPI non-blocking receives
 
   do jrecv = 1, nrecvs_v
 

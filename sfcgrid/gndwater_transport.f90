@@ -462,7 +462,7 @@ subroutine apply_lake_fluxes( ilake, watflux,    energyflux, &
 
         ! Neighbor cell is lake; only top-level flux is nonzero.
 
-        factor   = fconv * dslz(k)                         ! [s]
+        factor   = fconv * dslz(nzg)                       ! [s]
         dheight  = dheight  + factor * watflux   (nzg,ivn) ! [m]
         energyin = energyin + factor * energyflux(nzg,ivn) ! [J/m^2]
 

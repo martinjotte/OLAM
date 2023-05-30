@@ -26,21 +26,39 @@ Contains
 subroutine olam_mpi_nud_start()
 
 #ifdef OLAM_MPI
+  use mem_nudge, only: nudflag, nudnxp
+  use mem_para,  only: nbytes_real8
+  use misc_coms, only: mdomain
+  use mem_grid,  only: mza
   use mpi
 #endif
-
-  use mem_nudge, only: nudflag, nudnxp
-  use misc_coms, only: mdomain
 
   implicit none
 
 #ifdef OLAM_MPI
-  integer :: ierr, jrecv
+  integer :: ierr, jrecv, jsend
+  integer :: nbytes_per_iwnud
 
   if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) then
 
      allocate( ireqs_wnud(nsends_wnud,2) ) ; ireqs_wnud = MPI_REQUEST_NULL
      allocate( ireqr_wnud(nrecvs_wnud,2) ) ; ireqr_wnud = MPI_REQUEST_NULL
+
+     ! Determine number of bytes to send per IW column
+
+     nbytes_per_iwnud = 6 * mza * nbytes_real8
+
+     do jrecv = 1, nrecvs_wnud
+        recv_wnud(jrecv)%nbytes  = recv_wnud(jrecv)%jend * nbytes_per_iwnud
+        allocate( recv_wnud(jrecv)%buff( recv_wnud(jrecv)%nbytes ) )
+     enddo
+
+     do jsend = 1, nsends_wnud
+        send_wnud(jsend)%nbytes  = send_wnud(jsend)%jend * nbytes_per_iwnud
+        allocate( send_wnud(jsend)%buff( send_wnud(jsend)%nbytes ) )
+     enddo
+
+     ! Pre-post non-blocking receives
 
      do jrecv = 1, nrecvs_wnud
 
