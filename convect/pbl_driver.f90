@@ -368,50 +368,50 @@ subroutine apply_surface_fluxes( iw )
   use misc_coms,  only: dtlm
   use mem_basic,  only: rho
   use var_tables, only: sxfer_map, num_sxfer, emis_map, num_emis, scalar_tab
+  use mem_tend,   only: thilt
+  use mem_turb,   only: sxfer_tk
 
   implicit none
 
   integer, intent(in) :: iw
   integer             :: ns, n, ks, k
-  real                :: dtl, dtli
+  real                :: dtli
 
-  dtl  = dtlm
-  dtli = 1.0 / dtl
+  dtli = 1.0 / real(dtlm)
+
+  ! Apply surface heat flux directly to tendency arrays
+
+  !dir$ ivdep
+  do ks = 1, lsw(iw)
+     k = lpw(iw) + ks - 1
+     thilt(k,iw) = thilt(k,iw) + dtli * volti(k,iw) * sxfer_tk(ks,iw)
+  enddo
 
   ! Apply surface moisture and scalar fluxes directly to tendency arrays
 
-  if (num_sxfer > 0) then
+  do ns = 1, num_sxfer
+     n = sxfer_map(ns)
 
-     do ns = 1, num_sxfer
-        n = sxfer_map(ns)
-
-        !dir$ ivdep
-        do ks = 1, lsw(iw)
-           k = lpw(iw) + ks - 1
-
-           scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
-                                     + dtli * volti(k,iw) * scalar_tab(n)%sxfer(ks,iw)
-        enddo
+     !dir$ ivdep
+     do ks = 1, lsw(iw)
+        k = lpw(iw) + ks - 1
+        scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
+                                  + dtli * volti(k,iw) * scalar_tab(n)%sxfer(ks,iw)
      enddo
-
-  endif
+  enddo
 
   ! Apply emissions directly to the tendency arrays
   ! (emis units are concentration / sec )
 
-  if (num_emis > 0) then
+  do ns = 1, num_emis
+     n = emis_map(ns)
 
-     do ns = 1, num_emis
-        n = emis_map(ns)
-
-        !dir$ ivdep
-        do k = lpw(iw), mza-1
-           scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
-                                     + real(rho(k,iw)) * scalar_tab(n)%emis(k,iw)
-        enddo
+     !dir$ ivdep
+     do k = lpw(iw), mza-1
+        scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
+                                  + real(rho(k,iw)) * scalar_tab(n)%emis(k,iw)
      enddo
-
-  endif
+  enddo
 
 end subroutine apply_surface_fluxes
 
