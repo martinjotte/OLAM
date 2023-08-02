@@ -194,7 +194,7 @@ Contains
 
   subroutine filltab_tend(naddsc,nccntyp)
 
-    use mem_turb,   only: tkep, epsp, sxfer_rk
+    use mem_turb,   only: tkep, epsp
     use mem_basic,  only: rr_w
     use mem_addsc,  only: addsc
     use mem_micro,  only: rr_c, rr_d, rr_r, rr_p, rr_s, rr_a, rr_g, rr_h,        &
@@ -214,24 +214,24 @@ Contains
 
 ! Fill pointers to scalar arrays into scalar tables
 
-    if (allocated(rr_wt))    call vtables_scalar (rr_w, rr_wt, 'RR_W', sxfer=sxfer_rk)
+    if (allocated(rr_wt))    call vtables_scalar (rr_w, rr_wt, 'RR_W')
     if (allocated(rr_ct))    call vtables_scalar (rr_c, rr_ct, 'RR_C')
-    if (allocated(rr_rt))    call vtables_scalar (rr_r, rr_rt, 'RR_R', pbl_mix=.false.)
+    if (allocated(rr_rt))    call vtables_scalar (rr_r, rr_rt, 'RR_R')
     if (allocated(rr_pt))    call vtables_scalar (rr_p, rr_pt, 'RR_P')
-    if (allocated(rr_st))    call vtables_scalar (rr_s, rr_st, 'RR_S', pbl_mix=.false.)
-    if (allocated(rr_at))    call vtables_scalar (rr_a, rr_at, 'RR_A', pbl_mix=.false.)
-    if (allocated(rr_gt))    call vtables_scalar (rr_g, rr_gt, 'RR_G', pbl_mix=.false.)
-    if (allocated(rr_ht))    call vtables_scalar (rr_h, rr_ht, 'RR_H', pbl_mix=.false.)
-    if (allocated(rr_dt))    call vtables_scalar (rr_d, rr_dt, 'RR_D', pbl_mix=.false.)
+    if (allocated(rr_st))    call vtables_scalar (rr_s, rr_st, 'RR_S')
+    if (allocated(rr_at))    call vtables_scalar (rr_a, rr_at, 'RR_A')
+    if (allocated(rr_gt))    call vtables_scalar (rr_g, rr_gt, 'RR_G')
+    if (allocated(rr_ht))    call vtables_scalar (rr_h, rr_ht, 'RR_H')
+    if (allocated(rr_dt))    call vtables_scalar (rr_d, rr_dt, 'RR_D')
 
     if (allocated(con_ct))   call vtables_scalar (con_c, con_ct, 'CON_C')
-    if (allocated(con_rt))   call vtables_scalar (con_r, con_rt, 'CON_R', pbl_mix=.false.)
+    if (allocated(con_rt))   call vtables_scalar (con_r, con_rt, 'CON_R')
     if (allocated(con_pt))   call vtables_scalar (con_p, con_pt, 'CON_P')
-    if (allocated(con_st))   call vtables_scalar (con_s, con_st, 'CON_S', pbl_mix=.false.)
-    if (allocated(con_at))   call vtables_scalar (con_a, con_at, 'CON_A', pbl_mix=.false.)
-    if (allocated(con_gt))   call vtables_scalar (con_g, con_gt, 'CON_G', pbl_mix=.false.)
-    if (allocated(con_ht))   call vtables_scalar (con_h, con_ht, 'CON_H', pbl_mix=.false.)
-    if (allocated(con_dt))   call vtables_scalar (con_d, con_dt, 'CON_D', pbl_mix=.false.)
+    if (allocated(con_st))   call vtables_scalar (con_s, con_st, 'CON_S')
+    if (allocated(con_at))   call vtables_scalar (con_a, con_at, 'CON_A')
+    if (allocated(con_gt))   call vtables_scalar (con_g, con_gt, 'CON_G')
+    if (allocated(con_ht))   call vtables_scalar (con_h, con_ht, 'CON_H')
+    if (allocated(con_dt))   call vtables_scalar (con_d, con_dt, 'CON_D')
 
     if (allocated(con_gccnt))call vtables_scalar (con_gccn, con_gccnt, 'CON_GCCN', cu_mix=.true.)
     if (allocated(con_ifnt)) call vtables_scalar (con_ifn,  con_ifnt,  'CON_IFN',  cu_mix=.true.)
@@ -245,9 +245,9 @@ Contains
        enddo
     endif
 
-    if (allocated(q2t)) call vtables_scalar (q2, q2t, 'Q2', pos_def=.false., pbl_mix=.false.)
-    if (allocated(q6t)) call vtables_scalar (q6, q6t, 'Q6', pos_def=.false., pbl_mix=.false.)
-    if (allocated(q7t)) call vtables_scalar (q7, q7t, 'Q7', pos_def=.false., pbl_mix=.false.)
+    if (allocated(q2t)) call vtables_scalar (q2, q2t, 'Q2', pos_def=.false.)
+    if (allocated(q6t)) call vtables_scalar (q6, q6t, 'Q6', pos_def=.false.)
+    if (allocated(q7t)) call vtables_scalar (q7, q7t, 'Q7', pos_def=.false.)
 
     num_omic = num_scalar
 
@@ -260,7 +260,7 @@ Contains
        write(sname,'(a4,i3.3)') 'SCLP',iaddsc
 
        if (allocated(addsc(iaddsc)%sclt)) then
-          call vtables_scalar (addsc(iaddsc)%sclp, addsc(iaddsc)%sclt, trim(sname), cu_mix=.true.)
+          call vtables_scalar (addsc(iaddsc)%sclp, addsc(iaddsc)%sclt, sname, cu_mix=.true.)
        endif
     enddo
 

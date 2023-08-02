@@ -492,6 +492,20 @@ C DEPVEL_GAS is used also for non-ILDEPV in the sgtot calculation
 
          END IF
 
+         ! safety checks
+
+         do v = 1, n_gc_depv
+            if (gc_depv_fac(v) /= 1.0) stop 'gc_depv_fac /= 1'
+         enddo
+
+         do v = 1, n_ae_depv
+            if (ae_depv_fac(v) /= 1.0) stop 'ae_depv_fac /= 1'
+         enddo
+
+         do v = 1, n_nr_depv
+            if (nr_depv_fac(v) /= 1.0) stop 'nr_depv_fac /= 1'
+         enddo
+
          END SUBROUTINE DEPV_INIT
 
 !-----------------------------------------------------------------------
@@ -523,12 +537,13 @@ C DEPVEL_GAS is used also for non-ILDEPV in the sgtot calculation
          USE CGRID_SPCS          ! CGRID mechanism species
          USE UTILIO_DEFN
          USE CONST_DATA
-         use cgrid_defn, only: cgrid
+         use cgrid_defn, only: cgrid, gc_tend, ae_tend, nr_tend, gc_spc_to_trns_map,
+     &                         ae_spc_to_trns_map, nr_spc_to_trns_map
          use misc_coms,  only: dtlm
-         use mem_grid,   only: lpw, volt, arw0
+         use mem_grid,   only: lpw, volt, arw0, volti, dzt
          use mem_basic,  only: rho
-         use mem_turb,   only: frac_sfc
-         use cgrid_defn, only: cgrid, sxfer_gc, sxfer_nr, sxfer_ae
+         use mem_turb,   only: frac_sfc, arw_sfc
+         use cgrid_defn, only: cgrid
 
          IMPLICIT NONE
 
@@ -537,8 +552,8 @@ C DEPVEL_GAS is used also for non-ILDEPV in the sgtot calculation
          integer, intent(in) :: nsfc
 
          ! Local variables:
-         real    :: fact1(nsfc), fact2(nsfc)
-         integer :: v, s, ndx, icg, kw, ks
+         real    :: fact(nsfc), vmax(nsfc), dtli, vdep
+         integer :: v, s, ndx, icg, kw, ks, itr
 
          REAL :: VDEP_AE_SCALED(N_AE_DEP_SPC)
          REAL :: VDEP_AERO     (N_AE_DEP_SPC,NSFC)
@@ -546,35 +561,38 @@ C DEPVEL_GAS is used also for non-ILDEPV in the sgtot calculation
          REAL :: VDEP_GAS_SCALED(N_UNIQUE_GDEPV)
          REAL :: VDEP_GAS       (N_UNIQUE_GDEPV,NSFC)
 
+         dtli = 1.0 / real(dtlm)
+
          do ks = 1, nsfc
             kw = lpw(iw) + ks - 1
 
-            fact1(ks) = real(rho(kw,iw) * dtlm) * frac_sfc(ks,iw) * arw0(iw)
-            fact2(ks) = 0.95 * real(volt(kw,iw) * rho(kw,iw))
+            fact(ks) = real(rho(kw,iw)) * arw_sfc(ks,iw) * volti(kw,iw)  ! kg_air / m^4
+            vmax(ks) = min( dzt(kw), real(volt(kw,iw)) / arw_sfc(ks,iw) ) * dtli * 0.9
          enddo
-
 
          if (N_AE_DEPV > 0) then
 
             call aero_depv ( iw, nsfc, vdep_aero )
 
-            ! For diagnostic output
-            adepv(:,iw) = 0.0
+            adepv(:,iw) = 0.0  ! diagnostic output only
 
             do ks = 1, nsfc
                if (frac_sfc(ks,iw) > 1.e-5) then
+
                   kw = lpw(iw) + ks - 1
 
                   do s = 1, N_AE_DEP_SPC
-                     vdep_ae_scaled(s) = - min(vdep_aero(s,ks) * fact1(ks), fact2(ks))
-
-                     adepv(s,iw) = adepv(s,iw) + vdep_aero(s,ks) * frac_sfc(ks,iw)
+                     vdep              = min(vdep_aero(s,ks), vmax(ks))
+                     vdep_ae_scaled(s) = -vdep * fact(ks)  ! kg_air / m^3 / s
+                     adepv(s,iw)       = adepv(s,iw) + vdep * frac_sfc(ks,iw)
                   enddo
 
                   do v = 1, n_ae_depv
-                     NDX = AE_DEPV_SUR(V)
-                     ICG = AE_DEPV_MAP(V) + AE_STRT - 1
-                     sxfer_ae(ks,iw,v) = vdep_ae_scaled(ndx) * AE_DEPV_FAC(v) * cgrid(kw,iw,icg)
+                     NDX = AE_DEPV_SUR(v)
+                     icg = ae_depv_map(v) + ae_strt - 1
+                     itr = ae_spc_to_trns_map( ae_depv_map(v) )
+
+                     ae_tend(kw,iw,itr) = vdep_ae_scaled(ndx) * cgrid(kw,iw,icg)  ! kg_ae / m^3 / s
                   enddo
 
                endif
@@ -582,33 +600,37 @@ C DEPVEL_GAS is used also for non-ILDEPV in the sgtot calculation
 
          endif
 
-         if (N_GAS_DEPV > 0) then
+         if (n_gas_depv > 0) then
 
             call m3dry( iw, abflux, sfc_hono, nsfc, vdep_gas )
 
-            ! For diagnostic output
-            depvel_gas(:,iw) = 0.0
+            depvel_gas(:,iw) = 0.0  ! diagnostic output only
 
             do ks = 1, nsfc
                if (frac_sfc(ks,iw) > 1.e-5) then
+
                   kw = lpw(iw) + ks - 1
 
-                  do s = 1, N_UNIQUE_GDEPV
-                     vdep_gas_scaled(s) = - min(vdep_gas(s,ks) * fact1(ks), fact2(ks))
-
-                     depvel_gas(s,iw) = depvel_gas(s,iw) + vdep_gas(s,ks) * frac_sfc(ks,iw)
+                  do s = 1, n_unique_gdepv
+                     vdep               = min(vdep_gas(s,ks), vmax(ks))
+                     vdep_gas_scaled(s) = -vdep * fact(ks)  ! kg_air / m^3 / s
+                     depvel_gas(s,iw)   = depvel_gas(s,iw) + vdep * frac_sfc(ks,iw)
                   enddo
 
                   do v = 1, n_gc_depv
-                     NDX = GAS_DEPV_SUR( v )
-                     ICG =  GC_DEPV_MAP( v )
-                     sxfer_gc(ks,iw,v) = vdep_gas_scaled(ndx) * GC_DEPV_FAC(v) * cgrid(kw,iw,icg)
+                     ndx = gas_depv_sur(v)
+                     icg =  gc_depv_map(v)
+                     itr = gc_spc_to_trns_map( gc_depv_map(v) )
+
+                     gc_tend(kw,iw,itr) = vdep_gas_scaled(ndx) * cgrid(kw,iw,icg)  ! kg_gc / m^3 / s
                   enddo
 
                   do v = 1, n_nr_depv
-                     NDX = GAS_DEPV_SUR( v + N_GC_DEPV )
-                     ICG = NR_STRT - 1 + NR_DEPV_MAP ( v )
-                     sxfer_nr(ks,iw,v) = vdep_gas_scaled(ndx) * NR_DEPV_FAC(v) * cgrid(kw,iw,icg)
+                     ndx = gas_depv_sur(v + n_gc_depv)
+                     icg =  nr_depv_map(v) + nr_strt - 1
+                     itr = nr_spc_to_trns_map( nr_depv_map(v) )
+
+                     nr_tend(kw,iw,itr) = vdep_gas_scaled(ndx) * cgrid(kw,iw,icg)  ! kg_nr / m^3 / s
                   enddo
 
                endif

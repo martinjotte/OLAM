@@ -6,18 +6,18 @@ module cgrid_defn
   real, allocatable :: ae_tend(:,:,:)
   real, allocatable :: nr_tend(:,:,:)
 
-  real, allocatable :: vdemis_gc(:,:,:)
-  real, allocatable :: vdemis_ae(:,:,:)
-  real, allocatable :: vdemis_nr(:,:,:)
-
-  real, allocatable :: sxfer_gc(:,:,:)
-  real, allocatable :: sxfer_ae(:,:,:)
-  real, allocatable :: sxfer_nr(:,:,:)
-
   integer :: ns_co  = 0
   integer :: ns_no  = 0
   integer :: ns_no2 = 0
   integer :: ns_o3  = 0
+
+  integer, allocatable :: gc_spc_to_trns_map(:)
+  integer, allocatable :: ae_spc_to_trns_map(:)
+  integer, allocatable :: nr_spc_to_trns_map(:)
+
+  real, allocatable :: vdemis_gc(:,:,:)
+  real, allocatable :: vdemis_ae(:,:,:)
+  real, allocatable :: vdemis_nr(:,:,:)
 
   character(16), allocatable :: cgrid_names(:)
 
@@ -29,6 +29,8 @@ contains
     use cgrid_spcs, only: n_gc_trns, n_ae_trns, n_nr_trns, &
                           n_gc_emis, n_ae_emis, n_nr_emis, &
                           n_gc_depv, n_ae_depv, n_nr_depv, &
+                          n_gc_spc,  n_ae_spc,  n_nr_spc,  &
+                          gc_trns_map, ae_trns_map, nr_trns_map, &
                           nspcsd
     use misc_coms,  only: rinit
     use oname_coms, only: nl
@@ -38,6 +40,7 @@ contains
     integer, intent(in) :: mza, mwa
 
     real,    parameter  :: cmin = 1.e-30
+    integer             :: n
 
     allocate( cgrid( mza, mwa, nspcsd ) )
     cgrid = cmin
@@ -51,30 +54,50 @@ contains
     allocate( nr_tend( mza, mwa, n_nr_trns) )
     nr_tend = rinit
 
-    if (nl%do_emis /= 0) then
-       allocate( vdemis_gc( mza, mwa, n_gc_emis) )
-       vdemis_gc = rinit
+!!    if (nl%do_emis /= 0) then
+!!       allocate( vdemis_gc( mza, mwa, n_gc_emis) )
+!!       vdemis_gc = rinit
+!!
+!!       allocate( vdemis_ae( mza, mwa, n_ae_emis) )
+!!       vdemis_ae = rinit
+!!
+!!       allocate( vdemis_nr( mza, mwa, n_nr_emis) )
+!!       vdemis_nr = rinit
+!!    endif
 
-       allocate( vdemis_ae( mza, mwa, n_ae_emis) )
-       vdemis_ae = rinit
-
-       allocate( vdemis_nr( mza, mwa, n_nr_emis) )
-       vdemis_nr = rinit
-    endif
-
-    if (nl%do_drydep /= 0) then
-       allocate( sxfer_gc( nsw_max, mwa, n_gc_depv ) )
-       sxfer_gc = 0.0
-
-       allocate( sxfer_ae( nsw_max, mwa, n_ae_depv ) )
-       sxfer_ae = 0.0
-
-       allocate( sxfer_nr( nsw_max, mwa, n_nr_depv ) )
-       sxfer_nr = 0.0
-    endif
+!!    if (nl%do_drydep /= 0) then
+!!       allocate( sxfer_gc( nsw_max, mwa, n_gc_depv ) )
+!!       sxfer_gc = 0.0
+!!
+!!       allocate( sxfer_ae( nsw_max, mwa, n_ae_depv ) )
+!!       sxfer_ae = 0.0
+!!
+!!       allocate( sxfer_nr( nsw_max, mwa, n_nr_depv ) )
+!!       sxfer_nr = 0.0
+!!    endif
 
     allocate(cgrid_names(nspcsd))
-    cgrid_names = ''
+    cgrid_names = ' '
+
+    allocate(gc_spc_to_trns_map(n_gc_spc))
+    allocate(ae_spc_to_trns_map(n_ae_spc))
+    allocate(nr_spc_to_trns_map(n_nr_spc))
+
+    gc_spc_to_trns_map = 0
+    ae_spc_to_trns_map = 0
+    nr_spc_to_trns_map = 0
+
+    do n = 1, n_gc_trns
+       gc_spc_to_trns_map( gc_trns_map(n) ) = n
+    enddo
+
+    do n = 1, n_ae_trns
+       ae_spc_to_trns_map( ae_trns_map(n) ) = n
+    enddo
+
+    do n = 1, n_nr_trns
+       nr_spc_to_trns_map( nr_trns_map(n) ) = n
+    enddo
 
   end subroutine alloc_cgrid
 
@@ -169,135 +192,25 @@ contains
     ! Gas chemistry species
 
     do n = 1, n_gc_trns
-       ng = gc_trns_map(n)
-       nc = gc_strt - 1 + ng
+       nc = gc_trns_map(n)
 
-       if (nl%do_emis /= 0) then
-          indxe = findex( ng, n_gc_emis, gc_emis_map )
-       else
-          indxe = 0
-       endif
-
-       if (nl%do_drydep /= 0) then
-          indxd = findex( ng, n_gc_depv, gc_depv_map )
-       else
-          indxd = 0
-       endif
-
-       if (indxe > 0 .and. indxd > 0) then
-
-          call vtables_scalar( cgrid(:,:,nc), gc_tend(:,:,n), gc_trns(n), &
-                               emis   = vdemis_gc(:,:,indxe),             &
-                               sxfer  = sxfer_gc(:,:,indxd)               )
-
-       elseif (indxe > 0) then
-
-          call vtables_scalar( cgrid(:,:,nc), gc_tend(:,:,n), gc_trns(n), &
-                               emis   = vdemis_gc(:,:,indxe)              )
-
-       elseif (indxd > 0) then
-
-          call vtables_scalar( cgrid(:,:,nc), gc_tend(:,:,n), gc_trns(n), &
-                               sxfer  = sxfer_gc(:,:,indxd)               )
-
-       else
-
-          call vtables_scalar( cgrid(:,:,nc), gc_tend(:,:,n), gc_trns(n)  )
-
-       endif
-
+       call vtables_scalar( cgrid(:,:,nc), gc_tend(:,:,n), gc_trns(n) )
     enddo
 
     ! Aerosol species
 
     do n = 1, n_ae_trns
-       na = ae_trns_map(n)
-       nc = ae_strt - 1 + na
+       nc = ae_trns_map(n) + ae_strt - 1
 
-       if (nl%do_emis /= 0) then
-          indxe = findex( na, n_ae_emis, ae_emis_map )
-       else
-          indxe = 0
-       endif
-
-       if (nl%do_drydep /= 0) then
-          indxd = findex( na, n_ae_depv, ae_depv_map )
-       else
-          indxd = 0
-       endif
-
-       if (indxe > 0 .and. indxd > 0) then
-
-          call vtables_scalar( cgrid(:,:,nc), ae_tend(:,:,n), ae_trns(n), &
-                               emis   = vdemis_ae(:,:,indxe),             &
-                               sxfer  = sxfer_ae(:,:,indxd),              &
-                               cu_mix = .true. )
-
-       elseif (indxe > 0) then
-
-          call vtables_scalar( cgrid(:,:,nc), ae_tend(:,:,n), ae_trns(n), &
-                               emis   = vdemis_ae(:,:,indxe),             &
-                               cu_mix = .true. )
-
-       elseif (indxd > 0) then
-
-          call vtables_scalar( cgrid(:,:,nc), ae_tend(:,:,n), ae_trns(n), &
-                               sxfer  = sxfer_ae(:,:,indxd),              &
-                               cu_mix = .true. )
-
-       else
-
-          call vtables_scalar( cgrid(:,:,nc), ae_tend(:,:,n), ae_trns(n), &
-                               cu_mix = .true. )
-
-       endif
-
+       call vtables_scalar( cgrid(:,:,nc), ae_tend(:,:,n), ae_trns(n) )
     enddo
 
     ! Non-reacting species
 
     do n = 1, n_nr_trns
-       nr = nr_trns_map(n)
-       nc = nr_strt - 1 + nr
+       nc = nr_trns_map(n) + nr_strt - 1
 
-       if (nl%do_emis /= 0) then
-          indxe = findex( nr, n_nr_emis, nr_emis_map )
-       else
-          indxe = 0
-       endif
-
-       if (nl%do_drydep /= 0) then
-          indxd = findex( nr, n_nr_depv, nr_depv_map )
-       else
-          indxd = 0
-       endif
-
-       if (indxe > 0 .and. indxd > 0) then
-
-          call vtables_scalar( cgrid(:,:,nc), nr_tend(:,:,n), nr_trns(n), &
-                               emis   = vdemis_nr(:,:,indxe),             &
-                               sxfer  = sxfer_nr(:,:,indxd),              &
-                               cu_mix = .true. )
-
-       elseif (indxe > 0) then
-
-          call vtables_scalar( cgrid(:,:,nc), nr_tend(:,:,n), nr_trns(n), &
-                               emis   = vdemis_nr(:,:,indxe),             &
-                               cu_mix = .true. )
-
-       elseif (indxd > 0) then
-
-          call vtables_scalar( cgrid(:,:,nc), nr_tend(:,:,n), nr_trns(n), &
-                               sxfer  = sxfer_nr(:,:,indxd),              &
-                               cu_mix = .true. )
-
-       else
-
-          call vtables_scalar( cgrid(:,:,nc), nr_tend(:,:,n), nr_trns(n), &
-                               cu_mix = .true. )
-
-       endif
-
+       call vtables_scalar( cgrid(:,:,nc), nr_tend(:,:,n), nr_trns(n) )
     enddo
 
     ! Save some scalar indices for common species

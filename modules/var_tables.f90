@@ -51,30 +51,20 @@ Module var_tables
          'SV', 'SW', 'SM'        ]  ! Sea   V, W, M array
 
   type scalar_table
-
      real, pointer, contiguous :: var_p(:,:) => null()
      real, pointer, contiguous :: var_t(:,:) => null()
-     real, pointer, contiguous :: sxfer(:,:) => null()
-     real, pointer, contiguous :: emis (:,:) => null()
 
      character (len=32) :: name  = ""
      logical            :: pdef  = .true.
      logical            :: do_sgsmix = .true.
      logical            :: do_cumix  = .false.
-     logical            :: do_sxfer  = .false.
-     logical            :: do_emis   = .false.
-
   end type scalar_table
 
   type(scalar_table), allocatable :: scalar_tab(:)
-  integer,            allocatable :: sxfer_map (:)
-  integer,            allocatable :: emis_map  (:)
   integer,            allocatable :: pblmix_map(:)
   integer,            allocatable :: cumix_map (:)
 
   integer :: num_scalar = 0
-  integer :: num_sxfer  = 0
-  integer :: num_emis   = 0
   integer :: num_pblmix = 0
   integer :: num_cumix  = 0
 
@@ -234,7 +224,7 @@ Contains
 
 !===============================================================================
 
-  subroutine vtables_scalar(varp,vart,name,sxfer,emis,cu_mix,pos_def,pbl_mix)
+  subroutine vtables_scalar(varp,vart,name,cu_mix,pos_def,pbl_mix)
 
     use misc_coms, only: io6
     implicit none
@@ -243,8 +233,6 @@ Contains
     real, target, contiguous,          intent(in) :: vart (:,:)
     character(len=*),       intent(in) :: name
 
-    real, target, contiguous, optional, intent(in) :: sxfer(:,:)
-    real, target, contiguous, optional, intent(in) :: emis (:,:)
     logical,      optional, intent(in) :: cu_mix
     logical,      optional, intent(in) :: pos_def
     logical,      optional, intent(in) :: pbl_mix
@@ -255,10 +243,10 @@ Contains
     logical                         :: pblmix
 
     type(scalar_table), allocatable :: scalar_copy(:)
-    integer,            allocatable ::  sxfer_copy(:)
-    integer,            allocatable ::   emis_copy(:)
     integer,            allocatable ::  cumix_copy(:)
     integer,            allocatable :: pblmix_copy(:)
+
+    ! cu_mix defaults to false if not present
 
     if (present(cu_mix)) then
        cumix = cu_mix
@@ -266,26 +254,17 @@ Contains
        cumix = .false.
     endif
 
+    ! pbl_mix defaults to true if not present
+
     if (present(pbl_mix)) then
        pblmix = pbl_mix
     else
        pblmix = .true.
     endif
 
-    if (present(sxfer)) pblmix = .true.
-    if (present(emis))  pblmix = .true.
-
     ! Initial allocation of tables if this is the first call
 
     if (.not. allocated(scalar_tab)) allocate(scalar_tab(ialloc))
-
-    if (present(sxfer)) then
-       if (.not. allocated(sxfer_map)) allocate(sxfer_map(ialloc))
-    endif
-
-    if (present(emis)) then
-       if (.not. allocated(emis_map)) allocate(emis_map(ialloc))
-    endif
 
     if (cumix) then
        if (.not. allocated(cumix_map)) allocate(cumix_map(ialloc))
@@ -313,54 +292,6 @@ Contains
        scalar_tab(num_scalar)%pdef = pos_def
     else
        scalar_tab(num_scalar)%pdef = .true.
-    endif
-
-    ! If this species has surface transfer, include it in the table
-
-    scalar_tab(num_scalar)%do_sxfer = .false.
-
-    if (present(sxfer)) then
-
-       scalar_tab(num_scalar)%do_sxfer = .true.
-
-       num_sxfer = num_sxfer + 1
-       ntsize = size(sxfer_map)
-
-       ! Increase sxfer table size if necessary
-       if (num_sxfer > ntsize) then
-          allocate(sxfer_copy(ntsize+ialloc))
-          sxfer_copy(1:ntsize) = sxfer_map
-          call move_alloc(sxfer_copy, sxfer_map)
-       endif
-
-       scalar_tab(num_scalar)%sxfer => sxfer
-       sxfer_map(num_sxfer) = num_scalar
-
-    endif
-
-    ! If this species has emissions, include it in the table
-
-    scalar_tab(num_scalar)%do_emis = .false.
-
-    if (present(emis)) then
-
-       scalar_tab(num_scalar)%do_emis = .true.
-
-       num_emis = num_emis + 1
-       ntsize = size(emis_map)
-
-       ! Increase emis table size if necessary
-       if (num_emis > ntsize) then
-          allocate(emis_copy(ntsize+ialloc))
-          emis_copy(1:ntsize) = emis_map
-          call move_alloc(emis_copy, emis_map)
-       endif
-
-       scalar_tab(num_scalar)%emis => emis
-       emis_map(num_emis) = num_scalar
-
-       write(io6,*) "Emissions:", scalar_tab(num_scalar)%name, num_emis, num_scalar
-
     endif
 
     ! If this species will be mixed by subgrid cumulus, include it in table
