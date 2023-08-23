@@ -486,12 +486,6 @@ CONTAINS
       IERR3=0
       IERRD=0
 !
-!---  Flag to disable deep convection for this grid cell
-!
-      if (ideep <= 0) then
-         ierr=1
-      endif
-!
 !---  Special for shaved cells
 !
       arw0m = nearest(arw0,-1.)
@@ -532,6 +526,12 @@ CONTAINS
            heo_cup,heso_cup,tn_cup,ierr,1,ktf,ktf)
 
       call cup_env_clev_uv(us,vs,ue_cup,ve_cup,ierr,1,ktf,ktf)
+!
+!---  Flag to disable deep convection for this grid cell
+!
+      if (ideep <= 0) then
+         ierr=1
+      endif
 !
 !----  DETERMINE LEVEL WITH HIGHEST MOIST STATIC ENERGY CONTENT - K22
 !
