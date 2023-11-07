@@ -127,6 +127,7 @@ SOURCE_FILES= \
              $(OMODEL)/vectslab.F90 \
              $(OMODEL)/vel_t3d.f90 \
              $(OMODEL)/vort_div_damp.f90 \
+             $(OUTILS)/analysis_lib.f90 \
              $(OUTILS)/blas.f90 \
              $(OUTILS)/check_nans.F90 \
              $(OUTILS)/dateutils.f90 \
@@ -140,7 +141,6 @@ SOURCE_FILES= \
              $(OUTILS)/olam_interp_ll.f90 \
              $(OUTILS)/o_ncar.f90 \
              $(OUTILS)/polygon_overlap.F90 \
-             $(OUTILS)/prfill.f90 \
              $(OUTILS)/quadrature.f90 \
              $(OUTILS)/string_lib.f90 \
              $(OUTILS)/sys_utils.f90 \

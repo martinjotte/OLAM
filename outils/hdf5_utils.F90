@@ -106,7 +106,8 @@ end subroutine shdf5_open
 
 !===============================================================================
 
-subroutine shdf5_info(dsetname, ndims, dims, dimname, attached_dimnames, units)
+subroutine shdf5_info(dsetname, ndims, dims, dimname, attached_dimnames, &
+                      units, chunk_dims)
 
   implicit none
 
@@ -115,9 +116,10 @@ subroutine shdf5_info(dsetname, ndims, dims, dimname, attached_dimnames, units)
   integer,             intent(inout) :: ndims    ! Dataset rank (in file)
 
 ! Optional arrays to read common NetCDF convention attributes or dimension information
-  character(*), intent(inout), optional :: units
-  character(*), intent(inout), optional :: dimname
-  character(*), intent(inout), optional :: attached_dimnames(:)
+  character(*),        intent(inout), optional :: units
+  character(*),        intent(inout), optional :: dimname
+  character(*),        intent(inout), optional :: attached_dimnames(:)
+  integer, contiguous, intent(inout), optional :: chunk_dims(:)
 
 ! Open the dataset.
 
@@ -145,6 +147,10 @@ subroutine shdf5_info(dsetname, ndims, dims, dimname, attached_dimnames, units)
   if (present(units)) then
      units = ' '
      call fh5f_read_attribute("units", cvalue=units)
+  endif
+
+  if (present(chunk_dims)) then
+     call fh5_get_chunk_dims(ndims,chunk_dims)
   endif
 
 ! Close the dataset
@@ -777,6 +783,7 @@ subroutine shdf5_irec(ndims,dims,dsetname,bvars,ivars,rvars,dvars,lvars,     &
 
   if (ndims <=0 .or. minval(dims(1:ndims)) <=0) then
      print*, 'Dimension error in shdf5_irec:', ndims, dims(1:ndims)
+     print*, 'Dataset name: ' // dsetname
      stop    'shdf5_irec: bad dims'
   endif
 

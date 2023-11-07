@@ -1,8 +1,8 @@
 module hdf5_f2f
 
   use hdf5
-  use h5ds, only: H5DSset_scale_f      ,  H5DSis_scale_f    , &
-                  H5Dsget_scale_name_f , H5DSattach_scale_f , &
+  use h5ds, only: H5DSset_scale_f     ,  H5DSis_scale_f   , &
+                  H5Dsget_scale_name_f, H5DSattach_scale_f, &
                   H5DSget_num_scales_f
 
 #if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
@@ -108,8 +108,9 @@ module hdf5_f2f
             fh5f_write_attribute, fh5f_create_dim, fh5f_attach_dims, &
             fh5f_write_global_attribute, fh5_close_caches, fh5_close_info, &
             fh5f_read_attribute, fh5f_query_dimname, fh5_get_attached_scales, &
-            HID_T, H5T_IEEE_F32LE, H5T_IEEE_F64LE, &       ! 4 and 8 byte reals
-            H5T_STD_I8LE, H5T_STD_I16LE, H5T_STD_I32LE     ! 1, 2, and 4 byte ints
+            fh5_get_chunk_dims, HID_T, &
+            H5T_IEEE_F32LE, H5T_IEEE_F64LE, &           ! 4 and 8 byte reals
+            H5T_STD_I8LE, H5T_STD_I16LE, H5T_STD_I32LE  ! 1, 2, and 4 byte ints
 
 contains
 
@@ -171,7 +172,7 @@ contains
        call h5pset_all_coll_metadata_ops_f(access_id, .true., hdferr)
 
        call h5pget_cache_f(access_id, mdc, nelmts, nbytes, w0, hdferr)
-       nbytes = max(nbytes, 1024 * 1024 * 32)
+       nbytes = max(nbytes, int(1024 * 1024 * 32, SIZE_t) )
        call h5pset_cache_f(access_id, mdc, nelmts, nbytes, w0, hdferr)
 
        nbytes = 1024 * 1024
@@ -269,7 +270,7 @@ contains
        call H5Pset_small_data_block_size_f(access_id, msize, hdferr)
 
        call h5pget_cache_f(access_id, mdc, nelmts, nbytes, w0, hdferr)
-       nbytes = max(nbytes, 1024 * 1024 * 32)
+       nbytes = max(nbytes, int(1024 * 1024 * 32, SIZE_t) )
        call h5pset_cache_f(access_id, mdc, nelmts, nbytes, w0, hdferr)
 
        nbytes = 1024 * 1024
@@ -979,6 +980,35 @@ contains
     dims(1:ndims)  = dimsc(1:ndims)
 
   end subroutine fh5_get_info
+
+!===============================================================================
+
+  subroutine fh5_get_chunk_dims(ndims,dims)
+
+    implicit none
+
+    integer, intent(OUT), contiguous :: dims(:)
+    integer, intent(IN)              :: ndims
+
+    integer(HSIZE_T)                 :: dimsc( ndims )
+    integer(HID_T)                   :: creation_id
+    integer                          :: layout
+    integer                          :: hdferr
+
+    dims = 0
+
+    call H5Dget_create_plist_f(dsetid, creation_id, hdferr)
+    if (hdferr < 0) return
+
+    call H5Pget_layout_f(creation_id, layout, hdferr)
+    if (hdferr < 0) return
+
+    if (layout == H5D_CHUNKED_F) then
+       call H5Pget_chunk_f(creation_id, ndims, dimsc, hdferr)
+       dims(:) = dimsc(1:size(dims))
+    endif
+
+  end subroutine fh5_get_chunk_dims
 
 !===============================================================================
 
