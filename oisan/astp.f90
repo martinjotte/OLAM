@@ -368,7 +368,7 @@ subroutine pressure_stage(iaction)
 
      ! Fill any missing humidity levels from the Mclatchy soundings
      if (nprz_rh < nprz) then
-        call fill_wvap_plevs_mclat(glatw(iw), nprz_rh+3, nprz+2, pcol_p, pvect)
+        call fill_wvap_plevs_mclat(glatw(iw), nprz_rh+3, nprz+2, npd, pcol_p, pvect)
      endif
 
      ! Set any extra levels above analysis from climatological zonavg arrays
@@ -575,7 +575,7 @@ subroutine pressure_stage(iaction)
 
         ! Fill any missing ozone levels from Mclatchy soundings
         if ( nbot_o3 > 1 ) then
-           call fill_ozone_plevs_mclat(glatw(iw), 3, nbot_o3+1, pcol_p, pvect)
+           call fill_ozone_plevs_mclat(glatw(iw), 3, nbot_o3+1, npd, pcol_p, pvect)
         endif
 
         ! Set any extra levels above analysis from climatological zonavg arrays

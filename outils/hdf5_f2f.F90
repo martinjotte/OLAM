@@ -987,26 +987,33 @@ contains
 
     implicit none
 
-    integer, intent(OUT), contiguous :: dims(:)
-    integer, intent(IN)              :: ndims
+    integer, intent(IN)  :: ndims
+    integer, intent(OUT) :: dims(ndims)
 
-    integer(HSIZE_T)                 :: dimsc( ndims )
-    integer(HID_T)                   :: creation_id
-    integer                          :: layout
-    integer                          :: hdferr
+    integer(HSIZE_T)     :: dimsc( ndims )
+    integer(HID_T)       :: creation_id
+    integer              :: layout, rank, hdferr
+    logical              :: valid
 
-    dims = 0
+    dims   =  0
+    layout = -1
+
+    if (ndims <= 0) return
+
+    call h5iis_valid_f(dsetid, valid, hdferr)
+    if (.not. valid) return
 
     call H5Dget_create_plist_f(dsetid, creation_id, hdferr)
     if (hdferr < 0) return
 
     call H5Pget_layout_f(creation_id, layout, hdferr)
-    if (hdferr < 0) return
 
     if (layout == H5D_CHUNKED_F) then
        call H5Pget_chunk_f(creation_id, ndims, dimsc, hdferr)
        dims(:) = dimsc(1:size(dims))
     endif
+
+    call H5Pclose_f(creation_id, hdferr)
 
   end subroutine fh5_get_chunk_dims
 
