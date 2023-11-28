@@ -151,7 +151,8 @@ subroutine isnstage()
      iw2 = itab_v(iv)%iw(2)
 
      do k = lpv(iv), mza
-        vc (k,iv) = ue(k,iw) * vcn_ew(iv) + ve(k,iw) * vcn_ns(iv)
+        vc (k,iv) = 0.5 * ( (ue(k,iw1) + ue(k,iw2)) * vcn_ew(iv) &
+                          + (ve(k,iw2) + ve(k,iw2)) * vcn_ns(iv) )
         vmc(k,iv) = vc(k,iv) * 0.5 * real(rho(k,iw1) + rho(k,iw2))
      enddo
 
