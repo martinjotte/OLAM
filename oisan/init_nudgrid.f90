@@ -23,7 +23,7 @@ subroutine para_init_nud()
   use mem_ijtabs,   only: itab_w, itabg_w, itab_w_pd
   use mem_grid,     only: nwa, mwa, mza
   use max_dims,     only: maxremote
-  use mem_para,     only: mgroupsize, myrank, nbytes_real8
+  use mem_para,     only: mgroupsize, myrank
   use olam_mpi_nud, only: nsends_wnud, nrecvs_wnud, send_wnud, recv_wnud
   use mem_nudge,    only: nudflag, nudnxp, nwnud, mwnud, itab_wnud, itabg_wnud, &
                           alloc_nudge1, xewnud, yewnud, zewnud
@@ -35,7 +35,6 @@ subroutine para_init_nud()
   integer :: ips
   integer :: jsend, jrecv, jend
   integer :: iwnud_myrank ! Counter for WNUD points to be included on this rank
-  integer :: nbytes_per_iwnud
 
   ! Automatic arrays
 
@@ -180,10 +179,6 @@ subroutine para_init_nud()
      endif
   enddo
 
-  ! Determine number of bytes to send per IW column
-
-  nbytes_per_iwnud = 6 * mza * nbytes_real8
-
   ! Copy data from temp arrays to w send table
 
   allocate( send_wnud(nsends_wnud) )
@@ -193,10 +188,8 @@ subroutine para_init_nud()
 
      send_wnud(jsend)%jend    = jend
      send_wnud(jsend)%iremote = send_wnud_iremotes(jsend)
-     send_wnud(jsend)%nbytes  = jend * nbytes_per_iwnud
 
-     allocate( send_wnud(jsend)%ipts( send_wnud(jsend)%jend   ) )
-     allocate( send_wnud(jsend)%buff( send_wnud(jsend)%nbytes ) )
+     allocate( send_wnud(jsend)%ipts( jend ) )
 
      j = 0
      do iwnud = 2, mwnud
@@ -216,10 +209,8 @@ subroutine para_init_nud()
 
      recv_wnud(jrecv)%jend    = jend
      recv_wnud(jrecv)%iremote = recv_wnud_iremotes(jrecv)
-     recv_wnud(jrecv)%nbytes  = jend * nbytes_per_iwnud
 
-     allocate( recv_wnud(jrecv)%ipts( recv_wnud(jrecv)%jend   ) )
-     allocate( recv_wnud(jrecv)%buff( recv_wnud(jrecv)%nbytes ) )
+     allocate( recv_wnud(jrecv)%ipts( jend ) )
 
      j = 0
      do iwnud = 2, mwnud

@@ -12,9 +12,9 @@ Contains
                     rshort_v,      rshort_g,        rlong_v,         rlong_s,    &
                     rlong_g,       veg_water,       veg_energy,      veg_temp,   &
                     sfcwater_mass, sfcwater_energy, sfcwater_depth,              &
-                    energy_per_m2, sfcwater_tempk,  sfcwater_fracliq,            &
-                    soil_water,    soil_energy,                                  &
-                    wsat_vg,       ksat_vg,         specifheat_drysoil,          &
+                    energy_per_m2, sfcwater_tempk,  sfcwater_fracliq,soil_wfrac, &
+                    soil_water,    soil_energy,     wsat_vg,         wresid_vg,  &
+                    soilfldcap,    ksat_vg,         specifheat_drysoil,          &
                     head,          head_slope,      soil_tempk,      soil_fracliq)
 
   use leaf_coms,     only: soil_rough, dt_leaf, kroot, rcmin, snowmin_expl, &
@@ -71,9 +71,12 @@ Contains
   real, intent(inout) :: energy_per_m2    ! surface water energy [J/m^2]
   real, intent(inout) :: sfcwater_tempk   ! surface water temperature [K]
   real, intent(inout) :: sfcwater_fracliq ! fraction of sfc water in liquid phase
+  real, intent(inout) :: soil_wfrac        (nzg) ! soil water fractionn []
   real, intent(inout) :: soil_water        (nzg) ! soil water content [vol_water/vol_tot]
   real, intent(inout) :: soil_energy       (nzg) ! soil energy [J/m^3]
   real, intent(in)    :: wsat_vg           (nzg) ! saturation water content (porosity) []
+  real, intent(in)    :: wresid_vg         (nzg) ! residual water content []
+  real, intent(in)    :: soilfldcap              ! top-layer soil field capacity []
   real, intent(in)    :: ksat_vg           (nzg) ! saturation hydraulic conductivity [m/s]
   real, intent(in)    :: specifheat_drysoil(nzg) ! specific heat of dry soil [J/(m^3 K)]
   real, intent(inout) :: head              (nzg) ! hydraulic head [m] (relative to local topo datum)
@@ -111,6 +114,8 @@ Contains
   integer :: iveg     ! flag for exposed vegetation (0=no, 1=yes)
   logical :: iwetveg  ! flag for wet vegetation
 
+  real :: alpha       ! "alpha" term in soil surface humidity formulation
+  real :: beta        ! "beta" term in soil surface humidity formulation
   real :: hxfersc     ! sfc-to-can_air heat xfer this step [J/m^2]
   real :: wxfersc     ! sfc-to-can_air vap xfer this step [kg_vap/m^2]
   real :: wxfergc     ! gnd-to-can_air vap xfer this step [kg_vap/m^2]
@@ -186,7 +191,7 @@ Contains
   real :: sfcwater_fracarea
   real :: evap        ! amount evaporated from veg sfc [kg/m^2]
 
-  real :: specvol, vw_max
+  real :: specvol, vw_max, fact
   real :: tf, wadd, wshed2, dshed2, delw
 
   real(r8) :: a1, a2, a3, a4, a5, a6, a7, a8
@@ -489,9 +494,11 @@ Contains
 
   ! Reduced saturation vapor density and gradient of soil during evaporation
 
-  call grndvap_ab(iland, sfc_tempk, soil_water(nzg), head(nzg), can_rhov, sfc_rhovs, gnd_rhov)
+  call grndvap_ab(iland, sfc_tempk, soil_water(nzg), wresid_vg(nzg), soilfldcap, &
+                  head(nzg), alpha, beta)
 
-  gnd_rhovp = sfc_rhovsp * gnd_rhov / sfc_rhovs
+  gnd_rhov  = alpha * sfc_rhovs
+  gnd_rhovp = alpha * sfc_rhovsp
 
   ! The remainder of subroutine canopy sets up and solves a linear system of
   ! equations using the trapezoidal-implicit method.  The solution of the system
@@ -560,7 +567,7 @@ Contains
   a5 = dt_leaf * rdi                  ! sfc vap xfer coef  (all area)
   a6 = cp * rhos * a5                 ! sfc heat xfer coef (all area)
   a7 = a5 * sfcwater_fracarea         ! sfc vap xfer coef  (wet areas only)
-  a8 = a5 * (1. - sfcwater_fracarea)  ! sfc vap xfer coef  (wet areas only)
+  a8 = a5 * beta * (1. - sfcwater_fracarea) ! sfc vap xfer coef  (soil areas only)
 
   h2 = fcn * sfc_rhovsp * hcapsfci
   h3 = fcn * gnd_rhovp  * hcapsfci
@@ -773,8 +780,13 @@ Contains
      canrrv = canrrv + (wxfersc + wxfergc - sxfer_r) * canairi
 
      delw            = dslzi(nzg) * wxfergc * .001
+     fact            = wsat_vg(nzg) - wresid_vg(nzg)
+
      soil_water(nzg) = soil_water(nzg) - delw
      head      (nzg) = head      (nzg) - delw * head_slope(nzg)
+     soil_wfrac(nzg) = soil_wfrac(nzg) - delw / fact
+
+     soil_wfrac(nzg) = max(0., min(1., soil_wfrac(nzg)))
 
      sfcwater_mass = sfcwater_mass - wxfersc
 
@@ -1783,7 +1795,7 @@ Contains
      ! The latent heat of sublimation, alvi, must be used in computing the following gain/loss of
      ! veg_energy and energy_per_m2 due to vapor flux.  (See explanation above in similar context.)
 
-     veg_energy = veg_energy + radveg - hxfervc - (wxfervc + transp) * alvi
+     veg_energy = veg_energy + radveg - hxfervc - wxfervc * alvi - transp * alvl
 
      call qwtk(veg_energy, veg_water, hcapveg, veg_temp, fracliqv)
 

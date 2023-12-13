@@ -526,8 +526,8 @@ if (nl%isfcl == 1) then
 
    call ichk_bnds( nl%nzs, "NZS", 0, 10, 0, nfatal, nwarn )
 
-   call ichk_bnds( nl%isoilflg,    "ISOILFLG",    1, 2, 0, nfatal, nwarn )
-   call ichk_bnds( nl%isoilptf,    "ISOILPTF",    1, 3, 0, nfatal, nwarn )
+   call ichk_bnds( nl%isoilflg,    "ISOILFLG",    1, 3, 0, nfatal, nwarn )
+   call ichk_bnds( nl%isoilptf,    "ISOILPTF",    1, 2, 0, nfatal, nwarn )
    call ichk_bnds( nl%ivegflg,     "IVEGFLG",     1, 2, 0, nfatal, nwarn )
    call ichk_bnds( nl%ndviflg,     "NDVIFLG",     1, 2, 0, nfatal, nwarn )
    call ichk_bnds( nl%isstflg,     "ISSTFLG",     0, 2, 0, nfatal, nwarn )
@@ -538,6 +538,14 @@ if (nl%isfcl == 1) then
    call ichk_bnds( nl%iupdndvi,  "IUPDNDVI",    0, 1, 0, nfatal, nwarn )
    call ichk_bnds( nl%iupdsst,   "IUPDSST",     0, 1, 0, nfatal, nwarn )
    call ichk_bnds( nl%iupdseaice,"IUPDSEAICE",  0, 1, 0, nfatal, nwarn )
+
+   ! Accept either + or - values, but the code assumes negative values for depth
+   nl%zbedrock = -abs(nl%zbedrock)
+
+   call ichk_bnds( nl%ihoriz_gndwater_transport, "IHORIZ_GNDWATER_TRANSPORT", 0, 1, 0, nfatal, nwarn )
+
+   if (nl%isoilflg == 3) &
+        call ichk_bnds( nl%isoiltext, "ISOILTEXT", 1, 12, 0, nfatal, nwarn )
 
    if (nl%ivegflg == 2) &
         call ichk_bnds( nl%nvgcon, "NVGCON", 0, 20, 0, nfatal, nwarn )
@@ -752,13 +760,6 @@ endif
 if (nl%isfcl > 0 .and. (nl%ilwrtyp == 0 .or. nl%iswrtyp == 0)) then
    write(io6,'(A)') ' FATAL - longwave and shortwave radiation schemes must be&
         & activated when using the surface model.'
-   nfatal = nfatal + 1
-endif
-
-! CHECK FOR CONSISTENCY BETWEEN ISOILFLG AND ISOILPTF
-
-if (nl%isfcl == 0 .and. nl%isoilflg == 1 .and. nl%isoilptf == 3) then
-   write(io6,'(A)') ' FATAL - isoilptf = 3 may not be used with isoilflg = 1'
    nfatal = nfatal + 1
 endif
 

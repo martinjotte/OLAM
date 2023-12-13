@@ -322,13 +322,18 @@ Module oname_coms
      real :: pom_depth = 4500.
 
      integer :: isoilflg   = 2
-     integer :: isoilptf   = 3
+     integer :: isoilptf   = 2
+     integer :: isoiltext  = 4
      integer :: itopoflg   = 2
      integer :: ibathflg   = 2
      integer :: ivegflg    = 2
      integer :: ndviflg    = 2
      integer :: isstflg    = 0
      integer :: iseaiceflg = 0
+
+     real :: zbedrock  = -10.0
+     real :: gnd_ksat  = 2.e-7
+     real :: gnd_poros = 0.12
 
      integer :: isoilstateinit = 0
      integer :: iwatertabflg   = 0
@@ -338,6 +343,8 @@ Module oname_coms
      integer :: iupdsst    = 0
      integer :: iupdseaice = 0
      integer :: nvgcon     = 8
+
+     integer :: ihoriz_gndwater_transport = 0
 
      real    :: seatmp = 280.0
      real    :: seaice =   0.0

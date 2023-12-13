@@ -34,12 +34,11 @@ subroutine para_init_atm()
                         alloc_gridz, alloc_xyzem, alloc_xyzew, &
                         alloc_grid1, alloc_grid2, xew, yew, zew, arw0
 
-  use mem_para,     only: mgroupsize, myrank, nbytes_int, nbytes_real, nbytes_real8
+  use mem_para,     only: mgroupsize, myrank
   use olam_mpi_atm, only: nsends_v, nrecvs_v, send_v, recv_v, &
                           nsends_m, nrecvs_m, send_m, recv_m, &
                           nsends_w, nrecvs_w, send_w, recv_w
   use max_dims,   only: maxremote
-  use var_tables, only: nvar_par
   use mem_nudge,  only: nudflag, nudnxp
 
   implicit none
@@ -48,15 +47,11 @@ subroutine para_init_atm()
   integer :: im,iv,iw,iw1,iw2
   integer :: imp,ivp,iwp,ips
   integer :: jsend, jrecv, jend
-  integer :: npoly,nv
+  integer :: npoly
 
   integer :: im_myrank ! Counter for M points to be included on this rank
   integer :: iv_myrank ! Counter for V points to be included on this rank
   integer :: iw_myrank ! Counter for W points to be included on this rank
-
-  integer :: nbytes_per_iw
-  integer :: nbytes_per_iv
-  integer :: nbytes_per_im
 
   ! Automatic arrays
 
@@ -436,60 +431,6 @@ subroutine para_init_atm()
      endif
   enddo
 
-  ! Special handling of boprder copy points for periodic limited-area runs
-
-!!  do iw = 2, nwa
-!!     if (myrankflag_w(iw)) then
-!!        iwp = itab_w_pd(iw)%iwp
-!!        if (.not. myrankflag_w(iwp)) then
-!!           if (itab_w_pd(iwp)%iw_myrank_iwp == -1) then
-!!              ! never been set, we will MPI copy to this point
-!!              itab_w_pd(iwp)%iw_myrank_iwp = itabg_w(iw)%iw_myrank
-!!           else
-!!              ! We are already MPI copying this point, so do an LBC copy instead
-!!              iw_myrank  = itabg_w(iw)%iw_myrank
-!!              itab_w(iw_myrank)%iwp = itab_w_pd(iwp)%iw_myrank_iwp
-!!              call wloopf('n', iw_myrank, jtw_lbcp, 0, 0, 0, 0, 0)
-!!           endif
-!!        endif
-!!     endif
-!!  enddo
-!!
-!!  do iv = 2, nva
-!!     if (myrankflag_v(iv)) then
-!!        ivp = itab_v_pd(iv)%ivp
-!!        if (.not. myrankflag_v(ivp)) then
-!!           if (itab_v_pd(ivp)%iv_myrank_ivp == -1) then
-!!              ! never been set, we will MPI copy to this point
-!!              itab_v_pd(ivp)%iv_myrank_ivp = itabg_v(iv)%iv_myrank
-!!           else
-!!              ! We are already MPI copying this point, so do an LBC copy instead
-!!              iv_myrank  = itabg_v(iv)%iv_myrank
-!!              itab_v(iv_myrank)%ivp = itab_v_pd(ivp)%iv_myrank_ivp
-!!              call vloopf('n', iv_myrank, jtv_lbcp, 0, 0, 0, 0, 0)
-!!           endif
-!!        endif
-!!     endif
-!!  enddo
-!!
-!!  do im = 2, nma
-!!     if (myrankflag_m(im)) then
-!!        imp = itab_m_pd(im)%imp
-!!        if (.not. myrankflag_m(imp)) then
-!!           if (itab_m_pd(imp)%im_myrank_imp == -1) then
-!!              ! never been set, we will MPI copy to this point
-!!              itab_m_pd(imp)%im_myrank_imp = itabg_m(im)%im_myrank
-!!           else
-!!              ! We are already MPI copying this point, so do an LBC copy instead
-!!              im_myrank  = itabg_m(im)%im_myrank
-!!              itab_m(im_myrank)%imp = itab_m_pd(imp)%im_myrank_imp
-!!              call mloopf('n', im_myrank, jtm_lbcp, 0, 0, 0, 0, 0)
-!!           endif
-!!        endif
-!!     endif
-!!  enddo
-
-
   ! Allocate/initialize temporary send/recv tables
 
   ips = min(maxremote, mgroupsize)
@@ -679,13 +620,6 @@ subroutine para_init_atm()
 
   enddo
 
-  ! Determine number of bytes to send per IW column
-
-  nv = max(nvar_par, 20)
-
-  nbytes_per_iw =  2 * mza * nbytes_real8 &
-                + nv * mza * nbytes_real
-
   ! Copy data from temp arrays to w send table
 
   allocate( send_w(nsends_w) )
@@ -695,10 +629,8 @@ subroutine para_init_atm()
 
      send_w(jsend)%jend    = jend
      send_w(jsend)%iremote = send_w_iremotes(jsend)
-     send_w(jsend)%nbytes  = jend * nbytes_per_iw
 
-     allocate( send_w(jsend)%ipts( send_w(jsend)%jend   ) )
-     allocate( send_w(jsend)%buff( send_w(jsend)%nbytes ) )
+     allocate( send_w(jsend)%ipts( jend ) )
 
      j = 0
      do iw = 2, mwa
@@ -709,11 +641,6 @@ subroutine para_init_atm()
      enddo
   enddo
 
-  ! Determine number of bytes to send per IV column
-
-  nbytes_per_iv = 3       * nbytes_int &
-                + 4 * mza * nbytes_real
-
   ! Copy data from temp arrays to v send table
 
   allocate( send_v(nsends_v) )
@@ -723,10 +650,8 @@ subroutine para_init_atm()
 
      send_v(jsend)%jend    = jend
      send_v(jsend)%iremote = send_v_iremotes(jsend)
-     send_v(jsend)%nbytes  = jend * nbytes_per_iv
 
-     allocate( send_v(jsend)%ipts( send_v(jsend)%jend   ) )
-     allocate( send_v(jsend)%buff( send_v(jsend)%nbytes ) )
+     allocate( send_v(jsend)%ipts( jend ) )
 
      j = 0
      do iv = 2, mva
@@ -737,10 +662,6 @@ subroutine para_init_atm()
      enddo
   enddo
 
-  ! Determine number of bytes to send per IM column
-
-  nbytes_per_im = 2 * mza * nbytes_real
-
   ! Copy data from temp arrays to m send table
 
   allocate( send_m(nsends_m) )
@@ -750,10 +671,8 @@ subroutine para_init_atm()
 
      send_m(jsend)%jend    = jend
      send_m(jsend)%iremote = send_m_iremotes(jsend)
-     send_m(jsend)%nbytes  = jend * nbytes_per_im
 
-     allocate( send_m(jsend)%ipts( send_m(jsend)%jend   ) )
-     allocate( send_m(jsend)%buff( send_m(jsend)%nbytes ) )
+     allocate( send_m(jsend)%ipts( jend ) )
 
      j = 0
      do im = 2, mma
@@ -773,10 +692,8 @@ subroutine para_init_atm()
 
      recv_w(jrecv)%jend    = jend
      recv_w(jrecv)%iremote = recv_w_iremotes(jrecv)
-     recv_w(jrecv)%nbytes  = jend * nbytes_per_iw
 
-     allocate( recv_w(jrecv)%ipts( recv_w(jrecv)%jend   ) )
-     allocate( recv_w(jrecv)%buff( recv_w(jrecv)%nbytes ) )
+     allocate( recv_w(jrecv)%ipts( jend ) )
 
      j = 0
      do iw = 2, nwa
@@ -796,10 +713,8 @@ subroutine para_init_atm()
 
      recv_v(jrecv)%jend    = jend
      recv_v(jrecv)%iremote = recv_v_iremotes(jrecv)
-     recv_v(jrecv)%nbytes  = jend * nbytes_per_iv
 
-     allocate( recv_v(jrecv)%ipts( recv_v(jrecv)%jend   ) )
-     allocate( recv_v(jrecv)%buff( recv_v(jrecv)%nbytes ) )
+     allocate( recv_v(jrecv)%ipts( jend ) )
 
      j = 0
      do iv = 2, nva
@@ -819,10 +734,8 @@ subroutine para_init_atm()
 
      recv_m(jrecv)%jend    = jend
      recv_m(jrecv)%iremote = recv_m_iremotes(jrecv)
-     recv_m(jrecv)%nbytes  = jend * nbytes_per_im
 
-     allocate( recv_m(jrecv)%ipts( recv_m(jrecv)%jend   ) )
-     allocate( recv_m(jrecv)%buff( recv_m(jrecv)%nbytes ) )
+     allocate( recv_m(jrecv)%ipts( jend ) )
 
      j = 0
      do im = 2, nma

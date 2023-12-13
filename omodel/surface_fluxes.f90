@@ -28,13 +28,14 @@ subroutine surface_turb_flux()
   use mem_ijtabs,  only: itab_w, jtab_w, jtw_prog, jtw_wstn
   use mem_sfcg,    only: itab_wsfc, sfcg, mwsfc
   use misc_coms,   only: iparallel, dtlm
-  use mem_grid,    only: lsw, lpw, arw
-  use mem_turb,    only: akm_sfc, vkm_sfc, ustar, sfluxt, sfluxr, &
-                         sxfer_tk, sxfer_rk, wstar, wtv0, pblh, moli, &
-                         ustar_k, wtv0_k
+  use mem_grid,    only: lsw, lpw, volti
+  use mem_turb,    only: akm_sfc, vkm_sfc, ustar, sfluxt, sfluxr, arw_sfc, &
+                         wstar, wtv0, pblh, moli, ustar_k, wtv0_k
   use consts_coms, only: grav, p00, rocp, cp, alvl, eps_virt, vonk, p00i
   use oname_coms,  only: nl
   use mem_para,    only: myrank
+  use mem_tend,    only: thilt, rr_wt
+! use mem_co2,     only: rr_co2, rr_co2t
 
   implicit none
 
@@ -79,7 +80,7 @@ subroutine surface_turb_flux()
 
         akm_sfc (:,iw) = 0.
 
-        do ks = 1,lsw(iw)
+        do ks = 1, lsw(iw)
            kw = ks + lpw(iw) - 1
 
            exneri = theta(kw,iw) / tair(kw,iw)
@@ -87,9 +88,8 @@ subroutine surface_turb_flux()
            ustar_k(ks,iw) = 0.1
            wtv0_k (ks,iw) = 0.0
 
-           sxfer_tk(ks,iw) = dtl * shflx * exneri * (arw(kw,iw) - arw(kw-1,iw))
-
-           sxfer_rk(ks,iw) = dtl * srflx          * (arw(kw,iw) - arw(kw-1,iw))
+           thilt(kw,iw) = thilt(kw,iw) + dtl * shflx * exneri * arw_sfc(ks,iw)
+           rr_wt(kw,iw) = rr_wt(kw,iw) + dtl * srflx          * arw_sfc(ks,iw)
         enddo
 
         ! albedt (iw) = albedo
@@ -105,10 +105,7 @@ subroutine surface_turb_flux()
 
   ! Reset to zero the atm values of VKM_SFC, USTAR, SFLUXT, and SFLUXR.
   ! VKM_SFC, USTAR, SFLUXT, AND SFLUXR ARE ONLY SUMMED OVER
-  ! SPACE, BUT NOT OVER TIME. (ON THE OTHER HAND, SXFER_TK AND SXFER_RK ARE SUMMED
-  ! OVER BOTH SPACE AND TIME; THEY ARE RESET TO ZERO IN THILTEND_LONG AND
-  ! SCALAR_TRANSPORT AFTER THEY ARE TRANSFERRED TO THE ATMOSPHERE.)
-
+  ! SPACE, BUT NOT OVER TIME.
   ! Set sea and land fluxes to be done for SURFACE SIMILARITY:
   !    Do fluxes at beginning of long timestep
 
@@ -120,10 +117,6 @@ subroutine surface_turb_flux()
   akm_sfc = 0.
   ustar_k = 0.
   wtv0_k  = 0.
-
-  sxfer_tk = 0.
-  sxfer_rk = 0.
-! sxfer_ck = 0.  ! placeholder for CO2
 
   ! Loop over all SFC grid cells in subdomain, EVEN THOSE THAT ARE NOT PRIMARY,
   ! so that all surface fluxes are computed beneath all ATM columns that are primary
@@ -318,6 +311,8 @@ subroutine surface_turb_flux()
   !$omp do private(iw, jsfc, iwsfc, jasfc, kw, ka, ks)
   do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
+     ka = lpw(iw)
+
      ! Loop over all SFC grid cells that couple to this ATM grid column
 
      do jsfc = 1,itab_w(iw)%jsfc2
@@ -325,45 +320,31 @@ subroutine surface_turb_flux()
         jasfc = itab_w(iw)%jasfc(jsfc)
 
         kw = itab_wsfc(iwsfc)%kwatm(jasfc)
-        ka = lpw(iw)
         ks = kw - ka + 1
 
-        ! Add flux contributions to IW atmospheric column
-
+        ! Values averaged over all surface overlaps of an atm column
         ustar  (iw) = ustar  (iw) + itab_wsfc(iwsfc)%arcoariw(jasfc) * sfcg%ustar (iwsfc)
         wtv0   (iw) = wtv0   (iw) + itab_wsfc(iwsfc)%arcoariw(jasfc) * sfcg%wthv  (iwsfc)
         sfluxt (iw) = sfluxt (iw) + itab_wsfc(iwsfc)%arcoariw(jasfc) * sfcg%sfluxt(iwsfc)
         sfluxr (iw) = sfluxr (iw) + itab_wsfc(iwsfc)%arcoariw(jasfc) * sfcg%sfluxr(iwsfc)
         vkm_sfc(iw) = vkm_sfc(iw) + itab_wsfc(iwsfc)%arcoariw(jasfc) * sfcg%vkmsfc(iwsfc)
 
-        akm_sfc(ks,iw) = akm_sfc(ks,iw) + itab_wsfc(iwsfc)%arc(jasfc) * sfcg%vkmsfc(iwsfc)
-
-        sxfer_tk(ks,iw) = sxfer_tk(ks,iw) &
-                        + itab_wsfc(iwsfc)%arc(jasfc) * dtl * sfcg%sfluxt(iwsfc)
-
-        sxfer_rk(ks,iw) = sxfer_rk(ks,iw) &
-                        + itab_wsfc(iwsfc)%arc(jasfc) * dtl * sfcg%sfluxr(iwsfc)
-
+        ! Values averaged by vertical level of an atm column
         ustar_k(ks,iw) = ustar_k(ks,iw) + itab_wsfc(iwsfc)%arcoarkw(jasfc) * sfcg%ustar(iwsfc)
-
         wtv0_k (ks,iw) = wtv0_k (ks,iw) + itab_wsfc(iwsfc)%arcoarkw(jasfc) * sfcg%wthv (iwsfc)
 
-!       sxfer_ck(ks,iw) = sxfer_ck(ks,iw) &
-!                       + itab_wsfc(iwsfc)%arc(jasfc) * dtl * sfcg%sfluxc(iwsfc)
+        ! Values summed to tendency arrays
+        akm_sfc(ks,iw) = akm_sfc(ks,iw) + itab_wsfc(iwsfc)%arc(jasfc) * sfcg%vkmsfc(iwsfc)
+        thilt  (kw,iw) = thilt  (kw,iw) + itab_wsfc(iwsfc)%arc(jasfc) * sfcg%sfluxt(iwsfc) * volti(kw,iw)
+        rr_wt  (kw,iw) = rr_wt  (kw,iw) + itab_wsfc(iwsfc)%arc(jasfc) * sfcg%sfluxr(iwsfc) * volti(kw,iw)
+!       rr_co2t(kw,iw) = rr_co2t(kw,iw) + itab_wsfc(iwsfc)%arc(jasfc) * sfcg%sfluxc(iwsfc) * volti(kw,iw)
+
      enddo
 
-  enddo
-  !$omp end do
-
-  ! Compute some derived surface quantities
-
-  !$omp do private(iw,ka)
-  do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
-
-     ka = lpw(iw)
+     ! Compute some derived surface quantities
 
      moli(iw) = - grav * vonk * wtv0(iw) /  &
-                ( ustar(iw)**3 * theta(ka,iw) * (1.0 + eps_virt * rr_v(ka,iw)) )
+          ( ustar(iw)**3 * theta(ka,iw) * (1.0 + eps_virt * rr_v(ka,iw)) )
 
      if (wtv0(iw) > 0.0) then
         wstar(iw) = (grav * pblh(iw) * wtv0(iw) / theta(ka,iw)) ** onethird

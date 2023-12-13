@@ -512,7 +512,7 @@ Contains
            endif
 
            gxps_coef(n1,iw) = itab_w(iw)%gxps1(n1) + itab_w(iw)%gxps2(n2)
-           gyps_coef(n2,iw) = itab_w(iw)%gyps1(n1) + itab_w(iw)%gyps2(n2)
+           gyps_coef(n1,iw) = itab_w(iw)%gyps1(n1) + itab_w(iw)%gyps2(n2)
         enddo
 
         raxis = sqrt(xew(iw) ** 2 + yew(iw) ** 2)  ! dist from earth axis

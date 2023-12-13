@@ -728,110 +728,109 @@ Contains
 
   subroutine grndvap(iland, rhos, canshv, nlev_sfcwater, surface_ssh, &
                      ground_shv, sfcwater_energy, soil_water, soil_energy, &
-                     head, specifheat_drysoil)
+                     head, specifheat_drysoil, wresid, sfldcap)
 
-  use consts_coms, only: grav, rvap
-  use therm_lib,   only: qtk, rhovsil, qwtk
+    use consts_coms, only: grav, rvap
+    use therm_lib,   only: qtk, rhovsil, qwtk
 
-  implicit none
+    implicit none
 
-  integer, intent(in)  :: iland           ! current land cell number
-  real,    intent(in)  :: rhos            ! air density [kg/m^3]
-  real,    intent(in)  :: canshv          ! canopy vapor spec hum [kg_vap/kg_air]
-  integer, intent(in)  :: nlev_sfcwater   ! # active levels of surface water
-  real,    intent(out) :: surface_ssh     ! surface (saturation) spec hum [kg_vap/kg_air]
-  real,    intent(out) :: ground_shv      ! ground equilibrium spec hum [kg_vap/kg_air]
-  real,    intent(in)  :: sfcwater_energy ! [J/kg]
-  real,    intent(in)  :: soil_water      ! soil water content [vol_water/vol_tot]
-  real,    intent(in)  :: soil_energy     ! [J/m^3]
-  real,    intent(in)  :: head            ! hydraulic head of top soil layer [m]
-  real,    intent(in)  :: specifheat_drysoil
+    integer, intent(in)  :: iland           ! current land cell number
+    real,    intent(in)  :: rhos            ! air density [kg/m^3]
+    real,    intent(in)  :: canshv          ! canopy vapor spec hum [kg_vap/kg_air]
+    integer, intent(in)  :: nlev_sfcwater   ! # active levels of surface water
+    real,    intent(out) :: surface_ssh     ! surface (saturation) spec hum [kg_vap/kg_air]
+    real,    intent(out) :: ground_shv      ! ground equilibrium spec hum [kg_vap/kg_air]
+    real,    intent(in)  :: sfcwater_energy ! [J/kg]
+    real,    intent(in)  :: soil_water      ! soil water content [vol_water/vol_tot]
+    real,    intent(in)  :: soil_energy     ! [J/m^3]
+    real,    intent(in)  :: head            ! hydraulic head of top soil layer [m]
+    real,    intent(in)  :: specifheat_drysoil
+    real,    intent(in)  :: wresid          ! residual soil water content [vol_water/vol_tot]
+    real,    intent(in)  :: sfldcap         ! soil water content at field capacity [vol_water/vol_tot]
 
-  ! Local variables
+    ! Local variables
 
-  real :: tempk     ! surface water temp [K]
-  real :: fracliq   ! fraction of surface water in liquid phase
-  real :: can_rhov  ! canopy water vapor density [kg_vap/m^3]
-  real :: sfc_rhovs ! ground sfc saturation vapor density [kg_vap/m^3]
-  real :: gnd_rhov  ! ground sfc evaporative vapor density [kg_vap/m^3]
+    real :: tempk     ! surface water temp [K]
+    real :: fracliq   ! fraction of surface water in liquid phase
+    real :: can_rhov  ! canopy water vapor density [kg_vap/m^3]
+    real :: sfc_rhovs ! ground sfc saturation vapor density [kg_vap/m^3]
+    real :: gnd_rhov  ! ground sfc evaporative vapor density [kg_vap/m^3]
+    real :: alpha     ! "alpha" term in Lee and Pielke (1992)
+    real :: beta      ! "beta" term in Lee and Pielke (1992)
 
-  if (nlev_sfcwater > 0) then
+    if (nlev_sfcwater > 0) then
 
-     ! With surface water (or snowcover) present, sfc_rhovs is the saturation
-     ! vapor density of the water/snow surface and is used for computing
-     ! dew/frost formation and sfcwater evaporation.
+       ! With surface water (or snowcover) present, sfc_rhovs is the saturation
+       ! vapor density of the water/snow surface and is used for computing
+       ! dew/frost formation and sfcwater evaporation.
 
-     call qtk(sfcwater_energy,tempk,fracliq)
-     sfc_rhovs = rhovsil(tempk-273.15)
-     surface_ssh = sfc_rhovs / rhos
+       call qtk(sfcwater_energy,tempk,fracliq)
+       sfc_rhovs = rhovsil(tempk-273.15)
 
-  else
+       surface_ssh = sfc_rhovs / rhos
+       ground_shv  = surface_ssh
 
-     ! Without snowcover, sfc_rhovs is the saturation vapor density at the
-     ! temperature of the soil surface, and is used for computing dew/frost
-     ! formation only.
+    else
 
-     call qwtk(soil_energy,soil_water*1.e3,specifheat_drysoil,tempk,fracliq)
-     sfc_rhovs = rhovsil(tempk-273.15)
+       ! Without snowcover, sfc_rhovs is the saturation vapor density at the
+       ! temperature of the soil surface, and is used for computing dew/frost
+       ! formation only.
 
-     ! gnd_rhov is the effective saturation vapor density of soil and is used
-     ! for computing soil evaporation.
+       call qwtk(soil_energy,soil_water*1.e3,specifheat_drysoil,tempk,fracliq)
+       sfc_rhovs = rhovsil(tempk-273.15)
 
-     can_rhov = canshv * rhos
+       call grndvap_ab(iland,tempk,soil_water,wresid,sfldcap,head,alpha,beta)
 
-     call grndvap_ab(iland,tempk,soil_water,head,can_rhov,sfc_rhovs,gnd_rhov)
+       surface_ssh = sfc_rhovs / rhos
+       ground_shv  = surface_ssh * alpha * beta + (1. - beta) * canshv
 
-     surface_ssh = sfc_rhovs / rhos
-     ground_shv  = gnd_rhov  / rhos
-
-  endif
+    endif
 
   end subroutine grndvap
 
   !===============================================================================
 
-  subroutine grndvap_ab(iland,tempk,soil_water,head,can_rhov,sfc_rhovs,gnd_rhov)
+  subroutine grndvap_ab(iland,tempk,soil_water,wresid,sfldcap,head,alpha,beta)
 
-  use consts_coms, only: grav, rvap
+    use consts_coms, only: grav, rvap, pi1
 
-  implicit none
+    implicit none
 
-  integer, intent(in) :: iland       ! current land cell number
+    integer, intent(in) :: iland       ! current land cell number
 
-  real, intent(in)  :: tempk       ! soil temperature [K]
-  real, intent(in)  :: soil_water  ! soil water content [vol_water/vol_tot]
-  real, intent(in)  :: head        ! hydraulic head [m]
-  real, intent(in)  :: can_rhov    ! canopy vapor density [kg_vap/m^3]
-  real, intent(in)  :: sfc_rhovs   ! surface saturation vapor density [kg_vap/m^3]
-  real, intent(out) :: gnd_rhov    ! ground equilibrium vapor density [kg_vap/m^3]
+    real, intent(in)  :: tempk       ! soil temperature [K]
+    real, intent(in)  :: soil_water  ! soil water content [vol_water/vol_tot]
+    real, intent(in)  :: wresid      ! residual soil water content [vol_water/vol_tot]
+    real, intent(in)  :: sfldcap     ! soil water content at field capacity [vol_water/vol_tot]
+    real, intent(in)  :: head        ! hydraulic head [m]
+    real, intent(out) :: alpha       ! "alpha" term in Lee and Pielke (1992)
+    real, intent(out) :: beta        ! "beta" term in Lee and Pielke (1992)
 
- ! Local parameter
+    ! Local parameter
 
- real, parameter :: gorvap = grav / rvap  ! gravity divided by vapor gas constant
+    real, parameter :: gorvap = grav / rvap  ! gravity divided by vapor gas constant
 
- ! Local variables
+    if (head >= 0.) then
+       alpha = 0.999
+    else
+       alpha = min( 0.999, exp( max(-80., gorvap * head / tempk) ) )
+    endif
 
-  real :: alpha   ! "alpha" term in Lee and Pielke (1993)
-  real :: beta    ! "beta" term in Lee and Pielke (1993)
-  real, save :: sfldcap(12)  ! soil water field capacity [vol_water/vol_tot]
-
-  !HARDWIRE NTS NOW, BUT LATER COMPUTE SFLDCAP
-  integer, parameter :: nts = 5
-  data sfldcap/.135,.150,.195,.255,.240,.255,.322,.325,.310,.370,.367,.535/
-
-  ! Without snowcover, gnd_rhov is the effective saturation mixing
-  ! ratio of soil and is used for soil evaporation.  First, compute the
-  ! "alpha" term or soil "relative humidity" and the "beta" term.
-  ! Use limiter on head so that positive values are not used.
-
-  alpha = exp(gorvap * min(0.,head) / tempk)
-  beta = .25 * (1. - cos (min(1.,soil_water / sfldcap(nts)) * 3.14159)) ** 2
-
-  gnd_rhov = sfc_rhovs * alpha * beta + (1. - beta) * can_rhov
-
-  ! Require that gnd_rhov be at least slightly less than sfc_rhovs
-
-  gnd_rhov = min(gnd_rhov, 0.999 * sfc_rhovs)
+    if (soil_water >= sfldcap) then
+       beta = 1.0
+    elseif (soil_water <= wresid) then
+       beta = 0.0
+    else
+       ! Original Lee & Pielke:
+       ! beta = .25 * (1. - cos(soil_water / sfldcap(nts) * pi1) )**2
+       !
+       ! Noilhan & Planton:
+       ! beta = .50 * (1. - cos(soil_water / sfldcap(nts) * pi1) )
+       !
+       ! My modification:
+       beta = .50 * (1. - cos( (soil_water-wresid) / (sfldcap-wresid) * pi1 ) )
+    endif
 
   end subroutine grndvap_ab
 

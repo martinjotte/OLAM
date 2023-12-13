@@ -86,5 +86,19 @@ Module leaf_coms
   real, parameter :: emisg = 0.98      ! Ground surface longwave emissivity []
   real, parameter :: emisw = 1.0       ! Surface water longwave emissivity []
 
-End Module leaf_coms
+  real, parameter :: thermcond_dry_organic = 0.05  ! [W/(m K)]
+  real, parameter :: thermcond_sat_organic = 0.25  ! [W/(m K)]
+  real, parameter :: thermcond_bedrock     = 3.0   ! [W/(m K)]
+  real, parameter :: thermcond_liq         = 0.6   ! [W/(m K)]
+  real, parameter :: thermcond_ice         = 2.29  ! [W/(m K)]
+  real, parameter :: thermcond_firn        = 0.8   ! [W/(m K)] Based on firn density of 600 kg/m^3
+                                                   !           and the following reference:
+                             ! Oster, S.E. and M.R. Albert (2002): Thermal conductivity of polar firn,
+                             ! Journal of Glaciology, Vol. 68, Issue 272.
 
+  real, parameter :: specifheat_bedrock = 2.2e6   ! Volumetric heat capacity of deep ground [J/(m^3 K)]
+  real, parameter :: specifheat_coarse  = 2.128e6 ! Volumetric heat capacity of sand [J/(m^3 K)]
+  real, parameter :: specifheat_fine    = 2.385e6 ! Volumetric heat capacity of silt/clay [J/(m^3 K)]
+  real, parameter :: specifheat_organic = 2.5e6   ! Volumetric heat capacity of organic matter [J/(m^3 K)]
+
+End Module leaf_coms

@@ -9,7 +9,7 @@ use mem_lake,    only: lake, mlake, omlake
 use mem_sea,     only: sea,  msea,  omsea
 use pom2k1d,     only: pom
 use leaf4_soil,  only: soil_wat2pot
-
+use leaf4_surface,only:grndvap
 use mem_basic,   only: vmc, wmc, vc, wc, rho, press, &
                        thil, theta, tair, rr_w, rr_v, vxe, vye, vze, ue, ve
 use mem_cuparm,  only: conprr, aconpr, qwcon, cbmf
@@ -167,7 +167,7 @@ real :: accpboth_prev0, accpboth_prev1, accpboth_prev2, accpboth_prev3
 real :: denom, fldval1, fldval2
 
 real :: head(nzg)
-real :: psi, psi_slope
+real :: psi
 
 real :: zanal_swtc5, zanal0_swtc5
 
@@ -2389,7 +2389,8 @@ case(208) ! 'GLHYMPS_KSAT'
 
 case(209) ! 'GLHYMPS_KSAT_PFR'
 
-   fldval = real(land%glhymps_ksat_pfr(iland))
+!  fldval = real(land%glhymps_ksat_pfr(iland))
+   fldval = real(land%glhymps_ksat(iland))
 
 case(210) ! 'GLHYMPS_POROS'
 
@@ -2444,7 +2445,21 @@ case(219) ! 'SOIL_TOP_TEMP'
 
 case(220) ! 'GROUND_RRV'
 
-   fldval = land%ground_rrv(iland) * 1.e3
+   nls = max(1, land%nlev_sfcwater(iland))
+   call grndvap(iland,                              &
+                sfcg%rhos                  (i),     &
+                sfcg%canrrv                (i),     &
+                land%nlev_sfcwater         (iland), &
+                fldval1,                            &
+                fldval2,                            &
+                land%sfcwater_energy   (nls,iland), &
+                land%soil_water        (nzg,iland), &
+                land%soil_energy       (nzg,iland), &
+                land%head              (nzg,iland), &
+                land%specifheat_drysoil(nzg,iland), &
+                land%wresid_vg         (nzg,iland), &
+                land%soilfldcap            (iland))
+   fldval = fldval2 * 1.e3
 
 case(221) ! 'SOIL_DEPTH'
 
@@ -3492,7 +3507,21 @@ case(311) ! 'SFCG_GSS_SRRV'
       fldval = lake%surface_srrv(ilake) * 1.e3
    elseif (sfcg%leaf_class(i) >= 2) then
       iland = i - omland
-      fldval = land%surface_srrv(iland) * 1.e3
+      nls = max(1, land%nlev_sfcwater(iland))
+      call grndvap(iland,                              &
+                   sfcg%rhos                  (i),     &
+                   sfcg%canrrv                (i),     &
+                   land%nlev_sfcwater         (iland), &
+                   fldval1,                            &
+                   fldval2,                            &
+                   land%sfcwater_energy   (nls,iland), &
+                   land%soil_water        (nzg,iland), &
+                   land%soil_energy       (nzg,iland), &
+                   land%head              (nzg,iland), &
+                   land%specifheat_drysoil(nzg,iland), &
+                   land%wresid_vg         (nzg,iland), &
+                   land%soilfldcap            (iland))
+      fldval = fldval1 * 1.e3
    endif
 
 case(312) ! 'HEAD1'
@@ -3510,9 +3539,9 @@ case(313) ! 'HEAD_WTAB'
       iland = i - omland
 
       do klev = nzg,1,-1
-         call soil_wat2pot(klev, iland, land%soil_water(klev,iland), &
+         call soil_wat2pot(land%soil_water(klev,iland), land%wfrac_low(klev,iland), &
               land%wresid_vg(klev,iland), land%wsat_vg(klev,iland), &
-              land%alpha_vg(klev,iland), land%en_vg(klev,iland), psi, psi_slope)
+              land%alpha_vg(klev,iland), land%en_vg(klev,iland), psi)
 
          ! Trial algorithm: Get head_wtab from highest saturated soil level
 

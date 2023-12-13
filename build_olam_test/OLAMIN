@@ -634,6 +634,8 @@
    NL%LANDGRID_DZTOP =   .10    ! Thickness (m) of top (shallowest) soil grid level 
    NL%LANDGRID_DEPTH = 200.0    ! Depth (m) of soil grid lower boundary
 
+   NL%IHORIZ_GNDWATER_TRANSPORT = 0 ! Flag to turn lateral ground water fluxes on (1) or off (0)
+
    NL%NITER_SWM = 1             ! Number of subcycling timesteps used in SWM storm surge & 
                                 ! coastal flooding model per long model timestep; Can usually
                                 ! be 1 unless sfcgrid resolution is higher than ATM grid 
@@ -645,13 +647,23 @@
    NL%POM_DZTOP =   5.          ! Thickness (m) of top (shallowest) POM1D grid level 
    NL%POM_DEPTH = 4500.0        ! Depth (m) of deepest POM1D columns
 
-   NL%ISOILFLG   = 2      ! 1 -- Read soil composition from SoilGrids data files
-                          ! 2 -- Read soil type from FAO data file, convert to
-                          !      USDA text class, and use tabulated soil composition
+   NL%ISOILFLG = 2        ! 1 -- Read soil composition from SoilGrids data files
+                          ! 2 -- Read soil type from FAO data file
+                          ! 3 -- Specify a global constant USDA soil textural class in
+                          !      variable ISOILTEXT (for idealized/limited-area run)
 
-   NL%ISOILPTF   = 3      ! 1 -- Pedotransfer functions from Vereecken
-                          ! 2 -- Pedotransfer functions from de Boer
-                          ! 3 -- Hydraulic parameters from USDA classification (only with ISOILFLG = 2)
+   NL%ISOILTEXT = 4       ! USDA SOIL Textural class (Only for ISOILFLG = 3)
+
+   NL%ISOILPTF   = 2      ! 1 -- Use soil pedotransfer functions from Vereecken
+                          ! 2 -- Use soil pedotransfer functions from de Boer
+
+   NL%ZBEDROCK  = 10.0     ! Depth to bedrock [m] if not using SoilGrids/GLHYMPS dataset
+
+   NL%GND_KSAT  = 2.e-7    ! Saturated hydraulic conductivity [m/s] of deep soil/bedrock
+                           ! if not using SoilGrids/GLHYMPS dataset
+
+   NL%GND_POROS = 0.175    ! Porosity (soil water fraction at saturation) of deep soil/bedrock
+                           ! if not using SoilGrids/GLHYMPS dataset
 
    NL%ITOPOFLG   = 1      ! 1 -- Read data from standard database file
    NL%IBATHFLG   = 1      ! 2 -- Use default value assigned in topo_init
@@ -661,7 +673,7 @@
    NL%ISSTFLG    = 2      ! 0 -- use default seatmp, seaice value set below
    NL%ISEAICEFLG = 2      ! 1 -- read climatological mean SST/SEAICE from file
                           ! 2 -- read from degribbed analysis files
- 
+
    NL%ISOILSTATEINIT = 1  ! 0 -- default initialization based on landuse
                           ! 1 -- read from degribbed analysis file
 

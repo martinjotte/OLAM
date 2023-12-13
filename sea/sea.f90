@@ -1,144 +1,123 @@
-subroutine seacells()
+subroutine seacells(isea, timefac_sst, timefac_seaice)
 
-  use sea_coms,    only: nzi, iupdsst, s1900_sst, isstfile, nsstfiles,  &
-                         iupdseaice, s1900_seaice, iseaicefile, nseaicefiles
+  use sea_coms,    only: nzi
   use mem_sfcg,    only: itab_wsfc, sfcg
-  use mem_sea,     only: sea, msea, omsea
-  use misc_coms,   only: s1900_sim, iparallel
+  use mem_sea,     only: sea, omsea
+  use misc_coms,   only: iparallel
   use mem_para,    only: myrank
 
   implicit none
 
-! Local variables
+  integer, intent(in) :: isea
+  real,    intent(in) :: timefac_sst    ! fraction of elapsed time from past to future SST obs
+  real,    intent(in) :: timefac_seaice ! fraction of elapsed time from past to future SEA ICE obs
 
-  integer :: isea      ! sea cell loop counter
-  integer :: iwsfc
-  real    :: timefac_sst   ! fraction of elapsed time from past to future SST obs
-  real    :: timefac_seaice   ! fraction of elapsed time from past to future SEA ICE obs
+  ! Local variables
 
-! Time interpolation factors for updating SST and SEA ICE
+  integer :: iwsfc  ! sea cell loop counter
 
-  timefac_sst    = 0.0
-  timefac_seaice = 0.0
+  iwsfc = isea + omsea
 
-  if (iupdsst == 1 .and. nsstfiles > 1) then
-     timefac_sst = (s1900_sim           - s1900_sst(isstfile-1))  &
-                 / (s1900_sst(isstfile) - s1900_sst(isstfile-1))
+  ! Skip this cell if running in parallel and cell rank is not MYRANK
+
+  if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) return
+
+  ! Zero runoff for sea cells
+
+  sfcg%runoff(iwsfc) = 0.
+
+  ! Update seaice fraction
+
+  sea%seaicec(isea) = sea%seaicep(isea) &
+                    + timefac_seaice * (sea%seaicef(isea) - sea%seaicep(isea))
+
+  ! Update SEATC if isea cell is not pom_active or is is swm_active
+
+  if (.not. sea%pom_active(isea) .or. sfcg%swm_active(iwsfc)) then
+
+     sea%seatc(isea) = sea%seatp(isea) &
+                     + timefac_sst * (sea%seatf(isea) - sea%seatp(isea))
   endif
 
-  if (iupdseaice == 1 .and. nseaicefiles > 1) then
-     timefac_seaice = (s1900_sim                 - s1900_seaice(iseaicefile-1)) &
-                    / (s1900_seaice(iseaicefile) - s1900_seaice(iseaicefile-1))
+  ! Update SEA fields
+
+  call seacell(isea, iwsfc,             &
+               sfcg%rhos      (iwsfc),  &
+               sea%sea_ustar   (isea),  &
+               sea%sea_sxfer_t (isea),  &
+               sea%sea_sxfer_r (isea),  &
+               sfcg%can_depth (iwsfc),  &
+               sea%seatc       (isea),  &
+               sea%sea_cantemp (isea),  &
+               sea%sea_canrrv  (isea),  &
+               sea%sea_sfc_srrv(isea),  &
+               sea%sea_rough   (isea)   )
+
+  ! Update sea ice based on seaice fraction
+
+  call prep_seaice(sea%seatc              (isea), &
+                   sea%seaicec            (isea), &
+                   sea%sea_cantemp        (isea), &
+                   sea%ice_cantemp        (isea), &
+                   sea%seaice_energy(1:nzi,isea), &
+                   sea%seaice_tempk (1:nzi,isea), &
+                   sea%nlev_seaice        (isea), &
+                   sea%ice_albedo         (isea), &
+                   sea%ice_rlongup        (isea), &
+                   sea%ice_net_rshort     (isea), &
+                   sea%ice_net_rlong      (isea), &
+                   sfcg%rshort           (iwsfc), &
+                   sfcg%rlong            (iwsfc), &
+                   sea%ice_rough          (isea), &
+                   sea%sea_canrrv         (isea), &
+                   sea%ice_canrrv         (isea), &
+                   sea%sea_ustar          (isea), &
+                   sea%ice_ustar          (isea), &
+                   sea%sea_ggaer          (isea), &
+                   sea%ice_ggaer          (isea), &
+                   sea%sea_wthv           (isea), &
+                   sea%ice_wthv           (isea), &
+                   sea%ice_sxfer_t        (isea), &
+                   sea%ice_sxfer_r        (isea)  )
+
+  ! If ice exists, compute seaice canopy fluxes
+
+  if (sea%nlev_seaice(isea) > 0) then
+
+     call seaice(sea%seaice_energy(1:nzi,isea), &
+                 sea%seaice_tempk (1:nzi,isea), &
+                 sea%nlev_seaice        (isea), &
+                 sea%ice_net_rshort     (isea), &
+                 sea%ice_net_rlong      (isea), &
+                 sfcg%rhos             (iwsfc), &
+                 sea%ice_ustar          (isea), &
+                 sfcg%can_depth        (iwsfc), &
+                 sea%ice_cantemp        (isea), &
+                 sea%ice_canrrv         (isea), &
+                 sea%ice_sfc_srrv       (isea), &
+                 sea%ice_sxfer_t        (isea), &
+                 sea%ice_sxfer_r        (isea)  )
+
+     sfcg%rough    (iwsfc) = (1.0 - sea%seaicec(isea)) * sea%sea_rough  (isea) + &
+                                    sea%seaicec(isea)  * sea%ice_rough  (isea)
+
+     sfcg%cantemp  (iwsfc) = (1.0 - sea%seaicec(isea)) * sea%sea_cantemp(isea) + &
+                                    sea%seaicec(isea)  * sea%ice_cantemp(isea)
+
+     sfcg%canrrv   (iwsfc) = (1.0 - sea%seaicec(isea)) * sea%sea_canrrv (isea) + &
+                                    sea%seaicec(isea)  * sea%ice_canrrv (isea)
+
+     sea%surface_srrv(isea) = (1.0 - sea%seaicec(isea)) * sea%sea_sfc_srrv(isea) + &
+                                     sea%seaicec(isea)  * sea%ice_sfc_srrv(isea)
+
+  else
+
+     sfcg%rough      (iwsfc) = sea%sea_rough   (isea)
+     sfcg%cantemp    (iwsfc) = sea%sea_cantemp (isea)
+     sfcg%canrrv     (iwsfc) = sea%sea_canrrv  (isea)
+     sea%surface_srrv (isea) = sea%sea_sfc_srrv(isea)
+
   endif
-
-! Loop over ALL SEA CELLS
-
-  !$omp parallel do private (iwsfc)
-  do isea = 2, msea
-     iwsfc = isea + omsea
-
-     ! Skip this cell if running in parallel and cell rank is not MYRANK
-     if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
-
-     ! Zero runoff for sea cells
-
-     sfcg%runoff(iwsfc) = 0.
-
-     ! Update seaice fraction
-
-     sea%seaicec(isea) = sea%seaicep(isea) &
-                       + timefac_seaice * (sea%seaicef(isea) - sea%seaicep(isea))
-
-     ! Update SEATC if isea cell is not pom_active or is is swm_active
-
-     if (.not. sea%pom_active(isea) .or. sfcg%swm_active(iwsfc)) then
-
-        sea%seatc(isea) = sea%seatp(isea) &
-                        + timefac_sst * (sea%seatf(isea) - sea%seatp(isea))
-     endif
-
-     ! Update SEA fields
-
-     call seacell(isea, iwsfc,             &
-                  sfcg%rhos      (iwsfc),  &
-                  sea%sea_ustar   (isea),  &
-                  sea%sea_sxfer_t (isea),  &
-                  sea%sea_sxfer_r (isea),  &
-                  sfcg%can_depth (iwsfc),  &
-                  sea%seatc       (isea),  &
-                  sea%sea_cantemp (isea),  &
-                  sea%sea_canrrv  (isea),  &
-                  sea%sea_sfc_srrv(isea),  &
-                  sea%sea_rough   (isea)   )
-
-! Update sea ice based on seaice fraction
-
-     call prep_seaice(sea%seatc              (isea), &
-                      sea%seaicec            (isea), &
-                      sea%sea_cantemp        (isea), &
-                      sea%ice_cantemp        (isea), &
-                      sea%seaice_energy(1:nzi,isea), &
-                      sea%seaice_tempk (1:nzi,isea), &
-                      sea%nlev_seaice        (isea), &
-                      sea%ice_albedo         (isea), &
-                      sea%ice_rlongup        (isea), &
-                      sea%ice_net_rshort     (isea), &
-                      sea%ice_net_rlong      (isea), &
-                      sfcg%rshort           (iwsfc), &
-                      sfcg%rlong            (iwsfc), &
-                      sea%ice_rough          (isea), &
-                      sea%sea_canrrv         (isea), &
-                      sea%ice_canrrv         (isea), &
-                      sea%sea_ustar          (isea), &
-                      sea%ice_ustar          (isea), &
-                      sea%sea_ggaer          (isea), &
-                      sea%ice_ggaer          (isea), &
-                      sea%sea_wthv           (isea), &
-                      sea%ice_wthv           (isea), &
-                      sea%ice_sxfer_t        (isea), &
-                      sea%ice_sxfer_r        (isea)  )
-
-! If ice exists, compute seaice canopy fluxes
-
-     if (sea%nlev_seaice(isea) > 0) then
-
-        call seaice(sea%seaice_energy(1:nzi,isea), &
-                    sea%seaice_tempk (1:nzi,isea), &
-                    sea%nlev_seaice        (isea), &
-                    sea%ice_net_rshort     (isea), &
-                    sea%ice_net_rlong      (isea), &
-                    sfcg%rhos             (iwsfc), &
-                    sea%ice_ustar          (isea), &
-                    sfcg%can_depth        (iwsfc), &
-                    sea%ice_cantemp        (isea), &
-                    sea%ice_canrrv         (isea), &
-                    sea%ice_sfc_srrv       (isea), &
-                    sea%ice_sxfer_t        (isea), &
-                    sea%ice_sxfer_r        (isea)  )
-
-        sfcg%rough    (iwsfc) = (1.0 - sea%seaicec(isea)) * sea%sea_rough  (isea) + &
-                                       sea%seaicec(isea)  * sea%ice_rough  (isea)
-
-        sfcg%cantemp  (iwsfc) = (1.0 - sea%seaicec(isea)) * sea%sea_cantemp(isea) + &
-                                       sea%seaicec(isea)  * sea%ice_cantemp(isea)
-
-        sfcg%canrrv   (iwsfc) = (1.0 - sea%seaicec(isea)) * sea%sea_canrrv (isea) + &
-                                       sea%seaicec(isea)  * sea%ice_canrrv (isea)
-
-        sea%surface_srrv(isea) = (1.0 - sea%seaicec(isea)) * sea%sea_sfc_srrv(isea) + &
-                                        sea%seaicec(isea)  * sea%ice_sfc_srrv(isea)
-
-     else
-
-        sfcg%rough      (iwsfc) = sea%sea_rough   (isea)
-        sfcg%cantemp    (iwsfc) = sea%sea_cantemp (isea)
-        sfcg%canrrv     (iwsfc) = sea%sea_canrrv  (isea)
-        sea%surface_srrv (isea) = sea%sea_sfc_srrv(isea)
-
-     endif
-
-  enddo
-  !$omp end parallel do
 
 end subroutine seacells
 

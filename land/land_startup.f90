@@ -1,15 +1,16 @@
 subroutine land_startup()
 
-  use leaf_coms,   only: nzs, ndviflg, iupdndvi, isoilflg
+  use leaf_coms,   only: nzs, ndviflg, iupdndvi, isoilflg, specifheat_bedrock
   use mem_land,    only: alloc_land, filltab_land, land, mland, nzg, slzt, omland
   use misc_coms,   only: runtype
   use mem_sfcg,    only: sfcg
   use consts_coms, only: cice
+  use leaf4_soil,  only: soil_pot2wat, calc_wfrac_low
 
   implicit none
 
-  real, parameter :: specifheat_bedrock = 2.2e6 ! Specific heat of bedrock [J/(m^3 K)]
   integer :: iland, k, iwsfc
+  real    :: psi
 
   ! Initialize some land & vegetation properties
 
@@ -64,57 +65,68 @@ subroutine land_startup()
   ! specific heat.  Loop over all land points, INCLUDING THOSE THAT ARE NOT
   ! PRIMARY ON THIS SUBDOMAIN.
 
+  !$omp parallel do private(iwsfc,k,psi)
   do iland = 2,mland
      iwsfc = iland + omland
 
-     do k = 1,nzg
+     if (sfcg%leaf_class(iwsfc) == 2) then
 
-        ! If the landuse type of this land cell is glacier/firn/ice cap, then
+        ! If the landuse type of this land cell is glacier/firn/ice cap,
         ! set some physical properties related to heat and water content
         ! that are more appropriate for firn.
 
-        if (sfcg%leaf_class(iwsfc) == 2) then
-
+        do k = 1, nzg
            land%wsat_vg           (k,iland) = 0.1 ! 10% porosity assumed (limits soil water content)
            land%wresid_vg         (k,iland) = land%wsat_vg(k,iland) * 0.2 ! wresid must be < wsat
            land%ksat_vg           (k,iland) = 0.  ! prevents water fluxes
-           land%specifheat_drysoil(k,iland) = cice * 600. ! Assumes firn density of 600 kg/m^3
-
            land%alpha_vg          (k,iland) = -2.0
            land%en_vg             (k,iland) = 1.4
            land%lambda_vg         (k,iland) = 0.5
+           land%k_bedrock           (iland) = 0
 
-        ! If isoilflg = 1, meaning that SoilGrids and GLHYMPS datasets are used,
-        ! define a level in the soil above which SoilGrids composition and PTFs
-        ! are used and below which GLHYMPS permeability and porosity are used.
+           land%specifheat_drysoil(k,iland) = cice * 600. ! Assumes firn density of 600 kg/m^3
+           land%bulkdens_drysoil  (k,iland) = 600.
+
+           ! Default values for firn; will not be used in the code
+           land%sand              (k,iland) = 0.
+           land%clay              (k,iland) = 0.
+           land%silt              (k,iland) = 1.
+           land%organ             (k,iland) = 0.
+           land%ph_soil           (k,iland) = 7.
+           land%cec_soil          (k,iland) = 20.
+
+        enddo
+
+     else
 
         ! z_bedrock, the height of the upper boundary of bedrock, is used for
-        ! this transition grid level when bedrock is near the surface.  However,
+        ! the transition grid level when bedrock is near the surface.  However,
         ! where bedrock begins much deeper, the transition level is set above
         ! z_bedrock because SoilGrids data is defined only in the top 2 m, while
         ! GLHYMPS applies to roughly the top 100 m.  For now, we choose the
         ! transition level to be no greater than 10 meters below the surface.
 
-        elseif (isoilflg == 1 .and. slzt(k) < max(-10.0, land%z_bedrock(iland))) then
+        do k = nzg, 1, -1
+           if (slzt(k) < max(-10.0, land%z_bedrock(iland))) exit
+        enddo
+        land%k_bedrock(iland) = k
 
-           ! ISOILFLG = 1 and this soil grid level is below transition level;
-           ! therefore, assign wsat and ksat based on glhymps dataset.
+        ! Since SoilGrids data is only applicable to the top 2 meters,
+        ! GLHYMPS permeability and porosity will be used below the
+        ! transition level to set wsat and ksat.
+        !
+        ! We choose to set wresid_vg to 0.2 * wsat_vg, which is an average
+        ! ratio for soils.  We also choose to set alpha_vg and en_vg to
+        ! values given for USDA soil textural class of silt loam, which is
+        ! an average soil.  lambda_vg is set to 0.5, which is the value used
+        ! in some, but not all, pedotransfer functions.  There is no
+        ! particular justification for these choices other than the need to
+        ! provide something for the water retention and hydraulic conductivity
+        ! curves.  Nevertheless, we expect that fairly moist conditions will
+        ! prevail at these depths, in which case alpha_vg and en_vg are of
+        ! minor importance.
 
-           ! We choose to set wresid_vg to 0.2 * wsat_vg, which is an average
-           ! ratio for soils.  We also choose to set alpha_vg and en_vg to
-           ! values given for USDA soil textural class of silt loam, which is
-           ! an average soil.  lambda_vg is set to 0.5, which is the value used
-           ! in some, but not all, pedotransfer functions.  There is no
-           ! particular justification for these choices other than the need to
-           ! provide something for the water retention and hydraulic conductivity
-           ! curves.  Nevertheless, we expect that fairly moist conditions will
-           ! prevail at these depths, in which case alpha_vg and en_vg are of
-           ! minor importance.
-
-           ! pH_soil is not used for physical computations in bedrock layers,
-           ! leaving the array free for other uses.  We set pH_soil to -10.0
-           ! in bedrock to be used as an identifier that a soil grid level is
-           ! filled with bedrock.
+        do k = 1, land%k_bedrock(iland)
 
            land%wresid_vg         (k,iland) = 0.2 * land%glhymps_poros(iland)
            land%wsat_vg           (k,iland) =       land%glhymps_poros(iland)
@@ -122,13 +134,23 @@ subroutine land_startup()
            land%alpha_vg          (k,iland) = -2.0
            land%en_vg             (k,iland) = 1.4
            land%lambda_vg         (k,iland) = 0.5
-           land%pH_soil           (k,iland) = -10.0
+
            land%specifheat_drysoil(k,iland) = specifheat_bedrock
+           land%bulkdens_drysoil  (k,iland) = 2700. * (1. - land%glhymps_poros(iland))
 
-        else
+           ! Default values for bedrock; will not be used in the code
+           land%sand              (k,iland) = 0.
+           land%clay              (k,iland) = 0.
+           land%silt              (k,iland) = 1.
+           land%organ             (k,iland) = 0.
+           land%ph_soil           (k,iland) = 7.
+           land%cec_soil          (k,iland) = 20.
 
-           ! Either ISOILFLG /= 1 or this soil grid level is above transition level;
-           ! therefore, apply soil pedotransfer functions
+        enddo
+
+        ! Above transition level apply soil pedotransfer functions
+
+        do k = land%k_bedrock(iland)+1, nzg
 
            call soil_ptf(iland,k,                          &
                          slzt                   (k),       &
@@ -148,9 +170,34 @@ subroutine land_startup()
                          land%lambda_vg         (k,iland), &
                          land%specifheat_drysoil(k,iland)  )
 
-        endif
+        enddo
 
-     enddo
+     endif
+
+     ! Compute wfrac_low, the minimum soil water fraction beyond which we use
+     ! a linear fit to the van Genuchten soil water retention curve. Wfrac_low
+     ! is the water fraction that gives d(head)/d(vol_wat_fraction) equal to
+     ! psi_slope_low, which is set to a finite value for numerical stability.
+
+     call calc_wfrac_low(nzg, land%wfrac_low(:,iland), land%wsat_vg (:,iland), &
+                              land%wresid_vg(:,iland), land%en_vg   (:,iland), &
+                              land%alpha_vg (:,iland)  )
+
+     ! Estimate top-layer soil field capacity as the soil moisture
+     ! that gives 220 cm of head for sand and 340 cm for silt/clay
+
+     psi = -2.2*land%sand(nzg,iland) - 3.4*(1.-land%sand(nzg,iland))
+     call soil_pot2wat( psi, land%wresid_vg(nzg,iland), land%wsat_vg(nzg,iland), &
+                             land%alpha_vg (nzg,iland), land%en_vg  (nzg,iland), &
+                             land%wfrac_low(nzg,iland), land%soilfldcap (iland)  )
+
+     ! Estimate top-layer soil wilting point as the soil moisture
+     ! that gives 1500 kPa (153m) of hydraulic head
+
+     psi = -153.0
+     call soil_pot2wat( psi, land%wresid_vg(nzg,iland), land%wsat_vg(nzg,iland), &
+                             land%alpha_vg (nzg,iland), land%en_vg  (nzg,iland), &
+                             land%wfrac_low(nzg,iland), land%soilwilt   (iland)  )
   enddo
 
 end subroutine land_startup
@@ -275,7 +322,8 @@ subroutine soil_ptf(iland, k, slzt, usdatext, sand, clay, silt,   &
                     wresid_vg, wsat_vg, alpha_vg, en_vg, ksat_vg, &
                     lambda_vg, specifheat_drysoil                 )
 
-  use leaf_coms, only: isoilptf
+  use leaf_coms, only: specifheat_coarse, specifheat_fine, specifheat_organic, &
+                       isoilptf, isoilflg
 
   ! Computes static (time-independent) thermal and hydraulic parameters for
   ! soil layers, but not for bedrock layers.
@@ -287,38 +335,6 @@ subroutine soil_ptf(iland, k, slzt, usdatext, sand, clay, silt,   &
   real,    intent(in)  :: bulkdens_drysoil, cec_soil, pH_soil
   real,    intent(out) :: wresid_vg, wsat_vg, alpha_vg, en_vg, ksat_vg, &
                           lambda_vg, specifheat_drysoil
-
-  ! Soil composition and van Genuchten hydraulic parameters based on USDA
-  ! soil textural class (van Genuchten, 1980; Carsel and Parrish, 1988)
-
-  ! Soil composition parameters are not applied here; they are included in the following
-  ! parameter statement only to keep it identical with subroutine usda_composition.
-
-  !   wsat_vg - sat volumetric moisture content (soil porosity) [m^3_wat/m^3_tot]
-  ! wresid_vg - minimum soil moisture [m^3_wat/m^3_tot]
-  !   ksat_vg - saturation soil hydraulic conductivity [m/s]
-  !  alpha_vg - alpha parameter [1/m]; Alpha value in model is NEGATIVE; a coef of SWP, not tension
-  !     en_vg - n parameter [ ]
-  ! lambda_vg - lambda parameter [ ]
-
-  real, parameter :: soilparms4(10,12) = reshape( (/ &
-  !------------------------------------------------------------------------------------------------------
-  ! sand   clay   silt  organ  wresid_vg wsat_vg  ksat_vg  alpha_vg  en_vg  slwilt      USDA SOIL CLASS
-  !                                                 (m/s)    (1/m)                       # AND NAME
-  !------------------------------------------------------------------------------------------------------
-    .92,   .03,   .05,   .00,   .045,    .43,    .825e-4,    14.5,   2.68,  .070,   & !  1 sand
-    .82,   .06,   .12,   .01,   .057,    .41,    .405e-4,    12.4,   2.28,  .075,   & !  2 loamy sand
-    .58,   .10,   .32,   .02,   .065,    .41,    .123e-4,     7.5,   1.89,  .114,   & !  3 sandy loam
-    .17,   .13,   .70,   .03,   .067,    .45,    .125e-5,     2.0,   1.41,  .179,   & !  4 silt loam
-    .43,   .18,   .39,   .05,   .078,    .43,    .289e-5,     3.6,   1.56,  .155,   & !  5 loam
-    .58,   .27,   .15,   .04,   .100,    .39,    .364e-5,     5.9,   1.48,  .175,   & !  6 sandy clay loam
-    .10,   .34,   .56,   .06,   .089,    .43,    .194e-6,     1.0,   1.23,  .218,   & !  7 silty clay loam
-    .32,   .34,   .34,   .07,   .095,    .41,    .722e-6,     1.9,   1.31,  .250,   & !  8 clay loam
-    .52,   .42,   .06,   .08,   .100,    .38,    .333e-6,     2.7,   1.23,  .219,   & !  9 sandy clay
-    .06,   .47,   .47,   .09,   .070,    .36,    .556e-7,      .5,   1.09,  .283,   & ! 10 silty clay
-    .22,   .58,   .20,   .10,   .068,    .38,    .556e-6,      .8,   1.09,  .286,   & ! 11 clay
-    .10,   .06,   .84,   .05,   .034,    .46,    .694e-6,     1.6,   1.37,  .200/), & ! 12 silt
-     (/10,12/) )
 
   real, parameter :: zero = 0.
 
@@ -394,11 +410,9 @@ subroutine soil_ptf(iland, k, slzt, usdatext, sand, clay, silt,   &
 
   ! Thermal parameters
 
-  real, parameter :: specifheat_organic = 2.5e6 ! [J/(m^3 K)]
   real :: mineral
   real :: specifheat_mineral
   real :: topsoil
-  real :: soilwilt
 
   real :: organ
 
@@ -454,27 +468,12 @@ subroutine soil_ptf(iland, k, slzt, usdatext, sand, clay, silt,   &
      ksat_vg   = .11574e-6 * 10.**(a15 + b15 * clay + c15 * silt + d15 * cec_soil         + e15 * pH_soil + f15 * topsoil)
      lambda_vg = 0.5
 
-  elseif (isoilptf == 3) then
-
-     ! van Genuchten parameters assigned from USDA soil textural class
-     ! (alpha_vg multiplied by -1 to use with negative matric potential)
-
-     wresid_vg =  soilparms4(5,usdatext)
-     wsat_vg   =  soilparms4(6,usdatext)
-     ksat_vg   =  soilparms4(7,usdatext)
-     alpha_vg  = -soilparms4(8,usdatext)
-     en_vg     =  soilparms4(9,usdatext)
-     lambda_vg = 0.5
-
-     soilwilt  =  soilparms4(10,usdatext)
-
   endif
 
   ! Specific heat for dry soil material
 
-  specifheat_mineral = (2.128e6 * sand + 2.385e6 * clay) / (sand + clay)
-  specifheat_drysoil = (1. - wsat_vg) * (mineral * specifheat_mineral &
-                                       + organ   * specifheat_organic)
+  specifheat_mineral = specifheat_coarse * sand + specifheat_fine * (1. - sand)
+  specifheat_drysoil = (1. - wsat_vg) * ( mineral * specifheat_mineral &
+                                        + organ   * specifheat_organic )
 
 end subroutine soil_ptf
-

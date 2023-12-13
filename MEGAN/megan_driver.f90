@@ -798,13 +798,14 @@ contains
 
        call gamma_lai( gam_lht, laic )
 
-       call gamma_sm( gam_smt,                      &
+       call gamma_sm( gam_smt,                  &
                       sfcg%leaf_class(  iwsfc), &
                       land%soil_water(:,iland), &
                       land%wresid_vg (:,iland), &
                       land%wsat_vg   (:,iland), &
                       land%alpha_vg  (:,iland), &
-                      land%en_vg     (:,iland)  )
+                      land%en_vg     (:,iland), &
+                      land%wfrac_low (:,iland)  )
 
        call gamma_a( gam_age, lai_prev(iland), lai_next(iland), temp24 )
 
@@ -1095,7 +1096,8 @@ contains
 !
 !     SUBROUTINE GAMMA_S returns the GAMMA_SM values
 !-----------------------------------------------------------------------
-  SUBROUTINE GAMMA_SM( GAM_S, leaf_class, soil_water, wresid_vg, wsat_vg, alpha_vg, en_vg )
+  SUBROUTINE GAMMA_SM( GAM_S, leaf_class, soil_water, wresid_vg, wsat_vg, &
+                       alpha_vg, en_vg, wfrac_low )
 
     use leaf_coms,  only: kroot
     use mem_land,   only: nzg
@@ -1110,6 +1112,7 @@ contains
     real,    intent(in)  :: wsat_vg   (nzg)
     real,    intent(in)  :: alpha_vg  (nzg)
     real,    intent(in)  :: en_vg     (nzg)
+    real,    intent(in)  :: wfrac_low (nzg)
 
     real, parameter :: dsw = 0.06
     real            :: smk, soilwilt
@@ -1130,7 +1133,7 @@ contains
      ! threshold value
 
        call soil_pot2wat(-150., wresid_vg(k), wsat_vg(k), &
-                         alpha_vg(k), en_vg(k), soilwilt)
+                         alpha_vg(k), en_vg(k), wfrac_low(k), soilwilt)
 
        if (soil_water(k) <= soilwilt) then
           smk = 0.0

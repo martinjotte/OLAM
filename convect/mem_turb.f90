@@ -8,10 +8,7 @@ Module mem_turb
   real,    allocatable :: vkh      (:,:)
   real,    allocatable :: agamma   (:,:)
 
-  real,    allocatable :: sxfer_tk (:,:)
-  real,    allocatable :: sxfer_rk (:,:)
   real,    allocatable :: akm_sfc  (:,:)
-
   real,    allocatable :: ustar_k  (:,:)
   real,    allocatable :: wtv0_k   (:,:)
 
@@ -29,8 +26,10 @@ Module mem_turb
   real,    allocatable :: frac_sea   (:)
   real,    allocatable :: frac_lake  (:)
   real,    allocatable :: frac_urb   (:)
+
   real,    allocatable :: frac_sfc (:,:)
   real,    allocatable :: frac_sfck(:,:)
+  real,    allocatable :: arw_sfc  (:,:)
 
   real,    allocatable :: akmodx   (:,:)
   real,    allocatable :: akhodx   (:,:)
@@ -55,15 +54,13 @@ Contains
 !   Allocate arrays based on options (if necessary)
 !   Initialize arrays to zero
 
-    allocate (sxfer_tk (nsw_max,mwa)) ; sxfer_tk  = 0.0
-    allocate (sxfer_rk (nsw_max,mwa)) ; sxfer_rk  = 0.0
-
     allocate (akm_sfc  (nsw_max,mwa)) ; akm_sfc   = 0.0
     allocate (ustar_k  (nsw_max,mwa)) ; ustar_k   = 0.0
     allocate (wtv0_k   (nsw_max,mwa)) ; wtv0_k    = 0.0
 
     allocate (frac_sfc (nsw_max,mwa)) ; frac_sfc  = 0.0
     allocate (frac_sfck(nsw_max,mwa)) ; frac_sfck = 0.0
+    allocate (arw_sfc  (nsw_max,mwa)) ; arw_sfc   = 0.0
 
     allocate (vkm(mza,mwa)) ; vkm = 0.0
     allocate (vkh(mza,mwa)) ; vkh = 0.0
@@ -107,8 +104,6 @@ Contains
     if (allocated(epsp))      deallocate (epsp)
     if (allocated(vkm))       deallocate (vkm)
     if (allocated(vkh))       deallocate (vkh)
-    if (allocated(sxfer_tk))  deallocate (sxfer_tk)
-    if (allocated(sxfer_rk))  deallocate (sxfer_rk)
     if (allocated(akm_sfc))   deallocate (akm_sfc)
     if (allocated(vkm_sfc))   deallocate (vkm_sfc)
     if (allocated(ustar_k))   deallocate (ustar_k)
@@ -141,10 +136,6 @@ Contains
     if (allocated(vkm))      call increment_vtable('VKM',     'AW', rvar2=vkm)
 
     if (allocated(vkh))      call increment_vtable('VKH',     'AW', rvar2=vkh)
-
-!   if (allocated(sxfer_tk)) call increment_vtable('SXFER_TK','AW', rvar2=sxfer_tk)
-
-!   if (allocated(sxfer_rk)) call increment_vtable('SXFER_RK','AW', rvar2=sxfer_rk)
 
 !   if (allocated(vkm_sfc))  call increment_vtable('VKM_SFC', 'AW', rvar2=vkm_sfc)
 

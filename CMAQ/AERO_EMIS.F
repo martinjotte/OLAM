@@ -610,11 +610,15 @@
          integer,       intent(in) :: kmax
 
 ! Variables for converting emission rates into molar-mixing-ratio units
-         REAL, PARAMETER :: RAVO = 1.E6 / AVO   ! reciprocal of Avogadro
-         REAL      :: CONVM     ! conversion factor for mass emissions [m3/mol]
-         REAL      :: CONVN     ! conversion factor for number emissions [1e6*m3]
-         REAL      :: CONVS     ! conversion factor for surface area emissions [m3/mol]
-         REAL      :: GSFAC     ! into [ug/m3/sec]
+!        REAL      :: CONVM     ! conversion factor for mass emissions [m3/mol]
+!        REAL      :: CONVN     ! conversion factor for number emissions [1e6*m3]
+!        REAL      :: CONVS     ! conversion factor for surface area emissions [m3/mol]
+!        REAL      :: GSFAC     ! into [ug/m3/sec]
+
+         REAL, PARAMETER :: RAVO = 1.E6 / AVO   ! reciprocal of Avogadro [1e6*mol]
+         real, parameter :: convm = mwairkg      ! conv factor for mass emissions [kg/mol]
+         real, parameter :: convn = convm * ravo ! conv factor for # emissions [1e6*kg]
+         real, parameter :: convs = convm        ! conv factor for sfc area emiss [kg/mol]
 
 ! Third moment emissions rates [m3/m3/s]
          REAL      :: EMISM3( N_MODE )
@@ -635,39 +639,48 @@
          integer :: k, isea, iland, jsfc, iwsfc, jasfc
          INTEGER :: IDX
          real    :: emis
+         REAL    :: GSFAC     ! into [ug/m3/sec]
+
 
          do k = lpw(iw), kmax
 
 ! *** Store aerosol emission rates for this grid cell in a 1D array
             !dir$ novector
             DO S = 1, N_EMIS_PM
-               PM_EM( S ) = edgar42_emis( k,iw,edgar_ae_map(s) )
+               PM_EM( S ) = edgar42_emis( k,iw,edgar_ae_map(s) )  ! [g/s]
             END DO
 
 ! *** Calculate scaling factor for converting mass emissions into [ug/m3/s]
+
+            GSFAC = CONVEM_PM_MASS * volti(k,iw) ! [ug/g/m^3]
+
 !     note: RJACM converts grid heights from sigma coordinates to meters
 !     Also calculate scaling factors for converting to molar-mixing-ratio units
 !           GSFAC = CONVEM_PM( L ) * Met_Data%RJACM( C,R,L )
-            GSFAC = CONVEM_PM_MASS * volti(k,iw) ! [ug/g/m^3]
-            CONVM = MWAIRKG / real(rho(k,iw))    ! [m3/mol]
-            CONVN = CONVM * RAVO                 ! 10^6 * [m3]
-            CONVS = CONVM                        ! [m3/mol]
+!           CONVM = MWAIRKG / real(rho(k,iw))    ! [m3/mol]
+!           CONVN = CONVM * RAVO                 ! 10^6 * [m3]
+!           CONVS = CONVM                        ! [m3/mol]
 
 ! *** Calculate speciated mass emission rates for fine aerosol [ug/m3/s]
+
             DO S = 1, N_EMIS_PM
-               EM_RATE( S ) = PM_EM( S ) * GSFAC
+               EM_RATE( S ) = PM_EM( S ) * GSFAC  ! [ug/m3/s]
             END DO
 
 ! *** Extract H2SO4 vapor emission rate from the VDEMIS array, add it to
 !     the fine-PM sulfate emissions, and remove it from the gas emissions
+
             EM_RATE( VPSO4 ) = EM_RATE( VPSO4 )
-     &                       + VDEMIS_GC( k,iw,VSULF ) * PRECURSOR_MW( SULF_IDX ) / CONVM
+     &           + VDEMIS_GC( k,iw,VSULF ) * real( PRECURSOR_MW( SULF_IDX ) ) / CONVM
+
             VDEMIS_GC( k,iw,VSULF ) = 0.0
 
 ! *** Calculate emissions rate for third moments [m3/m3/s] of each mode
 !     (excluding sea salt), as in Equation 7a of Binkowski & Roselle (2003).
+
             EM_PART = 0.0       ! array assignment
             EMISM3  = 0.0       ! array assignment
+
             DO S = 1, N_EMIS_PM
                IDX = PMEM_MAP( S )
                DO N = 1, N_MODE - 1
@@ -701,6 +714,7 @@
 
 ! *** Calculate the number emissions rate for each mode [1/m3/s], using
 !     Equation 7b of Binkowski & Roselle (2003).
+
             DO N = 1, N_MODE
                EM_NUM( N ) = FACNUM( N ) * EMISM3( N )
             END DO
@@ -708,6 +722,7 @@
 ! *** Calculate the surface area emissions rate for the fine modes [m2/m3/s],
 !     using Equation 7c of Binkowski & Roselle (2003).  Multiplying by PI
 !     converts 2nd moment to surface area.
+
             DO N = 1, N_MODE
                EM_SRF( N ) = FACSRF( N ) * EMISM3( N )
             END DO
@@ -716,6 +731,7 @@
 !     the vertical diffusion routines.  Mass and number emissions are
 !     converted to [ppmv/s].  Surface area emissions are converted to
 !     [m2/mol/s].  Save results in the VDEMIS_AE array.
+
             DO N = 1, N_MODE
                DO S = 1, N_AEROSPC
                   IF ( EM_MAP( S,N ) .GT. 0 ) THEN
@@ -746,23 +762,20 @@
 !     converted to [ppmv/s].  Surface area emissions are converted to
 !     [m2/mol/s].  Save results in the VDEMIS_AE array.
 
-            CONVM = MWAIRKG / real(rho(k,iw)) ! [m3/mol]
-            CONVN = CONVM * RAVO              ! 10^6 * [m3]
-            CONVS = CONVM                     ! [m3/mol]
-
             DO N = 1, N_MODE
                DO S = 1, N_AEROSPC
                   IF ( EM_MAP( S,N ) .GT. 0 .and. SS_MAP( S,N ) .NE. 0 ) THEN
                      VDEMIS_AE( k,iw,EM_MAP( S,N ) ) = VDEMIS_AE( k,iw,EM_MAP( S,N ) )
-     &                    + SSOUTM( SS_MAP( S,N ),N,isea ) * MGPG
-     &                    * CONVM * AEROSPC_MWI( S )
+     &                    + SSOUTM( SS_MAP( S,N ),N,isea ) * itab_wsfc(iwsfc)%arcoarkw(jasfc)
+     &                    * MGPG * CONVM * AEROSPC_MWI( S )
                   END IF
                END DO
 
                VDEMIS_AE( k,iw,NUM_MAP( N ) ) = VDEMIS_AE( k,iw,NUM_MAP( N ) )
-     &                                        + SSOUTN( N,isea ) * NUM_FAC( N ) * CONVN
+     &              + SSOUTN( N,isea ) * itab_wsfc(iwsfc)%arcoarkw(jasfc) * NUM_FAC( N ) * CONVN
+
                VDEMIS_AE( k,iw,SRF_MAP( N ) ) = VDEMIS_AE( k,iw,SRF_MAP( N ) )
-     &                                        + SSOUTS( N,isea ) * SRF_FAC( N ) * CONVS
+     &              + SSOUTS( N,isea ) * itab_wsfc(iwsfc)%arcoarkw(jasfc) * SRF_FAC( N ) * CONVS
             END DO
 
          enddo
@@ -786,22 +799,20 @@
 
             if (dust_em(iland) > 1.e-25) then
 
-               CONVM = MWAIRKG / real(rho(k,iw)) ! [m3/mol]
-               CONVN = CONVM * RAVO              ! 10^6 * [m3]
-               CONVS = CONVM                     ! [m3/mol]
-
                DO N = 2, N_MODE
                   DO S = 1, N_AEROSPC
                      IF ( EM_MAP( S,N ) .GT. 0 .and. DUST_MAP( S,N ) .NE. 0 ) THEN
                         VDEMIS_AE( k,iw,EM_MAP( S,N ) ) = VDEMIS_AE( k,iw,EM_MAP( S,N ) )
-     &                       + DUSTOUTM( DUST_MAP( S,N ),N,iland ) * MGPG
-     &                       * CONVM * AEROSPC_MWI( S )
+     &                       + DUSTOUTM( DUST_MAP( S,N ),N,iland ) * itab_wsfc(iwsfc)%arcoarkw(jasfc)
+     &                       * MGPG * CONVM * AEROSPC_MWI( S )
                      END IF
                   END DO
+
                   VDEMIS_AE( k,iw,NUM_MAP( N ) ) = VDEMIS_AE( k,iw,NUM_MAP( N ) )
-     &                                           + DUSTOUTN( N,iland ) * NUM_FAC( N ) * CONVN
+     &                 + DUSTOUTN( N,iland ) * itab_wsfc(iwsfc)%arcoarkw(jasfc) * NUM_FAC( N ) * CONVN
+
                   VDEMIS_AE( k,iw,SRF_MAP( N ) ) = VDEMIS_AE( k,iw,SRF_MAP( N ) )
-     &                                           + DUSTOUTS( N,iland ) * SRF_FAC( N ) * CONVS
+     &                 + DUSTOUTS( N,iland ) * itab_wsfc(iwsfc)%arcoarkw(jasfc) * SRF_FAC( N ) * CONVS
                END DO
 
             endif

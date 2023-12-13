@@ -31,19 +31,13 @@ OLAM_SUFFIX=-mpi
 endif
 endif
 
-ifdef IEEE_ARITHMETIC
-ifeq ($(IEEE_ARITHMETIC),$(filter $(IEEE_ARITHMETIC),YES yes))
-IEEE_ARITHMETIC_DEF=$(F_DEFINE_FLAG)IEEE_ARITHMETIC
-endif
-endif
-
 ifdef OLAM_PARALLEL_HDF5
 ifeq ($(OLAM_PARALLEL_HDF5),$(filter $(OLAM_PARALLEL_HDF5),YES yes))
 HDF5_FORTRAN_DEF=$(F_DEFINE_FLAG)OLAM_PARALLEL_HDF5
 endif
 endif
 
-DEFS=$(MPI_DEF) $(IEEE_ARITHMETIC_DEF) $(HDF5_FORTRAN_DEF)
+DEFS=$(MPI_DEF) $(HDF5_FORTRAN_DEF)
 
 # Define executable name
 
@@ -76,8 +70,8 @@ objects/Make.depend: $(SOURCE_FILES) sources.mk include.mk Makefile
 	@echo ""
 	@echo "Generating dependency information"
 	@mkdir -p objects
-	@./sfmakedepend.txt -I $(OUTILS) -f objects/Make.depend $(SOURCE_FILES)
-	@sed -i.tmp -e 's:objects/mpi.mod::g' -e 's:objects/hdf5.mod::g' -e 's:objects/h5ds.mod::g' objects/Make.depend
+	@./sfmakedepend.txt -I $(OUTILS) -f objects/Make.depend.tmp $(SOURCE_FILES)
+	@sed -e 's:objects/mpi.mod::g' -e 's:objects/hdf5.mod::g' -e 's:objects/h5ds.mod::g' objects/Make.depend.tmp > objects/Make.depend
 
 objects/Make.targets: $(SOURCE_FILES) sources.mk include.mk Makefile
 	@echo ""
@@ -133,5 +127,8 @@ objects/%.o: F_COMMAND = $(F_COMP) -c $(F_OPTS) $(INCLUDES)
 $(addsuffix .o, $(addprefix objects/, $(notdir $(basename \
 	$(filter %.F90,$(SOURCE_FILES)))))): include.mk Makefile
 
-sinclude objects/Make.depend
-sinclude objects/Make.targets
+# Build dependencies (ignore if just cleaning)
+ifneq ($(MAKECMDGOALS), clean)
+-include objects/Make.depend
+-include objects/Make.targets
+endif

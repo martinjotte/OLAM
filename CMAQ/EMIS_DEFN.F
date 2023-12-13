@@ -79,10 +79,10 @@
 
       integer, allocatable :: edgar_kmax(:)
 
-      integer, allocatable, save :: gc_emis_index(:)
-      integer, allocatable, save :: nr_emis_index(:)
-      logical, allocatable, save :: is_poc       (:)
-      integer,              save :: pncom_index
+      integer, allocatable :: gc_emis_index(:)
+      integer, allocatable :: nr_emis_index(:)
+      logical, allocatable :: is_poc       (:)
+      integer              :: pncom_index
 
       CONTAINS
 
@@ -96,7 +96,7 @@
          USE AERO_EMIS           ! inherits GRID_CONF
          USE AERO_DATA,     ONLY: MAP_PMEMIS  ! access subroutine map_pmemis
          USE CONST_DATA
-         use misc_coms,     only: idate1, imonth1, iyear1, itime1
+         use misc_coms,     only: idate1, imonth1, iyear1, itime1, rinit
          use mem_grid,      only: mwa, mza, lpw, lsw
          use edgar_42_emis, only: edgar_42_init, vinterp, nsec
          use soil_nox,      only: soil_nox_init
@@ -119,7 +119,7 @@
          INTEGER :: V, LOGDEV
          CHARACTER( 16 ) :: UNITSCK
 
-         integer :: n, jw, iw, ka
+         integer :: n, jw, iw, ka, k
          integer, external :: julday
 
          if (nl%do_emis == 0) return
@@ -228,7 +228,6 @@
          N_SPC_EMIS = N_GC_EMIS
      &              + NEMIS_AE
      &              + N_NR_EMIS
-     &              + N_TR_EMIS
 
 ! 3D point source emissions (N_SPC_EMIS+1 serves as the null map for PTEM_MAP)
 
@@ -250,6 +249,34 @@ C Warn the User if there are No Emissions Species On Any File
 
          call soil_nox_init()
 
+         allocate( vdemis_gc( mza, mwa, n_gc_emis) )
+         allocate( vdemis_ae( mza, mwa, nemis_ae ) )
+         allocate( vdemis_nr( mza, mwa, n_nr_emis) )
+
+         !$omp parallel do private(n,k)
+         do iw = 1, mwa
+
+            do n = 1, n_gc_emis
+               do k = 1, mza
+                  vdemis_gc(k,iw,n) = rinit
+               enddo
+            enddo
+
+            do n = 1, nemis_ae
+               do k = 1, mza
+                  vdemis_ae(k,iw,n) = rinit
+               enddo
+            enddo
+
+            do n = 1, n_nr_emis
+               do k = 1, mza
+                  vdemis_nr(k,iw,n) = rinit
+               enddo
+            enddo
+
+         enddo
+         !$omp end parallel do
+
       end subroutine emis_init
 
 !-----------------------------------------------------------------------
@@ -263,6 +290,8 @@ C Warn the User if there are No Emissions Species On Any File
          USE LTNG_DEFN           ! lightning NO emissions
          USE UTILIO_DEFN
          USE CONST_DATA
+         use cgrid_defn,   only: gc_tend, ae_tend, nr_tend,
+     &                           gc_spc_to_trns_map, ae_spc_to_trns_map, nr_spc_to_trns_map
          use consts_coms,  only: r8
          use leaf_coms,    only: isfcl
          use mem_grid,     only: mza, volti, lpw
@@ -280,15 +309,14 @@ C Warn the User if there are No Emissions Species On Any File
 ! Local Variables:
 
          REAL    :: CNVTC(mza)  ! combined conversion factor
-         INTEGER :: N, S
+         INTEGER :: N, S, itr
          integer :: j, k, kw, iw, jsfc, iwsfc, jasfc, iland
-         real    :: arc, arcoarsfc, arcoariw, arcoarkw   ! Use only one of these
 
 ! Parameters
 
          REAL, PARAMETER :: CMLMR  = 1.0E+06 ! ppmV/Molar Mixing Ratio
          REAL, parameter :: CONVEM = 1.0E-03 ! conversion for emissions rates to Kg/s
-         real, parameter :: CNVTE  = CMLMR * CONVEM * MWAIR ! conversion from moles / sec
+         real, parameter :: CNVTE  = CMLMR * CONVEM * MWAIR ! conversion from mol / sec
                                                             ! to rho ppmV Vol / sec
          if (nl%do_emis == 0) return
 
@@ -313,12 +341,12 @@ C Warn the User if there are No Emissions Species On Any File
 
             ! Zero-out emissions arrays
 
-            vdemis_gc( :,iw,: ) = 0.0
-            vdemis_nr( :,iw,: ) = 0.0
-            vdemis_ae( :,iw,: ) = 0.0
+            vdemis_gc( :,iw,: ) = 0.0  ! rho ppmV / sec
+            vdemis_nr( :,iw,: ) = 0.0  ! rho ppmV / sec
+            vdemis_ae( :,iw,: ) = 0.0  ! rho ppmV / sec
 
             do k = lpw(iw), mza
-               cnvtc(k) = cnvte * volti(k,iw) / real(rho(k,iw))
+               cnvtc(k) = cnvte * volti(k,iw)
             enddo
 
             ! Apply EDGAR gas chemistry emissions
@@ -332,14 +360,14 @@ C Warn the User if there are No Emissions Species On Any File
 
                      if (pncom_index /= 0) then
                         do k = lpw(iw), edgar_kmax(iw)
-                           ! Convert g / sec emissions to ppmV / sec,
+                           ! Convert g / sec emissions to rho ppmV / sec,
                            ! and include non-carbon PNCOM emissions with POCs
                            vdemis_gc(k,iw,s) = (edgar42_emis(k,iw,n) + edgar42_emis(k,iw,pncom_index))
      &                                       * cnvtc(k) * GC_EMIS_FAC( S )
                         enddo
                      else
                         do k = lpw(iw), edgar_kmax(iw)
-                           ! Convert g / sec emissions to ppmV / sec
+                           ! Convert g / sec emissions to rho ppmV / sec
                            vdemis_gc(k,iw,s) = edgar42_emis(k,iw,n) * cnvtc(k) * GC_EMIS_FAC( S )
                         enddo
                      endif
@@ -347,7 +375,7 @@ C Warn the User if there are No Emissions Species On Any File
                   else
 
                      do k = lpw(iw), edgar_kmax(iw)
-                        ! convert mol / sec emissions to ppmV / sec
+                        ! convert mol / sec emissions to rho ppmV / sec
                         vdemis_gc(k,iw,s) = edgar42_emis(k,iw,n) * cnvtc(k)
                      enddo
                   endif
@@ -355,7 +383,7 @@ C Warn the User if there are No Emissions Species On Any File
                endif
             enddo
 
-            ! Apply EDGAR non-reactive gas emissions (conversion to ppmv/s)
+            ! Apply EDGAR non-reactive gas emissions (conversion to rho ppmv / s)
 
             do s = 1, n_nr_emis
 
@@ -363,7 +391,7 @@ C Warn the User if there are No Emissions Species On Any File
                if (n /= 0) then
 
                   do k = lpw(iw), edgar_kmax(iw)
-                     ! Convert mol / sec emissions to ppmV / sec
+                     ! Convert mol / sec emissions to rho ppmV / sec
                      vdemis_nr(k,iw,s) = edgar42_emis(k,iw,n) * cnvtc(k)
                   enddo
 
@@ -375,7 +403,7 @@ C Warn the User if there are No Emissions Species On Any File
             if ( ltng_no ) then
 
                do k = lpw(iw), mza
-                   ! Convert mol/ sec emissions to ppmV / sec
+                   ! Convert mol/ sec emissions to rho ppmV / sec
                   vdemis_gc(k,iw,LTNG_MAP) = vdemis_gc(k,iw,LTNG_MAP) + vdemis_lt(k,iw) * cnvtc(k)
                enddo
 
@@ -391,20 +419,12 @@ C Warn the User if there are No Emissions Species On Any File
                   iwsfc = itab_w(iw)%iwsfc(jsfc)
                   jasfc = itab_w(iw)%jasfc(jsfc)
 
-                  kw        = itab_wsfc(iwsfc)%kwatm(jasfc)
-
-                  arc       = itab_wsfc(iwsfc)%arc      (jasfc)  ! Use one of these
-                  arcoarsfc = itab_wsfc(iwsfc)%arcoarsfc(jasfc)  ! Use one of these
-                  arcoariw  = itab_wsfc(iwsfc)%arcoariw (jasfc)  ! Use one of these
-                  arcoarkw  = itab_wsfc(iwsfc)%arcoarkw (jasfc)  ! Use one of these
-
+                  kw    = itab_wsfc(iwsfc)%kwatm(jasfc)
                   iland = iwsfc - omland
 
-!BOB: What are units of [soilnox(iland) * cnvtc(kw)] and vdemis_gc?  In the following,
-!     soilnox needs a multiplier of arc, arcoarsfc, arcoarkw, or arcoariw.
-
-                  ! Convert mol / sec emissions to ppmV / sec
-                  vdemis_gc(kw,iw,SN_MAP) = vdemis_gc(kw,iw,SN_MAP) + soilnox(iland) * cnvtc(kw)
+                  ! Convert mol / sec emissions to rho ppmV / sec
+                  vdemis_gc(kw,iw,SN_MAP) = vdemis_gc(kw,iw,SN_MAP)
+     &                 + soilnox(iland) * itab_wsfc(iwsfc)%arcoarkw(jasfc) * cnvtc(kw)
                enddo
             endif
 
@@ -424,20 +444,11 @@ C Warn the User if there are No Emissions Species On Any File
                         iwsfc = itab_w(iw)%iwsfc(jsfc)
                         jasfc = itab_w(iw)%jasfc(jsfc)
 
-                        kw        = itab_wsfc(iwsfc)%kwatm(jasfc)
+                        kw    = itab_wsfc(iwsfc)%kwatm(jasfc)
 
-                        arc       = itab_wsfc(iwsfc)%arc      (jasfc)  ! Use one of these
-                        arcoarsfc = itab_wsfc(iwsfc)%arcoarsfc(jasfc)  ! Use one of these
-                        arcoariw  = itab_wsfc(iwsfc)%arcoariw (jasfc)  ! Use one of these
-                        arcoarkw  = itab_wsfc(iwsfc)%arcoarkw (jasfc)  ! Use one of these
-
-                        iland = iwsfc - omland
-
-!BOB: What are units of [megan_emis(iland,n) * cnvtc(kw)] and vdemis_gc?  In the following,
-!     megan_emis needs a multiplier of arc, arcoarsfc, arcoarkw, or arcoariw.
-
-                        ! Convert mol / sec emissions to ppmV / sec
-                        vdemis_gc(kw,iw,s) = vdemis_gc(kw,iw,s) + megan_emis(iland,n) * cnvtc(kw)
+                        ! Convert mol / sec emissions to rho ppmV / sec
+                        vdemis_gc(kw,iw,s) = vdemis_gc(kw,iw,s)
+     &                       + megan_emis(iland,n) * itab_wsfc(iwsfc)%arcoarkw(jasfc) * cnvtc(kw)
 
                      enddo
 
@@ -455,6 +466,42 @@ C Warn the User if there are No Emissions Species On Any File
          if ( n_ae_spc .gt. 0 ) then
             CALL GET_AERO_EMIS ( nvars3d_emis, vname3d_emis, edgar_kmax )
          endif
+
+         ! Add emissions to species tendencies
+
+         !$omp parallel do private(iw,s,itr,k)
+         do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
+
+
+            ! Gas chemistry species
+            do s = 1, n_gc_emis
+               itr = gc_spc_to_trns_map( gc_emis_map(s) )
+
+               do k = lpw(iw), mza
+                  gc_tend(k,iw,itr) = vdemis_gc(k,iw,s)  ! rho ppmV / sec
+               enddo
+            enddo
+
+            ! Aerosol species
+            do s = 1, n_ae_emis
+               itr = ae_spc_to_trns_map( ae_emis_map(s) )
+
+               do k = lpw(iw), mza
+                  ae_tend(k,iw,itr) = vdemis_ae(k,iw,s)  ! ug / m3 / sec
+               enddo
+            enddo
+
+            ! Non-reacting gas species
+            do s = 1, n_nr_emis
+               itr = nr_spc_to_trns_map( nr_emis_map(s) )
+
+               do k = lpw(iw), mza
+                  nr_tend(k,iw,itr) = vdemis_nr(k,iw,s) ! ug / m3 / sec
+               enddo
+            enddo
+
+         enddo
+         !$omp end parallel do
 
       END SUBROUTINE GET_EMIS
 

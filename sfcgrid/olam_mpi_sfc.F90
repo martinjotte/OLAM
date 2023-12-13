@@ -40,13 +40,19 @@ Contains
 subroutine olam_mpi_sfc_start()
 
 #ifdef OLAM_MPI
+  use mem_para,  only: nbytes_int, nbytes_real
+  use mem_land,  only: nzg
+  use leaf_coms, only: nzs
   use mpi
 #endif
 
   implicit none
 
 #ifdef OLAM_MPI
-  integer :: ierr, jrecv
+  integer :: ierr, jrecv, jsend
+  integer :: nbytes_per_iwsfc
+  integer :: nbytes_per_ivsfc
+  integer :: nbytes_per_imsfc
 
   allocate( ireqs_wsfc(nsends_wsfc,2) ) ; ireqs_wsfc = MPI_REQUEST_NULL
   allocate( ireqr_wsfc(nrecvs_wsfc,2) ) ; ireqr_wsfc = MPI_REQUEST_NULL
@@ -56,6 +62,54 @@ subroutine olam_mpi_sfc_start()
 
   allocate( ireqs_msfc(nsends_msfc,2) ) ; ireqs_msfc = MPI_REQUEST_NULL
   allocate( ireqr_msfc(nrecvs_msfc,2) ) ; ireqr_msfc = MPI_REQUEST_NULL
+
+  ! Determine number of bytes to send per IWSFC column
+
+  nbytes_per_iwsfc =  3       * nbytes_int  &
+                   + 20       * nbytes_real &
+                   +  2 * nzg * nbytes_real &
+                   +  3 * nzs * nbytes_real
+
+  do jrecv = 1, nrecvs_wsfc
+     recv_wsfc(jrecv)%nbytes  = recv_wsfc(jrecv)%jend * nbytes_per_iwsfc
+     allocate( recv_wsfc(jrecv)%buff( recv_wsfc(jrecv)%nbytes ) )
+  enddo
+
+  do jsend = 1, nsends_wsfc
+     send_wsfc(jsend)%nbytes  = send_wsfc(jsend)%jend * nbytes_per_iwsfc
+     allocate( send_wsfc(jsend)%buff( send_wsfc(jsend)%nbytes ) )
+  enddo
+
+  ! Determine number of bytes to send per IVSFC column
+
+  nbytes_per_ivsfc = 8       * nbytes_real &
+                   + 2 * nzg * nbytes_real
+
+  do jrecv = 1, nrecvs_vsfc
+     recv_vsfc(jrecv)%nbytes  = recv_vsfc(jrecv)%jend * nbytes_per_ivsfc
+     allocate( recv_vsfc(jrecv)%buff( recv_vsfc(jrecv)%nbytes ) )
+  enddo
+
+  do jsend = 1, nsends_vsfc
+     send_vsfc(jsend)%nbytes  = send_vsfc(jsend)%jend * nbytes_per_ivsfc
+     allocate( send_vsfc(jsend)%buff( send_vsfc(jsend)%nbytes ) )
+  enddo
+
+  ! Determine number of bytes to send per IMSFC column
+
+  nbytes_per_imsfc = 1 * nbytes_real
+
+  do jrecv = 1, nrecvs_msfc
+     recv_msfc(jrecv)%nbytes  = recv_msfc(jrecv)%jend * nbytes_per_imsfc
+     allocate( recv_msfc(jrecv)%buff( recv_msfc(jrecv)%nbytes ) )
+  enddo
+
+  do jsend = 1, nsends_msfc
+     send_msfc(jsend)%nbytes = send_msfc(jsend)%jend * nbytes_per_imsfc
+     allocate( send_msfc(jsend)%buff( send_msfc(jsend)%nbytes ) )
+  enddo
+
+  ! Pre-post non-blocking receives
 
   do jrecv = 1, nrecvs_wsfc
      call MPI_Irecv(recv_wsfc(jrecv)%buff, recv_wsfc(jrecv)%nbytes, MPI_PACKED, &
@@ -74,7 +128,6 @@ subroutine olam_mpi_sfc_start()
                     recv_msfc(jrecv)%iremote, itagmsfc, MPI_COMM_WORLD,         &
                     ireqr_msfc(jrecv,inext_msfc), ierr                          )
   enddo
-
 
 #endif
 

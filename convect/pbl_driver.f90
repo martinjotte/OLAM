@@ -99,10 +99,6 @@ subroutine pbl_driver()
 
      endif
 
-     ! Apply explicit surface fluxes and emissions for scalars
-
-     call apply_surface_fluxes( iw )
-
      ! Compute tendency of scalars due to vertical turbulent transport
 
      if (khtop(iw) >= ka) then
@@ -242,9 +238,9 @@ end subroutine comp_horiz_k_column
 
 subroutine pbl_init()
 
-  use mem_grid,      only: lsw, lpw, mwa, arw, zfacim2
+  use mem_grid,      only: lsw, lpw, mwa, arw, zfacim2, zfacm2, arw0
   use mem_ijtabs,    only: jtab_w, jtw_prog, itab_w
-  use mem_turb,      only: frac_urb, frac_land, frac_sea, frac_lake, &
+  use mem_turb,      only: frac_urb, frac_land, frac_sea, frac_lake, arw_sfc, &
                            frac_sfc, frac_sfck, ustar, wstar, wtv0, moli
   use mem_sfcg,       only: sfcg, itab_wsfc
   use misc_coms,     only: runtype, iparallel
@@ -307,33 +303,35 @@ subroutine pbl_init()
 
      frac_sfc (:,iw) = 0.
      frac_sfck(:,iw) = 0.
+     arw_sfc  (:,iw) = 0.
 
      if (lsw(iw) == 1) then
 
         frac_sfc (1,iw) = 1.0
         frac_sfck(1,iw) = 1.0
+        arw_sfc  (1,iw) = arw0(iw) * zfacm2(lpw(iw)-1)
 
      else
 
-        ! Store the fraction of the total surface that intersects with each layer (a+ - a-) / a0
+        ! Store the total surface coupling area at each height, and the
+        ! total surface coupling area divided by the atm cell area at each height
 
         do jsfc = 1, itab_w(iw)%jsfc2
            iwsfc = itab_w(iw)%iwsfc(jsfc)
            jasfc = itab_w(iw)%jasfc(jsfc)
            ks    =  itab_wsfc(iwsfc)%kwatm(jasfc) - lpw(iw) + 1
 
+           arw_sfc (ks,iw) = arw_sfc (ks,iw) + itab_wsfc(iwsfc)%arc     (jasfc)
            frac_sfc(ks,iw) = frac_sfc(ks,iw) + itab_wsfc(iwsfc)%arcoariw(jasfc)
         enddo
 
-        ! Store the fraction of the current layer that intersects with the surface (a+ - a-) / a+
+        ! Store the fraction of the current layer that intersects with the surface
 
         frac_sfck(1,iw) = 1.0
 
         do ks = 2, lsw(iw)
            k  = lpw(iw) + ks - 1
-           km = k - 1
-           frac_sfck(ks,iw) = &
-                max(arw(k,iw) * zfacim2(k) - arw(km,iw) * zfacim2(km),0.) / (arw(k,iw) * zfacim2(k))
+           frac_sfck(ks,iw) = arw_sfc(ks,iw) / (arw(k,iw) * zfacim2(k) * zfacm2(k-1))
         enddo
 
      endif
@@ -362,61 +360,6 @@ end subroutine pbl_init
 
 !===============================================================================
 
-subroutine apply_surface_fluxes( iw )
-
-  use mem_grid,   only: mza, lpw, lsw, volti
-  use misc_coms,  only: dtlm
-  use mem_basic,  only: rho
-  use var_tables, only: sxfer_map, num_sxfer, emis_map, num_emis, scalar_tab
-
-  implicit none
-
-  integer, intent(in) :: iw
-  integer             :: ns, n, ks, k
-  real                :: dtl, dtli
-
-  dtl  = dtlm
-  dtli = 1.0 / dtl
-
-  ! Apply surface moisture and scalar fluxes directly to tendency arrays
-
-  if (num_sxfer > 0) then
-
-     do ns = 1, num_sxfer
-        n = sxfer_map(ns)
-
-        !dir$ ivdep
-        do ks = 1, lsw(iw)
-           k = lpw(iw) + ks - 1
-
-           scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
-                                     + dtli * volti(k,iw) * scalar_tab(n)%sxfer(ks,iw)
-        enddo
-     enddo
-
-  endif
-
-  ! Apply emissions directly to the tendency arrays
-  ! (emis units are concentration / sec )
-
-  if (num_emis > 0) then
-
-     do ns = 1, num_emis
-        n = emis_map(ns)
-
-        !dir$ ivdep
-        do k = lpw(iw), mza-1
-           scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
-                                     + real(rho(k,iw)) * scalar_tab(n)%emis(k,iw)
-        enddo
-     enddo
-
-  endif
-
-end subroutine apply_surface_fluxes
-
-!===============================================================================
-
 subroutine solve_eddy_diff_scalars( iw )
 
   use mem_grid,   only: mza, arw, volti, lpw, lsw, dzim, arw0i, volt
@@ -435,7 +378,7 @@ subroutine solve_eddy_diff_scalars( iw )
   integer, intent(in) :: iw
 
   real    :: dtomass(mza), dtorho(mza), akodz(mza)
-  integer :: ka, k, n, ns, kmax
+  integer :: ka, k, n, ns, kmax, ks
   real    :: vctr5(mza), vctr6(mza), vctr7(mza)
   real    :: soln(mza,num_pblmix), rhs(mza,num_pblmix), varp(mza)
   real    :: dtl, dtli, wc0
@@ -502,28 +445,21 @@ subroutine solve_eddy_diff_scalars( iw )
      ! Non local PBL fluxes
 
      if (nl%idiffk(itab_w(iw)%mrlw) == 1) then
-        if (agamma(ka,iw) / arw(ka,iw) > 1.e-6) then
-
-           wc0 = 0.0
+        if ( agamma(ka,iw) > 1.e-7 * arw(ka,iw) ) then
 
            if (ns == 1) then
 
               ! water vapor
               wc0 = sfluxr(iw) / real(rho(ka,iw))
 
-           elseif (scalar_tab(n)%do_sxfer) then
+           else
 
-              ! other scalars with surface flux
-              wc0 = sum( scalar_tab(n)%sxfer(1:lsw(iw),iw) / real(rho(ka:ka+lsw(iw)-1,iw)) ) &
-                    * dtli * arw0i(iw)
+              ! estiate surface flux from near-surface tendency
 
-           endif
+              ks = lsw(iw)+1
 
-           if (scalar_tab(n)%do_emis) then
-
-              ! other scalars with near-surface emissions
-              wc0 = wc0 + sum( real(volt(ka:ka+2,iw)) * scalar_tab(n)%emis(ka:ka+2,iw) ) &
-                        / arw(ka+2,iw)
+              wc0 = sum( real(volt(ka:ka+ks,iw)) * scalar_tab(n)%var_t(ka:ka+ks,iw) &
+                       / real(rho(ka:ka+ks,iw)) ) / arw(ka+ks,iw)
 
            endif
 
@@ -632,7 +568,7 @@ subroutine solve_eddy_diff_heat(iw, thilt)
   ! Non local PBL term
 
   if (nl%idiffk(itab_w(iw)%mrlw) == 1) then
-     if (agamma(ka,iw) > 1.e-7) then
+     if ( agamma(ka,iw) > 1.e-7 * arw(ka,iw) ) then
 
         wt0 = sfluxt(iw) / real(rho(ka,iw))
         do k = ka, kpblh(iw)

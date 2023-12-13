@@ -19,21 +19,21 @@ end subroutine init_sfcgrid
 
 subroutine para_init_sfc()
 
-  use misc_coms,    only: iparallel
   use mem_ijtabs,   only: itabg_w
   use mem_sfcg,     only: mmsfc, mvsfc, mwsfc, nmsfc, nvsfc, nwsfc, &
                           itab_msfc, itabg_msfc, itab_msfc_pd, &
                           itab_vsfc, itabg_vsfc, itab_vsfc_pd, &
                           itab_wsfc, itabg_wsfc, itab_wsfc_pd, &
                           alloc_sfcgrid1, sfcg
-  use mem_para,     only: myrank, mgroupsize, nbytes_int, nbytes_real
-  use olam_mpi_sfc
+  use mem_para,     only: myrank, mgroupsize
+  use olam_mpi_sfc, only: nsends_vsfc, nrecvs_vsfc, send_vsfc, recv_vsfc, &
+                          nsends_msfc, nrecvs_msfc, send_msfc, recv_msfc, &
+                          nsends_wsfc, nrecvs_wsfc, send_wsfc, recv_wsfc
   use max_dims,     only: maxremote
-  use mem_land,     only: mland, omland, onland, itab_land, nzg
+  use mem_land,     only: mland, omland, onland, itab_land
   use mem_lake,     only: mlake, omlake, onlake, itab_lake
   use mem_sea,      only: sea, msea, omsea, onsea, itab_sea
   use pom2k1d,      only: alloc_pomgrid
-  use leaf_coms,    only: nzs
 
   implicit none
 
@@ -47,10 +47,6 @@ subroutine para_init_sfc()
   integer :: iland_myrank ! Counter for LAND points to be included on this rank
   integer :: ilake_myrank ! Counter for LAKE points to be included on this rank
   integer :: isea_myrank  ! Counter for SEA points to be included on this rank
-
-  integer :: nbytes_per_iwsfc
-  integer :: nbytes_per_ivsfc
-  integer :: nbytes_per_imsfc
 
   ! Automatic arrays
 
@@ -479,15 +475,6 @@ subroutine para_init_sfc()
 
   ! Allocate main send and receive tables
 
-  if (iparallel == 1) then
-
-  ! Determine number of bytes to send per IWSFC column
-
-  nbytes_per_iwsfc =  3       * nbytes_int  &
-                   + 20       * nbytes_real &
-                   +  2 * nzg * nbytes_real &
-                   +  3 * nzs * nbytes_real
-
   ! Copy data from temp arrays to wsfc send table
 
   allocate( send_wsfc(nsends_wsfc) )
@@ -497,10 +484,8 @@ subroutine para_init_sfc()
 
      send_wsfc(jsend)%jend    = jend
      send_wsfc(jsend)%iremote = send_wsfc_iremotes(jsend)
-     send_wsfc(jsend)%nbytes  = jend * nbytes_per_iwsfc
 
-     allocate( send_wsfc(jsend)%ipts( send_wsfc(jsend)%jend   ) )
-     allocate( send_wsfc(jsend)%buff( send_wsfc(jsend)%nbytes ) )
+     allocate( send_wsfc(jsend)%ipts( jend ) )
 
      j = 0
      do iwsfc = 2, mwsfc
@@ -511,11 +496,6 @@ subroutine para_init_sfc()
      enddo
   enddo
 
-  ! Determine number of bytes to send per IVSFC column
-
-  nbytes_per_ivsfc = 8       * nbytes_real &
-                   + 2 * nzg * nbytes_real
-
   ! Copy data from temp arrays to vsfc send table
 
   allocate( send_vsfc(nsends_vsfc) )
@@ -525,10 +505,8 @@ subroutine para_init_sfc()
 
      send_vsfc(jsend)%jend    = jend
      send_vsfc(jsend)%iremote = send_vsfc_iremotes(jsend)
-     send_vsfc(jsend)%nbytes  = jend * nbytes_per_ivsfc
 
-     allocate( send_vsfc(jsend)%ipts( send_vsfc(jsend)%jend   ) )
-     allocate( send_vsfc(jsend)%buff( send_vsfc(jsend)%nbytes ) )
+     allocate( send_vsfc(jsend)%ipts( jend ) )
 
      j = 0
      do ivsfc = 2, mvsfc
@@ -539,10 +517,6 @@ subroutine para_init_sfc()
      enddo
   enddo
 
-  ! Determine number of bytes to send per IMSFC column
-
-  nbytes_per_imsfc = 1 * nbytes_real
-
   ! Copy data from temp arrays to msfc send table
 
   allocate( send_msfc(nsends_msfc) )
@@ -552,10 +526,8 @@ subroutine para_init_sfc()
 
      send_msfc(jsend)%jend    = jend
      send_msfc(jsend)%iremote = send_msfc_iremotes(jsend)
-     send_msfc(jsend)%nbytes  = jend * nbytes_per_imsfc
 
-     allocate( send_msfc(jsend)%ipts( send_msfc(jsend)%jend   ) )
-     allocate( send_msfc(jsend)%buff( send_msfc(jsend)%nbytes ) )
+     allocate( send_msfc(jsend)%ipts( jend ) )
 
      j = 0
      do imsfc = 2, mmsfc
@@ -575,10 +547,8 @@ subroutine para_init_sfc()
 
      recv_wsfc(jrecv)%jend    = jend
      recv_wsfc(jrecv)%iremote = recv_wsfc_iremotes(jrecv)
-     recv_wsfc(jrecv)%nbytes  = jend * nbytes_per_iwsfc
 
-     allocate( recv_wsfc(jrecv)%ipts( recv_wsfc(jrecv)%jend   ) )
-     allocate( recv_wsfc(jrecv)%buff( recv_wsfc(jrecv)%nbytes ) )
+     allocate( recv_wsfc(jrecv)%ipts( jend ) )
 
      j = 0
      do iwsfc = 2, mwsfc
@@ -598,10 +568,8 @@ subroutine para_init_sfc()
 
      recv_vsfc(jrecv)%jend    = jend
      recv_vsfc(jrecv)%iremote = recv_vsfc_iremotes(jrecv)
-     recv_vsfc(jrecv)%nbytes  = jend * nbytes_per_ivsfc
 
-     allocate( recv_vsfc(jrecv)%ipts( recv_vsfc(jrecv)%jend   ) )
-     allocate( recv_vsfc(jrecv)%buff( recv_vsfc(jrecv)%nbytes ) )
+     allocate( recv_vsfc(jrecv)%ipts( jend ) )
 
      j = 0
      do ivsfc = 2, mvsfc
@@ -621,10 +589,8 @@ subroutine para_init_sfc()
 
      recv_msfc(jrecv)%jend    = jend
      recv_msfc(jrecv)%iremote = recv_msfc_iremotes(jrecv)
-     recv_msfc(jrecv)%nbytes  = jend * nbytes_per_imsfc
 
-     allocate( recv_msfc(jrecv)%ipts( recv_msfc(jrecv)%jend   ) )
-     allocate( recv_msfc(jrecv)%buff( recv_msfc(jrecv)%nbytes ) )
+     allocate( recv_msfc(jrecv)%ipts( jend ) )
 
      j = 0
      do imsfc = 2, mmsfc
@@ -634,8 +600,6 @@ subroutine para_init_sfc()
         endif
      enddo
   enddo
-
-  endif
 
   ! Deallocate temporary arrays
 

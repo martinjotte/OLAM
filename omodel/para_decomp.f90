@@ -11,7 +11,12 @@ subroutine para_decomp()
   use mem_sfcg,   only: nmsfc, itabg_msfc, itab_msfc_pd, &
                         nvsfc, itabg_vsfc, itab_wsfc_pd, &
                         nwsfc, itabg_wsfc, itab_vsfc_pd
+  use consts_coms,only: i8
+
   implicit none
+
+  real,    parameter :: scal = 1.0
+  integer, parameter :: nbins = 3000
 
   integer :: im,iv,iw,iwnud
   integer :: iw1,iw2,im1,im2
@@ -33,7 +38,6 @@ subroutine para_decomp()
   integer, allocatable :: iwtemp(:), jwtemp(:)
   integer, allocatable :: iwnudtemp(:), jwnudtemp(:)
 
-  integer, parameter :: nbins = 2000
   integer :: num(nbins + 2)
 
   real :: val (nwa)
@@ -49,7 +53,6 @@ subroutine para_decomp()
   integer :: iwsfc,ivsfc,imsfc,iwn
   integer :: irankw(3), irankv(3)
 
-  real, parameter :: scal = 0.45
   real :: xsca, ysca, zsca, xo, yo, zo
 
   real, allocatable :: ds(:)
@@ -70,7 +73,7 @@ subroutine para_decomp()
 
      do iw = 2,nwa
         grp(1)%iw(iw-1) = iw
-        ds(iw) = sqrt(arw0(iw))
+        ds(iw) = scal * sqrt(arw0(iw))
      enddo
 
      ! Check if NUDGING GRID is being used
@@ -115,13 +118,13 @@ subroutine para_decomp()
               do i = 1,nwg(igp)
                  iw = grp(igp)%iw(i)
 
-                 if (xmin > xew(iw)) xmin = xew(iw)
-                 if (ymin > yew(iw)) ymin = yew(iw)
-                 if (zmin > zew(iw)) zmin = zew(iw)
+                 if (xmin > xew(iw) - ds(iw)) xmin = xew(iw) - ds(iw)
+                 if (ymin > yew(iw) - ds(iw)) ymin = yew(iw) - ds(iw)
+                 if (zmin > zew(iw) - ds(iw)) zmin = zew(iw) - ds(iw)
 
-                 if (xmax < xew(iw)) xmax = xew(iw)
-                 if (ymax < yew(iw)) ymax = yew(iw)
-                 if (zmax < zew(iw)) zmax = zew(iw)
+                 if (xmax < xew(iw) + ds(iw)) xmax = xew(iw) + ds(iw)
+                 if (ymax < yew(iw) + ds(iw)) ymax = yew(iw) + ds(iw)
+                 if (zmax < zew(iw) + ds(iw)) zmax = zew(iw) + ds(iw)
               enddo
 
 ! Determine whether to cut in x, y, or z direction
@@ -133,8 +136,8 @@ subroutine para_decomp()
 
                  if (xmax - xmin > ymax - ymin) then
 
-                    xsca = scal / (xmax - xmin)
-                    xo   = 0.50 * (xmax - xmin)
+                    xsca = 2.0 / (xmax - xmin)
+                    xo   = 0.5 * (xmax + xmin)
 
                     do i = 1,nwg(igp)
                        iw = grp(igp)%iw(i)
@@ -143,8 +146,8 @@ subroutine para_decomp()
 
                  else
 
-                    ysca = scal / (ymax - ymin)
-                    yo   = 0.50 * (ymax - ymin)
+                    ysca = 2.0 / (ymax - ymin)
+                    yo   = 0.5 * (ymax + ymin)
 
                     do i = 1,nwg(igp)
                        iw = grp(igp)%iw(i)
@@ -171,8 +174,8 @@ subroutine para_decomp()
 
                  if (ymax - ymin > zmax - zmin) then
 
-                    ysca = scal / (ymax - ymin)
-                    yo   = 0.50 * (ymax - ymin)
+                    ysca = 2.0 / (ymax - ymin)
+                    yo   = 0.5 * (ymax + ymin)
 
                     do i = 1,nwg(igp)
                        iw = grp(igp)%iw(i)
@@ -181,8 +184,8 @@ subroutine para_decomp()
 
                  else
 
-                    zsca = scal / (zmax - zmin)
-                    zo   = 0.50 * (zmax - zmin)
+                    zsca = 2.0 / (zmax - zmin)
+                    zo   = 0.5 * (zmax + zmin)
 
                     do i = 1,nwg(igp)
                        iw = grp(igp)%iw(i)
@@ -209,8 +212,8 @@ subroutine para_decomp()
 
                  if (xmax - xmin > zmax - zmin) then
 
-                    xsca = scal / (xmax - xmin)
-                    xo   = 0.50 * (xmax - xmin)
+                    xsca = 2.0 / (xmax - xmin)
+                    xo   = 0.5 * (xmax + xmin)
 
                     do i = 1,nwg(igp)
                        iw = grp(igp)%iw(i)
@@ -219,8 +222,8 @@ subroutine para_decomp()
 
                  else
 
-                    zsca = scal / (zmax - zmin)
-                    zo   = 0.50 * (zmax - zmin)
+                    zsca = 2.0 / (zmax - zmin)
+                    zo   = 0.5 * (zmax + zmin)
 
                     do i = 1,nwg(igp)
                        iw = grp(igp)%iw(i)
@@ -268,11 +271,13 @@ subroutine para_decomp()
 ! Set igsize(jgp) based on numcent
 
                  if (iter == 1) then
-                    igsize(jgp) = (numcent * igsize(igp)) / nwg(igp)
+!                   igsize(jgp) = (numcent * igsize(igp)) / nwg(igp)
+                    igsize(jgp) = int( (int(numcent,i8) * int(igsize(igp),i8)) / int(nwg(igp),i8) )
                     igsize(jgp) = max(1,min(igsize(igp)-1,igsize(jgp)))
 
                     igsize(igp) = igsize(igp) - igsize(jgp)
-                    numcut = (nwg(igp) * igsize(igp)) / (igsize(igp) + igsize(jgp))
+!                   numcut = (nwg(igp) * igsize(igp)) / (igsize(igp) + igsize(jgp))
+                    numcut = int( (int(nwg(igp),i8) * int(igsize(igp),i8)) / int(igsize(igp) + igsize(jgp),i8) )
                  endif
 
 ! Sum number in each bin until reaching half of total
