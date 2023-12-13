@@ -543,6 +543,8 @@ subroutine surface_driver()
      dheight (:) = 0.
      energyin(:) = 0.
 
+     energy_per_m2(1) = land%sfcwater_energy(1,iland) * land%sfcwater_mass(1,iland)
+
      ! Loop over all lateral faces of this iland cell
 
      do j = 1,itab_wsfc(iwsfc)%npoly
@@ -557,13 +559,27 @@ subroutine surface_driver()
         ! Loop over vertical levels; sum mass and energy fluxes over j faces
 
         do k = 1,nzg
-           factor = dirv * dt_leaf * sfcg%dnu(ivn) / sfcg%area(iwsfc) ! [s/m]
+           factor = dirv * dt_leaf * sfcg%dnu(ivn) * dslz(k) / sfcg%area(iwsfc) ! [s]
 
-           dheight (k) = dheight (k) + factor * watflux   (k,ivn) ! [Vol/Vol]
-           energyin(k) = energyin(k) + factor * energyflux(k,ivn) ! [J/m^3]
+           dheight (k) = dheight (k) + factor * watflux   (k,ivn) ! [m]
+           energyin(k) = energyin(k) + factor * energyflux(k,ivn) ! [J/m^2]
         enddo ! k
 
+        land%sfcwater_energy(1,iland) = energy_per_m2(1) &
+                                      / max(wcap_min,land%sfcwater_mass(1,iland))
+
      enddo ! j, ivn
+
+     ! Reset relationship between sfcwater presence and nlev_sfcwater setting
+
+     if (land%sfcwater_mass(1,iland) > wcap_min .and. land%nlev_sfcwater(iland) == 0) then
+        land%nlev_sfcwater(iland) = 1
+        land%sfcwater_energy(1,iland) = energy_per_m2(1) / land%sfcwater_mass(1,iland)
+     elseif (land%sfcwater_mass(1,iland) < wcap_min .and. land%nlev_sfcwater(iland) > 0) then
+        land%nlev_sfcwater(iland) = 0
+        land%sfcwater_mass(1,iland) = 0.
+        land%sfcwater_energy(1,iland) = 0.
+     endif
 
      ! Add mass and energy changes to cell, and adjust hydraulic head due to
      ! water mass change according to constant slope fit for current timestep
