@@ -141,6 +141,11 @@ Module oname_coms
 
      logical :: save_node_logs = .true.
 
+     logical :: disable_phdf5_writes = .false.
+     logical :: disable_phdf5_reads  = .false.
+     logical :: allranks_write_hdf5 = .false.
+     logical :: allranks_read_hdf5  = .false.
+
      integer :: ioutput      = 1
      integer :: ioutput_mavg = 1
      integer :: ioutput_davg = 1

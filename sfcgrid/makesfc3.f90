@@ -1399,7 +1399,7 @@ subroutine sfcgfile_read_pd()
      stop 'stop: no sfcgfile'
   endif
 
-  call shdf5_open(flnm,'R',trypario=.true.)
+  call shdf5_open(flnm,'R')
 
   ndims    = 1
   idims(1) = 1
@@ -1621,7 +1621,7 @@ subroutine sfcgfile_read()
      stop 'stop: no sfcgfile'
   endif
 
-  call shdf5_open(flnm,'R',trypario=.true.)
+  call shdf5_open(flnm,'R')
 
   ! Read ITAB_VSFC ARRAYS
 
@@ -1631,22 +1631,22 @@ subroutine sfcgfile_read()
   type     = 'CV'
 
   allocate (rscr2(2,mvsfc))
-  call shdf5_irec(ndims,idims,'itab_vsfc%cosv',rvar2=rscr2,  points=lgvsfc, stagpt=type)
+  call shdf5_irec(ndims,idims,'itab_vsfc%cosv',rvar2=rscr2,  points=lgvsfc)
   do iv = 1,mvsfc
      itab_vsfc(iv)%cosv(1:2) = rscr2(1:2,iv)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_vsfc%sinv',rvar2=rscr2,  points=lgvsfc, stagpt=type)
+  call shdf5_irec(ndims,idims,'itab_vsfc%sinv',rvar2=rscr2,  points=lgvsfc)
   do iv = 1,mvsfc
      itab_vsfc(iv)%sinv(1:2) = rscr2(1:2,iv)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_vsfc%dxps',rvar2=rscr2,  points=lgvsfc, stagpt=type)
+  call shdf5_irec(ndims,idims,'itab_vsfc%dxps',rvar2=rscr2,  points=lgvsfc)
   do iv = 1,mvsfc
      itab_vsfc(iv)%dxps(1:2) = rscr2(1:2,iv)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_vsfc%dyps',rvar2=rscr2,  points=lgvsfc, stagpt=type)
+  call shdf5_irec(ndims,idims,'itab_vsfc%dyps',rvar2=rscr2,  points=lgvsfc)
   do iv = 1,mvsfc
      itab_vsfc(iv)%dyps(1:2) = rscr2(1:2,iv)
   enddo
@@ -1660,52 +1660,52 @@ subroutine sfcgfile_read()
   type     = 'CW'
 
   allocate (rscr2(7,mwsfc))
-  call shdf5_irec(ndims,idims,'itab_wsfc%dirv',rvar2=rscr2, points=lgwsfc, stagpt=type)
+  call shdf5_irec(ndims,idims,'itab_wsfc%dirv',rvar2=rscr2, points=lgwsfc)
   do iw = 1,mwsfc
      itab_wsfc(iw)%dirv(1:7) = rscr2(1:7,iw)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_wsfc%farm',rvar2=rscr2, points=lgwsfc, stagpt=type)
+  call shdf5_irec(ndims,idims,'itab_wsfc%farm',rvar2=rscr2, points=lgwsfc)
   do iw = 1,mwsfc
      itab_wsfc(iw)%farm(1:7) = rscr2(1:7,iw)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_wsfc%farv',rvar2=rscr2, points=lgwsfc, stagpt=type)
+  call shdf5_irec(ndims,idims,'itab_wsfc%farv',rvar2=rscr2, points=lgwsfc)
   do iw = 1,mwsfc
      itab_wsfc(iw)%farv(1:7) = rscr2(1:7,iw)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_wsfc%gxps1',rvar2=rscr2, points=lgwsfc, stagpt=type)
+  call shdf5_irec(ndims,idims,'itab_wsfc%gxps1',rvar2=rscr2, points=lgwsfc)
   do iw = 1,mwsfc
      itab_wsfc(iw)%gxps1(1:7) = rscr2(1:7,iw)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_wsfc%gyps1',rvar2=rscr2, points=lgwsfc, stagpt=type)
+  call shdf5_irec(ndims,idims,'itab_wsfc%gyps1',rvar2=rscr2, points=lgwsfc)
   do iw = 1,mwsfc
      itab_wsfc(iw)%gyps1(1:7) = rscr2(1:7,iw)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_wsfc%gxps2',rvar2=rscr2, points=lgwsfc, stagpt=type)
+  call shdf5_irec(ndims,idims,'itab_wsfc%gxps2',rvar2=rscr2, points=lgwsfc)
   do iw = 1,mwsfc
      itab_wsfc(iw)%gxps2(1:7) = rscr2(1:7,iw)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_wsfc%gyps2',rvar2=rscr2, points=lgwsfc, stagpt=type)
+  call shdf5_irec(ndims,idims,'itab_wsfc%gyps2',rvar2=rscr2, points=lgwsfc)
   do iw = 1,mwsfc
      itab_wsfc(iw)%gyps2(1:7) = rscr2(1:7,iw)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_wsfc%ecvec_vx',rvar2=rscr2, points=lgwsfc, stagpt=type)
+  call shdf5_irec(ndims,idims,'itab_wsfc%ecvec_vx',rvar2=rscr2, points=lgwsfc)
   do iw = 1,mwsfc
      itab_wsfc(iw)%ecvec_vx(1:7) = rscr2(1:7,iw)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_wsfc%ecvec_vy',rvar2=rscr2, points=lgwsfc, stagpt=type)
+  call shdf5_irec(ndims,idims,'itab_wsfc%ecvec_vy',rvar2=rscr2, points=lgwsfc)
   do iw = 1,mwsfc
      itab_wsfc(iw)%ecvec_vy(1:7) = rscr2(1:7,iw)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_wsfc%ecvec_vz',rvar2=rscr2, points=lgwsfc, stagpt=type)
+  call shdf5_irec(ndims,idims,'itab_wsfc%ecvec_vz',rvar2=rscr2, points=lgwsfc)
   do iw = 1,mwsfc
      itab_wsfc(iw)%ecvec_vz(1:7) = rscr2(1:7,iw)
   enddo
@@ -1738,51 +1738,51 @@ subroutine sfcgfile_read()
   idims(1) = mmsfc
   type     = 'CM'
 
-  call shdf5_irec(ndims, idims, 'xem'       , rvar1=sfcg%xem,   points=lgmsfc, stagpt=type)
-  call shdf5_irec(ndims, idims, 'yem'       , rvar1=sfcg%yem,   points=lgmsfc, stagpt=type)
-  call shdf5_irec(ndims, idims, 'zem'       , rvar1=sfcg%zem,   points=lgmsfc, stagpt=type)
-  call shdf5_irec(ndims, idims, 'glatm'     , rvar1=sfcg%glatm, points=lgmsfc, stagpt=type)
-  call shdf5_irec(ndims, idims, 'glonm'     , rvar1=sfcg%glonm, points=lgmsfc, stagpt=type)
-  call shdf5_irec(ndims, idims, 'arm0'      , rvar1=sfcg%arm0,  points=lgmsfc, stagpt=type)
-! call shdf5_irec(ndims, idims, 'topm'      , rvar1=sfcg%topm,  points=lgmsfc, stagpt=type)
+  call shdf5_irec(ndims, idims, 'xem'       , rvar1=sfcg%xem,   points=lgmsfc)
+  call shdf5_irec(ndims, idims, 'yem'       , rvar1=sfcg%yem,   points=lgmsfc)
+  call shdf5_irec(ndims, idims, 'zem'       , rvar1=sfcg%zem,   points=lgmsfc)
+  call shdf5_irec(ndims, idims, 'glatm'     , rvar1=sfcg%glatm, points=lgmsfc)
+  call shdf5_irec(ndims, idims, 'glonm'     , rvar1=sfcg%glonm, points=lgmsfc)
+  call shdf5_irec(ndims, idims, 'arm0'      , rvar1=sfcg%arm0,  points=lgmsfc)
+! call shdf5_irec(ndims, idims, 'topm'      , rvar1=sfcg%topm,  points=lgmsfc)
 
   idims(1) = mvsfc
   type     = 'CV'
 
-  call shdf5_irec(ndims, idims, 'xev'       , rvar1=sfcg%xev,  points=lgvsfc, stagpt=type)
-  call shdf5_irec(ndims, idims, 'yev'       , rvar1=sfcg%yev,  points=lgvsfc, stagpt=type)
-  call shdf5_irec(ndims, idims, 'zev'       , rvar1=sfcg%zev,  points=lgvsfc, stagpt=type)
-  call shdf5_irec(ndims, idims, 'dnu'       , rvar1=sfcg%dnu,  points=lgvsfc, stagpt=type)
-  call shdf5_irec(ndims, idims, 'dniu'      , rvar1=sfcg%dniu, points=lgvsfc, stagpt=type)
-  call shdf5_irec(ndims, idims, 'dnv'       , rvar1=sfcg%dnv,  points=lgvsfc, stagpt=type)
-  call shdf5_irec(ndims, idims, 'dniv'      , rvar1=sfcg%dniv, points=lgvsfc, stagpt=type)
-  call shdf5_irec(ndims, idims, 'unx'       , rvar1=sfcg%unx,  points=lgvsfc, stagpt=type)
-  call shdf5_irec(ndims, idims, 'uny'       , rvar1=sfcg%uny,  points=lgvsfc, stagpt=type)
-  call shdf5_irec(ndims, idims, 'unz'       , rvar1=sfcg%unz,  points=lgvsfc, stagpt=type)
-  call shdf5_irec(ndims, idims, 'vnx'       , rvar1=sfcg%vnx,  points=lgvsfc, stagpt=type)
-  call shdf5_irec(ndims, idims, 'vny'       , rvar1=sfcg%vny,  points=lgvsfc, stagpt=type)
-  call shdf5_irec(ndims, idims, 'vnz'       , rvar1=sfcg%vnz,  points=lgvsfc, stagpt=type)
+  call shdf5_irec(ndims, idims, 'xev'       , rvar1=sfcg%xev,  points=lgvsfc)
+  call shdf5_irec(ndims, idims, 'yev'       , rvar1=sfcg%yev,  points=lgvsfc)
+  call shdf5_irec(ndims, idims, 'zev'       , rvar1=sfcg%zev,  points=lgvsfc)
+  call shdf5_irec(ndims, idims, 'dnu'       , rvar1=sfcg%dnu,  points=lgvsfc)
+  call shdf5_irec(ndims, idims, 'dniu'      , rvar1=sfcg%dniu, points=lgvsfc)
+  call shdf5_irec(ndims, idims, 'dnv'       , rvar1=sfcg%dnv,  points=lgvsfc)
+  call shdf5_irec(ndims, idims, 'dniv'      , rvar1=sfcg%dniv, points=lgvsfc)
+  call shdf5_irec(ndims, idims, 'unx'       , rvar1=sfcg%unx,  points=lgvsfc)
+  call shdf5_irec(ndims, idims, 'uny'       , rvar1=sfcg%uny,  points=lgvsfc)
+  call shdf5_irec(ndims, idims, 'unz'       , rvar1=sfcg%unz,  points=lgvsfc)
+  call shdf5_irec(ndims, idims, 'vnx'       , rvar1=sfcg%vnx,  points=lgvsfc)
+  call shdf5_irec(ndims, idims, 'vny'       , rvar1=sfcg%vny,  points=lgvsfc)
+  call shdf5_irec(ndims, idims, 'vnz'       , rvar1=sfcg%vnz,  points=lgvsfc)
 
   idims(1) = mwsfc
   type     = 'CW'
 
-  call shdf5_irec(ndims, idims, 'area'      , rvar1=sfcg%area,    points=lgwsfc, stagpt=type)
-  call shdf5_irec(ndims, idims, 'xew'       , rvar1=sfcg%xew,     points=lgwsfc, stagpt=type)
-  call shdf5_irec(ndims, idims, 'yew'       , rvar1=sfcg%yew,     points=lgwsfc, stagpt=type)
-  call shdf5_irec(ndims, idims, 'zew'       , rvar1=sfcg%zew,     points=lgwsfc, stagpt=type)
-  call shdf5_irec(ndims, idims, 'glatw'     , rvar1=sfcg%glatw,   points=lgwsfc, stagpt=type)
-  call shdf5_irec(ndims, idims, 'glonw'     , rvar1=sfcg%glonw,   points=lgwsfc, stagpt=type)
-  call shdf5_irec(ndims, idims, 'topw'      , rvar1=sfcg%topw,    points=lgwsfc, stagpt=type)
-  call shdf5_irec(ndims, idims, 'bathym'    , rvar1=sfcg%bathym,  points=lgwsfc, stagpt=type)
-  call shdf5_irec(ndims, idims, 'wnx'       , rvar1=sfcg%wnx,     points=lgwsfc, stagpt=type)
-  call shdf5_irec(ndims, idims, 'wny'       , rvar1=sfcg%wny,     points=lgwsfc, stagpt=type)
-  call shdf5_irec(ndims, idims, 'wnz'       , rvar1=sfcg%wnz,     points=lgwsfc, stagpt=type)
+  call shdf5_irec(ndims, idims, 'area'      , rvar1=sfcg%area,    points=lgwsfc)
+  call shdf5_irec(ndims, idims, 'xew'       , rvar1=sfcg%xew,     points=lgwsfc)
+  call shdf5_irec(ndims, idims, 'yew'       , rvar1=sfcg%yew,     points=lgwsfc)
+  call shdf5_irec(ndims, idims, 'zew'       , rvar1=sfcg%zew,     points=lgwsfc)
+  call shdf5_irec(ndims, idims, 'glatw'     , rvar1=sfcg%glatw,   points=lgwsfc)
+  call shdf5_irec(ndims, idims, 'glonw'     , rvar1=sfcg%glonw,   points=lgwsfc)
+  call shdf5_irec(ndims, idims, 'topw'      , rvar1=sfcg%topw,    points=lgwsfc)
+  call shdf5_irec(ndims, idims, 'bathym'    , rvar1=sfcg%bathym,  points=lgwsfc)
+  call shdf5_irec(ndims, idims, 'wnx'       , rvar1=sfcg%wnx,     points=lgwsfc)
+  call shdf5_irec(ndims, idims, 'wny'       , rvar1=sfcg%wny,     points=lgwsfc)
+  call shdf5_irec(ndims, idims, 'wnz'       , rvar1=sfcg%wnz,     points=lgwsfc)
 
   ! Read permanent grid cell data
 
-! call shdf5_irec(ndims, idims, 'leaf_class', ivar1=sfcg%leaf_class, points=lgwsfc, stagpt=type)
-  call shdf5_irec(ndims, idims, 'oge'       , ivar1=sfcg%ioge,       points=lgwsfc, stagpt=type)
-  call shdf5_irec(ndims, idims, 'swm_active', lvar1=sfcg%swm_active, points=lgwsfc, stagpt=type)
+! call shdf5_irec(ndims, idims, 'leaf_class', ivar1=sfcg%leaf_class, points=lgwsfc)
+  call shdf5_irec(ndims, idims, 'oge'       , ivar1=sfcg%ioge,       points=lgwsfc)
+  call shdf5_irec(ndims, idims, 'swm_active', lvar1=sfcg%swm_active, points=lgwsfc)
 
   allocate (land%usdatext            (mland)) ; land%usdatext         = 0
   allocate (land%z_bedrock           (mland)) ; land%z_bedrock        = 0.
@@ -1801,32 +1801,32 @@ subroutine sfcgfile_read()
   idims(1) = mland
   type     = 'LW'
 
-  call shdf5_irec(ndims, idims, 'usdatext'        , ivar1=land%usdatext,        points=lgland, stagpt=type)
-  call shdf5_irec(ndims, idims, 'z_bedrock'       , rvar1=land%z_bedrock,       points=lgland, stagpt=type)
-  call shdf5_irec(ndims, idims, 'gpp'             , rvar1=land%gpp,             points=lgland, stagpt=type)
-  call shdf5_irec(ndims, idims, 'glhymps_ksat'    , rvar1=land%glhymps_ksat,    points=lgland, stagpt=type)
-! call shdf5_irec(ndims, idims, 'glhymps_ksat_pfr', rvar1=land%glhymps_ksat_pfr,points=lgland, stagpt=type)
-  call shdf5_irec(ndims, idims, 'glhymps_poros'   , rvar1=land%glhymps_poros,   points=lgland, stagpt=type)
+  call shdf5_irec(ndims, idims, 'usdatext'        , ivar1=land%usdatext,        points=lgland)
+  call shdf5_irec(ndims, idims, 'z_bedrock'       , rvar1=land%z_bedrock,       points=lgland)
+  call shdf5_irec(ndims, idims, 'gpp'             , rvar1=land%gpp,             points=lgland)
+  call shdf5_irec(ndims, idims, 'glhymps_ksat'    , rvar1=land%glhymps_ksat,    points=lgland)
+! call shdf5_irec(ndims, idims, 'glhymps_ksat_pfr', rvar1=land%glhymps_ksat_pfr,points=lgland)
+  call shdf5_irec(ndims, idims, 'glhymps_poros'   , rvar1=land%glhymps_poros,   points=lgland)
 
   ndims    = 2
   idims(1) = nzg
   idims(2) = mland
   type     = 'LW'
 
-  call shdf5_irec(ndims, idims, 'sand'            , rvar2=land%sand,             points=lgland, stagpt=type)
-  call shdf5_irec(ndims, idims, 'clay'            , rvar2=land%clay,             points=lgland, stagpt=type)
-  call shdf5_irec(ndims, idims, 'silt'            , rvar2=land%silt,             points=lgland, stagpt=type)
-  call shdf5_irec(ndims, idims, 'organ'           , rvar2=land%organ,            points=lgland, stagpt=type)
-  call shdf5_irec(ndims, idims, 'bulkdens_drysoil', rvar2=land%bulkdens_drysoil, points=lgland, stagpt=type)
-  call shdf5_irec(ndims, idims, 'pH_soil'         , rvar2=land%pH_soil,          points=lgland, stagpt=type)
-  call shdf5_irec(ndims, idims, 'cec_soil'        , rvar2=land%cec_soil,         points=lgland, stagpt=type)
+  call shdf5_irec(ndims, idims, 'sand'            , rvar2=land%sand,             points=lgland)
+  call shdf5_irec(ndims, idims, 'clay'            , rvar2=land%clay,             points=lgland)
+  call shdf5_irec(ndims, idims, 'silt'            , rvar2=land%silt,             points=lgland)
+  call shdf5_irec(ndims, idims, 'organ'           , rvar2=land%organ,            points=lgland)
+  call shdf5_irec(ndims, idims, 'bulkdens_drysoil', rvar2=land%bulkdens_drysoil, points=lgland)
+  call shdf5_irec(ndims, idims, 'pH_soil'         , rvar2=land%pH_soil,          points=lgland)
+  call shdf5_irec(ndims, idims, 'cec_soil'        , rvar2=land%cec_soil,         points=lgland)
 
   ndims    = 1
   idims(1) = msea
   type     = 'SW'
 
-  call shdf5_irec(ndims, idims, 'pom_active', lvar1=sea%pom_active, points=lgsea, stagpt=type)
-  call shdf5_irec(ndims, idims, 'pom%kba'   , ivar1=pom%kba,        points=lgsea, stagpt=type)
+  call shdf5_irec(ndims, idims, 'pom_active', lvar1=sea%pom_active, points=lgsea)
+  call shdf5_irec(ndims, idims, 'pom%kba'   , ivar1=pom%kba,        points=lgsea)
 
   call shdf5_close()
 
@@ -1861,7 +1861,7 @@ subroutine sfcgfile_read_makeregrid()
      stop 'stop: no sfcgfile'
   endif
 
-  call shdf5_open(flnm,'R',trypario=.true.)
+  call shdf5_open(flnm,'R')
 
   ndims    = 1
   idims(1) = 1

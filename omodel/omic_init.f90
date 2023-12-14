@@ -51,21 +51,19 @@ end subroutine jnmbinit
 
 subroutine micinit_tabs()
 
+  use max_dims,   only: pathlen
   use misc_coms,  only: io6, dtlm
   use mem_grid,   only: mza, zt
-  use mem_para,   only: myrank
   use micro_coms, only: mza0, miclevel, nembc, npairx, npairy, npairc, &
                         coltabx, coltaby, coltabc, driz_gammq, init_nuc_zfactors
   use nuclei_coms,only: dust_src_init
-  use hdf5_utils, only: shdf5_irec, shdf5_orec, shdf5_open, shdf5_close
+  use hdf5_utils, only: shdf5_exists, shdf5_irec, shdf5_orec, shdf5_open, shdf5_close
 
   implicit none
 
-  integer :: ndims, idims(3)
-  integer :: ipar_tmp
-  logical :: exans
-
-  character(len=80) :: coltabfile
+  integer       :: ndims, idims(3)
+  logical       :: exans
+  character(20) :: coltabfile
 
   mza0 = mza
 
@@ -87,21 +85,21 @@ subroutine micinit_tabs()
 
   call homfrzcl(dtlm)
 
-! Check if collection table file exists
+  ! Check if collection table file exists
 
-  coltabfile = './COLTABFILE9C'
+  coltabfile = 'COLTABFILE9C'
 
-  inquire(file=coltabfile, exist=exans)
+  call shdf5_exists(coltabfile, exans)
 
   if (exans) then
 
-! Collection table file exists.  Open, read, and close file.
+     ! Collection table file exists.  Open, read, and close file.
 
      write(io6,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++'
      write(io6,*) 'Opening collection table file ', trim(coltabfile)
      write(io6,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++'
 
-     call shdf5_open(coltabfile, 'R', trypario=.true.)
+     call shdf5_open(coltabfile, 'R')
 
      ndims = 3
      idims(1) = nembc
@@ -125,54 +123,46 @@ subroutine micinit_tabs()
 
      call shdf5_irec(ndims, idims, 'DRIZ_GAMMQ', rvar1=driz_gammq)
 
-! Close the collection table file
+     ! Close the collection table file
 
      call shdf5_close()
 
   else
 
-! Collection table file does not exist.
-
-! Make collection table
+     ! Collection table file does not exist, so create it
 
      call mkcoltb_brute()
 
-! Open, write, and close collection table file.
+     ! Open, write, and close collection table file.
 
-     if (myrank == 0) then
+     call shdf5_open(coltabfile, 'W', 1)
 
-        ! The collection table is only writen from one node.
-        ! Disable parallel I/O for these writes
+     ndims = 3
+     idims(1) = nembc
+     idims(2) = nembc
+     idims(3) = npairc
 
-        call shdf5_open(coltabfile, 'W', 1, trypario=.false.)
+     call shdf5_orec(ndims, idims, 'COLTABC', rvar3=coltabc)
 
-        ndims = 3
-        idims(1) = nembc
-        idims(2) = nembc
-        idims(3) = npairc
+     idims(3) = npairx
 
-        call shdf5_orec(ndims, idims, 'COLTABC', rvar3=coltabc)
+     call shdf5_orec(ndims, idims, 'COLTABX', rvar3=coltabx)
 
-        idims(3) = npairx
+     idims(3) = npairy
 
-        call shdf5_orec(ndims, idims, 'COLTABX', rvar3=coltabx)
+     call shdf5_orec(ndims, idims, 'COLTABY', rvar3=coltaby)
 
-        idims(3) = npairy
+     ndims = 1
+     idims(1) = nembc
+     idims(2) = 1
+     idims(3) = 1
 
-        call shdf5_orec(ndims, idims, 'COLTABY', rvar3=coltaby)
+     call shdf5_orec(ndims, idims, 'DRIZ_GAMMQ', rvar1=driz_gammq)
 
-        ndims = 1
-        idims(1) = nembc
-        idims(2) = 1
-        idims(3) = 1
+     ! Close the collection table file
 
-        call shdf5_orec(ndims, idims, 'DRIZ_GAMMQ', rvar1=driz_gammq)
+     call shdf5_close()
 
-        ! Close the collection table file
-
-        call shdf5_close()
-
-     endif
   endif
 
 end subroutine micinit_tabs

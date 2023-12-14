@@ -21,7 +21,7 @@ subroutine history_start(action)
      write(io6,*) 'Opening history file '//trim(hfilin)//' for '//trim(action)
      write(io6,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++'
 
-     call shdf5_open(hfilin,'R',trypario=.true.)
+     call shdf5_open(hfilin, 'R')
 
      if (action == 'COMMIO') then
 
@@ -261,18 +261,18 @@ subroutine hist_read()
            deallocate(iscr1)
         else
            call shdf5_irec(ndims, idims, varn, ivar1=vtab_r(nv)%ivar1_p, &
-                           points=ilocal(1:ns), stagpt=stagpt)
+                           points=ilocal(1:ns))
         endif
 
      elseif (associated(vtab_r(nv)%ivar2_p)) then
 
         call shdf5_irec(ndims, idims, varn, ivar2=vtab_r(nv)%ivar2_p, &
-                        points=ilocal(1:ns), stagpt=stagpt)
+                        points=ilocal(1:ns))
 
      elseif (associated(vtab_r(nv)%ivar3_p)) then
 
         call shdf5_irec(ndims, idims, varn, ivar3=vtab_r(nv)%ivar3_p, &
-                        points=ilocal(1:ns), stagpt=stagpt)
+                        points=ilocal(1:ns))
 
 
      elseif (associated(vtab_r(nv)%rvar1_p)) then
@@ -285,7 +285,7 @@ subroutine hist_read()
            deallocate(rscr1)
         else
            call shdf5_irec(ndims, idims, varn, rvar1=vtab_r(nv)%rvar1_p, &
-                           points=ilocal(1:ns), stagpt=stagpt)
+                           points=ilocal(1:ns))
         endif
 
      elseif (associated(vtab_r(nv)%rvar2_p)) then
@@ -298,13 +298,13 @@ subroutine hist_read()
            deallocate(rscr2)
         else
            call shdf5_irec(ndims, idims, varn, rvar2=vtab_r(nv)%rvar2_p, &
-                           points=ilocal(1:ns), stagpt=stagpt)
+                           points=ilocal(1:ns))
         endif
 
      elseif (associated(vtab_r(nv)%rvar3_p)) then
 
         call shdf5_irec(ndims, idims, varn, rvar3=vtab_r(nv)%rvar3_p, &
-                        points=ilocal(1:ns), stagpt=stagpt)
+                        points=ilocal(1:ns))
 
      elseif (associated(vtab_r(nv)%dvar1_p)) then
 
@@ -316,7 +316,7 @@ subroutine hist_read()
            deallocate(dscr1)
         else
            call shdf5_irec(ndims, idims, varn, dvar1=vtab_r(nv)%dvar1_p, &
-                           points=ilocal(1:ns), stagpt=stagpt)
+                           points=ilocal(1:ns))
         endif
 
      elseif (associated(vtab_r(nv)%dvar2_p)) then
@@ -329,13 +329,13 @@ subroutine hist_read()
            deallocate(dscr2)
         else
            call shdf5_irec(ndims, idims, varn, dvar2=vtab_r(nv)%dvar2_p, &
-                           points=ilocal(1:ns), stagpt=stagpt)
+                           points=ilocal(1:ns))
         endif
 
      elseif (associated(vtab_r(nv)%dvar3_p)) then
 
         call shdf5_irec(ndims, idims, varn, dvar3=vtab_r(nv)%dvar3_p, &
-                        points=ilocal(1:ns), stagpt=stagpt)
+                        points=ilocal(1:ns))
      endif
 
      nvcnt = nvcnt + 1

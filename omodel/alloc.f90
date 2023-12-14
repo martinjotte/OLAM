@@ -53,6 +53,8 @@ subroutine olam_mem_alloc()
   call alloc_turb(mza,mwa,mva,nsw_max,idiffk,mrls)
   call filltab_turb()
 
+  call alloc_average_vars(mwa,mwsfc,mland)
+
   call alloc_flux_accum(mza,mva,mwa,mwsfc,mland)
   call filltab_flux_accum()
 
@@ -68,10 +70,6 @@ subroutine olam_mem_alloc()
         call filltab_soil_nox()
      endif
   endif
-
-! Allocate field average arrays
-
-  call alloc_average_vars(mwa,mwsfc,mland)
 
   if (initial == 2 .and. nudflag > 0) then
 

@@ -29,7 +29,7 @@ contains
 
   subroutine cmaq_cld_optics_init()
 
-    use hdf5_utils, only: shdf5_open, shdf5_close
+    use hdf5_utils, only: shdf5_exists, shdf5_open, shdf5_irec, shdf5_close
     use oname_coms, only: nl
     use max_dims,   only: pathlen
 
@@ -43,13 +43,14 @@ contains
 
     inputfile = trim(nl%rrtmg_datadir) // "/" // trim(omic_cmaq_file)
 
-    inquire(file=inputfile, exist=exists)
+    call shdf5_exists(inputfile, exists)
+
     if (.not. exists) then
        write(*,*) "rrtmg_cmaq_cloud_init: Error opening data file " // trim(inputfile)
        stop       "RRTMg shortwave datafile cannot be found"
     endif
 
-    call shdf5_open(inputfile, 'R', trypario=.true.)
+    call shdf5_open(inputfile, 'R')
 
     do i = 1, ncats
 
@@ -65,8 +66,8 @@ contains
   contains
 
     subroutine read_cmaq_file(num, start, end, delr, extsw, ssasw, asysw, name)
+
       use csqy_data,  only: nwl
-      use hdf5_utils, only: shdf5_irec
       implicit none
 
       integer,           intent(out)   :: num

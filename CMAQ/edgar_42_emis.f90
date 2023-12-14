@@ -1105,7 +1105,6 @@ contains
     use misc_coms,  only: current_time, io6, iparallel
     use mem_ijtabs, only: jtab_w, jtw_prog
     use mem_grid,   only: mwa
-    use mem_para,   only: myrank
     use oname_coms, only: nl
     use hdf5_utils
 
@@ -1289,20 +1288,20 @@ contains
 
        write(io6,'(A)') "reading: ", trim(filename)
 
-       inquire(file=filename, exist=exists)
+       call shdf5_exists(filename, exists)
 
        if (.not. exists) then
 
-          write(io6,'(A)') "Cannot find emissions file ", trim(filename)
+          write(io6,'(A)') "Cannot read emissions file ", trim(filename)
 
        else
 
-          call shdf5_open(filename, 'R', trypario=.true.)
+          call shdf5_open(filename, 'R')
 
           call shdf5_info('emi_ch4', ndims, idims)
 
           if ( ndims /= 2 .and. idims(1) /= nx_e42 .and. idims(2) /= ny_e42 ) then
-             write(*,*) "Cannot find emissions field ", trim(SECNAME(n)), " CH4"
+             write(*,*) "Cannot read emissions field ", trim(SECNAME(n)), " CH4"
           else
              call shdf5_irec(ndims, idims, 'emi_ch4', rvar2=rawdata)
           endif
@@ -1338,20 +1337,20 @@ contains
 
        write(io6,'(A)') "reading: ", trim(filename)
 
-       inquire(file=filename, exist=exists)
+       call shdf5_exists(filename, exists)
 
        if (.not. exists) then
 
-          write(io6,'(A)') "Cannot find emissions file ", trim(filename)
+          write(io6,'(A)') "Cannot read emissions file ", trim(filename)
 
        else
 
-          call shdf5_open(filename, 'R', trypario=.true.)
+          call shdf5_open(filename, 'R')
 
           call shdf5_info('emi_co', ndims, idims)
 
           if ( ndims /= 2 .and. idims(1) /= nx_e42 .and. idims(2) /= ny_e42 ) then
-             write(*,*) "Cannot find emissions field ", trim(SECNAME(n)), " CO"
+             write(*,*) "Cannot read emissions field ", trim(SECNAME(n)), " CO"
           else
              call shdf5_irec(ndims, idims, 'emi_co', rvar2=rawdata)
           endif
@@ -1388,20 +1387,20 @@ contains
 
        write(io6,'(A)') "reading: ", trim(filename)
 
-       inquire(file=filename, exist=exists)
+       call shdf5_exists(filename, exists)
 
        if (.not. exists) then
 
-          write(io6,'(A)') "Cannot find emissions file ", trim(filename)
+          write(io6,'(A)') "Cannot read emissions file ", trim(filename)
 
        else
 
-          call shdf5_open(filename, 'R', trypario=.true.)
+          call shdf5_open(filename, 'R')
 
           call shdf5_info('emi_nh3', ndims, idims)
 
           if ( ndims /= 2 .and. idims(1) /= nx_e42 .and. idims(2) /= ny_e42 ) then
-             write(*,*) "Cannot find emissions field ", trim(SECNAME(n)), " NH3"
+             write(*,*) "Cannot read emissions field ", trim(SECNAME(n)), " NH3"
           else
              call shdf5_irec(ndims, idims, 'emi_nh3', rvar2=rawdata)
           endif
@@ -1437,20 +1436,20 @@ contains
 
        write(io6,'(A)') "reading: ", trim(filename)
 
-       inquire(file=filename, exist=exists)
+       call shdf5_exists(filename, exists)
 
        if (.not. exists) then
 
-          write(io6,'(A)') "Cannot find emissions file ", trim(filename)
+          write(io6,'(A)') "Cannot read emissions file ", trim(filename)
 
        else
 
-          call shdf5_open(filename, 'R', trypario=.true.)
+          call shdf5_open(filename, 'R')
 
           call shdf5_info('emi_nmvoc', ndims, idims)
 
           if ( ndims /= 2 .and. idims(1) /= nx_e42 .and. idims(2) /= ny_e42 ) then
-             write(*,*) "Cannot find emissions field ", trim(SECNAME(n)), " NMVOC"
+             write(*,*) "Cannot read emissions field ", trim(SECNAME(n)), " NMVOC"
           else
              call shdf5_irec(ndims, idims, 'emi_nmvoc', rvar2=rawdata)
           endif
@@ -1486,20 +1485,20 @@ contains
 
        write(io6,'(A)') "reading: ", trim(filename)
 
-       inquire(file=filename, exist=exists)
+       call shdf5_exists(filename, exists)
 
        if (.not. exists) then
 
-          write(*,'(A)') "Cannot find emissions file ", trim(filename)
+          write(*,'(A)') "Cannot read emissions file ", trim(filename)
 
        else
 
-          call shdf5_open(filename, 'R', trypario=.true.)
+          call shdf5_open(filename, 'R')
 
           call shdf5_info('emi_nox', ndims, idims)
 
           if ( ndims /= 2 .and. idims(1) /= nx_e42 .and. idims(2) /= ny_e42 ) then
-             write(*,*) "Cannot find emissions field ", trim(SECNAME(n)), " NOX"
+             write(*,*) "Cannot read emissions field ", trim(SECNAME(n)), " NOX"
           else
              call shdf5_irec(ndims, idims, 'emi_nox', rvar2=rawdata)
           endif
@@ -1535,20 +1534,20 @@ contains
 
        write(io6,'(A)') "reading: ", trim(filename)
 
-       inquire(file=filename, exist=exists)
+       call shdf5_exists(filename, exists)
 
        if (.not. exists) then
 
-          write(io6,'(A)') "Cannot find emissions file ", trim(filename)
+          write(io6,'(A)') "Cannot read emissions file ", trim(filename)
 
        else
 
-          call shdf5_open(filename, 'R', trypario=.true.)
+          call shdf5_open(filename, 'R')
 
           call shdf5_info('emi_pm2.5', ndims, idims)
 
           if ( ndims /= 2 .and. idims(1) /= nx_e42 .and. idims(2) /= ny_e42 ) then
-             write(*,*) "Cannot find emissions field ", trim(SECNAME(n)), " PM2.5"
+             write(*,*) "Cannot read emissions field ", trim(SECNAME(n)), " PM2.5"
           else
              call shdf5_irec(ndims, idims, 'emi_pm2.5', rvar2=rawdata)
           endif
@@ -1581,20 +1580,20 @@ contains
 
        write(io6,'(A)') "reading: ", trim(filename)
 
-       inquire(file=filename, exist=exists)
+       call shdf5_exists(filename, exists)
 
        if (.not. exists) then
 
-          write(io6,'(A)') "Cannot find emissions file ", trim(filename)
+          write(io6,'(A)') "Cannot read emissions file ", trim(filename)
 
        else
 
-          call shdf5_open(filename, 'R', trypario=.true.)
+          call shdf5_open(filename, 'R')
 
           call shdf5_info('emi_pm10', ndims, idims)
 
           if ( ndims /= 2 .and. idims(1) /= nx_e42 .and. idims(2) /= ny_e42 ) then
-             write(*,*) "Cannot find emissions field ", trim(SECNAME(n)), " PM10"
+             write(*,*) "Cannot read emissions field ", trim(SECNAME(n)), " PM10"
           else
              call shdf5_irec(ndims, idims, 'emi_pm10', rvar2=rawdata)
           endif
@@ -1627,20 +1626,20 @@ contains
 
        write(io6,'(A)') "reading: ", trim(filename)
 
-       inquire(file=filename, exist=exists)
+       call shdf5_exists(filename, exists)
 
        if (.not. exists) then
 
-          write(io6,'(A)') "Cannot find emissions file ", trim(filename)
+          write(io6,'(A)') "Cannot read emissions file ", trim(filename)
 
        else
 
-          call shdf5_open(filename, 'R', trypario=.true.)
+          call shdf5_open(filename, 'R')
 
           call shdf5_info('emi_so2', ndims, idims)
 
           if ( ndims /= 2 .and. idims(1) /= nx_e42 .and. idims(2) /= ny_e42 ) then
-             write(*,*) "Cannot find emissions field ", trim(SECNAME(n)), " SO2"
+             write(*,*) "Cannot read emissions field ", trim(SECNAME(n)), " SO2"
           else
              call shdf5_irec(ndims, idims, 'emi_so2', rvar2=rawdata)
           endif

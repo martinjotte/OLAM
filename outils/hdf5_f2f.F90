@@ -5,45 +5,23 @@ module hdf5_f2f
                   H5Dsget_scale_name_f, H5DSattach_scale_f, &
                   H5DSget_num_scales_f
 
-#if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
-  use mpi, only: MPI_COMM_WORLD, MPI_INFO_NULL
-#endif
+  use, intrinsic :: iso_fortran_env, only: r8=>real64, i1=>int8, i2=>int16
+  use                     misc_coms, only: io6, iparallel
 
   implicit none
 
-  integer, parameter :: r8 = selected_real_kind(13,300)
-  integer, parameter :: i1 = selected_int_kind(2)
-  integer, parameter :: i2 = selected_int_kind(4)
   logical, parameter :: bigendian = ichar(transfer(1,'a')) == 0
 
   integer(HID_T)   :: fileid
   integer(HID_T)   :: xferid
   integer(HID_T)   :: dsetid = -1
+  integer(HID_T)   :: mspcid
+  integer(HID_T)   :: dspcid
 
   integer(HSIZE_T) :: dimsf(7)
   integer          :: ndimsf
-  integer          :: id = 0
 
-  integer, parameter :: maxids   = 40
-  integer            :: ncache_w = 0
-  integer            :: ncache_r = 0
-
-  integer(HID_T)     :: mspcidw(0:maxids)
-  integer(HID_T)     :: dspcidw(0:maxids)
-
-  character(2)       :: stagpt_cache_w(  maxids) = "  "
-  integer            ::  ndims_cache_w(  maxids) = 0
-  integer            ::   dims_cache_w(7,maxids) = 0
-  integer            :: nglobe_cache_w(  maxids) = 0
-
-  integer(HID_T)     :: mspcidr(0:maxids)
-  integer(HID_T)     :: dspcidr(0:maxids)
-
-  character(2)       :: stagpt_cache_r(  maxids) = "  "
-  integer            ::  ndims_cache_r(  maxids) = 0
-  integer            ::   dims_cache_r(7,maxids) = 0
-
-  logical :: dopario  = .false.
+  logical :: dopario = .false.
 
   interface fh5_write
      module procedure                 &
@@ -103,12 +81,12 @@ module hdf5_f2f
 
   private
   public :: fh5f_open, fh5f_close, fh5f_create, fh5_prepare_write, fh5_write, &
-            fh5_close_write, fh5_close_write1, fh5_close_write2, fh5_get_info, &
-            fh5_prepare_read, fh5_read, fh5_close_read, fh5_prepare_write_ll, &
+            fh5_close_write, fh5_open_dataset, fh5_close_dataset, fh5_get_info, &
+            fh5_prepare_read, fh5_read, fh5_prepare_write_ll, &
             fh5f_write_attribute, fh5f_create_dim, fh5f_attach_dims, &
-            fh5f_write_global_attribute, fh5_close_caches, fh5_close_info, &
+            fh5f_read_global_attribute, fh5f_write_global_attribute, &
             fh5f_read_attribute, fh5f_query_dimname, fh5_get_attached_scales, &
-            fh5_get_chunk_dims, HID_T, &
+            fh5_get_chunk_dims, fh5f_exists, fh5_close_read, HID_T, &
             H5T_IEEE_F32LE, H5T_IEEE_F64LE, &           ! 4 and 8 byte reals
             H5T_STD_I8LE, H5T_STD_I16LE, H5T_STD_I32LE  ! 1, 2, and 4 byte ints
 
@@ -116,9 +94,51 @@ contains
 
 !===============================================================================
 
+  subroutine fh5f_exists(locfn, exists, pario)
+
+#if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
+    use mpi, only: MPI_COMM_WORLD, MPI_INFO_NULL
+#endif
+
+    implicit none
+
+    character(*),      intent(IN)  :: locfn
+    logical,           intent(OUT) :: exists
+    logical, optional, intent(IN)  :: pario
+
+    integer(HID_T)                 :: access_prp
+    integer                        :: hdferr
+
+    dopario = .false.
+
+#if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
+    if (iparallel == 1 .and. present(pario)) dopario = pario
+#endif
+
+    call h5pcreate_f(H5P_FILE_ACCESS_F, access_prp, hdferr)
+
+#if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
+    if (dopario) then
+       call h5pset_fapl_mpio_f(access_prp, MPI_COMM_WORLD, MPI_INFO_NULL, hdferr)
+       call h5pset_all_coll_metadata_ops_f(access_prp, .true., hdferr)
+    endif
+#endif
+
+    call h5fis_accessible_f(locfn, exists, hdferr, access_prp)
+
+    call h5pclose_f(access_prp, hdferr)
+
+  end subroutine fh5f_exists
+
+!===============================================================================
+
   subroutine fh5f_open(locfn, iaccess, hdferr, pario)
 
-    use misc_coms, only: io6, iparallel
+    use oname_coms, only: nl
+
+#if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
+    use mpi, only: MPI_COMM_WORLD, MPI_INFO_NULL
+#endif
 
     implicit none
 
@@ -127,15 +147,15 @@ contains
     integer,           intent(OUT) :: hdferr
     logical, optional, intent(IN)  :: pario
 
-    integer(HID_T) :: access_id
-    integer        :: flags
-    logical        :: ish5
-
-#if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
-    integer         :: mdc
-    integer(SIZE_t) :: nelmts, nbytes
-    real            :: w0
-#endif
+    integer(HID_T)                 :: access_prp
+    integer                        :: flags
+    integer(HSIZE_T)               :: aligns1, aligns2
+    integer(HSIZE_T),    parameter :: msize = 1024 * 256
+    integer(HSIZE_T),    parameter :: alignsmax = 1024 * 1024 * 128
+    integer(SIZE_t)                :: nelmts, nbytes
+    real                           :: w0
+    integer                        :: mdc
+    logical                        :: ish5
 
     dopario = .false.
 
@@ -143,22 +163,26 @@ contains
     if (iparallel == 1 .and. present(pario)) dopario = pario
 #endif
 
-    ! turn off default error handling
+    ! Turn off default error handling?
     ! call h5eset_auto_f(0, hdferr)
 
-    access_id = H5P_DEFAULT_F
     if(iaccess == 1) flags = H5F_ACC_RDONLY_F
     if(iaccess == 2) flags = H5F_ACC_RDWR_F
 
-    call h5fis_hdf5_f(locfn, ish5, hdferr)
-    if (.not. ish5 .or. hdferr < 0) then
-       write(io6,*) "File " // trim(locfn) // " does not appear to be a hdf5/nc4 file."
-       write(io6,*) "If this file is an older NetCDF3 format file convert it to NetCDF4 using:"
-       write(io6,*) "nccopy -k nc4 INFILE OUTFILE"
-       write(io6,*)
-       hdferr = -1
-       return
-    endif
+    call h5pcreate_f(H5P_FILE_ACCESS_F, access_prp, hdferr)
+
+    call h5pget_cache_f(access_prp, mdc, nelmts, nbytes, w0, hdferr)
+    nbytes = max(nbytes, int(1024 * 1024 * 32, SIZE_t) )
+    call h5pset_cache_f(access_prp, mdc, nelmts, nbytes, w0, hdferr)
+
+    nbytes = 1024 * 1024
+    call h5pset_sieve_buf_size_f(access_prp, nbytes, hdferr)
+
+    call fh5_set_lib_bounds(access_prp, hdferr)
+
+    ! Increase some buffer sizes
+    call H5Pset_meta_block_size_f(access_prp, msize, hdferr)
+    call H5Pset_small_data_block_size_f(access_prp, msize, hdferr)
 
 #if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
     if (dopario) then
@@ -167,37 +191,54 @@ contains
        write(io6,*) "   Enabling parallel HDF5 input for file ", trim(locfn)
        write(io6,*)
 
-       call h5pcreate_f(H5P_FILE_ACCESS_F, access_id, hdferr)
-       call h5pset_fapl_mpio_f(access_id, MPI_COMM_WORLD, MPI_INFO_NULL, hdferr)
-       call h5pset_all_coll_metadata_ops_f(access_id, .true., hdferr)
-
-       call h5pget_cache_f(access_id, mdc, nelmts, nbytes, w0, hdferr)
-       nbytes = max(nbytes, int(1024 * 1024 * 32, SIZE_t) )
-       call h5pset_cache_f(access_id, mdc, nelmts, nbytes, w0, hdferr)
-
-       nbytes = 1024 * 1024
-       call h5pset_sieve_buf_size_f(access_id, nbytes, hdferr)
+       call h5pset_fapl_mpio_f(access_prp, MPI_COMM_WORLD, MPI_INFO_NULL, hdferr)
+       call h5pset_all_coll_metadata_ops_f(access_prp, .true., hdferr)
     endif
 #endif
 
-    call h5fopen_f(locfn, flags, fileid, hdferr, access_id)
+    ! Align writes to file-system block size
 
-    xferid = H5P_DEFAULT_F
+    if (nl%iblocksize > 0) then
+       aligns1 = nl%iblocksize
+       aligns1 = min(aligns1,alignsmax)
+
+       if (aligns1 <= 1024) then
+          aligns2 = aligns1
+       else
+          aligns2 = aligns1 / 2
+       endif
+       call H5Pset_alignment_f( access_prp, aligns1, aligns2, hdferr )
+    endif
+
+    call h5fis_accessible_f(locfn, ish5, hdferr, access_prp)
+
+    if (.not. ish5 .or. hdferr < 0) then
+       write(io6,*) "File " // trim(locfn) // " does not exist or is not a hdf5/nc4 file."
+       write(io6,*) "If this file is an older NetCDF3 format file convert it to NetCDF4 using:"
+       write(io6,*) "nccopy -k nc4 INFILE OUTFILE"
+       write(io6,*)
+       hdferr = -1
+       call h5pclose_f(access_prp, hdferr)
+       return
+    endif
+
+    call h5fopen_f(locfn, flags, fileid, hdferr, access_prp)
+
+    call h5pclose_f(access_prp, hdferr)
+
+    call h5pcreate_f(h5p_dataset_xfer_f, xferid, hdferr)
 
 #if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
     if (dopario) then
-       call h5pclose_f(access_id, hdferr)
-
-       call h5pcreate_f(h5p_dataset_xfer_f, xferid, hdferr)
        call h5pset_dxpl_mpio_f(xferid, h5fd_mpio_collective_f, hdferr)
-
-       nbytes = 1024 * 1024 * 64
-       call h5pset_buffer_f(xferid, nbytes, hdferr)
-
-       nelmts = 5120
-       call h5pset_hyper_vector_size_f(xferid, nelmts, hdferr)
     endif
 #endif
+
+    nbytes = 1024 * 1024 * 64
+    call h5pset_buffer_f(xferid, nbytes, hdferr)
+
+    nelmts = 5120
+    call h5pset_hyper_vector_size_f(xferid, nelmts, hdferr)
 
   end subroutine fh5f_open
 
@@ -218,10 +259,12 @@ contains
 
   subroutine fh5f_create(locfn, iaccess, hdferr, pario)
 
-#if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
-    use misc_coms,  only: io6, iparallel
     use oname_coms, only: nl
+
+#if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
+    use mpi, only: MPI_COMM_WORLD, MPI_INFO_NULL
 #endif
+
 
     implicit none
 
@@ -230,18 +273,14 @@ contains
     integer,           intent(OUT) :: hdferr
     logical, optional, intent(IN)  :: pario
 
-    integer(HID_T) :: access_id
-    integer(HID_T) :: create_id
-    integer        :: flags
-
-#if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
-    integer(hsize_t), parameter :: msize = 1024 * 256
-    integer(hsize_t), parameter :: alignsmax = 1024 * 1024 * 128
-    integer(hsize_t)            :: aligns1, aligns2
-    integer                     :: mdc
-    integer(SIZE_t)             :: nelmts, nbytes
-    real                        :: w0
-#endif
+    integer(HID_T)                 :: access_prp
+    integer                        :: flags
+    integer(HSIZE_T)               :: aligns1, aligns2
+    integer(HSIZE_T),    parameter :: msize = 1024 * 256
+    integer(HSIZE_T),    parameter :: alignsmax = 1024 * 1024 * 128
+    integer(SIZE_t)                :: nelmts, nbytes
+    real                           :: w0
+    integer                        :: mdc
 
     dopario = .false.
 
@@ -249,10 +288,26 @@ contains
     if (iparallel == 1 .and. present(pario)) dopario = pario
 #endif
 
-    create_id = H5P_DEFAULT_F
-    access_id = H5P_DEFAULT_F
+    ! Turn off default error handling?
+    ! call h5eset_auto_f(0, hdferr)
+
     if (iaccess == 1) flags = H5F_ACC_TRUNC_F
     if (iaccess == 2) flags = H5F_ACC_EXCL_F
+
+    call h5pcreate_f(H5P_FILE_ACCESS_F, access_prp, hdferr)
+
+    call h5pget_cache_f(access_prp, mdc, nelmts, nbytes, w0, hdferr)
+    nbytes = max(nbytes, int(1024 * 1024 * 32, SIZE_t) )
+    call h5pset_cache_f(access_prp, mdc, nelmts, nbytes, w0, hdferr)
+
+    nbytes = 1024 * 1024
+    call h5pset_sieve_buf_size_f(access_prp, nbytes, hdferr)
+
+    call fh5_set_lib_bounds(access_prp, hdferr)
+
+    ! Increase some buffer sizes
+    call H5Pset_meta_block_size_f(access_prp, msize, hdferr)
+    call H5Pset_small_data_block_size_f(access_prp, msize, hdferr)
 
 #if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
     if (dopario) then
@@ -261,64 +316,56 @@ contains
        write(io6,*) "Enabling parallel HDF5 output"
        write(io6,*)
 
-       call h5pcreate_f(H5P_FILE_ACCESS_F, access_id, hdferr)
-       call h5pset_fapl_mpio_f(access_id, MPI_COMM_WORLD, MPI_INFO_NULL, hdferr)
-       call h5pset_coll_metadata_write_f(access_id, .true., hdferr)
-
-       ! Increase some buffer sizes
-       call H5Pset_meta_block_size_f(access_id, msize, hdferr)
-       call H5Pset_small_data_block_size_f(access_id, msize, hdferr)
-
-       call h5pget_cache_f(access_id, mdc, nelmts, nbytes, w0, hdferr)
-       nbytes = max(nbytes, int(1024 * 1024 * 32, SIZE_t) )
-       call h5pset_cache_f(access_id, mdc, nelmts, nbytes, w0, hdferr)
-
-       nbytes = 1024 * 1024
-       call h5pset_sieve_buf_size_f(access_id, nbytes, hdferr)
-
-       ! Align parallel writes to file-system block size
-       if (nl%iblocksize > 0) then
-          aligns1 = nl%iblocksize
-          aligns1 = min(aligns1,alignsmax)
-
-          if (aligns1 <= 1024) then
-             aligns2 = aligns1
-          else
-             aligns2 = aligns1 / 2
-          endif
-          call H5Pset_alignment_f( access_id, aligns1, aligns2, hdferr )
-       endif
-
+       call h5pset_fapl_mpio_f(access_prp, MPI_COMM_WORLD, MPI_INFO_NULL, hdferr)
+       call h5pset_coll_metadata_write_f(access_prp, .true., hdferr)
     endif
 #endif
 
-    call h5fcreate_f(locfn, flags, fileid, hdferr, create_id, access_id)
+    ! Align writes to file-system block size
 
-    ! Create transfer property list for collective dataset write
+    if (nl%iblocksize > 0) then
+       aligns1 = nl%iblocksize
+       aligns1 = min(aligns1,alignsmax)
 
-    xferid = H5P_DEFAULT_F
+       if (aligns1 <= 1024) then
+          aligns2 = aligns1
+       else
+          aligns2 = aligns1 / 2
+       endif
+       call H5Pset_alignment_f( access_prp, aligns1, aligns2, hdferr )
+    endif
+
+    call h5fcreate_f(locfn, flags, fileid, hdferr, access_prp=access_prp)
+
+    if (hdferr < 0) then
+       write(io6,*) "File " // trim(locfn) // " could not be created by the HDF5 library."
+       write(io6,*)
+       call h5pclose_f(access_prp, hdferr)
+       return
+    endif
+
+    call H5Pclose_f(access_prp, hdferr)
+
+    call h5pcreate_f(h5p_dataset_xfer_f, xferid, hdferr)
 
 #if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
     if (dopario) then
-       call H5Pclose_f(access_id, hdferr)
-
-       call h5pcreate_f(h5p_dataset_xfer_f, xferid, hdferr)
        call h5pset_dxpl_mpio_f(xferid, h5fd_mpio_collective_f, hdferr)
-
-       nbytes = 1024 * 1024 * 64
-       call h5pset_buffer_f(xferid, nbytes, hdferr)
-
-       nelmts = 5120
-       call h5pset_hyper_vector_size_f(xferid, nelmts, hdferr)
     endif
 #endif
+
+    nbytes = 1024 * 1024 * 64
+    call h5pset_buffer_f(xferid, nbytes, hdferr)
+
+    nelmts = 5120
+    call h5pset_hyper_vector_size_f(xferid, nelmts, hdferr)
 
   end subroutine fh5f_create
 
 !===============================================================================
 
   subroutine fh5_prepare_write(ndims, dims, dname, stype, hdferr, icompress, &
-                               type, mcoords, fcoords, ifsize, dims_chunk)
+                               mcoords, fcoords, ifsize, dims_chunk)
 
     implicit none
 
@@ -329,11 +376,10 @@ contains
     integer,        intent(OUT)                      :: hdferr
     integer,        intent(IN), optional             :: icompress, ifsize
     integer,        intent(IN), optional, contiguous :: mcoords(:), fcoords(:)
-    character(2),   intent(IN), optional             :: type
     integer,        intent(IN), optional             :: dims_chunk(ndims)
 
     logical          :: docompress, valid
-    integer          :: i, j, iop
+    integer          :: j, iop, flag
     integer(HSIZE_T) :: dims_file(ndims), dims_compress(ndims)
     integer(HSIZE_T) :: offset(ndims), countf(ndims)
     integer(HID_T)   :: propid
@@ -356,94 +402,88 @@ contains
     propid     = H5P_DEFAULT_F
     docompress = .false.
 
-    ! Setup HFS compression if we are not doing parallel or partial writes
+    ! Is the HDF5 file open?
 
-    if ( (.not. dopario) .and. present(icompress) .and. (.not. present(fcoords)) ) then
-
-       if (present(dims_chunk)) then
-          dims_compress = dims_chunk
-       else
-          dims_compress = dims
-       endif
-
-       if (icompress > 0 .and. icompress < 10 .and. product(dims_compress) > 1) then
-          docompress = .true.
-       endif
-
-       ! Create a property list for compression/chunking/filters
-
-       if (docompress) then
-          call h5pcreate_f(H5P_DATASET_CREATE_F, propid, hdferr)
-          call h5pset_chunk_f(propid, ndims, dims_file, hdferr)
-          call h5pset_shuffle_f(propid, hdferr)
-          call h5pset_deflate_f(propid, icompress, hdferr)
-       endif
-
+    call h5iis_valid_f(fileid, valid, hdferr)
+    if (hdferr < 0 .or. .not. valid) then
+       hdferr = -1
+       write(io6,*) "fh5_prepare_write: Trying to write " // trim(dname) // &
+                    " but no HDF5 file is open."
+       return
     endif
 
-    ! Create the global file space for the data if not previously created
+    ! Make sure dsetid is not already open
 
     call h5iis_valid_f(dsetid, valid, hdferr)
-    if (.not. valid) then
-       call h5screate_simple_f(ndims, dims_file, fspcid, hdferr)
-       call h5dcreate_f(fileid, dname, stype, fspcid, dsetid, hdferr, dcpl_id=propid)
-       call h5sclose_f(fspcid, hdferr)
+    if (valid) then
+       write(io6,*) "fh5_prepare_write: dsetid is already open"
+       hdferr = -1
+       return
     endif
 
-    if (docompress) call h5pclose_f(propid, hdferr)
+    call H5Lexists_f(fileid, dname, valid, hdferr)
+    if (valid) then
 
-    ! Check if parallel write has been cached
+       call H5Dopen_f(fileid, dname, dsetid, hdferr)
+       call H5Dget_space_status_f(dsetid, flag, hdferr)
 
-    id = 0
+       if ( flag /= H5D_SPACE_STS_ALLOCATED_F .and. &
+            flag /= H5D_SPACE_STS_PART_ALLOCATED_F ) then
+          write(io6,*) "HDF5 error: a data set has already been created for variable " // trim(dname)
+          write(io6,*) "in the HDF5 file but has no space allocated to it. Don't know what to do here."
+          hdferr = -1
+          return
+       endif
 
-#if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
-    if (dopario) then
+    else
 
-       if (present(type) .and. present(ifsize) .and. present(fcoords)) then
+       ! Setup HFS compression if we are not doing partial writes
 
-          ! First check if this write has been cached yet
+       if ( present(icompress) .and. (.not. present(fcoords)) ) then
 
-          do i = 1, ncache_w
-             if ( type   == stagpt_cache_w(i) .and. &
-                  ifsize == nglobe_cache_w(i) .and. &
-                  ndims  == ndims_cache_w (i) .and. &
-                  all(dims(1:ndims) == dims_cache_w(1:ndims,i)) ) then
-                id = i
-                return
-             endif
-          enddo
-
-          ! If we arrived here, this write has not been cached yet
-
-          ncache_w = ncache_w + 1
-          if (ncache_w > maxids) then
-             ncache_w = maxids
-             id = 0
+          if (present(dims_chunk)) then
+             dims_compress = dims_chunk
           else
-             id = ncache_w
-             stagpt_cache_w(id) = type
-             nglobe_cache_w(id) = ifsize
-             ndims_cache_w (id) = ndims
-             dims_cache_w(1:ndims,id) = dims(1:ndims)
+             dims_compress = dims
+          endif
+
+          if (icompress > 0 .and. icompress < 10 .and. product(dims_compress) > 1) then
+             docompress = .true.
+          endif
+
+          ! Create a property list for compression/chunking/filters
+
+          if (docompress) then
+             call h5pcreate_f(H5P_DATASET_CREATE_F, propid, hdferr)
+             call h5pset_chunk_f(propid, ndims, dims_compress, hdferr)
+             call h5pset_shuffle_f(propid, hdferr)
+             call h5pset_deflate_f(propid, icompress, hdferr)
           endif
 
        endif
 
+       ! Create the global file space for the data if not previously created
+
+       call h5screate_simple_f(ndims, dims_file, fspcid, hdferr)
+       call h5dcreate_f(fileid, dname, stype, fspcid, dsetid, hdferr, dcpl_id=propid)
+       call h5sclose_f(fspcid, hdferr)
+
+       if (docompress) call h5pclose_f(propid, hdferr)
+
     endif
-#endif
 
     ! Create the local memory space for the data
 
-    call h5screate_simple_f(ndims, dimsf, mspcidw(id), hdferr)
+    call h5screate_simple_f(ndims, dimsf, mspcid, hdferr)
 
     ! If we are only writing a subset of the local data,
-    ! select the points that we will output
+    ! select the points in memory that we will writing from
 
     if (present(mcoords)) then
 
        if (size(mcoords) == 0) then
 
-          call h5sselect_none_f(mspcidw(id), hdferr)
+          call h5sselect_none_f(mspcid, hdferr)
 
        elseif (size(mcoords) < dims(ndims)) then
 
@@ -460,7 +500,7 @@ contains
 
           do j = 2, size(mcoords)
              if (mcoords(j) /= mcoords(j-1) + 1) then
-                call h5sselect_hyperslab_f(mspcidw(id), iop, offset, countf, hdferr)
+                call h5sselect_hyperslab_f(mspcid, iop, offset, countf, hdferr)
                 offset(ndims) = mcoords(j) - 1
                 countf(ndims) = 1
                 iop           = H5S_SELECT_OR_F
@@ -469,24 +509,32 @@ contains
              endif
           enddo
 
-          call h5sselect_hyperslab_f(mspcidw(id), iop, offset, countf, hdferr)
+          call h5sselect_hyperslab_f(mspcid, iop, offset, countf, hdferr)
+
+       else
+
+          call H5Sselect_all_f(mspcid, hdferr)
 
        endif
 
+    else
+
+       call H5Sselect_all_f(mspcid, hdferr)
+
     endif
 
-    ! Create the dataspace for the data
+    ! Create the dataspace in the file for the data
 
-    call h5screate_simple_f(ndims, dims_file, dspcidw(id), hdferr)
+    call h5screate_simple_f(ndims, dims_file, dspcid, hdferr)
 
-    ! For parallel output, select the points in the output file that
+    ! For partial output, select the points in the output file that
     ! we will be writing to
 
     if (present(fcoords) .and. present(ifsize)) then
 
        if (size(fcoords) == 0) then
 
-          call h5sselect_none_f(dspcidw(id), hdferr)
+          call h5sselect_none_f(dspcid, hdferr)
 
        elseif (size(fcoords) < ifsize) then
 
@@ -503,7 +551,7 @@ contains
 
           do j = 2, size(fcoords)
              if (fcoords(j) /= fcoords(j-1) + 1) then
-                call h5sselect_hyperslab_f(dspcidw(id), iop, offset, countf, hdferr)
+                call h5sselect_hyperslab_f(dspcid, iop, offset, countf, hdferr)
                 offset(ndims) = fcoords(j) - 1
                 countf(ndims) = 1
                 iop           = H5S_SELECT_OR_F
@@ -512,9 +560,17 @@ contains
              endif
           enddo
 
-          call h5sselect_hyperslab_f(dspcidw(id), iop, offset, countf, hdferr)
+          call h5sselect_hyperslab_f(dspcid, iop, offset, countf, hdferr)
+
+       else
+
+          call H5Sselect_all_f(dspcid, hdferr)
 
        endif
+
+    else
+
+       call H5Sselect_all_f(dspcid, hdferr)
 
     endif
 
@@ -530,7 +586,7 @@ contains
     integer,                 intent(OUT) :: hdferr
 
     call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer1, dimsf, &
-                    hdferr, mspcidw(id), dspcidw(id), xferid)
+                    hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_write_int1_array1
 
@@ -544,7 +600,7 @@ contains
     integer,                 intent(OUT) :: hdferr
 
     call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer1, dimsf, &
-                    hdferr, mspcidw(id), dspcidw(id), xferid)
+                    hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_write_int1_array2
 
@@ -558,7 +614,7 @@ contains
     integer,                 intent(OUT) :: hdferr
 
     call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer1, dimsf, &
-                    hdferr, mspcidw(id), dspcidw(id), xferid)
+                    hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_write_int1_array3
 
@@ -572,7 +628,7 @@ contains
     integer,                 intent(OUT) :: hdferr
 
     call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer1, dimsf, &
-                    hdferr, mspcidw(id), dspcidw(id), xferid)
+                    hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_write_int1_array4
 
@@ -586,7 +642,7 @@ contains
     integer,             intent(OUT) :: hdferr
 
     call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, &
-                    hdferr, mspcidw(id), dspcidw(id), xferid)
+                    hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_write_integer_array1
 
@@ -600,7 +656,7 @@ contains
     integer,             intent(OUT) :: hdferr
 
     call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, &
-                    hdferr, mspcidw(id), dspcidw(id), xferid)
+                    hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_write_integer_array2
 
@@ -614,7 +670,7 @@ contains
     integer,             intent(OUT) :: hdferr
 
     call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, &
-                    hdferr, mspcidw(id), dspcidw(id), xferid)
+                    hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_write_integer_array3
 
@@ -628,7 +684,7 @@ contains
     integer,             intent(OUT) :: hdferr
 
     call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, &
-                    hdferr, mspcidw(id), dspcidw(id), xferid)
+                    hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_write_integer_array4
 
@@ -642,7 +698,7 @@ contains
     integer,           intent(OUT) :: hdferr
 
     call h5dwrite_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, &
-                    hdferr, mspcidw(id), dspcidw(id), xferid)
+                    hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_write_real_array1
 
@@ -656,7 +712,7 @@ contains
     integer,           intent(OUT) :: hdferr
 
     call h5dwrite_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, &
-                    hdferr, mspcidw(id), dspcidw(id), xferid)
+                    hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_write_real_array2
 
@@ -670,7 +726,7 @@ contains
     integer,           intent(OUT) :: hdferr
 
     call h5dwrite_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, &
-                    hdferr, mspcidw(id), dspcidw(id), xferid)
+                    hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_write_real_array3
 
@@ -684,7 +740,7 @@ contains
     integer,           intent(OUT) :: hdferr
 
     call h5dwrite_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, &
-                    hdferr, mspcidw(id), dspcidw(id), xferid)
+                    hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_write_real_array4
 
@@ -698,7 +754,7 @@ contains
     integer,              intent(OUT) :: hdferr
 
     call h5dwrite_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, &
-                    hdferr, mspcidw(id), dspcidw(id), xferid)
+                    hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_write_real8_array1
 
@@ -712,7 +768,7 @@ contains
     integer,              intent(OUT) :: hdferr
 
     call h5dwrite_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, &
-                    hdferr, mspcidw(id), dspcidw(id), xferid)
+                    hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_write_real8_array2
 
@@ -726,7 +782,7 @@ contains
     integer,              intent(OUT) :: hdferr
 
     call h5dwrite_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, &
-                    hdferr, mspcidw(id), dspcidw(id), xferid)
+                    hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_write_real8_array3
 
@@ -740,7 +796,7 @@ contains
     integer,              intent(OUT) :: hdferr
 
     call h5dwrite_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, &
-                    hdferr, mspcidw(id), dspcidw(id), xferid)
+                    hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_write_real8_array4
 
@@ -758,7 +814,7 @@ contains
     allocate(buf_integer, source=merge(-1_i1, 0_i1, buf_logical))
 
     call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer, dimsf, &
-                    hdferr, mspcidw(id), dspcidw(id), xferid)
+                    hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_write_logical_array1
 
@@ -776,7 +832,7 @@ contains
     allocate(buf_integer, source=merge(-1_i1, 0_i1, buf_logical))
 
     call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer, dimsf, &
-                    hdferr, mspcidw(id), dspcidw(id), xferid)
+                    hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_write_logical_array2
 
@@ -794,7 +850,7 @@ contains
     allocate(buf_integer, source=merge(-1_i1, 0_i1, buf_logical))
 
     call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer, dimsf, &
-                    hdferr, mspcidw(id), dspcidw(id), xferid)
+                    hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_write_logical_array3
 
@@ -808,7 +864,7 @@ contains
     integer,     intent(OUT) :: hdferr
 
     call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer1, dimsf, &
-                    hdferr, mspcidw(id), dspcidw(id), xferid)
+                    hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_write_int1_scalar
 
@@ -822,7 +878,7 @@ contains
     integer, intent(OUT) :: hdferr
 
     call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, &
-                    hdferr, mspcidw(id), dspcidw(id), xferid)
+                    hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_write_integer_scalar
 
@@ -836,7 +892,7 @@ contains
     integer, intent(OUT) :: hdferr
 
     call h5dwrite_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, &
-                    hdferr, mspcidw(id), dspcidw(id), xferid)
+                    hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_write_real_scalar
 
@@ -850,7 +906,7 @@ contains
     integer,  intent(OUT) :: hdferr
 
     call h5dwrite_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, &
-                    hdferr, mspcidw(id), dspcidw(id), xferid)
+                    hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_write_real8_scalar
 
@@ -868,76 +924,64 @@ contains
     buf_integer = merge(-1_i1, 0_i1, buf_logical)
 
     call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer, dimsf, &
-                    hdferr, mspcidw(id), dspcidw(id), xferid)
+                    hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_write_logical_scalar
 
 !===============================================================================
 
-  subroutine fh5_close_write(hdferr)
+  subroutine fh5_close_write(hdferr, no_dsetid)
 
-#if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
-    use mem_para, only: myrank
-#endif
     implicit none
 
-    integer, intent(OUT) :: hdferr
+    integer,           intent(OUT) :: hdferr
+    logical, optional, intent(IN)  :: no_dsetid
 
-#if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
-    integer              :: mode
-
-    if (.false.) then
-       if (dopario .and. xferid /= H5P_DEFAULT_F .and. myrank == 0) then
-          call h5pget_mpio_actual_io_mode_f(xferid, mode, hdferr)
-
-          if ( mode == H5D_MPIO_NO_COLLECTIVE_F ) then
-             write(*,*) " H5D_MPIO_NO_COLLECTIVE"
-          elseif ( mode == H5D_MPIO_CHUNK_INDEPENDENT_F ) then
-             write(*,*) " H5D_MPIO_CHUNK_INDEPENDENT"
-          elseif ( mode == H5D_MPIO_CHUNK_COLLECTIVE_F ) then
-             write(*,*) " H5D_MPIO_CHUNK_COLLECTIVE"
-          elseif ( mode == H5D_MPIO_CHUNK_MIXED_F ) then
-             write(*,*) " H5D_MPIO_CHUNK_MIXED"
-          elseif ( mode == H5D_MPIO_CONTIG_COLLECTIVE_F ) then
-             write(*,*) " H5D_MPIO_CONTIG_COLLECTIVE"
-          else
-             write(*,*) " Unknown H5D MPIO mode"
-          endif
-       endif
-    endif
-#endif
-
-    if (id == 0) call h5sclose_f(dspcidw(id), hdferr)
-    if (id == 0) call h5sclose_f(mspcidw(id), hdferr)
-
-    call h5dclose_f(dsetid, hdferr)
+    call fh5_close_read(hdferr, no_dsetid)
 
   end subroutine fh5_close_write
 
 !===============================================================================
 
-  subroutine fh5_close_write1(hdferr)
+  subroutine fh5_open_dataset(dname, hdferr)
 
     implicit none
 
-    integer, intent(OUT) :: hdferr
+    character(*), intent(IN ) :: dname
+    integer,      intent(OUT) :: hdferr
+    logical                   :: exists
 
-    if (id == 0) call h5sclose_f(dspcidw(id), hdferr)
-    if (id == 0) call h5sclose_f(mspcidw(id), hdferr)
+    call h5iis_valid_f(dsetid, exists, hdferr)
 
-  end subroutine fh5_close_write1
+    if (exists) then
+       hdferr = -1
+       write(*,*) "Error in fh5_open_dataset:"
+       write(*,*) "Dataset id is already in use by HDF"
+       return
+    endif
+
+    call H5Lexists_f(fileid, dname, exists, hdferr)
+
+    if (.not. exists) hdferr = -1
+    if (hdferr < 0) return
+
+    call H5Dopen_f(fileid, dname, dsetid, hdferr)
+
+  end subroutine fh5_open_dataset
 
 !===============================================================================
 
-  subroutine fh5_close_write2(hdferr)
+  subroutine fh5_close_dataset(hdferr)
 
     implicit none
 
     integer, intent(OUT) :: hdferr
+    logical              :: valid
 
-    call h5dclose_f(dsetid, hdferr)
+    call h5iis_valid_f(dsetid, valid, hdferr)
+    if (valid) call h5dclose_f(dsetid, hdferr)
 
-  end subroutine fh5_close_write2
+  end subroutine fh5_close_dataset
 
 !===============================================================================
 
@@ -949,35 +993,37 @@ contains
     integer,      intent(OUT)             :: ndims
     integer,      intent(OUT), contiguous :: dims(:)
 
-    logical                               :: exists
+    logical                               :: valid
     integer(HSIZE_T)                      :: maxdimsc(7)
     integer(HSIZE_T)                      :: dimsc(7)
+    integer(HID_T)                        :: dspcid
     integer                               :: hdferr
 
     ndims = -1
     dims  =  0
-    id    =  0
 
-    call H5Lexists_f(fileid, dname, exists, hdferr)
-    if (hdferr < 0 .or. .not. exists) return
+    call h5iis_valid_f(dsetid, valid, hdferr)
 
-    call H5Dopen_f(fileid, dname, dsetid, hdferr)
-    if (hdferr < 0) return
+    if (.not. valid) then
+       call fh5_open_dataset(dname, hdferr)
+       if (hdferr < 0) return
+    endif
 
-    call H5Dget_space_f(dsetid, dspcidr(id), hdferr)
+    call H5Dget_space_f(dsetid, dspcid, hdferr)
+
     if (hdferr < 0) then
-       call H5Dclose_f(dsetid, hdferr)
+       if (.not. valid) call H5Dclose_f(dsetid, hdferr)
        return
     endif
 
-    call H5Sget_simple_extent_dims_f(dspcidr(id), dimsc, maxdimsc, ndims)
-    if (ndims < 0) then
-       call H5Sclose_f(dspcidr(id), hdferr)
-       call H5Dclose_f(dsetid, hdferr)
-       return
+    call H5Sget_simple_extent_dims_f(dspcid, dimsc, maxdimsc, ndims)
+
+    if (ndims > 0) then
+       dims(1:ndims)  = dimsc(1:ndims)
     endif
 
-    dims(1:ndims)  = dimsc(1:ndims)
+    call H5Sclose_f(dspcid, hdferr)
+    if (.not. valid) call H5Dclose_f(dsetid, hdferr)
 
   end subroutine fh5_get_info
 
@@ -988,7 +1034,7 @@ contains
     implicit none
 
     integer, intent(IN)  :: ndims
-    integer, intent(OUT) :: dims(ndims)
+    integer, intent(OUT) :: dims( ndims )
 
     integer(HSIZE_T)     :: dimsc( ndims )
     integer(HID_T)       :: creation_id
@@ -1009,26 +1055,14 @@ contains
     call H5Pget_layout_f(creation_id, layout, hdferr)
 
     if (layout == H5D_CHUNKED_F) then
-       call H5Pget_chunk_f(creation_id, ndims, dimsc, hdferr)
-       dims(:) = dimsc(1:size(dims))
+       call H5Pget_chunk_f(creation_id, ndims, dimsc, rank)
+       rank = min(rank, ndims)
+       if (rank > 0) dims(1:rank) = dimsc(1:rank)
     endif
 
     call H5Pclose_f(creation_id, hdferr)
 
   end subroutine fh5_get_chunk_dims
-
-!===============================================================================
-
-  subroutine fh5_close_info()
-
-    implicit none
-
-    integer :: hdferr
-
-    if (id == 0) call h5sclose_f(dspcidr(id), hdferr)
-    call h5dclose_f(dsetid, hdferr)
-
-  end subroutine fh5_close_info
 
 !===============================================================================
 
@@ -1040,7 +1074,7 @@ contains
     integer,                 intent(  OUT) :: hdferr
 
     call h5dread_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer1, dimsf, &
-                   hdferr, mspcidr(id), dspcidr(id), xferid)
+                   hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_read_int1_array1
 
@@ -1054,7 +1088,7 @@ contains
     integer,                 intent(  OUT) :: hdferr
 
     call h5dread_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer1, dimsf, &
-                   hdferr, mspcidr(id), dspcidr(id), xferid)
+                   hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_read_int1_array2
 
@@ -1068,7 +1102,7 @@ contains
     integer,                 intent(  OUT) :: hdferr
 
     call h5dread_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer1, dimsf, &
-                   hdferr, mspcidr(id), dspcidr(id), xferid)
+                   hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_read_int1_array3
 
@@ -1082,7 +1116,7 @@ contains
     integer,                 intent(  OUT) :: hdferr
 
     call h5dread_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer1, dimsf, &
-                   hdferr, mspcidr(id), dspcidr(id), xferid)
+                   hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_read_int1_array4
 
@@ -1096,7 +1130,7 @@ contains
     integer,             intent(  OUT) :: hdferr
 
     call h5dread_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, &
-                   hdferr, mspcidr(id), dspcidr(id), xferid)
+                   hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_read_integer_array1
 
@@ -1110,7 +1144,7 @@ contains
     integer,             intent(  OUT) :: hdferr
 
     call h5dread_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, &
-                   hdferr, mspcidr(id), dspcidr(id), xferid)
+                   hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_read_integer_array2
 
@@ -1124,7 +1158,7 @@ contains
     integer,             intent(  OUT) :: hdferr
 
     call h5dread_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, &
-                   hdferr, mspcidr(id), dspcidr(id), xferid)
+                   hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_read_integer_array3
 
@@ -1138,7 +1172,7 @@ contains
     integer,             intent(  OUT) :: hdferr
 
     call h5dread_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, &
-                   hdferr, mspcidr(id), dspcidr(id), xferid)
+                   hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_read_integer_array4
 
@@ -1161,7 +1195,7 @@ contains
 !   if (istype) then
 !      allocate(i4( dimsf(1) ) )
 !      call h5dread_f(dsetid, H5T_NATIVE_INTEGER, i4, dimsf, &
-!           hdferr, mspcidr(id), dspcidr(id), xferid)
+!           hdferr, mspcid, dspcid, xferid)
 !      buf_real(1:dimsf(1)) = real( i4 )
 !      call h5tclose_f(typeid, hdferr)
 !      return
@@ -1170,7 +1204,7 @@ contains
 !   call h5tclose_f(typeid, hdferr)
 
     call h5dread_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, &
-                   hdferr, mspcidr(id), dspcidr(id), xferid)
+                   hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_read_real_array1
 
@@ -1198,7 +1232,7 @@ contains
 !      jj = size(buf_real,dim=2)
 !      allocate(il(ii,jj))
 !      call h5dread_f(dsetid, H5T_NATIVE_INTEGER, il, dimsf, &
-!           hdferr, mspcidr(id), dspcidr(id), xferid)
+!           hdferr, mspcid, dspcid, xferid)
 !      !$omp parallel do
 !      do j = 1, jj
 !         buf_real(:,j) = real( il(:,j) )
@@ -1214,7 +1248,7 @@ contains
 !      jj = size(buf_real,dim=2)
 !      allocate(is(ii,jj))
 !      call h5dread_f(dsetid, H5T_NATIVE_INTEGER_KIND(2), is, dimsf, &
-!                     hdferr, mspcidr(id), dspcidr(id), xferid)
+!                     hdferr, mspcid, dspcid, xferid)
 !      !$omp parallel do
 !      do j = 1, jj
 !         buf_real(:,j) = real( is(:,j) )
@@ -1227,7 +1261,7 @@ contains
 !   call h5tclose_f(typeid, hdferr)
 
     call h5dread_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, &
-                   hdferr, mspcidr(id), dspcidr(id), xferid)
+                   hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_read_real_array2
 
@@ -1256,7 +1290,7 @@ contains
 !      kk = size(buf_real,dim=3)
 !      allocate(il(ii,jj,kk))
 !      call h5dread_f(dsetid, H5T_NATIVE_INTEGER, il, dimsf, &
-!           hdferr, mspcidr(id), dspcidr(id), xferid)
+!           hdferr, mspcid, dspcid, xferid)
 !      !$omp parallel do
 !      do k = 1, kk
 !         buf_real(:,:,k) = real( il(:,:,k) )
@@ -1273,7 +1307,7 @@ contains
 !      kk = size(buf_real,dim=3)
 !      allocate(is(ii,jj,kk))
 !      call h5dread_f(dsetid, H5T_STD_I16LE, is, dimsf, &
-!                     hdferr, mspcidr(id), dspcidr(id), xferid)
+!                     hdferr, mspcid, dspcid, xferid)
 !      !$omp parallel do
 !      do k = 1, kk
 !         buf_real(:,:,k) = real( is(:,:,k) )
@@ -1286,7 +1320,7 @@ contains
 !   call h5tclose_f(typeid, hdferr)
 
     call h5dread_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, &
-                   hdferr, mspcidr(id), dspcidr(id), xferid)
+                   hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_read_real_array3
 
@@ -1300,7 +1334,7 @@ contains
     integer,          intent(  OUT) :: hdferr
 
     call h5dread_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, &
-                   hdferr, mspcidr(id), dspcidr(id), xferid)
+                   hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_read_real_array4
 
@@ -1314,7 +1348,7 @@ contains
     integer,              intent(OUT)   :: hdferr
 
     call h5dread_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, &
-                   hdferr, mspcidr(id), dspcidr(id), xferid)
+                   hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_read_real8_array1
 
@@ -1328,7 +1362,7 @@ contains
     integer,              intent(  OUT) :: hdferr
 
     call h5dread_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, &
-                   hdferr, mspcidr(id), dspcidr(id), xferid)
+                   hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_read_real8_array2
 
@@ -1342,7 +1376,7 @@ contains
     integer,              intent(  OUT) :: hdferr
 
     call h5dread_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, &
-                   hdferr, mspcidr(id), dspcidr(id), xferid)
+                   hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_read_real8_array3
 
@@ -1356,7 +1390,7 @@ contains
     integer,              intent(  OUT) :: hdferr
 
     call h5dread_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, &
-                   hdferr, mspcidr(id), dspcidr(id), xferid)
+                   hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_read_real8_array4
 
@@ -1374,7 +1408,7 @@ contains
     allocate( buf_integer( size(buf_logical) ) )
 
     call h5dread_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer, dimsf, &
-                   hdferr, mspcidr(id), dspcidr(id), xferid)
+                   hdferr, mspcid, dspcid, xferid)
 
     ! converting integer to logical
     buf_logical = buf_integer /= 0_i1
@@ -1399,7 +1433,7 @@ contains
     allocate(buf_integer(is,js))
 
     call h5dread_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer, dimsf, &
-                   hdferr, mspcidr(id), dspcidr(id), xferid)
+                   hdferr, mspcid, dspcid, xferid)
 
     ! Convert integer to logical
 
@@ -1430,7 +1464,7 @@ contains
     allocate(buf_integer(is,js,ks))
 
     call h5dread_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer, dimsf, &
-                   hdferr, mspcidr(id), dspcidr(id), xferid)
+                   hdferr, mspcid, dspcid, xferid)
 
     ! Convert integer to logical
 
@@ -1454,7 +1488,7 @@ contains
     integer,     intent(  OUT) :: hdferr
 
     call h5dread_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer1, dimsf, &
-                   hdferr, mspcidr(id), dspcidr(id), xferid)
+                   hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_read_int1_scalar
 
@@ -1468,7 +1502,7 @@ contains
     integer, intent(OUT)   :: hdferr
 
     call h5dread_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, &
-                   hdferr, mspcidr(id), dspcidr(id), xferid)
+                   hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_read_integer_scalar
 
@@ -1482,7 +1516,7 @@ contains
     integer, intent(OUT)   :: hdferr
 
     call h5dread_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, &
-                   hdferr, mspcidr(id), dspcidr(id), xferid)
+                   hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_read_real_scalar
 
@@ -1496,7 +1530,7 @@ contains
     integer,  intent(OUT)   :: hdferr
 
     call h5dread_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, &
-                   hdferr, mspcidr(id), dspcidr(id), xferid)
+                   hdferr, mspcid, dspcid, xferid)
 
   end subroutine fh5_read_real8_scalar
 
@@ -1512,7 +1546,7 @@ contains
     integer(i1)            :: buf_integer
 
     call h5dread_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer, dimsf, &
-                   hdferr, mspcidr(id), dspcidr(id), xferid)
+                   hdferr, mspcid, dspcid, xferid)
 
     buf_logical = buf_integer == -1_i1
 
@@ -1520,10 +1554,8 @@ contains
 
 !===============================================================================
 
-  subroutine fh5_prepare_read(dname, ndims, dims, hdferr, coords, &
-                              type, start, counts)
+  subroutine fh5_prepare_read(dname, ndims, dims, hdferr, coords, start, counts)
 
-    use misc_coms, only: iparallel
     implicit none
 
     character(*),      intent(IN)             :: dname
@@ -1535,14 +1567,12 @@ contains
     integer, optional, intent(IN), contiguous :: start(:)
     integer, optional, intent(IN), contiguous :: counts(:)
 
-    character(2), optional, intent(IN)        :: type
-
     integer          :: i, j, iop, ndims_file
     integer(HSIZE_T) :: dims_file(ndims), maxdims_file(ndims)
     integer(HSIZE_T) :: offset(ndims), countf(ndims)
     logical          :: exists
-
-    id = 0
+    character(30)    :: fname
+    integer (SIZE_T) :: len
 
     dimsf  = 1
     ndimsf = ndims
@@ -1559,10 +1589,31 @@ contains
        endif
     endif
 
+    ! Is the HDF5 file open?
+
+    call h5iis_valid_f(fileid, exists, hdferr)
+    if (hdferr < 0 .or. .not. exists) then
+       hdferr = -1
+       write(io6,*) "fh5_prepare_read: Trying to read " // trim(dname) // &
+                    " but no HDF5 file is open."
+       return
+    endif
+
     ! First make sure data exists in file
 
     call H5Lexists_f(fileid, dname, exists, hdferr)
     if (hdferr < 0 .or. .not. exists) then
+       call h5fget_name_f(fileid, fname, len, hdferr)
+       write(io6,*) "fh5_prepare_read: " // trim(dname) // " is not in file " // trim(fname)
+       hdferr = -1
+       return
+    endif
+
+    ! Make sure dsetid is not already open
+
+    call h5iis_valid_f(dsetid, exists, hdferr)
+    if (exists) then
+       write(io6,*) "fh5_prepare_read: dsetid is already open"
        hdferr = -1
        return
     endif
@@ -1572,55 +1623,18 @@ contains
     call h5dopen_f(fileid, dname, dsetid, hdferr)
     if (hdferr < 0) return
 
-    ! getting the dataspace of the dataset (dimension, size, element type etc)
+    ! Get the dataspace of the dataset (dimension, size, element type etc)
 
-    call h5dget_space_f(dsetid, dspcidr(0), hdferr)
+    call h5dget_space_f(dsetid, dspcid, hdferr)
     if (hdferr < 0) return
 
     ! get the dataspace dimensions in the file
 
-!   call h5sget_simple_extent_ndims_f(dspcidr(0), ndims_file, hdferr)
-    call h5sget_simple_extent_dims_f (dspcidr(0), dims_file, maxdims_file, ndims_file)
-
-    if (iparallel == 1) then
-       if (present(type) .and. present(coords)) then
-
-          ! First check if this write has been cached yet
-
-          do i = 1, ncache_r
-             if ( type   == stagpt_cache_r(i) .and. &
-                  ndims_file == ndims_cache_r (i) .and. &
-                  all(dims_file(1:ndims_file) == dims_cache_r(1:ndims_file,i)) ) then
-                id = i
-                return
-             endif
-          enddo
-
-          ! If we arrived here, this write has not been cached yet
-
-          ncache_r = ncache_r + 1
-          if (ncache_r > maxids) then
-             ncache_r = maxids
-             id = 0
-          else
-             id = ncache_r
-             stagpt_cache_r(id) = type
-             ndims_cache_r (id) = ndims_file
-             dims_cache_r(1:ndims,id) = dims_file(1:ndims)
-          endif
-
-       endif
-
-       if (id /= 0) then
-          call h5scopy_f (dspcidr(0), dspcidr(id), hdferr)
-          call h5sclose_f(dspcidr(0), hdferr)
-       endif
-
-    endif
+    call h5sget_simple_extent_dims_f (dspcid, dims_file, maxdims_file, ndims_file)
 
     ! prepare the memspace to receive the data
 
-    call h5screate_simple_f(ndims, dimsf, mspcidr(id), hdferr)
+    call h5screate_simple_f(ndims, dimsf, mspcid, hdferr)
 
     ! If coords is present as an argument, use it to select the points
     ! in the file "dataspace" that we want to read
@@ -1629,7 +1643,7 @@ contains
 
        if (size(coords) == 0) then
 
-          call h5sselect_none_f(dspcidr(id), hdferr)
+          call h5sselect_none_f(dspcid, hdferr)
 
        else if (dimsf(ndims) < dims_file(ndims)) then
 
@@ -1649,7 +1663,7 @@ contains
 
           do j = 2, size(coords)
              if (coords(j) /= coords(j-1) + 1) then
-                call h5sselect_hyperslab_f(dspcidr(id), iop, offset, countf, hdferr)
+                call h5sselect_hyperslab_f(dspcid, iop, offset, countf, hdferr)
                 offset(ndims) = coords(j) - 1
                 countf(ndims) = 1
                 iop           = H5S_SELECT_OR_F
@@ -1658,7 +1672,7 @@ contains
              endif
           enddo
 
-          call h5sselect_hyperslab_f(dspcidr(id), iop, offset, countf, hdferr)
+          call h5sselect_hyperslab_f(dspcid, iop, offset, countf, hdferr)
 
        endif
 
@@ -1674,7 +1688,7 @@ contains
           countf(1:ndims) = counts(1:ndims)
 
           if ( all(offset >= 0) .and. all(countf >= 1) ) then
-             call h5sselect_hyperslab_f(dspcidr(id), H5S_SELECT_SET_F, offset, countf, hdferr)
+             call h5sselect_hyperslab_f(dspcid, H5S_SELECT_SET_F, offset, countf, hdferr)
           else
              write(*,*) "Error in fh5_prepare_read:"
              write(*,*) "Invalid start and count values"
@@ -1691,50 +1705,50 @@ contains
 
 !===============================================================================
 
-  subroutine fh5_close_read(hdferr)
-
-#if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
-    use mem_para, only: myrank
-#endif
+  subroutine fh5_close_read(hdferr, no_dsetid)
 
     implicit none
 
-    integer, intent(OUT) :: hdferr
+    integer,           intent(OUT) :: hdferr
+    logical, optional, intent(IN)  :: no_dsetid
+    logical                        :: close_dset
 
 #if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
     integer              :: mode
 
-    if (.false.) then
-       if (dopario .and. xferid /= H5P_DEFAULT_F .and. myrank == 0) then
-          call h5pget_mpio_actual_io_mode_f(xferid, mode, hdferr)
+    if (.false. .and. dopario) then
+       call h5pget_mpio_actual_io_mode_f(xferid, mode, hdferr)
 
-          if ( mode == H5D_MPIO_NO_COLLECTIVE_F ) then
-             write(*,*) " H5D_MPIO_NO_COLLECTIVE"
-          elseif ( mode == H5D_MPIO_CHUNK_INDEPENDENT_F ) then
-             write(*,*) " H5D_MPIO_CHUNK_INDEPENDENT"
-          elseif ( mode == H5D_MPIO_CHUNK_COLLECTIVE_F ) then
-             write(*,*) " H5D_MPIO_CHUNK_COLLECTIVE"
-          elseif ( mode == H5D_MPIO_CHUNK_MIXED_F ) then
-             write(*,*) " H5D_MPIO_CHUNK_MIXED"
-          elseif ( mode == H5D_MPIO_CONTIG_COLLECTIVE_F ) then
-             write(*,*) " H5D_MPIO_CONTIG_COLLECTIVE"
-          else
-             write(*,*) " Unknown H5D MPIO mode"
-          endif
+       if ( mode == H5D_MPIO_NO_COLLECTIVE_F ) then
+          write(*,*) " H5D_MPIO_NO_COLLECTIVE"
+       elseif ( mode == H5D_MPIO_CHUNK_INDEPENDENT_F ) then
+          write(*,*) " H5D_MPIO_CHUNK_INDEPENDENT"
+       elseif ( mode == H5D_MPIO_CHUNK_COLLECTIVE_F ) then
+          write(*,*) " H5D_MPIO_CHUNK_COLLECTIVE"
+       elseif ( mode == H5D_MPIO_CHUNK_MIXED_F ) then
+          write(*,*) " H5D_MPIO_CHUNK_MIXED"
+       elseif ( mode == H5D_MPIO_CONTIG_COLLECTIVE_F ) then
+          write(*,*) " H5D_MPIO_CONTIG_COLLECTIVE"
+       else
+          write(*,*) " Unknown H5D MPIO mode"
        endif
     endif
 #endif
 
-    if (id == 0) call h5sclose_f(mspcidr(id), hdferr)
-    if (id == 0) call h5sclose_f(dspcidr(id), hdferr)
-    call h5dclose_f(dsetid, hdferr)
+    call h5sclose_f(mspcid, hdferr)
+    call h5sclose_f(dspcid, hdferr)
+
+    close_dset = .true.
+    if (present(no_dsetid)) close_dset = (.not. no_dsetid)
+
+    if (close_dset) call h5dclose_f(dsetid, hdferr)
 
   end subroutine fh5_close_read
 
 !===============================================================================
 
   subroutine fh5_prepare_write_ll(ndims, dims, dname, stype, hdferr, icompress, &
-                                  type, fcoords, dims_chunk)
+                                  fcoords, dims_chunk)
 
     implicit none
 
@@ -1745,14 +1759,13 @@ contains
     integer,        intent(OUT)                      :: hdferr
     integer,        intent(IN), optional             :: icompress
     integer,        intent(IN), optional, contiguous :: fcoords(:)
-    character(2),   intent(IN), optional             :: type
     integer,        intent(IN), optional             :: dims_chunk(ndims)
 
     logical          :: docompress, valid
-    integer          :: i, j, iop, ilat, ilon, ilatp, ilonp, ifsize
+    integer          :: i, j, iop, ilat, ilon, ilatp, ilonp
     integer(HSIZE_T) :: dims_file(ndims), dims_compress(ndims)
     integer(HSIZE_T) :: offset(ndims), countf(ndims)
-    integer          :: ndims_file
+    integer          :: ndims_file, flag
     integer(HID_T)   :: propid
     integer(HID_T)   :: fspcid
 
@@ -1787,103 +1800,94 @@ contains
     propid     = H5P_DEFAULT_F
     docompress = .false.
 
-    ! Setup HFS compression if we are not doing parallel or partial writes
+   ! Is the HDF5 file open?
 
-    if ( (.not. dopario) .and. present(icompress) .and. (.not. present(fcoords)) ) then
-
-       if (present(dims_chunk)) then
-          dims_compress = dims_chunk
-       else
-          dims_compress = dims
-       endif
-
-       if (icompress > 0 .and. icompress < 10 .and. product(dims_compress) > 1) then
-          docompress = .true.
-       endif
-
-       ! Create a property list for compression/chunking/filters
-
-       if (docompress) then
-          call h5pcreate_f(H5P_DATASET_CREATE_F, propid, hdferr)
-          call h5pset_chunk_f(propid, ndimsf, dimsf, hdferr)
-          call h5pset_shuffle_f(propid, hdferr)
-          call h5pset_deflate_f(propid, icompress, hdferr)
-       endif
-
+    call h5iis_valid_f(fileid, valid, hdferr)
+    if (hdferr < 0 .or. .not. valid) then
+       hdferr = -1
+       write(io6,*) "fh5_prepare_write_ll: Trying to write " // trim(dname) // &
+                    " but no HDF5 file is open."
+       return
     endif
 
-    ! Create the global file space for the data if not previously created
+    ! Make sure dsetid is not already open
 
     call h5iis_valid_f(dsetid, valid, hdferr)
-    if (.not. valid) then
-       call h5screate_simple_f(ndims, dims_file, fspcid, hdferr)
-       call h5dcreate_f(fileid, dname, stype, fspcid, dsetid, hdferr, dcpl_id=propid)
-       call h5sclose_f(fspcid, hdferr)
+    if (valid) then
+       write(io6,*) "fh5_prepare_write_ll: dsetid is already open"
+       hdferr = -1
+       return
     endif
 
-    if (docompress) call h5pclose_f(propid, hdferr)
+    call H5Lexists_f(fileid, dname, valid, hdferr)
+    if (valid) then
 
-    ! Check if parallel write has been cached
+       call H5Dopen_f(fileid, dname, dsetid, hdferr)
+       call H5Dget_space_status_f(dsetid, flag, hdferr)
 
-    id = 0
+       if ( flag /= H5D_SPACE_STS_ALLOCATED_F .and. &
+            flag /= H5D_SPACE_STS_PART_ALLOCATED_F ) then
+          write(*,*) "HDF5 error: a data set has already been created for variable " // trim(dname)
+          write(*,*) "in the HDF5 file but has no space allocated to it. Don't know what to do here."
+          stop "HDF5 write error."
+       endif
 
-#if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
-    if (dopario) then
+    else
 
-       if (present(type) .and. present(fcoords)) then
+       ! Setup HFS compression if we are not doing partial writes
 
-          ! First check if this write has been cached yet
-          ifsize = dims(1) * dims(2)
+       if ( present(icompress) .and. (.not. present(fcoords)) ) then
 
-          do i = 1, ncache_w
-             if ( type   == stagpt_cache_w(i) .and. &
-                  ifsize == nglobe_cache_w(i) .and. &
-                  ndims  == ndims_cache_w (i) .and. &
-                  all(dims(1:ndims) == dims_cache_w(1:ndims,i)) ) then
-                id = i
-                return
-             endif
-          enddo
-
-          ! If we arrived here, this write has not been cached yet
-
-          ncache_w  = ncache_w + 1
-
-          if (ncache_w > maxids) then
-             ncache_w = maxids
-             id = 0
+          if (present(dims_chunk)) then
+             dims_compress = dims_chunk
           else
-             id = ncache_w
-             stagpt_cache_w(id) = type
-             nglobe_cache_w(id) = ifsize
-             ndims_cache_w (id) = ndims
-             dims_cache_w(1:ndims,id) = dims(1:ndims)
+             dims_compress = dims
+          endif
+
+          if (icompress > 0 .and. icompress < 10 .and. product(dims_compress) > 1) then
+             docompress = .true.
+          endif
+
+          ! Create a property list for compression/chunking/filters
+
+          if (docompress) then
+             call h5pcreate_f(H5P_DATASET_CREATE_F, propid, hdferr)
+             call h5pset_chunk_f(propid, ndimsf, dimsf, hdferr)
+             call h5pset_shuffle_f(propid, hdferr)
+             call h5pset_deflate_f(propid, icompress, hdferr)
           endif
 
        endif
 
+       ! Create the global file space for the data if not previously created
+
+       call h5screate_simple_f(ndims, dims_file, fspcid, hdferr)
+       call h5dcreate_f(fileid, dname, stype, fspcid, dsetid, hdferr, dcpl_id=propid)
+       call h5sclose_f(fspcid, hdferr)
+
+       if (docompress) call h5pclose_f(propid, hdferr)
+
     endif
-#endif
 
     ! Create the local memory space for the data
 
-    call h5screate_simple_f(ndimsf, dimsf, mspcidw(id), hdferr)
+    call h5screate_simple_f(ndimsf, dimsf, mspcid, hdferr)
 
     ! Select the points that we will output (either all or none for lat/lon output)
 
     if (present(fcoords)) then
 
        if (size(fcoords) == 0) then
-          call h5sselect_none_f(mspcidw(id), hdferr)
+          call h5sselect_none_f(mspcid, hdferr)
        else
-          call h5sselect_all_f(mspcidw(id), hdferr)
+          call h5sselect_all_f(mspcid, hdferr)
        endif
 
     endif
 
     ! Create the dataspace for the data
 
-    call h5screate_simple_f(ndims_file, dims_file, dspcidw(id), hdferr)
+    call h5screate_simple_f(ndims_file, dims_file, dspcid, hdferr)
 
     ! For parallel output, select the points in the output file that
     ! we will be writing to
@@ -1892,7 +1896,7 @@ contains
 
        if (size(fcoords) == 0) then
 
-          call h5sselect_none_f(dspcidw(id), hdferr)
+          call h5sselect_none_f(dspcid, hdferr)
 
        else
 
@@ -1921,7 +1925,7 @@ contains
              ilat = (fcoords(j)-1)/dims(1) + 1
 
              if ((ilon /= ilonp + 1) .or. (ilat /= ilatp)) then
-                call h5sselect_hyperslab_f(dspcidw(id), iop, offset, countf, hdferr)
+                call h5sselect_hyperslab_f(dspcid, iop, offset, countf, hdferr)
                 offset(1) = ilon - 1
                 offset(2) = ilat - 1
                 countf(1) = 1
@@ -1932,7 +1936,7 @@ contains
              endif
           enddo
 
-          call h5sselect_hyperslab_f(dspcidw(id), iop, offset, countf, hdferr)
+          call h5sselect_hyperslab_f(dspcid, iop, offset, countf, hdferr)
 
        endif
 
@@ -2082,30 +2086,21 @@ contains
           ! read attribute from file
           ivalue = 0
           call H5Aread_f(attr_id, H5T_NATIVE_INTEGER, ivalue, dims, hdferr)
-
-          if (present(exists) .and. (hdferr >= 0)) then
-             exists = .true.
-          endif
+          if (present(exists)) exists = (hdferr >= 0)
 
        elseif (present(rvalue)) then
 
           ! read attribute from file
           rvalue = 0.0
           call H5Aread_f(attr_id, H5T_NATIVE_REAL, rvalue, dims, hdferr)
-
-          if (present(exists) .and. (hdferr >= 0)) then
-             exists = .true.
-          endif
+          if (present(exists)) exists = (hdferr >= 0)
 
        elseif (present(dvalue)) then
 
           ! read attribute from file
           dvalue = 0.0_r8
           call H5Aread_f(attr_id, H5T_NATIVE_DOUBLE, dvalue, dims, hdferr)
-
-          if (present(exists) .and. (hdferr >= 0)) then
-             exists = .true.
-          endif
+          if (present(exists)) exists = (hdferr >= 0)
 
        elseif (present(cvalue)) then
 
@@ -2116,10 +2111,7 @@ contains
           ! read attribute from file
           cvalue = ' '
           call H5Aread_f(attr_id, stype_id, cvalue, dims, hdferr)
-
-          if (present(exists) .and. (hdferr >= 0)) then
-             exists = .true.
-          endif
+          if (present(exists)) exists = (hdferr >= 0)
 
           ! Close the string type
           CALL H5Tclose_f(stype_id, hdferr)
@@ -2135,6 +2127,117 @@ contains
     call H5Aclose_f(attr_id,  hdferr)
 
   end subroutine fh5f_read_attribute
+
+!===============================================================================
+
+  subroutine fh5f_read_global_attribute(name, exists, ivalue, rvalue, dvalue, cvalue)
+
+    implicit none
+
+    character(*),           intent(in ) :: name
+    integer,      optional, intent(out) :: ivalue
+    real,         optional, intent(out) :: rvalue
+    real(r8),     optional, intent(out) :: dvalue
+    character(*), optional, intent(out) :: cvalue
+    logical,      optional, intent(out) :: exists
+
+    integer(hid_t)   :: attr_id, atype_id, stype_id, grp_id
+    integer(hsize_t) :: dims(1)
+    integer(size_t)  :: attrlen
+    integer          :: class
+    integer          :: ndims
+    integer          :: hdferr
+    logical          :: aexists
+
+    if (present(exists)) exists = .false.
+
+    if ( (.not. present(ivalue))  .and. &
+         (.not. present(rvalue))  .and. &
+         (.not. present(dvalue))  .and. &
+         (.not. present(cvalue)) ) return
+
+    ndims = 1
+    dims  = 1
+
+    ! Open the root group of the HDF5 file
+    call H5Gopen_f(fileid, '/', grp_id, hdferr)
+
+    call H5Aexists_f(grp_id, name, aexists, hdferr)
+
+    if (.not. aexists) then
+       call H5Gclose_f(grp_id, hdferr)
+       return
+    endif
+
+    call H5Aopen_f(grp_id, name, attr_id, hdferr)
+
+    call H5Aget_type_f(attr_id, atype_id, hdferr)
+
+    call H5Tget_class_f(atype_id, class, hdferr)
+
+    if (present(cvalue) .and. (class /= H5T_STRING_F)) then
+
+       write(*,*) "Input error reading attribute " // trim(name)
+       write(*,*) "Character attribute expected but datatype is not a string in the file."
+       write(*,*) "Not reading attribute"
+
+    elseif ((.not. present(cvalue)) .and. (class == H5T_STRING_F)) then
+
+       write(*,*) "Input error reading attribute " // trim(name)
+       write(*,*) "Integer or float attribute expected but datatype is a string in the file."
+       write(*,*) "Not reading attribute"
+
+    else
+
+       if (present(ivalue)) then
+
+          ! read attribute from file
+          ivalue = 0
+          call H5Aread_f(attr_id, H5T_NATIVE_INTEGER, ivalue, dims, hdferr)
+          if (present(exists)) exists = (hdferr >= 0)
+
+       elseif (present(rvalue)) then
+
+          ! read attribute from file
+          rvalue = 0.0
+          call H5Aread_f(attr_id, H5T_NATIVE_REAL, rvalue, dims, hdferr)
+          if (present(exists)) exists = (hdferr >= 0)
+
+       elseif (present(dvalue)) then
+
+          ! read attribute from file
+          dvalue = 0.0_r8
+          call H5Aread_f(attr_id, H5T_NATIVE_DOUBLE, dvalue, dims, hdferr)
+          if (present(exists)) exists = (hdferr >= 0)
+
+       elseif (present(cvalue)) then
+
+          attrlen = len(cvalue)
+          call H5Tcopy_f(H5T_NATIVE_CHARACTER, stype_id, hdferr)
+          call H5Tset_size_f(stype_id, attrlen, hdferr)
+
+          ! read attribute from file
+          cvalue = ' '
+          call H5Aread_f(attr_id, stype_id, cvalue, dims, hdferr)
+          if (present(exists)) exists = (hdferr >= 0)
+
+          ! Close the string type
+          CALL H5Tclose_f(stype_id, hdferr)
+
+       endif
+
+    endif
+
+    ! Close the inquired type
+    CALL H5Tclose_f(atype_id, hdferr)
+
+    ! Close the attribute
+    call H5Aclose_f(attr_id,  hdferr)
+
+    ! Close the root group
+    call H5Gclose_f(grp_id, hdferr)
+
+  end subroutine fh5f_read_global_attribute
 
 !===============================================================================
 
@@ -2282,27 +2385,6 @@ contains
 
 !===============================================================================
 
-  subroutine fh5_close_caches(hdferr)
-
-    implicit none
-
-    integer, intent(OUT) :: hdferr
-    integer              :: id
-
-    do id = 1, ncache_r
-       call h5sclose_f(mspcidr(id), hdferr)
-       call h5sclose_f(dspcidr(id), hdferr)
-    enddo
-
-    do id = 1, ncache_w
-       call h5sclose_f(mspcidw(id), hdferr)
-       call h5sclose_f(dspcidw(id), hdferr)
-    enddo
-
-  end subroutine fh5_close_caches
-
-!===============================================================================
-
   subroutine fh5_get_attached_scales(dnames)
 
     use, intrinsic :: iso_c_binding, only: c_ptr, c_loc
@@ -2322,7 +2404,7 @@ contains
        dnames(i) = ' '
     enddo
 
-    call h5sget_simple_extent_ndims_f(dspcidr(id), rank, hdferr)
+    call h5sget_simple_extent_ndims_f(dspcid, rank, hdferr)
 
     if (size(dnames) < rank) then
        write(*,*) "Character array is not large enough to hold the dimension list."
@@ -2382,3 +2464,46 @@ contains
 !===============================================================================
 
 end module hdf5_f2f
+
+
+!! This routine was added to HDF5 in version 1.14.0. If not available through
+!! the HDF5 fortran module, the original routine h5fis_hdf5_f will be used:
+
+subroutine H5Fis_accessible_f(name, status, hdferr, access_prp)
+
+  use hdf5, only: hid_t, h5fis_hdf5_f
+  implicit none
+
+  character(*),   intent(in)  :: name
+  logical,        intent(out) :: status
+  integer,        intent(out) :: hdferr
+  integer(hid_t), intent(in)  :: access_prp
+
+  call h5fis_hdf5_f(name, status, hdferr)
+
+end subroutine H5Fis_accessible_f
+
+!! Set the minimum HDF5 library version to read the created file to version 1.8
+!! This works around an issue where version1.8 does not define  H5F_LIBVER_V18_F
+
+subroutine fh5_set_lib_bounds(fapl_id, hdferr)
+
+  use hdf5, only: HID_T, H5F_LIBVER_LATEST_F
+  implicit none
+
+  integer(HID_T), intent(in)  :: fapl_id
+  integer,        intent(out) :: hdferr
+  integer                     :: H5F_LIBVER_V18_F
+
+  H5F_LIBVER_V18_F = H5F_LIBVER_LATEST_F
+  call my_set_lib_bounds()
+
+  contains
+
+  subroutine my_set_lib_bounds()
+    use hdf5
+    implicit none
+    call h5pset_libver_bounds_f(fapl_id, H5F_LIBVER_V18_F, H5F_LIBVER_LATEST_F, hdferr)
+  end subroutine my_set_lib_bounds
+
+end subroutine fh5_set_lib_bounds

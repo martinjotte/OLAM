@@ -7,7 +7,7 @@ contains
 
 subroutine geia_init()
 
-  use hdf5_utils,  only: shdf5_open, shdf5_irec, shdf5_info, shdf5_close
+  use hdf5_utils,  only: shdf5_exists, shdf5_open, shdf5_irec, shdf5_info, shdf5_close
   use misc_coms,   only: io6
   use mem_ijtabs,  only: jtab_w, jtw_prog
   use mem_grid,    only: mwa, arw0, glatw, glonw
@@ -39,14 +39,15 @@ subroutine geia_init()
   enddo
   !$omp end parallel do
 
-  inquire(file=nl%geia_emis_file, exist=exists)
+  call shdf5_exists(nl%geia_emis_file, exists)
+
   if (.not. exists) then
      write(io6,*) "Error opening emissions file " // trim(nl%geia_emis_file)
      write(io6,*) "CL and HCL emissions will be set to 0"
      return
   endif
 
-  call shdf5_open(nl%geia_emis_file, 'R', trypario=.true.)
+  call shdf5_open(nl%geia_emis_file, 'R')
 
   ndims    = 2
   idims(1) = nlon

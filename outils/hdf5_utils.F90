@@ -1,8 +1,8 @@
 Module hdf5_utils
 
-  use mem_para,    only: myrank
-  use consts_coms, only: r8, i1
-  use max_dims,    only: pathlen
+  use max_dims, only: pathlen
+
+  use, intrinsic :: iso_fortran_env, only: r8=>real64, i1=>int8
 
   use hdf5_f2f, FORTRAN_REAL4_TYPE => H5T_IEEE_F32LE, &
                 FORTRAN_REAL8_TYPE => H5T_IEEE_F64LE, &
@@ -12,94 +12,224 @@ Module hdf5_utils
 
   implicit none
 
-  character(1) :: prevaccess = ' '
+#if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
+  logical, parameter :: has_phdf5 = .true.
+#else
+  logical, parameter :: has_phdf5 = .false.
+#endif
+
+  logical :: do_phdf5
+  logical :: do_hdf5
+  logical :: do_comm
+  logical :: indepio
+
+  character(pathlen) :: fname = ' '
+  character(1)       :: fmode = ' '
 
   private
   public :: shdf5_open, shdf5_info, shdf5_orec, shdf5_irec, shdf5_close, &
             shdf5_io, shdf5_orec_ll, shdf5_write_global_attribute, &
-            FORTRAN_REAL4_TYPE, FORTRAN_REAL8_TYPE, &
+            shdf5_exists, FORTRAN_REAL4_TYPE, FORTRAN_REAL8_TYPE, &
             FORTRAN_INT1_TYPE, FORTRAN_INT2_TYPE, FORTRAN_INT4_TYPE
 
 Contains
 
 !===============================================================================
 
-subroutine shdf5_open(locfn, access, idelete, trypario)
+subroutine shdf5_exists(locfn, exists, serial)
+
+  use misc_coms,  only: iparallel
+  use mem_para,   only: myrank
+  use oname_coms, only: nl
+
+#ifdef OLAM_MPI
+  use mpi
+#endif
+
+  implicit none
+
+  character(*),      intent(in)  :: locfn
+  logical,           intent(out) :: exists
+  logical, optional, intent(in)  :: serial
+  logical                        :: dophdf5, dohdf5
+  logical                        :: docomm
+  integer                        :: ier
+
+  ! Are we using parallel HDF5
+  dophdf5 = (iparallel==1) .and. has_phdf5 .and. (.not. nl%disable_phdf5_reads )
+
+  ! Does this rank directly call HDF5 routines
+  dohdf5 = (myrank==0) .or. nl%allranks_read_hdf5 .or. do_phdf5
+
+  ! Do we need MPI routines to send/receive data to/from node 0
+  docomm = (iparallel==1) .and. (.not. do_phdf5) .and. (.not. nl%allranks_read_hdf5 )
+
+  if (present(serial)) then
+     dophdf5 = dophdf5 .and. (.not. serial)
+     docomm  = docomm  .and. (.not. serial)
+  endif
+
+  if (dohdf5) call fh5f_exists(locfn, exists, pario=dophdf5)
+#ifdef OLAM_MPI
+  if (docomm) call MPI_Bcast(exists, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ier)
+#endif
+
+end subroutine shdf5_exists
+
+!===============================================================================
+
+subroutine shdf5_open(locfn, access, idelete, serial)
+
+  use misc_coms,  only: iparallel, iclobber, io6
+  use mem_para,   only: olam_mpi_finalize, myrank
+  use oname_coms, only: nl
+
+#ifdef OLAM_MPI
+  use mpi
+#endif
 
   implicit none
 
   character(*),      intent(in) :: locfn   ! file name
-  character(*),      intent(in) :: access  ! File access ('R','W','RW')
+  character(1),      intent(in) :: access  ! File access ('R' or 'W')
+                                           ! read, write, or append
   integer, optional, intent(in) :: idelete ! If W, overwrite file if exists?
                                            !    1=yes, 0=no
-  logical, optional, intent(in) :: trypario! Use parallel I/O if MPI run and
-                                           ! compiled with PHDF5
-
+  logical, optional, intent(in) :: serial  ! Disable collective/parallel features
+                                           ! (all nodes independent or each other)
   integer                       :: hdferr  ! Error flag
   integer                       :: iaccess ! int access flag
   logical                       :: exists  ! File existence
+  logical                       :: ierror  ! Error opening file
+  logical                       :: idel    ! Delete existing file flag
 
-  prevaccess = access(1:1)
+  if (access /= 'R' .and. access /= 'W') then
+     write(io6,*) 'Error in shdf5_open:'
+     write(io6,*) '   Access must be either R or W.'
+     write(io6,*) 'Returning to model without opening ' // trim(locfn)
+     return
+  endif
 
-#if defined(OLAM_MPI) && !defined(OLAM_PARALLEL_HDF5)
-  if (prevaccess == 'W' .and. myrank /= 0) return
-#endif
+  fname = locfn
+  fmode = access
 
-! Check for existence of RAMS file.
+  if (access == 'R') then  ! When reading, all ranks may access the file.
 
-  inquire(file=locfn, exist=exists)
+     ! Are we using parallel HDF5
+     do_phdf5 = (iparallel==1) .and. has_phdf5 .and. (.not. nl%disable_phdf5_reads )
 
-! Create a new file or open an existing RAMS file.
+     ! Does this rank directly call HDF5 routines
+     do_hdf5 = (myrank==0) .or. nl%allranks_read_hdf5 .or. do_phdf5
 
-  if (access(1:1) == 'R') then
+     ! Do we need MPI routines to send/receive data to/from node 0
+     do_comm = (iparallel==1) .and. (.not. do_phdf5) .and. (.not. nl%allranks_read_hdf5 )
 
-     if (.not. exists) then
-        print*, 'shdf5_open:'
-        print*, '   Attempt to open a file for reading that does not exist.'
-        print*, '   Filename: ', trim(locfn)
-        stop    'shdf5_open: no file'
-     else
-        if (access == 'R ') iaccess = 1
-        if (access == 'RW') iaccess = 2
-        call fh5f_open(locfn, iaccess, hdferr, pario=trypario)
+     ! Are all nodes doing serial reads/writes on same file
+     indepio = (iparallel==1) .and. (.not. do_phdf5) .and. nl%allranks_read_hdf5
+
+  else  ! When writing, only one rank may access the file at a time if not using PHDF5
+
+     ! Are we using parallel HDF5
+     do_phdf5 = (iparallel==1) .and. has_phdf5 .and. (.not. nl%disable_phdf5_writes )
+
+     ! Does this rank directly call HDF5 routines
+     do_hdf5 = (myrank==0) .or. do_phdf5
+
+     ! Do we need MPI routines to send/receive data to/from node 0
+     do_comm = (iparallel==1) .and. (.not. do_phdf5)
+
+     ! Are all nodes doing serial reads/writes on same file
+     indepio = .false.
+
+  endif
+
+  if (present(serial)) then
+     ! If nodes read different files, or only some nodes open file
+     do_phdf5 = do_phdf5 .and. (.not. serial)
+     do_hdf5  = do_hdf5  .or.         serial
+     do_comm  = do_comm  .and. (.not. serial)
+     indepio  = indepio  .and. (.not. serial)
+  endif
+
+  ! Open/create file if this process rank is performing I/O
+
+  if (do_hdf5) then
+
+     ierror = .false.
+     hdferr = 0
+
+     ! Create a new file or open an existing RAMS file.
+
+     if (access == 'R' .or. access == 'A') then
+
+        if (access == 'R') iaccess = 1
+        if (access == 'A') iaccess = 2
+
+        call fh5f_open(locfn, iaccess, hdferr, pario=do_phdf5)
 
         if (hdferr < 0) then
-           print*, 'shdf5_open:'
-           print*, '   Error opening hdf5 file - error -', hdferr
-           print*, '   Filename: ',trim(locfn)
-           stop    'shdf5_open: open error'
-        endif
-     endif
-
-  elseif (access(1:1) == 'W') then
-
-     if (.not. exists) then
-        iaccess = 2
-        call fh5f_create(locfn, iaccess, hdferr, pario=trypario)
-     else
-        if (.not. present(idelete) ) then
-           print*, 'shdf5_open: idelete not specified when access=W'
-           stop    'shdf5_open: no idelete'
+           write(io6,*) 'shdf5_open:'
+           write(io6,*) '   Error opening hdf5 file - error -', hdferr
+           write(io6,*) '   Filename: ',trim(locfn)
+           write(io6,*) 'shdf5_open: open error'
+           ierror = .true.
         endif
 
-        if (idelete == 0) then
-           print*, 'In shdf5_open:'
-           print*, '   Attempt to open an existing file for writing,'
-           print*, '      but overwrite is disabled. idelete=', idelete
-           print*, '   Filename: ', trim(locfn)
-           stop    'shdf5_open'
+     elseif (access == 'W') then
+
+        if (present(idelete)) then
+           idel = (idelete  == 1)
         else
-           iaccess = 1
-           call fh5f_create(locfn, iaccess, hdferr, pario=trypario)
+           idel = (iclobber == 1)
         endif
 
-     endif
+        if (idel) then
+           iaccess = 1
+        else
+           iaccess = 2
+        endif
 
-     if(hdferr < 0) then
-        print*, 'HDF5 file create failed:', hdferr
-        print*, 'file name:', trim(locfn), ' ', trim(access), idelete
-        stop    'shdf5_open: bad create'
+        ! Check for existence of file.
+        inquire(file=locfn, exist=exists)
+
+        if (.not. exists) then
+
+           call fh5f_create(locfn, iaccess, hdferr, pario=do_phdf5)
+
+        else
+
+           if (idel) then
+              write(io6,*) 'Existing file ' // trim(locfn) // ' is being deleted on write'
+              call fh5f_create(locfn, iaccess, hdferr, pario=do_phdf5)
+              if (hdferr < 0) then
+                 write(io6,*) 'shdf5_open:'
+                 write(io6,*) '   Error creating hdf5 file - error -', hdferr
+                 write(io6,*) '   Filename: ',trim(locfn)
+                 write(io6,*) 'shdf5_open: create error'
+                 ierror = .true.
+              endif
+           else
+              write(io6,*) 'In shdf5_open:'
+              write(io6,*) '   Attempt to open an existing file for writing,'
+              write(io6,*) '   but overwrite is disabled.'
+              write(io6,*) '   Filename: ', trim(locfn)
+              write(io6,*) 'Delete existing file or change ICLOBBER in OLAMIN namelist'
+              ierror = .true.
+           endif
+
+        endif
      endif
+  endif
+
+#ifdef OLAM_MPI
+  if (do_comm) call MPI_Bcast(ierror, 1, MPI_LOGICAL,  0, MPI_COMM_WORLD, hdferr)
+#endif
+
+  if (ierror) then
+     write(io6,*)
+     write(io6,*) 'Stopping model in shdf5_open due to error opening ' // trim(locfn)
+     call olam_mpi_finalize()
+     stop
   endif
 
 end subroutine shdf5_open
@@ -109,53 +239,107 @@ end subroutine shdf5_open
 subroutine shdf5_info(dsetname, ndims, dims, dimname, attached_dimnames, &
                       units, chunk_dims)
 
+  use mem_para, only: olam_mpi_barrier
+
+#ifdef OLAM_MPI
+  use mpi
+#endif
+
   implicit none
 
   character(*),        intent(in)    :: dsetname ! Dataset name
   integer, contiguous, intent(inout) :: dims(:)
   integer,             intent(inout) :: ndims    ! Dataset rank (in file)
 
-! Optional arrays to read common NetCDF convention attributes or dimension information
+  ! Optional arrays to read common NetCDF convention attributes or dimension information
   character(*),        intent(inout), optional :: units
   character(*),        intent(inout), optional :: dimname
   character(*),        intent(inout), optional :: attached_dimnames(:)
   integer, contiguous, intent(inout), optional :: chunk_dims(:)
 
-! Open the dataset.
+  integer :: hdferr
+#ifdef OLAM_MPI
+  integer :: ier
+#endif
 
-  call fh5_get_info(dsetname, ndims, dims)
+  ndims = 0
+  dims  = 0
 
-! Return if there was an error
+  if (present(attached_dimnames)) attached_dimnames(:) = ' '
+  if (present(dimname))           dimname              = ' '
+  if (present(units))             units                = ' '
+  if (present(chunk_dims))        chunk_dims(:)        = 0
 
-  if (ndims < 0) return
+  ! Open the dataset.
 
-! Is this variable a dimension?
+  if (do_hdf5) call fh5_open_dataset(dsetname, hdferr)
+#ifdef OLAM_MPI
+  if (do_comm) call MPI_Bcast(hdferr, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ier)
+#endif
+
+  ! Return if there was an error (dataset not in file)
+
+  if (hdferr < 0) return
+
+  ! Get dimension information for the dataset
+
+  if (do_hdf5) call fh5_get_info(dsetname, ndims, dims)
+#ifdef OLAM_MPI
+  if (do_comm) call MPI_Bcast(ndims, 1,         MPI_INTEGER, 0, MPI_COMM_WORLD, ier)
+  if (do_comm) call MPI_Bcast(dims, size(dims), MPI_INTEGER, 0, MPI_COMM_WORLD, ier)
+#endif
+
+  ! Return if there was an error
+
+  if (ndims < 0) then
+     if (do_hdf5) call fh5_close_dataset(hdferr)
+     return
+  endif
+
+  ! Is this variable a dimension?
 
   if (present(dimname)) then
-     call fh5f_query_dimname(dimname)
+     if (do_hdf5) call fh5f_query_dimname(dimname)
+#ifdef OLAM_MPI
+     if (do_comm) call MPI_Bcast(dimname, len(dimname), MPI_CHARACTER, 0, MPI_COMM_WORLD, ier)
+#endif
   endif
 
-! Does the variable have dimension scales?
+  ! Does the variable have dimension scales?
 
   if (present(attached_dimnames)) then
-     attached_dimnames(:) = ' '
-     call fh5_get_attached_scales(attached_dimnames)
+     if (do_hdf5) call fh5_get_attached_scales(attached_dimnames)
+#ifdef OLAM_MPI
+     if (do_comm) call MPI_Bcast(attached_dimnames, len(attached_dimnames)*size(attached_dimnames), &
+                                  MPI_CHARACTER, 0, MPI_COMM_WORLD, ier)
+#endif
   endif
 
-! Read any attributes
+  ! Read any attributes
 
   if (present(units)) then
-     units = ' '
-     call fh5f_read_attribute("units", cvalue=units)
+     if (do_hdf5) call fh5f_read_attribute("units", cvalue=units)
+#ifdef OLAM_MPI
+     if (do_comm) call MPI_Bcast(units, len(units), MPI_CHARACTER, 0, MPI_COMM_WORLD, ier)
+#endif
   endif
 
   if (present(chunk_dims)) then
-     call fh5_get_chunk_dims(ndims,chunk_dims)
+     if (do_hdf5) call fh5_get_chunk_dims(ndims,chunk_dims)
+#ifdef OLAM_MPI
+     if (do_comm) call MPI_Bcast(chunk_dims, size(chunk_dims), MPI_INTEGER, 0, &
+                                 MPI_COMM_WORLD, ier)
+#endif
   endif
 
-! Close the dataset
+  ! Close the dataset
 
-  call fh5_close_info()
+  if (do_hdf5) call fh5_close_dataset(hdferr)
+
+  ! If all nodes are independently reading the same file outside of parallel HDF5,
+  ! wait here for all nodes to finish
+
+  if (indepio) call olam_mpi_barrier()
 
 end subroutine shdf5_info
 
@@ -166,7 +350,7 @@ subroutine shdf5_orec(ndims,dims,dsetname,bvars,ivars,rvars,dvars,lvars,    &
                                           bvar2,ivar2,rvar2,dvar2,lvar2,    &
                                           bvar3,ivar3,rvar3,dvar3,lvar3,    &
                                           bvar4,ivar4,rvar4,dvar4,          &
-                                          nglobe, lpoints, gpoints, stagpt, &
+                                          nglobe, lpoints, gpoints,         &
                                           units, long_name, positive,       &
                                           imissing, rmissing, dmissing,     &
                                           isdim, dimnames, standard_name,   &
@@ -174,7 +358,7 @@ subroutine shdf5_orec(ndims,dims,dsetname,bvars,ivars,rvars,dvars,lvars,    &
                                           storage_type                      )
 
   use oname_coms,  only: nl
-  use misc_coms,   only: iparallel
+  use misc_coms,   only: io6
 
   implicit none
 
@@ -216,41 +400,56 @@ subroutine shdf5_orec(ndims,dims,dsetname,bvars,ivars,rvars,dvars,lvars,    &
   integer,      intent(in), optional :: dims_chunk(ndims) ! Compression dimensions.
 
 ! Type of variable
-  character(2),   intent(in), optional :: stagpt
   integer(HID_T), intent(in), optional :: storage_type
 
 ! Local variables
-  integer        :: hdferr
+  integer        :: hdferr, n
   integer(HID_T) :: stype
 
-! Check dimensions and set compression chunk size
+  ! Maybe we can get around specifying all possible ranks and types by using
+  ! assumed-rank and/or assumed-type arrays and C interoperability once
+  ! most compilers support this
+
+  n = count( [present(bvars), present(bvar1), present(bvar2), present(bvar3), present(bvar4), &
+              present(ivars), present(ivar1), present(ivar2), present(ivar3), present(ivar4), &
+              present(rvars), present(rvar1), present(rvar2), present(rvar3), present(rvar4), &
+              present(dvars), present(dvar1), present(dvar2), present(dvar3), present(dvar4), &
+              present(lvars), present(lvar1), present(lvar2), present(lvar3)] )
+
+  if (n /= 1) then
+     write(io6,*) 'Error in shdf5_orec writing ' // trim(dsetname)
+     write(io6,*) 'Only one variable type should be specified for HDF5 output.'
+     return
+  endif
+
+  ! check arguments for parallel output
+
+  if (present(gpoints)) then
+
+     if (.not. present(nglobe)) then
+        write(io6,*) 'Error in shdf5_orec reading ' // trim(dsetname)
+        write(io6,*) 'Both gpoints and nglobe must be specified for parallel output.'
+        return
+     endif
+
+     if (present(lpoints)) then
+        if (size(gpoints) /= size(lpoints)) then
+           write(io6,*) 'Error in shdf5_orec reading ' // trim(dsetname)
+           write(io6,*) 'gpoints and lpoints must have same number of points for parallel output.'
+           return
+        endif
+     endif
+
+  endif
+
+  ! Check dimensions
 
   if (ndims <=0 .or. minval(dims(1:ndims)) <=0) then
      print*, 'Dimension error in shdf5_orec:', ndims, dims(1:ndims)
      stop    'shdf5_orec: bad dims'
   endif
 
-#if defined(OLAM_MPI) && !defined(OLAM_PARALLEL_HDF5)
-  if ( (.not. present(bvars)) .and. (.not. present(ivars)) .and. (.not. present(rvars)) .and. &
-       (.not. present(dvars)) .and. (.not. present(lvars)) .and. &
-       (iparallel == 1) .and. present(gpoints) .and. present(nglobe) ) then
-
-     call shdf5_orec2(ndims,dims,dsetname,bvar1,ivar1,rvar1,dvar1,lvar1,  &
-                                          bvar2,ivar2,rvar2,dvar2,lvar2,  &
-                                          bvar3,ivar3,rvar3,dvar3,lvar3,  &
-                                          bvar4,ivar4,rvar4,dvar4,        &
-                                          nglobe, lpoints, gpoints,       &
-                                          units, long_name, positive,     &
-                                          imissing, rmissing, dmissing,   &
-                                          isdim, dimnames, standard_name, &
-                                          cell_methods, storage_type      )
-     return
-  else
-     if (myrank /= 0) return
-  endif
-#endif
-
-  ! Prepare memory and options for the write
+  ! Do we want to change the storage type
 
   if (present(storage_type)) then
      stype = storage_type
@@ -266,465 +465,451 @@ subroutine shdf5_orec(ndims,dims,dsetname,bvars,ivars,rvars,dvars,lvars,    &
      stype = FORTRAN_INT1_TYPE
   endif
 
-  call fh5_prepare_write(ndims, dims, dsetname, stype, hdferr, &
-                         icompress=nl%icompress, type=stagpt, &
-                         mcoords=lpoints, fcoords=gpoints, ifsize=nglobe, &
-                         dims_chunk=dims_chunk)
+! write(io6,'(A,8(1x,I0))') " Writing: "//trim(dsetname), dims(1:ndims)
 
-  if (hdferr < 0) then
-     print*, "shdf5_orec: can't prepare requested field:", trim(dsetname)
-     stop
-  endif
-
-! Write the dataset.
-
-      if (present(ivars)) then ; call fh5_write(ivars, hdferr)
-  elseif (present(rvars)) then ; call fh5_write(rvars, hdferr)
-  elseif (present(dvars)) then ; call fh5_write(dvars, hdferr)
-  elseif (present(lvars)) then ; call fh5_write(lvars, hdferr)
-  elseif (present(bvars)) then ; call fh5_write(bvars, hdferr)
-
-  elseif (present(ivar1)) then ; call fh5_write(ivar1, hdferr)
-  elseif (present(rvar1)) then ; call fh5_write(rvar1, hdferr)
-  elseif (present(dvar1)) then ; call fh5_write(dvar1, hdferr)
-  elseif (present(lvar1)) then ; call fh5_write(lvar1, hdferr)
-  elseif (present(bvar1)) then ; call fh5_write(bvar1, hdferr)
-
-  elseif (present(ivar2)) then ; call fh5_write(ivar2, hdferr)
-  elseif (present(rvar2)) then ; call fh5_write(rvar2, hdferr)
-  elseif (present(dvar2)) then ; call fh5_write(dvar2, hdferr)
-  elseif (present(lvar2)) then ; call fh5_write(lvar2, hdferr)
-  elseif (present(bvar2)) then ; call fh5_write(bvar2, hdferr)
-
-  elseif (present(ivar3)) then ; call fh5_write(ivar3, hdferr)
-  elseif (present(rvar3)) then ; call fh5_write(rvar3, hdferr)
-  elseif (present(dvar3)) then ; call fh5_write(dvar3, hdferr)
-  elseif (present(bvar3)) then ; call fh5_write(bvar3, hdferr)
-
-  elseif (present(ivar4)) then ; call fh5_write(ivar4, hdferr)
-  elseif (present(rvar4)) then ; call fh5_write(rvar4, hdferr)
-  elseif (present(dvar4)) then ; call fh5_write(dvar4, hdferr)
-  elseif (present(bvar4)) then ; call fh5_write(bvar4, hdferr)
-
-  else
-     print*, 'Incorrect or missing data field argument in shdf5_orec'
-     stop    'shdf5_orec: bad data field'
-  endif
-
-  if (hdferr /= 0) then
-     print*, 'In shdf5_orec: hdf5 write error =', hdferr
-     stop    'shdf5_orec: hdf5 write error'
-  endif
-
-! Indicate if this variable is a dimension
-
-  if (present(isdim)) then
-     if (isdim) call fh5f_create_dim(dsetname, hdferr)
-  endif
-
-! Link each variable to its dimensions
-
-  if ((present(dimnames)) .and. (.not. present(isdim))) then
-     if (size(dimnames) >= ndims) call fh5f_attach_dims(ndims, dimnames, hdferr)
-  endif
-
-! Write any dataset attributes to match common NetCDF conventions
-
-  if (present(units)) then
-     if (len_trim(units) > 0) call fh5f_write_attribute("units", cvalue=units)
-  endif
-
-  if (present(long_name)) then
-     if (len_trim(long_name) > 0) call fh5f_write_attribute("long_name", cvalue=long_name)
-  endif
-
-  if (present(standard_name)) then
-     if (len_trim(standard_name) > 0) call fh5f_write_attribute("standard_name", cvalue=standard_name)
-  endif
-
-  if (present(cell_methods)) then
-     if (len_trim(cell_methods) > 0) call fh5f_write_attribute("cell_methods", cvalue=cell_methods)
-  endif
-
-  if (present(positive)) then
-     if (len_trim(positive) > 0) call fh5f_write_attribute("positive", cvalue=positive)
-  endif
-
-  if (present(imissing)) then
-     call fh5f_write_attribute("missing_value", ivalue=imissing)
-  endif
-
-  if (present(rmissing)) then
-     call fh5f_write_attribute("missing_value", rvalue=rmissing)
-  endif
-
-  if (present(dmissing)) then
-     call fh5f_write_attribute("missing_value", dvalue=dmissing)
-  endif
-
-! Close the dataset, the dataspace for the dataset, and the dataspace properties.
-
-  call fh5_close_write(hdferr)
-
-end subroutine shdf5_orec
-
-!================================================================
-
-#if defined(OLAM_MPI) && !defined(OLAM_PARALLEL_HDF5)
-
-subroutine shdf5_orec2(ndims,dims,dsetname,bvar1,ivar1,rvar1,dvar1,lvar1,  &
-                                           bvar2,ivar2,rvar2,dvar2,lvar2,  &
-                                           bvar3,ivar3,rvar3,dvar3,lvar3,  &
-                                           bvar4,ivar4,rvar4,dvar4,        &
-                                           nglobe, lpoints, gpoints,       &
-                                           units, long_name, positive,     &
-                                           imissing, rmissing, dmissing,   &
-                                           isdim, dimnames, standard_name, &
-                                           cell_methods, storage_type      )
-
-  use oname_coms,  only: nl
-  use mem_para,    only: mgroupsize, myrank
-  use mpi
-
-  implicit none
-
-  character(*), intent(in)             :: dsetname ! Variable label
-  integer,      intent(in)             :: ndims    ! Number of dimensions or rank
-  integer,      intent(in), contiguous :: dims(:)  ! Dataset dimensions.
-
-! Array and scalar arguments for different types. Only specify one in each call
-  integer(i1),  intent(in), optional, contiguous :: bvar1(:), bvar2(:,:), bvar3(:,:,:), bvar4(:,:,:,:)
-  integer,      intent(in), optional, contiguous :: ivar1(:), ivar2(:,:), ivar3(:,:,:), ivar4(:,:,:,:)
-  real,         intent(in), optional, contiguous :: rvar1(:), rvar2(:,:), rvar3(:,:,:), rvar4(:,:,:,:)
-  real(r8),     intent(in), optional, contiguous :: dvar1(:), dvar2(:,:), dvar3(:,:,:), dvar4(:,:,:,:)
-  logical,      intent(in), optional, contiguous :: lvar1(:), lvar2(:,:), lvar3(:,:,:)
-
-! Optional arrays to determine cells for partial/parallel IO
-  integer,      intent(in), optional             :: nglobe
-  integer,      intent(in), optional, contiguous :: lpoints(:), gpoints(:)
-
-! Optional arrays to write common NetCDF convention attributes
-  character(*), intent(in), optional :: units, long_name, positive
-  character(*), intent(in), optional :: standard_name, cell_methods
-  integer,      intent(in), optional :: imissing
-  real,         intent(in), optional :: rmissing
-  real(r8),     intent(in), optional :: dmissing
-
-! Indicates if this variable is a global dimension
-  logical,      intent(in), optional :: isdim
-
-! Indicate names of each dimension
-  character(*), intent(in), optional, contiguous :: dimnames(:)
-
-! Type of variable
-  integer(HID_T), intent(in), optional :: storage_type
-
-! Local variables
-  integer        :: hdferr  ! Error flag
-  integer(HID_T) :: stype
-
-  integer,     allocatable :: ibuff(:), points(:)
-  real,        allocatable :: rbuff(:)
-  real(r8),    allocatable :: dbuff(:)
-  logical,     allocatable :: lbuff(:)
-  integer(i1), allocatable :: bbuff(:)
-
-  integer :: dimsn(5)
-  integer :: nu, ier, base, n, i, is
-  integer :: maxbuff, locbuff
-  integer :: nus(mgroupsize)
-  integer, parameter :: itag = 40
-
-! Check dimensions and set compression chunk size
-
-  if (ndims <=0 .or. minval(dims(1:ndims)) <=0) then
-     print*, 'Dimension error in shdf5_orec2:', ndims, dims(1:ndims)
-     stop    'shdf5_orec2: bad dims'
-  endif
-
-  nu = size(gpoints)
-  call MPI_Gather(nu, 1, MPI_INTEGER, nus, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ier)
-
-  base = maxval(nus(2:mgroupsize))
-  maxbuff = base
-  locbuff = nu
-  is      = 1
-  do n = ndims-1, 1, -1
-     maxbuff = maxbuff * dims(n)
-     locbuff = locbuff * dims(n)
-     is      = is      * dims(n)
-  enddo
-
-  if (myrank == 0) then
-
-     allocate(points(base))
-     if     (present(ivar1) .or. present(ivar2) .or. present(ivar3) .or. present(ivar4)) then
-        allocate(ibuff(maxbuff))
-        stype = FORTRAN_INT4_TYPE
-     elseif (present(rvar1) .or. present(rvar2) .or. present(rvar3) .or. present(rvar4)) then
-        allocate(rbuff(maxbuff))
-        stype = FORTRAN_REAL4_TYPE
-     elseif (present(dvar1) .or. present(dvar2) .or. present(dvar3) .or. present(dvar4)) then
-        allocate(dbuff(maxbuff))
-        stype = FORTRAN_REAL8_TYPE
-     elseif (present(bvar1) .or. present(bvar2) .or. present(bvar3) .or. present(bvar4)) then
-        allocate(bbuff(maxbuff))
-        stype = FORTRAN_INT1_TYPE
-     elseif (present(lvar1) .or. present(lvar2) .or. present(lvar3)                    ) then
-        allocate(lbuff(maxbuff))
-        stype = FORTRAN_INT1_TYPE
-     endif
-
-     if (present(storage_type)) then
-        stype = storage_type
-     endif
-
-   endif
-
-  if (myrank > 0 .and. nu > 0) then
-
-     call MPI_Send(gpoints, nu, MPI_INTEGER, 0, itag, MPI_COMM_WORLD, ier)
-
-     if (present(ivar1) .or. present(ivar2) .or. present(ivar3) .or. present(ivar4)) then
-
-        allocate(ibuff(locbuff))
-        do n = 1, nu
-           if (present(lpoints)) then
-              i = lpoints(n)
-           else
-              i = n
-           endif
-
-           if (present(ivar1)) ibuff( (n-1)*is+1 : n*is) =    ivar1(i)
-           if (present(ivar2)) ibuff( (n-1)*is+1 : n*is) =    ivar2(:,i)
-           if (present(ivar3)) ibuff( (n-1)*is+1 : n*is) = (/ ivar3(:,:,i)   /)
-           if (present(ivar4)) ibuff( (n-1)*is+1 : n*is) = (/ ivar4(:,:,:,i) /)
-
-        enddo
-        call MPI_Send(ibuff, locbuff, MPI_INTEGER, 0, itag, MPI_COMM_WORLD, ier)
-
-     elseif (present(rvar1) .or. present(rvar2) .or. present(rvar3) .or. present(rvar4)) then
-
-        allocate(rbuff(locbuff))
-        do n = 1, nu
-           if (present(lpoints)) then
-              i = lpoints(n)
-           else
-              i = n
-           endif
-
-           if (present(rvar1)) rbuff( (n-1)*is+1 : n*is) =    rvar1(i)
-           if (present(rvar2)) rbuff( (n-1)*is+1 : n*is) =    rvar2(:,i)
-           if (present(rvar3)) rbuff( (n-1)*is+1 : n*is) = (/ rvar3(:,:,i)   /)
-           if (present(rvar4)) rbuff( (n-1)*is+1 : n*is) = (/ rvar4(:,:,:,i) /)
-
-        enddo
-        call MPI_Send(rbuff, locbuff, MPI_REAL, 0, itag, MPI_COMM_WORLD, ier)
-
-     elseif (present(dvar1) .or. present(dvar2) .or. present(dvar3) .or. present(dvar4)) then
-
-        allocate(dbuff(locbuff))
-        do n = 1, nu
-           if (present(lpoints)) then
-              i = lpoints(n)
-           else
-              i = n
-           endif
-
-           if (present(dvar1)) dbuff( (n-1)*is+1 : n*is) =    dvar1(i)
-           if (present(dvar2)) dbuff( (n-1)*is+1 : n*is) =    dvar2(:,i)
-           if (present(dvar3)) dbuff( (n-1)*is+1 : n*is) = (/ dvar3(:,:,i)   /)
-           if (present(dvar4)) dbuff( (n-1)*is+1 : n*is) = (/ dvar4(:,:,:,i) /)
-
-        enddo
-        call MPI_Send(dbuff, locbuff, MPI_REAL8, 0, itag, MPI_COMM_WORLD, ier)
-
-     elseif (present(bvar1) .or. present(bvar2) .or. present(bvar3) .or. present(bvar4)) then
-
-        allocate(bbuff(locbuff))
-        do n = 1, nu
-           if (present(lpoints)) then
-              i = lpoints(n)
-           else
-              i = n
-           endif
-
-           if (present(bvar1)) bbuff( (n-1)*is+1 : n*is) =    bvar1(i)
-           if (present(bvar2)) bbuff( (n-1)*is+1 : n*is) =    bvar2(:,i)
-           if (present(bvar3)) bbuff( (n-1)*is+1 : n*is) = (/ bvar3(:,:,i)   /)
-           if (present(bvar4)) bbuff( (n-1)*is+1 : n*is) = (/ bvar4(:,:,:,i) /)
-
-        enddo
-        call MPI_Send(bbuff, locbuff, MPI_INTEGER1, 0, itag, MPI_COMM_WORLD, ier)
-
-     elseif (present(lvar1) .or. present(lvar2) .or. present(lvar3)) then
-
-        allocate(lbuff(locbuff))
-        do n = 1, nu
-           if (present(lpoints)) then
-              i = lpoints(n)
-           else
-              i = n
-           endif
-
-            if (present(lvar1)) lbuff( (n-1)*is+1 : n*is) =    lvar1(i)
-            if (present(lvar2)) lbuff( (n-1)*is+1 : n*is) =    lvar2(:,i)
-            if (present(lvar2)) lbuff( (n-1)*is+1 : n*is) = (/ lvar3(:,:,i) /)
-
-        enddo
-        call MPI_Send(lbuff, locbuff, MPI_LOGICAL, 0, itag, MPI_COMM_WORLD, ier)
-
-     endif
-
-  endif
-
-  if (myrank /= 0) return
-
-  do n = 1, mgroupsize
-
-     if (nus(n) < 1) cycle
+  if (do_hdf5) then
 
      ! Prepare memory and options for the write
 
-     if (n == 1) then
-        call fh5_prepare_write(ndims, dims, dsetname, stype, hdferr, &
-                               mcoords=lpoints, fcoords=gpoints, ifsize=nglobe)
-     else
-        call MPI_Recv(points, base, MPI_INTEGER, n-1, itag, MPI_COMM_WORLD, &
-                      MPI_STATUS_IGNORE, ier)
-        dimsn(1:ndims) = (/ dims(1:ndims-1), nus(n) /)
-        call fh5_prepare_write(ndims, dimsn, dsetname, stype, hdferr, &
-                               fcoords=points(1:nus(n)), ifsize=nglobe)
-     endif
+     call fh5_prepare_write(ndims, dims, dsetname, stype, hdferr, &
+                            icompress=nl%icompress, &
+                            mcoords=lpoints, fcoords=gpoints, ifsize=nglobe, &
+                            dims_chunk=dims_chunk)
 
-     if (hdferr /= 0) then
-        print*, "shdf5_orec2: can't prepare requested field:", trim(dsetname)
-        return
+     if (hdferr < 0) then
+        print*, "shdf5_orec: can't prepare requested field:", trim(dsetname)
+        stop
      endif
 
      ! Write the dataset.
 
-     if (present(ivar1) .or. present(ivar2) .or. present(ivar3) .or. present(ivar4)) then
-        if (n == 1) then
-               if (present(ivar1)) then ; call fh5_write(ivar1, hdferr)
-           elseif (present(ivar2)) then ; call fh5_write(ivar2, hdferr)
-           elseif (present(ivar3)) then ; call fh5_write(ivar3, hdferr)
-           elseif (present(ivar4)) then ; call fh5_write(ivar4, hdferr)
-           endif
-        else
-           call MPI_Recv( ibuff, maxbuff, MPI_INTEGER, n-1, itag, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
-           call fh5_write(ibuff, hdferr)
-        endif
-     elseif (present(rvar1) .or. present(rvar2) .or. present(rvar3) .or. present(rvar4)) then
-        if (n == 1) then
-               if (present(rvar1)) then ; call fh5_write(rvar1, hdferr)
-           elseif (present(rvar2)) then ; call fh5_write(rvar2, hdferr)
-           elseif (present(rvar3)) then ; call fh5_write(rvar3, hdferr)
-           elseif (present(rvar4)) then ; call fh5_write(rvar4, hdferr)
-           endif
-        else
-           call MPI_Recv( rbuff, maxbuff, MPI_REAL,    n-1, itag, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
-           call fh5_write(rbuff, hdferr)
-        endif
-     elseif (present(dvar1) .or. present(dvar2) .or. present(dvar3) .or. present(dvar4)) then
-        if (n == 1) then
-               if (present(dvar1)) then ; call fh5_write(dvar1, hdferr)
-           elseif (present(dvar2)) then ; call fh5_write(dvar2, hdferr)
-           elseif (present(dvar3)) then ; call fh5_write(dvar3, hdferr)
-           elseif (present(dvar4)) then ; call fh5_write(dvar4, hdferr)
-           endif
-        else
-           call MPI_Recv( dbuff, maxbuff, MPI_REAL8,   n-1, itag, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
-           call fh5_write(dbuff, hdferr)
-        endif
-     elseif (present(bvar1) .or. present(bvar2) .or. present(bvar3) .or. present(bvar4)) then
-        if (n == 1) then
-               if (present(bvar1)) then ; call fh5_write(bvar1, hdferr)
-           elseif (present(bvar2)) then ; call fh5_write(bvar2, hdferr)
-           elseif (present(bvar3)) then ; call fh5_write(bvar3, hdferr)
-           elseif (present(bvar4)) then ; call fh5_write(bvar4, hdferr)
-           endif
-        else
-           call MPI_Recv( bbuff, maxbuff, MPI_INTEGER1, n-1, itag, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
-           call fh5_write(bbuff, hdferr)
-        endif
-     elseif (present(lvar1) .or. present(lvar2) .or. present(lvar3)) then
-        if (n == 1) then
-               if (present(lvar1)) then ; call fh5_write(lvar1, hdferr)
-           elseif (present(lvar2)) then ; call fh5_write(lvar2, hdferr)
-           elseif (present(lvar3)) then ; call fh5_write(lvar3, hdferr)
-           endif
-        else
-           call MPI_Recv( lbuff, maxbuff, MPI_LOGICAL, n-1, itag, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
-           call fh5_write(lbuff, hdferr)
-        endif
+     if     (present(ivars)) then ; call fh5_write(ivars, hdferr)
+     elseif (present(rvars)) then ; call fh5_write(rvars, hdferr)
+     elseif (present(dvars)) then ; call fh5_write(dvars, hdferr)
+     elseif (present(lvars)) then ; call fh5_write(lvars, hdferr)
+     elseif (present(bvars)) then ; call fh5_write(bvars, hdferr)
+
+     elseif (present(ivar1)) then ; call fh5_write(ivar1, hdferr)
+     elseif (present(rvar1)) then ; call fh5_write(rvar1, hdferr)
+     elseif (present(dvar1)) then ; call fh5_write(dvar1, hdferr)
+     elseif (present(lvar1)) then ; call fh5_write(lvar1, hdferr)
+     elseif (present(bvar1)) then ; call fh5_write(bvar1, hdferr)
+
+     elseif (present(ivar2)) then ; call fh5_write(ivar2, hdferr)
+     elseif (present(rvar2)) then ; call fh5_write(rvar2, hdferr)
+     elseif (present(dvar2)) then ; call fh5_write(dvar2, hdferr)
+     elseif (present(lvar2)) then ; call fh5_write(lvar2, hdferr)
+     elseif (present(bvar2)) then ; call fh5_write(bvar2, hdferr)
+
+     elseif (present(ivar3)) then ; call fh5_write(ivar3, hdferr)
+     elseif (present(rvar3)) then ; call fh5_write(rvar3, hdferr)
+     elseif (present(dvar3)) then ; call fh5_write(dvar3, hdferr)
+     elseif (present(lvar3)) then ; call fh5_write(lvar3, hdferr)
+     elseif (present(bvar3)) then ; call fh5_write(bvar3, hdferr)
+
+     elseif (present(ivar4)) then ; call fh5_write(ivar4, hdferr)
+     elseif (present(rvar4)) then ; call fh5_write(rvar4, hdferr)
+     elseif (present(dvar4)) then ; call fh5_write(dvar4, hdferr)
+     elseif (present(bvar4)) then ; call fh5_write(bvar4, hdferr)
+
      else
-        print*, 'Incorrect or missing data field argument in shdf5_orec2'
-        stop    'shdf5_orec2: bad data field'
+        print*, 'Incorrect or missing data field argument in shdf5_orec'
+        stop    'shdf5_orec: bad data field'
      endif
 
      if (hdferr /= 0) then
-        print*, 'In shdf5_orec2: hdf5 write error =', hdferr
-        stop    'shdf5_orec2: hdf5 write error'
+        print*, 'In shdf5_orec: hdf5 write error =', hdferr
+        stop    'shdf5_orec: hdf5 write error'
      endif
 
-     call fh5_close_write1(hdferr)
+     ! Close the write buffers but keep the data set open
 
-  enddo
+     call fh5_close_write(hdferr, no_dsetid=.true.)
 
-! Indicate if this variable is a dimension
+     ! Indicate if this variable is a dimension
 
-  if (present(isdim)) then
-     if (isdim) call fh5f_create_dim(dsetname, hdferr)
+     if (present(isdim)) then
+        if (isdim) call fh5f_create_dim(dsetname, hdferr)
+     endif
+
+     ! Link each variable to its dimensions
+
+     if ((present(dimnames)) .and. (.not. present(isdim))) then
+        if (size(dimnames) >= ndims) call fh5f_attach_dims(ndims, dimnames, hdferr)
+     endif
+
+     ! Write any dataset attributes to match common NetCDF conventions
+
+     if (present(units)) then
+        if (len_trim(units) > 0) call fh5f_write_attribute("units", cvalue=units)
+     endif
+
+     if (present(long_name)) then
+        if (len_trim(long_name) > 0) call fh5f_write_attribute("long_name", cvalue=long_name)
+     endif
+
+     if (present(standard_name)) then
+        if (len_trim(standard_name) > 0) call fh5f_write_attribute("standard_name", cvalue=standard_name)
+     endif
+
+     if (present(cell_methods)) then
+        if (len_trim(cell_methods) > 0) call fh5f_write_attribute("cell_methods", cvalue=cell_methods)
+     endif
+
+     if (present(positive)) then
+        if (len_trim(positive) > 0) call fh5f_write_attribute("positive", cvalue=positive)
+     endif
+
+     if (present(imissing)) then
+        call fh5f_write_attribute("missing_value", ivalue=imissing)
+     endif
+
+     if (present(rmissing)) then
+        call fh5f_write_attribute("missing_value", rvalue=rmissing)
+     endif
+
+     if (present(dmissing)) then
+        call fh5f_write_attribute("missing_value", dvalue=dmissing)
+     endif
+
+     call fh5_close_dataset(hdferr)
+
   endif
 
-! Link each variable to its dimensions
+#ifdef OLAM_MPI
+  if ( do_comm .and. present(gpoints) ) then
 
-  if ((present(dimnames)) .and. (.not. present(isdim))) then
-     if (size(dimnames) >= ndims) call fh5f_attach_dims(ndims, dimnames, hdferr)
+     if (nl%allranks_write_hdf5) then
+        call shdf5_orec_no_phdf5_allranks()
+     else
+        call shdf5_orec_no_phdf5_rank0()
+     endif
+
   endif
 
-! Write any dataset attributes to match common NetCDF conventions
+  Contains
 
-  if (present(units)) then
-     if (len_trim(units) > 0) call fh5f_write_attribute("units", cvalue=units)
-  endif
+  subroutine shdf5_orec_no_phdf5_rank0()
 
-  if (present(long_name)) then
-     if (len_trim(long_name) > 0) call fh5f_write_attribute("long_name", cvalue=long_name)
-  endif
+    use mem_para, only: mgroupsize, myrank
+    use mpi
 
-  if (present(standard_name)) then
-     if (len_trim(standard_name) > 0) call fh5f_write_attribute("standard_name", cvalue=standard_name)
-  endif
+    !import, only: dsetname, ndims, dims, nglobe, lpoints, gpoints, stype, &
+    !              bvar1, bvar2, bvar3, bvar4, ivar1, ivar2, ivar3, ivar4, &
+    !              rvar1, rvar2, rvar3, rvar4, dvar1, dvar2, dvar3, dvar4, &
+    !              lvar1, lvar2, lvar3, r8, i1, fh5_prepare_write, &
+    !              fh5_write, fh5_close_write
 
-  if (present(cell_methods)) then
-     if (len_trim(cell_methods) > 0) call fh5f_write_attribute("cell_methods", cvalue=cell_methods)
-  endif
+    implicit none
 
-  if (present(positive)) then
-     if (len_trim(positive) > 0) call fh5f_write_attribute("positive", cvalue=positive)
-  endif
+    integer,     allocatable :: ibuff(:), points(:), nus(:)
+    real,        allocatable :: rbuff(:)
+    real(r8),    allocatable :: dbuff(:)
+    logical,     allocatable :: lbuff(:)
+    integer(i1), allocatable :: bbuff(:)
+    integer                  :: hdferr, maxbuff, locbuff
+    integer                  :: nu, ier, base, n, i, is
+    integer,       parameter :: itag1 = 2098
+    integer,       parameter :: itag2 = 2099
+    integer                  :: ireqs(2)
+    integer                  :: dimsn(5)
 
-  if (present(imissing)) then
-     call fh5f_write_attribute("missing_value", ivalue=imissing)
-  endif
+    ! Collect on rank 0 the number of cells output by each process
 
-  if (present(rmissing)) then
-     call fh5f_write_attribute("missing_value", rvalue=rmissing)
-  endif
+    nu = size(gpoints)
 
-  if (present(dmissing)) then
-     call fh5f_write_attribute("missing_value", dvalue=dmissing)
-  endif
+    if (myrank == 0) then
+       allocate(nus(mgroupsize))
+    else
+       allocate(nus(1))
+    endif
 
-! Close the dataset, the dataspace for the dataset, and the dataspace properties.
+    call MPI_Igather(nu, 1, MPI_INTEGER, nus, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ireqs(1), ier)
 
-  call fh5_close_write2(hdferr)
+    ! Send to rank 0 the list of points and data to be written to disk
 
-end subroutine shdf5_orec2
+    if (myrank > 0 .and. nu > 0) then
 
+       locbuff = nu
+       is      = 1
+       do n = ndims-1, 1, -1
+          locbuff = locbuff * dims(n)
+          is      = is      * dims(n)
+       enddo
+
+       call MPI_Isend(gpoints, nu, MPI_INTEGER, 0, itag1, MPI_COMM_WORLD, ireqs(2), ier)
+
+       if (present(ivar1) .or. present(ivar2) .or. present(ivar3) .or. present(ivar4)) then
+
+          allocate(ibuff(locbuff))
+          do n = 1, nu
+             if (present(lpoints)) then
+                i = lpoints(n)
+             else
+                i = n
+             endif
+
+             if (present(ivar1)) ibuff( (n-1)*is+1 : n*is) =   ivar1(i)
+             if (present(ivar2)) ibuff( (n-1)*is+1 : n*is) =   ivar2(:,i)
+             if (present(ivar3)) ibuff( (n-1)*is+1 : n*is) = [ ivar3(:,:,i)   ]
+             if (present(ivar4)) ibuff( (n-1)*is+1 : n*is) = [ ivar4(:,:,:,i) ]
+
+          enddo
+          call MPI_Send(ibuff, locbuff, MPI_INTEGER, 0, itag2, MPI_COMM_WORLD, ier)
+
+       elseif (present(rvar1) .or. present(rvar2) .or. present(rvar3) .or. present(rvar4)) then
+
+          allocate(rbuff(locbuff))
+          do n = 1, nu
+
+             if (present(lpoints)) then
+                i = lpoints(n)
+             else
+                i = n
+             endif
+
+             if (present(rvar1)) rbuff( (n-1)*is+1 : n*is) =   rvar1(i)
+             if (present(rvar2)) rbuff( (n-1)*is+1 : n*is) =   rvar2(:,i)
+             if (present(rvar3)) rbuff( (n-1)*is+1 : n*is) = [ rvar3(:,:,i)   ]
+             if (present(rvar4)) rbuff( (n-1)*is+1 : n*is) = [ rvar4(:,:,:,i) ]
+          enddo
+
+          call MPI_Send(rbuff, locbuff, MPI_REAL, 0, itag2, MPI_COMM_WORLD, ier)
+
+       elseif (present(dvar1) .or. present(dvar2) .or. present(dvar3) .or. present(dvar4)) then
+
+          allocate(dbuff(locbuff))
+          do n = 1, nu
+             if (present(lpoints)) then
+                i = lpoints(n)
+             else
+                i = n
+             endif
+
+             if (present(dvar1)) dbuff( (n-1)*is+1 : n*is) =   dvar1(i)
+             if (present(dvar2)) dbuff( (n-1)*is+1 : n*is) =   dvar2(:,i)
+             if (present(dvar3)) dbuff( (n-1)*is+1 : n*is) = [ dvar3(:,:,i)   ]
+             if (present(dvar4)) dbuff( (n-1)*is+1 : n*is) = [ dvar4(:,:,:,i) ]
+
+          enddo
+          call MPI_Send(dbuff, locbuff, MPI_REAL8, 0, itag2, MPI_COMM_WORLD, ier)
+
+       elseif (present(bvar1) .or. present(bvar2) .or. present(bvar3) .or. present(bvar4)) then
+
+          allocate(bbuff(locbuff))
+          do n = 1, nu
+             if (present(lpoints)) then
+                i = lpoints(n)
+             else
+                i = n
+             endif
+
+             if (present(bvar1)) bbuff( (n-1)*is+1 : n*is) =   bvar1(i)
+             if (present(bvar2)) bbuff( (n-1)*is+1 : n*is) =   bvar2(:,i)
+             if (present(bvar3)) bbuff( (n-1)*is+1 : n*is) = [ bvar3(:,:,i)   ]
+             if (present(bvar4)) bbuff( (n-1)*is+1 : n*is) = [ bvar4(:,:,:,i) ]
+
+          enddo
+          call MPI_Send(bbuff, locbuff, MPI_INTEGER1, 0, itag2, MPI_COMM_WORLD, ier)
+
+       elseif (present(lvar1) .or. present(lvar2) .or. present(lvar3)) then
+
+          allocate(lbuff(locbuff))
+          do n = 1, nu
+             if (present(lpoints)) then
+                i = lpoints(n)
+             else
+                i = n
+             endif
+
+             if (present(lvar1)) lbuff( (n-1)*is+1 : n*is) =   lvar1(i)
+             if (present(lvar2)) lbuff( (n-1)*is+1 : n*is) =   lvar2(:,i)
+             if (present(lvar2)) lbuff( (n-1)*is+1 : n*is) = [ lvar3(:,:,i) ]
+
+          enddo
+          call MPI_Send(lbuff, locbuff, MPI_LOGICAL, 0, itag2, MPI_COMM_WORLD, ier)
+
+       endif
+
+       call MPI_Waitall(2, ireqs, MPI_STATUSES_IGNORE, ier)
+
+    elseif (myrank == 0) then
+
+       ! Rank 0 only: collect data from other nodes and write to disk
+
+       call MPI_Wait(ireqs(1), MPI_STATUS_IGNORE, ier)
+
+       base = maxval(nus(2:mgroupsize))
+       maxbuff = base
+       do n = ndims-1, 1, -1
+          maxbuff = maxbuff * dims(n)
+       enddo
+
+       allocate(points(base))
+
+       if     (present(ivar1) .or. present(ivar2) .or. present(ivar3) .or. present(ivar4)) then
+          allocate(ibuff(maxbuff))
+       elseif (present(rvar1) .or. present(rvar2) .or. present(rvar3) .or. present(rvar4)) then
+          allocate(rbuff(maxbuff))
+       elseif (present(dvar1) .or. present(dvar2) .or. present(dvar3) .or. present(dvar4)) then
+          allocate(dbuff(maxbuff))
+       elseif (present(bvar1) .or. present(bvar2) .or. present(bvar3) .or. present(bvar4)) then
+          allocate(bbuff(maxbuff))
+       elseif (present(lvar1) .or. present(lvar2) .or. present(lvar3)                    ) then
+          allocate(lbuff(maxbuff))
+       endif
+
+       do n = 2, mgroupsize
+
+          if (nus(n) < 1) cycle
+
+          ! Prepare memory and options for the write
+
+          call MPI_Recv(points, base, MPI_INTEGER, n-1, itag1, MPI_COMM_WORLD, &
+                        MPI_STATUS_IGNORE, ier)
+
+          dimsn(1:ndims) = [ dims(1:ndims-1), nus(n) ]
+
+          call fh5_prepare_write(ndims, dimsn, dsetname, stype, hdferr, &
+                                 fcoords=points(1:nus(n)), ifsize=nglobe)
+          if (hdferr /= 0) then
+             print*, "shdf5_orec_no_phdf5_rank0: can't prepare requested field:", trim(dsetname)
+             call fh5_close_write(hdferr, no_dsetid=.true.)
+             return
+          endif
+
+          ! Write the dataset.
+
+          if (present(ivar1) .or. present(ivar2) .or. present(ivar3) .or. present(ivar4)) then
+
+             call MPI_Recv( ibuff, maxbuff, MPI_INTEGER, n-1, itag2, &
+                            MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier )
+             call fh5_write( ibuff, hdferr )
+
+          elseif (present(rvar1) .or. present(rvar2) .or. present(rvar3) .or. present(rvar4)) then
+
+             call MPI_Recv( rbuff, maxbuff, MPI_REAL, n-1, itag2, &
+                            MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier )
+             call fh5_write( rbuff, hdferr )
+
+          elseif (present(dvar1) .or. present(dvar2) .or. present(dvar3) .or. present(dvar4)) then
+
+             call MPI_Recv( dbuff, maxbuff, MPI_REAL8,   n-1, itag2, &
+                            MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier )
+             call fh5_write( dbuff, hdferr )
+
+          elseif (present(bvar1) .or. present(bvar2) .or. present(bvar3) .or. present(bvar4)) then
+
+             call MPI_Recv( bbuff, maxbuff, MPI_INTEGER1, n-1, itag2, &
+                            MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier )
+             call fh5_write( bbuff, hdferr )
+
+          elseif (present(lvar1) .or. present(lvar2) .or. present(lvar3)) then
+
+             call MPI_Recv( lbuff, maxbuff, MPI_LOGICAL, n-1, itag2, &
+                            MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier )
+             call fh5_write( lbuff, hdferr )
+
+          else
+             print*, 'Incorrect or missing data field argument in shdf5_orec2'
+             stop    'shdf5_orec2: bad data field'
+          endif
+
+          if (hdferr /= 0) then
+             print*, 'In shdf5_orec2: hdf5 write error =', hdferr
+             stop    'shdf5_orec2: hdf5 write error'
+          endif
+
+          call fh5_close_write(hdferr)
+
+       enddo
+
+    endif
+
+  end subroutine shdf5_orec_no_phdf5_rank0
+
+
+  subroutine shdf5_orec_no_phdf5_allranks()
+
+    use mem_para, only: mgroupsize, myrank, olam_mpi_barrier
+
+    !import, only: dsetname, ndims, dims, nglobe, lpoints, gpoints, stype, &
+    !              bvar1, bvar2, bvar3, bvar4, ivar1, ivar2, ivar3, ivar4, &
+    !              rvar1, rvar2, rvar3, rvar4, dvar1, dvar2, dvar3, dvar4, &
+    !              lvar1, lvar2, lvar3, r8, i1, fh5_prepare_write, &
+    !              fh5_write, fh5_close_write, fname, fh5f_open, fh5f_close
+
+    implicit none
+
+    integer,     allocatable :: ibuff(:), points(:), nus(:)
+    real,        allocatable :: rbuff(:)
+    real(r8),    allocatable :: dbuff(:)
+    logical,     allocatable :: lbuff(:)
+    integer(i1), allocatable :: bbuff(:)
+    integer                  :: hdferr, maxbuff, locbuff
+    integer                  :: nu, ier, base, n, i, is
+
+    if (myrank == 0) call fh5f_close(hdferr)
+
+    call olam_mpi_barrier()
+
+    do n = 1, mgroupsize-1
+
+       if (myrank == n) then
+
+          call fh5f_open(fname, 2, hdferr)
+
+          call fh5_prepare_write(ndims, dims, dsetname, stype, hdferr, &
+                                 mcoords=lpoints, fcoords=gpoints, ifsize=nglobe)
+
+          if     (present(ivar1)) then ; call fh5_write(ivar1, hdferr)
+          elseif (present(rvar1)) then ; call fh5_write(rvar1, hdferr)
+          elseif (present(dvar1)) then ; call fh5_write(dvar1, hdferr)
+          elseif (present(lvar1)) then ; call fh5_write(lvar1, hdferr)
+          elseif (present(bvar1)) then ; call fh5_write(bvar1, hdferr)
+
+          elseif (present(ivar2)) then ; call fh5_write(ivar2, hdferr)
+          elseif (present(rvar2)) then ; call fh5_write(rvar2, hdferr)
+          elseif (present(dvar2)) then ; call fh5_write(dvar2, hdferr)
+          elseif (present(lvar2)) then ; call fh5_write(lvar2, hdferr)
+          elseif (present(bvar2)) then ; call fh5_write(bvar2, hdferr)
+
+          elseif (present(ivar3)) then ; call fh5_write(ivar3, hdferr)
+          elseif (present(rvar3)) then ; call fh5_write(rvar3, hdferr)
+          elseif (present(dvar3)) then ; call fh5_write(dvar3, hdferr)
+          elseif (present(lvar3)) then ; call fh5_write(lvar3, hdferr)
+          elseif (present(bvar3)) then ; call fh5_write(bvar3, hdferr)
+
+          elseif (present(ivar4)) then ; call fh5_write(ivar4, hdferr)
+          elseif (present(rvar4)) then ; call fh5_write(rvar4, hdferr)
+          elseif (present(dvar4)) then ; call fh5_write(dvar4, hdferr)
+          elseif (present(bvar4)) then ; call fh5_write(bvar4, hdferr)
+
+          else
+             print*, 'Incorrect or missing data field argument in shdf5_orec'
+             stop    'shdf5_orec: bad data field'
+          endif
+
+          if (hdferr /= 0) then
+             print*, 'In shdf5_orec: hdf5 write error =', hdferr
+             stop    'shdf5_orec: hdf5 write error'
+          endif
+
+          call fh5_close_write(hdferr)
+          call fh5f_close     (hdferr)
+
+          !write(*,'(A,I0,A)') "Rank ", myrank, " finished writing " // trim(dsetname)
+       endif
+
+       call olam_mpi_barrier()
+    enddo
+
+    if (myrank == 0) call fh5f_open(fname, 2, hdferr)
+
+  end subroutine shdf5_orec_no_phdf5_allranks
 #endif
+
+end subroutine shdf5_orec
 
 !===============================================================================
 
@@ -733,12 +918,18 @@ subroutine shdf5_irec(ndims,dims,dsetname,bvars,ivars,rvars,dvars,lvars,     &
                                           bvar2,ivar2,rvar2,dvar2,lvar2,     &
                                           bvar3,ivar3,rvar3,dvar3,lvar3,     &
                                           bvar4,ivar4,rvar4,dvar4,           &
-                                          points, start, counts, stagpt,     &
+                                          points, start, counts,             &
                                           imissing, rmissing, dmissing,      &
                                           dimname, attached_dimnames, units, &
                                           standard_name, long_name,          &
-                                          rscale, roffset, dscale, doffset,  &
-                                          have_missing, have_scaling)
+                                          rscale, roffset, dscale, doffset)
+
+  use misc_coms, only: io6
+  use mem_para,  only: olam_mpi_barrier
+
+#ifdef OLAM_MPI
+  use mpi
+#endif
 
   implicit none
 
@@ -763,7 +954,6 @@ subroutine shdf5_irec(ndims,dims,dsetname,bvars,ivars,rvars,dvars,lvars,     &
   integer,      intent(IN), optional, contiguous :: points(:)
   integer,      intent(IN), optional, contiguous :: start (:)
   integer,      intent(IN), optional, contiguous :: counts(:)
-  character(2), intent(IN), optional             :: stagpt
 
 ! Optional arrays to read common NetCDF convention attributes or dimension information
   character(*), intent(inout), optional :: units
@@ -773,65 +963,236 @@ subroutine shdf5_irec(ndims,dims,dsetname,bvars,ivars,rvars,dvars,lvars,     &
   integer,      intent(inout), optional :: imissing
   real,         intent(inout), optional :: rmissing, rscale, roffset
   real(r8),     intent(inout), optional :: dmissing, dscale, doffset
-  logical,      intent(inout), optional :: have_missing, have_scaling
 
 ! Local variables
   integer :: hdferr  ! Error flag
-  logical :: exists
+  logical :: exists, do_bcst
+  integer :: n
+
+#ifdef OLAM_MPI
+  integer :: ier
+#endif
+
+  ! Maybe we can get around specifying all possible ranks and types by using
+  ! assumed-rank and/or assumed-type arrays and C interoperability once
+  ! most compilers support this
+
+  n = count( [present(bvars), present(bvar1), present(bvar2), present(bvar3), present(bvar4), &
+              present(ivars), present(ivar1), present(ivar2), present(ivar3), present(ivar4), &
+              present(rvars), present(rvar1), present(rvar2), present(rvar3), present(rvar4), &
+              present(dvars), present(dvar1), present(dvar2), present(dvar3), present(dvar4), &
+              present(lvars), present(lvar1), present(lvar2), present(lvar3)] )
+
+  if (n /= 1) then
+     write(io6,*) 'Error in shdf5_irec reading ' // trim(dsetname)
+     write(io6,*) 'Only one variable type should be specified for HDF5 input.'
+     return
+  endif
 
 ! Check dimensions
 
-  if (ndims <=0 .or. minval(dims(1:ndims)) <=0) then
-     print*, 'Dimension error in shdf5_irec:', ndims, dims(1:ndims)
-     print*, 'Dataset name: ' // dsetname
+  if (ndims <= 0 .or. minval(dims(1:ndims)) <= 0) then
+     write(io6,*) 'Dimension error in shdf5_irec:', ndims, dims(1:ndims)
+     write(io6,*) 'Dataset name: ' // dsetname
      stop    'shdf5_irec: bad dims'
   endif
 
-! Prepare file and memory space for the read
+! write(io6,'(A,8(1x,I0))') " Reading: "//trim(dsetname), dims(1:ndims)
 
-  call fh5_prepare_read(dsetname, ndims, dims, hdferr, coords=points, &
-                        type=stagpt, start=start, counts=counts)
+  do_bcst = do_comm .and. (.not. present(points))
+
+  ! Prepare file and memory space for the read
+
+  if (do_hdf5) call fh5_prepare_read(dsetname, ndims, dims, hdferr, coords=points, &
+                                     start=start, counts=counts)
+#ifdef OLAM_MPI
+  if (do_comm) call MPI_Bcast(hdferr, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ier)
+#endif
+
   if (hdferr < 0) then
      print*,'shdf5_irec: can''t prepare requested field:',trim(dsetname)
      return
   endif
 
-! Read data from hyperslab in the file into the hyperslab in memory.
+  ! Read data, and broadcast to other nodes for a parallel run without
+  ! parallel HDF5 or partial I/O
 
-      if (present(ivars)) then ; call fh5_read(ivars, hdferr)
-  elseif (present(rvars)) then ; call fh5_read(rvars, hdferr)
-  elseif (present(dvars)) then ; call fh5_read(dvars, hdferr)
-  elseif (present(lvars)) then ; call fh5_read(lvars, hdferr)
-  elseif (present(bvars)) then ; call fh5_read(bvars, hdferr)
+  if (present(ivars)) then
 
-  elseif (present(ivar1)) then ; call fh5_read(ivar1, hdferr)
-  elseif (present(rvar1)) then ; call fh5_read(rvar1, hdferr)
-  elseif (present(dvar1)) then ; call fh5_read(dvar1, hdferr)
-  elseif (present(lvar1)) then ; call fh5_read(lvar1, hdferr)
-  elseif (present(bvar1)) then ; call fh5_read(bvar1, hdferr)
+     if (do_hdf5) call fh5_read(ivars, hdferr)
+#ifdef OLAM_MPI
+     if (do_bcst) call MPI_Bcast(ivars, 1, MPI_INTEGER,  0, MPI_COMM_WORLD, ier)
+#endif
 
-  elseif (present(ivar2)) then ; call fh5_read(ivar2, hdferr)
-  elseif (present(rvar2)) then ; call fh5_read(rvar2, hdferr)
-  elseif (present(dvar2)) then ; call fh5_read(dvar2, hdferr)
-  elseif (present(lvar2)) then ; call fh5_read(lvar2, hdferr)
-  elseif (present(bvar2)) then ; call fh5_read(bvar2, hdferr)
+  elseif (present(rvars)) then
 
-  elseif (present(ivar3)) then ; call fh5_read(ivar3, hdferr)
-  elseif (present(rvar3)) then ; call fh5_read(rvar3, hdferr)
-  elseif (present(dvar3)) then ; call fh5_read(dvar3, hdferr)
-  elseif (present(lvar3)) then ; call fh5_read(lvar3, hdferr)
-  elseif (present(bvar3)) then ; call fh5_read(bvar3, hdferr)
+     if (do_hdf5) call fh5_read(rvars, hdferr)
+#ifdef OLAM_MPI
+     if (do_bcst) call MPI_Bcast(rvars, 1, MPI_REAL,     0, MPI_COMM_WORLD, ier)
+#endif
 
-  elseif (present(ivar4)) then ; call fh5_read(ivar4, hdferr)
-  elseif (present(rvar4)) then ; call fh5_read(rvar4, hdferr)
-  elseif (present(dvar4)) then ; call fh5_read(dvar4, hdferr)
-  elseif (present(bvar4)) then ; call fh5_read(bvar4, hdferr)
+  elseif (present(dvars)) then
+
+     if (do_hdf5) call fh5_read(dvars, hdferr)
+#ifdef OLAM_MPI
+     if (do_bcst) call MPI_Bcast(dvars, 1, MPI_REAL8,    0, MPI_COMM_WORLD, ier)
+#endif
+
+  elseif (present(lvars)) then
+
+     if (do_hdf5) call fh5_read(lvars, hdferr)
+#ifdef OLAM_MPI
+     if (do_bcst) call MPI_Bcast(lvars, 1, MPI_LOGICAL,  0, MPI_COMM_WORLD, ier)
+#endif
+
+  elseif (present(bvars)) then
+
+     if (do_hdf5) call fh5_read(bvars, hdferr)
+#ifdef OLAM_MPI
+     if (do_bcst) call MPI_Bcast(bvars, 1, MPI_INTEGER1, 0, MPI_COMM_WORLD, ier)
+#endif
+
+  elseif (present(ivar1)) then
+
+     if (do_hdf5) call fh5_read(ivar1, hdferr)
+#ifdef OLAM_MPI
+     if (do_bcst) call MPI_Bcast(ivar1, size(ivar1), MPI_INTEGER,  0, MPI_COMM_WORLD, ier)
+#endif
+
+  elseif (present(rvar1)) then
+
+     if (do_hdf5) call fh5_read(rvar1, hdferr)
+#ifdef OLAM_MPI
+     if (do_bcst) call MPI_Bcast(rvar1, size(rvar1), MPI_REAL,     0, MPI_COMM_WORLD, ier)
+#endif
+
+  elseif (present(dvar1)) then
+
+     if (do_hdf5) call fh5_read(dvar1, hdferr)
+#ifdef OLAM_MPI
+     if (do_bcst) call MPI_Bcast(dvar1, size(dvar1), MPI_REAL8,    0, MPI_COMM_WORLD, ier)
+#endif
+  elseif (present(lvar1)) then
+
+     if (do_hdf5) call fh5_read(lvar1, hdferr)
+#ifdef OLAM_MPI
+     if (do_bcst) call MPI_Bcast(lvar1, size(lvar1), MPI_LOGICAL,  0, MPI_COMM_WORLD, ier)
+#endif
+
+  elseif (present(bvar1)) then
+
+     if (do_hdf5) call fh5_read(bvar1, hdferr)
+#ifdef OLAM_MPI
+     if (do_bcst) call MPI_Bcast(bvar1, size(bvar1), MPI_INTEGER1, 0, MPI_COMM_WORLD, ier)
+#endif
+
+  elseif (present(ivar2)) then
+
+     if (do_hdf5) call fh5_read(ivar2, hdferr)
+#ifdef OLAM_MPI
+     if (do_bcst) call MPI_Bcast(ivar2, size(ivar2), MPI_INTEGER,  0, MPI_COMM_WORLD, ier)
+#endif
+
+  elseif (present(rvar2)) then
+
+     if (do_hdf5) call fh5_read(rvar2, hdferr)
+#ifdef OLAM_MPI
+     if (do_bcst) call MPI_Bcast(rvar2, size(rvar2), MPI_REAL,     0, MPI_COMM_WORLD, ier)
+#endif
+
+  elseif (present(dvar2)) then
+
+     if (do_hdf5) call fh5_read(dvar2, hdferr)
+#ifdef OLAM_MPI
+     if (do_bcst) call MPI_Bcast(dvar2, size(dvar2), MPI_REAL8,    0, MPI_COMM_WORLD, ier)
+#endif
+
+  elseif (present(lvar2)) then
+
+     if (do_hdf5) call fh5_read(lvar2, hdferr)
+#ifdef OLAM_MPI
+     if (do_bcst) call MPI_Bcast(lvar2, size(lvar2), MPI_LOGICAL,  0, MPI_COMM_WORLD, ier)
+#endif
+
+  elseif (present(bvar2)) then
+
+     if (do_hdf5) call fh5_read(bvar2, hdferr)
+#ifdef OLAM_MPI
+     if (do_bcst) call MPI_Bcast(bvar2, size(bvar2), MPI_INTEGER1, 0, MPI_COMM_WORLD, ier)
+#endif
+
+  elseif (present(ivar3)) then
+
+     if (do_hdf5) call fh5_read(ivar3, hdferr)
+#ifdef OLAM_MPI
+     if (do_bcst) call MPI_Bcast(ivar3, size(ivar3), MPI_INTEGER,  0, MPI_COMM_WORLD, ier)
+#endif
+
+  elseif (present(rvar3)) then
+
+     if (do_hdf5) call fh5_read(rvar3, hdferr)
+#ifdef OLAM_MPI
+     if (do_bcst) call MPI_Bcast(rvar3, size(rvar3), MPI_REAL,     0, MPI_COMM_WORLD, ier)
+#endif
+
+  elseif (present(dvar3)) then
+
+     if (do_hdf5) call fh5_read(dvar3, hdferr)
+#ifdef OLAM_MPI
+     if (do_bcst) call MPI_Bcast(dvar3, size(dvar3), MPI_REAL8,    0, MPI_COMM_WORLD, ier)
+#endif
+
+  elseif (present(lvar3)) then
+
+     if (do_hdf5) call fh5_read(lvar3, hdferr)
+#ifdef OLAM_MPI
+     if (do_bcst) call MPI_Bcast(lvar3, size(lvar3), MPI_LOGICAL,  0, MPI_COMM_WORLD, ier)
+#endif
+
+  elseif (present(bvar3)) then
+
+     if (do_hdf5) call fh5_read(bvar3, hdferr)
+#ifdef OLAM_MPI
+     if (do_bcst) call MPI_Bcast(bvar3, size(bvar3), MPI_INTEGER1, 0, MPI_COMM_WORLD, ier)
+#endif
+
+  elseif (present(ivar4)) then
+
+     if (do_hdf5) call fh5_read(ivar4, hdferr)
+#ifdef OLAM_MPI
+     if (do_bcst) call MPI_Bcast(ivar4, size(ivar4), MPI_INTEGER,  0, MPI_COMM_WORLD, ier)
+#endif
+
+  elseif (present(rvar4)) then
+
+     if (do_hdf5) call fh5_read(rvar4, hdferr)
+#ifdef OLAM_MPI
+     if (do_bcst) call MPI_Bcast(rvar4, size(rvar4), MPI_REAL,     0, MPI_COMM_WORLD, ier)
+#endif
+
+  elseif (present(dvar4)) then
+
+     if (do_hdf5) call fh5_read(dvar4, hdferr)
+#ifdef OLAM_MPI
+     if (do_bcst) call MPI_Bcast(dvar4, size(dvar4), MPI_REAL8,    0, MPI_COMM_WORLD, ier)
+#endif
+
+  elseif (present(bvar4)) then
+
+     if (do_hdf5) call fh5_read(bvar4, hdferr)
+#ifdef OLAM_MPI
+     if (do_bcst) call MPI_Bcast(bvar4, size(bvar4), MPI_INTEGER1, 0, MPI_COMM_WORLD, ier)
+#endif
 
   else
      print*,'Incorrect or missing data field argument in shdf5_irec'
      print*, 'field = ', dsetname
      stop    'shdf5_irec: bad data field'
   endif
+
+#ifdef OLAM_MPI
+  if (do_comm) call MPI_Bcast(hdferr, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ier)
+#endif
 
   if (hdferr /= 0) then
      print*, 'shdf5_irec: call fh5d_read: hdf5 error =', hdferr
@@ -841,84 +1202,308 @@ subroutine shdf5_irec(ndims,dims,dsetname,bvars,ivars,rvars,dvars,lvars,     &
      stop
   endif
 
-! Is this variable a dimension?
+  ! Close the read buffers but leave dataset open
+
+  if (do_hdf5) call fh5_close_read(hdferr, no_dsetid=.true.)
+
+  ! Is this variable a dimension?
 
   if (present(dimname)) then
-     call fh5f_query_dimname(dimname)
+     dimname = ' '
+     if (do_hdf5) call fh5f_query_dimname(dimname)
+#ifdef OLAM_MPI
+     if (do_comm) call MPI_Bcast(dimname, len(dimname), MPI_CHARACTER, 0, MPI_COMM_WORLD, ier)
+#endif
   endif
 
-! Does the variable have dimension scales?
+  ! Does the variable have dimension scales?
 
   if (present(attached_dimnames)) then
      attached_dimnames(:) = ' '
-     call fh5_get_attached_scales(attached_dimnames)
+     if (do_hdf5) call fh5_get_attached_scales(attached_dimnames)
+#ifdef OLAM_MPI
+     if (do_comm) call MPI_Bcast(attached_dimnames, len(attached_dimnames)*size(attached_dimnames), &
+                                 MPI_CHARACTER, 0, MPI_COMM_WORLD, ier)
+#endif
   endif
 
-! Read any attributes
-
-  if (present(have_missing)) have_missing = .false.
-  if (present(have_scaling)) have_scaling = .false.
+  ! Read any attributes
 
   if (present(units)) then
      units = ' '
-     call fh5f_read_attribute("units", cvalue=units)
+     if (do_hdf5) call fh5f_read_attribute("units", cvalue=units)
+#ifdef OLAM_MPI
+     if (do_comm) call MPI_Bcast(units, len(units), MPI_CHARACTER, 0, MPI_COMM_WORLD, ier)
+#endif
   endif
 
   if (present(imissing)) then
-     imissing = -huge(imissing)
-     call fh5f_read_attribute("missing_value", ivalue=imissing, exists=exists)
-     if (present(have_missing)) have_missing = exists
+     imissing = 1
+     if (do_hdf5) call fh5f_read_attribute("missing_value", ivalue=imissing, exists=exists)
+#ifdef OLAM_MPI
+     if (do_comm) call MPI_Bcast(imissing, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ier)
+#endif
   endif
 
   if (present(rmissing)) then
-     rmissing = -huge(rmissing)
-     call fh5f_read_attribute("missing_value", rvalue=rmissing, exists=exists)
-     if (present(have_missing)) have_missing = exists
+     rmissing = 1.0
+     if (do_hdf5) call fh5f_read_attribute("missing_value", rvalue=rmissing, exists=exists)
+#ifdef OLAM_MPI
+     if (do_comm) call MPI_Bcast(rmissing, 1, MPI_REAL, 0, MPI_COMM_WORLD, ier)
+#endif
   endif
 
   if (present(dmissing)) then
-     dmissing = -huge(dmissing)
-     call fh5f_read_attribute("missing_value", dvalue=dmissing, exists=exists)
-     if (present(have_missing)) have_missing = exists
+     dmissing = 1.0_r8
+     if (do_hdf5) call fh5f_read_attribute("missing_value", dvalue=dmissing, exists=exists)
+#ifdef OLAM_MPI
+     if (do_comm) call MPI_Bcast(dmissing, 1, MPI_REAL8, 0, MPI_COMM_WORLD, ier)
+#endif
   endif
 
   if (present(rscale)) then
      rscale = 1.0
-     call fh5f_read_attribute("scale_factor", rvalue=rscale, exists=exists)
-     if (present(have_scaling) .and. exists) have_scaling = .true.
+     if (do_hdf5) call fh5f_read_attribute("scale_factor", rvalue=rscale, exists=exists)
+#ifdef OLAM_MPI
+     if (do_comm) call MPI_Bcast(rscale, 1, MPI_REAL, 0, MPI_COMM_WORLD, ier)
+#endif
   endif
 
   if (present(dscale)) then
-     dscale = 1.0_r8
-     call fh5f_read_attribute("scale_factor", dvalue=dscale, exists=exists)
-     if (present(have_scaling) .and. exists) have_scaling = .true.
+     dscale = 1._r8
+     if (do_hdf5) call fh5f_read_attribute("scale_factor", dvalue=dscale, exists=exists)
+#ifdef OLAM_MPI
+     if (do_comm) call MPI_Bcast(dscale, 1, MPI_REAL8, 0, MPI_COMM_WORLD, ier)
+#endif
   endif
 
   if (present(roffset)) then
      roffset = 0.0
-     call fh5f_read_attribute("add_offset", rvalue=roffset, exists=exists)
-     if (present(have_scaling) .and. exists) have_scaling = .true.
+     if (do_hdf5) call fh5f_read_attribute("add_offset", rvalue=roffset, exists=exists)
+#ifdef OLAM_MPI
+     if (do_comm) call MPI_Bcast(roffset, 1, MPI_REAL, 0, MPI_COMM_WORLD, ier)
+#endif
   endif
 
   if (present(doffset)) then
      doffset = 0.0_r8
-     call fh5f_read_attribute("add_offset", dvalue=doffset, exists=exists)
-     if (present(have_scaling) .and. exists) have_scaling = .true.
+     if (do_hdf5) call fh5f_read_attribute("add_offset", dvalue=doffset, exists=exists)
+#ifdef OLAM_MPI
+     if (do_comm) call MPI_Bcast(doffset, 1, MPI_REAL8, 0, MPI_COMM_WORLD, ier)
+#endif
   endif
 
   if (present(long_name)) then
      long_name = ' '
-     call fh5f_read_attribute("long_name", cvalue=long_name)
+     if (do_hdf5) call fh5f_read_attribute("long_name", cvalue=long_name)
+#ifdef OLAM_MPI
+     if (do_comm) call MPI_Bcast(dimname, len(dimname), MPI_CHARACTER, 0, MPI_COMM_WORLD, ier)
+#endif
   endif
 
   if (present(standard_name)) then
      standard_name = ' '
-     call fh5f_read_attribute("standard_name", cvalue=standard_name)
+     if (do_hdf5) call fh5f_read_attribute("standard_name", cvalue=standard_name)
+#ifdef OLAM_MPI
+     if (do_comm) call MPI_Bcast(standard_name, len(standard_name), MPI_CHARACTER, 0, MPI_COMM_WORLD, ier)
+#endif
   endif
 
-! Close the dataset, the dataspace for the dataset, and the memory space.
+  if (do_hdf5) call fh5_close_dataset(hdferr)
 
-  call fh5_close_read(hdferr)
+  ! If all nodes are independently reading the same file outside of parallel HDF5,
+  ! wait here for all nodes to finish
+
+  if (indepio) call olam_mpi_barrier()
+
+#ifdef OLAM_MPI
+
+  if (do_comm .and. present(points)) then
+     call shdf5_irec_no_phdf5_rank0()
+  endif
+
+Contains
+
+  subroutine shdf5_irec_no_phdf5_rank0()
+
+    use mem_para, only: mgroupsize, myrank
+    use mpi
+
+    !import, only: dsetname, ndims, dims, points, fh5_prepare_read, &
+    !              bvar1, bvar2, bvar3, bvar4, ivar1, ivar2, ivar3, ivar4, &
+    !              rvar1, rvar2, rvar3, rvar4, dvar1, dvar2, dvar3, dvar4, &
+    !              lvar1, lvar2, lvar3, r8, i1, fh5_read, fh5_close_read
+
+    implicit none
+
+    integer,     allocatable :: ibuff(:), rpoints(:), nus(:)
+    real,        allocatable :: rbuff(:)
+    real(r8),    allocatable :: dbuff(:)
+    logical,     allocatable :: lbuff(:)
+    integer(i1), allocatable :: bbuff(:)
+    integer                  :: nu, ier, base, n, i, is, isize
+    integer                  :: maxbuff, locbuff, hdferr
+    integer,       parameter :: itag1 = 2096
+    integer,       parameter :: itag2 = 2097
+    integer                  :: ireqs(2)
+
+    ! Collect on rank 0 the number of cells to be read by each process
+
+    nu = size(points)
+
+    if (myrank == 0) then
+       allocate(nus(mgroupsize))
+    else
+       allocate(nus(1))
+    endif
+
+    call MPI_Igather(nu, 1, MPI_INTEGER, nus, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ireqs(1), ier)
+
+    ! Send to rank 0 the list of points and receive the data read in from disk
+
+    if (myrank > 0 .and. nu > 0) then
+
+       call MPI_Isend(points, nu, MPI_INTEGER, 0, itag1, MPI_COMM_WORLD, ireqs(2), ier)
+
+       if     (present(ivar1)) then
+          call MPI_Recv(ivar1, size(ivar1), MPI_INTEGER, 0, itag2, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
+       elseif (present(ivar2)) then
+          call MPI_Recv(ivar2, size(ivar2), MPI_INTEGER, 0, itag2, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
+       elseif (present(ivar3)) then
+          call MPI_Recv(ivar3, size(ivar3), MPI_INTEGER, 0, itag2, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
+       elseif (present(ivar4)) then
+          call MPI_Recv(ivar4, size(ivar4), MPI_INTEGER, 0, itag2, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
+
+       elseif (present(rvar1)) then
+          call MPI_Recv(rvar1, size(rvar1), MPI_REAL, 0, itag2, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
+       elseif (present(rvar2)) then
+          call MPI_Recv(rvar2, size(rvar2), MPI_REAL, 0, itag2, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
+       elseif (present(rvar3)) then
+          call MPI_Recv(rvar3, size(rvar3), MPI_REAL, 0, itag2, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
+       elseif (present(rvar4)) then
+          call MPI_Recv(rvar4, size(rvar4), MPI_REAL, 0, itag2, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
+
+       elseif (present(dvar1)) then
+          call MPI_Recv(dvar1, size(dvar1), MPI_REAL8, 0, itag2, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
+       elseif (present(dvar2)) then
+          call MPI_Recv(dvar2, size(dvar2), MPI_REAL8, 0, itag2, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
+       elseif (present(dvar3)) then
+          call MPI_Recv(dvar3, size(dvar3), MPI_REAL8, 0, itag2, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
+       elseif (present(dvar4)) then
+          call MPI_Recv(dvar4, size(dvar4), MPI_REAL8, 0, itag2, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
+
+       elseif (present(bvar1)) then
+          call MPI_Recv(bvar1, size(bvar1), MPI_INTEGER1, 0, itag2, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
+       elseif (present(bvar2)) then
+          call MPI_Recv(bvar2, size(bvar2), MPI_INTEGER1, 0, itag2, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
+       elseif (present(bvar3)) then
+          call MPI_Recv(bvar3, size(bvar3), MPI_INTEGER1, 0, itag2, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
+       elseif (present(bvar4)) then
+          call MPI_Recv(bvar4, size(bvar4), MPI_INTEGER1, 0, itag2, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
+
+       elseif (present(lvar1)) then
+          call MPI_Recv(lvar1, size(lvar1), MPI_LOGICAL, 0, itag2, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
+       elseif (present(lvar2)) then
+          call MPI_Recv(lvar2, size(lvar2), MPI_LOGICAL, 0, itag2, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
+       elseif (present(lvar3)) then
+          call MPI_Recv(lvar3, size(lvar3), MPI_LOGICAL, 0, itag2, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
+       endif
+
+       call MPI_Waitall(2, ireqs, MPI_STATUSES_IGNORE, ier)
+
+    elseif (myrank == 0) then
+
+       ! Rank 0 only: read data from disk and send to other nodes
+
+       call MPI_Wait(ireqs(1), MPI_STATUS_IGNORE, ier)
+
+       base = maxval(nus(2:mgroupsize))
+       maxbuff = base
+       locbuff = nu
+       is      = 1
+       do n = ndims-1, 1, -1
+          maxbuff = maxbuff * dims(n)
+          locbuff = locbuff * dims(n)
+          is      = is      * dims(n)
+       enddo
+
+       allocate(rpoints(base))
+
+       if     (present(ivar1) .or. present(ivar2) .or. present(ivar3) .or. present(ivar4)) then
+          allocate(ibuff(maxbuff))
+       elseif (present(rvar1) .or. present(rvar2) .or. present(rvar3) .or. present(rvar4)) then
+          allocate(rbuff(maxbuff))
+       elseif (present(dvar1) .or. present(dvar2) .or. present(dvar3) .or. present(dvar4)) then
+          allocate(dbuff(maxbuff))
+       elseif (present(bvar1) .or. present(bvar2) .or. present(bvar3) .or. present(bvar4)) then
+          allocate(bbuff(maxbuff))
+       elseif (present(lvar1) .or. present(lvar2) .or. present(lvar3)                    ) then
+          allocate(lbuff(maxbuff))
+       endif
+
+       do n = 2, mgroupsize
+
+          if (nus(n) < 1) cycle
+
+          call MPI_Recv(rpoints, base, MPI_INTEGER, n-1, itag1, MPI_COMM_WORLD, &
+                        MPI_STATUS_IGNORE, ier)
+
+          call fh5_prepare_read(dsetname, ndims, dims, hdferr, coords=rpoints(1:nus(n)))
+
+          if (hdferr /= 0) then
+             print*, "shdf5_orec2: can't prepare requested field:", trim(dsetname)
+             return
+          endif
+
+          ! Write the dataset.
+
+          isize = nus(n) * is
+
+          if (present(ivar1) .or. present(ivar2) .or. present(ivar3) .or. present(ivar4)) then
+
+             call fh5_read(ibuff, hdferr)
+             call MPI_Send(ibuff, isize, MPI_INTEGER, n-1, itag2, MPI_COMM_WORLD, ier)
+
+          elseif (present(rvar1) .or. present(rvar2) .or. present(rvar3) .or. present(rvar4)) then
+
+             call fh5_read(rbuff, hdferr)
+             call MPI_Send(rbuff, isize, MPI_REAL, n-1, itag2, MPI_COMM_WORLD, ier)
+
+          elseif (present(dvar1) .or. present(dvar2) .or. present(dvar3) .or. present(dvar4)) then
+
+             call fh5_read(dbuff, hdferr)
+             call MPI_Send(dbuff, isize, MPI_REAL8, n-1, itag2, MPI_COMM_WORLD, ier)
+
+          elseif (present(bvar1) .or. present(bvar2) .or. present(bvar3) .or. present(bvar4)) then
+
+             call fh5_read(bbuff, hdferr)
+             call MPI_Send(bbuff, isize, MPI_INTEGER1, n-1, itag2, MPI_COMM_WORLD, ier)
+
+          elseif (present(lvar1) .or. present(lvar2) .or. present(lvar3)) then
+
+             call fh5_read(lbuff, hdferr)
+             call MPI_Send(lbuff, isize, MPI_LOGICAL, n-1, itag2, MPI_COMM_WORLD, ier)
+
+          else
+
+             print*, 'Incorrect or missing data field argument in shdf5_orec2'
+             stop    'shdf5_orec2: bad data field'
+
+          endif
+
+          if (hdferr /= 0) then
+             print*, 'In shdf5_orec2: hdf5 write error =', hdferr
+             stop    'shdf5_orec2: hdf5 write error'
+          endif
+
+          call fh5_close_read(hdferr)
+
+       enddo
+
+    endif
+
+  end subroutine shdf5_irec_no_phdf5_rank0
+#endif
 
 end subroutine shdf5_irec
 
@@ -928,14 +1513,10 @@ subroutine shdf5_close()
 
   implicit none
 
-  integer :: hdferr  ! Error flags
-
-#if defined(OLAM_MPI) && !defined(OLAM_PARALLEL_HDF5)
-  if (prevaccess == 'W' .and. myrank /= 0) return
-#endif
+  integer :: hdferr
 
   ! Close hdf file.
-  call fh5f_close(hdferr)
+  if (do_hdf5) call fh5f_close(hdferr)
 
 end subroutine shdf5_close
 
@@ -996,14 +1577,13 @@ end subroutine shdf5_io
 subroutine shdf5_orec_ll(ndims,dims,dsetname,bvar1,ivar1,rvar1,dvar1,lvar1,  &
                                              bvar2,ivar2,rvar2,dvar2,lvar2,  &
                                              bvar3,ivar3,rvar3,dvar3,lvar3,  &
-                                             gpoints, stagpt,                &
+                                             gpoints, storage_type,          &
                                              units, long_name, positive,     &
                                              imissing, rmissing, dmissing,   &
                                              isdim, dimnames, standard_name, &
-                                             cell_methods, storage_type      )
-
+                                             cell_methods, dims_chunk        )
   use oname_coms,  only: nl
-  use misc_coms,   only: iparallel, io6
+  use misc_coms,   only: io6
 
   implicit none
 
@@ -1011,64 +1591,61 @@ subroutine shdf5_orec_ll(ndims,dims,dsetname,bvar1,ivar1,rvar1,dvar1,lvar1,  &
   integer,      intent(in)             :: ndims    ! Number of dimensions or rank
   integer,      intent(in), contiguous :: dims(:)  ! Dataset dimensions.
 
-! Array and scalar arguments for different types. Only specify one in each call
+  ! Array and scalar arguments for different types. Only specify one in each call
   integer(i1),  intent(in), optional, contiguous :: bvar1(:), bvar2(:,:), bvar3(:,:,:)
   integer,      intent(in), optional, contiguous :: ivar1(:), ivar2(:,:), ivar3(:,:,:)
   real,         intent(in), optional, contiguous :: rvar1(:), rvar2(:,:), rvar3(:,:,:)
   real(r8),     intent(in), optional, contiguous :: dvar1(:), dvar2(:,:), dvar3(:,:,:)
   logical,      intent(in), optional, contiguous :: lvar1(:), lvar2(:,:), lvar3(:,:,:)
 
-! Optional arrays to determine cells for partial/parallel IO
+  ! Optional arrays to determine cells for partial/parallel IO
   integer,      intent(in), optional, contiguous :: gpoints(:)
 
-! Optional arrays to write common NetCDF convention attributes
+  ! Optional arrays to write common NetCDF convention attributes
   character(*), intent(in), optional :: units, long_name, positive
   character(*), intent(in), optional :: standard_name, cell_methods
   integer,      intent(in), optional :: imissing
   real,         intent(in), optional :: rmissing
   real(r8),     intent(in), optional :: dmissing
 
-! Type of variable
-  character(2),   intent(in), optional :: stagpt
+  ! Type of variable
   integer(HID_T), intent(in), optional :: storage_type
 
-! Indicates if this variable is a global dimension
+  ! Indicates if this variable is a global dimension
   logical,      intent(in), optional :: isdim
 
-! Indicate names of each dimension
+  ! Indicate names of each dimension
   character(*), intent(in), optional, contiguous :: dimnames(:)
 
-! Local variables
-  integer        :: hdferr
+  ! Compression/chunking options
+  integer,      intent(in), optional :: dims_chunk(ndims) ! Compression dimensions.
+
+  ! Local variables
+  integer        :: hdferr, n
   integer(HID_T) :: stype
 
-! Check dimensions and set compression chunk size
+  ! Check subroutine arguments
+
+  n = count( [present(bvar1), present(bvar2), present(bvar3), &
+              present(ivar1), present(ivar2), present(ivar3), &
+              present(rvar1), present(rvar2), present(rvar3), &
+              present(dvar1), present(dvar2), present(dvar3), &
+              present(lvar1), present(lvar2), present(lvar3)] )
+
+  if (n /= 1) then
+     write(io6,*) 'Error in shdf5_orec_ll writing ' // trim(dsetname)
+     write(io6,*) 'Only one variable type should be specified for HDF5 output.'
+     return
+  endif
+
+  ! Check dimensions
 
   if (ndims <=0 .or. minval(dims(1:ndims)) <=0) then
      print*, 'Dimension error in shdf5_orec_ll:', ndims, dims(1:ndims)
      stop    'shdf5_orec_ll: bad dims'
   endif
 
-  write(io6,'(A,8(1x,I0))') " Writing: "//trim(dsetname), dims(1:ndims)
-
-#if defined(OLAM_MPI) && !defined(OLAM_PARALLEL_HDF5)
-  if (present(gpoints) .and. iparallel == 1) then
-
-     call shdf5_orec_ll2(ndims,dims,dsetname,bvar1,ivar1,rvar1,dvar1,lvar1,  &
-                                             bvar2,ivar2,rvar2,dvar2,lvar2,  &
-                                             bvar3,ivar3,rvar3,dvar3,lvar3,  &
-                                             gpoints,                        &
-                                             units, long_name, positive,     &
-                                             imissing, rmissing, dmissing,   &
-                                             isdim, dimnames, standard_name, &
-                                             cell_methods, storage_type      )
-     return
-  else
-     if (myrank /= 0) return
-  endif
-#endif
-
-! Prepare memory and options for the write
+  ! Prepare the storage type
 
   if (present(storage_type)) then
      stype = storage_type
@@ -1084,370 +1661,375 @@ subroutine shdf5_orec_ll(ndims,dims,dsetname,bvar1,ivar1,rvar1,dvar1,lvar1,  &
      stype = FORTRAN_INT1_TYPE
   endif
 
-  call fh5_prepare_write_ll( ndims, dims, dsetname, stype, hdferr, &
-                             icompress=nl%icompress, type=stagpt, fcoords=gpoints )
+! write(io6,'(A,8(1x,I0))') " Writing: "//trim(dsetname), dims(1:ndims)
 
-  if (hdferr < 0) then
-     print*, "shdf5_orec_ll: can't prepare requested field:", trim(dsetname)
-     return
+  if (do_hdf5) then
+
+     ! Prepare memory and options for the write
+
+     call fh5_prepare_write_ll( ndims, dims, dsetname, stype, hdferr, &
+                                icompress=nl%icompress, &
+                                fcoords=gpoints, dims_chunk=dims_chunk )
+
+     if (hdferr < 0) then
+        print*, "shdf5_orec_ll: can't prepare requested field:", trim(dsetname)
+        return
+     endif
+
+     ! Write the dataset
+
+     if     (present(ivar1)) then ; call fh5_write(ivar1, hdferr)
+     elseif (present(rvar1)) then ; call fh5_write(rvar1, hdferr)
+     elseif (present(dvar1)) then ; call fh5_write(dvar1, hdferr)
+     elseif (present(lvar1)) then ; call fh5_write(lvar1, hdferr)
+     elseif (present(bvar1)) then ; call fh5_write(bvar1, hdferr)
+
+     elseif (present(ivar2)) then ; call fh5_write(ivar2, hdferr)
+     elseif (present(rvar2)) then ; call fh5_write(rvar2, hdferr)
+     elseif (present(dvar2)) then ; call fh5_write(dvar2, hdferr)
+     elseif (present(lvar2)) then ; call fh5_write(lvar2, hdferr)
+     elseif (present(bvar2)) then ; call fh5_write(bvar2, hdferr)
+
+     elseif (present(ivar3)) then ; call fh5_write(ivar3, hdferr)
+     elseif (present(rvar3)) then ; call fh5_write(rvar3, hdferr)
+     elseif (present(dvar3)) then ; call fh5_write(dvar3, hdferr)
+     elseif (present(lvar3)) then ; call fh5_write(lvar3, hdferr)
+     elseif (present(bvar3)) then ; call fh5_write(bvar3, hdferr)
+     else
+        print*, 'Incorrect or missing data field argument in shdf5_orec_ll'
+        stop    'shdf5_orec_ll: bad data field'
+     endif
+
+     if (hdferr /= 0) then
+        print*, 'In shdf5_orec_ll: hdf5 write error =', hdferr
+        stop    'shdf5_orec_ll: hdf5 write error'
+     endif
+
+     ! Close the write buffers but keep the data set open
+
+     call fh5_close_write(hdferr, no_dsetid=.true.)
+
+     ! Indicate if this variable is a dimension
+
+     if (present(isdim)) then
+        if (isdim) call fh5f_create_dim(dsetname, hdferr)
+     endif
+
+     ! Link each variable to its dimensions
+
+     if ((present(dimnames)) .and. (.not. present(isdim))) then
+        if (size(dimnames) >= ndims) call fh5f_attach_dims(ndims, dimnames, hdferr)
+     endif
+
+     ! Write any dataset attributes to match common NetCDF conventions
+
+     if (present(units)) then
+        if (len_trim(units) > 0) call fh5f_write_attribute("units", cvalue=units)
+     endif
+
+     if (present(long_name)) then
+        if (len_trim(long_name) > 0) call fh5f_write_attribute("long_name", cvalue=long_name)
+     endif
+
+     if (present(standard_name)) then
+        if (len_trim(standard_name) > 0) call fh5f_write_attribute("standard_name", cvalue=standard_name)
+     endif
+
+     if (present(cell_methods)) then
+        if (len_trim(cell_methods) > 0) call fh5f_write_attribute("cell_methods", cvalue=cell_methods)
+     endif
+
+     if (present(positive)) then
+        if (len_trim(positive) > 0) call fh5f_write_attribute("positive", cvalue=positive)
+     endif
+
+     if (present(imissing)) then
+        call fh5f_write_attribute("missing_value", ivalue=imissing)
+     endif
+
+     if (present(rmissing)) then
+        call fh5f_write_attribute("missing_value", rvalue=rmissing)
+     endif
+
+     if (present(dmissing)) then
+        call fh5f_write_attribute("missing_value", dvalue=dmissing)
+     endif
+
+     call fh5_close_dataset(hdferr)
+
   endif
 
-! Write the dataset
+#ifdef OLAM_MPI
 
-      if (present(ivar1)) then ; call fh5_write(ivar1, hdferr)
-  elseif (present(rvar1)) then ; call fh5_write(rvar1, hdferr)
-  elseif (present(dvar1)) then ; call fh5_write(dvar1, hdferr)
-  elseif (present(lvar1)) then ; call fh5_write(lvar1, hdferr)
-  elseif (present(bvar1)) then ; call fh5_write(bvar1, hdferr)
+  if ( do_comm .and. present(gpoints) ) then
 
-  elseif (present(ivar2)) then ; call fh5_write(ivar2, hdferr)
-  elseif (present(rvar2)) then ; call fh5_write(rvar2, hdferr)
-  elseif (present(dvar2)) then ; call fh5_write(dvar2, hdferr)
-  elseif (present(lvar2)) then ; call fh5_write(lvar2, hdferr)
-  elseif (present(bvar2)) then ; call fh5_write(bvar2, hdferr)
+     if (nl%allranks_write_hdf5) then
+        call shdf5_orec_ll_no_phdf5_allranks()
+     else
+        call shdf5_orec_ll_no_phdf5_rank0()
+     endif
 
-  elseif (present(ivar3)) then ; call fh5_write(ivar3, hdferr)
-  elseif (present(rvar3)) then ; call fh5_write(rvar3, hdferr)
-  elseif (present(dvar3)) then ; call fh5_write(dvar3, hdferr)
-  elseif (present(lvar3)) then ; call fh5_write(lvar3, hdferr)
-  elseif (present(bvar3)) then ; call fh5_write(bvar3, hdferr)
-  else
-     print*, 'Incorrect or missing data field argument in shdf5_orec_ll'
-     stop    'shdf5_orec_ll: bad data field'
   endif
 
-  if (hdferr /= 0) then
-     print*, 'In shdf5_orec_ll: hdf5 write error =', hdferr
-     stop    'shdf5_orec_ll: hdf5 write error'
-  endif
+Contains
 
-! Indicate if this variable is a dimension
+  subroutine shdf5_orec_ll_no_phdf5_rank0()
 
-  if (present(isdim)) then
-     if (isdim) call fh5f_create_dim(dsetname, hdferr)
-  endif
+    use mem_para, only: mgroupsize, myrank
+    use mpi
 
-! Link each variable to its dimensions
+    !import, only: dsetname, ndims, dims, gpoints, stype, &
+    !              bvar1, bvar2, bvar3, ivar1, ivar2, ivar3, &
+    !              rvar1, rvar2, rvar3, dvar1, dvar2, dvar3, &
+    !              lvar1, lvar2, lvar3, r8, i1, fh5_prepare_write_ll, &
+    !              fh5_write, fh5_close_write
 
-  if ((present(dimnames)) .and. (.not. present(isdim))) then
-     if (size(dimnames) >= ndims) call fh5f_attach_dims(ndims, dimnames, hdferr)
-  endif
+    implicit none
 
-! Write any dataset attributes to match common NetCDF conventions
+    integer,     allocatable :: ibuff(:), points(:), nus(:)
+    real,        allocatable :: rbuff(:)
+    real(r8),    allocatable :: dbuff(:)
+    logical,     allocatable :: lbuff(:)
+    integer(i1), allocatable :: bbuff(:)
+    integer                  :: nu, ier, base, n
+    integer                  :: hdferr, maxbuff, locbuff
+    integer,       parameter :: itag1 = 3040
+    integer,       parameter :: itag2 = 3041
+    integer                  :: ireqs(2)
 
-  if (present(units)) then
-     if (len_trim(units) > 0) call fh5f_write_attribute("units", cvalue=units)
-  endif
+    nu = size(gpoints)
 
-  if (present(long_name)) then
-     if (len_trim(long_name) > 0) call fh5f_write_attribute("long_name", cvalue=long_name)
-  endif
+    if (myrank == 0) then
+       allocate(nus(mgroupsize))
+    else
+       allocate(nus(1))
+    endif
 
-  if (present(standard_name)) then
-     if (len_trim(standard_name) > 0) call fh5f_write_attribute("standard_name", cvalue=standard_name)
-  endif
+    call MPI_Igather(nu, 1, MPI_INTEGER, nus, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ireqs(1), ier)
 
-  if (present(cell_methods)) then
-     if (len_trim(cell_methods) > 0) call fh5f_write_attribute("cell_methods", cvalue=cell_methods)
-  endif
+    if (myrank > 0 .and. nu > 0) then
 
-  if (present(positive)) then
-     if (len_trim(positive) > 0) call fh5f_write_attribute("positive", cvalue=positive)
-  endif
+       ! Send to rank 0 the list of points and data to be written to disk
 
-  if (present(imissing)) then
-     call fh5f_write_attribute("missing_value", ivalue=imissing)
-  endif
+       call MPI_Isend(gpoints, nu, MPI_INTEGER, 0, itag1, MPI_COMM_WORLD, ireqs(2), ier)
 
-  if (present(rmissing)) then
-     call fh5f_write_attribute("missing_value", rvalue=rmissing)
-  endif
+       locbuff = nu
+       do n = 3, ndims
+          locbuff = locbuff * dims(n)
+       enddo
 
-  if (present(dmissing)) then
-     call fh5f_write_attribute("missing_value", dvalue=dmissing)
-  endif
+       if     (present(ivar1)) then
+          call MPI_Send(ivar1, locbuff, MPI_INTEGER,  0, itag2, MPI_COMM_WORLD, ier)
+       elseif (present(rvar1)) then
+          call MPI_Send(rvar1, locbuff, MPI_REAL,     0, itag2, MPI_COMM_WORLD, ier)
+       elseif (present(dvar1)) then
+          call MPI_Send(dvar1, locbuff, MPI_REAL8,    0, itag2, MPI_COMM_WORLD, ier)
+       elseif (present(lvar1)) then
+          call MPI_Send(lvar1, locbuff, MPI_LOGICAL,  0, itag2, MPI_COMM_WORLD, ier)
+       elseif (present(bvar1)) then
+          call MPI_Send(bvar1, locbuff, MPI_INTEGER1, 0, itag2, MPI_COMM_WORLD, ier)
 
-! Close the dataset, the dataspace for the dataset, and the dataspace properties.
+       elseif (present(ivar2)) then
+          call MPI_Send(ivar2, locbuff, MPI_INTEGER,  0, itag2, MPI_COMM_WORLD, ier)
+       elseif (present(rvar2)) then
+          call MPI_Send(rvar2, locbuff, MPI_REAL,     0, itag2, MPI_COMM_WORLD, ier)
+       elseif (present(dvar2)) then
+          call MPI_Send(dvar2, locbuff, MPI_REAL8,    0, itag2, MPI_COMM_WORLD, ier)
+       elseif (present(lvar2)) then
+          call MPI_Send(lvar2, locbuff, MPI_LOGICAL,  0, itag2, MPI_COMM_WORLD, ier)
+       elseif (present(bvar2)) then
+          call MPI_Send(bvar2, locbuff, MPI_INTEGER1, 0, itag2, MPI_COMM_WORLD, ier)
 
-  call fh5_close_write(hdferr)
+       elseif (present(ivar3)) then
+          call MPI_Send(ivar3, locbuff, MPI_INTEGER,  0, itag2, MPI_COMM_WORLD, ier)
+       elseif (present(rvar3)) then
+          call MPI_Send(rvar3, locbuff, MPI_REAL,     0, itag2, MPI_COMM_WORLD, ier)
+       elseif (present(dvar3)) then
+          call MPI_Send(dvar3, locbuff, MPI_REAL8,    0, itag2, MPI_COMM_WORLD, ier)
+       elseif (present(lvar3)) then
+          call MPI_Send(lvar3, locbuff, MPI_LOGICAL,  0, itag2, MPI_COMM_WORLD, ier)
+       elseif (present(bvar3)) then
+          call MPI_Send(bvar3, locbuff, MPI_INTEGER1, 0, itag2, MPI_COMM_WORLD, ier)
+       endif
+
+       call MPI_Waitall(2, ireqs, MPI_STATUSES_IGNORE, ier)
+
+    elseif (myrank == 0) then
+
+       ! Rank 0 only: collect data from other nodes and write to disk
+
+       call MPI_Wait(ireqs(1), MPI_STATUS_IGNORE, ier)
+
+       base = maxval(nus(2:mgroupsize))
+       maxbuff = base
+       do n = 3, ndims
+          maxbuff = maxbuff * dims(n)
+       enddo
+
+       allocate(points(base))
+
+       if     (present(ivar1) .or. present(ivar2) .or. present(ivar3)) then
+          allocate(ibuff(maxbuff))
+       elseif (present(rvar1) .or. present(rvar2) .or. present(rvar3)) then
+          allocate(rbuff(maxbuff))
+       elseif (present(dvar1) .or. present(dvar2) .or. present(dvar3)) then
+          allocate(dbuff(maxbuff))
+       elseif (present(lvar1) .or. present(lvar2) .or. present(lvar3)) then
+          allocate(lbuff(maxbuff))
+       elseif (present(bvar1) .or. present(bvar2) .or. present(bvar3)) then
+          allocate(bbuff(maxbuff))
+       endif
+
+       do n = 2, mgroupsize
+
+          if (nus(n) < 1) cycle
+
+          call MPI_Recv(points, base, MPI_INTEGER, n-1, itag1, MPI_COMM_WORLD, &
+                        MPI_STATUS_IGNORE, ier)
+
+          call fh5_prepare_write_ll(ndims, dims, dsetname, stype, hdferr, &
+                                    fcoords=points(1:nus(n)))
+
+          if (hdferr /= 0) then
+             print*, "shdf5_orec_ll2: can't prepare requested field:", trim(dsetname)
+             return
+          endif
+
+          ! Write the dataset.
+
+          if (present(ivar1) .or. present(ivar2) .or. present(ivar3)) then
+
+             call MPI_Recv( ibuff, maxbuff, MPI_INTEGER, n-1, itag2, &
+                            MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier )
+             call fh5_write( ibuff, hdferr )
+
+          elseif (present(rvar1) .or. present(rvar2) .or. present(rvar3)) then
+
+             call MPI_Recv( rbuff, maxbuff, MPI_REAL, n-1, itag2, &
+                            MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier )
+             call fh5_write( rbuff, hdferr )
+
+          elseif (present(dvar1) .or. present(dvar2) .or. present(dvar3)) then
+
+             call MPI_Recv( dbuff, maxbuff, MPI_REAL8, n-1, itag2, &
+                            MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier )
+             call fh5_write( dbuff, hdferr )
+
+          elseif (present(lvar1) .or. present(lvar2) .or. present(lvar3)) then
+
+             call MPI_Recv( lbuff, maxbuff, MPI_LOGICAL, n-1, itag2, &
+                            MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier )
+             call fh5_write( lbuff, hdferr )
+
+          elseif (present(bvar1) .or. present(bvar2) .or. present(bvar3)) then
+
+             call MPI_Recv( bbuff, maxbuff, MPI_INTEGER1, n-1, itag2, &
+                            MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier )
+             call fh5_write( bbuff, hdferr )
+
+          else
+             print*, 'Incorrect or missing data field argument in shdf5_orec_ll2'
+             stop    'shdf5_orec_ll2: bad data field'
+          endif
+
+          if (hdferr /= 0) then
+             print*, 'In shdf5_orec_ll2: hdf5 write error =', hdferr, myrank
+             stop    'shdf5_orec_ll2: hdf5 write error'
+          endif
+
+          call fh5_close_write(hdferr)
+
+       enddo
+
+    endif
+
+  end subroutine shdf5_orec_ll_no_phdf5_rank0
+
+
+  subroutine shdf5_orec_ll_no_phdf5_allranks()
+
+    use mem_para, only: mgroupsize, myrank, olam_mpi_barrier
+    use mpi
+
+    !import, only: dsetname, ndims, dims, gpoints, stype, &
+    !              bvar1, bvar2, bvar3, ivar1, ivar2, ivar3, &
+    !              rvar1, rvar2, rvar3, dvar1, dvar2, dvar3, &
+    !              lvar1, lvar2, lvar3, r8, i1, fh5_prepare_write_ll, &
+    !              fh5_write, fh5_close_write, fname, fh5f_open, fh5f_close
+
+    implicit none
+
+    integer,     allocatable :: ibuff(:), points(:), nus(:)
+    real,        allocatable :: rbuff(:)
+    real(r8),    allocatable :: dbuff(:)
+    logical,     allocatable :: lbuff(:)
+    integer(i1), allocatable :: bbuff(:)
+    integer                  :: nu, ier, base, n
+    integer                  :: hdferr, maxbuff, locbuff
+
+    if (myrank == 0) call fh5f_close(hdferr)
+
+    call olam_mpi_barrier()
+
+    do n = 1, mgroupsize-1
+
+       if (myrank == n) then
+
+          call fh5f_open(fname, 2, hdferr)
+
+          call fh5_prepare_write_ll(ndims, dims, dsetname, stype, hdferr, &
+                                    fcoords=gpoints)
+
+          if     (present(ivar1)) then ; call fh5_write(ivar1, hdferr)
+          elseif (present(rvar1)) then ; call fh5_write(rvar1, hdferr)
+          elseif (present(dvar1)) then ; call fh5_write(dvar1, hdferr)
+          elseif (present(lvar1)) then ; call fh5_write(lvar1, hdferr)
+          elseif (present(bvar1)) then ; call fh5_write(bvar1, hdferr)
+
+          elseif (present(ivar2)) then ; call fh5_write(ivar2, hdferr)
+          elseif (present(rvar2)) then ; call fh5_write(rvar2, hdferr)
+          elseif (present(dvar2)) then ; call fh5_write(dvar2, hdferr)
+          elseif (present(lvar2)) then ; call fh5_write(lvar2, hdferr)
+          elseif (present(bvar2)) then ; call fh5_write(bvar2, hdferr)
+
+          elseif (present(ivar3)) then ; call fh5_write(ivar3, hdferr)
+          elseif (present(rvar3)) then ; call fh5_write(rvar3, hdferr)
+          elseif (present(dvar3)) then ; call fh5_write(dvar3, hdferr)
+          elseif (present(lvar3)) then ; call fh5_write(lvar3, hdferr)
+          elseif (present(bvar3)) then ; call fh5_write(bvar3, hdferr)
+
+          else
+             print*, 'Incorrect or missing data field argument in shdf5_orec_ll'
+             stop    'shdf5_orec_ll: bad data field'
+          endif
+
+          if (hdferr /= 0) then
+             print*, 'In shdf5_orec_ll: hdf5 write error =', hdferr
+             stop    'shdf5_orec_ll: hdf5 write error'
+          endif
+
+          call fh5_close_write(hdferr)
+          call fh5f_close     (hdferr)
+
+          !write(*,'(A,I0,A)') "Rank ", myrank, " finished writing " // trim(dsetname)
+       endif
+
+       call olam_mpi_barrier()
+
+    enddo
+
+    if (myrank == 0) call fh5f_open(fname, 2, hdferr)
+
+  end subroutine shdf5_orec_ll_no_phdf5_allranks
+#endif
 
 end subroutine shdf5_orec_ll
 
 !===============================================================================
 
-#if defined(OLAM_MPI) && !defined(OLAM_PARALLEL_HDF5)
-
-subroutine shdf5_orec_ll2(ndims,dims,dsetname,bvar1,ivar1,rvar1,dvar1,lvar1,  &
-                                              bvar2,ivar2,rvar2,dvar2,lvar2,  &
-                                              bvar3,ivar3,rvar3,dvar3,lvar3,  &
-                                              gpoints,                        &
-                                              units, long_name, positive,     &
-                                              imissing, rmissing, dmissing,   &
-                                              isdim, dimnames, standard_name, &
-                                              cell_methods, storage_type      )
-
-  use mem_para, only: mgroupsize, myrank
-  use mpi
-
-  implicit none
-
-  character(*), intent(in)             :: dsetname ! Variable label
-  integer,      intent(in)             :: ndims    ! Number of dimensions or rank
-  integer,      intent(in), contiguous :: dims(:)  ! Dataset dimensions.
-
-! Array and scalar arguments for different types. Only specify one in each call
-  integer(i1),  intent(in), optional, contiguous :: bvar1(:), bvar2(:,:), bvar3(:,:,:)
-  integer,      intent(in), optional, contiguous :: ivar1(:), ivar2(:,:), ivar3(:,:,:)
-  real,         intent(in), optional, contiguous :: rvar1(:), rvar2(:,:), rvar3(:,:,:)
-  real(r8),     intent(in), optional, contiguous :: dvar1(:), dvar2(:,:), dvar3(:,:,:)
-  logical,      intent(in), optional, contiguous :: lvar1(:), lvar2(:,:), lvar3(:,:,:)
-
-! Optional arrays to determine cells for partial/parallel IO
-  integer,      intent(in), optional :: gpoints(:)
-
-! Optional arrays to write common NetCDF convention attributes
-  character(*), intent(in), optional :: units, long_name, positive
-  character(*), intent(in), optional :: standard_name, cell_methods
-  integer,      intent(in), optional :: imissing
-  real,         intent(in), optional :: rmissing
-  real(r8),     intent(in), optional :: dmissing
-
-! Type of variable
-  integer(HID_T), intent(in), optional :: storage_type
-
-! Indicates if this variable is a global dimension
-  logical,      intent(in), optional :: isdim
-
-! Indicate names of each dimension
-  character(*), intent(in), optional, contiguous :: dimnames(:)
-
-! Local variables
-  integer        :: hdferr  ! Error flag
-  integer(HID_T) :: stype
-
-  integer,     allocatable :: ibuff(:), points(:)
-  real,        allocatable :: rbuff(:)
-  real(r8),    allocatable :: dbuff(:)
-  logical,     allocatable :: lbuff(:)
-  integer(i1), allocatable :: bbuff(:)
-
-  integer :: nu, ier, base, n
-  integer :: maxbuff, locbuff
-  integer :: nus(mgroupsize)
-  integer, parameter :: itag = 40
-
-! Check dimensions and set compression chunk size
-
-  if (ndims <=0 .or. minval(dims(1:ndims)) <=0) then
-     print*, 'Dimension error in shdf5_orec_ll2:', ndims, dims(1:ndims)
-     stop    'shdf5_orec_ll2: bad dims'
-  endif
-
-  nu = size(gpoints)
-  call MPI_Gather(nu, 1, MPI_INTEGER, nus, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ier)
-
-  base = maxval(nus(2:mgroupsize))
-  maxbuff = base
-  locbuff = nu
-  do n = 3, ndims
-     maxbuff = maxbuff * dims(n)
-     locbuff = locbuff * dims(n)
-  enddo
-
-  if (myrank == 0) then
-
-     allocate(points(base))
-     if     (present(ivar1) .or. present(ivar2) .or. present(ivar3)) then
-        allocate(ibuff(maxbuff))
-        stype = FORTRAN_INT4_TYPE
-     elseif (present(rvar1) .or. present(rvar2) .or. present(rvar3)) then
-        allocate(rbuff(maxbuff))
-        stype = FORTRAN_REAL4_TYPE
-     elseif (present(dvar1) .or. present(dvar2) .or. present(dvar3)) then
-        allocate(dbuff(maxbuff))
-        stype = FORTRAN_REAL8_TYPE
-     elseif (present(lvar1) .or. present(lvar2) .or. present(lvar3)) then
-        allocate(lbuff(maxbuff))
-        stype = FORTRAN_INT1_TYPE
-     elseif (present(bvar1) .or. present(bvar2) .or. present(bvar3)) then
-        allocate(bbuff(maxbuff))
-        stype = FORTRAN_INT1_TYPE
-     endif
-
-     if (present(storage_type)) then
-        stype = storage_type
-     endif
-
-  endif
-
-  if (myrank > 0 .and. nu > 0) then
-     call MPI_Send(gpoints, nu, MPI_INTEGER, 0, itag, MPI_COMM_WORLD, ier)
-
-     if     (present(ivar1)) then ; call MPI_Send(ivar1, locbuff, MPI_INTEGER,  0, itag, MPI_COMM_WORLD, ier)
-     elseif (present(rvar1)) then ; call MPI_Send(rvar1, locbuff, MPI_REAL,     0, itag, MPI_COMM_WORLD, ier)
-     elseif (present(dvar1)) then ; call MPI_Send(dvar1, locbuff, MPI_REAL8,    0, itag, MPI_COMM_WORLD, ier)
-     elseif (present(lvar1)) then ; call MPI_Send(lvar1, locbuff, MPI_LOGICAL,  0, itag, MPI_COMM_WORLD, ier)
-     elseif (present(bvar1)) then ; call MPI_Send(bvar1, locbuff, MPI_INTEGER1, 0, itag, MPI_COMM_WORLD, ier)
-
-     elseif (present(ivar2)) then ; call MPI_Send(ivar2, locbuff, MPI_INTEGER,  0, itag, MPI_COMM_WORLD, ier)
-     elseif (present(rvar2)) then ; call MPI_Send(rvar2, locbuff, MPI_REAL,     0, itag, MPI_COMM_WORLD, ier)
-     elseif (present(dvar2)) then ; call MPI_Send(dvar2, locbuff, MPI_REAL8,    0, itag, MPI_COMM_WORLD, ier)
-     elseif (present(lvar2)) then ; call MPI_Send(lvar2, locbuff, MPI_LOGICAL,  0, itag, MPI_COMM_WORLD, ier)
-     elseif (present(bvar2)) then ; call MPI_Send(bvar2, locbuff, MPI_INTEGER1, 0, itag, MPI_COMM_WORLD, ier)
-
-     elseif (present(ivar3)) then ; call MPI_Send(ivar3, locbuff, MPI_INTEGER,  0, itag, MPI_COMM_WORLD, ier)
-     elseif (present(rvar3)) then ; call MPI_Send(rvar3, locbuff, MPI_REAL,     0, itag, MPI_COMM_WORLD, ier)
-     elseif (present(dvar3)) then ; call MPI_Send(dvar3, locbuff, MPI_REAL8,    0, itag, MPI_COMM_WORLD, ier)
-     elseif (present(lvar3)) then ; call MPI_Send(lvar3, locbuff, MPI_LOGICAL,  0, itag, MPI_COMM_WORLD, ier)
-     elseif (present(bvar3)) then ; call MPI_Send(bvar3, locbuff, MPI_INTEGER1, 0, itag, MPI_COMM_WORLD, ier)
-
-     endif
-  endif
-
-  if (myrank /= 0) return
-
-  do n = 1, mgroupsize
-
-     if (nus(n) < 1) cycle
-
-! Prepare memory and options for the write
-
-     if (n == 1) then
-        call fh5_prepare_write_ll(ndims, dims, dsetname, stype, hdferr, fcoords=gpoints)
-     else
-        call MPI_Recv(points, base, MPI_INTEGER, n-1, itag, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
-        call fh5_prepare_write_ll(ndims, dims, dsetname, stype, hdferr, fcoords=points(1:nus(n)))
-     endif
-
-     if (hdferr /= 0) then
-        print*, "shdf5_orec_ll2: can't prepare requested field:", trim(dsetname)
-        return
-     endif
-
-     ! Write the dataset.
-
-     if (present(ivar1) .or. present(ivar2) .or. present(ivar3)) then
-        if (n == 1) then
-               if (present(ivar1)) then ; call fh5_write(ivar1, hdferr)
-           elseif (present(ivar2)) then ; call fh5_write(ivar2, hdferr)
-           elseif (present(ivar3)) then ; call fh5_write(ivar3, hdferr)
-           endif
-        else
-           call MPI_Recv( ibuff, maxbuff, MPI_INTEGER, n-1, itag, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
-           call fh5_write(ibuff, hdferr)
-        endif
-     elseif (present(rvar1) .or. present(rvar2) .or. present(rvar3)) then
-        if (n == 1) then
-               if (present(rvar1)) then ; call fh5_write(rvar1, hdferr)
-           elseif (present(rvar2)) then ; call fh5_write(rvar2, hdferr)
-           elseif (present(rvar3)) then ; call fh5_write(rvar3, hdferr)
-           endif
-        else
-           call MPI_Recv( rbuff, maxbuff, MPI_REAL,    n-1, itag, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
-           call fh5_write(rbuff, hdferr)
-        endif
-     elseif (present(dvar1) .or. present(dvar2) .or. present(dvar3)) then
-        if (n == 1) then
-               if (present(dvar1)) then ; call fh5_write(dvar1, hdferr)
-           elseif (present(dvar2)) then ; call fh5_write(dvar2, hdferr)
-           elseif (present(dvar3)) then ; call fh5_write(dvar3, hdferr)
-           endif
-        else
-           call MPI_Recv( dbuff, maxbuff, MPI_REAL8,   n-1, itag, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
-           call fh5_write(dbuff, hdferr)
-        endif
-     elseif (present(lvar1) .or. present(lvar2) .or. present(lvar3)) then
-        if (n == 1) then
-               if (present(lvar1)) then ; call fh5_write(lvar1, hdferr)
-           elseif (present(lvar2)) then ; call fh5_write(lvar2, hdferr)
-           elseif (present(lvar3)) then ; call fh5_write(lvar3, hdferr)
-           endif
-       else
-           call MPI_Recv( lbuff, maxbuff, MPI_LOGICAL, n-1, itag, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
-           call fh5_write(lbuff, hdferr)
-        endif
-     elseif (present(bvar1) .or. present(bvar2) .or. present(bvar3)) then
-        if (n == 1) then
-               if (present(bvar1)) then ; call fh5_write(bvar1, hdferr)
-           elseif (present(bvar2)) then ; call fh5_write(bvar2, hdferr)
-           elseif (present(bvar3)) then ; call fh5_write(bvar3, hdferr)
-           endif
-       else
-           call MPI_Recv( bbuff, maxbuff, MPI_INTEGER1, n-1, itag, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier)
-           call fh5_write(bbuff, hdferr)
-        endif
-     else
-        print*, 'Incorrect or missing data field argument in shdf5_orec_ll2'
-        stop    'shdf5_orec_ll2: bad data field'
-     endif
-
-     if (hdferr /= 0) then
-        print*, 'In shdf5_orec_ll2: hdf5 write error =', hdferr, myrank
-        stop    'shdf5_orec_ll2: hdf5 write error'
-     endif
-
-     call fh5_close_write1(hdferr)
-
-  enddo
-
-! Indicate if this variable is a dimension
-
-  if (present(isdim)) then
-     if (isdim) call fh5f_create_dim(dsetname, hdferr)
-  endif
-
-! Link each variable to its dimensions
-
-  if ((present(dimnames)) .and. (.not. present(isdim))) then
-     if (size(dimnames) >= ndims) call fh5f_attach_dims(ndims, dimnames, hdferr)
-  endif
-
-! Write any dataset attributes to match common NetCDF conventions
-
-  if (present(units)) then
-     if (len_trim(units) > 0) call fh5f_write_attribute("units", cvalue=units)
-  endif
-
-  if (present(long_name)) then
-     if (len_trim(long_name) > 0) call fh5f_write_attribute("long_name", cvalue=long_name)
-  endif
-
-  if (present(standard_name)) then
-     if (len_trim(standard_name) > 0) call fh5f_write_attribute("standard_name", cvalue=standard_name)
-  endif
-
-  if (present(cell_methods)) then
-     if (len_trim(cell_methods) > 0) call fh5f_write_attribute("cell_methods", cvalue=cell_methods)
-  endif
-
-  if (present(positive)) then
-     if (len_trim(positive) > 0) call fh5f_write_attribute("positive", cvalue=positive)
-  endif
-
-  if (present(imissing)) then
-     call fh5f_write_attribute("missing_value", ivalue=imissing)
-  endif
-
-  if (present(rmissing)) then
-     call fh5f_write_attribute("missing_value", rvalue=rmissing)
-  endif
-
-  if (present(dmissing)) then
-     call fh5f_write_attribute("missing_value", dvalue=dmissing)
-  endif
-
-! Close the dataset, the dataspace for the dataset, and the dataspace properties.
-
-  call fh5_close_write2(hdferr)
-
-end subroutine shdf5_orec_ll2
-
-#endif
-
-!===============================================================================
-
 subroutine shdf5_write_global_attribute(name, ivalue, rvalue, dvalue, cvalue)
 
+  use misc_coms, only: io6
   implicit none
 
   character(*),           intent(in) :: name
@@ -1455,22 +2037,70 @@ subroutine shdf5_write_global_attribute(name, ivalue, rvalue, dvalue, cvalue)
   real,         optional, intent(in) :: rvalue
   real(r8),     optional, intent(in) :: dvalue
   character(*), optional, intent(in) :: cvalue
+  integer                            :: n
 
-#if defined(OLAM_MPI) && !defined(OLAM_PARALLEL_HDF5)
-  if (myrank /= 0) return
-#endif
+  n = count( [present(ivalue), present(rvalue), present(dvalue), present(cvalue)] )
 
-  if (present(ivalue)) then
-     call fh5f_write_global_attribute(name, ivalue=ivalue)
-  elseif (present(rvalue)) then
-     call fh5f_write_global_attribute(name, rvalue=rvalue)
-  elseif (present(dvalue)) then
-     call fh5f_write_global_attribute(name, dvalue=dvalue)
-  elseif (present(cvalue)) then
-     call fh5f_write_global_attribute(name, cvalue=cvalue)
+  if (n /= 1) then
+     write(io6,*) "Error in shdf5_write_global_attribute:"
+     write(io6,*) "One (and only one) variable type must be present"
+     write(io6,*) "Not reading global attribute " // trim(name)
+     return
   endif
 
+  if (do_hdf5) call fh5f_write_global_attribute(name, ivalue=ivalue, rvalue=rvalue, &
+                                                      dvalue=dvalue, cvalue=cvalue)
+
 end subroutine shdf5_write_global_attribute
+
+!===============================================================================
+
+subroutine shdf5_read_global_attribute(name, exists, ivalue, rvalue, dvalue, cvalue)
+
+  use misc_coms, only: io6
+
+#ifdef OLAM_MPI
+  use mpi
+#endif
+
+  implicit none
+
+  character(*),           intent(in)  :: name
+  integer,      optional, intent(out) :: ivalue
+  real,         optional, intent(out) :: rvalue
+  real(r8),     optional, intent(out) :: dvalue
+  character(*), optional, intent(out) :: cvalue
+  logical,      optional, intent(out) :: exists
+  integer                             :: n, ier
+
+  if (present(exists)) exists = .false.
+
+  n = count( [present(ivalue), present(rvalue), present(dvalue), present(cvalue)] )
+  if (n /= 1) then
+     write(io6,*) "Error in shdf5_read_global_attribute:"
+     write(io6,*) "One (and only one) variable type must be present"
+     write(io6,*) "Not reading global attribute " // trim(name)
+     return
+  endif
+
+  if (do_hdf5) call fh5f_read_global_attribute(name, exists=exists, &
+                    ivalue=ivalue, rvalue=rvalue, dvalue=dvalue, cvalue=cvalue)
+
+#ifdef OLAM_MPI
+  if (do_comm) then
+     if (present(ivalue)) then
+        call MPI_Bcast(ivalue, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ier)
+     elseif (present(rvalue)) then
+        call MPI_Bcast(rvalue, 1, MPI_REAL, 0, MPI_COMM_WORLD, ier)
+     elseif (present(dvalue)) then
+        call MPI_Bcast(dvalue, 1, MPI_REAL8, 0, MPI_COMM_WORLD, ier)
+     elseif (present(cvalue)) then
+        call MPI_Bcast(cvalue, len(cvalue), MPI_CHARACTER, 0, MPI_COMM_WORLD, ier)
+     endif
+  endif
+#endif
+
+end subroutine shdf5_read_global_attribute
 
 !===============================================================================
 

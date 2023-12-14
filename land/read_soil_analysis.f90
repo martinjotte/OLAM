@@ -10,7 +10,7 @@ subroutine read_soil_analysis(soil_tempc)
   use isan_coms,   only: nfgfiles, s1900_fg, fnames_fg, nprx, npry, plats, &
                          inproj, xswlat, xswlon, gdatdx, gdatdy, irev_ns, &
                          read_analysis_header
-  use hdf5_utils,  only: shdf5_open, shdf5_irec, shdf5_info, shdf5_close
+  use hdf5_utils,  only: shdf5_exists, shdf5_open, shdf5_irec, shdf5_info, shdf5_close
   use mem_para,    only: myrank
   use analysis_lib,only: gdtost_ll
 
@@ -64,7 +64,8 @@ subroutine read_soil_analysis(soil_tempc)
 
 ! Process selected analysis file
 
-  inquire(file=fname, exist=exists)
+  call shdf5_exists(fname, exists)
+
   if (.not. exists) then
      write(io6,*) "read_soil: Error opening analysis file " // trim(fname)
      write(io6,*) "Using default soil initialization instead."
@@ -73,7 +74,7 @@ subroutine read_soil_analysis(soil_tempc)
 
   write(io6,'(A)') ' read_soil: opening ' // trim(fname)
 
-  call shdf5_open(fname, 'R', trypario=.true.)
+  call shdf5_open(fname, 'R')
 
   call read_analysis_header(noplevs=.true.)
 

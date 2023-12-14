@@ -8,8 +8,9 @@ subroutine read_sst_analysis(iaction)
   use isan_coms,   only: nfgfiles, s1900_fg, fnames_fg, nprx, npry, plats, &
                          inproj, xswlat, xswlon, gdatdx, gdatdy, irev_ns, &
                          read_analysis_header
-  use hdf5_utils,  only: shdf5_open, shdf5_irec, shdf5_info, shdf5_close
+  use hdf5_utils,  only: shdf5_exists, shdf5_open, shdf5_irec, shdf5_info, shdf5_close
   use analysis_lib,only: gdtost_ll
+  use mem_para,    only: olam_mpi_finalize
 
   implicit none
 
@@ -20,6 +21,7 @@ subroutine read_sst_analysis(iaction)
   integer            :: ndims, idims(3)
   integer            :: isea, iwsfc
   real, allocatable  :: sst(:,:)  ! sea surface temperature [K]
+  logical            :: exists
 
 ! Nothing to do here if isstflg is not 2
 
@@ -71,7 +73,16 @@ subroutine read_sst_analysis(iaction)
 
   write(io6,'(A)') ' read_sst: opening ' // trim(fname)
 
-  call shdf5_open(fname, 'R', trypario=.true.)
+  call shdf5_exists(fname, exists)
+
+  if (.not. exists) then
+     write(io6,*) "read_sst_analysis: Error opening analysis file " // trim(fname)
+     write(io6,*) "Stopping run."
+     call olam_mpi_finalize()
+     stop
+  endif
+
+  call shdf5_open(fname, 'R')
 
   call read_analysis_header(noplevs=.true., nosoil=.true.)
 
@@ -88,6 +99,7 @@ subroutine read_sst_analysis(iaction)
 
      write(io6,*) "read_sst: Analysis file does not contain sst."
      write(io6,*) "Stopping run."
+     call olam_mpi_finalize()
      stop
 
   endif

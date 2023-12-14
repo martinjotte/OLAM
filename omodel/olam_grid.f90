@@ -1428,9 +1428,8 @@ subroutine gridfile_read_pd()
                         xew, yew, zew, arw0, alloc_xyzem, alloc_xyzew
   use mem_sfcg,   only: nwsfc, itab_wsfc_pd
   use leaf_coms,  only: isfcl, isoilflg, ivegflg
-
-  use hdf5_utils, only: shdf5_irec, shdf5_open, shdf5_close
-
+  use mem_para,   only: olam_mpi_finalize
+  use hdf5_utils, only: shdf5_exists, shdf5_irec, shdf5_open, shdf5_close
   use mem_nudge,  only: nudflag, nudnxp, nwnud, mwnud, xewnud, yewnud, zewnud, &
                         alloc_nudge1
 
@@ -1473,11 +1472,11 @@ subroutine gridfile_read_pd()
 
   flnm = trim(gridfile)//'.h5'
 
-  inquire(file=flnm, exist=exans)
+  call shdf5_exists(flnm, exans)
 
   if (.not. exans) then
 
-  ! Gridfile does not exist.
+     ! Gridfile does not exist.
 
      write(io6,*)
      write(io6,*) '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
@@ -1486,6 +1485,7 @@ subroutine gridfile_read_pd()
      write(io6,*) '!!!  Stopping run'
      write(io6,*) '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
 
+     call olam_mpi_finalize()
      stop 'stop - no gridfile'
 
   endif
@@ -1497,7 +1497,7 @@ subroutine gridfile_read_pd()
   write(io6,*) 'Opening grid file ', trim(flnm)
   write(io6,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++'
 
-  call shdf5_open(flnm,'R',trypario=.true.)
+  call shdf5_open(flnm,'R')
 
   ! Read the grid information that exists in namelist
 
@@ -1911,8 +1911,9 @@ subroutine gridfile_read()
                         dnu, dniu, dnv, dniv, arm0, &
                         glatw, glonw, glatm, glonm, glatv, glonv, &
                         arv, arw, volt
-  use hdf5_utils, only: shdf5_irec, shdf5_open, shdf5_close
+  use hdf5_utils, only: shdf5_exists, shdf5_irec, shdf5_open, shdf5_close
   use mem_nudge,  only: nudflag, nudnxp
+  use mem_para,   only: olam_mpi_finalize
 
   ! This subroutine checks for the existence of a gridfile, and if it exists,
   ! also checks for agreement of grid configuration between the file and the
@@ -1950,7 +1951,7 @@ subroutine gridfile_read()
 
   flnm = trim(gridfile)//'.h5'
 
-  inquire(file=flnm, exist=exans)
+  call shdf5_exists(flnm, exans)
 
   if (.not. exans) then
 
@@ -1962,6 +1963,7 @@ subroutine gridfile_read()
      write(io6,*) '!!!  Stopping run'
      write(io6,*) '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
 
+     call olam_mpi_finalize()
      stop 'stop - no gridfile'
 
   endif
@@ -1972,7 +1974,7 @@ subroutine gridfile_read()
   write(io6,*) 'Opening grid file ', trim(flnm)
   write(io6,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++'
 
-  call shdf5_open(flnm,'R',trypario=.true.)
+  call shdf5_open(flnm, 'R')
 
   ndims    = 1
   idims(1) = nza
@@ -1994,68 +1996,68 @@ subroutine gridfile_read()
   idims(1) = mma
   type     = 'AM'
 
-  call shdf5_irec(ndims, idims, 'LPM'  , ivar1=lpm  , points=lgma, stagpt=type)
-  call shdf5_irec(ndims, idims, 'TOPM' , rvar1=topm , points=lgma, stagpt=type)
-  call shdf5_irec(ndims, idims, 'ARM0' , rvar1=arm0 , points=lgma, stagpt=type)
-  call shdf5_irec(ndims, idims, 'GLATM', rvar1=glatm, points=lgma, stagpt=type)
-  call shdf5_irec(ndims, idims, 'GLONM', rvar1=glonm, points=lgma, stagpt=type)
-  call shdf5_irec(ndims, idims, 'XEM'  , rvar1=xem  , points=lgma, stagpt=type)
-  call shdf5_irec(ndims, idims, 'YEM'  , rvar1=yem  , points=lgma, stagpt=type)
-  call shdf5_irec(ndims, idims, 'ZEM'  , rvar1=zem  , points=lgma, stagpt=type)
+  call shdf5_irec(ndims, idims, 'LPM'  , ivar1=lpm  , points=lgma)
+  call shdf5_irec(ndims, idims, 'TOPM' , rvar1=topm , points=lgma)
+  call shdf5_irec(ndims, idims, 'ARM0' , rvar1=arm0 , points=lgma)
+  call shdf5_irec(ndims, idims, 'GLATM', rvar1=glatm, points=lgma)
+  call shdf5_irec(ndims, idims, 'GLONM', rvar1=glonm, points=lgma)
+  call shdf5_irec(ndims, idims, 'XEM'  , rvar1=xem  , points=lgma)
+  call shdf5_irec(ndims, idims, 'YEM'  , rvar1=yem  , points=lgma)
+  call shdf5_irec(ndims, idims, 'ZEM'  , rvar1=zem  , points=lgma)
 
   ndims    = 1
   idims(1) = mva
   type     = 'AV'
 
-  call shdf5_irec(ndims, idims, 'LPV'  , ivar1=lpv  , points=lgva, stagpt=type)
-  call shdf5_irec(ndims, idims, 'XEV'  , rvar1=xev  , points=lgva, stagpt=type)
-  call shdf5_irec(ndims, idims, 'YEV'  , rvar1=yev  , points=lgva, stagpt=type)
-  call shdf5_irec(ndims, idims, 'ZEV'  , rvar1=zev  , points=lgva, stagpt=type)
-  call shdf5_irec(ndims, idims, 'GLATV', rvar1=glatv, points=lgva, stagpt=type)
-  call shdf5_irec(ndims, idims, 'GLONV', rvar1=glonv, points=lgva, stagpt=type)
-  call shdf5_irec(ndims, idims, 'DNU'  , rvar1=dnu  , points=lgva, stagpt=type)
-  call shdf5_irec(ndims, idims, 'DNV'  , rvar1=dnv  , points=lgva, stagpt=type)
-  call shdf5_irec(ndims, idims, 'DNIU' , rvar1=dniu , points=lgva, stagpt=type)
-  call shdf5_irec(ndims, idims, 'DNIV' , rvar1=dniv , points=lgva, stagpt=type)
-  call shdf5_irec(ndims, idims, 'UNX'  , rvar1=unx  , points=lgva, stagpt=type)
-  call shdf5_irec(ndims, idims, 'UNY'  , rvar1=uny  , points=lgva, stagpt=type)
-  call shdf5_irec(ndims, idims, 'UNZ'  , rvar1=unz  , points=lgva, stagpt=type)
-  call shdf5_irec(ndims, idims, 'VNX'  , rvar1=vnx  , points=lgva, stagpt=type)
-  call shdf5_irec(ndims, idims, 'VNY'  , rvar1=vny  , points=lgva, stagpt=type)
-  call shdf5_irec(ndims, idims, 'VNZ'  , rvar1=vnz  , points=lgva, stagpt=type)
+  call shdf5_irec(ndims, idims, 'LPV'  , ivar1=lpv  , points=lgva)
+  call shdf5_irec(ndims, idims, 'XEV'  , rvar1=xev  , points=lgva)
+  call shdf5_irec(ndims, idims, 'YEV'  , rvar1=yev  , points=lgva)
+  call shdf5_irec(ndims, idims, 'ZEV'  , rvar1=zev  , points=lgva)
+  call shdf5_irec(ndims, idims, 'GLATV', rvar1=glatv, points=lgva)
+  call shdf5_irec(ndims, idims, 'GLONV', rvar1=glonv, points=lgva)
+  call shdf5_irec(ndims, idims, 'DNU'  , rvar1=dnu  , points=lgva)
+  call shdf5_irec(ndims, idims, 'DNV'  , rvar1=dnv  , points=lgva)
+  call shdf5_irec(ndims, idims, 'DNIU' , rvar1=dniu , points=lgva)
+  call shdf5_irec(ndims, idims, 'DNIV' , rvar1=dniv , points=lgva)
+  call shdf5_irec(ndims, idims, 'UNX'  , rvar1=unx  , points=lgva)
+  call shdf5_irec(ndims, idims, 'UNY'  , rvar1=uny  , points=lgva)
+  call shdf5_irec(ndims, idims, 'UNZ'  , rvar1=unz  , points=lgva)
+  call shdf5_irec(ndims, idims, 'VNX'  , rvar1=vnx  , points=lgva)
+  call shdf5_irec(ndims, idims, 'VNY'  , rvar1=vny  , points=lgva)
+  call shdf5_irec(ndims, idims, 'VNZ'  , rvar1=vnz  , points=lgva)
 
   ndims    = 1
   idims(1) = mwa
   type     = 'AW'
 
-  call shdf5_irec(ndims, idims, 'LPW'  , ivar1=lpw  , points=lgwa, stagpt=type)
-  call shdf5_irec(ndims, idims, 'LSW'  , ivar1=lsw  , points=lgwa, stagpt=type)
-  call shdf5_irec(ndims, idims, 'LVE2' , ivar1=lve2 , points=lgwa, stagpt=type)
-! call shdf5_irec(ndims, idims, 'XEW'  , rvar1=xew  , points=lgwa, stagpt=type)
-! call shdf5_irec(ndims, idims, 'YEW'  , rvar1=yew  , points=lgwa, stagpt=type)
-! call shdf5_irec(ndims, idims, 'ZEW'  , rvar1=zew  , points=lgwa, stagpt=type)
-  call shdf5_irec(ndims, idims, 'WNX'  , rvar1=wnx  , points=lgwa, stagpt=type)
-  call shdf5_irec(ndims, idims, 'WNY'  , rvar1=wny  , points=lgwa, stagpt=type)
-  call shdf5_irec(ndims, idims, 'WNZ'  , rvar1=wnz  , points=lgwa, stagpt=type)
-! call shdf5_irec(ndims, idims, 'ARW0' , rvar1=arw0 , points=lgwa, stagpt=type)
-  call shdf5_irec(ndims, idims, 'TOPW' , rvar1=topw , points=lgwa, stagpt=type)
-  call shdf5_irec(ndims, idims, 'GLATW', rvar1=glatw, points=lgwa, stagpt=type)
-  call shdf5_irec(ndims, idims, 'GLONW', rvar1=glonw, points=lgwa, stagpt=type)
+  call shdf5_irec(ndims, idims, 'LPW'  , ivar1=lpw  , points=lgwa)
+  call shdf5_irec(ndims, idims, 'LSW'  , ivar1=lsw  , points=lgwa)
+  call shdf5_irec(ndims, idims, 'LVE2' , ivar1=lve2 , points=lgwa)
+! call shdf5_irec(ndims, idims, 'XEW'  , rvar1=xew  , points=lgwa)
+! call shdf5_irec(ndims, idims, 'YEW'  , rvar1=yew  , points=lgwa)
+! call shdf5_irec(ndims, idims, 'ZEW'  , rvar1=zew  , points=lgwa)
+  call shdf5_irec(ndims, idims, 'WNX'  , rvar1=wnx  , points=lgwa)
+  call shdf5_irec(ndims, idims, 'WNY'  , rvar1=wny  , points=lgwa)
+  call shdf5_irec(ndims, idims, 'WNZ'  , rvar1=wnz  , points=lgwa)
+! call shdf5_irec(ndims, idims, 'ARW0' , rvar1=arw0 , points=lgwa)
+  call shdf5_irec(ndims, idims, 'TOPW' , rvar1=topw , points=lgwa)
+  call shdf5_irec(ndims, idims, 'GLATW', rvar1=glatw, points=lgwa)
+  call shdf5_irec(ndims, idims, 'GLONW', rvar1=glonw, points=lgwa)
 
   ndims    = 2
   idims(1) = nza
   idims(2) = mva
   type     = 'AV'
 
-  call shdf5_irec(ndims, idims, 'ARV', rvar2=arv, points=lgva, stagpt=type)
+  call shdf5_irec(ndims, idims, 'ARV', rvar2=arv, points=lgva)
 
   ndims    = 2
   idims(1) = nza
   idims(2) = mwa
   type     = 'AW'
 
-  call shdf5_irec(ndims, idims, 'ARW' , rvar2=arw , points=lgwa, stagpt=type)
-  call shdf5_irec(ndims, idims, 'VOLT', dvar2=volt, points=lgwa, stagpt=type)
+  call shdf5_irec(ndims, idims, 'ARW' , rvar2=arw , points=lgwa)
+  call shdf5_irec(ndims, idims, 'VOLT', dvar2=volt, points=lgwa)
 
   ! Read ITAB_M SCALARS
 
@@ -2065,22 +2067,22 @@ subroutine gridfile_read()
 
   allocate (iscr1(mma))
 
-  call shdf5_irec(ndims, idims, 'itab_m%mrlm'     ,ivar1=iscr1, points=lgma, stagpt=type)
+  call shdf5_irec(ndims, idims, 'itab_m%mrlm'     ,ivar1=iscr1, points=lgma)
   do im = 1,mma
      itab_m(im)%mrlm = iscr1(im)
   enddo
 
-  call shdf5_irec(ndims, idims, 'itab_m%mrlm_orig',ivar1=iscr1, points=lgma, stagpt=type)
+  call shdf5_irec(ndims, idims, 'itab_m%mrlm_orig',ivar1=iscr1, points=lgma)
   do im = 1,mma
      itab_m(im)%mrlm_orig = iscr1(im)
   enddo
 
-  call shdf5_irec(ndims, idims, 'itab_m%mrow'     ,ivar1=iscr1, points=lgma, stagpt=type)
+  call shdf5_irec(ndims, idims, 'itab_m%mrow'     ,ivar1=iscr1, points=lgma)
   do im = 1,mma
      itab_m(im)%mrow = iscr1(im)
   enddo
 
-  call shdf5_irec(ndims, idims, 'itab_m%ngr'      ,ivar1=iscr1, points=lgma, stagpt=type)
+  call shdf5_irec(ndims, idims, 'itab_m%ngr'      ,ivar1=iscr1, points=lgma)
   do im = 1,mma
      itab_m(im)%ngr = iscr1(im)
   enddo
@@ -2094,7 +2096,7 @@ subroutine gridfile_read()
   type     = 'AM'
 
   allocate (lscr2(mloops,mma))
-  call shdf5_irec(ndims, idims, 'itab_m%loop', lvar2=lscr2, points=lgma, stagpt=type)
+  call shdf5_irec(ndims, idims, 'itab_m%loop', lvar2=lscr2, points=lgma)
   do im = 1,mma
      itab_m(im)%loop(1:mloops) = lscr2(1:mloops,im)
   enddo
@@ -2108,7 +2110,7 @@ subroutine gridfile_read()
 
   allocate (iscr1(mva))
 
-  call shdf5_irec(ndims,idims,'itab_v%mrlv'  , ivar1=iscr1, points=lgva, stagpt=type)
+  call shdf5_irec(ndims,idims,'itab_v%mrlv'  , ivar1=iscr1, points=lgva)
   do iv = 1,mva
      itab_v(iv)%mrlv = iscr1(iv)
   enddo
@@ -2122,7 +2124,7 @@ subroutine gridfile_read()
   type     = 'AV'
 
   allocate (lscr2(mloops,mva))
-  call shdf5_irec(ndims,idims,'itab_v%loop',lvar2=lscr2, points=lgva, stagpt=type)
+  call shdf5_irec(ndims,idims,'itab_v%loop',lvar2=lscr2, points=lgva)
   do iv = 1,mva
      itab_v(iv)%loop(1:mloops) = lscr2(1:mloops,iv)
   enddo
@@ -2131,27 +2133,27 @@ subroutine gridfile_read()
   idims(1) = 2
   allocate (rscr2(2,mva))
 
-  call shdf5_irec(ndims,idims,'itab_v%farw',rvar2=rscr2, points=lgva, stagpt=type)
+  call shdf5_irec(ndims,idims,'itab_v%farw',rvar2=rscr2, points=lgva)
   do iv = 1,mva
      itab_v(iv)%farw(1:2) = rscr2(1:2,iv)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_v%cosv',rvar2=rscr2, points=lgva, stagpt=type)
+  call shdf5_irec(ndims,idims,'itab_v%cosv',rvar2=rscr2, points=lgva)
   do iv = 1,mva
      itab_v(iv)%cosv(1:2) = rscr2(1:2,iv)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_v%sinv',rvar2=rscr2, points=lgva, stagpt=type)
+  call shdf5_irec(ndims,idims,'itab_v%sinv',rvar2=rscr2, points=lgva)
   do iv = 1,mva
      itab_v(iv)%sinv(1:2) = rscr2(1:2,iv)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_v%dxps',rvar2=rscr2, points=lgva, stagpt=type)
+  call shdf5_irec(ndims,idims,'itab_v%dxps',rvar2=rscr2, points=lgva)
   do iv = 1,mva
      itab_v(iv)%dxps(1:2) = rscr2(1:2,iv)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_v%dyps',rvar2=rscr2, points=lgva, stagpt=type)
+  call shdf5_irec(ndims,idims,'itab_v%dyps',rvar2=rscr2, points=lgva)
   do iv = 1,mva
      itab_v(iv)%dyps(1:2) = rscr2(1:2,iv)
   enddo
@@ -2166,44 +2168,44 @@ subroutine gridfile_read()
 
   allocate (iscr1(mwa))
 
-  call shdf5_irec(ndims,idims,'itab_w%mrlw'     ,ivar1=iscr1, points=lgwa, stagpt=type)
+  call shdf5_irec(ndims,idims,'itab_w%mrlw'     ,ivar1=iscr1, points=lgwa)
   do iw = 1,mwa
      itab_w(iw)%mrlw = iscr1(iw)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_w%mrlw_orig',ivar1=iscr1, points=lgwa, stagpt=type)
+  call shdf5_irec(ndims,idims,'itab_w%mrlw_orig',ivar1=iscr1, points=lgwa)
   do iw = 1,mwa
      itab_w(iw)%mrlw_orig = iscr1(iw)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_w%ngr'      ,ivar1=iscr1, points=lgwa, stagpt=type)
+  call shdf5_irec(ndims,idims,'itab_w%ngr'      ,ivar1=iscr1, points=lgwa)
   do iw = 1,mwa
      itab_w(iw)%ngr = iscr1(iw)
   enddo
   deallocate (iscr1)
 
   allocate (rscr1(mwa))
-  call shdf5_irec(ndims,idims,'itab_w%unx_w' ,rvar1=rscr1, points=lgwa, stagpt=type)
+  call shdf5_irec(ndims,idims,'itab_w%unx_w' ,rvar1=rscr1, points=lgwa)
   do iw = 1,mwa
      itab_w(iw)%unx_w = rscr1(iw)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_w%uny_w' ,rvar1=rscr1, points=lgwa, stagpt=type)
+  call shdf5_irec(ndims,idims,'itab_w%uny_w' ,rvar1=rscr1, points=lgwa)
   do iw = 1,mwa
      itab_w(iw)%uny_w = rscr1(iw)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_w%vnx_w' ,rvar1=rscr1, points=lgwa, stagpt=type)
+  call shdf5_irec(ndims,idims,'itab_w%vnx_w' ,rvar1=rscr1, points=lgwa)
   do iw = 1,mwa
      itab_w(iw)%vnx_w = rscr1(iw)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_w%vny_w' ,rvar1=rscr1, points=lgwa, stagpt=type)
+  call shdf5_irec(ndims,idims,'itab_w%vny_w' ,rvar1=rscr1, points=lgwa)
   do iw = 1,mwa
      itab_w(iw)%vny_w = rscr1(iw)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_w%vnz_w' ,rvar1=rscr1, points=lgwa, stagpt=type)
+  call shdf5_irec(ndims,idims,'itab_w%vnz_w' ,rvar1=rscr1, points=lgwa)
   do iw = 1,mwa
      itab_w(iw)%vnz_w = rscr1(iw)
   enddo
@@ -2217,7 +2219,7 @@ subroutine gridfile_read()
   type     = 'AW'
 
   allocate (lscr2(mloops,mwa))
-  call shdf5_irec(ndims,idims,'itab_w%loop',lvar2=lscr2, points=lgwa, stagpt=type)
+  call shdf5_irec(ndims,idims,'itab_w%loop',lvar2=lscr2, points=lgwa)
   do iw = 1,mwa
      itab_w(iw)%loop(1:mloops) = lscr2(1:mloops,iw)
   enddo
@@ -2227,7 +2229,7 @@ subroutine gridfile_read()
 
      idims(1) = 3
      allocate (rscr2(3,mwa))
-     call shdf5_irec(ndims,idims,'itab_w%fnud',rvar2=rscr2, points=lgwa, stagpt=type)
+     call shdf5_irec(ndims,idims,'itab_w%fnud',rvar2=rscr2, points=lgwa)
      do iw = 1,mwa
         itab_w(iw)%fnud(1:3) = rscr2(1:3,iw)
      enddo
@@ -2238,52 +2240,52 @@ subroutine gridfile_read()
   idims(1) = 7
   allocate (rscr2(7,mwa))
 
-  call shdf5_irec(ndims,idims,'itab_w%dirv',rvar2=rscr2, points=lgwa, stagpt=type)
+  call shdf5_irec(ndims,idims,'itab_w%dirv',rvar2=rscr2, points=lgwa)
   do iw = 1,mwa
      itab_w(iw)%dirv(1:7) = rscr2(1:7,iw)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_w%farm',rvar2=rscr2, points=lgwa, stagpt=type)
+  call shdf5_irec(ndims,idims,'itab_w%farm',rvar2=rscr2, points=lgwa)
   do iw = 1,mwa
      itab_w(iw)%farm(1:7) = rscr2(1:7,iw)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_w%farv',rvar2=rscr2, points=lgwa, stagpt=type)
+  call shdf5_irec(ndims,idims,'itab_w%farv',rvar2=rscr2, points=lgwa)
   do iw = 1,mwa
      itab_w(iw)%farv(1:7) = rscr2(1:7,iw)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_w%gxps1',rvar2=rscr2, points=lgwa, stagpt=type)
+  call shdf5_irec(ndims,idims,'itab_w%gxps1',rvar2=rscr2, points=lgwa)
   do iw = 1,mwa
      itab_w(iw)%gxps1(1:7) = rscr2(1:7,iw)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_w%gyps1',rvar2=rscr2, points=lgwa, stagpt=type)
+  call shdf5_irec(ndims,idims,'itab_w%gyps1',rvar2=rscr2, points=lgwa)
   do iw = 1,mwa
      itab_w(iw)%gyps1(1:7) = rscr2(1:7,iw)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_w%gxps2',rvar2=rscr2, points=lgwa, stagpt=type)
+  call shdf5_irec(ndims,idims,'itab_w%gxps2',rvar2=rscr2, points=lgwa)
   do iw = 1,mwa
      itab_w(iw)%gxps2(1:7) = rscr2(1:7,iw)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_w%gyps2',rvar2=rscr2, points=lgwa, stagpt=type)
+  call shdf5_irec(ndims,idims,'itab_w%gyps2',rvar2=rscr2, points=lgwa)
   do iw = 1,mwa
      itab_w(iw)%gyps2(1:7) = rscr2(1:7,iw)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_w%ecvec_vx',rvar2=rscr2, points=lgwa, stagpt=type)
+  call shdf5_irec(ndims,idims,'itab_w%ecvec_vx',rvar2=rscr2, points=lgwa)
   do iw = 1,mwa
      itab_w(iw)%ecvec_vx(1:7) = rscr2(1:7,iw)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_w%ecvec_vy',rvar2=rscr2, points=lgwa, stagpt=type)
+  call shdf5_irec(ndims,idims,'itab_w%ecvec_vy',rvar2=rscr2, points=lgwa)
   do iw = 1,mwa
      itab_w(iw)%ecvec_vy(1:7) = rscr2(1:7,iw)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_w%ecvec_vz',rvar2=rscr2, points=lgwa, stagpt=type)
+  call shdf5_irec(ndims,idims,'itab_w%ecvec_vz',rvar2=rscr2, points=lgwa)
   do iw = 1,mwa
      itab_w(iw)%ecvec_vz(1:7) = rscr2(1:7,iw)
   enddo
@@ -2305,7 +2307,8 @@ subroutine gridfile_read_sfc()
   use max_dims,   only: pathlen
   use misc_coms,  only: io6, gridfile, mdomain
   use mem_sfcg,   only: sfcg, mwsfc, itab_wsfc
-  use hdf5_utils, only: shdf5_irec, shdf5_open, shdf5_close
+  use hdf5_utils, only: shdf5_exists, shdf5_irec, shdf5_open, shdf5_close
+  use mem_para,   only: olam_mpi_finalize
 
   ! This subroutine checks for the existence of a gridfile, and if it exists,
   ! also checks for agreement of grid configuration between the file and the
@@ -2337,7 +2340,7 @@ subroutine gridfile_read_sfc()
 
   flnm = trim(gridfile)//'.h5'
 
-  inquire(file=flnm, exist=exans)
+  call shdf5_exists(flnm, exans)
 
   if (.not. exans) then
 
@@ -2349,6 +2352,7 @@ subroutine gridfile_read_sfc()
      write(io6,*) '!!!  Stopping run'
      write(io6,*) '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
 
+     call olam_mpi_finalize()
      stop 'stop - no gridfile'
 
   endif
@@ -2359,7 +2363,7 @@ subroutine gridfile_read_sfc()
   write(io6,*) 'Opening grid file ', trim(flnm)
   write(io6,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++'
 
-  call shdf5_open(flnm,'R',trypario=.true.)
+  call shdf5_open(flnm, 'R')
 
   lgwsfc = itab_wsfc(1:mwsfc)%iwglobe
 
@@ -2367,7 +2371,7 @@ subroutine gridfile_read_sfc()
   idims(1) = mwsfc
   type     = 'CW'
 
-  call shdf5_irec(ndims, idims, 'dzt_bot' , rvar1=sfcg%dzt_bot, points=lgwsfc, stagpt=type)
+  call shdf5_irec(ndims, idims, 'dzt_bot' , rvar1=sfcg%dzt_bot, points=lgwsfc)
 
   ndims    = 2
   idims(1) = 8
@@ -2375,29 +2379,29 @@ subroutine gridfile_read_sfc()
   type     = 'CW'
 
   allocate (iscr2(8,mwsfc))
-  call shdf5_irec(ndims,idims,'itab_wsfc%kwatm',ivar2=iscr2, points=lgwsfc, stagpt=type)
+  call shdf5_irec(ndims,idims,'itab_wsfc%kwatm',ivar2=iscr2, points=lgwsfc)
   do iw = 1,mwsfc
      itab_wsfc(iw)%kwatm(1:8) = iscr2(1:8,iw)
   enddo
   deallocate(iscr2)
 
   allocate (rscr2(8,mwsfc))
-  call shdf5_irec(ndims,idims,'itab_wsfc%arc',rvar2=rscr2, points=lgwsfc, stagpt=type)
+  call shdf5_irec(ndims,idims,'itab_wsfc%arc',rvar2=rscr2, points=lgwsfc)
   do iw = 1,mwsfc
      itab_wsfc(iw)%arc(1:8) = rscr2(1:8,iw)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_wsfc%arcoarsfc',rvar2=rscr2, points=lgwsfc, stagpt=type)
+  call shdf5_irec(ndims,idims,'itab_wsfc%arcoarsfc',rvar2=rscr2, points=lgwsfc)
   do iw = 1,mwsfc
      itab_wsfc(iw)%arcoarsfc(1:8) = rscr2(1:8,iw)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_wsfc%arcoariw',rvar2=rscr2, points=lgwsfc, stagpt=type)
+  call shdf5_irec(ndims,idims,'itab_wsfc%arcoariw',rvar2=rscr2, points=lgwsfc)
   do iw = 1,mwsfc
      itab_wsfc(iw)%arcoariw(1:8) = rscr2(1:8,iw)
   enddo
 
-  call shdf5_irec(ndims,idims,'itab_wsfc%arcoarkw',rvar2=rscr2, points=lgwsfc, stagpt=type)
+  call shdf5_irec(ndims,idims,'itab_wsfc%arcoarkw',rvar2=rscr2, points=lgwsfc)
   do iw = 1,mwsfc
      itab_wsfc(iw)%arcoarkw(1:8) = rscr2(1:8,iw)
   enddo
@@ -2417,8 +2421,9 @@ subroutine gridfile_read_nudge()
 
   use max_dims,   only: pathlen
   use misc_coms,  only: io6, gridfile, mdomain
-  use hdf5_utils, only: shdf5_irec, shdf5_open, shdf5_close
+  use hdf5_utils, only: shdf5_exists, shdf5_irec, shdf5_open, shdf5_close
   use mem_nudge,  only: nudflag, nudnxp, mwnud, itab_wnud
+  use mem_para,   only: olam_mpi_finalize
 
   ! This subroutine checks for the existence of a gridfile, and if it exists,
   ! also checks for agreement of grid configuration between the file and the
@@ -2449,7 +2454,7 @@ subroutine gridfile_read_nudge()
 
      flnm = trim(gridfile)//'.h5'
 
-     inquire(file=flnm, exist=exans)
+     call shdf5_exists(flnm, exans)
 
      if (.not. exans) then
 
@@ -2461,6 +2466,7 @@ subroutine gridfile_read_nudge()
         write(io6,*) '!!!  Stopping run'
         write(io6,*) '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
 
+        call olam_mpi_finalize()
         stop 'stop - no gridfile'
 
      endif
@@ -2471,7 +2477,7 @@ subroutine gridfile_read_nudge()
      write(io6,*) 'Opening nuding grid file ', trim(flnm)
      write(io6,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++'
 
-     call shdf5_open(flnm,'R',trypario=.true.)
+     call shdf5_open(flnm, 'R')
 
      allocate(lgwnud(mwnud))
 
@@ -2482,7 +2488,7 @@ subroutine gridfile_read_nudge()
      lgwnud = itab_wnud(1:mwnud)%iwnudglobe
 
      allocate (iscr1(mwnud))
-     call shdf5_irec(ndims, idims, 'itab_wnud%npoly', ivar1=iscr1, points=lgwnud, stagpt=type)
+     call shdf5_irec(ndims, idims, 'itab_wnud%npoly', ivar1=iscr1, points=lgwnud)
 
      do iwnud = 1,mwnud
         itab_wnud(iwnud)%npoly = iscr1(iwnud)
@@ -2495,7 +2501,7 @@ subroutine gridfile_read_nudge()
      type     = 'AN'
 
      allocate (iscr2(6,mwnud))
-     call shdf5_irec(ndims,idims,'itab_wnud%iwnud',ivar2=iscr2, points=lgwnud, stagpt=type)
+     call shdf5_irec(ndims,idims,'itab_wnud%iwnud',ivar2=iscr2, points=lgwnud)
 
      do iwnud = 1,mwnud
         itab_wnud(iwnud)%iwnud(1:6) = iscr2(1:6,iwnud)
@@ -2521,12 +2527,13 @@ subroutine gridfile_read_oldgrid()
 
   use max_dims,   only: maxngrdll, pathlen
   use misc_coms,  only: io6, gridfile, mdomain, nzp, ndz, hdz, dz
-  use hdf5_utils, only: shdf5_irec, shdf5_open, shdf5_close
+  use hdf5_utils, only: shdf5_exists, shdf5_irec, shdf5_open, shdf5_close
   use mem_regrid, only: nzp_og, mdomain_og, ndz_og, hdz_og, dz_og, &
                         nza_og, nwa_og, xew_og, yew_og, zew_og, &
                         wnx_og, wny_og, wnz_og, glatw_og, glonw_og, &
                         lpw_og
   use ll_bins,    only: itab_w0
+  use mem_para,   only: olam_mpi_finalize
 
   implicit none
 
@@ -2546,7 +2553,7 @@ subroutine gridfile_read_oldgrid()
 
   flnm = trim(gridfile)//'-OG'//'.h5'
 
-  inquire(file=flnm, exist=exans)
+  call shdf5_exists(flnm, exans)
 
   if (.not. exans) then
 
@@ -2558,6 +2565,7 @@ subroutine gridfile_read_oldgrid()
      write(io6,*) '!!!  Stopping run'
      write(io6,*) '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
 
+     call olam_mpi_finalize()
      stop 'stop - no old gridfile'
 
   endif
@@ -2568,7 +2576,7 @@ subroutine gridfile_read_oldgrid()
   write(io6,*) 'Opening OLD GRIDFILE ', flnm
   write(io6,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++'
 
-  call shdf5_open(flnm,'R',trypario=.true.)
+  call shdf5_open(flnm, 'R')
 
   ! Read the grid information that exists in namelist
 

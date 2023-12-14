@@ -44,9 +44,11 @@
 ! **************************************************************************
 
       use parrrtm,    only: mg, nbndlw, ngptlw
-      use hdf5_utils, only: shdf5_open, shdf5_close
+      use hdf5_utils, only: shdf5_exists, shdf5_open, shdf5_close
       use oname_coms, only: nl
       use max_dims,   only: pathlen
+      use mem_para,   only: olam_mpi_finalize
+      use misc_coms,  only: io6
 
       implicit none
 
@@ -71,13 +73,17 @@
 
       inputfile = trim(nl%rrtmg_datadir) // "/" // trim(rrtmg_lw_file)
 
-      inquire(file=inputfile, exist=exists)
+      call shdf5_exists(inputfile, exists)
+
       if (.not. exists) then
-         write(*,*) "rrtmg_lw_init: Error opening data file " // trim(inputfile)
-         stop       "RRTMg longwave datafile cannot be found"
+         write(io6,*) "rrtmg_lw_init: Error opening data file " // trim(inputfile)
+         write(io6,*) "RRTMg longwave datafile cannot be found."
+         write(io6,*) "Stopping model."
+         call olam_mpi_finalize()
+         stop
       endif
 
-      call shdf5_open(inputfile, 'R', trypario=.true.)
+      call shdf5_open(inputfile, 'R')
 
       call lw_kgb01_h5               ! molecular absorption coefficients
       call lw_kgb02_h5

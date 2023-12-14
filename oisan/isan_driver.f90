@@ -8,13 +8,15 @@ subroutine isan_driver(iaction)
   use mem_zonavg, only: zonavg_init
   use mem_grid,   only: mza, mwa
   use mem_nudge,  only: nudflag, nudnxp, o3nudflag
-  use hdf5_utils, only: shdf5_open, shdf5_close
+  use hdf5_utils, only: shdf5_exists, shdf5_open, shdf5_close
+  use mem_para,   only: olam_mpi_finalize
 
   implicit none
 
   integer, intent(in) :: iaction
 
   integer :: nf
+  logical :: exists
 
   ! Check type of call to isan_driver
 
@@ -82,7 +84,17 @@ subroutine isan_driver(iaction)
   write(io6,'(1x,a)')     fnames_fg(ifgfile)
   write(io6,'(1x,a,4i6)') ctotdate_fg(ifgfile),iyear,imonth,idate,ihour
 
-  call shdf5_open(fnames_fg(ifgfile), 'R', trypario=.true.)
+  call shdf5_exists(fnames_fg(ifgfile), exists)
+
+  if (.not. exists) then
+     write(io6,*) "Error in isan_driver:"
+     write(io6,*) "input analysis file cannot be found."
+     write(io6,*) "Stopping model run."
+     call olam_mpi_finalize()
+     stop
+  endif
+
+  call shdf5_open(fnames_fg(ifgfile), 'R')
 
   call read_analysis_header(nosoil=.true.)
 

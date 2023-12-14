@@ -74,8 +74,9 @@ Contains
 
   use misc_coms,  only: io6, current_time, simtime, hfilepref, iclobber
   use max_dims,   only: pathlen
-  use mem_para,   only: myrank
-  use mem_sfcg,   only: sfcg, nwsfc, nvsfc, itab_wsfc
+  use mem_para,   only: iwsfc_globe_primary, iwsfc_local_primary, &
+                        ivsfc_globe_primary, ivsfc_local_primary
+  use mem_sfcg,   only: sfcg, mwsfc, nwsfc, mvsfc, nvsfc, itab_wsfc
   use hdf5_utils, only: shdf5_orec, shdf5_open, shdf5_close
 
   use mem_plot, only: time8_prev0,         time8_prev1, &
@@ -98,7 +99,7 @@ Contains
   ! Write surface nudging fields (sfcwat mass, temperature, and fracliq) to a
   ! file.  This subroutine is only executed in a PLOTONLY run, with iparallel = 0
 
-  do iwsfc = 2,nwsfc
+  do iwsfc = 2, mwsfc
         pcp_dif2 =    pcp_accum_prev0(iwsfc) -    pcp_accum_prev1(iwsfc)
      sfluxr_dif2 = sfluxr_accum_prev0(iwsfc) - sfluxr_accum_prev1(iwsfc)
 
@@ -119,17 +120,20 @@ Contains
   ctime = current_time
   ctime%year = 0
 
-  if (myrank == 0) write(io6,'(/,a)') "Writing surface nudge fields to disk..."
+  write(io6,'(/,a)') "Writing surface nudge fields to disk..."
 
   call makefnam(hnamel, hfilepref, ctime, 'SN', '$', 'h5')
   call shdf5_open(hnamel,'W',iclobber)
 
   ndims    = 1
-  idims(1) = nwsfc
+  idims(1) = mwsfc
 
-  call shdf5_orec(ndims, idims, 'SFCWAT_NUD'  , rvar1=sfcwat_nud)
-  call shdf5_orec(ndims, idims, 'SFCTEMP_NUD' , rvar1=sfctemp_nud)
-  call shdf5_orec(ndims, idims, 'FRACLIQ_NUD' , rvar1=fracliq_nud)
+  call shdf5_orec(ndims, idims, 'SFCWAT_NUD'  , rvar1=sfcwat_nud, &
+       lpoints=iwsfc_local_primary, gpoints=iwsfc_globe_primary, nglobe=nwsfc)
+  call shdf5_orec(ndims, idims, 'SFCTEMP_NUD' , rvar1=sfctemp_nud, &
+       lpoints=iwsfc_local_primary, gpoints=iwsfc_globe_primary, nglobe=nwsfc)
+  call shdf5_orec(ndims, idims, 'FRACLIQ_NUD' , rvar1=fracliq_nud, &
+       lpoints=iwsfc_local_primary, gpoints=iwsfc_globe_primary, nglobe=nwsfc)
 
   call shdf5_close()
 
@@ -147,39 +151,48 @@ Contains
      call shdf5_orec(ndims, idims, 'nvsfc'  , ivars=nvsfc)
      call shdf5_orec(ndims, idims, 'nwsfc'  , ivars=nwsfc)
 
-     idims(1) = nvsfc
+     idims(1) = mvsfc
 
-     call shdf5_orec(ndims, idims, 'sfcg%dnv'   , rvar1=sfcg%dnv)
+     call shdf5_orec(ndims, idims, 'sfcg%dnv'   , rvar1=sfcg%dnv, &
+          lpoints=ivsfc_local_primary, gpoints=ivsfc_globe_primary, nglobe=nvsfc)
 
-     idims(1) = nwsfc
+     idims(1) = mwsfc
 
-     call shdf5_orec(ndims, idims, 'sfcg%xew'   , rvar1=sfcg%xew)
-     call shdf5_orec(ndims, idims, 'sfcg%yew'   , rvar1=sfcg%yew)
-     call shdf5_orec(ndims, idims, 'sfcg%zew'   , rvar1=sfcg%zew)
-     call shdf5_orec(ndims, idims, 'sfcg%glatw' , rvar1=sfcg%glatw)
-     call shdf5_orec(ndims, idims, 'sfcg%glonw' , rvar1=sfcg%glonw)
+     call shdf5_orec(ndims, idims, 'sfcg%xew'   , rvar1=sfcg%xew, &
+          lpoints=iwsfc_local_primary, gpoints=iwsfc_globe_primary, nglobe=nwsfc)
+     call shdf5_orec(ndims, idims, 'sfcg%yew'   , rvar1=sfcg%yew, &
+          lpoints=iwsfc_local_primary, gpoints=iwsfc_globe_primary, nglobe=nwsfc)
+     call shdf5_orec(ndims, idims, 'sfcg%zew'   , rvar1=sfcg%zew, &
+          lpoints=iwsfc_local_primary, gpoints=iwsfc_globe_primary, nglobe=nwsfc)
+     call shdf5_orec(ndims, idims, 'sfcg%glatw' , rvar1=sfcg%glatw, &
+          lpoints=iwsfc_local_primary, gpoints=iwsfc_globe_primary, nglobe=nwsfc)
+     call shdf5_orec(ndims, idims, 'sfcg%glonw' , rvar1=sfcg%glonw, &
+          lpoints=iwsfc_local_primary, gpoints=iwsfc_globe_primary, nglobe=nwsfc)
 
-     allocate (iscr1(nwsfc))
-     do iwsfc = 1,nwsfc
+     allocate (iscr1(mwsfc))
+     do iwsfc = 1,mwsfc
         iscr1(iwsfc) = itab_wsfc(iwsfc)%npoly
      enddo
-     call shdf5_orec(ndims,idims,'itab_wsfc%npoly' ,ivar1=iscr1)
+     call shdf5_orec(ndims,idims,'itab_wsfc%npoly' ,ivar1=iscr1, &
+          lpoints=iwsfc_local_primary, gpoints=iwsfc_globe_primary, nglobe=nwsfc)
      deallocate(iscr1)
 
      ndims = 2
      idims(1) = 7
-     idims(2) = nwsfc
+     idims(2) = mwsfc
 
-     allocate (iscr2(7,nwsfc))
-     do iwsfc = 1,nwsfc
+     allocate (iscr2(7,mwsfc))
+     do iwsfc = 1,mwsfc
        iscr2(1:7,iwsfc) = itab_wsfc(iwsfc)%ivn(1:7)
      enddo
-     call shdf5_orec(ndims,idims,'itab_wsfc%ivn',ivar2=iscr2)
+     call shdf5_orec(ndims,idims,'itab_wsfc%ivn',ivar2=iscr2, &
+          lpoints=iwsfc_local_primary, gpoints=iwsfc_globe_primary, nglobe=nwsfc)
 
-     do iwsfc = 1,nwsfc
+     do iwsfc = 1,mwsfc
         iscr2(1:7,iwsfc) = itab_wsfc(iwsfc)%iwn(1:7)
      enddo
-     call shdf5_orec(ndims,idims,'itab_wsfc%iwn',ivar2=iscr2)
+     call shdf5_orec(ndims,idims,'itab_wsfc%iwn',ivar2=iscr2, &
+          lpoints=iwsfc_local_primary, gpoints=iwsfc_globe_primary, nglobe=nwsfc)
      deallocate(iscr2)
 
      call shdf5_close()
@@ -691,8 +704,8 @@ Contains
   idims(1) = mlake
   type     = 'RW'
 
-  call shdf5_irec(ndims, idims, 'LAKE%DEPTH',       rvar1=lake%depth,       points=lglake, stagpt=type)
-  call shdf5_irec(ndims, idims, 'LAKE%LAKE_ENERGY', rvar1=lake%lake_energy, points=lglake, stagpt=type)
+  call shdf5_irec(ndims, idims, 'LAKE%DEPTH',       rvar1=lake%depth,       points=lglake)
+  call shdf5_irec(ndims, idims, 'LAKE%LAKE_ENERGY', rvar1=lake%lake_energy, points=lglake)
 
   ndims    = 2
   idims(1) = nzg_sp
@@ -703,9 +716,9 @@ Contains
   allocate (soil_energy_sp(nzg_sp,mland))
   allocate (head_sp       (nzg_sp,mland))
 
-  call shdf5_irec(ndims, idims, 'LAND%SOIL_WATER' , rvar2=soil_water_sp,  points=lgland, stagpt=type)
-  call shdf5_irec(ndims, idims, 'LAND%SOIL_ENERGY', rvar2=soil_energy_sp, points=lgland, stagpt=type)
-  call shdf5_irec(ndims, idims, 'LAND%HEAD',        rvar2=head_sp,        points=lgland, stagpt=type)
+  call shdf5_irec(ndims, idims, 'LAND%SOIL_WATER' , rvar2=soil_water_sp,  points=lgland)
+  call shdf5_irec(ndims, idims, 'LAND%SOIL_ENERGY', rvar2=soil_energy_sp, points=lgland)
+  call shdf5_irec(ndims, idims, 'LAND%HEAD',        rvar2=head_sp,        points=lgland)
 
   call shdf5_close()
 

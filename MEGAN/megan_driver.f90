@@ -319,7 +319,7 @@ contains
     use max_dims,    only: pathlen
     use oname_coms,  only: nl
     use analysis_lib,only: gdtost_ll
-    use hdf5_utils,  only: shdf5_open, shdf5_irec, shdf5_info, shdf5_close
+    use hdf5_utils,  only: shdf5_exists, shdf5_open, shdf5_irec, shdf5_info, shdf5_close
 
     implicit none
 
@@ -345,7 +345,8 @@ contains
 
     filename = nl%megan_pfts_file
 
-    inquire(file=filename, exist=exists)
+    call shdf5_exists(filename, exists)
+
     if (.not. exists) then
        write(io6,*) "megan_init:  Cannot find plant functional types dataset."
     else
@@ -354,7 +355,7 @@ contains
 
     if (has_pft_dataset) then
        write(io6,*) "Reading " // trim(filename)
-       call shdf5_open(filename, 'R', trypario=.true.)
+       call shdf5_open(filename, 'R')
 
        call shdf5_info('LANDMASK', ndims, idims)
        if ( ndims /= 2 .or. all( idims(1:2) /= [nx_pft, ny_pft] ) ) then
