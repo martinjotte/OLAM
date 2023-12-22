@@ -66,7 +66,7 @@ subroutine get_command_as_string(command, str)
   integer, parameter :: buffer_length = 12
 
   type(c_ptr) :: h
-  integer(c_int) :: istat
+  integer     :: istat
   character(kind=c_char, len=len(str)+1) :: line
 
   str = ' '
@@ -87,6 +87,27 @@ subroutine get_command_as_string(command, str)
   end if
 
 end subroutine get_command_as_string
+
+!===============================================================================
+
+subroutine sleep(seconds)
+
+  use, intrinsic :: iso_c_binding
+  implicit none
+
+  interface
+     integer(c_int) function c_sleep(seconds) bind(C,name='sleep')
+       import :: c_ptr, c_int
+       integer(c_int), value :: seconds
+     end function c_sleep
+  end interface
+
+  integer, intent(in) :: seconds
+  integer             :: i
+
+  i = c_sleep(seconds)
+
+end subroutine sleep
 
 !===============================================================================
 

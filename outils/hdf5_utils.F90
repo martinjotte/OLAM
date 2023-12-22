@@ -46,6 +46,8 @@ subroutine shdf5_exists(locfn, exists, serial)
   use mpi
 #endif
 
+  !import, only: has_phdf5, fh5f_exists
+
   implicit none
 
   character(*),      intent(in)  :: locfn
@@ -59,14 +61,15 @@ subroutine shdf5_exists(locfn, exists, serial)
   dophdf5 = (iparallel==1) .and. has_phdf5 .and. (.not. nl%disable_phdf5_reads )
 
   ! Does this rank directly call HDF5 routines
-  dohdf5 = (myrank==0) .or. nl%allranks_read_hdf5 .or. do_phdf5
+  dohdf5 = (myrank==0) .or. nl%allranks_read_hdf5 .or. dophdf5
 
   ! Do we need MPI routines to send/receive data to/from node 0
-  docomm = (iparallel==1) .and. (.not. do_phdf5) .and. (.not. nl%allranks_read_hdf5 )
+  docomm = (iparallel==1) .and. (.not. dophdf5) .and. (.not. nl%allranks_read_hdf5 )
 
   if (present(serial)) then
      dophdf5 = dophdf5 .and. (.not. serial)
      docomm  = docomm  .and. (.not. serial)
+     dohdf5  = dohdf5  .or.         serial
   endif
 
   if (dohdf5) call fh5f_exists(locfn, exists, pario=dophdf5)

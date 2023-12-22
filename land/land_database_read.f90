@@ -310,7 +310,7 @@ Contains
               if (l1) then
                  write(io6,*) 'getting file ',trim(fname)
 
-                 call shdf5_open(fname,'R')
+                 call shdf5_open(fname,'R',serial=.true.)
 
                  ndims = 2
                  idims(1) = nio

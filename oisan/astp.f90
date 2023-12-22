@@ -115,18 +115,18 @@ subroutine pressure_stage(iaction)
   write(io6,*) "Reading geopotential height " // trim(varname)
 
   if (chunkdims(ndims) > 1) then
-     write(*,*)
-     write(*,*) "!! NOTE: HDF5 data is stored in chunks that extend over multiple levels."
-     write(*,*) "!! OLAM reads analysis data along a horizontal slice to save memory."
-     write(*,*) "!! Reading is slow with chunks that extend over multiple vetical levels."
-     write(*,*) "!! You can reprocess your HDF5 data with the command:"
-     write(*,*)
-     write(*,*) "h5repack -l CHUNK=1xNYxNX -f SHUF -f GZIP=4 infile outfile"
-     write(*,*)
-     write(*,*) "!! Where NY and NX are the number of longitudes and latitudes in the file."
-     write(*,*) "!! You can also reprocess the data with a more recent version of grib2olam"
-     write(*,*) "!! which stores compressed data approprately for OLAM."
-     write(*,*)
+     write(io6,*)
+     write(io6,*) "!! NOTE: HDF5 data is stored in chunks that extend over multiple levels."
+     write(io6,*) "!! OLAM reads analysis data along a horizontal slice to save memory."
+     write(io6,*) "!! Reading is slow with chunks that extend over multiple vetical levels."
+     write(io6,*) "!! You can reprocess your HDF5 data with the command:"
+     write(io6,*)
+     write(io6,*) "h5repack -l CHUNK=1xNYxNX -f SHUF -f GZIP=4 infile outfile"
+     write(io6,*)
+     write(io6,*) "!! Where NY and NX are the number of longitudes and latitudes in the file."
+     write(io6,*) "!! You can also reprocess the data with a more recent version of grib2olam"
+     write(io6,*) "!! which stores compressed data approprately for OLAM."
+     write(io6,*)
   endif
 
   do iz = 1, nprz
