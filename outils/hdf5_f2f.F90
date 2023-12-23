@@ -188,8 +188,7 @@ contains
     if (dopario) then
 
        write(io6,*)
-       write(io6,*) "   Enabling parallel HDF5 input for file ", trim(locfn)
-       write(io6,*)
+       write(io6,'(A)') "Enabling parallel HDF5 input for file " // trim(locfn)
 
        call h5pset_fapl_mpio_f(access_prp, MPI_COMM_WORLD, MPI_INFO_NULL, hdferr)
        call h5pset_all_coll_metadata_ops_f(access_prp, .true., hdferr)
@@ -313,8 +312,7 @@ contains
     if (dopario) then
 
        write(io6,*)
-       write(io6,*) "Enabling parallel HDF5 output"
-       write(io6,*)
+       write(io6,'(A)') "Enabling parallel HDF5 output for file " // trim(locfn)
 
        call h5pset_fapl_mpio_f(access_prp, MPI_COMM_WORLD, MPI_INFO_NULL, hdferr)
        call h5pset_coll_metadata_write_f(access_prp, .true., hdferr)

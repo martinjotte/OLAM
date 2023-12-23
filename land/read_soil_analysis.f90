@@ -20,7 +20,6 @@ subroutine read_soil_analysis(soil_tempc)
 
   integer            :: ifgfile, nf
   character(pathlen) :: fname
-  character(16)      :: ext
   logical            :: exists
   integer            :: ndims, idims(3)
   real               :: snowdens, tempc, tempk
@@ -260,7 +259,7 @@ subroutine read_soil_analysis(soil_tempc)
      iwsfc = iland + omland
 
      ! Skip this cell if running in parallel and cell rank is not MYRANK
-!     if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+     if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
      if (allocated(soilt)) then
 
@@ -329,6 +328,14 @@ subroutine read_soil_analysis(soil_tempc)
         if (snow(iland) > wcap_min .and. snow(iland) < 1.e20) then
 
            land%sfcwater_mass(1,iland) = snow(iland)
+
+           if (sfcg%cantemp(iwsfc) /= sfcg%cantemp(iwsfc)) then
+              write(*,*) "A", sfcg%cantemp(iwsfc), itab_wsfc(iwsfc)%irank /= myrank
+           endif
+
+           if (soil_tempc(nzg,iland) /= soil_tempc(nzg,iland)) then
+              write(*,*) "B", sfcg%cantemp(iwsfc), soil_tempc(nzg,iland), itab_wsfc(iwsfc)%irank /= myrank
+           endif
 
            tempc = sfcg%cantemp(iwsfc) - 273.15
            tempc = min(tempc, soil_tempc(nzg,iland))

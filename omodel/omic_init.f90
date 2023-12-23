@@ -353,7 +353,7 @@ end subroutine micinit_gam
 
 subroutine micinit_fields()
 
-  use mem_micro,   only: rr_d, rr_r, rr_p, rr_s, rr_a, rr_g, rr_h, &
+  use mem_micro,   only: rr_c, rr_d, rr_r, rr_p, rr_s, rr_a, rr_g, rr_h,  &
                          accpd, accpr, accpp, accps, accpa, accpg, accph, &
                          pcprd, pcprr, pcprp, pcprs, pcpra, pcprg, pcprh, &
                          con_c, con_d, con_r, con_p, con_s, con_a, con_g, &
@@ -453,6 +453,10 @@ subroutine micinit_fields()
      ! Initialize 3D and 2D microphysics fields
 
      if (runtype == 'INITIAL') then
+
+        if (allocated(rr_c))  then
+           rr_c(1:mza,iw) = 0.
+        endif
 
         if (allocated(rr_d))  then
            rr_d(1:mza,iw) = 0.
