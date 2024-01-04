@@ -64,7 +64,6 @@ subroutine get_ll_overlaps_atm( nlon, nlat, dlon, dlat, overlaps, tolerance, &
 
         call get_ll_nearest( glonw(iw), glatw(iw), arw0(iw), overlaps(iw), &
                              dlon, dlat, nlon, nlat, swlon=swlon, swlat=swlat, irev_ns=irev_ns )
-
      else
 
         np = itab_w(iw)%npoly
@@ -448,7 +447,7 @@ subroutine get_ll_nearest( glonw, glatw, arw0, overlaps, dlon, dlat, &
   i    = modulo(nint(stax),nlon) + 1
 
   stay = (glatw - lat0) / dlat
-  j    = nint(stay) + 1
+  j    = max(1, min(nlat, nint(stay) + 1))
 
   if (present(irev_ns)) then
      if (irev_ns) j = nlat - j + 1

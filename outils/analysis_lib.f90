@@ -571,7 +571,7 @@ subroutine gdtost_nearest_ll(nx, ny, glon, glat, staval, swlon, swlat, dlon, dla
   else
 
      stay = (glat - swlat) / dlat
-     iy   = nint(stay) + 1
+     iy   = max(1, min(ny, nint(stay) + 1))
 
   endif
 
