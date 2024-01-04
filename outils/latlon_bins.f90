@@ -2,13 +2,13 @@ Module ll_bins
 
   implicit none
 
-  integer, parameter :: nlat(4) = (/ 18,   90,  450, 1800 /) ! Number of bins spanning pole-to-pole
-                                                             ! distance for each bin set
+  integer, parameter :: nlat(4) = [ 18,   90,  450, 1800 ] ! Number of bins spanning pole-to-pole
+                                                           ! distance for each bin set
 
-  integer, parameter :: maxb(4) = (/ 200,  200,  200, 10000/)  ! Max allowed population in a bin
-                                                               ! for each bin set
+  integer, parameter :: maxb(4) = [ 200,  200,  200, 10000 ] ! Max allowed population in a bin
+                                                             ! for each bin set
 
-  real, parameter :: delat(4) = (/ real(nlat(:)) / 180. /) ! # bins per deg of lat for each bin set
+  real, parameter :: delat(4) = [ real(nlat(:)) / 180. ] ! # bins per deg of lat for each bin set
 
   Type bin_vars
      integer              :: nw
@@ -124,6 +124,8 @@ Contains
   ! nearest IW neighbors that were not already in bin.  This adds two perimeter
   ! rows of IW cells to each bin.
 
+  allocate( iwtemp( maxval(maxb) + 1000 ) )
+
   do ipass = 1,2
      do iset = 1,4
         do j = 1, nlat(iset)
@@ -131,7 +133,6 @@ Contains
 
               if (allocated(bset(iset)%blat(j)%bins(i)%iw)) then
 
-                 allocate (iwtemp(maxb(iset)+1000))
                  niwtemp = 0
 
                  do jw = 1, bset(iset)%blat(j)%bins(i)%nw
@@ -158,8 +159,6 @@ Contains
 
                  iwtemp2(bset(iset)%blat(j)%bins(i)%nw+1:bset(iset)%blat(j)%bins(i)%nw + niwtemp) &
                          = iwtemp(1:niwtemp)
-
-                 deallocate (iwtemp)
 
                  call move_alloc(iwtemp2, bset(iset)%blat(j)%bins(i)%iw)
 

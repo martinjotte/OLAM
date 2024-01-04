@@ -1,4 +1,7 @@
 module edgar_42_emis
+
+  use area_remap_ll, only: overlap_vars
+
   implicit none
 
   !cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
@@ -85,13 +88,6 @@ module edgar_42_emis
   integer, parameter :: IPH2O   = 53
   integer, parameter :: IPMOTHR = 54
 
-  type overlap_vars
-     integer              :: ncells = 0
-     integer, allocatable :: i(:)
-     integer, allocatable :: j(:)
-     real,    allocatable :: area(:)
-  end type overlap_vars
-
   type(overlap_vars), allocatable :: emis_w(:)
 
   integer, parameter :: nx_e42 = 3600
@@ -169,9 +165,10 @@ contains
 
   subroutine edgar_42_init(nvars3d_emis, vname3d_emis, units3d_emis)
 
-    use mem_grid,  only: mwa, mza
-    use geia_emis, only: geia_init
-    use rxns_data, only: mechname
+    use mem_grid,      only: mwa, mza
+    use geia_emis,     only: geia_init
+    use rxns_data,     only: mechname
+    use area_remap_ll, only: get_ll_overlaps_atm
 
     implicit none
 
@@ -183,6 +180,7 @@ contains
 
     integer :: i
     logical :: have_cb6
+    real    :: dlon, dlat
 
     allocate(emis_w          (mwa))
     allocate(edgar42_vars    (mwa))
@@ -193,7 +191,10 @@ contains
     allocate(vname3d_emis(nvars3d_emis))
     allocate(units3d_emis(nvars3d_emis))
 
-    call emis_overlap(nx_e42, ny_e42)
+    dlon = 360.0 / real(nx_e42)
+    dlat = 180.0 / real(ny_e42)
+
+    call get_ll_overlaps_atm(nx_e42, ny_e42, dlon, dlat, emis_w, lat_beg=-75., lat_end=80.)
     call interp_to_olam()
     call comp_vert_facts()
     call geia_init()
@@ -1102,7 +1103,7 @@ contains
 
 
   subroutine interp_to_olam()
-    use misc_coms,  only: current_time, io6, iparallel
+    use misc_coms,  only: current_time, io6
     use mem_ijtabs, only: jtab_w, jtw_prog
     use mem_grid,   only: mwa
     use oname_coms, only: nl
@@ -1110,7 +1111,7 @@ contains
 
     implicit none
 
-    integer :: year, n, j, jw, iw, ier
+    integer :: year, n, j, jw, iw
     real    :: rawdata(nx_e42,ny_e42)
     integer :: ndims, idims(2)
     logical :: exists
@@ -1664,272 +1665,6 @@ contains
     enddo
 
   end subroutine interp_to_olam
-
-
-  subroutine emis_overlap(nlon, nlat)
-    use consts_coms, only: erad, eradi, pio180, piu180, r8
-    use misc_coms,   only: io6
-    use mem_ijtabs,  only: jtab_w, itab_w, jtw_prog
-    use mem_grid,    only: glatw, glonw, glatm, glonm, arw0, &
-                           xem, yem, zem, xew, yew, zew
-
-    implicit none
-
-    integer, intent(in) :: nlon, nlat
-
-    integer, parameter :: maxvert = 7
-
-    integer :: np, i, j, n, ng, nn, ngrp, jw, iw, im
-    integer :: js, je, is(2), ie(2), ijsize
-    real    :: max180, min180
-    real    :: dx, dy, area, sumarea, areaij
-    real    :: lats(4), lons(4)
-
-    real(r8):: xg(4), yg(4)
-    real(r8):: xf(maxvert), yf(maxvert)
-    real    :: x(maxvert), y(maxvert)
-    real    :: flats(maxvert), flons(maxvert)
-
-!    integer :: jtrap
-!    real :: xtrap (4,30+4+30*4)  ! trapezoid x coordinates
-!    real :: ytrap (4,30+4+30*4)  ! trapezoid y coordinates
-!    real :: traparea(30+4+30*4)  ! trapezoid area
-
-    real :: tolerance
-    real, parameter :: lat0 = -90.0
-    real, parameter :: lon0 =   0.0
-
-    real :: dxe(4), dye(4), dze(4)
-    real :: coswlon, sinwlon
-    real :: coswlat, sinwlat
-    real :: raxis, raxisi
-
-    integer, allocatable :: ipoints(:), itmp(:)
-    integer, allocatable :: jpoints(:), jtmp(:)
-    real,    allocatable :: areafrc(:), atmp(:)
-
-    dx = 360.0 / real(nlon)
-    dy = 180.0 / real(nlat)
-
-    !$omp parallel private(ipoints,jpoints,areafrc,itmp,jtmp,atmp)
-
-    allocate(ipoints(1000))
-    allocate(jpoints(1000))
-    allocate(areafrc(1000))
-
-    !$omp do private(jw,iw,np,tolerance,sumarea,n,im,flats,flons,ngrp,max180,&
-    !$omp            min180,js,je,is,ie,sinwlat,coswlat,sinwlon,coswlon,&
-    !$omp            dxe,dye,dze,x,y,xf,yf,ng,nn,j,i,lons,lats,xg,yg,areaij,&
-    !$omp            area,ijsize,raxis,raxisi)&
-    !$omp schedule(guided)
-    do jw = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(jw)
-
-       np = itab_w(iw)%npoly
-
-       if (mod(jw,1000) == 0) &
-            write(io6,*) "Hex cells:", jw, jtab_w(jtw_prog)%jend, glatw(iw), glonw(iw)
-
-       ! Skip cells near poles - small emissions and many lat-lon cells
-
-       if (glatw(iw) > -70.0 .and. glatw(iw) < 78.0 ) then
-
-          tolerance = 1.e-4 * arw0(iw)
-          sumarea   = 0.0
-
-          do n = 1, np
-             im = itab_w(iw)%im(n)
-             flats(n) = glatm(im)
-             flons(n) = glonm(im)
-          enddo
-
-          ! Do any cells straddle 0 degrees longitude?
-
-          if ( any( flons(1:np) < 0.0 .and. flons(1:np) > -30.0) .and. &
-               any( flons(1:np) > 0.0 .and. flons(1:np) <  30.0) ) then
-
-             ngrp = 2
-             max180 = maxval(flons(1:np))
-             min180 = minval(flons(1:np)) + 360.0
-
-          else
-             ngrp = 1
-          endif
-
-          ! Convert -180 <-> 180 to 0 <-> 360
-
-          do n = 1, np
-             if (flons(n) < 0.0) flons(n) = flons(n) + 360.0
-          enddo
-
-          ! Calculate which lat-lon emissions cells may overlap with this iw location
-
-          js = 1 + int( (minval(flats(1:np))+90.) / dy)
-          je = 1 + int( (maxval(flats(1:np))+90.) / dy)
-
-          if (ngrp == 1) then
-             is(1) = 1 + int( minval(flons(1:np)) / dx)
-             ie(1) = 1 + int( maxval(flons(1:np)) / dx)
-          else
-             is(1) = 1
-             ie(1) = 1 + int( max180 / dx )
-
-             is(2) = 1 + int( min180 / dx )
-             ie(2) = nlon
-          endif
-
-          ! Calculate the iw cell vertices on a polar-stereographic tangent plane
-
-          raxis  = sqrt(xew(iw) ** 2 + yew(iw) ** 2)
-
-          sinwlat = zew(iw) * eradi
-          coswlat = raxis   * eradi
-
-          ! For points less than 100 m from Earth's polar axis, make arbitrary
-          ! assumption that longitude = 0 deg.  This is just to settle on a PS
-          ! planar coordinate system in which to do the algebra.
-
-          if (raxis >= 1.e2) then
-             raxisi = 1.0 /raxis
-             sinwlon = yew(iw) * raxisi
-             coswlon = xew(iw) * raxisi
-          else
-             sinwlon = 0.
-             coswlon = 1.
-          endif
-
-          do n = 1, np
-             im = itab_w(iw)%im(n)
-
-             dxe(n) = xem(im) - xew(iw)
-             dye(n) = yem(im) - yew(iw)
-             dze(n) = zem(im) - zew(iw)
-          enddo
-
-          call de_ps_mult(np, dxe, dye, dze, coswlat, sinwlat, coswlon, sinwlon, x, y)
-
-          xf(1:np) = real(x(1:np),r8)
-          yf(1:np) = real(y(1:np),r8)
-
-          ng = 0
-
-          ! loop over all emissions cells that may overlap with this olam cell
-
-          do nn = 1, ngrp
-             do j = js, je
-                do i = is(nn), ie(nn)
-
-                   lons = (/ real(i-1)*dx, real(i-1)*dx,  real(i)*dx, real(i  )*dx /)
-                   lats = (/ real(j-1)*dy, real(j  )*dy,  real(j)*dy, real(j-1)*dy /) + lat0
-
-                   ! x,y coordinates of emissions cell on tangent plane
-
-                   do n = 1, 4
-                      call ll_xy2(lats(n), lons(n), coswlat, sinwlat, coswlon, sinwlon, &
-                                  xew(iw), yew(iw), zew(iw), x(n), y(n))
-                   enddo
-
-                   xg(1:4) = real(x(1:4),r8)
-                   yg(1:4) = real(y(1:4),r8)
-
-                   areaij =  pio180 * erad**2 * abs(sin(lats(2)*pio180)-sin(lats(1)*pio180)) * dx
-
-!!                   alpha(:) = 0.0_r8
-!!
-!!                   ! check if emis cell is entirely within the olam cell
-!!
-!!                   if (areaij < arw0(iw)) then
-!!                      do n = 1, 4
-!!                         call inout_check(np, xf, yf, xg(n), yg(n), alpha(n))
-!!                         if (alpha(n) < 1.0_r8) exit
-!!                      enddo
-!!                   endif
-!!
-!!                   if (all(alpha(1:4) > 1.0_r8)) then
-!!
-!!                      ! emis cell is entirely within this olam cell
-!!                      area = areaij
-!!
-!!                   else
-!!
-!!                      alpha(:) = 0.0_r8
-!!
-!!                      ! check if olam cell is entirely within the emis cell
-!!
-!!                      if (arw0(iw) < areaij) then
-!!                         do n = 1, np
-!!                            call inout_check(4, xg, yg, xf(n), yf(n), alpha(n))
-!!                            if (alpha(n) < 1.0_r8) exit
-!!                         enddo
-!!                      endif
-!!
-!!                      if (all(alpha(1:np) > 1.0_r8)) then
-!!
-!!                         ! olam cell is entirely within this emissions cell
-!!                         area = arw0(iw)
-!!
-!!                      else
-
-                         ! compute any overlap
-                         !call polygon_overlap(iw, np, 4, xf, yf, xg, yg, area, &
-                         !     jtrap, xtrap, ytrap, traparea)
-                         call polygon_overlap(np, 4, xf, yf, xg, yg, arw0(iw), areaij, area)
-
-!!                      endif
-
-!!                   endif
-
-                   if (area > tolerance) then
-                      ng = ng + 1
-                      sumarea = sumarea + area
-
-                      ijsize = size(ipoints)
-                      if (ng > ijsize) then
-                         allocate(itmp(ijsize+1000))
-                         allocate(jtmp(ijsize+1000))
-                         allocate(atmp(ijsize+1000))
-                         itmp(1:ijsize) = ipoints(1:ijsize)
-                         jtmp(1:ijsize) = jpoints(1:ijsize)
-                         atmp(1:ijsize) = areafrc(1:ijsize)
-                         call move_alloc(itmp, ipoints)
-                         call move_alloc(jtmp, jpoints)
-                         call move_alloc(atmp, areafrc)
-                      endif
-
-                      ipoints(ng) = i
-                      jpoints(ng) = j
-                      areafrc(ng) = area
-                   endif
-
-                enddo
-             enddo
-          enddo
-
-       else
-
-          ! We are close to the N/S pole; don't do any emissions
-          ng      = 0
-          area    = 0.0
-          sumarea = 0.0
-
-       endif
-
-       if (ng > 0) then
-          emis_w(iw)%ncells = ng
-
-          allocate(emis_w(iw)%i(ng))
-          allocate(emis_w(iw)%j(ng))
-          allocate(emis_w(iw)%area(ng))
-
-          emis_w(iw)%i(1:ng) = ipoints(1:ng)
-          emis_w(iw)%j(1:ng) = jpoints(1:ng)
-          emis_w(iw)%area(1:ng) = areafrc(1:ng)
-       endif
-
-    enddo
-    !$omp end do
-    !$omp end parallel
-
-  end subroutine emis_overlap
 
 
   subroutine comp_vert_facts()

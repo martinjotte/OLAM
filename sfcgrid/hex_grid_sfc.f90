@@ -13,7 +13,7 @@ subroutine voronoi_sfc()
 
   integer :: iw1, iw2, iw3, im, iv, iw
   integer :: imd,iud,iwd,j
-  real    :: expansion, raxis, raxisi
+  real    :: expansion
   real    :: xebc,yebc,zebc
   real    :: x1,x2,x3,y1,y2,y3
   real    :: dx12,dx13,dx23
@@ -43,7 +43,7 @@ subroutine voronoi_sfc()
   ! This establishes W cell as voronoi.
 
   !$omp parallel
-  !$omp do private(iwd,iw1,iw2,iw3,xebc,yebc,zebc,expansion,raxis,raxisi, &
+  !$omp do private(iwd,iw1,iw2,iw3,xebc,yebc,zebc,expansion, &
   !$omp            sinwslat,coswslat,sinwslon,coswslon,dxe,dye,dze,x1,y1, &
   !$omp            x2,y2,x3,y3,dx12,dx13,dx23,s1,s2,s3,ycc,xcc)
   do im = 2,nmsfc
@@ -77,23 +77,8 @@ subroutine voronoi_sfc()
 
         ! Get latitude and longitude of barycentric point
 
-        raxis  = sqrt(xebc ** 2 + yebc ** 2)
-
-        sinwslat = zebc  * eradi
-        coswslat = raxis * eradi
-
-        ! For points less than 100 m from Earth's polar axis, make arbitrary
-        ! assumption that longitude = 0 deg.  This is just to settle on a PS
-        ! planar coordinate system in which to do the algebra.
-
-        if (raxis >= 1.e2) then
-           raxisi = 1.0 / raxis
-           sinwslon = yebc * raxisi
-           coswslon = xebc * raxisi
-        else
-           sinwslon = 0.
-           coswslon = 1.
-        endif
+        call get_sincos_latlon( coswslon, sinwslon, coswslat, sinwslat, &
+                                xebc, yebc, zebc )
 
         ! Transform 3 W points to PS coordinates
 
@@ -251,8 +236,10 @@ subroutine grid_geometry_hex_sfc()
 
   use mem_sfcg,    only: nmsfc, nvsfc, nwsfc, itab_msfc, itab_vsfc, itab_wsfc, sfcg
   use misc_coms,   only: mdomain, nxp
-  use consts_coms, only: erad, piu180, r8
+  use consts_coms, only: erad, piu180
   use oplot_coms,  only: op
+
+  use, intrinsic :: iso_fortran_env, only: r8=>real64
 
   implicit none
 
@@ -868,8 +855,11 @@ subroutine sfc_atm_hex_overlay_2( icountw, icountm, iwsfc, dswmax )
                          topm, topw
   use mem_ijtabs,  only: itab_w, itab_m
   use mem_sfcg,    only: itab_wsfc, sfcg
-  use consts_coms, only: r8, eradi, pio180
+  use consts_coms, only: eradi, pio180
   use ll_bins,     only: latlon_bins, delat, bset
+  use polygon_lib, only: polygon_overlap, inout_check
+
+  use, intrinsic :: iso_fortran_env, only: r8=>real64
 
   implicit none
 
@@ -892,12 +882,11 @@ subroutine sfc_atm_hex_overlay_2( icountw, icountm, iwsfc, dswmax )
 
   real(r8) :: xm(npmax), xs(npmax), xw
   real(r8) :: ym(nqmax), ys(nqmax), yw
-  real(r8) :: alpham(npmax), alphas(nqmax), alphaw
+  logical  :: point_in
 
-  real :: area, dsmax
+  real :: area, dsmax, distmsq
   real :: sinwslat, coswslat
   real :: sinwslon, coswslon
-  real :: raxis, raxisi
   real :: dxe(npqmax), dye(npqmax), dze(npqmax)
   real :: dxew, dyew, dzew
   real :: hlatw, hlonw
@@ -906,26 +895,8 @@ subroutine sfc_atm_hex_overlay_2( icountw, icountm, iwsfc, dswmax )
   integer :: nwbin
   integer, allocatable :: iwbin(:)
 
-  ! Evaluate xs,ys coordinates of SFCGRID iwsfc cell M points on gnomonic plane
-  ! tangent at iwsfc
-
-  raxis = sqrt( sfcg%xew(iwsfc) ** 2 + sfcg%yew(iwsfc) ** 2 )
-
-  sinwslat = sfcg%zew(iwsfc) * eradi
-  coswslat = raxis           * eradi
-
-  ! For points less than 100 m from Earth's polar axis, make arbitrary
-  ! assumption that longitude = 0 deg.  This is just to settle on a
-  ! gnomonic tangent planar coordinate system in which to do the algebra.
-
-  if (raxis >= 1.e2) then
-     raxisi = 1.0 / raxis
-     sinwslon = sfcg%yew(iwsfc) * raxisi
-     coswslon = sfcg%xew(iwsfc) * raxisi
-  else
-     sinwslon = 0.
-     coswslon = 1.
-  endif
+  call get_sincos_latlon( coswslon, sinwslon, coswslat, sinwslat, &
+                          sfcg%xew(iwsfc), sfcg%yew(iwsfc), sfcg%zew(iwsfc) )
 
   ! Loop over all neighbor M points of this iwsfc
 
@@ -950,12 +921,17 @@ subroutine sfc_atm_hex_overlay_2( icountw, icountm, iwsfc, dswmax )
      dsmax = max(dsmax, dxe(jmsfc)**2 + dye(jmsfc)**2 + dze(jmsfc)**2)
   enddo
 
+  ! Evaluate xs,ys coordinates of SFCGRID iwsfc cell M points on gnomonic plane
+  ! tangent at iwsfc
+
   call de_gn_mult(nsfcpoly,dxe,dye,dze,coswslat,sinwslat,coswslon,sinwslon,xs0,ys0)
 
   xs(1:nsfcpoly) = real(xs0(1:nsfcpoly),r8)
   ys(1:nsfcpoly) = real(ys0(1:nsfcpoly),r8)
 
-  dsmax = sqrt(dsmax)
+  dsmax = 1.01 * sqrt(dsmax)
+
+  distmsq = 1.01 * maxval( xs0(1:nsfcpoly)**2 + ys0(1:nsfcpoly)**2 )
 
   ! Get ATM bin indices for this iwsfc point
 
@@ -996,13 +972,13 @@ subroutine sfc_atm_hex_overlay_2( icountw, icountm, iwsfc, dswmax )
   do jw = 1, nwbin
      iw = iwbin(jw)
 
-     dum = sqrt( (xew(iw) - sfcg%xew(iwsfc))**2 &
-               + (yew(iw) - sfcg%yew(iwsfc))**2 &
-               + (zew(iw) - sfcg%zew(iwsfc))**2 )
+     dum = (xew(iw) - sfcg%xew(iwsfc))**2 &
+         + (yew(iw) - sfcg%yew(iwsfc))**2 &
+         + (zew(iw) - sfcg%zew(iwsfc))**2
 
      ! Skip this overlap if atm and sfc cells are too far apart
 
-     if (dum > dsmax + dswmax(iw)) cycle
+     if (dum > (dsmax + dswmax(iw))**2) cycle
 
      ! Loop over all neighbor M points of this IW
 
@@ -1026,7 +1002,7 @@ subroutine sfc_atm_hex_overlay_2( icountw, icountm, iwsfc, dswmax )
 
      ! Evaluate possible overlap of ATM and SURFACE polygons
 
-     call polygon_overlap2(nsfcpoly,npoly,xs,ys,xm,ym,sfcg%area(iwsfc),arw0(iw),area,alphas,alpham)
+     call polygon_overlap(nsfcpoly,npoly,xs,ys,xm,ym,sfcg%area(iwsfc),arw0(iw),area)
 
      ! Set topm of atmospheric IM points that are inside or on the boundary
      ! of this surface cell
@@ -1037,13 +1013,18 @@ subroutine sfc_atm_hex_overlay_2( icountw, icountm, iwsfc, dswmax )
         ! only check each im point once
         if (itab_m(im)%iw(1) == iw) then
 
-           if (alpham(jm) > 1.0_r8) then
+           ! only check if we are close to this atm M point
+           if (distmsq >= xm0(jm)**2 + ym0(jm)**2) then
 
-              !$omp atomic
-              icountm(im) = icountm(im) + 1
+              call inout_check(nsfcpoly,xs,ys,xm(jm),ym(jm),point_in)
 
-              !$omp atomic
-              topm(im) = topm(im) + sfcg%topw(iwsfc)
+              if (point_in) then
+                 !$omp atomic
+                 icountm(im) = icountm(im) + 1
+
+                 !$omp atomic
+                 topm(im) = topm(im) + sfcg%topw(iwsfc)
+              endif
 
            endif
         endif
@@ -1052,6 +1033,7 @@ subroutine sfc_atm_hex_overlay_2( icountw, icountm, iwsfc, dswmax )
      ! Skip further computation if overlap is small.
 
      if (area < 1.e-5 * sfcg%area(iwsfc)) cycle
+     if (area < 2.e-6 * arw0(iw)) cycle
 
      ! Evaluate x,y coordinates of current IW point on gnomonic plane
      ! tangent at iwsfc
@@ -1062,29 +1044,26 @@ subroutine sfc_atm_hex_overlay_2( icountw, icountm, iwsfc, dswmax )
 
      call de_gn(dxew,dyew,dzew,coswslat,sinwslat,coswslon,sinwslon,xw0,yw0)
 
-     xw = real(xw0,r8)
-     yw = real(yw0,r8)
+     if (distmsq >= xw0**2 + yw0**2) then
 
-     ! If overlap is positive, even though it may be very small, check whether
-     ! this SFCG cell overlaps with the IW point of this ATM cell. Where overlap
-     ! is found, set topo height of ATM cell point from TOPW of SURFACE cell
+        xw = real(xw0,r8)
+        yw = real(yw0,r8)
 
-     call inout_check(nsfcpoly,xs,ys,xw,yw,alphaw)
+        ! If overlap is positive, even though it may be very small, check whether
+        ! this SFCG cell overlaps with the IW point of this ATM cell. Where overlap
+        ! is found, set topo height of ATM cell point from TOPW of SURFACE cell
 
-     if (alphaw > 1.0_r8) then
+        call inout_check(nsfcpoly,xs,ys,xw,yw,point_in)
 
-        !$omp atomic
-        icountw(iw) = icountw(iw) + 1
+        if (point_in) then
+           !$omp atomic
+           icountw(iw) = icountw(iw) + 1
 
-        !$omp atomic
-        topw(iw) = topw(iw) + sfcg%topw(iwsfc)
+           !$omp atomic
+           topw(iw) = topw(iw) + sfcg%topw(iwsfc)
+        endif
 
      endif
-
-     ! If overlap area is less than 1.e-5 of sfcg cell area or 2.e-6 of
-     ! atmospheric cell area, this overlap will not be counted.
-
-     if (area < 2.0e-6 * arw0(iw)) cycle
 
      ! This iwsfc SURFACE cell overlaps with IW ATM cell.
 
