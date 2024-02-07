@@ -77,7 +77,7 @@ Contains
                               ivar0, ivar1, ivar2, ivar3,             &
                               rvar0, rvar1, rvar2, rvar3,             &
                               dvar0, dvar1, dvar2, dvar3              )
-    use misc_coms, only: io6
+    use misc_coms, only: io6, naddsc
     implicit none
 
     character(*),      intent(in) :: name, stagpt
@@ -104,7 +104,7 @@ Contains
     real(r8), target, optional, contiguous, intent(in) :: dvar3(:,:,:)
 
     integer            :: ntsize, iv
-    integer, parameter :: ialloc = 20 ! Increment to increase tables
+    integer, parameter :: ialloc = 25 ! Increment to increase tables
 
     type(var_tables_r),  allocatable :: vtab_copy(:)
     integer,             allocatable :: nptonv_copy(:)
@@ -143,8 +143,8 @@ Contains
 
     ! INITIAL ALLOCATION OF TABLES IF THIS IS THE FIRST CALL
 
-    if (.not. allocated(vtab_r)) allocate(vtab_r(ialloc))
-    if (.not. allocated(nptonv)) allocate(nptonv(ialloc))
+    if (.not. allocated(vtab_r)) allocate(vtab_r(ialloc+naddsc))
+    if (.not. allocated(nptonv)) allocate(nptonv(ialloc+naddsc))
 
     num_var = num_var + 1
     ntsize = size(vtab_r)
@@ -226,7 +226,7 @@ Contains
 
   subroutine vtables_scalar(varp,vart,name,cu_mix,pos_def,pbl_mix)
 
-    use misc_coms, only: io6
+    use misc_coms, only: io6, naddsc
     implicit none
 
     real, target, contiguous,          intent(in) :: varp (:,:)
@@ -238,7 +238,7 @@ Contains
     logical,      optional, intent(in) :: pbl_mix
 
     integer                         :: ntsize
-    integer,            parameter   :: ialloc = 20
+    integer,            parameter   :: ialloc = 25
     logical                         :: cumix
     logical                         :: pblmix
 
@@ -264,14 +264,14 @@ Contains
 
     ! Initial allocation of tables if this is the first call
 
-    if (.not. allocated(scalar_tab)) allocate(scalar_tab(ialloc))
+    if (.not. allocated(scalar_tab)) allocate(scalar_tab(ialloc+naddsc))
 
     if (cumix) then
-       if (.not. allocated(cumix_map)) allocate(cumix_map(ialloc))
+       if (.not. allocated(cumix_map)) allocate(cumix_map(ialloc+naddsc))
     endif
 
     if (pblmix) then
-       if (.not. allocated(pblmix_map)) allocate(pblmix_map(ialloc))
+       if (.not. allocated(pblmix_map)) allocate(pblmix_map(ialloc+naddsc))
     endif
 
     num_scalar = num_scalar + 1

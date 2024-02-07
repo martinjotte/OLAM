@@ -209,8 +209,8 @@ Contains
 
     integer, intent(in) :: naddsc, nccntyp
 
-    integer :: iaddsc, ic, n
-    character (len=10) :: sname
+    integer       :: iaddsc, ic, n
+    character(14) :: sname
 
 ! Fill pointers to scalar arrays into scalar tables
 
@@ -257,7 +257,7 @@ Contains
     if (do_chem == 1) call cgrid_scalar_tabs()
 
     do iaddsc = 1,naddsc
-       write(sname,'(a4,i3.3)') 'SCLP',iaddsc
+       write(sname,'(a4,i0.3)') 'SCLP',iaddsc
 
        if (allocated(addsc(iaddsc)%sclt)) then
           call vtables_scalar (addsc(iaddsc)%sclp, addsc(iaddsc)%sclt, sname, cu_mix=.true.)

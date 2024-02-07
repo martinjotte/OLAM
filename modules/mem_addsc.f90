@@ -68,14 +68,14 @@ Contains
 
     integer, intent(in) :: naddsc
 
-    integer      :: iaddsc
-    character(7) :: sname
+    integer       :: iaddsc
+    character(14) :: sname
 
     do iaddsc = 1,naddsc
 
        if (allocated (addsc(iaddsc)%sclp)) then
 
-          write(sname,'(a4,i3.3)') 'SCLP', iaddsc
+          write(sname,'(a4,i0.3)') 'SCLP', iaddsc
           call increment_vtable(sname, 'AW', mpt1=.true., rvar2=addsc(iaddsc)%sclp)
 
        endif
