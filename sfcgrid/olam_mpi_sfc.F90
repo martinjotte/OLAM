@@ -356,6 +356,8 @@ subroutine mpi_send_wsfc(set, soil_watfrac, div2d_ex)
                          send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
            call MPI_Pack(sfcg%prss    (iwsfc),1,MPI_REAL, &
                          send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
+           call MPI_Pack(sfcg%canexner(iwsfc),1,MPI_REAL, &
+                         send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
            call MPI_Pack(sfcg%rhos    (iwsfc),1,MPI_REAL, &
                          send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
            call MPI_Pack(sfcg%airtemp (iwsfc),1,MPI_REAL, &
@@ -835,6 +837,8 @@ subroutine mpi_recv_wsfc(set, soil_watfrac, div2d_ex)
                            sfcg%vels    (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
            call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
                            sfcg%prss    (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+           call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                           sfcg%canexner(iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
            call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
                            sfcg%rhos    (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
            call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &

@@ -1,15 +1,22 @@
 subroutine surface_driver()
 
   use leaf_coms,     only: iupdndvi, s1900_ndvi, indvifile, nndvifiles
-  use mem_sfcg,      only: itab_wsfc
+  use mem_ijtabs,    only: itab_w, jtab_w, jtw_prog
+  use mem_basic,     only: theta, rr_v
+  use mem_sfcg,      only: itab_wsfc, sfcg
   use mem_land,      only: land, mland, omland, nzg, slzt
   use mem_lake,      only: mlake
   use mem_sea,       only: msea
   use sea_coms,      only: iupdsst, s1900_sst, isstfile, nsstfiles, &
                            iupdseaice, s1900_seaice, iseaicefile, nseaicefiles
   use misc_coms,     only: s1900_sim, iparallel
+  use mem_grid,      only: lpw, volti
+  use consts_coms,   only: grav, eps_virt, vonk, cp
   use leaf4_soil,    only: head_column
   use sea_swm,       only: swm_driver
+  use mem_turb,      only: akm_sfc, vkm_sfc, ustar, sfluxt, sfluxr, arw_sfc, &
+                           wstar, wtv0, pblh, moli, ustar_k, wtv0_k
+  use mem_tend,      only: thilt, rr_wt
   use mem_para,      only: myrank
   use olam_mpi_sfc,  only: mpi_send_wsfc, mpi_recv_wsfc
   use oname_coms,    only: nl
@@ -24,10 +31,14 @@ subroutine surface_driver()
   ! Local variables
 
   integer :: iwsfc, iland, ilake, isea
+  integer :: j, iw, ks, kw, ka
+  integer :: jsfc, jasfc
 
   real :: timefac_ndvi   ! fraction of elapsed time from past to future NDVI obs
   real :: timefac_sst    ! fraction of elapsed time from past to future SST obs
   real :: timefac_seaice ! fraction of elapsed time from past to future SEAICE obs
+
+  real, parameter :: onethird = 1./3.
 
 !!-----------------------------------------------------------------------------
 !!  ADVANCE SWM BY DTLONG (POSSIBLY USING SUB-CYCLING)
@@ -165,6 +176,77 @@ subroutine surface_driver()
      call mpi_recv_wsfc(set='sfc_driv_end')
   endif
 
+  ! Reset to zero atmospheric surface exchange variables prior to summing over
+  ! the contributing surface cells for each atmospheric column.
+
+  ustar   = 0.
+  wtv0    = 0.
+  sfluxt  = 0.
+  sfluxr  = 0.
+  vkm_sfc = 0.
+  akm_sfc = 0.
+  ustar_k = 0.
+  wtv0_k  = 0.
+
+  ! Loop over ATM grid columns that are primary in this subdomain
+
+  !$omp parallel do private(iw, jsfc, iwsfc, jasfc, kw, ka, ks)
+  do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
+
+     ka = lpw(iw)
+
+     ! Loop over all SFC grid cells that couple to this ATM grid column
+
+     do jsfc = 1,itab_w(iw)%jsfc2
+        iwsfc = itab_w(iw)%iwsfc(jsfc)
+        jasfc = itab_w(iw)%jasfc(jsfc)
+
+        kw = itab_wsfc(iwsfc)%kwatm(jasfc)
+        ks = kw - ka + 1
+
+        ! Values averaged over all surface overlaps of an atm column
+        ustar  (iw) = ustar  (iw) + itab_wsfc(iwsfc)%arcoariw(jasfc) * sfcg%ustar (iwsfc)
+        wtv0   (iw) = wtv0   (iw) + itab_wsfc(iwsfc)%arcoariw(jasfc) * sfcg%wthv  (iwsfc)
+        sfluxt (iw) = sfluxt (iw) + itab_wsfc(iwsfc)%arcoariw(jasfc) * sfcg%sfluxt(iwsfc)
+        sfluxr (iw) = sfluxr (iw) + itab_wsfc(iwsfc)%arcoariw(jasfc) * sfcg%sfluxr(iwsfc)
+        vkm_sfc(iw) = vkm_sfc(iw) + itab_wsfc(iwsfc)%arcoariw(jasfc) * sfcg%vkmsfc(iwsfc)
+
+        ! Values averaged by vertical level of an atm column
+        ustar_k(ks,iw) = ustar_k(ks,iw) + itab_wsfc(iwsfc)%arcoarkw(jasfc) * sfcg%ustar(iwsfc)
+        wtv0_k (ks,iw) = wtv0_k (ks,iw) + itab_wsfc(iwsfc)%arcoarkw(jasfc) * sfcg%wthv (iwsfc)
+
+        ! Values summed to tendency arrays
+        akm_sfc(ks,iw) = akm_sfc(ks,iw) + itab_wsfc(iwsfc)%arc(jasfc) * sfcg%vkmsfc(iwsfc)
+
+! Original calculation of thilt for sfluxt units [kg_dry K m^-2 s^-1]
+!       thilt  (kw,iw) = thilt  (kw,iw) + itab_wsfc(iwsfc)%arc(jasfc) * sfcg%sfluxt(iwsfc) * volti(kw,iw)
+
+! New calculation of thilt for sfluxt units [W m^-2]
+        thilt  (kw,iw) = thilt  (kw,iw) + itab_wsfc(iwsfc)%arc(jasfc) * sfcg%sfluxt(iwsfc) / (cp * sfcg%canexner(iwsfc)) * volti(kw,iw)
+
+        rr_wt  (kw,iw) = rr_wt  (kw,iw) + itab_wsfc(iwsfc)%arc(jasfc) * sfcg%sfluxr(iwsfc) * volti(kw,iw)
+!       rr_co2t(kw,iw) = rr_co2t(kw,iw) + itab_wsfc(iwsfc)%arc(jasfc) * sfcg%sfluxc(iwsfc) * volti(kw,iw)
+
+     enddo
+
+     ! Compute some derived surface quantities
+
+     moli(iw) = - grav * vonk * wtv0(iw) /  &
+          ( ustar(iw)**3 * theta(ka,iw) * (1.0 + eps_virt * rr_v(ka,iw)) )
+
+     if (wtv0(iw) > 0.0) then
+        wstar(iw) = (grav * pblh(iw) * wtv0(iw) / theta(ka,iw)) ** onethird
+     else
+        wstar(iw) = 0.0
+     endif
+
+  enddo
+  !$omp end parallel do
+
+  ! No MPI send/recv communication of ATM turbulent fluxes are required for
+  ! averaging to SFC grid cells because the fluxes are directly computed on
+  ! SFC grid cells.
+
 end subroutine surface_driver
 
 !=============================================================================
@@ -172,10 +254,10 @@ end subroutine surface_driver
 subroutine sfcg_avgatm()
 
   use mem_basic,    only: rho, press, theta, tair, rr_v, vxe, vye, vze
+  use consts_coms,  only: rocp, p00i
   use mem_micro,    only: rr_c
   use mem_co2,      only: co2flag, rr_co2
   use misc_coms,    only: iparallel
-  use consts_coms,  only: grav
   use mem_grid,     only: gdz_abov8
   use mem_para,     only: myrank
   use olam_mpi_sfc, only: mpi_send_wsfc, mpi_recv_wsfc
@@ -250,6 +332,7 @@ subroutine sfcg_avgatm()
         endif
 
      enddo
+     sfcg%canexner(iwsfc)  = (sfcg%prss(iwsfc) * p00i) ** rocp
 
   enddo
   !$omp end parallel do

@@ -8,7 +8,7 @@ subroutine leaf4_init_atm()
   use misc_coms,    only: s1900_sim, iparallel, runtype, initial
   use mem_sfcg,     only: itab_wsfc, sfcg
   use consts_coms,  only: cliq, cice, alli, cliq1000, cice1000, alli1000, &
-                          grav, p00i, rocp, t00
+                          grav, t00
   use mem_para,     only: myrank
   use leaf4_canopy, only: vegndvi
   use land_db,      only: land_database_read
@@ -174,7 +174,7 @@ subroutine leaf4_init_atm()
 
      ! Apply initial atmospheric properties to land canopy
 
-     sfcg%cantemp  (iwsfc) = sfcg%airtheta(iwsfc) * (sfcg%prss(iwsfc) * p00i)**rocp
+     sfcg%cantemp  (iwsfc) = sfcg%airtheta(iwsfc) * sfcg%canexner(iwsfc)
      sfcg%canrrv   (iwsfc) = sfcg%airrrv(iwsfc)
      sfcg%ustar    (iwsfc) = 0.1
      sfcg%sfluxt   (iwsfc) = 0.

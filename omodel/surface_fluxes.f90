@@ -1,37 +1,16 @@
-!===============================================================================
-
-! TURB and CUPARM flux scheduling:
-
-! 1. Cuparm gives precip RATES
-! 2. Stars gives heat and vapor flux RATES
-! 3. Fluxes computed once per interval of dtlong = dtlm = dt_leaf = dt_sea,
-!    which (as of July 2011) are hardwired to be all the same.
-! 4. Fluxes converted to AMOUNTS TRANSFERED based on rate * dtlm
-! 5. Each time leaf runs, it uses at once all it has gotten and zeroes xfer arrays
-! 6. When fluxes are done, they are done for all MRL = 1 atm points
-
-! RADIATIVE fluxes only:
-
-! 1. Radiative fluxes transfer RATES only, with no timestep information
-
-!----------------------------------------------------------------------------
-! AS OF JULY 2011, SUBROUTINE SURFACE_TURB_FLUXP IS HARDWIRED FOR
-! DT_LEAF = DTLM.
-!----------------------------------------------------------------------------
-
 subroutine surface_turb_flux()
 
   use leaf_coms,   only: isfcl
   use mem_land,    only: omland, land
   use mem_sea,     only: omsea, sea
   use mem_basic,   only: theta, tair, rr_v
-  use mem_ijtabs,  only: itab_w, jtab_w, jtw_prog, jtw_wstn
+  use mem_ijtabs,  only: itab_w, jtab_w, jtw_prog
   use mem_sfcg,    only: itab_wsfc, sfcg, mwsfc
   use misc_coms,   only: iparallel, dtlm
   use mem_grid,    only: lsw, lpw, volti
   use mem_turb,    only: akm_sfc, vkm_sfc, ustar, sfluxt, sfluxr, arw_sfc, &
                          wstar, wtv0, pblh, moli, ustar_k, wtv0_k
-  use consts_coms, only: grav, p00, rocp, cp, alvl, eps_virt, vonk, p00i
+  use consts_coms, only: grav, p00, rocp, cp, cpi, alvl, eps_virt, vonk, p00i
   use oname_coms,  only: nl
   use mem_para,    only: myrank
   use mem_tend,    only: thilt, rr_wt
@@ -44,331 +23,56 @@ subroutine surface_turb_flux()
   integer :: jsfc, jasfc, iwsfc
 
   real :: exneri, dtl
-  real :: canexner, canexneri, cantheta, canthetav
   real :: airthetav, ufree
-  real :: shflx  ! Specified surface sensible heat flux for ISFCL = 0 case [W/m^2]
-  real :: srflx  ! Specified surface latent heat flux for ISFCL = 0 case [W/m^2]
 
   real, parameter :: onethird = 1./3.
 
   dtl = dtlm
 
-  if (isfcl == 0) then
-
-     ! ISFCL = 0 is the no-LEAF option.  Assign surface fluxes here, noting the
-     ! following examples.  SHFLX has units of [K m/s kg/m^3].
-
-     ! Default surface sensible and latent heat fluxes = 0 W/m^2
-
-     shflx = 0. / cp
-     srflx = 0. / alvl
-
-     ! Example with sensible flux = 250 W/m^2 and latent flux of 150 W/m^2:
-
-     !  shflx = 250. / cp
-     !  shflx = 150. / alvl
-
-     !$omp parallel do private(iw,ks,kw,exneri)
-     do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
-
-        sfluxt(iw) = 0.
-        sfluxr(iw) = 0.
-        ustar (iw) = 0.1  ! Minimum value
-
-        wstar (iw) = 0.
-        wtv0  (iw) = 0.
-
-        akm_sfc (:,iw) = 0.
-
-        do ks = 1, lsw(iw)
-           kw = ks + lpw(iw) - 1
-
-           exneri = theta(kw,iw) / tair(kw,iw)
-
-           ustar_k(ks,iw) = 0.1
-           wtv0_k (ks,iw) = 0.0
-
-           thilt(kw,iw) = thilt(kw,iw) + dtl * shflx * exneri * arw_sfc(ks,iw)
-           rr_wt(kw,iw) = rr_wt(kw,iw) + dtl * srflx          * arw_sfc(ks,iw)
-        enddo
-
-        ! albedt (iw) = albedo
-        ! rlongup(iw) = stefan * 288.15 ** 4  ! std msl temp; make decision to not
-                                              ! run radiation if not running leaf?
-     enddo
-     !$omp end parallel do
-
-     return
-  endif
-
-  ! ISFCL = 1 is the LEAF option...
-
-  ! Reset to zero the atm values of VKM_SFC, USTAR, SFLUXT, and SFLUXR.
-  ! VKM_SFC, USTAR, SFLUXT, AND SFLUXR ARE ONLY SUMMED OVER
-  ! SPACE, BUT NOT OVER TIME.
-  ! Set sea and land fluxes to be done for SURFACE SIMILARITY:
-  !    Do fluxes at beginning of long timestep
-
-  ustar   = 0.
-  wtv0    = 0.
-  sfluxt  = 0.
-  sfluxr  = 0.
-  vkm_sfc = 0.
-  akm_sfc = 0.
-  ustar_k = 0.
-  wtv0_k  = 0.
-
-  ! Loop over all SFC grid cells in subdomain, EVEN THOSE THAT ARE NOT PRIMARY,
-  ! so that all surface fluxes are computed beneath all ATM columns that are primary
-
-  !$omp parallel
-  !$omp do private(airthetav,canexner,canexneri,cantheta,canthetav,ufree,isea)
-  do iwsfc = 2,mwsfc
-
-     if (iparallel == 1) then
-        if ( all( itab_w( [max(1,itab_wsfc(iwsfc)%iwatm( 1:itab_wsfc(iwsfc)%nwatm ))] )%irank /= myrank ) ) cycle
-     endif
-
-     airthetav = sfcg%airtheta(iwsfc) * (1.0 + eps_virt * sfcg%airrrv(iwsfc))
-     canexner  = (sfcg%prss(iwsfc) * p00i) ** rocp
-     canexneri = 1. / canexner
-
-     ! Compute turbulent fluxes based on whether SFC grid cell is land, lake, or sea
-
-     if (sfcg%leaf_class(iwsfc) >= 1) then
-
-        ! This is a land or lake cell
-
-        cantheta  = sfcg%cantemp(iwsfc) * canexneri
-        canthetav = cantheta * (1.0 + eps_virt * sfcg%canrrv(iwsfc))
-
-        ufree = (grav * sfcg%dzt_bot(iwsfc) * max(sfcg%wthv(iwsfc),0.0) / airthetav) ** onethird
-
-        call stars(sfcg%dzt_bot (iwsfc), &
-                   sfcg%rough   (iwsfc), &
-                   sfcg%vels    (iwsfc), &
-                   sfcg%rhos    (iwsfc), &
-                   ufree               , &
-                   sfcg%airtheta(iwsfc), &
-                   airthetav           , &
-                   sfcg%airrrv  (iwsfc), &
-                   cantheta            , &
-                   canthetav           , &
-                   sfcg%canrrv  (iwsfc), &
-                   sfcg%vkmsfc  (iwsfc), &
-                   sfcg%sfluxt  (iwsfc), &
-                   sfcg%sfluxr  (iwsfc), &
-                   sfcg%ustar   (iwsfc), &
-                   sfcg%ggaer   (iwsfc)  )
-
-        sfcg%wthv(iwsfc) = ( sfcg%sfluxt(iwsfc) * (1.0 + eps_virt * sfcg%airrrv(iwsfc)) &
-             + sfcg%sfluxr(iwsfc) * eps_virt * sfcg%airtheta(iwsfc) ) / sfcg%rhos(iwsfc)
-
-        if (nl%iorogslopeflg > 1 .and. sfcg%leaf_class(iwsfc) > 1) then
-           sfcg%vkmsfc(iwsfc) = sfcg%vkmsfc(iwsfc) * land%slope_fact(iwsfc-omland)
-        endif
-
-     else
-
-        ! This is sea cell.  First, compute turbulent fluxes over open water areas.
-
-        isea = iwsfc - omsea
-
-        cantheta  = sea%sea_cantemp(isea) * canexneri
-        canthetav = cantheta * (1.0 + eps_virt * sea%sea_canrrv(isea))
-
-        ufree = (grav * sfcg%dzt_bot(iwsfc) * max(sea%sea_wthv(isea),0.0) / airthetav) ** onethird
-
-        call stars(sfcg%dzt_bot  (iwsfc), &
-                   sea%sea_rough  (isea), &
-                   sfcg%vels     (iwsfc), &
-                   sfcg%rhos     (iwsfc), &
-                   ufree                , &
-                   sfcg%airtheta (iwsfc), &
-                   airthetav            , &
-                   sfcg%airrrv   (iwsfc), &
-                   cantheta             , &
-                   canthetav            , &
-                   sea%sea_canrrv (isea), &
-                   sea%sea_vkmsfc (isea), &
-                   sea%sea_sfluxt (isea), &
-                   sea%sea_sfluxr (isea), &
-                   sea%sea_ustar  (isea), &
-                   sea%sea_ggaer  (isea)  )
-
-        sea%sea_wthv(isea) = ( sea%sea_sfluxt(isea) * (1.0 + eps_virt * sfcg%airrrv(iwsfc)) &
-           + sea%sea_sfluxr(isea) * eps_virt * sfcg%airtheta(iwsfc) ) / sfcg%rhos(iwsfc)
-
-        ! When we have CO2:
-!       sea%sea_sfluxc(isea) = sfcg%rhos(iwsfc) * sea%sea_ggaer(isea) &
-!                            * (sea%sea_co2(isea) - air_co2)
-
-        ! Flux contributions to water
-        sea%sea_sxfer_t(isea) = dtl * sea%sea_sfluxt(isea) * canexner
-        sea%sea_sxfer_r(isea) = dtl * sea%sea_sfluxr(isea)
-!       sea%sea_sxfer_c(isea) = dtl * sea%sea_sfluxc(isea)
-
-        ! Check if sea ice is present
-
-        if (sea%nlev_seaice(isea) == 0) then
-
-           ! If no sea ice is present in this cell, zero out fluxes over ice
-           ! and set cell flux to open water part
-
-           sfcg%vkmsfc(iwsfc) = sea%sea_vkmsfc(isea)
-           sfcg%ustar (iwsfc) = sea%sea_ustar (isea)
-           sfcg%ggaer (iwsfc) = sea%sea_ggaer (isea)
-           sfcg%sfluxt(iwsfc) = sea%sea_sfluxt(isea)
-           sfcg%sfluxr(iwsfc) = sea%sea_sfluxr(isea)
-!          sfcg%sfluxc(iwsfc) = sea%sea_sfluxc(isea)
-           sfcg%wthv  (iwsfc) = sea%sea_wthv  (isea)
-
-           sea%ice_vkmsfc(isea) = 0.0
-           sea%ice_ustar (isea) = 0.0
-           sea%ice_ggaer (isea) = 0.0
-           sea%ice_sfluxt(isea) = 0.0
-           sea%ice_sfluxr(isea) = 0.0
-!          sea%ice_sfluxc(isea) = 0.0
-
-           sea%ice_sxfer_t(isea) = 0.0
-           sea%ice_sxfer_r(isea) = 0.0
-!          sea%ice_sxfer_c(isea) = 0.0
-
-        else
-
-           ! If sea ice is present in this cell, compute turbulent fluxes over ice
-
-           cantheta  = sea%ice_cantemp(isea) * canexneri
-           canthetav = cantheta * (1.0 + eps_virt * sea%ice_canrrv(isea))
-
-           ufree = (grav * sfcg%dzt_bot(iwsfc) * max(sea%ice_wthv(isea),0.0) / airthetav) ** onethird
-
-           call stars(sfcg%dzt_bot  (iwsfc), &
-                      sea%ice_rough  (isea), &
-                      sfcg%vels     (iwsfc), &
-                      sfcg%rhos     (iwsfc), &
-                      ufree                , &
-                      sfcg%airtheta (iwsfc), &
-                      airthetav            , &
-                      sfcg%airrrv   (iwsfc), &
-                      cantheta             , &
-                      canthetav            , &
-                      sea%ice_canrrv (isea), &
-                      sea%ice_vkmsfc (isea), &
-                      sea%ice_sfluxt (isea), &
-                      sea%ice_sfluxr (isea), &
-                      sea%ice_ustar  (isea), &
-                      sea%ice_ggaer  (isea)  )
-
-           ! When we have CO2:
-!          sea%ice_sfluxc(isea) = sfcg%rhos(iwsfc) * sea%ice_ggaer(isea) &
-!                               * (sea%ice_co2(isea) - airco2)
-
-           sea%ice_wthv(isea) = ( sea%ice_sfluxt(isea) * (1.0 + eps_virt * sfcg%airrrv(iwsfc)) &
-              + sea%ice_sfluxr(isea) * eps_virt * sfcg%airtheta(iwsfc) ) / sfcg%rhos(iwsfc)
-
-           ! Flux contributions to seaice
-           sea%ice_sxfer_t(isea) = dtl * sea%ice_sfluxt(isea) * canexner
-           sea%ice_sxfer_r(isea) = dtl * sea%ice_sfluxr(isea)
-!          sea%sea_sxfer_c(isea) = dtl * sea%sea_sfluxc(isea)
-
-           ! Combine sea and ice values based on ice fraction:
-
-           sfcg%vkmsfc(iwsfc) = (1.0 - sea%seaicec(isea)) * sea%sea_vkmsfc(isea) &
-                                     + sea%seaicec(isea)  * sea%ice_vkmsfc(isea)
-
-           sfcg%ustar(iwsfc)  = (1.0 - sea%seaicec(isea)) * sea%sea_ustar(isea) &
-                                     + sea%seaicec(isea)  * sea%ice_ustar(isea)
-
-           sfcg%ggaer(iwsfc)  = (1.0 - sea%seaicec(isea)) * sea%sea_ggaer(isea) &
-                                     + sea%seaicec(isea)  * sea%ice_ggaer(isea)
-
-           sfcg%sfluxt(iwsfc) = (1.0 - sea%seaicec(isea)) * sea%sea_sfluxt(isea) &
-                                     + sea%seaicec(isea)  * sea%ice_sfluxt(isea)
-
-           sfcg%sfluxr(iwsfc) = (1.0 - sea%seaicec(isea)) * sea%sea_sfluxr(isea) &
-                                    + sea%seaicec(isea)  * sea%ice_sfluxr(isea)
-
-           sfcg%wthv(iwsfc)   = (1.0 - sea%seaicec(isea)) * sea%sea_wthv(isea) &
-                                     + sea%seaicec(isea)  * sea%ice_wthv(isea)
-
-!          sfcg%sfluxc(iwsfc) = (1.0 - sea%seaicec(isea)) * sea%sea_sfluxc(isea) &
-!                                    + sea%seaicec(isea)  * sea%ice_sfluxc(isea)
-
-        endif
-
-     endif  ! if this is sea cell
-
-     sfcg%sxfer_t(iwsfc) = dtl * sfcg%sfluxt(iwsfc) * canexner
-     sfcg%sxfer_r(iwsfc) = dtl * sfcg%sfluxr(iwsfc)
-!    sfcg%sxfer_c(iwsfc) = dtl * sfcg%sfluxc(iwsfc)
-
-  enddo
-  !$omp end do
-
-  ! Loop over ATM grid columns that are primary in this subdomain
-
-  !$omp do private(iw, jsfc, iwsfc, jasfc, kw, ka, ks)
+  !$omp parallel do private(iw,ks,kw,exneri)
   do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
-     ka = lpw(iw)
+  ! This subroutine is now called only if ISFCL = 0, which is the no-LEAF option.
+  ! Assign atmospheric surface fluxes here.
+  ! Example with sensible flux = 250 W/m^2 and latent flux of 150 W/m^2:
 
-     ! Loop over all SFC grid cells that couple to this ATM grid column
+  !  sfluxt = 250.
+  !  sfluxr = 150. / alvl
 
-     do jsfc = 1,itab_w(iw)%jsfc2
-        iwsfc = itab_w(iw)%iwsfc(jsfc)
-        jasfc = itab_w(iw)%jasfc(jsfc)
+     sfluxt(iw) = 0.
+     sfluxr(iw) = 0. / alvl
 
-        kw = itab_wsfc(iwsfc)%kwatm(jasfc)
-        ks = kw - ka + 1
+     ustar (iw) = 0.1  ! Minimum value
 
-        ! Values averaged over all surface overlaps of an atm column
-        ustar  (iw) = ustar  (iw) + itab_wsfc(iwsfc)%arcoariw(jasfc) * sfcg%ustar (iwsfc)
-        wtv0   (iw) = wtv0   (iw) + itab_wsfc(iwsfc)%arcoariw(jasfc) * sfcg%wthv  (iwsfc)
-        sfluxt (iw) = sfluxt (iw) + itab_wsfc(iwsfc)%arcoariw(jasfc) * sfcg%sfluxt(iwsfc)
-        sfluxr (iw) = sfluxr (iw) + itab_wsfc(iwsfc)%arcoariw(jasfc) * sfcg%sfluxr(iwsfc)
-        vkm_sfc(iw) = vkm_sfc(iw) + itab_wsfc(iwsfc)%arcoariw(jasfc) * sfcg%vkmsfc(iwsfc)
+     wstar (iw) = 0.
+     wtv0  (iw) = 0.
 
-        ! Values averaged by vertical level of an atm column
-        ustar_k(ks,iw) = ustar_k(ks,iw) + itab_wsfc(iwsfc)%arcoarkw(jasfc) * sfcg%ustar(iwsfc)
-        wtv0_k (ks,iw) = wtv0_k (ks,iw) + itab_wsfc(iwsfc)%arcoarkw(jasfc) * sfcg%wthv (iwsfc)
+     akm_sfc (:,iw) = 0.
 
-        ! Values summed to tendency arrays
-        akm_sfc(ks,iw) = akm_sfc(ks,iw) + itab_wsfc(iwsfc)%arc(jasfc) * sfcg%vkmsfc(iwsfc)
-        thilt  (kw,iw) = thilt  (kw,iw) + itab_wsfc(iwsfc)%arc(jasfc) * sfcg%sfluxt(iwsfc) * volti(kw,iw)
-        rr_wt  (kw,iw) = rr_wt  (kw,iw) + itab_wsfc(iwsfc)%arc(jasfc) * sfcg%sfluxr(iwsfc) * volti(kw,iw)
-!       rr_co2t(kw,iw) = rr_co2t(kw,iw) + itab_wsfc(iwsfc)%arc(jasfc) * sfcg%sfluxc(iwsfc) * volti(kw,iw)
+     do ks = 1, lsw(iw)
+        kw = ks + lpw(iw) - 1
 
+        exneri = theta(kw,iw) / tair(kw,iw)
+
+        ustar_k(ks,iw) = 0.1
+        wtv0_k (ks,iw) = 0.0
+
+        thilt(kw,iw) = thilt(kw,iw) + sfluxt(iw) * cpi * exneri * arw_sfc(ks,iw) * volti(kw,iw)
+        rr_wt(kw,iw) = rr_wt(kw,iw) + sfluxr(iw)                * arw_sfc(ks,iw) * volti(kw,iw)
      enddo
 
-     ! Compute some derived surface quantities
-
-     moli(iw) = - grav * vonk * wtv0(iw) /  &
-          ( ustar(iw)**3 * theta(ka,iw) * (1.0 + eps_virt * rr_v(ka,iw)) )
-
-     if (wtv0(iw) > 0.0) then
-        wstar(iw) = (grav * pblh(iw) * wtv0(iw) / theta(ka,iw)) ** onethird
-     else
-        wstar(iw) = 0.0
-     endif
-
+     ! albedt (iw) = albedo
+     ! rlongup(iw) = stefan * 288.15 ** 4  ! std msl temp; make decision to not
+                                              ! run radiation if not running leaf?
   enddo
-  !$omp end do
-  !$omp end parallel
-
-  ! No MPI send/recv communication of ATM turbulent fluxes are required for
-  ! averaging to SFC grid cells because the fluxes are directly computed on
-  ! SFC grid cells.
+  !$omp end parallel do
 
 end subroutine surface_turb_flux
 
 !===============================================================================
 
-subroutine stars( zts, rough, vels, rhos, ufree,  &
-                  air_theta, air_thetav, air_rrv, &
-                  can_theta, can_thetav, can_rrv, &
-                  vkmsfc, sfluxt, sfluxr, ustar,  &
-                  ggaero                          )
+subroutine stars( zts, rough, vels, rhos, ufree, air_thetav, can_thetav, &
+                  vkmsfc, vkhsfc, ustar, ggaero )
 
   ! Subroutine stars computes surface heat and vapor fluxes and momentum drag
   ! coefficient from Louis (1981) equations
@@ -384,19 +88,14 @@ subroutine stars( zts, rough, vels, rhos, ufree,  &
   real, intent(in) :: vels       ! atmos near-surface wind speed [m/s]
   real, intent(in) :: rhos       ! atmos near-surface density [kg/m^3]
   real, intent(in) :: ufree      ! surface layer free-convective velocity [m/s]
-  real, intent(in) :: air_theta  ! atmos near-surface pot. temp [K]
   real, intent(in) :: air_thetav ! atmos near-surface virt. pot. temp [K]
-  real, intent(in) :: air_rrv    ! atmos near-surface vapor spec hum [kg_vap/m^3]
-  real, intent(in) :: can_theta  ! canopy air pot. temp [K]
   real, intent(in) :: can_thetav ! canopy air virt. pot. temp [K]
-  real, intent(in) :: can_rrv    ! canopy air vapor spec hum [kg_vap/m^3]
 
   ! Output variables
 
-  real, intent(out) :: vkmsfc    ! surface drag coefficient for this flux cell
-  real, intent(out) :: sfluxt    ! surface sensible heat flux for this flux cell
-  real, intent(out) :: sfluxr    ! surface vapor flux for this flux cell
-  real, intent(out) :: ustar     ! surface friction velocity for this flux cell
+  real, intent(out) :: vkmsfc    ! surface drag coefficient
+  real, intent(out) :: vkhsfc    ! surface heat and vapor transfer coefficient
+  real, intent(out) :: ustar     ! surface friction velocity
   real, intent(out) :: ggaero    ! bare ground conductance m/s
 
   ! Local parameters
@@ -420,8 +119,6 @@ subroutine stars( zts, rough, vels, rhos, ufree,  &
   real :: ch
   real :: fm
   real :: fh
-  real :: tstar  !
-  real :: rstar  !
   real :: vtscr  ! ustar times density
 
   ! Routine to compute Louis (1981) surface layer parameterization.
@@ -451,14 +148,11 @@ subroutine stars( zts, rough, vels, rhos, ufree,  &
 
   ustar = max(ustmin,sqrt(c1 * vels0 * fm))
   c3 = c1 * fh / ustar
-  tstar = c3 * (air_theta - can_theta)
-  rstar = c3 * (air_rrv   - can_rrv)
 
   vtscr = ustar * rhos
 
   vkmsfc =   vtscr * ustar * zts / vels0
-  sfluxt = - vtscr * tstar
-  sfluxr = - vtscr * rstar
+  vkhsfc =   vtscr * c3 * zts
 
   ! Store the aerodynamic conductance between the surface canopy and
   ! the lowest model level
@@ -543,7 +237,7 @@ end subroutine surface_cuparm_flux
 
 !==============================================================================
 
-subroutine sfclyr_profile (vels, ustar, tstar, rstar, dzt_bot, zrough, ufree, &
+subroutine sfclyr_profile (vels, rhos, canexner, ustar, sfluxt, sfluxr, dzt_bot, zrough, ufree, &
                            cantheta, canthetav, canrrv, airthetav, &
                            zobs, wind_zobs, theta_zobs, rrv_zobs)
 
@@ -555,9 +249,11 @@ subroutine sfclyr_profile (vels, ustar, tstar, rstar, dzt_bot, zrough, ufree, &
   implicit none
 
   real, intent(in) :: vels
+  real, intent(in) :: rhos
+  real, intent(in) :: canexner
   real, intent(in) :: ustar
-  real, intent(in) :: tstar
-  real, intent(in) :: rstar
+  real, intent(in) :: sfluxt
+  real, intent(in) :: sfluxr
   real, intent(in) :: dzt_bot
   real, intent(in) :: zrough
   real, intent(in) :: ufree
@@ -587,10 +283,10 @@ subroutine sfclyr_profile (vels, ustar, tstar, rstar, dzt_bot, zrough, ufree, &
      wind_zobs = sqrt((ustar**2 / a2) &
                * (1. + 10. * richnum / sqrt(1. + 5. * richnum)) )
 
-     theta_zobs = cantheta + (ustar * tstar / (a2 * vels0)) &
+     theta_zobs = cantheta - (sfluxt / (cp * canexner * a2 * vels0 * rhos)) &
                 * (1. + 15. * richnum / sqrt(1. + 5. * richnum))
 
-     rrv_zobs = canrrv + (ustar * rstar / (a2 * vels0)) &
+     rrv_zobs = canrrv - (sfluxr / (a2 * vels0 * rhos)) &
                 * (1. + 15. * richnum / sqrt(1. + 5. * richnum))
 
   else
@@ -598,10 +294,10 @@ subroutine sfclyr_profile (vels, ustar, tstar, rstar, dzt_bot, zrough, ufree, &
      wind_zobs = sqrt((ustar**2 / a2) &
                / (1. - 10. * richnum / (1. + 75. * a2 * sqrt(-zobs * richnum/zrough))))
 
-     theta_zobs = cantheta + (ustar * tstar / (a2 * vels0)) &
+     theta_zobs = cantheta - (sfluxt / (cp * canexner * a2 * vels0 * rhos)) &
                 / (1. - 15. * richnum / (1. + 75. * a2 * sqrt(-zobs * richnum / zrough)))
 
-     rrv_zobs = canrrv + (ustar * rstar / (a2 * vels0)) &
+     rrv_zobs = canrrv - (sfluxr / (a2 * vels0 * rhos)) &
                 / (1. - 15. * richnum / (1. + 75. * a2 * sqrt(-zobs * richnum / zrough)))
 
   endif

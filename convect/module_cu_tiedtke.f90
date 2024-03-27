@@ -260,7 +260,7 @@ CONTAINS
    enddo
 
    evap  = sfluxr(iw)
-   hfx   = sfluxt(iw) * tair(ka,iw) / theta(ka,iw)
+   hfx   = sfluxt(iw)
    rhosf = rho(ka,iw)
 
    if (allocated(frac_land)) then

@@ -472,8 +472,10 @@ subroutine olam_run(name_name)
 
      ! Average atmospheric fields to SFC grid cells
 
-     write(io6,'(/,a)') 'olam_run calling sfcg_avgatm'
-     call sfcg_avgatm()
+     if (runtype == 'INITIAL') then
+        write(io6,'(/,a)') 'olam_run calling sfcg_avgatm'
+        call sfcg_avgatm()
+     endif
 
      ! Initialize leaf fields
 

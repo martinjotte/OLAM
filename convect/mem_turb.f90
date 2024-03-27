@@ -12,8 +12,8 @@ Module mem_turb
   real,    allocatable :: ustar_k  (:,:)
   real,    allocatable :: wtv0_k   (:,:)
 
-  real,    allocatable :: sfluxt     (:)
-  real,    allocatable :: sfluxr     (:)
+  real,    allocatable :: sfluxt     (:) ! canopy-to-atm sensible heat flux [W m^-2]
+  real,    allocatable :: sfluxr     (:) ! canopy-to-atm water vapor flux [kg_vap m^-2 s^-1]
   real,    allocatable :: ustar      (:)
   real,    allocatable :: wstar      (:)
   real,    allocatable :: moli       (:)

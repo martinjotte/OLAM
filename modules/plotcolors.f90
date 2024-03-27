@@ -2509,17 +2509,20 @@ Contains
     call o_hls (iwk,110,285.,39., 95.)
     call o_hls (iwk,111,285.,30., 95.)
 
-    call o_hls (iwk,112,240.,70., 90.) ! greens
-    call o_hls (iwk,113,240.,51., 90.)
-    call o_hls (iwk,114,240.,40., 90.)
-    call o_hls (iwk,115,240.,30., 90.)
+    call o_hls (iwk,112,260.,70., 99.) ! greens
+    call o_hls (iwk,113,260.,51., 99.)
+    call o_hls (iwk,114,260.,40., 99.)
+    call o_hls (iwk,115,260.,30., 99.)
 
     call o_hls (iwk,116,194.,70.,100.) ! yellow greens
     call o_hls (iwk,117,194.,51.,100.)
     call o_hls (iwk,118,194.,39.,100.)
     call o_hls (iwk,119,194.,30.,100.)
 
-    call o_hls (iwk,120,180.,62.,100.) ! yellow
+    call o_hls (iwk,120,180.,90.,100.) ! yellow
+!    call o_hls (iwk,121,180.,85.,100.) ! yellow
+!    call o_hls (iwk,122,180.,75.,100.) ! yellow
+!    call o_hls (iwk,123,180.,50.,100.) ! yellow
 
     call o_hls (iwk,121,145.,80.,100.) ! oranges
     call o_hls (iwk,122,145.,67.,100.)

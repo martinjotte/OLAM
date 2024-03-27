@@ -1,6 +1,6 @@
 subroutine timestep()
 
-use misc_coms,   only: time8, time_istp8, time_istp8p, time_bias, &
+use misc_coms,   only: mstp, time8, time_istp8, time_istp8p, time_bias, &
                        nqparm, initial, ilwrtyp, iswrtyp, dtsm, i_o3, &
                        iparallel, s1900_init, s1900_sim, do_chem, &
                        nrk_wrtv, nrk_scal
@@ -72,7 +72,14 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm
    if (mrl_begl(istp) > 0) then
       call tend0(rho_old)
       call comp_alpha_press()
-      call surface_turb_flux()
+
+      if (isfcl > 0) then
+!         if (mstp == 0) call sfcg_avgatm()  ! temporary: only for history start from old-version histfile 
+         call surface_driver()
+      else
+         call surface_turb_flux()
+      endif
+
       call sea_spray()
       call dust_src()
    endif
@@ -319,7 +326,6 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm
    1400 continue  ! nl%igw_spinup == 1
 
    if (isfcl > 0 .and. mrl_endl(jstp) > 0) then
-      call surface_driver()
 
       if (nl%igw_spinup /= 1) then
          call sfcg_avgatm()
@@ -383,7 +389,7 @@ end subroutine timestep
 
 subroutine modsched()
 
-  use mem_ijtabs,  only: nstp, mrl_endl, mrl_ends, mrl_begl, mrl_begs
+  use mem_ijtabs,  only: nstp, mrl_endl, mrl_begl
   use misc_coms,   only: io6, dtlong, nacoust, dtlm, dtsm
   use leaf_coms,   only: dt_leaf
   use lake_coms,   only: dt_lake
@@ -397,7 +403,7 @@ subroutine modsched()
   nstp = nacoust
 
   write(io6,'(/,a)') '=== Timestep Schedule ===='
-  write(io6,'(a,/)') '              jstp    mrl_begl  mrl_begs  mrl_endl  mrl_ends'
+  write(io6,'(a,/)') '              jstp    mrl_begl  mrl_endl'
 
   ! Set timestep lengths
 
@@ -412,9 +418,7 @@ subroutine modsched()
   ! Allocate mrl-schedule arrays
 
   allocate (mrl_begl(nstp)) ; mrl_begl = 0
-  allocate (mrl_begs(nstp)) ; mrl_begs = 0
   allocate (mrl_endl(nstp)) ; mrl_endl = 0
-  allocate (mrl_ends(nstp)) ; mrl_ends = 0
 
   ! Fill acoustic timestep sub-cycling flags for processes
   ! to carry out for each jstp value
@@ -423,11 +427,8 @@ subroutine modsched()
      if (mod(jstp-1, nacoust) == 0) mrl_begl(jstp) = 1
      if (mod(jstp  , nacoust) == 0) mrl_endl(jstp) = 1
 
-     mrl_begs(jstp) = 1
-     mrl_ends(jstp) = 1
-
-     write(io6,333) jstp,mrl_begl(jstp),mrl_begs(jstp),mrl_endl(jstp),mrl_ends(jstp)
-     333 format('modsched0 ',5i10)
+     write(io6,333) jstp,mrl_begl(jstp),mrl_endl(jstp)
+     333 format('modsched0 ',3i10)
   enddo
 
 end subroutine modsched

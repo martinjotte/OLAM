@@ -199,24 +199,23 @@ Module mem_sfcg
 
      ! Atmospheric near-surface properties
 
-     real, allocatable :: vels    (:) ! wind speed [m/s]
-     real, allocatable :: prss    (:) ! surface air pressure [Pa]
-     real, allocatable :: rhos    (:) ! air density [kg_air/m^3]
-     real, allocatable :: airtemp (:) ! air temperature [K]
-     real, allocatable :: airtheta(:) ! air potential temperature [K]
-     real, allocatable :: airrrv  (:) ! air mixing ratio humidity [kg_vap/kg_dryair]
-     real, allocatable :: airco2  (:) ! air mixing ratio of CO2 [kg_co2/kg_dryair]
+     real, allocatable :: vels     (:) ! wind speed [m/s]
+     real, allocatable :: prss     (:) ! surface air pressure [Pa]
+     real, allocatable :: canexner (:) ! Exner function in canopy [ ]
+     real, allocatable :: rhos     (:) ! atmos near-surface density [kg_dry/m^3]
+     real, allocatable :: airtemp  (:) ! air temperature [K]
+     real, allocatable :: airtheta (:) ! air potential temperature [K]
+     real, allocatable :: airrrv   (:) ! air mixing ratio [kg_vap/kg_dryair]
+     real, allocatable :: airco2   (:) ! air mixing ratio of CO2 [kg_co2/kg_dryair]
 
      ! Canopy to atmosphere turbulent flux quantities
 
      real, allocatable :: ustar   (:) ! friction velocity [m/s]
      real, allocatable :: vkmsfc  (:) ! surface drag coefficient [kg/(m s)]
-     real, allocatable :: sfluxt  (:)
-     real, allocatable :: sfluxr  (:)
+     real, allocatable :: vkhsfc  (:) ! surface heat and vapor transfer coefficient [kg/(m s)]
+     real, allocatable :: sfluxt  (:) ! canopy-to-atm sensible heat flux [W m^-2]
+     real, allocatable :: sfluxr  (:) ! canopy-to-atm water vapor flux [kg_vap m^-2 s^-1]
      real, allocatable :: sfluxc  (:)
-     real, allocatable :: sxfer_t (:) ! can_air-to-atm heat xfer [kg_air K/m^2]
-     real, allocatable :: sxfer_r (:) ! can_air-to-atm vapor xfer [kg_vap/m^2]
-     real, allocatable :: sxfer_c (:) ! can_air-to-atm CO2 xfer [ppm/m^2]
      real, allocatable :: ggaer   (:) ! surface aerodynamic conductance [m/s]
      real, allocatable :: zeta    (:) ! surface z / M-O length [ ]
      real, allocatable :: wthv    (:) ! surface buoyancy flux [K m/s]
@@ -375,6 +374,7 @@ Contains
 
      allocate (sfcg%vels          (mwsfc)) ; sfcg%vels           = rinit
      allocate (sfcg%prss          (mwsfc)) ; sfcg%prss           = rinit
+     allocate (sfcg%canexner      (mwsfc)) ; sfcg%canexner       = rinit
      allocate (sfcg%rhos          (mwsfc)) ; sfcg%rhos           = rinit
      allocate (sfcg%airtemp       (mwsfc)) ; sfcg%airtemp        = rinit
      allocate (sfcg%airtheta      (mwsfc)) ; sfcg%airtheta       = rinit
@@ -382,15 +382,13 @@ Contains
 
      allocate (sfcg%ustar         (mwsfc)) ; sfcg%ustar          = rinit
      allocate (sfcg%vkmsfc        (mwsfc)) ; sfcg%vkmsfc         = rinit
+     allocate (sfcg%vkhsfc        (mwsfc)) ; sfcg%vkhsfc         = rinit
      allocate (sfcg%sfluxt        (mwsfc)) ; sfcg%sfluxt         = rinit
      allocate (sfcg%sfluxr        (mwsfc)) ; sfcg%sfluxr         = rinit
-     allocate (sfcg%sxfer_t       (mwsfc)) ; sfcg%sxfer_t        = 0.0
-     allocate (sfcg%sxfer_r       (mwsfc)) ; sfcg%sxfer_r        = 0.0
 
      if (co2flag /= 0) then
         allocate (sfcg%airco2     (mwsfc)) ; sfcg%airco2         = rinit
         allocate (sfcg%sfluxc     (mwsfc)) ; sfcg%sfluxc         = rinit
-        allocate (sfcg%sxfer_c    (mwsfc)) ; sfcg%sxfer_c        = 0.0
      endif
 
      allocate (sfcg%ggaer         (mwsfc)) ; sfcg%ggaer          = rinit
@@ -438,19 +436,17 @@ Contains
 
      if (allocated(sfcg%vels))           call increment_vtable('SFCG%VELS',           'CW', rvar1=sfcg%vels)
      if (allocated(sfcg%prss))           call increment_vtable('SFCG%PRSS',           'CW', rvar1=sfcg%prss)
+     if (allocated(sfcg%canexner))       call increment_vtable('SFCG%CANEXNER',       'CW', rvar1=sfcg%canexner)
      if (allocated(sfcg%rhos))           call increment_vtable('SFCG%RHOS',           'CW', rvar1=sfcg%rhos)
      if (allocated(sfcg%airtemp))        call increment_vtable('SFCG%AIRTEMP',        'CW', rvar1=sfcg%airtemp)
      if (allocated(sfcg%airtheta))       call increment_vtable('SFCG%AIRTHETA',       'CW', rvar1=sfcg%airtheta)
      if (allocated(sfcg%airrrv))         call increment_vtable('SFCG%AIRRRV',         'CW', rvar1=sfcg%airrrv)
      if (allocated(sfcg%airco2))         call increment_vtable('SFCG%AIRCO2',         'CW', rvar1=sfcg%airco2)
      if (allocated(sfcg%ustar))          call increment_vtable('SFCG%USTAR',          'CW', rvar1=sfcg%ustar)
-     if (allocated(sfcg%vkmsfc))         call increment_vtable('SFCG%VKMSFC',         'CW', rvar1=sfcg%vkmsfc)
+     if (allocated(sfcg%vkhsfc))         call increment_vtable('SFCG%VKHSFC',         'CW', rvar1=sfcg%vkhsfc)
      if (allocated(sfcg%sfluxt))         call increment_vtable('SFCG%SFLUXT',         'CW', rvar1=sfcg%sfluxt)
      if (allocated(sfcg%sfluxr))         call increment_vtable('SFCG%SFLUXR',         'CW', rvar1=sfcg%sfluxr)
      if (allocated(sfcg%sfluxc))         call increment_vtable('SFCG%SFLUXC',         'CW', rvar1=sfcg%sfluxc)
-     if (allocated(sfcg%sxfer_t))        call increment_vtable('SFCG%SXFER_T',        'CW', rvar1=sfcg%sxfer_t)
-     if (allocated(sfcg%sxfer_r))        call increment_vtable('SFCG%SXFER_R',        'CW', rvar1=sfcg%sxfer_r)
-     if (allocated(sfcg%sxfer_c))        call increment_vtable('SFCG%SXFER_C',        'CW', rvar1=sfcg%sxfer_c)
      if (allocated(sfcg%ggaer))          call increment_vtable('SFCG%GGAER',          'CW', rvar1=sfcg%ggaer)
      if (allocated(sfcg%zeta))           call increment_vtable('SFCG%ZETA',           'CW', rvar1=sfcg%zeta)
      if (allocated(sfcg%wthv))           call increment_vtable('SFCG%WTHV',           'CW', rvar1=sfcg%wthv)

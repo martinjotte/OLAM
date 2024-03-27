@@ -5,7 +5,7 @@ subroutine sea_init_atm()
                          iupdseaice, s1900_seaice, iseaicefile, nseaicefiles, nzi
   use misc_coms,   only: s1900_sim, iparallel, runtype
   use mem_sfcg,    only: itab_wsfc, sfcg, nswmzons
-  use consts_coms, only: t00, p00i, rocp
+  use consts_coms, only: t00
   use therm_lib,   only: rhovsl, rhovsil
   use mem_para,    only: myrank
   use sea_swm,     only: depthmax_swe
@@ -63,7 +63,7 @@ subroutine sea_init_atm()
 
      ! Apply initial atmospheric properties to sea "canopy"
 
-     sfcg%cantemp(iwsfc) = sfcg%airtheta(iwsfc) * (sfcg%prss(iwsfc) * p00i)**rocp
+     sfcg%cantemp(iwsfc) = sfcg%airtheta(iwsfc) * sfcg%canexner(iwsfc)
      sfcg%canrrv (iwsfc) = sfcg%airrrv(iwsfc)
      sfcg%ustar  (iwsfc) = 0.1
      sfcg%ggaer  (iwsfc) = 0.0
@@ -104,9 +104,7 @@ subroutine sea_init_atm()
                       sea%sea_ggaer          (isea), &
                       sea%ice_ggaer          (isea), &
                       sea%sea_wthv           (isea), &
-                      sea%ice_wthv           (isea), &
-                      sea%ice_sxfer_t        (isea), &
-                      sea%ice_sxfer_r        (isea)  )
+                      sea%ice_wthv           (isea)  )
 
      if (sea%nlev_seaice(isea) > 0) then
 

@@ -4,9 +4,10 @@ Contains
 
   subroutine canopy(iland, iwsfc, nlsw1, icomb, ktrans, transp,                  &
                     leaf_class,    can_depth,       rhos,            vels,       &
-                    ustar,         sxfer_t,         sxfer_r,         pcpg,       &
-                    qpcpg,         dpcpg,           rshort,          cantemp,    &
-                    canrrv,        glatw,           glonw,                       &
+                    ustar,         vkhsfc,          sfluxt,          sfluxr,     &
+                    pcpg,          qpcpg,           dpcpg,           rshort,     &
+                    cantemp,       canrrv,          glatw,           glonw,      &
+                    airtheta,      airrrv,          canexner,                    &
                     snowfac,       vf,              stom_resist,     veg_height, &
                     veg_rough,     veg_tai,         veg_lai,         hcapveg,    &
                     rshort_v,      rshort_g,        rlong_v,         rlong_s,    &
@@ -19,6 +20,7 @@ Contains
 
   use leaf_coms,     only: soil_rough, dt_leaf, kroot, rcmin, snowmin_expl, &
                            wcap_vmin
+  use mem_sfcg,      only: sfcg
   use mem_land,      only: nzg, dslz, dslzi
   use leaf4_surface, only: sfcwater_soil_comb, grndvap_ab
   use consts_coms,   only: cp, vonk, alvi, alvl, alli, cliq, cice, rvap, t00, r8
@@ -39,8 +41,9 @@ Contains
   real, intent(in)    :: rhos             ! atmospheric air density [kg_dryair/m^3]
   real, intent(in)    :: vels             ! surface wind speed [m/s]
   real, intent(in)    :: ustar            ! friction velocity [m/s]
-  real, intent(in)    :: sxfer_t          ! canopy-to-atm sens heat xfer this step [kg_dryair K/m^2]
-  real, intent(in)    :: sxfer_r          ! canopy-to-atm vapor xfer this step [kg_vap/m^2]
+  real, intent(in)    :: vkhsfc           ! can_air to atm heat & vapor transfer coef [kg_dryair m^-1 s^-1]
+  real, intent(out)   :: sfluxt           ! can_air to atm heat flux [W m^-2]
+  real, intent(out)   :: sfluxr           ! can_air to atm vapor flux [kg_vap m^-2 s^-1]
   real, intent(in)    :: pcpg             ! added precip mass this leaf timestep [kg/m^2]
   real, intent(in)    :: qpcpg            ! added precip energy this leaf timestep [J/m^2]
   real, intent(in)    :: dpcpg            ! added precip depth this leaf timestep [m]
@@ -49,6 +52,9 @@ Contains
   real, intent(inout) :: canrrv           ! canopy air vapor mixing ratio [kg_vap/kg_dryair]
   real, intent(in)    :: glatw            ! Latitude of land cell 'center' [deg]
   real, intent(in)    :: glonw            ! Longitude of land cell 'center' [deg]
+  real, intent(in)    :: airtheta         ! atm potential temp [K]
+  real, intent(in)    :: airrrv           ! atm vapor mixing ratio [kg_vap/kg_dryair]
+  real, intent(in)    :: canexner         ! canopy Exner function []
   real, intent(in)    :: snowfac          ! fractional veg burial by snowcover
   real, intent(in)    :: vf               ! fractional coverage of non-buried part of veg
   real, intent(inout) :: stom_resist      ! veg stomatal resistance [s/m]
@@ -118,6 +124,8 @@ Contains
   real :: beta        ! "beta" term in soil surface humidity formulation
   real :: hxfersc     ! sfc-to-can_air heat xfer this step [J/m^2]
   real :: wxfersc     ! sfc-to-can_air vap xfer this step [kg_vap/m^2]
+  real :: hxferca     ! heat xfer from can_air to atm this step [J/m^2]
+  real :: wxferca     ! vapor xfer from can_air to atm this step [kg_vap/m^2]
   real :: wxfergc     ! gnd-to-can_air vap xfer this step [kg_vap/m^2]
   real :: hxfervc     ! veg-to-can_air heat xfer this step [J/m^2]
   real :: wxfervc     ! veg-to-can_air vapor xfer this step [kg_vap/m^2]
@@ -194,18 +202,21 @@ Contains
   real :: specvol, vw_max, fact
   real :: tf, wadd, wshed2, dshed2, delw
 
-  real(r8) :: a1, a2, a3, a4, a5, a6, a7, a8
-  real(r8) :: h1, h2, h3, h4, h5, h6, h7
-  real(r8) :: y1, y2, y3, y4, y5
+  real(r8) :: a1, a2, a3, a4, a5, a6, a7, a8, a9, a10
+  real(r8) :: h1, h2, h3, h4, h5, h6, h7, h8
+  real(r8) :: y1, y2, y3, y4, y5, y9, y10
 
-  real(r8) :: aa2(2,2), xx2(2), yy2(2)  ! 2x2 matrix equation terms
   real(r8) :: aa3(3,3), xx3(3), yy3(3)  ! 3x3 matrix equation terms
   real(r8) :: aa4(4,4), xx4(4), yy4(4)  ! 4x4 matrix equation terms
   real(r8) :: aa5(5,5), xx5(5), yy5(5)  ! 5x5 matrix equation terms
+  real(r8) :: aa6(6,6), xx6(6), yy6(6)  ! 6x6 matrix equation terms
+  real(r8) :: aa7(7,7), xx7(7), yy7(7)  ! 7x7 matrix equation terms
 
   logical :: sing, skiptest(15)
 
   integer :: itest  ! test number
+
+  integer, parameter :: zero8 = 0.0_r8
 
   eps_wxfer = dt_leaf * 1.e-10 ! 1.e-10 is 1 mm pcp/dew in 316 years  [kg/m^2]
 
@@ -395,7 +406,7 @@ Contains
 
   else  ! No-vegetation case
 
-  ! Aerodynamic conductance for bare soil or snow based on Garratt.
+     ! Aerodynamic conductance for bare soil or snow based on Garratt.
 
      rdi = .2 * ustar
 
@@ -503,41 +514,28 @@ Contains
   ! The remainder of subroutine canopy sets up and solves a linear system of
   ! equations using the trapezoidal-implicit method.  The solution of the system
   ! consists of turbulent heat and water vapor fluxes between canopy air, the
-  ! surface (sfcwater or soil), and vegetation (if present), and the consequent
-  ! changes to water and energy content of canopy air, the surface, and vegetation.
-  ! The solution obtains values for the following quantities:
+  ! surface (sfcwater or soil), vegetation (if present), and the free atmosphere,
+  ! plus the consequent changes to water and energy content of canopy air, the surface,
+  ! and vegetation.  The solution obtains values for the following quantities:
 
-  ! 1. Surface to canopy air heat transfer
-  ! 2. Surface to canopy air water vapor transfer
-  ! 3. Vegetation to canopy air heat transfer
-  ! 4. Vegetation to canopy air water vapor transfer from transpiration
-  ! 5. Vegetation to canopy air water vapor transfer from veg surface water
-  ! 6. Canopy air temperature update
-  ! 7. Canopy specific humidity update
-  ! 8. Vegetation temperature update
-  ! 9. Vegetation surface water update
+  !  1. Surface to canopy air heat transfer
+  !  2. Surface to canopy air water vapor transfer
+  !  3. Vegetation to canopy air heat transfer
+  !  4. Vegetation to canopy air water vapor transfer from transpiration
+  !  5. Vegetation to canopy air water vapor transfer from veg surface water
+  !  6. Canopy air to free atmosphere heat transfer
+  !  7. Canopy air to free atmosphere vapor transfer
+  !  8. Canopy air temperature update
+  !  9. Canopy specific humidity update
+  ! 10. Vegetation temperature update
+  ! 11. Vegetation surface water update
 
   ! External forcing terms for this system are:
 
-  ! 1. Canopy air to free atmosphere fluxes of sensible heat and vapor
-  ! 2. Radiative fluxes to vegetation and to the surface
+  ! 1. Radiative fluxes to vegetation and to the surface
 
   ! (Precipitation/shedding fluxes to vegetation and to the surface were already
   ! applied above.  Updates to surface water and energy are applied later.)
-
-  ! It may be desirable at some point to incorporate the sensible heat and vapor
-  ! fluxes between canopy air and the free atmosphere within the implicit system.
-  ! This would require that subroutine stars not compute these fluxes itself, but
-  ! that it instead compute surface exchange coefficients for sensible heat and
-  ! vapor (as it currently does for momentum).  It would also require that most
-  ! of the code below in this subroutine be transferred to a separate subroutine
-  ! so that it can be called for every flux cell.  In this structural change,
-  ! turbulent transfers between canopy air, vegetation, and the surface would be
-  ! attached to the flux cell data structure during computation and later summed
-  ! over each land cell as canopy air to free atmosphere fluxes already are.
-  ! This change to the code would permit the canopy storage capacity to be
-  ! arbitrarily small, but would then place the stability burden on the lowest
-  ! predicted atmospheric layer.
 
   ! Quantities that apply both WITH and WITHOUT VEGETATION
   ! [radsfc is net shortwave + longwave input to surface].  In LEAF4, all shortwave
@@ -564,20 +562,25 @@ Contains
 
   radsfc = dt_leaf * (rlong_s + rshort_g + rlong_g)
 
-  a5 = dt_leaf * rdi                  ! sfc vap xfer coef  (all area)
-  a6 = cp * rhos * a5                 ! sfc heat xfer coef (all area)
-  a7 = a5 * sfcwater_fracarea         ! sfc vap xfer coef  (wet areas only)
-  a8 = a5 * beta * (1. - sfcwater_fracarea) ! sfc vap xfer coef  (soil areas only)
+  a5  = dt_leaf * rdi                          ! sfc vap xfer coef  (all area)
+  a6  = cp * rhos * a5                         ! sfc heat xfer coef (all area)
+  a7  = a5 * sfcwater_fracarea                 ! sfc vap xfer coef  (wet areas only)
+  a8  = a5 * beta * (1. - sfcwater_fracarea)   ! sfc vap xfer coef  (soil areas only)
+  a9  = dt_leaf * vkhsfc / sfcg%dzt_bot(iwsfc) ! can-atm vap xfer coef
+  a10 = cp * a9                                ! can-atm heat xfer coef 
 
   h2 = fcn * sfc_rhovsp * hcapsfci
   h3 = fcn * gnd_rhovp  * hcapsfci
   h4 = fcn * rhos * canairi
   h6 = fcn * hcapsfci
   h7 = fcn * hcapcani
-                                                               !!       CAN VAP            CAN VAP           RHOVS & TEMP
-  y2 = sfc_rhovs - can_rhov + h2 * radsfc + h4 *      sxfer_r  !!  -h4 * veg_water - h4 * sfcwater_mass - h2 * alvsfc * sfcwater_mass
-  y5 = sfc_tempk - cantemp  + h6 * radsfc + h7 * cp * sxfer_t  !!                                       - h6 * alvsfc * sfcwater_mass
-  y3 = gnd_rhov  - can_rhov + h3 * radsfc + h4 *      sxfer_r  !!  -h4 * veg_water - h4 * sfcwater_mass - h3 * alvsfc * sfcwater_mass
+  h8 = fcn * canairi
+
+  y2  = sfc_rhovs - can_rhov + h2 * radsfc
+  y5  = sfc_tempk - cantemp  + h6 * radsfc
+  y3  = gnd_rhov  - can_rhov + h3 * radsfc
+  y9  = canrrv    - airrrv
+  y10 = cantemp   - canexner * airtheta
 
   if (iveg == 0) then
 
@@ -589,26 +592,44 @@ Contains
 
      ! Fill arrays for matrix solution.
 
-! Test 101:  Solve 2x2 system to test for either condensation onto surface or
-!           partial evaporation from sfcwater that completely covers the surface.
-!           (When sfcwater completely covers the surface, it is too abundant to
-!           completely evaporate in a single time step.)
+! Test 101:  Solve 4x4 system to test for either condensation onto surface or
+!            partial evaporation from sfcwater that completely covers the surface.
+!            (When sfcwater completely covers the surface, it is too abundant to
+!            completely evaporate in a single time step.)
 
-     aa2(1,1) = 1._r8 + a5 * (h2 * alvsfc + h4)
-     aa2(1,2) =         a5 * h2
-     yy2(1)   =         a5 * y2         ! WSC row
+     aa4(1,1) = 1._r8 + a5 * (h2 * alvsfc + h4)
+     aa4(1,2) =         a5 * h2
+     aa4(1,3) =       - a5 * h4
+     aa4(1,4) = 0._r8
+     yy4(1)   =         a5 * y2         ! WSC row
 
-     aa2(2,1) =         a6 * h6 * alvsfc
-     aa2(2,2) = 1._r8 + a6 * (h6 + h7)
-     yy2(2)   =         a6 * y5         ! HSC row
+     aa4(2,1) =         a6 * h6 * alvsfc
+     aa4(2,2) = 1._r8 + a6 * (h6 + h7)
+     aa4(2,3) = 0._r8
+     aa4(2,4) =       - a6 * h7
+     yy4(2)   =         a6 * y5         ! HSC row
 
-     call matrix8_2x2(AA2,YY2,XX2,sing); if (sing) call sing_print(iland,101,2,aa2,yy2,glatw,glonw)
+     aa4(3,1) =       - a9 * h8
+     aa4(3,2) = 0._r8
+     aa4(3,3) = 1._r8 + a9 * h8
+     aa4(3,4) = 0._r8
+     yy4(3)   =         a9 * y9         ! WCA row
 
-     if (xx2(1) < eps_wxfer .or.  &
-        (xx2(1) <= sfcwater_mass .and. sfcwater_fracarea > 0.999)) then ! test was successful
+     aa4(4,1) = 0._r8
+     aa4(4,2) =       - a10 * h7
+     aa4(4,3) = 0._r8
+     aa4(4,4) = 1._r8 + a10 * h7
+     yy4(4)   =         a10 * y10       ! HCA row
 
-        wxfersc = xx2(1)
-        hxfersc = xx2(2)
+     call matrix8_4x4(aa4,yy4,xx4,sing); if (sing) call sing_print(iwsfc,'land101',4,aa4,yy4,glatw,glonw)
+
+     if (xx4(1) < eps_wxfer .or.  &
+        (xx4(1) <= sfcwater_mass .and. sfcwater_fracarea > 0.999)) then ! test was successful
+
+        wxfersc = xx4(1)
+        hxfersc = xx4(2)
+        wxferca = xx4(3)
+        hxferca = xx4(4)
         wxfergc = 0.
         itest = 101
         go to 120
@@ -621,40 +642,63 @@ Contains
         write(*,'(a,i10,2f9.2)') 'NOVEG CASE sfcwater_fracarea should be less than 1', &
             iwsfc,glatw,glonw
         print*, 'sf1 ',sfcwater_fracarea,eps_wxfer,sfcwater_mass
-        print*, 'sf2 ',xx2(1),xx2(2),a5,a6
-        print*, 'sf3 ',h2,h4,h6,h7
-        print*, 'sf4 ',y2,y5
+        print*, 'sf2 ',xx4(1),xx4(2),xx4(3),xx4(4)
+        print*, 'sf3 ',a5,a6,a9,a10
+        print*, 'sf4 ',h2,h4,h6,h7,h8
+        print*, 'sf5 ',y2,y5,y9,y10
         stop 'sfcwater_fracarea = 1, NOVEG CASE'
      endif
 
-! Test 102:  If some sfcwater is present, solve 3x3 system to test for
+! Test 102:  If some sfcwater is present, solve 5x5 system to test for
 !            partial evaporation from sfcwater and evaporation from soil
 
      if (sfcwater_mass > 0.) then
 
-        aa3(1,1) = 1._r8 + a7 * (h2 * alvsfc + h4)
-        aa3(1,2) =         a7 * h2
-        aa3(1,3) =         a7 * h4
-        yy3(1)   =         a7 * y2    ! WSC row
+        aa5(1,1) = 1._r8 + a7 * (h2 * alvsfc + h4)
+        aa5(1,2) =         a7 * h2
+        aa5(1,3) =         a7 * h4
+        aa5(1,4) =       - a7 * h4
+        aa5(1,5) = 0._r8
+        yy5(1)   =         a7 * y2    ! WSC row
 
-        aa3(2,1) =         a6 * h6 * alvsfc
-        aa3(2,2) = 1._r8 + a6 * (h6 + h7)
-        aa3(2,3) =         a6 * h6 * alvsfc
-        yy3(2)   =         a6 * y5    ! HSC row
+        aa5(2,1) =         a6 * h6 * alvsfc
+        aa5(2,2) = 1._r8 + a6 * (h6 + h7)
+        aa5(2,3) =         a6 * h6 * alvsfc
+        aa5(2,4) = 0._r8
+        aa5(2,5) =       - a6 * h7
+        yy5(2)   =         a6 * y5    ! HSC row
 
-        aa3(3,1) =         a8 * h4
-        aa3(3,2) =         a8 * h3
-        aa3(3,3) = 1._r8 + a8 * (h3 * alvsfc + h4)
-        yy3(3)   =         a8 * y3    ! WGC row
+        aa5(3,1) =         a8 * h4
+        aa5(3,2) =         a8 * h3
+        aa5(3,3) = 1._r8 + a8 * (h3 * alvsfc + h4)
+        aa5(3,4) =       - a8 * h4
+        aa5(3,5) = 0._r8
+        yy5(3)   =         a8 * y3    ! WGC row
 
-        call matrix8_3x3(AA3,YY3,XX3,sing); if (sing) call sing_print(iland,102,3,aa3,yy3,glatw,glonw)
+        aa5(4,1) =       - a9 * h8
+        aa5(4,2) = 0._r8
+        aa5(4,3) =       - a9 * h8
+        aa5(4,4) = 1._r8 + a9 * h8
+        aa5(4,5) = 0._r8
+        yy5(4)   =         a9 * y9         ! WCA row
 
-        if (xx3(1) > -eps_wxfer .and. xx3(1) <= sfcwater_mass .and. &
-            xx3(3) > -eps_wxfer) then ! test was successful
+        aa5(5,1) = 0._r8
+        aa5(5,2) =       - a10 * h7
+        aa5(5,3) = 0._r8
+        aa5(5,4) = 0._r8
+        aa5(5,5) = 1._r8 + a10 * h7
+        yy5(5)   =         a10 * y10       ! HCA row
 
-           wxfersc = xx3(1)
-           hxfersc = xx3(2)
-           wxfergc = xx3(3)
+        call matrix8_NxN(5,aa5,yy5,xx5,sing); if (sing) call sing_print(iwsfc,'land102',5,aa5,yy5,glatw,glonw)
+
+        if (xx5(1) > -eps_wxfer .and. xx5(1) <= sfcwater_mass .and. &
+            xx5(3) > -eps_wxfer) then ! test was successful
+
+           wxfersc = xx5(1)
+           hxfersc = xx5(2)
+           wxfergc = xx5(3)
+           wxferca = xx5(4)
+           hxferca = xx5(5)
            itest = 102
            go to 120
         endif
@@ -662,7 +706,7 @@ Contains
         ! If this test resulted in condensation onto the surface,
         ! skip past tests 103, 104, and 105
 
-        if (xx3(1) < -eps_wxfer) then
+        if (xx5(1) < -eps_wxfer) then
            skiptest(3) = .true.
            skiptest(4) = .true.
            skiptest(5) = .true.
@@ -671,7 +715,7 @@ Contains
         ! If this test resulted in less than complete evaporation of sfcwater,
         ! skip past test 103
 
-        if (xx3(1) <= sfcwater_mass) then
+        if (xx5(1) <= sfcwater_mass) then
            skiptest(3) = .true.
         endif
 
@@ -680,24 +724,42 @@ Contains
      103 continue
      if (skiptest(3)) go to 104
 
-! Test 103: Given complete evaporation of any sfcwater, solve 2x2 system to
+! Test 103: Given complete evaporation of any sfcwater, solve 4x4 system to
 !           test for positive evaporation from soil
 
-     aa2(1,1) = 1._r8 + a8 * (h3 * alvsfc + h4)
-     aa2(1,2) =         a8 * h3
-     yy2(1)   =         a8 * (y3 - (h3 * alvsfc + h4) * sfcwater_mass)  ! WGC row
+     aa4(1,1) = 1._r8 + a8 * (h3 * alvsfc + h4)
+     aa4(1,2) =         a8 * h3
+     aa4(1,3) =       - a8 * h4
+     aa4(1,4) = 0._r8
+     yy4(1)   =         a8 * (y3 - (h3 * alvsfc + h4) * sfcwater_mass)  ! WGC row
 
-     aa2(2,1) =         a6 * h6 * alvsfc
-     aa2(2,2) = 1._r8 + a6 * (h6 + h7)
-     yy2(2)   =         a6 * (y5 - h6 * alvsfc * sfcwater_mass)         ! HSC row
+     aa4(2,1) =         a6 * h6 * alvsfc
+     aa4(2,2) = 1._r8 + a6 * (h6 + h7)
+     aa4(2,3) = 0._r8
+     aa4(2,4) =       - a6 * h7
+     yy4(2)   =         a6 * (y5 - h6 * alvsfc * sfcwater_mass)         ! HSC row
 
-     call matrix8_2x2(AA2,YY2,XX2,sing); if (sing) call sing_print(iland,103,2,aa2,yy2,glatw,glonw)
+     aa4(3,1) =       - a9 * h8
+     aa4(3,2) = 0._r8
+     aa4(3,3) = 1._r8 + a9 * h8
+     aa4(3,4) = 0._r8
+     yy4(3)   =         a9 * y9   ! WCA row
 
-     if (xx2(1) > -eps_wxfer) then ! test was successful
+     aa4(4,1) = 0._r8
+     aa4(4,2) =       - a10 * h7
+     aa4(4,3) = 0._r8
+     aa4(4,4) = 1._r8 + a10 * h7
+     yy4(4)   =         a10 * y10 ! HCA row
+
+     call matrix8_4x4(aa4,yy4,xx4,sing); if (sing) call sing_print(iwsfc,'land103',4,aa4,yy4,glatw,glonw)
+
+     if (xx4(1) > -eps_wxfer) then ! test was successful
 
         wxfersc = sfcwater_mass
-        hxfersc = xx2(2)
-        wxfergc = xx2(1)
+        wxfergc = xx4(1)
+        hxfersc = xx4(2)
+        wxferca = xx4(3)
+        hxferca = xx4(4)
         itest = 103
         go to 120
      endif
@@ -706,24 +768,42 @@ Contains
      if (skiptest(4)) go to 105
 
 ! Test 104: If some sfcwater is present, and given zero vapor flux with soil,
-!           solve 2x2 system to test for partial evaporation of sfcwater
+!           solve 4x4 system to test for partial evaporation of sfcwater
 
      if (sfcwater_mass > 0.) then
 
-        aa2(1,1) = 1._r8 + a7 * (h2 * alvsfc + h4)
-        aa2(1,2) =         a7 * h2
-        yy2(1)   =         a7 * y2        ! WSC row
+        aa4(1,1) = 1._r8 + a7 * (h2 * alvsfc + h4)
+        aa4(1,2) =         a7 * h2
+        aa4(1,3) =       - a7 * h4
+        aa4(1,4) = 0._r8
+        yy4(1)   =         a7 * y2        ! WSC row
 
-        aa2(2,1) =         a6 * h6 * alvsfc
-        aa2(2,2) = 1._r8 + a6 * (h6 + h7)
-        yy2(2)   =         a6 * y5        ! HSC row
+        aa4(2,1) =         a6 * h6 * alvsfc
+        aa4(2,2) = 1._r8 + a6 * (h6 + h7)
+        aa4(2,3) = 0._r8
+        aa4(2,4) =       - a6 * h7
+        yy4(2)   =         a6 * y5        ! HSC row
 
-        call matrix8_2x2(AA2,YY2,XX2,sing); if (sing) call sing_print(iland,104,2,aa2,yy2,glatw,glonw)
+        aa4(3,1) =       - a9 * h8
+        aa4(3,2) = 0._r8
+        aa4(3,3) = 1._r8 + a9 * h8
+        aa4(3,4) = 0._r8
+        yy4(3)   =         a9 * y9   ! WCA row
 
-        if (xx2(1) > -eps_wxfer .and. xx2(1) < sfcwater_mass) then ! test was successful
+        aa4(4,1) = 0._r8
+        aa4(4,2) =       - a10 * h7
+        aa4(4,3) = 0._r8
+        aa4(4,4) = 1._r8 + a10 * h7
+        yy4(4)   =         a10 * y10 ! HCA row
 
-           wxfersc = xx2(1)
-           hxfersc = xx2(2)
+        call matrix8_4x4(aa4,yy4,xx4,sing); if (sing) call sing_print(iwsfc,'land104',4,aa4,yy4,glatw,glonw)
+
+        if (xx4(1) > -eps_wxfer .and. xx4(1) < sfcwater_mass) then ! test was successful
+
+           wxfersc = xx4(1)
+           hxfersc = xx4(2)
+           wxferca = xx4(3)
+           hxferca = xx4(4)
            wxfergc = 0.
            itest = 104
            go to 120
@@ -735,15 +815,31 @@ Contains
      if (skiptest(5)) go to 106
 
 ! Test 105: Given zero vapor flux with soil and given complete evaporation of
-!           any sfcwater, solve 1x1 system (a reduction of the 2x2 system in
+!           any sfcwater, solve 3x3 system (a reduction of the 4x4 system in
 !           Test 104) to get surface heat flux
 
-     aa2(2,2) = 1._r8 + a6 * (h6 + h7)
-     yy2(2)   =         a6 * (y5 - h6 * alvsfc * sfcwater_mass)  ! HSC row
+     aa3(1,1) = 1._r8 + a6 * (h6 + h7)
+     aa3(1,2) = 0._r8
+     aa3(1,3) =       - a6 * h7
+     yy3(1)   =         a6 * (y5 - h6 * alvsfc * sfcwater_mass)  ! HSC row
+
+     aa3(2,1) = 0._r8
+     aa3(2,2) = 1._r8 + a9 * h8
+     aa3(2,3) = 0._r8
+     yy3(2)   =         a9 * y9   ! WCA row
+
+     aa3(3,1) =       - a10 * h7
+     aa3(3,2) = 0._r8
+     aa3(3,3) = 1._r8 + a10 * h7
+     yy3(3)   =         a10 * y10 ! HCA row
+
+     call matrix8_3x3(aa3,yy3,xx3,sing); if (sing) call sing_print(iwsfc,'land105',3,aa3,yy3,glatw,glonw)
 
      wxfersc = sfcwater_mass
      wxfergc = 0.
-     hxfersc = yy2(2) / aa2(2,2)
+     hxfersc = xx3(1)
+     wxferca = xx3(2)
+     hxferca = xx3(3)
 
      itest = 105
      go to 120
@@ -761,7 +857,7 @@ Contains
 
      ! Update components
 
-     cantemp = cantemp + (hxfersc - cp * sxfer_t) * hcapcani
+     cantemp = cantemp + (hxfersc - hxferca) * hcapcani
 
      ! The latent heat of sublimation, alvi, must be used in computing the following gain/loss of
      ! energy_per_m2 due to vapor flux.  This is because extensive energy and mass carried by the
@@ -777,7 +873,10 @@ Contains
 
      energy_per_m2 = energy_per_m2 + radsfc - hxfersc - (wxfersc + wxfergc) * alvi
 
-     canrrv = canrrv + (wxfersc + wxfergc - sxfer_r) * canairi
+     canrrv = canrrv + (wxfersc + wxfergc - wxferca) * canairi
+
+     sfluxt = hxferca / dt_leaf
+     sfluxr = wxferca / dt_leaf
 
      delw            = dslzi(nzg) * wxfergc * .001
      fact            = wsat_vg(nzg) - wresid_vg(nzg)
@@ -833,9 +932,9 @@ Contains
 
      h1 = fcn * veg_rhovsp * hcapvegwi
      h5 = fcn * hcapvegwi
-                                                                  !!       CAN VAP            CAN VAP           RHOVS & TEMP
-     y1 = veg_rhovs - can_rhov + h1 * radveg + h4 *      sxfer_r  !!  -h4 * veg_water - h4 * sfcwater_mass - h1 * alvveg * veg_water
-     y4 = veg_temp  - cantemp  + h5 * radveg + h7 * cp * sxfer_t  !!                                       - h5 * alvveg * veg_water
+
+     y1 = veg_rhovs - can_rhov + h1 * radveg
+     y4 = veg_temp  - cantemp  + h5 * radveg
 
      ! Fill arrays for matrix solution (trapezoidal implicit method) to balance
      ! vapor and heat fluxes between canopy air, vegetation, and the surface.
@@ -845,7 +944,7 @@ Contains
      ! 2. Evaporation from vegetation with veg water not depleted (Vew)
      ! 3. Evaporation from vegetation with veg water depleted or zero (Ve)
 
-     ! For the surface, there are 4 distinct situations to consider:
+     ! For the surface, there are 5 distinct situations to consider:
 
      ! 1. Condensation onto surface (Sc) or full sfcwater coverage with partial evaporation (Sew)
      ! 2. Evaporation from both sfcwater and soil with sfcwater not depleting (GeSew)
@@ -860,25 +959,25 @@ Contains
      ! only one of which is the correct description for a particular land
      ! grid cell and timestep.
 
-     ! 4x4  Test  1  Vc  (Sc or Sew)               (or sfcwater_fracarea = 1)
-     ! 4x4  Test  2  Vew (Sc or Sew)  (iwetveg=t)  (or sfcwater_fracarea = 1)
-     ! 4x4  Test  3  Ve  (Sc or Sew)               (or sfcwater_fracarea = 1)
+     ! 6x6  Test  1  Vc  (Sc or Sew)               (or sfcwater_fracarea = 1)
+     ! 6x6  Test  2  Vew (Sc or Sew)  (iwetveg=t)  (or sfcwater_fracarea = 1)
+     ! 6x6  Test  3  Ve  (Sc or Sew)               (or sfcwater_fracarea = 1)
 
-     ! 5x5  Test  4  Vc  GeSew                     (sfcwater_mass > 0.)
-     ! 5x5  Test  5  Vew GeSew        (iwetveg=t)  (sfcwater_mass > 0.)
-     ! 5x5  Test  6  Ve  GeSew                     (sfcwater_mass > 0.)
+     ! 7x7  Test  4  Vc  GeSew                     (sfcwater_mass > 0.)
+     ! 7x7  Test  5  Vew GeSew        (iwetveg=t)  (sfcwater_mass > 0.)
+     ! 7x7  Test  6  Ve  GeSew                     (sfcwater_mass > 0.)
 
-     ! 4x4  Test  7  Vc  GeSe
-     ! 4x4  Test  8  Vew GeSe         (iwetveg=t)
-     ! 4x4  Test  9  Ve  GeSe
+     ! 6x6  Test  7  Vc  GeSe
+     ! 6x6  Test  8  Vew GeSe         (iwetveg=t)
+     ! 6x6  Test  9  Ve  GeSe
 
-     ! 4x4  Test 10  Vc  Sew                       (sfcwater_mass > 0.)
-     ! 4x4  Test 11  Vew Sew          (iwetveg=t)  (sfcwater_mass > 0.)
-     ! 4x4  Test 12  Ve  Sew                       (sfcwater_mass > 0.)
+     ! 6x6  Test 10  Vc  Sew                       (sfcwater_mass > 0.)
+     ! 6x6  Test 11  Vew Sew          (iwetveg=t)  (sfcwater_mass > 0.)
+     ! 6x6  Test 12  Ve  Sew                       (sfcwater_mass > 0.)
 
-     ! 3x3  Test 13  Vc  Se
-     ! 3x3  Test 14  Vew Se           (iwetveg=t)
-     ! 3x3  Test 15  Ve  Se
+     ! 5x5  Test 13  Vc  Se
+     ! 5x5  Test 14  Vew Se           (iwetveg=t)
+     ! 5x5  Test 15  Ve  Se
 
      ! We proceed to solve each equation in the above order until finding one
      ! that produces fluxes of the correct sign for the particular equation.
@@ -887,45 +986,71 @@ Contains
 
      skiptest(:) = .false.
 
-! Test 1: Solve 4x4 system to test for condensation onto vegetation and either
+! Test 1: Solve 6x6 system to test for condensation onto vegetation and either
 !         condensation onto surface or partial evaporation from sfcwater that
 !         completely covers the surface.
 !         (When sfcwater completely covers the surface, it is too abundant to
 !         completely evaporate in a single time step.)
 
-     aa4(1,1) = 1._r8 + a1 * (h1 * alvveg + h4)
-     aa4(1,2) =         a1 * h4
-     aa4(1,3) =         a1 * h1
-     aa4(1,4) = 0._r8
-     yy4(1)   =         a1 * y1  ! WVC row
+     aa6(1,1) = 1._r8 + a1 * (h1 * alvveg + h4)
+     aa6(1,2) =         a1 * h4
+     aa6(1,3) =         a1 * h1
+     aa6(1,4) = 0._r8
+     aa6(1,5) =       - a1 * h4
+     aa6(1,6) = 0._r8
+     yy6(1)   =         a1 * y1   ! WVC row
 
-     aa4(2,1) =         a5 * h4
-     aa4(2,2) = 1._r8 + a5 * (h2 * alvsfc + h4)
-     aa4(2,3) = 0._r8
-     aa4(2,4) =         a5 * h2
-     yy4(2)   =         a5 * y2  ! WSC row
+     aa6(2,1) =         a5 * h4
+     aa6(2,2) = 1._r8 + a5 * (h2 * alvsfc + h4)
+     aa6(2,3) = 0._r8
+     aa6(2,4) =         a5 * h2
+     aa6(2,5) =       - a5 * h4
+     aa6(2,6) = 0._r8
+     yy6(2)   =         a5 * y2   ! WSC row
 
-     aa4(3,1) =         a2 * h5 * alvveg
-     aa4(3,2) = 0._r8
-     aa4(3,3) = 1._r8 + a2 * (h5 + h7)
-     aa4(3,4) =         a2 * h7
-     yy4(3)   =         a2 * y4  ! HVC row
+     aa6(3,1) =         a2 * h5 * alvveg
+     aa6(3,2) = 0._r8
+     aa6(3,3) = 1._r8 + a2 * (h5 + h7)
+     aa6(3,4) =         a2 * h7
+     aa6(3,5) = 0._r8
+     aa6(3,6) =       - a2 * h7
+     yy6(3)   =         a2 * y4   ! HVC row
 
-     aa4(4,1) = 0._r8
-     aa4(4,2) =         a6 * h6 * alvsfc
-     aa4(4,3) =         a6 * h7
-     aa4(4,4) = 1._r8 + a6 * (h6 + h7)
-     yy4(4)   =         a6 * y5  ! HSC row
+     aa6(4,1) = 0._r8
+     aa6(4,2) =         a6 * h6 * alvsfc
+     aa6(4,3) =         a6 * h7
+     aa6(4,4) = 1._r8 + a6 * (h6 + h7)
+     aa6(4,5) = 0._r8
+     aa6(4,6) =       - a6 * h7
+     yy6(4)   =         a6 * y5   ! HSC row
 
-     call matrix8_4x4(AA4,YY4,XX4,sing); if (sing) call sing_print(iland,1,4,aa4,yy4,glatw,glonw)
+     aa6(5,1) =       - a9 * h8
+     aa6(5,2) =       - a9 * h8
+     aa6(5,3) = 0._r8
+     aa6(5,4) = 0._r8
+     aa6(5,5) = 1._r8 + a9 * h8
+     aa6(5,6) = 0._r8
+     yy6(5)   =         a9 * y9   ! WCA row
 
-     if (xx4(1) < eps_wxfer .and. &
-        (xx4(2) < eps_wxfer .or. (xx4(2) <= sfcwater_mass .and. sfcwater_fracarea > 0.999))) then ! test was successful
+     aa6(6,1) = 0._r8
+     aa6(6,2) = 0._r8
+     aa6(6,3) =       - a10 * h7
+     aa6(6,4) =       - a10 * h7
+     aa6(6,5) = 0._r8
+     aa6(6,6) = 1._r8 + a10 * h7
+     yy6(6)   =         a10 * y10 ! HCA row
 
-        wxfervc = xx4(1)
-        wxfersc = xx4(2)
-        hxfervc = xx4(3)
-        hxfersc = xx4(4)
+     call matrix8_NxN(6,aa6,yy6,xx6,sing); if (sing) call sing_print(iwsfc,'land1',6,aa6,yy6,glatw,glonw)
+
+     if (xx6(1) < eps_wxfer .and. &
+        (xx6(2) < eps_wxfer .or. (xx6(2) <= sfcwater_mass .and. sfcwater_fracarea > 0.999))) then ! test was successful
+
+        wxfervc = xx6(1)
+        wxfersc = xx6(2)
+        hxfervc = xx6(3)
+        hxfersc = xx6(4)
+        wxferca = xx6(5)
+        hxferca = xx6(6)
         wxfergc = 0.
         transp  = 0.
         itest = 1
@@ -935,7 +1060,7 @@ Contains
      ! If this test resulted in upward flux from the surface with
      ! sfcwater_fracarea less than 1, skip past tests 2 and 3
 
-     if (xx4(2) > eps_wxfer .and. sfcwater_fracarea <= 0.999) then
+     if (xx6(2) > eps_wxfer .and. sfcwater_fracarea <= 0.999) then
         skiptest(2) = .true.
         skiptest(3) = .true.
      endif
@@ -943,7 +1068,7 @@ Contains
      2 continue
      if (skiptest(2)) go to 3
 
-! Test 2: If vegetation is wet, solve 4x4 system to test for partial evaporation from
+! Test 2: If vegetation is wet, solve 6x6 system to test for partial evaporation from
 !         vegetation and either condensation onto surface or partial evaporation from
 !         sfcwater that completely covers the surface.
 !         (When sfcwater completely covers the surface, it is too abundant to
@@ -951,43 +1076,69 @@ Contains
 
      if (iwetveg) then
 
-        aa4(1,1) = 1._r8 + (a3 + a4) * (h1 * alvveg + h4)
-        aa4(1,2) =         (a3 + a4) * h4
-        aa4(1,3) =         (a3 + a4) * h1
-        aa4(1,4) = 0._r8
-        yy4(1)   =         (a3 + a4) * y1  ! WVC row
+        aa6(1,1) = 1._r8 + (a3 + a4) * (h1 * alvveg + h4)
+        aa6(1,2) =         (a3 + a4) * h4
+        aa6(1,3) =         (a3 + a4) * h1
+        aa6(1,4) = 0._r8
+        aa6(1,5) =       - (a3 + a4) * h4
+        aa6(1,6) = 0._r8
+        yy6(1)   =         (a3 + a4) * y1  ! WVC row
 
-        aa4(2,1) =         a5 * h4
-        aa4(2,2) = 1._r8 + a5 * (h2 * alvsfc + h4)
-        aa4(2,3) = 0._r8
-        aa4(2,4) =         a5 * h2
-        yy4(2)   =         a5 * y2         ! WSC row
+        aa6(2,1) =         a5 * h4
+        aa6(2,2) = 1._r8 + a5 * (h2 * alvsfc + h4)
+        aa6(2,3) = 0._r8
+        aa6(2,4) =         a5 * h2
+        aa6(2,5) =       - a5 * h4
+        aa6(2,6) = 0._r8
+        yy6(2)   =         a5 * y2         ! WSC row
 
-        aa4(3,1) =         a2 * h5 * alvveg
-        aa4(3,2) = 0._r8
-        aa4(3,3) = 1._r8 + a2 * (h5 + h7)
-        aa4(3,4) =         a2 * h7
-        yy4(3)   =         a2 * y4         ! HVC row
+        aa6(3,1) =         a2 * h5 * alvveg
+        aa6(3,2) = 0._r8
+        aa6(3,3) = 1._r8 + a2 * (h5 + h7)
+        aa6(3,4) =         a2 * h7
+        aa6(3,5) = 0._r8
+        aa6(3,6) =       - a2 * h7
+        yy6(3)   =         a2 * y4         ! HVC row
 
-        aa4(4,1) = 0._r8
-        aa4(4,2) =         a6 * h6 * alvsfc
-        aa4(4,3) =         a6 * h7
-        aa4(4,4) = 1._r8 + a6 * (h6 + h7)
-        yy4(4)   =         a6 * y5         ! HSC row
+        aa6(4,1) = 0._r8
+        aa6(4,2) =         a6 * h6 * alvsfc
+        aa6(4,3) =         a6 * h7
+        aa6(4,4) = 1._r8 + a6 * (h6 + h7)
+        aa6(4,5) = 0._r8
+        aa6(4,6) =       - a6 * h7
+        yy6(4)   =         a6 * y5         ! HSC row
 
-        call matrix8_4x4(AA4,YY4,XX4,sing); if (sing) call sing_print(iland,2,4,aa4,yy4,glatw,glonw)
+        aa6(5,1) =       - a9 * h8
+        aa6(5,2) =       - a9 * h8
+        aa6(5,3) = 0._r8
+        aa6(5,4) = 0._r8
+        aa6(5,5) = 1._r8 + a9 * h8
+        aa6(5,6) = 0._r8
+        yy6(5)   =         a9 * y9   ! WCA row
 
-        evap = xx4(1) * a3 / (a3 + a4) ! evaporation of veg_water
+        aa6(6,1) = 0._r8
+        aa6(6,2) = 0._r8
+        aa6(6,3) =       - a10 * h7
+        aa6(6,4) =       - a10 * h7
+        aa6(6,5) = 0._r8
+        aa6(6,6) = 1._r8 + a10 * h7
+        yy6(6)   =         a10 * y10 ! HCA row
 
-        if (xx4(1) > -eps_wxfer .and. evap <= veg_water .and. &
-           (xx4(2) <  eps_wxfer .or. (xx4(2) <= sfcwater_mass .and. sfcwater_fracarea > 0.999))) then ! test was successful
+        call matrix8_NxN(6,aa6,yy6,xx6,sing); if (sing) call sing_print(iwsfc,'land2',6,aa6,yy6,glatw,glonw)
+
+        evap = xx6(1) * a3 / (a3 + a4) ! evaporation of veg_water
+
+        if (xx6(1) > -eps_wxfer .and. evap <= veg_water .and. &
+           (xx6(2) <  eps_wxfer .or. (xx6(2) <= sfcwater_mass .and. sfcwater_fracarea > 0.999))) then ! test was successful
 
            wxfervc = evap
-           wxfersc = xx4(2)
-           hxfervc = xx4(3)
-           hxfersc = xx4(4)
+           wxfersc = xx6(2)
+           hxfervc = xx6(3)
+           hxfersc = xx6(4)
+           wxferca = xx6(5)
+           hxferca = xx6(6)
            wxfergc = 0.
-           transp  = xx4(1) - evap
+           transp  = xx6(1) - evap
            itest = 2
            go to 20
         endif
@@ -998,7 +1149,7 @@ Contains
         ! If this test resulted in less than complete evaporation of veg_water
         ! skip past test 3
 
-        if (xx4(2) > eps_wxfer .and. sfcwater_fracarea <= 0.999) then
+        if (xx6(2) > eps_wxfer .and. sfcwater_fracarea <= 0.999) then
            skiptest(3) = .true.
         elseif (evap <= veg_water) then
            skiptest(3) = .true.
@@ -1009,47 +1160,73 @@ Contains
      3 continue
      if (skiptest(3)) go to 4
 
-! Test 3: Given complete evaporation of any veg_water, solve 4x4 system to test
+! Test 3: Given complete evaporation of any veg_water, solve 6x6 system to test
 !         for transpiration and either condensation onto surface or partial
 !         evaporation from sfcwater that completely covers the surface.
 !         (When sfcwater completely covers the surface, it is too abundant to
 !         completely evaporate in a single time step.)
 
-     aa4(1,1) = 1._r8 + a4 * (h1 * alvveg + h4)
-     aa4(1,2) =         a4 * h4
-     aa4(1,3) =         a4 * h1
-     aa4(1,4) = 0._r8
-     yy4(1)   =         a4 * (y1 - (h1 * alvveg + h4) * veg_water)  ! WVC row
+     aa6(1,1) = 1._r8 + a4 * (h1 * alvveg + h4)
+     aa6(1,2) =         a4 * h4
+     aa6(1,3) =         a4 * h1
+     aa6(1,4) = 0._r8
+     aa6(1,5) =       - a4 * h4
+     aa6(1,6) = 0._r8
+     yy6(1)   =         a4 * (y1 - (h1 * alvveg + h4) * veg_water)  ! WVC row
 
-     aa4(2,1) =         a5 * h4
-     aa4(2,2) = 1._r8 + a5 * (h2 * alvsfc + h4)
-     aa4(2,3) = 0._r8
-     aa4(2,4) =         a5 * h2
-     yy4(2)   =         a5 * (y2 - h4 * veg_water)                ! WSC row
+     aa6(2,1) =         a5 * h4
+     aa6(2,2) = 1._r8 + a5 * (h2 * alvsfc + h4)
+     aa6(2,3) = 0._r8
+     aa6(2,4) =         a5 * h2
+     aa6(2,5) =       - a5 * h4
+     aa6(2,6) = 0._r8
+     yy6(2)   =         a5 * (y2 - h4 * veg_water)                ! WSC row
 
-     aa4(3,1) =         a2 * h5 * alvveg
-     aa4(3,2) = 0._r8
-     aa4(3,3) = 1._r8 + a2 * (h5 + h7)
-     aa4(3,4) =         a2 * h7
-     yy4(3)   =         a2 * (y4 - h5 * alvveg * veg_water)         ! HVC row
+     aa6(3,1) =         a2 * h5 * alvveg
+     aa6(3,2) = 0._r8
+     aa6(3,3) = 1._r8 + a2 * (h5 + h7)
+     aa6(3,4) =         a2 * h7
+     aa6(3,5) = 0._r8
+     aa6(3,6) =       - a2 * h7
+     yy6(3)   =         a2 * (y4 - h5 * alvveg * veg_water)         ! HVC row
 
-     aa4(4,1) = 0._r8
-     aa4(4,2) =         a6 * h6 * alvsfc
-     aa4(4,3) =         a6 * h7
-     aa4(4,4) = 1._r8 + a6 * (h6 + h7)
-     yy4(4)   =         a6 * y5                                   ! HSC row
+     aa6(4,1) = 0._r8
+     aa6(4,2) =         a6 * h6 * alvsfc
+     aa6(4,3) =         a6 * h7
+     aa6(4,4) = 1._r8 + a6 * (h6 + h7)
+     aa6(4,5) = 0._r8
+     aa6(4,6) =       - a6 * h7
+     yy6(4)   =         a6 * y5                                   ! HSC row
 
-     call matrix8_4x4(AA4,YY4,XX4,sing); if (sing) call sing_print(iland,3,4,aa4,yy4,glatw,glonw)
+     aa6(5,1) =       - a9 * h8
+     aa6(5,2) =       - a9 * h8
+     aa6(5,3) = 0._r8
+     aa6(5,4) = 0._r8
+     aa6(5,5) = 1._r8 + a9 * h8
+     aa6(5,6) = 0._r8
+     yy6(5)   =         a9 * y9   ! WCA row
 
-     if (xx4(1) > -eps_wxfer .and. &
-        (xx4(2) <  eps_wxfer .or. (xx4(2) <= sfcwater_mass .and. sfcwater_fracarea > 0.999))) then ! test was successful
+     aa6(6,1) = 0._r8
+     aa6(6,2) = 0._r8
+     aa6(6,3) =       - a10 * h7
+     aa6(6,4) =       - a10 * h7
+     aa6(6,5) = 0._r8
+     aa6(6,6) = 1._r8 + a10 * h7
+     yy6(6)   =         a10 * y10 ! HCA row
+
+     call matrix8_NxN(6,aa6,yy6,xx6,sing); if (sing) call sing_print(iwsfc,'land3',6,aa6,yy6,glatw,glonw)
+
+     if (xx6(1) > -eps_wxfer .and. &
+        (xx6(2) <  eps_wxfer .or. (xx6(2) <= sfcwater_mass .and. sfcwater_fracarea > 0.999))) then ! test was successful
 
         wxfervc = veg_water
-        wxfersc = xx4(2)
-        hxfervc = xx4(3)
-        hxfersc = xx4(4)
+        wxfersc = xx6(2)
+        hxfervc = xx6(3)
+        hxfersc = xx6(4)
+        wxferca = xx6(5)
+        hxferca = xx6(6)
         wxfergc = 0.
-        transp  = xx4(1)
+        transp  = xx6(1)
         itest = 3
         go to 20
      endif
@@ -1070,58 +1247,88 @@ Contains
 
      if (skiptest(4)) go to 5
 
-! Test 4: If some sfcwater is present, solve 5x5 system to test for
+! Test 4: If some sfcwater is present, solve 7x7 system to test for
 !         condensation onto vegetation, partial evaporation of sfcwater,
 !         and evaporation from soil
 
      if (sfcwater_mass > 0.) then
 
-        aa5(1,1) = 1._r8 + a1 * (h1 * alvveg + h4)
-        aa5(1,2) =         a1 * h4
-        aa5(1,3) =         a1 * h1
-        aa5(1,4) = 0._r8
-        aa5(1,5) =         a1 * h4
-        yy5(1)   =         a1 * y1  ! WVC row
+        aa7(1,1) = 1._r8 + a1 * (h1 * alvveg + h4)
+        aa7(1,2) =         a1 * h4
+        aa7(1,3) =         a1 * h1
+        aa7(1,4) = 0._r8
+        aa7(1,5) =         a1 * h4
+        aa7(1,6) =       - a1 * h4
+        aa7(1,7) = 0._r8
+        yy7(1)   =         a1 * y1  ! WVC row
 
-        aa5(2,1) =         a7 * h4
-        aa5(2,2) = 1._r8 + a7 * (h2 * alvsfc + h4)
-        aa5(2,3) = 0._r8
-        aa5(2,4) =         a7 * h2
-        aa5(2,5) =         a7 * h4
-        yy5(2)   =         a7 * y2  ! WSC row
+        aa7(2,1) =         a7 * h4
+        aa7(2,2) = 1._r8 + a7 * (h2 * alvsfc + h4)
+        aa7(2,3) = 0._r8
+        aa7(2,4) =         a7 * h2
+        aa7(2,5) =         a7 * h4
+        aa7(2,6) =       - a7 * h4
+        aa7(2,7) = 0._r8
+        yy7(2)   =         a7 * y2  ! WSC row
 
-        aa5(3,1) =         a2 * h5 * alvveg
-        aa5(3,2) = 0._r8
-        aa5(3,3) = 1._r8 + a2 * (h5 + h7)
-        aa5(3,4) =         a2 * h7
-        aa5(3,5) =         a2 * h5 * alvveg
-        yy5(3)   =         a2 * y4  ! HVC row
+        aa7(3,1) =         a2 * h5 * alvveg
+        aa7(3,2) = 0._r8
+        aa7(3,3) = 1._r8 + a2 * (h5 + h7)
+        aa7(3,4) =         a2 * h7
+        aa7(3,5) =         a2 * h5 * alvveg
+        aa7(3,6) = 0._r8
+        aa7(3,7) =       - a2 * h7
+        yy7(3)   =         a2 * y4  ! HVC row
 
-        aa5(4,1) = 0._r8
-        aa5(4,2) =         a6 * h6 * alvsfc
-        aa5(4,3) =         a6 * h7
-        aa5(4,4) = 1._r8 + a6 * (h6 + h7)
-        aa5(4,5) =         a6 * h6 * alvsfc
-        yy5(4)   =         a6 * y5  ! HSC row
+        aa7(4,1) = 0._r8
+        aa7(4,2) =         a6 * h6 * alvsfc
+        aa7(4,3) =         a6 * h7
+        aa7(4,4) = 1._r8 + a6 * (h6 + h7)
+        aa7(4,5) =         a6 * h6 * alvsfc
+        aa7(4,6) = 0._r8
+        aa7(4,7) =       - a6 * h7
+        yy7(4)   =         a6 * y5  ! HSC row
 
-        aa5(5,1) =         a8 * h4
-        aa5(5,2) =         a8 * h4
-        aa5(5,3) = 0._r8
-        aa5(5,4) =         a8 * h3
-        aa5(5,5) = 1._r8 + a8 * (h3 * alvsfc + h4)
-        yy5(5)   =         a8 * y3  ! WGC row
+        aa7(5,1) =         a8 * h4
+        aa7(5,2) =         a8 * h4
+        aa7(5,3) = 0._r8
+        aa7(5,4) =         a8 * h3
+        aa7(5,5) = 1._r8 + a8 * (h3 * alvsfc + h4)
+        aa7(5,6) =       - a8 * h4
+        aa7(5,7) = 0._r8
+        yy7(5)   =         a8 * y3  ! WGC row
 
-        call matrix8_NxN(5,AA5,YY5,XX5,sing); if (sing) call sing_print(iland,4,5,aa5,yy5,glatw,glonw)
+        aa7(6,1) =       - a9 * h8
+        aa7(6,2) =       - a9 * h8
+        aa7(6,3) = 0._r8
+        aa7(6,4) = 0._r8
+        aa7(6,5) =       - a9 * h8
+        aa7(6,6) = 1._r8 + a9 * h8
+        aa7(6,7) = 0._r8
+        yy7(6)   =         a9 * y9   ! WCA row
 
-        if (xx5(1) <  eps_wxfer .and. &
-            xx5(2) > -eps_wxfer .and. xx5(2) <= sfcwater_mass .and. &
-            xx5(5) > -eps_wxfer) then ! test was successful
+        aa7(7,1) = 0._r8
+        aa7(7,2) = 0._r8
+        aa7(7,3) =       - a10 * h7
+        aa7(7,4) =       - a10 * h7
+        aa7(7,5) = 0._r8
+        aa7(7,6) = 0._r8
+        aa7(7,7) = 1._r8 + a10 * h7
+        yy7(7)   =         a10 * y10 ! HCA row
 
-           wxfervc = xx5(1)
-           wxfersc = xx5(2)
-           hxfervc = xx5(3)
-           hxfersc = xx5(4)
-           wxfergc = xx5(5)
+        call matrix8_NxN(7,aa7,yy7,xx7,sing); if (sing) call sing_print(iwsfc,'land4',7,aa7,yy7,glatw,glonw)
+
+        if (xx7(1) <  eps_wxfer .and. &
+            xx7(2) > -eps_wxfer .and. xx7(2) <= sfcwater_mass .and. &
+            xx7(5) > -eps_wxfer) then ! test was successful
+
+           wxfervc = xx7(1)
+           wxfersc = xx7(2)
+           hxfervc = xx7(3)
+           hxfersc = xx7(4)
+           wxfergc = xx7(5)
+           wxferca = xx7(6)
+           hxferca = xx7(7)
            transp  = 0.
            itest = 4
            go to 20
@@ -1130,7 +1337,7 @@ Contains
         ! If this test resulted in condensation onto vegetation,
         ! skip past tests 5 and 6
 
-        if (xx5(1) < -eps_wxfer) then
+        if (xx7(1) < -eps_wxfer) then
            skiptest(5) = .true.
            skiptest(6) = .true.
         endif
@@ -1138,7 +1345,7 @@ Contains
         ! If this test resulted in condensation onto the surface,
         ! skip past tests 7, 10, and 13
 
-        if (xx5(2) < -eps_wxfer) then
+        if (xx7(2) < -eps_wxfer) then
            skiptest( 7) = .true.
            skiptest(10) = .true.
            skiptest(13) = .true.
@@ -1147,7 +1354,7 @@ Contains
         ! If this test resulted in less than complete evaporation of sfcwater,
         ! skip past test 7
 
-        if (xx5(2) <= sfcwater_mass) then
+        if (xx7(2) <= sfcwater_mass) then
            skiptest(7) = .true.
         endif
 
@@ -1156,61 +1363,91 @@ Contains
      5 continue
      if (skiptest(5)) go to 6
 
-! Test 5: If some sfcwater is present, and also if vegetation is wet, solve 5x5
+! Test 5: If some sfcwater is present, and also if vegetation is wet, solve 7x7
 !         system to test for partial evaporation from vegetation, partial
 !         evaporation of sfcwater, and zero or positive evaporation from soil
 
      if (sfcwater_mass > 0. .and. iwetveg) then
 
-        aa5(1,1) = 1._r8 + (a3 + a4) * (h1 * alvveg + h4)
-        aa5(1,2) =         (a3 + a4) * h4
-        aa5(1,3) =         (a3 + a4) * h1
-        aa5(1,4) = 0._r8
-        aa5(1,5) =         (a3 + a4) * h4
-        yy5(1)   =         (a3 + a4) * y1  ! WVC row
+        aa7(1,1) = 1._r8 + (a3 + a4) * (h1 * alvveg + h4)
+        aa7(1,2) =         (a3 + a4) * h4
+        aa7(1,3) =         (a3 + a4) * h1
+        aa7(1,4) = 0._r8
+        aa7(1,5) =         (a3 + a4) * h4
+        aa7(1,6) =       - (a3 + a4) * h4
+        aa7(1,7) = 0._r8
+        yy7(1)   =         (a3 + a4) * y1  ! WVC row
 
-        aa5(2,1) =         a7 * h4
-        aa5(2,2) = 1._r8 + a7 * (h2 * alvsfc + h4)
-        aa5(2,3) = 0._r8
-        aa5(2,4) =         a7 * h2
-        aa5(2,5) =         a7 * h4
-        yy5(2)   =         a7 * y2         ! WSC row
+        aa7(2,1) =         a7 * h4
+        aa7(2,2) = 1._r8 + a7 * (h2 * alvsfc + h4)
+        aa7(2,3) = 0._r8
+        aa7(2,4) =         a7 * h2
+        aa7(2,5) =         a7 * h4
+        aa7(2,6) =       - a7 * h4
+        aa7(2,7) = 0._r8
+        yy7(2)   =         a7 * y2         ! WSC row
 
-        aa5(3,1) =         a2 * h5 * alvveg
-        aa5(3,2) = 0._r8
-        aa5(3,3) = 1._r8 + a2 * (h5 + h7)
-        aa5(3,4) =         a2 * h7
-        aa5(3,5) =         a2 * h5 * alvveg
-        yy5(3)   =         a2 * y4         ! HVC row
+        aa7(3,1) =         a2 * h5 * alvveg
+        aa7(3,2) = 0._r8
+        aa7(3,3) = 1._r8 + a2 * (h5 + h7)
+        aa7(3,4) =         a2 * h7
+        aa7(3,5) =         a2 * h5 * alvveg
+        aa7(3,6) = 0._r8
+        aa7(3,7) =       - a2 * h7
+        yy7(3)   =         a2 * y4         ! HVC row
 
-        aa5(4,1) = 0._r8
-        aa5(4,2) =         a6 * h6 * alvsfc
-        aa5(4,3) =         a6 * h7
-        aa5(4,4) = 1._r8 + a6 * (h6 + h7)
-        aa5(4,5) =         a6 * h6 * alvsfc
-        yy5(4)   =         a6 * y5         ! HSC row
+        aa7(4,1) = 0._r8
+        aa7(4,2) =         a6 * h6 * alvsfc
+        aa7(4,3) =         a6 * h7
+        aa7(4,4) = 1._r8 + a6 * (h6 + h7)
+        aa7(4,5) =         a6 * h6 * alvsfc
+        aa7(4,6) = 0._r8
+        aa7(4,7) =       - a6 * h7
+        yy7(4)   =         a6 * y5         ! HSC row
 
-        aa5(5,1) =         a8 * h4
-        aa5(5,2) =         a8 * h4
-        aa5(5,3) = 0._r8
-        aa5(5,4) =         a8 * h3
-        aa5(5,5) = 1._r8 + a8 * (h3 * alvsfc + h4)
-        yy5(5)   =         a8 * y3         ! WGC row
+        aa7(5,1) =         a8 * h4
+        aa7(5,2) =         a8 * h4
+        aa7(5,3) = 0._r8
+        aa7(5,4) =         a8 * h3
+        aa7(5,5) = 1._r8 + a8 * (h3 * alvsfc + h4)
+        aa7(5,6) =       - a8 * h4
+        aa7(5,7) = 0._r8
+        yy7(5)   =         a8 * y3         ! WGC row
 
-        call matrix8_NxN(5,AA5,YY5,XX5,sing); if (sing) call sing_print(iland,5,5,aa5,yy5,glatw,glonw)
+        aa7(6,1) =       - a9 * h8
+        aa7(6,2) =       - a9 * h8
+        aa7(6,3) = 0._r8
+        aa7(6,4) = 0._r8
+        aa7(6,5) =       - a9 * h8
+        aa7(6,6) = 1._r8 + a9 * h8
+        aa7(6,7) = 0._r8
+        yy7(6)   =         a9 * y9   ! WCA row
 
-        evap = xx5(1) * a3 / (a3 + a4) ! evaporation of veg_water
+        aa7(7,1) = 0._r8
+        aa7(7,2) = 0._r8
+        aa7(7,3) =       - a10 * h7
+        aa7(7,4) =       - a10 * h7
+        aa7(7,5) = 0._r8
+        aa7(7,6) = 0._r8
+        aa7(7,7) = 1._r8 + a10 * h7
+        yy7(7)   =         a10 * y10 ! HCA row
 
-        if (xx5(1) > -eps_wxfer .and. evap <= veg_water .and. &
-            xx5(2) > -eps_wxfer .and. xx5(2) <= sfcwater_mass .and. &
-            xx5(5) > -eps_wxfer) then ! test was successful
+        call matrix8_NxN(7,aa7,yy7,xx7,sing); if (sing) call sing_print(iwsfc,'land5',7,aa7,yy7,glatw,glonw)
+
+        evap = xx7(1) * a3 / (a3 + a4) ! evaporation of veg_water
+
+        if (xx7(1) > -eps_wxfer .and. evap <= veg_water .and. &
+            xx7(2) > -eps_wxfer .and. xx7(2) <= sfcwater_mass .and. &
+            xx7(5) > -eps_wxfer) then ! test was successful
 
            wxfervc = evap
-           wxfersc = xx5(2)
-           hxfervc = xx5(3)
-           hxfersc = xx5(4)
-           wxfergc = xx5(5)
-           transp  = xx5(1) - evap
+           wxfersc = xx7(2)
+           hxfervc = xx7(3)
+           hxfersc = xx7(4)
+           wxfergc = xx7(5)
+           wxferca = xx7(6)
+           hxferca = xx7(7)
+           transp  = xx7(1) - evap
            itest = 5
            go to 20
         endif
@@ -1225,7 +1462,7 @@ Contains
         ! If this test resulted in condensation onto the surface,
         ! skip past tests 8, 11, and 14
 
-        if (xx5(2) < -eps_wxfer) then
+        if (xx7(2) < -eps_wxfer) then
            skiptest( 8) = .true.
            skiptest(11) = .true.
            skiptest(14) = .true.
@@ -1234,7 +1471,7 @@ Contains
         ! If this test resulted in less than complete evaporation of sfcwater,
         ! skip past test 8
 
-        if (xx5(2) <= sfcwater_mass) then
+        if (xx7(2) <= sfcwater_mass) then
            skiptest(8) = .true.
         endif
 
@@ -1244,58 +1481,88 @@ Contains
      if (skiptest(6)) go to 7
 
 ! Test 6:  If some sfcwater is present, and given complete evaporation of any
-!         veg_water, solve 5x5 system to test for zero or positive transpiration,
+!         veg_water, solve 7x7 system to test for zero or positive transpiration,
 !         partial evaporation of sfcwater, and zero or positive evaporation from soil
 
      if (sfcwater_mass > 0.) then
 
-        aa5(1,1) = 1._r8 + a4 * (h1 * alvveg + h4)
-        aa5(1,2) =         a4 * h4
-        aa5(1,3) =         a4 * h1
-        aa5(1,4) = 0._r8
-        aa5(1,5) =         a4 * h4
-        yy5(1)   =         a4 * (y1 - (h1 * alvveg + h4) * veg_water)  ! WVC row
+        aa7(1,1) = 1._r8 + a4 * (h1 * alvveg + h4)
+        aa7(1,2) =         a4 * h4
+        aa7(1,3) =         a4 * h1
+        aa7(1,4) = 0._r8
+        aa7(1,5) =         a4 * h4
+        aa7(1,6) =       - a4 * h4
+        aa7(1,7) = 0._r8
+        yy7(1)   =         a4 * (y1 - (h1 * alvveg + h4) * veg_water)  ! WVC row
 
-        aa5(2,1) =         a7 * h4
-        aa5(2,2) = 1._r8 + a7 * (h2 * alvsfc + h4)
-        aa5(2,3) = 0._r8
-        aa5(2,4) =         a7 * h2
-        aa5(2,5) =         a7 * h4
-        yy5(2)   =         a7 * (y2 - h4 * veg_water)                ! WSC row
+        aa7(2,1) =         a7 * h4
+        aa7(2,2) = 1._r8 + a7 * (h2 * alvsfc + h4)
+        aa7(2,3) = 0._r8
+        aa7(2,4) =         a7 * h2
+        aa7(2,5) =         a7 * h4
+        aa7(2,6) =       - a7 * h4
+        aa7(2,7) = 0._r8
+        yy7(2)   =         a7 * (y2 - h4 * veg_water)                ! WSC row
 
-        aa5(3,1) =         a2 * h5 * alvveg
-        aa5(3,2) = 0._r8
-        aa5(3,3) = 1._r8 + a2 * (h5 + h7)
-        aa5(3,4) =         a2 * h7
-        aa5(3,5) =         a2 * h5 * alvveg
-        yy5(3)   =         a2 * (y4 - h5 * alvveg * veg_water)         ! HVC row
+        aa7(3,1) =         a2 * h5 * alvveg
+        aa7(3,2) = 0._r8
+        aa7(3,3) = 1._r8 + a2 * (h5 + h7)
+        aa7(3,4) =         a2 * h7
+        aa7(3,5) =         a2 * h5 * alvveg
+        aa7(3,6) = 0._r8
+        aa7(3,7) =       - a2 * h7
+        yy7(3)   =         a2 * (y4 - h5 * alvveg * veg_water)         ! HVC row
 
-        aa5(4,1) = 0._r8
-        aa5(4,2) =         a6 * h6 * alvsfc
-        aa5(4,3) =         a6 * h7
-        aa5(4,4) = 1._r8 + a6 * (h6 + h7)
-        aa5(4,5) =         a6 * h6 * alvsfc
-        yy5(4)   =         a6 * y5                                   ! HSC row
+        aa7(4,1) = 0._r8
+        aa7(4,2) =         a6 * h6 * alvsfc
+        aa7(4,3) =         a6 * h7
+        aa7(4,4) = 1._r8 + a6 * (h6 + h7)
+        aa7(4,5) =         a6 * h6 * alvsfc
+        aa7(4,6) = 0._r8
+        aa7(4,7) =       - a6 * h7
+        yy7(4)   =         a6 * y5                                   ! HSC row
 
-        aa5(5,1) =         a8 * h4
-        aa5(5,2) =         a8 * h4
-        aa5(5,3) = 0._r8
-        aa5(5,4) =         a8 * h3
-        aa5(5,5) = 1._r8 + a8 * (h3 * alvsfc + h4)
-        yy5(5)   =         a8 * (y3 - h4 * veg_water)                ! WGC row
+        aa7(5,1) =         a8 * h4
+        aa7(5,2) =         a8 * h4
+        aa7(5,3) = 0._r8
+        aa7(5,4) =         a8 * h3
+        aa7(5,5) = 1._r8 + a8 * (h3 * alvsfc + h4)
+        aa7(5,6) =       - a8 * h4
+        aa7(5,7) = 0._r8
+        yy7(5)   =         a8 * (y3 - h4 * veg_water)                ! WGC row
 
-        call matrix8_NxN(5,AA5,YY5,XX5,sing); if (sing) call sing_print(iland,6,5,aa5,yy5,glatw,glonw)
+        aa7(6,1) =       - a9 * h8
+        aa7(6,2) =       - a9 * h8
+        aa7(6,3) = 0._r8
+        aa7(6,4) = 0._r8
+        aa7(6,5) =       - a9 * h8
+        aa7(6,6) = 1._r8 + a9 * h8
+        aa7(6,7) = 0._r8
+        yy7(6)   =         a9 * y9   ! WCA row
 
-        if (xx5(1) > -eps_wxfer .and. &
-            xx5(2) > -eps_wxfer .and. xx5(2) <= sfcwater_mass .and. &
-            xx5(5) > -eps_wxfer) then ! test was successful
+        aa7(7,1) = 0._r8
+        aa7(7,2) = 0._r8
+        aa7(7,3) =       - a10 * h7
+        aa7(7,4) =       - a10 * h7
+        aa7(7,5) = 0._r8
+        aa7(7,6) = 0._r8
+        aa7(7,7) = 1._r8 + a10 * h7
+        yy7(7)   =         a10 * y10 ! HCA row
+
+        call matrix8_NxN(7,aa7,yy7,xx7,sing); if (sing) call sing_print(iwsfc,'land6',7,aa7,yy7,glatw,glonw)
+
+        if (xx7(1) > -eps_wxfer .and. &
+            xx7(2) > -eps_wxfer .and. xx7(2) <= sfcwater_mass .and. &
+            xx7(5) > -eps_wxfer) then ! test was successful
 
            wxfervc = veg_water
-           wxfersc = xx5(2)
-           hxfervc = xx5(3)
-           hxfersc = xx5(4)
-           wxfergc = xx5(5)
-           transp  = xx5(1)
+           wxfersc = xx7(2)
+           hxfervc = xx7(3)
+           hxfersc = xx7(4)
+           wxfergc = xx7(5)
+           wxferca = xx7(6)
+           hxferca = xx7(7)
+           transp  = xx7(1)
            itest = 6
            go to 20
         endif
@@ -1303,7 +1570,7 @@ Contains
         ! If this test resulted in condensation onto the surface,
         ! skip past tests 9, 12, and 15
 
-        if (xx5(2) < -eps_wxfer) then
+        if (xx7(2) < -eps_wxfer) then
            skiptest( 9) = .true.
            skiptest(12) = .true.
            skiptest(15) = .true.
@@ -1312,53 +1579,78 @@ Contains
         ! If this test resulted in less than complete evaporation of sfcwater,
         ! skip past test 9
 
-        if (xx5(2) <= sfcwater_mass) then
+        if (xx7(2) <= sfcwater_mass) then
            skiptest(9) = .true.
         endif
 
      endif
 
-
      7 continue
      if (skiptest(7)) go to 8
 
-! Test 7:  Given complete evaporation of any sfcwater, solve 4x4 system to test
+! Test 7:  Given complete evaporation of any sfcwater, solve 6x6 system to test
 !         for condensation onto vegetation and zero or positive evaporation from soil
 
-     aa4(1,1) = 1._r8 + a1 * (h1 * alvveg + h4)
-     aa4(1,2) =         a1 * h4
-     aa4(1,3) =         a1 * h1
-     aa4(1,4) = 0._r8
-     yy4(1)   =         a1 * (y1 - h4 * sfcwater_mass)                ! WVC row
+     aa6(1,1) = 1._r8 + a1 * (h1 * alvveg + h4)
+     aa6(1,2) =         a1 * h4
+     aa6(1,3) =         a1 * h1
+     aa6(1,4) = 0._r8
+     aa6(1,5) =       - a1 * h4
+     aa6(1,6) = 0._r8
+     yy6(1)   =         a1 * (y1 - h4 * sfcwater_mass)                ! WVC row
 
-     aa4(2,1) =         a8 * h4
-     aa4(2,2) = 1._r8 + a8 * (h3 * alvsfc + h4)
-     aa4(2,3) = 0._r8
-     aa4(2,4) =         a8 * h3
-     yy4(2)   =         a8 * (y3 - (h3 * alvsfc + h4) * sfcwater_mass)  ! WGC row
+     aa6(2,1) =         a8 * h4
+     aa6(2,2) = 1._r8 + a8 * (h3 * alvsfc + h4)
+     aa6(2,3) = 0._r8
+     aa6(2,4) =         a8 * h3
+     aa6(5,5) =       - a8 * h4
+     aa6(5,6) = 0._r8
+     yy6(2)   =         a8 * (y3 - (h3 * alvsfc + h4) * sfcwater_mass)  ! WGC row
 
-     aa4(3,1) =         a2 * h5 * alvveg
-     aa4(3,2) = 0._r8
-     aa4(3,3) = 1._r8 + a2 * (h5 + h7)
-     aa4(3,4) =         a2 * h7
-     yy4(3)   =         a2 * y4                                       ! HVC row
+     aa6(3,1) =         a2 * h5 * alvveg
+     aa6(3,2) = 0._r8
+     aa6(3,3) = 1._r8 + a2 * (h5 + h7)
+     aa6(3,4) =         a2 * h7
+     aa6(3,5) = 0._r8
+     aa6(3,6) =       - a2 * h7
+     yy6(3)   =         a2 * y4                                       ! HVC row
 
-     aa4(4,1) = 0._r8
-     aa4(4,2) =         a6 * h6 * alvsfc
-     aa4(4,3) =         a6 * h7
-     aa4(4,4) = 1._r8 + a6 * (h6 + h7)
-     yy4(4)   =         a6 * (y5 - h6 * alvsfc * sfcwater_mass)         ! HSC row
+     aa6(4,1) = 0._r8
+     aa6(4,2) =         a6 * h6 * alvsfc
+     aa6(4,3) =         a6 * h7
+     aa6(4,4) = 1._r8 + a6 * (h6 + h7)
+     aa6(4,5) = 0._r8
+     aa6(4,6) =       - a6 * h7
+     yy6(4)   =         a6 * (y5 - h6 * alvsfc * sfcwater_mass)         ! HSC row
 
-     call matrix8_4x4(AA4,YY4,XX4,sing); if (sing) call sing_print(iland,7,4,aa4,yy4,glatw,glonw)
+     aa6(5,1) =       - a9 * h8
+     aa6(5,2) =       - a9 * h8
+     aa6(5,3) = 0._r8
+     aa6(5,4) = 0._r8
+     aa6(5,5) = 1._r8 + a9 * h8
+     aa6(5,6) = 0._r8
+     yy6(5)   =         a9 * y9   ! WCA row
 
-     if (xx4(1) <  eps_wxfer .and. &
-         xx4(2) > -eps_wxfer) then ! test was successful
+     aa6(6,1) = 0._r8
+     aa6(6,2) = 0._r8
+     aa6(6,3) =       - a10 * h7
+     aa6(6,4) =       - a10 * h7
+     aa6(6,5) = 0._r8
+     aa6(6,6) = 1._r8 + a10 * h7
+     yy6(6)   =         a10 * y10 ! HCA row
 
-        wxfervc = xx4(1)
+     call matrix8_NxN(6,aa6,yy6,xx6,sing); if (sing) call sing_print(iwsfc,'land7',6,aa6,yy6,glatw,glonw)
+
+     if (xx6(1) <  eps_wxfer .and. &
+         xx6(2) > -eps_wxfer) then ! test was successful
+
+        wxfervc = xx6(1)
         wxfersc = sfcwater_mass
-        hxfervc = xx4(3)
-        hxfersc = xx4(4)
-        wxfergc = xx4(2)
+        hxfervc = xx6(3)
+        hxfersc = xx6(4)
+        wxfergc = xx6(2)
+        wxferca = xx6(5)
+        hxferca = xx6(6)
         transp  = 0.
         itest = 7
         go to 20
@@ -1367,7 +1659,7 @@ Contains
      ! If this test resulted in condensation onto vegetation,
      ! skip past tests 8 and 9
 
-     if (xx4(1) < -eps_wxfer) then
+     if (xx6(1) < -eps_wxfer) then
         skiptest(8) = .true.
         skiptest(9) = .true.
      endif
@@ -1381,43 +1673,69 @@ Contains
 
      if (iwetveg) then
 
-        aa4(1,1) = 1._r8 + (a3 + a4) * (h1 * alvveg + h4)
-        aa4(1,2) =         (a3 + a4) * h4
-        aa4(1,3) =         (a3 + a4) * h1
-        aa4(1,4) = 0._r8
-        yy4(1)   =         (a3 + a4) * (y1 - h4 * sfcwater_mass)         ! WVC row
+        aa6(1,1) = 1._r8 + (a3 + a4) * (h1 * alvveg + h4)
+        aa6(1,2) =         (a3 + a4) * h4
+        aa6(1,3) =         (a3 + a4) * h1
+        aa6(1,4) = 0._r8
+        aa6(1,5) =       - (a3 + a4) * h4
+        aa6(1,6) = 0._r8
+        yy6(1)   =         (a3 + a4) * (y1 - h4 * sfcwater_mass)         ! WVC row
 
-        aa4(2,1) =         a8 * h4
-        aa4(2,2) = 1._r8 + a8 * (h3 * alvsfc + h4)
-        aa4(2,3) = 0._r8
-        aa4(2,4) =         a8 * h3
-        yy4(2)   =         a8 * (y3 - (h3 * alvsfc + h4) * sfcwater_mass)  ! WGC row
+        aa6(2,1) =         a8 * h4
+        aa6(2,2) = 1._r8 + a8 * (h3 * alvsfc + h4)
+        aa6(2,3) = 0._r8
+        aa6(2,4) =         a8 * h3
+        aa6(5,5) =       - a8 * h4
+        aa6(5,6) = 0._r8
+        yy6(2)   =         a8 * (y3 - (h3 * alvsfc + h4) * sfcwater_mass)  ! WGC row
 
-        aa4(3,1) =         a2 * h5 * alvveg
-        aa4(3,2) = 0._r8
-        aa4(3,3) = 1._r8 + a2 * (h5 + h7)
-        aa4(3,4) =         a2 * h7
-        yy4(3)   =         a2 * y4                                       ! HVC row
+        aa6(3,1) =         a2 * h5 * alvveg
+        aa6(3,2) = 0._r8
+        aa6(3,3) = 1._r8 + a2 * (h5 + h7)
+        aa6(3,4) =         a2 * h7
+        aa6(3,5) = 0._r8
+        aa6(3,6) =       - a2 * h7
+        yy6(3)   =         a2 * y4                                       ! HVC row
 
-        aa4(4,1) = 0._r8
-        aa4(4,2) =         a6 * h6 * alvsfc
-        aa4(4,3) =         a6 * h7
-        aa4(4,4) = 1._r8 + a6 * (h6 + h7)
-        yy4(4)   =         a6 * (y5 - h6 * alvsfc * sfcwater_mass)         ! HSC row
+        aa6(4,1) = 0._r8
+        aa6(4,2) =         a6 * h6 * alvsfc
+        aa6(4,3) =         a6 * h7
+        aa6(4,4) = 1._r8 + a6 * (h6 + h7)
+        aa6(4,5) = 0._r8
+        aa6(4,6) =       - a6 * h7
+        yy6(4)   =         a6 * (y5 - h6 * alvsfc * sfcwater_mass)         ! HSC row
 
-        call matrix8_4x4(AA4,YY4,XX4,sing); if (sing) call sing_print(iland,8,4,aa4,yy4,glatw,glonw)
+        aa6(5,1) =       - a9 * h8
+        aa6(5,2) =       - a9 * h8
+        aa6(5,3) = 0._r8
+        aa6(5,4) = 0._r8
+        aa6(5,5) = 1._r8 + a9 * h8
+        aa6(5,6) = 0._r8
+        yy6(5)   =         a9 * y9   ! WCA row
 
-        evap = xx4(1) * a3 / (a3 + a4) ! evaporation of veg_water
+        aa6(6,1) = 0._r8
+        aa6(6,2) = 0._r8
+        aa6(6,3) =       - a10 * h7
+        aa6(6,4) =       - a10 * h7
+        aa6(6,5) = 0._r8
+        aa6(6,6) = 1._r8 + a10 * h7
+        yy6(6)   =         a10 * y10 ! HCA row
 
-        if (xx4(1) > -eps_wxfer .and. evap <= veg_water .and. &
-            xx4(2) > -eps_wxfer) then ! test was successful
+        call matrix8_NxN(6,aa6,yy6,xx6,sing); if (sing) call sing_print(iwsfc,'land8',6,aa6,yy6,glatw,glonw)
+
+        evap = xx6(1) * a3 / (a3 + a4) ! evaporation of veg_water
+
+        if (xx6(1) > -eps_wxfer .and. evap <= veg_water .and. &
+            xx6(2) > -eps_wxfer) then ! test was successful
 
            wxfervc = evap
            wxfersc = sfcwater_mass
-           hxfervc = xx4(3)
-           hxfersc = xx4(4)
-           wxfergc = xx4(2)
-           transp  = xx4(1) - evap
+           hxfervc = xx6(3)
+           hxfersc = xx6(4)
+           wxfergc = xx6(2)
+           wxferca = xx6(5)
+           hxferca = xx6(6)
+           transp  = xx6(1) - evap
            itest = 8
            go to 20
         endif
@@ -1435,44 +1753,70 @@ Contains
      if (skiptest(9)) go to 10
 
 ! Test 9:  Given complete evaporation of any sfcwater, and complete evaporation
-!         of any veg_water, solve 4x4 system to test for zero or positive
+!         of any veg_water, solve 6x6 system to test for zero or positive
 !         transpiration and zero or positive evaporation from soil
 
-     aa4(1,1) = 1._r8 + a4 * (h1 * alvveg + h4)
-     aa4(1,2) =         a4 * h4
-     aa4(1,3) =         a4 * h1
-     aa4(1,4) = 0._r8
-     yy4(1)   =         a4 * (y1 - (h1 * alvveg + h4) * veg_water - h4 * sfcwater_mass)  ! WVC row
+     aa6(1,1) = 1._r8 + a4 * (h1 * alvveg + h4)
+     aa6(1,2) =         a4 * h4
+     aa6(1,3) =         a4 * h1
+     aa6(1,4) = 0._r8
+     aa6(1,5) =       - a1 * h4
+     aa6(1,6) = 0._r8
+     yy6(1)   =         a4 * (y1 - (h1 * alvveg + h4) * veg_water - h4 * sfcwater_mass)  ! WVC row
 
-     aa4(2,1) =         a8 * h4
-     aa4(2,2) = 1._r8 + a8 * (h3 * alvsfc + h4)
-     aa4(2,3) = 0._r8
-     aa4(2,4) =         a8 * h3
-     yy4(2)   =         a8 * (y3 - h4 * veg_water - (h3 * alvsfc + h4) * sfcwater_mass)  ! WGC row
+     aa6(2,1) =         a8 * h4
+     aa6(2,2) = 1._r8 + a8 * (h3 * alvsfc + h4)
+     aa6(2,3) = 0._r8
+     aa6(2,4) =         a8 * h3
+     aa6(5,5) =       - a8 * h4
+     aa6(5,6) = 0._r8
+     yy6(2)   =         a8 * (y3 - h4 * veg_water - (h3 * alvsfc + h4) * sfcwater_mass)  ! WGC row
 
-     aa4(3,1) =         a2 * h5 * alvveg
-     aa4(3,2) = 0._r8
-     aa4(3,3) = 1._r8 + a2 * (h5 + h7)
-     aa4(3,4) =         a2 * h7
-     yy4(3)   =         a2 * (y4 - h5 * alvveg * veg_water)                              ! HVC row
+     aa6(3,1) =         a2 * h5 * alvveg
+     aa6(3,2) = 0._r8
+     aa6(3,3) = 1._r8 + a2 * (h5 + h7)
+     aa6(3,4) =         a2 * h7
+     aa6(3,5) = 0._r8
+     aa6(3,6) =       - a2 * h7
+     yy6(3)   =         a2 * (y4 - h5 * alvveg * veg_water)                              ! HVC row
 
-     aa4(4,1) = 0._r8
-     aa4(4,2) =         a6 * h6 * alvsfc
-     aa4(4,3) =         a6 * h7
-     aa4(4,4) = 1._r8 + a6 * (h6 + h7)
-     yy4(4)   =         a6 * (y5 - h6 * alvsfc * sfcwater_mass)                          ! HSC row
+     aa6(4,1) = 0._r8
+     aa6(4,2) =         a6 * h6 * alvsfc
+     aa6(4,3) =         a6 * h7
+     aa6(4,4) = 1._r8 + a6 * (h6 + h7)
+     aa6(4,5) = 0._r8
+     aa6(4,6) =       - a6 * h7
+     yy6(4)   =         a6 * (y5 - h6 * alvsfc * sfcwater_mass)                          ! HSC row
 
-     call matrix8_4x4(AA4,YY4,XX4,sing); if (sing) call sing_print(iland,9,4,aa4,yy4,glatw,glonw)
+     aa6(5,1) =       - a9 * h8
+     aa6(5,2) =       - a9 * h8
+     aa6(5,3) = 0._r8
+     aa6(5,4) = 0._r8
+     aa6(5,5) = 1._r8 + a9 * h8
+     aa6(5,6) = 0._r8
+     yy6(5)   =         a9 * y9   ! WCA row
 
-     if (xx4(1) > -eps_wxfer .and. &
-         xx4(2) > -eps_wxfer) then ! test was successful
+     aa6(6,1) = 0._r8
+     aa6(6,2) = 0._r8
+     aa6(6,3) =       - a10 * h7
+     aa6(6,4) =       - a10 * h7
+     aa6(6,5) = 0._r8
+     aa6(6,6) = 1._r8 + a10 * h7
+     yy6(6)   =         a10 * y10 ! HCA row
+
+     call matrix8_NxN(6,aa6,yy6,xx6,sing); if (sing) call sing_print(iwsfc,'land9',6,aa6,yy6,glatw,glonw)
+
+     if (xx6(1) > -eps_wxfer .and. &
+         xx6(2) > -eps_wxfer) then ! test was successful
 
         wxfervc = veg_water
         wxfersc = sfcwater_mass
-        hxfervc = xx4(3)
-        hxfersc = xx4(4)
-        wxfergc = xx4(2)
-        transp  = xx4(1)
+        hxfervc = xx6(3)
+        hxfersc = xx6(4)
+        wxfergc = xx6(2)
+        transp  = xx6(1)
+        wxferca = xx6(5)
+        hxferca = xx6(6)
         itest = 9
         go to 20
      endif
@@ -1481,44 +1825,70 @@ Contains
      if (skiptest(10)) go to 11
 
 ! Test 10:  If some sfcwater is present, and given zero vapor flux with soil,
-!          solve 4x4 system to test for condensation onto vegetation and
+!          solve 6x6 system to test for condensation onto vegetation and
 !          partial evaporation of sfcwater
 
      if (sfcwater_mass > 0.) then
 
-        aa4(1,1) = 1._r8 + a1 * (h1 * alvveg + h4)
-        aa4(1,2) =         a1 * h4
-        aa4(1,3) =         a1 * h1
-        aa4(1,4) = 0._r8
-        yy4(1)   =         a1 * y1  ! WVC row
+        aa6(1,1) = 1._r8 + a1 * (h1 * alvveg + h4)
+        aa6(1,2) =         a1 * h4
+        aa6(1,3) =         a1 * h1
+        aa6(1,4) = 0._r8
+        aa6(1,5) =       - a1 * h4
+        aa6(1,6) = 0._r8
+        yy6(1)   =         a1 * y1  ! WVC row
 
-        aa4(2,1) =         a7 * h4
-        aa4(2,2) = 1._r8 + a7 * (h2 * alvsfc + h4)
-        aa4(2,3) = 0._r8
-        aa4(2,4) =         a7 * h2
-        yy4(2)   =         a7 * y2  ! WSC row
+        aa6(2,1) =         a7 * h4
+        aa6(2,2) = 1._r8 + a7 * (h2 * alvsfc + h4)
+        aa6(2,3) = 0._r8
+        aa6(2,4) =         a7 * h2
+        aa6(2,5) =       - a7 * h4
+        aa6(2,6) = 0._r8
+        yy6(2)   =         a7 * y2  ! WSC row
 
-        aa4(3,1) =         a2 * h5 * alvveg
-        aa4(3,2) = 0._r8
-        aa4(3,3) = 1._r8 + a2 * (h5 + h7)
-        aa4(3,4) =         a2 * h7
-        yy4(3)   =         a2 * y4  ! HVC row
+        aa6(3,1) =         a2 * h5 * alvveg
+        aa6(3,2) = 0._r8
+        aa6(3,3) = 1._r8 + a2 * (h5 + h7)
+        aa6(3,4) =         a2 * h7
+        aa6(3,5) = 0._r8
+        aa6(3,6) =       - a2 * h7
+        yy6(3)   =         a2 * y4  ! HVC row
 
-        aa4(4,1) = 0._r8
-        aa4(4,2) =         a6 * h6 * alvsfc
-        aa4(4,3) =         a6 * h7
-        aa4(4,4) = 1._r8 + a6 * (h6 + h7)
-        yy4(4)   =         a6 * y5  ! HSC row
+        aa6(4,1) = 0._r8
+        aa6(4,2) =         a6 * h6 * alvsfc
+        aa6(4,3) =         a6 * h7
+        aa6(4,4) = 1._r8 + a6 * (h6 + h7)
+        aa6(4,5) = 0._r8
+        aa6(4,6) =       - a6 * h7
+        yy6(4)   =         a6 * y5  ! HSC row
 
-        call matrix8_4x4(AA4,YY4,XX4,sing); if (sing) call sing_print(iland,10,4,aa4,yy4,glatw,glonw)
+        aa6(5,1) =       - a9 * h8
+        aa6(5,2) =       - a9 * h8
+        aa6(5,3) = 0._r8
+        aa6(5,4) = 0._r8
+        aa6(5,5) = 1._r8 + a9 * h8
+        aa6(5,6) = 0._r8
+        yy6(5)   =         a9 * y9   ! WCA row
 
-        if (xx4(1) <  eps_wxfer .and. &
-            xx4(2) > -eps_wxfer .and. xx4(2) < sfcwater_mass) then ! test was successful
+        aa6(6,1) = 0._r8
+        aa6(6,2) = 0._r8
+        aa6(6,3) =       - a10 * h7
+        aa6(6,4) =       - a10 * h7
+        aa6(6,5) = 0._r8
+        aa6(6,6) = 1._r8 + a10 * h7
+        yy6(6)   =         a10 * y10 ! HCA row
 
-           wxfervc = xx4(1)
-           wxfersc = xx4(2)
-           hxfervc = xx4(3)
-           hxfersc = xx4(4)
+        call matrix8_NxN(6,AA6,YY6,XX6,sing); if (sing) call sing_print(iwsfc,'land10',6,aa6,yy6,glatw,glonw)
+
+        if (xx6(1) <  eps_wxfer .and. &
+            xx6(2) > -eps_wxfer .and. xx6(2) < sfcwater_mass) then ! test was successful
+
+           wxfervc = xx6(1)
+           wxfersc = xx6(2)
+           hxfervc = xx6(3)
+           hxfersc = xx6(4)
+           wxferca = xx6(5)
+           hxferca = xx6(6)
            wxfergc = 0.
            transp  = 0.
            itest = 10
@@ -1528,7 +1898,7 @@ Contains
         ! If this test resulted in condensation onto vegetation,
         ! skip past tests 11 and 12
 
-        if (xx4(1) < -eps_wxfer) then
+        if (xx6(1) < -eps_wxfer) then
            skiptest(11) = .true.
            skiptest(12) = .true.
         endif
@@ -1539,48 +1909,74 @@ Contains
      if (skiptest(11)) go to 12
 
 ! Test 11:  If some sfcwater is present and vegetation is wet, and given zero
-!          vapor flux with soil, solve 4x4 system to test for partial
+!          vapor flux with soil, solve 6x6 system to test for partial
 !          evaporation from vegetation and partial evaporation of sfcwater
 
      if (sfcwater_mass > 0. .and. iwetveg) then
 
-        aa4(1,1) = 1._r8 + (a3 + a4) * (h1 * alvveg + h4)
-        aa4(1,2) =         (a3 + a4) * h4
-        aa4(1,3) =         (a3 + a4) * h1
-        aa4(1,4) = 0._r8
-        yy4(1)   =         (a3 + a4) * y1  ! WVC row
+        aa6(1,1) = 1._r8 + (a3 + a4) * (h1 * alvveg + h4)
+        aa6(1,2) =         (a3 + a4) * h4
+        aa6(1,3) =         (a3 + a4) * h1
+        aa6(1,4) = 0._r8
+        aa6(1,5) =       - (a3 + a4) * h4
+        aa6(1,6) = 0._r8
+        yy6(1)   =         (a3 + a4) * y1  ! WVC row
 
-        aa4(2,1) =         a7 * h4
-        aa4(2,2) = 1._r8 + a7 * (h2 * alvsfc + h4)
-        aa4(2,3) = 0._r8
-        aa4(2,4) =         a7 * h2
-        yy4(2)   =         a7 * y2         ! WSC row
+        aa6(2,1) =         a7 * h4
+        aa6(2,2) = 1._r8 + a7 * (h2 * alvsfc + h4)
+        aa6(2,3) = 0._r8
+        aa6(2,4) =         a7 * h2
+        aa6(2,5) =       - a7 * h4
+        aa6(2,6) = 0._r8
+        yy6(2)   =         a7 * y2         ! WSC row
 
-        aa4(3,1) =         a2 * h5 * alvveg
-        aa4(3,2) = 0._r8
-        aa4(3,3) = 1._r8 + a2 * (h5 + h7)
-        aa4(3,4) =         a2 * h7
-        yy4(3)   =         a2 * y4         ! HVC row
+        aa6(3,1) =         a2 * h5 * alvveg
+        aa6(3,2) = 0._r8
+        aa6(3,3) = 1._r8 + a2 * (h5 + h7)
+        aa6(3,4) =         a2 * h7
+        aa6(3,5) = 0._r8
+        aa6(3,6) =       - a2 * h7
+        yy6(3)   =         a2 * y4         ! HVC row
 
-        aa4(4,1) = 0._r8
-        aa4(4,2) =         a6 * h6 * alvsfc
-        aa4(4,3) =         a6 * h7
-        aa4(4,4) = 1._r8 + a6 * (h6 + h7)
-        yy4(4)   =         a6 * y5         ! HSC row
+        aa6(4,1) = 0._r8
+        aa6(4,2) =         a6 * h6 * alvsfc
+        aa6(4,3) =         a6 * h7
+        aa6(4,4) = 1._r8 + a6 * (h6 + h7)
+        aa6(4,5) = 0._r8
+        aa6(4,6) =       - a6 * h7
+        yy6(4)   =         a6 * y5         ! HSC row
 
-        call matrix8_4x4(AA4,YY4,XX4,sing); if (sing) call sing_print(iland,11,4,aa4,yy4,glatw,glonw)
+        aa6(5,1) =       - a9 * h8
+        aa6(5,2) =       - a9 * h8
+        aa6(5,3) = 0._r8
+        aa6(5,4) = 0._r8
+        aa6(5,5) = 1._r8 + a9 * h8
+        aa6(5,6) = 0._r8
+        yy6(5)   =         a9 * y9   ! WCA row
 
-        evap = xx4(1) * a3 / (a3 + a4) ! evaporation of veg_water
+        aa6(6,1) = 0._r8
+        aa6(6,2) = 0._r8
+        aa6(6,3) =       - a10 * h7
+        aa6(6,4) =       - a10 * h7
+        aa6(6,5) = 0._r8
+        aa6(6,6) = 1._r8 + a10 * h7
+        yy6(6)   =         a10 * y10 ! HCA row
 
-        if (xx4(1) > -eps_wxfer .and. evap <= veg_water .and. &
-            xx4(2) > -eps_wxfer .and. xx4(2) <= sfcwater_mass) then ! test was successful
+        call matrix8_NxN(6,aa6,yy6,xx6,sing); if (sing) call sing_print(iwsfc,'land11',6,aa6,yy6,glatw,glonw)
+
+        evap = xx6(1) * a3 / (a3 + a4) ! evaporation of veg_water
+
+        if (xx6(1) > -eps_wxfer .and. evap <= veg_water .and. &
+            xx6(2) > -eps_wxfer .and. xx6(2) <= sfcwater_mass) then ! test was successful
 
            wxfervc = evap
-           wxfersc = xx4(2)
-           hxfervc = xx4(3)
-           hxfersc = xx4(4)
+           wxfersc = xx6(2)
+           hxfervc = xx6(3)
+           hxfersc = xx6(4)
+           wxferca = xx6(5)
+           hxferca = xx6(6)
            wxfergc = 0.
-           transp  = xx4(1) - evap
+           transp  = xx6(1) - evap
            itest = 11
            go to 20
         endif
@@ -1598,47 +1994,73 @@ Contains
      if (skiptest(12)) go to 13
 
 ! Test 12:  If some sfcwater is present, given complete evaporation of any
-!          veg_water, and given zero vapor flux with soil, solve 4x4 system
+!          veg_water, and given zero vapor flux with soil, solve 6x6 system
 !          to test for zero or positive transpiration and partial evaporation of
 !          any surface water
 
      if (sfcwater_mass > 0.) then
 
-        aa4(1,1) = 1._r8 + a4 * (h1 * alvveg + h4)
-        aa4(1,2) =         a4 * h4
-        aa4(1,3) =         a4 * h1
-        aa4(1,4) = 0._r8
-        yy4(1)   =         a4 * (y1 - (h1 * alvveg + h4) * veg_water)  ! WVC row
+        aa6(1,1) = 1._r8 + a4 * (h1 * alvveg + h4)
+        aa6(1,2) =         a4 * h4
+        aa6(1,3) =         a4 * h1
+        aa6(1,4) = 0._r8
+        aa6(1,5) =       - a4 * h4
+        aa6(1,6) = 0._r8
+        yy6(1)   =         a4 * (y1 - (h1 * alvveg + h4) * veg_water)  ! WVC row
 
-        aa4(2,1) =         a7 * h4
-        aa4(2,2) = 1._r8 + a7 * (h2 * alvsfc + h4)
-        aa4(2,3) = 0._r8
-        aa4(2,4) =         a7 * h2
-        yy4(2)   =         a7 * (y2 - h4               * veg_water)  ! WSC row
+        aa6(2,1) =         a7 * h4
+        aa6(2,2) = 1._r8 + a7 * (h2 * alvsfc + h4)
+        aa6(2,3) = 0._r8
+        aa6(2,4) =         a7 * h2
+        aa6(2,5) =       - a7 * h4
+        aa6(2,6) = 0._r8
+        yy6(2)   =         a7 * (y2 - h4               * veg_water)  ! WSC row
 
-        aa4(3,1) =         a2 * h5 * alvveg
-        aa4(3,2) = 0._r8
-        aa4(3,3) = 1._r8 + a2 * (h5 + h7)
-        aa4(3,4) =         a2 * h7
-        yy4(3)   =         a2 * (y4 - h5 * alvveg        * veg_water)  ! HVC row
+        aa6(3,1) =         a2 * h5 * alvveg
+        aa6(3,2) = 0._r8
+        aa6(3,3) = 1._r8 + a2 * (h5 + h7)
+        aa6(3,4) =         a2 * h7
+        aa6(3,5) = 0._r8
+        aa6(3,6) =       - a2 * h7
+        yy6(3)   =         a2 * (y4 - h5 * alvveg        * veg_water)  ! HVC row
 
-        aa4(4,1) = 0._r8
-        aa4(4,2) =         a6 * h6 * alvsfc
-        aa4(4,3) =         a6 * h7
-        aa4(4,4) = 1._r8 + a6 * (h6 + h7)
-        yy4(4)   =         a6 * y5                                   ! HSC row
+        aa6(4,1) = 0._r8
+        aa6(4,2) =         a6 * h6 * alvsfc
+        aa6(4,3) =         a6 * h7
+        aa6(4,4) = 1._r8 + a6 * (h6 + h7)
+        aa6(4,5) = 0._r8
+        aa6(4,6) =       - a6 * h7
+        yy6(4)   =         a6 * y5                                   ! HSC row
 
-        call matrix8_4x4(AA4,YY4,XX4,sing); if (sing) call sing_print(iland,12,4,aa4,yy4,glatw,glonw)
+        aa6(5,1) =       - a9 * h8
+        aa6(5,2) =       - a9 * h8
+        aa6(5,3) = 0._r8
+        aa6(5,4) = 0._r8
+        aa6(5,5) = 1._r8 + a9 * h8
+        aa6(5,6) = 0._r8
+        yy6(5)   =         a9 * y9   ! WCA row
 
-        if (xx4(1) > -eps_wxfer .and. &
-            xx4(2) > -eps_wxfer .and. xx4(2) <= sfcwater_mass) then ! test was successful
+        aa6(6,1) = 0._r8
+        aa6(6,2) = 0._r8
+        aa6(6,3) =       - a10 * h7
+        aa6(6,4) =       - a10 * h7
+        aa6(6,5) = 0._r8
+        aa6(6,6) = 1._r8 + a10 * h7
+        yy6(6)   =         a10 * y10 ! HCA row
+
+        call matrix8_NxN(6,aa6,yy6,xx6,sing); if (sing) call sing_print(iwsfc,'land12',6,aa6,yy6,glatw,glonw)
+
+        if (xx6(1) > -eps_wxfer .and. &
+            xx6(2) > -eps_wxfer .and. xx6(2) <= sfcwater_mass) then ! test was successful
 
            wxfervc = veg_water
-           wxfersc = xx4(2)
-           hxfervc = xx4(3)
-           hxfersc = xx4(4)
+           wxfersc = xx6(2)
+           hxfervc = xx6(3)
+           hxfersc = xx6(4)
+           wxferca = xx6(5)
+           hxferca = xx6(6)
            wxfergc = 0.
-           transp  = xx4(1)
+           transp  = xx6(1)
            itest = 12
            go to 20
         endif
@@ -1649,31 +2071,53 @@ Contains
      if (skiptest(13)) go to 14
 
 ! Test 13:  Given zero vapor flux with soil and given complete evaporation of
-!          any sfcwater, solve 3x3 system to test for condensation onto vegetation
+!          any sfcwater, solve 5x5 system to test for condensation onto vegetation
 
-     aa3(1,1) = 1._r8 + a1 * (h1 * alvveg + h4)
-     aa3(1,2) =         a1 * h1
-     aa3(1,3) = 0._r8
-     yy3(1)   =         a1 * (y1 - h4 * sfcwater_mass)         ! WVC row
+     aa5(1,1) = 1._r8 + a1 * (h1 * alvveg + h4)
+     aa5(1,2) =         a1 * h1
+     aa5(1,3) = 0._r8
+     aa5(1,4) =       - a1 * h4
+     aa5(1,5) = 0._r8
+     yy5(1)   =         a1 * (y1 - h4 * sfcwater_mass)         ! WVC row
 
-     aa3(2,1) =         a2 * h5 * alvveg
-     aa3(2,2) = 1._r8 + a2 * (h5 + h7)
-     aa3(2,3) =         a2 * h7
-     yy3(2)   =         a2 * y4                                ! HVC row
+     aa5(2,1) =         a2 * h5 * alvveg
+     aa5(2,2) = 1._r8 + a2 * (h5 + h7)
+     aa5(2,3) =         a2 * h7
+     aa5(2,4) = 0._r8
+     aa5(2,5) =       - a2 * h7
+     yy5(2)   =         a2 * y4                                ! HVC row
 
-     aa3(3,1) = 0._r8
-     aa3(3,2) =         a6 * h7
-     aa3(3,3) = 1._r8 + a6 * (h6 + h7)
-     yy3(3)   =         a6 * (y5 - h6 * alvsfc * sfcwater_mass)  ! HSC row
+     aa5(3,1) = 0._r8
+     aa5(3,2) =         a6 * h7
+     aa5(3,3) = 1._r8 + a6 * (h6 + h7)
+     aa5(3,4) = 0._r8
+     aa5(3,5) =       - a6 * h7
+     yy5(3)   =         a6 * (y5 - h6 * alvsfc * sfcwater_mass)  ! HSC row
 
-     call matrix8_3x3(AA3,YY3,XX3,sing); if (sing) call sing_print(iland,13,3,aa3,yy3,glatw,glonw)
+     aa5(4,1) =       - a9 * h8
+     aa5(4,2) = 0._r8
+     aa5(4,3) = 0._r8
+     aa5(4,4) = 1._r8 + a9 * h8
+     aa5(4,5) = 0._r8
+     yy5(4)   =         a9 * y9   ! WCA row
 
-     if (xx3(1) < eps_wxfer) then ! test was successful
+     aa5(5,1) = 0._r8
+     aa5(5,2) =       - a10 * h7
+     aa5(5,3) =       - a10 * h7
+     aa5(5,4) = 0._r8
+     aa5(5,5) = 1._r8 + a10 * h7
+     yy5(5)   =         a10 * y10 ! HCA row
 
-        wxfervc = xx3(1)
+     call matrix8_NxN(5,aa5,yy5,xx5,sing); if (sing) call sing_print(iwsfc,'land13',5,aa5,yy5,glatw,glonw)
+
+     if (xx5(1) < eps_wxfer) then ! test was successful
+
+        wxfervc = xx5(1)
         wxfersc = sfcwater_mass
-        hxfervc = xx3(2)
-        hxfersc = xx3(3)
+        hxfervc = xx5(2)
+        hxfersc = xx5(3)
+        wxferca = xx5(4)
+        hxferca = xx5(5)
         wxfergc = 0.
         transp  = 0.
         itest = 13
@@ -1683,7 +2127,7 @@ Contains
      ! If this test resulted in condensation onto vegetation,
      ! skip past tests 14 and 15
 
-     if (xx3(1) < -eps_wxfer) then
+     if (xx5(1) < -eps_wxfer) then
         skiptest(14) = .true.
         skiptest(15) = .true.
      endif
@@ -1693,38 +2137,60 @@ Contains
      if (skiptest(14)) go to 15
 
 ! Test 14:  If vegetation is wet, and given zero vapor flux with soil and
-!          complete evaporation of any sfcwater, solve 3x3 system to test for
+!          complete evaporation of any sfcwater, solve 5x5 system to test for
 !          partial evaporation from vegetation
 
      if (iwetveg) then
 
-        aa3(1,1) = 1._r8 + (a3 + a4) * (h1 * alvveg + h4)
-        aa3(1,2) =         (a3 + a4) * h1
-        aa3(1,3) = 0._r8
-        yy3(1)   =         (a3 + a4) * (y1 - h4 * sfcwater_mass)  ! WVC row
+        aa5(1,1) = 1._r8 + (a3 + a4) * (h1 * alvveg + h4)
+        aa5(1,2) =         (a3 + a4) * h1
+        aa5(1,3) = 0._r8
+        aa5(1,4) =       - (a3 + a4) * h4
+        aa5(1,5) = 0._r8
+        yy5(1)   =         (a3 + a4) * (y1 - h4 * sfcwater_mass)  ! WVC row
 
-        aa3(2,1) =         a2 * h5 * alvveg
-        aa3(2,2) = 1._r8 + a2 * (h5 + h7)
-        aa3(2,3) =         a2 * h7
-        yy3(2)   =         a2 * y4                                ! HVC row
+        aa5(2,1) =         a2 * h5 * alvveg
+        aa5(2,2) = 1._r8 + a2 * (h5 + h7)
+        aa5(2,3) =         a2 * h7
+        aa5(2,4) = 0._r8
+        aa5(2,5) =       - a2 * h7
+        yy5(2)   =         a2 * y4                                ! HVC row
 
-        aa3(3,1) = 0._r8
-        aa3(3,2) =         a6 * h7
-        aa3(3,3) = 1._r8 + a6 * (h6 + h7)
-        yy3(3)   =         a6 * (y5 - h6 * alvsfc * sfcwater_mass)  ! HSC row
+        aa5(3,1) = 0._r8
+        aa5(3,2) =         a6 * h7
+        aa5(3,3) = 1._r8 + a6 * (h6 + h7)
+        aa5(3,4) = 0._r8
+        aa5(3,5) =       - a6 * h7
+        yy5(3)   =         a6 * (y5 - h6 * alvsfc * sfcwater_mass)  ! HSC row
 
-        call matrix8_3x3(AA3,YY3,XX3,sing); if (sing) call sing_print(iland,14,3,aa3,yy3,glatw,glonw)
+        aa5(4,1) =       - a9 * h8
+        aa5(4,2) = 0._r8
+        aa5(4,3) = 0._r8
+        aa5(4,4) = 1._r8 + a9 * h8
+        aa5(4,5) = 0._r8
+        yy5(4)   =         a9 * y9   ! WCA row
 
-        evap = xx3(1) * a3 / (a3 + a4) ! evaporation of veg_water
+        aa5(5,1) = 0._r8
+        aa5(5,2) =       - a10 * h7
+        aa5(5,3) =       - a10 * h7
+        aa5(5,4) = 0._r8
+        aa5(5,5) = 1._r8 + a10 * h7
+        yy5(5)   =         a10 * y10 ! HCA row
 
-        if (xx3(1) > -eps_wxfer .and. evap <= veg_water) then ! test was successful
+        call matrix8_NxN(5,aa5,yy5,xx5,sing); if (sing) call sing_print(iwsfc,'land14',5,aa5,yy5,glatw,glonw)
+
+        evap = xx5(1) * a3 / (a3 + a4) ! evaporation of veg_water
+
+        if (xx5(1) > -eps_wxfer .and. evap <= veg_water) then ! test was successful
 
            wxfervc = evap
            wxfersc = sfcwater_mass
-           hxfervc = xx3(2)
-           hxfersc = xx3(3)
+           hxfervc = xx5(2)
+           hxfersc = xx5(3)
+           wxferca = xx5(4)
+           hxferca = xx5(5)
            wxfergc = 0.
-           transp  = xx3(1) - evap
+           transp  = xx5(1) - evap
            itest = 14
            go to 20
         endif
@@ -1746,31 +2212,53 @@ Contains
 !          of any sfcwater, and zero vapor flux with soil, solve 3x3 system
 !          to test for zero or positive transpiration
 
-     aa3(1,1) = 1._r8 + a4 * (h1 * alvveg + h4)
-     aa3(1,2) =         a4 * h1
-     aa3(1,3) = 0._r8
-     yy3(1)   =         a4 * (y1 - (h1 * alvveg + h4) * veg_water - h4 * sfcwater_mass)  ! WVC row
+     aa5(1,1) = 1._r8 + a4 * (h1 * alvveg + h4)
+     aa5(1,2) =         a4 * h1
+     aa5(1,3) = 0._r8
+     aa5(1,4) =       - a4 * h4
+     aa5(1,5) = 0._r8
+     yy5(1)   =         a4 * (y1 - (h1 * alvveg + h4) * veg_water - h4 * sfcwater_mass)  ! WVC row
 
-     aa3(2,1) =         a2 * h5 * alvveg
-     aa3(2,2) = 1._r8 + a2 * (h5 + h7)
-     aa3(2,3) =         a2 * h7
-     yy3(2)   =         a2 * (y4 - h5 * alvveg        * veg_water)                        ! HVC row
+     aa5(2,1) =         a2 * h5 * alvveg
+     aa5(2,2) = 1._r8 + a2 * (h5 + h7)
+     aa5(2,3) =         a2 * h7
+     aa5(2,4) = 0._r8
+     aa5(2,5) =       - a2 * h7
+     yy5(2)   =         a2 * (y4 - h5 * alvveg        * veg_water)              ! HVC row
 
-     aa3(3,1) = 0._r8
-     aa3(3,2) =         a6 * h7
-     aa3(3,3) = 1._r8 + a6 * (h6 + h7)
-     yy3(3)   =         a6 * (y5 - h6 * alvsfc * sfcwater_mass)                           ! HSC row
+     aa5(3,1) = 0._r8
+     aa5(3,2) =         a6 * h7
+     aa5(3,3) = 1._r8 + a6 * (h6 + h7)
+     aa5(3,4) = 0._r8
+     aa5(3,5) =       - a6 * h7
+     yy5(3)   =         a6 * (y5 - h6 * alvsfc * sfcwater_mass)                 ! HSC row
 
-     call matrix8_3x3(AA3,YY3,XX3,sing); if (sing) call sing_print(iland,15,3,aa3,yy3,glatw,glonw)
+     aa5(4,1) =       - a9 * h8
+     aa5(4,2) = 0._r8
+     aa5(4,3) = 0._r8
+     aa5(4,4) = 1._r8 + a9 * h8
+     aa5(4,5) = 0._r8
+     yy5(4)   =         a9 * y9   ! WCA row
 
-     if (xx3(1) > -eps_wxfer) then ! test was successful
+     aa5(5,1) = 0._r8
+     aa5(5,2) =       - a10 * h7
+     aa5(5,3) =       - a10 * h7
+     aa5(5,4) = 0._r8
+     aa5(5,5) = 1._r8 + a10 * h7
+     yy5(5)   =         a10 * y10 ! HCA row
+
+     call matrix8_NxN(5,aa5,yy5,xx5,sing); if (sing) call sing_print(iwsfc,'land15',5,aa5,yy5,glatw,glonw)
+
+     if (xx5(1) > -eps_wxfer) then ! test was successful
 
         wxfervc = veg_water
         wxfersc = sfcwater_mass
-        hxfervc = xx3(2)
-        hxfersc = xx3(3)
+        hxfervc = xx5(2)
+        hxfersc = xx5(3)
+        wxferca = xx5(4)
+        hxferca = xx5(5)
         wxfergc = 0.
-        transp  = xx3(1)
+        transp  = xx5(1)
         itest = 15
         go to 20
      endif
@@ -1788,7 +2276,7 @@ Contains
 
      ! Update components
 
-     cantemp = cantemp + (hxfervc + hxfersc - cp * sxfer_t) * hcapcani
+     cantemp = cantemp + (hxfervc + hxfersc - hxferca) * hcapcani
 
      veg_water = max(0.,veg_water - wxfervc)
 
@@ -1804,7 +2292,10 @@ Contains
 
      energy_per_m2 = energy_per_m2 + radsfc - hxfersc - (wxfersc + wxfergc) * alvi
 
-     canrrv = canrrv + (wxfervc + transp + wxfersc + wxfergc - sxfer_r) * canairi
+     canrrv = canrrv + (wxfervc + transp + wxfersc + wxfergc - wxferca) * canairi
+
+     sfluxt = hxferca / dt_leaf
+     sfluxr = wxferca / dt_leaf
 
      delw            = dslzi(nzg) * wxfergc * .001
      soil_water(nzg) = soil_water(nzg) - delw
@@ -1934,28 +2425,28 @@ Contains
 
 !===============================================================================
 
-  subroutine sing_print(iland,ieqn,nsize,aa,yy,glatw,glonw)
+  subroutine sing_print(iwsfc,ieqn,nsize,aa,yy,glatw,glonw)
 
   use consts_coms, only: r8
 
   implicit none
 
-  integer, intent(in) :: iland, ieqn, nsize
-
-  real(r8), intent(in) :: aa(nsize,nsize), yy(nsize)
-  real,     intent(in) :: glatw, glonw
+  integer,          intent(in) :: iwsfc, nsize
+  character(len=*), intent(in) :: ieqn
+  real(r8),         intent(in) :: aa(nsize,nsize), yy(nsize)
+  real,             intent(in) :: glatw, glonw
 
   integer :: irow
 
   print*, 'singular matrix '
-  print*, 'iland, ieqn, nsize ', iland, ieqn, nsize
-  print*, 'glatw, glonw ', glatw, glonw
+  print*, 'iwsfc, ieqn, nsize: ', iwsfc, ieqn, nsize
+  print*, 'glatw, glonw: ', glatw, glonw
 
   do irow = 1,nsize
-     write(*,'(a,i5,5e15.5)') 'row, aa, yy ',irow,aa(irow,1:nsize),yy(irow)
+     write(*,'(a,i5,12e15.5)') 'row, aa, yy: ',irow,aa(irow,1:nsize),yy(irow)
   enddo
 
-  stop 'singular matrix '
+  stop 'stopping singular matrix '
 
   end subroutine sing_print
 

@@ -159,7 +159,7 @@ integer, save :: indp, icase
 integer :: jasfc
 real :: area_sum
 real :: zobs, press_zobs, exner_zobs, wind_zobs, theta_zobs, rrv_zobs
-real :: canexner, cantheta, canthetav, airthetav, tstar, rstar, ufree
+real :: cantheta, canthetav, airthetav, ufree
 
 real :: vcc
 real :: vcc_init
@@ -1636,7 +1636,7 @@ case(72) ! 'SENSFLUX'
 
    if (.not. allocated(sfluxt)) go to 1000
 
-   fldval = sfluxt(i) * cp
+   fldval = sfluxt(i)
 
 case(73) ! 'VAPFLUX'
 
@@ -3559,7 +3559,7 @@ case(313) ! 'HEAD_WTAB'
 
 case(314) ! 'SFCG_SENSFLUX'
 
-   fldval = sfcg%sfluxt(i) * cp
+   fldval = sfcg%sfluxt(i)
 
 case(315) ! 'SFCG_LATFLUX'
 
@@ -3577,20 +3577,17 @@ case(317:320) ! 'SFCG_SPEED10M', 'SFCG_SPEED2M', 'SFCG_TEMPK2M', 'SFCG_RVAP2M'
       zobs = 2.
    endif
 
-   press_zobs = sfcg%prss(i) - zobs * sfcg%rhos(i) ! hydrostatic eqn.
+   press_zobs = sfcg%prss(i) - grav * zobs * sfcg%rhos(i) ! hydrostatic eqn.
    exner_zobs = (press_zobs * p00i) ** rocp
 
-   canexner = (sfcg%prss(i) * p00i) ** rocp
-   cantheta  = sfcg%cantemp(i) / canexner
+   cantheta  = sfcg%cantemp(i) / sfcg%canexner(i)
    canthetav = cantheta         * (1.0 + eps_virt * sfcg%canrrv(i))
    airthetav = sfcg%airtheta(i) * (1.0 + eps_virt * sfcg%airrrv(i))
 
-   tstar = -sfcg%sfluxt(i) / (sfcg%ustar(i) * sfcg%rhos(i))
-   rstar = -sfcg%sfluxr(i) / (sfcg%ustar(i) * sfcg%rhos(i))
-
    ufree = (grav * sfcg%dzt_bot(i) * max(sfcg%wthv(i),0.0) / airthetav) ** onethird
 
-   call sfclyr_profile (sfcg%vels(i), sfcg%ustar(i), tstar, rstar, &
+   call sfclyr_profile (sfcg%vels(i), sfcg%rhos(i), sfcg%canexner(i), &
+                        sfcg%ustar(i), sfcg%sfluxt(i), sfcg%sfluxr(i), &
                         sfcg%dzt_bot(i), sfcg%rough(i), ufree, &
                         cantheta, canthetav, sfcg%canrrv(i), airthetav, &
                         zobs, wind_zobs, theta_zobs, rrv_zobs)
@@ -3748,7 +3745,7 @@ case(346) ! 'SFCG_SKINTEMPK_DIF2'
 case(347) ! 'SFCG_SENSFLUX_DIF2'
 
    if (.not. allocated(sfluxt_accum)) go to 1000
-   fldval = (sfluxt_accum_prev0(i) - sfluxt_accum_prev1(i)) * cp
+   fldval = sfluxt_accum_prev0(i) - sfluxt_accum_prev1(i)
 
    if (abs(time8_prev0 - time8_prev1) > .99) then
       fldval = fldval / (time8_prev0 - time8_prev1)
@@ -3934,8 +3931,8 @@ case(364) ! 'SFCG_SKINTEMPK_DIF4'
 case(365) ! 'SFCG_SENSFLUX_DIF4'
 
    if (.not. allocated(sfluxt_accum)) go to 1000
-   fldval1 = (sfluxt_accum_prev0(i) - sfluxt_accum_prev1(i)) * cp
-   fldval2 = (sfluxt_accum_prev2(i) - sfluxt_accum_prev3(i)) * cp
+   fldval1 = sfluxt_accum_prev0(i) - sfluxt_accum_prev1(i)
+   fldval2 = sfluxt_accum_prev2(i) - sfluxt_accum_prev3(i)
 
    if (abs(time8_prev0 - time8_prev1) > .99) then
       fldval1 = fldval1 / (time8_prev0 - time8_prev1)
@@ -4079,7 +4076,7 @@ case(401:409) ! 'ASFCG_VELS',       'ASFCG_AIRTEMPK', 'ASFCG_AIRRRV',
       elseif (trim(fldname) == 'ASFCG_CANRRV'  ) then
          fldval = fldval + sfcg%canrrv (iwsfc) * sfcg%area(iwsfc) * 1.e3
       elseif (trim(fldname) == 'ASFCG_SENSFLUX') then
-         fldval = fldval + sfcg%sfluxt (iwsfc) * sfcg%area(iwsfc) * cp
+         fldval = fldval + sfcg%sfluxt (iwsfc) * sfcg%area(iwsfc)
       elseif (trim(fldname) == 'ASFCG_LATFLUX' ) then
          fldval = fldval + sfcg%sfluxr (iwsfc) * sfcg%area(iwsfc) * alvl
       elseif (trim(fldname) == 'ASFCG_VAPFLUX' ) then
@@ -4182,7 +4179,7 @@ case(421:435) ! 'ASFCG_VELS_DIF2',          'ASFCG_AIRTEMPK_DIF2',      'ASFCG_A
       elseif (trim(fldname) == 'ASFCG_SENSFLUX_DIF2') then
          if (.not. allocated(sfluxt_accum)) go to 1000
          fldval = fldval +  (sfluxt_accum_prev0(iwsfc)  &
-                           - sfluxt_accum_prev1(iwsfc)) * sfcg%area(iwsfc) * cp
+                           - sfluxt_accum_prev1(iwsfc)) * sfcg%area(iwsfc)
       elseif (trim(fldname) == 'ASFCG_LATFLUX_DIF2' ) then
          if (.not. allocated(sfluxr_accum)) go to 1000
          fldval = fldval +  (sfluxr_accum_prev0(iwsfc)  &
@@ -4290,9 +4287,9 @@ case(451:465) ! 'ASFCG_VELS_DIF4',          'ASFCG_AIRTEMPK_DIF4',      'ASFCG_A
       elseif (trim(fldname) == 'ASFCG_SENSFLUX_DIF4') then
          if ( .not. allocated(sfluxt_accum)) go to 1000
          fldval1 = fldval1 + (sfluxt_accum_prev0(iwsfc)  &
-                            - sfluxt_accum_prev1(iwsfc)) * sfcg%area(iwsfc) * cp
+                            - sfluxt_accum_prev1(iwsfc)) * sfcg%area(iwsfc)
          fldval2 = fldval2 + (sfluxt_accum_prev2(iwsfc)  &
-                            - sfluxt_accum_prev3(iwsfc)) * sfcg%area(iwsfc) * cp
+                            - sfluxt_accum_prev3(iwsfc)) * sfcg%area(iwsfc)
       elseif (trim(fldname) == 'ASFCG_LATFLUX_DIF4' ) then
          if ( .not. allocated(sfluxr_accum)) go to 1000
          fldval1 = fldval1 + (sfluxr_accum_prev0(iwsfc)  &
@@ -4795,7 +4792,7 @@ case(749) ! 'SFCG_CANTEMPK_DMAX'
 case(750) ! 'SFCG_SENSFLUX_DAVG'
 
       if (.not. allocated(sfluxt_davg)) go to 1000
-      fldval = sfluxt_davg(i) * cp
+      fldval = sfluxt_davg(i)
 
 case(751) ! 'SFCG_LATFLUX_DAVG'
 
@@ -4810,7 +4807,7 @@ case(752) ! 'SENSFLUX_DAVG'
    do j = 1,itab_w(i)%jsfc2
       iwsfc = itab_w(i)%iwsfc(j)
       jasfc = itab_w(i)%jasfc(j)
-      fldval = fldval + itab_wsfc(iwsfc)%arcoariw(jasfc) * sfluxt_davg(iwsfc) * cp
+      fldval = fldval + itab_wsfc(iwsfc)%arcoariw(jasfc) * sfluxt_davg(iwsfc)
    enddo
 
 case(753) ! 'LATFLUX_DAVG'

@@ -41,8 +41,6 @@ Module mem_ijtabs
 
   integer, allocatable :: mrl_begl(:)  ! MRL at beginning of long timestep
   integer, allocatable :: mrl_begr(:)  ! MRL at beginning of RK step
-  integer, allocatable :: mrl_begs(:)  ! MRL at beginning of short timestep
-  integer, allocatable :: mrl_ends(:)  ! MRL at end of short timestep
   integer, allocatable :: mrl_endr(:)  ! MRL at end of RK step
   integer, allocatable :: mrl_endl(:)  ! MRL at end of long timestep
   real,    allocatable :: dtrk    (:)  ! MRL RK timestep factor

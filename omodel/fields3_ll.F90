@@ -217,7 +217,7 @@ subroutine fields3_ll()
   real :: area_land_sum
   real :: vx, vy, vz
   real :: zobs, press_zobs, exner_zobs, wind_zobs, theta_zobs, rrv_zobs
-  real :: canexner, cantheta, canthetav, airthetav, tstar, rstar, ufree
+  real :: cantheta, canthetav, airthetav, ufree
   real :: frac, uwind, vwind
 
   real :: scr1a(mwa), scr1b(mwa), scr1c(mwa), scr1d(mwa)
@@ -869,29 +869,26 @@ subroutine fields3_ll()
            scr1d(iw) = scr1d(iw) + real( cantemp_accum(iwsfc)) * itab_wsfc(iwsfc)%arcoariw(jasfc)
            scr1e(iw) = scr1e(iw) + real(  canrrv_accum(iwsfc)) * itab_wsfc(iwsfc)%arcoariw(jasfc)
            scr1f(iw) = scr1f(iw) + real(skintemp_accum(iwsfc)) * itab_wsfc(iwsfc)%arcoariw(jasfc)
-           scr1g(iw) = scr1g(iw) + real(  sfluxt_accum(iwsfc)) * itab_wsfc(iwsfc)%arcoariw(jasfc) * cp
+           scr1g(iw) = scr1g(iw) + real(  sfluxt_accum(iwsfc)) * itab_wsfc(iwsfc)%arcoariw(jasfc)
            scr1h(iw) = scr1h(iw) + real(  sfluxr_accum(iwsfc)) * itab_wsfc(iwsfc)%arcoariw(jasfc) * alvl
            scr1i(iw) = scr1i(iw) + real(  sfluxr_accum(iwsfc)) * itab_wsfc(iwsfc)%arcoariw(jasfc)
 
            ! Evaluate surface-layer quantities at 10 m and 2 m
 
-           do k = 0,1
-              zobs = real(10 - 8 * k)
+           do k = 10, 2, -8
+              zobs = real(k)
 
-              press_zobs = sfcg%prss(iwsfc) - zobs * sfcg%rhos(iwsfc) ! hydrostatic eqn.
+              press_zobs = sfcg%prss(iwsfc) - grav * zobs * sfcg%rhos(iwsfc) ! hydrostatic eqn.
               exner_zobs = (press_zobs * p00i) ** rocp
 
-              canexner = (sfcg%prss(iwsfc) * p00i) ** rocp
-              cantheta  = sfcg%cantemp(iwsfc) / canexner
-              canthetav = cantheta         * (1.0 + eps_virt * sfcg%canrrv(iwsfc))
+              cantheta  = sfcg%cantemp(iwsfc) / sfcg%canexner(iwsfc)
+              canthetav = cantheta             * (1.0 + eps_virt * sfcg%canrrv(iwsfc))
               airthetav = sfcg%airtheta(iwsfc) * (1.0 + eps_virt * sfcg%airrrv(iwsfc))
-
-              tstar = -sfcg%sfluxt(iwsfc) / (sfcg%ustar(iwsfc) * sfcg%rhos(iwsfc))
-              rstar = -sfcg%sfluxr(iwsfc) / (sfcg%ustar(iwsfc) * sfcg%rhos(iwsfc))
 
               ufree = (grav * sfcg%dzt_bot(iwsfc) * max(sfcg%wthv(iwsfc),0.0) / airthetav) ** onethird
 
-              call sfclyr_profile (sfcg%vels(iwsfc), sfcg%ustar(iwsfc), tstar, rstar, &
+              call sfclyr_profile (sfcg%vels(iwsfc), sfcg%rhos(iwsfc), sfcg%canexner(iwsfc), &
+                                   sfcg%ustar(iwsfc), sfcg%sfluxt(iwsfc), sfcg%sfluxr(iwsfc), &
                                    sfcg%dzt_bot(iwsfc), sfcg%rough(iwsfc), ufree, &
                                    cantheta, canthetav, sfcg%canrrv(iwsfc), airthetav, &
                                    zobs, wind_zobs, theta_zobs, rrv_zobs)

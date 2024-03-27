@@ -504,8 +504,9 @@ end subroutine solve_eddy_diff_scalars
 subroutine solve_eddy_diff_heat(iw, thilt)
 
   use mem_turb,        only: vkh, kpblh, sfluxt, agamma, khtop
-  use mem_basic,       only: rho, thil
+  use mem_basic,       only: rho, thil, theta, tair
   use misc_coms,       only: dtsm
+  use consts_coms,     only: cp
   use mem_grid,        only: mza, lpw, volti, dzim, arw
   use oname_coms,      only: nl
   use tridiag,         only: tridiffo
@@ -570,7 +571,14 @@ subroutine solve_eddy_diff_heat(iw, thilt)
   if (nl%idiffk(itab_w(iw)%mrlw) == 1) then
      if ( agamma(ka,iw) > 1.e-7 * arw(ka,iw) ) then
 
-        wt0 = sfluxt(iw) / real(rho(ka,iw))
+! Original calculation of wt0 for sfluxt in [kg_dry K m^-2 s^-1]
+
+        ! wt0 = sfluxt(iw) / real(rho(ka,iw))
+
+! New calculation of wt0 for sfluxt in [W m^-2]
+
+        wt0 = sfluxt(iw) * theta(ka,iw) / (real(rho(ka,iw)) * cp * tair(ka,iw))
+
         do k = ka, kpblh(iw)
            rhs(k) = rhs(k) + wt0 * agamma(k,iw)
         enddo

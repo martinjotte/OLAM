@@ -160,7 +160,8 @@ subroutine plot_fields(id)
      ! Special:  For coneplots that need to follow current hurricane location, reset location coordinates.
      !           Latitude offset is in degrees (lat) when plotwid is in km, and assumes that viewazim = 0.
 
-     if (.false. .and. op%projectn(iplt) == 'C') then
+     if (ncycle_hurrinit > 0 .and. op%projectn(iplt) == 'C') then
+
         nl%plotspecs(iplt)%plotcoord1 = hlon
 
         if (nl%plotspecs(iplt)%slabloc > 89.) then ! For a cone plot, slabloc is the cone angle
@@ -168,6 +169,7 @@ subroutine plot_fields(id)
         else
            nl%plotspecs(iplt)%plotcoord2 = hlat + nl%plotspecs(iplt)%slabloc ! For concentric cross section
         endif
+
      endif
 
      ! Plot a white background for this frame

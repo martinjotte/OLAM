@@ -187,7 +187,7 @@ subroutine flux_accum()
   use misc_coms,   only: time_istp8p, dtlm, dtsm, ilwrtyp, iswrtyp, iparallel
 
   use mem_ijtabs,  only: istp, jtab_v, jtab_w, jtv_prog, &
-                         jtw_prog, mrl_begl, mrl_begs, mrl_endl
+                         jtw_prog, mrl_begl, mrl_endl
 
   use mem_basic,   only: vc, wc, press, tair, rr_v
 
@@ -223,49 +223,45 @@ subroutine flux_accum()
 
 ! Update accumulations of ATM velocity and pressure
 
-  if (mrl_begs(istp) > 0) then
+  if (allocated(vc_accum)) then
 
-     if (allocated(vc_accum)) then
-
-        !$omp parallel do private(iv,k)
-        do j = 1,jtab_v(jtv_prog)%jend; iv = jtab_v(jtv_prog)%iv(j)
-
-           ! Timestep for accumulating velocity and pressure, DTSM, is the small
-           ! (acoustic) timestep. The frequency that each IV cell is processed in this
-           ! loop should be consistent with (inversely proportional to) DTSM
-
-           do k = lpv(iv),mza
-              vc_accum(k,iv) = vc_accum(k,iv) + dtsm * real(vc(k,iv),r8)
-           enddo
-
-        enddo
-        !$omp end parallel do
-
-     endif
-
-     !$omp parallel do private(iw,k)
-     do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
+     !$omp parallel do private(iv,k)
+     do j = 1,jtab_v(jtv_prog)%jend; iv = jtab_v(jtv_prog)%iv(j)
 
         ! Timestep for accumulating velocity and pressure, DTSM, is the small
         ! (acoustic) timestep. The frequency that each IV cell is processed in this
         ! loop should be consistent with (inversely proportional to) DTSM
 
-        if (allocated(wc_accum)) then
-           do k = lpw(iw),mza
-              wc_accum(k,iw) = wc_accum(k,iw) + dtsm * real(wc(k,iw),r8)
-           enddo
-        endif
-
-        if (allocated(press_accum)) then
-           do k = lpw(iw),mza
-              press_accum(k,iw) = press_accum(k,iw) + dtsm * press(k,iw)
-           enddo
-        endif
+        do k = lpv(iv),mza
+           vc_accum(k,iv) = vc_accum(k,iv) + dtsm * real(vc(k,iv),r8)
+        enddo
 
      enddo
      !$omp end parallel do
 
   endif
+
+  !$omp parallel do private(iw,k)
+  do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
+
+     ! Timestep for accumulating velocity and pressure, DTSM, is the small
+     ! (acoustic) timestep. The frequency that each IV cell is processed in this
+     ! loop should be consistent with (inversely proportional to) DTSM
+
+     if (allocated(wc_accum)) then
+        do k = lpw(iw),mza
+           wc_accum(k,iw) = wc_accum(k,iw) + dtsm * real(wc(k,iw),r8)
+        enddo
+     endif
+
+     if (allocated(press_accum)) then
+        do k = lpw(iw),mza
+           press_accum(k,iw) = press_accum(k,iw) + dtsm * press(k,iw)
+        enddo
+     endif
+
+  enddo
+  !$omp end parallel do
 
 ! Update accumulations of ATM temperature and specific humidity
 

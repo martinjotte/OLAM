@@ -6,6 +6,7 @@ subroutine landcells(iland, timefac_ndvi, head_slope, soil_watfrac)
                            thermcond_firn
   use mem_land,      only: land, omland, nzg
   use misc_coms,     only: iparallel
+  use consts_coms,   only: grav, p00i, rocp, eps_virt, cpi
   use mem_sfcg,      only: itab_wsfc, sfcg
   use leaf4_canopy,  only: canopy, vegndvi, fast_canopy
   use leaf4_surface, only: sfcwater, sfcwater_adjust, remove_runoff
@@ -38,6 +39,9 @@ subroutine landcells(iland, timefac_ndvi, head_slope, soil_watfrac)
 
   integer :: iwsfc
 
+  real :: canexneri, cantheta, canthetav
+  real :: airthetav, ufree
+
   integer :: k     ! vertical index over soil layers
   integer :: nlsw1 ! maximum of (1,land%nlev_sfcwater(iland))
   integer :: icomb ! implicit heat balance flag [0=no, 1=yes]
@@ -62,6 +66,8 @@ subroutine landcells(iland, timefac_ndvi, head_slope, soil_watfrac)
   real :: thermcond_soil(nzg) ! soil thermal conductivity [W/(K m)]
 
   integer, parameter :: iland_print = 0
+
+  real, parameter :: onethird = 1./3.
 
   iwsfc = iland - omland
 
@@ -245,6 +251,32 @@ subroutine landcells(iland, timefac_ndvi, head_slope, soil_watfrac)
      sfcg%rough(iwsfc) = max(max(soil_rough, land%veg_rough(iland)) &
                        * (1. - land%snowfac(iland)), snow_rough)
 
+     ! Evaluate surface layer exchange coefficients vkmsfc and vkhsfc
+
+     airthetav = sfcg%airtheta(iwsfc) * (1.0 + eps_virt * sfcg%airrrv(iwsfc))
+     canexneri = 1. / sfcg%canexner(iwsfc)
+
+     cantheta  = sfcg%cantemp(iwsfc) * canexneri
+     canthetav = cantheta * (1.0 + eps_virt * sfcg%canrrv(iwsfc))
+
+     ufree = (grav * sfcg%dzt_bot(iwsfc) * max(sfcg%wthv(iwsfc),0.0) / airthetav) ** onethird
+
+     call stars(sfcg%dzt_bot (iwsfc), &
+                sfcg%rough   (iwsfc), &
+                sfcg%vels    (iwsfc), &
+                sfcg%rhos    (iwsfc), &
+                ufree               , &
+                airthetav           , &
+                canthetav           , &
+                sfcg%vkmsfc  (iwsfc), &
+                sfcg%vkhsfc  (iwsfc), &
+                sfcg%ustar   (iwsfc), &
+                sfcg%ggaer   (iwsfc)  )
+
+     if (nl%iorogslopeflg > 1) then
+        sfcg%vkmsfc(iwsfc) = sfcg%vkmsfc(iwsfc) * land%slope_fact(iland)
+     endif
+
      ! Evaluate turbulent exchanges of heat and moisture between vegetation and canopy air
      ! and also between soil or snow surface and canopy air.  Evaluate transfer of
      ! precipitation moisture and heat to vegetation and shed from vegetation to surface.
@@ -257,8 +289,9 @@ subroutine landcells(iland, timefac_ndvi, head_slope, soil_watfrac)
                  sfcg%rhos                 (iwsfc), &
                  sfcg%vels                 (iwsfc), &
                  sfcg%ustar                (iwsfc), &
-                 sfcg%sxfer_t              (iwsfc), &
-                 sfcg%sxfer_r              (iwsfc), &
+                 sfcg%vkhsfc               (iwsfc), &
+                 sfcg%sfluxt               (iwsfc), &
+                 sfcg%sfluxr               (iwsfc), &
                  sfcg%pcpg                 (iwsfc), &
                  sfcg%qpcpg                (iwsfc), &
                  sfcg%dpcpg                (iwsfc), &
@@ -267,6 +300,9 @@ subroutine landcells(iland, timefac_ndvi, head_slope, soil_watfrac)
                  sfcg%canrrv               (iwsfc), &
                  sfcg%glatw                (iwsfc), &
                  sfcg%glonw                (iwsfc), &
+                 sfcg%airtheta             (iwsfc), &
+                 sfcg%airrrv               (iwsfc), &
+                 sfcg%canexner             (iwsfc), &
                  land%snowfac              (iland), &
                  land%vf                   (iland), &
                  land%stom_resist          (iland), &
@@ -303,6 +339,16 @@ subroutine landcells(iland, timefac_ndvi, head_slope, soil_watfrac)
                  soil_fracliq           (1:nzg)        )
 
   endif
+
+! Original calculation of wthv for sfluxt units [kg_dry K m^-2 s^-1]
+
+!  sfcg%wthv(iwsfc) = ( sfcg%sfluxt(iwsfc) * (1.0 + eps_virt * sfcg%airrrv(iwsfc)) &
+!       + sfcg%sfluxr(iwsfc) * eps_virt * sfcg%airtheta(iwsfc) ) / sfcg%rhos(iwsfc)
+
+! New calculation of wthv for sfluxt units [W m^-2]
+
+     sfcg%wthv(iwsfc) = ( sfcg%sfluxt(iwsfc) * cpi * canexneri * (1.0 + eps_virt * sfcg%airrrv(iwsfc)) &
+          + sfcg%sfluxr(iwsfc) * eps_virt * sfcg%airtheta(iwsfc) ) / sfcg%rhos(iwsfc)
 
   ! CALL SFCWATER:
   !  1. Compute soil and sfcwater heat conductivities
@@ -404,8 +450,6 @@ subroutine landcells(iland, timefac_ndvi, head_slope, soil_watfrac)
         pcpg             = sfcg%pcpg                 (iwsfc), &
         qpcpg            = sfcg%qpcpg                (iwsfc), &
         dpcpg            = sfcg%dpcpg                (iwsfc), &
-        sxfer_t          = sfcg%sxfer_t              (iwsfc), &
-        sxfer_r          = sfcg%sxfer_r              (iwsfc), &
         ustar            = sfcg%ustar                (iwsfc), &
         cantemp          = sfcg%cantemp              (iwsfc), &
         canrrv           = sfcg%canrrv               (iwsfc), &

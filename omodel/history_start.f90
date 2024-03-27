@@ -171,8 +171,6 @@ subroutine hist_read()
             trim(varn) == 'MCICA_SEED'       .or. &
             trim(varn) == 'VKM'              .or. &
             trim(varn) == 'VKH'              .or. &
-            trim(varn) == 'SXFER_TK'         .or. &
-            trim(varn) == 'SXFER_RK'         .or. &
             trim(varn) == 'VKM_SFC'          .or. &
             trim(varn) == 'SFLUXT'           .or. &
             trim(varn) == 'SFLUXR'           .or. &

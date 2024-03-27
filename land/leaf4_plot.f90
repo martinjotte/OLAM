@@ -24,7 +24,7 @@ Contains
                       rhos,             vels,            &
                       prss,             pcpg,            &
                       qpcpg,            dpcpg,           &
-                      sxfer_t,          sxfer_r,         &
+                      sfluxt,           sfluxr,          &
                       ustar,            snowfac,         &
                       vf,               surface_srrv,    &
                       ground_rrv,       veg_water,       &
@@ -40,7 +40,7 @@ Contains
                       head0,            head1,           &
                       dheight,          energyin         )
 
-use leaf_coms,   only: nzs
+use leaf_coms,   only: nzs, dt_leaf
 use mem_land,    only: land, nzg, slz, dslz
 use consts_coms, only: cp
 use oplot_coms,  only: op
@@ -95,8 +95,8 @@ real, optional, intent(in) :: prss         ! pressure [Pa]
 real, optional, intent(in) :: pcpg         ! new precip amount this leaf timestep [kg/m^2]
 real, optional, intent(in) :: qpcpg        ! new precip energy this leaf timestep [J/m^2]
 real, optional, intent(in) :: dpcpg        ! new precip depth this leaf timestep [m]
-real, optional, intent(in) :: sxfer_t      ! can-to-atm heat xfer this step [kg_air K/m^2]
-real, optional, intent(in) :: sxfer_r      ! can-to-atm vapor xfer this step [kg_vap/m^2]
+real, optional, intent(in) :: sfluxt       ! can-to-atm heat flux [W m^-2]
+real, optional, intent(in) :: sfluxr       ! can-to-atm vapor flux [kg_vap m^-2 s^-1]
 real, optional, intent(in) :: ustar        ! friction velocity [m/s]
 real, optional, intent(in) :: snowfac      ! fractional veg burial by snowcover
 real, optional, intent(in) :: vf           ! fractional coverage of non-buried part of veg
@@ -922,17 +922,17 @@ if (present(dpcpg)) then
 
 endif
 
-if (present(sxfer_t)) then
+if (present(sfluxt)) then
 
-   write (number,'(f12.3)') sxfer_t
-   call o_plchhq(xw5,yw2,'sxfer_t = '//trim(adjustl(number)),psiz,0.,0.)
+   write (number,'(f12.3)') sfluxt * dt_leaf
+   call o_plchhq(xw5,yw2,'hxferca = '//trim(adjustl(number)),psiz,0.,0.)
 
 endif
 
-if (present(sxfer_r)) then
+if (present(sfluxr)) then
 
-   write (number,'(f12.6)') sxfer_r
-   call o_plchhq(xw5,yw3,'sxfer_r = '//trim(adjustl(number)),psiz,0.,0.)
+   write (number,'(f12.6)') sfluxr * dt_leaf
+   call o_plchhq(xw5,yw3,'rxferca = '//trim(adjustl(number)),psiz,0.,0.)
 
 endif
 

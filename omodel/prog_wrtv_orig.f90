@@ -46,7 +46,7 @@ subroutine prog_wrtv_orig()
 ! and the Walko and Avissar (2008a,b) time differencing method.
 
   use mem_ijtabs,   only: jtab_v, jtab_w, itab_v, itab_w, istp, &
-                          mrl_ends, jtm_vadj, jtv_prog, jtw_wadj, &
+                          jtm_vadj, jtv_prog, jtw_wadj, &
                           jtv_wadj, jtv_lbcp, jtw_prog, jtw_lbcp
   use mem_basic,    only: rho, thil, press, wmc, wc, vmc, vc, vxe, vye, vze, vmp, &
                           vmsc, wmsc, vxesc, vyesc, vzesc
@@ -112,10 +112,6 @@ subroutine prog_wrtv_orig()
   real :: dxps_v(mza), dyps_v(mza), dzps_v(mza)
 
   real :: unit_dist, fracx, rayfx
-
-! THIS ROUTINE IS PERFORMED AT THE END OF EACH SMALL TIMESTEP
-
-  if (mrl_ends(istp) == 0) return
 
   dt = dtsm
 
