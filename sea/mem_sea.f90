@@ -151,6 +151,7 @@ Contains
      use sea_coms,  only: nzi
      use mem_co2,   only: co2flag
      use mem_sfcg,  only: nswmzons
+     use oname_coms,only: nl
 
      implicit none
 
@@ -203,8 +204,11 @@ Contains
      allocate (sea%sea_canrrv    (msea)) ; sea%sea_canrrv     = rinit
      allocate (sea%ice_canrrv    (msea)) ; sea%ice_canrrv     = rinit
 
-     allocate (sea%spraytemp     (msea)) ; sea%spraytemp      = rinit
-     allocate (sea%spray2temp    (msea)) ; sea%spray2temp     = rinit
+     if (nl%iseasprayflg > 0) &
+          allocate (sea%spraytemp(msea)) ; sea%spraytemp      = rinit
+
+     if (nl%iseasprayflg > 1) &
+          allocate (sea%spray2temp(msea)) ; sea%spray2temp     = rinit
 
      allocate (sea%nlev_seaice   (msea)) ; sea%nlev_seaice    = 0
 

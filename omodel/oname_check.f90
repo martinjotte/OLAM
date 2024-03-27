@@ -544,6 +544,8 @@ if (nl%isfcl == 1) then
 
    call ichk_bnds( nl%ihoriz_gndwater_transport, "IHORIZ_GNDWATER_TRANSPORT", 0, 1, 0, nfatal, nwarn )
 
+   call ichk_bnds( nl%iseasprayflg , "ISEASPRAYFLG", 0, 2, 0, nfatal, nwarn )
+
    if (nl%isoilflg == 3) &
         call ichk_bnds( nl%isoiltext, "ISOILTEXT", 1, 12, 0, nfatal, nwarn )
 

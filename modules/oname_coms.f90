@@ -351,6 +351,9 @@ Module oname_coms
 
      integer :: ihoriz_gndwater_transport = 0
 
+     integer :: iseasprayflg  = 2
+     real    :: seaspray_vmin = 15.0
+
      real    :: seatmp = 280.0
      real    :: seaice =   0.0
 

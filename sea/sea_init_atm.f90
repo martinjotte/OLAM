@@ -47,6 +47,10 @@ subroutine sea_init_atm()
                        + (sea%seaicef(isea) - sea%seaicep(isea)) * timefac_seaice
 
      sfcg%can_depth(iwsfc) = 20. * max(1.,.025 * dt_sea)
+
+     if (allocated(sea%spraytemp )) sea%spraytemp (isea) = sea%seatc(isea)
+     if (allocated(sea%spray2temp)) sea%spray2temp(isea) = sea%seatc(isea)
+
   enddo
   !$omp end parallel do
 

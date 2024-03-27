@@ -4,8 +4,10 @@ subroutine seacells(isea, timefac_sst, timefac_seaice)
   use mem_sfcg,    only: itab_wsfc, sfcg
   use mem_sea,     only: sea, omsea
   use misc_coms,   only: iparallel
-  use consts_coms, only: grav, p00i, rocp, eps_virt, cpi
+  use consts_coms, only: grav, p00i, rocp, eps_virt, cpi, erad, eradi, cliq1000
   use mem_para,    only: myrank
+  use oname_coms,  only: nl
+  use pom2k1d,     only: pom, rhoref, pom_column
 
   implicit none
 
@@ -19,9 +21,12 @@ subroutine seacells(isea, timefac_sst, timefac_seaice)
 
   real :: canexneri, cantheta, canthetav
   real :: airthetav, ufree
+  real :: usti, zw, zn1, zn2
+  real :: raxis, windu, windv, cdtop, wusurf, wvsurf, wtsurf, wssurf, swrad, hfluxsea
+  real :: sea_spray1_temp, sea_spray2_temp
 
-  integer, parameter :: nseaspray = 2
-
+  real, parameter :: z0fac = 0.011 / grav  ! factor for Charnok roughness height
+  real, parameter :: ozo   = 1.59e-5       ! base roughness height in HWRF
   real, parameter :: onethird = 1./3.
 
   iwsfc = isea + omsea
@@ -46,6 +51,25 @@ subroutine seacells(isea, timefac_sst, timefac_seaice)
      sea%seatc(isea) = sea%seatp(isea) &
                      + timefac_sst * (sea%seatf(isea) - sea%seatp(isea))
   endif
+
+  ! Evaluate sea roughness height
+
+  ! Charnok (1955):
+  ! rough = max(z0fac_water * ustar ** 2,.0001)  ! Charnok (1955)
+
+  ! Davis et al. (2008) originally used in HWRF
+  ! rough = 10. * exp(-10. / ustar ** .333333)
+  ! rough = max(.125e-6, min(2.85e-3,rough))
+
+  ! 2012 HWRF scheme; interpolates between the Charnok scheme at low wind
+  ! and the Davis et al. curve fit at high wind speeds
+
+  usti  = 1.0 / sea%sea_ustar(isea)
+  zw    = min( (sea%sea_ustar(isea)/1.06)**onethird, 1.0 )
+  zn1   = z0fac * sea%sea_ustar(isea) * sea%sea_ustar(isea) + ozo
+  zn2   = 10. * exp(-9.5 * usti**onethird) + 1.65e-6 * usti
+
+  sea%sea_rough(isea) = min( (1.0-zw) * zn1 + zw * zn2, 2.85e-3 )
 
   ! Evaluate surface layer exchange coefficients vkmsfc and vkhsfc for open water areas
 
@@ -73,35 +97,38 @@ subroutine seacells(isea, timefac_sst, timefac_seaice)
 !  sea%sea_sfluxc(isea) = sfcg%rhos(iwsfc) * sea%sea_ggaer(isea) &
 !                       * (sea%sea_co2(isea) - air_co2)
 
+  if (allocated(sea%spraytemp )) sea_spray1_temp = sea%spraytemp (isea)
+  if (allocated(sea%spray2temp)) sea_spray2_temp = sea%spray2temp(isea)
 
   ! Update SEA fields
 
-  if (nseaspray == 2) then
+  if (nl%iseasprayflg /= 1) then
 
      call seacell_2(isea, iwsfc,             &
-                   sfcg%rhos      (iwsfc),  &
-                   sea%sea_ustar   (isea),  &
-                   sea%sea_vkhsfc  (isea),  &
-                   sfcg%can_depth (iwsfc),  &
-                   sea%seatc       (isea),  &
-                   sfcg%vels      (iwsfc),  &
-                   sfcg%prss      (iwsfc),  &
-                   sea%sea_wthv    (isea),  &
-                   sfcg%glatw     (iwsfc),  &
-                   sfcg%glonw     (iwsfc),  &
-                   sfcg%airtheta  (iwsfc),  &
-                   sfcg%airrrv    (iwsfc),  &
-                   sfcg%canexner  (iwsfc),  &
-                   sea%sea_cantemp (isea),  &
-                   sea%sea_canrrv  (isea),  &
-                   sea%spraytemp   (isea),  &
-                   sea%spray2temp  (isea),  &
-                   sea%sea_sfluxt  (isea),  &
-                   sea%sea_sfluxr  (isea),  &
-                   sea%sea_sfc_srrv(isea),  &
-                   sea%sea_rough   (isea)   )
+                    sfcg%rhos      (iwsfc),  &
+                    sea%sea_ustar   (isea),  &
+                    sea%sea_vkhsfc  (isea),  &
+                    sfcg%can_depth (iwsfc),  &
+                    sea%seatc       (isea),  &
+                    sfcg%vels      (iwsfc),  &
+                    sfcg%prss      (iwsfc),  &
+                    sea%sea_wthv    (isea),  &
+                    sfcg%glatw     (iwsfc),  &
+                    sfcg%glonw     (iwsfc),  &
+                    sfcg%airtheta  (iwsfc),  &
+                    sfcg%airrrv    (iwsfc),  &
+                    sfcg%canexner  (iwsfc),  &
+                    sea%sea_cantemp (isea),  &
+                    sea%sea_canrrv  (isea),  &
+                    sea_spray1_temp,         &
+                    sea_spray2_temp,         &
+                    sea%sea_sfluxt  (isea),  &
+                    sea%sea_sfluxr  (isea),  &
+                    sea%sea_sfc_srrv(isea),  &
+                    sea%sea_rough   (isea),  &
+                    hfluxsea                 )
 
-  elseif (nseaspray == 1) then
+  else
 
      call seacell_1(isea, iwsfc,             &
                     sfcg%rhos      (iwsfc),  &
@@ -119,23 +146,56 @@ subroutine seacells(isea, timefac_sst, timefac_seaice)
                     sfcg%canexner  (iwsfc),  &
                     sea%sea_cantemp (isea),  &
                     sea%sea_canrrv  (isea),  &
-                    sea%spraytemp   (isea),  &
+                    sea_spray1_temp,         &
                     sea%sea_sfluxt  (isea),  &
                     sea%sea_sfluxr  (isea),  &
                     sea%sea_sfc_srrv(isea),  &
-                    sea%sea_rough   (isea)   )
+                    sea%sea_rough   (isea),  &
+                    hfluxsea                 )
 
   endif
 
-! Original calculation of wthv for sfluxt units [kg_dry K m^-2 s^-1]
-
-!  sea%sea_wthv(isea) = ( sea%sea_sfluxt(isea) * (1.0 + eps_virt * sfcg%airrrv(iwsfc)) &
-!                     + sea%sea_sfluxr(isea) * eps_virt * sfcg%airtheta(iwsfc) ) / sfcg%rhos(iwsfc)
-
-! New calculation of wthv for sfluxt units [W m^-2]
+  ! New calculation of wthv for sfluxt units [W m^-2]
 
   sea%sea_wthv(isea) = ( sea%sea_sfluxt(isea) * cpi * canexneri * (1.0 + eps_virt * sfcg%airrrv(iwsfc)) &
                      + sea%sea_sfluxr(isea) * eps_virt * sfcg%airtheta(iwsfc) ) / sfcg%rhos(iwsfc)
+
+  ! Update POM1D vertical column variables if this sea cell is pom_active and is not swm_active
+
+  if (sea%pom_active(isea) .and. .not. sfcg%swm_active(iwsfc)) then
+
+     ! Eastward and northward surface wind components for sea cell
+
+     raxis = sqrt(sfcg%xew(iwsfc) ** 2 + sfcg%yew(iwsfc) ** 2)  ! dist from earth axis
+
+     if (raxis > 1.e-3) then
+        windu = (sea%windye(isea) * sfcg%xew(iwsfc) &
+               - sea%windxe(isea) * sfcg%yew(iwsfc)) / raxis
+
+        windv =  sea%windze(isea) * raxis * eradi    &
+              - (sea%windxe(isea) * sfcg%xew(iwsfc)  &
+               + sea%windye(isea) * sfcg%yew(iwsfc)) &
+              * sfcg%zew(iwsfc) / (raxis * erad)
+     else
+        windu = 0.
+        windv = 0.
+     endif
+
+     ! CDTOP is the drag coefficient between wind and water at the top water surface
+     ! and is based on vkmsfc computed in subroutine stars for surface wind stress.
+
+     cdtop = sfcg%vkmsfc(iwsfc) / (sfcg%dzt_bot(iwsfc) * rhoref)
+
+     wusurf = cdtop * (pom%ub(1,isea) - windu)
+     wvsurf = cdtop * (pom%vb(1,isea) - windv)
+     wtsurf = hfluxsea / rhoref + (sfcg%rlong(iwsfc) - sfcg%rlongup(iwsfc)) / cliq1000
+     wssurf = 0.
+     swrad = sfcg%rshort(iwsfc) * (1. - sfcg%albedo_beam(iwsfc)) / cliq1000
+
+     call pom_column(isea, pom%kba(isea), wusurf, wvsurf, wtsurf, wssurf, swrad)
+
+  endif
+
 
   ! Update sea ice based on seaice fraction
 
@@ -291,17 +351,15 @@ end subroutine seacells
 subroutine seacell_1( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
                       vels, prss, wthv, glatw, glonw, airtheta, airrrv,  &
                       canexner, cantemp, canrrv, spraytemp, sfluxt, sfluxr, &
-                      surface_srrv, rough )
+                      surface_srrv, rough, hfluxsea )
 
   use mem_sfcg,    only: sfcg
-  use mem_sea,     only: sea
   use sea_coms,    only: dt_sea
-  use consts_coms, only: cp, grav, cliq1000, erad, eradi, alvl, cliq, r8, p00i, rocp, eps_virt
+  use consts_coms, only: cp, grav, alvl, cliq, r8, p00i, rocp, eps_virt
   use therm_lib,   only: rhovsl
-  use pom2k1d,     only: pom, rhoref, pom_column
   use matrix,      only: matrix8_NxN
   use leaf4_canopy,only: sing_print
-  use misc_coms,   only: mstp
+  use oname_coms,  only: nl
 
   implicit none
 
@@ -326,21 +384,17 @@ subroutine seacell_1( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
   real,    intent(inout) :: sfluxt       ! can_air to atm heat flux [W m^-2]
   real,    intent(inout) :: sfluxr       ! can_air to atm vapor flux [kg_vap m^-2 s^-1]
   real,    intent(out)   :: surface_srrv ! sea surface sat mixing ratio [kg_vap/kg_dryair]
-  real,    intent(out)   :: rough        ! sea cell roughess height [m]
+  real,    intent(in)    :: rough        ! sea cell roughess height [m]
+  real,    intent(out)   :: hfluxsea     ! heat flux from sea surface to can_air [kg K/(m^2 s)]
 
   ! Local parameters
 
-  real, parameter :: z0fac = 0.011 / grav  ! factor for Charnok roughness height
-  real, parameter :: ozo   = 1.59e-5       ! base roughness height in HWRF
   real, parameter :: one3  = 1./ 3.
   real, parameter :: fcn = 0.75            ! Crank-Nicolson future time weight
-
-  logical, parameter :: doseaspray = .true.
 
   ! Local variables
 
   real :: rdi            ! sea surface to can_air conductance [m/s]
-  real :: hfluxsc        ! heat flux from sea surface to can_air [kg K/(m^2 s)]
   real :: hxfersc        ! heat xfer from sea surface to can_air this step [J/m^2]
   real :: hxferca        ! heat xfer from can_air to atm this step [J/m^2]
   real :: wxferca        ! vapor xfer from can_air to atm this step [kg/m^2]
@@ -364,9 +418,6 @@ subroutine seacell_1( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
   real    :: spray_suodt    ! Seaspray steady-state vapor transfer coef [m s^-1]
   real    :: wt1, wt2       ! Interpolation weights [ ]
   integer :: ind            ! Interpolation index
-
-  real :: zn1, zn2, zw, usti
-  real :: raxis, windu, windv, cdtop, wusurf, wvsurf, wtsurf, wssurf, swrad
 
   real(r8) :: a1, a2, a5, a6, a7, a9, a10
   real(r8) :: h1, h4, h5, h7, h8
@@ -437,15 +488,11 @@ subroutine seacell_1( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
 
   integer, parameter :: band = 1
 
-!@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-!  if (mstp == 0) spraytemp = seatc ! Only for when hist file does not have spraytemp
-!@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-
   ! If doing seaspray and wind speed is at least 15 m/s, compute wind speed at 10 m level
   ! (wind_z10) USING SFLUXT AND SFLUXR VALUES EVALUATED ON THE PREVIOUS TIMESTEP.
   ! Otherwise, set wind_z10 to zero as a flag to not compute seaspray flux.
 
-  if (doseaspray .and. vels >= 15.) then
+  if (nl%iseasprayflg > 0 .and. vels > nl%seaspray_vmin) then
      z10 = 10.
 
      press_z10 = prss - grav * z10 * rhos ! hydrostatic eqn.
@@ -502,7 +549,7 @@ subroutine seacell_1( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
   y9  = canrrv    - airrrv
   y10 = cantemp   - canexner * airtheta
 
-  if (wind_z10 <= 15.) then ! Case with NO SEA SPRAY (two uncoupled equations)
+  if (wind_z10 < nl%seaspray_vmin) then ! Case with NO SEA SPRAY (two uncoupled equations)
 
      ! Set up and solve 4x4 matrix equation (trapezoidal implicit method) to balance
      ! vapor and heat fluxes between canopy air, sea spray, and the ocean surface.
@@ -543,6 +590,12 @@ subroutine seacell_1( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
 
      sfluxt = hxferca / dt_sea
      sfluxr = wxferca / dt_sea
+
+     hfluxsea = hxfersc / (cp * dt_sea)
+
+     if (nl%iseasprayflg > 0) then
+        spraytemp = seatc
+     endif
 
   else                                        ! Case WITH SEA SPRAY (7x7 matrix equation)
 
@@ -704,62 +757,7 @@ subroutine seacell_1( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
      sfluxt = hxferca / dt_sea
      sfluxr = wxferca / dt_sea
 
-  endif
-
-  ! Evaluate sea roughness height
-
-  ! Charnok (1955):
-  ! rough = max(z0fac_water * ustar ** 2,.0001)  ! Charnok (1955)
-
-  ! Davis et al. (2008) originally used in HWRF
-  ! rough = 10. * exp(-10. / ustar ** .333333)
-  ! rough = max(.125e-6, min(2.85e-3,rough))
-
-  ! 2012 HWRF scheme; interpolates between the Charnok scheme at low wind
-  ! and the Davis et al. curve fit at high wind speeds
-
-  usti  = 1.0 / ustar
-  zw    = min( (ustar/1.06)**one3, 1.0 )
-  zn1   = z0fac * ustar * ustar + ozo
-  zn2   = 10. * exp(-9.5 * usti**one3) + 1.65e-6 * usti
-  rough = (1.0-zw) * zn1 + zw * zn2
-  rough = min( rough, 2.85e-3)
-
-  ! Update POM1D vertical column variables if this sea cell is pom_active and is not swm_active
-
-  if (sea%pom_active(isea) .and. .not. sfcg%swm_active(iwsfc)) then
-
-     ! Eastward and northward surface wind components for sea cell
-
-     raxis = sqrt(sfcg%xew(iwsfc) ** 2 + sfcg%yew(iwsfc) ** 2)  ! dist from earth axis
-
-     if (raxis > 1.e-3) then
-        windu = (sea%windye(isea) * sfcg%xew(iwsfc) &
-               - sea%windxe(isea) * sfcg%yew(iwsfc)) / raxis
-
-        windv =  sea%windze(isea) * raxis * eradi    &
-              - (sea%windxe(isea) * sfcg%xew(iwsfc)  &
-               + sea%windye(isea) * sfcg%yew(iwsfc)) &
-              * sfcg%zew(iwsfc) / (raxis * erad)
-     else
-        windu = 0.
-        windv = 0.
-     endif
-
-     ! CDTOP is the drag coefficient between wind and water at the top water surface
-     ! and is based on vkmsfc computed in subroutine stars for surface wind stress.
-
-     cdtop = sfcg%vkmsfc(iwsfc) / (sfcg%dzt_bot(iwsfc) * rhoref)
-
-     wusurf = cdtop * (pom%ub(1,isea) - windu)
-     wvsurf = cdtop * (pom%vb(1,isea) - windv)
-     wtsurf = hfluxsc / rhoref + (sfcg%rlong(iwsfc) - sfcg%rlongup(iwsfc)) / cliq1000
-     wssurf = 0.
-     swrad = sfcg%rshort(iwsfc) * (1. - sfcg%albedo_beam(iwsfc)) / cliq1000
-
-     call pom_column(isea, pom%kba(isea), wusurf, wvsurf, wtsurf, wssurf, swrad)
-
-!TMP     sea%seatc(isea) = pom%potmp(1,isea)
+     hfluxsea = (hxfersc + hxferdc) / (cp * dt_sea)
 
   endif
 
@@ -770,17 +768,15 @@ end subroutine seacell_1
 subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
                       vels, prss, wthv, glatw, glonw, airtheta, airrrv, &
                       canexner, cantemp, canrrv, spraytemp, spray2temp, sfluxt, sfluxr, &
-                      surface_srrv, rough )
+                      surface_srrv, rough, hfluxsea )
 
   use mem_sfcg,    only: sfcg
-  use mem_sea,     only: sea
   use sea_coms,    only: dt_sea
-  use consts_coms, only: cp, grav, cliq1000, erad, eradi, alvl, cliq, r8, p00i, rocp, eps_virt
+  use consts_coms, only: cp, grav, alvl, cliq, r8, p00i, rocp, eps_virt
   use therm_lib,   only: rhovsl
-  use pom2k1d,     only: pom, rhoref, pom_column
   use matrix,      only: matrix8_NxN
   use leaf4_canopy,only: sing_print
-  use misc_coms,   only: mstp
+  use oname_coms,  only: nl
 
   implicit none
 
@@ -806,21 +802,17 @@ subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
   real,    intent(inout) :: sfluxt       ! can_air to atm sens heat flux [W m^-2]
   real,    intent(inout) :: sfluxr       ! can_air to atm vap flux [kg_vap m^-2 s^-1]
   real,    intent(out)   :: surface_srrv ! sea surface sat mixing ratio [kg_vap/kg_dryair]
-  real,    intent(out)   :: rough        ! sea cell roughess height [m]
+  real,    intent(in)    :: rough        ! sea cell roughess height [m]
+  real,    intent(out)   :: hfluxsea     ! heat flux from sea to can_air [kg K/(m^2 s)]
 
   ! Local parameters
 
-  real, parameter :: z0fac = 0.011 / grav  ! factor for Charnok roughness height
-  real, parameter :: ozo   = 1.59e-5       ! base roughness height in HWRF
   real, parameter :: one3  = 1./ 3.
   real, parameter :: fcn = 0.75            ! Crank-Nicolson future time weight
-
-  logical, parameter :: doseaspray = .true.
 
   ! Local variables
 
   real :: rdi            ! sea surface to can_air conductance [m/s]
-  real :: hfluxsc        ! heat flux from sea surface to can_air [kg K/(m^2 s)]
   real :: hxfersc        ! heat xfer from sea surface to can_air this step [J/m^2]
   real :: hxferca        ! heat xfer from can_air to atm this step [J/m^2]
   real :: wxferca        ! vapor xfer from can_air to atm this step [kg/m^2]
@@ -855,9 +847,6 @@ subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
   real    :: wt1, wt2        ! Interpolation weights [ ]
   integer :: ind             ! Interpolation index
 
-  real :: zn1, zn2, zw, usti
-  real :: raxis, windu, windv, cdtop, wusurf, wvsurf, wtsurf, wssurf, swrad
-
   real(r8) :: a1, a2, a3, a4, a5, a6, a7, a8, a9, a10
   real(r8) :: h1, h2, h4, h5, h6, h7, h8
   real(r8) :: y1, y2, y3, y4, y5, y6, y7, y8, y9, y10
@@ -872,22 +861,6 @@ subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
   real :: z10, press_z10, exner_z10, cantheta, canthetav, airthetav
   real :: ufree, wind_z10, theta_z10, rrv_z10
 
-  real :: hxfercaAVs    = 0., hxfercaAVt    = 0.
-  real :: hxferscAVs    = 0., hxferscAVt    = 0.
-  real :: hxferdcAVs    = 0., hxferdcAVt    = 0.
-  real :: hxferecAVs    = 0., hxferecAVt    = 0.
-  real :: wxfercaLAVs   = 0., wxfercaLAVt   = 0.
-  real :: wxferscLAVs   = 0., wxferscLAVt   = 0.
-  real :: wxferdcLAVs   = 0., wxferdcLAVt   = 0.
-  real :: wxferecLAVs   = 0., wxferecLAVt   = 0.
-  real :: hxfersdAVs    = 0., hxfersdAVt    = 0.
-  real :: hxferseAVs    = 0., hxferseAVt    = 0.
-  real :: cantempAVs    = 0., cantempAVt    = 0.
-  real :: seatcAVs      = 0., seatcAVt      = 0.
-  real :: spraytempAVs  = 0., spraytempAVt  = 0.
-  real :: spray2tempAVs = 0., spray2tempAVt = 0.
-  real :: canrrvAVs     = 0., canrrvAVt     = 0.
- 
   ! Seaspray is represented in the "sea canopy" in an analogous manner to water
   ! on the surface of vegetation in the land canopy.  Heat and vapor are exchanged
   ! between seaspray and canopy air within an implicit solver that also incorporates
@@ -898,7 +871,7 @@ subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
   ! air, and (3) the mass flux [kg m^-2 s^-1] of seaspray into the canopy air from
   ! the sea surface.  (By multiplying the mass flux by the temperature difference
   ! between new and returning sea spray droplets and by the specific heat of liquid
-  ! water, we get the net energy flux from the sea surface to seaspray.) 
+  ! water, we get the net energy flux from the sea surface to seaspray.)
 
   ! These three properties are tabulated below as a function of wind speed at 10 m
   ! height.  The tabulated values were generated in a separate program (ssgf.f90),
@@ -943,20 +916,11 @@ subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
 
   integer, parameter :: band = 35
 
-  integer           :: irow
-  real              :: fld(10)
-  character(len=15) :: str(10)
-
-!@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-!  if (mstp == 0) spraytemp = seatc ! Only for when hist file does not have spraytemp
-!  if (mstp == 0) spray2temp = seatc ! Only for when hist file does not have spray2temp
-!@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-
   ! If doing seaspray and wind speed is at least 15 m/s, compute wind speed at 10 m level
   ! (wind_z10) USING SFLUXT AND SFLUXR VALUES EVALUATED ON THE PREVIOUS TIMESTEP.
   ! Otherwise, set wind_z10 to zero as a flag to not compute seaspray flux.
 
-  if (doseaspray .and. vels >= 15.) then
+  if (nl%iseasprayflg > 0 .and. vels > nl%seaspray_vmin) then
      z10 = 10.
 
      press_z10 = prss - grav * z10 * rhos ! hydrostatic eqn.
@@ -1013,7 +977,7 @@ subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
   y9  = canrrv    - airrrv
   y10 = cantemp   - canexner * airtheta
 
-  if (wind_z10 <= 15.) then ! Case with NO SEA SPRAY (two uncoupled equations)
+  if (wind_z10 < nl%seaspray_vmin) then ! Case with NO SEA SPRAY (two uncoupled equations)
 
      ! Set up and solve 4x4 matrix equation (trapezoidal implicit method) to balance
      ! vapor and heat fluxes between canopy air, sea spray, and the ocean surface.
@@ -1042,7 +1006,6 @@ subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
      aa4(4,4) = 1._r8 + a10 * h7
      yy4(4)   =         a10 * y10 ! HCA row
 
-
      call matrix8_NxN(4,aa4,yy4,xx4,sing); if (sing) call sing_print(iwsfc,'sea3',4,aa4,yy4,glatw,glonw)
 
      wxfersc = xx4(1)
@@ -1055,6 +1018,13 @@ subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
 
      sfluxt = hxferca / dt_sea
      sfluxr = wxferca / dt_sea
+
+     hfluxsea = hxfersc / (cp * dt_sea)
+
+     if (nl%iseasprayflg > 0) then
+        spraytemp  = seatc
+        spray2temp = seatc
+     endif
 
   else                                        ! Case WITH SEA SPRAY (10x10 matrix equation)
 
@@ -1300,62 +1270,7 @@ subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
      sfluxt = hxferca / dt_sea
      sfluxr = wxferca / dt_sea
 
-  endif
-
-  ! Evaluate sea roughness height
-
-  ! Charnok (1955):
-  ! rough = max(z0fac_water * ustar ** 2,.0001)  ! Charnok (1955)
-
-  ! Davis et al. (2008) originally used in HWRF
-  ! rough = 10. * exp(-10. / ustar ** .333333)
-  ! rough = max(.125e-6, min(2.85e-3,rough))
-
-  ! 2012 HWRF scheme; interpolates between the Charnok scheme at low wind
-  ! and the Davis et al. curve fit at high wind speeds
-
-  usti  = 1.0 / ustar
-  zw    = min( (ustar/1.06)**one3, 1.0 )
-  zn1   = z0fac * ustar * ustar + ozo
-  zn2   = 10. * exp(-9.5 * usti**one3) + 1.65e-6 * usti
-  rough = (1.0-zw) * zn1 + zw * zn2
-  rough = min( rough, 2.85e-3)
-
-  ! Update POM1D vertical column variables if this sea cell is pom_active and is not swm_active
-
-  if (sea%pom_active(isea) .and. .not. sfcg%swm_active(iwsfc)) then
-
-     ! Eastward and northward surface wind components for sea cell
-
-     raxis = sqrt(sfcg%xew(iwsfc) ** 2 + sfcg%yew(iwsfc) ** 2)  ! dist from earth axis
-
-     if (raxis > 1.e-3) then
-        windu = (sea%windye(isea) * sfcg%xew(iwsfc) &
-               - sea%windxe(isea) * sfcg%yew(iwsfc)) / raxis
-
-        windv =  sea%windze(isea) * raxis * eradi    &
-              - (sea%windxe(isea) * sfcg%xew(iwsfc)  &
-               + sea%windye(isea) * sfcg%yew(iwsfc)) &
-              * sfcg%zew(iwsfc) / (raxis * erad)
-     else
-        windu = 0.
-        windv = 0.
-     endif
-
-     ! CDTOP is the drag coefficient between wind and water at the top water surface
-     ! and is based on vkmsfc computed in subroutine stars for surface wind stress.
-
-     cdtop = sfcg%vkmsfc(iwsfc) / (sfcg%dzt_bot(iwsfc) * rhoref)
-
-     wusurf = cdtop * (pom%ub(1,isea) - windu)
-     wvsurf = cdtop * (pom%vb(1,isea) - windv)
-     wtsurf = hfluxsc / rhoref + (sfcg%rlong(iwsfc) - sfcg%rlongup(iwsfc)) / cliq1000
-     wssurf = 0.
-     swrad = sfcg%rshort(iwsfc) * (1. - sfcg%albedo_beam(iwsfc)) / cliq1000
-
-     call pom_column(isea, pom%kba(isea), wusurf, wvsurf, wtsurf, wssurf, swrad)
-
-!TMP     sea%seatc(isea) = pom%potmp(1,isea)
+     hfluxsea = (hxfersc + hxferdc) / (cp * dt_sea)
 
   endif
 

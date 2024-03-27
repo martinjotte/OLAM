@@ -191,9 +191,9 @@ subroutine seaice( isea, iwsfc, nlev_seaice, rhos, ustar, vkhsfc, can_depth, &
 
   integer :: k
 
-  real(r8) :: a1, a2, a3, a4, a5, a6, a7, a8, a9, a10
-  real(r8) :: h1, h2, h4, h5, h6, h7, h8
-  real(r8) :: y1, y2, y3, y4, y5, y6, y7, y8, y9, y10
+  real(r8) :: a5, a6, a9, a10
+  real(r8) :: h4, h7, h8
+  real(r8) :: y2, y5, y9, y10
 
   real(r8) :: aa4(4,4), xx4(4), yy4(4)         ! 4x4 matrix equation terms
 
