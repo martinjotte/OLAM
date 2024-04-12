@@ -2438,9 +2438,7 @@ Contains
   real(r8),         intent(in) :: aa(nsize,nsize), yy(nsize)
   real,             intent(in) :: glatw, glonw
 
-  integer :: irow, iwsfc
-
-  iwsfc = iland
+  integer :: irow
 
   print*, 'singular matrix '
   print*, 'iwsfc, ieqn, nsize: ', iwsfc, ieqn, nsize
