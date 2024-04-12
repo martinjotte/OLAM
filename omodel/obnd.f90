@@ -73,15 +73,21 @@ end subroutine set_scalars_lbc
 
 !===============================================================================
 
-subroutine lbcopy_m(a1, a2)
+subroutine lbcopy_m(a1, a2, v1, v2, iv1, iv2)
 
   use mem_ijtabs, only: jtab_m, itab_m, jtm_lbcp
   use mem_grid,   only: mza, mma
 
   implicit none
 
-  real, optional, intent(inout) :: a1(mza,mma)
-  real, optional, intent(inout) :: a2(mza,mma)
+  real,    optional, contiguous, intent(inout) :: a1(:,:)
+  real,    optional, contiguous, intent(inout) :: a2(:,:)
+
+  real,    optional, contiguous, intent(inout) :: v1(:)
+  real,    optional, contiguous, intent(inout) :: v2(:)
+
+  integer, optional, contiguous, intent(inout) :: iv1(:)
+  integer, optional, contiguous, intent(inout) :: iv2(:)
 
   integer :: j,im,imp
 
@@ -94,7 +100,13 @@ subroutine lbcopy_m(a1, a2)
      imp = itab_m(im)%imp
 
      if (present(a1)) a1(:,im) = a1(:,imp)
-     if (present(a1)) a2(:,im) = a2(:,imp)
+     if (present(a2)) a2(:,im) = a2(:,imp)
+
+     if (present(v1)) v1(im) = v1(imp)
+     if (present(v2)) v2(im) = v2(imp)
+
+     if (present(iv1)) iv1(im) = iv1(imp)
+     if (present(iv2)) iv2(im) = iv2(imp)
 
   enddo
   !$omp end parallel do

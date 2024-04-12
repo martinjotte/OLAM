@@ -7,7 +7,7 @@ module mem_adv
 
   real, allocatable :: a_v(:,:,:)
 
-  real, allocatable :: xx0(:), xy0(:), yy0(:), xy_h(:,:,:), xx_yy(:,:)
+  real, allocatable :: xx0(:), xy0(:), yy0(:), xy_h(:,:,:), xx_yy(:,:), xx_yy_m(:,:)
 
 !!!!!!!!!!!!!!!!!!!!!!!
 !  real, allocatable :: dxps_m1(:,:), dxps_m2(:,:)
@@ -35,18 +35,20 @@ contains
 
   subroutine alloc_adv()
 
-    use mem_grid,    only: mwa, mva, mza, dzm, dztsqo12, dnu, dniv, arw0i, xew, yew, zew, glatw, glonw
-    use mem_ijtabs,  only: itab_w, jtab_w, jtw_prog, itab_v, jtab_v, jtv_wadj
+    use mem_grid,    only: mma, mwa, mva, mza, dzm, dztsqo12, dnu, dniv, arw0i, &
+                           xew, yew, zew, glatw, glonw, dniu, dnv, arm0
+    use mem_ijtabs,  only: itab_w, jtab_w, jtw_prog, itab_v, jtab_v, jtv_wadj, &
+                           itab_m, jtab_m, jtm_prog
     use quadrature,  only: hex_quad
     use misc_coms,   only: mdomain, rinit, iparallel
     use consts_coms, only: r8
     use oname_coms,  only: nl
-    use olam_mpi_atm,only: mpi_send_w, mpi_recv_w
-    use obnd,        only: lbcopy_w
+    use olam_mpi_atm,only: mpi_send_w, mpi_recv_w, mpi_send_m, mpi_recv_m
+    use obnd,        only: lbcopy_w, lbcopy_m
 
     implicit none
 
-    integer  :: k, j, iw, iwn, ivn, np, n, iv, iw1, iw2, im1, im2, npoly
+    integer  :: k, j, iw, iwn, ivn, np, n, iv, iw1, iw2, im, im1, im2, npoly
     real     :: xw(7), yw(7), at(5,5)
     real(r8) :: fint
     real     :: z1(2), z2(2), az1(2,2), az2(2,2), a_h(5,5)
@@ -81,6 +83,8 @@ contains
     allocate(dzps_v(mza,mva)) ; dzps_v = rinit
 
     allocate(xx_yy(7,mwa)) ; xx_yy = rinit
+
+    allocate(xx_yy_m(3,mma)) ; xx_yy_m = rinit
 
 !!    if (nl%horiz_adv_order == 3) then
 !       allocate(dxxps_v(mza,mva)) ; dxxps_v = rinit
@@ -135,7 +139,7 @@ contains
        do n = 1, npoly
           ivn = itab_w(iw)%iv(n)
 
-          ! Coefficients for horizontal Laplacian
+          ! Coefficients for horizontal Laplacian at W point
           xx_yy(n,iw) = dniv(ivn) * dnu(ivn) * arw0i(iw)
 
           if (itab_w(iw)%dirv(n) < 0.) then
@@ -160,6 +164,25 @@ contains
        call mpi_recv_w(svara1=xx_yy)
     endif
     call lbcopy_w(s1=xx_yy)
+
+    !$omp parallel do private(im,n,ivn)
+    do j = 1, jtab_m(jtm_prog)%jend; im = jtab_m(jtm_prog)%im(j)
+
+       do n = 1, 3
+          ivn = itab_m(im)%iv(n)
+
+          ! Coefficients for horizontal Laplacian at M point
+          xx_yy_m(n,im) = dnv(ivn) * dniu(ivn) / arm0(im)
+       enddo
+
+    enddo
+    !$omp end parallel do
+
+    if (iparallel == 1) then
+       call mpi_send_m(rvara1=xx_yy_m)
+       call mpi_recv_m(rvara1=xx_yy_m)
+    endif
+    call lbcopy_m(a1=xx_yy_m)
 
     ! Coefficients for quadratic interpolating polynomical for advection
 

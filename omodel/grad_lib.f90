@@ -339,8 +339,7 @@ end subroutine grad_t2d_quad
 !=========================================================================
 
 ! Computes the horizontal laplacian of scalar variables at cell centers
-! of the hexagonal grid using a least-squares fit on a local rotated
-! polar-stereographic projection
+! (W points) on the hexagonal grid
 
 subroutine laplacian2d(iw, scp, delsq)
 
@@ -373,5 +372,42 @@ subroutine laplacian2d(iw, scp, delsq)
   enddo
 
 end subroutine laplacian2d
+
+!=========================================================================
+
+! Computes the horizontal laplacian of scalar variables at cell vertices
+! (M points) on the hexagonal grid
+
+subroutine laplacian_m(im, scm, delsq)
+
+  use mem_ijtabs, only: itab_m
+  use mem_grid,   only: mza, mma, lpv
+  use mem_adv,    only: xx_yy_m
+
+  implicit none
+
+  integer, intent( in) :: im
+  real,    intent( in) :: scm  (mza,mma)
+  real,    intent(out) :: delsq(mza)
+
+  integer :: imn, ivn, k, n
+  real    :: sc
+
+  delsq = 0.0
+
+  ! Loop over neighbors of this M point
+  do n = 1, 3
+
+     imn = itab_m(im)%im(n)
+     ivn = itab_m(im)%iv(n)
+
+     do k = lpv(ivn), mza
+        sc = scm(k,imn) - scm(k,im)
+        delsq(k) = delsq(k) + sc * xx_yy_m(n,im)
+     enddo
+
+  enddo
+
+end subroutine laplacian_m
 
 end module grad_lib
