@@ -228,8 +228,9 @@ subroutine gridinit()
   endif
 
   ! Generate SFCGRID only if runtype = 'MAKEGRID' or 'MAKEGRID_PLOT'
+  ! Currently only for global mesh
 
-  if (runtype == 'MAKEGRID' .or. runtype == 'MAKEGRID_PLOT') then
+  if ((runtype == 'MAKEGRID' .or. runtype == 'MAKEGRID_PLOT') .and. (mdomain == 0)) then
 
      if (mdomain /= 4) then
         call copyback_tri_grid()
@@ -245,7 +246,7 @@ subroutine gridinit()
 
      if (runtype == 'MAKEGRID_PLOT') then
         nmsfc = nwd
-        nvsfc = nud
+         nvsfc = nud
         nwsfc = nmd
         return
      endif
@@ -258,69 +259,74 @@ subroutine gridinit()
 
   call alloc_grid2(nma, nva, nwa)
 
-  ! read selected SFCGRID values for MAKEREGRID run
-  if (runtype == 'MAKEREGRID') call sfcgfile_read_makeregrid()
+  ! SFCGRID currently only for global mesh
 
-  ! Compute overlay of ATM and SFC grids
-  call sfc_atm_hex_overlay()
+  if (mdomain == 0) then
 
-  ! Vertical index for sea (ocean) cells
+     ! read selected SFCGRID values for MAKEREGRID run
+     if (runtype == 'MAKEREGRID') call sfcgfile_read_makeregrid()
 
-  kw_sea = 2
-  do while(zm(kw_sea) < 0.1) ! .1-meter threshold
-     kw_sea = kw_sea + 1
-  enddo
+     ! Compute overlay of ATM and SFC grids
+     call sfc_atm_hex_overlay()
 
-  do iwsfc = 2, nwsfc
-     if (sfcg%leaf_class(iwsfc) == 0) then
+     ! Vertical index for sea (ocean) cells
 
-        itab_wsfc(iwsfc)%kwatm = kw_sea
+     kw_sea = 2
+     do while(zm(kw_sea) < 0.1) ! .1-meter threshold
+        kw_sea = kw_sea + 1
+     enddo
 
-     else
+     do iwsfc = 2, nwsfc
+        if (sfcg%leaf_class(iwsfc) == 0) then
 
-        kw_land = 2
-        do while(zm(kw_land) < .1 + sfcg%topw(iwsfc)) ! .1-meter threshold
-           kw_land = kw_land + 1
+           itab_wsfc(iwsfc)%kwatm = kw_sea
+
+        else
+
+           kw_land = 2
+           do while(zm(kw_land) < .1 + sfcg%topw(iwsfc)) ! .1-meter threshold
+              kw_land = kw_land + 1
+           enddo
+
+           itab_wsfc(iwsfc)%kwatm = kw_land
+
+        endif
+     enddo
+
+     allocate(tot_area(nwa))
+     tot_area(:) = 0.0_r8
+
+     ! Loop over all surface cells
+
+     do iwsfc = 2,nwsfc
+
+        ! Loop over ATM coupling areas of current surface cell
+
+        do j = 1,itab_wsfc(iwsfc)%nwatm
+           iw = itab_wsfc(iwsfc)%iwatm(j)
+           tot_area(iw) = tot_area(iw) + itab_wsfc(iwsfc)%arc(j)
+        enddo
+     enddo
+
+     ! Scale surface cell and ATM coupling areas slightly so that coupling areas sum
+     ! almost exactly to arw0 within an ATM column
+
+     do iwsfc = 2,nwsfc
+        area_tot = 0.
+
+        do j = 1,itab_wsfc(iwsfc)%nwatm
+           iw  = itab_wsfc(iwsfc)%iwatm(j)
+
+           itab_wsfc(iwsfc)%arc(j) = itab_wsfc(iwsfc)%arc(j) * arw0(iw) / tot_area(iw)
+
+           area_tot = area_tot + itab_wsfc(iwsfc)%arc(j)
         enddo
 
-        itab_wsfc(iwsfc)%kwatm = kw_land
-
-     endif
-  enddo
-
-  allocate(tot_area(nwa))
-  tot_area(:) = 0.0_r8
-
-  ! Loop over all surface cells
-
-  do iwsfc = 2,nwsfc
-
-     ! Loop over ATM coupling areas of current surface cell
-
-     do j = 1,itab_wsfc(iwsfc)%nwatm
-        iw = itab_wsfc(iwsfc)%iwatm(j)
-        tot_area(iw) = tot_area(iw) + itab_wsfc(iwsfc)%arc(j)
-     enddo
-  enddo
-
-  ! Scale surface cell and ATM coupling areas slightly so that coupling areas sum
-  ! almost exactly to arw0 within an ATM column
-
-  do iwsfc = 2,nwsfc
-     area_tot = 0.
-
-     do j = 1,itab_wsfc(iwsfc)%nwatm
-        iw  = itab_wsfc(iwsfc)%iwatm(j)
-
-        itab_wsfc(iwsfc)%arc(j) = itab_wsfc(iwsfc)%arc(j) * arw0(iw) / tot_area(iw)
-
-        area_tot = area_tot + itab_wsfc(iwsfc)%arc(j)
      enddo
 
-     sfcg%area(iwsfc) = area_tot
-  enddo
+     deallocate(tot_area)
 
-  deallocate(tot_area)
+  endif  ! mdomain == 0
 
   ! Set up control volumes in atmospheric grid
 
