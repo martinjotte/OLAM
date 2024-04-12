@@ -2428,6 +2428,8 @@ Contains
   subroutine sing_print(iwsfc,ieqn,nsize,aa,yy,glatw,glonw)
 
   use consts_coms, only: r8
+  use mem_sfcg,    only: itab_wsfc
+  use mem_ijtabs,  only: itab_w
 
   implicit none
 
@@ -2436,11 +2438,16 @@ Contains
   real(r8),         intent(in) :: aa(nsize,nsize), yy(nsize)
   real,             intent(in) :: glatw, glonw
 
-  integer :: irow
+  integer :: irow, iwsfc
+
+  iwsfc = iland
 
   print*, 'singular matrix '
   print*, 'iwsfc, ieqn, nsize: ', iwsfc, ieqn, nsize
   print*, 'glatw, glonw: ', glatw, glonw
+  print*, 'iwsfc_globe, nwatm ', itab_wsfc(iwsfc)%iwglobe, itab_wsfc(iwsfc)%nwatm
+  print*, 'iwatm_globe ', itab_w( itab_wsfc(iwsfc)%iwatm( 1:itab_wsfc(iwsfc)%nwatm ) )%iwglobe
+  print*, 'kwatm ', itab_wsfc(iwsfc)%kwatm( 1:itab_wsfc(iwsfc)%nwatm )
 
   do irow = 1,nsize
      write(*,'(a,i5,12e15.5)') 'row, aa, yy: ',irow,aa(irow,1:nsize),yy(irow)
