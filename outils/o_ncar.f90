@@ -227,8 +227,8 @@ subroutine o_sfsgfa(x,y,nr,icolor)
 
   implicit none
 
-  real,    intent(in) :: x(nr), y(nr)
   integer, intent(in) :: nr, icolor
+  real,    intent(in) :: x(nr), y(nr)
 ! integer             :: ind(21)
 ! real                :: dst(14)
 !
