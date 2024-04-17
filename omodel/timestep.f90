@@ -73,13 +73,6 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm
       call tend0(rho_old)
       call comp_alpha_press()
 
-      if (isfcl > 0) then
-!         if (mstp == 0) call sfcg_avgatm()  ! temporary: only for history start from old-version histfile 
-         call surface_driver()
-      else
-         call surface_turb_flux()
-      endif
-
       call sea_spray()
       call dust_src()
    endif
@@ -107,6 +100,12 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm
    endif
 
    if (mrl_begl(istp) > 0) then
+
+      if (isfcl > 0) then
+         call surface_driver()
+      else
+         call surface_turb_flux()
+      endif
 
       ! Add incremental axisymmetric potential temperature perturbation
       ! inside the hurricane core to increase vortex intensity

@@ -293,8 +293,8 @@ subroutine seacells(isea, timefac_sst, timefac_seaice)
                  sea%seaice_tempk (1:nzi,isea), &
                  sea%ice_cantemp        (isea), &
                  sea%ice_canrrv         (isea), &
-                 sea%sea_sfluxt         (isea), &
-                 sea%sea_sfluxr         (isea), &
+                 sea%ice_sfluxt         (isea), &
+                 sea%ice_sfluxr         (isea), &
                  sea%ice_sfc_srrv       (isea)  )
 
 ! Original calculation of wthv for sfluxt units [kg_dry K m^-2 s^-1]

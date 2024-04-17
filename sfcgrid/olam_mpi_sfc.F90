@@ -66,7 +66,7 @@ subroutine olam_mpi_sfc_start()
   ! Determine number of bytes to send per IWSFC column
 
   nbytes_per_iwsfc =  3       * nbytes_int  &
-                   + 20       * nbytes_real &
+                   + 24       * nbytes_real &
                    +  2 * nzg * nbytes_real &
                    +  3 * nzs * nbytes_real
 
@@ -269,12 +269,27 @@ subroutine mpi_send_wsfc(set, soil_watfrac, div2d_ex)
 
         elseif (set == 'sfc_driv_end') then
 
-           call MPI_Pack(sfcg%cantemp(iwsfc),1,MPI_REAL, &
+           call MPI_Pack(sfcg%ustar  (iwsfc),1,MPI_REAL, &
                          send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
-           call MPI_Pack(sfcg%canrrv (iwsfc),1,MPI_REAL, &
-                         send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
+
            call MPI_Pack(sfcg%wthv   (iwsfc),1,MPI_REAL, &
                          send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
+
+           call MPI_Pack(sfcg%sfluxt (iwsfc),1,MPI_REAL, &
+                         send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
+
+           call MPI_Pack(sfcg%sfluxr (iwsfc),1,MPI_REAL, &
+                         send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
+
+           call MPI_Pack(sfcg%vkmsfc (iwsfc),1,MPI_REAL, &
+                         send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
+
+           call MPI_Pack(sfcg%cantemp(iwsfc),1,MPI_REAL, &
+                         send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
+
+           call MPI_Pack(sfcg%canrrv (iwsfc),1,MPI_REAL, &
+                         send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
+
            call MPI_Pack(sfcg%rough  (iwsfc),1,MPI_REAL, &
                          send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
 
@@ -751,11 +766,26 @@ subroutine mpi_recv_wsfc(set, soil_watfrac, div2d_ex)
         elseif (set == 'sfc_driv_end') then
 
            call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
-                           sfcg%cantemp  (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
-           call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
-                           sfcg%canrrv   (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+                           sfcg%ustar     (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+
            call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
                            sfcg%wthv      (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+
+           call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                           sfcg%sfluxt    (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+
+           call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                           sfcg%sfluxr    (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+
+           call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                           sfcg%vkmsfc    (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+
+           call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                           sfcg%cantemp  (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+
+           call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                           sfcg%canrrv   (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+
            call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
                            sfcg%rough     (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
 

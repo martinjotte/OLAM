@@ -72,8 +72,8 @@ subroutine sea_init_atm()
      sfcg%ustar  (iwsfc) = 0.1
      sfcg%ggaer  (iwsfc) = 0.0
      sfcg%wthv   (iwsfc) = 0.0
-
-     sea%nlev_seaice(isea) = 0
+     sfcg%sfluxt (iwsfc) = 0.0
+     sfcg%sfluxr (iwsfc) = 0.0
 
      ! Seawater quantities
 
@@ -84,8 +84,13 @@ subroutine sea_init_atm()
      sea%sea_ustar   (isea) = 0.1
      sea%sea_ggaer   (isea) = 0.0
      sea%sea_wthv    (isea) = 0.0
+     sea%sea_sfluxt  (isea) = 0.0
+     sea%sea_sfluxr  (isea) = 0.0
 
      ! Seaice quantities
+
+     sea%ice_sfluxt  (isea) = 0.0
+     sea%ice_sfluxr  (isea) = 0.0
 
      call prep_seaice(sea%seatc              (isea), &
                       sea%seaicec            (isea), &
