@@ -154,8 +154,8 @@ real :: tempk, fracliq
 real :: vc_change, wc_change
 integer :: iw1,iw2,iland,ilake,isea,iwsfc
 integer :: npoly,j
-integer :: lenstr, ic, ifield
-integer, save :: indp, icase
+integer :: lenstr, ic, ifield, icase
+integer, save :: indp = 0, icase_sav = 0
 integer :: jasfc
 real :: area_sum
 real :: zobs, press_zobs, exner_zobs, wind_zobs, theta_zobs, rrv_zobs
@@ -875,6 +875,13 @@ if (infotyp == 'UNITS') then
            op%stagpt == 'C' .or. op%stagpt == 'E') then
       i = 2
    endif
+
+   icase_sav = icase
+
+else
+
+   icase = icase_sav
+
 endif
 
 if (infotyp == 'VALUV') then
@@ -901,6 +908,12 @@ endif
 notavail = 0
 kp = min(k+1,mza)
 
+! Reset icase if plotting custom extfld
+
+if ( ( allocated(op%extfld)     ) .and. &
+     ( op%extfldname == fldname ) .and. &
+     ( infotyp /= 'VALUV'       ) ) icase = 0
+
 ! Try these to prevent out-of-bounds access when infotyp == 'UNITS'
 
 iland = max(2,i-omland)
@@ -916,6 +929,12 @@ isea  = max(2,i-omsea)
 !-----------------------------------------
 
 select case(icase)
+
+case(0) ! extfld
+
+   if (.not. allocated(op%extfld)) go to 1000
+
+   fldval = op%extfld(k,i)
 
 case(1) ! 'VMC'
 
@@ -951,18 +970,20 @@ case(4) ! 'VC'
 
    else
 
-      iw1 = itab_v(i)%iw(1)
-      iw2 = itab_v(i)%iw(2)
+      fldval = 0.
 
-      if (k >= lpw(iw1)) then
-         fldval = vnx(i) * vxe(k,iw1) &
-                + vny(i) * vye(k,iw1) &
-                + vnz(i) * vze(k,iw1)
-      elseif (k >= lpw(iw2)) then
-         fldval = vnx(i) * vxe(k,iw2) &
-                + vny(i) * vye(k,iw2) &
-                + vnz(i) * vze(k,iw2)
-      endif
+      ! iw1 = itab_v(i)%iw(1)
+      ! iw2 = itab_v(i)%iw(2)
+
+      ! if (k >= lpw(iw1)) then
+      !    fldval = vnx(i) * vxe(k,iw1) &
+      !           + vny(i) * vye(k,iw1) &
+      !           + vnz(i) * vze(k,iw1)
+      ! elseif (k >= lpw(iw2)) then
+      !    fldval = vnx(i) * vxe(k,iw2) &
+      !           + vny(i) * vye(k,iw2) &
+      !           + vnz(i) * vze(k,iw2)
+      ! endif
 
    endif
 
@@ -5064,13 +5085,7 @@ case(796) ! 'ADDSC1P2_ZINT'
 
 case default
 
-! Optional plot of external field
-
-   if (allocated(op%extfld)) then
-      fldval = op%extfld(k,i)
-   else
-      go to 1000
-   endif
+   go to 1000
 
 end select
 
