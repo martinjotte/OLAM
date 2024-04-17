@@ -636,11 +636,12 @@
 
    NL%IHORIZ_GNDWATER_TRANSPORT = 0 ! Flag to turn lateral ground water fluxes on (1) or off (0)
 
-   NL%ISEASPRAYFLG = 2  ! Flag to control sea spray model (0) = off
-                        !                                 (1) = one droplet band active
-                        !                                 (2) = two droplet bands active
+   NL%ISEASPRAYFLG = 2  ! Flag to control sea spray model (0) = Off
+                        !                                 (1) = One droplet size band active
+                        !                                 (2) = Two droplet size bands active
 
-   NL%SEASPRAY_VMIN = 15.0  ! Wind speed below which sea spray is not considered
+   NL%SEASPRAY_VMIN = 16.0  ! Wind speed (m/s) below which sea spray is not considered.
+                            ! Must be larger than 15m/s.
 
    NL%NITER_SWM = 1             ! Number of subcycling timesteps used in SWM storm surge & 
                                 ! coastal flooding model per long model timestep; Can usually

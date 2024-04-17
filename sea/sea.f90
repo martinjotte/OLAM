@@ -549,7 +549,7 @@ subroutine seacell_1( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
   y9  = canrrv    - airrrv
   y10 = cantemp   - canexner * airtheta
 
-  if (wind_z10 < nl%seaspray_vmin) then ! Case with NO SEA SPRAY (two uncoupled equations)
+  if (wind_z10 <= nl%seaspray_vmin) then ! Case with NO SEA SPRAY (two uncoupled equations)
 
      ! Set up and solve 4x4 matrix equation (trapezoidal implicit method) to balance
      ! vapor and heat fluxes between canopy air, sea spray, and the ocean surface.
@@ -977,7 +977,7 @@ subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
   y9  = canrrv    - airrrv
   y10 = cantemp   - canexner * airtheta
 
-  if (wind_z10 < nl%seaspray_vmin) then ! Case with NO SEA SPRAY (two uncoupled equations)
+  if (wind_z10 <= nl%seaspray_vmin) then ! Case with NO SEA SPRAY (two uncoupled equations)
 
      ! Set up and solve 4x4 matrix equation (trapezoidal implicit method) to balance
      ! vapor and heat fluxes between canopy air, sea spray, and the ocean surface.
