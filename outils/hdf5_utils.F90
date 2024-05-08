@@ -113,9 +113,6 @@ subroutine shdf5_open(locfn, access, idelete, serial)
      return
   endif
 
-  fname = locfn
-  fmode = access
-
   if (access == 'R') then  ! When reading, all ranks may access the file.
 
      ! Are we using parallel HDF5
@@ -154,11 +151,24 @@ subroutine shdf5_open(locfn, access, idelete, serial)
      indepio  = indepio  .and. (.not. serial)
   endif
 
+  ! Check if a HDF5 file is already open. Currently we can only have one file
+  ! open at a time.
+
+  ierror = .false.
+
+  if (do_hdf5 .and. len_trim(fname) > 0) then
+     write(io6,*) 'Error in shdf5_open:'
+     write(io6,*) '   File ', trim(locfn)
+     write(io6,*) '   is being opened while another file:'
+     write(io6,*) '   ', trim(fname)
+     write(io6,*) '   is still open. Currently only one HDF5 file can be open at a time.'
+     ierror = .true.
+  endif
+
   ! Open/create file if this process rank is performing I/O
 
-  if (do_hdf5) then
+  if (do_hdf5 .and. .not. ierror) then
 
-     ierror = .false.
      hdferr = 0
 
      ! Create a new file or open an existing RAMS file.
@@ -225,7 +235,7 @@ subroutine shdf5_open(locfn, access, idelete, serial)
   endif
 
 #ifdef OLAM_MPI
-  if (do_comm) call MPI_Bcast(ierror, 1, MPI_LOGICAL,  0, MPI_COMM_WORLD, hdferr)
+  call MPI_Allreduce(MPI_IN_PLACE, ierror, 1, MPI_LOGICAL, MPI_LOR, MPI_COMM_WORLD, hdferr)
 #endif
 
   if (ierror) then
@@ -233,6 +243,11 @@ subroutine shdf5_open(locfn, access, idelete, serial)
      write(io6,*) 'Stopping model in shdf5_open due to error opening ' // trim(locfn)
      call olam_mpi_finalize()
      stop
+  endif
+
+  if (do_hdf5) then
+     fname = locfn
+     fmode = access
   endif
 
 end subroutine shdf5_open
@@ -1519,7 +1534,12 @@ subroutine shdf5_close()
   integer :: hdferr
 
   ! Close hdf file.
-  if (do_hdf5) call fh5f_close(hdferr)
+
+  if (do_hdf5) then
+     call fh5f_close(hdferr)
+     fname = ' '
+     fmode = ' '
+  endif
 
 end subroutine shdf5_close
 
