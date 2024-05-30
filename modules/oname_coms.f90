@@ -319,6 +319,7 @@ Module oname_coms
      integer :: nzg         = 21
      integer :: nzpom       = 40
      integer :: niter_swm   =  1
+     integer :: umwmflg     =  0
 
      real :: landgrid_dztop = 0.05
      real :: landgrid_depth = 5.00

@@ -21,7 +21,7 @@ subroutine olam_run(name_name)
   use mem_para,    only: myrank, compute_pario_points
 
   use leaf_coms,   only: isfcl, iupdndvi
-  use sea_coms,    only: iupdsst, iupdseaice
+  use sea_coms,    only: iupdsst, iupdseaice, dt_sea
   use mem_ijtabs,  only: istp, fill_jtabs, itab_v, itab_w
   use mem_sfcg,    only: mwsfc, alloc_sfcgrid2, filltab_sfcg, fill_jtab_sfcg
   use sea_swm,     only: swm_init, swm_diagvel
@@ -63,6 +63,9 @@ subroutine olam_run(name_name)
 
   use mem_average_vars, only: reset_davg_vars
   use mem_swtc5_refsoln_cubic
+
+  use umwm_module,  only: umwmflg
+  use umwm_top,     only: umwm_initialize, umwm_plot_prep
 
   implicit none
 
@@ -497,7 +500,9 @@ subroutine olam_run(name_name)
      write(io6,'(/,a)') 'olam_run calling pom_init'
      call pom_init()
 
-     if (isfcl == 1) call swm_diagvel()
+     call swm_diagvel()
+
+     if (umwmflg == 1) call umwm_initialize(dt_sea)
 
      if (nl%igw_spinup == 1) then
 
@@ -644,6 +649,8 @@ subroutine olam_run(name_name)
 
        ! if (mod(iplt_file,240) == 0) then
 
+           if (umwmflg == 1) call umwm_plot_prep()
+
            call plot_fields(0)
 
            if (nl%ioutput_latlon == 1 .or. nl%latlonplot == 1) then
@@ -779,6 +786,7 @@ subroutine olam_run(name_name)
 
   write(io6,'(/,a)') 'olam_run calling plot_fields'
 
+  if (umwmflg == 1) call umwm_plot_prep()
   call copy_plot(0)
   call plot_fields(0)
   call fields3_ll()
@@ -861,6 +869,7 @@ subroutine olam_run(name_name)
 
      write(io6,'(/,a)') 'olam_run calling plot_fields after vortex relocation'
 
+     if (umwmflg == 1) call umwm_plot_prep()
      call copy_plot(0)
      call plot_fields(0)
      call fields3_ll()
@@ -1019,7 +1028,9 @@ subroutine olam_output()
   use mem_megan,   only: megan_store_lai
 
   use mem_average_vars, only: reset_davg_vars
-  use mem_sfcnud,  only: s1900_sfcnud, isfcnudfile, sfcnud_read
+  use mem_sfcnud,   only: s1900_sfcnud, isfcnudfile, sfcnud_read
+  use umwm_module,  only: umwmflg
+  use umwm_physics, only: umwm_diag
 
   implicit none
 
@@ -1035,6 +1046,8 @@ subroutine olam_output()
   ! and plot fields
 
   if (mod(time8p,op%frqplt) < dtlm .or. time8p >= timmax8 .or. iflag == 1) then
+
+     if (umwmflg == 1) call umwm_diag()
      call copy_plot(0)
      call plot_fields(0)
 

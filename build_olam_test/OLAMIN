@@ -647,6 +647,8 @@
                                 ! coastal flooding model per long model timestep; Can usually
                                 ! be 1 unless sfcgrid resolution is higher than ATM grid 
 
+   NL%UMWMFLG = 0               ! Flag to use UMWM wave model (0) = No; (1) = Yes
+
  ! POM1D model grid vertical profile geometry
 
    NL%NZPOM          = 40       ! Number of POM1D layers in deepest columns; Must be <= 

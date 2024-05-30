@@ -129,6 +129,8 @@ subroutine copy_nl()
 
   use sea_swm,     only: niter_swm
 
+  use umwm_module, only: umwmflg
+
   use pom2k1d,     only: nzpom, pom_dztop, pom_depth
 
   use mem_sfcnud,  only: gw_spinup_sfcgfile, gw_spinup_histfile
@@ -347,7 +349,8 @@ subroutine copy_nl()
   nzg       = nl%nzg
   landgrid_dztop = nl%landgrid_dztop
   landgrid_depth = nl%landgrid_depth
-  niter_swm     = nl%niter_swm
+  niter_swm = nl%niter_swm
+  umwmflg   = nl%umwmflg
   nzpom     = nl%nzpom
   pom_dztop = nl%pom_dztop
   pom_depth = nl%pom_depth
@@ -428,8 +431,10 @@ subroutine copy_nl()
      if (index(nl%plotspecs(i)%pltspec2,'B') > 0) op%vectbarb(i) = 'B'
      if (index(nl%plotspecs(i)%pltspec2,'V') > 0) op%vectbarb(i) = 'V'
      if (index(nl%plotspecs(i)%pltspec2,'w') > 0) op%vectbarb(i) = 'w'
-     if (index(nl%plotspecs(i)%pltspec2,'Y') > 0) op%vectbarb(i) = 'Y'
-     if (index(nl%plotspecs(i)%pltspec2,'y') > 0) op%vectbarb(i) = 'y'
+
+     if (index(nl%plotspecs(i)%pltspec2,'Y') > 0) op%vectsea(i)  = 'Y'
+     if (index(nl%plotspecs(i)%pltspec2,'y') > 0) op%vectsea(i)  = 'y'
+     if (index(nl%plotspecs(i)%pltspec2,'z') > 0) op%vectsea(i)  = 'z'
 
      if (index(nl%plotspecs(i)%pltspec2,'G') > 0) op%pltgrid(i) = 'G'
 

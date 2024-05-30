@@ -130,8 +130,9 @@ use mem_plot, only: &
   soiltemp_dmin_accum_prev0, soiltemp_dmin_accum_prev1, soiltemp_dmin_accum_prev2, soiltemp_dmin_accum_prev3, &
   soiltemp_dmax_accum_prev0, soiltemp_dmax_accum_prev1, soiltemp_dmax_accum_prev2, soiltemp_dmax_accum_prev3
 
-use mem_sfcnud, only: sfcwat_nud, sfctemp_nud, fracliq_nud ! fast can nud
-use sea_swm,    only: depthmin_swe
+use mem_sfcnud,  only: sfcwat_nud, sfctemp_nud, fracliq_nud ! fast can nud
+use sea_swm,     only: depthmin_swe
+use umwm_module, only: umwm, swh, mwd, dwd, dcg
 
 implicit none
 
@@ -407,7 +408,7 @@ data fldlib(1:4,230:250)/ &
 
 ! LAND_CELLS - ATM averages
 
-data fldlib(1:4,251:281)/ &
+data fldlib(1:4,251:290)/ &
  'AL_SFCWATER_TOT'        ,'T2' ,'AL TOTAL SFCWATER MASS',' (kg m:S2:-2  )'   ,& ! 251
  'AL_SOIL_WATER_TOT'      ,'T2' ,'AL TOTAL SOIL WATER',' (m)'                 ,& ! 252
 
@@ -447,47 +448,57 @@ data fldlib(1:4,251:281)/ &
  'WDEPTH'        ,'S2' ,'SEA WDEPTH',' (m)'                                  ,& ! 278
  'POM_KBA'       ,'S2' ,'POM LEVELS',' (#)'                                  ,& ! 279
  'POM_TEMPSFC'   ,'S2' ,'POM SURFACE TEMP',' (K)'                            ,& ! 280
- 'SWM_DIVERG'    ,'S2' ,'SWM HORIZONTAL DIVERGENCE',' (s:S2:-1  )'            / ! 281
+ 'SWM_DIVERG'    ,'S2' ,'SWM HORIZONTAL DIVERGENCE',' (s:S2:-1  )'           ,& ! 281
+ 'UMWM_SWH'      ,'S2' ,'UMWM SIGNICANT WAVE HEIGHT',' (m)'                  ,& ! 282
+ 'UMWM_MWD'      ,'S2' ,'UMWM MEAN WAVE DIRECTION',' (deg)'                  ,& ! 283
+ 'UMWM_DWD'      ,'S2' ,'UMWM DOMINANT WAVE DIRECTION',' (deg)'              ,& ! 284
+ 'UMWM_DCG'      ,'S2' ,'UMWM DOMINANT GROUP SPEED',' (m s:S2:-1  )'         ,& ! 285
+ 'UMWM_TAUX'     ,'S2' ,'UMWM TAUX',' (N m:S2:-2  )'                         ,& ! 286
+ 'UMWM_TAUY'     ,'S2' ,'UMWM TAUY',' (N m:S2:-2  )'                         ,& ! 287
+ 'UMWM_OTAUX'    ,'S2' ,'UMWM OTAUX',' (N m:S2:-2  )'                        ,& ! 288
+ 'UMWM_OTAUY'    ,'S2' ,'UMWM OTAUY',' (N m:S2:-2  )'                        ,& ! 289
+ 'UMWM_USTAR'    ,'S2' ,'UMWM USTAR',' (m s:S2:-1  )'                         / ! 290
 
 ! SFC GRID CELLS - 2D
 
-data fldlib(1:4,297:332)/ &
- 'LEAF_CLASS'         ,'C2' ,'LEAF CLASS',' ( )'                          ,& ! 297
- 'SFCG_AREA'          ,'C2' ,'SFCG CELL AREA',' (m:S2:2  )'               ,& ! 298
- 'SFCG_GLATW'         ,'C2' ,'SFCG CELL LATITUDE',' (deg)'                ,& ! 299
- 'SFCG_GLONW'         ,'C2' ,'SFCG CELL LONGITUDE',' (deg)'               ,& ! 300
- 'SFCG_TOPW'          ,'C2' ,'SFCG CELL TOPW',' (m)'                      ,& ! 301
- 'SFCG_ROUGH'         ,'C2' ,'SFCG NET ROUGHNESS HEIGHT',' (m)'           ,& ! 302
- 'SFCG_VELS'          ,'C2' ,'SFCG WIND SPEED',' (m s:S2:-1  )'           ,& ! 303
- 'SFCG_PRSS'          ,'C2' ,'SFCG PRESSURE',' (hPa)'                     ,& ! 304
- 'SFCG_RHOS'          ,'C2' ,'SFCG DENSITY',' (kg m:S2:-3  )'             ,& ! 305
- 'SFCG_AIRTEMPK'      ,'C2' ,'SFCG ATM TEMP',' (K)'                       ,& ! 306
- 'SFCG_AIRRRV'        ,'C2' ,'SFCG ATM RRV',' (g kg:S2:-1  )'             ,& ! 307
- 'SFCG_CANTEMPK'      ,'C2' ,'SFCG CANOPY AIR TEMP',' (K)'                ,& ! 308
- 'SFCG_CANRRV'        ,'C2' ,'SFCG CANOPY VAP MIXR',' (g kg:S2:-1  )'     ,& ! 309
- 'SFCG_SKINTEMPK'     ,'C2' ,'SFCG SKIN TEMP',' (K)'                      ,& ! 310
- 'SFCG_GSS_SRRV'      ,'C2' ,'SFCG SAT VAP MIXR',' (g kg:S2:-1  )'        ,& ! 311
- 'HEAD1'              ,'C2' ,'WATER SFC HEAD',' (m)'                      ,& ! 312
- 'HEAD_WTAB'          ,'C2' ,'HEAD AT WATER TABLE',' (m)'                 ,& ! 313
- 'SFCG_SENSFLUX'      ,'C2','SFCG SENS FLX',' (W m:S2:-2  )'              ,& ! 314
- 'SFCG_LATFLUX'       ,'C2','SFCG LAT FLX',' (W m:S2:-2  )'               ,& ! 315
- 'SFCG_VAPFLUX'       ,'C2','SFCG VAP FLX',' (kg m:S2:-2   s:S2:-1  )'    ,& ! 316
- 'SFCG_SPEED10M'      ,'C2','SFCG 10M WIND SPEED',' (m s:S2:-1  )'        ,& ! 317
- 'SFCG_SPEED2M'       ,'C2','SFCG 2M WIND SPEED',' (m s:S2:-1  )'         ,& ! 318
- 'SFCG_TEMPK2M'       ,'C2','SFCG 2M TEMP',' (K)'                         ,& ! 319
- 'SFCG_RVAP2M'        ,'C2','SFCG 2M RRV',' (g kg:S2:-1  )'               ,& ! 320
- 'SFCG_RSHORT'        ,'C2','SFCG DOWN SW FLX',' (W m:S2:-2  )'           ,& ! 321
- 'SFCG_RLONG'         ,'C2','SFCG DOWN LW FLX',' (W m:S2:-2  )'           ,& ! 322
- 'SFCG_RLONGUP'       ,'C2','SFCG UP LW FLX',' (W m:S2:-2  )'             ,& ! 323
- 'SFCG_RLONG_ALBEDO'  ,'C2','SFCG NET LW ALBEDO',' ( )'                   ,& ! 324
- 'SFCG_ALBEDO_BEAM'   ,'C2','SFCG NET BEAM ALBEDO',' ( )'                 ,& ! 325
- 'SFCG_ALBEDO_DIFFUSE','C2','SFCG NET DIFFUSE ALBEDO',' ( )'              ,& ! 326
- 'SFCG_BATHYM'        ,'C2','SFCG CELL BATHYMETRY',' (m)'                 ,& ! 327
- 'SFCG_PCPG'          ,'C2','SFCG PCPG',' (kg m:S2:-2  )'                 ,& ! 328
- 'SFCG_VC'            ,'B2','SFCG VC',' (m s:S2:-1  )'                    ,& ! 329
- 'WAT_DEPTH'          ,'C2','WAT_DEPTH',' (m)'                            ,& ! 330
- 'WAT_TEMPK'          ,'C2','WAT_TEMP',' (K)'                             ,& ! 331
- 'HEAD1_MSL'          ,'C2','WATER SFC HEAD REL TO MSL',' (m)'             / ! 332
+data fldlib(1:4,297:333)/ &
+ 'LEAF_CLASS'         ,'C2','LEAF CLASS',' ( )'                           ,& ! 297
+ 'SFCG_AREA'          ,'C2','SFCG CELL AREA',' (m:S2:2  )'                ,& ! 298
+ 'SFCG_GLATW'         ,'C2','SFCG CELL LATITUDE',' (deg)'                 ,& ! 299
+ 'SFCG_GLONW'         ,'C2','SFCG CELL LONGITUDE',' (deg)'                ,& ! 300
+ 'SFCG_TOPW'          ,'C2','SFCG CELL TOPW',' (m)'                       ,& ! 301
+ 'SFCG_ROUGH'         ,'C2','SFCG NET ROUGHNESS HEIGHT',' (m)'            ,& ! 302
+ 'SFCG_VELS'          ,'C2','SFCG WIND SPEED',' (m s:S2:-1  )'            ,& ! 303
+ 'SFCG_PRSS'          ,'C2','SFCG PRESSURE',' (hPa)'                      ,& ! 304
+ 'SFCG_RHOS'          ,'C2','SFCG DENSITY',' (kg m:S2:-3  )'              ,& ! 305
+ 'SFCG_AIRTEMPK'      ,'C2','SFCG ATM TEMP',' (K)'                        ,& ! 306
+ 'SFCG_AIRRRV'        ,'C2','SFCG ATM RRV',' (g kg:S2:-1  )'              ,& ! 307
+ 'SFCG_CANTEMPK'      ,'C2','SFCG CANOPY AIR TEMP',' (K)'                 ,& ! 308
+ 'SFCG_CANRRV'        ,'C2','SFCG CANOPY VAP MIXR',' (g kg:S2:-1  )'      ,& ! 309
+ 'SFCG_SKINTEMPK'     ,'C2','SFCG SKIN TEMP',' (K)'                       ,& ! 310
+ 'SFCG_GSS_SRRV'      ,'C2','SFCG SAT VAP MIXR',' (g kg:S2:-1  )'         ,& ! 311
+ 'HEAD1'              ,'C2','WATER SFC HEAD',' (m)'                       ,& ! 312
+ 'HEAD_WTAB'          ,'C2','HEAD AT WATER TABLE',' (m)'                  ,& ! 313
+ 'SFCG_USTAR'         ,'C2','SFCG USTAR',' (m s:S2:-1  )'                 ,& ! 314
+ 'SFCG_SENSFLUX'      ,'C2','SFCG SENS FLX',' (W m:S2:-2  )'              ,& ! 315
+ 'SFCG_LATFLUX'       ,'C2','SFCG LAT FLX',' (W m:S2:-2  )'               ,& ! 316
+ 'SFCG_VAPFLUX'       ,'C2','SFCG VAP FLX',' (kg m:S2:-2   s:S2:-1  )'    ,& ! 317
+ 'SFCG_SPEED10M'      ,'C2','SFCG 10M WIND SPEED',' (m s:S2:-1  )'        ,& ! 318
+ 'SFCG_SPEED2M'       ,'C2','SFCG 2M WIND SPEED',' (m s:S2:-1  )'         ,& ! 319
+ 'SFCG_TEMPK2M'       ,'C2','SFCG 2M TEMP',' (K)'                         ,& ! 320
+ 'SFCG_RVAP2M'        ,'C2','SFCG 2M RRV',' (g kg:S2:-1  )'               ,& ! 321
+ 'SFCG_RSHORT'        ,'C2','SFCG DOWN SW FLX',' (W m:S2:-2  )'           ,& ! 322
+ 'SFCG_RLONG'         ,'C2','SFCG DOWN LW FLX',' (W m:S2:-2  )'           ,& ! 323
+ 'SFCG_RLONGUP'       ,'C2','SFCG UP LW FLX',' (W m:S2:-2  )'             ,& ! 324
+ 'SFCG_RLONG_ALBEDO'  ,'C2','SFCG NET LW ALBEDO',' ( )'                   ,& ! 325
+ 'SFCG_ALBEDO_BEAM'   ,'C2','SFCG NET BEAM ALBEDO',' ( )'                 ,& ! 326
+ 'SFCG_ALBEDO_DIFFUSE','C2','SFCG NET DIFFUSE ALBEDO',' ( )'              ,& ! 327
+ 'SFCG_BATHYM'        ,'C2','SFCG CELL BATHYMETRY',' (m)'                 ,& ! 328
+ 'SFCG_PCPG'          ,'C2','SFCG PCPG',' (kg m:S2:-2  )'                 ,& ! 329
+ 'SFCG_VC'            ,'B2','SFCG VC',' (m s:S2:-1  )'                    ,& ! 330
+ 'WAT_DEPTH'          ,'C2','WAT_DEPTH',' (m)'                            ,& ! 331
+ 'WAT_TEMPK'          ,'C2','WAT_TEMP',' (K)'                             ,& ! 332
+ 'HEAD1_MSL'          ,'C2','WATER SFC HEAD REL TO MSL',' (m)'             / ! 333
 
 !SFCG_SWM_ACTIVE
 
@@ -3425,6 +3436,31 @@ case(281) ! 'SWM_DIVERG'
       fldval = fldval / ( sfcg%area(i) * sea%swmdepth(isea) )
    endif
 
+case(282:290) ! 'UMWM_SWH',  'UMWM_MWD',   'UMWM_DWD',   'UMWM_DCG',  'UMWM_TAUX',
+              ! 'UMWM_TAUY', 'UMWM_OTAUX', 'UMWM_OTAUY', 'UMWM_USTAR'
+
+   if (.not. allocated(umwm%ustar)) go to 1000
+
+   if (trim(fldname) == 'UMWM_SWH') then
+      fldval = swh(isea)
+   elseif (trim(fldname) == 'UMWM_MWD') then
+      fldval = mwd(isea) * piu180
+   elseif (trim(fldname) == 'UMWM_DWD') then
+      fldval = dwd(isea) * piu180
+   elseif (trim(fldname) == 'UMWM_DCG') then
+      fldval = dcg(isea)
+   elseif (trim(fldname) == 'UMWM_TAUX') then
+      fldval = umwm%taux(isea)
+   elseif (trim(fldname) == 'UMWM_TAUY') then
+      fldval = umwm%tauy(isea)
+   elseif (trim(fldname) == 'UMWM_OTAUX') then
+      fldval = sfcg%vkmsfc(i) * umwm%uwind(isea) / sfcg%dzt_bot(i)
+   elseif (trim(fldname) == 'UMWM_OTAUY') then
+      fldval = sfcg%vkmsfc(i) * umwm%vwind(isea) / sfcg%dzt_bot(i)
+   elseif (trim(fldname) == 'UMWM_USTAR') then
+      fldval = umwm%ustar(isea)
+   endif
+
 !-----------------------------------------
 ! SFC GRID CELLS - 2D
 !-----------------------------------------
@@ -3578,19 +3614,23 @@ case(313) ! 'HEAD_WTAB'
 
    endif
 
-case(314) ! 'SFCG_SENSFLUX'
+case(314) ! 'SFCG_USTAR'
+
+   fldval = sfcg%ustar(i)
+
+case(315) ! 'SFCG_SENSFLUX'
 
    fldval = sfcg%sfluxt(i)
 
-case(315) ! 'SFCG_LATFLUX'
+case(316) ! 'SFCG_LATFLUX'
 
    fldval = sfcg%sfluxr(i) * alvl
 
-case(316) ! 'SFCG_VAPFLUX'
+case(317) ! 'SFCG_VAPFLUX'
 
    fldval = sfcg%sfluxr(i)
 
-case(317:320) ! 'SFCG_SPEED10M', 'SFCG_SPEED2M', 'SFCG_TEMPK2M', 'SFCG_RVAP2M'
+case(318:321) ! 'SFCG_SPEED10M', 'SFCG_SPEED2M', 'SFCG_TEMPK2M', 'SFCG_RVAP2M'
 
    if (trim(fldname) == 'SFCG_SPEED10M') then
       zobs = 10.
@@ -3621,47 +3661,47 @@ case(317:320) ! 'SFCG_SPEED10M', 'SFCG_SPEED2M', 'SFCG_TEMPK2M', 'SFCG_RVAP2M'
       fldval = rrv_zobs * 1.e3 ! converting from kg/kg to g/kg
    endif
 
-case(321) ! 'SFCG_RSHORT'
+case(322) ! 'SFCG_RSHORT'
 
    fldval = sfcg%rshort(i)
 
-case(322) ! 'SFCG_RLONG'
+case(323) ! 'SFCG_RLONG'
 
    fldval = sfcg%rlong(i)
 
-case(323) ! 'SFCG_RLONGUP'
+case(324) ! 'SFCG_RLONGUP'
 
    fldval = sfcg%rlongup(i)
 
-case(324) ! 'SFCG_RLONG_ALBEDO'
+case(325) ! 'SFCG_RLONG_ALBEDO'
 
    fldval = sfcg%rlong_albedo(i)
 
-case(325) ! 'SFCG_ALBEDO_BEAM'
+case(326) ! 'SFCG_ALBEDO_BEAM'
 
    fldval = sfcg%albedo_beam(i)
 
-case(326) ! 'SFCG_ALBEDO_DIFFUSE'
+case(327) ! 'SFCG_ALBEDO_DIFFUSE'
 
    fldval = sfcg%albedo_diffuse(i)
 
-case(327) ! 'SFCG_BATHYM'
+case(328) ! 'SFCG_BATHYM'
 
    fldval = sfcg%bathym(i)
 
-case(328) ! 'SFCG_PCPG'
+case(329) ! 'SFCG_PCPG'
 
    fldval = sfcg%pcpg(i)
 
-case(329) ! 'SFCG_VC'
+case(330) ! 'SFCG_VC'
 
    fldval = sfcg%vc(i)
 
-case(330) ! 'WAT_DEPTH'
+case(331) ! 'WAT_DEPTH'
 
    fldval = sfcg%head1(i) + sfcg%topw(i) - sfcg%bathym(i)
 
-case(331) ! 'WAT_TEMPK'
+case(332) ! 'WAT_TEMPK'
 
    if (sfcg%leaf_class(i) == 0) then
       isea = i - omsea
@@ -3686,7 +3726,7 @@ case(331) ! 'WAT_TEMPK'
       fldval = tempk
    endif
 
-case(332) ! 'HEAD1_MSL'
+case(333) ! 'HEAD1_MSL'
 
    fldval = sfcg%head1(i) + sfcg%topw(i)
 

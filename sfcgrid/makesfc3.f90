@@ -567,6 +567,10 @@ subroutine makesfc3()
 
         call fao_usda(iscr(iland), land%usdatext(iland))
 
+     enddo
+
+     do iland = 2,nland
+
         ! Customization of soil composition can be done inside subroutine
         ! usda_composition by modifying usdatext(iland) and/or how it is used
 

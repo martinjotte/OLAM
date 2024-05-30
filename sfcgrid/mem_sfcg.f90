@@ -253,6 +253,7 @@ Module mem_sfcg
      real, allocatable :: vc(:)     ! Current velocity [m/s]
      real, allocatable :: vmp(:)    ! Past velocity * depth [m^2/s]
      real, allocatable :: vmc(:)    ! Current velocity * depth [m^2/s]
+     real, allocatable :: vort(:)   ! Current vorticity [s^-1]
 
      real, allocatable :: hflux_wat(:) ! Volume flux across V face (VMC * DNU) [m^3/s]
      real, allocatable :: hflux_enr(:) ! Energy flux across V face [J/s]
@@ -416,6 +417,7 @@ Contains
         allocate (sfcg%vc            (mvsfc)) ; sfcg%vc             = 0.0
         allocate (sfcg%vmp           (mvsfc)) ; sfcg%vmp            = 0.0
         allocate (sfcg%vmc           (mvsfc)) ; sfcg%vmc            = 0.0
+        allocate (sfcg%vort          (mmsfc)) ; sfcg%vort           = 0.0
 
         allocate (sfcg%hflux_wat     (mvsfc)) ; sfcg%hflux_wat      = 0.0
         allocate (sfcg%hflux_enr     (mvsfc)) ; sfcg%hflux_enr      = 0.0
@@ -470,6 +472,7 @@ Contains
      if (allocated(sfcg%vc))             call increment_vtable('SFCG%VC',             'CV', rvar1=sfcg%vc)
      if (allocated(sfcg%vmp))            call increment_vtable('SFCG%VMP',            'CV', rvar1=sfcg%vmp)
      if (allocated(sfcg%vmc))            call increment_vtable('SFCG%VMC',            'CV', rvar1=sfcg%vmc)
+     if (allocated(sfcg%vort))           call increment_vtable('SFCG%VORT',           'CM', rvar1=sfcg%vort)
 
    end subroutine filltab_sfcg
 

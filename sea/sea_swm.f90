@@ -49,26 +49,33 @@ subroutine swm_driver()
   use mem_sfcg,     only: jtab_vsfc_swm, sfcg, jtab_wsfc_swm, itab_wsfc, itab_vsfc, &
                           nswmzons, mvsfc
   use leaf_coms,    only: dt_leaf, wcap_min
+  use sea_coms,     only: dt_sea
   use mem_land,     only: land, mland, omland
   use mem_lake,     only: lake, mlake, omlake
   use olam_mpi_sfc, only: mpi_send_wsfc, mpi_recv_wsfc, mpi_send_vsfc, mpi_recv_vsfc
   use mem_para,     only: myrank
   use oname_coms,   only: nl
+  use umwm_module,  only: umwmflg
+  use umwm_top,     only: umwm_step
 
   implicit none
 
   integer :: iter_swm, ivsfc, iw1, iw2, j, iwsfc, ilake, iland, ivn, iwn, isea
   real    :: factor, dheight, energyin, energy_per_m2, dirv
 
-  real, allocatable :: vmt(:)
+  real, allocatable :: vmts(:)
+
+  ! Could put call to umwm_step inside of iter_swm loop if necessary to use smaller timestep in umwm
+
+  if (umwmflg == 1) call umwm_step()
 
   if (nswmzons < 1) return
 
-  allocate(vmt(mvsfc)) ; vmt = 0.0
+  allocate(vmts(mvsfc)) ; vmts = 0.0
 
-  call vort_damp_swm(vmt)
+  call vort_damp_swm(vmts)
 
-  call divh_damp_swm(vmt, dt_swm)
+  call divh_damp_swm(vmts, dt_swm) ! This subroutine call is outside of iter_swm loop: Should it use dt_sea?
 
   ! START MAIN SWM LOOP
 
@@ -143,7 +150,7 @@ subroutine swm_driver()
 
      ! UPDATE SFCG%VMC AND SFCG%VC for sea cells that use SWM
 
-     call swm_progv(vmt)
+     call swm_progv(vmts)
 
      ! MPI send/recv of SFCG%VMC, SFCG%VC
 
@@ -790,7 +797,7 @@ end subroutine swm_progw_lbc
 
 !============================================================================
 
-subroutine swm_progv(vmt)
+subroutine swm_progv(vmts)
 
   use mem_sfcg,    only: sfcg, jtab_vsfc_swm, jtab_msfc_swm, jtab_wsfc_swm, &
                          itab_vsfc, itab_msfc, itab_wsfc, mmsfc, mvsfc
@@ -802,14 +809,13 @@ subroutine swm_progv(vmt)
 
   implicit none
 
-  real, intent(in) :: vmt(mvsfc)
+  real, intent(in) :: vmts(mvsfc)
 
   integer          :: iv, iw, iw1, iw2, j, jv, im, isea, isea1, isea2, iwn, isean
   integer          :: im1, im2
-  real             :: vdepth, slope, pgf, vmt_vortdamp, vmt_divdamp
+  real             :: vdepth, slope, pgf
 
-  !$omp parallel do private(iv,iw1,iw2,isea1,isea2,im1,im2,vdepth, &
-  !$omp                     vmt_vortdamp,vmt_divdamp,pgf)
+  !$omp parallel do private(iv,iw1,iw2,isea1,isea2,im1,im2,vdepth,pgf)
   do j = 1,jtab_vsfc_swm%jend
      iv = jtab_vsfc_swm%ivsfc(j)
 
@@ -855,7 +861,7 @@ subroutine swm_progv(vmt)
 
      if (.not. sfcg%swm_active(iw2)) then
 
-        sfcg%vmc(iv) = sfcg%vmc(iv) + dt_swm * (vmt(iv) + pgf &
+        sfcg%vmc(iv) = sfcg%vmc(iv) + dt_swm * (vmts(iv) + pgf &
 
              + sfcg%vnx(iv) * sea%vmxet(isea1) &
              + sfcg%vny(iv) * sea%vmyet(isea1) &
@@ -868,7 +874,7 @@ subroutine swm_progv(vmt)
 
      elseif (.not. sfcg%swm_active(iw1)) then
 
-        sfcg%vmc(iv) = sfcg%vmc(iv) + dt_swm * (vmt(iv) + pgf &
+        sfcg%vmc(iv) = sfcg%vmc(iv) + dt_swm * (vmts(iv) + pgf &
 
              + sfcg%vnx(iv) * sea%vmxet(isea2) &
              + sfcg%vny(iv) * sea%vmyet(isea2) &
@@ -881,7 +887,7 @@ subroutine swm_progv(vmt)
 
      else
 
-        sfcg%vmc(iv) = sfcg%vmc(iv) + dt_swm * (vmt(iv) + pgf &
+        sfcg%vmc(iv) = sfcg%vmc(iv) + dt_swm * (vmts(iv) + pgf &
 
              + ( sfcg%vnx(iv) * (sea%vmxet(isea1) + sea%vmxet(isea2)) &
              + sfcg%vny(iv) * (sea%vmyet(isea1) + sea%vmyet(isea2)) &
@@ -1028,7 +1034,7 @@ end subroutine swm_init
 
 !===============================================================================
 
-subroutine vort_damp_swm(vmt)
+subroutine vort_damp_swm(vmts)
 
   use olam_mpi_sfc, only: mpi_send_msfc, mpi_recv_msfc
   use mem_sfcg,     only: sfcg, jtab_vsfc_swm, jtab_msfc_swm, &
@@ -1040,12 +1046,12 @@ subroutine vort_damp_swm(vmt)
 
   implicit none
 
-  real, intent(inout) :: vmt(mvsfc)
+  real, intent(inout) :: vmts(mvsfc)
 
   integer                 :: iv, iw1, iw2, k, j, jv, im, kb
   integer                 :: iv1, iv2, iv3
   integer                 :: im1, im2, im3, isea1, isea2
-  real                    :: vort(mmsfc), del_vort(mmsfc)
+  real                    :: del_vort(mmsfc)
   real                    :: arm0i, cv, vbar, dnui, vdepth
   real, allocatable, save :: cm(:)
   logical,           save :: firstime = .true.
@@ -1081,7 +1087,7 @@ subroutine vort_damp_swm(vmt)
 
   endif  ! firstime
 
-  vort(:) = 0.
+  sfcg%vort(:) = 0.
 
   !$omp parallel do private(im,jv,iv)
   do j = 1,jtab_msfc_swm%jend; im = jtab_msfc_swm%imsfc(j)
@@ -1096,11 +1102,11 @@ subroutine vort_damp_swm(vmt)
 
         if (itab_vsfc(iv)%imn(2) == im) then
 
-           vort(im) = vort(im) + sfcg%vc(iv) * sfcg%dnv(iv)
+           sfcg%vort(im) = sfcg%vort(im) + sfcg%vc(iv) * sfcg%dnv(iv)
 
         else
 
-           vort(im) = vort(im) - sfcg%vc(iv) * sfcg%dnv(iv)
+           sfcg%vort(im) = sfcg%vort(im) - sfcg%vc(iv) * sfcg%dnv(iv)
 
         endif
      enddo
@@ -1109,14 +1115,14 @@ subroutine vort_damp_swm(vmt)
      ! (DNV lacks the zfact factor and ARM0 lacks the zfact**2 factor, so we
      ! divide their quotient by zfact)
 
-     vort(im) = vort(im) / sfcg%arm0(im)
+     sfcg%vort(im) = sfcg%vort(im) / sfcg%arm0(im)
 
   enddo
   !$omp end parallel do
 
   if (iparallel == 1) then
-     call mpi_send_msfc(vort=vort)
-     call mpi_recv_msfc(vort=vort)
+     call mpi_send_msfc(vort=sfcg%vort)
+     call mpi_recv_msfc(vort=sfcg%vort)
   endif
 
   del_vort(:) = 0.0
@@ -1132,8 +1138,8 @@ subroutine vort_damp_swm(vmt)
      im2  = itab_msfc(im)%imn(2)
      im3  = itab_msfc(im)%imn(3)
 
-     vbar = onethird * (vort(im1) + vort(im2) + vort(im3))
-     del_vort(im) = cm(im) * (vbar - vort(im))
+     vbar = onethird * (sfcg%vort(im1) + sfcg%vort(im2) + sfcg%vort(im3))
+     del_vort(im) = cm(im) * (vbar - sfcg%vort(im))
 
   enddo
   !$omp end parallel do
@@ -1168,7 +1174,7 @@ subroutine vort_damp_swm(vmt)
 
      ! Horizontal filter for vertical vorticity
 
-     vmt(iv) = vmt(iv) + vdepth * (del_vort(im2) - del_vort(im1)) / sfcg%dnu(iv)
+     vmts(iv) = vmts(iv) + vdepth * (del_vort(im2) - del_vort(im1)) / sfcg%dnu(iv)
 
   enddo
   !$omp end parallel do
@@ -1177,7 +1183,7 @@ end subroutine vort_damp_swm
 
 !===============================================================================
 
-subroutine divh_damp_swm(vmt, dtsm)
+subroutine divh_damp_swm(vmts, dtsm)
 
   use olam_mpi_sfc, only: mpi_send_wsfc, mpi_recv_wsfc
   use mem_sfcg,     only: sfcg, jtab_vsfc_swm, jtab_wsfc_swm, &
@@ -1189,7 +1195,7 @@ subroutine divh_damp_swm(vmt, dtsm)
 
   implicit none
 
-  real,    intent(inout)  :: vmt(mvsfc)
+  real,    intent(inout)  :: vmts(mvsfc)
   real,    intent(in)     :: dtsm
 
   integer                 :: iv, iw, iw1, iw2, k, j, jv, ivn, iwn
@@ -1299,7 +1305,7 @@ subroutine divh_damp_swm(vmt, dtsm)
 
      ! Damp (remove) laplacian of horizontal divergence
 
-     vmt(iv) = vmt(iv) + fdiv(iv) * (del2d(iw2) - del2d(iw1))
+     vmts(iv) = vmts(iv) + fdiv(iv) * (del2d(iw2) - del2d(iw1))
 
   enddo
   !$omp end parallel do

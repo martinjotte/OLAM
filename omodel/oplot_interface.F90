@@ -1059,9 +1059,11 @@ subroutine vectslab(iplt)
      if ( op%vectbarb(iplt) == 'w' .or. &
           op%vectbarb(iplt) == 'B' ) call vectslab_horiz_w(iplt)
 
-     if ( op%vectbarb(iplt) == 'Y' ) call vectslab_horiz_vsfc(iplt)
+     if ( op%vectsea(iplt) == 'Y' ) call vectslab_horiz_vsfc(iplt)
 
-     if ( op%vectbarb(iplt) == 'y' ) call vectslab_horiz_wsfc(iplt)
+     if ( op%vectsea(iplt) == 'y' ) call vectslab_horiz_wsfc(iplt)
+
+     if ( op%vectsea(iplt) == 'z' ) call vectslab_horiz_umwm(iplt)
 
   elseif (op%projectn(iplt) == 'C') then  ! etc for 'V'?
 

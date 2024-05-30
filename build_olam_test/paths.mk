@@ -4,7 +4,7 @@ OLAM_ROOT=..
 
 # Versions.
 
-OLAM_VERSION=6.4.0
+OLAM_VERSION=6.5.1
 
 # Source directories.
 
@@ -19,6 +19,7 @@ SFCG=$(OLAM_ROOT)/sfcgrid
 SEA=$(OLAM_ROOT)/sea
 OUTILS=$(OLAM_ROOT)/outils
 RADIATE=$(OLAM_ROOT)/radiate
+UMWM=$(OLAM_ROOT)/UMWM
 HURRICANE=$(OLAM_ROOT)/hurricane
 TEST_CASES=$(OLAM_ROOT)/test_cases
 CMAQ=$(OLAM_ROOT)/CMAQ

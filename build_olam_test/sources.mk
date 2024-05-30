@@ -236,6 +236,16 @@ SOURCE_FILES= \
              $(SFCG)/mem_sfcnud.f90 \
              $(SFCG)/olam_mpi_sfc.F90 \
              $(SFCG)/surface_driver.f90 \
+             $(UMWM)/umwm_advection.F90 \
+             $(UMWM)/umwm_source_functions.F90 \
+             $(UMWM)/umwm_sheltering.F90 \
+             $(UMWM)/umwm_physics.F90 \
+             $(UMWM)/umwm_module.F90 \
+             $(UMWM)/umwm_init.F90 \
+             $(UMWM)/umwm_oforcing.F90 \
+             $(UMWM)/umwm_top.F90 \
+             $(UMWM)/umwm_stress.F90 \
+             $(UMWM)/umwm_stokes.F90 \
              $(HURRICANE)/hurricane_init.F90 \
              $(HURRICANE)/plot_trajecfile.f90 \
              $(TEST_CASES)/mem_swtc5_refsoln_cubic.f90 \

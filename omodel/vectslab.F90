@@ -1208,3 +1208,248 @@ subroutine vectslab_horiz_wsfc(iplt)
 #endif
 
 end subroutine vectslab_horiz_wsfc
+
+!===============================================================================
+
+subroutine vectslab_horiz_umwm(iplt)
+
+  ! Plot vector field that denotes dominant ocean wave speed and direction
+  ! May use vector coloring to denote value of significant wave height
+
+  use oplot_coms,   only: op
+  use mem_sfcg,     only: mwsfc, sfcg
+  use mem_sea,      only: sea, msea, omsea
+  use consts_coms,  only: eradi
+  use misc_coms,    only: mdomain, iparallel
+  use mem_para,     only: myrank, mgroupsize, nbytes_real
+  use umwm_module,  only: dcg0, dwd, swh
+
+#ifdef OLAM_MPI
+  use mpi
+#endif
+
+  implicit none
+
+  integer, intent(in) :: iplt
+
+  integer :: jw, iwsfc, isea, swhcolor
+
+  real :: ucg, vcg, raxis, cgxe, cgye, cgze
+
+  real :: pointx,pointy,tailx,taily
+  real :: speed,headlen,head1x,head1y,head2x,head2y
+  real :: tailxe,tailye,tailze,stemlen
+  real :: stemx,stemy,stemz,snx,sny,snz,rnx,rny,rnz
+  real :: head1xe,head1ye,head1ze,head2xe,head2ye,head2ze
+
+  integer, allocatable :: buffer(:), bcopy(:)
+  integer :: nu, ier, buffsize, ipos, base, inc, j, n, indswh
+  integer :: nus(mgroupsize)
+  integer, parameter :: itag = 40
+
+  integer, parameter :: swhcolors(8) = [102, 113, 117, 123, 127, 134, 139, 143]
+
+  if (.not. allocated(swh)) then
+     print*, 'UMWM not active in this run -- returning from subroutine vectslab_horiz_umwm'
+     RETURN
+  endif
+
+  nu   = 0
+  ipos = 0
+
+  base = 8 * nbytes_real
+
+  if (op%windowin(iplt) == 'W') then
+     inc = ceiling( real(mwsfc) / 5. )
+  else
+     inc = mwsfc
+  endif
+
+  if (myrank > 0) then
+     buffsize = inc * base
+     allocate( buffer( buffsize ) )
+  endif
+
+  do isea = 2,msea
+
+     iwsfc = isea + omsea
+
+     ! Transform IV coordinates
+
+     call oplot_transform(iplt,sfcg%xew(iwsfc),sfcg%yew(iwsfc),sfcg%zew(iwsfc),pointx,pointy)
+
+     ! Jump out of loop if vector head is outside plot window.
+
+     if (pointx < op%xmin .or. pointx > op%xmax .or.  &
+         pointy < op%ymin .or. pointy > op%ymax) cycle
+
+     if (dcg0(isea) < 1.e-3) cycle
+
+     ucg = dcg0(isea) * cos(dwd(isea))
+     vcg = dcg0(isea) * sin(dwd(isea))
+
+     raxis = sqrt(sfcg%xew(iwsfc) ** 2 + sfcg%yew(iwsfc) ** 2)  ! dist from earth axis
+
+     if (mdomain < 2 .and. raxis > 1.e3) then
+
+        cgxe = (-sfcg%yew(iwsfc) / raxis) * ucg + (-sfcg%xew(iwsfc) * sfcg%zew(iwsfc) * eradi / raxis) * vcg
+        cgye = ( sfcg%xew(iwsfc) / raxis) * ucg + (-sfcg%yew(iwsfc) * sfcg%zew(iwsfc) * eradi / raxis) * vcg
+        cgze =                                                                         (raxis * eradi) * vcg
+
+        stemx = cgxe * op%dtvec
+        stemy = cgye * op%dtvec
+        stemz = cgze * op%dtvec
+
+     else
+
+        stemx = 0.
+        stemy = 0.
+        stemz = 0.
+
+     endif
+
+     ! Vector length and unit components
+
+     stemlen = sqrt(stemx**2 + stemy**2 + stemz**2)
+
+     snx = stemx / stemlen
+     sny = stemy / stemlen
+     snz = stemz / stemlen
+
+     ! "Right" unit components
+
+     if (mdomain <= 1) then  ! Spherical geometry case
+        rnx = (sny * sfcg%zew(iwsfc) - snz * sfcg%yew(iwsfc)) * eradi
+        rny = (snz * sfcg%xew(iwsfc) - snx * sfcg%zew(iwsfc)) * eradi
+        rnz = (snx * sfcg%yew(iwsfc) - sny * sfcg%xew(iwsfc)) * eradi
+     else                    ! Cartesian case
+        rnx = sny
+        rny = - snx
+        rnz = 0.
+     endif
+
+     ! Earth coordinates of tail
+
+     tailxe = sfcg%xew(iwsfc) - stemx
+     tailye = sfcg%yew(iwsfc) - stemy
+     tailze = sfcg%zew(iwsfc) - stemz
+
+     ! Earth coordinates of left and right head tips
+
+     headlen = op%headspeed * op%dtvec  ! introduce separate dtvec for umwm?
+
+     head1xe = sfcg%xew(iwsfc) + rnx * .42 * headlen - snx * .91 * headlen
+     head1ye = sfcg%yew(iwsfc) + rny * .42 * headlen - sny * .91 * headlen
+     head1ze = sfcg%zew(iwsfc) + rnz * .42 * headlen - snz * .91 * headlen
+
+     head2xe = sfcg%xew(iwsfc) - rnx * .42 * headlen - snx * .91 * headlen
+     head2ye = sfcg%yew(iwsfc) - rny * .42 * headlen - sny * .91 * headlen
+     head2ze = sfcg%zew(iwsfc) - rnz * .42 * headlen - snz * .91 * headlen
+
+     ! Transform other tail and coordinates
+
+     call oplot_transform(iplt,tailxe,tailye,tailze,tailx,taily)
+     call oplot_transform(iplt,head1xe,head1ye,head1ze,head1x,head1y)
+     call oplot_transform(iplt,head2xe,head2ye,head2ze,head2x,head2y)
+
+     ! Avoid wrap-around
+
+     if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,tailx)
+     if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,head1x)
+     if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,head2x)
+
+     ! Jump out of loop if tail or sides of head are outside plot window.
+
+     if (tailx  < op%xmin .or. tailx  > op%xmax .or.  &
+         taily  < op%ymin .or. taily  > op%ymax .or.  &
+         head1x < op%xmin .or. head1x > op%xmax .or.  &
+         head1y < op%ymin .or. head1y > op%ymax .or.  &
+         head2x < op%xmin .or. head2x > op%xmax .or.  &
+         head2y < op%ymin .or. head2y > op%ymax) cycle
+
+     ! Set vector color based on swh
+
+     indswh = max(1,min(8,int(swh(isea))))
+     swhcolor = swhcolors(indswh)
+     call o_sflush()
+     call o_gsplci(swhcolor)
+     call o_gstxci(swhcolor)
+
+     ! Draw vector
+
+     if (myrank == 0) then
+        call o_frstpt(tailx,taily)
+        call o_vector(pointx,pointy)
+        call o_frstpt(head1x,head1y)
+        call o_vector(pointx,pointy)
+        call o_vector(head2x,head2y)
+     else
+#ifdef OLAM_MPI
+          nu = nu + 1
+          if (buffsize < ipos + base) then
+             allocate( bcopy (buffsize + inc * base) )
+             bcopy(1:buffsize) = buffer
+             call move_alloc(bcopy, buffer)
+             buffsize = size(buffer)
+          endif
+          call MPI_Pack(tailx,  1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+          call MPI_Pack(taily,  1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+          call MPI_Pack(pointx, 1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+          call MPI_Pack(pointy, 1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+          call MPI_Pack(head1x, 1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+          call MPI_Pack(head1y, 1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+          call MPI_Pack(head2x, 1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+          call MPI_Pack(head2y, 1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+#endif
+     endif
+
+  enddo
+
+#ifdef OLAM_MPI
+  if (iparallel == 1) then
+     call MPI_Gather(nu, 1, MPI_INTEGER, nus, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ier)
+
+     if (myrank > 0 .and. nu > 0) then
+        call MPI_Send(buffer, ipos, MPI_PACKED, 0, itag, MPI_COMM_WORLD, ier)
+     endif
+
+     if (myrank == 0) then
+
+        buffsize = maxval(nus(2:mgroupsize)) * base
+        allocate( buffer( buffsize ) )
+
+        do n = 2, mgroupsize
+
+           if (nus(n) > 0) then
+
+              call MPI_Recv( buffer, buffsize, MPI_PACKED, n-1, itag, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier )
+
+              ipos = 0
+
+              do j = 1, nus(n)
+                 call MPI_Unpack(buffer, buffsize, ipos, tailx,  1, MPI_REAL, MPI_COMM_WORLD, ier)
+                 call MPI_Unpack(buffer, buffsize, ipos, taily,  1, MPI_REAL, MPI_COMM_WORLD, ier)
+                 call MPI_Unpack(buffer, buffsize, ipos, pointx, 1, MPI_REAL, MPI_COMM_WORLD, ier)
+                 call MPI_Unpack(buffer, buffsize, ipos, pointy, 1, MPI_REAL, MPI_COMM_WORLD, ier)
+                 call MPI_Unpack(buffer, buffsize, ipos, head1x, 1, MPI_REAL, MPI_COMM_WORLD, ier)
+                 call MPI_Unpack(buffer, buffsize, ipos, head1y, 1, MPI_REAL, MPI_COMM_WORLD, ier)
+                 call MPI_Unpack(buffer, buffsize, ipos, head2x, 1, MPI_REAL, MPI_COMM_WORLD, ier)
+                 call MPI_Unpack(buffer, buffsize, ipos, head2y, 1, MPI_REAL, MPI_COMM_WORLD, ier)
+
+                 call o_frstpt(tailx,taily)
+                 call o_vector(pointx,pointy)
+                 call o_frstpt(head1x,head1y)
+                 call o_vector(pointx,pointy)
+                 call o_vector(head2x,head2y)
+              enddo
+
+           endif
+        enddo
+     endif
+
+     deallocate(buffer)
+  endif
+#endif
+
+end subroutine vectslab_horiz_umwm
+
