@@ -1487,13 +1487,15 @@ subroutine ctrlvols_hex()
      lpm(im) = lpm(imp)
   enddo
 
-  allocate(sfcg%dzt_bot(nwsfc))
+  allocate(sfcg%dzt_bot(nwsfc)) ; sfcg%dzt_bot(1) = 0.
 
   ! Loop over all SURFACE cells
 
   !$omp parallel
   !$omp do private(iwsfc,j,iw,kw)
   do iwsfc = 2,nwsfc
+
+     sfcg%dzt_bot(iwsfc) = 0.
 
      ! Loop over ATM cells that couple to current SURFACE cell
 

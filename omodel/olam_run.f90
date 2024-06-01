@@ -23,7 +23,7 @@ subroutine olam_run(name_name)
   use leaf_coms,   only: isfcl, iupdndvi
   use sea_coms,    only: iupdsst, iupdseaice, dt_sea
   use mem_ijtabs,  only: istp, fill_jtabs, itab_v, itab_w
-  use mem_sfcg,    only: mwsfc, alloc_sfcgrid2, filltab_sfcg, fill_jtab_sfcg
+  use mem_sfcg,    only: mwsfc, alloc_sfcgrid2, filltab_sfcg, fill_jtab_sfcg, nswmzons
   use sea_swm,     only: swm_init, swm_diagvel
   use oplot_coms,  only: op, iplt_file
   use mem_grid,    only: mma, mva, mwa, mza, alloc_gridz_other, volvi, lpvmax
@@ -40,7 +40,7 @@ subroutine olam_run(name_name)
   use lite_vars,   only: prepare_lite, lite_write, lite_read
   use mem_regrid,  only: init_regrid
   use mem_land,    only: land, mland
-  use mem_sea,     only: sea, msea
+  use mem_sea,     only: sea, msea, npomzons
   use vel_t3d,     only: diagvel_t3d, diag_uzonal_umerid
   use mem_adv,     only: alloc_adv
   use mem_co2,     only: co2init
@@ -467,11 +467,15 @@ subroutine olam_run(name_name)
 
      ! Start up POM1D model
 
-     write(io6,'(/,a)') 'olam_run calling pom_startup'
-     call pom_startup()
+     if (npomzons > 0) then
+        write(io6,'(/,a)') 'olam_run calling pom_startup'
+        call pom_startup()
+     endif
 
-     write(io6,'(/,a)') 'olam_run calling swm_init'
-     call swm_init()
+     if (nswmzons > 0) then
+        write(io6,'(/,a)') 'olam_run calling swm_init'
+        call swm_init()
+     endif
 
      ! Average atmospheric fields to SFC grid cells
 
@@ -497,11 +501,12 @@ subroutine olam_run(name_name)
 
      ! Initialize POM1D fields
 
-     write(io6,'(/,a)') 'olam_run calling pom_init'
-     call pom_init()
+     if (npomzons > 0) then
+        write(io6,'(/,a)') 'olam_run calling pom_init'
+        call pom_init()
+     endif
 
-     call swm_diagvel()
-
+     if (nswmzons > 0) call swm_diagvel()
      if (umwmflg == 1) call umwm_initialize(dt_sea)
 
      if (nl%igw_spinup == 1) then

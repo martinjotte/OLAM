@@ -2118,7 +2118,7 @@ case(119) ! 'LATHEAT_ZINT_DIF2'
       denom = denom + dzt(k) * rho(k,i)
    enddo
 
-   fldval = fldval / denom
+   if (kk >= lpw(i)) fldval = fldval / denom
 
    if (abs(time8_prev0 - time8_prev1) > .99) then
       fldval = fldval * 3600. / (time8_prev0 - time8_prev1)

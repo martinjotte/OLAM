@@ -1,8 +1,11 @@
 module umwm_init
 
-use umwm_module
+  use umwm_module
 
-implicit none
+  implicit none
+
+  private
+  public :: nmlassign, init
 
 contains
 
@@ -11,6 +14,7 @@ contains
 subroutine nmlassign()
 
   use misc_coms, only: io6
+  implicit none
 
   logical :: namelistok
 
@@ -106,10 +110,12 @@ subroutine init()
 
   use consts_coms,   only: piu180, erad, pi2, pio4, grav
   use mem_sfcg,      only: sfcg, mvsfc, itab_vsfc
-  use mem_sea,       only: sea, msea, omsea
+  use mem_sea,       only: msea, omsea
   use umwm_oforcing, only: oforcing
 
-  integer :: i, n, o, p, pp, ind, iw1, iw2, iwsfc
+  implicit none
+
+  integer :: i, o, p, pp, ind, iw1, iw2, iwsfc
   real    :: raxis, dx, dy, thdirv, bfa, bfb
 
   ! set frequency increment:
@@ -205,7 +211,7 @@ subroutine init()
   call oforcing()
 
   ! compute wave numbers, phase speeds, and group velocities:
-  call dispersion(1e-2)
+  call dispersion(1.e-2)
 
   ! initialize drag coefficient (Large and Pond, 1981):
   umwm%cd = 1.2e-3
@@ -260,17 +266,17 @@ subroutine dispersion(tol)
   use mem_sea,     only: msea, omsea
   use mem_sfcg,    only: sfcg
 
+  implicit none
+
   ! Iteratively solve the dispersion relation by iteration,
   ! and compute phase and group velocities in absolute reference frame (w/ currents)
 
-  integer :: src, dest
+  real, intent(in) :: tol
 
   integer :: counter, i, o, iwsfc
-  real,intent(in) :: tol
-  real :: dk
 
-  real :: dom (om)
-  real :: b   (msea)
+  real :: dk
+  real :: b      (msea)
   real :: f_nd(om,msea)
   real :: kd  (om,msea)
   real :: t   (om,msea)
@@ -335,12 +341,6 @@ subroutine dispersion(tol)
                          + sfct * k(o,i) * k(o,i) / (rhosw * grav + sfct * k(o,i) * k(o,i)))
   enddo
 
-print*, 'grav,sfct,rhosw ', grav, sfct, rhosw
-
-print*, ' '
-write(6,'(140a)') '           o    cp0     cg0    l2     umwm%f    kd     cothkd   dwn       k        kdk         k4         sbf         sdv        fkovg'
-print*, ' '
-
   ! compute some frequently used arrays:
   do i = 2,msea
      iwsfc = i + omsea
@@ -359,11 +359,6 @@ print*, ' '
         sbf       (o,i) = sbf_fac * k(o,i) / (sinh(2. * kd(o,i))) &          ! bottom friction
                         + sbp_fac * k(o,i) / (cosh(kd(o,i)) * cosh(kd(o,i))) ! bottom percolation
         sdv       (o,i) = 4. * nu_water * k(o,i)**2                          ! viscosity
-
-if (i == 1000) then
-   write(6,'(a,i6,6f8.2,2f8.3,9e12.3)') 'init7 ',o,cp0(o,i),cg0(o,i),l2(o,i),umwm%f(o),kd(o,i), &
-        cothkd(o,i),dwn(o,i),k(o,i),kdk(o,i),k4(o,i),sbf(o,i),sdv(o,i),fkovg(o,i)
-endif
 
      enddo
   enddo

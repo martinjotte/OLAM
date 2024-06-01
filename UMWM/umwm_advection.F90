@@ -14,12 +14,12 @@ contains
 subroutine propagation()
 
   use mem_sea,  only: sea, msea, omsea
-  use mem_sfcg, only: sfcg, itab_wsfc
+  use mem_sfcg, only: sfcg, itab_wsfc, nswmzons
 
   ! 1st order upstream finite difference advection in geographical space.
 
   integer :: o, p, isea, iwsfc, npoly, jv, ivsfc, iwnsfc, iwnsea_cg, iwnsea_e
-  real :: cg, cc, cgc, dirv, areai
+  real :: cc, cgc, dirv, areai
 
   real :: flux(om,pm,msea)
 
@@ -47,9 +47,12 @@ subroutine propagation()
 
               !  group velocity and current velocity normal to cell edge
               !  (if > 0, velocity is inward toward isea cell)
-              cg = 0.5 * (cg0(o,isea) + cg0(o,iwnsea_cg)) * cthp_dirv(p,ivsfc) * dirv
-              cc = sfcg%vc(ivsfc)                                              * dirv
-              cgc = cg + cc
+              cgc = 0.5 * (cg0(o,isea) + cg0(o,iwnsea_cg)) * cthp_dirv(p,ivsfc) * dirv
+
+              if (nswmzons > 0) then
+                 cc  = sfcg%vc(ivsfc) * dirv
+                 cgc = cgc + cc
+              endif
 
               ! advective energy flux through cell edges
               flux(o,p,isea) = flux(o,p,isea) &
@@ -80,8 +83,8 @@ end subroutine propagation
 
 subroutine refraction()
 
-  use mem_sea, only: sea, msea, omsea
-  use mem_sfcg, only: sfcg, itab_wsfc
+  use mem_sea,  only: sea, msea, omsea
+  use mem_sfcg, only: sfcg, itab_wsfc, nswmzons
 
   ! 1st order upstream finite difference advection in
   ! directional space -- bottom- and current-induced refraction.
@@ -102,11 +105,14 @@ subroutine refraction()
      vortvc = 0.
 
      ! Vorticity from swm ocean current
-     do jv = 1,npoly
-        imsfc  = itab_wsfc(iwsfc)%imn(jv)
-        vortvc = vortvc + sfcg%vort(imsfc)
-     enddo
-     vortvc = vortvc / real(npoly)
+
+     if (nswmzons > 0) then
+        do jv = 1,npoly
+           imsfc  = itab_wsfc(iwsfc)%imn(jv)
+           vortvc = vortvc + sfcg%vort(imsfc)
+        enddo
+        vortvc = vortvc / real(npoly)
+     endif
 
      do p = 1,pm
         do o = 1,oc(isea)

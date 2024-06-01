@@ -11,7 +11,7 @@ contains
 subroutine oforcing()
 
   use mem_sea,        only: sea, msea, omsea
-  use mem_sfcg,       only: sfcg
+  use mem_sfcg,       only: sfcg, nswmzons
   use consts_coms,    only: erad
 
   integer :: i, iwsfc
@@ -33,10 +33,15 @@ subroutine oforcing()
         umwm%vwind(i) =  sea%windze(i) * raxis / erad &
               - (sea%windxe(i) * sfcg%xew(iwsfc) + sea%windye(i) * sfcg%yew(iwsfc)) * sfcg%zew(iwsfc) / (raxis * erad)
 
-        ! Ocean current components
-        ucurr(i) = (sea%vye   (i) * sfcg%xew(iwsfc) - sea%vxe   (i) * sfcg%yew(iwsfc)) / raxis
-        vcurr(i) =  sea%vze   (i) * raxis / erad &
-                 - (sea%vxe   (i) * sfcg%xew(iwsfc) + sea%vye   (i) * sfcg%yew(iwsfc)) * sfcg%zew(iwsfc) / (raxis * erad)
+        if (nswmzons > 0) then
+           ! Ocean current components
+           ucurr(i) = (sea%vye(i) * sfcg%xew(iwsfc) - sea%vxe(i) * sfcg%yew(iwsfc)) / raxis
+           vcurr(i) =  sea%vze(i) * raxis / erad &
+                    - (sea%vxe(i) * sfcg%xew(iwsfc) + sea%vye(i) * sfcg%yew(iwsfc)) * sfcg%zew(iwsfc) / (raxis * erad)
+        else
+           ucurr(i) = 0.
+           vcurr(i) = 0.
+        endif
 
      else
         umwm%uwind(i) = 0.
