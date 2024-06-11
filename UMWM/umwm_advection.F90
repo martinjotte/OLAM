@@ -24,7 +24,7 @@ subroutine propagation()
   real :: flux(om,pm,msea)
 
   !$omp parallel do private(iwsfc, npoly, jv, ivsfc, iwnsfc, dirv, &
-  !$omp                     iwnsea_cg, iwnsea_e, o, p, cg, cc, cgc, areai)
+  !$omp                     iwnsea_cg, iwnsea_e, o, p, cc, cgc, areai)
   do isea = 2,msea
      iwsfc = isea + omsea
      npoly = itab_wsfc(iwsfc)%npoly
