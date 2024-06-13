@@ -54,27 +54,36 @@ subroutine shdf5_exists(locfn, exists, serial)
   logical,           intent(out) :: exists
   logical, optional, intent(in)  :: serial
   logical                        :: dophdf5, dohdf5
-  logical                        :: docomm
+  logical                        :: docomm, doser
   integer                        :: ier
 
   ! Are we using parallel HDF5
   dophdf5 = (iparallel==1) .and. has_phdf5 .and. (.not. nl%disable_phdf5_reads )
 
   ! Does this rank directly call HDF5 routines
-  dohdf5 = (myrank==0) .or. nl%allranks_read_hdf5 .or. dophdf5
+  dohdf5 = (myrank==0) .or. (iparallel==1 .and. nl%allranks_read_hdf5) .or. dophdf5
 
   ! Do we need MPI routines to send/receive data to/from node 0
   docomm = (iparallel==1) .and. (.not. dophdf5) .and. (.not. nl%allranks_read_hdf5 )
 
-  if (present(serial)) then
+  ! Is each process doing I/O independent from the other processes
+  doser = iparallel /= 1
+
+  if ( (iparallel == 1) .and. present(serial) ) then
      dophdf5 = dophdf5 .and. (.not. serial)
      docomm  = docomm  .and. (.not. serial)
      dohdf5  = dohdf5  .or.         serial
+     doser   = serial
   endif
 
   if (dohdf5) call fh5f_exists(locfn, exists, pario=dophdf5)
+
 #ifdef OLAM_MPI
-  if (docomm) call MPI_Bcast(exists, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ier)
+  if (docomm) then
+     call MPI_Bcast(exists, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, ier)
+  elseif (.not. doser) then
+     call MPI_Allreduce(MPI_IN_PLACE, exists, 1, MPI_LOGICAL, MPI_LAND, MPI_COMM_WORLD, ier)
+  endif
 #endif
 
 end subroutine shdf5_exists
@@ -235,7 +244,11 @@ subroutine shdf5_open(locfn, access, idelete, serial)
   endif
 
 #ifdef OLAM_MPI
-  call MPI_Allreduce(MPI_IN_PLACE, ierror, 1, MPI_LOGICAL, MPI_LOR, MPI_COMM_WORLD, hdferr)
+  if (do_comm) then
+     call MPI_Bcast(ierror, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, hdferr)
+  elseif (do_phdf5 .or. indepio) then
+     call MPI_Allreduce(MPI_IN_PLACE, ierror, 1, MPI_LOGICAL, MPI_LOR, MPI_COMM_WORLD, hdferr)
+  endif
 #endif
 
   if (ierror) then

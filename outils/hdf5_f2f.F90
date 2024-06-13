@@ -124,7 +124,10 @@ contains
     endif
 #endif
 
+    call h5eset_auto_f(0, hdferr)
     call h5fis_accessible_f(locfn, exists, hdferr, access_prp)
+    if (hdferr /= 0) exists = .false.
+    call h5eset_auto_f(1, hdferr)
 
     call h5pclose_f(access_prp, hdferr)
 
@@ -209,15 +212,18 @@ contains
        call H5Pset_alignment_f( access_prp, aligns1, aligns2, hdferr )
     endif
 
+    call h5eset_auto_f(0, hdferr)
     call h5fis_accessible_f(locfn, ish5, hdferr, access_prp)
+    if (hdferr /= 0) ish5 = .false.
+    call h5eset_auto_f(1, hdferr)
 
-    if (.not. ish5 .or. hdferr < 0) then
+    if (.not. ish5) then
        write(io6,*) "File " // trim(locfn) // " does not exist or is not a hdf5/nc4 file."
        write(io6,*) "If this file is an older NetCDF3 format file convert it to NetCDF4 using:"
        write(io6,*) "nccopy -k nc4 INFILE OUTFILE"
        write(io6,*)
-       hdferr = -1
        call h5pclose_f(access_prp, hdferr)
+       hdferr = -1
        return
     endif
 
