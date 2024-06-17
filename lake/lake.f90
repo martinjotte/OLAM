@@ -80,7 +80,6 @@ subroutine lakecells(ilake)
                    sfcg%runoff      (iwsfc), &
                    sfcg%sfluxt      (iwsfc), &
                    sfcg%sfluxr      (iwsfc), &
-                   lake%surface_srrv(ilake), &
                    sfcg%rough       (iwsfc)  )
 
 ! Original calculation of wthv for sfluxt units [kg_dry K m^-2 s^-1]
@@ -115,7 +114,7 @@ end subroutine lakecells
 subroutine lakecell(ilake, iwsfc, rhos, ustar, vkhsfc, can_depth, topw, &
                     bathym, rshort, rlong, rlongup, albedo_beam, pcpg, qpcpg, &
                     glatw, glonw, airtheta, airrrv, canexner, cantemp, canrrv, depth, &
-                    lake_energy, head1, runoff, sfluxt, sfluxr, surface_srrv, rough)
+                    lake_energy, head1, runoff, sfluxt, sfluxr, rough)
 
   use lake_coms,   only: dt_lake
   use consts_coms, only: cp, grav, t00, cliq1000, alvl, r8
@@ -154,7 +153,6 @@ subroutine lakecell(ilake, iwsfc, rhos, ustar, vkhsfc, can_depth, topw, &
   real,    intent(inout) :: runoff       ! new runoff mass this timestep [kg/m^2]
   real,    intent(out)   :: sfluxt       ! can_air to atm heat flux [kg_dry K m^-2 s^-1]
   real,    intent(out)   :: sfluxr       ! can_air to atm vapor flux [kg_vap m^-2 s^-1]
-  real,    intent(out)   :: surface_srrv ! lake surface sat mixing ratio [kg_vap/kg_dryair]
   real,    intent(out)   :: rough        ! lake cell roughess height [m]
 
   ! Local parameters
@@ -200,7 +198,6 @@ subroutine lakecell(ilake, iwsfc, rhos, ustar, vkhsfc, can_depth, topw, &
 ! Evaluate surface saturation vapor density and mixing ratio of sea surface
 
   sfc_rhovs    = rhovsl(laketemp - 273.15)
-  surface_srrv = sfc_rhovs / rhos
 
   ! rdi = ustar/5 is the viscous sublayer conductivity derived from Garratt (1992)
 
@@ -307,12 +304,6 @@ subroutine lakecell(ilake, iwsfc, rhos, ustar, vkhsfc, can_depth, topw, &
 
   sfluxt = hxferca / dt_lake
   sfluxr = wxferca / dt_lake
-
-
-
-!//  hxfersc = dt_lake * cp * rhos * rdi * (laketemp - cantemp)
-!//  wxfersc = dt_lake *      rhos * rdi * (surface_srrv - canrrv)
-
 
   head1 = depth + bathym - topw
 

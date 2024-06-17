@@ -80,12 +80,12 @@ subroutine sea_init_atm()
      sea%sea_rough   (isea) = .001
      sea%sea_cantemp (isea) = sfcg%cantemp(iwsfc)
      sea%sea_canrrv  (isea) = sfcg%canrrv(iwsfc)
-     sea%sea_sfc_srrv(isea) = rhovsl(sea%seatc(isea)-t00) / sfcg%rhos(iwsfc)
      sea%sea_ustar   (isea) = 0.1
      sea%sea_ggaer   (isea) = 0.0
      sea%sea_wthv    (isea) = 0.0
      sea%sea_sfluxt  (isea) = 0.0
      sea%sea_sfluxr  (isea) = 0.0
+     sea%nlev_seaice (isea) = 0
 
      ! Seaice quantities
 
@@ -117,9 +117,6 @@ subroutine sea_init_atm()
 
      if (sea%nlev_seaice(isea) > 0) then
 
-        sea%ice_sfc_srrv(isea) = rhovsil(sea%seaice_tempk(sea%nlev_seaice(isea),isea)) &
-                               / sfcg%rhos(iwsfc)
-
         sfcg%rough    (iwsfc) = (1.0 - sea%seaicec(isea)) * sea%sea_rough  (isea) + &
                                        sea%seaicec(isea)  * sea%ice_rough  (isea)
 
@@ -128,16 +125,11 @@ subroutine sea_init_atm()
 
         sfcg%canrrv   (iwsfc) = (1.0 - sea%seaicec(isea)) * sea%sea_canrrv (isea) + &
                                        sea%seaicec(isea)  * sea%ice_canrrv (isea)
-
-        sea%surface_srrv(isea) = (1.0 - sea%seaicec(isea)) * sea%sea_sfc_srrv(isea) + &
-                                        sea%seaicec(isea)  * sea%ice_sfc_srrv(isea)
-
      else
 
         sfcg%rough      (iwsfc) = sea%sea_rough   (isea)
         sfcg%cantemp    (iwsfc) = sea%sea_cantemp (isea)
         sfcg%canrrv     (iwsfc) = sea%sea_canrrv  (isea)
-        sea%surface_srrv(isea)  = sea%sea_sfc_srrv(isea)
 
      endif
 

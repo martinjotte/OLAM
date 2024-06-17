@@ -96,9 +96,9 @@ subroutine read_lake_analysis()
                      laketemp, xswlon, xswlat, gdatdx, gdatdy, inproj, &
                      r2d=wtemp, plats=plats, irev_ns=irev_ns )
 
-     lake%lake_energy (ilake) = (laketemp - t00) * cliq + alli
-     lake%surface_srrv(ilake) = rhovsl(laketemp - t00) / sfcg%rhos(iwsfc)
+     lake%lake_energy(ilake) = (laketemp - t00) * cliq + alli
 
   enddo
+  !$omp end parallel do
 
 end subroutine read_lake_analysis

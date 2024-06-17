@@ -57,7 +57,6 @@ subroutine lake_init_atm()
 
      laketemp                 = sfcg%cantemp(iwsfc)
      lake%lake_energy (ilake) = (laketemp - t00) * cliq + alli
-     lake%surface_srrv(ilake) = rhovsl(laketemp - t00) / sfcg%rhos(iwsfc)
      sfcg%rough       (iwsfc) = .001
      sfcg%ustar       (iwsfc) = 0.1
      sfcg%ggaer       (iwsfc) = 0.0

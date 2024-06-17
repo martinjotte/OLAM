@@ -124,7 +124,6 @@ subroutine seacells(isea, timefac_sst, timefac_seaice)
                     sea_spray2_temp,         &
                     sea%sea_sfluxt  (isea),  &
                     sea%sea_sfluxr  (isea),  &
-                    sea%sea_sfc_srrv(isea),  &
                     sea%sea_rough   (isea),  &
                     hfluxsea                 )
 
@@ -149,7 +148,6 @@ subroutine seacells(isea, timefac_sst, timefac_seaice)
                     sea_spray1_temp,         &
                     sea%sea_sfluxt  (isea),  &
                     sea%sea_sfluxr  (isea),  &
-                    sea%sea_sfc_srrv(isea),  &
                     sea%sea_rough   (isea),  &
                     hfluxsea                 )
 
@@ -193,9 +191,7 @@ subroutine seacells(isea, timefac_sst, timefac_seaice)
      swrad = sfcg%rshort(iwsfc) * (1. - sfcg%albedo_beam(iwsfc)) / cliq1000
 
      call pom_column(isea, pom%kba(isea), wusurf, wvsurf, wtsurf, wssurf, swrad)
-
   endif
-
 
   ! Update sea ice based on seaice fraction
 
@@ -247,7 +243,6 @@ subroutine seacells(isea, timefac_sst, timefac_seaice)
      sfcg%rough      (iwsfc) = sea%sea_rough   (isea)
      sfcg%cantemp    (iwsfc) = sea%sea_cantemp (isea)
      sfcg%canrrv     (iwsfc) = sea%sea_canrrv  (isea)
-     sea%surface_srrv (isea) = sea%sea_sfc_srrv(isea)
 
   else
 
@@ -294,8 +289,7 @@ subroutine seacells(isea, timefac_sst, timefac_seaice)
                  sea%ice_cantemp        (isea), &
                  sea%ice_canrrv         (isea), &
                  sea%ice_sfluxt         (isea), &
-                 sea%ice_sfluxr         (isea), &
-                 sea%ice_sfc_srrv       (isea)  )
+                 sea%ice_sfluxr         (isea)  )
 
 ! Original calculation of wthv for sfluxt units [kg_dry K m^-2 s^-1]
 
@@ -317,9 +311,6 @@ subroutine seacells(isea, timefac_sst, timefac_seaice)
 
      sfcg%canrrv   (iwsfc) = (1.0 - sea%seaicec(isea)) * sea%sea_canrrv (isea) + &
                                     sea%seaicec(isea)  * sea%ice_canrrv (isea)
-
-     sea%surface_srrv(isea) = (1.0 - sea%seaicec(isea)) * sea%sea_sfc_srrv(isea) + &
-                                     sea%seaicec(isea)  * sea%ice_sfc_srrv(isea)
 
      sfcg%vkmsfc(iwsfc) = (1.0 - sea%seaicec(isea)) * sea%sea_vkmsfc(isea) &
                                + sea%seaicec(isea)  * sea%ice_vkmsfc(isea)
@@ -351,7 +342,7 @@ end subroutine seacells
 subroutine seacell_1( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
                       vels, prss, wthv, glatw, glonw, airtheta, airrrv,  &
                       canexner, cantemp, canrrv, spraytemp, sfluxt, sfluxr, &
-                      surface_srrv, rough, hfluxsea )
+                      rough, hfluxsea )
 
   use mem_sfcg,    only: sfcg
   use sea_coms,    only: dt_sea
@@ -383,7 +374,6 @@ subroutine seacell_1( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
   real,    intent(inout) :: spraytemp    ! seaspray temperature [K]
   real,    intent(inout) :: sfluxt       ! can_air to atm heat flux [W m^-2]
   real,    intent(inout) :: sfluxr       ! can_air to atm vapor flux [kg_vap m^-2 s^-1]
-  real,    intent(out)   :: surface_srrv ! sea surface sat mixing ratio [kg_vap/kg_dryair]
   real,    intent(in)    :: rough        ! sea cell roughess height [m]
   real,    intent(out)   :: hfluxsea     ! heat flux from sea surface to can_air [kg K/(m^2 s)]
 
@@ -515,7 +505,6 @@ subroutine seacell_1( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
   ! Evaluate surface saturation vapor density and mixing ratio of sea surface
 
   sfc_rhovs    = rhovsl(seatc-273.15)
-  surface_srrv = sfc_rhovs / rhos
 
   ! rdi = ustar/5 is the viscous sublayer conductivity derived from Garratt (1992)
 
@@ -768,7 +757,7 @@ end subroutine seacell_1
 subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
                       vels, prss, wthv, glatw, glonw, airtheta, airrrv, &
                       canexner, cantemp, canrrv, spraytemp, spray2temp, sfluxt, sfluxr, &
-                      surface_srrv, rough, hfluxsea )
+                      rough, hfluxsea )
 
   use mem_sfcg,    only: sfcg
   use sea_coms,    only: dt_sea
@@ -801,7 +790,6 @@ subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
   real,    intent(inout) :: spray2temp   ! seaspray2 temperature [K]
   real,    intent(inout) :: sfluxt       ! can_air to atm sens heat flux [W m^-2]
   real,    intent(inout) :: sfluxr       ! can_air to atm vap flux [kg_vap m^-2 s^-1]
-  real,    intent(out)   :: surface_srrv ! sea surface sat mixing ratio [kg_vap/kg_dryair]
   real,    intent(in)    :: rough        ! sea cell roughess height [m]
   real,    intent(out)   :: hfluxsea     ! heat flux from sea to can_air [kg K/(m^2 s)]
 
@@ -943,7 +931,6 @@ subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
   ! Evaluate surface saturation vapor density and mixing ratio of sea surface
 
   sfc_rhovs    = rhovsl(seatc-273.15)
-  surface_srrv = sfc_rhovs / rhos
 
   ! rdi = ustar/5 is the viscous sublayer conductivity derived from Garratt (1992)
 

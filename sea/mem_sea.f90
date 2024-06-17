@@ -85,11 +85,6 @@ Module mem_sea
       real, allocatable :: seaicep       (:) ! past seaice fraction (obs time) [0-1]
       real, allocatable :: seaicef       (:) ! future seaice fraction (obs time) [0-1]
       real, allocatable :: seaicec       (:) ! seaice fraction [0-1]
-
-      real, allocatable :: surface_srrv  (:) ! sea surface sat vapor mixing ratio [kg_vap/kg_dryair]
-      real, allocatable :: sea_sfc_srrv  (:) ! sea surface sat vapor mixing ratio [kg_vap/kg_dryair]
-      real, allocatable :: ice_sfc_srrv  (:) ! sea surface sat vapor mixing ratio [kg_vap/kg_dryair]
-
       real, allocatable :: sea_rough     (:) ! water surface roughness height [m]
       real, allocatable :: ice_rough     (:) ! water surface roughness height [m]
 
@@ -219,10 +214,6 @@ Contains
      allocate (sea%seaicef       (msea)) ; sea%seaicef        = rinit
      allocate (sea%seaicec       (msea)) ; sea%seaicec        = rinit
 
-     allocate (sea%surface_srrv  (msea)) ; sea%surface_srrv   = rinit
-     allocate (sea%sea_sfc_srrv  (msea)) ; sea%sea_sfc_srrv   = rinit
-     allocate (sea%ice_sfc_srrv  (msea)) ; sea%ice_sfc_srrv   = rinit
-
      allocate (sea%sea_rough     (msea)) ; sea%sea_rough      = rinit
      allocate (sea%ice_rough     (msea)) ; sea%ice_rough      = rinit
 
@@ -301,9 +292,6 @@ Contains
      if (allocated(sea%spray2temp))     call increment_vtable('SEA%SPRAY2TEMP',     'SW', rvar1=sea%spray2temp)
      if (allocated(sea%nlev_seaice))    call increment_vtable('SEA%NLEV_SEAICE',    'SW', ivar1=sea%nlev_seaice)
      if (allocated(sea%seaicec))        call increment_vtable('SEA%SEAICEC',        'SW', rvar1=sea%seaicec)
-     if (allocated(sea%surface_srrv))   call increment_vtable('SEA%SURFACE_SRRV',   'SW', rvar1=sea%surface_srrv)
-     if (allocated(sea%sea_sfc_srrv))   call increment_vtable('SEA%SEA_SFC_SRRV',   'SW', rvar1=sea%sea_sfc_srrv)
-     if (allocated(sea%ice_sfc_srrv))   call increment_vtable('SEA%ICE_SFC_SRRV',   'SW', rvar1=sea%ice_sfc_srrv)
      if (allocated(sea%sea_rough))      call increment_vtable('SEA%SEA_ROUGH',      'SW', rvar1=sea%sea_rough)
      if (allocated(sea%ice_rough))      call increment_vtable('SEA%ICE_ROUGH',      'SW', rvar1=sea%ice_rough)
      if (allocated(sea%seaice_energy))  call increment_vtable('SEA%SEAICE_ENERGY',  'SW', rvar2=sea%seaice_energy)

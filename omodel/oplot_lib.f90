@@ -3556,30 +3556,10 @@ case(310) ! 'SFCG_SKINTEMPK'
 
 case(311) ! 'SFCG_GSS_SRRV'
 
-   if (sfcg%leaf_class(i) == 0) then
-      isea = i - omsea
-      fldval = sea%surface_srrv(isea) * 1.e3
-   elseif (sfcg%leaf_class(i) == 1) then
-      ilake = i - omlake
-      fldval = lake%surface_srrv(ilake) * 1.e3
-   elseif (sfcg%leaf_class(i) >= 2) then
-      iland = i - omland
-      nls = max(1, land%nlev_sfcwater(iland))
-      call grndvap(iland,                              &
-                   sfcg%rhos                  (i),     &
-                   sfcg%canrrv                (i),     &
-                   land%nlev_sfcwater         (iland), &
-                   fldval1,                            &
-                   fldval2,                            &
-                   land%sfcwater_energy   (nls,iland), &
-                   land%soil_water        (nzg,iland), &
-                   land%soil_energy       (nzg,iland), &
-                   land%head              (nzg,iland), &
-                   land%specifheat_drysoil(nzg,iland), &
-                   land%wresid_vg         (nzg,iland), &
-                   land%soilfldcap            (iland))
-      fldval = fldval1 * 1.e3
-   endif
+   ! We no longer solve directly for surface humdity.
+   ! Should this account for vegetation, snow, seaice, seaspray, ..
+
+   fldval = sfcg%canrrv(iwsfc) ! temmporary placeholder
 
 case(312) ! 'HEAD1'
 

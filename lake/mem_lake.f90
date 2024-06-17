@@ -27,7 +27,6 @@ Module mem_lake
 
      real, allocatable :: depth       (:) ! lake water mean depth [m]
      real, allocatable :: lake_energy (:) ! lake energy [J/kg]
-     real, allocatable :: surface_srrv(:) ! lake surface sat vapor mixing ratio [kg_vap/kg_dryair]
 
   End Type lake_vars
 
@@ -49,7 +48,6 @@ Contains
 
      allocate (lake%depth       (mlake)) ; lake%depth        = rinit
      allocate (lake%lake_energy (mlake)) ; lake%lake_energy  = rinit
-     allocate (lake%surface_srrv(mlake)) ; lake%surface_srrv = rinit
 
   end subroutine alloc_lake
 
@@ -62,7 +60,6 @@ Contains
 
      if (allocated(lake%depth))        call increment_vtable('LAKE%DEPTH'       , 'RW', rvar1=lake%depth)
      if (allocated(lake%lake_energy))  call increment_vtable('LAKE%LAKE_ENERGY' , 'RW', rvar1=lake%lake_energy)
-     if (allocated(lake%surface_srrv)) call increment_vtable('LAKE%SURFACE_SRRV', 'RW', rvar1=lake%surface_srrv)
 
   end subroutine filltab_lake
 

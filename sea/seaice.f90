@@ -127,8 +127,7 @@ end subroutine prep_seaice
 
 subroutine seaice( isea, iwsfc, nlev_seaice, rhos, ustar, vkhsfc, can_depth, &
                    rshort_i, rlong_i, glatw, glonw, airtheta, airrrv, canexner, &
-                   seaice_energy, seaice_tempk, cantemp, canrrv, sfluxt, sfluxr, &
-                   surface_srrv )
+                   seaice_energy, seaice_tempk, cantemp, canrrv, sfluxt, sfluxr)
 
   use consts_coms, only: alvi, cice, t00, cp, alli, r8
   use sea_coms,    only: dt_sea, t00sea, nzi
@@ -159,7 +158,6 @@ subroutine seaice( isea, iwsfc, nlev_seaice, rhos, ustar, vkhsfc, can_depth, &
   real,    intent(inout) :: canrrv       ! ice "canopy" air vapor mix ratio [kg_vap/kg_dryair]
   real,    intent(out)   :: sfluxt       ! can_air to atm heat flux [W m^-2]
   real,    intent(out)   :: sfluxr       ! can_air to atm vapor flux [kg_vap m^-2 s^-1]
-  real,    intent(out)   :: surface_srrv ! ice surface sat mix ratio [kg_vap/kg_dryair]
 
 ! Local parameters
 
@@ -210,7 +208,6 @@ subroutine seaice( isea, iwsfc, nlev_seaice, rhos, ustar, vkhsfc, can_depth, &
 ! Evaluate surface saturation vapor density and mixing ratio of sea surface
 
   sfc_rhovs    = rhovsi(seaice_tempk(nlev_seaice)-t00)
-  surface_srrv = sfc_rhovs / rhos
 
   ! rdi = ustar/5 is the viscous sublayer conductivity derived from Garratt (1992)
 
