@@ -26,7 +26,7 @@ subroutine olam_run(name_name)
   use mem_sfcg,    only: mwsfc, alloc_sfcgrid2, filltab_sfcg, fill_jtab_sfcg, nswmzons
   use sea_swm,     only: swm_init, swm_diagvel
   use oplot_coms,  only: op, iplt_file
-  use mem_grid,    only: mma, mva, mwa, mza, alloc_gridz_other, volvi, lpvmax
+  use mem_grid,    only: mma, mva, mwa, mza, alloc_gridz_other, volvi
   use mem_nudge,   only: nudflag, nudnxp, fill_jnudge, o3nudflag
   use mem_rayf,    only: rayf_init
   use consts_coms, only: r8, init_consts
@@ -329,10 +329,10 @@ subroutine olam_run(name_name)
   endif
 
   if (iparallel == 1) then
-     call mpi_send_v(rvara1=volvi, i1dvara1=lpvmax)
-     call mpi_recv_v(rvara1=volvi, i1dvara1=lpvmax)
+     call mpi_send_v(rvara1=volvi)
+     call mpi_recv_v(rvara1=volvi)
   endif
-  call lbcopy_v(vmc=volvi, iv1=lpvmax)
+  call lbcopy_v(vmc=volvi)
 
   ! Allocate memory for advection and pre-compute arrays for 3rd order advection
   ! (needs MPI to have been initialized)

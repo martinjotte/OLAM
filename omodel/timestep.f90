@@ -116,10 +116,6 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm
          call vortex_add_thetapert()
       endif
 
-      ! small-scale vorticity damping
-
-      call vort_damp()
-
       ! Nudging tendencies
 
       if (initial == 2 .and. nudflag == 1) then

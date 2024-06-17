@@ -362,11 +362,27 @@
                                  ! 2 = Runge-Kutta 2-step scheme (RK2)
                                  ! 3 = Runge-Kutta 3-step scheme (RK3)
 
-   NL%AKMIN_VORT     = 0.4  ! Ratio of vorticity damping coefficient to typical
-                            ! value from deformation K. Typical range 0.2 - 1.0
+   NL%DIVH_DAMP_FACT = 0.12 ! Fraction of horizontal divergence damped in one timestep.
+                            ! Set to 0.0 to disable.  Typical range 0.08 to 0.14
 
-   NL%DIVH_DAMP_FACT = 0.12 ! Fraction of horizontal divergence Laplacian damped in one
-                            ! timestep.  Set to 0.0 to disable.  Typical range 0.08 to 0.14
+   NL%DIVH_DAMP_LEVEL = 3   ! 0: disable divergence damping
+                            ! 1: second-order divergence damping
+                            ! 2: fourth-order divergence damping
+                            ! 3: sixth-order divergence damping
+
+   NL%DIVH_DAMP_SHORT = .true. ! T: divergence damping done each short timestep
+                               ! F: divergence damping done each long timestep
+
+   NL%VORT_DAMP_FACT = 0.075 ! Fraction of horizontal divergence damped in one timestep.
+                             ! Set to 0.0 to disable.  Typical range 0.04 to 0.1
+
+   NL%VORT_DAMP_LEVEL = 3   ! 0: disable vorticity damping
+                            ! 1: second-order vorticity damping
+                            ! 2: fourth-order vorticity damping
+                            ! 3: sixth-order vorticity damping
+
+   NL%VORT_DAMP_SHORT = .true. ! T: vorticity damping done each short timestep
+                               ! F: vorticity damping done each long timestep
 
    NL%ZERO_NEG_SCALARS = .false. ! Force negative scalar concentrations to zero?
 

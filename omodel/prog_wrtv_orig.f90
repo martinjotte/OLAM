@@ -29,9 +29,9 @@ subroutine init_wrtv_orig()
   endif
 
   if (rotational) then
-     allocate(vortp  (mza,mma)) ; vortp   = rinit
-     allocate(vortp_t(mza,mwa)) ; vortp_t = rinit
-     allocate(vortn  (mza,mva)) ; vortn   = rinit
+     allocate(vortp  (mza,mma))
+     allocate(vortp_t(mza,mwa))
+     allocate(vortn  (mza,mva))
   endif
 
 end subroutine init_wrtv_orig
@@ -52,7 +52,7 @@ subroutine prog_wrtv_orig()
                           vmsc, wmsc, vxesc, vyesc, vzesc
   use mem_grid,     only: mza, mva, mwa, lpv, lpw, volt, xev
   use mem_tend,     only: thilt, vmxet, vmyet, vmzet, vmt
-  use misc_coms,    only: iparallel, dtsm, deltax, mdomain, nxp
+  use misc_coms,    only: iparallel, dtlm, dtsm, deltax, mdomain, nxp
   use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, mpi_send_v, mpi_recv_v
   use obnd,         only: lbcopy_v, lbcopy_w
   use vel_t3d,      only: vel_t3d_hex
@@ -62,19 +62,7 @@ subroutine prog_wrtv_orig()
   use grad_lib,     only: grad_t2d, grad_z
   use pbl_drivers,  only: solve_eddy_diff_heat, solve_eddy_diff_vxe
   use vel_t3d,      only: diagvel_t3d
-
-!!  use mem_adv,      only: dxps_w, dyps_w, dzps_w, &
-!!                          dxyps_w, dxxps_w, dyyps_w, dzzps_w, &
-!!                          dxps_v, dyps_v, dzps_v, &
-!!                          dxyps_v, dxxps_v, dyyps_v, dzzps_v, &
-!!                          gxps_scp, gyps_scp, gzps_scp, &
-!!                          gxyps_scp, gxxps_scp, gyyps_scp, gzzps_scp, &
-!!                          gxps_vxe, gyps_vxe, gzps_vxe, &
-!!                          gxyps_vxe, gxxps_vxe, gyyps_vxe, gzzps_vxe, &
-!!                          gxps_vye, gyps_vye, gzps_vye, &
-!!                          gxyps_vye, gxxps_vye, gyyps_vye, gzzps_vye, &
-!!                          gxps_vze, gyps_vze, gzps_vze, &
-!!                          gxyps_vze, gxxps_vze, gyyps_vze, gzzps_vze
+  use oname_coms,   only: nl
 
   implicit none
 
@@ -114,6 +102,16 @@ subroutine prog_wrtv_orig()
   real :: unit_dist, fracx, rayfx
 
   dt = dtsm
+
+  ! Divergence/vorticity damping if computed each long timestep
+
+  if ( (.not. nl%divh_damp_short) .and. (istp == 1) ) then
+     call divh_damp(vmt, dtlm)
+  endif
+
+  if ( (.not. nl%vort_damp_short) .and. (istp == 1) ) then
+     call vort_damp(vmt, dtlm)
+  endif
 
 ! INCLUDE THE LONG TIMESTEP THIL AND MOMENTUM TENDENCIES IN EACH SHORT TIMESTEP
 
@@ -385,9 +383,10 @@ subroutine prog_wrtv_orig()
 
   endif ! (dorayf)
 
-  ! A good place to do divergence damping
+  ! Divergence/vorticity damping if computed each long timestep
 
-  call divh_damp(vmt_short)
+  if (nl%divh_damp_short) call divh_damp(vmt_short, dtsm)
+  if (nl%vort_damp_short) call vort_damp(vmt_short, dtsm)
 
   ! Main loop over v points to update vmc and vc
 

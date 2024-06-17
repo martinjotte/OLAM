@@ -185,8 +185,16 @@ Module oname_coms
      integer :: acoust_timestep_level = 3
      integer :: scalar_timestep_level = 2
 
-     real    :: akmin_vort     = 0.4
-     real    :: divh_damp_fact = 0.1
+     real    :: divh_damp_fact  = 0.1
+     integer :: divh_damp_level = 3
+     logical :: divh_damp_short = .true.
+
+     real    :: vort_damp_fact  = 0.075
+     integer :: vort_damp_level = 3
+     logical :: vort_damp_short = .true.
+
+     ! to be removed
+     real    :: akmin_vort = 0.4
 
      logical :: zero_neg_scalars = .true.
 

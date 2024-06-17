@@ -260,8 +260,11 @@ call ichk_bnds( nl%iscal_monot, "ISCAL_MONOT", 0, 2, 0, nfatal, nwarn )
 
 call ichk_bnds( nl%horiz_adv_order, "HORIZ_ADV_ORDER", 2, 3, 2, nfatal, nwarn )
 
-call rchk_bnds( nl%akmin_vort,     "AKMIN_VORT",     0.0, 10., 2, nfatal, nwarn )
-call rchk_bnds( nl%divh_damp_fact, "DIVH_DAMP_FACT", 0.0, 0.2, 2, nfatal, nwarn )
+call rchk_bnds( nl%divh_damp_fact,  "DIVH_DAMP_FACT",  0.0, 0.2, 2, nfatal, nwarn )
+call ichk_bnds( nl%divh_damp_level, "DIVH_DAMP_LEVEL", 0,   3,   2, nfatal, nwarn )
+
+call rchk_bnds( nl%vort_damp_fact,  "VORT_DAMP_FACT",  0.0, 0.1, 2, nfatal, nwarn )
+call ichk_bnds( nl%vort_damp_level, "VORT_DAMP_LEVEL", 0,   3,   2, nfatal, nwarn )
 
 !--------------------------------------------------------------------------
 ! RAYLEIGH FRICTION PARAMETERS

@@ -48,14 +48,14 @@ subroutine prog_wrtv_rk()
 
 ! The above description needs amending: The time differencing method is RK3.
 
-  use mem_ijtabs,   only: jtab_v, jtab_w, jtw_wadj, jtm_vadj, jtv_prog, &
+  use mem_ijtabs,   only: jtab_v, jtab_w, jtw_wadj, jtm_vadj, jtv_prog, istp, &
                           jtv_wadj, jtv_lbcp, jtw_prog, jtw_lbcp, itab_w, itab_v
   use mem_basic,    only: rho, thil, wc, press, vmc, vc, wmc, &
                           vxe, vye, vze, vmsc, vxesc, vyesc, vzesc
   use mem_grid,     only: mza, mva, mwa, lpv, lpw, dzto2, dztsqo6, volt, xev, &
                           nve2_max, lve2
   use mem_tend,     only: thilt, vmxet, vmyet, vmzet, vmt
-  use misc_coms,    only: iparallel, dtsm, nrk_wrtv, dn01d, th01d, &
+  use misc_coms,    only: iparallel, dtsm, dtlm, nrk_wrtv, dn01d, th01d, &
                           initial, nrk_scal, deltax, nxp, mdomain
   use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, mpi_send_v, mpi_recv_v
   use obnd,         only: lbcopy_m, lbcopy_w, lbcopy_v
@@ -126,13 +126,23 @@ subroutine prog_wrtv_rk()
 !!  real :: gxyps_vxe(mza,mwa)
 !!
 !!  real :: gxxps_vye(mza,mwa)
-!!  real :: gyyps_vye(mza,mwa)
+!!  real :: gyyps_vye(ma,mwa)
 !!  real :: gxyps_vye(mza,mwa)
 !!
 !!  real :: gxxps_vze(mza,mwa)
 !!  real :: gyyps_vze(mza,mwa)
 !!  real :: gxyps_vze(mza,mwa)
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  ! Divergence/vorticity damping if computed each long timestep
+
+  if ( (.not. nl%divh_damp_short) .and. (istp == 1) ) then
+     call divh_damp(vmt, dtlm)
+  endif
+
+  if ( (.not. nl%vort_damp_short) .and. (istp == 1) ) then
+     call vort_damp(vmt, dtlm)
+  endif
 
   !$omp parallel
   !$omp do private(iw,k,v4,ksw,rs,jv,iv,iwn)
@@ -260,7 +270,10 @@ subroutine prog_wrtv_rk()
 
   endif ! (dorayf)
 
-  call divh_damp(vmt_short)
+  ! Divergence/vorticity damping if computed each short timestep
+
+  if (nl%divh_damp_short) call divh_damp(vmt_short, dtsm)
+  if (nl%vort_damp_short) call vort_damp(vmt_short, dtsm)
 
   do istage = 1, nrk_wrtv
 

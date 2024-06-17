@@ -141,7 +141,7 @@ end subroutine olam_mpi_atm_start
 !===============================================================================
 
 subroutine mpi_send_v(rvara1, rvara2, rvara3, rvara4, &
-                      i1dvara1, i1dvara2, i1dvara3, svar1)
+                      i1dvara1, i1dvara2, i1dvara3)
 
 ! Subroutine to perform a parallel MPI send of a "V group" of field variables
 
@@ -149,7 +149,7 @@ subroutine mpi_send_v(rvara1, rvara2, rvara3, rvara4, &
   use mpi
 #endif
 
-  use mem_grid, only: mza, mva, nve2_max, lpv, lpvmax
+  use mem_grid, only: mza, mva
 
   implicit none
 
@@ -161,8 +161,6 @@ subroutine mpi_send_v(rvara1, rvara2, rvara3, rvara4, &
   integer, optional, intent(in) :: i1dvara1(mva)
   integer, optional, intent(in) :: i1dvara2(mva)
   integer, optional, intent(in) :: i1dvara3(mva)
-
-  real, optional, intent(in) :: svar1(nve2_max,mva)
 
 #ifdef OLAM_MPI
 
@@ -222,13 +220,6 @@ subroutine mpi_send_v(rvara1, rvara2, rvara3, rvara4, &
         if (present(i1dvara3)) then
            call MPI_Pack(i1dvara3(iv),1,MPI_INTEGER, &
                 send_v(jsend)%buff,send_v(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-        endif
-
-        if (present(svar1) .and. nve2_max>0) then
-           if (lpv(iv) < lpvmax(iv)) then
-              call MPI_Pack(svar1(1,iv),lpvmax(iv)-lpv(iv),MPI_REAL, &
-                   send_v(jsend)%buff,send_v(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
-           endif
         endif
 
      enddo
@@ -666,7 +657,7 @@ end subroutine mpi_send_w
 !=============================================================================
 
 subroutine mpi_recv_v(rvara1, rvara2, rvara3, rvara4, &
-                      i1dvara1, i1dvara2, i1dvara3, svar1)
+                      i1dvara1, i1dvara2, i1dvara3)
 
 ! Subroutine to perform a parallel MPI receive of a "V group"
 ! of field variables
@@ -675,7 +666,7 @@ subroutine mpi_recv_v(rvara1, rvara2, rvara3, rvara4, &
   use mpi
 #endif
 
-  use mem_grid, only: mza, mva, nve2_max, lpv, lpvmax
+  use mem_grid, only: mza, mva
 
   implicit none
 
@@ -687,8 +678,6 @@ subroutine mpi_recv_v(rvara1, rvara2, rvara3, rvara4, &
   integer, optional, intent(in) :: i1dvara1(mva)
   integer, optional, intent(in) :: i1dvara2(mva)
   integer, optional, intent(in) :: i1dvara3(mva)
-
-  real, optional, intent(in) :: svar1(nve2_max,mva)
 
 #ifdef OLAM_MPI
 
@@ -749,13 +738,6 @@ subroutine mpi_recv_v(rvara1, rvara2, rvara3, rvara4, &
         if (present(i1dvara3)) then
            call MPI_Unpack(recv_v(jrecv)%buff,recv_v(jrecv)%nbytes,ipos, &
                 i1dvara3(iv),1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
-        endif
-
-        if (present(svar1) .and. nve2_max>0) then
-           if (lpv(iv) < lpvmax(iv)) then
-              call MPI_Unpack(recv_v(jrecv)%buff,recv_v(jrecv)%nbytes,ipos, &
-                   svar1(1,iv),lpvmax(iv)-lpv(iv),MPI_REAL,MPI_COMM_WORLD,ierr)
-           endif
         endif
 
      enddo

@@ -101,8 +101,6 @@ Module mem_grid
         arw0i,                & ! 1 / arw0
         dnivo2                  ! 1/(2dxy) across V face
 
-   integer, allocatable :: lpvmax(:) ! max lpv of all iw1 and iw2 faces
-
    ! double precision weights for interpolating T levels to W
 
    real(r8), allocatable :: zwgt_top8(:), zwgt_bot8(:)
@@ -403,14 +401,12 @@ Contains
      allocate(vnyo2     (mva))
      allocate(vnzo2     (mva))
      allocate(dnivo2    (mva))
-     allocate(lpvmax    (mva))
      allocate(volvi (mza,mva))
 
      vnxo2  (1) = 0.0
      vnyo2  (1) = 0.0
      vnzo2  (1) = 0.0
      dnivo2 (1) = 0.0
-     lpvmax (1) = 0
      volvi(:,1) = 0.0
 
      allocate(wnxo2    (mwa))
@@ -478,8 +474,6 @@ Contains
         do k = lpv(iv), mza
            volvi(k,iv) = real( 1.0_r8 / (volt(k,iw1) + volt(k,iw2)) )
         enddo
-
-        lpvmax(iv) = max( lpw(iw1)+lve2(iw1), lpw(iw2)+lve2(iw2) )
 
      enddo
      !$omp end do nowait
