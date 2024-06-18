@@ -22,7 +22,6 @@ Module mem_rayf
 
   real, allocatable :: rayf_cof   (:)
   real, allocatable :: rayf_cofw  (:)
-  real, allocatable :: rayf_cofdiv(:)
   real, allocatable :: rayf_cofmix(:)
 
   real, allocatable :: vc03d(:,:)
@@ -57,12 +56,10 @@ Contains
 
     allocate( rayf_cof   (mza) )
     allocate( rayf_cofw  (mza) )
-    allocate( rayf_cofdiv(mza) )
     allocate( rayf_cofmix(mza) )
 
     rayf_cof    = 0.0
     rayf_cofw   = 0.0
-    rayf_cofdiv = 0.0
     rayf_cofmix = 0.0
 
     krayf_bot    = mza + 1
@@ -118,7 +115,7 @@ Contains
        endif
     endif
 
-! RAYF coefficient for Horiz Divergence
+! RAYF coefficients for Horiz Divergence are now computed in vort_div_damp.f90
 
     if (rayfdiv_fact > 1.e-7) then
 
@@ -130,17 +127,9 @@ Contains
        enddo
 
        if (krayfdiv_bot <= mza) then
-
           dorayfdiv = .true.
-          distim0   = max(nl%divh_damp_fact, 0.) * dti
-          distimi   = max(rayfdiv_fact,nl%divh_damp_fact) * dti - distim0
-
-          do k = krayfdiv_bot, mza
-             rayf_cofdiv(k) = distim0 + distimi   &
-                  * ((zt(k) - rayfdiv_zmin) / (zm(mza) - rayfdiv_zmin)) ** rayfdiv_expon
-          enddo
-
        endif
+
     endif
 
 ! RAYF coefficient for horizontal velocity (VC) mixing
@@ -170,14 +159,16 @@ Contains
 ! vc03d with initial horiz velocity that the model will relax towards
 
     if (dorayf) then
-        allocate( vc03d(mza,mva) ) ; vc03d = 0.
+       allocate( vc03d(mza,mva) )
 
-        do iv = 2, mva
-           do k = lpv(iv), mza
-              vc03d(k,iv) = vc(k,iv)
-           enddo
-        enddo
-     endif
+       !$omp parallel do private(k)
+       do iv = 2, mva
+          do k = lpv(iv), mza
+             vc03d(k,iv) = vc(k,iv)
+          enddo
+       enddo
+       !$omp end parallel do
+    endif
 
   end subroutine rayf_init
 

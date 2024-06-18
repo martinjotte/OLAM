@@ -30,9 +30,9 @@ subroutine para_init_sfc()
                           nsends_msfc, nrecvs_msfc, send_msfc, recv_msfc, &
                           nsends_wsfc, nrecvs_wsfc, send_wsfc, recv_wsfc
   use max_dims,     only: maxremote
-  use mem_land,     only: mland, omland, onland, itab_land
-  use mem_lake,     only: mlake, omlake, onlake, itab_lake
-  use mem_sea,      only: sea, msea, omsea, onsea, itab_sea
+  use mem_land,     only: mland, omland, onland, itab_land, alloc_land1
+  use mem_lake,     only: mlake, omlake, onlake, itab_lake, alloc_lake1
+  use mem_sea,      only: sea, msea, omsea, onsea, itab_sea, alloc_sea1
   use pom2k1d,      only: alloc_pomgrid
 
   implicit none
@@ -201,14 +201,11 @@ subroutine para_init_sfc()
 
   call alloc_sfcgrid1(mmsfc, mvsfc, mwsfc)
 
-  allocate (itab_land(mland))
-  allocate (itab_lake(mlake))
-  allocate (itab_sea (msea ))
+  call alloc_sea1 (msea)
+  call alloc_land1(mland)
+  call alloc_lake1(mland)
 
-  allocate (sfcg%dzt_bot(mwsfc))  ; sfcg%dzt_bot = 0.
-  allocate (sea%pom_active(msea)) ; sea%pom_active = .false.
-
-  call alloc_pomgrid(msea)
+  call alloc_pomgrid()
 
   ! Reset myrank point counters to 1
 
@@ -812,9 +809,9 @@ subroutine serial_init_sfc()
                           itab_vsfc, itabg_vsfc, itab_vsfc_pd, &
                           itab_wsfc, itabg_wsfc, itab_wsfc_pd, &
                           alloc_sfcgrid1, sfcg
-  use mem_land,     only: mland, nland, itab_land
-  use mem_lake,     only: mlake, nlake, itab_lake
-  use mem_sea,      only: sea, msea, nsea, itab_sea
+  use mem_land,     only: mland, nland, itab_land, alloc_land1
+  use mem_lake,     only: mlake, nlake, itab_lake, alloc_lake1
+  use mem_sea,      only: sea, msea, nsea, itab_sea, alloc_sea1
   use pom2k1d,      only: alloc_pomgrid
 
   implicit none
@@ -826,14 +823,11 @@ subroutine serial_init_sfc()
 
   call alloc_sfcgrid1(mmsfc, mvsfc, mwsfc)
 
-  allocate (itab_land(mland))
-  allocate (itab_lake(mlake))
-  allocate (itab_sea (msea ))
+  call alloc_sea1 (msea)
+  call alloc_land1(mland)
+  call alloc_lake1(mland)
 
-  allocate (sfcg%dzt_bot(mwsfc))  ; sfcg%dzt_bot = 0.
-  allocate (sea%pom_active(msea)) ; sea%pom_active = .false.
-
-  call alloc_pomgrid(msea)
+  call alloc_pomgrid()
 
   do imsfc = 1, nmsfc
      itabg_msfc(imsfc)%imsfc_myrank = imsfc

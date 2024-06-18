@@ -1487,8 +1487,6 @@ subroutine ctrlvols_hex()
      lpm(im) = lpm(imp)
   enddo
 
-  allocate(sfcg%dzt_bot(nwsfc)) ; sfcg%dzt_bot(1) = 0.
-
   ! Loop over all SURFACE cells
 
   !$omp parallel

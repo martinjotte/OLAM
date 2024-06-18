@@ -52,51 +52,91 @@ Contains
     implicit none
 
     integer, intent(in) :: mza,mva,mwa
+    integer             :: iv, iw
 
 !   Allocate basic memory needed for 'INITIAL' or 'HISTORY' runs
 !   and initialize allocated arrays to zero
 
-    allocate (vmc  (mza,mva)) ; vmc = rinit
-    allocate (vc   (mza,mva)) ; vc  = rinit
+    allocate (vmc  (mza,mva))
+    allocate (vc   (mza,mva))
+    allocate (pvfac(mza,mva))
 
-    allocate (rho  (mza,mwa)) ; rho   = 0.0_r8
-    allocate (press(mza,mwa)) ; press = rinit8
-    allocate (wmc  (mza,mwa)) ; wmc   = rinit
-    allocate (wc   (mza,mwa)) ; wc    = 0.0
-    allocate (thil (mza,mwa)) ; thil  = rinit
-    allocate (theta(mza,mwa)) ; theta = rinit
-    allocate (tair (mza,mwa)) ; tair  = rinit
-    allocate (rr_w (mza,mwa)) ; rr_w  = rinit
-    allocate (rr_v (mza,mwa)) ; rr_v  = rinit
+    if (nrk_wrtv == 1) then
+       allocate(vmp(mza,mva))
+    endif
 
-    allocate (vxe  (mza,mwa)) ; vxe   = rinit
-    allocate (vye  (mza,mwa)) ; vye   = rinit
-    allocate (vze  (mza,mwa)) ; vze   = rinit
+    !$omp parallel do
+    do iv = 1, mva
+       vmc  (:,iv) = rinit
+       vc   (:,iv) = rinit
+       pvfac(:,iv) = rinit
+
+       if (allocated(vmp)) vmp(:,iv) = rinit
+
+    enddo
+    !$omp end parallel do
+
+    allocate( rho        (mza,mwa) )
+    allocate( press      (mza,mwa) )
+    allocate( wmc        (mza,mwa) )
+    allocate( wc         (mza,mwa) )
+    allocate( thil       (mza,mwa) )
+    allocate( theta      (mza,mwa) )
+    allocate( tair       (mza,mwa) )
+    allocate( rr_w       (mza,mwa) )
+    allocate( rr_v       (mza,mwa) )
+    allocate( vxe        (mza,mwa) )
+    allocate( vye        (mza,mwa) )
+    allocate( vze        (mza,mwa) )
+    allocate( wmsc       (mza,mwa) )
+    allocate( vmsc       (mza,mva) )
+    allocate( alpha_press(mza,mwa) )
+    allocate( pwfac      (mza,mwa) )
 
     if (mdomain <= 1) then
-       allocate (ue(mza,mwa)) ; ue    = rinit
-       allocate (ve(mza,mwa)) ; ve    = rinit
+       allocate( ue(mza,mwa) )
+       allocate( ve(mza,mwa) )
     else
        ue => vxe
        ve => vye
     endif
 
-    allocate (wmsc(mza,mwa)) ; wmsc = rinit
-    allocate (vmsc(mza,mva)) ; vmsc = rinit
-
     if (nrk_scal == 1) then
-       allocate(vxesc(mza,mwa)) ; vxesc = rinit
-       allocate(vyesc(mza,mwa)) ; vyesc = rinit
-       allocate(vzesc(mza,mwa)) ; vzesc = rinit
+       allocate( vxesc(mza,mwa) )
+       allocate( vyesc(mza,mwa) )
+       allocate( vzesc(mza,mwa) )
     endif
 
-    if (nrk_wrtv == 1) then
-       allocate(vmp(mza,mva)) ; vmp = rinit
-    endif
+    !$omp parallel do
+    do iw = 1, mwa
+       rho        (:,iw) = 0.0_r8
+       press      (:,iw) = rinit8
+       wmc        (:,iw) = rinit
+       wc         (:,iw) = 0.0
+       thil       (:,iw) = 0.0
+       theta      (:,iw) = 0.0
+       tair       (:,iw) = 0.0
+       rr_w       (:,iw) = 0.0
+       rr_v       (:,iw) = 0.0
+       vxe        (:,iw) = 0.0
+       vye        (:,iw) = 0.0
+       vze        (:,iw) = 0.0
+       wmsc       (:,iw) = 0.0
+       vmsc       (:,iw) = 0.0
+       alpha_press(:,iw) = rinit
+       pwfac      (:,iw) = rinit
 
-    allocate(alpha_press(mza,mwa)) ; alpha_press = rinit
-    allocate(pwfac      (mza,mwa)) ; pwfac       = rinit
-    allocate(pvfac      (mza,mva)) ; pvfac       = rinit
+       if (mdomain <= 1) then
+          ue      (:,iw) = rinit
+          ve      (:,iw) = rinit
+       endif
+
+       if (allocated(vxesc)) vxesc(:,iw) = rinit
+       if (allocated(vyesc)) vyesc(:,iw) = rinit
+       if (allocated(vzesc)) vzesc(:,iw) = rinit
+
+    enddo
+    !$omp end parallel do
 
   end subroutine alloc_basic
 
@@ -174,13 +214,9 @@ Contains
 
     if (allocated(vmp))   call increment_vtable('VMP',  'AV', rvar2=vmp)
 
-
-
 !    if (allocated(ue))    call increment_vtable('UE',   'AW', rvar2=ue)
 
 !    if (allocated(ve))    call increment_vtable('VE',   'AW', rvar2=ve)
-
-
 
   end subroutine filltab_basic
 

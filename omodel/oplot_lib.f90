@@ -3412,8 +3412,8 @@ case(278) ! 'WDEPTH'
 
 case(279) ! 'POM_KBA'
 
-   if (.not. allocated(pom%kba)) go to 1000
-   fldval = pom%kba(isea)
+   if (.not. allocated(sea%pom_kba)) go to 1000
+   fldval = sea%pom_kba(isea)
 
 case(280) ! 'POM_TEMPSFC'
 

@@ -69,112 +69,167 @@ Contains
 
     integer, intent(in) :: mza,mwa,miclevel,ncat,nccntyp,iccn,igccn,iifn
     integer, intent(in) :: jnmb(ncat)
-    integer :: ic
+    integer             :: ic, iw
 
     ! Allocate arrays based on options
     ! Initialize arrays to zero
 
-    allocate(cldnum(mwa)); cldnum = 0.
+    allocate( cldnum(mwa) )
 
     if (miclevel >= 2) then
-       allocate (rr_c(mza,mwa)) ; rr_c = rinit
+       allocate( rr_c(mza,mwa) )
     endif
 
     if (miclevel >= 3) then
 
        if (jnmb(1) == 5) then
-          allocate (con_c(mza,mwa)) ; con_c = rinit
+          allocate( con_c(mza,mwa) )
        endif
 
        if (jnmb(3) == 5) then
-          allocate (con_p(mza,mwa)) ; con_p = rinit
-          allocate (rr_p(mza,mwa)) ; rr_p  = rinit
-          allocate (accpp   (mwa)) ; accpp = 0.0_r8
-          allocate (pcprp   (mwa)) ; pcprp = rinit
+          allocate( con_p(mza,mwa) )
+          allocate( rr_p (mza,mwa) )
+          allocate( accpp    (mwa) )
+          allocate( pcprp    (mwa) )
        endif
 
        if (jnmb(8) == 5) then
-          allocate (con_d(mza,mwa)) ; con_d = rinit
-          allocate (rr_d(mza,mwa)) ; rr_d  = rinit
-          allocate (accpd   (mwa)) ; accpd = 0.0_r8
-          allocate (pcprd   (mwa)) ; pcprd = rinit
+          allocate( con_d(mza,mwa) )
+          allocate( rr_d (mza,mwa) )
+          allocate( accpd    (mwa) )
+          allocate( pcprd    (mwa) )
        endif
 
        if (jnmb(2) >= 1)  then
           if (jnmb(2) == 5) then
-             allocate (con_r(mza,mwa)) ; con_r = rinit
+             allocate( con_r(mza,mwa) )
           endif
-          allocate (rr_r(mza,mwa)) ; rr_r  = rinit
-          allocate (q2  (mza,mwa)) ; q2    = rinit
-          allocate (accpr   (mwa)) ; accpr = 0.0_r8
-          allocate (pcprr   (mwa)) ; pcprr = rinit
+          allocate( rr_r(mza,mwa) )
+          allocate( q2  (mza,mwa) )
+          allocate( accpr   (mwa) )
+          allocate( pcprr   (mwa) )
        endif
 
        if (jnmb(4) >= 1)  then
           if (jnmb(4) == 5) then
-             allocate (con_s(mza,mwa)) ; con_s = rinit
+             allocate( con_s(mza,mwa) )
           endif
-          allocate (rr_s(mza,mwa)) ; rr_s  = rinit
-          allocate (accps   (mwa)) ; accps = 0.0_r8
-          allocate (pcprs   (mwa)) ; pcprs = rinit
+          allocate( rr_s(mza,mwa) )
+          allocate( accps   (mwa) )
+          allocate( pcprs   (mwa) )
        endif
 
        if (jnmb(5) >= 1)  then
           if (jnmb(5) == 5) then
-             allocate (con_a(mza,mwa)) ; con_a = rinit
+             allocate( con_a(mza,mwa) )
           endif
-          allocate (rr_a(mza,mwa)) ; rr_a  = rinit
-          allocate (accpa   (mwa)) ; accpa = 0.0_r8
-          allocate (pcpra   (mwa)) ; pcpra = rinit
+          allocate( rr_a(mza,mwa) )
+          allocate( accpa   (mwa) )
+          allocate( pcpra   (mwa) )
        endif
 
        if (jnmb(6) >= 1) then
           if (jnmb(6) == 5) then
-             allocate (con_g(mza,mwa)) ; con_g = rinit
+             allocate( con_g(mza,mwa) )
           endif
-          allocate (rr_g(mza,mwa)) ; rr_g  = rinit
-          allocate (q6  (mza,mwa)) ; q6    = rinit
-          allocate (accpg   (mwa)) ; accpg = 0.0_r8
-          allocate (pcprg   (mwa)) ; pcprg = rinit
+          allocate( rr_g(mza,mwa) )
+          allocate( q6  (mza,mwa) )
+          allocate( accpg   (mwa) )
+          allocate( pcprg   (mwa) )
        endif
 
        if (jnmb(7) >= 1) then
           if (jnmb(7) == 5) then
-             allocate (con_h(mza,mwa)) ; con_h = rinit
+             allocate( con_h(mza,mwa) )
           endif
-          allocate (rr_h(mza,mwa)) ; rr_h  = rinit
-          allocate (q7  (mza,mwa)) ; q7    = rinit
-          allocate (accph   (mwa)) ; accph = 0.0_r8
-          allocate (pcprh   (mwa)) ; pcprh = rinit
+          allocate( rr_h(mza,mwa) )
+          allocate( q7  (mza,mwa) )
+          allocate( accph   (mwa) )
+          allocate( pcprh   (mwa) )
        endif
 
-       allocate (ccntyp(nccntyp))
+       allocate( ccntyp(nccntyp) )
 
        if (iccn >= 2) then
           do ic = 1,nccntyp
-             allocate (ccntyp(ic)%con_ccn(mza,mwa)) ; ccntyp(ic)%con_ccn = rinit
+             allocate( ccntyp(ic)%con_ccn(mza,mwa) )
           enddo
        endif
 
        if (igccn == 2) then
-          allocate (con_gccn(mza,mwa)) ; con_gccn = rinit
+          allocate( con_gccn(mza,mwa) )
        endif
 
        if (iifn == 2) then
-          allocate (con_ifn(mza,mwa)) ; con_ifn = rinit
+          allocate( con_ifn(mza,mwa) )
        endif
 
     endif
 
     if (nl%test_case > 13) then ! Encompasses DCMIP & parcel cases (March/2016)
 
-       if (.not. allocated(rr_c))   allocate (rr_c(mza,mwa)) ; rr_c  = 0.0
-       if (.not. allocated(rr_r))   allocate (rr_r(mza,mwa)) ; rr_r  = 0.0
-       if (.not. allocated(q2))     allocate (q2  (mza,mwa)) ; q2    = 0.0
-       if (.not. allocated(accpr))  allocate (accpr   (mwa)) ; accpr = 0.0_r8
-       if (.not. allocated(pcprr))  allocate (pcprr   (mwa)) ; pcprr = 0.0
+       if (.not. allocated(rr_c))  allocate( rr_c(mza,mwa) )
+       if (.not. allocated(rr_r))  allocate( rr_r(mza,mwa) )
+       if (.not. allocated(q2))    allocate( q2  (mza,mwa) )
+       if (.not. allocated(accpr)) allocate( accpr   (mwa) )
+       if (.not. allocated(pcprr)) allocate( pcprr   (mwa) )
 
     endif
+
+    !$omp parallel do private(ic)
+    do iw = 1, mwa
+
+       if ( allocated( rr_c ) ) rr_c(:,iw) = rinit
+       if ( allocated( rr_d ) ) rr_d(:,iw) = rinit
+       if ( allocated( rr_r ) ) rr_r(:,iw) = rinit
+       if ( allocated( rr_p ) ) rr_p(:,iw) = rinit
+       if ( allocated( rr_s ) ) rr_s(:,iw) = rinit
+       if ( allocated( rr_a ) ) rr_a(:,iw) = rinit
+       if ( allocated( rr_g ) ) rr_g(:,iw) = rinit
+       if ( allocated( rr_h ) ) rr_h(:,iw) = rinit
+
+       if ( allocated( con_c ) ) con_c(:,iw) = rinit
+       if ( allocated( con_d ) ) con_d(:,iw) = rinit
+       if ( allocated( con_r ) ) con_r(:,iw) = rinit
+       if ( allocated( con_p ) ) con_p(:,iw) = rinit
+       if ( allocated( con_s ) ) con_s(:,iw) = rinit
+       if ( allocated( con_a ) ) con_a(:,iw) = rinit
+       if ( allocated( con_g ) ) con_g(:,iw) = rinit
+       if ( allocated( con_h ) ) con_h(:,iw) = rinit
+
+       if ( allocated( q2 ) ) q2(:,iw) = rinit
+       if ( allocated( q6 ) ) q6(:,iw) = rinit
+       if ( allocated( q7 ) ) q7(:,iw) = rinit
+
+       if ( allocated( accpd ) ) accpd(iw) = 0._r8
+       if ( allocated( accpr ) ) accpr(iw) = 0._r8
+       if ( allocated( accpp ) ) accpp(iw) = 0._r8
+       if ( allocated( accps ) ) accps(iw) = 0._r8
+       if ( allocated( accpa ) ) accpa(iw) = 0._r8
+       if ( allocated( accpg ) ) accpg(iw) = 0._r8
+       if ( allocated( accph ) ) accph(iw) = 0._r8
+
+       if ( allocated( pcprd ) ) pcprd(iw) = 0.
+       if ( allocated( pcprr ) ) pcprr(iw) = 0.
+       if ( allocated( pcprp ) ) pcprp(iw) = 0.
+       if ( allocated( pcprs ) ) pcprs(iw) = 0.
+       if ( allocated( pcpra ) ) pcpra(iw) = 0.
+       if ( allocated( pcprg ) ) pcprg(iw) = 0.
+       if ( allocated( pcprh ) ) pcprh(iw) = 0.
+
+       if ( allocated( cldnum ) ) cldnum(iw) = 0.
+
+       if ( allocated( con_gccn ) ) con_gccn(:,iw) = rinit
+       if ( allocated( con_ifn  ) ) con_ifn (:,iw) = rinit
+
+       if ( allocated( ccntyp ) ) then
+          do ic = 1, nccntyp
+             if ( allocated( ccntyp(ic)%con_ccn ) ) ccntyp(ic)%con_ccn(:,iw) = rinit
+          enddo
+       endif
+
+    enddo
+    !$omp end parallel do
 
   end subroutine alloc_micro
 
@@ -185,7 +240,7 @@ Contains
     implicit none
 
     integer, intent(in) :: nccntyp
-    integer :: ic
+    integer             :: ic
 
     if (allocated(rr_c))    deallocate (rr_c)
     if (allocated(rr_d))    deallocate (rr_d)
@@ -212,7 +267,6 @@ Contains
        do ic = 1,nccntyp
           if (allocated(ccntyp(ic)%con_ccn)) deallocate (ccntyp(ic)%con_ccn)
        enddo
-
        deallocate(ccntyp)
     endif
 

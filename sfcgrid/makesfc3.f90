@@ -25,13 +25,13 @@ subroutine makesfc3()
                          nswmzons, nswmzonll, swmzonrad, swmzonlat, swmzonlon, &
                          alloc_sfcgrid1
 
-  use mem_land,    only: nland, onland, land, nzg, &
+  use mem_land,    only: nland, onland, land, nzg, alloc_land1, &
                          slz, dslz, dslzo2, dslzi, slzt, &
                          landgrid_dztop, landgrid_depth, alloc_landcol
 
-  use mem_lake,    only: nlake, onlake
+  use mem_lake,    only: nlake, onlake, alloc_lake1
 
-  use mem_sea,     only: nsea, onsea, sea, &
+  use mem_sea,     only: nsea, onsea, sea, alloc_sea1, &
                          npomzons, npomzonll, pomzonrad, pomzonlat, pomzonlon
 
   use pom2k1d,     only: nzpom, pom, yy, alloc_pomgrid, pom_levels
@@ -464,6 +464,12 @@ subroutine makesfc3()
 
   endif
 
+  ! Allocate land, sea, and lake arrays that are needed for grid setup
+
+  call alloc_sea1 (nsea)
+  call alloc_land1(nland)
+  call alloc_lake1(nlake)
+
   ! Set logical flag for IWSFC cells that use Shallow Water Model (SWM).
   ! Require that bathym depth be no greater than depthmax_swe
 
@@ -478,8 +484,6 @@ subroutine makesfc3()
 
   ! Set logical flag for SEA cells that use POM1D.
   ! Require that water be deeper than 30 m.
-
-  allocate(sea%pom_active(nsea)); sea%pom_active = .false.
 
   do ipomzon = 1,npomzons
      do isea = 2,nsea
@@ -496,7 +500,7 @@ subroutine makesfc3()
 
   ! Allocate POM1D grid arrays and define vertical levels
 
-  call alloc_pomgrid(nsea)
+  call alloc_pomgrid()
 
   call pom_levels()
 
@@ -508,29 +512,13 @@ subroutine makesfc3()
      if (sea%pom_active(isea)) then
         do kpom = 1,nzpom
            if (sfcg%bathym(iwsfc) < yy(kpom)) then
-              pom%kba(isea) = kpom
+              sea%pom_kba(isea) = kpom
            else
               exit
            endif
         enddo
      endif
   enddo
-
-  ! Initialize soil static properties
-
-  allocate (land%usdatext            (nland)) ; land%usdatext         = 0
-  allocate (land%z_bedrock           (nland)) ; land%z_bedrock        = 0.
-  allocate (land%gpp                 (nland)) ; land%gpp              = 0.
-  allocate (land%glhymps_ksat        (nland)) ; land%glhymps_ksat     = 0.
-! allocate (land%glhymps_ksat_pfr    (nland)) ; land%glhymps_ksat_pfr = 0.
-  allocate (land%glhymps_poros       (nland)) ; land%glhymps_poros    = 0.
-  allocate (land%sand            (nzg,nland)) ; land%sand             = 0.
-  allocate (land%clay            (nzg,nland)) ; land%clay             = 0.
-  allocate (land%silt            (nzg,nland)) ; land%silt             = 0.
-  allocate (land%organ           (nzg,nland)) ; land%organ            = 0.
-  allocate (land%bulkdens_drysoil(nzg,nland)) ; land%bulkdens_drysoil = 0.
-  allocate (land%pH_soil         (nzg,nland)) ; land%pH_soil          = 0.
-  allocate (land%cec_soil        (nzg,nland)) ; land%cec_soil         = 0.
 
   ! Always read FAO soil data and fill single-level usdatext array.  This may be needed
   ! permanently to fill in holes in the SoilGrids maps.
@@ -1356,7 +1344,7 @@ subroutine sfcgfile_write()
   idims(1) = nsea
 
   call shdf5_orec(ndims, idims, 'pom_active'      , lvar1=sea%pom_active)
-  call shdf5_orec(ndims, idims, 'pom%kba'         , ivar1=pom%kba)
+  call shdf5_orec(ndims, idims, 'pom%kba'         , ivar1=sea%pom_kba)
 
   call shdf5_close()
 
@@ -1578,10 +1566,10 @@ subroutine sfcgfile_read()
 
   use max_dims,   only: maxnlspoly, pathlen
   use mem_sfcg,   only: sfcg, itab_msfc, itab_vsfc, itab_wsfc, &
-                        sfcgfile, mmsfc, mvsfc, mwsfc
+                        sfcgfile, mmsfc, mvsfc, mwsfc, nswmzons
   use mem_land,   only: land, itab_land, mland, nzg, slz, dslz, dslzo2, &
                         dslzi, slzt, alloc_landcol
-  use mem_sea,    only: sea, itab_sea, msea
+  use mem_sea,    only: sea, itab_sea, msea, npomzons
   use pom2k1d,    only: nzpom, pom, y, yy, dy, dyy
   use hdf5_utils, only: shdf5_open, shdf5_irec, shdf5_close
   use misc_coms,  only: io6
@@ -1786,21 +1774,10 @@ subroutine sfcgfile_read()
 
 ! call shdf5_irec(ndims, idims, 'leaf_class', ivar1=sfcg%leaf_class, points=lgwsfc)
   call shdf5_irec(ndims, idims, 'oge'       , ivar1=sfcg%ioge,       points=lgwsfc)
-  call shdf5_irec(ndims, idims, 'swm_active', lvar1=sfcg%swm_active, points=lgwsfc)
 
-  allocate (land%usdatext            (mland)) ; land%usdatext         = 0
-  allocate (land%z_bedrock           (mland)) ; land%z_bedrock        = 0.
-  allocate (land%gpp                 (mland)) ; land%gpp              = 0.
-  allocate (land%glhymps_ksat        (mland)) ; land%glhymps_ksat     = 0.
-! allocate (land%glhymps_ksat_pfr    (mland)) ; land%glhymps_ksat_pfr = 0.
-  allocate (land%glhymps_poros       (mland)) ; land%glhymps_poros    = 0.
-  allocate (land%sand            (nzg,mland)) ; land%sand             = 0.
-  allocate (land%clay            (nzg,mland)) ; land%clay             = 0.
-  allocate (land%silt            (nzg,mland)) ; land%silt             = 0.
-  allocate (land%organ           (nzg,mland)) ; land%organ            = 0.
-  allocate (land%bulkdens_drysoil(nzg,mland)) ; land%bulkdens_drysoil = 0.
-  allocate (land%pH_soil         (nzg,mland)) ; land%pH_soil          = 0.
-  allocate (land%cec_soil        (nzg,mland)) ; land%cec_soil         = 0.
+  if (nswmzons > 0) then
+     call shdf5_irec(ndims, idims, 'swm_active', lvar1=sfcg%swm_active, points=lgwsfc)
+  endif
 
   idims(1) = mland
   type     = 'LW'
@@ -1825,12 +1802,14 @@ subroutine sfcgfile_read()
   call shdf5_irec(ndims, idims, 'pH_soil'         , rvar2=land%pH_soil,          points=lgland)
   call shdf5_irec(ndims, idims, 'cec_soil'        , rvar2=land%cec_soil,         points=lgland)
 
-  ndims    = 1
-  idims(1) = msea
-  type     = 'SW'
+  if (npomzons > 0) then
+     ndims    = 1
+     idims(1) = msea
+     type     = 'SW'
 
-  call shdf5_irec(ndims, idims, 'pom_active', lvar1=sea%pom_active, points=lgsea)
-  call shdf5_irec(ndims, idims, 'pom%kba'   , ivar1=pom%kba,        points=lgsea)
+     call shdf5_irec(ndims, idims, 'pom_active', lvar1=sea%pom_active, points=lgsea)
+     call shdf5_irec(ndims, idims, 'pom%kba'   , ivar1=sea%pom_kba,    points=lgsea)
+  endif
 
   call shdf5_close()
 

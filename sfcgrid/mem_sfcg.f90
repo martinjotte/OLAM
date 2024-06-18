@@ -18,65 +18,62 @@ Module mem_sfcg
   integer :: nwsfc, mwsfc
 
   Type itab_msfc_vars
-!    logical :: send(maxremote) = .false.
-     integer :: imglobe = 1
-     integer :: irank = -1    ! rank of parallel process at this MSFC pt
-     integer :: ivn(3) = 1    ! array of V neighbors of this M pt
-     integer :: iwn(3) = 1    ! array of W neighbors of this M pt
-     integer :: imn(3) = 1    ! array of M neighbors of this M pt
+     integer :: imglobe
+     integer :: irank   ! rank of parallel process at this MSFC pt
+     integer :: ivn(3)  ! array of V neighbors of this M pt
+     integer :: iwn(3)  ! array of W neighbors of this M pt
+     integer :: imn(3)  ! array of M neighbors of this M pt
   End type itab_msfc_vars
 
   Type itab_vsfc_vars
-!    logical :: send(maxremote) = .false.
-     integer :: ivglobe = 1
-     integer :: irank = -1    ! rank of parallel process at this VSFC pt
-     integer :: imn(2) = 1
-     integer :: iwn(2) = 1
+     integer :: ivglobe
+     integer :: irank   ! rank of parallel process at this VSFC pt
+     integer :: imn(2)
+     integer :: iwn(2)
 
-     real :: cosv(2) = 0.     ! cosine of angle between V and zonal dir (Voronoi)
-     real :: sinv(2) = 0.     ! sine of angle between V and zonal dir (Voronoi)
+     real :: cosv(2)    ! cosine of angle between V and zonal dir (Voronoi)
+     real :: sinv(2)    ! sine of angle between V and zonal dir (Voronoi)
 
-     real :: dxps(2) = 0.     ! xps (eastward) displacement from neighbor W pts
-     real :: dyps(2) = 0.     ! yps (northward) displacement from neighbor W pts
+     real :: dxps(2)    ! xps (eastward) displacement from neighbor W pts
+     real :: dyps(2)    ! yps (northward) displacement from neighbor W pts
   End type itab_vsfc_vars
 
   Type itab_wsfc_vars
-!    logical :: send(maxremote) = .false.
-     integer :: iwglobe = 1  ! global sfcg index of this WSFC pt (in parallel run)
-     integer :: irank = -1   ! rank of parallel process at this WSFC pt
+     integer :: iwglobe  ! global sfcg index of this WSFC pt (in parallel run)
+     integer :: irank    ! rank of parallel process at this WSFC pt
 
-     integer :: npoly = 0
+     integer :: npoly
 
-     integer :: imn(7) = 1
-     integer :: ivn(7) = 1
-     integer :: iwn(7) = 1
+     integer :: imn(7)
+     integer :: ivn(7)
+     integer :: iwn(7)
 
-     real :: dirv(7) = 0.     ! pos direction of V neighbors
+     real :: dirv(7)     ! pos direction of V neighbors
 
-     real :: farm(7) = 0.     ! Fraction of arw0 in each M point sector
-     real :: farv(7) = 0.     ! Fraction of arw0 in each V point sector
+     real :: farm(7)     ! Fraction of arw0 in each M point sector
+     real :: farv(7)     ! Fraction of arw0 in each V point sector
 
-     real :: gxps1(7) = 0.    ! gradient weight xe component for point 1
-     real :: gyps1(7) = 0.    ! gradient weight ye component for point 1
+     real :: gxps1(7)    ! gradient weight xe component for point 1
+     real :: gyps1(7)    ! gradient weight ye component for point 1
 
-     real :: gxps2(7) = 0.    ! gradient weight xe component for point 2
-     real :: gyps2(7) = 0.    ! gradient weight ye component for point 2
+     real :: gxps2(7)    ! gradient weight xe component for point 2
+     real :: gyps2(7)    ! gradient weight ye component for point 2
 
-     real :: ecvec_vx(7) = 0. ! factors converting V to earth cart. velocity
-     real :: ecvec_vy(7) = 0. ! factors converting V to earth cart. velocity
-     real :: ecvec_vz(7) = 0. ! factors converting V to earth cart. velocity
+     real :: ecvec_vx(7) ! factors converting V to earth cart. velocity
+     real :: ecvec_vy(7) ! factors converting V to earth cart. velocity
+     real :: ecvec_vz(7) ! factors converting V to earth cart. velocity
 
      ! The following ITAB_WSFC members are written to the GRIDFILE.  All other
      ! members are written to the SFCGRIDFILE.  Dimension of (8) is estimate
      ! of max possible number of atm cells that could overlap this sfc cell.
 
-     integer :: nwatm        = 0  ! number of atm cells coupled to this sfc cell
-     integer :: iwatm    (8) = 0  ! local-rank atm index of atm cell coupled to this sfc cell
-     integer :: kwatm    (8) = 0  ! vertical index of atm cell coupled to this sfc cell
-     real    :: arc      (8) = 0. ! coupling area between this sfc cell and 1 atm cell [m^2]
-     real    :: arcoarsfc(8) = 0. ! arc over (divided by) area of sfc cell
-     real    :: arcoariw (8) = 0. ! arc over area of atm cell
-     real    :: arcoarkw (8) = 0. ! arc over area of atm cell that contacts sfc at kw level
+     integer :: nwatm          ! number of atm cells coupled to this sfc cell
+     integer :: iwatm    (8)   ! local-rank atm index of atm cell coupled to this sfc cell
+     integer :: kwatm    (8)   ! vertical index of atm cell coupled to this sfc cell
+     real    :: arc      (8)   ! coupling area between this sfc cell and 1 atm cell [m^2]
+     real    :: arcoarsfc(8)   ! arc over (divided by) area of sfc cell
+     real    :: arcoariw (8)   ! arc over area of atm cell
+     real    :: arcoarkw (8)   ! arc over area of atm cell that contacts sfc at kw level
   End type itab_wsfc_vars
 
   type (itab_msfc_vars), allocatable, target :: itab_msfc(:)
@@ -132,17 +129,17 @@ Module mem_sfcg
 
   Type jtab_msfc_vars
      integer, allocatable :: imsfc(:)
-     integer              :: jend = 0
+     integer              :: jend
   End Type jtab_msfc_vars
 
   Type jtab_vsfc_vars
      integer, allocatable :: ivsfc(:)
-     integer              :: jend = 0
+     integer              :: jend
   End Type jtab_vsfc_vars
 
   Type jtab_wsfc_vars
      integer, allocatable :: iwsfc(:)
-     integer              :: jend = 0
+     integer              :: jend
   End Type jtab_wsfc_vars
 
   type (jtab_msfc_vars) :: jtab_msfc_swm
@@ -299,6 +296,7 @@ Contains
 
   logical, intent(in), optional :: alloc_xyzew
   logical                       :: do_allocw
+  integer                       :: imsfc, ivsfc, iwsfc
 
   do_allocw = .true.
   if (present(alloc_xyzew)) then
@@ -307,124 +305,296 @@ Contains
 
   ! Allocate surface grid tables
 
-  allocate (itab_msfc(mmsfc0))
-  allocate (itab_vsfc(mvsfc0))
-  allocate (itab_wsfc(mwsfc0))
+  allocate( itab_msfc(mmsfc0) )
+  allocate( itab_vsfc(mvsfc0) )
+  allocate( itab_wsfc(mwsfc0) )
 
-  ! Allocate sfcg member arrays and initialize them with default values
+  ! Initialize tables to default values
 
-  allocate (sfcg%xem  (mmsfc0)) ; sfcg%xem   = rinit
-  allocate (sfcg%yem  (mmsfc0)) ; sfcg%yem   = rinit
-  allocate (sfcg%zem  (mmsfc0)) ; sfcg%zem   = rinit
-  allocate (sfcg%glatm(mmsfc0)) ; sfcg%glatm = rinit
-  allocate (sfcg%glonm(mmsfc0)) ; sfcg%glonm = rinit
-! allocate (sfcg%topm (mmsfc0)) ; sfcg%topm  = rinit
-  allocate (sfcg%arm0 (mmsfc0)) ; sfcg%arm0  = 0.
+  !$omp parallel
+  !$omp do
+  do imsfc = 1, mmsfc0
+     itab_msfc(imsfc) = itab_msfc_vars( imglobe =  1, &
+                                        irank   = -1, &
+                                        ivn     =  1, &
+                                        iwn     =  1, &
+                                        imn     =  1  )
+  enddo
+  !$omp end do
 
-  allocate (sfcg%xev  (mvsfc0)) ; sfcg%xev   = rinit
-  allocate (sfcg%yev  (mvsfc0)) ; sfcg%yev   = rinit
-  allocate (sfcg%zev  (mvsfc0)) ; sfcg%zev   = rinit
-  allocate (sfcg%dnu  (mvsfc0)) ; sfcg%dnu   = rinit
-  allocate (sfcg%dniu (mvsfc0)) ; sfcg%dniu  = rinit
-  allocate (sfcg%dnv  (mvsfc0)) ; sfcg%dnv   = rinit
-  allocate (sfcg%dniv (mvsfc0)) ; sfcg%dniv  = rinit
-  allocate (sfcg%unx  (mvsfc0)) ; sfcg%unx   = rinit
-  allocate (sfcg%uny  (mvsfc0)) ; sfcg%uny   = rinit
-  allocate (sfcg%unz  (mvsfc0)) ; sfcg%unz   = rinit
-  allocate (sfcg%vnx  (mvsfc0)) ; sfcg%vnx   = rinit
-  allocate (sfcg%vny  (mvsfc0)) ; sfcg%vny   = rinit
-  allocate (sfcg%vnz  (mvsfc0)) ; sfcg%vnz   = rinit
+  !$omp do
+  do ivsfc = 1, mvsfc0
+     itab_vsfc(ivsfc) = itab_vsfc_vars( ivglobe =  1,  &
+                                        irank   = -1,  &
+                                        imn     =  1,  &
+                                        iwn     =  1,  &
+                                        cosv    =  0., &
+                                        sinv    =  0., &
+                                        dxps    =  0., &
+                                        dyps    =  0.  )
+  enddo
+  !$omp end do
 
-  allocate (sfcg%area    (mwsfc0)) ; sfcg%area     = 0.
-  allocate (sfcg%glatw   (mwsfc0)) ; sfcg%glatw    = rinit
-  allocate (sfcg%glonw   (mwsfc0)) ; sfcg%glonw    = rinit
+  !$omp do
+  do iwsfc = 1, mwsfc0
+     itab_wsfc(iwsfc) = itab_wsfc_vars( iwglobe   =  1,  &
+                                        irank     = -1,  &
+                                        npoly     =  0,  &
+                                        imn       =  1,  &
+                                        ivn       =  1,  &
+                                        iwn       =  1,  &
+                                        dirv      =  0., &
+                                        farm      =  0., &
+                                        farv      =  0., &
+                                        gxps1     =  0., &
+                                        gyps1     =  0., &
+                                        gxps2     =  0., &
+                                        gyps2     =  0., &
+                                        ecvec_vx  =  0., &
+                                        ecvec_vy  =  0., &
+                                        ecvec_vz  =  0., &
+                                        nwatm     =  0,  &
+                                        iwatm     =  0,  &
+                                        kwatm     =  0,  &
+                                        arc       =  0., &
+                                        arcoarsfc =  0., &
+                                        arcoariw  =  0., &
+                                        arcoarkw  =  0.  )
+  enddo
+  !$omp end do
+  !$omp end parallel
+
+  ! Allocate sfcg member arrays
+
+  allocate( sfcg%xem  (mmsfc0) )
+  allocate( sfcg%yem  (mmsfc0) )
+  allocate( sfcg%zem  (mmsfc0) )
+  allocate( sfcg%glatm(mmsfc0) )
+  allocate( sfcg%glonm(mmsfc0) )
+! allocate( sfcg%topm (mmsfc0) )
+  allocate( sfcg%arm0 (mmsfc0) )
+
+  allocate( sfcg%xev (mvsfc0) )
+  allocate( sfcg%yev (mvsfc0) )
+  allocate( sfcg%zev (mvsfc0) )
+  allocate( sfcg%dnu (mvsfc0) )
+  allocate( sfcg%dniu(mvsfc0) )
+  allocate( sfcg%dnv (mvsfc0) )
+  allocate( sfcg%dniv(mvsfc0) )
+  allocate( sfcg%unx (mvsfc0) )
+  allocate( sfcg%uny (mvsfc0) )
+  allocate( sfcg%unz (mvsfc0) )
+  allocate( sfcg%vnx (mvsfc0) )
+  allocate( sfcg%vny (mvsfc0) )
+  allocate( sfcg%vnz (mvsfc0) )
+
+  allocate( sfcg%area      (mwsfc0) )
+  allocate( sfcg%glatw     (mwsfc0) )
+  allocate( sfcg%glonw     (mwsfc0) )
+  allocate( sfcg%topw      (mwsfc0) )
+  allocate( sfcg%bathym    (mwsfc0) )
+  allocate( sfcg%wnx       (mwsfc0) )
+  allocate( sfcg%wny       (mwsfc0) )
+  allocate( sfcg%wnz       (mwsfc0) )
+  allocate( sfcg%dzt_bot   (mwsfc0) )
+
+  allocate( sfcg%gxps_coef (mwsfc0) )
+  allocate( sfcg%gyps_coef (mwsfc0) )
+  allocate( sfcg%leaf_class(mwsfc0) )
+  allocate( sfcg%ioge      (mwsfc0) )
+  allocate( sfcg%swm_active(mwsfc0) )
 
   if (do_allocw) then
-     allocate (sfcg%xew  (mwsfc0)) ; sfcg%xew      = rinit
-     allocate (sfcg%yew  (mwsfc0)) ; sfcg%yew      = rinit
-     allocate (sfcg%zew  (mwsfc0)) ; sfcg%zew      = rinit
+     allocate( sfcg%xew(mwsfc0) )
+     allocate( sfcg%yew(mwsfc0) )
+     allocate( sfcg%zew(mwsfc0) )
   endif
 
-  allocate (sfcg%topw    (mwsfc0)) ; sfcg%topw     = rinit
-  allocate (sfcg%bathym  (mwsfc0)) ; sfcg%bathym   = rinit
-  allocate (sfcg%wnx     (mwsfc0)) ; sfcg%wnx      = rinit
-  allocate (sfcg%wny     (mwsfc0)) ; sfcg%wny      = rinit
-  allocate (sfcg%wnz     (mwsfc0)) ; sfcg%wnz      = rinit
+  ! Initialize sfcg arrays to default values
 
-  allocate (sfcg%gxps_coef (mwsfc0)) ; sfcg%gxps_coef  = rinit
-  allocate (sfcg%gyps_coef (mwsfc0)) ; sfcg%gyps_coef  = rinit
+  !$omp parallel
+  !$omp do
+  do imsfc = 1, mmsfc0
+     sfcg%xem  (imsfc) = rinit
+     sfcg%yem  (imsfc) = rinit
+     sfcg%zem  (imsfc) = rinit
+     sfcg%glatm(imsfc) = rinit
+     sfcg%glonm(imsfc) = rinit
+!    sfcg%topm (imsfc) = rinit
+     sfcg%arm0 (imsfc) = 0.
+  enddo
+  !$omp end do
 
-  allocate (sfcg%leaf_class(mwsfc0)) ; sfcg%leaf_class = 0
-  allocate (sfcg%ioge      (mwsfc0)) ; sfcg%ioge       = 0
-  allocate (sfcg%swm_active(mwsfc0)) ; sfcg%swm_active = .false.
+  !$omp do
+  do ivsfc = 1, mvsfc0
+     sfcg%xev (ivsfc) = rinit
+     sfcg%yev (ivsfc) = rinit
+     sfcg%zev (ivsfc) = rinit
+     sfcg%dnu (ivsfc) = rinit
+     sfcg%dniu(ivsfc) = rinit
+     sfcg%dnv (ivsfc) = rinit
+     sfcg%dniv(ivsfc) = rinit
+     sfcg%unx (ivsfc) = rinit
+     sfcg%uny (ivsfc) = rinit
+     sfcg%unz (ivsfc) = rinit
+     sfcg%vnx (ivsfc) = rinit
+     sfcg%vny (ivsfc) = rinit
+     sfcg%vnz (ivsfc) = rinit
+  enddo
+  !$omp end do
+
+  !$omp do
+  do iwsfc = 1, mwsfc0
+     sfcg%area      (iwsfc) = 0.
+     sfcg%glatw     (iwsfc) = rinit
+     sfcg%glonw     (iwsfc) = rinit
+     sfcg%topw      (iwsfc) = rinit
+     sfcg%bathym    (iwsfc) = rinit
+     sfcg%wnx       (iwsfc) = rinit
+     sfcg%wny       (iwsfc) = rinit
+     sfcg%wnz       (iwsfc) = rinit
+     sfcg%dzt_bot   (iwsfc) = rinit
+     sfcg%gxps_coef (iwsfc) = rinit
+     sfcg%gyps_coef (iwsfc) = rinit
+     sfcg%leaf_class(iwsfc) = 0
+     sfcg%ioge      (iwsfc) = 0
+     sfcg%swm_active(iwsfc) = .false.
+
+     if (do_allocw) then
+        sfcg%xew(iwsfc) = rinit
+        sfcg%yew(iwsfc) = rinit
+        sfcg%zew(iwsfc) = rinit
+     endif
+
+  enddo
+  !$omp end do
+  !$omp end parallel
 
   end subroutine alloc_sfcgrid1
 
 !=========================================================================
 
-  subroutine alloc_sfcgrid2(mwsfc)
+  subroutine alloc_sfcgrid2()
 
      use misc_coms, only: rinit
      use mem_co2,   only: co2flag
 
      implicit none
 
-     integer, intent(in) :: mwsfc
+     integer :: iwsfc, ivsfc
 
 !    Allocate and initialize surface grid arrays
 
-     allocate (sfcg%vels          (mwsfc)) ; sfcg%vels           = rinit
-     allocate (sfcg%prss          (mwsfc)) ; sfcg%prss           = rinit
-     allocate (sfcg%canexner      (mwsfc)) ; sfcg%canexner       = rinit
-     allocate (sfcg%rhos          (mwsfc)) ; sfcg%rhos           = rinit
-     allocate (sfcg%airtemp       (mwsfc)) ; sfcg%airtemp        = rinit
-     allocate (sfcg%airtheta      (mwsfc)) ; sfcg%airtheta       = rinit
-     allocate (sfcg%airrrv        (mwsfc)) ; sfcg%airrrv         = rinit
+     allocate (sfcg%vels          (mwsfc))
+     allocate (sfcg%prss          (mwsfc))
+     allocate (sfcg%canexner      (mwsfc))
+     allocate (sfcg%rhos          (mwsfc))
+     allocate (sfcg%airtemp       (mwsfc))
+     allocate (sfcg%airtheta      (mwsfc))
+     allocate (sfcg%airrrv        (mwsfc))
 
-     allocate (sfcg%ustar         (mwsfc)) ; sfcg%ustar          = rinit
-     allocate (sfcg%vkmsfc        (mwsfc)) ; sfcg%vkmsfc         = rinit
-     allocate (sfcg%vkhsfc        (mwsfc)) ; sfcg%vkhsfc         = rinit
-     allocate (sfcg%sfluxt        (mwsfc)) ; sfcg%sfluxt         = rinit
-     allocate (sfcg%sfluxr        (mwsfc)) ; sfcg%sfluxr         = rinit
+     allocate (sfcg%ustar         (mwsfc))
+     allocate (sfcg%vkmsfc        (mwsfc))
+     allocate (sfcg%vkhsfc        (mwsfc))
+     allocate (sfcg%sfluxt        (mwsfc))
+     allocate (sfcg%sfluxr        (mwsfc))
 
      if (co2flag /= 0) then
-        allocate (sfcg%airco2     (mwsfc)) ; sfcg%airco2         = rinit
-        allocate (sfcg%sfluxc     (mwsfc)) ; sfcg%sfluxc         = rinit
+        allocate (sfcg%airco2     (mwsfc))
+        allocate (sfcg%sfluxc     (mwsfc))
      endif
 
-     allocate (sfcg%ggaer         (mwsfc)) ; sfcg%ggaer          = rinit
-     allocate (sfcg%wthv          (mwsfc)) ; sfcg%wthv           = rinit
-     allocate (sfcg%albedo_beam   (mwsfc)) ; sfcg%albedo_beam    = 0.0
-     allocate (sfcg%albedo_diffuse(mwsfc)) ; sfcg%albedo_diffuse = 0.0
-     allocate (sfcg%rshort        (mwsfc)) ; sfcg%rshort         = 0.0
-     allocate (sfcg%rshort_diffuse(mwsfc)) ; sfcg%rshort_diffuse = 0.0
-     allocate (sfcg%rlong         (mwsfc)) ; sfcg%rlong          = 0.0
-     allocate (sfcg%rlong_albedo  (mwsfc)) ; sfcg%rlong_albedo   = 0.0
-     allocate (sfcg%rlongup       (mwsfc)) ; sfcg%rlongup        = 0.0
-     allocate (sfcg%pcpg          (mwsfc)) ; sfcg%pcpg           = 0.0
-     allocate (sfcg%qpcpg         (mwsfc)) ; sfcg%qpcpg          = 0.0
-     allocate (sfcg%dpcpg         (mwsfc)) ; sfcg%dpcpg          = 0.0
-     allocate (sfcg%runoff        (mwsfc)) ; sfcg%runoff         = 0.0
-     allocate (sfcg%can_depth     (mwsfc)) ; sfcg%can_depth      = rinit
-     allocate (sfcg%cantemp       (mwsfc)) ; sfcg%cantemp        = rinit
-     allocate (sfcg%canrrv        (mwsfc)) ; sfcg%canrrv         = rinit
-     allocate (sfcg%rough         (mwsfc)) ; sfcg%rough          = rinit
-     allocate (sfcg%head1         (mwsfc)) ; sfcg%head1          = 0.0
+     allocate (sfcg%ggaer         (mwsfc))
+     allocate (sfcg%wthv          (mwsfc))
+     allocate (sfcg%albedo_beam   (mwsfc))
+     allocate (sfcg%albedo_diffuse(mwsfc))
+     allocate (sfcg%rshort        (mwsfc))
+     allocate (sfcg%rshort_diffuse(mwsfc))
+     allocate (sfcg%rlong         (mwsfc))
+     allocate (sfcg%rlong_albedo  (mwsfc))
+     allocate (sfcg%rlongup       (mwsfc))
+     allocate (sfcg%pcpg          (mwsfc))
+     allocate (sfcg%qpcpg         (mwsfc))
+     allocate (sfcg%dpcpg         (mwsfc))
+     allocate (sfcg%runoff        (mwsfc))
+     allocate (sfcg%can_depth     (mwsfc))
+     allocate (sfcg%cantemp       (mwsfc))
+     allocate (sfcg%canrrv        (mwsfc))
+     allocate (sfcg%rough         (mwsfc))
+     allocate (sfcg%head1         (mwsfc))
 
      if (nswmzons > 0) then
-        allocate (sfcg%iwdepv        (mvsfc)) ; sfcg%iwdepv         = 0
+        allocate (sfcg%iwdepv     (mvsfc))
 
-        allocate (sfcg%vc            (mvsfc)) ; sfcg%vc             = 0.0
-        allocate (sfcg%vmp           (mvsfc)) ; sfcg%vmp            = 0.0
-        allocate (sfcg%vmc           (mvsfc)) ; sfcg%vmc            = 0.0
+        allocate (sfcg%vc         (mvsfc))
+        allocate (sfcg%vmp        (mvsfc))
+        allocate (sfcg%vmc        (mvsfc))
         allocate (sfcg%vort          (mmsfc)) ; sfcg%vort           = 0.0
 
-        allocate (sfcg%hflux_wat     (mvsfc)) ; sfcg%hflux_wat      = 0.0
-        allocate (sfcg%hflux_enr     (mvsfc)) ; sfcg%hflux_enr      = 0.0
-        allocate (sfcg%hflux_vxe     (mvsfc)) ; sfcg%hflux_vxe      = 0.0
-        allocate (sfcg%hflux_vye     (mvsfc)) ; sfcg%hflux_vye      = 0.0
-        allocate (sfcg%hflux_vze     (mvsfc)) ; sfcg%hflux_vze      = 0.0
+        allocate (sfcg%hflux_wat  (mvsfc))
+        allocate (sfcg%hflux_enr  (mvsfc))
+        allocate (sfcg%hflux_vxe  (mvsfc))
+        allocate (sfcg%hflux_vye  (mvsfc))
+        allocate (sfcg%hflux_vze  (mvsfc))
      endif
+
+     !$omp parallel do
+     do iwsfc = 1, mwsfc
+
+        if ( allocated( sfcg%vels          ) ) sfcg%vels          (iwsfc) = rinit
+        if ( allocated( sfcg%prss          ) ) sfcg%prss          (iwsfc) = rinit
+        if ( allocated( sfcg%canexner      ) ) sfcg%canexner      (iwsfc) = rinit
+        if ( allocated( sfcg%rhos          ) ) sfcg%rhos          (iwsfc) = rinit
+        if ( allocated( sfcg%airtemp       ) ) sfcg%airtemp       (iwsfc) = rinit
+        if ( allocated( sfcg%airtheta      ) ) sfcg%airtheta      (iwsfc) = rinit
+        if ( allocated( sfcg%airrrv        ) ) sfcg%airrrv        (iwsfc) = rinit
+
+        if ( allocated( sfcg%ustar         ) ) sfcg%ustar         (iwsfc) = rinit
+        if ( allocated( sfcg%vkmsfc        ) ) sfcg%vkmsfc        (iwsfc) = rinit
+        if ( allocated( sfcg%vkhsfc        ) ) sfcg%vkhsfc        (iwsfc) = rinit
+        if ( allocated( sfcg%sfluxt        ) ) sfcg%sfluxt        (iwsfc) = rinit
+        if ( allocated( sfcg%sfluxr        ) ) sfcg%sfluxr        (iwsfc) = rinit
+
+        if ( allocated( sfcg%airco2        ) ) sfcg%airco2        (iwsfc) = rinit
+        if ( allocated( sfcg%sfluxc        ) ) sfcg%sfluxc        (iwsfc) = rinit
+
+        if ( allocated( sfcg%ggaer         ) ) sfcg%ggaer         (iwsfc) = rinit
+        if ( allocated( sfcg%wthv          ) ) sfcg%wthv          (iwsfc) = rinit
+        if ( allocated( sfcg%albedo_beam   ) ) sfcg%albedo_beam   (iwsfc) = 0.0
+        if ( allocated( sfcg%albedo_diffuse) ) sfcg%albedo_diffuse(iwsfc) = 0.0
+        if ( allocated( sfcg%rshort        ) ) sfcg%rshort        (iwsfc) = 0.0
+        if ( allocated( sfcg%rshort_diffuse) ) sfcg%rshort_diffuse(iwsfc) = 0.0
+        if ( allocated( sfcg%rlong         ) ) sfcg%rlong         (iwsfc) = 0.0
+        if ( allocated( sfcg%rlong_albedo  ) ) sfcg%rlong_albedo  (iwsfc) = 0.0
+        if ( allocated( sfcg%rlongup       ) ) sfcg%rlongup       (iwsfc) = 0.0
+        if ( allocated( sfcg%pcpg          ) ) sfcg%pcpg          (iwsfc) = 0.0
+        if ( allocated( sfcg%qpcpg         ) ) sfcg%qpcpg         (iwsfc) = 0.0
+        if ( allocated( sfcg%dpcpg         ) ) sfcg%dpcpg         (iwsfc) = 0.0
+        if ( allocated( sfcg%runoff        ) ) sfcg%runoff        (iwsfc) = 0.0
+        if ( allocated( sfcg%can_depth     ) ) sfcg%can_depth     (iwsfc) = rinit
+        if ( allocated( sfcg%cantemp       ) ) sfcg%cantemp       (iwsfc) = rinit
+        if ( allocated( sfcg%canrrv        ) ) sfcg%canrrv        (iwsfc) = rinit
+        if ( allocated( sfcg%rough         ) ) sfcg%rough         (iwsfc) = rinit
+        if ( allocated( sfcg%head1         ) ) sfcg%head1         (iwsfc) = 0.0
+
+     enddo
+     !$omp end parallel do
+
+     !$omp parallel do
+     do ivsfc = 1, mvsfc
+
+        if ( allocated( sfcg%iwdepv    ) ) sfcg%iwdepv    (ivsfc) = 0
+        if ( allocated( sfcg%vc        ) ) sfcg%vc        (ivsfc) = 0.0
+        if ( allocated( sfcg%vmp       ) ) sfcg%vmp       (ivsfc) = 0.0
+        if ( allocated( sfcg%vmc       ) ) sfcg%vmc       (ivsfc) = 0.0
+        if ( allocated( sfcg%hflux_wat ) ) sfcg%hflux_wat (ivsfc) = 0.0
+        if ( allocated( sfcg%hflux_enr ) ) sfcg%hflux_enr (ivsfc) = 0.0
+        if ( allocated( sfcg%hflux_vxe ) ) sfcg%hflux_vxe (ivsfc) = 0.0
+        if ( allocated( sfcg%hflux_vye ) ) sfcg%hflux_vye (ivsfc) = 0.0
+        if ( allocated( sfcg%hflux_vze ) ) sfcg%hflux_vze (ivsfc) = 0.0
+
+     enddo
+     !$omp end parallel do
 
   end subroutine alloc_sfcgrid2
 
@@ -485,7 +655,7 @@ Contains
 
   integer, intent(in) :: mwa
 
-  integer :: iwsfc, ivsfc, imsfc, iw1, iw2, iw3, j, j1
+  integer :: iwsfc, ivsfc, imsfc, iw1, iw2, iw3, j
   integer :: iw, ipass, jsfc2, np
 
   ! JTAB_WSFC_SWM, restricted to SEA points that are SWM-active
@@ -504,9 +674,13 @@ Contains
   enddo
   jtab_wsfc_swm%jend = j
 
-  j1 = max(j,1)
-  allocate (jtab_wsfc_swm%iwsfc(j1))
-            jtab_wsfc_swm%iwsfc(1:j1) = 0
+  allocate( jtab_wsfc_swm%iwsfc(j) )
+
+  !$omp parallel do
+  !$ do j = 1, jtab_wsfc_swm%jend
+  !$    jtab_wsfc_swm%iwsfc(j) = 0
+  !$ enddo
+  !$omp end parallel do
 
   j = 0
   do iwsfc = 2,mwsfc
@@ -536,9 +710,13 @@ Contains
   enddo
   jtab_vsfc_swm%jend = j
 
-  j1 = max(j,1)
-  allocate (jtab_vsfc_swm%ivsfc(j1))
-            jtab_vsfc_swm%ivsfc(1:j1) = 0
+  allocate( jtab_vsfc_swm%ivsfc(j) )
+
+  !$omp parallel do
+  !$ do j = 1, jtab_vsfc_swm%jend
+  !$    jtab_vsfc_swm%ivsfc(j) = 0
+  !$ enddo
+  !$omp end parallel do
 
   j = 0
   do ivsfc = 2,mvsfc
@@ -566,9 +744,13 @@ Contains
   enddo
   jtab_msfc_swm%jend = j
 
-  j1 = max(j,1)
-  allocate (jtab_msfc_swm%imsfc(j1))
-            jtab_msfc_swm%imsfc(1:j1) = 0
+  allocate( jtab_msfc_swm%imsfc(j) )
+
+  !$omp parallel do
+  !$ do j = 1, jtab_msfc_swm%jend
+  !$    jtab_msfc_swm%imsfc(j) = 0
+  !$ enddo
+  !$omp end parallel do
 
   j = 0
   do imsfc = 2,mmsfc
@@ -588,14 +770,18 @@ Contains
   ! Do two passes through the following code to build lists of attached
   ! land, lake, and sea cells for each IW column
 
-  do ipass = 1,2
+  do ipass = 1, 2
 
      ! Set land, lake and sea counters to zero for all atmosphere IW columns
 
-     itab_w(1:mwa)%jsfc2  = 0
-     itab_w(1:mwa)%jland2 = 0
-     itab_w(1:mwa)%jlake2 = 0
-     itab_w(1:mwa)%jsea2  = 0
+     !$omp parallel do
+     do iw = 1, mwa
+        itab_w(iw)%jsfc2  = 0
+        itab_w(iw)%jland2 = 0
+        itab_w(iw)%jlake2 = 0
+        itab_w(iw)%jsea2  = 0
+     enddo
+     !$omp end parallel do
 
      ! Loop over all SFC grid cells and get atmosphere column iw index
 
@@ -633,43 +819,50 @@ Contains
      ! If first pass, allocate iwsfc member of itab_w(iw)
 
      if (ipass == 1) then
-        do iw = 2,mwa
+
+        !$omp parallel do private(jsfc2)
+        do iw = 2, mwa
            jsfc2 = itab_w(iw)%jsfc2
+
            allocate(itab_w(iw)%iwsfc(jsfc2))
            allocate(itab_w(iw)%jasfc(jsfc2))
+
+           itab_w(iw)%iwsfc(:) = 0
+           itab_w(iw)%jasfc(:) = 0
         enddo
+        !$omp end parallel do
+
      endif
 
-        ! If second pass, convert j-index members of itab_w(iw) if land, lake,
-        ! and/or sea points are present
+     ! If second pass, convert j-index members of itab_w(iw) if land, lake,
+     ! and/or sea points are present
 
-        if (ipass == 2) then
-           do iw = 2,mwa
+     if (ipass == 2) then
 
-              itab_w(iw)%jland1 = 1
-              itab_w(iw)%jlake1 = itab_w(iw)%jland2 + 1
-              itab_w(iw)%jsea1 = itab_w(iw)%jlake2 + 1
+        !$omp parallel do
+        do iw = 2, mwa
+           itab_w(iw)%jland1 = 1
+           itab_w(iw)%jlake1 = itab_w(iw)%jland2 + 1
+           itab_w(iw)%jsea1  = itab_w(iw)%jlake2 + 1
 
+           if (itab_w(iw)%jlake2 > 0) then
+              itab_w(iw)%jlake2 = itab_w(iw)%jland2 + itab_w(iw)%jlake2
+           endif
+
+           if (itab_w(iw)%jsea2 > 0) then
               if (itab_w(iw)%jlake2 > 0) then
-                 itab_w(iw)%jlake2 = itab_w(iw)%jland2 + itab_w(iw)%jlake2
+                 itab_w(iw)%jsea2 = itab_w(iw)%jlake2 + itab_w(iw)%jsea2
+              else
+                 itab_w(iw)%jsea2 = itab_w(iw)%jland2 + itab_w(iw)%jsea2
               endif
+           endif
 
-              if (itab_w(iw)%jsea2 > 0) then
-                 if (itab_w(iw)%jlake2 > 0) then
-                    itab_w(iw)%jsea2 = itab_w(iw)%jlake2 + itab_w(iw)%jsea2
-                 else
-                    itab_w(iw)%jsea2 = itab_w(iw)%jland2 + itab_w(iw)%jsea2
-                 endif
-              endif
+        enddo
+        !$omp end parallel do
 
-           enddo
-        endif
+     endif
 
-     enddo  ! ipass
-
-
-
-
+  enddo  ! ipass
 
   end subroutine fill_jtab_sfcg
 

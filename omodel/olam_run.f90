@@ -447,7 +447,7 @@ subroutine olam_run(name_name)
      ! Allocate time-dependent SFC grid arrays
 
      write(io6,'(/,a)') 'olam_run calling alloc_sfcgrid2'
-     call alloc_sfcgrid2(mwsfc)
+     call alloc_sfcgrid2()
      call filltab_sfcg()
 
      ! Start up LAND model

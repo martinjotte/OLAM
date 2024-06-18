@@ -1,7 +1,7 @@
 subroutine land_startup()
 
   use leaf_coms,   only: nzs, ndviflg, iupdndvi, isoilflg, specifheat_bedrock
-  use mem_land,    only: alloc_land, filltab_land, land, mland, nzg, slzt, omland
+  use mem_land,    only: alloc_land2, filltab_land, land, mland, nzg, slzt, omland
   use misc_coms,   only: runtype
   use mem_sfcg,    only: sfcg
   use consts_coms, only: cice
@@ -18,7 +18,7 @@ subroutine land_startup()
 
   ! Allocate time-dependent LEAF arrays and add to history file I/O table
 
-  call alloc_land(mland, nzg, nzs)
+  call alloc_land2 ()
   call filltab_land()
 
   ! Fill ndvi values

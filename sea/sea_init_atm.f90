@@ -91,6 +91,7 @@ subroutine sea_init_atm()
 
      sea%ice_sfluxt  (isea) = 0.0
      sea%ice_sfluxr  (isea) = 0.0
+     sea%nlev_seaice (isea) = 0
 
      call prep_seaice(sea%seatc              (isea), &
                       sea%seaicec            (isea), &

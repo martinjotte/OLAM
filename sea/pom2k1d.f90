@@ -42,9 +42,7 @@ Module pom2k1d
      real, allocatable :: wubot    (:) ! bottom U momentum flux      [m^2/s^2]
      real, allocatable :: wvbot    (:) ! bottom V momentum flux      [m^2/s^2]
      real, allocatable :: cor      (:) ! Coriolis parameter          [1/s]
-
-     integer, allocatable :: kba   (:) ! number of levels in each column []
-  End type
+  End Type pom_vars
 
   type (pom_vars) :: pom
 
@@ -52,18 +50,14 @@ Contains
 
 !===============================================================================
 
-  subroutine alloc_pomgrid(mpom)
+  subroutine alloc_pomgrid()
 
-  implicit none
+    implicit none
 
-  integer, intent(in) :: mpom
-
-  allocate (y  (nzpom)); y   = 0.
-  allocate (yy (nzpom)); yy  = 0.
-  allocate (dy (nzpom)); dy  = 0.
-  allocate (dyy(nzpom)); dyy = 0.
-
-  allocate (pom%kba (mpom)); pom%kba  = 0
+    allocate (y  (nzpom)); y   = 0.
+    allocate (yy (nzpom)); yy  = 0.
+    allocate (dy (nzpom)); dy  = 0.
+    allocate (dyy(nzpom)); dyy = 0.
 
   end subroutine alloc_pomgrid
 

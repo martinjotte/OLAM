@@ -190,7 +190,7 @@ subroutine seacells(isea, timefac_sst, timefac_seaice)
      wssurf = 0.
      swrad = sfcg%rshort(iwsfc) * (1. - sfcg%albedo_beam(iwsfc)) / cliq1000
 
-     call pom_column(isea, pom%kba(isea), wusurf, wvsurf, wtsurf, wssurf, swrad)
+     call pom_column(isea, sea%pom_kba(isea), wusurf, wvsurf, wtsurf, wssurf, swrad)
   endif
 
   ! Update sea ice based on seaice fraction

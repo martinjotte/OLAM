@@ -3,7 +3,7 @@ subroutine sea_startup()
 use sea_coms,  only: isstflg, seatmp,  &
                      iupdsst, iseaiceflg, iupdseaice, seaice
 
-use mem_sea,   only: msea, sea, alloc_sea, filltab_sea
+use mem_sea,   only: msea, sea, alloc_sea2, filltab_sea
 
 use misc_coms, only: io6, runtype
 
@@ -20,7 +20,7 @@ integer :: isea
 ! STEP 1: Call alloc_sea and filltab_sea (sea grid arrays already allocated)
 !-------------------------------------------------------------------------------
 
-call alloc_sea(msea)
+call alloc_sea2 ()
 call filltab_sea()
 
 !-------------------------------------------------------------------------------

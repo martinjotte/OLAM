@@ -71,7 +71,7 @@ subroutine pom_init()
 
      if (sea%pom_active(isea)) then
 
-        tlen = 0.1 * y(pom%kba(isea))
+        tlen = 0.1 * y( sea%pom_kba(isea) )
 
         pom%wubot(isea) = 0.
         pom%wvbot(isea) = 0.
@@ -109,7 +109,7 @@ end subroutine pom_init
 
 subroutine plot_pom()
 
-  use mem_sea, only: omsea
+  use mem_sea, only: omsea, sea
   use pom2k1d, only: nzpom, pom, yy
 
   implicit none
@@ -149,7 +149,7 @@ subroutine plot_pom()
      iwsfc = ijpom(jpom)
      isea = iwsfc - omsea
 
-     kb = pom%kba(isea)
+     kb = sea%pom_kba(isea)
 
      allocate(vctr18(kb-1))
      allocate(val(kb-1,6))

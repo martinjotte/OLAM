@@ -24,8 +24,8 @@ Module mem_land
   ! LAND GRID TABLES
 
   Type itab_land_vars
-     integer :: iwglobe = 1
-  End type
+     integer :: iwglobe
+  End type itab_land_vars
 
   type (itab_land_vars), allocatable, target :: itab_land(:)
 
@@ -44,8 +44,8 @@ Module mem_land
 
      real, allocatable :: cosz      (:) ! cosine of the solar zenith angle of the land cell
 
-!     real, allocatable :: par         (:) ! total photosynthetic active radiation (W/m^2)
-!     real, allocatable :: par_diffuse (:) ! diffuse photosynthetic active radiation (W/m^2)
+      real, allocatable :: par         (:) ! total photosynthetic active radiation (W/m^2)
+      real, allocatable :: par_diffuse (:) ! diffuse photosynthetic active radiation (W/m^2)
       real, allocatable :: ppfd        (:) ! total photosynthetic photon flux density (uMol/m^2/s)
       real, allocatable :: ppfd_diffuse(:) ! diffuse photosynthetic photon flux density (uMol/m^2/s)
 
@@ -127,106 +127,205 @@ Contains
 
   subroutine alloc_landcol()
 
-  implicit none
+    implicit none
 
-  ! Allocate leaf column arrays
+    ! Allocate leaf column arrays
 
-  allocate (slz   (nzg+1))
-  allocate (dslz  (nzg))
-  allocate (dslzo2(nzg))
-  allocate (dslzi (nzg))
-  allocate (slzt  (nzg))
+    allocate (slz   (nzg+1))
+    allocate (dslz  (nzg))
+    allocate (dslzo2(nzg))
+    allocate (dslzi (nzg))
+    allocate (slzt  (nzg))
 
   end subroutine alloc_landcol
 
 !=========================================================================
 
-  subroutine alloc_land(mland, nzg, nzs)
+  subroutine alloc_land1(mland0)
 
-  use misc_coms,  only: rinit, do_chem
+    use misc_coms,  only: rinit
+    implicit none
+
+    integer, intent(in) :: mland0
+    integer             :: iland
+
+    ! This routine allocates sea arrays necessary for the MAKEGRID stage
+    ! or for reading sfcgrid information
+
+    allocate( itab_land                (mland0) )
+    allocate( land%usdatext            (mland0) )
+    allocate( land%z_bedrock           (mland0) )
+    allocate( land%gpp                 (mland0) )
+
+    allocate( land%glhymps_ksat        (mland0) )
+!   allocate( land%glhymps_ksat_pfr    (mland0) )
+    allocate( land%glhymps_poros       (mland0) )
+
+    allocate( land%sand            (nzg,mland0) )
+    allocate( land%clay            (nzg,mland0) )
+    allocate( land%silt            (nzg,mland0) )
+    allocate( land%organ           (nzg,mland0) )
+    allocate( land%bulkdens_drysoil(nzg,mland0) )
+    allocate( land%pH_soil         (nzg,mland0) )
+    allocate( land%cec_soil        (nzg,mland0) )
+
+    !$omp parallel do
+    do iland = 1, mland0
+       itab_land              (iland) = itab_land_vars( iwglobe = 1 )
+       land%usdatext          (iland) = 0
+       land%z_bedrock         (iland) = rinit
+       land%gpp               (iland) = rinit
+       land%glhymps_ksat      (iland) = rinit
+!      land%glhymps_ksat_pfr  (iland) = rinit
+       land%glhymps_poros     (iland) = rinit
+       land%sand            (:,iland) = rinit
+       land%clay            (:,iland) = rinit
+       land%silt            (:,iland) = rinit
+       land%organ           (:,iland) = rinit
+       land%bulkdens_drysoil(:,iland) = rinit
+       land%pH_soil         (:,iland) = rinit
+       land%cec_soil        (:,iland) = rinit
+    enddo
+    !$omp end parallel do
+
+  end subroutine alloc_land1
+
+!=========================================================================
+
+  subroutine alloc_land2()
+
+  use misc_coms, only: rinit, do_chem
+  use leaf_coms, only: nzs
+
   implicit none
 
-  integer, intent(in) :: mland, nzg, nzs
+  integer :: iland
 
   ! Surface/vegetation quantities
 
-  allocate (land%slope_fact         (mland)) ; land%slope_fact      = 1.0
+  allocate( land%slope_fact            (mland) )
 
-  allocate (land%rshort_g           (mland)) ; land%rshort_g        = rinit
-  allocate (land%rshort_s       (nzs,mland)) ; land%rshort_s        = rinit
-  allocate (land%rshort_v           (mland)) ; land%rshort_v        = rinit
-  allocate (land%rlong_g            (mland)) ; land%rlong_g         = rinit
-  allocate (land%rlong_s            (mland)) ; land%rlong_s         = rinit
-  allocate (land%rlong_v            (mland)) ; land%rlong_v         = rinit
+  allocate( land%rshort_g              (mland) )
+  allocate( land%rshort_s          (nzs,mland) )
+  allocate( land%rshort_v              (mland) )
+  allocate( land%rlong_g               (mland) )
+  allocate( land%rlong_s               (mland) )
+  allocate( land%rlong_v               (mland) )
+  allocate( land%cosz                  (mland) )
 
-  allocate (land%cosz               (mland)) ; land%cosz            = rinit
-
-! Photosynthetically active radiation (PAR) currently unused
-! allocate (land%par                (mland)) ; land%par             = rinit
-! allocate (land%par_diffuse        (mland)) ; land%par_diffuse     = rinit
+  ! Photosynthetically active radiation (PAR) currently unused
+! allocate( land%par                   (mland) )
+! allocate( land%par_diffuse           (mland) )
 
   ! Photosynthetic photon flux density (PPFD) only needed with full chemistry
   if (do_chem == 1) then
-     allocate (land%ppfd            (mland)) ; land%ppfd            = rinit
-     allocate (land%ppfd_diffuse    (mland)) ; land%ppfd_diffuse    = rinit
+     allocate( land%ppfd               (mland) )
+     allocate( land%ppfd_diffuse       (mland) )
   endif
 
-  allocate (land%nlev_sfcwater      (mland)) ; land%nlev_sfcwater   = 0
-  allocate (land%sfcwater_mass  (nzs,mland)) ; land%sfcwater_mass   = rinit
-  allocate (land%sfcwater_energy(nzs,mland)) ; land%sfcwater_energy = rinit
-  allocate (land%sfcwater_depth (nzs,mland)) ; land%sfcwater_depth  = rinit
+  allocate( land%nlev_sfcwater         (mland) )
+  allocate( land%sfcwater_mass     (nzs,mland) )
+  allocate( land%sfcwater_energy   (nzs,mland) )
+  allocate( land%sfcwater_depth    (nzs,mland) )
 
-  allocate (land%hcapveg            (mland)) ; land%hcapveg         = rinit
-  allocate (land%veg_fracarea       (mland)) ; land%veg_fracarea    = rinit
-  allocate (land%veg_lai            (mland)) ; land%veg_lai         = rinit
-  allocate (land%veg_rough          (mland)) ; land%veg_rough       = rinit
-  allocate (land%veg_height         (mland)) ; land%veg_height      = rinit
-  allocate (land%veg_albedo         (mland)) ; land%veg_albedo      = rinit
-  allocate (land%veg_tai            (mland)) ; land%veg_tai         = rinit
-  allocate (land%veg_water          (mland)) ; land%veg_water       = rinit
-  allocate (land%veg_energy         (mland)) ; land%veg_energy      = rinit
-  allocate (land%veg_temp           (mland)) ; land%veg_temp        = rinit
-  allocate (land%veg_ndvip          (mland)) ; land%veg_ndvip       = rinit
-  allocate (land%veg_ndvif          (mland)) ; land%veg_ndvif       = rinit
-  allocate (land%veg_ndvic          (mland)) ; land%veg_ndvic       = rinit
-  allocate (land%stom_resist        (mland)) ; land%stom_resist     = rinit
-  allocate (land%snowfac            (mland)) ; land%snowfac         = rinit
-  allocate (land%vf                 (mland)) ; land%vf              = rinit
+  allocate( land%hcapveg               (mland) )
+  allocate( land%veg_fracarea          (mland) )
+  allocate( land%veg_lai               (mland) )
+  allocate( land%veg_rough             (mland) )
+  allocate( land%veg_height            (mland) )
+  allocate( land%veg_albedo            (mland) )
+  allocate( land%veg_tai               (mland) )
+  allocate( land%veg_water             (mland) )
+  allocate( land%veg_energy            (mland) )
+  allocate( land%veg_temp              (mland) )
+  allocate( land%veg_ndvip             (mland) )
+  allocate( land%veg_ndvif             (mland) )
+  allocate( land%veg_ndvic             (mland) )
+  allocate( land%stom_resist           (mland) )
+  allocate( land%snowfac               (mland) )
+  allocate( land%vf                    (mland) )
 
   ! Soil quantities
 
-  allocate (land%soil_water     (nzg,mland)) ; land%soil_water  = rinit
-  allocate (land%soil_energy    (nzg,mland)) ; land%soil_energy = rinit
-  allocate (land%head           (nzg,mland)) ; land%head        = rinit
-  allocate (land%head0              (mland)) ; land%head0       = rinit
+  allocate( land%soil_water        (nzg,mland) )
+  allocate( land%soil_energy       (nzg,mland) )
+  allocate( land%head              (nzg,mland) )
+  allocate( land%head0                 (mland) )
+  allocate( land%wresid_vg         (nzg,mland) )
+  allocate( land%wsat_vg           (nzg,mland) )
+  allocate( land%ksat_vg           (nzg,mland) )
+  allocate( land%alpha_vg          (nzg,mland) )
+  allocate( land%en_vg             (nzg,mland) )
+  allocate( land%lambda_vg         (nzg,mland) )
+  allocate( land%specifheat_drysoil(nzg,mland) )
+  allocate( land%wfrac_low         (nzg,mland) )
+  allocate( land%k_bedrock             (mland) )
+  allocate( land%soilfldcap            (mland) )
+  allocate( land%soilwilt              (mland) )
 
- ! The following are allocated in makesfc3.f90 because they are on the SFCGRIDFILE
+  !$omp parallel do
+  do iland = 1, mland
 
- ! allocate (land%usdatext            (mland)) ; land%usdatext         = 0
- ! allocate (land%z_bedrock           (mland)) ; land%z_bedrock        = rinit
- ! allocate (land%gpp                 (mland)) ; land%gpp              = rinit
- ! allocate (land%sand            (nzg,mland)) ; land%sand             = rinit
- ! allocate (land%clay            (nzg,mland)) ; land%clay             = rinit
- ! allocate (land%silt            (nzg,mland)) ; land%silt             = rinit
- ! allocate (land%organ           (nzg,mland)) ; land%organ            = rinit
- ! allocate (land%bulkdens_drysoil(nzg,mland)) ; land%bulkdens_drysoil = rinit
- ! allocate (land%pH_soil         (nzg,mland)) ; land%pH_soil          = rinit
- ! allocate (land%cec_soil        (nzg,mland)) ; land%cec_soil         = rinit
+     if ( allocated( land%slope_fact         ) ) land%slope_fact          (iland) = 1.0
 
-  allocate (land%wresid_vg         (nzg,mland)) ; land%wresid_vg          = rinit
-  allocate (land%wsat_vg           (nzg,mland)) ; land%wsat_vg            = rinit
-  allocate (land%ksat_vg           (nzg,mland)) ; land%ksat_vg            = rinit
-  allocate (land%alpha_vg          (nzg,mland)) ; land%alpha_vg           = rinit
-  allocate (land%en_vg             (nzg,mland)) ; land%en_vg              = rinit
-  allocate (land%lambda_vg         (nzg,mland)) ; land%lambda_vg          = rinit
-  allocate (land%specifheat_drysoil(nzg,mland)) ; land%specifheat_drysoil = rinit
-  allocate (land%wfrac_low         (nzg,mland)) ; land%wfrac_low          = rinit
+     if ( allocated( land%rshort_g           ) ) land%rshort_g            (iland) = rinit
+     if ( allocated( land%rshort_s           ) ) land%rshort_s          (:,iland) = rinit
+     if ( allocated( land%rshort_v           ) ) land%rshort_v            (iland) = rinit
+     if ( allocated( land%rlong_g            ) ) land%rlong_g             (iland) = rinit
+     if ( allocated( land%rlong_s            ) ) land%rlong_s             (iland) = rinit
+     if ( allocated( land%rlong_v            ) ) land%rlong_v             (iland) = rinit
+     if ( allocated( land%cosz               ) ) land%cosz                (iland) = rinit
 
-  allocate (land%k_bedrock             (mland)) ; land%k_bedrock          = 0
-  allocate (land%soilfldcap            (mland)) ; land%soilfldcap         = rinit
-  allocate (land%soilwilt              (mland)) ; land%soilwilt           = rinit
+     if ( allocated( land%par                ) ) land%par                 (iland) = rinit
+     if ( allocated( land%par_diffuse        ) ) land%par_diffuse         (iland) = rinit
+     if ( allocated( land%ppfd               ) ) land%ppfd                (iland) = rinit
+     if ( allocated( land%ppfd_diffuse       ) ) land%ppfd_diffuse        (iland) = rinit
 
-  end subroutine alloc_land
+     if ( allocated( land%nlev_sfcwater      ) ) land%nlev_sfcwater       (iland) = 0
+     if ( allocated( land%sfcwater_mass      ) ) land%sfcwater_mass     (:,iland) = rinit
+     if ( allocated( land%sfcwater_energy    ) ) land%sfcwater_energy   (:,iland) = rinit
+     if ( allocated( land%sfcwater_depth     ) ) land%sfcwater_depth    (:,iland) = rinit
+
+     if ( allocated( land%hcapveg            ) ) land%hcapveg             (iland) = rinit
+     if ( allocated( land%veg_fracarea       ) ) land%veg_fracarea        (iland) = rinit
+     if ( allocated( land%veg_lai            ) ) land%veg_lai             (iland) = rinit
+     if ( allocated( land%veg_rough          ) ) land%veg_rough           (iland) = rinit
+     if ( allocated( land%veg_height         ) ) land%veg_height          (iland) = rinit
+     if ( allocated( land%veg_albedo         ) ) land%veg_albedo          (iland) = rinit
+     if ( allocated( land%veg_tai            ) ) land%veg_tai             (iland) = rinit
+     if ( allocated( land%veg_water          ) ) land%veg_water           (iland) = rinit
+     if ( allocated( land%veg_energy         ) ) land%veg_energy          (iland) = rinit
+     if ( allocated( land%veg_temp           ) ) land%veg_temp            (iland) = rinit
+     if ( allocated( land%veg_ndvip          ) ) land%veg_ndvip           (iland) = rinit
+     if ( allocated( land%veg_ndvif          ) ) land%veg_ndvif           (iland) = rinit
+     if ( allocated( land%veg_ndvic          ) ) land%veg_ndvic           (iland) = rinit
+     if ( allocated( land%stom_resist        ) ) land%stom_resist         (iland) = rinit
+     if ( allocated( land%snowfac            ) ) land%snowfac             (iland) = rinit
+     if ( allocated( land%vf                 ) ) land%vf                  (iland) = rinit
+
+     ! Soil quantities
+
+     if ( allocated( land%soil_water         ) ) land%soil_water        (:,iland) = rinit
+     if ( allocated( land%soil_energy        ) ) land%soil_energy       (:,iland) = rinit
+     if ( allocated( land%head               ) ) land%head              (:,iland) = rinit
+     if ( allocated( land%head0              ) ) land%head0               (iland) = rinit
+
+     if ( allocated( land%wresid_vg          ) ) land%wresid_vg         (:,iland) = rinit
+     if ( allocated( land%wsat_vg            ) ) land%wsat_vg           (:,iland) = rinit
+     if ( allocated( land%ksat_vg            ) ) land%ksat_vg           (:,iland) = rinit
+     if ( allocated( land%alpha_vg           ) ) land%alpha_vg          (:,iland) = rinit
+     if ( allocated( land%en_vg              ) ) land%en_vg             (:,iland) = rinit
+     if ( allocated( land%lambda_vg          ) ) land%lambda_vg         (:,iland) = rinit
+     if ( allocated( land%specifheat_drysoil ) ) land%specifheat_drysoil(:,iland) = rinit
+     if ( allocated( land%wfrac_low          ) ) land%wfrac_low         (:,iland) = rinit
+     if ( allocated( land%k_bedrock          ) ) land%k_bedrock           (iland) = 0
+     if ( allocated( land%soilfldcap         ) ) land%soilfldcap          (iland) = rinit
+     if ( allocated( land%soilwilt           ) ) land%soilwilt            (iland) = rinit
+
+  enddo
+  !$omp end parallel do
+
+  end subroutine alloc_land2
 
 !=========================================================================
 

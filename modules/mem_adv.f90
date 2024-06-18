@@ -9,11 +9,6 @@ module mem_adv
 
   real, allocatable :: xx0(:), xy0(:), yy0(:), xy_h(:,:,:), xx_yy(:,:), xx_yy_m(:,:)
 
-!!!!!!!!!!!!!!!!!!!!!!!
-!  real, allocatable :: dxps_m1(:,:), dxps_m2(:,:)
-!  real, allocatable :: dyps_m1(:,:), dyps_m2(:,:)
-!!!!!!!!!!!!!!!!!!!!!!
-
   real, allocatable :: dssq(:)
 
   real, allocatable :: xx0_v(:,:), xy0_v(:,:), yy0_v(:,:)
@@ -57,45 +52,45 @@ contains
 !!    real, parameter :: wt1 = 1. / 6.
 !!    real, parameter :: wt2 = 2. / 3.
 
-    allocate(gxps_scp(mza,mwa)) ; gxps_scp = rinit
-    allocate(gyps_scp(mza,mwa)) ; gyps_scp = rinit
+    allocate(gxps_scp(mza,mwa))! ; gxps_scp = rinit
+    allocate(gyps_scp(mza,mwa))! ; gyps_scp = rinit
 
-    allocate(dxpsw_v(7,mwa))    ; dxpsw_v = rinit
-    allocate(dypsw_v(7,mwa))    ; dypsw_v = rinit
+    allocate(dxpsw_v(7,mwa))    !; dxpsw_v = rinit
+    allocate(dypsw_v(7,mwa))    !; dypsw_v = rinit
 
     if (nl%horiz_adv_order == 3) then
-       allocate(gxxps_scp(mza,mwa)) ; gxxps_scp = rinit
-       allocate(gxyps_scp(mza,mwa)) ; gxyps_scp = rinit
-       allocate(gyyps_scp(mza,mwa)) ; gyyps_scp = rinit
+       allocate(gxxps_scp(mza,mwa)) !; gxxps_scp = rinit
+       allocate(gxyps_scp(mza,mwa)) !; gxyps_scp = rinit
+       allocate(gyyps_scp(mza,mwa)) !; gyyps_scp = rinit
 
-       allocate(dxxpsw_v(7,mwa))    ; dxxpsw_v = rinit
-       allocate(dxypsw_v(7,mwa))    ; dxypsw_v = rinit
-       allocate(dyypsw_v(7,mwa))    ; dyypsw_v = rinit
+       allocate(dxxpsw_v(7,mwa))    !; dxxpsw_v = rinit
+       allocate(dxypsw_v(7,mwa))    !; dxypsw_v = rinit
+       allocate(dyypsw_v(7,mwa))    !; dyypsw_v = rinit
     endif
 
-    allocate( dxps_w(mza,mwa)) ;  dxps_w = rinit
-    allocate( dyps_w(mza,mwa)) ;  dyps_w = rinit
-    allocate( dzps_w(mza,mwa)) ;  dzps_w = rinit
-    allocate(dzzps_w(mza,mwa)) ; dzzps_w = rinit
+!    allocate( dxps_w(mza,mwa)) !;  dxps_w = rinit
+!    allocate( dyps_w(mza,mwa)) !;  dyps_w = rinit
+!   allocate( dzps_w(mza,mwa)) !;  dzps_w = rinit
+!   allocate(dzzps_w(mza,mwa)) !; dzzps_w = rinit
 
-    allocate(dxps_v(mza,mva)) ; dxps_v = rinit
-    allocate(dyps_v(mza,mva)) ; dyps_v = rinit
-    allocate(dzps_v(mza,mva)) ; dzps_v = rinit
+!    allocate(dxps_v(mza,mva)) !; dxps_v = rinit
+!    allocate(dyps_v(mza,mva)) !; dyps_v = rinit
+!    allocate(dzps_v(mza,mva)) !; dzps_v = rinit
 
-    allocate(xx_yy(7,mwa)) ; xx_yy = rinit
+    allocate(xx_yy(7,mwa)) !; xx_yy = rinit
 
-    allocate(xx_yy_m(3,mma)) ; xx_yy_m = rinit
+    allocate(xx_yy_m(3,mma)) !; xx_yy_m = rinit
 
 !!    if (nl%horiz_adv_order == 3) then
 !       allocate(dxxps_v(mza,mva)) ; dxxps_v = rinit
 !       allocate(dxyps_v(mza,mva)) ; dxyps_v = rinit
 !       allocate(dyyps_v(mza,mva)) ; dyyps_v = rinit
 
-       allocate(xy_h(5,7,mwa)) ; xy_h = rinit
+       allocate(xy_h(5,7,mwa)) !; xy_h = rinit
 
-       allocate(xx0(mwa)) ; xx0 = rinit
-       allocate(xy0(mwa)) ; xy0 = rinit
-       allocate(yy0(mwa)) ; yy0 = rinit
+       allocate(xx0(mwa)) !; xx0 = rinit
+       allocate(xy0(mwa)) !; xy0 = rinit
+       allocate(yy0(mwa)) !; yy0 = rinit
 
 !!       allocate(dxps_m1(2,mva)) ; dxps_m1 = rinit
 !!       allocate(dyps_m1(2,mva)) ; dyps_m1 = rinit
@@ -103,9 +98,9 @@ contains
 !!       allocate(dxps_m2(2,mva)) ; dxps_m2 = rinit
 !!       allocate(dyps_m2(2,mva)) ; dyps_m2 = rinit
 
-       allocate(xx0_v(2,mva)) ; xx0_v = rinit
-       allocate(xy0_v(2,mva)) ; xy0_v = rinit
-       allocate(yy0_v(2,mva)) ; yy0_v = rinit
+       allocate(xx0_v(2,mva)) !; xx0_v = rinit
+       allocate(xy0_v(2,mva)) !; xy0_v = rinit
+       allocate(yy0_v(2,mva)) !; yy0_v = rinit
 
        if (nl%iscal_monot > 0) allocate(dssq(mwa))
 !!    endif
@@ -139,7 +134,7 @@ contains
        do n = 1, npoly
           ivn = itab_w(iw)%iv(n)
 
-          ! Coefficients for horizontal Laplacian at W point
+         ! Coefficients for horizontal Laplacian at W point
           xx_yy(n,iw) = dniv(ivn) * dnu(ivn) * arw0i(iw)
 
           if (itab_w(iw)%dirv(n) < 0.) then

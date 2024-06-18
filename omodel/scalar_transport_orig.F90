@@ -15,10 +15,6 @@ subroutine scalar_transport_orig(rho_old)
   use mem_basic,    only: vmsc, wmsc, vxesc, vyesc, vzesc, rho
   use mem_nudge,    only: nudflag, rhot_nud
 
-!  use mem_adv,      only: dxps_w, dyps_w, dzps_w, dzzps_w, &
-!                          dxps_v, dyps_v, dzps_v, dxyps_v, dxxps_v, dyyps_v, &
-!                          gxps_scp, gyps_scp, gzps_scp, &
-!                          gxyps_scp, gxxps_scp, gyyps_scp, gzzps_scp
   implicit none
 
   real(r8), intent(in) :: rho_old(mza,mwa)

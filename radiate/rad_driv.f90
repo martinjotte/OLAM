@@ -235,7 +235,7 @@ subroutine radiate()
 
      !$omp parallel private(rlongup_ks,rlong_albedo_ks,albedt_ks,albedt_diffuse_ks)
      !$omp do private (iw, ka, nsfc, jsfc, iwsfc, jasfc, wti, wtk, &
-     !$omp                      kw, ks, koff, nrad) &
+     !$omp                      kw, ks, koff, nrad)  &
      !$omp             schedule(guided)
      do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
