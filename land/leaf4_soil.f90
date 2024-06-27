@@ -20,7 +20,8 @@ Contains
                   thermcond_soil                                         )
 
   use leaf_coms,      only: nzs, dt_leaf, z_root, wcap_min
-  use mem_land,       only: nzg, slz, dslz, dslzi, slzt, dslzo2, kperc
+  use mem_land,       only: nzg, slz, dslz, dslzi, slzt, dslzo2, kperc, itab_land
+  use mem_sfcg,       only: itab_wsfc
   use consts_coms,    only: cliq1000, cice1000, alli1000, alvi
   use tridiag,        only: tridiffo
   use leaf4_plot,     only: leaf_plot
@@ -399,7 +400,7 @@ Contains
 
         write(*,*) ' '
         write(*,*) 'Sfcwater energy is outside allowable range.'
-        write(*,*) 'iwsfc,iland,lat,lon = ',iwsfc,iland,glatw,glonw
+        write(*,*) 'iwsfc,iland,lat,lon = ',itab_wsfc(iwsfc)%iwglobe,itab_land(iland)%iwglobe,glatw,glonw
         write(*,*) 'sfcwater energy & mass = ',sfcwater_energy,sfcwater_mass
         write(*,*) 'sfcwater depth & energy_per_m2 = ',sfcwater_depth,energy_per_m2
         write(*,*) 'wxfer,qwxfer = ',wxfer(nzg+1),qwxfer(nzg+1)

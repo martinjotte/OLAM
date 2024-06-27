@@ -378,7 +378,7 @@ end subroutine laplacian2d
 ! Computes the horizontal laplacian of scalar variables at cell vertices
 ! (M points) on the hexagonal grid
 
-subroutine laplacian_m(im, scm, delsq, lpm)
+subroutine laplacian_m(im, scm, delsq)
 
   use mem_ijtabs, only: itab_m
   use mem_grid,   only: mza, mma, lpv
@@ -386,30 +386,22 @@ subroutine laplacian_m(im, scm, delsq, lpm)
 
   implicit none
 
-  integer, intent(in)           :: im
-  real,    intent(in)           :: scm(mza,mma)
-  integer, intent(in), optional :: lpm(mma)
-  real,    intent(out)          :: delsq(mza)
+  integer, intent(in)  :: im
+  real,    intent(in)  :: scm(mza,mma)
+  real,    intent(out) :: delsq(mza)
 
-  integer :: imn, k, ka, n
+  integer :: imn, j, k
   real    :: sc
 
   delsq(:) = 0.0
 
   ! Loop over neighbors of this M point
-  do n = 1, 3
+  do j = 1, 3
+     imn = itab_m(im)%im(j)
 
-     imn = itab_m(im)%im(n)
-
-     if (present(lpm)) then
-        ka = max( lpm(im), lpm(imn) )
-     else
-        ka = lpv( itab_m(im)%iv(n) )
-     endif
-
-     do k = ka, mza
+     do k = lpv( itab_m(im)%iv(j) ), mza
         sc = scm(k,imn) - scm(k,im)
-        delsq(k) = delsq(k) + sc * xx_yy_m(n,im)
+        delsq(k) = delsq(k) + sc * xx_yy_m(j,im)
      enddo
 
   enddo

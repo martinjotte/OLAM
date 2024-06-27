@@ -32,7 +32,7 @@ subroutine para_init_sfc()
   use max_dims,     only: maxremote
   use mem_land,     only: mland, omland, onland, itab_land, alloc_land1
   use mem_lake,     only: mlake, omlake, onlake, itab_lake, alloc_lake1
-  use mem_sea,      only: sea, msea, omsea, onsea, itab_sea, alloc_sea1
+  use mem_sea,      only: msea, omsea, onsea, itab_sea, alloc_sea1
   use pom2k1d,      only: alloc_pomgrid
 
   implicit none
@@ -203,7 +203,7 @@ subroutine para_init_sfc()
 
   call alloc_sea1 (msea)
   call alloc_land1(mland)
-  call alloc_lake1(mland)
+  call alloc_lake1(mlake)
 
   call alloc_pomgrid()
 
@@ -811,7 +811,7 @@ subroutine serial_init_sfc()
                           alloc_sfcgrid1, sfcg
   use mem_land,     only: mland, nland, itab_land, alloc_land1
   use mem_lake,     only: mlake, nlake, itab_lake, alloc_lake1
-  use mem_sea,      only: sea, msea, nsea, itab_sea, alloc_sea1
+  use mem_sea,      only: msea, nsea, itab_sea, alloc_sea1
   use pom2k1d,      only: alloc_pomgrid
 
   implicit none
@@ -825,7 +825,7 @@ subroutine serial_init_sfc()
 
   call alloc_sea1 (msea)
   call alloc_land1(mland)
-  call alloc_lake1(mland)
+  call alloc_lake1(mlake)
 
   call alloc_pomgrid()
 

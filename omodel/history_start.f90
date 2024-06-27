@@ -3,19 +3,20 @@ subroutine history_start(action)
   ! This routine initializes the model from the history file
 
   use misc_coms,  only: io6, hfilin, time8, time_istp8
-  use hdf5_utils, only: shdf5_irec, shdf5_open, shdf5_close
+  use hdf5_utils, only: shdf5_exists, shdf5_irec, shdf5_open, shdf5_close
   use max_dims,   only: pathlen
+  use mem_para,   only: olam_mpi_finalize
 
   implicit none
 
   character(*), intent(in) :: action
-  logical                  :: exans
+  logical                  :: exists
 
   ! Check if history files exist
 
-  inquire(file=hfilin, exist=exans)   ! global restart file
+  call shdf5_exists(hfilin, exists)
 
-  if (exans) then
+  if (exists) then
 
      write(io6,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++'
      write(io6,*) 'Opening history file '//trim(hfilin)//' for '//trim(action)
@@ -47,12 +48,16 @@ subroutine history_start(action)
 
      ! History files do not exist, stop model.
 
+     write(io6,*)
      write(io6,*) '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
      write(io6,*) '!!!   Trying to open history file file:'
      write(io6,*) '!!!   '//trim(hfilin)
      write(io6,*) '!!!   but it does not exist. The run is ended.'
      write(io6,*) '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
-     stop 'in history_start'
+     write(io6,*) 'in history_start'
+
+     call olam_mpi_finalize()
+     stop
 
   endif
 

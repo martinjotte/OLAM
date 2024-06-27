@@ -439,6 +439,8 @@ Contains
 
   use leaf_coms,   only: nzs
   use consts_coms, only: alli
+  use mem_land,    only: itab_land
+  use mem_sfcg,    only: itab_wsfc
 
   implicit none
 
@@ -641,7 +643,7 @@ Contains
 
         write(*,*) ' '
         write(*,*) 'Sfcwater energy is outside allowable range. '
-        write(*,*) 'iwsfc,iland,k,lat,lon = ',iwsfc,iland,k,glatw,glonw
+        write(*,*) 'iwsfc,iland,k,lat,lon = ',itab_wsfc(iwsfc)%iwglobe,itab_land(iland)%iwglobe,k,glatw,glonw
         write(*,*) 'sfcwater_energy = ',sfcwater_energy(k)
         write(*,*) 'p1',energy_new(k),sfcwater_mass(k),nlev_sfcwater,nlev_new
         write(*,*) 'p2',kold, energy_per_m2(kold)
