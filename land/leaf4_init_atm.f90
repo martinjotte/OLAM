@@ -87,6 +87,10 @@ subroutine leaf4_init_atm()
           'wtd',                    &
           datq=wtd                  )
 
+  else
+
+     wtd = -999.
+
   endif
 
   !$omp parallel do private (iwsfc,leaf_class)

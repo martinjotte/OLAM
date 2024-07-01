@@ -273,7 +273,7 @@ subroutine sfcg_avgatm()
 
   ! Loop over all SFC grid cells
 
-  !$omp parallel do private(j,iw,kw,vels,psfc)
+  !$omp parallel do private(j,iw,kw,vels,psfc,isea)
   do iwsfc = 2, mwsfc
 
      ! Skip this SFC grid cell if running in parallel and cell rank is not MYRANK
