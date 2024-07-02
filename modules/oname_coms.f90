@@ -167,6 +167,8 @@ Module oname_coms
      real :: beglon = -180.
      real :: endlon =  180.
 
+     logical :: hist_write_ue_ve = .false.
+
      character(pathlen) :: hfilin    = ' '
      character(pathlen) :: hfilepref = 'hist/'
      character(pathlen) :: lfilepref = 'hist/l'

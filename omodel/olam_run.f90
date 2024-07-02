@@ -603,7 +603,8 @@ subroutine olam_run(name_name)
         call history_start('COMMIO')
         call history_start('HISTREAD')
 
-        ! Diagnose zonal and meridional wind components, which are not on hist file
+        ! Diagnose zonal and meridional wind components, which may not be in
+        ! hist file are faster to just re-compute.
 
         call diag_uzonal_umerid()
 
@@ -710,6 +711,9 @@ subroutine olam_run(name_name)
      call history_start('COMMIO')
      call history_start('HISTREAD')
      write(io6,*) 'olam_run finished history_start'
+
+     ! Diagnose zonal and meridional wind components, which are not on hist file
+     call diag_uzonal_umerid()
 
      ! Reset time variables
 

@@ -181,6 +181,8 @@ Contains
   subroutine filltab_basic()
 
     use var_tables, only: increment_vtable
+    use misc_coms,  only: mdomain
+    use oname_coms, only: nl
 
     implicit none
 
@@ -214,9 +216,12 @@ Contains
 
     if (allocated(vmp))   call increment_vtable('VMP',  'AV', rvar2=vmp)
 
-!    if (allocated(ue))    call increment_vtable('UE',   'AW', rvar2=ue)
+    if (nl%hist_write_ue_ve .and. mdomain <= 1) then
 
-!    if (allocated(ve))    call increment_vtable('VE',   'AW', rvar2=ve)
+       if (associated(ue)) call increment_vtable('UE', 'AW', rvar2=ue, noread=.true.)
+       if (associated(ve)) call increment_vtable('VE', 'AW', rvar2=ve, noread=.true.)
+
+    endif
 
   end subroutine filltab_basic
 
