@@ -750,6 +750,10 @@ subroutine olam_run(name_name)
 
         hlat = hlat_hist
         hlon = hlon_hist
+
+        call vortex_center_diagnose()
+        hlat_hist = hlat
+        hlon_hist = hlon
      endif
 
   elseif (runtype  == 'INITIAL') then
