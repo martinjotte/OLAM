@@ -786,6 +786,45 @@ Module plotcolors
        10.,  20.,  30.,  40.,  50.,  60.,  70.,  80.,  90., 100., &
       110., 120., 130., 140., 150., 160., 170., 180., 190.        /
 
+! Table 108 (weak U,W)
+
+  data clrtab(108)%nvals/22/
+  data clrtab(108)%ifmt(1:2)/1,6/
+  data clrtab(108)%ipal(1:22)/ &
+      39, 38, 36, 34, 32, 30, 28, 26, 24, 22, &
+      20, 40, 42, 44, 46, 48, 50, 52, 54, 56, &
+      58, 59                                  /
+  data clrtab(108)%vals(1:22)/ &
+     -5.0, -4.5, -4.0, -3.5, -3.0, -2.5, -2.0, -1.5, -1.0, -0.5, &
+      0.0,  0.5,  1.0,  1.5,  2.0,  2.5,  3.0,  3.5,  4.0,  4.5, &
+      5.0,  5.5                                                  /
+
+! Table 109 (small U,W)
+
+  data clrtab(109)%nvals/22/
+  data clrtab(109)%ifmt(1:2)/0,5/
+  data clrtab(109)%ipal(1:22)/ &
+      39, 38, 36, 34, 32, 30, 28, 26, 24, 22, &
+      20, 40, 42, 44, 46, 48, 50, 52, 54, 56, &
+      58, 59                                  /
+  data clrtab(109)%vals(1:22)/ &
+     -20.,-18.,-16.,-14.,-12.,-10., -8., -6., -4.,- 2., &
+       0.,  2.,  4.,  6.,  8., 10., 12., 14., 16., 18., &
+      20., 22.                                          /
+
+! Table 110 (very small U,W)
+
+  data clrtab(110)%nvals/22/
+  data clrtab(110)%ifmt(1:2)/1,5/
+  data clrtab(110)%ipal(1:22)/ &
+      39, 38, 36, 34, 32, 30, 28, 26, 24, 22, &
+      20, 40, 42, 44, 46, 48, 50, 52, 54, 56, &
+      58, 59                                  /
+  data clrtab(110)%vals(1:22)/ &
+     -2.0,-1.8,-1.6,-1.4,-1.2,-1.0, -.8, -.6, -.4,- .2, &
+       0.,  .2,  .4,  .6,  .8, 1.0, 1.2, 1.4, 1.6, 1.8, &
+      2.0, 2.2                                          /
+
 ! Table 116 (W for 10 meter mtn)
 
   data clrtab(116)%nvals/22/
@@ -2656,36 +2695,36 @@ Contains
 !   call o_hls (iwk,255,120.,40.,  0.)  ! Gray
 
 ! H*Wind color palette
-!   call gscr (iwk, ic, r, g, b)
-!   call gscr (iwk, 201, 0.      , 0.078431, 1.      )
-!   call gscr (iwk, 202, 0.      , 0.121569, 1.      )
-!   call gscr (iwk, 203, 0.      , 0.290196, 1.      )
-!   call gscr (iwk, 204, 0.      , 0.450980, 1.      )
-!   call gscr (iwk, 205, 0.      , 0.611765, 1.      )
-!   call gscr (iwk, 206, 0.      , 0.772549, 1.      )
-!   call gscr (iwk, 207, 0.      , 0.901961, 1.      )
-!   call gscr (iwk, 208, 0.      , 1.      , 1.      )
-!   call gscr (iwk, 209, 0.      , 1.      , 0.749020)
-!   call gscr (iwk, 210, 0.      , 1.      , 0.529412)
-!   call gscr (iwk, 211, 0.      , 1.      , 0.      )
-!   call gscr (iwk, 212, 0.654902, 1.      , 0.      )
-!   call gscr (iwk, 213, 0.811765, 1.      , 0.      )
-!   call gscr (iwk, 214, 1.      , 1.      , 0.      )
-!   call gscr (iwk, 215, 1.      , 0.529412, 0.      )
-!   call gscr (iwk, 216, 1.      , 0.372549, 0.      )
-!   call gscr (iwk, 217, 1.      , 0.152941, 0.      )
-!   call gscr (iwk, 218, 1.      , 0.      , 0.466667)
-!   call gscr (iwk, 219, 1.      , 0.      , 0.623529)
-!   call gscr (iwk, 220, 1.      , 0.      , 0.780392)
-!   call gscr (iwk, 221, 1.      , 0.      , 0.972549)
-!   call gscr (iwk, 222, 0.968627, 0.      , 1.      )
-!   call gscr (iwk, 223, 0.925490, 0.      , 1.      )
-!   call gscr (iwk, 224, 0.878431, 0.      , 1.      )
-!   call gscr (iwk, 225, 0.831373, 0.      , 1.      )
-!   call gscr (iwk, 226, 0.788235, 0.      , 1.      )
-!   call gscr (iwk, 227, 0.745098, 0.      , 1.      )
-!   call gscr (iwk, 228, 0.701961, 0.      , 1.      )
-!   call gscr (iwk, 229, 0.658824, 0.      , 1.      )
+!   call o_gscr (iwk, ic,         r,        g,        b)
+    call o_gscr (iwk, 201, 0.      , 0.078431, 1.      )
+    call o_gscr (iwk, 202, 0.      , 0.121569, 1.      )
+    call o_gscr (iwk, 203, 0.      , 0.290196, 1.      )
+    call o_gscr (iwk, 204, 0.      , 0.450980, 1.      )
+    call o_gscr (iwk, 205, 0.      , 0.611765, 1.      )
+    call o_gscr (iwk, 206, 0.      , 0.772549, 1.      )
+    call o_gscr (iwk, 207, 0.      , 0.901961, 1.      )
+    call o_gscr (iwk, 208, 0.      , 1.      , 1.      )
+    call o_gscr (iwk, 209, 0.      , 1.      , 0.749020)
+    call o_gscr (iwk, 210, 0.      , 1.      , 0.529412)
+    call o_gscr (iwk, 211, 0.      , 1.      , 0.      )
+    call o_gscr (iwk, 212, 0.654902, 1.      , 0.      )
+    call o_gscr (iwk, 213, 0.811765, 1.      , 0.      )
+    call o_gscr (iwk, 214, 1.      , 1.      , 0.      )
+    call o_gscr (iwk, 215, 1.      , 0.529412, 0.      )
+    call o_gscr (iwk, 216, 1.      , 0.372549, 0.      )
+    call o_gscr (iwk, 217, 1.      , 0.152941, 0.      )
+    call o_gscr (iwk, 218, 1.      , 0.      , 0.466667)
+    call o_gscr (iwk, 219, 1.      , 0.      , 0.623529)
+    call o_gscr (iwk, 220, 1.      , 0.      , 0.780392)
+    call o_gscr (iwk, 221, 1.      , 0.      , 0.972549)
+    call o_gscr (iwk, 222, 0.968627, 0.      , 1.      )
+    call o_gscr (iwk, 223, 0.925490, 0.      , 1.      )
+    call o_gscr (iwk, 224, 0.878431, 0.      , 1.      )
+    call o_gscr (iwk, 225, 0.831373, 0.      , 1.      )
+    call o_gscr (iwk, 226, 0.788235, 0.      , 1.      )
+    call o_gscr (iwk, 227, 0.745098, 0.      , 1.      )
+    call o_gscr (iwk, 228, 0.701961, 0.      , 1.      )
+    call o_gscr (iwk, 229, 0.658824, 0.      , 1.      )
 
   end subroutine gks_colors
 
