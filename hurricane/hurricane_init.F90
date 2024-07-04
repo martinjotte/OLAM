@@ -1532,7 +1532,7 @@ end subroutine vortex_get_vtanmax
 
   ! This subroutine plots a time series of hurricane locations for present simulation
 
-  use misc_coms,   only: mstp, dtlong
+  use misc_coms,   only: mstp, dtlong, runtype
   use oplot_coms,  only: op
   use consts_coms, only: pio180, erad
   use mem_para,    only: myrank
@@ -1541,7 +1541,7 @@ end subroutine vortex_get_vtanmax
 
   integer, intent(in) :: iplt
 
-  integer :: icolor, lhour, khour, kstp, kstp_max, jcyc
+  integer :: icolor, lhour, khour, kstp, kstp_max, jcyc, is
   real :: reh, zeh, xeh, yeh, rhour, bsize, xs, ys
   character(len=3) :: title
 
@@ -1551,7 +1551,11 @@ end subroutine vortex_get_vtanmax
 
   bsize = .016 * (op%hp2 - op%hp1) * 0.3
 
-  do jcyc = 1,icycle_hurrinit
+  is = 1
+  ! The previous cycles are not currently available on a restart
+  if (runtype == 'HISTORY') is = icycle_hurrinit
+
+  do jcyc = is,icycle_hurrinit
 
      if     (ncycle_hurrinit - jcyc == 0) then
         icolor = 127
