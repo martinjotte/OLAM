@@ -1395,6 +1395,10 @@ case(43:45) ! 'RVORTZM','TVORTZM','RVORTZM_P'
 
    if (.not. allocated(vc)) go to 1000
 
+   if (fldname == 'RVORTZM_P') then
+      if (.not. allocated(vc_init)) go to 1000
+   endif
+
    fldval = 0.
 
    do j = 1,itab_m(i)%npoly
@@ -1489,19 +1493,19 @@ case(47) ! 'VMASSFLUX'
 
 case(48) ! 'VC_P'
 
-   if (.not. allocated(vc)) go to 1000
+   if (.not. (allocated(vc) .and. allocated(vc_init))) go to 1000
 
    fldval = vc(k,i) - vc_init(k,i)
 
 case(49) ! 'PRESS_P'
 
-   if (.not. allocated(press)) go to 1000
+   if (.not. (allocated(press) .and. allocated(press_init))) go to 1000
 
    fldval = press(k,i) - press_init(k,i)
 
 case(50) ! 'RHO_P'
 
-   if (.not. allocated(rho)) go to 1000
+   if (.not. (allocated(rho) .and. allocated(rho_init))) go to 1000
 
    fldval = wtbot * (rho(k ,i) - rho_init(k ,i)) &
           + wttop * (rho(kp,i) - rho_init(kp,i))
@@ -1517,14 +1521,14 @@ case(50) ! 'RHO_P'
 
 case(51) ! 'THETA_P'
 
-   if (.not. allocated(theta)) go to 1000
+   if (.not. (allocated(theta) .and. allocated(theta_init)) ) go to 1000
 
    fldval = wtbot * (theta(k ,i) - theta_init(k ,i)) &
           + wttop * (theta(kp,i) - theta_init(kp,i))
 
 case(52) ! 'AIRTEMPK_P'
 
-   if (.not. allocated(tair)) go to 1000
+   if (.not. (allocated(tair) .and. allocated(theta_init) .and. allocated(press_init))) go to 1000
 
    fldval = wtbot * tair(k ,i) &
           + wttop * tair(kp,i) &

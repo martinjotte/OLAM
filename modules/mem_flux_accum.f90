@@ -60,13 +60,16 @@ Contains
 
 subroutine alloc_flux_accum(mza,mva,mwa,mwsfc,mland)
 
-  use misc_coms, only: ilwrtyp, iswrtyp
-  use leaf_coms, only: isfcl
+  use misc_coms,   only: ilwrtyp, iswrtyp
+  use leaf_coms,   only: isfcl
   use consts_coms, only: r8
+  use oname_coms,  only: nl
 
   implicit none
 
   integer, intent(in) :: mza, mva, mwa, mwsfc, mland
+
+  if (.not. nl%do_accum) return
 
 ! Allocate arrays for accumulated flux quantities
 ! Initialize arrays to zero
@@ -133,7 +136,11 @@ end subroutine alloc_flux_accum
 subroutine filltab_flux_accum()
 
   use var_tables, only: increment_vtable
+  use oname_coms, only: nl
+
   implicit none
+
+  if (.not. nl%do_accum) return
 
   if (allocated(      rshort_accum)) call increment_vtable(      'RSHORT_ACCUM','AW', dvar1=      rshort_accum)
   if (allocated(    rshortup_accum)) call increment_vtable(    'RSHORTUP_ACCUM','AW', dvar1=    rshortup_accum)
@@ -210,6 +217,7 @@ subroutine flux_accum()
   use mem_grid,    only: mza, lpv, lpw
   use therm_lib,   only: qtk, qwtk
   use mem_para,    only: myrank
+  use oname_coms,  only: nl
 
   implicit none
 
@@ -220,6 +228,16 @@ subroutine flux_accum()
   real :: w_comb        ! (sfcwater + soil) water mass [kg/m^2]
   real :: qw_comb       ! (sfcwater + soil) energy [J/m^2]
   real :: hcapsoil      ! soil heat capacity [J/(m^2 K)]
+
+  ! DO_ACCUM is a namelist option to turn on/off computing and writing the
+  ! accumulation fields to the history file. Currently it defaults to .false.
+  ! because it is causing crashes on large parallel or OpenMP runs. The issue
+  ! is with the _dmin and _dmax variables from mem_average that are used here;
+  ! I need to verify that they are being computed properly in parallel runs.
+  ! They will also need to be added to the vtables and history files for
+  ! everything to work...
+
+  if (.not. nl%do_accum) return
 
 ! Update accumulations of ATM velocity and pressure
 

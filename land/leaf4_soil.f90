@@ -374,9 +374,9 @@ Contains
 
   ! Add infiltration, percolation, and bottom water fluxes to accumulation arrays
 
-  wxferi_accum(iland) = wxferi_accum(iland) + wxfer(nzg)
-  wxferp_accum(iland) = wxferp_accum(iland) + wxfer(kperc)
-  wxfer1_accum(iland) = wxfer1_accum(iland) + wxfer(1)
+  if (allocated(wxferi_accum)) wxferi_accum(iland) = wxferi_accum(iland) + wxfer(nzg)
+  if (allocated(wxferp_accum)) wxferp_accum(iland) = wxferp_accum(iland) + wxfer(kperc)
+  if (allocated(wxfer1_accum)) wxfer1_accum(iland) = wxfer1_accum(iland) + wxfer(1)
 
   ! Apply fluxes at nzg + 1 to sfcwater at k = 1
 

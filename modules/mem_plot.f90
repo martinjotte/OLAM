@@ -213,8 +213,25 @@ Contains
 !   use mem_addsc, only: addsc
     use mem_sfcg,  only: mwsfc
     use mem_land,  only: mland
+    use oname_coms,only: nl
+    use misc_coms, only: mdomain
 
     implicit none
+
+    if (mdomain /= 0 .or. nl%test_case /= 0) then
+       allocate ( press_init(mza,mwa)) ; press_init (:,:) = press(:,:)
+       allocate (   rho_init(mza,mwa)) ; rho_init   (:,:) = rho  (:,:)
+       allocate ( theta_init(mza,mwa)) ; theta_init (:,:) = theta(:,:)
+       allocate (    vc_init(mza,mva)) ; vc_init    (:,:) = vc   (:,:)
+    !  allocate (addsc1_init(mza,mwa)) ; addsc1_init(:,:) = addsc(1)%sclp(:,:)
+    endif
+
+    time8_prev0 = 0._r8
+    time8_prev1 = 0._r8
+    time8_prev2 = 0._r8
+    time8_prev3 = 0._r8
+
+    if (.not. nl%do_accum) return
 
     allocate ( accpmic_prev0(mwa)) ; accpmic_prev0(:) = 0.
     allocate ( accpmic_prev1(mwa)) ; accpmic_prev1(:) = 0.
@@ -402,17 +419,6 @@ Contains
     allocate ( head_wtab_prev1(mwsfc)) ; head_wtab_prev1(:) = 0.
 !------------------------------------------------------------------------------
 
-    allocate ( press_init(mza,mwa)) ; press_init(:,:) = press(:,:)
-    allocate (   rho_init(mza,mwa)) ; rho_init  (:,:) = rho  (:,:)
-    allocate ( theta_init(mza,mwa)) ; theta_init(:,:) = theta(:,:)
-    allocate (    vc_init(mza,mva)) ; vc_init(:,:) = vc(:,:)
-!   allocate (addsc1_init(mza,mwa)) ; addsc1_init(:,:) = addsc(1)%sclp(:,:)
-
-    time8_prev0 = 0._r8
-    time8_prev1 = 0._r8
-    time8_prev2 = 0._r8
-    time8_prev3 = 0._r8
-
   end subroutine alloc_plot
 
 !===============================================================================
@@ -456,6 +462,8 @@ Contains
 
     real :: head(nzg)
     real :: psi
+
+    if (.not. nl%do_accum) return
 
 ! The following IF/ENDIF statements (but not the lines between them) should be
 ! commented out for most applications.  Uncommenting them provides the ability

@@ -298,6 +298,9 @@
 
    NL%HFILIN   = 'hist/harvSR-H-2017-08-26-120000.h5'      ! History file intput
 
+   NL%DO_ACCUM = .FALSE.  ! Write time-averaged accumulation arrays to history file.
+                          ! Used to compute or plot averages of OLAM fields
+
    NL%HIST_WRITE_UE_VE = .FALSE. ! Should E-W and N-S wind speeds be included in 
                                  ! history file? They are not needed for restarts
                                  ! and can be included in lite files.
