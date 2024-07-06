@@ -67,6 +67,7 @@ Module oplot_coms
          ,colorbar    = 'N' & ! Print colorbar, no colorbar but reserve space ['c','r']
          ,maptyp      = 'N' & ! Flag to plot land, country, state outlines ['m']
          ,pltll       = 'N' & ! Flag to plot lat/lon lines ['l']
+         ,centplthurr = 'N' & ! Flag to center plot on hurricane ['H']
          ,pltcone     = 'N' & ! Flag to plot cone circle ['C']
          ,pltlev      = 'N' & ! Plot on const press level or near sfc ['p','s']
          ,windowin    = 'N' & ! Flag to window in ['W']

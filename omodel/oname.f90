@@ -459,6 +459,8 @@ subroutine copy_nl()
 
      if (index(nl%plotspecs(i)%pltspec2,'l') > 0) op%pltll(i) = 'l'
 
+     if (index(nl%plotspecs(i)%pltspec2,'H') > 0) op%centplthurr(i) = 'H'
+
      if (index(nl%plotspecs(i)%pltspec2,'C') > 0) op%pltcone(i) = 'C'
 
      if (index(nl%plotspecs(i)%pltspec2,'p') > 0) op%pltlev(i) = 'p'

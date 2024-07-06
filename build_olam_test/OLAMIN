@@ -894,16 +894,18 @@
  !  L = Lat/lon cylindrical     T,F,L,O = Tiles, Fillcnt, Linecnt, Overlay L on F
  !  P = Polar stereographic     P       = Print value
  !  G = Gnomic                  I,J     = local Index, all indices
- !  O = Orthographic            B,V,w,Y,y = Barb, V-normvec, w(totvec), Y(normvec-sea), y(totvec-sea)
- !  Z = Horizontal cartesian    G       = Grid cells
- !  C = Cone                    g       = surface grid cells
- !  V = Vertical plane          D       = Dual grid cells
- !                              i,j     = sfc grid W point index, all indices
+ !  O = Orthographic            B,V,w   = Barb, V-normvec, w(totvec)
+ !  Z = Horizontal cartesian    Y,y,z   = Y(normvec-sea), y(totvec-sea), z(wavevec-UMWM)
+ !  C = Cone                    G       = Grid cells
+ !  V = Vertical plane          g       = surface grid cells
+ !                              D       = Dual grid cells
+ !          |                   i,j     = sfc grid W point index, all indices
  !          |                   b,t,a   = grid border, +ticks+outer_axlabs, +inner_axlabs
  !          |                   n,o     = field name, field name + info block
  !          |                   c,r     = colorbar, no colorbar but allow room for it
  !          |                   m       = draw outlines of land areas, countries, states
  !          |                   l       = draw lat/lon lines
+ !          |                   H       = center plot on hurricane if NCYCLE_HURRINIT > 0
  !           \                  C       = Cone circle plotted
  !            \                 p,s     = plot on const p sfc, plot near-sfc value
  !             \                W       = Window dimensions as specified
@@ -916,7 +918,7 @@
  !                    \         |          plot center    coneang,  window   for 'C'
  !                     |  color |            lon/lat       height,  width     or 'V'
  !FLDNAME              |  tab#  |            or x/y       or p-lev   (m)     projectn
- !-------------------------------------------------------------------------------------------------------------
+ !--------------------------------------------------------------------------------------
  'RR_V'              ,'C',523,'F1fcntW',   -83.4,25.7,       90.,   400.e3,     0.,
  'RR_V'              ,'C',523,'F2cntW',    -83.4,27.724,     0.9,   630.e3,     0.,
  'PMSL'              ,'O',521,'mrtW',      -83.2,25.6,     1000.,   200.e3,     0.,
