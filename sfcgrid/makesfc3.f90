@@ -1036,8 +1036,9 @@ subroutine sfcgfile_write()
 
   ! Write sfcg quantities to sfcgfile
 
-  use max_dims,   only: maxnlspoly, pathlen
+  use max_dims,   only: maxnlspoly, pathlen, maxngrdll
   use mem_sfcg,   only: nmsfc, nvsfc, nwsfc, itab_msfc, itab_vsfc, itab_wsfc, &
+                        nswmzons, nswmzonll, swmzonrad, swmzonlat, swmzonlon, &
                         sfcg, sfcgfile
   use mem_land,   only: nland, onland, land, nzg, &
                         slz, dslz, dslzo2, dslzi, slzt
@@ -1072,17 +1073,33 @@ subroutine sfcgfile_write()
   ndims = 1
   idims(1) = 1
 
-  call shdf5_orec(ndims, idims, 'nmsfc'  , ivars=nmsfc)
-  call shdf5_orec(ndims, idims, 'nvsfc'  , ivars=nvsfc)
-  call shdf5_orec(ndims, idims, 'nwsfc'  , ivars=nwsfc)
-  call shdf5_orec(ndims, idims, 'nland'  , ivars=nland)
-  call shdf5_orec(ndims, idims, 'nlake'  , ivars=nlake)
-  call shdf5_orec(ndims, idims, 'nsea'   , ivars=nsea)
-  call shdf5_orec(ndims, idims, 'onland' , ivars=onland)
-  call shdf5_orec(ndims, idims, 'onlake' , ivars=onlake)
-  call shdf5_orec(ndims, idims, 'onsea'  , ivars=onsea)
-  call shdf5_orec(ndims, idims, 'nzg'    , ivars=nzg)
-  call shdf5_orec(ndims, idims, 'nzpom'  , ivars=nzpom)
+  call shdf5_orec(ndims, idims, 'nmsfc'   , ivars=nmsfc)
+  call shdf5_orec(ndims, idims, 'nvsfc'   , ivars=nvsfc)
+  call shdf5_orec(ndims, idims, 'nwsfc'   , ivars=nwsfc)
+  call shdf5_orec(ndims, idims, 'nland'   , ivars=nland)
+  call shdf5_orec(ndims, idims, 'nlake'   , ivars=nlake)
+  call shdf5_orec(ndims, idims, 'nsea'    , ivars=nsea)
+  call shdf5_orec(ndims, idims, 'onland'  , ivars=onland)
+  call shdf5_orec(ndims, idims, 'onlake'  , ivars=onlake)
+  call shdf5_orec(ndims, idims, 'onsea'   , ivars=onsea)
+  call shdf5_orec(ndims, idims, 'nzg'     , ivars=nzg)
+  call shdf5_orec(ndims, idims, 'nzpom'   , ivars=nzpom)
+  call shdf5_orec(ndims, idims, 'nswmzons', ivars=nswmzons)
+
+  if (nswmzons > 0) then
+     ndims    = 1
+     idims(1) = nswmzons
+
+     call shdf5_orec(ndims, idims, 'NSWMZONLL' , ivar1=nswmzonll)
+
+     ndims    = 2
+     idims(1) = nswmzons
+     idims(2) = maxngrdll
+
+     call shdf5_orec(ndims, idims, 'SWMZONRAD', rvar2=swmzonrad(1:nswmzons,:))
+     call shdf5_orec(ndims, idims, 'SWMZONLAT', rvar2=swmzonlat(1:nswmzons,:))
+     call shdf5_orec(ndims, idims, 'SWMZONLON', rvar2=swmzonlon(1:nswmzons,:))
+  endif
 
   ! Write nzg_nl, nzg_sp, and kspm to the sfcgrid file only if this MAKEGRID
   ! run is for a groundwater spin-up simulation.
@@ -1354,10 +1371,11 @@ end subroutine sfcgfile_write
 
 subroutine sfcgfile_read_pd()
 
-  use max_dims,   only: pathlen
+  use max_dims,   only: pathlen, maxngrdll
   use mem_sfcg,   only: nmsfc, mmsfc, nvsfc, mvsfc, nwsfc, mwsfc, &
                         itab_msfc_pd, itab_vsfc_pd, itab_wsfc_pd, &
-                        itabg_msfc, itabg_vsfc, itabg_wsfc, sfcgfile
+                        itabg_msfc, itabg_vsfc, itabg_wsfc, sfcgfile, &
+                        nswmzons, nswmzonll, swmzonrad, swmzonlat, swmzonlon
   use mem_land,   only: nland, mland, onland, omland, nzg
   use mem_lake,   only: nlake, mlake, onlake, omlake
   use mem_sea,    only: nsea, msea, onsea, omsea
@@ -1371,12 +1389,17 @@ subroutine sfcgfile_read_pd()
   implicit none
 
   integer            :: ndims, idims(2)
-  integer            :: imsfc, ivsfc, iwsfc
-  integer            :: nzg0, nzpom0, ierr
+  integer            :: imsfc, ivsfc, iwsfc, ngr, i
+  integer            :: nzg0, nzpom0, nswmzons0, ierr
   character(pathlen) :: flnm
   logical            :: there
   integer, allocatable :: iscr1(:)
   integer, allocatable :: iscr2(:,:)
+
+  integer, allocatable :: nswmzonll0(:)
+  real,    allocatable :: swmzonrad0(:,:)
+  real,    allocatable :: swmzonlat0(:,:)
+  real,    allocatable :: swmzonlon0(:,:)
 
   ierr = 0
 
@@ -1397,31 +1420,103 @@ subroutine sfcgfile_read_pd()
   idims(1) = 1
   idims(2) = 1
 
-  call shdf5_irec(ndims, idims, 'nmsfc' , ivars=nmsfc)
-  call shdf5_irec(ndims, idims, 'nvsfc' , ivars=nvsfc)
-  call shdf5_irec(ndims, idims, 'nwsfc' , ivars=nwsfc)
-  call shdf5_irec(ndims, idims, 'nland' , ivars=nland)
-  call shdf5_irec(ndims, idims, 'nlake' , ivars=nlake)
-  call shdf5_irec(ndims, idims, 'nsea'  , ivars=nsea)
-  call shdf5_irec(ndims, idims, 'onland', ivars=onland)
-  call shdf5_irec(ndims, idims, 'onlake', ivars=onlake)
-  call shdf5_irec(ndims, idims, 'onsea' , ivars=onsea)
-  call shdf5_irec(ndims, idims, 'nzg'   , ivars=nzg0)
-  call shdf5_irec(ndims, idims, 'nzpom' , ivars=nzpom0)
+  call shdf5_irec(ndims, idims, 'nmsfc'   , ivars=nmsfc)
+  call shdf5_irec(ndims, idims, 'nvsfc'   , ivars=nvsfc)
+  call shdf5_irec(ndims, idims, 'nwsfc'   , ivars=nwsfc)
+  call shdf5_irec(ndims, idims, 'nland'   , ivars=nland)
+  call shdf5_irec(ndims, idims, 'nlake'   , ivars=nlake)
+  call shdf5_irec(ndims, idims, 'nsea'    , ivars=nsea)
+  call shdf5_irec(ndims, idims, 'onland'  , ivars=onland)
+  call shdf5_irec(ndims, idims, 'onlake'  , ivars=onlake)
+  call shdf5_irec(ndims, idims, 'onsea'   , ivars=onsea)
+  call shdf5_irec(ndims, idims, 'nzg'     , ivars=nzg0)
+  call shdf5_irec(ndims, idims, 'nzpom'   , ivars=nzpom0)
+  call shdf5_irec(ndims, idims, 'nswmzons', ivars=nswmzons0)
 
   if (nzg0   /= nzg  ) ierr = 1
   if (nzpom0 /= nzpom) ierr = 1
 
   if (ierr == 1) then
-
+     write(io6,*)
      write(io6,*) 'SFCGFILE mismatch with OLAMIN namelist: Stopping model run'
      write(io6,*) 'Values: gridfile, namelist'
      write(io6,*) '-----------------------------------------------'
      write(io6,*)              'nzg:      ', nzg0  , nzg
      write(io6,*)              'nzpom:    ', nzpom0, nzpom
      write(io6,*) '-----------------------------------------------'
+     write(io6,*) 'surface gridfile mismatch'
+     stop
+  endif
 
-     stop 'stop - surface gridfile mismatch'
+  if (nswmzons > 0 .and. nswmzons /= nswmzons0) then
+     write(io6,*)
+     write(io6,*) 'SFCGFILE mismatch with OLAMIN namelist: Stopping model run'
+     write(io6,*) 'Values: gridfile, namelist'
+     write(io6,*) '-----------------------------------------------'
+     write(io6,*)              'nswmzons:      ', nswmzons0, nswmzons
+     write(io6,*) '-----------------------------------------------'
+     write(io6,*) 'surface gridfile mismatch'
+     stop
+  endif
+
+  if (nswmzons > 0) then
+
+     allocate( nswmzonll0 (nswmzons0) )
+     allocate( swmzonrad0 (nswmzons0, maxngrdll) )
+     allocate( swmzonlat0 (nswmzons0, maxngrdll) )
+     allocate( swmzonlon0 (nswmzons0, maxngrdll) )
+
+     ndims    = 1
+     idims(1) = nswmzons0
+
+     call shdf5_irec(ndims, idims, 'NSWMZONLL' , ivar1=nswmzonll0)
+
+     ndims    = 2
+     idims(1) = nswmzons0
+     idims(2) = maxngrdll
+
+     call shdf5_irec(ndims, idims, 'SWMZONRAD', rvar2=swmzonrad0(1:nswmzons0,:))
+     call shdf5_irec(ndims, idims, 'SWMZONLAT', rvar2=swmzonlat0(1:nswmzons0,:))
+     call shdf5_irec(ndims, idims, 'SWMZONLON', rvar2=swmzonlon0(1:nswmzons0,:))
+
+     ierr = 0
+
+     do ngr = 1, nswmzons0
+        if ( nswmzonll0(ngr) /= nswmzonll(ngr) ) ierr = 1
+
+        do i = 1,nswmzonll0(ngr)
+           if (abs(swmzonrad0(ngr,i) - swmzonrad(ngr,i)) > 1.e1 ) ierr = 1
+           if (abs(swmzonlat0(ngr,i) - swmzonlat(ngr,i)) > 1.e-3) ierr = 1
+           if (abs(swmzonlon0(ngr,i) - swmzonlon(ngr,i)) > 1.e-3) ierr = 1
+        enddo
+     enddo
+
+     if (ierr > 0) then
+        write(io6,*)
+        write(io6,*) 'SFCGFILE mismatch with OLAMIN namelist: Stopping model run'
+        write(io6,*) 'Values: gridfile, namelist'
+        write(io6,*) '-----------------------------------------------'
+        write(io6,*) ' '
+        write(io6, '(a,20i12)')   'nswmzonll0:  ',nswmzonll0 (1:nswmzons0)
+        write(io6, '(a,20i12)')   'nswmzonll:   ',nswmzonll  (1:nswmzons0)
+        write(io6,*) ' '
+        do ngr = 1, nswmzons0
+           write(io6, '(a,i5)') 'swmzon: ',ngr
+           write(io6,*) ' '
+           write(io6, '(a,20f12.1)') 'swmzonrad0:  ',swmzonrad0(ngr,1:nswmzonll(ngr))
+           write(io6, '(a,20f12.1)') 'swmzonrad:   ',swmzonrad (ngr,1:nswmzonll(ngr))
+           write(io6,*) ' '
+           write(io6, '(a,20f10.3)') 'swmzonlat0: ',swmzonlat0(ngr,1:nswmzonll(ngr))
+           write(io6, '(a,20f10.3)') 'swmzonlat:  ',swmzonlat (ngr,1:nswmzonll(ngr))
+           write(io6,*) ' '
+           write(io6, '(a,20f10.3)') 'swmzonlon0: ',swmzonlon0(ngr,1:nswmzonll(ngr))
+           write(io6, '(a,20f10.3)') 'swmzonlon:  ',swmzonlon (ngr,1:nswmzonll(ngr))
+           write(io6,*) ' '
+        enddo
+        write(io6,*) '-----------------------------------------------'
+        write(io6,*) 'surface gridfile mismatch'
+        stop
+     endif
 
   endif
 

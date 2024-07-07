@@ -1573,7 +1573,7 @@ subroutine gridfile_read_pd()
   if (abs(deltax0 - deltax) > 1.e-3) ierr = 1
 
   do ngr = 2, min(ngrids0,ngrids)
-     if (abs(ngrdll0 (ngr) - ngrdll (ngr)) > 1.e1 ) ierr = 1
+     if ( ngrdll0(ngr) /= ngrdll(ngr) ) ierr = 1
 
      do i = 1,ngrdll0(ngr)
         if (abs(grdrad0(ngr,i) - grdrad(ngr,i)) > 1.e1 ) ierr = 1
