@@ -1092,7 +1092,7 @@ subroutine horizplot_k(iplt,mha,ktf,kc,wtbot,wttop)
   real,    intent(out) :: wtbot(mha),wttop(mha)
 
   integer :: iw,iv,ip,iw1,iw2,j,k,kp,kpf,npoly
-  real :: plev,pressp1,pressp2,count2,pressv1,pressv2
+  real :: plev,pressp1,pressp2,count2,pressv1,pressv2,zoff
 
   ! This subroutine determines the following quantities for horizontal plots:
   ! (1) ktf flag for T cells indicating 0-in plot range, 1-below ground,
@@ -1163,9 +1163,15 @@ subroutine horizplot_k(iplt,mha,ktf,kc,wtbot,wttop)
 
      else ! plot at specified height op%slabloc(iplt)
 
-        k = 2
+        if (op%pltlev(iplt) == 'S') then
+           k    = lpw(iw)
+           zoff = zm(k-1)
+        else
+           k    = 2
+           zoff = 0.
+        endif
 
-        do while (k < mza .and. zm(k) < op%slabloc(iplt))
+        do while (k < mza .and. zm(k) < op%slabloc(iplt) + zoff)
            k = k + 1
         enddo
 
@@ -1178,7 +1184,7 @@ subroutine horizplot_k(iplt,mha,ktf,kc,wtbot,wttop)
            if (op%stagpt == 'T' .or. op%stagpt == 'W') then
               wtbot(iw) = 1.
               wttop(iw) = 0.
-              if (op%stagpt == 'W' .and. op%slabloc(iplt) < zt(k)) k = k - 1
+              if (op%stagpt == 'W' .and. op%slabloc(iplt) + zoff < zt(k)) k = k - 1
               kc(iw) = k
            endif
         endif
@@ -1261,16 +1267,24 @@ subroutine horizplot_k(iplt,mha,ktf,kc,wtbot,wttop)
 
         else ! plot at specified height op%slabloc(iplt)
 
-           k = 2
+           if (op%pltlev(iplt) == 'S') then
+              iw1  = itab_v(iv)%iw(1)
+              iw2  = itab_v(iv)%iw(2)
+              k    = max(lpw(iw1),lpw(iw2))
+              zoff = zm(k-1)
+           else
+              k    = 2
+              zoff = 0.
+           endif
 
-           do while (k < mza .and. zm(k) < op%slabloc(iplt))
+           do while (k < mza .and. zm(k) < op%slabloc(iplt) + zoff)
               k = k + 1
            enddo
 
            wtbot(iv) = 1.
            wttop(iv) = 0.
 
-           if (op%stagpt == 'N' .and. op%slabloc(iplt) < zt(k)) k = k - 1
+           if (op%stagpt == 'N' .and. op%slabloc(iplt) + zoff < zt(k)) k = k - 1
 
            kc(iv) = k
 
@@ -1363,16 +1377,23 @@ subroutine horizplot_k(iplt,mha,ktf,kc,wtbot,wttop)
 
         else ! plot at specified height op%slabloc(iplt)
 
-           k = 2
+           if (op%pltlev(iplt) == 'S') then
+              npoly = itab_m(ip)%npoly
+              k     = maxval( lpw( itab_m(ip)%iw(1:npoly) ) )
+              zoff  = zm(k-1)
+           else
+              k    = 2
+              zoff = 0.
+           endif
 
-           do while (k < mza .and. zm(k) < op%slabloc(iplt))
+           do while (k < mza .and. zm(k) < op%slabloc(iplt) + zoff)
               k = k + 1
            enddo
 
            wtbot(ip) = 1.
            wttop(ip) = 0.
 
-           if (op%stagpt == 'M' .and. op%slabloc(iplt) < zt(k)) k = k - 1
+           if (op%stagpt == 'M' .and. op%slabloc(iplt) + zoff < zt(k)) k = k - 1
 
            kc(ip) = k
 

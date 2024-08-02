@@ -907,7 +907,7 @@
  !          |                   l       = draw lat/lon lines
  !          |                   H       = center plot on hurricane if NCYCLE_HURRINIT > 0
  !           \                  C       = Cone circle plotted
- !            \                 p,s     = plot on const p sfc, plot near-sfc value
+ !            \                 p,s,S   = const p sfc, near-sfc value, height above grnd
  !             \                W       = Window dimensions as specified
  !              \               e       = flag indicating "external" field
  !               \              f,h     = frameoff (no frame call)

@@ -465,6 +465,7 @@ subroutine copy_nl()
 
      if (index(nl%plotspecs(i)%pltspec2,'p') > 0) op%pltlev(i) = 'p'
      if (index(nl%plotspecs(i)%pltspec2,'s') > 0) op%pltlev(i) = 's'
+     if (index(nl%plotspecs(i)%pltspec2,'S') > 0) op%pltlev(i) = 'S'
 
      if (index(nl%plotspecs(i)%pltspec2,'W') > 0) op%windowin(i) = 'W'
 
