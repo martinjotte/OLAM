@@ -56,6 +56,7 @@ subroutine olam_run(name_name)
   use soa_defn,    only: map_soa
   use aq_data,     only: aq_data_init
   use pbl_drivers, only: pbl_init
+  use check_nan,   only: compute_mass_sums
 
   use precursor_data, only: map_precursor
 
@@ -804,6 +805,11 @@ subroutine olam_run(name_name)
   call plot_fields(0)
   call fields3_ll()
   if (mdomain == 5 .and. nl%les_diag_freq > 0._r8) call les_diag()
+
+  if (nl%print_mass_sums) then
+     write(io6,*) " Initial mass sums:"
+     call compute_mass_sums()
+  endif
 
   ! Compute azimuthal averages of dynamic, thermodynamic, and moisture
   ! fields, and plot averages (in radial-height cross sections)

@@ -135,7 +135,8 @@ Module oname_coms
      integer :: nudnxp      = 0
      real    :: tnudcent    = 86400.0
 
-     logical :: nud_preserve_mix_ratio = .true.
+     logical :: nud_preserve_mix_ratio  = .true.
+     logical :: nud_preserve_total_mass = .true.
 
 !!    HISTORY/OUTPUT FILES
 
@@ -203,6 +204,8 @@ Module oname_coms
 
      logical :: debug_fp    = .false.
      logical :: init_nans   = .false.
+
+     logical :: print_mass_sums = .false.
 
 !!    RAYLEIGH FRICTION PARAMETERS
 

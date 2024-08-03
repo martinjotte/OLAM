@@ -1,4 +1,4 @@
-subroutine pressure_stage(iaction)
+subroutine pressure_stage()
 
   use isan_coms,   only: nprx, npry, nprz, gdatdy, gdatdx, pnpr, inproj, &
                          plats, xswlat, xswlon, irev_ns, o_press, o_theta, &
@@ -14,8 +14,6 @@ subroutine pressure_stage(iaction)
   use micro_coms,  only: miclevel
 
   implicit none
-
-  integer, intent(in) :: iaction
 
   real, parameter :: mwair  = 28.9628             ! molecular weight of air
   real, parameter :: mwo3   = 48.0                ! molecular weight of ozone
@@ -48,14 +46,10 @@ subroutine pressure_stage(iaction)
 
   ! Find analysis pressure level close to 500 mb
 
-  if (iaction == 0 .and. runtype == 'INITIAL') then
-
-     do kbc = 1, nprz-1
-        if (pnpr(kbc) < 50100.) exit
-     enddo
-     pbc = pnpr(kbc)
-
-  endif
+  do kbc = 1, nprz-1
+     if (pnpr(kbc) < 50100.) exit
+  enddo
+  pbc = pnpr(kbc)
 
   ! Determine index of lowest ZONAVG pressure level that is at least 1/2
   ! ZONAVG pressure level higher than highest input pressure data level
@@ -175,9 +169,7 @@ subroutine pressure_stage(iaction)
      endif
 
      ! Store analysis 500 mb height (level kbc)
-     if (iaction == 0 .and. runtype == 'INITIAL') then
-        z_pbc(iw) = pcol_z(kbc+2,iw)
-     endif
+     z_pbc(iw) = pcol_z(kbc+2,iw)
 
   enddo
   !$omp end parallel do

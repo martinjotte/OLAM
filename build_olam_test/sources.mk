@@ -67,7 +67,7 @@ SOURCE_FILES= \
              $(OISAN)/isan_driver.f90 \
              $(OISAN)/mem_nudge.f90 \
              $(OISAN)/nudge_o3.f90 \
-             $(OISAN)/obs_nudge.f90 \
+             $(OISAN)/obs_nudge.F90 \
              $(OISAN)/olam_mpi_nudge.F90 \
              $(OISAN)/spec_nudge.f90 \
              $(OMODEL)/alloc.f90 \

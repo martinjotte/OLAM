@@ -272,6 +272,11 @@
                                        !        mixing ratio
                                        ! FALSE: Nudging preserves tracer mass
 
+   NL%NUD_PRESERVE_TOTAL_MASS = .TRUE. ! TRUE:  Nudging preserves total
+                                       !        atmospheric mass
+                                       ! FALSE: Atmospheric mass is allowed
+                                       !        to change from nudging rho
+
  !--------------------------------------------------------------------------
  ! History file, Day-average file, Lite file, and Lat/Lon file I/O
  !--------------------------------------------------------------------------
@@ -400,6 +405,9 @@
    NL%INIT_NANS = .false.  ! Initialize model variables to NANs to catch
                            ! errors (useful if DEBUG_FP is set to .true.)
 
+   NL%PRINT_MASS_SUMS = .false.  ! Print mass sums each timestep to
+                                 ! verify mass conservation in model
+
  !--------------------------------------------------------------------------
  ! Rayleigh friction parameters at model top
  !--------------------------------------------------------------------------
@@ -407,7 +415,7 @@
    NL%RAYF_ZMIN  = 27000.  ! Damping for U, THIL - minimum height (m)
    NL%RAYF_FACT  = 0.0     ! Damping for U, THIL - fraction damped in one acoustic timestep
    NL%RAYF_EXPON = 1.0     ! Damping for U, THIL - exponent for profile
-   
+
    NL%RAYFW_ZMIN  = 27000. ! Damping for W - minimum height (m)
    NL%RAYFW_FACT  = 0.5    ! Damping for W - fraction damped in one acoustic timestep
    NL%RAYFW_EXPON = 1.0    ! Damping for W - exponent for profile
@@ -423,7 +431,7 @@
  !--------------------------------------------------------------------------
  ! Radiation parameters
  !--------------------------------------------------------------------------
- 
+
    NL%ISWRTYP = 1   ! Shortwave radiation type:
    NL%ILWRTYP = 1   ! Longwave  radiation type:
                     !   0=none, 1,2,3=RRTMg

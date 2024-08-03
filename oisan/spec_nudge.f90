@@ -52,7 +52,7 @@ end subroutine init_spec_nudge
 
 !===============================================================================
 
-subroutine nudge_prep_spec(iaction, o_rho, o_theta, o_rrw, o_uzonal, o_umerid)
+subroutine nudge_prep_spec ( iaction )
 
   use mem_nudge,   only: mwnud, volwnudi, &
                          rho_obsp, theta_obsp, rrw_obsp, &
@@ -60,6 +60,7 @@ subroutine nudge_prep_spec(iaction, o_rho, o_theta, o_rrw, o_uzonal, o_umerid)
                          uzonal_obsp, umerid_obsp, &
                          uzonal_obsf, umerid_obsf
 
+  use isan_coms,   only: o_rho, o_theta, o_rrw, o_uzonal, o_umerid
   use mem_grid,    only: mza, mwa, volt
   use misc_coms,   only: iparallel
   use mem_ijtabs,  only: jtab_w, itab_w, jtw_init
@@ -68,14 +69,7 @@ subroutine nudge_prep_spec(iaction, o_rho, o_theta, o_rrw, o_uzonal, o_umerid)
 
   implicit none
 
-  integer, intent(in) :: iaction
-
-  real, intent(in) :: o_rho   (mza,mwa)
-  real, intent(in) :: o_theta (mza,mwa)
-  real, intent(in) :: o_rrw   (mza,mwa)
-  real, intent(in) :: o_uzonal(mza,mwa)
-  real, intent(in) :: o_umerid(mza,mwa)
-
+  integer,   intent(in) :: iaction
   integer               :: j,iw,k,iwnud,iwnud1
 
   real(r8), allocatable :: drho   (:,:)

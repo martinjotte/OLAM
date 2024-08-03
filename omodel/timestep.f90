@@ -1,6 +1,6 @@
 subroutine timestep()
 
-use misc_coms,   only: mstp, time8, time_istp8, time_istp8p, time_bias, &
+use misc_coms,   only: time8, time_istp8, time_istp8p, time_bias, io6, &
                        nqparm, initial, ilwrtyp, iswrtyp, dtsm, i_o3, &
                        iparallel, s1900_init, s1900_sim, do_chem, &
                        nrk_wrtv, nrk_scal
@@ -26,6 +26,7 @@ use pbl_drivers, only: pbl_driver, comp_horiz_k
 use olam_mpi_sfc,only: mpi_send_wsfc, mpi_recv_wsfc
 use hcane_rz,    only: ncycle_hurrinit, icycle_hurrinit, timmax_hurrinit, &
                        vortex_add_thetapert
+use obs_nudge_mod,only: obs_nudge
 !use oplot_coms,  only: op
 
 implicit none
@@ -191,9 +192,6 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm
    endif
 
    ! call check_nans(11,rvara1=alpha_press)
-
-   !    write(*,'(a)') ' calling mass_sums2 '
-   !    call compute_mass_sums()
 
    ! Bypass call to thiltend_long if using prescribed flow for DCMIP tests
    !--------------------------------------
@@ -365,17 +363,17 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm
    !endif
    ! END SPECIAL PLOT SECTION - - - - - - - - - - - - - - - - - -
 
-   ! if (mrl_endl(istp) > 0) then
-   !    write(io6,'(a)') ' calling mass_sums3 '
-   !    call compute_mass_sums()
-   ! endif
-
 enddo
 
 ! For ncar dcmip test cases, compute error norms
 
 if (nl%test_case >= 10 .and. nl%test_case < 900) then
    call diagn_global_dcmip()
+endif
+
+if (nl%print_mass_sums) then
+   write(io6,'(a)') ' calling mass_sums '
+   call compute_mass_sums()
 endif
 
 end subroutine timestep

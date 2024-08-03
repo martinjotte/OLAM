@@ -1,43 +1,26 @@
-subroutine nudge_prep_o3(iaction, o_ozone)
+subroutine nudge_prep_o3( iaction )
 
   use mem_nudge,  only: ozone_obsp, ozone_obsf
-  use mem_grid,   only: mza, mwa
-  use mem_ijtabs, only: jtab_w, jtw_init
   use misc_coms,  only: i_o3
+  use isan_coms,  only: o_ozone
 
   implicit none
 
   integer, intent(in) :: iaction
-  real,    intent(in) :: o_ozone(mza,mwa)
-  integer             :: j, iw, k
 
   ! Do nothing if we do not prognose ozone
 
   if (i_o3 == 0) return
 
-! Swap future data time into past data time if necessary.
+  ! Swap future data time into past data time if necessary
 
   if (iaction == 1) then
-
-     !$omp parallel do private(iw,k)
-     do j = 1, jtab_w(jtw_init)%jend; iw = jtab_w(jtw_init)%iw(j)
-        do k = 2, mza
-           ozone_obsp(k,iw) = ozone_obsf(k,iw)
-        enddo
-     enddo
-     !omp end parallel do
-
+     call move_alloc( ozone_obsf, ozone_obsp )
   endif
 
-! Fill future observational arrays
+  ! Swap gridded data fields info future nudging arrays
 
-  !$omp parallel do private(iw,k)
-  do j = 1, jtab_w(jtw_init)%jend; iw = jtab_w(jtw_init)%iw(j)
-     do k = 2, mza
-        ozone_obsf(k,iw) = o_ozone(k,iw)
-     enddo
-  enddo
-  !omp end parallel do
+  call move_alloc( o_ozone, ozone_obsf )
 
 end subroutine nudge_prep_o3
 

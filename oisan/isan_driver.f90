@@ -10,6 +10,7 @@ subroutine isan_driver(iaction)
   use mem_nudge,  only: nudflag, nudnxp, o3nudflag
   use hdf5_utils, only: shdf5_exists, shdf5_open, shdf5_close
   use mem_para,   only: olam_mpi_finalize
+  use obs_nudge_mod, only: nudge_prep_obs
 
   implicit none
 
@@ -111,22 +112,18 @@ subroutine isan_driver(iaction)
      allocate( o_ozone (mza,mwa) )
   endif
 
-  if (iaction == 0 .and. runtype == 'INITIAL') then
-     allocate( z_pbc(mwa) )
-  endif
+  allocate( z_pbc(mwa) )
 
 ! Read gridded pressure-level data, add any ZONAVG fields as necessary, and
 ! interpolate analysis fields to OLAM grid points
 
-  call pressure_stage(iaction)
+  call pressure_stage()
 
-! Perform iterative hydrostatic balancing on analysis fields if initializing
+! Perform iterative hydrostatic balancing on analysis fields
 
-  if (iaction == 0 .and. runtype == 'INITIAL') then
-     call vterpp()
-  endif
+  call vterpp()
 
-  if (allocated( z_pbc )) deallocate( z_pbc )
+  deallocate( z_pbc )
 
 ! Copy interpolated and adjusted analysis fields to model arrays if initializing
 
@@ -134,42 +131,39 @@ subroutine isan_driver(iaction)
      call isnstage()
   endif
 
-  deallocate( o_press )
+! Pressure no longer needed
 
-  if (o3nudflag /= 1) then
-     if (allocated( o_ozone )) deallocate( o_ozone )
-  endif
+  deallocate( o_press )
 
 ! If nudging, prepare observational nudging fields
 
   if (nudflag > 0) then
      if (nudnxp == 0) then
-        call nudge_prep_obs (iaction, o_rho, o_theta, o_rrw, o_uzonal, o_umerid)
+        call nudge_prep_obs ( iaction )
      else
-        call nudge_prep_spec(iaction, o_rho, o_theta, o_rrw, o_uzonal, o_umerid)
+        call nudge_prep_spec( iaction )
      endif
   endif
 
-  if (o3nudflag == 1) then
-     call nudge_prep_o3(iaction, o_ozone)
+  if (o3nudflag > 0) then
+     call nudge_prep_o3( iaction )
   endif
 
-! Deallocate ISAN arrays
+! Deallocate ISAN arrays if necessary
 
-  deallocate( o_rho   )
-  deallocate( o_theta )
-  deallocate( o_rrw   )
-  deallocate( o_uzonal)
-  deallocate( o_umerid)
+  if (allocated( o_rho    )) deallocate( o_rho    )
+  if (allocated( o_theta  )) deallocate( o_theta  )
+  if (allocated( o_rrw    )) deallocate( o_rrw    )
+  if (allocated( o_uzonal )) deallocate( o_uzonal )
+  if (allocated( o_umerid )) deallocate( o_umerid )
+  if (allocated( o_ozone  )) deallocate( o_ozone  )
 
-  if (allocated( o_ozone )) deallocate( o_ozone )
-
-  ! Aallocated in read_press_header
+! Allocated in read_press_header
 
   if (allocated( pnpr  )) deallocate( pnpr  )
   if (allocated( plats )) deallocate( plats )
 
-  ! Close HDF5 file
+! Close HDF5 file
 
   call shdf5_close()
 
