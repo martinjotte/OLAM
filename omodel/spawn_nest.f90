@@ -26,6 +26,7 @@ subroutine spawn_nest(iatmgrid)
   use consts_coms,  only: pio180, erad, pi1, pi2, piu180, r8
   use oname_coms,   only: nl
   use oplot_coms,   only: op
+  use mem_para,     only: olam_stop
 
   implicit none
 
@@ -73,6 +74,7 @@ subroutine spawn_nest(iatmgrid)
   real :: yp1, yp2, yq1, yq2
   integer :: iskip, niter, mvint
   integer :: imnext, imn, iwnext, iwn, iunext, iun
+  logical :: error
 
   logical, allocatable :: iwdiv(:), iudiv(:)
   logical, allocatable :: ismnest(:), isunest(:), iswnest(:)
@@ -314,6 +316,8 @@ subroutine spawn_nest(iatmgrid)
      lista(nlista) = imbeg
 
      nlistb = 0
+     mrlo   = ltab_md(imbeg)%mrlm
+     error  = .false.
 
      ! Loop over points in LISTA, as long as any exist
 
@@ -327,6 +331,13 @@ subroutine spawn_nest(iatmgrid)
         ! paths that have already been done
 
         im = lista(nlista)
+
+        ! Make sure we don't cross a previous mesh boundary
+
+        if ( any( ltab_ud( ltab_md(im)%iu(1:ltab_md(im)%npoly) )%mrlu /= mrlo ) ) then
+           error = .true.
+           exit
+        endif
 
         call thirdm(nmd, nud, im, jdone, mlist, ltab_md, ltab_ud)
 
@@ -379,6 +390,16 @@ subroutine spawn_nest(iatmgrid)
         enddo ! j,immmm
 
      enddo ! nlista > 0
+
+     if (error) then
+        write(io6,*)
+        write(io6,*) "ERROR:"
+        write(io6,'(A,I0,A)') ' Current nested grid ', ngr, ' crosses (or is too close to)'
+        write(io6,'(A,I0,A)') ' the next coarser grid boundary at imd = ', im, '.'
+        write(io6,'(A)')      ' Reduce the size of the current nested grid or increase the parent grid size.'
+        write(io6,*)
+        call olam_stop( 'Ending MAKEGRID - nested grid out of bounds in spawn_nest' )
+     endif
 
      ! Now, listb contains the full list of M point indices, numbering nlistb.
 
@@ -589,7 +610,6 @@ subroutine spawn_nest(iatmgrid)
 
         imnext = imnext + 1
      enddo
-!     stop
 
      nmd0 = imnext - 1
      deallocate(iudiv)
@@ -749,11 +769,12 @@ subroutine spawn_nest(iatmgrid)
            if (mrloo == 0) mrloo = mrlo  ! Set to first nonzero mrlw encountered
            if (mrlo /= mrloo) then
               write(io6,*)
+              write(io6,*) "ERROR:"
               write(io6,'(A,I0,A)') ' Current nested grid ', ngr, ' crosses (or is too close to)'
               write(io6,'(A,I0,A)') ' the next coarser grid boundary at iw = ', iw, '.'
               write(io6,'(A)')      ' Reduce the size of the current nested grid or increase the parent grid size.'
               write(io6,*)
-              stop 'Ending MAKEGRID - nested grid out of bounds in spawn_nest'
+              call olam_stop( 'Ending MAKEGRID - nested grid out of bounds in spawn_nest' )
            endif
 
            iu1o_iw1 = ltab_ud(iu1o)%iw(1)
@@ -1105,6 +1126,7 @@ subroutine perim_fill3(ngr, nma, nua, nwa, mrlo, nper, imper, iuper, &
   use mem_delaunay, only: itab_ud_vars, nest_ud_vars, nest_wd_vars, &
                           itab_md, itab_ud, itab_wd, xemd, yemd, zemd
   use misc_coms,    only: io6
+  use mem_para,     only: olam_stop
 
   implicit none
 
@@ -1497,7 +1519,7 @@ subroutine perim_fill3(ngr, nma, nua, nwa, mrlo, nper, imper, iuper, &
         write(io6,'(A,I0,A)') ' the next coarser grid boundary. Reduce the size of the current'
         write(io6,'(A)')      ' nested grid or increase the parent grid size.'
         write(io6,*)
-        stop 'Ending MAKEGRID - nested grid out of bounds in perim_fill3'
+        call olam_stop( 'Ending MAKEGRID - nested grid out of bounds in spawn_nest' )
      endif
 
      ! NEW M locations
@@ -1751,6 +1773,7 @@ end subroutine perim_ngr
 
   use mem_delaunay, only: itab_wd_vars, itab_ud_vars, itab_md_vars
   use misc_coms,    only: io6
+  use mem_para,     only: olam_stop
 
   implicit none
 
@@ -1835,17 +1858,19 @@ end subroutine perim_ngr
   do iw = 2,nwa
      if (mrow_temp(iw) /= 0) then
 
-        ! This is probably not necessary with the new check in perim_fill3, but
-        ! will keep this anyway since a helpful warning message here is better
-        ! than an obscure error if spring dynamics messes up the grid!
+        ! This checks if a border mrow of the current nest intersects with
+        ! a preexisting mrow border of the encompassing coarser MRL. An error
+        ! is given if the mrows are incompatible for spring dynamics, which uses
+        ! the mrow information to properly adjust the mesh boundaries.
 
         if (mrow_temp(iw) < 2 .and. itab_wd(iw)%mrow /= 0 .and. itab_wd(iw)%mrow > -3) then
            write(io6,*)
+           write(io6,*) "ERROR:"
            write(io6,'(A,I0,A)') ' Current nested grid ', ngr, ' crosses (or is too close to)'
            write(io6,'(A,I0,A)') ' the next coarser grid boundary. Reduce the size of the current'
            write(io6,'(A)')      ' nested grid or increase the parent grid size.'
            write(io6,*)
-           stop 'Ending MAKEGRID - nested grid out of bounds in perim_mrow'
+           call olam_stop( 'Ending MAKEGRID - nested grid out of bounds in perim_mrow' )
         endif
 
         ! Make sure previous mrows of -2, -1, and 1 are preserved in case
