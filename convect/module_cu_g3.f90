@@ -121,7 +121,7 @@ CONTAINS
      enddo
      ktf = k - ka + 1    ! number of ATM levels to process
 
-     ! Level of PBL height
+     ! Level of PBL height on convective grid (relative to surface)
      kpbl= min(kpblh(iw) - ka + 1, ktf-1)
 
      ! A. Betts for shallow convection: suggestion for the KF timescale < DELTAX / 25 m/s
@@ -131,7 +131,7 @@ CONTAINS
      z1    = zm(ka-1)
      a0    = arw0(iw)
 
-     wc3   = grav * pblh(iw) * pbl_cld_forc(iw) / tair(kpbl,iw)
+     wc3   = grav * pblh(iw) * pbl_cld_forc(iw) / tair(kpblh(iw),iw)
      wm3   = (wstar(iw)**3 + 6. * ustar(iw)**3 + wc3) ** one3
 
      ! Loop over T levels
