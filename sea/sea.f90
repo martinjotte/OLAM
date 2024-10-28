@@ -153,6 +153,9 @@ subroutine seacells(isea, timefac_sst, timefac_seaice)
 
   endif
 
+  if (allocated(sea%spraytemp )) sea%spraytemp (isea) = sea_spray1_temp
+  if (allocated(sea%spray2temp)) sea%spray2temp(isea) = sea_spray2_temp
+
   ! New calculation of wthv for sfluxt units [W m^-2]
 
   sea%sea_wthv(isea) = ( sea%sea_sfluxt(isea) * cpi * canexneri * (1.0 + eps_virt * sfcg%airrrv(iwsfc)) &
