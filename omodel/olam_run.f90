@@ -1050,6 +1050,7 @@ subroutine olam_output()
   use mem_sfcnud,   only: s1900_sfcnud, isfcnudfile, sfcnud_read
   use umwm_module,  only: umwmflg
   use umwm_physics, only: umwm_diag
+  use check_nan,    only: compute_mass_sums
 
   implicit none
 
@@ -1111,6 +1112,12 @@ subroutine olam_output()
      endif
      call reset_davg_vars() ! Always call because used in subroutine flux_accum
 
+  endif
+
+  ! Global mass sums (helps evaluate model conservation)
+
+  if ( nl%print_mass_sums ) then
+     if ( mod(time8p,nl%mass_sum_frq) < dtlm ) call compute_mass_sums()
   endif
 
   ! Print LES area-averaged statistics

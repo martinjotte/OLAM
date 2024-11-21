@@ -408,6 +408,8 @@
    NL%PRINT_MASS_SUMS = .false.  ! Print mass sums each timestep to
                                  ! verify mass conservation in model
 
+   NL%MASS_SUM_FRQ = 3600. ! Frequency (s) to print global mass sums
+
  !--------------------------------------------------------------------------
  ! Rayleigh friction parameters at model top
  !--------------------------------------------------------------------------

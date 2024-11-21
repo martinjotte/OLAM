@@ -21,7 +21,7 @@ use emis_defn,   only: get_emis
 use depv_defn,   only: get_depv
 use wrtv_rk,     only: prog_wrtv_rk
 use wrtv_orig,   only: prog_wrtv_orig
-use check_nan,   only: check_nans, compute_mass_sums
+use check_nan,   only: check_nans
 use pbl_drivers, only: pbl_driver, comp_horiz_k
 use olam_mpi_sfc,only: mpi_send_wsfc, mpi_recv_wsfc
 use hcane_rz,    only: ncycle_hurrinit, icycle_hurrinit, timmax_hurrinit, &
@@ -369,11 +369,6 @@ enddo
 
 if (nl%test_case >= 10 .and. nl%test_case < 900) then
    call diagn_global_dcmip()
-endif
-
-if (nl%print_mass_sums) then
-   write(io6,'(a)') ' calling mass_sums '
-   call compute_mass_sums()
 endif
 
 end subroutine timestep

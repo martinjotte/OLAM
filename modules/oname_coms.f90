@@ -205,7 +205,8 @@ Module oname_coms
      logical :: debug_fp    = .false.
      logical :: init_nans   = .false.
 
-     logical :: print_mass_sums = .false.
+     logical  :: print_mass_sums = .false.
+     real(r8) :: mass_sum_frq    = 86400._r8
 
 !!    RAYLEIGH FRICTION PARAMETERS
 
