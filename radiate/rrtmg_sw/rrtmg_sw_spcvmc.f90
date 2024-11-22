@@ -386,7 +386,7 @@
       real(kind=rb) :: zg, zg3, zgamma1, zgamma2, zgamma3, zgamma4
       real(kind=rb) :: zr1, zr2, zr3
       real(kind=rb) :: zrk, zrk2, zrm1, zrp, zrp1
-      real(kind=rb) :: zt1, zt2, zt3, zto1
+      real(kind=rb) :: zt1, zt2, zt3, zto1, zrpm1
       real(kind=rb) :: zw
 
       integer(kind=im) :: ig
@@ -425,8 +425,12 @@
 
          za1 = zgamma1 * zgamma4 + zgamma2 * zgamma3
          za2 = zgamma1 * zgamma3 + zgamma2 * zgamma4
-         zrk = sqrt ( zgamma1**2 - zgamma2**2)
-         zrp = zrk * prmuz
+         zrk = sqrt ( zgamma1**2 - zgamma2**2 )
+!        zrp = zrk * prmuz
+
+!        Avoid zrp too close to 1
+         zrpm1 = zrk * prmuz - 1._rb
+         zrp   = 1._rb + sign( max(2.5e-7, abs(zrpm1)), zrpm1 )
 
          zrp1 = 1._rb + zrp
          zrm1 = 1._rb - zrp
@@ -452,13 +456,13 @@
 
 ! collimated beam
 
-         denom = zrp1 * ( zrk * zemp1 + zgamma1 * zemm1 ) * max(1.e-9,abs(zrm1))
-         zdenr = zw / denom
+         zdenr = zw / (zrp1 * zrm1 * (zrk * zemp1 + zgamma1 * zemm1))
 
-         pref(ig,jk) = abs(zr1 - zr2*zemm - zr3*zem2*zem1) * zdenr
-         ptra(ig,jk) = zem2 + abs(zem2*zt1 - zem2*zt2*zemm - zt3*zem1) * zdenr
+         pref(ig,jk) = (zr1 - zr2*zemm - zr3*zem2*zem1) * zdenr
+         pref(ig,jk) = max(0., min(1., pref(ig,jk)))
 
-         ptra(ig,jk) = min(ptra(ig,jk), one)
+         ptra(ig,jk) = zem2 - (zem2*zt1 - zem2*zt2*zemm - zt3*zem1) * zdenr
+         ptra(ig,jk) = max(0., min(1.-pref(ig,jk), ptra(ig,jk)))
 
 ! diffuse beam
 
