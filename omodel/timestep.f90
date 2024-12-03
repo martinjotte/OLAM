@@ -20,7 +20,6 @@ use mem_megan,   only: megan_avg_temp
 use emis_defn,   only: get_emis
 use depv_defn,   only: get_depv
 use wrtv_rk,     only: prog_wrtv_rk
-use wrtv_orig,   only: prog_wrtv_orig
 use check_nan,   only: check_nans
 use pbl_drivers, only: pbl_driver, comp_horiz_k
 use olam_mpi_sfc,only: mpi_send_wsfc, mpi_recv_wsfc
@@ -33,7 +32,7 @@ implicit none
 
 integer :: jstp
 
-real(r8) :: rho_old(mza,mwa) ! density at beginning of long timestep [kg/m^3]
+real     :: rho_old(mza,mwa) ! density at beginning of long timestep [kg/m^3]
 real(r8) :: time0
 
 ! +----------------------------------------------------------------------------+
@@ -200,11 +199,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm
        nl%test_case == 13) go to 33
    !--------------------------------------
 
-   if (nrk_wrtv == 1) then
-      call prog_wrtv_orig()
-   else
-      call prog_wrtv_rk()
-   endif
+   call prog_wrtv_rk()
 
    33 continue  ! test_case == 11, 12, or 13
 
@@ -246,11 +241,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm
    ! call check_nans(13)
 
    if (mrl_endl(istp) > 0) then
-      if (nrk_scal == 1) then
-         call scalar_transport_orig(rho_old)
-      else
-         call scalar_transport_rk(rho_old)
-      endif
+      call scalar_transport_rk(rho_old)
    endif
 
    ! call check_pos(1)
@@ -429,14 +420,16 @@ subroutine tend0(rho_old)
   use mem_tend,    only: thilt, vmxet, vmyet, vmzet, vmt
   use misc_coms,   only: nrk_scal
   use mem_sfcg,    only: mwsfc, sfcg
-  use mem_basic,   only: vmsc, wmsc, rho, vxesc, vyesc, vzesc
+  use mem_basic,   only: vmasc, wmasc, rho
   use mem_grid,    only: mza, mwa, mva, lpw, lpv
   use consts_coms, only: r8
+  use mem_para,    only: myrank
+  use mem_ijtabs,  only: itab_w
 
   implicit none
 
-  real(r8), intent(out) :: rho_old(mza,mwa)
-  integer               :: iw, iv, n, k, iwsfc
+  real, intent(out) :: rho_old(mza,mwa)
+  integer           :: iw, iv, n, k, iwsfc
 
   !$omp parallel
   !$omp do private(k,n)
@@ -448,10 +441,7 @@ subroutine tend0(rho_old)
         vmzet  (k,iw) = 0.0
         thilt  (k,iw) = 0.0
         rho_old(k,iw) = rho(k,iw)
-     enddo
-
-     do k = lpw(iw)-1, mza
-        wmsc(k,iw) = 0.0
+        wmasc  (k,iw) = 0.0_r8
      enddo
 
      do n = 1, num_scalar
@@ -460,22 +450,14 @@ subroutine tend0(rho_old)
         enddo
      enddo
 
-     if (nrk_scal == 1) then
-        do k = lpw(iw), mza
-           vxesc(k,iw) = 0.0
-           vyesc(k,iw) = 0.0
-           vzesc(k,iw) = 0.0
-        enddo
-     endif
-
   enddo
   !$omp end do nowait
 
   !$omp do private(k)
   do iv = 2, mva
      do k = lpv(iv), mza
-        vmt (k,iv) = 0.0
-        vmsc(k,iv) = 0.0
+        vmt  (k,iv) = 0.0
+        vmasc(k,iv) = 0.0_r8
      enddo
   enddo
   !$omp end do nowait
@@ -560,21 +542,22 @@ subroutine timeavg_momsc()
   use mem_ijtabs, only: istp, mrl_endl
   use mem_grid,   only: mza, mva, mwa, lpw, lpv
   use misc_coms,  only: nacoust
-  use mem_basic,  only: vmsc, wmsc
+  use mem_basic,  only: vmasc, wmasc
+  use consts_coms,only: r8
 
   implicit none
 
-  integer :: k, iv, iw
-  real    :: acoi
+  integer  :: k, iv, iw
+  real(r8) :: acoi
 
-  if (mrl_endl(istp) > 0) then
-     acoi = 1.0 / nacoust
+  if (mrl_endl(istp) > 0 .and. nacoust > 1) then
+     acoi = 1._r8 / real(nacoust,r8)
 
      !$omp parallel
      !$omp do private(k)
      do iv = 2, mva
         do k = lpv(iv), mza
-           vmsc(k,iv) = vmsc(k,iv) * acoi
+           vmasc(k,iv) = vmasc(k,iv) * acoi
         enddo
      enddo
      !$omp end do nowait
@@ -582,7 +565,7 @@ subroutine timeavg_momsc()
      !$omp do private(k)
      do iw = 2, mwa
         do k = lpw(iw), mza-1
-           wmsc(k,iw) = wmsc(k,iw) * acoi
+           wmasc(k,iw) = wmasc(k,iw) * acoi
         enddo
      enddo
      !$omp end do nowait

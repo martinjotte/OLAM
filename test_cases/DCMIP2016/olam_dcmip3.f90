@@ -730,8 +730,7 @@ end subroutine dcmip_save_initfields
 
 subroutine olam_dcmip_prescribedflow(time0,rho_old)
 
-  use mem_basic,   only: vc, vmc, wc, wmc, rho, vxesc, vyesc, vzesc, &
-                         wmsc, vmsc, vxe, vye, vze, vmp
+  use mem_basic,   only: vc, vmc, wc, wmc, rho, wmasc, vmasc, vxe, vye, vze
   use mem_ijtabs,  only: itab_v, jtab_w, jtw_prog, itab_w
   use mem_grid,    only: mza, mva, mwa, zt, xev, yev, zev, vnx, vny, vnz, lpw, &
                          glatw, glonw, lpv, zm, glatv, glonv, arw, arv, volti
@@ -751,7 +750,7 @@ subroutine olam_dcmip_prescribedflow(time0,rho_old)
 
   real(r8), intent(in) :: time0
 
-  real(r8), intent(out) :: rho_old(mza,mwa) ! density at beginning of timestep [kg/m^3]
+  real, intent(out) :: rho_old(mza,mwa) ! density at beginning of timestep [kg/m^3]
 
   real(r8) :: lonrad, latrad, p, t, phis, ps, q, q1
   real(r8) :: raxis, uv01dx, uv01dy, uv01dz, uv01dr
@@ -762,7 +761,7 @@ subroutine olam_dcmip_prescribedflow(time0,rho_old)
   real(r8) :: pv(mza), zmv(mza), wcv(mza), uz(mza), vz(mza), rhoz(mza)
 
   real     :: dirv
-  real(r8) :: hflux_rho(mza), wmarw(mza)
+  real(r8) :: hflux_rho(mza)
 
   zcoords = 1
 
@@ -779,10 +778,12 @@ subroutine olam_dcmip_prescribedflow(time0,rho_old)
 
      ka = lpw(iw)
 
-     wc  (mza,iw) = 0.
-     wmc (mza,iw) = 0.
-     wmsc(mza,iw) = 0.
-     wmsc(ka ,iw) = 0.
+     wc   (mza ,iw) = 0.
+     wc   (ka-1,iw) = 0.
+     wmc  (mza ,iw) = 0.
+     wmc  (ka-1,iw) = 0.
+     wmasc(mza ,iw) = 0.
+     wmasc(ka-1,iw) = 0.
 
      if (nl%test_case == 11) then
 
@@ -797,9 +798,9 @@ subroutine olam_dcmip_prescribedflow(time0,rho_old)
                                            wcv,rhoz,time0)
 
         do k = ka, mza-1
-           wc  (k,iw) = wcv(k)
-           wmc (k,iw) = wcv(k) * rhoz(k)
-           wmsc(k,iw) = wmc(k,iw)
+           wc   (k,iw) = wcv(k)
+           wmc  (k,iw) = wcv(k) * rhoz(k)
+           wmasc(k,iw) = wmc(k,iw) * arw(k,iw)
         enddo
 
      elseif (nl%test_case == 12) then
@@ -814,9 +815,9 @@ subroutine olam_dcmip_prescribedflow(time0,rho_old)
            call test1_advection_hadley(lonrad,latrad,p,zm0,zcoords, &
                 u0,v0,wm0,t,phis,ps,rhom0,q,q1,time0)
 
-           wc  (k,iw) = wm0
-           wmc (k,iw) = wm0 * rhom0
-           wmsc(k,iw) = wmc(k,iw)
+           wc   (k,iw) = wm0
+           wmc  (k,iw) = wm0 * rhom0
+           wmasc(k,iw) = wmc(k,iw) * arw(k,iw)
         enddo
 
      endif
@@ -895,15 +896,9 @@ subroutine olam_dcmip_prescribedflow(time0,rho_old)
      endif
 
      do k = kb, mza
-        vmc (k,iv) = vc (k,iv) * real( rhoz(k) )
-        vmsc(k,iv) = vmc(k,iv)
+        vmc  (k,iv) = vc (k,iv) * real( rhoz(k) )
+        vmasc(k,iv) = vmc(k,iv) * arv(k,iv)
      enddo
-
-     if (allocated(vmp)) then
-        do k = kb, mza
-           vmp(k,iv) = vmc(k,iv)
-        enddo
-     endif
 
   enddo
   !$omp end do
@@ -912,30 +907,33 @@ subroutine olam_dcmip_prescribedflow(time0,rho_old)
 ! grid slight divergences are produced. Scalar advection requires density
 ! be consistent with the scalar mixing ratio, so here we advect density too.
 
-  !$omp do private(iw,k,jv,iv,dirv,dts)
+  !$omp do private(iw,k,jv,iv)
   do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
      hflux_rho = 0._r8
 
      do jv = 1, itab_w(iw)%npoly
-        iv   = itab_w(iw)%iv(jv)
-        dirv = itab_w(iw)%dirv(jv)
+        iv = itab_w(iw)%iv(jv)
 
-        ! Loop over T levels
-        do k = lpv(iv), mza
-           hflux_rho(k) = hflux_rho(k) + real(dirv * vmc(k,iv) * arv(k,iw), 8)
-        enddo
-     enddo
+        if (itab_w(iw)%dirv(jv) > 0) then
 
-     dts = dtsm
+           do k = lpv(iv), mza
+              hflux_rho(k) = hflux_rho(k) + vmasc(k,iv)
+           enddo
 
-     do k = lpw(iw), mza-1
-        wmarw(k) = wmc(k,iw) * arw(k,iw)
+        else
+
+           do k = lpv(iv), mza
+              hflux_rho(k) = hflux_rho(k) - vmasc(k,iv)
+           enddo
+
+        endif
+
      enddo
 
      do k = lpw(iw), mza
-        rho(k,iw) = rho(k,iw) + dts * volti(k,iw) &
-                              * (hflux_rho(k) + wmarw(k-1) - wmarw(k))
+        rho(k,iw) = rho(k,iw) + dtsm * volti(k,iw) &
+                              * (hflux_rho(k) + wmasc(k-1,iw) - wmasc(k,iw))
      enddo
 
      do k = 2, lpw(iw)-1
@@ -963,18 +961,6 @@ subroutine olam_dcmip_prescribedflow(time0,rho_old)
   if (nl%naddsc >= 3) addsc(3)%sclt = 0.
   if (nl%naddsc >= 4) addsc(4)%sclt = 0.
   if (nl%naddsc >= 5) addsc(5)%sclt = 0.
-
-  if (nrk_scal == 1) then
-     !$omp parallel do private(iw,k)
-     do iw = 2, mwa
-        do k = 2, mza
-           vxesc(k,iw) = vxe(k,iw)
-           vyesc(k,iw) = vye(k,iw)
-           vzesc(k,iw) = vze(k,iw)
-        enddo
-     enddo
-     !$omp end parallel do
-  endif
 
   if (iparallel == 1) call mpi_recv_w(dvara1=rho)
   call lbcopy_w(d1=rho)

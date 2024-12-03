@@ -7,9 +7,6 @@ Module mem_basic
 
   real, allocatable :: vmc  (:,:) ! current V horiz momentum [kg/(m^2 s)]
   real, allocatable :: vc   (:,:) ! current V horiz velocity [m/s]
-  real, allocatable :: vmp  (:,:) ! previous V horiz momentum [kg/(m^2 s)]
-                                  ! (for original time-stepping scheme)
-
   real, allocatable :: wmc  (:,:) ! current vert momentum [kg/(m^2 s)]
   real, allocatable :: wc   (:,:) ! current vert velocity [m/s]
   real, allocatable :: rr_w (:,:) ! tot water mixing ratio [kg_wat/kg_dryair]
@@ -28,14 +25,9 @@ Module mem_basic
   real(r8), allocatable :: press(:,:) ! air pressure [Pa]
   real(r8), allocatable :: rho  (:,:) ! dry air density [kg/m^3]
 
-  ! Half-forward earth cartesian velocities for original scalar transport scheme
-  real, allocatable :: vxesc(:,:)
-  real, allocatable :: vyesc(:,:)
-  real, allocatable :: vzesc(:,:)
-
   ! Half-forrward advecting velocities for scalars averaged over long timestep
-  real, allocatable :: wmsc(:,:)
-  real, allocatable :: vmsc(:,:)
+  real(r8), allocatable :: wmasc(:,:)
+  real(r8), allocatable :: vmasc(:,:)
 
   real, allocatable :: alpha_press(:,:)
   real, allocatable :: pwfac      (:,:)
@@ -60,19 +52,14 @@ Contains
     allocate (vmc  (mza,mva))
     allocate (vc   (mza,mva))
     allocate (pvfac(mza,mva))
-
-    if (nrk_wrtv == 1) then
-       allocate(vmp(mza,mva))
-    endif
+    allocate (vmasc(mza,mva))
 
     !$omp parallel do
     do iv = 1, mva
        vmc  (:,iv) = rinit
        vc   (:,iv) = rinit
        pvfac(:,iv) = rinit
-
-       if (allocated(vmp)) vmp(:,iv) = rinit
-
+       vmasc(:,iv) = 0.0_r8
     enddo
     !$omp end parallel do
 
@@ -88,8 +75,7 @@ Contains
     allocate( vxe        (mza,mwa) )
     allocate( vye        (mza,mwa) )
     allocate( vze        (mza,mwa) )
-    allocate( wmsc       (mza,mwa) )
-    allocate( vmsc       (mza,mva) )
+    allocate( wmasc      (mza,mwa) )
     allocate( alpha_press(mza,mwa) )
     allocate( pwfac      (mza,mwa) )
 
@@ -99,12 +85,6 @@ Contains
     else
        ue => vxe
        ve => vye
-    endif
-
-    if (nrk_scal == 1) then
-       allocate( vxesc(mza,mwa) )
-       allocate( vyesc(mza,mwa) )
-       allocate( vzesc(mza,mwa) )
     endif
 
     !$omp parallel do
@@ -121,8 +101,7 @@ Contains
        vxe        (:,iw) = 0.0
        vye        (:,iw) = 0.0
        vze        (:,iw) = 0.0
-       wmsc       (:,iw) = 0.0
-       vmsc       (:,iw) = 0.0
+       wmasc      (:,iw) = 0.0_r8
        alpha_press(:,iw) = rinit
        pwfac      (:,iw) = rinit
 
@@ -130,10 +109,6 @@ Contains
           ue      (:,iw) = rinit
           ve      (:,iw) = rinit
        endif
-
-       if (allocated(vxesc)) vxesc(:,iw) = rinit
-       if (allocated(vyesc)) vyesc(:,iw) = rinit
-       if (allocated(vzesc)) vzesc(:,iw) = rinit
 
     enddo
     !$omp end parallel do
@@ -148,7 +123,6 @@ Contains
 
     if (allocated(vmc))   deallocate (vmc)
     if (allocated(vc))    deallocate (vc)
-    if (allocated(vmp))   deallocate (vmp)
 
     if (allocated(wmc))   deallocate (wmc)
     if (allocated(wc))    deallocate (wc)
@@ -164,15 +138,8 @@ Contains
     if (allocated(vye))   deallocate (vye)
     if (allocated(vze))   deallocate (vze)
 
-!    if (allocated(ue))    deallocate (ue)
-!    if (allocated(ve))    deallocate (ve)
-
-    if (allocated(wmsc)) deallocate (wmsc)
-    if (allocated(vmsc)) deallocate (vmsc)
-
-    if (allocated(vxesc)) deallocate (vxesc)
-    if (allocated(vyesc)) deallocate (vyesc)
-    if (allocated(vzesc)) deallocate (vzesc)
+    if (allocated(wmasc)) deallocate (wmasc)
+    if (allocated(vmasc)) deallocate (vmasc)
 
   end subroutine dealloc_basic
 
@@ -213,8 +180,6 @@ Contains
     if (allocated(vye))   call increment_vtable('VYE',  'AW', rvar2=vye)
 
     if (allocated(vze))   call increment_vtable('VZE',  'AW', rvar2=vze)
-
-    if (allocated(vmp))   call increment_vtable('VMP',  'AV', rvar2=vmp)
 
     if (nl%hist_write_ue_ve .and. mdomain <= 1) then
 

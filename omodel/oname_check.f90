@@ -260,6 +260,9 @@ call ichk_bnds( nl%iscal_monot, "ISCAL_MONOT", 0, 2, 0, nfatal, nwarn )
 
 call ichk_bnds( nl%horiz_adv_order, "HORIZ_ADV_ORDER", 2, 3, 2, nfatal, nwarn )
 
+call ichk_bnds( nl%acoust_timestep_level, "ACOUST_TIMESTEP_LEVEL", 2, 3, 2, nfatal, nwarn)
+call ichk_bnds( nl%scalar_timestep_level, "SCALAR_TIMESTEP_LEVEL", 2, 3, 2, nfatal, nwarn)
+
 call rchk_bnds( nl%divh_damp_fact,  "DIVH_DAMP_FACT",  0.0, 0.2, 2, nfatal, nwarn )
 call ichk_bnds( nl%divh_damp_level, "DIVH_DAMP_LEVEL", 0,   3,   2, nfatal, nwarn )
 
@@ -813,9 +816,9 @@ contains
     !
     ! IFLAG:
     !  0 - REPORT A FATAL ERROR IF BOUNDS EXCEEDED, RUN STOPS
-    !  1 - REPORT A WARNING IF BOUNDS EXCEEDED, RUN CONTINUES
+    !  1 - REPORT A WARNING IF BOUNDS EXCEEDED, RUN CONTINUES UNCHANGED
     !  2 - IF BOUNDS EXCEEDED, RESET THE VARIABLE TO WITHIN THE GIVEN BOUNDS
-    !       AND REPORT A WARNING, RUN CONTINUES
+    !      AND REPORT A WARNING, RUN CONTINUES
     !
     ! ALSO PRINT THE OPTIONAL STRINGS MSGMIN, MSGMAX OR MSGBOTH IF THE
     ! MINIMUM AND/OR MAXIMUM LIMITS ARE EXCEEDED

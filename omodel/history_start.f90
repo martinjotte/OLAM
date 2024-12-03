@@ -71,7 +71,7 @@ subroutine hist_read()
                          vnxo2, vnyo2, vnzo2, lpw
   use mem_ijtabs,  only: itab_w, itab_v, itab_m, jtab_v, jtv_prog
   use misc_coms,   only: io6, runtype, iparallel
-  use mem_basic,   only: vc, vmc, vmp, wc, wmc, rho, vxe, vye, vze
+  use mem_basic,   only: vc, vmc, wc, wmc, rho, vxe, vye, vze
   use var_tables,  only: num_var, vtab_r, get_vtab_dims
   use hdf5_utils,  only: shdf5_info, shdf5_irec
   use mem_sfcg,    only: nwsfc, nvsfc, nmsfc, mwsfc, mvsfc, mmsfc, &
@@ -131,7 +131,6 @@ subroutine hist_read()
 
         if (trim(varn) == 'VMC'              .or. &
             trim(varn) == 'VC'               .or. &
-            trim(varn) == 'VMP'              .or. &
             trim(varn) == 'VC_ACCUM'         .or. &
             trim(varn) == 'THSRC'            .or. &
             trim(varn) == 'RTSRC'            .or. &
@@ -190,23 +189,10 @@ subroutine hist_read()
      ! Skip to next variable if the current one is not in the history file
 
      if (ndims < 0) then
-        if (varn == 'VMP') then
-
-           write(io6,*)
-           write(io6,*) 'Variable VMP is not in the history file.'
-           write(io6,*) 'Setting VMP to VMC.'
-           write(io6,*)
-           vmp = vmc
-           cycle
-
-        else
-
-           write(io6,*)
-           write(io6,*) 'Variable '//trim(varn)//' is not in the history file, skipping'
-           write(io6,*)
-           cycle
-
-        endif
+        write(io6,*)
+        write(io6,*) 'Variable '//trim(varn)//' is not in the history file, skipping'
+        write(io6,*)
+        cycle
      endif
 
      ! Identify the points we want to read from the history file

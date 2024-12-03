@@ -51,9 +51,9 @@ subroutine prog_wrtv_rk()
   use mem_ijtabs,   only: jtab_v, jtab_w, jtw_wadj, jtm_vadj, jtv_prog, istp, &
                           jtv_wadj, jtv_lbcp, jtw_prog, jtw_lbcp, itab_w, itab_v
   use mem_basic,    only: rho, thil, wc, press, vmc, vc, wmc, &
-                          vxe, vye, vze, vmsc, vxesc, vyesc, vzesc
+                          vxe, vye, vze, vmasc
   use mem_grid,     only: mza, mva, mwa, lpv, lpw, dzto2, dztsqo6, volt, xev, &
-                          nve2_max, lve2
+                          nve2_max, lve2, arv
   use mem_tend,     only: thilt, vmxet, vmyet, vmzet, vmt
   use misc_coms,    only: iparallel, dtsm, dtlm, nrk_wrtv, dn01d, th01d, &
                           initial, nrk_scal, deltax, nxp, mdomain
@@ -119,6 +119,8 @@ subroutine prog_wrtv_rk()
   real :: gyps_vze(mza,mwa)
 
   real :: unit_dist, fracx, rayfx
+
+  real(r8) :: vmca(mza,mva)
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!  real :: gxxps_vxe(mza,mwa)
@@ -277,7 +279,7 @@ subroutine prog_wrtv_rk()
 
   do istage = 1, nrk_wrtv
 
-     if (nrk_wrtv == 2) then
+     if (nrk_wrtv <= 2) then
         dt8 = xstg2(istage) * dtsm
      else
         dt8 = xstg3(istage) * dtsm
@@ -472,12 +474,16 @@ subroutine prog_wrtv_rk()
      !$omp do private(iv,k,iw1,iw2)
      do j = 1,jtab_v(jtv_wadj)%jend; iv = jtab_v(jtv_wadj)%iv(j)
 
+        do k = lpv(iv), mza
+           vmca(k,iv) = real( vmc(k,iv) * arv(k,iv), r8)
+        enddo
+
         ! Save half-forward velocities from the final R-K stage for
         ! scalar transport
 
         if (istage == nrk_wrtv) then
            do k = lpv(iv), mza
-              vmsc(k,iv) = vmsc(k,iv) + vmc(k,iv)
+              vmasc(k,iv) = vmasc(k,iv) + vmca(k,iv)
            enddo
         endif
 
@@ -596,22 +602,11 @@ subroutine prog_wrtv_rk()
 
         ! Prognose vertical velocity, density, thil, and diagnose pressure
 
-        call prog_wrt_begs( iw, istage, dts, dt8,                 &
+        call prog_wrt_begs( iw, istage, dt8,                      &
                             thil_upv, vxe_upv, vye_upv, vze_upv,  &
                             thil_upw, vxe_upw, vye_upw, vze_upw,  &
                             thilt_short, vmxet_rk, vmyet_rk, vmzet_rk, &
-                            rho0, rth0, wmc0 )
-
-        ! Store half-forward earth cartesian velocities from the appropriate R-K
-        ! stage if the original single-step scalar advection scheme is used
-
-        if (nrk_scal == 1 .and. istage == nrk_wrtv) then
-           do k = lpw(iw), mza
-              vxesc(k,iw) = vxesc(k,iw) + vxe(k,iw)
-              vyesc(k,iw) = vyesc(k,iw) + vye(k,iw)
-              vzesc(k,iw) = vzesc(k,iw) + vze(k,iw)
-           enddo
-        endif
+                            rho0, rth0, wmc0, vmca )
 
      enddo
      !$omp end do nowait
@@ -693,14 +688,14 @@ end subroutine prog_wrtv_rk
 !=========================================================================
 
 
-subroutine prog_wrt_begs( iw, istage, dts, dt8,                 &
+subroutine prog_wrt_begs( iw, istage, dt8,                      &
                           thil_upv, vxe_upv, vye_upv, vze_upv,  &
                           thil_upw, vxe_upw, vye_upw, vze_upw,  &
                           thilt_short, vmxet_rk, vmyet_rk, vmzet_rk, &
-                          rho0, rth0, wmc0 )
+                          rho0, rth0, wmc0, vmca )
 
   use mem_ijtabs,  only: itab_w
-  use mem_basic,   only: wmc, rho, thil, wc, press, vxe, vye, vmc, wmsc, &
+  use mem_basic,   only: wmc, rho, thil, wc, press, vxe, vye, wmasc, &
                          alpha_press, pwfac
   use misc_coms,   only: nrk_wrtv, mdomain
   use consts_coms, only: cpocv, rocv, fcoriol, pi1, pio180, r8
@@ -715,7 +710,6 @@ subroutine prog_wrt_begs( iw, istage, dts, dt8,                 &
   implicit none
 
   integer,  intent(in) :: iw, istage
-  real,     intent(in) :: dts
   real(r8), intent(in) :: dt8
 
   real, intent(in)    :: thil_upv(mza,mva)
@@ -733,42 +727,37 @@ subroutine prog_wrt_begs( iw, istage, dts, dt8,                 &
   real, intent(inout) :: vmyet_rk(mza,mwa)
   real, intent(inout) :: vmzet_rk(mza,mwa)
 
-  real(r8), intent(in) :: rth0(mza,mva)
-  real(r8), intent(in) :: rho0(mza,mva)
-  real,     intent(in) :: wmc0(mza,mva)
-
-! real(r8), intent(in) :: rho0(mza,mva)
+  real(r8), intent(in) :: rth0(mza,mwa)
+  real(r8), intent(in) :: rho0(mza,mwa)
+  real,     intent(in) :: wmc0(mza,mwa)
+  real(r8), intent(in) :: vmca(mza,mva)
 
   integer :: jv, iv
   integer :: k, ka, kbv, ksw
   integer :: npoly
 
-  real :: c8, c9
-  real :: dirv, vmarv
+  real :: c8, c9, dts
   real :: rad0_swtc, rad_swtc, topo_swtc
 
   ! Vertical implicit scheme weighting parameters
 
-  real, parameter :: fr  = .55 ! rho
-  real, parameter :: fp2 = .55 ! press in W
-  real, parameter :: fp3 = .70 ! press in V
+  real(r8), parameter :: fr  = .55 ! rho
+  real(r8), parameter :: fp2 = .55 ! press in W
+  real(r8), parameter :: fp3 = .70 ! press in V
 
-  real, parameter :: pc2 = fp2 * cpocv
-  real, parameter :: pc3 = fp3 * cpocv
+  real(r8), parameter :: pc2 = fp2 * cpocv
+  real(r8), parameter :: pc3 = fp3 * cpocv
 
   ! Automatic arrays
 
-  real(r8) :: wmarw8(mza)
-  real     :: wmarw
-
-  real(r8) :: hflux_rho(mza)
+  real(r8) :: wmarw    (mza)
+  real(r8) :: hflx_rho (mza)
   real(r8) :: delex_rho(mza)
   real(r8) :: delex_rhothil(mza)
-  real(r8) :: del_rhothil
   real(r8) :: po_swtc(mza)
 
-  real(r8) :: rhothil  (mza)
-  real(r8) :: thilt_rk (mza)
+  real(r8) :: rhothil   (mza)
+  real(r8) :: thilt_rk  (mza)
   real(r8) :: vflux_thil(mza)
 
 ! real(r8) :: press_t  (mza)
@@ -797,6 +786,8 @@ subroutine prog_wrt_begs( iw, istage, dts, dt8,                 &
   real :: b7, b8, b21, b22, b23, b24, b25, b26
   real :: b15(mza), b31(mza), b32(mza), b33(mza)
 
+  dts = real(dt8)
+
   ka = lpw(iw)
 
   do k = ka, mza
@@ -805,42 +796,42 @@ subroutine prog_wrt_begs( iw, istage, dts, dt8,                 &
 
   ! Initialize horizontal advection arrays to zero
 
-  hflux_rho  = 0._r8
-
-  ! Number of edges of this IW polygon
-
-  npoly = itab_w(iw)%npoly
+  hflx_rho  = 0._r8
 
   ! Sum advective tendencies over V neighbors of this cell
 
-  !dir$ loop count max=7
-  do jv = 1,npoly
+  do jv = 1, itab_w(iw)%npoly
+     iv  = itab_w(iw)%iv(jv)
+     kbv = lpv(iv)
 
-     iv   = itab_w(iw)%iv(jv)
-     kbv  = lpv(iv)
-     dirv = itab_w(iw)%dirv(jv)
+     if ( itab_w(iw)%dirv(jv) > 0) then
 
-     ! Loop over T levels
-     do k = kbv, mza
+        do k = kbv, mza
+           hflx_rho(k)    = hflx_rho(k)    + vmca(k,iv)
+           thilt_rk(k)    = thilt_rk(k)    + vmca(k,iv) * thil_upv(k,iv)
+           vmxet_rk(k,iw) = vmxet_rk(k,iw) + vmca(k,iv) * vxe_upv (k,iv)
+           vmyet_rk(k,iw) = vmyet_rk(k,iw) + vmca(k,iv) * vye_upv (k,iv)
+           vmzet_rk(k,iw) = vmzet_rk(k,iw) + vmca(k,iv) * vze_upv (k,iv)
+        enddo
 
-        vmarv = dirv * vmc(k,iv) * arv(k,iv)
+     else
 
-        ! Sum horizontal advection fluxes over V faces
+        do k = kbv, mza
+           hflx_rho(k)    = hflx_rho(k)    - vmca(k,iv)
+           thilt_rk(k)    = thilt_rk(k)    - vmca(k,iv) * thil_upv(k,iv)
+           vmxet_rk(k,iw) = vmxet_rk(k,iw) - vmca(k,iv) * vxe_upv (k,iv)
+           vmyet_rk(k,iw) = vmyet_rk(k,iw) - vmca(k,iv) * vye_upv (k,iv)
+           vmzet_rk(k,iw) = vmzet_rk(k,iw) - vmca(k,iv) * vze_upv (k,iv)
+        enddo
 
-        hflux_rho (k)  = hflux_rho(k)   + vmarv
-
-        thilt_rk(k)    = thilt_rk(k)    + vmarv * thil_upv(k,iv)
-        vmxet_rk(k,iw) = vmxet_rk(k,iw) + vmarv * vxe_upv (k,iv)
-        vmyet_rk(k,iw) = vmyet_rk(k,iw) + vmarv * vye_upv (k,iv)
-        vmzet_rk(k,iw) = vmzet_rk(k,iw) + vmarv * vze_upv (k,iv)
-
-     enddo
+     endif
 
   enddo
 
   if (mdomain > 1) then
 
      ! Coriolis and large-scale PGF tendencies for limited-area run
+
      do k = ka, mza
         mass = real( rho(k,iw) * volt(k,iw) )
         vmxet_rk(k,iw) = vmxet_rk(k,iw) + mass * fcoriol * (vye(k,iw) - nl%v_geostrophic)
@@ -850,6 +841,7 @@ subroutine prog_wrt_begs( iw, istage, dts, dt8,                 &
   else
 
      ! Coriolis tendencies for global run
+
      do k = ka, mza
         mass = real( rho(k,iw) * volt(k,iw) )
         vmxet_rk(k,iw) = vmxet_rk(k,iw) + mass * fcoriol * vye(k,iw)
@@ -858,44 +850,49 @@ subroutine prog_wrt_begs( iw, istage, dts, dt8,                 &
 
   endif
 
-  ! density tenency
+  ! Explicit density and theta tendency terms
 
   do k = ka, mza
      rhothil(k) = rho(k,iw) * thil(k,iw)
 
-     b10(k) = dt8 * real(volti(k,iw),r8)
+     b10(k) = dt8 * volti(k,iw)
      b5 (k) = alpha_press(k,iw) * real(rhothil(k)) ** rocv
-     b15(k) = b10(k) * real(b5(k))
+     b15(k) = b10(k) * b5(k)
 
      ! Explicit density tendency
-
-     delex_rho(k) = b10(k) * hflux_rho(k)
-
-     if (nudflag == 1) delex_rho(k) = delex_rho(k) + dts * rhot_nud(k,iw)
+     delex_rho(k) = b10(k) * hflx_rho(k)
 
      ! Explicit density-thil tendency
-
      delex_rhothil(k) = b10(k) * thilt_rk(k)
-
-     if (istage > 1) then
-        delex_rho    (k) = delex_rho    (k) + rho0(k,iw) - rho(k,iw)
-        delex_rhothil(k) = delex_rhothil(k) + rth0(k,iw) - rhothil(k)
-     endif
-
-     press_ex(k) = b5(k) * (rhothil(k) + pc2 * delex_rhothil(k))
-
-!    mass_ex (k) = volt(k,iw) * (rho(k,iw) + fr * delex_rho(k))
-     rho_ex  (k) = rho(k,iw) + fr * delex_rho(k)
-
   enddo
 
-  ! Vertical loop over W levels
+  ! Include nudging terms in density tendency
+
+  if (nudflag == 1) then
+     do k = ka, mza
+        delex_rho(k) = delex_rho(k) + dt8 * rhot_nud(k,iw)
+     enddo
+  endif
+
+  ! R-K time offset
+
+  if (istage > 1) then
+     do k = ka, mza
+        delex_rho    (k) = delex_rho    (k) + rho0(k,iw) - rho(k,iw)
+        delex_rhothil(k) = delex_rhothil(k) + rth0(k,iw) - rhothil(k)
+     enddo
+  endif
+
+  ! Updated pressure and density from explicit tendency terms
+
+  do k = ka, mza
+     press_ex(k) = b5(k) * (rhothil(k) + pc2 * delex_rhothil(k))
+     rho_ex  (k) =           rho(k,iw) + fr  * delex_rho    (k)
+  enddo
+
+  ! Explicit W momentum tendency
 
   do k = ka, mza-1
-
-!    b4(k) = gravm(k) * volwi(k,iw)
-
-     ! Explicit vertical momentum tendency
 
      delex_wm(k) = wmc0(k,iw) + dts * ( &
 
@@ -905,7 +902,6 @@ subroutine prog_wrt_begs( iw, istage, dts, dt8,                 &
 
           ! Z-weighted buoyancy forcing in vertical between T levels
 
-!         - (mass_ex(k) + mass_ex(k+1)) * b4(k)  &
           - real( gdz_wgtm8(k) * rho_ex(k) + gdz_wgtp8(k) * rho_ex(k+1) ) &
 
           ! Volume-weighted momentum forcings in vertical between T levels
@@ -918,98 +914,26 @@ subroutine prog_wrt_begs( iw, istage, dts, dt8,                 &
 
   ! Fill matrix coefficients for implicit update of WM
 
-  ! Loop over W pts
-!  do k = ka, mza-1
-!     b1(k)  = wnx(iw) * vxe_upw(k,iw) &
-!            + wny(iw) * vye_upw(k,iw) &
-!            + wnz(iw) * vze_upw(k,iw)
-!  enddo
-
-! b2(ka-1) = thil(ka,iw)
-! b2(mza)  = thil(mza,iw)
-! b2(ka-1)= 2. * thil(ka,iw)
-! b2(mza) = 2. * thil(mza,iw)
-
-! b1(ka-1) = 0.
-! b1(mza)  = 0.
-
-  ! Loop over T pts
-! do k = ka, mza
-!    b1(k)  = wc(k,iw) + wc(k-1,iw)
-!    b5(k)  = press_t(k) / rhothil(k)
-!    b6(k)  = c6  * volti(k,iw)
-!     b10(k) = c10 * volti(k,iw)
-!  enddo
-
-  c8  =  dts * pc2
-  c9  = -dts * dts * fr
+  c8  =        dts * real(pc2)
+  c9  = -dts * dts * real(fr)
 
   ! Loop over W pts
   do k = ka, mza-1
-
-!    b7  = c11 * volwi(k,iw)
-!    b7(k)  = c6 * volwi(k,iw)
-
-!    b9(k)  = c9 * dzim(k)
-!    b9(k)  = c9 * grav * volwi(k,iw) * vfac(k)
-
-!    b11 = b8 * b5(k)
-!    b12 = b8 * b5(k+1)
-
-!     b13(k) = b9(k)  * dzt_top(k)
-!     b14(k) = b9(k)  * dzt_bot(k+1)
-
-!    b9 = c9 * b4(k)
-!    b9 = c9 * dts * b4(k)
-
-!    b13 = b9 * volt(k,iw)
-!    b14 = b9 * volt(k+1,iw)
-
-!     b13 = c9 * gdz_wgtm8(k)
-!     b14 = c9 * gdz_wgtp8(k)
-
-!    b13(k) = b9(k)  * volt(k  ,iw)
-!    b14(k) = b9(k)  * volt(k+1,iw)
-
-!    b21 = b7 * b1(k-1)
-!    b22 = b7 * b1(k+1)
-
      b7  = dts * volwi(k,iw)
+     b8  = c8  * pwfac(k,iw)
 
      b21 = b7 * wc(k-1,iw)
      b22 = b7 * wc(k+1,iw)
-!    b21(k) = b7(k)  * wc(k-1,iw)
-!    b22(k) = b7(k)  * wc(k+1,iw)
-
-!    b23(k) = b11(k) * b6(k)
-!    b24(k) = b12(k) * b6(k+1)
-
-     b8  = c8 * pwfac(k,iw)
 
      b23 = b8 * b15(k)
      b24 = b8 * b15(k+1)
 
-!    b25 = b13 * b10(k)
-!    b26 = b14 * b10(k+1)
-
      b25 = c9 * volti(k  ,iw) * gdz_wgtm(k)
      b26 = c9 * volti(k+1,iw) * gdz_wgtp(k)
 
-!    b25(k) = b9(k) * c10
-!    b26(k) = b9(k) * c10
-
-!            * (b2(k) * (b23(k) + b24(k)) + b25(k) - b26(k))
-!           * (b22(k) - b21(k) + b2(k) * (b23(k) + b24(k)) + b25(k) - b26(k))
-
-!    b31(k) =        - arw(k-1,iw) * (b21 + b23 * thil_upw(k-1,iw) + b9)
-     b31(k) =        - arw(k-1,iw) * (b21 + b23 * thil_upw(k-1,iw) + b25)
-
-!    b32(k) = b20(k) + arw(k  ,iw) * thil_upw(k,iw) * (b23 + b24)
-     b32(k) = b20(k) + arw(k  ,iw) * (thil_upw(k,iw) * (b23 + b24) + b25 - b26)
-
-!    b33(k) =          arw(k+1,iw) * (b22 - b24 * thil_upw(k+1,iw) + b9)
-     b33(k) =          arw(k+1,iw) * (b22 - b24 * thil_upw(k+1,iw) + b26)
-
+     b31(k) =        - arw(k-1,iw) * (b21 + b25 +  b23        * thil_upw(k-1,iw))
+     b32(k) = b20(k) + arw(k  ,iw) * (b25 - b26 + (b23 + b24) * thil_upw(k  ,iw))
+     b33(k) =          arw(k+1,iw) * (b22 + b26 -        b24  * thil_upw(k+1,iw))
   enddo
 
   ! Solve implicit tri-diagonal matrix equation for delta WM (del_wm)
@@ -1018,30 +942,29 @@ subroutine prog_wrt_begs( iw, istage, dts, dt8,                 &
      call tridiffo(mza,ka,mza-1,b31,b32,b33,delex_wm,wmf)
   endif
 
-  ! Vertical loop over W points
+  ! Fluxes from updated vertical momentum
 
   do k = ka, mza-1
+     wmarw(k) = real( wmf(k) * arw(k,iw), r8)
 
-     wmarw8(k) = wmf(k) * arw(k,iw)
-     wmarw     = wmarw8(k)
-
-     vflux_thil(k) = wmarw * thil_upw(k,iw)
-     vflux_vxe (k) = wmarw * vxe_upw (k,iw)
-     vflux_vye (k) = wmarw * vye_upw (k,iw)
-     vflux_vze (k) = wmarw * vze_upw (k,iw)
-
-     ! Add vertical momentum at (t+fw) to array for long-timestep scalar transport
-
-     if (istage == nrk_wrtv) then
-        wmsc(k,iw) = wmsc(k,iw) + wmf(k)
-     endif
-
+     vflux_thil(k) = wmarw(k) * thil_upw(k,iw)
+     vflux_vxe (k) = wmarw(k) * vxe_upw (k,iw)
+     vflux_vye (k) = wmarw(k) * vye_upw (k,iw)
+     vflux_vze (k) = wmarw(k) * vze_upw (k,iw)
   enddo
 
-  ! Set bottom & top vertical advective mass and heat fluxes to zero
+  ! Add vertical momentum at (t+fw) to array for long-timestep scalar transport
 
-  wmarw8(ka-1) = 0._r8
-  wmarw8(mza)  = 0._r8
+  if (istage == nrk_wrtv) then
+     do k = ka, mza-1
+        wmasc(k,iw) = wmasc(k,iw) + wmarw(k)
+     enddo
+  endif
+
+  ! Set bottom & top vertical advective mass, momentum, and heat fluxes to zero
+
+  wmarw(ka-1) = 0._r8
+  wmarw(mza)  = 0._r8
 
   vflux_thil(ka-1) = 0.
   vflux_thil(mza)  = 0.
@@ -1070,21 +993,20 @@ subroutine prog_wrt_begs( iw, istage, dts, dt8,                 &
 
      ! Change of rho from (t) to (t+1)
 
-     rho(k,iw) = rho(k,iw) + delex_rho(k) + b10(k) * (wmarw8(k-1) - wmarw8(k))
-     rhoi       = 1.0_r8 / rho(k,iw)
+     rho(k,iw) = rho(k,iw) + delex_rho(k) + b10(k) * (wmarw(k-1) - wmarw(k))
 
      ! Change of rhothil from (t) to (t+1)
 
-     del_rhothil = delex_rhothil(k) &
-                 + b10(k) * (vflux_thil(k-1) - vflux_thil(k))
+     delex_rhothil(k) = delex_rhothil(k) &
+                      + b10(k) * (vflux_thil(k-1) - vflux_thil(k))
 
      ! Update pressure from (t) to (t+tp)
 
-     press(k,iw) = b5(k) * (rhothil(k) + pc3 * del_rhothil)
+     press(k,iw) = b5(k) * (rhothil(k) + pc3 * delex_rhothil(k))
 
      ! Update thil from (t) to (t+1)
 
-     thil(k,iw) = (rhothil(k) + del_rhothil) * rhoi
+     thil(k,iw) = ( rhothil(k) + delex_rhothil(k) ) / rho(k,iw)
 
      ! Update volume-weighted momentum tendencies at T due to implicit flux correction
 
@@ -1125,9 +1047,6 @@ subroutine prog_wrt_begs( iw, istage, dts, dt8,                 &
   ! Set top & bottom values of WC
 
   wc(ka-1,iw) = wc(ka,iw)
-
-!  wc(1:ka-2,iw) = 0.
-!  wc(mza   ,iw) = 0.
 
   ! Bottom boundary for THIL
 

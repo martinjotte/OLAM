@@ -370,7 +370,6 @@
 
    NL%ACOUST_TIMESTEP_LEVEL = 3  ! Acoustic time-stepping scheme
    NL%SCALAR_TIMESTEP_LEVEL = 2  ! Long (scalar) time-stepping scheme
-                                 ! 1 = Bob's original 1-step scheme
                                  ! 2 = Runge-Kutta 2-step scheme (RK2)
                                  ! 3 = Runge-Kutta 3-step scheme (RK3)
 

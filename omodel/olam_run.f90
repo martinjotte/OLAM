@@ -45,8 +45,6 @@ subroutine olam_run(name_name)
   use mem_adv,     only: alloc_adv
   use mem_co2,     only: co2init
   use wrtv_rk,     only: init_wrtv_rk
-  use wrtv_orig,   only: init_wrtv_orig
-
   use cgrid_spcs,  only: cgrid_spcs_init
   use aero_data,   only: map_aero
   use emis_defn,   only: emis_init
@@ -567,11 +565,7 @@ subroutine olam_run(name_name)
 
   ! Extra initializations for small-timestep solver
 
-  if (nrk_wrtv == 1) then
-     call init_wrtv_orig()
-  else
-     call init_wrtv_rk()
-  endif
+  call init_wrtv_rk()
 
   ! Initialize emissions/deposition if doing chemistry
 

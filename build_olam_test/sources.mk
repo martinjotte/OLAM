@@ -112,10 +112,8 @@ SOURCE_FILES= \
              $(OMODEL)/oplot_lib.f90 \
              $(OMODEL)/othrm.f90 \
              $(OMODEL)/para_decomp.F90 \
-             $(OMODEL)/prog_wrtv_orig.f90 \
              $(OMODEL)/prog_wrtv_rk.f90 \
              $(OMODEL)/salt_dust_src.f90 \
-             $(OMODEL)/scalar_transport_orig.F90 \
              $(OMODEL)/scalar_transport_rk.F90 \
              $(OMODEL)/spawn_nest.f90 \
              $(OMODEL)/spring_dynamics.f90 \

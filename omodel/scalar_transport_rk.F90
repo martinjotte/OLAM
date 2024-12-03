@@ -13,7 +13,7 @@ subroutine scalar_transport_rk(rho_old)
   use grad_lib,     only: grad_t2d, grad_t2d_quad, grad_z_quad
   use mem_adv,      only: gxps_scp, gyps_scp, gxyps_scp, gxxps_scp, gyyps_scp, &
                           xx0_v, yy0_v, xy0_v
-  use mem_basic,    only: rho, vmsca=>vmsc, wmsca=>wmsc, thil, theta, rr_v
+  use mem_basic,    only: rho, vmasc, wmasc, thil, theta, rr_v
   use misc_coms,    only: nrk_scal
   use tridiag,      only: tridif_prep, tridif_fini
   use mem_nudge,    only: nudflag, rhot_nud
@@ -24,24 +24,26 @@ subroutine scalar_transport_rk(rho_old)
 
   implicit none
 
-  real(r8), intent(in) :: rho_old(mza,mwa)
+  real, intent(in) :: rho_old(mza,mwa)
 
   integer  :: j,iw,iw1,iw2,istage
   integer  :: n,k,kb,iv,iwn,jv
   integer  :: iorder,imonot
   real     :: dirv
   real     :: dtl
+  real(r8) :: dtlr
   real(r8) :: rhof(mza)
 
 ! Automatic arrays:
 
-  real(r8) :: rscp0(mza,mwa)
-  real(r8) :: rhoi (mza,mwa,nrk_scal)
-  real(r8) :: fluxdiv(mza), vflux(mza)
+  real :: rscp0(mza,mwa)
+  real :: rhos (mza,mwa,nrk_scal)
 
-  real :: scp_upv(mza,mva)
+  real(r8) :: fluxdiv(mza), sfluxw(mza)
+  real(r8) :: sfluxv(mza,mva)
+
+  real :: scp_upv(mza)
   real :: scp_upw(mza)
-  real :: hflux(mza)
   real :: gzps(mza), gzzps(mza)
 
   real, allocatable :: scpmax(:,:)
@@ -54,9 +56,6 @@ subroutine scalar_transport_rk(rho_old)
   real, pointer, contiguous :: scp(:,:)
   real, pointer, contiguous :: sct(:,:)
 
-  real, parameter :: twothird = 2. / 3.
-  real, parameter :: onethird = 1. / 3.
-
   real :: c1, c2, scp2
   real :: delex_scp(mza), del_scp(mza)
 
@@ -68,8 +67,9 @@ subroutine scalar_transport_rk(rho_old)
   real :: b2a(mza), b3a(mza)
   integer :: kwtop(mwa)
 
-  real, parameter :: frk3(3) = (/ onethird, 0.5, 1.0 /)
-  real, parameter :: frk2(2) =           (/ 0.5, 1.0 /)
+  real(r8), parameter :: onethird = 1._r8 / 3._r8
+  real(r8), parameter :: frk3(3) = [ onethird, 0.5_r8, 1.0_r8 ]
+  real(r8), parameter :: frk2(2) =           [ 0.5_r8, 1.0_r8 ]
 
   iorder = nl%horiz_adv_order
   imonot = nl%iscal_monot
@@ -79,25 +79,7 @@ subroutine scalar_transport_rk(rho_old)
      allocate(scpmin(mza,mwa))
   endif
 
-  !$omp parallel
-  !$omp do private(iw,k)
-  do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
-     do k = lpw(iw), mza-1
-        wmsca(k,iw) = wmsca(k,iw) * arw(k,iw)
-     enddo
-  enddo
-  !$omp end do nowait
-
-  !$omp do private(iv,k)
-  do j = 1,jtab_v(jtv_wadj)%jend; iv = jtab_v(jtv_wadj)%iv(j)
-     do k = lpv(iv), mza
-        vmsca(k,iv) = vmsca(k,iv) * arv(k,iv)
-     enddo
-  enddo
-  !$omp end do nowait
-  !$omp end parallel
-
-  call check_cfls( vmsca, wmsca, rho_old, nrk_scal, ff_implic )
+  call check_cfls( vmasc, wmasc, rho_old, nrk_scal, ff_implic )
 
   do_implic = .false.
   nn_implic = 0
@@ -128,16 +110,16 @@ subroutine scalar_transport_rk(rho_old)
      if (nrk_scal == 3) then
 
         do k = kb, mza
-           rhoi(k,iw,1) = 3._r8 / (2._r8 * rho_old(k,iw) + rhof(k))
-           rhoi(k,iw,2) = 2._r8 / (rho_old(k,iw) + rhof(k))
-           rhoi(k,iw,3) = 1._r8 / rhof(k)
+           rhos(k,iw,1) = 2./3. * rho_old(k,iw) + 1./3. * rhof(k)
+           rhos(k,iw,2) = 0.5 * (rho_old(k,iw) + rhof(k))
+           rhos(k,iw,3) = rhof(k)
         enddo
 
      else
 
         do k = kb, mza
-           rhoi(k,iw,1) = 2._r8 / (rho_old(k,iw) + rhof(k))
-           rhoi(k,iw,2) = 1._r8 / rhof(k)
+           rhos(k,iw,1) = 0.5 * (rho_old(k,iw) + rhof(k))
+           rhos(k,iw,2) = rhof(k)
         enddo
 
      endif
@@ -182,14 +164,14 @@ subroutine scalar_transport_rk(rho_old)
         wdn(kb-1) = 0.0
 
         do k = kb, mza-1
-           wup(k) = max(wmsca(k,iw), 0.0)
-           wdn(k) = min(wmsca(k,iw), 0.0)
+           wup(k) = max(wmasc(k,iw), 0._r8)
+           wdn(k) = min(wmasc(k,iw), 0._r8)
         enddo
 
         c1 = ff_implic(iw) * dtl
 
         do k = kb, mza
-           c2 = c1 * volti(k,iw) * real(rhoi(k,iw,nrk_scal))
+           c2 = c1 * volti(k,iw) / rhos(k,iw,nrk_scal)
            b1 (k,j) =     - c2 * wup(k-1)
            b2a(k)   = 1.0 + c2 * (wup(k) - wdn(k-1))
            b3a(k)   =       c2 * wdn(k)
@@ -211,7 +193,7 @@ subroutine scalar_transport_rk(rho_old)
      scp => scalar_tab(n)%var_p(:,:)
      sct => scalar_tab(n)%var_t(:,:)
 
-     !$omp parallel private(hflux)
+     !$omp parallel private(fluxdiv)
      !$omp do private(iw,kb,k,jv,iv,iwn)
      do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
         kb = lpw(iw)
@@ -226,7 +208,7 @@ subroutine scalar_transport_rk(rho_old)
 
         if (scalar_tab(n)%do_sgsmix .and. kwtop(iw) >= kb) then
 
-           hflux(kb:kwtop(iw)) = 0.
+           fluxdiv(kb:kwtop(iw)) = 0._r8
 
            do jv = 1, itab_w(iw)%npoly
               iv  = itab_w(iw)%iv(jv)
@@ -234,14 +216,14 @@ subroutine scalar_transport_rk(rho_old)
 
               ! Vertical loop over T levels
               do k = lpv(iv), khtopv(iv)
-                 hflux(k) = hflux(k) + akhodx(k,iv) * (scp(k,iwn) - scp(k,iw))
+                 fluxdiv(k) = fluxdiv(k) + real( akhodx(k,iv) * (scp(k,iwn) - scp(k,iw)), r8)
               enddo
 
            enddo
 
            ! Vertical loop over T levels
            do k = kb, kwtop(iw)
-              sct(k,iw) = sct(k,iw) + hflux(k) * volti(k,iw)
+              sct(k,iw) = sct(k,iw) + fluxdiv(k) * volti(k,iw)
            enddo
 
         endif
@@ -255,9 +237,9 @@ subroutine scalar_transport_rk(rho_old)
      do istage = 1, nrk_scal
 
         if (nrk_scal == 3) then
-           dtl = frk3(istage) * real( dtlm )
+           dtlr = frk3(istage) * dtlm
         else
-           dtl = frk2(istage) * real( dtlm )
+           dtlr = frk2(istage) * dtlm
         endif
 
         !$omp parallel do private(iw,kb,k,jv,iv,iwn)
@@ -335,7 +317,7 @@ subroutine scalar_transport_rk(rho_old)
         ! Horizontal loop over all V points surrounding primary W/T columns
         ! to compute upwinded scalar value at the V points
 
-        !$omp parallel private(delex_scp,del_scp,fluxdiv,vflux,scp_upw,gzps,gzzps)
+        !$omp parallel private(scp_upv,delex_scp,del_scp,fluxdiv,sfluxw,scp_upw,gzps,gzzps)
         !$omp do private(iv,k,iw1,iw2)
         do j = 1,jtab_v(jtv_wadj)%jend; iv = jtab_v(jtv_wadj)%iv(j)
            iw1 = itab_v(iv)%iw(1)
@@ -345,14 +327,14 @@ subroutine scalar_transport_rk(rho_old)
 
               do k = lpv(iv), mza
 
-                 if (vmsca(k,iv) > 0.) then
-                    scp_upv(k,iv) = vmsca(k,iv) * (           scp(k,iw1) &
-                                  + itab_v(iv)%dxps(1) * gxps_scp(k,iw1) &
-                                  + itab_v(iv)%dyps(1) * gyps_scp(k,iw1) )
+                 if (vmasc(k,iv) > 0.) then
+                    scp_upv(k) =                           scp(k,iw1) &
+                               + itab_v(iv)%dxps(1) * gxps_scp(k,iw1) &
+                               + itab_v(iv)%dyps(1) * gyps_scp(k,iw1)
                  else
-                    scp_upv(k,iv) = vmsca(k,iv) * (           scp(k,iw2) &
-                                  + itab_v(iv)%dxps(2) * gxps_scp(k,iw2) &
-                                  + itab_v(iv)%dyps(2) * gyps_scp(k,iw2) )
+                    scp_upv(k) =                           scp(k,iw2) &
+                               + itab_v(iv)%dxps(2) * gxps_scp(k,iw2) &
+                               + itab_v(iv)%dyps(2) * gyps_scp(k,iw2)
                  endif
 
               enddo
@@ -361,25 +343,30 @@ subroutine scalar_transport_rk(rho_old)
 
               do k = lpv(iv), mza
 
-                 if (vmsca(k,iv) > 0.) then
-                    scp_upv(k,iv) = vmsca(k,iv) * (            scp(k,iw1) &
-                                  + itab_v(iv)%dxps(1) *  gxps_scp(k,iw1) &
-                                  + itab_v(iv)%dyps(1) *  gyps_scp(k,iw1) &
-                                  + xx0_v(1,iv)        * gxxps_scp(k,iw1) &
-                                  + yy0_v(1,iv)        * gyyps_scp(k,iw1) &
-                                  + xy0_v(1,iv)        * gxyps_scp(k,iw1) )
+                 if (vmasc(k,iv) > 0._r8) then
+                    scp_upv(k) =                            scp(k,iw1) &
+                               + itab_v(iv)%dxps(1) *  gxps_scp(k,iw1) &
+                               + itab_v(iv)%dyps(1) *  gyps_scp(k,iw1) &
+                               + xx0_v(1,iv)        * gxxps_scp(k,iw1) &
+                               + yy0_v(1,iv)        * gyyps_scp(k,iw1) &
+                               + xy0_v(1,iv)        * gxyps_scp(k,iw1)
 
                  else
-                    scp_upv(k,iv) = vmsca(k,iv) * (            scp(k,iw2) &
-                                  + itab_v(iv)%dxps(2) *  gxps_scp(k,iw2) &
-                                  + itab_v(iv)%dyps(2) *  gyps_scp(k,iw2) &
-                                  + xx0_v(2,iv)        * gxxps_scp(k,iw2) &
-                                  + yy0_v(2,iv)        * gyyps_scp(k,iw2) &
-                                  + xy0_v(2,iv)        * gxyps_scp(k,iw2) )
+                    scp_upv(k) =                            scp(k,iw2) &
+                               + itab_v(iv)%dxps(2) *  gxps_scp(k,iw2) &
+                               + itab_v(iv)%dyps(2) *  gyps_scp(k,iw2) &
+                               + xx0_v(2,iv)        * gxxps_scp(k,iw2) &
+                               + yy0_v(2,iv)        * gyyps_scp(k,iw2) &
+                               + xy0_v(2,iv)        * gxyps_scp(k,iw2)
                  endif
 
               enddo
+
            endif
+
+           do k = lpv(iv), mza
+              sfluxv(k,iv) = vmasc(k,iv) * scp_upv(k)
+           enddo
 
         enddo
         !$omp end do
@@ -399,45 +386,60 @@ subroutine scalar_transport_rk(rho_old)
               call limit_z(iw, scp(:,iw), gzps, gzzps)
            endif
 
-           ! Compute scalar values at top and bottom faces
+           ! Scalar values at top and bottom faces
 
            do k = lpw(iw), mza-1
-              if (wmsca(k,iw) > 0.) then
-                 scp_upw(k) = wmsca(k,iw) * (scp(k,iw) &
+              if (wmasc(k,iw) > 0._r8) then
+                 scp_upw(k) =                scp(k,iw) &
                             +   dzto2(k) *  gzps(k)    &
-                            + dztsqo6(k) * gzzps(k))
+                            + dztsqo6(k) * gzzps(k)
               else
-                 scp_upw(k) = wmsca(k,iw) *   (scp(k+1,iw) &
+                 scp_upw(k) =                  scp(k+1,iw) &
                             -   dzto2(k+1) *  gzps(k+1)    &
-                            + dztsqo6(k+1) * gzzps(k+1))
+                            + dztsqo6(k+1) * gzzps(k+1)
               endif
            enddo
 
-           vflux(kb-1) = 0._r8
-           vflux(mza ) = 0._r8
+           ! Scalar vertical flux
+
+           sfluxw(kb-1) = 0._r8
+           sfluxw(mza ) = 0._r8
            do k = kb, mza-1
-              vflux(k) = real( scp_upw(k), r8)
+              sfluxw(k) = wmasc(k,iw) * scp_upw(k)
            enddo
 
+           ! Scalar vertical flux divergence
+
            do k = kb, mza
-              fluxdiv(k) = vflux(k-1) - vflux(k)
+              fluxdiv(k) = sfluxw(k-1) - sfluxw(k)
            enddo
 
            ! Loop over neighbor V points of this W cell
            do jv = 1, itab_w(iw)%npoly
               iv   = itab_w(iw)%iv  (jv)
-              dirv = itab_w(iw)%dirv(jv)
 
-              ! Horizontal advective fluxes
-              do k = lpv(iv), mza
-                 fluxdiv(k) = fluxdiv(k) + dirv * scp_upv(k,iv)
-              enddo
+              ! Horizontal scalar flux divergence
+
+              if (itab_w(iw)%dirv(jv) > 0) then
+
+                 do k = lpv(iv), mza
+                    fluxdiv(k) = fluxdiv(k) + sfluxv(k,iv)
+                 enddo
+
+              else
+
+                 do k = lpv(iv), mza
+                    fluxdiv(k) = fluxdiv(k) - sfluxv(k,iv)
+                 enddo
+
+              endif
+
            enddo
 
            if (do_implic(iw) .and. istage == nrk_scal) then
 
               do k = kb, mza
-                 scp2 = (rscp0(k,iw) + dtl * (sct(k,iw) + volti(k,iw) * fluxdiv(k))) * rhoi(k,iw,istage)
+                 scp2 = (rscp0(k,iw) + dtlr * (sct(k,iw) + volti(k,iw) * fluxdiv(k))) / rhos(k,iw,istage)
                  delex_scp(k) = scp2 - scp(k,iw)
               enddo
 
@@ -451,14 +453,14 @@ subroutine scalar_transport_rk(rho_old)
            elseif (istage < nrk_scal .and. imonot > 0) then
 
               do k = kb, mza
-                 scp2      = (rscp0(k,iw) + dtl * volti(k,iw) * fluxdiv(k)) * rhoi(k,iw,istage)
-                 scp(k,iw) = min( max(scp2, scpmin(k,iw)), scpmax(k,iw) ) + dtl * sct(k,iw) * rhoi(k,iw,istage)
+                 scp2      = (rscp0(k,iw) + dtlr * volti(k,iw) * fluxdiv(k)) / rhos(k,iw,istage)
+                 scp(k,iw) = min( max(scp2, scpmin(k,iw)), scpmax(k,iw) ) + dtl * sct(k,iw) / rhos(k,iw,istage)
               enddo
 
            else
 
               do k = kb, mza
-                 scp(k,iw) = (rscp0(k,iw) + dtl * (sct(k,iw) + volti(k,iw) * fluxdiv(k))) * rhoi(k,iw,istage)
+                 scp(k,iw) = (rscp0(k,iw) + real( dtlr * (sct(k,iw) + volti(k,iw) * fluxdiv(k)) ) ) / rhos(k,iw,istage)
               enddo
 
            endif
@@ -753,7 +755,7 @@ end subroutine limit_h3
 
 !===============================================================================
 
-  subroutine check_cfls(vmsca, wmsca, rho, nrk, ff_implic)
+  subroutine check_cfls(vmasc, wmasc, rho, nrk, ff_implic)
 
     ! Diagnose outflow CFL number; also used for advection CFL stability check
 
@@ -772,9 +774,9 @@ end subroutine limit_h3
     implicit none
 
     integer,           intent(in ) :: nrk
-    real,              intent(in ) :: vmsca(mza,mva)
-    real,              intent(in ) :: wmsca(mza,mwa)
-    real(r8),          intent(in ) :: rho  (mza,mwa)
+    real(r8),          intent(in ) :: vmasc(mza,mva)
+    real(r8),          intent(in ) :: wmasc(mza,mwa)
+    real,              intent(in ) :: rho  (mza,mwa)
     real,              intent(out) :: ff_implic(mwa)
 
     integer :: j, iv, k, iw, n
@@ -811,6 +813,8 @@ end subroutine limit_h3
        cfl0 = 1.25
     endif
 
+    dt = dtlm
+
     !$omp parallel private(myid,cfl,cflh,ct,itk,itw,ch,ihk,ihw,wm,iwk,iww)
     !$ myid = omp_get_thread_num() + 1
 
@@ -826,10 +830,8 @@ end subroutine limit_h3
     iwk = 1
     iww = 1
 
-    !$omp do private(iw,dt,k,n,iv,dovr,cflw,fimp)
+    !$omp do private(iw,k,n,iv,dovr,cflw,fimp)
     do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
-
-       dt = dtlm
 
        cflh = 0.
        fimp = 0.
@@ -837,14 +839,14 @@ end subroutine limit_h3
        do n = 1, itab_w(iw)%npoly
           iv = itab_w(iw)%iv(n)
           do k = lpv(iv), mza
-             cflh(k) = cflh(k) - min(itab_w(iw)%dirv(n) * vmsca(k,iv), 0.0)
+             cflh(k) = cflh(k) - min(itab_w(iw)%dirv(n) * real(vmasc(k,iv)), 0.0)
           enddo
        enddo
 
        do k = lpw(iw), mza
-          dovr = dt * volti(k,iw) / real(rho(k,iw))
+          dovr = dt * volti(k,iw) / rho(k,iw)
           cflh(k) = cflh(k) * dovr
-          cflw    = (max(wmsca(k,iw),0.0) - min(wmsca(k-1,iw),0.0)) * dovr
+          cflw    = real(max(wmasc(k,iw),0._r8) - min(wmasc(k-1,iw),0._r8)) * dovr
           cfl (k) = cflh(k) + cflw
           fimp    = max(fimp, min(1.0, max(0.0, cflw - min(0.5, cfl0 - cfl(k)))))
        enddo

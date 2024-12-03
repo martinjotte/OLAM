@@ -370,6 +370,7 @@ subroutine solve_eddy_diff_scalars( iw )
   use tridiag,    only: tridv
   use var_tables, only: num_pblmix, pblmix_map, scalar_tab
   use oname_coms, only: nl
+  use consts_coms,only: r8
 
   use supercell_testm, only: rr_w_init
 
@@ -382,6 +383,7 @@ subroutine solve_eddy_diff_scalars( iw )
   real    :: vctr5(mza), vctr6(mza), vctr7(mza)
   real    :: soln(mza,num_pblmix), rhs(mza,num_pblmix), varp(mza)
   real    :: dtl, dtli, wc0
+  real(r8):: flux(mza)
 
   ! For DCMIP 2015 baroclinic and tropical cyclone tests, return here so that
   ! vertical mixing is not done by standard OLAM code; instead it will
@@ -480,19 +482,22 @@ subroutine solve_eddy_diff_scalars( iw )
 
   call tridv(vctr5, vctr6, vctr7, rhs, soln, ka, khtop(iw), mza, num_pblmix)
 
+  ! Set bottom and top vertical internal turbulent fluxes to zero
+  flux(ka-1) = 0._r8
+  flux(kmax) = 0._r8
+
   do ns = 1, num_pblmix
      n = pblmix_map(ns)
 
-     ! Set bottom and top vertical internal turbulent fluxes to zero
-
-     soln(ka-1,ns) = 0.
-     soln(kmax,ns) = 0.
-
      ! Soln contains future(t+1) fluxes. Compute scalar tendencies
+
+     do k = ka, kmax-1
+        flux(k) = real( soln(k,ns), r8 )
+     enddo
 
      do k = ka, kmax
         scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
-                                  + volti(k,iw) * (soln(k-1,ns) - soln(k,ns))
+                                  + volti(k,iw) * real( flux(k-1) - flux(k) )
      enddo
 
   enddo
@@ -506,7 +511,7 @@ subroutine solve_eddy_diff_heat(iw, thilt)
   use mem_turb,        only: vkh, kpblh, sfluxt, agamma, khtop
   use mem_basic,       only: rho, thil, theta, tair
   use misc_coms,       only: dtsm
-  use consts_coms,     only: cp
+  use consts_coms,     only: cp, r8
   use mem_grid,        only: mza, lpw, volti, dzim, arw
   use oname_coms,      only: nl
   use tridiag,         only: tridiffo
@@ -522,6 +527,7 @@ subroutine solve_eddy_diff_heat(iw, thilt)
   real    :: dts, dtom, akodz, wt0
   real    :: dtomass(mza), varp(mza)
   real    :: vctr5(mza), vctr6(mza), vctr7(mza), rhs(mza), soln(mza)
+  real(r8):: flux(mza)
 
   ! For DCMIP 2015 baroclinic and tropical cyclone tests, return here so that
   ! vertical mixing is not done by standard OLAM code; instead it will
@@ -592,13 +598,17 @@ subroutine solve_eddy_diff_heat(iw, thilt)
 
   ! Set bottom and top vertical internal turbulent fluxes to zero
 
-  soln(ka-1) = 0.0
-  soln(kmax) = 0.0
+  flux(ka-1) = 0._r8
+  flux(kmax) = 0._r8
+
+  do k = ka, kmax-1
+     flux(k) = real( soln(k), r8 )
+  enddo
 
   ! Compute temperature tendency (weighted by volumne)
 
   do k = ka, kmax
-     thilt(k) = thilt(k) + soln(k-1) - soln(k)
+     thilt(k) = thilt(k) + real( flux(k-1) - flux(k) )
   enddo
 
 end subroutine solve_eddy_diff_heat
