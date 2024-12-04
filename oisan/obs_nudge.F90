@@ -238,7 +238,7 @@ subroutine obs_nudge()
 
         ! Total water mixing ratio nudging
 
-        rr_wt(k,iw) = tnudr * (rrw_obs - rr_w(k,iw))
+        rr_wt(k,iw) = rr_wt(k,iw) + tnudr * (rrw_obs - rr_w(k,iw))
 
         ! Momentum nudging (including density change)
 
