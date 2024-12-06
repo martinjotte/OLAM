@@ -85,6 +85,10 @@ Module mem_nudge
   real(r8) :: past_mass_fact
   real(r8) :: future_mass_fact
 
+  real, allocatable :: wmanud(:,:)
+  real, allocatable :: vmanud(:,:)
+  real, allocatable :: vovera(:,:)
+
 Contains
 
   subroutine alloc_nudge1(lwnud,ii)
@@ -110,18 +114,76 @@ Contains
 
 !=========================================================================
 
-  subroutine alloc_nudge2(mza,mwa)
+  subroutine alloc_nudge2(mza,mwa,mva)
 
-    use misc_coms,   only: io6, rinit, rinit8
+    use misc_coms,  only: io6, rinit, rinit8
+    use mem_grid,   only: volt, arv, arw, lpw, lpv, dzm, arw0
+    use mem_ijtabs, only: jtab_w, jtw_prog, itab_w, jtab_v, jtv_wadj
+    use oname_coms, only: nl
+
     implicit none
 
-    integer, intent(in) :: mza, mwa
+    integer, intent(in) :: mza, mwa, mva
+    integer             :: j, iw, k, jv, iv
+    real                :: dxi
 
 !   Allocate arrays based on options (if necessary)
 
     write(io6,*) 'allocating nudge2 ',mza,mwnud
 
-    allocate ( rhot_nud(mza,mwa) )
+    if (nl%nud_preserve_total_mass) then
+
+       allocate(wmanud(mza,mwa))
+       allocate(vmanud(mza,mva))
+       allocate(vovera(mza,mwa))
+
+       !$omp parallel
+       !$omp do private(iw,k,dxi,jv,iv)
+       do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
+
+          do k = lpw(iw)-1, mza
+             wmanud(k,iw) = 0.0
+          enddo
+
+          dxi = 1. / sqrt(arw0(iw))
+          do k = lpw(iw), mza
+             vovera(k,iw) = (arw(k,iw) * dzm(k) + arw(k-1,iw) * dzm(k-1)) * dxi
+          enddo
+
+          ! Loop over neighbor V points of this W cell
+          do jv = 1, itab_w(iw)%npoly
+             iv = itab_w(iw)%iv(jv)
+
+             do k = lpv(iv), mza
+                vovera(k,iw) = vovera(k,iw) + arv(k,iv)
+             enddo
+          enddo
+
+          do k = lpw(iw), mza
+             vovera(k,iw) = real(volt(k,iw)) / vovera(k,iw)
+          enddo
+
+       enddo
+       !$omp end do nowait
+
+       !$omp do private(iv,k)
+       do j = 1,jtab_v(jtv_wadj)%jend; iv = jtab_v(jtv_wadj)%iv(j)
+          do k = lpv(iv), mza
+             vmanud(k,iv) = 0.0
+          enddo
+       enddo
+       !$omp end do nowait
+       !$omp end parallel
+
+    endif
+
+    allocate( rhot_nud(mza,mwa) )
+
+    !$omp parallel do
+    do iw = 2, mwa
+       rhot_nud(:,iw) = 0._r8
+    enddo
+    !$omp end parallel do
 
 ! The following should only be allocated for spectral nudging
 

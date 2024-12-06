@@ -69,6 +69,8 @@ subroutine prog_wrtv_rk()
   use pbl_drivers,  only: solve_eddy_diff_heat, solve_eddy_diff_vxe
   use mem_rayf,     only: dorayf, krayf_bot, rayf_cof, dorayfmix, rayf_mix_top_vxe, &
                           vc03d
+  use mem_nudge,    only: vmanud, nudflag
+
   implicit none
 
   integer  :: j, iv, iw, k, ksw, iw1, iw2, iwn, jv, istage
@@ -474,9 +476,15 @@ subroutine prog_wrtv_rk()
      !$omp do private(iv,k,iw1,iw2)
      do j = 1,jtab_v(jtv_wadj)%jend; iv = jtab_v(jtv_wadj)%iv(j)
 
-        do k = lpv(iv), mza
-           vmca(k,iv) = real( vmc(k,iv) * arv(k,iv), r8)
-        enddo
+        if (nudflag > 0 .and. nl%nud_preserve_total_mass) then
+           do k = lpv(iv), mza
+              vmca(k,iv) = vmc(k,iv) * arv(k,iv) + vmanud(k,iv)
+           enddo
+        else
+           do k = lpv(iv), mza
+              vmca(k,iv) = vmc(k,iv) * arv(k,iv)
+           enddo
+        endif
 
         ! Save half-forward velocities from the final R-K stage for
         ! scalar transport
@@ -705,7 +713,7 @@ subroutine prog_wrt_begs( iw, istage, dt8,                      &
                          gdz_wgtp, gdz_wgtm
   use tridiag,     only: tridiffo
   use oname_coms,  only: nl
-  use mem_nudge,   only: rhot_nud, nudflag
+  use mem_nudge,   only: rhot_nud, nudflag, wmanud
 
   implicit none
 
@@ -760,26 +768,16 @@ subroutine prog_wrt_begs( iw, istage, dt8,                      &
   real(r8) :: thilt_rk  (mza)
   real(r8) :: vflux_thil(mza)
 
-! real(r8) :: press_t  (mza)
-! real :: press_t  (mza)
+  real(r8) :: press_ex(mza)
+  real(r8) :: rho_ex  (mza)
 
-  real(r8) :: press_ex (mza)
-! real :: mass_ex  (mza)
-  real :: rho_ex(mza)
-! real(r8) :: rd_rt_w  (mza)
+  real :: delex_wm(mza)
+  real :: wmf     (mza)
+  real :: mass, wma
 
-  real :: delex_wm     (mza)
-  real :: wmf          (mza)
-  real :: mass, rhoi
-
-! real :: hflux_thil(mza)
-! real :: hflux_vxe (mza)
-! real :: hflux_vye (mza)
-! real :: hflux_vze (mza)
-
-  real :: vflux_vxe (mza)
-  real :: vflux_vye (mza)
-  real :: vflux_vze (mza)
+  real :: vflux_vxe(mza)
+  real :: vflux_vye(mza)
+  real :: vflux_vze(mza)
 
   real(r8) :: b5(mza), b10(mza)
 
@@ -790,13 +788,52 @@ subroutine prog_wrt_begs( iw, istage, dt8,                      &
 
   ka = lpw(iw)
 
-  do k = ka, mza
-     thilt_rk(k) = thilt_short(k,iw)
-  enddo
+  ! Set bottom & top vertical advective mass, momentum, and heat fluxes to zero
 
-  ! Initialize horizontal advection arrays to zero
+  wmarw(ka-1) = 0._r8
+  wmarw(mza)  = 0._r8
 
-  hflx_rho  = 0._r8
+  vflux_thil(ka-1) = 0._r8
+  vflux_thil(mza)  = 0._r8
+
+  vflux_vxe(ka-1) = 0.
+  vflux_vxe(mza)  = 0.
+
+  vflux_vye(ka-1) = 0.
+  vflux_vye(mza)  = 0.
+
+  vflux_vze(ka-1) = 0.
+  vflux_vze(mza)  = 0.
+
+  ! Nudging tendency terms
+
+  if (nudflag == 1 .and. nl%nud_preserve_total_mass) then
+
+     do k = ka, mza-1
+        wmarw     (k) = wmanud(k,iw)
+        vflux_thil(k) = wmarw(k) * thil_upw(k,iw)
+
+        vflux_vxe (k) = wmanud(k,iw) * vxe_upw(k,iw)
+        vflux_vye (k) = wmanud(k,iw) * vye_upw(k,iw)
+        vflux_vze (k) = wmanud(k,iw) * vze_upw(k,iw)
+     enddo
+
+     do k = lpw(iw), mza
+        hflx_rho(k)    =                     wmarw     (k-1) - wmarw     (k)
+        thilt_rk(k)    = thilt_short(k,iw) + vflux_thil(k-1) - vflux_thil(k)
+        vmxet_rk(k,iw) = vmxet_rk(k,iw)    + vflux_vxe (k-1) - vflux_vxe (k)
+        vmyet_rk(k,iw) = vmyet_rk(k,iw)    + vflux_vye (k-1) - vflux_vye (k)
+        vmzet_rk(k,iw) = vmzet_rk(k,iw)    + vflux_vze (k-1) - vflux_vze (k)
+     enddo
+
+  else
+
+     do k = ka, mza
+        thilt_rk(k) = thilt_short(k,iw)
+        hflx_rho(k) = 0._r8
+     enddo
+
+  endif
 
   ! Sum advective tendencies over V neighbors of this cell
 
@@ -868,7 +905,7 @@ subroutine prog_wrt_begs( iw, istage, dt8,                      &
 
   ! Include nudging terms in density tendency
 
-  if (nudflag == 1) then
+  if (nudflag > 0 .and. .not. nl%nud_preserve_total_mass) then
      do k = ka, mza
         delex_rho(k) = delex_rho(k) + dt8 * rhot_nud(k,iw)
      enddo
@@ -945,38 +982,30 @@ subroutine prog_wrt_begs( iw, istage, dt8,                      &
   ! Fluxes from updated vertical momentum
 
   do k = ka, mza-1
-     wmarw(k) = real( wmf(k) * arw(k,iw), r8)
+     wma      = wmf(k) * arw(k,iw)
+     wmarw(k) = wma
 
      vflux_thil(k) = wmarw(k) * thil_upw(k,iw)
-     vflux_vxe (k) = wmarw(k) * vxe_upw (k,iw)
-     vflux_vye (k) = wmarw(k) * vye_upw (k,iw)
-     vflux_vze (k) = wmarw(k) * vze_upw (k,iw)
+     vflux_vxe (k) = wma      * vxe_upw (k,iw)
+     vflux_vye (k) = wma      * vye_upw (k,iw)
+     vflux_vze (k) = wma      * vze_upw (k,iw)
   enddo
 
   ! Add vertical momentum at (t+fw) to array for long-timestep scalar transport
 
   if (istage == nrk_wrtv) then
-     do k = ka, mza-1
-        wmasc(k,iw) = wmasc(k,iw) + wmarw(k)
-     enddo
+
+     if (nudflag > 0 .and. nl%nud_preserve_total_mass) then
+        do k = ka, mza-1
+           wmasc(k,iw) = wmasc(k,iw) + wmarw(k) + wmanud(k,iw)
+        enddo
+     else
+        do k = ka, mza-1
+           wmasc(k,iw) = wmasc(k,iw) + wmarw(k)
+        enddo
+     endif
+
   endif
-
-  ! Set bottom & top vertical advective mass, momentum, and heat fluxes to zero
-
-  wmarw(ka-1) = 0._r8
-  wmarw(mza)  = 0._r8
-
-  vflux_thil(ka-1) = 0.
-  vflux_thil(mza)  = 0.
-
-  vflux_vxe(ka-1) = 0.
-  vflux_vxe(mza)  = 0.
-
-  vflux_vye(ka-1) = 0.
-  vflux_vye(mza)  = 0.
-
-  vflux_vze(ka-1) = 0.
-  vflux_vze(mza)  = 0.
 
   ! For shallow water test cases 2 & 5, rho & press are
   ! interpreted as water depth & height

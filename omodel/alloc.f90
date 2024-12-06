@@ -77,7 +77,7 @@ subroutine olam_mem_alloc()
 
       if (nudnxp == 0) mwnud = mwa
 
-      call alloc_nudge2(mza,mwa)
+      call alloc_nudge2(mza,mwa,mva)
       call filltab_nudge()
   endif
 

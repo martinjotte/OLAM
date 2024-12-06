@@ -351,18 +351,14 @@ subroutine olam_run(name_name)
 
   ! Initialize primary atmospheric fields
 
-  if (initial == 1) then
-     if (runtype == 'INITIAL') then
+  if (runtype == 'INITIAL') then
+     if (initial == 1) then
         write(io6,'(/,a)') 'olam_run calling inithh'
         call inithh()            ! Horizontally-homogeneous initialization
-     endif
-  elseif (initial == 2) then
-     if ((runtype == 'INITIAL') .or. (nudflag == 1 .or. o3nudflag == 1)) then
+     elseif (initial == 2) then
         write(io6,'(/,a)') 'olam_run calling isan driver(0)'
         call isan_driver(0)
-     endif
-  elseif (initial == 3) then
-     if (runtype == 'INITIAL') then
+     elseif (initial == 3) then
         write(io6,'(/,a)') 'olam_run calling fldslhi'
         call fldslhi()           ! Longitudinally-homogeneous initialization
      endif
@@ -539,14 +535,6 @@ subroutine olam_run(name_name)
 
   endif
 
-  ! If using variable initialization and polygon nudging, read most recent
-  ! and next observational analyses, and fill nudging polygons for both
-
-  if (initial == 2 .and. (nudflag == 1 .or. o3nudflag == 1)) then
-     write(io6,'(/,a)') 'olam_run calling isan_driver(1)'
-     call isan_driver(1)
-  endif
-
   ! Initialize Rayleigh friction profile
 
   write(io6,'(/,a)') 'olam_run calling rayf_init'
@@ -703,18 +691,15 @@ subroutine olam_run(name_name)
      endif
 
      write(io6,*) 'olam_run calling history_start'
-     call history_start('COMMIO')
      call history_start('HISTREAD')
      write(io6,*) 'olam_run finished history_start'
 
      ! Diagnose zonal and meridional wind components, which are not on hist file
      call diag_uzonal_umerid()
 
-     ! Reset time variables
+     ! Read current analysis if nudging is active
+     if (initial == 2 .and. (nudflag == 1 .or. o3nudflag == 1)) call isan_driver(0)
 
-     time8p      = time8 + time_bias   ! Slightly forward biased time
-     time_istp8  = time8
-     time_istp8p = time8p              ! Slightly forward biased time
 
      mstp = 0
 
@@ -778,6 +763,13 @@ subroutine olam_run(name_name)
 
      call reset_davg_vars() ! call unconditionally because used in accum
 
+  endif
+
+  ! If using variable initialization and nudging, read next observational analysis
+
+  if (initial == 2 .and. (nudflag == 1 .or. o3nudflag == 1)) then
+     write(io6,'(/,a)') 'olam_run calling isan_driver(1)'
+     call isan_driver(1)
   endif
 
   ! If this INITIAL or HISTREGRID run, write initial history file

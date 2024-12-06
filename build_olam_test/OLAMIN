@@ -272,10 +272,11 @@
                                        !        mixing ratio
                                        ! FALSE: Nudging preserves tracer mass
 
-   NL%NUD_PRESERVE_TOTAL_MASS = .TRUE. ! TRUE:  Nudging preserves total
-                                       !        atmospheric mass
-                                       ! FALSE: Atmospheric mass is allowed
-                                       !        to change from nudging rho
+   NL%NUD_PRESERVE_TOTAL_MASS = .TRUE. ! TRUE: Density nudging is implemented
+                                       ! as a mass flux that transports mass
+                                       ! from neighboring cells. This conseves
+                                       ! atmospheric mass and tracer mass
+                                       ! and mixing ratio.
 
  !--------------------------------------------------------------------------
  ! History file, Day-average file, Lite file, and Lat/Lon file I/O

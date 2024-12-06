@@ -207,11 +207,14 @@ if (nl%initial == 2) then
    call ichk_bnds( nl%nudflag, "NUDFLAG", 0,  1, 2, nfatal, nwarn )
 
    if (nl%nudflag == 1) then
-
       call ichk_bnds( nl%max_nud_mrl, "MAX_NUD_MRL", 1, maxgrds, 2, nfatal, nwarn )
       call ichk_bnds( nl%nudnxp, "NUDNXP", 0, 10000, 2, nfatal, nwarn )
       call rchk_bnds( nl%tnudcent, "TNUDCENT", dtlong4, r_huge, 2, nfatal, &
                       nwarn, msgmin="Nudging time must be larger than dtlong")
+
+      ! We don't need to do anything extra to preserve tracer mass and mixing ratio
+      ! with NUD_PRESERVE_TOTAL_MASS active
+      if (nl%nud_preserve_total_mass) nl%nud_preserve_mix_ratio = .false.
    endif
 
 endif
