@@ -153,7 +153,7 @@ Module oname_coms
      integer :: ioutput_lite = 0
      integer :: ioutput_latlon = 0
 
-     integer :: iblocksize = -1
+     integer :: iblocksize = -1   ! no longer used
      integer :: iclobber  = 0
      integer :: icompress = 0
      integer :: latlonplot = 0

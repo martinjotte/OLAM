@@ -294,10 +294,6 @@
    NL%ICOMPRESS = 0             ! 0 (no compres, fast) <-> 9 (max compres, slow)
    NL%LATLONPLOT = 0            ! 1 = plot generated lat/lon fields too
 
-   NL%IBLOCKSIZE = -1           ! File system block size for parallel I/O
-                                ! Setting this can speed up parallel writes
-                                ! Ignored if 0 or negative
-
    NL%FRQSTATE  =  3600.0      ! Time interval between history files
    NL%FRQLITE   =  3600.0      ! Time interval between lite files
    NL%FRQLATLON =  3600.0      ! Time interval between lat/lon output files

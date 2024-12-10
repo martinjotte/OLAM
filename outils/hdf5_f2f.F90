@@ -22,6 +22,7 @@ module hdf5_f2f
   integer          :: ndimsf
 
   logical :: dopario = .false.
+  integer :: is_linux = -1
 
   interface fh5_write
      module procedure                 &
@@ -138,9 +139,12 @@ contains
   subroutine fh5f_open(locfn, iaccess, hdferr, pario)
 
     use oname_coms, only: nl
+    use string_lib, only: lowercase
+    use sys_utils,  only: get_command_as_string
+    use mem_para,   only: myrank
 
 #if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
-    use mpi, only: MPI_COMM_WORLD, MPI_INFO_NULL
+    use mpi
 #endif
 
     implicit none
@@ -159,8 +163,26 @@ contains
     real                           :: w0
     integer                        :: mdc
     logical                        :: ish5
+    character(12)                  :: string
+    integer, target                :: finfo(2), nstripes
+    integer, pointer               :: blksiz, fstype
 
     dopario = .false.
+
+    if (is_linux < 0) then
+       is_linux = 0
+       string   = ' '
+       call get_environment_variable("OSTYPE", string)
+       call lowercase(string)
+       if (string(1:5) == 'linux') is_linux = 1
+
+#if defined(OLAM_MPI)
+       if (iparallel == 1) then
+          call MPI_Allreduce(MPI_IN_PLACE, is_linux, 1, MPI_INTEGER, MPI_MIN, MPI_COMM_WORLD, hdferr)
+       endif
+#endif
+
+    endif
 
 #if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
     if (iparallel == 1 .and. present(pario)) dopario = pario
@@ -178,7 +200,7 @@ contains
     nbytes = max(nbytes, int(1024 * 1024 * 32, SIZE_t) )
     call h5pset_cache_f(access_prp, mdc, nelmts, nbytes, w0, hdferr)
 
-    nbytes = 1024 * 1024
+    nbytes = 1024 * 1024 * 32
     call h5pset_sieve_buf_size_f(access_prp, nbytes, hdferr)
 
     call fh5_set_lib_bounds(access_prp, hdferr)
@@ -198,20 +220,6 @@ contains
     endif
 #endif
 
-    ! Align writes to file-system block size
-
-    if (nl%iblocksize > 0) then
-       aligns1 = nl%iblocksize
-       aligns1 = min(aligns1,alignsmax)
-
-       if (aligns1 <= 1024) then
-          aligns2 = aligns1
-       else
-          aligns2 = aligns1 / 2
-       endif
-       call H5Pset_alignment_f( access_prp, aligns1, aligns2, hdferr )
-    endif
-
     call h5eset_auto_f(0, hdferr)
     call h5fis_accessible_f(locfn, ish5, hdferr, access_prp)
     if (hdferr /= 0) ish5 = .false.
@@ -227,6 +235,62 @@ contains
        return
     endif
 
+#if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
+    if ( dopario .and. iaccess == 2 .and. is_linux ) then
+
+       finfo = 0
+       blksiz => finfo(1)
+       fstype => finfo(2)
+
+       if (myrank == 0) then
+
+          ! Get file system blocksize if we are using gpfs, or
+          ! stripe size if we are using lustre and the file is striped
+
+          call get_command_as_string( "df --output=fstype "//trim(locfn), string)
+          call lowercase(string)
+
+          if (string(1:4) == "gpfs") then
+             fstype = 1
+
+             call get_command_as_string( "stat -c '%o' "//trim(locfn), string)
+             if (len_trim(string) > 0) then
+                if ( verify(string,"0123456789") == 0 ) read(string,'(i)') blksiz
+             endif
+
+          elseif (string(1:6) == "lustre") then
+             fstype = 2
+
+             nstripes = 1
+             call get_command_as_string( "lfs getstripe -c "//trim(locfn), string)
+             if (len_trim(string) > 0) then
+                if ( verify(string,"0123456789") == 0 ) read(string,'(i)') nstripes
+             endif
+
+             if (nstripes > 1) then
+                call get_command_as_string( "lfs getstripe -S "//trim(locfn), string)
+                if (len_trim(string) > 0) then
+                   if ( verify(string,"0123456789") == 0 ) read(string,'(i)') blksiz
+                endif
+             endif
+
+          endif
+       endif
+
+       call MPI_Bcast(finfo, 2, MPI_INTEGER,  0, MPI_COMM_WORLD, hdferr)
+
+       ! Align writes to file-system block size if using gpfs or
+       ! stripe size if we are using lustre
+
+       if (blksiz >= 4096) then
+          aligns1 = min(blksiz,alignsmax)
+          aligns2 = aligns1 / 4
+          call H5Pset_alignment_f( access_prp, aligns2, aligns1, hdferr )
+       endif
+
+    endif
+#endif
+
     call h5fopen_f(locfn, flags, fileid, hdferr, access_prp)
 
     call h5pclose_f(access_prp, hdferr)
@@ -239,10 +303,10 @@ contains
     endif
 #endif
 
-    nbytes = 1024 * 1024 * 64
+    nbytes = 1024 * 1024 * 128
     call h5pset_buffer_f(xferid, nbytes, hdferr)
 
-    nelmts = 5120
+    nelmts = 10000
     call h5pset_hyper_vector_size_f(xferid, nelmts, hdferr)
 
   end subroutine fh5f_open
@@ -265,11 +329,13 @@ contains
   subroutine fh5f_create(locfn, iaccess, hdferr, pario)
 
     use oname_coms, only: nl
+    use string_lib, only: lowercase
+    use sys_utils,  only: get_command_as_string
+    use mem_para,   only: myrank
 
 #if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
-    use mpi, only: MPI_COMM_WORLD, MPI_INFO_NULL
+    use mpi
 #endif
-
 
     implicit none
 
@@ -285,9 +351,28 @@ contains
     integer(HSIZE_T),    parameter :: alignsmax = 1024 * 1024 * 128
     integer(SIZE_t)                :: nelmts, nbytes
     real                           :: w0
-    integer                        :: mdc
+    integer                        :: mdc, is, info
+    character(12)                  :: string
+    integer, target                :: finfo(2)
+    integer, pointer               :: blksiz, fstype
+    integer,             parameter :: lustre_striping_factor = -1
+    integer,             parameter :: lustre_striping_unit   = 1024 * 1024 * 4
 
     dopario = .false.
+
+    if (is_linux < 0) then
+       is_linux = 0
+       string   = ' '
+       call get_environment_variable("OSTYPE", string)
+       if (string == 'linux') is_linux = 1
+
+#if defined(OLAM_MPI)
+       if (iparallel == 1) then
+          call MPI_Allreduce(MPI_IN_PLACE, is_linux, 1, MPI_INTEGER, MPI_MIN, MPI_COMM_WORLD, hdferr)
+       endif
+#endif
+
+    endif
 
 #if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
     if (iparallel == 1 .and. present(pario)) dopario = pario
@@ -305,7 +390,7 @@ contains
     nbytes = max(nbytes, int(1024 * 1024 * 32, SIZE_t) )
     call h5pset_cache_f(access_prp, mdc, nelmts, nbytes, w0, hdferr)
 
-    nbytes = 1024 * 1024
+    nbytes = 1024 * 1024 * 32
     call h5pset_sieve_buf_size_f(access_prp, nbytes, hdferr)
 
     call fh5_set_lib_bounds(access_prp, hdferr)
@@ -317,27 +402,78 @@ contains
 #if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
     if (dopario) then
 
+       info  = MPI_INFO_NULL
+       finfo = 0
+
+       if (is_linux) then
+
+          blksiz => finfo(1)
+          fstype => finfo(2)
+
+          if (myrank == 0) then
+
+             ! Get file system blocksize if we are using gpfs, or
+             ! stripe size if we are using lustre and the file is striped
+
+             is = scan(locfn, "/", .true.)
+
+             if (is == 0) then
+                call get_command_as_string( "df --output=fstype ./", string)
+             else
+                call get_command_as_string( "df --output=fstype "//locfn(1:is), string)
+             endif
+             call lowercase(string)
+
+             if (string(1:4) == "gpfs") then
+                fstype = 1
+
+                if (is == 0) then
+                   call get_command_as_string( "stat -fc '%s' ./", string)
+                else
+                   call get_command_as_string( "stat -fc '%s' "//locfn(1:is), string)
+                endif
+                if (len_trim(string) > 0) then
+                   if ( verify(string,"0123456789") == 0 ) read(string,'(i)') blksiz
+                endif
+
+             elseif (string(1:6) == "lustre") then
+
+                fstype = 2
+                blksiz = lustre_striping_unit
+
+             endif
+
+          endif
+
+          call MPI_Bcast(finfo, 2, MPI_INTEGER,  0, MPI_COMM_WORLD, hdferr)
+
+          ! Align writes to file-system block size if using gpfs or
+          ! stripe size if we are using lustre
+
+          if (blksiz >= 4096) then
+             aligns1 = min(blksiz,alignsmax)
+             aligns2 = aligns1 / 4
+             call H5Pset_alignment_f( access_prp, aligns2, aligns1, hdferr )
+          endif
+
+          if (fstype == 2) then
+             call MPI_Info_create(info, hdferr)
+             write(string,'(I)') lustre_striping_unit
+             call MPI_Info_set(info, "striping_unit", string, hdferr)
+             call MPI_Info_set(info, "striping_factor", "-1", hdferr)
+          endif
+
+       endif
+
        write(io6,*)
        write(io6,'(A)') "Enabling parallel HDF5 output for file " // trim(locfn)
 
-       call h5pset_fapl_mpio_f(access_prp, MPI_COMM_WORLD, MPI_INFO_NULL, hdferr)
+       call h5pset_fapl_mpio_f(access_prp, MPI_COMM_WORLD, info, hdferr)
        call h5pset_coll_metadata_write_f(access_prp, .true., hdferr)
+
+       if (info /= MPI_INFO_NULL) call MPI_Info_free(info, hdferr)
     endif
 #endif
-
-    ! Align writes to file-system block size
-
-    if (nl%iblocksize > 0) then
-       aligns1 = nl%iblocksize
-       aligns1 = min(aligns1,alignsmax)
-
-       if (aligns1 <= 1024) then
-          aligns2 = aligns1
-       else
-          aligns2 = aligns1 / 2
-       endif
-       call H5Pset_alignment_f( access_prp, aligns1, aligns2, hdferr )
-    endif
 
     call h5fcreate_f(locfn, flags, fileid, hdferr, access_prp=access_prp)
 
@@ -358,10 +494,10 @@ contains
     endif
 #endif
 
-    nbytes = 1024 * 1024 * 64
+    nbytes = 1024 * 1024 * 128
     call h5pset_buffer_f(xferid, nbytes, hdferr)
 
-    nelmts = 5120
+    nelmts = 10000
     call h5pset_hyper_vector_size_f(xferid, nelmts, hdferr)
 
   end subroutine fh5f_create
