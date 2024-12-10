@@ -166,9 +166,11 @@ Contains
        if ( allocated( tket) ) tket(:,iw) = 0.
        if ( allocated( epst) ) epst(:,iw) = 0.
 
-       do ic = 1, nccntyp
-          if ( allocated( ccntyp(ic)%con_ccnt ) ) ccntyp(ic)%con_ccnt(:,iw) = 0.
-       enddo
+       if ( allocated( ccntyp ) ) then
+          do ic = 1, nccntyp
+             if ( allocated( ccntyp(ic)%con_ccnt ) ) ccntyp(ic)%con_ccnt(:,iw) = 0.
+          enddo
+       endif
 
        do iaddsc = 1, naddsc
           if ( allocated( addsc(iaddsc)%sclt ) ) addsc(iaddsc)%sclt(:,iw) = 0.
