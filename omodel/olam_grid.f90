@@ -119,15 +119,9 @@ subroutine gridinit()
      nxp00 = nxp
      nn = 1
 
-     do while( mod(nxp00,3)==0 .and. nxp00/3 >= 21 )
-        nxp00 = nxp00 / 3
-        nn = nn * 3
-     enddo
+     call get_factors(nxp00, nn)
 
-     do while( mod(nxp00,2)==0 .and. nxp00/2 >= 21 )
-        nxp00 = nxp00 / 2
-        nn = nn * 2
-     enddo
+     write(io6,'(A,I0)') " Calling isosahedron with nxp = ", nxp00
 
      call icosahedron(nxp00)  ! global spherical domain; calls 2 allocs
 
@@ -2702,3 +2696,81 @@ subroutine gridfile_read_oldgrid()
   write(io6,*) 'end of gridfile_read_oldgrid '
 
 end subroutine gridfile_read_oldgrid
+
+
+
+subroutine get_factors(nxp0,nn0)
+
+  implicit none
+
+  integer, intent(inout) :: nxp0, nn0
+  integer                :: nxp00(4), nn(4), i
+  integer,     parameter :: nxpmin = 24
+
+  nxp00(:) = nxp0
+  nn   (:) = nn0
+
+  ! try dividing by 3 first
+
+  do while( mod(nxp00(1),3)==0 .and. nxp00(1)/3 >= nxpmin )
+     nxp00(1) = nxp00(1) / 3
+     nn   (1) = nn  (1) * 3
+  enddo
+  do while( mod(nxp00(1),2)==0 .and. nxp00(1)/2 >= nxpmin )
+     nxp00(1) = nxp00(1) / 2
+     nn   (1) = nn   (1) * 2
+  enddo
+
+  ! now try dividing by 2 first
+
+  do while( mod(nxp00(2),2)==0 .and. nxp00(2)/2 >= nxpmin )
+     nxp00(2) = nxp00(2) / 2
+     nn(2) = nn(2) * 2
+  enddo
+  do while( mod(nxp00(2),3)==0 .and. nxp00(2)/3 >= nxpmin )
+     nxp00(2) = nxp00(2) / 3
+     nn(2) = nn(2) * 3
+  enddo
+
+  ! now alternate 3 and 2
+
+  i = -1
+  do while( (mod(nxp00(1),3)==0 .and. nxp00(1)/3 >= nxpmin) .or. &
+            (mod(nxp00(2),2)==0 .and. nxp00(2)/2 >= nxpmin) )
+     i = -i
+
+     if (i > 0 .and. mod(nxp00(1),3)==0 .and. nxp00(1)/3 >= nxpmin) then
+        nxp00(3) = nxp00(3) / 3
+        nn   (3) = nn   (3) * 3
+     elseif (i < 0 .and. mod(nxp00(1),2)==0 .and. nxp00(1)/2 >= nxpmin) then
+        nxp00(3) = nxp00(3) / 2
+        nn   (3) = nn   (3) * 2
+     endif
+  enddo
+
+  ! now alternate 2 and 3
+
+  i = 1
+  do while( (mod(nxp00(1),3)==0 .and. nxp00(1)/3 >= nxpmin) .or. &
+            (mod(nxp00(2),2)==0 .and. nxp00(2)/2 >= nxpmin) )
+     i = -i
+
+     if (i > 0 .and. mod(nxp00(1),3)==0 .and. nxp00(1)/3 >= nxpmin) then
+        nxp00(4) = nxp00(4) / 3
+        nn   (4) = nn   (4) * 3
+     elseif (i < 0 .and. mod(nxp00(1),2)==0 .and. nxp00(1)/2 >= nxpmin) then
+        nxp00(4) = nxp00(4) / 2
+        nn   (4) = nn   (4) * 2
+     endif
+  enddo
+
+  if ( count(nxp00<(nxpmin-1)*2) > 1 ) then
+     i = maxloc(nxp00,dim=1,mask=nxp00<(nxpmin-1)*2)
+  else
+     i = minloc(nxp00,dim=1)
+  endif
+
+  nxp0 = nxp00(i)
+  nn0  = nn   (i)
+
+end subroutine get_factors

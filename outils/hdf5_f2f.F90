@@ -139,7 +139,7 @@ contains
   subroutine fh5f_open(locfn, iaccess, hdferr, pario)
 
     use oname_coms, only: nl
-    use string_lib, only: lowercase
+    use string_lib, only: lowercase, strip_char
     use sys_utils,  only: get_command_as_string
     use mem_para,   only: myrank
 
@@ -155,10 +155,10 @@ contains
     logical, optional, intent(IN)  :: pario
 
     integer(HID_T)                 :: access_prp
-    integer                        :: flags
+    integer                        :: flags, ierr
     integer(HSIZE_T)               :: aligns1, aligns2
     integer(HSIZE_T),    parameter :: msize = 1024 * 256
-    integer(HSIZE_T),    parameter :: alignsmax = 1024 * 1024 * 128
+    integer,             parameter :: alignsmax = 1024 * 1024 * 128
     integer(SIZE_t)                :: nelmts, nbytes
     real                           :: w0
     integer                        :: mdc
@@ -236,7 +236,7 @@ contains
     endif
 
 #if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
-    if ( dopario .and. iaccess == 2 .and. is_linux ) then
+    if ( dopario .and. iaccess == 2 .and. is_linux > 0) then
 
        finfo = 0
        blksiz => finfo(1)
@@ -247,15 +247,15 @@ contains
           ! Get file system blocksize if we are using gpfs, or
           ! stripe size if we are using lustre and the file is striped
 
-          call get_command_as_string( "df --output=fstype "//trim(locfn), string)
+          call get_command_as_string( "df --output=fstype | tail -n +2"//trim(locfn), string)
           call lowercase(string)
 
           if (string(1:4) == "gpfs") then
              fstype = 1
 
-             call get_command_as_string( "stat -c '%o' "//trim(locfn), string)
+             call get_command_as_string( "stat -f --printf='%s' "//trim(locfn), string)
              if (len_trim(string) > 0) then
-                if ( verify(string,"0123456789") == 0 ) read(string,'(i)') blksiz
+                if ( verify(trim(string),"0123456789") == 0 ) read(string,*,iostat=ierr) blksiz
              endif
 
           elseif (string(1:6) == "lustre") then
@@ -264,13 +264,15 @@ contains
              nstripes = 1
              call get_command_as_string( "lfs getstripe -c "//trim(locfn), string)
              if (len_trim(string) > 0) then
-                if ( verify(string,"0123456789") == 0 ) read(string,'(i)') nstripes
+                call strip_char(string, new_line(' '))
+                if ( verify(trim(string),"0123456789") == 0 ) read(string,*,iostat=ierr) nstripes
              endif
 
              if (nstripes > 1) then
                 call get_command_as_string( "lfs getstripe -S "//trim(locfn), string)
                 if (len_trim(string) > 0) then
-                   if ( verify(string,"0123456789") == 0 ) read(string,'(i)') blksiz
+                   call strip_char(string, new_line(' '))
+                   if ( verify(trim(string),"0123456789") == 0 ) read(string,*,iostat=ierr) blksiz
                 endif
              endif
 
@@ -345,10 +347,10 @@ contains
     logical, optional, intent(IN)  :: pario
 
     integer(HID_T)                 :: access_prp
-    integer                        :: flags
+    integer                        :: flags, ierr
     integer(HSIZE_T)               :: aligns1, aligns2
     integer(HSIZE_T),    parameter :: msize = 1024 * 256
-    integer(HSIZE_T),    parameter :: alignsmax = 1024 * 1024 * 128
+    integer,             parameter :: alignsmax = 1024 * 1024 * 128
     integer(SIZE_t)                :: nelmts, nbytes
     real                           :: w0
     integer                        :: mdc, is, info
@@ -405,7 +407,7 @@ contains
        info  = MPI_INFO_NULL
        finfo = 0
 
-       if (is_linux) then
+       if (is_linux > 0) then
 
           blksiz => finfo(1)
           fstype => finfo(2)
@@ -418,9 +420,9 @@ contains
              is = scan(locfn, "/", .true.)
 
              if (is == 0) then
-                call get_command_as_string( "df --output=fstype ./", string)
+                call get_command_as_string( "df --output=fstype ./ | tail -n +2", string)
              else
-                call get_command_as_string( "df --output=fstype "//locfn(1:is), string)
+                call get_command_as_string( "df --output=fstype "//locfn(1:is)//" | tail -n +2", string)
              endif
              call lowercase(string)
 
@@ -428,12 +430,13 @@ contains
                 fstype = 1
 
                 if (is == 0) then
-                   call get_command_as_string( "stat -fc '%s' ./", string)
+                   call get_command_as_string( "stat -f --printf='%s' ./", string)
                 else
-                   call get_command_as_string( "stat -fc '%s' "//locfn(1:is), string)
+                   call get_command_as_string( "stat -f --printf='%s' "//locfn(1:is), string)
                 endif
+
                 if (len_trim(string) > 0) then
-                   if ( verify(string,"0123456789") == 0 ) read(string,'(i)') blksiz
+                   if ( verify(trim(string),"0123456789") == 0 ) read(string,*,iostat=ierr) blksiz
                 endif
 
              elseif (string(1:6) == "lustre") then
@@ -458,7 +461,7 @@ contains
 
           if (fstype == 2) then
              call MPI_Info_create(info, hdferr)
-             write(string,'(I)') lustre_striping_unit
+             write(string,'(I0)') lustre_striping_unit
              call MPI_Info_set(info, "striping_unit", string, hdferr)
              call MPI_Info_set(info, "striping_factor", "-1", hdferr)
           endif

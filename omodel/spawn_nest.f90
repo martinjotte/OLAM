@@ -72,7 +72,7 @@ subroutine spawn_nest(iatmgrid)
 
   real :: xp1, xp2, xq1, xq2
   real :: yp1, yp2, yq1, yq2
-  integer :: iskip, niter, mvint
+  integer :: iskip, niter, mvint, max_mrows
   integer :: imnext, imn, iwnext, iwn, iunext, iun
   logical :: error
 
@@ -1032,7 +1032,13 @@ subroutine spawn_nest(iatmgrid)
      ! border.  This is permanent ID, used in spring dynamics even when new
      ! grids are added.
 
-     call perim_mrow(ngr, nmd, nud, nwd, itab_md, itab_ud, itab_wd)
+     if (iatmgrid) then
+        max_mrows = 13
+     else
+        max_mrows = 7
+     endif
+
+     call perim_mrow(ngr, nmd, nud, nwd, itab_md, itab_ud, itab_wd, max_mrows)
 
      ! This is the place to do spring dynamics
 
@@ -1769,7 +1775,7 @@ end subroutine perim_ngr
 
 !===========================================================================
 
-  subroutine perim_mrow(ngr, nma, nua, nwa, itab_md, itab_ud, itab_wd)
+subroutine perim_mrow(ngr, nma, nua, nwa, itab_md, itab_ud, itab_wd, max_mrows)
 
   use mem_delaunay, only: itab_wd_vars, itab_ud_vars, itab_md_vars
   use misc_coms,    only: io6
@@ -1777,7 +1783,7 @@ end subroutine perim_ngr
 
   implicit none
 
-  integer, intent(in) :: nma, nua, nwa, ngr
+  integer, intent(in) :: nma, nua, nwa, ngr, max_mrows
 
   type (itab_md_vars), intent(inout) :: itab_md(nma)
   type (itab_ud_vars), intent(inout) :: itab_ud(nua)
@@ -1823,7 +1829,7 @@ end subroutine perim_ngr
 
   mrow_temp2(:) = mrow_temp(:)
 
-  do irow = 2,22  ! First row already done above
+  do irow = 2, 2*max_mrows  ! First row already done above
      jrow = mod(irow,2)
 
      do iw = 2,nwa
