@@ -233,6 +233,8 @@ subroutine fields3_ll()
   real :: timedifi
   real :: aspect, scalelab, ymin, ymax, yinc, alatinc
 
+  logical :: do_accum
+
 ! SEIGEL 2013 - Added for ll interp writeout
   character(pathlen) :: hnamel
   character(20)      :: ofrq
@@ -265,6 +267,8 @@ subroutine fields3_ll()
   real :: plev(npress) = (/ 1000., 925., 850., 700., 500., 300., 200., 100. /)
 
   if (nl%ioutput_latlon /= 1 .and. nl%latlonplot /= 1) return
+
+  do_accum = allocated(vels_accum)
 
   if (first_call) then
 
@@ -863,15 +867,18 @@ subroutine fields3_ll()
            jasfc = itab_w(iw)%jasfc(j)
            kwatm = itab_wsfc(iwsfc)%kwatm(jasfc)
 
-           scr1a(iw) = scr1a(iw) + real(    vels_accum(iwsfc)) * itab_wsfc(iwsfc)%arcoariw(jasfc)
-           scr1b(iw) = scr1b(iw) + real( airtemp_accum(iwsfc)) * itab_wsfc(iwsfc)%arcoariw(jasfc)
-           scr1c(iw) = scr1c(iw) + real(  airrrv_accum(iwsfc)) * itab_wsfc(iwsfc)%arcoariw(jasfc)
-           scr1d(iw) = scr1d(iw) + real( cantemp_accum(iwsfc)) * itab_wsfc(iwsfc)%arcoariw(jasfc)
-           scr1e(iw) = scr1e(iw) + real(  canrrv_accum(iwsfc)) * itab_wsfc(iwsfc)%arcoariw(jasfc)
-           scr1f(iw) = scr1f(iw) + real(skintemp_accum(iwsfc)) * itab_wsfc(iwsfc)%arcoariw(jasfc)
-           scr1g(iw) = scr1g(iw) + real(  sfluxt_accum(iwsfc)) * itab_wsfc(iwsfc)%arcoariw(jasfc)
-           scr1h(iw) = scr1h(iw) + real(  sfluxr_accum(iwsfc)) * itab_wsfc(iwsfc)%arcoariw(jasfc) * alvl
-           scr1i(iw) = scr1i(iw) + real(  sfluxr_accum(iwsfc)) * itab_wsfc(iwsfc)%arcoariw(jasfc)
+
+           if (do_accum) then
+              scr1a(iw) = scr1a(iw) + real(    vels_accum(iwsfc)) * itab_wsfc(iwsfc)%arcoariw(jasfc)
+              scr1b(iw) = scr1b(iw) + real( airtemp_accum(iwsfc)) * itab_wsfc(iwsfc)%arcoariw(jasfc)
+              scr1c(iw) = scr1c(iw) + real(  airrrv_accum(iwsfc)) * itab_wsfc(iwsfc)%arcoariw(jasfc)
+              scr1d(iw) = scr1d(iw) + real( cantemp_accum(iwsfc)) * itab_wsfc(iwsfc)%arcoariw(jasfc)
+              scr1e(iw) = scr1e(iw) + real(  canrrv_accum(iwsfc)) * itab_wsfc(iwsfc)%arcoariw(jasfc)
+              scr1f(iw) = scr1f(iw) + real(skintemp_accum(iwsfc)) * itab_wsfc(iwsfc)%arcoariw(jasfc)
+              scr1g(iw) = scr1g(iw) + real(  sfluxt_accum(iwsfc)) * itab_wsfc(iwsfc)%arcoariw(jasfc)
+              scr1h(iw) = scr1h(iw) + real(  sfluxr_accum(iwsfc)) * itab_wsfc(iwsfc)%arcoariw(jasfc) * alvl
+              scr1i(iw) = scr1i(iw) + real(  sfluxr_accum(iwsfc)) * itab_wsfc(iwsfc)%arcoariw(jasfc)
+           endif
 
            ! Evaluate surface-layer quantities at 10 m and 2 m
 
@@ -921,9 +928,12 @@ subroutine fields3_ll()
            iwsfc = itab_w(iw)%iwsfc(j)
            iland = iwsfc - omland
 
-           scr1j(iw) = scr1j(iw) + real(  wxferi_accum(iland)) * sfcg%area(iwsfc)
-           scr1k(iw) = scr1k(iw) + real(  wxferp_accum(iland)) * sfcg%area(iwsfc)
-           scr1l(iw) = scr1l(iw) + real(  wxfer1_accum(iland)) * sfcg%area(iwsfc)
+           if (do_accum) then
+              scr1j(iw) = scr1j(iw) + real(  wxferi_accum(iland)) * sfcg%area(iwsfc)
+              scr1k(iw) = scr1k(iw) + real(  wxferp_accum(iland)) * sfcg%area(iwsfc)
+              scr1l(iw) = scr1l(iw) + real(  wxfer1_accum(iland)) * sfcg%area(iwsfc)
+           endif
+
            scr1m(iw) = scr1m(iw) &
                      + sum(land%sfcwater_mass(:,iland))        * sfcg%area(iwsfc)
            scr1n(iw) = scr1n(iw) &

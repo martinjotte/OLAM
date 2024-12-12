@@ -12,6 +12,7 @@ use max_dims,    only: maxgrds, maxsndg, maxnplt, maxisdirs, &
 use oname_coms,  only: nl
 use consts_coms, only: erad2, pi1, pi2, p00, r8
 use misc_coms,   only: io6
+use mem_para,    only: olam_stop
 
 implicit none
 
@@ -800,8 +801,7 @@ write(io6,*) ' FATAL     errors - ', nfatal
 write(io6,*) ' WARNING   errors - ', nwarn
 write(io6,*) ' -----------------------------------------------'
 write(io6,*) ''
-if (nfatal > 0) stop 'ONAME_CHECK'
-
+if (nfatal > 0) call olam_stop( 'ONAME_CHECK' )
 
 contains
 
