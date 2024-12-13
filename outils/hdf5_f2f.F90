@@ -169,6 +169,8 @@ contains
 
     dopario = .false.
 
+#if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
+
     if (is_linux < 0) then
        is_linux = 0
        string   = ' '
@@ -176,16 +178,13 @@ contains
        call lowercase(string)
        if (string(1:5) == 'linux') is_linux = 1
 
-#if defined(OLAM_MPI)
        if (iparallel == 1) then
           call MPI_Allreduce(MPI_IN_PLACE, is_linux, 1, MPI_INTEGER, MPI_MIN, MPI_COMM_WORLD, hdferr)
        endif
-#endif
-
     endif
 
-#if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
     if (iparallel == 1 .and. present(pario)) dopario = pario
+
 #endif
 
     ! Turn off default error handling?
@@ -362,22 +361,21 @@ contains
 
     dopario = .false.
 
+#if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
+
     if (is_linux < 0) then
        is_linux = 0
        string   = ' '
        call get_environment_variable("OSTYPE", string)
        if (string == 'linux') is_linux = 1
 
-#if defined(OLAM_MPI)
        if (iparallel == 1) then
           call MPI_Allreduce(MPI_IN_PLACE, is_linux, 1, MPI_INTEGER, MPI_MIN, MPI_COMM_WORLD, hdferr)
        endif
-#endif
-
     endif
 
-#if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
     if (iparallel == 1 .and. present(pario)) dopario = pario
+
 #endif
 
     ! Turn off default error handling?
