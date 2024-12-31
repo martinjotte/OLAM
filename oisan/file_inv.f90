@@ -17,6 +17,11 @@ subroutine isan_file_inv()
   integer, parameter :: iun = 98
   integer, parameter :: incr = 500
 
+  ! Return if analysis file inventory was already computed
+  ! TODO: seperate analysis files for atm/sea/seaice?
+
+  if (allocated(fnames_fg)) return
+
 ! Go through first guess files and make inventory
 
   nfgfiles = 0
