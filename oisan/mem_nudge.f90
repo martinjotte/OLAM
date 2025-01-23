@@ -31,14 +31,14 @@ Module mem_nudge
 
   real,    allocatable ::    rho_obsp(:,:)
   real,    allocatable ::  theta_obsp(:,:)
-  real,    allocatable ::    rrw_obsp(:,:)
+  real,    allocatable ::    rrv_obsp(:,:)
   real,    allocatable :: uzonal_obsp(:,:)
   real,    allocatable :: umerid_obsp(:,:)
   real,    allocatable ::  ozone_obsp(:,:)
 
   real,    allocatable ::    rho_obsf(:,:)
   real,    allocatable ::  theta_obsf(:,:)
-  real,    allocatable ::    rrw_obsf(:,:)
+  real,    allocatable ::    rrv_obsf(:,:)
   real,    allocatable :: uzonal_obsf(:,:)
   real,    allocatable :: umerid_obsf(:,:)
   real,    allocatable ::  ozone_obsf(:,:)
@@ -48,14 +48,14 @@ Module mem_nudge
   ! This set is only needed for spectral nudging:
   real,    allocatable ::    rho_obs(:,:)
   real,    allocatable ::  theta_obs(:,:)
-  real,    allocatable ::    rrw_obs(:,:)
+  real,    allocatable ::    rrv_obs(:,:)
   real,    allocatable :: uzonal_obs(:,:)
   real,    allocatable :: umerid_obs(:,:)
 
   ! This set is only needed for spectral nudging:
   real,    allocatable ::    rho_sim(:,:)
   real,    allocatable ::  theta_sim(:,:)
-  real,    allocatable ::    rrw_sim(:,:)
+  real,    allocatable ::    rrv_sim(:,:)
   real,    allocatable :: uzonal_sim(:,:)
   real,    allocatable :: umerid_sim(:,:)
 
@@ -77,6 +77,8 @@ Module mem_nudge
   integer :: mwnud = 1
 
   real    :: tnudcent
+  real    :: tf = 0.
+  real    :: tp = 1.
 
   integer :: o3nudflag = 0
   real    :: tnudi_o3
@@ -191,19 +193,19 @@ Contains
 
        allocate (   rho_obsp(mza,mwnud))
        allocate ( theta_obsp(mza,mwnud))
-       allocate (   rrw_obsp(mza,mwnud))
+       allocate (   rrv_obsp(mza,mwnud))
        allocate (uzonal_obsp(mza,mwnud))
        allocate (umerid_obsp(mza,mwnud))
 
        allocate (   rho_obsf(mza,mwnud))
        allocate ( theta_obsf(mza,mwnud))
-       allocate (   rrw_obsf(mza,mwnud))
+       allocate (   rrv_obsf(mza,mwnud))
        allocate (uzonal_obsf(mza,mwnud))
        allocate (umerid_obsf(mza,mwnud))
 
        allocate (    rho_obs(mza,mwnud))
        allocate (  theta_obs(mza,mwnud))
-       allocate (    rrw_obs(mza,mwnud))
+       allocate (    rrv_obs(mza,mwnud))
        allocate ( uzonal_obs(mza,mwnud))
        allocate ( umerid_obs(mza,mwnud))
 
@@ -260,7 +262,7 @@ Contains
 !
 !   if (allocated(theta_obsp))  call increment_vtable('THETA_OBSP',  stagpt, noread=.true., rvar2=theta_obsp)
 !
-!   if (allocated(rrw_obsp))    call increment_vtable('RRW_OBSP',    stagpt, noread=.true., rvar2=rrw_obsp)
+!   if (allocated(rrv_obsp))    call increment_vtable('RRV_OBSP',    stagpt, noread=.true., rvar2=rrv_obsp)
 !
 !   if (allocated(uzonal_obsp)) call increment_vtable('UZONAL_OBSP', stagpt, noread=.true., rvar2=uzonal_obsp)
 !
@@ -270,7 +272,7 @@ Contains
 !
 !   if (allocated(theta_obsf))  call increment_vtable('THETA_OBSF',  stagpt, noread=.true., rvar2=theta_obsf)
 !
-!   if (allocated(rrw_obsf))    call increment_vtable('RRW_OBSF',    stagpt, noread=.true., rvar2=rrw_obsf)
+!   if (allocated(rrv_obsf))    call increment_vtable('RRV_OBSF',    stagpt, noread=.true., rvar2=rrv_obsf)
 !
 !   if (allocated(uzonal_obsf)) call increment_vtable('UZONAL_OBSF', stagpt, noread=.true., rvar2=uzonal_obsf)
 !

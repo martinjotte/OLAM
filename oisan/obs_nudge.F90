@@ -6,8 +6,8 @@ contains
 
 subroutine nudge_prep_obs( iaction )
 
-  use mem_nudge,   only: rho_obsp, theta_obsp, rrw_obsp, uzonal_obsp, umerid_obsp, &
-                         rho_obsf, theta_obsf, rrw_obsf, uzonal_obsf, umerid_obsf, &
+  use mem_nudge,   only: rho_obsp, theta_obsp, rrv_obsp, uzonal_obsp, umerid_obsp, &
+                         rho_obsf, theta_obsf, rrv_obsf, uzonal_obsf, umerid_obsf, &
                          nudflag, nudnxp
   use consts_coms, only: r8
   use isan_coms,   only: o_rho, o_theta, o_rrw, o_uzonal, o_umerid
@@ -39,7 +39,7 @@ subroutine nudge_prep_obs( iaction )
   if (iaction == 1) then
      call move_alloc(    rho_obsf,    rho_obsp )
      call move_alloc(  theta_obsf,  theta_obsp )
-     call move_alloc(    rrw_obsf,    rrw_obsp )
+     call move_alloc(    rrv_obsf,    rrv_obsp )
      call move_alloc( uzonal_obsf, uzonal_obsp )
      call move_alloc( umerid_obsf, umerid_obsp )
   endif
@@ -48,7 +48,7 @@ subroutine nudge_prep_obs( iaction )
 
   call move_alloc( o_rho   ,    rho_obsf )
   call move_alloc( o_theta ,  theta_obsf )
-  call move_alloc( o_rrw   ,    rrw_obsf )
+  call move_alloc( o_rrw   ,    rrv_obsf )
   call move_alloc( o_uzonal, uzonal_obsf )
   call move_alloc( o_umerid, umerid_obsf )
 
@@ -77,10 +77,10 @@ subroutine obs_nudge()
   use mem_nudge,   only: tnudcent,    rhot_nud,    &
                          rho_obsp,    rho_obsf,    &
                          theta_obsp,  theta_obsf,  &
-                         rrw_obsp,    rrw_obsf,    &
+                         rrv_obsp,    rrv_obsf,    &
                          uzonal_obsp, uzonal_obsf, &
-                         umerid_obsp, umerid_obsf, nudflag, nudnxp, &
-                         wmanud, vmanud, vovera
+                         umerid_obsp, umerid_obsf, &
+                         tf, tp, nudflag, nudnxp, wmanud, vmanud, vovera
   use mem_basic,   only: rho, theta, thil, rr_v, ue, ve, vxe, vye, vze
   use mem_grid,    only: mza, lpv, lpw, arw, arw0, arv, dzm, &
                          vxn_ew, vyn_ew, vxn_ns, vyn_ns, vzn_ns, volti
@@ -98,8 +98,8 @@ subroutine obs_nudge()
 
   integer  :: j, iw, k, iv, iw1, iw2
   real     :: umzonalt, ummeridt
-  real     :: tp, tf, tnudi, tnudr, dxi
-  real(r8) :: tpr, tfr, rho_obs
+  real     :: tnudi, tnudr, dxi
+  real(r8) :: rho_obs
   real     :: theta_obs, rrv_obs, uzonal_obs, umerid_obs
 
 !----------------------------------------------------------------------
@@ -155,9 +155,6 @@ subroutine obs_nudge()
 
   tnudi = 1.0 / tnudcent
 
-  tpr = (1._r8 - real(tf,r8))
-  tfr =          real(tf,r8)
-
   ! Horizontal loop over W columns
   !----------------------------------------------------------------------
   !$omp parallel do private( iw,k,tnudr,dxi,umzonalt,ummeridt, &
@@ -179,11 +176,11 @@ subroutine obs_nudge()
 
      do k = lpw(iw), mza
 
-        rho_obs    = tpr *    rho_obsp(k,iw) + tfr *    rho_obsf(k,iw)
-        theta_obs  = tp  *  theta_obsp(k,iw) + tf  *  theta_obsf(k,iw)
-        rrv_obs    = tp  *    rrw_obsp(k,iw) + tf  *    rrw_obsf(k,iw)
-        uzonal_obs = tp  * uzonal_obsp(k,iw) + tf  * uzonal_obsf(k,iw)
-        umerid_obs = tp  * umerid_obsp(k,iw) + tf  * umerid_obsf(k,iw)
+        rho_obs    = tp *    rho_obsp(k,iw) + tf *    rho_obsf(k,iw)
+        theta_obs  = tp *  theta_obsp(k,iw) + tf *  theta_obsf(k,iw)
+        rrv_obs    = tp *    rrv_obsp(k,iw) + tf *    rrv_obsf(k,iw)
+        uzonal_obs = tp * uzonal_obsp(k,iw) + tf * uzonal_obsf(k,iw)
+        umerid_obs = tp * umerid_obsp(k,iw) + tf * umerid_obsf(k,iw)
 
         tnudr = real(rho(k,iw)) * tnudi
 

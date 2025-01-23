@@ -40,8 +40,11 @@ use mem_addsc,   only: addsc
 use mem_tend,    only: vmxet, vmyet, vmzet
 use mem_para,    only: myrank
 use mem_turb,    only: vkm_sfc, sfluxt, sfluxr, pblh, vkm, vkh, ustar, wstar
-use mem_nudge,   only: rho_obs, theta_obs, rrw_obs, uzonal_obs, umerid_obs, &
-                       rho_sim, theta_sim, rrw_sim, uzonal_sim, umerid_sim
+use mem_nudge,   only: rho_obs, theta_obs, rrv_obs, uzonal_obs, umerid_obs, &
+                       rho_sim, theta_sim, rrv_sim, uzonal_sim, umerid_sim, &
+                       rho_obsp, theta_obsp, rrv_obsp, uzonal_obsp, umerid_obsp, &
+                       rho_obsf, theta_obsf, rrv_obsf, uzonal_obsf, umerid_obsf, &
+                       tp, tf, nudflag, nudnxp
 use therm_lib,   only: qtk, qwtk, rhovsl_inv
 use misc_coms,   only: io6, naddsc, mdomain
 use oplot_coms,  only: op
@@ -753,17 +756,17 @@ data fldlib(1:4,722:753)/ &
 data fldlib(1:4,771:796)/ &
  'RHO_OBS'       ,'T3' ,'NUDGING OBS AIR DENSITY',' (kg m:S2:-3  )'         ,& ! 771
  'THETA_OBS'     ,'T3' ,'NUDGING OBS THETA',' (K)'                          ,& ! 772
- 'RRW_OBS'       ,'T3' ,'NUDGING OBS VAPOR MIXR',' (g kg:S2:-1  )'          ,& ! 773
+ 'RRV_OBS'       ,'T3' ,'NUDGING OBS VAPOR MIXR',' (g kg:S2:-1  )'          ,& ! 773
  'UZONAL_OBS'    ,'T3' ,'NUDGING OBS ZONAL WIND',' (m s:S2:-1  )'           ,& ! 774
  'UMERID_OBS'    ,'T3' ,'NUDGING OBS MERID WIND',' (m s:S2:-1  )'           ,& ! 775
  'RHO_SIM'       ,'T3' ,'NUDGING SIM AIR DENSITY',' (kg m:S2:-3  )'         ,& ! 776
  'THETA_SIM'     ,'T3' ,'NUDGING SIM THETA',' (K)'                          ,& ! 777
- 'RRW_SIM'       ,'T3' ,'NUDGING SIM VAPOR MIXR',' (g kg:S2:-1  )'          ,& ! 778
+ 'RRV_SIM'       ,'T3' ,'NUDGING SIM VAPOR MIXR',' (g kg:S2:-1  )'          ,& ! 778
  'UZONAL_SIM'    ,'T3' ,'NUDGING SIM ZONAL WIND',' (m s:S2:-1  )'           ,& ! 779
  'UMERID_SIM'    ,'T3' ,'NUDGING SIM MERID WIND',' (m s:S2:-1  )'           ,& ! 780
  'RHO_OBS_SIM'   ,'T3' ,'NUDGING DIF AIR DENSITY',' (kg m:S2:-3  )'         ,& ! 781
  'THETA_OBS_SIM' ,'T3' ,'NUDGING DIF THETA',' (K)'                          ,& ! 782
- 'RRW_OBS_SIM'   ,'T3' ,'NUDGING DIF VAPOR MIXR',' (g kg:S2:-1  )'          ,& ! 783
+ 'RRV_OBS_SIM'   ,'T3' ,'NUDGING DIF VAPOR MIXR',' (g kg:S2:-1  )'          ,& ! 783
  'UZONAL_OBS_SIM','T3' ,'NUDGING DIF ZONAL WIND',' (m s:S2:-1  )'           ,& ! 784
  'UMERID_OBS_SIM','T3' ,'NUDGING DIF MERID WIND',' (m s:S2:-1  )'           ,& ! 785
  'VXE'           ,'T3' ,'EARTH CARTESIAN X WIND',' (m s:S2:-1  )'           ,& ! 786
@@ -4868,102 +4871,138 @@ case(753) ! 'LATFLUX_DAVG'
 
 case(771) ! 'RHO_OBS'
 
-   if (.not. allocated(rho_obs)) go to 1000
-
-   fldval = rho_obs(k,itab_w(i)%iwnud(1))
+   if (nudflag < 1) go to 1000
+   if (nudnxp > 0) then
+      fldval = rho_obs(k,itab_w(i)%iwnud(1))
+   else
+      fldval = tp * rho_obsp(k,i) + tf * rho_obsf(k,i)
+   endif
 
 case(772) ! 'THETA_OBS'
 
-   if (.not. allocated(theta_obs)) go to 1000
+   if (nudflag < 1) go to 1000
+   if (nudnxp > 0) then
+      fldval = theta_obs(k,itab_w(i)%iwnud(1))
+   else
+      fldval = tp * theta_obsp(k,i) + tf * theta_obsf(k,i)
+   endif
 
-!   fldval = theta_obs(k,itab_w(i)%iwnud(1))
-   fldval = theta_obs(k,i)
+case(773) ! 'RRV_OBS'
 
-case(773) ! 'RRW_OBS'
-
-   if (.not. allocated(rrw_obs)) go to 1000
-
-   fldval = rrw_obs(k,itab_w(i)%iwnud(1)) * 1.e3
+   if (nudflag < 1) go to 1000
+   if (nudnxp > 0) then
+      fldval = rrv_obs(k,itab_w(i)%iwnud(1))
+   else
+      fldval = tp * rrv_obsp(k,i) + tf * rrv_obsf(k,i)
+   endif
 
 case(774) ! 'UZONAL_OBS'
 
-   if (.not. allocated(uzonal_obs)) go to 1000
-
-   fldval = uzonal_obs(k,itab_w(i)%iwnud(1))
+   if (nudflag < 1) go to 1000
+   if (nudnxp > 0) then
+      fldval = uzonal_obs(k,itab_w(i)%iwnud(1))
+   else
+      fldval = tp * uzonal_obsp(k,i) + tf * uzonal_obsf(k,i)
+   endif
 
 case(775) ! 'UMERID_OBS'
 
-   if (.not. allocated(umerid_obs)) go to 1000
-
-   fldval = umerid_obs(k,itab_w(i)%iwnud(1))
+   if (nudflag < 1) go to 1000
+   if (nudnxp > 0) then
+      fldval = umerid_obs(k,itab_w(i)%iwnud(1))
+   else
+      fldval = tp * umerid_obsp(k,i) + tf * umerid_obsf(k,i)
+   endif
 
 case(776) ! 'RHO_SIM'
 
-   if (.not. allocated(rho_sim)) go to 1000
-
-   fldval = rho_sim(k,itab_w(i)%iwnud(1))
+   if (nudflag > 0 .and. nudnxp > 0) then
+      fldval = rho_sim(k,itab_w(i)%iwnud(1))
+   else
+      fldval = rho(k,i)
+   endif
 
 case(777) ! 'THETA_SIM'
 
-   if (.not. allocated(theta_sim)) go to 1000
+   if (nudflag > 0 .and. nudnxp > 0) then
+      fldval = theta_sim(k,itab_w(i)%iwnud(1))
+   else
+      fldval = theta(k,i)
+   endif
 
-!   fldval = theta_sim(k,itab_w(i)%iwnud(1))
-   fldval = theta_sim(k,i)
+case(778) ! 'RRV_SIM'
 
-case(778) ! 'RRW_SIM'
-
-   if (.not. allocated(rrw_sim)) go to 1000
-
-   fldval = rrw_sim(k,itab_w(i)%iwnud(1)) * 1.e3
+   if (nudflag > 0 .and. nudnxp > 0) then
+      fldval = rrv_sim(k,itab_w(i)%iwnud(1))
+   else
+      fldval = rr_v(k,i)
+   endif
 
 case(779) ! 'UZONAL_SIM'
 
-   if (.not. allocated(uzonal_sim)) go to 1000
-
-   fldval = uzonal_sim(k,itab_w(i)%iwnud(1))
+   if (nudflag > 0 .and. nudnxp > 0) then
+      fldval = uzonal_sim(k,itab_w(i)%iwnud(1))
+   else
+      fldval = ue(k,i)
+   endif
 
 case(780) ! 'UMERID_SIM'
 
-   if (.not. allocated(umerid_sim)) go to 1000
-
-   fldval = umerid_sim(k,itab_w(i)%iwnud(1))
+   if (nudflag > 0 .and. nudnxp > 0) then
+      fldval = umerid_sim(k,itab_w(i)%iwnud(1))
+   else
+      fldval = ve(k,i)
+   endif
 
 case(781) ! 'RHO_OBS_SIM'
 
-   if (.not. allocated(rho_sim)) go to 1000
-
-   fldval = rho_obs(k,itab_w(i)%iwnud(1)) &
-          - rho_sim(k,itab_w(i)%iwnud(1))
+   if (nudflag < 1) go to 1000
+   if (nudnxp > 0) then
+      fldval = rho_obs(k,itab_w(i)%iwnud(1)) &
+             - rho_sim(k,itab_w(i)%iwnud(1))
+   else
+      fldval = tp * rho_obsp(k,i) + tf * rho_obsf(k,i) - rho(k,i)
+   endif
 
 case(782) ! 'THETA_OBS_SIM'
 
-   if (.not. allocated(theta_sim)) go to 1000
+   if (nudflag < 1) go to 1000
+   if (nudnxp > 0) then
+      fldval = theta_obs(k,itab_w(i)%iwnud(1)) &
+             - theta_sim(k,itab_w(i)%iwnud(1))
+   else
+      fldval = tp * theta_obsp(k,i) + tf * theta_obsf(k,i) - theta(k,i)
+   endif
 
-!   fldval = theta_obs(k,itab_w(i)%iwnud(1)) &
-!          - theta_sim(k,itab_w(i)%iwnud(1))
-   fldval = theta_obs(k,i) &
-          - theta_sim(k,i)
+case(783) ! 'RRV_OBS_SIM'
 
-case(783) ! 'RRW_OBS_SIM'
-
-   if (.not. allocated(rrw_sim)) go to 1000
-
-   fldval = rrw_obs(k,itab_w(i)%iwnud(1)) * 1.e3 &
-          - rrw_sim(k,itab_w(i)%iwnud(1)) * 1.e3
+   if (nudflag < 1) go to 1000
+   if (nudnxp > 0) then
+      fldval = rrv_obs(k,itab_w(i)%iwnud(1)) &
+             - rrv_sim(k,itab_w(i)%iwnud(1))
+   else
+      fldval = tp * rrv_obsp(k,i) + tf * rrv_obsf(k,i) - rr_v(k,i)
+   endif
 
 case(784) ! 'UZONAL_OBS_SIM'
 
-   if (.not. allocated(uzonal_sim)) go to 1000
-
-   fldval = uzonal_obs(k,itab_w(i)%iwnud(1)) &
-          - uzonal_sim(k,itab_w(i)%iwnud(1))
+   if (nudflag < 1) go to 1000
+   if (nudnxp > 0) then
+      fldval = uzonal_obs(k,itab_w(i)%iwnud(1)) &
+             - uzonal_sim(k,itab_w(i)%iwnud(1))
+   else
+      fldval = tp * uzonal_obsp(k,i) + tf * uzonal_obsf(k,i) - ue(k,i)
+   endif
 
 case(785) ! 'UMERID_OBS_SIM'
 
-   if (.not. allocated(umerid_sim)) go to 1000
-
-   fldval = umerid_obs(k,itab_w(i)%iwnud(1)) &
-          - umerid_sim(k,itab_w(i)%iwnud(1))
+   if (nudflag < 1) go to 1000
+   if (nudnxp > 0) then
+      fldval = umerid_obs(k,itab_w(i)%iwnud(1)) &
+             - umerid_sim(k,itab_w(i)%iwnud(1))
+   else
+      fldval = tp * umerid_obsp(k,i) + tf * umerid_obsf(k,i) - ve(k,i)
+   endif
 
 case(786) ! 'VXE'
 
