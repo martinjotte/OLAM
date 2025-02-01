@@ -480,16 +480,20 @@ end subroutine tend0
 
 subroutine comp_alpha_press()
 
-  use mem_grid,    only: lpw, lpv, mza, dzim, dniv, zfacit
+  use mem_grid,    only: lpw, lpv, mza, dzim, dniv, zfacit, zwgt_top, zwgt_bot
   use mem_ijtabs,  only: jtab_w, jtw_prog, jtab_v, jtv_prog, itab_v
   use consts_coms, only: pc1, rdry, rvap, cpocv, gravo2
   use mem_basic,   only: rr_v, rr_w, theta, thil, alpha_press, &
                          pwfac, pvfac
+  use micro_coms,  only: miclevel
 
   implicit none
 
   integer :: j, iw, k, iv, iw1, iw2
   real    :: rw
+
+  ! No modificiations necessary if vapor is passive
+  if (miclevel == 0) return
 
   !$omp parallel
   !$omp do private(iw,k,rw)
@@ -508,7 +512,7 @@ subroutine comp_alpha_press()
      do k = lpw(iw), mza-1
       ! pwfac(k,iw) = dzim(k) * ( zwgt_bot(k) / (1. + rr_w(k  ,iw)) &
       !                         + zwgt_top(k) / (1. + rr_w(k+1,iw)) )
-        rw          = 0.5 * (rr_w(k+1,iw) + rr_w(k,iw))
+        rw          = zwgt_top(k) * rr_w(k+1,iw) + zwgt_bot(k) * rr_w(k,iw)
         pwfac(k,iw) = dzim(k) * (1.0 - rw + rw * rw)
      enddo
 

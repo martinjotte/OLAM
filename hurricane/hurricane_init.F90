@@ -128,7 +128,7 @@ Contains
   real            :: delz
   real, parameter :: zexpon_thpert = 2.0    ! []
 
-  nhtim = max(timmax8, timmax_hurrinit) / dtlm
+  nhtim = max(timmax8, timmax_hurrinit) / dtlm + 1
   nhcyc = max(1,ncycle_hurrinit)
 
   rmax   = 0.999999 * radius_ax(nr)

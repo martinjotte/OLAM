@@ -28,8 +28,8 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
   use rrtmg_lw_rad,        only: rrtmg_lw
   use mcica_subcol_gen_sw, only: mcica_subcol_sw
   use mcica_subcol_gen_lw, only: mcica_subcol_lw
-  use rrsw_wvn,            only: ngb_sw => ngb
-  use rrlw_wvn,            only: ngb_lw => ngb
+  use rrsw_wvn,            only: nga_sw => nga, ngs_sw => ngs
+  use rrlw_wvn,            only: nga_lw => nga, ngs_lw => ngs
 
   implicit none
 
@@ -85,26 +85,27 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
   real :: emiss (nsfc)
   real :: fland
 
-  real :: coldry  (nrad)
+  real :: coldry  (nrad)  ! molecules dry air / cm^2
   real :: play    (nrad)
   real :: tlay    (nrad)
-  real :: h2ovmr  (nrad)
   real :: cldfr   (nrad)
   real :: cicewp  (nrad)
   real :: cliqwp  (nrad)
   real :: reice   (nrad)
   real :: reliq   (nrad)
 
-  real :: co2vmr  ( nrad)
-  real :: o3vmr   ( nrad)
-  real :: o2vmr   ( nrad)
-  real :: ch4vmr  ( nrad)
-  real :: n2ovmr  ( nrad)
-  real :: covmr   ( nrad)
-  real :: cfc11vmr( nrad)
-  real :: cfc12vmr( nrad)
-  real :: cfc22vmr( nrad)
-  real :: ccl4vmr ( nrad)
+  ! volume mixing ratios (moles / moles of dry air)
+  real :: h2ovmr  (nrad)
+  real :: co2vmr  (nrad)
+  real :: o3vmr   (nrad)
+  real :: o2vmr   (nrad)
+  real :: ch4vmr  (nrad)
+  real :: n2ovmr  (nrad)
+  real :: covmr   (nrad)
+  real :: cfc11vmr(nrad)
+  real :: cfc12vmr(nrad)
+  real :: cfc22vmr(nrad)
+  real :: ccl4vmr (nrad)
 
   real :: taucldl(nbndlw, nrad)
 
@@ -415,10 +416,12 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
 
            do k = 1, mza-koff
               if (cldfr(k) > 0.5) then
-                 do ig = 1, ngptsw
-                    taucmcs(ig,k) = tauclds(ngb_sw(ig),k)
-                    ssacmcs(ig,k) = ssaclds(ngb_sw(ig),k)
-                    asmcmcs(ig,k) = asmclds(ngb_sw(ig),k)
+                 do ib = 1, nbndsw
+                    do ig = nga_sw(ib), ngs_sw(ib)
+                       taucmcs(ig,k) = tauclds(ib,k)
+                       ssacmcs(ig,k) = ssaclds(ib,k)
+                       asmcmcs(ig,k) = asmclds(ib,k)
+                    enddo
                  enddo
               endif
            enddo
@@ -552,8 +555,10 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
 
            do k = 1, nrad
               if (cldfr(k) > 0.5) then
-                 do ig = 1, ngptlw
-                    taucmcl(ig,k) = taucldl(ngb_lw(ig),k)
+                 do ib = 1, nbndlw
+                    do ig = nga_lw(ib), ngs_lw(ib)
+                       taucmcl(ig,k) = taucldl(ib,k)
+                    enddo
                  enddo
               endif
            enddo

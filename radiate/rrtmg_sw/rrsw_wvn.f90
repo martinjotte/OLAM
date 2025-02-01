@@ -61,7 +61,7 @@
       integer(kind=im), parameter :: ngc(nbndsw) = &
            (/ 6,12, 8, 8,10,10, 2,10, 8, 6, 6, 8, 6,12 /)
 
-      integer(kind=im), parameter :: ngs1(nbndsw) = &
+      integer(kind=im), parameter :: nga(nbndsw) = &
            (/ 1,7,19,27,35,45,55,57,67,75,81,87,95,101 /)
 
       integer(kind=im), parameter :: ngs(nbndsw) = &

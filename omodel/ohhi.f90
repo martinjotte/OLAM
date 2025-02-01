@@ -32,6 +32,7 @@ subroutine arrsnd_thil()
   use misc_coms,   only: nsndg, ipsflg, irtsflg, iusflg, ps, ts, rts, us, vs, &
                          hs, thds, p_sfc
   use therm_lib,   only: rslf
+  use micro_coms,  only: miclevel
 
   implicit none
 
@@ -66,22 +67,30 @@ subroutine arrsnd_thil()
 
         theta = ts(ksndg)
         tair  = theta * (ps(ksndg) * p00i) ** rocp
-        qt    = rts2qt(irtsflg, rts(ksndg), tair, ps(ksndg))
+
+        if (miclevel > 0) then
+           qt = rts2qt(irtsflg, rts(ksndg), tair, ps(ksndg))
+        else
+           qt = 0.0
+        endif
+
         qv    = qt
         qc    = 0.0
 
-        do iterate = 1, 20
-           theta = 0.7 * theta &
-                + 0.3 * ts(ksndg) * (1. + alvlocp * qc  &
-                                        / ((1.0 + qv) * max(tair,253.)))
+        if (miclevel > 1) then
+           do iterate = 1, 20
+              theta = 0.7 * theta &
+                    + 0.3 * ts(ksndg) * (1. + alvlocp * qc  &
+                                              / ((1.0 + qv) * max(tair,253.)))
 
-           tair  = theta * (ps(ksndg) * p00i) ** rocp
+              tair  = theta * (ps(ksndg) * p00i) ** rocp
 
-           qt    = rts2qt(irtsflg, rts(ksndg), tair, ps(ksndg))
-           qsat  = rslf(ps(ksndg),tair)
-           qc    = max(0., qt - qsat)
-           qv    = qt - qc
-        enddo
+              qt    = rts2qt(irtsflg, rts(ksndg), tair, ps(ksndg))
+              qsat  = rslf(ps(ksndg),tair)
+              qc    = max(0., qt - qsat)
+              qv    = qt - qc
+           enddo
+        endif
 
         rts (ksndg) = qt
         ts  (ksndg) = tair
@@ -110,22 +119,29 @@ subroutine arrsnd_thil()
      theta = ts(ksndg)
      tair  = theta * (ps(ksndg) * p00i) ** rocp
 
-     qt    = rts2qt(irtsflg, rts(ksndg), tair, ps(ksndg))
-     qv    = qt
-     qc    = 0.0
+     if (miclevel > 1) then
+        qt = rts2qt(irtsflg, rts(ksndg), tair, ps(ksndg))
+     else
+        qt = 0.0
+     endif
 
-     do iterate = 1, 20
-        theta = 0.7 * theta &
-               + 0.3 * ts(ksndg) * (1. + alvlocp * qc &
-                                       / ((1.0 + qv) * max(tair,253.)))
+     qv = qt
+     qc = 0.0
 
-        tair  = theta * (ps(ksndg) * p00i) ** rocp
+     if (miclevel > 1) then
+        do iterate = 1, 20
+           theta = 0.7 * theta &
+                 + 0.3 * ts(ksndg) * (1. + alvlocp * qc &
+                                           / ((1.0 + qv) * max(tair,253.)))
 
-        qt    = rts2qt(irtsflg, rts(ksndg), tair, ps(ksndg))
-        qsat  = rslf(ps(ksndg),tair)
-        qc    = max(0., qt - qsat)
-        qv    = qt - qc
-     enddo
+           tair  = theta * (ps(ksndg) * p00i) ** rocp
+
+           qt    = rts2qt(irtsflg, rts(ksndg), tair, ps(ksndg))
+           qsat  = rslf(ps(ksndg),tair)
+           qc    = max(0., qt - qsat)
+           qv    = qt - qc
+        enddo
+     endif
 
      rts (ksndg) = qt
      ts  (ksndg) = tair
@@ -145,29 +161,37 @@ subroutine arrsnd_thil()
         press = ( ps(ksndg-1) ** rocp &
                 + gocp * (hs(ksndg-1) - hs(ksndg)) * p00k / thavg ) ** cpor
         tair  = theta * (press * p00i) ** rocp
-        qt    = rts2qt(irtsflg, rts(ksndg), tair, press)
-        qv    = qt
-        qc    = 0.0
 
-        do iterate = 1, 20
+        if (miclevel > 0) then
+           qt = rts2qt(irtsflg, rts(ksndg), tair, press)
+        else
+           qt = 0.0
+        endif
 
-           tvirt1 = 1. + eps_virt * qv
-           thavg  = 0.5 * (theta * tvirt1 + thds(ksndg-1) * tvirt2)
+        qv = qt
+        qc = 0.0
 
-           press  = ( ps(ksndg-1) ** rocp &
-                    + gocp * (hs(ksndg-1) - hs(ksndg)) * p00k / thavg ) ** cpor
+        if (miclevel > 1) then
+           do iterate = 1, 20
 
-           tair   = theta * (press * p00i)**rocp
+              tvirt1 = 1. + eps_virt * qv
+              thavg  = 0.5 * (theta * tvirt1 + thds(ksndg-1) * tvirt2)
 
-           qt     = rts2qt(irtsflg, rts(ksndg), tair, press)
-           qsat   = rslf(press,tair)
-           qc     = max(0., qt - qsat)
-           qv     = qt - qc
+              press  = ( ps(ksndg-1) ** rocp &
+                       + gocp * (hs(ksndg-1) - hs(ksndg)) * p00k / thavg ) ** cpor
 
-           theta = 0.7 * theta &
-                  + 0.3 * ts(ksndg) * (1. + alvlocp * qc &
-                                          / ((1.0 + qv) * max(tair,253.)))
-        enddo
+              tair   = theta * (press * p00i)**rocp
+
+              qt     = rts2qt(irtsflg, rts(ksndg), tair, press)
+              qsat   = rslf(press,tair)
+              qc     = max(0., qt - qsat)
+              qv     = qt - qc
+
+              theta = 0.7 * theta &
+                    + 0.3 * ts(ksndg) * (1. + alvlocp * qc &
+                                              / ((1.0 + qv) * max(tair,253.)))
+           enddo
+        endif
 
         rts (ksndg) = qt
         ts  (ksndg) = tair
@@ -189,6 +213,7 @@ subroutine arrsnd_theta()
   use misc_coms,   only: nsndg, ipsflg, irtsflg, iusflg, ps, ts, rts, us, vs, &
                           hs, thds, p_sfc
   use therm_lib,   only: rslf
+  use micro_coms,  only: miclevel
 
   implicit none
 
@@ -219,9 +244,20 @@ subroutine arrsnd_theta()
         ps  (ksndg) = ps(ksndg) * 100.
         thds(ksndg) = ts(ksndg)
         ts  (ksndg) = ts(ksndg) * (ps(ksndg) * p00i) ** rocp
-        rts (ksndg) = rts2qt(irtsflg, (rts(ksndg)), ts(ksndg), ps(ksndg))
-        qsat        = rslf(ps(ksndg), ts(ksndg))
-        qvap(ksndg) = rts(ksndg) - max(0., rts(ksndg) - qsat)
+
+        if (miclevel > 0) then
+           rts(ksndg) = rts2qt(irtsflg, (rts(ksndg)), ts(ksndg), ps(ksndg))
+        else
+           rts(ksndg) = 0.0
+        endif
+
+        if (miclevel > 1) then
+           qsat        = rslf(ps(ksndg), ts(ksndg))
+           qvap(ksndg) = rts(ksndg) - max(0., rts(ksndg) - qsat)
+        else
+           qvap(ksndg) = rts(ksndg)
+        endif
+
      enddo
 
      do ksndg = 2, nsndg
@@ -244,9 +280,19 @@ subroutine arrsnd_theta()
 
      thds(ksndg) = ts(ksndg)
      ts  (ksndg) = ts(ksndg) * (ps(ksndg) * p00i) ** rocp
-     rts (ksndg) = rts2qt(irtsflg, (rts(ksndg)), ts(ksndg), ps(ksndg))
-     qsat        = rslf(ps(ksndg), ts(ksndg))
-     qvap(ksndg) = rts(ksndg) - max(0., rts(ksndg) - qsat)
+
+     if (miclevel > 0) then
+        rts(ksndg) = rts2qt(irtsflg, (rts(ksndg)), ts(ksndg), ps(ksndg))
+     else
+        rts(ksndg) = 0.0
+     endif
+
+     if (miclevel > 1) then
+        qsat        = rslf(ps(ksndg), ts(ksndg))
+        qvap(ksndg) = rts(ksndg) - max(0., rts(ksndg) - qsat)
+     else
+        qvap(ksndg) = rts(ksndg)
+     endif
 
      ! Above surface, we need to compute temperature, humidity, and pressure.
      ! Need to iterate in case of saturation
@@ -258,28 +304,37 @@ subroutine arrsnd_theta()
 
         theta = ts(ksndg)
         thavg = 0.5 * (theta + thds(ksndg-1) * tvirt2)
+
         press = ( ps(ksndg-1) ** rocp &
                 + gocp * (hs(ksndg-1) - hs(ksndg)) * p00k / thavg ) ** cpor
         tair  = theta * (press * p00i) ** rocp
-        qt    = rts2qt(irtsflg, rts(ksndg), tair, press)
-        qv    = qt
-        qc    = 0.0
 
-        do iterate = 1, 20
+        if (miclevel > 0) then
+           qt = rts2qt(irtsflg, rts(ksndg), tair, press)
+        else
+           qt = 0.0
+        endif
 
-           tvirt1 = 1. + eps_virt * qv
-           thavg  = 0.5 * (theta * tvirt1 + thds(ksndg-1) * tvirt2)
-           press  = ( ps(ksndg-1) ** rocp &
-                  + gocp * (hs(ksndg-1) + hs(ksndg)) * p00k / thavg ) ** cpor
+        qv = qt
+        qc = 0.0
 
-           tair   = theta * (press * p00i)**rocp
+        if (miclevel > 1) then
+           do iterate = 1, 20
 
-           qt     = rts2qt(irtsflg, rts(ksndg), tair, press)
-           qsat   = rslf(press, tair)
-           qc     = max(0., qt - qsat)
-           qv     = qt - qc
+              tvirt1 = 1. + eps_virt * qv
+              thavg  = 0.5 * (theta * tvirt1 + thds(ksndg-1) * tvirt2)
+              press  = ( ps(ksndg-1) ** rocp &
+                     + gocp * (hs(ksndg-1) + hs(ksndg)) * p00k / thavg ) ** cpor
 
-        enddo
+              tair   = theta * (press * p00i)**rocp
+
+              qt     = rts2qt(irtsflg, rts(ksndg), tair, press)
+              qsat   = rslf(press, tair)
+              qc     = max(0., qt - qsat)
+              qv     = qt - qc
+
+           enddo
+        endif
 
         rts (ksndg) = qt
         ts  (ksndg) = tair
@@ -301,6 +356,7 @@ subroutine arrsnd_tair()
   use misc_coms,   only: nsndg, ipsflg, irtsflg, iusflg, itsflg, &
                          ps, ts, rts, us, vs, hs, thds, p_sfc
   use therm_lib,   only: rslf
+  use micro_coms,  only: miclevel
 
   implicit none
 
@@ -338,9 +394,20 @@ subroutine arrsnd_tair()
      do ksndg = 1, nsndg
         ps  (ksndg) = ps(ksndg) * 100.
         thds(ksndg) = ts(ksndg) * (p00 / ps(ksndg)) * rocp
-        rts (ksndg) = rts2qt(irtsflg, (rts(ksndg)), ts(ksndg), ps(ksndg))
-        qsat        = rslf(ps(ksndg), ts(ksndg))
-        qvap(ksndg) = rts(ksndg) - max(0., rts(ksndg) - qsat)
+
+        if (miclevel > 0) then
+           rts(ksndg) = rts2qt(irtsflg, (rts(ksndg)), ts(ksndg), ps(ksndg))
+        else
+           rts(ksndg) = 0.0
+        endif
+
+        if (miclevel > 1) then
+           qsat        = rslf(ps(ksndg), ts(ksndg))
+           qvap(ksndg) = rts(ksndg) - max(0., rts(ksndg) - qsat)
+        else
+           qvap(ksndg) = rts(ksndg)
+        endif
+
      enddo
 
      do ksndg = 2, nsndg
@@ -363,9 +430,19 @@ subroutine arrsnd_tair()
      ksndg = 1
 
      thds(ksndg) = ts(ksndg) * (p00 / ps(ksndg)) ** rocp
-     rts (ksndg) = rts2qt(irtsflg, (rts(ksndg)), ts(ksndg), ps(ksndg))
-     qsat        = rslf(ps(ksndg), ts(ksndg))
-     qvap(ksndg) = rts(ksndg) - max(0., rts(ksndg) - qsat)
+
+     if (miclevel > 0) then
+        rts(ksndg) = rts2qt(irtsflg, (rts(ksndg)), ts(ksndg), ps(ksndg))
+     else
+        rts(ksndg) = 0.0
+     endif
+
+     if (miclevel > 1) then
+        qsat        = rslf(ps(ksndg), ts(ksndg))
+        qvap(ksndg) = rts(ksndg) - max(0., rts(ksndg) - qsat)
+     else
+        qvap(ksndg) = rts(ksndg)
+     endif
 
      ! Above surface, we need to compute potential temperature, humidity,
      ! and pressure. Need to iterate in case of saturation
@@ -378,23 +455,30 @@ subroutine arrsnd_tair()
         tavg  = 0.5 * (ts(ksndg) + ts(ksndg-1) * tvirt2)
         press = ps(ksndg-1) * exp(gordry * (hs(ksndg-1) - hs(ksndg)) / tavg)
 
-        qt    = rts2qt(irtsflg, rts(ksndg), ts(ksndg), press)
-        qv    = qt
-        qc    = 0.0
+        if (miclevel > 0) then
+           qt = rts2qt(irtsflg, rts(ksndg), ts(ksndg), press)
+        else
+           qt = 0.0
+        endif
 
-        do iterate = 1, 20
+        qv = qt
+        qc = 0.0
 
-           tvirt1 = 1. + eps_virt * qv
+        if (miclevel > 1) then
+           do iterate = 1, 20
 
-           tavg  = 0.5 * (ts(ksndg) * tvirt1 + ts(ksndg-1) * tvirt2)
-           press = ps(ksndg-1) * exp(gordry * (hs(ksndg-1) - hs(ksndg)) / tavg)
+              tvirt1 = 1. + eps_virt * qv
 
-           qt     = rts2qt(irtsflg, rts(ksndg), ts(ksndg), press)
-           qsat   = rslf(press, ts(ksndg))
-           qc     = max(0., qt - qsat)
-           qv     = qt - qc
+              tavg  = 0.5 * (ts(ksndg) * tvirt1 + ts(ksndg-1) * tvirt2)
+              press = ps(ksndg-1) * exp(gordry * (hs(ksndg-1) - hs(ksndg)) / tavg)
 
-        enddo
+              qt     = rts2qt(irtsflg, rts(ksndg), ts(ksndg), press)
+              qsat   = rslf(press, ts(ksndg))
+              qc     = max(0., qt - qsat)
+              qv     = qt - qc
+
+           enddo
+        endif
 
         rts (ksndg) = qt
         thds(ksndg) = ts(ksndg) * (p00 / press) ** rocp

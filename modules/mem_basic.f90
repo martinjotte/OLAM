@@ -39,12 +39,15 @@ Contains
 
   subroutine alloc_basic(mza,mva,mwa)
 
-    use misc_coms, only: rinit, rinit8, nrk_scal, nrk_wrtv, mdomain
+    use misc_coms,   only: rinit, rinit8, nrk_scal, nrk_wrtv, mdomain
+    use consts_coms, only: pc1, rdry, cpocv
+    use mem_grid,    only: zfacit, dniv, dzim
 
     implicit none
 
     integer, intent(in) :: mza,mva,mwa
     integer             :: iv, iw
+    real,     parameter :: alpha_dry = pc1 * rdry**cpocv
 
 !   Allocate basic memory needed for 'INITIAL' or 'HISTORY' runs
 !   and initialize allocated arrays to zero
@@ -58,7 +61,7 @@ Contains
     do iv = 1, mva
        vmc  (:,iv) = rinit
        vc   (:,iv) = rinit
-       pvfac(:,iv) = rinit
+       pvfac(:,iv) = zfacit(:) * dniv(iv)
        vmasc(:,iv) = 0.0_r8
     enddo
     !$omp end parallel do
@@ -102,8 +105,8 @@ Contains
        vye        (:,iw) = 0.0
        vze        (:,iw) = 0.0
        wmasc      (:,iw) = 0.0_r8
-       alpha_press(:,iw) = rinit
-       pwfac      (:,iw) = rinit
+       alpha_press(:,iw) = alpha_dry
+       pwfac      (:,iw) = dzim(:)
 
        if (mdomain <= 1) then
           ue      (:,iw) = rinit

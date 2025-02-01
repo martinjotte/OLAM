@@ -69,7 +69,7 @@
 
       use parkind,  only: im => kind_im, rb => kind_rb, cldmin
       use parrrsw,  only: nbndsw, ngptsw, mxmol, jpband, jpb1, jpb2
-      use rrsw_wvn, only: ngc, ngs, ngs1, raylt
+      use rrsw_wvn, only: ngc, ngs, nga, raylt
 
       implicit none
 
@@ -161,7 +161,7 @@
          ibm = jb-15
          do jk = nlayers-nsfc+2, nlayers+1
             js = nlayers+2-jk
-            do ig = ngs1(ibm), ngs(ibm)
+            do ig = nga(ibm), ngs(ibm)
                zrup_sfc (ig,jk) = palbp(js,ibm)
                zrupd_sfc(ig,jk) = palbd(js,ibm)
             enddo
@@ -169,7 +169,7 @@
 
          if (iaer > 0) then
             do jk=1,nlayers
-               do ig = ngs1(ibm), ngs(ibm)
+               do ig = nga(ibm), ngs(ibm)
                   ztaua(ig,jk) = ptaua(ibm,jk)
                   zasya(ig,jk) = pasya(ibm,jk)
                   zomga(ig,jk) = pomga(ibm,jk)
@@ -290,9 +290,9 @@
          enddo
 
          do ibm = 1, nbndsw
-            zbbfu_sfc   (ikl,ibm) = sum( zfu_sfc( ngs1(ibm):ngs(ibm), jk ) )
-            zbbfd_sfc   (ikl,ibm) = sum( zfd_sfc( ngs1(ibm):ngs(ibm), jk ) )
-            zbbfddir_sfc(ikl,ibm) = sum( ztdbt  ( ngs1(ibm):ngs(ibm), jk ) )
+            zbbfu_sfc   (ikl,ibm) = sum( zfu_sfc( nga(ibm):ngs(ibm), jk ) )
+            zbbfd_sfc   (ikl,ibm) = sum( zfd_sfc( nga(ibm):ngs(ibm), jk ) )
+            zbbfddir_sfc(ikl,ibm) = sum( ztdbt  ( nga(ibm):ngs(ibm), jk ) )
          enddo
       enddo
 
