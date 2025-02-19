@@ -186,10 +186,8 @@ subroutine gridinit()
   if (runtype /= 'MAKEGRID_PLOT') then
 
      if (mdomain /= 4) then
-
         call voronoi()
         call pcvt()
-
      endif
 
      write(io6,'(/,a)') 'gridinit after voronoi'
@@ -240,7 +238,7 @@ subroutine gridinit()
 
      if (runtype == 'MAKEGRID_PLOT') then
         nmsfc = nwd
-         nvsfc = nud
+        nvsfc = nud
         nwsfc = nmd
         return
      endif
@@ -258,7 +256,10 @@ subroutine gridinit()
   if (mdomain == 0) then
 
      ! read selected SFCGRID values for MAKEREGRID run
-     if (runtype == 'MAKEREGRID') call sfcgfile_read_makeregrid()
+     if (runtype == 'MAKEREGRID') then
+        call sfcgfile_read_makeregrid()
+        allocate (sfcg%dzt_bot(nwsfc))
+     endif
 
      ! Compute overlay of ATM and SFC grids
      call sfc_atm_hex_overlay()

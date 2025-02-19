@@ -1760,7 +1760,7 @@ Contains
      aa6(1,2) =         a4 * h4
      aa6(1,3) =         a4 * h1
      aa6(1,4) = 0._r8
-     aa6(1,5) =       - a1 * h4
+     aa6(1,5) =       - a4 * h4
      aa6(1,6) = 0._r8
      yy6(1)   =         a4 * (y1 - (h1 * alvveg + h4) * veg_water - h4 * sfcwater_mass)  ! WVC row
 
