@@ -36,7 +36,6 @@ SOURCE_FILES= \
              $(LAND)/soilgrids_read.f90 \
              $(MODEL_MODS)/consts_coms.f90 \
              $(MODEL_MODS)/max_dims.f90 \
-             $(MODEL_MODS)/mem_regrid.f90 \
              $(MODEL_MODS)/mem_addsc.f90 \
              $(MODEL_MODS)/mem_adv.f90 \
              $(MODEL_MODS)/mem_average_vars.f90 \
@@ -50,6 +49,7 @@ SOURCE_FILES= \
              $(MODEL_MODS)/mem_para.F90 \
              $(MODEL_MODS)/mem_plot.f90 \
              $(MODEL_MODS)/mem_rayf.f90 \
+             $(MODEL_MODS)/mem_regrid.f90 \
              $(MODEL_MODS)/mem_tend.f90 \
              $(MODEL_MODS)/mem_zonavg.f90 \
              $(MODEL_MODS)/micro_coms.f90 \
@@ -137,13 +137,18 @@ SOURCE_FILES= \
              $(OUTILS)/latlon_bins.f90 \
              $(OUTILS)/map_proj.f90 \
              $(OUTILS)/matrix.f90 \
+             $(OUTILS)/minterp_lib.F90 \
+             $(OUTILS)/netcdf_utils.f90 \
              $(OUTILS)/olam_interp_ll.f90 \
              $(OUTILS)/o_ncar.f90 \
+             $(OUTILS)/point_io.f90 \
              $(OUTILS)/polygon_lib.f90 \
              $(OUTILS)/quadrature.f90 \
+             $(OUTILS)/sortlib.f90 \
              $(OUTILS)/string_lib.f90 \
              $(OUTILS)/sys_utils.f90 \
              $(OUTILS)/therm_lib.f90 \
+             $(OUTILS)/tokenize.f90 \
              $(OUTILS)/tridiag_lib.f90 \
              $(RADIATE)/cloud_frac.f90 \
              $(RADIATE)/cloudprep_rad.f90 \

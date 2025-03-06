@@ -177,6 +177,12 @@ Module oname_coms
      character(32)      :: lite_vars(maxlite) = ' '
      character(32)      :: latlon_vars(maxlatlon) = ' '
 
+     logical            :: do_point_output     = .false.
+     character(pathlen) :: point_obsin_header  = ' '
+     character(12)      :: point_obsin_suffix  = ' '
+     character(pathlen) :: point_obsout_header = ' '
+     character(12)      :: point_obsout_suffix = ' '
+
 !!    MODEL/NUMERICAL OPTIONS
 
      integer :: naddsc      = 0

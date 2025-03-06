@@ -642,6 +642,7 @@ subroutine spawn_nest(iatmgrid)
         itab_md(imn)%mrlm_orig = ltab_md(im)%mrlm_orig
         itab_md(imn)%ngr       = ltab_md(im)%ngr
         itab_md(imn)%npoly     = ltab_md(im)%npoly
+        itab_md(imn)%im_orig   = ltab_md(im)%im_orig
 
         if (iatmgrid) then
            itab_md(imn)%loop(1:mloops) = ltab_md(im)%loop(1:mloops)

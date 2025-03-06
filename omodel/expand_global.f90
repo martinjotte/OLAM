@@ -248,6 +248,9 @@ subroutine expand_global2(iatmgrid)
         itab_md(imn)%loop(1:mloops) = ltab_md(im)%loop(1:mloops)
         itab_md(imn)%imp     = imnew( ltab_md(im)%imp )
         ismnest(imn)         = .false.
+        itab_md(imn)%im_orig = im
+     else
+        itab_md(imn)%im_orig = ltab_md(im)%im_orig
      endif
 
      do j = 1, 7

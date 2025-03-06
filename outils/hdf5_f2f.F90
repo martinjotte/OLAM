@@ -2098,10 +2098,8 @@ contains
     character(*), optional, intent(in) :: cvalue
 
     integer(hid_t)   :: space_id, attr_id, atype_id
-    integer(hsize_t) :: dims(1)
     integer(size_t)  :: attrlen
-
-    integer          :: ndims
+    integer(hsize_t) :: dims(1)
     integer          :: hdferr
 
     if ( (.not. present(ivalue))  .and. &
@@ -2109,11 +2107,8 @@ contains
          (.not. present(dvalue))  .and. &
          (.not. present(cvalue)) ) return
 
-    ndims = 1
-    dims  = 1
-
-    ! Create the data space for the attribute
-    call H5Screate_simple_f(ndims, dims, space_id, hdferr)
+    ! Create a scalar data space for the attribute
+    CALL h5screate_f(H5S_SCALAR_F, space_id, hdferr)
 
     if     (present(ivalue)) then
 
@@ -2451,8 +2446,6 @@ contains
     integer(hid_t)   :: space_id, attr_id, atype_id, grp_id
     integer(hsize_t) :: dims(1)
     integer(size_t)  :: attrlen
-
-    integer          :: ndims
     integer          :: hdferr
 
     if ( (.not. present(ivalue))  .and. &
@@ -2463,11 +2456,8 @@ contains
     ! Open the root group of the HDF5 file
     call H5Gopen_f(fileid, '/', grp_id, hdferr)
 
-    ndims = 1
-    dims  = 1
-
     ! Create the data space for the attribute
-    call H5Screate_simple_f(ndims, dims, space_id, hdferr)
+    call h5screate_f(H5S_SCALAR_F, space_id, hdferr)
 
     if     (present(ivalue)) then
 

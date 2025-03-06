@@ -2529,16 +2529,14 @@ subroutine gridfile_read_oldgrid()
   use max_dims,   only: maxngrdll, pathlen
   use misc_coms,  only: io6, gridfile, mdomain, nzp, ndz, hdz, dz
   use hdf5_utils, only: shdf5_exists, shdf5_irec, shdf5_open, shdf5_close
-  use mem_regrid, only: nzp_og, mdomain_og, ndz_og, hdz_og, dz_og, &
-                        nza_og, nwa_og, xew_og, yew_og, zew_og, &
-                        wnx_og, wny_og, wnz_og, glatw_og, glonw_og, &
-                        lpw_og
-  use ll_bins,    only: itab_w0
+  use mem_regrid, only: nzp_og, mdomain_og, ndz_og, hdz_og, dz_og, nxp_og, &
+                        nza_og, nwa_og, xew_og, yew_og, zew_og, mrls_og, &
+                        wnx_og, wny_og, wnz_og, lpw_og, itab_wog, iwn_og
   use mem_para,   only: olam_mpi_finalize
 
   implicit none
 
-  integer :: idz, iw_og
+  integer :: idz, iw_og, j
   integer :: ierr
   integer :: ndims, idims(2)
   logical :: exans
@@ -2546,7 +2544,8 @@ subroutine gridfile_read_oldgrid()
   ! Scratch array for copying input
 
   integer, allocatable :: iscr1(:)
-  integer, allocatable :: iscr2(:,:)
+  real,    allocatable :: glatw_og(:)
+  real,    allocatable :: glonw_og(:)
 
   character(pathlen) :: flnm
 
@@ -2588,6 +2587,8 @@ subroutine gridfile_read_oldgrid()
   call shdf5_irec(ndims, idims, 'NZP'     , ivars=nzp_og)
   call shdf5_irec(ndims, idims, 'MDOMAIN' , ivars=mdomain_og)
   call shdf5_irec(ndims, idims, 'NDZ'     , ivars=ndz_og)
+  call shdf5_irec(ndims, idims, 'MRLS'    , ivars=mrls_og)
+  call shdf5_irec(ndims, idims, 'NXP'     , ivars=nxp_og)
 
   allocate( hdz_og(ndz_og))
   allocate( dz_og (ndz_og))
@@ -2655,7 +2656,7 @@ subroutine gridfile_read_oldgrid()
   allocate (glatw_og(nwa_og))
   allocate (glonw_og(nwa_og))
 
-  allocate (itab_w0(nwa_og))
+  allocate (itab_wog(nwa_og))
 
   idims(1) = nwa_og
 
@@ -2675,7 +2676,7 @@ subroutine gridfile_read_oldgrid()
   allocate (iscr1(nwa_og))
   call shdf5_irec(ndims,idims,'itab_w%npoly',ivar1=iscr1)
   do iw_og = 1,nwa_og
-     itab_w0(iw_og)%npoly = iscr1(iw_og)
+     itab_wog(iw_og)%np = iscr1(iw_og)
   enddo
   deallocate(iscr1)
 
@@ -2683,14 +2684,15 @@ subroutine gridfile_read_oldgrid()
   idims(1) = 7
   idims(2) = nwa_og
 
-  allocate (iscr2(7,nwa_og))
+  allocate( iwn_og(7,nwa_og) )
+  call shdf5_irec(ndims,idims,'itab_w%iw',ivar2=iwn_og)
 
-  call shdf5_irec(ndims,idims,'itab_w%iw',ivar2=iscr2)
-  do iw_og = 1,nwa_og
-     itab_w0(iw_og)%iw(1:7) = iscr2(1:7,iw_og)
+  do iw_og = 1, nwa_og
+     do j = 1, itab_wog(iw_og)%np
+        itab_wog(iw_og)%glats(j) = glatw_og( iwn_og(j,iw_og) )
+        itab_wog(iw_og)%glons(j) = glonw_og( iwn_og(j,iw_og) )
+     enddo
   enddo
-
-  deallocate (iscr2)
 
   call shdf5_close()
 

@@ -310,6 +310,20 @@
    ! Variables output in lite files:
    NL%LITE_VARS = 'TAIR', 'WC', 'SH_V', 'PRESS', 'RHO', 'RSHORT', 'RLONG'
 
+   ! Experimental point (time/lat/lon/altitude) output. Reads a NC4 file in NOAA
+   ! OBSPack format (obs#, time, lat, lon, altitude) to get locations to output.
+   ! Files are assumed to have the form "HEADER" // DATE // "SUFFIX"
+
+   NL%DO_POINT_OUTPUT  = .false.
+
+   ! Current model date YYYYMMDD will be assumed between file header and suffix:
+   NL%POINT_OBSIN_HEADER = "obspack_co2_1_OCO2MIP_v5.0.1_2024-11-14."
+   NL%POINT_OBSIN_SUFFIX = ".nc"
+
+   ! Current model date YYYYMMDD will be assumed between file header and suffix:
+   NL%POINT_OBSOUT_HEADER = "simdata_"
+   NL%POINT_OBSOUT_SUFFIX = ".nc"
+
  !--------------------------------------------------------------------------
  ! Interpolation to lat-lon grid for output to file and/or plotting:
  !--------------------------------------------------------------------------

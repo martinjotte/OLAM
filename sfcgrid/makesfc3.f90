@@ -42,6 +42,8 @@ subroutine makesfc3()
 
   use sea_swm,     only: depthmax_swe
 
+  use mem_delaunay,only: iwsfc_orig, mrl_wsfc
+
   implicit none
 
   integer :: k, iw, j, iv, im, np, kpom
@@ -53,6 +55,7 @@ subroutine makesfc3()
 
   real,    allocatable :: rscr(:)
   integer, allocatable :: iscr(:)
+  integer, allocatable :: iwsfc_orig_tmp(:), mrl_wsfc_tmp(:)
 
   type(itab_wsfc_vars), allocatable :: itab_wsfc_temp(:)
 
@@ -70,6 +73,10 @@ subroutine makesfc3()
   integer :: kk, koff
   real :: thick
 
+  ! Currently the surface mesh only works with a global domain
+
+  if (mdomain /= 0) return
+
   ! At this point in the process of surface grid initialization, the surface
   ! grid has been copied in Delaunay form (triangle mesh) from the atmospheric
   ! grid (by a call to subroutine copy_sfc_tri_grid).  This copy may, but need
@@ -84,45 +91,45 @@ subroutine makesfc3()
 
   ! Generate Voronoi form of surface grid and compute its geometric properties.
 
-  if (mdomain /= 4) then
+! if (mdomain /= 4) then
 
      call voronoi_sfc()
 
-  else
-
-     ! Special for cartesian hex grid
-
-     nmsfc = nma
-     nvsfc = nva
-     nwsfc = nwa
-
-     call alloc_sfcgrid1(nmsfc, nvsfc, nwsfc)
-
-     sfcg%xew = xew
-     sfcg%yew = yew
-     sfcg%zew = zew
-
-     do iv = 2,nvsfc
-        itab_vsfc(iv)%imn(1:2)  = itab_v(iv)%im(1:2)
-        itab_vsfc(iv)%iwn(1:2)  = itab_v(iv)%iw(1:2)
-     enddo
-
-     do im = 2,nmsfc
-        itab_msfc(im)%ivn(1:3) = itab_m(im)%iv(1:3)
-        itab_msfc(im)%iwn(1:3) = itab_m(im)%iw(1:3)
-     enddo
-
-     do iw = 2,nwsfc
-        np = itab_w(iw)%npoly
-
-        itab_wsfc(iw)%npoly      = np
-        itab_wsfc(iw)%imn (1:np) = itab_w(iw)%im  (1:np)
-        itab_wsfc(iw)%ivn (1:np) = itab_w(iw)%iv  (1:np)
-        itab_wsfc(iw)%iwn (1:np) = itab_w(iw)%iw  (1:np)
-        itab_wsfc(iw)%dirv(1:np) = itab_w(iw)%dirv(1:np)
-     enddo
-
-  endif
+! else
+!
+!    ! Special for cartesian hex grid
+!
+!    nmsfc = nma
+!    nvsfc = nva
+!    nwsfc = nwa
+!
+!    call alloc_sfcgrid1(nmsfc, nvsfc, nwsfc)
+!
+!    sfcg%xew = xew
+!    sfcg%yew = yew
+!    sfcg%zew = zew
+!
+!    do iv = 2,nvsfc
+!       itab_vsfc(iv)%imn(1:2)  = itab_v(iv)%im(1:2)
+!       itab_vsfc(iv)%iwn(1:2)  = itab_v(iv)%iw(1:2)
+!    enddo
+!
+!    do im = 2,nmsfc
+!       itab_msfc(im)%ivn(1:3) = itab_m(im)%iv(1:3)
+!       itab_msfc(im)%iwn(1:3) = itab_m(im)%iw(1:3)
+!    enddo
+!
+!    do iw = 2,nwsfc
+!       np = itab_w(iw)%npoly
+!
+!       itab_wsfc(iw)%npoly      = np
+!       itab_wsfc(iw)%imn (1:np) = itab_w(iw)%im  (1:np)
+!       itab_wsfc(iw)%ivn (1:np) = itab_w(iw)%iv  (1:np)
+!       itab_wsfc(iw)%iwn (1:np) = itab_w(iw)%iw  (1:np)
+!       itab_wsfc(iw)%dirv(1:np) = itab_w(iw)%dirv(1:np)
+!    enddo
+!
+! endif
 
   call grid_geometry_hex_sfc()
 
@@ -258,15 +265,21 @@ subroutine makesfc3()
   ! Store previous W itabs in a temporary array
 
   call move_alloc(itab_wsfc, itab_wsfc_temp)
+  call move_alloc(iwsfc_orig,   iwsfc_orig_tmp)
+  call move_alloc(mrl_wsfc,      mrl_wsfc_tmp)
 
   allocate( itab_wsfc(nwsfc) )
+  allocate( iwsfc_orig  (nwsfc) )
+  allocate( mrl_wsfc     (nwsfc) )
 
   ! Loop through SFC grid W points in old order
 
   do iwsfc = 2, nwsfc
      inew = iwnew(iwsfc)
 
-     itab_wsfc(inew) = itab_wsfc_temp(iwsfc)
+     itab_wsfc (inew) = itab_wsfc_temp(iwsfc)
+     iwsfc_orig(inew) = iwsfc_orig_tmp(iwsfc)
+     mrl_wsfc  (inew) = mrl_wsfc_tmp  (iwsfc)
 
      ! Convert IWN neighbor indices of inew W points
      do j = 1, itab_wsfc_temp(iwsfc)%npoly
@@ -275,6 +288,8 @@ subroutine makesfc3()
   enddo
 
   deallocate(itab_wsfc_temp)
+  deallocate(iwsfc_orig_tmp)
+  deallocate(mrl_wsfc_tmp)
 
   ! Reorder the sfcg W arrays that have been previously computed
 

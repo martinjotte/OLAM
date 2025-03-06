@@ -2,13 +2,17 @@ Module ll_bins
 
   implicit none
 
-  integer, parameter :: nlat(4) = [ 18,   90,  450, 1800 ] ! Number of bins spanning pole-to-pole
-                                                           ! distance for each bin set
-
-  integer, parameter :: maxb(4) = [ 200,  200,  200, 10000 ] ! Max allowed population in a bin
-                                                             ! for each bin set
-
-  real, parameter :: delat(4) = [ real(nlat(:)) / 180. ] ! # bins per deg of lat for each bin set
+!!  integer, parameter :: nset = 4
+!!
+!!  integer, parameter :: nlat (nset) = [ 18,   90,  450, 1800 ] ! Number of bins spanning pole-to-pole
+!!                                                               ! distance for each bin set
+!!
+!!! integer, parameter :: maxb (nset) = [ 200,  200,  200, huge(1) ] ! Max allowed population in a bin
+!!                                                                   ! for each bin set
+!!
+!!  real,    parameter :: delat(nset) = real(nlat(:)) / 180.  ! # bins per deg of lat for each bin set
+!!
+!!  real,    parameter :: bres (nset) = 0.5 / delat(:)
 
   Type bin_vars
      integer              :: nw
@@ -19,158 +23,220 @@ Module ll_bins
      integer                     :: nlon    ! # bins per lon circle for each bin set and lat band
      real                        :: delon   ! # bins per deg of lon for each bin set and lat band
      type(bin_vars), allocatable :: bins(:)
-  End type
+  End type blat_vars
 
   Type binset_vars
+     integer                      :: nlat    ! # bins per lat
+     real                         :: delat   ! # bins per deg of lat
      type(blat_vars), allocatable :: blat(:)
-  End type
+  End type binset_vars
 
-  type(binset_vars), allocatable :: bset(:)
-
-  ! itab_w0 stores a copy of the OLD ATM grid structure for a HISTREGRID runtype,
-  ! and it stores the normal ATM grid structure for computing overlay with SFCGRID.
-
-  Type itab_w0_vars
-     integer :: npoly = 0 ! number of W neighbors of this W pt
-     integer :: iw(7)     ! neighbor W pts
-  End Type itab_w0_vars
-
-  type(itab_w0_vars), allocatable :: itab_w0(:)
+  Type itab_grid_vars
+     integer :: np        ! number of bounding points listed
+     real    :: glats(8)  ! lats of points that describe the bounds of this cell
+     real    :: glons(8)  ! lons of points that describe the bounds of this cell
+  End Type itab_grid_vars
 
 Contains
 
 !=========================================================================
 
-  subroutine latlon_bins(nwa, glatw, glonw)
+subroutine latlon_bins(nwa, res, itab_w0, bset)
+
+  use consts_coms, only: erad, pi1
+  implicit none
+
+  integer,              intent(in   ) :: nwa
+  real,                 intent(in   ) :: res
+  type(itab_grid_vars), intent(inout) :: itab_w0(nwa)
+  type(binset_vars),    intent(  out) :: bset
+
+  integer :: jsup, i, j, iw, nlato3, nlon, nw
+  integer :: ix, iy
+  real    :: dx, dy
+
+  integer :: nn
+  integer, pointer :: iipts(:)
+
+  integer :: isetm, j0, j1, jj, i0, i1, ii, np
+  real    :: ymin, ymax, xmin, xmax
+  real    :: epsx, epsy
+
+  real, parameter :: fuzz = 0.05
+
+  bset%nlat  = nint( erad * pi1 / res )
+  bset%delat = real(bset%nlat) / 180.
+
+  allocate(bset%blat(bset%nlat))
+  nlato3 = bset%nlat / 3
+
+  !$omp parallel
+  !$omp do private(jsup,nlon)
+  do j = 1, bset%nlat
+     jsup = bset%nlat + 1 - j
+
+     nlon = 6 * min(j, jsup, nlato3)
+
+     bset%blat(j)%nlon  = nlon
+     bset%blat(j)%delon = real(nlon) / 360.
+
+     allocate(bset%blat(j)%bins(nlon)); bset%blat(j)%bins(:)%nw = 0
+  enddo
+  !$opm end do
+
+  !$omp do private(np,xmin,xmax,j,ymin,ymax,j0,j1,fuzz,epsx,epsy,i0,i1,ii,i)
+  do iw = 2, nwa
+     if (itab_w0(iw)%np < 1) cycle  ! flag to skip this cell
+
+     np = itab_w0(iw)%np
+
+     if ( any( abs(itab_w0(iw)%glats(1:np)) > 89.75 ) ) then
+
+        xmin = -180.0
+        xmax =  180.0
+        epsx = 0.0
+
+     else
+
+        ! unwrap lons if they span -180,+180
+
+        do j = 2, np
+           if (itab_w0(iw)%glons(1) < -90. .and. itab_w0(iw)%glons(j) > 90.) then
+              itab_w0(iw)%glons(j) = itab_w0(iw)%glons(j) - 360.
+           elseif (itab_w0(iw)%glons(1) > 90. .and. itab_w0(iw)%glons(j) < -90.) then
+              itab_w0(iw)%glons(j) = itab_w0(iw)%glons(j) + 360.
+           endif
+        enddo
+
+        ! Get range of lats/lons this cell spans
+
+        xmin = minval( itab_w0(iw)%glons(1:np) )
+        xmax = maxval( itab_w0(iw)%glons(1:np) )
+        epsx = fuzz * (xmax - xmin)
+
+     endif
+
+     ymin = minval( itab_w0(iw)%glats(1:np) )
+     ymax = maxval( itab_w0(iw)%glats(1:np) )
+     epsy = fuzz * (ymax - ymin)
+
+     ! Loop over all bins this cell spans
+
+     j0 = max(1,         floor(bset%delat * (ymin - epsy + 90.)) + 1)
+     j1 = min(bset%nlat, floor(bset%delat * (ymax + epsy + 90.)) + 1)
+
+     do j = j0, j1
+        i0 = floor(bset%blat(j)%delon * (xmin - epsx + 180.)) + 1
+        i1 = floor(bset%blat(j)%delon * (xmax + epsx + 180.)) + 1
+
+        i1 = min(i1,i0+bset%blat(j)%nlon-1)
+        do ii = i0, i1
+           i = modulo(ii-1, bset%blat(j)%nlon) + 1
+           !$omp atomic
+           bset%blat(j)%bins(i)%nw = bset%blat(j)%bins(i)%nw + 1
+        enddo
+     enddo
+
+  enddo
+  !$omp end do
+
+!  ! Loop through all bins of all sets and allocate IW(:) array
+
+  !$omp do private(i)
+  do j = 1, bset%nlat
+     do i = 1, bset%blat(j)%nlon
+        allocate( bset%blat(j)%bins(i)%iw( bset%blat(j)%bins(i)%nw ) )
+        bset%blat(j)%bins(i)%nw = 0
+     enddo
+  enddo
+  !$omp end do
+
+  ! Loop through all ATM iw cells again and sort them into the global lat-lon bins
+
+  !$omp do private(np,xmin,xmax,j,ymin,ymax,j0,j1,fuzz,epsx,epsy,i0,i1,ii,i,nw)
+  do iw = 2, nwa
+     if (itab_w0(iw)%np < 1) cycle  ! flag to skip this cell
+
+     np = itab_w0(iw)%np
+
+     if ( any( abs(itab_w0(iw)%glats(1:np)) > 89.75 ) ) then
+
+        xmin = -180.0
+        xmax =  180.0
+        epsx = 0.0
+
+     else
+
+        ! Lons have already been unwrapped,
+        ! get range of lats/lons this cell spans
+
+        xmin = minval( itab_w0(iw)%glons(1:np) )
+        xmax = maxval( itab_w0(iw)%glons(1:np) )
+        epsx = fuzz * (xmax - xmin)
+
+     endif
+
+     ymin = minval( itab_w0(iw)%glats(1:np) )
+     ymax = maxval( itab_w0(iw)%glats(1:np) )
+     epsy = fuzz * (ymax - ymin)
+
+     ! Loop over all bins this cell spans
+
+     j0 = max(1,         floor(bset%delat * (ymin - epsy + 90.)) + 1)
+     j1 = min(bset%nlat, floor(bset%delat * (ymax + epsy + 90.)) + 1)
+
+     do j = j0, j1
+        i0 = floor(bset%blat(j)%delon * (xmin - epsx + 180.)) + 1
+        i1 = floor(bset%blat(j)%delon * (xmax + epsx + 180.)) + 1
+        i1 = min(i1,i0+bset%blat(j)%nlon-1)
+
+        do ii = i0, i1
+           i = modulo(ii-1, bset%blat(j)%nlon) + 1
+
+           !$omp atomic capture
+           bset%blat(j)%bins(i)%nw = bset%blat(j)%bins(i)%nw + 1
+           nw                      = bset%blat(j)%bins(i)%nw
+           !$omp end atomic
+
+           bset%blat(j)%bins(i)%iw( nw ) = iw
+        enddo
+     enddo
+
+  enddo
+  !$omp end do
+  !$omp end parallel
+
+
+end subroutine latlon_bins
+
+!=========================================================================
+
+subroutine gridcells_from_latlon_bins( glat, glon, bset, nn, iipts )
 
   implicit none
 
-  integer, intent(in) :: nwa
-  real,    intent(in) :: glatw(nwa), glonw(nwa)
+  real,                         intent(in)  :: glat
+  real,                         intent(in)  :: glon
+  type(binset_vars), target,    intent(in)  :: bset
+  integer, pointer,             intent(out) :: nn
+  integer, pointer, contiguous, intent(out) :: iipts(:)
 
-  integer :: iset, jsup, i, j, ipass, nlato3, nlon
-  integer :: jw, iw, jwn, iwn, npoly, niwtemp
+  integer :: iset, j, i
 
-  real :: hlatw, hlonw
+  j = floor(bset%delat * (glat + 90.)) + 1
+  j = max(1, min(bset%nlat, j))
 
-  integer, allocatable :: iwtemp(:), iwtemp2(:)
+  i = floor(bset%blat(j)%delon * (glon + 180.)) + 1
+  i = modulo(i-1, bset%blat(j)%nlon) + 1
 
-  allocate(bset(4))
+  nn => bset%blat(j)%bins(i)%nw
 
-  do iset = 1,4
-     allocate(bset(iset)%blat(nlat(iset)))
-     nlato3 = nlat(iset) / 3
+  if (nn > 0) then
+     iipts => bset%blat(j)%bins(i)%iw
+  else
+     iipts => null()
+  endif
 
-     do j = 1, nlat(iset)
-        jsup = nlat(iset) + 1 - j
-
-        nlon = 6 * min(j, jsup, nlato3)
-
-        bset(iset)%blat(j)%nlon  = nlon
-        bset(iset)%blat(j)%delon = real(nlon) / 360.
-
-        allocate(bset(iset)%blat(j)%bins(nlon)); bset(iset)%blat(j)%bins(:)%nw = 0
-     enddo
-  enddo
-
-  ! Loop through all ATM iw cells and count them into 4 sets of global lat-lon
-  ! bins spanning a range of spatial resolution
-
-  do iw = 2, nwa
-     hlonw = max(-179.9999,min(179.9999,glonw(iw)))
-     hlatw = max( -89.9999,min( 89.9999,glatw(iw)))
-
-     do iset = 1,4
-        j = int(delat(iset) * (hlatw +  90.)) + 1
-        i = int(bset(iset)%blat(j)%delon * (hlonw + 180.)) + 1
-
-        bset(iset)%blat(j)%bins(i)%nw = bset(iset)%blat(j)%bins(i)%nw + 1
-     enddo
-  enddo
-
-  ! Loop through all bins of all sets and allocate IW(:) array if NW is
-  ! greater than 0 and less than maxb
-
-  do iset = 1,4
-     do j = 1, nlat(iset)
-        do i = 1, bset(iset)%blat(j)%nlon
-           if (bset(iset)%blat(j)%bins(i)%nw > 0 .and. bset(iset)%blat(j)%bins(i)%nw < maxb(iset)) then
-              allocate(bset(iset)%blat(j)%bins(i)%iw( bset(iset)%blat(j)%bins(i)%nw ))
-           endif
-           bset(iset)%blat(j)%bins(i)%nw = 0
-        enddo
-     enddo
-  enddo
-
-  ! Loop through all ATM iw cells and sort them into 4 sets of global lat-lon
-  ! bins if bin is allocated
-
-  do iw = 2, nwa
-     hlonw = max(-179.9999,min(179.9999,glonw(iw)))
-     hlatw = max( -89.9999,min( 89.9999,glatw(iw)))
-
-     do iset = 1,4
-        j = int(delat(iset) * (hlatw +  90.)) + 1
-        i = int(bset(iset)%blat(j)%delon * (hlonw + 180.)) + 1
-
-        if (allocated(bset(iset)%blat(j)%bins(i)%iw)) then
-           bset(iset)%blat(j)%bins(i)%nw = bset(iset)%blat(j)%bins(i)%nw + 1
-           bset(iset)%blat(j)%bins(i)%iw(  bset(iset)%blat(j)%bins(i)%nw ) = iw
-        endif
-     enddo
-  enddo
-
-  ! Loop TWICE through all allocated bins and augment their IW membership with
-  ! nearest IW neighbors that were not already in bin.  This adds two perimeter
-  ! rows of IW cells to each bin.
-
-  allocate( iwtemp( maxval(maxb) + 1000 ) )
-
-  do ipass = 1,2
-     do iset = 1,4
-        do j = 1, nlat(iset)
-           do i = 1, bset(iset)%blat(j)%nlon
-
-              if (allocated(bset(iset)%blat(j)%bins(i)%iw)) then
-
-                 niwtemp = 0
-
-                 do jw = 1, bset(iset)%blat(j)%bins(i)%nw
-                    iw = bset(iset)%blat(j)%bins(i)%iw(jw)
-
-                    npoly = itab_w0(iw)%npoly
-
-                    do jwn = 1, npoly
-                       iwn = itab_w0(iw)%iw(jwn)
-
-                       if (any(iwn == bset(iset)%blat(j)%bins(i)%iw(:))) cycle
-                       if (niwtemp > 0 .and. any(iwn == iwtemp(1:niwtemp))) cycle
-
-                       niwtemp = niwtemp + 1
-                       iwtemp(niwtemp) = iwn
-
-                    enddo
-                 enddo
-
-                 allocate (iwtemp2(bset(iset)%blat(j)%bins(i)%nw + niwtemp))
-
-                 iwtemp2(1:bset(iset)%blat(j)%bins(i)%nw) &
-                         = bset(iset)%blat(j)%bins(i)%iw( 1:bset(iset)%blat(j)%bins(i)%nw )
-
-                 iwtemp2(bset(iset)%blat(j)%bins(i)%nw+1:bset(iset)%blat(j)%bins(i)%nw + niwtemp) &
-                         = iwtemp(1:niwtemp)
-
-                 call move_alloc(iwtemp2, bset(iset)%blat(j)%bins(i)%iw)
-
-                 bset(iset)%blat(j)%bins(i)%nw = bset(iset)%blat(j)%bins(i)%nw + niwtemp
-
-              endif
-           enddo    ! i
-        enddo    ! j
-     enddo    ! iset
-  enddo    ! ipass
-
-  end subroutine latlon_bins
+end subroutine gridcells_from_latlon_bins
 
 end module ll_bins
-

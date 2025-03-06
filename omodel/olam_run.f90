@@ -65,6 +65,7 @@ subroutine olam_run(name_name)
 
   use umwm_module,  only: umwmflg
   use umwm_top,     only: umwm_initialize, umwm_plot_prep
+  use minterp_lib,  only: init_minterp
 
   implicit none
 
@@ -433,6 +434,13 @@ subroutine olam_run(name_name)
   if (iswrtyp > 0 .or. ilwrtyp > 0) then
      write(io6,'(/,a)') 'olam_run calling radinit'
      call radinit()
+  endif
+
+  ! Initialize M-point interpolation weights
+
+  if (mdomain <= 1) then
+     write(io6,'(/,a)') 'olam_run calling init_minterp'
+     call init_minterp()
   endif
 
   ! Check if LEAF will be used
@@ -926,6 +934,7 @@ subroutine model()
   use consts_coms, only: r8
   use oname_coms,  only: nl
   use hcane_rz,    only: ncycle_hurrinit, icycle_hurrinit, timmax_hurrinit
+  use point_io,    only: read_point_file, fill_point_obs
 
   implicit none
 
@@ -964,6 +973,14 @@ subroutine model()
      call cpu_time(t1)
      wtime1 = walltime(wtime_start)
 
+     ! Read current day's point observations
+
+     if (nl%do_point_output) then
+        if (mstp == 0 .or. current_time%time + time_bias < dtlm) then
+           call read_point_file()
+        endif
+     endif
+
      ! Start the timestep schedule to loop through all grids and advance them
      ! in time an increment equal to dtlm.
 
@@ -997,6 +1014,12 @@ subroutine model()
      write(io6,'(a)')  &
         trim(stepc1)//trim(stepc2)//trim(stepc3)//trim(stepc4)//trim(stepc5)
 
+     ! Fill point observations that are within this timestep
+
+     if (nl%do_point_output) then
+        call fill_point_obs()
+     endif
+
      ! Add current contribution to time-averaged variables
 
      if (nl%ioutput_davg == 1) call inc_davg_vars()
@@ -1017,8 +1040,8 @@ end subroutine model
 subroutine olam_output()
 
   use misc_coms,   only: io6, time8, time8p, dtlm, iflag, frqstate, timmax8, &
-                         initial, s1900_sim, time_prevhist, mdomain, &
-                         iyear1, imonth1, idate1, itime1, do_chem
+                         initial, s1900_sim, time_prevhist, mdomain, iyear1, &
+                         imonth1, idate1, itime1, do_chem, current_time, time_bias
   use leaf_coms,   only: isfcl, iupdndvi, indvifile, s1900_ndvi
   use sea_coms,    only: iupdsst, iupdseaice, isstfile, iseaicefile, &
                          s1900_sst, s1900_seaice, isstflg, iseaiceflg
@@ -1037,6 +1060,7 @@ subroutine olam_output()
   use umwm_module,  only: umwmflg
   use umwm_physics, only: umwm_diag
   use check_nan,    only: compute_mass_sums
+  use point_io,     only: write_point_file
 
   implicit none
 
@@ -1118,6 +1142,14 @@ subroutine olam_output()
 
   if (nl%test_case == 2 .or. nl%test_case == 5) then
      call diagn_global_swtc()
+  endif
+
+  ! Point output files
+
+  if (nl%do_point_output) then
+     if (current_time%time + time_bias < dtlm) then
+        call write_point_file()
+     endif
   endif
 
   if (isfcl == 1 .and. iupdsst == 1) then
