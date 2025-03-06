@@ -238,9 +238,8 @@ subroutine vterpp_tair(iw)
   ! Compute air temperature as it will be held constant
 
   do k = ka, mza
-     exner       = (o_press(k,iw) * p00i) ** rocp
-     tair    (k) = exner * o_theta(k,iw)
-     rhov_sat(k) = rhovsl( tair(k)-t00 )
+     exner   = (o_press(k,iw) * p00i) ** rocp
+     tair(k) = exner * o_theta(k,iw)
   enddo
 
   ! Compute water vapor density at saturation

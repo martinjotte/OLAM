@@ -5,10 +5,10 @@ subroutine pressure_stage()
                          o_rho, o_rrw, o_uzonal, o_umerid, o_ozone, pbc, z_pbc
   use hdf5_utils,  only: shdf5_info, shdf5_irec, shdf5_close
   use misc_coms,   only: i_o3, io6, runtype
-  use mem_ijtabs,  only: jtab_w, jtw_init
+  use mem_ijtabs,  only: jtab_w, jtw_init, itab_w
   use mem_zonavg,  only: zonz, zont, zonr, zonu, zono, zonp_vect
-  use consts_coms, only: p00, rocp, eps_vap, cvocp, p00kord, eps_vapi
-  use therm_lib,   only: eslf
+  use consts_coms, only: p00, rocp, eps_vap, cvocp, p00kord, eps_vapi, t00
+  use therm_lib,   only: eslf, esif
   use mem_grid,    only: mza, mwa, zt, glatw, glonw
   use analysis_lib,only: gdtost_ll
   use micro_coms,  only: miclevel
@@ -19,10 +19,13 @@ subroutine pressure_stage()
   real, parameter :: mwo3   = 48.0                ! molecular weight of ozone
   real, parameter :: cnvto3 = mwair / mwo3 * 1.e6 ! ozone mixing ratio to ppmV
 
-  logical, parameter :: lin_interp = .false.  ! T: interpolate pressure vertically
-                                              ! F: interpolate ln(pressure) vertically
+  logical, parameter :: log_interp_p = .true.  ! F: linearly interpolate pressure vertically
+                                               ! T: logarithmically interpolate pressure vertically
 
-  real :: dprat1, dprat2, dg, vapor_press, airtemp
+  logical, parameter :: log_interp_q = .false. ! F: linearly interpolate mixing ratio vertically
+                                               ! T: logarithmically interpolate mixing ratio vertically
+
+  real :: dprat1, dprat2, dg, vapor_press, airtemp, frac
 
   integer :: k, j, iw, iz, kbc
   integer :: lzon_bot, kzonoff, npd
@@ -159,7 +162,7 @@ subroutine pressure_stage()
      endif
 
      ! Interpolate pressure to model levels
-     if (lin_interp) then
+     if (.not. log_interp_p) then
         call hintrp_cc(npd, pcol_p, pcol_z(:,iw), mza, o_press(:,iw), zt)
      else
         call hintrp_cc(npd, plog, pcol_z(:,iw), mza, o_press(:,iw), zt)
@@ -324,9 +327,17 @@ subroutine pressure_stage()
         if (isrh) then
 
            ! Compute ambient vapor pressure based on R.H.
-           ! and saturation vapor pressure (eslf)
+           ! and saturation vapor pressure
 
-           vapor_press = field(iz,iw) * eslf( airtemp-273.15 )
+           if (airtemp >= t00) then
+              vapor_press = field(iz,iw) * eslf( airtemp-t00 )
+           else if (airtemp > t00 - 20.) then
+              frac = (airtemp - t00 + 20.) / 20.
+              vapor_press = field(iz,iw) * ( eslf( airtemp-t00 ) *       frac  &
+                                           + esif( airtemp-t00 ) * (1. - frac) )
+           else
+              vapor_press = field(iz,iw) * esif( airtemp-t00 )
+           endif
 
            ! Do not allow vapor pressure to exceed ambient pressure
 
@@ -371,13 +382,25 @@ subroutine pressure_stage()
      ! Phony underground levels
      pvect(1:2) = pvect(3)
 
+     ! Set lower limit on water vapor mixing ratio
+     pvect = max(pvect, 1.e-8)
+
+     ! If logarithmically interpolating mixing ratio
+     if (log_interp_q) then
+        do k = 1, npd
+           pvect(k) = log(pvect(k))
+        enddo
+     endif
+
      ! Vertically interpolate humidity from pressure levels to model levels
      call hintrp_cc(npd, pvect, pcol_z(:,iw), mza, o_rrw(:,iw), zt)
 
-     ! Set lower limit on water vapor mixing ratio
-     do k = 1, mza
-        o_rrw(k,iw) = max( 1.e-8, o_rrw(k,iw) )
-     enddo
+     ! If logarithmically interpolating mixing ratio
+     if (log_interp_q) then
+        do k = 1, mza
+           o_rrw(k,iw) = exp( o_rrw(k,iw) )
+        enddo
+     endif
 
      ! Now that we have water vapor, pressure, and theta, compute density
      if (miclevel == 0) then
@@ -645,7 +668,7 @@ subroutine hinterp_zonavg(glat, zona, npd, field, lzon_bot, kzonoff)
 
   rlat = .4 * (glat + 93.75)
   ilat = int(rlat)
-  wt2  = rlat - float(ilat)
+  wt2  = rlat - real(ilat)
 
   do levp = lzon_bot, 22
      k = levp + kzonoff
