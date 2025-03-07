@@ -111,6 +111,7 @@ contains
     ! Get interpolation weights and M location that corresponds to each
     ! lat-lon observation
 
+    if (allocated(wgts)) deallocate(wgts)
     allocate(wgts(nobs))
     call get_weights_lonlat(longitudes, latitudes, wgts, nobs)
 
@@ -123,13 +124,15 @@ contains
        ! number of obs primary to this MPI rank
        nobs_loc = count( itabg_m( wgts(:)%imglobe )%irank == myrank )
 
+       if (allocated(iobs_loc)) deallocate(iobs_loc)
+       allocate(iobs_loc(nobs_loc))
+
        ! allocate temporary arrays to store information local to this MPI rank
        allocate(lons_tmp(nobs_loc))
        allocate(lats_tmp(nobs_loc))
        allocate(alts_tmp(nobs_loc))
        allocate(itim_tmp(nobs_loc))
        allocate(dtim_tmp(nobs_loc))
-       allocate(iobs_loc(nobs_loc))
        allocate(wgts_tmp(nobs_loc))
 
        ! copy data that is local to this MPI rank to the temporary arrays
@@ -183,19 +186,13 @@ contains
     allocate(obs(naddsc,nobs_loc))
     obs(:,:) = rmiss
 
-    write(*,*) myrank, iobs_current, nobs_loc
-
-    
-
-
-
   end subroutine read_point_file
 
 
 
   subroutine fill_point_obs()
 
-    use mem_grid,   only: mza, lpw, zt, dzim
+    use mem_grid!,   only: mza, lpw, zt, dzim
     use mem_ijtabs, only: itab_m, itabg_m
     use mem_addsc,  only: addsc
     use misc_coms,  only: s1900_sim, time_bias, naddsc
@@ -254,7 +251,7 @@ contains
 
                    if (kobs >= mza) then
                       field(n) = addsc(iaddsc)%sclp(mza,iw)
-                   elseif (kobs <= lpw(iw)) then
+                   elseif (kobs < lpw(iw)) then
                       field(n) = addsc(iaddsc)%sclp(lpw(iw),iw)
                    else
                       field(n) = zwt_top * addsc(iaddsc)%sclp(kobs+1,iw) &
@@ -304,17 +301,21 @@ contains
       allocate(iobs_number(nobs))
       iobs_number = [ (i, i=1, nobs) ]
 
-      call shdf5_orec(ndims, idims, "obs", ivar1=iobs_number, isdim=.true., long_name = "obs")
+      call shdf5_orec(ndims, idims, "obs", ivar1=iobs_number, isdim=.true., long_name = "obs number")
 
       ! Write tracer # as a coordinate variable (for A. Schuh)
 
-      ndims    = 1
-      idims(1) = naddsc
+      if (naddsc > 0) then
 
-      allocate(itrc_number(naddsc))
-      iobs_number = [ (i, i=1, naddsc) ]
+         ndims    = 1
+         idims(1) = naddsc
 
-      call shdf5_orec(ndims, idims, "tracer", ivar1=itrc_number, isdim=.true., long_name = "tracer")
+         allocate(itrc_number(naddsc))
+         iobs_number = [ (i, i=1, naddsc) ]
+
+         call shdf5_orec(ndims, idims, "tracer", ivar1=itrc_number, isdim=.true., long_name = "tracer number")
+
+      endif
 
       ! Write lat/lon/time. These are not coordinate variable for point output with NetCDF!
 
@@ -342,17 +343,28 @@ contains
                        long_name = "latitude",     &
                        units     = "degrees_north" )
 
+      call shdf5_orec( ndims, idims, "altitude", rvar1=altitudes, &
+                       gpoints   = iobs_loc,       &
+                       nglobe    = nobs,           &
+                       dimnames  = [ "obs" ],      &
+                       long_name = "altitude in meters above sea level", &
+                       units     = "meters" )
+
       ! Write point observations. For now these are just the tracers for A. Schuh
 
-      ndims = 2
-      idims = [ naddsc, nobs_loc ]
+      if (naddsc > 0) then
 
-      call shdf5_orec( ndims, idims, "CO2_Tracers", rvar2=obs, &
-                       gpoints = iobs_loc,                     &
-                       nglobe = nobs,                          &
-                       dimnames = ["tracer", "obs   "],        &
-                       rmissing = rmiss,                       &
-                       long_name = "simulated mole fraction of carbon dioxide in dry air" )
+         ndims = 2
+         idims = [ naddsc, nobs_loc ]
+
+         call shdf5_orec( ndims, idims, "CO2_Tracers", rvar2=obs, &
+                          gpoints = iobs_loc,                     &
+                          nglobe = nobs,                          &
+                          dimnames = ["tracer", "obs   "],        &
+                          rmissing = rmiss,                       &
+                          long_name = "simulated mole fraction of carbon dioxide in dry air" )
+
+      endif
 
       call shdf5_close()
 

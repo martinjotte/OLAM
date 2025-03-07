@@ -57,7 +57,7 @@ module minterp_lib
 
   integer, parameter :: ihuge = huge(1)
 
-  private :: binset_vars, nset
+  private :: binset_vars
 
 contains
 

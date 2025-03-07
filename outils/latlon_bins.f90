@@ -84,7 +84,7 @@ subroutine latlon_bins(nwa, res, itab_w0, bset)
   enddo
   !$opm end do
 
-  !$omp do private(np,xmin,xmax,j,ymin,ymax,j0,j1,fuzz,epsx,epsy,i0,i1,ii,i)
+  !$omp do private(np,xmin,xmax,j,ymin,ymax,j0,j1,epsx,epsy,i0,i1,ii,i)
   do iw = 2, nwa
      if (itab_w0(iw)%np < 1) cycle  ! flag to skip this cell
 
@@ -153,7 +153,7 @@ subroutine latlon_bins(nwa, res, itab_w0, bset)
 
   ! Loop through all ATM iw cells again and sort them into the global lat-lon bins
 
-  !$omp do private(np,xmin,xmax,j,ymin,ymax,j0,j1,fuzz,epsx,epsy,i0,i1,ii,i,nw)
+  !$omp do private(np,xmin,xmax,j,ymin,ymax,j0,j1,epsx,epsy,i0,i1,ii,i,nw)
   do iw = 2, nwa
      if (itab_w0(iw)%np < 1) cycle  ! flag to skip this cell
 

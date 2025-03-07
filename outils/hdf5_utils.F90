@@ -475,10 +475,10 @@ subroutine shdf5_orec(ndims,dims,dsetname,bvars,ivars,rvars,dvars,lvars,    &
 
   ! Check dimensions
 
-  if (ndims <=0 .or. minval(dims(1:ndims)) <=0) then
-     print*, 'Dimension error in shdf5_orec:', ndims, dims(1:ndims)
-     stop    'shdf5_orec: bad dims'
-  endif
+! if (ndims <=0 .or. minval(dims(1:ndims)) <=0) then
+!    print*, 'Dimension error in shdf5_orec:', ndims, dims(1:ndims), trim(dsetname)
+!    stop    'shdf5_orec: bad dims'
+! endif
 
   ! Do we want to change the storage type
 
