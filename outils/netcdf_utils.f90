@@ -75,10 +75,12 @@ subroutine get_timeunit_offset(tunits, toff8, error)
 
      if (itok >= 1) read(hhmmss(1),*) ihour0
      if (itok >= 2) read(hhmmss(2),*) imins0
-     if (itok >= 3) read(hhmmss(3),*) rsecs0
 
      ! seconds could be a decimal number
-     isecs0 = nint(rsecs0)
+     if (itok >= 3) then
+        read(hhmmss(3),*) rsecs0
+        isecs0 = nint(rsecs0)
+     endif
 
   endif
 

@@ -2397,10 +2397,16 @@ contains
     character(*), intent(OUT) :: dname
 
     integer(size_t)           :: dlen
-    logical                   :: isscale
+    logical                   :: isscale, valid
     integer                   :: hdferr
 
     dname = ' '
+
+    call h5iis_valid_f(dsetid, valid, hdferr)
+    if (.not. valid) then
+       write(*,*) "No data set open in fh5f_query_dimname"
+       return
+    endif
 
     call H5DSis_scale_f(dsetid, isscale, hdferr)
     if (.not. isscale) return
@@ -2529,13 +2535,23 @@ contains
     character(30)                           :: dstring
     type(HVL_T),        allocatable, target :: ref_out(:)
     type(c_ptr)                             :: cptr
+    integer(HID_T)                          :: lspcid
+    logical                                 :: valid
 
     is = size(dnames)
     do i = 1, is
        dnames(i) = ' '
     enddo
 
-    call h5sget_simple_extent_ndims_f(dspcid, rank, hdferr)
+    call h5iis_valid_f(dsetid, valid, hdferr)
+    if (.not. valid) then
+       write(*,*) "No data set open in fh5_get_attached_scales"
+       return
+    endif
+
+    call H5Dget_space_f(dsetid, lspcid, hdferr)
+    call h5sget_simple_extent_ndims_f(lspcid, rank, hdferr)
+    call H5Sclose_f(lspcid, hdferr)
 
     if (size(dnames) < rank) then
        write(*,*) "Character array is not large enough to hold the dimension list."

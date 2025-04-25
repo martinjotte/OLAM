@@ -4,26 +4,34 @@ module point_io
   use                   minterp_lib, only: minterp_wghts, get_weights_lonlat
   implicit none
 
-  real,                 parameter  :: rmiss = -1.e34
+  real, parameter  :: rmiss  = -1.e34
+  integer          :: nfiles = 0
+  character(8)     :: date   = ' '
 
-  integer                          :: nobs, nobs_loc
-  integer                          :: iobs_current
-  character(8)                     :: date
-  character(30)                    :: time_units
-  character(30)                    :: time_longname
+  Type point_data
+     character(1)                     :: type
+     integer                          :: nobs
+     integer                          :: nobs_loc
+     integer                          :: iobs_current
+     character(30)                    :: time_units
+     character(30)                    :: time_longname
+     character(30)                    :: time_dimname
+     real(r8),            allocatable :: dtimes     (:)
+     real(r8),            allocatable :: s1900_times(:)
+     real,                allocatable :: latitude   (:)
+     real,                allocatable :: longitude  (:)
+     real,                allocatable :: altitude   (:)
+     real,                allocatable :: pressure   (:)
+     integer,             allocatable :: iobs_loc   (:)
+     type(minterp_wghts), allocatable :: wgts       (:)
+     real,                allocatable :: obs(:,:)  ! dimmed to (naddsc,nobs_loc)
+     character(30)                    :: obs_dimname
+     character(30)                    :: obs_longname
+     real(r8),            allocatable :: obs_dimvals(:)
+  End type point_data
 
-  integer,             allocatable :: itimes     (:) ! obspack uses integer secs since 1970
-  real(r8),            allocatable :: s1900_times(:)
-  real,                allocatable :: latitudes  (:)
-  real,                allocatable :: longitudes (:)
-  real,                allocatable :: altitudes  (:)
-  integer,             allocatable :: iobs_loc   (:)
-  type(minterp_wghts), allocatable :: wgts       (:)
+  type(point_data), allocatable, target :: pfiles(:)
 
-  ! variables to be written each observation point
-  real,                allocatable :: obs      (:,:) ! dimmed to (naddsc,nobs)
-! real,                allocatable :: airtemp    (:)
-! real,                allocatable :: airprss    (:)
 
 contains
 
@@ -38,153 +46,250 @@ contains
     use netcdf_utils, only: ncf_times_to_s1900
     use hdf5_utils,   only: shdf5_exists, shdf5_open, shdf5_close, shdf5_info, &
                             shdf5_irec
+    use string_lib,   only: lowercase
+
     implicit none
 
     character(pathlen)               :: filename
-    integer                          :: iyear, imonth, idate, ihour
+    integer                          :: nfiles, nf
     logical                          :: exists, error
     integer                          :: ndims, idims(3), i, il
-    integer,             allocatable :: itim_tmp(:)
+    real(r8),            allocatable :: tims_tmp(:)
     real(r8),            allocatable :: dtim_tmp(:)
     real,                allocatable :: alts_tmp(:)
+    real(r8),            allocatable :: dims_tmp(:)
+    real,                allocatable :: prss_tmp(:)
     real,                allocatable :: lons_tmp(:)
     real,                allocatable :: lats_tmp(:)
     type(minterp_wghts), allocatable :: wgts_tmp(:)
+    logical                          :: firstime = .true.
+    type(point_data),        pointer :: pf
+    integer,                 pointer :: nobs, nobs_loc
+
+    character(30) :: attached_dim(1)
+    character(30) :: units
+
+    nfiles = nl%point_files
+
+    if (firstime .and. nfiles > 0) then
+       allocate(pfiles(nfiles))
+       firstime = .false.
+    endif
 
     ! character string YYYYMMDD
     write(date,'(I4,I2.2,I2.2)') current_time%year, current_time%month, current_time%date
 
-    filename = trim(nl%point_obsin_header) // date // trim(nl%point_obsin_suffix)
+    do nf = 1, nfiles
+       pf       => pfiles(nf)
+       nobs     => pfiles(nf)%nobs
+       nobs_loc => pfiles(nf)%nobs_loc
 
-    call shdf5_exists(filename, exists)
+       nobs     = 0
+       nobs_loc = 0
 
-    if (.not. exists) then
-       write(io6,*) "point_io: Error opening data file " // trim(filename)
-       write(io6,*) "File to read point output locations cannot be found."
-       call olam_stop("Stopping model")
-    endif
+       pf%time_units    = ' '
+       pf%time_longname = ' '
+       pf%type          = ' '
 
-    call shdf5_open(filename, 'R')
+       pf%type = nl%pfile_types(nf)
 
-    ndims = 0
-    idims = 0
-    time_units    = ' '
-    time_longname = ' '
+       if (.not. any( pf%type == ['Z', 'P', 'S', 'C'] ) ) then
+          write(*,'(A,I0)') " Illegal point file type for point_file # ", nf
+          write(*,*)        "Skipping this file"
+          cycle
+       endif
 
-    call shdf5_info('time', ndims, idims)
+       filename = trim(nl%point_obsin_headers(nf)) // date // trim(nl%point_obsin_suffixes(nf))
 
-    nobs = 0
-    if (ndims == 1) nobs = idims(1)
+       call shdf5_exists(filename, exists)
 
-    if (nobs > 0) then
+       if (.not. exists) then
+          write(io6,*) "point_io: Error opening data file " // trim(filename)
+          write(io6,*) "File to read point output locations cannot be found."
+          call olam_stop("Stopping model")
+       endif
 
-       ! ObsPack files use integer seconds since 1970
-       if (allocated(itimes)) deallocate(itimes)
-       allocate(itimes(nobs))
-       call shdf5_irec(ndims, idims, 'time', ivar1=itimes, units=time_units, long_name=time_longname)
+       call shdf5_open(filename, 'R')
 
-       ! OLAM uses time as double precision real seconds since 1900
-       if (allocated(s1900_times)) deallocate(s1900_times)
-       allocate(s1900_times(nobs))
-       s1900_times(:) = real( itimes(:), r8)
+       ndims = 0
+       idims = 0
+       call shdf5_info('time', ndims, idims)
 
-       if (allocated(latitudes)) deallocate(latitudes)
-       allocate(latitudes(nobs))
-       call shdf5_irec(ndims, idims, 'latitude', rvar1=latitudes)
+       if (ndims == 1) nobs = idims(1)
 
-       if (allocated(longitudes)) deallocate(longitudes)
-       allocate(longitudes(nobs))
-       call shdf5_irec(ndims, idims, 'longitude', rvar1=longitudes)
+       if (nobs > 0) then
 
-       if (allocated(altitudes)) deallocate(altitudes)
-       allocate(altitudes(nobs))
-       call shdf5_irec(ndims, idims, 'altitude', rvar1=altitudes)
+          pf%time_dimname = ' '
+          pf%obs_dimname = ' '
+          pf%time_longname = ' '
+          pf%obs_longname = ' '
 
-    endif
+          ! ObsPack files use integer seconds since 1970
+          if (allocated(pf%dtimes)) deallocate(pf%dtimes)
+          allocate(pf%dtimes(nobs))
+          call shdf5_irec(ndims, idims, 'time', dvar1=pf%dtimes, units=pf%time_units, long_name=pf%time_longname, &
+               dimname=pf%time_dimname, attached_dimnames=attached_dim)
 
-    call shdf5_close()
+          if (len_trim(pf%time_dimname) == 0 .and. len_trim(attached_dim(1)) > 0) then
+             pf%obs_dimname = attached_dim(1)
+          endif
 
-    ! Convert time to seconds since 1900 to match OLAM
+          ! OLAM uses time as double precision real seconds since 1900
+          if (allocated(pf%s1900_times)) deallocate(pf%s1900_times)
+          allocate(pf%s1900_times(nobs))
+          pf%s1900_times(:) = pf%dtimes(:)
 
-    call ncf_times_to_s1900(time_units, nobs, s1900_times, error)
+          if (allocated(pf%latitude)) deallocate(pf%latitude)
+          allocate(pf%latitude(nobs))
+          call shdf5_irec(ndims, idims, 'latitude', rvar1=pf%latitude)
 
-    ! Get interpolation weights and M location that corresponds to each
-    ! lat-lon observation
+          if (allocated(pf%longitude)) deallocate(pf%longitude)
+          allocate(pf%longitude(nobs))
+          call shdf5_irec(ndims, idims, 'longitude', rvar1=pf%longitude)
 
-    if (allocated(wgts)) deallocate(wgts)
-    allocate(wgts(nobs))
-    call get_weights_lonlat(longitudes, latitudes, wgts, nobs)
+          if (pf%type == 'Z') then
 
-    ! For a parallel run, only store the points that are primary on this rank
-
-    nobs_loc = nobs
-
-    if (iparallel == 1) then
-
-       ! number of obs primary to this MPI rank
-       nobs_loc = count( itabg_m( wgts(:)%imglobe )%irank == myrank )
-
-       if (allocated(iobs_loc)) deallocate(iobs_loc)
-       allocate(iobs_loc(nobs_loc))
-
-       ! allocate temporary arrays to store information local to this MPI rank
-       allocate(lons_tmp(nobs_loc))
-       allocate(lats_tmp(nobs_loc))
-       allocate(alts_tmp(nobs_loc))
-       allocate(itim_tmp(nobs_loc))
-       allocate(dtim_tmp(nobs_loc))
-       allocate(wgts_tmp(nobs_loc))
-
-       ! copy data that is local to this MPI rank to the temporary arrays
-       if (nobs_loc > 0) then
-          il = 0
-          do i = 1, nobs
-             if ( itabg_m( wgts(i)%imglobe )%irank == myrank ) then
-                il = il + 1
-                lons_tmp(il) = longitudes (i)
-                lats_tmp(il) = latitudes  (i)
-                alts_tmp(il) = altitudes  (i)
-                wgts_tmp(il) = wgts       (i)
-                dtim_tmp(il) = s1900_times(i)
-                itim_tmp(il) = itimes     (i)
-                iobs_loc(il) = i
+             call shdf5_info('altitude', ndims, idims)
+             if (ndims == 0 .and. idims(1) == 0) then
+                write(*,*) "Altitude cannot be found in NetCDF file for a Z (height) point file"
+                write(*,*) "when reading ", trim(filename)
+                write(*,*) "Skipping this file"
+                cycle
              endif
-          enddo
+
+             if (allocated(pf%altitude)) deallocate(pf%altitude)
+             allocate(pf%altitude(nobs))
+             call shdf5_irec(ndims, idims, 'altitude', rvar1=pf%altitude)
+
+          elseif (pf%type == 'P') then
+
+             call shdf5_info('pressure', ndims, idims)
+             if (ndims == 0 .and. idims(1) == 0) then
+                write(*,*) "Pressure cannot be found in NetCDF file for a P (pressure) point file"
+                write(*,*) "when reading ", trim(filename)
+                write(*,*) "Skipping this file"
+                cycle
+             endif
+
+             if (allocated(pf%pressure)) deallocate(pf%pressure)
+             allocate(pf%pressure(nobs))
+             call shdf5_irec(ndims, idims, 'pressure', rvar1=pf%pressure, units=units)
+             call lowercase(units)
+             if (units == 'mb' .or. units == 'millibars') pf%pressure = pf%pressure * 100.
+
+          endif
+
+          if (len_trim(pf%obs_dimname) > 0) then
+             call shdf5_info(pf%obs_dimname, ndims, idims)
+             if (ndims == 0 .and. idims(1) /= nobs) then
+                write(*,*) trim(pf%obs_dimname) // " cannot be found in NetCDF file."
+                write(*,*) "Assuming no obs coordinate variable."
+                pf%obs_dimname = " "
+             else
+                if (allocated(pf%obs_dimvals)) deallocate(pf%obs_dimvals)
+                allocate(pf%obs_dimvals(nobs))
+                call shdf5_irec(ndims, idims, pf%obs_dimname, dvar1=pf%obs_dimvals, long_name=pf%obs_longname)
+             endif
+          endif
+
        endif
 
-       ! replace the global arrays with the information only needed on this rank
-       call move_alloc(lons_tmp, longitudes)
-       call move_alloc(lats_tmp, latitudes)
-       call move_alloc(alts_tmp, altitudes)
-       call move_alloc(dtim_tmp, s1900_times)
-       call move_alloc(itim_tmp, itimes)
-       call move_alloc(wgts_tmp, wgts)
+       call shdf5_close()
 
-    endif
+       ! Convert time to seconds since 1900 to match OLAM
 
-    ! reset obs counter and skip to current time if the model start does not
-    ! correspond to the first observation in the input file
+       call ncf_times_to_s1900(pf%time_units, nobs, pf%s1900_times, error)
 
-    iobs_current = 1
+       ! Get interpolation weights and M location that corresponds to each
+       ! lat-lon observation
 
-    if (nobs_loc > 0) then
+       if (allocated(pf%wgts)) deallocate(pf%wgts)
+       allocate(pf%wgts(nobs))
+       call get_weights_lonlat(pf%longitude, pf%latitude, pf%wgts, nobs)
 
-       ! if observations are more then 10 minutes before simulation time
-       if (s1900_times(1) < s1900_sim - 600.) then
-          do i = 1, nobs_loc
-             if (s1900_times(i) > s1900_sim - 600.) exit
-          enddo
-          iobs_current = i
+       ! For a parallel run, only store the points that are primary on this rank
+
+       nobs_loc = nobs
+
+       if (iparallel == 1) then
+
+          ! number of obs primary to this MPI rank
+          nobs_loc = count( itabg_m( pf%wgts(:)%imglobe )%irank == myrank )
+
+          if (allocated(pf%iobs_loc)) deallocate(pf%iobs_loc)
+          allocate(pf%iobs_loc(nobs_loc))
+
+          ! allocate temporary arrays to store information local to this MPI rank
+          allocate(lons_tmp(nobs_loc))
+          allocate(lats_tmp(nobs_loc))
+          allocate(tims_tmp(nobs_loc))
+          allocate(dtim_tmp(nobs_loc))
+          allocate(wgts_tmp(nobs_loc))
+
+          if (allocated(pf%altitude)   ) allocate(alts_tmp(nobs_loc))
+          if (allocated(pf%pressure)   ) allocate(prss_tmp(nobs_loc))
+          if (allocated(pf%obs_dimvals)) allocate(dims_tmp(nobs_loc))
+
+          ! copy data that is local to this MPI rank to the temporary arrays
+          if (nobs_loc > 0) then
+             il = 0
+             do i = 1, nobs
+                if ( itabg_m( pf%wgts(i)%imglobe )%irank == myrank ) then
+                   il = il + 1
+
+                   lons_tmp(il) = pf%longitude  (i)
+                   lats_tmp(il) = pf%latitude   (i)
+                   wgts_tmp(il) = pf%wgts       (i)
+                   dtim_tmp(il) = pf%s1900_times(i)
+                   tims_tmp(il) = pf%dtimes     (i)
+
+                   if (allocated(pf%altitude)   ) alts_tmp(il) = pf%altitude   (i)
+                   if (allocated(pf%pressure)   ) prss_tmp(il) = pf%pressure   (i)
+                   if (allocated(pf%obs_dimvals)) dims_tmp(il) = pf%obs_dimvals(i)
+
+                   pf%iobs_loc(il) = i
+                endif
+             enddo
+          endif
+
+          ! replace the global arrays with the information only needed on this rank
+          call move_alloc(lons_tmp, pf%longitude)
+          call move_alloc(lats_tmp, pf%latitude)
+          call move_alloc(dtim_tmp, pf%s1900_times)
+          call move_alloc(tims_tmp, pf%dtimes)
+          call move_alloc(wgts_tmp, pf%wgts)
+
+          if (allocated(alts_tmp)) call move_alloc(alts_tmp, pf%altitude)
+          if (allocated(prss_tmp)) call move_alloc(prss_tmp, pf%pressure)
+          if (allocated(dims_tmp)) call move_alloc(dims_tmp, pf%obs_dimvals)
+
        endif
 
-    endif
+       ! reset obs counter and skip to current time if the model start does not
+       ! correspond to the first observation in the input file
 
-    ! Allocate local space for point output observations. Fortran allows zero-size
-    ! arrays if no points exist on a rank
+       pf%iobs_current = 1
 
-    if (allocated(obs)) deallocate(obs)
-    allocate(obs(naddsc,nobs_loc))
-    obs(:,:) = rmiss
+       if (nobs_loc > 0) then
+
+          ! if observations are more then 10 minutes before simulation time
+          if (pf%s1900_times(1) < s1900_sim - 600.) then
+             do i = 1, nobs_loc
+                if (pf%s1900_times(i) > s1900_sim - 600.) exit
+             enddo
+             pf%iobs_current = i
+          endif
+
+       endif
+
+       ! Allocate local space for point output observations. Fortran allows zero-size
+       ! arrays if no points exist on a rank
+
+       if (allocated(pf%obs)) deallocate(pf%obs)
+       allocate(pf%obs(naddsc,nobs_loc))
+       pf%obs(:,:) = rmiss
+
+    enddo
 
   end subroutine read_point_file
 
@@ -192,84 +297,151 @@ contains
 
   subroutine fill_point_obs()
 
-    use mem_grid!,   only: mza, lpw, zt, dzim
+    use mem_grid,   only: mza, lpw, zt, dzt, dzim
     use mem_ijtabs, only: itab_m, itabg_m
+    use mem_basic,  only: press, rho
     use mem_addsc,  only: addsc
     use misc_coms,  only: s1900_sim, time_bias, naddsc
+    use oname_coms, only: nl
 
     implicit none
 
-    integer :: i, inext
-    integer :: k, kobs
-    real    :: zwt_top, zwt_bot
-    integer :: im, iw, iaddsc, n
-    real    :: field(3)
+    integer                   :: i, inext
+    integer                   :: k, kobs, ka
+    real                      :: zwt_top, zwt_bot
+    integer                   :: im, iw, iaddsc, n
+    real                      :: field(3)
+    integer                   :: nfiles, nf
+    type(point_data), pointer :: pf
+    integer,          pointer :: iobs_current, nobs_loc
 
-    if (iobs_current <= nobs_loc) then
+    nfiles = nl%point_files
 
-       if ( s1900_times(iobs_current) < s1900_sim + time_bias ) then
+    do nf = 1, nfiles
+       pf           => pfiles(nf)
+       iobs_current => pfiles(nf)%iobs_current
+       nobs_loc     => pfiles(nf)%nobs_loc
 
-          do i = iobs_current+1, nobs_loc
-             if (s1900_times(i) > s1900_sim + time_bias) exit
-          enddo
-          inext = i - 1
+       if (iobs_current <= nobs_loc) then
 
-          do i = iobs_current, inext
+          if ( pf%s1900_times(iobs_current) < s1900_sim + time_bias ) then
 
-             do k = 2, mza
-                if (altitudes(i) < zt(k)) exit
+             do i = iobs_current+1, nobs_loc
+                if (pf%s1900_times(i) > s1900_sim + time_bias) exit
+             enddo
+             inext = i - 1
+
+             do i = iobs_current, inext
+
+                ! M point corresponding to this obs
+                im = itabg_m( pf%wgts(i)%imglobe )%im_myrank
+
+                if (pf%type == 'Z') then
+
+                   do k = 2, mza
+                      if (pf%altitude(i) < zt(k)) exit
+                   enddo
+
+                   ! point is between zt(k-1) and zt(k)
+                   kobs = k - 1
+                   zwt_top = (pf%altitude(i) - zt(kobs)) * dzim(kobs)
+                   zwt_bot = 1.0 - zwt_top
+
+                   do iaddsc = 1, naddsc
+
+                      ! interpolate from 3 surrounding W cells
+                      do n = 1, 3
+                         iw = itab_m(im)%iw(n)
+
+                         if (kobs >= mza) then
+                            field(n) = addsc(iaddsc)%sclp(mza,iw)
+                         elseif (kobs < lpw(iw)) then
+                            field(n) = addsc(iaddsc)%sclp(lpw(iw),iw)
+                         else
+                            field(n) = zwt_top * addsc(iaddsc)%sclp(kobs+1,iw) &
+                                     + zwt_bot * addsc(iaddsc)%sclp(kobs  ,iw)
+                         endif
+                      enddo
+
+                      pf%obs(iaddsc,i) = sum( field(1:3) * pf%wgts(i)%wt(1:3) )
+
+                   enddo
+
+                elseif (pf%type == 'S') then
+
+                   do iaddsc = 1, naddsc
+
+                      ! interpolate from 3 surrounding W cells
+                      do n = 1, 3
+                         iw = itab_m(im)%iw(n)
+                         field(n) = addsc(iaddsc)%sclp(lpw(iw),iw)
+                      enddo
+
+                      pf%obs(iaddsc,i) = sum( field(1:3) * pf%wgts(i)%wt(1:3) )
+
+                   enddo
+
+                elseif (pf%type == 'P') then
+
+                   do iaddsc = 1, naddsc
+
+                      ! interpolate from 3 surrounding W cells
+                      do n = 1, 3
+                         iw = itab_m(im)%iw(n)
+                         if (pf%pressure(i) >= press(lpw(iw),iw)) then
+                            field(n) = addsc(iaddsc)%sclp(lpw(iw),iw)
+                         elseif (pf%pressure(i) <= press(mza,iw)) then
+                            field(n) = addsc(iaddsc)%sclp(mza,iw)
+                         else
+                            do k = lpw(iw)+1, mza
+                               if (pf%pressure(i) >= press(k,iw)) exit
+                            enddo
+                            ! point is between press(k-1) and press(k)
+                            kobs = k - 1
+                            zwt_top = (real(press(kobs,iw)) - pf%pressure(i)) / real(press(kobs,iw) - press(kobs+1,iw))
+                            zwt_bot = 1.0 - zwt_top
+                            field(n) = zwt_top * addsc(iaddsc)%sclp(kobs+1,iw) &
+                                     + zwt_bot * addsc(iaddsc)%sclp(kobs  ,iw)
+                         endif
+                      enddo
+
+                      pf%obs(iaddsc,i) = sum( field(1:3) * pf%wgts(i)%wt(1:3) )
+
+                   enddo
+
+                elseif (pf%type == 'C') then
+
+                   do iaddsc = 1, naddsc
+
+                      ! interpolate from 3 surrounding W cells
+                      do n = 1, 3
+                         iw = itab_m(im)%iw(n)
+                         ka = lpw(iw)
+
+                         field(n) = sum( addsc(iaddsc)%sclp(ka:mza,iw) * real(rho(ka:mza,iw)) * dzt(ka:mza) ) &
+                                  / sum( real(rho(ka:mza,iw)) * dzt(ka:mza) )
+                      enddo
+
+                      pf%obs(iaddsc,i) = sum( field(1:3) * pf%wgts(i)%wt(1:3) )
+
+                   enddo
+
+                else
+
+                   write(*,*) "Illegal point file type in fill_point_obs, skipping."
+                   exit
+
+                endif
+
              enddo
 
-             ! point is between zt(k-1) and zt(k)
-             kobs = k - 1
-             zwt_top = (altitudes(i) - zt(kobs)) * dzim(kobs)
-             zwt_bot = 1.0 - zwt_top
+             iobs_current = inext + 1
 
-             ! M point corresponding to this obs
-             im = itabg_m( wgts(i)%imglobe )%im_myrank
+          endif
 
-             ! interpolate from 3 surrounding W cells
-             ! do n = 1, 3
-             !    iw = itab_m(im)%iw(i)
-             !
-             !    if (kobs >= mza) then
-             !       field(n) = tair(mza,iw)
-             !    elseif (kobs <= lpw(iw)) then
-             !       field(n) = tair(lpw(iw),iw)
-             !    else
-             !       field(n) = zwt_top * tair(kobs+1,iw) + zwt_bot * tair(kobs,iw)
-             !    endif
-             ! enddo
-             !
-             ! airtemp(i) = sum( field(1:3) * wgts(i)%wt(1:3) )
+       endif
 
-             do iaddsc = 1, naddsc
-
-                ! interpolate from 3 surrounding W cells
-                do n = 1, 3
-                   iw = itab_m(im)%iw(n)
-
-                   if (kobs >= mza) then
-                      field(n) = addsc(iaddsc)%sclp(mza,iw)
-                   elseif (kobs < lpw(iw)) then
-                      field(n) = addsc(iaddsc)%sclp(lpw(iw),iw)
-                   else
-                      field(n) = zwt_top * addsc(iaddsc)%sclp(kobs+1,iw) &
-                               + zwt_bot * addsc(iaddsc)%sclp(kobs  ,iw)
-                   endif
-                enddo
-
-                obs(iaddsc,i) = sum( field(1:3) * wgts(i)%wt(1:3) )
-
-             enddo
-
-          enddo
-
-          iobs_current = inext + 1
-
-       end if
-
-    end if
+    enddo
 
   end subroutine fill_point_obs
 
@@ -284,89 +456,132 @@ contains
 
       implicit none
 
-      character(pathlen)   :: filename
-      integer              :: ndims, idims(2), i
-      integer, allocatable :: iobs_number(:)
-      integer, allocatable :: itrc_number(:)
+      character(pathlen)        :: filename
+      integer                   :: ndims, idims(2), i
+      integer,      allocatable :: itrc_number(:)
+      integer                   :: nfiles, nf
+      type(point_data), pointer :: pf
+      integer,          pointer :: iobs_current, iobs_loc(:), nobs_loc, nobs
+      character(30)             :: name = 'tracer'
+      character(30)             :: dimname
 
-      filename = trim(nl%point_obsout_header) // date // trim(nl%point_obsout_suffix)
+      nfiles = nl%point_files
 
-      call shdf5_open(filename, 'W', iclobber)
+      do nf = 1, nfiles
+         pf           => pfiles(nf)
+         iobs_current => pfiles(nf)%iobs_current
+         iobs_loc     => pfiles(nf)%iobs_loc
+         nobs_loc     => pfiles(nf)%nobs_loc
+         nobs         => pfiles(nf)%nobs
 
-      ! Write obs # as a coordinate variable
+         filename = trim(nl%point_obsout_headers(nf)) // date // trim(nl%point_obsout_suffixes(nf))
 
-      ndims    = 1
-      idims(1) = nobs
+         call shdf5_open(filename, 'W', iclobber)
 
-      allocate(iobs_number(nobs))
-      iobs_number = [ (i, i=1, nobs) ]
-
-      call shdf5_orec(ndims, idims, "obs", ivar1=iobs_number, isdim=.true., long_name = "obs number")
-
-      ! Write tracer # as a coordinate variable (for A. Schuh)
-
-      if (naddsc > 0) then
+         ! If there is a non-time coordinate variable, write it here
 
          ndims    = 1
-         idims(1) = naddsc
+         idims(1) = nobs_loc
 
-         allocate(itrc_number(naddsc))
-         iobs_number = [ (i, i=1, naddsc) ]
+         if (len_trim(pf%obs_dimname) > 0 .and. allocated(pf%obs_dimvals)) then
 
-         call shdf5_orec(ndims, idims, "tracer", ivar1=itrc_number, isdim=.true., long_name = "tracer number")
+            call shdf5_orec( ndims, idims, pf%obs_dimname, dvar1=pf%obs_dimvals, &
+                             isdim     = .true.,          &
+                             long_name = pf%obs_longname, &
+                             gpoints   = iobs_loc,        &
+                             nglobe    = nobs             )
+         endif
 
-      endif
+         ! Write tracer # as a coordinate variable (for A. Schuh)
 
-      ! Write lat/lon/time. These are not coordinate variable for point output with NetCDF!
+         if (naddsc > 0) then
 
-      ndims = 1
-      idims(1) = nobs_loc
+            ndims    = 1
+            idims(1) = naddsc
 
-      call shdf5_orec( ndims, idims, "time", ivar1=itimes, &
-                       gpoints   = iobs_loc,      &
-                       nglobe    = nobs,          &
-                       dimnames  = [ "obs" ],     &
-                       long_name = time_longname, &
-                       units     = time_units     )
+            if (allocated(itrc_number)) deallocate(itrc_number)
+            allocate(itrc_number(naddsc))
+            itrc_number = [ (i, i=1, naddsc) ]
 
-      call shdf5_orec( ndims, idims, "longitude", rvar1=longitudes, &
-                       gpoints   = iobs_loc,      &
-                       nglobe    = nobs,          &
-                       dimnames  = [ "obs" ],     &
-                       long_name = "longitude",   &
-                       units     = "degrees_east" )
+            call shdf5_orec( ndims, idims, "tracer", ivar1=itrc_number, &
+                             isdim=.true.,               &
+                             long_name = "tracer number" )
 
-      call shdf5_orec( ndims, idims, "latitude", rvar1=latitudes, &
-                       gpoints   = iobs_loc,       &
-                       nglobe    = nobs,           &
-                       dimnames  = [ "obs" ],      &
-                       long_name = "latitude",     &
-                       units     = "degrees_north" )
+         endif
 
-      call shdf5_orec( ndims, idims, "altitude", rvar1=altitudes, &
-                       gpoints   = iobs_loc,       &
-                       nglobe    = nobs,           &
-                       dimnames  = [ "obs" ],      &
-                       long_name = "altitude in meters above sea level", &
-                       units     = "meters" )
+         ! Write lat/lon/time. These are not coordinate variable for point output with NetCDF!
 
-      ! Write point observations. For now these are just the tracers for A. Schuh
+         ndims = 1
+         idims(1) = nobs_loc
 
-      if (naddsc > 0) then
+         call shdf5_orec( ndims, idims, "time", dvar1=pf%dtimes,     &
+                          gpoints   = iobs_loc,                      &
+                          nglobe    = nobs,                          &
+                          isdim     = len_trim(pf%time_dimname) > 0, &
+                          dimnames  = [ pf%obs_dimname ],            &
+                          long_name = pf%time_longname,              &
+                          units     = pf%time_units                  )
 
-         ndims = 2
-         idims = [ naddsc, nobs_loc ]
+         if (len_trim(pf%time_dimname) > 0) then
+            dimname = pf%time_dimname
+         else
+            dimname = pf%obs_dimname
+         endif
 
-         call shdf5_orec( ndims, idims, "CO2_Tracers", rvar2=obs, &
-                          gpoints = iobs_loc,                     &
-                          nglobe = nobs,                          &
-                          dimnames = ["tracer", "obs   "],        &
-                          rmissing = rmiss,                       &
-                          long_name = "simulated mole fraction of carbon dioxide in dry air" )
+         call shdf5_orec( ndims, idims, "longitude", rvar1=pf%longitude, &
+                          gpoints   = iobs_loc,      &
+                          nglobe    = nobs,          &
+                          dimnames  = [ dimname ],   &
+                          long_name = "longitude",   &
+                          units     = "degrees_east" )
 
-      endif
+         call shdf5_orec( ndims, idims, "latitude", rvar1=pf%latitude, &
+                          gpoints   = iobs_loc,       &
+                          nglobe    = nobs,           &
+                          dimnames  = [ dimname ],    &
+                          long_name = "latitude",     &
+                          units     = "degrees_north" )
 
-      call shdf5_close()
+         if (allocated(pf%altitude)) then
+
+            call shdf5_orec( ndims, idims, "altitude", rvar1=pf%altitude, &
+                             gpoints   = iobs_loc,       &
+                             nglobe    = nobs,           &
+                             dimnames  = [ dimname ],    &
+                             long_name = "altitude in meters above sea level", &
+                             units     = "meters" )
+
+         elseif (allocated(pf%pressure)) then
+
+               call shdf5_orec( ndims, idims, "pressure", rvar1=pf%pressure, &
+                                gpoints   = iobs_loc,       &
+                                nglobe    = nobs,           &
+                                dimnames  = [ dimname ],    &
+                                long_name = "atmospheric pressure", &
+                                units     = "Pa" )
+         endif
+
+
+         ! Write point observations. For now these are just the tracers for A. Schuh
+
+         if (naddsc > 0) then
+
+            ndims = 2
+            idims = [ naddsc, nobs_loc ]
+
+            call shdf5_orec( ndims, idims, "co2_tracers", rvar2=pf%obs, &
+                             gpoints = iobs_loc,                        &
+                             nglobe = nobs,                             &
+                             dimnames = [ name, dimname ],              &
+                             rmissing = rmiss,                          &
+                             units = "ppm",                             &
+                             long_name = "simulated mole fraction of carbon dioxide in dry air" )
+
+         endif
+
+         call shdf5_close()
+
+      enddo
 
     end subroutine write_point_file
 

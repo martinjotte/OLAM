@@ -314,15 +314,20 @@
    ! OBSPack format (obs#, time, lat, lon, altitude) to get locations to output.
    ! Files are assumed to have the form "HEADER" // DATE // "SUFFIX"
 
-   NL%DO_POINT_OUTPUT  = .false.
+   NL%POINT_FILES = 0       ! Number of point files to read/write (0 disables point I/O)
+
+   NL%PFILE_TYPES = 'Z',    ! Z = point obs at height (lat, lon, altitude)
+                            ! P = point obs at pressure level (lat, lon, pressure)
+                            ! S = near-surface obs at (lat, lon)
+                            ! C = column average (pressure weighted) at (lat, lon)
 
    ! Current model date YYYYMMDD will be assumed between file header and suffix:
-   NL%POINT_OBSIN_HEADER = "obspack_co2_1_OCO2MIP_v5.0.1_2024-11-14."
-   NL%POINT_OBSIN_SUFFIX = ".nc"
+   NL%POINT_OBSIN_HEADERS  = "obspack_co2_1_OCO2MIP_v5.0.1_2024-11-14.",
+   NL%POINT_OBSIN_SUFFIXES = ".nc",
 
    ! Current model date YYYYMMDD will be assumed between file header and suffix:
-   NL%POINT_OBSOUT_HEADER = "simdata_"
-   NL%POINT_OBSOUT_SUFFIX = ".nc"
+   NL%POINT_OBSOUT_HEADERS  = "simdata_",
+   NL%POINT_OBSOUT_SUFFIXES = ".nc",
 
  !--------------------------------------------------------------------------
  ! Interpolation to lat-lon grid for output to file and/or plotting:

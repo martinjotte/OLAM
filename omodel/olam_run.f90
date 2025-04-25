@@ -975,7 +975,7 @@ subroutine model()
 
      ! Read current day's point observations
 
-     if (nl%do_point_output) then
+     if (nl%point_files > 0) then
         if (mstp == 0 .or. current_time%time + time_bias < dtlm) then
            call read_point_file()
         endif
@@ -1016,7 +1016,7 @@ subroutine model()
 
      ! Fill point observations that are within this timestep
 
-     if (nl%do_point_output) then
+     if (nl%point_files > 0) then
         call fill_point_obs()
      endif
 
@@ -1146,7 +1146,7 @@ subroutine olam_output()
 
   ! Point output files
 
-  if (nl%do_point_output) then
+  if (nl%point_files > 0) then
      if (current_time%time + time_bias < dtlm) then
         call write_point_file()
      endif

@@ -177,11 +177,12 @@ Module oname_coms
      character(32)      :: lite_vars(maxlite) = ' '
      character(32)      :: latlon_vars(maxlatlon) = ' '
 
-     logical            :: do_point_output     = .false.
-     character(pathlen) :: point_obsin_header  = ' '
-     character(12)      :: point_obsin_suffix  = ' '
-     character(pathlen) :: point_obsout_header = ' '
-     character(12)      :: point_obsout_suffix = ' '
+     integer            :: point_files                      = 0
+     character(1)       :: pfile_types          (maxisdirs) = ' '
+     character(pathlen) :: point_obsin_headers  (maxisdirs) = ' '
+     character(12)      :: point_obsin_suffixes (maxisdirs) = ' '
+     character(pathlen) :: point_obsout_headers (maxisdirs) = ' '
+     character(12)      :: point_obsout_suffixes(maxisdirs) = ' '
 
 !!    MODEL/NUMERICAL OPTIONS
 
