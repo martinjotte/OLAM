@@ -104,9 +104,9 @@ contains
        call shdf5_exists(filename, exists)
 
        if (.not. exists) then
-          write(io6,*) "point_io: Error opening data file " // trim(filename)
-          write(io6,*) "File to read point output locations cannot be found."
-          call olam_stop("Stopping model")
+          write(io6,'(A)') " point_io: Error opening data file " // trim(filename)
+          write(io6,'(A)') " Skipping this date."
+          cycle
        endif
 
        call shdf5_open(filename, 'R')
@@ -313,7 +313,7 @@ contains
     real                      :: field(3)
     integer                   :: nfiles, nf
     type(point_data), pointer :: pf
-    integer,          pointer :: iobs_current, nobs_loc
+    integer,          pointer :: iobs_current, nobs_loc, nobs
 
     nfiles = nl%point_files
 
@@ -321,6 +321,10 @@ contains
        pf           => pfiles(nf)
        iobs_current => pfiles(nf)%iobs_current
        nobs_loc     => pfiles(nf)%nobs_loc
+       nobs         => pfiles(nf)%nobs
+
+       ! skip if no obs available for current date/time
+       if (nobs == 0) cycle
 
        if (iobs_current <= nobs_loc) then
 
@@ -473,6 +477,9 @@ contains
          iobs_loc     => pfiles(nf)%iobs_loc
          nobs_loc     => pfiles(nf)%nobs_loc
          nobs         => pfiles(nf)%nobs
+
+         ! Skip if no obs for current date/time
+         if (nobs == 0) cycle
 
          filename = trim(nl%point_obsout_headers(nf)) // date // trim(nl%point_obsout_suffixes(nf))
 
