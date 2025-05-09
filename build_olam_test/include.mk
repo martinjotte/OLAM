@@ -8,16 +8,16 @@ OLAM_MPI=yes
 OLAM_PARALLEL_HDF5=yes
 
 # VERY OPTIMIZED:
-F_OPTS=-Ofast -xHost -fno-alias -fno-fnalias -ip -traceback -assume norealloc_lhs -vecabi=cmdtarget -qopt-multi-version-aggressive -fno-pic -fminshared -ffinite-math-only -falign-loops -qopt-zmm-usage=high -qopt-prefetch=5 -qopt-subscript-in-range -fno-pic -qopenmp
+F_OPTS=-Ofast -xHost -fno-alias -fno-fnalias -ip -traceback -assume norealloc_lhs -vecabi=cmdtarget -qopt-multi-version-aggressive -fno-pic -fminshared -ffinite-math-only -falign-loops -qopt-zmm-usage=high -qopt-prefetch=5 -qopt-subscript-in-range -fno-pic -qopenmp -prec-div
 
 # SAFE OPTIMIZATIONS:
-# F_OPTS=-Ofast -xHost -traceback -vecabi=cmdtarget -fno-pic -qopenmp
+# F_OPTS=-Ofast -xHost -traceback -vecabi=cmdtarget -fno-pic -qopenmp -prec-div
 
 # FOR REPRODUCIBLE RESULTS
-#F_OPTS=-xHost -O2 -fp-model precise -fp-speculation=strict -traceback -stand f08 -assume norealloc_lhs -qopenmp -g
+#F_OPTS=-xHost -O2 -fp-model precise -fp-speculation=strict -traceback -stand f08 -assume norealloc_lhs -qopenmp -g -prec-div
 
 # EXTENDED DEBUGGING:
-#F_OPTS=-O2 -g -fp-model strict -check bounds -traceback -warn interfaces,unused -stand f08 -debug extended -check pointers -check uninit -init=arrays -init=snan
+#F_OPTS=-O2 -g -fp-model strict -check bounds -traceback -warn interfaces,unused -stand f08 -debug extended -check pointers -check uninit -init=arrays -init=snan -prec-div
 
 # EXTRA OPTIONS FOR FIXED-SOURCE CODE
 FIXED_SRC_FLAGS=-fixed -132
