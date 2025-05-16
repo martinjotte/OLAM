@@ -426,7 +426,7 @@ Module oname_coms
      integer :: nplt_files  = 0
      integer :: nmavg_files = 0
      integer :: ndavg_files = 0
-     integer :: nlite_files = 0
+!    integer :: nlite_files = 0
      real(r8):: frqplt     = 3600.0_r8
      real    :: dtvec      = 1200.0
      real    :: headspeed  = 3.0

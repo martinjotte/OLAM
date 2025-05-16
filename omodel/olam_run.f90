@@ -623,14 +623,19 @@ subroutine olam_run(name_name)
            exit
         endif
 
-        if (nl%ioutput_lite == 1 .and. nl%nlite_files > 0) then
-           do ilite_file = 1,nl%nlite_files
-              litefile = nl%lite_files(ilite_file)
-              call lite_read(litefile)
-            !  call plot_fields(0)
-              call timeseries_plots('L')
-           enddo
-           exit
+        !if (nl%ioutput_lite == 1 .and. nl%nlite_files > 0) then
+        !   do ilite_file = 1,nl%nlite_files
+        !      litefile = nl%lite_files(ilite_file)
+        !      call lite_read(litefile)
+        !    !  call plot_fields(0)
+        !      call timeseries_plots('L')
+        !   enddo
+        !   exit
+        !endif
+
+        if (nl%ioutput_lite == 1) then
+           call prepare_lite()
+           call lite_write()
         endif
 
         ! If day-average plots are NOT specified, do regular plots from history files.
