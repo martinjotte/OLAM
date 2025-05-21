@@ -71,6 +71,7 @@ subroutine init_minterp()
   use mem_para,    only: myrank
   use ll_bins,     only: itab_grid_vars, latlon_bins
   use misc_coms,   only: nxp
+  use map_proj,    only: de_gn
 
   implicit none
 
@@ -130,9 +131,10 @@ subroutine init_minterp()
      minterp(im)%zemin = 1.01 * minval( dze ) + zem(im)
      minterp(im)%zemax = 1.01 * maxval( dze ) + zem(im)
 
-     call de_gn_mult( 3, dxe, dye, dze, &
-                      minterp(im)%cosmlat, minterp(im)%sinmlat, &
-                      minterp(im)%cosmlon, minterp(im)%sinmlon, xw, yw )
+     call de_gn( dxe, dye, dze, &
+                 minterp(im)%cosmlat, minterp(im)%sinmlat, &
+                 minterp(im)%cosmlon, minterp(im)%sinmlon, &
+                 xw, yw, 3 )
 
      denom = (xw(1)-xw(3)) * (yw(2) - yw(3)) &
            - (xw(2)-xw(3)) * (yw(1) - yw(3))
@@ -734,6 +736,7 @@ subroutine mweights_xyze(im, xe, ye, ze, w)
 
   use mem_grid,   only: xem, yem, zem
   use mem_ijtabs, only: itab_m
+  use map_proj,   only: de_gn
 
   implicit none
 
@@ -779,15 +782,16 @@ end subroutine mweights_xyze
 !=========================================================================
 
 subroutine mweights_lonlat(im, qlon, qlat, w)
+
+  use map_proj, only: ll_ec
   implicit none
 
   integer,             intent(in ) :: im
   real,                intent(in ) :: qlon, qlat
   type(minterp_wghts), intent(out) :: w
+  real                             :: xe, ye, ze
 
-  real :: xe, ye, ze
-
-  call ec_e(qlon, qlat, xe, ye, ze)
+  call ll_ec(qlon, qlat, xe, ye, ze)
 
   call mweights_xyze(im, xe, ye, ze, w)
 

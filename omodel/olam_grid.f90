@@ -3,6 +3,7 @@ subroutine gridinit()
   use misc_coms,   only: io6, mdomain, ngrids, nxp, alloc_misc, runtype
   use consts_coms, only: r8
   use mem_ijtabs,  only: mrls, fill_jtabs, itab_w
+  use map_proj,    only: ec_ps
 
   use mem_delaunay,only: itab_md, itab_ud, itab_wd, xemd, yemd, zemd, &
                          copy_tri_grid, copyback_tri_grid, nmd, nud, nwd
@@ -383,8 +384,8 @@ subroutine gridinit()
 
         iwnud = itab_w(iw)%iwnud(1)
 
-        call e_ps(xewnud(iwnud),yewnud(iwnud),zewnud(iwnud), &
-                  glatw(iw),glonw(iw),xi,yi)
+        call ec_ps(xewnud(iwnud),yewnud(iwnud),zewnud(iwnud), &
+                   glatw(iw),glonw(iw),xi,yi)
 
  ! Initialize vecprodz_minpos and vecprodz_maxneg
 
@@ -404,8 +405,8 @@ subroutine gridinit()
  ! Compute x,y components of iwnudn polygon center on a polar stereographic
  ! plane tangent at IW point
 
-           call e_ps(xewnud(iwnudn),yewnud(iwnudn),zewnud(iwnudn), &
-                     glatw(iw),glonw(iw),xin(j),yin(j))
+           call ec_ps(xewnud(iwnudn),yewnud(iwnudn),zewnud(iwnudn), &
+                      glatw(iw),glonw(iw),xin(j),yin(j))
 
  ! Compute z component (in polar stereographic space) of vector product of
  ! the vector from iwnud to iw (at 0,0) and the vector from iwnud to iwnudn.

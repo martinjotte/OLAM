@@ -136,6 +136,9 @@ SOURCE_FILES= \
              $(OUTILS)/lapack.f90 \
              $(OUTILS)/latlon_bins.f90 \
              $(OUTILS)/map_proj.f90 \
+             $(OUTILS)/map_proj_gn.f90 \
+             $(OUTILS)/map_proj_or.f90 \
+             $(OUTILS)/map_proj_ps.f90 \
              $(OUTILS)/matrix.f90 \
              $(OUTILS)/minterp_lib.F90 \
              $(OUTILS)/netcdf_utils.f90 \

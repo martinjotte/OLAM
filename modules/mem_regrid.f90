@@ -46,6 +46,7 @@ subroutine init_regrid()
   use misc_coms,  only: io6
   use mem_grid,   only: mwa, xew, yew, zew, glatw, glonw
   use ll_bins,    only: latlon_bins, gridcells_from_latlon_bins, binset_vars
+  use map_proj,   only: ec_ps
 
   implicit none
 
@@ -135,8 +136,8 @@ subroutine init_regrid()
 
      iw_og = itab_wadd(iw)%iw_og(1)
 
-     call e_ps(xew_og(iw_og),yew_og(iw_og),zew_og(iw_og), &
-               glatw(iw),glonw(iw),xi,yi)
+     call ec_ps(xew_og(iw_og),yew_og(iw_og),zew_og(iw_og), &
+                glatw(iw),glonw(iw),xi,yi)
 
      ! Initialize vecprodz_minpos and vecprodz_maxneg
 
@@ -156,8 +157,8 @@ subroutine init_regrid()
         ! Compute x,y components of iwn_og polygon center on a polar stereographic
         ! plane tangent at IW point
 
-        call e_ps(xew_og(iwnog),yew_og(iwnog),zew_og(iwnog), &
-                  glatw(iw),glonw(iw),xin(j),yin(j))
+        call ec_ps(xew_og(iwnog),yew_og(iwnog),zew_og(iwnog), &
+                   glatw(iw),glonw(iw),xin(j),yin(j))
 
         ! Compute z component (in polar stereographic space) of vector product of
         ! the vector from iwnud to iw (at 0,0) and the vector from iwnud to iwnudn.

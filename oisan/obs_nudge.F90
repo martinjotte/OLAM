@@ -124,9 +124,9 @@ subroutine obs_nudge()
 ! ! Sample code for modifying nudging weight
 !
 ! ! Transform current IW point to polar stereographic coordinates using specified
-! ! pole point location (pole point lat/lon = 4th & 5th arguments of e_ps)
+! ! pole point location (pole point lat/lon = 4th & 5th arguments of ec_ps)
 !
-!       call e_ps(xew(iw),yew(iw),zew(iw),37.,-117.,xw,yw)
+!       call ec_ps(xew(iw),yew(iw),zew(iw),37.,-117.,xw,yw)
 !
 !       dist = sqrt(xw ** 2 + yw ** 2)
 !

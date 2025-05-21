@@ -6,6 +6,7 @@ subroutine voronoi_sfc()
                           xemd, yemd, zemd, iwsfc_orig, mrl_wsfc
   use misc_coms,    only: mdomain
   use consts_coms,  only: erad, piu180
+  use map_proj,     only: get_cossin_lonlat, de_ps, ps_de
 
   implicit none
 
@@ -78,7 +79,7 @@ subroutine voronoi_sfc()
 
         ! Get latitude and longitude of barycentric point
 
-        call get_sincos_latlon( coswslon, sinwslon, coswslat, sinwslat, &
+        call get_cossin_lonlat( coswslon, sinwslon, coswslat, sinwslat, &
                                 xebc, yebc, zebc )
 
         ! Transform 3 W points to PS coordinates
@@ -237,12 +238,13 @@ end subroutine voronoi_sfc
 
 subroutine grid_geometry_hex_sfc()
 
+  use, intrinsic :: iso_fortran_env, only: r8=>real64
+
   use mem_sfcg,    only: nmsfc, nvsfc, nwsfc, itab_msfc, itab_vsfc, itab_wsfc, sfcg
   use misc_coms,   only: mdomain, nxp
   use consts_coms, only: erad, piu180
   use oplot_coms,  only: op
-
-  use, intrinsic :: iso_fortran_env, only: r8=>real64
+  use map_proj,    only: get_cossin_lonlat, de_ps
 
   implicit none
 
@@ -252,19 +254,21 @@ subroutine grid_geometry_hex_sfc()
   integer       :: j,npoly,j1,j2
   real          :: raxis, expansion
   real          :: dvm1,dvm2
-  real          :: xm1,xm2,xv,ym1,ym2,yv,frac,alpha
+  real          :: xm1,xm2,xv,ym1,ym2,yv,frac,vmagi
   real          :: xw1,xw2,yw1,yw2
   real          :: xp1, yp1, xp2, yp2
   real          :: xq1, yq1, xq2, yq2, psiz, vsprd
   integer       :: iskipm, iskipw
   real          :: quarter_kite(2,nvsfc)
   character(10) :: string
+  real          :: dxe,dye,dze
+  real          :: sinwlat,coswlat,sinwlon,coswlon
 
   integer               :: lwork, info
   real(r8)              :: a(3,7), b(7), fo(7), vnx_ps(7), vny_ps(7), vnz_ps(7)
   real(r8)              :: vrot_x(7), vrot_y(7)
   real(r8), allocatable :: work(:)
-  real(r8)              :: wsize(1), vdotw, vmagi, fact
+  real(r8)              :: wsize(1), vdotw, vmag8i, fact
 
   ! Loop over all M points and compute their latitude and longitude
 
@@ -405,7 +409,8 @@ subroutine grid_geometry_hex_sfc()
 
   !$omp parallel private(a,b,wsize,lwork,work,info)
 
-  !$omp do private(raxis,npoly,j1,j2,ivn,iw1,iw2,xw1,yw1,xw2,yw2,xv,yv,alpha)
+  !$omp do private(raxis,npoly,j1,j2,ivn,iw1,iw2,xw1,yw1,xw2,yw2,xv,yv,vmagi, &
+  !$omp            dxe,dye,dze,coswlon,sinwlon,coswlat,sinwlat)
   do iw = 2,nwsfc
 
      ! Fill global index (replaced later if this run is parallel)
@@ -440,6 +445,11 @@ subroutine grid_geometry_hex_sfc()
 
      npoly = itab_wsfc(iw)%npoly
 
+     if (mdomain <= 1) then
+        call get_cossin_lonlat( coswlon, sinwlon, coswlat, sinwlat,      &
+                                sfcg%xew(iw), sfcg%yew(iw), sfcg%zew(iw) )
+     endif
+
      ! Loop over all polygon edges
 
      do j2 = 1,npoly
@@ -465,42 +475,71 @@ subroutine grid_geometry_hex_sfc()
         ! tangent at IW
 
         if (mdomain <= 1) then
-           call e_ps(sfcg%xew(iw1),sfcg%yew(iw1),sfcg%zew(iw1),sfcg%glatw(iw),sfcg%glonw(iw),xw1,yw1)
-           call e_ps(sfcg%xew(iw2),sfcg%yew(iw2),sfcg%zew(iw2),sfcg%glatw(iw),sfcg%glonw(iw),xw2,yw2)
-           call e_ps(sfcg%xev(ivn), sfcg%yev(ivn), sfcg%zev(ivn), sfcg%glatw(iw),sfcg%glonw(iw),xv,yv)
+
+           dxe = sfcg%xew(iw1) - sfcg%xew(iw)
+           dye = sfcg%yew(iw1) - sfcg%yew(iw)
+           dze = sfcg%zew(iw1) - sfcg%zew(iw)
+           call de_ps(dxe,dye,dze,coswlat,sinwlat,coswlon,sinwlon,xw1,yw1)
+
+           dxe = sfcg%xew(iw2) - sfcg%xew(iw)
+           dye = sfcg%yew(iw2) - sfcg%yew(iw)
+           dze = sfcg%zew(iw2) - sfcg%zew(iw)
+           call de_ps(dxe,dye,dze,coswlat,sinwlat,coswlon,sinwlon,xw2,yw2)
+
+           dxe = sfcg%xev(iv) - sfcg%xew(iw)
+           dye = sfcg%yev(iv) - sfcg%yew(iw)
+           dze = sfcg%zev(iv) - sfcg%zew(iw)
+           call de_ps(dxe,dye,dze,coswlat,sinwlat,coswlon,sinwlon,xv,yv)
+
         else
+
            xw1 = sfcg%xew(iw1) - sfcg%xew(iw)
            yw1 = sfcg%yew(iw1) - sfcg%yew(iw)
            xw2 = sfcg%xew(iw2) - sfcg%xew(iw)
            yw2 = sfcg%yew(iw2) - sfcg%yew(iw)
            xv  = sfcg%xev(ivn) - sfcg%xew(iw)
            yv  = sfcg%yev(ivn) - sfcg%yew(iw)
+
         endif
 
         ! Coefficients for eastward and northward components of gradient (they apply at M points)
 
-        itab_wsfc(iw)%gxps1(j1) =  yw2 / (xw1 * yw2 - xw2 * yw1)
-        itab_wsfc(iw)%gxps2(j1) = -yw1 / (xw1 * yw2 - xw2 * yw1)
+        vmagi = 1.0 / (xw1 * yw2 - xw2 * yw1)
 
-        itab_wsfc(iw)%gyps1(j1) = -xw2 / (xw1 * yw2 - xw2 * yw1)
-        itab_wsfc(iw)%gyps2(j1) =  xw1 / (xw1 * yw2 - xw2 * yw1)
+        itab_wsfc(iw)%gxps1(j1) =  yw2 * vmagi
+        itab_wsfc(iw)%gxps2(j1) = -yw1 * vmagi
+
+        itab_wsfc(iw)%gyps1(j1) = -xw2 * vmagi
+        itab_wsfc(iw)%gyps2(j1) =  xw1 * vmagi
+
+        !----------------------------------------
+
+        vmagi = 1.0 / sqrt(xw2*xw2 + yw2*yw2)
 
         if (itab_wsfc(iw)%dirv(j2) < 0.) then
-           alpha = atan2(yw2,xw2)   ! VC(ivn) direction counterclockwise from east
 
-           itab_vsfc(ivn)%cosv(1) = cos(alpha)
-           itab_vsfc(ivn)%sinv(1) = sin(alpha)
+         ! alpha = atan2(yw2,xw2)   ! VC(ivn) direction counterclockwise from east
+         ! itab_vsfc(ivn)%cosv(1) = cos(alpha)
+         ! itab_vsfc(ivn)%sinv(1) = sin(alpha)
+
+           itab_vsfc(ivn)%cosv(1) = xw2 * vmagi
+           itab_vsfc(ivn)%sinv(1) = yw2 * vmagi
 
            itab_vsfc(ivn)%dxps(1) = xv
            itab_vsfc(ivn)%dyps(1) = yv
-        else
-           alpha = atan2(-yw2,-xw2) ! VC(ivn) direction counterclockwise from east
 
-           itab_vsfc(ivn)%cosv(2) = cos(alpha)
-           itab_vsfc(ivn)%sinv(2) = sin(alpha)
+        else
+
+         ! alpha = atan2(-yw2,-xw2) ! VC(ivn) direction counterclockwise from east
+         ! itab_vsfc(ivn)%cosv(2) = cos(alpha)
+         ! itab_vsfc(ivn)%sinv(2) = sin(alpha)
+
+           itab_vsfc(ivn)%cosv(2) = -xw2 * vmagi
+           itab_vsfc(ivn)%sinv(2) = -yw2 * vmagi
 
            itab_vsfc(ivn)%dxps(2) = xv
            itab_vsfc(ivn)%dyps(2) = yv
+
         endif
 
      enddo
@@ -533,7 +572,7 @@ subroutine grid_geometry_hex_sfc()
      lwork = nint(wsize(1)) + 1
      allocate(work(lwork))
 
-     !$omp do private(npoly, fo, j, ivn, vdotw, vmagi, fact, &
+     !$omp do private(npoly, fo, j, ivn, vdotw, vmag8i, fact, &
      !$omp            vnx_ps, vny_ps, vnz_ps, vrot_x, vrot_y)
      do iw = 2, nwsfc
 
@@ -557,11 +596,11 @@ subroutine grid_geometry_hex_sfc()
 
               ! Normalize these new vectors to unit length
 
-              vmagi = 1.0_r8 / sqrt( vnx_ps(j)**2 + vny_ps(j)**2 + vnz_ps(j)**2 )
+              vmag8i = 1.0_r8 / sqrt( vnx_ps(j)**2 + vny_ps(j)**2 + vnz_ps(j)**2 )
 
-              vnx_ps(j) = vnx_ps(j) * vmagi
-              vny_ps(j) = vny_ps(j) * vmagi
-              vnz_ps(j) = vnz_ps(j) * vmagi
+              vnx_ps(j) = vnx_ps(j) * vmag8i
+              vny_ps(j) = vny_ps(j) * vmag8i
+              vnz_ps(j) = vnz_ps(j) * vmag8i
 
               ! Rotate these new unit normals to a coordinate system with Z aligned with W
 
@@ -728,7 +767,7 @@ subroutine sfc_atm_hex_overlay()
   use mem_ijtabs,   only: itab_w, mrls
   use misc_coms,    only: io6, nxp
   use mem_ijtabs,   only: itab_m
-  use mem_delaunay, only: iwsfc_orig, mrl_wsfc
+  use mem_delaunay, only: iwsfc_orig
 
   implicit none
 
@@ -920,6 +959,7 @@ subroutine sfc_atm_hex_overlay_2( iwsfc )
   use ll_bins,     only: gridcells_from_latlon_bins
   use consts_coms, only: dlat
   use sortlib,     only: insertion_sort_rev
+  use map_proj,    only: get_cossin_lonlat, de_gn
 
   implicit none
 
@@ -933,7 +973,7 @@ subroutine sfc_atm_hex_overlay_2( iwsfc )
   integer, parameter :: npqmax  = max(npmax,nqmax)
   real,    parameter :: oneplus = 1.0 + 5. * epsilon(1.)
 
-  integer  :: iw, npoly, nsfcpoly, jmsfc, imsfc, jm, im, nwatm, idum
+  integer  :: iw, jw, npoly, nsfcpoly, jmsfc, imsfc, jm, im, nwatm
   real     :: xm(npmax), xs(nqmax), xw, dum
   real     :: ym(nqmax), ys(nqmax), yw
 
@@ -945,11 +985,10 @@ subroutine sfc_atm_hex_overlay_2( iwsfc )
   real :: dxe(npqmax), dye(npqmax), dze(npqmax)
   real :: dxew, dyew, dzew, res
 
-  integer :: j, jw
   integer, pointer             :: nwbin
   integer, pointer, contiguous :: iwbin(:)
 
-  call get_sincos_latlon( coswslon, sinwslon, coswslat, sinwslat, &
+  call get_cossin_lonlat( coswslon, sinwslon, coswslat, sinwslat, &
                           sfcg%xew(iwsfc), sfcg%yew(iwsfc), sfcg%zew(iwsfc) )
 
   ! Loop over all neighbor M points of this iwsfc
@@ -978,7 +1017,7 @@ subroutine sfc_atm_hex_overlay_2( iwsfc )
   ! Evaluate xs,ys coordinates of SFCGRID iwsfc cell M points on gnomonic plane
   ! tangent at iwsfc
 
-  call de_gn_mult(nsfcpoly,dxe,dye,dze,coswslat,sinwslat,coswslon,sinwslon,xs,ys)
+  call de_gn(dxe,dye,dze,coswslat,sinwslat,coswslon,sinwslon,xs,ys,nsfcpoly)
 
   dsmax = 1.01 * sqrt(dsmax)
 
@@ -1032,7 +1071,7 @@ subroutine sfc_atm_hex_overlay_2( iwsfc )
         dze(jm) = zem(im) - sfcg%zew(iwsfc)
      enddo
 
-     call de_gn_mult(npoly,dxe,dye,dze,coswslat,sinwslat,coswslon,sinwslon,xm,ym)
+     call de_gn(dxe,dye,dze,coswslat,sinwslat,coswslon,sinwslon,xm,ym,npoly)
 
      ! Evaluate possible overlap of ATM and SURFACE polygons
 

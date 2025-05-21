@@ -459,6 +459,7 @@ Contains
 
   use mem_sfcg,    only: sfcg, mwsfc
   use consts_coms, only: pio180
+  use map_proj,    only: de_ps
 
   implicit none
 

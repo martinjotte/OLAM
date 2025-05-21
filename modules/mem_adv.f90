@@ -40,11 +40,13 @@ contains
     use oname_coms,  only: nl
     use olam_mpi_atm,only: mpi_send_w, mpi_recv_w, mpi_send_m, mpi_recv_m
     use obnd,        only: lbcopy_w, lbcopy_m
+    use map_proj,    only: ec_ps
 
     implicit none
 
     integer  :: k, j, iw, iwn, ivn, np, n, iv, iw1, iw2, im, im1, im2, npoly
     real     :: xw(7), yw(7), at(5,5)
+    real     :: xe(7), ye(7), ze(7)
     real(r8) :: fint
     real     :: z1(2), z2(2), az1(2,2), az2(2,2), a_h(5,5)
     real     :: dxps1, dyps1, dxps2, dyps2
@@ -183,20 +185,30 @@ contains
 
     if (nl%horiz_adv_order == 3) then
 
-       !$omp parallel do private(iw,np,n,iwn,xw,yw,at,a_h,fint)
+       !$omp parallel do private(iw,np,n,iwn,xw,yw,at,a_h,fint,xe,ye,ze)
        do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
           np  = itab_w(iw)%npoly
 
-          do n = 1, np
-             iwn = itab_w(iw)%iw(n)
-             if (mdomain <= 1) then
-                call e_ps( xew(iwn), yew(iwn), zew(iwn), glatw(iw), glonw(iw), &
-                           xw(n), yw(n) )
-             else
+          if (mdomain <= 1) then
+
+             do n = 1, np
+                iwn = itab_w(iw)%iw(n)
+                xe(n) = xew(iwn)
+                ye(n) = yew(iwn)
+                ze(n) = zew(iwn)
+             enddo
+
+             call ec_ps( xe, ye, ze, glatw(iw), glonw(iw), xw, yw, np )
+
+          else
+
+             do n = 1, np
+                iwn   = itab_w(iw)%iw(n)
                 xw(n) = xew(iwn) - xew(iw)
                 yw(n) = yew(iwn) - yew(iw)
-             endif
-          enddo
+             enddo
+
+          endif
 
           call hex_quad(iw, 2, fint, fxx)
           xx0(iw) = real(fint) * arw0i(iw)
@@ -294,16 +306,16 @@ contains
 
 !!          if (mdomain <= 1) then
 !!
-!!             call e_ps( xem(im1),  yem(im1),  zem(im1),  glatw(iw1), glonw(iw1), &
+!!             call ec_ps( xem(im1),  yem(im1),  zem(im1),  glatw(iw1), glonw(iw1), &
 !!                        dxps_m1(1,iv), dyps_m1(1,iv) )
 !!
-!!             call e_ps( xem(im2),  yem(im2),  zem(im2),  glatw(iw1), glonw(iw1), &
+!!             call ec_ps( xem(im2),  yem(im2),  zem(im2),  glatw(iw1), glonw(iw1), &
 !!                        dxps_m2(1,iv), dyps_m2(1,iv) )
 !!
-!!             call e_ps( xem(im1),  yem(im1),  zem(im1),  glatw(iw2), glonw(iw2), &
+!!             call ec_ps( xem(im1),  yem(im1),  zem(im1),  glatw(iw2), glonw(iw2), &
 !!                        dxps_m1(2,iv), dyps_m1(2,iv) )
 !!
-!!             call e_ps( xem(im2),  yem(im2),  zem(im2),  glatw(iw2), glonw(iw2), &
+!!             call ec_ps( xem(im2),  yem(im2),  zem(im2),  glatw(iw2), glonw(iw2), &
 !!                        dxps_m2(2,iv), dyps_m2(2,iv) )
 !!
 !!          else

@@ -48,9 +48,10 @@ end subroutine interp_htw_ll
 
 subroutine find_3iws_ll(nlon,nlat,alon,alat,iws_ll,wts_ll)
 
-  use mem_grid,   only: xew, yew, zew, dnv
-  use mem_ijtabs, only: itab_w, jtab_w, jtw_prog
-  use consts_coms,only: pio180, r8, erad, eradi
+  use mem_grid,    only: xew, yew, zew, dnv
+  use mem_ijtabs,  only: itab_w, jtab_w, jtw_prog
+  use consts_coms, only: pio180, r8, erad, eradi
+  use map_proj,    only: de_ps
 
   implicit none
 

@@ -190,6 +190,7 @@ Contains
   use misc_coms,   only: mstp, time8, iparallel, io6
   use mem_grid,    only: mwa, zt, lpw, xew, yew, zew, arw0, glatw, glonw
   use consts_coms, only: pio180, erad
+  use map_proj,    only: ec_ll
 
 #ifdef OLAM_MPI
   use mpi
@@ -331,7 +332,7 @@ Contains
 
   ! Transform mean location to lat/lon coordinates
 
-  call e_ec(xew_avg,yew_avg,zew_avg,rlon,rlat)
+  call ec_ll(xew_avg,yew_avg,zew_avg,rlon,rlat)
 
   write(io6,'(a,f8.3,f9.3,a,f8.3,f9.3,f12.2)') &
      '     vortex_center/pmin: (', hlat, hlon, ' )', rlat, rlon, pmsl_min
@@ -367,6 +368,7 @@ Contains
                          p00i, p00k, p00kord, t00
   use max_dims,    only: pathlen
   use therm_lib,   only: rhovsl, rhovsl_inv
+  use map_proj,    only: de_ps, ec_ps
 
   implicit none
 
@@ -496,7 +498,7 @@ Contains
 
      ! Transform M point to PS coordinates tangent at current hurricane center
 
-     call e_ps(xem(im),yem(im),zem(im),hlat,hlon,x(1),y(1))
+     call ec_ps(xem(im),yem(im),zem(im),hlat,hlon,x(1),y(1))
 
      npoly = itab_m(im)%npoly
      rpolyi = 1. / real(npoly)
@@ -515,7 +517,7 @@ Contains
 
         ! Transform W point to PS coordinates tangent at current hurricane center
 
-        call e_ps(xew(iw),yew(iw),zew(iw),hlat,hlon,xw(j),yw(j))
+        call ec_ps(xew(iw),yew(iw),zew(iw),hlat,hlon,xw(j),yw(j))
 
         ! Vertical loop over T levels
 
@@ -673,7 +675,7 @@ Contains
 
                  ! Transform IWI point to PS coordinates tangent at relocation point
 
-                 call e_ps(xew(iwi),yew(iwi),zew(iwi),hlat_reloc,hlon_reloc,xwi,ywi)
+                 call ec_ps(xew(iwi),yew(iwi),zew(iwi),hlat_reloc,hlon_reloc,xwi,ywi)
 
                  ! Set up remaining triangle_check coefficients
 

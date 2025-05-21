@@ -272,12 +272,13 @@ subroutine pcvt()
   use mem_grid,    only: nma, xem, yem, zem, xew, yew, zew
   use consts_coms, only: erad, eradi
   use misc_coms,   only: mdomain
+  use map_proj,    only: get_cossin_lonlat, de_ps, ps_de
 
   implicit none
 
   integer :: im,iw1,iw2,iw3
 
-  real :: raxis,raxisi,expansion
+  real :: expansion
   real :: sinwlat,coswlat,sinwlon,coswlon
   real :: dxe,dye,dze
   real :: xebc,yebc,zebc
@@ -292,7 +293,7 @@ subroutine pcvt()
   ! Loop over all M points
 
   !$omp parallel
-  !$omp do private(iw1,iw2,iw3,xebc,yebc,zebc,raxis,raxisi, &
+  !$omp do private(iw1,iw2,iw3,xebc,yebc,zebc, &
   !$omp            sinwlat,coswlat,sinwlon,coswlon,dxe,dye,dze,x1,y1, &
   !$omp            x2,y2,x3,y3,dx12,dx13,dx23,s1,s2,s3,ycc,xcc)
   do im = 2,nma
@@ -313,25 +314,7 @@ subroutine pcvt()
 
      if (mdomain <= 1) then
 
-        ! For global domain, transform from sphere to PS plane
-
-        raxis  = sqrt(xebc ** 2 + yebc ** 2)
-
-        sinwlat = zebc  * eradi
-        coswlat = raxis * eradi
-
-        ! For points less than 100 m from Earth's polar axis, make arbitrary
-        ! assumption that longitude = 0 deg.  This is just to settle on a PS
-        ! planar coordinate system in which to do the algebra.
-
-        if (raxis >= 1.e2) then
-           raxisi = 1.0 / raxis
-           sinwlon = yebc * raxisi
-           coswlon = xebc * raxisi
-        else
-           sinwlon = 0.
-           coswlon = 1.
-        endif
+        call get_cossin_lonlat(coswlon,sinwlon,coswlat,sinwlat,xebc,yebc,zebc)
 
         ! Transform 3 W points to PS coordinates
 
@@ -443,6 +426,7 @@ subroutine grid_geometry_hex()
   use consts_coms, only: erad, eradi, piu180, pio2
   use oplot_coms,  only: op
   use consts_coms, only: r8, pio180
+  use map_proj,    only: get_cossin_lonlat, de_ps
 
   implicit none
 
@@ -461,14 +445,14 @@ subroutine grid_geometry_hex()
   logical            :: dops
   real               :: quarter_kite(2,nva)
   character(10)      :: string
-  real               :: raxis,raxisi,dxe,dye,dze,arwi
+  real               :: raxis,dxe,dye,dze,arwi,vmagi
   real               :: sinwlat,coswlat,sinwlon,coswlon
 
   integer               :: lwork, info
   real(r8)              :: a(3,7), b(7), fo(7), vnx_ps(7), vny_ps(7), vnz_ps(7)
   real(r8)              :: vrot_x(7), vrot_y(7)
   real(r8), allocatable :: work(:)
-  real(r8)              :: wsize(1), vdotw, vmagi, fact
+  real(r8)              :: wsize(1), vdotw, vmag8i, fact
 
   ! Loop over all M points
 
@@ -693,7 +677,7 @@ subroutine grid_geometry_hex()
   !$omp end single
 
   !$omp do private(npoly,j2,j1,iv,iw1,iw2,dops,npoly1,npoly2,np, &
-  !$omp            im1,xw1,xw2,yw1,yw2,xv,yv,raxis,raxisi,vmagi, &
+  !$omp            im1,xw1,xw2,yw1,yw2,xv,yv,vmagi, &
   !$omp            sinwlat,coswlat,sinwlon,coswlon,dxe,dye,dze,arwi)
   do iw = 2,nwa
 
@@ -702,25 +686,7 @@ subroutine grid_geometry_hex()
      npoly = itab_w(iw)%npoly
 
      if (mdomain <= 1) then
-
-        raxis  = sqrt(xew(iw)**2 + yew(iw)**2)
-
-        sinwlat = zew(iw) * eradi
-        coswlat = raxis   * eradi
-
-        ! For points less than 100 m from Earth's polar axis, make arbitrary
-        ! assumption that longitude = 0 deg.  This is just to settle on a PS
-        ! planar coordinate system in which to do the algebra.
-
-        if (raxis >= 1.e2) then
-           raxisi = 1.0 / raxis
-           sinwlon = yew(iw) * raxisi
-           coswlon = xew(iw) * raxisi
-        else
-           sinwlon = 0.
-           coswlon = 1.
-        endif
-
+        call get_cossin_lonlat(coswlon,sinwlon,coswlat,sinwlat,xew(iw),yew(iw),zew(iw))
      endif
 
      arwi = 1.0 / arw0(iw)
@@ -961,7 +927,7 @@ subroutine grid_geometry_hex()
      lwork = nint(wsize(1)) + 1
      allocate(work(lwork))
 
-     !$omp do private(npoly, fo, j, iv, vdotw, vmagi, fact, &
+     !$omp do private(npoly, fo, j, iv, vdotw, vmag8i, fact, &
      !$omp            vnx_ps, vny_ps, vnz_ps, vrot_x, vrot_y)
      do iw = 2, nwa
 
@@ -985,11 +951,11 @@ subroutine grid_geometry_hex()
 
               ! Normalize these new vectors to unit length
 
-              vmagi = 1._r8 / sqrt( vnx_ps(j)**2 + vny_ps(j)**2 + vnz_ps(j)**2 )
+              vmag8i = 1._r8 / sqrt( vnx_ps(j)**2 + vny_ps(j)**2 + vnz_ps(j)**2 )
 
-              vnx_ps(j) = vnx_ps(j) * vmagi
-              vny_ps(j) = vny_ps(j) * vmagi
-              vnz_ps(j) = vnz_ps(j) * vmagi
+              vnx_ps(j) = vnx_ps(j) * vmag8i
+              vny_ps(j) = vny_ps(j) * vmag8i
+              vnz_ps(j) = vnz_ps(j) * vmag8i
 
               ! Rotate these new unit normals to a coordinate system with Z aligned with W
 

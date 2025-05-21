@@ -2738,20 +2738,20 @@ end subroutine mkmap
 subroutine oplot_transform(iplt,xeq,yeq,zeq,xout,yout)
 
   use oplot_coms, only: op
+  use map_proj,   only: ec_ll, de_ps, de_gn, de_or
 
   implicit none
 
   integer, intent(in)  :: iplt
   real,    intent(in)  :: xeq,yeq,zeq
   real,    intent(out) :: xout,yout
-
-  real :: dxe, dye, dze
+  real                 :: dxe, dye, dze
 
   ! Transform to plot frame coordinates
 
   if (op%projectn(iplt) == 'L') then
 
-     call e_ec(xeq,yeq,zeq,xout,yout)
+     call ec_ll(xeq,yeq,zeq,xout,yout)
      ! xout is now true geographic longitude; shift according to specified window center
      xout = xout - op%plon3
      if (xout > 180.) then

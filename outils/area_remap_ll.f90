@@ -244,8 +244,9 @@ subroutine get_ll_overlaps( xew, yew, zew, arw0,              &
                             overlaps, swlon, swlat, irev_ns, tolerance )
 
   use, intrinsic :: iso_fortran_env, only: r8=>real64
-  use               consts_coms,     only: eradsq, pio180
+  use               consts_coms,     only: eradsq, pio180, erad
   use               polygon_lib,     only: polygon_overlap
+  use               map_proj,        only: get_cossin_lonlat, de_gn
 
   implicit none
 
@@ -271,14 +272,15 @@ subroutine get_ll_overlaps( xew, yew, zew, arw0,              &
   real :: coswlon, sinwlon, coswlat, sinwlat
   real :: glons(np)
   real :: x(max(4,np)), y(max(4,np))
-  real :: dxe(np), dye(np), dze(np)
+  real :: dxe(max(4,np)), dye(max(4,np)), dze(max(4,np))
 
   real(r8) :: xf(np), yf(np)
   real(r8) :: xg(4), yg(4)
 
-  real :: lons(4), lats(4)
+  real :: coslons(4), sinlons(4)
+  real :: coslats(4), sinlats(4)
   real :: area, areaij, atol, tol
-  real :: lon0, lat0
+  real :: lon0, lat0, alat, alon
 
   integer :: ng, ijsize
   integer :: i, j, n, jj
@@ -287,6 +289,8 @@ subroutine get_ll_overlaps( xew, yew, zew, arw0,              &
   integer, allocatable :: itmp(:)
   integer, allocatable :: jtmp(:)
   real,    allocatable :: atmp(:)
+
+  real, allocatable :: cosalon(:), sinalon(:), cosalat(:), sinalat(:)
 
   lon0 = 0.
   if (present(swlon)) lon0 = swlon - 0.5*dlon
@@ -324,7 +328,7 @@ subroutine get_ll_overlaps( xew, yew, zew, arw0,              &
   ! Calculate the iw cell vertices on a gnomonic tangent plane
   ! centered at Earth cartesian coordinates (xew,yew,zew)
 
-  call get_sincos_latlon(coswlon,sinwlon,coswlat,sinwlat,xew,yew,zew)
+  call get_cossin_lonlat(coswlon,sinwlon,coswlat,sinwlat,xew,yew,zew)
 
   do n = 1, np
      dxe(n) = xem(n) - xew
@@ -332,10 +336,28 @@ subroutine get_ll_overlaps( xew, yew, zew, arw0,              &
      dze(n) = zem(n) - zew
   enddo
 
-  call de_gn_mult(np, dxe, dye, dze, coswlat, sinwlat, coswlon, sinwlon, x, y)
+  call de_gn(dxe, dye, dze, coswlat, sinwlat, coswlon, sinwlon, x, y, np)
 
   xf = x(1:np)
   yf = y(1:np)
+
+  allocate(cosalat(js-1:je))
+  allocate(sinalat(js-1:je))
+
+  do j = js-1, je
+     alat = (real(j) * dlat + lat0) * pio180
+     cosalat(j) = cos( alat )
+     sinalat(j) = sin( alat )
+  enddo
+
+  allocate(cosalon(is-1:ie))
+  allocate(sinalon(is-1:ie))
+
+  do i = is-1, ie
+     alon = (real(i) * dlon + lon0) * pio180
+     cosalon(i) = cos( alon )
+     sinalon(i) = sin( alon )
+  enddo
 
   ! Loop over all possible overlapping lat/lon cells to determine area overlaps
 
@@ -348,23 +370,30 @@ subroutine get_ll_overlaps( xew, yew, zew, arw0,              &
         if (irev_ns) jj = nlat - j + 1
      endif
 
+     sinlats = [sinalat(j-1), sinalat(j), sinalat(j), sinalat(j-1)]
+     coslats = [cosalat(j-1), cosalat(j), cosalat(j), cosalat(j-1)]
+
+     ! area of lat/lon cell
+     areaij =  pio180 * eradsq * dlon * abs( sinalat(j) - sinalat(j-1) )
+
      do i = is, ie
 
-        lons = [ real(i-1)*dlon, real(i-1)*dlon, real(i)*dlon, real(i  )*dlon ] + lon0
-        lats = [ real(j-1)*dlat, real(j  )*dlat, real(j)*dlat, real(j-1)*dlat ] + lat0
+        sinlons = [sinalon(i-1), sinalon(i-1), sinalon(i), sinalon(i)]
+        coslons = [cosalon(i-1), cosalon(i-1), cosalon(i), cosalon(i)]
+
+        do n = 1, 4
+           dxe(n) = erad * coslats(n) * coslons(n) - xew
+           dye(n) = erad * coslats(n) * sinlons(n) - yew
+           dze(n) = erad * sinlats(n)              - zew
+        enddo
 
         ! x,y coordinates of emissions cell on a gnomonic tangent plane
         ! centered at Earth cartesian coordinates (xew,yew,zew)
 
-        call ll_gn_mult(4, lats, lons, coswlat, sinwlat, coswlon, sinwlon, &
-                        xew, yew, zew, x, y)
+        call de_gn(dxe, dye, dze, coswlat, sinwlat, coswlon, sinwlon, x, y, 4)
 
         xg = x(1:4)
         yg = y(1:4)
-
-        ! area of lat/lon cell
-
-        areaij =  pio180 * eradsq * dlon * abs( sin(lats(2)*pio180) - sin(lats(1)*pio180) )
 
         ! compute any overlaps
 

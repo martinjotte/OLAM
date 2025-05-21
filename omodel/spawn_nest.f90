@@ -1910,6 +1910,7 @@ subroutine ngr_area(ngr, inside, x, y, z, ngrdll, grdrad, grdlat, grdlon)
 
   use max_dims,  only: maxgrds, maxngrdll
   use misc_coms, only: mdomain
+  use map_proj,  only: ll_ps, ec_ps
 
   implicit none
 
@@ -1940,7 +1941,7 @@ subroutine ngr_area(ngr, inside, x, y, z, ngrdll, grdrad, grdlat, grdlon)
 
         ! Transform (x,y,z) location to PS space using the lat/lon of the refinement point
 
-        call e_ps(x,y,z,grdlat(ngr,1),grdlon(ngr,1),xm1,ym1)
+        call ec_ps(x,y,z,grdlat(ngr,1),grdlon(ngr,1),xm1,ym1)
 
         ! If using Cartesian geometry, use direct mapping in Cartesian plane
 
@@ -1989,15 +1990,15 @@ subroutine ngr_area(ngr, inside, x, y, z, ngrdll, grdrad, grdlat, grdlon)
               endif
            endif
 
-           call ll_xy (grdlat(ngr,ipt),grdlon(ngr,ipt), &
-                seglat,seglon,xs(1),ys(1))
+           call ll_ps( grdlat(ngr,ipt),grdlon(ngr,ipt), &
+                       seglat,seglon,xs(1),ys(1) )
 
-           call ll_xy (grdlat(ngr,jpt),grdlon(ngr,jpt), &
-                seglat,seglon,xs(2),ys(2))
+           call ll_ps( grdlat(ngr,jpt),grdlon(ngr,jpt), &
+                       seglat,seglon,xs(2),ys(2) )
 
            ! Transform (x,y,z) location to PS space using mean lat/lon of each segment
 
-           call e_ps(x,y,z,seglat,seglon,xm1,ym1)
+           call ec_ps(x,y,z,seglat,seglon,xm1,ym1)
 
            ! If using Cartesian geometry, use direct mapping in Cartesian plane
 
@@ -2294,6 +2295,7 @@ subroutine oplot_set_makegrid(iatm,mrlo)
   use mem_sfcg,    only: nsfcgrdll, sfcgrdrad, sfcgrdlat, sfcgrdlon, nxp_sfc
   use oplot_coms,  only: op
   use oname_coms,  only: nl
+  use map_proj,    only: ll_ec, ec_ll, ll_ps, ps_ll
 
   implicit none
 
@@ -2350,7 +2352,7 @@ subroutine oplot_set_makegrid(iatm,mrlo)
      rn = 1.0 / ngrds(ngplt)
 
      do i = 1, ngrds(ngplt)
-        call ec_e( g_lons(ngplt,i), g_lats(ngplt,i), x, y, z)
+        call ll_ec( g_lons(ngplt,i), g_lats(ngplt,i), x, y, z)
 
         xx = xx + x * rn
         yy = yy + y * rn
@@ -2362,7 +2364,7 @@ subroutine oplot_set_makegrid(iatm,mrlo)
      yy = yy * expansion
      zz = zz * expansion
 
-     call e_ec(xx,yy,zz,rlon,rlat)
+     call ec_ll(xx,yy,zz,rlon,rlat)
 
      xmax = 0.0
      xmin = 0.0
@@ -2371,7 +2373,7 @@ subroutine oplot_set_makegrid(iatm,mrlo)
      ymin = 0.0
 
      do i = 1, ngrds(ngplt)
-        call ll_xy(g_lats(ngplt,i), g_lons(ngplt,i), rlat, rlon, x, y)
+        call ll_ps(g_lats(ngplt,i), g_lons(ngplt,i), rlat, rlon, x, y)
 
         xmax = max(xmax, x + g_rads(ngplt,i))
         xmin = min(xmin, x - g_rads(ngplt,i))
@@ -2386,7 +2388,7 @@ subroutine oplot_set_makegrid(iatm,mrlo)
      dx = 0.5*(xmax-xmin)
      dy = 0.5*(ymax-ymin)
 
-     call xy_ll(op%plat3, op%plon3, rlat, rlon, x0, y0)
+     call ps_ll(op%plat3, op%plon3, rlat, rlon, x0, y0)
 
      ds = 1.05 * max(dx,dy)
      op%xmin = -ds - gsize
