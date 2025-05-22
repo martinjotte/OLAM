@@ -1088,8 +1088,8 @@ end subroutine vectslab
 
 subroutine horizplot_k(iplt,mha,ktf,kc,wtbot,wttop)
 
-  use mem_basic,  only: press
-  use mem_grid,   only: mza, mma, mva, mwa, lpw, zm, zt
+  use mem_basic,  only: press, rho, tair
+  use mem_grid,   only: mza, mma, mva, mwa, lpw, zm, zt, gdz_abov8, gdz_belo8
   use mem_ijtabs, only: itab_m, itab_v
   use oplot_coms, only: op
 
@@ -1099,15 +1099,23 @@ subroutine horizplot_k(iplt,mha,ktf,kc,wtbot,wttop)
   integer, intent(out) :: ktf(mwa),kc(mha)
   real,    intent(out) :: wtbot(mha),wttop(mha)
 
-  integer :: iw,iv,ip,iw1,iw2,j,k,kp,kpf,npoly
+  integer :: iw,iv,ip,iw1,iw2,j,k,kp,kpf,npoly,ka,ku
   real :: plev,pressp1,pressp2,count2,pressv1,pressv2,zoff
+  real, allocatable :: plevs(:)
 
   ! This subroutine determines the following quantities for horizontal plots:
   ! (1) ktf flag for T cells indicating 0-in plot range, 1-below ground,
   !     2-above model top
   ! (2) vertical level kc and vertical weights wtbot, wttop for given stagpt
 
-  if (op%pltlev(iplt) == 'p') plev = op%slabloc(iplt) * 100.  ! convert from mb to Pa
+  ku = 1
+  ! however, consider plot in range if we are not masking out underground cells
+  if (op%noundrg(iplt) == 'u') ku = 0
+
+  if (op%pltlev(iplt) == 'p') then
+     plev = op%slabloc(iplt) * 100.  ! convert from mb to Pa
+     allocate(plevs(mza))
+  endif
 
   do iw = 2, mwa
 
@@ -1131,41 +1139,108 @@ subroutine horizplot_k(iplt,mha,ktf,kc,wtbot,wttop)
            wttop(iw) = 0.
         endif
 
-     elseif (op%pltlev(iplt) == 'p') then
+     elseif (op%pltlev(iplt) == 'p' .and. op%stagpt == 'T') then
 
-        k = lpw(iw) - 1
+        ka = lpw(iw)
+        k  = ka - 1
 
         do while (press(k+1,iw) > plev .and. k < mza)
            k = k + 1
         enddo
 
-        if (k < lpw(iw)) then
-           ktf(iw) = 1
-        elseif (k >= mza) then
-           ktf(iw) = 2
-        else
-           ktf(iw) = 0
+        if (k < ka) then
 
-           if (op%stagpt == 'T' .or. op%stagpt == 'W') then
-              wtbot(iw) = (plev - press(k+1,iw)) / (press(k,iw) - press(k+1,iw))
+           plevs(ka) = press(ka,iw)
+           do k = 2, ka-1
+              plevs(k) = real( press(ka,iw) ) &
+                   * (1. - .0065 * (zt(ka)-zt(k)) / (tair(ka,iw) + .0065 * (zt(ka)-zt(k))))**(-5.257)
+           enddo
+
+           k = 1
+           do while (plevs(k+1) > plev .and. k < ka)
+              k = k + 1
+           enddo
+
+           ktf(iw) = ku
+           kc (iw) = k
+
+           if (k == 1) then
+              wtbot(iw) = 0.0
+              wttop(iw) = 1.0
+           else
+              wtbot(iw) = (plev - plevs(k+1)) / (plevs(k) - plevs(k+1))
               wttop(iw) = 1. - wtbot(iw)
-
-              if (op%stagpt == 'W') then
-                 wtbot(iw) = wtbot(iw) + .5
-                 wttop(iw) = wttop(iw) - .5
-
-                 if (wtbot(iw) > 1.) then
-                    wtbot(iw) = wtbot(iw) - 1.
-                    wttop(iw) = wttop(iw) + 1.
-
-                    k = k - 1
-                 endif
-
-              endif
-
-              kc(iw) = k
-
            endif
+
+        elseif (k >= mza) then
+
+           ktf  (iw) = 2
+           kc   (iw) = mza-1
+           wtbot(iw) = 0.0
+           wttop(iw) = 1.0
+
+        else
+
+           ktf  (iw) = 0
+           kc   (iw) = k
+           wtbot(iw) = (plev - press(k+1,iw)) / (press(k,iw) - press(k+1,iw))
+           wttop(iw) = 1. - wtbot(iw)
+
+        endif
+
+     elseif (op%pltlev(iplt) == 'p' .and. op%stagpt == 'W') then
+
+        ka = lpw(iw)
+
+        do k = ka, mza-1
+           plevs(k) = 0.5 * real( press(k+1,iw) + gdz_abov8(k) * rho(k+1,iw) &
+                                + press(k  ,iw) - gdz_belo8(k) * rho(k  ,iw) )
+        enddo
+
+        plevs(mza)  = real( press(mza,iw) - gdz_belo8(mza) * rho(mza,iw) )
+        plevs(ka-1) = real( press(ka ,iw) + gdz_abov8(ka)  * rho(ka ,iw) )
+
+        k = ka - 1
+        do while (plevs(k+1) > plev .and. k < mza)
+           k = k + 1
+        enddo
+
+        if (k < ka) then
+
+           do k = 2, ka-2
+              plevs(k) = plevs(ka-1) &
+                   * (1. - .0065 * (zm(ka-1)-zm(k)) / (tair(ka,iw) + .0065 * (zm(ka-1)-zm(k))))**(-5.257)
+           enddo
+
+           k = 1
+           do while (plevs(k+1) > plev .and. k < lpw(iw))
+              k = k + 1
+           enddo
+
+           ktf(iw) = ku
+           kc (iw) = k
+
+           if (k == 1) then
+              wtbot(iw) = 0.0
+              wttop(iw) = 1.0
+           else
+              wtbot(iw) = (plev - plevs(k+1)) / (plevs(k) - plevs(k+1))
+              wttop(iw) = 1. - wtbot(iw)
+           endif
+
+        elseif (k >= mza) then
+
+           ktf  (iw) = 2
+           kc   (iw) = mza-1
+           wtbot(iw) = 0.0
+           wttop(iw) = 1.0
+
+        else
+
+           ktf  (iw) = 0
+           kc   (iw) = k
+           wtbot(iw) = (plev - press(k+1,iw)) / (press(k,iw) - press(k+1,iw))
+           wttop(iw) = 1. - wtbot(iw)
 
         endif
 
@@ -1183,7 +1258,7 @@ subroutine horizplot_k(iplt,mha,ktf,kc,wtbot,wttop)
            k = k + 1
         enddo
 
-        if (k < lpw(iw)) then
+        if (k < lpw(iw) .and. ku == 1) then
            ktf(iw) = 1
         elseif (k > mza) then
            ktf(iw) = 2
@@ -1193,7 +1268,7 @@ subroutine horizplot_k(iplt,mha,ktf,kc,wtbot,wttop)
               wtbot(iw) = 1.
               wttop(iw) = 0.
               if (op%stagpt == 'W' .and. op%slabloc(iplt) + zoff < zt(k)) k = k - 1
-              kc(iw) = k
+              kc(iw) = max(k,2)
            endif
         endif
 
