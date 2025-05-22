@@ -215,17 +215,25 @@ subroutine plot_fields(id)
 
      ! Plot current field values with tiles or filled contours
 
-     if ( op%contrtyp(iplt) == 'T' .or. op%contrtyp(iplt) == 'F' .or. &
-          op%contrtyp(iplt) == 'O' ) then
+     if ( op%contrtyp(iplt) == 'T' .or. op%contrtyp(iplt) == 'F' ) then
+
         op%ifill = 1
         call slab(iplt)
-     endif
 
      ! Plot current field values with contour lines
 
-     if ( op%contrtyp(iplt) == 'L' .or. op%contrtyp(iplt) == 'O' ) then
+     elseif ( op%contrtyp(iplt) == 'L' ) then
+
         op%ifill = 0
         call slab(iplt)
+
+     ! Plot current field values with filled contours and contour lines
+
+     elseif ( op%contrtyp(iplt) == 'O' ) then
+
+        op%ifill = 2
+        call slab(iplt)
+
      endif
 
      ! Plot grid cell indices if so specified

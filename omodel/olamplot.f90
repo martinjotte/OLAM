@@ -213,10 +213,24 @@ implicit none
 integer, intent(in) :: itab,ifill
 real, intent(in) :: z1,z2,z3,x1,x2,x3,y1,y2,y3
 
-if (ifill == 0) then
-   call cont3l(itab,z1,z2,z3,x1,x2,x3,y1,y2,y3)
-else
+! Original code:
+!
+!if (ifill == 0) then
+!   call cont3l(itab,z1,z2,z3,x1,x2,x3,y1,y2,y3)
+!else
+!   call cont3f(itab,z1,z2,z3,x1,x2,x3,y1,y2,y3)
+!endif
+
+! First do the contour fill if specified
+
+if (ifill > 0) then
    call cont3f(itab,z1,z2,z3,x1,x2,x3,y1,y2,y3)
+endif
+
+! Then draw contour lines if specified
+
+if (ifill == 0 .or. ifill == 2) then
+   call cont3l(itab,z1,z2,z3,x1,x2,x3,y1,y2,y3)
 endif
 
 end subroutine cont3lf
