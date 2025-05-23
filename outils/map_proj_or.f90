@@ -257,6 +257,7 @@ subroutine ec_or_2d(xeq,yeq,zeq,polelat,polelon,x,y,n1,n2)
   ! radially outward from the center of the earth, and the y axis pointing
   ! northward along the local earth meridian from the pole point.
 
+  !$omp parallel do private(i,dxe,dye,dze,zq)
   do j = 1, n2
      do i = 1, n1
 
@@ -278,6 +279,7 @@ subroutine ec_or_2d(xeq,yeq,zeq,polelat,polelon,x,y,n1,n2)
 
      enddo
   enddo
+  !$omp end parallel do
 
 end subroutine ec_or_2d
 
@@ -480,6 +482,8 @@ subroutine ll_or_2d(qlat,qlon,polelat,polelon,x,y,n1,n2)
   yep = erad * cosplat * sinplon
   zep = erad * sinplat
 
+  !$omp parallel do private(i,sinqlat,cosqlat,sinqlon,cosqlon,xeq,yeq,zeq, &
+  !$omp                     dxe,dye,dze,zq)
   do j = 1, n2
      do i = 1, n1
 
@@ -519,6 +523,7 @@ subroutine ll_or_2d(qlat,qlon,polelat,polelon,x,y,n1,n2)
 
      enddo
   enddo
+  !$omp end parallel do
 
 end subroutine ll_or_2d
 
@@ -651,6 +656,7 @@ subroutine de_or_2d(dxe,dye,dze,cosplat,sinplat,cosplon,sinplon,x,y,n1,n2)
   ! radially outward from the center of the earth, and the y axis pointing
   ! northward along the local earth meridian from the pole point.
 
+  !$omp parallel do private(i,zq)
   do j = 1, n2
      do i = 1, n1
 
@@ -668,6 +674,7 @@ subroutine de_or_2d(dxe,dye,dze,cosplat,sinplat,cosplon,sinplon,x,y,n1,n2)
 
      enddo
   enddo
+  !$omp end parallel do
 
 end subroutine de_or_2d
 
@@ -839,6 +846,7 @@ subroutine or_ec_2d(xeq,yeq,zeq,polelat,polelon,x,y,n1,n2)
   yep = erad * cosplat * sinplon
   zep = erad * sinplat
 
+  !$omp parallel do private(i,xq,yq,zq)
   do j = 1, n2
      do i = 1, n1
 
@@ -862,6 +870,7 @@ subroutine or_ec_2d(xeq,yeq,zeq,polelat,polelon,x,y,n1,n2)
 
      enddo
   enddo
+  !$omp end parallel do
 
 end subroutine or_ec_2d
 
@@ -908,6 +917,7 @@ subroutine or_ec_2d_xygrid(xeq,yeq,zeq,polelat,polelon,x,y,n1,n2)
   yep = erad * cosplat * sinplon
   zep = erad * sinplat
 
+  !$omp parallel do private(eeyy,i,xq,yq,zq)
   do j = 1, n2
 
      eeyy = eradsq - y(j) * y(j)
@@ -934,6 +944,7 @@ subroutine or_ec_2d_xygrid(xeq,yeq,zeq,polelat,polelon,x,y,n1,n2)
 
      enddo
   enddo
+  !$omp end parallel do
 
 end subroutine or_ec_2d_xygrid
 
@@ -1114,6 +1125,7 @@ subroutine or_ll_2d(qlat,qlon,polelat,polelon,x,y,n1,n2)
   yep = erad * cosplat * sinplon
   zep = erad * sinplat
 
+  !$omp parallel do private(i,xq,yq,zq,xeq,yeq,zeq,req)
   do j = 1, n2
      do i = 1, n1
 
@@ -1143,6 +1155,7 @@ subroutine or_ll_2d(qlat,qlon,polelat,polelon,x,y,n1,n2)
 
      enddo
   enddo
+  !$omp end parallel do
 
 end subroutine or_ll_2d
 
@@ -1188,6 +1201,7 @@ subroutine or_ll_2d_xygrid(qlat,qlon,polelat,polelon,x,y,n1,n2)
   yep = erad * cosplat * sinplon
   zep = erad * sinplat
 
+  !$omp parallel do private(eeyy,i,xq,yq,zq,xeq,yeq,zeq,req)
   do j = 1, n2
 
      eeyy = eradsq - y(j) * y(j)
@@ -1220,6 +1234,7 @@ subroutine or_ll_2d_xygrid(qlat,qlon,polelat,polelon,x,y,n1,n2)
 
      enddo
   enddo
+  !$omp end parallel do
 
 end subroutine or_ll_2d_xygrid
 
@@ -1349,6 +1364,7 @@ subroutine or_de_2d(dxe,dye,dze,cosplat,sinplat,cosplon,sinplon,x,y,n1,n2)
   ! of the earth, the z axis is the north pole, the x axis is the equator and
   ! prime meridian, and the y axis is the equator and 90 E..
 
+  !$omp parallel do private(i,xq,yq,zq)
   do j = 1, n2
      do i = 1, n1
 
@@ -1372,6 +1388,7 @@ subroutine or_de_2d(dxe,dye,dze,cosplat,sinplat,cosplon,sinplon,x,y,n1,n2)
 
      enddo
   enddo
+  !$omp end parallel do
 
 end subroutine or_de_2d
 
@@ -1404,6 +1421,7 @@ subroutine or_de_2d_xygrid(dxe,dye,dze,cosplat,sinplat,cosplon,sinplon,x,y,n1,n2
   ! of the earth, the z axis is the north pole, the x axis is the equator and
   ! prime meridian, and the y axis is the equator and 90 E..
 
+  !$omp parallel do private(eeyy,i,xq,yq,zq)
   do j = 1, n2
 
      eeyy = eradsq - y(j) * y(j)
@@ -1430,6 +1448,7 @@ subroutine or_de_2d_xygrid(dxe,dye,dze,cosplat,sinplat,cosplon,sinplon,x,y,n1,n2
 
      enddo
   enddo
+  !$omp end parallel do
 
 end subroutine or_de_2d_xygrid
 

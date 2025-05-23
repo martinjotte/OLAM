@@ -268,6 +268,7 @@ subroutine ec_ps_2d(xeq,yeq,zeq,polelat,polelon,x,y,n1,n2)
   ! radially outward from the center of the earth, and the y axis pointing
   ! northward along the local earth meridian from the pole point.
 
+  !$omp parallel do private(i,dxe,dye,dze,xq,yq,zq,t)
   do j = 1, n2
      do i = 1, n1
 
@@ -293,6 +294,7 @@ subroutine ec_ps_2d(xeq,yeq,zeq,polelat,polelon,x,y,n1,n2)
 
      enddo
   enddo
+  !$omp end parallel do
 
 end subroutine ec_ps_2d
 
@@ -506,6 +508,8 @@ subroutine ll_ps_2d(qlat,qlon,polelat,polelon,x,y,n1,n2)
   yep = erad * cosplat * sinplon
   zep = erad * sinplat
 
+  !$omp parallel do private(i,sinqlat,cosqlat,sinqlon,cosqlon,xeq,yeq,zeq, &
+  !$omp                     dxe,dye,dze,xq,yq,zq,t)
   do j = 1, n2
      do i = 1, n1
 
@@ -549,6 +553,7 @@ subroutine ll_ps_2d(qlat,qlon,polelat,polelon,x,y,n1,n2)
 
      enddo
   enddo
+  !$omp end parallel do
 
 end subroutine ll_ps_2d
 
@@ -692,6 +697,7 @@ subroutine de_ps_2d(dxe,dye,dze,cosplat,sinplat,cosplon,sinplon,x,y,n1,n2)
   ! radially outward from the center of the earth, and the y axis pointing
   ! northward along the local earth meridian from the pole point.
 
+  !$omp parallel do private(i,xq,yq,zq,t)
   do j = 1, n2
      do i = 1, n1
 
@@ -713,6 +719,7 @@ subroutine de_ps_2d(dxe,dye,dze,cosplat,sinplat,cosplon,sinplon,x,y,n1,n2)
 
      enddo
   enddo
+  !$omp end parallel do
 
 end subroutine de_ps_2d
 
@@ -899,6 +906,7 @@ subroutine ps_ec_2d(xeq,yeq,zeq,polelat,polelon,x,y,n1,n2)
   yep = erad * cosplat * sinplon
   zep = erad * sinplat
 
+  !$omp parallel do private(i,t,xq,yq,zq)
   do j = 1, n2
      do i = 1, n1
 
@@ -928,6 +936,7 @@ subroutine ps_ec_2d(xeq,yeq,zeq,polelat,polelon,x,y,n1,n2)
 
      enddo
   enddo
+  !$omp end parallel do
 
 end subroutine ps_ec_2d
 

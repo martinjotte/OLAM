@@ -37,6 +37,14 @@ module minterp_lib
           get_weights_lonlat_gridb
   end interface get_weights_lonlat
 
+  interface get_weights_ec
+     module procedure           &
+          get_weights_ec_point, &
+          get_weights_ec_1d,    &
+          get_weights_ec_2d,    &
+          get_weights_ec_2db
+  end interface get_weights_ec
+
   interface interp_level
      module procedure     &
           interp_level_1, &
@@ -161,14 +169,14 @@ end subroutine init_minterp
 
 !=========================================================================
 
-subroutine get_weights_lonlat_point(glon, glat, wgts, xe, ye, ze)
+subroutine get_weights_lonlat_point(glon, glat, wgts)
 
-  use  ll_bins,    only: gridcells_from_latlon_bins
-  use consts_coms, only: pio180, erad
+  use ll_bins,  only: gridcells_from_latlon_bins
+  use map_proj, only: ll_ec
 
 #ifdef OLAM_MPI
-  use  misc_coms,  only: iparallel
-  use  mpi
+  use misc_coms, only: iparallel
+  use mpi
 #endif
 
   implicit none
@@ -176,50 +184,32 @@ subroutine get_weights_lonlat_point(glon, glat, wgts, xe, ye, ze)
   real,                intent(in)  :: glon
   real,                intent(in)  :: glat
   type(minterp_wghts), intent(out) :: wgts
-  real,      optional, intent(in)  :: xe, ye, ze
 
   integer, pointer                 :: nm
   integer, pointer, contiguous     :: impts(:)
   integer                          :: j
-  real                             :: rads, raxis, xeg, yeg, zeg
-  real                             :: cosglat, singlat
-  real                             :: cosglon, singlon
+  real                             :: xeg, yeg, zeg
 
 #ifdef OLAM_MPI
   integer                          :: ig, ierr
 #endif
 
-  wgts%imglobe = 1
+  ! Get EC coordinate of lat/lon point
+
+  call ll_ec(glon, glat, xeg, yeg, zeg)
+
+  ! Get list of OLAM cells in the vicinity of this lat/lon
 
   call gridcells_from_latlon_bins(glat, glon, bsetm, nm, impts)
 
-  if (present(xe) .and. present(ye) .and. present(ze)) then
-
-     xeg = xe
-     yeg = ye
-     zeg = ze
-
-  else
-
-     rads    = glat * pio180
-     cosglat = cos(rads)
-     singlat = sin(rads)
-
-     rads    = glon * pio180
-     cosglon = cos(rads)
-     singlon = sin(rads)
-
-     raxis = erad  * cosglat
-     zeg   = erad  * singlat
-     xeg   = raxis * cosglon
-     yeg   = raxis * singlon
-
-  endif
+  ! Loop over all impts to determine which contain the input location
 
   do j = 1, nm
-     call mweights_xyze(impts(j), xeg, yeg, zeg, wgts)
+     call mweights_ec(impts(j), xeg, yeg, zeg, wgts)
      if (wgts%imglobe > 1) exit
   enddo
+
+  ! Sort if there are multiple matches in parallel
 
 #ifdef OLAM_MPI
   if (iparallel == 1) then
@@ -236,14 +226,14 @@ end subroutine get_weights_lonlat_point
 
 !=========================================================================
 
-subroutine get_weights_lonlat_1d(glon, glat, wgts, n, xe, ye, ze, iskip)
+subroutine get_weights_lonlat_1d(glon, glat, wgts, n, iskip)
 
-  use  ll_bins,    only: gridcells_from_latlon_bins
-  use consts_coms, only: pio180, erad
+  use ll_bins,  only: gridcells_from_latlon_bins
+  use map_proj, only: ll_ec
 
 #ifdef OLAM_MPI
-  use  misc_coms,  only: iparallel
-  use  mpi
+  use misc_coms, only: iparallel
+  use mpi
 #endif
 
   implicit none
@@ -252,62 +242,44 @@ subroutine get_weights_lonlat_1d(glon, glat, wgts, n, xe, ye, ze, iskip)
   real,                intent(in)  :: glon(n)
   real,                intent(in)  :: glat(n)
   type(minterp_wghts), intent(out) :: wgts(n)
-  real,      optional, intent(in)  :: xe(n), ye(n), ze(n)
   logical,   optional, intent(in)  :: iskip(n)
 
   integer, pointer                 :: nm
   integer, pointer, contiguous     :: impts(:)
   integer                          :: i, j
-  real                             :: rads, raxis, xeg, yeg, zeg
-  real                             :: cosglat, singlat
-  real                             :: cosglon, singlon
+  real                             :: xeg(n), yeg(n), zeg(n)
 
 #ifdef OLAM_MPI
   integer, allocatable             :: ig(:)
   integer                          :: ierr
 #endif
 
-  !$omp parallel do private(i,rads,cosglat,cosglon,singlat,singlon, &
-  !$                        raxis,xeg,yeg,zeg,nm,impts,j)
+  ! Get EC coordinate of lat/lon point
+
+  call ll_ec(glon, glat, xeg, yeg, zeg, n)
+
+  !$omp parallel do private(nm,impts,j)
   do i = 1, n
-     wgts(i)%imglobe = 1
 
      if ( present(iskip) ) then
         if (iskip(i)) cycle
      endif
 
+     ! Get list of OLAM cells in the vicinity of this lat/lon
+
      call gridcells_from_latlon_bins(glat(i), glon(i), bsetm, nm, impts)
 
-     if (present(xe) .and. present(ye) .and. present(ze)) then
-
-        xeg = xe(i)
-        yeg = ye(i)
-        zeg = ze(i)
-
-     else
-
-        rads    = glat(i) * pio180
-        cosglat = cos(rads)
-        singlat = sin(rads)
-
-        rads    = glon(i) * pio180
-        cosglon = cos(rads)
-        singlon = sin(rads)
-
-        raxis = erad  * cosglat
-        zeg   = erad  * singlat
-        xeg   = raxis * cosglon
-        yeg   = raxis * singlon
-
-     endif
+     ! Loop over all impts to determine which contain the input location
 
      do j = 1, nm
-        call mweights_xyze(impts(j), xeg, yeg, zeg, wgts(i))
+        call mweights_ec(impts(j), xeg(i), yeg(i), zeg(i), wgts(i))
         if (wgts(i)%imglobe > 1) exit
      enddo
 
   enddo
   !$omp end parallel do
+
+  ! Sort if there are multiple matches in parallel
 
 #ifdef OLAM_MPI
   if (iparallel == 1) then
@@ -330,14 +302,14 @@ end subroutine get_weights_lonlat_1d
 
 !=========================================================================
 
-subroutine get_weights_lonlat_2d(glon, glat, wgts, n1, n2, xe, ye, ze, iskip)
+subroutine get_weights_lonlat_2d(glon, glat, wgts, n1, n2, iskip)
 
-  use  ll_bins,    only: gridcells_from_latlon_bins
-  use consts_coms, only: pio180, erad
+  use ll_bins,  only: gridcells_from_latlon_bins
+  use map_proj, only: ll_ec
 
 #ifdef OLAM_MPI
-  use  misc_coms,  only: iparallel
-  use  mpi
+  use misc_coms, only: iparallel
+  use mpi
 #endif
 
   implicit none
@@ -346,64 +318,49 @@ subroutine get_weights_lonlat_2d(glon, glat, wgts, n1, n2, xe, ye, ze, iskip)
   real,                intent(in)  :: glon(n1,n2)
   real,                intent(in)  :: glat(n1,n2)
   type(minterp_wghts), intent(out) :: wgts(n1,n2)
-  real,      optional, intent(in)  :: xe(n1,n2), ye(n1,n2), ze(n1,n2)
   logical,   optional, intent(in)  :: iskip(n1,n2)
 
   integer, pointer                 :: nm
   integer, pointer, contiguous     :: impts(:)
   integer                          :: in1, in2, j
-  real                             :: rads, raxis, xeg, yeg, zeg
-  real                             :: cosglat, singlat
-  real                             :: cosglon, singlon
+  real                             :: xeg(n1), yeg(n1), zeg(n1)
 
 #ifdef OLAM_MPI
-  integer, allocatable             :: ig (:,:)
+  integer, allocatable             :: ig(:,:)
   integer                          :: ierr
 #endif
 
-  !$omp parallel do collapse(2) private(in2,in1,nm,impts,xeg,yeg,zeg,rads, &
-  !$                                    raxis,cosglat,singlat,cosglon,singlon,j)
+  !$omp parallel private(xeg, yeg, zeg)
+  !$omp do private(in1,nm,impts,j)
   do in2 = 1, n2
+
+     ! Get EC coordinates of lat/lon point
+
+     call ll_ec(glon(:,in2), glat(:,in2), xeg, yeg, zeg, n1)
+
      do in1 = 1, n1
-        wgts(in1,in2)%imglobe = 1
 
         if ( present(iskip) ) then
            if (iskip(in1,in2)) cycle
         endif
 
+        ! Get list of OLAM cells in the vicinity of this lat/lon
+
         call gridcells_from_latlon_bins(glat(in1,in2), glon(in1,in2), bsetm, nm, impts)
 
-        if (present(xe) .and. present(ye) .and. present(ze)) then
-
-           xeg = xe(in1,in2)
-           yeg = ye(in1,in2)
-           zeg = ze(in1,in2)
-
-        else
-
-           rads    = glat(in1,in2) * pio180
-           cosglat = cos(rads)
-           singlat = sin(rads)
-
-           rads    = glon(in1,in2) * pio180
-           cosglon = cos(rads)
-           singlon = sin(rads)
-
-           raxis = erad  * cosglat
-           zeg   = erad  * singlat
-           xeg   = raxis * cosglon
-           yeg   = raxis * singlon
-
-        endif
+        ! Loop over all impts to determine which contains the input location
 
         do j = 1, nm
-           call mweights_xyze(impts(j), xeg, yeg, zeg, wgts(in1,in2))
+           call mweights_ec(impts(j), xeg(in1), yeg(in1), zeg(in1), wgts(in1,in2))
            if (wgts(in1,in2)%imglobe > 1) exit
         enddo
 
      enddo
   enddo
-  !$omp end parallel do
+  !$omp end do
+  !$omp end parallel
+
+  ! Sort if there are multiple matches in parallel
 
 #ifdef OLAM_MPI
   if (iparallel == 1) then
@@ -430,14 +387,14 @@ end subroutine get_weights_lonlat_2d
 
 !=========================================================================
 
-subroutine get_weights_lonlat_2db(glon, glat, wgts, n1, n2, xe, ye, ze, iskip)
+subroutine get_weights_lonlat_2db(glon, glat, wgts, n1, n2, iskip)
 
-  use  ll_bins,    only: gridcells_from_latlon_bins
-  use consts_coms, only: pio180, erad
+  use ll_bins,  only: gridcells_from_latlon_bins
+  use map_proj, only: ll_ec
 
 #ifdef OLAM_MPI
-  use  misc_coms,  only: iparallel
-  use  mpi
+  use misc_coms, only: iparallel
+  use mpi
 #endif
 
   implicit none
@@ -446,66 +403,50 @@ subroutine get_weights_lonlat_2db(glon, glat, wgts, n1, n2, xe, ye, ze, iskip)
   real,                intent(in)  :: glon(n1,n2)
   real,                intent(in)  :: glat(n1,n2)
   type(minterp_wghts), intent(out) :: wgts(n1*n2)
-  real,      optional, intent(in)  :: xe(n1,n2), ye(n1,n2), ze(n1,n2)
   logical,   optional, intent(in)  :: iskip(n1,n2)
 
   integer, pointer                 :: nm
   integer, pointer, contiguous     :: impts(:)
   integer                          :: in1, in2, ii, j
-  real                             :: rads, raxis, xeg, yeg, zeg
-  real                             :: cosglat, singlat
-  real                             :: cosglon, singlon
+  real                             :: xeg(n1), yeg(n1), zeg(n1)
 
 #ifdef OLAM_MPI
-  integer, allocatable             :: ig (:)
+  integer, allocatable             :: ig(:)
   integer                          :: ierr
 #endif
 
-  !$omp parallel do collapse(2) private(in2,in1,ii,nm,impts,xeg,yeg,zeg,rads, &
-  !$                                    raxis,cosglat,singlat,cosglon,singlon,j)
+  !$omp parallel private(xeg, yeg, zeg)
+  !$omp do private(in1,ii,nm,impts,j)
   do in2 = 1, n2
+
+     ! Get EC coordinates of lat/lon point
+
+     call ll_ec(glon(:,in2), glat(:,in2), xeg, yeg, zeg, n1)
+
      do in1 = 1, n1
         ii = (in2-1)*n1+in1
-
-        wgts(ii)%imglobe = 1
 
         if ( present(iskip) ) then
            if (iskip(in1,in2)) cycle
         endif
 
+        ! Get list of OLAM cells in the vicinity of this lat/lon
+
         call gridcells_from_latlon_bins(glat(in1,in2), glon(in1,in2), bsetm, nm, impts)
 
-        if (present(xe) .and. present(ye) .and. present(ze)) then
-
-           xeg = xe(in1,in2)
-           yeg = ye(in1,in2)
-           zeg = ze(in1,in2)
-
-        else
-
-           rads    = glat(in1,in2) * pio180
-           cosglat = cos(rads)
-           singlat = sin(rads)
-
-           rads    = glon(in1,in2) * pio180
-           cosglon = cos(rads)
-           singlon = sin(rads)
-
-           raxis = erad  * cosglat
-           zeg   = erad  * singlat
-           xeg   = raxis * cosglon
-           yeg   = raxis * singlon
-
-        endif
+        ! Loop over all impts to determine which contains the input location
 
         do j = 1, nm
-           call mweights_xyze(impts(j), xeg, yeg, zeg, wgts(ii))
+           call mweights_ec(impts(j), xeg(in1), yeg(in1), zeg(in1), wgts(ii))
            if (wgts(ii)%imglobe > 1) exit
         enddo
 
      enddo
   enddo
-  !$omp end parallel do
+  !$omp end do
+  !$omp end parallel
+
+  ! Sort if there are multiple matches in parallel
 
 #ifdef OLAM_MPI
   if (iparallel == 1) then
@@ -528,14 +469,14 @@ end subroutine get_weights_lonlat_2db
 
 !=========================================================================
 
-subroutine get_weights_lonlat_grid(glon, glat, wgts, nlon, nlat, xe, ye, ze)
+subroutine get_weights_lonlat_grid(glon, glat, wgts, nlon, nlat, iskip)
 
-  use  ll_bins,    only: gridcells_from_latlon_bins
-  use consts_coms, only: pio180, erad
+  use ll_bins,     only: gridcells_from_latlon_bins
+  use consts_coms, only: erad, pio180
 
 #ifdef OLAM_MPI
-  use  misc_coms,  only: iparallel
-  use  mpi
+  use misc_coms, only: iparallel
+  use mpi
 #endif
 
   implicit none
@@ -544,7 +485,7 @@ subroutine get_weights_lonlat_grid(glon, glat, wgts, nlon, nlat, xe, ye, ze)
   real,                intent(in)  :: glon(nlon)
   real,                intent(in)  :: glat(nlat)
   type(minterp_wghts), intent(out) :: wgts(nlon,nlat)
-  real,      optional, intent(in)  :: xe(nlon,nlat), ye(nlon,nlat), ze(nlon,nlat)
+  logical,   optional, intent(in)  :: iskip(nlon,nlat)
 
   integer, pointer                 :: nm
   integer, pointer, contiguous     :: impts(:)
@@ -558,53 +499,49 @@ subroutine get_weights_lonlat_grid(glon, glat, wgts, nlon, nlat, xe, ye, ze)
   integer                          :: ierr
 #endif
 
-  if (.not. (present(xe) .and. present(ye) .and. present(ze))) then
+  do ilat = 1, nlat
+     rads          = glat(ilat) * pio180
+     cosglat(ilat) = cos(rads)
+     singlat(ilat) = sin(rads)
+  enddo
 
-     do ilat = 1, nlat
-        rads          = glat(ilat) * pio180
-        cosglat(ilat) = cos(rads)
-        singlat(ilat) = sin(rads)
-     enddo
-
-     do ilon = 1, nlon
-        rads          = glon(ilon) * pio180
-        cosglon(ilon) = cos(rads)
-        singlon(ilon) = sin(rads)
-     enddo
-
-  endif
+  do ilon = 1, nlon
+     rads          = glon(ilon) * pio180
+     cosglon(ilon) = cos(rads)
+     singlon(ilon) = sin(rads)
+  enddo
 
   !$omp parallel do private(zeg,raxis,ilon,xeg,yeg,nm,impts,j)
   do ilat = 1, nlat
 
-     if (.not. (present(xe) .and. present(ye) .and. present(ze))) then
-        zeg   = erad * singlat(ilat)
-        raxis = erad * cosglat(ilat)
-     endif
+     zeg   = erad * singlat(ilat)
+     raxis = erad * cosglat(ilat)
 
      do ilon = 1, nlon
 
-        if (present(xe) .and. present(ye) .and. present(ze)) then
-           xeg = xe(ilon,ilat)
-           yeg = ye(ilon,ilat)
-           zeg = ze(ilon,ilat)
-        else
-           xeg = raxis * cosglon(ilon)
-           yeg = raxis * singlon(ilon)
+        if ( present(iskip) ) then
+           if (iskip(ilat,ilon)) cycle
         endif
 
-        wgts(ilon,ilat)%imglobe = 1
+        xeg = raxis * cosglon(ilon)
+        yeg = raxis * singlon(ilon)
+
+        ! Get list of OLAM cells in the vicinity of this lat/lon
 
         call gridcells_from_latlon_bins(glat(ilat), glon(ilon), bsetm, nm, impts)
 
+        ! Loop over all impts to determine which contains the input location
+
         do j = 1, nm
-           call mweights_xyze(impts(j), xeg, yeg, zeg, wgts(ilon,ilat))
+           call mweights_ec(impts(j), xeg, yeg, zeg, wgts(ilon,ilat))
            if (wgts(ilon,ilat)%imglobe > 1) exit
         enddo
      enddo
 
   enddo
   !$omp end parallel do
+
+  ! Sort if there are multiple matches in parallel
 
 #ifdef OLAM_MPI
   if (iparallel == 1) then
@@ -631,14 +568,14 @@ end subroutine get_weights_lonlat_grid
 
 !=========================================================================
 
-subroutine get_weights_lonlat_gridb(glon, glat, wgts, nlon, nlat, xe, ye, ze)
+subroutine get_weights_lonlat_gridb(glon, glat, wgts, nlon, nlat, iskip)
 
-  use  ll_bins,    only: gridcells_from_latlon_bins
-  use consts_coms, only: pio180, erad
+  use ll_bins,     only: gridcells_from_latlon_bins
+  use consts_coms, only: erad, pio180
 
 #ifdef OLAM_MPI
-  use  misc_coms,  only: iparallel
-  use  mpi
+  use misc_coms, only: iparallel
+  use mpi
 #endif
 
   implicit none
@@ -647,7 +584,7 @@ subroutine get_weights_lonlat_gridb(glon, glat, wgts, nlon, nlat, xe, ye, ze)
   real,                intent(in)  :: glon(nlon)
   real,                intent(in)  :: glat(nlat)
   type(minterp_wghts), intent(out) :: wgts(nlon*nlat)
-  real,      optional, intent(in)  :: xe(nlon,nlat), ye(nlon,nlat), ze(nlon,nlat)
+  logical,   optional, intent(in)  :: iskip(nlon,nlat)
 
   integer, pointer                 :: nm
   integer, pointer, contiguous     :: impts(:)
@@ -661,55 +598,50 @@ subroutine get_weights_lonlat_gridb(glon, glat, wgts, nlon, nlat, xe, ye, ze)
   integer                          :: ierr
 #endif
 
-  if (.not. (present(xe) .and. present(ye) .and. present(ze))) then
+  do ilat = 1, nlat
+     rads          = glat(ilat) * pio180
+     cosglat(ilat) = cos(rads)
+     singlat(ilat) = sin(rads)
+  enddo
 
-     do ilat = 1, nlat
-        rads          = glat(ilat) * pio180
-        cosglat(ilat) = cos(rads)
-        singlat(ilat) = sin(rads)
-     enddo
+  do ilon = 1, nlon
+     rads          = glon(ilon) * pio180
+     cosglon(ilon) = cos(rads)
+     singlon(ilon) = sin(rads)
+  enddo
 
-     do ilon = 1, nlon
-        rads          = glon(ilon) * pio180
-        cosglon(ilon) = cos(rads)
-        singlon(ilon) = sin(rads)
-     enddo
-
-  endif
-
-  !$omp parallel do private(zeg,raxis,ilon,xeg,yeg,nm,impts,j)
+  !$omp parallel do private(zeg,raxis,ilon,ii,xeg,yeg,nm,impts,j)
   do ilat = 1, nlat
 
-     if (.not. (present(xe) .and. present(ye) .and. present(ze))) then
-        zeg   = erad * singlat(ilat)
-        raxis = erad * cosglat(ilat)
-     endif
+     zeg   = erad * singlat(ilat)
+     raxis = erad * cosglat(ilat)
 
      do ilon = 1, nlon
-
         ii = (ilat-1)*nlon + ilon
 
-        if (present(xe) .and. present(ye) .and. present(ze)) then
-           xeg = xe(ilon,ilat)
-           yeg = ye(ilon,ilat)
-           zeg = ze(ilon,ilat)
-        else
-           xeg = raxis * cosglon(ilon)
-           yeg = raxis * singlon(ilon)
+        if ( present(iskip) ) then
+           if (iskip(ilat,ilon)) cycle
         endif
 
-        wgts(ii)%imglobe = 1
+        xeg = raxis * cosglon(ilon)
+        yeg = raxis * singlon(ilon)
+
+        ! Get list of OLAM cells in the vicinity of this lat/lon
 
         call gridcells_from_latlon_bins(glat(ilat), glon(ilon), bsetm, nm, impts)
 
+        ! Loop over all impts to determine which contains the input location
+
         do j = 1, nm
-           call mweights_xyze(impts(j), xeg, yeg, zeg, wgts(ii))
+           call mweights_ec(impts(j), xeg, yeg, zeg, wgts(ii))
            if (wgts(ii)%imglobe > 1) exit
         enddo
      enddo
 
   enddo
   !$omp end parallel do
+
+  ! Sort if there are multiple matches in parallel
 
 #ifdef OLAM_MPI
   if (iparallel == 1) then
@@ -732,7 +664,7 @@ end subroutine get_weights_lonlat_gridb
 
 !=========================================================================
 
-subroutine mweights_xyze(im, xe, ye, ze, w)
+subroutine mweights_ec(im, xe, ye, ze, w)
 
   use mem_grid,   only: xem, yem, zem
   use mem_ijtabs, only: itab_m
@@ -747,6 +679,8 @@ subroutine mweights_xyze(im, xe, ye, ze, w)
   real :: dxe, dye, dze
   real :: xp, yp, dxp3, dyp3
   real :: wgts(3)
+
+  w%imglobe = 1
 
   if (xe < minterp(im)%xemin .or. xe > minterp(im)%xemax) return
   if (ye < minterp(im)%yemin .or. ye > minterp(im)%yemax) return
@@ -777,25 +711,305 @@ subroutine mweights_xyze(im, xe, ye, ze, w)
   w%imglobe = itab_m(im)%imglobe
   w%wt      = wgts
 
-end subroutine mweights_xyze
+end subroutine mweights_ec
 
 !=========================================================================
 
-subroutine mweights_lonlat(im, qlon, qlat, w)
+subroutine get_weights_ec_point(xeg, yeg, zeg, wgts)
 
-  use map_proj, only: ll_ec
+  use ll_bins,  only: gridcells_from_latlon_bins
+  use map_proj, only: ec_ll
+
+#ifdef OLAM_MPI
+  use misc_coms, only: iparallel
+  use mpi
+#endif
+
   implicit none
 
-  integer,             intent(in ) :: im
-  real,                intent(in ) :: qlon, qlat
-  type(minterp_wghts), intent(out) :: w
-  real                             :: xe, ye, ze
+  real,                intent(in)  :: xeg, yeg, zeg
+  type(minterp_wghts), intent(out) :: wgts
 
-  call ll_ec(qlon, qlat, xe, ye, ze)
+  integer, pointer                 :: nm
+  integer, pointer, contiguous     :: impts(:)
+  integer                          :: j
+  real                             :: glat, glon
 
-  call mweights_xyze(im, xe, ye, ze, w)
+#ifdef OLAM_MPI
+  integer                          :: ig, ierr
+#endif
 
-end subroutine mweights_lonlat
+  ! Get lat/lon from EC coordinates
+
+  call ec_ll(xeg, yeg, zeg, glat, glon)
+
+  ! Get list of OLAM cells in the vicinity of this lat/lon
+
+  call gridcells_from_latlon_bins(glat, glon, bsetm, nm, impts)
+
+  ! Loop over all impts to determine which contains the input location
+
+  do j = 1, nm
+     call mweights_ec(impts(j), xeg, yeg, zeg, wgts)
+     if (wgts%imglobe > 1) exit
+  enddo
+
+  ! Sort if there are multiple matches in parallel
+
+#ifdef OLAM_MPI
+  if (iparallel == 1) then
+
+     ig = ihuge
+     if (wgts%imglobe > 1) ig = wgts%imglobe
+     call MPI_Allreduce(MPI_IN_PLACE, ig, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD, ierr)
+     if (ig < ihuge) wgts%imglobe = ig
+
+  endif
+#endif
+
+end subroutine get_weights_ec_point
+
+!=========================================================================
+
+subroutine get_weights_ec_1d(xeg, yeg, zeg, wgts, n, iskip)
+
+  use ll_bins,  only: gridcells_from_latlon_bins
+  use map_proj, only: ec_ll
+
+#ifdef OLAM_MPI
+  use misc_coms, only: iparallel
+  use mpi
+#endif
+
+  implicit none
+
+  integer,             intent(in)  :: n
+  type(minterp_wghts), intent(out) :: wgts(n)
+  real,      optional, intent(in)  :: xeg(n), yeg(n), zeg(n)
+  logical,   optional, intent(in)  :: iskip(n)
+
+  integer, pointer                 :: nm
+  integer, pointer, contiguous     :: impts(:)
+  integer                          :: i, j
+  real                             :: glat(n), glon(n)
+
+#ifdef OLAM_MPI
+  integer, allocatable             :: ig(:)
+  integer                          :: ierr
+#endif
+
+  ! Get lat/lon from EC coordinates
+
+  call ec_ll(xeg, yeg, zeg, glon, glat, n)
+
+  !$omp parallel do private(nm,impts,j)
+  do i = 1, n
+
+     if ( present(iskip) ) then
+        if (iskip(i)) cycle
+     endif
+
+     ! Get list of OLAM cells in the vicinity of this lat/lon
+
+     call gridcells_from_latlon_bins(glat(i), glon(i), bsetm, nm, impts)
+
+     ! Loop over all impts to determine which contains the input location
+
+     do j = 1, nm
+        call mweights_ec(impts(j), xeg(i), yeg(i), zeg(i), wgts(i))
+        if (wgts(i)%imglobe > 1) exit
+     enddo
+
+  enddo
+  !$omp end parallel do
+
+  ! Sort if there are multiple matches in parallel
+
+#ifdef OLAM_MPI
+  if (iparallel == 1) then
+
+     allocate(ig(n)) ; ig = ihuge
+     do i = 1, n
+        if (wgts(i)%imglobe > 1) ig(i) = wgts(i)%imglobe
+     enddo
+
+     call MPI_Allreduce(MPI_IN_PLACE, ig, n, MPI_INT, MPI_MIN, MPI_COMM_WORLD, ierr)
+
+     do i = 1, n
+        if (ig(i) < ihuge) wgts(i)%imglobe = ig(i)
+     enddo
+
+  endif
+#endif
+
+end subroutine get_weights_ec_1d
+
+!=========================================================================
+
+subroutine get_weights_ec_2d(xeg, yeg, zeg, wgts, n1, n2, iskip)
+
+  use  ll_bins,    only: gridcells_from_latlon_bins
+  use map_proj,    only: ec_ll
+
+#ifdef OLAM_MPI
+  use misc_coms,  only: iparallel
+  use mpi
+#endif
+
+  implicit none
+
+  integer,             intent(in)  :: n1, n2
+  type(minterp_wghts), intent(out) :: wgts(n1,n2)
+  real,      optional, intent(in)  :: xeg(n1,n2), yeg(n1,n2), zeg(n1,n2)
+  logical,   optional, intent(in)  :: iskip(n1,n2)
+
+  integer, pointer                 :: nm
+  integer, pointer, contiguous     :: impts(:)
+  integer                          :: in1, in2, j
+  real                             :: glon(n1), glat(n1)
+
+#ifdef OLAM_MPI
+  integer, allocatable             :: ig (:,:)
+  integer                          :: ierr
+#endif
+
+  !$omp parallel private(glon,glat)
+  !$omp do private(in1,nm,impts,j)
+  do in2 = 1, n2
+
+     ! Get lat/lon from EC coordinates
+
+     call ec_ll(xeg(:,in2), yeg(:,in2), zeg(:,in2), glon, glat, n1)
+
+     do in1 = 1, n1
+
+        if ( present(iskip) ) then
+           if (iskip(in1,in2)) cycle
+        endif
+
+        ! Get list of OLAM cells in the vicinity of this lat/lon
+
+        call gridcells_from_latlon_bins(glat(in1), glon(in1), bsetm, nm, impts)
+
+        ! Loop over all impts to determine which contains the input location
+
+        do j = 1, nm
+           call mweights_ec(impts(j), xeg(in1,in2), yeg(in1,in2), zeg(in1,in2), wgts(in1,in2))
+           if (wgts(in1,in2)%imglobe > 1) exit
+        enddo
+
+     enddo
+
+  enddo
+  !$omp end do
+  !$omp end parallel
+
+  ! Sort if there are multiple matches in parallel
+
+#ifdef OLAM_MPI
+  if (iparallel == 1) then
+
+     allocate(ig(n1,n2)) ; ig = ihuge
+     do in2 = 1, n2
+        do in1 = 1, n1
+           if (wgts(in1,in2)%imglobe > 1) ig(in1,in2) = wgts(in1,in2)%imglobe
+        enddo
+     enddo
+
+     call MPI_Allreduce(MPI_IN_PLACE, ig, n1*n2, MPI_INT, MPI_MIN, MPI_COMM_WORLD, ierr)
+
+     do in2 = 1, n2
+        do in1 = 1, n1
+           if (ig(in1,in2) < ihuge) wgts(in1,in2)%imglobe = ig(in1,in2)
+        enddo
+     enddo
+
+  endif
+#endif
+
+end subroutine get_weights_ec_2d
+
+!=========================================================================
+
+subroutine get_weights_ec_2db(xeg, yeg, zeg, wgts, n1, n2, iskip)
+
+  use  ll_bins, only: gridcells_from_latlon_bins
+  use map_proj, only: ec_ll
+
+#ifdef OLAM_MPI
+  use misc_coms, only: iparallel
+  use mpi
+#endif
+
+  implicit none
+
+  integer,             intent(in)  :: n1, n2
+  type(minterp_wghts), intent(out) :: wgts(n1*n2)
+  real,      optional, intent(in)  :: xeg(n1,n2), yeg(n1,n2), zeg(n1,n2)
+  logical,   optional, intent(in)  :: iskip(n1,n2)
+
+  integer, pointer                 :: nm
+  integer, pointer, contiguous     :: impts(:)
+  integer                          :: in1, in2, ii, j
+  real                             :: glon(n1), glat(n1)
+
+#ifdef OLAM_MPI
+  integer, allocatable             :: ig (:)
+  integer                          :: ierr
+#endif
+
+  !$omp parallel private(glon,glat)
+  !$omp do private(in1,ii,nm,impts,j)
+  do in2 = 1, n2
+
+     ! Get lat/lon from EC coordinates
+
+     call ec_ll(xeg(:,in2), yeg(:,in2), zeg(:,in2), glon, glat, n1)
+
+     do in1 = 1, n1
+        ii = (in2-1)*n1+in1
+
+        if ( present(iskip) ) then
+           if (iskip(in1,in2)) cycle
+        endif
+
+        ! Get list of OLAM cells in the vicinity of this lat/lon
+
+        call gridcells_from_latlon_bins(glat(in1), glon(in1), bsetm, nm, impts)
+
+        ! Loop over all impts to determine which contains the input location
+
+        do j = 1, nm
+           call mweights_ec(impts(j), xeg(in1,in2), yeg(in1,in2), zeg(in1,in2), wgts(ii))
+           if (wgts(ii)%imglobe > 1) exit
+        enddo
+
+     enddo
+
+  enddo
+  !$omp end do
+  !$omp end parallel
+
+  ! Sort if there are multiple matches in parallel
+
+#ifdef OLAM_MPI
+  if (iparallel == 1) then
+
+     allocate(ig(n1*n2)) ; ig = ihuge
+     do ii = 1, n1*n2
+        if (wgts(ii)%imglobe > 1) ig(ii) = wgts(ii)%imglobe
+     enddo
+
+     call MPI_Allreduce(MPI_IN_PLACE, ig, n1*n2, MPI_INT, MPI_MIN, MPI_COMM_WORLD, ierr)
+
+     do ii = 1, n1*n2
+        if (ig(ii) < ihuge) wgts(ii)%imglobe = ig(ii)
+     enddo
+
+  endif
+#endif
+
+end subroutine get_weights_ec_2db
 
 !=========================================================================
 

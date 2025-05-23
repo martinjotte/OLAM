@@ -106,6 +106,7 @@ subroutine ec_ll_2d(xeq,yeq,zeq,rlon,rlat,n1,n2)
   ! is the center of the earth, the z axis is the north pole, the x axis is the
   ! equator and prime meridian, and the y axis is the equator and 90 E.
 
+  !$omp parallel do private(i,rax)
   do j = 1, n2
      do i = 1, n1
         rax       = sqrt( xeq(i,j)**2 + yeq(i,j)**2 )  ! distance of q from earth axis
@@ -113,6 +114,7 @@ subroutine ec_ll_2d(xeq,yeq,zeq,rlon,rlat,n1,n2)
         rlon(i,j) = atan2(yeq(i,j),xeq(i,j)) * piu180
      enddo
   enddo
+  !$omp end parallel do
 
 end subroutine ec_ll_2d
 
@@ -204,6 +206,7 @@ subroutine ll_ec_2d(rlon,rlat,xeq,yeq,zeq,n1,n2)
   ! This subroutine computes "earth cartesian space" coordinates
   ! (xeq,yeq,zeq) or a point located at (rlon,rlat).
 
+  !$omp parallel do private(i,sinrlat,cosrlat,sinrlon,cosrlon)
   do j = 1, n2
      do i = 1, n1
         sinrlat = sin(rlat(i,j) * pio180)
@@ -216,6 +219,7 @@ subroutine ll_ec_2d(rlon,rlat,xeq,yeq,zeq,n1,n2)
         zeq(i,j) =           sinrlat * erad
      enddo
   enddo
+  !$omp end parallel do
 
 end subroutine ll_ec_2d
 
@@ -298,6 +302,7 @@ subroutine get_cossin_lonlat_2d(coslon,sinlon,coslat,sinlat,xe,ye,ze,n1,n2)
   real                 :: ra
   integer              :: i, j
 
+  !$omp parallel do private(i,ra)
   do j = 1, n2
      do i = 1, n1
 
@@ -320,6 +325,7 @@ subroutine get_cossin_lonlat_2d(coslon,sinlon,coslat,sinlat,xe,ye,ze,n1,n2)
 
      enddo
   enddo
+  !$omp end parallel do
 
 end subroutine get_cossin_lonlat_2d
 
