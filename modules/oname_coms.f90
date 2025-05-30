@@ -439,6 +439,7 @@ Module oname_coms
      integer :: mapcolor   = 13
      integer :: llcolor    = 13
      integer :: ncolortabs = 0
+     integer :: ifont      = 0
 
      character(pathlen) :: pltname     = 'gmeta'
      character(10)      :: prtval_size = 'medium'

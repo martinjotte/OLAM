@@ -61,6 +61,10 @@ subroutine o_opngks()
   call gopwk (iwkid, lunit, iwtype)
   call gacwk (iwkid)
 
+  ! Increase line buffer size
+
+  call setusv('PB', 50)
+
 end subroutine o_opngks
 
 !===============================================================================
@@ -536,6 +540,7 @@ subroutine o_reopnwk()
      call ngreop(iwkid, 2, 1, op%pltname, 1, op%i_att, op%r_att, 0, 0, 0)
      call gacwk(iwkid)
      call gks_colors(iwkid)
+     call setusv('PB', 50)
 
   endif
 

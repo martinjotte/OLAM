@@ -412,6 +412,10 @@ subroutine copy_nl()
   op%mapcolor   = nl%mapcolor
   op%llcolor    = nl%llcolor
 
+  if (nl%ifont > 0) then
+     op%ncarg_font = nl%ifont
+  endif
+
   do i = 1,op%nplt
      op%fldname(i)   = nl%plotspecs(i)%fldname
      op%projectn(i)  = nl%plotspecs(i)%projectn

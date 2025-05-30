@@ -153,6 +153,9 @@ Module oplot_coms
 
      logical :: has_high_res = .false. ! Indicates the newest high-resolution maps
                                        ! are available in the installed NCAR Graphics
+
+     integer :: ncarg_font = 4 ! Default NCAR Graphics font (see fontcap for list of fonts)
+
   End Type oplot_vars
 
   type (oplot_vars) :: op

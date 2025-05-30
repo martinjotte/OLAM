@@ -1,7 +1,8 @@
 subroutine contslab_horiz_mp(iplt)
 
   use oplot_coms, only: op
-  use mem_grid,   only: mma, mwa, xem, yem, zem, xew, yew, zew
+  use mem_grid,   only: mma, mwa, xem, yem, zem, xew, yew, zew, &
+                        glonm, glatm, glonw, glatw
   use mem_ijtabs, only: itab_w, jtab_w, jtw_prog
   use misc_coms,  only: iparallel
   use mem_para,   only: myrank, mgroupsize, nbytes_int, nbytes_real
@@ -65,7 +66,7 @@ subroutine contslab_horiz_mp(iplt)
 
      ! Get plot coordinates of current W point.
 
-     call oplot_transform(iplt,xew(iw),yew(iw),zew(iw),hpt,vpt)
+     call oplot_transform(iplt,xew(iw),yew(iw),zew(iw),glonw(iw),glatw(iw),hpt,vpt)
 
      npoly = itab_w(iw)%npoly
 
@@ -92,7 +93,7 @@ subroutine contslab_horiz_mp(iplt)
 
         ! Get plot coordinates of current M point
 
-        call oplot_transform(iplt,xem(im),yem(im),zem(im),hcpn(j),vcpn(j))
+        call oplot_transform(iplt,xem(im),yem(im),zem(im),glonm(im),glatm(im),hcpn(j),vcpn(j))
 
         ! Skip this W point if current M point is far outside plot window
         ! (which means that orthographic projection returned large value
@@ -247,7 +248,8 @@ subroutine contslab_topmw(iplt)
 ! Special routine to plot topm and topw values together
 
   use oplot_coms, only: op
-  use mem_grid,   only: mma, xem, yem, zem, xew, yew, zew, topm, topw
+  use mem_grid,   only: mma, xem, yem, zem, xew, yew, zew, topm, topw, &
+                        glonm, glatm, glonw, glatw
   use mem_ijtabs, only: itab_w, jtab_w, jtw_prog
   use misc_coms,  only: iparallel
   use mem_para,   only: myrank, mgroupsize, nbytes_real
@@ -295,7 +297,7 @@ subroutine contslab_topmw(iplt)
 
      ! Get plot coordinates of current W point.
 
-     call oplot_transform(iplt,xew(iw),yew(iw),zew(iw),hpt,vpt)
+     call oplot_transform(iplt,xew(iw),yew(iw),zew(iw),glonw(iw),glatw(iw),hpt,vpt)
 
      npoly = itab_w(iw)%npoly
 
@@ -322,7 +324,7 @@ subroutine contslab_topmw(iplt)
 
         ! Get plot coordinates of current M point
 
-        call oplot_transform(iplt,xem(im),yem(im),zem(im),hcpn(j),vcpn(j))
+        call oplot_transform(iplt,xem(im),yem(im),zem(im),glonm(im),glatm(im),hcpn(j),vcpn(j))
 
         ! Skip this W point if current M point is far outside plot window
         ! (which means that orthographic projection returned large value
@@ -480,7 +482,8 @@ subroutine contslab_horiz_vn(iplt)
 
   use oplot_coms, only: op
   use mem_grid,   only: mma, mva, mwa, xem, yem, zem, &
-                        xev, yev, zev, xew, yew, zew
+                        xev, yev, zev, xew, yew, zew, &
+                        glonm, glatm, glonv, glatv, glonw, glatw
   use mem_ijtabs, only: itab_m, itab_w, itab_v, jtab_m, jtm_prog, &
                         jtab_w, jtw_prog
   use misc_coms,  only: iparallel
@@ -545,7 +548,7 @@ subroutine contslab_horiz_vn(iplt)
 
      ! Get plot coordinates of current M point.
 
-     call oplot_transform(iplt,xem(im),yem(im),zem(im),hpt,vpt)
+     call oplot_transform(iplt,xem(im),yem(im),zem(im),glonm(im),glatm(im),hpt,vpt)
 
      npoly = itab_m(im)%npoly
 
@@ -577,7 +580,7 @@ subroutine contslab_horiz_vn(iplt)
 
         ! Get plot coordinates of current V point
 
-        call oplot_transform(iplt,xev(iv),yev(iv),zev(iv),hcpn(j),vcpn(j))
+        call oplot_transform(iplt,xev(iv),yev(iv),zev(iv),glonv(iv),glatv(iv),hcpn(j),vcpn(j))
 
         ! Skip this M point if current V point is far outside plot window
         ! (which means that orthographic projection returned large value that
@@ -783,7 +786,7 @@ subroutine contslab_horiz_vn(iplt)
 
      ! Get plot coordinates of current W point.
 
-     call oplot_transform(iplt,xew(iw),yew(iw),zew(iw),hpt,vpt)
+     call oplot_transform(iplt,xew(iw),yew(iw),zew(iw),glonw(iw),glatw(iw),hpt,vpt)
 
      npoly = itab_w(iw)%npoly
 
@@ -810,7 +813,7 @@ subroutine contslab_horiz_vn(iplt)
 
         ! Get plot coordinates of current V point
 
-        call oplot_transform(iplt,xev(iv),yev(iv),zev(iv),hcpn(j),vcpn(j))
+        call oplot_transform(iplt,xev(iv),yev(iv),zev(iv),glonv(iv),glatv(iv),hcpn(j),vcpn(j))
 
         ! Skip this M point if current V point is far outside plot window
         ! (which means that orthographic projection returned large value that
@@ -960,7 +963,8 @@ subroutine contslab_horiz_tw(iplt)
 
   use oplot_coms, only: op
   use mem_grid,   only: mma, mwa, xem, yem, zem, &
-                        xev, yev, zev, xew, yew, zew
+                        xev, yev, zev, xew, yew, zew, &
+                        glonm, glatm, glonv, glatv, glonw, glatw
   use mem_ijtabs, only: itab_m, jtab_m, jtm_wadj
   use misc_coms,  only: iparallel
   use mem_para,   only: myrank, mgroupsize, nbytes_int, nbytes_real
@@ -1022,7 +1026,7 @@ subroutine contslab_horiz_tw(iplt)
 
      ! Get plot coordinates of current M point.
 
-     call oplot_transform(iplt,xem(im),yem(im),zem(im),hpt,vpt)
+     call oplot_transform(iplt,xem(im),yem(im),zem(im),glonm(im),glatm(im),hpt,vpt)
 
      npoly = itab_m(im)%npoly
 
@@ -1052,7 +1056,7 @@ subroutine contslab_horiz_tw(iplt)
 
         ! Get plot coordinates of current W point
 
-        call oplot_transform(iplt,xew(iw),yew(iw),zew(iw),hcpn(j),vcpn(j))
+        call oplot_transform(iplt,xew(iw),yew(iw),zew(iw),glonw(iw),glatw(iw),hcpn(j),vcpn(j))
 
         ! Skip this M point if current W point is far outside plot window
         ! (which means that orthographic projection returned large value that
@@ -1190,7 +1194,7 @@ subroutine contslab_horiz_tw(iplt)
               ! identical for both grid systems
 
               iv = itab_m(im)%iv(jnn)
-              call oplot_transform(iplt,xev(iv),yev(iv),zev(iv),hcpn3(3),vcpn3(3))
+              call oplot_transform(iplt,xev(iv),yev(iv),zev(iv),glonv(iv),glatv(iv),hcpn3(3),vcpn3(3))
 
               fldvals3(3) = fldvals(j)
 
@@ -1204,7 +1208,7 @@ subroutine contslab_horiz_tw(iplt)
               ! identical for both grid systems
 
               iv = itab_m(im)%iv(jnn)
-              call oplot_transform(iplt,xev(iv),yev(iv),zev(iv),hcpn3(2),vcpn3(2))
+              call oplot_transform(iplt,xev(iv),yev(iv),zev(iv),glonv(iv),glatv(iv),hcpn3(2),vcpn3(2))
 
               fldvals3(2) = fldvals(jn)
 
@@ -1386,7 +1390,8 @@ subroutine contslab_horiz_sfc(iplt)
 
      ! Get plot coordinates of current MSFC point.
 
-     call oplot_transform(iplt,sfcg%xem(imsfc),sfcg%yem(imsfc),sfcg%zem(imsfc),hpt,vpt)
+     call oplot_transform(iplt,sfcg%xem(imsfc),sfcg%yem(imsfc),sfcg%zem(imsfc), &
+                          sfcg%glonm(imsfc),sfcg%glatm(imsfc),hpt,vpt)
 
      ! Initialize iflag180 and plot window flags to zero
 
@@ -1415,7 +1420,8 @@ subroutine contslab_horiz_sfc(iplt)
 
         ! Get plot coordinates of current W point
 
-        call oplot_transform(iplt,sfcg%xew(iwn),sfcg%yew(iwn),sfcg%zew(iwn),hcpn(j),vcpn(j))
+        call oplot_transform(iplt,sfcg%xew(iwn),sfcg%yew(iwn),sfcg%zew(iwn), &
+                             sfcg%glonw(iwn),sfcg%glatw(iwn),hcpn(j),vcpn(j))
 
         ! Skip this MSFC point if current IWN point is far outside plot window
         ! (which means that orthographic projection returned large value that

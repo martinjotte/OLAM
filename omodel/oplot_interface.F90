@@ -3,6 +3,7 @@ subroutine oplot_init()
   use oplot_coms, only: op
   use plotcolors, only: gks_colors
   use mem_para,   only: myrank
+  use sys_utils,  only: set_environment_variable
 
   implicit none
 
@@ -10,6 +11,16 @@ subroutine oplot_init()
   integer        :: istat, i
 
   if (myrank == 0) then
+
+     ! Increase NCAR Graphics CGM buffer size. This can only be done through
+     ! setting the environment variable NCARG_GKS_BUFSIZSE (in KB). Here we
+     ! set the buffer to 64 MB if it is not previously defined.
+
+     call get_environment_variable('NCARG_GKS_BUFSIZE', status=istat)
+     if (istat /= 0) then
+        call set_environment_variable('NCARG_GKS_BUFSIZE', '65536')
+     endif
+
      call o_opngks()
      call gks_colors(1)
 
@@ -322,16 +333,16 @@ subroutine plot_fields(id)
            if (op%windowin(iplt) /= 'W') then
               xinc = 10.
               yinc = 10.
-              labincx = 3
+              labincx = 6
               labincy = 3
            endif
 
            call oplot_xy2(op%panel(iplt),op%frameoff(iplt),op%pltborder(iplt), &
-                          op%colorbar(iplt),0.,.016,10,0, &
-                          1,dum1,dum2,                                   &
-                          'LONGITUDE (deg)','LATITUDE (deg)',            &
-                          op%xmin,op%xmax,xinc,labincx,                  &
-                          op%ymin,op%ymax,yinc,labincy                   )
+                          op%colorbar(iplt),0.,.016,10,0,                 &
+                          1,dum1,dum2,                                    &
+                          'LONGITUDE (deg)','LATITUDE (deg)',             &
+                          op%xmin+op%plon3,op%xmax+op%plon3,xinc,labincx, &
+                          op%ymin,         op%ymax,         yinc,labincy  )
         else
            call niceinc20(.001*op%xmin,.001*op%xmax,xinc,labincx)
            call niceinc20(.001*op%ymin,.001*op%ymax,yinc,labincy)
@@ -435,10 +446,13 @@ subroutine slab(iplt)
   ! Set plot line color (black)
 
   if (myrank == 0) then
+     call o_sflush()
      call o_gsplci(10)
      call o_gsfaci(10)
      call o_gstxci(10)
-     call o_sflush()
+
+     call o_pcsetr('CL',1.)  ! set character line width to 1.
+     call o_pcseti ('FN',op%ncarg_font)
   endif
 
   if ( op%projectn(iplt) == 'L' .or.  &
@@ -516,12 +530,25 @@ end subroutine slab
 subroutine slab_val(iplt)
 
   use oplot_coms, only: op
+  use mem_para,   only: myrank
 
   implicit none
 
   integer, intent(in) :: iplt
 
   call oplot_set(iplt)
+
+  ! Set plot line and font color (black)
+
+  if (myrank == 0) then
+     call o_sflush()
+     call o_gsplci(10)
+     call o_gsfaci(10)
+     call o_gstxci(10)
+
+     call o_pcsetr('CL',1.)  ! set character line width to 1.
+     call o_pcseti ('FN',op%ncarg_font)
+  endif
 
   if ( op%projectn(iplt) == 'L' .or.  &
        op%projectn(iplt) == 'P' .or.  &
@@ -563,8 +590,9 @@ end subroutine slab_val
 subroutine plot_index(iplt)
 
   use oplot_coms, only: op
-  use mem_grid,   only: mma, mva, mwa, xem, yem, zem, &
-                        xev, yev, zev, xew, yew, zew, arw0
+  use mem_grid,   only: mma, mva, mwa, xem, yem, zem, glatm, glonm, &
+                        xev, yev, zev, glatv, glonv, xew, yew, zew, &
+                        glatw, glonw, arw0
   use mem_ijtabs, only: itab_w, itab_v, itab_m
   use misc_coms,  only: iparallel
   use mem_para,   only: myrank, mgroupsize, nbytes_int, nbytes_real
@@ -611,13 +639,19 @@ subroutine plot_index(iplt)
      allocate( buffer( buffsize ) )
   endif
 
-  ! Plot M point indices
+  ! Set plot line and font color (black)
 
   if (myrank == 0) then
      call o_sflush()
      call o_gsplci(10)
      call o_gstxci(10)
+     call o_gsfaci(10)
+
+     call o_pcsetr('CL',1.)  ! set character line width to 1.
+     call o_pcseti('FN',op%ncarg_font)
   endif
+
+  ! Plot M point indices
 
   if ( op%pltindx1(iplt) == 'J' .or.  &
        trim(op%stagpt)   == 'M' .or.  &
@@ -629,7 +663,7 @@ subroutine plot_index(iplt)
         img = itab_m(im)%imglobe
         iwn = itab_m(im)%iw(1)
 
-        call oplot_transform(iplt,xem(im),yem(im),zem(im),hpt,vpt)
+        call oplot_transform(iplt,xem(im),yem(im),zem(im),glonm(im),glatm(im),hpt,vpt)
         if ( hpt < op%xmin .or. hpt > op%xmax .or.  &
              vpt < op%ymin .or. vpt > op%ymax ) cycle
 
@@ -673,7 +707,7 @@ subroutine plot_index(iplt)
         ivg = itab_v(iv)%ivglobe
         iwn = itab_v(iv)%iw(1)
 
-        call oplot_transform(iplt,xev(iv),yev(iv),zev(iv),hpt,vpt)
+        call oplot_transform(iplt,xev(iv),yev(iv),zev(iv),glonv(iv),glatv(iv),hpt,vpt)
         if ( hpt < op%xmin .or. hpt > op%xmax .or.  &
              vpt < op%ymin .or. vpt > op%ymax ) cycle
 
@@ -716,7 +750,7 @@ subroutine plot_index(iplt)
 
         iwg = itab_w(iw)%iwglobe
 
-        call oplot_transform(iplt,xew(iw),yew(iw),zew(iw),hpt,vpt)
+        call oplot_transform(iplt,xew(iw),yew(iw),zew(iw),glonw(iw),glatw(iw),hpt,vpt)
         if ( hpt < op%xmin .or. hpt > op%xmax .or.  &
              vpt < op%ymin .or. vpt > op%ymax ) cycle
 
@@ -844,10 +878,16 @@ subroutine plot_index_sfc(iplt)
   if ( op%pltindx2(iplt) == 'j' .or.  &
        trim(op%stagpt)   == 'A' ) then
 
+     ! Set plot line and font color (blue)
+
      if (myrank == 0) then
         call o_sflush()
         call o_gsplci(8)
         call o_gstxci(8)
+        call o_gsfaci(8)
+
+        call o_pcsetr('CL',1.)  ! set character line width to 1.
+        call o_pcseti('FN',op%ncarg_font)
      endif
 
      do imsfc = 2,mmsfc
@@ -870,7 +910,8 @@ subroutine plot_index_sfc(iplt)
 
         img = itab_msfc(imsfc)%imglobe
 
-        call oplot_transform(iplt,sfcg%xem(imsfc),sfcg%yem(imsfc),sfcg%zem(imsfc),hpt,vpt)
+        call oplot_transform(iplt, sfcg%xem(imsfc), sfcg%yem(imsfc), sfcg%zem(imsfc), &
+                             sfcg%glonm(imsfc), sfcg%glatm(imsfc), hpt, vpt)
         if ( hpt < op%xmin .or. hpt > op%xmax .or.  &
              vpt < op%ymin .or. vpt > op%ymax ) cycle
 
@@ -906,10 +947,16 @@ subroutine plot_index_sfc(iplt)
   if ( op%pltindx2(iplt) == 'j' .or.  &
        trim(op%stagpt)   == 'B' ) then
 
+     ! Set plot line and font color (green)
+
      if (myrank == 0) then
         call o_sflush()
         call o_gsplci(9)
         call o_gstxci(9)
+        call o_gsfaci(9)
+
+        call o_pcsetr('CL',1.)  ! set character line width to 1.
+        call o_pcseti('FN',op%ncarg_font)
      endif
 
      do ivsfc = 2,mvsfc
@@ -918,7 +965,9 @@ subroutine plot_index_sfc(iplt)
         ivg = itab_vsfc(ivsfc)%ivglobe
         iwn = itab_vsfc(ivsfc)%iwn(1)
 
-        call oplot_transform(iplt,sfcg%xev(ivsfc),sfcg%yev(ivsfc),sfcg%zev(ivsfc),hpt,vpt)
+        ! sfcg%glonv, sfcg%glatv is not available
+        call oplot_transform_xyz(iplt,sfcg%xev(ivsfc),sfcg%yev(ivsfc),sfcg%zev(ivsfc),hpt,vpt)
+
         if ( hpt < op%xmin .or. hpt > op%xmax .or.  &
              vpt < op%ymin .or. vpt > op%ymax ) cycle
 
@@ -957,10 +1006,16 @@ subroutine plot_index_sfc(iplt)
        trim(op%stagpt)   == 'S' .or.  &
        trim(op%stagpt)   == 'C') then
 
+     ! Set plot line and font color (red)
+
      if (myrank == 0) then
         call o_sflush()
         call o_gsplci(12)
         call o_gstxci(12)
+        call o_gsfaci(12)
+
+        call o_pcsetr('CL',1.)  ! set character line width to 1.
+        call o_pcseti('FN',op%ncarg_font)
      endif
 
      do iwsfc = 2, mwsfc
@@ -968,7 +1023,8 @@ subroutine plot_index_sfc(iplt)
 
         iwg = itab_wsfc(iwsfc)%iwglobe
 
-        call oplot_transform(iplt,sfcg%xew(iwsfc),sfcg%yew(iwsfc),sfcg%zew(iwsfc),hpt,vpt)
+        call oplot_transform(iplt,sfcg%xew(iwsfc),sfcg%yew(iwsfc),sfcg%zew(iwsfc), &
+                             sfcg%glonw(iwsfc), sfcg%glatw(iwsfc), hpt, vpt)
 
         if ( hpt < op%xmin .or. hpt > op%xmax .or.  &
              vpt < op%ymin .or. vpt > op%ymax ) cycle
@@ -1042,47 +1098,6 @@ subroutine plot_index_sfc(iplt)
 #endif
 
 end subroutine plot_index_sfc
-
-!===============================================================================
-
-subroutine vectslab(iplt)
-
-  use oplot_coms, only: op
-  use mem_para,   only: myrank
-
-  implicit none
-
-  integer, intent(in) :: iplt
-
-  call oplot_set(iplt)
-
-  if (myrank == 0) then
-     call o_gsplci(10)
-     call o_gstxci(10)
-  endif
-
-  if ( op%projectn(iplt) == 'L' .or.  &
-       op%projectn(iplt) == 'P' .or.  &
-       op%projectn(iplt) == 'G' .or.  &
-       op%projectn(iplt) == 'O' .or.  &
-       op%projectn(iplt) == 'Z' ) then
-
-     if ( op%vectbarb(iplt) == 'V' ) call vectslab_horiz_v(iplt)
-
-     if ( op%vectbarb(iplt) == 'w' .or. &
-          op%vectbarb(iplt) == 'B' ) call vectslab_horiz_w(iplt)
-
-     if ( op%vectsea(iplt) == 'Y' ) call vectslab_horiz_vsfc(iplt)
-
-     if ( op%vectsea(iplt) == 'y' ) call vectslab_horiz_wsfc(iplt)
-
-     if ( op%vectsea(iplt) == 'z' ) call vectslab_horiz_umwm(iplt)
-
-  elseif (op%projectn(iplt) == 'C') then  ! etc for 'V'?
-
-  endif
-
-end subroutine vectslab
 
 !===============================================================================
 
@@ -1493,7 +1508,8 @@ end subroutine horizplot_k
 subroutine plot_underground_w(iplt,ktzone)
 
   use oplot_coms, only: op
-  use mem_grid,   only: mwa, zm, lpw, xem, yem, zem, xew, yew, zew
+  use mem_grid,   only: mwa, zm, lpw, xem, yem, zem, xew, yew, zew, &
+                        glatw, glonw, glonm, glatm
   use mem_ijtabs, only: itab_w, jtab_w, jtw_prog
   use misc_coms,  only: iparallel
   use mem_para,   only: myrank, mgroupsize, nbytes_int, nbytes_real
@@ -1552,7 +1568,7 @@ subroutine plot_underground_w(iplt,ktzone)
         ! Get tile plot coordinates
 
         if (op%projectn(iplt) == 'L') then   ! For wrap-around direction
-           call oplot_transform(iplt,xew(iw),yew(iw),zew(iw),xpt,ypt)
+           call oplot_transform(iplt,xew(iw),yew(iw),zew(iw),glonw(iw),glatw(iw),xpt,ypt)
         endif
 
         npoly = itab_w(iw)%npoly
@@ -1560,7 +1576,7 @@ subroutine plot_underground_w(iplt,ktzone)
         do j = 1,npoly
            im = itab_w(iw)%im(j)
 
-           call oplot_transform(iplt,xem(im),yem(im),zem(im),htpn(j),vtpn(j))
+           call oplot_transform(iplt,xem(im),yem(im),zem(im),glonm(im),glatm(im),htpn(j),vtpn(j))
 
            ! Avoid wrap-around and set iflag180
 
@@ -1806,7 +1822,8 @@ end subroutine plot_underground_w
 !!subroutine plot_underground_m(iplt,kt)
 !!
 !!use oplot_coms, only: op
-!!use mem_grid,   only: mma, mza, zm, zt, lpw, xem, yem, zem, xew, yew, zew
+!!use mem_grid,   only: mma, mza, zm, zt, lpw, xem, yem, zem, xew, yew, zew, &
+!!                      glatm, glonm, glatw, glonw
 !!use mem_ijtabs, only: itab_m, jtab_m, jtm_vadj
 !!use misc_coms,  only: io6
 !!use mem_basic,  only: press
@@ -1834,7 +1851,7 @@ end subroutine plot_underground_w
 !!!     Get tile plot coordinates
 !!
 !!      if (op%projectn(iplt) == 'L') then    ! For determining wrap-around direction
-!!         call oplot_transform(iplt,xem(im),yem(im),zem(im),xpt,ypt)
+!!         call oplot_transform(iplt,xem(im),yem(im),zem(im),glonm(im),glatm(im),xpt,ypt)
 !!      endif
 !!
 !!      npoly = itab_m(im)%npoly
@@ -1857,7 +1874,7 @@ end subroutine plot_underground_w
 !!
 !!         endif
 !!
-!!         call oplot_transform(iplt,xew(iw),yew(iw),zew(iw),htpn(j),vtpn(j))
+!!         call oplot_transform(iplt,xew(iw),yew(iw),zew(iw),glonw(iw),glatw(iiw),htpn(j),vtpn(j))
 !!
 !!         ! Avoid wrap-around
 !!         if (op%projectn(iplt) == 'L') call ll_unwrap(xpt,htpn(j))
@@ -1889,7 +1906,7 @@ end subroutine plot_underground_w
 subroutine plot_grid(iplt)
 
   use oplot_coms, only: op
-  use mem_grid,   only: mva, mza, xem, yem, zem, zm
+  use mem_grid,   only: mva, mza, xem, yem, zem, zm, glatm, glonm
   use mem_ijtabs, only: itab_v, jtab_v, jtv_wadj, jtw_prog
   use misc_coms,  only: iparallel
   use mem_para,   only: myrank, mgroupsize, nbytes_real
@@ -1961,8 +1978,10 @@ subroutine plot_grid(iplt)
 
         if (im1 < 2 .or. im2 < 2) cycle
 
-        call oplot_transform(iplt,xem(im1),yem(im1),zem(im1),xp1,yp1)
-        call oplot_transform(iplt,xem(im2),yem(im2),zem(im2),xp2,yp2)
+        call oplot_transform(iplt,xem(im1),yem(im1),zem(im1),glonm(im1),glatm(im1),xp1,yp1)
+        if (xp1 > 1.e11) cycle
+        call oplot_transform(iplt,xem(im2),yem(im2),zem(im2),glonm(im2),glatm(im2),xp2,yp2)
+        if (xp2 > 1.e11) cycle
 
         ! Avoid wrap-around and set iflag180
 
@@ -2254,7 +2273,7 @@ end subroutine plot_grid
 subroutine plot_dualgrid(iplt)
 
   use oplot_coms,  only: op
-  use mem_grid,    only: xew, yew, zew
+  use mem_grid,    only: xew, yew, zew, glatw, glonw
   use mem_ijtabs,  only: itab_v, jtab_v, jtv_wadj
   use misc_coms,   only: iparallel
   use mem_para,    only: myrank, mgroupsize, nbytes_real
@@ -2286,7 +2305,6 @@ subroutine plot_dualgrid(iplt)
      call o_sflush()
      call o_gsplci(6)
      call o_gstxci(6)
-     call o_sflush()
   endif
 
   nu   = 0
@@ -2317,8 +2335,10 @@ subroutine plot_dualgrid(iplt)
      if (iw1 < 2 .or. iw2 < 2) cycle
 
      if (op%pltdualgrid(iplt) == 'D') then
-        call oplot_transform(iplt,xew(iw1),yew(iw1),zew(iw1),xp1,yp1)
-        call oplot_transform(iplt,xew(iw2),yew(iw2),zew(iw2),xp2,yp2)
+        call oplot_transform(iplt,xew(iw1),yew(iw1),zew(iw1),glonw(iw1),glatw(iw1),xp1,yp1)
+        if (xp1 > 1.e11) cycle
+        call oplot_transform(iplt,xew(iw2),yew(iw2),zew(iw2),glonw(iw2),glatw(iw2),xp2,yp2)
+        if (xp2 > 1.e11) cycle
      endif
 
      ! Avoid wrap-around and set iflag180
@@ -2540,8 +2560,12 @@ subroutine plot_sfcgrid(iplt)
 
         ! Get tile plot coordinates.
 
-        call oplot_transform(iplt, sfcg%xem(im1), sfcg%yem(im1), sfcg%zem(im1), xp1, yp1)
-        call oplot_transform(iplt, sfcg%xem(im2), sfcg%yem(im2), sfcg%zem(im2), xp2, yp2)
+        call oplot_transform(iplt, sfcg%xem(im1), sfcg%yem(im1), sfcg%zem(im1), &
+                             sfcg%glonm(im1), sfcg%glatm(im1), xp1, yp1)
+        if (xp1 > 1.e11) cycle
+        call oplot_transform(iplt, sfcg%xem(im2), sfcg%yem(im2), sfcg%zem(im2), &
+                             sfcg%glonm(im2), sfcg%glatm(im2), xp2, yp2)
+        if (xp2 > 1.e11) cycle
 
         ! Avoid wrap-around and set iflag180
 
@@ -2693,7 +2717,6 @@ subroutine plot_grid_frame()
   call o_vector(op%xmax,op%ymax)
   call o_vector(op%xmin,op%ymax)
   call o_vector(op%xmin,op%ymin)
-  call o_sflush()
 
 end subroutine plot_grid_frame
 
@@ -2715,7 +2738,7 @@ subroutine mkmap(iplt)
   if (myrank /= 0) return
 
   if (op%projectn(iplt) == 'L') then
-     scale = op%xmax
+     scale = 0.5 * (op%xmax - op%xmin)
   else
      scale = op%xmax * eradi * piu180
   endif
@@ -2775,11 +2798,11 @@ subroutine mkmap(iplt)
   if (op%maptyp(iplt) == 'm') then
 
      ! Set color of map lines
+     call o_sflush()
      call o_gsplci(op%mapcolor)
      call o_gsfaci(op%mapcolor)
      call o_gstxci(op%mapcolor)
      call o_gslwsc(1.0)
-     call o_sflush()
 
      if (op%has_high_res .and. scale < 9.) then
         ! plot using highest resolution coastlines, international borders,
@@ -2797,20 +2820,18 @@ subroutine mkmap(iplt)
         call o_maplot()
      endif
 
-     call o_sflush()
   endif
 
   if ( op%pltll(iplt) == 'l' ) then
 
      ! Set color of lat/lon lines
+     call o_sflush()
      call o_gsplci(op%llcolor)
      call o_gsfaci(op%llcolor)
      call o_gstxci(op%llcolor)
      call o_gslwsc(1.0)
-     call o_sflush()
 
      call o_mapgrd()  ! Draw lat/lon lines
-     call o_sflush()
 
   endif
 
@@ -2818,15 +2839,16 @@ end subroutine mkmap
 
 !===============================================================================
 
-subroutine oplot_transform(iplt,xeq,yeq,zeq,xout,yout)
+subroutine oplot_transform(iplt,xeq,yeq,zeq,qlon,qlat,xout,yout)
 
   use oplot_coms, only: op
-  use map_proj,   only: ec_ll, de_ps, de_gn, de_or
+  use map_proj,   only: de_ps, de_gn, de_or
 
   implicit none
 
   integer, intent(in)  :: iplt
   real,    intent(in)  :: xeq,yeq,zeq
+  real,    intent(in)  :: qlon,qlat
   real,    intent(out) :: xout,yout
   real                 :: dxe, dye, dze
 
@@ -2834,9 +2856,12 @@ subroutine oplot_transform(iplt,xeq,yeq,zeq,xout,yout)
 
   if (op%projectn(iplt) == 'L') then
 
-     call ec_ll(xeq,yeq,zeq,xout,yout)
+     xout = qlon
+     yout = qlat
+
      ! xout is now true geographic longitude; shift according to specified window center
      xout = xout - op%plon3
+
      if (xout > 180.) then
         xout = xout - 360.
      elseif (xout < -180.) then
@@ -2872,6 +2897,65 @@ subroutine oplot_transform(iplt,xeq,yeq,zeq,xout,yout)
   endif
 
 end subroutine oplot_transform
+
+!===============================================================================
+
+subroutine oplot_transform_xyz(iplt,xeq,yeq,zeq,xout,yout)
+
+  use oplot_coms, only: op
+  use map_proj,   only: ec_ll, de_ps, de_gn, de_or
+
+  implicit none
+
+  integer, intent(in)  :: iplt
+  real,    intent(in)  :: xeq,yeq,zeq
+  real,    intent(out) :: xout,yout
+  real                 :: dxe, dye, dze
+
+  ! Transform to plot frame coordinates
+
+  if (op%projectn(iplt) == 'L') then
+
+     call ec_ll(xeq,yeq,zeq,xout,yout)
+
+     ! xout is now true geographic longitude; shift according to specified window center
+     xout = xout - op%plon3
+
+     if (xout > 180.) then
+        xout = xout - 360.
+     elseif (xout < -180.) then
+        xout = xout + 360.
+     endif
+
+  elseif (op%projectn(iplt) == 'P') then
+
+     dxe = xeq - op%pxe
+     dye = yeq - op%pye
+     dze = zeq - op%pze
+     call de_ps(dxe,dye,dze,op%cosplat,op%sinplat,op%cosplon,op%sinplon,xout,yout)
+
+  elseif (op%projectn(iplt) == 'G') then
+
+     dxe = xeq - op%pxe
+     dye = yeq - op%pye
+     dze = zeq - op%pze
+     call de_gn(dxe,dye,dze,op%cosplat,op%sinplat,op%cosplon,op%sinplon,xout,yout)
+
+  elseif (op%projectn(iplt) == 'O') then
+
+     dxe = xeq - op%pxe
+     dye = yeq - op%pye
+     dze = zeq - op%pze
+     call de_or(dxe,dye,dze,op%cosplat,op%sinplat,op%cosplon,op%sinplon,xout,yout)
+
+  else  ! Cartesian domain
+
+     xout  = xeq - op%plon3
+     yout  = yeq - op%plat3
+
+  endif
+
+end subroutine oplot_transform_xyz
 
 !===============================================================================
 
@@ -3150,7 +3234,8 @@ subroutine oplot_set(iplt)
   use misc_coms,   only: mdomain, iparallel
   use oplot_coms,  only: op
   use oname_coms,  only: nl
-  use mem_grid,    only: xem, yem, xew, yew, zew, zm, zt, mma, mwa, arw0, nza
+  use mem_grid,    only: xem, yem, xew, yew, zew, zm, zt, mma, mwa, arw0, &
+                         nza, glonw, glatw
   use mem_sfcg,    only: sfcg, mwsfc
   use consts_coms, only: erad, pio180
   use mem_para,    only: myrank, mgroupsize
@@ -3209,10 +3294,8 @@ subroutine oplot_set(iplt)
      ! center (Plot center longitude is already accounted for in transformation)
 
      if (op%projectn(iplt) == 'L') then
-        op%xmin = op%plon3 - .5 * nl%plotspecs(iplt)%plotwid
-        op%xmax = op%plon3 + .5 * nl%plotspecs(iplt)%plotwid
-        op%ymin = op%plat3 - .5 * nl%plotspecs(iplt)%plotwid
-        op%ymax = op%plat3 + .5 * nl%plotspecs(iplt)%plotwid
+        op%ymin = op%ymin + op%plat3
+        op%ymax = op%ymax + op%plat3
      endif
 
      ! Special treatment for vertical plot: ymin/ymax related to model Z coordinate
@@ -3249,6 +3332,7 @@ subroutine oplot_set(iplt)
 
         op%xmin = -180.
         op%xmax =  180.
+
         op%ymin =  -90.
         op%ymax =   90.
 
@@ -3372,7 +3456,8 @@ subroutine oplot_set(iplt)
      if (op%stagpt == 'L' .or. op%stagpt == 'S' .or. op%stagpt == 'C') then
 
         do iw = 2,mwsfc
-           call oplot_transform(iplt,sfcg%xew(iw),sfcg%yew(iw),sfcg%zew(iw),xpt,ypt)
+           call oplot_transform(iplt,sfcg%xew(iw),sfcg%yew(iw),sfcg%zew(iw), &
+                                sfcg%glonw(iw),sfcg%glatw(iw),xpt,ypt)
 
            if ( xpt < op%xmin .or. xpt > op%xmax .or.  &
                ypt < op%ymin .or. ypt > op%ymax ) cycle
@@ -3383,7 +3468,7 @@ subroutine oplot_set(iplt)
       else
 
         do iw = 2,mwa
-           call oplot_transform(iplt,xew(iw),yew(iw),zew(iw),xpt,ypt)
+           call oplot_transform(iplt,xew(iw),yew(iw),zew(iw),glonw(iw),glatw(iw),xpt,ypt)
 
            if ( xpt < op%xmin .or. xpt > op%xmax .or.  &
                ypt < op%ymin .or. ypt > op%ymax ) cycle

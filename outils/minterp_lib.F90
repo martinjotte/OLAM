@@ -92,7 +92,7 @@ subroutine init_minterp()
   allocate( minterp( mma ) )
   allocate( itab_m0( mma ) )
 
-  !$omp parallel do private(raxis, raxisi, denom, denomi, &
+  !$omp parallel do private(raxis, raxisi, denom, denomi, res, &
   !$omp                     dxe, dye, dze, xw, yw, n, iw)
   do im = 2, mma
 
@@ -130,14 +130,16 @@ subroutine init_minterp()
      dye = yew( itab_m(im)%iw(1:3) ) - yem(im)
      dze = zew( itab_m(im)%iw(1:3) ) - zem(im)
 
-     minterp(im)%xemin = 1.01 * minval( dxe ) + xem(im)
-     minterp(im)%xemax = 1.01 * maxval( dxe ) + xem(im)
+     res = .1 * sqrt( maxval( dxe**2 + dye**2 + dze**2 ) )
 
-     minterp(im)%yemin = 1.01 * minval( dye ) + yem(im)
-     minterp(im)%yemax = 1.01 * maxval( dye ) + yem(im)
+     minterp(im)%xemin = min(1.1 * minval( dxe ), -res) + xem(im)
+     minterp(im)%xemax = max(1.1 * maxval( dxe ),  res) + xem(im)
 
-     minterp(im)%zemin = 1.01 * minval( dze ) + zem(im)
-     minterp(im)%zemax = 1.01 * maxval( dze ) + zem(im)
+     minterp(im)%yemin = min(1.1 * minval( dye ), -res) + yem(im)
+     minterp(im)%yemax = max(1.1 * maxval( dye ),  res) + yem(im)
+
+     minterp(im)%zemin = min(1.1 * minval( dze ), -res) + zem(im)
+     minterp(im)%zemax = max(1.1 * maxval( dze ),  res) + zem(im)
 
      call de_gn( dxe, dye, dze, &
                  minterp(im)%cosmlat, minterp(im)%sinmlat, &
@@ -204,6 +206,8 @@ subroutine get_weights_lonlat_point(glon, glat, wgts)
 
   ! Loop over all impts to determine which contain the input location
 
+  wgts%imglobe = 1
+
   do j = 1, nm
      call mweights_ec(impts(j), xeg, yeg, zeg, wgts)
      if (wgts%imglobe > 1) exit
@@ -260,6 +264,8 @@ subroutine get_weights_lonlat_1d(glon, glat, wgts, n, iskip)
 
   !$omp parallel do private(nm,impts,j)
   do i = 1, n
+
+     wgts(i)%imglobe = 1
 
      if ( present(iskip) ) then
         if (iskip(i)) cycle
@@ -339,6 +345,8 @@ subroutine get_weights_lonlat_2d(glon, glat, wgts, n1, n2, iskip)
      call ll_ec(glon(:,in2), glat(:,in2), xeg, yeg, zeg, n1)
 
      do in1 = 1, n1
+
+        wgts(in1,in2)%imglobe = 1
 
         if ( present(iskip) ) then
            if (iskip(in1,in2)) cycle
@@ -425,6 +433,8 @@ subroutine get_weights_lonlat_2db(glon, glat, wgts, n1, n2, iskip)
 
      do in1 = 1, n1
         ii = (in2-1)*n1+in1
+
+        wgts(ii)%imglobe = 1
 
         if ( present(iskip) ) then
            if (iskip(in1,in2)) cycle
@@ -518,6 +528,8 @@ subroutine get_weights_lonlat_grid(glon, glat, wgts, nlon, nlat, iskip)
      raxis = erad * cosglat(ilat)
 
      do ilon = 1, nlon
+
+        wgts(ilon,ilat)%imglobe = 1
 
         if ( present(iskip) ) then
            if (iskip(ilat,ilon)) cycle
@@ -619,6 +631,8 @@ subroutine get_weights_lonlat_gridb(glon, glat, wgts, nlon, nlat, iskip)
      do ilon = 1, nlon
         ii = (ilat-1)*nlon + ilon
 
+        wgts(ii)%imglobe = 1
+
         if ( present(iskip) ) then
            if (iskip(ilat,ilon)) cycle
         endif
@@ -680,8 +694,6 @@ subroutine mweights_ec(im, xe, ye, ze, w)
   real :: xp, yp, dxp3, dyp3
   real :: wgts(3)
 
-  w%imglobe = 1
-
   if (xe < minterp(im)%xemin .or. xe > minterp(im)%xemax) return
   if (ye < minterp(im)%yemin .or. ye > minterp(im)%yemax) return
   if (ze < minterp(im)%zemin .or. ze > minterp(im)%zemax) return
@@ -698,13 +710,13 @@ subroutine mweights_ec(im, xe, ye, ze, w)
   dyp3 = yp - minterp(im)%yg3
 
   wgts(1) = dxp3 * minterp(im)%w1factx + dyp3 * minterp(im)%w1facty
-  if (wgts(1) < -5.e-6) return
+  if (wgts(1) < -1.e-5 .or. wgts(1) > 1.01) return
 
   wgts(2) = dxp3 * minterp(im)%w2factx + dyp3 * minterp(im)%w2facty
-  if (wgts(2) < -5.e-6) return
+  if (wgts(2) < -1.e-5 .or. wgts(2) > 1.01) return
 
   wgts(3) = 1.0 - wgts(1) - wgts(2)
-  if (wgts(3) < -5.e-6) return
+  if (wgts(3) < -1.e-5 .or. wgts(2) > 1.01) return
 
   ! if we arrived here, point is in/on the current triangle
 

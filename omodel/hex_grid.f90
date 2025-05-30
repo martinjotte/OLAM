@@ -1067,11 +1067,11 @@ subroutine grid_geometry_hex()
         iw1 = itab_v(iv)%iw(1)
         iw2 = itab_v(iv)%iw(2)
 
-        call oplot_transform(1,xem(im1),yem(im1),zem(im1),xm1,ym1)
-        call oplot_transform(1,xem(im2),yem(im2),zem(im2),xm2,ym2)
-        call oplot_transform(1,xev(iv),yev(iv),zev(iv),xv,yv)
-        call oplot_transform(1,xew(iw2),yew(iw2),zew(iw2),xw2,yw2)
-        call oplot_transform(1,xew(iw1),yew(iw1),zew(iw1),xw1,yw1)
+        call oplot_transform(1,xem(im1),yem(im1),zem(im1),glonm(im1),glatm(im1),xm1,ym1)
+        call oplot_transform(1,xem(im2),yem(im2),zem(im2),glonm(im2),glatm(im2),xm2,ym2)
+        call oplot_transform(1,xev(iv) ,yev(iv) ,zev(iv) ,glonv(iv) ,glatv(iv) ,xv, yv )
+        call oplot_transform(1,xew(iw2),yew(iw2),zew(iw2),glonw(iw2),glatw(iw2),xw2,yw2)
+        call oplot_transform(1,xew(iw1),yew(iw1),zew(iw1),glonw(iw1),glatw(iw1),xw1,yw1)
 
         call trunc_segment(xm1,xm2,ym1,ym2,xq1,xq2,yq1,yq2,iskip)
 

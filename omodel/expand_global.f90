@@ -552,8 +552,8 @@ subroutine expand_global2(iatmgrid)
         im1 = itab_ud(iu)%im(1)
         im2 = itab_ud(iu)%im(2)
 
-        call oplot_transform(1,xemd(im1),yemd(im1),zemd(im1),xp1,yp1)
-        call oplot_transform(1,xemd(im2),yemd(im2),zemd(im2),xp2,yp2)
+        call oplot_transform_xyz(1,xemd(im1),yemd(im1),zemd(im1),xp1,yp1)
+        call oplot_transform_xyz(1,xemd(im2),yemd(im2),zemd(im2),xp2,yp2)
 
         call trunc_segment(xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2,iskip)
 
@@ -1325,8 +1325,8 @@ subroutine expand_global3(iatmgrid)
         im1 = itab_ud(iu)%im(1)
         im2 = itab_ud(iu)%im(2)
 
-        call oplot_transform(1,xemd(im1),yemd(im1),zemd(im1),xp1,yp1)
-        call oplot_transform(1,xemd(im2),yemd(im2),zemd(im2),xp2,yp2)
+        call oplot_transform_xyz(1,xemd(im1),yemd(im1),zemd(im1),xp1,yp1)
+        call oplot_transform_xyz(1,xemd(im2),yemd(im2),zemd(im2),xp2,yp2)
 
         call trunc_segment(xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2,iskip)
 

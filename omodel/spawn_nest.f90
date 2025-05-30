@@ -998,8 +998,8 @@ subroutine spawn_nest(iatmgrid)
            im1 = itab_ud(iu)%im(1)
            im2 = itab_ud(iu)%im(2)
 
-           call oplot_transform(1,xemd(im1),yemd(im1),zemd(im1),xp1,yp1)
-           call oplot_transform(1,xemd(im2),yemd(im2),zemd(im2),xp2,yp2)
+           call oplot_transform_xyz(1,xemd(im1),yemd(im1),zemd(im1),xp1,yp1)
+           call oplot_transform_xyz(1,xemd(im2),yemd(im2),zemd(im2),xp2,yp2)
 
            call trunc_segment(xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2,iskip)
 
@@ -1008,10 +1008,10 @@ subroutine spawn_nest(iatmgrid)
            call o_frstpt (xq1,yq1)
            call o_vector (xq2,yq2)
 
-           call oplot_transform(1, (xemd(im1)+xemd(im2))/2., &
-                                   (yemd(im1)+yemd(im2))/2., &
-                                   (zemd(im1)+zemd(im2))/2., &
-                                   xp1, yp1                  )
+           call oplot_transform_xyz(1, (xemd(im1)+xemd(im2))/2., &
+                                       (yemd(im1)+yemd(im2))/2., &
+                                       (zemd(im1)+zemd(im2))/2., &
+                                       xp1, yp1                  )
 
            if ( xp1 < op%xmin .or.  &
                 xp1 > op%xmax .or.  &
@@ -1092,8 +1092,8 @@ subroutine spawn_nest(iatmgrid)
               im1 = itab_ud(iu)%im(1)
               im2 = itab_ud(iu)%im(2)
 
-              call oplot_transform(1,xemd(im1),yemd(im1),zemd(im1),xp1,yp1)
-              call oplot_transform(1,xemd(im2),yemd(im2),zemd(im2),xp2,yp2)
+              call oplot_transform_xyz(1,xemd(im1),yemd(im1),zemd(im1),xp1,yp1)
+              call oplot_transform_xyz(1,xemd(im2),yemd(im2),zemd(im2),xp2,yp2)
 
               call trunc_segment(xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2,iskip)
 

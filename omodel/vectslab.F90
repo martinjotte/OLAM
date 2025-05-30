@@ -1,7 +1,50 @@
+subroutine vectslab(iplt)
+
+  use oplot_coms, only: op
+  use mem_para,   only: myrank
+
+  implicit none
+
+  integer, intent(in) :: iplt
+
+  call oplot_set(iplt)
+
+  if (myrank == 0) then
+     call o_sflush()
+     call o_gsplci(10)
+     call o_gstxci(10)
+  endif
+
+  if ( op%projectn(iplt) == 'L' .or.  &
+       op%projectn(iplt) == 'P' .or.  &
+       op%projectn(iplt) == 'G' .or.  &
+       op%projectn(iplt) == 'O' .or.  &
+       op%projectn(iplt) == 'Z' ) then
+
+     if ( op%vectbarb(iplt) == 'V' ) call vectslab_horiz_v(iplt)
+
+     if ( op%vectbarb(iplt) == 'w' .or. &
+          op%vectbarb(iplt) == 'B' ) call vectslab_horiz_w(iplt)
+
+     if ( op%vectsea(iplt) == 'Y' ) call vectslab_horiz_vsfc(iplt)
+
+     if ( op%vectsea(iplt) == 'y' ) call vectslab_horiz_wsfc(iplt)
+
+     if ( op%vectsea(iplt) == 'z' ) call vectslab_horiz_umwm(iplt)
+
+  elseif (op%projectn(iplt) == 'C') then  ! etc for 'V'?
+
+  endif
+
+end subroutine vectslab
+
+!===============================================================================
+
 subroutine vectslab_horiz_v(iplt)
 
   use oplot_coms,  only: op
-  use mem_grid,    only: mva, mwa, vnx, vny, vnz, xev, yev, zev
+  use mem_grid,    only: mva, mwa, vnx, vny, vnz, xev, yev, zev, &
+                   glatv, glonv
   use mem_ijtabs,  only: itab_m, itab_v, itab_w, jtab_v, jtv_wadj
   use consts_coms, only: eradi
   use misc_coms,   only: mdomain, iparallel
@@ -85,7 +128,7 @@ subroutine vectslab_horiz_v(iplt)
 
      ! Transform IV coordinates
 
-     call oplot_transform(iplt,xev(iv),yev(iv),zev(iv),pointx,pointy)
+     call oplot_transform(iplt,xev(iv),yev(iv),zev(iv),glonv(iv),glatv(iv),pointx,pointy)
 
      ! Jump out of loop if vector head is outside plot window.
 
@@ -149,9 +192,9 @@ subroutine vectslab_horiz_v(iplt)
 
         ! Transform other tail and coordinates
 
-        call oplot_transform(iplt,tailxe,tailye,tailze,tailx,taily)
-        call oplot_transform(iplt,head1xe,head1ye,head1ze,head1x,head1y)
-        call oplot_transform(iplt,head2xe,head2ye,head2ze,head2x,head2y)
+        call oplot_transform_xyz(iplt,tailxe,tailye,tailze,tailx,taily)
+        call oplot_transform_xyz(iplt,head1xe,head1ye,head1ze,head1x,head1y)
+        call oplot_transform_xyz(iplt,head2xe,head2ye,head2ze,head2x,head2y)
 
         ! Avoid wrap-around
 
@@ -260,7 +303,8 @@ end subroutine vectslab_horiz_v
 subroutine vectslab_horiz_w(iplt)
 
   use oplot_coms,  only: op
-  use mem_grid,    only: mza, mwa, xew, yew, zew, wnx, wny, wnz
+  use mem_grid,    only: mza, mwa, xew, yew, zew, wnx, wny, wnz, &
+                         glatw, glonw
   use mem_ijtabs,  only: itab_w, jtab_w, jtw_prog
   use mem_basic,   only: vxe, vye, vze
   use consts_coms, only: eradi
@@ -350,7 +394,7 @@ do jw = 1, jtab_w(jtw_prog)%jend
 
 ! Transform IV coordinates
 
-   call oplot_transform(iplt,xew(iw),yew(iw),zew(iw),pointx,pointy)
+   call oplot_transform(iplt,xew(iw),yew(iw),zew(iw),glonw(iw),glatw(iw),pointx,pointy)
 
 ! Jump out of loop if vector head is outside plot window.
 
@@ -441,9 +485,9 @@ do jw = 1, jtab_w(jtw_prog)%jend
 
 ! Transform other tail and coordinates
 
-      call oplot_transform(iplt,tailxe,tailye,tailze,tailx,taily)
-      call oplot_transform(iplt,head1xe,head1ye,head1ze,head1x,head1y)
-      call oplot_transform(iplt,head2xe,head2ye,head2ze,head2x,head2y)
+      call oplot_transform_xyz(iplt,tailxe,tailye,tailze,tailx,taily)
+      call oplot_transform_xyz(iplt,head1xe,head1ye,head1ze,head1x,head1y)
+      call oplot_transform_xyz(iplt,head2xe,head2ye,head2ze,head2x,head2y)
 
 ! Avoid wrap-around
 
@@ -492,7 +536,7 @@ do jw = 1, jtab_w(jtw_prog)%jend
 
 ! Transform stem tail
 
-      call oplot_transform(iplt,tailxe,tailye,tailze,tailx,taily)
+      call oplot_transform_xyz(iplt,tailxe,tailye,tailze,tailx,taily)
 
 ! Draw stem
 
@@ -525,9 +569,9 @@ do jw = 1, jtab_w(jtw_prog)%jend
 
 ! Transform triangle coordinates
 
-         call oplot_transform(iplt,xea,yea,zea,xa,ya)
-         call oplot_transform(iplt,xeb,yeb,zeb,xb,yb)
-         call oplot_transform(iplt,xec,yec,zec,xc,yc)
+         call oplot_transform_xyz(iplt,xea,yea,zea,xa,ya)
+         call oplot_transform_xyz(iplt,xeb,yeb,zeb,xb,yb)
+         call oplot_transform_xyz(iplt,xec,yec,zec,xc,yc)
 
 ! Avoid wrap-around
 
@@ -569,8 +613,8 @@ do jw = 1, jtab_w(jtw_prog)%jend
 
 ! Transform triangle coordinates
 
-         call oplot_transform(iplt,xea,yea,zea,xa,ya)
-         call oplot_transform(iplt,xeb,yeb,zeb,xb,yb)
+         call oplot_transform_xyz(iplt,xea,yea,zea,xa,ya)
+         call oplot_transform_xyz(iplt,xeb,yeb,zeb,xb,yb)
 
 ! Avoid wrap-around
 
@@ -608,8 +652,8 @@ do jw = 1, jtab_w(jtw_prog)%jend
 
 ! Transform triangle coordinates
 
-         call oplot_transform(iplt,xea,yea,zea,xa,ya)
-         call oplot_transform(iplt,xeb,yeb,zeb,xb,yb)
+         call oplot_transform_xyz(iplt,xea,yea,zea,xa,ya)
+         call oplot_transform_xyz(iplt,xeb,yeb,zeb,xb,yb)
 
 ! Avoid wrap-around
 
@@ -842,7 +886,8 @@ subroutine vectslab_horiz_vsfc(iplt)
 
      ! Transform IV coordinates
 
-     call oplot_transform(iplt,sfcg%xev(iv),sfcg%yev(iv),sfcg%zev(iv),pointx,pointy)
+     ! sfcg%glonv, sfcg%glatv is not available
+     call oplot_transform_xyz(iplt,sfcg%xev(iv),sfcg%yev(iv),sfcg%zev(iv),pointx,pointy)
 
      ! Jump out of loop if vector head is outside plot window.
 
@@ -896,9 +941,9 @@ subroutine vectslab_horiz_vsfc(iplt)
 
         ! Transform other tail and coordinates
 
-        call oplot_transform(iplt,tailxe,tailye,tailze,tailx,taily)
-        call oplot_transform(iplt,head1xe,head1ye,head1ze,head1x,head1y)
-        call oplot_transform(iplt,head2xe,head2ye,head2ze,head2x,head2y)
+        call oplot_transform_xyz(iplt,tailxe,tailye,tailze,tailx,taily)
+        call oplot_transform_xyz(iplt,head1xe,head1ye,head1ze,head1x,head1y)
+        call oplot_transform_xyz(iplt,head2xe,head2ye,head2ze,head2x,head2y)
 
         ! Avoid wrap-around
 
@@ -1055,7 +1100,8 @@ subroutine vectslab_horiz_wsfc(iplt)
 
      ! Transform IV coordinates
 
-     call oplot_transform(iplt,sfcg%xew(iw),sfcg%yew(iw),sfcg%zew(iw),pointx,pointy)
+     call oplot_transform(iplt,sfcg%xew(iw),sfcg%yew(iw),sfcg%zew(iw), &
+                          sfcg%glonw(iw),sfcg%glatw(iw),pointx,pointy)
 
      ! Jump out of loop if vector head is outside plot window.
 
@@ -1112,9 +1158,9 @@ subroutine vectslab_horiz_wsfc(iplt)
 
      ! Transform other tail and coordinates
 
-     call oplot_transform(iplt,tailxe,tailye,tailze,tailx,taily)
-     call oplot_transform(iplt,head1xe,head1ye,head1ze,head1x,head1y)
-     call oplot_transform(iplt,head2xe,head2ye,head2ze,head2x,head2y)
+     call oplot_transform_xyz(iplt,tailxe,tailye,tailze,tailx,taily)
+     call oplot_transform_xyz(iplt,head1xe,head1ye,head1ze,head1x,head1y)
+     call oplot_transform_xyz(iplt,head2xe,head2ye,head2ze,head2x,head2y)
 
      ! Avoid wrap-around
 
@@ -1276,7 +1322,8 @@ subroutine vectslab_horiz_umwm(iplt)
 
      ! Transform IV coordinates
 
-     call oplot_transform(iplt,sfcg%xew(iwsfc),sfcg%yew(iwsfc),sfcg%zew(iwsfc),pointx,pointy)
+     call oplot_transform(iplt,sfcg%xew(iwsfc),sfcg%yew(iwsfc),sfcg%zew(iwsfc), &
+                          sfcg%glonw(iwsfc),sfcg%glatw(iwsfc),pointx,pointy)
 
      ! Jump out of loop if vector head is outside plot window.
 
@@ -1348,9 +1395,9 @@ subroutine vectslab_horiz_umwm(iplt)
 
      ! Transform other tail and coordinates
 
-     call oplot_transform(iplt,tailxe,tailye,tailze,tailx,taily)
-     call oplot_transform(iplt,head1xe,head1ye,head1ze,head1x,head1y)
-     call oplot_transform(iplt,head2xe,head2ye,head2ze,head2x,head2y)
+     call oplot_transform_xyz(iplt,tailxe,tailye,tailze,tailx,taily)
+     call oplot_transform_xyz(iplt,head1xe,head1ye,head1ze,head1x,head1y)
+     call oplot_transform_xyz(iplt,head2xe,head2ye,head2ze,head2x,head2y)
 
      ! Avoid wrap-around
 

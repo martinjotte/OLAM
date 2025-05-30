@@ -90,7 +90,8 @@ subroutine plot_harvey(iplt)
 
         ! Transform hurricane earth coords to whatever projection is in use
 
-        call oplot_transform(iplt,xeh,yeh,zeh,xsims(imodel,ihour),ysims(imodel,ihour))
+        call oplot_transform(iplt,xeh,yeh,zeh,mlon(imodel,ihour),mlat(imodel,ihour), &
+                             xsims(imodel,ihour),ysims(imodel,ihour))
 
         write(6,'(3i5,2x,a,i6,2f6.1,2f12.1)') &
            imodel, ihour, numhours(imodel), &
@@ -174,7 +175,7 @@ subroutine plot_harvey(iplt)
 
         ! Transform hurricane earth coords to whatever projection is in use
 
-        call oplot_transform(iplt,xeh,yeh,zeh,xobs(idat),yobs(idat))
+        call oplot_transform(iplt,xeh,yeh,zeh,flon(idat),flat(idat),xobs(idat),yobs(idat))
 
         ! Find "earth" coordinates of sim1 hurricane center
 
@@ -185,7 +186,7 @@ subroutine plot_harvey(iplt)
 
         ! Transform hurricane earth coords to whatever projection is in use
 
-        call oplot_transform(iplt,xeh,yeh,zeh,xsim1(idat),ysim1(idat))
+        call oplot_transform(iplt,xeh,yeh,zeh,lonsim1(idat),latsim1(idat),xsim1(idat),ysim1(idat))
 
         ! Find "earth" coordinates of sim2 hurricane center
 
@@ -196,7 +197,7 @@ subroutine plot_harvey(iplt)
 
         ! Transform hurricane earth coords to whatever projection is in use
 
-        call oplot_transform(iplt,xeh,yeh,zeh,xsim2(idat),ysim2(idat))
+        call oplot_transform(iplt,xeh,yeh,zeh,lonsim2(idat),latsim2(idat),xsim2(idat),ysim2(idat))
 
      enddo
 

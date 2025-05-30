@@ -552,8 +552,8 @@ subroutine spring_dynamics_nest( niter, moveint, ngr, nxp, nma, nua, nwa, &
            im1 = itab_ud(iu)%im(1)
            im2 = itab_ud(iu)%im(2)
 
-           call oplot_transform(1,xem(im1),yem(im1),zem(im1),xp1,yp1)
-           call oplot_transform(1,xem(im2),yem(im2),zem(im2),xp2,yp2)
+           call oplot_transform_xyz(1,xem(im1),yem(im1),zem(im1),xp1,yp1)
+           call oplot_transform_xyz(1,xem(im2),yem(im2),zem(im2),xp2,yp2)
 
            call trunc_segment(xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2,iskip)
 
@@ -570,10 +570,10 @@ subroutine spring_dynamics_nest( niter, moveint, ngr, nxp, nma, nua, nwa, &
            im2 = itab_wd(iw)%im(2)
            im3 = itab_wd(iw)%im(3)
 
-           call oplot_transform(1, (xem(im1)+xem(im2)+xem(im3))/3., &
-                                   (yem(im1)+yem(im2)+yem(im3))/3., &
-                                   (zem(im1)+zem(im2)+zem(im3))/3., &
-                                   xp1, yp1                         )
+           call oplot_transform_xyz(1, (xem(im1)+xem(im2)+xem(im3))/3., &
+                                       (yem(im1)+yem(im2)+yem(im3))/3., &
+                                       (zem(im1)+zem(im2)+zem(im3))/3., &
+                                       xp1, yp1                         )
 
            if ( xp1 < op%xmin .or.  &
                 xp1 > op%xmax .or.  &
@@ -862,8 +862,8 @@ subroutine spring_dynamics_globe( niter, nxp, nma, nua, nwa, xem, yem, zem, &
            im1 = itab_ud(iu)%im(1)
            im2 = itab_ud(iu)%im(2)
 
-           call oplot_transform(1,xem(im1),yem(im1),zem(im1),xp1,yp1)
-           call oplot_transform(1,xem(im2),yem(im2),zem(im2),xp2,yp2)
+           call oplot_transform_xyz(1,xem(im1),yem(im1),zem(im1),xp1,yp1)
+           call oplot_transform_xyz(1,xem(im2),yem(im2),zem(im2),xp2,yp2)
 
            call trunc_segment(xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2,iskip)
 
@@ -880,10 +880,10 @@ subroutine spring_dynamics_globe( niter, nxp, nma, nua, nwa, xem, yem, zem, &
            im2 = itab_wd(iw)%im(2)
            im3 = itab_wd(iw)%im(3)
 
-           call oplot_transform(1, (xem(im1)+xem(im2)+xem(im3))/3., &
-                                   (yem(im1)+yem(im2)+yem(im3))/3., &
-                                   (zem(im1)+zem(im2)+zem(im3))/3., &
-                                   xp1, yp1                         )
+           call oplot_transform_xyz(1, (xem(im1)+xem(im2)+xem(im3))/3., &
+                                       (yem(im1)+yem(im2)+yem(im3))/3., &
+                                       (zem(im1)+zem(im2)+zem(im3))/3., &
+                                       xp1, yp1                         )
 
            if ( xp1 < op%xmin .or.  &
                 xp1 > op%xmax .or.  &

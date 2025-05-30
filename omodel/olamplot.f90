@@ -36,6 +36,7 @@ end subroutine ll_unwrap
 subroutine oplot_prtvalue(value,xpt,ypt,vsprd,psiz,itab)
 
 use plotcolors, only: clrtab
+use oplot_coms, only: op
 
 implicit none
 
@@ -44,9 +45,6 @@ integer, intent(in) :: itab
 
 character(len=20) :: number,numbr
 integer :: ln
-
-call o_gsplci(10)
-call o_gstxci(10)
 
 if     (clrtab(itab)%ifmt(2) == 7) then
    write (number,'(f12.7)') value
@@ -87,7 +85,7 @@ else
    ln = len_trim(numbr)
 endif
 
- call o_plchlq(xpt,ypt+vsprd,numbr(1:ln),0.7 * psiz,0.,0.)
+call o_plchlq(xpt,ypt+vsprd,numbr(1:ln),0.7 * psiz,0.,0.)
 
 end subroutine oplot_prtvalue
 
@@ -528,8 +526,8 @@ call trunc_polyg(np,xp,yp,nr,xr,yr)
 !hs Also, uncomment following 3 lines to bypass call to trunc_polyg
 
 !hs nr = np
-!hs xr(:) = xp(:)
-!hs yr(:) = yp(:)
+!hs xr(1:nr) = xp(:)
+!hs yr(1:nr) = yp(:)
 
 ! END SPECIAL
 
@@ -930,7 +928,7 @@ call o_set (op%hp1,op%hp2,op%vp1,op%vp2,0.,1.,0.,1.,1)
 ! Specify font # and scale font size to designated plotter coordinates
 
 call o_pcsetr('CL',1.)  ! set character line width to 1.
-call o_pcseti ('FN',4)  ! set font number to 4 (font 2 is similar but wider spacing)
+call o_pcseti ('FN',op%ncarg_font)  ! set font number to 4 (font 2 is similar but wider spacing)
 
 bsize = .012 * (op%hp2 - op%hp1)
 
@@ -950,9 +948,10 @@ endif
 
 ! Set color
 
+call o_sflush()
 call o_gsplci(10)
 call o_gstxci(10)
-call o_sflush()
+call o_gsfaci(10)
 
 ! Plot field name and units
 
@@ -1047,8 +1046,9 @@ call o_set (op%hp1,op%hp2,op%vp1,op%vp2,0.,1.,0.,1.,1)
 
 ! Specify font # and scale font size to designated plotter coordinates
 
-call o_pcseti ('FN',4)  ! set font number to 4 (font 2 is similar but wider spacing)
+call o_pcseti('FN',op%ncarg_font)  ! set font number to 4 (font 2 is similar but wider spacing)
 call o_pcsetr('CL',1.)  ! set character line width to 1
+
 bsize = .009 * (op%hp2 - op%hp1)
 !bsize = .015 * (op%hp2 - op%hp1)
 
@@ -1057,7 +1057,7 @@ call o_gstxci(10)
 
 ! Compute height increment of colorbar boxes
 
-yinc = (op%fy2 - op%fy1) / float(clrtab(itab)%nvals)
+yinc = (op%fy2 - op%fy1) / real(clrtab(itab)%nvals)
 
 ! Loop over colorbar boxes
 
@@ -1089,7 +1089,7 @@ do ibox = 1,clrtab(itab)%nvals
 
 ! For current colorbar box, compute top and bottom y coords
 
-   ybox(1) = op%fy1 + float(ibox-1) * yinc
+   ybox(1) = op%fy1 + real(ibox-1) * yinc
    ybox(2) = ybox(1)
    ybox(3) = ybox(2) + yinc
    ybox(4) = ybox(3)
@@ -1174,6 +1174,8 @@ do ibox = 1,clrtab(itab)%nvals
 
 ! Print value of current colorbar box
 
+   if (op%ncarg_font > 20) call o_gsfaci(10)
+
    if (ifmt >= 10) then     ! integer value at box center
       call o_plchhq (op%cblx,.5*(ybox(1)+ybox(3)),numbr(1:ln),bsize,0.,-1.)
    elseif (ibox < clrtab(itab)%nvals) then  ! real value at box top
@@ -1182,12 +1184,13 @@ do ibox = 1,clrtab(itab)%nvals
 
 ! Plot color in current colorbar box
 
-   call fillpolyg (4,xbox,ybox,clrtab(itab)%ipal(ibox))
+!  Don't use fillpolyg here because it truncates to the ggeographic plot
+!  bounding box and the colorbars are not in geographic coordinates.
+!  call fillpolyg (4,xbox,ybox,clrtab(itab)%ipal(ibox))
+
+   call o_sfsgfa(xbox,ybox,4,clrtab(itab)%ipal(ibox))
 
 ! Draw outline around current colorbar box
-
-   call o_gsplci(10)
-   call o_gstxci(10)
 
    call o_frstpt(xbox(4),ybox(4))
    do jbox = 1,4
@@ -1227,7 +1230,7 @@ real :: dashlen, dist, remain, step, xfac, yfac, asp2, x, y, eps
 
 ! Set plot color (black)
 
- call o_sflush()
+!call o_sflush()
  call o_gsplci(10)
  call o_gsfaci(10)
  call o_gstxci(10)
@@ -1249,9 +1252,8 @@ real :: dashlen, dist, remain, step, xfac, yfac, asp2, x, y, eps
 
 ! Specify font # and scale font size to designated plotter coordinates
 
- call o_sflush()
- call o_pcseti ('FN',4)  ! set font number to 4 (font 2 is similar but wider spacing)
- call o_pcsetr('CL',1.)  ! set character line width to 1
+ call o_pcseti('FN',op%ncarg_font)  ! set font number to 4 (font 2 is similar but wider spacing)
+ call o_pcsetr('CL',1.0)  ! set character line width to 1
 
 sizelab = scalelab * (op%hp2 - op%hp1)
 
@@ -1432,12 +1434,11 @@ enddo
 
 ! Set plot color (linecolor)
 
- call o_sflush()
+!call o_sflush()
  call o_gsplci(linecolor)
  call o_gsfaci(linecolor)
  call o_gstxci(linecolor)
  call o_gslwsc(1.) ! line width
-
 
 if (ndashes <= 0) then
 
@@ -1541,7 +1542,7 @@ real :: dashlen, dist, remain, step, xfac, yfac, asp2, x, y, eps, yy
 
 ! Set plot color (black)
 
- call o_sflush()
+!call o_sflush()
  call o_gsplci(10)
  call o_gsfaci(10)
  call o_gstxci(10)
@@ -1562,10 +1563,10 @@ real :: dashlen, dist, remain, step, xfac, yfac, asp2, x, y, eps, yy
 
 ! Specify font # and scale font size to designated plotter coordinates
 
- call o_pcseti ('FN',4)  ! set font number to 4 (font 2 is similar but wider spacing)
+ call o_pcseti ('FN',op%ncarg_font)  ! set font number to 4 (font 2 is similar but wider spacing)
  call o_pcsetr('CL',1.)  ! set character line width to 1
  sizelab = scalelab * (op%hp2 - op%hp1)
- call o_sflush()
+!call o_sflush()
 
 ! Write x axis label
 
@@ -1705,7 +1706,7 @@ enddo
 
 ! Set plot color (linecolor)
 
- call o_sflush()
+!call o_sflush()
  call o_gsplci(linecolor)
  call o_gsfaci(linecolor)
  call o_gstxci(linecolor)
@@ -1815,7 +1816,7 @@ character(len=20)  :: numbr
 
 ! Set plot color (black)
 
- call o_sflush()
+!call o_sflush()
  call o_gsplci(10)
  call o_gsfaci(10)
  call o_gstxci(10)
@@ -1836,10 +1837,10 @@ character(len=20)  :: numbr
 
 ! Specify font # and scale font size to designated plotter coordinates
 
- call o_pcseti ('FN',4)  ! set font number to 4 (font 2 is similar but wider spacing)
+ call o_pcseti ('FN',op%ncarg_font)  ! set font number to 4 (font 2 is similar but wider spacing)
  call o_pcsetr('CL',1.)  ! set character line width to 1
  sizelab = scalelab * (op%hp2 - op%hp1)
- call o_sflush()
+!call o_sflush()
 
 ! Write x axis label
 
@@ -1979,7 +1980,7 @@ enddo
 
 ! Set plot color (linecolor)
 
- call o_sflush()
+!call o_sflush()
  call o_gsplci(linecolor)
  call o_gsfaci(linecolor)
  call o_gstxci(linecolor)
@@ -2095,18 +2096,16 @@ end subroutine oplot_xy2loglog10
 
 ! Set plot color (black)
 
-  call o_sflush()
+! call o_sflush()
   call o_gsplci(10)
   call o_gsfaci(10)
   call o_gstxci(10)
   call o_gslwsc(1.) ! line width
-  call o_pcsetr('CL',1.)  ! set character line width to 1
 
 ! Specify font # and scale font size to designated plotter coordinates
 
   call o_pcsetr('CL',1.)  ! set character line width to 1.
-  call o_pcseti ('FN',4)  ! set font number to 4 (font 2 is similar but wider spacing)
-  sizelab = scalelab * (op%hp2 - op%hp1)
+  call o_pcseti('FN',op%ncarg_font)  ! set font number to 4 (font 2 is similar but wider spacing)
 
 ! Plot field name and units
 

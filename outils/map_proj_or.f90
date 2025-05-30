@@ -680,7 +680,7 @@ end subroutine de_or_2d
 
 !============================================================================
 
-subroutine or_ec_sing(xeq,yeq,zeq,polelat,polelon,x,y)
+subroutine or_ec_sing(xeq,yeq,zeq,polelat,polelon,x,y,iskip)
 
   use consts_coms, only: pio180, erad, eradsq
   implicit none
@@ -692,6 +692,8 @@ subroutine or_ec_sing(xeq,yeq,zeq,polelat,polelon,x,y)
   real, intent(in)  :: polelon
   real, intent(in)  :: x
   real, intent(in)  :: y
+
+  logical, optional, intent(out) :: iskip
 
   real :: sinplat, cosplat
   real :: sinplon, cosplon
@@ -726,6 +728,10 @@ subroutine or_ec_sing(xeq,yeq,zeq,polelat,polelon,x,y)
   yq = y
   zq = sqrt( max(0., eradsq - x*x - y*y) ) - erad
 
+  if (present(iskip)) then
+     iskip = ( x*x + y*y > .999 * eradsq )
+  endif
+
   ! Transform q point located on the earth's surface from or coordinates (xq,yq,zq)
   ! to earth coordinates (xe,ye,ze).  The orthographic plane has its origin
   ! at the pole point, with the z axis pointing radially outward from the center
@@ -740,7 +746,7 @@ end subroutine or_ec_sing
 
 !============================================================================
 
-subroutine or_ec_1d(xeq,yeq,zeq,polelat,polelon,x,y,n)
+subroutine or_ec_1d(xeq,yeq,zeq,polelat,polelon,x,y,n,iskip)
 
   use consts_coms, only: pio180, erad, eradsq
   implicit none
@@ -753,6 +759,8 @@ subroutine or_ec_1d(xeq,yeq,zeq,polelat,polelon,x,y,n)
   real,    intent(in)  :: polelon
   real,    intent(in)  :: x(n)
   real,    intent(in)  :: y(n)
+
+  logical, optional, intent(out) :: iskip(n)
 
   real    :: sinplat, cosplat
   real    :: sinplon, cosplon
@@ -790,6 +798,10 @@ subroutine or_ec_1d(xeq,yeq,zeq,polelat,polelon,x,y,n)
      yq = y(i)
      zq = sqrt( max(0., eradsq - x(i)*x(i) - y(i)*y(i)) ) - erad
 
+     if (present(iskip)) then
+        iskip(i) = ( x(i)*x(i) + y(i)*y(i) > .999 * eradsq )
+     endif
+
      ! Transform q point located on the earth's surface from or coordinates (xq,yq,zq)
      ! to earth coordinates (xe,ye,ze).  The orthographic plane has its origin
      ! at the pole point, with the z axis pointing radially outward from the center
@@ -806,7 +818,7 @@ end subroutine or_ec_1d
 
 !============================================================================
 
-subroutine or_ec_2d(xeq,yeq,zeq,polelat,polelon,x,y,n1,n2)
+subroutine or_ec_2d(xeq,yeq,zeq,polelat,polelon,x,y,n1,n2,iskip)
 
   use consts_coms, only: pio180, erad, eradsq
   implicit none
@@ -819,6 +831,8 @@ subroutine or_ec_2d(xeq,yeq,zeq,polelat,polelon,x,y,n1,n2)
   real,    intent(in)  :: polelon
   real,    intent(in)  :: x(n1,n2)
   real,    intent(in)  :: y(n1,n2)
+
+  logical, optional, intent(out) :: iskip(n1,n2)
 
   real    :: sinplat, cosplat
   real    :: sinplon, cosplon
@@ -858,6 +872,10 @@ subroutine or_ec_2d(xeq,yeq,zeq,polelat,polelon,x,y,n1,n2)
         yq = y(i,j)
         zq = sqrt( max(0., eradsq - x(i,j)*x(i,j) - y(i,j)*y(i,j)) ) - erad
 
+        if (present(iskip)) then
+           iskip(i,j) = ( x(i,j)*x(i,j) + y(i,j)*y(i,j) > .999 * eradsq )
+        endif
+
         ! Transform q point located on the earth's surface from or coordinates (xq,yq,zq)
         ! to earth coordinates (xe,ye,ze).  The orthographic plane has its origin
         ! at the pole point, with the z axis pointing radially outward from the center
@@ -876,7 +894,7 @@ end subroutine or_ec_2d
 
 !============================================================================
 
-subroutine or_ec_2d_xygrid(xeq,yeq,zeq,polelat,polelon,x,y,n1,n2)
+subroutine or_ec_2d_xygrid(xeq,yeq,zeq,polelat,polelon,x,y,n1,n2,iskip)
 
   use consts_coms, only: pio180, erad, eradsq
   implicit none
@@ -889,6 +907,8 @@ subroutine or_ec_2d_xygrid(xeq,yeq,zeq,polelat,polelon,x,y,n1,n2)
   real,    intent(in)    :: polelon
   real,    intent(in)    :: x(n1)
   real,    intent(in)    :: y(n2)
+
+  logical, optional, intent(out) :: iskip(n1,n2)
 
   real    :: sinplat, cosplat
   real    :: sinplon, cosplon
@@ -932,6 +952,10 @@ subroutine or_ec_2d_xygrid(xeq,yeq,zeq,polelat,polelon,x,y,n1,n2)
         xq = x(i)
         zq = sqrt( max(0., eeyy - x(i)*x(i)) ) - erad
 
+        if (present(iskip)) then
+           iskip(i,j) = ( x(i)*x(i) + y(j)*y(j) > .999 * eradsq )
+        endif
+
         ! Transform q point located on the earth's surface from or coordinates (xq,yq,zq)
         ! to earth coordinates (xe,ye,ze).  The orthographic plane has its origin
         ! at the pole point, with the z axis pointing radially outward from the center
@@ -950,7 +974,7 @@ end subroutine or_ec_2d_xygrid
 
 !============================================================================
 
-subroutine or_ll_sing(qlat,qlon,polelat,polelon,x,y)
+subroutine or_ll_sing(qlat,qlon,polelat,polelon,x,y,iskip)
 
   use consts_coms, only: pio180, erad, eradsq, piu180
   implicit none
@@ -961,6 +985,8 @@ subroutine or_ll_sing(qlat,qlon,polelat,polelon,x,y)
   real, intent(in)  :: polelon
   real, intent(in)  :: x
   real, intent(in)  :: y
+
+  logical, optional, intent(out) :: iskip
 
   real :: sinplat, cosplat
   real :: sinplon, cosplon
@@ -995,6 +1021,10 @@ subroutine or_ll_sing(qlat,qlon,polelat,polelon,x,y)
   yq = y
   zq = sqrt( max(0., eradsq - x*x - y*y) ) - erad
 
+  if (present(iskip)) then
+     iskip = ( x*x + y*y > .999 * eradsq )
+  endif
+
   ! Transform q point located on the earth's surface from or coordinates (xq,yq,zq)
   ! to earth coordinates (xe,ye,ze).  The orthographic plane has its origin
   ! at the pole point, with the z axis pointing radially outward from the center
@@ -1015,7 +1045,7 @@ end subroutine or_ll_sing
 
 !============================================================================
 
-subroutine or_ll_1d(qlat,qlon,polelat,polelon,x,y,n)
+subroutine or_ll_1d(qlat,qlon,polelat,polelon,x,y,n,iskip)
 
   use consts_coms, only: pio180, erad, eradsq, piu180
   implicit none
@@ -1027,6 +1057,8 @@ subroutine or_ll_1d(qlat,qlon,polelat,polelon,x,y,n)
   real,    intent(in)  :: polelon
   real,    intent(in)  :: x(n)
   real,    intent(in)  :: y(n)
+
+  logical, optional, intent(out) :: iskip(n)
 
   real    :: sinplat, cosplat
   real    :: sinplon, cosplon
@@ -1064,6 +1096,10 @@ subroutine or_ll_1d(qlat,qlon,polelat,polelon,x,y,n)
      yq = y(i)
      zq = sqrt( max(0., eradsq - x(i)*x(i) - y(i)*y(i)) ) - erad
 
+     if (present(iskip)) then
+        iskip(i) = ( x(i)*x(i) + y(i)*y(i) > .999 * eradsq )
+     endif
+
      ! Transform q point located on the earth's surface from or coordinates (xq,yq,zq)
      ! to earth coordinates (xe,ye,ze).  The orthographic plane has its origin
      ! at the pole point, with the z axis pointing radially outward from the center
@@ -1086,7 +1122,7 @@ end subroutine or_ll_1d
 
 !============================================================================
 
-subroutine or_ll_2d(qlat,qlon,polelat,polelon,x,y,n1,n2)
+subroutine or_ll_2d(qlat,qlon,polelat,polelon,x,y,n1,n2,iskip)
 
   use consts_coms, only: pio180, erad, eradsq, piu180
   implicit none
@@ -1098,6 +1134,8 @@ subroutine or_ll_2d(qlat,qlon,polelat,polelon,x,y,n1,n2)
   real,    intent(in)  :: polelon
   real,    intent(in)  :: x(n1,n2)
   real,    intent(in)  :: y(n1,n2)
+
+  logical, optional, intent(out) :: iskip(n1,n2)
 
   real    :: sinplat, cosplat
   real    :: sinplon, cosplon
@@ -1137,6 +1175,10 @@ subroutine or_ll_2d(qlat,qlon,polelat,polelon,x,y,n1,n2)
         yq = y(i,j)
         zq = sqrt( max(0., eradsq - x(i,j)*x(i,j) - y(i,j)*y(i,j)) ) - erad
 
+        if (present(iskip)) then
+           iskip(i,j) = ( x(i,j)*x(i,j) + y(i,j)*y(i,j) > .999 * eradsq )
+        endif
+
         ! Transform q point located on the earth's surface from or coordinates (xq,yq,zq)
         ! to earth coordinates (xe,ye,ze).  The orthographic plane has its origin
         ! at the pole point, with the z axis pointing radially outward from the center
@@ -1161,7 +1203,7 @@ end subroutine or_ll_2d
 
 !============================================================================
 
-subroutine or_ll_2d_xygrid(qlat,qlon,polelat,polelon,x,y,n1,n2)
+subroutine or_ll_2d_xygrid(qlat,qlon,polelat,polelon,x,y,n1,n2,iskip)
 
   use consts_coms, only: pio180, erad, eradsq, piu180
   implicit none
@@ -1173,6 +1215,8 @@ subroutine or_ll_2d_xygrid(qlat,qlon,polelat,polelon,x,y,n1,n2)
   real,    intent(in)  :: polelon
   real,    intent(in)  :: x(n1)
   real,    intent(in)  :: y(n2)
+
+  logical, optional, intent(out) :: iskip(n1,n2)
 
   real    :: sinplat, cosplat
   real    :: sinplon, cosplon
@@ -1216,6 +1260,10 @@ subroutine or_ll_2d_xygrid(qlat,qlon,polelat,polelon,x,y,n1,n2)
         xq = x(i)
         zq = sqrt( max(0., eeyy - x(i)*x(i)) ) - erad
 
+        if (present(iskip)) then
+           iskip(i,j) = ( x(i)*x(i) + y(j)*y(j) > .999 * eradsq )
+        endif
+
         ! Transform q point located on the earth's surface from or coordinates (xq,yq,zq)
         ! to earth coordinates (xe,ye,ze).  The orthographic plane has its origin
         ! at the pole point, with the z axis pointing radially outward from the center
@@ -1240,7 +1288,7 @@ end subroutine or_ll_2d_xygrid
 
 !============================================================================
 
-subroutine or_de_sing(dxe,dye,dze,cosplat,sinplat,cosplon,sinplon,x,y)
+subroutine or_de_sing(dxe,dye,dze,cosplat,sinplat,cosplon,sinplon,x,y,iskip)
 
   use consts_coms, only: erad, eradsq
   implicit none
@@ -1254,6 +1302,8 @@ subroutine or_de_sing(dxe,dye,dze,cosplat,sinplat,cosplon,sinplon,x,y)
   real, intent(in)  :: sinplon
   real, intent(in)  :: x
   real, intent(in)  :: y
+
+  logical, optional, intent(out) :: iskip
 
   real :: xq, yq, zq
 
@@ -1272,6 +1322,10 @@ subroutine or_de_sing(dxe,dye,dze,cosplat,sinplat,cosplon,sinplon,x,y)
   yq = y
   zq = sqrt( max(0., eradsq - x*x - y*y) ) - erad
 
+  if (present(iskip)) then
+     iskip = ( x*x + y*y > .999 * eradsq )
+  endif
+
   ! Transform q point located on the earth's surface from or coordinates (xq,yq,zq)
   ! to earth coordinates (xe,ye,ze).  The orthographic plane has its origin
   ! at the pole point, with the z axis pointing radially outward from the center
@@ -1286,7 +1340,7 @@ end subroutine or_de_sing
 
 !============================================================================
 
-subroutine or_de_1d(dxe,dye,dze,cosplat,sinplat,cosplon,sinplon,x,y,n)
+subroutine or_de_1d(dxe,dye,dze,cosplat,sinplat,cosplon,sinplon,x,y,n,iskip)
 
   use consts_coms, only: erad, eradsq
   implicit none
@@ -1301,6 +1355,8 @@ subroutine or_de_1d(dxe,dye,dze,cosplat,sinplat,cosplon,sinplon,x,y,n)
   real,    intent(in)  :: sinplon
   real,    intent(in)  :: x(n)
   real,    intent(in)  :: y(n)
+
+  logical, optional, intent(out) :: iskip(n)
 
   real    :: xq, yq, zq
   integer :: i
@@ -1322,6 +1378,10 @@ subroutine or_de_1d(dxe,dye,dze,cosplat,sinplat,cosplon,sinplon,x,y,n)
      yq = y(i)
      zq = sqrt( max(0., eradsq - x(i)*x(i) - y(i)*y(i)) ) - erad
 
+     if (present(iskip)) then
+        iskip(i) = ( x(i)*x(i) + y(i)*y(i) > .999 * eradsq )
+     endif
+
      ! Transform q point located on the earth's surface from or coordinates (xq,yq,zq)
      ! to earth coordinates (xe,ye,ze).  The orthographic plane has its origin
      ! at the pole point, with the z axis pointing radially outward from the center
@@ -1338,7 +1398,7 @@ end subroutine or_de_1d
 
 !============================================================================
 
-subroutine or_de_2d(dxe,dye,dze,cosplat,sinplat,cosplon,sinplon,x,y,n1,n2)
+subroutine or_de_2d(dxe,dye,dze,cosplat,sinplat,cosplon,sinplon,x,y,n1,n2,iskip)
 
   use consts_coms, only: erad, eradsq
   implicit none
@@ -1353,6 +1413,8 @@ subroutine or_de_2d(dxe,dye,dze,cosplat,sinplat,cosplon,sinplon,x,y,n1,n2)
   real,    intent(in)  :: sinplon
   real,    intent(in)  :: x(n1,n2)
   real,    intent(in)  :: y(n1,n2)
+
+  logical, optional, intent(out) :: iskip(n1,n2)
 
   real    :: xq, yq, zq
   integer :: i, j
@@ -1376,6 +1438,10 @@ subroutine or_de_2d(dxe,dye,dze,cosplat,sinplat,cosplon,sinplon,x,y,n1,n2)
         yq = y(i,j)
         zq = sqrt( max(0., eradsq - x(i,j)*x(i,j) - y(i,j)*y(i,j)) ) - erad
 
+        if (present(iskip)) then
+           iskip(i,j) = ( x(i,j)*x(i,j) + y(i,j)*y(i,j) > .999 * eradsq )
+        endif
+
         ! Transform q point located on the earth's surface from or coordinates (xq,yq,zq)
         ! to earth coordinates (xe,ye,ze).  The orthographic plane has its origin
         ! at the pole point, with the z axis pointing radially outward from the center
@@ -1394,7 +1460,7 @@ end subroutine or_de_2d
 
 !============================================================================
 
-subroutine or_de_2d_xygrid(dxe,dye,dze,cosplat,sinplat,cosplon,sinplon,x,y,n1,n2)
+subroutine or_de_2d_xygrid(dxe,dye,dze,cosplat,sinplat,cosplon,sinplon,x,y,n1,n2,iskip)
 
   use consts_coms, only: erad, eradsq
   implicit none
@@ -1409,6 +1475,8 @@ subroutine or_de_2d_xygrid(dxe,dye,dze,cosplat,sinplat,cosplon,sinplon,x,y,n1,n2
   real,    intent(in)  :: sinplon
   real,    intent(in)  :: x(n1)
   real,    intent(in)  :: y(n2)
+
+  logical, optional, intent(out) :: iskip(n1,n2)
 
   real    :: xq, yq, zq
   real    :: eeyy
@@ -1435,6 +1503,10 @@ subroutine or_de_2d_xygrid(dxe,dye,dze,cosplat,sinplat,cosplon,sinplon,x,y,n1,n2
 
         xq = x(i)
         zq = sqrt( max(0., eeyy - x(i)*x(i)) ) - erad
+
+        if (present(iskip)) then
+           iskip(i,j) = ( x(i)*x(i) + y(j)*y(j) > .999 * eradsq )
+        endif
 
         ! Transform q point located on the earth's surface from or coordinates (xq,yq,zq)
         ! to earth coordinates (xe,ye,ze).  The orthographic plane has its origin
