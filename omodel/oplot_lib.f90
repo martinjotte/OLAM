@@ -1478,13 +1478,16 @@ case(46) ! 'DIVERG'
 
          iv = itab_w(i)%iv(j)
 
-         fldval = fldval &
+         ! Prevent divide by zero if we include underground cells
 
-                + wtbot * vmc(k,iv) * (-itab_w(i)%dirv(j)) * arv(k,iv) &
-                        / (volt(k,i) * rho(k,i)) &
+         if (k >= lpw(i)) fldval = fldval &
+              + wtbot * vmc(k,iv) * (-itab_w(i)%dirv(j)) * arv(k,iv) &
+              / real(volt(k,i) * rho(k,i))
 
-                + wttop * vmc(kp,iv) * (-itab_w(i)%dirv(j)) * arv(kp,iv) &
-                        / (volt(kp,i) * rho(kp,i))
+         if (kp >= lpw(i)) fldval = fldval &
+              + wttop * vmc(kp,iv) * (-itab_w(i)%dirv(j)) * arv(kp,iv) &
+              / real(volt(kp,i) * rho(kp,i))
+
       enddo
    endif
 

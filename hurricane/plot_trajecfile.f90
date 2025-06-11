@@ -101,7 +101,8 @@ subroutine plot_trajecfile(iplt)
 
         ! Transform hurricane earth coords to whatever projection is in use
 
-        call oplot_transform(iplt,xeh,yeh,zeh,xsims(imodel,ihour),ysims(imodel,ihour))
+        call oplot_transform(iplt,xeh,yeh,zeh,mlon(imodel,ihour),mlat(imodel,ihour),&
+                             xsims(imodel,ihour),ysims(imodel,ihour))
 
         write(6,'(3i5,2x,a,i6,2f6.1,2f12.1)') &
            imodel, ihour, numhours(imodel), &

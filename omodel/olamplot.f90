@@ -1230,7 +1230,7 @@ real :: dashlen, dist, remain, step, xfac, yfac, asp2, x, y, eps
 
 ! Set plot color (black)
 
-!call o_sflush()
+ call o_sflush()
  call o_gsplci(10)
  call o_gsfaci(10)
  call o_gstxci(10)
@@ -1434,7 +1434,7 @@ enddo
 
 ! Set plot color (linecolor)
 
-!call o_sflush()
+ call o_sflush()
  call o_gsplci(linecolor)
  call o_gsfaci(linecolor)
  call o_gstxci(linecolor)
@@ -1542,7 +1542,7 @@ real :: dashlen, dist, remain, step, xfac, yfac, asp2, x, y, eps, yy
 
 ! Set plot color (black)
 
-!call o_sflush()
+ call o_sflush()
  call o_gsplci(10)
  call o_gsfaci(10)
  call o_gstxci(10)
@@ -1566,7 +1566,6 @@ real :: dashlen, dist, remain, step, xfac, yfac, asp2, x, y, eps, yy
  call o_pcseti ('FN',op%ncarg_font)  ! set font number to 4 (font 2 is similar but wider spacing)
  call o_pcsetr('CL',1.)  ! set character line width to 1
  sizelab = scalelab * (op%hp2 - op%hp1)
-!call o_sflush()
 
 ! Write x axis label
 
@@ -1706,7 +1705,7 @@ enddo
 
 ! Set plot color (linecolor)
 
-!call o_sflush()
+ call o_sflush()
  call o_gsplci(linecolor)
  call o_gsfaci(linecolor)
  call o_gstxci(linecolor)
@@ -1816,7 +1815,7 @@ character(len=20)  :: numbr
 
 ! Set plot color (black)
 
-!call o_sflush()
+ call o_sflush()
  call o_gsplci(10)
  call o_gsfaci(10)
  call o_gstxci(10)
@@ -1840,7 +1839,6 @@ character(len=20)  :: numbr
  call o_pcseti ('FN',op%ncarg_font)  ! set font number to 4 (font 2 is similar but wider spacing)
  call o_pcsetr('CL',1.)  ! set character line width to 1
  sizelab = scalelab * (op%hp2 - op%hp1)
-!call o_sflush()
 
 ! Write x axis label
 
@@ -1980,7 +1978,7 @@ enddo
 
 ! Set plot color (linecolor)
 
-!call o_sflush()
+ call o_sflush()
  call o_gsplci(linecolor)
  call o_gsfaci(linecolor)
  call o_gstxci(linecolor)
@@ -2096,7 +2094,7 @@ end subroutine oplot_xy2loglog10
 
 ! Set plot color (black)
 
-! call o_sflush()
+  call o_sflush()
   call o_gsplci(10)
   call o_gsfaci(10)
   call o_gstxci(10)

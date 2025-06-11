@@ -135,7 +135,7 @@ end subroutine olam_mpi_sfc_start
 
 !===============================================================================
 
-subroutine mpi_send_wsfc(set, soil_watfrac, div2d_ex)
+subroutine mpi_send_wsfc(set, soil_watfrac, div2d_ex, rvar, ivar)
 
   ! Subroutine to perform a parallel MPI send of a "WSFC group"
   ! of field variables
@@ -144,7 +144,7 @@ subroutine mpi_send_wsfc(set, soil_watfrac, div2d_ex)
   use mpi
 #endif
 
-  use mem_sfcg,  only: sfcg
+  use mem_sfcg,  only: sfcg, mwsfc
   use mem_land,  only: nzg, land, mland, omland
   use mem_lake,  only: lake, omlake
   use mem_sea,   only: sea, msea, omsea
@@ -155,8 +155,10 @@ subroutine mpi_send_wsfc(set, soil_watfrac, div2d_ex)
   implicit none
 
   character(*), optional, intent(in) :: set
-  real, optional, intent(inout) :: soil_watfrac(nzg,mland)
-  real, optional, intent(inout) :: div2d_ex(msea)
+  real,    optional, intent(inout) :: soil_watfrac(nzg,mland)
+  real,    optional, intent(inout) :: div2d_ex(msea)
+  real,    optional, intent(inout) :: rvar(mwsfc)
+  integer, optional, intent(inout) :: ivar(mwsfc)
 
 #ifdef OLAM_MPI
 
@@ -394,6 +396,18 @@ subroutine mpi_send_wsfc(set, soil_watfrac, div2d_ex)
 
            endif
 
+        elseif (set == 'plot_avg') then
+
+           if (present(rvar)) then
+              call MPI_Pack(rvar(iwsfc),1,MPI_REAL, &
+                            send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
+           endif
+
+           if (present(ivar)) then
+              call MPI_Pack(ivar(iwsfc),1,MPI_INTEGER, &
+                            send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
+           endif
+
         endif
 
      enddo
@@ -628,7 +642,7 @@ end subroutine mpi_send_msfc
 
 !=============================================================================
 
-subroutine mpi_recv_wsfc(set, soil_watfrac, div2d_ex)
+subroutine mpi_recv_wsfc(set, soil_watfrac, div2d_ex, rvar, ivar)
 
   ! Subroutine to perform a parallel MPI receive of a "WSFC group"
   ! of field variables
@@ -637,7 +651,7 @@ subroutine mpi_recv_wsfc(set, soil_watfrac, div2d_ex)
   use mpi
 #endif
 
-  use mem_sfcg,  only: sfcg
+  use mem_sfcg,  only: sfcg, mwsfc
   use leaf_coms, only: nzs
   use sea_coms,  only: nzi
   use mem_land,  only: nzg, mland, land, omland
@@ -648,8 +662,10 @@ subroutine mpi_recv_wsfc(set, soil_watfrac, div2d_ex)
   implicit none
 
   character(*), optional, intent(in) :: set
-  real, optional, intent(inout) :: soil_watfrac(nzg,mland)
-  real, optional, intent(inout) :: div2d_ex(msea)
+  real,    optional, intent(inout) :: soil_watfrac(nzg,mland)
+  real,    optional, intent(inout) :: div2d_ex(msea)
+  real,    optional, intent(inout) :: rvar(mwsfc)
+  integer, optional, intent(inout) :: ivar(mwsfc)
 
 #ifdef OLAM_MPI
 
@@ -888,6 +904,18 @@ subroutine mpi_recv_wsfc(set, soil_watfrac, div2d_ex)
               call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
                               sea%windze(isea),1,MPI_REAL,MPI_COMM_WORLD,ierr)
 
+           endif
+
+        elseif (set == 'plot_avg') then
+
+           if (present(rvar)) then
+              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                              rvar(iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+           endif
+
+           if (present(ivar)) then
+              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                              ivar(iwsfc),1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
            endif
 
         endif

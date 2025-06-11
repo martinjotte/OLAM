@@ -247,7 +247,7 @@ end subroutine mpi_send_v
 
 !=============================================================================
 
-subroutine mpi_send_m(rvara1, rvara2, i1dvara1)
+subroutine mpi_send_m(rvara1, rvara2, r1dvara1, i1dvara1)
 
 #ifdef OLAM_MPI
   use mpi
@@ -257,6 +257,7 @@ subroutine mpi_send_m(rvara1, rvara2, i1dvara1)
 
   real,    optional, contiguous, intent(in) :: rvara1(:,:)
   real,    optional, contiguous, intent(in) :: rvara2(:,:)
+  real,    optional, contiguous, intent(in) :: r1dvara1(:)
   integer, optional, contiguous, intent(in) :: i1dvara1(:)
 
 #ifdef OLAM_MPI
@@ -285,17 +286,22 @@ subroutine mpi_send_m(rvara1, rvara2, i1dvara1)
 
         if (present(rvara1)) then
            call MPI_Pack(rvara1(:,im),size(rvara1,1),MPI_REAL, &
-           send_m(jsend)%buff,send_m(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+                send_m(jsend)%buff,send_m(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
         endif
 
         if (present(rvara2)) then
            call MPI_Pack(rvara2(:,im),size(rvara2,1),MPI_REAL, &
-           send_m(jsend)%buff,send_m(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+                send_m(jsend)%buff,send_m(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+        endif
+
+        if (present(r1dvara1)) then
+           call MPI_Pack(r1dvara1(im),1,MPI_REAL, &
+                send_m(jsend)%buff,send_m(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
         endif
 
         if (present(i1dvara1)) then
            call MPI_Pack(i1dvara1(im),1,MPI_INTEGER, &
-           send_m(jsend)%buff,send_m(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
+                send_m(jsend)%buff,send_m(jsend)%nbytes,ipos,MPI_COMM_WORLD,ierr)
         endif
 
      enddo
@@ -758,7 +764,7 @@ end subroutine mpi_recv_v
 
 !=============================================================================
 
-subroutine mpi_recv_m(rvara1, rvara2, i1dvara1)
+subroutine mpi_recv_m(rvara1, rvara2, r1dvara1, i1dvara1)
 
 ! Subroutine to perform a parallel MPI receive of a "M group"
 ! of field variables
@@ -771,6 +777,7 @@ subroutine mpi_recv_m(rvara1, rvara2, i1dvara1)
 
   real,    optional, contiguous, intent(inout) :: rvara1(:,:)
   real,    optional, contiguous, intent(inout) :: rvara2(:,:)
+  real,    optional, contiguous, intent(inout) :: r1dvara1(:)
   integer, optional, contiguous, intent(inout) :: i1dvara1(:)
 
 #ifdef OLAM_MPI
@@ -807,6 +814,11 @@ subroutine mpi_recv_m(rvara1, rvara2, i1dvara1)
         if (present(rvara2)) then
            call MPI_Unpack(recv_m(jrecv)%buff,recv_m(jrecv)%nbytes,ipos, &
                 rvara2(:,im),size(rvara2,1),MPI_REAL,MPI_COMM_WORLD,ierr)
+        endif
+
+        if (present(r1dvara1)) then
+           call MPI_Unpack(recv_m(jrecv)%buff,recv_m(jrecv)%nbytes,ipos, &
+                r1dvara1(im),1,MPI_REAL,MPI_COMM_WORLD,ierr)
         endif
 
         if (present(i1dvara1)) then
