@@ -351,12 +351,12 @@ subroutine vectslab_horiz_w(iplt)
   integer, parameter :: maxhalf =  1
   integer            :: ntris, nbarb, nhalf
 
-real :: xtris(3,maxtris), ytris(3,maxtris)
-real :: xbarb(2,maxbarb), ybarb(2,maxbarb)
-real :: xhalf(2,maxhalf), yhalf(2,maxhalf)
+  real :: xtris(3,maxtris), ytris(3,maxtris)
+  real :: xbarb(2,maxbarb), ybarb(2,maxbarb)
+  real :: xhalf(2,maxhalf), yhalf(2,maxhalf)
 
-real :: speed, pc, xt, xea, yea, zea, xeb, yeb, zeb, xec, yec, zec
-real :: xa, ya, xb, yb, xc, yc
+  real :: speed, pc, xt, xea, yea, zea, xeb, yeb, zeb, xec, yec, zec
+  real :: xa, ya, xb, yb, xc, yc
 
   integer, allocatable :: buffer(:), bcopy(:)
   integer :: nu, ier, buffsize, ipos, base, inc, j, n, is, kp
@@ -365,8 +365,8 @@ real :: xa, ya, xb, yb, xc, yc
 
 ! Find cell K indices on the given plot surface
 
-op%stagpt = 'T'
-call horizplot_k(iplt,mwa,ktf,kw,wtbot,wttop)
+  op%stagpt = 'T'
+  call horizplot_k(iplt,mwa,ktf,kw,wtbot,wttop)
 
   nu   = 0
   ipos = 0
@@ -546,6 +546,19 @@ do jw = 1, jtab_w(jtw_prog)%jend
 
       call oplot_transform_xyz(iplt,tailxe,tailye,tailze,tailx,taily)
 
+! Avoid wrap-around
+
+      if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,tailx)
+
+! Jump out of loop if any cell corner is on other side of earth
+
+      if (tailx > 1.e11) cycle
+
+! Jump out of loop if tail is outside plot window.
+
+      if ( tailx  < op%xmin .or. tailx  > op%xmax .or. &
+           taily  < op%ymin .or. taily  > op%ymax ) cycle
+
 ! Draw stem
 
       if (myrank == 0) then
@@ -580,6 +593,10 @@ do jw = 1, jtab_w(jtw_prog)%jend
          call oplot_transform_xyz(iplt,xea,yea,zea,xa,ya)
          call oplot_transform_xyz(iplt,xeb,yeb,zeb,xb,yb)
          call oplot_transform_xyz(iplt,xec,yec,zec,xc,yc)
+
+! Avoid out-of-bounds
+
+         if (xa > 1.e11 .or. xb > 1.e11 .or. xc > 1.e11) exit
 
 ! Avoid wrap-around
 
@@ -624,6 +641,10 @@ do jw = 1, jtab_w(jtw_prog)%jend
          call oplot_transform_xyz(iplt,xea,yea,zea,xa,ya)
          call oplot_transform_xyz(iplt,xeb,yeb,zeb,xb,yb)
 
+! Avoid out-of-bounds
+
+         if (xa > 1.e11 .or. xb > 1.e11) exit
+
 ! Avoid wrap-around
 
          if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,xa)
@@ -662,6 +683,10 @@ do jw = 1, jtab_w(jtw_prog)%jend
 
          call oplot_transform_xyz(iplt,xea,yea,zea,xa,ya)
          call oplot_transform_xyz(iplt,xeb,yeb,zeb,xb,yb)
+
+! Avoid out-of-bounds
+
+         if (xa > 1.e11 .or. xb > 1.e11) exit
 
 ! Avoid wrap-around
 

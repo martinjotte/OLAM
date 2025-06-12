@@ -293,6 +293,9 @@ subroutine contslab_grid_tw(iplt)
 
   if (myrank == 0) then
 
+     op%fldval_min = minval(fieldxy, mask = fieldxy > -.99e29)
+     op%fldval_max = maxval(fieldxy, mask = fieldxy > -.99e29)
+
      allocate(icolor(nx))
 
      itab = op%icolortab(iplt)
@@ -689,6 +692,9 @@ subroutine contslab_grid_mp(iplt)
 #endif
 
   if (myrank == 0) then
+
+     op%fldval_min = minval(fieldxy, mask = fieldxy > -.99e29)
+     op%fldval_max = maxval(fieldxy, mask = fieldxy > -.99e29)
 
      allocate(icolor(nx))
 
@@ -1140,6 +1146,9 @@ subroutine contslab_grid_wsfc(iplt)
 #endif
 
   if (myrank == 0) then
+
+     op%fldval_min = minval(fieldxy, mask = fieldxy > -.99e29)
+     op%fldval_max = maxval(fieldxy, mask = fieldxy > -.99e29)
 
      allocate(icolor(nx))
 
