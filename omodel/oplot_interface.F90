@@ -1,6 +1,6 @@
 subroutine oplot_init()
 
-  use oplot_coms, only: op
+  use oplot_coms, only: op, op_grid, op_vect
   use plotcolors, only: gks_colors
   use mem_para,   only: myrank
   use sys_utils,  only: set_environment_variable
@@ -69,6 +69,11 @@ subroutine oplot_init()
   op%loopplot  = 0
   op%icigrnd   = 13
   op%iplotback = 0
+
+  ! Allocate space to hold information for regridded plots
+
+  allocate( op_grid( max(0,op%nplt) ) )
+  allocate( op_vect( max(0,op%nplt) ) )
 
 end subroutine oplot_init
 
@@ -269,7 +274,7 @@ subroutine plot_fields(id)
 
      call vectslab(iplt)
 
-     ! If running hurricane tracking, location and/or trajectory can be plotted 
+     ! If running hurricane tracking, location and/or trajectory can be plotted
      ! in various ways:
 
      if (ncycle_hurrinit > 0) then
@@ -461,39 +466,82 @@ subroutine slab(iplt)
        op%projectn(iplt) == 'O' .or.  &
        op%projectn(iplt) == 'Z' ) then  ! For horizontal plotting...
 
-     if ( op%contrtyp(iplt) /= 'F' .and. op%contrtyp(iplt) /= 'L' .and.  &
-          op%contrtyp(iplt) /= 'O' ) then
+     if ( op%contrtyp(iplt) == 'T' ) then
 
         if (op%stagpt == 'T' .or. op%stagpt == 'W') then
-           call tileslab_horiz_tw(iplt,'T')
+
+           if (op%gridded(iplt) == 'R') then
+              call tileslab_grid_tw(iplt)
+           else
+              call tileslab_horiz_tw(iplt,'T')
+           endif
+
         elseif (op%stagpt == 'M' .or. op%stagpt == 'P') then
-           call tileslab_horiz_mp(iplt,'T')
+
+           if (op%gridded(iplt) == 'R') then
+              call tileslab_grid_mp(iplt)
+           else
+              call tileslab_horiz_mp(iplt,'T')
+           endif
+
         elseif (op%stagpt == 'V' .or. op%stagpt == 'N') then
+
            call tileslab_horiz_vn(iplt,'T')
+
         elseif (op%stagpt == 'L' .or. & ! land cells
                 op%stagpt == 'R' .or. & ! lake cells
                 op%stagpt == 'S' .or. & ! sea cells
                 op%stagpt == 'C') then  ! for "common" sfc cells
-           call tileslab_horiz_wsfc(iplt,'T')
+
+           if (op%gridded(iplt) == 'R') then
+              call tileslab_grid_wsfc(iplt)
+           else
+              call tileslab_horiz_wsfc(iplt,'T')
+           endif
+
         elseif (op%stagpt == 'B') then  ! common V points
+
            call tileslab_horiz_vsfc(iplt,'T')
+
         endif
 
      else
 
-        if     (op%stagpt == 'T' .or. op%stagpt == 'W') then
-           call contslab_horiz_tw(iplt)
+        if (op%stagpt == 'T' .or. op%stagpt == 'W') then
+
+           if (op%gridded(iplt) == 'R') then
+              call contslab_grid_tw(iplt)
+           else
+              call contslab_horiz_tw(iplt)
+           endif
+
         elseif (op%stagpt == 'V' .or. op%stagpt == 'N') then
+
            call contslab_horiz_vn(iplt)
+
         elseif (op%stagpt == 'M' .or. op%stagpt == 'P') then
-           call contslab_horiz_mp(iplt)
+
+           if (op%gridded(iplt) == 'R') then
+              call contslab_grid_mp(iplt)
+           else
+              call contslab_horiz_mp(iplt)
+           endif
+
         elseif (op%stagpt == 'H') then
+
            call contslab_topmw(iplt)
+
         elseif (op%stagpt == 'L' .or. & ! land cells
                 op%stagpt == 'R' .or. & ! lake cells
                 op%stagpt == 'S' .or. & ! sea cells
                 op%stagpt == 'C') then  ! for "common" sfc cells
-           call contslab_horiz_sfc(iplt)
+
+           if (op%gridded(iplt) == 'R') then
+              call contslab_grid_wsfc(iplt)
+           else
+              call contslab_horiz_sfc(iplt)
+           endif
+
         endif
 
      endif

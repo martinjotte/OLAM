@@ -24,7 +24,15 @@ subroutine vectslab(iplt)
      if ( op%vectbarb(iplt) == 'V' ) call vectslab_horiz_v(iplt)
 
      if ( op%vectbarb(iplt) == 'w' .or. &
-          op%vectbarb(iplt) == 'B' ) call vectslab_horiz_w(iplt)
+          op%vectbarb(iplt) == 'B' ) then
+
+        if (op%gridded(iplt) == 'R') then
+           call vectgrid_horiz_w(iplt)
+        else
+           call vectslab_horiz_w(iplt)
+        endif
+
+     endif
 
      if ( op%vectsea(iplt) == 'Y' ) call vectslab_horiz_vsfc(iplt)
 

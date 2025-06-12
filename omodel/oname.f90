@@ -412,6 +412,9 @@ subroutine copy_nl()
   op%mapcolor   = nl%mapcolor
   op%llcolor    = nl%llcolor
 
+  op%nx_grid    = nl%nx_grid
+  op%nx_vect    = nl%nx_vect
+
   if (nl%ifont > 0) then
      op%ncarg_font = nl%ifont
   endif
@@ -489,6 +492,8 @@ subroutine copy_nl()
      if (index(nl%plotspecs(i)%pltspec2,'9') > 0) op%panel(i) = '9'
 
      if (index(nl%plotspecs(i)%pltspec2,'u') > 0) op%noundrg(i) = 'u'
+
+     if (index(nl%plotspecs(i)%pltspec2,'R') > 0) op%gridded(i) = 'R'
   enddo
 
 end subroutine copy_nl

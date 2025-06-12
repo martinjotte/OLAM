@@ -75,6 +75,7 @@ SOURCE_FILES= \
              $(OMODEL)/cart_hex.f90 \
              $(OMODEL)/coneplot.f90 \
              $(OMODEL)/contslab.F90 \
+             $(OMODEL)/contslab_grid.F90 \
              $(OMODEL)/expand_global.f90 \
              $(OMODEL)/fields3_ll.F90 \
              $(OMODEL)/fill_itabs.f90 \
@@ -119,10 +120,12 @@ SOURCE_FILES= \
              $(OMODEL)/spring_dynamics.f90 \
              $(OMODEL)/surface_fluxes.f90 \
              $(OMODEL)/tileslab.F90 \
+             $(OMODEL)/tileslab_grid.F90 \
              $(OMODEL)/timeseries_plots.f90 \
              $(OMODEL)/timestep.f90 \
              $(OMODEL)/triangle_utils.f90 \
              $(OMODEL)/vectslab.F90 \
+             $(OMODEL)/vectgrid.F90 \
              $(OMODEL)/vel_t3d.f90 \
              $(OMODEL)/vort_div_damp.f90 \
              $(OUTILS)/analysis_lib.f90 \

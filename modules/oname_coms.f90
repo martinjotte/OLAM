@@ -441,6 +441,10 @@ Module oname_coms
      integer :: ncolortabs = 0
      integer :: ifont      = 0
 
+     ! For regridded 'R' plots
+     integer :: nx_grid  = 100
+     integer :: nx_vect  =  25
+
      character(pathlen) :: pltname     = 'gmeta'
      character(10)      :: prtval_size = 'medium'
 

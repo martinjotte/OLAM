@@ -885,6 +885,9 @@
   NL%LLCOLOR  = 10     ! Color of lat/lon lines.                13 - dark gray
                        ! (see plotcolors for all color values)  14 - light gray
 
+  NL%NX_GRID = 150     ! Number of points along X direction to plot for 'R' plot
+  NL%NX_VECT = 50      ! Number of wind vectors to plot along X direction for 'R' plot
+
   NL%NCOLORTABS = 16   ! Number of color tables defined in OLAMIN
 
   NL%COLORTABS =       ! Definition of color tables (colortab# must be in range 500-550)
@@ -938,9 +941,10 @@
  !               \              f,h     = frameoff (no frame call)
  !                \             1,2,3,4 = panel number in frame window
  !                 \            u       = Do not mask out underground cells
- !                  \           |
- !                   \          |                                          view azim
- !                    \         |          plot center    coneang,  window   for 'C'
+ !                  \           R       = Regrid to a x,y analysis before plotting
+ !                   \          |
+ !                    \         |                                           view azim
+ !                     |        |          plot center    coneang,  window   for 'C'
  !                     |  color |            lon/lat       height,  width     or 'V'
  !FLDNAME              |  tab#  |            or x/y       or p-lev   (m)     projectn
  !--------------------------------------------------------------------------------------
