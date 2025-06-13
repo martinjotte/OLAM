@@ -1449,7 +1449,7 @@ subroutine contslab_horiz_sfc(iplt)
      call oplot_lib( k, iwn, 'VALUE', op%fldname(iplt), wtbot, wttop, &
                      opltvals(iwn), notavail(iwn) )
   enddo
-  !$omp end paralell do
+  !$omp end parallel do
 
   ! Communicate plot values to border cells
 
