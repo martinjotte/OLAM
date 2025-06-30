@@ -15,11 +15,11 @@ use mem_basic,   only: vmc, wmc, vc, wc, rho, press, &
 use mem_cuparm,  only: conprr, aconpr, qwcon, cbmf
 
 use mem_grid,    only: mza, lpm, lpv, lpw, lsw, &
-                       zt, dzt, dnu, dnv, arw0, arm0, arv, arw, volt, &
+                       zt, dzt, dnu, dnv, arw0, arw0i, arm0, arv, arw, volt, &
                        xem, yem, zem, &
                        xev, yev, zev, xew, yew, zew, &
                        topm, topw, glatm, glonm, glatv, glonv, glatw, glonw, &
-                       vnx, vny, vnz, wnx, wny, wnz, &
+                       vnx, vny, vnz, wnx, wny, wnz, unx, uny, unz, &
                        wnxo2, wnyo2, wnzo2, dzt_bot
 
 use mem_micro,   only: rr_c, rr_d, rr_r, rr_p, rr_s, rr_a, rr_g, rr_h, &
@@ -151,7 +151,7 @@ integer, intent(out) :: notavail  ! 0 - variable is available
                                   ! 4 - variable is not available in current grid cell
                                   !     (e.g., no sfcwater fracliq when no sfcwater)
 
-integer :: klev,nls,jv,im,iv,iw,kp,k,i
+integer :: klev,nls,jv,im,iv,iw,kp,k,i,iwn
 real :: raxis,u,v,rpolyi,raxisi
 real :: vx, vy, vz
 real :: tempk, fracliq
@@ -753,7 +753,7 @@ data fldlib(1:4,722:753)/ &
 
 ! Miscellaneous and new additions
 
-data fldlib(1:4,771:796)/ &
+data fldlib(1:4,771:798)/ &
  'RHO_OBS'       ,'T3' ,'NUDGING OBS AIR DENSITY',' (kg m:S2:-3  )'         ,& ! 771
  'THETA_OBS'     ,'T3' ,'NUDGING OBS THETA',' (K)'                          ,& ! 772
  'RRV_OBS'       ,'T3' ,'NUDGING OBS VAPOR MIXR',' (g kg:S2:-1  )'          ,& ! 773
@@ -779,7 +779,9 @@ data fldlib(1:4,771:796)/ &
  'CLDNUM'        ,'T2' ,'CLOUD # CONCEN (GEOG)',' (# mg:S2:-1  )'           ,& ! 793
  'ADDSC1_ZINT'   ,'T2' ,'VERTICAL INTEGRAL ADDED SCALAR 1',' ( )'           ,& ! 794
  'ADDSC2_ZINT'   ,'T2' ,'VERTICAL INTEGRAL ADDED SCALAR 2',' ( )'           ,& ! 795
- 'ADDSC1P2_ZINT' ,'T2' ,'VERTICAL INTEGRAL ADDED SCALARS 1+2',' ( )'         / ! 796
+ 'ADDSC1P2_ZINT' ,'T2' ,'VERTICAL INTEGRAL ADDED SCALARS 1+2',' ( )'        ,& ! 796
+ 'RVORTZW'       ,'T3' ,'REL VORTZ AT W',' (s:S2:-1  )'                     ,& ! 797
+ 'TVORTZW'       ,'T3' ,'TOT VORTZ AT W',' (s:S2:-1  )'                     /  ! 798
 
 ! External fields
 
@@ -5148,6 +5150,31 @@ case(796) ! 'ADDSC1P2_ZINT'
    ! special for dcmip 2016:
 
    fldval = fldval / 4.0e-6
+
+case(797:798) ! RVORTW, TVORTW
+
+   if (.not. allocated(vxe)) go to 1000
+
+   fldval = 0.
+
+   do j = 1, itab_w(i)%npoly
+      iv  = itab_w(i)%iv(j)
+      iwn = itab_w(i)%iw(j)
+
+      fldval = fldval &
+           - dnu(iv) * itab_w(i)%dirv(j) * ( unx(iv) * ( wtbot * (vxe(k ,iwn) + vxe(k, i)) &
+                                                       + wttop * (vxe(kp,iwn) + vxe(kp,i)) ) &
+                                           + uny(iv) * ( wtbot * (vye(k ,iwn) + vye(k, i)) &
+                                                       + wttop * (vye(kp,iwn) + vye(kp,i)) ) &
+                                           + unz(iv) * ( wtbot * (vze(k ,iwn) + vze(k, i)) &
+                                                       + wttop * (vze(kp,iwn) + vze(kp,i)) ) )
+   enddo
+
+   fldval = 0.5 * fldval * arw0i(i)
+
+   if (icase == 798) then
+      fldval = fldval + omega2 * zew(i) * eradi  ! add earth vorticity at W point
+   endif
 
 case default
 

@@ -35,11 +35,11 @@ subroutine oplot_init()
         enddo
 
         ! check for newer medium resolution maps
-        filenm = dirnm(1:i-1) // "/Earth..2.lines"
+        filenm = dirnm(1:i-1) // "/Earth..1.lines"
         inquire(file=filenm, exist=op%has_med_res)
 
         ! check for newest high resolution maps
-        filenm = dirnm(1:i-1) // "/Earth..4.lines"
+        filenm = dirnm(1:i-1) // "/Earth..3.lines"
         inquire(file=filenm, exist=op%has_high_res)
 
      else
@@ -1050,6 +1050,7 @@ subroutine plot_index_sfc(iplt)
   ! Plot W point indices
 
   if ( op%pltindx2(iplt) == 'j' .or.  &
+       op%pltindx2(iplt) == 'i' .or.  &
        trim(op%stagpt)   == 'L' .or.  &
        trim(op%stagpt)   == 'S' .or.  &
        trim(op%stagpt)   == 'C') then
@@ -2814,12 +2815,12 @@ subroutine mkmap(iplt)
      call o_mapsti('GR',20)
   endif
 
-  if (scale < 20.) then
+  if (scale < 35.) then
      call o_mapstc('OU','PS')  ! To plot continental, international, and US state outlines
-  elseif (scale < 45.) then
+  elseif (scale < 60.) then
      call o_mapstc('OU','PO')  ! To plot continental outlines + international outlines
   else
-     call o_mapstc('OU','CO')  ! To plot continental outlines
+     call o_mapstc('OU','CO')  ! To plot continental outlines only
   endif
 
   if (op%projectn(iplt) == 'L') then
@@ -2852,17 +2853,18 @@ subroutine mkmap(iplt)
      call o_gstxci(op%mapcolor)
      call o_gslwsc(1.0)
 
-     if (op%has_high_res .and. scale < 9.) then
+!    if (op%has_high_res .and. scale < 10.) then
         ! plot using highest resolution coastlines, international borders,
         ! and US/Can/Mex states
-        call o_mplndr('Earth..4',4)
-     elseif (op%has_med_res .and. scale < 20.) then
+!       call o_mplndr('Earth..4',4)
+     if (op%has_high_res .and. scale < 15.) then
         ! plot using medium resolution coastlines, international borders,
         ! and US/Can/Mex states
-        call o_mplndr('Earth..2',4)
+        call o_mplndr('Earth..3',4)
      elseif (op%has_med_res .and. scale < 25.) then
-        ! plot using medium resolution coastlines and international borders
-        call o_mplndr('Earth..2',3)
+        ! plot using medium resolution coastlines and international borders,
+        ! and US states
+        call o_mplndr('Earth..1',4)
      else
         ! plot using original low resolution coastlines
         call o_maplot()
