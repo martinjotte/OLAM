@@ -80,7 +80,7 @@ objects/Make.targets: $(SOURCE_FILES) sources.mk include.mk Makefile
 	@rm -f objects/Make.targets
 	@for sfile in $(SOURCE_FILES); do \
 	    dfile=objects/$$(basename $$sfile); \
-	    echo $$dfile: $$sfile $$'\n\tcp' -p $$sfile $$dfile; \
+	    printf "%s\n\t%s\n" "$$dfile: $$sfile" "cp -p $$sfile $$dfile"; \
 	done > objects/Make.targets
 
 $(EXE): $(OBJECT_FILES)
