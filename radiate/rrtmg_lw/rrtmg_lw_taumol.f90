@@ -351,6 +351,7 @@
          scalen2 = colbrd(lay) * scaleminorn2(lay)
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng1
             tauself = selffac0(lay) * selfref(ig,indself(lay)) + &
                       selffac1(lay) * selfref(ig,indself(lay)+1)
@@ -378,6 +379,7 @@
          scalen2 = colbrd(lay) * scaleminorn2(lay)
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng1
             taufor = forfac0(lay) * forref(ig,3) + &
                      forfac1(lay) * forref(ig,4)
@@ -429,6 +431,7 @@
          corradj = 1._rb - .05_rb * (pavel(lay) - 100._rb) / 900._rb
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng2
             tauself = selffac0(lay) * selfref(ig,indself(lay)) + &
                       selffac1(lay) * selfref(ig,indself(lay)+1)
@@ -451,6 +454,7 @@
          ind1 = ((jp(lay)-12)*5+(jt1(lay)-1))*nspb(2) + 1
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng2
             taufor = forfac0(lay) * forref(ig,3) + &
                      forfac1(lay) * forref(ig,4)
@@ -623,6 +627,7 @@
          endif
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng3
             tauself = selffac0(lay) * selfref(ig,indself(lay)) + &
                       selffac1(lay) * selfref(ig,indself(lay)+1)
@@ -735,6 +740,7 @@
          ind1 = ((jp(lay)-12)*5+(jt1(lay)-1))*nspb(3) + js1
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng3
             taufor = forfac0(lay) * forref(ig,3) + &
                      forfac1(lay) * forref(ig,4)
@@ -895,6 +901,7 @@
          endif
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng4
             tauself = selffac0(lay) * selfref(ig,indself(lay)) + &
                       selffac1(lay) * selfref(ig,indself(lay)+1)
@@ -994,6 +1001,7 @@
          ind1 = ((jp(lay)-12)*5+(jt1(lay)-1))*nspb(4) + js1
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng4
             taug(ngs3+ig,lay) =  speccomb * &
                 (fac000 * absb(ig,ind0) + &
@@ -1178,6 +1186,7 @@
          endif
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng5
             tauself = selffac0(lay) * selfref(ig,indself(lay)) + &
                       selffac1(lay) * selfref(ig,indself(lay)+1)
@@ -1283,6 +1292,7 @@
          ind1 = ((jp(lay)-12)*5+(jt1(lay)-1))*nspb(5) + js1
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng5
             taug(ngs4+ig,lay) = speccomb * &
                 (fac000 * absb(ig,ind0) + &
@@ -1350,6 +1360,7 @@
          ind1 = (jp(lay)*5+(jt1(lay)-1))*nspa(6) + 1
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng6
             tauself = selffac0(lay) * selfref(ig,indself(lay)) + &
                       selffac1(lay) * selfref(ig,indself(lay)+1)
@@ -1374,6 +1385,7 @@
       do lay = laytrop+1, nlayers
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng6
             taug(ngs5+ig,lay) = wx(lay,2) * cfc11adj(ig) &
                               + wx(lay,3) * cfc12(ig)
@@ -1543,6 +1555,7 @@
          endif
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng7
             tauself = selffac0(lay) * selfref(ig,indself(lay)) + &
                       selffac1(lay) * selfref(ig,indself(lay)+1)
@@ -1628,6 +1641,7 @@
          ind1 = ((jp(lay)-12)*5+(jt1(lay)-1))*nspb(7) + 1
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng7
             absco2 = kb_mco2(ig,indminor(lay)) + minorfrac(lay) * dkb_mco2(ig,indminor(lay))
             taug(ngs6+ig,lay) = colo3(lay) * &
@@ -1708,6 +1722,7 @@
          ind1 = (jp(lay)*5+(jt1(lay)-1))*nspa(8) + 1
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng8
             tauself = selffac0(lay) * selfref(ig,indself(lay)) + &
                       selffac1(lay) * selfref(ig,indself(lay)+1)
@@ -1755,6 +1770,7 @@
          ind1 = ((jp(lay)-12)*5+(jt1(lay)-1))*nspb(8) + 1
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng8
             absco2 = kb_mco2(ig,indminor(lay)) + minorfrac(lay) * dkb_mco2(ig,indminor(lay))
             absn2o = kb_mn2o(ig,indminor(lay)) + minorfrac(lay) * dkb_mn2o(ig,indminor(lay))
@@ -1923,6 +1939,7 @@
          endif
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng9
             tauself = selffac0(lay) * selfref(ig,indself(lay)) + &
                       selffac1(lay) * selfref(ig,indself(lay)+1)
@@ -1995,6 +2012,7 @@
          ind1 = ((jp(lay)-12)*5+(jt1(lay)-1))*nspb(9) + 1
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng9
             absn2o = kb_mn2o(ig,indminor(lay)) + minorfrac(lay) * dkb_mn2o(ig,indminor(lay))
 
@@ -2040,6 +2058,7 @@
          ind1 = (jp(lay)*5+(jt1(lay)-1))*nspa(10) + 1
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng10
             tauself = selffac0(lay) * selfref(ig,indself(lay)) + &
                       selffac1(lay) * selfref(ig,indself(lay)+1)
@@ -2061,6 +2080,7 @@
          ind1 = ((jp(lay)-12)*5+(jt1(lay)-1))*nspb(10) + 1
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng10
             taufor = forfac0(lay) * forref(ig,3) + &
                      forfac1(lay) * forref(ig,4)
@@ -2112,6 +2132,7 @@
          scaleo2 = colo2(lay)*scaleminor(lay)
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng11
             tauself = selffac0(lay) * selfref(ig,indself(lay)) + &
                       selffac1(lay) * selfref(ig,indself(lay)+1)
@@ -2136,6 +2157,7 @@
          scaleo2 = colo2(lay)*scaleminor(lay)
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng11
             taufor = forfac0(lay) * forref(ig,3) + &
                      forfac1(lay) * forref(ig,4)
@@ -2284,6 +2306,7 @@
          endif
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng12
             tauself = selffac0(lay) * selfref(ig,indself(lay)) + &
                       selffac1(lay) * selfref(ig,indself(lay)+1)
@@ -2532,6 +2555,7 @@
          endif
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng13
             tauself = selffac0(lay) * selfref(ig,indself(lay)) + &
                       selffac1(lay) * selfref(ig,indself(lay)+1)
@@ -2608,6 +2632,7 @@
       do lay = laytrop+1, nlayers
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng13
             abso3 = kb_mo3(ig,indminor(lay)) + minorfrac(lay) * dkb_mo3(ig,indminor(lay))
             taug(ngs12+ig,lay) = colo3(lay)*abso3
@@ -2646,6 +2671,7 @@
          ind1 = (jp(lay)*5+(jt1(lay)-1))*nspa(14) + 1
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng14
             tauself = selffac0(lay) * selfref(ig,indself(lay)) + &
                       selffac1(lay) * selfref(ig,indself(lay)+1)
@@ -2667,6 +2693,7 @@
          ind1 = ((jp(lay)-12)*5+(jt1(lay)-1))*nspb(14) + 1
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng14
             taug(ngs13+ig,lay) = colco2(lay) * &
                  (fac00(lay) * absb(ig,ind0) + &
@@ -2828,6 +2855,7 @@
          endif
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng15
             tauself = selffac0(lay) * selfref(ig,indself(lay)) + &
                       selffac1(lay) * selfref(ig,indself(lay)+1)
@@ -3038,6 +3066,7 @@
          endif
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng16
             tauself = selffac0(lay) * selfref(ig,indself(lay)) + &
                       selffac1(lay) * selfref(ig,indself(lay)+1)
@@ -3106,6 +3135,7 @@
          ind1 = ((jp(lay)-12)*5+(jt1(lay)-1))*nspb(16) + 1
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng16
             taug(ngs15+ig,lay) = colch4(lay) * &
                  (fac00(lay) * absb(ig,ind0) + &
