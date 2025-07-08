@@ -90,7 +90,7 @@ end subroutine shdf5_exists
 
 !===============================================================================
 
-subroutine shdf5_open(locfn, access, idelete, serial)
+subroutine shdf5_open(locfn, access, idelete, serial, mpio_collective_read)
 
   use misc_coms,  only: iparallel, iclobber, io6
   use mem_para,   only: olam_mpi_finalize, myrank
@@ -109,11 +109,15 @@ subroutine shdf5_open(locfn, access, idelete, serial)
                                            !    1=yes, 0=no
   logical, optional, intent(in) :: serial  ! Disable collective/parallel features
                                            ! (all nodes independent or each other)
+
+  logical, optional, intent(in) :: mpio_collective_read
+
   integer                       :: hdferr  ! Error flag
   integer                       :: iaccess ! int access flag
   logical                       :: exists  ! File existence
   logical                       :: ierror  ! Error opening file
   logical                       :: idel    ! Delete existing file flag
+  logical                       :: col_rd
 
   if (access /= 'R' .and. access /= 'W') then
      write(io6,*) 'Error in shdf5_open:'
@@ -187,7 +191,12 @@ subroutine shdf5_open(locfn, access, idelete, serial)
         if (access == 'R') iaccess = 1
         if (access == 'A') iaccess = 2
 
-        call fh5f_open(locfn, iaccess, hdferr, pario=do_phdf5)
+        col_rd = .true.
+        if (iaccess == 1 .and. present(mpio_collective_read)) then
+           col_rd = mpio_collective_read
+        endif
+
+        call fh5f_open(locfn, iaccess, hdferr, pario=do_phdf5, colrd=col_rd)
 
         if (hdferr < 0) then
            write(io6,*) 'shdf5_open:'

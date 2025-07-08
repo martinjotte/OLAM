@@ -73,7 +73,7 @@ subroutine read_soil_analysis(soil_tempc)
 
   write(io6,'(A)') ' read_soil: opening ' // trim(fname)
 
-  call shdf5_open(fname, 'R')
+  call shdf5_open(fname, 'R', mpio_collective_read=.false.)
 
   call read_analysis_header(noplevs=.true.)
 

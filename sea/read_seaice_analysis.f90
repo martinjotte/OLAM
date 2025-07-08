@@ -82,7 +82,7 @@ subroutine read_seaice_analysis(iaction)
      stop
   endif
 
-  call shdf5_open(fname, 'R')
+  call shdf5_open(fname, 'R', mpio_collective_read=.false.)
 
   call read_analysis_header(noplevs=.true., nosoil=.true.)
 

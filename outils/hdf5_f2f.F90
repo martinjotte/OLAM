@@ -136,7 +136,7 @@ contains
 
 !===============================================================================
 
-  subroutine fh5f_open(locfn, iaccess, hdferr, pario)
+  subroutine fh5f_open(locfn, iaccess, hdferr, pario, colrd)
 
     use oname_coms, only: nl
     use string_lib, only: lowercase, strip_char
@@ -153,6 +153,7 @@ contains
     integer,           intent(IN)  :: iaccess
     integer,           intent(OUT) :: hdferr
     logical, optional, intent(IN)  :: pario
+    logical, optional, intent(IN)  :: colrd
 
     integer(HID_T)                 :: access_prp
     integer                        :: flags, ierr
@@ -166,8 +167,10 @@ contains
     character(12)                  :: string
     integer, target                :: finfo(2), nstripes
     integer, pointer               :: blksiz, fstype
+    logical                        :: docolrd
 
     dopario = .false.
+    docolrd = .true.
 
 #if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
 
@@ -184,6 +187,7 @@ contains
     endif
 
     if (iparallel == 1 .and. present(pario)) dopario = pario
+    if (iparallel == 1 .and. present(colrd)) docolrd = colrd
 
 #endif
 
@@ -299,8 +303,8 @@ contains
     call h5pcreate_f(h5p_dataset_xfer_f, xferid, hdferr)
 
 #if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
-    if (dopario) then
-       call h5pset_dxpl_mpio_f(xferid, h5fd_mpio_collective_f, hdferr)
+    if (dopario .and. docolrd) then
+       call H5Pset_dxpl_mpio_f(xferid, h5fd_mpio_collective_f, hdferr)
     endif
 #endif
 
