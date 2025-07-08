@@ -452,7 +452,7 @@ subroutine pressure_stage()
   enddo
 
   !$omp parallel private(pvect)
-  !$omp do private(iw)
+  !$omp do private(iw,k)
   do j = 1,jtab_w(jtw_init)%jend; iw = jtab_w(jtw_init)%iw(j)
 
      ! Copy zonal wind to expanded column array
@@ -509,7 +509,7 @@ subroutine pressure_stage()
   enddo
 
   !$omp parallel private(pvect)
-  !$omp do private(iw)
+  !$omp do private(iw,k)
   do j = 1,jtab_w(jtw_init)%jend; iw = jtab_w(jtw_init)%iw(j)
 
      ! Copy meridional wind to expanded column array
