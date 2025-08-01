@@ -35,6 +35,60 @@ Module olam_mpi_atm
   integer, allocatable :: ireqr_w(:,:)
   integer, allocatable :: ireqs_w(:,:)
 
+  ! Variables for W "direct" send/recv
+
+  integer, allocatable :: atm_w_3d_send_type(:)
+  integer, allocatable :: atm_w_3d_recv_type(:)
+
+  interface mpi_post_direct_send_w
+     module procedure mpi_post_direct_send_w_3d_1
+     module procedure mpi_post_direct_send_w_3d_2
+  end interface mpi_post_direct_send_w
+
+  interface mpi_post_direct_recv_w
+     module procedure mpi_post_direct_recv_w_3d_1
+     module procedure mpi_post_direct_recv_w_3d_2
+  end interface mpi_post_direct_recv_w
+
+  integer, allocatable :: ireqws_direct(:,:)
+  integer, allocatable :: ireqwr_direct(:,:)
+
+  ! Variables for M "direct" send/recv
+
+  integer, allocatable :: atm_m_3d_send_type(:)
+  integer, allocatable :: atm_m_3d_recv_type(:)
+
+  interface mpi_post_direct_send_m
+     module procedure mpi_post_direct_send_m_3d_1
+     module procedure mpi_post_direct_send_m_3d_2
+  end interface mpi_post_direct_send_m
+
+  interface mpi_post_direct_recv_m
+     module procedure mpi_post_direct_recv_m_3d_1
+     module procedure mpi_post_direct_recv_m_3d_2
+  end interface mpi_post_direct_recv_m
+
+  integer, allocatable :: ireqms_direct(:,:)
+  integer, allocatable :: ireqmr_direct(:,:)
+
+  ! Variables for V "direct" send/recv
+
+  integer, allocatable :: atm_v_3d_send_type(:)
+  integer, allocatable :: atm_v_3d_recv_type(:)
+
+  interface mpi_post_direct_send_v
+     module procedure mpi_post_direct_send_v_3d_1
+     module procedure mpi_post_direct_send_v_3d_2
+  end interface mpi_post_direct_send_v
+
+  interface mpi_post_direct_recv_v
+     module procedure mpi_post_direct_recv_v_3d_1
+     module procedure mpi_post_direct_recv_v_3d_2
+  end interface mpi_post_direct_recv_v
+
+  integer, allocatable :: ireqvs_direct(:,:)
+  integer, allocatable :: ireqvr_direct(:,:)
+
 Contains
 
 !===============================================================================
@@ -43,7 +97,7 @@ subroutine olam_mpi_atm_start()
 
 #ifdef OLAM_MPI
   use var_tables, only: nvar_par
-  use mem_grid,   only: mza
+  use mem_grid,   only: mza, mwa, mva, mma
   use mem_para,   only: nbytes_int, nbytes_real, nbytes_real8
   use mpi
 #endif
@@ -55,6 +109,11 @@ subroutine olam_mpi_atm_start()
   integer :: nbytes_per_iw
   integer :: nbytes_per_iv
   integer :: nbytes_per_im
+  integer :: nb, bl, ds, i, type
+
+  integer, allocatable :: blocklen(:)
+  integer, allocatable :: displace(:)
+  integer(mpi_address_kind) :: lb, ub
 
   allocate( ireqs_w(nsends_w,2) ) ; ireqs_w = MPI_REQUEST_NULL
   allocate( ireqr_w(nrecvs_w,2) ) ; ireqr_w = MPI_REQUEST_NULL
@@ -133,6 +192,315 @@ subroutine olam_mpi_atm_start()
                     recv_w(jrecv)%iremote, itagw, MPI_COMM_WORLD,         &
                     ireqr_w(jrecv,inext_w), ierr)
   enddo
+
+  ! MPI Displacements for W direct communication
+
+  allocate( atm_w_3d_send_type(nsends_w) )
+
+  do jsend = 1, nsends_w
+
+     nb = 0
+     do i = 1, send_w(jsend)%jend - 1
+        if (send_w(jsend)%ipts(i+1) /= send_w(jsend)%ipts(i)+1) nb = nb + 1
+     enddo
+     nb = nb + 1
+
+     if (.not. allocated(blocklen)) then
+        allocate( blocklen(nb) )
+        allocate( displace(nb) )
+     elseif ( size(blocklen) < nb ) then
+        deallocate( blocklen )
+        deallocate( displace )
+        allocate( blocklen(nb) )
+        allocate( displace(nb) )
+     endif
+
+     bl = 1
+     ds = send_w(jsend)%ipts(1)
+     nb = 0
+     do i = 1, send_w(jsend)%jend - 1
+        if (send_w(jsend)%ipts(i+1) /= send_w(jsend)%ipts(i)+1) then
+           nb = nb + 1
+           blocklen(nb) = bl
+           displace(nb) = ds - 1
+           bl = 1
+           ds = send_w(jsend)%ipts(i+1)
+        else
+           bl = bl + 1
+        endif
+     enddo
+
+     nb = nb + 1
+     blocklen(nb) = bl
+     displace(nb) = ds - 1
+
+     lb = 0
+     ub = mwa * mza * nbytes_real
+
+     call MPI_type_indexed(nb, blocklen(1:nb)*mza, displace(1:nb)*mza, MPI_REAL, type, ierr)
+     call MPI_type_create_resized(type, lb, ub, atm_w_3d_send_type(jsend), ierr)
+     call MPI_Type_commit(atm_w_3d_send_type(jsend), ierr)
+     call MPI_Type_free(type, ierr)
+
+  enddo
+
+  allocate( atm_w_3d_recv_type(nrecvs_w) )
+
+  do jrecv = 1, nrecvs_w
+
+     nb = 0
+     do i = 1, recv_w(jrecv)%jend - 1
+        if (recv_w(jrecv)%ipts(i+1) /= recv_w(jrecv)%ipts(i)+1) nb = nb + 1
+     enddo
+     nb = nb + 1
+
+     if (.not. allocated(blocklen)) then
+        allocate( blocklen(nb) )
+        allocate( displace(nb) )
+     elseif ( size(blocklen) < nb ) then
+        deallocate( blocklen )
+        deallocate( displace )
+        allocate( blocklen(nb) )
+        allocate( displace(nb) )
+     endif
+
+     bl = 1
+     ds = recv_w(jrecv)%ipts(1)
+     nb = 0
+     do i = 1, recv_w(jrecv)%jend - 1
+        if (recv_w(jrecv)%ipts(i+1) /= recv_w(jrecv)%ipts(i)+1) then
+           nb = nb + 1
+           blocklen(nb) = bl
+           displace(nb) = ds - 1
+           bl = 1
+           ds = recv_w(jrecv)%ipts(i+1)
+        else
+           bl = bl + 1
+        endif
+     enddo
+
+     nb = nb + 1
+     blocklen(nb) = bl
+     displace(nb) = ds - 1
+
+     lb = 0
+     ub = mwa * mza * nbytes_real
+
+     call MPI_type_indexed(nb, blocklen(1:nb)*mza, displace(1:nb)*mza, MPI_REAL, type, ierr)
+     call MPI_type_create_resized(type, lb, ub, atm_w_3d_recv_type(jrecv), ierr)
+     call MPI_Type_commit(atm_w_3d_recv_type(jrecv), ierr)
+     call MPI_Type_free(type, ierr)
+
+  enddo
+
+  allocate( ireqws_direct(nsends_w,10) )
+  allocate( ireqwr_direct(nrecvs_w,10) )
+
+  ! MPI Displacements for M direct communication
+
+  allocate( atm_m_3d_send_type(nsends_m) )
+
+  do jsend = 1, nsends_m
+
+     nb = 0
+     do i = 1, send_m(jsend)%jend - 1
+        if (send_m(jsend)%ipts(i+1) /= send_m(jsend)%ipts(i)+1) nb = nb + 1
+     enddo
+     nb = nb + 1
+
+     if (.not. allocated(blocklen)) then
+        allocate( blocklen(nb) )
+        allocate( displace(nb) )
+     elseif ( size(blocklen) < nb ) then
+        deallocate( blocklen )
+        deallocate( displace )
+        allocate( blocklen(nb) )
+        allocate( displace(nb) )
+     endif
+
+     bl = 1
+     ds = send_m(jsend)%ipts(1)
+     nb = 0
+     do i = 1, send_m(jsend)%jend - 1
+        if (send_m(jsend)%ipts(i+1) /= send_m(jsend)%ipts(i)+1) then
+           nb = nb + 1
+           blocklen(nb) = bl
+           displace(nb) = ds - 1
+           bl = 1
+           ds = send_m(jsend)%ipts(i+1)
+        else
+           bl = bl + 1
+        endif
+     enddo
+
+     nb = nb + 1
+     blocklen(nb) = bl
+     displace(nb) = ds - 1
+
+     lb = 0
+     ub = mma * mza * nbytes_real
+
+     call MPI_type_indexed(nb, blocklen(1:nb)*mza, displace(1:nb)*mza, MPI_REAL, type, ierr)
+     call MPI_type_create_resized(type, lb, ub, atm_m_3d_send_type(jsend), ierr)
+     call MPI_Type_commit(atm_m_3d_send_type(jsend), ierr)
+     call MPI_Type_free(type, ierr)
+
+  enddo
+
+  allocate( atm_m_3d_recv_type(nrecvs_m) )
+
+  do jrecv = 1, nrecvs_m
+
+     nb = 0
+     do i = 1, recv_m(jrecv)%jend - 1
+        if (recv_m(jrecv)%ipts(i+1) /= recv_m(jrecv)%ipts(i)+1) nb = nb + 1
+     enddo
+     nb = nb + 1
+
+     if (.not. allocated(blocklen)) then
+        allocate( blocklen(nb) )
+        allocate( displace(nb) )
+     elseif ( size(blocklen) < nb ) then
+        deallocate( blocklen )
+        deallocate( displace )
+        allocate( blocklen(nb) )
+        allocate( displace(nb) )
+     endif
+
+     bl = 1
+     ds = recv_m(jrecv)%ipts(1)
+     nb = 0
+     do i = 1, recv_m(jrecv)%jend - 1
+        if (recv_m(jrecv)%ipts(i+1) /= recv_m(jrecv)%ipts(i)+1) then
+           nb = nb + 1
+           blocklen(nb) = bl
+           displace(nb) = ds - 1
+           bl = 1
+           ds = recv_m(jrecv)%ipts(i+1)
+        else
+           bl = bl + 1
+        endif
+     enddo
+
+     nb = nb + 1
+     blocklen(nb) = bl
+     displace(nb) = ds - 1
+
+     lb = 0
+     ub = mma * mza * nbytes_real
+
+     call MPI_type_indexed(nb, blocklen(1:nb)*mza, displace(1:nb)*mza, MPI_REAL, type, ierr)
+     call MPI_type_create_resized(type, lb, ub, atm_m_3d_recv_type(jrecv), ierr)
+     call MPI_Type_commit(atm_m_3d_recv_type(jrecv), ierr)
+     call MPI_Type_free(type, ierr)
+
+  enddo
+
+  allocate( ireqms_direct(nsends_m,10) )
+  allocate( ireqmr_direct(nrecvs_m,10) )
+
+  ! MPI Displacements for V direct communication
+
+  allocate( atm_v_3d_send_type(nsends_v) )
+
+  do jsend = 1, nsends_v
+
+     nb = 0
+     do i = 1, send_v(jsend)%jend - 1
+        if (send_v(jsend)%ipts(i+1) /= send_v(jsend)%ipts(i)+1) nb = nb + 1
+     enddo
+     nb = nb + 1
+
+     if (.not. allocated(blocklen)) then
+        allocate( blocklen(nb) )
+        allocate( displace(nb) )
+     elseif ( size(blocklen) < nb ) then
+        deallocate( blocklen )
+        deallocate( displace )
+        allocate( blocklen(nb) )
+        allocate( displace(nb) )
+     endif
+
+     bl = 1
+     ds = send_v(jsend)%ipts(1)
+     nb = 0
+     do i = 1, send_v(jsend)%jend - 1
+        if (send_v(jsend)%ipts(i+1) /= send_v(jsend)%ipts(i)+1) then
+           nb = nb + 1
+           blocklen(nb) = bl
+           displace(nb) = ds - 1
+           bl = 1
+           ds = send_v(jsend)%ipts(i+1)
+        else
+           bl = bl + 1
+        endif
+     enddo
+
+     nb = nb + 1
+     blocklen(nb) = bl
+     displace(nb) = ds - 1
+
+     lb = 0
+     ub = mva * mza * nbytes_real
+
+     call MPI_type_indexed(nb, blocklen(1:nb)*mza, displace(1:nb)*mza, MPI_REAL, type, ierr)
+     call MPI_type_create_resized(type, lb, ub, atm_v_3d_send_type(jsend), ierr)
+     call MPI_Type_commit(atm_v_3d_send_type(jsend), ierr)
+     call MPI_Type_free(type, ierr)
+
+  enddo
+
+  allocate( atm_v_3d_recv_type(nrecvs_v) )
+
+  do jrecv = 1, nrecvs_v
+
+     nb = 0
+     do i = 1, recv_v(jrecv)%jend - 1
+        if (recv_v(jrecv)%ipts(i+1) /= recv_v(jrecv)%ipts(i)+1) nb = nb + 1
+     enddo
+     nb = nb + 1
+
+     if (.not. allocated(blocklen)) then
+        allocate( blocklen(nb) )
+        allocate( displace(nb) )
+     elseif ( size(blocklen) < nb ) then
+        deallocate( blocklen )
+        deallocate( displace )
+        allocate( blocklen(nb) )
+        allocate( displace(nb) )
+     endif
+
+     bl = 1
+     ds = recv_v(jrecv)%ipts(1)
+     nb = 0
+     do i = 1, recv_v(jrecv)%jend - 1
+        if (recv_v(jrecv)%ipts(i+1) /= recv_v(jrecv)%ipts(i)+1) then
+           nb = nb + 1
+           blocklen(nb) = bl
+           displace(nb) = ds - 1
+           bl = 1
+           ds = recv_v(jrecv)%ipts(i+1)
+        else
+           bl = bl + 1
+        endif
+     enddo
+
+     nb = nb + 1
+     blocklen(nb) = bl
+     displace(nb) = ds - 1
+
+     lb = 0
+     ub = mva * mza * nbytes_real
+
+     call MPI_type_indexed(nb, blocklen(1:nb)*mza, displace(1:nb)*mza, MPI_REAL, type, ierr)
+     call MPI_type_create_resized(type, lb, ub, atm_v_3d_recv_type(jrecv), ierr)
+     call MPI_Type_commit(atm_v_3d_recv_type(jrecv), ierr)
+     call MPI_Type_free(type, ierr)
+
+  enddo
+
+  allocate( ireqvs_direct(nsends_v,10) )
+  allocate( ireqvr_direct(nrecvs_v,10) )
 
 #endif
 
@@ -1257,6 +1625,30 @@ subroutine olam_mpi_atm_stop()
 
      call olam_mpi_barrier()
 
+     do jsend = 1, nsends_w
+        call MPI_Type_free(atm_w_3d_send_type(jsend),ierr)
+     enddo
+
+     do jrecv = 1, nrecvs_w
+        call MPI_Type_free(atm_w_3d_recv_type(jrecv),ierr)
+     enddo
+
+     do jsend = 1, nsends_m
+        call MPI_Type_free(atm_m_3d_send_type(jsend),ierr)
+     enddo
+
+     do jrecv = 1, nrecvs_m
+        call MPI_Type_free(atm_m_3d_recv_type(jrecv),ierr)
+     enddo
+
+     do jsend = 1, nsends_v
+        call MPI_Type_free(atm_v_3d_send_type(jsend),ierr)
+     enddo
+
+     do jrecv = 1, nrecvs_v
+        call MPI_Type_free(atm_v_3d_recv_type(jrecv),ierr)
+     enddo
+
   endif
 
   ! Deallocate unused arrays
@@ -1283,6 +1675,498 @@ subroutine olam_mpi_atm_stop()
 
 end subroutine olam_mpi_atm_stop
 
-!==================================================================
+!=============================================================================
+
+subroutine mpi_post_direct_recv_w_3d_1(rvara1, itag)
+
+#ifdef OLAM_MPI
+  use mpi
+  use mem_para, only: olam_stop
+#endif
+
+  use mem_grid, only: mza, mwa
+  implicit none
+
+  real,    intent(inout) :: rvara1(mza,mwa)
+  integer, intent(in)    :: itag
+
+#ifdef OLAM_MPI
+  integer            :: ierr, jrecv, ntag
+  integer, parameter :: ioff = 11000
+
+  if (itag < 1 .or. itag > 10) call olam_stop("Invalid tag size in direct send/recv routines.")
+  ntag = itag + ioff
+
+  do jrecv = 1, nrecvs_w
+     call MPI_Irecv(rvara1, 1, atm_w_3d_recv_type(jrecv), recv_w(jrecv)%iremote, &
+                    ntag, MPI_COMM_WORLD, ireqwr_direct(jrecv,itag), ierr)
+  enddo
+#endif
+
+end subroutine mpi_post_direct_recv_w_3d_1
+
+!=============================================================================
+
+subroutine mpi_post_direct_recv_w_3d_2(rvara1, itag)
+
+#ifdef OLAM_MPI
+  use mpi
+  use mem_para, only: olam_stop
+#endif
+
+  implicit none
+
+  real, contiguous, intent(inout) :: rvara1(:,:,:)
+  integer,          intent(in)    :: itag
+
+#ifdef OLAM_MPI
+  integer            :: ierr, jrecv, ntag, isize
+  integer, parameter :: ioff = 11000
+
+  if (itag < 1 .or. itag > 10) call olam_stop("Invalid tag size in direct send/recv routines.")
+  ntag = itag + ioff
+
+  isize = size(rvara1,3)
+
+  do jrecv = 1, nrecvs_w
+     call MPI_Irecv(rvara1, isize, atm_w_3d_recv_type(jrecv), recv_w(jrecv)%iremote, &
+                    ntag, MPI_COMM_WORLD, ireqwr_direct(jrecv,itag), ierr)
+  enddo
+#endif
+
+end subroutine mpi_post_direct_recv_w_3d_2
+
+!=============================================================================
+
+subroutine mpi_post_direct_send_w_3d_1(rvara1, itag)
+
+#ifdef OLAM_MPI
+  use mpi
+  use mem_para, only: olam_stop
+#endif
+
+  use mem_grid, only: mza, mwa
+  implicit none
+
+  real,    intent(in) :: rvara1(mza,mwa)
+  integer, intent(in) :: itag
+
+#ifdef OLAM_MPI
+  integer            :: ierr, jsend, ntag
+  integer, parameter :: ioff = 11000
+
+  if (itag < 1 .or. itag > 10) call olam_stop("Invalid tag size in direct send/recv routines.")
+  ntag = itag + ioff
+
+  do jsend = 1, nsends_w
+     call MPI_Isend(rvara1, 1, atm_w_3d_send_type(jsend), send_w(jsend)%iremote, &
+                    ntag, MPI_COMM_WORLD, ireqws_direct(jsend,itag), ierr)
+  enddo
+#endif
+
+end subroutine mpi_post_direct_send_w_3d_1
+
+!=============================================================================
+
+subroutine mpi_post_direct_send_w_3d_2(rvara1, itag)
+
+#ifdef OLAM_MPI
+  use mpi
+  use mem_para, only: olam_stop
+#endif
+
+  implicit none
+
+  real, contiguous, intent(in) :: rvara1(:,:,:)
+  integer,          intent(in) :: itag
+
+#ifdef OLAM_MPI
+  integer            :: ierr, jsend, ntag, isize
+  integer, parameter :: ioff = 11000
+
+  if (itag < 1 .or. itag > 10) call olam_stop("Invalid tag size in direct send/recv routines.")
+  ntag = itag + ioff
+
+  isize = size(rvara1,3)
+
+  do jsend = 1, nsends_w
+     call MPI_Isend(rvara1, isize, atm_w_3d_send_type(jsend), send_w(jsend)%iremote, &
+                    ntag, MPI_COMM_WORLD, ireqws_direct(jsend,itag), ierr)
+  enddo
+#endif
+
+end subroutine mpi_post_direct_send_w_3d_2
+
+!=============================================================================
+
+subroutine mpi_finish_direct_send_w(itag)
+
+#ifdef OLAM_MPI
+  use mpi
+  use mem_para, only: olam_stop
+#endif
+
+  implicit none
+  integer, intent(in) :: itag
+
+#ifdef OLAM_MPI
+  integer :: ierr
+
+  if (itag < 1 .or. itag > 10) call olam_stop("Invalid tag size in direct send/recv routines.")
+  if (nsends_w > 0) call MPI_Waitall(nsends_w, ireqws_direct(:,itag), MPI_STATUSES_IGNORE, ierr)
+#endif
+
+end subroutine mpi_finish_direct_send_w
+
+!=============================================================================
+
+subroutine mpi_finish_direct_recv_w(itag)
+
+#ifdef OLAM_MPI
+  use mpi
+  use mem_para, only: olam_stop
+#endif
+
+  implicit none
+  integer, intent(in) :: itag
+
+#ifdef OLAM_MPI
+  integer :: ierr
+
+  if (itag < 1 .or. itag > 10) call olam_stop("Invalid tag size in direct send/recv routines.")
+  if (nrecvs_w > 0) call MPI_Waitall(nrecvs_w, ireqwr_direct(:,itag), MPI_STATUSES_IGNORE, ierr)
+#endif
+
+end subroutine mpi_finish_direct_recv_w
+
+!=============================================================================
+
+subroutine mpi_post_direct_recv_m_3d_1(rvara1, itag)
+
+#ifdef OLAM_MPI
+  use mpi
+  use mem_para, only: olam_stop
+#endif
+
+  use mem_grid, only: mza, mma
+  implicit none
+
+  real,    intent(inout) :: rvara1(mza,mma)
+  integer, intent(in)    :: itag
+
+#ifdef OLAM_MPI
+  integer            :: ierr, jrecv, ntag
+  integer, parameter :: ioff = 11050
+
+  if (itag < 1 .or. itag > 10) call olam_stop("Invalid tag size in direct send/recv routines.")
+  ntag = itag + ioff
+
+  do jrecv = 1, nrecvs_m
+     call MPI_Irecv(rvara1, 1, atm_m_3d_recv_type(jrecv), recv_m(jrecv)%iremote, &
+                    ntag, MPI_COMM_WORLD, ireqmr_direct(jrecv,itag), ierr)
+  enddo
+#endif
+
+end subroutine mpi_post_direct_recv_m_3d_1
+
+!=============================================================================
+
+subroutine mpi_post_direct_recv_m_3d_2(rvara1, itag)
+
+#ifdef OLAM_MPI
+  use mpi
+  use mem_para, only: olam_stop
+#endif
+
+  implicit none
+
+  real, contiguous, intent(inout) :: rvara1(:,:,:)
+  integer,          intent(in)    :: itag
+
+#ifdef OLAM_MPI
+  integer            :: ierr, jrecv, ntag, isize
+  integer, parameter :: ioff = 11050
+
+  if (itag < 1 .or. itag > 10) call olam_stop("Invalid tag size in direct send/recv routines.")
+  ntag = itag + ioff
+
+  isize = size(rvara1,3)
+
+  do jrecv = 1, nrecvs_m
+     call MPI_Irecv(rvara1, isize, atm_m_3d_recv_type(jrecv), recv_m(jrecv)%iremote, &
+                    ntag, MPI_COMM_WORLD, ireqmr_direct(jrecv,itag), ierr)
+  enddo
+#endif
+
+end subroutine mpi_post_direct_recv_m_3d_2
+
+!=============================================================================
+
+subroutine mpi_post_direct_send_m_3d_1(rvara1, itag)
+
+#ifdef OLAM_MPI
+  use mpi
+  use mem_para, only: olam_stop
+#endif
+
+  use mem_grid, only: mza, mma
+  implicit none
+
+  real,    intent(in) :: rvara1(mza,mma)
+  integer, intent(in) :: itag
+
+#ifdef OLAM_MPI
+  integer            :: ierr, jsend, ntag
+  integer, parameter :: ioff = 11050
+
+  if (itag < 1 .or. itag > 10) call olam_stop("Invalid tag size in direct send/recv routines.")
+  ntag = itag + ioff
+
+  do jsend = 1, nsends_m
+     call MPI_Isend(rvara1, 1, atm_m_3d_send_type(jsend), send_m(jsend)%iremote, &
+                    ntag, MPI_COMM_WORLD, ireqms_direct(jsend,itag), ierr)
+  enddo
+#endif
+
+end subroutine mpi_post_direct_send_m_3d_1
+
+!=============================================================================
+
+subroutine mpi_post_direct_send_m_3d_2(rvara1, itag)
+
+#ifdef OLAM_MPI
+  use mpi
+  use mem_para, only: olam_stop
+#endif
+
+  implicit none
+
+  real, contiguous, intent(in) :: rvara1(:,:,:)
+  integer,          intent(in) :: itag
+
+#ifdef OLAM_MPI
+  integer            :: ierr, jsend, ntag, isize
+  integer, parameter :: ioff = 11050
+
+  if (itag < 1 .or. itag > 10) call olam_stop("Invalid tag size in direct send/recv routines.")
+  ntag = itag + ioff
+
+  isize = size(rvara1,3)
+
+  do jsend = 1, nsends_m
+     call MPI_Isend(rvara1, isize, atm_m_3d_send_type(jsend), send_m(jsend)%iremote, &
+                    ntag, MPI_COMM_WORLD, ireqms_direct(jsend,itag), ierr)
+  enddo
+#endif
+
+end subroutine mpi_post_direct_send_m_3d_2
+
+!=============================================================================
+
+subroutine mpi_finish_direct_send_m(itag)
+
+#ifdef OLAM_MPI
+  use mpi
+  use mem_para, only: olam_stop
+#endif
+
+  implicit none
+  integer, intent(in) :: itag
+
+#ifdef OLAM_MPI
+  integer :: ierr
+
+  if (itag < 1 .or. itag > 10) call olam_stop("Invalid tag size in direct send/recv routines.")
+  if (nsends_m > 0) call MPI_Waitall(nsends_m, ireqms_direct(:,itag), MPI_STATUSES_IGNORE, ierr)
+#endif
+
+end subroutine mpi_finish_direct_send_m
+
+!=============================================================================
+
+subroutine mpi_finish_direct_recv_m(itag)
+
+#ifdef OLAM_MPI
+  use mpi
+  use mem_para, only: olam_stop
+#endif
+
+  implicit none
+  integer, intent(in) :: itag
+
+#ifdef OLAM_MPI
+  integer :: ierr
+
+  if (itag < 1 .or. itag > 10) call olam_stop("Invalid tag size in direct send/recv routines.")
+  if (nrecvs_m > 0) call MPI_Waitall(nrecvs_m, ireqmr_direct(:,itag), MPI_STATUSES_IGNORE, ierr)
+#endif
+
+end subroutine mpi_finish_direct_recv_m
+
+!=============================================================================
+
+subroutine mpi_post_direct_recv_v_3d_1(rvara1, itag)
+
+#ifdef OLAM_MPI
+  use mpi
+  use mem_para, only: olam_stop
+#endif
+
+  use mem_grid, only: mza, mva
+  implicit none
+
+  real,    intent(inout) :: rvara1(mza,mva)
+  integer, intent(in)    :: itag
+
+#ifdef OLAM_MPI
+  integer            :: ierr, jrecv, ntag
+  integer, parameter :: ioff = 11100
+
+  if (itag < 1 .or. itag > 10) call olam_stop("Invalid tag size in direct send/recv routines.")
+  ntag = itag + ioff
+
+  do jrecv = 1, nrecvs_v
+     call MPI_Irecv(rvara1, 1, atm_v_3d_recv_type(jrecv), recv_v(jrecv)%iremote, &
+                    ntag, MPI_COMM_WORLD, ireqvr_direct(jrecv,itag), ierr)
+  enddo
+#endif
+
+end subroutine mpi_post_direct_recv_v_3d_1
+
+!=============================================================================
+
+subroutine mpi_post_direct_recv_v_3d_2(rvara1, itag)
+
+#ifdef OLAM_MPI
+  use mpi
+  use mem_para, only: olam_stop
+#endif
+
+  implicit none
+
+  real, contiguous, intent(inout) :: rvara1(:,:,:)
+  integer,          intent(in)    :: itag
+
+#ifdef OLAM_MPI
+  integer            :: ierr, jrecv, ntag, isize
+  integer, parameter :: ioff = 11100
+
+  if (itag < 1 .or. itag > 10) call olam_stop("Invalid tag size in direct send/recv routines.")
+  ntag = itag + ioff
+
+  isize = size(rvara1,3)
+
+  do jrecv = 1, nrecvs_v
+     call MPI_Irecv(rvara1, isize, atm_v_3d_recv_type(jrecv), recv_v(jrecv)%iremote, &
+                    ntag, MPI_COMM_WORLD, ireqvr_direct(jrecv,itag), ierr)
+  enddo
+#endif
+
+end subroutine mpi_post_direct_recv_v_3d_2
+
+!=============================================================================
+
+subroutine mpi_post_direct_send_v_3d_1(rvara1, itag)
+
+#ifdef OLAM_MPI
+  use mpi
+  use mem_para, only: olam_stop
+#endif
+
+  use mem_grid, only: mza, mva
+  implicit none
+
+  real,    intent(in) :: rvara1(mza,mva)
+  integer, intent(in) :: itag
+
+#ifdef OLAM_MPI
+  integer            :: ierr, jsend, ntag
+  integer, parameter :: ioff = 11100
+
+  if (itag < 1 .or. itag > 10) call olam_stop("Invalid tag size in direct send/recv routines.")
+  ntag = itag + ioff
+
+  do jsend = 1, nsends_v
+     call MPI_Isend(rvara1, 1, atm_v_3d_send_type(jsend), send_v(jsend)%iremote, &
+                    ntag, MPI_COMM_WORLD, ireqvs_direct(jsend,itag), ierr)
+  enddo
+#endif
+
+end subroutine mpi_post_direct_send_v_3d_1
+
+!=============================================================================
+
+subroutine mpi_post_direct_send_v_3d_2(rvara1, itag)
+
+#ifdef OLAM_MPI
+  use mpi
+  use mem_para, only: olam_stop
+#endif
+
+  implicit none
+
+  real, contiguous, intent(in) :: rvara1(:,:,:)
+  integer,          intent(in) :: itag
+
+#ifdef OLAM_MPI
+  integer            :: ierr, jsend, ntag, isize
+  integer, parameter :: ioff = 11100
+
+  if (itag < 1 .or. itag > 10) call olam_stop("Invalid tag size in direct send/recv routines.")
+  ntag = itag + ioff
+
+  isize = size(rvara1,3)
+
+  do jsend = 1, nsends_v
+     call MPI_Isend(rvara1, isize, atm_v_3d_send_type(jsend), send_v(jsend)%iremote, &
+                    ntag, MPI_COMM_WORLD, ireqvs_direct(jsend,itag), ierr)
+  enddo
+#endif
+
+end subroutine mpi_post_direct_send_v_3d_2
+
+!=============================================================================
+
+subroutine mpi_finish_direct_send_v(itag)
+
+#ifdef OLAM_MPI
+  use mpi
+  use mem_para, only: olam_stop
+#endif
+
+  implicit none
+  integer, intent(in) :: itag
+
+#ifdef OLAM_MPI
+  integer :: ierr
+
+  if (itag < 1 .or. itag > 10) call olam_stop("Invalid tag size in direct send/recv routines.")
+  if (nsends_v > 0) call MPI_Waitall(nsends_v, ireqvs_direct(:,itag), MPI_STATUSES_IGNORE, ierr)
+#endif
+
+end subroutine mpi_finish_direct_send_v
+
+!=============================================================================
+
+subroutine mpi_finish_direct_recv_v(itag)
+
+#ifdef OLAM_MPI
+  use mpi
+  use mem_para, only: olam_stop
+#endif
+
+  implicit none
+  integer, intent(in) :: itag
+
+#ifdef OLAM_MPI
+  integer :: ierr
+
+  if (itag < 1 .or. itag > 10) call olam_stop("Invalid tag size in direct send/recv routines.")
+  if (nrecvs_v > 0) call MPI_Waitall(nrecvs_v, ireqvr_direct(:,itag), MPI_STATUSES_IGNORE, ierr)
+#endif
+
+end subroutine mpi_finish_direct_recv_v
+
+!=============================================================================
 
 End Module olam_mpi_atm
