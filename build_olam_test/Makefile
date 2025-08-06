@@ -66,14 +66,14 @@ EXE=$(BASE)-$(OLAM_VERSION)$(OLAM_SUFFIX)
 all: objects/FLIST objects/Make.depend objects/Make.targets
 	$(MAKE) $(EXE)
 
-objects/Make.depend: $(SOURCE_FILES) sources.mk include.mk Makefile
+objects/Make.depend: $(SOURCE_FILES) sources.mk paths.mk include.mk Makefile
 	@echo ""
 	@echo "Generating dependency information"
 	@mkdir -p objects
 	@./sfmakedepend.txt -I $(OUTILS) -f objects/Make.depend.tmp $(SOURCE_FILES)
-	@sed -e 's:objects/mpi.mod::g' -e 's:objects/hdf5.mod::g' -e 's:objects/h5ds.mod::g' objects/Make.depend.tmp > objects/Make.depend
+	@sed -e 's:objects/mpi.mod::g' -e 's:objects/mpi_f08.mod::g' -e 's:objects/hdf5.mod::g' -e 's:objects/h5ds.mod::g' objects/Make.depend.tmp > objects/Make.depend
 
-objects/Make.targets: $(SOURCE_FILES) sources.mk include.mk Makefile
+objects/Make.targets: $(SOURCE_FILES) sources.mk paths.mk include.mk Makefile
 	@echo ""
 	@echo "Generating target dependency list"
 	@mkdir -p objects

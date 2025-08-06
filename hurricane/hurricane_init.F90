@@ -1596,7 +1596,7 @@ end subroutine vortex_get_vtanmax
 
         ! Transform hurricane earth coords to whatever projection is in use
 
-        call oplot_transform(iplt,xeh,yeh,zeh,hlona,hlata,xs,ys)
+        call oplot_transform(iplt,xeh,yeh,zeh,hlona(kstp,jcyc),hlata(kstp,jcyc),xs,ys)
 
         if (kstp == 0) then
            call o_frstpt(xs,ys)
