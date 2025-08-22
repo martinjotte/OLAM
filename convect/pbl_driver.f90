@@ -1,6 +1,9 @@
 module pbl_drivers
 
-  real, parameter, private :: forw_imp = 1.5
+  ! This slightly forward weights the implicit fluxes to help
+  ! avoid 2-DT and 2-DZ oscillations in buoyancy and eddy diffusivity.
+  ! Need to find the reference for this again!
+  real, parameter, private :: forw_imp = 1.1
 
 contains
 

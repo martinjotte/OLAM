@@ -378,11 +378,12 @@
 
    NL%NADDSC    = 0       ! Number of additional scalar species
 
-   NL%ISCAL_MONOT = 0     ! Monotonic advection for scalars (including moisture)
-                          ! and temperature. 0 = off, 1 = monotonic
+   NL%ITHIL_MONOT = 0     ! 0 - off, 1 = monotonic
+   NL%ISCAL_MONOT = 0     ! 0 = off, 1 = monotonic, 2 = positive-definite
 
-   NL%HORIZ_ADV_ORDER = 2 ! Horizontal advection order (2 or 3) for scalars and
-                          ! temperature. 
+   NL%THIL_HORIZ_ADV_ORDER = 2 ! Horizontal adection order for Temp (2-3)
+   NL%WIND_HORIZ_ADV_ORDER = 2 ! Horizontal adection order for Wind (2-3)
+   NL%SCAL_HORIZ_ADV_ORDER = 2 ! Horizontal adection order for Scalars (2-3)
 
    NL%ACOUST_TIMESTEP_LEVEL = 3  ! Acoustic time-stepping scheme
    NL%SCALAR_TIMESTEP_LEVEL = 2  ! Long (scalar) time-stepping scheme

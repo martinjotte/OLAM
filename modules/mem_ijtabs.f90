@@ -38,6 +38,7 @@ Module mem_ijtabs
   integer :: nstp  ! # of finest grid acoustic timesteps in coarse grid dtlong
   integer :: istp  ! Current timestep counter from 1 to nstp
   integer :: mrls  ! Number of active mesh refinement levels (MRLs)
+  integer :: iip = 1
 
   integer, allocatable :: mrl_begl(:)  ! MRL at beginning of long timestep
   integer, allocatable :: mrl_begr(:)  ! MRL at beginning of RK step
@@ -185,7 +186,7 @@ Module mem_ijtabs
   type (itabg_w_vars), allocatable, target :: itabg_w(:)
 
   type (jtab_m_vars) :: jtab_m(mloops)
-  type (jtab_v_vars) :: jtab_v(mloops)
+  type (jtab_v_vars) :: jtab_v(mloops + 2)
   type (jtab_w_vars) :: jtab_w(mloops)
 
 Contains
@@ -305,14 +306,15 @@ Contains
 
 !===============================================================================
 
-  subroutine fill_jtabs(mma, mva, mwa)
+  subroutine fill_jtabs(mma, mva, mwa, myrank, iparallel)
 
     implicit none
 
     integer, intent(in) :: mma, mva, mwa
+    integer, intent(in) :: myrank, iparallel
 
-    integer :: iw, iv, im
-    integer :: iloop, j
+    integer :: iw, iv, im, iw1, iw2
+    integer :: iloop, j, np, nb
 
     do iloop = 1, mloops
 
@@ -377,6 +379,50 @@ Contains
        enddo
 
     enddo
+
+    if (iparallel == 1) then
+
+       iip = 2
+
+       np = 0
+       do j = 1, jtab_v(jtv_wadj)%jend ; iv = jtab_v(jtv_wadj)%iv(j)
+          iw1 = itab_v(iv)%iw(1) ; iw2 = itab_v(iv)%iw(2)
+          if (itab_w(iw1)%irank == myrank .and. itab_w(iw2)%irank == myrank) then
+             np = np + 1
+          endif
+       enddo
+
+       jtab_v(mloops+1)%jend = np
+       allocate( jtab_v(mloops+1)%iv( jtab_v(mloops+1)%jend ) )
+
+       jtab_v(mloops+2)%jend = jtab_v(jtv_wadj)%jend - np
+       allocate( jtab_v(mloops+2)%iv( jtab_v(mloops+2)%jend ) )
+
+       np = 0
+       nb = 0
+       do j = 1, jtab_v(jtv_wadj)%jend ; iv = jtab_v(jtv_wadj)%iv(j)
+          iw1 = itab_v(iv)%iw(1) ; iw2 = itab_v(iv)%iw(2)
+          if (itab_w(iw1)%irank == myrank .and. itab_w(iw2)%irank == myrank) then
+             np = np + 1
+             jtab_v(mloops+1)%iv(np) = iv
+          else
+             nb = nb + 1
+             jtab_v(mloops+2)%iv(nb) = iv
+          endif
+       enddo
+
+    else
+
+       iip = 1
+
+       jtab_v(mloops+1)%jend = jtab_v(jtv_wadj)%jend
+       allocate( jtab_v(mloops+1)%iv( jtab_v(mloops+1)%jend ) )
+       jtab_v(mloops+1)%iv(:) = jtab_v(jtv_wadj)%iv(:)
+
+       jtab_v(mloops+2)%jend = 0
+       allocate( jtab_v(mloops+2)%iv( jtab_v(mloops+2)%jend ) )
+
+    endif
 
   end subroutine fill_jtabs
 

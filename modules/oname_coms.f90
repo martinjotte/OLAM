@@ -191,7 +191,9 @@ Module oname_coms
      integer :: ithil_monot = 0
      integer :: iscal_monot = 0
 
-     integer :: horiz_adv_order = 2
+     integer :: thil_horiz_adv_order = 2
+     integer :: wind_horiz_adv_order = 2
+     integer :: scal_horiz_adv_order = 2
 
      integer :: acoust_timestep_level = 3
      integer :: scalar_timestep_level = 2
@@ -206,14 +208,14 @@ Module oname_coms
 
      ! to be removed
      real    :: akmin_vort = 0.4
-
      logical :: zero_neg_scalars = .true.
 
      logical :: debug_fp    = .false.
      logical :: init_nans   = .false.
 
-     logical  :: print_mass_sums = .false.
-     real(r8) :: mass_sum_frq    = 86400._r8
+     logical  :: print_tracer_maxmins = .false.
+     logical  :: print_mass_sums      = .false.
+     real(r8) :: mass_sum_frq         = 86400._r8
 
 !!    RAYLEIGH FRICTION PARAMETERS
 

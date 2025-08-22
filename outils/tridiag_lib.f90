@@ -319,7 +319,6 @@ contains
 
 
   subroutine tridif_prep(m1,ka,kz,cim1,ci,cip1,scr1,cji)
-
     implicit none
 
     ! SERIAL TRIDIAGONAL SOLVER
@@ -333,11 +332,13 @@ contains
 
     do k = ka+1, kz
        scr1(k) = cji(k-1) * cip1(k-1)
-       cji (k) = 1.0 / ( ci(k-1) - cim1(k) * scr1(k))
+       cji (k) = 1.0 / ( ci(k) - cim1(k) * scr1(k) )
     enddo
 
   end subroutine tridif_prep
 
+
+!===========================================================================
 
 
   subroutine tridif_fini(m1,ka,kz,cim1,scr1,cji,rhs,soln)

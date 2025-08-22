@@ -259,10 +259,12 @@ endif
 
 call ichk_bnds( nl%naddsc, "NADDSC", 0, i_huge, 2, nfatal, nwarn )
 
-call ichk_bnds( nl%ithil_monot, "ITHIL_MONOT", 0, 1, 0, nfatal, nwarn )
+call ichk_bnds( nl%ithil_monot, "ITHIL_MONOT", 0, 2, 0, nfatal, nwarn )
 call ichk_bnds( nl%iscal_monot, "ISCAL_MONOT", 0, 2, 0, nfatal, nwarn )
 
-call ichk_bnds( nl%horiz_adv_order, "HORIZ_ADV_ORDER", 2, 3, 2, nfatal, nwarn )
+call ichk_bnds( nl%thil_horiz_adv_order, "THIL_HORIZ_ADV_ORDER", 1, 3, 2, nfatal, nwarn )
+call ichk_bnds( nl%wind_horiz_adv_order, "WIND_HORIZ_ADV_ORDER", 1, 3, 2, nfatal, nwarn )
+call ichk_bnds( nl%scal_horiz_adv_order, "SCAL_HORIZ_ADV_ORDER", 1, 3, 2, nfatal, nwarn )
 
 call ichk_bnds( nl%acoust_timestep_level, "ACOUST_TIMESTEP_LEVEL", 2, 3, 2, nfatal, nwarn)
 call ichk_bnds( nl%scalar_timestep_level, "SCALAR_TIMESTEP_LEVEL", 2, 3, 2, nfatal, nwarn)

@@ -89,6 +89,8 @@ Module olam_mpi_atm
   integer, allocatable :: ireqvs_direct(:,:)
   integer, allocatable :: ireqvr_direct(:,:)
 
+  integer, parameter :: ntagsmax_direct = 40
+
 Contains
 
 !===============================================================================
@@ -293,8 +295,8 @@ subroutine olam_mpi_atm_start()
 
   enddo
 
-  allocate( ireqws_direct(nsends_w,10) )
-  allocate( ireqwr_direct(nrecvs_w,10) )
+  allocate( ireqws_direct(nsends_w,ntagsmax_direct) )
+  allocate( ireqwr_direct(nrecvs_w,ntagsmax_direct) )
 
   ! MPI Displacements for M direct communication
 
@@ -396,8 +398,8 @@ subroutine olam_mpi_atm_start()
 
   enddo
 
-  allocate( ireqms_direct(nsends_m,10) )
-  allocate( ireqmr_direct(nrecvs_m,10) )
+  allocate( ireqms_direct(nsends_m,ntagsmax_direct) )
+  allocate( ireqmr_direct(nrecvs_m,ntagsmax_direct) )
 
   ! MPI Displacements for V direct communication
 
@@ -499,8 +501,8 @@ subroutine olam_mpi_atm_start()
 
   enddo
 
-  allocate( ireqvs_direct(nsends_v,10) )
-  allocate( ireqvr_direct(nrecvs_v,10) )
+  allocate( ireqvs_direct(nsends_v,ntagsmax_direct) )
+  allocate( ireqvr_direct(nrecvs_v,ntagsmax_direct) )
 
 #endif
 
@@ -1694,7 +1696,9 @@ subroutine mpi_post_direct_recv_w_3d_1(rvara1, itag)
   integer            :: ierr, jrecv, ntag
   integer, parameter :: ioff = 11000
 
-  if (itag < 1 .or. itag > 10) call olam_stop("Invalid tag size in direct send/recv routines.")
+  if (itag < 1 .or. itag > ntagsmax_direct) &
+       call olam_stop("Invalid tag size in direct send/recv routines.")
+
   ntag = itag + ioff
 
   do jrecv = 1, nrecvs_w
@@ -1723,7 +1727,9 @@ subroutine mpi_post_direct_recv_w_3d_2(rvara1, itag)
   integer            :: ierr, jrecv, ntag, isize
   integer, parameter :: ioff = 11000
 
-  if (itag < 1 .or. itag > 10) call olam_stop("Invalid tag size in direct send/recv routines.")
+  if (itag < 1 .or. itag > ntagsmax_direct) &
+       call olam_stop("Invalid tag size in direct send/recv routines.")
+
   ntag = itag + ioff
 
   isize = size(rvara1,3)
@@ -1755,7 +1761,7 @@ subroutine mpi_post_direct_send_w_3d_1(rvara1, itag)
   integer            :: ierr, jsend, ntag
   integer, parameter :: ioff = 11000
 
-  if (itag < 1 .or. itag > 10) call olam_stop("Invalid tag size in direct send/recv routines.")
+  if (itag < 1 .or. itag > ntagsmax_direct) call olam_stop("Invalid tag size in direct send/recv routines.")
   ntag = itag + ioff
 
   do jsend = 1, nsends_w
@@ -1784,7 +1790,9 @@ subroutine mpi_post_direct_send_w_3d_2(rvara1, itag)
   integer            :: ierr, jsend, ntag, isize
   integer, parameter :: ioff = 11000
 
-  if (itag < 1 .or. itag > 10) call olam_stop("Invalid tag size in direct send/recv routines.")
+  if (itag < 1 .or. itag > ntagsmax_direct) &
+       call olam_stop("Invalid tag size in direct send/recv routines.")
+
   ntag = itag + ioff
 
   isize = size(rvara1,3)
@@ -1812,7 +1820,9 @@ subroutine mpi_finish_direct_send_w(itag)
 #ifdef OLAM_MPI
   integer :: ierr
 
-  if (itag < 1 .or. itag > 10) call olam_stop("Invalid tag size in direct send/recv routines.")
+  if (itag < 1 .or. itag > ntagsmax_direct) &
+       call olam_stop("Invalid tag size in direct send/recv routines.")
+
   if (nsends_w > 0) call MPI_Waitall(nsends_w, ireqws_direct(:,itag), MPI_STATUSES_IGNORE, ierr)
 #endif
 
@@ -1833,7 +1843,9 @@ subroutine mpi_finish_direct_recv_w(itag)
 #ifdef OLAM_MPI
   integer :: ierr
 
-  if (itag < 1 .or. itag > 10) call olam_stop("Invalid tag size in direct send/recv routines.")
+  if (itag < 1 .or. itag > ntagsmax_direct) &
+       call olam_stop("Invalid tag size in direct send/recv routines.")
+
   if (nrecvs_w > 0) call MPI_Waitall(nrecvs_w, ireqwr_direct(:,itag), MPI_STATUSES_IGNORE, ierr)
 #endif
 
@@ -1858,7 +1870,9 @@ subroutine mpi_post_direct_recv_m_3d_1(rvara1, itag)
   integer            :: ierr, jrecv, ntag
   integer, parameter :: ioff = 11050
 
-  if (itag < 1 .or. itag > 10) call olam_stop("Invalid tag size in direct send/recv routines.")
+  if (itag < 1 .or. itag > ntagsmax_direct) &
+       call olam_stop("Invalid tag size in direct send/recv routines.")
+
   ntag = itag + ioff
 
   do jrecv = 1, nrecvs_m
@@ -1887,7 +1901,9 @@ subroutine mpi_post_direct_recv_m_3d_2(rvara1, itag)
   integer            :: ierr, jrecv, ntag, isize
   integer, parameter :: ioff = 11050
 
-  if (itag < 1 .or. itag > 10) call olam_stop("Invalid tag size in direct send/recv routines.")
+  if (itag < 1 .or. itag > ntagsmax_direct) &
+       call olam_stop("Invalid tag size in direct send/recv routines.")
+
   ntag = itag + ioff
 
   isize = size(rvara1,3)
@@ -1919,7 +1935,9 @@ subroutine mpi_post_direct_send_m_3d_1(rvara1, itag)
   integer            :: ierr, jsend, ntag
   integer, parameter :: ioff = 11050
 
-  if (itag < 1 .or. itag > 10) call olam_stop("Invalid tag size in direct send/recv routines.")
+  if (itag < 1 .or. itag > ntagsmax_direct) &
+       call olam_stop("Invalid tag size in direct send/recv routines.")
+
   ntag = itag + ioff
 
   do jsend = 1, nsends_m
@@ -1948,7 +1966,9 @@ subroutine mpi_post_direct_send_m_3d_2(rvara1, itag)
   integer            :: ierr, jsend, ntag, isize
   integer, parameter :: ioff = 11050
 
-  if (itag < 1 .or. itag > 10) call olam_stop("Invalid tag size in direct send/recv routines.")
+  if (itag < 1 .or. itag > ntagsmax_direct) &
+       call olam_stop("Invalid tag size in direct send/recv routines.")
+
   ntag = itag + ioff
 
   isize = size(rvara1,3)
@@ -1976,7 +1996,9 @@ subroutine mpi_finish_direct_send_m(itag)
 #ifdef OLAM_MPI
   integer :: ierr
 
-  if (itag < 1 .or. itag > 10) call olam_stop("Invalid tag size in direct send/recv routines.")
+  if (itag < 1 .or. itag > ntagsmax_direct) &
+       call olam_stop("Invalid tag size in direct send/recv routines.")
+
   if (nsends_m > 0) call MPI_Waitall(nsends_m, ireqms_direct(:,itag), MPI_STATUSES_IGNORE, ierr)
 #endif
 
@@ -1997,7 +2019,9 @@ subroutine mpi_finish_direct_recv_m(itag)
 #ifdef OLAM_MPI
   integer :: ierr
 
-  if (itag < 1 .or. itag > 10) call olam_stop("Invalid tag size in direct send/recv routines.")
+  if (itag < 1 .or. itag > ntagsmax_direct) &
+       call olam_stop("Invalid tag size in direct send/recv routines.")
+
   if (nrecvs_m > 0) call MPI_Waitall(nrecvs_m, ireqmr_direct(:,itag), MPI_STATUSES_IGNORE, ierr)
 #endif
 
@@ -2022,7 +2046,9 @@ subroutine mpi_post_direct_recv_v_3d_1(rvara1, itag)
   integer            :: ierr, jrecv, ntag
   integer, parameter :: ioff = 11100
 
-  if (itag < 1 .or. itag > 10) call olam_stop("Invalid tag size in direct send/recv routines.")
+  if (itag < 1 .or. itag > ntagsmax_direct) &
+       call olam_stop("Invalid tag size in direct send/recv routines.")
+
   ntag = itag + ioff
 
   do jrecv = 1, nrecvs_v
@@ -2051,7 +2077,9 @@ subroutine mpi_post_direct_recv_v_3d_2(rvara1, itag)
   integer            :: ierr, jrecv, ntag, isize
   integer, parameter :: ioff = 11100
 
-  if (itag < 1 .or. itag > 10) call olam_stop("Invalid tag size in direct send/recv routines.")
+  if (itag < 1 .or. itag > ntagsmax_direct) &
+       call olam_stop("Invalid tag size in direct send/recv routines.")
+
   ntag = itag + ioff
 
   isize = size(rvara1,3)
@@ -2083,7 +2111,9 @@ subroutine mpi_post_direct_send_v_3d_1(rvara1, itag)
   integer            :: ierr, jsend, ntag
   integer, parameter :: ioff = 11100
 
-  if (itag < 1 .or. itag > 10) call olam_stop("Invalid tag size in direct send/recv routines.")
+  if (itag < 1 .or. itag > ntagsmax_direct) &
+       call olam_stop("Invalid tag size in direct send/recv routines.")
+
   ntag = itag + ioff
 
   do jsend = 1, nsends_v
@@ -2112,7 +2142,9 @@ subroutine mpi_post_direct_send_v_3d_2(rvara1, itag)
   integer            :: ierr, jsend, ntag, isize
   integer, parameter :: ioff = 11100
 
-  if (itag < 1 .or. itag > 10) call olam_stop("Invalid tag size in direct send/recv routines.")
+  if (itag < 1 .or. itag > ntagsmax_direct) &
+       call olam_stop("Invalid tag size in direct send/recv routines.")
+
   ntag = itag + ioff
 
   isize = size(rvara1,3)
@@ -2140,7 +2172,9 @@ subroutine mpi_finish_direct_send_v(itag)
 #ifdef OLAM_MPI
   integer :: ierr
 
-  if (itag < 1 .or. itag > 10) call olam_stop("Invalid tag size in direct send/recv routines.")
+  if (itag < 1 .or. itag > ntagsmax_direct) &
+       call olam_stop("Invalid tag size in direct send/recv routines.")
+
   if (nsends_v > 0) call MPI_Waitall(nsends_v, ireqvs_direct(:,itag), MPI_STATUSES_IGNORE, ierr)
 #endif
 
@@ -2161,7 +2195,9 @@ subroutine mpi_finish_direct_recv_v(itag)
 #ifdef OLAM_MPI
   integer :: ierr
 
-  if (itag < 1 .or. itag > 10) call olam_stop("Invalid tag size in direct send/recv routines.")
+  if (itag < 1 .or. itag > ntagsmax_direct) &
+       call olam_stop("Invalid tag size in direct send/recv routines.")
+
   if (nrecvs_v > 0) call MPI_Waitall(nrecvs_v, ireqvr_direct(:,itag), MPI_STATUSES_IGNORE, ierr)
 #endif
 

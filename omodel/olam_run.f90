@@ -273,7 +273,7 @@ subroutine olam_run(name_name)
 
   write(io6,'(/,a)') 'olam_run calling fill_jtabs'
 
-  call fill_jtabs(mma,mva,mwa)
+  call fill_jtabs(mma,mva,mwa,myrank,iparallel)
 
   if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) call fill_jnudge()
 

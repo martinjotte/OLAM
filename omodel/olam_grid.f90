@@ -210,7 +210,7 @@ subroutine gridinit()
 
      write(io6,'(/,a)') 'gridinit calling fill_jtabs'
 
-     call fill_jtabs(nma,nva,nwa)
+     call fill_jtabs(nma,nva,nwa,0,0)
 
      ! Fill remaining GRID FOOTPRINT geometry for full domain
 

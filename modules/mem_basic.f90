@@ -26,8 +26,8 @@ Module mem_basic
   real(r8), allocatable :: rho  (:,:) ! dry air density [kg/m^3]
 
   ! Half-forrward advecting velocities for scalars averaged over long timestep
-  real(r8), allocatable :: wmasc(:,:)
-  real(r8), allocatable :: vmasc(:,:)
+  real, allocatable :: wmasc(:,:)
+  real, allocatable :: vmasc(:,:)
 
   real, allocatable :: alpha_press(:,:)
   real, allocatable :: pwfac      (:,:)
@@ -39,8 +39,8 @@ Contains
 
   subroutine alloc_basic(mza,mva,mwa)
 
-    use misc_coms,   only: rinit, rinit8, nrk_scal, nrk_wrtv, mdomain
-    use consts_coms, only: pc1, rdry, cpocv
+    use misc_coms,   only: rinit, rinit8, mdomain
+    use consts_coms, only: pc1, rdry, cpocv, r8
     use mem_grid,    only: zfacit, dniv, dzim
 
     implicit none
@@ -62,7 +62,7 @@ Contains
        vmc  (:,iv) = rinit
        vc   (:,iv) = rinit
        pvfac(:,iv) = zfacit(:) * dniv(iv)
-       vmasc(:,iv) = 0.0_r8
+       vmasc(:,iv) = 0.0
     enddo
     !$omp end parallel do
 
@@ -104,7 +104,7 @@ Contains
        vxe        (:,iw) = 0.0
        vye        (:,iw) = 0.0
        vze        (:,iw) = 0.0
-       wmasc      (:,iw) = 0.0_r8
+       wmasc      (:,iw) = 0.0
        alpha_press(:,iw) = alpha_dry
        pwfac      (:,iw) = dzim(:)
 

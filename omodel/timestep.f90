@@ -2,8 +2,7 @@ subroutine timestep()
 
 use misc_coms,   only: time8, time_istp8, time_istp8p, time_bias, io6, &
                        nqparm, initial, ilwrtyp, iswrtyp, dtsm, i_o3, &
-                       iparallel, s1900_init, s1900_sim, do_chem, &
-                       nrk_wrtv, nrk_scal
+                       iparallel, s1900_init, s1900_sim, do_chem
 use mem_ijtabs,  only: nstp, istp, mrls, mrl_begl, mrl_endl
 use mem_nudge,   only: nudflag, nudnxp, o3nudflag
 use mem_grid,    only: mza, mwa
@@ -20,12 +19,14 @@ use mem_megan,   only: megan_avg_temp
 use emis_defn,   only: get_emis
 use depv_defn,   only: get_depv
 use wrtv_rk,     only: prog_wrtv_rk
-use check_nan,   only: check_nans
+use check_nan,   only: check_nans, tracer_maxmin
 use pbl_drivers, only: pbl_driver, comp_horiz_k
 use olam_mpi_sfc,only: mpi_send_wsfc, mpi_recv_wsfc
 use hcane_rz,    only: ncycle_hurrinit, icycle_hurrinit, timmax_hurrinit, &
                        vortex_add_thetapert
 use obs_nudge_mod,only: obs_nudge
+use scalar_transport, only: scalar_transport_rk
+
 !use oplot_coms,  only: op
 
 implicit none
@@ -242,6 +243,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm
 
    if (mrl_endl(istp) > 0) then
       call scalar_transport_rk(rho_old)
+      if (nl%print_tracer_maxmins) call tracer_maxmin()
    endif
 
    ! call check_pos(1)
@@ -424,7 +426,6 @@ subroutine tend0(rho_old)
   use mem_grid,    only: mza, mwa, mva, lpw, lpv
   use consts_coms, only: r8
   use mem_para,    only: myrank
-  use mem_ijtabs,  only: itab_w
 
   implicit none
 
@@ -441,7 +442,7 @@ subroutine tend0(rho_old)
         vmzet  (k,iw) = 0.0
         thilt  (k,iw) = 0.0
         rho_old(k,iw) = rho(k,iw)
-        wmasc  (k,iw) = 0.0_r8
+        wmasc  (k,iw) = 0.0
      enddo
 
      do n = 1, num_scalar
@@ -457,7 +458,7 @@ subroutine tend0(rho_old)
   do iv = 2, mva
      do k = lpv(iv), mza
         vmt  (k,iv) = 0.0
-        vmasc(k,iv) = 0.0_r8
+        vmasc(k,iv) = 0.0
      enddo
   enddo
   !$omp end do nowait
@@ -543,33 +544,30 @@ end subroutine comp_alpha_press
 
 subroutine timeavg_momsc()
 
-  use mem_ijtabs, only: istp, mrl_endl
-  use mem_grid,   only: mza, mva, mwa, lpw, lpv
+  use mem_ijtabs, only: istp, mrl_endl, jtab_w, jtw_prog, jtab_v, jtv_wadj
+  use mem_grid,   only: mza, lpw, lpv
   use misc_coms,  only: nacoust
   use mem_basic,  only: vmasc, wmasc
-  use consts_coms,only: r8
 
   implicit none
 
-  integer  :: k, iv, iw
-  real(r8) :: acoi
+  integer :: k, iv, iw, j
 
   if (mrl_endl(istp) > 0 .and. nacoust > 1) then
-     acoi = 1._r8 / real(nacoust,r8)
 
      !$omp parallel
-     !$omp do private(k)
-     do iv = 2, mva
+     !$omp do private(iv,k)
+     do j = 1, jtab_v(jtv_wadj)%jend; iv = jtab_v(jtv_wadj)%iv(j)
         do k = lpv(iv), mza
-           vmasc(k,iv) = vmasc(k,iv) * acoi
+           vmasc(k,iv) = vmasc(k,iv) / real(nacoust)
         enddo
      enddo
      !$omp end do nowait
 
-     !$omp do private(k)
-     do iw = 2, mwa
+     !$omp do private(iw,k)
+     do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
         do k = lpw(iw), mza-1
-           wmasc(k,iw) = wmasc(k,iw) * acoi
+           wmasc(k,iw) = wmasc(k,iw) / real(nacoust)
         enddo
      enddo
      !$omp end do nowait
