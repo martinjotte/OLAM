@@ -18,8 +18,9 @@ module wrtv_rk
 
   ! Monotonic / positive-definite tolerances
   real, parameter :: eps0 = 1.e-32
-  real, parameter :: onep = 1.000001
-  real, parameter :: onem = 0.999999
+  real, parameter :: eps1 = 3.e-07
+  real, parameter :: onep = 1.0 + eps1
+  real, parameter :: onem = 1.0 - eps1
 
   ! For testing - may want to add to namelist!
   integer, parameter  :: iorderv        =  3
@@ -88,6 +89,7 @@ subroutine prog_wrtv_rk()
   integer  :: i2dv, i2dt
   real     :: dts, v4, rs
   real(r8) :: dt8
+  logical  :: thil_monot, wind_monot
 
 ! automatic arrays
 
@@ -110,7 +112,11 @@ subroutine prog_wrtv_rk()
   real(r8) :: rth0(mza,mwa)
   real     :: wmc0(mza,mwa)
   real     :: vmc0(mza,mva)
-  real     :: thl0(mza,mva)
+
+  real, allocatable :: thl0(:,:)
+  real, allocatable :: vxe0(:,:)
+  real, allocatable :: vye0(:,:)
+  real, allocatable :: vze0(:,:)
 
 ! real :: gzps_th (mza), gzps_vx (mza), gzps_vy (mza), gzps_vz (mza)
 ! real :: gzzps_th(mza), gzzps_vx(mza), gzzps_vy(mza), gzzps_vz(mza)
@@ -147,6 +153,14 @@ subroutine prog_wrtv_rk()
      call vort_damp(vmt, dtlm)
   endif
 
+  thil_monot = (nl%ithil_monot > 0)
+  wind_monot = (nl%iwind_monot > 0)
+
+  if (thil_monot) allocate( thl0(mza,mwa) )
+  if (wind_monot) allocate( vxe0(mza,mwa) )
+  if (wind_monot) allocate( vye0(mza,mwa) )
+  if (wind_monot) allocate( vze0(mza,mwa) )
+
   !$omp parallel
   !$omp do private(iw,k,v4,ksw,rs,jv,iv,iwn)
   do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
@@ -161,7 +175,6 @@ subroutine prog_wrtv_rk()
         rth0(k,iw) = thil(k,iw) * rho(k,iw)
         rho0(k,iw) = rho (k,iw)
         wmc0(k,iw) = wmc (k,iw)
-        thl0(k,iw) = thil(k,iw)
 
         ! Include long-timestep tendencies in each short timestep
         ! and weight by volume
@@ -170,6 +183,20 @@ subroutine prog_wrtv_rk()
         vmyet_short(k,iw) = vmyet(k,iw) * v4
         vmzet_short(k,iw) = vmzet(k,iw) * v4
      enddo
+
+     if (thil_monot) then
+        do k = lpw(iw), mza
+           thl0(k,iw) = thil(k,iw)
+        enddo
+     endif
+
+     if (wind_monot) then
+        do k = lpw(iw), mza
+           vxe0(k,iw) = vxe(k,iw)
+           vye0(k,iw) = vye(k,iw)
+           vze0(k,iw) = vze(k,iw)
+        enddo
+     endif
 
      ! Save initial earth-cartesian momentum for prognostic shaved-cell method
 
@@ -329,9 +356,9 @@ subroutine prog_wrtv_rk()
      !$omp end do nowait
      !$omp end parallel
 
-     if (istage == nrk_wrtv .and. nl%ithil_monot > 0) then
+     if (istage == nrk_wrtv .and. thil_monot) then
 
-        call fluxes_thil_monot( thil, thl0, thilt_short, thil_upw, thil_upv, &
+        call fluxes_wrtv_monot( thil, thl0, thilt_short, thil_upw, thil_upv, &
                                 rho, rho0, vmca, wmc, dts, nl%thil_horiz_adv_order, i2dt )
      else
 
@@ -339,15 +366,27 @@ subroutine prog_wrtv_rk()
                           nl%thil_horiz_adv_order, i2dt )
      endif
 
-     call fluxes_wrtv( vxe,  vxe_upw, vxe_upv, vmc, wmc, &
-                       nl%wind_horiz_adv_order, i2dv )
+     if (istage == nrk_wrtv .and. wind_monot) then
 
-     call fluxes_wrtv( vye,  vye_upw, vye_upv, vmc, wmc, &
-                       nl%wind_horiz_adv_order, i2dv )
+        call fluxes_wrtv_monot( vxe, vxe0, vmxet_short, vxe_upw, vxe_upv, &
+                                rho, rho0, vmca, wmc, dts, nl%wind_horiz_adv_order, i2dv )
 
-     call fluxes_wrtv( vze,  vze_upw, vze_upv, vmc, wmc, &
-                       nl%wind_horiz_adv_order, i2dv )
+        call fluxes_wrtv_monot( vye, vye0, vmyet_short, vye_upw, vye_upv, &
+                                rho, rho0, vmca, wmc, dts, nl%wind_horiz_adv_order, i2dv )
 
+        call fluxes_wrtv_monot( vze, vze0, vmzet_short, vze_upw, vze_upv, &
+                                rho, rho0, vmca, wmc, dts, nl%wind_horiz_adv_order, i2dv )
+     else
+
+        call fluxes_wrtv( vxe, vxe_upw, vxe_upv, vmc, wmc, &
+                          nl%wind_horiz_adv_order, i2dv )
+
+        call fluxes_wrtv( vye, vye_upw, vye_upv, vmc, wmc, &
+                          nl%wind_horiz_adv_order, i2dv )
+
+        call fluxes_wrtv( vze, vze_upw, vze_upv, vmc, wmc, &
+                          nl%wind_horiz_adv_order, i2dv )
+     endif
 
      ! MAIN LOOP OVER W COLUMNS FOR UPDATING WM, WC, RHO, THIL, AND PRESS
 
@@ -843,8 +882,6 @@ subroutine prog_v_begs( iv, dts, vmc0, vmxet_rk, vmyet_rk, vmzet_rk, vmt_short )
   use consts_coms, only: gravo2
   use mem_grid,    only: mza, mva, mwa, lpv, vnx, vny, vnz, volvi
   use oname_coms,  only: nl
-!  use mem_rayf
-  
 
   implicit none
 
@@ -909,7 +946,7 @@ subroutine fluxes_wrtv( scp, scp_upw, scp_upv, vmc, wmc, iorderh, i2d )
   use olam_mpi_atm, only: mpi_post_direct_recv_w, mpi_finish_direct_recv_w, &
                           mpi_post_direct_send_w, mpi_finish_direct_send_w
   use obnd,         only: lbcopy_w
-  import,           only: itag_gxyps, iorderv
+! import,           only: itag_gxyps, iorderv
 
   implicit none
 
@@ -977,7 +1014,7 @@ contains
     use mem_grid,   only: lpv, mza
     use mem_ijtabs, only: itab_v
     use mem_adv,    only: xx0_v, yy0_v, xy0_v
-    import,         only: scp, scp_upv, vmc, gxyps, iorderh
+!   import,         only: scp, scp_upv, vmc, gxyps, iorderh
 
     implicit none
 
@@ -1039,7 +1076,7 @@ contains
 
     use mem_grid,   only: lpw, mza
     use grad_lib,   only: grad_z_linear, grad_z_quadratic
-    import,         only: scp, wmc, scp_upw, iorderv
+!   import,         only: scp, wmc, scp_upw, iorderv
 
     implicit none
 
@@ -1083,7 +1120,7 @@ end subroutine fluxes_wrtv
 
 !=========================================================================
 
-subroutine fluxes_thil_monot( scp, scp0, sct, scp_upw, scp_upv, &
+subroutine fluxes_wrtv_monot( scp, scp0, sct, scp_upw, scp_upv, &
                               rho, rho0, vmca, wmc, dtr, iorderh, i2d)
 
   use consts_coms,  only: r8
@@ -1094,8 +1131,8 @@ subroutine fluxes_thil_monot( scp, scp0, sct, scp_upw, scp_upv, &
                           mpi_post_direct_send_w, mpi_finish_direct_send_w
   use grad_lib,     only: grad_t2d, grad_t2d_quadratic
   use obnd,         only: lbcopy_w
-  import,           only: itag_gxyps, iorderv, centered_monot, eps0, itag_scpt, &
-                          itag_gxyps, itag_monot, onep, onem
+! import,           only: itag_gxyps, iorderv, centered_monot, itag_scpt, &
+!                         itag_gxyps, itag_monot, onep, eps0, eps1
   implicit none
 
   integer,  intent(in)  :: iorderh, i2d
@@ -1248,8 +1285,8 @@ contains
     use mem_grid,   only: lpv, mza
     use mem_ijtabs, only: itab_v
     use mem_adv,    only: xx0_vu, yy0_vu, xy0_vu
-    import,         only: scp, scpt, scp_upv, scp_hiv, vmca, sfluxvh, gxyps, &
-                          iorderh, centered_monot
+!   import,         only: scp, scpt, scp_upv, scp_hiv, vmca, sfluxvh, gxyps, &
+!                         iorderh, centered_monot
     implicit none
 
     integer, intent(in) :: iv
@@ -1334,8 +1371,8 @@ contains
 
     use mem_grid,   only: lpw, lpv, mza, volti, arw
     use grad_lib,   only: grad_z_linear, grad_z_quadratic
-    import,         only: scp, scpt, scp_upw, scp_hiw, sfluxwh, wmc, &
-                          centered_monot, iorderv
+!   import,         only: scp, scpt, scp_upw, scp_hiw, sfluxwh, wmc, &
+!                         centered_monot, iorderv
     implicit none
 
     integer, intent(in) :: iw
@@ -1404,15 +1441,15 @@ contains
 
     use mem_grid,   only: lpw, lpv, mza, volti, arw
     use mem_ijtabs, only: itab_w
-    import,         only: scp, scpt, vmca, wmc, scp_upv, scp_upw, scp_hiv, scp_hiw, &
-                          sfluxvh, sfluxwh, scale_inout, rho, dtr, eps0, onep, onem
+!   import,         only: scp, scpt, vmca, wmc, scp_upv, scp_upw, scp_hiv, scp_hiw, &
+!                         sfluxvh, sfluxwh, scale_inout, rho, dtr, onep, eps0, eps1
     implicit none
 
     integer, intent(in) :: iw
 
     integer             :: kb, k, jv, iv, iwn
     real                :: rscp_low, flux_in, flux_out, sc_in, sc_out
-    real                :: scale, dtrp
+    real                :: scale, dtrp, epsr
     real                :: scp1(mza), scp2(mza)
     real                :: smax(mza), smin(mza)
     real                :: fluxdiv_low(mza)
@@ -1493,8 +1530,10 @@ contains
         flux_in  = max(dtrp * volti(k,iw) * fluxdiv_in (k),  eps0)
         flux_out = min(dtrp * volti(k,iw) * fluxdiv_out(k), -eps0)
 
-        sc_in  = max(rhos(k) * smax(k) - onep * rscp_low - eps0, 0.)
-        sc_out = min(rhos(k) * smin(k) - onem * rscp_low + eps0, 0.)
+        epsr = eps1 * abs(rscp_low)
+
+        sc_in  = max(rhos(k) * smax(k) - (rscp_low + epsr) - eps0, 0.)
+        sc_out = min(rhos(k) * smin(k) - (rscp_low - epsr) + eps0, 0.)
 
         scale_inout(k,iw,1) = min(1., sc_in  / max(flux_in , 0.01*sc_in ) )
         scale_inout(k,iw,2) = min(1., sc_out / min(flux_out, 0.01*sc_out) )
@@ -1502,7 +1541,7 @@ contains
 
    end subroutine scalar_monot_limiter
 
- end subroutine fluxes_thil_monot
+ end subroutine fluxes_wrtv_monot
 
 !=========================================================================
 

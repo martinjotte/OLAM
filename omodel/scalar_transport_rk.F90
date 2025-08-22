@@ -12,8 +12,9 @@ module scalar_transport
 
   ! Monotonic / positive-definite tolerances
   real, parameter :: eps0 = 1.e-32
-  real, parameter :: onep = 1.000001
-  real, parameter :: onem = 0.999999
+  real, parameter :: eps1 = 3.e-07
+  real, parameter :: onep = 1.0 + eps1
+  real, parameter :: onem = 1.0 - eps1
 
   ! For testing - may want to add to namelist!
   integer, parameter  :: iorderv        =  3
@@ -323,7 +324,7 @@ subroutine scalar_transport_rk(rho_old)
 
         ! INTEGRATE SCALARS FORWARD IN TIME USING EXPLICIT ADVECTION AND PHYSICS TENDENCIES
 
-        if (istage == nrk_scal .and. imonot == 1 .and. scalar_tab(n)%pdef) then
+        if (istage == nrk_scal .and. imonot == 1) then
 
            call update_scalar_monot( scp, scp0, rhos(:,:,nrk_scal), vmasc, wmasc, &
                                      dtr, iorder, i2d, istage, nrk_scal, ff_implic )
@@ -914,8 +915,8 @@ contains
     use mem_ijtabs, only: itab_w
     use grad_lib,   only: grad_z_linear, grad_z_quadratic
     use tridiag,    only: tridif_fini
-    import,         only: scp, scp0, wmasc, vmasc, scp_upv, scp_upw, sfluxvh, eps0, &
-                          scale_inout, rhos, dtr, iorderv, centered_monot, onep, onem
+    import,         only: scp, scp0, wmasc, vmasc, scp_upv, scp_upw, sfluxvh, onep, &
+                          scale_inout, rhos, dtr, iorderv, centered_monot, eps0, eps1
     implicit none
 
     integer, intent(in) :: iw
@@ -923,7 +924,7 @@ contains
 
     integer             :: kb, k, jv, iv, iwn
     real                :: rscp_low, flux_in, flux_out, sc_in, sc_out
-    real                :: scale, dtrp, fexpl
+    real                :: scale, dtrp, fexpl, epsr
     real                :: scpb(mza), scpt(mza), scp_hiw(mza)
     real                :: sfluxwh(mza), smax(mza), smin(mza)
     real                :: fluxdiv_low(mza)
@@ -1078,8 +1079,10 @@ contains
        flux_in  = max(dtrp * volti(k,iw) * fluxdiv_in (k),  eps0)
        flux_out = min(dtrp * volti(k,iw) * fluxdiv_out(k), -eps0)
 
-       sc_in  = max(smax(k) - onep * rscp_low - eps0, 0.)
-       sc_out = min(smin(k) - onem * rscp_low + eps0, 0.)
+       epsr = eps1 * abs(rscp_low)
+
+       sc_in  = max(smax(k) - (rscp_low + epsr) - eps0, 0.)
+       sc_out = min(smin(k) - (rscp_low - epsr) + eps0, 0.)
 
        scale_inout(k,iw,1) = min(1., sc_in  / max(flux_in , 0.01*sc_in ) )
        scale_inout(k,iw,2) = min(1., sc_out / min(flux_out, 0.01*sc_out) )

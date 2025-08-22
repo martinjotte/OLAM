@@ -506,11 +506,8 @@ subroutine gridset2()
 
   real :: zend, dzend, dzbeg, ztarg, dzr, rdzr, zshift
 
-  real, allocatable :: zmvec(:),ztvec(:)
-
-  ! Allocate zmvec and ztvec arrays to large size.
-
-  allocate (zmvec(0:500),ztvec(0:500))
+  real :: zmvec(0:nzp+1), ztvec(0:nzp+1)
+  real :: dzrvec(0:nzp+1), dzrtmp(0:nzp+1)
 
   ! If NDZ = 1, then use ZZ values from namelist
 
@@ -557,11 +554,21 @@ subroutine gridset2()
 
         ! Target height for next series
 
-        ztarg = zend + .4 * dzend
+        ztarg = zend !+ .4 * dzend
 
         ! Stretch ratio based on geometric series sum
 
         dzr = (ztarg - zmvec(kvec)) / (ztarg - zmvec(kvec-1) - dzend)
+
+        if (dzr > nl%zstretch_max) then
+           dzr = nl%zstretch_max
+           dzend = ztarg - zmvec(kvec-1) - (ztarg - zmvec(kvec)) / dzr
+        endif
+
+        if (dzr < 1. / nl%zstretch_max) then
+           dzr = 1. / nl%zstretch_max
+           dzend = ztarg - zmvec(kvec-1) - (ztarg - zmvec(kvec)) / dzr
+        endif
 
         ! NSERIES from stretch ratio
 
@@ -578,9 +585,10 @@ subroutine gridset2()
 
         ! Loop over series and compute new levels
 
-        do iseries = 1,nseries
+        if (idz == ndz) nseries = nseries + 1
 
-           if (kvec >= nzp - 1) GO TO 5
+        do iseries = 1, nseries
+!          if (kvec >= nzp - 1) GO TO 5
 
            kvec = kvec + 1
            dzbeg = dzbeg * dzr
@@ -588,11 +596,14 @@ subroutine gridset2()
            zmvec(kvec) = zmvec(kvec-1) + dzbeg
            ztvec(kvec) = zmvec(kvec-1) + (zmvec(kvec) - zmvec(kvec-1)) / (1. + rdzr)
 
+           if (kvec >= nzp + 1) GO TO 5
         enddo
 
      enddo
 
      5 continue
+
+     kvec = kvec - 1
 
      ! If hdz(1) < 0 in order to accomodate geographic areas that are below
      ! sea level, determine the height of the lowest zmvec level that is above
@@ -611,8 +622,8 @@ subroutine gridset2()
 
         zshift = zmvec(k)
 
-        zmvec(:) = zmvec(:) - zshift
-        ztvec(:) = ztvec(:) - zshift
+        zmvec(0:kvec+1) = zmvec(0:kvec+1) - zshift
+        ztvec(0:kvec+1) = ztvec(0:kvec+1) - zshift
 
         kd = 0
         do while (zmvec(kd+2) < hdz(1))
@@ -633,13 +644,41 @@ subroutine gridset2()
 
      ! Fill top 2 ZMVEC and ZTVEC values
 
-     zmvec(kvec)   = zmvec(kvec-1) * 2. - zmvec(kvec-2)
-     zmvec(kvec+1) = zmvec(kvec)   * 2. - zmvec(kvec-1)
+     ! zmvec(kvec)   = zmvec(kvec-1) * 2. - zmvec(kvec-2)
+     ! zmvec(kvec+1) = zmvec(kvec)   * 2. - zmvec(kvec-1)
+     ! zmvec(kvec+1) = zmvec(kvec)   * 2. - zmvec(kvec-1)
 
-     ztvec(kvec)   = .5 * (zmvec(kvec-1) + zmvec(kvec))
-     ztvec(kvec+1) = .5 * (zmvec(kvec) + zmvec(kvec+1))
+     ! ztvec(kvec)   = .5 * (zmvec(kvec-1) + zmvec(kvec))
+     ! ztvec(kvec+1) = .5 * (zmvec(kvec) + zmvec(kvec+1))
 
   endif
+
+
+  ! Test smoothing stretch ratio
+  do iseries = 1, 5
+
+     do k = 3, nza+1
+        dzrvec(k) = (zmvec(k)-zmvec(k-1)) / (zmvec(k-1) - zmvec(k-2))
+     enddo
+
+     dzrtmp(3) = dzrvec(3)
+     do k = 4, nza
+        dzrtmp(k) = .3 * dzrvec(k+1) + .4 * dzrvec(k) + .3 * dzrvec(k-1)
+     enddo
+     dzrtmp(nza+1) = dzrvec(nza+1)
+
+     do k = 3, nza+1
+        zmvec(k) = zmvec(k-1) + dzrtmp(k) * (zmvec(k-1) - zmvec(k-2))
+     enddo
+
+     do k = 3, nza
+        rdzr = sqrt(sqrt((zmvec(k+1) - zmvec(k)) / (zmvec(k-1) - zmvec(k-2))))
+        ztvec(k) = zmvec(k-1) + (zmvec(k) - zmvec(k-1)) / (1. + rdzr)
+     enddo
+     ztvec(nza+1) = ztvec(nza) + (zmvec(nza+1) - zmvec(nza)) / (1. + rdzr)
+
+  enddo
+  ! Test smoothing stretch ratio
 
   ! Allocate main grid arrays
 
@@ -690,8 +729,6 @@ subroutine gridset2()
      zfacit (k) = 1. / zfact (k)
      zfacim2(k) = 1. / zfacm2(k)
   enddo
-
-  deallocate (zmvec,ztvec)
 
 end subroutine gridset2
 

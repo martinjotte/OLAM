@@ -379,6 +379,7 @@
    NL%NADDSC    = 0       ! Number of additional scalar species
 
    NL%ITHIL_MONOT = 0     ! 0 - off, 1 = monotonic
+   NL%IWIND_MONOT = 0     ! 0 - off, 1 = monotonic
    NL%ISCAL_MONOT = 0     ! 0 = off, 1 = monotonic, 2 = positive-definite
 
    NL%THIL_HORIZ_ADV_ORDER = 2 ! Horizontal adection order for Temp (2-3)

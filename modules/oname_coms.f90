@@ -189,6 +189,7 @@ Module oname_coms
      integer :: naddsc      = 0
 
      integer :: ithil_monot = 0
+     integer :: iwind_monot = 0
      integer :: iscal_monot = 0
 
      integer :: thil_horiz_adv_order = 2

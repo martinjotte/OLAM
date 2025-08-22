@@ -259,7 +259,8 @@ endif
 
 call ichk_bnds( nl%naddsc, "NADDSC", 0, i_huge, 2, nfatal, nwarn )
 
-call ichk_bnds( nl%ithil_monot, "ITHIL_MONOT", 0, 2, 0, nfatal, nwarn )
+call ichk_bnds( nl%ithil_monot, "ITHIL_MONOT", 0, 1, 0, nfatal, nwarn )
+call ichk_bnds( nl%iwind_monot, "IWIND_MONOT", 0, 1, 0, nfatal, nwarn )
 call ichk_bnds( nl%iscal_monot, "ISCAL_MONOT", 0, 2, 0, nfatal, nwarn )
 
 call ichk_bnds( nl%thil_horiz_adv_order, "THIL_HORIZ_ADV_ORDER", 1, 3, 2, nfatal, nwarn )
