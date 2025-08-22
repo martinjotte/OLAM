@@ -302,8 +302,8 @@ subroutine shdf5_info(dsetname, ndims, dims, dimname, attached_dimnames, &
   integer :: ier
 #endif
 
-  ndims = 0
-  dims  = 0
+  ndims = -1
+  dims  =  0
 
   if (present(attached_dimnames)) attached_dimnames(:) = ' '
   if (present(dimname))           dimname              = ' '
