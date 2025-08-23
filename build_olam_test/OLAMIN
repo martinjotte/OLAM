@@ -71,7 +71,10 @@
                   ! Exception: NDZ = 1 is flag to use ZZ instead of (HDZ,DZ) pairs
 
    NL%HDZ  =   0.,  2000., 20000., 45000.  ! Heights at which DZ is specified
-   NL%DZ   =  100.,   200.,  2000.,   2500.  ! Vertical grid spacing at each HDZ
+   NL%DZ   =  100.,  200.,  2000.,  2500.  ! Vertical grid spacing at each HDZ
+
+   NL%ZSTRETCH_MAX = 1.15  ! LIMIT the change in DZ between 2 adjacent levels
+                           ! to be less then this ratio (When NDZ > 1)
 
    ! Vertical levels if NDZ = 1
    NL%ZZ       = 0.0,

@@ -67,6 +67,7 @@ Module oname_coms
 
      real :: hdz(10) = 0.
      real :: dz (10) = 0.
+     real :: zstretch_max = 1.2
 
      real :: zz(maxsndg) = 0.0
 
