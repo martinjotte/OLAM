@@ -1062,8 +1062,6 @@ subroutine olam_output()
 
   use mem_average_vars, only: reset_davg_vars
   use mem_sfcnud,   only: s1900_sfcnud, isfcnudfile, sfcnud_read
-  use umwm_module,  only: umwmflg
-  use umwm_physics, only: umwm_diag
   use check_nan,    only: compute_mass_sums
   use point_io,     only: write_point_file
 
@@ -1082,7 +1080,6 @@ subroutine olam_output()
 
   if (mod(time8p,op%frqplt) < dtlm .or. time8p >= timmax8 .or. iflag == 1) then
 
-     if (umwmflg == 1) call umwm_diag()
      call copy_plot(0)
      call plot_fields(0)
 

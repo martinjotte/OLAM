@@ -1,7 +1,5 @@
 module umwm_init
 
-  use umwm_module
-
   implicit none
 
   private
@@ -13,51 +11,12 @@ contains
 
 subroutine nmlassign()
 
-  use misc_coms, only: io6
+  use umwm_module, only: pm, fmin, fmax, fprog, gustiness, dmin
+  use misc_coms,   only: io6
+
   implicit none
 
   logical :: namelistok
-
-  ! local variables for reading from namelist
-
-  ! namelist /domain/
-
-  !Bob - orig values were: om=37,pm=36,fmax=2.0,fprog=2.0
-  !Bob - also, orig lm in stokes = 42; Bob changed lm to 1
-
-  om        = 25      ! Number of frequency bins
-  pm        = 32      ! Number of directions
-  fmin      = 0.0313  ! Lowest frequency bin [Hz]
-  fmax      = 0.5     ! Highest frequency bin [Hz]
-  fprog     = 0.5     ! Highest prognostic frequency bin [Hz]
-
-  ! namelist /physics/
-
-  nu_air    = 1.56E-5 ! Kinematic viscosity of air [m^2/s]
-  nu_water  = 0.90E-6 ! Kinematic viscosity of water [m^2/s]
-  sfct      = 0.07    ! Surface tension [N/m]
-  gustiness = 0.0     ! Random wind gustiness factor (should be between 0 and 0.2)
-  dmin      = 10.     ! Ocean depth lower limit [m]
-  explim    = 0.9     ! Exponent limiter (0.69 ~ 100% growth)
-  sin_fac   = 0.11    ! Input factor from following winds
-  sin_diss1 = 0.10    ! Damping factor from opposing winds
-  sin_diss2 = 0.001   ! Damping factor from swell overrunning wind
-  sds_fac   = 42.     ! Breaking dissipation factor
-  sds_power = 2.4     ! Saturation spectrum power
-  mss_fac   = 360     ! Mean-square-slope adjustment to Sds
-  snl_fac   = 5.0     ! Wave energy downshifting factor
-  sdt_fac   = 0.002   ! Dissipation due to turbulence factor
-  sbf_fac   = 0.003   ! Bottom friction coefficient [m/s]
-  sbp_fac   = 0.003   ! Bottom percolation coefficient [m/s]
-
-  ! namelist /forcing_constant/
-
-  fice_lth  = 0.30    ! Sea ice fraction - lower threshold for attenuation
-  fice_uth  = 0.75    ! Sea ice fraction - upper threshold for attenuation
-
-  ! namelist /output/
-
-  stokes    = .true.  ! Compute Stokes drift velocity fields
 
   ! check namelist values:
 
@@ -108,52 +67,45 @@ subroutine init()
   ! Initialize model variables such as frequencies, direction angles,
   ! phase speed and group velocity, wave numbers, etc.
 
-  use consts_coms,   only: piu180, erad, pi2, pio4, grav
-  use mem_sfcg,      only: sfcg, mvsfc, itab_vsfc
-  use mem_sea,       only: msea, omsea
-  use umwm_oforcing, only: oforcing
+  use consts_coms,    only: piu180, erad
+  use mem_sfcg,       only: sfcg, mvsfc, itab_vsfc
+  use mem_sea,        only: msea, omsea
+  use umwm_oforcing,  only: oforcing
+  use umwm_module,    only: om, pm, umwm, freq, fsdsf, fmin, dlnf, th, cth, sth, cp0, k, &
+                            cg0, cthp_dirv, sthp_dirv, cth2pp, dth, dmin, twopisds_fac
+  use umwm_advection, only: init_refraction, init_propagation
+  use misc_coms,      only: io6
 
   implicit none
 
   integer :: i, o, p, pp, ind, iw1, iw2, iwsfc
-  real    :: raxis, dx, dy, thdirv, bfa, bfb
+  real    :: raxis, dx, dy, thdirv
+  real    :: cth2(pm)
 
-  ! set frequency increment:
-  dlnf = (log(fmax) - log(fmin)) / real(om-1)
-
-  ! set frequency bins:
-  do o = 1,om
-    umwm%f(o) = exp(log(fmin) + (o-1) * dlnf)
+  ! Set frequency bins:
+  do o = 1, om
+     freq (o) = exp(log(fmin) + real(o-1) * dlnf)
+     fsdsf(o) = twopisds_fac * freq(o)
   enddo
 
-  ! define various constants:
-  dth           = pi2 / real(pm)
-  dthg          = dth * grav
-  oneovdth      = 1. / dth
-  twopisds_fac  = pi2 * sds_fac
-  fieldscale1   = sin_diss1 / sin_fac
-  fieldscale2   = sin_diss2 / sin_diss1
-  inv_sds_power = 1. / sds_power
-
-  ! compute diffusion values in 2 frequencies:
-  bfa = exp(-16. * dlnf * dlnf)
-  bfb = exp(-64. * dlnf * dlnf)
-  bf1 = bfa / (bfa + bfb)
-  bf2 = bfb / (bfa + bfb)
-
-  ! calculate wave ray directions
-  do p = 1,pm
-     th(p) = (p - 0.5 * (pm + 1)) * dth ! angles  {-175,-165,...,165,175 deg} but in radians
-    cth(p) = cos(th(p)) ! cosines
-    sth(p) = sin(th(p)) ! sines
+  ! Calculate wave ray directions
+  do p = 1, pm
+     th (p) = (real(p) - 0.5 * real(pm + 1)) * dth  ! angles {-175,-165,...,165,175 deg} but in radians
+     cth(p) = cos(th(p))  ! cosines
+     sth(p) = sin(th(p))  ! sines
   enddo
 
-  do i = 2,msea
-    iwsfc = i + omsea
-    umwm%seadep(i) = max(dmin, sfcg%topw(iwsfc) - sfcg%bathym(iwsfc))
+  !$omp parallel
+  !$omp do private(iwsfc)
+  do i = 2, msea
+     iwsfc = i + omsea
+     umwm%seadep(i) = max(dmin, sfcg%topw(iwsfc) - sfcg%bathym(iwsfc))
+     umwm%alogzs(i) = log( sfcg%dzt_bot(iwsfc) )
   enddo
+  !$omp end do nowait
 
-  do i = 2,mvsfc
+  !$omp do private(iw1,iw2,raxis,dx,dy,thdirv,p)
+  do i = 2, mvsfc
      iw1 = itab_vsfc(i)%iwn(1)
      iw2 = itab_vsfc(i)%iwn(2)
 
@@ -185,76 +137,82 @@ subroutine init()
 
      endif
   enddo
+  !$omp end do
+  !$omp end parallel
 
-  ! "left" and "right" directional indices for refraction:
-  do p = 1,pm
-    pl(p) = p + 1
-    pr(p) = p - 1
-  enddo
-  pl(pm) = 1
-  pr(1)  = pm
+! ! "left" and "right" directional indices for refraction:
+! do p = 1, pm
+!    pl(p) = p + 1
+!    pr(p) = p - 1
+! enddo
+! pl(pm) = 1
+! pr(1)  = pm
 
-  do p = 1,pm
-    cth2(p) = cos(dth * (p-1))**2 ! same as cos(th)**2?
+  do p = 1, pm
+     cth2(p) = cos(dth * real(p-1))**2 * dth
   enddo
 
   allocate(cth2pp(pm,pm))
 
-  do p=1,pm
-    do pp=1,pm
-      ind = pp - p + 1
-      if (ind <= 0) ind = pm + ind
-      cth2pp(pp,p) = cth2(ind) * dth
-    enddo
+  do pp = 1, pm
+     do p = 1, pm
+        ind = pp - p + 1
+        if (ind <= 0) ind = pm + ind
+        cth2pp(p,pp) = cth2(ind)
+     enddo
   enddo
 
-  call oforcing()
+! call oforcing()
 
   ! compute wave numbers, phase speeds, and group velocities:
   call dispersion(1.e-2)
 
-  ! initialize drag coefficient (Large and Pond, 1981):
-  umwm%cd = 1.2e-3
-  do concurrent (i=2:msea, umwm%wspd(i) > 11)
-    umwm%cd(i) = (0.49 + 0.065 * umwm%wspd(i)) * 1e-3
-  enddo
+  call init_propagation()
+  call init_refraction()
 
-  ! initialize friction velocity:
-  do i = 2,msea
-    umwm%ustar(i) = sqrt(umwm%cd(i)) * umwm%wspd(i)
-  enddo
+! do i = 2, msea
+!
+!    ! initialize drag coefficient (Large and Pond, 1981):
+!    umwm%cd(i) = max(1.2e3, .49e-3 + .065e-3 * umwm%wspd(i))
+!
+!    ! initialize friction velocity:
+!    umwm%ustar(i) = sqrt(umwm%cd(i)) * umwm%wspd(i)
+!
+! enddo
 
-  write(*,fmt=102)
-  write(*,*)'initialization summary:'
-  write(*,fmt=103)
-  write(*,*)'bin  f[hz]    t[s]    min(k)   max(k)   min(c)   max(c)   min(cg)   max(cg)'
-  write(*,fmt=103)
+  write(io6,*)
+  write(io6,fmt=102)
+  write(io6,*)'initialization summary:'
+  write(io6,fmt=103)
+  write(io6,*)'bin  f[hz]    t[s]    min(k)   max(k)   min(c)   max(c)   min(cg)   max(cg)'
+  write(io6,fmt=103)
   do o=1,om
-    write(*,fmt=101)o,umwm%f(o),1./umwm%f(o),                                          &
+    write(io6,fmt=101)o,freq(o),1./freq(o),                              &
                     minval(k  (o,2:msea),dim=1),maxval(k  (o,2:msea),dim=1), &
                     minval(cp0(o,2:msea),dim=1),maxval(cp0(o,2:msea),dim=1), &
                     minval(cg0(o,2:msea),dim=1),maxval(cg0(o,2:msea),dim=1)
   enddo
-  101 format(1x,i2,8(2x,f7.4))
-  write(*,fmt=102)
+  write(io6,fmt=102)
+  write(io6,*)
 
+  101 format(1x,i2,8(2x,f7.4))
   102 format('!',77('='),'!')
   103 format('!',77('-'),'!')
 
 !Bob: print out initialized (om,msea) arrays for a single isea point
 
-i = 91457 - omsea
-print*, ' '
-write(6,'(180a)') '               o bf1_renorm bf2_renorm cp0     cg0     cothkd     dwn    fkovg     l2   logl2overz  snl_arg     k       k4          kdk         k3dk        sbf         sdv'
-print*, ' '
-do o = 1,om
-   write(6,'(a,i6,11f9.3,9e12.3)') 'init(o,i) ', o, &
-                     bf1_renorm(o,i), bf2_renorm(o,i),   cp0(o,i), cg0(o,i), &
-                         cothkd(o,i),        dwn(o,i), fkovg(o,i),  l2(o,i), &
-                     logl2overz(o,i),    snl_arg(o,i),     k(o,i),  k4(o,i), &
-                            kdk(o,i),       k3dk(o,i),   sbf(o,i), sdv(o,i)
-enddo
-print*, ' '
+! i = 91457 - omsea
+! print*, ' '
+! write(6,*) '               o bf1_renorm bf2_renorm cp0     cg0     cothkd     dwn    fkovg     l2   logl2overz     k       k4          kdk         k3dk        sbf'
+! print*, ' '
+! do o = 1, om
+!    write(6,'(a,i6,11f9.3,8e12.3)') 'init(o,i) ', o, &
+!                      bf1_renorm(o,i), bf2_renorm(o,i),   cp0(o,i), cg0(o,i), &
+!                          cothkd(o,i),        dwn(o,i), fkovg(o,i),  l2(o,i), &
+!                      logl2overz(o,i),          k(o,i),    k4(o,i),  &
+!                             kdk(o,i),       k3dk(o,i),   sbf(o,i)
+! enddo
+! print*, ' '
 
 end subroutine init
 
@@ -262,9 +220,13 @@ end subroutine init
 
 subroutine dispersion(tol)
 
-  use consts_coms, only: pi2, grav
+  use consts_coms, only: pi2, grav, gravi
   use mem_sea,     only: msea, omsea
   use mem_sfcg,    only: sfcg
+  use umwm_module, only: om, k, cp0, cg0, dwn, l2, logl2overz, k4, oneoverk4, kdk, k3dk, freq, &
+                         fkovg, cothkd, invcp0, bf1_renorm, bf2_renorm, umwm, dmin, sfct, sdv, &
+                         rhosw, dlnf, sbf_fac, sbp_fac, nu_water, snl_fac, bf1, bf2
+  use misc_coms,   only: io6
 
   implicit none
 
@@ -274,40 +236,41 @@ subroutine dispersion(tol)
   real, intent(in) :: tol
 
   integer :: counter, i, o, iwsfc
+  real    :: dk, b, t, kd
+  real    :: f_nd(om)
 
-  real :: dk
-  real :: b      (msea)
-  real :: f_nd(om,msea)
-  real :: kd  (om,msea)
-  real :: t   (om,msea)
+  write(io6,*) 'UMWM dispersion: solving for dispersion relationship'
 
-  write(*,'(a)')'umwm: dispersion: solving for dispersion relationship;'
+  ! set seadep(1) to the minimum water depth. It will be used for propagation
+  ! and refraction when a sea cell borders land
+  umwm%seadep(1) = dmin
 
-  ! non-dimesionalize frequencies, and use deep water limit
-  ! as initial guess:
-  do concurrent (o=1:om, i=2:msea)
-     cp0(o,i)  = pi2 * sqrt(umwm%seadep(i) / grav)
-     f_nd(o,i) = cp0(o,i) * umwm%f(o)
-     k(o,i)    = f_nd(o,i) * f_nd(o,i)
-  enddo
+  !$omp parallel do private(iwsfc,o,f_nd,b,counter,dk,t,kd)
+  do i = 1, msea
 
-  ! non-dimesionalize surface tension:
-  b(2:msea) = sfct / (rhosw * grav * umwm%seadep(2:msea)**2)
+     ! non-dimesionalize frequencies, and use deep water limit as initial guess:
+     do o = 1, om
+        cp0 (o,i) = pi2 * sqrt(umwm%seadep(i) / grav)
+        f_nd(o)   = cp0(o,i) * freq(o)
+        k   (o,i) = f_nd(o) * f_nd(o)
+     enddo
 
-  do i = 2,msea
-     do o = 1,om
+     ! non-dimesionalize surface tension:
+     b = sfct / (rhosw * grav * umwm%seadep(i)**2)
+
+     do o = 1, om
 
         counter = 1
         dk = 2. * tol
 
         do while (abs(dk) > tol) ! newton-raphson iteration loop
 
-           t(o,i) = tanh(k(o,i))
+           t = tanh( k(o,i) )
 
-           dk = -(f_nd(o,i) * f_nd(o,i) - k(o,i) * t(o,i)        &
-                * (1. + b(i) * k(o,i) * k(o,i)))                 &
-                / (3. * b(i) * k(o,i) * k(o,i) * t(o,i) + t(o,i) &
-                + k(o,i) * (1. + b(i) * k(o,i) * k(o,i)) * (1. - t(o,i) * t(o,i)))
+           dk = -(f_nd(o) * f_nd(o) - k(o,i) * t        &
+                * (1. + b * k(o,i) * k(o,i)))           &
+                / (3. * b * k(o,i) * k(o,i) * t + t     &
+                + k(o,i) * (1. + b * k(o,i) * k(o,i)) * (1. - t * t))
            k(o,i) = k(o,i) - dk
 
            if (counter == 1000) exit ! escape if stuck
@@ -315,72 +278,58 @@ subroutine dispersion(tol)
 
         enddo
 
-        k(o,i) = abs(k(o,i)) / umwm%seadep(i) ! umwm%f(k)=umwm%f(-k), so k>0 == k<0 roots
+        k(o,i) = abs(k(o,i)) / umwm%seadep(i) ! freq(k)=freq(-k), so k>0 == k<0 roots
 
      enddo
-  enddo
 
-  write(*,'(a)')'umwm: dispersion: dispersion relationship done;'
-
-
-  do concurrent (o=1:om, i=2:msea)
-     kd(o,i) = k(o,i) * umwm%seadep(i)
-  enddo
-
-  ! limit kd to avoid floating overflow in transcendental functions:
-  where (kd > 20.) kd = 20.
-
-  ! phase speed and group velocity:
-  cp0 = tiny(cp0)
-  cg0 = tiny(cg0)
-
-  do concurrent (o=1:om, i=2:msea)
-
-     cp0(o,i) = pi2 * umwm%f(o) / k(o,i)
-     cg0(o,i) = cp0(o,i) * (0.5 + k(o,i) * umwm%seadep(i) / sinh(2. * kd(o,i)) &
-                         + sfct * k(o,i) * k(o,i) / (rhosw * grav + sfct * k(o,i) * k(o,i)))
-  enddo
-
-  ! compute some frequently used arrays:
-  do i = 2,msea
      iwsfc = i + omsea
-     do o = 1,om
 
-        dwn       (o,i) = pi2 * dlnf * umwm%f(o) / abs(cg0(o,i))             ! dk
-        l2        (o,i) = 0.5 * abs(cp0(o,i)) / umwm%f(o)                    ! lambda/2 (half wavelength)
+     do o = 1, om
+
+        ! phase/group velocity
+        kd       = min( k(o,i) * umwm%seadep(i), 20. )  ! avoid overflow
+        cp0(o,i) = pi2 * freq(o) / k(o,i)
+        cg0(o,i) = cp0(o,i) * ( 0.5 + k(o,i) * umwm%seadep(i) / sinh(2. * kd) &
+                              + sfct * k(o,i)**2 / (rhosw * grav + sfct * k(o,i)**2) )
+
+        ! compute some frequently used arrays
+        dwn       (o,i) = pi2 * dlnf * freq(o) / abs(cg0(o,i))           ! dk
+        l2        (o,i) = 0.5 * abs(cp0(o,i)) / freq(o)                  ! lambda/2 (half wavelength)
         logl2overz(o,i) = log(min(20.,l2(o,i)) / sfcg%dzt_bot(iwsfc))
-        k4        (o,i) = k(o,i)**4                                          ! k^4
-        oneoverk4 (o,i) = 1. / k4(o,i)                                       ! k^-4
-        kdk       (o,i) = k(o,i) * dwn(o,i)                                  ! k*dk
-        k3dk      (o,i) = k(o,i)**3 * dwn(o,i)                               ! k*k*k*dk
-        fkovg     (o,i) = umwm%f(o) * k(o,i) / grav                          ! umwm%f*k/g
-        cothkd    (o,i) = cosh(0.2 * kd(o,i)) / sinh(0.2 * kd(o,i))          ! coth(0.2*kd)
-        invcp0    (o,i) = 1. / cp0(o,i)                                      ! 1/cp
-        sbf       (o,i) = sbf_fac * k(o,i) / (sinh(2. * kd(o,i))) &          ! bottom friction
-                        + sbp_fac * k(o,i) / (cosh(kd(o,i)) * cosh(kd(o,i))) ! bottom percolation
-        sdv       (o,i) = 4. * nu_water * k(o,i)**2                          ! viscosity
-
+        k4        (o,i) = k(o,i)**4                                      ! k^4
+        oneoverk4 (o,i) = 1. / k4(o,i)                                   ! k^-4
+        kdk       (o,i) = k(o,i) * dwn(o,i)                              ! k*dk
+        k3dk      (o,i) = k(o,i)**3 * dwn(o,i)                           ! k*k*k*dk
+        fkovg     (o,i) = freq(o) * k(o,i) / grav                        ! freq*k/g
+        cothkd    (o,i) = cosh(0.2 * kd) / sinh(0.2 * kd)                ! coth(0.2*kd)
+        invcp0    (o,i) = 1. / cp0(o,i)                                  ! 1/cp
+        sdv       (o,i) = sbf_fac * k(o,i) / sinh(2. * kd) &             ! bottom friction
+                        + sbp_fac * k(o,i) / cosh(kd)**2 &               ! bottom percolation
+                        + 4. * nu_water * k(o,i)**2                      ! viscosity
      enddo
-  enddo
 
-  ! compute renormalization factors for snl:
-  bf1_renorm = 0.
-  bf2_renorm = 0.
-  snl_arg    = 0.
+     ! compute renormalization factors for snl:
 
-  do i = 2,msea
-     do o = 1,om-2
-        bf1_renorm(o,i) = snl_fac * bf1 * kdk(o+1,i) / kdk(o,i)
-        bf2_renorm(o,i) = snl_fac * bf2 * kdk(o+2,i) / kdk(o,i)
-        snl_arg   (o,i) = 1. - (bf1_renorm(o,i) + bf2_renorm(o,i))
+     do o = om-1, om
+        bf1_renorm(o,i) = 0.
+        bf2_renorm(o,i) = 0.
      enddo
-  enddo
 
-  ! handle land points for cp and cg (needed for advection/refraction)
-  do o = 1,om
-     cp0(o,1) = minval(cp0(o,2:msea))
-     cg0(o,1) = minval(cg0(o,2:msea))
+     do o = 1, om-2
+!       bf1_renorm(o,i) = snl_fac * bf1 * kdk(o+1,i) / kdk(o,i)
+!       bf2_renorm(o,i) = snl_fac * bf2 * kdk(o+2,i) / kdk(o,i)
+!       snl_arg   (o,i) = 1. - (bf1_renorm(o,i) + bf2_renorm(o,i))
+
+        bf1_renorm(o,i) = bf1 * kdk(o+1,i) / kdk(o,i)
+        bf2_renorm(o,i) = bf2 * kdk(o+2,i) / kdk(o,i)
+!       snl_arg   (o,i) = 1. - snl_fac * (bf1_renorm(o,i) + bf2_renorm(o,i))
+     enddo
+
   enddo
+  !$omp end parallel do
+
+  write(io6,*) 'UMWM dispersion: dispersion relationship done;'
+  write(io6,*)
 
 end subroutine dispersion
 

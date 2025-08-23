@@ -1,10 +1,6 @@
 Module mem_ijtabs
 
-  use max_dims, only: maxremote
-
   implicit none
-
-  private :: maxremote
 
   integer, parameter :: mloops = 7 ! max # non-para DO loops for M,V,W pts
 

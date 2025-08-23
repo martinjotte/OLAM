@@ -27,6 +27,7 @@ Module consts_coms
   real, parameter :: pio2     = 3.1415927 * .5
   real, parameter :: pio4     = 3.1415927 * .25
   real, parameter :: vonk     = 0.40               ! von Karman constant
+  real, parameter :: vonki    = 1.0 / vonk         ! 1. / (von Karman constant)
   real, parameter :: nu       = 1.568e-5           ! kinematic viscosity of air [m^2/s]
   real, parameter :: tkmin    = 5.e-4              ! minimum allowed TKE
   real, parameter :: alvl     = 2.50e6             ! latent heat of evaporation [J/kg]
