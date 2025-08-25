@@ -503,7 +503,7 @@ contains
     use mem_grid,   only: lpv, mza
     use mem_ijtabs, only: itab_v
     use mem_adv,    only: xx0_v, yy0_v, xy0_v
-    import,         only: scp, scp_upv, vmasc, gxyps, iorderh
+!   import,         only: scp, scp_upv, vmasc, gxyps, iorderh
 
     implicit none
 
@@ -566,7 +566,7 @@ contains
     use mem_grid,   only: lpw, lpv, mza, volti
     use mem_ijtabs, only: itab_w
     use grad_lib,   only: grad_z_linear, grad_z_quadratic
-    import,         only: scp, wmasc, vmasc, scp_upv, scp0, sct, rhos, dtr, iorderv
+!   import,         only: scp, wmasc, vmasc, scp_upv, scp0, sct, rhos, dtr, iorderv
 
     implicit none
 
@@ -828,8 +828,8 @@ contains
     use mem_grid,   only: lpv, mza
     use mem_ijtabs, only: itab_v
     use mem_adv,    only: xx0_vu, yy0_vu, xy0_vu
-    import,         only: scp, scp0, scp_upv, scp_hiv, vmasc, sfluxvh, gxyps, &
-                          iorderh, centered_monot
+!   import,         only: scp, scp0, scp_upv, scp_hiv, vmasc, sfluxvh, gxyps, &
+!                         iorderh, centered_monot
     implicit none
 
     integer, intent(in) :: iv
@@ -915,8 +915,8 @@ contains
     use mem_ijtabs, only: itab_w
     use grad_lib,   only: grad_z_linear, grad_z_quadratic
     use tridiag,    only: tridif_fini
-    import,         only: scp, scp0, wmasc, vmasc, scp_upv, scp_upw, sfluxvh, onep, &
-                          scale_inout, rhos, dtr, iorderv, centered_monot, eps0, eps1
+!   import,         only: scp, scp0, wmasc, vmasc, scp_upv, scp_upw, sfluxvh, onep, &
+!                         scale_inout, rhos, dtr, iorderv, centered_monot, eps0, eps1
     implicit none
 
     integer, intent(in) :: iw
@@ -1103,7 +1103,7 @@ contains
 
     use mem_grid,   only: mza, lpw, lpv, volti
     use mem_ijtabs, only: itab_w
-    import,         only: scp, scp0, wmasc, vmasc, scp_upv, scp_upw, rhos, dtr
+!   import,         only: scp, scp0, wmasc, vmasc, scp_upv, scp_upw, rhos, dtr
 
     implicit none
 
@@ -1343,7 +1343,7 @@ contains
     use mem_grid,   only: lpv, mza
     use mem_ijtabs, only: itab_v
     use mem_adv,    only: xx0_v, yy0_v, xy0_v
-    import,         only: scp, scp0, scp_upv, scp_hiv, vmasc, sfluxvh, gxyps, iorderh
+!   import,         only: scp, scp0, scp_upv, scp_hiv, vmasc, sfluxvh, gxyps, iorderh
 
     implicit none
 
@@ -1416,8 +1416,8 @@ contains
     use mem_grid,   only: lpw, lpv, mza, volti
     use mem_ijtabs, only: itab_w
     use grad_lib,   only: grad_z_linear, grad_z_quadratic
-    import,         only: scp, scp0, wmasc, vmasc, scp_upv, scp_upw, eps0, &
-                          sfluxvh, scale_out, rhos, dtr, iorderv, onep, onem
+!   import,         only: scp, scp0, wmasc, vmasc, scp_upv, scp_upw, eps0, &
+!                         sfluxvh, scale_out, rhos, dtr, iorderv, onep, onem
     implicit none
 
     integer, intent(in) :: iw
@@ -1544,7 +1544,7 @@ contains
 
     use mem_grid,   only: mza, lpw, lpv, volti
     use mem_ijtabs, only: itab_w
-    import,         only: scp, scp0, wmasc, vmasc, scp_upv, scp_upw, rhos, dtr
+!   import,         only: scp, scp0, wmasc, vmasc, scp_upv, scp_upw, rhos, dtr
 
     implicit none
 
