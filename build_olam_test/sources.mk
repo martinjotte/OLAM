@@ -6,7 +6,6 @@ SOURCE_FILES= \
              $(CONVECT)/mem_cuparm.f90 \
              $(CONVECT)/mem_turb.f90 \
              $(CONVECT)/module_bl_acm2.f90 \
-             $(CONVECT)/module_cu_emanuel.f90 \
              $(CONVECT)/module_cu_g3.f90 \
 	     $(CONVECT)/module_cu_g3_aq.f90 \
              $(CONVECT)/module_cu_g3_tracer.f90 \

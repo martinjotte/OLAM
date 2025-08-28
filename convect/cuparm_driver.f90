@@ -5,7 +5,6 @@ subroutine cuparm_driver()
   use module_cu_g3,     only: grell_driver
   use module_cu_kfeta,  only: cuparm_kfeta, kf_lutab
   use module_cu_tiedtke,only: cuparm_tiedtke
-  use module_cu_emanuel,only: cuparm_emanuel
   use misc_coms,        only: io6, time_istp8, time_istp8p, nqparm, confrq, &
                               dtlm, mstp, runtype, iparallel
   use mem_ijtabs,       only: itab_w, jtab_w, mrl_begl, istp, mrls, jtw_prog, jtw_wadj
@@ -27,7 +26,7 @@ subroutine cuparm_driver()
   integer, save :: init_kf = 0
   integer       :: j, iw, k, mrl, mrlw
   real          :: dthmax, dtlong4, dtli, confrq4
-  integer       :: iwqmax, kqmax, km, km1
+  integer       :: iwqmax, kqmax, km, km1, ktf
   real          :: rt, ravail
 
 ! For KF_eta parameterization, initialize scheme if needed
@@ -100,7 +99,7 @@ subroutine cuparm_driver()
 
            call cuparm_tiedtke(iw,km,km1,confrq4)
 
-        elseif (nqparm(mrlw) == 2 .or. nqparm(mrlw) == 5) then
+        elseif (nqparm(mrlw) == 2) then
 
 ! Grell deep and shallow convection
 
@@ -111,12 +110,6 @@ subroutine cuparm_driver()
 ! Kain-Fritsch deep convection
 
            call cuparm_kfeta(iw, dtlong4)
-
-        elseif (nqparm(mrlw) == 4) then
-
-! Emanuel convective parameterization
-
-           call cuparm_emanuel(iw, dtlong4)
 
         endif
 
@@ -174,7 +167,7 @@ subroutine cuparm_driver()
   mrl = mrl_begl(istp)
   if (mrl > 0) then
 
-     !$omp parallel do private(iw,k,ravail,rt) schedule(guided)
+     !$omp parallel do private(iw,k,ravail,rt,ktf) schedule(guided)
      do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 !----------------------------------------------------------------------
 
@@ -223,7 +216,8 @@ subroutine cuparm_driver()
 
         if ( (nl%conv_tracer_mix > 0 .and. num_cumix > 0) ) then
            if (nqparm(itab_w(iw)%mrlw) == 2) then
-              call grell_mix_driver( iw, dtlong4 )
+              ktf = min(kcutop(iw)+2,mza) - lpw(iw) + 1
+              call grell_mix_driver( iw, dtlong4, ktf )
            endif
         endif
 
