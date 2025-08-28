@@ -165,13 +165,11 @@ CONTAINS
 
      area(1) = area(2)
 
-     if (nqparm( itab_w(iw)%mrlw ) == 5) then
-        ideep_g3 = -1
-     else
-        ideep_g3 = 1
-     endif
-
+     ! FLags to turn on/off deep/shallow convection. We may want to add namelist
+     ! variables to set them. By default deep and shallow are enabled here.
+     ideep_g3    = 1
      ishallow_g3 = 1
+
      ktop  = 0
      ktop3 = 0
 
