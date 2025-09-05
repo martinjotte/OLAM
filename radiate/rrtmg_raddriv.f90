@@ -162,6 +162,9 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
 ! real :: lwuflxc_sfc(nsfc)
 ! real :: lwdflxc_sfc(nsfc)
 
+  real :: dlwuflxt_dT(nrad+1)
+  real :: dlwuflxt_sfc_dT(nsfc)
+
   real :: tauaerl(nbndlw, nrad)
   real :: tauaers(nbndsw, nrad)
   real :: ssaaers(nbndsw, nrad)
@@ -169,7 +172,7 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
   real :: ecaer  (naerec, nrad)
 
   integer :: k, ks, krad, icloud, iaeros, ib, ig, krad1, krad2
-  integer :: ns, mc, mcat, ih, l
+  integer :: ns, mc, mcat, ih, l, isfc_dT
   logical :: do_pblforc
 
   real :: r_ef, watp, rshort_dir, rshortup, pwvcm
@@ -537,8 +540,9 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
 
   if (ilwrtyp > 0) then
 
-     icloud = icld
-     iaeros = iaer
+     icloud  = icld
+     iaeros  = iaer
+     isfc_dt = 0
 
      if ( any( cldfr(1:mza-koff) >= cldmin .and. cldfr(1:mza-koff) <= cldmax ) ) then
 
@@ -578,13 +582,13 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
 
      endif
 
-     call rrtmg_lw(nrad       ,nsfc       ,iaeros     ,                              &
-                   play       ,tlay       ,tsfc       ,frac_sfck(:,iw)     ,coldry , &
-                   h2ovmr     ,o3vmr      ,co2vmr     ,ch4vmr     ,n2ovmr  ,o2vmr  , &
-                   covmr      ,cfc11vmr   ,cfc12vmr   ,cfc22vmr   ,ccl4vmr ,emis   , &
-                   pwvcm      ,inflg      ,iceflg     ,liqflg     ,cldfr   ,         &
-                   taucmcl    ,ciwpmcl    ,clwpmcl    ,reice      ,reliq   ,tauaerl, &
-                   lwuflxt    ,lwdflxt    ,lwuflxt_sfc                               )
+     call rrtmg_lw(nrad   , nsfc    , iaeros     , isfc_dT    ,                   &
+                   play   , tlay    , tsfc       , frac_sfck(:,iw)     , coldry , &
+                   h2ovmr , o3vmr   , co2vmr     , ch4vmr     , n2ovmr , o2vmr  , &
+                   covmr  , cfc11vmr, cfc12vmr   , cfc22vmr   , ccl4vmr, emis   , &
+                   pwvcm  , inflg   , iceflg     , liqflg     , cldfr  ,          &
+                   taucmcl, ciwpmcl , clwpmcl    , reice      , reliq  , tauaerl, &
+                   lwuflxt, lwdflxt , lwuflxt_sfc, dlwuflxt_dT, dlwuflxt_sfc_dT )
 
      do krad = 1, mza - koff + 1
         k = krad + koff - 1

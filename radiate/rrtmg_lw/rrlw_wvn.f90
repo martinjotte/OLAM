@@ -105,6 +105,9 @@
       real(kind=rb), allocatable ::  totplnk(:,:)
       real(kind=rb), allocatable :: dtotplnk(:,:)
 
+      real(kind=rb), allocatable ::  totplnkderiv(:,:)
+      real(kind=rb), allocatable :: dtotplnkderiv(:,:)
+
       integer(kind=im), parameter :: ngc(nbndlw) = &
            (/10,12,16,14,16,8,12,8,12,6,8,8,4,2,2,2/)
 

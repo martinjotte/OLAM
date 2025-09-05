@@ -65,13 +65,13 @@
 !------------------------------------------------------------------
 
       subroutine rrtmg_lw &
-            (nlay    ,nsfc    ,iaer    ,                            &
-             pavel   ,tavel   ,tbound  ,frac_sfck, coldry,          &
-             h2ovmr  ,o3vmr   ,co2vmr  ,ch4vmr  ,n2ovmr  ,o2vmr   , &
-             covmr   ,cfc11vmr,cfc12vmr,cfc22vmr,ccl4vmr ,semiss  , &
-             pwvcm   ,inflag  ,iceflag ,liqflag ,cldfr   ,          &
-             taucmc  ,ciwpmc  ,clwpmc  ,reicmc  ,relqmc  ,taua    , &
-             uflx    ,dflx    ,uflx_sfc                             )
+            (nlay  , nsfc    , iaer    , isfc_dT  ,                  &
+             pavel , tavel   , tbound  , frac_sfck, coldry ,         &
+             h2ovmr, o3vmr   , co2vmr  , ch4vmr   , n2ovmr , o2vmr , &
+             covmr , cfc11vmr, cfc12vmr, cfc22vmr , ccl4vmr, semiss, &
+             pwvcm , inflag  , iceflag , liqflag  , cldfr  ,         &
+             taucmc, ciwpmc  , clwpmc  , reicmc   , relqmc , taua  , &
+             uflx  , dflx    , uflx_sfc, duflx_dT, duflx_sfc_dT     )
 
 ! -------- Description --------
 
@@ -144,7 +144,7 @@
 !    2) Normal forward calculation with optional calculation of the change
 !       in upward flux as a function of surface temperature for clear sky
 !       and total sky flux.  Flux partial derivatives are provided in arrays
-!       duflx_dt and duflxc_dt for total and clear sky.  (idrv=1)
+!       duflx_dT and duflxc_dT for total and clear sky.  (idrv=1)
 !
 !
 ! ------- Modifications -------
@@ -189,6 +189,7 @@
       integer(kind=im), intent(in) :: nlay            ! Number of model layers
       integer(kind=im), intent(in) :: nsfc            ! Number of layers that intersect surface
       integer(kind=im), intent(in) :: iaer            ! aerosol option flag
+      integer(kind=im), intent(in) :: isfc_dT         ! do upward flux derivative (wrt skin temp)
 
       real(kind=rb), intent(in) :: pavel(nlay)        ! layer pressures (mb)
       real(kind=rb), intent(in) :: tavel(nlay)        ! layer temperatures (K)
@@ -231,9 +232,10 @@
 !     real(kind=rb), intent(out) :: dflx_sfc(nsfc)  ! Total sky longwave downward flux (W/m2)
 !     real(kind=rb), intent(out) :: uflxc_sfc(nsfc) ! Clear sky longwave upward flux (W/m2)
 !     real(kind=rb), intent(out) :: dflxc_sfc(nsfc) ! Clear sky longwave downward flux (W/m2)
-
-! ----- Local -----
-
+      real(kind=rb), intent(out) :: duflx_dT(nlay+1) ! Change in upward longwave flux
+                                                     ! w.r.t. skin temperature (W/m^2/K)
+      real(kind=rb), intent(out) :: duflx_sfc_dT(nsfc) ! Change in sfc upward longwave flux
+                                                       ! w.r.t. skin temperature (W/m^2/K)
 ! Control
       integer(kind=im) :: k                  ! layer loop index
       integer(kind=im) :: ig                 ! g-point loop index
@@ -249,8 +251,9 @@
       integer(kind=im) :: jt(nlay)           ! lookup table inde
       integer(kind=im) :: jt1(nlay)          ! lookup table ind
 
-      real(kind=rb) :: planklay(nbndlw,nlay) !
-      real(kind=rb) :: plankbnd(nbndlw,nsfc) !
+      real(kind=rb) ::  planklay   (nbndlw,nlay)
+      real(kind=rb) ::  plankbnd   (nbndlw,nsfc)
+      real(kind=rb) :: dplankbnd_dT(nbndlw,nsfc)
 
       real(kind=rb) :: colh2o(nlay)          ! column amount (h2o)
       real(kind=rb) :: colco2(nlay)          ! column amount (co2)
@@ -300,10 +303,10 @@
 ! coefficients and indices needed to compute the optical depths
 ! by interpolating data from stored reference atmospheres.
 
-      call setcoef(nlay, nsfc, pavel, tavel, tbound, semiss, &
+      call setcoef(nlay, nsfc, isfc_dT, pavel, tavel, tbound, semiss, &
                    coldry, wx, h2ovmr, o3vmr, co2vmr, ch4vmr, covmr,&
                    n2ovmr, o2vmr, cfc11vmr, cfc12vmr, cfc22vmr, ccl4vmr, &
-                   laytrop, jp, jt, jt1, planklay, plankbnd, &
+                   laytrop, jp, jt, jt1, planklay, plankbnd, dplankbnd_dT, &
                    colh2o, colco2, colo3, coln2o, &
                    colco, colch4, colo2, colbrd, fac00, fac01, fac10, fac11, &
                    rat_h2oco2, rat_h2oco2_1, rat_h2oo3, rat_h2oo3_1, &
@@ -342,11 +345,10 @@
 ! to be used.  Clear sky calculation is done simultaneously.
 ! For McICA, RTRNMC is called for clear and cloudy calculations.
 
-      call rtrnmc_noclr(nlay, nsfc, semiss, &
-                        cldfr, taucmc, planklay, &
-                        plankbnd, frac_sfck, &
-                        pwvcm, fracs, taug, &
-                        uflx, dflx, uflx_sfc)
+      call rtrnmc_noclr(nlay, nsfc, isfc_dT, semiss, cldfr, taucmc, &
+                        planklay, plankbnd, dplankbnd_dT, frac_sfck, &
+                        pwvcm, fracs, taug, uflx, dflx, uflx_sfc, &
+                        duflx_dT, duflx_sfc_dT)
 
       end subroutine rrtmg_lw
 
