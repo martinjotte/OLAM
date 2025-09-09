@@ -6,9 +6,9 @@ subroutine isan_file_inv()
 
   implicit none
 
-  integer :: n, nf, lnf, lns, istat, nfsize, islash
-  integer :: iyear, imonth, idate, ihour
-  logical :: exists
+  integer  :: n, nf, lnf, lns, istat, nfsize, islash
+  integer  :: iyear, imonth, idate, ihour, nff, ndays
+  logical  :: exists, ierr
 
   character(pathlen), allocatable :: fnames_tmp(:)
   character(pathlen)              :: filename
@@ -16,6 +16,7 @@ subroutine isan_file_inv()
 
   integer, parameter :: iun = 98
   integer, parameter :: incr = 500
+  integer, parameter :: days_in_month(12) = [ 31,28,31,30,31,30,31,31,30,31,30,31 ]
 
   ! Return if analysis file inventory was already computed
   ! TODO: seperate analysis files for atm/sea/seaice?
@@ -99,18 +100,19 @@ allocate( fnames_fg  (nfgfiles) )
 allocate( ctotdate_fg(nfgfiles) )
 allocate( s1900_fg   (nfgfiles) )
 
-fnames_fg(1:nfgfiles) = fnames_tmp(1:nfgfiles)
+!fnames_fg(1:nfgfiles) = fnames_tmp(1:nfgfiles)
 
-deallocate( fnames_tmp )
+!deallocate( fnames_tmp )
 
+nff = 0
 do nf = 1, nfgfiles
 
    ! strip any directory prefix from the filename
 
-   lnf = len_trim( fnames_fg(nf) )
-   lns = index   ( fnames_fg(nf), "/", back=.true.)
+   lnf = len_trim( fnames_tmp(nf) )
+   lns = index   ( fnames_tmp(nf), "/", back=.true.)
 
-   filename = fnames_fg(nf)(lns+1:lnf)
+   filename = fnames_tmp(nf)(lns+1:lnf)
 
    ! Starting from the right, check for a "." in the file name, and assume
    ! this is the file suffix if it is within 10 characters of the end of the
@@ -152,20 +154,49 @@ do nf = 1, nfgfiles
 
    else
 
-      write(*,*) "file_inv: Error opening file:"
-      write(*,*) trim(fnames_fg(nf))
-      write(*,*) "Date/time portion of filename should be YYYY-MM-DD-hhmm or YYYY-MM-DD-hhmmss"
-      stop       "Invalid date/time in analysis filename."
+      write(io6,*)
+      write(io6,*) "file_inv: skipping file ", trim(fnames_tmp(nf))
+      write(io6,*) "Date/time portion of filename should be YYYY-MM-DD-hhmm or YYYY-MM-DD-hhmmss"
+      cycle
 
    endif
 
-   ! Note that subroutines date_make_big and date_abs_secs2 assume that
-   ! the format of ihour is hhmmss
+   ! Check that dates are (reasonably) valid
 
-   call date_make_big (iyear,imonth,idate,ihour*100,ctotdate_fg(nf))
-   call date_abs_secs2(iyear,imonth,idate,ihour*100,s1900_fg(nf))
+   ierr = .false.
+
+   if (iyear < 1900)                ierr = .true.
+   if (imonth < 1 .or. imonth > 12) ierr = .true.
+   if (ihour < 0 .or. ihour > 2400) ierr = .true.
+
+   if (.not. ierr) then
+      ndays = days_in_month(imonth)
+
+      if (imonth == 2) then
+         if ( (mod(iyear,400) == 0) .or. &
+              (mod(iyear,  4) == 0 .and. mod(iyear,100) /= 0) ) ndays = ndays + 1
+      endif
+
+      if (idate < 1 .or. idate > ndays) ierr = .true.
+   endif
+
+   if (ierr) then
+      write(io6,*)
+      write(io6,*) "file_inv: skipping file ", trim(fnames_tmp(nf))
+      write(io6,'(A,i4.4,1x,i2.2,1x,i2.2,1x,i4.4)') " invalid date/time ", iyear, imonth, idate, ihour
+      cycle
+   endif
+
+   nff = nff + 1
+
+   call date_abs_secs2(iyear,imonth,idate,ihour*100,s1900_fg   (nff))
+   call date_make_big (iyear,imonth,idate,ihour*100,ctotdate_fg(nff))
+
+   fnames_fg(nff) = fnames_tmp(nf)
 
 enddo
+
+nfgfiles = nff
 
 call dintsort28(nfgfiles,ctotdate_fg,fnames_fg,s1900_fg)
 
