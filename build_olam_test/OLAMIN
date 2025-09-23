@@ -677,8 +677,6 @@
    NL%GW_SPINUP_SFCGFILE = './gridfiles/sfcgfile_sp.h5'
    NL%GW_SPINUP_HISTFILE = './hist/gwspinup-H-2100-08-25-000000.h5'
 
-   NL%NZS = 1     ! Maximum number of snowcover layers
-
  ! Soil model grid vertical profile geometry
 
    NL%NZG            = 25       ! Number of soil layers; Must be <= (SOILMODEL_DEPTH / DSLZ_TOP);

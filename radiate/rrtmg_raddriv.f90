@@ -1,3 +1,9 @@
+module rrtmg_driver
+
+contains
+
+!==============================================================================
+
 subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
                          rlongup_ks, rlong_albedo_ks, albedt_ks, albedt_diffuse_ks )
 
@@ -12,7 +18,8 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
                          par, par_diffuse, uva, uvb, uvc, pbl_cld_forc, &
                          ppfd, ppfd_diffuse, mcica_seed, &
                          rlong_ks, rshort_ks, rshort_diffuse_ks, &
-                         ppfd_ks, ppfd_diffuse_ks
+                         ppfd_ks, ppfd_diffuse_ks, dlong, ulong, ulong_sfc, &
+                         Dulong_DT, Dulong_sfc_DT, Tskin_rad
   use micro_coms,  only: ncat, reffcof, pwmasi
   use rrtmg_cloud, only: cloud_props
   use mem_turb,    only: frac_land, kpblh, frac_sfc, frac_sfck
@@ -162,8 +169,8 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
 ! real :: lwuflxc_sfc(nsfc)
 ! real :: lwdflxc_sfc(nsfc)
 
-  real :: dlwuflxt_dT(nrad+1)
-  real :: dlwuflxt_sfc_dT(nsfc)
+  real :: Dlwuflxt_DT(nrad+1)
+  real :: Dlwuflxt_sfc_DT(nsfc)
 
   real :: tauaerl(nbndlw, nrad)
   real :: tauaers(nbndsw, nrad)
@@ -225,8 +232,9 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
 ! Set some surface values needed by RRTMg
 
   do ks = 1, nsfc
-     emiss(ks) = 1.0 - rlong_albedo_ks(ks)
-     tsfc (ks) = (rlongup_ks(ks) / emiss(ks) / stefan) ** 0.25
+     emiss    (ks)    = 1.0 - rlong_albedo_ks(ks)
+     tsfc     (ks)    = (rlongup_ks(ks) / emiss(ks) / stefan) ** 0.25
+     Tskin_rad(ks,iw) = tsfc(ks)
 
      asdir(ks) = albedt_ks(ks)
      aldir(ks) = albedt_ks(ks)
@@ -542,7 +550,14 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
 
      icloud  = icld
      iaeros  = iaer
-     isfc_dt = 0
+
+     if (fland > .05) then
+        isfc_dt = 1
+     else
+        isfc_dt = 0
+        dlwuflxt_dT    (:) = 0.
+        dlwuflxt_sfc_dT(:) = 0.
+     endif
 
      if ( any( cldfr(1:mza-koff) >= cldmin .and. cldfr(1:mza-koff) <= cldmax ) ) then
 
@@ -588,28 +603,57 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
                    covmr  , cfc11vmr, cfc12vmr   , cfc22vmr   , ccl4vmr, emis   , &
                    pwvcm  , inflg   , iceflg     , liqflg     , cldfr  ,          &
                    taucmcl, ciwpmcl , clwpmcl    , reice      , reliq  , tauaerl, &
-                   lwuflxt, lwdflxt , lwuflxt_sfc, dlwuflxt_dT, dlwuflxt_sfc_dT )
+                   lwuflxt, lwdflxt , lwuflxt_sfc, Dlwuflxt_DT, Dlwuflxt_sfc_DT )
 
-     do krad = 1, mza - koff + 1
-        k = krad + koff - 1
-        flux_net(k) = lwuflxt(krad) - lwdflxt(krad)
+     do k = ka-1, mza
+        krad = k - koff + 1
+
+        dlong    (k,iw) = lwdflxt    (krad)
+        ulong    (k,iw) = lwuflxt    (krad)
+        Dulong_DT(k,iw) = Dlwuflxt_dT(krad)
      enddo
 
-     fthrd_lw(ka,iw) = (flux_net(ka-1) - flux_net(ka)) * dzit(ka) * cpi
-
-
-     do krad = 2, nsfc
-        k = krad + koff
-
-        flux_net_bot =        frac_sfck(krad,iw)  * lwuflxt_sfc(krad) &
-                     + (1.0 - frac_sfck(krad,iw)) * lwuflxt    (krad) - lwdflxt(krad)
-
-        fthrd_lw(k,iw) = (flux_net_bot - flux_net(k)) * dzit(k) * cpi
+     do krad = 1, nsfc
+         ulong_sfc   (krad,iw) =  lwuflxt_sfc   (krad)
+        Dulong_sfc_DT(krad,iw) = Dlwuflxt_sfc_DT(krad)
      enddo
 
-     do k = ka + nsfc, mza
-        fthrd_lw(k,iw) = (flux_net(k-1) - flux_net(k)) * dzit(k) * cpi
-     enddo
+     if (iw == 43922) then
+        write(*,*) lwuflxt(1), rlongup_ks(1), lwdflxt(1), Tskin_rad(1,iw), emiss(1)
+        write(*,*) Dlwuflxt_DT(1), Dlwuflxt_sfc_DT(1)
+     endif
+
+     if (nsfc == 1) then
+
+        do k = ka-1, mza
+           flux_net(k) = ulong(k,iw) - dlong(k,iw)
+        enddo
+
+        do k = ka, mza
+           fthrd_lw(k,iw) = (flux_net(k-1) - flux_net(k)) * dzit(k) * cpi
+        enddo
+
+     else
+
+        fthrd_lw(ka,iw) = ( ulong(ka-1,iw) - dlong(ka-1,iw) &
+                          - ulong(ka  ,iw) + dlong(ka  ,iw) ) * dzit(k) * cpi
+
+        do ks = 2, nsfc
+           k = ka + ks - 1
+           fthrd_lw(k,iw) = ( ulong(k-1,iw)    * (1. - frac_sfck(ks,iw)) &
+                            + ulong_sfc(ks,iw) *       frac_sfck(ks,iw)  &
+                            - dlong(k-1,iw) - ulong(k,iw) + dlong(k,iw) ) * dzit(k) * cpi
+        enddo
+
+        do k = ka + nsfc - 1, mza
+           flux_net(k) = ulong(k,iw) - dlong(k,iw)
+        enddo
+
+        do k = ka + nsfc, mza
+           fthrd_lw(k,iw) = (flux_net(k-1) - flux_net(k)) * dzit(k) * cpi
+        enddo
+
+     endif
 
      rlong      (iw) = surface_avg( lwdflxt )
      rlongup    (iw) = surface_avg( lwuflxt_sfc )
@@ -718,3 +762,175 @@ contains
 
 
 end subroutine rrtmg_raddriv
+
+!==============================================================================
+
+subroutine update_rrtmg_lw_intermediate( iw, ka, lsw )
+
+  use mem_ijtabs,  only: itab_w
+  use mem_grid,    only: mza, dzit
+  use mem_radiate, only: ulong, dlong, ulong_sfc, Dulong_DT, Dulong_sfc_DT, &
+                         Tskin_rad, fthrd_lw, rlong_ks
+  use mem_sfcg,    only: sfcg, itab_wsfc
+  use consts_coms, only: stefan, cpi
+  use mem_turb,    only: frac_sfck, frac_sfc
+
+  implicit none
+
+  integer, intent(in) :: iw
+  integer, intent(in) :: ka
+  integer, intent(in) :: lsw
+
+  integer :: jsfc, iwsfc, jasfc, k, kw, ks
+  real    :: wtk, emiss
+  real    :: rlongup_ks(lsw), rlong_albedo_ks(lsw)
+  real    :: DTsfc(lsw), Dulong, Dulong_sfc, Dulong_toa, dfact
+  real    :: ulong_cur_sfc(lsw)
+  real    :: ulong_cur(mza)
+  real    :: dlong_cur(mza)
+  real    :: flux_net(mza)
+
+  real, parameter :: gamma_down = 0.2
+
+  ! Loop over SFC grid cells beneath this ATM grid column and sum
+  ! SFC grid radiative properties to this ATM column
+
+  if (itab_w(iw)%jsfc2 == 1) then
+
+     iwsfc = itab_w(iw)%iwsfc(1)
+     rlongup_ks     (1) = sfcg%rlongup     (iwsfc)
+     rlong_albedo_ks(1) = sfcg%rlong_albedo(iwsfc)
+
+  else
+
+     rlongup_ks     (:) = 0.
+     rlong_albedo_ks(:) = 0.
+
+     do jsfc = 1, itab_w(iw)%jsfc2
+        iwsfc = itab_w(iw)%iwsfc(jsfc)
+        jasfc = itab_w(iw)%jasfc(jsfc)
+        wtk   = itab_wsfc(iwsfc)%arcoarkw(jasfc)
+        kw    = itab_wsfc(iwsfc)%kwatm(jasfc)
+        ks    = kw - ka + 1
+
+        rlongup_ks     (ks) = rlongup_ks     (ks) + wtk * sfcg%rlongup     (iwsfc)
+        rlong_albedo_ks(ks) = rlong_albedo_ks(ks) + wtk * sfcg%rlong_albedo(iwsfc)
+     enddo
+
+  endif
+
+  ! Change in upward longwave at surface overlaps
+  do ks = 1, lsw
+     emiss             = 1. - rlong_albedo_ks(ks)
+     DTsfc        (ks) = (rlongup_ks(ks) / (emiss * stefan)) ** 0.25 - Tskin_rad(ks,iw)
+     ulong_cur_sfc(ks) = ulong_sfc(ks,iw) + DTsfc(ks) * Dulong_sfc_DT(ks,iw)
+  enddo
+
+  ! Change in upward longwave at lowest model level
+  ulong_cur(ka)   = ulong(ka,iw) + DTsfc(1) * Dulong_DT(ka,iw)
+  ulong_cur(ka-1) = ulong_cur_sfc(1)
+
+  ! Special for shaved cells
+  do ks = 2, lsw
+     k = ka + ks - 1
+
+     ! redefine DTsfc to be an average over cell overlaps at and below ks
+     DTsfc(ks) = DTsfc(ks)   *       frac_sfck(ks,iw)  &
+               + DTsfc(ks-1) * (1. - frac_sfck(ks,iw))
+
+     ulong_cur(k) = ulong(k,iw) + DTsfc(ks) * Dulong_DT(k,iw)
+  enddo
+
+  ! Above any surface overlaps
+  do k = ka + lsw , mza
+     ulong_cur(k) = ulong(k,iw) + DTsfc(lsw) * Dulong_DT(k,iw)
+  enddo
+
+  ! Change in downward longwave is a factor (gamma_down, suggested  0.2) of
+  ! the change in upward longwave at the surface, scaled to go to zero at TOA.
+  ! (from Hogan and Bozzo, 2015, as used by ECMWF)
+
+  if (gamma_down > 1.e-6 .and. abs(DTsfc(lsw)) > 1.e-6) then
+
+     if (lsw == 1) then
+        Dulong_sfc =  ulong_cur_sfc(1) - ulong_sfc(1,iw)
+     else
+        Dulong_sfc = sum( frac_sfc(1:lsw,iw) * (ulong_cur_sfc(1:lsw) - ulong_sfc(1:lsw,iw)) )
+     endif
+
+     Dulong_toa = ulong_cur(mza) - ulong(mza,iw)
+
+     if ( abs(Dulong_sfc - Dulong_toa) < 1.e-6) then
+
+        ! Avoid divide by zero
+        do k = ka-1, mza
+           dlong_cur(k) = dlong(k,iw) + gamma_down * (ulong_cur(k) - ulong(k,iw))
+        enddo
+
+     else
+
+        ! Scale dlong to go to zero at TOA
+        dfact = gamma_down * Dulong_sfc / (Dulong_sfc - Dulong_toa)
+
+        do k = ka-1, mza
+           Dulong       = ulong_cur(k) - ulong(k,iw)
+           dlong_cur(k) = dlong(k,iw) + dfact * (Dulong - Dulong_toa)
+        enddo
+
+     endif
+
+  else
+
+     dlong_cur(ka-1:mza) = dlong(ka-1:mza,iw)
+
+  endif
+
+  ! Update longwave heating rate
+
+  if (lsw == 1) then
+
+     do k = ka-1, mza
+        flux_net(k) = ulong_cur(k) - dlong_cur(k)
+     enddo
+
+     do k = ka, mza
+        fthrd_lw(k,iw) = (flux_net(k-1) - flux_net(k)) * dzit(k) * cpi
+     enddo
+
+  else
+
+     fthrd_lw(ka,iw) = ( ulong_cur(ka-1) - dlong_cur(ka-1) &
+                       - ulong_cur(ka  ) + dlong_cur(ka  ) ) * dzit(k) * cpi
+
+     do ks = 2, lsw
+        k = ka + ks - 1
+        fthrd_lw(k,iw) = ( ulong_cur(k-1)    * (1. - frac_sfck(ks,iw)) &
+                         + ulong_cur_sfc(ks) *       frac_sfck(ks,iw)  &
+                         - dlong_cur(k-1) - ulong_cur(k) + dlong_cur(k) ) * dzit(k) * cpi
+     enddo
+
+     do k = ka + lsw - 1, mza
+        flux_net(k) = ulong_cur(k) - dlong_cur(k)
+     enddo
+
+     do k = ka + lsw, mza
+        fthrd_lw(k,iw) = (flux_net(k-1) - flux_net(k)) * dzit(k) * cpi
+     enddo
+
+  endif
+
+  ! Update downward longwve for the surface computations
+
+  do ks = 1, lsw
+     k = ka + ks - 2
+     rlong_ks(ks,iw) = dlong_cur(k)
+  enddo
+
+end subroutine update_rrtmg_lw_intermediate
+
+!==============================================================================
+
+end module rrtmg_driver
+
+
+

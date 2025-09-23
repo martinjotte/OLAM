@@ -14,6 +14,14 @@ Module mem_radiate
   real, allocatable :: fthrd_sw    (:,:)
   real, allocatable :: fthrd_lw    (:,:)
 
+  real, allocatable :: dlong    (:,:)  ! Downward atm longwave flux at W level (W/m^2)
+  real, allocatable :: ulong    (:,:)  ! Upward atm longwave flux at W level (W/m^2)
+  real, allocatable :: ulong_sfc(:,:)  ! Upward longwave flux at (shaved cell) surface(s) (W/m^2)
+
+  real, allocatable :: Dulong_DT    (:,:) ! Upward atm longwave flux derivative w.r.t. skin temperature (W/m^2/K)
+  real, allocatable :: Dulong_sfc_DT(:,:) ! Upward longwave flux derivative at surface w.r.t. skin temperatrue (W/m^2/K)
+  real, allocatable :: Tskin_rad    (:,:) ! Skin temperature at time of radiative transfer call
+
   real, allocatable :: cloud_frac  (:,:)
   real, allocatable :: rshort        (:)
   real, allocatable :: rlong         (:)
@@ -24,7 +32,8 @@ Module mem_radiate
   real, allocatable :: albedt        (:)
   real, allocatable :: albedt_beam   (:)
   real, allocatable :: albedt_diffuse(:)
-  real, allocatable :: cosz          (:)
+  real, allocatable :: cosz          (:) ! current solar zenith angle
+  real, allocatable :: cosz_rad      (:) ! solar zenith angle at time of radiation update
   real, allocatable :: rlong_albedo  (:)
   real, allocatable :: rshort_diffuse(:)
   real, allocatable :: par           (:)
@@ -96,6 +105,15 @@ Contains
 
        allocate (fthrd_sw  (mza,mwa))
        allocate (fthrd_lw  (mza,mwa))
+
+       allocate (dlong        (mza,mwa))
+       allocate (ulong        (mza,mwa))
+       allocate (ulong_sfc(nsw_max,mwa))
+
+       allocate (Dulong_DT        (mza,mwa))
+       allocate (Dulong_sfc_DT(nsw_max,mwa))
+       allocate (Tskin_rad    (nsw_max,mwa))
+
        allocate (rshort        (mwa))
        allocate (rlong         (mwa))
        allocate (rlongup       (mwa))
@@ -118,6 +136,7 @@ Contains
        allocate (albedt_beam   (mwa))
        allocate (albedt_diffuse(mwa))
        allocate (cosz          (mwa))
+       allocate (cosz_rad      (mwa))
 
 !      allocate (rshort_clr      (mwa))
 !      allocate (rshortup_clr    (mwa))
@@ -143,9 +162,18 @@ Contains
     !$omp parallel do
     do iw = 1, mwa
 
-       if ( allocated( cloud_frac    ) ) cloud_frac  (:,iw) = 0.0
-       if ( allocated( fthrd_sw      ) ) fthrd_sw    (:,iw) = 0.0
-       if ( allocated( fthrd_lw      ) ) fthrd_lw    (:,iw) = 0.0
+       if ( allocated( cloud_frac    ) ) cloud_frac   (:,iw) = 0.0
+       if ( allocated( fthrd_sw      ) ) fthrd_sw     (:,iw) = 0.0
+       if ( allocated( fthrd_lw      ) ) fthrd_lw     (:,iw) = 0.0
+
+       if ( allocated( dlong         ) ) dlong        (:,iw) = 0.0
+       if ( allocated( ulong         ) ) ulong        (:,iw) = 0.0
+       if ( allocated( ulong_sfc     ) ) ulong_sfc    (:,iw) = 0.0
+
+       if ( allocated ( Dulong_DT    ) ) Dulong_DT    (:,iw) = 0.0
+       if ( allocated ( Dulong_sfc_DT) ) Dulong_sfc_DT(:,iw) = 0.0
+       if ( allocated ( Tskin_rad    ) ) Tskin_rad    (:,iw) = 0.0
+
        if ( allocated( rshort        ) ) rshort        (iw) = 0.0
        if ( allocated( rlong         ) ) rlong         (iw) = 0.0
        if ( allocated( rlongup       ) ) rlongup       (iw) = 0.0
@@ -168,6 +196,7 @@ Contains
        if ( allocated( albedt_beam   ) ) albedt_beam   (iw) = rinit
        if ( allocated( albedt_diffuse) ) albedt_diffuse(iw) = rinit
        if ( allocated( cosz          ) ) cosz          (iw) = rinit
+       if ( allocated( cosz_rad      ) ) cosz_rad      (iw) = rinit
 
 !      if ( allocated( rshort_clr      ) ) rshort_clr      (iw) = 0.0
 !      if ( allocated( rshortup_clr    ) ) rshortup_clr    (iw) = 0.0
@@ -214,6 +243,7 @@ Contains
     if (allocated(albedt_beam))    deallocate (albedt_beam)
     if (allocated(albedt_diffuse)) deallocate (albedt_diffuse)
     if (allocated(cosz))           deallocate (cosz)
+    if (allocated(cosz_rad))       deallocate (cosz_rad)
 
 !   if (allocated(rshort_clr))       deallocate (rshort_clr)
 !   if (allocated(rshortup_clr))     deallocate (rshortup_clr)
@@ -244,7 +274,15 @@ Contains
 
     if (allocated(fthrd_sw))         call increment_vtable('FTHRD_SW',        'AW', rvar2=fthrd_sw)
 
-    if (allocated(fthrd_lw))         call increment_vtable('FTHRD_LW',        'AW', rvar2=fthrd_lw)
+!   if (allocated(fthrd_lw))         call increment_vtable('FTHRD_LW',        'AW', rvar2=fthrd_lw)
+
+    ! For incremental updates of longwave between RRTMg calls:
+    if (allocated(dlong))            call increment_vtable('DLONG',           'AW', rvar2=dlong)
+    if (allocated(ulong))            call increment_vtable('ULONG',           'AW', rvar2=ulong)
+    if (allocated(ulong_sfc))        call increment_vtable('ULONG_SFC',       'AW', rvar2=ulong_sfc)
+    if (allocated(Dulong_DT))        call increment_vtable('Dulong_DT',       'AW', rvar2=Dulong_DT)
+    if (allocated(Dulong_sfc_DT))    call increment_vtable('Dulong_sfc_DT',   'AW', rvar2=Dulong_sfc_DT)
+    if (allocated(Tskin_rad))        call increment_vtable('Tskin_rad',       'AW', rvar2=Tskin_rad)
 
     if (allocated(cloud_frac))       call increment_vtable('CLOUD_FRAC',      'AW', rvar2=cloud_frac)
 
@@ -262,7 +300,7 @@ Contains
 
     if (allocated(albedt))           call increment_vtable('ALBEDT',          'AW', rvar1=albedt)
 
-    if (allocated(cosz))             call increment_vtable('COSZ',            'AW', rvar1=cosz)
+    if (allocated(cosz_rad))         call increment_vtable('COSZ_RAD',        'AW', rvar1=cosz_rad)
 
 !   if (allocated(rshort_clr))       call increment_vtable('RSHORT_CLR',      'AW', rvar1=rshort_clr)
 

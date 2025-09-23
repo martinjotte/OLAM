@@ -1,35 +1,37 @@
 subroutine radiate()
 
-  use mem_tend,    only: thilt
-  use mem_ijtabs,  only: jtab_w, itab_w, mrl_begl, istp, jtw_prog
-  use mem_sfcg,    only: itab_wsfc, sfcg, mwsfc
-  use mem_lake,    only: lake, mlake, omlake
-  use mem_land,    only: land, mland, omland, nzg
-  use mem_sea,     only: sea, msea, omsea
-  use sea_coms,    only: nzi
-  use leaf4_surface,only: sfcrad_land, sfcrad_prep
-  use mem_radiate, only: sunx, suny, sunz, cosz, nadd_rad,                  &
-                         rlongup, rlong_albedo, albedt, albedt_beam,        &
-                         albedt_diffuse, fthrd_sw, rshort, fthrd_lw,        &
-                         rshort_top, rshortup_top, rshort_diffuse,          &
-                         par, par_diffuse, uva, uvb, uvc, pbl_cld_forc,     &
-                         ppfd, ppfd_diffuse, rlong_ks, rshort_ks,           &
-                         rshort_diffuse_ks, ppfd_ks, ppfd_diffuse_ks
-  use mem_basic,   only: thil, theta, tair
-  use consts_coms, only: stefan, pio180, eradi, r8
-  use misc_coms,   only: io6, time8p, time_istp8, radfrq, ilwrtyp, do_chem, &
-                         iswrtyp, dtlong, iparallel, mstp, runtype
-  use mem_grid,    only: lpw, mza, wnx, wny, wnz, lsw, nsw_max
-  use therm_lib,   only: qtk
-  use mem_para,    only: myrank
-  use olam_mpi_atm,only: mpi_send_w, mpi_recv_w
+  use mem_tend,     only: thilt
+  use mem_ijtabs,   only: jtab_w, itab_w, mrl_begl, istp, jtw_prog
+  use mem_sfcg,     only: itab_wsfc, sfcg, mwsfc
+  use mem_lake,     only: lake, mlake, omlake
+  use mem_land,     only: land, mland, omland, nzg, nzs
+  use mem_sea,      only: sea, msea, omsea
+  use sea_coms,     only: nzi
+  use leaf4_surface,only: sfcrad_land, sfcrad_prep, sfcrad_rlongup
+  use mem_radiate,  only: sunx, suny, sunz, cosz, cosz_rad, nadd_rad,        &
+                          rlongup, rlong_albedo, albedt, albedt_beam,        &
+                          albedt_diffuse, fthrd_sw, rshort, fthrd_lw,        &
+                          rshort_top, rshortup_top, rshort_diffuse, dlong,   &
+                          par, par_diffuse, uva, uvb, uvc, pbl_cld_forc,     &
+                          ppfd, ppfd_diffuse, rlong_ks, rshort_ks,           &
+                          rshort_diffuse_ks, ppfd_ks, ppfd_diffuse_ks
+  use mem_basic,    only: thil, theta, tair
+  use consts_coms,  only: stefan, pio180, eradi, r8
+  use misc_coms,    only: io6, time8p, time_istp8, radfrq, ilwrtyp, do_chem, &
+                          iswrtyp, dtlong, iparallel, mstp, runtype
+  use mem_grid,     only: lpw, mza, wnx, wny, wnz, lsw, nsw_max
+  use therm_lib,    only: qtk
+  use mem_para,     only: myrank
+  use olam_mpi_atm, only: mpi_send_w, mpi_recv_w
+  use mem_turb,     only: frac_land
+  use rrtmg_driver, only: rrtmg_raddriv, update_rrtmg_lw_intermediate
 
   implicit none
 
   integer :: j
   integer :: iw
   integer :: k
-  integer :: nsfc
+  integer :: nsfc, nwatm
   integer :: isea, iland, ilake, iwsfc, jsfc, jasfc
   integer :: ka, ks, kw
   integer :: koff
@@ -65,12 +67,14 @@ subroutine radiate()
      ! available beneath all ATM columns that are primary.
 
      !$omp parallel
-     !$omp do private (iwsfc, sea_cosz)
-     do isea = 2,msea
+     !$omp do private(iwsfc, nwatm, sea_cosz)
+     do isea = 2, msea
         iwsfc = isea + omsea
 
+        ! We can skip a sea cell that is not attached to a primary atm cell
         if (iparallel == 1) then
-           if ( all( itab_w( [max(1,itab_wsfc(iwsfc)%iwatm( 1:itab_wsfc(iwsfc)%nwatm ))] )%irank /= myrank ) ) cycle
+           nwatm = itab_wsfc(iwsfc)%nwatm
+           if ( all( itab_w( itab_wsfc(iwsfc)%iwatm(1:nwatm) )%irank /= myrank ) ) cycle
         endif
 
         ! Get surface radiative properties (albedos and rlongup) for each sea cell.
@@ -127,12 +131,14 @@ subroutine radiate()
      ! so that all surface albedos and upward longwave radiative fluxes are
      ! available beneath all ATM columns that are primary.
 
-     !$omp do private (iwsfc, lake_cosz, tempk, fracliq)
-     do ilake = 2,mlake
+     !$omp do private (iwsfc, nwatm, lake_cosz, tempk, fracliq)
+     do ilake = 2, mlake
         iwsfc = ilake + omlake
 
+        ! We can skip a lake cell that is not attached to a primary atm cell
         if (iparallel == 1) then
-           if ( all( itab_w( [max(1,itab_wsfc(iwsfc)%iwatm( 1:itab_wsfc(iwsfc)%nwatm ))] )%irank /= myrank ) ) cycle
+           nwatm = itab_wsfc(iwsfc)%nwatm
+           if ( all( itab_w( itab_wsfc(iwsfc)%iwatm(1:nwatm) )%irank /= myrank ) ) cycle
         endif
 
         ! Get surface radiative properties (albedos and rlongup) for each sea cell.
@@ -162,18 +168,15 @@ subroutine radiate()
      ! so that all surface albedos and upward longwave radiative fluxes are
      ! available beneath all ATM columns that are primary.
 
-     !$omp do private (iwsfc)
-     do iland = 2,mland
+     !$omp do private(iwsfc,nwatm)
+     do iland = 2, mland
         iwsfc = iland + omland
 
+        ! We can skip a land cell that is not attached to a primary atm cell
         if (iparallel == 1) then
-           if ( all( itab_w( [max(1,itab_wsfc(iwsfc)%iwatm( 1:itab_wsfc(iwsfc)%nwatm ))] )%irank /= myrank ) ) cycle
+           nwatm = itab_wsfc(iwsfc)%nwatm
+           if ( all( itab_w( itab_wsfc(iwsfc)%iwatm(1:nwatm) )%irank /= myrank ) ) cycle
         endif
-
-        ! Get surface radiative properties (albedos and rlongup) for each land cell.
-
-        sfcg%rshort(iwsfc) = 0.
-        sfcg%rlong (iwsfc) = 0.
 
         call sfcrad_prep(iland, iwsfc,           &
              sfcg%leaf_class        (    iwsfc), &
@@ -218,7 +221,7 @@ subroutine radiate()
 
      !$omp parallel private(rlongup_ks,rlong_albedo_ks,albedt_ks,albedt_diffuse_ks)
      !$omp do private (iw, ka, nsfc, jsfc, iwsfc, jasfc, wti, wtk, &
-     !$omp                      kw, ks, koff, nrad)  &
+     !$omp                      kw, ks, koff, nrad) &
      !$omp             schedule(guided)
      do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
@@ -227,7 +230,8 @@ subroutine radiate()
 
         ! Compute solar zenith angle for atmosphere cells
 
-        cosz(iw) = wnx(iw) * sunx + wny(iw) * suny + wnz(iw) * sunz
+        cosz    (iw) = wnx(iw) * sunx + wny(iw) * suny + wnz(iw) * sunz
+        cosz_rad(iw) = cosz(iw)
 
         ! Zero out fields that are summed from SFC grid cells
 
@@ -297,7 +301,7 @@ subroutine radiate()
            albedt_diffuse(iw) = albedt_diffuse(iw) + wti * sfcg%albedo_diffuse(iwsfc)
         enddo
 
-        ! If level exists with no land/lake/sea cells, just copy from level below.
+        ! If level exists with no land/lake/sea cell overlaps, just copy from level below.
 
         do ks = 2, nsfc
            if (rlongup_ks(ks) < 1.e-7) then
@@ -328,7 +332,7 @@ subroutine radiate()
         endif
 
      enddo
-     !$omp end do
+     !$omp end do nowait
      !$omp end parallel
 
      ! MPI send/recv of surface downward radiative fluxes
@@ -446,6 +450,102 @@ subroutine radiate()
      enddo
      !$omp end do nowait
      !$omp end parallel
+
+
+  elseif (mrl_begl(istp) > 0) then
+
+     ! Compute components of unit vector pointing to sun
+
+     call sunloc()
+
+     ! Update outgoing longwave from land cells (TODO: seaice too?)
+
+     !$omp parallel
+     !$omp do private(iwsfc)
+     do iland = 2, mland
+        iwsfc = iland + omland
+
+        ! Skip this SFC grid cell if running in parallel and cell rank is not MYRANK
+        if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+
+        call sfcrad_rlongup(iland, iwsfc, &
+             sfcg%leaf_class        (    iwsfc), &
+             land%skncomp           (    iland), &
+             land%sfcwater_mass     (:,  iland), &
+             land%sfcwater_energy   (:,  iland), &
+             land%sfcwater_depth    (:,  iland), &
+             land%veg_temp          (    iland), &
+             land%soil_energy       (nzg,iland), &
+             land%soil_water        (nzg,iland), &
+             land%specifheat_drysoil(nzg,iland), &
+             land%gnd_emiss         (    iwsfc), &
+             land%vf                (    iland), &
+             sfcg%rlongup           (    iwsfc), &
+             land%slong             (    iwsfc), &
+             land%vlong             (    iwsfc)  )
+
+     enddo
+     !$omp end do
+
+     !$omp do private(iw,ks,k)
+     do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
+
+        ! Current solar zenith angle for atm cells
+        cosz(iw) = wnx(iw) * sunx + wny(iw) * suny + wnz(iw) * sunz
+
+        ! Initialize rlong_ks to current downward longwave flux
+        do ks = 1, lsw(iw)
+           k = lpw(iw) + ks - 2
+           rlong_ks(ks,iw) = dlong(k,iw)
+        enddo
+
+        if (frac_land(iw) > .01) then
+           call update_rrtmg_lw_intermediate(iw, lpw(iw), lsw(iw))
+        endif
+
+     enddo
+     !$omp end do nowait
+     !$omp end parallel
+
+     if (iparallel == 1) then
+        call mpi_send_w(svara1=rlong_ks)
+        call mpi_recv_w(svara1=rlong_ks)
+     endif
+
+     !$omp parallel do private(iwsfc,j,iw,kw,wt,ka,ks)
+     do iland = 2, mland
+        iwsfc = iland + omland
+
+        ! Skip this SFC grid cell if running in parallel and cell rank is not MYRANK
+        if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+
+        sfcg%rlong(iwsfc) = 0.
+
+        do j = 1,itab_wsfc(iwsfc)%nwatm
+           iw = itab_wsfc(iwsfc)%iwatm(j)  ! local index
+           kw = itab_wsfc(iwsfc)%kwatm(j)
+           wt = itab_wsfc(iwsfc)%arcoarsfc(j)
+           ks = kw - lpw(iw) + 1
+
+           sfcg%rlong(iwsfc) = sfcg%rlong(iwsfc) + wt * rlong_ks(ks,iw)
+        enddo
+
+        call sfcrad_land(iland, iwsfc, &
+               sfcg%leaf_class(iwsfc), &
+               sfcg%rshort    (iwsfc), &
+               sfcg%rlong     (iwsfc), &
+               land%slong     (iwsfc), &
+               land%vlong     (iwsfc), &
+               land%gnd_albedo(iland), &
+               land%gnd_emiss (iland), &
+               land%vf        (iland), &
+               land%veg_albedo(iland), &
+               land%rshort_s  (iland), &
+               land%rlong_s   (iland), &
+               land%rshort_v  (iland), &
+               land%rlong_v   (iland)  )
+     enddo
+     !$omp end parallel do
 
   endif
 
