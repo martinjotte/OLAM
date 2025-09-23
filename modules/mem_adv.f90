@@ -158,7 +158,7 @@ contains
     ! Coefficients for quadratic interpolating polynomical for advection.
     ! This first set bounds the integral over each W cell.
 
-    !$omp parallel do private(iw,np,n,iwn,xw,yw,at,a_h,fint,xe,ye,ze)
+    !$omp parallel do private(iw,np,n,iv,xw,yw,at,a_h,fint)
     do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
        np  = itab_w(iw)%npoly
 
