@@ -102,7 +102,7 @@ subroutine copy_nl()
                          vtan_targ, pmsl_targ
 
   use leaf_coms,   only: nvgcon, isoilflg, isoilptf, ndviflg, &
-                         isfcl, ivegflg, nzs, &
+                         isfcl, ivegflg, &
                          veg_database, soil_database, soilgrids_database, &
                          glhymps_database, ndvi_database, iupdndvi, &
                          isoilstateinit, iwatertabflg, watertab_db
@@ -110,7 +110,7 @@ subroutine copy_nl()
   use mem_land,    only: nzg, landgrid_dztop, landgrid_depth
 
   use sea_coms,    only: isstflg, sst_database, seatmp, iupdsst, &
-                         iseaiceflg, seaice_database, seaice, iupdseaice
+                         iseaiceflg, seaice_database, seaice, iupdseaice, tide_database
 
   use oplot_coms,  only: op
   use isan_coms,   only: iapr
@@ -345,7 +345,6 @@ subroutine copy_nl()
   isfcl     = nl%isfcl
   gw_spinup_sfcgfile = nl%gw_spinup_sfcgfile
   gw_spinup_histfile = nl%gw_spinup_histfile
-  nzs       = nl%nzs
   nzg       = nl%nzg
   landgrid_dztop = nl%landgrid_dztop
   landgrid_depth = nl%landgrid_depth
@@ -377,6 +376,7 @@ subroutine copy_nl()
   watertab_db        = nl%watertab_db
   sst_database       = nl%sst_database
   seaice_database    = nl%seaice_database
+  tide_database      = nl%tide_database
   iupdndvi      = nl%iupdndvi
   iupdsst       = nl%iupdsst
   iupdseaice    = nl%iupdseaice

@@ -29,6 +29,8 @@ Module sea_coms
    integer            :: iupdseaice, iseaicecyclic
    character(pathlen) :: seaice_database
 
+   character(pathlen) :: tide_database
+
    character(pathlen), allocatable :: fnames_seaice  (:)
    character(14),      allocatable :: ctotdate_seaice(:)
    real(r8),           allocatable :: s1900_seaice   (:)

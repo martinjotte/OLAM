@@ -1,6 +1,6 @@
 subroutine land_startup()
 
-  use leaf_coms,   only: nzs, ndviflg, iupdndvi, isoilflg, specifheat_bedrock
+  use leaf_coms,   only: ndviflg, iupdndvi, isoilflg, specifheat_bedrock
   use mem_land,    only: alloc_land2, filltab_land, land, mland, nzg, slzt, omland
   use misc_coms,   only: runtype
   use mem_sfcg,    only: sfcg
@@ -104,7 +104,7 @@ subroutine land_startup()
         ! where bedrock begins much deeper, the transition level is set above
         ! z_bedrock because SoilGrids data is defined only in the top 2 m, while
         ! GLHYMPS applies to roughly the top 100 m.  For now, we choose the
-        ! transition level to be no greater than 10 meters below the surface.
+        ! transition level to be no deeper than 10 meters below the surface.
 
         do k = nzg, 1, -1
            if (slzt(k) < max(-10.0, land%z_bedrock(iland))) exit

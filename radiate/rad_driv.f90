@@ -7,7 +7,7 @@ subroutine radiate()
   use mem_land,    only: land, mland, omland, nzg
   use mem_sea,     only: sea, msea, omsea
   use sea_coms,    only: nzi
-  use leaf4_surface,only: sfcrad_land
+  use leaf4_surface,only: sfcrad_land, sfcrad_prep
   use mem_radiate, only: sunx, suny, sunz, cosz, nadd_rad,                  &
                          rlongup, rlong_albedo, albedt, albedt_beam,        &
                          albedt_diffuse, fthrd_sw, rshort, fthrd_lw,        &
@@ -29,14 +29,13 @@ subroutine radiate()
   integer :: j
   integer :: iw
   integer :: k
-  integer :: nsfc, nzw
+  integer :: nsfc
   integer :: isea, iland, ilake, iwsfc, jsfc, jasfc
   integer :: ka, ks, kw
   integer :: koff
   integer :: nrad
   integer :: mrl
   real    :: sea_cosz, lake_cosz
-  real    :: wdepth
   real    :: wt, wti, wtk
   real    :: tempk, fracliq
 
@@ -163,7 +162,7 @@ subroutine radiate()
      ! so that all surface albedos and upward longwave radiative fluxes are
      ! available beneath all ATM columns that are primary.
 
-     !$omp do private (iwsfc, nzw, wdepth)
+     !$omp do private (iwsfc)
      do iland = 2,mland
         iwsfc = iland + omland
 
@@ -176,51 +175,35 @@ subroutine radiate()
         sfcg%rshort(iwsfc) = 0.
         sfcg%rlong (iwsfc) = 0.
 
-        nzw = max(land%nlev_sfcwater(iland), 1)
-
-        if (land%nlev_sfcwater(iland) > 0) then
-           wdepth = sum(land%sfcwater_depth(1:land%nlev_sfcwater(iland),iland))
-        else
-           wdepth = 0.
-        endif
-
-! CHANGES POSSIBLY MADE TO THIS CALL, PENDING QUESTION ON DELETING RSHORT_S
-
-        call sfcrad_land(iland,                  &
-           sfcg%leaf_class        (    iwsfc), &
-           sfcg%xew               (    iwsfc), &
-           sfcg%yew               (    iwsfc), &
-           sfcg%zew               (    iwsfc), &
-           sfcg%wnx               (    iwsfc), &
-           sfcg%wny               (    iwsfc), &
-           sfcg%wnz               (    iwsfc), &
-           sfcg%rshort            (    iwsfc), &
-           sfcg%rlong             (    iwsfc), &
-           sfcg%rlongup           (    iwsfc), &
-           sfcg%rlong_albedo      (    iwsfc), &
-           sfcg%albedo_beam       (    iwsfc), &
-           land%sfcwater_energy   (nzw,iland), &
-           land%sfcwater_depth    (nzw,iland), &
-           land%rshort_s          (nzw,iland), &
-           land%rshort_g          (    iland), &
-           land%rshort_v          (    iland), &
-           land%rlong_g           (    iland), &
-           land%rlong_s           (    iland), &
-           land%rlong_v           (    iland), &
-           land%nlev_sfcwater     (    iland), &
-           land%veg_temp          (    iland), &
-           land%veg_fracarea      (    iland), &
-           land%veg_height        (    iland), &
-           land%veg_albedo        (    iland), &
-           land%snowfac           (    iland), &
-           land%vf                (    iland), &
-           land%cosz              (    iland), &
-           land%soil_energy       (nzg,iland), &
-           land%soil_water        (nzg,iland), &
-           land%wresid_vg         (nzg,iland), &
-           land%wsat_vg           (nzg,iland), &
-           land%specifheat_drysoil(nzg,iland), &
-           land%sand              (nzg,iland)  )
+        call sfcrad_prep(iland, iwsfc,           &
+             sfcg%leaf_class        (    iwsfc), &
+             sfcg%wnx               (    iwsfc), &
+             sfcg%wny               (    iwsfc), &
+             sfcg%wnz               (    iwsfc), &
+             land%skncomp           (    iland), &
+             land%sfcwater_mass     (:,  iland), &
+             land%sfcwater_energy   (:,  iland), &
+             land%sfcwater_depth    (:,  iland), &
+             land%veg_temp          (    iland), &
+             land%veg_fracarea      (    iland), &
+             land%veg_height        (    iland), &
+             land%veg_albedo        (    iland), &
+             land%soil_energy       (nzg,iland), &
+             land%soil_water        (nzg,iland), &
+             land%wresid_vg         (nzg,iland), &
+             land%wsat_vg           (nzg,iland), &
+             land%specifheat_drysoil(nzg,iland), &
+             land%sand              (nzg,iland), &
+             land%snowfac           (    iland), &
+             land%vf                (    iland), &
+             land%cosz              (    iland), &
+             sfcg%rlongup           (    iwsfc), &
+             sfcg%rlong_albedo      (    iwsfc), &
+             sfcg%albedo_beam       (    iwsfc), &
+             land%gnd_albedo        (    iwsfc), &
+             land%gnd_emiss         (    iwsfc), &
+             land%slong             (    iwsfc), &
+             land%vlong             (    iwsfc)  )
 
            ! For LEAF land cells, there is no distinction between beam and
            ! diffuse radiation.
@@ -438,58 +421,27 @@ subroutine radiate()
      ! Loop over all LAND cells to compute radiative fluxes
      ! for all cell components, given that rshort and rlong are now updated.
 
-     !$omp do private (iwsfc,nzw,wdepth)
+     !$omp do private (iwsfc)
      do iland = 2,mland
         iwsfc = iland + omland
 
         ! Skip this SFC grid cell if running in parallel and cell rank is not MYRANK
         if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
-        nzw = max(land%nlev_sfcwater(iland), 1)
-
-        if (land%nlev_sfcwater(iland) > 0) then
-           wdepth = sum(land%sfcwater_depth(1:land%nlev_sfcwater(iland),iland))
-        else
-           wdepth = 0.
-        endif
-
-! CHANGES POSSIBLY MADE TO THIS CALL, PENDING QUESTION ON DELETING RSHORT_S
-
-        call sfcrad_land(iland,                  &
-           sfcg%leaf_class        (    iwsfc), &
-           sfcg%xew               (    iwsfc), &
-           sfcg%yew               (    iwsfc), &
-           sfcg%zew               (    iwsfc), &
-           sfcg%wnx               (    iwsfc), &
-           sfcg%wny               (    iwsfc), &
-           sfcg%wnz               (    iwsfc), &
-           sfcg%rshort            (    iwsfc), &
-           sfcg%rlong             (    iwsfc), &
-           sfcg%rlongup           (    iwsfc), &
-           sfcg%rlong_albedo      (    iwsfc), &
-           sfcg%albedo_beam       (    iwsfc), &
-           land%sfcwater_energy   (nzw,iland), &
-           land%sfcwater_depth    (nzw,iland), &
-           land%rshort_s          (nzw,iland), &
-           land%rshort_g          (    iland), &
-           land%rshort_v          (    iland), &
-           land%rlong_g           (    iland), &
-           land%rlong_s           (    iland), &
-           land%rlong_v           (    iland), &
-           land%nlev_sfcwater     (    iland), &
-           land%veg_temp          (    iland), &
-           land%veg_fracarea      (    iland), &
-           land%veg_height        (    iland), &
-           land%veg_albedo        (    iland), &
-           land%snowfac           (    iland), &
-           land%vf                (    iland), &
-           land%cosz              (    iland), &
-           land%soil_energy       (nzg,iland), &
-           land%soil_water        (nzg,iland), &
-           land%wresid_vg         (nzg,iland), &
-           land%wsat_vg           (nzg,iland), &
-           land%specifheat_drysoil(nzg,iland), &
-           land%sand              (nzg,iland)  )
+        call sfcrad_land(iland, iwsfc, &
+               sfcg%leaf_class(iwsfc), &
+               sfcg%rshort    (iwsfc), &
+               sfcg%rlong     (iwsfc), &
+               land%slong     (iwsfc), &
+               land%vlong     (iwsfc), &
+               land%gnd_albedo(iland), &
+               land%gnd_emiss (iland), &
+               land%vf        (iland), &
+               land%veg_albedo(iland), &
+               land%rshort_s  (iland), &
+               land%rlong_s   (iland), &
+               land%rshort_v  (iland), &
+               land%rlong_v   (iland)  )
 
      enddo
      !$omp end do nowait

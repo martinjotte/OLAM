@@ -346,7 +346,7 @@ subroutine makesfc3()
 
   srati = 0.5
   do iter = 1,20
-     srati = 1. / (landgrid_depth * (1. - srati) / (srati * landgrid_dztop) + 1.)**(1./real(nzg))
+     srati = 1. / (landgrid_depth * (1. - srati) / (srati * landgrid_dztop) + 1.)**(1./real(nzg-1))
      print*, 'iter, stretch ratio ',iter,1./srati
   enddo
 
@@ -377,13 +377,22 @@ subroutine makesfc3()
 
   ! Compute soil grid levels
 
-  dz = landgrid_dztop
   slz(nzg+1) = 0.
-  thick = 0.
+  thick      = 0.
 
-  k = nzg        ! k counts over grouped layers (if igw_spinup = 1)
+  k = nzg           ! k counts over grouped layers (if igw_spinup = 1)
 
-  do kk = nzg,1,-1   ! kk counts over original ungrouped layers
+  do kk = nzg,1,-1  ! kk counts over original ungrouped layers
+
+     if (kk == nzg) then
+        dz = .01
+     elseif (kk == nzg-1) then
+        dz = landgrid_dztop - dz
+     elseif (kk == nzg-2) then
+        dz = landgrid_dztop / srati
+     else
+        dz = dz / srati
+     endif
 
      ! Map kk soil layers into k soil layers
 
@@ -404,8 +413,6 @@ subroutine makesfc3()
         thick = 0.
         k = k - 1
      endif
-
-     dz = dz / srati
 
   enddo
 
@@ -493,7 +500,7 @@ subroutine makesfc3()
         call ngr_area(iswmzon,minside,sfcg%xew(iwsfc),sfcg%yew(iwsfc),sfcg%zew(iwsfc), &
                       nswmzonll, swmzonrad, swmzonlat, swmzonlon)
 
-        if (minside == 1 .and. sfcg%bathym(iwsfc) > depthmax_swe) sfcg%swm_active(iwsfc) = .true.
+        if (minside == 1 .and. sfcg%bathym(iwsfc) > -depthmax_swe) sfcg%swm_active(iwsfc) = .true.
      enddo
   enddo
 
@@ -984,7 +991,7 @@ end subroutine fao_usda
 
 subroutine usda_composition(iland,usdatext)
 
-  use mem_land,   only: land, nzg, slzt
+  use mem_land,   only: land, nzg
   use oname_coms, only: nl
 
   implicit none

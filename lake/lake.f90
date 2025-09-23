@@ -172,7 +172,7 @@ subroutine lakecell(ilake, iwsfc, rhos, ustar, vkhsfc, can_depth, topw, &
   real :: wxferca   ! vapor xfer from can_air to atm this step [kg/m^2]
   real :: sfc_rhovs ! sat vapor density at lake surface temp [kg_vap/m^3]
   real :: radsfc    ! Radiation absorbed by surface [J/m^2]
-  real :: energy_per_m2 ! lake energy expressed in units of [J/m^2]
+  real :: lake_epm2 ! lake energy expressed in units of [J/m^2]
   real :: can_rhov      ! Canopy air water vapor density [kg_vap/m^3]
   real :: canair        ! Canopy air mass [kg/m^2]
   real :: hcapcan       ! Canopy air heat capacity [J/(m^2 K)]
@@ -313,7 +313,7 @@ subroutine lakecell(ilake, iwsfc, rhos, ustar, vkhsfc, can_depth, topw, &
      runoff = 0.
   endif
 
-  energy_per_m2 = lake_energy * depth * 1000.
+  lake_epm2 = lake_energy * depth * 1000.
 
   ! Update lake water depth, energy, and head1
 
@@ -321,9 +321,9 @@ subroutine lakecell(ilake, iwsfc, rhos, ustar, vkhsfc, can_depth, topw, &
 
   depth = depth + dheight
 
-  energy_per_m2 = energy_per_m2 + radsfc - hxfersc - wxfersc * alvl + qpcpg
+  lake_epm2 = lake_epm2 + radsfc - hxfersc - wxfersc * alvl + qpcpg
 
-  lake_energy = energy_per_m2 / (depth * 1000.) ! water density = 1000 kg/m^3
+  lake_energy = lake_epm2 / (depth * 1000.) ! water density = 1000 kg/m^3
 
   head1 = head1 + dheight
 
@@ -376,7 +376,7 @@ subroutine lakecell_nud(iwsfc, ilake, depth, lake_energy, topw, bathym, head1, &
 
   ! Local variables
 
-  real :: energy_per_m2 ! lake energy expressed in units of [J/m^2]
+  real :: lake_epm2 ! lake energy expressed in units of [J/m^2]
   real :: laketemp, fracliq, ediff, eflux
 
   ! Diagnose lake temperature and liquid fraction
@@ -390,15 +390,15 @@ subroutine lakecell_nud(iwsfc, ilake, depth, lake_energy, topw, bathym, head1, &
 
   eflux = max(-500.,min(500.,20. * ediff))
 
-  energy_per_m2 = lake_energy * depth * 1000.
+  lake_epm2 = lake_energy * depth * 1000.
 
   ! Update lake water depth, energy, and head1
 
   depth = max(0., depth + sfcwat_nud * 0.001)
 
-  energy_per_m2 = energy_per_m2 + eflux * dt_lake
+  lake_epm2 = lake_epm2 + eflux * dt_lake
 
-  lake_energy = energy_per_m2 / (depth * 1000.) ! water density = 1000 kg/m^3
+  lake_energy = lake_epm2 / (depth * 1000.) ! water density = 1000 kg/m^3
 
   head1 = depth + bathym - topw
 

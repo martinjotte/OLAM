@@ -2,6 +2,8 @@ Module mem_land
 
   implicit none
 
+  integer, parameter :: nzs = 2 ! max number of sfcwater grid levels
+
   integer :: nzg         ! number of soil grid levels
 
   integer :: nland       ! Total # of land cell W pts in model domain
@@ -35,26 +37,20 @@ Module mem_land
 
      real, allocatable :: slope_fact(:) ! orographic roughness parameter
 
-     real, allocatable :: rshort_g  (:) ! s/w net rad flux to soil [W/m^2]
-     real, allocatable :: rshort_s(:,:) ! s/w net rad flux to sfc water [W/m^2]
+     real, allocatable :: rshort_s  (:) ! s/w net rad flux to surface [W/m^2]
      real, allocatable :: rshort_v  (:) ! s/w net rad flux to veg [W/m^2]
-     real, allocatable :: rlong_g   (:) ! l/w net rad flux to soil [W/m^2]
-     real, allocatable :: rlong_s   (:) ! l/w net rad flux to sfc water [W/m^2]
+     real, allocatable :: rlong_s   (:) ! l/w net rad flux to surface [W/m^2]
      real, allocatable :: rlong_v   (:) ! l/w net rad flux to veg [W/m^2]
-
+     real, allocatable :: slong     (:) ! gnd l/w rad emission [W/m^2]
+     real, allocatable :: vlong     (:) ! veg l/w rad emission [W/m^2]
      real, allocatable :: cosz      (:) ! cosine of the solar zenith angle of the land cell
 
-      real, allocatable :: par         (:) ! total photosynthetic active radiation (W/m^2)
-      real, allocatable :: par_diffuse (:) ! diffuse photosynthetic active radiation (W/m^2)
-      real, allocatable :: ppfd        (:) ! total photosynthetic photon flux density (uMol/m^2/s)
-      real, allocatable :: ppfd_diffuse(:) ! diffuse photosynthetic photon flux density (uMol/m^2/s)
+     real, allocatable :: par         (:) ! total photosynthetic active radiation (W/m^2)
+     real, allocatable :: par_diffuse (:) ! diffuse photosynthetic active radiation (W/m^2)
+     real, allocatable :: ppfd        (:) ! total photosynthetic photon flux density (uMol/m^2/s)
+     real, allocatable :: ppfd_diffuse(:) ! diffuse photosynthetic photon flux density (uMol/m^2/s)
 
      ! Canopy and surface quantities:
-
-     integer, allocatable :: nlev_sfcwater (:) ! # of active surface water levels
-     real, allocatable :: sfcwater_mass  (:,:) ! surface water mass [kg/m^2]
-     real, allocatable :: sfcwater_energy(:,:) ! surface water energy [J/kg]
-     real, allocatable :: sfcwater_depth (:,:) ! surface water depth [m]
 
      real, allocatable :: hcapveg     (:) ! veg heat capacity [J/(m^2 K)]
      real, allocatable :: veg_fracarea(:) ! veg fractional area
@@ -62,6 +58,8 @@ Module mem_land
      real, allocatable :: veg_rough   (:) ! veg roughness height [m]
      real, allocatable :: veg_height  (:) ! veg height [m]
      real, allocatable :: veg_albedo  (:) ! veg albedo
+     real, allocatable :: gnd_albedo  (:) ! ground surface albedo
+     real, allocatable :: gnd_emiss   (:) ! ground surface emissivity
      real, allocatable :: veg_tai     (:) ! veg total area index
      real, allocatable :: veg_water   (:) ! veg sfc water content [kg/m^2]
      real, allocatable :: veg_energy  (:) ! (veg + veg_water) energy [J/m^2]
@@ -72,6 +70,12 @@ Module mem_land
      real, allocatable :: stom_resist (:) ! veg stomatal resistance [s/m]
      real, allocatable :: snowfac     (:) ! frac veg burial by snowcover
      real, allocatable :: vf          (:) ! frac coverage of non-buried part of veg
+
+     integer, allocatable :: skncomp  (:) ! surface skinlayer composition type (1-3) []
+
+     real,    allocatable :: sfcwater_mass  (:,:) ! surface water mass [kg/m^2]
+     real,    allocatable :: sfcwater_energy(:,:) ! surface water energy [J/kg]
+     real,    allocatable :: sfcwater_depth (:,:) ! surface water depth [m]
 
      ! Soil quantities (time-dependent)
 
@@ -149,7 +153,7 @@ Contains
     integer, intent(in) :: mland0
     integer             :: iland
 
-    ! This routine allocates sea arrays necessary for the MAKEGRID stage
+    ! This routine allocates land arrays necessary for the MAKEGRID stage
     ! or for reading sfcgrid information
 
     allocate( itab_land                (mland0) )
@@ -195,7 +199,6 @@ Contains
   subroutine alloc_land2()
 
   use misc_coms, only: rinit, do_chem
-  use leaf_coms, only: nzs
 
   implicit none
 
@@ -205,12 +208,12 @@ Contains
 
   allocate( land%slope_fact            (mland) )
 
-  allocate( land%rshort_g              (mland) )
-  allocate( land%rshort_s          (nzs,mland) )
+  allocate( land%rshort_s              (mland) )
   allocate( land%rshort_v              (mland) )
-  allocate( land%rlong_g               (mland) )
   allocate( land%rlong_s               (mland) )
   allocate( land%rlong_v               (mland) )
+  allocate( land%slong                 (mland) )
+  allocate( land%vlong                 (mland) )
   allocate( land%cosz                  (mland) )
 
   ! Photosynthetically active radiation (PAR) currently unused
@@ -223,17 +226,14 @@ Contains
      allocate( land%ppfd_diffuse       (mland) )
   endif
 
-  allocate( land%nlev_sfcwater         (mland) )
-  allocate( land%sfcwater_mass     (nzs,mland) )
-  allocate( land%sfcwater_energy   (nzs,mland) )
-  allocate( land%sfcwater_depth    (nzs,mland) )
-
   allocate( land%hcapveg               (mland) )
   allocate( land%veg_fracarea          (mland) )
   allocate( land%veg_lai               (mland) )
   allocate( land%veg_rough             (mland) )
   allocate( land%veg_height            (mland) )
   allocate( land%veg_albedo            (mland) )
+  allocate( land%gnd_albedo            (mland) )
+  allocate( land%gnd_emiss             (mland) )
   allocate( land%veg_tai               (mland) )
   allocate( land%veg_water             (mland) )
   allocate( land%veg_energy            (mland) )
@@ -245,35 +245,40 @@ Contains
   allocate( land%snowfac               (mland) )
   allocate( land%vf                    (mland) )
 
+  allocate( land%skncomp               (mland) )
+  allocate( land%sfcwater_mass     (nzs,mland) )
+  allocate( land%sfcwater_energy   (nzs,mland) )
+  allocate( land%sfcwater_depth    (nzs,mland) )
+
   ! Soil quantities
 
   allocate( land%soil_water        (nzg,mland) )
   allocate( land%soil_energy       (nzg,mland) )
   allocate( land%head              (nzg,mland) )
-  allocate( land%head0                 (mland) )
-  allocate( land%wresid_vg         (nzg,mland) )
-  allocate( land%wsat_vg           (nzg,mland) )
-  allocate( land%ksat_vg           (nzg,mland) )
-  allocate( land%alpha_vg          (nzg,mland) )
-  allocate( land%en_vg             (nzg,mland) )
-  allocate( land%lambda_vg         (nzg,mland) )
-  allocate( land%specifheat_drysoil(nzg,mland) )
-  allocate( land%wfrac_low         (nzg,mland) )
-  allocate( land%k_bedrock             (mland) )
-  allocate( land%soilfldcap            (mland) )
-  allocate( land%soilwilt              (mland) )
+  allocate( land%head0             (      mland) )
+  allocate( land%wresid_vg         (nzg,  mland) )
+  allocate( land%wsat_vg           (nzg,  mland) )
+  allocate( land%ksat_vg           (nzg,  mland) )
+  allocate( land%alpha_vg          (nzg,  mland) )
+  allocate( land%en_vg             (nzg,  mland) )
+  allocate( land%lambda_vg         (nzg,  mland) )
+  allocate( land%specifheat_drysoil(nzg,  mland) )
+  allocate( land%wfrac_low         (nzg,  mland) )
+  allocate( land%k_bedrock         (      mland) )
+  allocate( land%soilfldcap        (      mland) )
+  allocate( land%soilwilt          (      mland) )
 
   !$omp parallel do
   do iland = 1, mland
 
      if ( allocated( land%slope_fact         ) ) land%slope_fact          (iland) = 1.0
 
-     if ( allocated( land%rshort_g           ) ) land%rshort_g            (iland) = rinit
-     if ( allocated( land%rshort_s           ) ) land%rshort_s          (:,iland) = rinit
+     if ( allocated( land%rshort_s           ) ) land%rshort_s            (iland) = rinit
      if ( allocated( land%rshort_v           ) ) land%rshort_v            (iland) = rinit
-     if ( allocated( land%rlong_g            ) ) land%rlong_g             (iland) = rinit
      if ( allocated( land%rlong_s            ) ) land%rlong_s             (iland) = rinit
      if ( allocated( land%rlong_v            ) ) land%rlong_v             (iland) = rinit
+     if ( allocated( land%slong              ) ) land%slong               (iland) = rinit
+     if ( allocated( land%vlong              ) ) land%vlong               (iland) = rinit
      if ( allocated( land%cosz               ) ) land%cosz                (iland) = rinit
 
      if ( allocated( land%par                ) ) land%par                 (iland) = rinit
@@ -281,17 +286,14 @@ Contains
      if ( allocated( land%ppfd               ) ) land%ppfd                (iland) = rinit
      if ( allocated( land%ppfd_diffuse       ) ) land%ppfd_diffuse        (iland) = rinit
 
-     if ( allocated( land%nlev_sfcwater      ) ) land%nlev_sfcwater       (iland) = 0
-     if ( allocated( land%sfcwater_mass      ) ) land%sfcwater_mass     (:,iland) = rinit
-     if ( allocated( land%sfcwater_energy    ) ) land%sfcwater_energy   (:,iland) = rinit
-     if ( allocated( land%sfcwater_depth     ) ) land%sfcwater_depth    (:,iland) = rinit
-
      if ( allocated( land%hcapveg            ) ) land%hcapveg             (iland) = rinit
      if ( allocated( land%veg_fracarea       ) ) land%veg_fracarea        (iland) = rinit
      if ( allocated( land%veg_lai            ) ) land%veg_lai             (iland) = rinit
      if ( allocated( land%veg_rough          ) ) land%veg_rough           (iland) = rinit
      if ( allocated( land%veg_height         ) ) land%veg_height          (iland) = rinit
      if ( allocated( land%veg_albedo         ) ) land%veg_albedo          (iland) = rinit
+     if ( allocated( land%gnd_albedo         ) ) land%gnd_albedo          (iland) = rinit
+     if ( allocated( land%gnd_emiss          ) ) land%gnd_emiss           (iland) = rinit
      if ( allocated( land%veg_tai            ) ) land%veg_tai             (iland) = rinit
      if ( allocated( land%veg_water          ) ) land%veg_water           (iland) = rinit
      if ( allocated( land%veg_energy         ) ) land%veg_energy          (iland) = rinit
@@ -302,6 +304,11 @@ Contains
      if ( allocated( land%stom_resist        ) ) land%stom_resist         (iland) = rinit
      if ( allocated( land%snowfac            ) ) land%snowfac             (iland) = rinit
      if ( allocated( land%vf                 ) ) land%vf                  (iland) = rinit
+
+     if ( allocated( land%skncomp            ) ) land%skncomp             (iland) = 1
+     if ( allocated( land%sfcwater_mass      ) ) land%sfcwater_mass     (:,iland) = rinit
+     if ( allocated( land%sfcwater_energy    ) ) land%sfcwater_energy   (:,iland) = rinit
+     if ( allocated( land%sfcwater_depth     ) ) land%sfcwater_depth    (:,iland) = rinit
 
      ! Soil quantities
 
@@ -337,23 +344,19 @@ Contains
 
   ! Surface/vegetation quantities
 
-  if (allocated(land%rshort_g))        call increment_vtable('LAND%RSHORT_G',        'LW', rvar1=land%rshort_g)
-  if (allocated(land%rshort_s))        call increment_vtable('LAND%RSHORT_S',        'LW', rvar2=land%rshort_s)
+  if (allocated(land%rshort_s))        call increment_vtable('LAND%RSHORT_S',        'LW', rvar1=land%rshort_s)
   if (allocated(land%rshort_v))        call increment_vtable('LAND%RSHORT_V',        'LW', rvar1=land%rshort_v)
-  if (allocated(land%rlong_g))         call increment_vtable('LAND%RLONG_G',         'LW', rvar1=land%rlong_g)
   if (allocated(land%rlong_s))         call increment_vtable('LAND%RLONG_S',         'LW', rvar1=land%rlong_s)
   if (allocated(land%rlong_v))         call increment_vtable('LAND%RLONG_V',         'LW', rvar1=land%rlong_v)
   if (allocated(land%cosz))            call increment_vtable('LAND%COSZ',            'LW', rvar1=land%cosz)
-  if (allocated(land%nlev_sfcwater))   call increment_vtable('LAND%NLEV_SFCWATER',   'LW', ivar1=land%nlev_sfcwater)
-  if (allocated(land%sfcwater_mass))   call increment_vtable('LAND%SFCWATER_MASS',   'LW', rvar2=land%sfcwater_mass)
-  if (allocated(land%sfcwater_energy)) call increment_vtable('LAND%SFCWATER_ENERGY', 'LW', rvar2=land%sfcwater_energy)
-  if (allocated(land%sfcwater_depth))  call increment_vtable('LAND%SFCWATER_DEPTH',  'LW', rvar2=land%sfcwater_depth)
   if (allocated(land%hcapveg))         call increment_vtable('LAND%HCAPVEG',         'LW', rvar1=land%hcapveg)
   if (allocated(land%veg_fracarea))    call increment_vtable('LAND%VEG_FRACAREA',    'LW', rvar1=land%veg_fracarea)
   if (allocated(land%veg_lai))         call increment_vtable('LAND%VEG_LAI',         'LW', rvar1=land%veg_lai)
   if (allocated(land%veg_rough))       call increment_vtable('LAND%VEG_ROUGH',       'LW', rvar1=land%veg_rough)
   if (allocated(land%veg_height))      call increment_vtable('LAND%VEG_HEIGHT',      'LW', rvar1=land%veg_height)
   if (allocated(land%veg_albedo))      call increment_vtable('LAND%VEG_ALBEDO',      'LW', rvar1=land%veg_albedo)
+  if (allocated(land%gnd_albedo))      call increment_vtable('LAND%GND_ALBEDO',      'LW', rvar1=land%gnd_albedo)
+  if (allocated(land%gnd_emiss))       call increment_vtable('LAND%GND_EMISS',       'LW', rvar1=land%gnd_emiss)
   if (allocated(land%veg_tai))         call increment_vtable('LAND%VEG_TAI',         'LW', rvar1=land%veg_tai)
   if (allocated(land%veg_water))       call increment_vtable('LAND%VEG_WATER',       'LW', rvar1=land%veg_water)
   if (allocated(land%veg_energy))      call increment_vtable('LAND%VEG_ENERGY',      'LW', rvar1=land%veg_energy)
@@ -367,6 +370,11 @@ Contains
 ! if (allocated(land%par_diffuse))  call increment_vtable('LAND%PAR_DIFFUSE',  'LW', rvar1=land%par_diffuse)
   if (allocated(land%ppfd))         call increment_vtable('LAND%PPFD',         'LW', rvar1=land%ppfd)
   if (allocated(land%ppfd_diffuse)) call increment_vtable('LAND%PPFD_DIFFUSE', 'LW', rvar1=land%ppfd_diffuse)
+
+  if (allocated(land%skncomp))         call increment_vtable('LAND%SKNCOMP',         'LW', ivar1=land%skncomp)
+  if (allocated(land%sfcwater_mass))   call increment_vtable('LAND%SFCWATER_MASS',   'LW', rvar2=land%sfcwater_mass)
+  if (allocated(land%sfcwater_energy)) call increment_vtable('LAND%SFCWATER_ENERGY', 'LW', rvar2=land%sfcwater_energy)
+  if (allocated(land%sfcwater_depth))  call increment_vtable('LAND%SFCWATER_DEPTH',  'LW', rvar2=land%sfcwater_depth)
 
   ! Soil quantities
 

@@ -4,12 +4,13 @@ use mem_ijtabs,  only: itab_w, itab_v, itab_m, &
                        jtab_w, jtab_v, jtab_m, &
                        jtw_prog, jtv_prog, jtm_vadj
 use mem_sfcg,    only: itab_wsfc, itab_msfc, itab_vsfc, sfcg
-use mem_land,    only: land, mland, omland, nzg, slz, dslz, slzt
+use mem_land,    only: land, mland, omland, nzg, nzs, slz, dslz, slzt
 use mem_lake,    only: lake, mlake, omlake
 use mem_sea,     only: sea,  msea,  omsea
 use pom2k1d,     only: pom
 use leaf4_soil,  only: soil_wat2pot
 use leaf4_surface,only:grndvap
+use leaf_coms,   only: wcap_min
 use mem_basic,   only: vmc, wmc, vc, wc, rho, press, &
                        thil, theta, tair, rr_w, rr_v, vxe, vye, vze, ue, ve
 use mem_cuparm,  only: conprr, aconpr, qwcon, cbmf
@@ -292,7 +293,7 @@ data fldlib(1:4, 62:98)/ &
  'WSTAR'         ,'T2' ,'WSTAR',' (m s:S2:-1  )'                            ,& !  95
  'PSFC'          ,'T2' ,'SFC PRESS',' (hPa)'                                ,& !  96
  'PMSL'          ,'T2' ,'SEA LEVEL PRESS',' (hPa)'                          ,& !  97
- 'CBMF'          ,'T2' ,'CUPARM CLDBASE MASS FLX','(kg m:S2:-2 s:S2:-1 )'   / !  98
+ 'CBMF'          ,'T2' ,'CUPARM CLDBASE MASS FLX','(kg m:S2:-2 s:S2:-1 )'    / !  98
 
 ! ATMOSPHERE DIF2 fields (3D & 2D)
 
@@ -331,7 +332,7 @@ data fldlib(1:4,129:134)/ &
 
 ! LAND_CELLS - 3D
 
-data fldlib(1:4,181:203)/ &
+data fldlib(1:4,181:198)/ &
  'SAND'              ,'L3G','SOIL SAND FRACTION',' ( )'                  ,& ! 181
  'CLAY'              ,'L3G','SOIL CLAY FRACTION',' ( )'                  ,& ! 182
  'SILT'              ,'L3G','SOIL SILT FRACTION',' ( )'                  ,& ! 183
@@ -349,37 +350,34 @@ data fldlib(1:4,181:203)/ &
  'SOIL_ENERGY'       ,'L3G','SOIL ENERGY',' (J cm:S2:-3  )'              ,& ! 195
  'SOIL_TEMPK'        ,'L3G','SOIL TEMP',' (K)'                           ,& ! 196
  'SOIL_FRACLIQ'      ,'L3G','LIQUID FRACTION OF SOIL WATER',' ( )'       ,& ! 197
- 'SOIL_WATER'        ,'L3G','SOIL WATER CONTENT',' ( )'                  ,& ! 198
- 'SFWAT_MASS'        ,'L3S','SFCWATER MASS',' (kg m:S2:-2  )'            ,& ! 199
- 'SFWAT_ENERGY'      ,'L3S','SFCWATER ENERGY',' (J g:S2:-1  )'           ,& ! 200
- 'SFWAT_TEMPK'       ,'L3S','SFCWATER TEMP',' (K)'                       ,& ! 201
- 'SFWAT_FRACLIQ'     ,'L3S','SFCWATER LIQUID FRACTION',' ( )'            ,& ! 202
- 'SFWAT_DEPTH'       ,'L3S','SFCWATER DEPTH',' (m)'                       / ! 203
+ 'SOIL_WATER'        ,'L3G','SOIL WATER CONTENT',' ( )'                   / ! 198
 
 ! LAND_CELLS - 2D
 
-data fldlib(1:4,205:224)/ &
- 'USDA_TEXT'        ,'L2' ,'USDA SOIL TEXTURAL CLASS (2D)',' ( )'            ,& ! 205
- 'Z_BEDROCK'        ,'L2' ,'Z_BEDROCK',' (m)'                                ,& ! 206
- 'GPP'              ,'L2' ,'GROSS PRIMARY PRODUCTION OF CARBON',' ()'        ,& ! 207
- 'GLHYMPS_KSAT'     ,'L2' ,'GLHYMPS KSAT',' (m/s)'                           ,& ! 208
- 'GLHYMPS_KSAT_PFR' ,'L2' ,'GLHYMPS KSAT WITH PERMAFROST',' (m/s)'           ,& ! 209
- 'GLHYMPS_POROS'    ,'L2' ,'GLHYMPS POROSITY',' ( )'                         ,& ! 208
- 'NLEV_SFWAT'       ,'L2' ,'NUMBER OF SFCWATER LAYERS',' ( )'                ,& ! 211
- 'VEG_NDVIC'        ,'L2' ,'VEGETATION NDVI',' ( )'                          ,& ! 212
- 'VEG_TEMPC'        ,'L2' ,'VEGETATION TEMP',' (C)'                          ,& ! 213
- 'VEG_TEMPK'        ,'L2' ,'VEGETATION TEMP',' (K)'                          ,& ! 214
- 'VEG_WATER'        ,'L2' ,'VEGETATION SFC WATER ',' (kg m:S2:-2  )'         ,& ! 215
- 'STOM_RESIST'      ,'L2' ,'STOMATAL RESISTANCE',' (s m:S2:-1  )'            ,& ! 216
- 'SFCWATER_TOT'     ,'L2' ,'TOTAL SFCWATER MASS',' (kg m:S2:-2  )'           ,& ! 217
- 'SFCWATER_TOP_TEMP','L2' ,'SFCWATER TOPLAYER TEMP',' (K)'                   ,& ! 218
- 'SOIL_TOP_TEMP'    ,'L2' ,'SOIL TOPLAYER TEMP',' (K)'                       ,& ! 219
- 'GROUND_RRV'       ,'L2' ,'EQUIL VAP MIXR OF SOIL',' (g kg:S2:-1  )'        ,& ! 220
- 'SOIL_DEPTH'       ,'L2' ,'SOIL DEPTH',' (m)'                               ,& ! 221
- 'SOIL_WATER_TOT'   ,'L2' ,'TOTAL SOIL WATER',' (m)'                         ,& ! 222
- 'HEAD0'            ,'L2' ,'HEAD0',' (m)'                                    ,& ! 223
- 'SLOPE_FACT'       ,'L2' ,'SUBGRID OROGRAPHY SLOPE FACTOR',' ( )'            / ! 224
-
+data fldlib(1:4,201:223)/ &
+ 'SFWAT_MASS'       ,'L2' ,'SFCWATER MASS',' (kg m:S2:-2  )'             ,& ! 201
+ 'SFWAT_ENERGY'     ,'L2' ,'SFCWATER ENERGY',' (J g:S2:-1  )'            ,& ! 202
+ 'SFWAT_TEMPK'      ,'L2' ,'SFCWATER TEMP',' (K)'                        ,& ! 203
+ 'SFWAT_FRACLIQ'    ,'L2' ,'SFCWATER LIQUID FRACTION',' ( )'             ,& ! 204
+ 'SFWAT_DEPTH'      ,'L2' ,'SFCWATER DEPTH',' (m)'                       ,& ! 205
+ 'USDA_TEXT'        ,'L2' ,'USDA SOIL TEXTURAL CLASS (2D)',' ( )'        ,& ! 206
+ 'Z_BEDROCK'        ,'L2' ,'Z_BEDROCK',' (m)'                            ,& ! 207
+ 'GPP'              ,'L2' ,'GROSS PRIMARY PRODUCTION OF CARBON',' ()'    ,& ! 208
+ 'GLHYMPS_KSAT'     ,'L2' ,'GLHYMPS KSAT',' (m/s)'                       ,& ! 209
+ 'GLHYMPS_KSAT_PFR' ,'L2' ,'GLHYMPS KSAT WITH PERMAFROST',' (m/s)'       ,& ! 210
+ 'GLHYMPS_POROS'    ,'L2' ,'GLHYMPS POROSITY',' ( )'                     ,& ! 211
+ 'VEG_NDVIC'        ,'L2' ,'VEGETATION NDVI',' ( )'                      ,& ! 212
+ 'VEG_TEMPC'        ,'L2' ,'VEGETATION TEMP',' (C)'                      ,& ! 213
+ 'VEG_TEMPK'        ,'L2' ,'VEGETATION TEMP',' (K)'                      ,& ! 214
+ 'VEG_WATER'        ,'L2' ,'VEGETATION SFC WATER ',' (kg m:S2:-2  )'     ,& ! 215
+ 'STOM_RESIST'      ,'L2' ,'STOMATAL RESISTANCE',' (s m:S2:-1  )'        ,& ! 216
+ 'SFCWATER_TOP_TEMP','L2' ,'SFCWATER TOPLAYER TEMP',' (K)'               ,& ! 217
+ 'SOIL_TOP_TEMP'    ,'L2' ,'SOIL TOPLAYER TEMP',' (K)'                   ,& ! 218
+ 'GROUND_RRV'       ,'L2' ,'EQUIL VAP MIXR OF SOIL',' (g kg:S2:-1  )'    ,& ! 219
+ 'SOIL_DEPTH'       ,'L2' ,'SOIL DEPTH',' (m)'                           ,& ! 220
+ 'SOIL_WATER_TOT'   ,'L2' ,'TOTAL SOIL WATER',' (m)'                     ,& ! 221
+ 'HEAD0'            ,'L2' ,'HEAD0',' (m)'                                ,& ! 222
+ 'SLOPE_FACT'       ,'L2' ,'SUBGRID OROGRAPHY SLOPE FACTOR',' ( )'        / ! 223
 
 ! LAND_CELLS - DIF2 fields
 
@@ -412,7 +410,7 @@ data fldlib(1:4,230:250)/ &
 ! LAND_CELLS - ATM averages
 
 data fldlib(1:4,251:290)/ &
- 'AL_SFCWATER_TOT'        ,'T2' ,'AL TOTAL SFCWATER MASS',' (kg m:S2:-2  )'   ,& ! 251
+ 'AL_SFCWATER'            ,'T2' ,'AL SFCWATER MASS',' (kg m:S2:-2  )'         ,& ! 251
  'AL_SOIL_WATER_TOT'      ,'T2' ,'AL TOTAL SOIL WATER',' (m)'                 ,& ! 252
 
 ! LAND_CELLS - ATM averages of DIF2 fields
@@ -2372,42 +2370,32 @@ case(198) ! 'SOIL_WATER'
 
    fldval = land%soil_water(k,iland) / land%wsat_vg(k,iland)
 
-case(199) ! 'SFWAT_MASS'
+case(201) ! 'SFWAT_MASS'
 
-   fldval = land%sfcwater_mass(k,iland)
+   fldval = sum(land%sfcwater_mass(:,iland))
 
-case(200) ! 'SFWAT_ENERGY'
+case(202:204) ! 'SFWAT_ENERGY', 'SFWAT_TEMPK', 'SFWAT_FRACLIQ'
 
-   if (land%nlev_sfcwater(iland) == 0) then
+   if (land%sfcwater_mass(1,iland) < wcap_min) then
       notavail = 4
    else
-      fldval = land%sfcwater_energy(k,iland) * 1.e-3
+      fldval1 = sum(land%sfcwater_energy(:,iland) * land%sfcwater_mass(:,iland)) &
+              / sum(land%sfcwater_mass(:,iland))
    endif
 
-case(201) ! 'SFWAT_TEMPK'
-
-   if (land%nlev_sfcwater(iland) == 0) then
-      notavail = 4
-   else
-      call qtk(land%sfcwater_energy(k,iland),tempk,fracliq)
+   if     (trim(fldname) == 'SFCWAT_ENERGY') then
+      fldval = fldval1
+   elseif (trim(fldname) == 'SFCWAT_TEMPK') then
+      call qtk(fldval1,tempk,fracliq)
       fldval = tempk
-   endif
-
-case(202) ! 'SFWAT_FRACLIQ'
-
-   if (land%nlev_sfcwater(iland) == 0) then
-      notavail = 4
-   else
-      call qtk(land%sfcwater_energy(k,iland),tempk,fracliq)
+   elseif (trim(fldname) == 'SFCWAT_FRACLIQ') then
+      call qtk(fldval1,tempk,fracliq)
       fldval = fracliq
    endif
 
-case(203) ! 'SFWAT_DEPTH'
+case(205) ! 'SFWAT_DEPTH'
 
-   fldval = 0.
-   do klev = 1,land%nlev_sfcwater(iland)
-      fldval = fldval + land%sfcwater_depth(klev,iland)
-   enddo
+   fldval = sum(land%sfcwater_depth(:,iland))
 
 !-----------------------------------------
 ! LAND CELLS - 2D
@@ -2415,34 +2403,30 @@ case(203) ! 'SFWAT_DEPTH'
 
 ! LAND_CELLS - 2D
 
-case(205) ! 'USDA_TEXT'
+case(206) ! 'USDA_TEXT'
 
    fldval = real(land%usdatext(iland))
 
-case(206) ! 'Z_BEDROCK'
+case(207) ! 'Z_BEDROCK'
 
    fldval = real(land%z_bedrock(iland))
 
-case(207) ! 'GPP'
+case(208) ! 'GPP'
 
    fldval = real(land%gpp(iland))
 
-case(208) ! 'GLHYMPS_KSAT'
+case(209) ! 'GLHYMPS_KSAT'
 
    fldval = real(land%glhymps_ksat(iland))
 
-case(209) ! 'GLHYMPS_KSAT_PFR'
+case(210) ! 'GLHYMPS_KSAT_PFR'
 
 !  fldval = real(land%glhymps_ksat_pfr(iland))
    fldval = real(land%glhymps_ksat(iland))
 
-case(210) ! 'GLHYMPS_POROS'
+case(211) ! 'GLHYMPS_POROS'
 
    fldval = real(land%glhymps_poros(iland))
-
-case(211) ! 'NLEV_SFWAT'
-
-   fldval = real(land%nlev_sfcwater(iland))
 
 case(212) ! 'VEG_NDVIC'
 
@@ -2464,22 +2448,21 @@ case(216) ! 'STOM_RESIST'
 
    fldval = land%stom_resist(iland)
 
-case(217) ! 'SFCWATER_TOT'
-
-   fldval = sum(land%sfcwater_mass(:,iland))
-
-case(218) ! 'SFCWATER_TOP_TEMP'
+case(217) ! 'SFCWATER_TOP_TEMP'
 
 
-   if (land%nlev_sfcwater(iland) == 0) then
+   if (land%sfcwater_mass(1,iland) < wcap_min) then
       notavail = 4
    else
-      nls = land%nlev_sfcwater(iland)
-      call qtk(land%sfcwater_energy(nls,iland),tempk,fracliq)
+      if (land%sfcwater_mass(2,iland) >= wcap_min) then
+         call qtk(land%sfcwater_energy(2,iland),tempk,fracliq)
+      else
+         call qtk(land%sfcwater_energy(1,iland),tempk,fracliq)
+      endif
       fldval = tempk
    endif
 
-case(219) ! 'SOIL_TOP_TEMP'
+case(218) ! 'SOIL_TOP_TEMP'
 
    call qwtk(land%soil_energy(nzg,iland),        &
              land%soil_water(nzg,iland)*1.e3,    &
@@ -2487,37 +2470,37 @@ case(219) ! 'SOIL_TOP_TEMP'
              tempk, fracliq)
    fldval = tempk
 
-case(220) ! 'GROUND_RRV'
+case(219) ! 'GROUND_RRV'
 
-   nls = max(1, land%nlev_sfcwater(iland))
-   call grndvap(iland,                              &
-                sfcg%rhos                  (i),     &
-                sfcg%canrrv                (i),     &
-                land%nlev_sfcwater         (iland), &
-                fldval1,                            &
-                fldval2,                            &
-                land%sfcwater_energy   (nls,iland), &
-                land%soil_water        (nzg,iland), &
-                land%soil_energy       (nzg,iland), &
-                land%head              (nzg,iland), &
-                land%specifheat_drysoil(nzg,iland), &
-                land%wresid_vg         (nzg,iland), &
-                land%soilfldcap            (iland))
+   call grndvap(iland,                                &
+                sfcg%rhos                    (i    ), &
+                sfcg%canrrv                  (i    ), &
+                fldval1                             , &
+                fldval2                             , &
+                land%skncomp           (      iland), &
+                land%sfcwater_mass     (1:nzs,iland), &
+                land%sfcwater_energy   (1:nzs,iland), &
+                land%soil_water        (nzg+1,iland), &
+                land%soil_energy       (nzg+1,iland), &
+                land%head              (nzg+1,iland), &
+                land%specifheat_drysoil(nzg  ,iland), &
+                land%wresid_vg         (nzg  ,iland), &
+                land%soilfldcap        (      iland)  )
    fldval = fldval2 * 1.e3
 
-case(221) ! 'SOIL_DEPTH'
+case(220) ! 'SOIL_DEPTH'
 
    fldval = -slz(1)
 
-case(222) ! 'SOIL_WATER_TOT'
+case(221) ! 'SOIL_WATER_TOT'
 
    fldval = sum(land%soil_water(:,iland) * dslz(:))
 
-case(223) ! 'HEAD0'
+case(222) ! 'HEAD0'
 
    fldval = land%head0(iland)
 
-case(224) ! 'SLOPE_FACT'
+case(223) ! 'SLOPE_FACT'
 
    fldval = land%slope_fact(iland)
 
@@ -2810,7 +2793,7 @@ case(250) ! 'WXFERIF_DIF4'
 ! LAND CELLS - ATM averages
 !--------------------------
 
-case(251:252) ! 'AL_SFCWATER_TOT', 'AL_SOIL_WATER_TOT'
+case(251:252) ! 'AL_SFCWATER', 'AL_SOIL_WATER_TOT'
 
    fldval = 0.
    area_sum = 0.
@@ -2819,8 +2802,8 @@ case(251:252) ! 'AL_SFCWATER_TOT', 'AL_SOIL_WATER_TOT'
       iwsfc = itab_w(i)%iwsfc(j)
       iland = iwsfc - omland
 
-      if (trim(fldname) == 'AL_SFCWATER_TOT') then
-         fldval = fldval + sum(land%sfcwater_mass(:,iland)) * sfcg%area(iwsfc)
+      if (trim(fldname) == 'AL_SFCWATER') then
+         fldval = sum(land%sfcwater_mass(:,iland)) * sfcg%area(iwsfc)
       elseif (trim(fldname) == 'AL_SOIL_WATER_TOT') then
          fldval = fldval + sum(land%soil_water(:,iland) * dslz(:)) * sfcg%area(iwsfc)
       endif
@@ -3551,10 +3534,13 @@ case(310) ! 'SFCG_SKINTEMPK'
 
    elseif (sfcg%leaf_class(i) >= 2) then
       iland = i - omland
-      nls = land%nlev_sfcwater(iland)
 
-      if (nls > 0) then
-         call qtk(land%sfcwater_energy(nls,iland),tempk,fracliq)
+      if (land%sfcwater_mass(1,iland) >= wcap_min) then
+         if (land%sfcwater_mass(2,iland) >= wcap_min) then
+            call qtk(land%sfcwater_energy(2,iland),tempk,fracliq)
+         else
+            call qtk(land%sfcwater_energy(1,iland),tempk,fracliq)
+         endif
       else
          call qwtk(land%soil_energy(nzg,iland),        &
                    land%soil_water(nzg,iland)*1.e3,    &
@@ -3704,9 +3690,12 @@ case(332) ! 'WAT_TEMPK'
       fldval = tempk
    elseif (sfcg%leaf_class(i) >= 2) then
       iland = i - omland
-      nls = land%nlev_sfcwater(iland)
-      if (nls > 0) then
-         call qtk(land%sfcwater_energy(nls,iland),tempk,fracliq)
+      if (land%sfcwater_mass(1,iland) >= wcap_min) then
+         if (land%sfcwater_mass(2,iland) >= wcap_min) then
+            call qtk(land%sfcwater_energy(2,iland),tempk,fracliq)
+         else
+            call qtk(land%sfcwater_energy(1,iland),tempk,fracliq)
+         endif
          fldval = tempk
       else
          call qwtk(land%soil_energy(nzg,iland),        &
@@ -4140,10 +4129,13 @@ case(401:409) ! 'ASFCG_VELS',       'ASFCG_AIRTEMPK', 'ASFCG_AIRRRV',
          if (sfcg%leaf_class(iwsfc) >= 2) then
 
             iland = iwsfc - omland
-            nls = land%nlev_sfcwater(iland)
 
-            if (nls > 0) then
-               call qtk(land%sfcwater_energy(nls,iland),tempk,fracliq)
+            if (land%sfcwater_mass(1,iland) >= wcap_min) then
+               if (land%sfcwater_mass(2,iland) >= wcap_min) then
+                  call qtk(land%sfcwater_energy(2,iland),tempk,fracliq)
+               else
+                  call qtk(land%sfcwater_energy(1,iland),tempk,fracliq)
+               endif
             else
                call qwtk(land%soil_energy(nzg,iland),        &
                          land%soil_water(nzg,iland)*1.e3,    &
@@ -4889,6 +4881,8 @@ case(772) ! 'THETA_OBS'
    if (nudnxp > 0) then
       fldval = theta_obs(k,itab_w(i)%iwnud(1))
    else
+      if (.not. allocated(theta_obsp)) goto 1000
+      if (.not. allocated(theta_obsf)) goto 1000
       fldval = tp * theta_obsp(k,i) + tf * theta_obsf(k,i)
    endif
 

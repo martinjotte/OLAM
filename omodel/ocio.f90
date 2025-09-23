@@ -9,7 +9,7 @@ subroutine commio(action)
                         ngrdll, grdrad, grdlat, grdlon, nzp, &
                         mdomain, deltax, runtype, &
                         itopoflg, time8, ndz, hdz, dz, current_time
-  use leaf_coms,  only: nzs, ivegflg, isfcl
+  use leaf_coms,  only: ivegflg, isfcl
   use mem_land,   only: nzg, landgrid_dztop, landgrid_depth
   use hdf5_utils, only: shdf5_orec, shdf5_irec, shdf5_io
   use hcane_rz,   only: hlat_hist, hlon_hist, icycle_hurrinit_hist
@@ -38,7 +38,6 @@ subroutine commio(action)
   call shdf5_io(action, ndims, idims, 'nl%iyear1',   ivars=iyear1)
   call shdf5_io(action, ndims, idims, 'nl%nzp',      ivars=nzp)
   call shdf5_io(action, ndims, idims, 'nl%nzg',      ivars=nzg)
-  call shdf5_io(action, ndims, idims, 'nl%nzs',      ivars=nzs)
   call shdf5_io(action, ndims, idims, 'nl%mdomain',  ivars=mdomain)
   call shdf5_io(action, ndims, idims, 'nl%isfcl',    ivars=isfcl)
   call shdf5_io(action, ndims, idims, 'nl%itopoflg', ivars=itopoflg)

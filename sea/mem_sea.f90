@@ -327,8 +327,8 @@ Contains
         if ( allocated( sea%seaicec       ) ) sea%seaicec          (isea) = rinit
         if ( allocated( sea%sea_rough     ) ) sea%sea_rough        (isea) = rinit
         if ( allocated( sea%ice_rough     ) ) sea%ice_rough        (isea) = rinit
-        if ( allocated( sea%seaice_energy ) ) sea%seaice_energy(nzi,isea) = rinit
-        if ( allocated( sea%seaice_tempk  ) ) sea%seaice_tempk (nzi,isea) = rinit
+        if ( allocated( sea%seaice_energy ) ) sea%seaice_energy  (:,isea) = rinit
+        if ( allocated( sea%seaice_tempk  ) ) sea%seaice_tempk   (:,isea) = rinit
         if ( allocated( sea%swmdepth      ) ) sea%swmdepth         (isea) = 0.0
         if ( allocated( sea%vxe           ) ) sea%vxe              (isea) = 0.0
         if ( allocated( sea%vye           ) ) sea%vye              (isea) = 0.0

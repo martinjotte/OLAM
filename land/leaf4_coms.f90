@@ -49,8 +49,6 @@ Module leaf_coms
   integer :: isoilstateinit
   integer :: iwatertabflg
 
-  integer :: nzs      ! maximum # of snowcover layers
-
   integer :: nvgcon   ! leaf class (optionally used OLAMIN parameter)
 
   real :: dt_leaf      ! leaf timestep [s]

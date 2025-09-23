@@ -41,8 +41,7 @@ subroutine olam_mpi_sfc_start()
 
 #ifdef OLAM_MPI
   use mem_para,    only: nbytes_int, nbytes_real
-  use mem_land,    only: nzg
-  use leaf_coms,   only: nzs
+  use mem_land,    only: nzg, nzs
   use umwm_module, only: om, pm, umwmflg
   use mpi
 #endif
@@ -153,10 +152,9 @@ subroutine mpi_send_wsfc(set, soil_watfrac, div2d_ex, umwmvar, rvar, ivar)
 #endif
 
   use mem_sfcg,    only: sfcg, mwsfc
-  use mem_land,    only: nzg, land, mland, omland
+  use mem_land,    only: nzg, nzs, land, mland, omland
   use mem_lake,    only: lake, omlake
   use mem_sea,     only: sea, msea, omsea
-  use leaf_coms,   only: nzs
   use sea_coms,    only: nzi
   use misc_coms,   only: do_chem
   use umwm_module, only: om, pm
@@ -350,7 +348,7 @@ subroutine mpi_send_wsfc(set, soil_watfrac, div2d_ex, umwmvar, rvar, ivar)
                             send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
               call MPI_Pack(land%sfcwater_depth (1,iland),nzs, MPI_REAL, &
                             send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
-              call MPI_Pack(land%nlev_sfcwater    (iland),1,MPI_INTEGER, &
+              call MPI_Pack(land%skncomp          (iland),  1,MPI_INTEGER, &
                             send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
               call MPI_Pack(land%veg_fracarea     (iland),1,   MPI_REAL, &
                             send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
@@ -673,9 +671,8 @@ subroutine mpi_recv_wsfc(set, soil_watfrac, div2d_ex, umwmvar, rvar, ivar)
 #endif
 
   use mem_sfcg,    only: sfcg, mwsfc
-  use leaf_coms,   only: nzs
   use sea_coms,    only: nzi
-  use mem_land,    only: nzg, mland, land, omland
+  use mem_land,    only: nzg, nzs, mland, land, omland
   use mem_lake,    only: lake, omlake
   use mem_sea,     only: sea, msea, omsea
   use misc_coms,   only: do_chem
@@ -874,7 +871,7 @@ subroutine mpi_recv_wsfc(set, soil_watfrac, div2d_ex, umwmvar, rvar, ivar)
               call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
                               land%sfcwater_depth (1,iland),nzs,MPI_REAL,MPI_COMM_WORLD,ierr)
               call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
-                              land%nlev_sfcwater    (iland),  1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
+                              land%skncomp          (iland),  1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
               call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
                               land%veg_fracarea     (iland),  1,MPI_REAL,MPI_COMM_WORLD,ierr)
               call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &

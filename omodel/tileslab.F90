@@ -361,6 +361,7 @@ subroutine tileslab_horiz_tw(iplt,action)
   use mem_ijtabs, only: itab_w
   use misc_coms,  only: iparallel
   use mem_para,   only: myrank, mgroupsize, nbytes_int, nbytes_real
+  use umwm_module, only: umwm, umwmflg
 
 #ifdef OLAM_MPI
   use mpi
@@ -432,6 +433,12 @@ subroutine tileslab_horiz_tw(iplt,action)
 
   wloop: do iw = 2, mwa
      if (iparallel == 1 .and. itab_w(iw)%irank /= myrank) cycle wloop
+
+     ! If plotting UMWM quantities, skip ATM cells where UMWM is NOT active
+
+     if (umwmflg == 1) then
+        if (op%dimens == '2D' .and. umwm%seadep(iw) < 1.) cycle
+     endif
 
      npoly = itab_w(iw)%npoly
 
@@ -969,7 +976,6 @@ subroutine tileslab_horiz_wsfc(iplt,action)
   use oplot_coms, only: op
   use mem_sfcg,   only: mwsfc, itab_wsfc, sfcg
   use mem_land,   only: nzg
-  use leaf_coms,  only: nzs
   use misc_coms,  only: iparallel
   use mem_para,   only: myrank, mgroupsize, nbytes_int, nbytes_real
 
@@ -1025,8 +1031,6 @@ subroutine tileslab_horiz_wsfc(iplt,action)
 
   if (trim(op%dimens) == '3G') then
      k = min(nzg,max(1,nint(op%slabloc(iplt))))
-  elseif (trim(op%dimens) == '3S') then
-     k = min(nzs,max(1,nint(op%slabloc(iplt))))
   else
      k = 1
   endif
@@ -2113,7 +2117,6 @@ end subroutine tileslab_vert_v
 !!subroutine tileslab_vert_l(iplt,action)
 !!
 !!use oplot_coms, only: op
-!!use leaf_coms,  only: nzs
 !!use mem_land,   only: mland, land, nzg
 !!use misc_coms,  only: io6
 !!
@@ -2165,16 +2168,16 @@ end subroutine tileslab_vert_v
 !!
 !!!   hpt = .5 * (htpn(1) + htpn(2))
 !!
-!!   botk = - real(nzg+nzs+4)   ! level of bottom of bottom soil layer (negative)
+!!   botk = - real(nzg+5)   ! level of bottom of bottom soil layer (negative)
 !!   delzk = op%ymin / botk  ! This is a positive number
 !!
 !!   do k = 1,nzg  ! Loop over soil layers
 !!
 !!! Get vertical coordinates for soil layers
 !!
-!!      vtpn(1) = delzk * (float(k-1) + botk)
+!!      vtpn(1) = delzk * (real(k-1) + botk)
 !!      vtpn(2) = vtpn(1)
-!!      vtpn(3) = delzk * (float(k)   + botk)
+!!      vtpn(3) = delzk * (real(k)   + botk)
 !!      vtpn(4) = vtpn(3)
 !!      vpt = .5 * (vtpn(1) + vtpn(3))
 !!
@@ -2194,27 +2197,26 @@ end subroutine tileslab_vert_v
 !!
 !!   enddo
 !!
-!!   do k = 1,nzs  ! Loop over sfcwater layers
 !!
-!!! check for existence of sfcwater in current level k
+!!! check for existence of sfcwater
 !!
-!!      call oplot_lib(k,ip,'VALUE','SFCWATER_MASS',wtbot,wttop, &
+!!      call oplot_lib(1,ip,'VALUE','SFCWATER_MASS',wtbot,wttop, &
 !!                     fldval,notavail)
 !!
 !!      if (fldval > 0.) then
 !!
-!!! Get vertical coordinates for sfcwater layer k
+!!! Get vertical coordinates for sfcwater
 !!
-!!         vtpn(1) = delzk * (float(nzg+k-1) + .5 + botk)
+!!         vtpn(1) = delzk * (real(nzg) + .5 + botk)
 !!         vtpn(2) = vtpn(1)
-!!         vtpn(3) = delzk * (float(nzg+k)   + .5 + botk)
+!!         vtpn(3) = delzk * (real(nzg+1)   + .5 + botk)
 !!         vtpn(4) = vtpn(3)
 !!         vpt = .5 * (vtpn(1) + vtpn(3))
 !!
-!!! plot sfcwater layer k
+!!! plot sfcwater
 !!
 !!         op%stagpt = 'LW'  ! Get sfcwater value
-!!         call oplot_lib(k,ip,'VALUE',op%fldname(iplt),wtbot,wttop, &
+!!         call oplot_lib(1,ip,'VALUE',op%fldname(iplt),wtbot,wttop, &
 !!                        fldval,notavail)
 !!         call celltile(iplt,4,htpn,vtpn,hpt,vpt,fldval,action)  ! Checks 'TILE'
 !!
@@ -2227,13 +2229,12 @@ end subroutine tileslab_vert_v
 !!
 !!      endif
 !!
-!!   enddo
 !!
 !!! plot vegetation layer
 !!
-!!   vtpn(1) = delzk * (float(nzg+nzs) + 1. + botk)
+!!   vtpn(1) = delzk * (real(nzg+1) + 1. + botk)
 !!   vtpn(2) = vtpn(1)
-!!   vtpn(3) = delzk * (float(nzg+nzs+1) + 1. + botk)
+!!   vtpn(3) = delzk * (real(nzg+2) + 1. + botk)
 !!   vtpn(4) = vtpn(3)
 !!   vpt = .5 * (vtpn(1) + vtpn(3))
 !!
@@ -2251,9 +2252,9 @@ end subroutine tileslab_vert_v
 !!
 !!! plot canopy air layer
 !!
-!!   vtpn(1) = delzk * (float(nzg+nzs+1) + 1.5 + botk)
+!!   vtpn(1) = delzk * (real(nzg+2) + 1.5 + botk)
 !!   vtpn(2) = vtpn(1)
-!!   vtpn(3) = delzk * (float(nzg+nzs+2) + 1.5 + botk)
+!!   vtpn(3) = delzk * (real(nzg+3) + 1.5 + botk)
 !!   vtpn(4) = vtpn(3)
 !!   vpt = .5 * (vtpn(1) + vtpn(3))
 !!
@@ -2279,7 +2280,6 @@ end subroutine tileslab_vert_v
 !!subroutine tileslab_vert_s(iplt,action)
 !!
 !!use oplot_coms, only: op
-!!use leaf_coms,  only: nzs
 !!use mem_land,   only: nzg
 !!use mem_sea,    only: msea, sea
 !!use misc_coms,  only: io6
@@ -2319,14 +2319,14 @@ end subroutine tileslab_vert_v
 !!   call oplot_lib(0,ip,'VALUE',op%fldname(iplt),wtbot,wttop, &
 !!                  fldval,notavail)
 !!
-!!   botk = - real(nzg+nzs+4)   ! level of bottom of bottom soil layer (negative)
+!!   botk = - real(nzg+5)   ! level of bottom of bottom soil layer (negative)
 !!   delzk = op%ymin / botk  ! This is a positive number
 !!
 !!! plot (top) sea layer
 !!
-!!   vtpn(1) = delzk * (float(nzg-1) + botk)
+!!   vtpn(1) = delzk * (real(nzg-1) + botk)
 !!   vtpn(2) = vtpn(1)
-!!   vtpn(3) = delzk * (float(nzg) + botk)
+!!   vtpn(3) = delzk * (real(nzg) + botk)
 !!   vtpn(4) = vtpn(3)
 !!   vpt = .5 * (vtpn(1) + vtpn(3))
 !!
@@ -2344,9 +2344,9 @@ end subroutine tileslab_vert_v
 !!
 !!! plot canopy air layer
 !!
-!!   vtpn(1) = delzk * (float(nzg+nzs+1) + 1.5 + botk)
+!!   vtpn(1) = delzk * (real(nzg+2) + 1.5 + botk)
 !!   vtpn(2) = vtpn(1)
-!!   vtpn(3) = delzk * (float(nzg+nzs+2) + 1.5 + botk)
+!!   vtpn(3) = delzk * (real(nzg+3) + 1.5 + botk)
 !!   vtpn(4) = vtpn(3)
 !!   vpt = .5 * (vtpn(1) + vtpn(3))
 !!

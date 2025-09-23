@@ -206,7 +206,7 @@ subroutine flux_accum()
                                vegtempk_dmin,  vegtempk_dmax, &
                               soiltempk_dmin, soiltempk_dmax
 
-  use leaf_coms,   only: isfcl
+  use leaf_coms,   only: isfcl, wcap_min
 
   use consts_coms, only: r8
 
@@ -222,6 +222,7 @@ subroutine flux_accum()
   implicit none
 
   integer :: j, iv, iw, iwsfc, iland, ilake, isea, k, nls
+  integer :: ksw        ! vertical index of top sfcwater layer (1 or 2)
 
   real :: soiltempk, tempk, fracliq, fldval
 
@@ -370,7 +371,7 @@ subroutine flux_accum()
 
      ! Update accumulations of LAND cells
 
-     !$omp parallel do private(iwsfc, nls, soiltempk, tempk, fracliq, fldval, &
+     !$omp parallel do private(iwsfc, ksw, soiltempk, tempk, fracliq, fldval, &
      !$omp                     w_comb, qw_comb, hcapsoil)
      do iland = 2,mland
         iwsfc = iland + omland
@@ -378,15 +379,22 @@ subroutine flux_accum()
         ! Skip this cell if running in parallel and cell rank is not MYRANK
         if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
-        nls = land%nlev_sfcwater(iland)
-
         call qwtk(land%soil_energy(nzg,iland),        &
                   land%soil_water(nzg,iland)*1.e3,    &
                   land%specifheat_drysoil(nzg,iland), &
                   soiltempk, fracliq)
 
-        if (nls > 0) then
-           call qtk(land%sfcwater_energy(nls,iland),tempk,fracliq)
+        ! skintemp_accum over land is computed with uppermost sfcwater layer,
+        ! if present, or else top soil layer
+
+        if ( land%sfcwater_mass(1,iland) >= wcap_min ) then
+           if (land%sfcwater_mass(2,iland) >= wcap_min) then
+              ksw = 2
+           else
+              ksw = 1
+           endif
+
+           call qtk(land%sfcwater_energy(ksw,iland),tempk,fracliq)
 
            fldval = (1. - land%vf(iland)) * tempk &
                         + land%vf(iland)  * land%veg_temp(iland)

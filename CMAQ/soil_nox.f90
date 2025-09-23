@@ -118,6 +118,7 @@ contains
     use misc_coms,   only: dtlm
     use therm_lib,   only: qtk
     use mem_grid,    only: mwa
+    use leaf_coms,   only: wcap_min
 
     implicit none
 
@@ -134,7 +135,6 @@ contains
     real    :: lai, tempc, tempk, rhos
     real    :: tsfcwater, liqfrac, cfrac
     real    :: snfac, sndepth, r_canopy, windsqr
-    integer :: nlev_sfcwater
 
     real    :: a_biom, a_fert
     real    :: temp_term, wet_term
@@ -148,12 +148,10 @@ contains
     tempc = sfcg%cantemp(iwsfc) - t00
     rhos  = sfcg%rhos   (iwsfc)
 
-    nlev_sfcwater = land%nlev_sfcwater(iland)
-
-    if (nlev_sfcwater == 0) then
+    if (land%sfcwater_mass(1,iland) < wcap_min) then
        sndepth = 0.0
     else
-       sndepth = sum( land%sfcwater_depth(1:nlev_sfcwater,iland) )
+       sndepth = land%sfcwater_depth(1,iland)
     endif
 
     ! Get surface biome type
@@ -162,8 +160,8 @@ contains
 
     ! If surface is snow or ice, use snow/ice biome
 
-    if ( nlev_sfcwater > 0 ) then
-       call qtk( land%sfcwater_energy(nlev_sfcwater,iland), tsfcwater, liqfrac )
+    if (land%sfcwater_mass(1,iland) >= wcap_min) then
+       call qtk( land%sfcwater_energy(1,iland), tsfcwater, liqfrac )
        if (liqfrac < 0.3 .and. sndepth > 0.001) kb = 2
     endif
 

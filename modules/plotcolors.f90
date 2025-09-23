@@ -133,7 +133,7 @@ Module plotcolors
        800., 820., 840., 860., 880., 900., 920., 940., 960., 980., &
       1000.,1020.,1040.,1060.,1080.,1100.                          /
 
-! Table 9 (leaf_class, ntext_soil, nlev_sfcwater)
+! Table 9 (leaf_class, ntext_soil)
 
   data clrtab(9)%nvals/24/
   data clrtab(9)%ifmt(1:2)/10,10/

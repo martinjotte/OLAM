@@ -829,7 +829,6 @@ subroutine contslab_grid_wsfc(iplt)
   use plotcolors,   only: clrtab
   use mem_sfcg,     only: mwsfc, itab_wsfc, sfcg
   use mem_land,     only: nzg
-  use leaf_coms,    only: nzs
 
 #ifdef OLAM_MPI
   use mpi
@@ -979,8 +978,6 @@ subroutine contslab_grid_wsfc(iplt)
 
   if (trim(op%dimens) == '3G') then
      ks = min(nzg,max(1,nint(op%slabloc(iplt))))
-  elseif (trim(op%dimens) == '3S') then
-     ks = min(nzs,max(1,nint(op%slabloc(iplt))))
   else
      ks = 1
   endif

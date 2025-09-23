@@ -208,7 +208,7 @@ Module oname_coms
      integer :: vort_damp_level = 3
      logical :: vort_damp_short = .true.
 
-     ! to be removed
+     ! to be removed / unused
      real    :: akmin_vort = 0.4
      logical :: zero_neg_scalars = .true.
 
@@ -341,11 +341,13 @@ Module oname_coms
 
      integer :: isfcl       =  1
      integer :: igw_spinup  =  0
-     integer :: nzs         =  1
      integer :: nzg         = 21
      integer :: nzpom       = 40
      integer :: niter_swm   =  1
      integer :: umwmflg     =  0
+
+     ! to be removed / unused
+     integer :: nzs = 0
 
      real :: landgrid_dztop = 0.05
      real :: landgrid_depth = 5.00
@@ -399,6 +401,7 @@ Module oname_coms
      character(pathlen) :: seaice_database    = ' '
      character(pathlen) :: watertab_db        = ' '
      character(pathlen) :: orog_slope_db      = ' '
+     character(pathlen) :: tide_database      = ' '
 
 !!    ISENTROPIC CONTROL
 

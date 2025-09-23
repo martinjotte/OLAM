@@ -9,6 +9,7 @@ subroutine phot_albedo(iw, coszens, currhr_lst, julian_day, jyfreq, &
   use mem_land,   only: land, omland
   use mem_grid,   only: glatw, nsw_max, lpw
   use therm_lib,  only: qtk
+  use leaf_coms,  only: wcap_min
 
   implicit none
 
@@ -174,8 +175,8 @@ subroutine phot_albedo(iw, coszens, currhr_lst, julian_day, jyfreq, &
         albedo_land_dif(1:nwl) = sfactor * SPECTRAL_ALBEDO_REF(1:nwl, lland)
         albedo_land_dir(1:nwl) = zfactor * albedo_land_dif(1:nwl)
 
-        if (land%nlev_sfcwater(iland) > 0) then
-           call qtk(land%sfcwater_energy(land%nlev_sfcwater(iland),iland),tempk,fracliq)
+        if (land%sfcwater_mass(1,iland) >= wcap_min) then
+           call qtk(land%sfcwater_energy(1,iland),tempk,fracliq)
            snowfac = (1.0 - fracliq) * land%snowfac(iland)
         else
            snowfac = 0.0

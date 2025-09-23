@@ -537,8 +537,6 @@ if (nl%isfcl == 1) then
    call rchk_bnds( nl%landgrid_dztop, "LANDGRID_DZTOP", 0.02, 1.1, 0, nfatal, nwarn )
    call rchk_bnds( nl%landgrid_depth, "LANDGRID_DEPTH", 1.0, 1000.0, 0, nfatal, nwarn )
 
-   call ichk_bnds( nl%nzs, "NZS", 0, 10, 0, nfatal, nwarn )
-
    call ichk_bnds( nl%isoilflg,    "ISOILFLG",    1, 3, 0, nfatal, nwarn )
    call ichk_bnds( nl%isoilptf,    "ISOILPTF",    1, 2, 0, nfatal, nwarn )
    call ichk_bnds( nl%ivegflg,     "IVEGFLG",     1, 2, 0, nfatal, nwarn )

@@ -329,14 +329,6 @@ subroutine read_soil_analysis(soil_tempc)
 
            land%sfcwater_mass(1,iland) = snow(iland)
 
-           if (sfcg%cantemp(iwsfc) /= sfcg%cantemp(iwsfc)) then
-              write(*,*) "A", sfcg%cantemp(iwsfc), itab_wsfc(iwsfc)%irank /= myrank
-           endif
-
-           if (soil_tempc(nzg,iland) /= soil_tempc(nzg,iland)) then
-              write(*,*) "B", sfcg%cantemp(iwsfc), soil_tempc(nzg,iland), itab_wsfc(iwsfc)%irank /= myrank
-           endif
-
            tempc = sfcg%cantemp(iwsfc) - 273.15
            tempc = min(tempc, soil_tempc(nzg,iland))
 

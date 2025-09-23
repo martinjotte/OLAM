@@ -354,7 +354,7 @@ Contains
                                         ecvec_vy  =  0., &
                                         ecvec_vz  =  0., &
                                         nwatm     =  0,  &
-                                        iwatm     =  0,  &
+                                        iwatm     =  1,  &
                                         kwatm     =  0,  &
                                         arc       =  0., &
                                         arcoarsfc =  0., &
@@ -633,7 +633,7 @@ Contains
      if (allocated(sfcg%qpcpg))          call increment_vtable('SFCG%QPCPG',          'CW', rvar1=sfcg%qpcpg)
      if (allocated(sfcg%dpcpg))          call increment_vtable('SFCG%DPCPG',          'CW', rvar1=sfcg%dpcpg)
      if (allocated(sfcg%runoff))         call increment_vtable('SFCG%RUNOFF',         'CW', rvar1=sfcg%runoff)
-     if (allocated(sfcg%can_depth))      call increment_vtable('SFCG%CAN_DEPTH',      'CW', rvar1=sfcg%can_depth)
+!    if (allocated(sfcg%can_depth))      call increment_vtable('SFCG%CAN_DEPTH',      'CW', rvar1=sfcg%can_depth)
      if (allocated(sfcg%cantemp))        call increment_vtable('SFCG%CANTEMP',        'CW', rvar1=sfcg%cantemp)
      if (allocated(sfcg%canrrv))         call increment_vtable('SFCG%CANRRV',         'CW', rvar1=sfcg%canrrv)
      if (allocated(sfcg%rough))          call increment_vtable('SFCG%ROUGH',          'CW', rvar1=sfcg%rough)
@@ -788,7 +788,7 @@ Contains
      do iwsfc = 2,mwsfc
         do j = 1,itab_wsfc(iwsfc)%nwatm
 
-           iw = itab_wsfc(iwsfc)%iwatm(j) ! local index (or -1 if not on this rank)
+           iw = itab_wsfc(iwsfc)%iwatm(j) ! local index (or 1 if not on this rank)
 
            ! Skip this j/iw point if it is not on current node
 
@@ -843,19 +843,10 @@ Contains
         do iw = 2, mwa
            itab_w(iw)%jland1 = 1
            itab_w(iw)%jlake1 = itab_w(iw)%jland2 + 1
-           itab_w(iw)%jsea1  = itab_w(iw)%jlake2 + 1
+           itab_w(iw)%jsea1  = itab_w(iw)%jland2 + itab_w(iw)%jlake2 + 1
 
-           if (itab_w(iw)%jlake2 > 0) then
-              itab_w(iw)%jlake2 = itab_w(iw)%jland2 + itab_w(iw)%jlake2
-           endif
-
-           if (itab_w(iw)%jsea2 > 0) then
-              if (itab_w(iw)%jlake2 > 0) then
-                 itab_w(iw)%jsea2 = itab_w(iw)%jlake2 + itab_w(iw)%jsea2
-              else
-                 itab_w(iw)%jsea2 = itab_w(iw)%jland2 + itab_w(iw)%jsea2
-              endif
-           endif
+           if (itab_w(iw)%jsea2  > 0) itab_w(iw)%jsea2  = itab_w(iw)%jland2 + itab_w(iw)%jlake2 + itab_w(iw)%jsea2
+           if (itab_w(iw)%jlake2 > 0) itab_w(iw)%jlake2 = itab_w(iw)%jland2 + itab_w(iw)%jlake2
 
         enddo
         !$omp end parallel do

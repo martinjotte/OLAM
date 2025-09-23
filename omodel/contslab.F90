@@ -1360,7 +1360,6 @@ subroutine contslab_horiz_sfc(iplt)
   use oplot_coms,   only: op
   use mem_sfcg,     only: mwsfc, mmsfc, sfcg, itab_msfc, itab_wsfc
   use mem_land,     only: nzg
-  use leaf_coms,    only: nzs
   use misc_coms,    only: iparallel
   use mem_para,     only: myrank, mgroupsize, nbytes_real
   use olam_mpi_sfc, only: mpi_send_wsfc, mpi_recv_wsfc
@@ -1414,8 +1413,6 @@ subroutine contslab_horiz_sfc(iplt)
 
   if (op%dimens == '3G') then
      k = min(nzg,max(1,nint(op%slabloc(iplt))))
-  elseif (op%dimens == '3S') then
-     k = min(nzs,max(1,nint(op%slabloc(iplt))))
   else
      k = 1
   endif

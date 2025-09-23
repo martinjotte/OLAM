@@ -106,8 +106,9 @@ subroutine read_analysis_header(noplevs, nosoil)
 ! call shdf5_irec(ndims, idims, 'reflat1',rvars=cntlat)
 ! call shdf5_irec(ndims, idims, 'reflat2',rvars=secondlat)
 
+  if (.not. allocated(plats)) allocate( plats(npry) )
   if (inproj == 2) then
-     allocate( plats(npry) )
+     ! allocate( plats(npry) )
 
      ndims    = 1
      idims(1) = npry

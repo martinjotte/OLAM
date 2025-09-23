@@ -61,7 +61,7 @@ subroutine swm_driver()
   implicit none
 
   integer :: iter_swm, ivsfc, iw1, iw2, j, iwsfc, ilake, iland, ivn, iwn, isea
-  real    :: factor, dheight, energyin, energy_per_m2, dirv
+  real    :: factor, dheight, energyin, lake_epm2, dirv
 
   real, allocatable :: vmts(:)
 
@@ -75,7 +75,7 @@ subroutine swm_driver()
 
   call vort_damp_swm(vmts)
 
-  call divh_damp_swm(vmts, dt_swm) ! This subroutine call is outside of iter_swm loop: Should it use dt_sea?
+  call divh_damp_swm(vmts, dt_swm) ! This call is outside iter_swm loop: Should it use dt_sea?
 
   ! START MAIN SWM LOOP
 
@@ -133,11 +133,10 @@ subroutine swm_driver()
         if (itab_wsfc(iwsfc)%irank /= myrank) cycle
 
         if (sfcg%swm_active(iwsfc)) then
-           call swm_progw(iwsfc)
+           call swm_progw(iwsfc)      ! Active SWM cells
         else
-           call swm_progw_lbc(iwsfc)
+           call swm_progw_lbc(iwsfc)  ! Boundary SWM cells
         endif
-
      enddo
      !$omp end parallel do
 
@@ -173,7 +172,8 @@ subroutine swm_driver()
      ! Change in lake height from SWM fluxes
 
      !$omp parallel
-     !$omp do private(iwsfc, dheight, energyin, j, ivn, iwn, dirv, factor)
+     !$omp do private(iwsfc, dheight, energyin, j, ivn, iwn, dirv, factor, &
+     !$omp            lake_epm2)
      do ilake = 2,mlake
         iwsfc = ilake + omlake
 
@@ -214,11 +214,11 @@ subroutine swm_driver()
 
         ! Add height and energy changes to cell
 
-        energy_per_m2 = lake%lake_energy(ilake) * lake%depth(ilake) * 1000.
+        lake_epm2 = lake%lake_energy(ilake) * lake%depth(ilake) * 1000.
 
         lake%depth(ilake) = lake%depth(ilake) + dheight
 
-        lake%lake_energy(ilake) = (energy_per_m2 + energyin) &
+        lake%lake_energy(ilake) = (lake_epm2 + energyin) &
                                 / (max(wcap_min,lake%depth(ilake)) * 1000.) ! water density = 1000 kg/m^3
 
         sfcg%head1(iwsfc) = lake%depth(ilake) + sfcg%bathym(iwsfc) - sfcg%topw(iwsfc)
@@ -227,7 +227,7 @@ subroutine swm_driver()
 
      ! Change in LAND sfcwater height from SWM fluxes
 
-     !$omp do private(iwsfc,energy_per_m2,j,ivn,dirv,factor) schedule(guided)
+     !$omp do private(iwsfc,lake_epm2,j,ivn,dirv,factor) schedule(guided)
      do iland = 2,mland
         iwsfc = iland + omland
 
@@ -239,7 +239,7 @@ subroutine swm_driver()
 
         ! Apply horizontal groundwater mass and energy fluxes
 
-        energy_per_m2 = land%sfcwater_energy(1,iland) * land%sfcwater_mass(1,iland)
+        lake_epm2 = land%sfcwater_energy(1,iland) * land%sfcwater_mass(1,iland)
 
         ! Loop over all lateral faces of this iland cell
 
@@ -264,25 +264,20 @@ subroutine swm_driver()
               land%sfcwater_mass(1,iland)  = land%sfcwater_mass(1,iland)   &
                                            + factor * sfcg%hflux_wat(ivn) * 1000. ! [kg/m^2]
 
-              energy_per_m2                = energy_per_m2 &
+              lake_epm2                    = lake_epm2 &
                                            + factor * sfcg%hflux_enr(ivn) ! [J/m^2]
 
            endif
 
-           land%sfcwater_energy(1,iland) = energy_per_m2 &
-                                         / max(wcap_min,land%sfcwater_mass(1,iland))
-
         enddo ! j, ivn
 
-        ! Reset relationship between sfcwater presence and nlev_sfcwater setting
+        land%sfcwater_energy(1,iland) = lake_epm2 &
+                                      / max(wcap_min,land%sfcwater_mass(1,iland))
 
-        if (land%sfcwater_mass(1,iland) > wcap_min .and. land%nlev_sfcwater(iland) == 0) then
-           land%nlev_sfcwater(iland) = 1
-           land%sfcwater_energy(1,iland) = energy_per_m2 / land%sfcwater_mass(1,iland)
-        elseif (land%sfcwater_mass(1,iland) < wcap_min .and. land%nlev_sfcwater(iland) > 0) then
-           land%nlev_sfcwater(iland) = 0
-           land%sfcwater_mass(1,iland) = 0.
-           land%sfcwater_energy(1,iland) = 0.
+        if (land%sfcwater_mass  (1,iland) < wcap_min) then
+            land%sfcwater_mass  (:,iland) = 0.
+            land%sfcwater_energy(:,iland) = 0.
+            land%sfcwater_depth (:,iland) = 0.
         endif
 
      enddo
