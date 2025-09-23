@@ -390,7 +390,7 @@ subroutine prog_wrtv_rk()
 
      ! MAIN LOOP OVER W COLUMNS FOR UPDATING WM, WC, RHO, THIL, AND PRESS
 
-     !$omp do private(iw,k)
+     !$omp parallel do private(iw,k)
      do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
         ! Prognose vertical velocity, density, thil, and diagnose pressure
@@ -402,8 +402,7 @@ subroutine prog_wrtv_rk()
                             rho0, rth0, wmc0, vmca )
 
      enddo
-     !$omp end do nowait
-     !$omp end parallel
+     !$omp end parallel do
 
      ! MPI SEND/RECV and LBC copy of quantities needed for prog_v:
      ! PRESS, RHO, VMXET_SHORT, VMYET_SHORT, and VMZET_SHORT
