@@ -486,9 +486,9 @@ subroutine grid_geometry_hex_sfc()
            dze = sfcg%zew(iw2) - sfcg%zew(iw)
            call de_ps(dxe,dye,dze,coswlat,sinwlat,coswlon,sinwlon,xw2,yw2)
 
-           dxe = sfcg%xev(iv) - sfcg%xew(iw)
-           dye = sfcg%yev(iv) - sfcg%yew(iw)
-           dze = sfcg%zev(iv) - sfcg%zew(iw)
+           dxe = sfcg%xev(ivn) - sfcg%xew(iw)
+           dye = sfcg%yev(ivn) - sfcg%yew(iw)
+           dze = sfcg%zev(ivn) - sfcg%zew(iw)
            call de_ps(dxe,dye,dze,coswlat,sinwlat,coswlon,sinwlon,xv,yv)
 
         else
