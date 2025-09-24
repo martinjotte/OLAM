@@ -114,17 +114,17 @@ Module mem_ijtabs
   End Type itab_w_vars
 
   Type itabg_m_vars            ! data structure for M pts (global)
-     integer :: im_myrank = -1 ! local (parallel subdomain) index of this M pt
+     integer :: im_myrank =  1 ! local (parallel subdomain) index of this M pt
      integer :: irank     = -1 ! rank of parallel process at this M pt
   End Type itabg_m_vars
 
   Type itabg_v_vars            ! data structure for V pts (global)
-     integer :: iv_myrank = -1 ! local (parallel subdomain) index of this V pt
+     integer :: iv_myrank =  1 ! local (parallel subdomain) index of this V pt
      integer :: irank     = -1 ! rank of parallel process at this V pt
   End Type itabg_v_vars
 
   Type itabg_w_vars            ! data structure for W pts (global)
-     integer :: iw_myrank = -1 ! local (parallel subdomain) index of this W pt
+     integer :: iw_myrank =  1 ! local (parallel subdomain) index of this W pt
      integer :: irank     = -1 ! rank of parallel process at this W pt
   End Type itabg_w_vars
 

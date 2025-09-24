@@ -351,9 +351,9 @@ subroutine para_init_sfc()
 
         do j = 1,itab_wsfc_pd(iwsfc)%nwatm
            iwatm = itab_wsfc_pd(iwsfc)%iwatm(j)  ! global index
-           iw    = itabg_w(iwatm)%iw_myrank      ! local index (or -1 if not on this rank)
+           iw    = itabg_w(iwatm)%iw_myrank      ! local index (or 1 if not on this rank)
 
-           itab_wsfc(iwsfc_myrank)%iwatm(j) = iw ! local index (or -1 if not on this rank)
+           itab_wsfc(iwsfc_myrank)%iwatm(j) = iw ! local index (or 1 if not on this rank)
         enddo
 
      endif

@@ -99,7 +99,7 @@ Module mem_sfcg
      integer :: iwn(7)
 
      integer :: nwatm    = 0
-     integer :: iwatm(8) = 0  ! dimension is estimate of max possible
+     integer :: iwatm(8) = 1  ! dimension is estimate of max possible
 
      integer :: leaf_class = -1
   End type itab_wsfc_pd_vars
