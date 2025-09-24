@@ -1091,6 +1091,7 @@ Contains
 
   ! This routine is called by the radiation scheme to compute the net surface
   ! upward longwave radiative flux and skin temperature for each land cell.
+  ! The surface emissivity is held constant between full radiation updates.
 
   ! Evaluate surface skin temperature and albedo depending on skncomp value
 

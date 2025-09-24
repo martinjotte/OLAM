@@ -1,3 +1,9 @@
+module raddriv
+
+contains
+
+!============================================================================
+
 subroutine radiate()
 
   use mem_tend,     only: thilt
@@ -14,8 +20,8 @@ subroutine radiate()
                           rshort_top, rshortup_top, rshort_diffuse, dlong,   &
                           par, par_diffuse, uva, uvb, uvc, pbl_cld_forc,     &
                           ppfd, ppfd_diffuse, rlong_ks, rshort_ks,           &
-                          rshort_diffuse_ks, ppfd_ks, ppfd_diffuse_ks
-  use mem_basic,    only: thil, theta, tair
+                          rshort_diffuse_ks, ppfd_ks, ppfd_diffuse_ks, cosz_min
+  use mem_basic,    only: theta, tair
   use consts_coms,  only: stefan, pio180, eradi, r8
   use misc_coms,    only: io6, time8p, time_istp8, radfrq, ilwrtyp, do_chem, &
                           iswrtyp, dtlong, iparallel, mstp, runtype
@@ -35,11 +41,11 @@ subroutine radiate()
   integer :: isea, iland, ilake, iwsfc, jsfc, jasfc
   integer :: ka, ks, kw
   integer :: koff
-  integer :: nrad
-  integer :: mrl
-  real    :: sea_cosz, lake_cosz
+  integer :: nrad, nrad_dt
+  real    :: sfc_cosz, alpha, Zsurf, DZsurf
   real    :: wt, wti, wtk
   real    :: tempk, fracliq
+  real(r8):: radtime
 
   real    :: albedt_ks        (nsw_max)
   real    :: albedt_diffuse_ks(nsw_max)
@@ -57,17 +63,22 @@ subroutine radiate()
           ' Radiation tendencies updated at ', time_istp8/3600., &
           ' hrs into simulation'
 
+     ! number of timesteps before radiation is called again
+
+     nrad_dt = int( (radfrq - mod(time8p, radfrq)) / dtlong ) + 1
+     radtime = nrad_dt * dtlong * 0.5_r8
+
      ! Compute components of unit vector pointing to sun
      ! Compute coefficient for solar constant to represent varying earth-sun distance.
 
-     call sunloc()
+     call sunloc( doffset=radtime )
 
      ! Loop over all SEA cells in subdomain, EVEN THOSE THAT ARE NOT PRIMARY,
      ! so that all surface albedos and upward longwave radiative fluxes are
      ! available beneath all ATM columns that are primary.
 
      !$omp parallel
-     !$omp do private(iwsfc, nwatm, sea_cosz)
+     !$omp do private(iwsfc, nwatm, sfc_cosz)
      do isea = 2, msea
         iwsfc = isea + omsea
 
@@ -80,14 +91,14 @@ subroutine radiate()
         ! Get surface radiative properties (albedos and rlongup) for each sea cell.
         ! Compute solar zenith angle for sea cells
 
-        sea_cosz = (sfcg%xew(iwsfc) * sunx  &
-                 +  sfcg%yew(iwsfc) * suny  &
-                 +  sfcg%zew(iwsfc) * sunz) * eradi
+        sfc_cosz = ( sfcg%xew(iwsfc) * sunx &
+                   + sfcg%yew(iwsfc) * suny &
+                   + sfcg%zew(iwsfc) * sunz ) * eradi
 
         ! Water albedo from Atwater and Bell (1981).
 
-        if (sea_cosz > .03) then
-           sea%sea_albedo(isea) = min(max(-.0139 + .0467 * tan(acos(sea_cosz)),.03),.999)
+        if (sfc_cosz > .03) then
+           sea%sea_albedo(isea) = min(max(-.0139 + .0467 * tan(acos(sfc_cosz)),.03),.999)
         else
            sea%sea_albedo(isea) = 0.999
         endif
@@ -122,8 +133,10 @@ subroutine radiate()
 
         endif
 
-        sfcg%rlong_albedo(iwsfc)   = 0.0  ! [water longwave albedo assumed to be zero]
+        sfcg%rlong_albedo  (iwsfc) = 0.0  ! [water longwave albedo assumed to be zero]
         sfcg%albedo_diffuse(iwsfc) = sfcg%albedo_beam(iwsfc)
+        sfcg%cosz_rad      (iwsfc) = max(sfc_cosz, 0.)
+
      enddo
      !$omp end do nowait
 
@@ -131,7 +144,7 @@ subroutine radiate()
      ! so that all surface albedos and upward longwave radiative fluxes are
      ! available beneath all ATM columns that are primary.
 
-     !$omp do private (iwsfc, nwatm, lake_cosz, tempk, fracliq)
+     !$omp do private (iwsfc, nwatm, sfc_cosz, tempk, fracliq)
      do ilake = 2, mlake
         iwsfc = ilake + omlake
 
@@ -144,14 +157,14 @@ subroutine radiate()
         ! Get surface radiative properties (albedos and rlongup) for each sea cell.
         ! Compute solar zenith angle for sea cells
 
-        lake_cosz = (sfcg%xew(iwsfc) * sunx  &
-                  +  sfcg%yew(iwsfc) * suny  &
-                  +  sfcg%zew(iwsfc) * sunz) * eradi
+        sfc_cosz = ( sfcg%xew(iwsfc) * sunx &
+                   + sfcg%yew(iwsfc) * suny &
+                   + sfcg%zew(iwsfc) * sunz ) * eradi
 
         ! Water albedo from Atwater and Bell (1981).
 
-        if (lake_cosz > .03) then
-           sfcg%albedo_beam(iwsfc) = min(max(-.0139 + .0467 * tan(acos(lake_cosz)),.03),.999)
+        if (sfc_cosz > .03) then
+           sfcg%albedo_beam(iwsfc) = min(max(-.0139 + .0467 * tan(acos(sfc_cosz)),.03),.999)
         else
            sfcg%albedo_beam(iwsfc) = 0.999
         endif
@@ -161,6 +174,8 @@ subroutine radiate()
         sfcg%rlongup       (iwsfc) = stefan * tempk ** 4
         sfcg%rlong_albedo  (iwsfc)  = 0.0  ! [water longwave albedo assumed to be zero]
         sfcg%albedo_diffuse(iwsfc) = sfcg%albedo_beam(iwsfc)
+        sfcg%cosz_rad      (iwsfc) = max(sfc_cosz, 0.)
+
      enddo
      !$omp end do nowait
 
@@ -168,7 +183,7 @@ subroutine radiate()
      ! so that all surface albedos and upward longwave radiative fluxes are
      ! available beneath all ATM columns that are primary.
 
-     !$omp do private(iwsfc,nwatm)
+     !$omp do private(iwsfc,nwatm,sfc_cosz)
      do iland = 2, mland
         iwsfc = iland + omland
 
@@ -177,6 +192,10 @@ subroutine radiate()
            nwatm = itab_wsfc(iwsfc)%nwatm
            if ( all( itab_w( itab_wsfc(iwsfc)%iwatm(1:nwatm) )%irank /= myrank ) ) cycle
         endif
+
+        sfc_cosz = ( sfcg%xew(iwsfc) * sunx &
+                   + sfcg%yew(iwsfc) * suny &
+                   + sfcg%zew(iwsfc) * sunz ) * eradi
 
         call sfcrad_prep(iland, iwsfc,           &
              sfcg%leaf_class        (    iwsfc), &
@@ -212,6 +231,7 @@ subroutine radiate()
            ! diffuse radiation.
 
         sfcg%albedo_diffuse(iwsfc) = sfcg%albedo_beam(iwsfc)
+        sfcg%cosz_rad      (iwsfc) = max(sfc_cosz, 0.)
 
      enddo
      !$omp end do nowait
@@ -228,10 +248,10 @@ subroutine radiate()
         ka   = lpw(iw)
         nsfc = lsw(iw)
 
-        ! Compute solar zenith angle for atmosphere cells
+        ! Compute solar zenith angle for atmosphere cells corresponding to
+        ! the radiation time
 
-        cosz    (iw) = wnx(iw) * sunx + wny(iw) * suny + wnz(iw) * sunz
-        cosz_rad(iw) = cosz(iw)
+        cosz_rad(iw) = wnx(iw) * sunx + wny(iw) * suny + wnz(iw) * sunz
 
         ! Zero out fields that are summed from SFC grid cells
 
@@ -319,7 +339,7 @@ subroutine radiate()
 
         ! Do RRTMg radiation if specified
 
-        if (ilwrtyp > 0 .or. (iswrtyp > 0 .and. cosz(iw) > 0.03)) then
+        if (ilwrtyp > 0 .or. (iswrtyp > 0 .and. cosz_rad(iw) > cosz_min)) then
 
            ! K index offset for radiation column arrays
 
@@ -341,20 +361,24 @@ subroutine radiate()
 
         if (do_chem == 1) then
            call mpi_send_w(svara1=rlong_ks, svara2=rshort_ks, svara3=rshort_diffuse_ks, &
-                           svara4=ppfd_ks, svara5=ppfd_diffuse_ks)
+                           svara4=ppfd_ks, svara5=ppfd_diffuse_ks, r1dvara1=rshort_top)
            call mpi_recv_w(svara1=rlong_ks, svara2=rshort_ks, svara3=rshort_diffuse_ks, &
-                           svara4=ppfd_ks, svara5=ppfd_diffuse_ks)
+                           svara4=ppfd_ks, svara5=ppfd_diffuse_ks, r1dvara1=rshort_top)
         else
-           call mpi_send_w(svara1=rlong_ks, svara2=rshort_ks, svara3=rshort_diffuse_ks)
-           call mpi_recv_w(svara1=rlong_ks, svara2=rshort_ks, svara3=rshort_diffuse_ks)
+           call mpi_send_w(svara1=rlong_ks, svara2=rshort_ks, svara3=rshort_diffuse_ks, r1dvara1=rshort_top)
+           call mpi_recv_w(svara1=rlong_ks, svara2=rshort_ks, svara3=rshort_diffuse_ks, r1dvara1=rshort_top)
         endif
 
      endif
 
+     ! Compute components of unit vector pointing to sun at CURRENT time
+
+     call sunloc( do_mclat=.false. )
+
      ! Loop over all SFC grid cells
 
      !$omp parallel
-     !$omp do private (j, iw, kw, ka, ks, wt, iland)
+     !$omp do private (j, iw, kw, ka, ks, wt, iland, sfc_cosz, alpha, Zsurf, DZsurf)
      do iwsfc = 2,mwsfc
 
         ! Skip this SFC grid cell if running in parallel and cell rank is not MYRANK
@@ -363,8 +387,9 @@ subroutine radiate()
         ! Prepare SFC grid downward shortwave and longwave fluxes for summation from ATM columns
 
         sfcg%rlong         (iwsfc) = 0.
-        sfcg%rshort        (iwsfc) = 0.
-        sfcg%rshort_diffuse(iwsfc) = 0.
+        sfcg%rshort_rad    (iwsfc) = 0.
+        sfcg%rshort_dif_rad(iwsfc) = 0.
+        sfcg%rshort_toa_rad(iwsfc) = 0.
 
         if (do_chem == 1 .and. sfcg%leaf_class(iwsfc) >= 2) then
            iland = iwsfc - omland
@@ -384,8 +409,9 @@ subroutine radiate()
            wt = itab_wsfc(iwsfc)%arcoarsfc(j)
 
            sfcg%rlong         (iwsfc) = sfcg%rlong         (iwsfc) + wt * rlong_ks         (ks,iw)
-           sfcg%rshort        (iwsfc) = sfcg%rshort        (iwsfc) + wt * rshort_ks        (ks,iw)
-           sfcg%rshort_diffuse(iwsfc) = sfcg%rshort_diffuse(iwsfc) + wt * rshort_diffuse_ks(ks,iw)
+           sfcg%rshort_rad    (iwsfc) = sfcg%rshort_rad    (iwsfc) + wt * rshort_ks        (ks,iw)
+           sfcg%rshort_dif_rad(iwsfc) = sfcg%rshort_dif_rad(iwsfc) + wt * rshort_diffuse_ks(ks,iw)
+           sfcg%rshort_toa_rad(iwsfc) = sfcg%rshort_toa_rad(iwsfc) + wt * rshort_top          (iw)
 
            ! par and ppfd are members of land% and not sfcg%
 
@@ -397,6 +423,29 @@ subroutine radiate()
            endif
 
         enddo
+
+        ! scale solar radiation to current time
+
+        if (sfcg%rshort_toa_rad(iwsfc) > .1) then
+
+           sfc_cosz = ( sfcg%xew(iwsfc) * sunx &
+                      + sfcg%yew(iwsfc) * suny &
+                      + sfcg%zew(iwsfc) * sunz ) * eradi
+
+           alpha  = max( sfc_cosz, cosz_min ) / max( sfcg%cosz_rad(iwsfc), cosz_min )
+
+           Zsurf  = sfcg%rshort_rad(iwsfc) - sfcg%rshort_dif_rad(iwsfc)
+           DZsurf = ( Zsurf / sfcg%rshort_toa_rad(iwsfc) )**(1./alpha) * sfcg%rshort_toa_rad(iwsfc) - Zsurf
+
+           sfcg%rshort        (iwsfc) = alpha * (sfcg%rshort_rad    (iwsfc) + 0.5 * DZsurf)
+           sfcg%rshort_diffuse(iwsfc) = alpha * (sfcg%rshort_dif_rad(iwsfc) - 0.5 * DZsurf)
+
+        else
+
+           sfcg%rshort        (iwsfc) = sfcg%rshort_rad    (iwsfc)
+           sfcg%rshort_diffuse(iwsfc) = sfcg%rshort_dif_rad(iwsfc)
+
+        endif
 
      enddo
      !$omp end do
@@ -436,8 +485,8 @@ subroutine radiate()
                sfcg%leaf_class(iwsfc), &
                sfcg%rshort    (iwsfc), &
                sfcg%rlong     (iwsfc), &
-               land%slong     (iwsfc), &
-               land%vlong     (iwsfc), &
+               land%slong     (iland), &
+               land%vlong     (iland), &
                land%gnd_albedo(iland), &
                land%gnd_emiss (iland), &
                land%vf        (iland), &
@@ -456,9 +505,9 @@ subroutine radiate()
 
      ! Compute components of unit vector pointing to sun
 
-     call sunloc()
+     call sunloc( do_mclat=.false. )
 
-     ! Update outgoing longwave from land cells (TODO: seaice too?)
+     ! Update outgoing longwave from land cells due to change in skin temperature
 
      !$omp parallel
      !$omp do private(iwsfc)
@@ -478,20 +527,17 @@ subroutine radiate()
              land%soil_energy       (nzg,iland), &
              land%soil_water        (nzg,iland), &
              land%specifheat_drysoil(nzg,iland), &
-             land%gnd_emiss         (    iwsfc), &
+             land%gnd_emiss         (    iland), &
              land%vf                (    iland), &
              sfcg%rlongup           (    iwsfc), &
-             land%slong             (    iwsfc), &
-             land%vlong             (    iwsfc)  )
+             land%slong             (    iland), &
+             land%vlong             (    iland)  )
 
      enddo
      !$omp end do
 
      !$omp do private(iw,ks,k)
      do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
-
-        ! Current solar zenith angle for atm cells
-        cosz(iw) = wnx(iw) * sunx + wny(iw) * suny + wnz(iw) * sunz
 
         ! Initialize rlong_ks to current downward longwave flux
         do ks = 1, lsw(iw)
@@ -512,30 +558,97 @@ subroutine radiate()
         call mpi_recv_w(svara1=rlong_ks)
      endif
 
-     !$omp parallel do private(iwsfc,j,iw,kw,wt,ka,ks)
-     do iland = 2, mland
-        iwsfc = iland + omland
+     ! Loop over all SFC grid cells
+
+     !$omp parallel
+     !$omp do private(j, iw, kw, wt, ks, sfc_cosz, alpha, Zsurf, DZsurf)
+     do iwsfc = 2, mwsfc
 
         ! Skip this SFC grid cell if running in parallel and cell rank is not MYRANK
         if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
+        ! Prepare SFC grid downward longwave fluxes for summation from ATM columns
+
         sfcg%rlong(iwsfc) = 0.
 
+        ! Loop over all ATM grid cells that are coupled to this SFC grid cell
+        ! and sum ATM radiative fluxes to this SFCG cell
+
         do j = 1,itab_wsfc(iwsfc)%nwatm
-           iw = itab_wsfc(iwsfc)%iwatm(j)  ! local index
-           kw = itab_wsfc(iwsfc)%kwatm(j)
+           iw = itab_wsfc(iwsfc)%iwatm    (j)  ! local index
+           kw = itab_wsfc(iwsfc)%kwatm    (j)
            wt = itab_wsfc(iwsfc)%arcoarsfc(j)
            ks = kw - lpw(iw) + 1
 
            sfcg%rlong(iwsfc) = sfcg%rlong(iwsfc) + wt * rlong_ks(ks,iw)
         enddo
 
+        ! scale solar radiation to current time
+
+        if (sfcg%rshort_toa_rad(iwsfc) > .1) then
+
+           sfc_cosz = ( sfcg%xew(iwsfc) * sunx &
+                      + sfcg%yew(iwsfc) * suny &
+                      + sfcg%zew(iwsfc) * sunz ) * eradi
+
+           alpha  = max( sfc_cosz, cosz_min ) / max( sfcg%cosz_rad(iwsfc), cosz_min )
+
+           Zsurf  = sfcg%rshort_rad(iwsfc) - sfcg%rshort_dif_rad(iwsfc)
+           DZsurf = ( Zsurf / sfcg%rshort_toa_rad(iwsfc) )**(1./alpha) * sfcg%rshort_toa_rad(iwsfc) - Zsurf
+
+           sfcg%rshort        (iwsfc) = alpha * (sfcg%rshort_rad    (iwsfc) + 0.5 * DZsurf)
+           sfcg%rshort_diffuse(iwsfc) = alpha * (sfcg%rshort_dif_rad(iwsfc) - 0.5 * DZsurf)
+
+        else
+
+           sfcg%rshort        (iwsfc) = sfcg%rshort_rad    (iwsfc)
+           sfcg%rshort_diffuse(iwsfc) = sfcg%rshort_dif_rad(iwsfc)
+
+        endif
+
+     enddo
+     !$omp end do
+
+     ! Loop over all SEA cells to compute radiative fluxes for all
+     ! seaice components, given that rshort and rlong are now updated.
+
+    !$omp do private(iwsfc)
+     do isea = 2, msea
+        iwsfc = isea + omsea
+
+        ! Skip this SFC grid cell if running in parallel and cell rank is not MYRANK
+        if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+
+        call sfcrad_seaice_2( sea%ice_net_rshort(isea), &
+                              sea%ice_net_rlong (isea), &
+                              sea%nlev_seaice   (isea), &
+                              sfcg%rshort      (iwsfc), &
+                              sfcg%rlong       (iwsfc), &
+                              sea%ice_rlongup   (isea), &
+                              sea%ice_albedo    (isea)  )
+
+     enddo
+     !$omp end do
+
+     ! Loop over all LAND cells to compute radiative fluxes
+     ! for all cell components, given that rshort and rlong are now updated.
+
+     !$omp parallel do private(iwsfc,j,iw,kw,wt,ka,ks)
+     do iland = 2, mland
+        iwsfc = iland + omland
+
+        ! Skip this SFC grid cell if running in parallel and cell rank is not MYRANK
+
+        if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+
+        ! Update land canopy radiation budget
+
         call sfcrad_land(iland, iwsfc, &
                sfcg%leaf_class(iwsfc), &
                sfcg%rshort    (iwsfc), &
                sfcg%rlong     (iwsfc), &
-               land%slong     (iwsfc), &
-               land%vlong     (iwsfc), &
+               land%slong     (iland), &
+               land%vlong     (iland), &
                land%gnd_albedo(iland), &
                land%gnd_emiss (iland), &
                land%vf        (iland), &
@@ -549,41 +662,44 @@ subroutine radiate()
 
   endif
 
-  ! Apply radiation tendencies in FTHRD to THILT
+  ! Apply radiation tendencies to THILT at start of each long timestep
 
-  mrl = mrl_begl(istp)
-  if (mrl > 0) then
-  !$omp parallel do private(iw,k)
-  do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
+  if (mrl_begl(istp) > 0) then
 
-     do k = lpw(iw), mza
+     !$omp parallel do private(iw,k,cosz,alpha)
+     do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
-      if (tair(k,iw) > 253.) then
-         thilt(k,iw) = thilt(k,iw) &
-                     + (fthrd_sw(k,iw) + fthrd_lw(k,iw)) * theta(k,iw) / tair(k,iw)
-      else
-         thilt(k,iw) = thilt(k,iw) &
-                     + (fthrd_sw(k,iw) + fthrd_lw(k,iw)) * thil(k,iw) / tair(k,iw)
-      endif
+        ! Current solar zenith angle for atm cells
+        cosz(iw) = wnx(iw) * sunx + wny(iw) * suny + wnz(iw) * sunz
+
+        alpha = max( cosz(iw), cosz_min ) / max( cosz_rad(iw), cosz_min )
+
+        do k = lpw(iw), mza
+
+           thilt(k,iw) = thilt(k,iw) &
+                       + ( alpha * fthrd_sw(k,iw) + fthrd_lw(k,iw) ) * theta(k,iw) / tair(k,iw)
+        enddo
 
      enddo
+     !$omp end parallel do
 
-  enddo
-  !$omp end parallel do
   endif
 
 end subroutine radiate
 
 !============================================================================
 
-subroutine sunloc()
+subroutine sunloc( doffset, do_mclat )
 
   use misc_coms,   only: imonth1, idate1, iyear1, itime1, time_istp8
-  use consts_coms, only: pi2, pio180
+  use consts_coms, only: pi2, pio180, r8
   use mem_radiate, only: jday, solfac, sunx, suny, sunz
   use mem_mclat,   only: mclat_spline
 
   implicit none
+
+  real(r8), optional, intent(in) :: doffset  ! time offset from current time (s)
+  logical,  optional, intent(in) :: do_mclat ! switch to turn off preparing Mclatchy soundings
 
   integer :: outyear  ! current simulation year
   integer :: outmonth ! current simulation month
@@ -602,13 +718,24 @@ subroutine sunloc()
   real :: utc_sec        ! seconds elapsed in current simulation day (UTC)
   real :: sun_longitude  ! longitude where sun is at zenith
 
+  real(r8) :: stime
+  logical  :: do_mclat_spline
+
   integer, external :: julday
+
+  ! Handle optional arguments
+
+  stime = time_istp8
+  if (present(doffset)) stime = stime + doffset
+
+  do_mclat_spline = .true.
+  if (present(do_mclat)) do_mclat_spline = do_mclat
 
   ! Find current simulation date/time by adding elapsed simulation time to
   ! initial simulation date/time
 
-  call date_add_to8(iyear1,imonth1,idate1,itime1*100  &
-     ,time_istp8,'s',outyear,outmonth,outdate,outhour)
+  call date_add_to8( iyear1, imonth1, idate1, itime1*100, stime, 's', &
+                     outyear, outmonth, outdate, outhour )
 
   ! Find current Julian day
 
@@ -665,7 +792,9 @@ subroutine sunloc()
   ! Interpolate Mclatchy soundings between summer and winter values, and prepare
   ! spline coefficients for interpolation by latitude.
 
-  call mclat_spline(jday)
+  if (do_mclat_spline) then
+     call mclat_spline(jday)
+  endif
 
 end subroutine sunloc
 
@@ -753,3 +882,7 @@ subroutine radinit()
   call gno_lookup_init()
 
 end subroutine radinit
+
+!============================================================================
+
+end module raddriv

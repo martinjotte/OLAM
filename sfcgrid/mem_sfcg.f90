@@ -221,11 +221,17 @@ Module mem_sfcg
 
      real, allocatable :: albedo_beam   (:) ! surface s/w beam albedo [0-1]
      real, allocatable :: albedo_diffuse(:) ! surface s/w diffuse albedo [0-1]
-     real, allocatable :: rshort        (:) ! downward can-top s/w flux [W/m^2]
-     real, allocatable :: rshort_diffuse(:) ! downward diffuse can-top s/w flux [W/m2]
-     real, allocatable :: rlong         (:) ! downward can-top l/w flux [W/m^2]
+     real, allocatable :: rshort        (:) ! downward can-top incoming s/w flux [W/m^2]
+     real, allocatable :: rshort_diffuse(:) ! downward diffuse can-top incoming s/w flux [W/m2]
+
+     real, allocatable :: rshort_rad    (:) ! downward can-top incoming s/w flux [W/m^2]
+     real, allocatable :: rshort_toa_rad(:) ! downward can-top incoming s/w flux [W/m^2]
+     real, allocatable :: rshort_dif_rad(:) ! downward diffuse can-top incoming s/w flux [W/m2]
+     real, allocatable :: cosz_rad      (:) ! cos of zenith angle at time of rad call
+
+     real, allocatable :: rlong         (:) ! downward can-top incoming l/w flux [W/m^2]
      real, allocatable :: rlong_albedo  (:) ! surface l/w lbedo [0-1]
-     real, allocatable :: rlongup       (:) ! upward can-top l/w flux [W/m^2]
+     real, allocatable :: rlongup       (:) ! upward emitted can-top l/w flux [W/m^2]
 
      ! Precipitation fluxes and runoff
 
@@ -320,7 +326,7 @@ Contains
                                         iwn     =  1, &
                                         imn     =  1  )
   enddo
-  !$omp end do
+  !$omp end do nowait
 
   !$omp do
   do ivsfc = 1, mvsfc0
@@ -333,7 +339,7 @@ Contains
                                         dxps    =  0., &
                                         dyps    =  0.  )
   enddo
-  !$omp end do
+  !$omp end do nowait
 
   !$omp do
   do iwsfc = 1, mwsfc0
@@ -361,7 +367,7 @@ Contains
                                         arcoariw  =  0., &
                                         arcoarkw  =  0.  )
   enddo
-  !$omp end do
+  !$omp end do nowait
   !$omp end parallel
 
   ! Allocate sfcg member arrays
@@ -423,7 +429,7 @@ Contains
 !    sfcg%topm (imsfc) = rinit
      sfcg%arm0 (imsfc) = 0.
   enddo
-  !$omp end do
+  !$omp end do nowait
 
   !$omp do
   do ivsfc = 1, mvsfc0
@@ -441,7 +447,7 @@ Contains
      sfcg%vny (ivsfc) = rinit
      sfcg%vnz (ivsfc) = rinit
   enddo
-  !$omp end do
+  !$omp end do nowait
 
   !$omp do
   do iwsfc = 1, mwsfc0
@@ -467,7 +473,7 @@ Contains
      endif
 
   enddo
-  !$omp end do
+  !$omp end do nowait
   !$omp end parallel
 
   end subroutine alloc_sfcgrid1
@@ -481,7 +487,7 @@ Contains
 
      implicit none
 
-     integer :: iwsfc, ivsfc
+     integer :: iwsfc, ivsfc, imsfc
 
 !    Allocate and initialize surface grid arrays
 
@@ -506,13 +512,21 @@ Contains
 
      allocate (sfcg%ggaer         (mwsfc))
      allocate (sfcg%wthv          (mwsfc))
+
      allocate (sfcg%albedo_beam   (mwsfc))
      allocate (sfcg%albedo_diffuse(mwsfc))
      allocate (sfcg%rshort        (mwsfc))
      allocate (sfcg%rshort_diffuse(mwsfc))
+
+     allocate (sfcg%rshort_rad    (mwsfc))
+     allocate (sfcg%rshort_toa_rad(mwsfc))
+     allocate (sfcg%rshort_dif_rad(mwsfc))
+     allocate (sfcg%cosz_rad      (mwsfc))
+
      allocate (sfcg%rlong         (mwsfc))
      allocate (sfcg%rlong_albedo  (mwsfc))
      allocate (sfcg%rlongup       (mwsfc))
+
      allocate (sfcg%pcpg          (mwsfc))
      allocate (sfcg%qpcpg         (mwsfc))
      allocate (sfcg%dpcpg         (mwsfc))
@@ -525,20 +539,20 @@ Contains
 
      if (nswmzons > 0) then
         allocate (sfcg%iwdepv     (mvsfc))
-
         allocate (sfcg%vc         (mvsfc))
         allocate (sfcg%vmp        (mvsfc))
         allocate (sfcg%vmc        (mvsfc))
-        allocate (sfcg%vort          (mmsfc)) ; sfcg%vort           = 0.0
-
         allocate (sfcg%hflux_wat  (mvsfc))
         allocate (sfcg%hflux_enr  (mvsfc))
         allocate (sfcg%hflux_vxe  (mvsfc))
         allocate (sfcg%hflux_vye  (mvsfc))
         allocate (sfcg%hflux_vze  (mvsfc))
+
+        allocate (sfcg%vort       (mmsfc))
      endif
 
-     !$omp parallel do
+     !$omp parallel
+     !$omp do
      do iwsfc = 1, mwsfc
 
         if ( allocated( sfcg%vels          ) ) sfcg%vels          (iwsfc) = rinit
@@ -560,13 +574,21 @@ Contains
 
         if ( allocated( sfcg%ggaer         ) ) sfcg%ggaer         (iwsfc) = rinit
         if ( allocated( sfcg%wthv          ) ) sfcg%wthv          (iwsfc) = rinit
+
         if ( allocated( sfcg%albedo_beam   ) ) sfcg%albedo_beam   (iwsfc) = 0.0
         if ( allocated( sfcg%albedo_diffuse) ) sfcg%albedo_diffuse(iwsfc) = 0.0
+        if ( allocated( sfcg%rlong_albedo  ) ) sfcg%rlong_albedo  (iwsfc) = 0.0
+
+        if ( allocated( sfcg%rshort_rad    ) ) sfcg%rshort_rad    (iwsfc) = 0.0
+        if ( allocated( sfcg%rshort_toa_rad) ) sfcg%rshort_toa_rad(iwsfc) = 0.0
+        if ( allocated( sfcg%rshort_dif_rad) ) sfcg%rshort_dif_rad(iwsfc) = 0.0
+        if ( allocated( sfcg%cosz_rad      ) ) sfcg%cosz_rad      (iwsfc) = 0.0
+
         if ( allocated( sfcg%rshort        ) ) sfcg%rshort        (iwsfc) = 0.0
         if ( allocated( sfcg%rshort_diffuse) ) sfcg%rshort_diffuse(iwsfc) = 0.0
         if ( allocated( sfcg%rlong         ) ) sfcg%rlong         (iwsfc) = 0.0
-        if ( allocated( sfcg%rlong_albedo  ) ) sfcg%rlong_albedo  (iwsfc) = 0.0
         if ( allocated( sfcg%rlongup       ) ) sfcg%rlongup       (iwsfc) = 0.0
+
         if ( allocated( sfcg%pcpg          ) ) sfcg%pcpg          (iwsfc) = 0.0
         if ( allocated( sfcg%qpcpg         ) ) sfcg%qpcpg         (iwsfc) = 0.0
         if ( allocated( sfcg%dpcpg         ) ) sfcg%dpcpg         (iwsfc) = 0.0
@@ -578,9 +600,9 @@ Contains
         if ( allocated( sfcg%head1         ) ) sfcg%head1         (iwsfc) = 0.0
 
      enddo
-     !$omp end parallel do
+     !$omp end do nowait
 
-     !$omp parallel do
+     !$omp do
      do ivsfc = 1, mvsfc
 
         if ( allocated( sfcg%iwdepv    ) ) sfcg%iwdepv    (ivsfc) = 0
@@ -594,7 +616,16 @@ Contains
         if ( allocated( sfcg%hflux_vze ) ) sfcg%hflux_vze (ivsfc) = 0.0
 
      enddo
-     !$omp end parallel do
+     !$omp end do nowait
+
+     !$omp do
+     do imsfc = 1, mmsfc
+
+        if ( allocated( sfcg%vort ) ) sfcg%vort(ivsfc) = 0.
+
+     enddo
+     !$omp end do nowait
+     !$omp end parallel
 
   end subroutine alloc_sfcgrid2
 
@@ -622,13 +653,19 @@ Contains
      if (allocated(sfcg%ggaer))          call increment_vtable('SFCG%GGAER',          'CW', rvar1=sfcg%ggaer)
      if (allocated(sfcg%zeta))           call increment_vtable('SFCG%ZETA',           'CW', rvar1=sfcg%zeta)
      if (allocated(sfcg%wthv))           call increment_vtable('SFCG%WTHV',           'CW', rvar1=sfcg%wthv)
+
+     ! These are held constant between radiation calls
      if (allocated(sfcg%albedo_beam))    call increment_vtable('SFCG%ALBEDO_BEAM',    'CW', rvar1=sfcg%albedo_beam)
      if (allocated(sfcg%albedo_diffuse)) call increment_vtable('SFCG%ALBEDO_DIFFUSE', 'CW', rvar1=sfcg%albedo_diffuse)
-     if (allocated(sfcg%rshort))         call increment_vtable('SFCG%RSHORT',         'CW', rvar1=sfcg%rshort)
-     if (allocated(sfcg%rshort_diffuse)) call increment_vtable('SFCG%RSHORT_DIFFUSE', 'CW', rvar1=sfcg%rshort_diffuse)
-     if (allocated(sfcg%rlong))          call increment_vtable('SFCG%RLONG',          'CW', rvar1=sfcg%rlong)
      if (allocated(sfcg%rlong_albedo))   call increment_vtable('SFCG%RLONG_ALBEDO',   'CW', rvar1=sfcg%rlong_albedo)
+     if (allocated(sfcg%cosz_rad))       call increment_vtable('SFCG%COSZ_RAD',       'CW', rvar1=sfcg%cosz_rad)
+     if (allocated(sfcg%rshort_rad))     call increment_vtable('SFCG%RSHORT_RAD',     'CW', rvar1=sfcg%rshort_rad)
+     if (allocated(sfcg%rshort_toa_rad)) call increment_vtable('SFCG%RSHORT_TOA_RAD', 'CW', rvar1=sfcg%rshort_toa_rad)
+     if (allocated(sfcg%rshort_dif_rad)) call increment_vtable('SFCG%RSHORT_DIF_RAD', 'CW', rvar1=sfcg%rshort_dif_rad)
+
+     if (allocated(sfcg%rlong))          call increment_vtable('SFCG%RLONG',          'CW', rvar1=sfcg%rlong)
      if (allocated(sfcg%rlongup))        call increment_vtable('SFCG%RLONGUP',        'CW', rvar1=sfcg%rlongup)
+
      if (allocated(sfcg%pcpg))           call increment_vtable('SFCG%PCPG',           'CW', rvar1=sfcg%pcpg)
      if (allocated(sfcg%qpcpg))          call increment_vtable('SFCG%QPCPG',          'CW', rvar1=sfcg%qpcpg)
      if (allocated(sfcg%dpcpg))          call increment_vtable('SFCG%DPCPG',          'CW', rvar1=sfcg%dpcpg)

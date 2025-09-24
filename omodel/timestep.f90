@@ -26,6 +26,7 @@ use hcane_rz,    only: ncycle_hurrinit, icycle_hurrinit, timmax_hurrinit, &
                        vortex_add_thetapert
 use obs_nudge_mod,only: obs_nudge
 use scalar_transport, only: scalar_transport_rk
+use raddriv,     only: radiate
 
 !use oplot_coms,  only: op
 

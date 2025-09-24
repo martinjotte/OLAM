@@ -283,7 +283,6 @@ subroutine landcells(iland, timefac_ndvi, head_slope, soil_watfrac)
                  sfcg%airtheta          (  iwsfc), &
                  sfcg%airrrv            (  iwsfc), &
                  sfcg%canexner          (  iwsfc), &
-                 land%gnd_emiss         (  iland), &
                  land%snowfac           (  iland), &
                  land%vf                (  iland), &
                  land%stom_resist       (  iland), &

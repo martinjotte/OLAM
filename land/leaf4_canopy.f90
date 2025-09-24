@@ -19,7 +19,7 @@ Contains
                     ustar,          vkhsfc,           sfluxt,          sfluxr,     &
                     pcpg,           qpcpg,            dpcpg,           rshort,     &
                     cantemp,        canrrv,           glatw,           glonw,      &
-                    airtheta,       airrrv,           canexner,        gnd_emiss,  &
+                    airtheta,       airrrv,           canexner,                    &
                     snowfac,        vf,               stom_resist,     veg_height, &
                     veg_rough,      veg_tai,          veg_lai,         hcapveg,    &
                     rshort_s,       rshort_v,         rlong_s,         rlong_v,    &
@@ -69,7 +69,6 @@ Contains
   real, intent(in)    :: airtheta         ! atm potential temp [K]
   real, intent(in)    :: airrrv           ! atm vapor mixing ratio [kg_vap/kg_dryair]
   real, intent(in)    :: canexner         ! canopy Exner function []
-  real, intent(in)    :: gnd_emiss        ! emissivity of ground/water surface []
   real, intent(in)    :: snowfac          ! fractional veg burial by snowcover
   real, intent(in)    :: vf               ! fractional coverage of non-buried part of veg
   real, intent(inout) :: stom_resist      ! veg stomatal resistance [s/m]
@@ -1474,7 +1473,7 @@ Contains
      aa7(3,2) = 0._r8
      aa7(3,3) = 1._r8 + a2 * (h5 + h7)
      aa7(3,4) =         a2 * h7
-     aa7(3,5) = 0._r8 ! a2 * h5 * alvveg
+     aa7(3,5) = 0._r8
      aa7(3,6) = 0._r8
      aa7(3,7) =       - a2 * h7
      yy7(3)   =         a2 * y4  ! HVC row

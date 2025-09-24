@@ -55,6 +55,7 @@ subroutine olam_run(name_name)
   use aq_data,     only: aq_data_init
   use pbl_drivers, only: pbl_init
   use check_nan,   only: compute_mass_sums
+  use raddriv    , only: radinit
 
   use precursor_data, only: map_precursor
 

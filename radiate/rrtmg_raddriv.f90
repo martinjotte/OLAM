@@ -12,11 +12,11 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
   use misc_coms,   only: iswrtyp, ilwrtyp, i_o3, i_co, i_ch4
   use consts_coms, only: stefan, eps_virt, eps_vapi, grav, solar, cp, pi1, &
                          t00, r8, cpi
-  use mem_radiate, only: rshort, rlong, fthrd_lw, rlongup, cosz, albedt, &
+  use mem_radiate, only: rshort, rlong, fthrd_lw, rlongup, cosz_rad, albedt, &
                          rshort_top, rshortup_top, rlongup_top, fthrd_sw, &
                          rshort_diffuse, solfac, cloud_frac, &
                          par, par_diffuse, uva, uvb, uvc, pbl_cld_forc, &
-                         ppfd, ppfd_diffuse, mcica_seed, &
+                         ppfd, ppfd_diffuse, mcica_seed, cosz_min, &
                          rlong_ks, rshort_ks, rshort_diffuse_ks, &
                          ppfd_ks, ppfd_diffuse_ks, dlong, ulong, ulong_sfc, &
                          Dulong_DT, Dulong_sfc_DT, Tskin_rad
@@ -250,7 +250,7 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
      enddo
   enddo
 
-  coszen = cosz(iw)
+  coszen = cosz_rad(iw)
 
   if (allocated(frac_land)) then
      fland = frac_land(iw)
@@ -405,7 +405,7 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
 
   ! Compute the shortwave fluxes and heating rates
 
-  if (iswrtyp > 0 .and. cosz(iw) > 0.03) then
+  if (iswrtyp > 0 .and. coszen > cosz_min) then
 
      icloud = icld
      iaeros = iaer
@@ -618,11 +618,6 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
         Dulong_sfc_DT(krad,iw) = Dlwuflxt_sfc_DT(krad)
      enddo
 
-     if (iw == 43922) then
-        write(*,*) lwuflxt(1), rlongup_ks(1), lwdflxt(1), Tskin_rad(1,iw), emiss(1)
-        write(*,*) Dlwuflxt_DT(1), Dlwuflxt_sfc_DT(1)
-     endif
-
      if (nsfc == 1) then
 
         do k = ka-1, mza
@@ -636,7 +631,7 @@ subroutine rrtmg_raddriv(iw, ka, nrad, koff, nsfc, &
      else
 
         fthrd_lw(ka,iw) = ( ulong(ka-1,iw) - dlong(ka-1,iw) &
-                          - ulong(ka  ,iw) + dlong(ka  ,iw) ) * dzit(k) * cpi
+                          - ulong(ka  ,iw) + dlong(ka  ,iw) ) * dzit(ka) * cpi
 
         do ks = 2, nsfc
            k = ka + ks - 1
@@ -727,7 +722,7 @@ contains
     fint1  = rscale - real(index-1)
     fint0  = 1.0 - fint1
 
-    if (iswrtyp > 0 .and. cosz(iw) >= 0.03) then
+    if (iswrtyp > 0 .and. coszen > cosz_min) then
 
        do ib = 1, nbndsw
           tau = ( fint0 * cloud_props(l)%extsw(ib, index  ) &
@@ -822,7 +817,7 @@ subroutine update_rrtmg_lw_intermediate( iw, ka, lsw )
   ! Change in upward longwave at surface overlaps
   do ks = 1, lsw
      emiss             = 1. - rlong_albedo_ks(ks)
-     DTsfc        (ks) = (rlongup_ks(ks) / (emiss * stefan)) ** 0.25 - Tskin_rad(ks,iw)
+     DTsfc        (ks) = (rlongup_ks(ks) / (emiss * stefan))**0.25 - Tskin_rad(ks,iw)
      ulong_cur_sfc(ks) = ulong_sfc(ks,iw) + DTsfc(ks) * Dulong_sfc_DT(ks,iw)
   enddo
 
@@ -900,7 +895,7 @@ subroutine update_rrtmg_lw_intermediate( iw, ka, lsw )
   else
 
      fthrd_lw(ka,iw) = ( ulong_cur(ka-1) - dlong_cur(ka-1) &
-                       - ulong_cur(ka  ) + dlong_cur(ka  ) ) * dzit(k) * cpi
+                       - ulong_cur(ka  ) + dlong_cur(ka  ) ) * dzit(ka) * cpi
 
      do ks = 2, lsw
         k = ka + ks - 1
@@ -931,6 +926,3 @@ end subroutine update_rrtmg_lw_intermediate
 !==============================================================================
 
 end module rrtmg_driver
-
-
-

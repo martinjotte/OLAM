@@ -431,7 +431,7 @@ Contains
 ! soundings between summer and winter values by time of year using cosine
 ! function.  Assume that extreme values occur on January 16 and 1/2 year later.
 
-    fjday = float(jday)
+    fjday = real(jday)
     wtjan = .5 * (1. + cos(6.283185 * (fjday-16.) / 365.))
     wtjul = 1. - wtjan
 

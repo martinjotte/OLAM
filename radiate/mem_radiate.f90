@@ -73,9 +73,10 @@ Module mem_radiate
 
 ! These are used for adding extra levels at the top with the Mclatchy soundings
 
-  integer, parameter :: maxadd_rad = 10 ! max allowed # of added rad levels
-  integer            :: nadd_rad        ! actual # of added radiation levels
-  real               :: zmrad = 30.e3   ! top of radiation grid
+  integer, parameter :: maxadd_rad = 10    ! max allowed # of added rad levels
+  integer            :: nadd_rad           ! actual # of added radiation levels
+  real               :: zmrad      = 30.e3 ! top of radiation grid
+  real,    parameter :: cosz_min   = 0.02  ! limit of cos(zenith angle) to call rad
 
 Contains
 
@@ -273,8 +274,7 @@ Contains
     implicit none
 
     if (allocated(fthrd_sw))         call increment_vtable('FTHRD_SW',        'AW', rvar2=fthrd_sw)
-
-!   if (allocated(fthrd_lw))         call increment_vtable('FTHRD_LW',        'AW', rvar2=fthrd_lw)
+    if (allocated(fthrd_lw))         call increment_vtable('FTHRD_LW',        'AW', rvar2=fthrd_lw)
 
     ! For incremental updates of longwave between RRTMg calls:
     if (allocated(dlong))            call increment_vtable('DLONG',           'AW', rvar2=dlong)
