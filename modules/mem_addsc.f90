@@ -6,7 +6,7 @@ Module mem_addsc
 
   Type addsc_vars
      real, allocatable :: sclp(:,:) ! somethings per kg_air
-     real, allocatable :: sclt(:,:) ! somethings per kg_air per sec
+     real, allocatable :: sclt(:,:) ! somethings per m^3_air per sec
   End Type addsc_vars
 
   type (addsc_vars), allocatable :: addsc(:)
