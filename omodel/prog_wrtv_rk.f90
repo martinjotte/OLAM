@@ -532,9 +532,9 @@ subroutine prog_wrt_begs( iw, istage, dt8,                      &
 
   ! Vertical implicit scheme weighting parameters
 
-  real(r8), parameter :: fr  = .60 ! rho
-  real(r8), parameter :: fp2 = .60 ! press in W
-  real(r8), parameter :: fp3 = .60 ! press in V
+  real(r8), parameter :: fr  = .70 ! rho
+  real(r8), parameter :: fp2 = .70 ! press in W
+  real(r8), parameter :: fp3 = .70 ! press in V
 
   real(r8), parameter :: pc2 = fp2 * cpocv
   real(r8), parameter :: pc3 = fp3 * cpocv
