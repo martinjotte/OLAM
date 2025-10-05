@@ -455,6 +455,7 @@ subroutine slab(iplt)
      call o_gsplci(10)
      call o_gsfaci(10)
      call o_gstxci(10)
+     call o_gslwsc(1.)
 
      call o_pcsetr('CL',1.)  ! set character line width to 1.
      call o_pcseti ('FN',op%ncarg_font)
@@ -593,6 +594,7 @@ subroutine slab_val(iplt)
      call o_gsplci(10)
      call o_gsfaci(10)
      call o_gstxci(10)
+     call o_gslwsc(1.)
 
      call o_pcsetr('CL',1.)  ! set character line width to 1.
      call o_pcseti ('FN',op%ncarg_font)
@@ -694,6 +696,7 @@ subroutine plot_index(iplt)
      call o_gsplci(10)
      call o_gstxci(10)
      call o_gsfaci(10)
+     call o_gslwsc(1.)
 
      call o_pcsetr('CL',1.)  ! set character line width to 1.
      call o_pcseti('FN',op%ncarg_font)
@@ -933,6 +936,7 @@ subroutine plot_index_sfc(iplt)
         call o_gsplci(8)
         call o_gstxci(8)
         call o_gsfaci(8)
+        call o_gslwsc(1.)
 
         call o_pcsetr('CL',1.)  ! set character line width to 1.
         call o_pcseti('FN',op%ncarg_font)
@@ -1002,6 +1006,7 @@ subroutine plot_index_sfc(iplt)
         call o_gsplci(9)
         call o_gstxci(9)
         call o_gsfaci(9)
+        call o_gslwsc(1.)
 
         call o_pcsetr('CL',1.)  ! set character line width to 1.
         call o_pcseti('FN',op%ncarg_font)
@@ -1062,6 +1067,7 @@ subroutine plot_index_sfc(iplt)
         call o_gsplci(12)
         call o_gstxci(12)
         call o_gsfaci(12)
+        call o_gslwsc(1.)
 
         call o_pcsetr('CL',1.)  ! set character line width to 1.
         call o_pcseti('FN',op%ncarg_font)
@@ -1989,6 +1995,7 @@ subroutine plot_grid(iplt)
      call o_sflush()
      call o_gsplci(10)
      call o_gstxci(10)
+     call o_gslwsc(1.)
   endif
 
   nu   = 0
@@ -2354,6 +2361,7 @@ subroutine plot_dualgrid(iplt)
      call o_sflush()
      call o_gsplci(6)
      call o_gstxci(6)
+     call o_gslwsc(1.)
   endif
 
   nu   = 0
@@ -2561,6 +2569,7 @@ subroutine plot_sfcgrid(iplt)
      call o_sflush()
      call o_gsplci(12)
      call o_gstxci(12)
+     call o_gslwsc(1.)
   endif
 
   nu   = 0
@@ -2760,6 +2769,7 @@ subroutine plot_grid_frame()
   call o_sflush()
   call o_gsplci(10)
   call o_gstxci(10)
+  call o_gslwsc(1.)
 
   call o_frstpt(op%xmin,op%ymin)
   call o_vector(op%xmax,op%ymin)
@@ -2776,6 +2786,7 @@ subroutine mkmap(iplt)
   use oplot_coms,  only: op
   use consts_coms, only: erad, erad2, eradi, piu180
   use mem_para,    only: myrank
+  use oname_coms,  only: nl
 
   implicit none
 
@@ -2851,7 +2862,7 @@ subroutine mkmap(iplt)
      call o_gsplci(op%mapcolor)
      call o_gsfaci(op%mapcolor)
      call o_gstxci(op%mapcolor)
-     call o_gslwsc(1.0)
+     call o_gslwsc(nl%mapthick)
 
 !    if (op%has_high_res .and. scale < 10.) then
         ! plot using highest resolution coastlines, international borders,
@@ -2879,7 +2890,7 @@ subroutine mkmap(iplt)
      call o_gsplci(op%llcolor)
      call o_gsfaci(op%llcolor)
      call o_gstxci(op%llcolor)
-     call o_gslwsc(1.0)
+     call o_gslwsc(nl%llthick)
 
      call o_mapgrd()  ! Draw lat/lon lines
 
@@ -3346,6 +3357,9 @@ subroutine oplot_set(iplt)
      if (op%projectn(iplt) == 'L') then
         op%ymin = op%ymin + op%plat3
         op%ymax = op%ymax + op%plat3
+
+        op%ymin =  max(-90., nl%latmin, op%ymin)
+        op%ymax =  min( 90., nl%latmax, op%ymax)
      endif
 
      ! Special treatment for vertical plot: ymin/ymax related to model Z coordinate
@@ -3613,8 +3627,10 @@ subroutine oplot_set(iplt)
 
   ! Set limits of panel and frame window in plotter coordinates
 
-  if ( op%projectn(iplt) == 'L' .and.  &
-       op%windowin(iplt) /= 'W' ) then
+! if ( op%projectn(iplt) == 'L' ) .and.  &
+!      op%windowin(iplt) /= 'W' ) then
+
+  if ( op%projectn(iplt) == 'L' ) then
      aspect = 0.
   else
      aspect = 1.

@@ -444,9 +444,13 @@ Module oname_coms
      real    :: zplot_min  = -1.0
      real    :: zplot_max  = -1.0
      integer :: mapcolor   = 13
+     real    :: mapthick   = 1.0
      integer :: llcolor    = 13
+     real    :: llthick    = 1.0
      integer :: ncolortabs = 0
      integer :: ifont      = 0
+     real    :: latmax     =  90.
+     real    :: latmin     = -90.
 
      ! For regridded 'R' plots
      integer :: nx_grid  = 100

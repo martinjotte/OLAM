@@ -13,6 +13,7 @@ subroutine vectslab(iplt)
      call o_sflush()
      call o_gsplci(10)
      call o_gstxci(10)
+     call o_gslwsc(1.)
   endif
 
   if ( op%projectn(iplt) == 'L' .or.  &
@@ -1451,9 +1452,11 @@ subroutine vectslab_horiz_umwm(iplt)
 
      indswh = max(1,min(8,int(swh(isea))))
      swhcolor = swhcolors(indswh)
+
      call o_sflush()
      call o_gsplci(swhcolor)
      call o_gstxci(swhcolor)
+     call o_gslwsc(1.)
 
      ! Draw vector
 

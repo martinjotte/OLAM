@@ -854,7 +854,7 @@
                       ! (limit of maxnplt fields in max_dims.f90)
 
   NL%FRQPLT =  3600.  ! Plot frequency (for RUNTYPE = 'INITIAL' or 'HISTORY')
-                            
+
   NL%DTVEC =   1800.     ! Scaling time (seconds) for plotted velocity vectors
 
   NL%HEADSPEED = 5.   ! Scaling speed for arrow head length in plotted
@@ -886,6 +886,9 @@
   NL%MAPCOLOR = 13     ! Color of map outlines.  Useful colors: 10 - black
   NL%LLCOLOR  = 10     ! Color of lat/lon lines.                13 - dark gray
                        ! (see plotcolors for all color values)  14 - light gray
+
+  NL%MAPTHICK  = 2.0   ! Thickness of plotted map boundaries, lat-lon lines, and
+  NL%LLTHICK   = 1.0   ! contours for plots. A value of 1 is the default.
 
   NL%NX_GRID = 150     ! Number of points along X direction to plot for 'R' plot
   NL%NX_VECT = 50      ! Number of wind vectors to plot along X direction for 'R' plot

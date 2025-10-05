@@ -746,6 +746,7 @@ endif
      call o_sflush()
      call o_gsplci(10)
      call o_gstxci(10)
+     call o_gslwsc(1.)
 
      call o_set(0.,1.,0.,1.,0.,1.,0.,1.,1)
 

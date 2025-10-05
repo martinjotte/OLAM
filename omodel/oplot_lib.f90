@@ -253,7 +253,7 @@ data fldlib(1:4, 37:61)/ &
 
 ! ATMOSPHERE - 2D
 
-data fldlib(1:4, 62:98)/ &
+data fldlib(1:4, 62:100)/ &
  'RSHORT_TOP'    ,'T2' ,'TOP DOWN SW FLX',' (W m:S2:-2  )'                  ,& !  62
  'RSHORTUP_TOP'  ,'T2' ,'TOP UP SW FLX',' (W m:S2:-2  )'                    ,& !  63
  'RLONGUP_TOP'   ,'T2' ,'TOP UP LW FLX',' (W m:S2:-2  )'                    ,& !  64
@@ -290,10 +290,14 @@ data fldlib(1:4, 62:98)/ &
  'ACCPMIC'       ,'T2' ,'ACCUM MIC PCP',' (kg m:S2:-2  )'                   ,& !  92
  'ACCPCON'       ,'T2' ,'ACCUM CUPARM PCP',' (kg m:S2:-2  )'                ,& !  93
  'ACCPBOTH'      ,'T2' ,'ACCUM MIC+CUPARM PCP',' (kg m:S2:-2  )'            ,& !  94
- 'WSTAR'         ,'T2' ,'WSTAR',' (m s:S2:-1  )'                            ,& !  95
- 'PSFC'          ,'T2' ,'SFC PRESS',' (hPa)'                                ,& !  96
- 'PMSL'          ,'T2' ,'SEA LEVEL PRESS',' (hPa)'                          ,& !  97
- 'CBMF'          ,'T2' ,'CUPARM CLDBASE MASS FLX','(kg m:S2:-2 s:S2:-1 )'    / !  98
+ 'ACCPBOTH_INCH' ,'T2' ,'ACCUM MIC+CUPARM PCP',' (inches)'                  ,& !  95
+ 'WSTAR'         ,'T2' ,'WSTAR',' (m s:S2:-1  )'                            ,& !  96
+ 'PSFC'          ,'T2' ,'SFC PRESS',' (hPa)'                                ,& !  97
+ 'PMSL'          ,'T2' ,'SEA LEVEL PRESS',' (hPa)'                          ,& !  98
+ 'CBMF'          ,'T2' ,'CUPARM CLDBASE MASS FLX','(kg m:S2:-2 s:S2:-1 )'   ,& !  99
+
+! ATM 3D (should be moved to previous section)
+ 'SPEEDK'        ,'T3' ,'WIND SPEED AT W',' (knots)'                         / ! 100
 
 ! ATMOSPHERE DIF2 fields (3D & 2D)
 
@@ -751,7 +755,7 @@ data fldlib(1:4,722:753)/ &
 
 ! Miscellaneous and new additions
 
-data fldlib(1:4,771:798)/ &
+data fldlib(1:4,771:800)/ &
  'RHO_OBS'       ,'T3' ,'NUDGING OBS AIR DENSITY',' (kg m:S2:-3  )'         ,& ! 771
  'THETA_OBS'     ,'T3' ,'NUDGING OBS THETA',' (K)'                          ,& ! 772
  'RRV_OBS'       ,'T3' ,'NUDGING OBS VAPOR MIXR',' (g kg:S2:-1  )'          ,& ! 773
@@ -779,7 +783,9 @@ data fldlib(1:4,771:798)/ &
  'ADDSC2_ZINT'   ,'T2' ,'VERTICAL INTEGRAL ADDED SCALAR 2',' ( )'           ,& ! 795
  'ADDSC1P2_ZINT' ,'T2' ,'VERTICAL INTEGRAL ADDED SCALARS 1+2',' ( )'        ,& ! 796
  'RVORTZW'       ,'T3' ,'REL VORTZ AT W',' (s:S2:-1  )'                     ,& ! 797
- 'TVORTZW'       ,'T3' ,'TOT VORTZ AT W',' (s:S2:-1  )'                     /  ! 798
+ 'TVORTZW'       ,'T3' ,'TOT VORTZ AT W',' (s:S2:-1  )'                     ,& ! 798
+ 'TROPZ'         ,'T2' ,'TROPOPAUSE HEIGHT',' (km)'                         ,& ! 799
+ 'TROPP'         ,'T2' ,'TROPOPAUSE PRESSURE',' (mb)'                        / ! 800
 
 ! External fields
 
@@ -1829,7 +1835,7 @@ case(93) ! 'ACCPCON'
 
    fldval = real(aconpr(i))
 
-case(94) ! 'ACCPBOTH'
+case(94:95) ! 'ACCPBOTH'
 
    fldval = 0.
 
@@ -1842,29 +1848,46 @@ case(94) ! 'ACCPBOTH'
    if (allocated(accph)) fldval = fldval + real(accph(i))
    if (allocated(aconpr)) fldval = fldval + real(aconpr(i))
 
-case(95) ! 'WSTAR'
+   if (icase == 95) fldval = fldval * 0.03937
+
+case(96) ! 'WSTAR'
 
    if (.not. allocated(wstar)) go to 1000
 
    fldval = wstar(i)
 
-case(96) ! 'PSFC'
+case(97) ! 'PSFC'
 
    if (.not. allocated(press)) go to 1000
 
    fldval = (press(k,i) + (zt(k) - topw(i)) * rho(k,i) * grav) * .01  ! hydrostatic eqn.
 
-case(97) ! 'PMSL'
+case(98) ! 'PMSL'
 
    if (.not. allocated(press)) go to 1000
 
    fldval = press(k,i) * (1. - .0065 * zt(k) / (tair(k,i) + .0065 * zt(k)))**(-5.257) * .01  ! hydrostatic eqn.
 
-case(98) ! 'CBMF'
+case(99) ! 'CBMF'
 
    if (.not. allocated(cbmf)) go to 1000
 
    fldval = cbmf(i)
+
+case(100) ! 'SPEEDK'
+
+   if (.not. allocated(vxe)) go to 1000
+
+   vx = wtbot * vxe(k ,i) &
+      + wttop * vxe(kp,i)
+
+   vy = wtbot * vye(k ,i) &
+      + wttop * vye(kp,i)
+
+   vz = wtbot * vze(k ,i) &
+      + wttop * vze(kp,i)
+
+   fldval = sqrt(vx**2 + vy**2 + vz**2) * 1.94384
 
 !-----------------------------------------
 ! ATMOSPHERE DIF2 fields - (3D & 2D)
@@ -5170,6 +5193,16 @@ case(797:798) ! RVORTW, TVORTW
       fldval = fldval + omega2 * zew(i) * eradi  ! add earth vorticity at W point
    endif
 
+case(799) ! 'TROPZ'
+
+   call comp_trop_height(i,fldval,0)
+   fldval = fldval * 1.e-3  ! km
+
+case(800) ! 'TROPP'
+
+   call comp_trop_height(i,fldval,1)
+   fldval = fldval * 1.e-2  ! mb
+
 case default
 
    go to 1000
@@ -5192,3 +5225,150 @@ return
 notavail = 3
 
 end subroutine oplot_lib
+
+
+
+subroutine comp_trop_height(iw, troph, iflag)
+
+  use mem_grid,  only: lpw, mza, dzm, dzim, dzt, zm, zt
+  use mem_basic, only: press, tair
+  use mem_turb,  only: kpblh
+
+  use mem_ijtabs, only: itab_w
+
+  implicit none
+
+  integer, intent(in)  :: iw
+  real,    intent(out) :: troph
+  integer, intent(in)  :: iflag  ! 0 - trop height, 1 - trop pressure (mb)
+
+  integer :: ks, ke, k, k550, iter
+  real    :: dTdz1, dTdz2, tropb, tropt, lapse, depth
+
+  ! Tropopause height is based on Reichler et al., "Determining the tropopause
+  ! height from gridded data", Geo.Res.Let., 2003. Search for layer where the
+  ! lapse rate falls below 2K per km for a depth of about 2000 m.
+
+  real, parameter :: lapse0 = -2.0e-3  ! -2 K per km; condition for tropopause
+  real, parameter :: depth0 =  1.75e3  ! depth of tropopause layer
+  real, parameter :: pdef   =  180.e2  ! default topopause pressure if the searches fail
+
+  ! start just above surface/PBL
+
+  k = max(lpw(iw)+5, kpblh(iw)+2)
+
+  ! skip to 550 mb level
+
+  do while (press(k,iw) > 550.d2)
+     k = k + 1
+  enddo
+
+  k550  = k
+  ks    = k550
+  troph = 0.0
+  lapse = lapse0
+  depth = depth0
+  iter  = 0
+
+  ! outer loop to iterate if we don't find a tropopause
+
+  outerloop: do while (troph < 1.0 .and. iter < 4)
+
+     iter = iter + 1
+
+     ! now start searching for tropopause
+
+     troploop: do while (ks < mza-1 .and. press(k,iw) > 50.d2 .and. troph < 1.0)
+
+        ! Loop over W (full) layers to find the first level where the temperature
+        ! decrease with height is below the critical lapse rate.
+
+        do k = ks, mza-1
+           if (tair(k+1,iw) >= tair(k,iw) + lapse * dzm(k)) exit
+        enddo
+        ks = k
+
+        ! We found a candidate for the tropopause. Interpolate to find the
+        ! bottom height of this layer
+        dTdz1 = (tair(ks  ,iw) - tair(ks-1,iw)) * dzim(ks-1)
+        dTdz2 = (tair(ks+1,iw) - tair(ks  ,iw)) * dzim(ks)
+        dTdz1 = min(dTdz1, 1.0001*lapse)  ! avaid chance of divide-by-zero
+
+        tropb = zm(ks-1) + dzt(ks) * (dTdz1 - lapse) / (dTdz1 - dTdz2)
+
+        ! Now check that the layer thickness meets the minimum depth
+
+        do k = ks+1, mza-1
+           if ( (tair(k+1,iw) < tair(k,iw) + lapse * dzm(k)) .or. (zm(k-1) - tropb > depth) ) exit
+        enddo
+        ke = k-1
+
+        if (zm(ke) - tropb >= depth) then
+           ! We found the topopause
+           troph = tropb
+           exit troploop
+        endif
+
+        ! Interpolate to find the top height of this layer
+        dTdz1 = (tair(ke+2,iw) - tair(ke+1,iw)) * dzim(ke+1)
+        dTdz2 = (tair(ke+1,iw) - tair(ke  ,iw)) * dzim(ke)
+        dTdz1 = min(dTdz1, 1.0001*lapse)  ! avaid chance of divide-by-zero
+
+        tropt = zm(ke+1) - dzt(ke+1) * (dTdz1 - lapse) / (dTdz1 - dTdz2)
+
+        if (tropt - tropb >= depth) then
+           ! We found the topopause
+           troph = tropb
+           exit troploop
+        endif
+
+        ! We did not find the tropopause. Search for the next candidate layer
+        ks = ke+2
+
+     enddo troploop
+
+     ! If we are here and haven't found the tropopause, relax the criteria
+     ! and try searching again
+
+     if (troph < 1.0) then
+        ks    = max(kpblh(iw)+2, lpw(iw)+5, k550 - 1)
+        lapse = 1.2 * lapse
+        depth = 0.9 * depth
+     endif
+
+  enddo outerloop
+
+  ! If the previous searches all failed to find a tropopause height,
+  ! just set the tropopause to a default pressure level
+
+  if (troph < 1.0) then
+
+     if (iflag == 1) then
+
+        ! set tropopause pressure to a default value
+        troph = pdef
+
+     else
+
+        ! search for height of default tropopause pressure
+        k = k550
+        do while (press(k,iw) > pdef)
+           k = k + 1
+        enddo
+        troph = (zt(k-1) * (pdef - real(press(k,iw))) + zt(k) * (real(press(k-1,iw)) - pdef)) / (press(k-1,iw) - press(k,iw))
+
+     endif
+
+  ! We found the tropopause height; convert it to pressure level if needed
+
+  elseif (iflag == 1) then
+
+     if (troph < zt(ks)) then
+        troph = exp( ( (log(real(press(ks  ,iw))) * (troph - zt(ks-1)) + log(real(press(ks-1,iw))) * (zt(ks  ) - troph)) ) * dzim(ks-1) )
+     else
+        troph = exp( ( (log(real(press(ks+1,iw))) * (troph - zt(ks  )) + log(real(press(ks  ,iw))) * (zt(ks+1) - troph)) ) * dzim(ks  ) )
+     endif
+
+  endif
+
+end subroutine comp_trop_height

@@ -923,12 +923,13 @@ subroutine plot_labelbar( iplt,fldname,units,projectn,slabloc,  &
      endif
   endif
 
-  ! Set color
+  ! Set line color and thickness
 
   call o_sflush( )
   call o_gsplci(10)
   call o_gstxci(10)
   call o_gsfaci(10)
+  call o_gslwsc(1.)
 
   ! Plot field name and units
 
@@ -1029,6 +1030,14 @@ subroutine plot_colorbar(itab)
 
   call o_set( op%hp1,op%hp2,op%vp1,op%vp2,0.,1.,0.,1.,1 )
 
+  ! Set line color and thickness
+
+  call o_sflush( )
+  call o_gsplci(10)
+  call o_gstxci(10)
+  call o_gsfaci(10)
+  call o_gslwsc(1.)
+
   ! Specify font # and scale font size to designated plotter coordinates
 
   call o_pcseti( 'FN',op%ncarg_font ) ! set font number to 4 (font 2 is similar but wider spacing)
@@ -1036,9 +1045,6 @@ subroutine plot_colorbar(itab)
 
   bsize = .009 * (op%hp2 - op%hp1)
  !bsize = .015 * (op%hp2 - op%hp1)
-
-  call o_gsplci(10)
-  call o_gstxci(10)
 
   ! Compute height increment of colorbar boxes
 
@@ -1541,12 +1547,13 @@ subroutine oplot_xy2log10( panel,frameoff,pltborder,colorbar0,aspect,scalelab, &
   real                     :: dashlen, dist, remain, step, xfac, yfac, asp2, x, y, eps, yy
   character(20)            :: numbr
 
-  ! Set plot color (black)
+  ! Set plot color (black) and line thickness
 
   call o_sflush()
   call o_gsplci(10)
   call o_gsfaci(10)
   call o_gstxci(10)
+  call o_gslwsc(1.)
 
   ! Scale local working window (0,1,0,1)
   ! to plotter coordinates (op%hp1,op%hp2,op%vp1,op%vp2)
@@ -1719,6 +1726,7 @@ subroutine oplot_xy2log10( panel,frameoff,pltborder,colorbar0,aspect,scalelab, &
   call o_gsplci(linecolor)
   call o_gsfaci(linecolor)
   call o_gstxci(linecolor)
+  call o_gslwsc(1.)
 
   yminlog = real(logymin)
   ymaxlog = real(logymax)
@@ -1828,6 +1836,7 @@ subroutine oplot_xy2loglog10( panel,frameoff,pltborder,colorbar0,aspect, &
   call o_gsplci(10)
   call o_gsfaci(10)
   call o_gstxci(10)
+  call o_gslwsc(1.)
 
   ! Scale local working window (0,1,0,1)
   ! to plotter coordinates (op%hp1,op%hp2,op%vp1,op%vp2)
@@ -1997,6 +2006,7 @@ subroutine oplot_xy2loglog10( panel,frameoff,pltborder,colorbar0,aspect, &
   call o_gsplci(linecolor)
   call o_gsfaci(linecolor)
   call o_gstxci(linecolor)
+  call o_gslwsc(1.)
 
   xminlog = real(logxmin)
   xmaxlog = real(logxmax)

@@ -4,7 +4,7 @@ subroutine vectgrid_horiz_w(iplt)
   use mem_grid,    only: mza, mwa, xew, yew, zew, wnx, wny, wnz
   use mem_ijtabs,  only: jtab_w, jtw_prog, itabg_m, itab_m
   use mem_basic,   only: vxe, vye, vze
-  use consts_coms, only: eradi
+  use consts_coms, only: eradi, pio180
   use misc_coms,   only: mdomain, iparallel
   use mem_para,    only: myrank, mgroupsize, nbytes_int, nbytes_real
   use minterp_lib, only: minterp_wghts, get_weights_lonlat
@@ -63,7 +63,7 @@ subroutine vectgrid_horiz_w(iplt)
   integer :: i, irecv, ierr, im, icolor, itmp, ic, npnts
   real :: dx, dy, wtu, wta, val, rr
 
-  real :: vxw, vyw, vzw, wt, xeg, yeg, zeg
+  real :: vxw, vyw, vzw, wt, xeg, yeg, zeg, xyscale
 
   integer :: ncount
 
@@ -357,6 +357,11 @@ subroutine vectgrid_horiz_w(iplt)
            pointx = xc(ix)
            pointy = yc(iy)
 
+           xyscale = 1.0
+           if (op%projectn(iplt) == 'L') then
+              xyscale = cos( pointy * pio180 )
+           endif
+
            vx  = recv_buf(irecv)%rvals( (i-1)*7+3 )
            vy  = recv_buf(irecv)%rvals( (i-1)*7+4 )
            vz  = recv_buf(irecv)%rvals( (i-1)*7+5 )
@@ -380,8 +385,8 @@ subroutine vectgrid_horiz_w(iplt)
 
               ! Plot wind barb at W point
 
-              stemx = vx * op%stemlength / speed
-              stemy = vy * op%stemlength / speed
+              stemx = vx * op%stemlength * xyscale / speed
+              stemy = vy * op%stemlength * xyscale / speed
               stemz = vz * op%stemlength / speed
 
            endif
@@ -467,8 +472,8 @@ subroutine vectgrid_horiz_w(iplt)
                  yea = yeg + (tailye - yeg) * pc
                  zea = zeg + (tailze - zeg) * pc
 
-                 xeb = xea - rnx * pf * op%stemlength
-                 yeb = yea - rny * pf * op%stemlength
+                 xeb = xea - rnx * pf * op%stemlength * xyscale
+                 yeb = yea - rny * pf * op%stemlength * xyscale
                  zeb = zea - rnz * pf * op%stemlength
 
                  pc = pc - pi
@@ -507,8 +512,8 @@ subroutine vectgrid_horiz_w(iplt)
                  yea = yeg + (tailye - yeg) * pc
                  zea = zeg + (tailze - zeg) * pc
 
-                 xeb = xea - rnx * pf * op%stemlength
-                 yeb = yea - rny * pf * op%stemlength
+                 xeb = xea - rnx * pf * op%stemlength * xyscale
+                 yeb = yea - rny * pf * op%stemlength * xyscale
                  zeb = zea - rnz * pf * op%stemlength
 
                  ! Transform triangle coordinates
@@ -538,8 +543,8 @@ subroutine vectgrid_horiz_w(iplt)
                  yea = yeg + (tailye - yeg) * pc
                  zea = zeg + (tailze - zeg) * pc
 
-                 xeb = xea - rnx * .5 * pf * op%stemlength
-                 yeb = yea - rny * .5 * pf * op%stemlength
+                 xeb = xea - rnx * .5 * pf * op%stemlength * xyscale
+                 yeb = yea - rny * .5 * pf * op%stemlength * xyscale
                  zeb = zea - rnz * .5 * pf * op%stemlength
 
                  ! Transform triangle coordinates
