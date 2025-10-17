@@ -444,6 +444,10 @@ subroutine olam_run(name_name)
      call init_minterp()
   endif
 
+  ! Initialize PBL quantities
+
+  call pbl_init()
+
   ! Check if LEAF will be used
 
   if (isfcl == 1) then
@@ -555,10 +559,6 @@ subroutine olam_run(name_name)
   if (nl%test_case == 5) then
      call fill_swtc5()
   endif
-
-  ! Initialize PBL quantities
-
-  call pbl_init()
 
   ! Extra initializations for small-timestep solver
 

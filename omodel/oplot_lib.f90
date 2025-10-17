@@ -4,7 +4,7 @@ use mem_ijtabs,  only: itab_w, itab_v, itab_m, &
                        jtab_w, jtab_v, jtab_m, &
                        jtw_prog, jtv_prog, jtm_vadj
 use mem_sfcg,    only: itab_wsfc, itab_msfc, itab_vsfc, sfcg
-use mem_land,    only: land, mland, omland, nzg, nzs, slz, dslz, slzt
+use mem_land,    only: land, mland, omland, nzg, nzs_max, slz, dslz, slzt
 use mem_lake,    only: lake, mlake, omlake
 use mem_sea,     only: sea,  msea,  omsea
 use pom2k1d,     only: pom
@@ -2402,8 +2402,7 @@ case(202:204) ! 'SFWAT_ENERGY', 'SFWAT_TEMPK', 'SFWAT_FRACLIQ'
    if (land%sfcwater_mass(1,iland) < wcap_min) then
       notavail = 4
    else
-      fldval1 = sum(land%sfcwater_energy(:,iland) * land%sfcwater_mass(:,iland)) &
-              / sum(land%sfcwater_mass(:,iland))
+      fldval1 = sum(land%sfcwater_epm2(:,iland)) / sum(land%sfcwater_mass(:,iland))
    endif
 
    if     (trim(fldname) == 'SFCWAT_ENERGY') then
@@ -2478,9 +2477,9 @@ case(217) ! 'SFCWATER_TOP_TEMP'
       notavail = 4
    else
       if (land%sfcwater_mass(2,iland) >= wcap_min) then
-         call qtk(land%sfcwater_energy(2,iland),tempk,fracliq)
+         call qwtk(land%sfcwater_epm2(2,iland),land%sfcwater_mass(2,iland),0.,tempk,fracliq)
       else
-         call qtk(land%sfcwater_energy(1,iland),tempk,fracliq)
+         call qwtk(land%sfcwater_epm2(1,iland),land%sfcwater_mass(1,iland),0.,tempk,fracliq)
       endif
       fldval = tempk
    endif
@@ -2495,20 +2494,20 @@ case(218) ! 'SOIL_TOP_TEMP'
 
 case(219) ! 'GROUND_RRV'
 
-   call grndvap(iland,                                &
-                sfcg%rhos                    (i    ), &
-                sfcg%canrrv                  (i    ), &
-                fldval1                             , &
-                fldval2                             , &
-                land%skncomp           (      iland), &
-                land%sfcwater_mass     (1:nzs,iland), &
-                land%sfcwater_energy   (1:nzs,iland), &
-                land%soil_water        (nzg+1,iland), &
-                land%soil_energy       (nzg+1,iland), &
-                land%head              (nzg+1,iland), &
-                land%specifheat_drysoil(nzg  ,iland), &
-                land%wresid_vg         (nzg  ,iland), &
-                land%soilfldcap        (      iland)  )
+   call grndvap(iland,                              &
+                sfcg%rhos                      (i), &
+                sfcg%canrrv                    (i), &
+                fldval1                           , &
+                fldval2                           , &
+                land%skncomp               (iland), &
+                land%sfcwater_mass       (:,iland), &
+                land%sfcwater_epm2       (:,iland), &
+                land%soil_water        (nzg,iland), &
+                land%soil_energy       (nzg,iland), &
+                land%head              (nzg,iland), &
+                land%specifheat_drysoil(nzg,iland), &
+                land%wresid_vg         (nzg,iland), &
+                land%soilfldcap            (iland)  )
    fldval = fldval2 * 1.e3
 
 case(220) ! 'SOIL_DEPTH'
@@ -3558,17 +3557,15 @@ case(310) ! 'SFCG_SKINTEMPK'
    elseif (sfcg%leaf_class(i) >= 2) then
       iland = i - omland
 
-      if (land%sfcwater_mass(1,iland) >= wcap_min) then
-         if (land%sfcwater_mass(2,iland) >= wcap_min) then
-            call qtk(land%sfcwater_energy(2,iland),tempk,fracliq)
-         else
-            call qtk(land%sfcwater_energy(1,iland),tempk,fracliq)
-         endif
-      else
+      if (land%skncomp(iland) <= 1) then
          call qwtk(land%soil_energy(nzg,iland),        &
                    land%soil_water(nzg,iland)*1.e3,    &
                    land%specifheat_drysoil(nzg,iland), &
                    tempk, fracliq)
+      elseif (land%skncomp(iland) == 2) then
+         call qwtk(land%sfcwater_epm2(1,iland),land%sfcwater_mass(1,iland),0.,tempk,fracliq)
+      else
+         call qwtk(land%sfcwater_epm2(2,iland),land%sfcwater_mass(2,iland),0.,tempk,fracliq)
       endif
 
       fldval = (1. - land%vf(iland)) * tempk &
@@ -3713,20 +3710,16 @@ case(332) ! 'WAT_TEMPK'
       fldval = tempk
    elseif (sfcg%leaf_class(i) >= 2) then
       iland = i - omland
-      if (land%sfcwater_mass(1,iland) >= wcap_min) then
-         if (land%sfcwater_mass(2,iland) >= wcap_min) then
-            call qtk(land%sfcwater_energy(2,iland),tempk,fracliq)
-         else
-            call qtk(land%sfcwater_energy(1,iland),tempk,fracliq)
-         endif
-         fldval = tempk
-      else
+      if (land%skncomp(iland) <= 1) then
          call qwtk(land%soil_energy(nzg,iland),        &
                    land%soil_water(nzg,iland)*1.e3,    &
                    land%specifheat_drysoil(nzg,iland), &
                    tempk, fracliq)
+      elseif (land%skncomp(iland) == 2) then
+         call qwtk(land%sfcwater_epm2(1,iland),land%sfcwater_mass(1,iland),0.,tempk,fracliq)
+      else
+         call qwtk(land%sfcwater_epm2(2,iland),land%sfcwater_mass(2,iland),0.,tempk,fracliq)
       endif
-
       fldval = tempk
    endif
 
@@ -4155,9 +4148,9 @@ case(401:409) ! 'ASFCG_VELS',       'ASFCG_AIRTEMPK', 'ASFCG_AIRRRV',
 
             if (land%sfcwater_mass(1,iland) >= wcap_min) then
                if (land%sfcwater_mass(2,iland) >= wcap_min) then
-                  call qtk(land%sfcwater_energy(2,iland),tempk,fracliq)
+                  call qwtk(land%sfcwater_epm2(2,iland),land%sfcwater_mass(2,iland),0.,tempk,fracliq)
                else
-                  call qtk(land%sfcwater_energy(1,iland),tempk,fracliq)
+                  call qwtk(land%sfcwater_epm2(1,iland),land%sfcwater_mass(1,iland),0.,tempk,fracliq)
                endif
             else
                call qwtk(land%soil_energy(nzg,iland),        &

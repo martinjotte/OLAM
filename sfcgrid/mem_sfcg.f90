@@ -204,6 +204,7 @@ Module mem_sfcg
      real, allocatable :: airtheta (:) ! air potential temperature [K]
      real, allocatable :: airrrv   (:) ! air mixing ratio [kg_vap/kg_dryair]
      real, allocatable :: airco2   (:) ! air mixing ratio of CO2 [kg_co2/kg_dryair]
+     real, allocatable :: pblh     (:) ! pbl height
 
      ! Canopy to atmosphere turbulent flux quantities
 
@@ -498,6 +499,7 @@ Contains
      allocate (sfcg%airtemp       (mwsfc))
      allocate (sfcg%airtheta      (mwsfc))
      allocate (sfcg%airrrv        (mwsfc))
+     allocate (sfcg%pblh          (mwsfc))
 
      allocate (sfcg%ustar         (mwsfc))
      allocate (sfcg%vkmsfc        (mwsfc))
@@ -562,6 +564,7 @@ Contains
         if ( allocated( sfcg%airtemp       ) ) sfcg%airtemp       (iwsfc) = rinit
         if ( allocated( sfcg%airtheta      ) ) sfcg%airtheta      (iwsfc) = rinit
         if ( allocated( sfcg%airrrv        ) ) sfcg%airrrv        (iwsfc) = rinit
+        if ( allocated( sfcg%pblh          ) ) sfcg%pblh          (iwsfc) = rinit
 
         if ( allocated( sfcg%ustar         ) ) sfcg%ustar         (iwsfc) = rinit
         if ( allocated( sfcg%vkmsfc        ) ) sfcg%vkmsfc        (iwsfc) = rinit
@@ -645,6 +648,8 @@ Contains
      if (allocated(sfcg%airtheta))       call increment_vtable('SFCG%AIRTHETA',       'CW', rvar1=sfcg%airtheta)
      if (allocated(sfcg%airrrv))         call increment_vtable('SFCG%AIRRRV',         'CW', rvar1=sfcg%airrrv)
      if (allocated(sfcg%airco2))         call increment_vtable('SFCG%AIRCO2',         'CW', rvar1=sfcg%airco2)
+     if (allocated(sfcg%pblh))           call increment_vtable('SFCG%PBLH',           'CW', rvar1=sfcg%pblh)
+
      if (allocated(sfcg%ustar))          call increment_vtable('SFCG%USTAR',          'CW', rvar1=sfcg%ustar)
      if (allocated(sfcg%vkhsfc))         call increment_vtable('SFCG%VKHSFC',         'CW', rvar1=sfcg%vkhsfc)
      if (allocated(sfcg%sfluxt))         call increment_vtable('SFCG%SFLUXT',         'CW', rvar1=sfcg%sfluxt)

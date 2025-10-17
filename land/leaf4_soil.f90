@@ -8,17 +8,16 @@ Module leaf4_soil
 
 Contains
 
-  subroutine soil(iland, iwsfc, ktrans, transp, wfree1, qwfree1,           &
-                  leaf_class, glatw, glonw, head1, head0, gpp,             &
-                  skncomp, sfcwater_mass, sfcwater_energy, sfcwater_depth, &
-                  sfcwater_epm2, soil_water, soil_energy,                  &
-                  wresid_vg, wsat_vg, ksat_vg, lambda_vg, en_vg,           &
-                  soil_watfrac, head_slope, head,                          &
-                  soil_tempk, soil_fracliq, thermcond_soil,                &
-                  dheight, energyin                                        )
+  subroutine soil(iland, iwsfc, ktrans, transp, wfree1, qwfree1,  &
+                  leaf_class, glatw, glonw, head1, head0, gpp,    &
+                  skncomp, sfcwater_mass, sfcwater_epm2,          &
+                  sfcwater_depth, soil_water, soil_energy,        &
+                  wresid_vg, wsat_vg, ksat_vg, lambda_vg, en_vg,  &
+                  soil_watfrac, head_slope, head,                 &
+                  soil_tempk, soil_fracliq, dheight, energyin     )
 
   use leaf_coms,      only: dt_leaf, z_root, wcap_min
-  use mem_land,       only: nzg, nzs, slz, slzt, dslz, dslzo2, dslzi, kperc, itab_land
+  use mem_land,       only: nzg, slz, slzt, dslz, dslzo2, dslzi, kperc, itab_land
   use mem_sfcg,       only: itab_wsfc
   use consts_coms,    only: cliq1000, cice1000, alli1000, alvi
   use tridiag,        only: tridiffo
@@ -41,9 +40,8 @@ Contains
   real,    intent(in   ) :: gpp             ! Carbon gross primary production [?]
   integer, intent(in   ) :: skncomp         ! surface skinlayer composition type []
   real,    intent(inout) :: sfcwater_mass   ! surface water mass(1) [kg/m^2]
-  real,    intent(inout) :: sfcwater_energy ! surface water energy(1) [J/kg]
+  real,    intent(inout) :: sfcwater_epm2   ! surface water energy(1) [J/m^2]
   real,    intent(inout) :: sfcwater_depth  ! surface water depth(1) [m]
-  real,    intent(inout) :: sfcwater_epm2   ! sfcwater energy(1) [J/m^2]
 
   real, intent(inout) :: soil_water    (nzg) ! soil water content [vol_water/vol_tot]
   real, intent(inout) :: soil_energy   (nzg) ! soil energy [J/m^3]
@@ -59,7 +57,6 @@ Contains
   real, intent(in   ) :: soil_fracliq  (nzg) ! fraction of soil water that is liquid
   real, intent(in   ) :: dheight       (nzg) ! change in water height from lateral fluxes [m]
   real, intent(in   ) :: energyin      (nzg) ! change in energy from lateral fluxes [J/(m^2)]
-  real, intent(in   ) :: thermcond_soil(nzg) ! soil thermal conductivity [W/(K m)]
 
   ! Local variables
 
@@ -70,6 +67,7 @@ Contains
   real :: hydresist_bot(nzg) ! hydraulic resistance of bottom half of layer [s]
   real :: hydresist_top(nzg) ! hydraulic resistance of top half of layer [s]
   real :: soil_rfactor (nzg) ! soil thermal resistance across W level
+  real :: sfcwater_energy    ! surface water energy(1) [J/kg]
 
   ! Defined at bottom face of soil layers & of sfcwater layer 1
 
@@ -96,12 +94,7 @@ Contains
 
   ! Loop over soil T levels
 
-  do k = 1,nzg
-
-     ! Soil heat resistance times HALF layer depth (soil_rfactor).
-
-     soil_rfactor(k) = dslzo2(k) / thermcond_soil(k)
-
+  do k = 1, nzg
      qow(k) = cliq1000 * (soil_tempk(k) - 273.15) + alli1000
   enddo
 
@@ -128,10 +121,8 @@ Contains
 
   ! Loop over soil W levels - fractional water content and heat transfer
 
-  do k = 2,nzg
+  do k = 2, nzg
      soil_watfracw(k) = .5 * (soil_watfrac(k-1) + soil_watfrac(k))
-     hxferg(k) = dt_leaf * (soil_tempk(k-1) - soil_tempk(k)) &
-               / (soil_rfactor(k-1) + soil_rfactor(k))
   enddo
 
   ! At top, soil_watfracw assumes mean between nzg cell value and saturation
@@ -140,9 +131,6 @@ Contains
   soil_watfracw(nzg+1) = .5 * (1.0 + soil_watfrac(nzg))
 
   ! Soil bottom, top, and internal sensible heat xfers [J/m2]
-
-  hxferg(1) = 0.
-  hxferg(nzg+1) = 0.
 
   ! [12/07/04] Revisit the computation of water xfer between soil layers in
   ! relation to the extreme nonlinearity of hydraulic conductivity with respect
@@ -175,10 +163,6 @@ Contains
   ! Loop over soil T levels
 
   do k = 1, nzg
-
-     ! Update soil_energy values [J/m3] at all levels from internal heat conduction
-
-     soil_energy(k) = soil_energy(k) + dslzi(k) * (hxferg(k) - hxferg(k+1))
 
      ! Compute hydraulic conductivity for relative saturations at bottom and
      ! top of cell using central hydraulic properties of cell
@@ -408,10 +392,9 @@ Contains
      soil_water (nzg) = soil_water (nzg) + dslzi(nzg) * sfcwater_mass * .001
      soil_energy(nzg) = soil_energy(nzg) + dslzi(nzg) * sfcwater_epm2
 
-     sfcwater_mass   = 0.
-     sfcwater_epm2   = 0.
-     sfcwater_energy = 0.
-     sfcwater_depth  = 0.
+     sfcwater_mass  = 0.
+     sfcwater_epm2  = 0.
+     sfcwater_depth = 0.
 
   endif
 

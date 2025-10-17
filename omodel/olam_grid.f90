@@ -1643,15 +1643,15 @@ subroutine gridfile_read_pd()
      write(io6,*) ' '
 
      if (ndz0 > 1 .and. ndz > 1) then
-        write(io6, '(a,20f10.1)') 'hdz0:     ',hdz0 (1:ndz)
+        write(io6, '(a,20f10.1)') 'hdz0:     ',hdz0 (1:ndz0)
         write(io6, '(a,20f10.1)') 'hdz:      ',hdz  (1:ndz)
         write(io6,*) ' '
-        write(io6, '(a,20f10.1)') 'dz0:      ',dz0 (1:ndz)
+        write(io6, '(a,20f10.1)') 'dz0:      ',dz0 (1:ndz0)
         write(io6, '(a,20f10.1)') 'dz:       ',dz  (1:ndz)
      endif
 
      write(io6,*) ' '
-     write(io6, '(a,20i12)')   'ngrdll0:  ',ngrdll0 (1:ngrids)
+     write(io6, '(a,20i12)')   'ngrdll0:  ',ngrdll0 (1:ngrids0)
      write(io6, '(a,20i12)')   'ngrdll:   ',ngrdll  (1:ngrids)
      write(io6,*) ' '
 

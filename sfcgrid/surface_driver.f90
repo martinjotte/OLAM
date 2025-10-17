@@ -20,6 +20,7 @@ subroutine surface_driver()
   use mem_para,      only: myrank
   use olam_mpi_sfc,  only: mpi_send_wsfc, mpi_recv_wsfc
   use oname_coms,    only: nl
+  use landcells_mod, only: landcells
 
   implicit none
 
@@ -263,6 +264,7 @@ subroutine sfcg_avgatm()
   use olam_mpi_sfc, only: mpi_send_wsfc, mpi_recv_wsfc
   use mem_sfcg,     only: mwsfc, sfcg, itab_wsfc
   use mem_sea,      only: sea, omsea
+  use mem_turb,     only: pblh
 
   implicit none
 
@@ -285,6 +287,7 @@ subroutine sfcg_avgatm()
      sfcg%airtemp (iwsfc) = 0.
      sfcg%airtheta(iwsfc) = 0.
      sfcg%airrrv  (iwsfc) = 0.
+     sfcg%pblh    (iwsfc) = 0.
 
      if (co2flag /= 0) then
         sfcg%airco2(iwsfc) = 0.
@@ -304,6 +307,7 @@ subroutine sfcg_avgatm()
         sfcg%rhos    (iwsfc) = sfcg%rhos    (iwsfc) + itab_wsfc(iwsfc)%arcoarsfc(j) * rho  (kw,iw)
         sfcg%airtemp (iwsfc) = sfcg%airtemp (iwsfc) + itab_wsfc(iwsfc)%arcoarsfc(j) * tair (kw,iw)
         sfcg%airtheta(iwsfc) = sfcg%airtheta(iwsfc) + itab_wsfc(iwsfc)%arcoarsfc(j) * theta(kw,iw)
+        sfcg%pblh    (iwsfc) = sfcg%pblh    (iwsfc) + itab_wsfc(iwsfc)%arcoarsfc(j) * pblh    (iw)
 
         if (allocated(rr_c)) then
            sfcg%airrrv(iwsfc) = sfcg%airrrv(iwsfc) + itab_wsfc(iwsfc)%arcoarsfc(j) * (rr_v(kw,iw) + rr_c(kw,iw))

@@ -18,7 +18,7 @@ subroutine lakecells(ilake)
   integer :: iwsfc
 
   real :: canexneri, cantheta, canthetav
-  real :: airthetav, ufree
+  real :: airthetav, wstars
 
   real, parameter :: onethird = 1./3.
 
@@ -40,13 +40,13 @@ subroutine lakecells(ilake)
      cantheta  = sfcg%cantemp(iwsfc) * canexneri
      canthetav = cantheta * (1.0 + eps_virt * sfcg%canrrv(iwsfc))
 
-     ufree = (grav * sfcg%dzt_bot(iwsfc) * max(sfcg%wthv(iwsfc),0.0) / airthetav) ** onethird
+     wstars = (grav * sfcg%pblh(iwsfc) * max(sfcg%wthv(iwsfc),0.0) / airthetav) ** onethird
 
      call stars(sfcg%dzt_bot (iwsfc), &
                 sfcg%rough   (iwsfc), &
                 sfcg%vels    (iwsfc), &
                 sfcg%rhos    (iwsfc), &
-                ufree               , &
+                wstars              , &
                 airthetav           , &
                 canthetav           , &
                 sfcg%vkmsfc  (iwsfc), &

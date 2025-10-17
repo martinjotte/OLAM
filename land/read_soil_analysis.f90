@@ -332,22 +332,26 @@ subroutine read_soil_analysis(soil_tempc)
            tempc = sfcg%cantemp(iwsfc) - 273.15
            tempc = min(tempc, soil_tempc(nzg,iland))
 
-           land%sfcwater_energy(1,iland) = min(0., tempc * cice)
+           land%sfcwater_epm2(1,iland) = land%sfcwater_mass(1,iland) * min(0., tempc * cice)
 
            ! snow density calculation comes from CLM3.0 documentation
            ! which is based on Anderson 1975 NWS Technical Doc # 19
 
-           snowdens = 50.0
-           tempk    = tempc + 273.15
-           if (tempk > 258.15) snowdens = 50.0 + 1.5 * (tempk - 258.15)**1.5
+           ! NOTE: this is only appropriate for newly fallen snow, NOT existing snowpack
+           !snowdens = 50.0
+           !tempk    = tempc + 273.15
+           !if (tempk > 258.15) snowdens = 50.0 + 1.5 * (tempk - 258.15)**1.5
+
+           ! go from 300 to 650 kg/m^3
+           snowdens = 250. + 5.0 * max(0., min(17., tempc+15.))**1.5
 
            land%sfcwater_depth(1,iland) = land%sfcwater_mass(1,iland) / snowdens
 
         else
 
-           land%sfcwater_mass  (1,iland) = 0.
-           land%sfcwater_energy(1,iland) = 0.
-           land%sfcwater_depth (1,iland) = 0.
+           land%sfcwater_mass (1,iland) = 0.
+           land%sfcwater_epm2 (1,iland) = 0.
+           land%sfcwater_depth(1,iland) = 0.
 
         endif
 

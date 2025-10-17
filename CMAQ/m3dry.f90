@@ -150,7 +150,7 @@ SUBROUTINE m3dry ( iw, abflux, sfc_hono, nsfc, depvel_gas )
   use hlconst_mod, only: hlconst
   use micro_coms,  only: ccnparm
   use mem_micro,   only: cldnum
-  use therm_lib,   only: rhovsl_inv, qtk, qtk_sea, qwtk
+  use therm_lib,   only: rhovsl_inv, qwtk, qtk_sea, qwtk
   use mem_megan,   only: pfts
   use oname_coms,  only: nl
 
@@ -355,15 +355,16 @@ SUBROUTINE m3dry ( iw, abflux, sfc_hono, nsfc, depvel_gas )
      wsat_vg = land%wsat_vg(nzg,iland)
      soil_water1 = min(land%soil_water(nzg,iland), wsat_vg)
 
-     if (land%sfcwater_mass(1,iland) >= wcap_min) then
-        if (land%sfcwater_mass(2,iland) >= wcap_min) then
-           ! Surface wetness factor
-           deltag = min( 1.0, (land%sfcwater_mass(2,iland) / 0.2)**2 ) ** onethird
-           ! Sfcwater temperature and liquid water mass fraction
-           call qtk( land%sfcwater_energy(2,iland), tempgr, liqfrg )
+     if (land%sfcwater_mass(1,iland) > wcap_min) then
+
+        ! Surface wetness factor
+        deltag = min( 1.0, (land%sfcwater_mass(1,iland) / 0.2)**2 ) ** onethird
+
+        ! Sfcwater temperature and liquid water mass fraction
+        if (land%sfcwater_mass(2,iland) > wcap_min) then
+           call qwtk( land%sfcwater_epm2(2,iland), land%sfcwater_mass(2,iland), 0., tempgr, liqfrg )
         else
-           deltag = min( 1.0, (land%sfcwater_mass(1,iland) / 0.2)**2 ) ** onethird
-           call qtk( land%sfcwater_energy(1,iland), tempgr, liqfrg )
+           call qwtk( land%sfcwater_epm2(1,iland), land%sfcwater_mass(1,iland), 0., tempgr, liqfrg )
         endif
 
         if (hasveg) then

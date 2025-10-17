@@ -24,8 +24,8 @@ Module leaf_coms
   real, parameter :: fpar_min   =  .001  ! Minimum fpar
   real, parameter :: fpar_max   =  .950  ! Maximum fpar
 
-  real, parameter :: soil_rough =  .050  ! soil roughness height
-  real, parameter :: snow_rough =  .010  ! snowcover roughness height
+  real, parameter :: soil_rough =  .02   ! soil roughness height
+  real, parameter :: snow_rough =  .003  ! snowcover roughness height
 
   character(pathlen) :: veg_database
   character(pathlen) :: soil_database
@@ -52,7 +52,6 @@ Module leaf_coms
   integer :: nvgcon   ! leaf class (optionally used OLAMIN parameter)
 
   real :: dt_leaf      ! leaf timestep [s]
-  real :: snowmin_expl ! minimum surface water mass for explicit computation [kg/m^2]
   real :: wcap_min     ! minimum surface water [kg/m^2]
   real :: wcap_vmin    ! minimum vegetation surface water [kg/m^2]
 

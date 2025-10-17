@@ -2,7 +2,7 @@ Module mem_land
 
   implicit none
 
-  integer, parameter :: nzs = 2 ! max number of sfcwater grid levels
+  integer, parameter :: nzs_max = 2 ! max number of sfcwater grid levels
 
   integer :: nzg         ! number of soil grid levels
 
@@ -73,9 +73,9 @@ Module mem_land
 
      integer, allocatable :: skncomp  (:) ! surface skinlayer composition type (1-3) []
 
-     real,    allocatable :: sfcwater_mass  (:,:) ! surface water mass [kg/m^2]
-     real,    allocatable :: sfcwater_energy(:,:) ! surface water energy [J/kg]
-     real,    allocatable :: sfcwater_depth (:,:) ! surface water depth [m]
+     real,    allocatable :: sfcwater_mass (:,:) ! surface water mass [kg/m^2]
+     real,    allocatable :: sfcwater_epm2 (:,:) ! surface water energy [J/m^2]
+     real,    allocatable :: sfcwater_depth(:,:) ! surface water depth [m]
 
      ! Soil quantities (time-dependent)
 
@@ -246,9 +246,9 @@ Contains
   allocate( land%vf                    (mland) )
 
   allocate( land%skncomp               (mland) )
-  allocate( land%sfcwater_mass     (nzs,mland) )
-  allocate( land%sfcwater_energy   (nzs,mland) )
-  allocate( land%sfcwater_depth    (nzs,mland) )
+  allocate( land%sfcwater_mass (nzs_max,mland) )
+  allocate( land%sfcwater_epm2 (nzs_max,mland) )
+  allocate( land%sfcwater_depth(nzs_max,mland) )
 
   ! Soil quantities
 
@@ -307,7 +307,7 @@ Contains
 
      if ( allocated( land%skncomp            ) ) land%skncomp             (iland) = 1
      if ( allocated( land%sfcwater_mass      ) ) land%sfcwater_mass     (:,iland) = rinit
-     if ( allocated( land%sfcwater_energy    ) ) land%sfcwater_energy   (:,iland) = rinit
+     if ( allocated( land%sfcwater_epm2      ) ) land%sfcwater_epm2     (:,iland) = rinit
      if ( allocated( land%sfcwater_depth     ) ) land%sfcwater_depth    (:,iland) = rinit
 
      ! Soil quantities
@@ -371,10 +371,10 @@ Contains
   if (allocated(land%ppfd))         call increment_vtable('LAND%PPFD',         'LW', rvar1=land%ppfd)
   if (allocated(land%ppfd_diffuse)) call increment_vtable('LAND%PPFD_DIFFUSE', 'LW', rvar1=land%ppfd_diffuse)
 
-  if (allocated(land%skncomp))         call increment_vtable('LAND%SKNCOMP',         'LW', ivar1=land%skncomp)
-  if (allocated(land%sfcwater_mass))   call increment_vtable('LAND%SFCWATER_MASS',   'LW', rvar2=land%sfcwater_mass)
-  if (allocated(land%sfcwater_energy)) call increment_vtable('LAND%SFCWATER_ENERGY', 'LW', rvar2=land%sfcwater_energy)
-  if (allocated(land%sfcwater_depth))  call increment_vtable('LAND%SFCWATER_DEPTH',  'LW', rvar2=land%sfcwater_depth)
+  if (allocated(land%skncomp))         call increment_vtable('LAND%SKNCOMP',        'LW', ivar1=land%skncomp)
+  if (allocated(land%sfcwater_mass))   call increment_vtable('LAND%SFCWATER_MASS',  'LW', rvar2=land%sfcwater_mass)
+  if (allocated(land%sfcwater_epm2))   call increment_vtable('LAND%SFCWATER_EPM2',  'LW', rvar2=land%sfcwater_epm2)
+  if (allocated(land%sfcwater_depth))  call increment_vtable('LAND%SFCWATER_DEPTH', 'LW', rvar2=land%sfcwater_depth)
 
   ! Soil quantities
 

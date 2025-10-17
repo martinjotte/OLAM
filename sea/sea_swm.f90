@@ -57,6 +57,7 @@ subroutine swm_driver()
   use oname_coms,   only: nl
   use umwm_module,  only: umwmflg
   use umwm_top,     only: umwm_step
+  use leaf4_surface,only: skncomp_diagnose
 
   implicit none
 
@@ -237,10 +238,6 @@ subroutine swm_driver()
         ! Skip this cell if running in parallel and cell rank is not MYRANK
         if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
-        ! Apply horizontal groundwater mass and energy fluxes
-
-        lake_epm2 = land%sfcwater_energy(1,iland) * land%sfcwater_mass(1,iland)
-
         ! Loop over all lateral faces of this iland cell
 
         do j = 1,itab_wsfc(iwsfc)%npoly
@@ -251,6 +248,8 @@ subroutine swm_driver()
            else
               dirv = -1.0
            endif
+
+           ! Apply horizontal groundwater mass and energy fluxes
 
            if (nl%igw_spinup /= 1) then
 
@@ -264,21 +263,21 @@ subroutine swm_driver()
               land%sfcwater_mass(1,iland)  = land%sfcwater_mass(1,iland)   &
                                            + factor * sfcg%hflux_wat(ivn) * 1000. ! [kg/m^2]
 
-              lake_epm2                    = lake_epm2 &
+              land%sfcwater_epm2(1,iland)  = land%sfcwater_mass(1,iland)   &
                                            + factor * sfcg%hflux_enr(ivn) ! [J/m^2]
 
            endif
 
         enddo ! j, ivn
 
-        land%sfcwater_energy(1,iland) = lake_epm2 &
-                                      / max(wcap_min,land%sfcwater_mass(1,iland))
-
-        if (land%sfcwater_mass  (1,iland) < wcap_min) then
-            land%sfcwater_mass  (:,iland) = 0.
-            land%sfcwater_energy(:,iland) = 0.
-            land%sfcwater_depth (:,iland) = 0.
-        endif
+        call skncomp_diagnose(iland, iwsfc,    &
+             land%skncomp             (iland), &
+             land%sfcwater_mass     (:,iland), &
+             land%sfcwater_epm2     (:,iland), &
+             land%sfcwater_depth    (:,iland), &
+             land%soil_water        (:,iland), &
+             land%soil_energy       (:,iland), &
+             land%specifheat_drysoil(:,iland)  )
 
      enddo
      !$omp end do
@@ -374,9 +373,10 @@ subroutine swm_hflux(iv, iw1, iw2)
   use mem_sfcg,    only: sfcg, itab_vsfc
   use mem_sea,     only: sea, omsea
   use mem_lake,    only: lake, omlake
-  use mem_land,    only: land, omland
+  use mem_land,    only: land, omland, nzg
   use consts_coms, only: cliq1000, alli1000, grav
-  use therm_lib,   only: qtk
+  use therm_lib,   only: qtk, qwtk
+  use leaf_coms,   only: wcap_min
 
   implicit none
 
@@ -432,7 +432,12 @@ subroutine swm_hflux(iv, iw1, iw2)
      iland1 = iw1 - omland
      wdepth1 = land%sfcwater_depth(1,iland1)
      mc1 = mc_land
-     call qtk(land%sfcwater_energy(1,iland1), tempk1, fracliq1)
+     if ( land%sfcwater_mass(1,iland1) < wcap_min ) then
+        call qwtk( land%soil_energy(nzg,iland1), land%soil_water(nzg,iland1)*1.e3, &
+                   land%specifheat_drysoil(nzg,iland1), tempk1, fracliq1 )
+     else
+        call qwtk( land%sfcwater_epm2(1,iland1), land%sfcwater_mass(1,iland1), 0., tempk1, fracliq1 )
+     endif
   endif
 
   if (sfcg%leaf_class(iw2) == 0) then
@@ -451,7 +456,12 @@ subroutine swm_hflux(iv, iw1, iw2)
      iland2 = iw2 - omland
      wdepth2 = land%sfcwater_depth(1,iland2)
      mc2 = mc_land
-     call qtk(land%sfcwater_energy(1,iland2), tempk2, fracliq2)
+     if ( land%sfcwater_mass(1,iland2) < wcap_min ) then
+        call qwtk( land%soil_energy(nzg,iland2), land%soil_water(nzg,iland2)*1.e3, &
+                   land%specifheat_drysoil(nzg,iland2), tempk2, fracliq2 )
+     else
+        call qwtk( land%sfcwater_epm2(1,iland2), land%sfcwater_mass(1,iland2), 0., tempk2, fracliq2 )
+     endif
   endif
 
   vdepth = 0.5 * (wdepth1 + wdepth2)

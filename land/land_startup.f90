@@ -210,7 +210,7 @@ subroutine land_parms()
                         sr_max, tai_max, sai, veg_clump, veg_frac,    &
                         veg_ht, dead_frac, rcmin, glai_max, dfpardsr, &
                         fpar_max, fpar_min, sr_min, z_root, kroot,    &
-                        snowmin_expl, wcap_min, wcap_vmin, dt_leaf
+                        wcap_min, wcap_vmin, dt_leaf
 
   use mem_land,   only: nzg, slz, kperc
 
@@ -288,10 +288,6 @@ subroutine land_parms()
 
   if (nl%igw_spinup /= 1) then
 
-     ! Standard run with ATM coupling and short timestep
-
-     snowmin_expl = max(10.0, 0.04 * dt_leaf)
-
      ! Choose percolation level to be slz level that is closest to -3.0 m in height
 
      zdiff = 1.e4
@@ -304,12 +300,6 @@ subroutine land_parms()
      enddo
 
      write(io6,'(a,i5,f8.2)') 'Percolation level at kperc,slz(kperc) ',kperc,slz(kperc)
-
-  else
-
-     ! Surface stand-alone run with long timestep
-
-     snowmin_expl = 300.
 
   endif
 

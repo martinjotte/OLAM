@@ -20,7 +20,7 @@ subroutine seacells(isea, timefac_sst, timefac_seaice)
   integer :: iwsfc
 
   real :: canexneri, cantheta, canthetav
-  real :: airthetav, ufree
+  real :: airthetav, wstars
   real :: usti, zw, zn1, zn2
   real :: raxis, windu, windv, cdtop, wusurf, wvsurf, wtsurf, wssurf, swrad, hfluxsea
   real :: sea_spray1_temp, sea_spray2_temp
@@ -79,13 +79,13 @@ subroutine seacells(isea, timefac_sst, timefac_seaice)
   cantheta  = sea%sea_cantemp(isea) * canexneri
   canthetav = cantheta * (1.0 + eps_virt * sea%sea_canrrv(isea))
 
-  ufree = (grav * sfcg%dzt_bot(iwsfc) * max(sea%sea_wthv(isea),0.0) / airthetav) ** onethird
+  wstars = (grav * sfcg%pblh(iwsfc) * max(sea%sea_wthv(isea),0.0) / airthetav) ** onethird
 
   call stars(sfcg%dzt_bot  (iwsfc), &
              sea%sea_rough  (isea), &
              sfcg%vels     (iwsfc), &
              sfcg%rhos     (iwsfc), &
-             ufree                , &
+             wstars               , &
              airthetav            , &
              canthetav            , &
              sea%sea_vkmsfc (isea), &
@@ -254,13 +254,13 @@ subroutine seacells(isea, timefac_sst, timefac_seaice)
      cantheta  = sea%ice_cantemp(isea) * canexneri
      canthetav = cantheta * (1.0 + eps_virt * sea%ice_canrrv(isea))
 
-     ufree = (grav * sfcg%dzt_bot(iwsfc) * max(sea%ice_wthv(isea),0.0) / airthetav) ** onethird
+     wstars = (grav * sfcg%pblh(iwsfc) * max(sea%ice_wthv(isea),0.0) / airthetav) ** onethird
 
      call stars(sfcg%dzt_bot  (iwsfc), &
                 sea%ice_rough  (isea), &
                 sfcg%vels     (iwsfc), &
                 sfcg%rhos     (iwsfc), &
-                ufree                , &
+                wstars               , &
                 airthetav            , &
                 canthetav            , &
                 sea%ice_vkmsfc (isea), &
@@ -424,7 +424,7 @@ subroutine seacell_1( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
   ! Local variables used to evaluate wind speed at 10 m height
 
   real :: z10, press_z10, exner_z10, cantheta, canthetav, airthetav
-  real :: ufree, wind_z10, theta_z10, rrv_z10
+  real :: wstars, wind_z10, theta_z10, rrv_z10
 
   ! Seaspray is represented in the "sea canopy" in an analogous manner to water
   ! on the surface of vegetation in the land canopy.  Heat and vapor are exchanged
@@ -495,10 +495,10 @@ subroutine seacell_1( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
      canthetav = cantheta             * (1.0 + eps_virt * canrrv)
      airthetav = sfcg%airtheta(iwsfc) * (1.0 + eps_virt * airrrv)
 
-     ufree = (grav * sfcg%dzt_bot(iwsfc) * max(wthv,0.0) / airthetav) ** one3
+     wstars = (grav * sfcg%pblh(iwsfc) * max(wthv,0.0) / airthetav) ** one3
 
      call sfclyr_profile (vels, rhos, canexner, ustar, sfluxt, sfluxr, &
-                          sfcg%dzt_bot(iwsfc), rough, ufree, &
+                          sfcg%dzt_bot(iwsfc), rough, wstars, &
                           cantheta, canthetav, canrrv, airthetav, &
                           z10, wind_z10, theta_z10, rrv_z10)
   else
@@ -850,7 +850,7 @@ subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
   ! Local variables used to evaluate wind speed at 10 m height
 
   real :: z10, press_z10, exner_z10, cantheta, canthetav, airthetav
-  real :: ufree, wind_z10, theta_z10, rrv_z10
+  real :: wstars, wind_z10, theta_z10, rrv_z10
 
   ! Seaspray is represented in the "sea canopy" in an analogous manner to water
   ! on the surface of vegetation in the land canopy.  Heat and vapor are exchanged
@@ -921,10 +921,10 @@ subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
      canthetav = cantheta             * (1.0 + eps_virt * canrrv)
      airthetav = sfcg%airtheta(iwsfc) * (1.0 + eps_virt * airrrv)
 
-     ufree = (grav * sfcg%dzt_bot(iwsfc) * max(wthv,0.0) / airthetav) ** one3
+     wstars = (grav * sfcg%pblh(iwsfc) * max(wthv,0.0) / airthetav) ** one3
 
      call sfclyr_profile (vels, rhos, canexner, ustar, sfluxt, sfluxr, &
-                          sfcg%dzt_bot(iwsfc), rough, ufree, &
+                          sfcg%dzt_bot(iwsfc), rough, wstars, &
                           cantheta, canthetav, canrrv, airthetav, &
                           z10, wind_z10, theta_z10, rrv_z10)
   else

@@ -10,7 +10,7 @@ subroutine radiate()
   use mem_ijtabs,   only: jtab_w, itab_w, mrl_begl, istp, jtw_prog
   use mem_sfcg,     only: itab_wsfc, sfcg, mwsfc
   use mem_lake,     only: lake, mlake, omlake
-  use mem_land,     only: land, mland, omland, nzg, nzs
+  use mem_land,     only: land, mland, omland, nzg
   use mem_sea,      only: sea, msea, omsea
   use sea_coms,     only: nzi
   use leaf4_surface,only: sfcrad_land, sfcrad_prep, sfcrad_rlongup
@@ -204,7 +204,7 @@ subroutine radiate()
              sfcg%wnz               (    iwsfc), &
              land%skncomp           (    iland), &
              land%sfcwater_mass     (:,  iland), &
-             land%sfcwater_energy   (:,  iland), &
+             land%sfcwater_epm2     (:,  iland), &
              land%sfcwater_depth    (:,  iland), &
              land%veg_temp          (    iland), &
              land%veg_fracarea      (    iland), &
@@ -521,8 +521,7 @@ subroutine radiate()
              sfcg%leaf_class        (    iwsfc), &
              land%skncomp           (    iland), &
              land%sfcwater_mass     (:,  iland), &
-             land%sfcwater_energy   (:,  iland), &
-             land%sfcwater_depth    (:,  iland), &
+             land%sfcwater_epm2     (:,  iland), &
              land%veg_temp          (    iland), &
              land%soil_energy       (nzg,iland), &
              land%soil_water        (nzg,iland), &
@@ -633,7 +632,7 @@ subroutine radiate()
      ! Loop over all LAND cells to compute radiative fluxes
      ! for all cell components, given that rshort and rlong are now updated.
 
-     !$omp parallel do private(iwsfc,j,iw,kw,wt,ka,ks)
+     !$omp do private(iwsfc,j,iw,kw,wt,ka,ks)
      do iland = 2, mland
         iwsfc = iland + omland
 
@@ -658,7 +657,8 @@ subroutine radiate()
                land%rshort_v  (iland), &
                land%rlong_v   (iland)  )
      enddo
-     !$omp end parallel do
+     !$omp end do nowait
+     !$omp end parallel
 
   endif
 

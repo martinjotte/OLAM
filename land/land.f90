@@ -1,47 +1,53 @@
+module landcells_mod
+
+  private
+  public :: landcells
+
+contains
+
 subroutine landcells(iland, timefac_ndvi, head_slope, soil_watfrac)
 
   use leaf_coms,     only: wcap_min, soil_rough, snow_rough, &
                            thermcond_dry_organic, thermcond_sat_organic, &
                            thermcond_bedrock, thermcond_liq, thermcond_ice, &
                            thermcond_firn
-  use mem_land,      only: land, omland, nzg, nzs, dslz
-  use misc_coms,     only: iparallel, time_istp8
+  use mem_land,      only: land, omland, nzg, nzs_max
+  use misc_coms,     only: iparallel
   use consts_coms,   only: grav, p00i, rocp, eps_virt, cpi, r8
   use mem_sfcg,      only: itab_wsfc, sfcg
   use leaf4_canopy,  only: canopy, vegndvi, fast_canopy
-  use leaf4_surface, only: skncomp_diagnose, sfcwater, remove_runoff
+  use leaf4_surface, only: skncomp_diagnose, sfcwater, remove_runoff, &
+                           sfcwater_conductivity, sfcwater_soil_heat_transfer
   use leaf4_soil,    only: soil, soil_wat2khyd
   use leaf4_plot,    only: leaf_plot
-  use therm_lib,     only: qwtk, qtk
+  use therm_lib,     only: qwtk
   use mem_para,      only: myrank
   use oname_coms,    only: nl
   use mem_sfcnud,    only: sfcwat_nud, sfctemp_nud, fracliq_nud
+  import,            only: print_column
 
-  implicit none
+  implicit none (external, type)
 
   integer, intent(in)    :: iland
   real,    intent(in)    :: timefac_ndvi
-  real,    intent(in)    :: head_slope  (nzg+1)
-  real,    intent(inout) :: soil_watfrac(nzg+1)
+  real,    intent(in)    :: head_slope  (nzg)
+  real,    intent(inout) :: soil_watfrac(nzg)
 
   ! Local arrays
 
-  real :: sfcwater_tempk  (nzs)   ! surface water temperature [K]
-  real :: sfcwater_fracliq(nzs)   ! fraction of sfc water in liquid phase
-  real :: sfcwater_epm2   (nzs)   ! sfcwater energy per m^2 [J/m^2]
-
-  real :: soil_tempk      (nzg)   ! soil temperature [K]
-  real :: soil_fracliq    (nzg)   ! fraction of soil moisture in liquid phase
-  real :: thermcond_soil  (nzg)   ! soil thermal conductivity [W/(K m)]
-  real :: dheight         (nzg)   ! change in water height (of a T cell) from lateral water fluxes [m]
-  real :: energyin        (nzg)   ! change in energy (of T cell) from lateral water fluxes [J/m^2]
+  real :: soil_tempk    (nzg)     ! soil temperature [K]
+  real :: soil_fracliq  (nzg)     ! fraction of soil moisture in liquid phase
+  real :: thermcond_soil(nzg)     ! soil thermal conductivity [W/(K m)]
+  real :: dheight       (nzg)     ! change in water height (of a T cell) from lateral water fluxes [m]
+  real :: energyin      (nzg)     ! change in energy (of T cell) from lateral water fluxes [J/m^2]
+  real :: sfcwater_tcond(nzs_max) ! sfcwater thermal conductivity [W/(K m)]
 
   ! Local variables
 
   integer :: iwsfc
 
   real :: canexneri, cantheta, canthetav
-  real :: airthetav, ufree
+  real :: airthetav, wstars
 
   integer :: k      ! vertical index over soil layers
   integer :: ktrans ! vertical index of soil layer supplying transpiration
@@ -61,10 +67,16 @@ subroutine landcells(iland, timefac_ndvi, head_slope, soil_watfrac)
   real :: thermcond_sat_soil
   real :: kersten_liq, kersten_ice
   real :: kersten
+  real :: sfcwater_fracarea
+
+  ! Constants
 
   integer, parameter :: iland_print = 0
+  real,    parameter :: onethird = 1./3.
 
-  real, parameter :: onethird = 1./3.
+  ! Routines called
+
+  external :: stars
 
   iwsfc = iland - omland
 
@@ -72,43 +84,11 @@ subroutine landcells(iland, timefac_ndvi, head_slope, soil_watfrac)
 
   if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) return
 
-  ! Initialize local sfcwater arrays to zero
-
-  sfcwater_tempk  (:) = 0.
-  sfcwater_fracliq(:) = 0.
-  sfcwater_epm2   (:) = 0.
-
-  ! Diagnose current sfcwater properties and skinlayer composition based on those
-  ! properties.  Make adjustments to sfcwater and top of soil as appropriate.
-
-  call skncomp_diagnose(iland, iwsfc,                     &
-                        land%skncomp           (  iland), &
-                        land%sfcwater_mass     (:,iland), &
-                        land%sfcwater_energy   (:,iland), &
-                        land%sfcwater_depth    (:,iland), &
-                        land%soil_water        (:,iland), &
-                        land%soil_energy       (:,iland), &
-                        land%specifheat_drysoil(:,iland)  )
-
-!!  if ( land%sfcwater_mass(1,iland) > wcap_min ) &
-!!       call qtk(land%sfcwater_energy(1,iland), sfcwater_tempk(1), sfcwater_fracliq(1))
-!!
-!!  if ( land%skncomp(iland) == 2 ) &
-!!       call qtk(land%sfcwater_energy(2,iland), sfcwater_tempk(2), sfcwater_fracliq(2))
-!!
-!!  if (itab_wsfc(iwsfc)%iwglobe == 5326) then
-!!     write(*,*) sfcg%glatw(iwsfc), sfcg%glonw(iwsfc)
-!!     write(*,*) land%skncomp           (  iland)
-!!     write(*,*) sfcwater_tempk(:), sfcwater_fracliq(:)
-!!     write(*,*) land%sfcwater_mass     (:,iland)
-!!  endif
-
   ! Diagnose soil temperature and liquid fraction
 
   do k = 1, nzg
-     call qwtk(land%soil_energy(k,iland),land%soil_water(k,iland)*1.e3, &
-               land%specifheat_drysoil(k,iland),soil_tempk(k),soil_fracliq(k))
-!!     if (itab_wsfc(iwsfc)%iwglobe == 5326) write(*,*) k, soil_tempk(k),soil_fracliq(k), dslz(k)
+     call qwtk( land%soil_energy(k,iland), land%soil_water(k,iland)*1.e3, &
+                land%specifheat_drysoil(k,iland), soil_tempk(k), soil_fracliq(k) )
   enddo
 
   ! Diagnose thermal conductivity
@@ -181,6 +161,14 @@ subroutine landcells(iland, timefac_ndvi, head_slope, soil_watfrac)
 
   endif
 
+  call sfcwater_conductivity( iland, iwsfc,                     &
+                              land%skncomp           (  iland), &
+                              sfcwater_tcond         (:      ), &
+                              sfcg%prss              (  iwsfc), &
+                              land%sfcwater_mass     (:,iland), &
+                              land%sfcwater_epm2     (:,iland), &
+                              land%sfcwater_depth    (:,iland)  )
+
   if (nl%igw_spinup == 1) then
 
      ! With igw_spinup = 1, call subroutine fast_canopy to nudge surface water
@@ -189,22 +177,18 @@ subroutine landcells(iland, timefac_ndvi, head_slope, soil_watfrac)
      ktrans = nzg
      transp = 0.
 
-     call fast_canopy(iland, iwsfc,                     &
-                      sfcwat_nud             (iwsfc),   &
-                      sfctemp_nud            (iwsfc),   &
-                      fracliq_nud            (iwsfc),   &
-                      land%sfcwater_mass     (1,iland), &
-                      land%sfcwater_energy   (1,iland), &
-                      land%sfcwater_depth    (1,iland), &
-                      sfcwater_tempk         (1),       &
-                      sfcwater_fracliq       (1),       &
-                      sfcwater_epm2          (1),       &
-                      land%soil_water        (:,iland), &
-                      land%soil_energy       (:,iland), &
-                      land%specifheat_drysoil(:,iland), &
-                      soil_tempk             (:),       &
-                      soil_fracliq           (:)        )
-
+     call fast_canopy(iland, iwsfc,                       &
+                      sfcwat_nud                 (iwsfc), &
+                      sfctemp_nud                (iwsfc), &
+                      fracliq_nud                (iwsfc), &
+                      land%sfcwater_mass       (1,iland), &
+                      land%sfcwater_epm2       (1,iland), &
+                      land%sfcwater_depth      (1,iland), &
+                      land%soil_water        (nzg,iland), &
+                      land%soil_energy       (nzg,iland), &
+                      land%specifheat_drysoil(nzg,iland), &
+                      soil_tempk             (nzg),       &
+                      soil_fracliq           (nzg)        )
   else
 
      ! With igw_spinup /= 1, call subroutines vegndvi and canopy for standard
@@ -226,8 +210,13 @@ subroutine landcells(iland, timefac_ndvi, head_slope, soil_watfrac)
 
      ! Compute roughness length based on vegetation and snow.
 
-     sfcg%rough(iwsfc) = max(max(soil_rough, land%veg_rough(iland)) &
-                       * (1. - land%snowfac(iland)), snow_rough)
+     sfcwater_fracarea = min(1., sqrt( 0.5 * land%sfcwater_mass(1,iland) ) )
+
+     sfcg%rough(iwsfc) = max( soil_rough * (1. - sfcwater_fracarea) + &
+                              snow_rough *       sfcwater_fracarea,   &
+                              land%veg_rough(iland) * (1. - land%snowfac(iland)) )
+
+     sfcg%can_depth(iwsfc) = max(1., 2. * sfcg%rough(iwsfc))
 
      ! Evaluate surface layer exchange coefficients vkmsfc and vkhsfc
 
@@ -237,15 +226,13 @@ subroutine landcells(iland, timefac_ndvi, head_slope, soil_watfrac)
      cantheta  = sfcg%cantemp(iwsfc) * canexneri
      canthetav = cantheta * (1.0 + eps_virt * sfcg%canrrv(iwsfc))
 
-     ufree = (grav * sfcg%dzt_bot(iwsfc) * max(sfcg%wthv(iwsfc),0.0) / airthetav) ** onethird
-
-     if (time_istp8 < 1.e-3_r8) ufree = max(ufree, 2.0)
+     wstars = (grav * sfcg%pblh(iwsfc) * max(sfcg%wthv(iwsfc),0.0) / airthetav) ** onethird
 
      call stars(sfcg%dzt_bot (iwsfc), &
                 sfcg%rough   (iwsfc), &
                 sfcg%vels    (iwsfc), &
                 sfcg%rhos    (iwsfc), &
-                ufree               , &
+                wstars              , &
                 airthetav           , &
                 canthetav           , &
                 sfcg%vkmsfc  (iwsfc), &
@@ -262,6 +249,8 @@ subroutine landcells(iland, timefac_ndvi, head_slope, soil_watfrac)
      ! precipitation moisture and heat to vegetation and shed from vegetation to surface.
      ! Update vegetation and canopy air temperatures resulting from these
      ! plus radiative fluxes.
+
+!    call print_column(51944,iland,"Before canopy: ")
 
      call canopy(iland, iwsfc, ktrans, transp,     &
                  sfcg%leaf_class        (  iwsfc), &
@@ -283,6 +272,7 @@ subroutine landcells(iland, timefac_ndvi, head_slope, soil_watfrac)
                  sfcg%airtheta          (  iwsfc), &
                  sfcg%airrrv            (  iwsfc), &
                  sfcg%canexner          (  iwsfc), &
+                 sfcg%pblh              (  iland), &
                  land%snowfac           (  iland), &
                  land%vf                (  iland), &
                  land%stom_resist       (  iland), &
@@ -300,11 +290,8 @@ subroutine landcells(iland, timefac_ndvi, head_slope, soil_watfrac)
                  land%veg_temp          (  iland), &
                  land%skncomp           (  iland), &
                  land%sfcwater_mass     (:,iland), &
-                 land%sfcwater_energy   (:,iland), &
+                 land%sfcwater_epm2     (:,iland), &
                  land%sfcwater_depth    (:,iland), &
-                 sfcwater_tempk         (:),       &
-                 sfcwater_fracliq       (:),       &
-                 sfcwater_epm2          (:),       &
                  soil_watfrac           (:),       &
                  land%soil_water        (:,iland), &
                  land%soil_energy       (:,iland), &
@@ -314,16 +301,13 @@ subroutine landcells(iland, timefac_ndvi, head_slope, soil_watfrac)
                  land%ksat_vg           (:,iland), &
                  land%specifheat_drysoil(:,iland), &
                  land%head              (:,iland), &
-                 head_slope             (:      ), &
-                 soil_tempk             (:      ), &
-                 soil_fracliq           (:      )  )
+                 head_slope             (:)      , &
+                 soil_tempk             (:)      , &
+                 soil_fracliq           (:)      , &
+                 thermcond_soil         (:)      , &
+                 sfcwater_tcond         (:)      )
 
   endif
-
-! Original calculation of wthv for sfluxt units [kg_dry K m^-2 s^-1]
-
-!  sfcg%wthv(iwsfc) = ( sfcg%sfluxt(iwsfc) * (1.0 + eps_virt * sfcg%airrrv(iwsfc)) &
-!       + sfcg%sfluxr(iwsfc) * eps_virt * sfcg%airtheta(iwsfc) ) / sfcg%rhos(iwsfc)
 
   ! New calculation of wthv for sfluxt units [W m^-2]
 
@@ -337,20 +321,32 @@ subroutine landcells(iland, timefac_ndvi, head_slope, soil_watfrac)
   !  4. Update sfcwater layer energies due to heat flux and solar radiation
   !  5. Evaluate melting and percolation of liquid through sfcwater layers
 
-  call sfcwater(iland, iwsfc, wfree1, qwfree1, dwfree1, &
-                sfcg%head1             (  iwsfc), &
+! call print_column(51944,iland,"After canopy: ")
+
+  call sfcwater_soil_heat_transfer(iland, iwsfc,  &
                 land%skncomp           (  iland), &
                 land%sfcwater_mass     (:,iland), &
-                land%sfcwater_energy   (:,iland), &
+                land%sfcwater_epm2     (:,iland), &
                 land%sfcwater_depth    (:,iland), &
-                sfcwater_tempk         (:      ), &
-                sfcwater_fracliq       (:      ), &
-                sfcwater_epm2          (:      ), &
+                sfcwater_tcond         (:      ), &
                 land%soil_water        (:,iland), &
                 land%soil_energy       (:,iland), &
                 land%specifheat_drysoil(:,iland), &
                 soil_tempk             (:      ), &
+                soil_fracliq           (:      ), &
                 thermcond_soil         (:      )  )
+
+! call print_column(51944,iland,"After heat_transfer: ")
+
+  call sfcwater(iland, iwsfc, wfree1, qwfree1, dwfree1, &
+                sfcg%head1             (  iwsfc), &
+                land%skncomp           (  iland), &
+                land%sfcwater_mass     (:,iland), &
+                land%sfcwater_epm2     (:,iland), &
+                land%sfcwater_depth    (:,iland), &
+                land%soil_water        (:,iland), &
+                land%soil_energy       (:,iland), &
+                land%specifheat_drysoil(:,iland)  )
 
   call soil(iland, iwsfc, ktrans, transp, wfree1, qwfree1, &
             sfcg%leaf_class     (  iwsfc), &
@@ -361,9 +357,8 @@ subroutine landcells(iland, timefac_ndvi, head_slope, soil_watfrac)
             land%gpp            (  iland), &
             land%skncomp        (  iland), &
             land%sfcwater_mass  (1,iland), &
-            land%sfcwater_energy(1,iland), &
+            land%sfcwater_epm2  (1,iland), &
             land%sfcwater_depth (1,iland), &
-            sfcwater_epm2       (1      ), &
             land%soil_water     (:,iland), &
             land%soil_energy    (:,iland), &
             land%wresid_vg      (:,iland), &
@@ -376,7 +371,6 @@ subroutine landcells(iland, timefac_ndvi, head_slope, soil_watfrac)
             land%head           (:,iland), &
             soil_tempk          (:      ), &
             soil_fracliq        (:      ), &
-            thermcond_soil      (:      ), &
             dheight             (:      ), & ! included here only to pass to leaf_plot
             energyin            (:      )  )
 
@@ -386,17 +380,27 @@ subroutine landcells(iland, timefac_ndvi, head_slope, soil_watfrac)
 
   if (land%sfcwater_mass(1,iland) >= wcap_min) then
 
-     call remove_runoff(iland, iwsfc,                  &
-                        sfcg%leaf_class       (iwsfc), &
-!needed?                land%skncomp          (iland), &
-                        land%sfcwater_mass  (1,iland), &
-                        land%sfcwater_energy(1,iland), &
-                        land%sfcwater_depth (1,iland), &
-                        sfcg%runoff           (iwsfc)  )
-
+     call remove_runoff(iland, iwsfc,                 &
+                        sfcg%leaf_class      (iwsfc), &
+                        land%sfcwater_mass (1,iland), &
+                        land%sfcwater_epm2 (1,iland), &
+                        land%sfcwater_depth(1,iland), &
+                        sfcg%runoff          (iwsfc)  )
   endif
 
   !-----------------------------------------------------------------------------
+
+  ! Diagnose current sfcwater properties and skinlayer composition based on those
+  ! properties.  Make adjustments to sfcwater and top of soil as appropriate.
+
+  call skncomp_diagnose(iland, iwsfc,                     &
+                        land%skncomp           (  iland), &
+                        land%sfcwater_mass     (:,iland), &
+                        land%sfcwater_epm2     (:,iland), &
+                        land%sfcwater_depth    (:,iland), &
+                        land%soil_water        (:,iland), &
+                        land%soil_energy       (:,iland), &
+                        land%specifheat_drysoil(:,iland)  )
 
   ! Call land patch plot routine for selected iland values.
 
@@ -405,8 +409,6 @@ subroutine landcells(iland, timefac_ndvi, head_slope, soil_watfrac)
         linit            = 1,                             &
         lframe           = 1,                             &
         ktrans           = ktrans,                        &
-        sfcwater_tempk   = sfcwater_tempk      (:      ), &
-        sfcwater_fracliq = sfcwater_fracliq    (:      ), &
         soil_tempk       = soil_tempk          (:      ), &
         soil_fracliq     = soil_fracliq        (:      ), &
         leaf_class       = sfcg%leaf_class     (  iwsfc), &
@@ -441,10 +443,63 @@ subroutine landcells(iland, timefac_ndvi, head_slope, soil_watfrac)
         veg_fracarea     = land%veg_fracarea   (  iland), &
         skncomp          = land%skncomp        (  iland), &
         sfcwater_mass    = land%sfcwater_mass  (:,iland), &
-        sfcwater_energy  = land%sfcwater_energy(:,iland), &
+        sfcwater_epm2    = land%sfcwater_epm2  (:,iland), &
         sfcwater_depth   = land%sfcwater_depth (:,iland), &
         soil_water       = land%soil_water     (:,iland), &
         soil_energy      = land%soil_energy    (:,iland), &
         head             = land%head           (:,iland)  )
 
 end subroutine landcells
+
+
+subroutine print_column(iwsfc_globe,iland,string)
+
+  use mem_sfcg,  only: sfcg, itabg_wsfc
+  use mem_land,  only: land, nzg
+  use therm_lib, only: qwtk
+  use leaf_coms, only: tai_max
+  use mem_para,  only: myrank
+  import,        none
+
+  implicit none (type,external)
+
+  integer,      intent(in) :: iwsfc_globe
+  character(*), intent(in) :: string
+  integer                  :: iwsfc, iland, nzs, k
+  real                     :: tempk, fracliq
+
+  if (itabg_wsfc(iwsfc_globe)%irank /= myrank) return
+
+  iwsfc = itabg_wsfc(iwsfc_globe)%iwsfc_myrank
+
+  if (iwsfc == iland) then
+     nzs   = land%skncomp(iland) - 1
+
+     write(*,*) trim(string)
+     write(*,*)  sfcg%sfluxt(iwsfc),  sfcg%sfluxr(iwsfc), sfcg%rough(iwsfc), sfcg%pblh(iwsfc)
+
+     if (tai_max( sfcg%leaf_class(iwsfc) ) > .001) write(*,*) "veg rad: ", land%rshort_v(iland), land%rlong_v(iland)
+     if (tai_max( sfcg%leaf_class(iwsfc) ) > .001) write(*,*) "sfc rad: ", land%rshort_s(iland), land%rlong_s(iland)
+     write(*,*)
+
+     write(*,*) "air t: ", sfcg%airtheta(iwsfc) * sfcg%canexner(iwsfc)
+     if (tai_max( sfcg%leaf_class(iwsfc) ) > .001) write(*,*) "veg t: ", land%veg_temp(iland)
+     write(*,*)  "can t: ", sfcg%cantemp(iwsfc)
+
+     do k = nzs, 1, -1
+        call qwtk( land%sfcwater_epm2(k,iland), land%sfcwater_mass(k,iland), 0., tempk, fracliq )
+        write(*,*) "snow t: ", tempk, k
+     enddo
+
+     do k = nzg, 1 , -1
+        call qwtk( land%soil_energy(k,iland), land%soil_water(k,iland)*1.e3, &
+                   land%specifheat_drysoil(k,iland), tempk, fracliq )
+        write(*,*) "soilt: ", tempk, k
+     enddo
+     write(*,*)
+
+  endif
+
+end subroutine print_column
+
+end module landcells_mod

@@ -23,7 +23,7 @@ subroutine surface_turb_flux()
   integer :: jsfc, jasfc, iwsfc
 
   real :: exneri, dtl
-  real :: airthetav, ufree
+  real :: airthetav
 
   real, parameter :: onethird = 1./3.
 
@@ -71,7 +71,7 @@ end subroutine surface_turb_flux
 
 !===============================================================================
 
-subroutine stars( zts, rough, vels, rhos, ufree, air_thetav, can_thetav, &
+subroutine stars( zts, rough, vels, rhos, wstar, air_thetav, can_thetav, &
                   vkmsfc, vkhsfc, ustar, ggaero )
 
   ! Subroutine stars computes surface heat and vapor fluxes and momentum drag
@@ -87,7 +87,7 @@ subroutine stars( zts, rough, vels, rhos, ufree, air_thetav, can_thetav, &
   real, intent(in) :: rough      ! surface roughness height [m]
   real, intent(in) :: vels       ! atmos near-surface wind speed [m/s]
   real, intent(in) :: rhos       ! atmos near-surface density [kg/m^3]
-  real, intent(in) :: ufree      ! surface layer free-convective velocity [m/s]
+  real, intent(in) :: wstar      ! PBL free-convective velocity [m/s]
   real, intent(in) :: air_thetav ! atmos near-surface virt. pot. temp [K]
   real, intent(in) :: can_thetav ! canopy air virt. pot. temp [K]
 
@@ -123,7 +123,7 @@ subroutine stars( zts, rough, vels, rhos, ufree, air_thetav, can_thetav, &
 
   ! Routine to compute Louis (1981) surface layer parameterization.
 
-  vels0 = max(vels,ubmin,ufree)
+  vels0 = max(ubmin, sqrt(vels*vels + wstar*wstar))
 
   a2 = ( vonk / log(zts / rough) ) ** 2
   c1 = a2 * vels0
@@ -237,7 +237,7 @@ end subroutine surface_cuparm_flux
 
 !==============================================================================
 
-subroutine sfclyr_profile (vels, rhos, canexner, ustar, sfluxt, sfluxr, dzt_bot, zrough, ufree, &
+subroutine sfclyr_profile (vels, rhos, canexner, ustar, sfluxt, sfluxr, dzt_bot, zrough, wstar, &
                            cantheta, canthetav, canrrv, airthetav, &
                            zobs, wind_zobs, theta_zobs, rrv_zobs)
 
@@ -256,22 +256,22 @@ subroutine sfclyr_profile (vels, rhos, canexner, ustar, sfluxt, sfluxr, dzt_bot,
   real, intent(in) :: sfluxr
   real, intent(in) :: dzt_bot
   real, intent(in) :: zrough
-  real, intent(in) :: ufree
+  real, intent(in) :: wstar
   real, intent(in) :: cantheta
   real, intent(in) :: canthetav
   real, intent(in) :: canrrv
   real, intent(in) :: airthetav
   real, intent(in) :: zobs
 
-  real, intent(inout) :: theta_zobs 
+  real, intent(inout) :: theta_zobs
   real, intent(inout) ::  wind_zobs
   real, intent(inout) ::   rrv_zobs
 
   real :: vels0, a2, richnum
 
-  real, parameter :: ubmin  = .1  ! lower bound on wind speed 
+  real, parameter :: ubmin  = .1  ! lower bound on wind speed
 
-  vels0 = max(vels,ubmin,ufree)
+  vels0 = max(ubmin, sqrt(vels*vels + wstar*wstar))
 
   a2 = (vonk / log(zobs / zrough)) ** 2
 

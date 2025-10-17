@@ -40,7 +40,7 @@ Contains
                       dheight,          energyin         )
 
 use leaf_coms,   only: dt_leaf, wcap_min
-use mem_land,    only: land, nzg, nzs, slz, dslz
+use mem_land,    only: land, nzg, nzs_max, slz, dslz
 use consts_coms, only: cp
 use oplot_coms,  only: op
 use misc_coms,   only: runtype, time8
@@ -63,19 +63,19 @@ real, optional, intent(in) :: soil_rfactor    (nzg) ! soil thermal resistivity [
 real, optional, intent(in) :: soil_energy     (nzg) ! soil energy [J/m^3]
 real, optional, intent(in) :: soil_tempk      (nzg) ! soil temperature [K]
 real, optional, intent(in) :: soil_fracliq    (nzg) ! fraction of soil moisture in liquid phase
-real, optional, intent(in) :: hxferg        (nzg+1) ! heat xfer between soil layers [J/m^2]
-real, optional, intent(in) :: wxfer         (nzg+1) ! soil water xfer [m]
-real, optional, intent(in) :: qwxfer        (nzg+1) ! soil energy xfer from water xfer [J/m^2]
+real, optional, intent(in) :: hxferg          (nzg) ! heat xfer between soil layers [J/m^2]
+real, optional, intent(in) :: wxfer           (nzg) ! soil water xfer [m]
+real, optional, intent(in) :: qwxfer          (nzg) ! soil energy xfer from water xfer [J/m^2]
 real, optional, intent(in) :: psi_matric      (nzg) ! matric potential [m]
 real, optional, intent(in) :: dheight         (nzg) ! change in water height from lateral fluxes [m]
 real, optional, intent(in) :: energyin        (nzg) ! change in energy from lateral water fluxes [J/m^2]
-real, optional, intent(in) :: head          (nzg+1) ! soil total hydraulic head [m]
-real, optional, intent(in) :: sfcwater_mass   (nzs) ! surface water mass [kg/m^2]
-real, optional, intent(in) :: sfcwater_energy (nzs) ! surface water energy [J/kg]
-real, optional, intent(in) :: sfcwater_epm2   (nzs) ! surface water energy [J/m^2]
-real, optional, intent(in) :: sfcwater_depth  (nzs) ! surface water depth [m]
-real, optional, intent(in) :: sfcwater_tempk  (nzs) ! surface water temperature [K]
-real, optional, intent(in) :: sfcwater_fracliq(nzs) ! fraction of sfc water in liquid phase(nzs)
+real, optional, intent(in) :: head            (nzg) ! soil total hydraulic head [m]
+real, optional, intent(in) :: sfcwater_mass   (nzs_max) ! surface water mass [kg/m^2]
+real, optional, intent(in) :: sfcwater_energy (nzs_max) ! surface water energy [J/kg]
+real, optional, intent(in) :: sfcwater_epm2   (nzs_max) ! surface water energy [J/m^2]
+real, optional, intent(in) :: sfcwater_depth  (nzs_max) ! surface water depth [m]
+real, optional, intent(in) :: sfcwater_tempk  (nzs_max) ! surface water temperature [K]
+real, optional, intent(in) :: sfcwater_fracliq(nzs_max) ! fraction of sfc water in liquid phase(nzs)
 real, optional, intent(in) :: rshort       ! s/w incident sfc rad flux [W/m^2]
 real, optional, intent(in) :: rshort_s     ! l/w net rad flux to surface [W/m^2]
 real, optional, intent(in) :: rshort_v     ! s/w net rad flux to veg [W/m^2]
@@ -200,7 +200,7 @@ yk3 = .5 * (yk1 + yk5)
 yk2 = .5 * (yk1 + yk3)
 yk4 = .5 * (yk3 + yk5)
 
-dy_ss = (ys2 - y1) / real(nzg+nzs)
+dy_ss = (ys2 - y1) / real(nzg+nzs_max)
 yg2 = y1 + real(nzg) * dy_ss
 
 ! Check if this frame is being initialized
@@ -282,8 +282,8 @@ if (present(linit)) then
 
       ytpn(1) = yg2
       ytpn(2) = yg2
-      ytpn(3) = yg2 + real(nzs) * dy_ss
-      ytpn(4) = yg2 + real(nzs) * dy_ss
+      ytpn(3) = yg2 + real(nzs_max) * dy_ss
+      ytpn(4) = yg2 + real(nzs_max) * dy_ss
 
       call o_sfsgfa (xtpn,ytpn,4,141)
 
@@ -350,7 +350,7 @@ if (present(linit)) then
 
 ! Soil and snowcover layers
 
-   do k = 1,nzg+nzs+1
+   do k = 1,nzg+nzs_max+1
       ybot = y1 + real(k-1) * dy_ss
 
       call o_frstpt(x1,ybot)
@@ -602,7 +602,7 @@ endif
 
 ! Print values between soil layers
 
-do k = 1,nzg + 1
+do k = 1, nzg+1
    ybot = y1 + real(k-1) * dy_ss
 
    write (number,'(f12.3)') slz(k)
@@ -637,7 +637,7 @@ enddo
 
 ! Print values in snowcover layers
 
-do k = 1,nzs
+do k = 1, nzs_max
    ybot = yg2 + real(k-1) * dy_ss
    ywk  = ybot + .50 * dy_ss
    ywk2 = ybot + .65 * dy_ss
@@ -714,8 +714,8 @@ enddo
 
 ! Print values at bottom of canopy air
 
-yw1 = y1 + (real(nzg+nzs) + .60) * dy_ss
-yw2 = y1 + (real(nzg+nzs) + .90) * dy_ss
+yw1 = y1 + (real(nzg+nzs_max) + .60) * dy_ss
+yw2 = y1 + (real(nzg+nzs_max) + .90) * dy_ss
 
 if (present(hxfersc)) then
 

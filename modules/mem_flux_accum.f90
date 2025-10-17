@@ -394,7 +394,7 @@ subroutine flux_accum()
               ksw = 1
            endif
 
-           call qtk(land%sfcwater_energy(ksw,iland),tempk,fracliq)
+           call qwtk(land%sfcwater_epm2(ksw,iland),land%sfcwater_mass(ksw,iland),0.,tempk,fracliq)
 
            fldval = (1. - land%vf(iland)) * tempk &
                         + land%vf(iland)  * land%veg_temp(iland)
@@ -417,9 +417,8 @@ subroutine flux_accum()
 
         ! Combined sfcwater and soil water mass and energy per square meter
 
-        w_comb  = land%sfcwater_mass(1,iland) + land%soil_water(nzg,iland) * 1.e3 * dslz(nzg)
-        qw_comb = land%sfcwater_energy(1,iland) * land%sfcwater_mass(1,iland) &
-                + land%soil_energy(nzg,iland) * dslz(nzg)
+        w_comb  = land%sfcwater_mass(1,iland) + land%soil_water (nzg,iland) * dslz(nzg) * 1.e3
+        qw_comb = land%sfcwater_epm2(1,iland) + land%soil_energy(nzg,iland) * dslz(nzg)
 
         ! Soil heat capacity per square meter
 

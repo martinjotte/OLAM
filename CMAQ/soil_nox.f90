@@ -116,7 +116,7 @@ contains
     use mem_sfcg,    only: sfcg, itab_wsfc
     use consts_coms, only: t00
     use misc_coms,   only: dtlm
-    use therm_lib,   only: qtk
+    use therm_lib,   only: qwtk
     use mem_grid,    only: mwa
     use leaf_coms,   only: wcap_min
 
@@ -151,7 +151,7 @@ contains
     if (land%sfcwater_mass(1,iland) < wcap_min) then
        sndepth = 0.0
     else
-       sndepth = land%sfcwater_depth(1,iland)
+       sndepth = sum( land%sfcwater_depth(:,iland) )
     endif
 
     ! Get surface biome type
@@ -160,8 +160,8 @@ contains
 
     ! If surface is snow or ice, use snow/ice biome
 
-    if (land%sfcwater_mass(1,iland) >= wcap_min) then
-       call qtk( land%sfcwater_energy(1,iland), tsfcwater, liqfrac )
+    if (land%sfcwater_mass(1,iland) > wcap_min) then
+       call qwtk( land%sfcwater_epm2(1,iland), land%sfcwater_mass(1,iland), 0., tsfcwater, liqfrac )
        if (liqfrac < 0.3 .and. sndepth > 0.001) kb = 2
     endif
 

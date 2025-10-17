@@ -244,7 +244,7 @@ subroutine pbl_init()
   use mem_grid,      only: lsw, lpw, mwa, arw, zfacim2, zfacm2, arw0
   use mem_ijtabs,    only: jtab_w, jtw_prog, itab_w
   use mem_turb,      only: frac_urb, frac_land, frac_sea, frac_lake, arw_sfc, &
-                           frac_sfc, frac_sfck, ustar, wstar, wtv0, moli
+                           frac_sfc, frac_sfck, ustar, wstar, wtv0, moli, pblh
   use mem_sfcg,       only: sfcg, itab_wsfc
   use misc_coms,     only: runtype, iparallel
   use module_bl_acm2,only: acm2_pblhgt
@@ -358,6 +358,13 @@ subroutine pbl_init()
 
   enddo
   !$omp end parallel do
+
+  if (iparallel == 1) then
+     call mpi_send_w(r1dvara1=pblh)
+     call mpi_recv_w(r1dvara1=pblh)
+  endif
+
+  call lbcopy_w(v1=pblh)
 
 end subroutine pbl_init
 
@@ -761,7 +768,6 @@ subroutine solve_eddy_diff_vc( iv, vmt )
 
 end subroutine solve_eddy_diff_vc
 
-
 !===============================================================================
 
 subroutine solve_eddy_diff_vxe( iw, vmxet, vmyet, vmzet )
@@ -880,5 +886,6 @@ subroutine solve_eddy_diff_vxe( iw, vmxet, vmyet, vmzet )
 
 end subroutine solve_eddy_diff_vxe
 
+!===============================================================================
 
 end module pbl_drivers
