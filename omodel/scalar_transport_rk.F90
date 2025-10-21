@@ -41,7 +41,6 @@ subroutine scalar_transport_rk(rho_old)
   use mem_basic,    only: rho, vmasc, wmasc
   use tridiag,      only: tridif_prep, tridif_fini
   use mem_nudge,    only: nudflag, rhot_nud
-  use mem_para,     only: myrank
 
 #ifdef OLAM_MPI
   use mpi_f08
@@ -391,12 +390,12 @@ subroutine update_scalar( scp, scp0, sct, rhos, vmasc, wmasc, &
                           dtr, iorderh, i2d, istage, nrk, ff_implic )
 
   use mem_grid,     only: mza, mwa, mva
-  use mem_ijtabs,   only: jtab_v, jtab_w, itab_w, jtv_wadj, jtw_prog, &
-                          iip, mloops, jtw_lbcp
+  use mem_ijtabs,   only: jtab_v, jtab_w, jtv_wadj, jtw_prog
   use misc_coms,    only: iparallel
   use grad_lib,     only: grad_t2d, grad_t2d_quadratic
   use olam_mpi_atm, only: mpi_post_direct_recv_w, mpi_post_direct_send_w, &
                           mpi_finish_direct_recv_w, mpi_finish_direct_send_w
+  use obnd,         only: lbcopy_w
 
   implicit none
 
@@ -409,7 +408,7 @@ subroutine update_scalar( scp, scp0, sct, rhos, vmasc, wmasc, &
   real,    intent(in)    :: vmasc(mza,mva)
   real,    intent(in)    :: dtr, ff_implic(nrk,mwa)
 
-  integer :: j, iv, iw, i, ii, iwp
+  integer :: j, iv, iw
 
   real :: scp_upv(mza,mva)
   real :: gxyps  (mza,mwa,i2d)
@@ -418,13 +417,11 @@ subroutine update_scalar( scp, scp0, sct, rhos, vmasc, wmasc, &
      if (iorderh > 1) call mpi_post_direct_recv_w(gxyps, itag_gxyps)
   endif
 
-  !$omp parallel private(ii)
-
   ! COMPUTE HORIZONTAL POLYNOMIAL RECONSTRUCTION COEFFICIENTS AT EACH W CELL
 
   if (iorderh > 1) then
 
-     !$omp do private(iw)
+     !$omp parallel do private(iw)
      do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
         if (iorderh == 2) then
@@ -434,50 +431,26 @@ subroutine update_scalar( scp, scp0, sct, rhos, vmasc, wmasc, &
         endif
 
      enddo
-     !$omp end do
+     !$omp end parallel do
 
      if (iparallel == 1) then
-        !$omp single
         call mpi_post_direct_send_w(gxyps, itag_gxyps)
-        !$omp end single nowait
+        call mpi_finish_direct_recv_w     (itag_gxyps)
      endif
-
-     if (jtab_w(jtw_lbcp)%jend > 1) then
-
-        !$omp do private(iw,iwp,i)
-        do j = 1, jtab_w(jtw_lbcp)%jend; iw = jtab_w(jtw_lbcp)%iw(j)
-           iwp = itab_w(iw)%iwp
-           do i = 1, i2d
-              gxyps(:,iw,i) = gxyps(:,iwp,i)
-           enddo
-        enddo
-        !$omp end do
-
-     endif
+     call lbcopy_w(aa=gxyps)
 
   endif
 
   ! COMPUTE UPWINDED TRACER CONCENTRATIONS AT EACH V FACE
 
-  ! Split V loop into an "interior" loop that can overlap with communication
-  ! and a "border" loop that requires MPI communication be completed.
-  do ii = 1, iip
+  !$omp parallel
+  !$omp do private(iv)
+  do j = 1, jtab_v(jtv_wadj)%jend; iv = jtab_v(jtv_wadj)%iv(j)
 
-     if (ii == 2 .and. iorderh > 1) then
-        !$omp single
-        call mpi_finish_direct_recv_w(itag_gxyps)
-        !$omp end single
-     endif
+     call scalar_v_column( iv )
 
-     !$omp do private(iv)
-     do j = 1, jtab_v(mloops+ii)%jend; iv = jtab_v(mloops+ii)%iv(j)
-
-        call scalar_v_column( iv )
-
-     enddo
-     !$omp end do
-
-  enddo  ! interior/border loop
+  enddo
+  !$omp end do
 
   ! MAIN W LOOP TO COMPUTE VERTICAL FLUXES AND MARCH TRACER TO NEXT R-K STAGE
 
@@ -647,12 +620,12 @@ subroutine update_scalar_monot( scp, scp0, rhos, vmasc, wmasc, &
                                 dtr, iorderh, i2d, istage, nrk, ff_implic )
 
   use mem_grid,     only: mza, mwa, mva, lpv
-  use mem_ijtabs,   only: jtab_v, jtab_w, itab_v, itab_w, jtv_wadj, jtw_prog, &
-                          iip, mloops, jtw_lbcp
+  use mem_ijtabs,   only: jtab_v, jtab_w, itab_v, jtv_wadj, jtw_prog
   use misc_coms,    only: iparallel
   use olam_mpi_atm, only: mpi_post_direct_recv_w, mpi_finish_direct_recv_w, &
                           mpi_post_direct_send_w, mpi_finish_direct_send_w
   use grad_lib,     only: grad_t2d, grad_t2d_quadratic
+  use obnd,         only: lbcopy_w
 
   implicit none
 
@@ -664,7 +637,7 @@ subroutine update_scalar_monot( scp, scp0, rhos, vmasc, wmasc, &
   real,    intent(in)    :: vmasc   (mza,mva)
   real,    intent(in)    :: dtr, ff_implic(nrk,mwa)
 
-  integer :: j, iv, iw, iw1, iw2, k, ii, i, iwp
+  integer :: j, iv, iw, iw1, iw2, k
   real    :: scale
 
   real :: sfluxvh    (mza,mva)
@@ -679,13 +652,11 @@ subroutine update_scalar_monot( scp, scp0, rhos, vmasc, wmasc, &
      call                  mpi_post_direct_recv_w(scale_inout, itag_monot)
   endif
 
-  !$omp parallel private(ii)
-
   ! COMPUTE HORIZONTAL POLYNOMIAL RECONSTRUCTION COEFFICIENTS AT EACH W CELL
 
   if (iorderh > 1) then
 
-     !$omp do private(iw)
+     !$omp parallel do private(iw)
      do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
         if (iorderh == 2) then
@@ -695,50 +666,26 @@ subroutine update_scalar_monot( scp, scp0, rhos, vmasc, wmasc, &
         endif
 
      enddo
-     !$omp end do
+     !$omp end parallel do
 
      if (iparallel == 1) then
-        !$omp single
         call mpi_post_direct_send_w(gxyps, itag_gxyps)
-        !$omp end single nowait
+        call mpi_finish_direct_recv_w     (itag_gxyps)
      endif
-
-     if (jtab_w(jtw_lbcp)%jend > 1) then
-
-        !$omp do private(iw,iwp,i)
-        do j = 1, jtab_w(jtw_lbcp)%jend; iw = jtab_w(jtw_lbcp)%iw(j)
-           iwp = itab_w(iw)%iwp
-           do i = 1, i2d
-              gxyps(:,iw,i) = gxyps(:,iwp,i)
-           enddo
-        enddo
-        !$omp end do
-
-     endif
+     call lbcopy_w(aa=gxyps)
 
   endif
 
   ! COMPUTE UPWINDED TRACER CONCENTRATIONS AT EACH V FACE
 
-  ! Split V loop into an "interior" loop that can overlap with communication
-  ! and a "border" loop that requires MPI communication be completed.
-  do ii = 1, iip
+  !$omp parallel
+  !$omp do private(iv)
+  do j = 1, jtab_v(jtv_wadj)%jend; iv = jtab_v(jtv_wadj)%iv(j)
 
-     if (ii == 2 .and. iorderh > 1) then
-        !$omp single
-        call mpi_finish_direct_recv_w(itag_gxyps)
-        !$omp end single
-     endif
+     call scalar_vflux_monot( iv )
 
-     !$omp do private(iv)
-     do j = 1, jtab_v(mloops+ii)%jend; iv = jtab_v(mloops+ii)%iv(j)
-
-        call scalar_vflux_monot( iv )
-
-     enddo
-     !$omp end do
-
-  enddo  ! interior/border loop
+  enddo
+  !$omp end do
 
   ! LOOP TO COMPUTE VERTICAL FLUXES AND SCALE FACTOR
 
@@ -749,56 +696,32 @@ subroutine update_scalar_monot( scp, scp0, rhos, vmasc, wmasc, &
 
   enddo
   !$omp end do
+  !$omp end parallel
 
-  ! Post MPI send of flux scale factors
+  ! Post MPI send/recv of monotonic flux scale factors
 
   if (iparallel == 1) then
-     !$omp single
      call mpi_post_direct_send_w(scale_inout, itag_monot)
-     !$omp end single nowait
+     call mpi_finish_direct_recv_w           (itag_monot)
   endif
-
-  ! Lateral boundary copy of scale factor
-
-  if (jtab_w(jtw_lbcp)%jend > 1) then
-
-     !$omp do private(iw,iwp)
-     do j = 1, jtab_w(jtw_lbcp)%jend; iw = jtab_w(jtw_lbcp)%iw(j)
-        iwp = itab_w(iw)%iwp
-        scale_inout(:,iw,1) = scale_inout(:,iwp,1)
-        scale_inout(:,iw,2) = scale_inout(:,iwp,2)
-     enddo
-     !$omp end do
-
-  endif
+  call lbcopy_w(aa=scale_inout)
 
   ! APPLY FLUX RENORMALIZATION TO HORIZONTAL FLUXES
 
-  ! Split V loop into an "interior" loop that can overlap with communication
-  ! and a "border" loop that requires MPI communication be completed.
-  do ii = 1, iip
+  !$omp parallel
+  !$omp do private(iv,iw1,iw2,k,scale)
+  do j = 1, jtab_v(jtv_wadj)%jend; iv = jtab_v(jtv_wadj)%iv(j)
 
-     if (ii == 2) then
-        !$omp single
-        call mpi_finish_direct_recv_w(itag_monot)
-        !$omp end single
-     endif
+     iw1 = itab_v(iv)%iw(1)
+     iw2 = itab_v(iv)%iw(2)
 
-     !$omp do private(iv,iw1,iw2,k,scale)
-     do j = 1, jtab_v(mloops+ii)%jend; iv = jtab_v(mloops+ii)%iv(j)
-
-        iw1 = itab_v(iv)%iw(1)
-        iw2 = itab_v(iv)%iw(2)
-
-        do k = lpv(iv), mza
-           scale = min( scale_inout(k,iw2,1), scale_inout(k,iw1,2) )
-           if (sfluxvh(k,iv) < 0.) scale = min( scale_inout(k,iw1,1), scale_inout(k,iw2,2) )
-           scp_upv(k,iv) = scp_upv(k,iv) + scp_hiv(k,iv) * scale
-        enddo
+     do k = lpv(iv), mza
+        scale = min( scale_inout(k,iw2,1), scale_inout(k,iw1,2) )
+        if (sfluxvh(k,iv) < 0.) scale = min( scale_inout(k,iw1,1), scale_inout(k,iw2,2) )
+        scp_upv(k,iv) = scp_upv(k,iv) + scp_hiv(k,iv) * scale
      enddo
-     !$omp end do
-
-  enddo  ! interior/border loop
+  enddo
+  !$omp end do
 
   ! COMPUTE FLUX DIVERGENCE AND FORWARD INTEGRATE SCALAR CONCENTRATION
 
@@ -1163,12 +1086,12 @@ subroutine update_scalar_pd( scp, scp0, rhos, vmasc, wmasc, &
                              dtr, iorderh, i2d, istage, nrk, ff_implic)
 
   use mem_grid,     only: mza, mwa, mva, lpv
-  use mem_ijtabs,   only: jtab_v, jtab_w, itab_v, itab_w, jtv_wadj, jtw_prog, &
-                          iip, mloops, jtw_lbcp
+  use mem_ijtabs,   only: jtab_v, jtab_w, itab_v, jtv_wadj, jtw_prog
   use misc_coms,    only: iparallel
   use olam_mpi_atm, only: mpi_post_direct_recv_w, mpi_finish_direct_recv_w, &
                           mpi_post_direct_send_w, mpi_finish_direct_send_w
   use grad_lib,     only: grad_t2d, grad_t2d_quadratic
+  use obnd,         only: lbcopy_w
 
   implicit none
 
@@ -1180,7 +1103,7 @@ subroutine update_scalar_pd( scp, scp0, rhos, vmasc, wmasc, &
   real,    intent(in)    :: wmasc(mza,mwa)
   real,    intent(in)    :: dtr, ff_implic(nrk,mwa)
 
-  integer :: j, iv, iw, iw1, iw2, k, ii, i, iwp
+  integer :: j, iv, iw, iw1, iw2, k
   real    :: scale
 
   real :: sfluxvh  (mza,mva)
@@ -1195,13 +1118,11 @@ subroutine update_scalar_pd( scp, scp0, rhos, vmasc, wmasc, &
      call                  mpi_post_direct_recv_w(scale_out, itag_pd)
   endif
 
-  !$omp parallel private(ii)
-
   ! COMPUTE HORIZONTAL POLYNOMIAL RECONSTRUCTION COEFFICIENTS AT EACH W CELL
 
   if (iorderh > 1) then
 
-     !$omp do private(iw)
+     !$omp parallel do private(iw)
      do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
         if (iorderh == 2) then
@@ -1211,50 +1132,26 @@ subroutine update_scalar_pd( scp, scp0, rhos, vmasc, wmasc, &
         endif
 
      enddo
-     !$omp end do
+     !$omp end parallel do
 
      if (iparallel == 1) then
-        !$omp single
         call mpi_post_direct_send_w(gxyps, itag_gxyps)
-        !$omp end single nowait
+        call mpi_finish_direct_recv_w     (itag_gxyps)
      endif
-
-     if (jtab_w(jtw_lbcp)%jend > 1) then
-
-        !$omp do private(iw,iwp,i)
-        do j = 1, jtab_w(jtw_lbcp)%jend; iw = jtab_w(jtw_lbcp)%iw(j)
-           iwp = itab_w(iw)%iwp
-           do i = 1, i2d
-              gxyps(:,iw,i) = gxyps(:,iwp,i)
-           enddo
-        enddo
-        !$omp end do
-
-     endif
+     call lbcopy_w(aa=gxyps)
 
   endif
 
   ! COMPUTE UPWINDED TRACER CONCENTRATIONS AT EACH V FACE
 
-  ! Split V loop into an "interior" loop that can overlap with communication
-  ! and a "border" loop that requires MPI communication be completed.
-  do ii = 1, iip
+  !$omp parallel
+  !$omp do private(iv)
+  do j = 1, jtab_v(jtv_wadj)%jend; iv = jtab_v(jtv_wadj)%iv(j)
 
-     if (ii == 2 .and. iorderh > 1) then
-        !$omp single
-        call mpi_finish_direct_recv_w(itag_gxyps)
-        !$omp end single
-     endif
+     call scalar_vflux_pd( iv )
 
-     !$omp do private(iv)
-     do j = 1, jtab_v(mloops+ii)%jend; iv = jtab_v(mloops+ii)%iv(j)
-
-        call scalar_vflux_pd( iv )
-
-     enddo
-     !$omp end do
-
-  enddo  ! interior/border loop
+  enddo
+  !$omp end do
 
   ! LOOP TO COMPUTE VERTICAL FLUXES AND SCALE FACTOR
 
@@ -1265,55 +1162,32 @@ subroutine update_scalar_pd( scp, scp0, rhos, vmasc, wmasc, &
 
   enddo
   !$omp end do
+  !$omp end parallel
 
   ! Post MPI send of flux scale factors
 
   if (iparallel == 1) then
-     !$omp single
      call mpi_post_direct_send_w(scale_out, itag_pd)
-     !$omp end single nowait
+     call mpi_finish_direct_recv_w         (itag_pd)
   endif
-
-  ! Lateral boundary copy of scale factor
-
-  if (jtab_w(jtw_lbcp)%jend > 1) then
-
-     !$omp do private(iw,iwp)
-     do j = 1, jtab_w(jtw_lbcp)%jend; iw = jtab_w(jtw_lbcp)%iw(j)
-        iwp = itab_w(iw)%iwp
-        scale_out(:,iw) = scale_out(:,iwp)
-     enddo
-     !$omp end do
-
-  endif
+  call lbcopy_w(a1=scale_out)
 
   ! APPLY FLUX RENORMALIZATION TO HORIZONTAL FLUXES
 
-  ! Split V loop into an "interior" loop that can overlap with communication
-  ! and a "border" loop that requires MPI communication be completed.
-  do ii = 1, iip
+  !$omp parallel
+  !$omp do private(iv,iw1,iw2,k,scale)
+  do j = 1, jtab_v(jtv_wadj)%jend; iv = jtab_v(jtv_wadj)%iv(j)
 
-     if (ii == 2) then
-        !$omp single
-        call mpi_finish_direct_recv_w(itag_pd)
-        !$omp end single
-     endif
+     iw1 = itab_v(iv)%iw(1)
+     iw2 = itab_v(iv)%iw(2)
 
-     !$omp do private(iv,iw1,iw2,k,scale)
-     do j = 1, jtab_v(mloops+ii)%jend; iv = jtab_v(mloops+ii)%iv(j)
-
-        iw1 = itab_v(iv)%iw(1)
-        iw2 = itab_v(iv)%iw(2)
-
-        do k = lpv(iv), mza
-           scale = scale_out(k,iw1)
-           if (sfluxvh(k,iv) < 0.) scale = scale_out(k,iw2)
-           scp_upv(k,iv) = scp_upv(k,iv) + scp_hiv(k,iv) * scale
-        enddo
+     do k = lpv(iv), mza
+        scale = scale_out(k,iw1)
+        if (sfluxvh(k,iv) < 0.) scale = scale_out(k,iw2)
+        scp_upv(k,iv) = scp_upv(k,iv) + scp_hiv(k,iv) * scale
      enddo
-     !$omp end do
-
-  enddo  ! interior/border loop
+  enddo
+  !$omp end do
 
   ! COMPUTE FLUX DIVERGENCE AND FORWARD INTEGRATE SCALAR CONCENTRATION
 
