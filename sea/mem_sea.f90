@@ -93,6 +93,10 @@ Module mem_sea
       ! Shallow Water Model (SWM) quantities:
 
       real, allocatable :: swmdepth(:) ! Depth of water at T point [m]
+      real, allocatable :: tide(:)        ! tide height (relative to sea level) [m]
+      real, allocatable :: tideacosp(:,:) ! tide constituent amp*cos(phase) [cm]
+      real, allocatable :: tideasinp(:,:) ! tide constituent amp*sin(phase) [cm]
+
       real, allocatable :: vxe(:)
       real, allocatable :: vye(:)
       real, allocatable :: vze(:)
@@ -172,7 +176,7 @@ Contains
 
 !=========================================================================
 
-  subroutine alloc_sea2()
+  subroutine alloc_sea2(ntides, use_tides)
 
      use misc_coms,  only: rinit
      use sea_coms,   only: nzi
@@ -182,6 +186,7 @@ Contains
 
      implicit none
 
+     integer, intent(in) :: ntides, use_tides
      integer :: isea
 
      ! This routine allocates and initializes sea arrays needed for a full
@@ -282,6 +287,12 @@ Contains
         allocate (sea%gxps_vze   (msea))
         allocate (sea%gyps_vze   (msea))
 
+        if (use_tides == 1) then
+           allocate (sea%tide             (msea))
+           allocate (sea%tideacosp (ntides,msea))
+           allocate (sea%tideasinp (ntides,msea))
+        endif
+
      endif
 
      !$omp parallel do
@@ -330,6 +341,9 @@ Contains
         if ( allocated( sea%seaice_energy ) ) sea%seaice_energy  (:,isea) = rinit
         if ( allocated( sea%seaice_tempk  ) ) sea%seaice_tempk   (:,isea) = rinit
         if ( allocated( sea%swmdepth      ) ) sea%swmdepth         (isea) = 0.0
+        if ( allocated( sea%tide          ) ) sea%tide             (isea) = 0.0
+        if ( allocated( sea%tideacosp     ) ) sea%tideacosp      (:,isea) = 0.0
+        if ( allocated( sea%tideasinp     ) ) sea%tideasinp      (:,isea) = 0.0
         if ( allocated( sea%vxe           ) ) sea%vxe              (isea) = 0.0
         if ( allocated( sea%vye           ) ) sea%vye              (isea) = 0.0
         if ( allocated( sea%vze           ) ) sea%vze              (isea) = 0.0
@@ -399,6 +413,10 @@ Contains
      if (allocated(sea%seaice_tempk))   call increment_vtable('SEA%SEAICE_TEMPK',   'SW', rvar2=sea%seaice_tempk)
 
      if (allocated(sea%swmdepth))       call increment_vtable('SEA%SWMDEPTH',       'SW', rvar1=sea%swmdepth)
+     if (allocated(sea%tide))           call increment_vtable('SEA%TIDE',           'SW', rvar1=sea%tide)
+! These are constant in time and recomputed in swm_init on startup
+!    if (allocated(sea%tideacosp))      call increment_vtable('SEA%TIDEACOSP',      'SW', rvar2=sea%tideacosp)
+!    if (allocated(sea%tideasinp))      call increment_vtable('SEA%TIDEASINP',      'SW', rvar2=sea%tideasinp)
      if (allocated(sea%vxe))            call increment_vtable('SEA%VXE',            'SW', rvar1=sea%vxe)
      if (allocated(sea%vye))            call increment_vtable('SEA%VYE',            'SW', rvar1=sea%vye)
      if (allocated(sea%vze))            call increment_vtable('SEA%VZE',            'SW', rvar1=sea%vze)

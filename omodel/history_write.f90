@@ -166,6 +166,17 @@ subroutine history_write(vtype)
         elseif (associated(vtab_r(nv)%dvar3_p)) then
            call shdf5_orec(ndims, idims, varn, dvar3=vtab_r(nv)%dvar3_p, &
                            lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
+
+        elseif (associated(vtab_r(nv)%lvar1_p)) then
+           call shdf5_orec(ndims, idims, varn, lvar1=vtab_r(nv)%lvar1_p, &
+                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
+        elseif (associated(vtab_r(nv)%lvar2_p)) then
+           call shdf5_orec(ndims, idims, varn, lvar2=vtab_r(nv)%lvar2_p, &
+                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
+        elseif (associated(vtab_r(nv)%lvar3_p)) then
+           call shdf5_orec(ndims, idims, varn, lvar3=vtab_r(nv)%lvar3_p, &
+                           lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
+
         endif
 
         nvcnt = nvcnt + 1

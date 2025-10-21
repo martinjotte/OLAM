@@ -344,6 +344,7 @@ Module oname_coms
      integer :: nzg         = 21
      integer :: nzpom       = 40
      integer :: niter_swm   =  1
+     integer :: use_tides   =  0
      integer :: umwmflg     =  0
 
      ! to be removed / unused

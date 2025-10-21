@@ -127,7 +127,7 @@ subroutine copy_nl()
 
   use mem_sea,     only: npomzons, npomzonll, pomzonrad, pomzonlat, pomzonlon
 
-  use sea_swm,     only: niter_swm
+  use sea_swm,     only: niter_swm, use_tides
 
   use umwm_module, only: umwmflg
 
@@ -349,6 +349,7 @@ subroutine copy_nl()
   landgrid_dztop = nl%landgrid_dztop
   landgrid_depth = nl%landgrid_depth
   niter_swm = nl%niter_swm
+  use_tides = nl%use_tides
   umwmflg   = nl%umwmflg
   nzpom     = nl%nzpom
   pom_dztop = nl%pom_dztop

@@ -219,6 +219,13 @@
    NL%SWMZONLAT(2,:) =   25.1,  27.6,  28.7,  29.3,  29.1,  29.7
    NL%SWMZONLON(2,:) =  -81.7, -83.5, -83.4, -84.1, -85.4, -86.5
 
+   NL%USE_TIDES = 0   ! Use tide information with SWM (0 = off, 1 = on)
+                      ! Requires tide database files
+
+   NL%NITER_SWM = 1   ! Number of subcycling timesteps used in SWM storm surge & 
+                      ! coastal flooding model per long model timestep; Can usually
+                      ! be 1 unless sfcgrid resolution is higher than ATM grid 
+
  !--------------------------------------------------------------------------
  ! For 1D version of Princeton Ocean Model:
  !--------------------------------------------------------------------------
@@ -694,10 +701,6 @@
    NL%SEASPRAY_VMIN = 16.0  ! Wind speed (m/s) below which sea spray is not considered.
                             ! Must be larger than 15m/s.
 
-   NL%NITER_SWM = 1             ! Number of subcycling timesteps used in SWM storm surge & 
-                                ! coastal flooding model per long model timestep; Can usually
-                                ! be 1 unless sfcgrid resolution is higher than ATM grid 
-
    NL%UMWMFLG = 0               ! Flag to use UMWM wave model (0) = No; (1) = Yes
 
  ! POM1D model grid vertical profile geometry
@@ -758,6 +761,7 @@
    NL%NDVI_DATABASE      = '../../olamdatah5/ndvi/NDVI'
    NL%WATERTAB_DB        = '../../olamdatah5/wtd/WTD'
    NL%OROG_SLOPE_DB      = '../../olamdatah5/slope/ORO'
+   NL%TIDE_DATABASE      = '../../olamdatah5/tide/'
 
  ! These point to a .txt listing of sst/seaice files, and are used only
  ! if isstflg/iseaiceflg = 1

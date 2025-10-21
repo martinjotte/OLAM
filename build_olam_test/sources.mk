@@ -223,7 +223,9 @@ SOURCE_FILES= \
              $(RADIATE)/rrtmg_sw/rrtmg_sw_setcoef.f90 \
              $(RADIATE)/rrtmg_sw/rrtmg_sw_spcvmc.f90 \
              $(RADIATE)/rrtmg_sw/rrtmg_sw_taumol.f90 \
+             $(SEA)/fundarg.f \
              $(SEA)/mem_sea.f90 \
+             $(SEA)/perth.f90 \
              $(SEA)/pom_interface.f90 \
              $(SEA)/pom2k1d.f90 \
              $(SEA)/read_seaice_analysis.f90 \
