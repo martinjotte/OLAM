@@ -64,8 +64,9 @@ subroutine sea_init_atm()
      sea%seaicec(isea) = sea%seaicep(isea)  &
                        + (sea%seaicef(isea) - sea%seaicep(isea)) * timefac_seaice
 
-     if (allocated(sea%spraytemp )) sea%spraytemp (isea) = sea%seatc(isea)
-     if (allocated(sea%spray2temp)) sea%spray2temp(isea) = sea%seatc(isea)
+     if (allocated(sea%spraytemp ))   sea%spraytemp   (isea) = sea%seatc(isea)
+     if (allocated(sea%spray2temp))   sea%spray2temp  (isea) = sea%seatc(isea)
+     if (allocated(sea%spray_active)) sea%spray_active(isea) = .false.
 
      ! Apply initial atmospheric properties to sea "canopy"
 
@@ -81,7 +82,9 @@ subroutine sea_init_atm()
 
      sea%sea_rough   (isea) = .001
      sea%sea_cantemp (isea) = sfcg%cantemp(iwsfc)
-     sea%sea_canrrv  (isea) = sfcg%canrrv(iwsfc)
+     sea%sea_canrrv  (isea) = sfcg%canrrv (iwsfc)
+     sea%sea_bcantemp(isea) = sfcg%cantemp(iwsfc)
+     sea%sea_bcanrrv (isea) = sfcg%canrrv (iwsfc)
      sea%sea_ustar   (isea) = 0.1
      sea%sea_ggaer   (isea) = 0.0
      sea%sea_wthv    (isea) = 0.0

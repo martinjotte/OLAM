@@ -77,7 +77,7 @@ subroutine stars( zts, rough, vels, rhos, wstar, air_thetav, can_thetav, &
   ! Subroutine stars computes surface heat and vapor fluxes and momentum drag
   ! coefficient from Louis (1981) equations
 
-  use consts_coms, only: vonk, grav
+  use consts_coms, only: grav
 
   implicit none
 
@@ -100,66 +100,82 @@ subroutine stars( zts, rough, vels, rhos, wstar, air_thetav, can_thetav, &
 
   ! Local parameters
 
-  real, parameter :: b = 5.
-  real, parameter :: csm = 7.5
-  real, parameter :: csh = 5.
-  real, parameter :: d = 5.
   real, parameter :: ustmin = .05 ! lower bound on ustar (friction velocity)
   real, parameter :: ubmin  = .1  ! lower bound on wind speed
 
   ! Local variables
 
   real :: vels0  ! wind speed with minimum imposed [m/s]
-  real :: a2     ! drag coefficient in neutral conditions, here same for h/m
   real :: ri     ! bulk richardson number, eq. 3.45 in Garratt
-  real :: c1
-  real :: c2
-  real :: c3
-  real :: cm
-  real :: ch
-  real :: fm
-  real :: fh
-  real :: vtscr  ! ustar times density
+  real :: a2fm   ! drag coefficient for momentum
+  real :: a2fh   ! drag coefficient for heat/tracers
+  real :: vtscr
 
   ! Routine to compute Louis (1981) surface layer parameterization.
 
-  vels0 = max(ubmin, sqrt(vels*vels + wstar*wstar))
+  ! Louis surface layer profiles:
+  ! u*^2 = U(zobs)^2                 * a2 * Fm(Ri)
+  ! u*t* = U(zobs) * (T(zobs)-T(z0)) * a2 * Fh(Ri)
 
-  a2 = ( vonk / log(zts / rough) ) ** 2
-  c1 = a2 * vels0
+  vels0 = max(ubmin, sqrt(vels*vels + wstar*wstar))
 
   ri = 2.0 * grav * zts * (air_thetav - can_thetav)  &
      / ( (air_thetav + can_thetav) * vels0 * vels0 )
 
-  if (ri > 0.) then
+  ! Get the Louis drag coefficients
+  call a2fmfh(ri, zts, rough, a2fm, a2fh)
 
-     fm = 1. / (1. + (2. * b * ri / sqrt(1. + d * ri)))
-     fh = 1. / (1. + (3. * b * ri * sqrt(1. + d * ri)))
+  ustar = max(ustmin, vels0 * sqrt(a2fm))
+
+  vtscr  = rhos * zts * vels0
+  vkmsfc = vtscr * a2fm   ! convert drag coefficient to diffusivity
+  vkhsfc = vtscr * a2fh   ! convert drag coefficient to diffusivity
+
+  ggaero = vels0 * a2fh   ! aerodynamic conductance, currently unused
+
+end subroutine stars
+
+!===============================================================================
+
+subroutine a2fmfh(ri, zobs, zrough, a2fm, a2fh)
+
+  use consts_coms, only: vonk
+
+  implicit none
+
+  real, intent(in)  :: ri     ! surface layer bulk Richardson number
+  real, intent(in)  :: zobs   ! reference height
+  real, intent(in)  :: zrough ! roughness height (level where wind speed -> 0)
+  real, intent(out) :: a2fm   ! a2 * Fm, drag coefficient for momentum
+  real, intent(out) :: a2fh   ! a2 * Fh, drag coefficient for heat/tracers
+  real              :: a2, c2
+
+  ! This routine computes the product a2*Fm and a2*Fh, which are the surface
+  ! drag coefficients from the Louis (1979) model with some updates from
+  ! ECMWF given in "A Short History of the Operational PBL Parameterization
+  ! at ECMWF", by Louis, Tiedtke, and Geleyn.
+
+  ! Louis profiles:
+  ! u*^2 = U(zobs)^2                 * a2 * Fm(Ri)
+  ! u*t* = U(zobs) * (T(zobs)-T(z0)) * a2 * Fh(Ri)
+
+  a2 = ( vonk / log(zobs/zrough) )**2
+
+  if (ri >= 0.) then              ! STABLE CASE
+
+     c2 = sqrt(1. + 5. * ri)
+     a2fm = a2 / (1. + 10. * ri / c2)
+     a2fh = a2 / (1. + 15. * ri * c2)
 
   else                            ! UNSTABLE CASE
 
-     c2 = b * a2 * sqrt(zts / rough * (abs(ri)))
-     cm = csm * c2
-     ch = csh * c2
-     fm = (1. - 2. * b * ri / (1. + 2. * cm))
-     fh = (1. - 3. * b * ri / (1. + 3. * ch))
+     c2 = ri / (1. + 75. * a2 * sqrt(-zobs*ri/zrough))
+     a2fm = a2 * (1. - 10. * c2)
+     a2fh = a2 * (1. - 15. * c2)
 
   endif
 
-  ustar = max(ustmin,sqrt(c1 * vels0 * fm))
-  c3 = c1 * fh / ustar
-
-  vtscr = ustar * rhos
-
-  vkmsfc =   vtscr * ustar * zts / vels0
-  vkhsfc =   vtscr * c3 * zts
-
-  ! Store the aerodynamic conductance between the surface canopy and
-  ! the lowest model level
-
-  ggaero  = c3 * ustar
-
-end subroutine stars
+end subroutine a2fmfh
 
 !===============================================================================
 
@@ -267,40 +283,27 @@ subroutine sfclyr_profile (vels, rhos, canexner, ustar, sfluxt, sfluxr, dzt_bot,
   real, intent(inout) ::  wind_zobs
   real, intent(inout) ::   rrv_zobs
 
-  real :: vels0, a2, richnum
+  real :: vels0, richnum, a2fm, a2fh, fact
+
+  ! Louis profiles:
+  ! u*^2 = U(zobs)^2                 * a2 * Fm(Ri)
+  ! u*t* = U(zobs) * (T(zobs)-T(z0)) * a2 * Fh(Ri)
 
   real, parameter :: ubmin  = .1  ! lower bound on wind speed
 
   vels0 = max(ubmin, sqrt(vels*vels + wstar*wstar))
 
-  a2 = (vonk / log(zobs / zrough)) ** 2
-
   richnum = 2.0 * grav * dzt_bot * (airthetav - canthetav)  &
           / ( (airthetav + canthetav) * vels0 * vels0 )
 
-  if (airthetav >= canthetav) then
+  call a2fmfh(richnum, zobs, zrough, a2fm, a2fh)
 
-     wind_zobs = sqrt((ustar**2 / a2) &
-               * (1. + 10. * richnum / sqrt(1. + 5. * richnum)) )
+  wind_zobs = ustar / sqrt(a2fm)
 
-     theta_zobs = cantheta - (sfluxt / (cp * canexner * a2 * vels0 * rhos)) &
-                * (1. + 15. * richnum / sqrt(1. + 5. * richnum))
+  fact = 1. / (rhos * wind_zobs * a2fh)
 
-     rrv_zobs = canrrv - (sfluxr / (a2 * vels0 * rhos)) &
-                * (1. + 15. * richnum / sqrt(1. + 5. * richnum))
-
-  else
-
-     wind_zobs = sqrt((ustar**2 / a2) &
-               / (1. - 10. * richnum / (1. + 75. * a2 * sqrt(-zobs * richnum/zrough))))
-
-     theta_zobs = cantheta - (sfluxt / (cp * canexner * a2 * vels0 * rhos)) &
-                / (1. - 15. * richnum / (1. + 75. * a2 * sqrt(-zobs * richnum / zrough)))
-
-     rrv_zobs = canrrv - (sfluxr / (a2 * vels0 * rhos)) &
-                / (1. - 15. * richnum / (1. + 75. * a2 * sqrt(-zobs * richnum / zrough)))
-
-  endif
+  theta_zobs = cantheta - sfluxt * fact / (cp * canexner)
+  rrv_zobs   = canrrv   - sfluxr * fact
 
 end subroutine sfclyr_profile
 

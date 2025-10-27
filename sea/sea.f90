@@ -18,9 +18,10 @@ subroutine seacells(isea, timefac_sst, timefac_seaice)
   ! Local variables
 
   integer :: iwsfc
+  logical :: ispray_active
 
   real :: canexneri, cantheta, canthetav
-  real :: airthetav, wstars
+  real :: airthetav, wstar
   real :: usti, zw, zn1, zn2
   real :: raxis, windu, windv, cdtop, wusurf, wvsurf, wtsurf, wssurf, swrad, hfluxsea
   real :: sea_spray1_temp, sea_spray2_temp
@@ -79,13 +80,13 @@ subroutine seacells(isea, timefac_sst, timefac_seaice)
   cantheta  = sea%sea_cantemp(isea) * canexneri
   canthetav = cantheta * (1.0 + eps_virt * sea%sea_canrrv(isea))
 
-  wstars = (grav * sfcg%pblh(iwsfc) * max(sea%sea_wthv(isea),0.0) / airthetav) ** onethird
+  wstar = (grav * sfcg%pblh(iwsfc) * max(sea%sea_wthv(isea),0.0) / airthetav) ** onethird
 
   call stars(sfcg%dzt_bot  (iwsfc), &
              sea%sea_rough  (isea), &
              sfcg%vels     (iwsfc), &
              sfcg%rhos     (iwsfc), &
-             wstars               , &
+             wstar                , &
              airthetav            , &
              canthetav            , &
              sea%sea_vkmsfc (isea), &
@@ -97,8 +98,9 @@ subroutine seacells(isea, timefac_sst, timefac_seaice)
 !  sea%sea_sfluxc(isea) = sfcg%rhos(iwsfc) * sea%sea_ggaer(isea) &
 !                       * (sea%sea_co2(isea) - air_co2)
 
-  if (allocated(sea%spraytemp )) sea_spray1_temp = sea%spraytemp (isea)
-  if (allocated(sea%spray2temp)) sea_spray2_temp = sea%spray2temp(isea)
+  if (allocated(sea%spraytemp )) sea_spray1_temp = sea%spraytemp   (isea)
+  if (allocated(sea%spray2temp)) sea_spray2_temp = sea%spray2temp  (isea)
+  if (allocated(sea%spray_active)) ispray_active = sea%spray_active(isea)
 
   ! Update SEA fields
 
@@ -111,6 +113,7 @@ subroutine seacells(isea, timefac_sst, timefac_seaice)
                     sfcg%can_depth (iwsfc),  &
                     sea%seatc       (isea),  &
                     sfcg%vels      (iwsfc),  &
+                    wstar                 ,  &
                     sfcg%prss      (iwsfc),  &
                     sea%sea_wthv    (isea),  &
                     sfcg%glatw     (iwsfc),  &
@@ -120,12 +123,15 @@ subroutine seacells(isea, timefac_sst, timefac_seaice)
                     sfcg%canexner  (iwsfc),  &
                     sea%sea_cantemp (isea),  &
                     sea%sea_canrrv  (isea),  &
+                    sea%sea_bcantemp(isea),  &
+                    sea%sea_bcanrrv (isea),  &
                     sea_spray1_temp,         &
                     sea_spray2_temp,         &
                     sea%sea_sfluxt  (isea),  &
                     sea%sea_sfluxr  (isea),  &
                     sea%sea_rough   (isea),  &
-                    hfluxsea                 )
+                    hfluxsea,                &
+                    ispray_active            )
 
   else
 
@@ -136,6 +142,7 @@ subroutine seacells(isea, timefac_sst, timefac_seaice)
                     sfcg%can_depth (iwsfc),  &
                     sea%seatc       (isea),  &
                     sfcg%vels      (iwsfc),  &
+                    wstar                 ,  &
                     sfcg%prss      (iwsfc),  &
                     sea%sea_wthv    (isea),  &
                     sfcg%glatw     (iwsfc),  &
@@ -145,16 +152,20 @@ subroutine seacells(isea, timefac_sst, timefac_seaice)
                     sfcg%canexner  (iwsfc),  &
                     sea%sea_cantemp (isea),  &
                     sea%sea_canrrv  (isea),  &
+                    sea%sea_bcantemp(isea),  &
+                    sea%sea_bcanrrv (isea),  &
                     sea_spray1_temp,         &
                     sea%sea_sfluxt  (isea),  &
                     sea%sea_sfluxr  (isea),  &
                     sea%sea_rough   (isea),  &
-                    hfluxsea                 )
+                    hfluxsea,                &
+                    ispray_active            )
 
   endif
 
-  if (allocated(sea%spraytemp )) sea%spraytemp (isea) = sea_spray1_temp
-  if (allocated(sea%spray2temp)) sea%spray2temp(isea) = sea_spray2_temp
+  if (allocated(sea%spraytemp ))   sea%spraytemp   (isea) = sea_spray1_temp
+  if (allocated(sea%spray2temp))   sea%spray2temp  (isea) = sea_spray2_temp
+  if (allocated(sea%spray_active)) sea%spray_active(isea) = ispray_active
 
   ! New calculation of wthv for sfluxt units [W m^-2]
 
@@ -254,13 +265,13 @@ subroutine seacells(isea, timefac_sst, timefac_seaice)
      cantheta  = sea%ice_cantemp(isea) * canexneri
      canthetav = cantheta * (1.0 + eps_virt * sea%ice_canrrv(isea))
 
-     wstars = (grav * sfcg%pblh(iwsfc) * max(sea%ice_wthv(isea),0.0) / airthetav) ** onethird
+     wstar = (grav * sfcg%pblh(iwsfc) * max(sea%ice_wthv(isea),0.0) / airthetav) ** onethird
 
      call stars(sfcg%dzt_bot  (iwsfc), &
                 sea%ice_rough  (isea), &
                 sfcg%vels     (iwsfc), &
                 sfcg%rhos     (iwsfc), &
-                wstars               , &
+                wstar                , &
                 airthetav            , &
                 canthetav            , &
                 sea%ice_vkmsfc (isea), &
@@ -343,9 +354,9 @@ end subroutine seacells
 !===============================================================================
 
 subroutine seacell_1( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
-                      vels, prss, wthv, glatw, glonw, airtheta, airrrv,  &
-                      canexner, cantemp, canrrv, spraytemp, sfluxt, sfluxr, &
-                      rough, hfluxsea )
+                      vels, wstar, prss, wthv, glatw, glonw, airtheta, airrrv, &
+                      canexner, cantemp, canrrv, bcantemp, bcanrrv, &
+                      spraytemp, sfluxt, sfluxr, rough, hfluxsea, spray_active )
 
   use mem_sfcg,    only: sfcg
   use sea_coms,    only: dt_sea
@@ -365,6 +376,7 @@ subroutine seacell_1( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
   real,    intent(in)    :: can_depth    ! "canopy" depth for heat and vap capacity [m]
   real,    intent(in)    :: seatc        ! current sea temp (obs time) [K]
   real,    intent(in)    :: vels         ! wind speed at top of sfc layer [m/s]
+  real,    intent(in)    :: wstar        ! PBL convective velocity scale [m/s]
   real,    intent(in)    :: prss         ! canopy air pressure [Pa]
   real,    intent(in)    :: wthv         ! surface buoyancy flux [K m/s]
   real,    intent(in)    :: glatw        ! Latitude of sea cell 'center' [deg]
@@ -374,16 +386,21 @@ subroutine seacell_1( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
   real,    intent(in)    :: canexner     ! canopy Exner function []
   real,    intent(inout) :: cantemp      ! can_air temp [K]
   real,    intent(inout) :: canrrv       ! can_air vapor mixing ratio [kg_vap/kg_dryair]
+  real,    intent(inout) :: bcantemp     ! bcan_air temp [K]
+  real,    intent(inout) :: bcanrrv      ! bcan_air vapor mixing ratio [kg_vap/kg_dryair]
   real,    intent(inout) :: spraytemp    ! seaspray temperature [K]
   real,    intent(inout) :: sfluxt       ! can_air to atm heat flux [W m^-2]
   real,    intent(inout) :: sfluxr       ! can_air to atm vapor flux [kg_vap m^-2 s^-1]
   real,    intent(in)    :: rough        ! sea cell roughess height [m]
   real,    intent(out)   :: hfluxsea     ! heat flux from sea surface to can_air [kg K/(m^2 s)]
+  logical, intent(inout) :: spray_active ! was sea spray layer active previous timestep
 
   ! Local parameters
 
-  real, parameter :: one3  = 1./ 3.
-  real, parameter :: fcn = 0.75            ! Crank-Nicolson future time weight
+  real, parameter :: one3    = 1./ 3.
+  real, parameter :: fcn     = 0.75      ! Crank-Nicolson future time weight
+  real, parameter :: ubmin   = .1        ! lower bound on wind speed
+  real, parameter :: ubminsq = ubmin**2
 
   ! Local variables
 
@@ -391,20 +408,35 @@ subroutine seacell_1( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
   real :: hxfersc        ! heat xfer from sea surface to can_air this step [J/m^2]
   real :: hxferca        ! heat xfer from can_air to atm this step [J/m^2]
   real :: wxferca        ! vapor xfer from can_air to atm this step [kg/m^2]
+
+  real :: hxfercb   !    ! heat xfer from can_air to bcanopy this step [J/m^2]
+  real :: wxfercb   !    ! vapor xfer from can_air to bcanopy this step [kg/m^2]
+  real :: hxferba   !    ! heat xfer from bcanopy to atm this step [J/m^2]
+  real :: wxferba   !    ! vapor xfer from bcanopy to atm this step [kg/m^2]
+
   real :: wxfersc        ! vapor xfer from sea surface to can_air this step [kg_vap/m^2]
   real :: hxfersd        ! heat xfer from sea surface to seaspray drops this step [J/m^2]
-  real :: hxferdc        ! heat xfer from seaspray drops to can_air this step [J/m^2]
-  real :: wxferdc        ! vapor xfer from seaspray drops to can_air this step [kg_vap/m^2]
+  real :: hxferdb   !    ! heat xfer from seaspray drops to bcan_air this step [J/m^2]
+  real :: wxferdb   !    ! vapor xfer from seaspray drops to bcan_air this step [kg_vap/m^2]
   real :: sfc_rhovs      ! sat vapor density at sea surface temp [kg_vap/m^3]
   real :: spray_rhovs    ! sat vapor density at seaspray temp [kg_vap/m^3]
   real :: spray_rhovsp   ! sat vapor density derivative at seaspray temp [kg_vap/(K m^3)]
+
   real :: can_rhov       ! Canopy air water vapor density [kg_vap/m^3]
   real :: canair         ! Canopy air mass [kg/m^2]
   real :: hcapcan        ! Canopy air heat capacity [J/(m^2 K)]
+  real :: bcan_rhov      ! Bcanopy air water vapor density [kg_vap/m^3]
+  real :: bcanair        ! Bcanopy air mass [kg/m^2]
+  real :: hcapbcan       ! Bcanopy air heat capacity [J/(m^2 K)]
   real :: hcapspray      ! Heat capacity of sea spray [J/(m^2 K)]
+
   real :: canairi        ! Inverse of canair
   real :: hcapcani       ! Inverse of hcapcan
+  real :: bcanairi       ! Inverse of bcanair
+  real :: hcapbcani      ! Inverse of hcapbcan
   real :: hcapsprayi     ! Inverse of hcapspray
+  real :: zspray         ! height of top of spray layer [m]
+  real :: zsprayo2       ! height of middle of spray layer [m]
 
   real    :: spray_massflux ! Seaspray mass flux from sea [kg m^-2 s^-1]
   real    :: spray_mass     ! Seaspray steady-state mass in canopy [kg m^-2]
@@ -412,31 +444,38 @@ subroutine seacell_1( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
   real    :: wt1, wt2       ! Interpolation weights [ ]
   integer :: ind            ! Interpolation index
 
-  real(r8) :: a1, a2, a5, a6, a7, a9, a10
-  real(r8) :: h1, h4, h5, h7, h8
-  real(r8) :: y1, y2, y4, y5, y3, y9, y10
+  real(r8) :: a1, a2,         a5, a6, a7,     a9, a10, a11, a12
+  real(r8) :: h1,         h4, h5,     h7, h8, h9, h10, h11
+  real(r8) :: y1, y2, y3, y4, y5,             y9, y10, y11, y12
 
   real(r8) :: aa4(4,4), xx4(4), yy4(4)  ! 4x4 matrix equation terms
-  real(r8) :: aa7(7,7), xx7(7), yy7(7)  ! 7x7 matrix equation terms
+  real(r8) :: aa9(9,9), xx9(9), yy9(9)  ! 9x9 matrix equation terms
 
   logical :: sing
 
   ! Local variables used to evaluate wind speed at 10 m height
 
-  real :: z10, press_z10, exner_z10, cantheta, canthetav, airthetav
-  real :: wstars, wind_z10, theta_z10, rrv_z10
+  real :: z10, cantheta, canthetav, airthetav
+  real :: wind_z10, theta_z10, rrv_z10
+  real :: press_bcan, exner_bcan, bcantheta, a2fm, a2fh
+
+  real :: rs, rsi, ra, rb, rbi, richnum, vels0
 
   ! Seaspray is represented in the "sea canopy" in an analogous manner to water
-  ! on the surface of vegetation in the land canopy.  Heat and vapor are exchanged
-  ! between seaspray and canopy air within an implicit solver that also incorporates
-  ! heat and vapor exchange between the sea surface and canopy air, and between
-  ! canopy air and the free atmosphere.  Three properties of seaspray are required:
+  ! on the surface of vegetation in the land canopy.  HOWEVER, SINCE SEASPRAY
+  ! DROPLETS ARE INJECTED TO HEIGHTS WELL ABOVE THE ROUGHNESS HEIGHT, A SECONDARY
+  ! "CANOPY" LAYER, WHICH IS CALLED THE 'BCANOPY', IS INTRODUCED TO RECEIVE THE
+  ! SEASPRAY DROPLETS.  TEMPERATURE AND VAPOR MIXING RATIO ARE PROGNOSED IN THE
+  ! BCANOPY.  Heat and vapor are exchanged between seaspray and bcanopy air within
+  ! an implicit solver that also incorporates heat and vapor exchange between the
+  ! sea surface and canopy air, between canopy and bcanopy air, and between
+  ! bcanopy air and the free atmosphere.  Three properties of seaspray are required:
   ! (1) the steady-state mass of seaspray droplets [kg m^-2] in the canopy air, (2)
-  ! the steady-state vapor transfer coefficient [m s^-1] between seaspray and canopy
-  ! air, and (3) the mass flux [kg m^-2 s^-1] of seaspray into the canopy air from
+  ! the steady-state vapor transfer coefficient [m s^-1] between seaspray and bcanopy
+  ! air, and (3) the mass flux [kg m^-2 s^-1] of seaspray into the bcanopy air from
   ! the sea surface.  (By multiplying the mass flux by the temperature difference
   ! between new and returning sea spray droplets and by the specific heat of liquid
-  ! water, we get the net energy flux from the sea surface to seaspray.) 
+  ! water, we get the net energy flux from the sea surface to seaspray.)
 
   ! These three properties are tabulated below as a function of wind speed at 10 m
   ! height.  The tabulated values were generated in a separate program (ssgf.f90),
@@ -444,13 +483,13 @@ subroutine seacell_1( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
   ! ssgf.f90 numerically integrates over the (seastate-based) seaspray droplet size
   ! spectra in Fig. 4a to obtain all three properties.
 
-  ! Vapor transfer coefficient suodt between sea spray and canopy air corresponds,
+  ! Vapor transfer coefficient suodt between sea spray and bcanopy air corresponds,
   ! after multiplication by the model timestep, to the quantity (su) in OLAM
-  ! microphysics divided by that governs vapor flux between liquid droplets and air.
+  ! microphysics that governs vapor flux between liquid droplets and air.
   ! suodt is computed from the same formula, except for the following differences:
   !
   ! (1) su in microphysics is dimensionless, while (suodt * dt_sea) has dimensions
-  !     of [m] representing a vertical integration over "canopy" depth.
+  !     of [m] representing a vertical integration over "bcanopy" depth.
   !
   ! (2) su in microphysics represents an integral over individual droplet size
   !     categories (cloud, drizzle, rain) assuming a gamma size distribution for
@@ -479,26 +518,24 @@ subroutine seacell_1( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
 
   ! 200-4000 MICRONS (band 5)
 
+  real ::  sig_wavehght  (5) = (/ 4.0,    6.0,    8.0,   10.0,   11.0 /) ! [m]
+
   integer, parameter :: band = 1
 
   ! If doing seaspray and wind speed is at least 15 m/s, compute wind speed at 10 m level
-  ! (wind_z10) USING SFLUXT AND SFLUXR VALUES EVALUATED ON THE PREVIOUS TIMESTEP.
-  ! Otherwise, set wind_z10 to zero as a flag to not compute seaspray flux.
+  ! (wind_z10).  (Note that SFLUXT and SFLUXR are not actually used in sfclyr_profile
+  ! to compute wind_z10, so it does not matter that they may represent bcanopy-to-atm
+  ! fluxes.)
 
   if (nl%iseasprayflg > 0 .and. vels > nl%seaspray_vmin) then
      z10 = 10.
-
-     press_z10 = prss - grav * z10 * rhos ! hydrostatic eqn.
-     exner_z10 = (press_z10 * p00i) ** rocp
 
      cantheta  = cantemp / canexner
      canthetav = cantheta             * (1.0 + eps_virt * canrrv)
      airthetav = sfcg%airtheta(iwsfc) * (1.0 + eps_virt * airrrv)
 
-     wstars = (grav * sfcg%pblh(iwsfc) * max(wthv,0.0) / airthetav) ** one3
-
      call sfclyr_profile (vels, rhos, canexner, ustar, sfluxt, sfluxr, &
-                          sfcg%dzt_bot(iwsfc), rough, wstars, &
+                          sfcg%dzt_bot(iwsfc), rough, wstar, &
                           cantheta, canthetav, canrrv, airthetav, &
                           z10, wind_z10, theta_z10, rrv_z10)
   else
@@ -515,36 +552,37 @@ subroutine seacell_1( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
 
   ! Canopy air quantities
 
-  can_rhov = canrrv * rhos
-  canair   = rhos * can_depth
-  canairi  = 1. / canair
-  hcapcan  = cp * canair
-  hcapcani = 1. / hcapcan
-
+  can_rhov  = canrrv * rhos
+  canair    = rhos * can_depth
+  canairi   = 1. / canair
+  hcapcan   = cp * canair
+  hcapcani  = 1. / hcapcan
   ! Set up and solve a linear system of equations that use trapezoidal-implicit
   ! differencing.  The solution of the system consists of turbulent heat and
   ! water vapor fluxes between canopy air, the ocean surface, sea spray droplets
   ! (if present), and the free atmosphere, and the consequent changes to water
   ! and temperature of canopy air and temperature of sea spray.
 
-  a5  = dt_sea * rdi   ! sfc sublayer vap xfer coef
-  a6  = cp * rhos * a5 ! sfc sublayer heat xfer coef
-  a9  = dt_sea * vkhsfc / sfcg%dzt_bot(iwsfc)
-  a10 = cp * a9
-
-  h4 = fcn * rhos * canairi  ! = fcn / can_depth
-  h7 = fcn * hcapcani
-  h8 = fcn * canairi
-
-  y2  = sfc_rhovs - can_rhov
-  y5  = seatc     - cantemp
-  y9  = canrrv    - airrrv
-  y10 = cantemp   - canexner * airtheta
-
   if (wind_z10 <= nl%seaspray_vmin) then ! Case with NO SEA SPRAY (two uncoupled equations)
+
+     spray_active = .false.
 
      ! Set up and solve 4x4 matrix equation (trapezoidal implicit method) to balance
      ! vapor and heat fluxes between canopy air, sea spray, and the ocean surface.
+
+     a5  = dt_sea * rdi   ! sfc sublayer vap xfer coef
+     a6  = cp * rhos * a5 ! sfc sublayer heat xfer coef
+     a9  = dt_sea * vkhsfc / sfcg%dzt_bot(iwsfc)
+     a10 = cp * a9
+
+     h4 = fcn * rhos * canairi  ! = fcn / can_depth
+     h7 = fcn * hcapcani
+     h8 = fcn * canairi
+
+     y2  = sfc_rhovs - can_rhov
+     y5  = seatc     - cantemp
+     y9  = canrrv    - airrrv
+     y10 = cantemp   - canexner * airtheta
 
      aa4(1,1) = 1._r8 + a5 * h4
      aa4(1,2) = 0._r8
@@ -639,17 +677,62 @@ subroutine seacell_1( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
         stop 'ssgf - band value not valid'
      endif
 
+     zspray   = wt1 * sig_wavehght(ind) + wt2 * sig_wavehght(ind+1)
+     zsprayo2 = 0.5 * zspray
+     zsprayo2 = min(zsprayo2, .9*sfcg%dzt_bot(iwsfc)) ! limit middle of spray layer to no higher than
+                                                      ! middle of lowest model layer for now
+
+     press_bcan = prss - grav * zsprayo2 * rhos ! hydrostatic eqn.
+     exner_bcan = (press_bcan * p00i) ** rocp
+
+     vels0 = max(ubmin, sqrt(vels*vels + wstar*wstar))
+
+     ! Surface layer bulk Richardson number computed from surface canopy
+     richnum = 2.0 * grav * sfcg%dzt_bot(iwsfc) * (airthetav - canthetav)  &
+             / ( (airthetav + canthetav) * vels0 * vels0 )
+
+     ! Louis drag coefficients at middle of spray layer
+     call a2fmfh(richnum, zsprayo2, rough, a2fm, a2fh)
+
+     ! Convert heat/tracer drag coefficient to conductivity from can to bcan
+     rsi = ustar * a2fh / sqrt(a2fm)
+
+     rs = 1. / rsi                            ! can to bcan resistance
+     ra = rhos * sfcg%dzt_bot(iwsfc) / vkhsfc ! can to atm resistance
+
+     ! subtract the can-to-bcan resistance from the can-to-atm resistance
+     ! to get the bcan-to-atm resistance
+
+     rb  = ra - rs     ! bcan to atm resistance
+     rbi = 1. / rb     ! bcan to atm conductivity
+
+     if (spray_active) then
+
+        bcantheta  = bcantemp / exner_bcan
+
+     else
+
+        spray_active = .true.
+
+        ! Initialize bcan temp/vapor to give the same initial flux as from canopy
+        bcantheta = airtheta + rb/ra * (cantheta - airtheta)
+        bcanrrv   = airrrv   + rb/ra * (canrrv   - airrrv)
+
+        bcantemp  = bcantheta * exner_bcan
+
+     endif
+
 !@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 ! Test: method to turn off spray effect; must keep nonzero spray_mass
 !  spray_massflux = 0.
 !  spray_suodt = 0.
 !@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
-     a1 = spray_suodt * dt_sea
-     a2 = cp * rhos * a1
-     a7 = spray_massflux * cliq * dt_sea
-     a9  = vkhsfc * dt_sea / sfcg%dzt_bot(iwsfc)
-     a10 = cp * a9
+     bcan_rhov = bcanrrv * rhos
+     bcanair   = rhos * zspray
+     bcanairi  = 1. / canair
+     hcapbcan  = cp * canair
+     hcapbcani = 1. / hcapcan
 
      spray_rhovs  = rhovsl(spraytemp       - 273.15)
      spray_rhovsp = rhovsl(spraytemp + 1.0 - 273.15) - spray_rhovs
@@ -657,99 +740,161 @@ subroutine seacell_1( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
      hcapspray = spray_mass * cliq
      hcapsprayi = 1. / hcapspray
 
-     h1 = fcn * hcapsprayi * spray_rhovsp
-     h5 = fcn * hcapsprayi
+     a1  = spray_suodt * dt_sea
+     a2  = cp * rhos * a1
+     a5  = dt_sea * rdi   ! sfc sublayer vap xfer coef
+     a6  = cp * rhos * a5 ! sfc sublayer heat xfer coef
+     a7  = spray_massflux * cliq * dt_sea
+     a9  = dt_sea * rbi * rhos  ! bcan to atm humidity mixing ratio xfer coef
+     a10 = cp * a9              ! bcan to atm heat xfer coef
+     a11 = dt_sea * rsi * rhos  ! can to bcan vap xfer coef
+     a12 = cp * a11              ! can to bcan heat xfer coef
 
-     y1 = spray_rhovs - can_rhov
-     y4 = spraytemp   - cantemp
-     y3 = seatc       - spraytemp
-     y9  = canrrv     - airrrv
-     y10 = cantemp    - canexner * airtheta
+     h1 = fcn * hcapsprayi * spray_rhovsp
+     h4 = fcn * rhos * canairi  ! = fcn / can_depth
+     h5 = fcn * hcapsprayi
+     h7 = fcn * hcapcani
+     h8 = fcn * canairi
+     h9  = fcn * rhos * bcanairi ! = fcn / bcan_depth
+     h10 = fcn * hcapbcani
+     h11 = fcn * bcanairi
+
+     y1  = spray_rhovs - bcan_rhov
+     y2  = sfc_rhovs   - can_rhov
+     y3  = seatc       - spraytemp
+     y4  = spraytemp   - cantemp
+     y5  = seatc       - cantemp
+     y9  = canrrv      - airrrv
+     y10 = cantemp     - canexner * airtheta
+     y11 = canrrv      - bcanrrv
+     y12 = cantemp     - bcantemp
 
      ! Set up and solve 7x7 matrix equation (trapezoidal implicit method) to balance
      ! vapor and heat fluxes between canopy air, sea spray, and the ocean surface.
 
-     aa7(1,1) = 1._r8 + a1 * (h1 * alvl + h4)
-     aa7(1,2) =         a1 * h4
-     aa7(1,3) =         a1 * h1
-     aa7(1,4) = 0._r8
-     aa7(1,5) =       - a1 * h1
-     aa7(1,6) =       - a1 * h4
-     aa7(1,7) = 0._r8
-     yy7(1)   =         a1 * y1  ! WDC row
+     aa9(1,1) = 1._r8 + a1 * (h1 * alvl + h9)
+     aa9(1,2) = 0._r8
+     aa9(1,3) =         a1 * h1
+     aa9(1,4) = 0._r8
+     aa9(1,5) =       - a1 * h1
+     aa9(1,6) =       - a1 * h9
+     aa9(1,7) = 0._r8
+     aa9(1,8) =         a1 * h9
+     aa9(1,9) = 0._r8
+     yy9(1)   =         a1 * y1  ! WDB row
 
-     aa7(2,1) =         a5 * h4
-     aa7(2,2) = 1._r8 + a5 * h4
-     aa7(2,3) = 0._r8
-     aa7(2,4) = 0._r8
-     aa7(2,5) = 0._r8
-     aa7(2,6) =       - a5 * h4
-     aa7(2,7) = 0._r8
-     yy7(2)   =         a5 * y2  ! WSC row
+     aa9(2,1) = 0._r8
+     aa9(2,2) = 1._r8 + a5 * h4
+     aa9(2,3) = 0._r8
+     aa9(2,4) = 0._r8
+     aa9(2,5) = 0._r8
+     aa9(2,6) = 0._r8
+     aa9(2,7) = 0._r8
+     aa9(2,8) =       - a5 * h4
+     aa9(2,9) = 0._r8
+     yy9(2)   =         a5 * y2  ! WSC row
 
-     aa7(3,1) =         a2 * h5 * alvl
-     aa7(3,2) = 0._r8
-     aa7(3,3) = 1._r8 + a2 * (h5 + h7)
-     aa7(3,4) =         a2 * h7
-     aa7(3,5) =       - a2 * h5
-     aa7(3,6) = 0._r8
-     aa7(3,7) =       - a2 * h7
-     yy7(3)   =         a2 * y4  ! HDC row
+     aa9(3,1) =         a2 * h5 * alvl
+     aa9(3,2) = 0._r8
+     aa9(3,3) = 1._r8 + a2 * (h5 + h10)
+     aa9(3,4) =         a2 * h10
+     aa9(3,5) =       - a2 * h5
+     aa9(3,6) = 0._r8
+     aa9(3,7) =       - a2 * h10
+     aa9(3,8) = 0._r8
+     aa9(3,9) =         a2 * h10
+     yy9(3)   =         a2 * y4  ! HDB row
 
-     aa7(4,1) = 0._r8
-     aa7(4,2) = 0._r8
-     aa7(4,3) =         a6 * h7
-     aa7(4,4) = 1._r8 + a6 * h7
-     aa7(4,5) = 0._r8
-     aa7(4,6) = 0._r8
-     aa7(4,7) =       - a6 * h7
-     yy7(4)   =         a6 * y5  ! HSC row
+     aa9(4,1) = 0._r8
+     aa9(4,2) = 0._r8
+     aa9(4,3) = 0._r8
+     aa9(4,4) = 1._r8 + a6 * h7
+     aa9(4,5) = 0._r8
+     aa9(4,6) = 0._r8
+     aa9(4,7) = 0._r8
+     aa9(4,8) = 0._r8
+     aa9(4,9) =       - a6 * h7
+     yy9(4)   =         a6 * y5  ! HSC row
 
-     aa7(5,1) =       - a7 * h5 * alvl
-     aa7(5,2) = 0._r8
-     aa7(5,3) =       - a7 * h5
-     aa7(5,4) = 0._r8
-     aa7(5,5) = 1._r8 + a7 * h5
-     aa7(5,6) = 0._r8
-     aa7(5,7) = 0._r8
-     yy7(5)   =         a7 * y3  ! HSD row
+     aa9(5,1) =       - a7 * h5 * alvl
+     aa9(5,2) = 0._r8
+     aa9(5,3) =       - a7 * h5
+     aa9(5,4) = 0._r8
+     aa9(5,5) = 1._r8 + a7 * h5
+     aa9(5,6) = 0._r8
+     aa9(5,7) = 0._r8
+     aa9(5,8) = 0._r8
+     aa9(5,9) = 0._r8
+     yy9(5)   =         a7 * y3  ! HSD row
 
-     aa7(6,1) =       - a9 * h8
-     aa7(6,2) =       - a9 * h8
-     aa7(6,3) = 0._r8
-     aa7(6,4) = 0._r8
-     aa7(6,5) = 0._r8
-     aa7(6,6) = 1._r8 + a9 * h8
-     aa7(6,7) = 0._r8
-     yy7(6)   =         a9 * y9  ! WCA row
+     aa9(6,1) =       - a9 * h11
+     aa9(6,2) = 0._r8
+     aa9(6,3) = 0._r8
+     aa9(6,4) = 0._r8
+     aa9(6,5) = 0._r8
+     aa9(6,6) = 1._r8 + a9 * h11
+     aa9(6,7) = 0._r8
+     aa9(6,8) =       - a9 * h11
+     aa9(6,9) = 0._r8
+     yy9(6)   =         a9 * y9  ! WBA row
 
-     aa7(7,1) = 0._r8
-     aa7(7,2) = 0._r8
-     aa7(7,3) =       - a10 * h7
-     aa7(7,4) =       - a10 * h7
-     aa7(7,5) = 0._r8
-     aa7(7,6) = 0._r8
-     aa7(7,7) = 1._r8 + a10 * h7
-     yy7(7)   =         a10 * y10  ! HCA row
+     aa9(7,1) = 0._r8
+     aa9(7,2) = 0._r8
+     aa9(7,3) =       - a10 * h10
+     aa9(7,4) = 0._r8
+     aa9(7,5) = 0._r8
+     aa9(7,6) = 0._r8
+     aa9(7,7) = 1._r8 + a10 * h10
+     aa9(7,8) = 0._r8
+     aa9(7,9) =       - a10 * h10
+     yy9(7)   =         a10 * y10  ! HBA row
 
-     call matrix8_NxN(7,aa7,yy7,xx7,sing); if (sing) call sing_print(iwsfc,'sea2',7,aa7,yy7,glatw,glonw)
+     aa9(8,1) =         a11 * h11
+     aa9(8,2) =       - a11 * h8
+     aa9(8,3) = 0._r8
+     aa9(8,4) = 0._r8
+     aa9(8,5) = 0._r8
+     aa9(8,6) =       - a11 * h11
+     aa9(8,7) = 0._r8
+     aa9(8,8) = 1._r8 + a11 * (h8 + h11)
+     aa9(8,9) = 0._r8
+     yy9(8)   =         a11 * y11    ! WCB row
 
-     wxferdc = xx7(1)
-     wxfersc = xx7(2)
-     hxferdc = xx7(3)
-     hxfersc = xx7(4)
-     hxfersd = xx7(5)
-     wxferca = xx7(6)
-     hxferca = xx7(7)
+     aa9(9,1) = 0._r8
+     aa9(9,2) = 0._r8
+     aa9(9,3) =         a12 * h10
+     aa9(9,4) =       - a12 * h7
+     aa9(9,5) = 0._r8
+     aa9(9,6) = 0._r8
+     aa9(9,7) =       - a12 * h10
+     aa9(9,8) = 0._r8
+     aa9(9,9) = 1._r8 + a12 * (h7 + h10)
+     yy9(9)   =         a12 * y12   ! HCB row
 
-     cantemp   = cantemp   + (hxferdc + hxfersc - hxferca)        * hcapcani
-     canrrv    = canrrv    + (wxferdc + wxfersc - wxferca)        * canairi
-     spraytemp = spraytemp + (hxfersd - hxferdc - wxferdc * alvl) * hcapsprayi
+     call matrix8_NxN(9,aa9,yy9,xx9,sing); if (sing) call sing_print(iwsfc,'sea2',9,aa9,yy9,glatw,glonw)
 
-     sfluxt = hxferca / dt_sea
-     sfluxr = wxferca / dt_sea
+     wxferdb = xx9(1)
+     wxfersc = xx9(2)
+     hxferdb = xx9(3)
+     hxfersc = xx9(4)
+     hxfersd = xx9(5)
+     wxferba = xx9(6)
+     hxferba = xx9(7)
+     hxfercb = xx9(8)
+     hxfercb = xx9(9)
 
-     hfluxsea = (hxfersc + hxferdc) / (cp * dt_sea)
+     cantemp   = cantemp   + (hxfersc - hxfercb) * hcapcani
+     canrrv    = canrrv    + (wxfersc - wxfercb) * canairi
+
+     bcantemp  = bcantemp  + (hxferdb + hxfercb - hxferba) * hcapbcani
+     bcanrrv   = bcanrrv   + (wxferdb + wxfercb - wxferba) * bcanairi
+
+     spraytemp = spraytemp + (hxfersd - hxferdb - wxferdb * alvl) * hcapsprayi
+
+     sfluxt = hxferba / dt_sea
+     sfluxr = wxferba / dt_sea
+
+     hfluxsea = (hxfersc + hxferdb) / (cp * dt_sea)
 
   endif
 
@@ -758,9 +903,9 @@ end subroutine seacell_1
 !===============================================================================
 
 subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
-                      vels, prss, wthv, glatw, glonw, airtheta, airrrv, &
-                      canexner, cantemp, canrrv, spraytemp, spray2temp, sfluxt, sfluxr, &
-                      rough, hfluxsea )
+                      vels, wstar, prss, wthv, glatw, glonw, airtheta, airrrv, &
+                      canexner, cantemp, canrrv, bcantemp, bcanrrv, &
+                      spraytemp, spray2temp, sfluxt, sfluxr, rough, hfluxsea, spray_active )
 
   use mem_sfcg,    only: sfcg
   use sea_coms,    only: dt_sea
@@ -780,6 +925,7 @@ subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
   real,    intent(in)    :: can_depth    ! "canopy" depth for heat and vap capacity [m]
   real,    intent(in)    :: seatc        ! current sea temp (obs time) [K]
   real,    intent(in)    :: vels         ! wind speed at top of sfc layer [m/s]
+  real,    intent(in)    :: wstar        ! PBL convective velocity scale [m/s]
   real,    intent(in)    :: prss         ! canopy air pressure [Pa]
   real,    intent(in)    :: wthv         ! surface buoyancy flux [K m/s]
   real,    intent(in)    :: glatw        ! Latitude of land cell 'center' [deg]
@@ -789,17 +935,22 @@ subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
   real,    intent(in)    :: canexner     ! canopy Exner function []
   real,    intent(inout) :: cantemp      ! can_air temp [K]
   real,    intent(inout) :: canrrv       ! can_air vapor mixing ratio [kg_vap/kg_dryair]
+  real,    intent(inout) :: bcantemp     ! bcan_air temp [K]
+  real,    intent(inout) :: bcanrrv      ! bcan_air vapor mixing ratio [kg_vap/kg_dryair]
   real,    intent(inout) :: spraytemp    ! seaspray temperature [K]
   real,    intent(inout) :: spray2temp   ! seaspray2 temperature [K]
   real,    intent(inout) :: sfluxt       ! can_air to atm sens heat flux [W m^-2]
   real,    intent(inout) :: sfluxr       ! can_air to atm vap flux [kg_vap m^-2 s^-1]
   real,    intent(in)    :: rough        ! sea cell roughess height [m]
   real,    intent(out)   :: hfluxsea     ! heat flux from sea to can_air [kg K/(m^2 s)]
+  logical, intent(inout) :: spray_active ! was sea spray layer active previous timestep
 
   ! Local parameters
 
-  real, parameter :: one3  = 1./ 3.
-  real, parameter :: fcn = 0.75            ! Crank-Nicolson future time weight
+  real, parameter :: one3    = 1./ 3.
+  real, parameter :: fcn     = 0.75      ! Crank-Nicolson future time weight
+  real, parameter :: ubmin   = .1        ! lower bound on wind speed
+  real, parameter :: ubminsq = ubmin**2
 
   ! Local variables
 
@@ -807,27 +958,42 @@ subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
   real :: hxfersc        ! heat xfer from sea surface to can_air this step [J/m^2]
   real :: hxferca        ! heat xfer from can_air to atm this step [J/m^2]
   real :: wxferca        ! vapor xfer from can_air to atm this step [kg/m^2]
+
+  real :: hxfercb   !    ! heat xfer from can_air to bcanopy this step [J/m^2]
+  real :: wxfercb   !    ! vapor xfer from can_air to bcanopy this step [kg/m^2]
+  real :: hxferba   !    ! heat xfer from bcanopy to atm this step [J/m^2]
+  real :: wxferba   !    ! vapor xfer from bcanopy to atm this step [kg/m^2]
+
   real :: wxfersc        ! vapor xfer from sea surface to can_air this step [kg_vap/m^2]
   real :: hxfersd        ! heat xfer from sea surface to seaspray drops this step [J/m^2]
-  real :: hxferdc        ! heat xfer from seaspray drops to can_air this step [J/m^2]
-  real :: wxferdc        ! vapor xfer from seaspray drops to can_air this step [kg_vap/m^2]
+  real :: hxferdb   !    ! heat xfer from seaspray drops to bcan_air this step [J/m^2]
+  real :: wxferdb   !    ! vapor xfer from seaspray drops to bcan_air this step [kg_vap/m^2]
   real :: hxferse        ! heat xfer from sea surface to seaspray2 drops this step [J/m^2]
-  real :: hxferec        ! heat xfer from seaspray2 drops to can_air this step [J/m^2]
-  real :: wxferec        ! vapor xfer from seaspray2 drops to can_air this step [kg_vap/m^2]
+  real :: hxfereb   !    ! heat xfer from seaspray2 drops to bcan_air this step [J/m^2]
+  real :: wxfereb   !    ! vapor xfer from seaspray2 drops to bcan_air this step [kg_vap/m^2]
   real :: sfc_rhovs      ! sat vapor density at sea surface temp [kg_vap/m^3]
   real :: spray_rhovs    ! sat vapor density at seaspray temp [kg_vap/m^3]
   real :: spray_rhovsp   ! sat vapor density derivative at seaspray temp [kg_vap/(K m^3)]
   real :: spray2_rhovs   ! sat vapor density at seaspray2 temp [kg_vap/m^3]
   real :: spray2_rhovsp  ! sat vapor density derivative at seaspray2 temp [kg_vap/(K m^3)]
+
   real :: can_rhov       ! Canopy air water vapor density [kg_vap/m^3]
   real :: canair         ! Canopy air mass [kg/m^2]
   real :: hcapcan        ! Canopy air heat capacity [J/(m^2 K)]
+  real :: bcan_rhov      ! Bcanopy air water vapor density [kg_vap/m^3]
+  real :: bcanair        ! Bcanopy air mass [kg/m^2]
+  real :: hcapbcan       ! Bcanopy air heat capacity [J/(m^2 K)]
   real :: hcapspray      ! Heat capacity of sea spray [J/(m^2 K)]
   real :: hcapspray2     ! Heat capacity of sea spray2 [J/(m^2 K)]
+
   real :: canairi        ! Inverse of canair
   real :: hcapcani       ! Inverse of hcapcan
+  real :: bcanairi       ! Inverse of bcanair
+  real :: hcapbcani      ! Inverse of hcapbcan
   real :: hcapsprayi     ! Inverse of hcapspray
   real :: hcapspray2i    ! Inverse of hcapspray2
+  real :: zspray         ! height of top of spray layer [m]
+  real :: zsprayo2       ! middle of middle of spray layer [m]
 
   real    :: spray_massflux  ! Seaspray mass flux from sea [kg m^-2 s^-1]
   real    :: spray_mass      ! Seaspray steady-state mass in canopy [kg m^-2]
@@ -838,28 +1004,35 @@ subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
   real    :: wt1, wt2        ! Interpolation weights [ ]
   integer :: ind             ! Interpolation index
 
-  real(r8) :: a1, a2, a3, a4, a5, a6, a7, a8, a9, a10
-  real(r8) :: h1, h2, h4, h5, h6, h7, h8
-  real(r8) :: y1, y2, y3, y4, y5, y6, y7, y8, y9, y10
+  real(r8) :: a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12
+  real(r8) :: h1, h2,     h4, h5, h6, h7, h8, h9, h10, h11
+  real(r8) :: y1, y2, y3, y4, y5, y6, y7, y8, y9, y10, y11, y12
 
   real(r8) :: aa4(4,4), xx4(4), yy4(4)         ! 4x4 matrix equation terms
-  real(r8) :: aa10(10,10), xx10(10), yy10(10)  ! 10x10 matrix equation terms
+  real(r8) :: aa12(12,12), xx12(12), yy12(12)  ! 12x12 matrix equation terms
 
   logical :: sing
 
   ! Local variables used to evaluate wind speed at 10 m height
 
-  real :: z10, press_z10, exner_z10, cantheta, canthetav, airthetav
-  real :: wstars, wind_z10, theta_z10, rrv_z10
+  real :: z10, cantheta, canthetav, airthetav
+  real :: wind_z10, theta_z10, rrv_z10
+  real :: press_bcan, exner_bcan, bcantheta, a2fm, a2fh
+
+  real :: rs, rsi, ra, rb, rbi, richnum, vels0
 
   ! Seaspray is represented in the "sea canopy" in an analogous manner to water
-  ! on the surface of vegetation in the land canopy.  Heat and vapor are exchanged
-  ! between seaspray and canopy air within an implicit solver that also incorporates
-  ! heat and vapor exchange between the sea surface and canopy air, and between
-  ! canopy air and the free atmosphere.  Three properties of seaspray are required:
+  ! on the surface of vegetation in the land canopy.  HOWEVER, SINCE SEASPRAY
+  ! DROPLETS ARE INJECTED TO HEIGHTS WELL ABOVE THE ROUGHNESS HEIGHT, A SECONDARY
+  ! "CANOPY" LAYER, WHICH IS CALLED THE 'BCANOPY', IS INTRODUCED TO RECEIVE THE
+  ! SEASPRAY DROPLETS.  TEMPERATURE AND VAPOR MIXING RATIO ARE PROGNOSED IN THE
+  ! BCANOPY.  Heat and vapor are exchanged between seaspray and bcanopy air within
+  ! an implicit solver that also incorporates heat and vapor exchange between the
+  ! sea surface and canopy air, between canopy and bcanopy air, and between
+  ! bcanopy air and the free atmosphere.  Three properties of seaspray are required:
   ! (1) the steady-state mass of seaspray droplets [kg m^-2] in the canopy air, (2)
-  ! the steady-state vapor transfer coefficient [m s^-1] between seaspray and canopy
-  ! air, and (3) the mass flux [kg m^-2 s^-1] of seaspray into the canopy air from
+  ! the steady-state vapor transfer coefficient [m s^-1] between seaspray and bcanopy
+  ! air, and (3) the mass flux [kg m^-2 s^-1] of seaspray into the bcanopy air from
   ! the sea surface.  (By multiplying the mass flux by the temperature difference
   ! between new and returning sea spray droplets and by the specific heat of liquid
   ! water, we get the net energy flux from the sea surface to seaspray.)
@@ -870,13 +1043,13 @@ subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
   ! ssgf.f90 numerically integrates over the (seastate-based) seaspray droplet size
   ! spectra in Fig. 4a to obtain all three properties.
 
-  ! Vapor transfer coefficient suodt between sea spray and canopy air corresponds,
+  ! Vapor transfer coefficient suodt between sea spray and bcanopy air corresponds,
   ! after multiplication by the model timestep, to the quantity (su) in OLAM
-  ! microphysics divided by that governs vapor flux between liquid droplets and air.
+  ! microphysics that governs vapor flux between liquid droplets and air.
   ! suodt is computed from the same formula, except for the following differences:
   !
   ! (1) su in microphysics is dimensionless, while (suodt * dt_sea) has dimensions
-  !     of [m] representing a vertical integration over "canopy" depth.
+  !     of [m] representing a vertical integration over "bcanopy" depth.
   !
   ! (2) su in microphysics represents an integral over individual droplet size
   !     categories (cloud, drizzle, rain) assuming a gamma size distribution for
@@ -905,26 +1078,24 @@ subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
 
   ! 200-4000 MICRONS (band 5)
 
+  real ::  sig_wavehght  (5) = (/ 4.0,    6.0,    8.0,   10.0,   11.0 /) ! [m]
+
   integer, parameter :: band = 35
 
   ! If doing seaspray and wind speed is at least 15 m/s, compute wind speed at 10 m level
-  ! (wind_z10) USING SFLUXT AND SFLUXR VALUES EVALUATED ON THE PREVIOUS TIMESTEP.
-  ! Otherwise, set wind_z10 to zero as a flag to not compute seaspray flux.
+  ! (wind_z10).  (Note that SFLUXT and SFLUXR are not actually used in sfclyr_profile
+  ! to compute wind_z10, so it does not matter that they may represent bcanopy-to-atm
+  ! fluxes.)
 
   if (nl%iseasprayflg > 0 .and. vels > nl%seaspray_vmin) then
      z10 = 10.
-
-     press_z10 = prss - grav * z10 * rhos ! hydrostatic eqn.
-     exner_z10 = (press_z10 * p00i) ** rocp
 
      cantheta  = cantemp / canexner
      canthetav = cantheta             * (1.0 + eps_virt * canrrv)
      airthetav = sfcg%airtheta(iwsfc) * (1.0 + eps_virt * airrrv)
 
-     wstars = (grav * sfcg%pblh(iwsfc) * max(wthv,0.0) / airthetav) ** one3
-
      call sfclyr_profile (vels, rhos, canexner, ustar, sfluxt, sfluxr, &
-                          sfcg%dzt_bot(iwsfc), rough, wstars, &
+                          sfcg%dzt_bot(iwsfc), rough, wstar, &
                           cantheta, canthetav, canrrv, airthetav, &
                           z10, wind_z10, theta_z10, rrv_z10)
   else
@@ -941,11 +1112,11 @@ subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
 
   ! Canopy air quantities
 
-  can_rhov = canrrv * rhos
-  canair   = rhos * can_depth
-  canairi  = 1. / canair
-  hcapcan  = cp * canair
-  hcapcani = 1. / hcapcan
+  can_rhov  = canrrv * rhos
+  canair    = rhos * can_depth * 0.01
+  canairi   = 1. / canair
+  hcapcan   = cp * canair
+  hcapcani  = 1. / hcapcan
 
   ! Set up and solve a linear system of equations that use trapezoidal-implicit
   ! differencing.  The solution of the system consists of turbulent heat and
@@ -953,24 +1124,26 @@ subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
   ! (if present), and the free atmosphere, and the consequent changes to water
   ! and temperature of canopy air and temperature of sea spray.
 
-  a5  = dt_sea * rdi       ! sfc sublayer vap xfer coef
-  a6  = cp * rhos * a5     ! sfc sublayer heat xfer coef
-  a9  = dt_sea * vkhsfc / sfcg%dzt_bot(iwsfc)
-  a10 = cp * a9
-
-  h4 = fcn * rhos * canairi  ! = fcn / can_depth
-  h7 = fcn * hcapcani
-  h8 = fcn * canairi
-
-  y2  = sfc_rhovs - can_rhov
-  y5  = seatc     - cantemp
-  y9  = canrrv    - airrrv
-  y10 = cantemp   - canexner * airtheta
-
   if (wind_z10 <= nl%seaspray_vmin) then ! Case with NO SEA SPRAY (two uncoupled equations)
+
+     spray_active = .false.
 
      ! Set up and solve 4x4 matrix equation (trapezoidal implicit method) to balance
      ! vapor and heat fluxes between canopy air, sea spray, and the ocean surface.
+
+     a5  = dt_sea * rdi       ! sfc sublayer vap xfer coef
+     a6  = cp * rhos * a5     ! sfc sublayer heat xfer coef
+     a9  = dt_sea * vkhsfc / sfcg%dzt_bot(iwsfc)
+     a10 = cp * a9
+
+     h4 = fcn * rhos * canairi  ! = fcn / can_depth
+     h7 = fcn * hcapcani
+     h8 = fcn * canairi
+
+     y2  = sfc_rhovs - can_rhov
+     y5  = seatc     - cantemp
+     y9  = canrrv    - airrrv
+     y10 = cantemp   - canexner * airtheta
 
      aa4(1,1) = 1._r8 + a5 * h4
      aa4(1,2) = 0._r8
@@ -1016,7 +1189,7 @@ subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
         spray2temp = seatc
      endif
 
-  else                                        ! Case WITH SEA SPRAY (10x10 matrix equation)
+  else                                        ! Case WITH SEA SPRAY (12x12 matrix equation)
 
      ! For a given value of 10 m wind speed (windz10), interpolate from ssgf tables
      ! to get seaspray mass flux and steady-state values for mass and vapor transfer
@@ -1078,6 +1251,51 @@ subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
         stop 'ssgf - band value not valid'
      endif
 
+     zspray   = wt1 * sig_wavehght(ind) + wt2 * sig_wavehght(ind+1)
+     zsprayo2 = 0.5 * zspray
+     zsprayo2 = min(zsprayo2, .9*sfcg%dzt_bot(iwsfc)) ! limit middle of spray layer to no higher than
+                                                      ! middle of lowest model layer for now
+
+     press_bcan = prss - grav * zsprayo2 * rhos ! hydrostatic eqn.
+     exner_bcan = (press_bcan * p00i) ** rocp
+
+     vels0 = max(ubmin, sqrt(vels*vels + wstar*wstar))
+
+     ! Surface layer bulk Richardson number computed from surface canopy
+     richnum = 2.0 * grav * sfcg%dzt_bot(iwsfc) * (airthetav - canthetav)  &
+             / ( (airthetav + canthetav) * vels0 * vels0 )
+
+     ! Louis drag coefficients at middle of spray layer
+     call a2fmfh(richnum, zsprayo2, rough, a2fm, a2fh)
+
+     ! Convert heat/tracer drag coefficient to conductivity from can to bcan
+     rsi = ustar * a2fh / sqrt(a2fm)
+
+     rs = 1. / rsi                            ! can to bcan resistance
+     ra = rhos * sfcg%dzt_bot(iwsfc) / vkhsfc ! can to atm resistance
+
+     ! subtract the can-to-bcan resistance from the can-to-atm resistance
+     ! to get the bcan-to-atm resistance
+
+     rb  = ra - rs     ! bcan to atm resistance
+     rbi = 1. / rb     ! bcan to atm conductivity
+
+     if (spray_active) then
+
+        bcantheta  = bcantemp / exner_bcan
+
+     else
+
+        spray_active = .true.
+
+        ! Initialize bcan temp/vapor to give the same initial flux as from canopy
+        bcantheta = airtheta + rb/ra * (cantheta - airtheta)
+        bcanrrv   = airrrv   + rb/ra * (canrrv   - airrrv)
+
+        bcantemp  = bcantheta * exner_bcan
+
+     endif
+
 !@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 ! Test: method to turn off spray effect; must keep nonzero spray_mass
 !  spray_massflux = 0.
@@ -1087,12 +1305,11 @@ subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
 !  spray2_suodt = 0.
 !@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
-     a1  = spray_suodt * dt_sea
-     a2  = cp * rhos * a1
-     a7  = spray_massflux * cliq * dt_sea
-     a3  = spray2_suodt * dt_sea
-     a4  = cp * rhos * a3
-     a8  = spray2_massflux * cliq * dt_sea
+     bcan_rhov = bcanrrv * rhos
+     bcanair   = rhos * zspray
+     bcanairi  = 1. / canair
+     hcapbcan  = cp * canair
+     hcapbcani = 1. / hcapcan
 
      spray_rhovs   = rhovsl(spraytemp        - 273.15)
      spray_rhovsp  = rhovsl(spraytemp  + 1.0 - 273.15) - spray_rhovs
@@ -1104,163 +1321,242 @@ subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
      hcapspray2  = spray2_mass * cliq
      hcapspray2i = 1. / hcapspray2
 
-     h1 = fcn * hcapsprayi * spray_rhovsp
-     h5 = fcn * hcapsprayi
-     h2 = fcn * hcapspray2i * spray2_rhovsp
-     h6 = fcn * hcapspray2i
+     a1  = spray_suodt * dt_sea
+     a2  = cp * rhos * a1
+     a3  = spray2_suodt * dt_sea
+     a4  = cp * rhos * a3
+     a5  = dt_sea * rdi       ! sfc sublayer vap xfer coef
+     a6  = cp * rhos * a5     ! sfc sublayer heat xfer coef
+     a7  = spray_massflux * cliq * dt_sea
+     a8  = spray2_massflux * cliq * dt_sea
+     a9  = dt_sea * rbi * rhos  ! bcan to atm humidity mixing ratio xfer coef
+     a10 = cp * a9              ! bcan to atm heat xfer coef
+     a11 = dt_sea * rsi * rhos  ! can to bcan vap xfer coef
+     a12 = cp * a11              ! can to bcan heat xfer coef
 
-     y1  = spray_rhovs  - can_rhov
-     y4  = spraytemp    - cantemp
+     h1  = fcn * hcapsprayi  * spray_rhovsp
+     h2  = fcn * hcapspray2i * spray2_rhovsp
+     h4  = fcn * rhos * canairi  ! = fcn / can_depth
+     h5  = fcn * hcapsprayi
+     h6  = fcn * hcapspray2i
+     h7  = fcn * hcapcani
+     h8  = fcn * canairi
+     h9  = fcn * rhos * bcanairi ! = fcn / bcan_depth
+     h10 = fcn * hcapbcani
+     h11 = fcn * bcanairi
+
+     y1  = spray_rhovs  - bcan_rhov
+     y2  = sfc_rhovs    - can_rhov
+     y4  = spraytemp    - bcantemp
+     y5  = seatc        - cantemp
      y3  = seatc        - spraytemp
-     y6  = spray2_rhovs - can_rhov
-     y8  = spray2temp   - cantemp
+     y6  = spray2_rhovs - bcan_rhov
+     y8  = spray2temp   - bcantemp
      y7  = seatc        - spray2temp
+     y9  = bcanrrv      - airrrv
+     y10 = bcantemp     - canexner * airtheta
+     y11 = canrrv       - bcanrrv
+     y12 = cantemp      - bcantemp
 
-     ! Set up and solve 10x10 matrix equation (trapezoidal implicit method) to balance
+     ! Set up and solve 12x12 matrix equation (trapezoidal implicit method) to balance
      ! vapor and heat fluxes between canopy air, sea spray, and the ocean surface.
 
-     aa10(1,1)  = 1._r8 + a1 * (h1 * alvl + h4)
-     aa10(1,2)  =         a1 * h4
-     aa10(1,3)  =         a1 * h1
-     aa10(1,4)  = 0._r8
-     aa10(1,5)  =       - a1 * h1
-     aa10(1,6)  =         a1 * h4
-     aa10(1,7)  = 0._r8
-     aa10(1,8)  = 0._r8
-     aa10(1,9)  =       - a1 * h4
-     aa10(1,10) = 0._r8
-     yy10(1)    =         a1 * y1  ! WDC row
+     aa12(1,1)  = 1._r8 + a1 * (h1 * alvl + h9)
+     aa12(1,2)  = 0._r8
+     aa12(1,3)  =         a1 * h1
+     aa12(1,4)  = 0._r8
+     aa12(1,5)  =       - a1 * h1
+     aa12(1,6)  =         a1 * h9
+     aa12(1,7)  = 0._r8
+     aa12(1,8)  = 0._r8
+     aa12(1,9)  =       - a1 * h9
+     aa12(1,10) = 0._r8
+     aa12(1,11) =         a1 * h9
+     aa12(1,12) = 0._r8
+     yy12(1)    =         a1 * y1  ! WDB row
 
-     aa10(2,1)  =         a5 * h4
-     aa10(2,2)  = 1._r8 + a5 * h4
-     aa10(2,3)  = 0._r8
-     aa10(2,4)  = 0._r8
-     aa10(2,5)  = 0._r8
-     aa10(2,6)  =         a5 * h4
-     aa10(2,7)  = 0._r8
-     aa10(2,8)  = 0._r8
-     aa10(2,9)  =       - a5 * h4
-     aa10(2,10) = 0._r8
-     yy10(2)    =         a5 * y2  ! WSC row
+     aa12(2,1)  = 0._r8
+     aa12(2,2)  = 1._r8 + a5 * h4
+     aa12(2,3)  = 0._r8
+     aa12(2,4)  = 0._r8
+     aa12(2,5)  = 0._r8
+     aa12(2,6)  = 0._r8
+     aa12(2,7)  = 0._r8
+     aa12(2,8)  = 0._r8
+     aa12(2,9)  = 0._r8
+     aa12(2,10) = 0._r8
+     aa12(2,11) =       - a5 * h4
+     aa12(2,12) = 0._r8
+     yy12(2)    =         a5 * y2  ! WSC row
 
-     aa10(3,1)  =         a2 * h5 * alvl
-     aa10(3,2)  = 0._r8
-     aa10(3,3)  = 1._r8 + a2 * (h5 + h7)
-     aa10(3,4)  =         a2 * h7
-     aa10(3,5)  =       - a2 * h5
-     aa10(3,6)  = 0._r8
-     aa10(3,7)  =         a2 * h7
-     aa10(3,8)  = 0._r8
-     aa10(3,9)  = 0._r8
-     aa10(3,10) =       - a2 * h7
-     yy10(3)    =         a2 * y4  ! HDC row
+     aa12(3,1)  =         a2 * h5 * alvl
+     aa12(3,2)  = 0._r8
+     aa12(3,3)  = 1._r8 + a2 * (h5 + h10)
+     aa12(3,4)  = 0._r8
+     aa12(3,5)  =       - a2 * h5
+     aa12(3,6)  = 0._r8
+     aa12(3,7)  =         a2 * h10
+     aa12(3,8)  = 0._r8
+     aa12(3,9)  = 0._r8
+     aa12(3,10) =       - a2 * h10
+     aa12(3,11) = 0._r8
+     aa12(3,12) =         a2 * h10
+     yy12(3)    =         a2 * y4  ! HDB row
 
-     aa10(4,1)  = 0._r8
-     aa10(4,2)  = 0._r8
-     aa10(4,3)  =         a6 * h7
-     aa10(4,4)  = 1._r8 + a6 * h7
-     aa10(4,5)  = 0._r8
-     aa10(4,6)  = 0._r8
-     aa10(4,7)  =         a6 * h7
-     aa10(4,8)  = 0._r8
-     aa10(4,9)  = 0._r8
-     aa10(4,10) =       - a6 * h7
-     yy10(4)    =         a6 * y5  ! HSC row
+     aa12(4,1)  = 0._r8
+     aa12(4,2)  = 0._r8
+     aa12(4,3)  = 0._r8
+     aa12(4,4)  = 1._r8 + a6 * h7
+     aa12(4,5)  = 0._r8
+     aa12(4,6)  = 0._r8
+     aa12(4,7)  = 0._r8
+     aa12(4,8)  = 0._r8
+     aa12(4,9)  = 0._r8
+     aa12(4,10) = 0._r8
+     aa12(4,11) = 0._r8
+     aa12(4,12) =       - a6 * h7
+     yy12(4)    =         a6 * y5  ! HSC row
 
-     aa10(5,1)  =       - a7 * h5 * alvl
-     aa10(5,2)  = 0._r8
-     aa10(5,3)  =       - a7 * h5
-     aa10(5,4)  = 0._r8
-     aa10(5,5)  = 1._r8 + a7 * h5
-     aa10(5,6)  = 0._r8
-     aa10(5,7)  = 0._r8
-     aa10(5,8)  = 0._r8
-     aa10(5,9)  = 0._r8
-     aa10(5,10) = 0._r8
-     yy10(5)    =         a7 * y3  ! HSD row
+     aa12(5,1)  =       - a7 * h5 * alvl
+     aa12(5,2)  = 0._r8
+     aa12(5,3)  =       - a7 * h5
+     aa12(5,4)  = 0._r8
+     aa12(5,5)  = 1._r8 + a7 * h5
+     aa12(5,6)  = 0._r8
+     aa12(5,7)  = 0._r8
+     aa12(5,8)  = 0._r8
+     aa12(5,9)  = 0._r8
+     aa12(5,10) = 0._r8
+     aa12(5,11) = 0._r8
+     aa12(5,12) = 0._r8
+     yy12(5)    =         a7 * y3  ! HSD row
 
-     aa10(6,1)  =         a3 * h4
-     aa10(6,2)  =         a3 * h4
-     aa10(6,3)  = 0._r8
-     aa10(6,4)  = 0._r8
-     aa10(6,5)  = 0._r8
-     aa10(6,6)  = 1._r8 + a3 * (h2 * alvl + h4)
-     aa10(6,7)  =         a3 * h2
-     aa10(6,8)  =       - a3 * h2
-     aa10(6,9)  =       - a3 * h4
-     aa10(6,10) = 0._r8
-     yy10(6)    =         a3 * y6  ! WEC row
+     aa12(6,1)  =         a3 * h9
+     aa12(6,2)  = 0._r8
+     aa12(6,3)  = 0._r8
+     aa12(6,4)  = 0._r8
+     aa12(6,5)  = 0._r8
+     aa12(6,6)  = 1._r8 + a3 * (h2 * alvl + h9)
+     aa12(6,7)  =         a3 * h2
+     aa12(6,8)  =       - a3 * h2
+     aa12(6,9)  =       - a3 * h9
+     aa12(6,10) = 0._r8
+     aa12(6,11) =         a3 * h9
+     aa12(6,12) = 0._r8
+     yy12(6)    =         a3 * y6  ! WEB row
 
-     aa10(7,1)  = 0._r8
-     aa10(7,2)  = 0._r8
-     aa10(7,3)  =         a4 * h7
-     aa10(7,4)  =         a4 * h7
-     aa10(7,5)  = 0._r8
-     aa10(7,6)  =         a4 * h6 * alvl
-     aa10(7,7)  = 1._r8 + a4 * (h6 + h7)
-     aa10(7,8)  =       - a4 * h6
-     aa10(7,9)  = 0._r8
-     aa10(7,10) =       - a4 * h7
-     yy10(7)    =         a4 * y8  ! HEC row
+     aa12(7,1)  = 0._r8
+     aa12(7,2)  = 0._r8
+     aa12(7,3)  =         a4 * h10
+     aa12(7,4)  = 0._r8
+     aa12(7,5)  = 0._r8
+     aa12(7,6)  =         a4 * h6 * alvl
+     aa12(7,7)  = 1._r8 + a4 * (h6 + h10)
+     aa12(7,8)  =       - a4 * h6
+     aa12(7,9)  = 0._r8
+     aa12(7,10) =       - a4 * h10
+     aa12(7,11) = 0._r8
+     aa12(7,12) =         a4 * h10
+     yy12(7)    =         a4 * y8  ! HEB row
 
-     aa10(8,1)  = 0._r8
-     aa10(8,2)  = 0._r8
-     aa10(8,3)  = 0._r8
-     aa10(8,4)  = 0._r8
-     aa10(8,5)  = 0._r8
-     aa10(8,6)  =       - a8 * h6 * alvl
-     aa10(8,7)  =       - a8 * h6
-     aa10(8,8)  = 1._r8 + a8 * h6
-     aa10(8,9)  = 0._r8
-     aa10(8,10) = 0._r8
-     yy10(8)    =         a8 * y7  ! HSE row
+     aa12(8,1)  = 0._r8
+     aa12(8,2)  = 0._r8
+     aa12(8,3)  = 0._r8
+     aa12(8,4)  = 0._r8
+     aa12(8,5)  = 0._r8
+     aa12(8,6)  =       - a8 * h6 * alvl
+     aa12(8,7)  =       - a8 * h6
+     aa12(8,8)  = 1._r8 + a8 * h6
+     aa12(8,9)  = 0._r8
+     aa12(8,10) = 0._r8
+     aa12(8,11) = 0._r8
+     aa12(8,12) = 0._r8
+     yy12(8)    =         a8 * y7  ! HSE row
 
-     aa10(9,1)  =       - a9 * h8
-     aa10(9,2)  =       - a9 * h8
-     aa10(9,3)  = 0._r8
-     aa10(9,4)  = 0._r8
-     aa10(9,5)  = 0._r8
-     aa10(9,6)  =       - a9 * h8
-     aa10(9,7)  = 0._r8
-     aa10(9,8)  = 0._r8
-     aa10(9,9)  = 1._r8 + a9 * h8
-     aa10(9,10) = 0._r8
-     yy10(9)    =         a9 * y9  ! WCA row
+     aa12(9,1)  =       - a9 * h11
+     aa12(9,2)  = 0._r8
+     aa12(9,3)  = 0._r8
+     aa12(9,4)  = 0._r8
+     aa12(9,5)  = 0._r8
+     aa12(9,6)  =       - a9 * h11
+     aa12(9,7)  = 0._r8
+     aa12(9,8)  = 0._r8
+     aa12(9,9)  = 1._r8 + a9 * h11
+     aa12(9,10) = 0._r8
+     aa12(9,11) =       - a9 * h11
+     aa12(9,12) = 0._r8
+     yy12(9)    =         a9 * y9  ! WBA row
 
-     aa10(10,1)  = 0._r8
-     aa10(10,2)  = 0._r8
-     aa10(10,3)  =       - a10 * h7
-     aa10(10,4)  =       - a10 * h7
-     aa10(10,5)  = 0._r8
-     aa10(10,6)  = 0._r8
-     aa10(10,7)  =       - a10  * h7
-     aa10(10,8)  = 0._r8
-     aa10(10,9)  = 0._r8
-     aa10(10,10) = 1._r8 + a10 * h7
-     yy10(10)    =         a10 * y10  ! HCA row
+     aa12(10,1)  = 0._r8
+     aa12(10,2)  = 0._r8
+     aa12(10,3)  =       - a10 * h10
+     aa12(10,4)  = 0._r8
+     aa12(10,5)  = 0._r8
+     aa12(10,6)  = 0._r8
+     aa12(10,7)  =       - a10 * h10
+     aa12(10,8)  = 0._r8
+     aa12(10,9)  = 0._r8
+     aa12(10,10) = 1._r8 + a10 * h10
+     aa12(10,11) = 0._r8
+     aa12(10,12) =       - a10 * h10
+     yy12(10)    =         a10 * y10  ! HBA row
 
-     call matrix8_NxN(10,aa10,yy10,xx10,sing); if (sing) call sing_print(iwsfc,'sea4',10,aa10,yy10,glatw,glonw)
+     aa12(11,1)  =         a11 * h11
+     aa12(11,2)  =       - a11 * h8
+     aa12(11,3)  = 0._r8
+     aa12(11,4)  = 0._r8
+     aa12(11,5)  = 0._r8
+     aa12(11,6)  =         a11 * h11
+     aa12(11,7)  = 0._r8
+     aa12(11,8)  = 0._r8
+     aa12(11,9)  =       - a11 * h11
+     aa12(11,10) = 0._r8
+     aa12(11,11) = 1._r8 + a11 * (h8 + h11)
+     aa12(11,12) = 0._r8
+     yy12(11)    =         a11 * y11    ! WCB row
 
-     wxferdc = xx10(1)
-     wxfersc = xx10(2)
-     hxferdc = xx10(3)
-     hxfersc = xx10(4)
-     hxfersd = xx10(5)
-     wxferec = xx10(6)
-     hxferec = xx10(7)
-     hxferse = xx10(8)
-     wxferca = xx10(9)
-     hxferca = xx10(10)
+     aa12(12,1)  = 0._r8
+     aa12(12,2)  = 0._r8
+     aa12(12,3)  =         a12 * h10
+     aa12(12,4)  =       - a12 * h7
+     aa12(12,5)  = 0._r8
+     aa12(12,6)  = 0._r8
+     aa12(12,7)  =         a12 * h10
+     aa12(12,8)  = 0._r8
+     aa12(12,9)  = 0._r8
+     aa12(12,10) =       - a12 * h10
+     aa12(12,11) = 0._r8
+     aa12(12,12) = 1._r8 + a12 * (h7 + h10)
+     yy12(12)    =         a12 * y12   ! HCB row
 
-     cantemp    = cantemp    + (hxferdc + hxferec + hxfersc - hxferca) * hcapcani
-     canrrv     = canrrv     + (wxferdc + wxferec + wxfersc - wxferca) * canairi
-     spraytemp  = spraytemp  + (hxfersd - hxferdc - wxferdc * alvl)    * hcapsprayi
-     spray2temp = spray2temp + (hxferse - hxferec - wxferec * alvl)    * hcapspray2i
+     call matrix8_NxN(12,aa12,yy12,xx12,sing); if (sing) call sing_print(iwsfc,'sea4',12,aa12,yy12,glatw,glonw)
 
-     sfluxt = hxferca / dt_sea
-     sfluxr = wxferca / dt_sea
+     wxferdb = xx12(1)
+     wxfersc = xx12(2)
+     hxferdb = xx12(3)
+     hxfersc = xx12(4)
+     hxfersd = xx12(5)
+     wxfereb = xx12(6)
+     hxfereb = xx12(7)
+     hxferse = xx12(8)
+     wxferba = xx12(9)
+     hxferba = xx12(10)
+     wxfercb = xx12(11)
+     hxfercb = xx12(12)
 
-     hfluxsea = (hxfersc + hxferdc) / (cp * dt_sea)
+     cantemp    = cantemp    + (hxfersc - hxfercb) * hcapcani
+     canrrv     = canrrv     + (wxfersc - wxfercb) * canairi
+
+     bcantemp   = bcantemp   + (hxferdb + hxfereb + hxfercb - hxferba) * hcapbcani
+     bcanrrv    = bcanrrv    + (wxferdb + wxfereb + wxfercb - wxferba) * bcanairi
+
+     spraytemp  = spraytemp  + (hxfersd - hxferdb - wxferdb * alvl)    * hcapsprayi
+     spray2temp = spray2temp + (hxferse - hxfereb - wxfereb * alvl)    * hcapspray2i
+
+     sfluxt = hxferba / dt_sea
+     sfluxr = wxferba / dt_sea
+
+     hfluxsea = (hxfersc + hxferdb) / (cp * dt_sea)
 
   endif
 

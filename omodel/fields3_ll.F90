@@ -179,7 +179,7 @@ subroutine fields3_ll()
   real, allocatable :: al_wxferi_accum_ll     (:) ! al infiltration flux accum (m)
   real, allocatable :: al_wxferp_accum_ll     (:) ! al percolation flux accum (m)
   real, allocatable :: al_wxfer1_accum_ll     (:) ! al soil bottom water flux accum (m)
-  real, allocatable :: al_sfcwater_tot_ll     (:) ! al total sfcwater mass (kg/m^2)
+  real, allocatable :: al_sfcwater_ll         (:) ! al sfcwater mass (kg/m^2)
   real, allocatable :: al_soil_water_tot_ll   (:) ! al total soil water (m)
 
 !----------------------------------------------------------------
@@ -526,8 +526,8 @@ subroutine fields3_ll()
         allocate( al_wxferp_accum_ll     (npts) ) ; al_wxferp_accum_ll      = rmissing
      case('AL_WXFER1_ACCUM_LL')
         allocate( al_wxfer1_accum_ll     (npts) ) ; al_wxfer1_accum_ll      = rmissing
-     case('AL_SFCWATER_TOT_LL')
-        allocate( al_sfcwater_tot_ll     (npts) ) ; al_sfcwater_tot_ll      = rmissing
+     case('AL_SFCWATER_LL')
+        allocate( al_sfcwater_ll         (npts) ) ; al_sfcwater_ll          = rmissing
      case('AL_SOIL_WATER_TOT_LL')
         allocate( al_soil_water_tot_ll   (npts) ) ; al_soil_water_tot_ll    = rmissing
      end select
@@ -892,7 +892,7 @@ subroutine fields3_ll()
               canthetav = cantheta             * (1.0 + eps_virt * sfcg%canrrv(iwsfc))
               airthetav = sfcg%airtheta(iwsfc) * (1.0 + eps_virt * sfcg%airrrv(iwsfc))
 
-              ufree = (grav * sfcg%dzt_bot(iwsfc) * max(sfcg%wthv(iwsfc),0.0) / airthetav) ** onethird
+              ufree = (grav * sfcg%pblh(iwsfc) * max(sfcg%wthv(iwsfc),0.0) / airthetav) ** onethird
 
               call sfclyr_profile (sfcg%vels(iwsfc), sfcg%rhos(iwsfc), sfcg%canexner(iwsfc), &
                                    sfcg%ustar(iwsfc), sfcg%sfluxt(iwsfc), sfcg%sfluxr(iwsfc), &
@@ -972,7 +972,7 @@ subroutine fields3_ll()
      if (allocated(al_wxferi_accum_ll))      call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1j,al_wxferi_accum_ll)
      if (allocated(al_wxferp_accum_ll))      call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1k,al_wxferp_accum_ll)
      if (allocated(al_wxfer1_accum_ll))      call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1l,al_wxfer1_accum_ll)
-     if (allocated(al_sfcwater_tot_ll))      call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1m,al_sfcwater_tot_ll)
+     if (allocated(al_sfcwater_ll))          call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1m,al_sfcwater_ll)
      if (allocated(al_soil_water_tot_ll))    call interp_htw_ll(npts,iws_loc,wts_loc,1,1,scr1n,al_soil_water_tot_ll)
 
   endif
@@ -1495,13 +1495,13 @@ subroutine fields3_ll()
                            units = "m",                                                                    &
                            rmissing = rmissing                                                             )
 
-     if (allocated(al_sfcwater_tot_ll)) &
-        CALL shdf5_orec_ll(ndims, idims, 'AL_SFCWATER_TOT_LL' , rvar1=al_sfcwater_tot_ll, gpoints=lls_loc, &
-                           dimnames = dimnames,                                                            &
-                           long_name = "AL average of total surface water",                                &
-                           standard_name = "al_average_of_total_surface_water",                            &
-                           units = "kg m-2",                                                               &
-                           rmissing = rmissing                                                             )
+     if (allocated(al_sfcwater_ll)) &
+        CALL shdf5_orec_ll(ndims, idims, 'AL_SFCWATER_LL' , rvar1=al_sfcwater_ll, gpoints=lls_loc, &
+                           dimnames = dimnames,                                                    &
+                           long_name = "AL average of surface water",                              &
+                           standard_name = "al_average_of_surface_water",                          &
+                           units = "kg m-2",                                                       &
+                           rmissing = rmissing                                                     )
 
      if (allocated(al_soil_water_tot_ll)) &
         CALL shdf5_orec_ll(ndims, idims, 'AL_SOIL_WATER_TOT_LL' , rvar1=al_soil_water_tot_ll, gpoints=lls_loc, &
@@ -2056,8 +2056,8 @@ subroutine fields3_ll()
      call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,al_wxfer1_accum_ll,304, &
                       "al accum soil bottom water flux", "(m)", rmissing)
 
-  if (allocated(al_sfcwater_tot_ll)) &
-     call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,al_sfcwater_tot_ll,200, &
+  if (allocated(al_sfcwater_ll)) &
+     call tileplot_ll(nlon,nlat,1,1,alon,alat,npts,lls_loc,al_sfcwater_ll,200, &
                       "al total surface water", "(kg/m^2)", rmissing)
 
   if (allocated(al_soil_water_tot_ll)) &

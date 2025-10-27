@@ -67,13 +67,16 @@ Module mem_sea
 ! Canopy and surface quantities:
 
       real, allocatable :: sea_cantemp   (:) ! "canopy" air temperature [K]
+      real, allocatable :: sea_bcantemp  (:) ! "bcanopy" air temperature [K]
       real, allocatable :: ice_cantemp   (:) ! "canopy" air temperature [K]
 
       real, allocatable :: sea_canrrv    (:) ! "canopy" vapor mixing ratio [kg_vap/kg_dryair]
+      real, allocatable :: sea_bcanrrv   (:) ! "bcanopy" vapor mixing ratio [kg_vap/kg_dryair]
       real, allocatable :: ice_canrrv    (:) ! "canopy" vapor mixing ratio [kg_vap/kg_dryair]
 
-      real, allocatable :: spraytemp     (:) ! seaspray temperature [K]
-      real, allocatable :: spray2temp    (:) ! seaspray2 temperature [K]
+      real,    allocatable :: spraytemp   (:) ! seaspray temperature [K]
+      real,    allocatable :: spray2temp  (:) ! seaspray2 temperature [K]
+      logical, allocatable :: spray_active(:) ! is spray layer active
 
       integer, allocatable :: nlev_seaice(:) ! number of seaice layers in current cell
 
@@ -92,7 +95,7 @@ Module mem_sea
 
       ! Shallow Water Model (SWM) quantities:
 
-      real, allocatable :: swmdepth(:) ! Depth of water at T point [m]
+      real, allocatable :: swmdepth(:)    ! Depth of water at T point [m]
       real, allocatable :: tide(:)        ! tide height (relative to sea level) [m]
       real, allocatable :: tideacosp(:,:) ! tide constituent amp*cos(phase) [cm]
       real, allocatable :: tideasinp(:,:) ! tide constituent amp*sin(phase) [cm]
@@ -232,13 +235,17 @@ Contains
      allocate (sea%ice_net_rshort(msea))
 
      allocate (sea%sea_cantemp   (msea))
+     allocate (sea%sea_bcantemp  (msea))
      allocate (sea%ice_cantemp   (msea))
 
      allocate (sea%sea_canrrv    (msea))
+     allocate (sea%sea_bcanrrv   (msea))
      allocate (sea%ice_canrrv    (msea))
 
-     if (nl%iseasprayflg > 0) &
-          allocate (sea%spraytemp(msea))
+     if (nl%iseasprayflg > 0) then
+        allocate (sea%spraytemp   (msea))
+        allocate (sea%spray_active(msea))
+     endif
 
      if (nl%iseasprayflg > 1) &
           allocate (sea%spray2temp(msea))
@@ -324,11 +331,14 @@ Contains
         if ( allocated( sea%ice_net_rlong ) ) sea%ice_net_rlong    (isea) = 0.0
         if ( allocated( sea%ice_net_rshort) ) sea%ice_net_rshort   (isea) = 0.0
         if ( allocated( sea%sea_cantemp   ) ) sea%sea_cantemp      (isea) = rinit
+        if ( allocated( sea%sea_bcantemp  ) ) sea%sea_bcantemp     (isea) = rinit
         if ( allocated( sea%ice_cantemp   ) ) sea%ice_cantemp      (isea) = rinit
         if ( allocated( sea%sea_canrrv    ) ) sea%sea_canrrv       (isea) = rinit
+        if ( allocated( sea%sea_bcanrrv   ) ) sea%sea_bcanrrv      (isea) = rinit
         if ( allocated( sea%ice_canrrv    ) ) sea%ice_canrrv       (isea) = rinit
         if ( allocated( sea%spraytemp     ) ) sea%spraytemp        (isea) = rinit
         if ( allocated( sea%spray2temp    ) ) sea%spray2temp       (isea) = rinit
+        if ( allocated( sea%spray_active  ) ) sea%spray_active     (isea) = .false.
         if ( allocated( sea%nlev_seaice   ) ) sea%nlev_seaice      (isea) = 0
         if ( allocated( sea%seatp         ) ) sea%seatp            (isea) = rinit
         if ( allocated( sea%seatf         ) ) sea%seatf            (isea) = rinit
@@ -400,11 +410,14 @@ Contains
      if (allocated(sea%ice_net_rshort)) call increment_vtable('SEA%ICE_NET_RSHORT', 'SW', rvar1=sea%ice_net_rshort)
      if (allocated(sea%seatc))          call increment_vtable('SEA%SEATC',          'SW', rvar1=sea%seatc)
      if (allocated(sea%sea_cantemp))    call increment_vtable('SEA%SEA_CANTEMP',    'SW', rvar1=sea%sea_cantemp)
+     if (allocated(sea%sea_bcantemp))   call increment_vtable('SEA%SEA_BCANTEMP',   'SW', rvar1=sea%sea_bcantemp)
      if (allocated(sea%ice_cantemp))    call increment_vtable('SEA%ICE_CANTEMP',    'SW', rvar1=sea%ice_cantemp)
      if (allocated(sea%sea_canrrv))     call increment_vtable('SEA%SEA_CANRRV',     'SW', rvar1=sea%sea_canrrv)
+     if (allocated(sea%sea_bcanrrv))    call increment_vtable('SEA%SEA_BCANRRV',    'SW', rvar1=sea%sea_bcanrrv)
      if (allocated(sea%ice_canrrv))     call increment_vtable('SEA%ICE_CANRRV',     'SW', rvar1=sea%ice_canrrv)
      if (allocated(sea%spraytemp))      call increment_vtable('SEA%SPRAYTEMP',      'SW', rvar1=sea%spraytemp)
      if (allocated(sea%spray2temp))     call increment_vtable('SEA%SPRAY2TEMP',     'SW', rvar1=sea%spray2temp)
+     if (allocated(sea%spray_active))   call increment_vtable('SEA%SPRAY_ACTIVE',   'SW', lvar1=sea%spray_active)
      if (allocated(sea%nlev_seaice))    call increment_vtable('SEA%NLEV_SEAICE',    'SW', ivar1=sea%nlev_seaice)
      if (allocated(sea%seaicec))        call increment_vtable('SEA%SEAICEC',        'SW', rvar1=sea%seaicec)
      if (allocated(sea%sea_rough))      call increment_vtable('SEA%SEA_ROUGH',      'SW', rvar1=sea%sea_rough)

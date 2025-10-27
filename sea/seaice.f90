@@ -171,7 +171,7 @@ subroutine seaice( isea, iwsfc, nlev_seaice, rhos, ustar, vkhsfc, can_depth, &
 
 ! Local variables
 
-  real :: energy_per_m2(nzi) ! seaice energy [J/m^2]
+  real :: seaice_epm2(nzi) ! seaice energy per m^2 [J/m^2]
   real :: hxfers(nzi+1)      ! seaice heat xfer [J/m2]
 
   real :: fracliq   ! fraction of water in liquid phase
@@ -202,7 +202,7 @@ subroutine seaice( isea, iwsfc, nlev_seaice, rhos, ustar, vkhsfc, can_depth, &
   ! Compute sfcwater energy per m^2
 
   do k = 1, nlev_seaice
-     energy_per_m2(k) = seaice_energy(k) * icemass
+     seaice_epm2(k) = seaice_energy(k) * icemass
   enddo
 
 ! Evaluate surface saturation vapor density and mixing ratio of sea surface
@@ -297,20 +297,20 @@ subroutine seaice( isea, iwsfc, nlev_seaice, rhos, ustar, vkhsfc, can_depth, &
 ! Add contributions to seaice energy from internal transfers of heat
 
   do k = 2, nlev_seaice
-     energy_per_m2(k) = energy_per_m2(k) + hxfers(k) - hxfers(k+1)
+     seaice_epm2(k) = seaice_epm2(k) + hxfers(k) - hxfers(k+1)
   enddo
 
 ! Apply long- and short-wave radiative transfer and seaice-to-canopy
 ! sensible and latent heat transfer to top seaice layer
 
-  energy_per_m2(nlev_seaice) = energy_per_m2(nlev_seaice)  &
+  seaice_epm2(nlev_seaice) = seaice_epm2(nlev_seaice)  &
        + dt_sea * (rshort_i + rlong_i) - hxferic - wxferic * alvi
 
 ! Compute new seaice_energy
 
   do k = 2, nlev_seaice
 
-     seaice_energy(k) = energy_per_m2(k) / icemass
+     seaice_energy(k) = seaice_epm2(k) / icemass
 
      ! Bound seaice_energy so that the fraction of liquid water in each layer
      ! is never larger than 50%. For now, we trust that ice should exist when
