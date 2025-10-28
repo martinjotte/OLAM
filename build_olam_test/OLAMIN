@@ -710,6 +710,15 @@
    NL%POM_DZTOP =   5.          ! Thickness (m) of top (shallowest) POM1D grid level 
    NL%POM_DEPTH = 4500.0        ! Depth (m) of deepest POM1D columns
 
+ ! POM1D initial data (temperature and salinity)
+
+   NL%POM_IDATA   = 2           ! 0 -- Default initialization (potmp = seatc at surface)
+                                ! 1 -- Read from rtofs file
+                                ! 2 -- Read from hycom files
+
+   NL%POM_DATABASE = './hycom_2024_10_07_00z'  ! For rtofs file, code reads filename specified here
+                                               ! For hycom files, code appends //'_t3z.nc4' and //'_s3z.nc4'
+
    NL%ISOILFLG = 2        ! 1 -- Read soil composition from SoilGrids data files
                           ! 2 -- Read soil type from FAO data file
                           ! 3 -- Specify a global constant USDA soil textural class in
