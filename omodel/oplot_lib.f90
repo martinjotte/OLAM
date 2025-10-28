@@ -3577,7 +3577,7 @@ case(311) ! 'SFCG_GSS_SRRV'
    ! We no longer solve directly for surface humdity.
    ! Should this account for vegetation, snow, seaice, seaspray, ..
 
-   fldval = sfcg%canrrv(iwsfc) ! temmporary placeholder
+   fldval = sfcg%canrrv(i) ! temporary placeholder
 
 case(312) ! 'HEAD1'
 
@@ -3643,7 +3643,7 @@ case(318:321) ! 'SFCG_SPEED10M', 'SFCG_SPEED2M', 'SFCG_TEMPK2M', 'SFCG_RVAP2M'
    canthetav = cantheta         * (1.0 + eps_virt * sfcg%canrrv(i))
    airthetav = sfcg%airtheta(i) * (1.0 + eps_virt * sfcg%airrrv(i))
 
-   wstar_sfc = (grav * sfcg%pblh(iwsfc) * max(sfcg%wthv(i),0.0) / airthetav) ** onethird
+   wstar_sfc = (grav * sfcg%pblh(i) * max(sfcg%wthv(i),0.0) / airthetav) ** onethird
 
    call sfclyr_profile (sfcg%vels(i), sfcg%rhos(i), sfcg%canexner(i), &
                         sfcg%ustar(i), sfcg%sfluxt(i), sfcg%sfluxr(i), &
