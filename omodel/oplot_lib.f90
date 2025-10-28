@@ -716,7 +716,7 @@ data fldlib(1:4,602:614)/ &
  'ITAB_WSFC_IVN'       ,'C2' ,'ITAB_WSFC_IVN',' ( )'                       ,& ! 613
  'ITAB_WSFC_IWN'       ,'C2' ,'ITAB_WSFC_IWN',' ( )'                        / ! 614
 
-! Monthly and Daily averaged fields; daily min & max fields - 2D
+! Daily averaged fields; daily min & max fields - 2D
 
 data fldlib(1:4,722:753)/ &
 

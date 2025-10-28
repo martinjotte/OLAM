@@ -350,9 +350,6 @@ Module oname_coms
      integer            :: pom_idata    = 0
      character(pathlen) :: pom_database = ' '
 
-     ! to be removed / unused
-     integer :: nzs = 0
-
      real :: landgrid_dztop = 0.05
      real :: landgrid_depth = 5.00
 

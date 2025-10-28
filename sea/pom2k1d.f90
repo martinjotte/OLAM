@@ -187,7 +187,7 @@ Contains
 
   implicit none
 
-  integer, intent(in) :: ipom, kb
+  integer, intent(in) :: ipom, kb ! ipom = isea
   integer :: k
 
   real, intent(in) :: wusurf  ! surface U wind stress  [m^2/s^2]
@@ -238,7 +238,7 @@ Contains
   pom%potmpb(kb,ipom) = pom%potmpb(kb-1,ipom) ! Remnant of subroutine advct1 called here
   pom%salinb(kb,ipom) = pom%salinb(kb-1,ipom) ! Remnant of subroutine advct1 called here
 
-  do k = 1,kb-1
+  do k = 1,kb
      potmpf(k) = pom%potmpb(k,ipom) ! Remnant of subroutine advct1 called here
      salinf(k) = pom%salinb(k,ipom) ! Remnant of subroutine advct1 called here
   enddo

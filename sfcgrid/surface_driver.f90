@@ -133,15 +133,7 @@ subroutine surface_driver()
   enddo
   !$omp end do nowait
 
-  ! NOTE: If the call to plot_pom gets uncommented, subroutine plot_pom needs
-  ! to be customized so that the 4 IWSFC/ISEA points that it plots are actually
-  ! in the pom_active region of the simulation that you are running.
-
-  ! print*, 'calling plot_pom'
-  ! call plot_pom()
-  ! print*, 'returned from plot_pom'
-
-!-----------------------------------------------------------------------------
+!!-----------------------------------------------------------------------------
 !! Loop over ALL LAKE CELLS
 !!-----------------------------------------------------------------------------
 
@@ -165,6 +157,14 @@ subroutine surface_driver()
   enddo
   !$omp end do nowait
   !$omp end parallel
+
+  ! NOTE: If the call to plot_pom gets uncommented, subroutine plot_pom needs
+  ! to be customized so that the 4 IWSFC/ISEA points that it plots are actually
+  ! in the pom_active region of the simulation that you are running.
+
+  ! print*, 'calling plot_pom'
+  ! call plot_pom()
+  ! print*, 'returned from plot_pom'
 
 !!-----------------------------------------------------------------------------
 !! MPI SEND/RECV of quantities updated in seacells, lakecells, land cells

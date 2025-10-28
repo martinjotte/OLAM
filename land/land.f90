@@ -47,7 +47,7 @@ subroutine landcells(iland, timefac_ndvi, head_slope, soil_watfrac)
   integer :: iwsfc
 
   real :: canexneri, cantheta, canthetav
-  real :: airthetav, wstars
+  real :: airthetav, wstar_sfc
 
   integer :: k      ! vertical index over soil layers
   integer :: ktrans ! vertical index of soil layer supplying transpiration
@@ -226,13 +226,13 @@ subroutine landcells(iland, timefac_ndvi, head_slope, soil_watfrac)
      cantheta  = sfcg%cantemp(iwsfc) * canexneri
      canthetav = cantheta * (1.0 + eps_virt * sfcg%canrrv(iwsfc))
 
-     wstars = (grav * sfcg%pblh(iwsfc) * max(sfcg%wthv(iwsfc),0.0) / airthetav) ** onethird
+     wstar_sfc = (grav * sfcg%pblh(iwsfc) * max(sfcg%wthv(iwsfc),0.0) / airthetav) ** onethird
 
      call stars(sfcg%dzt_bot (iwsfc), &
                 sfcg%rough   (iwsfc), &
                 sfcg%vels    (iwsfc), &
                 sfcg%rhos    (iwsfc), &
-                wstars              , &
+                wstar_sfc           , &
                 airthetav           , &
                 canthetav           , &
                 sfcg%vkmsfc  (iwsfc), &
