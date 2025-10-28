@@ -95,7 +95,7 @@ subroutine isan_driver(iaction)
      stop
   endif
 
-  call shdf5_open(fnames_fg(ifgfile), 'R', mpio_collective_read=.false.)
+  call shdf5_open(fnames_fg(ifgfile), 'R')
 
   call read_analysis_header(nosoil=.true.)
 

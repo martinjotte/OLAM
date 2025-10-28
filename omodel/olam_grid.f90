@@ -1536,7 +1536,7 @@ subroutine gridfile_read_pd()
   write(io6,*) 'Opening grid file ', trim(flnm)
   write(io6,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++'
 
-  call shdf5_open(flnm,'R', mpio_collective_read=.false.)
+  call shdf5_open(flnm,'R')
 
   ! Read the grid information that exists in namelist
 

@@ -13,7 +13,11 @@ module hdf5_f2f
   logical, parameter :: bigendian = ichar(transfer(1,'a')) == 0
 
   integer(HID_T)   :: fileid
+
   integer(HID_T)   :: xferid
+  integer(HID_T)   :: xferid_col
+  integer(HID_T)   :: xferid_ind
+
   integer(HID_T)   :: dsetid = -1
   integer(HID_T)   :: mspcid
   integer(HID_T)   :: dspcid
@@ -136,7 +140,7 @@ contains
 
 !===============================================================================
 
-  subroutine fh5f_open(locfn, iaccess, hdferr, pario, colrd)
+  subroutine fh5f_open(locfn, iaccess, hdferr, pario)
 
     use oname_coms, only: nl
     use string_lib, only: lowercase, strip_char
@@ -153,7 +157,6 @@ contains
     integer,           intent(IN)  :: iaccess
     integer,           intent(OUT) :: hdferr
     logical, optional, intent(IN)  :: pario
-    logical, optional, intent(IN)  :: colrd
 
     integer(HID_T)                 :: access_prp
     integer                        :: flags, ierr
@@ -167,10 +170,8 @@ contains
     character(12)                  :: string
     integer, target                :: finfo(2), nstripes
     integer, pointer               :: blksiz, fstype
-    logical                        :: docolrd
 
     dopario = .false.
-    docolrd = .true.
 
 #if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
 
@@ -187,7 +188,6 @@ contains
     endif
 
     if (iparallel == 1 .and. present(pario)) dopario = pario
-    if (iparallel == 1 .and. present(colrd)) docolrd = colrd
 
 #endif
 
@@ -302,17 +302,20 @@ contains
 
     call h5pcreate_f(h5p_dataset_xfer_f, xferid, hdferr)
 
-#if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
-    if (dopario .and. docolrd) then
-       call H5Pset_dxpl_mpio_f(xferid, h5fd_mpio_collective_f, hdferr)
-    endif
-#endif
-
     nbytes = 1024 * 1024 * 128
     call h5pset_buffer_f(xferid, nbytes, hdferr)
 
     nelmts = 10000
     call h5pset_hyper_vector_size_f(xferid, nelmts, hdferr)
+
+#if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
+    if (dopario) then
+       call h5pcopy_f(xferid, xferid_col, hdferr)
+       call h5pcopy_f(xferid, xferid_ind, hdferr)
+       call H5Pset_dxpl_mpio_f(xferid_col, h5fd_mpio_collective_f, hdferr)
+       call h5pclose_f(xferid, hdferr)
+    endif
+#endif
 
   end subroutine fh5f_open
 
@@ -323,8 +326,14 @@ contains
 
     integer, intent(OUT) :: hdferr
 
-    call h5pclose_f(xferid, hdferr)
     call h5fclose_f(fileid, hdferr)
+
+    if (dopario) then
+       call h5pclose_f(xferid_ind, hdferr)
+       call h5pclose_f(xferid_col, hdferr)
+    else
+       call h5pclose_f(xferid, hdferr)
+    endif
 
     dopario = .false.
   end subroutine fh5f_close
@@ -493,17 +502,20 @@ contains
 
     call h5pcreate_f(h5p_dataset_xfer_f, xferid, hdferr)
 
-#if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
-    if (dopario) then
-       call h5pset_dxpl_mpio_f(xferid, h5fd_mpio_collective_f, hdferr)
-    endif
-#endif
-
     nbytes = 1024 * 1024 * 128
     call h5pset_buffer_f(xferid, nbytes, hdferr)
 
     nelmts = 10000
     call h5pset_hyper_vector_size_f(xferid, nelmts, hdferr)
+
+#if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
+    if (dopario) then
+       call h5pcopy_f(xferid, xferid_col, hdferr)
+       call h5pcopy_f(xferid, xferid_ind, hdferr)
+       call H5Pset_dxpl_mpio_f(xferid_col, h5fd_mpio_collective_f, hdferr)
+       call h5pclose_f(xferid, hdferr)
+    endif
+#endif
 
   end subroutine fh5f_create
 
@@ -717,6 +729,11 @@ contains
 
        call H5Sselect_all_f(dspcid, hdferr)
 
+    endif
+
+    ! For now, all parallel WRITES are done collectively
+    if (dopario) then
+       call h5pcopy_f(xferid_col, xferid, hdferr)
     endif
 
   end subroutine fh5_prepare_write
@@ -1786,6 +1803,12 @@ contains
 
     if (present(coords)) then
 
+       ! For now, parallel READS are only done collectively only if coords is present
+
+       if (dopario) then
+          call h5pcopy_f(xferid_col, xferid, hdferr)
+       endif
+
        if (size(coords) == 0) then
 
           call h5sselect_none_f(dspcid, hdferr)
@@ -1823,6 +1846,10 @@ contains
 
     else if (present(start) .and. present(counts)) then
 
+       if (dopario) then
+          call h5pcopy_f(xferid_ind, xferid, hdferr)
+       endif
+
        ! If start and count are present, select the slab to read
        ! based on the start point (offset in file) and
        ! the count (number to read in each dimension)
@@ -1844,6 +1871,10 @@ contains
           write(*,*) "Invalid start and count dimensions"
        endif
 
+    else if (dopario) then
+
+       call h5pcopy_f(xferid_ind, xferid, hdferr)
+
     endif
 
   end subroutine fh5_prepare_read
@@ -1852,6 +1883,7 @@ contains
 
   subroutine fh5_close_read(hdferr, no_dsetid)
 
+    use mem_para, only: myrank
     implicit none
 
     integer,           intent(OUT) :: hdferr
@@ -1861,7 +1893,7 @@ contains
 #if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
     integer              :: mode
 
-    if (.false. .and. dopario) then
+    if (.false. .and. dopario .and. myrank == 1) then
        call h5pget_mpio_actual_io_mode_f(xferid, mode, hdferr)
 
        if ( mode == H5D_MPIO_NO_COLLECTIVE_F ) then
@@ -1877,6 +1909,10 @@ contains
        else
           write(*,*) " Unknown H5D MPIO mode"
        endif
+    endif
+
+    if (dopario) then
+       call h5pclose_f(xferid, hdferr)
     endif
 #endif
 
@@ -2085,6 +2121,11 @@ contains
 
        endif
 
+    endif
+
+    ! For now, all parallel WRITES are done collectively
+    if (dopario) then
+       call h5pcopy_f(xferid_col, xferid, hdferr)
     endif
 
   end subroutine fh5_prepare_write_ll

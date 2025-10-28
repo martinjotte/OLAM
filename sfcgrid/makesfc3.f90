@@ -1436,7 +1436,7 @@ subroutine sfcgfile_read_pd()
      stop 'stop: no sfcgfile'
   endif
 
-  call shdf5_open(flnm, 'R', mpio_collective_read=.false.)
+  call shdf5_open(flnm, 'R')
 
   ndims    = 1
   idims(1) = 1
