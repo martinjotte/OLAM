@@ -504,8 +504,8 @@ subroutine makesfc3()
      enddo
   enddo
 
-  ! Set logical flag for SEA cells that use POM1D.
-  ! Require that water be deeper than 30 m.
+  ! Set logical flag for SEA cells that use POM1D.  Require that water be
+  ! deeper than 30 m and that SWM is not active.
 
   do ipomzon = 1,npomzons
      do isea = 2,nsea

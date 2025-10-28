@@ -109,8 +109,9 @@ subroutine copy_nl()
 
   use mem_land,    only: nzg, landgrid_dztop, landgrid_depth
 
-  use sea_coms,    only: isstflg, sst_database, seatmp, iupdsst, &
-                         iseaiceflg, seaice_database, seaice, iupdseaice, tide_database
+  use sea_coms,    only: isstflg, sst_database, seatmp, iupdsst, pom_idata, &
+                         iseaiceflg, seaice_database, seaice, iupdseaice, &
+                         pom_database, tide_database
 
   use oplot_coms,  only: op
   use isan_coms,   only: iapr
@@ -348,12 +349,14 @@ subroutine copy_nl()
   nzg       = nl%nzg
   landgrid_dztop = nl%landgrid_dztop
   landgrid_depth = nl%landgrid_depth
-  niter_swm = nl%niter_swm
-  use_tides = nl%use_tides
-  umwmflg   = nl%umwmflg
-  nzpom     = nl%nzpom
-  pom_dztop = nl%pom_dztop
-  pom_depth = nl%pom_depth
+  niter_swm      = nl%niter_swm
+  use_tides      = nl%use_tides
+  umwmflg        = nl%umwmflg
+  nzpom          = nl%nzpom
+  pom_dztop      = nl%pom_dztop
+  pom_depth      = nl%pom_depth
+  pom_idata      = nl%pom_idata
+  pom_database   = nl%pom_database
 
   isoilflg      = nl%isoilflg
   isoilptf      = nl%isoilptf

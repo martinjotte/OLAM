@@ -45,9 +45,9 @@ subroutine seacells(isea, timefac_sst, timefac_seaice)
   sea%seaicec(isea) = sea%seaicep(isea) &
                     + timefac_seaice * (sea%seaicef(isea) - sea%seaicep(isea))
 
-  ! Update SEATC if isea cell is not pom_active or is is swm_active
+  ! Update SEATC if isea cell is not pom_active
 
-  if (.not. sea%pom_active(isea) .or. sfcg%swm_active(iwsfc)) then
+  if (.not. sea%pom_active(isea)) then
 
      sea%seatc(isea) = sea%seatp(isea) &
                      + timefac_sst * (sea%seatf(isea) - sea%seatp(isea))
@@ -172,9 +172,9 @@ subroutine seacells(isea, timefac_sst, timefac_seaice)
   sea%sea_wthv(isea) = ( sea%sea_sfluxt(isea) * cpi * canexneri * (1.0 + eps_virt * sfcg%airrrv(iwsfc)) &
                      + sea%sea_sfluxr(isea) * eps_virt * sfcg%airtheta(iwsfc) ) / sfcg%rhos(iwsfc)
 
-  ! Update POM1D vertical column variables if this sea cell is pom_active and is not swm_active
+  ! Update POM1D vertical column variables if this sea cell is pom_active
 
-  if (sea%pom_active(isea) .and. .not. sfcg%swm_active(iwsfc)) then
+  if (sea%pom_active(isea)) then
 
      ! Eastward and northward surface wind components for sea cell
 
@@ -205,6 +205,8 @@ subroutine seacells(isea, timefac_sst, timefac_seaice)
      swrad = sfcg%rshort(iwsfc) * (1. - sfcg%albedo_beam(iwsfc)) / cliq1000
 
      call pom_column(isea, sea%pom_kba(isea), wusurf, wvsurf, wtsurf, wssurf, swrad)
+
+     sea%seatc(isea) = pom%potmp(1,isea) + 273.15
   endif
 
   ! Update sea ice based on seaice fraction

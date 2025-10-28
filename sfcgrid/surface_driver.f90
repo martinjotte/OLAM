@@ -121,7 +121,7 @@ subroutine surface_driver()
 
 !!-----------------------------------------------------------------------------
 !! Update surface temperature, ice, and canopy variables in all sea cells.
-!! Update POM1D column variables in sea cells that are pom_active and not swm_active.
+!! Update POM1D column variables in sea cells that are pom_active.
 !!-----------------------------------------------------------------------------
 
   !$omp parallel
@@ -138,12 +138,10 @@ subroutine surface_driver()
   ! in the pom_active region of the simulation that you are running.
 
   ! print*, 'calling plot_pom'
-
   ! call plot_pom()
-
   ! print*, 'returned from plot_pom'
 
-!!-----------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
 !! Loop over ALL LAKE CELLS
 !!-----------------------------------------------------------------------------
 

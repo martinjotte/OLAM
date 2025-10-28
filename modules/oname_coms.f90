@@ -342,10 +342,13 @@ Module oname_coms
      integer :: isfcl       =  1
      integer :: igw_spinup  =  0
      integer :: nzg         = 21
-     integer :: nzpom       = 40
      integer :: niter_swm   =  1
      integer :: use_tides   =  0
      integer :: umwmflg     =  0
+
+     integer            :: nzpom        = 40
+     integer            :: pom_idata    = 0
+     character(pathlen) :: pom_database = ' '
 
      ! to be removed / unused
      integer :: nzs = 0

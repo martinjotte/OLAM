@@ -164,7 +164,7 @@ integer, save :: indp = 0, icase_sav = 0
 integer :: jasfc
 real :: area_sum
 real :: zobs, press_zobs, exner_zobs, wind_zobs, theta_zobs, rrv_zobs
-real :: cantheta, canthetav, airthetav, ufree
+real :: cantheta, canthetav, airthetav, wstar_sfc
 
 real :: vcc
 real :: vcc_init
@@ -3435,7 +3435,7 @@ case(279) ! 'POM_KBA'
 case(280) ! 'POM_TEMPSFC'
 
    if (.not. allocated(pom%potmp)) go to 1000
-   fldval = pom%potmp(1,isea)
+   fldval = pom%potmp(1,isea) + 273.15
 
 case(281) ! 'SWM_DIVERG'
 
@@ -3643,11 +3643,11 @@ case(318:321) ! 'SFCG_SPEED10M', 'SFCG_SPEED2M', 'SFCG_TEMPK2M', 'SFCG_RVAP2M'
    canthetav = cantheta         * (1.0 + eps_virt * sfcg%canrrv(i))
    airthetav = sfcg%airtheta(i) * (1.0 + eps_virt * sfcg%airrrv(i))
 
-   ufree = (grav * sfcg%pblh(iwsfc) * max(sfcg%wthv(i),0.0) / airthetav) ** onethird
+   wstar_sfc = (grav * sfcg%pblh(iwsfc) * max(sfcg%wthv(i),0.0) / airthetav) ** onethird
 
    call sfclyr_profile (sfcg%vels(i), sfcg%rhos(i), sfcg%canexner(i), &
                         sfcg%ustar(i), sfcg%sfluxt(i), sfcg%sfluxr(i), &
-                        sfcg%dzt_bot(i), sfcg%rough(i), ufree, &
+                        sfcg%dzt_bot(i), sfcg%rough(i), wstar_sfc, &
                         cantheta, canthetav, sfcg%canrrv(i), airthetav, &
                         zobs, wind_zobs, theta_zobs, rrv_zobs)
 

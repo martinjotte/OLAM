@@ -17,8 +17,8 @@ Module sea_coms
 
    ! SST VARIABLES
    integer            :: nsstfiles, isstfile, isstflg
-   integer            :: iupdsst, isstcyclic
-   character(pathlen) :: sst_database
+   integer            :: iupdsst, isstcyclic, pom_idata
+   character(pathlen) :: sst_database, pom_database
 
    character(pathlen), allocatable :: fnames_sst  (:)
    character(14),      allocatable :: ctotdate_sst(:)
@@ -45,4 +45,3 @@ Module sea_coms
    real,    parameter :: t00sea = 271.38 ! Freezing temperature of sea water [K]
 
 End Module sea_coms
-

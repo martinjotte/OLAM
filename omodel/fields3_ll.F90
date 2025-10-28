@@ -217,7 +217,7 @@ subroutine fields3_ll()
   real :: area_land_sum
   real :: vx, vy, vz
   real :: zobs, press_zobs, exner_zobs, wind_zobs, theta_zobs, rrv_zobs
-  real :: cantheta, canthetav, airthetav, ufree
+  real :: cantheta, canthetav, airthetav, wstar_sfc
   real :: frac, uwind, vwind
 
   real :: scr1a(mwa), scr1b(mwa), scr1c(mwa), scr1d(mwa)
@@ -892,11 +892,11 @@ subroutine fields3_ll()
               canthetav = cantheta             * (1.0 + eps_virt * sfcg%canrrv(iwsfc))
               airthetav = sfcg%airtheta(iwsfc) * (1.0 + eps_virt * sfcg%airrrv(iwsfc))
 
-              ufree = (grav * sfcg%pblh(iwsfc) * max(sfcg%wthv(iwsfc),0.0) / airthetav) ** onethird
+              wstar_sfc = (grav * sfcg%pblh(iwsfc) * max(sfcg%wthv(iwsfc),0.0) / airthetav) ** onethird
 
               call sfclyr_profile (sfcg%vels(iwsfc), sfcg%rhos(iwsfc), sfcg%canexner(iwsfc), &
                                    sfcg%ustar(iwsfc), sfcg%sfluxt(iwsfc), sfcg%sfluxr(iwsfc), &
-                                   sfcg%dzt_bot(iwsfc), sfcg%rough(iwsfc), ufree, &
+                                   sfcg%dzt_bot(iwsfc), sfcg%rough(iwsfc), wstar_sfc, &
                                    cantheta, canthetav, sfcg%canrrv(iwsfc), airthetav, &
                                    zobs, wind_zobs, theta_zobs, rrv_zobs)
 
