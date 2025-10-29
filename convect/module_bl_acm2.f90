@@ -13,17 +13,18 @@ contains
     !   3. Cloud-top radiational cooling scaling, Lock et al. (2000)
 
     use mem_cuparm,  only: iactcu, qwcon
-    use mem_grid,    only: mza, zm, zt, dzm, dzimsq, lpw, lsw, arw
+    use mem_grid,    only: mza, zm, zt, dzm, dzimsq, lpw, lsw, arw, dzit_bot
     use consts_coms, only: vonk, grav, grav2, alvl, rvap, eps_virt, &
-                           alvlocp, alviocp, eps_virt
+                           alvlocp, alviocp, eps_virt, cpio2
     use mem_radiate, only: cloud_frac, pbl_cld_forc
     use mem_basic,   only: vxe, vye, vze, rr_v, rr_w, tair, theta, rho
     use mem_turb,    only: frac_sfc, ustar_k, wtv0_k, pblh, kpblh, &
-                           ustar, wstar, moli, vkh, vkm, agamma
+                           ustar, wstar, moli, vkh, vkm, agamma, vkm_sfc
     use mem_micro,   only: rr_c, rr_p
     use therm_lib,   only: rhovsl
     use buoyancy,    only: comp_buoy
     use oname_coms,  only: nl
+    use mem_tend,    only: thilt
 
     implicit none
 
@@ -36,7 +37,7 @@ contains
     integer :: k, kpbl, kpblm, kpblp, ks, ka, kpblpp, kpblmm
     real    :: zagl, zoh, zol, zsol, zi
     real    :: dthl, dqt, dql, cfac, qsat, gams, chi_s, dbwet, db
-    real    :: ss, kprof, rlam, shear, molkm
+    real    :: kprof, rlam, shear, molkm, vels2
     real    :: zk, sql, fm, ri
     real    :: phimi, phihi
     real    :: wm, a0
@@ -57,6 +58,8 @@ contains
     real :: edycm(mza)
     real :: kzo  (mza) ! background eddy diffusivity
     real :: agam (mza) ! nonlocal term
+    real :: ss   (mza) ! shear squared
+    real :: dissp(mza) ! dissipation
 
     real :: thetav(mza), buoy(mza), ftot(mza)
     real :: bt(mza), bq(mza), btwet(mza), bqwet(mza)
@@ -291,13 +294,13 @@ contains
 
        zk = vonk * (zm(k) - zm(lpw(iw) - 1))
 
-       ss = ( (vxe(k+1,iw) - vxe(k,iw))**2 &
-            + (vye(k+1,iw) - vye(k,iw))**2 &
-            + (vze(k+1,iw) - vze(k,iw))**2 ) * dzimsq(k)
+       ss(k) = ( (vxe(k+1,iw) - vxe(k,iw))**2 &
+               + (vye(k+1,iw) - vye(k,iw))**2 &
+               + (vze(k+1,iw) - vze(k,iw))**2 ) * dzimsq(k)
 
-       ri = grav2 * buoy(k) / ( (thetav(k+1) + thetav(k)) * max(ss,1.e-5) )
+       ri = grav2 * buoy(k) / ( (thetav(k+1) + thetav(k)) * max(ss(k),1.e-5) )
 
-       shear = max(sqrt(ss), 1.e-6)
+       shear = max(sqrt(ss(k)), 1.e-6)
 
        if (ri < 0.) then
 
@@ -344,9 +347,22 @@ contains
        vkm(k,iw) = max( edyrm(k), edyzm(k) + edycm(k), kzo(k) )
        vkm(k,iw) = min( vkm(k,iw), 1000.0 )
        vkm(k,iw) = rho4 * vkm(k,iw)
+
+       dissp(k) = ss(k) * vkm(k,iw)
     enddo
 
     agamma(:,iw) = agam
+
+    ! Compute surface dissipation
+
+    vels2       = vxe(ka,iw)**2 + vye(ka,iw)**2 + vze(ka,iw)**2
+    dissp(ka-1) = vkm_sfc(iw) * vels2 * dzit_bot(ka)**2
+    dissp(mza)  = 0.0
+
+    ! Apply dissipative heating to THIL
+    do k = lpw(iw), mza
+       thilt(k,iw) = thilt(k,iw) + (dissp(k) + dissp(k-1)) * cpio2 * theta(k,iw) / tair(k,iw)
+    enddo
 
   end subroutine acm2_eddyx
 
