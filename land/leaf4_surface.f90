@@ -219,8 +219,8 @@ subroutine skncomp_diagnose(iland, iwsfc, skncomp, sfcwater_mass, sfcwater_epm2,
 !    elseif (sfcwater_mass(2) > 5.5 .and. sfcwater_depth(2) > 5.5*dfact)  then
      elseif (sfcwater_mass(2) > mass2 .and. sfcwater_depth(2) > mass2*dfact)  then
 
-        wxfer  = min( mass1       - sfcwater_mass(2),  &
-                     (mass1*dfact - sfcwater_depth(2)) * sfcwater_mass(1) / sfcwater_depth(1))
+        wxfer  = max( mass1       - sfcwater_mass(2),  &
+                     (mass1*dfact - sfcwater_depth(2)) * sfcwater_mass(2) / sfcwater_depth(2))
 
         qwxfer = wxfer * sfcwater_epm2 (2) / sfcwater_mass(2)
         dwxfer = wxfer * sfcwater_depth(2) / sfcwater_mass(2)
