@@ -160,7 +160,7 @@ subroutine isnstage()
 
      do k = lpv(iv), mza
         vc (k,iv) = 0.5 * ( (ue(k,iw1) + ue(k,iw2)) * vcn_ew(iv) &
-                          + (ve(k,iw2) + ve(k,iw2)) * vcn_ns(iv) )
+                          + (ve(k,iw1) + ve(k,iw2)) * vcn_ns(iv) )
         vmc(k,iv) = vc(k,iv) * 0.5 * real(rho(k,iw1) + rho(k,iw2))
      enddo
 
