@@ -1,14 +1,9 @@
 module hdf5_f2f
 
-  use hdf5
-  use h5ds, only: H5DSset_scale_f     ,  H5DSis_scale_f   , &
-                  H5Dsget_scale_name_f, H5DSattach_scale_f, &
-                  H5DSget_num_scales_f
-
+  use                          hdf5, only: HID_T, HSIZE_T
   use, intrinsic :: iso_fortran_env, only: r8=>real64, i1=>int8, i2=>int16
-  use                     misc_coms, only: io6, iparallel
 
-  implicit none
+  implicit none (external, type)
 
   logical, parameter :: bigendian = ichar(transfer(1,'a')) == 0
 
@@ -29,59 +24,21 @@ module hdf5_f2f
   integer :: is_linux = -1
 
   interface fh5_write
-     module procedure                 &
-          fh5_write_int1_scalar,      &
-          fh5_write_integer_scalar,   &
-          fh5_write_real_scalar,      &
-          fh5_write_real8_scalar,     &
-          fh5_write_logical_scalar,   &
-          fh5_write_int1_array1,      &
-          fh5_write_integer_array1,   &
-          fh5_write_real_array1,      &
-          fh5_write_real8_array1,     &
-          fh5_write_logical_array1,   &
-          fh5_write_int1_array2,      &
-          fh5_write_integer_array2,   &
-          fh5_write_real_array2,      &
-          fh5_write_real8_array2,     &
-          fh5_write_logical_array2,   &
-          fh5_write_int1_array3,      &
-          fh5_write_integer_array3,   &
-          fh5_write_real_array3,      &
-          fh5_write_real8_array3,     &
-          fh5_write_logical_array3,   &
-          fh5_write_int1_array4,      &
-          fh5_write_integer_array4,   &
-          fh5_write_real_array4,      &
-          fh5_write_real8_array4
+     module procedure         &
+          fh5_write_int1,     &
+          fh5_write_int2,     &
+          fh5_write_integer,  &
+          fh5_write_real,     &
+          fh5_write_real8
   end interface fh5_write
 
   interface fh5_read
-     module procedure                 &
-          fh5_read_int1_scalar,       &
-          fh5_read_integer_scalar,    &
-          fh5_read_real_scalar,       &
-          fh5_read_real8_scalar,      &
-          fh5_read_logical_scalar,    &
-          fh5_read_int1_array1,       &
-          fh5_read_integer_array1,    &
-          fh5_read_real_array1,       &
-          fh5_read_real8_array1,      &
-          fh5_read_logical_array1,    &
-          fh5_read_int1_array2,       &
-          fh5_read_integer_array2,    &
-          fh5_read_real_array2,       &
-          fh5_read_real8_array2,      &
-          fh5_read_logical_array2,    &
-          fh5_read_int1_array3,       &
-          fh5_read_integer_array3,    &
-          fh5_read_real_array3,       &
-          fh5_read_real8_array3,      &
-          fh5_read_logical_array3,    &
-          fh5_read_int1_array4,       &
-          fh5_read_integer_array4,    &
-          fh5_read_real_array4,       &
-          fh5_read_real8_array4
+     module procedure        &
+          fh5_read_int1,     &
+          fh5_read_int2,     &
+          fh5_read_integer,  &
+          fh5_read_real,     &
+          fh5_read_real8
   end interface fh5_read
 
   private
@@ -91,9 +48,7 @@ module hdf5_f2f
             fh5f_write_attribute, fh5f_create_dim, fh5f_attach_dims, &
             fh5f_read_global_attribute, fh5f_write_global_attribute, &
             fh5f_read_attribute, fh5f_query_dimname, fh5_get_attached_scales, &
-            fh5_get_chunk_dims, fh5f_exists, fh5_close_read, HID_T, &
-            H5T_IEEE_F32LE, H5T_IEEE_F64LE, &           ! 4 and 8 byte reals
-            H5T_STD_I8LE, H5T_STD_I16LE, H5T_STD_I32LE  ! 1, 2, and 4 byte ints
+            fh5_get_chunk_dims, fh5f_exists, fh5_close_read
 
 contains
 
@@ -102,10 +57,21 @@ contains
   subroutine fh5f_exists(locfn, exists, pario)
 
 #if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
-    use mpi, only: MPI_COMM_WORLD, MPI_INFO_NULL
+    use mpi_f08,   only: MPI_INFO_NULL
+    use mem_para,  only: MPI_COMM_OLAM
+    use misc_coms, only: iparallel
+    use hdf5,      only: h5pset_fapl_mpio_f, h5pset_all_coll_metadata_ops_f
 #endif
+#ifdef OLD_HDF5
+    use hdf5,      only: h5fis_hdf5_f
+#else
+    use hdf5,      only: h5fis_accessible_f
+#endif
+    use hdf5,      only: HID_T, h5pcreate_f, H5P_FILE_ACCESS_F, h5eset_auto_f, &
+                         h5pclose_f
+    import,        only: dopario
 
-    implicit none
+    implicit none (external, type)
 
     character(*),      intent(IN)  :: locfn
     logical,           intent(OUT) :: exists
@@ -124,13 +90,19 @@ contains
 
 #if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
     if (dopario) then
-       call h5pset_fapl_mpio_f(access_prp, MPI_COMM_WORLD, MPI_INFO_NULL, hdferr)
+       call h5pset_fapl_mpio_f(access_prp, MPI_COMM_OLAM, MPI_INFO_NULL, hdferr)
        call h5pset_all_coll_metadata_ops_f(access_prp, .true., hdferr)
     endif
 #endif
 
     call h5eset_auto_f(0, hdferr)
+
+#ifdef OLD_HDF5
+    call h5fis_hdf5_f      (locfn, exists, hdferr)
+#else
     call h5fis_accessible_f(locfn, exists, hdferr, access_prp)
+#endif
+
     if (hdferr /= 0) exists = .false.
     call h5eset_auto_f(1, hdferr)
 
@@ -142,16 +114,31 @@ contains
 
   subroutine fh5f_open(locfn, iaccess, hdferr, pario)
 
-    use oname_coms, only: nl
+#if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
+    use mpi_f08,    only: MPI_Allreduce, MPI_IN_PLACE, MPI_INTEGER, MPI_MIN, &
+                          MPI_INFO_NULL, MPI_Bcast
+    use mem_para,   only: MPI_COMM_OLAM, myrank
+    use misc_coms,  only: iparallel
     use string_lib, only: lowercase, strip_char
     use sys_utils,  only: get_command_as_string
-    use mem_para,   only: myrank
-
-#if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
-    use mpi
+    use hdf5,       only: h5pcopy_f, h5pset_fapl_mpio_f, h5pset_all_coll_metadata_ops_f, &
+                          H5Pset_alignment_f, H5Pset_dxpl_mpio_f, h5fd_mpio_collective_f
 #endif
+#ifndef OLD_HDF5
+    use hdf5,       only: H5F_LIBVER_V110_F, h5fis_accessible_f
+#else
+    use hdf5,       only: h5fis_hdf5_f
+#endif
+    use hdf5,       only: HID_T, HSIZE_T, SIZE_t, H5F_ACC_RDONLY_F, H5F_ACC_RDWR_F, &
+                          h5pcreate_f, H5P_FILE_ACCESS_F, h5pget_cache_f, h5pset_cache_f, &
+                          h5pset_sieve_buf_size_f, h5pset_libver_bounds_f, H5F_LIBVER_LATEST_F, &
+                          H5Pset_meta_block_size_f, H5Pset_small_data_block_size_f, &
+                          h5eset_auto_f, h5pclose_f, h5fopen_f, h5pcreate_f, h5pset_buffer_f, &
+                          h5pset_hyper_vector_size_f, h5p_dataset_xfer_f
+    use misc_coms,  only: io6
+    import,         only: dopario, is_linux, fileid, xferid, xferid_col, xferid_ind
 
-    implicit none
+    implicit none (external, type)
 
     character(*),      intent(IN)  :: locfn
     integer,           intent(IN)  :: iaccess
@@ -159,17 +146,20 @@ contains
     logical, optional, intent(IN)  :: pario
 
     integer(HID_T)                 :: access_prp
-    integer                        :: flags, ierr
-    integer(HSIZE_T)               :: aligns1, aligns2
+    integer                        :: flags
     integer(HSIZE_T),    parameter :: msize = 1024 * 256
-    integer,             parameter :: alignsmax = 1024 * 1024 * 128
     integer(SIZE_t)                :: nelmts, nbytes
     real                           :: w0
     integer                        :: mdc
     logical                        :: ish5
+#if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
+    integer(HSIZE_T)               :: aligns1, aligns2
+    integer,             parameter :: alignsmax = 1024 * 1024 * 128
     character(12)                  :: string
-    integer, target                :: finfo(2), nstripes
-    integer, pointer               :: blksiz, fstype
+    integer                        :: ierr
+    integer,                target :: finfo(2), nstripes
+    integer,               pointer :: blksiz, fstype
+#endif
 
     dopario = .false.
 
@@ -183,7 +173,7 @@ contains
        if (string(1:5) == 'linux') is_linux = 1
 
        if (iparallel == 1) then
-          call MPI_Allreduce(MPI_IN_PLACE, is_linux, 1, MPI_INTEGER, MPI_MIN, MPI_COMM_WORLD, hdferr)
+          call MPI_Allreduce(MPI_IN_PLACE, is_linux, 1, MPI_INTEGER, MPI_MIN, MPI_COMM_OLAM, hdferr)
        endif
     endif
 
@@ -206,7 +196,11 @@ contains
     nbytes = 1024 * 1024 * 32
     call h5pset_sieve_buf_size_f(access_prp, nbytes, hdferr)
 
-    call fh5_set_lib_bounds(access_prp, hdferr)
+#ifdef OLD_HDF5
+    call h5pset_libver_bounds_f(access_prp, H5F_LIBVER_LATEST_F, H5F_LIBVER_LATEST_F, hdferr)
+#else
+    call h5pset_libver_bounds_f(access_prp, H5F_LIBVER_V110_F, H5F_LIBVER_LATEST_F, hdferr)
+#endif
 
     ! Increase some buffer sizes
     call H5Pset_meta_block_size_f(access_prp, msize, hdferr)
@@ -218,13 +212,19 @@ contains
        write(io6,*)
        write(io6,'(A)') "Enabling parallel HDF5 input for file " // trim(locfn)
 
-       call h5pset_fapl_mpio_f(access_prp, MPI_COMM_WORLD, MPI_INFO_NULL, hdferr)
+       call h5pset_fapl_mpio_f(access_prp, MPI_COMM_OLAM, MPI_INFO_NULL, hdferr)
        call h5pset_all_coll_metadata_ops_f(access_prp, .true., hdferr)
     endif
 #endif
 
     call h5eset_auto_f(0, hdferr)
+
+#ifdef OLD_HDF5
+    call h5fis_hdf5_f      (locfn, ish5, hdferr)
+#else
     call h5fis_accessible_f(locfn, ish5, hdferr, access_prp)
+#endif
+
     if (hdferr /= 0) ish5 = .false.
     call h5eset_auto_f(1, hdferr)
 
@@ -282,7 +282,7 @@ contains
           endif
        endif
 
-       call MPI_Bcast(finfo, 2, MPI_INTEGER,  0, MPI_COMM_WORLD, hdferr)
+       call MPI_Bcast(finfo, 2, MPI_INTEGER,  0, MPI_COMM_OLAM, hdferr)
 
        ! Align writes to file-system block size if using gpfs or
        ! stripe size if we are using lustre
@@ -322,7 +322,11 @@ contains
 !=============================================================================
 
   subroutine fh5f_close(hdferr)
-    implicit none
+
+    use hdf5, only: h5fclose_f, h5pclose_f
+    import,   only: fileid, xferid_ind, xferid_col, xferid, dopario
+
+    implicit none (external, type)
 
     integer, intent(OUT) :: hdferr
 
@@ -342,16 +346,29 @@ contains
 
   subroutine fh5f_create(locfn, iaccess, hdferr, pario)
 
-    use oname_coms, only: nl
+#if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
+    use mpi_f08,    only: MPI_Info, MPI_Allreduce, MPI_IN_PLACE, MPI_INTEGER, MPI_MIN, &
+                          MPI_INFO_NULL, MPI_Bcast, MPI_Info_create, MPI_Info_set, MPI_Info_free
+    use mem_para,   only: myrank, MPI_COMM_OLAM
     use string_lib, only: lowercase
     use sys_utils,  only: get_command_as_string
-    use mem_para,   only: myrank
-
-#if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
-    use mpi
+    use misc_coms,  only: iparallel
+    use hdf5,       only: H5Pset_alignment_f, h5pset_fapl_mpio_f, h5pset_coll_metadata_write_f, &
+                          h5pcopy_f, H5Pset_dxpl_mpio_f, h5fd_mpio_collective_f
 #endif
+#ifndef OLD_HDF5
+    use hdf5,       only: H5F_LIBVER_V110_F
+#endif
+    use misc_coms,  only: io6
+    use hdf5,       only: HID_T, HSIZE_T, SIZE_t, H5F_ACC_TRUNC_F, H5F_ACC_EXCL_F, &
+                          h5pcreate_f, H5P_FILE_ACCESS_F, h5pget_cache_f, h5pset_cache_f, &
+                          h5pset_sieve_buf_size_f, h5pset_libver_bounds_f, H5F_LIBVER_LATEST_F, &
+                          H5Pset_meta_block_size_f, H5Pset_small_data_block_size_f, &
+                          h5fcreate_f, h5pclose_f, h5pset_buffer_f, h5pset_hyper_vector_size_f, &
+                          h5p_dataset_xfer_f
+    import,         only: dopario, is_linux, fileid, xferid, xferid_col, xferid_ind
 
-    implicit none
+    implicit none (external, type)
 
     character(*),      intent(IN)  :: locfn
     integer,           intent(IN)  :: iaccess
@@ -359,23 +376,26 @@ contains
     logical, optional, intent(IN)  :: pario
 
     integer(HID_T)                 :: access_prp
-    integer                        :: flags, ierr
-    integer(HSIZE_T)               :: aligns1, aligns2
+    integer                        :: flags, mdc
     integer(HSIZE_T),    parameter :: msize = 1024 * 256
-    integer,             parameter :: alignsmax = 1024 * 1024 * 128
     integer(SIZE_t)                :: nelmts, nbytes
     real                           :: w0
-    integer                        :: mdc, is, info
+#if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
+    integer                        :: is, ierr
     character(12)                  :: string
-    integer, target                :: finfo(2)
-    integer, pointer               :: blksiz, fstype
+    integer,               target  :: finfo(2)
+    integer,               pointer :: blksiz, fstype
+    integer(HSIZE_T)               :: aligns1, aligns2
+    integer,             parameter :: alignsmax = 1024 * 1024 * 128
     integer,             parameter :: lustre_striping_factor = -1
     integer,             parameter :: lustre_striping_unit   = 1024 * 1024 * 4
+    type(MPI_Info)                 :: info
+    logical                        :: doinfo
+#endif
 
     dopario = .false.
 
 #if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
-
     if (is_linux < 0) then
        is_linux = 0
        string   = ' '
@@ -383,12 +403,11 @@ contains
        if (string == 'linux') is_linux = 1
 
        if (iparallel == 1) then
-          call MPI_Allreduce(MPI_IN_PLACE, is_linux, 1, MPI_INTEGER, MPI_MIN, MPI_COMM_WORLD, hdferr)
+          call MPI_Allreduce(MPI_IN_PLACE, is_linux, 1, MPI_INTEGER, MPI_MIN, MPI_COMM_OLAM, hdferr)
        endif
     endif
 
     if (iparallel == 1 .and. present(pario)) dopario = pario
-
 #endif
 
     ! Turn off default error handling?
@@ -406,7 +425,11 @@ contains
     nbytes = 1024 * 1024 * 32
     call h5pset_sieve_buf_size_f(access_prp, nbytes, hdferr)
 
-    call fh5_set_lib_bounds(access_prp, hdferr)
+#ifdef OLD_HDF5
+    call h5pset_libver_bounds_f(access_prp, H5F_LIBVER_LATEST_F, H5F_LIBVER_LATEST_F, hdferr)
+#else
+    call h5pset_libver_bounds_f(access_prp, H5F_LIBVER_V110_F, H5F_LIBVER_LATEST_F, hdferr)
+#endif
 
     ! Increase some buffer sizes
     call H5Pset_meta_block_size_f(access_prp, msize, hdferr)
@@ -415,8 +438,8 @@ contains
 #if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
     if (dopario) then
 
-       info  = MPI_INFO_NULL
-       finfo = 0
+       doinfo = .false.
+       finfo  = 0
 
        if (is_linux > 0) then
 
@@ -459,7 +482,7 @@ contains
 
           endif
 
-          call MPI_Bcast(finfo, 2, MPI_INTEGER,  0, MPI_COMM_WORLD, hdferr)
+          call MPI_Bcast(finfo, 2, MPI_INTEGER,  0, MPI_COMM_OLAM, hdferr)
 
           ! Align writes to file-system block size if using gpfs or
           ! stripe size if we are using lustre
@@ -471,6 +494,7 @@ contains
           endif
 
           if (fstype == 2) then
+             doinfo = .true.
              call MPI_Info_create(info, hdferr)
              write(string,'(I0)') lustre_striping_unit
              call MPI_Info_set(info, "striping_unit", string, hdferr)
@@ -482,10 +506,13 @@ contains
        write(io6,*)
        write(io6,'(A)') "Enabling parallel HDF5 output for file " // trim(locfn)
 
-       call h5pset_fapl_mpio_f(access_prp, MPI_COMM_WORLD, info, hdferr)
+       if (doinfo) then
+          call h5pset_fapl_mpio_f(access_prp, MPI_COMM_OLAM, info, hdferr)
+       else
+          call h5pset_fapl_mpio_f(access_prp, MPI_COMM_OLAM, MPI_INFO_NULL, hdferr)
+       endif
        call h5pset_coll_metadata_write_f(access_prp, .true., hdferr)
-
-       if (info /= MPI_INFO_NULL) call MPI_Info_free(info, hdferr)
+       if (doinfo) call MPI_Info_free(info, hdferr)
     endif
 #endif
 
@@ -524,7 +551,18 @@ contains
   subroutine fh5_prepare_write(ndims, dims, dname, stype, hdferr, icompress, &
                                mcoords, fcoords, ifsize, dims_chunk)
 
-    implicit none
+    use misc_coms, only: io6
+    use hdf5,      only: HID_T, HSIZE_T, H5P_DEFAULT_F, h5iis_valid_f, H5Lexists_f, &
+                         H5Dopen_f, H5Dget_space_status_f, H5D_SPACE_STS_ALLOCATED_F, &
+                         H5D_SPACE_STS_PART_ALLOCATED_F, h5pcreate_f, h5pset_chunk_f, &
+                         H5P_DATASET_CREATE_F, h5pset_shuffle_f, h5pset_deflate_f, &
+                         h5screate_simple_f, h5dcreate_f, h5sclose_f, h5pclose_f, &
+                         h5sselect_none_f, H5S_SELECT_SET_F, h5sselect_hyperslab_f, &
+                         H5S_SELECT_OR_F, H5Sselect_all_f, h5pcopy_f
+    import,        only: dimsf, ndimsf, fileid, dsetid, mspcid, dspcid, dopario, &
+                         xferid, xferid_col
+
+    implicit none (external, type)
 
     integer,        intent(IN)                       :: ndims
     integer,        intent(IN)                       :: dims(ndims)
@@ -740,361 +778,116 @@ contains
 
 !===============================================================================
 
-  subroutine fh5_write_int1_array1(buf_integer1, hdferr)
+  subroutine fh5_write_int1(buf_integer1, hdferr)
 
-    implicit none
+    use, intrinsic :: iso_c_binding, only: c_ptr, c_loc
+    use               hdf5,          only: h5dwrite_f, H5T_NATIVE_INTEGER_KIND
+    import,                          only: i1, dsetid, mspcid, dspcid, xferid
 
-    integer(i1), contiguous, intent(IN)  :: buf_integer1(:)
-    integer,                 intent(OUT) :: hdferr
+    implicit none (external, type)
 
-    call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer1, dimsf, &
-                    hdferr, mspcid, dspcid, xferid)
+    integer(i1), contiguous, target, intent(IN)  :: buf_integer1(..)  ! assumed-rank scalar or array
+    integer,                         intent(OUT) :: hdferr
+    type(c_ptr)                                  :: cptr
 
-  end subroutine fh5_write_int1_array1
+    cptr = c_loc(buf_integer1)
 
-!===============================================================================
+    call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), cptr, hdferr, &
+                    mspcid, dspcid, xferid)
 
-  subroutine fh5_write_int1_array2(buf_integer1, hdferr)
-
-    implicit none
-
-    integer(i1), contiguous, intent(IN)  :: buf_integer1(:,:)
-    integer,                 intent(OUT) :: hdferr
-
-    call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer1, dimsf, &
-                    hdferr, mspcid, dspcid, xferid)
-
-  end subroutine fh5_write_int1_array2
+  end subroutine fh5_write_int1
 
 !===============================================================================
 
-  subroutine fh5_write_int1_array3(buf_integer1, hdferr)
+  subroutine fh5_write_int2(buf_integer2, hdferr)
 
-    implicit none
+    use, intrinsic :: iso_c_binding, only: c_ptr, c_loc
+    use               hdf5,          only: h5dwrite_f, H5T_NATIVE_INTEGER_KIND
+    import,                          only: i2, dsetid, mspcid, dspcid, xferid
 
-    integer(i1), contiguous, intent(IN)  :: buf_integer1(:,:,:)
-    integer,                 intent(OUT) :: hdferr
+    implicit none (external, type)
 
-    call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer1, dimsf, &
-                    hdferr, mspcid, dspcid, xferid)
+    integer(i2), contiguous, target, intent(IN)  :: buf_integer2(..)  ! assumed-rank scalar or array
+    integer,                         intent(OUT) :: hdferr
+    type(c_ptr)                                  :: cptr
 
-  end subroutine fh5_write_int1_array3
+    cptr = c_loc(buf_integer2)
 
-!===============================================================================
+    call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER_KIND(2), cptr, hdferr, &
+                    mspcid, dspcid, xferid)
 
-  subroutine fh5_write_int1_array4(buf_integer1, hdferr)
-
-    implicit none
-
-    integer(i1), contiguous, intent(IN)  :: buf_integer1(:,:,:,:)
-    integer,                 intent(OUT) :: hdferr
-
-    call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer1, dimsf, &
-                    hdferr, mspcid, dspcid, xferid)
-
-  end subroutine fh5_write_int1_array4
+  end subroutine fh5_write_int2
 
 !===============================================================================
 
-  subroutine fh5_write_integer_array1(buf_integer, hdferr)
+  subroutine fh5_write_integer(buf_integer, hdferr)
 
-    implicit none
+    use, intrinsic :: iso_c_binding, only: c_ptr, c_loc
+    use               hdf5,          only: h5dwrite_f, H5T_NATIVE_INTEGER
+    import,                          only: dsetid, mspcid, dspcid, xferid
 
-    integer, contiguous, intent(IN)  :: buf_integer(:)
-    integer,             intent(OUT) :: hdferr
+    implicit none (external, type)
 
-    call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, &
-                    hdferr, mspcid, dspcid, xferid)
+    integer, contiguous, target, intent(IN)  :: buf_integer(..)  ! assumed-rank scalar or array
+    integer,                     intent(OUT) :: hdferr
+    type(c_ptr)                              :: cptr
 
-  end subroutine fh5_write_integer_array1
+    cptr = c_loc(buf_integer)
 
-!===============================================================================
+    call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER, cptr, hdferr, &
+                    mspcid, dspcid, xferid)
 
-  subroutine fh5_write_integer_array2(buf_integer, hdferr)
-
-    implicit none
-
-    integer, contiguous, intent(IN)  :: buf_integer(:,:)
-    integer,             intent(OUT) :: hdferr
-
-    call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, &
-                    hdferr, mspcid, dspcid, xferid)
-
-  end subroutine fh5_write_integer_array2
+  end subroutine fh5_write_integer
 
 !===============================================================================
 
-  subroutine fh5_write_integer_array3(buf_integer, hdferr)
+  subroutine fh5_write_real(buf_real, hdferr)
 
-    implicit none
+    use, intrinsic :: iso_c_binding, only: c_ptr, c_loc
+    use               hdf5,          only: h5dwrite_f, H5T_NATIVE_REAL
+    import,                          only: dsetid, mspcid, dspcid, xferid
 
-    integer, contiguous, intent(IN)  :: buf_integer(:,:,:)
-    integer,             intent(OUT) :: hdferr
+    implicit none (external, type)
 
-    call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, &
-                    hdferr, mspcid, dspcid, xferid)
+    real, contiguous, target, intent(IN)  :: buf_real(..)  ! assumed-rank scalar or array
+    integer,                  intent(OUT) :: hdferr
+    type(c_ptr)                           :: cptr
 
-  end subroutine fh5_write_integer_array3
+    cptr = c_loc(buf_real)
 
-!===============================================================================
+    call h5dwrite_f(dsetid, H5T_NATIVE_REAL, cptr, hdferr, &
+                    mspcid, dspcid, xferid)
 
-  subroutine fh5_write_integer_array4(buf_integer, hdferr)
-
-    implicit none
-
-    integer, contiguous, intent(IN)  :: buf_integer(:,:,:,:)
-    integer,             intent(OUT) :: hdferr
-
-    call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, &
-                    hdferr, mspcid, dspcid, xferid)
-
-  end subroutine fh5_write_integer_array4
+  end subroutine fh5_write_real
 
 !===============================================================================
 
-  subroutine fh5_write_real_array1(buf_real, hdferr)
+  subroutine fh5_write_real8(buf_real8, hdferr)
 
-    implicit none
+    use, intrinsic :: iso_c_binding, only: c_ptr, c_loc
+    use               hdf5,          only: h5dwrite_f, H5T_NATIVE_DOUBLE
+    import,                          only: r8, dsetid, mspcid, dspcid, xferid
 
-    real,  contiguous, intent(IN)  :: buf_real(:)
-    integer,           intent(OUT) :: hdferr
+    implicit none (external, type)
 
-    call h5dwrite_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, &
-                    hdferr, mspcid, dspcid, xferid)
+    real(r8), contiguous, target, intent(IN)  :: buf_real8(..)  ! assumed-rank scalar or array
+    integer,                      intent(OUT) :: hdferr
+    type(c_ptr)                               :: cptr
 
-  end subroutine fh5_write_real_array1
+    cptr = c_loc(buf_real8)
 
-!===============================================================================
+    call h5dwrite_f(dsetid, H5T_NATIVE_DOUBLE, cptr, hdferr, &
+                    mspcid, dspcid, xferid)
 
-  subroutine fh5_write_real_array2(buf_real, hdferr)
-
-    implicit none
-
-    real,  contiguous, intent(IN)  :: buf_real(:,:)
-    integer,           intent(OUT) :: hdferr
-
-    call h5dwrite_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, &
-                    hdferr, mspcid, dspcid, xferid)
-
-  end subroutine fh5_write_real_array2
-
-!===============================================================================
-
-  subroutine fh5_write_real_array3(buf_real, hdferr)
-
-    implicit none
-
-    real,  contiguous, intent(IN)  :: buf_real(:,:,:)
-    integer,           intent(OUT) :: hdferr
-
-    call h5dwrite_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, &
-                    hdferr, mspcid, dspcid, xferid)
-
-  end subroutine fh5_write_real_array3
-
-!===============================================================================
-
-  subroutine fh5_write_real_array4(buf_real, hdferr)
-
-    implicit none
-
-    real,  contiguous, intent(IN)  :: buf_real(:,:,:,:)
-    integer,           intent(OUT) :: hdferr
-
-    call h5dwrite_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, &
-                    hdferr, mspcid, dspcid, xferid)
-
-  end subroutine fh5_write_real_array4
-
-!===============================================================================
-
-  subroutine fh5_write_real8_array1(buf_real8, hdferr)
-
-    implicit none
-
-    real(r8), contiguous, intent(IN)  :: buf_real8(:)
-    integer,              intent(OUT) :: hdferr
-
-    call h5dwrite_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, &
-                    hdferr, mspcid, dspcid, xferid)
-
-  end subroutine fh5_write_real8_array1
-
-!===============================================================================
-
-  subroutine fh5_write_real8_array2(buf_real8, hdferr)
-
-    implicit none
-
-    real(r8), contiguous, intent(IN)  :: buf_real8(:,:)
-    integer,              intent(OUT) :: hdferr
-
-    call h5dwrite_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, &
-                    hdferr, mspcid, dspcid, xferid)
-
-  end subroutine fh5_write_real8_array2
-
-!===============================================================================
-
-  subroutine fh5_write_real8_array3(buf_real8, hdferr)
-
-    implicit none
-
-    real(r8), contiguous, intent(IN)  :: buf_real8(:,:,:)
-    integer,              intent(OUT) :: hdferr
-
-    call h5dwrite_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, &
-                    hdferr, mspcid, dspcid, xferid)
-
-  end subroutine fh5_write_real8_array3
-
-!===============================================================================
-
-  subroutine fh5_write_real8_array4(buf_real8, hdferr)
-
-    implicit none
-
-    real(r8), contiguous, intent(IN)  :: buf_real8(:,:,:,:)
-    integer,              intent(OUT) :: hdferr
-
-    call h5dwrite_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, &
-                    hdferr, mspcid, dspcid, xferid)
-
-  end subroutine fh5_write_real8_array4
-
-!===============================================================================
-
-  subroutine fh5_write_logical_array1(buf_logical, hdferr)
-
-    implicit none
-
-    logical, contiguous, intent(IN)  :: buf_logical(:)
-    integer,             intent(OUT) :: hdferr
-
-    integer(i1), allocatable         :: buf_integer(:)
-
-    allocate(buf_integer, source=merge(-1_i1, 0_i1, buf_logical))
-
-    call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer, dimsf, &
-                    hdferr, mspcid, dspcid, xferid)
-
-  end subroutine fh5_write_logical_array1
-
-!===============================================================================
-
-  subroutine fh5_write_logical_array2(buf_logical, hdferr)
-
-    implicit none
-
-    logical, contiguous, intent(IN)  :: buf_logical(:,:)
-    integer,             intent(OUT) :: hdferr
-
-    integer(i1), allocatable         :: buf_integer(:,:)
-
-    allocate(buf_integer, source=merge(-1_i1, 0_i1, buf_logical))
-
-    call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer, dimsf, &
-                    hdferr, mspcid, dspcid, xferid)
-
-  end subroutine fh5_write_logical_array2
-
-!===============================================================================
-
-  subroutine fh5_write_logical_array3(buf_logical, hdferr)
-
-    implicit none
-
-    logical, contiguous, intent(IN)  :: buf_logical(:,:,:)
-    integer,             intent(OUT) :: hdferr
-
-    integer(i1), allocatable         :: buf_integer(:,:,:)
-
-    allocate(buf_integer, source=merge(-1_i1, 0_i1, buf_logical))
-
-    call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer, dimsf, &
-                    hdferr, mspcid, dspcid, xferid)
-
-  end subroutine fh5_write_logical_array3
-
-!===============================================================================
-
-  subroutine fh5_write_int1_scalar(buf_integer1, hdferr)
-
-    implicit none
-
-    integer(i1), intent(IN)  :: buf_integer1
-    integer,     intent(OUT) :: hdferr
-
-    call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer1, dimsf, &
-                    hdferr, mspcid, dspcid, xferid)
-
-  end subroutine fh5_write_int1_scalar
-
-!===============================================================================
-
-  subroutine fh5_write_integer_scalar(buf_integer, hdferr)
-
-    implicit none
-
-    integer, intent(IN)  :: buf_integer
-    integer, intent(OUT) :: hdferr
-
-    call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, &
-                    hdferr, mspcid, dspcid, xferid)
-
-  end subroutine fh5_write_integer_scalar
-
-!===============================================================================
-
-  subroutine fh5_write_real_scalar(buf_real, hdferr)
-
-    implicit none
-
-    real,    intent(IN)  :: buf_real
-    integer, intent(OUT) :: hdferr
-
-    call h5dwrite_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, &
-                    hdferr, mspcid, dspcid, xferid)
-
-  end subroutine fh5_write_real_scalar
-
-!===============================================================================
-
-  subroutine fh5_write_real8_scalar(buf_real8, hdferr)
-
-    implicit none
-
-    real(r8), intent(IN)  :: buf_real8
-    integer,  intent(OUT) :: hdferr
-
-    call h5dwrite_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, &
-                    hdferr, mspcid, dspcid, xferid)
-
-  end subroutine fh5_write_real8_scalar
-
-!===============================================================================
-
-  subroutine fh5_write_logical_scalar(buf_logical, hdferr)
-
-    implicit none
-
-    logical, intent(IN)  :: buf_logical
-    integer, intent(OUT) :: hdferr
-
-    integer(i1)          :: buf_integer
-
-    buf_integer = merge(-1_i1, 0_i1, buf_logical)
-
-    call h5dwrite_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer, dimsf, &
-                    hdferr, mspcid, dspcid, xferid)
-
-  end subroutine fh5_write_logical_scalar
+  end subroutine fh5_write_real8
 
 !===============================================================================
 
   subroutine fh5_close_write(hdferr, no_dsetid)
 
-    implicit none
+    import, only: fh5_close_read
+
+    implicit none (external, type)
 
     integer,           intent(OUT) :: hdferr
     logical, optional, intent(IN)  :: no_dsetid
@@ -1107,7 +900,10 @@ contains
 
   subroutine fh5_open_dataset(dname, hdferr)
 
-    implicit none
+    use hdf5, only: h5iis_valid_f, H5Lexists_f, H5Dopen_f
+    import,   only: dsetid, fileid
+
+    implicit none (external, type)
 
     character(*), intent(IN ) :: dname
     integer,      intent(OUT) :: hdferr
@@ -1135,7 +931,10 @@ contains
 
   subroutine fh5_close_dataset(hdferr)
 
-    implicit none
+    use hdf5, only: h5iis_valid_f, h5dclose_f
+    import,   only: dsetid
+
+    implicit none (external, type)
 
     integer, intent(OUT) :: hdferr
     logical              :: valid
@@ -1149,7 +948,11 @@ contains
 
   subroutine fh5_get_info(dname, ndims, dims)
 
-    implicit none
+    use hdf5, only: HSIZE_T, HID_T, h5iis_valid_f, H5Dget_space_f, &
+                    H5Dclose_f, H5Sclose_f, H5Sget_simple_extent_dims_f
+    import,   only: dsetid, fh5_open_dataset
+
+    implicit none (external, type)
 
     character(*), intent(IN )             :: dname
     integer,      intent(OUT)             :: ndims
@@ -1193,7 +996,11 @@ contains
 
   subroutine fh5_get_chunk_dims(ndims,dims)
 
-    implicit none
+    use hdf5, only: HSIZE_T, HID_T, h5iis_valid_f, H5Dget_create_plist_f, &
+                    H5Pget_layout_f, H5D_CHUNKED_F, H5Pget_chunk_f, H5Pclose_f
+    import,   only: dsetid
+
+    implicit none (external, type)
 
     integer, intent(IN)  :: ndims
     integer, intent(OUT) :: dims( ndims )
@@ -1228,497 +1035,125 @@ contains
 
 !===============================================================================
 
-  subroutine fh5_read_int1_array1(buf_integer1, hdferr)
+  subroutine fh5_read_int1(buf_integer1, hdferr)
 
-    implicit none
+    use, intrinsic :: iso_c_binding, only: c_ptr, c_loc
+    use               hdf5,          only: h5dread_f, H5T_NATIVE_INTEGER_KIND
+    import,                          only: i1, dsetid, mspcid, dspcid, xferid
 
-    integer(i1), contiguous, intent(INOUT) :: buf_integer1(:)
-    integer,                 intent(  OUT) :: hdferr
+    implicit none (external, type)
 
-    call h5dread_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer1, dimsf, &
-                   hdferr, mspcid, dspcid, xferid)
+    integer(i1), contiguous, target, intent(INOUT) :: buf_integer1(..)
+    integer,                         intent(  OUT) :: hdferr
+    type(c_ptr)                                    :: cptr
 
-  end subroutine fh5_read_int1_array1
+    cptr = c_loc(buf_integer1)
 
-!===============================================================================
+    call h5dread_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), cptr, hdferr, &
+                   mspcid, dspcid, xferid)
 
-  subroutine fh5_read_int1_array2(buf_integer1, hdferr)
+  end subroutine fh5_read_int1
 
-    implicit none
-
-    integer(i1), contiguous, intent(INOUT) :: buf_integer1(:,:)
-    integer,                 intent(  OUT) :: hdferr
-
-    call h5dread_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer1, dimsf, &
-                   hdferr, mspcid, dspcid, xferid)
-
-  end subroutine fh5_read_int1_array2
 
 !===============================================================================
 
-  subroutine fh5_read_int1_array3(buf_integer1, hdferr)
+  subroutine fh5_read_int2(buf_integer2, hdferr)
 
-    implicit none
+    use, intrinsic :: iso_c_binding, only: c_ptr, c_loc
+    use               hdf5,          only: h5dread_f, H5T_NATIVE_INTEGER_KIND
+    import,                          only: i2, dsetid, mspcid, dspcid, xferid
 
-    integer(i1), contiguous, intent(INOUT) :: buf_integer1(:,:,:)
-    integer,                 intent(  OUT) :: hdferr
+    implicit none (external, type)
 
-    call h5dread_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer1, dimsf, &
-                   hdferr, mspcid, dspcid, xferid)
+    integer(i2), contiguous, target, intent(INOUT) :: buf_integer2(..)
+    integer,                         intent(  OUT) :: hdferr
+    type(c_ptr)                                    :: cptr
 
-  end subroutine fh5_read_int1_array3
+    cptr = c_loc(buf_integer2)
 
-!===============================================================================
+    call h5dread_f(dsetid, H5T_NATIVE_INTEGER_KIND(2), cptr, hdferr, &
+                   mspcid, dspcid, xferid)
 
-  subroutine fh5_read_int1_array4(buf_integer1, hdferr)
+  end subroutine fh5_read_int2
 
-    implicit none
-
-    integer(i1), contiguous, intent(INOUT) :: buf_integer1(:,:,:,:)
-    integer,                 intent(  OUT) :: hdferr
-
-    call h5dread_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer1, dimsf, &
-                   hdferr, mspcid, dspcid, xferid)
-
-  end subroutine fh5_read_int1_array4
 
 !===============================================================================
 
-  subroutine fh5_read_integer_array1(buf_integer, hdferr)
+  subroutine fh5_read_integer(buf_integer, hdferr)
 
-    implicit none
+    use, intrinsic :: iso_c_binding, only: c_ptr, c_loc
+    use               hdf5,          only: h5dread_f, H5T_NATIVE_INTEGER
+    import,                          only: dsetid, mspcid, dspcid, xferid
 
-    integer, contiguous, intent(INOUT) :: buf_integer(:)
-    integer,             intent(  OUT) :: hdferr
+    implicit none (external, type)
 
-    call h5dread_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, &
-                   hdferr, mspcid, dspcid, xferid)
+    integer, contiguous, target, intent(INOUT) :: buf_integer(..)
+    integer,                     intent(  OUT) :: hdferr
+    type(c_ptr)                                :: cptr
 
-  end subroutine fh5_read_integer_array1
+    cptr = c_loc(buf_integer)
 
-!===============================================================================
+    call h5dread_f(dsetid, H5T_NATIVE_INTEGER, cptr, hdferr, &
+                   mspcid, dspcid, xferid)
 
-  subroutine fh5_read_integer_array2(buf_integer, hdferr)
+  end subroutine fh5_read_integer
 
-    implicit none
-
-    integer, contiguous, intent(INOUT) :: buf_integer(:,:)
-    integer,             intent(  OUT) :: hdferr
-
-    call h5dread_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, &
-                   hdferr, mspcid, dspcid, xferid)
-
-  end subroutine fh5_read_integer_array2
 
 !===============================================================================
 
-  subroutine fh5_read_integer_array3(buf_integer, hdferr)
+  subroutine fh5_read_real(buf_real, hdferr)
 
-    implicit none
+    use, intrinsic :: iso_c_binding, only: c_ptr, c_loc
+    use               hdf5,          only: h5dread_f, H5T_NATIVE_REAL
+    import,                          only: dsetid, mspcid, dspcid, xferid
 
-    integer, contiguous, intent(INOUT) :: buf_integer(:,:,:)
-    integer,             intent(  OUT) :: hdferr
+    implicit none (external, type)
 
-    call h5dread_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, &
-                   hdferr, mspcid, dspcid, xferid)
+    real, contiguous, target, intent(INOUT) :: buf_real(..)
+    integer,                  intent(  OUT) :: hdferr
+    type(c_ptr)                             :: cptr
 
-  end subroutine fh5_read_integer_array3
+    cptr = c_loc(buf_real)
 
-!===============================================================================
+    call h5dread_f(dsetid, H5T_NATIVE_REAL, cptr, hdferr, &
+                   mspcid, dspcid, xferid)
 
-  subroutine fh5_read_integer_array4(buf_integer, hdferr)
-
-    implicit none
-
-    integer, contiguous, intent(INOUT) :: buf_integer(:,:,:,:)
-    integer,             intent(  OUT) :: hdferr
-
-    call h5dread_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, &
-                   hdferr, mspcid, dspcid, xferid)
-
-  end subroutine fh5_read_integer_array4
+  end subroutine fh5_read_real
 
 !===============================================================================
 
-  subroutine fh5_read_real_array1(buf_real, hdferr)
+  subroutine fh5_read_real8(buf_real8, hdferr)
 
-    implicit none
+    use, intrinsic :: iso_c_binding, only: c_ptr, c_loc
+    use               hdf5,          only: h5dread_f, H5T_NATIVE_DOUBLE
+    import,                          only: r8, dsetid, mspcid, dspcid, xferid
 
-    real, contiguous, intent(INOUT) :: buf_real(:)
-    integer,          intent(  OUT) :: hdferr
+    implicit none (external, type)
 
-!   integer(hid_t)       :: typeid
-!   logical              :: istype
-!   integer, allocatable :: i4(:)
+    real(r8), contiguous, target, intent(INOUT) :: buf_real8(..)
+    integer,                      intent(  OUT) :: hdferr
+    type(c_ptr)                                 :: cptr
 
-!   call h5dget_type_f(dsetid, typeid, hdferr)
+    cptr = c_loc(buf_real8)
 
-!   call h5tequal_f(typeid, H5T_NATIVE_INTEGER, istype, hdferr)
-!   if (istype) then
-!      allocate(i4( dimsf(1) ) )
-!      call h5dread_f(dsetid, H5T_NATIVE_INTEGER, i4, dimsf, &
-!           hdferr, mspcid, dspcid, xferid)
-!      buf_real(1:dimsf(1)) = real( i4 )
-!      call h5tclose_f(typeid, hdferr)
-!      return
-!   endif
+    call h5dread_f(dsetid, H5T_NATIVE_DOUBLE, cptr, hdferr, &
+                   mspcid, dspcid, xferid)
 
-!   call h5tclose_f(typeid, hdferr)
-
-    call h5dread_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, &
-                   hdferr, mspcid, dspcid, xferid)
-
-  end subroutine fh5_read_real_array1
-
-!===============================================================================
-
-  subroutine fh5_read_real_array2(buf_real, hdferr)
-
-    implicit none
-
-    real, contiguous, intent(INOUT) :: buf_real(:,:)
-    integer,          intent(  OUT) :: hdferr
-
-!   integer(hid_t)           :: typeid
-!   logical                  :: istype
-!   integer                  :: ii, jj, j
-
-!   integer,     allocatable :: il(:,:)
-!   integer(i2), allocatable :: is(:,:)
-
-!   call h5dget_type_f(dsetid, typeid, hdferr)
-
-!   call h5tequal_f(typeid, H5T_NATIVE_INTEGER, istype, hdferr)
-!   if (istype) then
-!      ii = size(buf_real,dim=1)
-!      jj = size(buf_real,dim=2)
-!      allocate(il(ii,jj))
-!      call h5dread_f(dsetid, H5T_NATIVE_INTEGER, il, dimsf, &
-!           hdferr, mspcid, dspcid, xferid)
-!      !$omp parallel do
-!      do j = 1, jj
-!         buf_real(:,j) = real( il(:,j) )
-!      enddo
-!      !$omp end parallel do
-!      call h5tclose_f(typeid, hdferr)
-!      return
-!   endif
-
-!   call h5tequal_f(typeid, H5T_NATIVE_INTEGER_KIND(2), istype, hdferr)
-!   if (istype) then
-!      ii = size(buf_real,dim=1)
-!      jj = size(buf_real,dim=2)
-!      allocate(is(ii,jj))
-!      call h5dread_f(dsetid, H5T_NATIVE_INTEGER_KIND(2), is, dimsf, &
-!                     hdferr, mspcid, dspcid, xferid)
-!      !$omp parallel do
-!      do j = 1, jj
-!         buf_real(:,j) = real( is(:,j) )
-!      enddo
-!      !$omp end parallel do
-!      call h5tclose_f(typeid, hdferr)
-!      return
-!   endif
-
-!   call h5tclose_f(typeid, hdferr)
-
-    call h5dread_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, &
-                   hdferr, mspcid, dspcid, xferid)
-
-  end subroutine fh5_read_real_array2
-
-!===============================================================================
-
-  subroutine fh5_read_real_array3(buf_real, hdferr)
-
-    implicit none
-
-    real, contiguous, intent(INOUT) :: buf_real(:,:,:)
-    integer,          intent(  OUT) :: hdferr
-
-!   integer(hid_t)           :: typeid
-!   logical                  :: istype
-!   integer                  :: ii, jj, kk, k
-
-!   integer,     allocatable         :: il(:,:,:)
-!   integer(i2), allocatable, target :: is(:,:,:)
-
-!   call h5dget_type_f(dsetid, typeid, hdferr)
-
-!   call h5tequal_f(typeid, H5T_NATIVE_INTEGER, istype, hdferr)
-!   if (istype) then
-!      ii = size(buf_real,dim=1)
-!      jj = size(buf_real,dim=2)
-!      kk = size(buf_real,dim=3)
-!      allocate(il(ii,jj,kk))
-!      call h5dread_f(dsetid, H5T_NATIVE_INTEGER, il, dimsf, &
-!           hdferr, mspcid, dspcid, xferid)
-!      !$omp parallel do
-!      do k = 1, kk
-!         buf_real(:,:,k) = real( il(:,:,k) )
-!      enddo
-!      !$omp end parallel do
-!      call h5tclose_f(typeid, hdferr)
-!      return
-!   endif
-
-!   call h5tequal_f(typeid, H5T_STD_I16LE, istype, hdferr)
-!   if (istype) then
-!      ii = size(buf_real,dim=1)
-!      jj = size(buf_real,dim=2)
-!      kk = size(buf_real,dim=3)
-!      allocate(is(ii,jj,kk))
-!      call h5dread_f(dsetid, H5T_STD_I16LE, is, dimsf, &
-!                     hdferr, mspcid, dspcid, xferid)
-!      !$omp parallel do
-!      do k = 1, kk
-!         buf_real(:,:,k) = real( is(:,:,k) )
-!      enddo
-!      !$omp end parallel do
-!      call h5tclose_f(typeid, hdferr)
-!      return
-!   endif
-
-!   call h5tclose_f(typeid, hdferr)
-
-    call h5dread_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, &
-                   hdferr, mspcid, dspcid, xferid)
-
-  end subroutine fh5_read_real_array3
-
-!===============================================================================
-
-  subroutine fh5_read_real_array4(buf_real, hdferr)
-
-    implicit none
-
-    real, contiguous, intent(INOUT) :: buf_real(:,:,:,:)
-    integer,          intent(  OUT) :: hdferr
-
-    call h5dread_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, &
-                   hdferr, mspcid, dspcid, xferid)
-
-  end subroutine fh5_read_real_array4
-
-!===============================================================================
-
-  subroutine fh5_read_real8_array1(buf_real8, hdferr)
-
-    implicit none
-
-    real(r8), contiguous, intent(INOUT) :: buf_real8(:)
-    integer,              intent(OUT)   :: hdferr
-
-    call h5dread_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, &
-                   hdferr, mspcid, dspcid, xferid)
-
-  end subroutine fh5_read_real8_array1
-
-!===============================================================================
-
-  subroutine fh5_read_real8_array2(buf_real8, hdferr)
-
-    implicit none
-
-    real(r8), contiguous, intent(INOUT) :: buf_real8(:,:)
-    integer,              intent(  OUT) :: hdferr
-
-    call h5dread_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, &
-                   hdferr, mspcid, dspcid, xferid)
-
-  end subroutine fh5_read_real8_array2
-
-!===============================================================================
-
-  subroutine fh5_read_real8_array3(buf_real8, hdferr)
-
-    implicit none
-
-    real(r8), contiguous, intent(INOUT) :: buf_real8(:,:,:)
-    integer,              intent(  OUT) :: hdferr
-
-    call h5dread_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, &
-                   hdferr, mspcid, dspcid, xferid)
-
-  end subroutine fh5_read_real8_array3
-
-!===============================================================================
-
-  subroutine fh5_read_real8_array4(buf_real8, hdferr)
-
-    implicit none
-
-    real(r8), contiguous, intent(INOUT) :: buf_real8(:,:,:,:)
-    integer,              intent(  OUT) :: hdferr
-
-    call h5dread_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, &
-                   hdferr, mspcid, dspcid, xferid)
-
-  end subroutine fh5_read_real8_array4
-
-!===============================================================================
-
-  subroutine fh5_read_logical_array1(buf_logical, hdferr)
-
-    implicit none
-
-    logical, contiguous, intent(INOUT) :: buf_logical(:)
-    integer,             intent(  OUT) :: hdferr
-
-    integer(i1), allocatable           :: buf_integer(:)
-
-    allocate( buf_integer( size(buf_logical) ) )
-
-    call h5dread_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer, dimsf, &
-                   hdferr, mspcid, dspcid, xferid)
-
-    ! converting integer to logical
-    buf_logical = buf_integer /= 0_i1
-
-  end subroutine fh5_read_logical_array1
-
-!===============================================================================
-
-  subroutine fh5_read_logical_array2(buf_logical, hdferr)
-
-    implicit none
-
-    logical, contiguous, intent(INOUT) :: buf_logical(:,:)
-    integer,             intent(  OUT) :: hdferr
-
-    integer(i1), allocatable           :: buf_integer(:,:)
-    integer                            :: j, is, js
-
-    is = size(buf_logical,dim=1)
-    js = size(buf_logical,dim=2)
-
-    allocate(buf_integer(is,js))
-
-    call h5dread_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer, dimsf, &
-                   hdferr, mspcid, dspcid, xferid)
-
-    ! Convert integer to logical
-
-    !$omp parallel do
-    do j = 1, js
-       buf_logical(:,j) = buf_integer(:,j) /= 0_i1
-    enddo
-    !$omp end parallel do
-
-  end subroutine fh5_read_logical_array2
-
-!===============================================================================
-
-  subroutine fh5_read_logical_array3(buf_logical, hdferr)
-
-    implicit none
-
-    logical, contiguous, intent(INOUT) :: buf_logical(:,:,:)
-    integer,             intent(  OUT) :: hdferr
-
-    integer(i1), allocatable           :: buf_integer(:,:,:)
-    integer                            :: j, k, is, js, ks
-
-    is = size(buf_logical,dim=1)
-    js = size(buf_logical,dim=2)
-    ks = size(buf_logical,dim=3)
-
-    allocate(buf_integer(is,js,ks))
-
-    call h5dread_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer, dimsf, &
-                   hdferr, mspcid, dspcid, xferid)
-
-    ! Convert integer to logical
-
-    !$omp parallel do collapse(2)
-    do k = 1, ks
-       do j = 1, js
-          buf_logical(:,j,k) = buf_integer(:,j,k) /= 0_i1
-       enddo
-    enddo
-    !$omp end parallel do
-
-  end subroutine fh5_read_logical_array3
-
-!===============================================================================
-
-  subroutine fh5_read_int1_scalar(buf_integer1, hdferr)
-
-    implicit none
-
-    integer(i1), intent(INOUT) :: buf_integer1
-    integer,     intent(  OUT) :: hdferr
-
-    call h5dread_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer1, dimsf, &
-                   hdferr, mspcid, dspcid, xferid)
-
-  end subroutine fh5_read_int1_scalar
-
-!===============================================================================
-
-  subroutine fh5_read_integer_scalar(buf_integer, hdferr)
-
-    implicit none
-
-    integer, intent(INOUT) :: buf_integer
-    integer, intent(OUT)   :: hdferr
-
-    call h5dread_f(dsetid, H5T_NATIVE_INTEGER, buf_integer, dimsf, &
-                   hdferr, mspcid, dspcid, xferid)
-
-  end subroutine fh5_read_integer_scalar
-
-!===============================================================================
-
-  subroutine fh5_read_real_scalar(buf_real, hdferr)
-
-    implicit none
-
-    real,    intent(INOUT) :: buf_real
-    integer, intent(OUT)   :: hdferr
-
-    call h5dread_f(dsetid, H5T_NATIVE_REAL, buf_real, dimsf, &
-                   hdferr, mspcid, dspcid, xferid)
-
-  end subroutine fh5_read_real_scalar
-
-!===============================================================================
-
-  subroutine fh5_read_real8_scalar(buf_real8, hdferr)
-
-    implicit none
-
-    real(r8), intent(INOUT) :: buf_real8
-    integer,  intent(OUT)   :: hdferr
-
-    call h5dread_f(dsetid, H5T_NATIVE_DOUBLE, buf_real8, dimsf, &
-                   hdferr, mspcid, dspcid, xferid)
-
-  end subroutine fh5_read_real8_scalar
-
-!===============================================================================
-
-  subroutine fh5_read_logical_scalar(buf_logical, hdferr)
-
-    implicit none
-
-    logical, intent(INOUT) :: buf_logical
-    integer, intent(OUT)   :: hdferr
-
-    integer(i1)            :: buf_integer
-
-    call h5dread_f(dsetid, H5T_NATIVE_INTEGER_KIND(1), buf_integer, dimsf, &
-                   hdferr, mspcid, dspcid, xferid)
-
-    buf_logical = buf_integer == -1_i1
-
-  end subroutine fh5_read_logical_scalar
+  end subroutine fh5_read_real8
 
 !===============================================================================
 
   subroutine fh5_prepare_read(dname, ndims, dims, hdferr, coords, start, counts)
 
-    implicit none
+    use misc_coms, only: io6
+    use hdf5,      only: hsize_t, size_t, h5iis_valid_f, H5Lexists_f, h5fget_name_f, &
+                         h5dopen_f, h5dget_space_f, h5sget_simple_extent_dims_f, &
+                         h5screate_simple_f, h5pcopy_f, h5sselect_none_f, H5S_SELECT_SET_F, &
+                         h5sselect_hyperslab_f, H5S_SELECT_OR_F
+    import,        only: dimsf, ndimsf, fileid, dsetid, dspcid, mspcid, dopario, xferid, &
+                         xferid_col, xferid_ind
+
+    implicit none (external, type)
 
     character(*),      intent(IN)             :: dname
     integer,           intent(IN)             :: ndims
@@ -1792,7 +1227,7 @@ contains
 
     ! get the dataspace dimensions in the file
 
-    call h5sget_simple_extent_dims_f (dspcid, dims_file, maxdims_file, ndims_file)
+    call h5sget_simple_extent_dims_f(dspcid, dims_file, maxdims_file, ndims_file)
 
     ! prepare the memspace to receive the data
 
@@ -1883,8 +1318,16 @@ contains
 
   subroutine fh5_close_read(hdferr, no_dsetid)
 
+#if defined(OLAM_MPI) && defined(OLAM_PARALLEL_HDF5)
     use mem_para, only: myrank
-    implicit none
+    use hdf5,     only: H5Pget_mpio_actual_io_mode_f, H5D_MPIO_NO_COLLECTIVE_F, &
+                        H5D_MPIO_CHUNK_INDEPENDENT_F, H5D_MPIO_CHUNK_COLLECTIVE_F, &
+                        H5D_MPIO_CHUNK_MIXED_F, H5D_MPIO_CONTIG_COLLECTIVE_F
+#endif
+    use hdf5,     only: h5pclose_f, h5sclose_f, h5dclose_f
+    import,       only: xferid, dsetid, mspcid, dspcid, dopario
+
+    implicit none (external, type)
 
     integer,           intent(OUT) :: hdferr
     logical, optional, intent(IN)  :: no_dsetid
@@ -1894,7 +1337,7 @@ contains
     integer              :: mode
 
     if (.false. .and. dopario .and. myrank == 1) then
-       call h5pget_mpio_actual_io_mode_f(xferid, mode, hdferr)
+       call H5Pget_mpio_actual_io_mode_f(xferid, mode, hdferr)
 
        if ( mode == H5D_MPIO_NO_COLLECTIVE_F ) then
           write(*,*) " H5D_MPIO_NO_COLLECTIVE"
@@ -1910,11 +1353,11 @@ contains
           write(*,*) " Unknown H5D MPIO mode"
        endif
     endif
+#endif
 
     if (dopario) then
        call h5pclose_f(xferid, hdferr)
     endif
-#endif
 
     call h5sclose_f(mspcid, hdferr)
     call h5sclose_f(dspcid, hdferr)
@@ -1931,7 +1374,18 @@ contains
   subroutine fh5_prepare_write_ll(ndims, dims, dname, stype, hdferr, icompress, &
                                   fcoords, dims_chunk)
 
-    implicit none
+    use misc_coms, only: io6
+    use hdf5,      only: hsize_t, hid_t, H5P_DEFAULT_F, h5iis_valid_f, H5Lexists_f, &
+                         H5Dopen_f, H5Dget_space_status_f, H5D_SPACE_STS_ALLOCATED_F, &
+                         H5D_SPACE_STS_PART_ALLOCATED_F, h5pcreate_f, h5pset_chunk_f, &
+                         H5P_DATASET_CREATE_F, h5pset_shuffle_f, h5pset_deflate_f, &
+                         h5screate_simple_f, h5dcreate_f, h5sclose_f, h5pclose_f, &
+                         h5sselect_none_f, h5sselect_all_f, h5sselect_hyperslab_f, &
+                         H5S_SELECT_SET_F, H5S_SELECT_OR_F, h5pcopy_f
+    import,        only: fileid, dsetid, dspcid, mspcid, xferid, xferid_col, dimsf, &
+                         ndimsf, dopario
+
+    implicit none (external, type)
 
     integer,        intent(IN)                       :: ndims
     integer,        intent(IN)                       :: dims(ndims)
@@ -2134,7 +1588,14 @@ contains
 
   subroutine fh5f_write_attribute(name, ivalue, rvalue, dvalue, cvalue)
 
-    implicit none
+    use hdf5, only: hid_t, size_t, hsize_t, h5screate_f, H5S_SCALAR_F, H5Acreate_f, &
+                    H5Awrite_f, H5T_STD_I32LE, H5T_NATIVE_INTEGER, H5T_IEEE_F32LE, &
+                    H5T_NATIVE_REAL, H5T_IEEE_F64LE, H5T_NATIVE_DOUBLE, h5tcopy_f, &
+                    H5T_NATIVE_CHARACTER, h5tset_size_f, H5Tset_strpad_f, H5Tclose_f, &
+                    H5Sclose_f, H5Aclose_f, H5T_STR_NULLTERM_F
+    import,   only: r8, dsetid
+
+    implicit none (external, type)
 
     character(*),           intent(in) :: name
     integer,      optional, intent(in) :: ivalue
@@ -2211,7 +1672,13 @@ contains
 
   subroutine fh5f_read_attribute(name, exists, ivalue, rvalue, dvalue, cvalue)
 
-    implicit none
+    use hdf5, only: hid_t, hsize_t, size_t, H5Aexists_f, H5Aopen_f, H5Aget_type_f, &
+                    H5Tget_class_f, H5T_STRING_F, H5Aread_f, H5T_NATIVE_INTEGER, &
+                    H5T_NATIVE_REAL, H5T_NATIVE_DOUBLE, H5T_NATIVE_CHARACTER, &
+                    H5Tcopy_f, H5Tset_size_f, H5Aread_f, H5Tclose_f, H5Aclose_f
+    import,   only: r8, dsetid
+
+    implicit none (external, type)
 
     character(*),           intent(in ) :: name
     integer,      optional, intent(out) :: ivalue
@@ -2313,7 +1780,14 @@ contains
 
   subroutine fh5f_read_global_attribute(name, exists, ivalue, rvalue, dvalue, cvalue)
 
-    implicit none
+    use hdf5, only: hid_t, hsize_t, size_t, H5Gopen_f, H5Aexists_f, H5Gclose_f, &
+                    H5Aopen_f, H5Aget_type_f, H5Tget_class_f, H5Aread_f, &
+                    H5T_NATIVE_INTEGER, H5T_NATIVE_REAL, H5T_NATIVE_DOUBLE, &
+                    H5T_NATIVE_CHARACTER, H5T_STRING_F, H5Tclose_f, H5Aclose_f, &
+                    H5Gclose_f, H5Tcopy_f, H5TSET_SIZE_F
+    import,   only: r8, fileid
+
+    implicit none (external, type)
 
     character(*),           intent(in ) :: name
     integer,      optional, intent(out) :: ivalue
@@ -2424,7 +1898,10 @@ contains
 
   subroutine fh5f_create_dim(dname, hdferr)
 
-    implicit none
+    use h5ds, only: H5DSset_scale_f
+    import,   only: dsetid
+
+    implicit none (external, type)
 
     character(*), intent(IN)  :: dname
     integer,      intent(OUT) :: hdferr
@@ -2437,7 +1914,11 @@ contains
 
   subroutine fh5f_query_dimname(dname)
 
-    implicit none
+    use h5ds, only: H5DSis_scale_f, H5Dsget_scale_name_f
+    use hdf5, only: size_t, h5iis_valid_f
+    import,   only: dsetid
+
+    implicit none (external, type)
 
     character(*), intent(OUT) :: dname
 
@@ -2465,7 +1946,11 @@ contains
 
   subroutine fh5f_attach_dims(ndims, dnames, hdferr)
 
-    implicit none
+    use h5ds, only: H5DSis_scale_f, H5Dsget_scale_name_f, H5DSattach_scale_f
+    use hdf5, only: HID_T, H5Dopen_f, H5Dclose_f
+    import,   only: fileid, dsetid
+
+    implicit none (external, type)
 
     integer,      intent(IN)  :: ndims
     character(*), intent(IN)  :: dnames(ndims)
@@ -2486,7 +1971,14 @@ contains
 
   subroutine fh5f_write_global_attribute(name, ivalue, rvalue, dvalue, cvalue)
 
-    implicit none
+    use hdf5, only: hid_t, hsize_t, size_t, H5Gopen_f, h5screate_f, h5acreate_f, &
+                    h5awrite_f, h5acreate_f, h5tcopy_f, h5tset_size_f, H5Tset_strpad_f, &
+                    h5tclose_f, H5Sclose_f, H5Aclose_f, H5Gclose_f, h5s_scalar_f, &
+                    h5t_std_i32le, h5t_native_integer, h5t_ieee_f32le, h5t_native_real, &
+                    h5t_ieee_f64le, h5t_native_double, h5t_native_character, h5t_str_nullterm_f
+    import,   only: r8, fileid
+
+    implicit none (external, type)
 
     character(*),           intent(in) :: name
     integer,      optional, intent(in) :: ivalue
@@ -2570,7 +2062,15 @@ contains
   subroutine fh5_get_attached_scales(dnames)
 
     use, intrinsic :: iso_c_binding, only: c_ptr, c_loc
-    implicit none
+    use               hdf5,          only: HID_T, HSIZE_T, HVL_T, h5iis_valid_f, h5dget_space_f, &
+                                           h5sget_simple_extent_ndims_f, H5Sclose_f, H5Aopen_f, &
+                                           H5Aget_space_f, h5sget_simple_extent_dims_f, h5sclose_f, &
+                                           h5aclose_f, H5Aget_type_f, h5aread_f, h5rget_name_f, &
+                                           H5R_OBJECT_F
+    use               h5ds,          only: H5DSget_num_scales_f
+    import,                          only: dsetid
+
+    implicit none (external, type)
 
     character(*), contiguous, intent(INOUT) :: dnames(:)
     integer                                 :: hdferr, nscal, rank, arank
@@ -2656,46 +2156,3 @@ contains
 !===============================================================================
 
 end module hdf5_f2f
-
-
-!! This routine was added to HDF5 in version 1.14.0. If not available through
-!! the HDF5 fortran module, the original routine h5fis_hdf5_f will be used:
-
-subroutine H5Fis_accessible_f(name, status, hdferr, access_prp)
-
-  use hdf5, only: hid_t, h5fis_hdf5_f
-  implicit none
-
-  character(*),   intent(in)  :: name
-  logical,        intent(out) :: status
-  integer,        intent(out) :: hdferr
-  integer(hid_t), intent(in)  :: access_prp
-
-  call h5fis_hdf5_f(name, status, hdferr)
-
-end subroutine H5Fis_accessible_f
-
-!! Set the minimum HDF5 library version to read the created file to version 1.8
-!! This works around an issue where version1.8 does not define  H5F_LIBVER_V18_F
-
-subroutine fh5_set_lib_bounds(fapl_id, hdferr)
-
-  use hdf5, only: HID_T, H5F_LIBVER_LATEST_F
-  implicit none
-
-  integer(HID_T), intent(in)  :: fapl_id
-  integer,        intent(out) :: hdferr
-  integer                     :: H5F_LIBVER_V18_F
-
-  H5F_LIBVER_V18_F = H5F_LIBVER_LATEST_F
-  call my_set_lib_bounds()
-
-  contains
-
-  subroutine my_set_lib_bounds()
-    use hdf5
-    implicit none
-    call h5pset_libver_bounds_f(fapl_id, H5F_LIBVER_V18_F, H5F_LIBVER_LATEST_F, hdferr)
-  end subroutine my_set_lib_bounds
-
-end subroutine fh5_set_lib_bounds
