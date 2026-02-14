@@ -72,7 +72,7 @@ subroutine olam_mpi_init()
   use mpi_f08, only: MPI_COMM_WORLD, MPI_Comm_size, MPI_Comm_rank,   &
                      MPI_Init, MPI_Init_thread, MPI_THREAD_MULTIPLE, &
                      MPI_Pack_size, MPI_INTEGER, MPI_REAL, MPI_REAL8
-  import,      only: MPI_COMM_OLAM
+  import,      only: MPI_COMM_OLAM, olam_stop
 #endif
 
   import, only: mgroupsize, myrank, nbytes_int, nbytes_real, nbytes_real8
