@@ -345,6 +345,8 @@ Module oname_coms
      integer :: niter_swm   =  1
      integer :: use_tides   =  0
      integer :: umwmflg     =  0
+     integer :: use_umwm_roughness  = 1
+     real    :: umwm_wind_threshold = 5.
 
      integer            :: nzpom        = 40
      integer            :: pom_idata    = 0
@@ -383,6 +385,7 @@ Module oname_coms
 
      integer :: iseasprayflg  = 2
      real    :: seaspray_vmin = 16.0
+     integer :: iroughsea     = 4
 
      real    :: seatmp = 280.0
      real    :: seaice =   0.0

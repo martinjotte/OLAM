@@ -8,6 +8,7 @@ subroutine seacells(isea, timefac_sst, timefac_seaice)
   use mem_para,    only: myrank
   use oname_coms,  only: nl
   use pom2k1d,     only: pom, rhoref, pom_column
+  use umwm_module, only: umwmflg, umwm
 
   implicit none
 
@@ -17,18 +18,66 @@ subroutine seacells(isea, timefac_sst, timefac_seaice)
 
   ! Local variables
 
-  integer :: iwsfc
-  logical :: ispray_active
+  integer :: iwsfc, ispeed10
+  logical :: ispray_active, use_umwm_roughness
 
   real :: canexneri, cantheta, canthetav
   real :: airthetav, wstar
   real :: usti, zw, zn1, zn2
   real :: raxis, windu, windv, cdtop, wusurf, wvsurf, wtsurf, wssurf, swrad, hfluxsea
   real :: sea_spray1_temp, sea_spray2_temp
+  real :: vels0, richnum, a2fm, a2fh, speed10, tau_umwm
 
-  real, parameter :: z0fac = 0.011 / grav  ! factor for Charnok roughness height
+  real, parameter :: z0fac = 0.011 / grav  ! factor for Charnock roughness height
   real, parameter :: ozo   = 1.59e-5       ! base roughness height in HWRF
   real, parameter :: onethird = 1./3.
+  real, parameter :: ubmin = .1            ! lower bound on wind speed [m/s]
+  real, parameter :: z10   = 10.           ! Height for evaluating 10m wind speed [m]
+
+  ! Define variable roughness length from Breivik et al. 2022, Figure 3b,
+  ! Ekofisk: ALT, which is based on winds at z = 10 m and spans wind speeds
+  ! from 1 to 31 m/s.  At wind speeds below 15 m/s, drag coefficient is too
+  ! close to zero to be easily discernible in the figure, so the much more
+  ! sensitive Charnock parameter in Figure 3c is used instead to infer the
+  ! roughness length.  Then, extrapolate downward-trending
+  ! curve to 35 m/s, where the roughness length equals 0.0030 and hold
+  ! roughness constant at 0.0030 for higher wind speeds.
+
+  real, parameter :: rough_br(35) = &
+     [.0001,.0001,.0001,.0001,.0001,.0001,.0001,.0001,.0002,.0004, &
+      .0006,.0008,.0011,.0015,.0021,.0030,.0045,.0060,.0075,.0090, &
+      .0120,.0150,.0170,.0180,.0250,.0275,.0285,.0320,.0310,.0260, &
+      .0205,.0150,.0095,.0040,.0030 ]
+
+  ! Define variable roughness length from Breivik et al. 2022, Figure 3b,
+  ! Ekofisk: ALT, which is based on winds at z = 10 m and spans wind speeds
+  ! from 1 to 31 m/s.  At wind speeds below 15 m/s, drag coefficient is too
+  ! close to zero to be easily discernible in the figure, so the much more
+  ! sensitive Charnock parameter in Figure 3c is used instead to infer the
+  ! roughness length.  Then, extrapolate downward-trending
+  ! curve to 33 m/s, where the roughness length equals 0.0100 and hold
+  ! roughness constant at 0.0100 for higher wind speeds.
+
+  real, parameter :: rough_br2(35) = &
+     [.0001,.0001,.0001,.0001,.0001,.0001,.0001,.0001,.0002,.0004, &
+      .0006,.0008,.0011,.0015,.0021,.0030,.0045,.0060,.0075,.0090, &
+      .0120,.0150,.0170,.0180,.0250,.0275,.0285,.0320,.0310,.0260, &
+      .0205,.0150,.0100,.0100,.0100 ]
+
+  ! Define variable roughness length from Breivik et al. 2022, Figure 3b,
+  ! Ekofisk: ALT, which is based on winds at z = 10 m and spans wind speeds
+  ! from 1 to 31 m/s.  At wind speeds below 15 m/s, drag coefficient is too
+  ! close to zero to be easily discernible in the figure, so the much more
+  ! sensitive Charnock parameter in Figure 3c is used instead to infer the
+  ! roughness length.  Increase roughness value at 23, 24, and 27 m/s to remove
+  ! dips in the curve.  At wind speeds above 28 m/s, which is where roughness
+  ! reaches a maximum value of .0320, fix roughness at that same value.
+
+  real, parameter :: rough_br3(35) = &
+     [.0001,.0001,.0001,.0001,.0001,.0001,.0001,.0001,.0002,.0004, &
+      .0006,.0008,.0011,.0015,.0021,.0030,.0045,.0060,.0075,.0090, &
+      .0120,.0150,.0180,.0215,.0250,.0275,.0300,.0320,.0320,.0320, &
+      .0320,.0320,.0320,.0320,.0320 ]
 
   iwsfc = isea + omsea
 
@@ -53,26 +102,7 @@ subroutine seacells(isea, timefac_sst, timefac_seaice)
                      + timefac_sst * (sea%seatf(isea) - sea%seatp(isea))
   endif
 
-  ! Evaluate sea roughness height
-
-  ! Charnok (1955):
-  ! rough = max(z0fac_water * ustar ** 2,.0001)  ! Charnok (1955)
-
-  ! Davis et al. (2008) originally used in HWRF
-  ! rough = 10. * exp(-10. / ustar ** .333333)
-  ! rough = max(.125e-6, min(2.85e-3,rough))
-
-  ! 2012 HWRF scheme; interpolates between the Charnok scheme at low wind
-  ! and the Davis et al. curve fit at high wind speeds
-
-  usti  = 1.0 / sea%sea_ustar(isea)
-  zw    = min( (sea%sea_ustar(isea)/1.06)**onethird, 1.0 )
-  zn1   = z0fac * sea%sea_ustar(isea) * sea%sea_ustar(isea) + ozo
-  zn2   = 10. * exp(-9.5 * usti**onethird) + 1.65e-6 * usti
-
-  sea%sea_rough(isea) = min( (1.0-zw) * zn1 + zw * zn2, 2.85e-3 )
-
-  ! Evaluate surface layer exchange coefficients vkmsfc and vkhsfc for open water areas
+  ! Prepare to evaluate surface layer exchange parameters for open water areas
 
   airthetav = sfcg%airtheta(iwsfc) * (1.0 + eps_virt * sfcg%airrrv(iwsfc))
   canexneri = 1. / sfcg%canexner(iwsfc)
@@ -81,6 +111,134 @@ subroutine seacells(isea, timefac_sst, timefac_seaice)
   canthetav = cantheta * (1.0 + eps_virt * sea%sea_canrrv(isea))
 
   wstar = (grav * sfcg%pblh(iwsfc) * max(sea%sea_wthv(isea),0.0) / airthetav) ** onethird
+
+  nl%iroughsea = 3
+
+  ! If the roughness length from the UMWM will be used
+
+  use_umwm_roughness = .false.
+  if (umwmflg == 1 .and. nl%use_umwm_roughness == 1) then
+
+     use_umwm_roughness = &
+          ( umwm%iactive(isea) .and. umwm%wspd(isea) > nl%umwm_wind_threshold )
+
+  endif
+
+  ! Evaluate sea roughness height
+
+  if ( use_umwm_roughness ) then
+
+     sea%sea_rough(isea) = max(0.0001,exp(umwm%alogzo(isea)))
+
+  elseif (nl%iroughsea == 1) then
+
+     ! Charnock (1955):
+     ! rough = max(z0fac_water * ustar ** 2,.0001)  ! Charnock (1955)
+
+     ! Davis et al. (2008) originally used in HWRF
+     ! rough = 10. * exp(-10. / ustar ** .333333)
+     ! rough = max(.125e-6, min(2.85e-3,rough))
+
+     ! 2012 HWRF scheme; interpolates between the Charnock scheme at low wind
+     ! and the Davis et al. curve fit at high wind speeds
+
+     usti  = 1.0 / sea%sea_ustar(isea)
+     zw    = min( (sea%sea_ustar(isea)/1.06)**onethird, 1.0 )
+     zn1   = z0fac * sea%sea_ustar(isea) * sea%sea_ustar(isea) + ozo
+     zn2   = 10. * exp(-9.5 * usti**onethird) + 1.65e-6 * usti
+
+     sea%sea_rough(isea) = min( (1.0-zw) * zn1 + zw * zn2, 2.85e-3 )
+
+  elseif (nl%iroughsea == 2) then
+
+     ! Charnock (1955) with 0.018 parameter:
+     sea%sea_rough(isea) = max(0.018 / grav * sea%sea_ustar(isea) ** 2,.0001)
+
+  elseif (nl%iroughsea == 3) then
+
+     ! Variable roughness length from Breivik et al. (2022)
+
+     ! First, evaluate wind at 10 m based on current roughness, ustar,
+     ! ATM, and canopy values
+
+     vels0 = max(ubmin, sqrt(sfcg%vels(iwsfc)*sfcg%vels(iwsfc) + wstar*wstar))
+
+     richnum = 2.0 * grav * sfcg%dzt_bot(iwsfc) * (airthetav - canthetav)  &
+             / ( (airthetav + canthetav) * vels0 * vels0 )
+
+     ! Get the Louis drag coefficients defined for wind at 10 m height
+     call a2fmfh(richnum, z10, sea%sea_rough(isea), a2fm, a2fh)
+
+     speed10 = sea%sea_ustar(isea) / sqrt(a2fm)
+     ispeed10 = int(speed10)
+
+     if (ispeed10 == 0) then
+        sea%sea_rough(isea) = rough_br(1)
+     elseif (ispeed10 >= 35) then
+        sea%sea_rough(isea) = rough_br(35)
+     else
+        sea%sea_rough(isea) = rough_br(ispeed10)  &
+             + (speed10 - real(ispeed10)) * (rough_br(ispeed10+1) - rough_br(ispeed10))
+     endif
+
+  elseif (nl%iroughsea == 4) then
+
+     ! Variable roughness length from Breivik et al. (2022) [version 2]
+
+     ! First, evaluate wind at 10 m based on current roughness, ustar,
+     ! ATM, and canopy values
+
+     vels0 = max(ubmin, sqrt(sfcg%vels(iwsfc)*sfcg%vels(iwsfc) + wstar*wstar))
+
+     richnum = 2.0 * grav * sfcg%dzt_bot(iwsfc) * (airthetav - canthetav)  &
+             / ( (airthetav + canthetav) * vels0 * vels0 )
+
+     ! Get the Louis drag coefficients defined for wind at 10 m height
+     call a2fmfh(richnum, z10, sea%sea_rough(isea), a2fm, a2fh)
+
+     speed10 = sea%sea_ustar(isea) / sqrt(a2fm)
+     ispeed10 = int(speed10)
+
+     if (ispeed10 == 0) then
+        sea%sea_rough(isea) = rough_br2(1)
+     elseif (ispeed10 >= 35) then
+        sea%sea_rough(isea) = rough_br2(35)
+     else
+        sea%sea_rough(isea) = rough_br2(ispeed10)  &
+             + (speed10 - real(ispeed10)) * (rough_br2(ispeed10+1) - rough_br2(ispeed10))
+     endif
+
+  elseif (nl%iroughsea == 5) then
+
+     ! Variable roughness length from Breivik et al. (2022) [version 3]
+
+     ! First, evaluate wind at 10 m based on current roughness, ustar,
+     ! ATM, and canopy values
+
+     vels0 = max(ubmin, sqrt(sfcg%vels(iwsfc)*sfcg%vels(iwsfc) + wstar*wstar))
+
+     richnum = 2.0 * grav * sfcg%dzt_bot(iwsfc) * (airthetav - canthetav)  &
+             / ( (airthetav + canthetav) * vels0 * vels0 )
+
+     ! Get the Louis drag coefficients defined for wind at 10 m height
+     call a2fmfh(richnum, z10, sea%sea_rough(isea), a2fm, a2fh)
+
+     speed10 = sea%sea_ustar(isea) / sqrt(a2fm)
+     ispeed10 = int(speed10)
+
+     if (ispeed10 == 0) then
+        sea%sea_rough(isea) = rough_br3(1)
+     elseif (ispeed10 >= 35) then
+        sea%sea_rough(isea) = rough_br3(35)
+     else
+        sea%sea_rough(isea) = rough_br3(ispeed10)  &
+             + (speed10 - real(ispeed10)) * (rough_br3(ispeed10+1) - rough_br3(ispeed10))
+     endif
+
+  else
+     print*, 'invalid iroughsea value '
+     stop 'stop: iroughsea '
+  endif
 
   call stars(sfcg%dzt_bot  (iwsfc), &
              sea%sea_rough  (isea), &
@@ -204,7 +362,7 @@ subroutine seacells(isea, timefac_sst, timefac_seaice)
      wssurf = 0.
      swrad = sfcg%rshort(iwsfc) * (1. - sfcg%albedo_beam(iwsfc)) / cliq1000
 
-     call pom_column(isea, sea%pom_kba(isea), wusurf, wvsurf, wtsurf, wssurf, swrad)
+!bobtest     call pom_column(isea, sea%pom_kba(isea), wusurf, wvsurf, wtsurf, wssurf, swrad)
 
      sea%seatc(isea) = pom%potmp(1,isea) + 273.15
   endif
@@ -1084,7 +1242,7 @@ subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
 
   integer, parameter :: band = 35
 
-  ! If doing seaspray and wind speed is at least 15 m/s, compute wind speed at 10 m level
+  ! If doing seaspray and wind speed is at least seaspray_vmin, compute wind speed at 10 m level
   ! (wind_z10).  (Note that SFLUXT and SFLUXR are not actually used in sfclyr_profile
   ! to compute wind_z10, so it does not matter that they may represent bcanopy-to-atm
   ! fluxes.)
@@ -1563,3 +1721,4 @@ subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
   endif
 
 end subroutine seacell_2
+

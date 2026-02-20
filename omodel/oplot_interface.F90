@@ -274,6 +274,12 @@ subroutine plot_fields(id)
 
      call vectslab(iplt)
 
+    ! Plot Lagrangian particles if so specified
+
+     if ( op%contrtyp(iplt) == 'A' ) then   ! .and. op%stagpt == 'A'
+        call plot_lp(iplt)
+     endif
+
      ! If running hurricane tracking, location and/or trajectory can be plotted
      ! in various ways:
 
@@ -550,7 +556,7 @@ subroutine slab(iplt)
   else  ! Vertical plots
 
      if ( op%contrtyp(iplt) /= 'F' .and. op%contrtyp(iplt) /= 'L' .and.  &
-          op%contrtyp(iplt) /= 'O' ) then
+          op%contrtyp(iplt) /= 'O' .and. op%contrtyp(iplt) /= 'A'  ) then
 
         if     (op%stagpt == 'T' .or. op%stagpt == 'W') then
            call tileslab_vert_tw(iplt,'T')
@@ -1350,7 +1356,7 @@ subroutine horizplot_k(iplt,mha,ktf,kc,wtbot,wttop)
 
   if (op%stagpt == 'V' .or. op%stagpt == 'N') then
 
-     do iv = 1,mva
+     do iv = 2,mva
 
         if (op%dimens == '2') then
 
@@ -1451,7 +1457,7 @@ subroutine horizplot_k(iplt,mha,ktf,kc,wtbot,wttop)
 
   if (op%stagpt == 'P' .or. op%stagpt == 'M') then
 
-     do ip = 1,mma
+     do ip = 2,mma
 
         if (op%dimens == '2') then
 
@@ -3106,8 +3112,8 @@ subroutine oplot_panel(panel,frameoff,pltborder,colorbar0,aspect,projectn)
 
 ! temp replacement
 
-        op%fx1    = .11 ! plot frame left side x coord
-        op%ytlabx = .10 ! y-axis tick label right end x coord
+!        op%fx1    = .11 ! plot frame left side x coord
+!        op%ytlabx = .10 ! y-axis tick label right end x coord
      endif
 
   endif

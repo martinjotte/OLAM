@@ -557,6 +557,7 @@ if (nl%isfcl == 1) then
 
    call ichk_bnds( nl%iseasprayflg , "ISEASPRAYFLG", 0, 2, 0, nfatal, nwarn )
    call rchk_bnds( nl%seaspray_vmin, "SEASPRAY_VMIN", 15.1, r_huge, 2, nfatal, nwarn )
+   call ichk_bnds( nl%iroughsea ,    "IROUGHSEA", 1, 5, 0, nfatal, nwarn )
 
    if (nl%isoilflg == 3) &
         call ichk_bnds( nl%isoiltext, "ISOILTEXT", 1, 12, 0, nfatal, nwarn )
@@ -724,6 +725,22 @@ do iplt = 1, nl%nplt
 ! point, but this is not checked for.
 
    endif
+
+   if (trim(nl%plotspecs(iplt)%fldname(1:2)) == 'LP' .and. &
+      index(nl%plotspecs(iplt)%pltspec2,'A') < 1) then
+
+      write(io6,*) 'Lagrangian particle plots must use A-type plot, not contours or tiles. '
+      nfatal = nfatal + 1
+   endif
+
+   if (trim(nl%plotspecs(iplt)%fldname(1:5)) == 'LP_SP' .and. &
+       trim(nl%plotspecs(iplt)%projectn)     /= 'C'     .and. &
+       trim(nl%plotspecs(iplt)%projectn)     /= 'V')    then
+      write(io6,*) 'LP_SP particle plots must use C or V vertical cross section. '
+
+      nfatal = nfatal + 1
+   endif
+
 enddo
 
 ! TODO - add checks for the plotting variables

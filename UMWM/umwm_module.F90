@@ -86,7 +86,7 @@ module umwm_module
      real,    allocatable :: vwind  (:) !P (msea) northward wind velocity [m/s]
      real,    allocatable :: wspd   (:) !P (msea) wind speed [m/s]
      real,    allocatable :: wspd10m(:) !P (msea) wind speed at 10m height [m/s]
-     real,    allocatable :: alogzo (:) !P (msea) log( z0 )
+     real,    allocatable :: alogzo (:) !P (msea) log( zo )
      real,    allocatable :: wdir   (:) !P (msea) wind direction [rad, -pi to pi]
      real,    allocatable :: cd     (:) !Psr (msea) drag coefficient of air [ ]
      real,    allocatable :: ustar  (:) !Psr (msea) friction velocity of air [m/s]
@@ -364,6 +364,7 @@ subroutine filltab_umwm()
   if (allocated(evs))          call increment_vtable('EVS',          'SW', rvar3=evs)
   if (allocated(umwm%ustar))   call increment_vtable('UMWM%USTAR',   'SW', rvar1=umwm%ustar)
   if (allocated(umwm%alogzs))  call increment_vtable('UMWM%ALOGZS',  'SW', rvar1=umwm%alogzs)
+  if (allocated(umwm%alogzs))  call increment_vtable('UMWM%ALOGZO',  'SW', rvar1=umwm%alogzo)
   if (allocated(umwm%iactive)) call increment_vtable('UMWM%IACTIVE', 'SW', lvar1=umwm%iactive)
 
 end subroutine filltab_umwm

@@ -433,6 +433,7 @@ subroutine copy_nl()
      if (index(nl%plotspecs(i)%pltspec2,'F') > 0) op%contrtyp(i) = 'F'
      if (index(nl%plotspecs(i)%pltspec2,'L') > 0) op%contrtyp(i) = 'L'
      if (index(nl%plotspecs(i)%pltspec2,'O') > 0) op%contrtyp(i) = 'O'
+     if (index(nl%plotspecs(i)%pltspec2,'A') > 0) op%contrtyp(i) = 'A'
 
      if (index(nl%plotspecs(i)%pltspec2,'P') > 0) op%prtval(i) = 'P'
 

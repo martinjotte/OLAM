@@ -57,7 +57,7 @@ Module oplot_coms
 
      character(len=1), dimension(maxnplt) ::  &
           projectn    = ' ' & ! Plot projection & cross section ['L','P','G','O','Z','C','V']
-         ,contrtyp    = 'N' & ! Contour type ['T','F','L','O']
+         ,contrtyp    = 'N' & ! Contour type ['T','F','L','O','A']
          ,prtval      = 'N' & ! Flag to print value ['P']
          ,pltindx1    = 'N' & ! Print ATM grid index ['I','J']
          ,pltindx2    = 'N' & ! Print SFC grid index ['i','j']

@@ -67,6 +67,7 @@ subroutine olam_run(name_name)
   use umwm_module,  only: umwmflg
   use umwm_top,     only: umwm_initialize, umwm_plot_prep
   use minterp_lib,  only: init_minterp
+  use mem_lp,       only: lp_readnml, lpflag, lp_init, lp_readnml
 
   implicit none
 
@@ -582,6 +583,13 @@ subroutine olam_run(name_name)
 
   if (ncycle_hurrinit > 0) call hurricane_init()
 
+  ! Initialize Lagrangian particle model
+
+  if (runtype == 'INITIAL' .or. runtype == 'HISTORY') then
+     call lp_readnml()
+     if (lpflag == 1) call lp_init()
+  endif
+
   ! If this is 'PLOTONLY' run, loop through input history files, plot
   ! specified fields, and exit
 
@@ -661,10 +669,6 @@ subroutine olam_run(name_name)
            endif
 
         ! endif
-
-!  if (ncycle_hurrinit > 0) then
-!     call vortex_azim_avg('plot')
-!  endif
 
         ! Write sfcnud file to be used for nudged spin-up simulation
 
@@ -800,6 +804,13 @@ subroutine olam_run(name_name)
 
   write(io6,'(/,a)') 'olam_run calling plot_fields'
 
+  ! Compute azimuthal averages of dynamic, thermodynamic, and moisture
+  ! fields, and plot averages (in radial-height cross sections)
+
+  if (ncycle_hurrinit > 0) then
+     call vortex_azim_avg('plot')
+  endif
+
   if (umwmflg == 1) call umwm_plot_prep()
   call copy_plot(0)
   call plot_fields(0)
@@ -809,13 +820,6 @@ subroutine olam_run(name_name)
   if (nl%print_mass_sums) then
      write(io6,*) " Initial mass sums:"
      call compute_mass_sums()
-  endif
-
-  ! Compute azimuthal averages of dynamic, thermodynamic, and moisture
-  ! fields, and plot averages (in radial-height cross sections)
-
-  if (ncycle_hurrinit > 0) then
-     call vortex_azim_avg('plot')
   endif
 
   70 continue ! HURRICANE INITIALIZATION CYCLE BEGINS HERE
@@ -1081,12 +1085,13 @@ subroutine olam_output()
 
   if (mod(time8p,op%frqplt) < dtlm .or. time8p >= timmax8 .or. iflag == 1) then
 
-     call copy_plot(0)
-     call plot_fields(0)
-
      if (ncycle_hurrinit > 0) then
         call vortex_azim_avg('plot')
      endif
+
+     call copy_plot(0)
+     call plot_fields(0)
+
   endif
 
   call date_add_to8(iyear1,imonth1,idate1,itime1,time8p,'s',outyear,  &

@@ -1553,7 +1553,7 @@ subroutine ctrlvols_hex()
 
      ! Compute number of levels that intersect with surface
 
-     lsw(iw) = 0.0
+     lsw(iw) = 0
 
      do js = 1, itab_w(iw)%jsfc2
         iwsfc = itab_w(iw)%iwsfc(js)

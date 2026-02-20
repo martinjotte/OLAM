@@ -184,7 +184,7 @@ subroutine umwm_step()
   enddo
   !$omp end do
 
-  !$omp do private(iwsfc)
+  !$omp do private(iwsfc,o,p)
   do i = 2, msea
      iwsfc = i + omsea
 

@@ -14,7 +14,7 @@ subroutine surface_driver()
   use consts_coms,   only: grav, eps_virt, vonk, cp
   use leaf4_soil,    only: head_column
   use sea_swm,       only: swm_driver
-  use mem_turb,      only: akm_sfc, vkm_sfc, ustar, sfluxt, sfluxr, arw_sfc, &
+  use mem_turb,      only: akm_sfc, vkm_sfc, ustar, sfluxt, sfluxr, &
                            wstar, wtv0, pblh, moli, ustar_k, wtv0_k
   use mem_tend,      only: thilt, rr_wt
   use mem_para,      only: myrank
@@ -217,12 +217,9 @@ subroutine surface_driver()
         ! Values summed to tendency arrays
         akm_sfc(ks,iw) = akm_sfc(ks,iw) + itab_wsfc(iwsfc)%arc(jasfc) * sfcg%vkmsfc(iwsfc)
 
-! Original calculation of thilt for sfluxt units [kg_dry K m^-2 s^-1]
-!       thilt  (kw,iw) = thilt  (kw,iw) + itab_wsfc(iwsfc)%arc(jasfc) * sfcg%sfluxt(iwsfc) * volti(kw,iw)
-
-! New calculation of thilt for sfluxt units [W m^-2]
-        thilt  (kw,iw) = thilt  (kw,iw) + itab_wsfc(iwsfc)%arc(jasfc) * sfcg%sfluxt(iwsfc) / (cp * sfcg%canexner(iwsfc)) * volti(kw,iw)
-
+        ! New calculation of thilt for sfluxt units [W m^-2]
+        thilt  (kw,iw) = thilt  (kw,iw) + itab_wsfc(iwsfc)%arc(jasfc) * sfcg%sfluxt(iwsfc) &
+                                          / (cp * sfcg%canexner(iwsfc)) * volti(kw,iw)
         rr_wt  (kw,iw) = rr_wt  (kw,iw) + itab_wsfc(iwsfc)%arc(jasfc) * sfcg%sfluxr(iwsfc) * volti(kw,iw)
 !       rr_co2t(kw,iw) = rr_co2t(kw,iw) + itab_wsfc(iwsfc)%arc(jasfc) * sfcg%sfluxc(iwsfc) * volti(kw,iw)
 

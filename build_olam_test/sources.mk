@@ -22,13 +22,13 @@ SOURCE_FILES= \
              $(LAND)/glhymps_read.f90 \
              $(LAND)/land_database_read.f90 \
              $(LAND)/land.f90 \
+             $(LAND)/land_startup.f90 \
              $(LAND)/leaf4_canopy.f90 \
              $(LAND)/leaf4_coms.f90 \
              $(LAND)/leaf4_init_atm.f90 \
              $(LAND)/leaf4_plot.f90 \
-             $(LAND)/leaf4_surface.f90 \
              $(LAND)/leaf4_soil.f90 \
-             $(LAND)/land_startup.f90 \
+             $(LAND)/leaf4_surface.f90 \
              $(LAND)/mem_land.f90 \
              $(LAND)/ndvi_database_read.f90 \
              $(LAND)/read_soil_analysis.f90 \
@@ -123,8 +123,8 @@ SOURCE_FILES= \
              $(OMODEL)/timeseries_plots.f90 \
              $(OMODEL)/timestep.f90 \
              $(OMODEL)/triangle_utils.f90 \
-             $(OMODEL)/vectslab.F90 \
              $(OMODEL)/vectgrid.F90 \
+             $(OMODEL)/vectslab.F90 \
              $(OMODEL)/vel_t3d.f90 \
              $(OMODEL)/vort_div_damp.f90 \
              $(OUTILS)/analysis_lib.f90 \
@@ -258,6 +258,10 @@ SOURCE_FILES= \
              $(UMWM)/umwm_stokes.F90 \
              $(HURRICANE)/hurricane_init.F90 \
              $(HURRICANE)/plot_trajecfile.f90 \
+             $(LAGPART)/lpadvect.f90 \
+             $(LAGPART)/lpsource.f90 \
+             $(LAGPART)/mem_lp.f90 \
+             $(LAGPART)/plot_lp.f90 \
              $(TEST_CASES)/mem_swtc5_refsoln_cubic.f90 \
              $(TEST_CASES)/swtc_init.f90 \
              $(TEST_CASES)/diagn_global_swtc.F90 \

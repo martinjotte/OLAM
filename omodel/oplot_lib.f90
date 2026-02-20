@@ -81,6 +81,7 @@ use mem_flux_accum, only:     rshort_accum,         rshortup_accum, &
         sfluxt_davg,    sfluxr_davg
 
 use oname_coms, only: nl
+use hcane_rz,   only: azimvals
 
 use mem_swtc5_refsoln_cubic
 
@@ -137,6 +138,7 @@ use mem_plot, only: &
 use mem_sfcnud,  only: sfcwat_nud, sfctemp_nud, fracliq_nud ! fast can nud
 use sea_swm,     only: depthmin_swe
 use umwm_module, only: umwm, swh, mwd, dwd, dcg
+use mem_lp,      only: atp
 
 implicit none
 
@@ -178,7 +180,7 @@ real :: zanal_swtc5, zanal0_swtc5
 
 real, parameter :: onethird = 1./3.
 
-integer, parameter :: nfields = 803
+integer, parameter :: nfields = 903
 character(len=40) :: fldlib(4,nfields)
 character(len=40), save :: fldname
 
@@ -334,6 +336,15 @@ data fldlib(1:4,129:134)/ &
  'PCPCON_REL4'    ,'T2' ,'CUPARM PCP RELATIVE DIFF4',' '              ,& ! 133
  'PCPBOTH_REL4'   ,'T2' ,'MIC+CUPARM PCP RELATIVE DIFF4',' '           / ! 134
 
+! ATMOSPHERE - Lagrangian particles
+
+data fldlib(1:4,151:155)/ &
+ 'LP'              ,'A3' ,'LP',' ( )'                                 ,& ! 151
+ 'LP_ZP'           ,'A3' ,'LP COLORED BY HEIGHT',' (m)'               ,& ! 152
+ 'LP_SP'           ,'A3' ,'LP COLORED BY NORMCOORD',' (m)'            ,& ! 153
+ 'LP_RELTIME'      ,'A3' ,'LP COLORED BY RELEASE TIME',' (s)'         ,& ! 154
+ 'LP_NSRC'         ,'A3' ,'LP COLORED BY SOURCE NUMBER',' ( )'         / ! 155
+
 ! LAND_CELLS - 3D
 
 data fldlib(1:4,181:198)/ &
@@ -466,7 +477,7 @@ data fldlib(1:4,251:290)/ &
 
 ! SFC GRID CELLS - 2D
 
-data fldlib(1:4,297:333)/ &
+data fldlib(1:4,297:334)/ &
  'LEAF_CLASS'         ,'C2','LEAF CLASS',' ( )'                           ,& ! 297
  'SFCG_AREA'          ,'C2','SFCG CELL AREA',' (m:S2:2  )'                ,& ! 298
  'SFCG_GLATW'         ,'C2','SFCG CELL LATITUDE',' (deg)'                 ,& ! 299
@@ -481,7 +492,7 @@ data fldlib(1:4,297:333)/ &
  'SFCG_CANTEMPK'      ,'C2','SFCG CANOPY AIR TEMP',' (K)'                 ,& ! 308
  'SFCG_CANRRV'        ,'C2','SFCG CANOPY VAP MIXR',' (g kg:S2:-1  )'      ,& ! 309
  'SFCG_SKINTEMPK'     ,'C2','SFCG SKIN TEMP',' (K)'                       ,& ! 310
- 'SFCG_GSS_SRRV'      ,'C2','SFCG SAT VAP MIXR',' (g kg:S2:-1  )'         ,& ! 311
+ 'SFCG_VKMSFC'        ,'C2','SFCG VKMSFC',' (N s m:S2:-2  )'              ,& ! 311
  'HEAD1'              ,'C2','WATER SFC HEAD',' (m)'                       ,& ! 312
  'HEAD_WTAB'          ,'C2','HEAD AT WATER TABLE',' (m)'                  ,& ! 313
  'SFCG_USTAR'         ,'C2','SFCG USTAR',' (m s:S2:-1  )'                 ,& ! 314
@@ -490,20 +501,21 @@ data fldlib(1:4,297:333)/ &
  'SFCG_VAPFLUX'       ,'C2','SFCG VAP FLX',' (kg m:S2:-2   s:S2:-1  )'    ,& ! 317
  'SFCG_SPEED10M'      ,'C2','SFCG 10M WIND SPEED',' (m s:S2:-1  )'        ,& ! 318
  'SFCG_SPEED2M'       ,'C2','SFCG 2M WIND SPEED',' (m s:S2:-1  )'         ,& ! 319
- 'SFCG_TEMPK2M'       ,'C2','SFCG 2M TEMP',' (K)'                         ,& ! 320
- 'SFCG_RVAP2M'        ,'C2','SFCG 2M RRV',' (g kg:S2:-1  )'               ,& ! 321
- 'SFCG_RSHORT'        ,'C2','SFCG DOWN SW FLX',' (W m:S2:-2  )'           ,& ! 322
- 'SFCG_RLONG'         ,'C2','SFCG DOWN LW FLX',' (W m:S2:-2  )'           ,& ! 323
- 'SFCG_RLONGUP'       ,'C2','SFCG UP LW FLX',' (W m:S2:-2  )'             ,& ! 324
- 'SFCG_RLONG_ALBEDO'  ,'C2','SFCG NET LW ALBEDO',' ( )'                   ,& ! 325
- 'SFCG_ALBEDO_BEAM'   ,'C2','SFCG NET BEAM ALBEDO',' ( )'                 ,& ! 326
- 'SFCG_ALBEDO_DIFFUSE','C2','SFCG NET DIFFUSE ALBEDO',' ( )'              ,& ! 327
- 'SFCG_BATHYM'        ,'C2','SFCG CELL BATHYMETRY',' (m)'                 ,& ! 328
- 'SFCG_PCPG'          ,'C2','SFCG PCPG',' (kg m:S2:-2  )'                 ,& ! 329
- 'SFCG_VC'            ,'B2','SFCG VC',' (m s:S2:-1  )'                    ,& ! 330
- 'WAT_DEPTH'          ,'C2','WAT_DEPTH',' (m)'                            ,& ! 331
- 'WAT_TEMPK'          ,'C2','WAT_TEMP',' (K)'                             ,& ! 332
- 'HEAD1_MSL'          ,'C2','WATER SFC HEAD REL TO MSL',' (m)'             / ! 333
+ 'SFCG_CDRAG'         ,'C2','SFCG DRAG COEFFICIENT',' ( )'                ,& ! 320
+ 'SFCG_TEMPK2M'       ,'C2','SFCG 2M TEMP',' (K)'                         ,& ! 321
+ 'SFCG_RVAP2M'        ,'C2','SFCG 2M RRV',' (g kg:S2:-1  )'               ,& ! 322
+ 'SFCG_RSHORT'        ,'C2','SFCG DOWN SW FLX',' (W m:S2:-2  )'           ,& ! 323
+ 'SFCG_RLONG'         ,'C2','SFCG DOWN LW FLX',' (W m:S2:-2  )'           ,& ! 324
+ 'SFCG_RLONGUP'       ,'C2','SFCG UP LW FLX',' (W m:S2:-2  )'             ,& ! 325
+ 'SFCG_RLONG_ALBEDO'  ,'C2','SFCG NET LW ALBEDO',' ( )'                   ,& ! 326
+ 'SFCG_ALBEDO_BEAM'   ,'C2','SFCG NET BEAM ALBEDO',' ( )'                 ,& ! 327
+ 'SFCG_ALBEDO_DIFFUSE','C2','SFCG NET DIFFUSE ALBEDO',' ( )'              ,& ! 328
+ 'SFCG_BATHYM'        ,'C2','SFCG CELL BATHYMETRY',' (m)'                 ,& ! 329
+ 'SFCG_PCPG'          ,'C2','SFCG PCPG',' (kg m:S2:-2  )'                 ,& ! 330
+ 'SFCG_VC'            ,'B2','SFCG VC',' (m s:S2:-1  )'                    ,& ! 331
+ 'WAT_DEPTH'          ,'C2','WAT_DEPTH',' (m)'                            ,& ! 332
+ 'WAT_TEMPK'          ,'C2','WAT_TEMP',' (K)'                             ,& ! 333
+ 'HEAD1_MSL'          ,'C2','WATER SFC HEAD REL TO MSL',' (m)'             / ! 334
 
 !SFCG_SWM_ACTIVE
 
@@ -755,7 +767,7 @@ data fldlib(1:4,722:753)/ &
 
 ! Miscellaneous and new additions
 
-data fldlib(1:4,771:800)/ &
+data fldlib(1:4,771:818)/ &
  'RHO_OBS'       ,'T3' ,'NUDGING OBS AIR DENSITY',' (kg m:S2:-3  )'         ,& ! 771
  'THETA_OBS'     ,'T3' ,'NUDGING OBS THETA',' (K)'                          ,& ! 772
  'RRV_OBS'       ,'T3' ,'NUDGING OBS VAPOR MIXR',' (g kg:S2:-1  )'          ,& ! 773
@@ -785,14 +797,32 @@ data fldlib(1:4,771:800)/ &
  'RVORTZW'       ,'T3' ,'REL VORTZ AT W',' (s:S2:-1  )'                     ,& ! 797
  'TVORTZW'       ,'T3' ,'TOT VORTZ AT W',' (s:S2:-1  )'                     ,& ! 798
  'TROPZ'         ,'T2' ,'TROPOPAUSE HEIGHT',' (km)'                         ,& ! 799
- 'TROPP'         ,'T2' ,'TROPOPAUSE PRESSURE',' (mb)'                        / ! 800
+ 'TROPP'         ,'T2' ,'TROPOPAUSE PRESSURE',' (mb)'                       ,& ! 800
+ 'AZIMVAL1'      ,'T3' ,'AZIMVAL1',' '                                      ,& ! 801
+ 'AZIMVAL2'      ,'T3' ,'AZIMVAL2',' '                                      ,& ! 802
+ 'AZIMVAL3'      ,'T3' ,'AZIMVAL3',' '                                      ,& ! 803
+ 'AZIMVAL4'      ,'T3' ,'AZIMVAL4',' '                                      ,& ! 804
+ 'AZIMVAL5'      ,'T3' ,'AZIMVAL5',' '                                      ,& ! 805
+ 'AZIMVAL6'      ,'T3' ,'AZIMVAL6',' '                                      ,& ! 806
+ 'AZIMVAL7'      ,'T3' ,'AZIMVAL7',' '                                      ,& ! 807
+ 'AZIMVAL8'      ,'T3' ,'AZIMVAL8',' '                                      ,& ! 808
+ 'AZIMVAL9'      ,'T3' ,'AZIMVAL9',' '                                      ,& ! 809
+ 'AZIMVAL10'     ,'T3' ,'AZIMVAL10',' '                                     ,& ! 810
+ 'AZIMVAL11'     ,'T3' ,'AZIMVAL11',' '                                     ,& ! 811
+ 'AZIMVAL12'     ,'T3' ,'AZIMVAL12',' '                                     ,& ! 812
+ 'AZIMVAL13'     ,'T3' ,'AZIMVAL13',' '                                     ,& ! 813
+ 'AZIMVAL14'     ,'T3' ,'AZIMVAL14',' '                                     ,& ! 814
+ 'AZIMVAL15'     ,'T3' ,'AZIMVAL15',' '                                     ,& ! 815
+ 'AZIMVAL16'     ,'T3' ,'AZIMVAL16',' '                                     ,& ! 816
+ 'AZIMVAL17'     ,'T3' ,'AZIMVAL17',' '                                     ,& ! 817
+ 'AZIMVAL18'     ,'T3' ,'AZIMVAL18',' '                                      / ! 818
 
 ! External fields
 
-data fldlib(1:4,801:803)/ &
- 'VORTP'         ,'P3' ,'VORTP',' (s:S2:-1  )'                              ,& ! 801
- 'VORTN'         ,'N3' ,'VORTN',' (s:S2:-1  )'                              ,& ! 802
- 'RKE'           ,'T3' ,'RKE',' (s:S2:-1  )'                                 / ! 803
+data fldlib(1:4,901:903)/ &
+ 'VORTP'         ,'P3' ,'VORTP',' (s:S2:-1  )'                              ,& ! 901
+ 'VORTN'         ,'N3' ,'VORTN',' (s:S2:-1  )'                              ,& ! 902
+ 'RKE'           ,'T3' ,'RKE',' (s:S2:-1  )'                                 / ! 903
 
 if (len_trim(fldname0) >= 5) then
    if ( fldname0(1:5) == 'CHEM_' .or. &
@@ -2310,6 +2340,33 @@ case(134) ! 'PCPBOTH_REL4'
    endif
 
 !-----------------------------------------
+! ATMOSPHERE - Lagrangian particles
+!-----------------------------------------
+
+case(151) ! 'LP'
+
+    fldval = 0.  ! default value
+
+case(152) ! 'LP_ZP'
+
+    if (.not. allocated(atp)) go to 1000
+    fldval = atp(i)%zp
+
+case(153) ! 'LP_SP'
+
+    fldval = wtbot  ! Special usage of wtbot only for case(153)
+
+case(154) ! 'LP_RELTIME'
+
+    if (.not. allocated(atp)) go to 1000
+    fldval = atp(i)%reltime
+
+case(155) ! 'LP_NSRC'
+
+    if (.not. allocated(atp)) go to 1000
+    fldval = real(atp(i)%nsource)
+
+!-----------------------------------------
 ! LAND CELLS - 3D
 !-----------------------------------------
 
@@ -3572,12 +3629,9 @@ case(310) ! 'SFCG_SKINTEMPK'
                    + land%vf(iland)  * land%veg_temp(iland)
    endif
 
-case(311) ! 'SFCG_GSS_SRRV'
+case(311) ! 'SFCG_VKMSFC'
 
-   ! We no longer solve directly for surface humdity.
-   ! Should this account for vegetation, snow, seaice, seaspray, ..
-
-   fldval = sfcg%canrrv(i) ! temporary placeholder
+   fldval = sfcg%vkmsfc(i)
 
 case(312) ! 'HEAD1'
 
@@ -3628,9 +3682,9 @@ case(317) ! 'SFCG_VAPFLUX'
 
    fldval = sfcg%sfluxr(i)
 
-case(318:321) ! 'SFCG_SPEED10M', 'SFCG_SPEED2M', 'SFCG_TEMPK2M', 'SFCG_RVAP2M'
+case(318:322) ! 'SFCG_SPEED10M', 'SFCG_SPEED2M', 'SFCG_CDRAG', 'SFCG_TEMPK2M', 'SFCG_RVAP2M'
 
-   if (trim(fldname) == 'SFCG_SPEED10M') then
+   if (trim(fldname) == 'SFCG_SPEED10M' .or. trim(fldname) == 'SFCG_CDRAG') then
       zobs = 10.
    else
       zobs = 2.
@@ -3653,53 +3707,55 @@ case(318:321) ! 'SFCG_SPEED10M', 'SFCG_SPEED2M', 'SFCG_TEMPK2M', 'SFCG_RVAP2M'
 
    if (trim(fldname) == 'SFCG_SPEED10M' .or. trim(fldname) == 'SFCG_SPEED2M') then
       fldval = wind_zobs
+   elseif (trim(fldname) == 'SFCG_CDRAG') then
+      fldval = (sfcg%ustar(i) / wind_zobs)**2
    elseif (trim(fldname) == 'SFCG_TEMPK2M') then
       fldval = theta_zobs * exner_zobs
    else
       fldval = rrv_zobs * 1.e3 ! converting from kg/kg to g/kg
    endif
 
-case(322) ! 'SFCG_RSHORT'
+case(323) ! 'SFCG_RSHORT'
 
    fldval = sfcg%rshort(i)
 
-case(323) ! 'SFCG_RLONG'
+case(324) ! 'SFCG_RLONG'
 
    fldval = sfcg%rlong(i)
 
-case(324) ! 'SFCG_RLONGUP'
+case(325) ! 'SFCG_RLONGUP'
 
    fldval = sfcg%rlongup(i)
 
-case(325) ! 'SFCG_RLONG_ALBEDO'
+case(326) ! 'SFCG_RLONG_ALBEDO'
 
    fldval = sfcg%rlong_albedo(i)
 
-case(326) ! 'SFCG_ALBEDO_BEAM'
+case(327) ! 'SFCG_ALBEDO_BEAM'
 
    fldval = sfcg%albedo_beam(i)
 
-case(327) ! 'SFCG_ALBEDO_DIFFUSE'
+case(328) ! 'SFCG_ALBEDO_DIFFUSE'
 
    fldval = sfcg%albedo_diffuse(i)
 
-case(328) ! 'SFCG_BATHYM'
+case(329) ! 'SFCG_BATHYM'
 
    fldval = sfcg%bathym(i)
 
-case(329) ! 'SFCG_PCPG'
+case(330) ! 'SFCG_PCPG'
 
    fldval = sfcg%pcpg(i)
 
-case(330) ! 'SFCG_VC'
+case(331) ! 'SFCG_VC'
 
    fldval = sfcg%vc(i)
 
-case(331) ! 'WAT_DEPTH'
+case(332) ! 'WAT_DEPTH'
 
    fldval = sfcg%head1(i) + sfcg%topw(i) - sfcg%bathym(i)
 
-case(332) ! 'WAT_TEMPK'
+case(333) ! 'WAT_TEMPK'
 
    if (sfcg%leaf_class(i) == 0) then
       isea = i - omsea
@@ -3723,7 +3779,7 @@ case(332) ! 'WAT_TEMPK'
       fldval = tempk
    endif
 
-case(333) ! 'HEAD1_MSL'
+case(334) ! 'HEAD1_MSL'
 
    fldval = sfcg%head1(i) + sfcg%topw(i)
 
@@ -5196,6 +5252,96 @@ case(800) ! 'TROPP'
    call comp_trop_height(i,fldval,1)
    fldval = fldval * 1.e-2  ! mb
 
+case(801) ! 'AZIMVAL1'
+
+   if (.not. allocated(azimvals)) go to 1000
+   fldval = azimvals(k,i,1)
+
+case(802) ! 'AZIMVAL2'
+
+   if (.not. allocated(azimvals)) go to 1000
+   fldval = azimvals(k,i,2)
+
+case(803) ! 'AZIMVAL3'
+
+   if (.not. allocated(azimvals)) go to 1000
+   fldval = azimvals(k,i,3)
+
+case(804) ! 'AZIMVAL4'
+
+   if (.not. allocated(azimvals)) go to 1000
+   fldval = azimvals(k,i,4)
+
+case(805) ! 'AZIMVAL5'
+
+   if (.not. allocated(azimvals)) go to 1000
+   fldval = azimvals(k,i,5)
+
+case(806) ! 'AZIMVAL6'
+
+   if (.not. allocated(azimvals)) go to 1000
+   fldval = azimvals(k,i,6)
+
+case(807) ! 'AZIMVAL7'
+
+   if (.not. allocated(azimvals)) go to 1000
+   fldval = azimvals(k,i,7)
+
+case(808) ! 'AZIMVAL8'
+
+   if (.not. allocated(azimvals)) go to 1000
+   fldval = azimvals(k,i,8)
+
+case(809) ! 'AZIMVAL9'
+
+   if (.not. allocated(azimvals)) go to 1000
+   fldval = azimvals(k,i,9)
+
+case(810) ! 'AZIMVAL10'
+
+   if (.not. allocated(azimvals)) go to 1000
+   fldval = azimvals(k,i,10)
+
+case(811) ! 'AZIMVAL11'
+
+   if (.not. allocated(azimvals)) go to 1000
+   fldval = azimvals(k,i,11)
+
+case(812) ! 'AZIMVAL12'
+
+   if (.not. allocated(azimvals)) go to 1000
+   fldval = azimvals(k,i,12)
+
+case(813) ! 'AZIMVAL13'
+
+   if (.not. allocated(azimvals)) go to 1000
+   fldval = azimvals(k,i,13)
+
+case(814) ! 'AZIMVAL14'
+
+   if (.not. allocated(azimvals)) go to 1000
+   fldval = azimvals(k,i,14)
+
+case(815) ! 'AZIMVAL15'
+
+   if (.not. allocated(azimvals)) go to 1000
+   fldval = azimvals(k,i,15)
+
+case(816) ! 'AZIMVAL16'
+
+   if (.not. allocated(azimvals)) go to 1000
+   fldval = azimvals(k,i,16)
+
+case(817) ! 'AZIMVAL17'
+
+   if (.not. allocated(azimvals)) go to 1000
+   fldval = azimvals(k,i,17)
+
+case(818) ! 'AZIMVAL18'
+
+   if (.not. allocated(azimvals)) go to 1000
+   fldval = azimvals(k,i,18)
+
 case default
 
    go to 1000
@@ -5348,7 +5494,8 @@ subroutine comp_trop_height(iw, troph, iflag)
         do while (press(k,iw) > pdef)
            k = k + 1
         enddo
-        troph = (zt(k-1) * (pdef - real(press(k,iw))) + zt(k) * (real(press(k-1,iw)) - pdef)) / (press(k-1,iw) - press(k,iw))
+        troph = (zt(k-1) * (pdef - real(press(k,iw))) + zt(k) &
+              * (real(press(k-1,iw)) - pdef)) / (press(k-1,iw) - press(k,iw))
 
      endif
 
@@ -5357,9 +5504,11 @@ subroutine comp_trop_height(iw, troph, iflag)
   elseif (iflag == 1) then
 
      if (troph < zt(ks)) then
-        troph = exp( ( (log(real(press(ks  ,iw))) * (troph - zt(ks-1)) + log(real(press(ks-1,iw))) * (zt(ks  ) - troph)) ) * dzim(ks-1) )
+        troph = exp( ( (log(real(press(ks  ,iw))) * (troph - zt(ks-1)) &
+              + log(real(press(ks-1,iw))) * (zt(ks  ) - troph)) ) * dzim(ks-1) )
      else
-        troph = exp( ( (log(real(press(ks+1,iw))) * (troph - zt(ks  )) + log(real(press(ks  ,iw))) * (zt(ks+1) - troph)) ) * dzim(ks  ) )
+        troph = exp( ( (log(real(press(ks+1,iw))) * (troph - zt(ks  )) &
+              + log(real(press(ks  ,iw))) * (zt(ks+1) - troph)) ) * dzim(ks  ) )
      endif
 
   endif

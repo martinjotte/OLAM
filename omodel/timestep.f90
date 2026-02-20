@@ -25,6 +25,7 @@ use olam_mpi_sfc,only: mpi_send_wsfc, mpi_recv_wsfc
 use hcane_rz,    only: ncycle_hurrinit, icycle_hurrinit, timmax_hurrinit, &
                        vortex_add_thetapert
 use obs_nudge_mod,only: obs_nudge
+use mem_lp,       only: lpflag
 use scalar_transport, only: scalar_transport_rk
 use raddriv,     only: radiate
 
@@ -238,6 +239,13 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm
 
    call timeavg_momsc()
 
+   ! Release and advect Lagrangian particles
+
+   if (lpflag == 1 .and. mrl_endl(istp) > 0) then
+      call lpsource()
+      call lpadvect()
+   endif
+
    34 continue
 
    ! call check_nans(13)
@@ -427,6 +435,8 @@ subroutine tend0(rho_old)
   use mem_grid,    only: mza, mwa, mva, lpw, lpv
   use consts_coms, only: r8
   use mem_para,    only: myrank
+  use mem_lp,      only: vxeh, vyeh, vzeh
+  use hcane_rz,    only: vmxeth, vmyeth, vmzeth
 
   implicit none
 
@@ -446,6 +456,22 @@ subroutine tend0(rho_old)
         wmasc  (k,iw) = 0.0
      enddo
 
+     if (allocated(vxeh)) then
+        do k = lpw(iw), mza
+           vxeh(k,iw) = 0.0
+           vyeh(k,iw) = 0.0
+           vzeh(k,iw) = 0.0
+        enddo
+     endif
+     
+     if (allocated(vmxeth)) then
+        do k = lpw(iw), mza    
+           vmxeth(k,iw,:) = 0.0
+           vmyeth(k,iw,:) = 0.0
+           vmzeth(k,iw,:) = 0.0
+        enddo
+     endif
+     
      do n = 1, num_scalar
         do k = lpw(iw), mza
            scalar_tab(n)%var_t(k,iw) = 0.0
@@ -549,12 +575,17 @@ subroutine timeavg_momsc()
   use mem_grid,   only: mza, lpw, lpv
   use misc_coms,  only: nacoust
   use mem_basic,  only: vmasc, wmasc
+  use consts_coms,only: r8
+  use mem_lp,     only: vxeh, vyeh, vzeh
+  use hcane_rz,   only: vmxeth, vmyeth, vmzeth
 
   implicit none
 
   integer :: k, iv, iw, j
+  real(r8) :: acoi
 
   if (mrl_endl(istp) > 0 .and. nacoust > 1) then
+     acoi = 1._r8 / real(nacoust,r8)
 
      !$omp parallel
      !$omp do private(iv,k)
@@ -572,6 +603,31 @@ subroutine timeavg_momsc()
         enddo
      enddo
      !$omp end do nowait
+
+     if (allocated(vxeh)) then
+        !$omp do private(iw,k)
+        do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
+           do k = lpw(iw), mza
+              vxeh(k,iw) = vxeh(k,iw) * acoi
+              vyeh(k,iw) = vyeh(k,iw) * acoi
+              vzeh(k,iw) = vzeh(k,iw) * acoi
+           enddo
+        enddo
+        !$omp end do nowait
+     endif
+     
+     if (allocated(vmxeth)) then
+        !$omp do private(iw,k)
+        do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
+           do k = lpw(iw), mza
+              vmxeth(k,iw,:) = vmxeth(k,iw,:) * acoi
+              vmyeth(k,iw,:) = vmyeth(k,iw,:) * acoi
+              vmzeth(k,iw,:) = vmzeth(k,iw,:) * acoi
+           enddo
+        enddo
+        !$omp end do nowait
+     endif
+     
      !$omp end parallel
 
   endif

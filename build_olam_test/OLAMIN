@@ -701,7 +701,22 @@
    NL%SEASPRAY_VMIN = 16.0  ! Wind speed (m/s) below which sea spray is not considered.
                             ! Must be larger than 15m/s.
 
-   NL%UMWMFLG = 0               ! Flag to use UMWM wave model (0) = No; (1) = Yes
+   NL%IROUGHSEA = 4    ! Sea surface roughness formulation if not using UMWM:
+                       ! (1) Davis et al. model from old HWRF
+                       ! (2) Charnock (1955) with 0.018 parameter
+                       ! (3) Roughness from Breivik et al. (2022) with
+                       !     limiting value of .003 in high winds
+                       ! (4) Roughness from Breivik et al. (2022) with
+                       !     limiting value of .010 in high winds
+                       ! (5) Roughness from Breivik et al. (2022) with
+                       !     limiting value of .032 in high winds
+
+ ! University of Miami Wave Model (UMWM) parameters
+
+   NL%UMWMFLG             = 0   ! Flag to use UMWM wave model (0) = No; (1) = Yes
+   NL%USE_UMWM_ROUGHNESS  = 1   ! If UMWM active, use the UMWM roughness length in OLAM (0) = No; (1) = Yes
+   NL%UMWM_WIND_THRESHOLD = 5.  ! Wind speed threshold if using UMWM roughness (avoids issues in
+                                ! light winds where capillary waves are largely unresolved by UMWM)
 
  ! POM1D model grid vertical profile geometry
 
