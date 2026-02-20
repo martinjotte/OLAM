@@ -299,8 +299,9 @@ Module oname_coms
 
 !!    HURRICANE DYNAMIC INITIALIZATION PARAMETERS
 
-     integer  :: ncycle_hurrinit
-     real(r8) :: timmax_hurrinit
+     integer  :: ncycle_hurrinit = 0
+     real(r8) :: timmax_hurrinit = 0.
+     integer  :: hurr_azim_plots = 1
 
      real :: hlat0          ! Obs hurricane latitude (deg)
      real :: hlon0          ! Obs hurricane longitude (deg)

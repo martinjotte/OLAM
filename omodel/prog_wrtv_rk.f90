@@ -599,7 +599,7 @@ subroutine prog_wrt_begs( iw, istage, dt8,                      &
 
   real :: b7, b8, b21, b22, b23, b24, b25, b26
   real :: b15(mza), b31(mza), b32(mza), b33(mza)
-  
+
   real :: gxps(mza), gyps(mza), gzps(mza), horizdiv(mza)
 
   dts = real(dt8)
@@ -609,7 +609,7 @@ subroutine prog_wrt_begs( iw, istage, dt8,                      &
   gxps(:) = 0.
   gyps(:) = 0.
   gzps(:) = 0.
-  
+
   horizdiv(:) = 0.
 
   ! Set bottom & top vertical advective mass, momentum, and heat fluxes to zero
@@ -692,7 +692,7 @@ subroutine prog_wrt_begs( iw, istage, dt8,                      &
   enddo
 
   if (allocated(vmxeth) .and. istage == nrk_wrtv) then
- 
+
      !H4: horiz advection just added to vmxet_rk
      vmxeth(ka:mza,iw,4) = vmxeth(ka:mza,iw,4) + vmxet_rk(ka:mza,iw)
      vmyeth(ka:mza,iw,4) = vmyeth(ka:mza,iw,4) + vmyet_rk(ka:mza,iw)
@@ -712,7 +712,7 @@ subroutine prog_wrt_begs( iw, istage, dt8,                      &
      vmzeth(ka:mza,iw,8) = vmzeth(ka:mza,iw,8) + horizdiv(ka:mza) * vze(ka:mza,iw)
 
   endif
-  
+
   if (mdomain > 1) then
 
      ! Coriolis and large-scale PGF tendencies for limited-area run

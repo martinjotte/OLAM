@@ -79,11 +79,11 @@ module hcane_rz
   real, allocatable :: hlata(:,:)
   real, allocatable :: hlona(:,:)
   real, allocatable :: htima(:,:)
-  
+
   real, allocatable :: vmxeth(:,:,:)
   real, allocatable :: vmyeth(:,:,:)
   real, allocatable :: vmzeth(:,:,:)
-  
+
   real, allocatable :: azimvals(:,:,:)
 
   ! rad1_blend and rad2_blend control how a relocated vortex is blended in with
@@ -125,8 +125,9 @@ Contains
 
   subroutine hurricane_init()
 
-  use misc_coms,  only: timmax8, dtlm
+  use misc_coms,  only: timmax8, dtlm, iparallel
   use mem_grid,   only: mza, mwa, zt
+  use oname_coms, only: nl
 
   implicit none
 
@@ -144,17 +145,19 @@ Contains
   allocate (hlona(0:nhtim,nhcyc))
   allocate (htima(0:nhtim,nhcyc)); htima(:,:) = 0.
 
-  allocate (vmxeth(mza,mwa,9))
-  allocate (vmyeth(mza,mwa,9))
-  allocate (vmzeth(mza,mwa,9))
-  
-  allocate (azimvals(mza,mwa,18))
-  
-  vmxeth(:,:,:) = 0.
-  vmyeth(:,:,:) = 0.
-  vmzeth(:,:,:) = 0.
-  
-  azimvals(:,:,:) = 0.
+  if (iparallel == 0 .and. nl%hurr_azim_plots == 1) then
+     allocate (vmxeth(mza,mwa,9))
+     allocate (vmyeth(mza,mwa,9))
+     allocate (vmzeth(mza,mwa,9))
+
+     allocate (azimvals(mza,mwa,18))
+
+     vmxeth(:,:,:) = 0.
+     vmyeth(:,:,:) = 0.
+     vmzeth(:,:,:) = 0.
+
+     azimvals(:,:,:) = 0.
+  endif
 
   do k = 2, mza
      if (zt(k) > zcent_thpert - zhwid_thpert) exit
@@ -1219,6 +1222,7 @@ end subroutine vortex_get_vtanmax
   use misc_coms,   only: iparallel
   use mem_para,    only: myrank
   use plotcolors,  only: make_colortable
+  use oname_coms,  only: nl
 
   implicit none
 
@@ -1248,7 +1252,7 @@ end subroutine vortex_get_vtanmax
   real :: ssliq_ax(mza,nr) ! supsat wrt liquid (%)
   real :: thdif_ax(mza,nr) ! theta difference from supsat (K)
   real ::  cond_ax(mza,nr) ! condensation mixing ratio (kg/kg_dryair)
-  
+
   real :: vtant_ax(mza,nr,14)
   real :: zeta_ax (mza,nr)
   real :: speed_ax(mza,nr)
@@ -1258,6 +1262,8 @@ end subroutine vortex_get_vtanmax
   ! Needs work in parallel!!!!!!!!!!!
   if (iparallel == 1) return
   if (myrank /= 0) return
+
+  if (nl%hurr_azim_plots /= 1) return
 
   ! Find "earth" coordinates of hurricane center
 
@@ -1284,7 +1290,7 @@ end subroutine vortex_get_vtanmax
       w_ax(:,:) = 0.
   ssliq_ax(:,:) = 0.
   thdif_ax(:,:) = 0.
-  
+
   vtant_ax(:,:,:) = 0.
 
   weight_t(:,:) = 0.
@@ -1417,12 +1423,12 @@ end subroutine vortex_get_vtanmax
                       +  vmzeth(k,iw,6) * wnztan) &
                       /  real(rho(k,iw) * volt(k,iw))
 
-        vtant_ax0(11) = vtant_ax0(4)  - vtant_ax0(8)             
-        vtant_ax0(12) = vtant_ax0(6)  - vtant_ax0(9)             
-        vtant_ax0(13) = vtant_ax0(4)  - vtant_ax0(8) + vtant_ax0(7)             
-        vtant_ax0(14) = vtant_ax0(10) + vtant_ax0(7)             
+        vtant_ax0(11) = vtant_ax0(4)  - vtant_ax0(8)
+        vtant_ax0(12) = vtant_ax0(6)  - vtant_ax0(9)
+        vtant_ax0(13) = vtant_ax0(4)  - vtant_ax0(8) + vtant_ax0(7)
+        vtant_ax0(14) = vtant_ax0(10) + vtant_ax0(7)
 
-!-----------------------------------------------------------------------------adapted from oplot_lib        
+!-----------------------------------------------------------------------------adapted from oplot_lib
 
         vrad_ax0 = vxe(k,iw) * wnxrad + vye(k,iw) * wnyrad + vze(k,iw) * wnzrad
         vtan_ax0 = vxe(k,iw) * wnxtan + vye(k,iw) * wnytan + vze(k,iw) * wnztan
@@ -1455,7 +1461,7 @@ end subroutine vortex_get_vtanmax
 
         vrad_ax(k,irad)   = vrad_ax(k,irad)   + wrad1 * vrad_ax0
         vrad_ax(k,irad+1) = vrad_ax(k,irad+1) + wrad2 * vrad_ax0
-        
+
         vtan_ax(k,irad)   = vtan_ax(k,irad)   + wrad1 * vtan_ax0
         vtan_ax(k,irad+1) = vtan_ax(k,irad+1) + wrad2 * vtan_ax0
 

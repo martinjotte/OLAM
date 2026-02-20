@@ -577,6 +577,9 @@
 
    NL%TIMMAX_HURRINIT = 3600.  ! Ending integration time of each cycle
 
+   NL%HURR_AZIM_PLOTS = 1      ! Plot axisymmetric azimuthal averages of the tracked
+                               ! storm (only for serial/OpenMP runs) ( 0 / 1 )
+
    NL%HLAT0 =  23.7            ! Obs hurricane latitude
    NL%HLON0 = -93.1            ! Obs hurricane longitude
 
