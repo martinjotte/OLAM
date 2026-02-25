@@ -9,7 +9,7 @@
 
 #ifdef USE_JASPER
 
-#include <jasper/jasper.h>
+// #include <jasper/jasper.h>
 
 /*
  *  writes out jpeg2000 compressed grib message

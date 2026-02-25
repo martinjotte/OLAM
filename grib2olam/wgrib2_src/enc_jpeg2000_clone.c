@@ -4,12 +4,12 @@
 
 #ifdef USE_JASPER
 #include <jasper/jasper.h>
-#define JAS_1_700_2
+
 #define G2C_JASPER_JPEG_FORMAT_NAME "jpc" /**< Name of JPEG codec in Jasper. */
 
 
 int enc_jpeg2000_clone(unsigned char *cin,int width,int height,int nbits,
-                 int ltype, int ratio, int retry, char *outjpc,
+                 int ltype, int ratio, int retry, char *outjpc, 
                  int jpclen)
 /*$$$  SUBPROGRAM DOCUMENTATION BLOCK
 *                .      .    .                                       .
@@ -17,8 +17,8 @@ int enc_jpeg2000_clone(unsigned char *cin,int width,int height,int nbits,
 *   PRGMMR: Gilbert          ORG: W/NP11     DATE: 2002-12-02
 *
 * ABSTRACT: This Function encodes a grayscale image into a JPEG2000 code stream
-*   specified in the JPEG2000 Part-1 standard (i.e., ISO/IEC 15444-1)
-*   using JasPer Software version 1.500.4 (or 1.700.2 ) written by the
+*   specified in the JPEG2000 Part-1 standard (i.e., ISO/IEC 15444-1) 
+*   using JasPer Software version 1.500.4 (or 1.700.2 ) written by the 
 *   University of British Columbia, Image Power Inc, and others.
 *   JasPer is available at http://www.ece.uvic.ca/~mdadams/jasper/.
 *
@@ -29,7 +29,7 @@ int enc_jpeg2000_clone(unsigned char *cin,int width,int height,int nbits,
 *                       JPEG2000 algorithm.
 *
 * USAGE:    int enc_jpeg2000(unsigned char *cin,g2int width,g2int height,
-*                            g2int nbits, g2int ltype, g2int ratio,
+*                            g2int nbits, g2int ltype, g2int ratio, 
 *                            g2int retry, char *outjpc, g2int jpclen)
 *
 *   INPUT ARGUMENTS:
@@ -97,60 +97,27 @@ int enc_jpeg2000_clone(unsigned char *cin,int width,int height,int nbits,
        strcat(opts,"\nnumgbits=4");
     }
     //printf("SAGopts: %s\n",opts);
-
+    
 //
 //     Initialize the JasPer image structure describing the grayscale
 //     image to encode into the JPEG2000 code stream.
 //
     image.tlx_=0;
     image.tly_=0;
-#ifdef JAS_1_500_4
-    image.brx_=(uint_fast32_t)width;
-    image.bry_=(uint_fast32_t)height;
-#endif
-#ifdef JAS_1_700_2
     image.brx_=(jas_image_coord_t)width;
     image.bry_=(jas_image_coord_t)height;
-#endif
     image.numcmpts_=1;
     image.maxcmpts_=1;
-#ifdef JAS_1_500_4
-    image.colormodel_=JAS_IMAGE_CM_GRAY;         /* grayscale Image */
-#endif
-#ifdef JAS_1_700_2
     image.clrspc_=JAS_CLRSPC_SGRAY;         /* grayscale Image */
-    image.cmprof_=0;
-#endif
-
-
-/*
-   image.inmem_=1;
-   is only used for japser version 1.x up to 1.9.24
-   for newer code the above line is removed
- */
-#if JAS_VERSION_MAJOR == 1
-   image.inmem_=1;
-#endif
-#ifndef JAS_VERSION_MAJOR
-   image.inmem_=1;
-#endif
-
-
-
+    image.cmprof_=0; 
 
     cmpt.tlx_=0;
     cmpt.tly_=0;
     cmpt.hstep_=1;
     cmpt.vstep_=1;
-#ifdef JAS_1_500_4
-    cmpt.width_=(uint_fast32_t)width;
-    cmpt.height_=(uint_fast32_t)height;
-#endif
-#ifdef JAS_1_700_2
     cmpt.width_=(jas_image_coord_t)width;
     cmpt.height_=(jas_image_coord_t)height;
     cmpt.type_=JAS_IMAGE_CT_COLOR(JAS_CLRSPC_CHANIND_GRAY_Y);
-#endif
     cmpt.prec_=nbits;
     cmpt.sgnd_=0;
     cmpt.cps_=(nbits+7)/8;
@@ -159,9 +126,21 @@ int enc_jpeg2000_clone(unsigned char *cin,int width,int height,int nbits,
     image.cmpts_=&pcmpt;
 
     /* Initialize Jasper. */
+#if JAS_VERSION_MAJOR > 2
+    jas_conf_clear();
+    /* static jas_std_allocator_t allocator; */
+    /* jas_std_allocator_init(&allocator); */
+    /* jas_conf_set_allocator(JAS_CAST(jas_std_allocator_t *, &allocator)); */
+    jas_conf_set_max_mem_usage(10000000);
+    jas_conf_set_multithread(true);
+    if (jas_init_library())
+        return -3;
+    if (jas_init_thread())
+        return -3;
+#else
     if (jas_init())
       return -3;
-
+#endif
 //
 //    Open a JasPer stream containing the input grayscale values
 //
@@ -187,13 +166,18 @@ int enc_jpeg2000_clone(unsigned char *cin,int width,int height,int nbits,
     }
 //
 //     Clean up JasPer work structures.
-//
+//    
     rwcnt=jpcstream->rwcnt_;
     ier=jas_stream_close(istream);
     ier=jas_stream_close(jpcstream);
 
     /* Finalize jasper. */
+#if JAS_VERSION_MAJOR > 2
+    jas_cleanup_thread();
+    jas_cleanup_library();
+#else
     jas_cleanup();
+#endif
 //
 //      Return size of jpeg2000 code stream
 //
