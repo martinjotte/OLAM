@@ -330,43 +330,6 @@ subroutine seacells(isea, timefac_sst, timefac_seaice)
   sea%sea_wthv(isea) = ( sea%sea_sfluxt(isea) * cpi * canexneri * (1.0 + eps_virt * sfcg%airrrv(iwsfc)) &
                      + sea%sea_sfluxr(isea) * eps_virt * sfcg%airtheta(iwsfc) ) / sfcg%rhos(iwsfc)
 
-  ! Update POM1D vertical column variables if this sea cell is pom_active
-
-  if (sea%pom_active(isea)) then
-
-     ! Eastward and northward surface wind components for sea cell
-
-     raxis = sqrt(sfcg%xew(iwsfc) ** 2 + sfcg%yew(iwsfc) ** 2)  ! dist from earth axis
-
-     if (raxis > 1.e-3) then
-        windu = (sea%windye(isea) * sfcg%xew(iwsfc) &
-               - sea%windxe(isea) * sfcg%yew(iwsfc)) / raxis
-
-        windv =  sea%windze(isea) * raxis * eradi    &
-              - (sea%windxe(isea) * sfcg%xew(iwsfc)  &
-               + sea%windye(isea) * sfcg%yew(iwsfc)) &
-              * sfcg%zew(iwsfc) / (raxis * erad)
-     else
-        windu = 0.
-        windv = 0.
-     endif
-
-     ! CDTOP is the drag coefficient between wind and water at the top water surface
-     ! and is based on vkmsfc computed in subroutine stars for surface wind stress.
-
-     cdtop = sfcg%vkmsfc(iwsfc) / (sfcg%dzt_bot(iwsfc) * rhoref)
-
-     wusurf = cdtop * (pom%ub(1,isea) - windu)
-     wvsurf = cdtop * (pom%vb(1,isea) - windv)
-     wtsurf = hfluxsea / rhoref + (sfcg%rlong(iwsfc) - sfcg%rlongup(iwsfc)) / cliq1000
-     wssurf = 0.
-     swrad = sfcg%rshort(iwsfc) * (1. - sfcg%albedo_beam(iwsfc)) / cliq1000
-
-!bobtest     call pom_column(isea, sea%pom_kba(isea), wusurf, wvsurf, wtsurf, wssurf, swrad)
-
-     sea%seatc(isea) = pom%potmp(1,isea) + 273.15
-  endif
-
   ! Update sea ice based on seaice fraction
 
   call prep_seaice(sea%seatc              (isea), &
@@ -506,6 +469,44 @@ subroutine seacells(isea, timefac_sst, timefac_seaice)
 
 !    sfcg%sfluxc(iwsfc) = (1.0 - sea%seaicec(isea)) * sea%sea_sfluxc(isea) &
 !                              + sea%seaicec(isea)  * sea%ice_sfluxc(isea)
+
+  endif
+
+  ! Update POM1D vertical column variables if this sea cell is pom_active
+
+  if (sea%pom_active(isea)) then
+
+     ! Eastward and northward surface wind components for sea cell
+
+     raxis = sqrt(sfcg%xew(iwsfc) ** 2 + sfcg%yew(iwsfc) ** 2)  ! dist from earth axis
+
+     if (raxis > 1.e-3) then
+        windu = (sea%windye(isea) * sfcg%xew(iwsfc) &
+               - sea%windxe(isea) * sfcg%yew(iwsfc)) / raxis
+
+        windv =  sea%windze(isea) * raxis * eradi    &
+              - (sea%windxe(isea) * sfcg%xew(iwsfc)  &
+               + sea%windye(isea) * sfcg%yew(iwsfc)) &
+              * sfcg%zew(iwsfc) / (raxis * erad)
+     else
+        windu = 0.
+        windv = 0.
+     endif
+
+     ! CDTOP is the drag coefficient between wind and water at the top water surface
+     ! and is based on vkmsfc computed in subroutine stars for surface wind stress.
+
+     cdtop = sfcg%vkmsfc(iwsfc) / (sfcg%dzt_bot(iwsfc) * rhoref)
+
+     wusurf = cdtop * (pom%ub(1,isea) - windu)
+     wvsurf = cdtop * (pom%vb(1,isea) - windv)
+     wtsurf = hfluxsea / rhoref + (sfcg%rlong(iwsfc) - sfcg%rlongup(iwsfc)) / cliq1000
+     wssurf = 0.
+     swrad = sfcg%rshort(iwsfc) * (1. - sfcg%albedo_beam(iwsfc)) / cliq1000
+
+     call pom_column(isea, sea%pom_kba(isea), wusurf, wvsurf, wtsurf, wssurf, swrad)
+
+     sea%seatc(isea) = pom%potmp(1,isea) + 273.15
 
   endif
 
