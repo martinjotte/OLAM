@@ -723,19 +723,19 @@
 
  ! POM1D model grid vertical profile geometry
 
-   NL%NZPOM          = 40       ! Number of POM1D layers in deepest columns; Must be <= 
+   NL%NZPOM     = 40            ! Number of POM1D layers in deepest columns; Must be <= 
                                 ! (POM_DEPTH / POM_DZTOP); Should normally be > 30  
-   NL%POM_DZTOP =   5.          ! Thickness (m) of top (shallowest) POM1D grid level 
+   NL%POM_DZTOP = 5.            ! Thickness (m) of top (shallowest) POM1D grid level 
    NL%POM_DEPTH = 4500.0        ! Depth (m) of deepest POM1D columns
 
  ! POM1D initial data (temperature and salinity)
 
-   NL%POM_IDATA   = 2           ! 0 -- Default initialization (potmp = seatc at surface)
-                                ! 1 -- Read from rtofs file
-                                ! 2 -- Read from hycom files
+   NL%POM_IDATA   = 3           ! 0 -- Default initialization (potmp = seatc at surface)
+                                ! 1 -- Read from rtofs file listed in POM_DATABASE
+                                ! 2 -- Read from hycom files using POM_DATABASE as prefix
+                                ! 3 -- Read from Copernicus file listed in POM_DATABASE
 
-   NL%POM_DATABASE = './hycom_2024_10_07_00z'  ! For rtofs file, code reads filename specified here
-                                               ! For hycom files, code appends //'_t3z.nc4' and //'_s3z.nc4'
+   NL%POM_DATABASE = '../../glorys_files/mercatorglorys12v1_gl12_mean_20241007_R20241009.nc'  
 
    NL%ISOILFLG = 2        ! 1 -- Read soil composition from SoilGrids data files
                           ! 2 -- Read soil type from FAO data file
