@@ -40,25 +40,22 @@ end subroutine umwm_initialize
 
 !===============================================================================
 
-subroutine umwm_plot_prep()
+subroutine umwm_hist_prep()
 
   use umwm_physics,          only: umwm_diag
   use umwm_oforcing,         only: oforcing
-  use umwm_stress,           only: stress_atm
-  use umwm_source_functions, only: sin_d12
-  use mem_sea,               only: msea, omsea, sea
-  use mem_sfcg,              only: sfcg, itab_wsfc
+  use mem_sea,               only: msea, omsea
+  use mem_sfcg,              only: itab_wsfc
   use mem_para,              only: myrank
   use umwm_stokes,           only: stokes_drift
-  use umwm_module,           only: stokes, fice_uth
+  use umwm_module,           only: stokes, umwm
 
   implicit none
 
   integer :: i, iwsfc
 
-  ! Call a group of subroutines right before plotting fields at the start of
-  ! INITIAL or after any HISTORY read to make available various quantities for
-  ! plotting.  (The first 3 routines are also called on each timestep.)
+  ! For restart or PLOTONLY runs, recompute some wave diagnostic fields that
+  ! aren't saved in the HISTORY files.
 
   !$omp parallel do private(iwsfc)
   do i = 2, msea
@@ -67,20 +64,13 @@ subroutine umwm_plot_prep()
      ! skip cells that are not primary on this rank
      if (itab_wsfc(iwsfc)%irank /= myrank) cycle
 
-     ! skip cells with sufficient seaice
-     if (sea%seaicec(i) > fice_uth .or. sfcg%glatw(iwsfc) > 83.) cycle
+     call oforcing(i, iwsfc)
 
-     ! update wind forcing from OLAM
-     call oforcing(i,iwsfc)
-
-     ! compute source input term Ssin (uses ustar)
-     call sin_d12(i,iwsfc)
+     ! skip cells where UMWM was not active
+     if (.not. umwm%iactive(i)) cycle
 
      ! stokes drift u,v components at sea surface
      if (stokes) call stokes_drift(i)
-
-     ! compute wind stress, drag coefficient, and ustar (uses ssin)
-     call stress_atm(i,iwsfc)
 
      ! diagnose several wave properties
      call umwm_diag(i)
@@ -88,7 +78,7 @@ subroutine umwm_plot_prep()
   enddo
   !$omp end parallel do
 
-end subroutine umwm_plot_prep
+end subroutine umwm_hist_prep
 
 !===============================================================================
 

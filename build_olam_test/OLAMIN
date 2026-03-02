@@ -717,7 +717,14 @@
  ! University of Miami Wave Model (UMWM) parameters
 
    NL%UMWMFLG             = 0   ! Flag to use UMWM wave model (0) = No; (1) = Yes
-   NL%USE_UMWM_ROUGHNESS  = 1   ! If UMWM active, use the UMWM roughness length in OLAM (0) = No; (1) = Yes
+
+   NL%UMWM_SHELT_FUNCTION = 1   ! Shelter function based on 1) matching COARE 3.5 drag
+                                !                           2) Donelan (2018) Wave Reynolds number
+
+   NL%USE_UMWM_SWH        = 0   ! 0/1 = No/Yes use UMWM sig wave hgt in sea spray model if UMWM active
+
+   NL%USE_UMWM_ROUGHNESS  = 1   ! 0/1 = No/Yes use UMWM roughness length in OLAM if UMWM active
+
    NL%UMWM_WIND_THRESHOLD = 5.  ! Wind speed threshold if using UMWM roughness (avoids issues in
                                 ! light winds where capillary waves are largely unresolved by UMWM)
 

@@ -332,6 +332,8 @@ subroutine alloc_umwm()
      ssin    (:,:,i) = 0.0
 
      umwm%iactive(i) = .false.
+     umwm%taux   (i) = 0.
+     umwm%tauy   (i) = 0.
 
      swh  (i) = 0.0
      mss  (i) = 0.0
@@ -347,6 +349,8 @@ subroutine alloc_umwm()
      dcg  (i) = 0.0
      ucurr(i) = 0.0
      vcurr(i) = 0.0
+     opeak(i) = 0.0
+     ppeak(i) = 0.0
 
   enddo
   !$omp end parallel do
@@ -363,9 +367,11 @@ subroutine filltab_umwm()
 
   if (allocated(evs))          call increment_vtable('EVS',          'SW', rvar3=evs)
   if (allocated(umwm%ustar))   call increment_vtable('UMWM%USTAR',   'SW', rvar1=umwm%ustar)
-  if (allocated(umwm%alogzs))  call increment_vtable('UMWM%ALOGZS',  'SW', rvar1=umwm%alogzs)
-  if (allocated(umwm%alogzs))  call increment_vtable('UMWM%ALOGZO',  'SW', rvar1=umwm%alogzo)
+! if (allocated(umwm%alogzs))  call increment_vtable('UMWM%ALOGZS',  'SW', rvar1=umwm%alogzs)
+  if (allocated(umwm%alogzo))  call increment_vtable('UMWM%ALOGZO',  'SW', rvar1=umwm%alogzo)
   if (allocated(umwm%iactive)) call increment_vtable('UMWM%IACTIVE', 'SW', lvar1=umwm%iactive)
+  if (allocated(umwm%taux))    call increment_vtable('UMWM%TAUX',    'SW', rvar1=umwm%taux)
+  if (allocated(umwm%tauy))    call increment_vtable('UMWM%TAUY',    'SW', rvar1=umwm%tauy)
 
 end subroutine filltab_umwm
 

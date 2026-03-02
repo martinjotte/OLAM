@@ -10,62 +10,55 @@ contains
 
 !===============================================================================
 
-pure elemental real function reynolds_number(wspd, wind_height, swh, ust, &
-                    cp_peak, k_peak) result(res)
-
-  ! Computes the wave Reynolds number.
-
-  use consts_coms, only: pi1, vonki
-  use umwm_module, only: nu_air
-
-  implicit none
-
-  real, intent(in) :: wspd, wind_height, swh, ust, cp_peak, k_peak
-  real, parameter  :: re_max = 4.00e7
-  real, parameter  :: re_min = 6.62e2
-
-  res = (wspd + vonki * ust * log(pi1 / (wind_height * k_peak)) - cp_peak) * swh / nu_air
-
-  res = max(min(res, re_max), re_min)
-
-end function reynolds_number
-
-!===============================================================================
-
 pure elemental real function sheltering_reynolds(wspdw, swh) result(res)
 
   use umwm_module, only: nu_air
 
   implicit none
 
-  real, intent(in) :: wspdw, swh
+  real, intent(in) :: wspdw  ! wind speed at half peak wavelength, relative to dominant phase speed
+  real, intent(in) :: swh    ! significant wave height
   real             :: reynolds, x
 
-  real,  parameter :: re_max = 4.00e7
   real,  parameter :: re_min = 6.62e2
+  real,  parameter :: re_max = 4.00e7
+
+  real,  parameter :: shrmin = 0.13184929
+  real,  parameter :: shrmax = 0.02075195
 
   real,  parameter :: p(8) = [ &
        8.08282075e-07, -7.22452970e-05, 2.69676878e-03, -5.45054760e-02, &
        6.43417148e-01, -4.42303614e+00, 1.63178789e+01, -2.47019533e+01  ]
 
-  reynolds = max( re_min, min(re_max, abs(wspdw) * swh / nu_air) )
+  reynolds = wspdw * swh / nu_air
 
-  x = log(reynolds)
+  if (reynolds <= re_min) then
 
-  res = p(8) + x * (p(7) + x * (p(6) + x * (p(5) + x * (p(4) + x * (p(3) + x * (p(2) + x * p(1)))))))
+     res = shrmin
+
+  elseif (reynolds >= re_max) then
+
+     res = shrmax
+
+  else
+
+     x   = log(reynolds)
+     res = p(8) + x * (p(7) + x * (p(6) + x * (p(5) + x * (p(4) + x * (p(3) + x * (p(2) + x * p(1)))))))
+
+  endif
 
 end function sheltering_reynolds
 
 !===============================================================================
 
-pure elemental real function sheltering_coare35(wspd) result(res)
+pure elemental real function sheltering_coare35(wspd10m) result(res)
 
-  ! Returns the sheltering coefficient given input wind speed
+  ! Returns the sheltering coefficient given input wind speed (assumed 10m)
   ! to approximately match the momentum flux of COARE 3.5 algorithm.
 
   implicit none
 
-  real, intent(in) :: wspd ! wind speed [m/s]
+  real, intent(in) :: wspd10m ! 10m wind speed [m/s]
 
   real, parameter  :: x1 = 15.0, x2 = 33.0, x3 = 60.0
   real, parameter  :: y1 = 0.10, y2 = 0.09, y3 = 0.06
@@ -83,12 +76,12 @@ pure elemental real function sheltering_coare35(wspd) result(res)
   ! high end decay
   real, parameter  :: s1 = a + x2 * (b + c * x2)
 
-  if (wspd <= x1) then
-     res = intercept + slope1 * wspd
-  elseif (wspd > x1 .and. wspd <= x2) then
-     res = a + wspd * (b + c * wspd)
+  if (wspd10m <= x1) then
+     res = intercept + slope1 * wspd10m
+  elseif (wspd10m > x1 .and. wspd10m <= x2) then
+     res = a + wspd10m * (b + c * wspd10m)
   else
-     res = s1 * exp( -(wspd - x2) / (decay * wspd) )
+     res = s1 * exp( -(wspd10m - x2) / (decay * wspd10m) )
   endif
 
 end function sheltering_coare35

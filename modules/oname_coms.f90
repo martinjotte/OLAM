@@ -345,7 +345,10 @@ Module oname_coms
      integer :: nzg         = 21
      integer :: niter_swm   =  1
      integer :: use_tides   =  0
-     integer :: umwmflg     =  0
+
+     integer :: umwmflg             = 0
+     integer :: umwm_shelt_function = 1
+     integer :: use_umwm_swh        = 0
      integer :: use_umwm_roughness  = 1
      real    :: umwm_wind_threshold = 5.
 

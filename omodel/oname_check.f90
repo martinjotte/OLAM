@@ -464,10 +464,17 @@ elseif (nl%miclevel == 3) then
 endif
 
 !--------------------------------------------------------------------------
-! CO2 PARAMETERS
+! MISC PARAMETERS
 !--------------------------------------------------------------------------
 
- call ichk_bnds( nl%co2flag       , "CO2FLAG"       , 0, 1, 2, nfatal, nwarn )
+call ichk_bnds( nl%co2flag, "CO2FLAG",  0, 1, 0, nfatal, nwarn )
+call ichk_bnds( nl%umwmflg, "UMWMFLG", 0, 1, 0, nfatal, nwarn )
+
+if (nl%umwmflg == 1) then
+   call ichk_bnds( nl%umwm_shelt_function, "UMWM_SHELT_FUNCTION", 1, 2, 2, nfatal, nwarn )
+   call ichk_bnds( nl%use_umwm_swh,        "USE_UMWM_SWH"       , 0, 1, 2, nfatal, nwarn )
+   call ichk_bnds( nl%use_umwm_roughness,  "USE_UMWM_ROUGHNESS" , 0, 1, 2, nfatal, nwarn )
+endif
 
 !--------------------------------------------------------------------------
 ! HURRICANE DYNAMIC INITIALIZATION PARAMETERS

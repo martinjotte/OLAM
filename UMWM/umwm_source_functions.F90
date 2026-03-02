@@ -10,9 +10,11 @@ subroutine sin_d12( i, iwsfc )
   use umwm_sheltering, only: sheltering_coare35, sheltering_reynolds
   use mem_sea,         only: sea
   use mem_sfcg,        only: sfcg
+  use oname_coms,      only: nl
+  use misc_coms,       only: time_istp8, dtlm
   use umwm_module,     only: pm, om, oc, rhoswi, umwm, fprog, ucurr, vcurr, cp0, &
                              cth, sth, logl2overz, ssin, fkovg, sin_diss1, sin_diss2, &
-                             opeak, ppeak, swh, dcp0, nu_air, freq
+                             opeak, swh, dcp0, nu_air, freq
   implicit none
 
   ! Wind input function based on Jeffreys's sheltering hypothesis
@@ -21,7 +23,7 @@ subroutine sin_d12( i, iwsfc )
   integer, intent(in) :: i, iwsfc
 
   integer :: o, p
-  real    :: c7, s, fcutoff, shelt, a(2), sheltr, f, wspd10m, sd1
+  real    :: c7, s, fcutoff, shelt, a(2), f, sd1
   real    :: wsl2(om), coswdir(pm), wcurr(pm), fs(pm)
 
   !!!!!!!!!!!!! temp
@@ -32,8 +34,18 @@ subroutine sin_d12( i, iwsfc )
   ! cut-off frequency (4*pierson-moskowitz peak frequency)
   fcutoff = min(fprog, 0.53 * grav / umwm%wspd10m(i) )
 
+  ! wind speed at half wavelength (todo: add M.O. stability functions psim)
+  do o = 1, om
+     wsl2(o) = umwm%wspd(i) + vonki * umwm%ustar(i) * logl2overz(o,i)
+  enddo
+
   ! compute variable sheltering coefficient
-  shelt   = sheltering_coare35( umwm%wspd10m(i) )
+  if (nl%umwm_shelt_function == 1 .or. umwm%wspd10m(i) < 3.5 .or. time_istp8 < 8.5_r8*dtlm)  then
+     shelt = sheltering_coare35( umwm%wspd10m(i) )
+  else
+     ! skip a few timesteps for diagnosed wave quantities to develop
+     shelt = sheltering_reynolds( abs(wsl2(opeak(i))) - dcp0(i), swh(i) )
+  endif
 
   c7 = c6 * (1. - sea%seaicec(i)) * sfcg%rhos(iwsfc)
 
@@ -65,11 +77,6 @@ subroutine sin_d12( i, iwsfc )
      if (fcutoff > freq(o)) exit
   enddo
   oc(i) = o
-
-  ! wind speed at half wavelength (todo: add M.O. stability functions psim)
-  do o = 1, om
-     wsl2(o) = umwm%wspd(i) + vonki * umwm%ustar(i) * logl2overz(o,i)
-  enddo
 
   if (nswmzons > 0) then
      do o = 1, om

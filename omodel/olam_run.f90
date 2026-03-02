@@ -65,7 +65,7 @@ subroutine olam_run(name_name)
   use mem_swtc5_refsoln_cubic
 
   use umwm_module,  only: umwmflg
-  use umwm_top,     only: umwm_initialize, umwm_plot_prep
+  use umwm_top,     only: umwm_initialize, umwm_hist_prep
   use minterp_lib,  only: init_minterp
   use mem_lp,       only: lp_readnml, lpflag, lp_init, lp_readnml
 
@@ -660,7 +660,7 @@ subroutine olam_run(name_name)
 
        ! if (mod(iplt_file,240) == 0) then
 
-           if (umwmflg == 1) call umwm_plot_prep()
+           if (umwmflg == 1) call umwm_hist_prep()
 
            call plot_fields(0)
 
@@ -715,9 +715,11 @@ subroutine olam_run(name_name)
      ! Diagnose zonal and meridional wind components, which are not on hist file
      call diag_uzonal_umerid()
 
+     ! Diagnose quantities needed by UMWM not saved in history file
+     if (umwmflg == 1) call umwm_hist_prep()
+
      ! Read current analysis if nudging is active
      if (initial == 2 .and. (nudflag == 1 .or. o3nudflag == 1)) call isan_driver(0)
-
 
      mstp = 0
 
@@ -811,7 +813,10 @@ subroutine olam_run(name_name)
      call vortex_azim_avg('plot')
   endif
 
-  if (umwmflg == 1) call umwm_plot_prep()
+  ! For UMWM, initial fields will start with 0 waves/forcing. Restarted wave fields
+  ! should plot fine here since this was called previously during heistory restart
+  ! if (umwmflg == 1) call umwm_hist_prep()
+
   call copy_plot(0)
   call plot_fields(0)
   call fields3_ll()
@@ -892,7 +897,9 @@ subroutine olam_run(name_name)
 
      write(io6,'(/,a)') 'olam_run calling plot_fields after vortex relocation'
 
-     if (umwmflg == 1) call umwm_plot_prep()
+!    UMWM starts with no waves; should (or is!) the wave field relocated too...
+!    if (umwmflg == 1) call umwm_hist_prep()
+
      call copy_plot(0)
      call plot_fields(0)
      call fields3_ll()

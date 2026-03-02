@@ -8,8 +8,8 @@ subroutine umwm_diag(i)
 
   use consts_coms, only: pi2
   use umwm_module, only: evs, cth, sth, kdk, freq, k, kdk, dth, th, ucurr, vcurr, &
-                         mwp, mwd, swh, mss, mwl, dwd, swh, dwp, dcp0, dcg0, dcp, &
-                         dcg, opeak, ppeak, dwl, om, pm, cp0, cg0
+                         mwp, mwd, mss, mwl, dwd, swh, dwp, dcp0, dcg0, dcp, dcg, &
+                         opeak, ppeak, dwl, om, pm, cp0, cg0, umwm
   implicit none
 
   integer, intent(in) :: i
@@ -17,6 +17,26 @@ subroutine umwm_diag(i)
   integer             :: o, opk, ppk, pmax(om)
   real                :: m0, m2, m3, xcomp, ycomp
   real                :: evsum(om), exsum(om), eysum(om), evmax(om)
+
+  if (.not. umwm%iactive(i)) then
+
+     mwp  (i) = 0.0
+     mwd  (i) = 0.0
+     swh  (i) = 0.0
+     mss  (i) = 0.0
+     mwl  (i) = 0.0
+     dwd  (i) = 0.0
+     dwl  (i) = 0.0
+     dwp  (i) = 0.0
+     dcp0 (i) = 0.0
+     dcg0 (i) = 0.0
+     dcp  (i) = 0.0
+     dcg  (i) = 0.0
+     opeak(i) = 0.0
+     ppeak(i) = 0.0
+
+     return
+  endif
 
   do o = 1, om
      evsum(o) = sum( evs(1:pm,o,i) )
@@ -68,8 +88,8 @@ subroutine umwm_diag_orig(i)
 
   use consts_coms, only: pi2
   use umwm_module, only: evs, cth, sth, kdk, freq, k, kdk, dth, th, ucurr, vcurr, &
-                         mwp, mwd, swh, mss, mwl, dwd, swh, dwp, dcp0, dcg0, dcp, &
-                         dcg, opeak, ppeak, dwl, om, pm, cp0, cg0, k3dk
+                         mwp, mwd, mss, mwl, dwd, swh, dwp, dcp0, dcg0, dcp, dcg, &
+                         opeak, ppeak, dwl, om, pm, cp0, cg0, k3dk
 
   implicit none
 

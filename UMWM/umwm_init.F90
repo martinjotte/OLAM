@@ -101,8 +101,8 @@ subroutine init()
      iwsfc = i + omsea
      umwm%seadep(i) = max(dmin, sfcg%topw(iwsfc) - sfcg%bathym(iwsfc))
      umwm%alogzs(i) = log( sfcg%dzt_bot(iwsfc) )
-     umwm%taux(i) = 0.
-     umwm%tauy(i) = 0.
+!    umwm%taux(i) = 0.
+!    umwm%tauy(i) = 0.
   enddo
   !$omp end do nowait
 

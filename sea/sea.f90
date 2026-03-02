@@ -112,8 +112,6 @@ subroutine seacells(isea, timefac_sst, timefac_seaice)
 
   wstar = (grav * sfcg%pblh(iwsfc) * max(sea%sea_wthv(isea),0.0) / airthetav) ** onethird
 
-  nl%iroughsea = 3
-
   ! If the roughness length from the UMWM will be used
 
   use_umwm_roughness = .false.
@@ -526,6 +524,7 @@ subroutine seacell_1( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
   use matrix,      only: matrix8_NxN
   use leaf4_canopy,only: sing_print
   use oname_coms,  only: nl
+  use umwm_module, only: umwmflg, umwm, swh
 
   implicit none
 
@@ -597,6 +596,7 @@ subroutine seacell_1( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
   real :: hcapbcani      ! Inverse of hcapbcan
   real :: hcapsprayi     ! Inverse of hcapspray
   real :: zspray         ! height of top of spray layer [m]
+  real :: zspray0        ! height of top of spray layer [m]
   real :: zsprayo2       ! height of middle of spray layer [m]
 
   real    :: spray_massflux ! Seaspray mass flux from sea [kg m^-2 s^-1]
@@ -838,7 +838,15 @@ subroutine seacell_1( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
         stop 'ssgf - band value not valid'
      endif
 
-     zspray   = wt1 * sig_wavehght(ind) + wt2 * sig_wavehght(ind+1)
+     zspray0 = wt1 * sig_wavehght(ind) + wt2 * sig_wavehght(ind+1)
+     zspray  = zspray0
+     if (nl%umwmflg == 1 .and. nl%use_umwm_swh == 1) then
+        if (umwm%iactive(isea)) then
+           zspray     = max(3.0, swh(isea))
+           spray_mass = spray_mass * zspray / zspray0
+        endif
+     endif
+
      zsprayo2 = 0.5 * zspray
      zsprayo2 = min(zsprayo2, .9*sfcg%dzt_bot(iwsfc)) ! limit middle of spray layer to no higher than
                                                       ! middle of lowest model layer for now
@@ -1075,6 +1083,7 @@ subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
   use matrix,      only: matrix8_NxN
   use leaf4_canopy,only: sing_print
   use oname_coms,  only: nl
+  use umwm_module, only: umwmflg, umwm, swh
 
   implicit none
 
@@ -1154,6 +1163,7 @@ subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
   real :: hcapsprayi     ! Inverse of hcapspray
   real :: hcapspray2i    ! Inverse of hcapspray2
   real :: zspray         ! height of top of spray layer [m]
+  real :: zspray0        ! height of top of spray layer [m]
   real :: zsprayo2       ! middle of middle of spray layer [m]
 
   real    :: spray_massflux  ! Seaspray mass flux from sea [kg m^-2 s^-1]
@@ -1412,7 +1422,17 @@ subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
         stop 'ssgf - band value not valid'
      endif
 
-     zspray   = wt1 * sig_wavehght(ind) + wt2 * sig_wavehght(ind+1)
+     zspray0 = wt1 * sig_wavehght(ind) + wt2 * sig_wavehght(ind+1)
+     zspray  = zspray0
+
+     if (nl%umwmflg == 1 .and. nl%use_umwm_swh == 1) then
+        if (umwm%iactive(isea)) then
+           zspray      = max(3.0, swh(isea))
+           spray_mass  = spray_mass * zspray / zspray0
+           spray2_mass = spray2_mass * zspray / zspray0
+        endif
+     endif
+
      zsprayo2 = 0.5 * zspray
      zsprayo2 = min(zsprayo2, .9*sfcg%dzt_bot(iwsfc)) ! limit middle of spray layer to no higher than
                                                       ! middle of lowest model layer for now
