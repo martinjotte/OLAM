@@ -1,9 +1,8 @@
 subroutine timestep()
 
-use misc_coms,   only: time8, time_istp8, time_istp8p, time_bias, &
+use misc_coms,   only: time8, time_istp8, time_istp8p, time_bias, io6, &
                        nqparm, initial, ilwrtyp, iswrtyp, dtsm, i_o3, &
-                       iparallel, s1900_init, s1900_sim, do_chem, &
-                       nrk_wrtv, nrk_scal
+                       iparallel, s1900_init, s1900_sim, do_chem
 use mem_ijtabs,  only: nstp, istp, mrls, mrl_begl, mrl_endl
 use mem_nudge,   only: nudflag, nudnxp, o3nudflag
 use mem_grid,    only: mza, mwa
@@ -20,19 +19,23 @@ use mem_megan,   only: megan_avg_temp
 use emis_defn,   only: get_emis
 use depv_defn,   only: get_depv
 use wrtv_rk,     only: prog_wrtv_rk
-use wrtv_orig,   only: prog_wrtv_orig
-use check_nan,   only: check_nans, compute_mass_sums
+use check_nan,   only: check_nans, tracer_maxmin
 use pbl_drivers, only: pbl_driver, comp_horiz_k
 use olam_mpi_sfc,only: mpi_send_wsfc, mpi_recv_wsfc
 use hcane_rz,    only: ncycle_hurrinit, icycle_hurrinit, timmax_hurrinit, &
                        vortex_add_thetapert
+use obs_nudge_mod,only: obs_nudge
+use mem_lp,       only: lpflag
+use scalar_transport, only: scalar_transport_rk
+use raddriv,     only: radiate
+
 !use oplot_coms,  only: op
 
 implicit none
 
 integer :: jstp
 
-real(r8) :: rho_old(mza,mwa) ! density at beginning of long timestep [kg/m^3]
+real     :: rho_old(mza,mwa) ! density at beginning of long timestep [kg/m^3]
 real(r8) :: time0
 
 ! +----------------------------------------------------------------------------+
@@ -72,7 +75,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm
    if (mrl_begl(istp) > 0) then
       call tend0(rho_old)
       call comp_alpha_press()
-      call surface_turb_flux()
+
       call sea_spray()
       call dust_src()
    endif
@@ -101,6 +104,12 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm
 
    if (mrl_begl(istp) > 0) then
 
+      if (isfcl > 0) then
+         call surface_driver()
+      else
+         call surface_turb_flux()
+      endif
+
       ! Add incremental axisymmetric potential temperature perturbation
       ! inside the hurricane core to increase vortex intensity
 
@@ -109,10 +118,6 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm
 
          call vortex_add_thetapert()
       endif
-
-      ! small-scale vorticity damping
-
-      call vort_damp()
 
       ! Nudging tendencies
 
@@ -190,9 +195,6 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm
 
    ! call check_nans(11,rvara1=alpha_press)
 
-   !    write(*,'(a)') ' calling mass_sums2 '
-   !    call compute_mass_sums()
-
    ! Bypass call to thiltend_long if using prescribed flow for DCMIP tests
    !--------------------------------------
    if (nl%test_case == 11 .or. &
@@ -200,11 +202,7 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm
        nl%test_case == 13) go to 33
    !--------------------------------------
 
-   if (nrk_wrtv == 1) then
-      call prog_wrtv_orig()
-   else
-      call prog_wrtv_rk()
-   endif
+   call prog_wrtv_rk()
 
    33 continue  ! test_case == 11, 12, or 13
 
@@ -241,16 +239,20 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm
 
    call timeavg_momsc()
 
+   ! Release and advect Lagrangian particles
+
+   if (lpflag == 1 .and. mrl_endl(istp) > 0) then
+      call lpsource()
+      call lpadvect()
+   endif
+
    34 continue
 
    ! call check_nans(13)
 
    if (mrl_endl(istp) > 0) then
-      if (nrk_scal == 1) then
-         call scalar_transport_orig(rho_old)
-      else
-         call scalar_transport_rk(rho_old)
-      endif
+      call scalar_transport_rk(rho_old)
+      if (nl%print_tracer_maxmins) call tracer_maxmin()
    endif
 
    ! call check_pos(1)
@@ -319,7 +321,6 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm
    1400 continue  ! nl%igw_spinup == 1
 
    if (isfcl > 0 .and. mrl_endl(jstp) > 0) then
-      call surface_driver()
 
       if (nl%igw_spinup /= 1) then
          call sfcg_avgatm()
@@ -364,11 +365,6 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm
    !endif
    ! END SPECIAL PLOT SECTION - - - - - - - - - - - - - - - - - -
 
-   ! if (mrl_endl(istp) > 0) then
-   !    write(io6,'(a)') ' calling mass_sums3 '
-   !    call compute_mass_sums()
-   ! endif
-
 enddo
 
 ! For ncar dcmip test cases, compute error norms
@@ -383,7 +379,7 @@ end subroutine timestep
 
 subroutine modsched()
 
-  use mem_ijtabs,  only: nstp, mrl_endl, mrl_ends, mrl_begl, mrl_begs
+  use mem_ijtabs,  only: nstp, mrl_endl, mrl_begl
   use misc_coms,   only: io6, dtlong, nacoust, dtlm, dtsm
   use leaf_coms,   only: dt_leaf
   use lake_coms,   only: dt_lake
@@ -397,7 +393,7 @@ subroutine modsched()
   nstp = nacoust
 
   write(io6,'(/,a)') '=== Timestep Schedule ===='
-  write(io6,'(a,/)') '              jstp    mrl_begl  mrl_begs  mrl_endl  mrl_ends'
+  write(io6,'(a,/)') '              jstp    mrl_begl  mrl_endl'
 
   ! Set timestep lengths
 
@@ -412,9 +408,7 @@ subroutine modsched()
   ! Allocate mrl-schedule arrays
 
   allocate (mrl_begl(nstp)) ; mrl_begl = 0
-  allocate (mrl_begs(nstp)) ; mrl_begs = 0
   allocate (mrl_endl(nstp)) ; mrl_endl = 0
-  allocate (mrl_ends(nstp)) ; mrl_ends = 0
 
   ! Fill acoustic timestep sub-cycling flags for processes
   ! to carry out for each jstp value
@@ -423,11 +417,8 @@ subroutine modsched()
      if (mod(jstp-1, nacoust) == 0) mrl_begl(jstp) = 1
      if (mod(jstp  , nacoust) == 0) mrl_endl(jstp) = 1
 
-     mrl_begs(jstp) = 1
-     mrl_ends(jstp) = 1
-
-     write(io6,333) jstp,mrl_begl(jstp),mrl_begs(jstp),mrl_endl(jstp),mrl_ends(jstp)
-     333 format('modsched0 ',5i10)
+     write(io6,333) jstp,mrl_begl(jstp),mrl_endl(jstp)
+     333 format('modsched0 ',3i10)
   enddo
 
 end subroutine modsched
@@ -440,14 +431,17 @@ subroutine tend0(rho_old)
   use mem_tend,    only: thilt, vmxet, vmyet, vmzet, vmt
   use misc_coms,   only: nrk_scal
   use mem_sfcg,    only: mwsfc, sfcg
-  use mem_basic,   only: vmsc, wmsc, rho, vxesc, vyesc, vzesc
+  use mem_basic,   only: vmasc, wmasc, rho
   use mem_grid,    only: mza, mwa, mva, lpw, lpv
   use consts_coms, only: r8
+  use mem_para,    only: myrank
+  use mem_lp,      only: vxeh, vyeh, vzeh
+  use hcane_rz,    only: vmxeth, vmyeth, vmzeth
 
   implicit none
 
-  real(r8), intent(out) :: rho_old(mza,mwa)
-  integer               :: iw, iv, n, k, iwsfc
+  real, intent(out) :: rho_old(mza,mwa)
+  integer           :: iw, iv, n, k, iwsfc
 
   !$omp parallel
   !$omp do private(k,n)
@@ -459,25 +453,30 @@ subroutine tend0(rho_old)
         vmzet  (k,iw) = 0.0
         thilt  (k,iw) = 0.0
         rho_old(k,iw) = rho(k,iw)
+        wmasc  (k,iw) = 0.0
      enddo
 
-     do k = lpw(iw)-1, mza
-        wmsc(k,iw) = 0.0
-     enddo
-
+     if (allocated(vxeh)) then
+        do k = lpw(iw), mza
+           vxeh(k,iw) = 0.0
+           vyeh(k,iw) = 0.0
+           vzeh(k,iw) = 0.0
+        enddo
+     endif
+     
+     if (allocated(vmxeth)) then
+        do k = lpw(iw), mza    
+           vmxeth(k,iw,:) = 0.0
+           vmyeth(k,iw,:) = 0.0
+           vmzeth(k,iw,:) = 0.0
+        enddo
+     endif
+     
      do n = 1, num_scalar
         do k = lpw(iw), mza
            scalar_tab(n)%var_t(k,iw) = 0.0
         enddo
      enddo
-
-     if (nrk_scal == 1) then
-        do k = lpw(iw), mza
-           vxesc(k,iw) = 0.0
-           vyesc(k,iw) = 0.0
-           vzesc(k,iw) = 0.0
-        enddo
-     endif
 
   enddo
   !$omp end do nowait
@@ -485,8 +484,8 @@ subroutine tend0(rho_old)
   !$omp do private(k)
   do iv = 2, mva
      do k = lpv(iv), mza
-        vmt (k,iv) = 0.0
-        vmsc(k,iv) = 0.0
+        vmt  (k,iv) = 0.0
+        vmasc(k,iv) = 0.0
      enddo
   enddo
   !$omp end do nowait
@@ -509,16 +508,20 @@ end subroutine tend0
 
 subroutine comp_alpha_press()
 
-  use mem_grid,    only: lpw, lpv, mza, dzim, dniv, zfacit
+  use mem_grid,    only: lpw, lpv, mza, dzim, dniv, zfacit, zwgt_top, zwgt_bot
   use mem_ijtabs,  only: jtab_w, jtw_prog, jtab_v, jtv_prog, itab_v
   use consts_coms, only: pc1, rdry, rvap, cpocv, gravo2
   use mem_basic,   only: rr_v, rr_w, theta, thil, alpha_press, &
                          pwfac, pvfac
+  use micro_coms,  only: miclevel
 
   implicit none
 
   integer :: j, iw, k, iv, iw1, iw2
   real    :: rw
+
+  ! No modificiations necessary if vapor is passive
+  if (miclevel == 0) return
 
   !$omp parallel
   !$omp do private(iw,k,rw)
@@ -537,7 +540,7 @@ subroutine comp_alpha_press()
      do k = lpw(iw), mza-1
       ! pwfac(k,iw) = dzim(k) * ( zwgt_bot(k) / (1. + rr_w(k  ,iw)) &
       !                         + zwgt_top(k) / (1. + rr_w(k+1,iw)) )
-        rw          = 0.5 * (rr_w(k+1,iw) + rr_w(k,iw))
+        rw          = zwgt_top(k) * rr_w(k+1,iw) + zwgt_bot(k) * rr_w(k,iw)
         pwfac(k,iw) = dzim(k) * (1.0 - rw + rw * rw)
      enddo
 
@@ -568,35 +571,63 @@ end subroutine comp_alpha_press
 
 subroutine timeavg_momsc()
 
-  use mem_ijtabs, only: istp, mrl_endl
-  use mem_grid,   only: mza, mva, mwa, lpw, lpv
+  use mem_ijtabs, only: istp, mrl_endl, jtab_w, jtw_prog, jtab_v, jtv_wadj
+  use mem_grid,   only: mza, lpw, lpv
   use misc_coms,  only: nacoust
-  use mem_basic,  only: vmsc, wmsc
+  use mem_basic,  only: vmasc, wmasc
+  use consts_coms,only: r8
+  use mem_lp,     only: vxeh, vyeh, vzeh
+  use hcane_rz,   only: vmxeth, vmyeth, vmzeth
 
   implicit none
 
-  integer :: k, iv, iw
-  real    :: acoi
+  integer :: k, iv, iw, j
+  real(r8) :: acoi
 
-  if (mrl_endl(istp) > 0) then
-     acoi = 1.0 / nacoust
+  if (mrl_endl(istp) > 0 .and. nacoust > 1) then
+     acoi = 1._r8 / real(nacoust,r8)
 
      !$omp parallel
-     !$omp do private(k)
-     do iv = 2, mva
+     !$omp do private(iv,k)
+     do j = 1, jtab_v(jtv_wadj)%jend; iv = jtab_v(jtv_wadj)%iv(j)
         do k = lpv(iv), mza
-           vmsc(k,iv) = vmsc(k,iv) * acoi
+           vmasc(k,iv) = vmasc(k,iv) / real(nacoust)
         enddo
      enddo
      !$omp end do nowait
 
-     !$omp do private(k)
-     do iw = 2, mwa
+     !$omp do private(iw,k)
+     do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
         do k = lpw(iw), mza-1
-           wmsc(k,iw) = wmsc(k,iw) * acoi
+           wmasc(k,iw) = wmasc(k,iw) / real(nacoust)
         enddo
      enddo
      !$omp end do nowait
+
+     if (allocated(vxeh)) then
+        !$omp do private(iw,k)
+        do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
+           do k = lpw(iw), mza
+              vxeh(k,iw) = vxeh(k,iw) * acoi
+              vyeh(k,iw) = vyeh(k,iw) * acoi
+              vzeh(k,iw) = vzeh(k,iw) * acoi
+           enddo
+        enddo
+        !$omp end do nowait
+     endif
+     
+     if (allocated(vmxeth)) then
+        !$omp do private(iw,k)
+        do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
+           do k = lpw(iw), mza
+              vmxeth(k,iw,:) = vmxeth(k,iw,:) * acoi
+              vmyeth(k,iw,:) = vmyeth(k,iw,:) * acoi
+              vmzeth(k,iw,:) = vmzeth(k,iw,:) * acoi
+           enddo
+        enddo
+        !$omp end do nowait
+     endif
+     
      !$omp end parallel
 
   endif

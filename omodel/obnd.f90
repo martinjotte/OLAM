@@ -73,15 +73,21 @@ end subroutine set_scalars_lbc
 
 !===============================================================================
 
-subroutine lbcopy_m(a1, a2)
+subroutine lbcopy_m(a1, a2, v1, v2, iv1, iv2)
 
   use mem_ijtabs, only: jtab_m, itab_m, jtm_lbcp
   use mem_grid,   only: mza, mma
 
   implicit none
 
-  real, optional, intent(inout) :: a1(mza,mma)
-  real, optional, intent(inout) :: a2(mza,mma)
+  real,    optional, contiguous, intent(inout) :: a1(:,:)
+  real,    optional, contiguous, intent(inout) :: a2(:,:)
+
+  real,    optional, contiguous, intent(inout) :: v1(:)
+  real,    optional, contiguous, intent(inout) :: v2(:)
+
+  integer, optional, contiguous, intent(inout) :: iv1(:)
+  integer, optional, contiguous, intent(inout) :: iv2(:)
 
   integer :: j,im,imp
 
@@ -94,7 +100,13 @@ subroutine lbcopy_m(a1, a2)
      imp = itab_m(im)%imp
 
      if (present(a1)) a1(:,im) = a1(:,imp)
-     if (present(a1)) a2(:,im) = a2(:,imp)
+     if (present(a2)) a2(:,im) = a2(:,imp)
+
+     if (present(v1)) v1(im) = v1(imp)
+     if (present(v2)) v2(im) = v2(imp)
+
+     if (present(iv1)) iv1(im) = iv1(imp)
+     if (present(iv2)) iv2(im) = iv2(imp)
 
   enddo
   !$omp end parallel do
@@ -141,10 +153,9 @@ end subroutine lbcopy_v
 
 !===============================================================================
 
-subroutine lbcopy_w(a1,  a2,  a3,  a4,  a5,  a6,  a7,  a8,  a9,  a10, &
-                    a11, a12, a13, a14, a15, a16, a17, a18, a19, a20, &
+subroutine lbcopy_w(a1,  a2,  a3,  a4,  a5,  a6,  a7,  a8,  a9,  a10, a11, &
                     d1,  d2,  s1,  s2,  v1,  v2,  v3,  v4,  vd1, vd2, &
-                    iv1, iv2, iv3)
+                    iv1, iv2, iv3, aa,  bb)
 
   use mem_ijtabs,  only: jtab_w, itab_w, jtw_lbcp
   use mem_grid,    only: mza, mwa
@@ -164,15 +175,15 @@ subroutine lbcopy_w(a1,  a2,  a3,  a4,  a5,  a6,  a7,  a8,  a9,  a10, &
   real, optional, intent(inout) :: a9 (mza,mwa)
   real, optional, intent(inout) :: a10(mza,mwa)
   real, optional, intent(inout) :: a11(mza,mwa)
-  real, optional, intent(inout) :: a12(mza,mwa)
-  real, optional, intent(inout) :: a13(mza,mwa)
-  real, optional, intent(inout) :: a14(mza,mwa)
-  real, optional, intent(inout) :: a15(mza,mwa)
-  real, optional, intent(inout) :: a16(mza,mwa)
-  real, optional, intent(inout) :: a17(mza,mwa)
-  real, optional, intent(inout) :: a18(mza,mwa)
-  real, optional, intent(inout) :: a19(mza,mwa)
-  real, optional, intent(inout) :: a20(mza,mwa)
+! real, optional, intent(inout) :: a12(mza,mwa)
+! real, optional, intent(inout) :: a13(mza,mwa)
+! real, optional, intent(inout) :: a14(mza,mwa)
+! real, optional, intent(inout) :: a15(mza,mwa)
+! real, optional, intent(inout) :: a16(mza,mwa)
+! real, optional, intent(inout) :: a17(mza,mwa)
+! real, optional, intent(inout) :: a18(mza,mwa)
+! real, optional, intent(inout) :: a19(mza,mwa)
+! real, optional, intent(inout) :: a20(mza,mwa)
 
   ! For real*8 2D arrays dimensioned to mza
   real(r8), optional, intent(inout) :: d1(mza,mwa)
@@ -193,17 +204,21 @@ subroutine lbcopy_w(a1,  a2,  a3,  a4,  a5,  a6,  a7,  a8,  a9,  a10, &
   integer, optional, intent(inout) :: iv2(mwa)
   integer, optional, intent(inout) :: iv3(mwa)
 
+  ! Variables dimensioned (:,mwa,:)
+  real, optional, contiguous, intent(inout) :: aa(:,:,:)
+  real, optional, contiguous, intent(inout) :: bb(:,:,:)
+
   ! For real 2D arrays where the size of the first dimension is not mza
   real, optional, contiguous, intent(inout) :: s1(:,:)
   real, optional, contiguous, intent(inout) :: s2(:,:)
 
-  integer :: j,iw,iwp
+  integer :: j,iw,iwp,i,is
 
   ! Lateral boundary copy (usually cyclic)
 
   if (jtab_w(jtw_lbcp)%jend < 1) return
 
-  !$omp parallel do private(iw,iwp)
+  !$omp parallel do private(iw,iwp,i,is)
   do j = 1,jtab_w(jtw_lbcp)%jend; iw = jtab_w(jtw_lbcp)%iw(j)
      iwp = itab_w(iw)%iwp
 
@@ -218,15 +233,15 @@ subroutine lbcopy_w(a1,  a2,  a3,  a4,  a5,  a6,  a7,  a8,  a9,  a10, &
      if (present(a9 )) a9 (:,iw) = a9 (:,iwp)
      if (present(a10)) a10(:,iw) = a10(:,iwp)
      if (present(a11)) a11(:,iw) = a11(:,iwp)
-     if (present(a12)) a12(:,iw) = a12(:,iwp)
-     if (present(a13)) a13(:,iw) = a13(:,iwp)
-     if (present(a14)) a14(:,iw) = a14(:,iwp)
-     if (present(a15)) a15(:,iw) = a15(:,iwp)
-     if (present(a16)) a16(:,iw) = a16(:,iwp)
-     if (present(a17)) a17(:,iw) = a17(:,iwp)
-     if (present(a18)) a18(:,iw) = a18(:,iwp)
-     if (present(a19)) a19(:,iw) = a19(:,iwp)
-     if (present(a20)) a20(:,iw) = a20(:,iwp)
+!    if (present(a12)) a12(:,iw) = a12(:,iwp)
+!    if (present(a13)) a13(:,iw) = a13(:,iwp)
+!    if (present(a14)) a14(:,iw) = a14(:,iwp)
+!    if (present(a15)) a15(:,iw) = a15(:,iwp)
+!    if (present(a16)) a16(:,iw) = a16(:,iwp)
+!    if (present(a17)) a17(:,iw) = a17(:,iwp)
+!    if (present(a18)) a18(:,iw) = a18(:,iwp)
+!    if (present(a19)) a19(:,iw) = a19(:,iwp)
+!    if (present(a20)) a20(:,iw) = a20(:,iwp)
 
      if (present(v1 )) v1   (iw) = v1   (iwp)
      if (present(v2 )) v2   (iw) = v2   (iwp)
@@ -245,6 +260,20 @@ subroutine lbcopy_w(a1,  a2,  a3,  a4,  a5,  a6,  a7,  a8,  a9,  a10, &
      if (present(iv1)) iv1  (iw) = iv1  (iwp)
      if (present(iv2)) iv2  (iw) = iv2  (iwp)
      if (present(iv3)) iv3  (iw) = iv3  (iwp)
+
+     if (present(aa)) then
+        is = size(aa,3)
+        do i = 1, is
+           aa(:,iw,i) = aa(:,iwp,i)
+        enddo
+     endif
+
+     if (present(bb)) then
+        is = size(bb,3)
+        do i = 1, is
+           bb(:,iw,i) = bb(:,iwp,i)
+        enddo
+     endif
 
   enddo
   !$omp end parallel do

@@ -215,49 +215,25 @@ Contains
 
            ! Construct filename
 
-           if (iaction == 'topo2') then
+           isocpt = abs(isoc) / 10
+           isocpo = abs(isoc) - isocpt*10
+           iwocph = abs(iwoc) / 100
+           iwocpt = (abs(iwoc) - iwocph * 100) / 10
+           iwocpo = abs(iwoc) - iwocph * 100 - iwocpt * 10
 
-              ! This is tailored for srtm3s dataset in esri-ascii format
-
-              klat = (60 - isoc) / 5
-              klon = (iwoc + 185) / 5
-
-              latt = klat / 10
-              lato = klat - latt * 10
-
-              lont = klon / 10
-              lono = klon - lont * 10
-
-              write(title0,'(2i1)')lont,lono
-              write(title1,'(a1,2i1)')'_',latt,lato
-
-              fname = trim(ofn2)//'_'//title0//title1//'.asc'
-
+           if (isoc >= 0) then
+              write(title1,'(2i1,a1)') isocpt,isocpo,'N'
            else
-
-              ! This is tailored for standard OLAM database files in hdf5 format
-
-              isocpt = abs(isoc) / 10
-              isocpo = abs(isoc) - isocpt*10
-              iwocph = abs(iwoc) / 100
-              iwocpt = (abs(iwoc) - iwocph * 100) / 10
-              iwocpo = abs(iwoc) - iwocph * 100 - iwocpt * 10
-
-              if (isoc >= 0) then
-                 write(title1,'(2i1,a1)') isocpt,isocpo,'N'
-              else
-                 write(title1,'(2i1,a1)') isocpt,isocpo,'S'
-              endif
-
-              if (iwoc >= 0) then
-                 write(title2,'(3i1,a1)') iwocph,iwocpt,iwocpo,'E'
-              else
-                 write(title2,'(3i1,a1)') iwocph,iwocpt,iwocpo,'W'
-              endif
-
-              fname = trim(ofn2)//title1//title2//'.h5'
-
+              write(title1,'(2i1,a1)') isocpt,isocpo,'S'
            endif
+
+           if (iwoc >= 0) then
+              write(title2,'(3i1,a1)') iwocph,iwocpt,iwocpo,'E'
+           else
+              write(title2,'(3i1,a1)') iwocph,iwocpt,iwocpo,'W'
+           endif
+
+           fname = trim(ofn2)//title1//title2//'.h5'
 
 !D Modification for reading Amazon deforestation OGE files
 
@@ -274,76 +250,43 @@ Contains
 
            inquire(file=fname,exist=l1,opened=l2)
 
-           if (trim(iaction) == 'topo2') then
+           if (l1) then
+              write(io6,*) 'getting file ',trim(fname)
 
-              ! This section is for srtm3s dataset in esri-ascii format
+              call shdf5_open(fname,'R',serial=.true.)
 
-              if (l1) then
-                 write(io6,*) 'getting file ',trim(fname)
+              ndims = 2
+              idims(1) = nio
+              idims(2) = njo
 
-                 open(50, file=trim(fname), status='OLD', form='FORMATTED', action='READ')
-
-                 read(50,*) line
-                 read(50,*) line
-                 read(50,*) line
-                 read(50,*) line
-                 read(50,*) line
-                 read(50,*) line
-
-                 do j = 1,njo
-                    jj = njo + 1 - j
-                    read(50,*) (dato(i,jj),i=1,nio)
-                 enddo
-                 close(50)
-
+              if     (trim(iaction) == 'topo') then
+                 call shdf5_irec(ndims,idims,'topo',rvar2=dato)
+              elseif (trim(iaction) == 'topo2') then
+                 call shdf5_irec(ndims,idims,'srtmh',rvar2=dato)
+              elseif (trim(iaction) == 'leaf_class') then
+                 call shdf5_irec(ndims,idims,'oge2',ivar2=idato)
+              elseif (trim(iaction) == 'soil_text') then
+                 call shdf5_irec(ndims,idims,'fao',ivar2=idato)
+              elseif (trim(iaction) == 'ndvi') then
+                 call shdf5_irec(ndims,idims,'ndvi',rvar2=dato)
+              elseif (trim(iaction) == 'wtd') then
+                 call shdf5_irec(ndims,idims,'WTD',rvar2=dato)
+              elseif (iaction == 'orog') then
+                 call shdf5_irec(ndims,idims,'orog',rvar2=dato)
+              elseif (iaction == 'etopo1') then
+                 call shdf5_irec(ndims,idims,'etopo1',ivar2=idato)
               else
-
-                 print*, 'topo2 file ', trim(fname), ' not found; skipping file '
-                 cycle
-
+                 write(io6,*) 'incorrect action specified in leaf_database'
+                 write(io6,*) 'stopping run'
+                 stop 'stop landuse_input1'
               endif
 
+              call shdf5_close()
            else
-
-              ! This section is for standard OLAM database files in hdf5 format
-
-              if (l1) then
-                 write(io6,*) 'getting file ',trim(fname)
-
-                 call shdf5_open(fname,'R')
-
-                 ndims = 2
-                 idims(1) = nio
-                 idims(2) = njo
-
-                 if     (trim(iaction) == 'topo') then
-                    call shdf5_irec(ndims,idims,'topo',rvar2=dato)
-                 elseif (trim(iaction) == 'leaf_class') then
-                    call shdf5_irec(ndims,idims,'oge2',ivar2=idato)
-                 elseif (trim(iaction) == 'soil_text') then
-                    call shdf5_irec(ndims,idims,'fao',ivar2=idato)
-                 elseif (trim(iaction) == 'ndvi') then
-                    call shdf5_irec(ndims,idims,'ndvi',rvar2=dato)
-                 elseif (trim(iaction) == 'wtd') then
-                    call shdf5_irec(ndims,idims,'WTD',rvar2=dato)
-                 elseif (iaction == 'orog') then
-                    call shdf5_irec(ndims,idims,'orog',rvar2=dato)
-                 elseif (iaction == 'etopo1') then
-                    call shdf5_irec(ndims,idims,'etopo1',rvar2=dato)
-                 else
-                    write(io6,*) 'incorrect action specified in leaf_database'
-                    write(io6,*) 'stopping run'
-                    stop 'stop landuse_input1'
-                 endif
-
-                 call shdf5_close()
-              else
-                 write(io6,*) 'In landuse_input, ',iaction,' file is missing'
-                 write(io6,*) 'Filename = ',trim(fname)
-                 write(io6,*) 'Stopping model run'
-                 stop 'stop_landuse_input2'
-              endif
-
+              write(io6,*) 'In landuse_input, ',iaction,' file is missing'
+              write(io6,*) 'Filename = ',trim(fname)
+              write(io6,*) 'Stopping model run'
+              stop 'stop_landuse_input2'
            endif
 
            !$omp parallel do private(iq,qlat1,qlon1,rio_full,rjo_full,io_full, &
@@ -372,8 +315,8 @@ Contains
               io1 = mod(io_full,niosh) + 1
               jo1 = mod(jo_full,njosh) + 1
 
-              wio2 = rio_full - float(io_full) + offpix
-              wjo2 = rjo_full - float(jo_full) + offpix
+              wio2 = rio_full - real(io_full) + offpix
+              wjo2 = rjo_full - real(jo_full) + offpix
 
               ! At this point, io1, jo1, wio2, and wjo2 are correct if offpix = 0,
               ! but need correction if offpix = .5
@@ -399,14 +342,21 @@ Contains
               if (iaction == 'topo'  .or. &
                   iaction == 'topo2' .or. &
                   iaction == 'ndvi'  .or. &
-                  iaction == 'orog'  .or. &
-                  iaction == 'etopo1') then
+                  iaction == 'orog'  ) then
 
                  ! Interpolate from 4 surrounding values
 
                  datq(iq) &
                     = wio1 * (wjo1 * dato(io1,jo1) + wjo2 * dato(io1,jo2)) &
                     + wio2 * (wjo1 * dato(io2,jo1) + wjo2 * dato(io2,jo2))
+
+              elseif (trim(iaction) == 'etopo1') then
+
+                 ! Interpolate from 4 surrounding values
+
+                 datq(iq) &
+                    = wio1 * (wjo1 * real(idato(io1,jo1)) + wjo2 * real(idato(io1,jo2))) &
+                    + wio2 * (wjo1 * real(idato(io2,jo1)) + wjo2 * real(idato(io2,jo2)))
 
               elseif (trim(iaction) == 'wtd') then
 

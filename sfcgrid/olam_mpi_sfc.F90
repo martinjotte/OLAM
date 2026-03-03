@@ -40,9 +40,9 @@ Contains
 subroutine olam_mpi_sfc_start()
 
 #ifdef OLAM_MPI
-  use mem_para,  only: nbytes_int, nbytes_real
-  use mem_land,  only: nzg
-  use leaf_coms, only: nzs
+  use mem_para,    only: nbytes_int, nbytes_real
+  use mem_land,    only: nzg, nzs_max
+  use umwm_module, only: om, pm, umwmflg
   use mpi
 #endif
 
@@ -63,12 +63,19 @@ subroutine olam_mpi_sfc_start()
   allocate( ireqs_msfc(nsends_msfc,2) ) ; ireqs_msfc = MPI_REQUEST_NULL
   allocate( ireqr_msfc(nrecvs_msfc,2) ) ; ireqr_msfc = MPI_REQUEST_NULL
 
-  ! Determine number of bytes to send per IWSFC column
+  ! Determine max number of bytes to send per IWSFC column
 
-  nbytes_per_iwsfc =  3       * nbytes_int  &
-                   + 20       * nbytes_real &
-                   +  2 * nzg * nbytes_real &
-                   +  3 * nzs * nbytes_real
+  if (umwmflg == 1) then
+
+     nbytes_per_iwsfc = 3                                  * nbytes_int  &
+                      + max(24 + 2*nzg + 3*nzs_max, om*pm) * nbytes_real
+  else
+
+     nbytes_per_iwsfc =  3           * nbytes_int  &
+                      + 24           * nbytes_real &
+                      +  2 * nzg     * nbytes_real &
+                      +  3 * nzs_max * nbytes_real
+  endif
 
   do jrecv = 1, nrecvs_wsfc
      recv_wsfc(jrecv)%nbytes  = recv_wsfc(jrecv)%jend * nbytes_per_iwsfc
@@ -135,7 +142,7 @@ end subroutine olam_mpi_sfc_start
 
 !===============================================================================
 
-subroutine mpi_send_wsfc(set, soil_watfrac, div2d_ex)
+subroutine mpi_send_wsfc(set, soil_watfrac, div2d_ex, umwmvar, rvar, ivar)
 
   ! Subroutine to perform a parallel MPI send of a "WSFC group"
   ! of field variables
@@ -144,19 +151,22 @@ subroutine mpi_send_wsfc(set, soil_watfrac, div2d_ex)
   use mpi
 #endif
 
-  use mem_sfcg,  only: sfcg
-  use mem_land,  only: nzg, land, mland, omland
-  use mem_lake,  only: lake, omlake
-  use mem_sea,   only: sea, msea, omsea
-  use leaf_coms, only: nzs
-  use sea_coms,  only: nzi
-  use misc_coms, only: do_chem
+  use mem_sfcg,    only: sfcg, mwsfc
+  use mem_land,    only: nzg, nzs_max, land, mland, omland
+  use mem_lake,    only: lake, omlake
+  use mem_sea,     only: sea, msea, omsea
+  use sea_coms,    only: nzi
+  use misc_coms,   only: do_chem
+  use umwm_module, only: om, pm
 
   implicit none
 
   character(*), optional, intent(in) :: set
-  real, optional, intent(inout) :: soil_watfrac(nzg,mland)
-  real, optional, intent(inout) :: div2d_ex(msea)
+  real,    optional, intent(inout) :: soil_watfrac(nzg,mland)
+  real,    optional, intent(inout) :: div2d_ex(msea)
+  real,    optional, intent(inout) :: rvar(mwsfc)
+  integer, optional, intent(inout) :: ivar(mwsfc)
+  real,    optional, intent(inout) :: umwmvar(om,pm,msea)
 
 #ifdef OLAM_MPI
 
@@ -269,12 +279,27 @@ subroutine mpi_send_wsfc(set, soil_watfrac, div2d_ex)
 
         elseif (set == 'sfc_driv_end') then
 
-           call MPI_Pack(sfcg%cantemp(iwsfc),1,MPI_REAL, &
+           call MPI_Pack(sfcg%ustar  (iwsfc),1,MPI_REAL, &
                          send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
-           call MPI_Pack(sfcg%canrrv (iwsfc),1,MPI_REAL, &
-                         send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
+
            call MPI_Pack(sfcg%wthv   (iwsfc),1,MPI_REAL, &
                          send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
+
+           call MPI_Pack(sfcg%sfluxt (iwsfc),1,MPI_REAL, &
+                         send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
+
+           call MPI_Pack(sfcg%sfluxr (iwsfc),1,MPI_REAL, &
+                         send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
+
+           call MPI_Pack(sfcg%vkmsfc (iwsfc),1,MPI_REAL, &
+                         send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
+
+           call MPI_Pack(sfcg%cantemp(iwsfc),1,MPI_REAL, &
+                         send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
+
+           call MPI_Pack(sfcg%canrrv (iwsfc),1,MPI_REAL, &
+                         send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
+
            call MPI_Pack(sfcg%rough  (iwsfc),1,MPI_REAL, &
                          send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
 
@@ -317,13 +342,13 @@ subroutine mpi_send_wsfc(set, soil_watfrac, div2d_ex)
            elseif (sfcg%leaf_class(iwsfc) >= 2) then
               iland = iwsfc - omland
 
-              call MPI_Pack(land%sfcwater_mass  (1,iland),nzs, MPI_REAL, &
+              call MPI_Pack(land%sfcwater_mass (1,iland),nzs_max, MPI_REAL, &
                             send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
-              call MPI_Pack(land%sfcwater_energy(1,iland),nzs, MPI_REAL, &
+              call MPI_Pack(land%sfcwater_epm2 (1,iland),nzs_max, MPI_REAL, &
                             send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
-              call MPI_Pack(land%sfcwater_depth (1,iland),nzs, MPI_REAL, &
+              call MPI_Pack(land%sfcwater_depth(1,iland),nzs_max, MPI_REAL, &
                             send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
-              call MPI_Pack(land%nlev_sfcwater    (iland),1,MPI_INTEGER, &
+              call MPI_Pack(land%skncomp          (iland),  1,MPI_INTEGER, &
                             send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
               call MPI_Pack(land%veg_fracarea     (iland),1,   MPI_REAL, &
                             send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
@@ -356,6 +381,8 @@ subroutine mpi_send_wsfc(set, soil_watfrac, div2d_ex)
                          send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
            call MPI_Pack(sfcg%prss    (iwsfc),1,MPI_REAL, &
                          send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
+           call MPI_Pack(sfcg%canexner(iwsfc),1,MPI_REAL, &
+                         send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
            call MPI_Pack(sfcg%rhos    (iwsfc),1,MPI_REAL, &
                          send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
            call MPI_Pack(sfcg%airtemp (iwsfc),1,MPI_REAL, &
@@ -363,6 +390,8 @@ subroutine mpi_send_wsfc(set, soil_watfrac, div2d_ex)
            call MPI_Pack(sfcg%airtheta(iwsfc),1,MPI_REAL, &
                          send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
            call MPI_Pack(sfcg%airrrv  (iwsfc),1,MPI_REAL, &
+                         send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
+           call MPI_Pack(sfcg%pblh    (iwsfc),1,MPI_REAL, &
                          send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
 
            if (sfcg%leaf_class(iwsfc) == 0) then
@@ -375,6 +404,29 @@ subroutine mpi_send_wsfc(set, soil_watfrac, div2d_ex)
               call MPI_Pack(sea%windze(isea),1,MPI_REAL, &
                             send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
 
+           endif
+
+        elseif (set == 'plot_avg') then
+
+           if (present(rvar)) then
+              call MPI_Pack(rvar(iwsfc),1,MPI_REAL, &
+                            send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
+           endif
+
+           if (present(ivar)) then
+              call MPI_Pack(ivar(iwsfc),1,MPI_INTEGER, &
+                            send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
+           endif
+
+        elseif (set == 'umwm') then
+
+           if (sfcg%leaf_class(iwsfc) == 0) then
+              isea = iwsfc - omsea
+
+              if (present(umwmvar)) then
+                 call MPI_Pack(umwmvar(:,:,isea),om*pm,MPI_REAL, &
+                               send_wsfc(jsend)%buff,nb,ipos,MPI_COMM_WORLD,ierr)
+              endif
            endif
 
         endif
@@ -546,7 +598,7 @@ subroutine mpi_send_msfc(vort)
   use mpi
 #endif
 
-  use mem_sfcg,   only: sfcg, itab_msfc, mmsfc
+  use mem_sfcg, only: mmsfc
 
   implicit none
 
@@ -556,7 +608,7 @@ subroutine mpi_send_msfc(vort)
 
   integer :: ierr, ipos
   integer :: jsend, jtmp, jj, nb
-  integer :: imsfc, iw1, iw2
+  integer :: imsfc
 
   ! Before we send anything, post the receives
 
@@ -611,7 +663,7 @@ end subroutine mpi_send_msfc
 
 !=============================================================================
 
-subroutine mpi_recv_wsfc(set, soil_watfrac, div2d_ex)
+subroutine mpi_recv_wsfc(set, soil_watfrac, div2d_ex, umwmvar, rvar, ivar)
 
   ! Subroutine to perform a parallel MPI receive of a "WSFC group"
   ! of field variables
@@ -620,19 +672,22 @@ subroutine mpi_recv_wsfc(set, soil_watfrac, div2d_ex)
   use mpi
 #endif
 
-  use mem_sfcg,  only: sfcg
-  use leaf_coms, only: nzs
-  use sea_coms,  only: nzi
-  use mem_land,  only: nzg, mland, land, omland
-  use mem_lake,  only: lake, omlake
-  use mem_sea,   only: sea, msea, omsea
-  use misc_coms, only: do_chem
+  use mem_sfcg,    only: sfcg, mwsfc
+  use sea_coms,    only: nzi
+  use mem_land,    only: nzg, nzs_max, mland, land, omland
+  use mem_lake,    only: lake, omlake
+  use mem_sea,     only: sea, msea, omsea
+  use misc_coms,   only: do_chem
+  use umwm_module, only: om, pm
 
   implicit none
 
   character(*), optional, intent(in) :: set
-  real, optional, intent(inout) :: soil_watfrac(nzg,mland)
-  real, optional, intent(inout) :: div2d_ex(msea)
+  real,    optional, intent(inout) :: soil_watfrac(nzg,mland)
+  real,    optional, intent(inout) :: div2d_ex(msea)
+  real,    optional, intent(inout) :: rvar(mwsfc)
+  integer, optional, intent(inout) :: ivar(mwsfc)
+  real,    optional, intent(inout) :: umwmvar(om,pm,msea)
 
 #ifdef OLAM_MPI
 
@@ -749,11 +804,26 @@ subroutine mpi_recv_wsfc(set, soil_watfrac, div2d_ex)
         elseif (set == 'sfc_driv_end') then
 
            call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
-                           sfcg%cantemp  (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
-           call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
-                           sfcg%canrrv   (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+                           sfcg%ustar     (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+
            call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
                            sfcg%wthv      (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+
+           call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                           sfcg%sfluxt    (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+
+           call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                           sfcg%sfluxr    (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+
+           call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                           sfcg%vkmsfc    (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+
+           call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                           sfcg%cantemp  (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+
+           call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                           sfcg%canrrv   (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+
            call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
                            sfcg%rough     (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
 
@@ -797,13 +867,13 @@ subroutine mpi_recv_wsfc(set, soil_watfrac, div2d_ex)
               iland = iwsfc - omland
 
               call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
-                              land%sfcwater_mass  (1,iland),nzs,MPI_REAL,MPI_COMM_WORLD,ierr)
+                              land%sfcwater_mass (1,iland),nzs_max,MPI_REAL,MPI_COMM_WORLD,ierr)
               call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
-                              land%sfcwater_energy(1,iland),nzs,MPI_REAL,MPI_COMM_WORLD,ierr)
+                              land%sfcwater_epm2 (1,iland),nzs_max,MPI_REAL,MPI_COMM_WORLD,ierr)
               call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
-                              land%sfcwater_depth (1,iland),nzs,MPI_REAL,MPI_COMM_WORLD,ierr)
+                              land%sfcwater_depth(1,iland),nzs_max,MPI_REAL,MPI_COMM_WORLD,ierr)
               call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
-                              land%nlev_sfcwater    (iland),  1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
+                              land%skncomp          (iland),  1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
               call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
                               land%veg_fracarea     (iland),  1,MPI_REAL,MPI_COMM_WORLD,ierr)
               call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
@@ -836,6 +906,8 @@ subroutine mpi_recv_wsfc(set, soil_watfrac, div2d_ex)
            call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
                            sfcg%prss    (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
            call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                           sfcg%canexner(iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+           call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
                            sfcg%rhos    (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
            call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
                            sfcg%airtemp (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
@@ -843,6 +915,8 @@ subroutine mpi_recv_wsfc(set, soil_watfrac, div2d_ex)
                            sfcg%airtheta(iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
            call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
                            sfcg%airrrv  (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+           call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                           sfcg%pblh    (iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
 
            if (sfcg%leaf_class(iwsfc) == 0) then
               isea = iwsfc - omsea
@@ -854,6 +928,29 @@ subroutine mpi_recv_wsfc(set, soil_watfrac, div2d_ex)
               call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
                               sea%windze(isea),1,MPI_REAL,MPI_COMM_WORLD,ierr)
 
+           endif
+
+        elseif (set == 'plot_avg') then
+
+           if (present(rvar)) then
+              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                              rvar(iwsfc),1,MPI_REAL,MPI_COMM_WORLD,ierr)
+           endif
+
+           if (present(ivar)) then
+              call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                              ivar(iwsfc),1,MPI_INTEGER,MPI_COMM_WORLD,ierr)
+           endif
+
+        elseif (set == 'umwm') then
+
+           if (sfcg%leaf_class(iwsfc) == 0) then
+              isea = iwsfc - omsea
+
+              if (present(umwmvar)) then
+                 call MPI_Unpack(recv_wsfc(jrecv)%buff,recv_wsfc(jrecv)%nbytes,ipos, &
+                                 umwmvar(:,:,isea),om*pm,MPI_REAL,MPI_COMM_WORLD,ierr)
+              endif
            endif
 
         endif
@@ -1017,9 +1114,7 @@ subroutine mpi_recv_msfc(vort)
   use mpi
 #endif
 
-  use mem_sfcg,   only: sfcg, mmsfc, itab_msfc
-  use mem_land,   only: nzg
-  use oname_coms, only: nl
+  use mem_sfcg, only: mmsfc
 
   implicit none
 

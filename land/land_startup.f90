@@ -1,7 +1,7 @@
 subroutine land_startup()
 
-  use leaf_coms,   only: nzs, ndviflg, iupdndvi, isoilflg, specifheat_bedrock
-  use mem_land,    only: alloc_land, filltab_land, land, mland, nzg, slzt, omland
+  use leaf_coms,   only: ndviflg, iupdndvi, isoilflg, specifheat_bedrock
+  use mem_land,    only: alloc_land2, filltab_land, land, mland, nzg, slzt, omland
   use misc_coms,   only: runtype
   use mem_sfcg,    only: sfcg
   use consts_coms, only: cice
@@ -18,7 +18,7 @@ subroutine land_startup()
 
   ! Allocate time-dependent LEAF arrays and add to history file I/O table
 
-  call alloc_land(mland, nzg, nzs)
+  call alloc_land2 ()
   call filltab_land()
 
   ! Fill ndvi values
@@ -104,7 +104,7 @@ subroutine land_startup()
         ! where bedrock begins much deeper, the transition level is set above
         ! z_bedrock because SoilGrids data is defined only in the top 2 m, while
         ! GLHYMPS applies to roughly the top 100 m.  For now, we choose the
-        ! transition level to be no greater than 10 meters below the surface.
+        ! transition level to be no deeper than 10 meters below the surface.
 
         do k = nzg, 1, -1
            if (slzt(k) < max(-10.0, land%z_bedrock(iland))) exit
@@ -210,7 +210,7 @@ subroutine land_parms()
                         sr_max, tai_max, sai, veg_clump, veg_frac,    &
                         veg_ht, dead_frac, rcmin, glai_max, dfpardsr, &
                         fpar_max, fpar_min, sr_min, z_root, kroot,    &
-                        snowmin_expl, wcap_min, wcap_vmin, dt_leaf
+                        wcap_min, wcap_vmin, dt_leaf
 
   use mem_land,   only: nzg, slz, kperc
 
@@ -288,10 +288,6 @@ subroutine land_parms()
 
   if (nl%igw_spinup /= 1) then
 
-     ! Standard run with ATM coupling and short timestep
-
-     snowmin_expl = max(10.0, 0.04 * dt_leaf)
-
      ! Choose percolation level to be slz level that is closest to -3.0 m in height
 
      zdiff = 1.e4
@@ -304,12 +300,6 @@ subroutine land_parms()
      enddo
 
      write(io6,'(a,i5,f8.2)') 'Percolation level at kperc,slz(kperc) ',kperc,slz(kperc)
-
-  else
-
-     ! Surface stand-alone run with long timestep
-
-     snowmin_expl = 300.
 
   endif
 

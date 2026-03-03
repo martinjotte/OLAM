@@ -2,7 +2,7 @@ subroutine para_decomp()
 
 ! Decompose global grid into multiple subdomains for parallel computation
 
-  use mem_para,   only: mgroupsize
+  use mem_para,   only: mgroupsize, myrank
   use misc_coms,  only: mdomain, iparallel
   use mem_ijtabs, only: itab_v_pd, itab_m_pd, itabg_m, itabg_v, itabg_w
   use mem_nudge,  only: nudflag, nudnxp, nwnud, itabg_wnud, &
@@ -12,6 +12,11 @@ subroutine para_decomp()
                         nvsfc, itabg_vsfc, itab_wsfc_pd, &
                         nwsfc, itabg_wsfc, itab_vsfc_pd
   use consts_coms,only: i8
+  !$ use omp_lib, only: omp_get_max_threads
+
+#ifdef OLAM_MPI
+  use mpi
+#endif
 
   implicit none
 
@@ -23,7 +28,7 @@ subroutine para_decomp()
   integer :: igp,jgp
   integer :: i, j, ii, jj, iinud, jjnud
 
-  integer :: iter,ibin
+  integer :: iter,ibin,ierr,irk
   integer :: ngroups
   integer :: numtot, numcut, numcent
 
@@ -34,6 +39,11 @@ subroutine para_decomp()
   integer :: igsize(mgroupsize)
   integer :: nwg   (mgroupsize)
   integer :: nwgnud(mgroupsize)
+
+  integer :: irank(mgroupsize)
+  real    :: cpufac(mgroupsize)
+  real    :: fi, fj
+!$ real, allocatable :: ompfac(:)
 
   integer, allocatable :: iwtemp(:), jwtemp(:)
   integer, allocatable :: iwnudtemp(:), jwnudtemp(:)
@@ -62,6 +72,26 @@ subroutine para_decomp()
   endif
 
   if (iparallel == 1) then
+
+     ! cpufac is to take into account the relative cpu speed difference between
+     ! nodes. For example, with 4 nodes and nodes 3 and 4 are half the spped of
+     ! the others, then set cpufac = [1.0, 1.0, 0.5, 0.5].
+
+     cpufac(:) = 1.0
+
+     ! ompfac is to take into account differences in the number of cpu cores
+     ! available between nodes when running in hybrid MPI/OpenMP mode on
+     ! heterogeneous clusters.
+
+#ifdef OLAM_MPI
+     !$ allocate( ompfac( mgroupsize ) )
+     !$ ompfac(myrank+1) = real( omp_get_max_threads() )
+     !$ call MPI_Allgather( MPI_IN_PLACE, 1, MPI_REAL,  &
+     !$                     ompfac, 1, MPI_REAL, MPI_COMM_WORLD, ierr )
+     !$ ompfac(:) = ompfac(:) / maxval( ompfac )
+     !$ cpufac(:) = cpufac(:) * ompfac(:)
+     !$ deallocate( ompfac )
+#endif
 
      allocate(iwtemp(nwa-1))
      allocate(jwtemp(nwa-1))
@@ -93,6 +123,8 @@ subroutine para_decomp()
      ngroups = 1
      jgp = 1
      igsize(1) = mgroupsize
+
+     irank(1) = 1
 
      nwg (1) = nwa - 1
      nwgnud(1) = nwnud - 1
@@ -271,13 +303,21 @@ subroutine para_decomp()
 ! Set igsize(jgp) based on numcent
 
                  if (iter == 1) then
+
 !                   igsize(jgp) = (numcent * igsize(igp)) / nwg(igp)
-                    igsize(jgp) = int( (int(numcent,i8) * int(igsize(igp),i8)) / int(nwg(igp),i8) )
-                    igsize(jgp) = max(1,min(igsize(igp)-1,igsize(jgp)))
+                    igsize(jgp) = real(numcent) * real(igsize(igp)) / real(nwg(igp))
+
+                    igsize(jgp) = max(1, min(igsize(igp)-1, igsize(jgp)))
 
                     igsize(igp) = igsize(igp) - igsize(jgp)
-!                   numcut = (nwg(igp) * igsize(igp)) / (igsize(igp) + igsize(jgp))
-                    numcut = int( (int(nwg(igp),i8) * int(igsize(igp),i8)) / int(igsize(igp) + igsize(jgp),i8) )
+
+                    irank(jgp) = irank(igp) + igsize(igp)
+
+!                   numcut = nwg(igp) * igsize(igp) / (igsize(igp) + igsize(jgp))
+                    fi = sum( cpufac( irank(igp):irank(igp)+igsize(igp)-1 ) )
+                    fj = sum( cpufac( irank(jgp):irank(jgp)+igsize(jgp)-1 ) )
+                    numcut = real(nwg(igp)) * fi / (fi + fj)
+
                  endif
 
 ! Sum number in each bin until reaching half of total
@@ -377,12 +417,13 @@ subroutine para_decomp()
    ! Fill irank for each IW point from group array
 
      do igp = 1,ngroups
+        irk = irank(igp) - 1
 
         ! ATM cells
 
         do i = 1,nwg(igp)
            iw = grp(igp)%iw(i)
-           itabg_w(iw)%irank = igp - 1
+           itabg_w(iw)%irank = irk
         enddo
 
         ! WNUD cells
@@ -390,7 +431,7 @@ subroutine para_decomp()
         if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) then
            do i = 1,nwgnud(igp)
               iw = grp(igp)%iwnud(i)
-              itabg_wnud(iw)%irank = igp - 1
+              itabg_wnud(iw)%irank = irk
            enddo
         endif
 

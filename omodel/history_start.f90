@@ -3,25 +3,26 @@ subroutine history_start(action)
   ! This routine initializes the model from the history file
 
   use misc_coms,  only: io6, hfilin, time8, time_istp8
-  use hdf5_utils, only: shdf5_irec, shdf5_open, shdf5_close
+  use hdf5_utils, only: shdf5_exists, shdf5_irec, shdf5_open, shdf5_close
   use max_dims,   only: pathlen
+  use mem_para,   only: olam_mpi_finalize
 
   implicit none
 
   character(*), intent(in) :: action
-  logical                  :: exans
+  logical                  :: exists
 
   ! Check if history files exist
 
-  inquire(file=hfilin, exist=exans)   ! global restart file
+  call shdf5_exists(hfilin, exists)
 
-  if (exans) then
+  if (exists) then
 
      write(io6,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++'
      write(io6,*) 'Opening history file '//trim(hfilin)//' for '//trim(action)
      write(io6,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++'
 
-     call shdf5_open(hfilin,'R',trypario=.true.)
+     call shdf5_open(hfilin, 'R')
 
      if (action == 'COMMIO') then
 
@@ -47,12 +48,16 @@ subroutine history_start(action)
 
      ! History files do not exist, stop model.
 
+     write(io6,*)
      write(io6,*) '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
      write(io6,*) '!!!   Trying to open history file file:'
      write(io6,*) '!!!   '//trim(hfilin)
      write(io6,*) '!!!   but it does not exist. The run is ended.'
      write(io6,*) '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
-     stop 'in history_start'
+     write(io6,*) 'in history_start'
+
+     call olam_mpi_finalize()
+     stop
 
   endif
 
@@ -66,7 +71,7 @@ subroutine hist_read()
                          vnxo2, vnyo2, vnzo2, lpw
   use mem_ijtabs,  only: itab_w, itab_v, itab_m, jtab_v, jtv_prog
   use misc_coms,   only: io6, runtype, iparallel
-  use mem_basic,   only: vc, vmc, vmp, wc, wmc, rho, vxe, vye, vze
+  use mem_basic,   only: vc, vmc, wc, wmc, rho, vxe, vye, vze
   use var_tables,  only: num_var, vtab_r, get_vtab_dims
   use hdf5_utils,  only: shdf5_info, shdf5_irec
   use mem_sfcg,    only: nwsfc, nvsfc, nmsfc, mwsfc, mvsfc, mmsfc, &
@@ -126,7 +131,6 @@ subroutine hist_read()
 
         if (trim(varn) == 'VMC'              .or. &
             trim(varn) == 'VC'               .or. &
-            trim(varn) == 'VMP'              .or. &
             trim(varn) == 'VC_ACCUM'         .or. &
             trim(varn) == 'THSRC'            .or. &
             trim(varn) == 'RTSRC'            .or. &
@@ -171,8 +175,6 @@ subroutine hist_read()
             trim(varn) == 'MCICA_SEED'       .or. &
             trim(varn) == 'VKM'              .or. &
             trim(varn) == 'VKH'              .or. &
-            trim(varn) == 'SXFER_TK'         .or. &
-            trim(varn) == 'SXFER_RK'         .or. &
             trim(varn) == 'VKM_SFC'          .or. &
             trim(varn) == 'SFLUXT'           .or. &
             trim(varn) == 'SFLUXR'           .or. &
@@ -187,23 +189,10 @@ subroutine hist_read()
      ! Skip to next variable if the current one is not in the history file
 
      if (ndims < 0) then
-        if (varn == 'VMP') then
-
-           write(io6,*)
-           write(io6,*) 'Variable VMP is not in the history file.'
-           write(io6,*) 'Setting VMP to VMC.'
-           write(io6,*)
-           vmp = vmc
-           cycle
-
-        else
-
-           write(io6,*)
-           write(io6,*) 'Variable '//trim(varn)//' is not in the history file, skipping'
-           write(io6,*)
-           cycle
-
-        endif
+        write(io6,*)
+        write(io6,*) 'Variable '//trim(varn)//' is not in the history file, skipping'
+        write(io6,*)
+        cycle
      endif
 
      ! Identify the points we want to read from the history file
@@ -261,18 +250,18 @@ subroutine hist_read()
            deallocate(iscr1)
         else
            call shdf5_irec(ndims, idims, varn, ivar1=vtab_r(nv)%ivar1_p, &
-                           points=ilocal(1:ns), stagpt=stagpt)
+                           points=ilocal(1:ns))
         endif
 
      elseif (associated(vtab_r(nv)%ivar2_p)) then
 
         call shdf5_irec(ndims, idims, varn, ivar2=vtab_r(nv)%ivar2_p, &
-                        points=ilocal(1:ns), stagpt=stagpt)
+                        points=ilocal(1:ns))
 
      elseif (associated(vtab_r(nv)%ivar3_p)) then
 
         call shdf5_irec(ndims, idims, varn, ivar3=vtab_r(nv)%ivar3_p, &
-                        points=ilocal(1:ns), stagpt=stagpt)
+                        points=ilocal(1:ns))
 
 
      elseif (associated(vtab_r(nv)%rvar1_p)) then
@@ -285,7 +274,7 @@ subroutine hist_read()
            deallocate(rscr1)
         else
            call shdf5_irec(ndims, idims, varn, rvar1=vtab_r(nv)%rvar1_p, &
-                           points=ilocal(1:ns), stagpt=stagpt)
+                           points=ilocal(1:ns))
         endif
 
      elseif (associated(vtab_r(nv)%rvar2_p)) then
@@ -298,13 +287,13 @@ subroutine hist_read()
            deallocate(rscr2)
         else
            call shdf5_irec(ndims, idims, varn, rvar2=vtab_r(nv)%rvar2_p, &
-                           points=ilocal(1:ns), stagpt=stagpt)
+                           points=ilocal(1:ns))
         endif
 
      elseif (associated(vtab_r(nv)%rvar3_p)) then
 
         call shdf5_irec(ndims, idims, varn, rvar3=vtab_r(nv)%rvar3_p, &
-                        points=ilocal(1:ns), stagpt=stagpt)
+                        points=ilocal(1:ns))
 
      elseif (associated(vtab_r(nv)%dvar1_p)) then
 
@@ -316,7 +305,7 @@ subroutine hist_read()
            deallocate(dscr1)
         else
            call shdf5_irec(ndims, idims, varn, dvar1=vtab_r(nv)%dvar1_p, &
-                           points=ilocal(1:ns), stagpt=stagpt)
+                           points=ilocal(1:ns))
         endif
 
      elseif (associated(vtab_r(nv)%dvar2_p)) then
@@ -329,13 +318,28 @@ subroutine hist_read()
            deallocate(dscr2)
         else
            call shdf5_irec(ndims, idims, varn, dvar2=vtab_r(nv)%dvar2_p, &
-                           points=ilocal(1:ns), stagpt=stagpt)
+                           points=ilocal(1:ns))
         endif
 
      elseif (associated(vtab_r(nv)%dvar3_p)) then
 
         call shdf5_irec(ndims, idims, varn, dvar3=vtab_r(nv)%dvar3_p, &
-                        points=ilocal(1:ns), stagpt=stagpt)
+                        points=ilocal(1:ns))
+
+     elseif (associated(vtab_r(nv)%lvar1_p)) then
+
+        call shdf5_irec(ndims, idims, varn, lvar1=vtab_r(nv)%lvar1_p, &
+                        points=ilocal(1:ns))
+
+     elseif (associated(vtab_r(nv)%lvar2_p)) then
+
+        call shdf5_irec(ndims, idims, varn, lvar2=vtab_r(nv)%lvar2_p, &
+                        points=ilocal(1:ns))
+
+     elseif (associated(vtab_r(nv)%lvar3_p)) then
+
+        call shdf5_irec(ndims, idims, varn, lvar3=vtab_r(nv)%lvar3_p, &
+                        points=ilocal(1:ns))
      endif
 
      nvcnt = nvcnt + 1

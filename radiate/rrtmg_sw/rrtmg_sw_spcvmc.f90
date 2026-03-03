@@ -69,7 +69,7 @@
 
       use parkind,  only: im => kind_im, rb => kind_rb, cldmin
       use parrrsw,  only: nbndsw, ngptsw, mxmol, jpband, jpb1, jpb2
-      use rrsw_wvn, only: ngc, ngs, ngs1, raylt
+      use rrsw_wvn, only: ngc, ngs, nga, raylt
 
       implicit none
 
@@ -161,7 +161,7 @@
          ibm = jb-15
          do jk = nlayers-nsfc+2, nlayers+1
             js = nlayers+2-jk
-            do ig = ngs1(ibm), ngs(ibm)
+            do ig = nga(ibm), ngs(ibm)
                zrup_sfc (ig,jk) = palbp(js,ibm)
                zrupd_sfc(ig,jk) = palbd(js,ibm)
             enddo
@@ -169,7 +169,7 @@
 
          if (iaer > 0) then
             do jk=1,nlayers
-               do ig = ngs1(ibm), ngs(ibm)
+               do ig = nga(ibm), ngs(ibm)
                   ztaua(ig,jk) = ptaua(ibm,jk)
                   zasya(ig,jk) = pasya(ibm,jk)
                   zomga(ig,jk) = pomga(ibm,jk)
@@ -290,9 +290,9 @@
          enddo
 
          do ibm = 1, nbndsw
-            zbbfu_sfc   (ikl,ibm) = sum( zfu_sfc( ngs1(ibm):ngs(ibm), jk ) )
-            zbbfd_sfc   (ikl,ibm) = sum( zfd_sfc( ngs1(ibm):ngs(ibm), jk ) )
-            zbbfddir_sfc(ikl,ibm) = sum( ztdbt  ( ngs1(ibm):ngs(ibm), jk ) )
+            zbbfu_sfc   (ikl,ibm) = sum( zfu_sfc( nga(ibm):ngs(ibm), jk ) )
+            zbbfd_sfc   (ikl,ibm) = sum( zfd_sfc( nga(ibm):ngs(ibm), jk ) )
+            zbbfddir_sfc(ikl,ibm) = sum( ztdbt  ( nga(ibm):ngs(ibm), jk ) )
          enddo
       enddo
 
@@ -386,7 +386,7 @@
       real(kind=rb) :: zg, zg3, zgamma1, zgamma2, zgamma3, zgamma4
       real(kind=rb) :: zr1, zr2, zr3
       real(kind=rb) :: zrk, zrk2, zrm1, zrp, zrp1
-      real(kind=rb) :: zt1, zt2, zt3, zto1
+      real(kind=rb) :: zt1, zt2, zt3, zto1, zrpm1
       real(kind=rb) :: zw
 
       integer(kind=im) :: ig
@@ -425,8 +425,12 @@
 
          za1 = zgamma1 * zgamma4 + zgamma2 * zgamma3
          za2 = zgamma1 * zgamma3 + zgamma2 * zgamma4
-         zrk = sqrt ( zgamma1**2 - zgamma2**2)
-         zrp = zrk * prmuz
+         zrk = sqrt ( zgamma1**2 - zgamma2**2 )
+!        zrp = zrk * prmuz
+
+!        Avoid zrp too close to 1
+         zrpm1 = zrk * prmuz - 1._rb
+         zrp   = 1._rb + sign( max(2.5e-7, abs(zrpm1)), zrpm1 )
 
          zrp1 = 1._rb + zrp
          zrm1 = 1._rb - zrp
@@ -452,13 +456,13 @@
 
 ! collimated beam
 
-         denom = zrp1 * ( zrk * zemp1 + zgamma1 * zemm1 ) * max(1.e-9,abs(zrm1))
-         zdenr = zw / denom
+         zdenr = zw / (zrp1 * zrm1 * (zrk * zemp1 + zgamma1 * zemm1))
 
-         pref(ig,jk) = abs(zr1 - zr2*zemm - zr3*zem2*zem1) * zdenr
-         ptra(ig,jk) = zem2 + abs(zem2*zt1 - zem2*zt2*zemm - zt3*zem1) * zdenr
+         pref(ig,jk) = (zr1 - zr2*zemm - zr3*zem2*zem1) * zdenr
+         pref(ig,jk) = max(0., min(1., pref(ig,jk)))
 
-         ptra(ig,jk) = min(ptra(ig,jk), one)
+         ptra(ig,jk) = zem2 - (zem2*zt1 - zem2*zt2*zemm - zt3*zem1) * zdenr
+         ptra(ig,jk) = max(0., min(1.-pref(ig,jk), ptra(ig,jk)))
 
 ! diffuse beam
 

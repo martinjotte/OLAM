@@ -62,9 +62,9 @@ subroutine timeseries_plots(type)
      if (runtype == 'PLOTONLY' .and. type == 'H') then
         ncall_tot = nl%nplt_files
         numsims = 3
-     elseif (runtype == 'PLOTONLY' .and. type == 'L') then  ! For this option, need to comment out
-        ncall_tot = nl%nlite_files                          ! things that are not on lite files
-        numsims = 1
+    !elseif (runtype == 'PLOTONLY' .and. type == 'L') then  ! For this option, need to comment out
+    !   ncall_tot = nl%nlite_files                          ! things that are not on lite files
+    !   numsims = 1
      else
         ncall_tot = int(timmax8 / dtlong) + 2
         numsims = 1

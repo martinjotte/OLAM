@@ -40,49 +40,74 @@ Contains
 
     integer, intent(in) :: mza, mwa, mrls
     integer, intent(in) :: nqparm(mrls)
+    integer             :: iw
+
+    allocate( iactcu(mwa) )
 
     if ( any(nqparm(1:mrls) > 0) ) then
 
        ! Base tendency arrays for all deep convective schemes
 
-       allocate (thsrc(mza,mwa)) ; thsrc  = 0.0
-       allocate (rtsrc(mza,mwa)) ; rtsrc  = 0.0
-       allocate (aconpr   (mwa)) ; aconpr = 0.0_r8
-       allocate (conprr   (mwa)) ; conprr = 0.0
-       allocate (qwcon(mza,mwa)) ; qwcon  = 0.0
+       allocate( thsrc(mza,mwa) )
+       allocate( rtsrc(mza,mwa) )
+       allocate( aconpr   (mwa) )
+       allocate( conprr   (mwa) )
+       allocate( qwcon(mza,mwa) )
 
        if ( any(nqparm(1:mrls) == 1) .or. &
             any(nqparm(1:mrls) == 2) .or. &
             any(nqparm(1:mrls) == 4) .or. &
             any(nqparm(1:mrls) == 5) ) then
 
-          allocate (umsrc(mza,mwa)) ; umsrc = 0.0
-          allocate (vmsrc(mza,mwa)) ; vmsrc = 0.0
+          allocate( umsrc(mza,mwa) )
+          allocate( vmsrc(mza,mwa) )
 
        endif
 
        ! Do we need to save the convective precipitation flux?
 
        if (nl%do_chem > 0) then
-          allocate (cu_pwa(mza,mwa)) ; cu_pwa = 0.0
-          allocate (cu_pev(mza,mwa)) ; cu_pev = 0.0
+          allocate( cu_pwa(mza,mwa) )
+          allocate( cu_pev(mza,mwa) )
        endif
 
        ! Diagnostic arrays for clouds/radiation/tracer mixing
 
-       allocate(cbmf  (mwa)) ; cbmf   = 0.0
-       allocate(cddf  (mwa)) ; cddf   = 0.0
-       allocate(kcutop(mwa)) ; kcutop = -1
-       allocate(kcubot(mwa)) ; kcubot = -1
-       allocate(kudbot(mwa)) ; kudbot = -1
-       allocate(kddtop(mwa)) ; kddtop = -1
-       allocate(kddmax(mwa)) ; kddmax = -1
-       allocate(kddbot(mwa)) ; kddbot = -1
-       allocate(kstabi(mwa)) ; kstabi = -1
+       allocate( cbmf  (mwa) )
+       allocate( cddf  (mwa) )
+       allocate( kcutop(mwa) )
+       allocate( kcubot(mwa) )
+       allocate( kudbot(mwa) )
+       allocate( kddtop(mwa) )
+       allocate( kddmax(mwa) )
+       allocate( kddbot(mwa) )
+       allocate( kstabi(mwa) )
 
     endif
 
-    allocate(iactcu(mwa)) ; iactcu = 0
+    !$omp parallel do
+    do iw = 1, mwa
+       if ( allocated( thsrc ) ) thsrc (:,iw) = 0.
+       if ( allocated( rtsrc ) ) rtsrc (:,iw) = 0.
+       if ( allocated( umsrc ) ) umsrc (:,iw) = 0.
+       if ( allocated( vmsrc ) ) vmsrc (:,iw) = 0.
+       if ( allocated( cu_pwa) ) cu_pwa(:,iw) = 0.
+       if ( allocated( cu_pev) ) cu_pev(:,iw) = 0.
+       if ( allocated( aconpr) ) aconpr  (iw) = 0._r8
+       if ( allocated( conprr) ) conprr  (iw) = 0.
+       if ( allocated( qwcon ) ) qwcon (:,iw) = 0.
+       if ( allocated( cbmf  ) ) cbmf    (iw) = 0.
+       if ( allocated( cddf  ) ) cddf    (iw) = 0.
+       if ( allocated( kcutop) ) kcutop  (iw) = 0
+       if ( allocated( kcubot) ) kcubot  (iw) = 0
+       if ( allocated( kudbot) ) kudbot  (iw) = 0
+       if ( allocated( kddtop) ) kddtop  (iw) = 0
+       if ( allocated( kddmax) ) kddmax  (iw) = 0
+       if ( allocated( kddbot) ) kddbot  (iw) = 0
+       if ( allocated( iactcu) ) iactcu  (iw) = 0
+       if ( allocated( kstabi) ) kstabi  (iw) = 0
+    enddo
+    !$omp end parallel do
 
   end subroutine alloc_cuparm
 

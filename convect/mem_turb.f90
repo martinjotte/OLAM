@@ -12,8 +12,8 @@ Module mem_turb
   real,    allocatable :: ustar_k  (:,:)
   real,    allocatable :: wtv0_k   (:,:)
 
-  real,    allocatable :: sfluxt     (:)
-  real,    allocatable :: sfluxr     (:)
+  real,    allocatable :: sfluxt     (:) ! canopy-to-atm sensible heat flux [W m^-2]
+  real,    allocatable :: sfluxr     (:) ! canopy-to-atm water vapor flux [kg_vap m^-2 s^-1]
   real,    allocatable :: ustar      (:)
   real,    allocatable :: wstar      (:)
   real,    allocatable :: moli       (:)
@@ -50,47 +50,87 @@ Contains
     implicit none
 
     integer, intent(in) :: mza, mwa, mva, nsw_max, mrls, idiffk(mrls)
+    integer             :: iw, iv
 
 !   Allocate arrays based on options (if necessary)
 !   Initialize arrays to zero
 
-    allocate (akm_sfc  (nsw_max,mwa)) ; akm_sfc   = 0.0
-    allocate (ustar_k  (nsw_max,mwa)) ; ustar_k   = 0.0
-    allocate (wtv0_k   (nsw_max,mwa)) ; wtv0_k    = 0.0
+    allocate( akm_sfc  (nsw_max,mwa) )
+    allocate( ustar_k  (nsw_max,mwa) )
+    allocate( wtv0_k   (nsw_max,mwa) )
+    allocate( frac_sfc (nsw_max,mwa) )
+    allocate( frac_sfck(nsw_max,mwa) )
+    allocate( arw_sfc  (nsw_max,mwa) )
 
-    allocate (frac_sfc (nsw_max,mwa)) ; frac_sfc  = 0.0
-    allocate (frac_sfck(nsw_max,mwa)) ; frac_sfck = 0.0
-    allocate (arw_sfc  (nsw_max,mwa)) ; arw_sfc   = 0.0
-
-    allocate (vkm(mza,mwa)) ; vkm = 0.0
-    allocate (vkh(mza,mwa)) ; vkh = 0.0
+    allocate( vkm(mza,mwa) )
+    allocate( vkh(mza,mwa) )
 
     if (any(idiffk(1:mrls) == 1)) then
-       allocate (agamma(mza,mwa)) ; agamma = 0.0
+       allocate( agamma(mza,mwa) )
     endif
 
-    allocate (sfluxt    (mwa)) ; sfluxt    = rinit
-    allocate (sfluxr    (mwa)) ; sfluxr    = rinit
-    allocate (ustar     (mwa)) ; ustar     = rinit
-    allocate (wstar     (mwa)) ; wstar     = rinit
-    allocate (moli      (mwa)) ; moli      = rinit
-    allocate (wtv0      (mwa)) ; wtv0      = rinit
-    allocate (pblh      (mwa)) ; pblh      = rinit
-    allocate (vkm_sfc   (mwa)) ; vkm_sfc   = rinit
-    allocate (kpblh     (mwa)) ; kpblh     = 1
-    allocate (frac_urb  (mwa)) ; frac_urb  = 0.0
-    allocate (frac_land (mwa)) ; frac_land = 0.0
-    allocate (frac_lake (mwa)) ; frac_lake = 0.0
-    allocate (frac_sea  (mwa)) ; frac_sea  = 0.0
+    allocate( sfluxt   (mwa) )
+    allocate( sfluxr   (mwa) )
+    allocate( ustar    (mwa) )
+    allocate( wstar    (mwa) )
+    allocate( moli     (mwa) )
+    allocate( wtv0     (mwa) )
+    allocate( pblh     (mwa) )
+    allocate( vkm_sfc  (mwa) )
+    allocate( kpblh    (mwa) )
+    allocate( frac_urb (mwa) )
+    allocate( frac_land(mwa) )
+    allocate( frac_lake(mwa) )
+    allocate( frac_sea (mwa) )
 
-    allocate (akmodx(mza,mva)) ; akmodx    = 0.0
-    allocate (akhodx(mza,mva)) ; akhodx    = 0.0
+    allocate( khtop(mwa) )
+    allocate( kmtop(mwa) )
 
-    allocate (khtop (mwa)) ; khtop = 0
-    allocate (kmtop (mwa)) ; kmtop = 0
+    allocate( akmodx(mza,mva) )
+    allocate( akhodx(mza,mva) )
 
-    allocate (khtopv(mva)) ; khtopv = 0
-    allocate (kmtopv(mva)) ; kmtopv = 0
+    allocate( khtopv(mva) )
+    allocate( kmtopv(mva) )
+
+    !$omp parallel
+    !$omp do
+    do iw = 1, mwa
+       if ( allocated( akm_sfc  ) ) akm_sfc  (:,iw) = 0.
+       if ( allocated( ustar_k  ) ) ustar_k  (:,iw) = 0.
+       if ( allocated( wtv0_k   ) ) wtv0_k   (:,iw) = 0.
+       if ( allocated( frac_sfc ) ) frac_sfc (:,iw) = 0.
+       if ( allocated( frac_sfck) ) frac_sfck(:,iw) = 0.
+       if ( allocated( arw_sfc  ) ) arw_sfc  (:,iw) = 0.
+       if ( allocated( vkm      ) ) vkm      (:,iw) = 0.
+       if ( allocated( vkh      ) ) vkh      (:,iw) = 0.
+       if ( allocated( agamma   ) ) agamma   (:,iw) = 0.
+       if ( allocated( sfluxt   ) ) sfluxt     (iw) = rinit
+       if ( allocated( sfluxr   ) ) sfluxr     (iw) = rinit
+       if ( allocated( ustar    ) ) ustar      (iw) = rinit
+       if ( allocated( wstar    ) ) wstar      (iw) = rinit
+       if ( allocated( moli     ) ) moli       (iw) = rinit
+       if ( allocated( wtv0     ) ) wtv0       (iw) = rinit
+       if ( allocated( pblh     ) ) pblh       (iw) = rinit
+       if ( allocated( vkm_sfc  ) ) vkm_sfc    (iw) = rinit
+       if ( allocated( kpblh    ) ) kpblh      (iw) = 1
+       if ( allocated( frac_urb ) ) frac_urb   (iw) = 0.0
+       if ( allocated( frac_land) ) frac_land  (iw) = 0.0
+       if ( allocated( frac_lake) ) frac_lake  (iw) = 0.0
+       if ( allocated( frac_sea ) ) frac_sea   (iw) = 0.0
+       if ( allocated( khtop    ) ) khtop      (iw) = 0
+       if ( allocated( kmtop    ) ) kmtop      (iw) = 0
+    enddo
+    !$omp end do nowait
+
+    !$omp do
+    do iv = 1, mva
+       if ( allocated ( akmodx ) ) akmodx(:,iv) = 0.0
+       if ( allocated ( akhodx ) ) akhodx(:,iv) = 0.0
+       if ( allocated ( khtopv ) ) khtopv  (iv) = 0
+       if ( allocated ( kmtopv ) ) kmtopv  (iv) = 0
+    enddo
+    !$omp end do
+    !$omp end parallel
 
   end subroutine alloc_turb
 

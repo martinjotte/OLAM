@@ -13,6 +13,7 @@ Module mem_delaunay
      integer :: imp = 1         ! M point from which to copy this M pt's values
      integer :: mrlm = 0        ! mesh refinement level of this M pt
      integer :: mrlm_orig = 0   ! original MRL of this M pt (hex only)
+     integer :: im_orig = 0     ! im index before spawning nests
      integer :: ngr = 0         ! Grid number
      integer :: im(7) = 1       ! array of M neighbors of this M pt
      integer :: iu(7) = 1       ! array of U neighbors of this M pt
@@ -72,6 +73,9 @@ Module mem_delaunay
 
   integer, allocatable :: impent(:)  ! Scratch array for storing 12 pentagonal IM indices
   integer, allocatable :: impent_copy(:)
+
+  integer, allocatable :: iwsfc_orig(:) ! Used for makesfc
+  integer, allocatable :: mrl_wsfc  (:) ! Used for makesfc
 
 Contains
 
@@ -143,6 +147,8 @@ Contains
 
     implicit none
 
+    integer :: im
+
     ! Save a copy of triangle structure of ATM grid in its current state of
     ! construction for subsequent independent local refinement of SURFACE grid.
 
@@ -164,6 +170,11 @@ Contains
     call move_alloc(itab_wd_copy, itab_wd)
 
     call move_alloc(impent_copy, impent)
+
+    ! reset im_orig so that they refer to the atmospheric grid indices
+    do im = 2, nmd
+       itab_md(im)%im_orig = im
+    enddo
 
   end subroutine copyback_tri_grid
 

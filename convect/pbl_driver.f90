@@ -1,6 +1,9 @@
 module pbl_drivers
 
-  real, parameter, private :: forw_imp = 1.5
+  ! This slightly forward weights the implicit fluxes to help
+  ! avoid 2-DT and 2-DZ oscillations in buoyancy and eddy diffusivity.
+  ! Need to find the reference for this again!
+  real, parameter, private :: forw_imp = 1.1
 
 contains
 
@@ -241,7 +244,7 @@ subroutine pbl_init()
   use mem_grid,      only: lsw, lpw, mwa, arw, zfacim2, zfacm2, arw0
   use mem_ijtabs,    only: jtab_w, jtw_prog, itab_w
   use mem_turb,      only: frac_urb, frac_land, frac_sea, frac_lake, arw_sfc, &
-                           frac_sfc, frac_sfck, ustar, wstar, wtv0, moli
+                           frac_sfc, frac_sfck, ustar, wstar, wtv0, moli, pblh
   use mem_sfcg,       only: sfcg, itab_wsfc
   use misc_coms,     only: runtype, iparallel
   use module_bl_acm2,only: acm2_pblhgt
@@ -356,6 +359,13 @@ subroutine pbl_init()
   enddo
   !$omp end parallel do
 
+  if (iparallel == 1) then
+     call mpi_send_w(r1dvara1=pblh)
+     call mpi_recv_w(r1dvara1=pblh)
+  endif
+
+  call lbcopy_w(v1=pblh)
+
 end subroutine pbl_init
 
 !===============================================================================
@@ -370,6 +380,7 @@ subroutine solve_eddy_diff_scalars( iw )
   use tridiag,    only: tridv
   use var_tables, only: num_pblmix, pblmix_map, scalar_tab
   use oname_coms, only: nl
+  use consts_coms,only: r8
 
   use supercell_testm, only: rr_w_init
 
@@ -382,6 +393,7 @@ subroutine solve_eddy_diff_scalars( iw )
   real    :: vctr5(mza), vctr6(mza), vctr7(mza)
   real    :: soln(mza,num_pblmix), rhs(mza,num_pblmix), varp(mza)
   real    :: dtl, dtli, wc0
+  real(r8):: flux(mza)
 
   ! For DCMIP 2015 baroclinic and tropical cyclone tests, return here so that
   ! vertical mixing is not done by standard OLAM code; instead it will
@@ -480,19 +492,22 @@ subroutine solve_eddy_diff_scalars( iw )
 
   call tridv(vctr5, vctr6, vctr7, rhs, soln, ka, khtop(iw), mza, num_pblmix)
 
+  ! Set bottom and top vertical internal turbulent fluxes to zero
+  flux(ka-1) = 0._r8
+  flux(kmax) = 0._r8
+
   do ns = 1, num_pblmix
      n = pblmix_map(ns)
 
-     ! Set bottom and top vertical internal turbulent fluxes to zero
-
-     soln(ka-1,ns) = 0.
-     soln(kmax,ns) = 0.
-
      ! Soln contains future(t+1) fluxes. Compute scalar tendencies
+
+     do k = ka, kmax-1
+        flux(k) = real( soln(k,ns), r8 )
+     enddo
 
      do k = ka, kmax
         scalar_tab(n)%var_t(k,iw) = scalar_tab(n)%var_t(k,iw) &
-                                  + volti(k,iw) * (soln(k-1,ns) - soln(k,ns))
+                                  + volti(k,iw) * real( flux(k-1) - flux(k) )
      enddo
 
   enddo
@@ -504,8 +519,9 @@ end subroutine solve_eddy_diff_scalars
 subroutine solve_eddy_diff_heat(iw, thilt)
 
   use mem_turb,        only: vkh, kpblh, sfluxt, agamma, khtop
-  use mem_basic,       only: rho, thil
+  use mem_basic,       only: rho, thil, theta, tair
   use misc_coms,       only: dtsm
+  use consts_coms,     only: cp, r8
   use mem_grid,        only: mza, lpw, volti, dzim, arw
   use oname_coms,      only: nl
   use tridiag,         only: tridiffo
@@ -521,6 +537,7 @@ subroutine solve_eddy_diff_heat(iw, thilt)
   real    :: dts, dtom, akodz, wt0
   real    :: dtomass(mza), varp(mza)
   real    :: vctr5(mza), vctr6(mza), vctr7(mza), rhs(mza), soln(mza)
+  real(r8):: flux(mza)
 
   ! For DCMIP 2015 baroclinic and tropical cyclone tests, return here so that
   ! vertical mixing is not done by standard OLAM code; instead it will
@@ -570,7 +587,14 @@ subroutine solve_eddy_diff_heat(iw, thilt)
   if (nl%idiffk(itab_w(iw)%mrlw) == 1) then
      if ( agamma(ka,iw) > 1.e-7 * arw(ka,iw) ) then
 
-        wt0 = sfluxt(iw) / real(rho(ka,iw))
+! Original calculation of wt0 for sfluxt in [kg_dry K m^-2 s^-1]
+
+        ! wt0 = sfluxt(iw) / real(rho(ka,iw))
+
+! New calculation of wt0 for sfluxt in [W m^-2]
+
+        wt0 = sfluxt(iw) * theta(ka,iw) / (real(rho(ka,iw)) * cp * tair(ka,iw))
+
         do k = ka, kpblh(iw)
            rhs(k) = rhs(k) + wt0 * agamma(k,iw)
         enddo
@@ -584,162 +608,20 @@ subroutine solve_eddy_diff_heat(iw, thilt)
 
   ! Set bottom and top vertical internal turbulent fluxes to zero
 
-  soln(ka-1) = 0.0
-  soln(kmax) = 0.0
+  flux(ka-1) = 0._r8
+  flux(kmax) = 0._r8
+
+  do k = ka, kmax-1
+     flux(k) = real( soln(k), r8 )
+  enddo
 
   ! Compute temperature tendency (weighted by volumne)
 
   do k = ka, kmax
-     thilt(k) = thilt(k) + soln(k-1) - soln(k)
+     thilt(k) = thilt(k) + real( flux(k-1) - flux(k) )
   enddo
 
 end subroutine solve_eddy_diff_heat
-
-!===============================================================================
-
-subroutine solve_eddy_diff_vc( iv, vmt )
-
-  use mem_grid,    only: mza, lpv, lpw, lsw, dzit_bot, volvi, arw, volt, dzim, &
-                         unx, uny, unz
-  use mem_basic,   only: rho, vc, vxe, vye, vze
-  use mem_turb,    only: akm_sfc, vkm, ustar, kmtop
-  use misc_coms,   only: dtsm
-  use mem_ijtabs,  only: itab_v
-  use tridiag,     only: tridiffo
-  use consts_coms, only: vonk
-  use oname_coms,  only: nl
-
-  implicit none
-
-  integer, intent(in)    :: iv
-  real,    intent(inout) :: vmt(mza)
-
-  integer :: k, ks, iw1, iw2, kb, ka, kc, kd, kmax
-  real    :: mass, aksodz, dts, uc, wspdv2, wspdw2
-
-  real :: akodz(mza), dtomass(mza), soln(mza), vctr2(mza)
-  real :: vctr3(mza), vctr5(mza), vctr6(mza), vctr7(mza)
-
-  ! For DCMIP 2015 baroclinic and tropical cyclone tests, return here so that
-  ! vertical mixing is not done by standard OLAM code; instead it will
-  ! (optionally) be done in dcmip_physics routine.
-
-  if (nl%test_case == 110 .or. &
-      nl%test_case == 111 .or. &
-      nl%test_case == 112 .or. &
-      nl%test_case == 113 .or. &
-      nl%test_case == 114 .or. &
-      nl%test_case == 121 .or. &
-      nl%test_case == 122) return
-
-  dts = dtsm
-  iw1 = itab_v(iv)%iw(1)
-  iw2 = itab_v(iv)%iw(2)
-
-  ka = min(lpw(iw1),lpw(iw2))
-  kb = lpv(iv)
-  kc = max(lpw(iw1),lpw(iw2))
-  kd = max(lpw(iw1)+lsw(iw1), lpw(iw2)+lsw(iw2)) - 1
-
-  kmax = max(kmtop(iw1)+1, kmtop(iw2)+1, kb, kd)
-
-! do k = ka, mza-1
-  do k = ka, kmax-1
-     akodz(k) = (arw(k,iw1) * vkm(k,iw1) + arw(k,iw2) * vkm(k,iw2)) * dzim(k)
-  enddo
-
-! special for underground cells: set minimum diffusivity
-
-  do k = ka, kb-1
-     akodz(k) = max(akodz(k), vonk * ( arw(k,iw1) * ustar(iw1) * real(rho(k,iw1)) &
-                                     + arw(k,iw2) * ustar(iw2) * real(rho(k,iw2)) ))
-  enddo
-
-  akodz(ka-1) = 0.0
-! akodz(mza)  = 0.0
-  akodz(kmax) = 0.0
-
-  ! Vertical loop over T levels
-
-! do k = ka, mza
-  do k = ka, kmax
-     mass       = volt(k,iw1) * rho(k,iw1) + volt(k,iw2) * rho(k,iw2)
-     dtomass(k) = forw_imp * dts / mass
-     vctr5  (k) = -dtomass(k) * akodz(k-1)
-     vctr7  (k) = -dtomass(k) * akodz(k)
-     vctr6  (k) = 1. - vctr5(k) - vctr7(k)
-  enddo
-
-  ! Surface drag over multiple levels
-
-  vctr3(ka:kmax) = 0.
-
-  do k = lpw(iw1), lpw(iw1) + lsw(iw1) - 1
-     ks = k - lpw(iw1) + 1
-
-     uc = unx(iv) * vxe(k,iw1) &
-        + uny(iv) * vye(k,iw1) &
-        + unz(iv) * vze(k,iw1)
-
-     wspdv2 = vc(k,iv)**2 + uc**2 + 1.e-8
-     wspdw2 = vxe(k,iw1)**2 + vye(k,iw1)**2 + vze(k,iw1)**2 + 1.e-8
-
-     aksodz   = akm_sfc(ks,iw1) * dzit_bot(k) * sqrt(max(1., wspdv2 / wspdw2))
-     vctr3(k) = vctr3(k) + aksodz
-     vctr6(k) = vctr6(k) + dtomass(k) * aksodz
-  enddo
-
-  do k = lpw(iw2), lpw(iw2) + lsw(iw2) - 1
-     ks = k - lpw(iw2) + 1
-
-     uc = unx(iv) * vxe(k,iw2) &
-        + uny(iv) * vye(k,iw2) &
-        + unz(iv) * vze(k,iw2)
-
-     wspdv2 = vc(k,iv)**2 + uc**2 + 1.e-8
-     wspdw2 = vxe(k,iw2)**2 + vye(k,iw2)**2 + vze(k,iw2)**2 + 1.e-8
-
-     aksodz   = akm_sfc(ks,iw2) * dzit_bot(k) * sqrt(max(1., wspdv2 / wspdw2))
-     vctr3(k) = vctr3(k) + aksodz
-     vctr6(k) = vctr6(k) + dtomass(k) * aksodz
-  enddo
-
-  ! Solve tri-diagonal matrix equation
-
-  if (ka <= kmax) then
-     call tridiffo(mza, ka, kmax, vctr5, vctr6, vctr7, vc(:,iv), soln)
-  endif
-
-  ! Now, soln contains (t+1) values.
-  ! Compute internal vertical turbulent fluxes
-
-! do k = ka, mza-1
-  do k = ka, kmax-1
-     vctr2(k) = akodz(k) * (soln(k) - soln(k+1))
-  enddo
-
-  ! Set bottom and top internal fluxes to zero
-
-  vctr2(ka-1) = 0.
-! vctr2(mza ) = 0.
-  vctr2(kmax) = 0.
-
-  ! Include surface drag
-
-  do k = ka, kd
-     vmt(k) = vmt(k) + volvi(k,iv) * &
-            (vctr2(k-1) - vctr2(k) - vctr3(k) * soln(k))
-  enddo
-
-  ! Above surface
-
-! do k = kd+1, mza
-  do k = kd+1, kmax
-     vmt(k) = vmt(k) + volvi(k,iv) * (vctr2(k-1) - vctr2(k))
-  enddo
-
-end subroutine solve_eddy_diff_vc
-
 
 !===============================================================================
 
@@ -859,5 +741,6 @@ subroutine solve_eddy_diff_vxe( iw, vmxet, vmyet, vmzet )
 
 end subroutine solve_eddy_diff_vxe
 
+!===============================================================================
 
 end module pbl_drivers

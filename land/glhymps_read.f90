@@ -3,7 +3,7 @@ subroutine glhymps_read()
   use mem_land,    only: land, nland, onland
   use mem_sfcg,    only: sfcg
   use consts_coms, only: piu180
-  use hdf5_utils,  only: shdf5_open, shdf5_close, shdf5_irec, shdf5_info
+  use hdf5_utils,  only: shdf5_exists, shdf5_open, shdf5_close, shdf5_irec, shdf5_info
   use max_dims,    only: pathlen
   use leaf_coms,   only: glhymps_database
   use misc_coms,   only: io6
@@ -50,7 +50,8 @@ subroutine glhymps_read()
 
      write(io6,*) 'glhymps_read reading ', trim(fullname)
 
-     inquire(file=fullname, exist=exists)
+     call shdf5_exists(fullname, exists)
+
      if (.not. exists) then
         write(io6,*) 'glhymps: error opening glhymps file ' // trim(fullname)
         stop
@@ -58,7 +59,7 @@ subroutine glhymps_read()
 
      ! Open and read glhymps_database file
 
-     call shdf5_open(fullname,'R',trypario=.true.)
+     call shdf5_open(fullname, 'R')
      call shdf5_info('Band1',ndims,idims)
 
      nio = idims(1)

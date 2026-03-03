@@ -305,6 +305,7 @@
          ind1 = (jp(lay)*5+(jt1(lay)-1))*nspa(16) + js
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng16
             taug(ig,lay) = speccomb * &
                 (fac000 * absa(ig,ind0) + &
@@ -330,6 +331,7 @@
          ind1 = ((jp(lay)-12)*5+(jt1(lay)-1))*nspb(16) + 1
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng16
             taug(ig,lay) = colch4(lay) * &
                 (fac00(lay) * absb(ig,ind0  ) + &
@@ -339,6 +341,7 @@
          enddo
       enddo
 
+      !dir$ ivdep
       do ig = 1, ng16
          sfluxzen(ig) = sfluxref(ig)
       enddo
@@ -393,6 +396,7 @@
          ind1 = (jp(lay)*5+(jt1(lay)-1))*nspa(17) + js
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng17
             taug(ngs16+ig,lay) = speccomb * &
                 (fac000 * absa(ig,ind0) + &
@@ -435,6 +439,7 @@
          ind1 = ((jp(lay)-12)*5+(jt1(lay)-1))*nspb(17) + js
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng17
             taug(ngs16+ig,lay) = speccomb * &
                 (fac000 * absb(ig,ind0) + &
@@ -452,6 +457,7 @@
 
          if (lay .eq. laysolfr) then
             !dir$ vector always
+            !dir$ ivdep
             do ig = 1, ng17
                sfluxzen(ngs16+ig) = sfluxref(ig,js) + fs * dsfluxref(ig,js)
             enddo
@@ -512,6 +518,7 @@
          ind1 = (jp(lay)*5+(jt1(lay)-1))*nspa(18) + js
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng18
             taug(ngs17+ig,lay) = speccomb * &
                 (fac000 * absa(ig,ind0) + &
@@ -532,6 +539,7 @@
 
          if (lay .eq. laysolfr) then
             !dir$ vector always
+            !dir$ ivdep
             do ig = 1, ng18
                sfluxzen(ngs17+ig) = sfluxref(ig,js) + fs * dsfluxref(ig,js)
             enddo
@@ -544,6 +552,7 @@
          ind1 = ((jp(lay)-12)*5+(jt1(lay)-1))*nspb(18) + 1
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng18
             taug(ngs17+ig,lay) = colch4(lay) * &
                 (fac00(lay) * absb(ig,ind0) + &
@@ -607,6 +616,7 @@
          ind1 = (jp(lay)*5+(jt1(lay)-1))*nspa(19) + js
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1 , ng19
             taug(ngs18+ig,lay) = speccomb * &
                 (fac000 * absa(ig,ind0) + &
@@ -627,6 +637,7 @@
 
          if (lay .eq. laysolfr) then
             !dir$ vector always
+            !dir$ ivdep
             do ig = 1, ng19
                sfluxzen(ngs18+ig) = sfluxref(ig,js) + fs * dsfluxref(ig,js)
             enddo
@@ -639,6 +650,7 @@
          ind1 = ((jp(lay)-12)*5+(jt1(lay)-1))*nspb(19) + 1
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1 , ng19
             taug(ngs18+ig,lay) = colco2(lay) * &
                 (fac00(lay) * absb(ig,ind0) + &
@@ -682,6 +694,7 @@
          ind1 = (jp(lay)*5+(jt1(lay)-1))*nspa(20) + 1
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng20
             taug(ngs19+ig,lay) = &
                  fac00h(lay) * absa(ig,ind0) + &
@@ -699,6 +712,7 @@
          enddo
       enddo
 
+      !dir$ ivdep
       do ig = 1, ng20
          sfluxzen(ngs19+ig) = sfluxref(ig)
       enddo
@@ -709,6 +723,7 @@
          ind1 = ((jp(lay)-12)*5+(jt1(lay)-1))*nspb(20) + 1
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng20
             taug(ngs19+ig,lay) = &
                  fac00h(lay) * absb(ig,ind0) + &
@@ -777,6 +792,7 @@
          ind1 = (jp(lay)*5+(jt1(lay)-1))*nspa(21) + js
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng21
             taug(ngs20+ig,lay) = speccomb * &
                 (fac000 * absa(ig,ind0) + &
@@ -797,6 +813,7 @@
 
          if (lay .eq. laysolfr) then
             !dir$ vector always
+            !dir$ ivdep
             do ig = 1, ng21
                sfluxzen(ngs20+ig) = sfluxref(ig,js) + fs * dsfluxref(ig,js)
             enddo
@@ -822,6 +839,7 @@
          ind1 = ((jp(lay)-12)*5+(jt1(lay)-1))*nspb(21) + js
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng21
             taug(ngs20+ig,lay) = speccomb * &
                 (fac000 * absb(ig,ind0) + &
@@ -898,6 +916,7 @@
          ind1 = (jp(lay)*5+(jt1(lay)-1))*nspa(22) + js
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng22
             taug(ngs21+ig,lay) = speccomb * &
                 (fac000 * absa(ig,ind0) + &
@@ -920,6 +939,7 @@
 
          if (lay .eq. laysolfr) then
             !dir$ vector always
+            !dir$ ivdep
             do ig = 1, ng22
                sfluxzen(ngs21+ig) = sfluxref(ig,js) + fs * dsfluxref(ig,js)
             enddo
@@ -933,6 +953,7 @@
          ind1 = ((jp(lay)-12)*5+(jt1(lay)-1))*nspb(22) + 1
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng22
             taug(ngs21+ig,lay) = colo2(lay) * o2adj * &
                 (fac00(lay) * absb(ig,ind0) + &
@@ -980,6 +1001,7 @@
          ind1 = (jp(lay)*5+(jt1(lay)-1))*nspa(23) + 1
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng23
             taug(ngs22+ig,lay) = givfac * &
                 (fac00h(lay) * absa(ig,ind0) + &
@@ -995,6 +1017,7 @@
          enddo
       enddo
 
+      !dir$ ivdep
       do ig = 1, ng23
          sfluxzen(ngs22+ig) = sfluxref(ig)
       enddo
@@ -1060,6 +1083,7 @@
          ind1 = (jp(lay)*5+(jt1(lay)-1))*nspa(24) + js
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng24
             taug(ngs23+ig,lay) = speccomb * &
                 (fac000 * absa(ig,ind0) + &
@@ -1082,6 +1106,7 @@
 
          if (lay .eq. laysolfr) then
             !dir$ vector always
+            !dir$ ivdep
             do ig = 1, ng24
                sfluxzen(ngs23+ig) = sfluxref(ig,js) + fs * dsfluxref(ig,js)
             enddo
@@ -1094,6 +1119,7 @@
          ind1 = ((jp(lay)-12)*5+(jt1(lay)-1))*nspb(24) + 1
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng24
             taug(ngs23+ig,lay) = colo2(lay) * &
                 (fac00(lay) * absb(ig,ind0) + &
@@ -1137,6 +1163,7 @@
          ind1 = (jp(lay)*5+(jt1(lay)-1))*nspa(25) + 1
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng25
             taug(ngs24+ig,lay) = &
                  fac00h(lay) * absa(ig,ind0) + &
@@ -1147,13 +1174,16 @@
          enddo
       enddo
 
+      !dir$ ivdep
       do ig = 1, ng25
          sfluxzen(ngs24+ig) = sfluxref(ig)
       enddo
 
 ! Upper atmosphere loop
       do lay = laytrop+1, nlayers
-         do ig = 1, ng25
+         !dir$ vector always
+         !dir$ ivdep
+        do ig = 1, ng25
             taug(ngs24+ig,lay) = colo3(lay) * abso3b(ig)
          enddo
       enddo
@@ -1191,6 +1221,7 @@
          enddo
       enddo
 
+      !dir$ ivdep
       do ig = 1, ng26
          sfluxzen(ngs25+ig) = sfluxref(ig)
       enddo
@@ -1235,6 +1266,7 @@
          ind1 = (jp(lay)*5+(jt1(lay)-1))*nspa(27) + 1
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng27
             taug(ngs26+ig,lay) = colo3(lay) * &
                 (fac00(lay) * absa(ig,ind0) + &
@@ -1250,6 +1282,7 @@
          ind1 = ((jp(lay)-12)*5+(jt1(lay)-1))*nspb(27) + 1
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng27
             taug(ngs26+ig,lay) = colo3(lay) * &
                 (fac00(lay) * absb(ig,ind0) + &
@@ -1259,6 +1292,7 @@
          enddo
       enddo
 
+      !dir$ ivdep
       do ig = 1, ng27
          sfluxzen(ngs26+ig) = scalekur * sfluxref(ig)
       enddo
@@ -1312,6 +1346,7 @@
          ind1 = (jp(lay)*5+(jt1(lay)-1))*nspa(28) + js
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng28
             taug(ngs27+ig,lay) = speccomb * &
                 (fac000 * absa(ig,ind0) + &
@@ -1348,6 +1383,7 @@
          ind1 = ((jp(lay)-12)*5+(jt1(lay)-1))*nspb(28) + js
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng28
             taug(ngs27+ig,lay) = speccomb * &
                 (fac000 * absb(ig,ind0) + &
@@ -1362,6 +1398,7 @@
 
          if (lay .eq. laysolfr) then
             !dir$ vector always
+            !dir$ ivdep
             do ig = 1, ng28
                sfluxzen(ngs27+ig) = sfluxref(ig,js) + fs * dsfluxref(ig,js)
             enddo
@@ -1403,6 +1440,7 @@
          ind1 = (jp(lay)*5+(jt1(lay)-1))*nspa(29) + 1
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng29
             taug(ngs28+ig,lay) = &
                  fac00h(lay) * absa(ig,ind0) + &
@@ -1426,6 +1464,7 @@
          ind1 = ((jp(lay)-12)*5+(jt1(lay)-1))*nspb(29) + 1
 
          !dir$ vector always
+         !dir$ ivdep
          do ig = 1, ng29
             taug(ngs28+ig,lay) = colco2(lay) * &
                 (fac00(lay) * absb(ig,ind0) + &
@@ -1436,6 +1475,7 @@
          enddo
       enddo
 
+      !dir$ ivdep
       do ig = 1, ng29
          sfluxzen(ngs28+ig) = sfluxref(ig)
       enddo

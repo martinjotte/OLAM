@@ -102,15 +102,16 @@ subroutine copy_nl()
                          vtan_targ, pmsl_targ
 
   use leaf_coms,   only: nvgcon, isoilflg, isoilptf, ndviflg, &
-                         isfcl, ivegflg, nzs, &
+                         isfcl, ivegflg, &
                          veg_database, soil_database, soilgrids_database, &
                          glhymps_database, ndvi_database, iupdndvi, &
                          isoilstateinit, iwatertabflg, watertab_db
 
   use mem_land,    only: nzg, landgrid_dztop, landgrid_depth
 
-  use sea_coms,    only: isstflg, sst_database, seatmp, iupdsst, &
-                         iseaiceflg, seaice_database, seaice, iupdseaice
+  use sea_coms,    only: isstflg, sst_database, seatmp, iupdsst, pom_idata, &
+                         iseaiceflg, seaice_database, seaice, iupdseaice, &
+                         pom_database, tide_database
 
   use oplot_coms,  only: op
   use isan_coms,   only: iapr
@@ -127,7 +128,9 @@ subroutine copy_nl()
 
   use mem_sea,     only: npomzons, npomzonll, pomzonrad, pomzonlat, pomzonlon
 
-  use sea_swm,     only: niter_swm
+  use sea_swm,     only: niter_swm, use_tides
+
+  use umwm_module, only: umwmflg
 
   use pom2k1d,     only: nzpom, pom_dztop, pom_depth
 
@@ -343,14 +346,17 @@ subroutine copy_nl()
   isfcl     = nl%isfcl
   gw_spinup_sfcgfile = nl%gw_spinup_sfcgfile
   gw_spinup_histfile = nl%gw_spinup_histfile
-  nzs       = nl%nzs
   nzg       = nl%nzg
   landgrid_dztop = nl%landgrid_dztop
   landgrid_depth = nl%landgrid_depth
-  niter_swm     = nl%niter_swm
-  nzpom     = nl%nzpom
-  pom_dztop = nl%pom_dztop
-  pom_depth = nl%pom_depth
+  niter_swm      = nl%niter_swm
+  use_tides      = nl%use_tides
+  umwmflg        = nl%umwmflg
+  nzpom          = nl%nzpom
+  pom_dztop      = nl%pom_dztop
+  pom_depth      = nl%pom_depth
+  pom_idata      = nl%pom_idata
+  pom_database   = nl%pom_database
 
   isoilflg      = nl%isoilflg
   isoilptf      = nl%isoilptf
@@ -374,6 +380,7 @@ subroutine copy_nl()
   watertab_db        = nl%watertab_db
   sst_database       = nl%sst_database
   seaice_database    = nl%seaice_database
+  tide_database      = nl%tide_database
   iupdndvi      = nl%iupdndvi
   iupdsst       = nl%iupdsst
   iupdseaice    = nl%iupdseaice
@@ -409,6 +416,13 @@ subroutine copy_nl()
   op%mapcolor   = nl%mapcolor
   op%llcolor    = nl%llcolor
 
+  op%nx_grid    = nl%nx_grid
+  op%nx_vect    = nl%nx_vect
+
+  if (nl%ifont > 0) then
+     op%ncarg_font = nl%ifont
+  endif
+
   do i = 1,op%nplt
      op%fldname(i)   = nl%plotspecs(i)%fldname
      op%projectn(i)  = nl%plotspecs(i)%projectn
@@ -419,6 +433,7 @@ subroutine copy_nl()
      if (index(nl%plotspecs(i)%pltspec2,'F') > 0) op%contrtyp(i) = 'F'
      if (index(nl%plotspecs(i)%pltspec2,'L') > 0) op%contrtyp(i) = 'L'
      if (index(nl%plotspecs(i)%pltspec2,'O') > 0) op%contrtyp(i) = 'O'
+     if (index(nl%plotspecs(i)%pltspec2,'A') > 0) op%contrtyp(i) = 'A'
 
      if (index(nl%plotspecs(i)%pltspec2,'P') > 0) op%prtval(i) = 'P'
 
@@ -428,8 +443,10 @@ subroutine copy_nl()
      if (index(nl%plotspecs(i)%pltspec2,'B') > 0) op%vectbarb(i) = 'B'
      if (index(nl%plotspecs(i)%pltspec2,'V') > 0) op%vectbarb(i) = 'V'
      if (index(nl%plotspecs(i)%pltspec2,'w') > 0) op%vectbarb(i) = 'w'
-     if (index(nl%plotspecs(i)%pltspec2,'Y') > 0) op%vectbarb(i) = 'Y'
-     if (index(nl%plotspecs(i)%pltspec2,'y') > 0) op%vectbarb(i) = 'y'
+
+     if (index(nl%plotspecs(i)%pltspec2,'Y') > 0) op%vectsea(i)  = 'Y'
+     if (index(nl%plotspecs(i)%pltspec2,'y') > 0) op%vectsea(i)  = 'y'
+     if (index(nl%plotspecs(i)%pltspec2,'z') > 0) op%vectsea(i)  = 'z'
 
      if (index(nl%plotspecs(i)%pltspec2,'G') > 0) op%pltgrid(i) = 'G'
 
@@ -454,10 +471,13 @@ subroutine copy_nl()
 
      if (index(nl%plotspecs(i)%pltspec2,'l') > 0) op%pltll(i) = 'l'
 
+     if (index(nl%plotspecs(i)%pltspec2,'H') > 0) op%centplthurr(i) = 'H'
+
      if (index(nl%plotspecs(i)%pltspec2,'C') > 0) op%pltcone(i) = 'C'
 
      if (index(nl%plotspecs(i)%pltspec2,'p') > 0) op%pltlev(i) = 'p'
      if (index(nl%plotspecs(i)%pltspec2,'s') > 0) op%pltlev(i) = 's'
+     if (index(nl%plotspecs(i)%pltspec2,'S') > 0) op%pltlev(i) = 'S'
 
      if (index(nl%plotspecs(i)%pltspec2,'W') > 0) op%windowin(i) = 'W'
 
@@ -477,6 +497,8 @@ subroutine copy_nl()
      if (index(nl%plotspecs(i)%pltspec2,'9') > 0) op%panel(i) = '9'
 
      if (index(nl%plotspecs(i)%pltspec2,'u') > 0) op%noundrg(i) = 'u'
+
+     if (index(nl%plotspecs(i)%pltspec2,'R') > 0) op%gridded(i) = 'R'
   enddo
 
 end subroutine copy_nl

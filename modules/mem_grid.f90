@@ -101,8 +101,6 @@ Module mem_grid
         arw0i,                & ! 1 / arw0
         dnivo2                  ! 1/(2dxy) across V face
 
-   integer, allocatable :: lpvmax(:) ! max lpv of all iw1 and iw2 faces
-
    ! double precision weights for interpolating T levels to W
 
    real(r8), allocatable :: zwgt_top8(:), zwgt_bot8(:)
@@ -128,21 +126,20 @@ Contains
 
     implicit none
 
-    allocate (zm    (mza));  zm    (:) = 0.
-    allocate (zt    (mza));  zt    (:) = 0.
-    allocate (dzm   (mza));  dzm   (:) = 0.
-    allocate (dzt   (mza));  dzt   (:) = 0.
-    allocate (dzim  (mza));  dzim  (:) = 0.
-    allocate (dzit  (mza));  dzit  (:) = 0.
-    allocate (zfacm (mza));  zfacm (:) = 0.
-    allocate (zfacim(mza));  zfacim(:) = 0.
-    allocate (zfact (mza));  zfact (:) = 0.
-    allocate (zfacit(mza));  zfacit(:) = 0.
+    allocate (zm     (mza)); zm     (:) = 0.
+    allocate (zt     (mza)); zt     (:) = 0.
+    allocate (dzm    (mza)); dzm    (:) = 0.
+    allocate (dzt    (mza)); dzt    (:) = 0.
+    allocate (dzim   (mza)); dzim   (:) = 0.
+    allocate (dzit   (mza)); dzit   (:) = 0.
+    allocate (zfacm  (mza)); zfacm  (:) = 0.
+    allocate (zfacim (mza)); zfacim (:) = 0.
+    allocate (zfact  (mza)); zfact  (:) = 0.
+    allocate (zfacit (mza)); zfacit (:) = 0.
     allocate (zfacm2 (mza)); zfacm2 (:) = 0.
     allocate (zfacim2(mza)); zfacim2(:) = 0.
-
-    allocate (gravm (mza));  gravm (:) = 0.
-    allocate (gravt (mza));  gravt (:) = 0.
+    allocate (gravm  (mza)); gravm  (:) = 0.
+    allocate (gravt  (mza)); gravt  (:) = 0.
 
   end subroutine alloc_gridz
 
@@ -153,10 +150,19 @@ Contains
     implicit none
 
     integer, intent(in) :: lma
+    integer             :: im
 
-    allocate (xem(lma));  xem(1:lma) = 0.
-    allocate (yem(lma));  yem(1:lma) = 0.
-    allocate (zem(lma));  zem(1:lma) = 0.
+    allocate( xem(lma) )
+    allocate( yem(lma) )
+    allocate( zem(lma) )
+
+    !$omp parallel do
+    do im = 1, lma
+       xem(im) = 0.
+       yem(im) = 0.
+       zem(im) = 0.
+    enddo
+    !$omp end parallel do
 
   end subroutine alloc_xyzem
 
@@ -167,12 +173,21 @@ Contains
     implicit none
 
     integer, intent(in) :: lwa
+    integer             :: iw
 
-    allocate (xew(lwa));  xew(1:lwa) = 0.
-    allocate (yew(lwa));  yew(1:lwa) = 0.
-    allocate (zew(lwa));  zew(1:lwa) = 0.
+    allocate( xew( lwa) )
+    allocate( yew( lwa) )
+    allocate( zew( lwa) )
+    allocate( arw0(lwa) )
 
-    allocate (arw0(lwa)); arw0(1:lwa) = 0.
+    !$omp parallel do
+    do iw = 1, lwa
+       xew (iw) = 0.
+       yew (iw) = 0.
+       zew (iw) = 0.
+       arw0(iw) = 0.
+    enddo
+    !$omp end parallel do
 
   end subroutine alloc_xyzew
 
@@ -184,57 +199,97 @@ Contains
     implicit none
 
     integer, intent(in) :: lma, lva, lwa
+    integer             :: im,  iv,  iw
 
 ! Allocate and initialize arrays (xem, yem, zem are already allocated)
 
-    allocate (lsw (lwa));  lsw (1:lwa) = 0
-    allocate (lve2(lwa));  lve2(1:lwa) = 0
+    allocate( xev   (lva) )
+    allocate( yev   (lva) )
+    allocate( zev   (lva) )
+    allocate( glatv (lva) )
+    allocate( glonv (lva) )
+    allocate( unx   (lva) )
+    allocate( uny   (lva) )
+    allocate( unz   (lva) )
+    allocate( vnx   (lva) )
+    allocate( vny   (lva) )
+    allocate( vnz   (lva) )
+    allocate( dnu   (lva) )
+    allocate( dniu  (lva) )
+    allocate( dnv   (lva) )
+    allocate( dniv  (lva) )
+    allocate( vcn_ew(lva) )
+    allocate( vcn_ns(lva) )
 
-    allocate (xev(lva));  xev(1:lva) = 0.
-    allocate (yev(lva));  yev(1:lva) = 0.
-    allocate (zev(lva));  zev(1:lva) = 0.
+    !$omp parallel do
+    do iv = 1, lva
+       xev   (iv) = 0.
+       yev   (iv) = 0.
+       zev   (iv) = 0.
+       glatv (iv) = 0.
+       glonv (iv) = 0.
+       unx   (iv) = 0.
+       uny   (iv) = 0.
+       unz   (iv) = 0.
+       vnx   (iv) = 0.
+       vny   (iv) = 0.
+       vnz   (iv) = 0.
+       dnu   (iv) = 0.
+       dniu  (iv) = 0.
+       dnv   (iv) = 0.
+       dniv  (iv) = 0.
+       vcn_ew(iv) = 0.
+       vcn_ns(iv) = 0.
+    enddo
+    !$omp end parallel do
 
-    allocate (glatv(lva));  glatv(1:lva) = 0.
-    allocate (glonv(lva));  glonv(1:lva) = 0.
+    allocate( lsw   (lwa) )
+    allocate( lve2  (lwa) )
+    allocate( wnx   (lwa) )
+    allocate( wny   (lwa) )
+    allocate( wnz   (lwa) )
+    allocate( topw  (lwa) )
+    allocate( glatw (lwa) )
+    allocate( glonw (lwa) )
+    allocate( vxn_ew(lwa) )
+    allocate( vyn_ew(lwa) )
+    allocate( vzn_ew(lwa) )
+    allocate( vxn_ns(lwa) )
+    allocate( vyn_ns(lwa) )
+    allocate( vzn_ns(lwa) )
 
-    allocate (unx(lva));  unx(1:lva) = 0.
-    allocate (uny(lva));  uny(1:lva) = 0.
-    allocate (unz(lva));  unz(1:lva) = 0.
+    !$omp parallel do
+    do iw = 1, lwa
+       lsw   (iw) = 0
+       lve2  (iw) = 0
+       wnx   (iw) = 0.
+       wny   (iw) = 0.
+       wnz   (iw) = 0.
+       topw  (iw) = 0.
+       glatw (iw) = 0.
+       glonw (iw) = 0.
+       vxn_ew(iw) = 0.
+       vyn_ew(iw) = 0.
+       vzn_ew(iw) = 0.
+       vxn_ns(iw) = 0.
+       vyn_ns(iw) = 0.
+       vzn_ns(iw) = 0.
+    enddo
+    !$omp end parallel do
 
-    allocate (vnx(lva));  vnx(1:lva) = 0.
-    allocate (vny(lva));  vny(1:lva) = 0.
-    allocate (vnz(lva));  vnz(1:lva) = 0.
+    allocate( arm0 (lma) )
+    allocate( topm (lma) )
+    allocate( glatm(lma) )
+    allocate( glonm(lma) )
 
-    allocate (wnx(lwa));  wnx(1:lwa) = 0.
-    allocate (wny(lwa));  wny(1:lwa) = 0.
-    allocate (wnz(lwa));  wnz(1:lwa) = 0.
-
-    allocate (dnu  (lva));  dnu (1:lva) = 0.
-    allocate (dniu (lva));  dniu(1:lva) = 0.
-
-    allocate (dnv  (lva));  dnv (1:lva) = 0.
-    allocate (dniv (lva));  dniv(1:lva) = 0.
-
-!   allocate  (arw0(lwa));   arw0(1:lwa) = 0.
-    allocate  (topw(lwa));   topw(1:lwa) = 0.
-    allocate (glatw(lwa));  glatw(1:lwa) = 0.
-    allocate (glonw(lwa));  glonw(1:lwa) = 0.
-
-    allocate  (arm0(lma));   arm0(1:lma) = 0.
-    allocate  (topm(lma));   topm(1:lma) = 0.
-    allocate (glatm(lma));  glatm(1:lma) = 0.
-    allocate (glonm(lma));  glonm(1:lma) = 0.
-
-    allocate (vxn_ew(lwa)) ; vxn_ew = 0.
-    allocate (vyn_ew(lwa)) ; vyn_ew = 0.
-    allocate (vzn_ew(lwa)) ; vzn_ew = 0.
-
-    allocate (vxn_ns(lwa)) ; vxn_ns = 0.
-    allocate (vyn_ns(lwa)) ; vyn_ns = 0.
-    allocate (vzn_ns(lwa)) ; vzn_ns = 0.
-
-    allocate (vcn_ew(lva)) ; vcn_ew = 0.
-    allocate (vcn_ns(lva)) ; vcn_ns = 0.
+    !$omp parallel do
+    do im = 1, lma
+       arm0 (im) = 0
+       topm (im) = 0
+       glatm(im) = 0
+       glonm(im) = 0
+    enddo
+    !$omp end parallel do
 
     write(io6,*) 'finishing alloc_grid1'
 
@@ -250,18 +305,41 @@ Contains
      implicit none
 
      integer, intent(in) :: lma, lva, lwa
+     integer             :: im,  iv,  iw
 
 ! Allocate  and initialize arrays
 
      write(io6,*) 'alloc_grid2 ',lma,lva,lwa
 
-     allocate (lpv(lva)); lpv(1:lva) = 0
-     allocate (lpm(lma)); lpm(1:lma) = 0
-     allocate (lpw(lwa)); lpw(1:lwa) = 0
+     allocate( lpv    (lva) )
+     allocate( arv(mza,lva) )
 
-     allocate (arv  (mza,lva));  arv  (1:mza,1:lva) = 0.
-     allocate (arw  (mza,lwa));  arw  (1:mza,1:lwa) = 0.
-     allocate (volt (mza,lwa));  volt (1:mza,1:lwa) = 0._r8
+    !$omp parallel do
+    do iv = 1, lva
+       lpv  (iv) = 0
+       arv(:,iv) = 0.
+    enddo
+    !$omp end parallel do
+
+     allocate( lpw     (lwa) )
+     allocate( arw (mza,lwa) )
+     allocate( volt(mza,lwa) )
+
+    !$omp parallel do
+    do iw = 1, lwa
+       lpw   (iw) = 0
+       arw (:,iw) = 0.
+       volt(:,iw) = 0._r8
+    enddo
+    !$omp end parallel do
+
+     allocate( lpm(lma) )
+
+    !$omp parallel do
+     do im = 1, lma
+        lpm(im) = 0
+     enddo
+    !$omp end parallel do
 
      write(io6,*) 'finishing alloc_grid2'
 
@@ -403,14 +481,12 @@ Contains
      allocate(vnyo2     (mva))
      allocate(vnzo2     (mva))
      allocate(dnivo2    (mva))
-     allocate(lpvmax    (mva))
      allocate(volvi (mza,mva))
 
      vnxo2  (1) = 0.0
      vnyo2  (1) = 0.0
      vnzo2  (1) = 0.0
      dnivo2 (1) = 0.0
-     lpvmax (1) = 0
      volvi(:,1) = 0.0
 
      allocate(wnxo2    (mwa))
@@ -478,8 +554,6 @@ Contains
         do k = lpv(iv), mza
            volvi(k,iv) = real( 1.0_r8 / (volt(k,iw1) + volt(k,iw2)) )
         enddo
-
-        lpvmax(iv) = max( lpw(iw1)+lve2(iw1), lpw(iw2)+lve2(iw2) )
 
      enddo
      !$omp end do nowait

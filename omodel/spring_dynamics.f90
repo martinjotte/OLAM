@@ -50,9 +50,9 @@ subroutine spring_dynamics_nest( niter, moveint, ngr, nxp, nma, nua, nwa, &
   type (itab_ud_vars), intent(inout) :: itab_ud(nua)
   type (itab_wd_vars), intent(inout) :: itab_wd(nwa)
 
-  integer, parameter :: nprnt = 50
+  integer, parameter :: nprnt = 100
   real,    parameter :: relax = .035
-  real,    parameter :: beta  = 1.242
+  real,    parameter :: beta  = 1.0
 
   real, allocatable :: dist (:)
   real, allocatable :: dist0(:)
@@ -67,10 +67,11 @@ subroutine spring_dynamics_nest( niter, moveint, ngr, nxp, nma, nua, nwa, &
   integer :: iw,iw1,iw2,j
   integer :: iter,mrow1,mrow2,mrmax,mrmin
 
-  integer :: iskip
+  integer :: iskip, mrlmax
   real :: xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2
 
   real :: twocosphi3, twocosphi4, ratio
+  real :: s1, s2, a1sq, a2sq, asqmin, dmin
 
   real :: dist00, distm, frac_change, disto12
 
@@ -232,6 +233,8 @@ subroutine spring_dynamics_nest( niter, moveint, ngr, nxp, nma, nua, nwa, &
         im = itab_ud(iu)%im(j)
 
         if (.not. movem(im)) then
+           movem(im) = .true.
+
            mend = mend + 1
            im_jm( mend ) = im
            jm_im( im ) = mend
@@ -245,8 +248,8 @@ subroutine spring_dynamics_nest( niter, moveint, ngr, nxp, nma, nua, nwa, &
   allocate( ju_jm(7,nmovem) )
   allocate( npoly_jm(nmovem) )
 
-  allocate( jm_ju(nmoveu,2) )
-  allocate( ju_ju(nmoveu,4) )
+  allocate( jm_ju(2,nmoveu) )
+  allocate( ju_ju(4,nmoveu) )
   allocate( dist0(nmoveu) )
 
   write(io6,*)
@@ -262,24 +265,27 @@ subroutine spring_dynamics_nest( niter, moveint, ngr, nxp, nma, nua, nwa, &
   endif
 
   disto12 = dist00 / 1.2
+  mrlmax  = 0
 
   ! Compute target length of each triangle U segment
   ! Loop over U points adjactent to M points that will be moved
 
-  !$omp parallel private(iter)
-  !$omp do private(iu,iw1,iw2,mrow1,mrow2,mrmax,mrmin)
+  !$omp parallel private(iter,dmin,asqmin) shared(mrlmax)
+  !$omp do private(iu,iw1,iw2,mrow1,mrow2,mrmax,mrmin) reduction(max:mrlmax)
   do ju = 1, nmoveu
      iu = iu_ju(ju)
 
      ! Store derived type values in arrays
 
-     jm_ju(ju,1) = jm_im( itab_ud(iu)%im(1) )
-     jm_ju(ju,2) = jm_im( itab_ud(iu)%im(2) )
+     jm_ju(1,ju) = jm_im( itab_ud(iu)%im(1) )
+     jm_ju(2,ju) = jm_im( itab_ud(iu)%im(2) )
 
-     ju_ju(ju,1) = ju_iu( itab_ud(iu)%iu(1) )
-     ju_ju(ju,2) = ju_iu( itab_ud(iu)%iu(2) )
-     ju_ju(ju,3) = ju_iu( itab_ud(iu)%iu(3) )
-     ju_ju(ju,4) = ju_iu( itab_ud(iu)%iu(4) )
+     ju_ju(1,ju) = ju_iu( itab_ud(iu)%iu(1) )
+     ju_ju(2,ju) = ju_iu( itab_ud(iu)%iu(2) )
+     ju_ju(3,ju) = ju_iu( itab_ud(iu)%iu(3) )
+     ju_ju(4,ju) = ju_iu( itab_ud(iu)%iu(4) )
+
+     mrlmax = max(mrlmax, itab_ud(iu)%mrlu)
 
      ! Compute target distance for any MRL value
 
@@ -287,34 +293,32 @@ subroutine spring_dynamics_nest( niter, moveint, ngr, nxp, nma, nua, nwa, &
 
      ! Modified distance in MRL border zone
 
-     if (ngr > 1) then
+     iw1 = itab_ud(iu)%iw(1)
+     iw2 = itab_ud(iu)%iw(2)
 
-        iw1 = itab_ud(iu)%iw(1)
-        iw2 = itab_ud(iu)%iw(2)
+     mrow1 = itab_wd(iw1)%mrow
+     mrow2 = itab_wd(iw2)%mrow
 
-        mrow1 = itab_wd(iw1)%mrow
-        mrow2 = itab_wd(iw2)%mrow
+     mrmax = max(mrow1,mrow2)
+     mrmin = min(mrow1,mrow2)
 
-        mrmax = max(mrow1,mrow2)
-        mrmin = min(mrow1,mrow2)
-
-
-        if     (mrmax == -2 .and. mrmin == -2) then
-           dist0(ju) = dist0(ju) *  7. / 6.  !* .90
-        elseif (mrmax == -1 .and. mrmin == -2) then
-           dist0(ju) = dist0(ju) *  8. / 6.  !* .90
-        elseif (mrmax == -1 .and. mrmin == -1) then
-           dist0(ju) = dist0(ju) *  9. / 6.  !* .90
-        elseif (mrmax == 1 .and. mrmin == -1) then
-           dist0(ju) = dist0(ju) * 10. / 6.  !* .90
-        elseif (mrmax == 1 .and. mrmin == 1) then
-           dist0(ju) = dist0(ju) * 11. / 12. !* .90
-        endif
-
-     endif ! ngr
+     if     (mrmax == -2 .and. mrmin == -2) then
+        dist0(ju) = dist0(ju) *  7. / 6.
+     elseif (mrmax == -1 .and. mrmin == -2) then
+        dist0(ju) = dist0(ju) *  8. / 6.
+     elseif (mrmax == -1 .and. mrmin == -1) then
+        dist0(ju) = dist0(ju) *  9. / 6.
+     elseif (mrmax == 1 .and. mrmin == -1) then
+        dist0(ju) = dist0(ju) * 10. / 6.
+     elseif (mrmax == 1 .and. mrmin == 1) then
+        dist0(ju) = dist0(ju) * 11. / 12.
+     endif
 
   enddo
   !$omp end do
+
+  dmin   = dist00 / real( 2**(mrlmax-1) )
+  asqmin = .1875 * dmin**4
 
   !$omp do private(im,j,iu)
   do jm = 1, nmovem
@@ -342,10 +346,10 @@ subroutine spring_dynamics_nest( niter, moveint, ngr, nxp, nma, nua, nwa, &
   !$omp single
   deallocate( ju_iu )
 
-  allocate( dist(ncompu)) ; dist = 0.
-  allocate( dx  (nmoveu)) ; dx = 0.
-  allocate( dy  (nmoveu)) ; dy = 0.
-  allocate( dz  (nmoveu)) ; dz = 0.
+  allocate( dist(ncompu))
+  allocate( dx  (nmoveu))
+  allocate( dy  (nmoveu))
+  allocate( dz  (nmoveu))
 
   allocate(xem8(mend))
   allocate(yem8(mend))
@@ -410,8 +414,8 @@ subroutine spring_dynamics_nest( niter, moveint, ngr, nxp, nma, nua, nwa, &
      !$omp do private(jm1,jm2)
      do ju = 1, nmoveu
 
-        jm1 = jm_ju(ju,1)
-        jm2 = jm_ju(ju,2)
+        jm1 = jm_ju(1,ju)
+        jm2 = jm_ju(2,ju)
 
         dx(ju) = real( xem8(jm2) - xem8(jm1) )
         dy(ju) = real( yem8(jm2) - yem8(jm1) )
@@ -426,13 +430,13 @@ subroutine spring_dynamics_nest( niter, moveint, ngr, nxp, nma, nua, nwa, &
      ! Adjustment of dist0 based on opposite angles of triangles
 
      !$omp do private(ju1,ju2,ju3,ju4,twocosphi3,twocosphi4,ratio, &
-     !$omp            distm,frac_change)
+     !$omp            distm,frac_change,s1,s2,a1sq,a2sq)
      do ju = 1, nmoveu
 
-        ju1 = ju_ju(ju,1)
-        ju2 = ju_ju(ju,2)
-        ju3 = ju_ju(ju,3)
-        ju4 = ju_ju(ju,4)
+        ju1 = ju_ju(1,ju)
+        ju2 = ju_ju(2,ju)
+        ju3 = ju_ju(3,ju)
+        ju4 = ju_ju(4,ju)
 
         ! Compute two*cosine of angles at IM3 and IM4
 
@@ -442,8 +446,18 @@ subroutine spring_dynamics_nest( niter, moveint, ngr, nxp, nma, nua, nwa, &
         ! Decrease dist0 if average twocosine is less than limiting value of two*cos(72 deg)
 
         ratio = max(0.15, min(twocosphi3 + twocosphi4, 1.2))
-
         distm = dist0(ju) * ratio
+
+        ! Increase dist0 if triangle areas area too small
+
+        s1 = 0.5 * (dist(ju) + dist(ju1) + dist(ju2))
+        s2 = 0.5 * (dist(ju) + dist(ju3) + dist(ju4))
+
+        a1sq = s1 * (s1-dist(ju)) * (s1-dist(ju1)) * (s1-dist(ju2))
+        a2sq = s2 * (s2-dist(ju)) * (s2-dist(ju3)) * (s2-dist(ju4))
+
+        ratio = max(1.0, asqmin / min(a1sq,a2sq))
+        distm = distm * ratio
 
         ! Fractional change to dist that would make it equal dist0
 
@@ -538,8 +552,8 @@ subroutine spring_dynamics_nest( niter, moveint, ngr, nxp, nma, nua, nwa, &
            im1 = itab_ud(iu)%im(1)
            im2 = itab_ud(iu)%im(2)
 
-           call oplot_transform(1,xem(im1),yem(im1),zem(im1),xp1,yp1)
-           call oplot_transform(1,xem(im2),yem(im2),zem(im2),xp2,yp2)
+           call oplot_transform_xyz(1,xem(im1),yem(im1),zem(im1),xp1,yp1)
+           call oplot_transform_xyz(1,xem(im2),yem(im2),zem(im2),xp2,yp2)
 
            call trunc_segment(xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2,iskip)
 
@@ -556,10 +570,10 @@ subroutine spring_dynamics_nest( niter, moveint, ngr, nxp, nma, nua, nwa, &
            im2 = itab_wd(iw)%im(2)
            im3 = itab_wd(iw)%im(3)
 
-           call oplot_transform(1, (xem(im1)+xem(im2)+xem(im3))/3., &
-                                   (yem(im1)+yem(im2)+yem(im3))/3., &
-                                   (zem(im1)+zem(im2)+zem(im3))/3., &
-                                   xp1, yp1                         )
+           call oplot_transform_xyz(1, (xem(im1)+xem(im2)+xem(im3))/3., &
+                                       (yem(im1)+yem(im2)+yem(im3))/3., &
+                                       (zem(im1)+zem(im2)+zem(im3))/3., &
+                                       xp1, yp1                         )
 
            if ( xp1 < op%xmin .or.  &
                 xp1 > op%xmax .or.  &
@@ -616,9 +630,9 @@ subroutine spring_dynamics_globe( niter, nxp, nma, nua, nwa, xem, yem, zem, &
   type (itab_ud_vars), intent(inout) :: itab_ud(nua)
   type (itab_wd_vars), intent(inout) :: itab_wd(nwa)
 
-  integer, parameter :: nprnt = 50
+  integer, parameter :: nprnt = 100
   real,    parameter :: relax = .035
-  real,    parameter :: beta  = 1.242
+  real,    parameter :: beta  = 1.25
 
 ! Automatic arrays
 
@@ -848,8 +862,8 @@ subroutine spring_dynamics_globe( niter, nxp, nma, nua, nwa, xem, yem, zem, &
            im1 = itab_ud(iu)%im(1)
            im2 = itab_ud(iu)%im(2)
 
-           call oplot_transform(1,xem(im1),yem(im1),zem(im1),xp1,yp1)
-           call oplot_transform(1,xem(im2),yem(im2),zem(im2),xp2,yp2)
+           call oplot_transform_xyz(1,xem(im1),yem(im1),zem(im1),xp1,yp1)
+           call oplot_transform_xyz(1,xem(im2),yem(im2),zem(im2),xp2,yp2)
 
            call trunc_segment(xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2,iskip)
 
@@ -866,10 +880,10 @@ subroutine spring_dynamics_globe( niter, nxp, nma, nua, nwa, xem, yem, zem, &
            im2 = itab_wd(iw)%im(2)
            im3 = itab_wd(iw)%im(3)
 
-           call oplot_transform(1, (xem(im1)+xem(im2)+xem(im3))/3., &
-                                   (yem(im1)+yem(im2)+yem(im3))/3., &
-                                   (zem(im1)+zem(im2)+zem(im3))/3., &
-                                   xp1, yp1                         )
+           call oplot_transform_xyz(1, (xem(im1)+xem(im2)+xem(im3))/3., &
+                                       (yem(im1)+yem(im2)+yem(im3))/3., &
+                                       (zem(im1)+zem(im2)+zem(im3))/3., &
+                                       xp1, yp1                         )
 
            if ( xp1 < op%xmin .or.  &
                 xp1 > op%xmax .or.  &

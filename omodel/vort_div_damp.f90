@@ -1,148 +1,228 @@
-subroutine divh_damp(vmt_short)
+subroutine divh_damp(vmt, dtm)
 
   use mem_ijtabs,   only: jtab_v, jtab_w, itab_v, itab_w, jtv_wadj, &
                           jtv_prog, jtw_prog
-  use mem_grid,     only: lpv, mza, mva, mwa, arv, volt, volti, arw, &
-                          lpw, dniu, dzit, dniv, zm, zt, zfacit, arw0
+  use mem_grid,     only: lpv, mza, mva, mwa, arv, volt, volti, &
+                          lpw, dzit, dniv, zm, zt, zfacit, arw0
   use olam_mpi_atm, only: mpi_send_w, mpi_recv_w, mpi_send_m, mpi_recv_m
   use mem_basic,    only: vmc
   use obnd,         only: lbcopy_w, lbcopy_m
-  use misc_coms,    only: iparallel, dtsm
+  use misc_coms,    only: iparallel
   use oname_coms,   only: nl
   use mem_rayf,     only: dorayfdiv, krayfdiv_bot, rayfdiv_zmin, rayfdiv_expon
   use grad_lib,     only: laplacian2d
+  use consts_coms,  only: r8
+! use oplot_comsm   only: op
 
   implicit none
 
-  real,    intent(inout)  :: vmt_short(mza,mva)
+  real,     intent(inout) :: vmt(mza,mva)
+  real(r8), intent(inout) :: dtm
 
-  integer                 :: iv, iw, iw1, iw2, k, j, jv
-  real                    :: fact1, fact2
-  real                    :: div2d(mza,mwa)
-  real                    :: del2d(mza,mwa)
+  integer                 :: iv, iw, iw1, iw2, k, j, jv, nn, n, ka
+  integer                 :: il, ih, ilev
+  real                    :: fact2, factr
+  real(r8)                :: facth, factb
 
-  real, allocatable       :: zf   (:)
-  real, allocatable, save :: fdiv1(:,:)
-  real, allocatable, save :: fdiv2(:,:)
+  real, allocatable, save :: fdivh(:,:)   ! 4th or 6th-order damping factor
+  real, allocatable, save :: fdivl(:,:)   ! 2nd-order damping factor
+  real, allocatable       :: zf   (:)     ! Rayleigh-friction profile
+  real, allocatable, save :: div2d(:,:,:) ! divergence, laplacian of divergence
 
   logical,           save :: firstime = .true.
   logical                 :: dodivdamp
 
-  dodivdamp = nl%divh_damp_fact > 1.e-7
+  dodivdamp = (nl%divh_damp_fact > 1.e-7) .and. (nl%divh_damp_level > 0)
 
   if ((.not. dorayfdiv) .and. (.not. dodivdamp)) return
 
   if (firstime) then
      firstime = .false.
 
-     if (dodivdamp) then
-        allocate(fdiv2(mza,mva))
-        fact2 = nl%divh_damp_fact**2 / real(dtsm)
-     endif
+     ka = 1
+     if (.not. dodivdamp) ka = krayfdiv_bot
 
-     if (dorayfdiv) then
-        allocate(zf   (krayfdiv_bot:mza))
-        allocate(fdiv1(krayfdiv_bot:mza,mva))
+     ilev = 1
+     if (dodivdamp .and. (nl%divh_damp_level > 1)) ilev = 2
+
+     allocate( div2d(ka:mza,mwa,ilev) )
+
+     !$omp parallel do private(n)
+     do iw = 1, mwa
+        do n = 1, ilev
+           div2d(:,iw,n) = 0.
+        enddo
+     enddo
+     !$omp end parallel do
+
+     ! Rayleigh friction divergence damping profile
+
+     allocate( zf(mza) ) ; zf(:) = 0.0
+
+     if ( dorayfdiv ) then
         do k = krayfdiv_bot, mza
            zf(k) = ((zt(k) - rayfdiv_zmin) / (zm(mza) - rayfdiv_zmin)) ** rayfdiv_expon
         enddo
-        fact1 = nl%rayfdiv_fact / real(dtsm)
      endif
 
-     !$omp parallel do private(iv,iw1,iw2,k)
+     ! Factors for vorticity damping
+
+     if (dorayfdiv .or. (dodivdamp .and. (nl%divh_damp_level == 1))) then
+        ka = krayfdiv_bot
+        if ( dodivdamp .and. (nl%divh_damp_level == 1) ) ka = 1
+        allocate( fdivl(ka:mza,mva) )
+     endif
+
+     if (dodivdamp .and. (nl%divh_damp_level > 1)) then
+        facth = -(-nl%divh_damp_fact)**nl%divh_damp_level / dtm
+        allocate( fdivh(mza,mva) )
+     endif
+
+     fact2 = 0.
+     if (dodivdamp .and. (nl%divh_damp_level == 1)) fact2 = nl%divh_damp_fact / real(dtm)
+
+     factr = 0.
+     if (dorayfdiv .and. dodivdamp) then
+        factr = max(nl%divh_damp_fact,nl%rayfdiv_fact) / real(dtm)
+     elseif (dorayfdiv) then
+        factr = nl%rayfdiv_fact / real(dtm)
+     endif
+
+     !$omp parallel do private(iv,iw1,iw2,ka,k,factb)
      do j = 1,jtab_v(jtv_prog)%jend; iv = jtab_v(jtv_prog)%iv(j)
         iw1 = itab_v(iv)%iw(1)
         iw2 = itab_v(iv)%iw(2)
 
-        if (dodivdamp) then
-           do k = lpv(iv), mza
-              fdiv2(k,iv) = -fact2 * min(volt(k,iw1),volt(k,iw2)) * arv(k,iv) * (dzit(k) * zfacit(k))**2 &
-                          * dniv(iv) * dniu(iv) * min(arw(k,iw1),arw(k,iw2))
+        if (dorayfdiv .or. (dodivdamp .and. (nl%divh_damp_level == 1))) then
+           ka = krayfdiv_bot
+           if (dodivdamp .and. (nl%divh_damp_level == 1)) ka = lpv(iv)
+
+           do k = ka, mza
+              fdivl(k,iv) = (fact2 * (1. - zf(k)) + factr * zf(k)) &
+                          * dniv(iv) * zfacit(k) * dzit(k) * min(volt(k,iw1),volt(k,iw2))
            enddo
         endif
 
-        if (dorayfdiv) then
-           do k = krayfdiv_bot, mza
+        if (dodivdamp .and. (nl%divh_damp_level > 1)) then
+           factb = facth * min(arw0(iw1),arw0(iw2))**(nl%divh_damp_level-1)
 
-              ! linearly decrase higher-order divergence damping
-              if (dodivdamp) fdiv2(k,iv) = fdiv2(k,iv) * (1.0 - zf(k))
-
-              ! assumes no blockage by terrain in Rayleigh friction layer
-              fdiv1(k,iv) = fact1 * min(arw0(iw1),arw0(iw2)) * dniv(iv) * zf(k)
-
+           do k = lpv(iv), mza
+              fdivh(k,iv) = factb * dniv(iv) * zfacit(k) * dzit(k) * min(volt(k,iw1),volt(k,iw2)) * (1. - zf(k))
            enddo
         endif
 
      enddo
      !$omp end parallel do
 
+     deallocate(zf)
+
   endif  ! firstime
 
-  !$omp parallel do private(iw,jv,iv,k)
-  do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
+  ! Compute horizontal divergence
 
-     div2d(:,iw) = 0.0
+  !$omp parallel do private(iw,jv,iv,ka,k)
+  do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
      do jv = 1, itab_w(iw)%npoly
         iv = itab_w(iw)%iv(jv)
 
-        do k = lpv(iv), mza
-           div2d(k,iw) = div2d(k,iw) - arv(k,iv) * itab_w(iw)%dirv(jv) * vmc(k,iv)
+        ka = lpv(iv)
+        if (.not. dodivdamp) ka = max(ka,krayfdiv_bot)
+
+        do k = ka, mza
+           div2d(k,iw,1) = div2d(k,iw,1) - arv(k,iv) * itab_w(iw)%dirv(jv) * vmc(k,iv)
         enddo
      enddo
 
-     do k = lpw(iw), mza
-        div2d(k,iw) = div2d(k,iw) * volti(k,iw)
+     ka = lpw(iw)
+     if (.not. dodivdamp) ka = max(ka,krayfdiv_bot)
+
+     do k = ka, mza
+        div2d(k,iw,1) = div2d(k,iw,1) * volti(k,iw)
      enddo
 
   enddo
   !$omp end parallel do
 
   ! MPI send/recv of div2d
-  if (iparallel == 1) then
-     call mpi_send_w(rvara1=div2d)
-     call mpi_recv_w(rvara1=div2d)
-  endif
-  call lbcopy_w(a1=div2d)
 
-  if (dodivdamp) then
+  if (iparallel == 1) then
+     call mpi_send_w(svara1=div2d(:,:,1))
+     call mpi_recv_w(svara1=div2d(:,:,1))
+  endif
+  call lbcopy_w(s1=div2d(:,:,1))
+
+!!SPECIAL PLOT SECTION - - - - - - - - - - - - - - - - - - - -
+!!(Example of how to plot "external" field; one not available in module memory)
+!
+! if (mod(time8+dtlm,op%frqplt) < dtlm .and. istp == nstp) then
+!    if (.not. allocated(op%extfld)) allocate (op%extfld(mza,mwa))
+!    op%extfld(:,:) = div2d(:,:,1)
+!    op%extfldname = 'DIVERG'
+!    write(io6,*) "Calling plot_fields..."
+!    call plot_fields(1)
+!    deallocate (op%extfld)
+! endif
+!!END SPECIAL PLOT SECTION - - - - - - - - - - - - - - - - - -
+
+  if ( dorayfdiv .or. (dodivdamp .and. nl%divh_damp_level == 1) ) then
+
+     !$omp parallel do private(iv,iw1,iw2,ka,k)
+     do j = 1,jtab_v(jtv_prog)%jend; iv = jtab_v(jtv_prog)%iv(j)
+        iw1 = itab_v(iv)%iw(1)
+        iw2 = itab_v(iv)%iw(2)
+
+        ka = krayfdiv_bot
+        if ( dodivdamp .and. (nl%divh_damp_level == 1) ) ka = lpv(iv)
+
+        ! Damp (remove) horizontal divergence
+
+        do k = ka, mza
+           vmt(k,iv) = vmt(k,iv) + fdivl(k,iv) * (div2d(k,iw2,1) - div2d(k,iw1,1))
+        enddo
+
+     enddo
+     !$omp end parallel do
+
+  endif
+
+  ! We are finished here if not doing higher-order divergence damping
+
+  if ( .not. (dodivdamp .and. (nl%divh_damp_level > 1) ) ) return
+
+  ! Loop to compute laplacian of horizontal divergence
+
+  do nn = 1, nl%divh_damp_level - 1
+     il = mod(nn-1,2)+1
+     ih = mod(nn  ,2)+1
 
      !$omp parallel do private(iw)
      do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
-        call laplacian2d(iw, div2d, del2d(:,iw))
+
+        call laplacian2d(iw, div2d(:,:,il), div2d(:,iw,ih))
+
      enddo
      !$end parallel do
 
-     ! MPI send/recv of del2d
      if (iparallel == 1) then
-        call mpi_send_w(rvara1=del2d)
-        call mpi_recv_w(rvara1=del2d)
+        call mpi_send_w(svara1=div2d(:,:,ih))
+        call mpi_recv_w(svara1=div2d(:,:,ih))
      endif
-     call lbcopy_w(a1=del2d)
+     call lbcopy_w(s1=div2d(:,:,ih))
 
-  endif
+  enddo
+
+  ! Divergence damping momentum tendencies
 
   !$omp parallel do private(iv,iw1,iw2,k)
   do j = 1,jtab_v(jtv_prog)%jend; iv = jtab_v(jtv_prog)%iv(j)
-
      iw1 = itab_v(iv)%iw(1)
      iw2 = itab_v(iv)%iw(2)
 
-     ! Damp (remove) laplacian of horizontal divergence
-
-     if (dodivdamp) then
-        do k = lpv(iv), mza
-           vmt_short(k,iv) = vmt_short(k,iv) + fdiv2(k,iv) * (del2d(k,iw2) - del2d(k,iw1))
-        enddo
-     endif
-
-     ! Damp (remove) horizontal divergence at model top
-
-     if (dorayfdiv) then
-        do k = krayfdiv_bot, mza
-           vmt_short(k,iv) = vmt_short(k,iv) + fdiv1(k,iv) * (div2d(k,iw2) - div2d(k,iw1))
-        enddo
-     endif
+     ! Damp (remove) horizontal divergence
+     do k = lpv(iv), mza
+        vmt(k,iv) = vmt(k,iv) + fdivh(k,iv) * (div2d(k,iw2,ih) - div2d(k,iw1,ih))
+     enddo
 
   enddo
   !$omp end parallel do
@@ -151,140 +231,215 @@ end subroutine divh_damp
 
 
 
-subroutine vort_damp()
+subroutine vort_damp(vmt, dtm)
 
-  use mem_ijtabs,   only: jtab_v, jtab_m, itab_v, itab_m, jtv_prog, jtm_prog
-  use mem_grid,     only: lpv, lpm, mza, mma, dnu, dnv, arm0, zfacit
+  use mem_ijtabs,   only: itab_m, jtab_m, jtm_prog, itab_v, jtab_v, jtv_prog, itabg_v
+  use mem_grid,     only: mma, mva, mza, lpm, lpw, lpv, arm0, dnv, dniu, &
+                          vnx, vny, vnz, vnxo2, vnyo2, vnzo2, arw0i, zfacit, volt, dzit, arw0
   use olam_mpi_atm, only: mpi_send_m, mpi_recv_m
-  use mem_basic,    only: vc, rho
-  use mem_tend,     only: vmt
+  use mem_basic,    only: vc, rho, vxe, vye, vze
   use obnd,         only: lbcopy_m
   use misc_coms,    only: iparallel
   use oname_coms,   only: nl
+  use consts_coms,  only: r8
+  use mem_para,     only: myrank
+  use grad_lib,     only: laplacian_m
+
+  use oplot_coms
 
   implicit none
 
-  integer                 :: iv, iw1, iw2, k, j, jv, im, kb
-  integer                 :: iv1, iv2, iv3
-  integer                 :: im1, im2, im3
-  real                    :: vort(mza,mma), del_vort(mza,mma)
-  real                    :: arm0i, cv, vbar, dnui
-  real, allocatable, save :: cm(:)
-  logical,           save :: firstime = .true.
+  real,        intent(inout) :: vmt(mza,mva)
+  real(r8),    intent(inout) :: dtm
 
-  real, parameter         :: onethird = 1./3.
-  real, parameter         :: twothird = 2./3.
+  integer                    :: iv, iw, iw1, iw2, iw3, i, k, j, jv, im, ka, nn
+  integer                    :: im1, im2
+  real                       :: vcm
+  real                       :: vxbar(mza), vybar(mza), vzbar(mza)
+  real                       :: fn(mza)
+  integer                    :: ilev, il, ih
 
-  if (nl%akmin_vort < 1.e-7) return
+  logical,              save :: firstime = .true.
+  real,    allocatable, save :: fvortl(:), fvorth(:)
+  integer, allocatable, save :: lpmmin(:)
+  real,    allocatable, save :: vfact (:,:)
+  real,    allocatable, save :: vort2d(:,:,:)
+
+
+  if (nl%vort_damp_fact < 1.e-7 .or. nl%vort_damp_level <= 0) return
 
   if (firstime) then
      firstime = .false.
 
-     allocate(cm(mma))
+     allocate( fvorth(mva) )
+     if (nl%vort_damp_level > 2) allocate( fvortl(mva) )
 
-     cv = nl%akmin_vort  * 0.075
+     allocate( vfact(3,mma) )
+     allocate( lpmmin (mma) )
 
-     !$omp parallel do private(im,iv1,iv2,iv3)
-     do j = 1,jtab_m(jtm_prog)%jend; im = jtab_m(jtm_prog)%im(j)
+     if (nl%vort_damp_level == 1) then
+        allocate( vort2d(mza,mma,1) )
+     else
+        allocate( vort2d(mza,mma,2) )
+     endif
 
-        iv1  = itab_m(im)%iv(1)
-        iv2  = itab_m(im)%iv(2)
-        iv3  = itab_m(im)%iv(3)
+     !$omp parallel
+     !$omp do
+     do im = 1, mma
+        vort2d(:,im,1) = 0.
+        if (nl%vort_damp_level > 1) vort2d(:,im,2) = 0.
+     enddo
+     !$omp end do nowait
 
-        cm(im) = cv * arm0(im)**twothird * dnu(iv1) * dnu(iv2) * dnu(iv3) / &
-                      ( dnu(iv1) * dnu(iv2) * dnv(iv3) &
-                      + dnu(iv1) * dnv(iv2) * dnu(iv3) &
-                      + dnv(iv1) * dnu(iv2) * dnu(iv3) )
+     !$omp do private(im,jv,iv)
+     do j = 1, jtab_m(jtm_prog)%jend; im = jtab_m(jtm_prog)%im(j)
+
+        lpmmin(im) = minval( lpv( itab_m(im)%iv(1:3) ) )
+
+        do jv = 1, 3
+           iv = itab_m(im)%iv(jv)
+
+           if (itab_v(iv)%im(2) == im) then
+              vfact(jv,im) =  dnv(iv) / arm0(im)
+           else
+              vfact(jv,im) = -dnv(iv) / arm0(im)
+           endif
+        enddo
+
+     enddo
+     !$omp end do nowait
+
+     !$omp do private(iv,im1,im2)
+     do j = 1, jtab_v(jtv_prog)%jend; iv = jtab_v(jtv_prog)%iv(j)
+        im1 = itab_v(iv)%im(1)
+        im2 = itab_v(iv)%im(2)
+
+        fvorth(iv) = 0.50 * dniu(iv) / real(dtm) &
+                   * ( -nl%vort_damp_fact * min(arm0(im1),arm0(im2)) )**nl%vort_damp_level
+
+        if (nl%vort_damp_level > 2) then
+           fvortl(iv) = 0.50 * dniu(iv) / real(dtm) &
+                      * ( -nl%vort_damp_fact * min(arm0(im1),arm0(im2)) )**(nl%vort_damp_level-1)
+        endif
+
+     enddo
+     !$omp end do nowait
+     !$omp end parallel
+
+  endif  ! firstime
+
+  !$omp parallel private(vxbar,vybar,vzbar,fn)
+  !$omp do private(im,jv,iw,k,iv,vcm)
+  do j = 1, jtab_m(jtm_prog)%jend; im = jtab_m(jtm_prog)%im(j)
+
+     if (lpmmin(im) < lpm(im)) then
+
+        vxbar(lpmmin(im):lpm(im)-1) = 0.
+        vybar(lpmmin(im):lpm(im)-1) = 0.
+        vzbar(lpmmin(im):lpm(im)-1) = 0.
+        fn   (lpmmin(im):lpm(im)-1) = 0.
+
+        do jv = 1, 3
+           iw = itab_m(im)%iw(jv)
+           do k = max(lpmmin(im),lpw(iw)), lpm(im)-1
+              fn   (k) = fn   (k) + 1.125
+              vxbar(k) = vxbar(k) + vxe(k,iw)
+              vybar(k) = vybar(k) + vye(k,iw)
+              vzbar(k) = vzbar(k) + vze(k,iw)
+           enddo
+        enddo
+
+     endif
+
+     vort2d(:,im,1) = 0.
+
+     do jv = 1, 3
+        iv = itab_m(im)%iv(jv)
+
+        do k = lpmmin(im), lpv(iv)-1
+           vcm = ( vnx(iv) * vxbar(k) &
+                 + vny(iv) * vybar(k) &
+                 + vnz(iv) * vzbar(k) ) / fn(k)
+
+           vort2d(k,im,1) = vort2d(k,im,1) + vcm * vfact(jv,im)
+        enddo
+
+        do k = lpv(iv), mza
+           vort2d(k,im,1) = vort2d(k,im,1) + vc(k,iv) * vfact(jv,im)
+        enddo
+
+     enddo
+
+  enddo
+  !$omp end do nowait
+  !$omp end parallel
+
+  if (iparallel == 1) then
+     call mpi_send_m( rvara1=vort2d(:,:,1) )
+     call mpi_recv_m( rvara1=vort2d(:,:,1) )
+  endif
+  call lbcopy_m( a1=vort2d(:,:,1) )
+
+  if ( nl%vort_damp_level == 1 ) then
+
+     !$omp parallel do private(iv,iw1,iw2,im1,im2,k)
+     do j = 1,jtab_v(jtv_prog)%jend; iv = jtab_v(jtv_prog)%iv(j)
+
+        iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
+        im1 = itab_v(iv)%im(1); im2 = itab_v(iv)%im(2)
+
+        do k = lpv(iv), mza
+           vmt(k,iv) = vmt(k,iv) + fvorth(iv) * (vort2d(k,im2,1) - vort2d(k,im1,1)) * real(rho(k,iw1)+rho(k,iw2))
+        enddo
 
      enddo
      !$omp end parallel do
 
-  endif  ! firstime
+  else
 
-  !$omp parallel do private(im,kb,jv,iv,k,arm0i)
-  do j = 1,jtab_m(jtm_prog)%jend; im = jtab_m(jtm_prog)%im(j)
+     do nn = 1, nl%vort_damp_level - 1
+        il = mod(nn-1,2)+1
+        ih = mod(nn  ,2)+1
 
-     kb = lpm(im)
+        !$omp parallel do private(im)
+        do j = 1, jtab_m(jtm_prog)%jend; im = jtab_m(jtm_prog)%im(j)
 
-     vort(:,im) = 0.
+           call laplacian_m(im, vort2d(:,:,il), vort2d(:,im,ih))
 
-     ! Loop over V neighbors to evaluate circulation around M (at time T)
-     do jv = 1, 3
-        iv = itab_m(im)%iv(jv)
+        enddo
+        !$omp end parallel do
 
-        if (itab_v(iv)%im(2) == im) then
-
-           do k = kb,mza
-              vort(k,im) = vort(k,im) + vc(k,iv) * dnv(iv)
-           enddo
-
-        else
-
-           do k = kb,mza
-              vort(k,im) = vort(k,im) - vc(k,iv) * dnv(iv)
-           enddo
-
+        if (iparallel == 1) then
+           call mpi_send_m( rvara1=vort2d(:,:,ih) )
+           call mpi_recv_m( rvara1=vort2d(:,:,ih) )
         endif
+        call lbcopy_m( a1=vort2d(:,:,ih) )
+
      enddo
 
-     ! Convert circulation to relative vertical vorticity at M
-     ! (DNV lacks the zfact factor and ARM0 lacks the zfact**2 factor, so we
-     ! divide their quotient by zfact)
+     !$omp parallel do private(iv,iw1,iw2,im1,im2,ka,k)
+     do j = 1,jtab_v(jtv_prog)%jend; iv = jtab_v(jtv_prog)%iv(j)
 
-     arm0i = 1. / arm0(im)
+        iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
+        im1 = itab_v(iv)%im(1); im2 = itab_v(iv)%im(2)
 
-     do k = kb,mza
-        vort(k,im) = vort(k,im) * arm0i * zfacit(k)
+        if (nl%vort_damp_level == 3) then
+           ka = max(lpm(im1),lpm(im2))
+        else
+           ka = lpv(iv)
+        endif
+
+        do k = lpv(iv), ka-1
+           vmt(k,iv) = vmt(k,iv) + fvortl(iv) * (vort2d(k,im2,il) - vort2d(k,im1,il)) * real(rho(k,iw1)+rho(k,iw2))
+        enddo
+
+        do k = ka, mza
+           vmt(k,iv) = vmt(k,iv) + fvorth(iv) * (vort2d(k,im2,ih) - vort2d(k,im1,ih)) * real(rho(k,iw1)+rho(k,iw2))
+        enddo
+
      enddo
+     !$omp end parallel do
 
-  enddo
-  !$omp end parallel do
-
-  if (iparallel == 1) then
-     call mpi_send_m(rvara1=vort)
-     call mpi_recv_m(rvara1=vort)
   endif
-  call lbcopy_m(a1=vort)
-
-  !$omp parallel do private(im,im1,im2,im3,k,vbar)
-  do j = 1,jtab_m(jtm_prog)%jend; im = jtab_m(jtm_prog)%im(j)
-
-     im1  = itab_m(im)%im(1)
-     im2  = itab_m(im)%im(2)
-     im3  = itab_m(im)%im(3)
-
-     del_vort(2:lpm(im)-1,im) = 0.0
-
-     do k = lpm(im), mza
-        vbar = onethird * (vort(k,im1) + vort(k,im2) + vort(k,im3))
-        del_vort(k,im) = cm(im) * (vbar - vort(k,im))
-     enddo
-
-  enddo
-  !$omp end parallel do
-
-  if (iparallel == 1) then
-     call mpi_send_m(rvara1=del_vort)
-     call mpi_recv_m(rvara1=del_vort)
-  endif
-  call lbcopy_m(a1=del_vort)
-
-  !$omp parallel do private(iv,iw1,iw2,im1,im2,dnui,k)
-  do j = 1,jtab_v(jtv_prog)%jend; iv = jtab_v(jtv_prog)%iv(j)
-
-     iw1 = itab_v(iv)%iw(1); iw2 = itab_v(iv)%iw(2)
-     im1 = itab_v(iv)%im(1); im2 = itab_v(iv)%im(2)
-
-     dnui = 1.0 / dnu(iv)
-
-     ! Horizontal filter for vertical vorticity
-
-     do k = lpv(iv), mza
-        vmt(k,iv) = vmt(k,iv) + real( rho(k,iw1) + rho(k,iw2) ) &
-                              * (del_vort(k,im2) - del_vort(k,im1)) * dnui
-     enddo
-
-  enddo
-  !$omp end parallel do
 
 end subroutine vort_damp

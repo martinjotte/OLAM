@@ -2,9 +2,10 @@ Module oplot_coms
 
   use max_dims,    only: maxnplt, maxpltfiles, pathlen
   use consts_coms, only: r8
+  use minterp_lib, only: minterp_wghts
   implicit none
 
-  private :: maxnplt, maxpltfiles, pathlen
+  private :: maxnplt, maxpltfiles, pathlen, r8, minterp_wghts
 
 ! Variables copied or computed from $MODEL_PLOT namelist
 
@@ -43,6 +44,9 @@ Module oplot_coms
      real :: sinplon
      real :: cosplon
 
+     integer :: nx_grid  = 100 ! number of east-west points on gridded plots
+     integer :: nx_vect  =  25 ! number of east-west vectors on gridded plots
+
      character(pathlen) :: pltname
      character(pathlen) :: plt_files(maxpltfiles)
 
@@ -53,11 +57,12 @@ Module oplot_coms
 
      character(len=1), dimension(maxnplt) ::  &
           projectn    = ' ' & ! Plot projection & cross section ['L','P','G','O','Z','C','V']
-         ,contrtyp    = 'N' & ! Contour type ['T','F','L','O']
+         ,contrtyp    = 'N' & ! Contour type ['T','F','L','O','A']
          ,prtval      = 'N' & ! Flag to print value ['P']
          ,pltindx1    = 'N' & ! Print ATM grid index ['I','J']
          ,pltindx2    = 'N' & ! Print SFC grid index ['i','j']
-         ,vectbarb    = 'N' & ! Plot vectors or windbarbs ['B','V','w','Y','y']
+         ,vectbarb    = 'N' & ! Plot vectors or windbarbs for winds ['B','V','w']
+         ,vectsea     = 'N' & ! Plot vectors for ocean currents or wave propagation ['Y','y','z']
          ,pltgrid     = 'N' & ! Plot grid lines ['G']
          ,pltgrid_sfc = 'N' & ! Plot surface grid lines ['g']
          ,pltdualgrid = 'N' & ! Plot grid lines ['D']
@@ -66,13 +71,15 @@ Module oplot_coms
          ,colorbar    = 'N' & ! Print colorbar, no colorbar but reserve space ['c','r']
          ,maptyp      = 'N' & ! Flag to plot land, country, state outlines ['m']
          ,pltll       = 'N' & ! Flag to plot lat/lon lines ['l']
+         ,centplthurr = 'N' & ! Flag to center plot on hurricane ['H']
          ,pltcone     = 'N' & ! Flag to plot cone circle ['C']
          ,pltlev      = 'N' & ! Plot on const press level or near sfc ['p','s']
          ,windowin    = 'N' & ! Flag to window in ['W']
          ,ext         = 'N' & ! Flag indicating "external" plot field ['e']
          ,frameoff    = 'N' & ! Flag to suppress frame call ['f','h']
          ,panel       = 'N' & ! Panel number if reduced-size plot ['1' to '9']
-         ,noundrg     = 'N'   ! Suppress masking underground cells ['u']
+         ,noundrg     = 'N' & ! Suppress masking underground cells ['u']
+         ,gridded     = 'N'   ! Output to a lat/lon or x/y grid with resolution nx
 
      real :: slabloc(maxnplt) ! Z-coord of plot slab in x/y/z or lat/lon/z space
 
@@ -151,6 +158,9 @@ Module oplot_coms
 
      logical :: has_high_res = .false. ! Indicates the newest high-resolution maps
                                        ! are available in the installed NCAR Graphics
+
+     integer :: ncarg_font = 4 ! Default NCAR Graphics font (see fontcap for list of fonts)
+
   End Type oplot_vars
 
   type (oplot_vars) :: op
@@ -162,4 +172,150 @@ Module oplot_coms
   real :: xepc(2), yepc(2), zepc(2)  ! Earth coords of 2 pts of intersection of
                                      ! plot cone, earth surface, and sides of
                                      ! triangular grid column
+
+  Type node_information
+     integer              :: irank
+     integer              :: npnts
+     integer, allocatable :: ipnts(:)
+  End type node_information
+
+  Type oplot_grid_vars
+     integer                          :: npnts = 0
+     integer,             allocatable :: ipnts(:)
+     type(minterp_wghts), allocatable :: wgts (:)
+     logical                          :: initialized = .false.
+
+     integer                             :: nrecvs
+     type(node_information), allocatable :: iremote(:)
+  End type oplot_grid_vars
+
+  ! Holds information and weights for gridded horizontal plots
+
+  type(oplot_grid_vars), allocatable :: op_grid(:)
+  type(oplot_grid_vars), allocatable :: op_vect(:)
+
+
+Contains
+
+!===============================================================================
+
+subroutine sort_plot_wts_parallel(nn,wts,op_grid)
+
+  use mem_para,    only: myrank, mgroupsize
+  use mem_ijtabs,  only: itabg_m
+  use misc_coms,   only: iparallel
+
+  implicit none
+
+  integer,                          intent(in)    :: nn
+  type(oplot_grid_vars),            intent(inout) :: op_grid
+  type(minterp_wghts), allocatable, intent(inout) :: wts(:)
+
+  integer              :: npnts, nrecvs, ns, ii, i
+  integer              :: irank, irecv
+  integer, allocatable :: ind   (:)
+  integer, allocatable :: npntsg(:)
+
+  if (myrank /= 0) then
+
+     npnts = count( itabg_m( wts(:)%imglobe )%irank == myrank )
+     op_grid%npnts = npnts
+
+     if (npnts > 0) then
+        allocate( op_grid%wgts (npnts) )
+        allocate( op_grid%ipnts(npnts) )
+
+        ns = 0
+        do ii = 1, nn
+           if ( itabg_m( wts(ii)%imglobe )%irank == myrank ) then
+              ns = ns + 1
+              op_grid%wgts (ns) = wts(ii)
+              op_grid%ipnts(ns) = ii
+           endif
+        enddo
+     endif
+
+     deallocate(wts)
+
+  elseif (iparallel == 1) then
+
+     allocate(npntsg(0:mgroupsize-1)) ; npntsg = 0
+     allocate(ind   (0:mgroupsize-1)) ; ind    = 0
+
+     do ii = 1, nn
+        irank = max( itabg_m( wts(ii)%imglobe )%irank, 0)
+        npntsg(irank) = npntsg(irank) + 1
+     enddo
+
+     npnts = npntsg(0)
+     op_grid%npnts = npnts
+
+     if (npnts > 0) then
+        allocate( op_grid%wgts (npnts) )
+        allocate( op_grid%ipnts(npnts) )
+        ns = 0
+        do ii = 1, nn
+           if ( max(itabg_m( wts(ii)%imglobe )%irank,0) == myrank ) then
+              ns = ns + 1
+              op_grid%wgts (ns) = wts(ii)
+              op_grid%ipnts(ns) = ii
+           endif
+        enddo
+     endif
+
+     nrecvs = count( npntsg(1:mgroupsize-1) > 0 )
+     op_grid%nrecvs = nrecvs
+
+     if (npnts > 0) then
+        allocate( op_grid%iremote(0:nrecvs) )
+     elseif (nrecvs > 0) then
+        allocate( op_grid%iremote(nrecvs) )
+     endif
+
+     if (npnts > 0) then
+        ind(0) = 0
+        op_grid%iremote(0)%irank = 0
+        op_grid%iremote(0)%npnts = npnts
+        allocate( op_grid%iremote(0)%ipnts(npnts) )
+     endif
+
+     if (nrecvs > 0) then
+        irecv = 0
+        do i = 1, mgroupsize-1
+           if (npntsg(i) > 0) then
+              irecv = irecv + 1
+              ind(i) = irecv
+              op_grid%iremote(irecv)%irank = i
+              op_grid%iremote(irecv)%npnts = npntsg(i)
+              allocate( op_grid%iremote(irecv)%ipnts( npntsg(i) ) )
+           endif
+        enddo
+     endif
+
+     npntsg(:) = 0
+
+     do ii = 1, nn
+        irank = max(itabg_m( wts(ii)%imglobe )%irank, 0)
+        npntsg(irank) = npntsg(irank) + 1
+        op_grid%iremote( ind(irank) )%ipnts( npntsg(irank) ) = ii
+     enddo
+
+     deallocate(wts)
+
+  else
+
+     op_grid%npnts  = nn
+     op_grid%nrecvs = 0
+
+     call move_alloc(wts, op_grid%wgts)
+
+     allocate( op_grid%ipnts( nn ) )
+     op_grid%ipnts = [(i,i=1,nn)]
+
+  endif
+
+end subroutine sort_plot_wts_parallel
+
+!================================================================================
+
 End Module oplot_coms

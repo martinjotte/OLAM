@@ -62,6 +62,7 @@ Contains
     implicit none
 
     integer, intent(in) :: lza,lva,lwa,naddsc,nccntyp
+    integer             :: iv, iw
 
     integer :: iaddsc, ic
 
@@ -69,61 +70,114 @@ Contains
 
 ! Find the maximum number of grid points needed for any grid.
 
-    if (allocated(vxe))     allocate (vmxet(lza,lwa)) ; vmxet = 0.
-    if (allocated(vye))     allocate (vmyet(lza,lwa)) ; vmyet = 0.
-    if (allocated(vze))     allocate (vmzet(lza,lwa)) ; vmzet = 0.
+    if ( allocated( vc ) ) allocate( vmt(lza,lva) )
 
-    if (allocated(vc))      allocate (vmt  (lza,lva)) ; vmt   = 0.
+    !$omp parallel do
+    do iv = 1, lva
+       if ( allocated( vmt ) ) vmt(:,iv) = 0.
+    enddo
+    !$emp end parallel do
 
-    if (allocated(thil))    allocate (thilt(lza,lwa)) ; thilt = 0.
-    if (allocated(rr_w))    allocate (rr_wt(lza,lwa)) ; rr_wt = 0.
+    if ( allocated( vxe ) )     allocate( vmxet(lza,lwa) )
+    if ( allocated( vye ) )     allocate( vmyet(lza,lwa) )
+    if ( allocated( vze ) )     allocate( vmzet(lza,lwa) )
+
+    if ( allocated( thil ) )    allocate( thilt(lza,lwa) )
+    if ( allocated( rr_w ) )    allocate( rr_wt(lza,lwa) )
 
     if (miclevel > 2) then
-       if (allocated(rr_c)) allocate (rr_ct(lza,lwa))
+       if ( allocated( rr_c ) ) allocate( rr_ct(lza,lwa) )
     endif
 
-    if (allocated(rr_r))    allocate (rr_rt(lza,lwa))
-    if (allocated(rr_p))    allocate (rr_pt(lza,lwa))
-    if (allocated(rr_s))    allocate (rr_st(lza,lwa))
-    if (allocated(rr_a))    allocate (rr_at(lza,lwa))
-    if (allocated(rr_g))    allocate (rr_gt(lza,lwa))
-    if (allocated(rr_h))    allocate (rr_ht(lza,lwa))
-    if (allocated(rr_d))    allocate (rr_dt(lza,lwa))
+    if ( allocated( rr_r ) )    allocate( rr_rt(lza,lwa) )
+    if ( allocated( rr_p ) )    allocate( rr_pt(lza,lwa) )
+    if ( allocated( rr_s ) )    allocate( rr_st(lza,lwa) )
+    if ( allocated( rr_a ) )    allocate( rr_at(lza,lwa) )
+    if ( allocated( rr_g ) )    allocate( rr_gt(lza,lwa) )
+    if ( allocated( rr_h ) )    allocate( rr_ht(lza,lwa) )
+    if ( allocated( rr_d ) )    allocate( rr_dt(lza,lwa) )
 
-    if (allocated(con_c))   allocate (con_ct(lza,lwa))
-    if (allocated(con_r))   allocate (con_rt(lza,lwa))
-    if (allocated(con_p))   allocate (con_pt(lza,lwa))
-    if (allocated(con_s))   allocate (con_st(lza,lwa))
-    if (allocated(con_a))   allocate (con_at(lza,lwa))
-    if (allocated(con_g))   allocate (con_gt(lza,lwa))
-    if (allocated(con_h))   allocate (con_ht(lza,lwa))
-    if (allocated(con_d))   allocate (con_dt(lza,lwa))
+    if ( allocated( con_c ) )   allocate( con_ct(lza,lwa) )
+    if ( allocated( con_r ) )   allocate( con_rt(lza,lwa) )
+    if ( allocated( con_p ) )   allocate( con_pt(lza,lwa) )
+    if ( allocated( con_s ) )   allocate( con_st(lza,lwa) )
+    if ( allocated( con_a ) )   allocate( con_at(lza,lwa) )
+    if ( allocated( con_g ) )   allocate( con_gt(lza,lwa) )
+    if ( allocated( con_h ) )   allocate( con_ht(lza,lwa) )
+    if ( allocated( con_d ) )   allocate( con_dt(lza,lwa) )
 
-    if (allocated(con_gccn))allocate (con_gccnt(lza,lwa))
-    if (allocated(con_ifn)) allocate (con_ifnt (lza,lwa))
+    if ( allocated( con_gccn ) ) allocate( con_gccnt(lza,lwa) )
+    if ( allocated( con_ifn  ) ) allocate( con_ifnt (lza,lwa) )
 
-    if (allocated(ccntyp)) then
+    if ( allocated( ccntyp ) ) then
        do ic = 1,nccntyp
-          if       (allocated(ccntyp(ic)%con_ccn) .and.   &
-             (.not. allocated(ccntyp(ic)%con_ccnt)))      &
-                    allocate (ccntyp(ic)%con_ccnt(lza,lwa))
+          if      ( allocated( ccntyp(ic)%con_ccn) .and.   &
+             (.not. allocated( ccntyp(ic)%con_ccnt) ) )    &
+                    allocate ( ccntyp(ic)%con_ccnt(lza,lwa ) )
        enddo
     endif
 
-    if (allocated(q2))   allocate (q2t(lza,lwa))
-    if (allocated(q6))   allocate (q6t(lza,lwa))
-    if (allocated(q7))   allocate (q7t(lza,lwa))
+    if ( allocated( q2) )   allocate( q2t(lza,lwa ) )
+    if ( allocated( q6) )   allocate( q6t(lza,lwa ) )
+    if ( allocated( q7) )   allocate( q7t(lza,lwa ) )
 
-    if (allocated(tkep)) allocate (tket(lza,lwa))
-    if (allocated(epsp)) allocate (epst(lza,lwa))
+    if ( allocated( tkep) ) allocate( tket(lza,lwa ) )
+    if ( allocated( epsp) ) allocate( epst(lza,lwa ) )
 
-    do iaddsc = 1,naddsc
-       if       (allocated(addsc(iaddsc)%sclp) .and.  &
-          (.not. allocated(addsc(iaddsc)%sclt)))      &
-                 allocate (addsc(iaddsc)%sclt(lza,lwa))
+    do iaddsc = 1, naddsc
+       if      ( allocated( addsc(iaddsc)%sclp) .and.  &
+          (.not. allocated( addsc(iaddsc)%sclt) ) )    &
+                 allocate ( addsc(iaddsc)%sclt(lza,lwa ) )
     enddo
 
-    if (allocated(rr_co2)) allocate (rr_co2t(lza,lwa))
+    if ( allocated( rr_co2 ) ) allocate( rr_co2t(lza,lwa ) )
+
+
+    !$omp parallel do private(ic,iaddsc)
+    do iw = 1, lwa
+       if ( allocated( vmxet) ) vmxet(:,iw) = 0.
+       if ( allocated( vmyet) ) vmyet(:,iw) = 0.
+       if ( allocated( vmzet) ) vmzet(:,iw) = 0.
+
+       if ( allocated( thilt) ) thilt(:,iw) = 0.
+       if ( allocated( rr_wt) ) rr_wt(:,iw) = 0.
+       if ( allocated( rr_ct) ) rr_ct(:,iw) = 0.
+
+       if ( allocated( rr_rt) ) rr_rt(:,iw) = 0.
+       if ( allocated( rr_pt) ) rr_pt(:,iw) = 0.
+       if ( allocated( rr_st) ) rr_st(:,iw) = 0.
+       if ( allocated( rr_at) ) rr_at(:,iw) = 0.
+       if ( allocated( rr_gt) ) rr_gt(:,iw) = 0.
+       if ( allocated( rr_ht) ) rr_ht(:,iw) = 0.
+       if ( allocated( rr_dt) ) rr_dt(:,iw) = 0.
+
+       if ( allocated( con_rt) ) con_rt(:,iw) = 0.
+       if ( allocated( con_pt) ) con_pt(:,iw) = 0.
+       if ( allocated( con_st) ) con_st(:,iw) = 0.
+       if ( allocated( con_at) ) con_at(:,iw) = 0.
+       if ( allocated( con_gt) ) con_gt(:,iw) = 0.
+       if ( allocated( con_ht) ) con_ht(:,iw) = 0.
+       if ( allocated( con_dt) ) con_dt(:,iw) = 0.
+
+       if ( allocated( q2t) ) q2t(:,iw) = 0.
+       if ( allocated( q6t) ) q6t(:,iw) = 0.
+       if ( allocated( q7t) ) q7t(:,iw) = 0.
+
+       if ( allocated( tket) ) tket(:,iw) = 0.
+       if ( allocated( epst) ) epst(:,iw) = 0.
+
+       if ( allocated( ccntyp ) ) then
+          do ic = 1, nccntyp
+             if ( allocated( ccntyp(ic)%con_ccnt ) ) ccntyp(ic)%con_ccnt(:,iw) = 0.
+          enddo
+       endif
+
+       do iaddsc = 1, naddsc
+          if ( allocated( addsc(iaddsc)%sclt ) ) addsc(iaddsc)%sclt(:,iw) = 0.
+       enddo
+
+    enddo
+    !$emp end parallel do
 
   end subroutine alloc_tend
 
@@ -209,8 +263,8 @@ Contains
 
     integer, intent(in) :: naddsc, nccntyp
 
-    integer :: iaddsc, ic, n
-    character (len=10) :: sname
+    integer       :: iaddsc, ic, n
+    character(14) :: sname
 
 ! Fill pointers to scalar arrays into scalar tables
 
@@ -257,7 +311,7 @@ Contains
     if (do_chem == 1) call cgrid_scalar_tabs()
 
     do iaddsc = 1,naddsc
-       write(sname,'(a4,i3.3)') 'SCLP',iaddsc
+       write(sname,'(a4,i0.3)') 'SCLP',iaddsc
 
        if (allocated(addsc(iaddsc)%sclt)) then
           call vtables_scalar (addsc(iaddsc)%sclp, addsc(iaddsc)%sclt, sname, cu_mix=.true.)

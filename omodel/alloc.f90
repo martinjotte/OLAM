@@ -53,6 +53,8 @@ subroutine olam_mem_alloc()
   call alloc_turb(mza,mwa,mva,nsw_max,idiffk,mrls)
   call filltab_turb()
 
+  call alloc_average_vars(mwa,mwsfc,mland)
+
   call alloc_flux_accum(mza,mva,mwa,mwsfc,mland)
   call filltab_flux_accum()
 
@@ -69,17 +71,13 @@ subroutine olam_mem_alloc()
      endif
   endif
 
-! Allocate field average arrays
-
-  call alloc_average_vars(mwa,mwsfc,mland)
-
   if (initial == 2 .and. nudflag > 0) then
 
 ! If doing point-by-point (non-spectral) nudging, define mwnud here
 
       if (nudnxp == 0) mwnud = mwa
 
-      call alloc_nudge2(mza,mwa)
+      call alloc_nudge2(mza,mwa,mva)
       call filltab_nudge()
   endif
 

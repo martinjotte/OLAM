@@ -103,17 +103,24 @@ Contains
 
     ! Always allocate the following because they are used in subroutine flux_accum
 
-    allocate(airtempk_dmin(mwsfc))
-    allocate(airtempk_dmax(mwsfc))
+    if (nl%ioutput_davg == 1 .or. nl%do_accum) then
 
-    allocate(cantempk_dmin(mwsfc))
-    allocate(cantempk_dmax(mwsfc))
+       ! TODO: These need to be include in the var_tables to behave
+       ! properly in parallel and on history restarts!
 
-    allocate(vegtempk_dmin(mland))
-    allocate(vegtempk_dmax(mland))
+       allocate(airtempk_dmin(mwsfc))
+       allocate(airtempk_dmax(mwsfc))
 
-    allocate(soiltempk_dmin(mland))
-    allocate(soiltempk_dmax(mland))
+       allocate(cantempk_dmin(mwsfc))
+       allocate(cantempk_dmax(mwsfc))
+
+       allocate(vegtempk_dmin(mland))
+       allocate(vegtempk_dmax(mland))
+
+       allocate(soiltempk_dmin(mland))
+       allocate(soiltempk_dmax(mland))
+
+    endif
 
   end subroutine alloc_average_vars
 
@@ -163,17 +170,21 @@ Contains
 
     ! Always reset the following because they are used in subroutine flux_accum
 
-     airtempk_dmin(:) = 10000.0
-     airtempk_dmax(:) = 0.0
+    if (nl%ioutput_davg == 1 .or. nl%do_accum) then
 
-     cantempk_dmin(:) = 10000.0
-     cantempk_dmax(:) = 0.0
+       airtempk_dmin(:) = 10000.0
+       airtempk_dmax(:) = 0.0
+
+       cantempk_dmin(:) = 10000.0
+       cantempk_dmax(:) = 0.0
 
        vegtempk_dmin(:) = 10000.0
        vegtempk_dmax(:) = 0.0
 
-      soiltempk_dmin(:) = 10000.0
-      soiltempk_dmax(:) = 0.0
+       soiltempk_dmin(:) = 10000.0
+       soiltempk_dmax(:) = 0.0
+
+    endif
 
   end subroutine reset_davg_vars
 

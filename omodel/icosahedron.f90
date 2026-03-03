@@ -54,6 +54,7 @@ subroutine icosahedron(nxp0)
 
   do im = 2,nmd
      itab_md(im)%imp = im
+     itab_md(im)%im_orig = im
      itab_md(im)%mrlm = 1
      itab_md(im)%mrlm_orig = 1
      itab_md(im)%ngr = 1

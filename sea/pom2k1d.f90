@@ -42,9 +42,7 @@ Module pom2k1d
      real, allocatable :: wubot    (:) ! bottom U momentum flux      [m^2/s^2]
      real, allocatable :: wvbot    (:) ! bottom V momentum flux      [m^2/s^2]
      real, allocatable :: cor      (:) ! Coriolis parameter          [1/s]
-
-     integer, allocatable :: kba   (:) ! number of levels in each column []
-  End type
+  End Type pom_vars
 
   type (pom_vars) :: pom
 
@@ -52,18 +50,14 @@ Contains
 
 !===============================================================================
 
-  subroutine alloc_pomgrid(mpom)
+  subroutine alloc_pomgrid()
 
-  implicit none
+    implicit none
 
-  integer, intent(in) :: mpom
-
-  allocate (y  (nzpom)); y   = 0.
-  allocate (yy (nzpom)); yy  = 0.
-  allocate (dy (nzpom)); dy  = 0.
-  allocate (dyy(nzpom)); dyy = 0.
-
-  allocate (pom%kba (mpom)); pom%kba  = 0
+    allocate (y  (nzpom)); y   = 0.
+    allocate (yy (nzpom)); yy  = 0.
+    allocate (dy (nzpom)); dy  = 0.
+    allocate (dyy(nzpom)); dyy = 0.
 
   end subroutine alloc_pomgrid
 
@@ -193,7 +187,7 @@ Contains
 
   implicit none
 
-  integer, intent(in) :: ipom, kb
+  integer, intent(in) :: ipom, kb ! ipom = isea
   integer :: k
 
   real, intent(in) :: wusurf  ! surface U wind stress  [m^2/s^2]
@@ -244,7 +238,7 @@ Contains
   pom%potmpb(kb,ipom) = pom%potmpb(kb-1,ipom) ! Remnant of subroutine advct1 called here
   pom%salinb(kb,ipom) = pom%salinb(kb-1,ipom) ! Remnant of subroutine advct1 called here
 
-  do k = 1,kb-1
+  do k = 1,kb
      potmpf(k) = pom%potmpb(k,ipom) ! Remnant of subroutine advct1 called here
      salinf(k) = pom%salinb(k,ipom) ! Remnant of subroutine advct1 called here
   enddo

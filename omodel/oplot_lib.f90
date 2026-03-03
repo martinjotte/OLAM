@@ -4,22 +4,23 @@ use mem_ijtabs,  only: itab_w, itab_v, itab_m, &
                        jtab_w, jtab_v, jtab_m, &
                        jtw_prog, jtv_prog, jtm_vadj
 use mem_sfcg,    only: itab_wsfc, itab_msfc, itab_vsfc, sfcg
-use mem_land,    only: land, mland, omland, nzg, slz, dslz, slzt
+use mem_land,    only: land, mland, omland, nzg, nzs_max, slz, dslz, slzt
 use mem_lake,    only: lake, mlake, omlake
 use mem_sea,     only: sea,  msea,  omsea
 use pom2k1d,     only: pom
 use leaf4_soil,  only: soil_wat2pot
 use leaf4_surface,only:grndvap
+use leaf_coms,   only: wcap_min
 use mem_basic,   only: vmc, wmc, vc, wc, rho, press, &
                        thil, theta, tair, rr_w, rr_v, vxe, vye, vze, ue, ve
 use mem_cuparm,  only: conprr, aconpr, qwcon, cbmf
 
 use mem_grid,    only: mza, lpm, lpv, lpw, lsw, &
-                       zt, dzt, dnu, dnv, arw0, arm0, arv, arw, volt, &
+                       zt, dzt, dnu, dnv, arw0, arw0i, arm0, arv, arw, volt, &
                        xem, yem, zem, &
                        xev, yev, zev, xew, yew, zew, &
                        topm, topw, glatm, glonm, glatv, glonv, glatw, glonw, &
-                       vnx, vny, vnz, wnx, wny, wnz, &
+                       vnx, vny, vnz, wnx, wny, wnz, unx, uny, unz, &
                        wnxo2, wnyo2, wnzo2, dzt_bot
 
 use mem_micro,   only: rr_c, rr_d, rr_r, rr_p, rr_s, rr_a, rr_g, rr_h, &
@@ -40,8 +41,11 @@ use mem_addsc,   only: addsc
 use mem_tend,    only: vmxet, vmyet, vmzet
 use mem_para,    only: myrank
 use mem_turb,    only: vkm_sfc, sfluxt, sfluxr, pblh, vkm, vkh, ustar, wstar
-use mem_nudge,   only: rho_obs, theta_obs, rrw_obs, uzonal_obs, umerid_obs, &
-                       rho_sim, theta_sim, rrw_sim, uzonal_sim, umerid_sim
+use mem_nudge,   only: rho_obs, theta_obs, rrv_obs, uzonal_obs, umerid_obs, &
+                       rho_sim, theta_sim, rrv_sim, uzonal_sim, umerid_sim, &
+                       rho_obsp, theta_obsp, rrv_obsp, uzonal_obsp, umerid_obsp, &
+                       rho_obsf, theta_obsf, rrv_obsf, uzonal_obsf, umerid_obsf, &
+                       tp, tf, nudflag, nudnxp
 use therm_lib,   only: qtk, qwtk, rhovsl_inv
 use misc_coms,   only: io6, naddsc, mdomain
 use oplot_coms,  only: op
@@ -77,6 +81,7 @@ use mem_flux_accum, only:     rshort_accum,         rshortup_accum, &
         sfluxt_davg,    sfluxr_davg
 
 use oname_coms, only: nl
+use hcane_rz,   only: azimvals
 
 use mem_swtc5_refsoln_cubic
 
@@ -130,8 +135,10 @@ use mem_plot, only: &
   soiltemp_dmin_accum_prev0, soiltemp_dmin_accum_prev1, soiltemp_dmin_accum_prev2, soiltemp_dmin_accum_prev3, &
   soiltemp_dmax_accum_prev0, soiltemp_dmax_accum_prev1, soiltemp_dmax_accum_prev2, soiltemp_dmax_accum_prev3
 
-use mem_sfcnud, only: sfcwat_nud, sfctemp_nud, fracliq_nud ! fast can nud
-use sea_swm,    only: depthmin_swe
+use mem_sfcnud,  only: sfcwat_nud, sfctemp_nud, fracliq_nud ! fast can nud
+use sea_swm,     only: depthmin_swe
+use umwm_module, only: umwm, swh, mwd, dwd, dcg
+use mem_lp,      only: atp
 
 implicit none
 
@@ -147,19 +154,19 @@ integer, intent(out) :: notavail  ! 0 - variable is available
                                   ! 4 - variable is not available in current grid cell
                                   !     (e.g., no sfcwater fracliq when no sfcwater)
 
-integer :: klev,nls,jv,im,iv,iw,kp,k,i
+integer :: klev,nls,jv,im,iv,iw,kp,k,i,iwn
 real :: raxis,u,v,rpolyi,raxisi
 real :: vx, vy, vz
 real :: tempk, fracliq
 real :: vc_change, wc_change
 integer :: iw1,iw2,iland,ilake,isea,iwsfc
 integer :: npoly,j
-integer :: lenstr, ic, ifield
-integer, save :: indp, icase
+integer :: lenstr, ic, ifield, icase
+integer, save :: indp = 0, icase_sav = 0
 integer :: jasfc
 real :: area_sum
 real :: zobs, press_zobs, exner_zobs, wind_zobs, theta_zobs, rrv_zobs
-real :: canexner, cantheta, canthetav, airthetav, tstar, rstar, ufree
+real :: cantheta, canthetav, airthetav, wstar_sfc
 
 real :: vcc
 real :: vcc_init
@@ -173,7 +180,7 @@ real :: zanal_swtc5, zanal0_swtc5
 
 real, parameter :: onethird = 1./3.
 
-integer, parameter :: nfields = 803
+integer, parameter :: nfields = 903
 character(len=40) :: fldlib(4,nfields)
 character(len=40), save :: fldname
 
@@ -248,7 +255,7 @@ data fldlib(1:4, 37:61)/ &
 
 ! ATMOSPHERE - 2D
 
-data fldlib(1:4, 62:98)/ &
+data fldlib(1:4, 62:100)/ &
  'RSHORT_TOP'    ,'T2' ,'TOP DOWN SW FLX',' (W m:S2:-2  )'                  ,& !  62
  'RSHORTUP_TOP'  ,'T2' ,'TOP UP SW FLX',' (W m:S2:-2  )'                    ,& !  63
  'RLONGUP_TOP'   ,'T2' ,'TOP UP LW FLX',' (W m:S2:-2  )'                    ,& !  64
@@ -285,10 +292,14 @@ data fldlib(1:4, 62:98)/ &
  'ACCPMIC'       ,'T2' ,'ACCUM MIC PCP',' (kg m:S2:-2  )'                   ,& !  92
  'ACCPCON'       ,'T2' ,'ACCUM CUPARM PCP',' (kg m:S2:-2  )'                ,& !  93
  'ACCPBOTH'      ,'T2' ,'ACCUM MIC+CUPARM PCP',' (kg m:S2:-2  )'            ,& !  94
- 'WSTAR'         ,'T2' ,'WSTAR',' (m s:S2:-1  )'                            ,& !  95
- 'PSFC'          ,'T2' ,'SFC PRESS',' (hPa)'                                ,& !  96
- 'PMSL'          ,'T2' ,'SEA LEVEL PRESS',' (hPa)'                          ,& !  97
- 'CBMF'          ,'T2' ,'CUPARM CLDBASE MASS FLX','(kg m:S2:-2 s:S2:-1 )'   / !  98
+ 'ACCPBOTH_INCH' ,'T2' ,'ACCUM MIC+CUPARM PCP',' (inches)'                  ,& !  95
+ 'WSTAR'         ,'T2' ,'WSTAR',' (m s:S2:-1  )'                            ,& !  96
+ 'PSFC'          ,'T2' ,'SFC PRESS',' (hPa)'                                ,& !  97
+ 'PMSL'          ,'T2' ,'SEA LEVEL PRESS',' (hPa)'                          ,& !  98
+ 'CBMF'          ,'T2' ,'CUPARM CLDBASE MASS FLX','(kg m:S2:-2 s:S2:-1 )'   ,& !  99
+
+! ATM 3D (should be moved to previous section)
+ 'SPEEDK'        ,'T3' ,'WIND SPEED AT W',' (knots)'                         / ! 100
 
 ! ATMOSPHERE DIF2 fields (3D & 2D)
 
@@ -325,9 +336,18 @@ data fldlib(1:4,129:134)/ &
  'PCPCON_REL4'    ,'T2' ,'CUPARM PCP RELATIVE DIFF4',' '              ,& ! 133
  'PCPBOTH_REL4'   ,'T2' ,'MIC+CUPARM PCP RELATIVE DIFF4',' '           / ! 134
 
+! ATMOSPHERE - Lagrangian particles
+
+data fldlib(1:4,151:155)/ &
+ 'LP'              ,'A3' ,'LP',' ( )'                                 ,& ! 151
+ 'LP_ZP'           ,'A3' ,'LP COLORED BY HEIGHT',' (m)'               ,& ! 152
+ 'LP_SP'           ,'A3' ,'LP COLORED BY NORMCOORD',' (m)'            ,& ! 153
+ 'LP_RELTIME'      ,'A3' ,'LP COLORED BY RELEASE TIME',' (s)'         ,& ! 154
+ 'LP_NSRC'         ,'A3' ,'LP COLORED BY SOURCE NUMBER',' ( )'         / ! 155
+
 ! LAND_CELLS - 3D
 
-data fldlib(1:4,181:203)/ &
+data fldlib(1:4,181:198)/ &
  'SAND'              ,'L3G','SOIL SAND FRACTION',' ( )'                  ,& ! 181
  'CLAY'              ,'L3G','SOIL CLAY FRACTION',' ( )'                  ,& ! 182
  'SILT'              ,'L3G','SOIL SILT FRACTION',' ( )'                  ,& ! 183
@@ -345,37 +365,34 @@ data fldlib(1:4,181:203)/ &
  'SOIL_ENERGY'       ,'L3G','SOIL ENERGY',' (J cm:S2:-3  )'              ,& ! 195
  'SOIL_TEMPK'        ,'L3G','SOIL TEMP',' (K)'                           ,& ! 196
  'SOIL_FRACLIQ'      ,'L3G','LIQUID FRACTION OF SOIL WATER',' ( )'       ,& ! 197
- 'SOIL_WATER'        ,'L3G','SOIL WATER CONTENT',' ( )'                  ,& ! 198
- 'SFWAT_MASS'        ,'L3S','SFCWATER MASS',' (kg m:S2:-2  )'            ,& ! 199
- 'SFWAT_ENERGY'      ,'L3S','SFCWATER ENERGY',' (J g:S2:-1  )'           ,& ! 200
- 'SFWAT_TEMPK'       ,'L3S','SFCWATER TEMP',' (K)'                       ,& ! 201
- 'SFWAT_FRACLIQ'     ,'L3S','SFCWATER LIQUID FRACTION',' ( )'            ,& ! 202
- 'SFWAT_DEPTH'       ,'L3S','SFCWATER DEPTH',' (m)'                       / ! 203
+ 'SOIL_WATER'        ,'L3G','SOIL WATER CONTENT',' ( )'                   / ! 198
 
 ! LAND_CELLS - 2D
 
-data fldlib(1:4,205:224)/ &
- 'USDA_TEXT'        ,'L2' ,'USDA SOIL TEXTURAL CLASS (2D)',' ( )'            ,& ! 205
- 'Z_BEDROCK'        ,'L2' ,'Z_BEDROCK',' (m)'                                ,& ! 206
- 'GPP'              ,'L2' ,'GROSS PRIMARY PRODUCTION OF CARBON',' ()'        ,& ! 207
- 'GLHYMPS_KSAT'     ,'L2' ,'GLHYMPS KSAT',' (m/s)'                           ,& ! 208
- 'GLHYMPS_KSAT_PFR' ,'L2' ,'GLHYMPS KSAT WITH PERMAFROST',' (m/s)'           ,& ! 209
- 'GLHYMPS_POROS'    ,'L2' ,'GLHYMPS POROSITY',' ( )'                         ,& ! 208
- 'NLEV_SFWAT'       ,'L2' ,'NUMBER OF SFCWATER LAYERS',' ( )'                ,& ! 211
- 'VEG_NDVIC'        ,'L2' ,'VEGETATION NDVI',' ( )'                          ,& ! 212
- 'VEG_TEMPC'        ,'L2' ,'VEGETATION TEMP',' (C)'                          ,& ! 213
- 'VEG_TEMPK'        ,'L2' ,'VEGETATION TEMP',' (K)'                          ,& ! 214
- 'VEG_WATER'        ,'L2' ,'VEGETATION SFC WATER ',' (kg m:S2:-2  )'         ,& ! 215
- 'STOM_RESIST'      ,'L2' ,'STOMATAL RESISTANCE',' (s m:S2:-1  )'            ,& ! 216
- 'SFCWATER_TOT'     ,'L2' ,'TOTAL SFCWATER MASS',' (kg m:S2:-2  )'           ,& ! 217
- 'SFCWATER_TOP_TEMP','L2' ,'SFCWATER TOPLAYER TEMP',' (K)'                   ,& ! 218
- 'SOIL_TOP_TEMP'    ,'L2' ,'SOIL TOPLAYER TEMP',' (K)'                       ,& ! 219
- 'GROUND_RRV'       ,'L2' ,'EQUIL VAP MIXR OF SOIL',' (g kg:S2:-1  )'        ,& ! 220
- 'SOIL_DEPTH'       ,'L2' ,'SOIL DEPTH',' (m)'                               ,& ! 221
- 'SOIL_WATER_TOT'   ,'L2' ,'TOTAL SOIL WATER',' (m)'                         ,& ! 222
- 'HEAD0'            ,'L2' ,'HEAD0',' (m)'                                    ,& ! 223
- 'SLOPE_FACT'       ,'L2' ,'SUBGRID OROGRAPHY SLOPE FACTOR',' ( )'            / ! 224
-
+data fldlib(1:4,201:223)/ &
+ 'SFWAT_MASS'       ,'L2' ,'SFCWATER MASS',' (kg m:S2:-2  )'             ,& ! 201
+ 'SFWAT_ENERGY'     ,'L2' ,'SFCWATER ENERGY',' (J g:S2:-1  )'            ,& ! 202
+ 'SFWAT_TEMPK'      ,'L2' ,'SFCWATER TEMP',' (K)'                        ,& ! 203
+ 'SFWAT_FRACLIQ'    ,'L2' ,'SFCWATER LIQUID FRACTION',' ( )'             ,& ! 204
+ 'SFWAT_DEPTH'      ,'L2' ,'SFCWATER DEPTH',' (m)'                       ,& ! 205
+ 'USDA_TEXT'        ,'L2' ,'USDA SOIL TEXTURAL CLASS (2D)',' ( )'        ,& ! 206
+ 'Z_BEDROCK'        ,'L2' ,'Z_BEDROCK',' (m)'                            ,& ! 207
+ 'GPP'              ,'L2' ,'GROSS PRIMARY PRODUCTION OF CARBON',' ()'    ,& ! 208
+ 'GLHYMPS_KSAT'     ,'L2' ,'GLHYMPS KSAT',' (m/s)'                       ,& ! 209
+ 'GLHYMPS_KSAT_PFR' ,'L2' ,'GLHYMPS KSAT WITH PERMAFROST',' (m/s)'       ,& ! 210
+ 'GLHYMPS_POROS'    ,'L2' ,'GLHYMPS POROSITY',' ( )'                     ,& ! 211
+ 'VEG_NDVIC'        ,'L2' ,'VEGETATION NDVI',' ( )'                      ,& ! 212
+ 'VEG_TEMPC'        ,'L2' ,'VEGETATION TEMP',' (C)'                      ,& ! 213
+ 'VEG_TEMPK'        ,'L2' ,'VEGETATION TEMP',' (K)'                      ,& ! 214
+ 'VEG_WATER'        ,'L2' ,'VEGETATION SFC WATER ',' (kg m:S2:-2  )'     ,& ! 215
+ 'STOM_RESIST'      ,'L2' ,'STOMATAL RESISTANCE',' (s m:S2:-1  )'        ,& ! 216
+ 'SFCWATER_TOP_TEMP','L2' ,'SFCWATER TOPLAYER TEMP',' (K)'               ,& ! 217
+ 'SOIL_TOP_TEMP'    ,'L2' ,'SOIL TOPLAYER TEMP',' (K)'                   ,& ! 218
+ 'GROUND_RRV'       ,'L2' ,'EQUIL VAP MIXR OF SOIL',' (g kg:S2:-1  )'    ,& ! 219
+ 'SOIL_DEPTH'       ,'L2' ,'SOIL DEPTH',' (m)'                           ,& ! 220
+ 'SOIL_WATER_TOT'   ,'L2' ,'TOTAL SOIL WATER',' (m)'                     ,& ! 221
+ 'HEAD0'            ,'L2' ,'HEAD0',' (m)'                                ,& ! 222
+ 'SLOPE_FACT'       ,'L2' ,'SUBGRID OROGRAPHY SLOPE FACTOR',' ( )'        / ! 223
 
 ! LAND_CELLS - DIF2 fields
 
@@ -407,8 +424,8 @@ data fldlib(1:4,230:250)/ &
 
 ! LAND_CELLS - ATM averages
 
-data fldlib(1:4,251:281)/ &
- 'AL_SFCWATER_TOT'        ,'T2' ,'AL TOTAL SFCWATER MASS',' (kg m:S2:-2  )'   ,& ! 251
+data fldlib(1:4,251:290)/ &
+ 'AL_SFCWATER'            ,'T2' ,'AL SFCWATER MASS',' (kg m:S2:-2  )'         ,& ! 251
  'AL_SOIL_WATER_TOT'      ,'T2' ,'AL TOTAL SOIL WATER',' (m)'                 ,& ! 252
 
 ! LAND_CELLS - ATM averages of DIF2 fields
@@ -447,47 +464,58 @@ data fldlib(1:4,251:281)/ &
  'WDEPTH'        ,'S2' ,'SEA WDEPTH',' (m)'                                  ,& ! 278
  'POM_KBA'       ,'S2' ,'POM LEVELS',' (#)'                                  ,& ! 279
  'POM_TEMPSFC'   ,'S2' ,'POM SURFACE TEMP',' (K)'                            ,& ! 280
- 'SWM_DIVERG'    ,'S2' ,'SWM HORIZONTAL DIVERGENCE',' (s:S2:-1  )'            / ! 281
+ 'SWM_DIVERG'    ,'S2' ,'SWM HORIZONTAL DIVERGENCE',' (s:S2:-1  )'           ,& ! 281
+ 'UMWM_SWH'      ,'S2' ,'UMWM SIGNICANT WAVE HEIGHT',' (m)'                  ,& ! 282
+ 'UMWM_MWD'      ,'S2' ,'UMWM MEAN WAVE DIRECTION',' (deg)'                  ,& ! 283
+ 'UMWM_DWD'      ,'S2' ,'UMWM DOMINANT WAVE DIRECTION',' (deg)'              ,& ! 284
+ 'UMWM_DCG'      ,'S2' ,'UMWM DOMINANT GROUP SPEED',' (m s:S2:-1  )'         ,& ! 285
+ 'UMWM_TAUX'     ,'S2' ,'UMWM TAUX',' (N m:S2:-2  )'                         ,& ! 286
+ 'UMWM_TAUY'     ,'S2' ,'UMWM TAUY',' (N m:S2:-2  )'                         ,& ! 287
+ 'UMWM_OTAUX'    ,'S2' ,'UMWM OTAUX',' (N m:S2:-2  )'                        ,& ! 288
+ 'UMWM_OTAUY'    ,'S2' ,'UMWM OTAUY',' (N m:S2:-2  )'                        ,& ! 289
+ 'UMWM_USTAR'    ,'S2' ,'UMWM USTAR',' (m s:S2:-1  )'                         / ! 290
 
 ! SFC GRID CELLS - 2D
 
-data fldlib(1:4,297:332)/ &
- 'LEAF_CLASS'         ,'C2' ,'LEAF CLASS',' ( )'                          ,& ! 297
- 'SFCG_AREA'          ,'C2' ,'SFCG CELL AREA',' (m:S2:2  )'               ,& ! 298
- 'SFCG_GLATW'         ,'C2' ,'SFCG CELL LATITUDE',' (deg)'                ,& ! 299
- 'SFCG_GLONW'         ,'C2' ,'SFCG CELL LONGITUDE',' (deg)'               ,& ! 300
- 'SFCG_TOPW'          ,'C2' ,'SFCG CELL TOPW',' (m)'                      ,& ! 301
- 'SFCG_ROUGH'         ,'C2' ,'SFCG NET ROUGHNESS HEIGHT',' (m)'           ,& ! 302
- 'SFCG_VELS'          ,'C2' ,'SFCG WIND SPEED',' (m s:S2:-1  )'           ,& ! 303
- 'SFCG_PRSS'          ,'C2' ,'SFCG PRESSURE',' (hPa)'                     ,& ! 304
- 'SFCG_RHOS'          ,'C2' ,'SFCG DENSITY',' (kg m:S2:-3  )'             ,& ! 305
- 'SFCG_AIRTEMPK'      ,'C2' ,'SFCG ATM TEMP',' (K)'                       ,& ! 306
- 'SFCG_AIRRRV'        ,'C2' ,'SFCG ATM RRV',' (g kg:S2:-1  )'             ,& ! 307
- 'SFCG_CANTEMPK'      ,'C2' ,'SFCG CANOPY AIR TEMP',' (K)'                ,& ! 308
- 'SFCG_CANRRV'        ,'C2' ,'SFCG CANOPY VAP MIXR',' (g kg:S2:-1  )'     ,& ! 309
- 'SFCG_SKINTEMPK'     ,'C2' ,'SFCG SKIN TEMP',' (K)'                      ,& ! 310
- 'SFCG_GSS_SRRV'      ,'C2' ,'SFCG SAT VAP MIXR',' (g kg:S2:-1  )'        ,& ! 311
- 'HEAD1'              ,'C2' ,'WATER SFC HEAD',' (m)'                      ,& ! 312
- 'HEAD_WTAB'          ,'C2' ,'HEAD AT WATER TABLE',' (m)'                 ,& ! 313
- 'SFCG_SENSFLUX'      ,'C2','SFCG SENS FLX',' (W m:S2:-2  )'              ,& ! 314
- 'SFCG_LATFLUX'       ,'C2','SFCG LAT FLX',' (W m:S2:-2  )'               ,& ! 315
- 'SFCG_VAPFLUX'       ,'C2','SFCG VAP FLX',' (kg m:S2:-2   s:S2:-1  )'    ,& ! 316
- 'SFCG_SPEED10M'      ,'C2','SFCG 10M WIND SPEED',' (m s:S2:-1  )'        ,& ! 317
- 'SFCG_SPEED2M'       ,'C2','SFCG 2M WIND SPEED',' (m s:S2:-1  )'         ,& ! 318
- 'SFCG_TEMPK2M'       ,'C2','SFCG 2M TEMP',' (K)'                         ,& ! 319
- 'SFCG_RVAP2M'        ,'C2','SFCG 2M RRV',' (g kg:S2:-1  )'               ,& ! 320
- 'SFCG_RSHORT'        ,'C2','SFCG DOWN SW FLX',' (W m:S2:-2  )'           ,& ! 321
- 'SFCG_RLONG'         ,'C2','SFCG DOWN LW FLX',' (W m:S2:-2  )'           ,& ! 322
- 'SFCG_RLONGUP'       ,'C2','SFCG UP LW FLX',' (W m:S2:-2  )'             ,& ! 323
- 'SFCG_RLONG_ALBEDO'  ,'C2','SFCG NET LW ALBEDO',' ( )'                   ,& ! 324
- 'SFCG_ALBEDO_BEAM'   ,'C2','SFCG NET BEAM ALBEDO',' ( )'                 ,& ! 325
- 'SFCG_ALBEDO_DIFFUSE','C2','SFCG NET DIFFUSE ALBEDO',' ( )'              ,& ! 326
- 'SFCG_BATHYM'        ,'C2','SFCG CELL BATHYMETRY',' (m)'                 ,& ! 327
- 'SFCG_PCPG'          ,'C2','SFCG PCPG',' (kg m:S2:-2  )'                 ,& ! 328
- 'SFCG_VC'            ,'B2','SFCG VC',' (m s:S2:-1  )'                    ,& ! 329
- 'WAT_DEPTH'          ,'C2','WAT_DEPTH',' (m)'                            ,& ! 330
- 'WAT_TEMPK'          ,'C2','WAT_TEMP',' (K)'                             ,& ! 331
- 'HEAD1_MSL'          ,'C2','WATER SFC HEAD REL TO MSL',' (m)'             / ! 332
+data fldlib(1:4,297:334)/ &
+ 'LEAF_CLASS'         ,'C2','LEAF CLASS',' ( )'                           ,& ! 297
+ 'SFCG_AREA'          ,'C2','SFCG CELL AREA',' (m:S2:2  )'                ,& ! 298
+ 'SFCG_GLATW'         ,'C2','SFCG CELL LATITUDE',' (deg)'                 ,& ! 299
+ 'SFCG_GLONW'         ,'C2','SFCG CELL LONGITUDE',' (deg)'                ,& ! 300
+ 'SFCG_TOPW'          ,'C2','SFCG CELL TOPW',' (m)'                       ,& ! 301
+ 'SFCG_ROUGH'         ,'C2','SFCG NET ROUGHNESS HEIGHT',' (m)'            ,& ! 302
+ 'SFCG_VELS'          ,'C2','SFCG WIND SPEED',' (m s:S2:-1  )'            ,& ! 303
+ 'SFCG_PRSS'          ,'C2','SFCG PRESSURE',' (hPa)'                      ,& ! 304
+ 'SFCG_RHOS'          ,'C2','SFCG DENSITY',' (kg m:S2:-3  )'              ,& ! 305
+ 'SFCG_AIRTEMPK'      ,'C2','SFCG ATM TEMP',' (K)'                        ,& ! 306
+ 'SFCG_AIRRRV'        ,'C2','SFCG ATM RRV',' (g kg:S2:-1  )'              ,& ! 307
+ 'SFCG_CANTEMPK'      ,'C2','SFCG CANOPY AIR TEMP',' (K)'                 ,& ! 308
+ 'SFCG_CANRRV'        ,'C2','SFCG CANOPY VAP MIXR',' (g kg:S2:-1  )'      ,& ! 309
+ 'SFCG_SKINTEMPK'     ,'C2','SFCG SKIN TEMP',' (K)'                       ,& ! 310
+ 'SFCG_VKMSFC'        ,'C2','SFCG VKMSFC',' (N s m:S2:-2  )'              ,& ! 311
+ 'HEAD1'              ,'C2','WATER SFC HEAD',' (m)'                       ,& ! 312
+ 'HEAD_WTAB'          ,'C2','HEAD AT WATER TABLE',' (m)'                  ,& ! 313
+ 'SFCG_USTAR'         ,'C2','SFCG USTAR',' (m s:S2:-1  )'                 ,& ! 314
+ 'SFCG_SENSFLUX'      ,'C2','SFCG SENS FLX',' (W m:S2:-2  )'              ,& ! 315
+ 'SFCG_LATFLUX'       ,'C2','SFCG LAT FLX',' (W m:S2:-2  )'               ,& ! 316
+ 'SFCG_VAPFLUX'       ,'C2','SFCG VAP FLX',' (kg m:S2:-2   s:S2:-1  )'    ,& ! 317
+ 'SFCG_SPEED10M'      ,'C2','SFCG 10M WIND SPEED',' (m s:S2:-1  )'        ,& ! 318
+ 'SFCG_SPEED2M'       ,'C2','SFCG 2M WIND SPEED',' (m s:S2:-1  )'         ,& ! 319
+ 'SFCG_CDRAG'         ,'C2','SFCG DRAG COEFFICIENT',' ( )'                ,& ! 320
+ 'SFCG_TEMPK2M'       ,'C2','SFCG 2M TEMP',' (K)'                         ,& ! 321
+ 'SFCG_RVAP2M'        ,'C2','SFCG 2M RRV',' (g kg:S2:-1  )'               ,& ! 322
+ 'SFCG_RSHORT'        ,'C2','SFCG DOWN SW FLX',' (W m:S2:-2  )'           ,& ! 323
+ 'SFCG_RLONG'         ,'C2','SFCG DOWN LW FLX',' (W m:S2:-2  )'           ,& ! 324
+ 'SFCG_RLONGUP'       ,'C2','SFCG UP LW FLX',' (W m:S2:-2  )'             ,& ! 325
+ 'SFCG_RLONG_ALBEDO'  ,'C2','SFCG NET LW ALBEDO',' ( )'                   ,& ! 326
+ 'SFCG_ALBEDO_BEAM'   ,'C2','SFCG NET BEAM ALBEDO',' ( )'                 ,& ! 327
+ 'SFCG_ALBEDO_DIFFUSE','C2','SFCG NET DIFFUSE ALBEDO',' ( )'              ,& ! 328
+ 'SFCG_BATHYM'        ,'C2','SFCG CELL BATHYMETRY',' (m)'                 ,& ! 329
+ 'SFCG_PCPG'          ,'C2','SFCG PCPG',' (kg m:S2:-2  )'                 ,& ! 330
+ 'SFCG_VC'            ,'B2','SFCG VC',' (m s:S2:-1  )'                    ,& ! 331
+ 'WAT_DEPTH'          ,'C2','WAT_DEPTH',' (m)'                            ,& ! 332
+ 'WAT_TEMPK'          ,'C2','WAT_TEMP',' (K)'                             ,& ! 333
+ 'HEAD1_MSL'          ,'C2','WATER SFC HEAD REL TO MSL',' (m)'             / ! 334
 
 !SFCG_SWM_ACTIVE
 
@@ -700,7 +728,7 @@ data fldlib(1:4,602:614)/ &
  'ITAB_WSFC_IVN'       ,'C2' ,'ITAB_WSFC_IVN',' ( )'                       ,& ! 613
  'ITAB_WSFC_IWN'       ,'C2' ,'ITAB_WSFC_IWN',' ( )'                        / ! 614
 
-! Monthly and Daily averaged fields; daily min & max fields - 2D
+! Daily averaged fields; daily min & max fields - 2D
 
 data fldlib(1:4,722:753)/ &
 
@@ -739,20 +767,20 @@ data fldlib(1:4,722:753)/ &
 
 ! Miscellaneous and new additions
 
-data fldlib(1:4,771:796)/ &
+data fldlib(1:4,771:818)/ &
  'RHO_OBS'       ,'T3' ,'NUDGING OBS AIR DENSITY',' (kg m:S2:-3  )'         ,& ! 771
  'THETA_OBS'     ,'T3' ,'NUDGING OBS THETA',' (K)'                          ,& ! 772
- 'RRW_OBS'       ,'T3' ,'NUDGING OBS VAPOR MIXR',' (g kg:S2:-1  )'          ,& ! 773
+ 'RRV_OBS'       ,'T3' ,'NUDGING OBS VAPOR MIXR',' (g kg:S2:-1  )'          ,& ! 773
  'UZONAL_OBS'    ,'T3' ,'NUDGING OBS ZONAL WIND',' (m s:S2:-1  )'           ,& ! 774
  'UMERID_OBS'    ,'T3' ,'NUDGING OBS MERID WIND',' (m s:S2:-1  )'           ,& ! 775
  'RHO_SIM'       ,'T3' ,'NUDGING SIM AIR DENSITY',' (kg m:S2:-3  )'         ,& ! 776
  'THETA_SIM'     ,'T3' ,'NUDGING SIM THETA',' (K)'                          ,& ! 777
- 'RRW_SIM'       ,'T3' ,'NUDGING SIM VAPOR MIXR',' (g kg:S2:-1  )'          ,& ! 778
+ 'RRV_SIM'       ,'T3' ,'NUDGING SIM VAPOR MIXR',' (g kg:S2:-1  )'          ,& ! 778
  'UZONAL_SIM'    ,'T3' ,'NUDGING SIM ZONAL WIND',' (m s:S2:-1  )'           ,& ! 779
  'UMERID_SIM'    ,'T3' ,'NUDGING SIM MERID WIND',' (m s:S2:-1  )'           ,& ! 780
  'RHO_OBS_SIM'   ,'T3' ,'NUDGING DIF AIR DENSITY',' (kg m:S2:-3  )'         ,& ! 781
  'THETA_OBS_SIM' ,'T3' ,'NUDGING DIF THETA',' (K)'                          ,& ! 782
- 'RRW_OBS_SIM'   ,'T3' ,'NUDGING DIF VAPOR MIXR',' (g kg:S2:-1  )'          ,& ! 783
+ 'RRV_OBS_SIM'   ,'T3' ,'NUDGING DIF VAPOR MIXR',' (g kg:S2:-1  )'          ,& ! 783
  'UZONAL_OBS_SIM','T3' ,'NUDGING DIF ZONAL WIND',' (m s:S2:-1  )'           ,& ! 784
  'UMERID_OBS_SIM','T3' ,'NUDGING DIF MERID WIND',' (m s:S2:-1  )'           ,& ! 785
  'VXE'           ,'T3' ,'EARTH CARTESIAN X WIND',' (m s:S2:-1  )'           ,& ! 786
@@ -765,14 +793,36 @@ data fldlib(1:4,771:796)/ &
  'CLDNUM'        ,'T2' ,'CLOUD # CONCEN (GEOG)',' (# mg:S2:-1  )'           ,& ! 793
  'ADDSC1_ZINT'   ,'T2' ,'VERTICAL INTEGRAL ADDED SCALAR 1',' ( )'           ,& ! 794
  'ADDSC2_ZINT'   ,'T2' ,'VERTICAL INTEGRAL ADDED SCALAR 2',' ( )'           ,& ! 795
- 'ADDSC1P2_ZINT' ,'T2' ,'VERTICAL INTEGRAL ADDED SCALARS 1+2',' ( )'         / ! 796
+ 'ADDSC1P2_ZINT' ,'T2' ,'VERTICAL INTEGRAL ADDED SCALARS 1+2',' ( )'        ,& ! 796
+ 'RVORTZW'       ,'T3' ,'REL VORTZ AT W',' (s:S2:-1  )'                     ,& ! 797
+ 'TVORTZW'       ,'T3' ,'TOT VORTZ AT W',' (s:S2:-1  )'                     ,& ! 798
+ 'TROPZ'         ,'T2' ,'TROPOPAUSE HEIGHT',' (km)'                         ,& ! 799
+ 'TROPP'         ,'T2' ,'TROPOPAUSE PRESSURE',' (mb)'                       ,& ! 800
+ 'AZIMVAL1'      ,'T3' ,'AZIMVAL1',' '                                      ,& ! 801
+ 'AZIMVAL2'      ,'T3' ,'AZIMVAL2',' '                                      ,& ! 802
+ 'AZIMVAL3'      ,'T3' ,'AZIMVAL3',' '                                      ,& ! 803
+ 'AZIMVAL4'      ,'T3' ,'AZIMVAL4',' '                                      ,& ! 804
+ 'AZIMVAL5'      ,'T3' ,'AZIMVAL5',' '                                      ,& ! 805
+ 'AZIMVAL6'      ,'T3' ,'AZIMVAL6',' '                                      ,& ! 806
+ 'AZIMVAL7'      ,'T3' ,'AZIMVAL7',' '                                      ,& ! 807
+ 'AZIMVAL8'      ,'T3' ,'AZIMVAL8',' '                                      ,& ! 808
+ 'AZIMVAL9'      ,'T3' ,'AZIMVAL9',' '                                      ,& ! 809
+ 'AZIMVAL10'     ,'T3' ,'AZIMVAL10',' '                                     ,& ! 810
+ 'AZIMVAL11'     ,'T3' ,'AZIMVAL11',' '                                     ,& ! 811
+ 'AZIMVAL12'     ,'T3' ,'AZIMVAL12',' '                                     ,& ! 812
+ 'AZIMVAL13'     ,'T3' ,'AZIMVAL13',' '                                     ,& ! 813
+ 'AZIMVAL14'     ,'T3' ,'AZIMVAL14',' '                                     ,& ! 814
+ 'AZIMVAL15'     ,'T3' ,'AZIMVAL15',' '                                     ,& ! 815
+ 'AZIMVAL16'     ,'T3' ,'AZIMVAL16',' '                                     ,& ! 816
+ 'AZIMVAL17'     ,'T3' ,'AZIMVAL17',' '                                     ,& ! 817
+ 'AZIMVAL18'     ,'T3' ,'AZIMVAL18',' '                                      / ! 818
 
 ! External fields
 
-data fldlib(1:4,801:803)/ &
- 'VORTP'         ,'P3' ,'VORTP',' (s:S2:-1  )'                              ,& ! 801
- 'VORTN'         ,'N3' ,'VORTN',' (s:S2:-1  )'                              ,& ! 802
- 'RKE'           ,'T3' ,'RKE',' (s:S2:-1  )'                                 / ! 803
+data fldlib(1:4,901:903)/ &
+ 'VORTP'         ,'P3' ,'VORTP',' (s:S2:-1  )'                              ,& ! 901
+ 'VORTN'         ,'N3' ,'VORTN',' (s:S2:-1  )'                              ,& ! 902
+ 'RKE'           ,'T3' ,'RKE',' (s:S2:-1  )'                                 / ! 903
 
 if (len_trim(fldname0) >= 5) then
    if ( fldname0(1:5) == 'CHEM_' .or. &
@@ -875,6 +925,13 @@ if (infotyp == 'UNITS') then
            op%stagpt == 'C' .or. op%stagpt == 'E') then
       i = 2
    endif
+
+   icase_sav = icase
+
+else
+
+   icase = icase_sav
+
 endif
 
 if (infotyp == 'VALUV') then
@@ -901,6 +958,12 @@ endif
 notavail = 0
 kp = min(k+1,mza)
 
+! Reset icase if plotting custom extfld
+
+if ( ( allocated(op%extfld)     ) .and. &
+     ( op%extfldname == fldname ) .and. &
+     ( infotyp /= 'VALUV'       ) ) icase = 0
+
 ! Try these to prevent out-of-bounds access when infotyp == 'UNITS'
 
 iland = max(2,i-omland)
@@ -916,6 +979,12 @@ isea  = max(2,i-omsea)
 !-----------------------------------------
 
 select case(icase)
+
+case(0) ! extfld
+
+   if (.not. allocated(op%extfld)) go to 1000
+
+   fldval = op%extfld(k,i)
 
 case(1) ! 'VMC'
 
@@ -951,18 +1020,20 @@ case(4) ! 'VC'
 
    else
 
-      iw1 = itab_v(i)%iw(1)
-      iw2 = itab_v(i)%iw(2)
+      fldval = 0.
 
-      if (k >= lpw(iw1)) then
-         fldval = vnx(i) * vxe(k,iw1) &
-                + vny(i) * vye(k,iw1) &
-                + vnz(i) * vze(k,iw1)
-      elseif (k >= lpw(iw2)) then
-         fldval = vnx(i) * vxe(k,iw2) &
-                + vny(i) * vye(k,iw2) &
-                + vnz(i) * vze(k,iw2)
-      endif
+      ! iw1 = itab_v(i)%iw(1)
+      ! iw2 = itab_v(i)%iw(2)
+
+      ! if (k >= lpw(iw1)) then
+      !    fldval = vnx(i) * vxe(k,iw1) &
+      !           + vny(i) * vye(k,iw1) &
+      !           + vnz(i) * vze(k,iw1)
+      ! elseif (k >= lpw(iw2)) then
+      !    fldval = vnx(i) * vxe(k,iw2) &
+      !           + vny(i) * vye(k,iw2) &
+      !           + vnz(i) * vze(k,iw2)
+      ! endif
 
    endif
 
@@ -1363,6 +1434,10 @@ case(43:45) ! 'RVORTZM','TVORTZM','RVORTZM_P'
 
    if (.not. allocated(vc)) go to 1000
 
+   if (fldname == 'RVORTZM_P') then
+      if (.not. allocated(vc_init)) go to 1000
+   endif
+
    fldval = 0.
 
    do j = 1,itab_m(i)%npoly
@@ -1439,13 +1514,16 @@ case(46) ! 'DIVERG'
 
          iv = itab_w(i)%iv(j)
 
-         fldval = fldval &
+         ! Prevent divide by zero if we include underground cells
 
-                + wtbot * vmc(k,iv) * (-itab_w(i)%dirv(j)) * arv(k,iv) &
-                        / (volt(k,i) * rho(k,i)) &
+         if (k >= lpw(i)) fldval = fldval &
+              + wtbot * vmc(k,iv) * (-itab_w(i)%dirv(j)) * arv(k,iv) &
+              / real(volt(k,i) * rho(k,i))
 
-                + wttop * vmc(kp,iv) * (-itab_w(i)%dirv(j)) * arv(kp,iv) &
-                        / (volt(kp,i) * rho(kp,i))
+         if (kp >= lpw(i)) fldval = fldval &
+              + wttop * vmc(kp,iv) * (-itab_w(i)%dirv(j)) * arv(kp,iv) &
+              / real(volt(kp,i) * rho(kp,i))
+
       enddo
    endif
 
@@ -1457,19 +1535,19 @@ case(47) ! 'VMASSFLUX'
 
 case(48) ! 'VC_P'
 
-   if (.not. allocated(vc)) go to 1000
+   if (.not. (allocated(vc) .and. allocated(vc_init))) go to 1000
 
    fldval = vc(k,i) - vc_init(k,i)
 
 case(49) ! 'PRESS_P'
 
-   if (.not. allocated(press)) go to 1000
+   if (.not. (allocated(press) .and. allocated(press_init))) go to 1000
 
    fldval = press(k,i) - press_init(k,i)
 
 case(50) ! 'RHO_P'
 
-   if (.not. allocated(rho)) go to 1000
+   if (.not. (allocated(rho) .and. allocated(rho_init))) go to 1000
 
    fldval = wtbot * (rho(k ,i) - rho_init(k ,i)) &
           + wttop * (rho(kp,i) - rho_init(kp,i))
@@ -1485,14 +1563,14 @@ case(50) ! 'RHO_P'
 
 case(51) ! 'THETA_P'
 
-   if (.not. allocated(theta)) go to 1000
+   if (.not. (allocated(theta) .and. allocated(theta_init)) ) go to 1000
 
    fldval = wtbot * (theta(k ,i) - theta_init(k ,i)) &
           + wttop * (theta(kp,i) - theta_init(kp,i))
 
 case(52) ! 'AIRTEMPK_P'
 
-   if (.not. allocated(tair)) go to 1000
+   if (.not. (allocated(tair) .and. allocated(theta_init) .and. allocated(press_init))) go to 1000
 
    fldval = wtbot * tair(k ,i) &
           + wttop * tair(kp,i) &
@@ -1636,7 +1714,7 @@ case(72) ! 'SENSFLUX'
 
    if (.not. allocated(sfluxt)) go to 1000
 
-   fldval = sfluxt(i) * cp
+   fldval = sfluxt(i)
 
 case(73) ! 'VAPFLUX'
 
@@ -1787,7 +1865,7 @@ case(93) ! 'ACCPCON'
 
    fldval = real(aconpr(i))
 
-case(94) ! 'ACCPBOTH'
+case(94:95) ! 'ACCPBOTH'
 
    fldval = 0.
 
@@ -1800,29 +1878,46 @@ case(94) ! 'ACCPBOTH'
    if (allocated(accph)) fldval = fldval + real(accph(i))
    if (allocated(aconpr)) fldval = fldval + real(aconpr(i))
 
-case(95) ! 'WSTAR'
+   if (icase == 95) fldval = fldval * 0.03937
+
+case(96) ! 'WSTAR'
 
    if (.not. allocated(wstar)) go to 1000
 
    fldval = wstar(i)
 
-case(96) ! 'PSFC'
+case(97) ! 'PSFC'
 
    if (.not. allocated(press)) go to 1000
 
    fldval = (press(k,i) + (zt(k) - topw(i)) * rho(k,i) * grav) * .01  ! hydrostatic eqn.
 
-case(97) ! 'PMSL'
+case(98) ! 'PMSL'
 
    if (.not. allocated(press)) go to 1000
 
    fldval = press(k,i) * (1. - .0065 * zt(k) / (tair(k,i) + .0065 * zt(k)))**(-5.257) * .01  ! hydrostatic eqn.
 
-case(98) ! 'CBMF'
+case(99) ! 'CBMF'
 
    if (.not. allocated(cbmf)) go to 1000
 
    fldval = cbmf(i)
+
+case(100) ! 'SPEEDK'
+
+   if (.not. allocated(vxe)) go to 1000
+
+   vx = wtbot * vxe(k ,i) &
+      + wttop * vxe(kp,i)
+
+   vy = wtbot * vye(k ,i) &
+      + wttop * vye(kp,i)
+
+   vz = wtbot * vze(k ,i) &
+      + wttop * vze(kp,i)
+
+   fldval = sqrt(vx**2 + vy**2 + vz**2) * 1.94384
 
 !-----------------------------------------
 ! ATMOSPHERE DIF2 fields - (3D & 2D)
@@ -2086,7 +2181,7 @@ case(119) ! 'LATHEAT_ZINT_DIF2'
       denom = denom + dzt(k) * rho(k,i)
    enddo
 
-   fldval = fldval / denom
+   if (kk >= lpw(i)) fldval = fldval / denom
 
    if (abs(time8_prev0 - time8_prev1) > .99) then
       fldval = fldval * 3600. / (time8_prev0 - time8_prev1)
@@ -2245,6 +2340,33 @@ case(134) ! 'PCPBOTH_REL4'
    endif
 
 !-----------------------------------------
+! ATMOSPHERE - Lagrangian particles
+!-----------------------------------------
+
+case(151) ! 'LP'
+
+    fldval = 0.  ! default value
+
+case(152) ! 'LP_ZP'
+
+    if (.not. allocated(atp)) go to 1000
+    fldval = atp(i)%zp
+
+case(153) ! 'LP_SP'
+
+    fldval = wtbot  ! Special usage of wtbot only for case(153)
+
+case(154) ! 'LP_RELTIME'
+
+    if (.not. allocated(atp)) go to 1000
+    fldval = atp(i)%reltime
+
+case(155) ! 'LP_NSRC'
+
+    if (.not. allocated(atp)) go to 1000
+    fldval = real(atp(i)%nsource)
+
+!-----------------------------------------
 ! LAND CELLS - 3D
 !-----------------------------------------
 
@@ -2328,42 +2450,31 @@ case(198) ! 'SOIL_WATER'
 
    fldval = land%soil_water(k,iland) / land%wsat_vg(k,iland)
 
-case(199) ! 'SFWAT_MASS'
+case(201) ! 'SFWAT_MASS'
 
-   fldval = land%sfcwater_mass(k,iland)
+   fldval = sum(land%sfcwater_mass(:,iland))
 
-case(200) ! 'SFWAT_ENERGY'
+case(202:204) ! 'SFWAT_ENERGY', 'SFWAT_TEMPK', 'SFWAT_FRACLIQ'
 
-   if (land%nlev_sfcwater(iland) == 0) then
+   if (land%sfcwater_mass(1,iland) < wcap_min) then
       notavail = 4
    else
-      fldval = land%sfcwater_energy(k,iland) * 1.e-3
+      fldval1 = sum(land%sfcwater_epm2(:,iland)) / sum(land%sfcwater_mass(:,iland))
    endif
 
-case(201) ! 'SFWAT_TEMPK'
-
-   if (land%nlev_sfcwater(iland) == 0) then
-      notavail = 4
-   else
-      call qtk(land%sfcwater_energy(k,iland),tempk,fracliq)
+   if     (trim(fldname) == 'SFCWAT_ENERGY') then
+      fldval = fldval1
+   elseif (trim(fldname) == 'SFCWAT_TEMPK') then
+      call qtk(fldval1,tempk,fracliq)
       fldval = tempk
-   endif
-
-case(202) ! 'SFWAT_FRACLIQ'
-
-   if (land%nlev_sfcwater(iland) == 0) then
-      notavail = 4
-   else
-      call qtk(land%sfcwater_energy(k,iland),tempk,fracliq)
+   elseif (trim(fldname) == 'SFCWAT_FRACLIQ') then
+      call qtk(fldval1,tempk,fracliq)
       fldval = fracliq
    endif
 
-case(203) ! 'SFWAT_DEPTH'
+case(205) ! 'SFWAT_DEPTH'
 
-   fldval = 0.
-   do klev = 1,land%nlev_sfcwater(iland)
-      fldval = fldval + land%sfcwater_depth(klev,iland)
-   enddo
+   fldval = sum(land%sfcwater_depth(:,iland))
 
 !-----------------------------------------
 ! LAND CELLS - 2D
@@ -2371,34 +2482,30 @@ case(203) ! 'SFWAT_DEPTH'
 
 ! LAND_CELLS - 2D
 
-case(205) ! 'USDA_TEXT'
+case(206) ! 'USDA_TEXT'
 
    fldval = real(land%usdatext(iland))
 
-case(206) ! 'Z_BEDROCK'
+case(207) ! 'Z_BEDROCK'
 
    fldval = real(land%z_bedrock(iland))
 
-case(207) ! 'GPP'
+case(208) ! 'GPP'
 
    fldval = real(land%gpp(iland))
 
-case(208) ! 'GLHYMPS_KSAT'
+case(209) ! 'GLHYMPS_KSAT'
 
    fldval = real(land%glhymps_ksat(iland))
 
-case(209) ! 'GLHYMPS_KSAT_PFR'
+case(210) ! 'GLHYMPS_KSAT_PFR'
 
 !  fldval = real(land%glhymps_ksat_pfr(iland))
    fldval = real(land%glhymps_ksat(iland))
 
-case(210) ! 'GLHYMPS_POROS'
+case(211) ! 'GLHYMPS_POROS'
 
    fldval = real(land%glhymps_poros(iland))
-
-case(211) ! 'NLEV_SFWAT'
-
-   fldval = real(land%nlev_sfcwater(iland))
 
 case(212) ! 'VEG_NDVIC'
 
@@ -2420,22 +2527,21 @@ case(216) ! 'STOM_RESIST'
 
    fldval = land%stom_resist(iland)
 
-case(217) ! 'SFCWATER_TOT'
-
-   fldval = sum(land%sfcwater_mass(:,iland))
-
-case(218) ! 'SFCWATER_TOP_TEMP'
+case(217) ! 'SFCWATER_TOP_TEMP'
 
 
-   if (land%nlev_sfcwater(iland) == 0) then
+   if (land%sfcwater_mass(1,iland) < wcap_min) then
       notavail = 4
    else
-      nls = land%nlev_sfcwater(iland)
-      call qtk(land%sfcwater_energy(nls,iland),tempk,fracliq)
+      if (land%sfcwater_mass(2,iland) >= wcap_min) then
+         call qwtk(land%sfcwater_epm2(2,iland),land%sfcwater_mass(2,iland),0.,tempk,fracliq)
+      else
+         call qwtk(land%sfcwater_epm2(1,iland),land%sfcwater_mass(1,iland),0.,tempk,fracliq)
+      endif
       fldval = tempk
    endif
 
-case(219) ! 'SOIL_TOP_TEMP'
+case(218) ! 'SOIL_TOP_TEMP'
 
    call qwtk(land%soil_energy(nzg,iland),        &
              land%soil_water(nzg,iland)*1.e3,    &
@@ -2443,37 +2549,37 @@ case(219) ! 'SOIL_TOP_TEMP'
              tempk, fracliq)
    fldval = tempk
 
-case(220) ! 'GROUND_RRV'
+case(219) ! 'GROUND_RRV'
 
-   nls = max(1, land%nlev_sfcwater(iland))
    call grndvap(iland,                              &
-                sfcg%rhos                  (i),     &
-                sfcg%canrrv                (i),     &
-                land%nlev_sfcwater         (iland), &
-                fldval1,                            &
-                fldval2,                            &
-                land%sfcwater_energy   (nls,iland), &
+                sfcg%rhos                      (i), &
+                sfcg%canrrv                    (i), &
+                fldval1                           , &
+                fldval2                           , &
+                land%skncomp               (iland), &
+                land%sfcwater_mass       (:,iland), &
+                land%sfcwater_epm2       (:,iland), &
                 land%soil_water        (nzg,iland), &
                 land%soil_energy       (nzg,iland), &
                 land%head              (nzg,iland), &
                 land%specifheat_drysoil(nzg,iland), &
                 land%wresid_vg         (nzg,iland), &
-                land%soilfldcap            (iland))
+                land%soilfldcap            (iland)  )
    fldval = fldval2 * 1.e3
 
-case(221) ! 'SOIL_DEPTH'
+case(220) ! 'SOIL_DEPTH'
 
    fldval = -slz(1)
 
-case(222) ! 'SOIL_WATER_TOT'
+case(221) ! 'SOIL_WATER_TOT'
 
    fldval = sum(land%soil_water(:,iland) * dslz(:))
 
-case(223) ! 'HEAD0'
+case(222) ! 'HEAD0'
 
    fldval = land%head0(iland)
 
-case(224) ! 'SLOPE_FACT'
+case(223) ! 'SLOPE_FACT'
 
    fldval = land%slope_fact(iland)
 
@@ -2766,7 +2872,7 @@ case(250) ! 'WXFERIF_DIF4'
 ! LAND CELLS - ATM averages
 !--------------------------
 
-case(251:252) ! 'AL_SFCWATER_TOT', 'AL_SOIL_WATER_TOT'
+case(251:252) ! 'AL_SFCWATER', 'AL_SOIL_WATER_TOT'
 
    fldval = 0.
    area_sum = 0.
@@ -2775,8 +2881,8 @@ case(251:252) ! 'AL_SFCWATER_TOT', 'AL_SOIL_WATER_TOT'
       iwsfc = itab_w(i)%iwsfc(j)
       iland = iwsfc - omland
 
-      if (trim(fldname) == 'AL_SFCWATER_TOT') then
-         fldval = fldval + sum(land%sfcwater_mass(:,iland)) * sfcg%area(iwsfc)
+      if (trim(fldname) == 'AL_SFCWATER') then
+         fldval = sum(land%sfcwater_mass(:,iland)) * sfcg%area(iwsfc)
       elseif (trim(fldname) == 'AL_SOIL_WATER_TOT') then
          fldval = fldval + sum(land%soil_water(:,iland) * dslz(:)) * sfcg%area(iwsfc)
       endif
@@ -3380,13 +3486,13 @@ case(278) ! 'WDEPTH'
 
 case(279) ! 'POM_KBA'
 
-   if (.not. allocated(pom%kba)) go to 1000
-   fldval = pom%kba(isea)
+   if (.not. allocated(sea%pom_kba)) go to 1000
+   fldval = sea%pom_kba(isea)
 
 case(280) ! 'POM_TEMPSFC'
 
    if (.not. allocated(pom%potmp)) go to 1000
-   fldval = pom%potmp(1,isea)
+   fldval = pom%potmp(1,isea) + 273.15
 
 case(281) ! 'SWM_DIVERG'
 
@@ -3402,6 +3508,31 @@ case(281) ! 'SWM_DIVERG'
       enddo
 
       fldval = fldval / ( sfcg%area(i) * sea%swmdepth(isea) )
+   endif
+
+case(282:290) ! 'UMWM_SWH',  'UMWM_MWD',   'UMWM_DWD',   'UMWM_DCG',  'UMWM_TAUX',
+              ! 'UMWM_TAUY', 'UMWM_OTAUX', 'UMWM_OTAUY', 'UMWM_USTAR'
+
+   if (.not. allocated(umwm%ustar)) go to 1000
+
+   if (trim(fldname) == 'UMWM_SWH') then
+      fldval = swh(isea)
+   elseif (trim(fldname) == 'UMWM_MWD') then
+      fldval = mwd(isea) * piu180
+   elseif (trim(fldname) == 'UMWM_DWD') then
+      fldval = dwd(isea) * piu180
+   elseif (trim(fldname) == 'UMWM_DCG') then
+      fldval = dcg(isea)
+   elseif (trim(fldname) == 'UMWM_TAUX') then
+      fldval = umwm%taux(isea)
+   elseif (trim(fldname) == 'UMWM_TAUY') then
+      fldval = umwm%tauy(isea)
+   elseif (trim(fldname) == 'UMWM_OTAUX') then
+      fldval = sfcg%vkmsfc(i) * umwm%uwind(isea) / sfcg%dzt_bot(i)
+   elseif (trim(fldname) == 'UMWM_OTAUY') then
+      fldval = sfcg%vkmsfc(i) * umwm%vwind(isea) / sfcg%dzt_bot(i)
+   elseif (trim(fldname) == 'UMWM_USTAR') then
+      fldval = umwm%ustar(isea)
    endif
 
 !-----------------------------------------
@@ -3482,47 +3613,25 @@ case(310) ! 'SFCG_SKINTEMPK'
 
    elseif (sfcg%leaf_class(i) >= 2) then
       iland = i - omland
-      nls = land%nlev_sfcwater(iland)
 
-      if (nls > 0) then
-         call qtk(land%sfcwater_energy(nls,iland),tempk,fracliq)
-      else
+      if (land%skncomp(iland) <= 1) then
          call qwtk(land%soil_energy(nzg,iland),        &
                    land%soil_water(nzg,iland)*1.e3,    &
                    land%specifheat_drysoil(nzg,iland), &
                    tempk, fracliq)
+      elseif (land%skncomp(iland) == 2) then
+         call qwtk(land%sfcwater_epm2(1,iland),land%sfcwater_mass(1,iland),0.,tempk,fracliq)
+      else
+         call qwtk(land%sfcwater_epm2(2,iland),land%sfcwater_mass(2,iland),0.,tempk,fracliq)
       endif
 
       fldval = (1. - land%vf(iland)) * tempk &
                    + land%vf(iland)  * land%veg_temp(iland)
    endif
 
-case(311) ! 'SFCG_GSS_SRRV'
+case(311) ! 'SFCG_VKMSFC'
 
-   if (sfcg%leaf_class(i) == 0) then
-      isea = i - omsea
-      fldval = sea%surface_srrv(isea) * 1.e3
-   elseif (sfcg%leaf_class(i) == 1) then
-      ilake = i - omlake
-      fldval = lake%surface_srrv(ilake) * 1.e3
-   elseif (sfcg%leaf_class(i) >= 2) then
-      iland = i - omland
-      nls = max(1, land%nlev_sfcwater(iland))
-      call grndvap(iland,                              &
-                   sfcg%rhos                  (i),     &
-                   sfcg%canrrv                (i),     &
-                   land%nlev_sfcwater         (iland), &
-                   fldval1,                            &
-                   fldval2,                            &
-                   land%sfcwater_energy   (nls,iland), &
-                   land%soil_water        (nzg,iland), &
-                   land%soil_energy       (nzg,iland), &
-                   land%head              (nzg,iland), &
-                   land%specifheat_drysoil(nzg,iland), &
-                   land%wresid_vg         (nzg,iland), &
-                   land%soilfldcap            (iland))
-      fldval = fldval1 * 1.e3
-   endif
+   fldval = sfcg%vkmsfc(i)
 
 case(312) ! 'HEAD1'
 
@@ -3557,93 +3666,96 @@ case(313) ! 'HEAD_WTAB'
 
    endif
 
-case(314) ! 'SFCG_SENSFLUX'
+case(314) ! 'SFCG_USTAR'
 
-   fldval = sfcg%sfluxt(i) * cp
+   fldval = sfcg%ustar(i)
 
-case(315) ! 'SFCG_LATFLUX'
+case(315) ! 'SFCG_SENSFLUX'
+
+   fldval = sfcg%sfluxt(i)
+
+case(316) ! 'SFCG_LATFLUX'
 
    fldval = sfcg%sfluxr(i) * alvl
 
-case(316) ! 'SFCG_VAPFLUX'
+case(317) ! 'SFCG_VAPFLUX'
 
    fldval = sfcg%sfluxr(i)
 
-case(317:320) ! 'SFCG_SPEED10M', 'SFCG_SPEED2M', 'SFCG_TEMPK2M', 'SFCG_RVAP2M'
+case(318:322) ! 'SFCG_SPEED10M', 'SFCG_SPEED2M', 'SFCG_CDRAG', 'SFCG_TEMPK2M', 'SFCG_RVAP2M'
 
-   if (trim(fldname) == 'SFCG_SPEED10M') then
+   if (trim(fldname) == 'SFCG_SPEED10M' .or. trim(fldname) == 'SFCG_CDRAG') then
       zobs = 10.
    else
       zobs = 2.
    endif
 
-   press_zobs = sfcg%prss(i) - zobs * sfcg%rhos(i) ! hydrostatic eqn.
+   press_zobs = sfcg%prss(i) - grav * zobs * sfcg%rhos(i) ! hydrostatic eqn.
    exner_zobs = (press_zobs * p00i) ** rocp
 
-   canexner = (sfcg%prss(i) * p00i) ** rocp
-   cantheta  = sfcg%cantemp(i) / canexner
+   cantheta  = sfcg%cantemp(i) / sfcg%canexner(i)
    canthetav = cantheta         * (1.0 + eps_virt * sfcg%canrrv(i))
    airthetav = sfcg%airtheta(i) * (1.0 + eps_virt * sfcg%airrrv(i))
 
-   tstar = -sfcg%sfluxt(i) / (sfcg%ustar(i) * sfcg%rhos(i))
-   rstar = -sfcg%sfluxr(i) / (sfcg%ustar(i) * sfcg%rhos(i))
+   wstar_sfc = (grav * sfcg%pblh(i) * max(sfcg%wthv(i),0.0) / airthetav) ** onethird
 
-   ufree = (grav * sfcg%dzt_bot(i) * max(sfcg%wthv(i),0.0) / airthetav) ** onethird
-
-   call sfclyr_profile (sfcg%vels(i), sfcg%ustar(i), tstar, rstar, &
-                        sfcg%dzt_bot(i), sfcg%rough(i), ufree, &
+   call sfclyr_profile (sfcg%vels(i), sfcg%rhos(i), sfcg%canexner(i), &
+                        sfcg%ustar(i), sfcg%sfluxt(i), sfcg%sfluxr(i), &
+                        sfcg%dzt_bot(i), sfcg%rough(i), wstar_sfc, &
                         cantheta, canthetav, sfcg%canrrv(i), airthetav, &
                         zobs, wind_zobs, theta_zobs, rrv_zobs)
 
    if (trim(fldname) == 'SFCG_SPEED10M' .or. trim(fldname) == 'SFCG_SPEED2M') then
       fldval = wind_zobs
+   elseif (trim(fldname) == 'SFCG_CDRAG') then
+      fldval = (sfcg%ustar(i) / wind_zobs)**2
    elseif (trim(fldname) == 'SFCG_TEMPK2M') then
       fldval = theta_zobs * exner_zobs
    else
       fldval = rrv_zobs * 1.e3 ! converting from kg/kg to g/kg
    endif
 
-case(321) ! 'SFCG_RSHORT'
+case(323) ! 'SFCG_RSHORT'
 
    fldval = sfcg%rshort(i)
 
-case(322) ! 'SFCG_RLONG'
+case(324) ! 'SFCG_RLONG'
 
    fldval = sfcg%rlong(i)
 
-case(323) ! 'SFCG_RLONGUP'
+case(325) ! 'SFCG_RLONGUP'
 
    fldval = sfcg%rlongup(i)
 
-case(324) ! 'SFCG_RLONG_ALBEDO'
+case(326) ! 'SFCG_RLONG_ALBEDO'
 
    fldval = sfcg%rlong_albedo(i)
 
-case(325) ! 'SFCG_ALBEDO_BEAM'
+case(327) ! 'SFCG_ALBEDO_BEAM'
 
    fldval = sfcg%albedo_beam(i)
 
-case(326) ! 'SFCG_ALBEDO_DIFFUSE'
+case(328) ! 'SFCG_ALBEDO_DIFFUSE'
 
    fldval = sfcg%albedo_diffuse(i)
 
-case(327) ! 'SFCG_BATHYM'
+case(329) ! 'SFCG_BATHYM'
 
    fldval = sfcg%bathym(i)
 
-case(328) ! 'SFCG_PCPG'
+case(330) ! 'SFCG_PCPG'
 
    fldval = sfcg%pcpg(i)
 
-case(329) ! 'SFCG_VC'
+case(331) ! 'SFCG_VC'
 
    fldval = sfcg%vc(i)
 
-case(330) ! 'WAT_DEPTH'
+case(332) ! 'WAT_DEPTH'
 
    fldval = sfcg%head1(i) + sfcg%topw(i) - sfcg%bathym(i)
 
-case(331) ! 'WAT_TEMPK'
+case(333) ! 'WAT_TEMPK'
 
    if (sfcg%leaf_class(i) == 0) then
       isea = i - omsea
@@ -3654,21 +3766,20 @@ case(331) ! 'WAT_TEMPK'
       fldval = tempk
    elseif (sfcg%leaf_class(i) >= 2) then
       iland = i - omland
-      nls = land%nlev_sfcwater(iland)
-      if (nls > 0) then
-         call qtk(land%sfcwater_energy(nls,iland),tempk,fracliq)
-         fldval = tempk
-      else
+      if (land%skncomp(iland) <= 1) then
          call qwtk(land%soil_energy(nzg,iland),        &
                    land%soil_water(nzg,iland)*1.e3,    &
                    land%specifheat_drysoil(nzg,iland), &
                    tempk, fracliq)
+      elseif (land%skncomp(iland) == 2) then
+         call qwtk(land%sfcwater_epm2(1,iland),land%sfcwater_mass(1,iland),0.,tempk,fracliq)
+      else
+         call qwtk(land%sfcwater_epm2(2,iland),land%sfcwater_mass(2,iland),0.,tempk,fracliq)
       endif
-
       fldval = tempk
    endif
 
-case(332) ! 'HEAD1_MSL'
+case(334) ! 'HEAD1_MSL'
 
    fldval = sfcg%head1(i) + sfcg%topw(i)
 
@@ -3748,7 +3859,7 @@ case(346) ! 'SFCG_SKINTEMPK_DIF2'
 case(347) ! 'SFCG_SENSFLUX_DIF2'
 
    if (.not. allocated(sfluxt_accum)) go to 1000
-   fldval = (sfluxt_accum_prev0(i) - sfluxt_accum_prev1(i)) * cp
+   fldval = sfluxt_accum_prev0(i) - sfluxt_accum_prev1(i)
 
    if (abs(time8_prev0 - time8_prev1) > .99) then
       fldval = fldval / (time8_prev0 - time8_prev1)
@@ -3934,8 +4045,8 @@ case(364) ! 'SFCG_SKINTEMPK_DIF4'
 case(365) ! 'SFCG_SENSFLUX_DIF4'
 
    if (.not. allocated(sfluxt_accum)) go to 1000
-   fldval1 = (sfluxt_accum_prev0(i) - sfluxt_accum_prev1(i)) * cp
-   fldval2 = (sfluxt_accum_prev2(i) - sfluxt_accum_prev3(i)) * cp
+   fldval1 = sfluxt_accum_prev0(i) - sfluxt_accum_prev1(i)
+   fldval2 = sfluxt_accum_prev2(i) - sfluxt_accum_prev3(i)
 
    if (abs(time8_prev0 - time8_prev1) > .99) then
       fldval1 = fldval1 / (time8_prev0 - time8_prev1)
@@ -4079,7 +4190,7 @@ case(401:409) ! 'ASFCG_VELS',       'ASFCG_AIRTEMPK', 'ASFCG_AIRRRV',
       elseif (trim(fldname) == 'ASFCG_CANRRV'  ) then
          fldval = fldval + sfcg%canrrv (iwsfc) * sfcg%area(iwsfc) * 1.e3
       elseif (trim(fldname) == 'ASFCG_SENSFLUX') then
-         fldval = fldval + sfcg%sfluxt (iwsfc) * sfcg%area(iwsfc) * cp
+         fldval = fldval + sfcg%sfluxt (iwsfc) * sfcg%area(iwsfc)
       elseif (trim(fldname) == 'ASFCG_LATFLUX' ) then
          fldval = fldval + sfcg%sfluxr (iwsfc) * sfcg%area(iwsfc) * alvl
       elseif (trim(fldname) == 'ASFCG_VAPFLUX' ) then
@@ -4090,10 +4201,13 @@ case(401:409) ! 'ASFCG_VELS',       'ASFCG_AIRTEMPK', 'ASFCG_AIRRRV',
          if (sfcg%leaf_class(iwsfc) >= 2) then
 
             iland = iwsfc - omland
-            nls = land%nlev_sfcwater(iland)
 
-            if (nls > 0) then
-               call qtk(land%sfcwater_energy(nls,iland),tempk,fracliq)
+            if (land%sfcwater_mass(1,iland) >= wcap_min) then
+               if (land%sfcwater_mass(2,iland) >= wcap_min) then
+                  call qwtk(land%sfcwater_epm2(2,iland),land%sfcwater_mass(2,iland),0.,tempk,fracliq)
+               else
+                  call qwtk(land%sfcwater_epm2(1,iland),land%sfcwater_mass(1,iland),0.,tempk,fracliq)
+               endif
             else
                call qwtk(land%soil_energy(nzg,iland),        &
                          land%soil_water(nzg,iland)*1.e3,    &
@@ -4182,7 +4296,7 @@ case(421:435) ! 'ASFCG_VELS_DIF2',          'ASFCG_AIRTEMPK_DIF2',      'ASFCG_A
       elseif (trim(fldname) == 'ASFCG_SENSFLUX_DIF2') then
          if (.not. allocated(sfluxt_accum)) go to 1000
          fldval = fldval +  (sfluxt_accum_prev0(iwsfc)  &
-                           - sfluxt_accum_prev1(iwsfc)) * sfcg%area(iwsfc) * cp
+                           - sfluxt_accum_prev1(iwsfc)) * sfcg%area(iwsfc)
       elseif (trim(fldname) == 'ASFCG_LATFLUX_DIF2' ) then
          if (.not. allocated(sfluxr_accum)) go to 1000
          fldval = fldval +  (sfluxr_accum_prev0(iwsfc)  &
@@ -4290,9 +4404,9 @@ case(451:465) ! 'ASFCG_VELS_DIF4',          'ASFCG_AIRTEMPK_DIF4',      'ASFCG_A
       elseif (trim(fldname) == 'ASFCG_SENSFLUX_DIF4') then
          if ( .not. allocated(sfluxt_accum)) go to 1000
          fldval1 = fldval1 + (sfluxt_accum_prev0(iwsfc)  &
-                            - sfluxt_accum_prev1(iwsfc)) * sfcg%area(iwsfc) * cp
+                            - sfluxt_accum_prev1(iwsfc)) * sfcg%area(iwsfc)
          fldval2 = fldval2 + (sfluxt_accum_prev2(iwsfc)  &
-                            - sfluxt_accum_prev3(iwsfc)) * sfcg%area(iwsfc) * cp
+                            - sfluxt_accum_prev3(iwsfc)) * sfcg%area(iwsfc)
       elseif (trim(fldname) == 'ASFCG_LATFLUX_DIF4' ) then
          if ( .not. allocated(sfluxr_accum)) go to 1000
          fldval1 = fldval1 + (sfluxr_accum_prev0(iwsfc)  &
@@ -4795,7 +4909,7 @@ case(749) ! 'SFCG_CANTEMPK_DMAX'
 case(750) ! 'SFCG_SENSFLUX_DAVG'
 
       if (.not. allocated(sfluxt_davg)) go to 1000
-      fldval = sfluxt_davg(i) * cp
+      fldval = sfluxt_davg(i)
 
 case(751) ! 'SFCG_LATFLUX_DAVG'
 
@@ -4810,7 +4924,7 @@ case(752) ! 'SENSFLUX_DAVG'
    do j = 1,itab_w(i)%jsfc2
       iwsfc = itab_w(i)%iwsfc(j)
       jasfc = itab_w(i)%jasfc(j)
-      fldval = fldval + itab_wsfc(iwsfc)%arcoariw(jasfc) * sfluxt_davg(iwsfc) * cp
+      fldval = fldval + itab_wsfc(iwsfc)%arcoariw(jasfc) * sfluxt_davg(iwsfc)
    enddo
 
 case(753) ! 'LATFLUX_DAVG'
@@ -4826,102 +4940,140 @@ case(753) ! 'LATFLUX_DAVG'
 
 case(771) ! 'RHO_OBS'
 
-   if (.not. allocated(rho_obs)) go to 1000
-
-   fldval = rho_obs(k,itab_w(i)%iwnud(1))
+   if (nudflag < 1) go to 1000
+   if (nudnxp > 0) then
+      fldval = rho_obs(k,itab_w(i)%iwnud(1))
+   else
+      fldval = tp * rho_obsp(k,i) + tf * rho_obsf(k,i)
+   endif
 
 case(772) ! 'THETA_OBS'
 
-   if (.not. allocated(theta_obs)) go to 1000
+   if (nudflag < 1) go to 1000
+   if (nudnxp > 0) then
+      fldval = theta_obs(k,itab_w(i)%iwnud(1))
+   else
+      if (.not. allocated(theta_obsp)) goto 1000
+      if (.not. allocated(theta_obsf)) goto 1000
+      fldval = tp * theta_obsp(k,i) + tf * theta_obsf(k,i)
+   endif
 
-!   fldval = theta_obs(k,itab_w(i)%iwnud(1))
-   fldval = theta_obs(k,i)
+case(773) ! 'RRV_OBS'
 
-case(773) ! 'RRW_OBS'
-
-   if (.not. allocated(rrw_obs)) go to 1000
-
-   fldval = rrw_obs(k,itab_w(i)%iwnud(1)) * 1.e3
+   if (nudflag < 1) go to 1000
+   if (nudnxp > 0) then
+      fldval = rrv_obs(k,itab_w(i)%iwnud(1))
+   else
+      fldval = tp * rrv_obsp(k,i) + tf * rrv_obsf(k,i)
+   endif
 
 case(774) ! 'UZONAL_OBS'
 
-   if (.not. allocated(uzonal_obs)) go to 1000
-
-   fldval = uzonal_obs(k,itab_w(i)%iwnud(1))
+   if (nudflag < 1) go to 1000
+   if (nudnxp > 0) then
+      fldval = uzonal_obs(k,itab_w(i)%iwnud(1))
+   else
+      fldval = tp * uzonal_obsp(k,i) + tf * uzonal_obsf(k,i)
+   endif
 
 case(775) ! 'UMERID_OBS'
 
-   if (.not. allocated(umerid_obs)) go to 1000
-
-   fldval = umerid_obs(k,itab_w(i)%iwnud(1))
+   if (nudflag < 1) go to 1000
+   if (nudnxp > 0) then
+      fldval = umerid_obs(k,itab_w(i)%iwnud(1))
+   else
+      fldval = tp * umerid_obsp(k,i) + tf * umerid_obsf(k,i)
+   endif
 
 case(776) ! 'RHO_SIM'
 
-   if (.not. allocated(rho_sim)) go to 1000
-
-   fldval = rho_sim(k,itab_w(i)%iwnud(1))
+   if (nudflag > 0 .and. nudnxp > 0) then
+      fldval = rho_sim(k,itab_w(i)%iwnud(1))
+   else
+      fldval = rho(k,i)
+   endif
 
 case(777) ! 'THETA_SIM'
 
-   if (.not. allocated(theta_sim)) go to 1000
+   if (nudflag > 0 .and. nudnxp > 0) then
+      fldval = theta_sim(k,itab_w(i)%iwnud(1))
+   else
+      fldval = theta(k,i)
+   endif
 
-!   fldval = theta_sim(k,itab_w(i)%iwnud(1))
-   fldval = theta_sim(k,i)
+case(778) ! 'RRV_SIM'
 
-case(778) ! 'RRW_SIM'
-
-   if (.not. allocated(rrw_sim)) go to 1000
-
-   fldval = rrw_sim(k,itab_w(i)%iwnud(1)) * 1.e3
+   if (nudflag > 0 .and. nudnxp > 0) then
+      fldval = rrv_sim(k,itab_w(i)%iwnud(1))
+   else
+      fldval = rr_v(k,i)
+   endif
 
 case(779) ! 'UZONAL_SIM'
 
-   if (.not. allocated(uzonal_sim)) go to 1000
-
-   fldval = uzonal_sim(k,itab_w(i)%iwnud(1))
+   if (nudflag > 0 .and. nudnxp > 0) then
+      fldval = uzonal_sim(k,itab_w(i)%iwnud(1))
+   else
+      fldval = ue(k,i)
+   endif
 
 case(780) ! 'UMERID_SIM'
 
-   if (.not. allocated(umerid_sim)) go to 1000
-
-   fldval = umerid_sim(k,itab_w(i)%iwnud(1))
+   if (nudflag > 0 .and. nudnxp > 0) then
+      fldval = umerid_sim(k,itab_w(i)%iwnud(1))
+   else
+      fldval = ve(k,i)
+   endif
 
 case(781) ! 'RHO_OBS_SIM'
 
-   if (.not. allocated(rho_sim)) go to 1000
-
-   fldval = rho_obs(k,itab_w(i)%iwnud(1)) &
-          - rho_sim(k,itab_w(i)%iwnud(1))
+   if (nudflag < 1) go to 1000
+   if (nudnxp > 0) then
+      fldval = rho_obs(k,itab_w(i)%iwnud(1)) &
+             - rho_sim(k,itab_w(i)%iwnud(1))
+   else
+      fldval = tp * rho_obsp(k,i) + tf * rho_obsf(k,i) - rho(k,i)
+   endif
 
 case(782) ! 'THETA_OBS_SIM'
 
-   if (.not. allocated(theta_sim)) go to 1000
+   if (nudflag < 1) go to 1000
+   if (nudnxp > 0) then
+      fldval = theta_obs(k,itab_w(i)%iwnud(1)) &
+             - theta_sim(k,itab_w(i)%iwnud(1))
+   else
+      fldval = tp * theta_obsp(k,i) + tf * theta_obsf(k,i) - theta(k,i)
+   endif
 
-!   fldval = theta_obs(k,itab_w(i)%iwnud(1)) &
-!          - theta_sim(k,itab_w(i)%iwnud(1))
-   fldval = theta_obs(k,i) &
-          - theta_sim(k,i)
+case(783) ! 'RRV_OBS_SIM'
 
-case(783) ! 'RRW_OBS_SIM'
-
-   if (.not. allocated(rrw_sim)) go to 1000
-
-   fldval = rrw_obs(k,itab_w(i)%iwnud(1)) * 1.e3 &
-          - rrw_sim(k,itab_w(i)%iwnud(1)) * 1.e3
+   if (nudflag < 1) go to 1000
+   if (nudnxp > 0) then
+      fldval = rrv_obs(k,itab_w(i)%iwnud(1)) &
+             - rrv_sim(k,itab_w(i)%iwnud(1))
+   else
+      fldval = tp * rrv_obsp(k,i) + tf * rrv_obsf(k,i) - rr_v(k,i)
+   endif
 
 case(784) ! 'UZONAL_OBS_SIM'
 
-   if (.not. allocated(uzonal_sim)) go to 1000
-
-   fldval = uzonal_obs(k,itab_w(i)%iwnud(1)) &
-          - uzonal_sim(k,itab_w(i)%iwnud(1))
+   if (nudflag < 1) go to 1000
+   if (nudnxp > 0) then
+      fldval = uzonal_obs(k,itab_w(i)%iwnud(1)) &
+             - uzonal_sim(k,itab_w(i)%iwnud(1))
+   else
+      fldval = tp * uzonal_obsp(k,i) + tf * uzonal_obsf(k,i) - ue(k,i)
+   endif
 
 case(785) ! 'UMERID_OBS_SIM'
 
-   if (.not. allocated(umerid_sim)) go to 1000
-
-   fldval = umerid_obs(k,itab_w(i)%iwnud(1)) &
-          - umerid_sim(k,itab_w(i)%iwnud(1))
+   if (nudflag < 1) go to 1000
+   if (nudnxp > 0) then
+      fldval = umerid_obs(k,itab_w(i)%iwnud(1)) &
+             - umerid_sim(k,itab_w(i)%iwnud(1))
+   else
+      fldval = tp * umerid_obsp(k,i) + tf * umerid_obsf(k,i) - ve(k,i)
+   endif
 
 case(786) ! 'VXE'
 
@@ -5065,15 +5217,134 @@ case(796) ! 'ADDSC1P2_ZINT'
 
    fldval = fldval / 4.0e-6
 
+case(797:798) ! RVORTW, TVORTW
+
+   if (.not. allocated(vxe)) go to 1000
+
+   fldval = 0.
+
+   do j = 1, itab_w(i)%npoly
+      iv  = itab_w(i)%iv(j)
+      iwn = itab_w(i)%iw(j)
+
+      fldval = fldval &
+           - dnu(iv) * itab_w(i)%dirv(j) * ( unx(iv) * ( wtbot * (vxe(k ,iwn) + vxe(k, i)) &
+                                                       + wttop * (vxe(kp,iwn) + vxe(kp,i)) ) &
+                                           + uny(iv) * ( wtbot * (vye(k ,iwn) + vye(k, i)) &
+                                                       + wttop * (vye(kp,iwn) + vye(kp,i)) ) &
+                                           + unz(iv) * ( wtbot * (vze(k ,iwn) + vze(k, i)) &
+                                                       + wttop * (vze(kp,iwn) + vze(kp,i)) ) )
+   enddo
+
+   fldval = 0.5 * fldval * arw0i(i)
+
+   if (icase == 798) then
+      fldval = fldval + omega2 * zew(i) * eradi  ! add earth vorticity at W point
+   endif
+
+case(799) ! 'TROPZ'
+
+   call comp_trop_height(i,fldval,0)
+   fldval = fldval * 1.e-3  ! km
+
+case(800) ! 'TROPP'
+
+   call comp_trop_height(i,fldval,1)
+   fldval = fldval * 1.e-2  ! mb
+
+case(801) ! 'AZIMVAL1'
+
+   if (.not. allocated(azimvals)) go to 1000
+   fldval = azimvals(k,i,1)
+
+case(802) ! 'AZIMVAL2'
+
+   if (.not. allocated(azimvals)) go to 1000
+   fldval = azimvals(k,i,2)
+
+case(803) ! 'AZIMVAL3'
+
+   if (.not. allocated(azimvals)) go to 1000
+   fldval = azimvals(k,i,3)
+
+case(804) ! 'AZIMVAL4'
+
+   if (.not. allocated(azimvals)) go to 1000
+   fldval = azimvals(k,i,4)
+
+case(805) ! 'AZIMVAL5'
+
+   if (.not. allocated(azimvals)) go to 1000
+   fldval = azimvals(k,i,5)
+
+case(806) ! 'AZIMVAL6'
+
+   if (.not. allocated(azimvals)) go to 1000
+   fldval = azimvals(k,i,6)
+
+case(807) ! 'AZIMVAL7'
+
+   if (.not. allocated(azimvals)) go to 1000
+   fldval = azimvals(k,i,7)
+
+case(808) ! 'AZIMVAL8'
+
+   if (.not. allocated(azimvals)) go to 1000
+   fldval = azimvals(k,i,8)
+
+case(809) ! 'AZIMVAL9'
+
+   if (.not. allocated(azimvals)) go to 1000
+   fldval = azimvals(k,i,9)
+
+case(810) ! 'AZIMVAL10'
+
+   if (.not. allocated(azimvals)) go to 1000
+   fldval = azimvals(k,i,10)
+
+case(811) ! 'AZIMVAL11'
+
+   if (.not. allocated(azimvals)) go to 1000
+   fldval = azimvals(k,i,11)
+
+case(812) ! 'AZIMVAL12'
+
+   if (.not. allocated(azimvals)) go to 1000
+   fldval = azimvals(k,i,12)
+
+case(813) ! 'AZIMVAL13'
+
+   if (.not. allocated(azimvals)) go to 1000
+   fldval = azimvals(k,i,13)
+
+case(814) ! 'AZIMVAL14'
+
+   if (.not. allocated(azimvals)) go to 1000
+   fldval = azimvals(k,i,14)
+
+case(815) ! 'AZIMVAL15'
+
+   if (.not. allocated(azimvals)) go to 1000
+   fldval = azimvals(k,i,15)
+
+case(816) ! 'AZIMVAL16'
+
+   if (.not. allocated(azimvals)) go to 1000
+   fldval = azimvals(k,i,16)
+
+case(817) ! 'AZIMVAL17'
+
+   if (.not. allocated(azimvals)) go to 1000
+   fldval = azimvals(k,i,17)
+
+case(818) ! 'AZIMVAL18'
+
+   if (.not. allocated(azimvals)) go to 1000
+   fldval = azimvals(k,i,18)
+
 case default
 
-! Optional plot of external field
-
-   if (allocated(op%extfld)) then
-      fldval = op%extfld(k,i)
-   else
-      go to 1000
-   endif
+   go to 1000
 
 end select
 
@@ -5093,3 +5364,153 @@ return
 notavail = 3
 
 end subroutine oplot_lib
+
+
+
+subroutine comp_trop_height(iw, troph, iflag)
+
+  use mem_grid,  only: lpw, mza, dzm, dzim, dzt, zm, zt
+  use mem_basic, only: press, tair
+  use mem_turb,  only: kpblh
+
+  use mem_ijtabs, only: itab_w
+
+  implicit none
+
+  integer, intent(in)  :: iw
+  real,    intent(out) :: troph
+  integer, intent(in)  :: iflag  ! 0 - trop height, 1 - trop pressure (mb)
+
+  integer :: ks, ke, k, k550, iter
+  real    :: dTdz1, dTdz2, tropb, tropt, lapse, depth
+
+  ! Tropopause height is based on Reichler et al., "Determining the tropopause
+  ! height from gridded data", Geo.Res.Let., 2003. Search for layer where the
+  ! lapse rate falls below 2K per km for a depth of about 2000 m.
+
+  real, parameter :: lapse0 = -2.0e-3  ! -2 K per km; condition for tropopause
+  real, parameter :: depth0 =  1.75e3  ! depth of tropopause layer
+  real, parameter :: pdef   =  180.e2  ! default topopause pressure if the searches fail
+
+  ! start just above surface/PBL
+
+  k = max(lpw(iw)+5, kpblh(iw)+2)
+
+  ! skip to 550 mb level
+
+  do while (press(k,iw) > 550.d2)
+     k = k + 1
+  enddo
+
+  k550  = k
+  ks    = k550
+  troph = 0.0
+  lapse = lapse0
+  depth = depth0
+  iter  = 0
+
+  ! outer loop to iterate if we don't find a tropopause
+
+  outerloop: do while (troph < 1.0 .and. iter < 4)
+
+     iter = iter + 1
+
+     ! now start searching for tropopause
+
+     troploop: do while (ks < mza-1 .and. press(k,iw) > 50.d2 .and. troph < 1.0)
+
+        ! Loop over W (full) layers to find the first level where the temperature
+        ! decrease with height is below the critical lapse rate.
+
+        do k = ks, mza-1
+           if (tair(k+1,iw) >= tair(k,iw) + lapse * dzm(k)) exit
+        enddo
+        ks = k
+
+        ! We found a candidate for the tropopause. Interpolate to find the
+        ! bottom height of this layer
+        dTdz1 = (tair(ks  ,iw) - tair(ks-1,iw)) * dzim(ks-1)
+        dTdz2 = (tair(ks+1,iw) - tair(ks  ,iw)) * dzim(ks)
+        dTdz1 = min(dTdz1, 1.0001*lapse)  ! avaid chance of divide-by-zero
+
+        tropb = zm(ks-1) + dzt(ks) * (dTdz1 - lapse) / (dTdz1 - dTdz2)
+
+        ! Now check that the layer thickness meets the minimum depth
+
+        do k = ks+1, mza-1
+           if ( (tair(k+1,iw) < tair(k,iw) + lapse * dzm(k)) .or. (zm(k-1) - tropb > depth) ) exit
+        enddo
+        ke = k-1
+
+        if (zm(ke) - tropb >= depth) then
+           ! We found the topopause
+           troph = tropb
+           exit troploop
+        endif
+
+        ! Interpolate to find the top height of this layer
+        dTdz1 = (tair(ke+2,iw) - tair(ke+1,iw)) * dzim(ke+1)
+        dTdz2 = (tair(ke+1,iw) - tair(ke  ,iw)) * dzim(ke)
+        dTdz1 = min(dTdz1, 1.0001*lapse)  ! avaid chance of divide-by-zero
+
+        tropt = zm(ke+1) - dzt(ke+1) * (dTdz1 - lapse) / (dTdz1 - dTdz2)
+
+        if (tropt - tropb >= depth) then
+           ! We found the topopause
+           troph = tropb
+           exit troploop
+        endif
+
+        ! We did not find the tropopause. Search for the next candidate layer
+        ks = ke+2
+
+     enddo troploop
+
+     ! If we are here and haven't found the tropopause, relax the criteria
+     ! and try searching again
+
+     if (troph < 1.0) then
+        ks    = max(kpblh(iw)+2, lpw(iw)+5, k550 - 1)
+        lapse = 1.2 * lapse
+        depth = 0.9 * depth
+     endif
+
+  enddo outerloop
+
+  ! If the previous searches all failed to find a tropopause height,
+  ! just set the tropopause to a default pressure level
+
+  if (troph < 1.0) then
+
+     if (iflag == 1) then
+
+        ! set tropopause pressure to a default value
+        troph = pdef
+
+     else
+
+        ! search for height of default tropopause pressure
+        k = k550
+        do while (press(k,iw) > pdef)
+           k = k + 1
+        enddo
+        troph = (zt(k-1) * (pdef - real(press(k,iw))) + zt(k) &
+              * (real(press(k-1,iw)) - pdef)) / (press(k-1,iw) - press(k,iw))
+
+     endif
+
+  ! We found the tropopause height; convert it to pressure level if needed
+
+  elseif (iflag == 1) then
+
+     if (troph < zt(ks)) then
+        troph = exp( ( (log(real(press(ks  ,iw))) * (troph - zt(ks-1)) &
+              + log(real(press(ks-1,iw))) * (zt(ks  ) - troph)) ) * dzim(ks-1) )
+     else
+        troph = exp( ( (log(real(press(ks+1,iw))) * (troph - zt(ks  )) &
+              + log(real(press(ks  ,iw))) * (zt(ks+1) - troph)) ) * dzim(ks  ) )
+     endif
+
+  endif
+
+end subroutine comp_trop_height

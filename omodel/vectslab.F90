@@ -1,7 +1,59 @@
+subroutine vectslab(iplt)
+
+  use oplot_coms, only: op
+  use mem_para,   only: myrank
+
+  implicit none
+
+  integer, intent(in) :: iplt
+
+  call oplot_set(iplt)
+
+  if (myrank == 0) then
+     call o_sflush()
+     call o_gsplci(10)
+     call o_gstxci(10)
+     call o_gslwsc(1.)
+  endif
+
+  if ( op%projectn(iplt) == 'L' .or.  &
+       op%projectn(iplt) == 'P' .or.  &
+       op%projectn(iplt) == 'G' .or.  &
+       op%projectn(iplt) == 'O' .or.  &
+       op%projectn(iplt) == 'Z' ) then
+
+     if ( op%vectbarb(iplt) == 'V' ) call vectslab_horiz_v(iplt)
+
+     if ( op%vectbarb(iplt) == 'w' .or. &
+          op%vectbarb(iplt) == 'B' ) then
+
+        if (op%gridded(iplt) == 'R') then
+           call vectgrid_horiz_w(iplt)
+        else
+           call vectslab_horiz_w(iplt)
+        endif
+
+     endif
+
+     if ( op%vectsea(iplt) == 'Y' ) call vectslab_horiz_vsfc(iplt)
+
+     if ( op%vectsea(iplt) == 'y' ) call vectslab_horiz_wsfc(iplt)
+
+     if ( op%vectsea(iplt) == 'z' ) call vectslab_horiz_umwm(iplt)
+
+  elseif (op%projectn(iplt) == 'C') then  ! etc for 'V'?
+
+  endif
+
+end subroutine vectslab
+
+!===============================================================================
+
 subroutine vectslab_horiz_v(iplt)
 
   use oplot_coms,  only: op
-  use mem_grid,    only: mva, mwa, vnx, vny, vnz, xev, yev, zev
+  use mem_grid,    only: mva, mwa, vnx, vny, vnz, xev, yev, zev, &
+                   glatv, glonv
   use mem_ijtabs,  only: itab_m, itab_v, itab_w, jtab_v, jtv_wadj
   use consts_coms, only: eradi
   use misc_coms,   only: mdomain, iparallel
@@ -85,7 +137,7 @@ subroutine vectslab_horiz_v(iplt)
 
      ! Transform IV coordinates
 
-     call oplot_transform(iplt,xev(iv),yev(iv),zev(iv),pointx,pointy)
+     call oplot_transform(iplt,xev(iv),yev(iv),zev(iv),glonv(iv),glatv(iv),pointx,pointy)
 
      ! Jump out of loop if vector head is outside plot window.
 
@@ -149,9 +201,9 @@ subroutine vectslab_horiz_v(iplt)
 
         ! Transform other tail and coordinates
 
-        call oplot_transform(iplt,tailxe,tailye,tailze,tailx,taily)
-        call oplot_transform(iplt,head1xe,head1ye,head1ze,head1x,head1y)
-        call oplot_transform(iplt,head2xe,head2ye,head2ze,head2x,head2y)
+        call oplot_transform_xyz(iplt,tailxe,tailye,tailze,tailx,taily)
+        call oplot_transform_xyz(iplt,head1xe,head1ye,head1ze,head1x,head1y)
+        call oplot_transform_xyz(iplt,head2xe,head2ye,head2ze,head2x,head2y)
 
         ! Avoid wrap-around
 
@@ -260,7 +312,8 @@ end subroutine vectslab_horiz_v
 subroutine vectslab_horiz_w(iplt)
 
   use oplot_coms,  only: op
-  use mem_grid,    only: mza, mwa, xew, yew, zew, wnx, wny, wnz
+  use mem_grid,    only: mza, mwa, xew, yew, zew, wnx, wny, wnz, &
+                         glatw, glonw
   use mem_ijtabs,  only: itab_w, jtab_w, jtw_prog
   use mem_basic,   only: vxe, vye, vze
   use consts_coms, only: eradi
@@ -299,12 +352,12 @@ subroutine vectslab_horiz_w(iplt)
   integer, parameter :: maxhalf =  1
   integer            :: ntris, nbarb, nhalf
 
-real :: xtris(3,maxtris), ytris(3,maxtris)
-real :: xbarb(2,maxbarb), ybarb(2,maxbarb)
-real :: xhalf(2,maxhalf), yhalf(2,maxhalf)
+  real :: xtris(3,maxtris), ytris(3,maxtris)
+  real :: xbarb(2,maxbarb), ybarb(2,maxbarb)
+  real :: xhalf(2,maxhalf), yhalf(2,maxhalf)
 
-real :: speed, pc, xt, xea, yea, zea, xeb, yeb, zeb, xec, yec, zec
-real :: xa, ya, xb, yb, xc, yc
+  real :: speed, pc, xt, xea, yea, zea, xeb, yeb, zeb, xec, yec, zec
+  real :: xa, ya, xb, yb, xc, yc
 
   integer, allocatable :: buffer(:), bcopy(:)
   integer :: nu, ier, buffsize, ipos, base, inc, j, n, is, kp
@@ -313,8 +366,8 @@ real :: xa, ya, xb, yb, xc, yc
 
 ! Find cell K indices on the given plot surface
 
-op%stagpt = 'T'
-call horizplot_k(iplt,mwa,ktf,kw,wtbot,wttop)
+  op%stagpt = 'T'
+  call horizplot_k(iplt,mwa,ktf,kw,wtbot,wttop)
 
   nu   = 0
   ipos = 0
@@ -350,7 +403,7 @@ do jw = 1, jtab_w(jtw_prog)%jend
 
 ! Transform IV coordinates
 
-   call oplot_transform(iplt,xew(iw),yew(iw),zew(iw),pointx,pointy)
+   call oplot_transform(iplt,xew(iw),yew(iw),zew(iw),glonw(iw),glatw(iw),pointx,pointy)
 
 ! Jump out of loop if vector head is outside plot window.
 
@@ -441,9 +494,9 @@ do jw = 1, jtab_w(jtw_prog)%jend
 
 ! Transform other tail and coordinates
 
-      call oplot_transform(iplt,tailxe,tailye,tailze,tailx,taily)
-      call oplot_transform(iplt,head1xe,head1ye,head1ze,head1x,head1y)
-      call oplot_transform(iplt,head2xe,head2ye,head2ze,head2x,head2y)
+      call oplot_transform_xyz(iplt,tailxe,tailye,tailze,tailx,taily)
+      call oplot_transform_xyz(iplt,head1xe,head1ye,head1ze,head1x,head1y)
+      call oplot_transform_xyz(iplt,head2xe,head2ye,head2ze,head2x,head2y)
 
 ! Avoid wrap-around
 
@@ -492,7 +545,20 @@ do jw = 1, jtab_w(jtw_prog)%jend
 
 ! Transform stem tail
 
-      call oplot_transform(iplt,tailxe,tailye,tailze,tailx,taily)
+      call oplot_transform_xyz(iplt,tailxe,tailye,tailze,tailx,taily)
+
+! Avoid wrap-around
+
+      if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,tailx)
+
+! Jump out of loop if any cell corner is on other side of earth
+
+      if (tailx > 1.e11) cycle
+
+! Jump out of loop if tail is outside plot window.
+
+      if ( tailx  < op%xmin .or. tailx  > op%xmax .or. &
+           taily  < op%ymin .or. taily  > op%ymax ) cycle
 
 ! Draw stem
 
@@ -525,9 +591,13 @@ do jw = 1, jtab_w(jtw_prog)%jend
 
 ! Transform triangle coordinates
 
-         call oplot_transform(iplt,xea,yea,zea,xa,ya)
-         call oplot_transform(iplt,xeb,yeb,zeb,xb,yb)
-         call oplot_transform(iplt,xec,yec,zec,xc,yc)
+         call oplot_transform_xyz(iplt,xea,yea,zea,xa,ya)
+         call oplot_transform_xyz(iplt,xeb,yeb,zeb,xb,yb)
+         call oplot_transform_xyz(iplt,xec,yec,zec,xc,yc)
+
+! Avoid out-of-bounds
+
+         if (xa > 1.e11 .or. xb > 1.e11 .or. xc > 1.e11) exit
 
 ! Avoid wrap-around
 
@@ -569,8 +639,12 @@ do jw = 1, jtab_w(jtw_prog)%jend
 
 ! Transform triangle coordinates
 
-         call oplot_transform(iplt,xea,yea,zea,xa,ya)
-         call oplot_transform(iplt,xeb,yeb,zeb,xb,yb)
+         call oplot_transform_xyz(iplt,xea,yea,zea,xa,ya)
+         call oplot_transform_xyz(iplt,xeb,yeb,zeb,xb,yb)
+
+! Avoid out-of-bounds
+
+         if (xa > 1.e11 .or. xb > 1.e11) exit
 
 ! Avoid wrap-around
 
@@ -608,8 +682,12 @@ do jw = 1, jtab_w(jtw_prog)%jend
 
 ! Transform triangle coordinates
 
-         call oplot_transform(iplt,xea,yea,zea,xa,ya)
-         call oplot_transform(iplt,xeb,yeb,zeb,xb,yb)
+         call oplot_transform_xyz(iplt,xea,yea,zea,xa,ya)
+         call oplot_transform_xyz(iplt,xeb,yeb,zeb,xb,yb)
+
+! Avoid out-of-bounds
+
+         if (xa > 1.e11 .or. xb > 1.e11) exit
 
 ! Avoid wrap-around
 
@@ -842,7 +920,8 @@ subroutine vectslab_horiz_vsfc(iplt)
 
      ! Transform IV coordinates
 
-     call oplot_transform(iplt,sfcg%xev(iv),sfcg%yev(iv),sfcg%zev(iv),pointx,pointy)
+     ! sfcg%glonv, sfcg%glatv is not available
+     call oplot_transform_xyz(iplt,sfcg%xev(iv),sfcg%yev(iv),sfcg%zev(iv),pointx,pointy)
 
      ! Jump out of loop if vector head is outside plot window.
 
@@ -896,9 +975,9 @@ subroutine vectslab_horiz_vsfc(iplt)
 
         ! Transform other tail and coordinates
 
-        call oplot_transform(iplt,tailxe,tailye,tailze,tailx,taily)
-        call oplot_transform(iplt,head1xe,head1ye,head1ze,head1x,head1y)
-        call oplot_transform(iplt,head2xe,head2ye,head2ze,head2x,head2y)
+        call oplot_transform_xyz(iplt,tailxe,tailye,tailze,tailx,taily)
+        call oplot_transform_xyz(iplt,head1xe,head1ye,head1ze,head1x,head1y)
+        call oplot_transform_xyz(iplt,head2xe,head2ye,head2ze,head2x,head2y)
 
         ! Avoid wrap-around
 
@@ -1055,7 +1134,8 @@ subroutine vectslab_horiz_wsfc(iplt)
 
      ! Transform IV coordinates
 
-     call oplot_transform(iplt,sfcg%xew(iw),sfcg%yew(iw),sfcg%zew(iw),pointx,pointy)
+     call oplot_transform(iplt,sfcg%xew(iw),sfcg%yew(iw),sfcg%zew(iw), &
+                          sfcg%glonw(iw),sfcg%glatw(iw),pointx,pointy)
 
      ! Jump out of loop if vector head is outside plot window.
 
@@ -1112,9 +1192,9 @@ subroutine vectslab_horiz_wsfc(iplt)
 
      ! Transform other tail and coordinates
 
-     call oplot_transform(iplt,tailxe,tailye,tailze,tailx,taily)
-     call oplot_transform(iplt,head1xe,head1ye,head1ze,head1x,head1y)
-     call oplot_transform(iplt,head2xe,head2ye,head2ze,head2x,head2y)
+     call oplot_transform_xyz(iplt,tailxe,tailye,tailze,tailx,taily)
+     call oplot_transform_xyz(iplt,head1xe,head1ye,head1ze,head1x,head1y)
+     call oplot_transform_xyz(iplt,head2xe,head2ye,head2ze,head2x,head2y)
 
      ! Avoid wrap-around
 
@@ -1208,3 +1288,251 @@ subroutine vectslab_horiz_wsfc(iplt)
 #endif
 
 end subroutine vectslab_horiz_wsfc
+
+!===============================================================================
+
+subroutine vectslab_horiz_umwm(iplt)
+
+  ! Plot vector field that denotes dominant ocean wave speed and direction
+  ! May use vector coloring to denote value of significant wave height
+
+  use oplot_coms,   only: op
+  use mem_sfcg,     only: mwsfc, sfcg
+  use mem_sea,      only: sea, msea, omsea
+  use consts_coms,  only: eradi
+  use misc_coms,    only: mdomain, iparallel
+  use mem_para,     only: myrank, mgroupsize, nbytes_real
+  use umwm_module,  only: dcg0, dwd, swh
+
+#ifdef OLAM_MPI
+  use mpi
+#endif
+
+  implicit none
+
+  integer, intent(in) :: iplt
+
+  integer :: jw, iwsfc, isea, swhcolor
+
+  real :: ucg, vcg, raxis, cgxe, cgye, cgze
+
+  real :: pointx,pointy,tailx,taily
+  real :: speed,headlen,head1x,head1y,head2x,head2y
+  real :: tailxe,tailye,tailze,stemlen
+  real :: stemx,stemy,stemz,snx,sny,snz,rnx,rny,rnz
+  real :: head1xe,head1ye,head1ze,head2xe,head2ye,head2ze
+
+  integer, allocatable :: buffer(:), bcopy(:)
+  integer :: nu, ier, buffsize, ipos, base, inc, j, n, indswh
+  integer :: nus(mgroupsize)
+  integer, parameter :: itag = 40
+
+  integer, parameter :: swhcolors(8) = [102, 113, 117, 123, 127, 134, 139, 143]
+
+  if (.not. allocated(swh)) then
+     print*, 'UMWM not active in this run -- returning from subroutine vectslab_horiz_umwm'
+     RETURN
+  endif
+
+  nu   = 0
+  ipos = 0
+
+  base = 8 * nbytes_real
+
+  if (op%windowin(iplt) == 'W') then
+     inc = ceiling( real(mwsfc) / 5. )
+  else
+     inc = mwsfc
+  endif
+
+  if (myrank > 0) then
+     buffsize = inc * base
+     allocate( buffer( buffsize ) )
+  endif
+
+  do isea = 2,msea
+
+     iwsfc = isea + omsea
+
+     ! Transform IV coordinates
+
+     call oplot_transform(iplt,sfcg%xew(iwsfc),sfcg%yew(iwsfc),sfcg%zew(iwsfc), &
+                          sfcg%glonw(iwsfc),sfcg%glatw(iwsfc),pointx,pointy)
+
+     ! Jump out of loop if vector head is outside plot window.
+
+     if (pointx < op%xmin .or. pointx > op%xmax .or.  &
+         pointy < op%ymin .or. pointy > op%ymax) cycle
+
+     if (dcg0(isea) < 1.e-3) cycle
+
+     ucg = dcg0(isea) * cos(dwd(isea))
+     vcg = dcg0(isea) * sin(dwd(isea))
+
+     raxis = sqrt(sfcg%xew(iwsfc) ** 2 + sfcg%yew(iwsfc) ** 2)  ! dist from earth axis
+
+     if (mdomain < 2 .and. raxis > 1.e3) then
+
+        cgxe = (-sfcg%yew(iwsfc) / raxis) * ucg + (-sfcg%xew(iwsfc) * sfcg%zew(iwsfc) * eradi / raxis) * vcg
+        cgye = ( sfcg%xew(iwsfc) / raxis) * ucg + (-sfcg%yew(iwsfc) * sfcg%zew(iwsfc) * eradi / raxis) * vcg
+        cgze =                                                                         (raxis * eradi) * vcg
+
+        stemx = cgxe * op%dtvec
+        stemy = cgye * op%dtvec
+        stemz = cgze * op%dtvec
+
+     else
+
+        stemx = 0.
+        stemy = 0.
+        stemz = 0.
+
+     endif
+
+     ! Vector length and unit components
+
+     stemlen = sqrt(stemx**2 + stemy**2 + stemz**2)
+
+     snx = stemx / stemlen
+     sny = stemy / stemlen
+     snz = stemz / stemlen
+
+     ! "Right" unit components
+
+     if (mdomain <= 1) then  ! Spherical geometry case
+        rnx = (sny * sfcg%zew(iwsfc) - snz * sfcg%yew(iwsfc)) * eradi
+        rny = (snz * sfcg%xew(iwsfc) - snx * sfcg%zew(iwsfc)) * eradi
+        rnz = (snx * sfcg%yew(iwsfc) - sny * sfcg%xew(iwsfc)) * eradi
+     else                    ! Cartesian case
+        rnx = sny
+        rny = - snx
+        rnz = 0.
+     endif
+
+     ! Earth coordinates of tail
+
+     tailxe = sfcg%xew(iwsfc) - stemx
+     tailye = sfcg%yew(iwsfc) - stemy
+     tailze = sfcg%zew(iwsfc) - stemz
+
+     ! Earth coordinates of left and right head tips
+
+     headlen = op%headspeed * op%dtvec  ! introduce separate dtvec for umwm?
+
+     head1xe = sfcg%xew(iwsfc) + rnx * .42 * headlen - snx * .91 * headlen
+     head1ye = sfcg%yew(iwsfc) + rny * .42 * headlen - sny * .91 * headlen
+     head1ze = sfcg%zew(iwsfc) + rnz * .42 * headlen - snz * .91 * headlen
+
+     head2xe = sfcg%xew(iwsfc) - rnx * .42 * headlen - snx * .91 * headlen
+     head2ye = sfcg%yew(iwsfc) - rny * .42 * headlen - sny * .91 * headlen
+     head2ze = sfcg%zew(iwsfc) - rnz * .42 * headlen - snz * .91 * headlen
+
+     ! Transform other tail and coordinates
+
+     call oplot_transform_xyz(iplt,tailxe,tailye,tailze,tailx,taily)
+     call oplot_transform_xyz(iplt,head1xe,head1ye,head1ze,head1x,head1y)
+     call oplot_transform_xyz(iplt,head2xe,head2ye,head2ze,head2x,head2y)
+
+     ! Avoid wrap-around
+
+     if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,tailx)
+     if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,head1x)
+     if (op%projectn(iplt) == 'L') call ll_unwrap(pointx,head2x)
+
+     ! Jump out of loop if tail or sides of head are outside plot window.
+
+     if (tailx  < op%xmin .or. tailx  > op%xmax .or.  &
+         taily  < op%ymin .or. taily  > op%ymax .or.  &
+         head1x < op%xmin .or. head1x > op%xmax .or.  &
+         head1y < op%ymin .or. head1y > op%ymax .or.  &
+         head2x < op%xmin .or. head2x > op%xmax .or.  &
+         head2y < op%ymin .or. head2y > op%ymax) cycle
+
+     ! Set vector color based on swh
+
+     indswh = max(1,min(8,int(swh(isea))))
+     swhcolor = swhcolors(indswh)
+
+     call o_sflush()
+     call o_gsplci(swhcolor)
+     call o_gstxci(swhcolor)
+     call o_gslwsc(1.)
+
+     ! Draw vector
+
+     if (myrank == 0) then
+        call o_frstpt(tailx,taily)
+        call o_vector(pointx,pointy)
+        call o_frstpt(head1x,head1y)
+        call o_vector(pointx,pointy)
+        call o_vector(head2x,head2y)
+     else
+#ifdef OLAM_MPI
+          nu = nu + 1
+          if (buffsize < ipos + base) then
+             allocate( bcopy (buffsize + inc * base) )
+             bcopy(1:buffsize) = buffer
+             call move_alloc(bcopy, buffer)
+             buffsize = size(buffer)
+          endif
+          call MPI_Pack(tailx,  1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+          call MPI_Pack(taily,  1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+          call MPI_Pack(pointx, 1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+          call MPI_Pack(pointy, 1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+          call MPI_Pack(head1x, 1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+          call MPI_Pack(head1y, 1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+          call MPI_Pack(head2x, 1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+          call MPI_Pack(head2y, 1, MPI_REAL, buffer, buffsize, ipos, MPI_COMM_WORLD, ier)
+#endif
+     endif
+
+  enddo
+
+#ifdef OLAM_MPI
+  if (iparallel == 1) then
+     call MPI_Gather(nu, 1, MPI_INTEGER, nus, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, ier)
+
+     if (myrank > 0 .and. nu > 0) then
+        call MPI_Send(buffer, ipos, MPI_PACKED, 0, itag, MPI_COMM_WORLD, ier)
+     endif
+
+     if (myrank == 0) then
+
+        buffsize = maxval(nus(2:mgroupsize)) * base
+        allocate( buffer( buffsize ) )
+
+        do n = 2, mgroupsize
+
+           if (nus(n) > 0) then
+
+              call MPI_Recv( buffer, buffsize, MPI_PACKED, n-1, itag, MPI_COMM_WORLD, MPI_STATUS_IGNORE, ier )
+
+              ipos = 0
+
+              do j = 1, nus(n)
+                 call MPI_Unpack(buffer, buffsize, ipos, tailx,  1, MPI_REAL, MPI_COMM_WORLD, ier)
+                 call MPI_Unpack(buffer, buffsize, ipos, taily,  1, MPI_REAL, MPI_COMM_WORLD, ier)
+                 call MPI_Unpack(buffer, buffsize, ipos, pointx, 1, MPI_REAL, MPI_COMM_WORLD, ier)
+                 call MPI_Unpack(buffer, buffsize, ipos, pointy, 1, MPI_REAL, MPI_COMM_WORLD, ier)
+                 call MPI_Unpack(buffer, buffsize, ipos, head1x, 1, MPI_REAL, MPI_COMM_WORLD, ier)
+                 call MPI_Unpack(buffer, buffsize, ipos, head1y, 1, MPI_REAL, MPI_COMM_WORLD, ier)
+                 call MPI_Unpack(buffer, buffsize, ipos, head2x, 1, MPI_REAL, MPI_COMM_WORLD, ier)
+                 call MPI_Unpack(buffer, buffsize, ipos, head2y, 1, MPI_REAL, MPI_COMM_WORLD, ier)
+
+                 call o_frstpt(tailx,taily)
+                 call o_vector(pointx,pointy)
+                 call o_frstpt(head1x,head1y)
+                 call o_vector(pointx,pointy)
+                 call o_vector(head2x,head2y)
+              enddo
+
+           endif
+        enddo
+     endif
+
+     deallocate(buffer)
+  endif
+#endif
+
+end subroutine vectslab_horiz_umwm
+

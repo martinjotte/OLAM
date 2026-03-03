@@ -97,6 +97,137 @@ subroutine grad_z_quad(iw, scp, gzps, gzzps)
 
 end subroutine grad_z_quad
 
+!=======================================================================
+
+! This routine computes the vertical derivative of a scalar or velocity
+! vector component with respect to the local upward Z direction at each
+! cell center (T level).
+
+subroutine grad_z_linear(iw, scp, scp_bot, scp_top, itopbc, ibotbc)
+
+  use mem_grid,   only: mza, lpw, dzim, dzt_top, dzt_bot
+
+  implicit none
+
+  integer, intent( in) :: iw
+  real,    intent( in) :: scp (mza)
+  real,    intent(out) :: scp_top(mza)
+  real,    intent(out) :: scp_bot(mza)
+
+  integer, optional, intent(in) :: itopbc
+  integer, optional, intent(in) :: ibotbc
+
+  integer :: kb, k
+  integer :: itop, ibot
+  real    :: gwz(mza)
+  real    :: gzps
+
+  kb = lpw(iw)
+
+  ibot = 0
+  if (present(ibotbc)) ibot = ibotbc
+
+  itop = 0
+  if (present(itopbc)) itop = itopbc
+
+  ! Vertical loop over W levels
+  do k = kb, mza-1
+     gwz(k) = dzim(k) * (scp(k+1) - scp(k))
+  enddo
+
+  ! Bottom boundary condition
+  gwz(kb-1) = 0.0
+  if (ibot /= 0) gwz(kb-1) = gwz(kb)
+
+  ! Top boundary condition
+  gwz(mza)  = 0.0
+  if (itop /= 0) gwz(mza) = gwz(mza-1)
+
+  ! Vertical loop over T levels
+  do k = kb, mza
+     gzps       = 0.5 * (gwz(k-1) + gwz(k))
+     scp_bot(k) = scp(k) - gzps * dzt_bot(k)
+     scp_top(k) = scp(k) + gzps * dzt_top(k)
+  enddo
+
+end subroutine grad_z_linear
+
+!=======================================================================
+
+! This routine computes the first and second derivatives of a scalar or
+! velocity vector component with respect to the local upward Z direction
+! at each cell center (T level). The second derivative is bounded so that
+! the integral of the polynomial:
+!
+! scp + z * gzps + z^2 * gzzps
+!
+! over a cell equals its mean value scp0.
+
+subroutine grad_z_quadratic(iw, scp, scp_bot, scp_top, itopbc, ibotbc, bounded)
+
+  use mem_grid,   only: mza, lpw
+  use mem_adv,    only: a_w, a_wu
+
+  implicit none
+
+  integer, intent( in) :: iw
+  real,    intent( in) :: scp    (mza)
+  real,    intent(out) :: scp_top(mza)
+  real,    intent(out) :: scp_bot(mza)
+
+  integer, optional, intent(in) :: itopbc  ! 0 = zero gradient, 1 = const gradient
+  integer, optional, intent(in) :: ibotbc  ! 0 = zero gradient, 1 = const gradient
+  logical, optional, intent(in) :: bounded ! T constrains mean value of polynomial
+                                           ! to equal cell mean value
+  integer :: k, ka
+  integer :: itop, ibot
+  real    :: ds(mza)
+  logical :: constrained
+
+  ibot = 0
+  if (present(ibotbc)) ibot = ibotbc
+
+  itop = 0
+  if (present(itopbc)) itop = itopbc
+
+  constrained = .true.
+  if (present(bounded)) constrained = bounded
+
+  ka = lpw(iw)
+
+  ! Loop over W levels
+  do k = ka, mza-1
+     ds(k) = scp(k+1) - scp(k)
+  enddo
+
+  ! Bottom boundary
+  ds(ka-1) = 0.0
+  if (ibot /= 0) ds(ka-1) = ds(ka)
+
+  ! Top boundary
+  ds(mza)  = 0.0
+  if (itop /= 0) ds(mza) = ds(mza-1)
+
+  if (constrained) then
+
+     ! Loop over T levels
+     do k = ka, mza
+        scp_bot(k) = scp(k) + ds(k) * a_w(k,1,1) + ds(k-1) * a_w(k,2,1)
+        scp_top(k) = scp(k) + ds(k) * a_w(k,1,2) + ds(k-1) * a_w(k,2,2)
+     enddo
+
+  else
+
+     ! Loop over T levels
+     do k = ka, mza
+        scp_bot(k) = scp(k) + ds(k) * a_wu(k,1,1) + ds(k-1) * a_wu(k,2,1)
+        scp_top(k) = scp(k) + ds(k) * a_wu(k,1,2) + ds(k-1) * a_wu(k,2,2)
+     enddo
+
+  endif
+
+end subroutine grad_z_quadratic
+
 !=========================================================================
 
 ! Computes horizontal gradients in a local rotated polar
@@ -122,7 +253,7 @@ subroutine grad_t2d(iw, scp, gxps, gyps)
 
   ! Loop over W neighbors of this W cell
 
-  !dir$ loop count max=7
+  !dir$ loop count max(7), min(5), avg(6)
   do n = 1, itab_w(iw)%npoly
      iwn = itab_w(iw)%iw(n)
      ivn = itab_w(iw)%iv(n)
@@ -144,51 +275,70 @@ end subroutine grad_t2d
 ! least-squares fitting. The polynomial is bounded so that the integral
 ! over the current cell equals its mean value scp0.
 
-subroutine grad_t2d_quad(iw, scp, gxps, gyps, gxxps, gxyps, gyyps)
+subroutine grad_t2d_quadratic(iw, scp, gxyps, bounded)
 
   use mem_ijtabs, only: itab_w
   use mem_grid,   only: mza, mwa, lpv
-  use mem_adv,    only: xy_h
+  use mem_adv,    only: xy_h, xy_hu
 
   implicit none
 
   integer, intent( in) :: iw
   real,    intent( in) :: scp  (mza,mwa)
-  real,    intent(out) :: gxps (mza)
-  real,    intent(out) :: gyps (mza)
-  real,    intent(out) :: gxxps(mza)
-  real,    intent(out) :: gxyps(mza)
-  real,    intent(out) :: gyyps(mza)
+  real,    intent(out) :: gxyps(mza,mwa,5)
 
+  logical, optional, intent(in) :: bounded ! T constrains mean value of polynomial
+                                           ! to equal cell mean value
   integer :: iwn, ivn, k, n
   real    :: sc
+  logical :: constrained
 
-  gxps  = 0.
-  gyps  = 0.
-  gxxps = 0.
-  gxyps = 0.
-  gyyps = 0.
+  constrained = .true.
+  if (present(bounded)) constrained = bounded
 
-  ! Loop over neighbors of this W cell
-
-  !dir$ loop count max=7
-  do n = 1, itab_w(iw)%npoly
-     iwn = itab_w(iw)%iw(n)
-     ivn = itab_w(iw)%iv(n)
-
-     do k = lpv(ivn), mza
-        sc = scp(k,iwn) - scp(k,iw)
-
-        gxps (k) = gxps (k) + sc * xy_h(1,n,iw)
-        gyps (k) = gyps (k) + sc * xy_h(2,n,iw)
-        gxxps(k) = gxxps(k) + sc * xy_h(3,n,iw)
-        gxyps(k) = gxyps(k) + sc * xy_h(4,n,iw)
-        gyyps(k) = gyyps(k) + sc * xy_h(5,n,iw)
-     enddo
-
+  do n = 1, 5
+     gxyps(:,iw,n) = 0.
   enddo
 
-end subroutine grad_t2d_quad
+  if (constrained) then
+
+     !dir$ loop count max(7), min(5), avg(6)
+     do n = 1, itab_w(iw)%npoly
+        iwn = itab_w(iw)%iw(n)
+        ivn = itab_w(iw)%iv(n)
+
+        do k = lpv(ivn), mza
+           sc = scp(k,iwn) - scp(k,iw)
+
+           gxyps(k,iw,1) = gxyps(k,iw,1) + sc * xy_h(1,n,iw)  ! x
+           gxyps(k,iw,2) = gxyps(k,iw,2) + sc * xy_h(2,n,iw)  ! y
+           gxyps(k,iw,3) = gxyps(k,iw,3) + sc * xy_h(3,n,iw)  ! x*x
+           gxyps(k,iw,4) = gxyps(k,iw,4) + sc * xy_h(4,n,iw)  ! x*y
+           gxyps(k,iw,5) = gxyps(k,iw,5) + sc * xy_h(5,n,iw)  ! y*y
+        enddo
+     enddo
+
+  else
+
+     !dir$ loop count max(7), min(5), avg(6)
+     do n = 1, itab_w(iw)%npoly
+        iwn = itab_w(iw)%iw(n)
+        ivn = itab_w(iw)%iv(n)
+
+        do k = lpv(ivn), mza
+           sc = scp(k,iwn) - scp(k,iw)
+
+           gxyps(k,iw,1) = gxyps(k,iw,1) + sc * xy_hu(1,n,iw)  ! x
+           gxyps(k,iw,2) = gxyps(k,iw,2) + sc * xy_hu(2,n,iw)  ! y
+           gxyps(k,iw,3) = gxyps(k,iw,3) + sc * xy_hu(3,n,iw)  ! x*x
+           gxyps(k,iw,4) = gxyps(k,iw,4) + sc * xy_hu(4,n,iw)  ! x*y
+           gxyps(k,iw,5) = gxyps(k,iw,5) + sc * xy_hu(5,n,iw)  ! y*y
+        enddo
+     enddo
+
+  endif
+
+end subroutine grad_t2d_quadratic
 
 !=======================================================================
 
@@ -339,8 +489,7 @@ end subroutine grad_t2d_quad
 !=========================================================================
 
 ! Computes the horizontal laplacian of scalar variables at cell centers
-! of the hexagonal grid using a least-squares fit on a local rotated
-! polar-stereographic projection
+! (W points) on the hexagonal grid
 
 subroutine laplacian2d(iw, scp, delsq)
 
@@ -373,5 +522,42 @@ subroutine laplacian2d(iw, scp, delsq)
   enddo
 
 end subroutine laplacian2d
+
+!=========================================================================
+
+! Computes the horizontal laplacian of scalar variables at cell vertices
+! (M points) on the hexagonal grid
+
+subroutine laplacian_m(im, scm, delsq)
+
+  use mem_ijtabs, only: itab_m
+  use mem_grid,   only: mza, mma, lpv
+  use mem_adv,    only: xx_yy_m
+
+  implicit none
+
+  integer, intent(in)  :: im
+  real,    intent(in)  :: scm(mza,mma)
+  real,    intent(out) :: delsq(mza)
+
+  integer :: imn, j, k
+  real    :: sc
+
+  delsq(:) = 0.0
+
+  ! Loop over neighbors of this M point
+  do j = 1, 3
+     imn = itab_m(im)%im(j)
+
+     do k = lpv( itab_m(im)%iv(j) ), mza
+        sc = scm(k,imn) - scm(k,im)
+        delsq(k) = delsq(k) + sc * xx_yy_m(j,im)
+     enddo
+
+  enddo
+
+end subroutine laplacian_m
+
+!=========================================================================
 
 end module grad_lib

@@ -6,7 +6,7 @@ Module mem_addsc
 
   Type addsc_vars
      real, allocatable :: sclp(:,:) ! somethings per kg_air
-     real, allocatable :: sclt(:,:) ! somethings per kg_air per sec
+     real, allocatable :: sclt(:,:) ! somethings per m^3_air per sec
   End Type addsc_vars
 
   type (addsc_vars), allocatable :: addsc(:)
@@ -21,7 +21,7 @@ Contains
     implicit none
 
     integer, intent(in) :: mza,mwa,naddsc
-    integer             :: iaddsc
+    integer             :: iaddsc, iw
 
     ! Allocate arrays based on options (if necessary).
 
@@ -30,7 +30,13 @@ Contains
     do iaddsc = 1,naddsc
 
        write(io6,*) 'alloc_addsc ', iaddsc, mza, mwa, naddsc
-       allocate (addsc(iaddsc)%sclp(mza,mwa)) ; addsc(iaddsc)%sclp = rinit
+       allocate( addsc(iaddsc)%sclp(mza,mwa) )
+
+       !$omp parallel do
+       do iw = 1, mwa
+          addsc(iaddsc)%sclp(:,iw) = rinit
+       enddo
+       !$omp end parallel do
 
     enddo
 
@@ -50,7 +56,7 @@ Contains
     if (allocated(addsc)) then
 
        do iaddsc = 1,naddsc
-          if (allocated(addsc(iaddsc)%sclp  )) deallocate (addsc(iaddsc)%sclp  )
+          if ( allocated( addsc(iaddsc)%sclp ) ) deallocate( addsc(iaddsc)%sclp )
        enddo
 
        deallocate(addsc)
@@ -68,14 +74,14 @@ Contains
 
     integer, intent(in) :: naddsc
 
-    integer      :: iaddsc
-    character(7) :: sname
+    integer       :: iaddsc
+    character(14) :: sname
 
     do iaddsc = 1,naddsc
 
        if (allocated (addsc(iaddsc)%sclp)) then
 
-          write(sname,'(a4,i3.3)') 'SCLP', iaddsc
+          write(sname,'(a4,i0.3)') 'SCLP', iaddsc
           call increment_vtable(sname, 'AW', mpt1=.true., rvar2=addsc(iaddsc)%sclp)
 
        endif

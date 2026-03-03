@@ -80,6 +80,12 @@ module hcane_rz
   real, allocatable :: hlona(:,:)
   real, allocatable :: htima(:,:)
 
+  real, allocatable :: vmxeth(:,:,:)
+  real, allocatable :: vmyeth(:,:,:)
+  real, allocatable :: vmzeth(:,:,:)
+
+  real, allocatable :: azimvals(:,:,:)
+
   ! rad1_blend and rad2_blend control how a relocated vortex is blended in with
   ! model initial fields at the beginning of the second and subsequent dynamic
   ! initialization cycles.  At locations inside radius rad1, 100% of the relocated
@@ -119,8 +125,9 @@ Contains
 
   subroutine hurricane_init()
 
-  use misc_coms,  only: timmax8, dtlm
-  use mem_grid,   only: mza, zt
+  use misc_coms,  only: timmax8, dtlm, iparallel
+  use mem_grid,   only: mza, mwa, zt
+  use oname_coms, only: nl
 
   implicit none
 
@@ -128,7 +135,7 @@ Contains
   real            :: delz
   real, parameter :: zexpon_thpert = 2.0    ! []
 
-  nhtim = max(timmax8, timmax_hurrinit) / dtlm
+  nhtim = max(timmax8, timmax_hurrinit) / dtlm + 1
   nhcyc = max(1,ncycle_hurrinit)
 
   rmax   = 0.999999 * radius_ax(nr)
@@ -137,6 +144,20 @@ Contains
   allocate (hlata(0:nhtim,nhcyc))
   allocate (hlona(0:nhtim,nhcyc))
   allocate (htima(0:nhtim,nhcyc)); htima(:,:) = 0.
+
+  if (iparallel == 0 .and. nl%hurr_azim_plots == 1) then
+     allocate (vmxeth(mza,mwa,9))
+     allocate (vmyeth(mza,mwa,9))
+     allocate (vmzeth(mza,mwa,9))
+
+     allocate (azimvals(mza,mwa,18))
+
+     vmxeth(:,:,:) = 0.
+     vmyeth(:,:,:) = 0.
+     vmzeth(:,:,:) = 0.
+
+     azimvals(:,:,:) = 0.
+  endif
 
   do k = 2, mza
      if (zt(k) > zcent_thpert - zhwid_thpert) exit
@@ -190,6 +211,7 @@ Contains
   use misc_coms,   only: mstp, time8, iparallel, io6
   use mem_grid,    only: mwa, zt, lpw, xew, yew, zew, arw0, glatw, glonw
   use consts_coms, only: pio180, erad
+  use map_proj,    only: ec_ll
 
 #ifdef OLAM_MPI
   use mpi
@@ -331,7 +353,7 @@ Contains
 
   ! Transform mean location to lat/lon coordinates
 
-  call e_ec(xew_avg,yew_avg,zew_avg,rlon,rlat)
+  call ec_ll(xew_avg,yew_avg,zew_avg,rlon,rlat)
 
   write(io6,'(a,f8.3,f9.3,a,f8.3,f9.3,f12.2)') &
      '     vortex_center/pmin: (', hlat, hlon, ' )', rlat, rlon, pmsl_min
@@ -367,6 +389,7 @@ Contains
                          p00i, p00k, p00kord, t00
   use max_dims,    only: pathlen
   use therm_lib,   only: rhovsl, rhovsl_inv
+  use map_proj,    only: de_ps, ec_ps
 
   implicit none
 
@@ -496,7 +519,7 @@ Contains
 
      ! Transform M point to PS coordinates tangent at current hurricane center
 
-     call e_ps(xem(im),yem(im),zem(im),hlat,hlon,x(1),y(1))
+     call ec_ps(xem(im),yem(im),zem(im),hlat,hlon,x(1),y(1))
 
      npoly = itab_m(im)%npoly
      rpolyi = 1. / real(npoly)
@@ -515,7 +538,7 @@ Contains
 
         ! Transform W point to PS coordinates tangent at current hurricane center
 
-        call e_ps(xew(iw),yew(iw),zew(iw),hlat,hlon,xw(j),yw(j))
+        call ec_ps(xew(iw),yew(iw),zew(iw),hlat,hlon,xw(j),yw(j))
 
         ! Vertical loop over T levels
 
@@ -673,7 +696,7 @@ Contains
 
                  ! Transform IWI point to PS coordinates tangent at relocation point
 
-                 call e_ps(xew(iwi),yew(iwi),zew(iwi),hlat_reloc,hlon_reloc,xwi,ywi)
+                 call ec_ps(xew(iwi),yew(iwi),zew(iwi),hlat_reloc,hlon_reloc,xwi,ywi)
 
                  ! Set up remaining triangle_check coefficients
 
@@ -1191,26 +1214,29 @@ end subroutine vortex_get_vtanmax
   ! on each model level up to a specified maximum height and over intervals
   ! between radial distance values defined in the radius_ax array.
 
-  use mem_ijtabs,  only: jtw_init, jtab_w
+  use mem_ijtabs,  only: jtw_init, jtab_w, itab_w
   use mem_basic,   only: thil, theta, tair, rho, rr_w, rr_v, wc, vxe, vye, vze
-  use mem_grid,    only: mza, zt, xew, yew, zew, lpw
-  use consts_coms, only: erad, pio180, alvlocp
+  use mem_grid,    only: mza, zt, xew, yew, zew, lpw, volt, dnu, unx, uny, unz, arw0i
+  use consts_coms, only: erad, pio180, alvlocp, eradi, omega2
   use therm_lib,   only: rhovsl
   use misc_coms,   only: iparallel
   use mem_para,    only: myrank
   use plotcolors,  only: make_colortable
+  use oname_coms,  only: nl
 
   implicit none
 
   character(*), intent(in) :: plt
 
-  integer :: iw, j, k, irad, nzz, kmin
+  integer :: iw, j, k, irad, nzz, nrr, kmin, iter, jv, iv, iwn
+  real :: zinc, rinc
   real :: reh, zeh, xeh, yeh
   real :: wnxh,wnyh,wnzh
   real :: wnxrad,wnyrad,wnzrad,wnxtan,wnytan,wnztan
 
   real :: rad,wrad1,wrad2
   real :: vtan_ax0, vrad_ax0, ss_liq, ss_thetadif
+  real :: vtant_ax0(14), zeta_ax0, speed_ax0
   character(30) :: palette
 
   ! Axisymmmetric vortex profile arrays
@@ -1227,11 +1253,17 @@ end subroutine vortex_get_vtanmax
   real :: thdif_ax(mza,nr) ! theta difference from supsat (K)
   real ::  cond_ax(mza,nr) ! condensation mixing ratio (kg/kg_dryair)
 
+  real :: vtant_ax(mza,nr,14)
+  real :: zeta_ax (mza,nr)
+  real :: speed_ax(mza,nr)
+
   real :: weight_t(mza,nr) ! weight array for T points
 
   ! Needs work in parallel!!!!!!!!!!!
   if (iparallel == 1) return
   if (myrank /= 0) return
+
+  if (nl%hurr_azim_plots /= 1) return
 
   ! Find "earth" coordinates of hurricane center
 
@@ -1259,7 +1291,11 @@ end subroutine vortex_get_vtanmax
   ssliq_ax(:,:) = 0.
   thdif_ax(:,:) = 0.
 
+  vtant_ax(:,:,:) = 0.
+
   weight_t(:,:) = 0.
+  zeta_ax (:,:) = 0.
+  speed_ax(:,:) = 0.
 
   ! Loop over all W points
 
@@ -1338,16 +1374,102 @@ end subroutine vortex_get_vtanmax
         thdif_ax(k,irad)   = thdif_ax(k,irad)   + wrad1 * ss_thetadif
         thdif_ax(k,irad+1) = thdif_ax(k,irad+1) + wrad2 * ss_thetadif
 
-        ! Diagnose axisymmetric component of model's own vortex
+        vtant_ax0(1) = (vmxeth(k,iw,1) * wnxtan  &
+                     +  vmyeth(k,iw,1) * wnytan  &
+                     +  vmzeth(k,iw,1) * wnztan) &
+                     /  real(rho(k,iw) * volt(k,iw))
 
-        vtan_ax0 = vxe(k,iw) * wnxtan + vye(k,iw) * wnytan + vze(k,iw) * wnztan
+        vtant_ax0(2) = ((vmxeth(k,iw,2) - vmxeth(k,iw,1)) * wnxtan  &
+                     +  (vmyeth(k,iw,2) - vmyeth(k,iw,1)) * wnytan  &
+                     +  (vmzeth(k,iw,2) - vmzeth(k,iw,1)) * wnztan) &
+                     /  real(rho(k,iw) * volt(k,iw))
+
+        vtant_ax0(3) = ((vmxeth(k,iw,3) - vmxeth(k,iw,2)) * wnxtan  &
+                     +  (vmyeth(k,iw,3) - vmyeth(k,iw,2)) * wnytan  &
+                     +  (vmzeth(k,iw,3) - vmzeth(k,iw,2)) * wnztan) &
+                     /  real(rho(k,iw) * volt(k,iw))
+
+        vtant_ax0(4) = ((vmxeth(k,iw,4) - vmxeth(k,iw,3)) * wnxtan  &
+                     +  (vmyeth(k,iw,4) - vmyeth(k,iw,3)) * wnytan  &
+                     +  (vmzeth(k,iw,4) - vmzeth(k,iw,3)) * wnztan) &
+                     /  real(rho(k,iw) * volt(k,iw))
+
+        vtant_ax0(5) = ((vmxeth(k,iw,5) - vmxeth(k,iw,4)) * wnxtan  &
+                     +  (vmyeth(k,iw,5) - vmyeth(k,iw,4)) * wnytan  &
+                     +  (vmzeth(k,iw,5) - vmzeth(k,iw,4)) * wnztan) &
+                     /  real(rho(k,iw) * volt(k,iw))
+
+        vtant_ax0(6) = ((vmxeth(k,iw,6) - vmxeth(k,iw,5)) * wnxtan  &
+                     +  (vmyeth(k,iw,6) - vmyeth(k,iw,5)) * wnytan  &
+                     +  (vmzeth(k,iw,6) - vmzeth(k,iw,5)) * wnztan) &
+                     /  real(rho(k,iw) * volt(k,iw))
+
+        vtant_ax0(7) = (vmxeth(k,iw,7) * wnxtan  &
+                     +  vmyeth(k,iw,7) * wnytan  &
+                     +  vmzeth(k,iw,7) * wnztan)
+
+        vtant_ax0(8) = (vmxeth(k,iw,8) * wnxtan  &
+                     +  vmyeth(k,iw,8) * wnytan  &
+                     +  vmzeth(k,iw,8) * wnztan) &
+                     /  real(rho(k,iw) * volt(k,iw))
+
+        vtant_ax0(9) = (vmxeth(k,iw,9) * wnxtan  &
+                     +  vmyeth(k,iw,9) * wnytan  &
+                     +  vmzeth(k,iw,9) * wnztan) &
+                     /  real(rho(k,iw) * volt(k,iw))
+
+        vtant_ax0(10) = (vmxeth(k,iw,6) * wnxtan  &
+                      +  vmyeth(k,iw,6) * wnytan  &
+                      +  vmzeth(k,iw,6) * wnztan) &
+                      /  real(rho(k,iw) * volt(k,iw))
+
+        vtant_ax0(11) = vtant_ax0(4)  - vtant_ax0(8)
+        vtant_ax0(12) = vtant_ax0(6)  - vtant_ax0(9)
+        vtant_ax0(13) = vtant_ax0(4)  - vtant_ax0(8) + vtant_ax0(7)
+        vtant_ax0(14) = vtant_ax0(10) + vtant_ax0(7)
+
+!-----------------------------------------------------------------------------adapted from oplot_lib
+
         vrad_ax0 = vxe(k,iw) * wnxrad + vye(k,iw) * wnyrad + vze(k,iw) * wnzrad
+        vtan_ax0 = vxe(k,iw) * wnxtan + vye(k,iw) * wnytan + vze(k,iw) * wnztan
+
+        zeta_ax0 = 0.  ! vertical vorticity
+
+        do jv = 1, itab_w(iw)%npoly
+           iv  = itab_w(iw)%iv(jv)
+           iwn = itab_w(iw)%iw(jv)
+
+           zeta_ax0 = zeta_ax0 &
+                    - dnu(iv) * itab_w(iw)%dirv(jv) * ( unx(iv) * (vxe(k,iwn) + vxe(k,iw)) &
+                                                      + uny(iv) * (vye(k,iwn) + vye(k,iw)) &
+                                                      + unz(iv) * (vze(k,iwn) + vze(k,iw)) )
+        enddo
+
+        zeta_ax0 = 0.5 * zeta_ax0 * arw0i(iw) + omega2 * zew(iw) * eradi  ! add earth vorticity at W point
+        speed_ax0 = sqrt(vrad_ax0**2 + vtan_ax0**2)
+
+!----------------------------------------------------------------------end from oplot_lib
+
+        azimvals(k,iw,1:14) = vtant_ax0(1:14)
+        azimvals(k,iw,15)   = vrad_ax0
+        azimvals(k,iw,16)   = vtan_ax0
+        azimvals(k,iw,17)   = zeta_ax0
+        azimvals(k,iw,18)   = speed_ax0
+
+        vtant_ax(k,irad  ,:) = vtant_ax(k,irad  ,:) + wrad1 * vtant_ax0(:)
+        vtant_ax(k,irad+1,:) = vtant_ax(k,irad+1,:) + wrad2 * vtant_ax0(:)
+
+        vrad_ax(k,irad)   = vrad_ax(k,irad)   + wrad1 * vrad_ax0
+        vrad_ax(k,irad+1) = vrad_ax(k,irad+1) + wrad2 * vrad_ax0
 
         vtan_ax(k,irad)   = vtan_ax(k,irad)   + wrad1 * vtan_ax0
         vtan_ax(k,irad+1) = vtan_ax(k,irad+1) + wrad2 * vtan_ax0
 
-        vrad_ax(k,irad)   = vrad_ax(k,irad)   + wrad1 * vrad_ax0
-        vrad_ax(k,irad+1) = vrad_ax(k,irad+1) + wrad2 * vrad_ax0
+        zeta_ax(k,irad)   = zeta_ax(k,irad)   + wrad1 * zeta_ax0
+        zeta_ax(k,irad+1) = zeta_ax(k,irad+1) + wrad2 * zeta_ax0
+
+        speed_ax(k,irad)   = speed_ax(k,irad)   + wrad1 * speed_ax0
+        speed_ax(k,irad+1) = speed_ax(k,irad+1) + wrad2 * speed_ax0
 
      enddo
 
@@ -1355,7 +1477,6 @@ end subroutine vortex_get_vtanmax
 
   ! Convert sums to averages
 
-!! vtan_max     = 0.
   vtan_ax(:,1) = 0.
   vrad_ax(:,1) = 0.
 
@@ -1367,19 +1488,19 @@ end subroutine vortex_get_vtanmax
      kmin = k
 
      do k = kmin, mza
-         thil_ax(k,irad) =  thil_ax(k,irad) / weight_t(k,irad)
-        theta_ax(k,irad) = theta_ax(k,irad) / weight_t(k,irad)
-         tair_ax(k,irad) =  tair_ax(k,irad) / weight_t(k,irad)
-          rrw_ax(k,irad) =   rrw_ax(k,irad) / weight_t(k,irad)
-          rrv_ax(k,irad) =   rrv_ax(k,irad) / weight_t(k,irad)
-            w_ax(k,irad) =     w_ax(k,irad) / weight_t(k,irad)
-        ssliq_ax(k,irad) = ssliq_ax(k,irad) / weight_t(k,irad)
-        thdif_ax(k,irad) = thdif_ax(k,irad) / weight_t(k,irad)
-
-        if (irad > 1) then
-           vtan_ax(k,irad) = vtan_ax(k,irad) / weight_t(k,irad)
-           vrad_ax(k,irad) = vrad_ax(k,irad) / weight_t(k,irad)
-        endif
+         thil_ax(k,irad)   =  thil_ax(k,irad)   / weight_t(k,irad)
+        theta_ax(k,irad)   = theta_ax(k,irad)   / weight_t(k,irad)
+         tair_ax(k,irad)   =  tair_ax(k,irad)   / weight_t(k,irad)
+          rrw_ax(k,irad)   =   rrw_ax(k,irad)   / weight_t(k,irad)
+          rrv_ax(k,irad)   =   rrv_ax(k,irad)   / weight_t(k,irad)
+            w_ax(k,irad)   =     w_ax(k,irad)   / weight_t(k,irad)
+        ssliq_ax(k,irad)   = ssliq_ax(k,irad)   / weight_t(k,irad)
+        thdif_ax(k,irad)   = thdif_ax(k,irad)   / weight_t(k,irad)
+        vtant_ax(k,irad,:) = vtant_ax(k,irad,:) / weight_t(k,irad)
+         vrad_ax(k,irad)   =  vrad_ax(k,irad)   / weight_t(k,irad)
+         vtan_ax(k,irad)   =  vtan_ax(k,irad)   / weight_t(k,irad)
+         zeta_ax(k,irad)   =  zeta_ax(k,irad)   / weight_t(k,irad)
+        speed_ax(k,irad)   = speed_ax(k,irad)   / weight_t(k,irad)
      enddo
 
      if (kmin > 2) then
@@ -1389,90 +1510,166 @@ end subroutine vortex_get_vtanmax
            if (kmin > mza) stop 'stop irad T'
 
            do k = 2, kmin-1
-               thil_ax(k,irad) =  thil_ax(kmin,irad)
-              theta_ax(k,irad) = theta_ax(kmin,irad)
-               tair_ax(k,irad) =  tair_ax(kmin,irad)
-                rrw_ax(k,irad) =   rrw_ax(kmin,irad)
-                rrv_ax(k,irad) =   rrv_ax(kmin,irad)
-                  w_ax(k,irad) =     w_ax(kmin,irad)
-              ssliq_ax(k,irad) = ssliq_ax(kmin,irad)
-              thdif_ax(k,irad) = thdif_ax(kmin,irad)
-               vtan_ax(k,irad) =  vtan_ax(kmin,irad)
-               vrad_ax(k,irad) =  vrad_ax(kmin,irad)
+               thil_ax(k,irad)   =  thil_ax(kmin,irad)
+              theta_ax(k,irad)   = theta_ax(kmin,irad)
+               tair_ax(k,irad)   =  tair_ax(kmin,irad)
+                rrw_ax(k,irad)   =   rrw_ax(kmin,irad)
+                rrv_ax(k,irad)   =   rrv_ax(kmin,irad)
+                  w_ax(k,irad)   =     w_ax(kmin,irad)
+              ssliq_ax(k,irad)   = ssliq_ax(kmin,irad)
+              thdif_ax(k,irad)   = thdif_ax(kmin,irad)
+              vtant_ax(k,irad,:) = vtant_ax(kmin,irad,:)
+               vrad_ax(k,irad)   =  vrad_ax(kmin,irad)
+               vtan_ax(k,irad)   =  vtan_ax(kmin,irad)
+               zeta_ax(k,irad)   =  zeta_ax(kmin,irad)
+              speed_ax(k,irad)   = speed_ax(kmin,irad)
            enddo
 
         else
 
            do k = 2, kmin-1
-               thil_ax(k,irad) =  thil_ax(k,irad+1)
-              theta_ax(k,irad) = theta_ax(k,irad+1)
-               tair_ax(k,irad) =  tair_ax(k,irad+1)
-                rrw_ax(k,irad) =   rrw_ax(k,irad+1)
-                rrv_ax(k,irad) =   rrv_ax(k,irad+1)
-                  w_ax(k,irad) =     w_ax(k,irad+1)
-              ssliq_ax(k,irad) = ssliq_ax(k,irad+1)
-              thdif_ax(k,irad) = thdif_ax(k,irad+1)
-
-              if (irad > 1) then
-                 vtan_ax(k,irad) = vtan_ax(k,irad+1) &
+               thil_ax(k,irad)   =  thil_ax(k,irad+1)
+              theta_ax(k,irad)   = theta_ax(k,irad+1)
+               tair_ax(k,irad)   =  tair_ax(k,irad+1)
+                rrw_ax(k,irad)   =   rrw_ax(k,irad+1)
+                rrv_ax(k,irad)   =   rrv_ax(k,irad+1)
+                  w_ax(k,irad)   =     w_ax(k,irad+1)
+              ssliq_ax(k,irad)   = ssliq_ax(k,irad+1)
+              thdif_ax(k,irad)   = thdif_ax(k,irad+1)
+              vtant_ax(k,irad,:) = vtant_ax(k,irad+1,:) &
                                  * radius_ax(irad) / radius_ax(irad+1)
-                 vrad_ax(k,irad) = vrad_ax(k,irad+1) &
+               vrad_ax(k,irad)   =  vrad_ax(k,irad+1) &
                                  * radius_ax(irad) / radius_ax(irad+1)
-              endif
+               vtan_ax(k,irad)   =  vtan_ax(k,irad+1) &
+                                 * radius_ax(irad) / radius_ax(irad+1)
+               zeta_ax(k,irad)   =  zeta_ax(k,irad+1)
+              speed_ax(k,irad)   = speed_ax(k,irad+1)
            enddo
 
         endif
      endif
 
-!     if (kmin <= mza .and. irad /= 1) then
-!        vtan_max = max(vtan_max, maxval(vtan_ax(kmin:mza,irad)))
-!     endif
-
   enddo
-
-  ! print*, 'vtan_max ', vtan_max
 
   if (trim(plt) /= 'plot') return
   if (myrank /= 0) return
 
   cond_ax(:,:) = rrw_ax(:,:) - rrv_ax(:,:)
 
-  ! Plot up to selected height
-
-  do k = 2,mza
-     nzz = k
-     if (zt(k) > 20000.) exit
-  enddo
-
   palette = 'STDR'
 
-  call make_colortable(500,palette,'lin',280.0,500.0,5.0,1.)
-  call make_colortable(501,palette,'lin',  0.0, 80.0,5.0,1.)
-  call make_colortable(502,palette,'lin',-20.0, 50.0,2.0,1.)
+  call make_colortable(500,palette,'lin', 280.0, 500.0,  5.0, 1.)
+  call make_colortable(501,palette,'lin',  -.01,   .01,.0005, 1.)
+  call make_colortable(502,palette,'lin', -80.0,  90.0,  5.0, 1.)
   call make_colortable(503,palette,'lin', -2.0,  8.0,0.2,1.)
-  call make_colortable(504,palette,'lin',250.0,310.0,2.0,1.)
-  call make_colortable(505,palette,'lin',  0.0, 30.0,1.0,.1)
+  call make_colortable(504,palette,'lin', 250.0, 310.0,  2.0, 1.)
+  call make_colortable(505,palette,'lin',   0.0,  30.0,  1.0, .1)
+
+!  call make_colortable(506,palette,'lin', -0.05,  0.05, .002, 1.)
+!  call make_colortable(507,palette,'lin',-.0005,  .004,.0001, 1.)
+!  call make_colortable(508,palette,'lin',   -.2,    .2,  .01, 1.)
+
+  call make_colortable(506,palette,'lin', -0.1,   0.1, .004, 1.)
+  call make_colortable(507,palette,'lin',-.001,  .008,.0002, 1.)
+  call make_colortable(508,palette,'lin', -.02,   .02, .001, 1.)
+
+  call make_colortable(509,palette,'lin',   -1.,    1.,  .05, 1.)
+  call make_colortable(510,palette,'lin',   -.2,    .2, 0.01, 1.)
 
   call o_reopnwk()
 
-  !                  panel label    units      field   factor lbc ctab
+  ! Plot up to selected height and out to selected radius
+
+do iter = 1,2
+
+   if (iter == 1) then
+      do k = 2,mza
+         nzz = k
+         if (zt(k) > 20000.) exit
+      enddo
+      nrr = 20
+      zinc = 1.
+      rinc = 10.
+   elseif (iter == 2) then
+      do k = 2,mza
+         nzz = k
+         if (zt(k) > 2000.) exit
+      enddo
+      nrr = 12
+      zinc = 0.1
+      rinc = 2.
+   else
+      do k = 2,mza
+         nzz = k
+         if (zt(k) > 20000.) exit
+      enddo
+      nrr = nr
+      zinc = 1.
+      rinc = 20.
+   endif
+
+  !                                  panel  label       units      field factor lbc ctab
 
   call plotback()
-  call vortex_rzplot(nzz,'3','theta1 '  ,' (K)'   , theta_ax ,1.   ,1 ,500)
-  call vortex_rzplot(nzz,'4','vtan1 '   ,' (m/s)' ,  vtan_ax ,1.   ,0 ,501)
-  call vortex_rzplot(nzz,'1','vrad1 '   ,' (m/s)' ,  vrad_ax ,1.   ,0 ,502)
-  call vortex_rzplot(nzz,'2','w1 '      ,' (m/s)' ,     w_ax ,1.   ,0 ,503)
+  call vortex_rzplot(nzz,nrr,zinc,rinc,'3','theta1 '  ,' (K)'   , theta_ax ,1.   ,1 ,500)
+  call vortex_rzplot(nzz,nrr,zinc,rinc,'4','vtan1 '   ,' (m/s)' ,  vtan_ax ,1.   ,1 ,502)
+  call vortex_rzplot(nzz,nrr,zinc,rinc,'1','vrad1 '   ,' (m/s)' ,  vrad_ax ,1.   ,1 ,502)
+  call vortex_rzplot(nzz,nrr,zinc,rinc,'2','w1 '      ,' (m/s)' ,     w_ax ,1.   ,0 ,503)
   call o_frame()
 
   call plotback()
-  call vortex_rzplot(nzz,'3','tair1 '   ,' (K)'   ,  tair_ax ,1.   ,1 ,504)
-  call vortex_rzplot(nzz,'4','rrw1 '    ,' (g/kg)',   rrw_ax ,1.e3 ,1 ,505)
-  call vortex_rzplot(nzz,'1','rrv1 '    ,' (g/kg)',   rrv_ax ,1.e3 ,1 ,505)
-  call vortex_rzplot(nzz,'2','cond1 '   ,' (g/kg)',  cond_ax ,1.e3 ,1 ,505)
+  call vortex_rzplot(nzz,nrr,zinc,rinc,'3','tair1 '   ,' (K)'   ,  tair_ax ,1.   ,1 ,504)
+  call vortex_rzplot(nzz,nrr,zinc,rinc,'4','rrw1 '    ,' (g/kg)',   rrw_ax ,1.e3 ,1 ,505)
+  call vortex_rzplot(nzz,nrr,zinc,rinc,'1','rrv1 '    ,' (g/kg)',   rrv_ax ,1.e3 ,1 ,505)
+  call vortex_rzplot(nzz,nrr,zinc,rinc,'2','cond1 '   ,' (g/kg)',  cond_ax ,1.e3 ,1 ,505)
   call o_frame()
 
-!  call vortex_rzplot(nzz,'0','ssliq1 '  ,' (%)'   , ssliq_ax ,1.   ,0 ,443)
-!  call vortex_rzplot(nzz,'0','ss_thdif ',' (K)'   , thdif_ax ,1.   ,0 ,464)
+  call plotback()
+  call vortex_rzplot(nzz,nrr,zinc,rinc,'3','vtan1 '   ,' (m/s)' ,  vtan_ax ,1.   ,1 ,502)
+  call vortex_rzplot(nzz,nrr,zinc,rinc,'4','vrad1 '   ,' (m/s)' ,  vrad_ax ,1.   ,1 ,502)
+  call vortex_rzplot(nzz,nrr,zinc,rinc,'1','speed_ax' ,' (m/s) ', speed_ax ,1.   ,1 ,502)  !18
+  call vortex_rzplot(nzz,nrr,zinc,rinc,'2','zeta_ax'  ,' (1/s) ',  zeta_ax ,1.   ,1 ,508)  !17
+  call o_frame()
+
+  call plotback()
+  call vortex_rzplot(nzz,nrr,zinc,rinc,'3','vtant1 '  ,' (m/s2)' , vtant_ax(:,:,1) ,1.   ,1 ,501)  !1
+  call vortex_rzplot(nzz,nrr,zinc,rinc,'4','vtant3 '  ,' (m/s2)' , vtant_ax(:,:,3), 1.   ,1 ,501)  !3
+  call vortex_rzplot(nzz,nrr,zinc,rinc,'1','vtant5 '  ,' (m/s2)' , vtant_ax(:,:,5) ,1.   ,1 ,501)  !5
+  call vortex_rzplot(nzz,nrr,zinc,rinc,'2','vrad_ax'  ,' (m/s)'  ,  vrad_ax        ,1.   ,1 ,502)  !15
+  call o_frame()
+
+  call plotback()
+  call vortex_rzplot(nzz,nrr,zinc,rinc,'3','vtant4 '  ,' (m/s2)' , vtant_ax(:,:,4)  ,1.   ,1 ,509)  !4
+  call vortex_rzplot(nzz,nrr,zinc,rinc,'4','vtant8 '  ,' (m/s2)' , vtant_ax(:,:,8)  ,1.   ,1 ,509)  !8
+  call vortex_rzplot(nzz,nrr,zinc,rinc,'1','vtant11'  ,' (m/s2)' , vtant_ax(:,:,11) ,1.   ,1 ,510)  !11
+  call vortex_rzplot(nzz,nrr,zinc,rinc,'2','vtant13'  ,' (m/s2)' , vtant_ax(:,:,13) ,1.   ,1 ,510)  !13
+  call o_frame()
+
+  call plotback()
+  call vortex_rzplot(nzz,nrr,zinc,rinc,'3','vtant6 '  ,' (m/s2)' , vtant_ax(:,:,6)  ,1.   ,1 ,509)  !6
+  call vortex_rzplot(nzz,nrr,zinc,rinc,'4','vtant9 '  ,' (m/s2)' , vtant_ax(:,:,9)  ,1.   ,1 ,509)  !9
+  call vortex_rzplot(nzz,nrr,zinc,rinc,'1','vtant12'  ,' (m/s2)' , vtant_ax(:,:,12) ,1.   ,1 ,506)  !12
+  call vortex_rzplot(nzz,nrr,zinc,rinc,'2','vtant11'  ,' (m/s2)' , vtant_ax(:,:,11) ,1.   ,1 ,510)  !11
+  call o_frame()
+
+  call plotback()
+  call vortex_rzplot(nzz,nrr,zinc,rinc,'3','vtant2 '  ,' (m/s2)' , vtant_ax(:,:,2)  ,1.   ,1 ,506)  !2
+  call vortex_rzplot(nzz,nrr,zinc,rinc,'4','vtant7'   ,' (m/s2)' , vtant_ax(:,:,7)  ,1.   ,1 ,501)  !7
+  call vortex_rzplot(nzz,nrr,zinc,rinc,'1','vtant10'  ,' (m/s2)' , vtant_ax(:,:,10) ,1.   ,1 ,506)  !10
+  call vortex_rzplot(nzz,nrr,zinc,rinc,'2','vtant14'  ,' (m/s2)' , vtant_ax(:,:,14) ,1.   ,1 ,506)  !14
+  call o_frame()
+
+  call plotback()
+  call vortex_rzplot(nzz,nrr,zinc,rinc,'3','vrad_ax'  ,' (m/s) ' ,  vrad_ax         ,1.   ,1 ,502)  !15
+  call vortex_rzplot(nzz,nrr,zinc,rinc,'4','zeta_ax'  ,' (1/s) ' ,  zeta_ax         ,1.   ,1 ,508)  !17
+  call vortex_rzplot(nzz,nrr,zinc,rinc,'1','speed_ax' ,' (m/s) ' , speed_ax         ,1.   ,1 ,502)  !18
+  call vortex_rzplot(nzz,nrr,zinc,rinc,'2','vtant11'  ,' (m/s2)' , vtant_ax(:,:,11) ,1.   ,1 ,510)  !11
+  call o_frame()
+
+!  call vortex_rzplot(nzz,nrr,zinc,rinc,'0','ssliq1 '  ,' (%)'   , ssliq_ax ,1.   ,0 ,443)
+!  call vortex_rzplot(nzz,nrr,zinc,rinc,'0','ss_thdif ',' (K)'   , thdif_ax ,1.   ,0 ,464)
+
+enddo
 
   call o_clswk()
 
@@ -1480,10 +1677,10 @@ end subroutine vortex_get_vtanmax
 
 !==================================================================================
 
-  subroutine vortex_rzplot(nzz, panel, label, units, fieldin, factor, lbc, colortab)
+  subroutine vortex_rzplot(nzz, nrr, zinc, rinc, panel, label, units, fieldin, factor, lbc, colortab)
 
   ! This subroutine is a wrapper for plotting radius-height arrays of
-  ! dimension (nzz,nr) that contain azimuthal averages of the TC vortex.
+  ! dimension (nzz,nrr) that contain azimuthal averages of the TC vortex.
   ! It calls oplot_zxy2 to carry out the actual plot.
 
   use misc_coms
@@ -1494,12 +1691,13 @@ end subroutine vortex_get_vtanmax
 
   implicit none
 
-  integer,      intent(in) :: nzz, lbc, colortab
+  integer,      intent(in) :: nzz, nrr, lbc, colortab
+  real,         intent(in) :: zinc, rinc
   character(*), intent(in) :: panel, label, units
   real,         intent(in) :: fieldin(mza,nr)
   real,         intent(in) :: factor
 
-  real :: radius(nr), height(nzz), field(nzz,nr)
+  real :: radius(nrr), height(nzz), field(nzz,nrr)
 
   integer :: ifill = 1
 
@@ -1508,21 +1706,21 @@ end subroutine vortex_get_vtanmax
 
   if (myrank /= 0) return
 
-  radius(1:nr) = radius_ax(1:nr) * 1.e-3
+  radius(1:nrr) = radius_ax(1:nrr) * 1.e-3
 
   height(1:nzz) = zt(1:nzz) * 1.e-3
   height(1) = zm(1) * 1.e-3
 
-  field(2:nzz,1:nr) = fieldin(2:nzz,1:nr) * factor
-  field(1,1:nr) = field(2,1:nr)
-  if (lbc == 0) field(1,1:nr) = 0.
+  field(2:nzz,1:nrr) = fieldin(2:nzz,1:nrr) * factor
+  field(1,1:nrr) = field(2,1:nrr)
+  if (lbc == 0) field(1,1:nrr) = 0.
 
   call oplot_zxy2(trim(panel),'N','a','c',aspect,scalelab,                 &
-                  trim(label),trim(units), nr, nzz, radius, height, &
+                  trim(label),trim(units), nrr, nzz, radius, height, &
                   'radius (km)','height (km)', &
                   field,    & ! 11N
-                  colortab,ifill,0.,radius(nr),20.,5,               &
-                  0.0,height(nzz),1.0,5  )
+                  colortab,ifill,0.,radius(nrr),rinc,5,               &
+                  0.0,height(nzz),zinc,5  )
 
   end subroutine vortex_rzplot
 
@@ -1532,7 +1730,7 @@ end subroutine vortex_get_vtanmax
 
   ! This subroutine plots a time series of hurricane locations for present simulation
 
-  use misc_coms,   only: mstp, dtlong
+  use misc_coms,   only: mstp, dtlong, runtype
   use oplot_coms,  only: op
   use consts_coms, only: pio180, erad
   use mem_para,    only: myrank
@@ -1541,7 +1739,7 @@ end subroutine vortex_get_vtanmax
 
   integer, intent(in) :: iplt
 
-  integer :: icolor, lhour, khour, kstp, kstp_max, jcyc
+  integer :: icolor, lhour, khour, kstp, kstp_max, jcyc, is
   real :: reh, zeh, xeh, yeh, rhour, bsize, xs, ys
   character(len=3) :: title
 
@@ -1551,7 +1749,11 @@ end subroutine vortex_get_vtanmax
 
   bsize = .016 * (op%hp2 - op%hp1) * 0.3
 
-  do jcyc = 1,icycle_hurrinit
+  is = 1
+  ! The previous cycles are not currently available on a restart
+  if (runtype == 'HISTORY') is = icycle_hurrinit
+
+  do jcyc = is,icycle_hurrinit
 
      if     (ncycle_hurrinit - jcyc == 0) then
         icolor = 127
@@ -1590,7 +1792,7 @@ end subroutine vortex_get_vtanmax
 
         ! Transform hurricane earth coords to whatever projection is in use
 
-        call oplot_transform(iplt,xeh,yeh,zeh,xs,ys)
+        call oplot_transform(iplt,xeh,yeh,zeh,hlona(kstp,jcyc),hlata(kstp,jcyc),xs,ys)
 
         if (kstp == 0) then
            call o_frstpt(xs,ys)
@@ -1653,7 +1855,7 @@ end subroutine vortex_get_vtanmax
 
   ! Transform hurricane earth coords to whatever projection is in use
 
-  call oplot_transform(iplt,xeh,yeh,zeh,xs,ys)
+  call oplot_transform(iplt,xeh,yeh,zeh,hlon,hlat,xs,ys)
 
   rhour = (real(time8) + 0.1) / 3600.
   khour = int(rhour)

@@ -16,6 +16,7 @@ module sea_swm
   real, parameter :: minusonethird = -1./3.
 
   integer :: niter_swm
+  integer :: use_tides
   real    :: dt_swm
 
   ! Definitions related to height/depth
@@ -45,30 +46,48 @@ contains
 
 subroutine swm_driver()
 
-  use misc_coms,    only: iparallel
+  use misc_coms,    only: iparallel, s1900_sim
   use mem_sfcg,     only: jtab_vsfc_swm, sfcg, jtab_wsfc_swm, itab_wsfc, itab_vsfc, &
                           nswmzons, mvsfc
   use leaf_coms,    only: dt_leaf, wcap_min
+  use sea_coms,     only: dt_sea
+  use mem_sea,      only: sea, omsea
   use mem_land,     only: land, mland, omland
   use mem_lake,     only: lake, mlake, omlake
   use olam_mpi_sfc, only: mpi_send_wsfc, mpi_recv_wsfc, mpi_send_vsfc, mpi_recv_vsfc
   use mem_para,     only: myrank
+  use leaf4_surface,only: skncomp_diagnose
   use oname_coms,   only: nl
+  use umwm_module,  only: umwmflg
+  use umwm_top,     only: umwm_step
+  use perth,        only: perth5_temporal
 
   implicit none
 
   integer :: iter_swm, ivsfc, iw1, iw2, j, iwsfc, ilake, iland, ivn, iwn, isea
-  real    :: factor, dheight, energyin, energy_per_m2, dirv
+  real    :: factor, dheight, energyin, lake_epm2, dirv
+  real(8) :: timemjd ! modified Julian Date [days]
 
-  real, allocatable :: vmt(:)
+  real, allocatable :: vmts(:)
+
+  ! Call perth5_temporal to compute tide variables that depend on time but not spatial location
+
+  if (nswmzons > 0 .and. use_tides == 1) then
+     timemjd = (s1900_sim / 86400.d0) + 15020.d0
+     call perth5_temporal(timemjd)
+  endif
+
+  ! Could put call to umwm_step inside of iter_swm loop if necessary to use smaller timestep in umwm
+
+  if (umwmflg == 1) call umwm_step()
 
   if (nswmzons < 1) return
 
-  allocate(vmt(mvsfc)) ; vmt = 0.0
+  allocate(vmts(mvsfc)) ; vmts = 0.0
 
-  call vort_damp_swm(vmt)
+  call vort_damp_swm(vmts)
 
-  call divh_damp_swm(vmt, dt_swm)
+  call divh_damp_swm(vmts, dt_swm) ! This call is outside iter_swm loop: Should it use dt_sea?
 
   ! START MAIN SWM LOOP
 
@@ -126,11 +145,10 @@ subroutine swm_driver()
         if (itab_wsfc(iwsfc)%irank /= myrank) cycle
 
         if (sfcg%swm_active(iwsfc)) then
-           call swm_progw(iwsfc)
+           call swm_progw(iwsfc)      ! Active SWM cells
         else
-           call swm_progw_lbc(iwsfc)
+           call swm_progw_lbc(iwsfc)  ! Boundary SWM cells
         endif
-
      enddo
      !$omp end parallel do
 
@@ -143,7 +161,7 @@ subroutine swm_driver()
 
      ! UPDATE SFCG%VMC AND SFCG%VC for sea cells that use SWM
 
-     call swm_progv(vmt)
+     call swm_progv(vmts)
 
      ! MPI send/recv of SFCG%VMC, SFCG%VC
 
@@ -166,7 +184,8 @@ subroutine swm_driver()
      ! Change in lake height from SWM fluxes
 
      !$omp parallel
-     !$omp do private(iwsfc, dheight, energyin, j, ivn, iwn, dirv, factor)
+     !$omp do private(iwsfc, dheight, energyin, j, ivn, iwn, dirv, factor, &
+     !$omp            lake_epm2)
      do ilake = 2,mlake
         iwsfc = ilake + omlake
 
@@ -207,11 +226,11 @@ subroutine swm_driver()
 
         ! Add height and energy changes to cell
 
-        energy_per_m2 = lake%lake_energy(ilake) * lake%depth(ilake) * 1000.
+        lake_epm2 = lake%lake_energy(ilake) * lake%depth(ilake) * 1000.
 
         lake%depth(ilake) = lake%depth(ilake) + dheight
 
-        lake%lake_energy(ilake) = (energy_per_m2 + energyin) &
+        lake%lake_energy(ilake) = (lake_epm2 + energyin) &
                                 / (max(wcap_min,lake%depth(ilake)) * 1000.) ! water density = 1000 kg/m^3
 
         sfcg%head1(iwsfc) = lake%depth(ilake) + sfcg%bathym(iwsfc) - sfcg%topw(iwsfc)
@@ -220,7 +239,7 @@ subroutine swm_driver()
 
      ! Change in LAND sfcwater height from SWM fluxes
 
-     !$omp do private(iwsfc,energy_per_m2,j,ivn,dirv,factor) schedule(guided)
+     !$omp do private(iwsfc,lake_epm2,j,ivn,dirv,factor) schedule(guided)
      do iland = 2,mland
         iwsfc = iland + omland
 
@@ -229,10 +248,6 @@ subroutine swm_driver()
 
         ! Skip this cell if running in parallel and cell rank is not MYRANK
         if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
-
-        ! Apply horizontal groundwater mass and energy fluxes
-
-        energy_per_m2 = land%sfcwater_energy(1,iland) * land%sfcwater_mass(1,iland)
 
         ! Loop over all lateral faces of this iland cell
 
@@ -244,6 +259,8 @@ subroutine swm_driver()
            else
               dirv = -1.0
            endif
+
+           ! Apply horizontal groundwater mass and energy fluxes
 
            if (nl%igw_spinup /= 1) then
 
@@ -257,26 +274,21 @@ subroutine swm_driver()
               land%sfcwater_mass(1,iland)  = land%sfcwater_mass(1,iland)   &
                                            + factor * sfcg%hflux_wat(ivn) * 1000. ! [kg/m^2]
 
-              energy_per_m2                = energy_per_m2 &
+              land%sfcwater_epm2(1,iland)  = land%sfcwater_mass(1,iland)   &
                                            + factor * sfcg%hflux_enr(ivn) ! [J/m^2]
 
            endif
 
-           land%sfcwater_energy(1,iland) = energy_per_m2 &
-                                         / max(wcap_min,land%sfcwater_mass(1,iland))
-
         enddo ! j, ivn
 
-        ! Reset relationship between sfcwater presence and nlev_sfcwater setting
-
-        if (land%sfcwater_mass(1,iland) > wcap_min .and. land%nlev_sfcwater(iland) == 0) then
-           land%nlev_sfcwater(iland) = 1
-           land%sfcwater_energy(1,iland) = energy_per_m2 / land%sfcwater_mass(1,iland)
-        elseif (land%sfcwater_mass(1,iland) < wcap_min .and. land%nlev_sfcwater(iland) > 0) then
-           land%nlev_sfcwater(iland) = 0
-           land%sfcwater_mass(1,iland) = 0.
-           land%sfcwater_energy(1,iland) = 0.
-        endif
+        call skncomp_diagnose(iland, iwsfc,    &
+             land%skncomp             (iland), &
+             land%sfcwater_mass     (:,iland), &
+             land%sfcwater_epm2     (:,iland), &
+             land%sfcwater_depth    (:,iland), &
+             land%soil_water        (:,iland), &
+             land%soil_energy       (:,iland), &
+             land%specifheat_drysoil(:,iland)  )
 
      enddo
      !$omp end do
@@ -372,9 +384,10 @@ subroutine swm_hflux(iv, iw1, iw2)
   use mem_sfcg,    only: sfcg, itab_vsfc
   use mem_sea,     only: sea, omsea
   use mem_lake,    only: lake, omlake
-  use mem_land,    only: land, omland
+  use mem_land,    only: land, omland, nzg
   use consts_coms, only: cliq1000, alli1000, grav
-  use therm_lib,   only: qtk
+  use therm_lib,   only: qtk, qwtk
+  use leaf_coms,   only: wcap_min
 
   implicit none
 
@@ -386,7 +399,7 @@ subroutine swm_hflux(iv, iw1, iw2)
   real :: dxps_v, dyps_v
 
   real :: ufacev, vmcfman, vmcfpgf, vmcf, vcf, vdepth, slope, mc1, mc2
-  real :: wdepth1, wdepth2, tempk1, tempk2, fracliq1, fracliq2
+  real :: wdepth1, wdepth2, tempk1, tempk2, fracliq1, fracliq2, tideh1, tideh2
 
   sfcg%hflux_wat(iv) = 0.
   sfcg%hflux_enr(iv) = 0.
@@ -414,12 +427,15 @@ subroutine swm_hflux(iv, iw1, iw2)
      return
   endif
 
+  tideh1 = 0.
+
   if (sfcg%leaf_class(iw1) == 0) then
      isea1 = iw1 - omsea
      wdepth1 = sea%swmdepth(isea1)
      mc1 = mc_sea
      tempk1 = sea%seatc(isea1)
      fracliq1 = 1.0
+     if (use_tides == 1) tideh1 = sea%tide(isea1)
   elseif (sfcg%leaf_class(iw1) == 1) then
      ilake1 = iw1 - omlake
 !    wdepth1 = lake%depth(ilake1)
@@ -430,8 +446,15 @@ subroutine swm_hflux(iv, iw1, iw2)
      iland1 = iw1 - omland
      wdepth1 = land%sfcwater_depth(1,iland1)
      mc1 = mc_land
-     call qtk(land%sfcwater_energy(1,iland1), tempk1, fracliq1)
+     if ( land%sfcwater_mass(1,iland1) < wcap_min ) then
+        call qwtk( land%soil_energy(nzg,iland1), land%soil_water(nzg,iland1)*1.e3, &
+                   land%specifheat_drysoil(nzg,iland1), tempk1, fracliq1 )
+     else
+        call qwtk( land%sfcwater_epm2(1,iland1), land%sfcwater_mass(1,iland1), 0., tempk1, fracliq1 )
+     endif
   endif
+
+  tideh2 = 0.
 
   if (sfcg%leaf_class(iw2) == 0) then
      isea2 = iw2 - omsea
@@ -439,6 +462,7 @@ subroutine swm_hflux(iv, iw1, iw2)
      mc2 = mc_sea
      tempk2 = sea%seatc(isea2)
      fracliq2 = 1.0
+     if (use_tides == 1) tideh2 = sea%tide(isea2)
   elseif (sfcg%leaf_class(iw2) == 1) then
      ilake2 = iw2 - omlake
 !    wdepth2 = lake%depth(ilake2)
@@ -449,17 +473,28 @@ subroutine swm_hflux(iv, iw1, iw2)
      iland2 = iw2 - omland
      wdepth2 = land%sfcwater_depth(1,iland2)
      mc2 = mc_land
-     call qtk(land%sfcwater_energy(1,iland2), tempk2, fracliq2)
+     if ( land%sfcwater_mass(1,iland2) < wcap_min ) then
+        call qwtk( land%soil_energy(nzg,iland2), land%soil_water(nzg,iland2)*1.e3, &
+                   land%specifheat_drysoil(nzg,iland2), tempk2, fracliq2 )
+     else
+        call qwtk( land%sfcwater_epm2(1,iland2), land%sfcwater_mass(1,iland2), 0., tempk2, fracliq2 )
+     endif
   endif
 
   vdepth = 0.5 * (wdepth1 + wdepth2)
-  slope = sfcg%dniv(iv) * (sfcg%head1(iw1) + sfcg%topw(iw1) &
-                         - sfcg%head1(iw2) - sfcg%topw(iw2))
 
-  if (slope >= 0. .and. wdepth1 <= depthmin_flux .or. &
-      slope <= 0. .and. wdepth2 <= depthmin_flux) then
+  ! head1 for sea cells includes the contribution of tide.  Compute the slope of head1
+  ! across the V face MINUS THE SLOPE OF THE TIDE HEIGHT.  This resulting slope is what
+  ! is assumed to be generated by local wind stress, whereas the slope contribution
+  ! from tide is assumed to be a result of processes other than local wind stress.
 
-     ! If donor cell wdepth < depthmin_flux, prevent flux across IV
+  slope = sfcg%dniv(iv) * (sfcg%head1(iw1) + sfcg%topw(iw1) - tideh1 &
+                         - sfcg%head1(iw2) - sfcg%topw(iw2) + tideh2)
+
+  if ((slope >= 0. .and. wdepth1 <= depthmin_flux) .or. &
+      (slope <= 0. .and. wdepth2 <= depthmin_flux)) then
+
+     ! Donor cell wdepth < depthmin_flux, so prevent flux across IV
 
      sfcg%vmp(iv) = 0.
      sfcg%vmc(iv) = 0.
@@ -472,12 +507,11 @@ subroutine swm_hflux(iv, iw1, iw2)
           sfcg%leaf_class(iw1) > 1 .or. &
           sfcg%leaf_class(iw2) > 1) then
 
-     ! Donor cell has sufficient water depth for outflow.  If at least one cell
-     ! does not have sufficient water for full SWE model or is land, maximum flux
-     ! across IV is based on Manning's equation applied to steady state flow over
-     ! a sloping rough surface.  However, also take into account the inertia of
-     ! the flux and the maximum amount that it can be changed from its previous
-     ! value by the PGF.
+     ! Donor cell has sufficient water depth for outflow but at least one cell does not
+     ! have sufficient water for full SWE model or is land.  In this case, maximum flux
+     ! across IV is based on Manning's equation applied to steady state flow over a
+     ! sloping rough surface.  However, also take into account the inertia of the flux
+     ! and the maximum amount that it can be changed from its previous value by the PGF.
 
      vmcfman = 2. / (mc1 + mc2) * vdepth**(5./3.) * sign(sqrt(abs(slope)), slope)
 
@@ -496,27 +530,10 @@ subroutine swm_hflux(iv, iw1, iw2)
   else
 
      ! Both adjacent cells are sea cells with depth > depthmin_swe.
+     ! Use full SWE model, which extrapolates VM to time T + 1/2.
 
-!!     if (sfcg%swm_active(iw1) .and. &
-!!         sfcg%swm_active(iw2)) then
-
-        ! If both cells are swm_active, use full SWE model, which
-        ! extrapolates VM to time T + 1/2.
-
-        vmcf         = 1.5 * sfcg%vmc(iv) - 0.5 * sfcg%vmp(iv)
-        sfcg%vmp(iv) = sfcg%vmc(iv)
-
-!!     else
-!!
-!!        ! If one cell is not swm_active, prognose vmc solely from pgf (defined in progv)
-!!
-!!        vmcf = sfcg%vmc(iv) + dt_swm * slope * grav * vdepth
-!!
-!!        sfcg%vmc(iv) = vmcf
-!!        sfcg%vmp(iv) = vmcf
-!!        sfcg%vc(iv)  = vmcf / vdepth
-!!
-!!     endif
+     vmcf         = 1.5 * sfcg%vmc(iv) - 0.5 * sfcg%vmp(iv)
+     sfcg%vmp(iv) = sfcg%vmc(iv)
 
   endif
 
@@ -609,6 +626,7 @@ subroutine swm_progw(iw)
   use mem_sea,     only: sea, omsea
   use consts_coms, only: omega2, grav
   use misc_coms,   only: time8
+  use perth,       only: perth5_tide
 
   implicit none
 
@@ -617,7 +635,11 @@ subroutine swm_progw(iw)
   integer :: npoly, jv, iv, isea
 
   real :: areai, dirv
-  real :: wdepthi, tide_tend
+  real :: wdepthi
+  real :: newtide    ! New tide height this timestep [m]
+  real :: deltide    ! Change in tide height this timestep [m]
+  real :: newdepth   ! Updated swmdepth at future time [m]
+  real :: newdepthfp ! Updated swmdepth at forward-biased intermediate time [m]
 
   real :: wd_tend   ! Water depth tendency [m/s]
   real :: delex_wd  ! Change in water depth [m]
@@ -628,9 +650,6 @@ subroutine swm_progw(iw)
 
   real, parameter :: fp = .80  ! head1 forward bias coefficient
   real, parameter :: rhow = 1000. ! Density of liquid water [kg/m^3]
-
-  real, parameter :: tide_amp    = 0.0     ! [m] for testing only
-  real, parameter :: tide_period = 14400.  ! [s] for testing only
 
   isea = iw - omsea
 
@@ -681,23 +700,36 @@ subroutine swm_progw(iw)
      endif
 
      wd_tend = wd_tend + sfcg%hflux_wat(iv) * dirv * areai
-
   enddo
 
-  ! Explicit tendency for height and velocity
+  ! Explicit tendency for water depth due to horizontal mass flux
 
-  tide_tend = (tide_amp / tide_period) * cos(real(time8) / tide_period)
+  delex_wd = dt_swm * wd_tend
+  deltide  = 0.
 
-  delex_wd = dt_swm * (wd_tend + tide_tend)
+  if (use_tides == 1) then
 
-  ! Update head1 at forward-biased intermediate time t + fp for horiz pgf
+     ! Compute current tide height for this sea cell
 
-! sfcg%head1(iw) = max(0., sea%swmdepth(isea) + fp * delex_wd) + sfcg%bathym(iw)
-  sfcg%head1(iw) = max(0., sea%swmdepth(isea) + fp * delex_wd) - min(depthmax_swe, -sfcg%bathym(iw))
+     call perth5_tide( sea%tideacosp(:,isea), sea%tideasinp(:,isea), newtide )
+
+     ! Change in tide height this timestep; new prognostic water depth
+
+     deltide = newtide - sea%tide(isea)
+     sea%tide(isea) = newtide
+
+  endif
+
+  newdepth   = max(0., sea%swmdepth(isea) + deltide +      delex_wd)
+  newdepthfp = max(0., sea%swmdepth(isea) + deltide + fp * delex_wd)
 
   ! Update wdepth from (t) to (t+1)
 
-  sea%swmdepth(isea) = max(0., sea%swmdepth(isea) + delex_wd)
+  sea%swmdepth(isea) = newdepth
+
+  ! Update head1 at forward-biased intermediate time t + fp for horiz pgf
+
+  sfcg%head1(iw) = newdepthfp + sfcg%bathym(iw)
 
   ! IN CASE this IW cell has any closed V faces, estimate velocity in T cells
   ! at (t+1) by prognostic method.  This will be used only in cut cells to
@@ -719,6 +751,7 @@ subroutine swm_progw_lbc(iw)
   use mem_sea,     only: sea, omsea
   use consts_coms, only: omega2, grav
   use misc_coms,   only: time8
+  use perth,       only: perth5_tide
 
   implicit none
 
@@ -727,7 +760,9 @@ subroutine swm_progw_lbc(iw)
   integer :: npoly, jv, ivn, iwn, isea
 
   real :: areai, dirv
-  real :: wdepthi, tide_tend, depth0, dtfact
+  real :: depth0     ! Equilibrium depth = (topw + tide - bathym) [m]
+  real :: newdepth   ! Updated depth at future time [m]
+  real :: newdepthfp ! Updated depth at forward-biased intermediate time [m]
 
   real :: wd_tend   ! Water depth tendency [m/s]
   real :: delex_wd  ! Change in water depth [m]
@@ -737,12 +772,8 @@ subroutine swm_progw_lbc(iw)
   real :: cdtop, cdbot  ! Top and bottom drag coefficients [m/s]
 
   real, parameter :: fp = .80  ! head1 forward bias coefficient
-! real, parameter :: rhow = 1000. ! Density of liquid water [kg/m^3]
 
-!  real, parameter :: tide_amp    = 0.0     ! [m] for testing only
-!  real, parameter :: tide_period = 14400.  ! [s] for testing only
-
-  real, parameter :: relax = 1000.0
+  real, parameter :: adjust_lbc = 0.2 ! Fraction of lbc water depth adjustment in 1 timestep
 
   isea = iw - omsea
 
@@ -766,31 +797,42 @@ subroutine swm_progw_lbc(iw)
 
   wd_tend = wd_tend * areai
 
-  ! Relaxation term
+  if (use_tides == 1) then
 
-  depth0 = min(depthmax_swe, sfcg%topw(iw) - sfcg%bathym(iw))
-  dtfact = min(0.5, depth0 / relax)
+     ! Evaluate current tide height for this sea cell
 
-  wd_tend = wd_tend - dtfact * (sea%swmdepth(isea) - depth0)
+     call perth5_tide( sea%tideacosp(:,isea), sea%tideasinp(:,isea), sea%tide(isea) )
 
-  ! Depth change this timestep
+     ! Equilibrium depth, including tide
 
-  delex_wd = dt_swm * wd_tend
+     depth0 = sea%tide(isea) + sfcg%topw(iw) - sfcg%bathym(iw)
 
-  ! Update head1 at forward-biased intermediate time t + fp for horiz pgf
+  else
 
-! sfcg%head1(iw) = max(0., sea%swmdepth(isea) + fp * delex_wd) + sfcg%bathym(iw))
-  sfcg%head1(iw) = max(0., sea%swmdepth(isea) + fp * delex_wd) - min(depthmax_swe, -sfcg%bathym(iw))
+     depth0 = sfcg%topw(iw) - sfcg%bathym(iw)
+
+  endif
+
+  ! Depth change at lbc this timestep
+
+  delex_wd = dt_swm * wd_tend + adjust_lbc * (depth0 - sea%swmdepth(isea))
+
+  newdepth   = max(0., sea%swmdepth(isea) +      delex_wd)
+  newdepthfp = max(0., sea%swmdepth(isea) + fp * delex_wd)
 
   ! Update wdepth from (t) to (t+1)
 
-  sea%swmdepth(isea) = max(0., sea%swmdepth(isea) + delex_wd)
+  sea%swmdepth(isea) = newdepth
+
+  ! Update head1 at forward-biased intermediate time t + fp for horiz pgf
+
+  sfcg%head1(iw) = newdepthfp + sfcg%bathym(iw)
 
 end subroutine swm_progw_lbc
 
 !============================================================================
 
-subroutine swm_progv(vmt)
+subroutine swm_progv(vmts)
 
   use mem_sfcg,    only: sfcg, jtab_vsfc_swm, jtab_msfc_swm, jtab_wsfc_swm, &
                          itab_vsfc, itab_msfc, itab_wsfc, mmsfc, mvsfc
@@ -802,14 +844,13 @@ subroutine swm_progv(vmt)
 
   implicit none
 
-  real, intent(in) :: vmt(mvsfc)
+  real, intent(in) :: vmts(mvsfc)
 
   integer          :: iv, iw, iw1, iw2, j, jv, im, isea, isea1, isea2, iwn, isean
   integer          :: im1, im2
-  real             :: vdepth, slope, pgf, vmt_vortdamp, vmt_divdamp
+  real             :: vdepth, slope, pgf
 
-  !$omp parallel do private(iv,iw1,iw2,isea1,isea2,im1,im2,vdepth, &
-  !$omp                     vmt_vortdamp,vmt_divdamp,pgf)
+  !$omp parallel do private(iv,iw1,iw2,isea1,isea2,im1,im2,vdepth,slope,pgf)
   do j = 1,jtab_vsfc_swm%jend
      iv = jtab_vsfc_swm%ivsfc(j)
 
@@ -844,10 +885,22 @@ subroutine swm_progv(vmt)
      ! shallow water equations with units of [m^2/s^2], which is acceleration
      ! times water depth.  When multiplied by the timestep [s], the result has units
      ! of [m^2/s] representing velocity times water depth, which is the same as vmc.
-     ! vc has units of [m/s].
+     ! vc has units of [m/s].  
 
-     slope = sfcg%dniv(iv) * (sfcg%head1(iw1) + sfcg%topw(iw1) &
-                            - sfcg%head1(iw2) - sfcg%topw(iw2))
+     ! head1 for sea cells includes the contribution of tide.  Compute the slope of head1
+     ! across the V face MINUS THE SLOPE OF THE TIDE HEIGHT.  This resulting slope is what
+     ! is assumed to be generated by local wind stress, whereas the slope contribution
+     ! from tide is assumed to be a result of processes other than local wind stress.
+
+     if (use_tides == 1) then
+
+        slope = sfcg%dniv(iv) * ( sfcg%head1(iw1) + sfcg%topw(iw1) - sea%tide(isea1) &
+                                - sfcg%head1(iw2) - sfcg%topw(iw2) + sea%tide(isea2) )
+     else
+
+        slope = sfcg%dniv(iv) * ( sfcg%head1(iw1) + sfcg%topw(iw1) &
+                                - sfcg%head1(iw2) - sfcg%topw(iw2) )
+     endif
 
      pgf = vdepth * grav * slope
 
@@ -855,7 +908,7 @@ subroutine swm_progv(vmt)
 
      if (.not. sfcg%swm_active(iw2)) then
 
-        sfcg%vmc(iv) = sfcg%vmc(iv) + dt_swm * (vmt(iv) + pgf &
+        sfcg%vmc(iv) = sfcg%vmc(iv) + dt_swm * (vmts(iv) + pgf &
 
              + sfcg%vnx(iv) * sea%vmxet(isea1) &
              + sfcg%vny(iv) * sea%vmyet(isea1) &
@@ -868,7 +921,7 @@ subroutine swm_progv(vmt)
 
      elseif (.not. sfcg%swm_active(iw1)) then
 
-        sfcg%vmc(iv) = sfcg%vmc(iv) + dt_swm * (vmt(iv) + pgf &
+        sfcg%vmc(iv) = sfcg%vmc(iv) + dt_swm * (vmts(iv) + pgf &
 
              + sfcg%vnx(iv) * sea%vmxet(isea2) &
              + sfcg%vny(iv) * sea%vmyet(isea2) &
@@ -881,7 +934,7 @@ subroutine swm_progv(vmt)
 
      else
 
-        sfcg%vmc(iv) = sfcg%vmc(iv) + dt_swm * (vmt(iv) + pgf &
+        sfcg%vmc(iv) = sfcg%vmc(iv) + dt_swm * (vmts(iv) + pgf &
 
              + ( sfcg%vnx(iv) * (sea%vmxet(isea1) + sea%vmxet(isea2)) &
              + sfcg%vny(iv) * (sea%vmyet(isea1) + sea%vmyet(isea2)) &
@@ -981,31 +1034,67 @@ end subroutine swm_diagvel
 
 subroutine swm_init()
 
-  use mem_sfcg, only: sfcg, jtab_wsfc_swm, itab_wsfc, nswmzons
-  use mem_sea,  only: sea, omsea
+  use misc_coms, only: s1900_init
+  use mem_sfcg,  only: sfcg, jtab_wsfc_swm, itab_wsfc, nswmzons
+  use mem_sea,   only: sea, omsea, msea
+  use perth,     only: perth5_initialize, perth5_interp, perth5_endinit, perth5_temporal, &
+                       perth5_tide
+  use sea_coms,  only: tide_database
 
   implicit none
 
   integer :: j, iwsfc, isea, npoly, jv, iv
-  real    :: tide
+  real(8) :: timemjd ! modified Julian Date [days]
+  logical :: isdata
 
   if (nswmzons < 1) return
 
-  tide = 0.
+  if (use_tides == 1) then
 
-  !$omp parallel do private(iwsfc,isea,npoly,jv,iv)
+     ! Call perth5_initialize to allocate memory, initialize tide constituents,
+     ! and read tide database files
+
+     write(6,'(/,a)') 'swm_init calling perth5_initialize'
+     call perth5_initialize(tide_database)
+
+     ! Call perth5_temporal to compute tide variables that depend on time but not spatial location
+
+     write(6,'(/,a)') 'swm_init calling perth5_temporal'
+     timemjd = (s1900_init / 86400.d0) + 15020.d0
+     call perth5_temporal(timemjd)
+
+  endif
+
+  !$omp parallel do private(iwsfc,isea,isdata,npoly,jv,iv)
   do j = 1,jtab_wsfc_swm%jend
      iwsfc = jtab_wsfc_swm%iwsfc(j)
      isea = iwsfc - omsea
+
+     ! Interpolate temporally-constant tide parameters to current sea cell to get
+     ! permanent values of tideacosp and tideasinp
+
+     if (use_tides == 1) then
+
+        call perth5_interp(sfcg%glatw(iwsfc), sfcg%glonw(iwsfc), &
+                           sea%tideacosp(:,isea), sea%tideasinp(:,isea), isdata )
+
+        if (.not.isdata) then
+           write(6,'(a,i8,2f10.4)') 'swm_init: isdata false ',iwsfc,sfcg%glatw(iwsfc),sfcg%glonw(iwsfc)
+        endif
+
+        ! Get initial tide height for the current sea cell
+
+        call perth5_tide( sea%tideacosp(:,isea), sea%tideasinp(:,isea), sea%tide(isea) )
+
+     endif
 
      sea%vxe1(isea) = 0.
      sea%vye1(isea) = 0.
      sea%vze1(isea) = 0.
 
-!    sea%swmdepth(isea) = max(depthmin_flux, tide - sfcg%bathym(iwsfc))
-     sea%swmdepth(isea) = tide + min(depthmax_swe, -sfcg%bathym(iwsfc))
+     sea%swmdepth(isea) = max(depthmin_flux, sea%tide(isea) - sfcg%bathym(iwsfc))
 
-     sfcg%head1(iwsfc) = sea%swmdepth(isea) - min(depthmax_swe, -sfcg%bathym(iwsfc))
+     sfcg%head1(iwsfc) = sea%swmdepth(isea) + sfcg%bathym(iwsfc)
 
      if (sea%swmdepth(isea) < depthmin_swe) cycle
 
@@ -1024,11 +1113,16 @@ subroutine swm_init()
   enddo
   !$omp end parallel do
 
+  ! Now that there is no further need for tide database arrays, clear memory
+
+  write(6,'(/,a)') 'swm_init calling perth5_endinit'
+  call perth5_endinit()
+
 end subroutine swm_init
 
 !===============================================================================
 
-subroutine vort_damp_swm(vmt)
+subroutine vort_damp_swm(vmts)
 
   use olam_mpi_sfc, only: mpi_send_msfc, mpi_recv_msfc
   use mem_sfcg,     only: sfcg, jtab_vsfc_swm, jtab_msfc_swm, &
@@ -1040,12 +1134,12 @@ subroutine vort_damp_swm(vmt)
 
   implicit none
 
-  real, intent(inout) :: vmt(mvsfc)
+  real, intent(inout) :: vmts(mvsfc)
 
   integer                 :: iv, iw1, iw2, k, j, jv, im, kb
   integer                 :: iv1, iv2, iv3
   integer                 :: im1, im2, im3, isea1, isea2
-  real                    :: vort(mmsfc), del_vort(mmsfc)
+  real                    :: del_vort(mmsfc)
   real                    :: arm0i, cv, vbar, dnui, vdepth
   real, allocatable, save :: cm(:)
   logical,           save :: firstime = .true.
@@ -1081,7 +1175,7 @@ subroutine vort_damp_swm(vmt)
 
   endif  ! firstime
 
-  vort(:) = 0.
+  sfcg%vort(:) = 0.
 
   !$omp parallel do private(im,jv,iv)
   do j = 1,jtab_msfc_swm%jend; im = jtab_msfc_swm%imsfc(j)
@@ -1096,11 +1190,11 @@ subroutine vort_damp_swm(vmt)
 
         if (itab_vsfc(iv)%imn(2) == im) then
 
-           vort(im) = vort(im) + sfcg%vc(iv) * sfcg%dnv(iv)
+           sfcg%vort(im) = sfcg%vort(im) + sfcg%vc(iv) * sfcg%dnv(iv)
 
         else
 
-           vort(im) = vort(im) - sfcg%vc(iv) * sfcg%dnv(iv)
+           sfcg%vort(im) = sfcg%vort(im) - sfcg%vc(iv) * sfcg%dnv(iv)
 
         endif
      enddo
@@ -1109,14 +1203,14 @@ subroutine vort_damp_swm(vmt)
      ! (DNV lacks the zfact factor and ARM0 lacks the zfact**2 factor, so we
      ! divide their quotient by zfact)
 
-     vort(im) = vort(im) / sfcg%arm0(im)
+     sfcg%vort(im) = sfcg%vort(im) / sfcg%arm0(im)
 
   enddo
   !$omp end parallel do
 
   if (iparallel == 1) then
-     call mpi_send_msfc(vort=vort)
-     call mpi_recv_msfc(vort=vort)
+     call mpi_send_msfc(vort=sfcg%vort)
+     call mpi_recv_msfc(vort=sfcg%vort)
   endif
 
   del_vort(:) = 0.0
@@ -1132,8 +1226,8 @@ subroutine vort_damp_swm(vmt)
      im2  = itab_msfc(im)%imn(2)
      im3  = itab_msfc(im)%imn(3)
 
-     vbar = onethird * (vort(im1) + vort(im2) + vort(im3))
-     del_vort(im) = cm(im) * (vbar - vort(im))
+     vbar = onethird * (sfcg%vort(im1) + sfcg%vort(im2) + sfcg%vort(im3))
+     del_vort(im) = cm(im) * (vbar - sfcg%vort(im))
 
   enddo
   !$omp end parallel do
@@ -1143,7 +1237,7 @@ subroutine vort_damp_swm(vmt)
      call mpi_recv_msfc(vort=del_vort)
   endif
 
-  !$omp parallel do private(iv,iw1,iw2,isea1,isea2,im1,im2)
+  !$omp parallel do private(iv,iw1,iw2,isea1,isea2,im1,im2,vdepth)
   do j = 1,jtab_vsfc_swm%jend; iv = jtab_vsfc_swm%ivsfc(j)
 
      if (itab_vsfc(iv)%irank /= myrank) cycle
@@ -1168,7 +1262,7 @@ subroutine vort_damp_swm(vmt)
 
      ! Horizontal filter for vertical vorticity
 
-     vmt(iv) = vmt(iv) + vdepth * (del_vort(im2) - del_vort(im1)) / sfcg%dnu(iv)
+     vmts(iv) = vmts(iv) + vdepth * (del_vort(im2) - del_vort(im1)) / sfcg%dnu(iv)
 
   enddo
   !$omp end parallel do
@@ -1177,7 +1271,7 @@ end subroutine vort_damp_swm
 
 !===============================================================================
 
-subroutine divh_damp_swm(vmt, dtsm)
+subroutine divh_damp_swm(vmts, dtsm)
 
   use olam_mpi_sfc, only: mpi_send_wsfc, mpi_recv_wsfc
   use mem_sfcg,     only: sfcg, jtab_vsfc_swm, jtab_wsfc_swm, &
@@ -1189,7 +1283,7 @@ subroutine divh_damp_swm(vmt, dtsm)
 
   implicit none
 
-  real,    intent(inout)  :: vmt(mvsfc)
+  real,    intent(inout)  :: vmts(mvsfc)
   real,    intent(in)     :: dtsm
 
   integer                 :: iv, iw, iw1, iw2, k, j, jv, ivn, iwn
@@ -1299,7 +1393,7 @@ subroutine divh_damp_swm(vmt, dtsm)
 
      ! Damp (remove) laplacian of horizontal divergence
 
-     vmt(iv) = vmt(iv) + fdiv(iv) * (del2d(iw2) - del2d(iw1))
+     vmts(iv) = vmts(iv) + fdiv(iv) * (del2d(iw2) - del2d(iw1))
 
   enddo
   !$omp end parallel do

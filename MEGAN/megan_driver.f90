@@ -33,7 +33,6 @@ module mem_megan
 
   integer, allocatable :: mgn_2_gc_map(:)
 
-
   real :: norm_fact(nvtyp,16)
 
   logical :: has_pft_dataset = .false.
@@ -51,6 +50,7 @@ contains
 
     integer, intent(in) :: mland
     integer, intent(in) :: mwa
+    integer             :: iland
 
     allocate(avg_temp    (mland)) ; avg_temp = 0.0
     allocate(lai_prev    (mland)) ; lai_prev = 0.0
@@ -101,9 +101,15 @@ contains
 
     allocate(mgn_2_gc_map(n_gc_emis))
 
-    allocate(megan_emis(mland,n_mech_spc)) ; megan_emis = 0.0
+    allocate(megan_emis(n_mech_spc,mland))
+    allocate(pfts            (0:16,mland))
 
-    allocate(pfts(0:16,mland)) ; pfts = 0.0
+    !$omp parallel do
+    do iland = 1, mland
+       megan_emis(:,iland) = 0.0
+       pfts      (:,iland) = 0.0
+    enddo
+    !$omp end parallel do
 
   end subroutine alloc_megan
 
@@ -307,14 +313,13 @@ contains
 
   subroutine read_pfts()
 
-    use mem_land,   only: mland, omland
-    use mem_sfcg,   only: sfcg
-    use misc_coms,  only: io6
-    use max_dims,   only: pathlen
-    use prfill_mod, only: prfill
-    use mem_para,   only: myrank
-    use oname_coms, only: nl
-    use hdf5_utils
+    use mem_land,    only: mland, omland
+    use mem_sfcg,    only: sfcg
+    use misc_coms,   only: io6
+    use max_dims,    only: pathlen
+    use oname_coms,  only: nl
+    use analysis_lib,only: gdtost_ll
+    use hdf5_utils,  only: shdf5_exists, shdf5_open, shdf5_irec, shdf5_info, shdf5_close
 
     implicit none
 
@@ -326,12 +331,11 @@ contains
     integer, parameter :: nio = nx_pft + 4
     integer, parameter :: njo = ny_pft + 4
 
-    integer(i1), allocatable :: rawdata (:,:)
     integer(i1), allocatable :: landmask(:,:)
     integer(i1), allocatable :: pfts_ll (:,:)
 
-    real    :: gdatdx, gdatdy, xswlat, xswlon
-    integer :: ipoffset, inproj
+    real    :: dlon, dlat, swlat, swlon
+    integer :: iproj
 
     integer :: ips, ip, iland, iwsfc
     logical :: exists
@@ -341,7 +345,8 @@ contains
 
     filename = nl%megan_pfts_file
 
-    inquire(file=filename, exist=exists)
+    call shdf5_exists(filename, exists)
+
     if (.not. exists) then
        write(io6,*) "megan_init:  Cannot find plant functional types dataset."
     else
@@ -350,43 +355,36 @@ contains
 
     if (has_pft_dataset) then
        write(io6,*) "Reading " // trim(filename)
-       call shdf5_open(filename, 'R', trypario=.true.)
+       call shdf5_open(filename, 'R')
 
        call shdf5_info('LANDMASK', ndims, idims)
-       if ( ndims /= 2 .or. all(idims(1:2) /= (/nx_pft, ny_pft/)) ) then
+       if ( ndims /= 2 .or. all( idims(1:2) /= [nx_pft, ny_pft] ) ) then
           write(*,*) "Cannot find plant functional types dataset."
           has_pft_dataset = .false.
        endif
 
        call shdf5_info('PCT_PFT', ndims, idims)
-       if ( ndims /= 3 .or. all(idims(1:3) /= (/nx_pft, ny_pft, 17/)) ) then
+       if ( ndims /= 3 .or. all( idims(1:3) /= [nx_pft, ny_pft, 17] ) ) then
           write(*,*) "Cannot find plant functional types dataset."
           has_pft_dataset = .false.
        endif
+
+       if (.not. has_pft_dataset) call shdf5_close()
     endif
 
     if (has_pft_dataset) then
-       allocate(landmask(nio,njo))
-       allocate(pfts_ll (nio,njo))
 
-       gdatdx =    0.05
-       gdatdy =    0.05
-       xswlat =  -89.975
-       xswlon = -179.975
-       inproj = 1
-       ipoffset = int((xswlon + 180.) / gdatdx) + 2
+       dlon  =    0.05
+       dlat  =    0.05
+       swlat =  -89.975
+       swlon = -179.975
+       iproj =    1
 
-       if (myrank == 0) then
-          allocate(rawdata(nx_pft,ny_pft))
-       endif
+       allocate(landmask(nx_pft,ny_pft))
+       allocate(pfts_ll (nx_pft,ny_pft))
 
        ! First read land/sea mask
-       call shdf5_irec(2, (/nx_pft,ny_pft/), 'LANDMASK', bvar2=rawdata)
-
-       call prfill(nx_pft, ny_pft, rawdata, landmask, &
-                   gdatdy, xswlat, ipoffset, inproj)
-
-       ! Communicate landmask to other nodes
+       call shdf5_irec(2, [nx_pft, ny_pft], 'LANDMASK', bvar2=landmask)
 
        ! Loop over all pfts in file. Skip 17 (other crop) which is 0 in file
        do ips = 1, 16
@@ -399,26 +397,16 @@ contains
           endif
 
           ! Read PFT from file
-          call shdf5_irec(ndims, idims, 'PCT_PFT', bvar2=rawdata, &
+          call shdf5_irec(ndims, idims, 'PCT_PFT', bvar2=pfts_ll, &
                           start=[1,1,ips], counts=[nx_pft,ny_pft,1] )
 
-          call prfill(nx_pft, ny_pft, rawdata, pfts_ll, &
-                      gdatdy, xswlat, ipoffset, inproj)
-
-          ! Mask out sea points
           where (landmask == 0)
-             pfts_ll = -127
+             pfts_ll = -127_i1
           end where
 
-          !$omp parallel do private(iwsfc,gry,grx)
+          !$omp parallel do private(iwsfc)
           do iland = 2, mland
              iwsfc = iland + omland
-
-! THIS ILAND/IWSFC LOOP IS OVER ALL MLAND POINTS, EVEN THOSE THAT ARE NOT
-! PRIMARY ON THIS SUBDOMAIN.  IS THIS OK FOR THIS OPERATION?  IF NOT, AND
-! IF LOOP MUST BE LIMITED TO PRIMARY IWSFC POINTS ONLY, IS MPI_SEND/MPI_RECV
-! REQUIRED FOR ANY QUANTITIES AT A TIME OTHER THAN THE END OF EACH TIMESTEP
-! (WHEN A ROUTINE SEND/RECV IS DONE)?
 
              if (sfcg%glatw(iwsfc) < -70.) then
 
@@ -431,10 +419,8 @@ contains
 
              else
 
-                gry = (sfcg%glatw(iwsfc) - xswlat) / gdatdy + 3.
-                grx = (sfcg%glonw(iwsfc) - xswlon) / gdatdx + 1. + real(ipoffset)
-
-                call gdtost_int1( pfts_ll, nio, njo, grx, gry, pfts(ip,iland) )
+                call gdtost_ll(nx_pft, ny_pft, sfcg%glonw(iwsfc), sfcg%glatw(iwsfc), &
+                               pfts(ip,iland), swlon, swlat, dlon, dlat, iproj, b2d=pfts_ll)
 
                 pfts(ip,iland) = pfts(ip,iland) * 0.01
 
@@ -443,9 +429,7 @@ contains
 
        enddo
 
-       if (myrank == 0) then
-          call shdf5_close()
-       endif
+       call shdf5_close()
 
     endif
 
@@ -863,13 +847,13 @@ contains
 
        ! Convert to mol/sec
        do s = 1, n_mech_spc
-          megan_emis(iland,s) = outer(s) * sfcg%area(iwsfc)
+          megan_emis(s,iland) = outer(s) * sfcg%area(iwsfc)
        enddo
 
     else
 
        do s = 1, n_mech_spc
-          megan_emis(iland,s) = 0.0
+          megan_emis(s,iland) = 0.0
        enddo
 
     endif

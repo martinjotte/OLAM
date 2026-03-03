@@ -13,6 +13,7 @@ contains
     use mem_ijtabs,  only: itab_w
     use misc_coms,   only: mdomain
     use consts_coms, only: r8
+    use map_proj,    only: ec_ps
 
     implicit none
 
@@ -40,7 +41,7 @@ contains
        im = itab_w(iw)%im(jm)
 
        if (mdomain <= 1) then
-          call e_ps(xem(im),yem(im),zem(im),glatw(iw),glonw(iw),xm(jm),ym(jm))
+          call ec_ps(xem(im),yem(im),zem(im),glatw(iw),glonw(iw),xm(jm),ym(jm))
        else
           xm(jm) = xem(im) - xew(iw)
           ym(jm) = yem(im) - yew(iw)

@@ -1,6 +1,6 @@
 subroutine leaf4_init_atm()
 
-  use leaf_coms,    only: nzs, veg_ht, soil_rough, snow_rough, &
+  use leaf_coms,    only: veg_ht, soil_rough, snow_rough, &
                           iupdndvi, s1900_ndvi, indvifile, nndvifiles, &
                           dt_leaf, isoilstateinit, iwatertabflg, watertab_db, &
                           wcap_min
@@ -8,9 +8,10 @@ subroutine leaf4_init_atm()
   use misc_coms,    only: s1900_sim, iparallel, runtype, initial
   use mem_sfcg,     only: itab_wsfc, sfcg
   use consts_coms,  only: cliq, cice, alli, cliq1000, cice1000, alli1000, &
-                          grav, p00i, rocp, t00
+                          grav, t00
   use mem_para,     only: myrank
-  use leaf4_canopy, only: vegndvi
+  use leaf4_canopy, only: vegndvi, fwat, madry, cvegdry, cvegwet
+  use leaf4_surface,only: skncomp_diagnose
   use land_db,      only: land_database_read
   use leaf4_soil,   only: soil_pot2wat
   use oname_coms,   only: nl
@@ -20,17 +21,15 @@ subroutine leaf4_init_atm()
   integer :: k
   integer :: iland, iwsfc
   integer :: leaf_class
-  integer :: nlsw1 ! maximum of (1,nlev_sfcwater)
 
   real :: timefac_ndvi
-  real :: wq, wq_added, snowdens
-  real :: psi, psi_slope
+  real :: wq, wq_added, snowdens, tempc
+  real :: psi
 
-  real :: soil_tempc(nzg,mland)  ! initial soil temperature (C)
-  real :: fracliq(nzg,mland)     ! initial soil liquid fraction (0-1)
-  real :: wtd(mland)             ! watertable depth from database
+  real :: soil_tempc(nzg,mland) ! initial soil temperature (C)
+  real :: wtd           (mland) ! watertable depth from database
 
-  real, external :: rhovsl
+  real, parameter :: snowden_firn = 600.
 
   ! Leaf quantities that get initialized at the start of any model run
 
@@ -87,6 +86,10 @@ subroutine leaf4_init_atm()
           'wtd',                    &
           datq=wtd                  )
 
+  else
+
+     wtd = -999.
+
   endif
 
   !$omp parallel do private (iwsfc,leaf_class)
@@ -98,17 +101,15 @@ subroutine leaf4_init_atm()
 
      ! Set vegetation parameters
 
-     leaf_class = sfcg%leaf_class(iwsfc)
-
-     land%veg_rough  (iland) = .13 * veg_ht(leaf_class)
-     sfcg%rough      (iwsfc) = max(soil_rough, land%veg_rough(iland))
+     leaf_class              = sfcg%leaf_class(iwsfc)
      land%veg_height (iland) = veg_ht(leaf_class)
-     land%stom_resist(iland) = 1.e6
+     land%stom_resist(iland) = 1.e5
 
      ! For now, choose heat/vapor capacities for stability based on timestep
 
-     sfcg%can_depth(iwsfc) = 20. * max(1.,.030 * dt_leaf)
-     land%hcapveg  (iland) = 3.e4 * max(1.,.025 * dt_leaf)
+!    sfcg%can_depth(iwsfc) = 2.  !* max(1.,.030 * dt_leaf)
+!    sfcg%can_depth(iwsfc) = max(20.0, .2 * veg_ht(leaf_class))
+!    land%hcapveg  (iland) = 1.e4 !* max(1.,.025 * dt_leaf)
 
      ! Initialize vegetation TAI, LAI, fractional area, albedo, and roughness
 
@@ -123,6 +124,12 @@ subroutine leaf4_init_atm()
                   land%veg_lai     (iland), &
                   land%veg_fracarea(iland), &
                   land%veg_albedo  (iland)  )
+
+     ! Assumes no coverage by sfcwater
+     sfcg%rough    (iwsfc) = max(soil_rough, land%veg_rough(iland))
+     sfcg%can_depth(iwsfc) = max(1., 2. * sfcg%rough(iwsfc))
+     land%hcapveg  (iland) = madry * ( cvegdry *  land%veg_tai(iland)        &
+                                     + cvegwet * (land%veg_lai(iland) + .08) )
 
      ! Initialize hydraulic head at bottom of soil grid...
 
@@ -174,7 +181,7 @@ subroutine leaf4_init_atm()
 
      ! Apply initial atmospheric properties to land canopy
 
-     sfcg%cantemp  (iwsfc) = sfcg%airtheta(iwsfc) * (sfcg%prss(iwsfc) * p00i)**rocp
+     sfcg%cantemp  (iwsfc) = sfcg%airtheta(iwsfc) * sfcg%canexner(iwsfc)
      sfcg%canrrv   (iwsfc) = sfcg%airrrv(iwsfc)
      sfcg%ustar    (iwsfc) = 0.1
      sfcg%sfluxt   (iwsfc) = 0.
@@ -188,14 +195,14 @@ subroutine leaf4_init_atm()
      land%veg_energy(iland) = (land%veg_temp(iland) - 273.15) * land%hcapveg(iland)
      land%veg_water (iland) = 0.
 
-     ! Default initialization of sfcwater_mass, soil_tempc, and soil_water
+     ! Default initialization of skncomp, sfcwater_mass, soil_tempc, and soil_water
 
-     land%sfcwater_mass  (1:nzs,iland) = 0.
-     land%sfcwater_energy(1:nzs,iland) = 0.
-     land%sfcwater_depth (1:nzs,iland) = 0.
+     land%skncomp       (  iland) = 1
+     land%sfcwater_mass (:,iland) = 0.
+     land%sfcwater_epm2 (:,iland) = 0.
+     land%sfcwater_depth(:,iland) = 0.
 
-     soil_tempc(1:nzg,iland) = sfcg%cantemp(iwsfc) - 273.15
-     fracliq(1:nzg,iland) = 1.0
+     soil_tempc(:,iland) = sfcg%cantemp(iwsfc) - 273.15
 
      ! Loop over soil layers
 
@@ -215,11 +222,6 @@ subroutine leaf4_init_atm()
 
   ! Overwrite the default soil initialization with observed data if specified
 
-  ! read sfcwater mass, soil_tempc, and soil_water from the 2 X 2.5 degree
-  ! NCEP/NCAR reanalysis in netcdf format, obtained from
-  ! ftp://ftp.cdc.noaa.gov/Datasets/ncep.reanalysis/surface_gauss/
-  ! call read_soil_moist_temp(soil_tempc)
-
   if (isoilstateinit > 0 .and. initial == 2) then
 
      ! read sfcwater mass, soil_tempc, and soil_water saved in the initial
@@ -231,17 +233,12 @@ subroutine leaf4_init_atm()
 
   ! Loop over all LAND cells
 
-  !$omp parallel do private(iwsfc, k, wq, wq_added, snowdens, nlsw1, psi)
+  !$omp parallel do private(iwsfc, k, wq, wq_added, tempc)
   do iland = 2,mland
      iwsfc = iland + omland
 
      ! Skip this cell if running in parallel and cell rank is not MYRANK
      if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
-
-     !--------------------------------------------------------------------------------
-     ! ADD A METHOD HERE TO INITIALIZE FRACTION OF SOIL WATER THAT IS LIQUID (FRACLIQ)
-     ! BASED ON MODEL OBSERVED AND/OR MODEL CLIMATOLOGY
-     !--------------------------------------------------------------------------------
 
      ! If leaf_class of this iland land cell is ice cap or glacier, assume that
      ! all 'soil' water is in ice phase and that soil_tempc is at or below 0.
@@ -250,7 +247,6 @@ subroutine leaf4_init_atm()
      if (sfcg%leaf_class(iwsfc) == 2) then
 
         soil_tempc(1:nzg,iland) = min(0.,soil_tempc(1:nzg,iland))
-        fracliq(1:nzg,iland) = 0.
 
      endif
 
@@ -262,17 +258,20 @@ subroutine leaf4_init_atm()
 
         if (soil_tempc(k,iland) > 0.) then
 
+           ! Assume all liquid for now
+
            land%soil_energy(k,iland)                                        &
                = soil_tempc(k,iland) * land%specifheat_drysoil(k,iland)     &
                + soil_tempc(k,iland) * land%soil_water(k,iland) * cliq1000  &
-               + fracliq(k,iland)    * land%soil_water(k,iland) * alli1000
+               +                       land%soil_water(k,iland) * alli1000
 
         else
 
+           ! Assume all ice for now
+
            land%soil_energy(k,iland)                                       &
               = soil_tempc(k,iland) * land%specifheat_drysoil(k,iland)     &
-              + soil_tempc(k,iland) * land%soil_water(k,iland) * cice1000  &
-              + fracliq(k,iland)    * land%soil_water(k,iland) * alli1000
+              + soil_tempc(k,iland) * land%soil_water(k,iland) * cice1000
 
         endif
      enddo
@@ -283,11 +282,6 @@ subroutine leaf4_init_atm()
 
      if (sfcg%leaf_class(iwsfc) == 17 .or. sfcg%leaf_class(iwsfc) == 20) then
 
-        ! Since sfcwater_energy has units of J/kg, first convert to J/m^2 before adding
-        ! wetland sfcwater.
-
-        wq = land%sfcwater_mass(1,iland) * land%sfcwater_energy(1,iland)
-
         ! Add wetland sfcwater mass and depth
 
         land%sfcwater_mass(1,iland) = land%sfcwater_mass(1,iland)  &
@@ -295,15 +289,18 @@ subroutine leaf4_init_atm()
         land%sfcwater_depth(1,iland) = land%sfcwater_depth(1,iland)  &
                                      + .1   ! 0.1 m added depth
 
-        ! Add wetland sfcwater energy, which is assumed to have energy of liquid
-        ! water at canopy air temperature, which could be below freezing.
+        ! Add wetland sfcwater energy, which is assumed to be at canopy air temperature
 
-        wq_added = 100.  &  ! 100 kg/m^2 added mass
-                 * ((sfcg%cantemp(iwsfc) - 273.15) * cliq + alli) ! J/kg of added
-                                                                ! liquid water
+        tempc = sfcg%cantemp(iwsfc) - 273.15
+        if (tempc <= 0.) then
+           wq_added = 100. * tempc * cice  ! 100 kg/m^2 added mass
+        else
+           wq_added = 100. * (tempc * cliq + alli)  ! 100 kg/m^2 added mass
+        endif
+
         ! Diagnose new sfcwater energy
 
-        land%sfcwater_energy(1,iland) = (wq + wq_added) / land%sfcwater_mass(1,iland)
+        land%sfcwater_epm2(1,iland) = land%sfcwater_epm2(1,iland) + wq_added
 
      endif
 
@@ -314,44 +311,27 @@ subroutine leaf4_init_atm()
      if (sfcg%leaf_class(iwsfc) == 2) then
 
         ! Add wetland sfcwater mass
-        land%sfcwater_mass(1,iland) = min(land%sfcwater_mass(1,iland), 100.)
+        land%sfcwater_mass(1,iland) = max(land%sfcwater_mass(1,iland), 100.)
 
         ! Snow is frozen at canopy temperature
-        land%sfcwater_energy(1,iland) = min(0., (sfcg%cantemp(iwsfc) - t00) * cice)
+        land%sfcwater_epm2(1,iland) = land%sfcwater_mass(1,iland) * min(0., (sfcg%cantemp(iwsfc) - t00) * cice)
 
-        ! Snow density calculation comes from CLM3.0 documentation,
-        ! which is based on Anderson 1975 NWS Technical Doc # 19
-        if (sfcg%cantemp(iwsfc) > 258.15) then
-           snowdens = 50.0 + 1.5 * (sfcg%cantemp(iwsfc) - 258.15)**1.5
-        else
-           snowdens = 50.0
-        endif
-        land%sfcwater_depth(1,iland) = land%sfcwater_mass(1,iland) / snowdens
+        ! assume a firn density of 600 kg/m^3 (see comment in leaf4_coms.f90)
+        land%sfcwater_depth(1,iland) = land%sfcwater_mass(1,iland) / snowden_firn
 
      endif
 
-     ! Determine active number of surface water levels
+     ! If sfcwater_mass is below threshold, zero some related quantities
 
-     land%nlev_sfcwater(iland) = 0
-
-     do k = 1,nzs
-        if (land%sfcwater_mass(k,iland) < wcap_min) then
-           land%sfcwater_mass  (k:nzs,iland) = 0.
-           land%sfcwater_energy(k:nzs,iland) = 0.
-           land%sfcwater_depth (k:nzs,iland) = 0.
-           exit
-        else
-           land%nlev_sfcwater(iland) = k
-        endif
-     enddo
+     if (land%sfcwater_mass(1,iland) < wcap_min) then
+        land%sfcwater_mass (1,iland) = 0.
+        land%sfcwater_epm2 (1,iland) = 0.
+        land%sfcwater_depth(1,iland) = 0.
+     endif
 
      ! Initialize snowfac
 
-     land%snowfac(iland) = 0.
-     do k = 1,land%nlev_sfcwater(iland)
-        land%snowfac(iland) = land%snowfac(iland) + land%sfcwater_depth(k,iland)
-     enddo
-     land%snowfac(iland) = land%snowfac(iland) / max(.001,land%veg_height(iland))
+     land%snowfac(iland) = land%sfcwater_depth(1,iland) / max(.001,land%veg_height(iland))
      if (land%snowfac(iland) > 0.9) land%snowfac(iland) = 1.0
 
      sfcg%rough(iwsfc) = max(snow_rough, &
@@ -359,7 +339,30 @@ subroutine leaf4_init_atm()
 
      ! Diagnose head1 based on sfcwater mass
 
-     sfcg%head1(iwsfc) = .001 * sum(land%sfcwater_mass(1:land%nlev_sfcwater(iland),iland))
+     sfcg%head1(iwsfc) = .001 * land%sfcwater_mass(1,iland)
+
+     ! Diagnose surface skinlayer composition.  This is initialization call to
+     ! skncomp_diagnose, so skncomp must be set to out-of-range value.
+
+     land%skncomp(iland) = -1
+
+     call skncomp_diagnose(iland, iwsfc,                     &
+                           land%skncomp             (iland), &
+                           land%sfcwater_mass     (:,iland), &
+                           land%sfcwater_epm2     (:,iland), &
+                           land%sfcwater_depth    (:,iland), &
+                           land%soil_water        (:,iland), &
+                           land%soil_energy       (:,iland), &
+                           land%specifheat_drysoil(:,iland)  )
+
+!!if (iwsfc == 6238) then
+!!   print*, ' '
+!!   print*, 'initatm1 ', land%skncomp(iland), land%sfcwater_mass(:,iland)
+!!   print*, 'initatm2 ', land%sfcwater_epm2(:,iland), land%sfcwater_depth(:,iland)
+!!   print*, 'initatm3 ', land%soil_water(nzg-1,iland), land%soil_water(nzg,iland)
+!!   print*, 'initatm5 ', land%soil_energy(nzg-1,iland), land%soil_energy(nzg,iland), &
+!!                        land%specifheat_drysoil(nzg,iland)
+!!endif
 
   enddo
 

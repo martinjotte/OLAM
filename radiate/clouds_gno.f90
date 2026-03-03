@@ -18,6 +18,7 @@ contains
 
 
   subroutine cu_cldfrac(ks, ke, rhin, qcin, cldfrac)
+
     use mem_grid, only: mza
     implicit none
 
@@ -86,9 +87,10 @@ contains
 
   subroutine gno_lookup_init()
 
-    use hdf5_utils, only: shdf5_open, shdf5_close, shdf5_irec
+    use hdf5_utils, only: shdf5_exists, shdf5_open, shdf5_close, shdf5_irec
     use max_dims,   only: pathlen
     use oname_coms, only: nl
+    use mem_para,   only: olam_mpi_finalize
 
     implicit none
 
@@ -102,13 +104,17 @@ contains
     inputfile =  trim(nl%rrtmg_datadir) // "/bony_emanuel_table/" &
               // trim(gno_file)
 
-    inquire(file=inputfile, exist=exists)
+    call shdf5_exists(inputfile, exists)
+
     if (.not. exists) then
        write(*,*) "gno_clouds_init: Error opening data file " // trim(inputfile)
-       stop       "Bony-Emanuel look table datafile cannot be found"
+       write(*,*) "Bony-Emanuel look table datafile cannot be found."
+       write(*,*) "Stopping model"
+       call olam_mpi_finalize()
+       stop
     endif
 
-    call shdf5_open(inputfile, 'R', trypario=.true.)
+    call shdf5_open(inputfile, 'R')
 
     ndims=1 ; idims(1)=1
     call shdf5_irec(ndims, idims, "rh_start", rvars=rh_start)

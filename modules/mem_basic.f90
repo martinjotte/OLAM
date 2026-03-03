@@ -7,9 +7,6 @@ Module mem_basic
 
   real, allocatable :: vmc  (:,:) ! current V horiz momentum [kg/(m^2 s)]
   real, allocatable :: vc   (:,:) ! current V horiz velocity [m/s]
-  real, allocatable :: vmp  (:,:) ! previous V horiz momentum [kg/(m^2 s)]
-                                  ! (for original time-stepping scheme)
-
   real, allocatable :: wmc  (:,:) ! current vert momentum [kg/(m^2 s)]
   real, allocatable :: wc   (:,:) ! current vert velocity [m/s]
   real, allocatable :: rr_w (:,:) ! tot water mixing ratio [kg_wat/kg_dryair]
@@ -28,14 +25,9 @@ Module mem_basic
   real(r8), allocatable :: press(:,:) ! air pressure [Pa]
   real(r8), allocatable :: rho  (:,:) ! dry air density [kg/m^3]
 
-  ! Half-forward earth cartesian velocities for original scalar transport scheme
-  real, allocatable :: vxesc(:,:)
-  real, allocatable :: vyesc(:,:)
-  real, allocatable :: vzesc(:,:)
-
   ! Half-forrward advecting velocities for scalars averaged over long timestep
-  real, allocatable :: wmsc(:,:)
-  real, allocatable :: vmsc(:,:)
+  real, allocatable :: wmasc(:,:)
+  real, allocatable :: vmasc(:,:)
 
   real, allocatable :: alpha_press(:,:)
   real, allocatable :: pwfac      (:,:)
@@ -47,56 +39,82 @@ Contains
 
   subroutine alloc_basic(mza,mva,mwa)
 
-    use misc_coms, only: rinit, rinit8, nrk_scal, nrk_wrtv, mdomain
+    use misc_coms,   only: rinit, rinit8, mdomain
+    use consts_coms, only: pc1, rdry, cpocv, r8
+    use mem_grid,    only: zfacit, dniv, dzim
 
     implicit none
 
     integer, intent(in) :: mza,mva,mwa
+    integer             :: iv, iw
+    real,     parameter :: alpha_dry = pc1 * rdry**cpocv
 
 !   Allocate basic memory needed for 'INITIAL' or 'HISTORY' runs
 !   and initialize allocated arrays to zero
 
-    allocate (vmc  (mza,mva)) ; vmc = rinit
-    allocate (vc   (mza,mva)) ; vc  = rinit
+    allocate (vmc  (mza,mva))
+    allocate (vc   (mza,mva))
+    allocate (pvfac(mza,mva))
+    allocate (vmasc(mza,mva))
 
-    allocate (rho  (mza,mwa)) ; rho   = 0.0_r8
-    allocate (press(mza,mwa)) ; press = rinit8
-    allocate (wmc  (mza,mwa)) ; wmc   = rinit
-    allocate (wc   (mza,mwa)) ; wc    = 0.0
-    allocate (thil (mza,mwa)) ; thil  = rinit
-    allocate (theta(mza,mwa)) ; theta = rinit
-    allocate (tair (mza,mwa)) ; tair  = rinit
-    allocate (rr_w (mza,mwa)) ; rr_w  = rinit
-    allocate (rr_v (mza,mwa)) ; rr_v  = rinit
+    !$omp parallel do
+    do iv = 1, mva
+       vmc  (:,iv) = rinit
+       vc   (:,iv) = rinit
+       pvfac(:,iv) = zfacit(:) * dniv(iv)
+       vmasc(:,iv) = 0.0
+    enddo
+    !$omp end parallel do
 
-    allocate (vxe  (mza,mwa)) ; vxe   = rinit
-    allocate (vye  (mza,mwa)) ; vye   = rinit
-    allocate (vze  (mza,mwa)) ; vze   = rinit
+    allocate( rho        (mza,mwa) )
+    allocate( press      (mza,mwa) )
+    allocate( wmc        (mza,mwa) )
+    allocate( wc         (mza,mwa) )
+    allocate( thil       (mza,mwa) )
+    allocate( theta      (mza,mwa) )
+    allocate( tair       (mza,mwa) )
+    allocate( rr_w       (mza,mwa) )
+    allocate( rr_v       (mza,mwa) )
+    allocate( vxe        (mza,mwa) )
+    allocate( vye        (mza,mwa) )
+    allocate( vze        (mza,mwa) )
+    allocate( wmasc      (mza,mwa) )
+    allocate( alpha_press(mza,mwa) )
+    allocate( pwfac      (mza,mwa) )
 
     if (mdomain <= 1) then
-       allocate (ue(mza,mwa)) ; ue    = rinit
-       allocate (ve(mza,mwa)) ; ve    = rinit
+       allocate( ue(mza,mwa) )
+       allocate( ve(mza,mwa) )
     else
        ue => vxe
        ve => vye
     endif
 
-    allocate (wmsc(mza,mwa)) ; wmsc = rinit
-    allocate (vmsc(mza,mva)) ; vmsc = rinit
+    !$omp parallel do
+    do iw = 1, mwa
+       rho        (:,iw) = 0.0_r8
+       press      (:,iw) = rinit8
+       wmc        (:,iw) = rinit
+       wc         (:,iw) = 0.0
+       thil       (:,iw) = 0.0
+       theta      (:,iw) = 0.0
+       tair       (:,iw) = 0.0
+       rr_w       (:,iw) = 0.0
+       rr_v       (:,iw) = 0.0
+       vxe        (:,iw) = 0.0
+       vye        (:,iw) = 0.0
+       vze        (:,iw) = 0.0
+       wmasc      (:,iw) = 0.0
+       alpha_press(:,iw) = alpha_dry
+       pwfac      (:,iw) = dzim(:)
 
-    if (nrk_scal == 1) then
-       allocate(vxesc(mza,mwa)) ; vxesc = rinit
-       allocate(vyesc(mza,mwa)) ; vyesc = rinit
-       allocate(vzesc(mza,mwa)) ; vzesc = rinit
-    endif
+       if (mdomain <= 1) then
+          ue      (:,iw) = rinit
+          ve      (:,iw) = rinit
+       endif
 
-    if (nrk_wrtv == 1) then
-       allocate(vmp(mza,mva)) ; vmp = rinit
-    endif
-
-    allocate(alpha_press(mza,mwa)) ; alpha_press = rinit
-    allocate(pwfac      (mza,mwa)) ; pwfac       = rinit
-    allocate(pvfac      (mza,mva)) ; pvfac       = rinit
+    enddo
+    !$omp end parallel do
 
   end subroutine alloc_basic
 
@@ -108,7 +126,6 @@ Contains
 
     if (allocated(vmc))   deallocate (vmc)
     if (allocated(vc))    deallocate (vc)
-    if (allocated(vmp))   deallocate (vmp)
 
     if (allocated(wmc))   deallocate (wmc)
     if (allocated(wc))    deallocate (wc)
@@ -124,15 +141,8 @@ Contains
     if (allocated(vye))   deallocate (vye)
     if (allocated(vze))   deallocate (vze)
 
-!    if (allocated(ue))    deallocate (ue)
-!    if (allocated(ve))    deallocate (ve)
-
-    if (allocated(wmsc)) deallocate (wmsc)
-    if (allocated(vmsc)) deallocate (vmsc)
-
-    if (allocated(vxesc)) deallocate (vxesc)
-    if (allocated(vyesc)) deallocate (vyesc)
-    if (allocated(vzesc)) deallocate (vzesc)
+    if (allocated(wmasc)) deallocate (wmasc)
+    if (allocated(vmasc)) deallocate (vmasc)
 
   end subroutine dealloc_basic
 
@@ -141,6 +151,8 @@ Contains
   subroutine filltab_basic()
 
     use var_tables, only: increment_vtable
+    use misc_coms,  only: mdomain
+    use oname_coms, only: nl
 
     implicit none
 
@@ -172,15 +184,12 @@ Contains
 
     if (allocated(vze))   call increment_vtable('VZE',  'AW', rvar2=vze)
 
-    if (allocated(vmp))   call increment_vtable('VMP',  'AV', rvar2=vmp)
+    if (nl%hist_write_ue_ve .and. mdomain <= 1) then
 
+       if (associated(ue)) call increment_vtable('UE', 'AW', rvar2=ue, noread=.true.)
+       if (associated(ve)) call increment_vtable('VE', 'AW', rvar2=ve, noread=.true.)
 
-
-!    if (allocated(ue))    call increment_vtable('UE',   'AW', rvar2=ue)
-
-!    if (allocated(ve))    call increment_vtable('VE',   'AW', rvar2=ve)
-
-
+    endif
 
   end subroutine filltab_basic
 

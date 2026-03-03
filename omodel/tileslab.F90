@@ -2,7 +2,8 @@ subroutine tileslab_horiz_mp(iplt,action)
 
   use oplot_coms, only: op
   use mem_grid,   only: mma, mwa, xem, yem, zem, xev, yev, zev, &
-                        xew, yew, zew, arm0
+                        xew, yew, zew, arm0, glonm, glatm, glonw, glatw, &
+                        glonv, glatv
   use mem_ijtabs, only: itab_m
   use misc_coms,  only: iparallel
   use mem_para,   only: myrank, mgroupsize, nbytes_int, nbytes_real
@@ -66,7 +67,7 @@ subroutine tileslab_horiz_mp(iplt,action)
 
      ! Get tile plot coordinates.
 
-     call oplot_transform(iplt,xem(im),yem(im),zem(im),hpt,vpt)
+     call oplot_transform(iplt,xem(im),yem(im),zem(im),glonm(im),glatm(im),hpt,vpt)
 
      npoly = itab_m(im)%npoly
 
@@ -84,7 +85,7 @@ subroutine tileslab_horiz_mp(iplt,action)
 
         if (iw < 2) cycle mloop
 
-        call oplot_transform(iplt,xew(iw),yew(iw),zew(iw),htpn(j),vtpn(j))
+        call oplot_transform(iplt,xew(iw),yew(iw),zew(iw),glonw(iw),glatw(iw),htpn(j),vtpn(j))
 
         ! Avoid wrap-around for lat-lon plot and set iflag180
 
@@ -221,8 +222,8 @@ subroutine tileslab_horiz_mp(iplt,action)
               iv1 = itab_m(im)%iv(jn)
               iv2 = itab_m(im)%iv(jnn)
 
-              call oplot_transform(iplt,xev(iv1),yev(iv1),zev(iv1),hqpn(2),vqpn(2))
-              call oplot_transform(iplt,xev(iv2),yev(iv2),zev(iv2),hqpn(4),vqpn(4))
+              call oplot_transform(iplt,xev(iv1),yev(iv1),zev(iv1),glonv(iv1),glatv(iv1),hqpn(2),vqpn(2))
+              call oplot_transform(iplt,xev(iv2),yev(iv2),zev(iv2),glonv(iv2),glatv(iv2),hqpn(4),vqpn(4))
 
               ! Avoid wrap-around for lat-lon plot and set iflag180
 
@@ -355,10 +356,12 @@ end subroutine tileslab_horiz_mp
 subroutine tileslab_horiz_tw(iplt,action)
 
   use oplot_coms, only: op, xepc, yepc, zepc
-  use mem_grid,   only: mwa, xew, yew, zew, xem, yem, zem, arw0
+  use mem_grid,   only: mwa, xew, yew, zew, xem, yem, zem, arw0, &
+                        glonw, glatw, glonm, glatm
   use mem_ijtabs, only: itab_w
   use misc_coms,  only: iparallel
   use mem_para,   only: myrank, mgroupsize, nbytes_int, nbytes_real
+  use umwm_module, only: umwm, umwmflg
 
 #ifdef OLAM_MPI
   use mpi
@@ -431,6 +434,12 @@ subroutine tileslab_horiz_tw(iplt,action)
   wloop: do iw = 2, mwa
      if (iparallel == 1 .and. itab_w(iw)%irank /= myrank) cycle wloop
 
+     ! If plotting UMWM quantities, skip ATM cells where UMWM is NOT active
+
+     if (umwmflg == 1) then
+        if (op%dimens == '2D' .and. umwm%seadep(iw) < 1.) cycle
+     endif
+
      npoly = itab_w(iw)%npoly
 
      ! For hexagon grid (in limited-area domain), do not tile plot
@@ -449,7 +458,7 @@ subroutine tileslab_horiz_tw(iplt,action)
      ! Get tile plot coordinates.
 
      if (op%projectn(iplt) == 'L' .or. action == 'P') then
-        call oplot_transform(iplt,xew(iw),yew(iw),zew(iw),hpt,vpt)
+        call oplot_transform(iplt,xew(iw),yew(iw),zew(iw),glonw(iw),glatw(iw),hpt,vpt)
      endif
 
      ! If only printing value, skip polygon section
@@ -460,7 +469,7 @@ subroutine tileslab_horiz_tw(iplt,action)
 
            im = itab_w(iw)%im(j)
 
-           call oplot_transform(iplt,xem(im),yem(im),zem(im),htpn(j),vtpn(j))
+           call oplot_transform(iplt,xem(im),yem(im),zem(im),glonm(im),glatm(im),htpn(j),vtpn(j))
 
            ! Avoid wrap-around for lat-lon plot and set iflag180
 
@@ -507,8 +516,8 @@ subroutine tileslab_horiz_tw(iplt,action)
 
         if (iok == 1) then
 
-           call oplot_transform(iplt,xepc(1),yepc(1),zepc(1),xq(1),yq(1))
-           call oplot_transform(iplt,xepc(2),yepc(2),zepc(2),xq(2),yq(2))
+           call oplot_transform_xyz(iplt,xepc(1),yepc(1),zepc(1),xq(1),yq(1))
+           call oplot_transform_xyz(iplt,xepc(2),yepc(2),zepc(2),xq(2),yq(2))
 
            if (myrank == 0) then
               call o_frstpt(xq(1),yq(1))
@@ -683,7 +692,8 @@ subroutine tileslab_horiz_vn(iplt,action)
 
   use oplot_coms, only: op
   use mem_grid,   only: mva, mwa, xev, yev, zev, xem, yem, zem, &
-                        xew, yew, zew, dnv
+                        xew, yew, zew, dnv, glonv, glatv, &
+                        glonw, glatw, glonm, glatm
   use mem_ijtabs, only: itab_v
   use misc_coms,  only: iparallel
   use mem_para,   only: myrank, mgroupsize, nbytes_real
@@ -748,7 +758,7 @@ subroutine tileslab_horiz_vn(iplt,action)
 
      ! Transform tile plot X and Y coordinates.
 
-     call oplot_transform(iplt,xev(iv),yev(iv),zev(iv),hpt,vpt)
+     call oplot_transform(iplt,xev(iv),yev(iv),zev(iv),glonv(iv),glatv(iv),hpt,vpt)
 
      im1 = itab_v(iv)%im(1)
      im2 = itab_v(iv)%im(2)
@@ -764,28 +774,28 @@ subroutine tileslab_horiz_vn(iplt,action)
      iflag180 = 0
 
      if (im1 > 1) then
-        call oplot_transform(iplt,xem(im1),yem(im1),zem(im1),htpn(1),vtpn(1))
+        call oplot_transform(iplt,xem(im1),yem(im1),zem(im1),glonm(im1),glatm(im1),htpn(1),vtpn(1))
      else
         htpn(1) = hpt
         vtpn(1) = vpt
      endif
 
      if (im2 > 1) then
-        call oplot_transform(iplt,xem(im2),yem(im2),zem(im2),htpn(3),vtpn(3))
+        call oplot_transform(iplt,xem(im2),yem(im2),zem(im2),glonm(im2),glatm(im2),htpn(3),vtpn(3))
      else
         htpn(3) = hpt
         vtpn(3) = vpt
      endif
 
      if (iw2 > 1) then
-        call oplot_transform(iplt,xew(iw2),yew(iw2),zew(iw2),htpn(2),vtpn(2))
+        call oplot_transform(iplt,xew(iw2),yew(iw2),zew(iw2),glonw(iw2),glatw(iw2),htpn(2),vtpn(2))
      else
         htpn(2) = htpn(3)
         vtpn(2) = vtpn(3)
      endif
 
      if (iw1 > 1) then
-        call oplot_transform(iplt,xew(iw1),yew(iw1),zew(iw1),htpn(4),vtpn(4))
+        call oplot_transform(iplt,xew(iw1),yew(iw1),zew(iw1),glonw(iw1),glatw(iw1),htpn(4),vtpn(4))
      else
         htpn(4) = htpn(3)
         vtpn(4) = vtpn(3)
@@ -966,7 +976,6 @@ subroutine tileslab_horiz_wsfc(iplt,action)
   use oplot_coms, only: op
   use mem_sfcg,   only: mwsfc, itab_wsfc, sfcg
   use mem_land,   only: nzg
-  use leaf_coms,  only: nzs
   use misc_coms,  only: iparallel
   use mem_para,   only: myrank, mgroupsize, nbytes_int, nbytes_real
 
@@ -1022,8 +1031,6 @@ subroutine tileslab_horiz_wsfc(iplt,action)
 
   if (trim(op%dimens) == '3G') then
      k = min(nzg,max(1,nint(op%slabloc(iplt))))
-  elseif (trim(op%dimens) == '3S') then
-     k = min(nzs,max(1,nint(op%slabloc(iplt))))
   else
      k = 1
   endif
@@ -1039,7 +1046,8 @@ subroutine tileslab_horiz_wsfc(iplt,action)
 
      ! Get tile plot coordinates.
 
-     call oplot_transform(iplt,sfcg%xew(iwsfc),sfcg%yew(iwsfc),sfcg%zew(iwsfc),hpt,vpt)
+     call oplot_transform(iplt, sfcg%xew(iwsfc), sfcg%yew(iwsfc), sfcg%zew(iwsfc), &
+                          sfcg%glonw(iwsfc), sfcg%glatw(iwsfc), hpt, vpt)
 
      ! Initialize iflag180
 
@@ -1049,7 +1057,7 @@ subroutine tileslab_horiz_wsfc(iplt,action)
         imsfc = itab_wsfc(iwsfc)%imn(j)
 
         call oplot_transform(iplt, sfcg%xem(imsfc), sfcg%yem(imsfc), sfcg%zem(imsfc), &
-                             htpn(j), vtpn(j))
+                             sfcg%glonm(imsfc), sfcg%glatm(imsfc), htpn(j), vtpn(j))
 
         ! Avoid wrap-around for lat-lon plot and set iflag180
 
@@ -1262,7 +1270,8 @@ subroutine tileslab_horiz_vsfc(iplt,action)
 
      ! Get tile plot coordinates.
 
-     call oplot_transform(iplt,sfcg%xev(ivsfc),sfcg%yev(ivsfc),sfcg%zev(ivsfc),hpt,vpt)
+     ! sfcg%glonv, sfcg%glatv is not available
+     call oplot_transform_xyz(iplt,sfcg%xev(ivsfc),sfcg%yev(ivsfc),sfcg%zev(ivsfc),hpt,vpt)
 
      im1 = itab_vsfc(ivsfc)%imn(1)
      im2 = itab_vsfc(ivsfc)%imn(2)
@@ -1274,28 +1283,32 @@ subroutine tileslab_horiz_vsfc(iplt,action)
      iflag180 = 0
 
      if (im1 > 1) then
-        call oplot_transform(iplt,sfcg%xem(im1),sfcg%yem(im1),sfcg%zem(im1),htpn(1),vtpn(1))
+        call oplot_transform(iplt,sfcg%xem(im1),sfcg%yem(im1),sfcg%zem(im1), &
+                             sfcg%glonm(im1),sfcg%glatm(im1),htpn(1),vtpn(1))
      else
         htpn(1) = hpt
         vtpn(1) = vpt
      endif
 
      if (im2 > 1) then
-        call oplot_transform(iplt,sfcg%xem(im2),sfcg%yem(im2),sfcg%zem(im2),htpn(3),vtpn(3))
+        call oplot_transform(iplt,sfcg%xem(im2),sfcg%yem(im2),sfcg%zem(im2), &
+                             sfcg%glonm(im2),sfcg%glatm(im2),htpn(3),vtpn(3))
      else
         htpn(3) = hpt
         vtpn(3) = vpt
      endif
 
      if (iw2 > 1) then
-        call oplot_transform(iplt,sfcg%xew(iw2),sfcg%yew(iw2),sfcg%zew(iw2),htpn(2),vtpn(2))
+        call oplot_transform(iplt,sfcg%xew(iw2),sfcg%yew(iw2),sfcg%zew(iw2), &
+                             sfcg%glonw(iw2),sfcg%glatw(iw2),htpn(2),vtpn(2))
      else
         htpn(2) = htpn(3)
         vtpn(2) = vtpn(3)
      endif
 
      if (iw1 > 1) then
-        call oplot_transform(iplt,sfcg%xew(iw1),sfcg%yew(iw1),sfcg%zew(iw1),htpn(4),vtpn(4))
+        call oplot_transform(iplt,sfcg%xew(iw1),sfcg%yew(iw1),sfcg%zew(iw1), &
+                             sfcg%glonw(iw1),sfcg%glatw(iw1),htpn(4),vtpn(4))
      else
         htpn(4) = htpn(3)
         vtpn(4) = vtpn(3)
@@ -1507,7 +1520,8 @@ subroutine tileslab_horiz_msfc(iplt,action)
 
      ! Get tile plot coordinates.
 
-     call oplot_transform(iplt,sfcg%xem(imsfc),sfcg%yem(imsfc),sfcg%zem(imsfc),hpt,vpt)
+     call oplot_transform(iplt, sfcg%xem(imsfc), sfcg%yem(imsfc), sfcg%zem(imsfc), &
+                          sfcg%glonm(imsfc), sfcg%glatm(imsfc), hpt, vpt)
 
      ! Initialize iflag180
 
@@ -1517,7 +1531,7 @@ subroutine tileslab_horiz_msfc(iplt,action)
         iwsfc = itab_msfc(imsfc)%iwn(j)
 
         call oplot_transform(iplt, sfcg%xew(iwsfc), sfcg%yew(iwsfc), sfcg%zew(iwsfc), &
-                             htpn(j), vtpn(j))
+                             sfcg%glonw(iwsfc), sfcg%glatw(iwsfc), htpn(j), vtpn(j))
 
         ! Avoid wrap-around for lat-lon plot and set iflag180
 
@@ -2103,7 +2117,6 @@ end subroutine tileslab_vert_v
 !!subroutine tileslab_vert_l(iplt,action)
 !!
 !!use oplot_coms, only: op
-!!use leaf_coms,  only: nzs
 !!use mem_land,   only: mland, land, nzg
 !!use misc_coms,  only: io6
 !!
@@ -2155,16 +2168,16 @@ end subroutine tileslab_vert_v
 !!
 !!!   hpt = .5 * (htpn(1) + htpn(2))
 !!
-!!   botk = - real(nzg+nzs+4)   ! level of bottom of bottom soil layer (negative)
+!!   botk = - real(nzg+5)   ! level of bottom of bottom soil layer (negative)
 !!   delzk = op%ymin / botk  ! This is a positive number
 !!
 !!   do k = 1,nzg  ! Loop over soil layers
 !!
 !!! Get vertical coordinates for soil layers
 !!
-!!      vtpn(1) = delzk * (float(k-1) + botk)
+!!      vtpn(1) = delzk * (real(k-1) + botk)
 !!      vtpn(2) = vtpn(1)
-!!      vtpn(3) = delzk * (float(k)   + botk)
+!!      vtpn(3) = delzk * (real(k)   + botk)
 !!      vtpn(4) = vtpn(3)
 !!      vpt = .5 * (vtpn(1) + vtpn(3))
 !!
@@ -2184,27 +2197,26 @@ end subroutine tileslab_vert_v
 !!
 !!   enddo
 !!
-!!   do k = 1,nzs  ! Loop over sfcwater layers
 !!
-!!! check for existence of sfcwater in current level k
+!!! check for existence of sfcwater
 !!
-!!      call oplot_lib(k,ip,'VALUE','SFCWATER_MASS',wtbot,wttop, &
+!!      call oplot_lib(1,ip,'VALUE','SFCWATER_MASS',wtbot,wttop, &
 !!                     fldval,notavail)
 !!
 !!      if (fldval > 0.) then
 !!
-!!! Get vertical coordinates for sfcwater layer k
+!!! Get vertical coordinates for sfcwater
 !!
-!!         vtpn(1) = delzk * (float(nzg+k-1) + .5 + botk)
+!!         vtpn(1) = delzk * (real(nzg) + .5 + botk)
 !!         vtpn(2) = vtpn(1)
-!!         vtpn(3) = delzk * (float(nzg+k)   + .5 + botk)
+!!         vtpn(3) = delzk * (real(nzg+1)   + .5 + botk)
 !!         vtpn(4) = vtpn(3)
 !!         vpt = .5 * (vtpn(1) + vtpn(3))
 !!
-!!! plot sfcwater layer k
+!!! plot sfcwater
 !!
 !!         op%stagpt = 'LW'  ! Get sfcwater value
-!!         call oplot_lib(k,ip,'VALUE',op%fldname(iplt),wtbot,wttop, &
+!!         call oplot_lib(1,ip,'VALUE',op%fldname(iplt),wtbot,wttop, &
 !!                        fldval,notavail)
 !!         call celltile(iplt,4,htpn,vtpn,hpt,vpt,fldval,action)  ! Checks 'TILE'
 !!
@@ -2217,13 +2229,12 @@ end subroutine tileslab_vert_v
 !!
 !!      endif
 !!
-!!   enddo
 !!
 !!! plot vegetation layer
 !!
-!!   vtpn(1) = delzk * (float(nzg+nzs) + 1. + botk)
+!!   vtpn(1) = delzk * (real(nzg+1) + 1. + botk)
 !!   vtpn(2) = vtpn(1)
-!!   vtpn(3) = delzk * (float(nzg+nzs+1) + 1. + botk)
+!!   vtpn(3) = delzk * (real(nzg+2) + 1. + botk)
 !!   vtpn(4) = vtpn(3)
 !!   vpt = .5 * (vtpn(1) + vtpn(3))
 !!
@@ -2241,9 +2252,9 @@ end subroutine tileslab_vert_v
 !!
 !!! plot canopy air layer
 !!
-!!   vtpn(1) = delzk * (float(nzg+nzs+1) + 1.5 + botk)
+!!   vtpn(1) = delzk * (real(nzg+2) + 1.5 + botk)
 !!   vtpn(2) = vtpn(1)
-!!   vtpn(3) = delzk * (float(nzg+nzs+2) + 1.5 + botk)
+!!   vtpn(3) = delzk * (real(nzg+3) + 1.5 + botk)
 !!   vtpn(4) = vtpn(3)
 !!   vpt = .5 * (vtpn(1) + vtpn(3))
 !!
@@ -2269,7 +2280,6 @@ end subroutine tileslab_vert_v
 !!subroutine tileslab_vert_s(iplt,action)
 !!
 !!use oplot_coms, only: op
-!!use leaf_coms,  only: nzs
 !!use mem_land,   only: nzg
 !!use mem_sea,    only: msea, sea
 !!use misc_coms,  only: io6
@@ -2309,14 +2319,14 @@ end subroutine tileslab_vert_v
 !!   call oplot_lib(0,ip,'VALUE',op%fldname(iplt),wtbot,wttop, &
 !!                  fldval,notavail)
 !!
-!!   botk = - real(nzg+nzs+4)   ! level of bottom of bottom soil layer (negative)
+!!   botk = - real(nzg+5)   ! level of bottom of bottom soil layer (negative)
 !!   delzk = op%ymin / botk  ! This is a positive number
 !!
 !!! plot (top) sea layer
 !!
-!!   vtpn(1) = delzk * (float(nzg-1) + botk)
+!!   vtpn(1) = delzk * (real(nzg-1) + botk)
 !!   vtpn(2) = vtpn(1)
-!!   vtpn(3) = delzk * (float(nzg) + botk)
+!!   vtpn(3) = delzk * (real(nzg) + botk)
 !!   vtpn(4) = vtpn(3)
 !!   vpt = .5 * (vtpn(1) + vtpn(3))
 !!
@@ -2334,9 +2344,9 @@ end subroutine tileslab_vert_v
 !!
 !!! plot canopy air layer
 !!
-!!   vtpn(1) = delzk * (float(nzg+nzs+1) + 1.5 + botk)
+!!   vtpn(1) = delzk * (real(nzg+2) + 1.5 + botk)
 !!   vtpn(2) = vtpn(1)
-!!   vtpn(3) = delzk * (float(nzg+nzs+2) + 1.5 + botk)
+!!   vtpn(3) = delzk * (real(nzg+3) + 1.5 + botk)
 !!   vtpn(4) = vtpn(3)
 !!   vpt = .5 * (vtpn(1) + vtpn(3))
 !!

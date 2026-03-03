@@ -284,18 +284,18 @@ CONTAINS
 !--- Tracer concentration in updraft for shallow clouds. Includes aqueous chem
 !    and Aitken scavenging but no rainout/washout
 !
-       call cup_up_tracer_shal(k22,dz_cup,cd,zu,facu1,facu2,tr_cup,tr,tc, &
-                               fracliq,wtbar,wcbar,frac_act,kbcon,ktop,qrc, &
-                               dens,po,to,ierr,dark,ktf,nt,iw)
+       call cup_up_shal_aq(k22,dz_cup,cd,zu,facu1,facu2,tr_cup,tr,tc, &
+                                  fracliq,wtbar,wcbar,frac_act,kbcon,ktop,qrc, &
+                                  dens,po,to,ierr,dark,ktf,nt,iw)
 
     else
 !
 !--- Tracer concentration in updraft for shallow clouds. Includes aqueous chem,
 !    Aitken scavenging, and rainout
 !
-       call cup_up_tracer(k22,dz_cup,cd,zu,facu1,facu2,tr_cup,tr,tc,fracliq, &
-                          wtbar,wcbar,frac_act,hp_rain,kbcon,ktop,qrc,pw, &
-                          tr_pw,dens,po,to,ierr,dark,ktf,nt,iw)
+       call cup_up_aq(k22,dz_cup,cd,zu,facu1,facu2,tr_cup,tr,tc,fracliq, &
+                             wtbar,wcbar,frac_act,hp_rain,kbcon,ktop,qrc,pw, &
+                             tr_pw,dens,po,to,ierr,dark,ktf,nt,iw)
 !
 !--- Precipatation washout above level of downdraft
 !
@@ -337,20 +337,20 @@ CONTAINS
 !
 !--- Tracer concentration in downdraft. Includes evaporation and washout effects
 !
-       call cup_dd_tracer(tcd,dz_cup,facd1,facd2,to,dens,po,cdd,entr_rate,jmin, &
+       call cup_dd_aq(tcd,dz_cup,facd1,facd2,to,dens,po,cdd,entr_rate,jmin, &
                           kbcon,ierr,tr,tr_cup,tr_pw,zd,pwd,pcpflx,tr_flx, &
                           frac_act,fracliq,wcbar,hp_rain,nt,ktf)
 !
 !--- Compute tendencies with downdrafts
 !
-       call cup_dellas_tr(ierr,dz_cup,dtr,zu,tr,tr_cup,tc,dens, &
+       call cup_dellas_aq(ierr,dz_cup,dtr,zu,tr,tr_cup,tc,dens, &
                            ktop,k22,cd,en,tcd,zd,cdd,etd,jmin,nt,ktf)
 
    else
 !
 !--- Compute tendencies without downdrafts
 !
-      call cup_dellas_tr_nodd(ierr,dz_cup,dtr,zu,tr,tr_cup,tc,dens, &
+      call cup_dellas_aq_nodd(ierr,dz_cup,dtr,zu,tr,tr_cup,tc,dens, &
                               ktop,k22,cd,en,nt,ktf)
       tr_flx = 0.0
 
@@ -394,9 +394,9 @@ CONTAINS
 
 
 
-   SUBROUTINE cup_up_tracer(k22,dz_cup,cd,zu,fact1,fact2,tr_cup,tr,tc,fracliq, &
-                            wtbar,wcbar,frac_act,hp_rain,kbcon,ktop,qrc,pw, &
-                            tr_pw,dens,po,to,ierr,dark,ktf,nt,iw)
+   SUBROUTINE cup_up_aq(k22,dz_cup,cd,zu,fact1,fact2,tr_cup,tr,tc,fracliq, &
+                        wtbar,wcbar,frac_act,hp_rain,kbcon,ktop,qrc,pw, &
+                        tr_pw,dens,po,to,ierr,dark,ktf,nt,iw)
 
      use consts_coms, only: rdry
      use const_data,  only: inv_mwairkg
@@ -536,11 +536,11 @@ CONTAINS
 
      hp_rain = hp_rain / max(1.e-30, sum(pw(kbcon+1:ktop+1)))
 
-   END SUBROUTINE cup_up_tracer
+   END SUBROUTINE cup_up_aq
 
 
 
-   SUBROUTINE cup_up_tracer_shal(k22,dz_cup,cd,zu,fact1,fact2,tr_cup,tr,tc,fracliq, &
+   SUBROUTINE cup_up_shal_aq(k22,dz_cup,cd,zu,fact1,fact2,tr_cup,tr,tc,fracliq, &
               wtbar,wcbar,frac_act,kbcon,ktop,qrc,dens,po,to,ierr,dark,ktf,nt,iw)
 
      use consts_coms, only: rdry
@@ -640,7 +640,7 @@ CONTAINS
 
      enddo
 
-   END SUBROUTINE cup_up_tracer_shal
+   END SUBROUTINE cup_up_shal_aq
 
 
 
@@ -666,7 +666,7 @@ CONTAINS
 
 
 
-   SUBROUTINE cup_dellas_tr(ierr,dz_cup,della,zu,tr,tr_cup,tc,dens,  &
+   SUBROUTINE cup_dellas_aq(ierr,dz_cup,della,zu,tr,tr_cup,tc,dens,  &
                             ktop,k22,cd,en,tcd,zd,cdd,etd,jmin,ntr,ktf)
 
      implicit none
@@ -742,10 +742,10 @@ CONTAINS
 
      enddo
 
-   END SUBROUTINE cup_dellas_tr
+   END SUBROUTINE cup_dellas_aq
 
 
-   SUBROUTINE cup_dellas_tr_nodd(ierr,dz_cup,della,zu,tr,tr_cup,tc,dens,  &
+   SUBROUTINE cup_dellas_aq_nodd(ierr,dz_cup,della,zu,tr,tr_cup,tc,dens,  &
                                  ktop,k22,cd,en,ntr,ktf)
 
      implicit none
@@ -805,11 +805,11 @@ CONTAINS
         enddo
      enddo
 
-   END SUBROUTINE cup_dellas_tr_nodd
+   END SUBROUTINE cup_dellas_aq_nodd
 
 
 
-   SUBROUTINE cup_dd_tracer( tcd,dz_cup,fact1,fact2,to,dens,po,cdd,entr,jmin, &
+   SUBROUTINE cup_dd_aq( tcd,dz_cup,fact1,fact2,to,dens,po,cdd,entr,jmin, &
                              kbcon,ierr,tr,tr_cup,tr_pw,zd,pwd,pcpflx,tr_flx, &
                              f_act,f_liq,wcbar,hplus,ntr,ktf )
 
@@ -951,7 +951,7 @@ CONTAINS
 
      enddo
 
-   END SUBROUTINE cup_dd_tracer
+   END SUBROUTINE cup_dd_aq
 
 
 end MODULE module_cu_g3_aq

@@ -1,10 +1,13 @@
 Module mem_regrid
 
+  use ll_bins, only: itab_grid_vars
   implicit none
 
   integer :: nzp_og
   integer :: mdomain_og
   integer :: ndz_og
+  integer :: mrls_og
+  integer :: nxp_og
 
   real, allocatable :: hdz_og(:)
   real, allocatable :: dz_og(:)
@@ -22,8 +25,7 @@ Module mem_regrid
   real, allocatable :: yew_og(:) ! (nwa_og)
   real, allocatable :: zew_og(:) ! (nwa_og)
 
-  real, allocatable :: glatw_og(:) ! (nwa_og)
-  real, allocatable :: glonw_og(:) ! (nwa_og)
+  integer, allocatable :: iwn_og(:,:) ! itab_w(:)%iw(:)
 
   Type itab_wadd_vars         ! data structure for WADD pts (individual rank)
      integer :: iw_og(3) = 1  ! intrp pts
@@ -31,33 +33,41 @@ Module mem_regrid
   End Type itab_wadd_vars
 
   type (itab_wadd_vars), allocatable, target :: itab_wadd(:)  ! (dimension mwa)
+  type (itab_grid_vars), allocatable         :: itab_wog (:)
+
+  private :: itab_grid_vars
 
 Contains
 
 !==============================================================================
 
-  subroutine init_regrid()
+subroutine init_regrid()
 
   use misc_coms,  only: io6
   use mem_grid,   only: mwa, xew, yew, zew, glatw, glonw
-  use ll_bins,    only: latlon_bins, delat, bset, itab_w0
+  use ll_bins,    only: latlon_bins, gridcells_from_latlon_bins, binset_vars
+  use map_proj,   only: ec_ps
 
   implicit none
 
   real :: scalprod, vecprodz, vecprodz_maxneg, vecprodz_minpos
   real :: b11,b21,b31,b12,b22,b32,b13,b23,b33
-  real :: dist, dist_min, hlatw, hlonw, xi, yi
+  real :: dist, dist_min, hlatw, hlonw, xi, yi, res
   real :: xin(7),yin(7)
 
-  integer :: iw, jw_og, iw_og, iwn_og, npoly, jmaxneg, jminpos
+  integer :: iw, jw_og, iw_og, iwnog, npoly, jmaxneg, jminpos
   integer :: iset, i, j
-  integer :: nwbin
-  integer, allocatable :: iwbin(:)
+  type(binset_vars) :: bset
+
+  integer, pointer             :: nwbin
+  integer, pointer, contiguous :: iwbin(:)
 
   ! Allocate and fill latlon bins at different resolutions to compartmentalize
   ! all IW points of the OLD ATM grid
 
-  call latlon_bins(nwa_og, glatw_og, glonw_og)
+  res = 7150.e3 / real( nxp_og * 2**(mrls_og-1) ) * 10.
+
+  call latlon_bins(nwa_og, res, itab_wog, bset)
 
   ! Allocate data structure that contains interpolation indices and weights
 
@@ -74,32 +84,29 @@ Contains
      hlonw = max(-179.9999,min(179.9999,glonw(iw)))
      hlatw = max( -89.9999,min( 89.9999,glatw(iw)))
 
-     do iset = 1,4
-        j = int(delat(iset) * (hlatw +  90.)) + 1
-        i = int(bset(iset)%blat(j)%delon * (hlonw + 180.)) + 1
+     call gridcells_from_latlon_bins( hlatw, hlonw, bset, nwbin, iwbin )
 
-        ! Check if bins are allocated, starting with smallest
+     ! j = int(delat(iset) * (hlatw +  90.)) + 1
+     ! i = int(bset_og(iset)%blat(j)%delon * (hlonw + 180.)) + 1
 
-        if (allocated(bset(iset)%blat(j)%bins(i)%iw)) then
-           nwbin = bset(iset)%blat(j)%bins(i)%nw
-           allocate(iwbin(nwbin))
-           iwbin(:) = bset(iset)%blat(j)%bins(i)%iw(:)
-           go to 10
-        endif
-     enddo  ! iset
+     !   ! Check if bins are allocated, starting with smallest
+     !   if (allocated(bset_og(iset)%blat(j)%bins(i)%iw)) then
+     !      nwbin = bset_og(iset)%blat(j)%bins(i)%nw
+     !      allocate(iwbin(nwbin))
+     !      iwbin(:) = bset_og(iset)%blat(j)%bins(i)%iw(:)
+     !      exit
+     !   endif
 
      ! If iset loop has not branched to statement 10, search over all IW points
+     !
+     !print*, 'No allocated ATM bin found for iw = ', iw, hlatw, hlonw
+     !print*, 'Conducting search over all IW points '
 
-     print*, 'No allocated ATM bin found for iw = ', iw, hlatw, hlonw
-     print*, 'Conducting search over all IW points '
-
-     nwbin = nwa_og - 1
-     allocate(iwbin(nwbin))
-     do iw_og = 2,nwa_og
-        iwbin(iw_og-1) = iw_og
-     enddo
-
-     10 continue
+     !nwbin = nwa_og - 1
+     !allocate(iwbin(nwbin))
+     !do iw_og = 2,nwa_og
+     !   iwbin(iw_og-1) = iw_og
+     !enddo
 
      ! Loop over all OLD GRID IW points in bin
 
@@ -129,8 +136,8 @@ Contains
 
      iw_og = itab_wadd(iw)%iw_og(1)
 
-     call e_ps(xew_og(iw_og),yew_og(iw_og),zew_og(iw_og), &
-               glatw(iw),glonw(iw),xi,yi)
+     call ec_ps(xew_og(iw_og),yew_og(iw_og),zew_og(iw_og), &
+                glatw(iw),glonw(iw),xi,yi)
 
      ! Initialize vecprodz_minpos and vecprodz_maxneg
 
@@ -139,19 +146,19 @@ Contains
 
      ! Loop through nearest polygon neighbors (j, iwn_og) of OLD grid point IW_og
 
-     npoly = itab_w0(iw_og)%npoly
+     npoly = itab_wog(iw_og)%np
 
      do j = 1,npoly
 
         ! Get nudging point index (iwnudn) for current polygon neighbor of iwnud.
 
-        iwn_og = itab_w0(iw_og)%iw(j)
+        iwnog = iwn_og(j,iw_og)
 
         ! Compute x,y components of iwn_og polygon center on a polar stereographic
         ! plane tangent at IW point
 
-        call e_ps(xew_og(iwn_og),yew_og(iwn_og),zew_og(iwn_og), &
-                  glatw(iw),glonw(iw),xin(j),yin(j))
+        call ec_ps(xew_og(iwnog),yew_og(iwnog),zew_og(iwnog), &
+                   glatw(iw),glonw(iw),xin(j),yin(j))
 
         ! Compute z component (in polar stereographic space) of vector product of
         ! the vector from iwnud to iw (at 0,0) and the vector from iwnud to iwnudn.
@@ -174,7 +181,7 @@ Contains
            if (vecprodz < 0. .and. vecprodz > vecprodz_maxneg) then
               vecprodz_maxneg = vecprodz
               jmaxneg = j
-              itab_wadd(iw)%iw_og(2) = iwn_og
+              itab_wadd(iw)%iw_og(2) = iwnog
            endif
 
            ! Identify minimum positive vecprodz among all iwn_og polygon neighbors of
@@ -183,7 +190,7 @@ Contains
            if (vecprodz >= 0. .and. vecprodz < vecprodz_minpos) then
               vecprodz_minpos = vecprodz
               jminpos = j
-              itab_wadd(iw)%iw_og(3) = iwn_og
+              itab_wadd(iw)%iw_og(3) = iwnog
            endif
         endif
 
@@ -207,15 +214,13 @@ Contains
 
   enddo
 
-  deallocate(itab_w0)
-
-  end subroutine init_regrid
+end subroutine init_regrid
 
 !=========================================================================
 
-  subroutine interp_regrid(ndims, idims, jdims, varn, stagpt, &
-                            ivara1,rvara1,rvara2,dvara1,dvara2, &
-                            ivarb1,rvarb1,rvarb2,dvarb1,dvarb2  )
+subroutine interp_regrid(ndims, idims, jdims, varn, stagpt,  &
+                         ivara1,rvara1,rvara2,dvara1,dvara2, &
+                         ivarb1,rvarb1,rvarb2,dvarb1,dvarb2  )
 
   use mem_grid,    only: mwa, zt, lpw
   use consts_coms, only: r8
@@ -307,6 +312,31 @@ Contains
 
   enddo
 
-  end subroutine interp_regrid
+end subroutine interp_regrid
+
+!==============================================================================
+
+subroutine close_regrid()
+
+  implicit none
+
+  if ( allocated(lpw_og) ) deallocate(lpw_og)
+
+  if ( allocated(wnx_og) ) deallocate( wnx_og )
+  if ( allocated(wny_og) ) deallocate( wny_og )
+  if ( allocated(wnz_og) ) deallocate( wnz_og )
+
+  if ( allocated(xew_og) ) deallocate( xew_og )
+  if ( allocated(yew_og) ) deallocate( yew_og )
+  if ( allocated(zew_og) ) deallocate( zew_og )
+
+  if ( allocated(itab_wog)  ) deallocate( itab_wog  )
+  if ( allocated(itab_wadd) ) deallocate( itab_wadd )
+
+  if ( allocated(iwn_og) ) deallocate( iwn_og )
+
+end subroutine close_regrid
+
+!==============================================================================
 
 End Module mem_regrid

@@ -5,7 +5,7 @@ subroutine lake_init_atm()
   use misc_coms,   only: iparallel, runtype
   use mem_sfcg,    only: itab_wsfc, sfcg
   use mem_para,    only: myrank
-  use consts_coms, only: t00, cliq, alli, p00i, grav, rocp
+  use consts_coms, only: t00, cliq, alli, grav
   use therm_lib,   only: rhovsl, rhovsil
 
   implicit none
@@ -47,7 +47,7 @@ subroutine lake_init_atm()
 
      ! Apply initial atmospheric properties to lake "canopy"
 
-     sfcg%cantemp(iwsfc) = sfcg%airtheta(iwsfc) * (sfcg%prss(iwsfc) * p00i)**rocp
+     sfcg%cantemp(iwsfc) = sfcg%airtheta(iwsfc) * sfcg%canexner(iwsfc)
      sfcg%canrrv (iwsfc) = sfcg%airrrv(iwsfc)
      sfcg%ustar  (iwsfc) = 0.1
      sfcg%ggaer  (iwsfc) = 0.0
@@ -57,7 +57,6 @@ subroutine lake_init_atm()
 
      laketemp                 = sfcg%cantemp(iwsfc)
      lake%lake_energy (ilake) = (laketemp - t00) * cliq + alli
-     lake%surface_srrv(ilake) = rhovsl(laketemp - t00) / sfcg%rhos(iwsfc)
      sfcg%rough       (iwsfc) = .001
      sfcg%ustar       (iwsfc) = 0.1
      sfcg%ggaer       (iwsfc) = 0.0

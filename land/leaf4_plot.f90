@@ -2,7 +2,7 @@ Module leaf4_plot
 
 Contains
 
- subroutine leaf_plot(iland,            nlev_sfcwater,   &
+ subroutine leaf_plot(iland,                             &
                       linit,                             &
                       lframe,                            &
                       leaf_class,       ktrans,          &
@@ -10,21 +10,20 @@ Contains
                       soil_rfactor,     soil_tempk,      &
                       soil_fracliq,     hxferg,          &
                       wxfer,            qwxfer,          &
-                      psi_matric,                        &
+                      psi_matric,       skncomp,         &
                       sfcwater_mass,    sfcwater_energy, &
-                      energy_per_m2,                     &
+                      sfcwater_epm2,                     &
                       sfcwater_depth,   sfcwater_tempk,  &
-                      sfcwater_fracliq, rshort_s,        &
-                      rshort_v,         rshort_g,        &
-                      rshort,           rlong_v,         &
-                      rlong_s,          rlong_g,         &
+                      sfcwater_fracliq, rshort,          &
+                      rshort_s,         rshort_v,        &
+                      rlong_s,          rlong_v,         &
                       veg_height,       veg_rough,       &
                       veg_tai,          veg_lai,         &
                       hcapveg,          can_depth,       &
                       rhos,             vels,            &
                       prss,             pcpg,            &
                       qpcpg,            dpcpg,           &
-                      sxfer_t,          sxfer_r,         &
+                      sfluxt,           sfluxr,          &
                       ustar,            snowfac,         &
                       vf,               surface_srrv,    &
                       ground_rrv,       veg_water,       &
@@ -40,8 +39,8 @@ Contains
                       head0,            head1,           &
                       dheight,          energyin         )
 
-use leaf_coms,   only: nzs
-use mem_land,    only: land, nzg, slz, dslz
+use leaf_coms,   only: dt_leaf, wcap_min
+use mem_land,    only: land, nzg, nzs_max, slz, dslz
 use consts_coms, only: cp
 use oplot_coms,  only: op
 use misc_coms,   only: runtype, time8
@@ -50,39 +49,38 @@ use mem_para,    only: myrank
 implicit none
 
 integer, intent(in) :: iland              ! current land cell index
-integer, intent(in) :: nlev_sfcwater      ! # active levels of surface water
 
 integer, optional, intent(in) :: linit  ! flag to initialize frame
 integer, optional, intent(in) :: lframe ! flag to complete current frame
 
 integer, optional, intent(in) :: leaf_class         ! leaf ("vegetation") class
 integer, optional, intent(in) :: ktrans             ! k index of soil layer supplying transp
+integer, optional, intent(in) :: skncomp            ! skinlayer composition type
 
+real, optional, intent(in) :: transp                ! transpiration xfer this LEAF timestep [kg/m^2]
 real, optional, intent(in) :: soil_water      (nzg) ! soil water content [vol_water/vol_tot]
 real, optional, intent(in) :: soil_rfactor    (nzg) ! soil thermal resistivity [K m^2/W]
 real, optional, intent(in) :: soil_energy     (nzg) ! soil energy [J/m^3]
 real, optional, intent(in) :: soil_tempk      (nzg) ! soil temperature [K]
 real, optional, intent(in) :: soil_fracliq    (nzg) ! fraction of soil moisture in liquid phase
-real, optional, intent(in) :: hxferg        (nzg+1) ! heat xfer between soil layers [J/m^2]
-real, optional, intent(in) :: wxfer         (nzg+1) ! soil water xfer [m]
-real, optional, intent(in) :: qwxfer        (nzg+1) ! soil energy xfer from water xfer [J/m^2]
+real, optional, intent(in) :: hxferg          (nzg) ! heat xfer between soil layers [J/m^2]
+real, optional, intent(in) :: wxfer           (nzg) ! soil water xfer [m]
+real, optional, intent(in) :: qwxfer          (nzg) ! soil energy xfer from water xfer [J/m^2]
 real, optional, intent(in) :: psi_matric      (nzg) ! matric potential [m]
 real, optional, intent(in) :: dheight         (nzg) ! change in water height from lateral fluxes [m]
 real, optional, intent(in) :: energyin        (nzg) ! change in energy from lateral water fluxes [J/m^2]
 real, optional, intent(in) :: head            (nzg) ! soil total hydraulic head [m]
-real, optional, intent(in) :: sfcwater_mass   (nzs) ! surface water mass [kg/m^2]
-real, optional, intent(in) :: sfcwater_energy (nzs) ! surface water energy [J/kg]
-real, optional, intent(in) :: energy_per_m2   (nzs) ! surface water energy [J/m^2]
-real, optional, intent(in) :: sfcwater_depth  (nzs) ! surface water depth [m]
-real, optional, intent(in) :: sfcwater_tempk  (nzs) ! surface water temperature [K]
-real, optional, intent(in) :: sfcwater_fracliq(nzs) ! fraction of sfc water in liquid phase(nzs)
-real, optional, intent(in) :: rshort_s        (nzs) ! l/w net rad flux to sfc water [W/m^2]
-real, optional, intent(in) :: rshort_v     ! s/w net rad flux to veg [W/m^2]
-real, optional, intent(in) :: rshort_g     ! s/w net rad flux to soil [W/m^2]
+real, optional, intent(in) :: sfcwater_mass   (nzs_max) ! surface water mass [kg/m^2]
+real, optional, intent(in) :: sfcwater_energy (nzs_max) ! surface water energy [J/kg]
+real, optional, intent(in) :: sfcwater_epm2   (nzs_max) ! surface water energy [J/m^2]
+real, optional, intent(in) :: sfcwater_depth  (nzs_max) ! surface water depth [m]
+real, optional, intent(in) :: sfcwater_tempk  (nzs_max) ! surface water temperature [K]
+real, optional, intent(in) :: sfcwater_fracliq(nzs_max) ! fraction of sfc water in liquid phase(nzs)
 real, optional, intent(in) :: rshort       ! s/w incident sfc rad flux [W/m^2]
+real, optional, intent(in) :: rshort_s     ! l/w net rad flux to surface [W/m^2]
+real, optional, intent(in) :: rshort_v     ! s/w net rad flux to veg [W/m^2]
+real, optional, intent(in) :: rlong_s      ! l/w net rad flux to surface [W/m^2]
 real, optional, intent(in) :: rlong_v      ! l/w net rad flux to veg [W/m^2]
-real, optional, intent(in) :: rlong_s      ! l/w net rad flux to sfc water [W/m^2]
-real, optional, intent(in) :: rlong_g      ! l/w net rad flux to soil [W/m^2]
 real, optional, intent(in) :: veg_height   ! veg height [m]
 real, optional, intent(in) :: veg_rough    ! veg roughness height [m]
 real, optional, intent(in) :: veg_tai      ! veg total area index
@@ -95,8 +93,8 @@ real, optional, intent(in) :: prss         ! pressure [Pa]
 real, optional, intent(in) :: pcpg         ! new precip amount this leaf timestep [kg/m^2]
 real, optional, intent(in) :: qpcpg        ! new precip energy this leaf timestep [J/m^2]
 real, optional, intent(in) :: dpcpg        ! new precip depth this leaf timestep [m]
-real, optional, intent(in) :: sxfer_t      ! can-to-atm heat xfer this step [kg_air K/m^2]
-real, optional, intent(in) :: sxfer_r      ! can-to-atm vapor xfer this step [kg_vap/m^2]
+real, optional, intent(in) :: sfluxt       ! can-to-atm heat flux [W m^-2]
+real, optional, intent(in) :: sfluxr       ! can-to-atm vapor flux [kg_vap m^-2 s^-1]
 real, optional, intent(in) :: ustar        ! friction velocity [m/s]
 real, optional, intent(in) :: snowfac      ! fractional veg burial by snowcover
 real, optional, intent(in) :: vf           ! fractional coverage of non-buried part of veg
@@ -108,7 +106,6 @@ real, optional, intent(in) :: cantemp      ! canopy air temperature [K]
 real, optional, intent(in) :: canrrv       ! canopy air vapor spec hum [kg/kg]
 real, optional, intent(in) :: wshed        ! water shed from veg this timestep [kg/m^2]
 real, optional, intent(in) :: qshed        ! water energy shed from veg this timestep [J/m^2]
-real, optional, intent(in) :: transp       ! transpiration xfer this LEAF timestep [kg/m^2]
 real, optional, intent(in) :: stom_resist  ! veg stomatal resistance [s/m]
 real, optional, intent(in) :: hxfergc      ! heat xfer from soil to can_air this step [J/m^2]
 real, optional, intent(in) :: wxfergc      ! vap xfer from soil to can_air this step [kg_vap/m^2]
@@ -203,7 +200,7 @@ yk3 = .5 * (yk1 + yk5)
 yk2 = .5 * (yk1 + yk3)
 yk4 = .5 * (yk3 + yk5)
 
-dy_ss = (ys2 - y1) / real(nzg+nzs)
+dy_ss = (ys2 - y1) / real(nzg+nzs_max)
 yg2 = y1 + real(nzg) * dy_ss
 
 ! Check if this frame is being initialized
@@ -276,7 +273,7 @@ if (present(linit)) then
 
 ! Fill snowcover background color
 
-   if (nlev_sfcwater > 0) then
+   if (sfcwater_mass(1) >= wcap_min) then
 
       xtpn(1) = x1
       xtpn(2) = x2
@@ -285,8 +282,8 @@ if (present(linit)) then
 
       ytpn(1) = yg2
       ytpn(2) = yg2
-      ytpn(3) = yg2 + real(nlev_sfcwater) * dy_ss
-      ytpn(4) = yg2 + real(nlev_sfcwater) * dy_ss
+      ytpn(3) = yg2 + real(nzs_max) * dy_ss
+      ytpn(4) = yg2 + real(nzs_max) * dy_ss
 
       call o_sfsgfa (xtpn,ytpn,4,141)
 
@@ -353,7 +350,7 @@ if (present(linit)) then
 
 ! Soil and snowcover layers
 
-   do k = 1,nzg+nlev_sfcwater+1
+   do k = 1,nzg+nzs_max+1
       ybot = y1 + real(k-1) * dy_ss
 
       call o_frstpt(x1,ybot)
@@ -420,10 +417,8 @@ endif
 if (present(sfcwater_mass) .and.  &
     present(sfcwater_energy)) then
 
-   do k = 1,nlev_sfcwater
-      water = water + sfcwater_mass(k)
-      energy = energy + sfcwater_energy(k) * sfcwater_mass(k)
-   enddo
+   water = sum(sfcwater_mass(:))
+   energy = sum(sfcwater_energy(:) * sfcwater_mass(:))
 
 endif
 
@@ -575,26 +570,6 @@ do k = 1,nzg
 
    endif
 
-   if (k == nzg) then
-
-      if (present(rshort_g)) then
-
-         write (number,'(f12.1)') rshort_g
-         call o_plchhq(xw9,ywk,trim(adjustl(number)),psiz,0.,0.)
-         call o_plchhq(xw9,yk2,'rshort_g',psiz,0.,0.)
-
-      endif
-
-      if (present(rlong_g)) then
-
-         write (number,'(f12.1)') rlong_g
-         call o_plchhq(xw10,ywk,trim(adjustl(number)),psiz,0.,0.)
-         call o_plchhq(xw10,yk2,'rlong_g',psiz,0.,0.)
-
-      endif
-
-   endif
-
    if (present(soil_water)) then
 
       write (number,'(f9.3)') soil_water(k) * dslz(k)
@@ -627,7 +602,7 @@ endif
 
 ! Print values between soil layers
 
-do k = 1,nzg + 1
+do k = 1, nzg+1
    ybot = y1 + real(k-1) * dy_ss
 
    write (number,'(f12.3)') slz(k)
@@ -662,7 +637,7 @@ enddo
 
 ! Print values in snowcover layers
 
-do k = 1,nlev_sfcwater
+do k = 1, nzs_max
    ybot = yg2 + real(k-1) * dy_ss
    ywk  = ybot + .50 * dy_ss
    ywk2 = ybot + .65 * dy_ss
@@ -695,9 +670,9 @@ do k = 1,nlev_sfcwater
 
    endif
 
-   if (present(energy_per_m2)) then
+   if (present(sfcwater_epm2)) then
 
-      write (number,'(f12.3)') energy_per_m2(k)
+      write (number,'(f12.3)') sfcwater_epm2(k)
       call o_plchhq(xw4,ywk1,trim(adjustl(number)),psiz,0.,0.)
       if (k == 1) call o_plchhq(xw4,yk4,'       /pm2',psiz,0.,0.)
 
@@ -721,19 +696,17 @@ do k = 1,nlev_sfcwater
 
    if (present(rshort_s)) then
 
-      write (number,'(f12.1)') rshort_s(k)
+      write (number,'(f12.1)') rshort_s
       call o_plchhq(xw9,ywk,trim(adjustl(number)),psiz,0.,0.)
-      if (k == 1) call o_plchhq(xw9,yk4,'rshort_s',psiz,0.,0.)
+      call o_plchhq(xw9,yk4,'rshort_s',psiz,0.,0.)
 
    endif
 
-   if (k == nlev_sfcwater) then
+   if (present(rlong_s)) then
 
-      if (present(rlong_s)) then
-         write (number,'(f12.1)') rlong_s
-         call o_plchhq(xw10,ywk,trim(adjustl(number)),psiz,0.,0.)
-         call o_plchhq(xw10,yk4,'rlong_s',psiz,0.,0.)
-      endif
+      write (number,'(f12.1)') rlong_s
+      call o_plchhq(xw10,ywk,trim(adjustl(number)),psiz,0.,0.)
+      call o_plchhq(xw10,yk4,'rlong_s',psiz,0.,0.)
 
    endif
 
@@ -741,8 +714,8 @@ enddo
 
 ! Print values at bottom of canopy air
 
-yw1 = y1 + (real(nzg+nlev_sfcwater) + .60) * dy_ss
-yw2 = y1 + (real(nzg+nlev_sfcwater) + .90) * dy_ss
+yw1 = y1 + (real(nzg+nzs_max) + .60) * dy_ss
+yw2 = y1 + (real(nzg+nzs_max) + .90) * dy_ss
 
 if (present(hxfersc)) then
 
@@ -786,7 +759,7 @@ if (present(surface_srrv)) then
 
 endif
 
-if (nlev_sfcwater == 0) then
+if (sfcwater_mass(1) < wcap_min) then
 
    if (present(ground_rrv)) then
 
@@ -922,17 +895,17 @@ if (present(dpcpg)) then
 
 endif
 
-if (present(sxfer_t)) then
+if (present(sfluxt)) then
 
-   write (number,'(f12.3)') sxfer_t
-   call o_plchhq(xw5,yw2,'sxfer_t = '//trim(adjustl(number)),psiz,0.,0.)
+   write (number,'(f12.3)') sfluxt * dt_leaf
+   call o_plchhq(xw5,yw2,'hxferca = '//trim(adjustl(number)),psiz,0.,0.)
 
 endif
 
-if (present(sxfer_r)) then
+if (present(sfluxr)) then
 
-   write (number,'(f12.6)') sxfer_r
-   call o_plchhq(xw5,yw3,'sxfer_r = '//trim(adjustl(number)),psiz,0.,0.)
+   write (number,'(f12.6)') sfluxr * dt_leaf
+   call o_plchhq(xw5,yw3,'rxferca = '//trim(adjustl(number)),psiz,0.,0.)
 
 endif
 

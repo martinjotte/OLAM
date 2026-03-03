@@ -27,12 +27,20 @@ Contains
     implicit none
 
     integer, intent(in) :: mza,mwa
+    integer             :: iw
 
     ! Allocate arrays based on options
     ! Initialize arrays to zero
 
     if (co2flag > 0) then
-       allocate (rr_co2(mza,mwa)) ; rr_co2 = rinit
+       allocate( rr_co2(mza,mwa) )
+
+       !$omp parallel do
+       do iw = 1, mwa
+          rr_co2(:,mwa) = rinit
+       enddo
+       !$omp end parallel do
+
     endif
 
   end subroutine alloc_co2

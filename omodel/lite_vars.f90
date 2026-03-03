@@ -174,7 +174,7 @@ subroutine lite_write()
   write(io6,*) 'lite_write: opening file: ',trim(hnamel)
   write(io6,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++'
 
-  call shdf5_open(hnamel,'W',iclobber,trypario=.true.)
+  call shdf5_open(hnamel, 'W', iclobber)
 
   ! Write the common fields
 
@@ -247,39 +247,39 @@ subroutine lite_write()
 
      if     (associated(vtab_r(nv)%ivar1_p)) then
         call shdf5_orec(ndims, idims, varn, ivar1=vtab_r(nv)%ivar1_p, &
-                        lpoints=ilpts, gpoints=igpts, nglobe=nglobe, stagpt=stagpt)
+                        lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
      elseif (associated(vtab_r(nv)%ivar2_p)) then
         call shdf5_orec(ndims, idims, varn, ivar2=vtab_r(nv)%ivar2_p, &
-                        lpoints=ilpts, gpoints=igpts, nglobe=nglobe, stagpt=stagpt)
+                        lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
      elseif (associated(vtab_r(nv)%ivar3_p)) then
         call shdf5_orec(ndims, idims, varn, ivar3=vtab_r(nv)%ivar3_p, &
-                        lpoints=ilpts, gpoints=igpts, nglobe=nglobe, stagpt=stagpt)
+                        lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
 
      elseif (associated(vtab_r(nv)%rvar0_p)) then
         call shdf5_orec(ndims, idims, varn, rvars=vtab_r(nv)%rvar0_p, &
-                        lpoints=ilpts, gpoints=igpts, nglobe=nglobe, stagpt=stagpt)
+                        lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
      elseif (associated(vtab_r(nv)%rvar1_p)) then
         call shdf5_orec(ndims, idims, varn, rvar1=vtab_r(nv)%rvar1_p, &
-                        lpoints=ilpts, gpoints=igpts, nglobe=nglobe, stagpt=stagpt)
+                        lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
      elseif (associated(vtab_r(nv)%rvar2_p)) then
         call shdf5_orec(ndims, idims, varn, rvar2=vtab_r(nv)%rvar2_p, &
-                        lpoints=ilpts, gpoints=igpts, nglobe=nglobe, stagpt=stagpt)
+                        lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
      elseif (associated(vtab_r(nv)%rvar3_p)) then
         call shdf5_orec(ndims, idims, varn, rvar3=vtab_r(nv)%rvar3_p, &
-                        lpoints=ilpts, gpoints=igpts, nglobe=nglobe, stagpt=stagpt)
+                        lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
 
      elseif (associated(vtab_r(nv)%dvar0_p)) then
         call shdf5_orec(ndims, idims, varn, dvars=vtab_r(nv)%dvar0_p, &
-                        lpoints=ilpts, gpoints=igpts, nglobe=nglobe, stagpt=stagpt)
+                        lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
      elseif (associated(vtab_r(nv)%dvar1_p)) then
         call shdf5_orec(ndims, idims, varn, dvar1=vtab_r(nv)%dvar1_p, &
-                        lpoints=ilpts, gpoints=igpts, nglobe=nglobe, stagpt=stagpt)
+                        lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
      elseif (associated(vtab_r(nv)%dvar2_p)) then
         call shdf5_orec(ndims, idims, varn, dvar2=vtab_r(nv)%dvar2_p, &
-                        lpoints=ilpts, gpoints=igpts, nglobe=nglobe, stagpt=stagpt)
+                        lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
      elseif (associated(vtab_r(nv)%dvar3_p)) then
         call shdf5_orec(ndims, idims, varn, dvar3=vtab_r(nv)%dvar3_p, &
-                        lpoints=ilpts, gpoints=igpts, nglobe=nglobe, stagpt=stagpt)
+                        lpoints=ilpts, gpoints=igpts, nglobe=nglobe)
      endif
 
   enddo
@@ -296,12 +296,11 @@ subroutine lite_read(litefile)
   use mem_ijtabs,  only: itab_w, itab_v, itab_m
   use misc_coms,   only: io6, time8, time_istp8
   use var_tables,  only: vtab_r, get_vtab_dims, num_lite
-  use hdf5_utils,  only: shdf5_info, shdf5_irec, shdf5_open, shdf5_close
+  use hdf5_utils,  only: shdf5_exists, shdf5_info, shdf5_irec, shdf5_open, shdf5_close
   use mem_sfcg,    only: itab_wsfc, nwsfc, mwsfc, itab_vsfc, nvsfc, mvsfc
   use mem_land,    only: itab_land, nland, mland
   use mem_lake,    only: itab_lake, nlake, mlake
   use mem_sea,     only: itab_sea, nsea, msea
-
   use mem_nudge,   only: nwnud, mwnud, itab_wnud
 
   implicit none
@@ -314,7 +313,7 @@ subroutine lite_read(litefile)
   character (2) :: stagpt
   integer       :: ilocal(max(mwa,mva,mma,mwsfc,mvsfc,mland,mlake,msea,mwnud))
 
-  inquire(file=trim(litefile),exist=exans)
+  call shdf5_exists(litefile, exans)
 
   if (exans) then
 
@@ -324,7 +323,7 @@ subroutine lite_read(litefile)
      write(io6,*) 'Opening lite file ', trim(litefile)
      write(io6,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++'
 
-     call shdf5_open(trim(litefile),'R',trypario=.true.)
+     call shdf5_open(litefile, 'R')
 
      ! Read the common variables
      call commio('READ')
@@ -392,33 +391,33 @@ subroutine lite_read(litefile)
 
         if     (associated(vtab_r(nv)%ivar1_p)) then
            call shdf5_irec(ndims, idims, varn, ivar1=vtab_r(nv)%ivar1_p, &
-                           points=ilocal(1:ns), stagpt=stagpt)
+                           points=ilocal(1:ns))
         elseif (associated(vtab_r(nv)%ivar2_p)) then
            call shdf5_irec(ndims, idims, varn, ivar2=vtab_r(nv)%ivar2_p, &
-                           points=ilocal(1:ns), stagpt=stagpt)
+                           points=ilocal(1:ns))
         elseif (associated(vtab_r(nv)%ivar3_p)) then
            call shdf5_irec(ndims, idims, varn, ivar3=vtab_r(nv)%ivar3_p, &
-                           points=ilocal(1:ns), stagpt=stagpt)
+                           points=ilocal(1:ns))
 
         elseif (associated(vtab_r(nv)%rvar1_p)) then
            call shdf5_irec(ndims, idims, varn, rvar1=vtab_r(nv)%rvar1_p, &
-                           points=ilocal(1:ns), stagpt=stagpt)
+                           points=ilocal(1:ns))
         elseif (associated(vtab_r(nv)%rvar2_p)) then
            call shdf5_irec(ndims, idims, varn, rvar2=vtab_r(nv)%rvar2_p, &
-                           points=ilocal(1:ns), stagpt=stagpt)
+                           points=ilocal(1:ns))
         elseif (associated(vtab_r(nv)%rvar3_p)) then
            call shdf5_irec(ndims, idims, varn, rvar3=vtab_r(nv)%rvar3_p, &
-                           points=ilocal(1:ns), stagpt=stagpt)
+                           points=ilocal(1:ns))
 
         elseif (associated(vtab_r(nv)%dvar1_p)) then
            call shdf5_irec(ndims, idims, varn, dvar1=vtab_r(nv)%dvar1_p, &
-                           points=ilocal(1:ns), stagpt=stagpt)
+                           points=ilocal(1:ns))
         elseif (associated(vtab_r(nv)%dvar2_p)) then
            call shdf5_irec(ndims, idims, varn, dvar2=vtab_r(nv)%dvar2_p, &
-                           points=ilocal(1:ns), stagpt=stagpt)
+                           points=ilocal(1:ns))
         elseif (associated(vtab_r(nv)%dvar3_p)) then
            call shdf5_irec(ndims, idims, varn, dvar3=vtab_r(nv)%dvar3_p, &
-                           points=ilocal(1:ns), stagpt=stagpt)
+                           points=ilocal(1:ns))
         endif
 
         write(io6, '(1x,a,I0,1x,a,3(1x,I0))')  &

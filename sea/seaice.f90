@@ -3,7 +3,7 @@ subroutine prep_seaice( sst, seaice, sea_cantemp, ice_cantemp,        &
                         ice_albedo, ice_rlongup, rshort_i, rlong_i,   &
                         rshort, rlong, rough, sea_canrrv, ice_canrrv, &
                         sea_ustar, ice_ustar, sea_ggaer, ice_ggaer,   &
-                        sea_wthv, ice_wthv, sxfer_t, sxfer_r          )
+                        sea_wthv, ice_wthv                            )
 
   use consts_coms, only: cice, t00
   use sea_coms,    only: nzi, t00sea
@@ -32,8 +32,6 @@ subroutine prep_seaice( sst, seaice, sea_cantemp, ice_cantemp,        &
   real,    intent(out)   :: ice_ggaer
   real,    intent(in)    :: sea_wthv
   real,    intent(out)   :: ice_wthv
-  real,    intent(out)   :: sxfer_t
-  real,    intent(out)   :: sxfer_r
   integer                :: k
 
 ! First check whether sea ice is present
@@ -55,8 +53,6 @@ subroutine prep_seaice( sst, seaice, sea_cantemp, ice_cantemp,        &
      ice_ustar        = 0.0
      ice_ggaer        = 0.0
      ice_wthv         = 0.0
-     sxfer_t          = 0.0
-     sxfer_r          = 0.0
 
      return
 
@@ -86,8 +82,6 @@ subroutine prep_seaice( sst, seaice, sea_cantemp, ice_cantemp,        &
      ice_ustar   = sea_ustar
      ice_ggaer   = sea_ggaer
      ice_wthv    = sea_wthv
-     sxfer_t     = 0.0
-     sxfer_r     = 0.0
 
      ! Initialize top layer to the canopy temperature
 
@@ -129,37 +123,45 @@ subroutine prep_seaice( sst, seaice, sea_cantemp, ice_cantemp,        &
 
 end subroutine prep_seaice
 
+!===============================================================================
 
+subroutine seaice( isea, iwsfc, nlev_seaice, rhos, ustar, vkhsfc, can_depth, &
+                   rshort_i, rlong_i, glatw, glonw, airtheta, airrrv, canexner, &
+                   seaice_energy, seaice_tempk, cantemp, canrrv, sfluxt, sfluxr)
 
-
-
-subroutine seaice( seaice_energy, seaice_tempk, nlev_seaice,      &
-                   rshort_i, rlong_i, rhos, ustar, can_depth,     &
-                   cantemp, canrrv, surface_srrv, sxfer_t, sxfer_r )
-
-  use consts_coms, only: alvi, cice, t00, cp, alli
+  use consts_coms, only: alvi, cice, t00, cp, alli, r8
   use sea_coms,    only: dt_sea, t00sea, nzi
   use therm_lib,   only: rhovsi, qtk_sea
+  use mem_sfcg,    only: sfcg
+  use matrix,      only: matrix8_NxN
+  use leaf4_canopy,only: sing_print
 
   implicit none
 
+  integer, intent(in)    :: isea         ! current sea cell index
+  integer, intent(in)    :: iwsfc        ! current sfc grid cell index
+  integer, intent(in)    :: nlev_seaice  ! number of seaice levels
+  real,    intent(in)    :: rhos         ! air density [kg/m^3]
+  real,    intent(in)    :: ustar        ! friction velocity [m/s]
+  real,    intent(in)    :: vkhsfc       ! can_air to atm heat & vapor transfer coef [kg_dryair m^-1 s^-1]
+  real,    intent(in)    :: can_depth    ! "canopy" depth for heat and vap capacity [m]
+  real,    intent(in)    :: rshort_i     ! s/w net rad flux to seaice [W/m^2]
+  real,    intent(in)    :: rlong_i      ! l/w net rad flux to seaice [W/m^2]
+  real,    intent(in)    :: glatw        ! Latitude of lake cell 'center' [deg]
+  real,    intent(in)    :: glonw        ! Longitude of lake cell 'center' [deg]
+  real,    intent(in)    :: airtheta     ! atm potential temp [K]
+  real,    intent(in)    :: airrrv       ! atm vapor mixing ratio [kg_vap/kg_dryair]
+  real,    intent(in)    :: canexner     ! canopy Exner function []
   real,    intent(inout) :: seaice_energy(nzi) ! seaice layer energy [J/kg]
   real,    intent(inout) :: seaice_tempk (nzi) ! seaice layer temperature [K]
-
-  integer, intent(in)    :: nlev_seaice ! number of seaice levels
-  real,    intent(in)    :: rshort_i    ! s/w net rad flux to seaice [W/m^2]
-  real,    intent(in)    :: rlong_i     ! l/w net rad flux to seaice [W/m^2]
-  real,    intent(in)    :: rhos        ! air density [kg/m^3]
-  real,    intent(in)    :: ustar       ! friction velocity [m/s]
-  real,    intent(in)    :: can_depth   ! "canopy" depth for heat and vap capacity [m]
-  real,    intent(inout) :: cantemp     ! ice "canopy" air temp [K]
-  real,    intent(inout) :: canrrv      ! ice "canopy" air vapor mix ratio [kg_vap/kg_dryair]
-  real,    intent(out)   :: surface_srrv! ice surface sat mix ratio [kg_vap/kg_dryair]
-  real,    intent(in)    :: sxfer_t     ! can_air to atm heat xfer this step [kg_air K/m^2]
-  real,    intent(in)    :: sxfer_r     ! can_air to atm vapor xfer this step (kg_vap/m^2]
+  real,    intent(inout) :: cantemp      ! ice "canopy" air temp [K]
+  real,    intent(inout) :: canrrv       ! ice "canopy" air vapor mix ratio [kg_vap/kg_dryair]
+  real,    intent(out)   :: sfluxt       ! can_air to atm heat flux [W m^-2]
+  real,    intent(out)   :: sfluxr       ! can_air to atm vapor flux [kg_vap m^-2 s^-1]
 
 ! Local parameters
 
+  real, parameter :: fcn = 0.75         ! Crank-Nicolson future time weight
   real, parameter :: iceden   = 900.0   ! Density of seaice layers [kg/m^3]
   real, parameter :: icethick = 0.5     ! Thickness of seaice layers [m]
   real, parameter :: icek     = 2.0     ! Thermal conductivity of seaice [W/(K m)]
@@ -169,42 +171,116 @@ subroutine seaice( seaice_energy, seaice_tempk, nlev_seaice,      &
 
 ! Local variables
 
-  real :: energy_per_m2(nzi) ! seaice energy [J/m^2]
+  real :: seaice_epm2(nzi) ! seaice energy per m^2 [J/m^2]
   real :: hxfers(nzi+1)      ! seaice heat xfer [J/m2]
 
-  real :: fracliq ! fraction of water in liquid phase
-  real :: rdi     ! canopy conductance [m/s]
-  real :: hxferic ! seaice-to-can_air heat xfer this step [J/m^2]
-  real :: wxferic ! seaice-to-can_air vap xfer this step [kg_vap/m^2]
-  real :: hxferca ! heat xfer from can_air to atm this step [J/m^2]
+  real :: fracliq   ! fraction of water in liquid phase
+  real :: rdi       ! canopy conductance [m/s]
+  real :: hxferic   ! seaice-to-can_air heat xfer this step [J/m^2]
+  real :: wxferic   ! seaice-to-can_air vap xfer this step [kg_vap/m^2]
+  real :: hxferca   ! heat xfer from can_air to atm this step [J/m^2]
+  real :: wxferca   ! vapor xfer from can_air to atm this step [kg/m^2]
+  real :: sfc_rhovs ! sat vapor density at seaice surface temp [kg_vap/m^3]
+  real :: can_rhov  ! Canopy air water vapor density [kg_vap/m^3]
+  real :: canair    ! Canopy air mass [kg/m^2]
+  real :: hcapcan   ! Canopy air heat capacity [J/(m^2 K)]
+  real :: canairi   ! Inverse of canair
+  real :: hcapcani  ! Inverse of hcapcan
 
   integer :: k
 
+  real(r8) :: a5, a6, a9, a10
+  real(r8) :: h4, h7, h8
+  real(r8) :: y2, y5, y9, y10
+
+  real(r8) :: aa4(4,4), xx4(4), yy4(4)         ! 4x4 matrix equation terms
+
+  logical :: sing
+
   if (nlev_seaice == 0) return
 
-! Compute sfcwater energy per m^2
+  ! Compute sfcwater energy per m^2
 
   do k = 1, nlev_seaice
-     energy_per_m2(k) = seaice_energy(k) * icemass
+     seaice_epm2(k) = seaice_energy(k) * icemass
   enddo
 
-! Evaluate surface saturation mixing ratio
+! Evaluate surface saturation vapor density and mixing ratio of sea surface
 
-  surface_srrv = rhovsi(seaice_tempk(nlev_seaice)-t00) / rhos
+  sfc_rhovs    = rhovsi(seaice_tempk(nlev_seaice)-t00)
 
-! Update temperature and vapor mixing ratio of "canopy" from
-! divergence of xfers with water surface and atmosphere.  rdi = ustar/5
-! is the viscous sublayer conductivity derived from Garratt (1992)
+  ! rdi = ustar/5 is the viscous sublayer conductivity derived from Garratt (1992)
 
   rdi = .2 * ustar
 
-  hxferic = dt_sea * cp * rhos * rdi * (seaice_tempk(nlev_seaice) - cantemp)
-  wxferic = dt_sea *      rhos * rdi * (surface_srrv - canrrv)
+  ! Canopy air quantities
 
-  hxferca = cp * sxfer_t  ! sxfer_t and sxfer_r already incorporate dt_sea
+  can_rhov = canrrv * rhos
+  canair   = rhos * can_depth
+  canairi  = 1. / canair
+  hcapcan  = cp * canair
+  hcapcani = 1. / hcapcan
 
-  cantemp = cantemp + (hxferic - hxferca) / (can_depth * rhos * cp)
-  canrrv  = canrrv  + (wxferic - sxfer_r) / (can_depth * rhos)
+  ! Set up and solve a 4x4 linear system of equations that use trapezoidal-implicit
+  ! differencing.  The solution of the system consists of turbulent heat and
+  ! water vapor fluxes between canopy air, the seaice surface, and the free
+  ! atmosphere, and the consequent changes to water and temperature of canopy
+  ! air and the seaice surface.
+
+  ! It is assumed that the heat capacity of the (upper level of) seaice
+  ! is sufficiently high that seaice temperature change is negligible in the
+  ! context of the matrix solver.
+
+  a5  = dt_sea * rdi   ! sfc sublayer vap xfer coef
+  a6  = cp * rhos * a5 ! sfc sublayer heat xfer coef
+  a9  = dt_sea * vkhsfc / sfcg%dzt_bot(iwsfc)
+  a10 = cp * a9
+
+  h4 = fcn * rhos * canairi  ! = fcn / can_depth
+  h7 = fcn * hcapcani
+  h8 = fcn * canairi
+
+  y2  = sfc_rhovs - can_rhov
+  y5  = seaice_tempk(nlev_seaice) - cantemp
+  y9  = canrrv  - airrrv
+  y10 = cantemp - canexner * airtheta
+
+  aa4(1,1) = 1._r8 + a5 * h4
+  aa4(1,2) = 0._r8
+  aa4(1,3) =       - a5 * h4
+  aa4(1,4) = 0._r8
+  yy4(1)   =         a5 * y2   ! WSC row
+
+  aa4(2,1) = 0._r8
+  aa4(2,2) = 1._r8 + a6 * h7
+  aa4(2,3) = 0._r8
+  aa4(2,4) =       - a6 * h7
+  yy4(2)   =         a6 * y5   ! HSC row
+
+  aa4(3,1) =       - a9 * h8
+  aa4(3,2) = 0._r8
+  aa4(3,3) = 1._r8 + a9 * h8
+  aa4(3,4) = 0._r8
+  yy4(3)   =         a9 * y9   ! WCA row
+
+  aa4(4,1) = 0._r8
+  aa4(4,2) =       - a10 * h7
+  aa4(4,3) = 0._r8
+  aa4(4,4) = 1._r8 + a10 * h7
+  yy4(4)   =         a10 * y10 ! HCA row
+
+  call matrix8_NxN(4,aa4,yy4,xx4,sing); if (sing) call sing_print(iwsfc,'seaice1',4,aa4,yy4,glatw,glonw)
+
+  wxferic = xx4(1)
+  hxferic = xx4(2)
+  wxferca = xx4(3)
+  hxferca = xx4(4)
+
+  cantemp = cantemp + (hxferic - hxferca) * hcapcani
+  canrrv  = canrrv  + (wxferic - wxferca) * canairi
+
+  sfluxt = hxferca / dt_sea
+  sfluxr = wxferca / dt_sea
 
 ! Zero out sfcwater internal heat transfer array at top and bottom surfaces.
 ! Energy transfer at top is applied separately.
@@ -221,20 +297,20 @@ subroutine seaice( seaice_energy, seaice_tempk, nlev_seaice,      &
 ! Add contributions to seaice energy from internal transfers of heat
 
   do k = 2, nlev_seaice
-     energy_per_m2(k) = energy_per_m2(k) + hxfers(k) - hxfers(k+1)
+     seaice_epm2(k) = seaice_epm2(k) + hxfers(k) - hxfers(k+1)
   enddo
 
 ! Apply long- and short-wave radiative transfer and seaice-to-canopy
 ! sensible and latent heat transfer to top seaice layer
 
-  energy_per_m2(nlev_seaice) = energy_per_m2(nlev_seaice)  &
+  seaice_epm2(nlev_seaice) = seaice_epm2(nlev_seaice)  &
        + dt_sea * (rshort_i + rlong_i) - hxferic - wxferic * alvi
 
 ! Compute new seaice_energy
 
   do k = 2, nlev_seaice
 
-     seaice_energy(k) = energy_per_m2(k) / icemass
+     seaice_energy(k) = seaice_epm2(k) / icemass
 
      ! Bound seaice_energy so that the fraction of liquid water in each layer
      ! is never larger than 50%. For now, we trust that ice should exist when
@@ -253,7 +329,7 @@ subroutine seaice( seaice_energy, seaice_tempk, nlev_seaice,      &
 
 end subroutine seaice
 
-
+!===============================================================================
 
 subroutine sfcrad_seaice_1( rlongup, albedo, nlev_seaice, cantemp, seaice_tempk )
 
@@ -293,7 +369,7 @@ subroutine sfcrad_seaice_1( rlongup, albedo, nlev_seaice, cantemp, seaice_tempk 
 
 end subroutine sfcrad_seaice_1
 
-
+!===============================================================================
 
 subroutine sfcrad_seaice_2( rshort_i, rlong_i, nlev_seaice, &
                             rshort, rlong, rlongup, albedo  )

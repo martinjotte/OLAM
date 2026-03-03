@@ -51,12 +51,13 @@ subroutine pom_init()
 
   use mem_sea,  only: sea, msea, omsea, npomzons
   use pom2k1d,  only: nzpom, pom, y, yy, small
+  use sea_coms, only: pom_idata
 
   implicit none
 
   integer :: k, isea, iwsfc
   real    :: tlen  ! turbulent length scale [m]
-  real    :: seatempc
+  real    :: seatempc, deeptempc
 
   if (npomzons < 1) return
 
@@ -66,22 +67,25 @@ subroutine pom_init()
      ! Fill surface temperature of all POM cells, even if outside pom_active regions
 
      seatempc = sea%seatc(isea) - 273.15
+        deeptempc = min(4.,seatempc)
 
      pom%potmp(1,isea) = seatempc
 
      if (sea%pom_active(isea)) then
 
-        tlen = 0.1 * y(pom%kba(isea))
+        tlen = 0.1 * y( sea%pom_kba(isea) )
 
         pom%wubot(isea) = 0.
         pom%wvbot(isea) = 0.
 
-        ! Default initialization: Use SST at surface and vary linearly with depth
-        ! to 1 deg C at 3000 m depth; use constant 1 deg C below 3000 m.
+        ! Default initialization: Use seatempc at surface, decrease linearly with depth
+        ! to min(4,seatempc) at 1000 m depth, and use constant min(4,seatempc) below 1000 m.
+
+        deeptempc = min(4.,seatempc)
 
         do k = 1,nzpom
-           pom%potmp(k,isea) = seatempc + (1.0 - seatempc) &
-                             * min(1.0, (yy(1) - yy(k)) / 3000.)
+           pom%potmp(k,isea) = seatempc + (deeptempc - seatempc) &
+                             * min(1.0, (yy(1) - yy(k)) / 1000.)
            pom%salin(k,isea) = 35.
            pom%q2   (k,isea) = small
            pom%q2l  (k,isea) = pom%q2(k,isea) * tlen
@@ -103,13 +107,753 @@ subroutine pom_init()
      endif
   enddo
 
+  ! If pom_idata > 0, override default initialization by reading in 3D temperature and salinity data 
+
+  if (pom_idata == 1) then
+     call rtofs_read()
+  elseif (pom_idata == 2) then
+     call hycom_read()
+  elseif (pom_idata == 3) then
+     call glorys_read()
+  endif
+
 end subroutine pom_init
+
+!===============================================================================
+
+subroutine rtofs_read()
+
+  use pom2k1d,     only: nzpom, yy, pom
+  use mem_sea,     only: sea, nsea, onsea
+  use mem_sfcg,    only: sfcg
+  use consts_coms, only: piu180, pio180, pio2
+  use hdf5_utils,  only: shdf5_exists, shdf5_open, shdf5_close, shdf5_irec, shdf5_info
+  use max_dims,    only: pathlen
+  use sea_coms,    only: pom_database
+  use misc_coms,   only: io6
+
+  implicit none
+
+  integer, parameter :: nio = 742, njo = 1710, nko = 40
+
+  real, allocatable :: dummy(:,:,:,:), dato(:,:,:,:), datocol(:,:)
+
+  integer :: io, jo, io1, jo1, io2, jo2, k, k1, k2, kofs, idatotyp
+  integer :: isea, iwsfc
+  integer :: ndims, idims(4)
+
+  real :: glat, glon, rio, rjo, wx1, wx2, wy1, wy2, w, wsum
+
+  logical :: exists
+
+  integer :: kofs1(nzpom),kofs2(nzpom)
+  real    :: wofs1(nzpom),wofs2(nzpom)
+
+  ! rtofs layer heights (negative of depth below surface)
+
+  real, parameter :: zofs(40) = (/   0.,   -2.,   -4.,   -6.,   -8.,  -10.,  -12.,  -15., &
+                                   -20.,  -25.,  -30.,  -35.,  -40.,  -45.,  -50.,  -60., &
+                                   -70.,  -80.,  -90., -100., -125., -150., -200., -250., &
+                                  -300., -350., -400., -500., -600., -700., -800., -900., &
+                                 -1000.,-1250.,-1500.,-2000.,-2500.,-3000.,-4000.,-5000. /)
+
+  ! This subroutine reads ocean temperature and salinity from the following rtofs file
+  ! (or one of the same type at a different date/time) to be used by POM1D in OLAM:
+  ! nomads.ncep.noaa.gov/pub/data/nccf/com/rtofs/prod/rtofs20211127/
+  ! rtofs_glo_3dz_n006_6hrly_hvr_US_east.nc
+  ! This class of rtofs files (containing "US_east" in their name) covers only the North
+  ! Atlantic from Longitude 100 W to 40.72 W and from the equator northward.  Temperature
+  ! and salinity are 4D arrays with dimensions (742,1710,40,1), which are hardwired herein.
+  ! The rtofs grid projection is Mercator south of 47 N and bipolar north of 47 N.  For
+  ! simplicity, this subroutine is hardwired to interpolate only from points south of 47 N.
+  ! This subroutine will require modification if it is ever to be used to input rtofs data
+  ! outside the lat/lon limits stated above.
+
+  ! Check for existence of the rtofs file
+
+  call shdf5_exists(trim(pom_database), exists)
+
+  if (.not. exists) then
+     write(io6,*) 'rtofs: error opening rtofs file ' // trim(pom_database)
+     stop 'no rtofs file'
+  endif
+
+  ! Allocate rtofs input array and column array
+
+  allocate (dummy(nio,njo,nko,1), dato(nio,njo,nko,2), datocol(nko,2))
+
+  ! Open rtofs file and read 2 fields from it
+
+  call shdf5_open(trim(pom_database), 'R')
+
+  ndims = 4
+  idims(1) = nio
+  idims(2) = njo
+  idims(3) = nko
+  idims(4) = 1
+
+  call shdf5_irec(ndims,idims,'temperature',rvar4=dummy)
+  dato(:,:,:,1) = dummy(:,:,:,1)
+  call shdf5_irec(ndims,idims,'salinity'   ,rvar4=dummy)
+  dato(:,:,:,2) = dummy(:,:,:,1)
+
+  call shdf5_close()
+
+  ! Fill vertical interpolation indices and weights to interpolate vertically from
+  ! rtofs levels to POM1D levels
+
+  do k = 1,nzpom
+     if (yy(k) < zofs(40)) then
+        kofs2(k) = 40 ; wofs2(k) = 1.0
+        kofs1(k) = 40 ; wofs1(k) = 0.0
+     else
+        kofs = 40
+        do while(zofs(kofs) < yy(k))
+           kofs = kofs - 1
+        enddo
+        kofs2(k) = kofs;   wofs2(k) = (yy(k) - zofs(kofs+1)) / (zofs(kofs) - zofs(kofs+1))
+        kofs1(k) = kofs+1; wofs1(k) = 1.0 - wofs2(k)
+     endif
+
+     write(6,'(a,3i5,3f10.4)') 'kofs,wofs ',k,kofs1(k),kofs2(k),wofs1(k),wofs2(k),yy(k)
+  enddo
+
+  ! Loop over sea cells and select those where POM1D is active
+
+  do isea = 2, nsea
+
+     if (.not. sea%pom_active(isea)) cycle
+
+     iwsfc = isea + onsea
+
+     glat = sfcg%glatw(iwsfc)
+     glon = sfcg%glonw(iwsfc)
+
+     ! Exclude sea points that are outside rtofs (US_east) Mercator zone
+
+     if (glat < 0.001 .or. glat > 46.999 .or. glon < -99.999 .or. glon > -40.721) cycle
+
+     ! Westernmost rtofs data values are at -100.00 deg longitude and are spaced
+     ! 12.5 values per degree of longitude
+
+     rio = (glon + 100.) * 12.5 + 1.0
+
+     ! rtofs latitudes are equally spaced in Mercator projection (up to 47 N latitude),
+     ! with 12.5 values per degree of latitude at equator
+
+     rjo = 12.5 * piu180 * log( tan(0.5 * (glat * pio180 + pio2)) ) + 1.0
+
+     io1 = int(rio)
+     jo1 = int(rjo)
+
+     io2 = io1 + 1
+     jo2 = jo1 + 1
+
+     wx2 = rio - real(io1)
+     wy2 = rjo - real(jo1)
+
+     wx1 = 1. - wx2
+     wy1 = 1. - wy2
+
+     ! Loop over all vertical levls in RTOFS and interpolate temperature and salinity
+     ! values horizontally to location of isea column.  Avoid interpolating missing values,
+     ! but if all 4 surrounding values at a given level are missing, set result to missing.
+
+     do k = 1,40
+        do idatotyp = 1,2 ! 1 for temperature, 2 for salinity
+
+           wsum = 0.0
+
+           datocol(k,idatotyp) = 0.
+
+           if (abs(dato(io1,jo1,k,idatotyp)) < 50.) then
+              w    = wx1 * wy1
+              wsum = w
+              datocol(k,idatotyp) = w * dato(io1,jo1,k,idatotyp)
+           endif
+
+           if (abs(dato(io2,jo1,k,idatotyp)) < 50.) then
+              w    = wx2 * wy1
+              wsum = wsum + w
+              datocol(k,idatotyp) = datocol(k,idatotyp) + w * dato(io2,jo1,k,idatotyp)
+           endif
+
+           if (abs(dato(io1,jo2,k,idatotyp)) < 50.) then
+              w    = wx2 * wy1
+              wsum = wsum + w
+              datocol(k,idatotyp) = datocol(k,idatotyp) + w * dato(io1,jo2,k,idatotyp)
+           endif
+
+           if (abs(dato(io2,jo2,k,idatotyp)) < 50.) then
+              w    = wx2 * wy1
+              wsum = wsum + w
+              datocol(k,idatotyp) = datocol(k,idatotyp) + w * dato(io2,jo2,k,idatotyp)
+           endif
+
+           if (wsum > 1.e-9) then
+              datocol(k,idatotyp) = datocol(k,idatotyp) / wsum
+           else
+              datocol(k,idatotyp) = 1.e10 ! missing value
+           endif
+
+        enddo ! idatotyp
+     enddo    ! k
+
+     ! Loop over all active points in current POM1D column and vertically interpolate 
+     ! temperature and salinity from horizontally-interpolated rtofs column 
+
+     do k = 1,sea%pom_kba(isea)
+
+        k1 = kofs1(k)
+        k2 = kofs2(k)
+
+        ! Interpolate if both upper and lower rtofs values are ok.  Assign from upper
+        ! rtofs value if it alone is ok.  Otherwise, do not reassign POM values.
+
+        if (abs(datocol(k2,1)) < 100.) then
+           if (abs(datocol(k1,1)) < 100.) then
+              pom%potmp(k,isea) = wofs2(k) * datocol(k2,1) &
+                                + wofs1(k) * datocol(k1,1)
+           else
+              pom%potmp(k,isea) = datocol(k2,1)
+           endif
+           pom%potmpb(k,isea) = pom%potmp(k,isea)
+        endif
+
+        if (abs(datocol(k2,2)) < 100.) then
+           if (abs(datocol(k1,2)) < 100.) then
+              pom%salin(k,isea) = wofs2(k) * datocol(k2,2) &
+                                + wofs1(k) * datocol(k1,2)
+           else
+              pom%salin(k,isea) = datocol(k2,2)
+           endif
+           pom%salinb(k,isea) = pom%salin(k,isea)
+        endif
+
+     enddo ! k
+
+  enddo    ! isea
+
+  deallocate(dato,datocol)
+
+end subroutine rtofs_read
+
+!===============================================================================
+
+subroutine hycom_read()
+
+  use pom2k1d,     only: nzpom, yy, pom
+  use mem_sea,     only: sea, nsea, onsea
+  use mem_sfcg,    only: sfcg
+  use consts_coms, only: piu180, pio180, pio2
+  use hdf5_utils,  only: shdf5_exists, shdf5_open, shdf5_close, shdf5_irec, shdf5_info
+  use max_dims,    only: pathlen
+  use sea_coms,    only: pom_database
+  use misc_coms,   only: io6
+
+  implicit none
+
+  integer, parameter :: nio = 4500, njo = 4251, nko = 40
+
+  real, allocatable :: dummy(:,:,:,:), temp(:,:,:), salin(:,:,:), tempcol(:), salincol(:)
+
+  integer :: io, jo, io1, jo1, io2, jo2, k, k1, k2, kofs, idatotyp
+  integer :: isea, iwsfc
+  integer :: ndims, idims(4)
+
+  real :: glat, glon, rio, rjo, wx1, wx2, wy1, wy2, w, wsum
+
+  character(pathlen) :: temp_fname, salin_fname
+
+  logical :: exists
+
+  integer :: kofs1(nzpom),kofs2(nzpom)
+  real    :: wofs1(nzpom),wofs2(nzpom)
+
+  ! rtofs layer heights (negative of depth below surface)
+
+  real, parameter :: zofs(nko) = (/   0.,   -2.,   -4.,   -6.,   -8.,  -10.,  -12.,  -15., &
+                                    -20.,  -25.,  -30.,  -35.,  -40.,  -45.,  -50.,  -60., &
+                                    -70.,  -80.,  -90., -100., -125., -150., -200., -250., &
+                                   -300., -350., -400., -500., -600., -700., -800., -900., &
+                                  -1000.,-1250.,-1500.,-2000.,-2500.,-3000.,-4000.,-5000. /)
+
+  ! This subroutine reads ocean temperature and salinity from the following hycom files
+  ! (or others of the same type at a different date/time) to be used by POM1D in OLAM:
+  ! ncss/hycom/org/thredds/ncss/grid/ESPC-D-V02/t3z/2024/dataset.html/t3z_2024.nc4
+  ! and
+  ! ncss/hycom/org/thredds/ncss/grid/ESPC-D-V02/s3z/2024/dataset.html/s3z_2024.nc4
+  ! These hycom files use a global (north of 80 deg S) lat/lon grid with uniform 0.04 degree
+  ! spacing in latitude and 0.08 degree spacing in longitude.  Temperature and salinity are
+  ! 4D arrays with dimensions (4500,4251,40,1), which are hardwired herein.
+
+  ! Check for existence of the hycom temperature and salinity files
+
+  temp_fname = trim(pom_database)//'_t3z.nc4'
+  call shdf5_exists(trim(temp_fname), exists)
+  if (.not. exists) then
+     write(io6,*) 'hycom temperature file not found '//trim(temp_fname)
+     stop 'no hycom temp file'
+  endif
+
+  salin_fname = trim(pom_database)//'_s3z.nc4'
+  call shdf5_exists(trim(salin_fname), exists)
+  if (.not. exists) then
+     write(io6,*) 'hycom salinity file not found '//trim(salin_fname)
+     stop 'no hycom_salinity file'
+  endif
+
+  ! Allocate temp, salin, and column arrays
+
+  allocate (dummy(nio,njo,nko,1), temp(nio+1,njo,nko), salin(nio+1,njo,nko), tempcol(nko), salincol(nko))
+
+  ndims = 4
+  idims(1) = nio
+  idims(2) = njo
+  idims(3) = nko
+  idims(4) = 1
+
+  ! Open hycom_temp_file, read temperature from it, and copy to temp array with longitude shift
+  ! since hycom file longitudes range from 0 to 360.  Also apply scale factor and offset.
+
+  call shdf5_open(trim(temp_fname), 'R')
+  call shdf5_irec(ndims,idims,'water_temp',rvar4=dummy)
+  call shdf5_close()
+  temp(   1:2250,:,:) = dummy(2251:4500,:,:,1) * 0.001 + 20.
+  temp(2251:4501,:,:) = dummy(   1:2251,:,:,1) * 0.001 + 20.
+
+  ! Open hycom_salin_file, read salinity from it, and copy to salin array with longitude shift
+  ! since hycom file longitudes range from 0 to 360.  Also apply scale factor and offset.
+
+  call shdf5_open(trim(salin_fname), 'R')
+  call shdf5_irec(ndims,idims,'salinity',rvar4=dummy)
+  call shdf5_close()
+  salin(   1:2250,:,:) = dummy(2251:4500,:,:,1) * 0.001 + 20.
+  salin(2251:4501,:,:) = dummy(   1:2251,:,:,1) * 0.001 + 20.
+
+  ! Fill vertical interpolation indices and weights to interpolate vertically from
+  ! rtofs levels to POM1D levels
+
+  do k = 1,nzpom
+     if (yy(k) < zofs(nko)) then
+        kofs2(k) = nko ; wofs2(k) = 1.0
+        kofs1(k) = nko ; wofs1(k) = 0.0
+     else
+        kofs = nko
+        do while(zofs(kofs) < yy(k))
+           kofs = kofs - 1
+        enddo
+        kofs2(k) = kofs;   wofs2(k) = (yy(k) - zofs(kofs+1)) / (zofs(kofs) - zofs(kofs+1))
+        kofs1(k) = kofs+1; wofs1(k) = 1.0 - wofs2(k)
+     endif
+
+     write(6,'(a,3i5,3f11.4)') 'kofs,wofs ',k,kofs1(k),kofs2(k),wofs1(k),wofs2(k),yy(k)
+  enddo
+
+  ! Loop over sea cells and select those where POM1D is active
+
+  do isea = 2, nsea
+
+     if (.not. sea%pom_active(isea)) cycle
+
+     iwsfc = isea + onsea
+
+     glat = max( -89.999,min( 89.999,sfcg%glatw(iwsfc)))
+     glon = max(-179.999,min(179.999,sfcg%glonw(iwsfc)))
+
+     ! Westernmost hycom data values are at -180.00 deg longitude and are spaced
+     ! 12.5 values per degree of longitude
+
+     rio = (glon + 180.) * 12.5 + 1.0
+
+     ! Southernmost hycom data values are at -80.00 deg latitude and are spaced
+     ! with 25.0 values per degree of latitude
+
+     rjo = (glat + 80.) * 25.0 + 1.0
+
+     io1 = int(rio)
+     jo1 = int(rjo)
+
+     io2 = io1 + 1
+     jo2 = jo1 + 1
+
+     wx2 = rio - real(io1)
+     wy2 = rjo - real(jo1)
+
+     wx1 = 1. - wx2
+     wy1 = 1. - wy2
+
+     ! Loop over all vertical levls in RTOFS and interpolate temperature and salinity values
+     ! horizontally to location of isea column.  Avoid interpolating missing values, but if
+     ! all 4 surrounding values at a given level are missing, set result to missing.  For both
+     ! temperature and salinity, missing value is -10 (after applying scale factor and offset).
+
+     do k = 1,nko
+        wsum = 0.0
+        tempcol(k) = 0.
+
+        if (temp(io1,jo1,k) > -9.) then
+           w    = wx1 * wy1
+           wsum = w
+           tempcol(k) = w * temp(io1,jo1,k)
+        endif
+
+        if (temp(io2,jo1,k) > -9.) then
+           w    = wx2 * wy1
+           wsum = wsum + w
+           tempcol(k) = tempcol(k) + w * temp(io2,jo1,k)
+        endif
+
+        if (temp(io1,jo2,k) > -9.) then
+           w    = wx2 * wy1
+           wsum = wsum + w
+           tempcol(k) = tempcol(k) + w * temp(io1,jo2,k)
+        endif
+
+        if (temp(io2,jo2,k) > -9.) then
+           w    = wx2 * wy1
+           wsum = wsum + w
+           tempcol(k) = tempcol(k) + w * temp(io2,jo2,k)
+        endif
+
+        if (wsum > 1.e-9) then
+           tempcol(k) = tempcol(k) / wsum
+        else
+           tempcol(k) = -10. ! missing value
+        endif
+
+        wsum = 0.0
+        salincol(k) = 0.
+
+        if (salin(io1,jo1,k) >= 0.) then
+           w    = wx1 * wy1
+           wsum = w
+           salincol(k) = w * salin(io1,jo1,k)
+        endif
+
+        if (salin(io2,jo1,k) >= 0.) then
+           w    = wx2 * wy1
+           wsum = wsum + w
+           salincol(k) = salincol(k) + w * salin(io2,jo1,k)
+        endif
+
+        if (salin(io1,jo2,k) >= 0.) then
+           w    = wx2 * wy1
+           wsum = wsum + w
+           salincol(k) = salincol(k) + w * salin(io1,jo2,k)
+        endif
+
+        if (salin(io2,jo2,k) >= 0.) then
+           w    = wx2 * wy1
+           wsum = wsum + w
+           salincol(k) = salincol(k) + w * salin(io2,jo2,k)
+        endif
+
+        if (wsum > 1.e-9) then
+           salincol(k) = salincol(k) / wsum
+        else
+           salincol(k) = -10. ! missing value
+        endif
+
+     enddo    ! k
+
+     ! Loop over all active points in current POM1D column and vertically interpolate 
+     ! temperature and salinity from horizontally-interpolated hycom column 
+
+     do k = 1,sea%pom_kba(isea)
+
+        k1 = kofs1(k)
+        k2 = kofs2(k)
+
+        ! Interpolate if both upper and lower rtofs values are not missing.  Assign from upper
+        ! rtofs value if it alone is not missing.  Otherwise, do not reassign POM values.
+
+        if (tempcol(k2) > -9.) then
+           if (tempcol(k1) > -9.) then
+              pom%potmp(k,isea) = wofs2(k) * tempcol(k2) &
+                                + wofs1(k) * tempcol(k1)
+           else
+              pom%potmp(k,isea) = tempcol(k2)
+           endif
+           pom%potmpb(k,isea) = pom%potmp(k,isea)
+        endif
+
+        if (salincol(k2) >= 0.) then
+           if (salincol(k1) >= 0.) then
+              pom%salin(k,isea) = wofs2(k) * salincol(k2) &
+                                + wofs1(k) * salincol(k1)
+           else
+              pom%salin(k,isea) = salincol(k2)
+           endif
+           pom%salinb(k,isea) = pom%salin(k,isea)
+        endif
+
+     enddo ! k
+
+  enddo    ! isea
+
+  deallocate(temp, salin, tempcol, salincol)
+
+end subroutine hycom_read
+
+!===============================================================================
+
+subroutine glorys_read()
+
+  use pom2k1d,     only: nzpom, yy, pom
+  use mem_sea,     only: sea, nsea, onsea
+  use mem_sfcg,    only: sfcg
+  use consts_coms, only: piu180, pio180, pio2
+  use hdf5_utils,  only: shdf5_exists, shdf5_open, shdf5_close, shdf5_irec, shdf5_info
+  use max_dims,    only: pathlen
+  use sea_coms,    only: pom_database
+  use misc_coms,   only: io6
+
+  implicit none
+
+  integer, parameter :: nio = 4320, njo = 2041, nko = 50
+
+  integer, allocatable :: dummy(:,:,:,:)
+  real,    allocatable :: temp(:,:,:), salin(:,:,:), tempcol(:), salincol(:)
+
+  integer :: io, jo, io1, jo1, io2, jo2, k, k1, k2, kofs, idatotyp
+  integer :: isea, iwsfc
+  integer :: ndims, idims(4)
+
+  real :: glat, glon, rio, rjo, wx1, wx2, wy1, wy2, w, wsum
+
+  logical :: exists
+
+  integer :: kofs1(nzpom),kofs2(nzpom)
+  real    :: wofs1(nzpom),wofs2(nzpom)
+
+  ! rtofs layer heights (negative of depth below surface)
+
+  real, parameter :: zofs(nko) = (/    -0.49,    -1.54,    -2.65,    -3.82,    -5.08, &
+                                       -6.44,    -7.93,    -9.57,   -11.40,   -13.47, &
+                                      -15.81,   -18.50,   -21.60,   -25.21,   -29.44, &
+                                      -34.43,   -40.34,   -47.37,   -55.76,   -65.81, &
+                                      -77.85,   -92.33,  -109.73,  -130.67,  -155.85, &
+                                     -186.13,  -222.48,  -266.04,  -318.13,  -380.21, &
+                                     -453.94,  -541.09,  -643.57,  -763.33,  -902.34, &
+                                    -1062.44, -1245.29, -1452.25, -1684.28, -1941.89, &
+                                    -2225.08, -2533.34, -2865.7,  -3220.82, -3597.03, &
+                                    -3992.48, -4405.22, -4833.29, -5274.78, -5727.92 /)
+
+  ! This subroutine reads ocean temperature and salinity from the following Copernicus file
+  ! (or others of the same type at a different date/time) to be used by POM1D in OLAM:
+  ! mercatorglorys12v1_gl12_mean_20241007_R20241009.nc
+  ! Downloaded from: https://data.marine.copernicus.eu
+  ! These Copernicus files use a global lat/lon grid (from -80 lat to 90 lat) with uniform (1/12) degree
+  ! spacing in latitude and longitude.  Temperature and salinity are
+  ! 4D arrays with dimensions (4320,2041,50,1), which are hardwired herein.
+
+  ! Check for existence of the Copernicus file
+
+  call shdf5_exists(trim(pom_database), exists)
+  if (.not. exists) then
+     write(io6,*) 'Copernicus ocean file not found '//trim(pom_database)
+     stop 'no Copernicus ocean file'
+  endif
+
+  ! Allocate temp, salin, and column arrays
+
+  allocate (dummy(nio,njo,nko,1), temp(nio+1,njo,nko), salin(nio+1,njo,nko), tempcol(nko), salincol(nko))
+
+  ndims = 4
+  idims(1) = nio
+  idims(2) = njo
+  idims(3) = nko
+  idims(4) = 1
+
+  ! Open Copernicus ocean file, read temperature and salinity from it, and copy to
+  ! temp and salin arrays.  Also apply scale factor and offset.
+
+  call shdf5_open(trim(pom_database), 'R')
+
+  call shdf5_irec(ndims,idims,'thetao',ivar4=dummy)
+  temp(1:4320,:,:) = real(dummy(1:4320,:,:,1)) * .7324442e-3 + 21.  ! 0.000732444226741791 + 21.
+  temp  (4321,:,:) = temp(1,:,:)
+
+  call shdf5_irec(ndims,idims,'so',ivar4=dummy)
+  salin(1:4320,:,:) = real(dummy(1:4320,:,:,1)) * .1525926e-2 - .1525926e-2  ! * 0.00152592547237873 - 0.00152592547237873
+  salin  (4321,:,:) = salin(1,:,:)
+
+  call shdf5_close()
+
+  ! Fill vertical interpolation indices and weights to interpolate vertically from
+  ! rtofs levels to POM1D levels
+
+  do k = 1,nzpom
+     if (yy(k) < zofs(nko)) then
+        kofs2(k) = nko ; wofs2(k) = 1.0
+        kofs1(k) = nko ; wofs1(k) = 0.0
+     elseif (yy(k) >= zofs(1)) then
+        kofs2(k) = 1 ; wofs2(k) = 1.0
+        kofs1(k) = 1 ; wofs1(k) = 0.0
+     else
+        kofs = nko
+        do while(zofs(kofs) < yy(k))
+           kofs = kofs - 1
+        enddo
+        kofs2(k) = kofs;   wofs2(k) = (yy(k) - zofs(kofs+1)) / (zofs(kofs) - zofs(kofs+1))
+        kofs1(k) = kofs+1; wofs1(k) = 1.0 - wofs2(k)
+     endif
+
+     write(6,'(a,3i5,3f11.4)') 'kofs,wofs ',k,kofs1(k),kofs2(k),wofs1(k),wofs2(k),yy(k)
+  enddo
+
+  ! Loop over sea cells and select those where POM1D is active
+
+  do isea = 2, nsea
+
+     if (.not. sea%pom_active(isea)) cycle
+
+     iwsfc = isea + onsea
+
+     glat = max( -89.999,min( 89.999,sfcg%glatw(iwsfc)))
+     glon = max(-179.999,min(179.999,sfcg%glonw(iwsfc)))
+
+     ! Westernmost Copernicus data values are at -180.00 deg longitude and are spaced
+     ! 12.0 values per degree of longitude
+
+     rio = (glon + 180.) * 12.0 + 1.0
+
+     ! Southernmost Copernicus data values are at -80.00 deg latitude and are spaced
+     ! with 12.0 values per degree of latitude
+
+     rjo = (glat + 80.) * 12.0 + 1.0
+
+     io1 = int(rio)
+     jo1 = int(rjo)
+
+     io2 = io1 + 1
+     jo2 = jo1 + 1
+
+     wx2 = rio - real(io1)
+     wy2 = rjo - real(jo1)
+
+     wx1 = 1. - wx2
+     wy1 = 1. - wy2
+
+     ! Loop over all vertical levls in Copernicus and interpolate temperature and salinity values
+     ! horizontally to location of isea column.  Avoid interpolating missing values, but if
+     ! all 4 surrounding values at a given level are missing, set result to missing.  For both
+     ! temperature and salinity, missing value is -10 (after applying scale factor and offset).
+
+     do k = 1,nko
+        wsum = 0.0
+        tempcol(k) = 0.
+
+        if (temp(io1,jo1,k) > -9.) then
+           w    = wx1 * wy1
+           wsum = w
+           tempcol(k) = w * temp(io1,jo1,k)
+        endif
+
+        if (temp(io2,jo1,k) > -9.) then
+           w    = wx2 * wy1
+           wsum = wsum + w
+           tempcol(k) = tempcol(k) + w * temp(io2,jo1,k)
+        endif
+
+        if (temp(io1,jo2,k) > -9.) then
+           w    = wx2 * wy1
+           wsum = wsum + w
+           tempcol(k) = tempcol(k) + w * temp(io1,jo2,k)
+        endif
+
+        if (temp(io2,jo2,k) > -9.) then
+           w    = wx2 * wy1
+           wsum = wsum + w
+           tempcol(k) = tempcol(k) + w * temp(io2,jo2,k)
+        endif
+
+        if (wsum > 1.e-9) then
+           tempcol(k) = tempcol(k) / wsum
+        else
+           tempcol(k) = -10. ! missing value
+        endif
+
+        wsum = 0.0
+        salincol(k) = 0.
+
+        if (salin(io1,jo1,k) >= 0.) then
+           w    = wx1 * wy1
+           wsum = w
+           salincol(k) = w * salin(io1,jo1,k)
+        endif
+
+        if (salin(io2,jo1,k) >= 0.) then
+           w    = wx2 * wy1
+           wsum = wsum + w
+           salincol(k) = salincol(k) + w * salin(io2,jo1,k)
+        endif
+
+        if (salin(io1,jo2,k) >= 0.) then
+           w    = wx2 * wy1
+           wsum = wsum + w
+           salincol(k) = salincol(k) + w * salin(io1,jo2,k)
+        endif
+
+        if (salin(io2,jo2,k) >= 0.) then
+           w    = wx2 * wy1
+           wsum = wsum + w
+           salincol(k) = salincol(k) + w * salin(io2,jo2,k)
+        endif
+
+        if (wsum > 1.e-9) then
+           salincol(k) = salincol(k) / wsum
+        else
+           salincol(k) = -10. ! missing value
+        endif
+
+     enddo    ! k
+
+     ! Loop over all active points in current POM1D column and vertically interpolate 
+     ! temperature and salinity from horizontally-interpolated hycom column 
+
+     do k = 1,sea%pom_kba(isea)
+
+        k1 = kofs1(k)
+        k2 = kofs2(k)
+
+        ! Interpolate if both upper and lower rtofs values are not missing.  Assign from upper
+        ! rtofs value if it alone is not missing.  Otherwise, do not reassign POM values.
+
+        if (tempcol(k2) > -9.) then
+           if (tempcol(k1) > -9.) then
+              pom%potmp(k,isea) = wofs2(k) * tempcol(k2) &
+                                + wofs1(k) * tempcol(k1)
+           else
+              pom%potmp(k,isea) = tempcol(k2)
+           endif
+           pom%potmpb(k,isea) = pom%potmp(k,isea)
+        endif
+
+        if (salincol(k2) >= 0.) then
+           if (salincol(k1) >= 0.) then
+              pom%salin(k,isea) = wofs2(k) * salincol(k2) &
+                                + wofs1(k) * salincol(k1)
+           else
+              pom%salin(k,isea) = salincol(k2)
+           endif
+           pom%salinb(k,isea) = pom%salin(k,isea)
+        endif
+
+     enddo ! k
+
+  enddo    ! isea
+
+  deallocate(temp, salin, tempcol, salincol)
+
+end subroutine glorys_read
 
 !===============================================================================
 
 subroutine plot_pom()
 
-  use mem_sea, only: omsea
+  use mem_sea, only: omsea, sea
   use pom2k1d, only: nzpom, pom, yy
 
   implicit none
@@ -127,8 +871,9 @@ subroutine plot_pom()
   real :: xmin, xmax, xinc
   real :: ymin, ymax, yinc
 
-  integer, parameter :: ijpom(4) = [162230, 167916, 159390, 164544] ! selected POM1D columns to plot
-  character*1, parameter :: ip(4) = ['1','2','3','4']
+  integer, parameter :: ijpom(4) = [179785, 145400, 139184, 157375] ! selected POM1D columns to plot (iwsfc values)
+! integer, parameter :: ijpom(4) = [120592,  86207,  79991,  98182] ! selected POM1D columns to plot
+  character(len=1), parameter :: ip(4) = ['1','2','3','4']
 
   labincx = 5
   labincy = 5
@@ -149,7 +894,7 @@ subroutine plot_pom()
      iwsfc = ijpom(jpom)
      isea = iwsfc - omsea
 
-     kb = pom%kba(isea)
+     kb = sea%pom_kba(isea)
 
      allocate(vctr18(kb-1))
      allocate(val(kb-1,6))

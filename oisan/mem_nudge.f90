@@ -29,40 +29,46 @@ Module mem_nudge
      integer              :: jend
   End Type jtab_wnud_vars
 
-  type (jtab_wnud_vars) :: jtab_wnud(nloops_wnud)
-
-  real,    allocatable ::      xewnud(:)
-  real,    allocatable ::      yewnud(:)
-  real,    allocatable ::      zewnud(:)
-
   real,    allocatable ::    rho_obsp(:,:)
   real,    allocatable ::  theta_obsp(:,:)
-  real,    allocatable ::    rrw_obsp(:,:)
+  real,    allocatable ::    rrv_obsp(:,:)
   real,    allocatable :: uzonal_obsp(:,:)
   real,    allocatable :: umerid_obsp(:,:)
   real,    allocatable ::  ozone_obsp(:,:)
 
   real,    allocatable ::    rho_obsf(:,:)
   real,    allocatable ::  theta_obsf(:,:)
-  real,    allocatable ::    rrw_obsf(:,:)
+  real,    allocatable ::    rrv_obsf(:,:)
   real,    allocatable :: uzonal_obsf(:,:)
   real,    allocatable :: umerid_obsf(:,:)
   real,    allocatable ::  ozone_obsf(:,:)
 
+  real(r8),allocatable ::   rhot_nud(:,:)
+
+  ! This set is only needed for spectral nudging:
   real,    allocatable ::    rho_obs(:,:)
   real,    allocatable ::  theta_obs(:,:)
-  real,    allocatable ::    rrw_obs(:,:)
+  real,    allocatable ::    rrv_obs(:,:)
   real,    allocatable :: uzonal_obs(:,:)
   real,    allocatable :: umerid_obs(:,:)
 
+  ! This set is only needed for spectral nudging:
   real,    allocatable ::    rho_sim(:,:)
   real,    allocatable ::  theta_sim(:,:)
-  real,    allocatable ::    rrw_sim(:,:)
+  real,    allocatable ::    rrv_sim(:,:)
   real,    allocatable :: uzonal_sim(:,:)
   real,    allocatable :: umerid_sim(:,:)
 
-  real,    allocatable ::   rhot_nud(:,:)
+  ! This set is only needed for spectral nudging:
   real(r8),allocatable ::   volwnudi(:,:)
+
+  ! This set is only needed for spectral nudging:
+  type (jtab_wnud_vars) :: jtab_wnud(nloops_wnud)
+
+  ! This set is only needed for spectral nudging:
+  real,    allocatable ::      xewnud(:)
+  real,    allocatable ::      yewnud(:)
+  real,    allocatable ::      zewnud(:)
 
   integer :: nudflag
   integer :: nudnxp
@@ -71,10 +77,19 @@ Module mem_nudge
   integer :: mwnud = 1
 
   real    :: tnudcent
+  real    :: tf = 0.
+  real    :: tp = 1.
 
   integer :: o3nudflag = 0
   real    :: tnudi_o3
   real    :: o3nudpress
+
+  real(r8) :: past_mass_fact
+  real(r8) :: future_mass_fact
+
+  real, allocatable :: wmanud(:,:)
+  real, allocatable :: vmanud(:,:)
+  real, allocatable :: vovera(:,:)
 
 Contains
 
@@ -82,10 +97,10 @@ Contains
 
     use misc_coms, only: io6, rinit
     implicit none
-
     integer, intent(in) :: lwnud, ii
 
 !   Allocate arrays based on options (if necessary)
+!   These are only needed for spectral nudging
 
     write(io6,*) 'allocating nudge1 ', lwnud
 
@@ -101,36 +116,100 @@ Contains
 
 !=========================================================================
 
-  subroutine alloc_nudge2(mza,mwa)
+  subroutine alloc_nudge2(mza,mwa,mva)
 
-    use misc_coms,   only: io6, rinit
+    use misc_coms,  only: io6, rinit, rinit8
+    use mem_grid,   only: volt, arv, arw, lpw, lpv, dzm, arw0
+    use mem_ijtabs, only: jtab_w, jtw_prog, itab_w, jtab_v, jtv_wadj
+    use oname_coms, only: nl
+
     implicit none
 
-    integer, intent(in) :: mza, mwa
+    integer, intent(in) :: mza, mwa, mva
+    integer             :: j, iw, k, jv, iv
+    real                :: dxi
 
 !   Allocate arrays based on options (if necessary)
 
     write(io6,*) 'allocating nudge2 ',mza,mwnud
 
-    allocate (   rho_obsp(mza,mwnud)) ; rho_obsp    = rinit
-    allocate ( theta_obsp(mza,mwnud)) ; theta_obsp  = rinit
-    allocate (   rrw_obsp(mza,mwnud)) ; rrw_obsp    = rinit
-    allocate (uzonal_obsp(mza,mwnud)) ; uzonal_obsp = rinit
-    allocate (umerid_obsp(mza,mwnud)) ; umerid_obsp = rinit
+    if (nl%nud_preserve_total_mass) then
 
-    allocate (   rho_obsf(mza,mwnud)) ; rho_obsf    = rinit
-    allocate ( theta_obsf(mza,mwnud)) ; theta_obsf  = rinit
-    allocate (   rrw_obsf(mza,mwnud)) ; rrw_obsf    = rinit
-    allocate (uzonal_obsf(mza,mwnud)) ; uzonal_obsf = rinit
-    allocate (umerid_obsf(mza,mwnud)) ; umerid_obsf = rinit
+       allocate(wmanud(mza,mwa))
+       allocate(vmanud(mza,mva))
+       allocate(vovera(mza,mwa))
 
-    allocate (    rho_obs(mza,mwnud)) ; rho_obs     = rinit
-    allocate (  theta_obs(mza,mwnud)) ; theta_obs   = rinit
-    allocate (    rrw_obs(mza,mwnud)) ; rrw_obs     = rinit
-    allocate ( uzonal_obs(mza,mwnud)) ; uzonal_obs  = rinit
-    allocate ( umerid_obs(mza,mwnud)) ; umerid_obs  = rinit
+       !$omp parallel
+       !$omp do private(iw,k,dxi,jv,iv)
+       do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
-    allocate (   rhot_nud  (mza,mwa)) ; rhot_nud    = 0.0
+          do k = lpw(iw)-1, mza
+             wmanud(k,iw) = 0.0
+          enddo
+
+          dxi = 1. / sqrt(arw0(iw))
+          do k = lpw(iw), mza
+             vovera(k,iw) = (arw(k,iw) * dzm(k) + arw(k-1,iw) * dzm(k-1)) * dxi
+          enddo
+
+          ! Loop over neighbor V points of this W cell
+          do jv = 1, itab_w(iw)%npoly
+             iv = itab_w(iw)%iv(jv)
+
+             do k = lpv(iv), mza
+                vovera(k,iw) = vovera(k,iw) + arv(k,iv)
+             enddo
+          enddo
+
+          do k = lpw(iw), mza
+             vovera(k,iw) = real(volt(k,iw)) / vovera(k,iw)
+          enddo
+
+       enddo
+       !$omp end do nowait
+
+       !$omp do private(iv,k)
+       do j = 1,jtab_v(jtv_wadj)%jend; iv = jtab_v(jtv_wadj)%iv(j)
+          do k = lpv(iv), mza
+             vmanud(k,iv) = 0.0
+          enddo
+       enddo
+       !$omp end do nowait
+       !$omp end parallel
+
+    endif
+
+    allocate( rhot_nud(mza,mwa) )
+
+    !$omp parallel do
+    do iw = 2, mwa
+       rhot_nud(:,iw) = 0._r8
+    enddo
+    !$omp end parallel do
+
+! The following should only be allocated for spectral nudging
+
+    if ( nudnxp > 0) then
+
+       allocate (   rho_obsp(mza,mwnud))
+       allocate ( theta_obsp(mza,mwnud))
+       allocate (   rrv_obsp(mza,mwnud))
+       allocate (uzonal_obsp(mza,mwnud))
+       allocate (umerid_obsp(mza,mwnud))
+
+       allocate (   rho_obsf(mza,mwnud))
+       allocate ( theta_obsf(mza,mwnud))
+       allocate (   rrv_obsf(mza,mwnud))
+       allocate (uzonal_obsf(mza,mwnud))
+       allocate (umerid_obsf(mza,mwnud))
+
+       allocate (    rho_obs(mza,mwnud))
+       allocate (  theta_obs(mza,mwnud))
+       allocate (    rrv_obs(mza,mwnud))
+       allocate ( uzonal_obs(mza,mwnud))
+       allocate ( umerid_obs(mza,mwnud))
+
+    endif
 
   end subroutine alloc_nudge2
 
@@ -138,17 +217,20 @@ Contains
 
   subroutine alloc_nudge_o3(mza,mwa)
 
-    use misc_coms,  only: io6, rinit, i_o3
+!   use misc_coms,  only: io6, rinit, i_o3
     implicit none
 
     integer, intent(in) :: mza, mwa
 
-    if (i_o3 /= 0) then
-       write(io6,*) 'allocating nudge_o3 ', mza, mwa
+!   Note:
+!   This routine will only be necessary if we do spectral nudging of ozone
 
-       allocate (ozone_obsp(mza,mwa)) ; ozone_obsp = rinit
-       allocate (ozone_obsf(mza,mwa)) ; ozone_obsf = rinit
-    endif
+!   if (i_o3 /= 0) then
+!      write(io6,*) 'allocating nudge_o3 ', mza, mwa
+!
+!      allocate (ozone_obsp(mza,mwa)) ; ozone_obsp = rinit
+!      allocate (ozone_obsf(mza,mwa)) ; ozone_obsf = rinit
+!   endif
 
   end subroutine alloc_nudge_o3
 
@@ -156,40 +238,45 @@ Contains
 
   subroutine filltab_nudge()
 
-    use var_tables, only: increment_vtable
+!   use var_tables, only: increment_vtable
     implicit none
 
-    character(2) :: stagpt
+!   NOTE:
+!   Obs-nudging arrays do not need to be in the vtables for history
+!   read/writes or parallel communication. The gridded observational fields
+!   are read in on initialization or history restart
+
+!   character(2) :: stagpt
 
     ! obs (point-by-point) nudging is done at W points, while spectral
     ! nudging is done on a separate nudging mesh. Currently, parallel
     ! output on the nudging mesh in not implemented
 
-    if (nudnxp == 0) then
-       stagpt = 'AW'
-    else
-       stagpt = 'AN'
-    endif
-
-    if (allocated(rho_obsp))    call increment_vtable('RHO_OBSP',    stagpt, noread=.true., rvar2=rho_obsp)
-
-    if (allocated(theta_obsp))  call increment_vtable('THETA_OBSP',  stagpt, noread=.true., rvar2=theta_obsp)
-
-    if (allocated(rrw_obsp))    call increment_vtable('RRW_OBSP',    stagpt, noread=.true., rvar2=rrw_obsp)
-
-    if (allocated(uzonal_obsp)) call increment_vtable('UZONAL_OBSP', stagpt, noread=.true., rvar2=uzonal_obsp)
-
-    if (allocated(umerid_obsp)) call increment_vtable('UMERID_OBSP', stagpt, noread=.true., rvar2=umerid_obsp)
-
-    if (allocated(rho_obsf))    call increment_vtable('RHO_OBSF',    stagpt, noread=.true., rvar2=rho_obsf)
-
-    if (allocated(theta_obsf))  call increment_vtable('THETA_OBSF',  stagpt, noread=.true., rvar2=theta_obsf)
-
-    if (allocated(rrw_obsf))    call increment_vtable('RRW_OBSF',    stagpt, noread=.true., rvar2=rrw_obsf)
-
-    if (allocated(uzonal_obsf)) call increment_vtable('UZONAL_OBSF', stagpt, noread=.true., rvar2=uzonal_obsf)
-
-    if (allocated(umerid_obsf)) call increment_vtable('UMERID_OBSF', stagpt, noread=.true., rvar2=umerid_obsf)
+!   if (nudnxp == 0) then
+!      stagpt = 'AW'
+!   else
+!      stagpt = 'AN'
+!   endif
+!
+!   if (allocated(rho_obsp))    call increment_vtable('RHO_OBSP',    stagpt, noread=.true., rvar2=rho_obsp)
+!
+!   if (allocated(theta_obsp))  call increment_vtable('THETA_OBSP',  stagpt, noread=.true., rvar2=theta_obsp)
+!
+!   if (allocated(rrv_obsp))    call increment_vtable('RRV_OBSP',    stagpt, noread=.true., rvar2=rrv_obsp)
+!
+!   if (allocated(uzonal_obsp)) call increment_vtable('UZONAL_OBSP', stagpt, noread=.true., rvar2=uzonal_obsp)
+!
+!   if (allocated(umerid_obsp)) call increment_vtable('UMERID_OBSP', stagpt, noread=.true., rvar2=umerid_obsp)
+!
+!   if (allocated(rho_obsf))    call increment_vtable('RHO_OBSF',    stagpt, noread=.true., rvar2=rho_obsf)
+!
+!   if (allocated(theta_obsf))  call increment_vtable('THETA_OBSF',  stagpt, noread=.true., rvar2=theta_obsf)
+!
+!   if (allocated(rrv_obsf))    call increment_vtable('RRV_OBSF',    stagpt, noread=.true., rvar2=rrv_obsf)
+!
+!   if (allocated(uzonal_obsf)) call increment_vtable('UZONAL_OBSF', stagpt, noread=.true., rvar2=uzonal_obsf)
+!
+!   if (allocated(umerid_obsf)) call increment_vtable('UMERID_OBSF', stagpt, noread=.true., rvar2=umerid_obsf)
 
   end subroutine filltab_nudge
 
@@ -197,17 +284,22 @@ Contains
 
   subroutine filltab_nudge_o3()
 
-    use var_tables, only: increment_vtable
+!   use var_tables, only: increment_vtable
     implicit none
 
-    ! ozone currently only uses non-spectral nudging, which is only
-    ! computed at W points
+!   Ozone currently only uses non-spectral nudging, which is only
+!   computed at W points.
 
-    if (allocated(ozone_obsp)) &
-         call increment_vtable('OZONE_OBSP', 'AW', noread=.true., rvar2=ozone_obsp)
+!   NOTE:
+!   Obs-nudging arrays do not need to be in the vtables for history
+!   read/writes or parallel communication. The gridded observational fields
+!   are read in on initialization or history restart
 
-    if (allocated(ozone_obsf)) &
-         call increment_vtable('OZONE_OBSF', 'AW', noread=.true., rvar2=ozone_obsf)
+!   if (allocated(ozone_obsp)) &
+!        call increment_vtable('OZONE_OBSP', 'AW', noread=.true., rvar2=ozone_obsp)
+!
+!   if (allocated(ozone_obsf)) &
+!        call increment_vtable('OZONE_OBSF', 'AW', noread=.true., rvar2=ozone_obsf)
 
   end subroutine filltab_nudge_o3
 

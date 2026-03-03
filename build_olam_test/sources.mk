@@ -6,7 +6,6 @@ SOURCE_FILES= \
              $(CONVECT)/mem_cuparm.f90 \
              $(CONVECT)/mem_turb.f90 \
              $(CONVECT)/module_bl_acm2.f90 \
-             $(CONVECT)/module_cu_emanuel.f90 \
              $(CONVECT)/module_cu_g3.f90 \
 	     $(CONVECT)/module_cu_g3_aq.f90 \
              $(CONVECT)/module_cu_g3_tracer.f90 \
@@ -23,20 +22,19 @@ SOURCE_FILES= \
              $(LAND)/glhymps_read.f90 \
              $(LAND)/land_database_read.f90 \
              $(LAND)/land.f90 \
+             $(LAND)/land_startup.f90 \
              $(LAND)/leaf4_canopy.f90 \
              $(LAND)/leaf4_coms.f90 \
              $(LAND)/leaf4_init_atm.f90 \
              $(LAND)/leaf4_plot.f90 \
-             $(LAND)/leaf4_surface.f90 \
              $(LAND)/leaf4_soil.f90 \
-             $(LAND)/land_startup.f90 \
+             $(LAND)/leaf4_surface.f90 \
              $(LAND)/mem_land.f90 \
              $(LAND)/ndvi_database_read.f90 \
              $(LAND)/read_soil_analysis.f90 \
              $(LAND)/soilgrids_read.f90 \
              $(MODEL_MODS)/consts_coms.f90 \
              $(MODEL_MODS)/max_dims.f90 \
-             $(MODEL_MODS)/mem_regrid.f90 \
              $(MODEL_MODS)/mem_addsc.f90 \
              $(MODEL_MODS)/mem_adv.f90 \
              $(MODEL_MODS)/mem_average_vars.f90 \
@@ -50,6 +48,7 @@ SOURCE_FILES= \
              $(MODEL_MODS)/mem_para.F90 \
              $(MODEL_MODS)/mem_plot.f90 \
              $(MODEL_MODS)/mem_rayf.f90 \
+             $(MODEL_MODS)/mem_regrid.f90 \
              $(MODEL_MODS)/mem_tend.f90 \
              $(MODEL_MODS)/mem_zonavg.f90 \
              $(MODEL_MODS)/micro_coms.f90 \
@@ -67,7 +66,7 @@ SOURCE_FILES= \
              $(OISAN)/isan_driver.f90 \
              $(OISAN)/mem_nudge.f90 \
              $(OISAN)/nudge_o3.f90 \
-             $(OISAN)/obs_nudge.f90 \
+             $(OISAN)/obs_nudge.F90 \
              $(OISAN)/olam_mpi_nudge.F90 \
              $(OISAN)/spec_nudge.f90 \
              $(OMODEL)/alloc.f90 \
@@ -75,6 +74,7 @@ SOURCE_FILES= \
              $(OMODEL)/cart_hex.f90 \
              $(OMODEL)/coneplot.f90 \
              $(OMODEL)/contslab.F90 \
+             $(OMODEL)/contslab_grid.F90 \
              $(OMODEL)/expand_global.f90 \
              $(OMODEL)/fields3_ll.F90 \
              $(OMODEL)/fill_itabs.f90 \
@@ -111,22 +111,24 @@ SOURCE_FILES= \
              $(OMODEL)/oplot_interface.F90 \
              $(OMODEL)/oplot_lib.f90 \
              $(OMODEL)/othrm.f90 \
-             $(OMODEL)/para_decomp.f90 \
-             $(OMODEL)/prog_wrtv_orig.f90 \
+             $(OMODEL)/para_decomp.F90 \
              $(OMODEL)/prog_wrtv_rk.f90 \
              $(OMODEL)/salt_dust_src.f90 \
-             $(OMODEL)/scalar_transport_orig.F90 \
              $(OMODEL)/scalar_transport_rk.F90 \
              $(OMODEL)/spawn_nest.f90 \
              $(OMODEL)/spring_dynamics.f90 \
              $(OMODEL)/surface_fluxes.f90 \
              $(OMODEL)/tileslab.F90 \
+             $(OMODEL)/tileslab_grid.F90 \
              $(OMODEL)/timeseries_plots.f90 \
              $(OMODEL)/timestep.f90 \
              $(OMODEL)/triangle_utils.f90 \
+             $(OMODEL)/vectgrid.F90 \
              $(OMODEL)/vectslab.F90 \
              $(OMODEL)/vel_t3d.f90 \
              $(OMODEL)/vort_div_damp.f90 \
+             $(OUTILS)/analysis_lib.f90 \
+             $(OUTILS)/area_remap_ll.f90 \
              $(OUTILS)/blas.f90 \
              $(OUTILS)/check_nans.F90 \
              $(OUTILS)/dateutils.f90 \
@@ -136,15 +138,22 @@ SOURCE_FILES= \
              $(OUTILS)/lapack.f90 \
              $(OUTILS)/latlon_bins.f90 \
              $(OUTILS)/map_proj.f90 \
+             $(OUTILS)/map_proj_gn.f90 \
+             $(OUTILS)/map_proj_or.f90 \
+             $(OUTILS)/map_proj_ps.f90 \
              $(OUTILS)/matrix.f90 \
+             $(OUTILS)/minterp_lib.F90 \
+             $(OUTILS)/netcdf_utils.f90 \
              $(OUTILS)/olam_interp_ll.f90 \
              $(OUTILS)/o_ncar.f90 \
-             $(OUTILS)/polygon_overlap.F90 \
-             $(OUTILS)/prfill.f90 \
+             $(OUTILS)/point_io.f90 \
+             $(OUTILS)/polygon_lib.f90 \
              $(OUTILS)/quadrature.f90 \
+             $(OUTILS)/sortlib.f90 \
              $(OUTILS)/string_lib.f90 \
              $(OUTILS)/sys_utils.f90 \
              $(OUTILS)/therm_lib.f90 \
+             $(OUTILS)/tokenize.f90 \
              $(OUTILS)/tridiag_lib.f90 \
              $(RADIATE)/cloud_frac.f90 \
              $(RADIATE)/cloudprep_rad.f90 \
@@ -214,7 +223,9 @@ SOURCE_FILES= \
              $(RADIATE)/rrtmg_sw/rrtmg_sw_setcoef.f90 \
              $(RADIATE)/rrtmg_sw/rrtmg_sw_spcvmc.f90 \
              $(RADIATE)/rrtmg_sw/rrtmg_sw_taumol.f90 \
+             $(SEA)/fundarg.f \
              $(SEA)/mem_sea.f90 \
+             $(SEA)/perth.f90 \
              $(SEA)/pom_interface.f90 \
              $(SEA)/pom2k1d.f90 \
              $(SEA)/read_seaice_analysis.f90 \
@@ -235,8 +246,22 @@ SOURCE_FILES= \
              $(SFCG)/mem_sfcnud.f90 \
              $(SFCG)/olam_mpi_sfc.F90 \
              $(SFCG)/surface_driver.f90 \
+             $(UMWM)/umwm_advection.F90 \
+             $(UMWM)/umwm_source_functions.F90 \
+             $(UMWM)/umwm_sheltering.F90 \
+             $(UMWM)/umwm_physics.F90 \
+             $(UMWM)/umwm_module.F90 \
+             $(UMWM)/umwm_init.F90 \
+             $(UMWM)/umwm_oforcing.F90 \
+             $(UMWM)/umwm_top.F90 \
+             $(UMWM)/umwm_stress.F90 \
+             $(UMWM)/umwm_stokes.F90 \
              $(HURRICANE)/hurricane_init.F90 \
              $(HURRICANE)/plot_trajecfile.f90 \
+             $(LAGPART)/lpadvect.f90 \
+             $(LAGPART)/lpsource.f90 \
+             $(LAGPART)/mem_lp.f90 \
+             $(LAGPART)/plot_lp.f90 \
              $(TEST_CASES)/mem_swtc5_refsoln_cubic.f90 \
              $(TEST_CASES)/swtc_init.f90 \
              $(TEST_CASES)/diagn_global_swtc.F90 \

@@ -66,21 +66,23 @@ EXE=$(BASE)-$(OLAM_VERSION)$(OLAM_SUFFIX)
 all: objects/FLIST objects/Make.depend objects/Make.targets
 	$(MAKE) $(EXE)
 
-objects/Make.depend: $(SOURCE_FILES) sources.mk include.mk Makefile
+objects/Make.depend: $(SOURCE_FILES) sources.mk paths.mk include.mk Makefile
 	@echo ""
 	@echo "Generating dependency information"
 	@mkdir -p objects
 	@./sfmakedepend.txt -I $(OUTILS) -f objects/Make.depend.tmp $(SOURCE_FILES)
-	@sed -e 's:objects/mpi.mod::g' -e 's:objects/hdf5.mod::g' -e 's:objects/h5ds.mod::g' objects/Make.depend.tmp > objects/Make.depend
+	@sed -e 's:objects/mpi.mod::g' -e 's:objects/mpi_f08.mod::g' -e 's:objects/iso_fortran_env.mod::g' \
+	     -e 's:objects/iso_c_binding.mod::g' -e 's:objects/ieee_arithmetic.mod::g' \
+	     -e 's:objects/hdf5.mod::g' -e 's:objects/h5ds.mod::g' objects/Make.depend.tmp > objects/Make.depend
 
-objects/Make.targets: $(SOURCE_FILES) sources.mk include.mk Makefile
+objects/Make.targets: $(SOURCE_FILES) sources.mk paths.mk include.mk Makefile
 	@echo ""
 	@echo "Generating target dependency list"
 	@mkdir -p objects
 	@rm -f objects/Make.targets
 	@for sfile in $(SOURCE_FILES); do \
 	    dfile=objects/$$(basename $$sfile); \
-	    echo $$dfile: $$sfile $$'\n\tcp' -p $$sfile $$dfile; \
+	    printf "%s\n\t%s\n" "$$dfile: $$sfile" "cp -p $$sfile $$dfile"; \
 	done > objects/Make.targets
 
 $(EXE): $(OBJECT_FILES)

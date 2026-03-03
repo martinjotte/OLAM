@@ -445,10 +445,11 @@ C Warn the User if there are No Emissions Species On Any File
                         jasfc = itab_w(iw)%jasfc(jsfc)
 
                         kw    = itab_wsfc(iwsfc)%kwatm(jasfc)
+                        iland = iwsfc - omland
 
                         ! Convert mol / sec emissions to rho ppmV / sec
                         vdemis_gc(kw,iw,s) = vdemis_gc(kw,iw,s)
-     &                       + megan_emis(iland,n) * itab_wsfc(iwsfc)%arcoarkw(jasfc) * cnvtc(kw)
+     &                       + megan_emis(n,iland) * itab_wsfc(iwsfc)%arcoarkw(jasfc) * cnvtc(kw)
 
                      enddo
 

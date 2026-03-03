@@ -5,7 +5,7 @@ subroutine sea_init_atm()
                          iupdseaice, s1900_seaice, iseaicefile, nseaicefiles, nzi
   use misc_coms,   only: s1900_sim, iparallel, runtype
   use mem_sfcg,    only: itab_wsfc, sfcg, nswmzons
-  use consts_coms, only: t00, p00i, rocp
+  use consts_coms, only: t00
   use therm_lib,   only: rhovsl, rhovsil
   use mem_para,    only: myrank
   use sea_swm,     only: depthmax_swe
@@ -38,15 +38,10 @@ subroutine sea_init_atm()
      ! Skip this cell if running in parallel and cell rank is not MYRANK
      ! if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
-     ! Initialize sea temperature, sea ice, and canopy depth
-
-     sea%seatc(isea) = sea%seatp(isea)  &
-                     + (sea%seatf(isea) - sea%seatp(isea)) * timefac_sst
-
-     sea%seaicec(isea) = sea%seaicep(isea)  &
-                       + (sea%seaicef(isea) - sea%seaicep(isea)) * timefac_seaice
+     ! Initialize canopy depth
 
      sfcg%can_depth(iwsfc) = 20. * max(1.,.025 * dt_sea)
+
   enddo
   !$omp end parallel do
 
@@ -61,27 +56,47 @@ subroutine sea_init_atm()
      ! Skip this cell if running in parallel and cell rank is not MYRANK
      ! if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
+     ! Initialize SST, seacice, and seaspray temperature
+
+     sea%seatc(isea) = sea%seatp(isea)  &
+                     + (sea%seatf(isea) - sea%seatp(isea)) * timefac_sst
+
+     sea%seaicec(isea) = sea%seaicep(isea)  &
+                       + (sea%seaicef(isea) - sea%seaicep(isea)) * timefac_seaice
+
+     if (allocated(sea%spraytemp ))   sea%spraytemp   (isea) = sea%seatc(isea)
+     if (allocated(sea%spray2temp))   sea%spray2temp  (isea) = sea%seatc(isea)
+     if (allocated(sea%spray_active)) sea%spray_active(isea) = .false.
+
      ! Apply initial atmospheric properties to sea "canopy"
 
-     sfcg%cantemp(iwsfc) = sfcg%airtheta(iwsfc) * (sfcg%prss(iwsfc) * p00i)**rocp
+     sfcg%cantemp(iwsfc) = sfcg%airtheta(iwsfc) * sfcg%canexner(iwsfc)
      sfcg%canrrv (iwsfc) = sfcg%airrrv(iwsfc)
      sfcg%ustar  (iwsfc) = 0.1
      sfcg%ggaer  (iwsfc) = 0.0
      sfcg%wthv   (iwsfc) = 0.0
-
-     sea%nlev_seaice(isea) = 0
+     sfcg%sfluxt (iwsfc) = 0.0
+     sfcg%sfluxr (iwsfc) = 0.0
 
      ! Seawater quantities
 
      sea%sea_rough   (isea) = .001
      sea%sea_cantemp (isea) = sfcg%cantemp(iwsfc)
-     sea%sea_canrrv  (isea) = sfcg%canrrv(iwsfc)
-     sea%sea_sfc_srrv(isea) = rhovsl(sea%seatc(isea)-t00) / sfcg%rhos(iwsfc)
+     sea%sea_canrrv  (isea) = sfcg%canrrv (iwsfc)
+     sea%sea_bcantemp(isea) = sfcg%cantemp(iwsfc)
+     sea%sea_bcanrrv (isea) = sfcg%canrrv (iwsfc)
      sea%sea_ustar   (isea) = 0.1
      sea%sea_ggaer   (isea) = 0.0
      sea%sea_wthv    (isea) = 0.0
+     sea%sea_sfluxt  (isea) = 0.0
+     sea%sea_sfluxr  (isea) = 0.0
+     sea%nlev_seaice (isea) = 0
 
      ! Seaice quantities
+
+     sea%ice_sfluxt  (isea) = 0.0
+     sea%ice_sfluxr  (isea) = 0.0
+     sea%nlev_seaice (isea) = 0
 
      call prep_seaice(sea%seatc              (isea), &
                       sea%seaicec            (isea), &
@@ -104,14 +119,9 @@ subroutine sea_init_atm()
                       sea%sea_ggaer          (isea), &
                       sea%ice_ggaer          (isea), &
                       sea%sea_wthv           (isea), &
-                      sea%ice_wthv           (isea), &
-                      sea%ice_sxfer_t        (isea), &
-                      sea%ice_sxfer_r        (isea)  )
+                      sea%ice_wthv           (isea)  )
 
      if (sea%nlev_seaice(isea) > 0) then
-
-        sea%ice_sfc_srrv(isea) = rhovsil(sea%seaice_tempk(sea%nlev_seaice(isea),isea)) &
-                               / sfcg%rhos(iwsfc)
 
         sfcg%rough    (iwsfc) = (1.0 - sea%seaicec(isea)) * sea%sea_rough  (isea) + &
                                        sea%seaicec(isea)  * sea%ice_rough  (isea)
@@ -121,16 +131,11 @@ subroutine sea_init_atm()
 
         sfcg%canrrv   (iwsfc) = (1.0 - sea%seaicec(isea)) * sea%sea_canrrv (isea) + &
                                        sea%seaicec(isea)  * sea%ice_canrrv (isea)
-
-        sea%surface_srrv(isea) = (1.0 - sea%seaicec(isea)) * sea%sea_sfc_srrv(isea) + &
-                                        sea%seaicec(isea)  * sea%ice_sfc_srrv(isea)
-
      else
 
         sfcg%rough      (iwsfc) = sea%sea_rough   (isea)
         sfcg%cantemp    (iwsfc) = sea%sea_cantemp (isea)
         sfcg%canrrv     (iwsfc) = sea%sea_canrrv  (isea)
-        sea%surface_srrv(isea)  = sea%sea_sfc_srrv(isea)
 
      endif
 

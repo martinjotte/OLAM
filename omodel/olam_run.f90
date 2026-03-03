@@ -21,12 +21,12 @@ subroutine olam_run(name_name)
   use mem_para,    only: myrank, compute_pario_points
 
   use leaf_coms,   only: isfcl, iupdndvi
-  use sea_coms,    only: iupdsst, iupdseaice
+  use sea_coms,    only: iupdsst, iupdseaice, dt_sea
   use mem_ijtabs,  only: istp, fill_jtabs, itab_v, itab_w
-  use mem_sfcg,    only: mwsfc, alloc_sfcgrid2, filltab_sfcg, fill_jtab_sfcg
+  use mem_sfcg,    only: mwsfc, alloc_sfcgrid2, filltab_sfcg, fill_jtab_sfcg, nswmzons
   use sea_swm,     only: swm_init, swm_diagvel
   use oplot_coms,  only: op, iplt_file
-  use mem_grid,    only: mma, mva, mwa, mza, alloc_gridz_other, volvi, lpvmax
+  use mem_grid,    only: mma, mva, mwa, mza, alloc_gridz_other, volvi
   use mem_nudge,   only: nudflag, nudnxp, fill_jnudge, o3nudflag
   use mem_rayf,    only: rayf_init
   use consts_coms, only: r8, init_consts
@@ -40,13 +40,11 @@ subroutine olam_run(name_name)
   use lite_vars,   only: prepare_lite, lite_write, lite_read
   use mem_regrid,  only: init_regrid
   use mem_land,    only: land, mland
-  use mem_sea,     only: sea, msea
+  use mem_sea,     only: sea, msea, npomzons
   use vel_t3d,     only: diagvel_t3d, diag_uzonal_umerid
   use mem_adv,     only: alloc_adv
   use mem_co2,     only: co2init
   use wrtv_rk,     only: init_wrtv_rk
-  use wrtv_orig,   only: init_wrtv_orig
-
   use cgrid_spcs,  only: cgrid_spcs_init
   use aero_data,   only: map_aero
   use emis_defn,   only: emis_init
@@ -56,6 +54,8 @@ subroutine olam_run(name_name)
   use soa_defn,    only: map_soa
   use aq_data,     only: aq_data_init
   use pbl_drivers, only: pbl_init
+  use check_nan,   only: compute_mass_sums
+  use raddriv,     only: radinit
 
   use precursor_data, only: map_precursor
 
@@ -63,6 +63,11 @@ subroutine olam_run(name_name)
 
   use mem_average_vars, only: reset_davg_vars
   use mem_swtc5_refsoln_cubic
+
+  use umwm_module,  only: umwmflg
+  use umwm_top,     only: umwm_initialize, umwm_hist_prep
+  use minterp_lib,  only: init_minterp
+  use mem_lp,       only: lp_readnml, lpflag, lp_init, lp_readnml
 
   implicit none
 
@@ -270,7 +275,7 @@ subroutine olam_run(name_name)
 
   write(io6,'(/,a)') 'olam_run calling fill_jtabs'
 
-  call fill_jtabs(mma,mva,mwa)
+  call fill_jtabs(mma,mva,mwa,myrank,iparallel)
 
   if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) call fill_jnudge()
 
@@ -326,10 +331,10 @@ subroutine olam_run(name_name)
   endif
 
   if (iparallel == 1) then
-     call mpi_send_v(rvara1=volvi, i1dvara1=lpvmax)
-     call mpi_recv_v(rvara1=volvi, i1dvara1=lpvmax)
+     call mpi_send_v(rvara1=volvi)
+     call mpi_recv_v(rvara1=volvi)
   endif
-  call lbcopy_v(vmc=volvi, iv1=lpvmax)
+  call lbcopy_v(vmc=volvi)
 
   ! Allocate memory for advection and pre-compute arrays for 3rd order advection
   ! (needs MPI to have been initialized)
@@ -349,18 +354,14 @@ subroutine olam_run(name_name)
 
   ! Initialize primary atmospheric fields
 
-  if (initial == 1) then
-     if (runtype == 'INITIAL') then
+  if (runtype == 'INITIAL') then
+     if (initial == 1) then
         write(io6,'(/,a)') 'olam_run calling inithh'
         call inithh()            ! Horizontally-homogeneous initialization
-     endif
-  elseif (initial == 2) then
-     if ((runtype == 'INITIAL') .or. (nudflag == 1 .or. o3nudflag == 1)) then
+     elseif (initial == 2) then
         write(io6,'(/,a)') 'olam_run calling isan driver(0)'
         call isan_driver(0)
-     endif
-  elseif (initial == 3) then
-     if (runtype == 'INITIAL') then
+     elseif (initial == 3) then
         write(io6,'(/,a)') 'olam_run calling fldslhi'
         call fldslhi()           ! Longitudinally-homogeneous initialization
      endif
@@ -437,6 +438,17 @@ subroutine olam_run(name_name)
      call radinit()
   endif
 
+  ! Initialize M-point interpolation weights
+
+  if (mdomain <= 1) then
+     write(io6,'(/,a)') 'olam_run calling init_minterp'
+     call init_minterp()
+  endif
+
+  ! Initialize PBL quantities
+
+  call pbl_init()
+
   ! Check if LEAF will be used
 
   if (isfcl == 1) then
@@ -444,7 +456,7 @@ subroutine olam_run(name_name)
      ! Allocate time-dependent SFC grid arrays
 
      write(io6,'(/,a)') 'olam_run calling alloc_sfcgrid2'
-     call alloc_sfcgrid2(mwsfc)
+     call alloc_sfcgrid2()
      call filltab_sfcg()
 
      ! Start up LAND model
@@ -464,16 +476,22 @@ subroutine olam_run(name_name)
 
      ! Start up POM1D model
 
-     write(io6,'(/,a)') 'olam_run calling pom_startup'
-     call pom_startup()
+     if (npomzons > 0) then
+        write(io6,'(/,a)') 'olam_run calling pom_startup'
+        call pom_startup()
+     endif
 
-     write(io6,'(/,a)') 'olam_run calling swm_init'
-     call swm_init()
+     if (nswmzons > 0) then
+        write(io6,'(/,a)') 'olam_run calling swm_init'
+        call swm_init()
+     endif
 
      ! Average atmospheric fields to SFC grid cells
 
-     write(io6,'(/,a)') 'olam_run calling sfcg_avgatm'
-     call sfcg_avgatm()
+     if (runtype == 'INITIAL') then
+        write(io6,'(/,a)') 'olam_run calling sfcg_avgatm'
+        call sfcg_avgatm()
+     endif
 
      ! Initialize leaf fields
 
@@ -492,10 +510,13 @@ subroutine olam_run(name_name)
 
      ! Initialize POM1D fields
 
-     write(io6,'(/,a)') 'olam_run calling pom_init'
-     call pom_init()
+     if (npomzons > 0) then
+        write(io6,'(/,a)') 'olam_run calling pom_init'
+        call pom_init()
+     endif
 
-     if (isfcl == 1) call swm_diagvel()
+     if (nswmzons > 0) call swm_diagvel()
+     if (umwmflg == 1) call umwm_initialize(dt_sea)
 
      if (nl%igw_spinup == 1) then
 
@@ -528,14 +549,6 @@ subroutine olam_run(name_name)
 
   endif
 
-  ! If using variable initialization and polygon nudging, read most recent
-  ! and next observational analyses, and fill nudging polygons for both
-
-  if (initial == 2 .and. (nudflag == 1 .or. o3nudflag == 1)) then
-     write(io6,'(/,a)') 'olam_run calling isan_driver(1)'
-     call isan_driver(1)
-  endif
-
   ! Initialize Rayleigh friction profile
 
   write(io6,'(/,a)') 'olam_run calling rayf_init'
@@ -548,17 +561,9 @@ subroutine olam_run(name_name)
      call fill_swtc5()
   endif
 
-  ! Initialize PBL quantities
-
-  call pbl_init()
-
   ! Extra initializations for small-timestep solver
 
-  if (nrk_wrtv == 1) then
-     call init_wrtv_orig()
-  else
-     call init_wrtv_rk()
-  endif
+  call init_wrtv_rk()
 
   ! Initialize emissions/deposition if doing chemistry
 
@@ -578,6 +583,13 @@ subroutine olam_run(name_name)
 
   if (ncycle_hurrinit > 0) call hurricane_init()
 
+  ! Initialize Lagrangian particle model
+
+  if (runtype == 'INITIAL' .or. runtype == 'HISTORY') then
+     call lp_readnml()
+     if (lpflag == 1) call lp_init()
+  endif
+
   ! If this is 'PLOTONLY' run, loop through input history files, plot
   ! specified fields, and exit
 
@@ -591,7 +603,8 @@ subroutine olam_run(name_name)
         call history_start('COMMIO')
         call history_start('HISTREAD')
 
-        ! Diagnose zonal and meridional wind components, which are not on hist file
+        ! Diagnose zonal and meridional wind components, which may not be in
+        ! hist file are faster to just re-compute.
 
         call diag_uzonal_umerid()
 
@@ -619,14 +632,19 @@ subroutine olam_run(name_name)
            exit
         endif
 
-        if (nl%ioutput_lite == 1 .and. nl%nlite_files > 0) then
-           do ilite_file = 1,nl%nlite_files
-              litefile = nl%lite_files(ilite_file)
-              call lite_read(litefile)
-            !  call plot_fields(0)
-              call timeseries_plots('L')
-           enddo
-           exit
+        !if (nl%ioutput_lite == 1 .and. nl%nlite_files > 0) then
+        !   do ilite_file = 1,nl%nlite_files
+        !      litefile = nl%lite_files(ilite_file)
+        !      call lite_read(litefile)
+        !    !  call plot_fields(0)
+        !      call timeseries_plots('L')
+        !   enddo
+        !   exit
+        !endif
+
+        if (nl%ioutput_lite == 1) then
+           call prepare_lite()
+           call lite_write()
         endif
 
         ! If day-average plots are NOT specified, do regular plots from history files.
@@ -642,6 +660,8 @@ subroutine olam_run(name_name)
 
        ! if (mod(iplt_file,240) == 0) then
 
+           if (umwmflg == 1) call umwm_hist_prep()
+
            call plot_fields(0)
 
            if (nl%ioutput_latlon == 1 .or. nl%latlonplot == 1) then
@@ -649,10 +669,6 @@ subroutine olam_run(name_name)
            endif
 
         ! endif
-
-!  if (ncycle_hurrinit > 0) then
-!     call vortex_azim_avg('plot')
-!  endif
 
         ! Write sfcnud file to be used for nudged spin-up simulation
 
@@ -693,15 +709,17 @@ subroutine olam_run(name_name)
      endif
 
      write(io6,*) 'olam_run calling history_start'
-     call history_start('COMMIO')
      call history_start('HISTREAD')
      write(io6,*) 'olam_run finished history_start'
 
-     ! Reset time variables
+     ! Diagnose zonal and meridional wind components, which are not on hist file
+     call diag_uzonal_umerid()
 
-     time8p      = time8 + time_bias   ! Slightly forward biased time
-     time_istp8  = time8
-     time_istp8p = time8p              ! Slightly forward biased time
+     ! Diagnose quantities needed by UMWM not saved in history file
+     if (umwmflg == 1) call umwm_hist_prep()
+
+     ! Read current analysis if nudging is active
+     if (initial == 2 .and. (nudflag == 1 .or. o3nudflag == 1)) call isan_driver(0)
 
      mstp = 0
 
@@ -732,6 +750,10 @@ subroutine olam_run(name_name)
 
         hlat = hlat_hist
         hlon = hlon_hist
+
+        call vortex_center_diagnose()
+        hlat_hist = hlat
+        hlon_hist = hlon
      endif
 
   elseif (runtype  == 'INITIAL') then
@@ -763,6 +785,13 @@ subroutine olam_run(name_name)
 
   endif
 
+  ! If using variable initialization and nudging, read next observational analysis
+
+  if (initial == 2 .and. (nudflag == 1 .or. o3nudflag == 1)) then
+     write(io6,'(/,a)') 'olam_run calling isan_driver(1)'
+     call isan_driver(1)
+  endif
+
   ! If this INITIAL or HISTREGRID run, write initial history file
 
   if (runtype == 'INITIAL' .or. runtype == 'HISTREGRID') then
@@ -777,16 +806,25 @@ subroutine olam_run(name_name)
 
   write(io6,'(/,a)') 'olam_run calling plot_fields'
 
-  call copy_plot(0)
-  call plot_fields(0)
-  call fields3_ll()
-  if (mdomain == 5 .and. nl%les_diag_freq > 0._r8) call les_diag()
-
   ! Compute azimuthal averages of dynamic, thermodynamic, and moisture
   ! fields, and plot averages (in radial-height cross sections)
 
   if (ncycle_hurrinit > 0) then
      call vortex_azim_avg('plot')
+  endif
+
+  ! For UMWM, initial fields will start with 0 waves/forcing. Restarted wave fields
+  ! should plot fine here since this was called previously during heistory restart
+  ! if (umwmflg == 1) call umwm_hist_prep()
+
+  call copy_plot(0)
+  call plot_fields(0)
+  call fields3_ll()
+  if (mdomain == 5 .and. nl%les_diag_freq > 0._r8) call les_diag()
+
+  if (nl%print_mass_sums) then
+     write(io6,*) " Initial mass sums:"
+     call compute_mass_sums()
   endif
 
   70 continue ! HURRICANE INITIALIZATION CYCLE BEGINS HERE
@@ -859,6 +897,9 @@ subroutine olam_run(name_name)
 
      write(io6,'(/,a)') 'olam_run calling plot_fields after vortex relocation'
 
+!    UMWM starts with no waves; should (or is!) the wave field relocated too...
+!    if (umwmflg == 1) call umwm_hist_prep()
+
      call copy_plot(0)
      call plot_fields(0)
      call fields3_ll()
@@ -910,6 +951,7 @@ subroutine model()
   use consts_coms, only: r8
   use oname_coms,  only: nl
   use hcane_rz,    only: ncycle_hurrinit, icycle_hurrinit, timmax_hurrinit
+  use point_io,    only: read_point_file, fill_point_obs
 
   implicit none
 
@@ -948,6 +990,14 @@ subroutine model()
      call cpu_time(t1)
      wtime1 = walltime(wtime_start)
 
+     ! Read current day's point observations
+
+     if (nl%point_files > 0) then
+        if (mstp == 0 .or. current_time%time + time_bias < dtlm) then
+           call read_point_file()
+        endif
+     endif
+
      ! Start the timestep schedule to loop through all grids and advance them
      ! in time an increment equal to dtlm.
 
@@ -981,6 +1031,12 @@ subroutine model()
      write(io6,'(a)')  &
         trim(stepc1)//trim(stepc2)//trim(stepc3)//trim(stepc4)//trim(stepc5)
 
+     ! Fill point observations that are within this timestep
+
+     if (nl%point_files > 0) then
+        call fill_point_obs()
+     endif
+
      ! Add current contribution to time-averaged variables
 
      if (nl%ioutput_davg == 1) call inc_davg_vars()
@@ -1001,8 +1057,8 @@ end subroutine model
 subroutine olam_output()
 
   use misc_coms,   only: io6, time8, time8p, dtlm, iflag, frqstate, timmax8, &
-                         initial, s1900_sim, time_prevhist, mdomain, &
-                         iyear1, imonth1, idate1, itime1, do_chem
+                         initial, s1900_sim, time_prevhist, mdomain, iyear1, &
+                         imonth1, idate1, itime1, do_chem, current_time, time_bias
   use leaf_coms,   only: isfcl, iupdndvi, indvifile, s1900_ndvi
   use sea_coms,    only: iupdsst, iupdseaice, isstfile, iseaicefile, &
                          s1900_sst, s1900_seaice, isstflg, iseaiceflg
@@ -1017,7 +1073,9 @@ subroutine olam_output()
   use mem_megan,   only: megan_store_lai
 
   use mem_average_vars, only: reset_davg_vars
-  use mem_sfcnud,  only: s1900_sfcnud, isfcnudfile, sfcnud_read
+  use mem_sfcnud,   only: s1900_sfcnud, isfcnudfile, sfcnud_read
+  use check_nan,    only: compute_mass_sums
+  use point_io,     only: write_point_file
 
   implicit none
 
@@ -1033,12 +1091,14 @@ subroutine olam_output()
   ! and plot fields
 
   if (mod(time8p,op%frqplt) < dtlm .or. time8p >= timmax8 .or. iflag == 1) then
-     call copy_plot(0)
-     call plot_fields(0)
 
      if (ncycle_hurrinit > 0) then
         call vortex_azim_avg('plot')
      endif
+
+     call copy_plot(0)
+     call plot_fields(0)
+
   endif
 
   call date_add_to8(iyear1,imonth1,idate1,itime1,time8p,'s',outyear,  &
@@ -1079,6 +1139,12 @@ subroutine olam_output()
 
   endif
 
+  ! Global mass sums (helps evaluate model conservation)
+
+  if ( nl%print_mass_sums ) then
+     if ( mod(time8p,nl%mass_sum_frq) < dtlm ) call compute_mass_sums()
+  endif
+
   ! Print LES area-averaged statistics
 
   if (mdomain == 5 .and. nl%les_diag_freq > 1.e-5_r8) then
@@ -1091,6 +1157,14 @@ subroutine olam_output()
 
   if (nl%test_case == 2 .or. nl%test_case == 5) then
      call diagn_global_swtc()
+  endif
+
+  ! Point output files
+
+  if (nl%point_files > 0) then
+     if (current_time%time + time_bias < dtlm) then
+        call write_point_file()
+     endif
   endif
 
   if (isfcl == 1 .and. iupdsst == 1) then

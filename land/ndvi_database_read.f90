@@ -28,7 +28,7 @@ subroutine ndvi_database_read(iaction)
 
   integer, save :: indvicyclic, nndvifiles
 
-  real, allocatable :: glatwl(:), glonland(:)
+  real, allocatable :: glatwl(:), glonwl(:)
 
 ! Check type of call to ndvi_database_read
 
@@ -175,28 +175,29 @@ subroutine ndvi_database_read(iaction)
 
   ! Allocate and fill temporary lat/lon arrays for land points only
 
-  allocate (glatwl(mland), glonland(mland)); glatwl(:) = 0.; glonland(:) = 0.
+  allocate (glatwl(mland), glonwl(mland)); glatwl(:) = 0.; glonwl(:) = 0.
+
   do iland = 2,mland
      iwsfc = iland + omland
 
      ! Skip this cell if running in parallel and cell rank is not MYRANK
-     if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+     ! if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
      glatwl(iland) = sfcg%glatw(iwsfc)
-     glonland(iland) = sfcg%glonw(iwsfc)
+     glonwl(iland) = sfcg%glonw(iwsfc)
   enddo
 
 ! Read and interpolate current ndvi file
 
   call land_database_read(mland,                  &
                           glatwl,                 &
-                          glonland,               &
+                          glonwl,                 &
                           ndvi_database,          &
                           fnames_ndvi(indvifile), &
                           'ndvi',                 &
                           datq=datq               )
 
-  deallocate (glatwl, glonland)
+  deallocate (glatwl, glonwl)
 
 ! Loop over all land cells (already defined and filled with leaf_class)
 
@@ -204,7 +205,7 @@ subroutine ndvi_database_read(iaction)
      iwsfc = iland + omland
 
      ! Skip this cell if running in parallel and cell rank is not MYRANK
-     if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
+     ! if (iparallel == 1 .and. itab_wsfc(iwsfc)%irank /= myrank) cycle
 
      land%veg_ndvif(iland) = max(.05,datq(iland))
   enddo

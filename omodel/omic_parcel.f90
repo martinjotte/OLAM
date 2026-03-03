@@ -61,7 +61,7 @@ subroutine parcel_env(iw)
 ! from falling out of the parcel (by the IF statement in subroutine micphys;
 ! collisions between hydrometeors are also turned off by another IF statement
 ! in subroutine micphys.)  The internal energy of hail is initially 0 J/kg,
-! representing a temperature of 0 deg C and 1000% ice content.
+! representing a temperature of 0 deg C and 100% ice content.
 
 ! OLAMIN microphysics settings are: ICLOUD = 4, IDRIZ = 5, IRAIN = 2,
 ! IPRIS = 0, ISNOW = 0, IAGGR = 0, IGRAUP = 0, IHAIL = 2,
@@ -746,6 +746,7 @@ endif
      call o_sflush()
      call o_gsplci(10)
      call o_gstxci(10)
+     call o_gslwsc(1.)
 
      call o_set(0.,1.,0.,1.,0.,1.,0.,1.,1)
 

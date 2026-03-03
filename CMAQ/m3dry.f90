@@ -146,11 +146,11 @@ SUBROUTINE m3dry ( iw, abflux, sfc_hono, nsfc, depvel_gas )
   use mem_grid,    only: dzt, volti, lpw
   use mem_basic,   only: theta, rho
   use mem_turb,    only: pblh
-  use leaf_coms,   only: tai_max, veg_frac
+  use leaf_coms,   only: tai_max, veg_frac, wcap_min
   use hlconst_mod, only: hlconst
   use micro_coms,  only: ccnparm
   use mem_micro,   only: cldnum
-  use therm_lib,   only: rhovsl_inv, qtk, qtk_sea, qwtk
+  use therm_lib,   only: rhovsl_inv, qwtk, qtk_sea, qwtk
   use mem_megan,   only: pfts
   use oname_coms,  only: nl
 
@@ -355,13 +355,17 @@ SUBROUTINE m3dry ( iw, abflux, sfc_hono, nsfc, depvel_gas )
      wsat_vg = land%wsat_vg(nzg,iland)
      soil_water1 = min(land%soil_water(nzg,iland), wsat_vg)
 
-     if ( land%nlev_sfcwater(iland) > 0 ) then
+     if (land%sfcwater_mass(1,iland) > wcap_min) then
 
         ! Surface wetness factor
-        deltag = min( 1.0, (sum(land%sfcwater_mass(1:land%nlev_sfcwater(iland),iland)) / 0.2)**2 ) ** onethird
+        deltag = min( 1.0, (land%sfcwater_mass(1,iland) / 0.2)**2 ) ** onethird
 
-        ! Determine sfcwater temperature and liquid water mass fraction
-        call qtk( land%sfcwater_energy(land%nlev_sfcwater(iland),iland), tempgr, liqfrg )
+        ! Sfcwater temperature and liquid water mass fraction
+        if (land%sfcwater_mass(2,iland) > wcap_min) then
+           call qwtk( land%sfcwater_epm2(2,iland), land%sfcwater_mass(2,iland), 0., tempgr, liqfrg )
+        else
+           call qwtk( land%sfcwater_epm2(1,iland), land%sfcwater_mass(1,iland), 0., tempgr, liqfrg )
+        endif
 
         if (hasveg) then
            sfacm = 1.0 - land%snowfac(iland)

@@ -67,6 +67,7 @@ Module oname_coms
 
      real :: hdz(10) = 0.
      real :: dz (10) = 0.
+     real :: zstretch_max = 1.2
 
      real :: zz(maxsndg) = 0.0
 
@@ -135,11 +136,17 @@ Module oname_coms
      integer :: nudnxp      = 0
      real    :: tnudcent    = 86400.0
 
-     logical :: nud_preserve_mix_ratio = .true.
+     logical :: nud_preserve_mix_ratio  = .true.
+     logical :: nud_preserve_total_mass = .true.
 
 !!    HISTORY/OUTPUT FILES
 
      logical :: save_node_logs = .true.
+
+     logical :: disable_phdf5_writes = .false.
+     logical :: disable_phdf5_reads  = .false.
+     logical :: allranks_write_hdf5 = .false.
+     logical :: allranks_read_hdf5  = .false.
 
      integer :: ioutput      = 1
      integer :: ioutput_mavg = 1
@@ -147,7 +154,7 @@ Module oname_coms
      integer :: ioutput_lite = 0
      integer :: ioutput_latlon = 0
 
-     integer :: iblocksize = -1
+     integer :: iblocksize = -1   ! no longer used
      integer :: iclobber  = 0
      integer :: icompress = 0
      integer :: latlonplot = 0
@@ -162,31 +169,55 @@ Module oname_coms
      real :: beglon = -180.
      real :: endlon =  180.
 
+     logical :: hist_write_ue_ve = .false.
+     logical :: do_accum         = .false.
+
      character(pathlen) :: hfilin    = ' '
      character(pathlen) :: hfilepref = 'hist/'
      character(pathlen) :: lfilepref = 'hist/l'
      character(32)      :: lite_vars(maxlite) = ' '
      character(32)      :: latlon_vars(maxlatlon) = ' '
 
+     integer            :: point_files                      = 0
+     character(1)       :: pfile_types          (maxisdirs) = ' '
+     character(pathlen) :: point_obsin_headers  (maxisdirs) = ' '
+     character(12)      :: point_obsin_suffixes (maxisdirs) = ' '
+     character(pathlen) :: point_obsout_headers (maxisdirs) = ' '
+     character(12)      :: point_obsout_suffixes(maxisdirs) = ' '
+
 !!    MODEL/NUMERICAL OPTIONS
 
      integer :: naddsc      = 0
 
      integer :: ithil_monot = 0
+     integer :: iwind_monot = 0
      integer :: iscal_monot = 0
 
-     integer :: horiz_adv_order = 2
+     integer :: thil_horiz_adv_order = 2
+     integer :: wind_horiz_adv_order = 2
+     integer :: scal_horiz_adv_order = 2
 
      integer :: acoust_timestep_level = 3
      integer :: scalar_timestep_level = 2
 
-     real    :: akmin_vort     = 0.4
-     real    :: divh_damp_fact = 0.1
+     real    :: divh_damp_fact  = 0.1
+     integer :: divh_damp_level = 3
+     logical :: divh_damp_short = .true.
 
+     real    :: vort_damp_fact  = 0.075
+     integer :: vort_damp_level = 3
+     logical :: vort_damp_short = .true.
+
+     ! to be removed / unused
+     real    :: akmin_vort = 0.4
      logical :: zero_neg_scalars = .true.
 
      logical :: debug_fp    = .false.
      logical :: init_nans   = .false.
+
+     logical  :: print_tracer_maxmins = .false.
+     logical  :: print_mass_sums      = .false.
+     real(r8) :: mass_sum_frq         = 86400._r8
 
 !!    RAYLEIGH FRICTION PARAMETERS
 
@@ -268,8 +299,9 @@ Module oname_coms
 
 !!    HURRICANE DYNAMIC INITIALIZATION PARAMETERS
 
-     integer  :: ncycle_hurrinit
-     real(r8) :: timmax_hurrinit
+     integer  :: ncycle_hurrinit = 0
+     real(r8) :: timmax_hurrinit = 0.
+     integer  :: hurr_azim_plots = 1
 
      real :: hlat0          ! Obs hurricane latitude (deg)
      real :: hlon0          ! Obs hurricane longitude (deg)
@@ -310,10 +342,19 @@ Module oname_coms
 
      integer :: isfcl       =  1
      integer :: igw_spinup  =  0
-     integer :: nzs         =  1
      integer :: nzg         = 21
-     integer :: nzpom       = 40
      integer :: niter_swm   =  1
+     integer :: use_tides   =  0
+
+     integer :: umwmflg             = 0
+     integer :: umwm_shelt_function = 1
+     integer :: use_umwm_swh        = 0
+     integer :: use_umwm_roughness  = 1
+     real    :: umwm_wind_threshold = 5.
+
+     integer            :: nzpom        = 40
+     integer            :: pom_idata    = 0
+     character(pathlen) :: pom_database = ' '
 
      real :: landgrid_dztop = 0.05
      real :: landgrid_depth = 5.00
@@ -346,6 +387,10 @@ Module oname_coms
 
      integer :: ihoriz_gndwater_transport = 0
 
+     integer :: iseasprayflg  = 2
+     real    :: seaspray_vmin = 16.0
+     integer :: iroughsea     = 4
+
      real    :: seatmp = 280.0
      real    :: seaice =   0.0
 
@@ -364,6 +409,7 @@ Module oname_coms
      character(pathlen) :: seaice_database    = ' '
      character(pathlen) :: watertab_db        = ' '
      character(pathlen) :: orog_slope_db      = ' '
+     character(pathlen) :: tide_database      = ' '
 
 !!    ISENTROPIC CONTROL
 
@@ -395,7 +441,7 @@ Module oname_coms
      integer :: nplt_files  = 0
      integer :: nmavg_files = 0
      integer :: ndavg_files = 0
-     integer :: nlite_files = 0
+!    integer :: nlite_files = 0
      real(r8):: frqplt     = 3600.0_r8
      real    :: dtvec      = 1200.0
      real    :: headspeed  = 3.0
@@ -406,8 +452,17 @@ Module oname_coms
      real    :: zplot_min  = -1.0
      real    :: zplot_max  = -1.0
      integer :: mapcolor   = 13
+     real    :: mapthick   = 1.0
      integer :: llcolor    = 13
+     real    :: llthick    = 1.0
      integer :: ncolortabs = 0
+     integer :: ifont      = 0
+     real    :: latmax     =  90.
+     real    :: latmin     = -90.
+
+     ! For regridded 'R' plots
+     integer :: nx_grid  = 100
+     integer :: nx_vect  =  25
 
      character(pathlen) :: pltname     = 'gmeta'
      character(10)      :: prtval_size = 'medium'

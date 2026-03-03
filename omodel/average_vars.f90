@@ -259,7 +259,7 @@ subroutine write_davg_vars(outyear,outmonth,outdate)
   write(io6,*)'+++++++++++++++++++++++++++++++++++++'
   write(io6,*)'history_write:open file:',trim(hnamel)
   write(io6,*)'+++++++++++++++++++++++++++++++++++++'
-  call shdf5_open(hnamel,'W',iclobber,trypario=.true.)
+  call shdf5_open(hnamel, 'W', iclobber)
 
   !  Write day-average variables
 
@@ -361,7 +361,7 @@ subroutine read_davg_vars(davgfile)
         sfluxt_davg,    sfluxr_davg
 
   use misc_coms,  only: io6
-  use hdf5_utils, only: shdf5_irec, shdf5_open, shdf5_close
+  use hdf5_utils, only: shdf5_exists, shdf5_irec, shdf5_open, shdf5_close
   use mem_grid,   only: mwa
   use mem_ijtabs, only: itab_w
   use mem_sfcg,   only: itab_wsfc, mwsfc
@@ -378,7 +378,7 @@ subroutine read_davg_vars(davgfile)
   integer :: ilocall(mland)
   integer :: ilocalc(mwsfc)
 
-  inquire(file=davgfile,exist=exans)
+  call shdf5_exists(davgfile, exans)
 
   if (exans) then
 
@@ -388,7 +388,7 @@ subroutine read_davg_vars(davgfile)
      write(io6,*) 'Opening day-average file ', trim(davgfile)
      write(io6,*) '++++++++++++++++++++++++++++++++++++++++++++++++++++++'
 
-     call shdf5_open(davgfile,'R',trypario=.true.)
+     call shdf5_open(davgfile, 'R')
 
  ! Read day-average variables
 

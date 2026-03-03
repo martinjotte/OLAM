@@ -12,6 +12,7 @@ use max_dims,    only: maxgrds, maxsndg, maxnplt, maxisdirs, &
 use oname_coms,  only: nl
 use consts_coms, only: erad2, pi1, pi2, p00, r8
 use misc_coms,   only: io6
+use mem_para,    only: olam_stop
 
 implicit none
 
@@ -207,11 +208,14 @@ if (nl%initial == 2) then
    call ichk_bnds( nl%nudflag, "NUDFLAG", 0,  1, 2, nfatal, nwarn )
 
    if (nl%nudflag == 1) then
-
       call ichk_bnds( nl%max_nud_mrl, "MAX_NUD_MRL", 1, maxgrds, 2, nfatal, nwarn )
       call ichk_bnds( nl%nudnxp, "NUDNXP", 0, 10000, 2, nfatal, nwarn )
       call rchk_bnds( nl%tnudcent, "TNUDCENT", dtlong4, r_huge, 2, nfatal, &
                       nwarn, msgmin="Nudging time must be larger than dtlong")
+
+      ! We don't need to do anything extra to preserve tracer mass and mixing ratio
+      ! with NUD_PRESERVE_TOTAL_MASS active
+      if (nl%nud_preserve_total_mass) nl%nud_preserve_mix_ratio = .false.
    endif
 
 endif
@@ -253,15 +257,24 @@ endif
 ! MODEL OPTIONS / NUMERICAL SCHEMES
 !--------------------------------------------------------------------------
 
-call ichk_bnds( nl%naddsc, "NADDSC", 0, 1000, 0, nfatal, nwarn )
+call ichk_bnds( nl%naddsc, "NADDSC", 0, i_huge, 2, nfatal, nwarn )
 
 call ichk_bnds( nl%ithil_monot, "ITHIL_MONOT", 0, 1, 0, nfatal, nwarn )
+call ichk_bnds( nl%iwind_monot, "IWIND_MONOT", 0, 1, 0, nfatal, nwarn )
 call ichk_bnds( nl%iscal_monot, "ISCAL_MONOT", 0, 2, 0, nfatal, nwarn )
 
-call ichk_bnds( nl%horiz_adv_order, "HORIZ_ADV_ORDER", 2, 3, 2, nfatal, nwarn )
+call ichk_bnds( nl%thil_horiz_adv_order, "THIL_HORIZ_ADV_ORDER", 1, 3, 2, nfatal, nwarn )
+call ichk_bnds( nl%wind_horiz_adv_order, "WIND_HORIZ_ADV_ORDER", 1, 3, 2, nfatal, nwarn )
+call ichk_bnds( nl%scal_horiz_adv_order, "SCAL_HORIZ_ADV_ORDER", 1, 3, 2, nfatal, nwarn )
 
-call rchk_bnds( nl%akmin_vort,     "AKMIN_VORT",     0.0, 10., 2, nfatal, nwarn )
-call rchk_bnds( nl%divh_damp_fact, "DIVH_DAMP_FACT", 0.0, 0.2, 2, nfatal, nwarn )
+call ichk_bnds( nl%acoust_timestep_level, "ACOUST_TIMESTEP_LEVEL", 2, 3, 2, nfatal, nwarn)
+call ichk_bnds( nl%scalar_timestep_level, "SCALAR_TIMESTEP_LEVEL", 2, 3, 2, nfatal, nwarn)
+
+call rchk_bnds( nl%divh_damp_fact,  "DIVH_DAMP_FACT",  0.0, 0.2, 2, nfatal, nwarn )
+call ichk_bnds( nl%divh_damp_level, "DIVH_DAMP_LEVEL", 0,   3,   2, nfatal, nwarn )
+
+call rchk_bnds( nl%vort_damp_fact,  "VORT_DAMP_FACT",  0.0, 0.1, 2, nfatal, nwarn )
+call ichk_bnds( nl%vort_damp_level, "VORT_DAMP_LEVEL", 0,   3,   2, nfatal, nwarn )
 
 !--------------------------------------------------------------------------
 ! RAYLEIGH FRICTION PARAMETERS
@@ -313,7 +326,7 @@ endif
 !--------------------------------------------------------------------------
 
 do ng=1, nl%ngrids
-   call ichk_bnds( nl%nqparm(ng), "NQPARM", 0, 5, 0, nfatal, nwarn )
+   call ichk_bnds( nl%nqparm(ng), "NQPARM", 0, 3, 0, nfatal, nwarn )
 enddo
 
 call dchk_bnds( nl%confrq, "CONFRQ", nl%dtlong, d_huge, 2, nfatal, nwarn )
@@ -451,10 +464,17 @@ elseif (nl%miclevel == 3) then
 endif
 
 !--------------------------------------------------------------------------
-! CO2 PARAMETERS
+! MISC PARAMETERS
 !--------------------------------------------------------------------------
 
- call ichk_bnds( nl%co2flag       , "CO2FLAG"       , 0, 1, 2, nfatal, nwarn )
+call ichk_bnds( nl%co2flag, "CO2FLAG",  0, 1, 0, nfatal, nwarn )
+call ichk_bnds( nl%umwmflg, "UMWMFLG", 0, 1, 0, nfatal, nwarn )
+
+if (nl%umwmflg == 1) then
+   call ichk_bnds( nl%umwm_shelt_function, "UMWM_SHELT_FUNCTION", 1, 2, 2, nfatal, nwarn )
+   call ichk_bnds( nl%use_umwm_swh,        "USE_UMWM_SWH"       , 0, 1, 2, nfatal, nwarn )
+   call ichk_bnds( nl%use_umwm_roughness,  "USE_UMWM_ROUGHNESS" , 0, 1, 2, nfatal, nwarn )
+endif
 
 !--------------------------------------------------------------------------
 ! HURRICANE DYNAMIC INITIALIZATION PARAMETERS
@@ -524,8 +544,6 @@ if (nl%isfcl == 1) then
    call rchk_bnds( nl%landgrid_dztop, "LANDGRID_DZTOP", 0.02, 1.1, 0, nfatal, nwarn )
    call rchk_bnds( nl%landgrid_depth, "LANDGRID_DEPTH", 1.0, 1000.0, 0, nfatal, nwarn )
 
-   call ichk_bnds( nl%nzs, "NZS", 0, 10, 0, nfatal, nwarn )
-
    call ichk_bnds( nl%isoilflg,    "ISOILFLG",    1, 3, 0, nfatal, nwarn )
    call ichk_bnds( nl%isoilptf,    "ISOILPTF",    1, 2, 0, nfatal, nwarn )
    call ichk_bnds( nl%ivegflg,     "IVEGFLG",     1, 2, 0, nfatal, nwarn )
@@ -543,6 +561,10 @@ if (nl%isfcl == 1) then
    nl%zbedrock = -abs(nl%zbedrock)
 
    call ichk_bnds( nl%ihoriz_gndwater_transport, "IHORIZ_GNDWATER_TRANSPORT", 0, 1, 0, nfatal, nwarn )
+
+   call ichk_bnds( nl%iseasprayflg , "ISEASPRAYFLG", 0, 2, 0, nfatal, nwarn )
+   call rchk_bnds( nl%seaspray_vmin, "SEASPRAY_VMIN", 15.1, r_huge, 2, nfatal, nwarn )
+   call ichk_bnds( nl%iroughsea ,    "IROUGHSEA", 1, 5, 0, nfatal, nwarn )
 
    if (nl%isoilflg == 3) &
         call ichk_bnds( nl%isoiltext, "ISOILTEXT", 1, 12, 0, nfatal, nwarn )
@@ -710,6 +732,22 @@ do iplt = 1, nl%nplt
 ! point, but this is not checked for.
 
    endif
+
+   if (trim(nl%plotspecs(iplt)%fldname(1:2)) == 'LP' .and. &
+      index(nl%plotspecs(iplt)%pltspec2,'A') < 1) then
+
+      write(io6,*) 'Lagrangian particle plots must use A-type plot, not contours or tiles. '
+      nfatal = nfatal + 1
+   endif
+
+   if (trim(nl%plotspecs(iplt)%fldname(1:5)) == 'LP_SP' .and. &
+       trim(nl%plotspecs(iplt)%projectn)     /= 'C'     .and. &
+       trim(nl%plotspecs(iplt)%projectn)     /= 'V')    then
+      write(io6,*) 'LP_SP particle plots must use C or V vertical cross section. '
+
+      nfatal = nfatal + 1
+   endif
+
 enddo
 
 ! TODO - add checks for the plotting variables
@@ -788,8 +826,7 @@ write(io6,*) ' FATAL     errors - ', nfatal
 write(io6,*) ' WARNING   errors - ', nwarn
 write(io6,*) ' -----------------------------------------------'
 write(io6,*) ''
-if (nfatal > 0) stop 'ONAME_CHECK'
-
+if (nfatal > 0) call olam_stop( 'ONAME_CHECK' )
 
 contains
 
@@ -807,9 +844,9 @@ contains
     !
     ! IFLAG:
     !  0 - REPORT A FATAL ERROR IF BOUNDS EXCEEDED, RUN STOPS
-    !  1 - REPORT A WARNING IF BOUNDS EXCEEDED, RUN CONTINUES
+    !  1 - REPORT A WARNING IF BOUNDS EXCEEDED, RUN CONTINUES UNCHANGED
     !  2 - IF BOUNDS EXCEEDED, RESET THE VARIABLE TO WITHIN THE GIVEN BOUNDS
-    !       AND REPORT A WARNING, RUN CONTINUES
+    !      AND REPORT A WARNING, RUN CONTINUES
     !
     ! ALSO PRINT THE OPTIONAL STRINGS MSGMIN, MSGMAX OR MSGBOTH IF THE
     ! MINIMUM AND/OR MAXIMUM LIMITS ARE EXCEEDED

@@ -1,112 +1,121 @@
-subroutine scalar_transport_rk(rho_old)
-
-  use mem_ijtabs,   only: jtab_v, jtab_w, itab_v, itab_w, &
-                          jtv_wadj, jtw_prog, jtw_wadj
-  use mem_grid,     only: mza, mva, mwa, lpv, lpw, volti, &
-                          dztsqo6, dzto2, arw, arv
-  use misc_coms,    only: dtlm, iparallel
-  use var_tables,   only: num_scalar, scalar_tab
-  use mem_turb,     only: akhodx, khtopv
-  use oname_coms,   only: nl
-  use olam_mpi_atm, only: mpi_send_w, mpi_recv_w
-  use obnd,         only: lbcopy_w
-  use grad_lib,     only: grad_t2d, grad_t2d_quad, grad_z_quad
-  use mem_adv,      only: gxps_scp, gyps_scp, gxyps_scp, gxxps_scp, gyyps_scp, &
-                          xx0_v, yy0_v, xy0_v
-  use mem_basic,    only: rho, vmsca=>vmsc, wmsca=>wmsc, thil, theta, rr_v
-  use misc_coms,    only: nrk_scal
-  use tridiag,      only: tridif_prep, tridif_fini
-  use mem_nudge,    only: nudflag, rhot_nud
-  use consts_coms,  only: r8
-
-  use mem_para,     only: myrank
-  use mem_micro,    only: rr_c, rr_r
+module scalar_transport
 
   implicit none
 
-  real(r8), intent(in) :: rho_old(mza,mwa)
+  ! MPI communication tags
+  integer, parameter :: itag_gxyps = 31
+  integer, parameter :: itag_sct   = 32
+  integer, parameter :: itag_scp   = 33
+  integer, parameter :: itag_monot = 34
+  integer, parameter :: itag_pd    = 35
+  integer, parameter :: itag_cfl   = 36
 
-  integer  :: j,iw,iw1,iw2,istage
+  ! Monotonic / positive-definite tolerances
+  real, parameter :: eps0 = 1.e-32
+  real, parameter :: eps1 = 3.e-07
+  real, parameter :: onep = 1.0 + eps1
+  real, parameter :: onem = 1.0 - eps1
+
+  ! For testing - may want to add to namelist!
+  integer, parameter  :: iorderv        =  3
+  logical, parameter  :: centered_monot = .false.
+
+  private
+  public :: scalar_transport_rk
+
+contains
+
+!===========================================================================
+
+subroutine scalar_transport_rk(rho_old)
+
+  use mem_ijtabs,   only: jtab_w, itab_w, jtv_wadj, jtw_prog, jtw_wadj
+  use mem_grid,     only: mza, mwa, lpv, lpw, volti
+  use misc_coms,    only: dtlm, iparallel, nrk_scal
+  use var_tables,   only: num_scalar, scalar_tab
+  use mem_turb,     only: akhodx, khtopv
+  use oname_coms,   only: nl
+  use olam_mpi_atm, only: mpi_post_direct_recv_w, mpi_post_direct_send_w, &
+                          mpi_finish_direct_recv_w, mpi_finish_direct_send_w
+  use obnd,         only: lbcopy_w
+  use mem_basic,    only: rho, vmasc, wmasc
+  use tridiag,      only: tridif_prep, tridif_fini
+  use mem_nudge,    only: nudflag, rhot_nud
+
+#ifdef OLAM_MPI
+  use mpi_f08
+#endif
+
+  implicit none
+
+  real, intent(in) :: rho_old(mza,mwa)
+
+  integer  :: j,iw,istage
   integer  :: n,k,kb,iv,iwn,jv
-  integer  :: iorder,imonot
-  real     :: dirv
-  real     :: dtl
-  real(r8) :: rhof(mza)
+  integer  :: iorder,imonot,i2d
+  real     :: dtl, dtr
+  real     :: dtlr(nrk_scal)
+  real     :: rhof(mza)
 
 ! Automatic arrays:
 
-  real(r8) :: rscp0(mza,mwa)
-  real(r8) :: rhoi (mza,mwa,nrk_scal)
-  real(r8) :: fluxdiv(mza), vflux(mza)
+  real :: scp0(mza,mwa)
+  real :: rhos(mza,mwa,nrk_scal)
+  real :: fluxdiv(mza)
 
-  real :: scp_upv(mza,mva)
-  real :: scp_upw(mza)
-  real :: hflux(mza)
-  real :: gzps(mza), gzzps(mza)
-
-  real, allocatable :: scpmax(:,:)
-  real, allocatable :: scpmin(:,:)
-
-  logical :: do_implic(mwa)
-  real    :: ff_implic(mwa)
-  integer :: nn_implic, nn, ni
+  real    :: ff_implic(nrk_scal,mwa)
+  integer :: nn_implic(nrk_scal)
+  integer :: nn
 
   real, pointer, contiguous :: scp(:,:)
   real, pointer, contiguous :: sct(:,:)
 
-  real, parameter :: twothird = 2. / 3.
-  real, parameter :: onethird = 1. / 3.
-
-  real :: c1, c2, scp2
-  real :: delex_scp(mza), del_scp(mza)
-
-  integer, allocatable :: iw_implic(:), ii_implic(:)
+  real :: c1, c2
+  real :: delex_scp(mza), del_scp(mza), dscp0(mza)
 
   real :: wup(mza), wdn(mza)
-  real, allocatable :: b1 (:,:), b2 (:,:), b3(:,:)
+
+  type implic_vars
+     integer, allocatable :: iw_implic(:)
+     integer, allocatable :: ii_implic(:)
+     real,    allocatable :: b1(:,:)
+     real,    allocatable :: b2(:,:)
+     real,    allocatable :: b3(:,:)
+  end type implic_vars
+
+  type(implic_vars) :: vv_implic(nrk_scal)
 
   real :: b2a(mza), b3a(mza)
   integer :: kwtop(mwa)
 
-  real, parameter :: frk3(3) = (/ onethird, 0.5, 1.0 /)
-  real, parameter :: frk2(2) =           (/ 0.5, 1.0 /)
+  real, parameter :: one3    = 1. / 3.
+  real, parameter :: frk3(3) = [ one3, 0.5, 1.0 ]
+  real, parameter :: frk2(2) =       [ 0.5, 1.0 ]
 
-  iorder = nl%horiz_adv_order
+  iorder = nl%scal_horiz_adv_order
   imonot = nl%iscal_monot
+  dtl    = dtlm
 
-  if (imonot > 0) then
-     allocate(scpmax(mza,mwa))
-     allocate(scpmin(mza,mwa))
+  i2d = 0
+  if (iorder == 2) i2d = 2
+  if (iorder == 3) i2d = 5
+
+  if (nrk_scal == 3) then
+     do n = 1, nrk_scal
+        dtlr(n) = dtl * frk3(n)
+     enddo
+  else
+     do n = 1, nrk_scal
+        dtlr(n) = dtl * frk2(n)
+     enddo
   endif
 
-  !$omp parallel
-  !$omp do private(iw,k)
-  do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
-     do k = lpw(iw), mza-1
-        wmsca(k,iw) = wmsca(k,iw) * arw(k,iw)
-     enddo
-  enddo
-  !$omp end do nowait
+  call check_cfls( vmasc, wmasc, rho_old, nrk_scal, ff_implic)
 
-  !$omp do private(iv,k)
-  do j = 1,jtab_v(jtv_wadj)%jend; iv = jtab_v(jtv_wadj)%iv(j)
-     do k = lpv(iv), mza
-        vmsca(k,iv) = vmsca(k,iv) * arv(k,iv)
-     enddo
-  enddo
-  !$omp end do nowait
-  !$omp end parallel
+  nn_implic(:) = 0
 
-  call check_cfls( vmsca, wmsca, rho_old, nrk_scal, ff_implic )
-
-  do_implic = .false.
-  nn_implic = 0
-
-  dtl = dtlm
-
-  !$omp parallel private(rhof)
-  !$omp do private(iw,kb,k) reduction(+:nn_implic)
-  do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
+  !$omp parallel do private(iw,kb,k,rhof,n) reduction(+:nn_implic)
+  do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
      kb = lpw(iw)
 
@@ -128,360 +137,246 @@ subroutine scalar_transport_rk(rho_old)
      if (nrk_scal == 3) then
 
         do k = kb, mza
-           rhoi(k,iw,1) = 3._r8 / (2._r8 * rho_old(k,iw) + rhof(k))
-           rhoi(k,iw,2) = 2._r8 / (rho_old(k,iw) + rhof(k))
-           rhoi(k,iw,3) = 1._r8 / rhof(k)
+           rhos(k,iw,1) = 2./3. * rho_old(k,iw) + 1./3. * rhof(k)
+           rhos(k,iw,2) = 0.5 * (rho_old(k,iw) + rhof(k))
+           rhos(k,iw,3) = rhof(k)
         enddo
 
      else
 
         do k = kb, mza
-           rhoi(k,iw,1) = 2._r8 / (rho_old(k,iw) + rhof(k))
-           rhoi(k,iw,2) = 1._r8 / rhof(k)
+           rhos(k,iw,1) = 0.5 * (rho_old(k,iw) + rhof(k))
+           rhos(k,iw,2) = rhof(k)
         enddo
 
      endif
 
-     if (ff_implic(iw) > 0.025) then
-        do_implic(iw) = .true.
-        nn_implic = nn_implic + 1
-     endif
-
-     kwtop(iw) = maxval( khtopv( itab_w(iw)%iv( 1:itab_w(iw)%npoly ) ) )
-  enddo
-  !$omp end do nowait
-  !$omp end parallel
-
-  if (nn_implic > 0) then
-
-     allocate(iw_implic(nn_implic))
-     allocate(ii_implic(mwa))
-     allocate(b1(mza,nn_implic))
-     allocate(b2(mza,nn_implic))
-     allocate(b3(mza,nn_implic))
-
-     nn = 0
-     do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
-        if (do_implic(iw)) then
-           nn = nn + 1
-           ii_implic(iw) = nn
-           iw_implic(nn) = iw
+     do n = 1, nrk_scal
+        if (ff_implic(n,iw) > 0.001) then
+           nn_implic(n) = nn_implic(n) + 1
         endif
      enddo
 
-     !$omp parallel private(b2a,b3a,wup,wdn)
+     kwtop(iw) = maxval( khtopv( itab_w(iw)%iv( 1:itab_w(iw)%npoly ) ) )
+  enddo
+  !$omp end parallel do
+
+  do n = 1, nrk_scal
+
+     if (nn_implic(n) > 0) then
+
+        allocate(vv_implic(n)%ii_implic(mwa))
+        allocate(vv_implic(n)%iw_implic(nn_implic(n)))
+        allocate(vv_implic(n)%b1   (mza,nn_implic(n)))
+        allocate(vv_implic(n)%b2   (mza,nn_implic(n)))
+        allocate(vv_implic(n)%b3   (mza,nn_implic(n)))
+
+        nn = 0
+        do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
+           if (ff_implic(n,iw) > 0.001) then
+              nn = nn + 1
+              vv_implic(n)%ii_implic(iw) = nn
+              vv_implic(n)%iw_implic(nn) = iw
+           endif
+        enddo
+
+     endif
+  enddo
+
+  if (any(nn_implic(:) > 0)) then
      wup(mza) = 0.0
      wdn(mza) = 0.0
 
-     !$omp do private(iw,kb,k,c1,c2)
-     do j = 1, nn_implic; iw = iw_implic(j)
+     do n = 1, nrk_scal
+        do j = 1, nn_implic(n); iw = vv_implic(n)%iw_implic(j)
 
-        kb = lpw(iw)
+           kb = lpw(iw)
 
-        wup(kb-1) = 0.0
-        wdn(kb-1) = 0.0
+           wup(kb-1) = 0.0
+           wdn(kb-1) = 0.0
 
-        do k = kb, mza-1
-           wup(k) = max(wmsca(k,iw), 0.0)
-           wdn(k) = min(wmsca(k,iw), 0.0)
+           do k = kb, mza-1
+              wup(k) = max(wmasc(k,iw), 0.)
+              wdn(k) = min(wmasc(k,iw), 0.)
+           enddo
+
+           c1 = ff_implic(n,iw) * dtlr(n)
+
+           do k = kb, mza
+              c2 = c1 * volti(k,iw) / rhos(k,iw,n)
+
+              vv_implic(n)%b1(k,j) =     - c2 * wup(k-1)
+              b2a            (k)   = 1.0 + c2 * (wup(k) - wdn(k-1))
+              b3a            (k)   =       c2 * wdn(k)
+           enddo
+
+           call tridif_prep(mza,kb,mza,vv_implic(n)%b1(:,j),b2a,b3a, &
+                            vv_implic(n)%b2(:,j),vv_implic(n)%b3(:,j))
         enddo
-
-        c1 = ff_implic(iw) * dtl
-
-        do k = kb, mza
-           c2 = c1 * volti(k,iw) * real(rhoi(k,iw,nrk_scal))
-           b1 (k,j) =     - c2 * wup(k-1)
-           b2a(k)   = 1.0 + c2 * (wup(k) - wdn(k-1))
-           b3a(k)   =       c2 * wdn(k)
-        enddo
-
-        call tridif_prep(mza,kb,mza,b1(:,j),b2a,b3a,b2(:,j),b3(:,j))
      enddo
-     !$omp end do nowait
-     !$omp end parallel
-
   endif
 
-! LOOP OVER SCALARS HERE
+  !********************************************************
+  ! MAIN LOOP OVER ALL SCALAR SPECIES
+  !********************************************************
 
   do n = 1, num_scalar
 
-     ! Point SCP and SCT to scalar table arrays
+     ! POINT SCP AND SCT TO SCALAR TABLE ARRAYS
 
      scp => scalar_tab(n)%var_p(:,:)
      sct => scalar_tab(n)%var_t(:,:)
 
-     !$omp parallel private(hflux)
-     !$omp do private(iw,kb,k,jv,iv,iwn)
-     do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
-        kb = lpw(iw)
+     ! STORE INITIAL CONCENTRATIONS FOR R-K TIMESTEPPING. THIS NEEDS TO INCLUDE
+     ! BORDER CELLS FOR THE MONOTONIC AND POSITIVE DEFINITE OPTIONS.
 
-        ! Store initial scalar mass before R-K loop
+     !$omp parallel do private(iw)
+     do j = 1, jtab_w(jtw_wadj)%jend; iw = jtab_w(jtw_wadj)%iw(j)
+        scp0(:,iw) = scp(:,iw)
+     enddo
+     !$omp end parallel do
 
-        do k = kb, mza
-           rscp0(k,iw) = scp(k,iw) * rho_old(k,iw)
-        enddo
+     ! UPDATE TRACER TENDENCIES TO INCLUDE HORIZONTAL DIFFUSION. ALL OF THE
+     ! TRACER PHYSICS TENDENCIES IN OLAM ARE SPLIT FROM THE R-K TIMESTEPPING
+     ! AND DONE FORWARD-IN-TIME. DIFFUSION COULD BE EASILY INTEGRATED WITH
+     ! EACH R-K STEP TO MATCH ADVECTION IF NECESSARY.
 
-        ! Compute horizontal flux divergence and add to long-timestep tendency
+     if ( scalar_tab(n)%do_sgsmix ) then   ! Flag to skip diffusion for this species
 
-        if (scalar_tab(n)%do_sgsmix .and. kwtop(iw) >= kb) then
+        !$omp parallel do private(iw,fluxdiv,jv,iv,iwn,k)
+        do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
-           hflux(kb:kwtop(iw)) = 0.
+           if (kwtop(iw) >= lpw(iw)) then   ! Diffusion is active in this column
 
-           do jv = 1, itab_w(iw)%npoly
-              iv  = itab_w(iw)%iv(jv)
-              iwn = itab_w(iw)%iw(jv)
+              fluxdiv(lpw(iw):kwtop(iw)) = 0.
 
-              ! Vertical loop over T levels
-              do k = lpv(iv), khtopv(iv)
-                 hflux(k) = hflux(k) + akhodx(k,iv) * (scp(k,iwn) - scp(k,iw))
+              ! Loop over neighbor cells
+              do jv = 1, itab_w(iw)%npoly
+                 iv  = itab_w(iw)%iv(jv)
+                 iwn = itab_w(iw)%iw(jv)
+
+                 ! Vertical loop over T levels
+                 do k = lpv(iv), khtopv(iv)
+                    fluxdiv(k) = fluxdiv(k) + akhodx(k,iv) * (scp(k,iwn) - scp(k,iw))
+                 enddo
               enddo
 
-           enddo
+              ! Vertical loop over T levels
+              do k = lpw(iw), kwtop(iw)
+                 sct(k,iw) = sct(k,iw) + fluxdiv(k) * volti(k,iw)
+              enddo
 
-           ! Vertical loop over T levels
-           do k = kb, kwtop(iw)
-              sct(k,iw) = sct(k,iw) + hflux(k) * volti(k,iw)
-           enddo
-
-        endif
-
-     enddo
-     !$omp end do nowait
-     !$omp end parallel
-
-     ! Loop over R-K stages
-
-     do istage = 1, nrk_scal
-
-        if (nrk_scal == 3) then
-           dtl = frk3(istage) * real( dtlm )
-        else
-           dtl = frk2(istage) * real( dtlm )
-        endif
-
-        !$omp parallel do private(iw,kb,k,jv,iv,iwn)
-        do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
-
-           if (iorder <= 2) then
-              call grad_t2d(iw, scp, gxps_scp(:,iw), gyps_scp(:,iw))
-           else
-              call grad_t2d_quad(iw, scp, gxps_scp(:,iw), gyps_scp(:,iw), &
-                                 gxxps_scp(:,iw), gxyps_scp(:,iw), gyyps_scp(:,iw))
-           endif
-
-           if (imonot > 0) then
-              if (istage == nrk_scal) then
-
-                 if (iorder <= 2) then
-                    call limit_h2(iw, scp, gxps_scp(:,iw), gyps_scp(:,iw))
-                 else
-                    call limit_h3(iw, scp, gxps_scp(:,iw), gyps_scp(:,iw),&
-                                  gxxps_scp(:,iw), gxyps_scp(:,iw), gyyps_scp(:,iw))
-                 endif
-
-              else ! istage /= nrk_scal
-
-                 kb = lpw(iw)
-
-                 scpmax(kb,iw) = max(scp(kb,iw), scp(kb+1,iw))
-                 scpmin(kb,iw) = min(scp(kb,iw), scp(kb+1,iw))
-                 do k = kb+1, mza-1
-                    scpmax(k,iw) = max(scp(k-1,iw), scp(k,iw), scp(k+1,iw))
-                    scpmin(k,iw) = min(scp(k-1,iw), scp(k,iw), scp(k+1,iw))
-                 enddo
-                 scpmax(mza,iw) = max(scp(mza-1,iw), scp(mza,iw))
-                 scpmin(mza,iw) = min(scp(mza-1,iw), scp(mza,iw))
-
-                 ! Loop over V neighbors of this W cell
-                 do jv = 1, itab_w(iw)%npoly
-                    iv  = itab_w(iw)%iv(jv)
-                    iwn = itab_w(iw)%iw(jv)
-                    do k = lpv(iv), mza
-                       scpmax(k,iw) = max(scpmax(k,iw), scp(k,iwn))
-                       scpmin(k,iw) = min(scpmin(k,iw), scp(k,iwn))
-                    enddo
-                 enddo
-
-              endif
            endif
 
         enddo
         !$omp end parallel do
 
-        ! MPI send/recv of SCP horizontal gradient components
+     endif
 
-        if (iparallel == 1) then
+     ! TENDENCY ARRAY SCT NEEDS TO BE COMMUNICATED TO BORDER CELLS FOR
+     ! THE MONOTONIC AND POSITIVE DEFINITE OPTIONS. THIS DOES NOT NEED
+     ! TO BE COMPLETED UNTIL THE FINAL RK STEP.
 
-           if (iorder <= 2) then
-              call mpi_send_w(rvara1=gxps_scp, rvara2=gyps_scp)
-              call mpi_recv_w(rvara1=gxps_scp, rvara2=gyps_scp)
-           else
-              call mpi_send_w(rvara1=gxps_scp, rvara2=gyps_scp, &
-                              rvara3=gxxps_scp, rvara4=gxyps_scp, rvara5=gyyps_scp)
-              call mpi_recv_w(rvara1=gxps_scp, rvara2=gyps_scp, &
-                              rvara3=gxxps_scp, rvara4=gxyps_scp, rvara5=gyyps_scp)
+     if ( iparallel == 1 .and. imonot > 0 .and. scalar_tab(n)%pdef ) then
+        call mpi_post_direct_recv_w(sct, itag_sct)
+        call mpi_post_direct_send_w(sct, itag_sct)
+     endif
+
+     !*****************************************************
+     ! MAIN LOOP OVER ALL R-K STAGES
+     !*****************************************************
+
+     do istage = 1, nrk_scal
+
+        dtr = dtlr(istage)
+
+        ! FOR THE FINAL R-K STAGE WITH MONOTONIC OR POSITIVE DEFINITE OPTIONS,
+        ! FINISH MPI COMMUNICATION OF TENDENCY ARRAY AND UPDATE THE TRACER FOR
+        ! THE LOW-ORDER FLUXES FOLLOWING WANG, SKAMAROCK, AND FEINGOLD, 2009.
+
+        if (istage == nrk_scal .and. imonot > 0 .and. scalar_tab(n)%pdef) then
+
+           if ( iparallel == 1 ) then
+              call mpi_finish_direct_recv_w(itag=itag_sct)
+              call mpi_finish_direct_send_w(itag=itag_sct)
            endif
+           call lbcopy_w( a1=sct )
+
+           !$omp parallel do private(iw,k)
+           do j = 1, jtab_w(jtw_wadj)%jend; iw = jtab_w(jtw_wadj)%iw(j)
+              do k = lpw(iw), mza
+                 scp0(k,iw) = scp0(k,iw) + dtr * sct(k,iw) / rho_old(k,iw)
+              enddo
+              scp0(2:lpw(iw)-1,iw) = scp0(lpw(iw),iw)
+           enddo
+           !$omp end parallel do
 
         endif
 
-        if (iorder <= 2) then
-           call lbcopy_w(a1=gxps_scp, a2=gyps_scp)
+        ! FINISH COMMUNICATION OF TRACER BORDER CELLS FROM PREVIOUS R-K STAGE
+
+        if (iparallel == 1 .and. istage > 1) then
+           call mpi_finish_direct_recv_w(itag_scp)
+           call mpi_finish_direct_send_w(itag_scp)
+        endif
+        call lbcopy_w( a1=scp )
+
+        ! INTEGRATE SCALARS FORWARD IN TIME USING EXPLICIT ADVECTION AND PHYSICS TENDENCIES
+
+        if (istage == nrk_scal .and. imonot == 1) then
+
+           call update_scalar_monot( scp, scp0, rhos(:,:,nrk_scal), vmasc, wmasc, &
+                                     dtr, iorder, i2d, istage, nrk_scal, ff_implic )
+
+        elseif (istage == nrk_scal .and. imonot == 2 .and. scalar_tab(n)%pdef) then
+
+           call update_scalar_pd( scp, scp0, rhos(:,:,nrk_scal), vmasc, wmasc, &
+                                  dtr, iorder, i2d, istage, nrk_scal, ff_implic )
         else
-           call lbcopy_w(a1=gxps_scp, a2=gyps_scp, &
-                         a3=gxxps_scp, a4=gxyps_scp, a5=gyyps_scp)
+
+           call update_scalar( scp, scp0, sct, rhos(:,:,nrk_scal), vmasc, wmasc, &
+                               dtr, iorder, i2d, istage, nrk_scal, ff_implic )
         endif
 
-        ! Horizontal loop over all V points surrounding primary W/T columns
-        ! to compute upwinded scalar value at the V points
+        ! POST RECEIVE OF TRACER BORDER CELLS
 
-        !$omp parallel private(delex_scp,del_scp,fluxdiv,vflux,scp_upw,gzps,gzzps)
-        !$omp do private(iv,k,iw1,iw2)
-        do j = 1,jtab_v(jtv_wadj)%jend; iv = jtab_v(jtv_wadj)%iv(j)
-           iw1 = itab_v(iv)%iw(1)
-           iw2 = itab_v(iv)%iw(2)
+        if (istage < nrk_scal) call mpi_post_direct_recv_w(scp, itag_scp)
 
-           if (iorder <= 2) then
+        ! IMPLICIT VERTICAL TRANSPORT
 
-              do k = lpv(iv), mza
-
-                 if (vmsca(k,iv) > 0.) then
-                    scp_upv(k,iv) = vmsca(k,iv) * (           scp(k,iw1) &
-                                  + itab_v(iv)%dxps(1) * gxps_scp(k,iw1) &
-                                  + itab_v(iv)%dyps(1) * gyps_scp(k,iw1) )
-                 else
-                    scp_upv(k,iv) = vmsca(k,iv) * (           scp(k,iw2) &
-                                  + itab_v(iv)%dxps(2) * gxps_scp(k,iw2) &
-                                  + itab_v(iv)%dyps(2) * gyps_scp(k,iw2) )
-                 endif
-
-              enddo
-
-           else
-
-              do k = lpv(iv), mza
-
-                 if (vmsca(k,iv) > 0.) then
-                    scp_upv(k,iv) = vmsca(k,iv) * (            scp(k,iw1) &
-                                  + itab_v(iv)%dxps(1) *  gxps_scp(k,iw1) &
-                                  + itab_v(iv)%dyps(1) *  gyps_scp(k,iw1) &
-                                  + xx0_v(1,iv)        * gxxps_scp(k,iw1) &
-                                  + yy0_v(1,iv)        * gyyps_scp(k,iw1) &
-                                  + xy0_v(1,iv)        * gxyps_scp(k,iw1) )
-
-                 else
-                    scp_upv(k,iv) = vmsca(k,iv) * (            scp(k,iw2) &
-                                  + itab_v(iv)%dxps(2) *  gxps_scp(k,iw2) &
-                                  + itab_v(iv)%dyps(2) *  gyps_scp(k,iw2) &
-                                  + xx0_v(2,iv)        * gxxps_scp(k,iw2) &
-                                  + yy0_v(2,iv)        * gyyps_scp(k,iw2) &
-                                  + xy0_v(2,iv)        * gxyps_scp(k,iw2) )
-                 endif
-
-              enddo
-           endif
-
-        enddo
-        !$omp end do
-
-        !$omp do private (iw,kb,jv,iv,dirv,k,ni,iwn,scp2)
-        do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
+        !$omp parallel do private(iw,kb,dscp0,k,c1,delex_scp,del_scp)
+        do j = 1, nn_implic(istage); iw = vv_implic(istage)%iw_implic(j)
 
            kb = lpw(iw)
 
-           ! Vertical scalar gradients
+           dscp0(mza ) = 0.
+           dscp0(kb-1) = 0.
 
-           call grad_z_quad(iw, scp(:,iw), gzps, gzzps)
-
-           ! Limit gradients for monotonic advection
-
-           if (imonot > 0 .and. istage == nrk_scal) then
-              call limit_z(iw, scp(:,iw), gzps, gzzps)
-           endif
-
-           ! Compute scalar values at top and bottom faces
-
-           do k = lpw(iw), mza-1
-              if (wmsca(k,iw) > 0.) then
-                 scp_upw(k) = wmsca(k,iw) * (scp(k,iw) &
-                            +   dzto2(k) *  gzps(k)    &
-                            + dztsqo6(k) * gzzps(k))
-              else
-                 scp_upw(k) = wmsca(k,iw) *   (scp(k+1,iw) &
-                            -   dzto2(k+1) *  gzps(k+1)    &
-                            + dztsqo6(k+1) * gzzps(k+1))
-              endif
-           enddo
-
-           vflux(kb-1) = 0._r8
-           vflux(mza ) = 0._r8
            do k = kb, mza-1
-              vflux(k) = real( scp_upw(k), r8)
+              dscp0(k) = scp0(k+1,iw) - scp0(k,iw)
            enddo
 
            do k = kb, mza
-              fluxdiv(k) = vflux(k-1) - vflux(k)
+              c1 = ff_implic(istage,iw) * dtr * volti(k,iw) / rhos(k,iw,istage)
+
+              delex_scp(k) = scp(k,iw) - scp0(k,iw) - c1 * ( min(wmasc(k  ,iw),0.) * dscp0(k  ) &
+                                                           + max(wmasc(k-1,iw),0.) * dscp0(k-1) )
            enddo
 
-           ! Loop over neighbor V points of this W cell
-           do jv = 1, itab_w(iw)%npoly
-              iv   = itab_w(iw)%iv  (jv)
-              dirv = itab_w(iw)%dirv(jv)
-
-              ! Horizontal advective fluxes
-              do k = lpv(iv), mza
-                 fluxdiv(k) = fluxdiv(k) + dirv * scp_upv(k,iv)
-              enddo
+           call tridif_fini(mza, kb, mza, vv_implic(istage)%b1(:,j), vv_implic(istage)%b2(:,j), &
+                                          vv_implic(istage)%b3(:,j), delex_scp, del_scp )
+           do k = kb, mza
+              scp(k,iw) = scp0(k,iw) + del_scp(k)
            enddo
+           scp(2:kb-1,iw) = scp(kb,iw)
 
-           if (do_implic(iw) .and. istage == nrk_scal) then
-
-              do k = kb, mza
-                 scp2 = (rscp0(k,iw) + dtl * (sct(k,iw) + volti(k,iw) * fluxdiv(k))) * rhoi(k,iw,istage)
-                 delex_scp(k) = scp2 - scp(k,iw)
-              enddo
-
-              ni = ii_implic(iw)
-              call tridif_fini(mza,kb,mza,b1(:,ni),b2(:,ni),b3(:,ni),delex_scp,del_scp)
-
-              do k = kb, mza
-                 scp(k,iw) = scp(k,iw) + del_scp(k)
-              enddo
-
-           elseif (istage < nrk_scal .and. imonot > 0) then
-
-              do k = kb, mza
-                 scp2      = (rscp0(k,iw) + dtl * volti(k,iw) * fluxdiv(k)) * rhoi(k,iw,istage)
-                 scp(k,iw) = min( max(scp2, scpmin(k,iw)), scpmax(k,iw) ) + dtl * sct(k,iw) * rhoi(k,iw,istage)
-              enddo
-
-           else
-
-              do k = kb, mza
-                 scp(k,iw) = (rscp0(k,iw) + dtl * (sct(k,iw) + volti(k,iw) * fluxdiv(k))) * rhoi(k,iw,istage)
-              enddo
-
-           endif
-
-           if (nl%zero_neg_scalars .and. scalar_tab(n)%pdef) then
-              do k = kb, mza
-                 scp(k,iw) = max(scp(k,iw), 0.0)
-              enddo
-           endif
-
-           scp(1:kb-1,iw) = scp(kb,iw)
 
         enddo
-        !$omp end do nowait
-        !$omp end parallel
+        !$omp end parallel do
 
-        if (istage < nrk_scal) then
-           if (iparallel == 1) then
-              call mpi_send_w(rvara1=scp)
-              call mpi_recv_w(rvara1=scp)
-           endif
-           call lbcopy_w(a1=scp)
-        endif
+        ! COMMUNICATE UPDATED TRACER BORDER CONCENTRATIONS FOR NEXT R-K STAGE
+
+        if (istage < nrk_scal) call mpi_post_direct_send_w(scp, itag_scp)
 
      enddo ! istage
 
@@ -491,297 +386,1123 @@ end subroutine scalar_transport_rk
 
 !===========================================================================
 
-subroutine limit_z(iw,sc,gzps,gzzps)
+subroutine update_scalar( scp, scp0, sct, rhos, vmasc, wmasc, &
+                          dtr, iorderh, i2d, istage, nrk, ff_implic )
 
-  use mem_grid, only: mza, lpw, dzto2, dztsqo6, dztsqo12
-
-  implicit none
-
-  integer, intent(in)    :: iw
-  real,    intent(inout) :: gzps(mza), gzzps(mza)
-  real,    intent(in)    :: sc(mza)
-
-  real    :: scmax(mza), scmin(mza)
-  real    :: gx, gxx, g1, g2, gmax, gmin, fact1, fact2, fact
-! real    :: zz, g
-  integer :: k, ka
-
-  ka = lpw(iw)
-
-  scmax(ka) = max(sc(ka),sc(ka+1)) - sc(ka)
-  scmin(ka) = min(sc(ka),sc(ka+1)) - sc(ka)
-  do k = ka+1, mza-1
-     scmax(k) = max(sc(k-1),sc(k),sc(k+1)) - sc(k)
-     scmin(k) = min(sc(k-1),sc(k),sc(k+1)) - sc(k)
-  enddo
-  scmax(mza) = max(sc(mza-1),sc(mza)) - sc(mza)
-  scmin(mza) = min(sc(mza-1),sc(mza)) - sc(mza)
-
-  do k = ka, mza
-     gx  =   dzto2(k) *  gzps(k)
-     gxx = dztsqo6(k) * gzzps(k)
-
-     g1 = gxx - gx
-     g2 = gxx + gx
-
-     gmax = max(g1,g2)
-     gmin = min(g1,g2)
-
-!!     if (abs(gzzps(k)) > 1.e-25) then
-!!        zz = -0.5 * gzps(k) / gzzps(k)
-!!
-!!        if (abs(zz) < dzto2(k)) then
-!!           g = zz * gzps(k) + (zz * zz - dztsqo12(k)) * gzzps(k)
-!!           gmax = max(gmax, g)
-!!           gmin = min(gmin, g)
-!!        endif
-!!     endif
-
-     fact1 = 1.0
-     if (gmax > scmax(k)) fact1 = scmax(k) / gmax
-
-     fact2 = 1.0
-     if (gmin < scmin(k)) fact2 = scmin(k) / gmin
-
-!    fact = 0.9999998 * min(fact1,fact2)
-!    fact = 0.999999 * min(fact1,fact2)
-!    fact = 0.9999 * min(fact1,fact2)
-     fact = min(fact1,fact2)
-
-     gzps (k) = fact * gzps (k)
-     gzzps(k) = fact * gzzps(k)
-  enddo
-
-end subroutine limit_z
-
-
-
-
-subroutine limit_h2(iw,scp,gxps,gyps)
-
-  use mem_grid,   only: mza, lpw, mwa
-  use mem_adv,    only: dxpsw_v, dypsw_v
-  use mem_ijtabs, only: itab_w
+  use mem_grid,     only: mza, mwa, mva
+  use mem_ijtabs,   only: jtab_v, jtab_w, jtv_wadj, jtw_prog
+  use misc_coms,    only: iparallel
+  use grad_lib,     only: grad_t2d, grad_t2d_quadratic
+  use olam_mpi_atm, only: mpi_post_direct_recv_w, mpi_post_direct_send_w, &
+                          mpi_finish_direct_recv_w, mpi_finish_direct_send_w
+  use obnd,         only: lbcopy_w
 
   implicit none
 
-  real,    intent(inout) :: gxps(mza), gyps(mza)
-  real,    intent(in)    :: scp(mza,mwa)
-  integer, intent(in)    :: iw
+  integer, intent(in)    :: iorderh, i2d, istage, nrk
+  real,    intent(inout) :: scp  (mza,mwa)
+  real,    intent(in)    :: scp0 (mza,mwa)
+  real,    intent(inout) :: sct  (mza,mwa)
+  real,    intent(in)    :: rhos (mza,mwa)
+  real,    intent(in)    :: wmasc(mza,mwa)
+  real,    intent(in)    :: vmasc(mza,mva)
+  real,    intent(in)    :: dtr, ff_implic(nrk,mwa)
 
-  real    :: gmax(mza), gmin(mza), g, fact1, fact2, fact
-  real    :: scpmax(mza), scpmin(mza), scmax, scmin
-  integer :: k, n, iv, iwn
+  integer :: j, iv, iw
 
-  gmax = 0.0
-  gmin = 0.0
+  real :: scp_upv(mza,mva)
+  real :: gxyps  (mza,mwa,i2d)
 
-  scpmax = scp(:,iw)
-  scpmin = scp(:,iw)
+  if (iparallel == 1) then
+     if (iorderh > 1) call mpi_post_direct_recv_w(gxyps, itag_gxyps)
+  endif
 
-!!  gxmax = 0.0
-!!  gxmin = 0.0
-!!
-!!  gymax = 0.0
-!!  gymin = 0.0
-!!
-!!  do n = 1, itab_w(iw)%npoly
-!!     do k = lpw(iw), mza
-!!
-!!        gx = dxpsw_v(n,iw) * gxps(k)
-!!        gy = dxpsw_v(n,iw) * gxps(k)
-!!
-!!        gxmax(k) = max(gxmax(k),gx)
-!!        gxmin(k) = min(gxmin(k),gx)
-!!
-!!        gymax(k) = max(gymax(k),gy)
-!!        gymin(k) = min(gymin(k),gy)
-!!
-!!        endif
-!!
-!!     enddo
-!!  enddo
-!!
-!!  do k = lpw(iw), mza
-!!     fact1 = 1.0
-!!     if (gxmax(k) > scmax(k)) fact1 = scmax(k) / gxmax(k)
-!!
-!!     fact2 = 1.0
-!!     if (gxmin(k) < scmin(k)) fact2 = scmin(k) / gxmin(k)
-!!
-!!     fact = 0.9999998 * min(fact1,fact2)
-!!
-!!     gxps(k) = fact * gxps(k)
-!!
-!!     fact1 = 1.0
-!!     if (gymax(k) > scmax(k)) fact1 = scmax(k) / gymax(k)
-!!
-!!     fact2 = 1.0
-!!     if (gymin(k) < scmin(k)) fact2 = scmin(k) / gymin(k)
-!!
-!!     fact = 0.9999998 * min(fact1,fact2)
-!!
-!!     gyps(k) = fact * gyps(k)
-!!  enddo
+  ! COMPUTE HORIZONTAL POLYNOMIAL RECONSTRUCTION COEFFICIENTS AT EACH W CELL
 
-  ! now combined!!!
+  if (iorderh > 1) then
 
-  do n = 1, itab_w(iw)%npoly
-     iv   = itab_w(iw)%iv(n)
-     iwn  = itab_w(iw)%iw(n)
+     !$omp parallel do private(iw)
+     do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
-     do k = lpw(iw), mza
-        g = dxpsw_v(n,iw) * gxps(k) + dypsw_v(n,iw) * gyps(k)
-        gmax(k) = max(gmax(k),g)
-        gmin(k) = min(gmin(k),g)
+        if (iorderh == 2) then
+           call grad_t2d(iw, scp, gxyps(:,iw,1), gxyps(:,iw,2))
+        elseif (iorderh == 3) then
+           call grad_t2d_quadratic(iw, scp, gxyps)
+        endif
 
-        scpmax(k) = max(scpmax(k),scp(k,iwn))
-        scpmin(k) = min(scpmin(k),scp(k,iwn))
+     enddo
+     !$omp end parallel do
+
+     if (iparallel == 1) then
+        call mpi_post_direct_send_w(gxyps, itag_gxyps)
+        call mpi_finish_direct_recv_w     (itag_gxyps)
+     endif
+     call lbcopy_w(aa=gxyps)
+
+  endif
+
+  ! COMPUTE UPWINDED TRACER CONCENTRATIONS AT EACH V FACE
+
+  !$omp parallel
+  !$omp do private(iv)
+  do j = 1, jtab_v(jtv_wadj)%jend; iv = jtab_v(jtv_wadj)%iv(j)
+
+     call scalar_v_column( iv )
+
+  enddo
+  !$omp end do
+
+  ! MAIN W LOOP TO COMPUTE VERTICAL FLUXES AND MARCH TRACER TO NEXT R-K STAGE
+
+  !$omp do private(iw)
+  do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
+
+     call scalar_w_column( iw, ff_implic(istage,iw) )
+
+  enddo
+  !$omp end do nowait
+  !$omp end parallel
+
+  if (iparallel == 1) then
+     if (iorderh > 1) call mpi_finish_direct_send_w(itag_gxyps)
+  endif
+
+
+contains
+
+
+  subroutine scalar_v_column( iv )
+
+    use mem_grid,   only: lpv, mza
+    use mem_ijtabs, only: itab_v
+    use mem_adv,    only: xx0_v, yy0_v, xy0_v
+!   import,         only: scp, scp_upv, vmasc, gxyps, iorderh
+
+    implicit none
+
+    integer, intent(in) :: iv
+    integer             :: iw1, iw2, k
+    real                :: scp1(mza), scp2(mza)
+
+    iw1 = itab_v(iv)%iw(1)
+    iw2 = itab_v(iv)%iw(2)
+
+    if (iorderh == 1) then  ! just for testing!
+
+       do k = lpv(iv), mza
+          scp1(k) = scp(k,iw1)
+          scp2(k) = scp(k,iw2)
+       enddo
+
+    elseif (iorderh == 2) then
+
+       do k = lpv(iv), mza
+          scp1(k) = scp(k,iw1) &
+                  + itab_v(iv)%dxps(1) * gxyps(k,iw1,1) &
+                  + itab_v(iv)%dyps(1) * gxyps(k,iw1,2)
+
+          scp2(k) = scp(k,iw2) &
+                  + itab_v(iv)%dxps(2) * gxyps(k,iw2,1) &
+                  + itab_v(iv)%dyps(2) * gxyps(k,iw2,2)
+       enddo
+
+    elseif (iorderh == 3) then
+
+       do k = lpv(iv), mza
+          scp1(k) = scp(k,iw1) &
+                  + itab_v(iv)%dxps(1) * gxyps(k,iw1,1) &
+                  + itab_v(iv)%dyps(1) * gxyps(k,iw1,2) &
+                  + xx0_v(1,iv)        * gxyps(k,iw1,3) &
+                  + xy0_v(1,iv)        * gxyps(k,iw1,4) &
+                  + yy0_v(1,iv)        * gxyps(k,iw1,5)
+
+          scp2(k) = scp(k,iw2)                          &
+                  + itab_v(iv)%dxps(2) * gxyps(k,iw2,1) &
+                  + itab_v(iv)%dyps(2) * gxyps(k,iw2,2) &
+                  + xx0_v(2,iv)        * gxyps(k,iw2,3) &
+                  + xy0_v(2,iv)        * gxyps(k,iw2,4) &
+                  + yy0_v(2,iv)        * gxyps(k,iw2,5)
+       enddo
+
+    endif
+
+    do k = lpv(iv), mza
+       scp_upv(k,iv) = scp1(k)
+       if (vmasc(k,iv) < 0.) scp_upv(k,iv) = scp2(k)
+    enddo
+
+  end subroutine scalar_v_column
+
+
+  subroutine scalar_w_column( iw, fimpl )
+
+    use mem_grid,   only: lpw, lpv, mza, volti
+    use mem_ijtabs, only: itab_w
+    use grad_lib,   only: grad_z_linear, grad_z_quadratic
+!   import,         only: scp, wmasc, vmasc, scp_upv, scp0, sct, rhos, dtr, iorderv
+
+    implicit none
+
+    integer, intent(in) :: iw
+    real,    intent(in) :: fimpl
+    integer             :: kb, k, jv, iv
+    real                :: scpb(mza), scpt(mza)
+    real                :: scp_upw(mza)
+    real                :: fluxdiv(mza)
+    real                :: fexpl
+
+    kb = lpw(iw)
+
+    fexpl = 1.0 - fimpl
+
+    scp_upw(kb-1) = scp(kb ,iw)
+    scp_upw(mza)  = scp(mza,iw)
+
+    ! Scalar upwinded values at top and bottom faces (3rd order)
+
+    if (iorderv == 1) then
+
+       do k = kb, mza-1
+          scpb(k) = scp(k,iw)
+          scpt(k) = scp(k,iw)
+       enddo
+
+    elseif (iorderv == 2) then
+
+       call grad_z_linear(iw, scp(:,iw), scpb, scpt)
+
+    elseif (iorderv == 3) then
+
+       call grad_z_quadratic(iw, scp(:,iw), scpb, scpt)
+
+    endif
+
+    do k = kb, mza-1
+       scp_upw(k) = scpt(k)
+       if (wmasc(k,iw) < 0.) scp_upw(k) = scpb(k+1)
+    enddo
+
+    ! Scalar horizontal flux divergence
+
+    fluxdiv(:) = 0.
+
+    ! Loop over neighbor V points of this W cell
+    do jv = 1, itab_w(iw)%npoly
+       iv = itab_w(iw)%iv(jv)
+
+       do k = lpv(iv), mza
+          fluxdiv(k) = fluxdiv(k) &
+                     + itab_w(iw)%dirv(jv) * vmasc(k,iv) * (scp_upv(k,iv) - scp0(k,iw))
+       enddo
+    enddo
+
+    do k = kb, mza
+
+       ! Scalar vertical flux divergence
+       fluxdiv(k) = fluxdiv(k) + fexpl * ( wmasc(k-1,iw) * (scp_upw(k-1) - scp0(k,iw)) &
+                                         - wmasc(k  ,iw) * (scp_upw(k  ) - scp0(k,iw)) )
+
+       ! Integrate forward in time
+       scp(k,iw) = scp0(k,iw) + dtr * ( sct(k,iw) + volti(k,iw) * fluxdiv(k) ) / rhos(k,iw)
+
+    enddo
+
+    scp(1:kb-1,iw) = scp(kb,iw)
+
+  end subroutine scalar_w_column
+
+
+end subroutine update_scalar
+
+!===========================================================================
+
+subroutine update_scalar_monot( scp, scp0, rhos, vmasc, wmasc, &
+                                dtr, iorderh, i2d, istage, nrk, ff_implic )
+
+  use mem_grid,     only: mza, mwa, mva, lpv
+  use mem_ijtabs,   only: jtab_v, jtab_w, itab_v, jtv_wadj, jtw_prog
+  use misc_coms,    only: iparallel
+  use olam_mpi_atm, only: mpi_post_direct_recv_w, mpi_finish_direct_recv_w, &
+                          mpi_post_direct_send_w, mpi_finish_direct_send_w
+  use grad_lib,     only: grad_t2d, grad_t2d_quadratic
+  use obnd,         only: lbcopy_w
+
+  implicit none
+
+  integer,          intent(in)    :: iorderh, i2d, istage, nrk
+  real,    intent(inout) :: scp     (mza,mwa)
+  real,    intent(in)    :: scp0    (mza,mwa)
+  real,    intent(in)    :: rhos    (mza,mwa)
+  real,    intent(in)    :: wmasc   (mza,mwa)
+  real,    intent(in)    :: vmasc   (mza,mva)
+  real,    intent(in)    :: dtr, ff_implic(nrk,mwa)
+
+  integer :: j, iv, iw, iw1, iw2, k
+  real    :: scale
+
+  real :: sfluxvh    (mza,mva)
+  real :: scale_inout(mza,mwa,2)
+  real :: gxyps      (mza,mwa,i2d)
+  real :: scp_upv    (mza,mva)
+  real :: scp_hiv    (mza,mva)
+  real :: scp_upw    (mza,mwa)
+
+  if (iparallel == 1) then
+     if (iorderh > 1) call mpi_post_direct_recv_w(gxyps,       itag_gxyps)
+     call                  mpi_post_direct_recv_w(scale_inout, itag_monot)
+  endif
+
+  ! COMPUTE HORIZONTAL POLYNOMIAL RECONSTRUCTION COEFFICIENTS AT EACH W CELL
+
+  if (iorderh > 1) then
+
+     !$omp parallel do private(iw)
+     do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
+
+        if (iorderh == 2) then
+           call grad_t2d(iw, scp, gxyps(:,iw,1), gxyps(:,iw,2))
+        elseif (iorderh == 3) then
+           call grad_t2d_quadratic(iw, scp, gxyps, bounded=.false.)
+        endif
+
+     enddo
+     !$omp end parallel do
+
+     if (iparallel == 1) then
+        call mpi_post_direct_send_w(gxyps, itag_gxyps)
+        call mpi_finish_direct_recv_w     (itag_gxyps)
+     endif
+     call lbcopy_w(aa=gxyps)
+
+  endif
+
+  ! COMPUTE UPWINDED TRACER CONCENTRATIONS AT EACH V FACE
+
+  !$omp parallel
+  !$omp do private(iv)
+  do j = 1, jtab_v(jtv_wadj)%jend; iv = jtab_v(jtv_wadj)%iv(j)
+
+     call scalar_vflux_monot( iv )
+
+  enddo
+  !$omp end do
+
+  ! LOOP TO COMPUTE VERTICAL FLUXES AND SCALE FACTOR
+
+  !$omp do private (iw)
+  do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
+
+     call scalar_wflux_and_scales_monot( iw, ff_implic(istage,iw) )
+
+  enddo
+  !$omp end do
+  !$omp end parallel
+
+  ! Post MPI send/recv of monotonic flux scale factors
+
+  if (iparallel == 1) then
+     call mpi_post_direct_send_w(scale_inout, itag_monot)
+     call mpi_finish_direct_recv_w           (itag_monot)
+  endif
+  call lbcopy_w(aa=scale_inout)
+
+  ! APPLY FLUX RENORMALIZATION TO HORIZONTAL FLUXES
+
+  !$omp parallel
+  !$omp do private(iv,iw1,iw2,k,scale)
+  do j = 1, jtab_v(jtv_wadj)%jend; iv = jtab_v(jtv_wadj)%iv(j)
+
+     iw1 = itab_v(iv)%iw(1)
+     iw2 = itab_v(iv)%iw(2)
+
+     do k = lpv(iv), mza
+        scale = min( scale_inout(k,iw2,1), scale_inout(k,iw1,2) )
+        if (sfluxvh(k,iv) < 0.) scale = min( scale_inout(k,iw1,1), scale_inout(k,iw2,2) )
+        scp_upv(k,iv) = scp_upv(k,iv) + scp_hiv(k,iv) * scale
      enddo
   enddo
+  !$omp end do
 
-  do k = lpw(iw), mza
-     scmax = scpmax(k) - scp(k,iw)
-     scmin = scpmin(k) - scp(k,iw)
+  ! COMPUTE FLUX DIVERGENCE AND FORWARD INTEGRATE SCALAR CONCENTRATION
 
-     fact1 = 1.0
-     if (gmax(k) > scmax) fact1 = scmax / gmax(k)
+  !$omp do private(iw)
+  do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
-     fact2 = 1.0
-     if (gmin(k) < scmin) fact2 = scmin / gmin(k)
+     call scalar_tend_monot( iw, ff_implic(istage,iw) )
 
-!    fact = 0.9999998 * min(fact1,fact2)
-!    fact = 0.999999 * min(fact1,fact2)
-!    fact = 0.9999 * min(fact1,fact2)
-     fact = min(fact1,fact2)
-
-     gxps(k) = fact * gxps(k)
-     gyps(k) = fact * gyps(k)
   enddo
+  !$omp end do nowait
+  !$omp end parallel
 
-end subroutine limit_h2
+  ! Make sure MPI sendss are completed before we leave this routine and
+  ! automatic memory is released
+
+  if (iparallel == 1) then
+     if (iorderh > 1) call mpi_finish_direct_send_w(itag_gxyps)
+     call                  mpi_finish_direct_send_w(itag_monot)
+  endif
 
 
+contains
 
 
+  subroutine scalar_vflux_monot( iv )
 
-subroutine limit_h3(iw,scp,gxps,gyps,gxxps,gxyps,gyyps)
+    use mem_grid,   only: lpv, mza
+    use mem_ijtabs, only: itab_v
+    use mem_adv,    only: xx0_vu, yy0_vu, xy0_vu
+!   import,         only: scp, scp0, scp_upv, scp_hiv, vmasc, sfluxvh, gxyps, &
+!                         iorderh, centered_monot
+    implicit none
 
-  use mem_grid,   only: mza, lpw, mwa
-  use mem_adv,    only: dxpsw_v, dypsw_v, dxxpsw_v, dxypsw_v, dyypsw_v
-!                       xx0, yy0, xy0, dssq
-  use mem_ijtabs, only: itab_w
+    integer, intent(in) :: iv
+    integer             :: iw1, iw2, k
+    real                :: scp1(mza), scp2(mza)
+
+    iw1 = itab_v(iv)%iw(1)
+    iw2 = itab_v(iv)%iw(2)
+
+     ! Low-order horizontal fluxes
+
+    do k = lpv(iv), mza
+       scp_upv(k,iv) = scp0(k,iw1)
+       if (vmasc(k,iv) < 0.) scp_upv(k,iv) = scp0(k,iw2)
+    enddo
+
+    ! High-order horizontal fluxes
+
+    if (iorderh == 1) then
+
+       do k = lpv(iv), mza
+          scp1(k) = scp(k,iw1)
+          scp2(k) = scp(k,iw2)
+       enddo
+
+    elseif (iorderh == 2) then
+
+       do k = lpv(iv), mza
+          scp1(k) = scp(k,iw1) &
+                  + itab_v(iv)%dxps(1) * gxyps(k,iw1,1) &
+                  + itab_v(iv)%dyps(1) * gxyps(k,iw1,2)
+
+          scp2(k) = scp(k,iw2) &
+                  + itab_v(iv)%dxps(2) * gxyps(k,iw2,1) &
+                  + itab_v(iv)%dyps(2) * gxyps(k,iw2,2)
+       enddo
+
+    elseif (iorderh == 3) then
+
+       do k = lpv(iv), mza
+          scp1(k) = scp(k,iw1) &
+                  + itab_v(iv)%dxps(1) * gxyps(k,iw1,1) &
+                  + itab_v(iv)%dyps(1) * gxyps(k,iw1,2) &
+                  + xx0_vu(1,iv)       * gxyps(k,iw1,3) &
+                  + xy0_vu(1,iv)       * gxyps(k,iw1,4) &
+                  + yy0_vu(1,iv)       * gxyps(k,iw1,5)
+
+          scp2(k) = scp(k,iw2)                          &
+                  + itab_v(iv)%dxps(2) * gxyps(k,iw2,1) &
+                  + itab_v(iv)%dyps(2) * gxyps(k,iw2,2) &
+                  + xx0_vu(2,iv)       * gxyps(k,iw2,3) &
+                  + xy0_vu(2,iv)       * gxyps(k,iw2,4) &
+                  + yy0_vu(2,iv)       * gxyps(k,iw2,5)
+       enddo
+
+    endif
+
+    if (centered_monot) then
+
+       do k = lpv(iv), mza
+          scp_hiv(k,iv) = 0.5 * (scp1(k) + scp2(k)) - scp_upv(k,iv)
+          sfluxvh(k,iv) = vmasc(k,iv) * scp_hiv(k,iv)
+       enddo
+
+    else
+
+       do k = lpv(iv), mza
+          scp_hiv(k,iv) = scp1(k)
+          if (vmasc(k,iv) < 0.) scp_hiv(k,iv) = scp2(k)
+
+          scp_hiv(k,iv) = scp_hiv(k,iv) - scp_upv(k,iv)
+          sfluxvh(k,iv) = vmasc(k,iv) * scp_hiv(k,iv)
+       enddo
+
+    endif
+
+  end subroutine scalar_vflux_monot
+
+
+  subroutine scalar_wflux_and_scales_monot( iw, fimpl )
+
+    use mem_grid,   only: lpw, lpv, mza, volti
+    use mem_ijtabs, only: itab_w
+    use grad_lib,   only: grad_z_linear, grad_z_quadratic
+    use tridiag,    only: tridif_fini
+!   import,         only: scp, scp0, wmasc, vmasc, scp_upv, scp_upw, sfluxvh, onep, &
+!                         scale_inout, rhos, dtr, iorderv, centered_monot, eps0, eps1
+    implicit none
+
+    integer, intent(in) :: iw
+    real,    intent(in) :: fimpl
+
+    integer             :: kb, k, jv, iv, iwn
+    real                :: rscp_low, flux_in, flux_out, sc_in, sc_out
+    real                :: scale, dtrp, fexpl, epsr
+    real                :: scpb(mza), scpt(mza), scp_hiw(mza)
+    real                :: sfluxwh(mza), smax(mza), smin(mza)
+    real                :: fluxdiv_low(mza)
+    real                :: fluxdiv_in (mza)
+    real                :: fluxdiv_out(mza)
+    real                :: imp_correct, dwi
+
+    dtrp = onep * dtr
+
+    kb = lpw(iw)
+
+    fexpl = 1. - fimpl
+
+    ! Low order vertical flux
+
+    scp_upw(kb-1,iw) = scp0(kb ,iw)
+    scp_upw(mza ,iw) = scp0(mza,iw)
+
+    do k = kb, mza-1
+       scp_upw(k,iw) = scp0(k,iw)
+       if (wmasc(k,iw) < 0.) scp_upw(k,iw) = scp0(k+1,iw)
+    enddo
+
+    ! Higher-order vertical fluxes
+
+    if (iorderv == 1) then
+
+       do k = kb, mza
+          scpb(k) = scp(k,iw)
+          scpt(k) = scp(k,iw)
+       enddo
+
+    elseif (iorderv == 2) then
+
+       call grad_z_linear(iw, scp(:,iw), scpb, scpt, itopbc=1, ibotbc=1)
+
+    elseif (iorderv == 3) then
+
+       call grad_z_quadratic(iw, scp(:,iw), scpb, scpt, itopbc=1, ibotbc=1, bounded=.false.)
+
+    endif
+
+    sfluxwh(kb-1) = 0.
+    sfluxwh(mza)  = 0.
+
+    if (centered_monot) then
+
+       do k = kb, mza-1
+          scp_hiw(k) = 0.5 * (scpt(k) + scpb(k+1)) - scp_upw(k,iw)
+          sfluxwh(k) = fexpl * wmasc(k,iw) * scp_hiw(k)
+       enddo
+
+    else
+
+       do k = kb, mza-1
+          scp_hiw(k) = scpt(k)
+          if (wmasc(k,iw) < 0.) scp_hiw(k) = scpb(k+1)
+
+          scp_hiw(k) = scp_hiw(k) - scp_upw(k,iw)
+          sfluxwh(k) = fexpl * wmasc(k,iw) * scp_hiw(k)
+       enddo
+
+    endif
+
+     ! Find upwind-biased tracer max/min for each cell in this column
+
+     do k = kb, mza
+        smax(k) = scp0(k,iw)
+        smin(k) = scp0(k,iw)
+     enddo
+
+     do k = kb+1, mza
+        if (wmasc(k-1,iw) > 0.) then
+           smax(k) = max(smax(k), scp0(k-1,iw))
+           smin(k) = min(smin(k), scp0(k-1,iw))
+        endif
+     enddo
+
+     do k = kb, mza-1
+        if (wmasc(k,iw) < 0.) then
+           smax(k) = max(smax(k), scp0(k+1,iw))
+           smin(k) = min(smin(k), scp0(k+1,iw))
+        endif
+     enddo
+
+     ! Scalar horizontal flux divergence and upwind-biased max/min
+
+     fluxdiv_low(:) = 0.
+     fluxdiv_in (:) = 0.
+     fluxdiv_out(:) = 0.
+
+     do jv = 1, itab_w(iw)%npoly
+        iv  = itab_w(iw)%iv(jv)
+        iwn = itab_w(iw)%iw(jv)
+
+        do k = lpv(iv), mza
+
+           fluxdiv_low(k) = fluxdiv_low(k) &
+                          + itab_w(iw)%dirv(jv) * vmasc(k,iv) * (scp_upv(k,iv) - scp0(k,iw))
+
+           fluxdiv_in (k) = fluxdiv_in (k) + max( itab_w(iw)%dirv(jv) * sfluxvh(k,iv), 0.)
+           fluxdiv_out(k) = fluxdiv_out(k) + min( itab_w(iw)%dirv(jv) * sfluxvh(k,iv), 0.)
+
+           ! Upwind-biased tracer max/min
+           if ( itab_w(iw)%dirv(jv) * vmasc(k,iv) > 0.) then
+              smax(k) = max(smax(k), scp0(k,iwn))
+              smin(k) = min(smin(k), scp0(k,iwn))
+           endif
+
+        enddo
+     enddo
+
+     ! Scalar vertical flux divergence and flux renormalization scales
+
+     if (fimpl > .001) then
+
+        do k = kb, mza
+           dwi = fimpl * (wmasc(k,iw) - wmasc(k-1,iw))
+
+           fluxdiv_low(k) = fluxdiv_low(k) + fexpl * ( wmasc(k-1,iw) * (scp_upw(k-1,iw) - scp0(k,iw))   &
+                                                     - wmasc(k  ,iw) * (scp_upw(k  ,iw) - scp0(k,iw)) ) &
+                                           + scp0(k,iw) * dwi
+
+           fluxdiv_in (k) = fluxdiv_in (k) + max(sfluxwh(k-1),0.) - min(sfluxwh(k),0.)
+           fluxdiv_out(k) = fluxdiv_out(k) + min(sfluxwh(k-1),0.) - max(sfluxwh(k),0.)
+
+           imp_correct = rhos(k,iw) + dtr * volti(k,iw) * dwi
+           smax(k) = imp_correct * smax(k)
+           smin(k) = imp_correct * smin(k)
+        enddo
+
+     else
+
+        do k = kb, mza
+           fluxdiv_low(k) = fluxdiv_low(k) + wmasc(k-1,iw) * (scp_upw(k-1,iw) - scp0(k,iw)) &
+                                           - wmasc(k  ,iw) * (scp_upw(k  ,iw) - scp0(k,iw))
+
+           fluxdiv_in (k) = fluxdiv_in (k) + max(sfluxwh(k-1),0.) - min(sfluxwh(k),0.)
+           fluxdiv_out(k) = fluxdiv_out(k) + min(sfluxwh(k-1),0.) - max(sfluxwh(k),0.)
+
+           smax(k) = rhos(k,iw) * smax(k)
+           smin(k) = rhos(k,iw) * smin(k)
+        enddo
+
+     endif
+
+    ! Flux limiter / renormalization
+
+    do k = lpw(iw), mza
+       rscp_low = scp0(k,iw) * rhos(k,iw) + dtr * volti(k,iw) * fluxdiv_low(k)
+
+       flux_in  = max(dtrp * volti(k,iw) * fluxdiv_in (k),  eps0)
+       flux_out = min(dtrp * volti(k,iw) * fluxdiv_out(k), -eps0)
+
+       epsr = eps1 * abs(rscp_low)
+
+       sc_in  = max(smax(k) - (rscp_low + epsr) - eps0, 0.)
+       sc_out = min(smin(k) - (rscp_low - epsr) + eps0, 0.)
+
+       scale_inout(k,iw,1) = min(1., sc_in  / max(flux_in , 0.01*sc_in ) )
+       scale_inout(k,iw,2) = min(1., sc_out / min(flux_out, 0.01*sc_out) )
+    enddo
+
+     ! Apply flux renormalization to vertical fluxes
+
+     do k = lpw(iw), mza-1
+        scale = min( scale_inout(k+1,iw,1), scale_inout(k,iw,2) )
+        if (sfluxwh(k) < 0.) scale = min( scale_inout(k,iw,1), scale_inout(k+1,iw,2))
+        scp_upw(k,iw) = scp_upw(k,iw) + scp_hiw(k) * scale
+     enddo
+
+  end subroutine scalar_wflux_and_scales_monot
+
+
+  subroutine scalar_tend_monot( iw, fimpl )
+
+    use mem_grid,   only: mza, lpw, lpv, volti
+    use mem_ijtabs, only: itab_w
+!   import,         only: scp, scp0, wmasc, vmasc, scp_upv, scp_upw, rhos, dtr
+
+    implicit none
+
+    integer, intent(in) :: iw
+    real,    intent(in) :: fimpl
+
+    integer             :: kb, jv, iv, k
+    real                :: fluxdiv(mza), fexpl
+
+    kb = lpw(iw)
+    fluxdiv(:) = 0.0
+
+    ! Scalar horizontal flux divergence
+
+    do jv = 1, itab_w(iw)%npoly
+       iv = itab_w(iw)%iv(jv)
+
+       do k = lpv(iv), mza
+          fluxdiv(k) = fluxdiv(k) &
+                     + itab_w(iw)%dirv(jv) * vmasc(k,iv) * (scp_upv(k,iv) - scp0(k,iw))
+       enddo
+    enddo
+
+    if (fimpl > .001) then
+       fexpl = 1. - fimpl
+
+       do k = kb, mza
+          ! Scalar vertical flux divergence
+          fluxdiv(k) = fluxdiv(k) + fexpl * ( wmasc(k-1,iw) * (scp_upw(k-1,iw) - scp0(k,iw)) &
+                                            - wmasc(k  ,iw) * (scp_upw(k  ,iw) - scp0(k,iw)) )
+          ! Integrate forward in time
+          scp(k,iw) = scp0(k,iw) + dtr * volti(k,iw) * fluxdiv(k) / rhos(k,iw)
+       enddo
+
+    else
+
+       do k = kb, mza
+          ! Scalar vertical flux divergence
+          fluxdiv(k) = fluxdiv(k) + wmasc(k-1,iw) * (scp_upw(k-1,iw) - scp0(k,iw)) &
+                                  - wmasc(k  ,iw) * (scp_upw(k  ,iw) - scp0(k,iw))
+
+          ! Integrate forward in time
+          scp(k,iw) = scp0(k,iw) + dtr * volti(k,iw) * fluxdiv(k) / rhos(k,iw)
+       enddo
+
+       scp(2:kb-1,iw) = scp(kb,iw)
+    endif
+
+  end subroutine scalar_tend_monot
+
+
+end subroutine update_scalar_monot
+
+!===========================================================================
+
+subroutine update_scalar_pd( scp, scp0, rhos, vmasc, wmasc, &
+                             dtr, iorderh, i2d, istage, nrk, ff_implic)
+
+  use mem_grid,     only: mza, mwa, mva, lpv
+  use mem_ijtabs,   only: jtab_v, jtab_w, itab_v, jtv_wadj, jtw_prog
+  use misc_coms,    only: iparallel
+  use olam_mpi_atm, only: mpi_post_direct_recv_w, mpi_finish_direct_recv_w, &
+                          mpi_post_direct_send_w, mpi_finish_direct_send_w
+  use grad_lib,     only: grad_t2d, grad_t2d_quadratic
+  use obnd,         only: lbcopy_w
 
   implicit none
 
-  integer, intent(in)    :: iw
-  real,    intent(in)    :: scp(mza,mwa)
-  real,    intent(inout) :: gxps(mza), gyps(mza)
-  real,    intent(inout) :: gxxps(mza), gxyps(mza), gyyps(mza)
+  integer, intent(in)    :: iorderh, i2d, istage, nrk
+  real,    intent(inout) :: scp  (mza,mwa)
+  real,    intent(in)    :: scp0 (mza,mwa)
+  real,    intent(in)    :: rhos (mza,mwa)
+  real,    intent(in)    :: vmasc(mza,mva)
+  real,    intent(in)    :: wmasc(mza,mwa)
+  real,    intent(in)    :: dtr, ff_implic(nrk,mwa)
 
-  real    :: scpmax(mza), scpmin(mza), scmax, scmin
-  real    :: gmax(mza), gmin(mza), g, fact1, fact2, fact
-  integer :: k, n, iv, iwn
+  integer :: j, iv, iw, iw1, iw2, k
+  real    :: scale
 
-!  real :: dxpsm1, dypsm1, dxxpsm1, dxypsm1, dyypsm1, g1
-!  real :: dxpsm2, dypsm2, dxxpsm2, dxypsm2, dyypsm2, g2
-!  real :: denom, xx, yy
+  real :: sfluxvh  (mza,mva)
+  real :: scale_out(mza,mwa)
+  real :: gxyps    (mza,mwa,i2d)
+  real :: scp_upv  (mza,mva)
+  real :: scp_hiv  (mza,mva)
+  real :: scp_upw  (mza,mwa)
 
-  gmax = 0.0
-  gmin = 0.0
+  if (iparallel == 1) then
+     if (iorderh > 1) call mpi_post_direct_recv_w(gxyps,     itag_gxyps)
+     call                  mpi_post_direct_recv_w(scale_out, itag_pd)
+  endif
 
-  scpmax = scp(:,iw)
-  scpmin = scp(:,iw)
+  ! COMPUTE HORIZONTAL POLYNOMIAL RECONSTRUCTION COEFFICIENTS AT EACH W CELL
 
-  do n = 1, itab_w(iw)%npoly
-     iv   = itab_w(iw)%iv(n)
-     iwn  = itab_w(iw)%iw(n)
+  if (iorderh > 1) then
 
-     do k = lpw(iw), mza
-        g =  dxpsw_v(n,iw) *  gxps(k) +  dypsw_v(n,iw) * gyps(k) &
-          + dxxpsw_v(n,iw) * gxxps(k) + dxypsw_v(n,iw) * gxyps(k) + dyypsw_v(n,iw) * gyyps(k)
+     !$omp parallel do private(iw)
+     do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
-        gmax(k) = max(gmax(k),g)
-        gmin(k) = min(gmin(k),g)
+        if (iorderh == 2) then
+           call grad_t2d(iw, scp, gxyps(:,iw,1), gxyps(:,iw,2))
+        elseif (iorderh == 3) then
+           call grad_t2d_quadratic(iw, scp, gxyps)
+        endif
 
-        scpmax(k) = max(scpmax(k),scp(k,iwn))
-        scpmin(k) = min(scpmin(k),scp(k,iwn))
+     enddo
+     !$omp end parallel do
+
+     if (iparallel == 1) then
+        call mpi_post_direct_send_w(gxyps, itag_gxyps)
+        call mpi_finish_direct_recv_w     (itag_gxyps)
+     endif
+     call lbcopy_w(aa=gxyps)
+
+  endif
+
+  ! COMPUTE UPWINDED TRACER CONCENTRATIONS AT EACH V FACE
+
+  !$omp parallel
+  !$omp do private(iv)
+  do j = 1, jtab_v(jtv_wadj)%jend; iv = jtab_v(jtv_wadj)%iv(j)
+
+     call scalar_vflux_pd( iv )
+
+  enddo
+  !$omp end do
+
+  ! LOOP TO COMPUTE VERTICAL FLUXES AND SCALE FACTOR
+
+  !$omp do private (iw)
+  do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
+
+     call scalar_wflux_and_scale_pd( iw, ff_implic(istage,iw) )
+
+  enddo
+  !$omp end do
+  !$omp end parallel
+
+  ! Post MPI send of flux scale factors
+
+  if (iparallel == 1) then
+     call mpi_post_direct_send_w(scale_out, itag_pd)
+     call mpi_finish_direct_recv_w         (itag_pd)
+  endif
+  call lbcopy_w(a1=scale_out)
+
+  ! APPLY FLUX RENORMALIZATION TO HORIZONTAL FLUXES
+
+  !$omp parallel
+  !$omp do private(iv,iw1,iw2,k,scale)
+  do j = 1, jtab_v(jtv_wadj)%jend; iv = jtab_v(jtv_wadj)%iv(j)
+
+     iw1 = itab_v(iv)%iw(1)
+     iw2 = itab_v(iv)%iw(2)
+
+     do k = lpv(iv), mza
+        scale = scale_out(k,iw1)
+        if (sfluxvh(k,iv) < 0.) scale = scale_out(k,iw2)
+        scp_upv(k,iv) = scp_upv(k,iv) + scp_hiv(k,iv) * scale
      enddo
   enddo
+  !$omp end do
 
-  do k = lpw(iw), mza
-     scmax = scpmax(k) - scp(k,iw)
-     scmin = scpmin(k) - scp(k,iw)
+  ! COMPUTE FLUX DIVERGENCE AND FORWARD INTEGRATE SCALAR CONCENTRATION
 
-!!     denom = 4. * gxxps(k) * gyyps(k) - gxyps(k)**2
-!!
-!!     if (abs(denom) > 1.e-25) then
-!!        yy = (gxps(k) * gxyps(k) - 2. * gxxps(k) * gyps(k)) / denom
-!!        xx = (gyps(k) * gxyps(k) - 2. * gyyps(k) * gxps(k)) / denom
-!!
-!!        if (xx * xx + yy * yy < dssq(iw)) then
-!!
-!!           g = xx * gxps(k) + yy * gyps(k)  &
-!!             + (xx * xx - xx0(iw)) * gxxps(k) + (yy * yy - yy0(iw)) * gyyps(k) &
-!!             + (xx * yy - xy0(iw)) * gxyps(k)
-!!
-!!           gmax(k) = max(gmax(k),g)
-!!           gmin(k) = min(gmin(k),g)
-!!
-!!        endif
-!!     endif
+  !$omp do private(iw)
+  do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
 
-     fact1 = 1.0
-     if (gmax(k) > scmax) fact1 = scmax / gmax(k)
+     call scalar_tend_pd( iw, ff_implic(istage,iw) )
 
-     fact2 = 1.0
-     if (gmin(k) < scmin) fact2 = scmin / gmin(k)
-
-!    fact = 0.9999998 * min(fact1,fact2)
-!    fact = 0.999998 * min(fact1,fact2)
-!    fact = 0.9999 * min(fact1,fact2)
-     fact = min(fact1,fact2)
-
-     gxps (k) = fact *  gxps(k)
-     gyps (k) = fact *  gyps(k)
-     gxxps(k) = fact * gxxps(k)
-     gxyps(k) = fact * gxyps(k)
-     gyyps(k) = fact * gyyps(k)
   enddo
+  !$omp end do nowait
+  !$omp end parallel
 
-end subroutine limit_h3
+  ! Make sure MPI sendss are completed before we leave this routine and
+  ! automatic memory is released
+
+  if (iparallel == 1) then
+     if (iorderh > 1) call mpi_finish_direct_send_w(itag_gxyps)
+     call                  mpi_finish_direct_send_w(itag_pd)
+  endif
+
+
+contains
+
+
+  subroutine scalar_vflux_pd( iv )
+
+    use mem_grid,   only: lpv, mza
+    use mem_ijtabs, only: itab_v
+    use mem_adv,    only: xx0_v, yy0_v, xy0_v
+!   import,         only: scp, scp0, scp_upv, scp_hiv, vmasc, sfluxvh, gxyps, iorderh
+
+    implicit none
+
+    integer, intent(in) :: iv
+    integer             :: iw1, iw2, k
+    real                :: scp1(mza), scp2(mza)
+
+    iw1 = itab_v(iv)%iw(1)
+    iw2 = itab_v(iv)%iw(2)
+
+    ! High-order horizontal fluxes
+
+    if (iorderh == 1) then
+
+       do k = lpv(iv), mza
+          scp1(k) = scp(k,iw1)
+          scp2(k) = scp(k,iw1)
+       enddo
+
+    elseif (iorderh == 2) then
+
+       do k = lpv(iv), mza
+          scp1(k) = scp(k,iw1) &
+                  + itab_v(iv)%dxps(1) * gxyps(k,iw1,1) &
+                  + itab_v(iv)%dyps(1) * gxyps(k,iw1,2)
+
+          scp2(k) = scp(k,iw2) &
+                  + itab_v(iv)%dxps(2) * gxyps(k,iw2,1) &
+                  + itab_v(iv)%dyps(2) * gxyps(k,iw2,2)
+       enddo
+
+    elseif (iorderh == 3) then
+
+       do k = lpv(iv), mza
+          scp1(k) = scp(k,iw1) &
+                  + itab_v(iv)%dxps(1) * gxyps(k,iw1,1) &
+                  + itab_v(iv)%dyps(1) * gxyps(k,iw1,2) &
+                  + xx0_v(1,iv)        * gxyps(k,iw1,3) &
+                  + xy0_v(1,iv)        * gxyps(k,iw1,4) &
+                  + yy0_v(1,iv)        * gxyps(k,iw1,5)
+
+          scp2(k) = scp(k,iw2)                          &
+                  + itab_v(iv)%dxps(2) * gxyps(k,iw2,1) &
+                  + itab_v(iv)%dyps(2) * gxyps(k,iw2,2) &
+                  + xx0_v(2,iv)        * gxyps(k,iw2,3) &
+                  + xy0_v(2,iv)        * gxyps(k,iw2,4) &
+                  + yy0_v(2,iv)        * gxyps(k,iw2,5)
+       enddo
+
+    endif
+
+    ! Low-order horizontal fluxes and high-order corrections
+
+    do k = lpv(iv), mza
+       scp_hiv(k,iv) = scp1(k)
+       if (vmasc(k,iv) < 0.) scp_hiv(k,iv) = scp2(k)
+
+       scp_upv(k,iv) = scp0(k,iw1)
+       if (vmasc(k,iv) < 0.) scp_upv(k,iv) = scp0(k,iw2)
+
+       scp_hiv(k,iv) = scp_hiv(k,iv) - scp_upv(k,iv)
+       sfluxvh(k,iv) = vmasc(k,iv) * scp_hiv(k,iv)
+    enddo
+
+  end subroutine scalar_vflux_pd
+
+
+  subroutine scalar_wflux_and_scale_pd( iw, fimpl )
+
+    use mem_grid,   only: lpw, lpv, mza, volti
+    use mem_ijtabs, only: itab_w
+    use grad_lib,   only: grad_z_linear, grad_z_quadratic
+!   import,         only: scp, scp0, wmasc, vmasc, scp_upv, scp_upw, eps0, &
+!                         sfluxvh, scale_out, rhos, dtr, iorderv, onep, onem
+    implicit none
+
+    integer, intent(in) :: iw
+    real,    intent(in) :: fimpl
+
+    integer             :: kb, k, jv, iv
+    real                :: rscp_low, flux_out, sc_out
+    real                :: scale, mdtrp, fexpl
+    real                :: scpb(mza), scpt(mza), scp_hiw(mza)
+    real                :: sfluxwh(mza)
+    real                :: fluxdiv_low(mza)
+    real                :: fluxdiv_out(mza)
+
+    mdtrp = -onep * dtr
+
+    kb = lpw(iw)
+
+    fexpl = 1. - fimpl
+
+    ! Low order vertical flux
+
+    scp_upw(kb-1,iw) = scp(kb ,iw)
+    scp_upw(mza ,iw) = scp(mza,iw)
+
+    do k = kb, mza-1
+       scp_upw(k,iw) = scp0(k,iw)
+       if (wmasc(k,iw) < 0.) scp_upw(k,iw) = scp0(k+1,iw)
+    enddo
+
+    ! Higher-order vertical fluxes
+
+    if (iorderv == 1) then
+
+       do k = kb, mza-1
+          scpb(k) = scp(k,iw)
+          scpt(k) = scp(k,iw)
+       enddo
+
+    elseif (iorderv == 2) then
+
+       call grad_z_linear(iw, scp(:,iw), scpb, scpt)
+
+    elseif (iorderv == 3) then
+
+       call grad_z_quadratic(iw, scp(:,iw), scpb, scpt)
+
+    endif
+
+    sfluxwh(kb-1) = 0.
+    sfluxwh(mza)  = 0.
+
+    do k = kb, mza-1
+       scp_hiw(k) = scpt(k)
+       if (wmasc(k,iw) < 0.) scp_hiw(k) = scpb(k+1)
+
+       scp_hiw(k) = scp_hiw(k) - scp_upw(k,iw)
+       sfluxwh(k) = fexpl * wmasc(k,iw) * scp_hiw(k)
+    enddo
+
+    ! Scalar horizontal flux divergence
+
+    fluxdiv_low(:) = 0.
+    fluxdiv_out(:) = 0.
+
+    do jv = 1, itab_w(iw)%npoly
+       iv = itab_w(iw)%iv(jv)
+
+       do k = lpv(iv), mza
+          fluxdiv_low(k) = fluxdiv_low(k) &
+                         + itab_w(iw)%dirv(jv) * vmasc(k,iv) * (scp_upv(k,iv) - scp0(k,iw))
+
+          fluxdiv_out(k) = fluxdiv_out(k) + min( itab_w(iw)%dirv(jv) * sfluxvh(k,iv), 0.)
+       enddo
+    enddo
+
+    ! Scalar vertical flux divergence
+
+    if (fimpl > .001) then
+
+       do k = kb, mza
+          fluxdiv_low(k) = fluxdiv_low(k) + fexpl * ( wmasc(k-1,iw) * (scp_upw(k-1,iw) - scp0(k,iw))   &
+                                                    - wmasc(k  ,iw) * (scp_upw(k  ,iw) - scp0(k,iw)) ) &
+
+                                          + fimpl * scp0(k,iw) * (wmasc(k,iw) - wmasc(k-1,iw))
+
+          fluxdiv_out(k) = fluxdiv_out(k) + min(sfluxwh(k-1),0.) - max(sfluxwh(k),0.)
+       enddo
+
+    else
+
+       do k = kb, mza
+          fluxdiv_low(k) = fluxdiv_low(k) + wmasc(k-1,iw) * (scp_upw(k-1,iw) - scp0(k,iw)) &
+                                          - wmasc(k  ,iw) * (scp_upw(k  ,iw) - scp0(k,iw))
+
+          fluxdiv_out(k) = fluxdiv_out(k) + min(sfluxwh(k-1),0.) - max(sfluxwh(k),0.)
+       enddo
+
+    endif
+
+    ! Flux limiter / renormalization
+
+    do k = kb, mza
+       rscp_low = scp0(k,iw) * rhos(k,iw) + dtr * volti(k,iw) * fluxdiv_low(k)
+
+       flux_out = max( mdtrp * volti(k,iw) * fluxdiv_out(k), eps0 )
+
+       sc_out = max(onem * rscp_low - eps0, 0.)
+
+       scale_out(k,iw) = min(1., sc_out / max(flux_out, 0.01*sc_out) )
+    enddo
+
+    ! Apply flux renormalization to vertical fluxes
+
+    do k = kb, mza-1
+       scale = scale_out(k,iw)
+       if (sfluxwh(k) < 0.) scale = scale_out(k+1,iw)
+       scp_upw(k,iw) = scp_upw(k,iw) + scp_hiw(k) * scale
+    enddo
+
+  end subroutine scalar_wflux_and_scale_pd
+
+
+  subroutine scalar_tend_pd( iw, fimpl )
+
+    use mem_grid,   only: mza, lpw, lpv, volti
+    use mem_ijtabs, only: itab_w
+!   import,         only: scp, scp0, wmasc, vmasc, scp_upv, scp_upw, rhos, dtr
+
+    implicit none
+
+    integer, intent(in) :: iw
+    real,    intent(in) :: fimpl
+    integer             :: kb, jv, iv, k
+    real                :: fluxdiv(mza), fexpl
+
+    kb = lpw(iw)
+    fluxdiv(:) = 0.0
+
+    ! Scalar horizontal flux divergence
+
+    do jv = 1, itab_w(iw)%npoly
+       iv = itab_w(iw)%iv(jv)
+
+       do k = lpv(iv), mza
+          fluxdiv(k) = fluxdiv(k) &
+                     + itab_w(iw)%dirv(jv) * vmasc(k,iv) * (scp_upv(k,iv) - scp0(k,iw))
+       enddo
+    enddo
+
+    if (fimpl > .001) then
+       fexpl = 1. - fimpl
+
+       do k = kb, mza
+          ! Scalar vertical flux divergence
+          fluxdiv(k) = fluxdiv(k) + fexpl * ( wmasc(k-1,iw) * (scp_upw(k-1,iw) - scp0(k,iw)) &
+                                            - wmasc(k  ,iw) * (scp_upw(k  ,iw) - scp0(k,iw)) )
+          ! Integrate forward in time
+          scp(k,iw) = scp0(k,iw) + dtr * volti(k,iw) * fluxdiv(k) / rhos(k,iw)
+       enddo
+
+    else
+
+       do k = kb, mza
+          ! Scalar vertical flux divergence
+          fluxdiv(k) = fluxdiv(k) + wmasc(k-1,iw) * (scp_upw(k-1,iw) - scp0(k,iw)) &
+                                  - wmasc(k  ,iw) * (scp_upw(k  ,iw) - scp0(k,iw))
+
+          ! Integrate forward in time
+          scp(k,iw) = scp0(k,iw) + dtr * volti(k,iw) * fluxdiv(k) / rhos(k,iw)
+       enddo
+
+       scp(2:kb-1,iw) = scp(kb,iw)
+    endif
+
+  end subroutine scalar_tend_pd
+
+
+end subroutine update_scalar_pd
 
 !===============================================================================
 
-  subroutine check_cfls(vmsca, wmsca, rho, nrk, ff_implic)
+  subroutine check_cfls(vmasc, wmasc, rho, nrk, ff_implic)
 
     ! Diagnose outflow CFL number; also used for advection CFL stability check
 
     use mem_ijtabs,  only: jtab_w, jtw_prog, itab_w
     use mem_grid,    only: lpv, lpw, volti, mza, mva, mwa
-    use consts_coms, only: r8
     use misc_coms,   only: iparallel, dtlm
     use mem_para,    only: myrank, mgroupsize
     use mem_basic,   only: wc
+!   use olam_mpi_atm,only: mpi_post_direct_recv_w, mpi_post_direct_send_w, &
+!                          mpi_finish_direct_recv_w, mpi_finish_direct_send_w
 !$  use omp_lib,     only: omp_get_max_threads, omp_get_thread_num
 
 #ifdef OLAM_MPI
-    use mpi
+    use mpi_f08
 #endif
 
     implicit none
 
-    integer,           intent(in ) :: nrk
-    real,              intent(in ) :: vmsca(mza,mva)
-    real,              intent(in ) :: wmsca(mza,mwa)
-    real(r8),          intent(in ) :: rho  (mza,mwa)
-    real,              intent(out) :: ff_implic(mwa)
+    integer,        intent(in ) :: nrk
+    real,           intent(in ) :: vmasc(mza,mva)
+    real,           intent(in ) :: wmasc(mza,mwa)
+    real,           intent(in ) :: rho  (mza,mwa)
+    real,           intent(out) :: ff_implic(nrk,mwa)
 
     integer :: j, iv, k, iw, n
     integer :: ier, inode, iwnode, ihnode
     integer :: mlocc, mlocw, mloch, nthreads, myid
-    real    :: dt, fimp
-    real    :: cfl(mza), cflh(mza), dovr, cflw, cfl0
+    real    :: dt, fimp(nrk)
+    real    :: cfl(mza), cflh(mza), dovr, cflw
     real    :: ct, ch, wm
     integer :: itk, itw, ihk, ihw, iwk, iww
 
@@ -805,13 +1526,9 @@ end subroutine limit_h3
     allocate(w_max  (nthreads))
     allocate(iwmax(2,nthreads))
 
-    if (nrk == 3) then
-       cfl0 = 1.50
-    else
-       cfl0 = 1.25
-    endif
+    dt = dtlm
 
-    !$omp parallel private(myid,cfl,cflh,ct,itk,itw,ch,ihk,ihw,wm,iwk,iww)
+    !$omp parallel private(myid,cfl,cflh,ct,itk,itw,ch,ihk,ihw,wm,iwk,iww,fimp)
     !$ myid = omp_get_thread_num() + 1
 
     ct  = 0.0
@@ -826,10 +1543,8 @@ end subroutine limit_h3
     iwk = 1
     iww = 1
 
-    !$omp do private(iw,dt,k,n,iv,dovr,cflw,fimp)
+    !$omp do private(iw,k,n,iv,dovr,cflw)
     do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
-
-       dt = dtlm
 
        cflh = 0.
        fimp = 0.
@@ -837,19 +1552,28 @@ end subroutine limit_h3
        do n = 1, itab_w(iw)%npoly
           iv = itab_w(iw)%iv(n)
           do k = lpv(iv), mza
-             cflh(k) = cflh(k) - min(itab_w(iw)%dirv(n) * vmsca(k,iv), 0.0)
+             cflh(k) = cflh(k) - min( itab_w(iw)%dirv(n) * vmasc(k,iv), 0.0)
           enddo
        enddo
 
        do k = lpw(iw), mza
-          dovr = dt * volti(k,iw) / real(rho(k,iw))
+          dovr = dt * volti(k,iw) / rho(k,iw)
           cflh(k) = cflh(k) * dovr
-          cflw    = (max(wmsca(k,iw),0.0) - min(wmsca(k-1,iw),0.0)) * dovr
+          cflw    = (max(wmasc(k,iw),0.) - min(wmasc(k-1,iw),0.)) * dovr
           cfl (k) = cflh(k) + cflw
-          fimp    = max(fimp, min(1.0, max(0.0, cflw - min(0.5, cfl0 - cfl(k)))))
+
+          cflw = max(cflw, .1)
+
+          fimp(nrk)   = max(fimp(nrk),  (cfl(k) - 0.98) / cflw)
+          fimp(nrk-1) = max(fimp(nrk-1),(cfl(k) - 1.98) / cflw)
+          if (nrk == 3) &
+              fimp(1) = max(fimp(1),    (cfl(k) - 2.98) / cflw)
        enddo
 
-       ff_implic(iw) = fimp
+       do n = 1, nrk
+          ff_implic(n,iw) = min(1.0, fimp(n))
+          if (ff_implic(n,iw) < .02) ff_implic(n,iw) = 0.
+       enddo
 
        do k = lpw(iw), mza
           if (cfl(k) > ct .or. cfl(k) /= cfl(k)) then
@@ -904,6 +1628,7 @@ end subroutine limit_h3
 
 #ifdef OLAM_MPI
     if (iparallel == 1) then
+
        sbuf(1)   = cfl_max(mlocc)
        sbuf(2:3) = real(imax(:,mlocc))
 
@@ -985,3 +1710,5 @@ end subroutine limit_h3
     endif
 
   end subroutine check_cfls
+
+end module scalar_transport

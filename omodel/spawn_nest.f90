@@ -26,6 +26,7 @@ subroutine spawn_nest(iatmgrid)
   use consts_coms,  only: pio180, erad, pi1, pi2, piu180, r8
   use oname_coms,   only: nl
   use oplot_coms,   only: op
+  use mem_para,     only: olam_stop
 
   implicit none
 
@@ -71,8 +72,9 @@ subroutine spawn_nest(iatmgrid)
 
   real :: xp1, xp2, xq1, xq2
   real :: yp1, yp2, yq1, yq2
-  integer :: iskip, niter, mvint
+  integer :: iskip, niter, mvint, max_mrows
   integer :: imnext, imn, iwnext, iwn, iunext, iun
+  logical :: error
 
   logical, allocatable :: iwdiv(:), iudiv(:)
   logical, allocatable :: ismnest(:), isunest(:), iswnest(:)
@@ -314,6 +316,8 @@ subroutine spawn_nest(iatmgrid)
      lista(nlista) = imbeg
 
      nlistb = 0
+     mrlo   = ltab_md(imbeg)%mrlm
+     error  = .false.
 
      ! Loop over points in LISTA, as long as any exist
 
@@ -327,6 +331,13 @@ subroutine spawn_nest(iatmgrid)
         ! paths that have already been done
 
         im = lista(nlista)
+
+        ! Make sure we don't cross a previous mesh boundary
+
+        if ( any( ltab_ud( ltab_md(im)%iu(1:ltab_md(im)%npoly) )%mrlu /= mrlo ) ) then
+           error = .true.
+           exit
+        endif
 
         call thirdm(nmd, nud, im, jdone, mlist, ltab_md, ltab_ud)
 
@@ -379,6 +390,16 @@ subroutine spawn_nest(iatmgrid)
         enddo ! j,immmm
 
      enddo ! nlista > 0
+
+     if (error) then
+        write(io6,*)
+        write(io6,*) "ERROR:"
+        write(io6,'(A,I0,A)') ' Current nested grid ', ngr, ' crosses (or is too close to)'
+        write(io6,'(A,I0,A)') ' the next coarser grid boundary at imd = ', im, '.'
+        write(io6,'(A)')      ' Reduce the size of the current nested grid or increase the parent grid size.'
+        write(io6,*)
+        call olam_stop( 'Ending MAKEGRID - nested grid out of bounds in spawn_nest' )
+     endif
 
      ! Now, listb contains the full list of M point indices, numbering nlistb.
 
@@ -589,7 +610,6 @@ subroutine spawn_nest(iatmgrid)
 
         imnext = imnext + 1
      enddo
-!     stop
 
      nmd0 = imnext - 1
      deallocate(iudiv)
@@ -622,6 +642,7 @@ subroutine spawn_nest(iatmgrid)
         itab_md(imn)%mrlm_orig = ltab_md(im)%mrlm_orig
         itab_md(imn)%ngr       = ltab_md(im)%ngr
         itab_md(imn)%npoly     = ltab_md(im)%npoly
+        itab_md(imn)%im_orig   = ltab_md(im)%im_orig
 
         if (iatmgrid) then
            itab_md(imn)%loop(1:mloops) = ltab_md(im)%loop(1:mloops)
@@ -749,11 +770,12 @@ subroutine spawn_nest(iatmgrid)
            if (mrloo == 0) mrloo = mrlo  ! Set to first nonzero mrlw encountered
            if (mrlo /= mrloo) then
               write(io6,*)
+              write(io6,*) "ERROR:"
               write(io6,'(A,I0,A)') ' Current nested grid ', ngr, ' crosses (or is too close to)'
               write(io6,'(A,I0,A)') ' the next coarser grid boundary at iw = ', iw, '.'
               write(io6,'(A)')      ' Reduce the size of the current nested grid or increase the parent grid size.'
               write(io6,*)
-              stop 'Ending MAKEGRID - nested grid out of bounds in spawn_nest'
+              call olam_stop( 'Ending MAKEGRID - nested grid out of bounds in spawn_nest' )
            endif
 
            iu1o_iw1 = ltab_ud(iu1o)%iw(1)
@@ -976,8 +998,8 @@ subroutine spawn_nest(iatmgrid)
            im1 = itab_ud(iu)%im(1)
            im2 = itab_ud(iu)%im(2)
 
-           call oplot_transform(1,xemd(im1),yemd(im1),zemd(im1),xp1,yp1)
-           call oplot_transform(1,xemd(im2),yemd(im2),zemd(im2),xp2,yp2)
+           call oplot_transform_xyz(1,xemd(im1),yemd(im1),zemd(im1),xp1,yp1)
+           call oplot_transform_xyz(1,xemd(im2),yemd(im2),zemd(im2),xp2,yp2)
 
            call trunc_segment(xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2,iskip)
 
@@ -986,10 +1008,10 @@ subroutine spawn_nest(iatmgrid)
            call o_frstpt (xq1,yq1)
            call o_vector (xq2,yq2)
 
-           call oplot_transform(1, (xemd(im1)+xemd(im2))/2., &
-                                   (yemd(im1)+yemd(im2))/2., &
-                                   (zemd(im1)+zemd(im2))/2., &
-                                   xp1, yp1                  )
+           call oplot_transform_xyz(1, (xemd(im1)+xemd(im2))/2., &
+                                       (yemd(im1)+yemd(im2))/2., &
+                                       (zemd(im1)+zemd(im2))/2., &
+                                       xp1, yp1                  )
 
            if ( xp1 < op%xmin .or.  &
                 xp1 > op%xmax .or.  &
@@ -1011,7 +1033,13 @@ subroutine spawn_nest(iatmgrid)
      ! border.  This is permanent ID, used in spring dynamics even when new
      ! grids are added.
 
-     call perim_mrow(ngr, nmd, nud, nwd, itab_md, itab_ud, itab_wd)
+     if (iatmgrid) then
+        max_mrows = 13
+     else
+        max_mrows = 7
+     endif
+
+     call perim_mrow(ngr, nmd, nud, nwd, itab_md, itab_ud, itab_wd, max_mrows)
 
      ! This is the place to do spring dynamics
 
@@ -1064,8 +1092,8 @@ subroutine spawn_nest(iatmgrid)
               im1 = itab_ud(iu)%im(1)
               im2 = itab_ud(iu)%im(2)
 
-              call oplot_transform(1,xemd(im1),yemd(im1),zemd(im1),xp1,yp1)
-              call oplot_transform(1,xemd(im2),yemd(im2),zemd(im2),xp2,yp2)
+              call oplot_transform_xyz(1,xemd(im1),yemd(im1),zemd(im1),xp1,yp1)
+              call oplot_transform_xyz(1,xemd(im2),yemd(im2),zemd(im2),xp2,yp2)
 
               call trunc_segment(xp1,xp2,yp1,yp2,xq1,xq2,yq1,yq2,iskip)
 
@@ -1105,6 +1133,7 @@ subroutine perim_fill3(ngr, nma, nua, nwa, mrlo, nper, imper, iuper, &
   use mem_delaunay, only: itab_ud_vars, nest_ud_vars, nest_wd_vars, &
                           itab_md, itab_ud, itab_wd, xemd, yemd, zemd
   use misc_coms,    only: io6
+  use mem_para,     only: olam_stop
 
   implicit none
 
@@ -1497,7 +1526,7 @@ subroutine perim_fill3(ngr, nma, nua, nwa, mrlo, nper, imper, iuper, &
         write(io6,'(A,I0,A)') ' the next coarser grid boundary. Reduce the size of the current'
         write(io6,'(A)')      ' nested grid or increase the parent grid size.'
         write(io6,*)
-        stop 'Ending MAKEGRID - nested grid out of bounds in perim_fill3'
+        call olam_stop( 'Ending MAKEGRID - nested grid out of bounds in spawn_nest' )
      endif
 
      ! NEW M locations
@@ -1747,14 +1776,15 @@ end subroutine perim_ngr
 
 !===========================================================================
 
-  subroutine perim_mrow(ngr, nma, nua, nwa, itab_md, itab_ud, itab_wd)
+subroutine perim_mrow(ngr, nma, nua, nwa, itab_md, itab_ud, itab_wd, max_mrows)
 
   use mem_delaunay, only: itab_wd_vars, itab_ud_vars, itab_md_vars
   use misc_coms,    only: io6
+  use mem_para,     only: olam_stop
 
   implicit none
 
-  integer, intent(in) :: nma, nua, nwa, ngr
+  integer, intent(in) :: nma, nua, nwa, ngr, max_mrows
 
   type (itab_md_vars), intent(inout) :: itab_md(nma)
   type (itab_ud_vars), intent(inout) :: itab_ud(nua)
@@ -1800,7 +1830,7 @@ end subroutine perim_ngr
 
   mrow_temp2(:) = mrow_temp(:)
 
-  do irow = 2,22  ! First row already done above
+  do irow = 2, 2*max_mrows  ! First row already done above
      jrow = mod(irow,2)
 
      do iw = 2,nwa
@@ -1835,17 +1865,19 @@ end subroutine perim_ngr
   do iw = 2,nwa
      if (mrow_temp(iw) /= 0) then
 
-        ! This is probably not necessary with the new check in perim_fill3, but
-        ! will keep this anyway since a helpful warning message here is better
-        ! than an obscure error if spring dynamics messes up the grid!
+        ! This checks if a border mrow of the current nest intersects with
+        ! a preexisting mrow border of the encompassing coarser MRL. An error
+        ! is given if the mrows are incompatible for spring dynamics, which uses
+        ! the mrow information to properly adjust the mesh boundaries.
 
         if (mrow_temp(iw) < 2 .and. itab_wd(iw)%mrow /= 0 .and. itab_wd(iw)%mrow > -3) then
            write(io6,*)
+           write(io6,*) "ERROR:"
            write(io6,'(A,I0,A)') ' Current nested grid ', ngr, ' crosses (or is too close to)'
            write(io6,'(A,I0,A)') ' the next coarser grid boundary. Reduce the size of the current'
            write(io6,'(A)')      ' nested grid or increase the parent grid size.'
            write(io6,*)
-           stop 'Ending MAKEGRID - nested grid out of bounds in perim_mrow'
+           call olam_stop( 'Ending MAKEGRID - nested grid out of bounds in perim_mrow' )
         endif
 
         ! Make sure previous mrows of -2, -1, and 1 are preserved in case
@@ -1878,6 +1910,7 @@ subroutine ngr_area(ngr, inside, x, y, z, ngrdll, grdrad, grdlat, grdlon)
 
   use max_dims,  only: maxgrds, maxngrdll
   use misc_coms, only: mdomain
+  use map_proj,  only: ll_ps, ec_ps
 
   implicit none
 
@@ -1908,7 +1941,7 @@ subroutine ngr_area(ngr, inside, x, y, z, ngrdll, grdrad, grdlat, grdlon)
 
         ! Transform (x,y,z) location to PS space using the lat/lon of the refinement point
 
-        call e_ps(x,y,z,grdlat(ngr,1),grdlon(ngr,1),xm1,ym1)
+        call ec_ps(x,y,z,grdlat(ngr,1),grdlon(ngr,1),xm1,ym1)
 
         ! If using Cartesian geometry, use direct mapping in Cartesian plane
 
@@ -1957,15 +1990,15 @@ subroutine ngr_area(ngr, inside, x, y, z, ngrdll, grdrad, grdlat, grdlon)
               endif
            endif
 
-           call ll_xy (grdlat(ngr,ipt),grdlon(ngr,ipt), &
-                seglat,seglon,xs(1),ys(1))
+           call ll_ps( grdlat(ngr,ipt),grdlon(ngr,ipt), &
+                       seglat,seglon,xs(1),ys(1) )
 
-           call ll_xy (grdlat(ngr,jpt),grdlon(ngr,jpt), &
-                seglat,seglon,xs(2),ys(2))
+           call ll_ps( grdlat(ngr,jpt),grdlon(ngr,jpt), &
+                       seglat,seglon,xs(2),ys(2) )
 
            ! Transform (x,y,z) location to PS space using mean lat/lon of each segment
 
-           call e_ps(x,y,z,seglat,seglon,xm1,ym1)
+           call ec_ps(x,y,z,seglat,seglon,xm1,ym1)
 
            ! If using Cartesian geometry, use direct mapping in Cartesian plane
 
@@ -2262,6 +2295,7 @@ subroutine oplot_set_makegrid(iatm,mrlo)
   use mem_sfcg,    only: nsfcgrdll, sfcgrdrad, sfcgrdlat, sfcgrdlon, nxp_sfc
   use oplot_coms,  only: op
   use oname_coms,  only: nl
+  use map_proj,    only: ll_ec, ec_ll, ll_ps, ps_ll
 
   implicit none
 
@@ -2318,7 +2352,7 @@ subroutine oplot_set_makegrid(iatm,mrlo)
      rn = 1.0 / ngrds(ngplt)
 
      do i = 1, ngrds(ngplt)
-        call ec_e( g_lons(ngplt,i), g_lats(ngplt,i), x, y, z)
+        call ll_ec( g_lons(ngplt,i), g_lats(ngplt,i), x, y, z)
 
         xx = xx + x * rn
         yy = yy + y * rn
@@ -2330,7 +2364,7 @@ subroutine oplot_set_makegrid(iatm,mrlo)
      yy = yy * expansion
      zz = zz * expansion
 
-     call e_ec(xx,yy,zz,rlon,rlat)
+     call ec_ll(xx,yy,zz,rlon,rlat)
 
      xmax = 0.0
      xmin = 0.0
@@ -2339,7 +2373,7 @@ subroutine oplot_set_makegrid(iatm,mrlo)
      ymin = 0.0
 
      do i = 1, ngrds(ngplt)
-        call ll_xy(g_lats(ngplt,i), g_lons(ngplt,i), rlat, rlon, x, y)
+        call ll_ps(g_lats(ngplt,i), g_lons(ngplt,i), rlat, rlon, x, y)
 
         xmax = max(xmax, x + g_rads(ngplt,i))
         xmin = min(xmin, x - g_rads(ngplt,i))
@@ -2354,7 +2388,7 @@ subroutine oplot_set_makegrid(iatm,mrlo)
      dx = 0.5*(xmax-xmin)
      dy = 0.5*(ymax-ymin)
 
-     call xy_ll(op%plat3, op%plon3, rlat, rlon, x0, y0)
+     call ps_ll(op%plat3, op%plon3, rlat, rlon, x0, y0)
 
      ds = 1.05 * max(dx,dy)
      op%xmin = -ds - gsize

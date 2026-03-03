@@ -16,8 +16,8 @@ Module mem_lake
 ! LAKE GRID TABLES
 
   Type itab_lake_vars
-     integer :: iwglobe = 1
-  End type
+     integer :: iwglobe
+  End type itab_lake_vars
 
   type (itab_lake_vars), allocatable, target :: itab_lake(:)
 
@@ -27,7 +27,6 @@ Module mem_lake
 
      real, allocatable :: depth       (:) ! lake water mean depth [m]
      real, allocatable :: lake_energy (:) ! lake energy [J/kg]
-     real, allocatable :: surface_srrv(:) ! lake surface sat vapor mixing ratio [kg_vap/kg_dryair]
 
   End Type lake_vars
 
@@ -37,32 +36,60 @@ Contains
 
 !=========================================================================
 
-  subroutine alloc_lake(mlake)
+  subroutine alloc_lake1(mlake0)
 
-     use misc_coms, only: rinit
+    use misc_coms, only: rinit
+    implicit none
 
-     implicit none
+    integer, intent(in) :: mlake0
+    integer             :: ilake
 
-     integer, intent(in) :: mlake
+    ! This routine allocates lake arrays necessary for the MAKEGRID stage
+    ! or for reading sfcgrid information
 
-!    Allocate and initialize lake arrays
+    allocate( itab_lake(mlake0) )
 
-     allocate (lake%depth       (mlake)) ; lake%depth        = rinit
-     allocate (lake%lake_energy (mlake)) ; lake%lake_energy  = rinit
-     allocate (lake%surface_srrv(mlake)) ; lake%surface_srrv = rinit
+    !$omp parallel do
+    do ilake = 1, mlake0
+       itab_lake(ilake) = itab_lake_vars( iwglobe = 1 )
+    enddo
+    !$omp end parallel do
 
-  end subroutine alloc_lake
+  end subroutine alloc_lake1
+
+!=========================================================================
+
+  subroutine alloc_lake2()
+
+    use misc_coms, only: rinit
+    implicit none
+
+    integer :: ilake
+
+    ! This routine allocates and initializes lake arrays needed for a full
+    ! model integration that weren't allocated in alloc_lake1
+
+    allocate( lake%depth       (mlake) )
+    allocate( lake%lake_energy (mlake) )
+
+    !$omp parallel do
+    do ilake = 1, mlake
+       lake%depth      (ilake) = rinit
+       lake%lake_energy(ilake) = rinit
+    enddo
+    !$omp end parallel do
+
+  end subroutine alloc_lake2
 
 !=========================================================================
 
   subroutine filltab_lake()
 
-     use var_tables, only: increment_vtable
-     implicit none
+    use var_tables, only: increment_vtable
+    implicit none
 
-     if (allocated(lake%depth))        call increment_vtable('LAKE%DEPTH'       , 'RW', rvar1=lake%depth)
-     if (allocated(lake%lake_energy))  call increment_vtable('LAKE%LAKE_ENERGY' , 'RW', rvar1=lake%lake_energy)
-     if (allocated(lake%surface_srrv)) call increment_vtable('LAKE%SURFACE_SRRV', 'RW', rvar1=lake%surface_srrv)
+    if (allocated(lake%depth))       call increment_vtable('LAKE%DEPTH'       , 'RW', rvar1=lake%depth)
+    if (allocated(lake%lake_energy)) call increment_vtable('LAKE%LAKE_ENERGY' , 'RW', rvar1=lake%lake_energy)
 
   end subroutine filltab_lake
 

@@ -62,7 +62,7 @@ yeh = reh  * sin(flon(nfhour) * pio180)
 ! write(6,'(a,3i5,6e13.3)') 'pltf ',iplottime,iplt,nfhour,xeh,yeh,zeh &
 !                           ,xobs(iplottime),yobs(iplottime)
 
-call oplot_transform(iplt,xeh,yeh,zeh,xobs(iplottime),yobs(iplottime))
+call oplot_transform(iplt,xeh,yeh,zeh,flon(nfhour),flat(nfhour),xobs(iplottime),yobs(iplottime))
 
 ! Search for hurricane lowest pressure
 
@@ -93,7 +93,7 @@ yeh = reh  * sin(glonw(iwlp) * pio180)
 
 ! Transform hurricane earth coords to whatever projection is in use
 
-call oplot_transform(iplt,xeh,yeh,zeh,xmodel(iplottime),ymodel(iplottime))
+call oplot_transform(iplt,xeh,yeh,zeh,glonw(iwlp),glatw(iwlp),xmodel(iplottime),ymodel(iplottime))
 
 5 continue
 

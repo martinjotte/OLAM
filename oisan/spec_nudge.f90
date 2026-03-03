@@ -7,7 +7,7 @@ subroutine init_spec_nudge()
   use consts_coms,  only: r8
   use misc_coms,    only: rinit
   use mem_nudge,    only: mwnud, nudflag, nudnxp, volwnudi, &
-                          rho_sim, theta_sim, rrw_sim, uzonal_sim, umerid_sim
+                          rho_sim, theta_sim, rrv_sim, uzonal_sim, umerid_sim
 
   implicit none
 
@@ -19,7 +19,7 @@ subroutine init_spec_nudge()
 
   allocate (    rho_sim(mza,mwnud)) ; rho_sim    = rinit
   allocate (  theta_sim(mza,mwnud)) ; theta_sim  = rinit
-  allocate (    rrw_sim(mza,mwnud)) ; rrw_sim    = rinit
+  allocate (    rrv_sim(mza,mwnud)) ; rrv_sim    = rinit
   allocate ( uzonal_sim(mza,mwnud)) ; uzonal_sim = rinit
   allocate ( umerid_sim(mza,mwnud)) ; umerid_sim = rinit
   allocate (   volwnudi(mza,mwnud)) ; volwnudi   = 0.0_r8
@@ -52,14 +52,15 @@ end subroutine init_spec_nudge
 
 !===============================================================================
 
-subroutine nudge_prep_spec(iaction, o_rho, o_theta, o_rrw, o_uzonal, o_umerid)
+subroutine nudge_prep_spec ( iaction )
 
   use mem_nudge,   only: mwnud, volwnudi, &
-                         rho_obsp, theta_obsp, rrw_obsp, &
-                         rho_obsf, theta_obsf, rrw_obsf, &
+                         rho_obsp, theta_obsp, rrv_obsp, &
+                         rho_obsf, theta_obsf, rrv_obsf, &
                          uzonal_obsp, umerid_obsp, &
                          uzonal_obsf, umerid_obsf
 
+  use isan_coms,   only: o_rho, o_theta, o_rrw, o_uzonal, o_umerid
   use mem_grid,    only: mza, mwa, volt
   use misc_coms,   only: iparallel
   use mem_ijtabs,  only: jtab_w, itab_w, jtw_init
@@ -68,19 +69,12 @@ subroutine nudge_prep_spec(iaction, o_rho, o_theta, o_rrw, o_uzonal, o_umerid)
 
   implicit none
 
-  integer, intent(in) :: iaction
-
-  real, intent(in) :: o_rho   (mza,mwa)
-  real, intent(in) :: o_theta (mza,mwa)
-  real, intent(in) :: o_rrw   (mza,mwa)
-  real, intent(in) :: o_uzonal(mza,mwa)
-  real, intent(in) :: o_umerid(mza,mwa)
-
+  integer,   intent(in) :: iaction
   integer               :: j,iw,k,iwnud,iwnud1
 
   real(r8), allocatable :: drho   (:,:)
   real(r8), allocatable :: dtheta (:,:)
-  real(r8), allocatable :: drrw   (:,:)
+  real(r8), allocatable :: drrv   (:,:)
   real(r8), allocatable :: duzonal(:,:)
   real(r8), allocatable :: dumerid(:,:)
 
@@ -88,7 +82,7 @@ subroutine nudge_prep_spec(iaction, o_rho, o_theta, o_rrw, o_uzonal, o_umerid)
 
   allocate(drho   (mza,mwnud)) ; drho    = 0._r8
   allocate(dtheta (mza,mwnud)) ; dtheta  = 0._r8
-  allocate(drrw   (mza,mwnud)) ; drrw    = 0._r8
+  allocate(drrv   (mza,mwnud)) ; drrv    = 0._r8
   allocate(duzonal(mza,mwnud)) ; duzonal = 0._r8
   allocate(dumerid(mza,mwnud)) ; dumerid = 0._r8
 
@@ -98,7 +92,7 @@ subroutine nudge_prep_spec(iaction, o_rho, o_theta, o_rrw, o_uzonal, o_umerid)
 
      rho_obsp    = rho_obsf
      theta_obsp  = theta_obsf
-     rrw_obsp    = rrw_obsf
+     rrv_obsp    = rrv_obsf
      uzonal_obsp = uzonal_obsf
      umerid_obsp = umerid_obsf
 
@@ -114,7 +108,7 @@ subroutine nudge_prep_spec(iaction, o_rho, o_theta, o_rrw, o_uzonal, o_umerid)
      do k = 2, mza
         drho   (k,iwnud1) =    drho(k,iwnud1) + o_rho   (k,iw) * volt(k,iw)
         dtheta (k,iwnud1) =  dtheta(k,iwnud1) + o_theta (k,iw) * volt(k,iw)
-        drrw   (k,iwnud1) =    drrw(k,iwnud1) + o_rrw   (k,iw) * volt(k,iw)
+        drrv   (k,iwnud1) =    drrv(k,iwnud1) + o_rrw   (k,iw) * volt(k,iw)
         duzonal(k,iwnud1) = duzonal(k,iwnud1) + o_uzonal(k,iw) * volt(k,iw)
         dumerid(k,iwnud1) = dumerid(k,iwnud1) + o_umerid(k,iw) * volt(k,iw)
      enddo
@@ -126,10 +120,10 @@ subroutine nudge_prep_spec(iaction, o_rho, o_theta, o_rrw, o_uzonal, o_umerid)
   if (iparallel == 1) then
 
      call mpi_send_wnud(dvara1=drho, dvara2=dtheta,  &
-                        dvara3=drrw, dvara4=duzonal, dvara5=dumerid)
+                        dvara3=drrv, dvara4=duzonal, dvara5=dumerid)
 
      call mpi_recv_wnud(dvara1=drho, dvara2=dtheta,  &
-                        dvara3=drrw, dvara4=duzonal, dvara5=dumerid)
+                        dvara3=drrv, dvara4=duzonal, dvara5=dumerid)
   endif
 
   ! Normalize nudging point sums to get average values
@@ -140,7 +134,7 @@ subroutine nudge_prep_spec(iaction, o_rho, o_theta, o_rrw, o_uzonal, o_umerid)
      do k = 2, mza
         rho_obsf   (k,iwnud) =    drho(k,iwnud) * volwnudi(k,iwnud)
         theta_obsf (k,iwnud) =  dtheta(k,iwnud) * volwnudi(k,iwnud)
-        rrw_obsf   (k,iwnud) =    drrw(k,iwnud) * volwnudi(k,iwnud)
+        rrv_obsf   (k,iwnud) =    drrv(k,iwnud) * volwnudi(k,iwnud)
         uzonal_obsf(k,iwnud) = duzonal(k,iwnud) * volwnudi(k,iwnud)
         umerid_obsf(k,iwnud) = dumerid(k,iwnud) * volwnudi(k,iwnud)
      enddo
@@ -149,7 +143,7 @@ subroutine nudge_prep_spec(iaction, o_rho, o_theta, o_rrw, o_uzonal, o_umerid)
 
   deallocate(drho)
   deallocate(dtheta)
-  deallocate(drrw)
+  deallocate(drrv)
   deallocate(duzonal)
   deallocate(dumerid)
 
@@ -162,7 +156,7 @@ subroutine spec_nudge()
   use mem_nudge, only:   tnudcent,      mwnud,    volwnudi,   rhot_nud,  &
                           rho_sim,    rho_obs,    rho_obsp,    rho_obsf, &
                         theta_sim,  theta_obs,  theta_obsp,  theta_obsf, &
-                          rrw_sim,    rrw_obs,    rrw_obsp,    rrw_obsf, &
+                          rrv_sim,    rrv_obs,    rrv_obsp,    rrv_obsf, &
                        uzonal_sim, uzonal_obs, uzonal_obsp, uzonal_obsf, &
                        umerid_sim, umerid_obs, umerid_obsp, umerid_obsf
 
@@ -190,7 +184,7 @@ subroutine spec_nudge()
 
   real(r8), allocatable :: drho   (:,:)
   real(r8), allocatable :: dtheta (:,:)
-  real(r8), allocatable :: drrw   (:,:)
+  real(r8), allocatable :: drrv   (:,:)
   real(r8), allocatable :: duzonal(:,:)
   real(r8), allocatable :: dumerid(:,:)
 
@@ -217,9 +211,9 @@ subroutine spec_nudge()
 !! Sample code for modifying nudging weight
 !
 !! Transform current IW point to polar stereographic coordinates using specified
-!! pole point location (pole point lat/lon = 4th & 5th arguments of e_ps)
+!! pole point location (pole point lat/lon = 4th & 5th arguments of ec_ps)
 !
-!       call e_ps(xew(iw),yew(iw),zew(iw),37.,-117.,xw,yw)
+!       call ec_ps(xew(iw),yew(iw),zew(iw),37.,-117.,xw,yw)
 !
 !       dist = sqrt(xw ** 2 + yw ** 2)
 !
@@ -250,7 +244,7 @@ subroutine spec_nudge()
 
   allocate(drho   (mza,mwnud)) ; drho    = 0._r8
   allocate(dtheta (mza,mwnud)) ; dtheta  = 0._r8
-  allocate(drrw   (mza,mwnud)) ; drrw    = 0._r8
+  allocate(drrv   (mza,mwnud)) ; drrv    = 0._r8
   allocate(duzonal(mza,mwnud)) ; duzonal = 0._r8
   allocate(dumerid(mza,mwnud)) ; dumerid = 0._r8
 
@@ -269,7 +263,7 @@ subroutine spec_nudge()
 
         drho   (k,iwnud1) =    drho(k,iwnud1) + rho  (k,iw) * volt(k,iw)
         dtheta (k,iwnud1) =  dtheta(k,iwnud1) + theta(k,iw) * volt(k,iw)
-        drrw   (k,iwnud1) =    drrw(k,iwnud1) + rr_w (k,iw) * volt(k,iw)
+        drrv   (k,iwnud1) =    drrv(k,iwnud1) + rr_w (k,iw) * volt(k,iw)
         duzonal(k,iwnud1) = duzonal(k,iwnud1) + uzonal      * volt(k,iw)
         dumerid(k,iwnud1) = dumerid(k,iwnud1) + umerid      * volt(k,iw)
      enddo
@@ -281,10 +275,10 @@ subroutine spec_nudge()
   if (iparallel == 1) then
 
      call mpi_send_wnud(dvara1=drho, dvara2=dtheta,  &
-                        dvara3=drrw, dvara4=duzonal, dvara5=dumerid)
+                        dvara3=drrv, dvara4=duzonal, dvara5=dumerid)
 
      call mpi_recv_wnud(dvara1=drho, dvara2=dtheta,  &
-                        dvara3=drrw, dvara4=duzonal, dvara5=dumerid)
+                        dvara3=drrv, dvara4=duzonal, dvara5=dumerid)
   endif
 
   ! Horizontal loop over nudging polygons
@@ -301,13 +295,13 @@ subroutine spec_nudge()
 
            rho_sim(k,iwnud) =    drho(k,iwnud) * volwnudi(k,iwnud)
          theta_sim(k,iwnud) =  dtheta(k,iwnud) * volwnudi(k,iwnud)
-           rrw_sim(k,iwnud) =    drrw(k,iwnud) * volwnudi(k,iwnud)
+           rrv_sim(k,iwnud) =    drrv(k,iwnud) * volwnudi(k,iwnud)
         uzonal_sim(k,iwnud) = duzonal(k,iwnud) * volwnudi(k,iwnud)
         umerid_sim(k,iwnud) = dumerid(k,iwnud) * volwnudi(k,iwnud)
 
            rho_obs(k,iwnud) = tp *    rho_obsp(k,iwnud) + tf *    rho_obsf(k,iwnud)
          theta_obs(k,iwnud) = tp *  theta_obsp(k,iwnud) + tf *  theta_obsf(k,iwnud)
-           rrw_obs(k,iwnud) = tp *    rrw_obsp(k,iwnud) + tf *    rrw_obsf(k,iwnud)
+           rrv_obs(k,iwnud) = tp *    rrv_obsp(k,iwnud) + tf *    rrv_obsf(k,iwnud)
         uzonal_obs(k,iwnud) = tp * uzonal_obsp(k,iwnud) + tf * uzonal_obsf(k,iwnud)
         umerid_obs(k,iwnud) = tp * umerid_obsp(k,iwnud) + tf * umerid_obsf(k,iwnud)
 
@@ -352,9 +346,9 @@ subroutine spec_nudge()
                                  - rho_sim(k,iwnud3) * theta_sim(k,iwnud3) ) )
 
         rr_wt(k,iw)    = tnudi * rho4 * &
-                       ( fnud1 * (rrw_obs(k,iwnud1) - rrw_sim(k,iwnud1)) &
-                       + fnud2 * (rrw_obs(k,iwnud2) - rrw_sim(k,iwnud2)) &
-                       + fnud3 * (rrw_obs(k,iwnud3) - rrw_sim(k,iwnud3)) )
+                       ( fnud1 * (rrv_obs(k,iwnud1) - rrv_sim(k,iwnud1)) &
+                       + fnud2 * (rrv_obs(k,iwnud2) - rrv_sim(k,iwnud2)) &
+                       + fnud3 * (rrv_obs(k,iwnud3) - rrv_sim(k,iwnud3)) )
 
         umzonalt       = tnudi * rho4 * &
                        ( fnud1 * (uzonal_obs(k,iwnud1) - uzonal_sim(k,iwnud1)) &
@@ -383,7 +377,7 @@ subroutine spec_nudge()
 
   deallocate(drho)
   deallocate(dtheta)
-  deallocate(drrw)
+  deallocate(drrv)
   deallocate(duzonal)
   deallocate(dumerid)
 

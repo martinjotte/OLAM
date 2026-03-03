@@ -2,25 +2,23 @@ Module leaf4_soil
 
   implicit none
 
-  real, parameter :: psi_slope_high = 5.e3 ! Inverse specific storage (asymptotic)
-                                             ! at supersaturation
+  real, parameter :: psi_slope_high = 5.e3 ! Inverse specific storage at supersaturation
 
-  real, parameter :: psi_slope_low  = 5.e5 ! Inverse specific storage (asymptotic)
-                                           ! at residual soil moisture
+  real, parameter :: psi_slope_low  = 5.e5 ! Inverse specific storage at residual soil moisture
 
 Contains
 
-  subroutine soil(iland, iwsfc, ktrans, transp, wfree1, qwfree1,         &
-                  leaf_class, glatw, glonw, head1, head0, nlev_sfcwater, &
-                  gpp, sfcwater_mass, sfcwater_energy, sfcwater_depth,   &
-                  energy_per_m2, soil_water, soil_energy,                &
-                  wresid_vg, wsat_vg, ksat_vg, lambda_vg, en_vg,         &
-                  soil_watfrac, head_slope, head,                        &
-                  soil_tempk, soil_fracliq, dheight, energyin,           &
-                  thermcond_soil                                         )
+  subroutine soil(iland, iwsfc, ktrans, transp, wfree1, qwfree1,  &
+                  leaf_class, glatw, glonw, head1, head0, gpp,    &
+                  skncomp, sfcwater_mass, sfcwater_epm2,          &
+                  sfcwater_depth, soil_water, soil_energy,        &
+                  wresid_vg, wsat_vg, ksat_vg, lambda_vg, en_vg,  &
+                  soil_watfrac, head_slope, head,                 &
+                  soil_tempk, soil_fracliq, dheight, energyin     )
 
-  use leaf_coms,      only: nzs, dt_leaf, z_root, wcap_min
-  use mem_land,       only: nzg, slz, dslz, dslzi, slzt, dslzo2, kperc
+  use leaf_coms,      only: dt_leaf, z_root, wcap_min
+  use mem_land,       only: nzg, slz, slzt, dslz, dslzo2, dslzi, kperc, itab_land
+  use mem_sfcg,       only: itab_wsfc
   use consts_coms,    only: cliq1000, cice1000, alli1000, alvi
   use tridiag,        only: tridiffo
   use leaf4_plot,     only: leaf_plot
@@ -28,23 +26,22 @@ Contains
 
   implicit none
 
-  integer, intent(in)    :: iland           ! current land cell number
-  integer, intent(in)    :: iwsfc           ! index of current SFC grid cell
-  integer, intent(in)    :: ktrans          ! k index of soil layer supplying transpiration
-  real,    intent(in)    :: transp          ! transpiration loss [kg/m^2]
+  integer, intent(in   ) :: iland           ! current land cell number
+  integer, intent(in   ) :: iwsfc           ! index of current SFC grid cell
+  integer, intent(in   ) :: ktrans          ! k index of soil layer supplying transpiration
+  real,    intent(in   ) :: transp          ! transpiration loss [kg/m^2]
   real,    intent(inout) :: wfree1          ! Soil top boundary free water mass [kg/m^2]
   real,    intent(inout) :: qwfree1         ! Soil top boundary free water energy [J/m^2]
-  integer, intent(in)    :: leaf_class      ! leaf class (vegetation class)
-  real,    intent(in)    :: glatw           ! Latitude of land cell 'center' [deg]
-  real,    intent(in)    :: glonw           ! Longitude of land cell 'center' [deg]
-  real,    intent(inout) :: head1           ! Upper boundary hydraulic head [m]
-  real,    intent(inout) :: head0           ! Lower boundary hydraulic head [m]
-  integer, intent(inout) :: nlev_sfcwater   ! # active levels of surface water
-  real,    intent(in)    :: gpp             ! Carbon gross primary production [?]
+  integer, intent(in   ) :: leaf_class      ! leaf class (vegetation class)
+  real,    intent(in   ) :: glatw           ! Latitude of land cell 'center' [deg]
+  real,    intent(in   ) :: glonw           ! Longitude of land cell 'center' [deg]
+  real,    intent(in   ) :: head1           ! Upper boundary hydraulic head [m]
+  real,    intent(in   ) :: head0           ! Lower boundary hydraulic head [m]
+  real,    intent(in   ) :: gpp             ! Carbon gross primary production [?]
+  integer, intent(in   ) :: skncomp         ! surface skinlayer composition type []
   real,    intent(inout) :: sfcwater_mass   ! surface water mass(1) [kg/m^2]
-  real,    intent(inout) :: sfcwater_energy ! surface water energy(1) [J/kg]
+  real,    intent(inout) :: sfcwater_epm2   ! surface water energy(1) [J/m^2]
   real,    intent(inout) :: sfcwater_depth  ! surface water depth(1) [m]
-  real,    intent(inout) :: energy_per_m2   ! sfcwater energy(1) [J/m^2]
 
   real, intent(inout) :: soil_water    (nzg) ! soil water content [vol_water/vol_tot]
   real, intent(inout) :: soil_energy   (nzg) ! soil energy [J/m^3]
@@ -60,17 +57,17 @@ Contains
   real, intent(in   ) :: soil_fracliq  (nzg) ! fraction of soil water that is liquid
   real, intent(in   ) :: dheight       (nzg) ! change in water height from lateral fluxes [m]
   real, intent(in   ) :: energyin      (nzg) ! change in energy from lateral fluxes [J/(m^2)]
-  real, intent(in   ) :: thermcond_soil(nzg) ! soil thermal conductivity [W/(K m)]
 
   ! Local variables
 
-  real :: hxferg(nzg+1) ! soil internal heat xfer (J/m^2]
-  real :: wxfer (nzg+1) ! soil water xfer [m]
-  real :: qwxfer(nzg+1) ! soil energy xfer from water xfer [J/m^2]
+  real :: hxferg(nzg+1) ! soil-to-soil sensible heat xfer (J/m^2]
+  real :: wxfer (nzg+1) ! soil-to-soil water xfer [m]
+  real :: qwxfer(nzg+1) ! soil-to-soil energy xfer from water xfer [J/m^2]
 
   real :: hydresist_bot(nzg) ! hydraulic resistance of bottom half of layer [s]
   real :: hydresist_top(nzg) ! hydraulic resistance of top half of layer [s]
   real :: soil_rfactor (nzg) ! soil thermal resistance across W level
+  real :: sfcwater_energy    ! surface water energy(1) [J/kg]
 
   ! Defined at bottom face of soil layers & of sfcwater layer 1
 
@@ -97,14 +94,8 @@ Contains
 
   ! Loop over soil T levels
 
-  do k = 1,nzg
-
-     ! Soil heat resistance times HALF layer depth (soil_rfactor).
-
-     soil_rfactor(k) = dslzo2(k) / thermcond_soil(k)
-
+  do k = 1, nzg
      qow(k) = cliq1000 * (soil_tempk(k) - 273.15) + alli1000
-
   enddo
 
   qow(0) = alli1000
@@ -130,10 +121,8 @@ Contains
 
   ! Loop over soil W levels - fractional water content and heat transfer
 
-  do k = 2,nzg
+  do k = 2, nzg
      soil_watfracw(k) = .5 * (soil_watfrac(k-1) + soil_watfrac(k))
-     hxferg(k) = dt_leaf * (soil_tempk(k-1) - soil_tempk(k)) &
-               / (soil_rfactor(k-1) + soil_rfactor(k))
   enddo
 
   ! At top, soil_watfracw assumes mean between nzg cell value and saturation
@@ -142,9 +131,6 @@ Contains
   soil_watfracw(nzg+1) = .5 * (1.0 + soil_watfrac(nzg))
 
   ! Soil bottom, top, and internal sensible heat xfers [J/m2]
-
-  hxferg(1) = 0.
-  hxferg(nzg+1) = 0.
 
   ! [12/07/04] Revisit the computation of water xfer between soil layers in
   ! relation to the extreme nonlinearity of hydraulic conductivity with respect
@@ -177,10 +163,6 @@ Contains
   ! Loop over soil T levels
 
   do k = 1, nzg
-
-     ! Update soil_energy values [J/m3] at all levels from internal heat conduction
-
-     soil_energy(k) = soil_energy(k) + dslzi(k) * (hxferg(k) - hxferg(k+1))
 
      ! Compute hydraulic conductivity for relative saturations at bottom and
      ! top of cell using central hydraulic properties of cell
@@ -216,14 +198,11 @@ Contains
   ! through the lower boundary.  Set the boundary transfer coefficient to zero.
 
   if (slz(1) < -50.) then
-
      xfercoef(1) = 0.
-
   else
 
      ! Otherwise, compute bottom transfer coefficient assuming that hydraulic
      ! head (head0) applies at bottom of soil level k = 1.
-
 
      xfercoef(1) = dt_leaf         &
                  * soil_fracliq(1) &
@@ -343,7 +322,6 @@ Contains
 
   if (iland == iland_print) &
      call leaf_plot(iland,                         &
-                    nlev_sfcwater,                 &
                     linit          = 1,            &
                     lframe         = 1,            &
                     ktrans         = ktrans,       &
@@ -373,14 +351,14 @@ Contains
 
   ! Add infiltration, percolation, and bottom water fluxes to accumulation arrays
 
-  wxferi_accum(iland) = wxferi_accum(iland) + wxfer(nzg)
-  wxferp_accum(iland) = wxferp_accum(iland) + wxfer(kperc)
-  wxfer1_accum(iland) = wxfer1_accum(iland) + wxfer(1)
+  if (allocated(wxferi_accum)) wxferi_accum(iland) = wxferi_accum(iland) + wxfer(nzg)
+  if (allocated(wxferp_accum)) wxferp_accum(iland) = wxferp_accum(iland) + wxfer(kperc)
+  if (allocated(wxfer1_accum)) wxfer1_accum(iland) = wxfer1_accum(iland) + wxfer(1)
 
   ! Apply fluxes at nzg + 1 to sfcwater at k = 1
 
   sfcwater_mass  = sfcwater_mass  + wxfer (nzg+1) * 1000.
-  energy_per_m2  = energy_per_m2  + qwxfer(nzg+1)
+  sfcwater_epm2  = sfcwater_epm2  + qwxfer(nzg+1)
   sfcwater_depth = sfcwater_depth + wxfer (nzg+1)
 
   ! Check for minimum sfcwater_mass
@@ -389,9 +367,7 @@ Contains
 
      ! Sfcwater mass is above minimum
 
-     nlev_sfcwater = max(1,nlev_sfcwater)
-
-     sfcwater_energy = energy_per_m2 / sfcwater_mass
+     sfcwater_energy = sfcwater_epm2 / sfcwater_mass
 
      ! Check sfcwater_energy.  If message ever gets printed, investigate reasons.
 
@@ -399,9 +375,9 @@ Contains
 
         write(*,*) ' '
         write(*,*) 'Sfcwater energy is outside allowable range.'
-        write(*,*) 'iwsfc,iland,lat,lon = ',iwsfc,iland,glatw,glonw
+        write(*,*) 'iwsfc,iland,lat,lon = ',itab_wsfc(iwsfc)%iwglobe,itab_land(iland)%iwglobe,glatw,glonw
         write(*,*) 'sfcwater energy & mass = ',sfcwater_energy,sfcwater_mass
-        write(*,*) 'sfcwater depth & energy_per_m2 = ',sfcwater_depth,energy_per_m2
+        write(*,*) 'sfcwater depth & sfcwater_epm2 = ',sfcwater_depth,sfcwater_epm2
         write(*,*) 'wxfer,qwxfer = ',wxfer(nzg+1),qwxfer(nzg+1)
         write(*,*) 'head,head1 = ',head(nzg),head1
         write(*,*) 'wfree1,qwfree1 = ',wfree1,qwfree1
@@ -414,14 +390,11 @@ Contains
      ! If insufficient sfcwater mass remains, transfer residual mass and energy to soil
 
      soil_water (nzg) = soil_water (nzg) + dslzi(nzg) * sfcwater_mass * .001
-     soil_energy(nzg) = soil_energy(nzg) + dslzi(nzg) * energy_per_m2
+     soil_energy(nzg) = soil_energy(nzg) + dslzi(nzg) * sfcwater_epm2
 
-     sfcwater_mass   = 0.
-     energy_per_m2   = 0.
-     sfcwater_energy = 0.
-     sfcwater_depth  = 0.
-
-     if (nzs == 1) nlev_sfcwater = 0
+     sfcwater_mass  = 0.
+     sfcwater_epm2  = 0.
+     sfcwater_depth = 0.
 
   endif
 

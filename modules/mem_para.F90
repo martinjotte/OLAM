@@ -1,6 +1,10 @@
 Module mem_para
 
-  implicit none
+#ifdef OLAM_MPI
+  use mpi_f08, only: MPI_Comm
+#endif
+
+  implicit none (external, type)
 
   integer :: mgroupsize
   integer :: myrank
@@ -8,6 +12,15 @@ Module mem_para
   integer :: nbytes_int
   integer :: nbytes_real
   integer :: nbytes_real8
+
+  ! Define a separate parallel communicator for OLAM, in case we are running
+  ! on a subset of the total available processes for a coupled run.
+
+#ifdef OLAM_MPI
+  Type(MPI_Comm) :: MPI_COMM_OLAM
+#else
+  integer        :: MPI_COMM_OLAM = 0
+#endif
 
   integer                      :: mva_primary
   integer, target, allocatable :: iva_globe_primary(:)
@@ -56,10 +69,15 @@ Contains
 subroutine olam_mpi_init()
 
 #ifdef OLAM_MPI
-  use mpi
+  use mpi_f08, only: MPI_COMM_WORLD, MPI_Comm_size, MPI_Comm_rank,   &
+                     MPI_Init, MPI_Init_thread, MPI_THREAD_MULTIPLE, &
+                     MPI_Pack_size, MPI_INTEGER, MPI_REAL, MPI_REAL8
+  import,      only: MPI_COMM_OLAM, olam_stop
 #endif
 
-  implicit none
+  import, only: mgroupsize, myrank, nbytes_int, nbytes_real, nbytes_real8
+
+  implicit none (external, type)
 
 #ifdef OLAM_MPI
 
@@ -78,15 +96,19 @@ subroutine olam_mpi_init()
   !$ endif
 
   if (iomp == 0) then
-     call MPI_Init(ierr)
+     call MPI_Init()
   endif
 
-  call MPI_Comm_size(MPI_COMM_WORLD,mgroupsize,ierr)
-  call MPI_Comm_rank(MPI_COMM_WORLD,myrank,ierr)
+  ! Default MPI communicator set to all processes for now. This may change for
+  ! simulations coupled to other models that use some of the available processes.
+  MPI_COMM_OLAM = MPI_COMM_WORLD
 
-  call MPI_Pack_size(1, MPI_INTEGER, MPI_COMM_WORLD, nbytes_int  , ierr)
-  call MPI_Pack_size(1, MPI_REAL   , MPI_COMM_WORLD, nbytes_real , ierr)
-  call MPI_Pack_size(1, MPI_REAL8  , MPI_COMM_WORLD, nbytes_real8, ierr)
+  call MPI_Comm_size(MPI_COMM_OLAM,mgroupsize,ierr)
+  call MPI_Comm_rank(MPI_COMM_OLAM,myrank,ierr)
+
+  call MPI_Pack_size(1, MPI_INTEGER, MPI_COMM_OLAM, nbytes_int  , ierr)
+  call MPI_Pack_size(1, MPI_REAL   , MPI_COMM_OLAM, nbytes_real , ierr)
+  call MPI_Pack_size(1, MPI_REAL8  , MPI_COMM_OLAM, nbytes_real8, ierr)
 
 #else
 
@@ -106,16 +128,17 @@ end subroutine olam_mpi_init
 subroutine olam_mpi_finalize()
 
 #ifdef OLAM_MPI
-  use mpi
+  use mpi_f08, only: MPI_Finalize
 #endif
 
-  implicit none
+  import, none
+
+  implicit none (external, type)
 
   ! Now terminate MPI
 
 #ifdef OLAM_MPI
-  integer :: ierr
-  call MPI_Finalize(ierr)
+  call MPI_Finalize()
 #endif
 
 end subroutine olam_mpi_finalize
@@ -125,21 +148,20 @@ end subroutine olam_mpi_finalize
 subroutine olam_stop(message)
 
 #ifdef OLAM_MPI
-  use mpi
+  use mpi_f08, only: MPI_Abort
+  import,      only: MPI_COMM_OLAM, myrank
+#else
+  import,      none
 #endif
 
-  implicit none
-
-#ifdef OLAM_MPI
-  integer :: ierr
-#endif
+  implicit none (external, type)
 
   character(*), intent(in) :: message
 
 #ifdef OLAM_MPI
   write(*,'(A,I0,A)') "Node ", myrank, ":"
   write(*,'(A)') "STOP "//message
-  call mpi_abort(MPI_COMM_WORLD,1,ierr)
+  call MPI_Abort(MPI_COMM_OLAM, 1)
   stop
 #else
   write(*,*) "STOPPING: "//message
@@ -153,14 +175,16 @@ end subroutine olam_stop
 subroutine olam_mpi_barrier()
 
 #ifdef OLAM_MPI
-  use mpi
+  use mpi_f08, only: MPI_Barrier
+  import,      only: MPI_COMM_OLAM
+#else
+  import,     none
 #endif
 
-  implicit none
+  implicit none (external, type)
 
 #ifdef OLAM_MPI
-  integer :: ierr
-  call mpi_barrier(MPI_COMM_WORLD, ierr)
+  call MPI_Barrier(MPI_COMM_OLAM)
 #endif
 
 end subroutine olam_mpi_barrier
@@ -178,8 +202,19 @@ subroutine compute_pario_points()
   use mem_sea,    only: itab_sea, msea, omsea
   use mem_nudge,  only: mwnud, itab_wnud, nudflag, nudnxp
   use misc_coms,  only: iparallel, mdomain
+  import,         only: mva_primary, iva_globe_primary, iva_local_primary, &
+                        mwa_primary, iwa_globe_primary, iwa_local_primary, &
+                        mma_primary, ima_globe_primary, ima_local_primary, &
+                        mwsfc_primary, iwsfc_globe_primary, iwsfc_local_primary, &
+                        mvsfc_primary, ivsfc_globe_primary, ivsfc_local_primary, &
+                        mmsfc_primary, imsfc_globe_primary, imsfc_local_primary, &
+                        mland_primary, iland_globe_primary, iland_local_primary, &
+                        mlake_primary, ilake_globe_primary, ilake_local_primary, &
+                        msea_primary, isea_globe_primary, isea_local_primary, &
+                        mwnud_primary, iwnud_globe_primary, iwnud_local_primary, &
+                        myrank
 
-  implicit none
+  implicit none (external, type)
 
   integer :: i, ia, ib, ic, id, istart, iland, ilake, isea
 

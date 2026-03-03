@@ -417,7 +417,7 @@ subroutine apply_lake_fluxes( ilake, watflux,    energyflux, &
   integer :: iwsfc, j, ivn, iwn, k
   real    :: dheight
   real    :: energyin
-  real    :: energy_per_m2
+  real    :: lake_epm2 ! lake water energy per m^2 [kg/m^2]
   real    :: dtoa
   real    :: dirv
   real    :: fconv
@@ -472,11 +472,11 @@ subroutine apply_lake_fluxes( ilake, watflux,    energyflux, &
 
   ! Apply height and energy changes to cell
 
-  energy_per_m2 = lake_energy * lake_depth * 1000.
+  lake_epm2 = lake_energy * lake_depth * 1000.
 
   lake_depth  = lake_depth + dheight
 
-  lake_energy = (energy_per_m2 + energyin) &
+  lake_energy = (lake_epm2 + energyin) &
                           / (max(wcap_min, lake_depth) * 1000.) ! water density = 1000 kg/m^3
 
 end subroutine apply_lake_fluxes

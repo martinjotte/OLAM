@@ -1,5 +1,17 @@
 module check_nan
 
+  interface mass_sum_from_rho
+     module procedure         &
+          mass_sum_from_rho4, &
+          mass_sum_from_rho8
+  end interface mass_sum_from_rho
+
+  interface mass_sum_from_mixrat
+     module procedure             &
+          mass_sum_from_mixrat44, &
+          mass_sum_from_mixrat84
+  end interface mass_sum_from_mixrat
+
 Contains
 
 !===============================================================================
@@ -149,18 +161,62 @@ end subroutine check_pos
 
 !===============================================================================
 
+subroutine tracer_maxmin()
+
+  use mem_ijtabs, only: jtab_w, jtw_prog
+  use mem_grid,   only: lpw, mza
+  use var_tables, only: num_scalar, scalar_tab
+  use mem_para,   only: myrank
+  use misc_coms,  only: iparallel
+
+#ifdef OLAM_MPI
+  use mpi_f08
+#endif
+
+  implicit none
+
+  real    :: smax(2)
+  integer :: n, j, iw
+
+  do n = 1, num_scalar
+
+     smax(:) = -huge(1.)
+
+     !$omp parallel do private(iw) reduction(max:smax)
+     do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
+        smax(1) = max(smax(1),  maxval( scalar_tab(n)%var_p(lpw(iw):mza,iw) ) )
+        smax(2) = max(smax(2), -minval( scalar_tab(n)%var_p(lpw(iw):mza,iw) ) )
+     enddo
+     !$omp end parallel do
+
+#ifdef OLAM_MPI
+     if (iparallel == 1) then
+        if (myrank==0) call MPI_Reduce(MPI_IN_PLACE, smax, 2, MPI_REAL, MPI_MAX, 0, MPI_COMM_WORLD)
+        if (myrank/=0) call MPI_Reduce(smax,         0,    2, MPI_REAL, MPI_MAX, 0, MPI_COMM_WORLD)
+     endif
+#endif
+
+     if (myrank == 0) write(*,*) "Max, Min scp: ", smax(1), -smax(2), n, trim(scalar_tab(n)%name)
+
+  enddo
+
+end subroutine tracer_maxmin
+
+!===============================================================================
+
 subroutine compute_mass_sums()
 
   use mem_ijtabs,  only: jtab_w, jtw_prog
   use mem_grid,    only: lpw, mza, volt
-  use mem_para,    only: myrank, mgroupsize
   use misc_coms,   only: naddsc, iparallel
   use mem_addsc,   only: addsc
   use consts_coms, only: r8
   use mem_basic,   only: rho, rr_w
+  use mem_para,    only: myrank, mgroupsize
+  use mem_co2,     only: i_co2, rr_co2
 
 #ifdef OLAM_MPI
-  use mpi
+  use mpi_f08
 #endif
 
   implicit none
@@ -168,53 +224,72 @@ subroutine compute_mass_sums()
   real(r8) :: tot_mass_sum
   real(r8) :: dry_mass_sum
   real(r8) :: wat_mass_sum
-  real(r8) :: sclp_mass_sum
+  real(r8) :: co2_mass_sum
+  real(r8) :: scp_mass_sum
 
-  real(r8) :: tmasses(mgroupsize)
-  integer  :: j, iw, k, ier
+  integer  :: j, iw, k
+
+#ifdef OLAM_MPI
+  real(r8) :: tmasses(4)
+  integer  :: nv
+#endif
 
   logical,  save :: firstime = .true.
   real(r8), save :: tot_mass_sum0
   real(r8), save :: dry_mass_sum0
   real(r8), save :: wat_mass_sum0
-  real(r8), save :: sclp_mass_sum0
+  real(r8), save :: co2_mass_sum0
+  real(r8), save :: scp_mass_sum0
 
-  tot_mass_sum  = 0.0_r8
-  wat_mass_sum  = 0.0_r8
-  sclp_mass_sum = 0.0_r8
+  dry_mass_sum = 0.0_r8
+  wat_mass_sum = 0.0_r8
+  co2_mass_sum = 0.0_r8
+  scp_mass_sum = 0.0_r8
 
+  !$omp parallel do private(iw,k) reduction(+:dry_mass_sum,wat_mass_sum,co2_mass_sum,scp_mass_sum)
   do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
      do k = lpw(iw),mza
 
-        tot_mass_sum = tot_mass_sum + rho(k,iw) * volt(k,iw)
+        dry_mass_sum = dry_mass_sum + rho(k,iw) * volt(k,iw)
         wat_mass_sum = wat_mass_sum + rho(k,iw) * volt(k,iw) * rr_w(k,iw)
 
+        if (i_co2 > 0) then
+           co2_mass_sum = co2_mass_sum + rho(k,iw) * volt(k,iw) * rr_co2(k,iw)
+        endif
+
         if (naddsc > 0) then
-           sclp_mass_sum = sclp_mass_sum + rho(k,iw) * volt(k,iw) * addsc(1)%sclp(k,iw)
+           scp_mass_sum = scp_mass_sum + rho(k,iw) * volt(k,iw) * addsc(1)%sclp(k,iw)
         endif
 
      enddo
   enddo
+  !$omp end parallel do
 
 #ifdef OLAM_MPI
   if (iparallel == 1) then
 
-     call MPI_Gather( tot_mass_sum, 1, MPI_DOUBLE, &
-                      tmasses,      1, MPI_DOUBLE, 0, MPI_COMM_WORLD, ier )
+     tmasses(1) = dry_mass_sum
+     tmasses(2) = wat_mass_sum
+     nv = 2
 
-     if (myrank == 0) tot_mass_sum = sum(tmasses)
-
-     call MPI_Gather( wat_mass_sum, 1, MPI_DOUBLE, &
-                      tmasses,      1, MPI_DOUBLE, 0, MPI_COMM_WORLD, ier )
-
-     if (myrank == 0) wat_mass_sum = sum(tmasses)
+     if (i_co2 > 0) then
+        nv = nv + 1
+        tmasses(nv) = co2_mass_sum
+     endif
 
      if (naddsc > 0) then
+        nv = nv + 1
+        tmasses(nv) = scp_mass_sum
+     endif
 
-        call MPI_Gather( sclp_mass_sum, 1, MPI_DOUBLE, &
-                         tmasses,       1, MPI_DOUBLE, 0, MPI_COMM_WORLD, ier )
+     if (myrank==0) call MPI_Reduce( MPI_IN_PLACE, tmasses, nv, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD )
+     if (myrank/=0) call MPI_Reduce( tmasses,      0,       nv, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD )
 
-        if (myrank == 0) sclp_mass_sum = sum(tmasses)
+     if (myrank == 0) then
+        dry_mass_sum = tmasses(1)
+        wat_mass_sum = tmasses(2)
+        if (i_co2  > 0) co2_mass_sum = tmasses(3)
+        if (naddsc > 0) scp_mass_sum = tmasses(nv)
      endif
 
   endif
@@ -222,13 +297,16 @@ subroutine compute_mass_sums()
 
   if (myrank == 0) then
 
-     dry_mass_sum = tot_mass_sum - wat_mass_sum
+     tot_mass_sum = dry_mass_sum + wat_mass_sum
 
      if (firstime) then
+        firstime = .false.
+
         dry_mass_sum0 = dry_mass_sum
         tot_mass_sum0 = tot_mass_sum
         wat_mass_sum0 = wat_mass_sum
-        if (naddsc > 0) sclp_mass_sum0 = sclp_mass_sum
+        if (i_co2  > 0) co2_mass_sum0 = co2_mass_sum
+        if (naddsc > 0) scp_mass_sum0 = scp_mass_sum
      endif
 
      write(*,'(a,3(g20.13,1x))') ' mass1: tot,wet,dry ', tot_mass_sum, wat_mass_sum, dry_mass_sum
@@ -237,16 +315,240 @@ subroutine compute_mass_sums()
           (wat_mass_sum - wat_mass_sum0) / wat_mass_sum0 * 100._r8, &
           (dry_mass_sum - dry_mass_sum0) / dry_mass_sum0 * 100._r8
 
-     if (naddsc > 0) then
-        write(*,'(a,3(g20.13,1x))') ' sclp1 mass: ', sclp_mass_sum
+     if (i_co2 > 0) then
+        write(*,'(a,3(g20.13,1x))') ' co21 mass: ', co2_mass_sum
         write(*,'(a,3(g20.13,1x))') ' % change:   ', &
-             (sclp_mass_sum - sclp_mass_sum0) / sclp_mass_sum0 * 100._r8
+             (co2_mass_sum - co2_mass_sum0) / co2_mass_sum0 * 100._r8
+     endif
+
+     if (naddsc > 0) then
+        write(*,'(a,3(g20.13,1x))') ' scp1 mass: ', scp_mass_sum
+        write(*,'(a,3(g20.13,1x))') ' % change:   ', &
+             (scp_mass_sum - scp_mass_sum0) / scp_mass_sum0 * 100._r8
      endif
 
   endif
 
-  firstime = .false.
-
 end subroutine compute_mass_sums
+
+!===============================================================================
+
+subroutine mass_sum_from_rho4(mass_sum, rho4, allnodes, mask)
+
+  use mem_ijtabs,  only: jtab_w, jtw_prog
+  use mem_grid,    only: lpw, mza, mwa, volt
+  use consts_coms, only: r8
+
+#ifdef OLAM_MPI
+  use misc_coms,   only: iparallel
+  use mem_para,    only: myrank
+  use mpi_f08
+#endif
+
+  implicit none
+
+  real(r8),          intent(out) :: mass_sum
+  real,              intent(in)  :: rho4(mza,mwa)
+  logical, optional, intent(in)  :: allnodes
+  logical, optional, intent(in)  :: mask(mwa)
+
+  integer :: j, iw, k
+  logical :: iall
+
+  iall = .false.
+  if (present(allnodes)) iall = allnodes
+
+  mass_sum = 0.0_r8
+
+  !$omp parallel do private(iw,k) reduction(+:mass_sum)
+  do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
+
+     ! Option to maskout certain columns
+     if (present(mask)) then
+        if (mask(iw)) cycle
+     endif
+
+     do k = lpw(iw),mza
+        mass_sum = mass_sum + rho4(k,iw) * volt(k,iw)
+     enddo
+
+  enddo
+  !$omp end parallel do
+
+#ifdef OLAM_MPI
+  if (iparallel == 1) then
+     if (iall) then
+        call MPI_Allreduce( MPI_IN_PLACE, mass_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD )
+     else
+        if (myrank==0) call MPI_Reduce( MPI_IN_PLACE, mass_sum, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD )
+        if (myrank/=0) call MPI_Reduce( mass_sum,     0,        1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD )
+     endif
+  endif
+#endif
+
+end subroutine mass_sum_from_rho4
+
+!===============================================================================
+
+subroutine mass_sum_from_rho8(mass_sum, rho8, allnodes, mask)
+
+  use mem_ijtabs,  only: jtab_w, jtw_prog
+  use mem_grid,    only: lpw, mza, mwa, volt
+  use consts_coms, only: r8
+
+#ifdef OLAM_MPI
+  use misc_coms,   only: iparallel
+  use mem_para,    only: myrank
+  use mpi_f08
+#endif
+
+  implicit none
+
+  real(r8),          intent(out) :: mass_sum
+  real(r8),          intent(in)  :: rho8(mza,mwa)
+  logical, optional, intent(in)  :: allnodes
+  logical, optional, intent(in)  :: mask(mwa)
+
+  integer :: j, iw, k
+  logical :: iall
+
+  iall = .false.
+  if (present(allnodes)) iall = allnodes
+
+  mass_sum = 0.0_r8
+
+  !$omp parallel do private(iw,k) reduction(+:mass_sum)
+  do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
+
+     ! Option to maskout certain columns
+     if (present(mask)) then
+        if (mask(iw)) cycle
+     endif
+
+     do k = lpw(iw),mza
+        mass_sum = mass_sum + rho8(k,iw) * volt(k,iw)
+     enddo
+
+  enddo
+  !$omp end parallel do
+
+#ifdef OLAM_MPI
+  if (iparallel == 1) then
+     if (iall) then
+        call MPI_Allreduce( MPI_IN_PLACE, mass_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD )
+     else
+        if (myrank==0) call MPI_Reduce( MPI_IN_PLACE, mass_sum, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD )
+        if (myrank/=0) call MPI_Reduce( mass_sum,     0,        1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD )
+     endif
+  endif
+#endif
+
+end subroutine mass_sum_from_rho8
+
+!===============================================================================
+
+subroutine mass_sum_from_mixrat44(mass_sum, rho4, rr4, allnodes)
+
+  use mem_ijtabs,  only: jtab_w, jtw_prog
+  use mem_grid,    only: lpw, mza, mwa, volt
+  use consts_coms, only: r8
+
+#ifdef OLAM_MPI
+  use misc_coms,   only: iparallel
+  use mem_para,    only: myrank
+  use mpi_f08
+#endif
+
+  implicit none
+
+  real(r8),          intent(out) :: mass_sum
+  real,              intent(in)  :: rho4(mza,mwa)
+  real,              intent(in)  :: rr4 (mza,mwa)
+  logical, optional, intent(in)  :: allnodes
+
+  integer :: j, iw, k
+  logical :: iall
+
+  iall = .false.
+  if (present(allnodes)) iall = allnodes
+
+  mass_sum = 0.0_r8
+
+  !$omp parallel do private(iw,k) reduction(+:mass_sum)
+  do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
+
+     do k = lpw(iw),mza
+        mass_sum = mass_sum + rho4(k,iw) * rr4(k,iw) * volt(k,iw)
+     enddo
+
+  enddo
+  !$omp end parallel do
+
+#ifdef OLAM_MPI
+  if (iparallel == 1) then
+     if (iall) then
+        call MPI_Allreduce( MPI_IN_PLACE, mass_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD )
+     else
+        if (myrank==0) call MPI_Reduce( MPI_IN_PLACE, mass_sum, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD )
+        if (myrank/=0) call MPI_Reduce( mass_sum,     0,        1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD )
+     endif
+  endif
+#endif
+
+end subroutine mass_sum_from_mixrat44
+
+!===============================================================================
+
+subroutine mass_sum_from_mixrat84(mass_sum, rho8, rr4, allnodes)
+
+  use mem_ijtabs,  only: jtab_w, jtw_prog
+  use mem_grid,    only: lpw, mza, mwa, volt
+  use consts_coms, only: r8
+
+#ifdef OLAM_MPI
+  use misc_coms,   only: iparallel
+  use mem_para,    only: myrank
+  use mpi_f08
+#endif
+
+  implicit none
+
+  real(r8),          intent(out) :: mass_sum
+  real(r8),          intent(in)  :: rho8(mza,mwa)
+  real,              intent(in)  :: rr4 (mza,mwa)
+  logical, optional, intent(in)  :: allnodes
+
+  integer :: j, iw, k
+  logical :: iall
+
+  iall = .false.
+  if (present(allnodes)) iall = allnodes
+
+  mass_sum = 0.0_r8
+
+  !$omp parallel do private(iw,k) reduction(+:mass_sum)
+  do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
+
+     do k = lpw(iw),mza
+        mass_sum = mass_sum + rho8(k,iw) * rr4(k,iw) * volt(k,iw)
+     enddo
+
+  enddo
+  !$omp end parallel do
+
+#ifdef OLAM_MPI
+  if (iparallel == 1) then
+     if (iall) then
+        call MPI_Allreduce( MPI_IN_PLACE, mass_sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD )
+     else
+        if (myrank==0) call MPI_Reduce( MPI_IN_PLACE, mass_sum, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD )
+        if (myrank/=0) call MPI_Reduce( mass_sum,     0,        1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD )
+     endif
+  endif
+#endif
+
+end subroutine mass_sum_from_mixrat84
+
+!===============================================================================
 
 end module check_nan

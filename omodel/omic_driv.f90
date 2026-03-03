@@ -198,6 +198,7 @@ real :: exner0(mza0)
 
 real :: rhoa(mza0)
 real :: rhow(mza0)
+real :: rhow0(mza0)
 real :: totcond(mza0)
 
 real :: rhovsrefp(mza0,2)
@@ -451,6 +452,8 @@ accpx(:) = 0.
 
  call mic_copy(iw0,lpw0,voa,thil0,press0,rhoa,rhow,rhoi,exner0, &
                con_ccnx,con_gccnx,con_ifnx,rx,cx,qx,qr)
+
+ rhow0(lpw0:mza0) = rhow(lpw0:mza0)
 
 ! Loop over all vertical levels
 
@@ -1209,7 +1212,7 @@ endif
 ! Copy hydrometeor bulk mass and number concentration and surface precipitation
 ! from microphysics column arrays to main model arrays
 
- call mic_copyback(iw0,lpw0,k2, &
+ call mic_copyback(iw0,lpw0,k2,rhow0, &
     accpx,pcprx,thil0,theta0,tair,rhoi,rhow,rhov, &
     con_ccnx,con_gccnx,con_ifnx,rx,cx,qx)
 
@@ -1410,7 +1413,7 @@ end subroutine mic_copy
 
 !===============================================================================
 
-subroutine mic_copyback(iw0,lpw0,k2, &
+subroutine mic_copyback(iw0,lpw0,k2,rhow0, &
    accpx,pcprx,thil0,theta0,tair0,rhoi,rhow,rhov, &
    con_ccnx,con_gccnx,con_ifnx,rx,cx,qx)
 
@@ -1440,8 +1443,9 @@ real, intent(in) :: theta0(mza0)
 real, intent(in) :: tair0(mza0)
 real, intent(in) :: rhov(mza0)
 
-real, intent(in) :: rhoi(mza0)
-real, intent(in) :: rhow(mza0)
+real, intent(in) :: rhoi (mza0)
+real, intent(in) :: rhow (mza0)
+real, intent(in) :: rhow0(mza0)
 
 real, intent(in) :: con_ccnx (mza0,nccntyp)
 real, intent(in) :: con_gccnx(mza0)
@@ -1460,7 +1464,8 @@ do k = lpw0,mza0
    thil (k,iw0) = thil0 (k)
    theta(k,iw0) = theta0(k)
    tair (k,iw0) = tair0 (k)
-   rr_w (k,iw0) = rhow(k) * rhoi(k)
+!  rr_w (k,iw0) = rhow(k) * rhoi(k)
+   rr_w (k,iw0) = max(rr_w(k,iw0), 0.) + (rhow(k) - rhow0(k)) * rhoi(k)
    rr_v (k,iw0) = rhov(k) * rhoi(k)
 enddo
 

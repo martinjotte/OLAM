@@ -111,10 +111,14 @@ end subroutine vel_t3d_hex
 
 subroutine diag_uzonal_umerid()
 
-  use mem_grid, only: mwa
+  use mem_grid,  only: mwa
+  use misc_coms, only: mdomain
+
   implicit none
 
   integer :: iw
+
+  if (mdomain > 1) return
 
   !$omp parallel do private(iw)
   do iw = 2, mwa

@@ -71,7 +71,10 @@
                   ! Exception: NDZ = 1 is flag to use ZZ instead of (HDZ,DZ) pairs
 
    NL%HDZ  =   0.,  2000., 20000., 45000.  ! Heights at which DZ is specified
-   NL%DZ   =  100.,   200.,  2000.,   2500.  ! Vertical grid spacing at each HDZ
+   NL%DZ   =  100.,  200.,  2000.,  2500.  ! Vertical grid spacing at each HDZ
+
+   NL%ZSTRETCH_MAX = 1.15  ! LIMIT the change in DZ between 2 adjacent levels
+                           ! to be less then this ratio (When NDZ > 1)
 
    ! Vertical levels if NDZ = 1
    NL%ZZ       = 0.0,
@@ -216,6 +219,13 @@
    NL%SWMZONLAT(2,:) =   25.1,  27.6,  28.7,  29.3,  29.1,  29.7
    NL%SWMZONLON(2,:) =  -81.7, -83.5, -83.4, -84.1, -85.4, -86.5
 
+   NL%USE_TIDES = 0   ! Use tide information with SWM (0 = off, 1 = on)
+                      ! Requires tide database files
+
+   NL%NITER_SWM = 1   ! Number of subcycling timesteps used in SWM storm surge & 
+                      ! coastal flooding model per long model timestep; Can usually
+                      ! be 1 unless sfcgrid resolution is higher than ATM grid 
+
  !--------------------------------------------------------------------------
  ! For 1D version of Princeton Ocean Model:
  !--------------------------------------------------------------------------
@@ -272,6 +282,12 @@
                                        !        mixing ratio
                                        ! FALSE: Nudging preserves tracer mass
 
+   NL%NUD_PRESERVE_TOTAL_MASS = .TRUE. ! TRUE: Density nudging is implemented
+                                       ! as a mass flux that transports mass
+                                       ! from neighboring cells. This conseves
+                                       ! atmospheric mass and tracer mass
+                                       ! and mixing ratio.
+
  !--------------------------------------------------------------------------
  ! History file, Day-average file, Lite file, and Lat/Lon file I/O
  !--------------------------------------------------------------------------
@@ -288,18 +304,40 @@
    NL%ICOMPRESS = 0             ! 0 (no compres, fast) <-> 9 (max compres, slow)
    NL%LATLONPLOT = 0            ! 1 = plot generated lat/lon fields too
 
-   NL%IBLOCKSIZE = -1           ! File system block size for parallel I/O
-                                ! Setting this can speed up parallel writes
-                                ! Ignored if 0 or negative
-
    NL%FRQSTATE  =  3600.0      ! Time interval between history files
    NL%FRQLITE   =  3600.0      ! Time interval between lite files
    NL%FRQLATLON =  3600.0      ! Time interval between lat/lon output files
 
    NL%HFILIN   = 'hist/harvSR-H-2017-08-26-120000.h5'      ! History file intput
 
+   NL%DO_ACCUM = .FALSE.  ! Write time-averaged accumulation arrays to history file.
+                          ! Used to compute or plot averages of OLAM fields
+
+   NL%HIST_WRITE_UE_VE = .FALSE. ! Should E-W and N-S wind speeds be included in 
+                                 ! history file? They are not needed for restarts
+                                 ! and can be included in lite files.
+
    ! Variables output in lite files:
    NL%LITE_VARS = 'TAIR', 'WC', 'SH_V', 'PRESS', 'RHO', 'RSHORT', 'RLONG'
+
+   ! Experimental point (time/lat/lon/altitude) output. Reads a NC4 file in NOAA
+   ! OBSPack format (obs#, time, lat, lon, altitude) to get locations to output.
+   ! Files are assumed to have the form "HEADER" // DATE // "SUFFIX"
+
+   NL%POINT_FILES = 0       ! Number of point files to read/write (0 disables point I/O)
+
+   NL%PFILE_TYPES = 'Z',    ! Z = point obs at height (lat, lon, altitude)
+                            ! P = point obs at pressure level (lat, lon, pressure)
+                            ! S = near-surface obs at (lat, lon)
+                            ! C = column average (pressure weighted) at (lat, lon)
+
+   ! Current model date YYYYMMDD will be assumed between file header and suffix:
+   NL%POINT_OBSIN_HEADERS  = "obspack_co2_1_OCO2MIP_v5.0.1_2024-11-14.",
+   NL%POINT_OBSIN_SUFFIXES = ".nc",
+
+   ! Current model date YYYYMMDD will be assumed between file header and suffix:
+   NL%POINT_OBSOUT_HEADERS  = "simdata_",
+   NL%POINT_OBSOUT_SUFFIXES = ".nc",
 
  !--------------------------------------------------------------------------
  ! Interpolation to lat-lon grid for output to file and/or plotting:
@@ -350,23 +388,40 @@
 
    NL%NADDSC    = 0       ! Number of additional scalar species
 
-   NL%ISCAL_MONOT = 0     ! Monotonic advection for scalars (including moisture)
-                          ! and temperature. 0 = off, 1 = monotonic
+   NL%ITHIL_MONOT = 0     ! 0 - off, 1 = monotonic
+   NL%IWIND_MONOT = 0     ! 0 - off, 1 = monotonic
+   NL%ISCAL_MONOT = 0     ! 0 = off, 1 = monotonic, 2 = positive-definite
 
-   NL%HORIZ_ADV_ORDER = 2 ! Horizontal advection order (2 or 3) for scalars and
-                          ! temperature. 
+   NL%THIL_HORIZ_ADV_ORDER = 2 ! Horizontal adection order for Temp (2-3)
+   NL%WIND_HORIZ_ADV_ORDER = 2 ! Horizontal adection order for Wind (2-3)
+   NL%SCAL_HORIZ_ADV_ORDER = 2 ! Horizontal adection order for Scalars (2-3)
 
    NL%ACOUST_TIMESTEP_LEVEL = 3  ! Acoustic time-stepping scheme
    NL%SCALAR_TIMESTEP_LEVEL = 2  ! Long (scalar) time-stepping scheme
-                                 ! 1 = Bob's original 1-step scheme
                                  ! 2 = Runge-Kutta 2-step scheme (RK2)
                                  ! 3 = Runge-Kutta 3-step scheme (RK3)
 
-   NL%AKMIN_VORT     = 0.4  ! Ratio of vorticity damping coefficient to typical
-                            ! value from deformation K. Typical range 0.2 - 1.0
+   NL%DIVH_DAMP_FACT = 0.12 ! Fraction of horizontal divergence damped in one timestep.
+                            ! Set to 0.0 to disable.  Typical range 0.08 to 0.14
 
-   NL%DIVH_DAMP_FACT = 0.12 ! Fraction of horizontal divergence Laplacian damped in one
-                            ! timestep.  Set to 0.0 to disable.  Typical range 0.08 to 0.14
+   NL%DIVH_DAMP_LEVEL = 3   ! 0: disable divergence damping
+                            ! 1: second-order divergence damping
+                            ! 2: fourth-order divergence damping
+                            ! 3: sixth-order divergence damping
+
+   NL%DIVH_DAMP_SHORT = .true. ! T: divergence damping done each short timestep
+                               ! F: divergence damping done each long timestep
+
+   NL%VORT_DAMP_FACT = 0.075 ! Fraction of horizontal divergence damped in one timestep.
+                             ! Set to 0.0 to disable.  Typical range 0.04 to 0.1
+
+   NL%VORT_DAMP_LEVEL = 3   ! 0: disable vorticity damping
+                            ! 1: second-order vorticity damping
+                            ! 2: fourth-order vorticity damping
+                            ! 3: sixth-order vorticity damping
+
+   NL%VORT_DAMP_SHORT = .true. ! T: vorticity damping done each short timestep
+                               ! F: vorticity damping done each long timestep
 
    NL%ZERO_NEG_SCALARS = .false. ! Force negative scalar concentrations to zero?
 
@@ -377,6 +432,11 @@
    NL%INIT_NANS = .false.  ! Initialize model variables to NANs to catch
                            ! errors (useful if DEBUG_FP is set to .true.)
 
+   NL%PRINT_MASS_SUMS = .false.  ! Print mass sums each timestep to
+                                 ! verify mass conservation in model
+
+   NL%MASS_SUM_FRQ = 3600. ! Frequency (s) to print global mass sums
+
  !--------------------------------------------------------------------------
  ! Rayleigh friction parameters at model top
  !--------------------------------------------------------------------------
@@ -384,7 +444,7 @@
    NL%RAYF_ZMIN  = 27000.  ! Damping for U, THIL - minimum height (m)
    NL%RAYF_FACT  = 0.0     ! Damping for U, THIL - fraction damped in one acoustic timestep
    NL%RAYF_EXPON = 1.0     ! Damping for U, THIL - exponent for profile
-   
+
    NL%RAYFW_ZMIN  = 27000. ! Damping for W - minimum height (m)
    NL%RAYFW_FACT  = 0.5    ! Damping for W - fraction damped in one acoustic timestep
    NL%RAYFW_EXPON = 1.0    ! Damping for W - exponent for profile
@@ -400,7 +460,7 @@
  !--------------------------------------------------------------------------
  ! Radiation parameters
  !--------------------------------------------------------------------------
- 
+
    NL%ISWRTYP = 1   ! Shortwave radiation type:
    NL%ILWRTYP = 1   ! Longwave  radiation type:
                     !   0=none, 1,2,3=RRTMg
@@ -422,8 +482,7 @@
  !--------------------------------------------------------------------------
   
    NL%NQPARM = 2,2,2,2,2,2,2,2,2   ! Cumulus parameterization scheme for each MRL
-                                   ! 0 = off, 1 = Tiedtke, 2 = Grell, 3 = KF_eta,
-                                   ! 4 = Emanuel, 5 = Grell-Freitas
+                                   ! 0 = off, 1 = Tiedtke, 2 = Grell, 3 = KF_eta
 
    NL%CONFRQ = 1200.   ! Time interval (s) between cumulus param updates
 
@@ -518,6 +577,9 @@
 
    NL%TIMMAX_HURRINIT = 3600.  ! Ending integration time of each cycle
 
+   NL%HURR_AZIM_PLOTS = 1      ! Plot axisymmetric azimuthal averages of the tracked
+                               ! storm (only for serial/OpenMP runs) ( 0 / 1 )
+
    NL%HLAT0 =  23.7            ! Obs hurricane latitude
    NL%HLON0 = -93.1            ! Obs hurricane longitude
 
@@ -549,6 +611,7 @@
                         !    0 = temp(C)
                         !    1 = temp(K)
                         !    2 = pot. temp(K)
+                        !    3 = ice-liquid potential temp(K)
 
    NL%IRTSFLG = 3       ! Specifies what is in RTS array:
                         !    0 = dew pnt.(C)
@@ -625,8 +688,6 @@
    NL%GW_SPINUP_SFCGFILE = './gridfiles/sfcgfile_sp.h5'
    NL%GW_SPINUP_HISTFILE = './hist/gwspinup-H-2100-08-25-000000.h5'
 
-   NL%NZS = 1     ! Maximum number of snowcover layers
-
  ! Soil model grid vertical profile geometry
 
    NL%NZG            = 25       ! Number of soil layers; Must be <= (SOILMODEL_DEPTH / DSLZ_TOP);
@@ -636,16 +697,52 @@
 
    NL%IHORIZ_GNDWATER_TRANSPORT = 0 ! Flag to turn lateral ground water fluxes on (1) or off (0)
 
-   NL%NITER_SWM = 1             ! Number of subcycling timesteps used in SWM storm surge & 
-                                ! coastal flooding model per long model timestep; Can usually
-                                ! be 1 unless sfcgrid resolution is higher than ATM grid 
+   NL%ISEASPRAYFLG = 2  ! Flag to control sea spray model (0) = Off
+                        !                                 (1) = One droplet size band active
+                        !                                 (2) = Two droplet size bands active
+
+   NL%SEASPRAY_VMIN = 16.0  ! Wind speed (m/s) below which sea spray is not considered.
+                            ! Must be larger than 15m/s.
+
+   NL%IROUGHSEA = 4    ! Sea surface roughness formulation if not using UMWM:
+                       ! (1) Davis et al. model from old HWRF
+                       ! (2) Charnock (1955) with 0.018 parameter
+                       ! (3) Roughness from Breivik et al. (2022) with
+                       !     limiting value of .003 in high winds
+                       ! (4) Roughness from Breivik et al. (2022) with
+                       !     limiting value of .010 in high winds
+                       ! (5) Roughness from Breivik et al. (2022) with
+                       !     limiting value of .032 in high winds
+
+ ! University of Miami Wave Model (UMWM) parameters
+
+   NL%UMWMFLG             = 0   ! Flag to use UMWM wave model (0) = No; (1) = Yes
+
+   NL%UMWM_SHELT_FUNCTION = 1   ! Shelter function based on 1) matching COARE 3.5 drag
+                                !                           2) Donelan (2018) Wave Reynolds number
+
+   NL%USE_UMWM_SWH        = 0   ! 0/1 = No/Yes use UMWM sig wave hgt in sea spray model if UMWM active
+
+   NL%USE_UMWM_ROUGHNESS  = 1   ! 0/1 = No/Yes use UMWM roughness length in OLAM if UMWM active
+
+   NL%UMWM_WIND_THRESHOLD = 5.  ! Wind speed threshold if using UMWM roughness (avoids issues in
+                                ! light winds where capillary waves are largely unresolved by UMWM)
 
  ! POM1D model grid vertical profile geometry
 
-   NL%NZPOM          = 40       ! Number of POM1D layers in deepest columns; Must be <= 
+   NL%NZPOM     = 40            ! Number of POM1D layers in deepest columns; Must be <= 
                                 ! (POM_DEPTH / POM_DZTOP); Should normally be > 30  
-   NL%POM_DZTOP =   5.          ! Thickness (m) of top (shallowest) POM1D grid level 
+   NL%POM_DZTOP = 5.            ! Thickness (m) of top (shallowest) POM1D grid level 
    NL%POM_DEPTH = 4500.0        ! Depth (m) of deepest POM1D columns
+
+ ! POM1D initial data (temperature and salinity)
+
+   NL%POM_IDATA   = 3           ! 0 -- Default initialization (potmp = seatc at surface)
+                                ! 1 -- Read from rtofs file listed in POM_DATABASE
+                                ! 2 -- Read from hycom files using POM_DATABASE as prefix
+                                ! 3 -- Read from Copernicus file listed in POM_DATABASE
+
+   NL%POM_DATABASE = '../../glorys_files/mercatorglorys12v1_gl12_mean_20241007_R20241009.nc'  
 
    NL%ISOILFLG = 2        ! 1 -- Read soil composition from SoilGrids data files
                           ! 2 -- Read soil type from FAO data file
@@ -698,6 +795,7 @@
    NL%NDVI_DATABASE      = '../../olamdatah5/ndvi/NDVI'
    NL%WATERTAB_DB        = '../../olamdatah5/wtd/WTD'
    NL%OROG_SLOPE_DB      = '../../olamdatah5/slope/ORO'
+   NL%TIDE_DATABASE      = '../../olamdatah5/tide/'
 
  ! These point to a .txt listing of sst/seaice files, and are used only
  ! if isstflg/iseaiceflg = 1
@@ -795,7 +893,7 @@
                       ! (limit of maxnplt fields in max_dims.f90)
 
   NL%FRQPLT =  3600.  ! Plot frequency (for RUNTYPE = 'INITIAL' or 'HISTORY')
-                            
+
   NL%DTVEC =   1800.     ! Scaling time (seconds) for plotted velocity vectors
 
   NL%HEADSPEED = 5.   ! Scaling speed for arrow head length in plotted
@@ -827,6 +925,12 @@
   NL%MAPCOLOR = 13     ! Color of map outlines.  Useful colors: 10 - black
   NL%LLCOLOR  = 10     ! Color of lat/lon lines.                13 - dark gray
                        ! (see plotcolors for all color values)  14 - light gray
+
+  NL%MAPTHICK  = 2.0   ! Thickness of plotted map boundaries, lat-lon lines, and
+  NL%LLTHICK   = 1.0   ! contours for plots. A value of 1 is the default.
+
+  NL%NX_GRID = 150     ! Number of points along X direction to plot for 'R' plot
+  NL%NX_VECT = 50      ! Number of wind vectors to plot along X direction for 'R' plot
 
   NL%NCOLORTABS = 16   ! Number of color tables defined in OLAMIN
 
@@ -862,29 +966,32 @@
  !  L = Lat/lon cylindrical     T,F,L,O = Tiles, Fillcnt, Linecnt, Overlay L on F
  !  P = Polar stereographic     P       = Print value
  !  G = Gnomic                  I,J     = local Index, all indices
- !  O = Orthographic            B,V,w,Y,y = Barb, V-normvec, w(totvec), Y(normvec-sea), y(totvec-sea)
- !  Z = Horizontal cartesian    G       = Grid cells
- !  C = Cone                    g       = surface grid cells
- !  V = Vertical plane          D       = Dual grid cells
- !                              i,j     = sfc grid W point index, all indices
+ !  O = Orthographic            B,V,w   = Barb, V-normvec, w(totvec)
+ !  Z = Horizontal cartesian    Y,y,z   = Y(normvec-sea), y(totvec-sea), z(wavevec-UMWM)
+ !  C = Cone                    G       = Grid cells
+ !  V = Vertical plane          g       = surface grid cells
+ !                              D       = Dual grid cells
+ !          |                   i,j     = sfc grid W point index, all indices
  !          |                   b,t,a   = grid border, +ticks+outer_axlabs, +inner_axlabs
  !          |                   n,o     = field name, field name + info block
  !          |                   c,r     = colorbar, no colorbar but allow room for it
  !          |                   m       = draw outlines of land areas, countries, states
  !          |                   l       = draw lat/lon lines
+ !          |                   H       = center plot on hurricane if NCYCLE_HURRINIT > 0
  !           \                  C       = Cone circle plotted
- !            \                 p,s     = plot on const p sfc, plot near-sfc value
+ !            \                 p,s,S   = const p sfc, near-sfc value, height above grnd
  !             \                W       = Window dimensions as specified
  !              \               e       = flag indicating "external" field
  !               \              f,h     = frameoff (no frame call)
  !                \             1,2,3,4 = panel number in frame window
  !                 \            u       = Do not mask out underground cells
- !                  \           |
- !                   \          |                                          view azim
- !                    \         |          plot center    coneang,  window   for 'C'
+ !                  \           R       = Regrid to a x,y analysis before plotting
+ !                   \          |
+ !                    \         |                                           view azim
+ !                     |        |          plot center    coneang,  window   for 'C'
  !                     |  color |            lon/lat       height,  width     or 'V'
  !FLDNAME              |  tab#  |            or x/y       or p-lev   (m)     projectn
- !-------------------------------------------------------------------------------------------------------------
+ !--------------------------------------------------------------------------------------
  'RR_V'              ,'C',523,'F1fcntW',   -83.4,25.7,       90.,   400.e3,     0.,
  'RR_V'              ,'C',523,'F2cntW',    -83.4,27.724,     0.9,   630.e3,     0.,
  'PMSL'              ,'O',521,'mrtW',      -83.2,25.6,     1000.,   200.e3,     0.,

@@ -63,7 +63,7 @@ yef = ref  * sin(flon(nfhour) * pio180)
 ! write(6,'(a,3i5,6e13.3)') 'pltf ',iplottime,iplt,nfhour,xef,yef,zef &
 !                           ,xobs(iplottime),yobs(iplottime)
 
-call oplot_transform(iplt,xef,yef,zef,xobs(iplottime),yobs(iplottime))
+call oplot_transform(iplt,xef,yef,zef,flon(nfhour),flat(nfhour),xobs(iplottime),yobs(iplottime))
 
 ! Search for hurricane lowest pressure
 
@@ -94,7 +94,7 @@ enddo
 
 ! Transform hurricane earth coords to whatever projection is in use
 
-call oplot_transform(iplt,xef,yef,zef,xmodel(iplottime),ymodel(iplottime))
+call oplot_transform(iplt,xef,yef,zef,glonw(iwlp),glatw(iwlp),xmodel(iplottime),ymodel(iplottime))
 
 ! Set character font, line width, and plotted size
 
@@ -104,10 +104,10 @@ bsize = .008 * (op%hp2 - op%hp1)
 
 ! Set color to black
 
+call o_sflush()
 call o_gsplci(10)
 call o_gstxci(10)
 call o_gsfaci(10)
-call o_sflush()
 
 ! Plot modelled hurricane eye location with black color, excluding initial time
 
@@ -119,10 +119,10 @@ enddo
 
 ! Set color to red
 
+call o_sflush()
 call o_gsplci(270)
 call o_gstxci(270)
 call o_gsfaci(270)
-call o_sflush()
 
 ! Plot initial modelled hurricane eye location with red color
 

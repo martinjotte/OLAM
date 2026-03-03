@@ -14,6 +14,14 @@ Module mem_radiate
   real, allocatable :: fthrd_sw    (:,:)
   real, allocatable :: fthrd_lw    (:,:)
 
+  real, allocatable :: dlong    (:,:)  ! Downward atm longwave flux at W level (W/m^2)
+  real, allocatable :: ulong    (:,:)  ! Upward atm longwave flux at W level (W/m^2)
+  real, allocatable :: ulong_sfc(:,:)  ! Upward longwave flux at (shaved cell) surface(s) (W/m^2)
+
+  real, allocatable :: Dulong_DT    (:,:) ! Upward atm longwave flux derivative w.r.t. skin temperature (W/m^2/K)
+  real, allocatable :: Dulong_sfc_DT(:,:) ! Upward longwave flux derivative at surface w.r.t. skin temperatrue (W/m^2/K)
+  real, allocatable :: Tskin_rad    (:,:) ! Skin temperature at time of radiative transfer call
+
   real, allocatable :: cloud_frac  (:,:)
   real, allocatable :: rshort        (:)
   real, allocatable :: rlong         (:)
@@ -24,7 +32,8 @@ Module mem_radiate
   real, allocatable :: albedt        (:)
   real, allocatable :: albedt_beam   (:)
   real, allocatable :: albedt_diffuse(:)
-  real, allocatable :: cosz          (:)
+  real, allocatable :: cosz          (:) ! current solar zenith angle
+  real, allocatable :: cosz_rad      (:) ! solar zenith angle at time of radiation update
   real, allocatable :: rlong_albedo  (:)
   real, allocatable :: rshort_diffuse(:)
   real, allocatable :: par           (:)
@@ -64,9 +73,10 @@ Module mem_radiate
 
 ! These are used for adding extra levels at the top with the Mclatchy soundings
 
-  integer, parameter :: maxadd_rad = 10 ! max allowed # of added rad levels
-  integer            :: nadd_rad        ! actual # of added radiation levels
-  real               :: zmrad = 30.e3   ! top of radiation grid
+  integer, parameter :: maxadd_rad = 10    ! max allowed # of added rad levels
+  integer            :: nadd_rad           ! actual # of added radiation levels
+  real               :: zmrad      = 30.e3 ! top of radiation grid
+  real,    parameter :: cosz_min   = 0.02  ! limit of cos(zenith angle) to call rad
 
 Contains
 
@@ -82,10 +92,11 @@ Contains
     integer, intent(in) :: nsw_max
     integer, intent(in) :: ilwrtyp
     integer, intent(in) :: iswrtyp
+    integer             :: iw
 
     ! Always allocate 3D cloud fraction
 
-    allocate (cloud_frac(mza,mwa)) ; cloud_frac = 0.0
+    allocate (cloud_frac(mza,mwa))
 
     ! Allocate arrays based on options (if necessary)
 
@@ -93,52 +104,122 @@ Contains
 
        write(io6,*) 'allocating rad ', mwa, mza
 
-       allocate (fthrd_sw  (mza,mwa)) ; fthrd_sw       = 0.0
-       allocate (fthrd_lw  (mza,mwa)) ; fthrd_lw       = 0.0
-       allocate (rshort        (mwa)) ; rshort         = 0.0
-       allocate (rlong         (mwa)) ; rlong          = 0.0
-       allocate (rlongup       (mwa)) ; rlongup        = 0.0
-       allocate (rshort_top    (mwa)) ; rshort_top     = 0.0
-       allocate (rshortup_top  (mwa)) ; rshortup_top   = 0.0
-       allocate (rlongup_top   (mwa)) ; rlongup_top    = 0.0
-       allocate (rshort_diffuse(mwa)) ; rshort_diffuse = 0.0
+       allocate (fthrd_sw  (mza,mwa))
+       allocate (fthrd_lw  (mza,mwa))
 
-       allocate (par           (mwa)) ; par            = 0.0
-       allocate (par_diffuse   (mwa)) ; par_diffuse    = 0.0
-       allocate (ppfd          (mwa)) ; ppfd           = 0.0
-       allocate (ppfd_diffuse  (mwa)) ; ppfd_diffuse   = 0.0
-       allocate (uva           (mwa)) ; uva            = 0.0
-       allocate (uvb           (mwa)) ; uvb            = 0.0
-       allocate (uvc           (mwa)) ; uvc            = 0.0
-       allocate (pbl_cld_forc  (mwa)) ; pbl_cld_forc   = 0.0
+       allocate (dlong        (mza,mwa))
+       allocate (ulong        (mza,mwa))
+       allocate (ulong_sfc(nsw_max,mwa))
 
-       allocate (rlong_albedo  (mwa)) ; rlong_albedo   = rinit
-       allocate (albedt        (mwa)) ; albedt         = rinit
-       allocate (albedt_beam   (mwa)) ; albedt_beam    = rinit
-       allocate (albedt_diffuse(mwa)) ; albedt_diffuse = rinit
-       allocate (cosz          (mwa)) ; cosz           = rinit
+       allocate (Dulong_DT        (mza,mwa))
+       allocate (Dulong_sfc_DT(nsw_max,mwa))
+       allocate (Tskin_rad    (nsw_max,mwa))
 
-!      allocate (rshort_clr      (mwa)) ; rshort_clr       = 0.0
-!      allocate (rshortup_clr    (mwa)) ; rshortup_clr     = 0.0
-!      allocate (rshort_top_clr  (mwa)) ; rshort_top_clr   = 0.0
-!      allocate (rshortup_top_clr(mwa)) ; rshortup_top_clr = 0.0
+       allocate (rshort        (mwa))
+       allocate (rlong         (mwa))
+       allocate (rlongup       (mwa))
+       allocate (rshort_top    (mwa))
+       allocate (rshortup_top  (mwa))
+       allocate (rlongup_top   (mwa))
+       allocate (rshort_diffuse(mwa))
 
-!      allocate (rlong_clr      (mwa)) ; rlong_clr       = 0.0
-!      allocate (rlongup_clr    (mwa)) ; rlongup_clr     = 0.0
-!      allocate (rlongup_top_clr(mwa)) ; rlongup_top_clr = 0.0
+       allocate (par           (mwa))
+       allocate (par_diffuse   (mwa))
+       allocate (ppfd          (mwa))
+       allocate (ppfd_diffuse  (mwa))
+       allocate (uva           (mwa))
+       allocate (uvb           (mwa))
+       allocate (uvc           (mwa))
+       allocate (pbl_cld_forc  (mwa))
 
-       allocate (mcica_seed   (4,mwa)) ; mcica_seed = 0
+       allocate (rlong_albedo  (mwa))
+       allocate (albedt        (mwa))
+       allocate (albedt_beam   (mwa))
+       allocate (albedt_diffuse(mwa))
+       allocate (cosz          (mwa))
+       allocate (cosz_rad      (mwa))
 
-       allocate (rshort_ks        (nsw_max,mwa)) ; rshort_ks         = 0.0
-       allocate (rshort_diffuse_ks(nsw_max,mwa)) ; rshort_diffuse_ks = 0.0
-       allocate (rlong_ks         (nsw_max,mwa)) ; rlong_ks          = 0.0
+!      allocate (rshort_clr      (mwa))
+!      allocate (rshortup_clr    (mwa))
+!      allocate (rshort_top_clr  (mwa))
+!      allocate (rshortup_top_clr(mwa))
+!      allocate (rlong_clr       (mwa))
+!      allocate (rlongup_clr     (mwa))
+!      allocate (rlongup_top_clr (mwa))
 
-!      allocate (par_ks           (nsw_max,mwa)) ; par_ks            = 0.0
-!      allocate (par_diffuse_ks   (nsw_max,mwa)) ; par_diffuse_ks    = 0.0
-       allocate (ppfd_ks          (nsw_max,mwa)) ; ppfd_ks           = 0.0
-       allocate (ppfd_diffuse_ks  (nsw_max,mwa)) ; ppfd_diffuse_ks   = 0.0
+       allocate (mcica_seed(4,mwa))
+
+       allocate (rshort_ks        (nsw_max,mwa))
+       allocate (rshort_diffuse_ks(nsw_max,mwa))
+       allocate (rlong_ks         (nsw_max,mwa))
+
+!      allocate (par_ks           (nsw_max,mwa))
+!      allocate (par_diffuse_ks   (nsw_max,mwa))
+       allocate (ppfd_ks          (nsw_max,mwa))
+       allocate (ppfd_diffuse_ks  (nsw_max,mwa))
 
     endif
+
+    !$omp parallel do
+    do iw = 1, mwa
+
+       if ( allocated( cloud_frac    ) ) cloud_frac   (:,iw) = 0.0
+       if ( allocated( fthrd_sw      ) ) fthrd_sw     (:,iw) = 0.0
+       if ( allocated( fthrd_lw      ) ) fthrd_lw     (:,iw) = 0.0
+
+       if ( allocated( dlong         ) ) dlong        (:,iw) = 0.0
+       if ( allocated( ulong         ) ) ulong        (:,iw) = 0.0
+       if ( allocated( ulong_sfc     ) ) ulong_sfc    (:,iw) = 0.0
+
+       if ( allocated ( Dulong_DT    ) ) Dulong_DT    (:,iw) = 0.0
+       if ( allocated ( Dulong_sfc_DT) ) Dulong_sfc_DT(:,iw) = 0.0
+       if ( allocated ( Tskin_rad    ) ) Tskin_rad    (:,iw) = 0.0
+
+       if ( allocated( rshort        ) ) rshort        (iw) = 0.0
+       if ( allocated( rlong         ) ) rlong         (iw) = 0.0
+       if ( allocated( rlongup       ) ) rlongup       (iw) = 0.0
+       if ( allocated( rshort_top    ) ) rshort_top    (iw) = 0.0
+       if ( allocated( rshortup_top  ) ) rshortup_top  (iw) = 0.0
+       if ( allocated( rlongup_top   ) ) rlongup_top   (iw) = 0.0
+       if ( allocated( rshort_diffuse) ) rshort_diffuse(iw) = 0.0
+
+       if ( allocated( par           ) ) par           (iw) = 0.0
+       if ( allocated( par_diffuse   ) ) par_diffuse   (iw) = 0.0
+       if ( allocated( ppfd          ) ) ppfd          (iw) = 0.0
+       if ( allocated( ppfd_diffuse  ) ) ppfd_diffuse  (iw) = 0.0
+       if ( allocated( uva           ) ) uva           (iw) = 0.0
+       if ( allocated( uvb           ) ) uvb           (iw) = 0.0
+       if ( allocated( uvc           ) ) uvc           (iw) = 0.0
+       if ( allocated( pbl_cld_forc  ) ) pbl_cld_forc  (iw) = 0.0
+
+       if ( allocated( rlong_albedo  ) ) rlong_albedo  (iw) = rinit
+       if ( allocated( albedt        ) ) albedt        (iw) = rinit
+       if ( allocated( albedt_beam   ) ) albedt_beam   (iw) = rinit
+       if ( allocated( albedt_diffuse) ) albedt_diffuse(iw) = rinit
+       if ( allocated( cosz          ) ) cosz          (iw) = rinit
+       if ( allocated( cosz_rad      ) ) cosz_rad      (iw) = rinit
+
+!      if ( allocated( rshort_clr      ) ) rshort_clr      (iw) = 0.0
+!      if ( allocated( rshortup_clr    ) ) rshortup_clr    (iw) = 0.0
+!      if ( allocated( rshort_top_clr  ) ) rshort_top_clr  (iw) = 0.0
+!      if ( allocated( rshortup_top_clr) ) rshortup_top_clr(iw) = 0.0
+!      if ( allocated( rlong_clr       ) ) rlong_clr       (iw) = 0.0
+!      if ( allocated( rlongup_clr     ) ) rlongup_clr     (iw) = 0.0
+!      if ( allocated( rlongup_top_clr ) ) rlongup_top_clr (iw) = 0.0
+
+       if ( allocated( mcica_seed       ) ) mcica_seed       (:,iw) = 0
+
+       if ( allocated( rshort_ks        ) ) rshort_ks        (:,iw) = 0.0
+       if ( allocated( rshort_diffuse_ks) ) rshort_diffuse_ks(:,iw) = 0.0
+       if ( allocated( rlong_ks         ) ) rlong_ks         (:,iw) = 0.0
+
+!      if ( allocated( par_ks           ) ) par_ks           (:,iw) = 0.0
+!      if ( allocated( par_diffuse_ks   ) ) par_diffuse_ks   (:,iw) = 0.0
+       if ( allocated( ppfd_ks          ) ) ppfd_ks          (:,iw) = 0.0
+       if ( allocated( ppfd_diffuse_ks  ) ) ppfd_diffuse_ks  (:,iw) = 0.0
+
+    enddo
+    !$omp end parallel do
 
   end subroutine alloc_radiate
 
@@ -163,6 +244,7 @@ Contains
     if (allocated(albedt_beam))    deallocate (albedt_beam)
     if (allocated(albedt_diffuse)) deallocate (albedt_diffuse)
     if (allocated(cosz))           deallocate (cosz)
+    if (allocated(cosz_rad))       deallocate (cosz_rad)
 
 !   if (allocated(rshort_clr))       deallocate (rshort_clr)
 !   if (allocated(rshortup_clr))     deallocate (rshortup_clr)
@@ -192,8 +274,15 @@ Contains
     implicit none
 
     if (allocated(fthrd_sw))         call increment_vtable('FTHRD_SW',        'AW', rvar2=fthrd_sw)
-
     if (allocated(fthrd_lw))         call increment_vtable('FTHRD_LW',        'AW', rvar2=fthrd_lw)
+
+    ! For incremental updates of longwave between RRTMg calls:
+    if (allocated(dlong))            call increment_vtable('DLONG',           'AW', rvar2=dlong)
+    if (allocated(ulong))            call increment_vtable('ULONG',           'AW', rvar2=ulong)
+    if (allocated(ulong_sfc))        call increment_vtable('ULONG_SFC',       'AW', rvar2=ulong_sfc)
+    if (allocated(Dulong_DT))        call increment_vtable('Dulong_DT',       'AW', rvar2=Dulong_DT)
+    if (allocated(Dulong_sfc_DT))    call increment_vtable('Dulong_sfc_DT',   'AW', rvar2=Dulong_sfc_DT)
+    if (allocated(Tskin_rad))        call increment_vtable('Tskin_rad',       'AW', rvar2=Tskin_rad)
 
     if (allocated(cloud_frac))       call increment_vtable('CLOUD_FRAC',      'AW', rvar2=cloud_frac)
 
@@ -211,7 +300,7 @@ Contains
 
     if (allocated(albedt))           call increment_vtable('ALBEDT',          'AW', rvar1=albedt)
 
-    if (allocated(cosz))             call increment_vtable('COSZ',            'AW', rvar1=cosz)
+    if (allocated(cosz_rad))         call increment_vtable('COSZ_RAD',        'AW', rvar1=cosz_rad)
 
 !   if (allocated(rshort_clr))       call increment_vtable('RSHORT_CLR',      'AW', rvar1=rshort_clr)
 

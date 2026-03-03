@@ -36,12 +36,10 @@
 
 !-----------------------------------------------------------------------------
 
-      subroutine rtrnmc_noclr( &
-                        nlayers, nsfc, semiss, &
-                        cldfr, taucmc, planklayb, &
-                        planksfcb, frac_sfck, &
-                        pwvcm, fracs, taut, &
-                        totuflux, totdflux, totuflux_sfc )
+      subroutine rtrnmc_noclr(nlayers, nsfc, isfc_dt, semiss, cldfr, taucmc,  &
+                              planklayb, planksfcb, dplanksfcb_dt, frac_sfck, &
+                              pwvcm, fracs, taut, totuflux, totdflux, totuflux_sfc, &
+                              dtotuflux_dt, dtotuflux_sfc_dt)
 
 !-----------------------------------------------------------------------------
 !
@@ -73,16 +71,19 @@
       implicit none
 
 ! ----- Input -----
-      integer(kind=im), intent(in) :: nlayers         ! total number of layers
+      integer(kind=im), intent(in) :: nlayers      ! total number of layers
 
-      integer(kind=im), intent(in) :: nsfc            ! total number of surface layers
+      integer(kind=im), intent(in) :: nsfc         ! total number of surface layers
+
+      integer(kind=im), intent(in) :: isfc_dt      ! do upward flux derivative (wrt skin temperature)
 
 ! Atmosphere
-      real(kind=rb), intent(in) :: pwvcm              ! precipitable water vapor (cm)
-      real(kind=rb), intent(in) :: semiss(nbndlw,nsfc)! lw surface emissivity
+      real(kind=rb), intent(in) :: pwvcm               ! precipitable water vapor (cm)
+      real(kind=rb), intent(in) :: semiss(nbndlw,nsfc) ! lw surface emissivity
 
-      real(kind=rb), intent(in) :: planklayb(nbndlw,nlayers)
-      real(kind=rb), intent(in) :: planksfcb(nbndlw,nsfc)
+      real(kind=rb), intent(in) ::  planklayb   (nbndlw,nlayers)
+      real(kind=rb), intent(in) ::  planksfcb   (nbndlw,nsfc)
+      real(kind=rb), intent(in) :: dplanksfcb_dt(nbndlw,nsfc)
 
       real(kind=rb), intent(in) :: fracs(ngptlw,nlayers)
 
@@ -95,22 +96,24 @@
       real(kind=rb), intent(in) :: taucmc(ngptlw,nlayers) ! layer cloud optical depth [mcica]
 
 ! ----- Output -----
-      real(kind=rb), intent(out) :: totuflux(nlayers+1)  ! upward longwave flux (w/m2)
       real(kind=rb), intent(out) :: totdflux(nlayers+1)  ! downward longwave flux (w/m2)
+      real(kind=rb), intent(out) :: totuflux(nlayers+1)  ! upward longwave flux (w/m2)
       real(kind=rb), intent(out) :: totuflux_sfc(nsfc)   ! upward longwave flux at surface (w/m2)
+
+      real(kind=rb), intent(out) :: dtotuflux_dt(nlayers+1)  ! upward longwave flux (w/m2)
+      real(kind=rb), intent(out) :: dtotuflux_sfc_dt(nsfc)   ! upward longwave flux at surface (w/m2)
 
 ! ----- Local -----
 ! Declarations for radiative transfer
-      real(kind=rb) :: urad(ngptlw,nlayers+1)
       real(kind=rb) :: drad(ngptlw,nlayers+1)
+      real(kind=rb) :: urad(ngptlw,nlayers+1), durad_dt(ngptlw,nlayers+1)
+      real(kind=rb) :: urad_sfc(ngptlw,nsfc), durad_sfc_dt(ngptlw,nsfc)
 
-!     real(kind=rb) :: drad_sfc(ngptlw,nsfc)
-      real(kind=rb) :: urad_sfc(ngptlw,nsfc)
-
-      real(kind=rb) :: reflect(nbndlw,nsfc)
+      real(kind=rb) :: reflect(ngptlw,nsfc)
       real(kind=rb) :: transtot(ngptlw,nlayers)
       real(kind=rb) :: secdif, secdiff(ngptlw)  ! secant of diffusivity angle
-      real(kind=rb) :: atot, odtot, rad0
+      real(kind=rb) :: atot(ngptlw), odtot, rad0(ngptlw), drad0_dt(ngptlw)
+      real(kind=rb) :: omfrac_sfck
 
       real(kind=rb) :: bbtot    (ngptlw,nlayers)
 !     real(kind=rb) :: bbdtot    (ngptlw,nlayers)
@@ -220,7 +223,9 @@
 
       do lev = 1, nsfc
          do iband = 1,nbndlw
-            reflect(iband,lev) = 1.0 - semiss(iband,lev)
+            do ig = nga(iband), ngs(iband)
+               reflect(ig,lev) = 1.0 - semiss(iband,lev)
+            enddo
          enddo
       enddo
 
@@ -235,16 +240,19 @@
       ! Compute optical depths/transmissivities/planck functions
 
       do lev = 1, nlayers
-         do ig = 1, ngptlw
-            iband = ngb(ig)
 
+         do ig = 1, ngptlw
             odtot            = secdiff(ig) * taut(ig,lev)
             transtot(ig,lev) = exp(odtot)
-
-            atot             = fracs(ig,lev) * (1.0 - transtot(ig,lev))
-            bbtot(ig,lev)    = atot * planklayb(iband,lev)
-
+            atot    (ig)     = fracs(ig,lev) - fracs(ig,lev) * transtot(ig,lev)
          enddo
+
+         do iband = 1, nbndlw
+            do ig = nga(iband), ngs(iband)
+               bbtot(ig,lev)  = atot(ig) * planklayb(iband,lev)
+            enddo
+         enddo
+
       enddo
 
 !!      ! special at top
@@ -280,38 +288,101 @@
 !  Note: The emissivity is applied to plankbnd and dplankbnd_dt when
 !  they are defined in subroutine setcoef.
 
-      do ig = 1, ngptlw
-         iband = ngb(ig)
+      if (isfc_dt == 1) then
 
-         rad0       = fracs(ig,1) * planksfcb(iband,1)
-         urad(ig,1) = rad0 + reflect(iband,1) * drad(ig,1)
-         urad(ig,2) = urad(ig,1) * transtot(ig,1) + bbtot(ig,1)
-      enddo
-
-      ! special with shaved cells:
-      do lev = 2, nsfc
-
-         !dir$ ivdep
-         do ig = 1, ngptlw
-            iband = ngb(ig)
-
-            rad0               = fracs(ig,lev) * planksfcb(iband,lev)
-            urad_sfc(ig,lev)   = rad0 + reflect(iband,lev) * drad(ig,lev)
-
-            urad    (ig,lev+1) = ( urad_sfc(ig,lev) *     frac_sfck(lev)    &
-                                 + urad    (ig,lev) * (1.-frac_sfck(lev)) ) &
-                               * transtot(ig,lev) + bbtot(ig,lev)
+         do iband = 1, nbndlw
+            do ig = nga(iband), ngs(iband)
+                rad0   (ig) = fracs(ig,1) *  planksfcb   (iband,1)
+               drad0_dt(ig) = fracs(ig,1) * dplanksfcb_dt(iband,1)
+            enddo
          enddo
-      enddo
 
-! Upward radiative transfer loop
-
-      do lev = nsfc+2, nlayers+1
-         !dir$ ivdep
          do ig = 1, ngptlw
-            urad(ig,lev) = urad(ig,lev-1) * transtot(ig,lev-1) + bbtot(ig,lev-1)
+             urad   (ig,1) =  rad0   (ig) + reflect(ig,1) * drad(ig,1)
+            durad_dt(ig,1) = drad0_dt(ig)
+
+             urad   (ig,2) =  urad   (ig,1) * transtot(ig,1) + bbtot(ig,1)
+            durad_dt(ig,2) = durad_dt(ig,1) * transtot(ig,1)
          enddo
-      enddo
+
+         ! special with shaved cells:
+         do lev = 2, nsfc
+
+            do iband = 1, nbndlw
+               do ig = nga(iband), ngs(iband)
+                   rad0   (ig) = fracs(ig,lev) *  planksfcb   (iband,lev)
+                  drad0_dt(ig) = fracs(ig,lev) * dplanksfcb_dt(iband,lev)
+               enddo
+            enddo
+
+            omfrac_sfck = 1. - frac_sfck(lev)
+
+            do ig = 1, ngptlw
+                urad_sfc   (ig,lev)   =  rad0   (ig) + reflect(ig,lev) * drad(ig,lev)
+               durad_sfc_dt(ig,lev)   = drad0_dt(ig)
+
+                urad   (ig,lev+1) = (  urad_sfc   (ig,lev) *   frac_sfck(lev) &
+                                    +  urad       (ig,lev) * omfrac_sfck    ) &
+                                  * transtot(ig,lev) + bbtot(ig,lev)
+
+               durad_dt(ig,lev+1) = ( durad_sfc_dt(ig,lev) *   frac_sfck(lev) &
+                                    + durad_dt    (ig,lev) * omfrac_sfck    ) &
+                                  * transtot(ig,lev)
+            enddo
+         enddo
+
+         ! Upward radiative transfer loop
+
+         do lev = nsfc+2, nlayers+1
+            !dir$ ivdep
+            do ig = 1, ngptlw
+                urad   (ig,lev) =   urad  (ig,lev-1) * transtot(ig,lev-1) + bbtot(ig,lev-1)
+               durad_dt(ig,lev) = durad_dt(ig,lev-1) * transtot(ig,lev-1)
+            enddo
+         enddo
+
+      else  ! isfc_dt == 0
+
+         do iband = 1, nbndlw
+            do ig = nga(iband), ngs(iband)
+               rad0(ig) = fracs(ig,1) * planksfcb(iband,1)
+            enddo
+         enddo
+
+         do ig = 1, ngptlw
+            urad(ig,1) = rad0(ig) + reflect(ig,1) * drad(ig,1)
+            urad(ig,2) = urad(ig,1) * transtot(ig,1) + bbtot(ig,1)
+         enddo
+
+         ! special with shaved cells:
+         do lev = 2, nsfc
+
+            do iband = 1, nbndlw
+               do ig = nga(iband), ngs(iband)
+                  rad0(ig) = fracs(ig,lev) * planksfcb(iband,lev)
+               enddo
+            enddo
+
+            omfrac_sfck = 1. - frac_sfck(lev)
+
+            do ig = 1, ngptlw
+               urad_sfc(ig,lev)   = rad0(ig) + reflect(ig,lev) * drad(ig,lev)
+               urad    (ig,lev+1) = ( urad_sfc(ig,lev) *   frac_sfck(lev) &
+                                    + urad    (ig,lev) * omfrac_sfck    ) &
+                                  * transtot(ig,lev) + bbtot(ig,lev)
+            enddo
+         enddo
+
+         ! Upward radiative transfer loop
+
+         do lev = nsfc+2, nlayers+1
+            !dir$ ivdep
+            do ig = 1, ngptlw
+               urad(ig,lev) = urad(ig,lev-1) * transtot(ig,lev-1) + bbtot(ig,lev-1)
+            enddo
+         enddo
+
+      endif
 
 ! Calculate total upward and downward fluxes
 
@@ -324,6 +395,17 @@
       do lev = 2, nsfc
          totuflux_sfc(lev) = sum( urad_sfc(:,lev) * delwavef(:) )
       enddo
+
+      if (isfc_dt == 1) then
+         do lev = 1, nlayers + 1
+            dtotuflux_dt(lev) = sum( durad_dt(:,lev) * delwavef(:) )
+         enddo
+
+         dtotuflux_sfc_dt(1) = dtotuflux_dt(1)
+         do lev = 2, nsfc
+            dtotuflux_sfc_dt(lev) = sum( durad_sfc_dt(:,lev) * delwavef(:) )
+         enddo
+      endif
 
       end subroutine rtrnmc_noclr
 

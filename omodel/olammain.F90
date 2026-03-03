@@ -6,7 +6,6 @@ program main
   use misc_coms,    only: tmpdir
   use max_dims,     only: pathlen
   use hdf5,         only: h5open_f, h5close_f
-  use hdf5_f2f,     only: fh5_close_caches
   use oname_coms,   only: cmdlne_runtype, cmdlne_fields, numcf, nl
   use sys_utils,    only: set_environment_variable
   !$ use omp_lib,   only: omp_get_max_threads
@@ -187,8 +186,7 @@ program main
 
 ! stop HDF5 library
 
-  call fh5_close_caches(hdferr)
-  call h5close_f       (hdferr)
+  call h5close_f(hdferr)
 
 ! If this run is parallel, finalize MPI and close io6 file
 

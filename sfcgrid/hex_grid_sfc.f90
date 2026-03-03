@@ -2,18 +2,17 @@ subroutine voronoi_sfc()
 
   use mem_sfcg,     only: nmsfc, nvsfc, nwsfc, itab_msfc, itab_vsfc, &
                           itab_wsfc, sfcg, alloc_sfcgrid1
-
   use mem_delaunay, only: itab_md, itab_ud, itab_wd, nmd, nud, nwd, &
-                          xemd, yemd, zemd
-
+                          xemd, yemd, zemd, iwsfc_orig, mrl_wsfc
   use misc_coms,    only: mdomain
-  use consts_coms,  only: erad, eradi, piu180
+  use consts_coms,  only: erad, piu180
+  use map_proj,     only: get_cossin_lonlat, de_ps, ps_de
 
   implicit none
 
   integer :: iw1, iw2, iw3, im, iv, iw
   integer :: imd,iud,iwd,j
-  real    :: expansion, raxis, raxisi
+  real    :: expansion
   real    :: xebc,yebc,zebc
   real    :: x1,x2,x3,y1,y2,y3
   real    :: dx12,dx13,dx23
@@ -29,6 +28,9 @@ subroutine voronoi_sfc()
   nvsfc = nud
   nwsfc = nmd
 
+  allocate(iwsfc_orig(nwsfc))
+  allocate(mrl_wsfc  (nwsfc))
+
   ! Allocate Voronoi set of arrays
 
   call alloc_sfcgrid1(nmsfc, nvsfc, nwsfc, alloc_xyzew=.false.)
@@ -43,7 +45,7 @@ subroutine voronoi_sfc()
   ! This establishes W cell as voronoi.
 
   !$omp parallel
-  !$omp do private(iwd,iw1,iw2,iw3,xebc,yebc,zebc,expansion,raxis,raxisi, &
+  !$omp do private(iwd,iw1,iw2,iw3,xebc,yebc,zebc,expansion, &
   !$omp            sinwslat,coswslat,sinwslon,coswslon,dxe,dye,dze,x1,y1, &
   !$omp            x2,y2,x3,y3,dx12,dx13,dx23,s1,s2,s3,ycc,xcc)
   do im = 2,nmsfc
@@ -77,23 +79,8 @@ subroutine voronoi_sfc()
 
         ! Get latitude and longitude of barycentric point
 
-        raxis  = sqrt(xebc ** 2 + yebc ** 2)
-
-        sinwslat = zebc  * eradi
-        coswslat = raxis * eradi
-
-        ! For points less than 100 m from Earth's polar axis, make arbitrary
-        ! assumption that longitude = 0 deg.  This is just to settle on a PS
-        ! planar coordinate system in which to do the algebra.
-
-        if (raxis >= 1.e2) then
-           raxisi = 1.0 / raxis
-           sinwslon = yebc * raxisi
-           coswslon = xebc * raxisi
-        else
-           sinwslon = 0.
-           coswslon = 1.
-        endif
+        call get_cossin_lonlat( coswslon, sinwslon, coswslat, sinwslat, &
+                                xebc, yebc, zebc )
 
         ! Transform 3 W points to PS coordinates
 
@@ -202,7 +189,9 @@ subroutine voronoi_sfc()
   do iw = 2,nwsfc
      imd = iw
 
-     itab_wsfc(iw)%npoly = itab_md(imd)%npoly
+     itab_wsfc (iw)%npoly = itab_md(imd)%npoly
+     iwsfc_orig(iw)       = itab_md(imd)%im_orig
+     mrl_wsfc  (iw)       = itab_md(imd)%mrlm
 
      ! Loop over IM/IV neighbors of IW
 
@@ -249,10 +238,13 @@ end subroutine voronoi_sfc
 
 subroutine grid_geometry_hex_sfc()
 
+  use, intrinsic :: iso_fortran_env, only: r8=>real64
+
   use mem_sfcg,    only: nmsfc, nvsfc, nwsfc, itab_msfc, itab_vsfc, itab_wsfc, sfcg
   use misc_coms,   only: mdomain, nxp
-  use consts_coms, only: erad, piu180, r8
+  use consts_coms, only: erad, piu180
   use oplot_coms,  only: op
+  use map_proj,    only: get_cossin_lonlat, de_ps
 
   implicit none
 
@@ -262,19 +254,21 @@ subroutine grid_geometry_hex_sfc()
   integer       :: j,npoly,j1,j2
   real          :: raxis, expansion
   real          :: dvm1,dvm2
-  real          :: xm1,xm2,xv,ym1,ym2,yv,frac,alpha
+  real          :: xm1,xm2,xv,ym1,ym2,yv,frac,vmagi
   real          :: xw1,xw2,yw1,yw2
   real          :: xp1, yp1, xp2, yp2
   real          :: xq1, yq1, xq2, yq2, psiz, vsprd
   integer       :: iskipm, iskipw
   real          :: quarter_kite(2,nvsfc)
   character(10) :: string
+  real          :: dxe,dye,dze
+  real          :: sinwlat,coswlat,sinwlon,coswlon
 
   integer               :: lwork, info
   real(r8)              :: a(3,7), b(7), fo(7), vnx_ps(7), vny_ps(7), vnz_ps(7)
   real(r8)              :: vrot_x(7), vrot_y(7)
   real(r8), allocatable :: work(:)
-  real(r8)              :: wsize(1), vdotw, vmagi, fact
+  real(r8)              :: wsize(1), vdotw, vmag8i, fact
 
   ! Loop over all M points and compute their latitude and longitude
 
@@ -415,7 +409,8 @@ subroutine grid_geometry_hex_sfc()
 
   !$omp parallel private(a,b,wsize,lwork,work,info)
 
-  !$omp do private(raxis,npoly,j1,j2,ivn,iw1,iw2,xw1,yw1,xw2,yw2,xv,yv,alpha)
+  !$omp do private(raxis,npoly,j1,j2,ivn,iw1,iw2,xw1,yw1,xw2,yw2,xv,yv,vmagi, &
+  !$omp            dxe,dye,dze,coswlon,sinwlon,coswlat,sinwlat)
   do iw = 2,nwsfc
 
      ! Fill global index (replaced later if this run is parallel)
@@ -450,6 +445,11 @@ subroutine grid_geometry_hex_sfc()
 
      npoly = itab_wsfc(iw)%npoly
 
+     if (mdomain <= 1) then
+        call get_cossin_lonlat( coswlon, sinwlon, coswlat, sinwlat,      &
+                                sfcg%xew(iw), sfcg%yew(iw), sfcg%zew(iw) )
+     endif
+
      ! Loop over all polygon edges
 
      do j2 = 1,npoly
@@ -475,42 +475,71 @@ subroutine grid_geometry_hex_sfc()
         ! tangent at IW
 
         if (mdomain <= 1) then
-           call e_ps(sfcg%xew(iw1),sfcg%yew(iw1),sfcg%zew(iw1),sfcg%glatw(iw),sfcg%glonw(iw),xw1,yw1)
-           call e_ps(sfcg%xew(iw2),sfcg%yew(iw2),sfcg%zew(iw2),sfcg%glatw(iw),sfcg%glonw(iw),xw2,yw2)
-           call e_ps(sfcg%xev(ivn), sfcg%yev(ivn), sfcg%zev(ivn), sfcg%glatw(iw),sfcg%glonw(iw),xv,yv)
+
+           dxe = sfcg%xew(iw1) - sfcg%xew(iw)
+           dye = sfcg%yew(iw1) - sfcg%yew(iw)
+           dze = sfcg%zew(iw1) - sfcg%zew(iw)
+           call de_ps(dxe,dye,dze,coswlat,sinwlat,coswlon,sinwlon,xw1,yw1)
+
+           dxe = sfcg%xew(iw2) - sfcg%xew(iw)
+           dye = sfcg%yew(iw2) - sfcg%yew(iw)
+           dze = sfcg%zew(iw2) - sfcg%zew(iw)
+           call de_ps(dxe,dye,dze,coswlat,sinwlat,coswlon,sinwlon,xw2,yw2)
+
+           dxe = sfcg%xev(ivn) - sfcg%xew(iw)
+           dye = sfcg%yev(ivn) - sfcg%yew(iw)
+           dze = sfcg%zev(ivn) - sfcg%zew(iw)
+           call de_ps(dxe,dye,dze,coswlat,sinwlat,coswlon,sinwlon,xv,yv)
+
         else
+
            xw1 = sfcg%xew(iw1) - sfcg%xew(iw)
            yw1 = sfcg%yew(iw1) - sfcg%yew(iw)
            xw2 = sfcg%xew(iw2) - sfcg%xew(iw)
            yw2 = sfcg%yew(iw2) - sfcg%yew(iw)
            xv  = sfcg%xev(ivn) - sfcg%xew(iw)
            yv  = sfcg%yev(ivn) - sfcg%yew(iw)
+
         endif
 
         ! Coefficients for eastward and northward components of gradient (they apply at M points)
 
-        itab_wsfc(iw)%gxps1(j1) =  yw2 / (xw1 * yw2 - xw2 * yw1)
-        itab_wsfc(iw)%gxps2(j1) = -yw1 / (xw1 * yw2 - xw2 * yw1)
+        vmagi = 1.0 / (xw1 * yw2 - xw2 * yw1)
 
-        itab_wsfc(iw)%gyps1(j1) = -xw2 / (xw1 * yw2 - xw2 * yw1)
-        itab_wsfc(iw)%gyps2(j1) =  xw1 / (xw1 * yw2 - xw2 * yw1)
+        itab_wsfc(iw)%gxps1(j1) =  yw2 * vmagi
+        itab_wsfc(iw)%gxps2(j1) = -yw1 * vmagi
+
+        itab_wsfc(iw)%gyps1(j1) = -xw2 * vmagi
+        itab_wsfc(iw)%gyps2(j1) =  xw1 * vmagi
+
+        !----------------------------------------
+
+        vmagi = 1.0 / sqrt(xw2*xw2 + yw2*yw2)
 
         if (itab_wsfc(iw)%dirv(j2) < 0.) then
-           alpha = atan2(yw2,xw2)   ! VC(ivn) direction counterclockwise from east
 
-           itab_vsfc(ivn)%cosv(1) = cos(alpha)
-           itab_vsfc(ivn)%sinv(1) = sin(alpha)
+         ! alpha = atan2(yw2,xw2)   ! VC(ivn) direction counterclockwise from east
+         ! itab_vsfc(ivn)%cosv(1) = cos(alpha)
+         ! itab_vsfc(ivn)%sinv(1) = sin(alpha)
+
+           itab_vsfc(ivn)%cosv(1) = xw2 * vmagi
+           itab_vsfc(ivn)%sinv(1) = yw2 * vmagi
 
            itab_vsfc(ivn)%dxps(1) = xv
            itab_vsfc(ivn)%dyps(1) = yv
-        else
-           alpha = atan2(-yw2,-xw2) ! VC(ivn) direction counterclockwise from east
 
-           itab_vsfc(ivn)%cosv(2) = cos(alpha)
-           itab_vsfc(ivn)%sinv(2) = sin(alpha)
+        else
+
+         ! alpha = atan2(-yw2,-xw2) ! VC(ivn) direction counterclockwise from east
+         ! itab_vsfc(ivn)%cosv(2) = cos(alpha)
+         ! itab_vsfc(ivn)%sinv(2) = sin(alpha)
+
+           itab_vsfc(ivn)%cosv(2) = -xw2 * vmagi
+           itab_vsfc(ivn)%sinv(2) = -yw2 * vmagi
 
            itab_vsfc(ivn)%dxps(2) = xv
            itab_vsfc(ivn)%dyps(2) = yv
+
         endif
 
      enddo
@@ -543,7 +572,7 @@ subroutine grid_geometry_hex_sfc()
      lwork = nint(wsize(1)) + 1
      allocate(work(lwork))
 
-     !$omp do private(npoly, fo, j, ivn, vdotw, vmagi, fact, &
+     !$omp do private(npoly, fo, j, ivn, vdotw, vmag8i, fact, &
      !$omp            vnx_ps, vny_ps, vnz_ps, vrot_x, vrot_y)
      do iw = 2, nwsfc
 
@@ -567,11 +596,11 @@ subroutine grid_geometry_hex_sfc()
 
               ! Normalize these new vectors to unit length
 
-              vmagi = 1.0_r8 / sqrt( vnx_ps(j)**2 + vny_ps(j)**2 + vnz_ps(j)**2 )
+              vmag8i = 1.0_r8 / sqrt( vnx_ps(j)**2 + vny_ps(j)**2 + vnz_ps(j)**2 )
 
-              vnx_ps(j) = vnx_ps(j) * vmagi
-              vny_ps(j) = vny_ps(j) * vmagi
-              vnz_ps(j) = vnz_ps(j) * vmagi
+              vnx_ps(j) = vnx_ps(j) * vmag8i
+              vny_ps(j) = vny_ps(j) * vmag8i
+              vnz_ps(j) = vnz_ps(j) * vmag8i
 
               ! Rotate these new unit normals to a coordinate system with Z aligned with W
 
@@ -683,10 +712,10 @@ subroutine grid_geometry_hex_sfc()
         iw1 = itab_vsfc(iv)%iwn(1)
         iw2 = itab_vsfc(iv)%iwn(2)
 
-        call oplot_transform(1,sfcg%xem(im1),sfcg%yem(im1),sfcg%zem(im1),xm1,ym1)
-        call oplot_transform(1,sfcg%xem(im2),sfcg%yem(im2),sfcg%zem(im2),xm2,ym2)
-        call oplot_transform(1,sfcg%xew(iw2),sfcg%yew(iw2),sfcg%zew(iw2),xw2,yw2)
-        call oplot_transform(1,sfcg%xew(iw1),sfcg%yew(iw1),sfcg%zew(iw1),xw1,yw1)
+        call oplot_transform(1,sfcg%xem(im1),sfcg%yem(im1),sfcg%zem(im1),sfcg%glonm(im1),sfcg%glatm(im1),xm1,ym1)
+        call oplot_transform(1,sfcg%xem(im2),sfcg%yem(im2),sfcg%zem(im2),sfcg%glonm(im2),sfcg%glatm(im2),xm2,ym2)
+        call oplot_transform(1,sfcg%xew(iw2),sfcg%yew(iw2),sfcg%zew(iw2),sfcg%glonw(iw2),sfcg%glatw(iw2),xw2,yw2)
+        call oplot_transform(1,sfcg%xew(iw1),sfcg%yew(iw1),sfcg%zew(iw1),sfcg%glonw(iw1),sfcg%glatw(iw1),xw1,yw1)
 
         call trunc_segment(xm1,xm2,ym1,ym2,xq1,xq2,yq1,yq2,iskipm)
         call trunc_segment(xw1,xw2,yw1,yw2,xp1,xp2,yp1,yp2,iskipw)
@@ -731,37 +760,94 @@ end subroutine grid_geometry_hex_sfc
 
 subroutine sfc_atm_hex_overlay()
 
-  use mem_grid,   only: nwa, nma, topm, topw, glatw, glonw, glonm, glatm, &
-                        xew, yew, zew, xem, yem, zem
-  use mem_sfcg,   only: nwsfc
-  use ll_bins,    only: latlon_bins, itab_w0
-  use mem_ijtabs, only: itab_w
-  use misc_coms,  only: io6
+  use mem_grid,     only: nwa, nma, topm, topw, glatw, glonw, glonm, glatm, &
+                          xew, yew, zew, xem, yem, zem, arw0
+  use mem_sfcg,     only: nwsfc, sfcgrid_res_factor, nsfcgrids, itab_wsfc, sfcg
+  use ll_bins,      only: latlon_bins, binset_vars, itab_grid_vars
+  use mem_ijtabs,   only: itab_w, mrls
+  use misc_coms,    only: io6, nxp
+  use mem_ijtabs,   only: itab_m
+  use mem_delaunay, only: iwsfc_orig
 
   implicit none
 
-  integer :: iw, iwsfc, im, j
-  real    :: ds2
+  integer :: iw, iwsfc, im, j, iwn, np
+  real    :: ds2, res
 
   integer, allocatable :: icountw(:)
   integer, allocatable :: icountm(:)
   real,    allocatable :: dsw_max(:)
 
+  type(binset_vars),    target      :: bset
+  type(itab_grid_vars), allocatable :: itab_w0(:)
+
+  if ( sfcgrid_res_factor == 1 .and. nsfcgrids == 0 ) then
+
+     !$omp parallel
+     !$omp do private(iw)
+     do iwsfc = 2, nwsfc
+        iw                        = iwsfc_orig(iwsfc)
+        itab_wsfc(iwsfc)%nwatm    = 1
+        itab_wsfc(iwsfc)%iwatm(1) = iw
+        itab_wsfc(iwsfc)%arc  (1) = arw0(iw)
+        topw(iw)                  = sfcg%topw(iwsfc)
+     enddo
+     !$omp end do
+
+     !$omp do
+     do im = 2, nma
+        topm(im) = ( topw( itab_m(im)%iw(1) ) &
+                   + topw( itab_m(im)%iw(2) ) &
+                   + topw( itab_m(im)%iw(3) ) ) / 3.
+     enddo
+     !$omp end do
+     !$omp end parallel
+
+     return
+  endif
+
+  write(io6,*)
   write(io6,*) "Creating latlon bins for atm/sfc overlay"
 
   ! Allocate and fill itab_w0 data structure with ATM GRID values that will be
   ! used inside subroutine latlon_bins
 
   allocate(itab_w0(nwa))
-  do iw = 1,nwa
-     itab_w0(iw)%npoly = itab_w(iw)%npoly
-     itab_w0(iw)%iw(:) = itab_w(iw)%iw(:)
+
+  !$omp parallel do private(np,j,iwn)
+  do iw = 2, nwa
+     np = itab_w(iw)%npoly
+     itab_w0(iw)%np = np
+
+     do j = 1, np
+        iwn = itab_w(iw)%iw(j)
+        itab_w0(iw)%glats(j) = glatw(iwn)
+        itab_w0(iw)%glons(j) = glonw(iwn)
+     enddo
+
+     ! Close to a pole, the cell center may be the furthest north or south, so
+     ! include this in the list of points that bound the cell
+
+     if (glatw(iw) > 89.) then
+        itab_w0(iw)%np          = np+1
+        itab_w0(iw)%glats(np+1) = glatw(iw)
+        itab_w0(iw)%glons(np+1) = glonw(iw)
+     endif
+
+     if (glatw(iw) < -89.) then
+        itab_w0(iw)%np          = np+1
+        itab_w0(iw)%glats(np+1) = glatw(iw)
+        itab_w0(iw)%glons(np+1) = glonw(iw)
+     endif
+
   enddo
+  !$omp end parallel do
 
-  ! Allocate and fill latlon bins at different resolutions to compartmentalize
-  ! all IW points of the ATM grid
+  ! Allocate and fill latlon bins to compartmentalize all IW points of the ATM grid
 
-  call latlon_bins(nwa, glatw, glonw)
+  res = 7150.e3 / real( nxp * 2**(mrls-1) ) * 10.
+
+  call latlon_bins(nwa, res, itab_w0, bset)
 
   deallocate(itab_w0)
 
@@ -785,19 +871,24 @@ subroutine sfc_atm_hex_overlay()
   !$omp do private(ds2)
   do iw = 2, nwa
      ds2 = 0.
+
      do j = 1, itab_w(iw)%npoly
         im = itab_w(iw)%im(j)
         ds2 = max(ds2, (xew(iw)-xem(im))**2 &
                      + (yew(iw)-yem(im))**2 &
                      + (zew(iw)-zem(im))**2 )
      enddo
+
      dsw_max(iw) = 1.0001 * sqrt(ds2)
+
   enddo
   !$omp end do
 
-  !$omp do schedule(guided)
+  !$omp do private(iw)
   do iwsfc = 2, nwsfc
-     call sfc_atm_hex_overlay_2( icountw, icountm, iwsfc, dsw_max )
+
+     call sfc_atm_hex_overlay_2( iwsfc )
+
   enddo
   !$omp end do
 
@@ -821,7 +912,7 @@ subroutine sfc_atm_hex_overlay()
 
         topw(iw) = topw(iw) / real(icountw(iw))
 
-        write(*,*) "illegal value for topw at iw = ", iw, glatw(iw), glonw(iw)
+        write(*,*) "illegal value for topw at iw = ", iw, icountw(iw), glatw(iw), glonw(iw)
         stop 'error in sfc_atm_hex_overlay'
 
      endif
@@ -835,7 +926,7 @@ subroutine sfc_atm_hex_overlay()
      if (icountm(im) == 0) then
 
         write(*,*) "topm not set at im = ", im, glatm(im), glonm(im)
-        stop 'error in sfc_atm_hex_overlay'
+!        stop 'error in sfc_atm_hex_overlay'
 
      elseif (icountm(im) == 2) then
 
@@ -849,8 +940,8 @@ subroutine sfc_atm_hex_overlay()
 
         topm(im) = topm(im) / real(icountm(im))
 
-        write(*,*) "illegal value for topm at im = ", im
-        stop 'error in sfc_atm_hex_overlay'
+        write(*,*) "illegal value for topm at im = ", im, icountm(im), glatm(im), glonm(im)
+!        stop 'error in sfc_atm_hex_overlay'
 
      endif
 
@@ -858,25 +949,21 @@ subroutine sfc_atm_hex_overlay()
   !$omp end do
   !$omp end parallel
 
-end subroutine sfc_atm_hex_overlay
+contains
 
-!============================================================================
+subroutine sfc_atm_hex_overlay_2( iwsfc )
 
-subroutine sfc_atm_hex_overlay_2( icountw, icountm, iwsfc, dswmax )
-
-  use mem_grid,    only: nwa, nma, xem, yem, zem, xew, yew, zew, arw0, &
-                         topm, topw
-  use mem_ijtabs,  only: itab_w, itab_m
+  use mem_ijtabs,  only: itab_m
   use mem_sfcg,    only: itab_wsfc, sfcg
-  use consts_coms, only: r8, eradi, pio180
-  use ll_bins,     only: latlon_bins, delat, bset
+  use polygon_lib, only: polygon_overlap, inout_check
+  use ll_bins,     only: gridcells_from_latlon_bins
+  use consts_coms, only: dlat
+  use sortlib,     only: insertion_sort_rev
+  use map_proj,    only: get_cossin_lonlat, de_gn
 
   implicit none
 
-  integer, intent(in)    :: iwsfc
-  integer, intent(inout) :: icountw(nwa)
-  integer, intent(inout) :: icountm(nma)
-  real,    intent(in)    :: dswmax (nwa)
+  integer,  intent(in) :: iwsfc
 
   integer, parameter :: npmax = 7  ! Heptagons are max polygon for SINGLE GRID LEVEL
                                    ! in atm polygon cell
@@ -886,46 +973,23 @@ subroutine sfc_atm_hex_overlay_2( icountw, icountm, iwsfc, dswmax )
   integer, parameter :: npqmax  = max(npmax,nqmax)
   real,    parameter :: oneplus = 1.0 + 5. * epsilon(1.)
 
-  integer  :: iw, npoly, nsfcpoly, jmsfc, imsfc, jm, im, nwatm, idum
-  real     :: xm0(npmax), xs0(nqmax), xw0, dum
-  real     :: ym0(nqmax), ys0(nqmax), yw0
+  integer  :: iw, jw, npoly, nsfcpoly, jmsfc, imsfc, jm, im, nwatm
+  real     :: xm(npmax), xs(nqmax), xw, dum
+  real     :: ym(nqmax), ys(nqmax), yw
 
-  real(r8) :: xm(npmax), xs(npmax), xw
-  real(r8) :: ym(nqmax), ys(nqmax), yw
-  real(r8) :: alpham(npmax), alphas(nqmax), alphaw
+  logical  :: point_in
 
-  real :: area, dsmax
+  real :: area, dsmax, distmsq
   real :: sinwslat, coswslat
   real :: sinwslon, coswslon
-  real :: raxis, raxisi
   real :: dxe(npqmax), dye(npqmax), dze(npqmax)
-  real :: dxew, dyew, dzew
-  real :: hlatw, hlonw
+  real :: dxew, dyew, dzew, res
 
-  integer :: iset, i, j, jw
-  integer :: nwbin
-  integer, allocatable :: iwbin(:)
+  integer, pointer             :: nwbin
+  integer, pointer, contiguous :: iwbin(:)
 
-  ! Evaluate xs,ys coordinates of SFCGRID iwsfc cell M points on gnomonic plane
-  ! tangent at iwsfc
-
-  raxis = sqrt( sfcg%xew(iwsfc) ** 2 + sfcg%yew(iwsfc) ** 2 )
-
-  sinwslat = sfcg%zew(iwsfc) * eradi
-  coswslat = raxis           * eradi
-
-  ! For points less than 100 m from Earth's polar axis, make arbitrary
-  ! assumption that longitude = 0 deg.  This is just to settle on a
-  ! gnomonic tangent planar coordinate system in which to do the algebra.
-
-  if (raxis >= 1.e2) then
-     raxisi = 1.0 / raxis
-     sinwslon = sfcg%yew(iwsfc) * raxisi
-     coswslon = sfcg%xew(iwsfc) * raxisi
-  else
-     sinwslon = 0.
-     coswslon = 1.
-  endif
+  call get_cossin_lonlat( coswslon, sinwslon, coswslat, sinwslat, &
+                          sfcg%xew(iwsfc), sfcg%yew(iwsfc), sfcg%zew(iwsfc) )
 
   ! Loop over all neighbor M points of this iwsfc
 
@@ -950,44 +1014,32 @@ subroutine sfc_atm_hex_overlay_2( icountw, icountm, iwsfc, dswmax )
      dsmax = max(dsmax, dxe(jmsfc)**2 + dye(jmsfc)**2 + dze(jmsfc)**2)
   enddo
 
-  call de_gn_mult(nsfcpoly,dxe,dye,dze,coswslat,sinwslat,coswslon,sinwslon,xs0,ys0)
+  ! Evaluate xs,ys coordinates of SFCGRID iwsfc cell M points on gnomonic plane
+  ! tangent at iwsfc
 
-  xs(1:nsfcpoly) = real(xs0(1:nsfcpoly),r8)
-  ys(1:nsfcpoly) = real(ys0(1:nsfcpoly),r8)
+  call de_gn(dxe,dye,dze,coswslat,sinwslat,coswslon,sinwslon,xs,ys,nsfcpoly)
 
-  dsmax = sqrt(dsmax)
+  dsmax = 1.01 * sqrt(dsmax)
+
+  distmsq = 1.01 * maxval( xs(1:nsfcpoly)**2 + ys(1:nsfcpoly)**2 )
 
   ! Get ATM bin indices for this iwsfc point
 
-  hlonw = max(-179.9999,min(179.9999,sfcg%glonw(iwsfc)))
-  hlatw = max( -89.9999,min( 89.9999,sfcg%glatw(iwsfc)))
+  res = dsmax / dlat
 
-  do iset = 1,4
-     j = int(delat(iset) * (hlatw +  90.)) + 1
-     i = int(bset(iset)%blat(j)%delon * (hlonw + 180.)) + 1
+  call gridcells_from_latlon_bins( sfcg%glatw(iwsfc), sfcg%glonw(iwsfc), bset, nwbin, iwbin )
 
-     ! Check if bins are allocated, starting with smallest
+  ! If no points found; this should never happen!
 
-     if (allocated(bset(iset)%blat(j)%bins(i)%iw)) then
-        nwbin = bset(iset)%blat(j)%bins(i)%nw
-        allocate(iwbin(nwbin))
-        iwbin(:) = bset(iset)%blat(j)%bins(i)%iw(:)
-        go to 10
-     endif
-  enddo  ! iset
-
-  ! If iset loop has not branched to statement 10, search over all IW points
-
-  print*, 'No allocated ATM bin found for iwsfc = ', iwsfc, hlatw, hlonw
-  print*, 'Conducting search over all IW points '
-
-  nwbin = nwa - 1
-  allocate(iwbin(nwbin))
-  do iw = 2,nwa
-     iwbin(iw-1) = iw
-  enddo
-
-  10 continue
+!!  if (nwbin == 0) then
+!!     print*, 'Conducting search over all IW points ', iwsfc, sfcg%glatw(iwsfc), sfcg%glonw(iwsfc)
+!!
+!!     nwbin = nwa - 1
+!!     allocate(iwbin(nwbin))
+!!     do iw = 2,nwa
+!!        iwbin(iw-1) = iw
+!!     enddo
+!!  endif
 
   ! Loop over all ATM IW points in bin
 
@@ -996,13 +1048,13 @@ subroutine sfc_atm_hex_overlay_2( icountw, icountm, iwsfc, dswmax )
   do jw = 1, nwbin
      iw = iwbin(jw)
 
-     dum = sqrt( (xew(iw) - sfcg%xew(iwsfc))**2 &
-               + (yew(iw) - sfcg%yew(iwsfc))**2 &
-               + (zew(iw) - sfcg%zew(iwsfc))**2 )
+     dum = (xew(iw) - sfcg%xew(iwsfc))**2 &
+         + (yew(iw) - sfcg%yew(iwsfc))**2 &
+         + (zew(iw) - sfcg%zew(iwsfc))**2
 
      ! Skip this overlap if atm and sfc cells are too far apart
 
-     if (dum > dsmax + dswmax(iw)) cycle
+     if (dum > (dsmax + dsw_max(iw))**2) cycle
 
      ! Loop over all neighbor M points of this IW
 
@@ -1019,14 +1071,11 @@ subroutine sfc_atm_hex_overlay_2( icountw, icountm, iwsfc, dswmax )
         dze(jm) = zem(im) - sfcg%zew(iwsfc)
      enddo
 
-     call de_gn_mult(npoly,dxe,dye,dze,coswslat,sinwslat,coswslon,sinwslon,xm0,ym0)
-
-     xm(1:npoly) = real(xm0(1:npoly),r8)
-     ym(1:npoly) = real(ym0(1:npoly),r8)
+     call de_gn(dxe,dye,dze,coswslat,sinwslat,coswslon,sinwslon,xm,ym,npoly)
 
      ! Evaluate possible overlap of ATM and SURFACE polygons
 
-     call polygon_overlap2(nsfcpoly,npoly,xs,ys,xm,ym,sfcg%area(iwsfc),arw0(iw),area,alphas,alpham)
+     call polygon_overlap(nsfcpoly,npoly,xs,ys,xm,ym,sfcg%area(iwsfc),arw0(iw),area)
 
      ! Set topm of atmospheric IM points that are inside or on the boundary
      ! of this surface cell
@@ -1037,13 +1086,18 @@ subroutine sfc_atm_hex_overlay_2( icountw, icountm, iwsfc, dswmax )
         ! only check each im point once
         if (itab_m(im)%iw(1) == iw) then
 
-           if (alpham(jm) > 1.0_r8) then
+           ! only check if we are close to this atm M point
+           if (distmsq >= xm(jm)**2 + ym(jm)**2) then
 
-              !$omp atomic
-              icountm(im) = icountm(im) + 1
+              call inout_check(nsfcpoly,xs,ys,xm(jm),ym(jm),point_in)
 
-              !$omp atomic
-              topm(im) = topm(im) + sfcg%topw(iwsfc)
+              if (point_in) then
+                 !$omp atomic
+                 icountm(im) = icountm(im) + 1
+
+                 !$omp atomic
+                 topm(im) = topm(im) + sfcg%topw(iwsfc)
+              endif
 
            endif
         endif
@@ -1052,6 +1106,7 @@ subroutine sfc_atm_hex_overlay_2( icountw, icountm, iwsfc, dswmax )
      ! Skip further computation if overlap is small.
 
      if (area < 1.e-5 * sfcg%area(iwsfc)) cycle
+     if (area < 2.e-6 * arw0(iw)) cycle
 
      ! Evaluate x,y coordinates of current IW point on gnomonic plane
      ! tangent at iwsfc
@@ -1060,31 +1115,25 @@ subroutine sfc_atm_hex_overlay_2( icountw, icountm, iwsfc, dswmax )
      dyew = yew(iw) - sfcg%yew(iwsfc)
      dzew = zew(iw) - sfcg%zew(iwsfc)
 
-     call de_gn(dxew,dyew,dzew,coswslat,sinwslat,coswslon,sinwslon,xw0,yw0)
+     call de_gn(dxew,dyew,dzew,coswslat,sinwslat,coswslon,sinwslon,xw,yw)
 
-     xw = real(xw0,r8)
-     yw = real(yw0,r8)
+     if (distmsq >= xw**2 + yw**2) then
 
-     ! If overlap is positive, even though it may be very small, check whether
-     ! this SFCG cell overlaps with the IW point of this ATM cell. Where overlap
-     ! is found, set topo height of ATM cell point from TOPW of SURFACE cell
+        ! If overlap is positive, even though it may be very small, check whether
+        ! this SFCG cell overlaps with the IW point of this ATM cell. Where overlap
+        ! is found, set topo height of ATM cell point from TOPW of SURFACE cell
 
-     call inout_check(nsfcpoly,xs,ys,xw,yw,alphaw)
+        call inout_check(nsfcpoly,xs,ys,xw,yw,point_in)
 
-     if (alphaw > 1.0_r8) then
+        if (point_in) then
+           !$omp atomic
+           icountw(iw) = icountw(iw) + 1
 
-        !$omp atomic
-        icountw(iw) = icountw(iw) + 1
-
-        !$omp atomic
-        topw(iw) = topw(iw) + sfcg%topw(iwsfc)
+           !$omp atomic
+           topw(iw) = topw(iw) + sfcg%topw(iwsfc)
+        endif
 
      endif
-
-     ! If overlap area is less than 1.e-5 of sfcg cell area or 2.e-6 of
-     ! atmospheric cell area, this overlap will not be counted.
-
-     if (area < 2.0e-6 * arw0(iw)) cycle
 
      ! This iwsfc SURFACE cell overlaps with IW ATM cell.
 
@@ -1099,17 +1148,12 @@ subroutine sfc_atm_hex_overlay_2( icountw, icountm, iwsfc, dswmax )
   ! Order multiple overlap areas so that largest is first
 
   if (nwatm > 1) then
-     do j = 2,nwatm
-        if (itab_wsfc(iwsfc)%arc(j)  > itab_wsfc(iwsfc)%arc(1)) then
-           idum                      = itab_wsfc(iwsfc)%iwatm(j)
-           itab_wsfc(iwsfc)%iwatm(j) = itab_wsfc(iwsfc)%iwatm(1)
-           itab_wsfc(iwsfc)%iwatm(1) = idum
 
-           dum                     = itab_wsfc(iwsfc)%arc(j)
-           itab_wsfc(iwsfc)%arc(j) = itab_wsfc(iwsfc)%arc(1)
-           itab_wsfc(iwsfc)%arc(1) = dum
-        endif
-     enddo
+     call insertion_sort_rev( itab_wsfc(iwsfc)%arc  (1:nwatm), &
+                              itab_wsfc(iwsfc)%iwatm(1:nwatm)  )
+
   endif
 
-  end subroutine sfc_atm_hex_overlay_2
+end subroutine sfc_atm_hex_overlay_2
+
+end subroutine sfc_atm_hex_overlay

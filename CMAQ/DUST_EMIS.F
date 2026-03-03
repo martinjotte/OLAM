@@ -978,7 +978,7 @@ C   in each soil type [Kg/Kg]. from Menut et al. [JGR,2013]
 
             ! Skip if grid cell is snow or water covered
 
-            if ( land%nlev_sfcwater(iland) > 0 ) return
+            if ( land%sfcwater_mass(1,iland) >= wcap_min ) return
 
             ! Skip if top of soil is near saturation
 
