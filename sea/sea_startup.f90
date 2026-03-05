@@ -1,13 +1,14 @@
 subroutine sea_startup()
 
-  use sea_coms,  only: isstflg, seatmp,  &
-                       iupdsst, iseaiceflg, iupdseaice, seaice
-
-  use mem_sea,   only: msea, sea, alloc_sea2, filltab_sea
-
-  use misc_coms, only: io6, runtype
-  use perth,     only: ntides
-  use sea_swm,   only: use_tides
+  use sea_coms,    only: seatmp0, isstflg,    iupdsst,    &
+                         seaice0, iseaiceflg, iupdseaice, &
+                         salnty0, t00sea0,    fssat0
+  use mem_sea,     only: msea, sea, alloc_sea2, filltab_sea
+  use consts_coms, only: t00
+  use misc_coms,   only: io6, runtype
+  use perth,       only: ntides
+  use sea_swm,     only: use_tides
+  use oname_coms,  only: nl
 
   implicit none
 
@@ -17,6 +18,12 @@ subroutine sea_startup()
 
   ! THIS SUBROUTINE DOES NOT INITIALIZE canopy temperature and moisture
   ! values, which depend on atmospheric conditions.
+
+  t00sea0 = t00 - salnty0   &    ! Freezing point of sea water [K]
+                * (0.0575 - 1.71052E-3*sqrt(salnty0) + 2.154996E-4*salnty0)
+
+  fssat0  = 1.   ! Linearized factor reducing sea surface saturation humidity
+  if (nl%sea_salinity_effect == 1) fssat0 = 1.0 - 0.02 * salnty0 / 35.
 
   !-------------------------------------------------------------------------------
   ! STEP 1: Call alloc_sea and filltab_sea (sea grid arrays already allocated)
@@ -40,8 +47,8 @@ subroutine sea_startup()
      ! Default initialization of SST
 
      do isea = 2,msea
-        sea%seatp(isea) = seatmp
-        sea%seatf(isea) = seatmp
+        sea%seatp(isea) = seatmp0
+        sea%seatf(isea) = seatmp0
      enddo
 
   elseif (isstflg == 1) then
@@ -103,8 +110,8 @@ subroutine sea_startup()
      ! Default initialization of SEAICE
 
      do isea = 2,msea
-        sea%seaicep(isea) = seaice
-        sea%seaicef(isea) = seaice
+        sea%seaicep(isea) = seaice0
+        sea%seaicef(isea) = seaice0
      enddo
 
   elseif (iseaiceflg == 1) then

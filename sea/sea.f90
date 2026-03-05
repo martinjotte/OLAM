@@ -1,6 +1,6 @@
 subroutine seacells(isea, timefac_sst, timefac_seaice)
 
-  use sea_coms,    only: nzi
+  use sea_coms,    only: nzi, fssat0
   use mem_sfcg,    only: itab_wsfc, sfcg
   use mem_sea,     only: sea, omsea
   use misc_coms,   only: iparallel
@@ -25,8 +25,8 @@ subroutine seacells(isea, timefac_sst, timefac_seaice)
   real :: airthetav, wstar
   real :: usti, zw, zn1, zn2
   real :: raxis, windu, windv, cdtop, wusurf, wvsurf, wtsurf, wssurf, swrad, hfluxsea
-  real :: sea_spray1_temp, sea_spray2_temp
-  real :: vels0, richnum, a2fm, a2fh, speed10, tau_umwm
+  real :: sea_spray1_temp, sea_spray2_temp, fssat
+  real :: vels0, richnum, a2fm, a2fh, speed10
 
   real, parameter :: z0fac = 0.011 / grav  ! factor for Charnock roughness height
   real, parameter :: ozo   = 1.59e-5       ! base roughness height in HWRF
@@ -120,6 +120,14 @@ subroutine seacells(isea, timefac_sst, timefac_seaice)
      use_umwm_roughness = &
           ( umwm%iactive(isea) .and. umwm%wspd(isea) > nl%umwm_wind_threshold )
 
+  endif
+
+  ! sea water saturation reduction factor
+
+  fssat = fssat0
+
+  if (sea%pom_active(isea) .and. nl%sea_salinity_effect == 1) then
+     fssat = 1.0 - (.02 / 35.) * pom%salin(1,isea)
   endif
 
   ! Evaluate sea roughness height
@@ -287,6 +295,7 @@ subroutine seacells(isea, timefac_sst, timefac_seaice)
                     sea%sea_sfluxr  (isea),  &
                     sea%sea_rough   (isea),  &
                     hfluxsea,                &
+                    fssat,                   &
                     ispray_active            )
 
   else
@@ -315,6 +324,7 @@ subroutine seacells(isea, timefac_sst, timefac_seaice)
                     sea%sea_sfluxr  (isea),  &
                     sea%sea_rough   (isea),  &
                     hfluxsea,                &
+                    fssat,                   &
                     ispray_active            )
 
   endif
@@ -514,8 +524,8 @@ end subroutine seacells
 
 subroutine seacell_1( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
                       vels, wstar, prss, wthv, glatw, glonw, airtheta, airrrv, &
-                      canexner, cantemp, canrrv, bcantemp, bcanrrv, &
-                      spraytemp, sfluxt, sfluxr, rough, hfluxsea, spray_active )
+                      canexner, cantemp, canrrv, bcantemp, bcanrrv, spraytemp, &
+                      sfluxt, sfluxr, rough, hfluxsea, fssat, spray_active )
 
   use mem_sfcg,    only: sfcg
   use sea_coms,    only: dt_sea
@@ -553,6 +563,7 @@ subroutine seacell_1( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
   real,    intent(inout) :: sfluxr       ! can_air to atm vapor flux [kg_vap m^-2 s^-1]
   real,    intent(in)    :: rough        ! sea cell roughess height [m]
   real,    intent(out)   :: hfluxsea     ! heat flux from sea surface to can_air [kg K/(m^2 s)]
+  real,    intent(in)    :: fssat        ! sea water saturation reduction factor []
   logical, intent(inout) :: spray_active ! was sea spray layer active previous timestep
 
   ! Local parameters
@@ -705,7 +716,7 @@ subroutine seacell_1( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
 
   ! Evaluate surface saturation vapor density and mixing ratio of sea surface
 
-  sfc_rhovs    = rhovsl(seatc-273.15)
+  sfc_rhovs = fssat * rhovsl(seatc-273.15)
 
   ! rdi = ustar/5 is the viscous sublayer conductivity derived from Garratt (1992)
 
@@ -903,8 +914,8 @@ subroutine seacell_1( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
      hcapbcan  = cp * canair
      hcapbcani = 1. / hcapcan
 
-     spray_rhovs  = rhovsl(spraytemp       - 273.15)
-     spray_rhovsp = rhovsl(spraytemp + 1.0 - 273.15) - spray_rhovs
+     spray_rhovs  = fssat * rhovsl(spraytemp       - 273.15)
+     spray_rhovsp = fssat * rhovsl(spraytemp + 1.0 - 273.15) - spray_rhovs
 
      hcapspray = spray_mass * cliq
      hcapsprayi = 1. / hcapspray
@@ -1071,10 +1082,10 @@ end subroutine seacell_1
 
 !===============================================================================
 
-subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
-                      vels, wstar, prss, wthv, glatw, glonw, airtheta, airrrv, &
-                      canexner, cantemp, canrrv, bcantemp, bcanrrv, &
-                      spraytemp, spray2temp, sfluxt, sfluxr, rough, hfluxsea, spray_active )
+subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, vels, &
+                      wstar, prss, wthv, glatw, glonw, airtheta, airrrv, canexner, &
+                      cantemp, canrrv, bcantemp, bcanrrv, spraytemp, spray2temp, &
+                      sfluxt, sfluxr, rough, hfluxsea, fssat, spray_active )
 
   use mem_sfcg,    only: sfcg
   use sea_coms,    only: dt_sea
@@ -1113,6 +1124,7 @@ subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
   real,    intent(inout) :: sfluxr       ! can_air to atm vap flux [kg_vap m^-2 s^-1]
   real,    intent(in)    :: rough        ! sea cell roughess height [m]
   real,    intent(out)   :: hfluxsea     ! heat flux from sea to can_air [kg K/(m^2 s)]
+  real,    intent(in)    :: fssat        ! sea water saturation reduction factor []
   logical, intent(inout) :: spray_active ! was sea spray layer active previous timestep
 
   ! Local parameters
@@ -1275,7 +1287,7 @@ subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
 
   ! Evaluate surface saturation vapor density and mixing ratio of sea surface
 
-  sfc_rhovs    = rhovsl(seatc-273.15)
+  sfc_rhovs    = fssat * rhovsl(seatc-273.15)
 
   ! rdi = ustar/5 is the viscous sublayer conductivity derived from Garratt (1992)
 
@@ -1492,10 +1504,10 @@ subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
      hcapbcan  = cp * canair
      hcapbcani = 1. / hcapcan
 
-     spray_rhovs   = rhovsl(spraytemp        - 273.15)
-     spray_rhovsp  = rhovsl(spraytemp  + 1.0 - 273.15) - spray_rhovs
-     spray2_rhovs  = rhovsl(spray2temp       - 273.15)
-     spray2_rhovsp = rhovsl(spray2temp + 1.0 - 273.15) - spray2_rhovs
+     spray_rhovs   = fssat * rhovsl(spraytemp        - 273.15)
+     spray_rhovsp  = fssat * rhovsl(spraytemp  + 1.0 - 273.15) - spray_rhovs
+     spray2_rhovs  = fssat * rhovsl(spray2temp       - 273.15)
+     spray2_rhovsp = fssat * rhovsl(spray2temp + 1.0 - 273.15) - spray2_rhovs
 
      hcapspray   = spray_mass * cliq
      hcapsprayi  = 1. / hcapspray
@@ -1742,4 +1754,3 @@ subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, &
   endif
 
 end subroutine seacell_2
-

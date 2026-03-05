@@ -578,6 +578,9 @@ if (nl%isfcl == 1) then
    if (nl%iseaiceflg == 0) &
         call rchk_bnds( nl%seaice, "SEAICE", 0., 1., 2, nfatal, nwarn )
 
+   call rchk_bnds( nl%salinity,            "SALINITY",        0., 50., 2, nfatal, nwarn )
+   call ichk_bnds( nl%sea_salinity_effect, "SALINITY_EFFECT", 0,  1,   2, nfatal, nwarn )
+
    ! Set iupdndvi to 0 if not reading NDVI files
    if (nl%ndviflg == 2) then
       if (nl%iupdndvi == 1) then

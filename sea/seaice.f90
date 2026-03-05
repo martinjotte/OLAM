@@ -6,7 +6,7 @@ subroutine prep_seaice( sst, seaice, sea_cantemp, ice_cantemp,        &
                         sea_wthv, ice_wthv                            )
 
   use consts_coms, only: cice, t00
-  use sea_coms,    only: nzi, t00sea
+  use sea_coms,    only: nzi, t00sea0
 
   implicit none
 
@@ -60,8 +60,8 @@ subroutine prep_seaice( sst, seaice, sea_cantemp, ice_cantemp,        &
 
      ! Always set bottom layer temperature equal to the SST
 
-     seaice_tempk (1) = min(sst, t00sea)
-     seaice_energy(1) = cice * (seaice_tempk(1) - t00sea)
+     seaice_tempk (1) = min(sst, t00sea0)
+     seaice_energy(1) = cice * (seaice_tempk(1) - t00sea0)
 
      ! Ice roughness height
 
@@ -85,8 +85,8 @@ subroutine prep_seaice( sst, seaice, sea_cantemp, ice_cantemp,        &
 
      ! Initialize top layer to the canopy temperature
 
-     seaice_tempk (nlev_seaice) = min(ice_cantemp, t00sea)
-     seaice_energy(nlev_seaice) = cice * (seaice_tempk(nlev_seaice) - t00sea)
+     seaice_tempk (nlev_seaice) = min(ice_cantemp, t00sea0)
+     seaice_energy(nlev_seaice) = cice * (seaice_tempk(nlev_seaice) - t00sea0)
 
      ! Interpolate other layers between the top and bottom temperature
 
@@ -95,7 +95,7 @@ subroutine prep_seaice( sst, seaice, sea_cantemp, ice_cantemp,        &
         seaice_tempk(k) = real(k-1)/real(nlev_seaice-1) * seaice_tempk(nlev_seaice) &
                         + real(nlev_seaice-k)/real(nlev_seaice-1) * seaice_tempk(1)
 
-        seaice_energy(k) = cice * (seaice_tempk(k) - t00sea)
+        seaice_energy(k) = cice * (seaice_tempk(k) - t00sea0)
 
      enddo
 
@@ -130,7 +130,7 @@ subroutine seaice( isea, iwsfc, nlev_seaice, rhos, ustar, vkhsfc, can_depth, &
                    seaice_energy, seaice_tempk, cantemp, canrrv, sfluxt, sfluxr)
 
   use consts_coms, only: alvi, cice, t00, cp, alli, r8
-  use sea_coms,    only: dt_sea, t00sea, nzi
+  use sea_coms,    only: dt_sea, t00sea0, nzi
   use therm_lib,   only: rhovsi, qtk_sea
   use mem_sfcg,    only: sfcg
   use matrix,      only: matrix8_NxN

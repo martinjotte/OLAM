@@ -391,8 +391,11 @@ Module oname_coms
      real    :: seaspray_vmin = 16.0
      integer :: iroughsea     = 4
 
-     real    :: seatmp = 280.0
-     real    :: seaice =   0.0
+     real    :: seatmp   = 280.0
+     real    :: seaice   =   0.0
+     real    :: salinity =  35.0
+
+     integer :: sea_salinity_effect = 0
 
      real    :: topodb_cutoff = 200.
 

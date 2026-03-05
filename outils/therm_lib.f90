@@ -621,14 +621,14 @@ end subroutine qwtk
 !dir$ attributes vector :: qtk_sea
 elemental subroutine qtk_sea(q,tempk,fracliq)
 
-use consts_coms, only: alli, allii, cicei, cliqi
-use sea_coms,    only: t00sea
+use consts_coms, only: t00, alli, allii, cicei, cliqi
+use sea_coms,    only: t00sea0
 implicit none
 
 !dir$ attributes value :: q
 real, intent(in)  :: q
 real, intent(out) :: tempk, fracliq
-real, parameter   :: const = t00sea - alli * cliqi
+real, parameter   :: alovcl = alli * cliqi
 
 !     Input:
 !        q        internal energy [J/kg]
@@ -638,13 +638,13 @@ real, parameter   :: const = t00sea - alli * cliqi
 
 if (q <= 0.) then
    fracliq = 0.
-   tempk = q * cicei + t00sea
+   tempk = q * cicei + t00sea0
 elseif (q >= alli) then
    fracliq = 1.
-   tempk = q * cliqi + const
+   tempk = q * cliqi + t00sea0 - alovcl
 else
    fracliq = q * allii
-   tempk = t00sea
+   tempk = t00sea0
 endif
 
 end subroutine qtk_sea
@@ -655,14 +655,14 @@ end subroutine qtk_sea
 elemental subroutine qtc_sea(q,tempc,fracliq)
 
 use consts_coms, only: t00, alli, allii, cicei, cliqi
-use sea_coms,    only: t00sea
+use sea_coms,    only: t00sea0
 implicit none
 
 !dir$ attributes value :: q
 real, intent(in)  :: q
 real, intent(out) :: tempc, fracliq
-real, parameter   :: tdiff = t00sea - t00
-real, parameter   :: const = tdiff - alli * cliqi
+real              :: tdiff
+real, parameter   :: alovcl = alli * cliqi
 
 !     Input:
 !        q        internal energy [J/kg]
@@ -672,13 +672,13 @@ real, parameter   :: const = tdiff - alli * cliqi
 
 if (q <= 0.) then
    fracliq = 0.
-   tempc = q * cicei + tdiff
+   tempc = q * cicei + t00sea0 - t00
 elseif (q >= alli) then
    fracliq = 1.
-   tempc = q * cliqi + const
+   tempc = q * cliqi + t00sea0 - alovcl
 else
    fracliq = q * allii
-   tempc = tdiff
+   tempc = t00sea0 - t00
 endif
 
 end subroutine qtc_sea

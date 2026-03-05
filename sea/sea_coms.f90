@@ -35,13 +35,15 @@ Module sea_coms
    character(14),      allocatable :: ctotdate_seaice(:)
    real(r8),           allocatable :: s1900_seaice   (:)
 
-   real :: seatmp     ! default sea sfc temperature [K]
-   real :: seaice     ! default sea ice fraction [0-1]
-   real :: dt_sea     ! sea timestep [s]
+   real               :: seatmp0   ! Default sea sfc temperature [K]
+   real               :: salnty0   ! Default sea salinity
+   real               :: seaice0   ! Default sea ice fraction [0-1]
+   real               :: t00sea0   ! Default freezing temperature of sea water [K]
+   real               :: fssat0    ! Default reduction of sea water saturation by salinity
+   real               :: dt_sea    ! sea timestep [s]
 
-   integer, parameter :: nzi    = 3      ! max number of seaice layers
-   real,    parameter :: emi    = 1.0    ! emissivity of ice
-   real,    parameter :: emw    = 1.0    ! emissivity of water
-   real,    parameter :: t00sea = 271.38 ! Freezing temperature of sea water [K]
+   real,    parameter :: emi = 1.0 ! emissivity of ice
+   real,    parameter :: emw = 1.0 ! emissivity of water
+   integer, parameter :: nzi = 3   ! max number of seaice layers
 
 End Module sea_coms

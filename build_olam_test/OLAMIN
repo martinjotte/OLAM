@@ -811,6 +811,10 @@
 
    NL%SEATMP   = 280.0   ! Water surface temperature (K) if ISSTFLG = 0
    NL%SEAICE   =   0.0   ! Seaice fraction (0 - 1) if ISEAICEFLG = 0
+   NL%SALINITY =  35.5   ! Default ocean salinity (parts-per-thousand)
+
+   NL%SEA_SALINITY_EFFECT = 0  ! 0/1 = No/Yes include reduction of sea surface
+                               ! saturation humidity due to salinity
 
    NL%NVGCON   = 8      ! LEAF-3 class if IVEGFLG = 2 (choices listed below:)
    

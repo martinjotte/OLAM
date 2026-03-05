@@ -3,11 +3,10 @@ subroutine sea_init_atm()
   use mem_sea,     only: sea, msea, omsea
   use sea_coms,    only: iupdsst, s1900_sst, isstfile, nsstfiles, dt_sea,  &
                          iupdseaice, s1900_seaice, iseaicefile, nseaicefiles, nzi
-  use misc_coms,   only: s1900_sim, iparallel, runtype
-  use mem_sfcg,    only: itab_wsfc, sfcg, nswmzons
+  use misc_coms,   only: s1900_sim, runtype
+  use mem_sfcg,    only: itab_wsfc, sfcg
   use consts_coms, only: t00
-  use therm_lib,   only: rhovsl, rhovsil
-  use mem_para,    only: myrank
+! use mem_para,    only: myrank
   use sea_swm,     only: depthmax_swe
 
   implicit none
