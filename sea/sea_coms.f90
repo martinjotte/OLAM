@@ -41,6 +41,7 @@ Module sea_coms
    real               :: t00sea0   ! Default freezing temperature of sea water [K]
    real               :: fssat0    ! Default reduction of sea water saturation by salinity
    real               :: dt_sea    ! sea timestep [s]
+   real               :: dti_sea   ! 1 / sea timestep [s]
 
    real,    parameter :: emi = 1.0 ! emissivity of ice
    real,    parameter :: emw = 1.0 ! emissivity of water

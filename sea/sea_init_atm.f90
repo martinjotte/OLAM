@@ -39,7 +39,7 @@ subroutine sea_init_atm()
 
      ! Initialize canopy depth
 
-     sfcg%can_depth(iwsfc) = 20. * max(1.,.025 * dt_sea)
+     sfcg%can_depth(iwsfc) = 0.5
 
   enddo
   !$omp end parallel do
