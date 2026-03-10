@@ -81,7 +81,6 @@ use mem_flux_accum, only:     rshort_accum,         rshortup_accum, &
         sfluxt_davg,    sfluxr_davg
 
 use oname_coms, only: nl
-use hcane_rz,   only: azimvals
 
 use mem_swtc5_refsoln_cubic
 
@@ -767,7 +766,7 @@ data fldlib(1:4,722:753)/ &
 
 ! Miscellaneous and new additions
 
-data fldlib(1:4,771:818)/ &
+data fldlib(1:4,771:800)/ &
  'RHO_OBS'       ,'T3' ,'NUDGING OBS AIR DENSITY',' (kg m:S2:-3  )'         ,& ! 771
  'THETA_OBS'     ,'T3' ,'NUDGING OBS THETA',' (K)'                          ,& ! 772
  'RRV_OBS'       ,'T3' ,'NUDGING OBS VAPOR MIXR',' (g kg:S2:-1  )'          ,& ! 773
@@ -797,25 +796,7 @@ data fldlib(1:4,771:818)/ &
  'RVORTZW'       ,'T3' ,'REL VORTZ AT W',' (s:S2:-1  )'                     ,& ! 797
  'TVORTZW'       ,'T3' ,'TOT VORTZ AT W',' (s:S2:-1  )'                     ,& ! 798
  'TROPZ'         ,'T2' ,'TROPOPAUSE HEIGHT',' (km)'                         ,& ! 799
- 'TROPP'         ,'T2' ,'TROPOPAUSE PRESSURE',' (mb)'                       ,& ! 800
- 'AZIMVAL1'      ,'T3' ,'AZIMVAL1',' '                                      ,& ! 801
- 'AZIMVAL2'      ,'T3' ,'AZIMVAL2',' '                                      ,& ! 802
- 'AZIMVAL3'      ,'T3' ,'AZIMVAL3',' '                                      ,& ! 803
- 'AZIMVAL4'      ,'T3' ,'AZIMVAL4',' '                                      ,& ! 804
- 'AZIMVAL5'      ,'T3' ,'AZIMVAL5',' '                                      ,& ! 805
- 'AZIMVAL6'      ,'T3' ,'AZIMVAL6',' '                                      ,& ! 806
- 'AZIMVAL7'      ,'T3' ,'AZIMVAL7',' '                                      ,& ! 807
- 'AZIMVAL8'      ,'T3' ,'AZIMVAL8',' '                                      ,& ! 808
- 'AZIMVAL9'      ,'T3' ,'AZIMVAL9',' '                                      ,& ! 809
- 'AZIMVAL10'     ,'T3' ,'AZIMVAL10',' '                                     ,& ! 810
- 'AZIMVAL11'     ,'T3' ,'AZIMVAL11',' '                                     ,& ! 811
- 'AZIMVAL12'     ,'T3' ,'AZIMVAL12',' '                                     ,& ! 812
- 'AZIMVAL13'     ,'T3' ,'AZIMVAL13',' '                                     ,& ! 813
- 'AZIMVAL14'     ,'T3' ,'AZIMVAL14',' '                                     ,& ! 814
- 'AZIMVAL15'     ,'T3' ,'AZIMVAL15',' '                                     ,& ! 815
- 'AZIMVAL16'     ,'T3' ,'AZIMVAL16',' '                                     ,& ! 816
- 'AZIMVAL17'     ,'T3' ,'AZIMVAL17',' '                                     ,& ! 817
- 'AZIMVAL18'     ,'T3' ,'AZIMVAL18',' '                                      / ! 818
+ 'TROPP'         ,'T2' ,'TROPOPAUSE PRESSURE',' (mb)'                        / ! 800
 
 ! External fields
 
@@ -5251,96 +5232,6 @@ case(800) ! 'TROPP'
 
    call comp_trop_height(i,fldval,1)
    fldval = fldval * 1.e-2  ! mb
-
-case(801) ! 'AZIMVAL1'
-
-   if (.not. allocated(azimvals)) go to 1000
-   fldval = azimvals(k,i,1)
-
-case(802) ! 'AZIMVAL2'
-
-   if (.not. allocated(azimvals)) go to 1000
-   fldval = azimvals(k,i,2)
-
-case(803) ! 'AZIMVAL3'
-
-   if (.not. allocated(azimvals)) go to 1000
-   fldval = azimvals(k,i,3)
-
-case(804) ! 'AZIMVAL4'
-
-   if (.not. allocated(azimvals)) go to 1000
-   fldval = azimvals(k,i,4)
-
-case(805) ! 'AZIMVAL5'
-
-   if (.not. allocated(azimvals)) go to 1000
-   fldval = azimvals(k,i,5)
-
-case(806) ! 'AZIMVAL6'
-
-   if (.not. allocated(azimvals)) go to 1000
-   fldval = azimvals(k,i,6)
-
-case(807) ! 'AZIMVAL7'
-
-   if (.not. allocated(azimvals)) go to 1000
-   fldval = azimvals(k,i,7)
-
-case(808) ! 'AZIMVAL8'
-
-   if (.not. allocated(azimvals)) go to 1000
-   fldval = azimvals(k,i,8)
-
-case(809) ! 'AZIMVAL9'
-
-   if (.not. allocated(azimvals)) go to 1000
-   fldval = azimvals(k,i,9)
-
-case(810) ! 'AZIMVAL10'
-
-   if (.not. allocated(azimvals)) go to 1000
-   fldval = azimvals(k,i,10)
-
-case(811) ! 'AZIMVAL11'
-
-   if (.not. allocated(azimvals)) go to 1000
-   fldval = azimvals(k,i,11)
-
-case(812) ! 'AZIMVAL12'
-
-   if (.not. allocated(azimvals)) go to 1000
-   fldval = azimvals(k,i,12)
-
-case(813) ! 'AZIMVAL13'
-
-   if (.not. allocated(azimvals)) go to 1000
-   fldval = azimvals(k,i,13)
-
-case(814) ! 'AZIMVAL14'
-
-   if (.not. allocated(azimvals)) go to 1000
-   fldval = azimvals(k,i,14)
-
-case(815) ! 'AZIMVAL15'
-
-   if (.not. allocated(azimvals)) go to 1000
-   fldval = azimvals(k,i,15)
-
-case(816) ! 'AZIMVAL16'
-
-   if (.not. allocated(azimvals)) go to 1000
-   fldval = azimvals(k,i,16)
-
-case(817) ! 'AZIMVAL17'
-
-   if (.not. allocated(azimvals)) go to 1000
-   fldval = azimvals(k,i,17)
-
-case(818) ! 'AZIMVAL18'
-
-   if (.not. allocated(azimvals)) go to 1000
-   fldval = azimvals(k,i,18)
 
 case default
 

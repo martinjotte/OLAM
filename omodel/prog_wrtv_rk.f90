@@ -83,7 +83,6 @@ subroutine prog_wrtv_rk()
                           vc03d
   use mem_nudge,    only: vmanud, nudflag
   use mem_lp,       only: vxeh, vyeh, vzeh
-  use hcane_rz,     only: vmxeth, vmyeth, vmzeth
 
   implicit none
 
@@ -186,12 +185,6 @@ subroutine prog_wrtv_rk()
         vmzet_short(k,iw) = vmzet(k,iw) * v4
      enddo
 
-     if (allocated(vmxeth)) then
-        vmxeth(lpw(iw):mza,iw,1) = vmxeth(lpw(iw):mza,iw,1) + vmxet_short(lpw(iw):mza,iw)  ! H1: cuparm and lat friction
-        vmyeth(lpw(iw):mza,iw,1) = vmyeth(lpw(iw):mza,iw,1) + vmyet_short(lpw(iw):mza,iw)  ! (cut cells) in vmxet_short now
-        vmzeth(lpw(iw):mza,iw,1) = vmzeth(lpw(iw):mza,iw,1) + vmzet_short(lpw(iw):mza,iw)
-     endif
-
      if (thil_monot) then
         do k = lpw(iw), mza
            thl0(k,iw) = thil(k,iw)
@@ -222,12 +215,6 @@ subroutine prog_wrtv_rk()
      call solve_eddy_diff_heat(iw, thilt_short(:,iw))
      call solve_eddy_diff_vxe (iw, vmxet_short(:,iw), vmyet_short(:,iw), &
                                    vmzet_short(:,iw))
-
-     if (allocated(vmxeth)) then
-        vmxeth(lpw(iw):mza,iw,2) = vmxeth(lpw(iw):mza,iw,2) + vmxet_short(lpw(iw):mza,iw)  !H2: vert diff just added to vmxet_short
-        vmyeth(lpw(iw):mza,iw,2) = vmyeth(lpw(iw):mza,iw,2) + vmyet_short(lpw(iw):mza,iw)
-        vmzeth(lpw(iw):mza,iw,2) = vmzeth(lpw(iw):mza,iw,2) + vmzet_short(lpw(iw):mza,iw)
-     endif
 
      ! Rayleigh friction on velocity gradient at model top
 
@@ -262,12 +249,6 @@ subroutine prog_wrtv_rk()
            vmzet_short(k,iw) = vmzet_short(k,iw) + akmodx(k,iv) * (vze(k,iwn) - vze(k,iw))
         enddo
      enddo
-
-     if (allocated(vmxeth)) then
-        vmxeth(lpw(iw):mza,iw,3) = vmxeth(lpw(iw):mza,iw,3) + vmxet_short(lpw(iw):mza,iw)  !H3: horiz diff just added to vmxet_short
-        vmyeth(lpw(iw):mza,iw,3) = vmyeth(lpw(iw):mza,iw,3) + vmyet_short(lpw(iw):mza,iw)
-        vmzeth(lpw(iw):mza,iw,3) = vmzeth(lpw(iw):mza,iw,3) + vmzet_short(lpw(iw):mza,iw)
-     endif
 
   enddo
   !$omp end do nowait
@@ -516,8 +497,8 @@ subroutine prog_wrt_begs( iw, istage, dt8,                      &
                           thilt_rk, vmxet_rk, vmyet_rk, vmzet_rk, &
                           rho0, rth0, wmc0, vmca )
 
-  use mem_ijtabs,  only: itab_w, istp
-  use mem_basic,   only: wmc, rho, thil, wc, press, vxe, vye, vze, wmasc, &
+  use mem_ijtabs,  only: itab_w
+  use mem_basic,   only: wmc, rho, thil, wc, press, vxe, vye, wmasc, &
                          alpha_press, pwfac
   use misc_coms,   only: nrk_wrtv, mdomain
   use consts_coms, only: cpocv, rocv, fcoriol, pi1, pio180
@@ -528,8 +509,6 @@ subroutine prog_wrt_begs( iw, istage, dt8,                      &
   use tridiag,     only: tridiffo
   use oname_coms,  only: nl
   use mem_nudge,   only: rhot_nud, nudflag, wmanud
-  use hcane_rz,    only: vmxeth, vmyeth, vmzeth
-  use grad_lib,    only: grad_t2d
 
   implicit none
 
@@ -600,17 +579,9 @@ subroutine prog_wrt_begs( iw, istage, dt8,                      &
   real :: b7, b8, b21, b22, b23, b24, b25, b26
   real :: b15(mza), b31(mza), b32(mza), b33(mza)
 
-  real :: gxps(mza), gyps(mza), gzps(mza), horizdiv(mza)
-
   dts = real(dt8)
 
   ka = lpw(iw)
-
-  gxps(:) = 0.
-  gyps(:) = 0.
-  gzps(:) = 0.
-
-  horizdiv(:) = 0.
 
   ! Set bottom & top vertical advective mass, momentum, and heat fluxes to zero
 
@@ -673,7 +644,6 @@ subroutine prog_wrt_begs( iw, istage, dt8,                      &
            vmxet_rk(k,iw) = vmxet_rk(k,iw) + vmca(k,iv) * vxe_upv (k,iv)
            vmyet_rk(k,iw) = vmyet_rk(k,iw) + vmca(k,iv) * vye_upv (k,iv)
            vmzet_rk(k,iw) = vmzet_rk(k,iw) + vmca(k,iv) * vze_upv (k,iv)
-           horizdiv(k)    = horizdiv(k)    + vmca(k,iv)
        enddo
 
      else
@@ -684,34 +654,11 @@ subroutine prog_wrt_begs( iw, istage, dt8,                      &
            vmxet_rk(k,iw) = vmxet_rk(k,iw) - vmca(k,iv) * vxe_upv (k,iv)
            vmyet_rk(k,iw) = vmyet_rk(k,iw) - vmca(k,iv) * vye_upv (k,iv)
            vmzet_rk(k,iw) = vmzet_rk(k,iw) - vmca(k,iv) * vze_upv (k,iv)
-           horizdiv(k)    = horizdiv(k)    - vmca(k,iv)
         enddo
 
      endif
 
   enddo
-
-  if (allocated(vmxeth) .and. istage == nrk_wrtv) then
-
-     !H4: horiz advection just added to vmxet_rk
-     vmxeth(ka:mza,iw,4) = vmxeth(ka:mza,iw,4) + vmxet_rk(ka:mza,iw)
-     vmyeth(ka:mza,iw,4) = vmyeth(ka:mza,iw,4) + vmyet_rk(ka:mza,iw)
-     vmzeth(ka:mza,iw,4) = vmzeth(ka:mza,iw,4) + vmzet_rk(ka:mza,iw)
-
-     !H7: V dot del(vxe)
-     call grad_t2d(iw, vxe, gxps(:), gyps(:))
-     vmxeth(ka:mza,iw,7) = vmxeth(ka:mza,iw,7) + 2.4 * gxps(ka:mza) + 1.5 * gyps(ka:mza)
-     call grad_t2d(iw, vye, gxps(:), gyps(:))
-     vmyeth(ka:mza,iw,7) = vmyeth(ka:mza,iw,7) + 2.4 * gxps(ka:mza) + 1.5 * gyps(ka:mza)
-     call grad_t2d(iw, vze, gxps(:), gyps(:))
-     vmzeth(ka:mza,iw,7) = vmzeth(ka:mza,iw,7) + 2.4 * gxps(ka:mza) + 1.5 * gyps(ka:mza)
-
-     !H8: vze * del dot horiz flux
-     vmxeth(ka:mza,iw,8) = vmxeth(ka:mza,iw,8) + horizdiv(ka:mza) * vxe(ka:mza,iw)
-     vmyeth(ka:mza,iw,8) = vmyeth(ka:mza,iw,8) + horizdiv(ka:mza) * vye(ka:mza,iw)
-     vmzeth(ka:mza,iw,8) = vmzeth(ka:mza,iw,8) + horizdiv(ka:mza) * vze(ka:mza,iw)
-
-  endif
 
   if (mdomain > 1) then
 
@@ -733,13 +680,6 @@ subroutine prog_wrt_begs( iw, istage, dt8,                      &
         vmyet_rk(k,iw) = vmyet_rk(k,iw) - mass * fcoriol * vxe(k,iw)
      enddo
 
-  endif
-
-  if (allocated(vmxeth) .and. istage == nrk_wrtv) then
-     !H5: Coriolis just added to vmxet_rk
-     vmxeth(ka:mza,iw,5) = vmxeth(ka:mza,iw,5) + vmxet_rk(ka:mza,iw)
-     vmyeth(ka:mza,iw,5) = vmyeth(ka:mza,iw,5) + vmyet_rk(ka:mza,iw)
-     vmzeth(ka:mza,iw,5) = vmzeth(ka:mza,iw,5) + vmzet_rk(ka:mza,iw)
   endif
 
   ! Explicit density and theta tendency terms
@@ -902,16 +842,6 @@ subroutine prog_wrt_begs( iw, istage, dt8,                      &
      vmzet_rk(k,iw) = vmzet_rk(k,iw) + vflux_vze(k-1) - vflux_vze(k)
 
   enddo
-
-  if (allocated(vmxeth) .and. istage == nrk_wrtv) then
-     vmxeth(ka:mza,iw,6) = vmxeth(ka:mza,iw,6) + vmxet_rk(ka:mza,iw)  !H6: vert advec just added to vmxet_rk
-     vmyeth(ka:mza,iw,6) = vmyeth(ka:mza,iw,6) + vmyet_rk(ka:mza,iw)
-     vmzeth(ka:mza,iw,6) = vmzeth(ka:mza,iw,6) + vmzet_rk(ka:mza,iw)
-
-     vmxeth(ka:mza,iw,9) = vmxeth(ka:mza,iw,9) + (wma(ka-1:mza-1) - wma(ka:mza)) * vxe(ka:mza,iw)
-     vmyeth(ka:mza,iw,9) = vmyeth(ka:mza,iw,9) + (wma(ka-1:mza-1) - wma(ka:mza)) * vye(ka:mza,iw)
-     vmzeth(ka:mza,iw,9) = vmzeth(ka:mza,iw,9) + (wma(ka-1:mza-1) - wma(ka:mza)) * vze(ka:mza,iw)
-  endif
 
   ! For shallow water test cases 2 & 5, rho & press are
   ! interpreted as water depth & height

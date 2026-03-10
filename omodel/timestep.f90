@@ -1,6 +1,6 @@
 subroutine timestep()
 
-use misc_coms,   only: time8, time_istp8, time_istp8p, time_bias, io6, &
+use misc_coms,   only: time8, time_istp8, time_istp8p, time_bias, &
                        nqparm, initial, ilwrtyp, iswrtyp, dtsm, i_o3, &
                        iparallel, s1900_init, s1900_sim, do_chem
 use mem_ijtabs,  only: nstp, istp, mrls, mrl_begl, mrl_endl
@@ -383,7 +383,7 @@ subroutine modsched()
   use misc_coms,   only: io6, dtlong, nacoust, dtlm, dtsm
   use leaf_coms,   only: dt_leaf
   use lake_coms,   only: dt_lake
-  use sea_coms,    only: dt_sea
+  use sea_coms,    only: dt_sea, dti_sea
   use sea_swm,     only: dt_swm, niter_swm
 
   implicit none
@@ -404,6 +404,8 @@ subroutine modsched()
   dt_sea  = dtlm
   dt_lake = dtlm
   dt_swm  = dtlm / real(niter_swm)
+
+  dti_sea = 1.0 / dt_sea
 
   ! Allocate mrl-schedule arrays
 
@@ -429,14 +431,11 @@ subroutine tend0(rho_old)
 
   use var_tables,  only: scalar_tab, num_scalar
   use mem_tend,    only: thilt, vmxet, vmyet, vmzet, vmt
-  use misc_coms,   only: nrk_scal
   use mem_sfcg,    only: mwsfc, sfcg
   use mem_basic,   only: vmasc, wmasc, rho
   use mem_grid,    only: mza, mwa, mva, lpw, lpv
   use consts_coms, only: r8
-  use mem_para,    only: myrank
   use mem_lp,      only: vxeh, vyeh, vzeh
-  use hcane_rz,    only: vmxeth, vmyeth, vmzeth
 
   implicit none
 
@@ -463,15 +462,7 @@ subroutine tend0(rho_old)
            vzeh(k,iw) = 0.0
         enddo
      endif
-     
-     if (allocated(vmxeth)) then
-        do k = lpw(iw), mza    
-           vmxeth(k,iw,:) = 0.0
-           vmyeth(k,iw,:) = 0.0
-           vmzeth(k,iw,:) = 0.0
-        enddo
-     endif
-     
+
      do n = 1, num_scalar
         do k = lpw(iw), mza
            scalar_tab(n)%var_t(k,iw) = 0.0
@@ -577,7 +568,6 @@ subroutine timeavg_momsc()
   use mem_basic,  only: vmasc, wmasc
   use consts_coms,only: r8
   use mem_lp,     only: vxeh, vyeh, vzeh
-  use hcane_rz,   only: vmxeth, vmyeth, vmzeth
 
   implicit none
 
@@ -615,19 +605,6 @@ subroutine timeavg_momsc()
         enddo
         !$omp end do nowait
      endif
-     
-     if (allocated(vmxeth)) then
-        !$omp do private(iw,k)
-        do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
-           do k = lpw(iw), mza
-              vmxeth(k,iw,:) = vmxeth(k,iw,:) * acoi
-              vmyeth(k,iw,:) = vmyeth(k,iw,:) * acoi
-              vmzeth(k,iw,:) = vmzeth(k,iw,:) * acoi
-           enddo
-        enddo
-        !$omp end do nowait
-     endif
-     
      !$omp end parallel
 
   endif
