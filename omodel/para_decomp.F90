@@ -448,7 +448,13 @@ subroutine para_decomp()
      do im = 2, nma
         if (itab_m_pd(im)%npoly < 3) then
 
-           itabg_m(im)%irank = itabg_w( itab_m_pd(im)%iw(1) )%irank
+           if (itab_m_pd(im)%iw(3) > 1) then
+              itabg_m(im)%irank = itabg_w( itab_m_pd(im)%iw(3) )%irank
+           elseif (itab_m_pd(im)%iw(2) > 1) then
+              itabg_m(im)%irank = itabg_w( itab_m_pd(im)%iw(2) )%irank
+           else
+              itabg_m(im)%irank = itabg_w( itab_m_pd(im)%iw(1) )%irank
+           endif
 
         else
 

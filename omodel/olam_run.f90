@@ -320,8 +320,10 @@ subroutine olam_run(name_name)
      write(io6,'(/,a)') 'olam_run calling olam_mpi_atm_start'
      call olam_mpi_atm_start()
 
-     write(io6,'(/,a)') 'olam_run calling olam_mpi_sfc_start'
-     call olam_mpi_sfc_start()
+     if (isfcl == 1) then
+        write(io6,'(/,a)') 'olam_run calling olam_mpi_sfc_start'
+        call olam_mpi_sfc_start()
+     endif
 
      if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) then
         write(io6,'(/,a)') 'olam_run calling olam_mpi_sfc_start'
@@ -930,7 +932,9 @@ subroutine olam_run(name_name)
 
      call olam_mpi_atm_stop()
 
-     call olam_mpi_sfc_stop()
+     if (isfcl == 1) then
+        call olam_mpi_sfc_stop()
+     endif
 
      if (mdomain == 0 .and. nudflag > 0 .and. nudnxp > 0) then
         call olam_mpi_nud_stop()
