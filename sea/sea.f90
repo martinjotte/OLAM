@@ -602,7 +602,7 @@ subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, vels, 
   real    :: wt1, wt2        ! Interpolation weights [ ]
   integer :: ind             ! Interpolation index
 
-  real(r8) :: a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14
+  real(r8) :: a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12
   real(r8) :: h1, h2,     h4, h5, h6, h7, h8, h9, h10, h11
   real(r8) :: y1, y2, y3, y4, y5, y6, y7, y8, y9, y10, y11, y12
 
@@ -932,9 +932,9 @@ subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, vels, 
 
      bcan_rhov = bcanrrv * rhos
      bcanair   = rhos * max(zspray - can_depth, 1.)
-     bcanairi  = 1. / canair
-     hcapbcan  = cp * canair
-     hcapbcani = 1. / hcapcan
+     bcanairi  = 1. / bcanair
+     hcapbcan  = cp * bcanair
+     hcapbcani = 1. / hcapbcan
 
      spray_rhovs   = fssat * rhovsl(spraytemp        - 273.15)
      spray_rhovsp  = fssat * rhovsl(spraytemp  + 1.0 - 273.15) - spray_rhovs
@@ -970,6 +970,12 @@ subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, vels, 
      h10 = fcn * hcapbcani
      h11 = fcn * bcanairi
 
+     ! The heat fluxes HSD and HSE with the ocean are computed as A7 * (seatc - spraytemp)
+     ! and A8 * (seatc - spray2temp). This takes into account that the extensive energy of
+     ! the spray added is A7 * seatc, but then this added mass either leaves the system by
+     ! evaporation or falling back to the sea or goes into storage, all at the spraytemp.
+     ! The total affect of the added drops is than A7 * (seatc - spraytemp).
+
      y1  = spray_rhovs  - bcan_rhov
      y2  = sfc_rhovs    - can_rhov
      y4  = spraytemp    - bcantemp
@@ -982,9 +988,6 @@ subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, vels, 
      y10 = bcantemp     - airtheta * PBovP0_rocp
      y11 = canrrv       - bcanrrv
      y12 = cantemp      - bcantemp * PSovPB_rocp
-
-     a13 = cliq * a1 * y1
-     a14 = cliq * a3 * y6
 
      ! Set up and solve 12x12 matrix equation (trapezoidal implicit method) to balance
      ! vapor and heat fluxes between canopy air, sea spray, and the ocean surface.
@@ -1045,11 +1048,11 @@ subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, vels, 
      aa12(4,12) =       - a6 * h7
      yy12(4)    =         a6 * y5  ! HSC row
 
-     aa12(5,1)  =       - (a7 - a13) * h5 * alvl - cliq * spraytemp
+     aa12(5,1)  =       - a7 * h5 * alvl
      aa12(5,2)  = 0._r8
-     aa12(5,3)  =       - (a7 - a13) * h5
+     aa12(5,3)  =       - a7 * h5
      aa12(5,4)  = 0._r8
-     aa12(5,5)  = 1._r8 + (a7 - a13) * h5
+     aa12(5,5)  = 1._r8 + a7 * h5
      aa12(5,6)  = 0._r8
      aa12(5,7)  = 0._r8
      aa12(5,8)  = 0._r8
@@ -1092,9 +1095,9 @@ subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, vels, 
      aa12(8,3)  = 0._r8
      aa12(8,4)  = 0._r8
      aa12(8,5)  = 0._r8
-     aa12(8,6)  =       - (a8 - a14) * h6 * alvl - cliq * spray2temp
-     aa12(8,7)  =       - (a8 - a14) * h6
-     aa12(8,8)  = 1._r8 + (a8 - a14) * h6
+     aa12(8,6)  =       - a8 * h6 * alvl
+     aa12(8,7)  =       - a8 * h6
+     aa12(8,8)  = 1._r8 + a8 * h6
      aa12(8,9)  = 0._r8
      aa12(8,10) = 0._r8
      aa12(8,11) = 0._r8
@@ -1174,11 +1177,6 @@ subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, vels, 
            aa12(6,6) = 1._r8
            yy12(6)   = .999 * spray2_massflux * dt_sea
 
-           a14       = yy12(6) * cliq
-           aa12(8,6) =       - (a8 - a14) * h6 * alvl - cliq * spray2temp
-           aa12(8,7) =       - (a8 - a14) * h6
-           aa12(8,8) = 1._r8 + (a8 - a14) * h6
-
            converged = .false.
         endif
 
@@ -1188,11 +1186,6 @@ subroutine seacell_2( isea, iwsfc, rhos, ustar, vkhsfc, can_depth, seatc, vels, 
            aa12(1,:) = 0._r8
            aa12(1,1) = 1._r8
            yy12(1)   = .999 * spray_massflux * dt_sea
-
-           a13       = yy12(1) * cliq
-           aa12(5,1) =       - (a7 - a13) * h5 * alvl - cliq * spraytemp
-           aa12(5,3) =       - (a7 - a13) * h5
-           aa12(5,5) = 1._r8 + (a7 - a13) * h5
 
            converged = .false.
         endif
