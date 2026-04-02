@@ -13,13 +13,14 @@ contains
     !   3. Cloud-top radiational cooling scaling, Lock et al. (2000)
 
     use mem_cuparm,  only: iactcu, qwcon
-    use mem_grid,    only: mza, zm, zt, dzm, dzimsq, lpw, lsw, arw, dzit_bot
+    use mem_grid,    only: mza, zm, zt, dzm, dzt, dzimsq, lpw, lsw, dzit_bot
     use consts_coms, only: vonk, grav, grav2, alvl, rvap, eps_virt, &
                            alvlocp, alviocp, eps_virt, cpio2
     use mem_radiate, only: cloud_frac, pbl_cld_forc
     use mem_basic,   only: vxe, vye, vze, rr_v, rr_w, tair, theta, rho
-    use mem_turb,    only: frac_sfc, ustar_k, wtv0_k, pblh, kpblh, &
-                           ustar, wstar, moli, vkh, vkm, agamma, vkm_sfc
+    use mem_turb,    only: frac_sfc, ustar_k, wtv0_k, pblh, kpblh,     &
+                           ustar, wstar, vkh, vkm, akm_sfc, frac_sfck, &
+                           gam_rkm, gam_rkh, frac_norm, arw_sfc
     use mem_micro,   only: rr_c, rr_p
     use therm_lib,   only: rhovsl
     use buoyancy,    only: comp_buoy
@@ -37,18 +38,18 @@ contains
     integer :: k, kpbl, kpblm, kpblp, ks, ka, kpblpp, kpblmm
     real    :: zagl, zoh, zol, zsol, zi
     real    :: dthl, dqt, dql, cfac, qsat, gams, chi_s, dbwet, db
-    real    :: kprof, rlam, shear, molkm, vels2
-    real    :: zk, sql, fm, ri
-    real    :: phimi, phihi
-    real    :: wm, a0
+    real    :: kprofm, kprofh, rlam, shear, molki, vels2, dissk
+    real    :: zfac, wstar_k, wnonloc, pr, gam
+    real    :: zk, sql, fm, ri, dens
+    real    :: phimi, phihi, phim
     real    :: we, dthv, wcloud, wboyr3
-    real    :: rho4
     real    :: qliqm, qliq, qliqp
     real    :: qicem, qice, qicep
     real    :: tam, ta, tap
     real    :: thlm, thl, thlp
     real    :: qtm, qt, qtp
     real    :: qlm, ql, qlp
+    real    :: phim_top, phimi_top
 
     real :: edyzh(mza) ! K-profile eddy diffusivity within PBL
     real :: edyzm(mza) ! K-profile eddy diffusivity within PBL
@@ -57,38 +58,43 @@ contains
     real :: edych(mza)
     real :: edycm(mza)
     real :: kzo  (mza) ! background eddy diffusivity
-    real :: agam (mza) ! nonlocal term
+    real :: gamkm(mza) ! nonlocal term
+    real :: gamkh(mza) ! nonlocal term
     real :: ss   (mza) ! shear squared
     real :: dissp(mza) ! dissipation
 
-    real :: thetav(mza), buoy(mza), ftot(mza)
+    real :: thetav(mza), buoy(mza)
     real :: bt(mza), bq(mza), btwet(mza), bqwet(mza)
 
     ! PARAMETERS
 
-    REAL, PARAMETER :: RLAM_stab =  30.0
-    REAL, PARAMETER :: RLAM_unst = 150.0
-    REAL, PARAMETER :: GAMH      =  16.0  ! Holtslag and Boville (1993)
-    REAL, PARAMETER :: EDYZ0     =   0.0  ! New Min Kz
-    real, parameter :: cs        = 0.2
+    REAL, PARAMETER :: RLAM_stab = 30.0
+    REAL, PARAMETER :: RLAM_unst = 30.0  ! 150.0
+    REAL, PARAMETER :: GAMH      = 16.0  ! Holtslag and Boville (1993)
+    REAL, PARAMETER :: EDYZ0     =  0.0  ! New Min Kz
+    real, parameter :: cs        =  0.2
     real, parameter :: onethird  = 1. / 3.
     real, parameter :: alvlorvap = alvl / rvap
     real, parameter :: mvonk     = -vonk
     real, parameter :: vonk72    = 0.72 * vonk
-    real, parameter :: a_nonloc  = 6.0
+    real, parameter :: c1_nonloc = 0.6    ! Holtslag and Boville
+    real, parameter :: a_nonloc  = 7.2    ! Holtslag and Boville
+    real, parameter :: pr_cap    = 1.0    ! Prandl # at top of PBL
+    real, parameter :: pri_cap   = 1.0 / pr_cap
+    real, parameter :: prmin     = 0.5
 
-    kzo   = edyz0
-    edyzh = 0.0
-    edyzm = 0.0
+    kzo  (:) = edyz0
+    edyzh(:) = 0.0
+    edyzm(:) = 0.0
 
-    edyrh = 0.0
-    edyrm = 0.0
+    edyrh(:) = 0.0
+    edyrm(:) = 0.0
 
-    edych = 0.0
-    edycm = 0.0
+    edych(:) = 0.0
+    edycm(:) = 0.0
 
-    agam  = 0.0
-    ftot  = 0.0
+    gamkm(:) = 0.0
+    gamkh(:) = 0.0
 
     kpblpp = min(mza, kpblh(iw)+2)
     kpblp  = min(mza, kpblh(iw)+1)
@@ -115,57 +121,90 @@ contains
 
 !! Holtslag's Eddy-Diffusivity Profile Within the PBL
 
+    phimi_top = 0.
+
     do ks = 1, lsw(iw)
        ka = lpw(iw) + ks - 1
 
+       zi    = max( pblh(iw) + zm(lpw(iw)-1) - zm(ka-1), dzt(ka) )
+       molki = -grav * vonk * wtv0_k(ks,iw) / (ustar_k(ks,iw)**3 * thetav(ka))
+
+       if (molki <= 0.) then
+          phimi_top = phimi_top + frac_sfc(ks,iw)
+       else
+          zol = zi * molki
+          phim_top = 1.0 + 5.0 * zol
+          ! This prevents diffusivities from getting too small
+          ! in stable PBL, check if necessary:
+          if (zol > 1.0) phim_top = 5.0 + zol
+          phimi_top = phimi_top + frac_sfc(ks,iw) / phim_top
+       endif
+
        if (ka > kpbl-1 .or. frac_sfc(ks,iw) < 1.e-4) cycle
 
-       zi    = pblh(iw) + zm(lpw(iw)-1) - zm(ka-1)
-       molkm = -grav * vonk * wtv0_k(ks,iw) / (ustar_k(ks,iw)**3 * thetav(ka))
+       if ( molki >= 0. ) then
 
-       ! Vertical loop over W levels
-       do k = ka, kpbl-1
-          zagl     = zm(k) - zm(ka-1)
+          ! Vertical loop over W levels
+          do k = ka, kpbl-1
+             zagl = zm(k) - zm(ka-1)
+             zol  = zagl * molki
 
-          zol      = zagl * molkm
-          zsol     = min(0.1 * zi, zagl) * molkm
+             phim = 1.0 + 5.0 * zol
+             ! This prevents diffusivities from getting too small
+             ! in stable PBL, check if necessary:
+             if (zol > 1.0) phim = 5.0 + zol
 
-          if (zol < 0.0) then
-!            phihi = (1.0 - gamh * zsol)**0.50
-!            phimi = (1.0 - gamh * zsol)**0.25
-             phihi = sqrt(1.0 - gamh * zsol)
-             phimi = sqrt(phihi)
-          elseif (zol <= 1.0) then
-             phihi = 1.0 + 5.0 * zol
-             phimi = phihi
-          else
-             phihi = 5.0 + zol
-             phimi = phihi
-          endif
+             phimi = 1.0 / phim
+             zfac  = 1. - zagl / zi
 
-          kprof    = vonk * ustar_k(ks,iw) * zagl * (1.0 - zagl/zi)**2
-          edyzh(k) = edyzh(k) + frac_sfc(ks,iw) * kprof * phihi
-          edyzm(k) = edyzm(k) + frac_sfc(ks,iw) * kprof * phimi
-          ftot (k) = ftot (k) + frac_sfc(ks,iw)
-       enddo
+             kprofm   = frac_sfc(ks,iw) * vonk * ustar_k(ks,iw) * phimi * zagl * zfac**2
+             edyzm(k) = edyzm(k) + kprofm
+             edyzh(k) = edyzh(k) + kprofm
+          enddo
+
+       else
+
+          wstar_k = ( grav / thetav(ka) * zi * wtv0_k(ks,iw) )**onethird
+          wnonloc = ( ustar_k(ks,iw)**3 + c1_nonloc * wstar_k**3 )**onethird
+
+          zsol = 0.1 * zi * molki
+          phihi = (1.0 - gamh * zsol)**0.5
+          phimi = (1.0 - gamh * zsol)**onethird
+          pr = max( phimi / phihi, prmin )
+
+          ! Vertical loop over W levels
+          do k = ka, kpbl-1
+             zagl = zm(k) - zm(ka-1)
+             zsol = min(0.1 * zi, zagl) * molki
+
+             phihi = (1.0 - gamh * zsol)**0.50
+             phimi = (1.0 - gamh * zsol)**onethird
+
+             zfac = 1. - zagl / zi
+
+             kprofm   = frac_sfc(ks,iw) * vonk * ustar_k(ks,iw) * phimi * zagl * zfac**2
+             kprofh   = kprofm / pr
+             edyzm(k) = edyzm(k) + kprofm
+             edyzh(k) = edyzh(k) + kprofh
+
+             gam      = a_nonloc * wstar_k / (wnonloc**2 * zi)
+             gamkm(k) = gamkm(k) + gam * kprofm
+             gamkh(k) = gamkh(k) + gam * kprofm
+          enddo
+
+       endif
     enddo
 
     ka = lpw(iw)
 
-    do k = lpw(iw), kpbl-1
-       fm = 1.0 / max(ftot(k), 1.e-7)
-       edyzh(k) = edyzh(k) * fm
-       edyzm(k) = edyzm(k) * fm
+    do ks = 1, lsw(iw)-1
+       k  = ka + ks - 1
+       edyzh(k) = edyzh(k) * frac_norm(ks,iw)
+       edyzm(k) = edyzm(k) * frac_norm(ks,iw)
+
+       gamkh(k) = gamkh(k) * frac_norm(ks,iw)
+       gamkm(k) = gamkm(k) * frac_norm(ks,iw)
     enddo
-
-    if (wstar(iw) > .01 .and. kpblh(iw) - lpw(iw) > max(4,lsw(iw))) then
-       wm = (ustar(iw)**3 + 0.6 * wstar(iw)**3) ** onethird
-       a0 = 0.5 * a_nonloc * wstar(iw) / (wm**2 * pblh(iw))
-
-       do k = lpw(iw), kpbl-1
-          agam(k) = a0 * arw(k,iw) * edyzh(k) * (rho(k,iw) + rho(k+1,iw))
-       enddo
-    endif
 
 !! Lock's Cloud-Top Driven Eddy-Diffusivity Profile
 
@@ -179,17 +218,17 @@ contains
        do k = lpw(iw), kpbl-1
           zagl     = zm(k) - zm(lpw(iw)-1)
           zoh      = zagl / pblh(iw)
-          kprof    = vonk * wcloud * pblh(iw) * zoh**3 * sqrt(1.0 - zoh)
+          kprofm   = vonk * wcloud * pblh(iw) * zoh**3 * sqrt(1.0 - zoh)
 
-          edych(k) =        kprof
-          edycm(k) = 0.75 * kprof
+          edycm(k) = kprofm
+          edych(k) = kprofm * pri_cap
        enddo
 
     endif
 
 !! Explicit inclusion of entrainment
 
-    if (moli(iw) < 0.0 .or. wcloud > 1.e-7) then
+!   if (moli(iw) < 0.0 .or. wcloud > 1.e-7) then
 
        if (allocated(rr_c) .and. nl%moist_buoy > 0) then
           qliqm = rr_c(kpblm,iw)
@@ -251,7 +290,7 @@ contains
           dql = max(ql, qlm) - min(ql,qlp)
 
 !         if ( ql > 1.e-8 .and. cfac > 0.05 .and. dthv > 1.e-9) then
-          if (dql > 1.e-8 .and. cfac > 0.05 .and. dthv > 1.e-9) then
+          if (dql > 1.e-8 .and. cfac > 0.05 .and. dthv > 1.e-6) then
 
              if (pblh(iw) > zt(kpbl) - zm(lpw(iw)-1)) then
                 k = kpbl
@@ -274,18 +313,18 @@ contains
 
        zi = max(pblh(iw), zm(ka+1) - zm(ka-1))
 
-       we = 0.24 * (wstar(iw)**3 + wcloud**3 + 15.0*ustar(iw)**3 + wboyr3) &
-                 * thetav(kpblm) / (grav * zi * max(dthv,0.5))
+       we = 0.24 * (wstar(iw)**3 + wcloud**3 + 15.0*(ustar(iw)*phimi_top)**3 + wboyr3) &
+                 * thetav(kpblm) / (grav * max(zi,200.) * max(dthv,0.5))
 
        we = min(we, 0.5)
 
-       edych(kpbl) =        we * dzm(kpbl)
-       edycm(kpbl) = 0.66 * we * dzm(kpbl)
+       edych(kpbl) =          we * dzm(kpbl)
+       edycm(kpbl) = pr_cap * we * dzm(kpbl)
 
-       edych(kpblm) = max(       we * dzm(kpblm), edych(kpblm))
-       edycm(kpblm) = max(0.66 * we * dzm(kpblm), edycm(kpblm))
+       edych(kpblm) = max(         we * dzm(kpblm), edych(kpblm))
+       edycm(kpblm) = max(pr_cap * we * dzm(kpblm), edycm(kpblm))
 
-    endif
+!   endif
 
 !! Louis's Richardson-number dependent eddy diffusivity
 
@@ -304,60 +343,71 @@ contains
 
        if (ri < 0.) then
 
-          rlam = min(rlam_unst, cs * dzm(k))
-
+          rlam = rlam_unst
           sql = (zk * rlam / (rlam + zk))**2
 
-!         phimi = (1.0 - 16.0 * ri)**0.25
-!         phihi = (1.0 - 16.0 * ri)**0.50
-          phihi = sqrt(1.0 - 16.0 * ri)
-          phimi = sqrt(phihi)
+          phihi = (1.0 - 16.0 * ri)**0.50
+          phimi = (1.0 - 16.0 * ri)**onethird
 
           edyrm(k) = shear * sql * phimi * phimi
           edyrh(k) = shear * sql * phimi * phihi
 
-       elseif (ri < 0.5) then
+       else ! test NOT limiting ri ! if (ri < 0.5) then
 
-          rlam = min(rlam_stab, cs * dzm(k))
-
+          rlam = rlam_stab
           sql = (zk * rlam / (rlam + zk))**2
 
-!         pr = min(1.0 + 3.7 * ri, 3.0)
-!         fh = 1.0 / (1.0 + ri * ( 10.0 + ri * ( 50.0 + 5000.0 * ri * ri ) ) )
-!         fm = fh * pr
-          fm = (1.0 - 2.*ri)**5
-
-          edyrm(k) = shear * sql * fm
-          edyrh(k) = edyrm(k)
-!         edyrh(k) = shear * sql * fh
-!         edyrm(k) = (1.0 - 2. * ri)
+          ! ECMWF stability functions, based on Louis et al. (1982)
+          ! with modifications by Viterbo et al. (1999)
+          edyrm(k) = shear * sql / (1. + 10. * ri / sqrt(1. + ri))
+          edyrh(k) = shear * sql / (1. + 10. * ri * sqrt(1. + ri))
 
        endif
 
     enddo
 
     do k = lpw(iw), mza-1
-
-       rho4 = 0.5 * real(rho(k+1,iw) + rho(k,iw))
+       dens = 0.5 * real(rho(k+1,iw) + rho(k,iw))
 
        vkh(k,iw) = max( edyrh(k), edyzh(k) + edych(k), kzo(k) )
        vkh(k,iw) = min( vkh(k,iw), 1000.0 )
-       vkh(k,iw) = rho4 * vkh(k,iw)
+       vkh(k,iw) = dens * vkh(k,iw)
 
        vkm(k,iw) = max( edyrm(k), edyzm(k) + edycm(k), kzo(k) )
        vkm(k,iw) = min( vkm(k,iw), 1000.0 )
-       vkm(k,iw) = rho4 * vkm(k,iw)
+       vkm(k,iw) = dens * vkm(k,iw)
+
+       gam_rkh(k,iw) = dens * gamkh(k)
+       gam_rkm(k,iw) = dens * gamkm(k)
 
        dissp(k) = ss(k) * vkm(k,iw)
     enddo
 
-    agamma(:,iw) = agam
+    vkm    (mza,iw) = 0.0
+    vkh    (mza,iw) = 0.0
+    gam_rkh(mza,iw) = 0.0
+    gam_rkm(mza,iw) = 0.0
+
+    vkm    (1:ka-1,iw) = 0.0
+    vkh    (1:ka-1,iw) = 0.0
+    gam_rkh(1:ka-1,iw) = 0.0
+    gam_rkm(1:ka-1,iw) = 0.0
 
     ! Compute surface dissipation
 
     vels2       = vxe(ka,iw)**2 + vye(ka,iw)**2 + vze(ka,iw)**2
-    dissp(ka-1) = vkm_sfc(iw) * vels2 * dzit_bot(ka)**2
+    dissp(ka-1) = akm_sfc(1,iw) * vels2 * dzit_bot(ka)**2 / arw_sfc(1,iw)
     dissp(mza)  = 0.0
+
+    ! Special for shaved cells (if multiple surface overlaps)
+
+    do ks = 2, lsw(iw)
+       k = ks + ka - 1
+       vels2      = vxe(k,iw)**2 + vye(k,iw)**2 + vze(k,iw)**2
+       dissk      = akm_sfc(ks,iw) * vels2 * dzit_bot(k)**2 / max(arw_sfc(ks,iw), 1.e-8)
+       dissp(k-1) = (1. - frac_sfck(ks,iw)) * dissp(k-1) &
+                  +       frac_sfck(ks,iw)  * dissk
+    enddo
 
     ! Apply dissipative heating to THIL
     do k = lpw(iw), mza
@@ -375,10 +425,11 @@ contains
 
     use mem_grid,    only: mza, dzm, dzt, zm, zt, lpw, lsw
     use consts_coms, only: grav, grav2, eps_virt, alvlocp, alviocp
-    use mem_turb,    only: ustar, wstar, wtv0, kpblh, pblh
+    use mem_turb,    only: ustar, wstar, wtv0, kpblh, pblh, vkm, gam_rkm
     use mem_basic,   only: theta, tair, vxe, vye, vze, rr_v
     use mem_radiate, only: pbl_cld_forc
     use mem_micro,   only: rr_c, rr_p
+    use mem_ijtabs,  only: itab_w
 
     implicit none
 
@@ -396,8 +447,9 @@ contains
     real    :: wssq      ! wind shear term in the Richardson number
     real    :: thlv(mza) ! a 'virtual' ice-liquid pot temp
 
-    real    :: vxmix, vymix, vzmix, rib_sav, ql, wss, zi, thl, ric
+    real    :: vxmix, vymix, vzmix, rib_sav, wss, zi, thl, ta, ric
     integer :: k, kbot, ktop, nsfc, kpbl
+    real    :: ql(mza), qi(mza)
 
     real, parameter :: onethird = 1. / 3.
 
@@ -411,21 +463,23 @@ contains
        return
     endif
 
+    ql(:) = 0.0
+    if (allocated(rr_c)) then
+       ql(kbot:ktop) = rr_c(kbot:ktop,iw)
+    endif
+
+    qi(:) = 0.0
+    if (allocated(rr_p)) then
+       qi(kbot:ktop) = rr_p(kbot:ktop,iw)
+    endif
+
     do k = kbot, ktop
-       thl = theta(k,iw)
-       ql  = 0.
+       ta  = max( tair(k,iw), 253. )
 
-       if (allocated(rr_c)) then
-          thl = thl - theta(k,iw) * alvlocp * rr_c(k,iw) / max(tair(k,iw),253.)
-          ql  = ql + rr_c(k,iw)
-       endif
+       thl = theta(k,iw) * ta &
+           / ( ta + alvlocp * ql(k) + alviocp * qi(k) )
 
-       if (allocated(rr_p)) then
-          thl = thl - theta(k,iw) * alviocp * rr_p(k,iw) / max(tair(k,iw),253.)
-          ql  = ql + rr_p(k,iw)
-       endif
-
-       thlv(k) = thl * (1.0 + eps_virt * rr_v(k,iw) - ql)
+       thlv(k) = thl * (1.0 + eps_virt * rr_v(k,iw) - ql(k) - qi(k))
     enddo
 
     ! IF SURFACE LAYER IS UNSTABLE, COMPUTE CONVECTIVE VELOCITY SCALE
@@ -438,7 +492,7 @@ contains
     else
        wscale  = ustar(iw)
        thlvsfc = thlv(kbot)
-       ric     = 0.3
+       ric     = 0.45
     endif
 
     ! FIND FIRST LEVEL ABOVE THE MIXED LAYER, IF IT EXISTS

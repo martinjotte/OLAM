@@ -13,7 +13,7 @@ subroutine pbl_driver()
 
   use mem_grid,       only: mza, lpw
   use misc_coms,      only: idiffk, iparallel
-  use mem_turb,       only: vkm, vkh, kmtop, khtop, kpblh, akm_sfc, ustar, pblh
+  use mem_turb,       only: vkm, vkh, kmtop, khtop, kpblh, akm_sfc, ustar, pblh, sfluxt
   use consts_coms,    only: grav, vonk, eps_virt, alvlocp, r8
   use mem_ijtabs,     only: jtab_w, itab_w, jtw_prog
   use module_bl_acm2, only: acm2_pblhgt, acm2_eddyx
@@ -243,8 +243,9 @@ subroutine pbl_init()
 
   use mem_grid,      only: lsw, lpw, mwa, arw, zfacim2, zfacm2, arw0
   use mem_ijtabs,    only: jtab_w, jtw_prog, itab_w
-  use mem_turb,      only: frac_urb, frac_land, frac_sea, frac_lake, arw_sfc, &
-                           frac_sfc, frac_sfck, ustar, wstar, wtv0, moli, pblh
+  use mem_turb,      only: frac_urb, frac_land, frac_sea, frac_lake, arw_sfc,  &
+                           frac_sfc, frac_sfck, frac_norm, ustar, wstar, wtv0, &
+                           moli, pblh
   use mem_sfcg,       only: sfcg, itab_wsfc
   use misc_coms,     only: runtype, iparallel
   use module_bl_acm2,only: acm2_pblhgt
@@ -306,12 +307,14 @@ subroutine pbl_init()
 
      frac_sfc (:,iw) = 0.
      frac_sfck(:,iw) = 0.
+     frac_norm(:,iw) = 0.
      arw_sfc  (:,iw) = 0.
 
      if (lsw(iw) == 1) then
 
         frac_sfc (1,iw) = 1.0
         frac_sfck(1,iw) = 1.0
+        frac_norm(1,iw) = 1.0
         arw_sfc  (1,iw) = arw0(iw) * zfacm2(lpw(iw)-1)
 
      else
@@ -335,6 +338,12 @@ subroutine pbl_init()
         do ks = 2, lsw(iw)
            k  = lpw(iw) + ks - 1
            frac_sfck(ks,iw) = arw_sfc(ks,iw) / (arw(k,iw) * zfacim2(k) * zfacm2(k-1))
+        enddo
+
+        ! Frac_norm is used to normalize the surface overlaps below lsw
+
+        do ks = 1, lsw(iw)
+           frac_norm(ks,iw) = 1.0 / sum( frac_sfc(1:ks,iw) )
         enddo
 
      endif
@@ -372,8 +381,8 @@ end subroutine pbl_init
 
 subroutine solve_eddy_diff_scalars( iw )
 
-  use mem_grid,   only: mza, arw, volti, lpw, lsw, dzim, arw0i, volt
-  use mem_turb,   only: kpblh, vkh, sfluxr, agamma, khtop
+  use mem_grid,   only: mza, arw, volti, lpw, lsw, dzim, volt
+  use mem_turb,   only: kpblh, vkh, sfluxr, gam_rkh, khtop
   use mem_basic,  only: rho
   use mem_ijtabs, only: itab_w
   use misc_coms,  only: dtlm
@@ -388,12 +397,13 @@ subroutine solve_eddy_diff_scalars( iw )
 
   integer, intent(in) :: iw
 
-  real    :: dtomass(mza), dtorho(mza), akodz(mza)
+  real    :: dtomass(mza), dtorho(mza), akodz(mza), agamma(mza)
   integer :: ka, k, n, ns, kmax, ks
   real    :: vctr5(mza), vctr6(mza), vctr7(mza)
   real    :: soln(mza,num_pblmix), rhs(mza,num_pblmix), varp(mza)
   real    :: dtl, dtli, wc0
   real(r8):: flux(mza)
+  logical :: do_nonloc
 
   ! For DCMIP 2015 baroclinic and tropical cyclone tests, return here so that
   ! vertical mixing is not done by standard OLAM code; instead it will
@@ -428,6 +438,22 @@ subroutine solve_eddy_diff_scalars( iw )
      vctr6(k) = 1. - vctr5(k) - vctr7(k)
   enddo
 
+  ! Non local PBL fluxes
+
+  do_nonloc = .false.
+
+  if (nl%idiffk(itab_w(iw)%mrlw) == 1) then
+     if ( gam_rkh(ka,iw) > 1.e-7 ) then
+
+        do_nonloc = .true.
+
+        do k = ka, kpblh(iw)-1
+           agamma(k) = arw(k,iw) * gam_rkh(k,iw)
+        enddo
+
+     endif
+  endif
+
   ! Load scalars into RHS arrays, including any nonlocal terms
 
   do ns = 1, num_pblmix
@@ -456,34 +482,32 @@ subroutine solve_eddy_diff_scalars( iw )
 
      ! Non local PBL fluxes
 
-     if (nl%idiffk(itab_w(iw)%mrlw) == 1) then
-        if ( agamma(ka,iw) > 1.e-7 * arw(ka,iw) ) then
+     if (do_nonloc) then
 
-           if (ns == 1) then
+        if (ns == 1) then
 
-              ! water vapor
-              wc0 = sfluxr(iw) / real(rho(ka,iw))
+           ! water vapor
+           wc0 = sfluxr(iw) / real(rho(ka,iw))
 
-           else
+        else
 
-              ! estiate surface flux from near-surface tendency
+           ! estimate surface flux from near-surface tendency
 
-              ks = lsw(iw)+1
+           ks = lsw(iw)+1
 
-              wc0 = sum( real(volt(ka:ka+ks,iw)) * scalar_tab(n)%var_t(ka:ka+ks,iw) &
-                       / real(rho(ka:ka+ks,iw)) ) / arw(ka+ks,iw)
-
-           endif
-
-           if (abs(wc0) > 1.e-25) then
-
-              do k = ka, kpblh(iw)
-                 rhs(k,ns) = rhs(k,ns) + wc0 * agamma(k,iw)
-              enddo
-
-           endif
+           wc0 = sum( real(volt(ka:ka+ks,iw)) * scalar_tab(n)%var_t(ka:ka+ks,iw) &
+                    / real(rho(ka:ka+ks,iw)) ) / arw(ka+ks,iw)
 
         endif
+
+        if (abs(wc0) > 1.e-25) then
+
+           do k = ka, kpblh(iw)-1
+              rhs(k,ns) = rhs(k,ns) + wc0 * agamma(k)
+           enddo
+
+        endif
+
      endif
 
   enddo
@@ -518,7 +542,7 @@ end subroutine solve_eddy_diff_scalars
 
 subroutine solve_eddy_diff_heat(iw, thilt)
 
-  use mem_turb,        only: vkh, kpblh, sfluxt, agamma, khtop
+  use mem_turb,        only: vkh, kpblh, sfluxt, gam_rkh, khtop
   use mem_basic,       only: rho, thil, theta, tair
   use misc_coms,       only: dtsm
   use consts_coms,     only: cp, r8
@@ -575,7 +599,6 @@ subroutine solve_eddy_diff_heat(iw, thilt)
   ! Vertical loop over W levels
   do k = ka, khtop(iw)
      akodz    = arw(k,iw) * vkh(k,iw) * dzim(k)
-
      rhs  (k) =  akodz * (varp(k) - varp(k+1))
      vctr5(k) = -akodz * dtomass(k)
      vctr7(k) = -akodz * dtomass(k+1)
@@ -585,18 +608,13 @@ subroutine solve_eddy_diff_heat(iw, thilt)
   ! Non local PBL term
 
   if (nl%idiffk(itab_w(iw)%mrlw) == 1) then
-     if ( agamma(ka,iw) > 1.e-7 * arw(ka,iw) ) then
+     if ( gam_rkh(ka,iw) > 1.e-7 ) then
 
-! Original calculation of wt0 for sfluxt in [kg_dry K m^-2 s^-1]
+        ! New calculation of wt0 for sfluxt in [W m^-2]
+        wt0 = sfluxt(iw) * theta(ka,iw) / ( real(rho(ka,iw)) * cp * tair(ka,iw) )
 
-        ! wt0 = sfluxt(iw) / real(rho(ka,iw))
-
-! New calculation of wt0 for sfluxt in [W m^-2]
-
-        wt0 = sfluxt(iw) * theta(ka,iw) / (real(rho(ka,iw)) * cp * tair(ka,iw))
-
-        do k = ka, kpblh(iw)
-           rhs(k) = rhs(k) + wt0 * agamma(k,iw)
+        do k = ka, kpblh(iw)-1
+           rhs(k) = rhs(k) + wt0 * arw(k,iw) * gam_rkh(k,iw)
         enddo
 
      endif
@@ -621,6 +639,10 @@ subroutine solve_eddy_diff_heat(iw, thilt)
      thilt(k) = thilt(k) + real( flux(k-1) - flux(k) )
   enddo
 
+  do k = ka, kmax
+     varp(k) = thil(k,iw) + dtomass(k) * thilt(k)
+  enddo
+
 end subroutine solve_eddy_diff_heat
 
 !===============================================================================
@@ -629,10 +651,11 @@ subroutine solve_eddy_diff_vxe( iw, vmxet, vmyet, vmzet )
 
   use mem_grid,    only: mza, lpw, lsw, dzit_bot, volti, arw, dzim, dzit_bot
   use mem_basic,   only: rho, vxe, vye, vze
-  use mem_turb,    only: akm_sfc, vkm, kmtop
+  use mem_turb,    only: akm_sfc, vkm, kmtop, ustar_k, frac_sfc, gam_rkm, kpblh
   use misc_coms,   only: dtsm
   use tridiag,     only: tridv
   use oname_coms,  only: nl
+  use mem_ijtabs,  only: itab_w
 
   implicit none
 
@@ -640,10 +663,12 @@ subroutine solve_eddy_diff_vxe( iw, vmxet, vmyet, vmzet )
   real,    intent(inout) :: vmxet(mza), vmyet(mza), vmzet(mza)
 
   integer :: k, ka, ks, kmax
-  real    :: dtom, dts
+  real    :: dtom, dts, fact, dgamma
+  logical :: do_nonlocal
+  real    :: wux0, wuy0, wuz0
 
   real :: akodz(mza), dtomass(mza), soln(mza,3), rhs(mza,3), vctr2(mza,3)
-  real :: vctr3(mza), vctr5(mza), vctr6(mza), vctr7(mza)
+  real :: vctr3(mza), vctr5(mza), vctr6(mza), vctr7(mza), agamma(mza)
 
   ! For DCMIP 2015 baroclinic and tropical cyclone tests, return here so that
   ! vertical mixing is not done by standard OLAM code; instead it will
@@ -687,6 +712,46 @@ subroutine solve_eddy_diff_vxe( iw, vmxet, vmyet, vmzet )
      rhs    (k,3) = vze(k,iw)
   enddo
 
+  ! Non local PBL fluxes
+
+  do_nonlocal = .false.
+
+  if (nl%idiffk(itab_w(iw)%mrlw) == 1) then
+     if ( gam_rkm(ka,iw) > 1.e-7 ) then
+
+        wux0 = 0.
+        wuy0 = 0.
+        wuz0 = 0.
+
+        do_nonlocal = .true.
+
+        agamma( ka-1 ) = 0.
+        do k = ka, kpblh(iw)-1
+           agamma(k) = arw(k,iw) * gam_rkm(k,iw)
+        enddo
+        agamma( kpblh(iw) ) = 0.
+
+        do ks = 1, lsw(iw)
+           k  = ka + ks - 1
+
+           fact = ( frac_sfc(ks,iw) * ustar_k(ks,iw)**2 ) &
+                  / sqrt( vxe(k,iw)**2 + vye(k,iw)**2 + vze(k,iw)**2 )
+
+           wux0 = wux0 - fact * vxe(k,iw)
+           wuy0 = wuy0 - fact * vye(k,iw)
+           wuz0 = wuz0 - fact * vze(k,iw)
+        enddo
+
+        do k = ka, kpblh(iw)
+           dgamma = (agamma(k-1) - agamma(k)) * volti(k,iw)
+           rhs(k,1) = rhs(k,1) + dgamma * wux0
+           rhs(k,2) = rhs(k,2) + dgamma * wuy0
+           rhs(k,3) = rhs(k,3) + dgamma * wuz0
+        enddo
+
+     endif
+  endif
+
   ! Surface drag over multiple levels
 
   do k = ka, ka + lsw(iw) - 1
@@ -711,6 +776,14 @@ subroutine solve_eddy_diff_vxe( iw, vmxet, vmyet, vmzet )
      vctr2(k,2) = akodz(k) * (soln(k,2) - soln(k+1,2))
      vctr2(k,3) = akodz(k) * (soln(k,3) - soln(k+1,3))
   enddo
+
+  if (do_nonlocal) then
+     do k = ka, kpblh(iw)-1
+        vctr2(k,1) = vctr2(k,1) + wux0 * agamma(k)
+        vctr2(k,2) = vctr2(k,2) + wuy0 * agamma(k)
+        vctr2(k,3) = vctr2(k,3) + wuz0 * agamma(k)
+     enddo
+  endif
 
   ! Set bottom and top internal fluxes to zero
 
@@ -738,6 +811,18 @@ subroutine solve_eddy_diff_vxe( iw, vmxet, vmyet, vmzet )
 
      vmzet(k) = vmzet(k) + vctr2(k-1,3) - vctr2(k,3)
   enddo
+
+
+!!  if (iw == 13755) then
+!!     write(*,*) wux0, wuy0, wuz0
+!!     do k = kmax+1, ka, -1
+!!        write(*,'(I4,10g12.4)') k, vxe(k,iw), soln(k,1), vye(k,iw), soln(k,2), vze(k,iw), soln(k,3)
+!!     enddo
+!!     write(*,*)
+!!  endif
+!!
+
+
 
 end subroutine solve_eddy_diff_vxe
 

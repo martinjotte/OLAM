@@ -6,7 +6,8 @@ Module mem_turb
   real,    allocatable :: epsp     (:,:)
   real,    allocatable :: vkm      (:,:)
   real,    allocatable :: vkh      (:,:)
-  real,    allocatable :: agamma   (:,:)
+  real,    allocatable :: gam_rkm  (:,:)
+  real,    allocatable :: gam_rkh  (:,:)
 
   real,    allocatable :: akm_sfc  (:,:)
   real,    allocatable :: ustar_k  (:,:)
@@ -29,6 +30,7 @@ Module mem_turb
 
   real,    allocatable :: frac_sfc (:,:)
   real,    allocatable :: frac_sfck(:,:)
+  real,    allocatable :: frac_norm(:,:)
   real,    allocatable :: arw_sfc  (:,:)
 
   real,    allocatable :: akmodx   (:,:)
@@ -60,13 +62,15 @@ Contains
     allocate( wtv0_k   (nsw_max,mwa) )
     allocate( frac_sfc (nsw_max,mwa) )
     allocate( frac_sfck(nsw_max,mwa) )
+    allocate( frac_norm(nsw_max,mwa) )
     allocate( arw_sfc  (nsw_max,mwa) )
 
     allocate( vkm(mza,mwa) )
     allocate( vkh(mza,mwa) )
 
     if (any(idiffk(1:mrls) == 1)) then
-       allocate( agamma(mza,mwa) )
+       allocate( gam_rkm(mza,mwa) )
+       allocate( gam_rkh(mza,mwa) )
     endif
 
     allocate( sfluxt   (mwa) )
@@ -100,10 +104,12 @@ Contains
        if ( allocated( wtv0_k   ) ) wtv0_k   (:,iw) = 0.
        if ( allocated( frac_sfc ) ) frac_sfc (:,iw) = 0.
        if ( allocated( frac_sfck) ) frac_sfck(:,iw) = 0.
+       if ( allocated( frac_norm) ) frac_norm(:,iw) = 0.
        if ( allocated( arw_sfc  ) ) arw_sfc  (:,iw) = 0.
        if ( allocated( vkm      ) ) vkm      (:,iw) = 0.
        if ( allocated( vkh      ) ) vkh      (:,iw) = 0.
-       if ( allocated( agamma   ) ) agamma   (:,iw) = 0.
+       if ( allocated( gam_rkh  ) ) gam_rkm  (:,iw) = 0.
+       if ( allocated( gam_rkm  ) ) gam_rkh  (:,iw) = 0.
        if ( allocated( sfluxt   ) ) sfluxt     (iw) = rinit
        if ( allocated( sfluxr   ) ) sfluxr     (iw) = rinit
        if ( allocated( ustar    ) ) ustar      (iw) = rinit
@@ -158,7 +164,8 @@ Contains
     if (allocated(kpblh))     deallocate (kpblh)
     if (allocated(akmodx))    deallocate (akmodx)
     if (allocated(akhodx))    deallocate (akhodx)
-    if (allocated(agamma))    deallocate (agamma)
+    if (allocated(gam_rkh))   deallocate (gam_rkh)
+    if (allocated(gam_rkm))   deallocate (gam_rkm)
 
   end subroutine dealloc_turb
 
