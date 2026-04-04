@@ -40,7 +40,7 @@ contains
     real    :: dthl, dqt, dql, cfac, qsat, gams, chi_s, dbwet, db
     real    :: kprofm, kprofh, rlam, shear, molki, vels2, dissk
     real    :: zfac, wstar_k, wnonloc, pr, gam
-    real    :: zk, sql, fm, ri, dens
+    real    :: zk, sql, ri, dens
     real    :: phimi, phihi, phim
     real    :: we, dthv, wcloud, wboyr3
     real    :: qliqm, qliq, qliqp
@@ -126,6 +126,9 @@ contains
     do ks = 1, lsw(iw)
        ka = lpw(iw) + ks - 1
 
+       ! skip if there are no surface overlaps at this level
+       if (frac_sfc(ks,iw) < 1.e-6) cycle
+
        zi    = max( pblh(iw) + zm(lpw(iw)-1) - zm(ka-1), dzt(ka) )
        molki = -grav * vonk * wtv0_k(ks,iw) / (ustar_k(ks,iw)**3 * thetav(ka))
 
@@ -140,7 +143,8 @@ contains
           phimi_top = phimi_top + frac_sfc(ks,iw) / phim_top
        endif
 
-       if (ka > kpbl-1 .or. frac_sfc(ks,iw) < 1.e-4) cycle
+       ! skip K-profile if PBL too shallow
+       if (ka > kpbl-1) cycle
 
        if ( molki >= 0. ) then
 
@@ -425,11 +429,10 @@ contains
 
     use mem_grid,    only: mza, dzm, dzt, zm, zt, lpw, lsw
     use consts_coms, only: grav, grav2, eps_virt, alvlocp, alviocp
-    use mem_turb,    only: ustar, wstar, wtv0, kpblh, pblh, vkm, gam_rkm
+    use mem_turb,    only: ustar, wstar, wtv0, kpblh, pblh
     use mem_basic,   only: theta, tair, vxe, vye, vze, rr_v
     use mem_radiate, only: pbl_cld_forc
     use mem_micro,   only: rr_c, rr_p
-    use mem_ijtabs,  only: itab_w
 
     implicit none
 

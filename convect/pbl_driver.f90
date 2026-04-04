@@ -1,9 +1,13 @@
 module pbl_drivers
 
-  ! This slightly forward weights the implicit fluxes to help
-  ! avoid 2-DT and 2-DZ oscillations in buoyancy and eddy diffusivity.
-  ! Need to find the reference for this again!
-  real, parameter, private :: forw_imp = 1.1
+  ! Implictness parameter for tracers and momentum
+  real, parameter, private :: fcnt = 1.2
+  real, parameter, private :: fcnm = 1.0
+
+  ! This slightly forward-weights the implicit fluxes of tracers to help
+  ! avoid 2-DT and 2-DZ oscillations. This results when the diffusivities
+  ! are functions of T and Q through the Richardson number, which makes the
+  ! diffusion equation nonlinear. See Hammarstrand, MWR, 1997 for background.
 
 contains
 
@@ -13,7 +17,7 @@ subroutine pbl_driver()
 
   use mem_grid,       only: mza, lpw
   use misc_coms,      only: idiffk, iparallel
-  use mem_turb,       only: vkm, vkh, kmtop, khtop, kpblh, akm_sfc, ustar, pblh, sfluxt
+  use mem_turb,       only: vkm, vkh, kmtop, khtop, kpblh, akm_sfc, ustar, pblh
   use consts_coms,    only: grav, vonk, eps_virt, alvlocp, r8
   use mem_ijtabs,     only: jtab_w, itab_w, jtw_prog
   use module_bl_acm2, only: acm2_pblhgt, acm2_eddyx
@@ -241,7 +245,7 @@ end subroutine comp_horiz_k_column
 
 subroutine pbl_init()
 
-  use mem_grid,      only: lsw, lpw, mwa, arw, zfacim2, zfacm2, arw0
+  use mem_grid,      only: lsw, lpw, mwa, arw, zfacim2, zfacm2
   use mem_ijtabs,    only: jtab_w, jtw_prog, itab_w
   use mem_turb,      only: frac_urb, frac_land, frac_sea, frac_lake, arw_sfc,  &
                            frac_sfc, frac_sfck, frac_norm, ustar, wstar, wtv0, &
@@ -256,26 +260,35 @@ subroutine pbl_init()
 
   implicit none
 
-  integer :: j, iw, iwsfc, k, km, ks, jsfc, jasfc
+  integer :: j, iw, iwsfc, k, ks, jsfc, jasfc
 
 ! Populate urban and land, sea, and lake fraction arrays
 
-  frac_urb (:) = 0.0
-  frac_land(:) = 0.0
-  frac_sea (:) = 0.0
-  frac_lake(:) = 0.0
-
   if (isfcl > 0) then
 
-     ! Loop over all ATM grid cells
+     ! Loop over all primary ATM grid cells
 
+     !$omp parallel do private(iw,jsfc,iwsfc,jasfc,ks)
      do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
+
+        frac_urb  (iw) = 0.
+        frac_land (iw) = 0.
+        frac_sea  (iw) = 0.
+        frac_lake (iw) = 0.
+        arw_sfc (:,iw) = 0.
+        frac_sfc(:,iw) = 0.
 
         ! Loop over surface cells that couple to current ATM cell
 
         do jsfc = 1,itab_w(iw)%jsfc2
            iwsfc = itab_w(iw)%iwsfc(jsfc)
            jasfc = itab_w(iw)%jasfc(jsfc)
+           ks    = itab_wsfc(iwsfc)%kwatm(jasfc) - lpw(iw) + 1
+
+           ! Store the total surface coupling area at each height, and the
+           ! total surface coupling area divided by the atm cell area at each height
+           arw_sfc (ks,iw) = arw_sfc (ks,iw) + itab_wsfc(iwsfc)%arc     (jasfc)
+           frac_sfc(ks,iw) = frac_sfc(ks,iw) + itab_wsfc(iwsfc)%arcoariw(jasfc)
 
            if (sfcg%leaf_class(iwsfc) == 0) then
               frac_sea(iw) = frac_sea(iw) + itab_wsfc(iwsfc)%arcoariw(jasfc)
@@ -288,68 +301,57 @@ subroutine pbl_init()
                  frac_urb(iw) = frac_urb(iw) + itab_wsfc(iwsfc)%arcoariw(jasfc)
               endif
            endif
+
         enddo
      enddo
 
      if (iparallel == 1) then
         call mpi_send_w(r1dvara1=frac_urb, r1dvara2=frac_land, &
-                        r1dvara3=frac_sea, r1dvara4=frac_lake  )
+                        r1dvara3=frac_sea, r1dvara4=frac_lake, &
+                        swvar1=arw_sfc,    swvar2=frac_sfc)
         call mpi_recv_w(r1dvara1=frac_urb, r1dvara2=frac_land, &
-                        r1dvara3=frac_sea, r1dvara4=frac_lake  )
+                        r1dvara3=frac_sea, r1dvara4=frac_lake, &
+                        swvar1=arw_sfc,    swvar2=frac_sfc)
      endif
 
-     call lbcopy_w(v1=frac_urb, v2=frac_land, v3=frac_sea, v4=frac_lake)
+     ! Currently the surface model only uses a global domain
+     ! call lbcopy_w(v1=frac_urb, v2=frac_land, v3=frac_sea, v4=frac_lake, &
+     !               s1=arw_sfc,  s2=frac_sfc)
 
-  endif
+     !$omp parallel do private(ks,k)
+     do iw = 2, mwa
 
-  !$omp parallel do private(jsfc,iwsfc,jasfc,ks,k,km)
-  do iw = 2, mwa
+        frac_sfck(:,iw) = 0.
+        frac_norm(:,iw) = 0.
 
-     frac_sfc (:,iw) = 0.
-     frac_sfck(:,iw) = 0.
-     frac_norm(:,iw) = 0.
-     arw_sfc  (:,iw) = 0.
+        if (lsw(iw) == 1) then
 
-     if (lsw(iw) == 1) then
+           frac_sfck(1,iw) = 1.0
+           frac_norm(1,iw) = 1.0
 
-        frac_sfc (1,iw) = 1.0
-        frac_sfck(1,iw) = 1.0
-        frac_norm(1,iw) = 1.0
-        arw_sfc  (1,iw) = arw0(iw) * zfacm2(lpw(iw)-1)
+        else
 
-     else
+           ! Store the fraction of the current layer that intersects with the surface
 
-        ! Store the total surface coupling area at each height, and the
-        ! total surface coupling area divided by the atm cell area at each height
+           frac_sfck(1,iw) = 1.0
 
-        do jsfc = 1, itab_w(iw)%jsfc2
-           iwsfc = itab_w(iw)%iwsfc(jsfc)
-           jasfc = itab_w(iw)%jasfc(jsfc)
-           ks    =  itab_wsfc(iwsfc)%kwatm(jasfc) - lpw(iw) + 1
+           do ks = 2, lsw(iw)
+              k  = lpw(iw) + ks - 1
+              frac_sfck(ks,iw) = arw_sfc(ks,iw) / (arw(k,iw) * zfacim2(k) * zfacm2(k-1))
+           enddo
 
-           arw_sfc (ks,iw) = arw_sfc (ks,iw) + itab_wsfc(iwsfc)%arc     (jasfc)
-           frac_sfc(ks,iw) = frac_sfc(ks,iw) + itab_wsfc(iwsfc)%arcoariw(jasfc)
-        enddo
+           ! Frac_norm is used to normalize the surface overlaps below lsw
 
-        ! Store the fraction of the current layer that intersects with the surface
+           do ks = 1, lsw(iw)
+              frac_norm(ks,iw) = 1.0 / sum( frac_sfc(1:ks,iw) )
+           enddo
 
-        frac_sfck(1,iw) = 1.0
+        endif
 
-        do ks = 2, lsw(iw)
-           k  = lpw(iw) + ks - 1
-           frac_sfck(ks,iw) = arw_sfc(ks,iw) / (arw(k,iw) * zfacim2(k) * zfacm2(k-1))
-        enddo
+     enddo
+     !$omp end parallel do
 
-        ! Frac_norm is used to normalize the surface overlaps below lsw
-
-        do ks = 1, lsw(iw)
-           frac_norm(ks,iw) = 1.0 / sum( frac_sfc(1:ks,iw) )
-        enddo
-
-     endif
-
-  enddo
-  !$omp end parallel do
+  endif ! isfcl > 0
 
   if (runtype /= 'INITIAL') return
 
@@ -427,7 +429,7 @@ subroutine solve_eddy_diff_scalars( iw )
   ! Vertical loop over T levels
   do k = ka, kmax
      dtorho (k) = dtl / real(rho(k,iw))
-     dtomass(k) = forw_imp * dtorho(k) * volti(k,iw)
+     dtomass(k) = fcnt * dtorho(k) * volti(k,iw)
   enddo
 
   ! Vertical loop over W levels
@@ -584,7 +586,7 @@ subroutine solve_eddy_diff_heat(iw, thilt)
   ! Vertical loop over T levels
   do k = ka, kmax
      dtom       = dts * volti(k,iw) / real(rho(k,iw))
-     dtomass(k) = forw_imp * dtom
+     dtomass(k) = fcnt * dtom
      varp   (k) = thil(k,iw) + dtom * thilt(k)
   enddo
 
@@ -633,25 +635,21 @@ subroutine solve_eddy_diff_heat(iw, thilt)
      flux(k) = real( soln(k), r8 )
   enddo
 
-  ! Compute temperature tendency (weighted by volumne)
+  ! Compute temperature tendency (weighted by volume)
 
   do k = ka, kmax
      thilt(k) = thilt(k) + real( flux(k-1) - flux(k) )
-  enddo
-
-  do k = ka, kmax
-     varp(k) = thil(k,iw) + dtomass(k) * thilt(k)
   enddo
 
 end subroutine solve_eddy_diff_heat
 
 !===============================================================================
 
-subroutine solve_eddy_diff_vxe( iw, vmxet, vmyet, vmzet )
+subroutine solve_eddy_diff_momentum(iw, vmxet, vmyet, vmzet)
 
-  use mem_grid,    only: mza, lpw, lsw, dzit_bot, volti, arw, dzim, dzit_bot
+  use mem_grid,    only: mza, lpw, lsw, dzit_bot, volti, arw, dzim, arw0i, zfacim2
   use mem_basic,   only: rho, vxe, vye, vze
-  use mem_turb,    only: akm_sfc, vkm, kmtop, ustar_k, frac_sfc, gam_rkm, kpblh
+  use mem_turb,    only: akm_sfc, vkm, kmtop, gam_rkm, kpblh
   use misc_coms,   only: dtsm
   use tridiag,     only: tridv
   use oname_coms,  only: nl
@@ -659,16 +657,22 @@ subroutine solve_eddy_diff_vxe( iw, vmxet, vmyet, vmzet )
 
   implicit none
 
-  integer, intent(in)    :: iw
-  real,    intent(inout) :: vmxet(mza), vmyet(mza), vmzet(mza)
+  integer, intent(in )   :: iw
+  real,    intent(inout) :: vmxet(mza)  ! note: thilt assumed scaled by volume
+  real,    intent(inout) :: vmyet(mza)  ! note: thilt assumed scaled by volume
+  real,    intent(inout) :: vmzet(mza)  ! note: thilt assumed scaled by volume
 
-  integer :: k, ka, ks, kmax
-  real    :: dtom, dts, fact, dgamma
-  logical :: do_nonlocal
-  real    :: wux0, wuy0, wuz0
+  integer :: ka, k, kmax, ks
+  real    :: dts, dtom, akodz, fract
+  real    :: dtomass(mza)
+  real    :: vctr5(mza), vctr6(mza), vctr7(mza), rhs(mza,3), soln(mza,3)
+  real    :: xflxsfc(mza), yflxsfc(mza), zflxsfc(mza)
+  real    :: varx(mza), vary(mza), varz(mza), cddtomass(mza)
+  real    :: wux0, wuy0, wuz0, fact, agamma
 
-  real :: akodz(mza), dtomass(mza), soln(mza,3), rhs(mza,3), vctr2(mza,3)
-  real :: vctr3(mza), vctr5(mza), vctr6(mza), vctr7(mza), agamma(mza)
+  real, parameter :: vxe_sfc = 0.0  ! Placeholder for ocean current
+  real, parameter :: vye_sfc = 0.0  ! Placeholder for ocean current
+  real, parameter :: vze_sfc = 0.0  ! Placeholder for ocean current
 
   ! For DCMIP 2015 baroclinic and tropical cyclone tests, return here so that
   ! vertical mixing is not done by standard OLAM code; instead it will
@@ -682,39 +686,61 @@ subroutine solve_eddy_diff_vxe( iw, vmxet, vmyet, vmzet )
       nl%test_case == 121 .or. &
       nl%test_case == 122) return
 
-  ka  = lpw(iw)
-  dts = dtsm
+  if (kmtop(iw) < lpw(iw)) return
 
-  kmax = max(kmtop(iw)+1, ka + lsw(iw) - 1)
-
-  akodz(ka-1)             = 0.0
-  akodz(kmtop(iw)+1:kmax) = 0.0
-! akodz(mza)  = 0.0
-
-  ! Vertical loop over W levels
-
-! do k = ka, mza-1
-  do k = ka, kmtop(iw)
-     akodz(k) = arw(k,iw) * vkm(k,iw) * dzim(k)
-  enddo
+  ka   = lpw(iw)
+  dts  = dtsm
+  kmax = kmtop(iw) + 1
 
   ! Vertical loop over T levels
-
-! do k = ka, mza
   do k = ka, kmax
-     dtom         = dts * volti(k,iw) / rho(k,iw)
-     dtomass(k)   = forw_imp * dtom
-     vctr5  (k)   = -dtomass(k) * akodz(k-1)
-     vctr7  (k)   = -dtomass(k) * akodz(k)
-     vctr6  (k)   = 1. - vctr5(k) - vctr7(k)
-     rhs    (k,1) = vxe(k,iw)
-     rhs    (k,2) = vye(k,iw)
-     rhs    (k,3) = vze(k,iw)
+     dtom       = dts * volti(k,iw) / real(rho(k,iw))
+     dtomass(k) = fcnm * dtom
+     varx   (k) = vxe(k,iw) + dtom * vmxet(k)
+     vary   (k) = vye(k,iw) + dtom * vmyet(k)
+     varz   (k) = vze(k,iw) + dtom * vmzet(k)
   enddo
 
-  ! Non local PBL fluxes
+  ! Surface momentum drag at ka-1
+  k = ka-1
+  akodz      = akm_sfc(1,iw) * dzit_bot(ka)
+  rhs  (k,1) =  akodz * (vxe_sfc - varx(ka))
+  rhs  (k,2) =  akodz * (vye_sfc - vary(ka))
+  rhs  (k,3) =  akodz * (vze_sfc - varz(ka))
+  vctr5(k)   =  0.0
+  vctr7(k)   = -akodz * dtomass(ka)
+  vctr6(k)   = 1. - vctr7(k)
 
-  do_nonlocal = .false.
+  ! Special for shaved cells
+  do ks = 2, lsw(iw)
+     k  = ka + ks - 1
+
+     akodz         = akm_sfc(ks,iw) * dzit_bot(k)
+     cddtomass(ks) = dtomass(k) * akodz
+     fract         = akodz / ( 1. + cddtomass(ks) )
+
+     xflxsfc  (ks) = -varx(k) * fract
+     yflxsfc  (ks) = -vary(k) * fract
+     zflxsfc  (ks) = -varz(k) * fract
+
+     varx      (k) = varx(k) + dtomass(k) * xflxsfc(ks)
+     vary      (k) = vary(k) + dtomass(k) * yflxsfc(ks)
+     varz      (k) = varz(k) + dtomass(k) * zflxsfc(ks)
+     dtomass   (k) = dtomass(k) * (1. - dtomass(k) * fract)
+  enddo
+
+  ! Vertical loop over W levels
+  do k = ka, kmtop(iw)
+     akodz      = arw(k,iw) * vkm(k,iw) * dzim(k)
+     rhs  (k,1) =  akodz * (varx(k) - varx(k+1))
+     rhs  (k,2) =  akodz * (vary(k) - vary(k+1))
+     rhs  (k,3) =  akodz * (varz(k) - varz(k+1))
+     vctr5(k)   = -akodz * dtomass(k)
+     vctr7(k)   = -akodz * dtomass(k+1)
+     vctr6(k)   = 1. - vctr5(k) - vctr7(k)
+  enddo
+
+  ! Non local PBL term
 
   if (nl%idiffk(itab_w(iw)%mrlw) == 1) then
      if ( gam_rkm(ka,iw) > 1.e-7 ) then
@@ -723,108 +749,55 @@ subroutine solve_eddy_diff_vxe( iw, vmxet, vmyet, vmzet )
         wuy0 = 0.
         wuz0 = 0.
 
-        do_nonlocal = .true.
-
-        agamma( ka-1 ) = 0.
-        do k = ka, kpblh(iw)-1
-           agamma(k) = arw(k,iw) * gam_rkm(k,iw)
-        enddo
-        agamma( kpblh(iw) ) = 0.
-
         do ks = 1, lsw(iw)
-           k  = ka + ks - 1
+           k  = ks + ka - 1
 
-           fact = ( frac_sfc(ks,iw) * ustar_k(ks,iw)**2 ) &
-                  / sqrt( vxe(k,iw)**2 + vye(k,iw)**2 + vze(k,iw)**2 )
-
+           fact = akm_sfc(ks,iw) * dzit_bot(k) * zfacim2(k-1) / real(rho(k,iw)) * arw0i(iw)
            wux0 = wux0 - fact * vxe(k,iw)
            wuy0 = wuy0 - fact * vye(k,iw)
            wuz0 = wuz0 - fact * vze(k,iw)
         enddo
 
-        do k = ka, kpblh(iw)
-           dgamma = (agamma(k-1) - agamma(k)) * volti(k,iw)
-           rhs(k,1) = rhs(k,1) + dgamma * wux0
-           rhs(k,2) = rhs(k,2) + dgamma * wuy0
-           rhs(k,3) = rhs(k,3) + dgamma * wuz0
+        do k = ka, kpblh(iw)-1
+           agamma   = arw(k,iw) * gam_rkm(k,iw)
+           rhs(k,1) = rhs(k,1) + wux0 * agamma
+           rhs(k,2) = rhs(k,2) + wuy0 * agamma
+           rhs(k,3) = rhs(k,3) + wuz0 * agamma
         enddo
 
      endif
   endif
 
-  ! Surface drag over multiple levels
-
-  do k = ka, ka + lsw(iw) - 1
-     ks = k - ka + 1
-
-     vctr3(k) = akm_sfc(ks,iw) * dzit_bot(k)
-     vctr6(k) = vctr6(k) + dtomass(k) * vctr3(k)
-  enddo
-
   ! Solve tri-diagonal matrix equation
 
-  if (ka <= kmax) then
-     call tridv(vctr5, vctr6, vctr7, rhs, soln, ka, kmax, mza, 3)
-  endif
+  call tridv( vctr5, vctr6, vctr7, rhs, soln, ka-1, kmtop(iw), mza, 3)
 
-  ! Now, soln contains (t+1) values.
-  ! Compute internal vertical turbulent fluxes
+  soln(kmax,:) = 0.
 
-! do k = ka, mza-1
-  do k = ka, kmax-1
-     vctr2(k,1) = akodz(k) * (soln(k,1) - soln(k+1,1))
-     vctr2(k,2) = akodz(k) * (soln(k,2) - soln(k+1,2))
-     vctr2(k,3) = akodz(k) * (soln(k,3) - soln(k+1,3))
+  ! Compute momentum tendency (weighted by volume)
+
+  do k = ka, kmax
+     vmxet(k) = vmxet(k) + soln(k-1,1) - soln(k,1)
+     vmyet(k) = vmyet(k) + soln(k-1,2) - soln(k,2)
+     vmzet(k) = vmzet(k) + soln(k-1,3) - soln(k,3)
   enddo
 
-  if (do_nonlocal) then
-     do k = ka, kpblh(iw)-1
-        vctr2(k,1) = vctr2(k,1) + wux0 * agamma(k)
-        vctr2(k,2) = vctr2(k,2) + wuy0 * agamma(k)
-        vctr2(k,3) = vctr2(k,3) + wuz0 * agamma(k)
-     enddo
-  endif
+  ! Add surface drag for shaved cells
 
-  ! Set bottom and top internal fluxes to zero
+  do ks = 2, lsw(iw)
+     k  = ka + ks - 1
 
-  vctr2(ka-1,:) = 0.
-  vctr2(kmax,:) = 0.
-! vctr2(mza ,:) = 0.
+     fract       = cddtomass(ks) / (1. + cddtomass(ks))
+     xflxsfc(ks) = xflxsfc(ks) + fract * (soln(k,1) - soln(k-1,1))
+     yflxsfc(ks) = yflxsfc(ks) + fract * (soln(k,2) - soln(k-1,2))
+     zflxsfc(ks) = zflxsfc(ks) + fract * (soln(k,3) - soln(k-1,3))
 
-  ! Surface drag and turbulent fluxes at surface (scaled by volt)
-
-  do k = ka, ka + lsw(iw) - 1
-     vmxet(k) = vmxet(k) + (vctr2(k-1,1) - vctr2(k,1) - vctr3(k) * soln(k,1))
-
-     vmyet(k) = vmyet(k) + (vctr2(k-1,2) - vctr2(k,2) - vctr3(k) * soln(k,2))
-
-     vmzet(k) = vmzet(k) + (vctr2(k-1,3) - vctr2(k,3) - vctr3(k) * soln(k,3))
+     vmxet(k) = vmxet(k) + xflxsfc(ks)
+     vmyet(k) = vmyet(k) + yflxsfc(ks)
+     vmzet(k) = vmzet(k) + zflxsfc(ks)
   enddo
 
-  ! Just turbulent fluxes above surface (scaled by volt)
-
-! do k = kd+1, mza
-  do k = ka + lsw(iw), kmax
-     vmxet(k) = vmxet(k) + vctr2(k-1,1) - vctr2(k,1)
-
-     vmyet(k) = vmyet(k) + vctr2(k-1,2) - vctr2(k,2)
-
-     vmzet(k) = vmzet(k) + vctr2(k-1,3) - vctr2(k,3)
-  enddo
-
-
-!!  if (iw == 13755) then
-!!     write(*,*) wux0, wuy0, wuz0
-!!     do k = kmax+1, ka, -1
-!!        write(*,'(I4,10g12.4)') k, vxe(k,iw), soln(k,1), vye(k,iw), soln(k,2), vze(k,iw), soln(k,3)
-!!     enddo
-!!     write(*,*)
-!!  endif
-!!
-
-
-
-end subroutine solve_eddy_diff_vxe
+end subroutine solve_eddy_diff_momentum
 
 !===============================================================================
 

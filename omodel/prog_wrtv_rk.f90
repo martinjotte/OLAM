@@ -78,7 +78,7 @@ subroutine prog_wrtv_rk()
   use vel_t3d,      only: vel_t3d_hex
   use consts_coms,  only: p00i, rocp
   use mem_turb,     only: akmodx, akhodx, khtopv, kmtopv
-  use pbl_drivers,  only: solve_eddy_diff_heat, solve_eddy_diff_vxe
+  use pbl_drivers,  only: solve_eddy_diff_heat, solve_eddy_diff_momentum
   use mem_rayf,     only: dorayf, krayf_bot, rayf_cof, dorayfmix, rayf_mix_top_vxe, &
                           vc03d
   use mem_nudge,    only: vmanud, nudflag
@@ -212,9 +212,9 @@ subroutine prog_wrtv_rk()
 
      ! Vertical diffusion now performed every short timestep for heat/momentum
 
-     call solve_eddy_diff_heat(iw, thilt_short(:,iw))
-     call solve_eddy_diff_vxe (iw, vmxet_short(:,iw), vmyet_short(:,iw), &
-                                   vmzet_short(:,iw))
+     call solve_eddy_diff_heat    (iw, thilt_short(:,iw))
+     call solve_eddy_diff_momentum(iw, vmxet_short(:,iw), vmyet_short(:,iw), &
+                                       vmzet_short(:,iw))
 
      ! Rayleigh friction on velocity gradient at model top
 
