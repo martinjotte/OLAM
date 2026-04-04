@@ -66,7 +66,11 @@ EXE=$(BASE)-$(OLAM_VERSION)$(OLAM_SUFFIX)
 all: objects/FLIST objects/Make.depend objects/Make.targets
 	$(MAKE) $(EXE)
 
+ifndef NOMAKEDEP
 objects/Make.depend: $(SOURCE_FILES) sources.mk paths.mk include.mk Makefile
+endif
+
+objects/Make.depend:
 	@echo ""
 	@echo "Generating dependency information"
 	@mkdir -p objects
@@ -75,7 +79,7 @@ objects/Make.depend: $(SOURCE_FILES) sources.mk paths.mk include.mk Makefile
 	     -e 's:objects/iso_c_binding.mod::g' -e 's:objects/ieee_arithmetic.mod::g' \
 	     -e 's:objects/hdf5.mod::g' -e 's:objects/h5ds.mod::g' objects/Make.depend.tmp > objects/Make.depend
 
-objects/Make.targets: $(SOURCE_FILES) sources.mk paths.mk include.mk Makefile
+objects/Make.targets: sources.mk paths.mk
 	@echo ""
 	@echo "Generating target dependency list"
 	@mkdir -p objects
