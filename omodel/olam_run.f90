@@ -822,7 +822,9 @@ subroutine olam_run(name_name)
   call copy_plot(0)
   call plot_fields(0)
   call fields3_ll()
-  if (mdomain == 5 .and. nl%les_diag_freq > 0._r8) call les_diag()
+
+  if (mdomain == 5 .and. nl%les_diag_freq       > 1.e-7_r8) call les_diag()
+  if (mdomain == 0 .and. nl%global_profile_freq > 1.e-7_r8) call global_profiles()
 
   if (nl%print_mass_sums) then
      write(io6,*) " Initial mass sums:"
@@ -1154,6 +1156,14 @@ subroutine olam_output()
   if (mdomain == 5 .and. nl%les_diag_freq > 1.e-5_r8) then
      if (mod(time8p,nl%les_diag_freq) < dtlm) then
         call les_diag()
+     endif
+  endif
+
+  ! Write mean profiles from geographic regions
+
+  if (mdomain == 0 .and. nl%global_profile_freq > 1.e-5_r8) then
+     if (mod(time8p,nl%global_profile_freq) < dtlm) then
+        call global_profiles()
      endif
   endif
 

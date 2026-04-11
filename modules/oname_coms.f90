@@ -164,6 +164,8 @@ Module oname_coms
      real(r8):: frqlite   = 3600.0_r8
      real(r8):: frqlatlon = 3600.0_r8
 
+     real(r8):: global_profile_freq = 0._r8
+
      real :: beglat =  -90.
      real :: endlat =   90.
      real :: beglon = -180.
