@@ -52,9 +52,10 @@ write(io6,*) ' '
 if ( (nl%runtype /= 'MAKEGRID'     ) .and. &
      (nl%runtype /= 'INITIAL'      ) .and. &
      (nl%runtype /= 'HISTORY'      ) .and. &
-     (nl%runtype /= 'MAKEREGRID'  ) .and. &
-     (nl%runtype /= 'HISTREGRID'  ) .and. &
+     (nl%runtype /= 'MAKEREGRID'   ) .and. &
+     (nl%runtype /= 'HISTREGRID'   ) .and. &
      (nl%runtype /= 'PLOTONLY'     ) .and. &
+     (nl%runtype /= 'PRINT_ZLEVS'  ) .and. &
      (nl%runtype /= 'MAKEGRID_PLOT') ) then
    write(io6,*) " -- FATAL -- RUNTYPE = "//trim(nl%runtype)
    write(io6,*) "             RUNTYPE must be either 'MAKEGRID', 'INITIAL', "

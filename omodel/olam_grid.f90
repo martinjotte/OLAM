@@ -496,18 +496,20 @@ subroutine gridset2()
                          zm, zt, dzm, dzt, dzim, dzit, &
                          zfacm, zfact, zfacim, zfacit, zfacm2, zfacim2, &
                          alloc_gridz
-  use misc_coms,   only: io6, nzp, ndz, hdz, dz, mdomain
-  use consts_coms, only: erad
+  use misc_coms,   only: io6, nzp, ndz, hdz, dz, mdomain, runtype
+  use consts_coms, only: erad, grav, rdry
   use oname_coms,  only: nl
 
   implicit none
 
   integer :: idz, kvec, nseries, iseries, k, kd
 
-  real :: zend, dzend, dzbeg, ztarg, dzr, rdzr, zshift
+  real :: zend, dzend, dzbeg, ztarg, dzr, rdzr, zshift, ta
 
   real :: zmvec(0:nzp+1), ztvec(0:nzp+1)
   real :: dzrvec(0:nzp+1), dzrtmp(0:nzp+1)
+
+  real, allocatable :: ppa(:)
 
   ! If NDZ = 1, then use ZZ values from namelist
 
@@ -679,6 +681,36 @@ subroutine gridset2()
 
   enddo
   ! Test smoothing stretch ratio
+
+  if (runtype == 'PRINT_ZLEVS') then
+
+     allocate(ppa(nza))
+     ppa(2) = 1013.e2 * exp( -grav * ztvec(2+kd) / (280. * rdry) )
+
+     do k = 3, nza
+        if ( ztvec(k+kd) < 100.) then
+           ta = 280.
+        elseif ( ztvec(k+kd) < 16.5e3 ) then
+           ta = 280. - (ztvec(k+kd) - 100.) * (280. - 198.) / 16.4e3
+        elseif ( ztvec(k+kd) < 48.e3) then
+           ta = 198. + (ztvec(k+kd) - 16.5e3) * (260. - 198.) / (48.e3-16.5e3)
+        else
+           ta = max(190., 260. - (ztvec(k+kd) - 48.e3) * (260. - 190.) / (78.e3-48.e3))
+        endif
+
+        ppa(k) = ppa(k-1) * exp( -grav * (ztvec(k+kd)-ztvec(k+kd-1)) / (ta * rdry) )
+     enddo
+
+     write(*,*)
+     write(*,'(A4,45A11)') "k", "Zm (full)", "Zt (half)", "DZ   ", "Stretch", "P (Pa) "
+
+     do k = nza, 2, -1
+        write(*,'(I4,5(3x,g0.7))') k, zmvec(k+kd), ztvec(k+kd), zmvec(k+kd) - zmvec(k+kd-1), &
+             (zmvec(k+kd) - zmvec(k+kd-1)) / (zmvec(k+kd-1) - zmvec(k+kd-2)), ppa(k)
+     enddo
+
+     return
+  endif
 
   ! Allocate main grid arrays
 

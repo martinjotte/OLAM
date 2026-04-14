@@ -157,12 +157,20 @@ subroutine olam_run(name_name)
 
   ! MAKEGRID runs must be single-processor
 
-  if ( runtype == 'MAKEGRID' .or. runtype == 'MAKEREGRID' .or. runtype == 'MAKEGRID_PLOT' ) then
+  if ( runtype == 'MAKEGRID' .or. runtype == 'MAKEREGRID' .or. runtype == 'MAKEGRID_PLOT' .or. &
+       runtype == 'PRINT_ZLEVS' ) then
+
      if (iparallel == 1) then
         write(io6,*) trim(runtype)//' will only be done on a single process.'
         iparallel  = 0
         if (myrank > 0) go to 1000
      endif
+
+  endif
+
+  if ( runtype == 'PRINT_ZLEVS' ) then
+     call gridset2()
+     go to 1000
   endif
 
   ! Initialize various oplot parameters
