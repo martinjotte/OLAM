@@ -34,7 +34,7 @@
 
  !--------------------------------------------------------------------------
  ! Runtype: either MAKEGRID, INITIAL, HISTORY, PLOTONLY, MAKEGRID_PLOT, 
- !                 MAKEREGRID, or HISTREGRID
+ !                 MAKEREGRID, HISTREGRID, or PRINT_ZLEVS
  !--------------------------------------------------------------------------
 
  ! NL%RUNTYPE  = 'MAKEGRID'
@@ -44,6 +44,7 @@
  ! NL%RUNTYPE  = 'MAKEGRID_PLOT'
  ! NL%RUNTYPE  = 'MAKEREGRID'
  ! NL%RUNTYPE  = 'HISTREGRID'
+ ! NL%RUNTYPE  = 'PRINT_ZLEVS'
 
  !--------------------------------------------------------------------------
  ! Simulation ending time

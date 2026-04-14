@@ -58,9 +58,9 @@ if ( (nl%runtype /= 'MAKEGRID'     ) .and. &
      (nl%runtype /= 'PRINT_ZLEVS'  ) .and. &
      (nl%runtype /= 'MAKEGRID_PLOT') ) then
    write(io6,*) " -- FATAL -- RUNTYPE = "//trim(nl%runtype)
-   write(io6,*) "             RUNTYPE must be either 'MAKEGRID', 'INITIAL', "
-   write(io6,*) "             'HISTORY', 'MAKEREGRID', 'HISTREGRID', "
-   write(io6,*) "             'MAKEGRID_PLOT', or 'PLOTONLY'"
+   write(io6,*) "             RUNTYPE must be either 'MAKEGRID', 'INITIAL',"
+   write(io6,*) "             'HISTORY', 'MAKEREGRID', 'HISTREGRID',"
+   write(io6,*) "             'MAKEGRID_PLOT', 'PLOTONLY', or 'PRINT_ZLEVS'"
    nfatal = nfatal + 1
 endif
 
