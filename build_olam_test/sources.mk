@@ -132,6 +132,7 @@ SOURCE_FILES= \
              $(OUTILS)/blas.f90 \
              $(OUTILS)/check_nans.F90 \
              $(OUTILS)/dateutils.f90 \
+             $(OUTILS)/global_profiles.F90 \
              $(OUTILS)/hdf5_f2f.F90 \
              $(OUTILS)/hdf5_utils.F90 \
              $(OUTILS)/interp_lib.f90 \
