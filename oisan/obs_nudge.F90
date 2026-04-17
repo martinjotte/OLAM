@@ -85,7 +85,7 @@ subroutine obs_nudge()
   use mem_grid,    only: mza, lpv, lpw, arw, arw0, arv, dzm, &
                          vxn_ew, vyn_ew, vxn_ns, vyn_ns, vzn_ns, volti
   use misc_coms,   only: s1900_sim, io6, iparallel
-  use mem_ijtabs,  only: itab_w, jtab_w, jtw_prog, itab_v, jtab_v, jtv_prog
+  use mem_ijtabs,  only: itab_w, jtab_w, jtw_prog, itab_v, jtab_v, jtv_wadj
   use mem_tend,    only: thilt, rr_wt, vmxet, vmyet, vmzet
   use isan_coms,   only: ifgfile, s1900_fg
   use oname_coms,  only: nl
@@ -226,7 +226,7 @@ subroutine obs_nudge()
 
         dxi = 1. / sqrt(arw0(iw))
         do k = lpw(iw), mza-1
-           wmanud(k,iw) = real(rhot_nud(k+1,iw) - rhot_nud(k,iw)) * dzm(k) * dxi * arw(k,iw)
+           wmanud(k,iw) = real(rhot_nud(k+1,iw) - rhot_nud(k,iw)) * min(dxi*dzm(k), 0.25) * arw(k,iw)
         enddo
 
      endif
@@ -242,7 +242,7 @@ subroutine obs_nudge()
      endif
 
      !$omp parallel do private(iv,iw1,iw2,k)
-     do j = 1,jtab_v(jtv_prog)%jend; iv = jtab_v(jtv_prog)%iv(j)
+     do j = 1,jtab_v(jtv_wadj)%jend; iv = jtab_v(jtv_wadj)%iv(j)
         iw1 = itab_v(iv)%iw(1)
         iw2 = itab_v(iv)%iw(2)
 
@@ -255,11 +255,6 @@ subroutine obs_nudge()
 
      enddo
      !$omp end parallel do
-
-     if (iparallel == 1) then
-        call mpi_send_v(rvara1=vmanud)
-        call mpi_recv_v(rvara1=vmanud)
-     endif
 
   endif
 

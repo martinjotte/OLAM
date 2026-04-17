@@ -82,7 +82,7 @@ Module mem_nudge
 
   integer :: o3nudflag = 0
   real    :: tnudi_o3
-  real    :: o3nudpress
+  real(r8):: o3nudpress = 1100.d2
 
   real(r8) :: past_mass_fact
   real(r8) :: future_mass_fact
@@ -118,8 +118,8 @@ Contains
 
   subroutine alloc_nudge2(mza,mwa,mva)
 
-    use misc_coms,  only: io6, rinit, rinit8
-    use mem_grid,   only: volt, arv, arw, lpw, lpv, dzm, arw0
+    use misc_coms,  only: io6
+    use mem_grid,   only: volt, lpw, lpv, dzm, arw0, dzt, dnu, zfacm2, zfact
     use mem_ijtabs, only: jtab_w, jtw_prog, itab_w, jtab_v, jtv_wadj
     use oname_coms, only: nl
 
@@ -147,17 +147,20 @@ Contains
              wmanud(k,iw) = 0.0
           enddo
 
+          ! Assume no blockage by terrain
           dxi = 1. / sqrt(arw0(iw))
           do k = lpw(iw), mza
-             vovera(k,iw) = (arw(k,iw) * dzm(k) + arw(k-1,iw) * dzm(k-1)) * dxi
+             vovera(k,iw) = ( arw0(iw)*zfacm2(k)   * min( dxi*dzm(k  ), 0.25) &
+                            + arw0(iw)*zfacm2(k-1) * min( dxi*dzm(k-1), 0.25) )
           enddo
 
           ! Loop over neighbor V points of this W cell
           do jv = 1, itab_w(iw)%npoly
              iv = itab_w(iw)%iv(jv)
 
+             ! Assume no blockage by terrain
              do k = lpv(iv), mza
-                vovera(k,iw) = vovera(k,iw) + arv(k,iv)
+                vovera(k,iw) = vovera(k,iw) + dzt(k) * dnu(iv) * zfact(k)
              enddo
           enddo
 

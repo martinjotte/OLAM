@@ -605,7 +605,6 @@ subroutine prog_wrt_begs( iw, istage, dt8,                      &
   if (nudflag == 1 .and. nl%nud_preserve_total_mass) then
 
      do k = ka, mza-1
-!       wmarw     (k) = wmanud(k,iw)
         vflux_thil(k) = wmanud(k,iw) * thil_upw(k,iw)
         vflux_vxe (k) = wmanud(k,iw) * vxe_upw(k,iw)
         vflux_vye (k) = wmanud(k,iw) * vye_upw(k,iw)
@@ -613,7 +612,7 @@ subroutine prog_wrt_begs( iw, istage, dt8,                      &
      enddo
 
      do k = lpw(iw), mza
-        hflx_rho(k)    =                     wmanud (k-1,iw) - wmanud (k,iw)
+        hflx_rho(k)    =                  wmanud (k-1,iw) - wmanud (k,iw)
         thilt_rk(k,iw) = thilt_rk(k,iw) + vflux_thil(k-1) - vflux_thil(k)
         vmxet_rk(k,iw) = vmxet_rk(k,iw) + vflux_vxe (k-1) - vflux_vxe (k)
         vmyet_rk(k,iw) = vmyet_rk(k,iw) + vflux_vye (k-1) - vflux_vye (k)
@@ -623,8 +622,6 @@ subroutine prog_wrt_begs( iw, istage, dt8,                      &
   else
 
      do k = ka, mza
-!       thilt_rk(k) = thilt_short(k,iw)
-!       hflx_rho(k) = 0.
         hflx_rho(k) = 0._r8
      enddo
 
@@ -779,17 +776,8 @@ subroutine prog_wrt_begs( iw, istage, dt8,                      &
   wma(ka-1) = 0.
   wma(mza)  = 0.
 
-  if (nudflag > 0 .and. nl%nud_preserve_total_mass) then
-     do k = ka, mza-1
-        wma(k) = wmf(k) * arw(k,iw) + wmanud(k,iw)
-     enddo
-  else
-     do k = ka, mza-1
-        wma(k) = wmf(k) * arw(k,iw)
-     enddo
-  endif
-
   do k = ka, mza-1
+     wma       (k) = wmf(k) * arw     (k,iw)
      vflux_thil(k) = wma(k) * thil_upw(k,iw)
      vflux_vxe (k) = wma(k) * vxe_upw (k,iw)
      vflux_vye (k) = wma(k) * vye_upw (k,iw)
@@ -799,9 +787,15 @@ subroutine prog_wrt_begs( iw, istage, dt8,                      &
   ! Add vertical momentum at (t+fw) to array for long-timestep scalar transport
 
   if (istage == nrk_wrtv) then
-     do k = ka, mza-1
-        wmasc(k,iw) = wmasc(k,iw) + wma(k)
-     enddo
+     if (nudflag > 0 .and. nl%nud_preserve_total_mass) then
+        do k = ka, mza-1
+           wmasc(k,iw) = wmasc(k,iw) + wma(k) + wmanud(k,iw)
+        enddo
+     else
+        do k = ka, mza-1
+           wmasc(k,iw) = wmasc(k,iw) + wma(k)
+        enddo
+     endif
   endif
 
   ! For shallow water test cases 2 & 5, rho & press are
