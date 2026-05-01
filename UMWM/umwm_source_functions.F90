@@ -14,7 +14,7 @@ subroutine sin_d12( i, iwsfc )
   use misc_coms,       only: time_istp8, dtlm
   use umwm_module,     only: pm, om, oc, rhoswi, umwm, fprog, ucurr, vcurr, cp0, &
                              cth, sth, logl2overz, ssin, fkovg, sin_diss1, sin_diss2, &
-                             opeak, swh, dcp0, nu_air, freq
+                             opeak, swh, dcp0, nu_air, freq, fdiag, fpm
   implicit none
 
   ! Wind input function based on Jeffreys's sheltering hypothesis
@@ -32,7 +32,7 @@ subroutine sin_d12( i, iwsfc )
   real,    parameter :: c6 = pi2 * rhoswi
 
   ! cut-off frequency (4*pierson-moskowitz peak frequency)
-  fcutoff = min(fprog, 0.53 * grav / umwm%wspd10m(i) )
+  fcutoff = max(fdiag, min(fprog, fpm * grav / umwm%wspd10m(i)))
 
   ! wind speed at half wavelength (todo: add M.O. stability functions psim)
   do o = 1, om

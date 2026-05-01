@@ -21,6 +21,10 @@ module umwm_module
   real, parameter :: fmin      = 0.035   ! Frequency of lowest frequency bin [Hz]
   real, parameter :: fmax      = 2.0     ! Frequency of highest frequency bin [Hz]
   real, parameter :: fprog     = 2.0     ! Highest prognostic frequency bin [Hz]
+  real, parameter :: fdiag     = 0.2     ! Lowest frequency that can be diagnosed [Hz]
+  real, parameter :: fpm       = 0.53    ! Determines prognosed cutoff frequency,
+                                         ! original=.53 (larger = more frequencies prognosed)
+
   real, parameter :: nu_air    = 1.56E-5 ! Kinematic viscosity of air [m^2/s]
   real, parameter :: nu_water  = 0.90E-6 ! Kinematic viscosity of water [m^2/s]
   real, parameter :: sfct      = 0.07    ! Surface tension [N/m]
