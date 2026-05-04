@@ -3391,7 +3391,7 @@ subroutine oplot_set(iplt)
         ! special for dudhia expts
 !       op%ymax = 10.e3
 
-        if (op%stagpt == 'A' .or. op%stagpt == 'L') op%ymin = -.2 * op%ymax
+        if (op%stagpt == 'L') op%ymin = -.2 * op%ymax
      endif
 
   else

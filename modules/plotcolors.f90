@@ -18,7 +18,7 @@ Module plotcolors
 
   End Type colortables
 
-  type (colortables) :: clrtab(550)  ! Dimension is max number of tables
+  type (colortables) :: clrtab(599)  ! Dimension is max number of tables
 
 !----------------------------------------------------------------------------
 ! COLORTABLES 1-99: LINEAR SCALING WITH (ESSENTIALLY) NO NEGATIVE VALUES
@@ -2456,6 +2456,15 @@ Module plotcolors
   data clrtab(478)%vals(1:4)/ &
       -0.9, 0.1, 1.1, 2.1 /
 
+! Table 479 (lagpart height)
+
+  data clrtab(479)%nvals/8/
+  data clrtab(479)%ifmt(1:2)/0,6/
+  data clrtab(479)%ipal(1:8)/ &
+      100,106,114,118,123,127,135,139        /
+  data clrtab(479)%vals(1:8)/ &
+     100., 300., 500.,1000.,1500.,2000.,3000.,5000.   /
+
 Contains
 
 !===============================================================================
@@ -2476,15 +2485,14 @@ Contains
     call o_hls(iwk, 9,265., 33., 90.)  ! dark green
     call o_hls(iwk,10, 00.,  0.,  0.)  ! black
     call o_hls(iwk,11, 50., 60.,100.)  ! purple
-    call o_hls(iwk,12,135., 40., 70.)  ! dark red for roads
-
-    call o_hls(iwk,13,  0., 30.,  0.)  ! dark gray for roads/outlines
-    call o_hls(iwk,14,  0., 42.,  0.)  ! light gray for raods/outlines
-
-    call o_hls(iwk,15,290., 90., 70.)  ! blue-green for canopy air
+    call o_hls(iwk,12,135., 40., 70.)  ! dark red
+    call o_hls(iwk,13,  0., 30.,  0.)  ! dark gray
+    call o_hls(iwk,14,  0., 42.,  0.)  ! light gray
+    call o_hls(iwk,15,290., 90., 70.)  ! blue-green
     call o_hls(iwk,16,150., 60.,100.)  ! orange
     call o_hls(iwk,17,150., 50., 50.)  ! brown
     call o_hls(iwk,18,340., 80.,100.)  ! light blue
+    call o_hls(iwk,19,120., 85.,100.)  ! pink
 
 ! Finer shades
 
@@ -2781,7 +2789,7 @@ Contains
 
     implicit none
 
-    integer,      intent(in) :: ictab   ! Colortable number; must be in range [500,550]
+    integer,      intent(in) :: ictab   ! Colortable number; must be in range [500,599]
     character(*), intent(in) :: palette ! Name of set of colors
     character(3), intent(in) :: cscale  ! Contour interval scaling ('lin' or 'log')
     real,         intent(in) :: cmin    ! Minimum contour level
@@ -2820,7 +2828,7 @@ Contains
 
     ! Check for permissible values of input parameters
 
-    if (ictab < 500 .or. ictab > 550) then
+    if (ictab < 500 .or. ictab > 599) then
        print*, 'In subroutine make_colortable, input value of ictab is not in allowable range'
        print*, 'ictab = ',ictab
        stop 'ictab '
@@ -3051,7 +3059,7 @@ Contains
 
      implicit none
 
-     integer,      intent(in) :: ictab   ! Colortable number; must be in range [500,550]
+     integer,      intent(in) :: ictab   ! Colortable number; must be in range [500,599]
      character(*), intent(in) :: palette ! Name of set of colors
      integer,      intent(in) :: nnegc   ! Number of colors representing negative values
      integer,      intent(in) :: nposc   ! Number of colors representing positive values
@@ -3096,14 +3104,12 @@ Contains
 
            if (ipalstd >= 100 .and. ipalstd /= 146) then  ! Doing positive field values only (for now)
 
-              if (nposc <= 10) then
-                 if     (palette(1:5) == 'STDRL') then
-                    clrtab(ictab)%ipal(ival) = STD10L(ipalstd - 99)
-                 elseif (palette(1:5) == 'STDRD') then
-                    clrtab(ictab)%ipal(ival) = STD10D(ipalstd - 99)
-                 else
-                    clrtab(ictab)%ipal(ival) = STD10M(ipalstd - 99)
-                 endif
+              if     (nposc <= 10 .and. palette(1:5) == 'STDRL') then
+                 clrtab(ictab)%ipal(ival) = STD10L(ipalstd - 99)
+              elseif (nposc <= 10 .and. palette(1:5) == 'STDRM') then
+                 clrtab(ictab)%ipal(ival) = STD10M(ipalstd - 99)
+              elseif (nposc <= 10 .and. palette(1:5) == 'STDRD') then
+                 clrtab(ictab)%ipal(ival) = STD10D(ipalstd - 99)
               elseif (nposc <= 17) then
                  clrtab(ictab)%ipal(ival) = std17(ipalstd - 99)
               elseif (nposc <= 21) then

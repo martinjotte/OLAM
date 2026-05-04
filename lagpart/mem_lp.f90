@@ -42,7 +42,6 @@ module mem_lp
      real          :: szmin
      real          :: szmax
      real          :: szpwr
-     character(30) :: units
   End Type oname_lpsrc
 
   ! Source information stored in memory; includes all fields read in from

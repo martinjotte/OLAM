@@ -10,6 +10,8 @@ subroutine lpsource()
   integer, save :: idum_seed = 1
 
   real :: sc1, sc3, sc4, denslp, duration, xdisp, ydisp
+  real :: rand    ! random number in the range [0,1]
+  real :: diamlp  ! particle diameter [m]
   real :: radius, angle, rpos, azim
 
   integer :: ilpsrc, nrelcnt, irelcnt, nlp0
@@ -28,8 +30,8 @@ subroutine lpsource()
      if (real(time8) < lpsrc(ilpsrc)%begtime .or. real(time8) > lpsrc(ilpsrc)%endtime) cycle
 
      sc1 = lpsrc(ilpsrc)%szpwr
-     sc3 = lpsrc(ilpsrc)%szmin**(1./sc1)
-     sc4 = lpsrc(ilpsrc)%szmax**(1./sc1)
+     sc3 = lpsrc(ilpsrc)%szmin
+     sc4 = lpsrc(ilpsrc)%szmax
      denslp = 2.0
 
      ! account for portion of a particle left over from last timestep
@@ -89,9 +91,24 @@ subroutine lpsource()
         atp(nlp)%nsource  = ilpsrc
 !e        atp(nlp)%nspecies = species(ilpsrc)
         atp(nlp)%reltime = real(time8)
+
         if (lpsrc(ilpsrc)%ifall == 1) then
-           atp(nlp)%fallvel = -4.e7 * denslp * (sc3 + (sc4 - sc3)  &
-                            * ramran(idum_seed))**(2. * sc1)
+           rand = ramran(idum_seed)
+           
+           diamlp = sc3 + (sc4 - sc3) * rand**sc1
+                            
+          ! Droplet terminal velocity [m s^-1] depending on diameter.  For now,
+          ! assumes particle density same as liquid water, and air density and
+          ! dynamic viscosity near standard sea level values.
+          
+          if (diamlp <= 133.e-6) then
+             atp(nlp)%fallvel = .3e8 * diamlp**2 ! [m s^-1]
+          elseif (diamlp >= 1296.e-6) then
+             atp(nlp)%fallvel = 144. * sqrt(diamlp)
+          else
+             atp(nlp)%fallvel = 4000. * diamlp
+          endif
+
         else
            atp(nlp)%fallvel = 0.
         endif
