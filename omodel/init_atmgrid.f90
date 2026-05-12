@@ -30,16 +30,19 @@ subroutine para_init_atm()
                         jtv_init, jtv_prog, jtv_wadj,           jtv_wstn, jtv_lbcp, &
                         jtw_init, jtw_prog, jtw_wadj, jtw_vadj, jtw_wstn, jtw_lbcp
 
-  use mem_grid,   only: nma, nva, nwa, mma, mua, mva, mwa, mza, &
+  use mem_grid,   only: nma, nva, nwa, mma, mua, mva, mwa, &
                         alloc_gridz, alloc_xyzem, alloc_xyzew, &
-                        alloc_grid1, alloc_grid2, xew, yew, zew, arw0
+                        alloc_grid1, alloc_grid2, xew, yew, zew, arw0, arw0g, &
+                        xewg, yewg, zewg, xem, yem, zem, xemg, yemg, zemg, &
+                        latmg, lonmg, latwg, lonwg, alloc_latlong
 
   use mem_para,     only: mgroupsize, myrank
   use olam_mpi_atm, only: nsends_v, nrecvs_v, send_v, recv_v, &
                           nsends_m, nrecvs_m, send_m, recv_m, &
                           nsends_w, nrecvs_w, send_w, recv_w
-  use max_dims,   only: maxremote
-  use mem_nudge,  only: nudflag, nudnxp
+  use max_dims,    only: maxremote
+  use mem_nudge,   only: nudflag, nudnxp
+  use consts_coms, only: piu180
 
   implicit none
 
@@ -81,8 +84,6 @@ subroutine para_init_atm()
 
   integer :: imp_recv_jrecv(nma) ! temporary recv table
   integer :: imp_recv_im   (nma) ! temporary recv table
-
-  real, allocatable :: xewg(:), yewg(:), zewg(:), arw0g(:)
 
   ! Initialize send & recv counters to zero
 
@@ -182,11 +183,6 @@ subroutine para_init_atm()
 
   ! Allocate grid structure variables
 
-  call move_alloc(xew,xewg)
-  call move_alloc(yew,yewg)
-  call move_alloc(zew,zewg)
-  call move_alloc(arw0,arw0g)
-
   call alloc_gridz()
   call alloc_itabs(mma, mva, mwa)
   call alloc_xyzem(mma)
@@ -209,6 +205,10 @@ subroutine para_init_atm()
         itabg_m(im)%im_myrank = im_myrank
         itab_m(im_myrank)%imglobe = im
         itab_m(im_myrank)%irank = itabg_m(im)%irank
+
+        xem(im_myrank) = xemg(im)
+        yem(im_myrank) = yemg(im)
+        zem(im_myrank) = zemg(im)
      endif
   enddo
 
@@ -237,7 +237,31 @@ subroutine para_init_atm()
      endif
   enddo
 
-  deallocate (xewg, yewg, zewg, arw0g)
+  deallocate (arw0g)
+
+  ! Global lat/lon arrays are only allocated for global (non-Cartesian) runs.
+  ! For now we will just recompute them here rather than re-read the global arrays.
+
+  call alloc_latlong(nwa, nma)
+
+  if (mdomain <= 1) then
+
+     !$omp parallel
+     !$omp do
+     do im = 2, nma
+        latmg(im) = atan2( zemg(im), sqrt(xemg(im) ** 2 + yemg(im) ** 2)) * piu180
+        lonmg(im) = atan2( yemg(im), xemg(im) ) * piu180
+     enddo
+     !$omp end do nowait
+     !$omp do
+     do iw = 2, nwa
+        latwg(iw) = atan2( zewg(iw), sqrt(xewg(iw) ** 2 + yewg(iw) ** 2)) * piu180
+        lonwg(iw) = atan2( yewg(iw), xewg(iw) ) * piu180
+     enddo
+     !$omp end do nowait
+     !$omp end parallel
+
+  endif
 
   ! Read the grid structure for all points in local parallel subdomain
   ! for this rank (or for all points in domain if run is sequential)
@@ -746,6 +770,20 @@ subroutine para_init_atm()
      enddo
   enddo
 
+  ! Copy extra global information to the itabg arrays
+
+  do iw = 1, nwa
+     itabg_w(iw)%npoly    = itab_w_pd(iw)%npoly
+     itabg_w(iw)%iwg(1:7) = itab_w_pd(iw)%iw(1:7)
+     itabg_w(iw)%img(1:7) = itab_w_pd(iw)%im(1:7)
+  enddo
+
+  do im = 1, nma
+     itabg_m(im)%npoly    = itab_m_pd(im)%npoly
+     itabg_m(im)%iwg(1:3) = itab_m_pd(im)%iw(1:3)
+     itabg_m(im)%img(1:3) = itab_m_pd(im)%im(1:3)
+  enddo
+
   ! Deallocate para_decomp _pd arrays
 
   deallocate( itab_m_pd )
@@ -967,9 +1005,9 @@ subroutine serial_init_atm()
                         itab_m_pd,   itab_v_pd,   itab_w_pd,   &
                         alloc_itabs
 
-  use mem_grid,   only: nma, nva, nwa, mma, mva, mwa, &
-                        alloc_gridz, alloc_xyzem, alloc_xyzew, &
-                        alloc_grid1, alloc_grid2
+  use mem_grid,   only: nma, nva, nwa, mma, mva, mwa, alloc_gridz, &
+                        alloc_grid1, alloc_grid2, alloc_latlong
+
   implicit none
 
   integer :: im, iv, iw
@@ -978,9 +1016,9 @@ subroutine serial_init_atm()
 
   call alloc_gridz()
   call alloc_itabs(mma, mva, mwa)
-  call alloc_xyzem(mma)
   call alloc_grid1(mma, mva, mwa)
   call alloc_grid2(mma, mva, mwa)
+  call alloc_latlong(mwa, mma)
 
   ! Store new myrank M, V, and W indices in itabg data structures
 
@@ -1033,6 +1071,20 @@ subroutine serial_init_atm()
      itab_w(iw)%iv(1:7) = itab_w_pd(iw)%iv(1:7)
      itab_w(iw)%iw(1:7) = itab_w_pd(iw)%iw(1:7)
      itab_w(iw)%iwp     = itab_w_pd(iw)%iwp
+  enddo
+
+  ! Copy extra global information to the itabg arrays
+
+  do iw = 1, nwa
+     itabg_w(iw)%npoly    = itab_w_pd(iw)%npoly
+     itabg_w(iw)%iwg(1:7) = itab_w_pd(iw)%iw(1:7)
+     itabg_w(iw)%img(1:7) = itab_w_pd(iw)%im(1:7)
+  enddo
+
+  do im = 1, nma
+     itabg_m(im)%npoly    = itab_m_pd(im)%npoly
+     itabg_m(im)%iwg(1:3) = itab_m_pd(im)%iw(1:3)
+     itabg_m(im)%img(1:3) = itab_m_pd(im)%im(1:3)
   enddo
 
   ! Deallocate para_decomp _pd arrays

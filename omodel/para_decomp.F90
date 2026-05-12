@@ -7,7 +7,7 @@ subroutine para_decomp()
   use mem_ijtabs, only: itab_v_pd, itab_m_pd, itabg_m, itabg_v, itabg_w
   use mem_nudge,  only: nudflag, nudnxp, nwnud, itabg_wnud, &
                         xewnud, yewnud, zewnud
-  use mem_grid,   only: nma, nva, nwa, xew, yew, zew, arw0
+  use mem_grid,   only: nma, nva, nwa, xewg, yewg, zewg, arw0g
   use mem_sfcg,   only: nmsfc, itabg_msfc, itab_msfc_pd, &
                         nvsfc, itabg_vsfc, itab_wsfc_pd, &
                         nwsfc, itabg_wsfc, itab_vsfc_pd
@@ -103,7 +103,7 @@ subroutine para_decomp()
 
      do iw = 2,nwa
         grp(1)%iw(iw-1) = iw
-        ds(iw) = scal * sqrt(arw0(iw))
+        ds(iw) = scal * sqrt(arw0g(iw))
      enddo
 
      ! Check if NUDGING GRID is being used
@@ -150,13 +150,13 @@ subroutine para_decomp()
               do i = 1,nwg(igp)
                  iw = grp(igp)%iw(i)
 
-                 if (xmin > xew(iw) - ds(iw)) xmin = xew(iw) - ds(iw)
-                 if (ymin > yew(iw) - ds(iw)) ymin = yew(iw) - ds(iw)
-                 if (zmin > zew(iw) - ds(iw)) zmin = zew(iw) - ds(iw)
+                 if (xmin > xewg(iw) - ds(iw)) xmin = xewg(iw) - ds(iw)
+                 if (ymin > yewg(iw) - ds(iw)) ymin = yewg(iw) - ds(iw)
+                 if (zmin > zewg(iw) - ds(iw)) zmin = zewg(iw) - ds(iw)
 
-                 if (xmax < xew(iw) + ds(iw)) xmax = xew(iw) + ds(iw)
-                 if (ymax < yew(iw) + ds(iw)) ymax = yew(iw) + ds(iw)
-                 if (zmax < zew(iw) + ds(iw)) zmax = zew(iw) + ds(iw)
+                 if (xmax < xewg(iw) + ds(iw)) xmax = xewg(iw) + ds(iw)
+                 if (ymax < yewg(iw) + ds(iw)) ymax = yewg(iw) + ds(iw)
+                 if (zmax < zewg(iw) + ds(iw)) zmax = zewg(iw) + ds(iw)
               enddo
 
 ! Determine whether to cut in x, y, or z direction
@@ -173,7 +173,7 @@ subroutine para_decomp()
 
                     do i = 1,nwg(igp)
                        iw = grp(igp)%iw(i)
-                       val(iw) = zew(iw) + ds(iw) * (xew(iw) - xo) * xsca
+                       val(iw) = zewg(iw) + ds(iw) * (xewg(iw) - xo) * xsca
                     enddo
 
                  else
@@ -183,7 +183,7 @@ subroutine para_decomp()
 
                     do i = 1,nwg(igp)
                        iw = grp(igp)%iw(i)
-                       val(iw) = zew(iw) + ds(iw) * (yew(iw) - yo) * ysca
+                       val(iw) = zewg(iw) + ds(iw) * (yewg(iw) - yo) * ysca
                     enddo
 
                  endif
@@ -211,7 +211,7 @@ subroutine para_decomp()
 
                     do i = 1,nwg(igp)
                        iw = grp(igp)%iw(i)
-                       val(iw) = xew(iw) + ds(iw) * (yew(iw) - yo) * ysca
+                       val(iw) = xewg(iw) + ds(iw) * (yewg(iw) - yo) * ysca
                     enddo
 
                  else
@@ -221,7 +221,7 @@ subroutine para_decomp()
 
                     do i = 1,nwg(igp)
                        iw = grp(igp)%iw(i)
-                       val(iw) = xew(iw) + ds(iw) * (zew(iw) - zo) * zsca
+                       val(iw) = xewg(iw) + ds(iw) * (zewg(iw) - zo) * zsca
                     enddo
 
                  endif
@@ -249,7 +249,7 @@ subroutine para_decomp()
 
                     do i = 1,nwg(igp)
                        iw = grp(igp)%iw(i)
-                       val(iw) = yew(iw) + ds(iw) * (xew(iw) - xo) * xsca
+                       val(iw) = yewg(iw) + ds(iw) * (xewg(iw) - xo) * xsca
                     enddo
 
                  else
@@ -259,7 +259,7 @@ subroutine para_decomp()
 
                     do i = 1,nwg(igp)
                        iw = grp(igp)%iw(i)
-                       val(iw) = yew(iw) + ds(iw) * (zew(iw) - zo) * zsca
+                       val(iw) = yewg(iw) + ds(iw) * (zewg(iw) - zo) * zsca
                     enddo
 
                  endif

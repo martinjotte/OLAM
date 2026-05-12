@@ -1496,7 +1496,8 @@ subroutine gridfile_read_pd()
                         itab_m_pd, itab_v_pd, itab_w_pd, alloc_itabs_pd
   use mem_grid,   only: nza, nma, nua, nva, nwa, &
                         mza, mma, mua, mva, mwa, nsw_max, nve2_max, &
-                        xew, yew, zew, arw0, alloc_xyzem, alloc_xyzew
+                        xewg, yewg, zewg, arw0g, xemg, yemg, zemg, &
+                        alloc_xyzemg, alloc_xyzewg
   use mem_sfcg,   only: nwsfc, itab_wsfc_pd
   use leaf_coms,  only: isfcl, isoilflg, ivegflg
   use mem_para,   only: olam_mpi_finalize
@@ -1742,16 +1743,27 @@ subroutine gridfile_read_pd()
 
   call alloc_itabs_pd(nma,nva,nwa)
 
-  call alloc_xyzew(nwa)
+  call alloc_xyzewg(nwa)
+  call alloc_xyzemg(nma)
+
+  ! Read W grid information
 
   ndims    = 1
   idims(1) = nwa
 
-  call shdf5_irec(ndims, idims, 'XEW', rvar1=xew)
-  call shdf5_irec(ndims, idims, 'YEW', rvar1=yew)
-  call shdf5_irec(ndims, idims, 'ZEW', rvar1=zew)
+  call shdf5_irec(ndims, idims, 'XEW',  rvar1=xewg)
+  call shdf5_irec(ndims, idims, 'YEW',  rvar1=yewg)
+  call shdf5_irec(ndims, idims, 'ZEW',  rvar1=zewg)
+  call shdf5_irec(ndims, idims, 'ARW0', rvar1=arw0g)
 
-  call shdf5_irec(ndims, idims, 'ARW0', rvar1=arw0)
+  ! Read M grid information
+
+  ndims    = 1
+  idims(1) = nma
+
+  call shdf5_irec(ndims, idims, 'XEM', rvar1=xemg)
+  call shdf5_irec(ndims, idims, 'YEM', rvar1=yemg)
+  call shdf5_irec(ndims, idims, 'ZEM', rvar1=zemg)
 
   ! Read ITAB_M SCALARS
 

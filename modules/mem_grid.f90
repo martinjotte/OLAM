@@ -33,9 +33,7 @@ Module mem_grid
      ,zfacim,zfacit    &  ! inverse of zfacm, zfact
      ,zfacm2,zfacim2   &  ! expansion factor of arw with height, and its inverse
 
-     ,xem ,yem, zem    &  ! XE,YE,ZE coordinates of M point
      ,xev ,yev, zev    &  ! XE,YE,ZE coordinates of V point
-     ,xew ,yew, zew    &  ! XE,YE,ZE coordinates of W point
 
      ,unx, uny, unz    &  ! U face normal unit vector components
      ,vnx, vny, vnz    &  ! V face normal unit vector components
@@ -48,13 +46,18 @@ Module mem_grid
      ,dniv             &  ! (1/dxy) across V face for turb V XY flx
 
      ,arm0             &  ! Area of IM triangle at earth surface
-     ,arw0             &  ! Area of IW polygon at earth surface
 
-     ,glatm ,glonm     &  ! Latitude/longitude at M point
      ,glatv ,glonv     &  ! Latitude/longitude at V point
-     ,glatw ,glonw     &  ! Latitude/longitude at W point
 
      ,topm, topw          ! Topography height at M,W point
+
+   real, allocatable, dimension(:), target ::  &
+
+        xem, yem, zem, &  ! XE,YE,ZE coordinates of M point
+        xew, yew, zew, &  ! XE,YE,ZE coordinates of W point
+        arw0,          &  ! Area of IW polygon at earth surface
+        glatm, glonm,  &  ! Latitude/longitude at M point
+        glatw, glonw      ! Latitude/longitude at W point
 
    real, allocatable :: gravm(:) ! gravity at M levels
    real, allocatable :: gravt(:) ! gravity at T levels
@@ -118,6 +121,14 @@ Module mem_grid
         vxn_ns, vyn_ns, vzn_ns, & ! unit normals of meridional (north-south) direction in earth cartesian coordinates
         vcn_ew, vcn_ns            ! components of zonal and merdional vectors in the direction of VC
 
+! Global W and M locations for parallel runs
+
+   real, pointer, contiguous :: xewg(:), yewg(:), zewg(:)
+   real, pointer, contiguous :: latwg(:), lonwg(:), arw0g(:)
+
+   real, pointer, contiguous :: xemg(:), yemg(:), zemg(:)
+   real, pointer, contiguous :: latmg(:), lonmg(:)
+
 Contains
 
 !===============================================================================
@@ -168,6 +179,42 @@ Contains
 
 !===============================================================================
 
+  subroutine alloc_xyzemg(lma)
+
+    use misc_coms, only: iparallel
+    implicit none
+
+    integer, intent(in) :: lma
+    integer             :: im
+
+    if (iparallel == 1) then
+
+       allocate( xemg(lma) )
+       allocate( yemg(lma) )
+       allocate( zemg(lma) )
+
+       !$omp parallel do
+       do im = 1, lma
+          xemg(im) = 0.
+          yemg(im) = 0.
+          zemg(im) = 0.
+       enddo
+       !$omp end parallel do
+
+    else
+
+       call alloc_xyzem(lma)
+
+       xemg => xem(:)
+       yemg => yem(:)
+       zemg => zem(:)
+
+    endif
+
+  end subroutine alloc_xyzemg
+
+!===============================================================================
+
   subroutine alloc_xyzew(lwa)
 
     implicit none
@@ -190,6 +237,99 @@ Contains
     !$omp end parallel do
 
   end subroutine alloc_xyzew
+
+!===============================================================================
+
+  subroutine alloc_xyzewg(lwa)
+
+    use misc_coms, only: iparallel
+    implicit none
+
+    integer, intent(in) :: lwa
+    integer             :: iw
+
+    if (iparallel == 1) then
+
+       allocate( xewg( lwa) )
+       allocate( yewg( lwa) )
+       allocate( zewg( lwa) )
+       allocate( arw0g(lwa) )
+
+       !$omp parallel do
+       do iw = 1, lwa
+          xewg (iw) = 0.
+          yewg (iw) = 0.
+          zewg (iw) = 0.
+          arw0g(iw) = 0.
+       enddo
+       !$omp end parallel do
+
+    else
+
+       call alloc_xyzew(lwa)
+
+       xewg  => xew (:)
+       yewg  => yew (:)
+       zewg  => zew (:)
+       arw0g => arw0(:)
+
+    endif
+
+  end subroutine alloc_xyzewg
+
+!===============================================================================
+
+  subroutine alloc_latlong(lwa,lma)
+
+    use misc_coms, only: mdomain, iparallel
+    implicit none
+
+    integer, intent(in) :: lwa, lma
+    integer             :: im,  iw
+
+    ! Global lat/lons are not defined for cartesian runs
+    if (mdomain > 1) return
+
+    if (iparallel /= 1) then
+
+       if (.not. allocated(glatm)) then
+          write(*,*) "Error: alloc_grid1 must be called before alloc_latlong"
+          write(*,*) "for a serial run. Stopping model."
+          stop
+       endif
+
+       latmg => glatm(:)
+       lonmg => glonm(:)
+
+       latwg => glatw(:)
+       lonwg => glonw(:)
+
+    else
+
+       allocate( latmg(lma) )
+       allocate( lonmg(lma) )
+
+       allocate( latwg(lwa) )
+       allocate( lonwg(lwa) )
+
+       !$omp parallel
+       !$omp do
+       do im = 1, lma
+          latmg(im) = 0.
+          lonmg(im) = 0.
+       enddo
+       !$omp end do nowait
+       !$omp do
+       do iw = 1, lma
+          latmg(iw) = 0.
+          lonmg(iw) = 0.
+       enddo
+       !$omp end do nomait
+       !$omp end parallel
+
+    endif
+
+  end subroutine alloc_latlong
 
 !===============================================================================
 
@@ -473,7 +613,7 @@ Contains
      implicit none
 
      integer :: iw, j, iv, iw1, iw2, k, n1, n2
-     real    :: raxis, raxisi, vxn_ewv, vyn_ewv, vxn_nsv, vyn_nsv, vzn_nsv
+     real    :: raxis, vxn_ewv, vyn_ewv, vxn_nsv, vyn_nsv, vzn_nsv
 
      ! Allocate and define variables defined at V faces
 
@@ -506,7 +646,7 @@ Contains
      volwi(:,1) = 0.0
 
      !$omp parallel
-     !$omp do private(raxis,raxisi,vxn_ewv,vyn_ewv,vxn_nsv,vyn_nsv,vzn_nsv)
+     !$omp do private(raxis,vxn_ewv,vyn_ewv,vxn_nsv,vyn_nsv,vzn_nsv)
      do iv = 2, mva
 
         vnxo2 (iv) = vnx (iv) * 0.5

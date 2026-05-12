@@ -116,6 +116,9 @@ Module mem_ijtabs
   Type itabg_m_vars            ! data structure for M pts (global)
      integer :: im_myrank =  1 ! local (parallel subdomain) index of this M pt
      integer :: irank     = -1 ! rank of parallel process at this M pt
+     integer :: npoly     =  0 ! number of M/V neighbors of this W pt
+     integer :: iwg(3)    =  1 ! neighbor W pts global indices
+     integer :: img(3)    =  1 ! neighbor W pts global indices
   End Type itabg_m_vars
 
   Type itabg_v_vars            ! data structure for V pts (global)
@@ -126,6 +129,9 @@ Module mem_ijtabs
   Type itabg_w_vars            ! data structure for W pts (global)
      integer :: iw_myrank =  1 ! local (parallel subdomain) index of this W pt
      integer :: irank     = -1 ! rank of parallel process at this W pt
+     integer :: npoly     =  0 ! number of M/V neighbors of this W pt
+     integer :: iwg(7)    =  1 ! neighbor W pts global indices
+     integer :: img(7)    =  1 ! neighbor W pts global indices
   End Type itabg_w_vars
 
   Type jtab_m_vars
