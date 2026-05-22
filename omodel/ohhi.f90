@@ -673,10 +673,11 @@ subroutine fldshhi()
   use mem_micro,   only: rr_c, con_c, cldnum
   use micro_coms,  only: miclevel, ccnparm, jnmb, rxmin, zfactor_ccn
   use mem_ijtabs,  only: jtab_w, jtab_v, itab_v, jtv_init, jtw_init
-  use misc_coms,   only: th01d, pr01d, dn01d, rt01d, u01d, v01d, iparallel
+  use misc_coms,   only: th01d, pr01d, dn01d, rt01d, u01d, v01d, iparallel, &
+                         mdomain
   use consts_coms, only: cvocp, p00kord, p00i, rocp, alvlocp, eps_vapi, r8
-  use mem_grid,    only: mza, lpv, lpw, gdz_abov8, gdz_belo8, vcn_ew, vcn_ns, &
-                         vnxo2, vnyo2, vnzo2
+  use mem_grid,    only: mza, lpv, lpw, gdz_abov8, gdz_belo8, vnxo2, vnyo2, &
+                         vnzo2, vxn_ew, vyn_ew, vxn_ns, vyn_ns, vzn_ns
   use olam_mpi_atm,only: mpi_send_w, mpi_recv_w, mpi_send_v, mpi_recv_v
   use obnd,        only: lbcopy_v, lbcopy_w
   use therm_lib,   only: rhovsl
@@ -707,7 +708,6 @@ subroutine fldshhi()
 
      wc (1:mza,iw) = 0.
      wmc(1:mza,iw) = 0.
-     vze(1:mza,iw) = 0.
 
      do k = ka, mza
         theta(k,iw) = th01d(k)
@@ -716,11 +716,23 @@ subroutine fldshhi()
         rho  (k,iw) = dn01d(k)
         rr_w (k,iw) = rt01d(k)
         rr_v (k,iw) = rt01d(k)
-        ue   (k,iw) =  u01d(k)
-        ve   (k,iw) =  v01d(k)
-        vxe  (k,iw) =  u01d(k)
-        vye  (k,iw) =  v01d(k)
      enddo
+
+     if (mdomain > 1) then
+        do k = ka, mza
+           vxe(k,iw) = u01d(k)
+           vye(k,iw) = v01d(k)
+           vze(k,iw) = 0.
+        enddo
+     else
+        do k = ka, mza
+           ue (k,iw) = u01d(k)
+           ve (k,iw) = v01d(k)
+           vxe(k,iw) = vxn_ew(iw) * u01d(k) + vxn_ns(iw) * v01d(k)
+           vye(k,iw) = vyn_ew(iw) * u01d(k) + vyn_ns(iw) * v01d(k)
+           vze(k,iw) =                        vzn_ns(iw) * v01d(k)
+        enddo
+     endif
 
      do iter = 1, 100
 
@@ -806,19 +818,34 @@ subroutine fldshhi()
 
   if (iparallel == 1) then
 
-     call mpi_send_w(dvara1=press, dvara2=rho, &
-                     rvara1=wc,rvara2=wmc,rvara3=thil, &
-                     rvara4=ue,rvara5=ve, &
-                     rvara6=vxe, rvara7=vye, rvara8=vze)
+     if (mdomain > 1) then
 
-     call mpi_recv_w(dvara1=press, dvara2=rho, &
-                     rvara1=wc,rvara2=wmc,rvara3=thil, &
-                     rvara4=ue,rvara5=ve, &
-                     rvara6=vxe, rvara7=vye, rvara8=vze)
+        call mpi_send_w(dvara1=press, dvara2=rho, &
+                        rvara1=wc,rvara2=wmc,rvara3=thil, &
+                        rvara4=vxe, rvara5=vye, rvara6=vze)
+
+        call mpi_recv_w(dvara1=press, dvara2=rho, &
+                        rvara1=wc,rvara2=wmc,rvara3=thil, &
+                        rvara4=vxe, rvara5=vye, rvara6=vze)
+     else
+
+        call mpi_send_w(dvara1=press, dvara2=rho, &
+                        rvara1=wc,rvara2=wmc,rvara3=thil, &
+                        rvara4=ue,rvara5=ve, &
+                        rvara6=vxe, rvara7=vye, rvara8=vze)
+
+        call mpi_recv_w(dvara1=press, dvara2=rho, &
+                        rvara1=wc,rvara2=wmc,rvara3=thil, &
+                        rvara4=ue,rvara5=ve, &
+                        rvara6=vxe, rvara7=vye, rvara8=vze)
+     endif
+
   endif
 
-  call lbcopy_w(a1=wc,  a2=wmc, a3=thil, a4=ue, a5=ve, a6=vxe, a7=vye, &
-                a8=vze, d1=rho, d2=press)
+  if (mdomain > 1) then
+     call lbcopy_w(a1=wc,  a2=wmc, a3=thil, a4=vxe, a5=vye, a6=vze, &
+                   d1=rho, d2=press)
+  endif
 
   ! Initialize VMC, VC
 
