@@ -324,7 +324,7 @@ Contains
           latmg(iw) = 0.
           lonmg(iw) = 0.
        enddo
-       !$omp end do nomait
+       !$omp end do nowait
        !$omp end parallel
 
     endif

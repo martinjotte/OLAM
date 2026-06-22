@@ -1,12 +1,8 @@
 Module hdf5_utils
 
-!!!!!!!!!!!!!!!! temp
-  use hdf5_f2f
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  use iso_fortran_env, only: r8=>real64, i1=>int8
 
   use max_dims, only: pathlen
-
-  use, intrinsic :: iso_fortran_env, only: r8=>real64, i1=>int8
 
   use hdf5, only: FORTRAN_REAL4_TYPE => H5T_IEEE_F32LE, &
                   FORTRAN_REAL8_TYPE => H5T_IEEE_F64LE, &
@@ -640,16 +636,16 @@ subroutine shdf5_orec(ndims,dims,dsetname,bvars,ivars,rvars,dvars,lvars,    &
   if ( do_comm .and. present(gpoints) ) then
 
      if (nl%allranks_write_hdf5) then
-        call shdf5_orec_no_phdf5_allranks()
+        call shdf5_orec_no_phdf5_allranks(gpoints, size(gpoints) )
      else
-        call shdf5_orec_no_phdf5_rank0()
+        call shdf5_orec_no_phdf5_rank0( gpoints, size(gpoints) )
      endif
 
   endif
 
   Contains
 
-  subroutine shdf5_orec_no_phdf5_rank0()
+  subroutine shdf5_orec_no_phdf5_rank0( gpoints, nu )
 
     use mem_para, only: mgroupsize, myrank, MPI_COMM_OLAM
 
@@ -659,28 +655,28 @@ subroutine shdf5_orec(ndims,dims,dsetname,bvars,ivars,rvars,dvars,lvars,    &
 
     use hdf5_f2f, only: fh5_prepare_write, fh5_write, fh5_prepare_write, fh5_close_write
 
-    import,       only: dsetname, ndims, dims, nglobe, lpoints, gpoints, stype, &
+    import,       only: dsetname, ndims, dims, nglobe, lpoints, stype, r8, i1, &
                         bvar1, bvar2, bvar3, bvar4, ivar1, ivar2, ivar3, ivar4, &
                         rvar1, rvar2, rvar3, rvar4, dvar1, dvar2, dvar3, dvar4, &
-                        lvar1, lvar2, lvar3, r8, i1, fh5_prepare_write, &
-                        lbuf1, lbuf2, lbuf3
+                        lvar1, lvar2, lvar3,        lbuf1, lbuf2, lbuf3
 
     implicit none (external, type)
+
+    integer,      intent(in) :: nu
+    integer,      intent(in) :: gpoints(nu)
 
     integer,     allocatable :: ibuff(:), points(:), nus(:)
     real,        allocatable :: rbuff(:)
     real(r8),    allocatable :: dbuff(:)
     integer(i1), allocatable :: bbuff(:)
     integer                  :: hdferr, maxbuff, locbuff
-    integer                  :: nu, ier, base, n, i, is
+    integer                  :: ier, base, n, i, is
     integer,       parameter :: itag1 = 2098
     integer,       parameter :: itag2 = 2099
     type(MPI_Request)        :: ireqs(2)
     integer                  :: dimsn(5)
 
     ! Collect on rank 0 the number of cells output by each process
-
-    nu = size(gpoints)
 
     if (myrank == 0) then
        allocate(nus(mgroupsize))
@@ -893,22 +889,24 @@ subroutine shdf5_orec(ndims,dims,dsetname,bvars,ivars,rvars,dvars,lvars,    &
   end subroutine shdf5_orec_no_phdf5_rank0
 
 
-  subroutine shdf5_orec_no_phdf5_allranks()
+  subroutine shdf5_orec_no_phdf5_allranks( gpoints, nu )
 
     use mem_para, only: mgroupsize, myrank, olam_mpi_barrier
 
     use hdf5_f2f, only: fh5f_open, fh5_prepare_write, fh5_write, fh5_close_write, &
                         fh5f_close
 
-    import, only: dsetname, ndims, dims, nglobe, lpoints, gpoints, stype, &
+    import, only: dsetname, ndims, dims, nglobe, lpoints, stype, fname, r8, i1, &
                   bvar1, bvar2, bvar3, bvar4, ivar1, ivar2, ivar3, ivar4, &
                   rvar1, rvar2, rvar3, rvar4, dvar1, dvar2, dvar3, dvar4, &
-                  lvar1, lvar2, lvar3, r8, i1, fname, lbuf1, lbuf2, lbuf3
+                  lvar1, lvar2, lvar3,        lbuf1, lbuf2, lbuf3
 
     implicit none (external, type)
 
-    integer :: hdferr, maxbuff, locbuff
-    integer :: nu, ier, base, n, i, is
+    integer, intent(in) :: nu
+    integer, intent(in) :: gpoints(nu)
+    integer             :: hdferr, maxbuff, locbuff
+    integer             :: ier, base, n, i, is
 
     if (myrank == 0) call fh5f_close(hdferr)
 
@@ -1399,12 +1397,12 @@ subroutine shdf5_irec(ndims,dims,dsetname,bvars,ivars,rvars,dvars,lvars,     &
   if (indepio) call olam_mpi_barrier()
 
   if (do_comm .and. present(points)) then
-     call shdf5_irec_no_phdf5_rank0()
+     call shdf5_irec_no_phdf5_rank0( points, size(points) )
   endif
 
 Contains
 
-  subroutine shdf5_irec_no_phdf5_rank0()
+  subroutine shdf5_irec_no_phdf5_rank0( points, nu )
 
     use mem_para, only: mgroupsize, myrank, MPI_COMM_OLAM
 
@@ -1416,24 +1414,25 @@ Contains
 
     import,       only: bvar1, bvar2, bvar3, bvar4, ivar1, ivar2, ivar3, ivar4, &
                         rvar1, rvar2, rvar3, rvar4, dvar1, dvar2, dvar3, dvar4, &
-                        lvar1, lvar2, lvar3, r8, i1, dsetname, ndims, dims, points
+                        lvar1, lvar2, lvar3, r8, i1, dsetname, ndims, dims
 
     implicit none (external, type)
+
+    integer,      intent(in) :: nu
+    integer,      intent(in) :: points(nu)
 
     integer,     allocatable :: ibuff(:), rpoints(:), nus(:)
     real,        allocatable :: rbuff(:)
     real(r8),    allocatable :: dbuff(:)
     logical,     allocatable :: lbuff(:)
     integer(i1), allocatable :: bbuff(:)
-    integer                  :: nu, base, n, i, is, isize
+    integer                  :: base, n, i, is, isize
     integer                  :: maxbuff, locbuff, hdferr
     integer,       parameter :: itag1 = 2096
     integer,       parameter :: itag2 = 2097
     type(MPI_Request)        :: ireqs(2)
 
     ! Collect on rank 0 the number of cells to be read by each process
-
-    nu = size(points)
 
     if (myrank == 0) then
        allocate(nus(mgroupsize))
@@ -1877,16 +1876,16 @@ subroutine shdf5_orec_ll(ndims,dims,dsetname,bvar1,ivar1,rvar1,dvar1,lvar1,  &
   if ( do_comm .and. present(gpoints) ) then
 
      if (nl%allranks_write_hdf5) then
-        call shdf5_orec_ll_no_phdf5_allranks()
+        call shdf5_orec_ll_no_phdf5_allranks(gpoints, size(gpoints) )
      else
-        call shdf5_orec_ll_no_phdf5_rank0()
+        call shdf5_orec_ll_no_phdf5_rank0( gpoints, size(gpoints) )
      endif
 
   endif
 
 Contains
 
-  subroutine shdf5_orec_ll_no_phdf5_rank0()
+  subroutine shdf5_orec_ll_no_phdf5_rank0(gpoints, nu )
 
     use mem_para, only: mgroupsize, myrank, MPI_COMM_OLAM
 
@@ -1897,24 +1896,25 @@ Contains
 
     use hdf5_f2f, only: fh5_prepare_write_ll, fh5_write, fh5_close_write
 
-    import,       only: dsetname, ndims, dims, gpoints, stype, r8, i1, &
+    import,       only: dsetname, ndims, dims, stype, r8, i1, &
                         bvar1, bvar2, bvar3, ivar1, ivar2, ivar3, &
                         rvar1, rvar2, rvar3, dvar1, dvar2, dvar3, &
                         lvar1, lvar2, lvar3, lbuf1, lbuf2, lbuf3
 
     implicit none (external, type)
 
+    integer,      intent(in) :: nu
+    integer,      intent(in) :: gpoints(nu)
+
     integer,     allocatable :: ibuff(:), points(:), nus(:)
     real,        allocatable :: rbuff(:)
     real(r8),    allocatable :: dbuff(:)
     integer(i1), allocatable :: bbuff(:)
-    integer                  :: nu, base, n
+    integer                  :: base, n
     integer                  :: hdferr, maxbuff, locbuff
     integer,       parameter :: itag1 = 3040
     integer,       parameter :: itag2 = 3041
     type(MPI_Request)        :: ireqs(2)
-
-    nu = size(gpoints)
 
     if (myrank == 0) then
        allocate(nus(mgroupsize))
@@ -2063,25 +2063,28 @@ Contains
   end subroutine shdf5_orec_ll_no_phdf5_rank0
 
 
-  subroutine shdf5_orec_ll_no_phdf5_allranks()
+  subroutine shdf5_orec_ll_no_phdf5_allranks( gpoints, nu )
 
     use mem_para, only: mgroupsize, myrank, olam_mpi_barrier
 
     use hdf5_f2f, only: fh5_prepare_write_ll, fh5_write, fh5_close_write, &
                         fh5f_open, fh5f_close
 
-    import,       only: dsetname, ndims, dims, gpoints, stype, &
+    import,       only: dsetname, ndims, dims, stype, fname, r8, i1, &
                         bvar1, bvar2, bvar3, ivar1, ivar2, ivar3, &
                         rvar1, rvar2, rvar3, dvar1, dvar2, dvar3, &
-                        lvar1, lvar2, lvar3, r8, i1, fname, lbuf1, lbuf2, lbuf3
+                        lvar1, lvar2, lvar3, lbuf1, lbuf2, lbuf3
 
     implicit none (external, type)
+
+    integer,      intent(in) :: nu
+    integer,      intent(in) :: gpoints(nu)
 
     integer,     allocatable :: ibuff(:), points(:), nus(:)
     real,        allocatable :: rbuff(:)
     real(r8),    allocatable :: dbuff(:)
     integer(i1), allocatable :: bbuff(:)
-    integer                  :: nu, base, n
+    integer                  :: base, n
     integer                  :: hdferr, maxbuff, locbuff
 
     if (myrank == 0) call fh5f_close(hdferr)

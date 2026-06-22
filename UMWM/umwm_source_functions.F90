@@ -166,8 +166,8 @@ end subroutine sds_d12
 subroutine snl_d12( i, iwsfc, snl, sdt, sds )
 
   use mem_sfcg,    only: sfcg
-  use umwm_module, only: pm, om, oc, sdt_fac, rhoswi, sds, evs, k, sdt, &
-                         bf1_renorm, bf2_renorm, snl_fac, cothkd, umwm, dta
+  use umwm_module, only: pm, om, oc, sdt_fac, rhoswi, evs, k, umwm, &
+                         bf1_renorm, bf2_renorm, snl_fac, cothkd, dta
   implicit none
 
   integer, intent(in   ) :: i, iwsfc

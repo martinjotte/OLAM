@@ -116,7 +116,7 @@ contains
   subroutine dosum8( buffer, var8, iw )
 
     use mem_turb, only: frac_sea
-    use mem_grid, only: mza, glatw, lpw, arw0
+    use mem_grid, only: glatw, lpw, arw0
     import,       only: r8, mza, nr, na, glats, glate
 
     implicit none (external, type)
@@ -148,7 +148,7 @@ contains
   subroutine dosum4( buffer, var4, iw )
 
     use mem_turb, only: frac_sea
-    use mem_grid, only: mza, glatw, lpw, arw0
+    use mem_grid, only: glatw, lpw, arw0
     import,       only: r8, mza, nr, na, glats, glate
 
     implicit none (external, type)
