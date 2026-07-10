@@ -284,10 +284,10 @@ Module mem_sfcg
 
   integer :: nswmzons
 
-  integer, target :: nswmzonll(maxgrds)
-  real   , target :: swmzonrad(maxgrds,maxngrdll)
-  real   , target :: swmzonlat(maxgrds,maxngrdll)
-  real   , target :: swmzonlon(maxgrds,maxngrdll)
+  integer :: nswmzonll(maxgrds)
+  real    :: swmzonrad(maxgrds,maxngrdll)
+  real    :: swmzonlat(maxgrds,maxngrdll)
+  real    :: swmzonlon(maxgrds,maxngrdll)
 
 Contains
 
