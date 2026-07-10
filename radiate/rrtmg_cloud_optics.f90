@@ -88,10 +88,6 @@ contains
 
       delr = (end - start) / real(num - 1)
 
-      allocate(extsw(nbndsw, num))
-      allocate(ssasw(nbndsw, num))
-      allocate(asysw(nbndsw, num))
-
       allocate(t1(num, nbndsw))
 
       call shdf5_irec( 2, (/num, nbndsw/), trim(name) // '_ext', rvar2=t1 )
@@ -102,8 +98,6 @@ contains
 
       call shdf5_irec( 2, (/num, nbndsw/), trim(name) // '_asy', rvar2=t1 )
       asysw = transpose(t1)
-
-      deallocate(t1)
 
     end subroutine read_sw_file
 
@@ -171,13 +165,10 @@ contains
 
       delr = (end - start) / real(num - 1)
 
-      allocate(abslw(nbndlw, num))
       allocate(t1(num, nbndlw))
 
       call shdf5_irec( 2, (/num, nbndlw/), trim(name) // '_abs', rvar2=t1 )
       abslw = transpose(t1)
-
-      deallocate(t1)
 
     end subroutine read_lw_file
 

@@ -90,11 +90,11 @@ subroutine nudge_prep_spec ( iaction )
 
   if (iaction == 1) then
 
-     rho_obsp    = rho_obsf
-     theta_obsp  = theta_obsf
-     rrv_obsp    = rrv_obsf
-     uzonal_obsp = uzonal_obsf
-     umerid_obsp = umerid_obsf
+     rho_obsp   (:,:) = rho_obsf
+     theta_obsp (:,:) = theta_obsf
+     rrv_obsp   (:,:) = rrv_obsf
+     uzonal_obsp(:,:) = uzonal_obsf
+     umerid_obsp(:,:) = umerid_obsf
 
   endif
 

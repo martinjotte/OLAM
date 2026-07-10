@@ -372,11 +372,11 @@ c..Call EBI solver
             ! Special for methane
             yc(ech4) = max(yc(ech4) - ATM_CH4, dconmin)
 
-            yc  = min(yc, maxpred)
-            yc0 = yc
+            yc (:) = min(yc, maxpred)
+            yc0(:) = yc
 
             ! Load reaction rates
-            rki = rki_trns(:,k)
+            rki(:) = rki_trns(:,k)
 
             CALL HRSOLVER( 0, 0, iw, itab_w(iw)%iwglobe, k )
 

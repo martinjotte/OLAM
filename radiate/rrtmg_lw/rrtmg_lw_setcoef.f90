@@ -345,7 +345,6 @@
 
       if (allocated(totplnk)) return
 
-      call set_ref()
       call lwavplankderiv()
 
       allocate( totplnk(nbndlw,181))

@@ -42,18 +42,16 @@
 ! **************************************************************************
 
       use parrrsw,    only: mg, nbndsw, ngptsw
-      use rrsw_ref,   only: rrsw_ref_init
       use rrsw_aer,   only: swaerpr
-
       use hdf5_utils, only: shdf5_exists, shdf5_open, shdf5_close
       use oname_coms, only: nl
       use max_dims,   only: pathlen
       use mem_para,   only: olam_mpi_finalize
       use misc_coms,  only: io6
 
-      real(kind=rb), intent(in) :: cpdair     ! Specific heat capacity of dry air
-                                              ! at constant pressure at 273 K
-                                              ! (J kg-1 K-1)
+      real, intent(in) :: cpdair     ! Specific heat capacity of dry air
+                                     ! at constant pressure at 273 K
+                                     ! (J kg-1 K-1)
 ! ------- Local -------
 
       integer(kind=im) :: ibnd, igc, ig, ind, ipr
@@ -80,7 +78,6 @@
 !     call swdatinit(cpdair)
       call swaerpr()             ! aerosol optical properties
       call swcldpr()             ! cloud optical properties
-      call rrsw_ref_init()
 
       inputfile = trim(nl%rrtmg_datadir) // "/" // trim(rrtmg_sw_file)
 

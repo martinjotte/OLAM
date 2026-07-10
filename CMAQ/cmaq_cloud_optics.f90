@@ -82,10 +82,6 @@ contains
 
       delr = (end - start) / real(num - 1)
 
-      allocate(extsw(nwl, num))
-      allocate(ssasw(nwl, num))
-      allocate(asysw(nwl, num))
-
       allocate(t1(num, nwl))
 
       call shdf5_irec( 2, (/num, nwl/), trim(name) // '_ext', rvar2=t1 )
@@ -96,8 +92,6 @@ contains
 
       call shdf5_irec( 2, (/num, nwl/), trim(name) // '_asy', rvar2=t1 )
       asysw = transpose(t1)
-
-      deallocate(t1)
 
     end subroutine read_cmaq_file
 

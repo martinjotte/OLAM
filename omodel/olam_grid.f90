@@ -2562,12 +2562,11 @@ subroutine gridfile_read_nudge()
 
      call shdf5_open(flnm, 'R')
 
-     allocate(lgwnud(mwnud))
-
      ndims    = 1
      idims(1) = mwnud
      type     = 'AN'
 
+     ! automatic reallocation
      lgwnud = itab_wnud(1:mwnud)%iwnudglobe
 
      allocate (iscr1(mwnud))

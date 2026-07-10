@@ -309,7 +309,7 @@ subroutine sort_plot_wts_parallel(nn,wts,op_grid)
 
      call move_alloc(wts, op_grid%wgts)
 
-     allocate( op_grid%ipnts( nn ) )
+     ! automatic f90 reallocation
      op_grid%ipnts = [(i,i=1,nn)]
 
   endif

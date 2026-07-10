@@ -390,17 +390,17 @@ subroutine init_cgrid ()
               if (v >= num_str .and. v <= num_end) then
 
                  ! number/m**3 aerosol -> ppmv
-                 vec_in = inprof(:,ndx) * densi_in(:) * MAOAVO1000
+                 vec_in(:) = inprof(:,ndx) * densi_in(:) * MAOAVO1000
 
               elseif (v >= srf_str .and. v <= srf_end) then
 
                  ! m*2/m**3 aerosol -> m**2/mol air
-                 vec_in = inprof(:,ndx) * densi_in(:) * MWAIRKG
+                 vec_in(:) = inprof(:,ndx) * densi_in(:) * MWAIRKG
 
               else
 
                  ! micro-grams/m**3 aerosol -> ppmv
-                 vec_in = inprof(:,ndx) * densi_in(:) * ae_molwti(v-aer_str+1) * MWAIRKG
+                 vec_in(:) = inprof(:,ndx) * densi_in(:) * ae_molwti(v-aer_str+1) * MWAIRKG
 
               endif
 

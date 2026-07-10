@@ -365,12 +365,12 @@ C *** Get flag for average PM diagnostic file.
             NUMVOC         = 2
             N_NUCPAIRS     = N_NUCPAIRS_AE6I
             ALLOCATE ( ACID_NUC_PAIRS( N_NUCPAIRS ) )
-            ACID_NUC_PAIRS = ACID_NUC_PAIRS_AE6I
+            ACID_NUC_PAIRS(:) = ACID_NUC_PAIRS_AE6I
          Else                   ! AERO6
             NUMVOC         = 1
             N_NUCPAIRS     = N_NUCPAIRS_AE6
             ALLOCATE ( ACID_NUC_PAIRS( N_NUCPAIRS ) )
-            ACID_NUC_PAIRS = ACID_NUC_PAIRS_AE6
+            ACID_NUC_PAIRS(:) = ACID_NUC_PAIRS_AE6
          END IF
          ALLOCATE ( ACID_PRODMAP_IDX( N_NUCPAIRS ) )
          ALLOCATE (  ACID_NUCMAP_IDX( N_NUCPAIRS ) )

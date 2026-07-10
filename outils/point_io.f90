@@ -506,8 +506,7 @@ contains
             ndims    = 1
             idims(1) = naddsc
 
-            if (allocated(itrc_number)) deallocate(itrc_number)
-            allocate(itrc_number(naddsc))
+            ! automatic reallocation
             itrc_number = [ (i, i=1, naddsc) ]
 
             call shdf5_orec( ndims, idims, "tracer", ivar1=itrc_number, &

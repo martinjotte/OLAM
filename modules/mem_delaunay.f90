@@ -119,15 +119,7 @@ Contains
     nud_copy = nud
     nwd_copy = nwd
 
-    allocate (xemd_copy(nmd))
-    allocate (yemd_copy(nmd))
-    allocate (zemd_copy(nmd))
-
-    allocate (itab_md_copy(nmd))
-    allocate (itab_ud_copy(nud))
-    allocate (itab_wd_copy(nwd))
-
-    allocate (impent_copy(12))
+    ! use f90 allocatable array reallocation
 
     xemd_copy = xemd
     yemd_copy = yemd

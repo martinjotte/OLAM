@@ -295,34 +295,34 @@ subroutine makesfc3()
 
   allocate(rscr(nwsfc))
 
-  rscr = sfcg%area
+  rscr(:) = sfcg%area
   sfcg%area(iwnew(1:nwsfc)) = rscr
 
-  rscr = sfcg%glatw
+  rscr(:) = sfcg%glatw
   sfcg%glatw(iwnew(1:nwsfc)) = rscr
 
-  rscr = sfcg%glonw
+  rscr(:) = sfcg%glonw
   sfcg%glonw(iwnew(1:nwsfc)) = rscr
 
-  rscr = sfcg%xew
+  rscr(:) = sfcg%xew
   sfcg%xew(iwnew(1:nwsfc)) = rscr
 
-  rscr = sfcg%yew
+  rscr(:) = sfcg%yew
   sfcg%yew(iwnew(1:nwsfc)) = rscr
 
-  rscr = sfcg%zew
+  rscr(:) = sfcg%zew
   sfcg%zew(iwnew(1:nwsfc)) = rscr
 
-  rscr = sfcg%topw
+  rscr(:) = sfcg%topw
   sfcg%topw(iwnew(1:nwsfc)) = rscr
 
   deallocate(rscr)
   allocate(iscr(nwsfc))
 
-  iscr = sfcg%leaf_class
+  iscr(:) = sfcg%leaf_class
   sfcg%leaf_class(iwnew(1:nwsfc)) = iscr
 
-  iscr = sfcg%ioge
+  iscr(:) = sfcg%ioge
   sfcg%ioge(iwnew(1:nwsfc)) = iscr
 
   deallocate(iscr)

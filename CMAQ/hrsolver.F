@@ -262,7 +262,7 @@ cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
                END DO
 
                IF (ITER <= 2 .OR. LEBI_CONV) THEN
-                  YC = YCP
+                  YC(:) = YCP
                ELSE
                   DO S = 1, NUMB_MECH_SPC
                      YC( S ) = 0.925D0 * YCP( S ) + 0.075D0 * YC( S )
@@ -307,7 +307,7 @@ c.....start inner loop over unless max backups exceeded
                   WRITE( LOGDEV, 92000 ) C, R, L, NBKUPS
 !              END IF
 
-               YC = YC0
+               YC(:) = YC0
 
                DTC = 0.5D0 * DTC
 

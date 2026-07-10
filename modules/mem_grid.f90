@@ -521,7 +521,7 @@ Contains
      ! Allocate and define 1D variables defined at W levels
 
      allocate(gdzim(mza))
-     gdzim = gravm * dzim
+     gdzim(:) = gravm * dzim
 
      ! weights for averaging T variables to W levels
      allocate(zwgt_top(mza))

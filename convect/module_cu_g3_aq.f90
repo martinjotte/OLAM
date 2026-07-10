@@ -151,7 +151,7 @@ CONTAINS
        tr1(1:ktf,ns) = co2_initppm * 1.e-6  ! convert to mol/molV
     endif
 
-    tr = transpose(tr1)
+    tr(:,:) = transpose(tr1)
 
     a0   = arw0(iw)
     dark = (cosz(iw) < 1.e-3)
@@ -159,7 +159,7 @@ CONTAINS
     call cup_tracer_mix_aq(tr,dtr,itype,idd,dens,po,to,voa,area,a0,xmb,k22,kbcon,ktop, &
          kstab,edt,jmin,kdet,qrc,pw,pwd,dark,ktf,nt,iw)
 
-    tr1 = transpose(dtr)
+    tr1(:,:) = transpose(dtr)
 
     do ns = 1, nspcsd
        do kc = 1, ktop

@@ -433,11 +433,9 @@ subroutine get_ll_overlaps( xew, yew, zew, arw0,              &
 
   overlaps%ncells = ng
 
-  if (ng > 0) then
-     allocate( overlaps%i   (ng) )
-     allocate( overlaps%j   (ng) )
-     allocate( overlaps%area(ng) )
 
+  ! use f90 automatic reallocation
+  if (ng > 0) then
      overlaps%i    = ipoints(1:ng)
      overlaps%j    = jpoints(1:ng)
      overlaps%area = areafrc(1:ng)

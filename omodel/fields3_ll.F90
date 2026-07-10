@@ -2096,7 +2096,7 @@ subroutine fields3_ll()
   ymax = 10.
   yinc = 1.
 
-  arr_ll = reshape( pcpmic_dif2_ll, (/nlon,nlat/) )
+  arr_ll(:,:) = reshape( pcpmic_dif2_ll, (/nlon,nlat/) )
   value(1:nlat) = sum(arr_ll(:,1:nlat),1) / real(nlon)
 
   call oplot_xy2('1','N','a','N',aspect,scalelab,8,0,   &
@@ -2105,7 +2105,7 @@ subroutine fields3_ll()
                  alat(1),alat(nlat),alatinc,3,  &
                  ymin, ymax, yinc, 5            )
 
-  arr_ll = reshape(pcpcon_dif2_ll, (/nlon,nlat/) )
+  arr_ll(:,:) = reshape(pcpcon_dif2_ll, (/nlon,nlat/) )
   value(1:nlat) = sum(arr_ll(:,1:nlat),1) / real(nlon)
 
   call oplot_xy2('1','N','a','N',aspect,scalelab,1,0,  &
@@ -2114,7 +2114,7 @@ subroutine fields3_ll()
                  alat(1),alat(nlat),alatinc,3, &
                  ymin, ymax, yinc, 5           )
 
-  arr_ll = reshape(pcpboth_dif2_ll, (/nlon,nlat/) )
+  arr_ll(:,:) = reshape(pcpboth_dif2_ll, (/nlon,nlat/) )
   value(1:nlat) = sum(arr_ll(:,1:nlat),1) / real(nlon)
 
   call oplot_xy2('1','N','a','N',aspect,scalelab,11,0, &
@@ -2130,7 +2130,7 @@ subroutine fields3_ll()
   yinc = 10.
 
   if (allocated(rshort_dif2_ll)) then
-     arr_ll = reshape(rshort_dif2_ll, (/nlon,nlat/) )
+     arr_ll(:,:) = reshape(rshort_dif2_ll, (/nlon,nlat/) )
      value(1:nlat) = sum(arr_ll(:,1:nlat),1) / real(nlon)
 
      call oplot_xy2('2','N','a','N',aspect,scalelab,8,0,  &
@@ -2141,7 +2141,7 @@ subroutine fields3_ll()
   endif
 
   if (allocated(rshortup_dif2_ll)) then
-     arr_ll = reshape(rshortup_dif2_ll, (/nlon,nlat/) )
+     arr_ll(:,:) = reshape(rshortup_dif2_ll, (/nlon,nlat/) )
      value(1:nlat) = sum(arr_ll(:,1:nlat),1) / real(nlon)
 
      call oplot_xy2('2','N','a','N',aspect,scalelab,8,40, &
@@ -2152,7 +2152,7 @@ subroutine fields3_ll()
   endif
 
   if (allocated(rlong_dif2_ll)) then
-     arr_ll = reshape(rlong_dif2_ll, (/nlon,nlat/) )
+     arr_ll(:,:) = reshape(rlong_dif2_ll, (/nlon,nlat/) )
      value(1:nlat) = sum(arr_ll(:,1:nlat),1) / real(nlon)
 
      call oplot_xy2('2','N','a','N',aspect,scalelab,1,0,  &
@@ -2163,7 +2163,7 @@ subroutine fields3_ll()
   endif
 
   if (allocated(rlongup_dif2_ll)) then
-     arr_ll = reshape(rlongup_dif2_ll, (/nlon,nlat/) )
+     arr_ll(:,:) = reshape(rlongup_dif2_ll, (/nlon,nlat/) )
      value(1:nlat) = sum(arr_ll(:,1:nlat),1) / real(nlon)
 
      call oplot_xy2('2','N','a','N',aspect,scalelab,1,40, &
@@ -2206,7 +2206,7 @@ subroutine fields3_ll()
   !---------------------------------------------------------------
 
   if (allocated(rshort_top_dif2_ll)) then
-     arr_ll = reshape(rshort_top_dif2_ll, (/nlon,nlat/) )
+     arr_ll(:,:) = reshape(rshort_top_dif2_ll, (/nlon,nlat/) )
      value(1:nlat) = sum(arr_ll(:,1:nlat),1) / real(nlon)
 
      call oplot_xy2('3','N','a','N',aspect,scalelab,8,0,   &
@@ -2217,7 +2217,7 @@ subroutine fields3_ll()
   endif
 
   if (allocated(rshortup_top_dif2_ll)) then
-     arr_ll = reshape(rshortup_top_dif2_ll, (/nlon,nlat/) )
+     arr_ll(:,:) = reshape(rshortup_top_dif2_ll, (/nlon,nlat/) )
      value(1:nlat) = sum(arr_ll(:,1:nlat),1) / real(nlon)
 
      call oplot_xy2('3','N','a','N',aspect,scalelab,8,40, &
@@ -2228,7 +2228,7 @@ subroutine fields3_ll()
   endif
 
   if (allocated(rlongup_top_dif2_ll)) then
-     arr_ll = reshape(rlongup_top_dif2_ll, (/nlon,nlat/) )
+     arr_ll(:,:) = reshape(rlongup_top_dif2_ll, (/nlon,nlat/) )
      value(1:nlat) = sum(arr_ll(:,1:nlat),1) / real(nlon)
 
      call oplot_xy2('3','N','a','N',aspect,scalelab,1,40, &
@@ -2275,7 +2275,7 @@ subroutine fields3_ll()
   yinc = 10.
 
   if (allocated(asfc_sensflux_dif2_ll)) then
-     arr_ll = reshape(asfc_sensflux_dif2_ll, (/nlon,nlat/) )
+     arr_ll(:,:) = reshape(asfc_sensflux_dif2_ll, (/nlon,nlat/) )
      value(1:nlat) = sum(arr_ll(:,1:nlat),1) / real(nlon)
 
      call oplot_xy2('4','N','a','N',aspect,scalelab,17,0,      &
@@ -2286,7 +2286,7 @@ subroutine fields3_ll()
   endif
 
   if (allocated(asfc_latflux_dif2_ll)) then
-     arr_ll = reshape(asfc_latflux_dif2_ll, (/nlon,nlat/) )
+     arr_ll(:,:) = reshape(asfc_latflux_dif2_ll, (/nlon,nlat/) )
      value(1:nlat) = sum(arr_ll(:,1:nlat),1) / real(nlon)
 
      call oplot_xy2('4','N','a','N',aspect,scalelab,9,0,  &
