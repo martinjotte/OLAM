@@ -72,7 +72,7 @@ subroutine olam_mpi_init()
   use mpi_f08, only: MPI_COMM_WORLD, MPI_Comm_size, MPI_Comm_rank,   &
                      MPI_Init, MPI_Init_thread, MPI_THREAD_MULTIPLE, &
                      MPI_Pack_size, MPI_INTEGER, MPI_REAL, MPI_REAL8
-  import,      only: MPI_COMM_OLAM, olam_stop
+  import,      only: MPI_Comm, MPI_COMM_OLAM, olam_stop
 #endif
 
   import, only: mgroupsize, myrank, nbytes_int, nbytes_real, nbytes_real8
@@ -149,7 +149,7 @@ subroutine olam_stop(message)
 
 #ifdef OLAM_MPI
   use mpi_f08, only: MPI_Abort
-  import,      only: MPI_COMM_OLAM, myrank
+  import,      only: MPI_Comm, MPI_COMM_OLAM, myrank
 #else
   import,      none
 #endif
@@ -176,7 +176,7 @@ subroutine olam_mpi_barrier()
 
 #ifdef OLAM_MPI
   use mpi_f08, only: MPI_Barrier
-  import,      only: MPI_COMM_OLAM
+  import,      only: MPI_Comm, MPI_COMM_OLAM
 #else
   import,     none
 #endif

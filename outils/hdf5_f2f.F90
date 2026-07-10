@@ -2114,7 +2114,7 @@ contains
     call h5sget_simple_extent_dims_f(asid, adims, maxdims, arank)
     call h5sclose_f(asid, hdferr)
 
-    if (arank /= 1 .or. adims(1) /= rank) then
+    if (arank /= 1 .or. adims(1) /= int(rank,HSIZE_T)) then
        write(*,*) "Dimension list does not match the dimensions of the variable in the file."
        call h5aclose_f(aid, hdferr)
        return

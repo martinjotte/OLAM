@@ -655,10 +655,12 @@ subroutine shdf5_orec(ndims,dims,dsetname,bvars,ivars,rvars,dvars,lvars,    &
 
     use hdf5_f2f, only: fh5_prepare_write, fh5_write, fh5_prepare_write, fh5_close_write
 
+#ifndef __GFORTRAN__
     import,       only: dsetname, ndims, dims, nglobe, lpoints, stype, r8, i1, &
                         bvar1, bvar2, bvar3, bvar4, ivar1, ivar2, ivar3, ivar4, &
                         rvar1, rvar2, rvar3, rvar4, dvar1, dvar2, dvar3, dvar4, &
                         lvar1, lvar2, lvar3,        lbuf1, lbuf2, lbuf3
+#endif
 
     implicit none (external, type)
 
@@ -896,10 +898,12 @@ subroutine shdf5_orec(ndims,dims,dsetname,bvars,ivars,rvars,dvars,lvars,    &
     use hdf5_f2f, only: fh5f_open, fh5_prepare_write, fh5_write, fh5_close_write, &
                         fh5f_close
 
+#ifndef __GFORTRAN__
     import, only: dsetname, ndims, dims, nglobe, lpoints, stype, fname, r8, i1, &
                   bvar1, bvar2, bvar3, bvar4, ivar1, ivar2, ivar3, ivar4, &
                   rvar1, rvar2, rvar3, rvar4, dvar1, dvar2, dvar3, dvar4, &
                   lvar1, lvar2, lvar3,        lbuf1, lbuf2, lbuf3
+#endif
 
     implicit none (external, type)
 
@@ -1412,9 +1416,11 @@ Contains
 
     use hdf5_f2f, only: fh5_prepare_read, fh5_read, fh5_close_read
 
+#ifndef __GFORTRAN__
     import,       only: bvar1, bvar2, bvar3, bvar4, ivar1, ivar2, ivar3, ivar4, &
                         rvar1, rvar2, rvar3, rvar4, dvar1, dvar2, dvar3, dvar4, &
                         lvar1, lvar2, lvar3, r8, i1, dsetname, ndims, dims
+#endif
 
     implicit none (external, type)
 
@@ -1896,10 +1902,12 @@ Contains
 
     use hdf5_f2f, only: fh5_prepare_write_ll, fh5_write, fh5_close_write
 
+#ifndef __GFORTRAN__
     import,       only: dsetname, ndims, dims, stype, r8, i1, &
                         bvar1, bvar2, bvar3, ivar1, ivar2, ivar3, &
                         rvar1, rvar2, rvar3, dvar1, dvar2, dvar3, &
                         lvar1, lvar2, lvar3, lbuf1, lbuf2, lbuf3
+#endif
 
     implicit none (external, type)
 
@@ -2070,10 +2078,12 @@ Contains
     use hdf5_f2f, only: fh5_prepare_write_ll, fh5_write, fh5_close_write, &
                         fh5f_open, fh5f_close
 
+#ifndef __GFORTRAN__
     import,       only: dsetname, ndims, dims, stype, fname, r8, i1, &
                         bvar1, bvar2, bvar3, ivar1, ivar2, ivar3, &
                         rvar1, rvar2, rvar3, dvar1, dvar2, dvar3, &
                         lvar1, lvar2, lvar3, lbuf1, lbuf2, lbuf3
+#endif
 
     implicit none (external, type)
 

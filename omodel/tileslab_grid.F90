@@ -7,7 +7,7 @@ subroutine tileslab_grid_tw(iplt)
   use mem_para,     only: myrank
   use olam_mpi_atm, only: mpi_send_w, mpi_recv_w
   use minterp_lib,  only: minterp_wghts, get_weights_lonlat
-  use map_proj,     only: or_ll, ps_ll, gn_ll, get_weights_lonlat
+  use map_proj,     only: or_ll, ps_ll, gn_ll
 
 #ifdef OLAM_MPI
   use mpi
@@ -342,7 +342,7 @@ subroutine tileslab_grid_mp(iplt)
   use mem_para,     only: myrank
 ! use olam_mpi_atm, only: mpi_send_m, mpi_recv_m
   use minterp_lib,  only: minterp_wghts, get_weights_lonlat
-  use map_proj,     only: or_ll, ps_ll, gn_ll, get_weights_lonlat
+  use map_proj,     only: or_ll, ps_ll, gn_ll
 
 #ifdef OLAM_MPI
   use mpi
@@ -661,7 +661,7 @@ subroutine tileslab_grid_wsfc(iplt)
   use olam_mpi_sfc, only: mpi_send_wsfc, mpi_recv_wsfc
   use olam_mpi_atm, only: mpi_send_w, mpi_recv_w
   use minterp_lib,  only: minterp_wghts, get_weights_lonlat
-  use map_proj,     only: or_ll, ps_ll, gn_ll, get_weights_lonlat
+  use map_proj,     only: or_ll, ps_ll, gn_ll
   use mem_sfcg,     only: mwsfc, itab_wsfc, sfcg
   use mem_land,     only: nzg
 

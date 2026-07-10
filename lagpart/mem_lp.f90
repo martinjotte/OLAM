@@ -89,7 +89,7 @@ subroutine lp_init()
   use mem_grid,    only: mza, mwa, xew, yew, zew, mwa
   use misc_coms,   only: dtlm
   import,          only: dtlp, nlp, nlpsrc, relcnt, vxeh, vyeh, vzeh, anorm, nent, &
-                         atp, lpsrc
+                         atp, lpsrc, lpsrc_vars, part_att
 
   implicit none (external, type)
 
