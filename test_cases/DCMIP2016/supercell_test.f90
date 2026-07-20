@@ -292,9 +292,10 @@ CONTAINS
       end do
     end do
 
-    !do k = 1, nz
-    !  write(*,*) exnereq(k) * thetaeq(k)
-    !end do
+    ! DCMIP bug fix: initialize thetavyz to the equatorial profile
+    do k = 1, nz
+       thetavyz(2:nphi,k) = thetavyz(1,k)
+    enddo
 
     ! Iterate on remainder of domain
     do iter = 1, 12
