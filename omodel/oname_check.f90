@@ -471,7 +471,7 @@ endif
 call ichk_bnds( nl%co2flag, "CO2FLAG",  0, 1, 0, nfatal, nwarn )
 call ichk_bnds( nl%umwmflg, "UMWMFLG", 0, 1, 0, nfatal, nwarn )
 
-if (nl%umwmflg == 1) then
+if (nl%isfcl > 0 .and. nl%umwmflg == 1) then
    call ichk_bnds( nl%umwm_shelt_function, "UMWM_SHELT_FUNCTION", 1, 2, 2, nfatal, nwarn )
    call ichk_bnds( nl%use_umwm_swh,        "USE_UMWM_SWH"       , 0, 1, 2, nfatal, nwarn )
    call ichk_bnds( nl%use_umwm_roughness,  "USE_UMWM_ROUGHNESS" , 0, 1, 2, nfatal, nwarn )
@@ -618,6 +618,16 @@ if (nl%isfcl == 1) then
          nwarn = nwarn + 1
       endif
    endif
+
+
+else
+
+   write(*,*) "Turning off soil, SWM, UMWM, and POM since ISFCL == 0"
+
+   nl%nzg      = 0
+   nl%nswmzons = 0
+   nl%umwmflg  = 0
+   nl%npomzons = 0
 
 endif
 

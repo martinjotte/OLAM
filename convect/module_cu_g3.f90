@@ -133,8 +133,12 @@ CONTAINS
      z1    = zm(ka-1)
      a0    = arw0(iw)
 
-     wc3   = grav * pblh(iw) * pbl_cld_forc(iw) / tair(kpblh(iw),iw)
-     wm3   = (wstar(iw)**3 + 6. * ustar(iw)**3 + wc3) ** one3
+     wc3 = 0.
+     if (allocated(pbl_cld_forc)) then
+        wc3 = grav * pblh(iw) * pbl_cld_forc(iw) / tair(kpblh(iw),iw)
+     endif
+
+     wm3 = (wstar(iw)**3 + 6. * ustar(iw)**3 + wc3) ** one3
 
      ! Loop over T levels
      do kc = 1, ktf

@@ -62,7 +62,8 @@ subroutine olam_run(name_name)
   use mem_sfcnud,  only: sfcnud_write, alloc_sfcnud, sfcnud_read_init, read_gw_spinup
 
   use mem_average_vars, only: reset_davg_vars
-  use mem_swtc5_refsoln_cubic
+
+  use mem_swtc5_refsoln_cubic, only: fill_swtc5
 
   use umwm_module,  only: umwmflg
   use umwm_top,     only: umwm_initialize, umwm_hist_prep
@@ -249,7 +250,7 @@ subroutine olam_run(name_name)
 
   call gridset_print()
 
-  if (mdomain <= 1) call landgrid_print()
+  if (mdomain <= 1 .and. isfcl > 0) call landgrid_print()
 
   mwa_prog = 0
   do i=1,mwa
@@ -365,44 +366,54 @@ subroutine olam_run(name_name)
   ! Initialize primary atmospheric fields
 
   if (runtype == 'INITIAL') then
-     if (initial == 1) then
+
+     if (nl%test_case == 2 .or. nl%test_case == 5) then
+
+        ! Call fill_swtc5 to read in and initialize reference
+        ! solution for time = 0 and time = 15d.
+
+        write(io6,'(/,a)') 'olam_run calling swtc_init'
+        call swtc_init()
+
+     elseif (nl%test_case > 7 .and. nl%test_case < 500) then
+
+        ! Call NCAR interface with zero (i.e., initial) time.  This initializes
+        ! both momentum and scalars
+
+        write(io6,'(/,a)') 'olam_run calling DCMIP_init'
+        call olam_dcmip_init()
+
+     elseif (initial == 1) then
+
+        ! Horizontally-homogeneous initialization
+
         write(io6,'(/,a)') 'olam_run calling inithh'
-        call inithh()            ! Horizontally-homogeneous initialization
+        call inithh()
+
      elseif (initial == 2) then
+
+        ! 3d initialization from analysis files
+
         write(io6,'(/,a)') 'olam_run calling isan driver(0)'
         call isan_driver(0)
+
      elseif (initial == 3) then
+
+        ! Longitudinally-homogeneous initialization
+
         write(io6,'(/,a)') 'olam_run calling fldslhi'
-        call fldslhi()           ! Longitudinally-homogeneous initialization
+        call fldslhi()
+
      endif
-  endif
 
-  !------------------------------------------------------------
-  ! Call fill_swtc5 to read in and initialize reference
-  ! solution for time = 0 and time = 15d.
+     ! Initial diagnosis of vxe,vye,vze
 
-  if (nl%test_case == 2 .or. nl%test_case == 5) then
-     call swtc_init()
-  endif
-  !------------------------------------------------------------
-
-  !----------------------------------------------------------------------
-  ! Call NCAR interface with zero (i.e., initial) time.  This initializes
-  ! both momentum and scalars
-
-  if (nl%test_case > 7 .and. nl%test_case < 500) call olam_dcmip_init()
-  !----------------------------------------------------------------------
-
-  ! Initial diagnosis of vxe,vye,vze
-
-  if (runtype == 'INITIAL') then
      call diagvel_t3d()
-  endif
 
-  ! Initialize cloud fraction
+     ! Initialize cloud fraction
 
-  if (runtype == 'INITIAL') then
      call calc_3d_cloud_fraction()
+
   endif
 
   !----------------------------------------------------------------------
@@ -459,15 +470,19 @@ subroutine olam_run(name_name)
 
   call pbl_init()
 
-  ! Check if LEAF will be used
-
-  if (isfcl == 1) then
+  if (isfcl == 1 .or. mdomain <= 1 ) then
 
      ! Allocate time-dependent SFC grid arrays
 
      write(io6,'(/,a)') 'olam_run calling alloc_sfcgrid2'
      call alloc_sfcgrid2()
      call filltab_sfcg()
+
+  endif
+
+  ! Check if LEAF will be used
+
+  if (isfcl == 1) then
 
      ! Start up LAND model
 

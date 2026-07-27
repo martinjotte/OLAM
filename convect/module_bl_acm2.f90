@@ -214,20 +214,23 @@ contains
 
     wcloud = 0.0
 
-    if ( cloud_frac(kpbl,iw) + cloud_frac(kpblm,iw) > 0.05 &
-         .and. pbl_cld_forc(iw) > 1.e-7 .and. kpbl > lpw(iw) ) then
+    if ( allocated(cloud_frac) .and. allocated(pbl_cld_forc) ) then
 
-       wcloud = (grav / tair(kpbl,iw) * pblh(iw) * pbl_cld_forc(iw)) ** onethird
+       if ( cloud_frac(kpbl,iw) + cloud_frac(kpblm,iw) > 0.05 .and. &
+            pbl_cld_forc(iw) > 1.e-7 .and. kpbl > lpw(iw) ) then
 
-       do k = lpw(iw), kpbl-1
-          zagl     = zm(k) - zm(lpw(iw)-1)
-          zoh      = zagl / pblh(iw)
-          kprofm   = vonk * wcloud * pblh(iw) * zoh**3 * sqrt(1.0 - zoh)
+          wcloud = (grav / tair(kpbl,iw) * pblh(iw) * pbl_cld_forc(iw)) ** onethird
 
-          edycm(k) = kprofm
-          edych(k) = kprofm * pri_cap
-       enddo
+          do k = lpw(iw), kpbl-1
+             zagl     = zm(k) - zm(lpw(iw)-1)
+             zoh      = zagl / pblh(iw)
+             kprofm   = vonk * wcloud * pblh(iw) * zoh**3 * sqrt(1.0 - zoh)
 
+             edycm(k) = kprofm
+             edych(k) = kprofm * pri_cap
+          enddo
+
+       endif
     endif
 
 !! Explicit inclusion of entrainment
@@ -536,11 +539,12 @@ contains
     ! CRITICAL VALUE. THIS WILL BE THE PBL HEIGHT
 
     wss = wscale**2
+
     if (allocated(pbl_cld_forc)) then
-    if (pbl_cld_forc(iw) > 1.e-10) then
-       wcld = 0.6 * (grav / thlv(kmix) * zmix * pbl_cld_forc(iw)) ** onethird
-       wss  = wss + wcld**2
-    endif
+       if (pbl_cld_forc(iw) > 1.e-10) then
+          wcld = 0.6 * (grav / thlv(kmix) * zmix * pbl_cld_forc(iw)) ** onethird
+          wss  = wss + wcld**2
+       endif
     endif
 
     rib  = 0.0

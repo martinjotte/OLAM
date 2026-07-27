@@ -7,7 +7,7 @@ subroutine makesfc3()
   use misc_coms,   only: io6, itopoflg, topo_database, bathym_database, &
                          ibathflg, runtype, mdomain, topodb_cutoff
 
-  use leaf_coms,   only: nvgcon, ivegflg, isoilflg, soil_database, veg_database
+  use leaf_coms,   only: nvgcon, ivegflg, isoilflg, soil_database, veg_database, isfcl
 
   use consts_coms, only: eradi, piu180, r8
 
@@ -157,7 +157,7 @@ subroutine makesfc3()
 
   ! Read or assign surface type to W points of surface grid
 
-  if (ivegflg == 1) then  ! from database
+  if (isfcl == 1 .and. ivegflg == 1) then  ! from database
 
      call land_database_read(nwsfc, sfcg%glatw, sfcg%glonw, &
           veg_database, veg_database, 'leaf_class', idatq=sfcg%ioge)
@@ -334,6 +334,37 @@ subroutine makesfc3()
      sfcg%wnz(iwsfc) = sfcg%zew(iwsfc) * eradi
   enddo
 
+  ! Fill bathymetry data
+
+  if (ibathflg == 1) then  ! from database
+
+     call land_database_read( nlake+nsea-1, sfcg%glatw(nland:), sfcg%glonw(nland:), &
+          bathym_database, bathym_database, 'etopo1', datq=sfcg%bathym(nland:) )
+
+     ! For land cells, set bathym equal to topw
+     sfcg%bathym(2:nland) = sfcg%topw(2:nland)
+
+     ! Prevent bathym from exceeding (topw - 1.0) for sea and lake cells
+     sfcg%bathym(nland+1:) = min(sfcg%bathym(nland+1:), sfcg%topw(nland+1:) - 1.0)
+
+  else
+
+     sfcg%bathym(2       :nland  ) = sfcg%topw(2       :nland  )
+     sfcg%bathym(2+onlake:1+onsea) = sfcg%topw(2+onlake:1+onsea) -  10.0
+     sfcg%bathym(2+onsea :nwsfc  ) = sfcg%topw(2+onsea :nwsfc  ) - 100.0
+
+  endif
+
+  if (isfcl == 0) then
+
+     sfcg%swm_active(:) = .false.
+
+     write(*,*)
+     write(*,*) "Makesfc not generating land/sea/lake information since ISFCL == 1"
+     return
+
+  endif
+
   ! Allocate and initialize soil grid depth and vertical spacing arrays
 
   call alloc_landcol()
@@ -464,27 +495,6 @@ subroutine makesfc3()
   endif
 
   call landgrid_print()
-
-  ! Fill bathymetry data
-
-  if (ibathflg == 1) then  ! from database
-
-     call land_database_read( nlake+nsea-1, sfcg%glatw(nland:), sfcg%glonw(nland:), &
-          bathym_database, bathym_database, 'etopo1', datq=sfcg%bathym(nland:) )
-
-     ! For land cells, set bathym equal to topw
-     sfcg%bathym(2:nland) = sfcg%topw(2:nland)
-
-     ! Prevent bathym from exceeding (topw - 1.0) for sea and lake cells
-     sfcg%bathym(nland+1:) = min(sfcg%bathym(nland+1:), sfcg%topw(nland+1:) - 1.0)
-
-  else
-
-     sfcg%bathym(2       :nland  ) = sfcg%topw(2       :nland  )
-     sfcg%bathym(2+onlake:1+onsea) = sfcg%topw(2+onlake:1+onsea) -  10.0
-     sfcg%bathym(2+onsea :nwsfc  ) = sfcg%topw(2+onsea :nwsfc  ) - 100.0
-
-  endif
 
   ! Allocate land, sea, and lake arrays that are needed for grid setup
 
@@ -1069,7 +1079,7 @@ subroutine sfcgfile_write()
   use pom2k1d,    only: nzpom, pom, y, yy, dy, dyy
   use mem_sfcnud, only: nzg_nl, nzg_sp, kspm
   use oname_coms, only: nl
-
+  use leaf_coms,  only: isfcl
   use hdf5_utils, only: shdf5_open, shdf5_orec, shdf5_close
 
   implicit none
@@ -1292,24 +1302,28 @@ subroutine sfcgfile_write()
 
   ! Write grid structure variables
 
-  ndims = 1
-  idims(1) = nzg+1
+  if (isfcl == 1) then
 
-  call shdf5_orec(ndims, idims, 'slz', rvar1=slz)
+     ndims = 1
+     idims(1) = nzg+1
 
-  idims(1) = nzg
+     call shdf5_orec(ndims, idims, 'slz', rvar1=slz)
 
-  call shdf5_orec(ndims, idims, 'dslz'   , rvar1=dslz)
-  call shdf5_orec(ndims, idims, 'dslzo2' , rvar1=dslzo2)
-  call shdf5_orec(ndims, idims, 'dslzi'  , rvar1=dslzi)
-  call shdf5_orec(ndims, idims, 'slzt'   , rvar1=slzt)
+     idims(1) = nzg
 
-  idims(1) = nzpom
+     call shdf5_orec(ndims, idims, 'dslz'   , rvar1=dslz)
+     call shdf5_orec(ndims, idims, 'dslzo2' , rvar1=dslzo2)
+     call shdf5_orec(ndims, idims, 'dslzi'  , rvar1=dslzi)
+     call shdf5_orec(ndims, idims, 'slzt'   , rvar1=slzt)
 
-  call shdf5_orec(ndims, idims, 'y'   , rvar1=y)
-  call shdf5_orec(ndims, idims, 'yy'  , rvar1=yy)
-  call shdf5_orec(ndims, idims, 'dy'  , rvar1=dy)
-  call shdf5_orec(ndims, idims, 'dyy' , rvar1=dyy)
+     idims(1) = nzpom
+
+     call shdf5_orec(ndims, idims, 'y'   , rvar1=y)
+     call shdf5_orec(ndims, idims, 'yy'  , rvar1=yy)
+     call shdf5_orec(ndims, idims, 'dy'  , rvar1=dy)
+     call shdf5_orec(ndims, idims, 'dyy' , rvar1=dyy)
+
+  endif
 
   ndims    = 1
   idims(1) = nmsfc
@@ -1358,32 +1372,36 @@ subroutine sfcgfile_write()
   call shdf5_orec(ndims, idims, 'oge'       , ivar1=sfcg%ioge)
   call shdf5_orec(ndims, idims, 'swm_active', lvar1=sfcg%swm_active)
 
-  idims(1) = nland
+  if (isfcl == 1) then
 
-  call shdf5_orec(ndims, idims, 'usdatext'        , ivar1=land%usdatext)
-  call shdf5_orec(ndims, idims, 'z_bedrock'       , rvar1=land%z_bedrock)
-  call shdf5_orec(ndims, idims, 'gpp'             , rvar1=land%gpp)
-  call shdf5_orec(ndims, idims, 'glhymps_ksat'    , rvar1=land%glhymps_ksat)
-! call shdf5_orec(ndims, idims, 'glhymps_ksat_pfr', rvar1=land%glhymps_ksat_pfr)
-  call shdf5_orec(ndims, idims, 'glhymps_poros'   , rvar1=land%glhymps_poros)
+     idims(1) = nland
 
-  ndims    = 2
-  idims(1) = nzg
-  idims(2) = nland
+     call shdf5_orec(ndims, idims, 'usdatext'        , ivar1=land%usdatext)
+     call shdf5_orec(ndims, idims, 'z_bedrock'       , rvar1=land%z_bedrock)
+     call shdf5_orec(ndims, idims, 'gpp'             , rvar1=land%gpp)
+     call shdf5_orec(ndims, idims, 'glhymps_ksat'    , rvar1=land%glhymps_ksat)
+   ! call shdf5_orec(ndims, idims, 'glhymps_ksat_pfr', rvar1=land%glhymps_ksat_pfr)
+     call shdf5_orec(ndims, idims, 'glhymps_poros'   , rvar1=land%glhymps_poros)
 
-  call shdf5_orec(ndims, idims, 'sand'            , rvar2=land%sand)
-  call shdf5_orec(ndims, idims, 'clay'            , rvar2=land%clay)
-  call shdf5_orec(ndims, idims, 'silt'            , rvar2=land%silt)
-  call shdf5_orec(ndims, idims, 'organ'           , rvar2=land%organ)
-  call shdf5_orec(ndims, idims, 'bulkdens_drysoil', rvar2=land%bulkdens_drysoil)
-  call shdf5_orec(ndims, idims, 'pH_soil'         , rvar2=land%pH_soil)
-  call shdf5_orec(ndims, idims, 'cec_soil'        , rvar2=land%cec_soil)
+     ndims    = 2
+     idims(1) = nzg
+     idims(2) = nland
 
-  ndims    = 1
-  idims(1) = nsea
+     call shdf5_orec(ndims, idims, 'sand'            , rvar2=land%sand)
+     call shdf5_orec(ndims, idims, 'clay'            , rvar2=land%clay)
+     call shdf5_orec(ndims, idims, 'silt'            , rvar2=land%silt)
+     call shdf5_orec(ndims, idims, 'organ'           , rvar2=land%organ)
+     call shdf5_orec(ndims, idims, 'bulkdens_drysoil', rvar2=land%bulkdens_drysoil)
+     call shdf5_orec(ndims, idims, 'pH_soil'         , rvar2=land%pH_soil)
+     call shdf5_orec(ndims, idims, 'cec_soil'        , rvar2=land%cec_soil)
 
-  call shdf5_orec(ndims, idims, 'pom_active'      , lvar1=sea%pom_active)
-  call shdf5_orec(ndims, idims, 'pom%kba'         , ivar1=sea%pom_kba)
+     ndims    = 1
+     idims(1) = nsea
+
+     call shdf5_orec(ndims, idims, 'pom_active'      , lvar1=sea%pom_active)
+     call shdf5_orec(ndims, idims, 'pom%kba'         , ivar1=sea%pom_kba)
+
+  endif
 
   call shdf5_close()
 
@@ -1622,17 +1640,17 @@ subroutine sfcgfile_read_pd()
   idims(1) = nwsfc
 
   allocate (iscr1(nwsfc))
-!TR  call shdf5_irec(ndims,idims,'itab_wsfc%nwatm'     ,ivar1=iscr1)
+!TR  call shdf5_irec(ndims,idims,'itab_wsfc%nwatm',ivar1=iscr1)
 !TR  do iwsfc = 1,nwsfc
 !TR     itab_wsfc_pd(iwsfc)%nwatm = iscr1(iwsfc)
 !TR  enddo
 
-  call shdf5_irec(ndims,idims,'itab_wsfc%npoly'     ,ivar1=iscr1)
+  call shdf5_irec(ndims,idims,'itab_wsfc%npoly',ivar1=iscr1)
   do iwsfc = 1,nwsfc
      itab_wsfc_pd(iwsfc)%npoly = iscr1(iwsfc)
   enddo
 
-  call shdf5_irec(ndims,idims,'leaf_class'          ,ivar1=iscr1)
+  call shdf5_irec(ndims,idims,'leaf_class'     ,ivar1=iscr1)
   do iwsfc = 1,nwsfc
      itab_wsfc_pd(iwsfc)%leaf_class = iscr1(iwsfc)
   enddo
@@ -1690,6 +1708,7 @@ subroutine sfcgfile_read()
   use pom2k1d,    only: nzpom, pom, y, yy, dy, dyy
   use hdf5_utils, only: shdf5_open, shdf5_irec, shdf5_close
   use misc_coms,  only: io6
+  use leaf_coms,  only: isfcl
 
   implicit none
 
@@ -1822,26 +1841,30 @@ subroutine sfcgfile_read()
 
   ! Read grid structure variables
 
-  call alloc_landcol()
+  if (isfcl == 1) then
 
-  ndims = 1
-  idims(1) = nzg+1
+     call alloc_landcol()
 
-  call shdf5_irec(ndims, idims, 'slz'    , rvar1=slz)
+     ndims = 1
+     idims(1) = nzg+1
 
-  idims(1) = nzg
+     call shdf5_irec(ndims, idims, 'slz'    , rvar1=slz)
 
-  call shdf5_irec(ndims, idims, 'dslz'   , rvar1=dslz)
-  call shdf5_irec(ndims, idims, 'dslzo2' , rvar1=dslzo2)
-  call shdf5_irec(ndims, idims, 'dslzi'  , rvar1=dslzi)
-  call shdf5_irec(ndims, idims, 'slzt'   , rvar1=slzt)
+     idims(1) = nzg
 
-  idims(1) = nzpom
+     call shdf5_irec(ndims, idims, 'dslz'   , rvar1=dslz)
+     call shdf5_irec(ndims, idims, 'dslzo2' , rvar1=dslzo2)
+     call shdf5_irec(ndims, idims, 'dslzi'  , rvar1=dslzi)
+     call shdf5_irec(ndims, idims, 'slzt'   , rvar1=slzt)
 
-  call shdf5_irec(ndims, idims, 'y'   , rvar1=y)
-  call shdf5_irec(ndims, idims, 'yy'  , rvar1=yy)
-  call shdf5_irec(ndims, idims, 'dy'  , rvar1=dy)
-  call shdf5_irec(ndims, idims, 'dyy' , rvar1=dyy)
+     idims(1) = nzpom
+
+     call shdf5_irec(ndims, idims, 'y'   , rvar1=y)
+     call shdf5_irec(ndims, idims, 'yy'  , rvar1=yy)
+     call shdf5_irec(ndims, idims, 'dy'  , rvar1=dy)
+     call shdf5_irec(ndims, idims, 'dyy' , rvar1=dyy)
+
+  endif
 
   ndims    = 1
   idims(1) = mmsfc
@@ -1896,28 +1919,32 @@ subroutine sfcgfile_read()
      call shdf5_irec(ndims, idims, 'swm_active', lvar1=sfcg%swm_active, points=lgwsfc)
   endif
 
-  idims(1) = mland
-  type     = 'LW'
+  if (isfcl == 1) then
 
-  call shdf5_irec(ndims, idims, 'usdatext'        , ivar1=land%usdatext,        points=lgland)
-  call shdf5_irec(ndims, idims, 'z_bedrock'       , rvar1=land%z_bedrock,       points=lgland)
-  call shdf5_irec(ndims, idims, 'gpp'             , rvar1=land%gpp,             points=lgland)
-  call shdf5_irec(ndims, idims, 'glhymps_ksat'    , rvar1=land%glhymps_ksat,    points=lgland)
-! call shdf5_irec(ndims, idims, 'glhymps_ksat_pfr', rvar1=land%glhymps_ksat_pfr,points=lgland)
-  call shdf5_irec(ndims, idims, 'glhymps_poros'   , rvar1=land%glhymps_poros,   points=lgland)
+     idims(1) = mland
+     type     = 'LW'
 
-  ndims    = 2
-  idims(1) = nzg
-  idims(2) = mland
-  type     = 'LW'
+     call shdf5_irec(ndims, idims, 'usdatext'        , ivar1=land%usdatext,        points=lgland)
+     call shdf5_irec(ndims, idims, 'z_bedrock'       , rvar1=land%z_bedrock,       points=lgland)
+     call shdf5_irec(ndims, idims, 'gpp'             , rvar1=land%gpp,             points=lgland)
+     call shdf5_irec(ndims, idims, 'glhymps_ksat'    , rvar1=land%glhymps_ksat,    points=lgland)
+   ! call shdf5_irec(ndims, idims, 'glhymps_ksat_pfr', rvar1=land%glhymps_ksat_pfr,points=lgland)
+     call shdf5_irec(ndims, idims, 'glhymps_poros'   , rvar1=land%glhymps_poros,   points=lgland)
 
-  call shdf5_irec(ndims, idims, 'sand'            , rvar2=land%sand,             points=lgland)
-  call shdf5_irec(ndims, idims, 'clay'            , rvar2=land%clay,             points=lgland)
-  call shdf5_irec(ndims, idims, 'silt'            , rvar2=land%silt,             points=lgland)
-  call shdf5_irec(ndims, idims, 'organ'           , rvar2=land%organ,            points=lgland)
-  call shdf5_irec(ndims, idims, 'bulkdens_drysoil', rvar2=land%bulkdens_drysoil, points=lgland)
-  call shdf5_irec(ndims, idims, 'pH_soil'         , rvar2=land%pH_soil,          points=lgland)
-  call shdf5_irec(ndims, idims, 'cec_soil'        , rvar2=land%cec_soil,         points=lgland)
+     ndims    = 2
+     idims(1) = nzg
+     idims(2) = mland
+     type     = 'LW'
+
+     call shdf5_irec(ndims, idims, 'sand'            , rvar2=land%sand,             points=lgland)
+     call shdf5_irec(ndims, idims, 'clay'            , rvar2=land%clay,             points=lgland)
+     call shdf5_irec(ndims, idims, 'silt'            , rvar2=land%silt,             points=lgland)
+     call shdf5_irec(ndims, idims, 'organ'           , rvar2=land%organ,            points=lgland)
+     call shdf5_irec(ndims, idims, 'bulkdens_drysoil', rvar2=land%bulkdens_drysoil, points=lgland)
+     call shdf5_irec(ndims, idims, 'pH_soil'         , rvar2=land%pH_soil,          points=lgland)
+     call shdf5_irec(ndims, idims, 'cec_soil'        , rvar2=land%cec_soil,         points=lgland)
+
+  endif
 
   if (npomzons > 0) then
      ndims    = 1

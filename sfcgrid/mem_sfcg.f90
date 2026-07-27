@@ -624,7 +624,7 @@ Contains
      !$omp do
      do imsfc = 1, mmsfc
 
-        if ( allocated( sfcg%vort ) ) sfcg%vort(ivsfc) = 0.
+        if ( allocated( sfcg%vort ) ) sfcg%vort(imsfc) = 0.
 
      enddo
      !$omp end do nowait
