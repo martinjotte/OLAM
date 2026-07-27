@@ -768,6 +768,7 @@ subroutine sfc_atm_hex_overlay()
   use misc_coms,    only: io6, nxp
   use mem_ijtabs,   only: itab_m
   use mem_delaunay, only: iwsfc_orig
+  use consts_coms,  only: xscale
 
   implicit none
 
@@ -845,7 +846,7 @@ subroutine sfc_atm_hex_overlay()
 
   ! Allocate and fill latlon bins to compartmentalize all IW points of the ATM grid
 
-  res = 7150.e3 / real( nxp * 2**(mrls-1) ) * 10.
+  res = 7150.e3 / ( xscale * real( nxp * 2**(mrls-1) ) ) * 10.
 
   call latlon_bins(nwa, res, itab_w0, bset)
 

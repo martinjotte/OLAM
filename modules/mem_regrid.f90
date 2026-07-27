@@ -43,10 +43,11 @@ Contains
 
 subroutine init_regrid()
 
-  use misc_coms,  only: io6
-  use mem_grid,   only: mwa, xew, yew, zew, glatw, glonw
-  use ll_bins,    only: latlon_bins, gridcells_from_latlon_bins, binset_vars
-  use map_proj,   only: ec_ps
+  use misc_coms,   only: io6
+  use mem_grid,    only: mwa, xew, yew, zew, glatw, glonw
+  use ll_bins,     only: latlon_bins, gridcells_from_latlon_bins, binset_vars
+  use map_proj,    only: ec_ps
+  use consts_coms, only: xscale
 
   implicit none
 
@@ -65,7 +66,7 @@ subroutine init_regrid()
   ! Allocate and fill latlon bins at different resolutions to compartmentalize
   ! all IW points of the OLD ATM grid
 
-  res = 7150.e3 / real( nxp_og * 2**(mrls_og-1) ) * 10.
+  res = 7150.e3 / ( xscale * real( nxp_og * 2**(mrls_og-1) ) ) * 10.
 
   call latlon_bins(nwa_og, res, itab_wog, bset)
 

@@ -75,7 +75,7 @@ subroutine init_minterp()
 
   use mem_ijtabs,  only: itab_m, mrls
   use mem_grid,    only: mma, xew, yew, zew, xem, yem, zem, glonw, glatw
-  use consts_coms, only: eradi, r8
+  use consts_coms, only: eradi, xscale, r8
   use mem_para,    only: myrank
   use ll_bins,     only: itab_grid_vars, latlon_bins
   use misc_coms,   only: nxp
@@ -163,7 +163,7 @@ subroutine init_minterp()
   enddo
   !$omp end parallel do
 
-  res = 7150.e3 / real( nxp * 2**(mrls-1) ) * 7.
+  res = 7150.e3 / (xscale * real( nxp * 2**(mrls-1) )) * 7.
 
   call latlon_bins(mma, res, itab_m0, bsetm)
 

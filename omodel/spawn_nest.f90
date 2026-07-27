@@ -2290,7 +2290,7 @@ end subroutine fill_rad3
 
 subroutine oplot_set_makegrid(iatm,mrlo)
 
-  use consts_coms, only: erad, pio180
+  use consts_coms, only: erad, pio180, xscale
   use misc_coms,   only: ngrdll, grdrad, grdlat, grdlon, nxp
   use mem_sfcg,    only: nsfcgrdll, sfcgrdrad, sfcgrdlat, sfcgrdlon, nxp_sfc
   use oplot_coms,  only: op
@@ -2317,7 +2317,7 @@ subroutine oplot_set_makegrid(iatm,mrlo)
 
   if (iatm) then
      ngplt = nl%gridplot_base
-     gsize = 5. * 7150.e3 / real(nxp * 2**mrlo)
+     gsize = 5. * 7150.e3 / (xscale * real(nxp * 2**mrlo))
 
      ngrds  => ngrdll
      g_lons => grdlon
@@ -2325,7 +2325,7 @@ subroutine oplot_set_makegrid(iatm,mrlo)
      g_rads => grdrad
   else
      ngplt = nl%sfcgridplot_base
-     gsize = 5. * 7150.e3 / real(nxp_sfc * 2**mrlo)
+     gsize = 5. * 7150.e3 / (xscale * real(nxp_sfc * 2**mrlo))
 
      ngrds  => nsfcgrdll
      g_lons => sfcgrdlon

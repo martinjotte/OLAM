@@ -119,11 +119,13 @@ Contains
     nud_copy = nud
     nwd_copy = nwd
 
-    ! use f90 allocatable array reallocation
+    ! Use F2003 allocatable array auto-reallocation
 
     xemd_copy = xemd
     yemd_copy = yemd
     zemd_copy = zemd
+
+    ! Use F2003 allocatable array auto-reallocation
 
     itab_md_copy = itab_md
     itab_ud_copy = itab_ud
