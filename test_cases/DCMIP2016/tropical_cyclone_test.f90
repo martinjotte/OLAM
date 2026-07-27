@@ -92,8 +92,9 @@ CONTAINS
 !=======================================================================
 !    Evaluate the tropical cyclone initial conditions
 !=======================================================================
-  SUBROUTINE tropical_cyclone_test(lon,lat,p,z,zcoords,u,v,t,thetav,phis,ps,rho,q) &
-    BIND(c, name = "tropical_cyclone_test")
+
+  SUBROUTINE tropical_cyclone_test(lon,lat,p,z,zcoords,u,v,t,thetav,phis,ps,rho,q)
+
 
     IMPLICIT NONE
 

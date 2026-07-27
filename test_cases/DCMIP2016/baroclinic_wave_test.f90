@@ -96,8 +96,8 @@ CONTAINS
 !=======================================================================
 !    Generate the baroclinic instability initial conditions
 !=======================================================================
-  SUBROUTINE baroclinic_wave_test(deep,moist,pertt,X,lon,lat,p,z,zcoords,u,v,t,thetav,phis,ps,rho,q) &
-    BIND(c, name = "baroclinic_wave_test")
+
+  SUBROUTINE baroclinic_wave_test(deep,moist,pertt,X,lon,lat,p,z,zcoords,u,v,t,thetav,phis,ps,rho,q)
 
     IMPLICIT NONE
 

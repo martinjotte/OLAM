@@ -129,14 +129,14 @@ SOURCE_FILES= \
              $(OMODEL)/vort_div_damp.f90 \
              $(OUTILS)/analysis_lib.f90 \
              $(OUTILS)/area_remap_ll.f90 \
-             $(OUTILS)/blas.f90 \
              $(OUTILS)/check_nans.F90 \
              $(OUTILS)/dateutils.f90 \
              $(OUTILS)/global_profiles.F90 \
              $(OUTILS)/hdf5_f2f.F90 \
              $(OUTILS)/hdf5_utils.F90 \
              $(OUTILS)/interp_lib.f90 \
-             $(OUTILS)/lapack.f90 \
+             $(OUTILS)/lapack_double.f90 \
+             $(OUTILS)/lapack_utils.f90 \
              $(OUTILS)/latlon_bins.f90 \
              $(OUTILS)/map_proj.f90 \
              $(OUTILS)/map_proj_gn.f90 \

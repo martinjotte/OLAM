@@ -238,13 +238,13 @@ end subroutine voronoi_sfc
 
 subroutine grid_geometry_hex_sfc()
 
-  use, intrinsic :: iso_fortran_env, only: r8=>real64
-
-  use mem_sfcg,    only: nmsfc, nvsfc, nwsfc, itab_msfc, itab_vsfc, itab_wsfc, sfcg
-  use misc_coms,   only: mdomain, nxp
-  use consts_coms, only: erad, piu180
-  use oplot_coms,  only: op
-  use map_proj,    only: get_cossin_lonlat, de_ps
+  use iso_fortran_env, only: r8=>real64
+  use mem_sfcg,        only: nmsfc, nvsfc, nwsfc, itab_msfc, itab_vsfc, itab_wsfc, sfcg
+  use misc_coms,       only: mdomain, nxp
+  use consts_coms,     only: erad, piu180
+  use oplot_coms,      only: op
+  use map_proj,        only: get_cossin_lonlat, de_ps
+  use lapack_double,   only: dgels
 
   implicit none
 
@@ -264,11 +264,13 @@ subroutine grid_geometry_hex_sfc()
   real          :: dxe,dye,dze
   real          :: sinwlat,coswlat,sinwlon,coswlon
 
-  integer               :: lwork, info
+  integer               :: lwork, info, ierr
   real(r8)              :: a(3,7), b(7), fo(7), vnx_ps(7), vny_ps(7), vnz_ps(7)
   real(r8)              :: vrot_x(7), vrot_y(7)
   real(r8), allocatable :: work(:)
   real(r8)              :: wsize(1), vdotw, vmag8i, fact
+
+  ierr = 0
 
   ! Loop over all M points and compute their latitude and longitude
 
@@ -320,9 +322,9 @@ subroutine grid_geometry_hex_sfc()
 
      if (mdomain <= 1) then
 
-        expansion = erad / sqrt(sfcg%xev(iv) ** 2 &
-                              + sfcg%yev(iv) ** 2 &
-                              + sfcg%zev(iv) ** 2 )
+        expansion = erad / sqrt( sfcg%xev(iv) ** 2 &
+                               + sfcg%yev(iv) ** 2 &
+                               + sfcg%zev(iv) ** 2 )
 
         sfcg%xev(iv) = sfcg%xev(iv) * expansion
         sfcg%yev(iv) = sfcg%yev(iv) * expansion
@@ -370,19 +372,21 @@ subroutine grid_geometry_hex_sfc()
      frac = dvm1 * sfcg%dniu(iv)
 
      if (im1 > 1 .and. im2 > 1 .and. (frac < .0001 .or. frac > .9999)) then
+
         print*, 'Non-intersecting U-V edges detected in sfcgrid geometry'
-        print*, 'FRAC  = ',frac
-        print*, 'IW1 = ', iw1, ' IW2 = ', iw2
-        print*, 'IV    = ',iv
-        print*, 'GLATM = ', sfcg%glatm(im1)
-        print*, 'GLONM = ', sfcg%glonm(im1)
-        print*, 'SFCG%XEV = ',sfcg%xev(iv)
-        print*, 'SFCG%YEV = ',sfcg%yev(iv)
-        print*, 'SFCG%ZEV = ',sfcg%zev(iv)
+        print*, 'FRAC     = ', frac
+        print*, 'IW1      = ', iw1
+        print*, 'IW2      = ', iw2
+        print*, 'IV       = ', iv
+        print*, 'GLATM    = ', sfcg%glatm(im1)
+        print*, 'GLONM    = ', sfcg%glonm(im1)
+        print*, 'SFCG%XEV = ', sfcg%xev(iv)
+        print*, 'SFCG%YEV = ', sfcg%yev(iv)
+        print*, 'SFCG%ZEV = ', sfcg%zev(iv)
+        print*, 'SFCG%DNU = ', sfcg%dnu(iv)
 
-        print*, 'sfcg%dnu(iv),sfcg%dniu(iv) ',sfcg%dnu(iv),sfcg%dniu(iv)
-
-        stop 'STOP U-V edges'
+        !$omp atomic update
+        ierr = ierr + 1
      endif
 
      quarter_kite(1,iv) = .25 * dvm1 * sfcg%dnv(iv)
@@ -391,6 +395,10 @@ subroutine grid_geometry_hex_sfc()
   enddo
   !$omp end do
   !$omp end parallel
+
+  if (ierr > 0) then
+     stop 'STOP U-V edges'
+  endif
 
   !dir$ novector
   do iv = 2, nvsfc

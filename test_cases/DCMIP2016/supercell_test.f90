@@ -118,8 +118,10 @@ CONTAINS
 !=======================================================================
 !    Generate the supercell initial conditions
 !=======================================================================
-  SUBROUTINE supercell_init() &
-    BIND(c, name = "supercell_init")
+
+  SUBROUTINE supercell_init()
+
+    USE lapack_double, ONLY: dgesvd, dgemm, dscal
 
     IMPLICIT NONE
 
@@ -350,8 +352,8 @@ CONTAINS
 !-----------------------------------------------------------------------
 !    Evaluate the supercell initial conditions
 !-----------------------------------------------------------------------
-  SUBROUTINE supercell_test(lon,lat,p,z,zcoords,u,v,t,thetav,ps,rho,q,pert) &
-    BIND(c, name = "supercell_test")
+
+  SUBROUTINE supercell_test(lon,lat,p,z,zcoords,u,v,t,thetav,ps,rho,q,pert)
 
     IMPLICIT NONE
 

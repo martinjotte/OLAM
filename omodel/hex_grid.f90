@@ -417,16 +417,17 @@ end subroutine pcvt
 
 subroutine grid_geometry_hex()
 
-  use mem_ijtabs,  only: itab_m, itab_v, itab_w
-  use mem_grid,    only: nma, nva, nwa, xev, yev, zev, xem, yem, zem, &
-                         xew, yew, zew, unx, uny, unz, wnx, wny, wnz, &
-                         vnx, vny, vnz, glonw, glatw, dnu, dniu, dnv, dniv, arw0, &
-                         arm0, glonm, glatm, glatv, glonv
-  use misc_coms,   only: mdomain, nxp
-  use consts_coms, only: erad, eradi, piu180, pio2
-  use oplot_coms,  only: op
-  use consts_coms, only: r8, pio180
-  use map_proj,    only: get_cossin_lonlat, de_ps
+  use mem_ijtabs,    only: itab_m, itab_v, itab_w
+  use mem_grid,      only: nma,  nva,  nwa,   xev,   yev,   zev,  xem,  yem, zem,  &
+                           xew,  yew,  zew,   unx,   uny,   unz,  wnx,  wny, wnz,  &
+                           vnx,  vny,  vnz,   glonw, glatw, dnu,  dniu, dnv, dniv, &
+                           arw0, arm0, glonm, glatm, glatv, glonv
+  use misc_coms,     only: mdomain, nxp
+  use consts_coms,   only: erad, eradi, piu180, pio2
+  use oplot_coms,    only: op
+  use consts_coms,   only: r8, pio180
+  use map_proj,      only: get_cossin_lonlat, de_ps
+  use lapack_double, only: dgels
 
   implicit none
 
@@ -448,16 +449,17 @@ subroutine grid_geometry_hex()
   real               :: raxis,dxe,dye,dze,arwi,vmagi
   real               :: sinwlat,coswlat,sinwlon,coswlon
 
-  integer               :: lwork, info
+  integer               :: lwork, info, ierr
   real(r8)              :: a(3,7), b(7), fo(7), vnx_ps(7), vny_ps(7), vnz_ps(7)
   real(r8)              :: vrot_x(7), vrot_y(7)
   real(r8), allocatable :: work(:)
   real(r8)              :: wsize(1), vdotw, vmag8i, fact
 
+  ierr = 0
+
   ! Loop over all M points
 
   !$omp parallel
-
   !$omp do private(raxis)
   do im = 2,nma
 
@@ -508,9 +510,9 @@ subroutine grid_geometry_hex()
 
      if (mdomain <= 1) then
 
-        expansion = erad / sqrt(xev(iv) ** 2 &
-                              + yev(iv) ** 2 &
-                              + zev(iv) ** 2 )
+        expansion = erad / sqrt( xev(iv) ** 2 &
+                               + yev(iv) ** 2 &
+                               + zev(iv) ** 2 )
 
         xev(iv) = xev(iv) * expansion
         yev(iv) = yev(iv) * expansion
@@ -521,7 +523,7 @@ subroutine grid_geometry_hex()
      ! Latitude and longitude at V point
 
      if (mdomain <= 1) then
-        raxis = sqrt(xev(iv) ** 2 + yev(iv) ** 2)  ! dist from earth axis
+        raxis     = sqrt(xev(iv) ** 2 + yev(iv) ** 2) ! dist from earth axis
         glatv(iv) = atan2(zev(iv),raxis)   * piu180
         glonv(iv) = atan2(yev(iv),xev(iv)) * piu180
      else
@@ -581,16 +583,21 @@ subroutine grid_geometry_hex()
      frac = dvm1 * dniu(iv)
 
      if (im1 > 1 .and. im2 > 1 .and. (frac < .0001 .or. frac > .9999)) then
+
         print*, 'Non-intersecting U-V edges detected in grid geometry'
-        print*, 'FRAC  = ',frac
-        print*, 'IW1 = ', iw1, ' IW2 = ', iw2
-        print*, 'IV    = ',iv
-        print*, 'GLATV = ',glatv(iv)
-        print*, 'GLONV = ',glonv(iv)
+        print*, 'FRAC  = ', frac
+        print*, 'IW1   = ', iw1
+        print*, 'IW2   = ', iw2
+        print*, 'IV    = ', iv
+        print*, 'GLATM = ', glatm(im1)
+        print*, 'GLONM = ', glonm(im1)
+        print*, 'XEV   = ', xev(iv)
+        print*, 'YEV   = ', yev(iv)
+        print*, 'ZEV   = ', zev(iv)
+        print*, 'DNU   = ', dnu(iv)
 
-        print*, 'dnu(iv),dniu(iv) ',dnu(iv),dniu(iv)
-
-        stop 'STOP U-V edges'
+        !$omp atomic update
+        ierr = ierr + 1
      endif
 
      quarter_kite(1,iv) = .25 * dvm1 * dnv(iv)
@@ -599,6 +606,10 @@ subroutine grid_geometry_hex()
   enddo
   !$omp end do
   !$omp end parallel
+
+  if (ierr > 0) then
+     stop 'STOP U-V edges'
+  endif
 
   !dir$ novector
   do iv = 2, nva
