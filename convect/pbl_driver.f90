@@ -1,13 +1,14 @@
 module pbl_drivers
 
-  ! Implictness parameter for tracers and momentum
-  real, parameter, private :: fcnt = 1.2
-  real, parameter, private :: fcnm = 1.0
+  ! Implictness weightings for tracers and momentum
+  real, parameter, private :: fcnt = 1.55
+  real, parameter, private :: fcnm = 1.55
 
-  ! This slightly forward-weights the implicit fluxes of tracers to help
-  ! avoid 2-DT and 2-DZ oscillations. This results when the diffusivities
-  ! are functions of T and Q through the Richardson number, which makes the
-  ! diffusion equation nonlinear. See Hammarstrand, MWR, 1997 for background.
+  ! This forward-weights the implicit fluxes to damp 2-DT and 2-DZ
+  ! oscillations that result when the eddy diffusivities are functions
+  ! of T, Q, and shear through the Richardson number, which
+  ! makes the diffusion equation nonlinear. See Hammarstrand, MWR, 1997.
+  ! ECMWF uses a implicitness weighting of 1.5 to avoid this instability.
 
 contains
 
@@ -245,13 +246,13 @@ end subroutine comp_horiz_k_column
 
 subroutine pbl_init()
 
-  use mem_grid,      only: lsw, lpw, mwa, arw, zfacim2, zfacm2
-  use mem_ijtabs,    only: jtab_w, jtw_prog, itab_w
-  use mem_turb,      only: frac_urb, frac_land, frac_sea, frac_lake, arw_sfc,  &
-                           frac_sfc, frac_sfck, frac_norm, ustar, wstar, wtv0, &
-                           moli, pblh
-  use mem_sfcg,       only: sfcg, itab_wsfc
-  use misc_coms,     only: runtype, iparallel
+  use mem_grid,     only: lsw, lpw, mwa, arw, zfacim2, zfacm2, arw0
+  use mem_ijtabs,   only: jtab_w, jtw_prog, itab_w
+  use mem_turb,     only: frac_urb, frac_land, frac_sea, frac_lake, arw_sfc,  &
+                          frac_sfc, frac_sfck, frac_norm, ustar, wstar, wtv0, &
+                          moli, pblh
+  use mem_sfcg,      only: sfcg, itab_wsfc
+  use misc_coms,     only: runtype, iparallel, mdomain
   use module_bl_acm2,only: acm2_pblhgt
   use leaf_coms,     only: isfcl
   use consts_coms,   only: eps_virt, alvlocp
@@ -260,7 +261,7 @@ subroutine pbl_init()
 
   implicit none
 
-  integer :: j, iw, iwsfc, k, ks, jsfc, jasfc
+  integer :: j, iw, iwsfc, k, ka, ks, kw, jsfc, jasfc
 
 ! Populate urban and land, sea, and lake fraction arrays
 
@@ -351,7 +352,56 @@ subroutine pbl_init()
      enddo
      !$omp end parallel do
 
-  endif ! isfcl > 0
+  else  ! isfcl == 0
+
+     !$omp parallel do private(ka,ks,kw)
+     do iw = 2, mwa
+        ka = lpw(iw)
+
+        frac_urb  (iw) = 0.
+        frac_land (iw) = 1.
+        frac_sea  (iw) = 0.
+        frac_lake (iw) = 0.
+
+        if ( lsw(iw) == 1 ) then
+
+           frac_sfc (1,iw) = 1.
+           frac_sfck(1,iw) = 1.
+           frac_norm(1,iw) = 1.
+
+           if (mdomain > 1) then
+              arw_sfc(1,iw) = arw(ka,iw) * zfacim2(ka) * zfacm2(ka-1)
+           else
+              arw_sfc(1,iw) = arw(ka,iw)
+           endif
+
+        else
+
+           do ks = 1, lsw(iw)
+              kw = ka + ks - 1
+
+              if (mdomain > 1) then
+                 arw_sfc  (ks,iw) = arw(kw,iw) * zfacim2(kw) * zfacm2(kw-1) - arw(kw-1,iw)
+                 frac_sfc (ks,iw) = arw_sfc(ks,iw) * zfacim2(kw-1) / arw0(iw)
+                 frac_sfck(ks,iw) = arw_sfc(ks,iw) / (arw(kw,iw) * zfacim2(kw) * zfacm2(kw-1))
+              else
+                 arw_sfc  (ks,iw) = arw(kw,iw) - arw(kw-1,iw)
+                 frac_sfc (ks,iw) = arw_sfc(ks,iw) / arw0(iw)
+                 frac_sfck(ks,iw) = arw_sfc(ks,iw) / arw(kw,iw)
+              endif
+
+           enddo
+
+           do ks = 1, lsw(iw)
+              frac_norm(ks,iw) = 1.0 / sum( frac_sfc(1:ks,iw) )
+           enddo
+
+        endif
+
+     enddo
+     !$omp end parallel do
+
+  endif  ! isfcl
 
   if (runtype /= 'INITIAL') return
 

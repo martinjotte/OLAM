@@ -38,7 +38,7 @@ contains
     integer :: k, kpbl, kpblm, kpblp, ks, ka, kpblpp, kpblmm
     real    :: zagl, zoh, zol, zsol, zi
     real    :: dthl, dqt, dql, cfac, qsat, gams, chi_s, dbwet, db
-    real    :: kprofm, kprofh, rlam, shear, molki, vels2, dissk
+    real    :: kprofm, kprofh, rlam, shear, molki, vels2, dissks
     real    :: zfac, wstar_k, wnonloc, pr, gam
     real    :: zk, sql, ri, dens
     real    :: phimi, phihi, phim
@@ -406,14 +406,16 @@ contains
     dissp(ka-1) = akm_sfc(1,iw) * vels2 * dzit_bot(ka)**2 / arw_sfc(1,iw)
     dissp(mza)  = 0.0
 
-    ! Special for shaved cells (if multiple surface overlaps)
+    ! Special for dissipation with shaved cells (if multiple surface overlaps)
 
     do ks = 2, lsw(iw)
-       k = ks + ka - 1
-       vels2      = vxe(k,iw)**2 + vye(k,iw)**2 + vze(k,iw)**2
-       dissk      = akm_sfc(ks,iw) * vels2 * dzit_bot(k)**2 / max(arw_sfc(ks,iw), 1.e-8)
-       dissp(k-1) = (1. - frac_sfck(ks,iw)) * dissp(k-1) &
-                  +       frac_sfck(ks,iw)  * dissk
+       if ( frac_sfck(ks,iw) > 0.01 ) then
+          k = ks + ka - 1
+          vels2      = vxe(k,iw)**2 + vye(k,iw)**2 + vze(k,iw)**2
+          dissks     = akm_sfc(ks,iw) * vels2 * dzit_bot(k)**2 / arw_sfc(ks,iw)
+          dissp(k-1) = (1. - frac_sfck(ks,iw)) * dissp(k-1) &
+                     +       frac_sfck(ks,iw)  * dissks
+       endif
     enddo
 
     ! Apply dissipative heating to THIL

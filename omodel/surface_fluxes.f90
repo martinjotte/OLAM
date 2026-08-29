@@ -3,13 +3,13 @@ subroutine surface_turb_flux()
   use leaf_coms,   only: isfcl
   use mem_land,    only: omland, land
   use mem_sea,     only: omsea, sea
-  use mem_basic,   only: theta, tair, rr_v
+  use mem_basic,   only: theta, tair, rr_v, vxe, vye, vze, rho
   use mem_ijtabs,  only: itab_w, jtab_w, jtw_prog
   use mem_sfcg,    only: itab_wsfc, sfcg, mwsfc
   use misc_coms,   only: iparallel, dtlm
-  use mem_grid,    only: lsw, lpw, volti
+  use mem_grid,    only: lsw, lpw, volti, dzt_bot
   use mem_turb,    only: akm_sfc, vkm_sfc, ustar, sfluxt, sfluxr, arw_sfc, &
-                         wstar, wtv0, pblh, moli, ustar_k, wtv0_k
+                         wstar, wtv0, pblh, moli, ustar_k, wtv0_k, frac_sfc
   use consts_coms, only: grav, p00, rocp, cp, cpi, alvl, eps_virt, vonk, p00i
   use oname_coms,  only: nl
   use mem_para,    only: myrank
@@ -23,9 +23,10 @@ subroutine surface_turb_flux()
   integer :: jsfc, jasfc, iwsfc
 
   real :: exneri, dtl
-  real :: airthetav
+  real :: airthetav, wspd
 
   real, parameter :: onethird = 1./3.
+  real, parameter :: z0 = .02
 
   dtl = dtlm
 
@@ -36,18 +37,15 @@ subroutine surface_turb_flux()
   ! Assign atmospheric surface fluxes here.
   ! Example with sensible flux = 250 W/m^2 and latent flux of 150 W/m^2:
 
-  !  sfluxt = 250.
-  !  sfluxr = 150. / alvl
+  !  sfluxt(iw) = 250.
+  !  sfluxr(iw) = 150. / alvl
 
      sfluxt(iw) = 0.
      sfluxr(iw) = 0. / alvl
 
-     ustar (iw) = 0.1  ! Minimum value
-
+     ustar (iw) = 0.
      wstar (iw) = 0.
      wtv0  (iw) = 0.
-
-     akm_sfc (:,iw) = 0.
 
      do ks = 1, lsw(iw)
         kw = ks + lpw(iw) - 1
@@ -59,6 +57,15 @@ subroutine surface_turb_flux()
 
         thilt(kw,iw) = thilt(kw,iw) + sfluxt(iw) * cpi * exneri * arw_sfc(ks,iw) * volti(kw,iw)
         rr_wt(kw,iw) = rr_wt(kw,iw) + sfluxr(iw)                * arw_sfc(ks,iw) * volti(kw,iw)
+
+        wspd = sqrt( vxe(kw,iw)**2 + vye(kw,iw)**2 + vze(kw,iw)**2 )
+
+        ustar_k(ks,iw) = vonk * wspd / log( dzt_bot(kw) / z0 )
+
+        akm_sfc(ks,iw) = arw_sfc(ks,iw) * real( rho(kw,iw) ) &
+                       * ustar_k(ks,iw)**2 * dzt_bot(kw) / max(wspd, 0.1)
+
+        ustar(iw) = ustar(iw) + frac_sfc(ks,iw) * ustar_k(ks,iw)
      enddo
 
      ! albedt (iw) = albedo

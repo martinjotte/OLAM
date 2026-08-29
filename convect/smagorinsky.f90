@@ -9,8 +9,8 @@ contains
 
   subroutine turb_k(iw, mrlw)
 
-    use mem_turb,    only: vkm_sfc, vkm, vkh, kpblh
-    use mem_grid,    only: mza, lpw, zm, zm, arw0, dzm, dzimsq, dzit_bot
+    use mem_turb,    only: akm_sfc, vkm, vkh, kpblh, frac_sfck, arw_sfc
+    use mem_grid,    only: mza, lpw, zm, zm, arw0, dzm, dzimsq, dzit_bot, lsw
     use misc_coms,   only: idiffk, csx, csz, dtlm
     use mem_basic,   only: rho, vxe, vye, vze, theta, tair
     use consts_coms, only: vonk, grav, grav2, eps_virt, cpio2
@@ -24,11 +24,11 @@ contains
 
     integer, intent(in) :: iw, mrlw
 
-    integer :: k, ka
+    integer :: k, ka, ks
 
     real :: richnum,ambda,ambda2,hill_term,richnum_term
     real :: scalen_asympt,scalen_vert,scalen_horiz
-    real :: prinv
+    real :: prinv, dissks
     real :: strain2(mza), strain_t(mza)
     real :: dissipation(mza) ! Dissipation rate (conversion of KE to heat) [kg/m^3 m^2/s^3]
     real :: bvfreq2
@@ -147,17 +147,7 @@ contains
 
        zkh(k) = zkm(k) * prinv
 
-       ! Dissipation due to mechanical strain (applies at W points)
-
-       dissipation(k) = strain2(k) * zkm(k)
-
     enddo
-
-    ! Compute surface dissipation
-
-    vels2             = vxe(ka,iw)**2 + vye(ka,iw)**2 + vze(ka,iw)**2
-    dissipation(ka-1) = vkm_sfc(iw) * vels2 * dzit_bot(ka)**2
-    dissipation(mza)  = 0.0
 
     ! For DCMIP 2016 supercell test case, specify spatially constant K's
 
@@ -167,6 +157,32 @@ contains
           zkh(k) = 1500. * .5 * real(rho(k,iw) + rho(k+1,iw))
        enddo
     endif
+
+    ! Dissipation due to mechanical strain (applies at W points)
+
+    do k = ka, mza-1
+       dissipation(k) = strain2(k) * zkm(k)
+    enddo
+
+    ! Compute surface dissipation
+
+    vels2             = vxe(ka,iw)**2 + vye(ka,iw)**2 + vze(ka,iw)**2
+    dissipation(ka-1) = akm_sfc(1,iw) * vels2 * dzit_bot(ka)**2 / arw_sfc(1,iw)
+    dissipation(mza)  = 0.0
+
+    ! Special for dissipation with shaved cells (if multiple surface overlaps)
+
+    do ks = 2, lsw(iw)
+       if ( frac_sfck(ks,iw) > 0.01 ) then
+          k = ks + ka - 1
+
+          vels2  = vxe(k,iw)**2 + vye(k,iw)**2 + vze(k,iw)**2
+          dissks = akm_sfc(ks,iw) * vels2 * dzit_bot(k)**2 / arw_sfc(ks,iw)
+
+          dissipation(k-1) = (1. - frac_sfck(ks,iw)) * dissipation(k-1) &
+                           +       frac_sfck(ks,iw)  * dissks
+       endif
+    enddo
 
     ! Apply dissipative heating to THIL
     do k = ka, mza
