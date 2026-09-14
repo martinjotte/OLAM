@@ -728,6 +728,8 @@ subroutine solve_eddy_diff_momentum(iw, vmxet, vmyet, vmzet)
   ! vertical mixing is not done by standard OLAM code; instead it will
   ! (optionally) be done in dcmip_physics routine.
 
+  ! Note: this if statement needs to be checked since surface drag is now
+  ! included in the implicit solver
   if (nl%test_case == 110 .or. &
       nl%test_case == 111 .or. &
       nl%test_case == 112 .or. &
@@ -736,11 +738,9 @@ subroutine solve_eddy_diff_momentum(iw, vmxet, vmyet, vmzet)
       nl%test_case == 121 .or. &
       nl%test_case == 122) return
 
-  if (kmtop(iw) < lpw(iw)) return
-
   ka   = lpw(iw)
   dts  = dtsm
-  kmax = kmtop(iw) + 1
+  kmax = max(kmtop(iw) + 1, ka+lsw(iw)-1)
 
   ! Vertical loop over T levels
   do k = ka, kmax
@@ -780,7 +780,7 @@ subroutine solve_eddy_diff_momentum(iw, vmxet, vmyet, vmzet)
   enddo
 
   ! Vertical loop over W levels
-  do k = ka, kmtop(iw)
+  do k = ka, kmax-1
      akodz      = arw(k,iw) * vkm(k,iw) * dzim(k)
      rhs  (k,1) =  akodz * (varx(k) - varx(k+1))
      rhs  (k,2) =  akodz * (vary(k) - vary(k+1))
@@ -820,7 +820,7 @@ subroutine solve_eddy_diff_momentum(iw, vmxet, vmyet, vmzet)
 
   ! Solve tri-diagonal matrix equation
 
-  call tridv( vctr5, vctr6, vctr7, rhs, soln, ka-1, kmtop(iw), mza, 3)
+  call tridv( vctr5, vctr6, vctr7, rhs, soln, ka-1, kmax-1, mza, 3)
 
   soln(kmax,:) = 0.
 
@@ -842,6 +842,7 @@ subroutine solve_eddy_diff_momentum(iw, vmxet, vmyet, vmzet)
      yflxsfc(ks) = yflxsfc(ks) + fract * (soln(k,2) - soln(k-1,2))
      zflxsfc(ks) = zflxsfc(ks) + fract * (soln(k,3) - soln(k-1,3))
 
+     ! momentum tendency weighted by volume
      vmxet(k) = vmxet(k) + xflxsfc(ks)
      vmyet(k) = vmyet(k) + yflxsfc(ks)
      vmzet(k) = vmzet(k) + zflxsfc(ks)
