@@ -877,7 +877,7 @@ subroutine sfc_atm_hex_overlay()
   allocate(dsw_max(nwa))
 
   !$omp parallel
-  !$omp do private(ds2)
+  !$omp do private(ds2,j,im)
   do iw = 2, nwa
      ds2 = 0.
 
@@ -888,12 +888,12 @@ subroutine sfc_atm_hex_overlay()
                      + (zew(iw)-zem(im))**2 )
      enddo
 
-     dsw_max(iw) = 1.0001 * sqrt(ds2)
+     dsw_max(iw) = 1.001 * sqrt(ds2)
 
   enddo
   !$omp end do
 
-  !$omp do private(iw)
+  !$omp do
   do iwsfc = 2, nwsfc
 
      call sfc_atm_hex_overlay_2( iwsfc )
@@ -927,7 +927,7 @@ subroutine sfc_atm_hex_overlay()
      endif
 
   enddo
-  !$omp end do
+  !$omp end do nowait
 
   !$omp do
   do im = 2, nma
@@ -955,7 +955,7 @@ subroutine sfc_atm_hex_overlay()
      endif
 
   enddo
-  !$omp end do
+  !$omp end do nowait
   !$omp end parallel
 
 contains
