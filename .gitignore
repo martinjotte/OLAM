@@ -1,0 +1,5 @@
+# Ignore all build directories
+build*/
+
+# Exception: track build_olam_test
+!build_olam_test/
