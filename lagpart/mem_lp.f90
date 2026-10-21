@@ -26,7 +26,7 @@ module mem_lp
   Type oname_lpsrc
      real          :: begtime
      real          :: endtime
-     integer       :: numparts
+     real          :: numparts
      real          :: zbot
      real          :: ztop
      real          :: xsize
@@ -112,7 +112,7 @@ subroutine lp_init()
 
   ! Allocate particle data structure to total number of particles
 
-  nlpall = sum( lpsrc(:)%numparts ) !+ nlpsrc
+  nlpall = sum( nint( lpsrc(:)%numparts ) ) !+ nlpsrc
 
   if (allocated(atp)) deallocate(atp); allocate(atp(nlpall))
 
@@ -156,7 +156,7 @@ subroutine lp_init()
         durtot = lpsrc(nsrc)%endtime - lpsrc(nsrc)%begtime
      endif
 
-     lpsrc(nsrc)%relperdt = real(lpsrc(nsrc)%numparts) * dtlp / durtot
+     lpsrc(nsrc)%relperdt = lpsrc(nsrc)%numparts * dtlp / durtot
 
   enddo
 
