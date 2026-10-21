@@ -100,8 +100,7 @@ subroutine umwm_step()
 
   implicit none
 
-  real, external :: walltime
-  real           :: wtime_start, w1, w2
+  real           :: wtime_start, w1, w2, t1, t2
   integer        :: i, o, p, iwsfc
   real           :: dummy(pm,om), sds(pm,om), snl(pm,om), sdt(om), sice(om)
 
@@ -115,8 +114,8 @@ subroutine umwm_step()
 
   ! Carry out one time step of UMWM
 
-  wtime_start = walltime(0.)
-  w1 = walltime(wtime_start)
+  call walltime(w1)
+  call cpu_time(t1)
 
   !$omp parallel do private(iwsfc,dummy,sds,snl,sdt,sice)
   do i = 2, msea
@@ -214,8 +213,9 @@ subroutine umwm_step()
   !$omp end do nowait
   !$omp end parallel
 
-  w2 = walltime(wtime_start)
-  write(io6,'(a,f0.3,a)') '     UMWM walltime = ', w2-w1, ' sec'
+  call walltime(w2)
+  call cpu_time(t2)
+  write(io6,'(a,f0.3,a,f0.3)') '     UMWM [cpu,wall] time (sec) = ', t2-t1, ', ', w2-w1
 
 !!  i = 13710
 !!

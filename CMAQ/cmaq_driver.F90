@@ -16,8 +16,7 @@ subroutine cmaq_driver( )
   implicit none
 
 #ifdef CMAQ_TIMING
-  real, external :: walltime
-  real :: wtime_start,t1,w1,w2,t2
+  real :: t1,w1,w2,t2
 #endif
 
   ! Photolysis rates
@@ -29,8 +28,7 @@ subroutine cmaq_driver( )
   ! Cloud/aqueous processes
 
 #ifdef CMAQ_TIMING
-     wtime_start = walltime(0.)
-     w1 = walltime(wtime_start)
+     call walltime(w1)
      call cpu_time(t1)
 #endif
 
@@ -39,7 +37,7 @@ subroutine cmaq_driver( )
      call rescld         ( )
 
 #ifdef CMAQ_TIMING
-     w2 = walltime(wtime_start)
+     call walltime(w2)
      call cpu_time(t2)
      write(io6,'(a,2f13.3)') '++++++++++ Aqch [cpu,wall(sec)]: ',t2-t1,w2-w1
 #endif
@@ -51,46 +49,34 @@ subroutine cmaq_driver( )
   ! Aerosol sedimentation
 
 #ifdef CMAQ_TIMING
-     wtime_start = walltime(0.)
-     w1 = walltime(wtime_start)
+     call walltime(w1)
      call cpu_time(t1)
 #endif
 
      call aero_sedi( )
 
 #ifdef CMAQ_TIMING
-     w2 = walltime(wtime_start)
+     call walltime(w2)
      call cpu_time(t2)
      write(io6,'(a,2f13.3)') '++++++++++ Sedi [cpu,wall(sec)]: ',t2-t1,w2-w1
 #endif
 
   ! Gas chemistry
 
-#ifdef CMAQ_TIMING
-     wtime_start = walltime(0.)
-     w1 = walltime(wtime_start)
-     call cpu_time(t1)
-#endif
-
      call chem( )
 
 #ifdef CMAQ_TIMING
-     w2 = walltime(wtime_start)
-     call cpu_time(t2)
-     write(io6,'(a,2f13.3)') '++++++++++ Chem [cpu,wall(sec)]: ',t2-t1,w2-w1
+     call walltime(w1)
+     call cpu_time(t1)
+     write(io6,'(a,2f13.3)') '++++++++++ Chem [cpu,wall(sec)]: ',t1-t2,w1-w2
 #endif
 
   ! Aerosol microphysics
 
-#ifdef CMAQ_TIMING
-     w1 = walltime(wtime_start)
-     call cpu_time(t1)
-#endif
-
      call aero( )
 
 #ifdef CMAQ_TIMING
-     w2 = walltime(wtime_start)
+     call walltime(w2)
      call cpu_time(t2)
      write(io6,'(a,2f13.3)') '++++++++++ Aero [cpu,wall(sec)]: ',t2-t1,w2-w1
 #endif

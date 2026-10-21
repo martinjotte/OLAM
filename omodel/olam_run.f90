@@ -76,13 +76,11 @@ subroutine olam_run(name_name)
 
   integer :: i, idavg_file, ilite_file
   integer :: mwa_prog, mva_prog
-  real :: w1,w2,t1,t2,wtime_start
-  real, external :: walltime
+  real :: w1,w2,t1,t2
   character(len=128) :: davgfile, litefile
   logical :: result
 
-  wtime_start = walltime(0.)
-  w1 = walltime(wtime_start)
+  call walltime(w1)
   call cpu_time(t1)
 
   iflag = 0
@@ -851,7 +849,7 @@ subroutine olam_run(name_name)
   70 continue ! HURRICANE INITIALIZATION CYCLE BEGINS HERE
 
   time_prevhist = time8
-  w2 = walltime(wtime_start)
+  call walltime(w2)
   call cpu_time(t2)
   write(io6,'(a,2f13.3)') '++++++++++ CPU - wall time: olam initialization: ',t2-t1,w2-w1
 
@@ -984,15 +982,14 @@ subroutine model()
   !   +------------------------------------------------------------------
   !
 
-  real :: wtime_start, t1, wtime1, wtime2, t2, wtime_tot
-  real, external :: walltime
+  real :: wtime_start, wtime_end, w1, w2, t1, t2
   real(r8) :: timmax8_model
   character(len=40) :: stepc1,stepc2,stepc3,stepc4,stepc5
   type(simtime) :: begtime
 
   write(io6,*) 'starting subroutine MODEL'
 
-  wtime_start = walltime(0.)
+  call walltime(wtime_start)
 
   if (ncycle_hurrinit > 0 .and. icycle_hurrinit < ncycle_hurrinit) then
      timmax8_model = timmax_hurrinit
@@ -1011,7 +1008,7 @@ subroutine model()
      ! CPU timing information
 
      call cpu_time(t1)
-     wtime1 = walltime(wtime_start)
+     call walltime(w1)
 
      ! Read current day's point observations
 
@@ -1036,14 +1033,14 @@ subroutine model()
 
      call update_model_time(current_time, dtlm)
 
-     wtime2 = walltime(wtime_start)
+     call walltime(w2)
      call cpu_time(t2)
 
      write (stepc1,'(i8)'   ) mstp
      write (stepc2,'(f13.1)') time8
      write (stepc3,'(f10.3)') time8/86400.
      write (stepc4,'(f9.3)' ) t2-t1
-     write (stepc5,'(f9.3)' ) wtime2-wtime1
+     write (stepc5,'(f9.3)' ) w2-w1
 
      stepc1 = ' [nstep = '//trim(adjustl(stepc1))//']'
      stepc2 = '   [simtime = '//trim(adjustl(stepc2))//' sec'
@@ -1070,8 +1067,8 @@ subroutine model()
 
   enddo
 
-  wtime_tot = walltime(wtime_start)
-  write(io6, '(//,a,f13.3)') ' -----Total elapsed time: ',wtime_tot
+  call walltime(wtime_end)
+  write(io6, '(//,a,f13.3)') ' -----Total elapsed time: ',wtime_end-wtime_start
 
 end subroutine model
 

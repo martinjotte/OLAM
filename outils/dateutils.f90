@@ -589,29 +589,31 @@ end subroutine update_model_time
 
 !===============================================================================
 
-real function walltime(wstart)
+subroutine walltime( time )
+
+  use iso_fortran_env, only: i8=>int64
 
   implicit none
 
-  real, intent(in) :: wstart
+  real, intent(out) :: time
+  integer(i8)       :: ii
+  integer(i8), save :: imax = -1_i8
+  integer(i8), save :: rate = -1_i8
+  integer(i8), save :: orig = -1_i8
 
-  integer       :: ii
-  integer, save :: previous = 0
-  integer       :: imax
-  real          :: rate
-  real,    save :: adjustOverflow = 0.0
+  if (imax < 0_i8) call system_clock(count_max =imax)
+  if (rate < 0_i8) call system_clock(count_rate=rate)
+  if (orig < 0_i8) call system_clock(count     =orig)
 
-  call system_clock(count=ii, count_rate=rate, count_max=imax)
+  call system_clock(count=ii)
 
-  if (ii < previous) then
-    adjustOverflow = adjustOverflow + real(imax)/rate
-  end if
+  if (ii >= orig) then
+     time = real(ii - orig) / real(rate)
+  else
+     time = real((imax - orig) + ii + 1) / real(rate)
+  endif
 
-  previous = ii
-
-  walltime = adjustOverflow + real(ii)/rate - wstart
-
-end function walltime
+end subroutine walltime
 
 !===============================================================================
 
