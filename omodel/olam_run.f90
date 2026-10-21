@@ -7,7 +7,7 @@ subroutine olam_run(name_name)
                          iflag, expnme, mdomain, initial, iswrtyp, ilwrtyp,      &
                          runtype, hfilin, timmax8, alloc_misc, iparallel,        &
                          iyear1, imonth1, idate1, itime1, s1900_init, s1900_sim, &
-                         time_prevhist, rinit, rinit8, debug_fp, init_nans,      &
+                         time_prevhist, rinit, rinit8, init_nans,                &
                          do_chem, time_bias, dtlong, ioutput, nrk_wrtv
 
   use olam_mpi_atm,only: olam_mpi_atm_start, olam_mpi_atm_stop, &
@@ -133,12 +133,6 @@ subroutine olam_run(name_name)
      if (ieee_support_nan(1.0_r8)) then
         rinit8 = ieee_value(1.0_r8, ieee_signaling_nan)
      endif
-  endif
-
-  ! If debugging, halt on illegal floating operations if supported
-
-  if (ieee_support_halting(ieee_invalid) .and. debug_fp) then
-     call ieee_set_halting_mode(ieee_usual, .true.)
   endif
 
   ! Get abs seconds of simulation start and current simulation time

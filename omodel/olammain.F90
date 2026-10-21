@@ -1,14 +1,16 @@
 program main
 
-  use misc_coms,    only: io6, iparallel
-  use mem_para,     only: myrank, mgroupsize, olam_mpi_init, &
-                          olam_mpi_finalize, olam_mpi_barrier
-  use misc_coms,    only: tmpdir
-  use max_dims,     only: pathlen
-  use hdf5,         only: h5open_f, h5close_f
-  use oname_coms,   only: cmdlne_runtype, cmdlne_fields, numcf, nl
-  use sys_utils,    only: set_environment_variable
-  !$ use omp_lib,   only: omp_get_max_threads
+  use ieee_arithmetic, only: ieee_support_halting, ieee_set_halting_mode, &
+                             ieee_invalid, ieee_usual
+  use misc_coms,       only: io6, iparallel
+  use mem_para,        only: myrank, mgroupsize, olam_mpi_init, &
+                             olam_mpi_finalize, olam_mpi_barrier
+  use misc_coms,       only: tmpdir
+  use max_dims,        only: pathlen
+  use hdf5,            only: h5open_f, h5close_f
+  use oname_coms,      only: cmdlne_runtype, cmdlne_fields, numcf, nl
+  use sys_utils,       only: set_environment_variable
+  !$ use omp_lib,      only: omp_get_max_threads
 
   implicit none
 
@@ -176,6 +178,12 @@ program main
      endif
   else
      tmpdir = "/tmp"
+  endif
+
+  ! If debugging, halt on illegal floating operations if supported
+
+  if (ieee_support_halting(ieee_invalid) .and. nl%debug_fp) then
+     call ieee_set_halting_mode(ieee_usual, .true.)
   endif
 
   write(io6,*) "Using ", trim(tmpdir), " as the temporary directory."

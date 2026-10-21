@@ -33,7 +33,6 @@ Module misc_coms
   real     :: rinit  = 0.0
   real(r8) :: rinit8 = 0.0_r8
 
-  logical :: debug_fp  = .false.
   logical :: init_nans = .false.
 
   integer :: io6

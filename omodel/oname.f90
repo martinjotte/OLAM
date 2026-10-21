@@ -86,7 +86,7 @@ subroutine copy_nl()
                          itime1, idate1, imonth1, iyear1, ngrids, &
                          nzp, mdomain, itopoflg, ibathflg, nxp, &
                          ngrdll, grdrad, grdlat, grdlon, deltax, ndz, hdz, dz, &
-                         current_time, initial_time, debug_fp, init_nans, do_chem, &
+                         current_time, initial_time, init_nans, do_chem, &
                          nrk_wrtv, nrk_scal, topodb_cutoff
 
   use micro_coms,  only: miclevel, icloud, idriz, irain, ipris, isnow, iaggr, &
@@ -261,7 +261,6 @@ subroutine copy_nl()
   naddsc        = nl%naddsc
   nrk_wrtv      = nl%acoust_timestep_level
   nrk_scal      = nl%scalar_timestep_level
-  debug_fp      = nl%debug_fp
   init_nans     = nl%init_nans
 
   rayf_zmin     = nl%rayf_zmin
