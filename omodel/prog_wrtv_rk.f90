@@ -326,16 +326,6 @@ subroutine prog_wrtv_rk()
            vmyet_rk(k,iw) = vmyet_short(k,iw)
            vmzet_rk(k,iw) = vmzet_short(k,iw)
            thilt_rk(k,iw) = thilt_short(k,iw)
-
-           ! Save half-forward earth velocities from the final R-K stage
-           ! for Lagrangian particle transport
-
-           if (allocated(vxeh) .and. istage == nrk_wrtv) then
-              vxeh(k,iw) = vxeh(k,iw) + vxe(k,iw)
-              vyeh(k,iw) = vyeh(k,iw) + vye(k,iw)
-              vzeh(k,iw) = vzeh(k,iw) + vze(k,iw)
-           endif
-
         enddo
 
      enddo
@@ -365,6 +355,23 @@ subroutine prog_wrtv_rk()
 
      enddo
      !$omp end do nowait
+
+     if (allocated(vxeh) .and. istage == nrk_wrtv) then
+
+        !$omp do
+        do iw = 2, mwa
+
+           ! Save half-forward earth velocities from the final R-K stage
+           ! for Lagrangian particle transport
+
+           vxeh(:,iw) = vxeh(:,iw) + vxe(:,iw)
+           vyeh(:,iw) = vyeh(:,iw) + vye(:,iw)
+           vzeh(:,iw) = vzeh(:,iw) + vze(:,iw)
+
+        enddo
+        !$omp end do nowait
+
+     endif
      !$omp end parallel
 
      if (istage == nrk_wrtv .and. thil_monot) then

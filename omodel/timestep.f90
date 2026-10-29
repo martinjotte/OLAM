@@ -456,11 +456,9 @@ subroutine tend0(rho_old)
      enddo
 
      if (allocated(vxeh)) then
-        do k = lpw(iw), mza
-           vxeh(k,iw) = 0.0
-           vyeh(k,iw) = 0.0
-           vzeh(k,iw) = 0.0
-        enddo
+        vxeh(:,iw) = 0.0
+        vyeh(:,iw) = 0.0
+        vzeh(:,iw) = 0.0
      endif
 
      do n = 1, num_scalar
@@ -563,7 +561,7 @@ end subroutine comp_alpha_press
 subroutine timeavg_momsc()
 
   use mem_ijtabs, only: istp, mrl_endl, jtab_w, jtw_prog, jtab_v, jtv_wadj
-  use mem_grid,   only: mza, lpw, lpv
+  use mem_grid,   only: mza, mwa, lpw, lpv
   use misc_coms,  only: nacoust
   use mem_basic,  only: vmasc, wmasc
   use consts_coms,only: r8
@@ -595,13 +593,11 @@ subroutine timeavg_momsc()
      !$omp end do nowait
 
      if (allocated(vxeh)) then
-        !$omp do private(iw,k)
-        do j = 1, jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
-           do k = lpw(iw), mza
-              vxeh(k,iw) = vxeh(k,iw) * acoi
-              vyeh(k,iw) = vyeh(k,iw) * acoi
-              vzeh(k,iw) = vzeh(k,iw) * acoi
-           enddo
+        !$omp do
+        do iw = 2, mwa
+           vxeh(:,iw) = vxeh(:,iw) * acoi
+           vyeh(:,iw) = vyeh(:,iw) * acoi
+           vzeh(:,iw) = vzeh(:,iw) * acoi
         enddo
         !$omp end do nowait
      endif
