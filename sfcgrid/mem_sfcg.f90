@@ -595,7 +595,7 @@ Contains
         if ( allocated( sfcg%pcpg          ) ) sfcg%pcpg          (iwsfc) = 0.0
         if ( allocated( sfcg%qpcpg         ) ) sfcg%qpcpg         (iwsfc) = 0.0
         if ( allocated( sfcg%dpcpg         ) ) sfcg%dpcpg         (iwsfc) = 0.0
-        if ( allocated( sfcg%runoff        ) ) sfcg%runoff        (iwsfc) = 0.0
+        if ( allocated( sfcg%runoff        ) ) sfcg%runoff        (iwsfc) = rinit
         if ( allocated( sfcg%can_depth     ) ) sfcg%can_depth     (iwsfc) = rinit
         if ( allocated( sfcg%cantemp       ) ) sfcg%cantemp       (iwsfc) = rinit
         if ( allocated( sfcg%canrrv        ) ) sfcg%canrrv        (iwsfc) = rinit
@@ -640,41 +640,43 @@ Contains
 
      implicit none
 
-     if (allocated(sfcg%vels))           call increment_vtable('SFCG%VELS',           'CW', rvar1=sfcg%vels)
-     if (allocated(sfcg%prss))           call increment_vtable('SFCG%PRSS',           'CW', rvar1=sfcg%prss)
-     if (allocated(sfcg%canexner))       call increment_vtable('SFCG%CANEXNER',       'CW', rvar1=sfcg%canexner)
-     if (allocated(sfcg%rhos))           call increment_vtable('SFCG%RHOS',           'CW', rvar1=sfcg%rhos)
-     if (allocated(sfcg%airtemp))        call increment_vtable('SFCG%AIRTEMP',        'CW', rvar1=sfcg%airtemp)
-     if (allocated(sfcg%airtheta))       call increment_vtable('SFCG%AIRTHETA',       'CW', rvar1=sfcg%airtheta)
-     if (allocated(sfcg%airrrv))         call increment_vtable('SFCG%AIRRRV',         'CW', rvar1=sfcg%airrrv)
-     if (allocated(sfcg%airco2))         call increment_vtable('SFCG%AIRCO2',         'CW', rvar1=sfcg%airco2)
-     if (allocated(sfcg%pblh))           call increment_vtable('SFCG%PBLH',           'CW', rvar1=sfcg%pblh)
+     if (allocated(sfcg%vels))           call increment_vtable('SFCG%VELS',           'CW', rvar1=sfcg%vels,     noread=.true.)
+     if (allocated(sfcg%prss))           call increment_vtable('SFCG%PRSS',           'CW', rvar1=sfcg%prss,     noread=.true.)
+     if (allocated(sfcg%canexner))       call increment_vtable('SFCG%CANEXNER',       'CW', rvar1=sfcg%canexner, noread=.true.)
+     if (allocated(sfcg%rhos))           call increment_vtable('SFCG%RHOS',           'CW', rvar1=sfcg%rhos,     noread=.true.)
+     if (allocated(sfcg%airtemp))        call increment_vtable('SFCG%AIRTEMP',        'CW', rvar1=sfcg%airtemp,  noread=.true.)
+     if (allocated(sfcg%airtheta))       call increment_vtable('SFCG%AIRTHETA',       'CW', rvar1=sfcg%airtheta, noread=.true.)
+     if (allocated(sfcg%airrrv))         call increment_vtable('SFCG%AIRRRV',         'CW', rvar1=sfcg%airrrv,   noread=.true.)
+     if (allocated(sfcg%airco2))         call increment_vtable('SFCG%AIRCO2',         'CW', rvar1=sfcg%airco2,   noread=.true.)
+     if (allocated(sfcg%pblh))           call increment_vtable('SFCG%PBLH',           'CW', rvar1=sfcg%pblh,     noread=.true.)
 
      if (allocated(sfcg%ustar))          call increment_vtable('SFCG%USTAR',          'CW', rvar1=sfcg%ustar)
-     if (allocated(sfcg%vkhsfc))         call increment_vtable('SFCG%VKHSFC',         'CW', rvar1=sfcg%vkhsfc)
-     if (allocated(sfcg%sfluxt))         call increment_vtable('SFCG%SFLUXT',         'CW', rvar1=sfcg%sfluxt)
-     if (allocated(sfcg%sfluxr))         call increment_vtable('SFCG%SFLUXR',         'CW', rvar1=sfcg%sfluxr)
-     if (allocated(sfcg%sfluxc))         call increment_vtable('SFCG%SFLUXC',         'CW', rvar1=sfcg%sfluxc)
-     if (allocated(sfcg%ggaer))          call increment_vtable('SFCG%GGAER',          'CW', rvar1=sfcg%ggaer)
-     if (allocated(sfcg%zeta))           call increment_vtable('SFCG%ZETA',           'CW', rvar1=sfcg%zeta)
      if (allocated(sfcg%wthv))           call increment_vtable('SFCG%WTHV',           'CW', rvar1=sfcg%wthv)
 
-     ! These are held constant between radiation calls
-     if (allocated(sfcg%albedo_beam))    call increment_vtable('SFCG%ALBEDO_BEAM',    'CW', rvar1=sfcg%albedo_beam)
-     if (allocated(sfcg%albedo_diffuse)) call increment_vtable('SFCG%ALBEDO_DIFFUSE', 'CW', rvar1=sfcg%albedo_diffuse)
-     if (allocated(sfcg%rlong_albedo))   call increment_vtable('SFCG%RLONG_ALBEDO',   'CW', rvar1=sfcg%rlong_albedo)
-     if (allocated(sfcg%cosz_rad))       call increment_vtable('SFCG%COSZ_RAD',       'CW', rvar1=sfcg%cosz_rad)
-     if (allocated(sfcg%rshort_rad))     call increment_vtable('SFCG%RSHORT_RAD',     'CW', rvar1=sfcg%rshort_rad)
-     if (allocated(sfcg%rshort_toa_rad)) call increment_vtable('SFCG%RSHORT_TOA_RAD', 'CW', rvar1=sfcg%rshort_toa_rad)
-     if (allocated(sfcg%rshort_dif_rad)) call increment_vtable('SFCG%RSHORT_DIF_RAD', 'CW', rvar1=sfcg%rshort_dif_rad)
+     if (allocated(sfcg%vkhsfc))         call increment_vtable('SFCG%VKHSFC',         'CW', rvar1=sfcg%vkhsfc, noread=.true.)
+     if (allocated(sfcg%sfluxt))         call increment_vtable('SFCG%SFLUXT',         'CW', rvar1=sfcg%sfluxt, noread=.true.)
+     if (allocated(sfcg%sfluxr))         call increment_vtable('SFCG%SFLUXR',         'CW', rvar1=sfcg%sfluxr, noread=.true.)
+     if (allocated(sfcg%sfluxc))         call increment_vtable('SFCG%SFLUXC',         'CW', rvar1=sfcg%sfluxc, noread=.true.)
+!    if (allocated(sfcg%ggaer))          call increment_vtable('SFCG%GGAER',          'CW', rvar1=sfcg%ggaer)
+!    if (allocated(sfcg%zeta))           call increment_vtable('SFCG%ZETA',           'CW', rvar1=sfcg%zeta)
 
-     if (allocated(sfcg%rlong))          call increment_vtable('SFCG%RLONG',          'CW', rvar1=sfcg%rlong)
-     if (allocated(sfcg%rlongup))        call increment_vtable('SFCG%RLONGUP',        'CW', rvar1=sfcg%rlongup)
+     ! These are held constant between radiation calls
+     if (allocated(sfcg%albedo_beam))    call increment_vtable('SFCG%ALBEDO_BEAM',    'CW', rvar1=sfcg%albedo_beam,    type="rad")
+     if (allocated(sfcg%albedo_diffuse)) call increment_vtable('SFCG%ALBEDO_DIFFUSE', 'CW', rvar1=sfcg%albedo_diffuse, type="rad")
+     if (allocated(sfcg%rlong_albedo))   call increment_vtable('SFCG%RLONG_ALBEDO',   'CW', rvar1=sfcg%rlong_albedo,   type="rad")
+     if (allocated(sfcg%cosz_rad))       call increment_vtable('SFCG%COSZ_RAD',       'CW', rvar1=sfcg%cosz_rad,       type="rad")
+     if (allocated(sfcg%rshort_rad))     call increment_vtable('SFCG%RSHORT_RAD',     'CW', rvar1=sfcg%rshort_rad,     type="rad")
+     if (allocated(sfcg%rshort_toa_rad)) call increment_vtable('SFCG%RSHORT_TOA_RAD', 'CW', rvar1=sfcg%rshort_toa_rad, type="rad")
+     if (allocated(sfcg%rshort_dif_rad)) call increment_vtable('SFCG%RSHORT_DIF_RAD', 'CW', rvar1=sfcg%rshort_dif_rad, type="rad")
+
+     ! These might be recomputed each timestep and no langer need to be read in history
+     if (allocated(sfcg%rlong))          call increment_vtable('SFCG%RLONG',          'CW', rvar1=sfcg%rlong,   type="rad")
+     if (allocated(sfcg%rlongup))        call increment_vtable('SFCG%RLONGUP',        'CW', rvar1=sfcg%rlongup, type="rad")
 
      if (allocated(sfcg%pcpg))           call increment_vtable('SFCG%PCPG',           'CW', rvar1=sfcg%pcpg)
      if (allocated(sfcg%qpcpg))          call increment_vtable('SFCG%QPCPG',          'CW', rvar1=sfcg%qpcpg)
      if (allocated(sfcg%dpcpg))          call increment_vtable('SFCG%DPCPG',          'CW', rvar1=sfcg%dpcpg)
-     if (allocated(sfcg%runoff))         call increment_vtable('SFCG%RUNOFF',         'CW', rvar1=sfcg%runoff)
+     if (allocated(sfcg%runoff))         call increment_vtable('SFCG%RUNOFF',         'CW', rvar1=sfcg%runoff, noread=.true.)
 !    if (allocated(sfcg%can_depth))      call increment_vtable('SFCG%CAN_DEPTH',      'CW', rvar1=sfcg%can_depth)
      if (allocated(sfcg%cantemp))        call increment_vtable('SFCG%CANTEMP',        'CW', rvar1=sfcg%cantemp)
      if (allocated(sfcg%canrrv))         call increment_vtable('SFCG%CANRRV',         'CW', rvar1=sfcg%canrrv)

@@ -273,60 +273,60 @@ Contains
     use var_tables, only: increment_vtable
     implicit none
 
-    if (allocated(fthrd_sw))         call increment_vtable('FTHRD_SW',        'AW', rvar2=fthrd_sw)
-    if (allocated(fthrd_lw))         call increment_vtable('FTHRD_LW',        'AW', rvar2=fthrd_lw)
+    if (allocated(fthrd_sw))         call increment_vtable('FTHRD_SW',        'AW', rvar2=fthrd_sw,         type='rad')
+    if (allocated(fthrd_lw))         call increment_vtable('FTHRD_LW',        'AW', rvar2=fthrd_lw,         type='rad')
 
     ! For incremental updates of longwave between RRTMg calls:
-    if (allocated(dlong))            call increment_vtable('DLONG',           'AW', rvar2=dlong)
-    if (allocated(ulong))            call increment_vtable('ULONG',           'AW', rvar2=ulong)
-    if (allocated(ulong_sfc))        call increment_vtable('ULONG_SFC',       'AW', rvar2=ulong_sfc)
-    if (allocated(Dulong_DT))        call increment_vtable('Dulong_DT',       'AW', rvar2=Dulong_DT)
-    if (allocated(Dulong_sfc_DT))    call increment_vtable('Dulong_sfc_DT',   'AW', rvar2=Dulong_sfc_DT)
-    if (allocated(Tskin_rad))        call increment_vtable('Tskin_rad',       'AW', rvar2=Tskin_rad)
+    if (allocated(dlong))            call increment_vtable('DLONG',           'AW', rvar2=dlong,            type='rad')
+    if (allocated(ulong))            call increment_vtable('ULONG',           'AW', rvar2=ulong,            type='rad')
+    if (allocated(ulong_sfc))        call increment_vtable('ULONG_SFC',       'AW', rvar2=ulong_sfc,        type='rad')
+    if (allocated(Dulong_DT))        call increment_vtable('Dulong_DT',       'AW', rvar2=Dulong_DT,        type='rad')
+    if (allocated(Dulong_sfc_DT))    call increment_vtable('Dulong_sfc_DT',   'AW', rvar2=Dulong_sfc_DT,    type='rad')
+    if (allocated(Tskin_rad))        call increment_vtable('Tskin_rad',       'AW', rvar2=Tskin_rad,        type='rad')
 
-    if (allocated(cloud_frac))       call increment_vtable('CLOUD_FRAC',      'AW', rvar2=cloud_frac)
+    if (allocated(cloud_frac))       call increment_vtable('CLOUD_FRAC',      'AW', rvar2=cloud_frac,       noread=.true.)
 
-    if (allocated(rshort))           call increment_vtable('RSHORT',          'AW', rvar1=rshort)
+    if (allocated(rshort))           call increment_vtable('RSHORT',          'AW', rvar1=rshort,           type='rad')
 
-    if (allocated(rlong))            call increment_vtable('RLONG',           'AW', rvar1=rlong)
+    if (allocated(rlong))            call increment_vtable('RLONG',           'AW', rvar1=rlong,            type='rad')
 
-    if (allocated(rlongup))          call increment_vtable('RLONGUP',         'AW', rvar1=rlongup)
+    if (allocated(rlongup))          call increment_vtable('RLONGUP',         'AW', rvar1=rlongup,          type='rad')
 
-    if (allocated(rshort_top))       call increment_vtable('RSHORT_TOP',      'AW', rvar1=rshort_top)
+    if (allocated(rshort_top))       call increment_vtable('RSHORT_TOP',      'AW', rvar1=rshort_top,       type='rad')
 
-    if (allocated(rshortup_top))     call increment_vtable('RSHORTUP_TOP',    'AW', rvar1=rshortup_top)
+    if (allocated(rshortup_top))     call increment_vtable('RSHORTUP_TOP',    'AW', rvar1=rshortup_top,     type='rad')
 
-    if (allocated(rlongup_top))      call increment_vtable('RLONGUP_TOP',     'AW', rvar1=rlongup_top)
+    if (allocated(rlongup_top))      call increment_vtable('RLONGUP_TOP',     'AW', rvar1=rlongup_top,      type='rad')
 
-    if (allocated(albedt))           call increment_vtable('ALBEDT',          'AW', rvar1=albedt)
+    if (allocated(albedt))           call increment_vtable('ALBEDT',          'AW', rvar1=albedt,           type='rad')
 
-    if (allocated(cosz_rad))         call increment_vtable('COSZ_RAD',        'AW', rvar1=cosz_rad)
+    if (allocated(cosz_rad))         call increment_vtable('COSZ_RAD',        'AW', rvar1=cosz_rad,         type='rad')
 
-!   if (allocated(rshort_clr))       call increment_vtable('RSHORT_CLR',      'AW', rvar1=rshort_clr)
+!   if (allocated(rshort_clr))       call increment_vtable('RSHORT_CLR',      'AW', rvar1=rshort_clr,       type='rad')
 
-!   if (allocated(rshortup_clr))     call increment_vtable('RSHORTUP_CLR',    'AW', rvar1=rshortup_clr)
+!   if (allocated(rshortup_clr))     call increment_vtable('RSHORTUP_CLR',    'AW', rvar1=rshortup_clr,     type='rad')
 
-!   if (allocated(rshort_top_clr))   call increment_vtable('RSHORT_TOP_CLR',  'AW', rvar1=rshort_top_clr)
+!   if (allocated(rshort_top_clr))   call increment_vtable('RSHORT_TOP_CLR',  'AW', rvar1=rshort_top_clr,   type='rad')
 
-!   if (allocated(rshortup_top_clr)) call increment_vtable('RSHORTUP_TOP_CLR','AW', rvar1=rshortup_top_clr)
+!   if (allocated(rshortup_top_clr)) call increment_vtable('RSHORTUP_TOP_CLR','AW', rvar1=rshortup_top_clr, type='rad')
 
-!   if (allocated(rlong_clr))        call increment_vtable('RLONG_CLR',       'AW', rvar1=rlong_clr)
+!   if (allocated(rlong_clr))        call increment_vtable('RLONG_CLR',       'AW', rvar1=rlong_clr,        type='rad')
 
-!   if (allocated(rlongup_clr))      call increment_vtable('RLONGUP_CLR',     'AW', rvar1=rlongup_clr)
+!   if (allocated(rlongup_clr))      call increment_vtable('RLONGUP_CLR',     'AW', rvar1=rlongup_clr,      type='rad')
 
-!   if (allocated(rlongup_top_clr))  call increment_vtable('RLONGUP_TOP_CLR', 'AW', rvar1=rlongup_top_clr)
+!   if (allocated(rlongup_top_clr))  call increment_vtable('RLONGUP_TOP_CLR', 'AW', rvar1=rlongup_top_clr,  type='rad')
 
-    if (allocated(pbl_cld_forc))     call increment_vtable('PBL_CLD_FORC',    'AW', rvar1=pbl_cld_forc)
+    if (allocated(pbl_cld_forc))     call increment_vtable('PBL_CLD_FORC',    'AW', rvar1=pbl_cld_forc,     type='rad')
 
-    if (allocated(par))              call increment_vtable('PAR_TOT',         'AW', rvar1=par)
+    if (allocated(par))              call increment_vtable('PAR_TOT',         'AW', rvar1=par,              type='rad')
 
-    if (allocated(par_diffuse))      call increment_vtable('PAR_DIFFUSE',     'AW', rvar1=par_diffuse)
+    if (allocated(par_diffuse))      call increment_vtable('PAR_DIFFUSE',     'AW', rvar1=par_diffuse,      type='rad')
 
-    if (allocated(ppfd))             call increment_vtable('PPFD_TOT',        'AW', rvar1=ppfd)
+    if (allocated(ppfd))             call increment_vtable('PPFD_TOT',        'AW', rvar1=ppfd,             type='rad')
 
-    if (allocated(ppfd_diffuse))     call increment_vtable('PPFD_DIFFUSE',    'AW', rvar1=ppfd_diffuse)
+    if (allocated(ppfd_diffuse))     call increment_vtable('PPFD_DIFFUSE',    'AW', rvar1=ppfd_diffuse,     type='rad')
 
-    if (allocated(mcica_seed))       call increment_vtable('MCICA_SEED',      'AW', ivar2=mcica_seed)
+    if (allocated(mcica_seed))       call increment_vtable('MCICA_SEED',      'AW', ivar2=mcica_seed,       type='rad')
 
   end subroutine filltab_radiate
 

@@ -184,11 +184,11 @@ Contains
 
     if (allocated(vze))   call increment_vtable('VZE',  'AW', rvar2=vze)
 
-    if (nl%hist_write_ue_ve .and. mdomain <= 1) then
-
-       if (associated(ue)) call increment_vtable('UE', 'AW', rvar2=ue, noread=.true.)
-       if (associated(ve)) call increment_vtable('VE', 'AW', rvar2=ve, noread=.true.)
-
+    ! Only add ue and ve to the var_tables for global runs. For non-global runs they are
+    ! just pointers to the vxe and vye arrays.
+    if (mdomain <= 1) then
+       if (associated(ue)) call increment_vtable('UE', 'AW', rvar2=ue, type='ueve', noread=.true.)
+       if (associated(ve)) call increment_vtable('VE', 'AW', rvar2=ve, type='ueve', noread=.true.)
     endif
 
   end subroutine filltab_basic

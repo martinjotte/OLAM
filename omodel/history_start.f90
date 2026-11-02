@@ -70,7 +70,8 @@ subroutine hist_read()
   use mem_grid,    only: nwa, nva, nma, mwa, mva, mma, mza, lpv, &
                          vnxo2, vnyo2, vnzo2, lpw
   use mem_ijtabs,  only: itab_w, itab_v, itab_m, jtab_v, jtv_prog
-  use misc_coms,   only: io6, runtype, iparallel
+  use misc_coms,   only: io6, runtype, iparallel, confrq, radfrq, &
+                         time_istp8p, dtlm
   use mem_basic,   only: vc, vmc, wc, wmc, rho, vxe, vye, vze
   use var_tables,  only: num_var, vtab_r, get_vtab_dims
   use hdf5_utils,  only: shdf5_info, shdf5_irec
@@ -111,8 +112,27 @@ subroutine hist_read()
 
      ! Skip to next variable if we don't want the current one
 
+     ! IHIST=.FALSE. indicates variable is not in history file.
+     ! TODO: variable might be in a lite file for a plotonly run
      if (.not. vtab_r(nv)%ihist) cycle
-     if (vtab_r(nv)%nread) cycle
+
+     ! For a plotonly run we want to read all variables
+     if (runtype /= 'PLOTONLY') then
+
+        ! NREAD=.TRUE. indicates that a model restart does not need this variable.
+        if (vtab_r(nv)%nread) cycle
+
+        ! Don't read CUPARM variables if they will be recomputed this timestep
+        if ( vtab_r(nv)%type == "cup" ) then
+           if ( mod(time_istp8p, confrq) < dtlm ) cycle
+        endif
+
+        ! Don't read RADIATION variables if they will be recomputed this timestep
+        if ( vtab_r(nv)%type == "rad" ) then
+           if ( mod(time_istp8p, radfrq) < dtlm ) cycle
+        endif
+
+     endif ! runtype /= 'PLOTONLY'
 
      varn    = trim(vtab_r(nv)%name)
      stagpt  = vtab_r(nv)%stagpt

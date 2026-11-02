@@ -18,7 +18,7 @@ subroutine pbl_driver()
 
   use mem_grid,       only: mza, lpw
   use misc_coms,      only: idiffk, iparallel
-  use mem_turb,       only: vkm, vkh, kmtop, khtop, kpblh, akm_sfc, ustar, pblh
+  use mem_turb,       only: vkm, vkh, kmtop, khtop, akm_sfc, ustar
   use consts_coms,    only: grav, vonk, eps_virt, alvlocp, r8
   use mem_ijtabs,     only: jtab_w, itab_w, jtw_prog
   use module_bl_acm2, only: acm2_pblhgt, acm2_eddyx
@@ -42,10 +42,6 @@ subroutine pbl_driver()
 
      mrlw = itab_w(iw)%mrlw
      ka   = lpw(iw)
-
-     ! Diagnose PBL height regardless of scheme
-
-     call acm2_pblhgt(iw)
 
      ! Select PBL scheme based on MRL of current IW column
 
@@ -121,20 +117,56 @@ subroutine pbl_driver()
   if (iparallel == 1) then
 
      call mpi_send_w(rvara1=vkm, rvara2=vkh, swvar1=akm_sfc, &
-                     r1dvara1=ustar, r1dvara2=pblh, &
-                     i1dvara1=khtop, i1dvara2=kmtop, i1dvara3=kpblh)
+                     r1dvara1=ustar, i1dvara1=khtop, i1dvara2=kmtop)
 
      call mpi_recv_w(rvara1=vkm, rvara2=vkh, swvar1=akm_sfc, &
-                     r1dvara1=ustar, r1dvara2=pblh, &
-                     i1dvara1=khtop, i1dvara2=kmtop, i1dvara3=kpblh)
+                     r1dvara1=ustar, i1dvara1=khtop, i1dvara2=kmtop)
   endif
 
  ! Lateral boundary copy of computed K's
 
-  call lbcopy_w(a1=vkm, a2=vkh, s1=akm_sfc, v1=ustar, v2=pblh, &
-                iv1=khtop, iv2=kmtop, iv3=kpblh)
+  call lbcopy_w(a1=vkm, a2=vkh, s1=akm_sfc, v1=ustar, &
+                iv1=khtop, iv2=kmtop)
 
 end subroutine pbl_driver
+
+!===============================================================================
+
+subroutine comp_pblh()
+
+  use misc_coms,      only: iparallel
+  use mem_turb,       only: kpblh, pblh
+  use mem_ijtabs,     only: jtab_w, jtw_prog
+  use module_bl_acm2, only: acm2_pblhgt
+  use olam_mpi_atm,   only: mpi_send_w, mpi_recv_w
+  use obnd,           only: lbcopy_w
+
+  implicit none
+
+  integer :: j, iw
+
+  !$omp parallel do private(iw)
+  do j = 1,jtab_w(jtw_prog)%jend; iw = jtab_w(jtw_prog)%iw(j)
+
+     ! Diagnose PBL height regardless of scheme
+
+     call acm2_pblhgt(iw)
+
+  enddo
+  !$omp end parallel do
+
+  ! MPI send/recv of computed K's
+
+  if (iparallel == 1) then
+     call mpi_send_w(r1dvara1=pblh, i1dvara1=kpblh)
+     call mpi_recv_w(r1dvara1=pblh, i1dvara1=kpblh)
+  endif
+
+ ! Lateral boundary copy of computed K's
+
+  call lbcopy_w(v1=pblh, iv1=kpblh)
+
+end subroutine comp_pblh
 
 !===============================================================================
 

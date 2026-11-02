@@ -1,12 +1,9 @@
 Module var_tables
 
-  use consts_coms, only: r8
+  use iso_fortran_env, only: r8=>real64
   implicit none
 
-  private :: r8
-
   type var_tables_r
-
      logical,  pointer             :: lvar0_p        => null()
      logical,  pointer, contiguous :: lvar1_p(:)     => null()
      logical,  pointer, contiguous :: lvar2_p(:,:)   => null()
@@ -27,13 +24,13 @@ Module var_tables
      real(r8), pointer, contiguous :: dvar2_p(:,:)   => null()
      real(r8), pointer, contiguous :: dvar3_p(:,:,:) => null()
 
-     character(32) :: name
-     character( 2) :: stagpt
+     character(32) :: name   = " "
+     character( 2) :: stagpt = " "
+     character( 4) :: type   = " "
 
      logical :: ihist = .true.
      logical :: nread = .false.
      logical :: ilite = .false.
-
   end type var_tables_r
 
   type(var_tables_r), allocatable :: vtab_r(:)
@@ -72,16 +69,20 @@ Contains
 
 !===============================================================================
 
-  subroutine increment_vtable(name, stagpt, hist, noread, mpt1, lite, &
-                              lvar0, lvar1, lvar2, lvar3,             &
-                              ivar0, ivar1, ivar2, ivar3,             &
-                              rvar0, rvar1, rvar2, rvar3,             &
-                              dvar0, dvar1, dvar2, dvar3              )
-    use misc_coms, only: io6, naddsc
+  subroutine increment_vtable(name, stagpt, hist, noread, mpt1, lite, type, &
+                              lvar0, lvar1, lvar2, lvar3,                   &
+                              ivar0, ivar1, ivar2, ivar3,                   &
+                              rvar0, rvar1, rvar2, rvar3,                   &
+                              dvar0, dvar1, dvar2, dvar3                    )
+
+    use misc_coms,  only: io6, naddsc
+    use string_lib, only: to_lower
+
     implicit none
 
-    character(*),      intent(in) :: name, stagpt
-    logical, optional, intent(in) :: hist, noread, mpt1, lite
+    character(*),                           intent(in) :: name, stagpt
+    logical,          optional,             intent(in) :: hist, noread, mpt1, lite
+    character(*),     optional,             intent(in) :: type
 
     logical,  target, optional,             intent(in) :: lvar0
     logical,  target, optional, contiguous, intent(in) :: lvar1(:)
@@ -163,6 +164,7 @@ Contains
     if (present(hist))   vtab_r(num_var)%ihist = hist
     if (present(noread)) vtab_r(num_var)%nread = noread
     if (present(lite))   vtab_r(num_var)%ilite = lite
+    if (present(type))   vtab_r(num_var)%type  = to_lower(type)
 
      if     (present(lvar0)) then
         vtab_r(num_var)%lvar0_p => lvar0

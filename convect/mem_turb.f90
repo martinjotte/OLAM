@@ -176,19 +176,17 @@ Contains
     use var_tables, only: increment_vtable
     implicit none
 
-    if (allocated(tkep))     call increment_vtable('TKEP',    'AW', rvar2=tkep, mpt1=.true.)
+    if (allocated(tkep))     call increment_vtable('TKEP',    'AW', rvar2=tkep,   mpt1=.true.)
 
-    if (allocated(epsp))     call increment_vtable('EPSP',    'AW', rvar2=epsp, mpt1=.true.)
+    if (allocated(epsp))     call increment_vtable('EPSP',    'AW', rvar2=epsp,   mpt1=.true.)
 
-    if (allocated(vkm))      call increment_vtable('VKM',     'AW', rvar2=vkm)
+    if (allocated(vkm))      call increment_vtable('VKM',     'AW', rvar2=vkm,    type="pbl", noread=.true.)
 
-    if (allocated(vkh))      call increment_vtable('VKH',     'AW', rvar2=vkh)
+    if (allocated(vkh))      call increment_vtable('VKH',     'AW', rvar2=vkh,    type="pbl", noread=.true.)
 
-!   if (allocated(vkm_sfc))  call increment_vtable('VKM_SFC', 'AW', rvar2=vkm_sfc)
+    if (allocated(sfluxt))   call increment_vtable('SFLUXT',  'AW', rvar1=sfluxt, type="pbl", noread=.true.)
 
-    if (allocated(sfluxt))   call increment_vtable('SFLUXT',  'AW', rvar1=sfluxt)
-
-    if (allocated(sfluxr))   call increment_vtable('SFLUXR',  'AW', rvar1=sfluxr)
+    if (allocated(sfluxr))   call increment_vtable('SFLUXR',  'AW', rvar1=sfluxr, type="pbl", noread=.true.)
 
     if (allocated(ustar))    call increment_vtable('USTAR',   'AW', rvar1=ustar)
 
@@ -196,9 +194,9 @@ Contains
 
     if (allocated(wtv0))     call increment_vtable('WTV0',    'AW', rvar1=wtv0)
 
-    if (allocated(pblh))     call increment_vtable('PBLH',    'AW', rvar1=pblh)
+    if (allocated(pblh))     call increment_vtable('PBLH',    'AW', rvar1=pblh,  type="pbl", noread=.true.)
 
-    if (allocated(kpblh))    call increment_vtable('KPBLH',   'AW', ivar1=kpblh)
+    if (allocated(kpblh))    call increment_vtable('KPBLH',   'AW', ivar1=kpblh, type="pbl", noread=.true.)
 
   end subroutine filltab_turb
 

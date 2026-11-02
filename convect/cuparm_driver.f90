@@ -154,9 +154,6 @@ subroutine cuparm_driver()
                         r1dvara1=cbmf, r1dvara2=conprr)
      endif
 
-     ! Update cloud fraction if convection was updated
-     call calc_3d_cloud_fraction()
-
   endif
 
 ! Add current value of convective tendencies to thilt and rr_wt arrays

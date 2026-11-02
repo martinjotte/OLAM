@@ -10,6 +10,7 @@ subroutine history_write(vtype)
   use mem_lake,   only: nlake
   use mem_sea,    only: nsea
   use mem_nudge,  only: nwnud
+  use oname_coms, only: nl
   use mem_para,   only: iva_globe_primary, iva_local_primary, &
                         iwa_globe_primary, iwa_local_primary, &
                         ima_globe_primary, ima_local_primary, &
@@ -70,6 +71,19 @@ subroutine history_write(vtype)
 
   nvcnt = 0
   do nv = 1, num_var
+
+     if (vtab_r(nv)%type == 'ueve') then
+
+        ! only output UE and VE if hist_write_ue_ve is true
+        if (.not. nl%hist_write_ue_ve) cycle
+
+     else
+
+        ! For variables other then UE and VE that are marked noread,
+        ! do not write to hitory file unless hist_write_other is true
+        if ( vtab_r(nv)%nread .and. (.not. nl%hist_write_other) ) cycle
+
+     endif
 
      if (vtab_r(nv)%ihist) then
 

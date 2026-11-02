@@ -20,7 +20,7 @@ use emis_defn,   only: get_emis
 use depv_defn,   only: get_depv
 use wrtv_rk,     only: prog_wrtv_rk
 use check_nan,   only: check_nans, tracer_maxmin
-use pbl_drivers, only: pbl_driver, comp_horiz_k
+use pbl_drivers, only: comp_pblh, pbl_driver, comp_horiz_k
 use olam_mpi_sfc,only: mpi_send_wsfc, mpi_recv_wsfc
 use hcane_rz,    only: ncycle_hurrinit, icycle_hurrinit, timmax_hurrinit, &
                        vortex_add_thetapert
@@ -73,36 +73,39 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm
    if (nl%test_case >= 901 .and. nl%test_case <= 950) go to 1311
 
    if (mrl_begl(istp) > 0) then
+
+      ! Diagnose PBL height regardless of scheme
+      call comp_pblh()
+
       call tend0(rho_old)
       call comp_alpha_press()
 
-      call sea_spray()
-      call dust_src()
-   endif
-
-   ! call check_nans(1)
-
-   if (any( nqparm(1:mrls) > 0 )) then
-      call cuparm_driver()
-
-      if (isfcl == 1 .and. mrl_begl(istp) > 0) then
-         call surface_cuparm_flux()
+      if (isfcl > 0) then
+         call sfcg_avgatm()
+         call sea_spray()
+         call dust_src()
+         if (do_chem == 1) call megan_avg_temp()
       endif
-   endif
 
-   ! update cloud fraction before radiation
+      ! call check_nans(1)
 
-   if (mrl_begl(istp) > 0) then
+      if (any( nqparm(1:mrls) > 0 )) then
+         call cuparm_driver()
+
+         if (isfcl == 1) then
+            call surface_cuparm_flux()
+         endif
+      endif
+
+      ! update cloud fraction before radiation
+
       call calc_3d_cloud_fraction()
-   endif
 
-   ! call check_nans(2)
+      ! call check_nans(2)
 
-   if (ilwrtyp + iswrtyp > 0) then
-      call radiate()
-   endif
-
-   if (mrl_begl(istp) > 0) then
+      if (ilwrtyp + iswrtyp > 0) then
+         call radiate()
+      endif
 
       if (isfcl > 0) then
          call surface_driver()
@@ -154,57 +157,51 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm
 
       call comp_horiz_k()
 
+      ! call check_nans(10)
+
+      ! Call olam_dcmip_phys, which is the OLAM interface to DCMIP auxiliary
+      ! physics subroutine that provides tendencies to some model fields
+
+      !--------------------------------------
+      if ( nl%test_case ==  42 .or. &
+           nl%test_case ==  43 .or. &
+           nl%test_case == 110 .or. &
+           nl%test_case == 111 .or. &
+           nl%test_case == 112 .or. &
+           nl%test_case == 113 .or. &
+           nl%test_case == 114 .or. &
+           nl%test_case == 121 .or. &
+           nl%test_case == 122 .or. &
+           nl%test_case == 131 )    &
+           call olam_dcmip2016_phys()
+      !--------------------------------------
+
+      ! Call olam_dcmip_terminator, which is the OLAM interface to DCMIP auxiliary
+      ! chemistry subroutine terminator that provides chemical tendencies.
+
+      !--------------------------------------
+      if ( nl%test_case == 110 .or. &
+           nl%test_case == 111 .or. &
+           nl%test_case == 112 .or. &
+           nl%test_case == 113 .or. &
+           nl%test_case == 114 )    &
+           call olam_dcmip_terminator()
+      !--------------------------------------
+
    endif  ! mrl_begl(istp) > 0
-
-   ! call check_nans(11)
-
-   ! Call olam_dcmip_phys, which is the OLAM interface to DCMIP auxiliary
-   ! physics subroutine that provides tendencies to some model fields
-
-   if (mrl_begl(istp) > 0) then
-      !--------------------------------------
-      if (nl%test_case ==  42 .or. &
-          nl%test_case ==  43 .or. &
-          nl%test_case == 110 .or. &
-          nl%test_case == 111 .or. &
-          nl%test_case == 112 .or. &
-          nl%test_case == 113 .or. &
-          nl%test_case == 114 .or. &
-          nl%test_case == 121 .or. &
-          nl%test_case == 122 .or. &
-          nl%test_case == 131) then
-      !--------------------------------------
-         call olam_dcmip2016_phys()
-      endif
-   endif
-
-   ! Call olam_dcmip_terminator, which is the OLAM interface to DCMIP auxiliary
-   ! chemistry subroutine terminator that provides chemical tendencies.
-
-   if (mrl_begl(istp) > 0) then
-      !--------------------------------------
-      if (nl%test_case == 110 .or. &
-          nl%test_case == 111 .or. &
-          nl%test_case == 112 .or. &
-          nl%test_case == 113 .or. &
-          nl%test_case == 114) then
-      !--------------------------------------
-         call olam_dcmip_terminator()
-      endif
-   endif
 
    ! call check_nans(11,rvara1=alpha_press)
 
    ! Bypass call to thiltend_long if using prescribed flow for DCMIP tests
    !--------------------------------------
-   if (nl%test_case == 11 .or. &
-       nl%test_case == 12 .or. &
-       nl%test_case == 13) go to 33
+   if (.not. ( nl%test_case == 11 .or. &
+               nl%test_case == 12 .or. &
+               nl%test_case == 13 ) ) then
    !--------------------------------------
 
    call prog_wrtv_rk()
 
-   33 continue  ! test_case == 11, 12, or 13
+   endif  ! test_case == 11, 12, or 13
 
    if (mrl_endl(istp) > 0) then
       call diag_uzonal_umerid()
@@ -319,15 +316,6 @@ do jstp = 1,nstp  ! nstp = no. of finest-grid-level aco steps in dtlm
    endif
 
    1400 continue  ! nl%igw_spinup == 1
-
-   if (isfcl > 0 .and. mrl_endl(jstp) > 0) then
-
-      if (nl%igw_spinup /= 1) then
-         call sfcg_avgatm()
-         if (do_chem == 1) call megan_avg_temp()
-      endif
-
-   endif
 
    ! call check_nans(21,rvara1=alpha_press)
 

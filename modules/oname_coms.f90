@@ -172,6 +172,7 @@ Module oname_coms
      real :: endlon =  180.
 
      logical :: hist_write_ue_ve = .false.
+     logical :: hist_write_other = .true.
      logical :: do_accum         = .false.
 
      character(pathlen) :: hfilin    = ' '
