@@ -37,12 +37,12 @@
  !                 MAKEREGRID, HISTREGRID, or PRINT_ZLEVS
  !--------------------------------------------------------------------------
 
- ! NL%RUNTYPE  = 'MAKEGRID'
+ ! NL%RUNTYPE  = 'MAKEGRID'   ! Generates new surface and atmospheric meshes
+ ! NL%RUNTYPE  = 'MAKEREGRID' ! Generates atmospheric mesh based on existing surface grid
+ ! NL%RUNTYPE  = 'MAKEGRID_PLOT' ! Generates an NCAR Graphics plot of mesh refinements
    NL%RUNTYPE  = 'INITIAL'
  ! NL%RUNTYPE  = 'HISTORY'
  ! NL%RUNTYPE  = 'PLOTONLY'
- ! NL%RUNTYPE  = 'MAKEGRID_PLOT'
- ! NL%RUNTYPE  = 'MAKEREGRID'
  ! NL%RUNTYPE  = 'HISTREGRID'
  ! NL%RUNTYPE  = 'PRINT_ZLEVS'
 

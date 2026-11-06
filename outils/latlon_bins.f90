@@ -41,15 +41,42 @@ Contains
 
 !=========================================================================
 
-subroutine latlon_bins(nwa, res, itab_w0, bset)
+subroutine latlon_bins(nwa, res, itab_w0, bset, border, border_ll)
 
   use consts_coms, only: erad, pi1
   implicit none
+
+  ! Arguments:
+  !
+  ! NWA: Number of cells to bin
+  !
+  ! RES: Bin resolution in meters, so res = 111.e3 would result in roughly
+  !      1 degree bins. In longitude the number of bins are reduced closer
+  !      to the poles to approximately retain the physical resulution.
+  !
+  ! ITAB_W0: Data structure that describes the outline of the cell to bin. It
+  !          contains the lat,lon of the vertices of each cell. A cell that
+  !          overlaps a bin (and it's border) will be added to that bin.
+  !
+  ! BSET: The data structure holding the resulting bins. Use the routine
+  !       gridcells_from_latlon_bins to get the list of cells that are in the
+  !       neighborhood of a lat/lon point
+  !
+  ! BORDER: If present, add a border (in meters) around each bin. A cell that
+  !         overlaps with a bin and its border will be added to that bin.
+  !         Closer to the poles the distance will cover more degrees longitude.
+  !
+  ! BODER_LL: Similar to border, but given in degrees rather than meters.
+  !           If both border and border_ll are given, the maximum of the
+  !           two values will be used.
 
   integer,              intent(in   ) :: nwa
   real,                 intent(in   ) :: res
   type(itab_grid_vars), intent(inout) :: itab_w0(nwa)
   type(binset_vars),    intent(  out) :: bset
+
+  real,       optional, intent(in   ) :: border
+  real,       optional, intent(in   ) :: border_ll
 
   integer :: jsup, i, j, iw, nlato3, nlon, nw
   integer :: ix, iy
@@ -60,15 +87,25 @@ subroutine latlon_bins(nwa, res, itab_w0, bset)
 
   integer :: isetm, j0, j1, jj, i0, i1, ii, np
   real    :: ymin, ymax, xmin, xmax
-  real    :: epsx, epsy
+  real    :: epsx, epsy, rextra, rextra_ll
 
   real, parameter :: fuzz = 0.05
 
-  bset%nlat  = nint( erad * pi1 / res )
+  bset%nlat  = nint( erad * pi1 / (0.25*res) )
   bset%delat = real(bset%nlat) / 180.
 
   allocate(bset%blat(bset%nlat))
   nlato3 = bset%nlat / 3
+
+  rextra = 0.
+  if (present(border)) then
+     rextra = border * 180. / (pi1 * erad)
+  endif
+
+  rextra_ll = 0.
+  if (present(border_ll)) then
+     rextra_ll = border_ll
+  endif
 
   !$omp parallel
   !$omp do private(jsup,nlon)
@@ -89,6 +126,10 @@ subroutine latlon_bins(nwa, res, itab_w0, bset)
      if (itab_w0(iw)%np < 1) cycle  ! flag to skip this cell
 
      np = itab_w0(iw)%np
+
+     ymin = minval( itab_w0(iw)%glats(1:np) )
+     ymax = maxval( itab_w0(iw)%glats(1:np) )
+     epsy = fuzz * (ymax - ymin) + max(rextra, rextra_ll)
 
      if ( any( abs(itab_w0(iw)%glats(1:np)) > 89.75 ) ) then
 
@@ -112,13 +153,9 @@ subroutine latlon_bins(nwa, res, itab_w0, bset)
 
         xmin = minval( itab_w0(iw)%glons(1:np) )
         xmax = maxval( itab_w0(iw)%glons(1:np) )
-        epsx = fuzz * (xmax - xmin)
+        epsx = fuzz * (xmax - xmin) + max(rextra / cos((ymin+ymax)*pi1/360.), rextra_ll)
 
      endif
-
-     ymin = minval( itab_w0(iw)%glats(1:np) )
-     ymax = maxval( itab_w0(iw)%glats(1:np) )
-     epsy = fuzz * (ymax - ymin)
 
      ! Loop over all bins this cell spans
 
@@ -132,6 +169,7 @@ subroutine latlon_bins(nwa, res, itab_w0, bset)
         i1 = min(i1,i0+bset%blat(j)%nlon-1)
         do ii = i0, i1
            i = modulo(ii-1, bset%blat(j)%nlon) + 1
+
            !$omp atomic
            bset%blat(j)%bins(i)%nw = bset%blat(j)%bins(i)%nw + 1
         enddo
@@ -159,6 +197,10 @@ subroutine latlon_bins(nwa, res, itab_w0, bset)
 
      np = itab_w0(iw)%np
 
+     ymin = minval( itab_w0(iw)%glats(1:np) )
+     ymax = maxval( itab_w0(iw)%glats(1:np) )
+     epsy = fuzz * (ymax - ymin) + max(rextra, rextra_ll)
+
      if ( any( abs(itab_w0(iw)%glats(1:np)) > 89.75 ) ) then
 
         xmin = -180.0
@@ -172,13 +214,9 @@ subroutine latlon_bins(nwa, res, itab_w0, bset)
 
         xmin = minval( itab_w0(iw)%glons(1:np) )
         xmax = maxval( itab_w0(iw)%glons(1:np) )
-        epsx = fuzz * (xmax - xmin)
+        epsx = fuzz * (xmax - xmin) + max(rextra / cos((ymin+ymax)*pi1/360.), rextra_ll)
 
      endif
-
-     ymin = minval( itab_w0(iw)%glats(1:np) )
-     ymax = maxval( itab_w0(iw)%glats(1:np) )
-     epsy = fuzz * (ymax - ymin)
 
      ! Loop over all bins this cell spans
 
@@ -205,7 +243,6 @@ subroutine latlon_bins(nwa, res, itab_w0, bset)
   enddo
   !$omp end do
   !$omp end parallel
-
 
 end subroutine latlon_bins
 

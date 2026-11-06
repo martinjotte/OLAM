@@ -1354,7 +1354,7 @@ subroutine sfcgfile_write()
 
   idims(1) = nwsfc
 
-  call shdf5_orec(ndims, idims, 'area'      , rvar1=sfcg%area)
+  call shdf5_orec(ndims, idims, 'arw0'      , rvar1=sfcg%arw0)
   call shdf5_orec(ndims, idims, 'xew'       , rvar1=sfcg%xew)
   call shdf5_orec(ndims, idims, 'yew'       , rvar1=sfcg%yew)
   call shdf5_orec(ndims, idims, 'zew'       , rvar1=sfcg%zew)
@@ -2010,6 +2010,9 @@ subroutine sfcgfile_read_makeregrid()
   ! Allocate itabw data structure
 
   allocate (itab_wsfc(nwsfc))
+  do iwsfc = 2, nwsfc
+     itab_wsfc(iwsfc)%iwatm(:) = 1
+  enddo
 
   ! Read ITAB_WSFC SCALARS
 
@@ -2048,9 +2051,13 @@ subroutine sfcgfile_read_makeregrid()
   allocate (sfcg%glatw(nwsfc))
   allocate (sfcg%glonw(nwsfc))
   allocate (sfcg%topw (nwsfc))
-  allocate (sfcg%area (nwsfc))
+  allocate (sfcg%arw0 (nwsfc))
 
   allocate (sfcg%leaf_class (nwsfc))
+
+  ! Note: these are dependent on the atm grid and stored in the atm gridfile
+  allocate (sfcg%dzt_bot(nwsfc))
+  allocate (sfcg%area   (nwsfc))
 
   ndims    = 1
   idims(1) = nmsfc
@@ -2061,7 +2068,11 @@ subroutine sfcgfile_read_makeregrid()
 
   idims(1) = nwsfc
 
-  call shdf5_irec(ndims, idims, 'area'       , rvar1=sfcg%area)
+  ! Note: at this stage, sfcg%area is still ralative to sea level. This will be
+  ! copied to sfcg%arw0, and then sfcg%area will be scaled to the vertical grid
+  ! in hex_grid.
+  call shdf5_irec(ndims, idims, 'arw0'       , rvar1=sfcg%area)
+
   call shdf5_irec(ndims, idims, 'xew'        , rvar1=sfcg%xew)
   call shdf5_irec(ndims, idims, 'yew'        , rvar1=sfcg%yew)
   call shdf5_irec(ndims, idims, 'zew'        , rvar1=sfcg%zew)

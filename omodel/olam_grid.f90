@@ -259,7 +259,6 @@ subroutine gridinit()
      ! read selected SFCGRID values for MAKEREGRID run
      if (runtype == 'MAKEREGRID') then
         call sfcgfile_read_makeregrid()
-        allocate (sfcg%dzt_bot(nwsfc))
      endif
 
      ! Compute overlay of ATM and SFC grids
@@ -842,7 +841,7 @@ if (mdomain <= 1) then
 
       write(io6,'(a,i9)') 'nwsfc = ',nwsfc
 
-   else
+   elseif (runtype == 'MAKEGRID') then
 
       write(io6,'(/,a)' ) 'Global sfcg/land/lake/sea indices:'
       write(io6,'(a,i9)') '  nwsfc = ',nwsfc
@@ -874,7 +873,7 @@ subroutine gridfile_write()
                         dnu, dniu, dnv, dniv, arw0, arm0, &
                         glatw, glonw, glatm, glonm, glatv, glonv, &
                         arv, arw, volt
-  use mem_sfcg,   only: sfcg, nwsfc, itab_wsfc
+  use mem_sfcg,   only: sfcg, nwsfc, itab_wsfc, nwatm_max
   use leaf_coms,  only: isfcl, isoilflg, ivegflg
 
   use hdf5_utils, only: shdf5_orec, shdf5_open, shdf5_close
@@ -1426,7 +1425,8 @@ subroutine gridfile_write()
      ndims    = 1
      idims(1) = nwsfc
 
-     call shdf5_orec(ndims, idims, 'dzt_bot'   , rvar1=sfcg%dzt_bot)
+     call shdf5_orec(ndims, idims, 'sfcg%dzt_bot', rvar1=sfcg%dzt_bot)
+     call shdf5_orec(ndims, idims, 'sfcg%area',    rvar1=sfcg%area)
 
      allocate (iscr1(nwsfc))
      do iw = 1,nwsfc
@@ -1436,39 +1436,39 @@ subroutine gridfile_write()
      deallocate(iscr1)
 
      ndims = 2
-     idims(1) = 8
+     idims(1) = nwatm_max
      idims(2) = nwsfc
 
-     allocate (iscr2(8,nwsfc))
+     allocate (iscr2(nwatm_max,nwsfc))
      do iw = 1,nwsfc
-        iscr2(1:8,iw) = itab_wsfc(iw)%iwatm(1:8)
+        iscr2(1:nwatm_max,iw) = itab_wsfc(iw)%iwatm(1:nwatm_max)
      enddo
      call shdf5_orec(ndims,idims,'itab_wsfc%iwatm',ivar2=iscr2)
 
      do iw = 1,nwsfc
-        iscr2(1:8,iw) = itab_wsfc(iw)%kwatm(1:8)
+        iscr2(1:nwatm_max,iw) = itab_wsfc(iw)%kwatm(1:nwatm_max)
      enddo
      call shdf5_orec(ndims,idims,'itab_wsfc%kwatm',ivar2=iscr2)
      deallocate(iscr2)
 
-     allocate (rscr2(8,nwsfc))
+     allocate (rscr2(nwatm_max,nwsfc))
      do iw = 1,nwsfc
-        rscr2(1:8,iw) = itab_wsfc(iw)%arc(1:8)
+        rscr2(1:nwatm_max,iw) = itab_wsfc(iw)%arc(1:nwatm_max)
      enddo
      call shdf5_orec(ndims,idims,'itab_wsfc%arc',rvar2=rscr2)
 
      do iw = 1,nwsfc
-        rscr2(1:8,iw) = itab_wsfc(iw)%arcoarsfc(1:8)
+        rscr2(1:nwatm_max,iw) = itab_wsfc(iw)%arcoarsfc(1:nwatm_max)
      enddo
      call shdf5_orec(ndims,idims,'itab_wsfc%arcoarsfc',rvar2=rscr2)
 
      do iw = 1,nwsfc
-        rscr2(1:8,iw) = itab_wsfc(iw)%arcoariw(1:8)
+        rscr2(1:nwatm_max,iw) = itab_wsfc(iw)%arcoariw(1:nwatm_max)
      enddo
      call shdf5_orec(ndims,idims,'itab_wsfc%arcoariw',rvar2=rscr2)
 
      do iw = 1,nwsfc
-        rscr2(1:8,iw) = itab_wsfc(iw)%arcoarkw(1:8)
+        rscr2(1:nwatm_max,iw) = itab_wsfc(iw)%arcoarkw(1:nwatm_max)
      enddo
      call shdf5_orec(ndims,idims,'itab_wsfc%arcoarkw',rvar2=rscr2)
      deallocate(rscr2)
@@ -1498,7 +1498,7 @@ subroutine gridfile_read_pd()
                         mza, mma, mua, mva, mwa, nsw_max, nve2_max, &
                         xewg, yewg, zewg, arw0g, xemg, yemg, zemg, &
                         alloc_xyzemg, alloc_xyzewg
-  use mem_sfcg,   only: nwsfc, itab_wsfc_pd
+  use mem_sfcg,   only: nwsfc, itab_wsfc_pd, nwatm_max
   use leaf_coms,  only: isfcl, isoilflg, ivegflg
   use mem_para,   only: olam_mpi_finalize
   use hdf5_utils, only: shdf5_exists, shdf5_irec, shdf5_open, shdf5_close
@@ -1957,13 +1957,13 @@ subroutine gridfile_read_pd()
      deallocate(iscr1)
 
      ndims    = 2
-     idims(1) = 8
+     idims(1) = nwatm_max
      idims(2) = nwsfc
 
-     allocate (iscr2(8,nwsfc))
+     allocate (iscr2(nwatm_max,nwsfc))
      call shdf5_irec(ndims,idims,'itab_wsfc%iwatm',ivar2=iscr2)
      do iwsfc = 1,nwsfc
-        itab_wsfc_pd(iwsfc)%iwatm(1:8) = iscr2(1:8,iwsfc)
+        itab_wsfc_pd(iwsfc)%iwatm(1:nwatm_max) = iscr2(1:nwatm_max,iwsfc)
      enddo
      deallocate(iscr2)
 
@@ -2389,7 +2389,7 @@ subroutine gridfile_read_sfc()
 
   use max_dims,   only: pathlen
   use misc_coms,  only: io6, gridfile, mdomain
-  use mem_sfcg,   only: sfcg, mwsfc, itab_wsfc
+  use mem_sfcg,   only: sfcg, mwsfc, itab_wsfc, nwatm_max
   use hdf5_utils, only: shdf5_exists, shdf5_irec, shdf5_open, shdf5_close
   use mem_para,   only: olam_mpi_finalize
 
@@ -2454,39 +2454,40 @@ subroutine gridfile_read_sfc()
   idims(1) = mwsfc
   type     = 'CW'
 
-  call shdf5_irec(ndims, idims, 'dzt_bot' , rvar1=sfcg%dzt_bot, points=lgwsfc)
+  call shdf5_irec(ndims, idims, 'sfcg%dzt_bot', rvar1=sfcg%dzt_bot, points=lgwsfc)
+  call shdf5_irec(ndims, idims, 'sfcg%area'   , rvar1=sfcg%area   , points=lgwsfc)
 
   ndims    = 2
-  idims(1) = 8
+  idims(1) = nwatm_max
   idims(2) = mwsfc
   type     = 'CW'
 
-  allocate (iscr2(8,mwsfc))
+  allocate (iscr2(nwatm_max,mwsfc))
   call shdf5_irec(ndims,idims,'itab_wsfc%kwatm',ivar2=iscr2, points=lgwsfc)
   do iw = 1,mwsfc
-     itab_wsfc(iw)%kwatm(1:8) = iscr2(1:8,iw)
+     itab_wsfc(iw)%kwatm(1:nwatm_max) = iscr2(1:nwatm_max,iw)
   enddo
   deallocate(iscr2)
 
-  allocate (rscr2(8,mwsfc))
+  allocate (rscr2(nwatm_max,mwsfc))
   call shdf5_irec(ndims,idims,'itab_wsfc%arc',rvar2=rscr2, points=lgwsfc)
   do iw = 1,mwsfc
-     itab_wsfc(iw)%arc(1:8) = rscr2(1:8,iw)
+     itab_wsfc(iw)%arc(1:nwatm_max) = rscr2(1:nwatm_max,iw)
   enddo
 
   call shdf5_irec(ndims,idims,'itab_wsfc%arcoarsfc',rvar2=rscr2, points=lgwsfc)
   do iw = 1,mwsfc
-     itab_wsfc(iw)%arcoarsfc(1:8) = rscr2(1:8,iw)
+     itab_wsfc(iw)%arcoarsfc(1:nwatm_max) = rscr2(1:nwatm_max,iw)
   enddo
 
   call shdf5_irec(ndims,idims,'itab_wsfc%arcoariw',rvar2=rscr2, points=lgwsfc)
   do iw = 1,mwsfc
-     itab_wsfc(iw)%arcoariw(1:8) = rscr2(1:8,iw)
+     itab_wsfc(iw)%arcoariw(1:nwatm_max) = rscr2(1:nwatm_max,iw)
   enddo
 
   call shdf5_irec(ndims,idims,'itab_wsfc%arcoarkw',rvar2=rscr2, points=lgwsfc)
   do iw = 1,mwsfc
-     itab_wsfc(iw)%arcoarkw(1:8) = rscr2(1:8,iw)
+     itab_wsfc(iw)%arcoarkw(1:nwatm_max) = rscr2(1:nwatm_max,iw)
   enddo
   deallocate(rscr2)
 

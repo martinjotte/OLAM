@@ -770,18 +770,19 @@ subroutine sfc_atm_hex_overlay()
 
   use mem_grid,     only: nwa, nma, topm, topw, glatw, glonw, glonm, glatm, &
                           xew, yew, zew, xem, yem, zem, arw0
-  use mem_sfcg,     only: nwsfc, sfcgrid_res_factor, nsfcgrids, itab_wsfc, sfcg
+  use mem_sfcg,     only: nwsfc, sfcgrid_res_factor, nsfcgrids, itab_wsfc, &
+                          sfcg, nwatm_max
   use ll_bins,      only: latlon_bins, binset_vars, itab_grid_vars
   use mem_ijtabs,   only: itab_w, mrls
-  use misc_coms,    only: io6, nxp
+  use misc_coms,    only: io6, nxp, runtype
   use mem_ijtabs,   only: itab_m
   use mem_delaunay, only: iwsfc_orig
   use consts_coms,  only: xscale
 
   implicit none
 
-  integer :: iw, iwsfc, im, j, iwn, np
-  real    :: ds2, res
+  integer :: iw, iwsfc, im, j, iwn, imn, np, ierror
+  real    :: ds2, res, sres
 
   integer, allocatable :: icountw(:)
   integer, allocatable :: icountm(:)
@@ -790,7 +791,7 @@ subroutine sfc_atm_hex_overlay()
   type(binset_vars),    target      :: bset
   type(itab_grid_vars), allocatable :: itab_w0(:)
 
-  if ( sfcgrid_res_factor == 1 .and. nsfcgrids == 0 ) then
+  if ( runtype /= 'MAKEREGRID' .and. sfcgrid_res_factor == 1 .and. nsfcgrids == 0 ) then
 
      !$omp parallel
      !$omp do private(iw)
@@ -823,27 +824,27 @@ subroutine sfc_atm_hex_overlay()
 
   allocate(itab_w0(nwa))
 
-  !$omp parallel do private(np,j,iwn)
+  !$omp parallel do private(np,j,imn)
   do iw = 2, nwa
      np = itab_w(iw)%npoly
      itab_w0(iw)%np = np
 
      do j = 1, np
-        iwn = itab_w(iw)%iw(j)
-        itab_w0(iw)%glats(j) = glatw(iwn)
-        itab_w0(iw)%glons(j) = glonw(iwn)
+        imn = itab_w(iw)%im(j)
+        itab_w0(iw)%glats(j) = glatm(imn)
+        itab_w0(iw)%glons(j) = glonm(imn)
      enddo
 
      ! Close to a pole, the cell center may be the furthest north or south, so
      ! include this in the list of points that bound the cell
 
-     if (glatw(iw) > 89.) then
+     if (glatw(iw) > 86.) then
         itab_w0(iw)%np          = np+1
         itab_w0(iw)%glats(np+1) = glatw(iw)
         itab_w0(iw)%glons(np+1) = glonw(iw)
      endif
 
-     if (glatw(iw) < -89.) then
+     if (glatw(iw) < -86.) then
         itab_w0(iw)%np          = np+1
         itab_w0(iw)%glats(np+1) = glatw(iw)
         itab_w0(iw)%glons(np+1) = glonw(iw)
@@ -854,9 +855,11 @@ subroutine sfc_atm_hex_overlay()
 
   ! Allocate and fill latlon bins to compartmentalize all IW points of the ATM grid
 
-  res = 7150.e3 / ( xscale * real( nxp * 2**(mrls-1) ) ) * 10.
+  res = 7150.e3 / ( xscale * real( nxp * 2**(mrls-1) ) ) * 20.
 
-  call latlon_bins(nwa, res, itab_w0, bset)
+  sres = 0.55*sqrt( maxval( sfcg%area(2:) ) )
+
+  call latlon_bins(nwa, res, itab_w0, bset, border=sres)
 
   deallocate(itab_w0)
 
@@ -876,7 +879,9 @@ subroutine sfc_atm_hex_overlay()
 
   allocate(dsw_max(nwa))
 
-  !$omp parallel
+  ierror = 0
+
+  !$omp parallel shared(ierror)
   !$omp do private(ds2,j,im)
   do iw = 2, nwa
      ds2 = 0.
@@ -895,13 +900,21 @@ subroutine sfc_atm_hex_overlay()
 
   !$omp do
   do iwsfc = 2, nwsfc
-
      call sfc_atm_hex_overlay_2( iwsfc )
-
   enddo
-  !$omp end do
+  !$omp end do nowait
+  !$omp end parallel
 
-  !$omp do
+  if (ierror > 0) then
+     write(*,'(/A/)') " ERROR in sfc_atm_hex_overlay:"
+     write(*,'(A,I0,2(A,f0.3))') &
+                     " Surface cell iwsfc = ", ierror, " at glat = ", sfcg%glatw(ierror), " and ", sfcg%glonw(ierror)
+     write(*,'(A)')  " overlaps with more than nwatm_max atmospheric cells. "
+     write(*,'(A)')  " If you really want this increase nwatm_max in mem_sfcg.f90, but you may"
+     write(*,'(A/)') " not want a surface cell much larger than an atmospheric cell."
+     stop            "STOPPING grid generation"
+  endif
+
   do iw = 2, nwa
 
      if (icountw(iw) == 0) then
@@ -922,20 +935,17 @@ subroutine sfc_atm_hex_overlay()
         topw(iw) = topw(iw) / real(icountw(iw))
 
         write(*,*) "illegal value for topw at iw = ", iw, icountw(iw), glatw(iw), glonw(iw)
-        stop 'error in sfc_atm_hex_overlay'
 
      endif
 
   enddo
-  !$omp end do nowait
 
-  !$omp do
   do im = 2, nma
 
      if (icountm(im) == 0) then
 
         write(*,*) "topm not set at im = ", im, glatm(im), glonm(im)
-!        stop 'error in sfc_atm_hex_overlay'
+        stop 'error in sfc_atm_hex_overlay'
 
      elseif (icountm(im) == 2) then
 
@@ -950,13 +960,10 @@ subroutine sfc_atm_hex_overlay()
         topm(im) = topm(im) / real(icountm(im))
 
         write(*,*) "illegal value for topm at im = ", im, icountm(im), glatm(im), glonm(im)
-!        stop 'error in sfc_atm_hex_overlay'
 
      endif
 
   enddo
-  !$omp end do nowait
-  !$omp end parallel
 
 contains
 
@@ -967,7 +974,7 @@ subroutine sfc_atm_hex_overlay_2( iwsfc )
   use polygon_lib, only: polygon_overlap, inout_check
   use ll_bins,     only: gridcells_from_latlon_bins
   use consts_coms, only: dlat
-  use sortlib,     only: insertion_sort_rev
+  use sortlib,     only: sort_rev
   use map_proj,    only: get_cossin_lonlat, de_gn
 
   implicit none
@@ -1106,6 +1113,7 @@ subroutine sfc_atm_hex_overlay_2( iwsfc )
 
                  !$omp atomic
                  topm(im) = topm(im) + sfcg%topw(iwsfc)
+
               endif
 
            endif
@@ -1114,8 +1122,7 @@ subroutine sfc_atm_hex_overlay_2( iwsfc )
 
      ! Skip further computation if overlap is small.
 
-     if (area < 1.e-5 * sfcg%area(iwsfc)) cycle
-     if (area < 2.e-6 * arw0(iw)) cycle
+     if (area < 1.e-5 * min(arw0(iw),sfcg%area(iwsfc))) cycle
 
      ! Evaluate x,y coordinates of current IW point on gnomonic plane
      ! tangent at iwsfc
@@ -1148,9 +1155,18 @@ subroutine sfc_atm_hex_overlay_2( iwsfc )
 
      nwatm = nwatm + 1
 
-     itab_wsfc(iwsfc)%nwatm = nwatm
-     itab_wsfc(iwsfc)%iwatm(nwatm) = iw
-     itab_wsfc(iwsfc)%arc  (nwatm) = area
+     if (nwatm > nwatm_max) then
+
+        !$omp atomic write
+        ierror = iwsfc
+
+     else
+
+        itab_wsfc(iwsfc)%nwatm = nwatm
+        itab_wsfc(iwsfc)%iwatm(nwatm) = iw
+        itab_wsfc(iwsfc)%arc  (nwatm) = area
+
+     endif
 
   enddo  ! jw/iwbin
 
@@ -1158,8 +1174,8 @@ subroutine sfc_atm_hex_overlay_2( iwsfc )
 
   if (nwatm > 1) then
 
-     call insertion_sort_rev( itab_wsfc(iwsfc)%arc  (1:nwatm), &
-                              itab_wsfc(iwsfc)%iwatm(1:nwatm)  )
+     call sort_rev( itab_wsfc(iwsfc)%arc  (1:nwatm), &
+                    itab_wsfc(iwsfc)%iwatm(1:nwatm)  )
 
   endif
 

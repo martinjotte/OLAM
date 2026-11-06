@@ -17,6 +17,8 @@ Module mem_sfcg
   integer :: nvsfc, mvsfc
   integer :: nwsfc, mwsfc
 
+  integer, parameter :: nwatm_max = 12
+
   Type itab_msfc_vars
      integer :: imglobe
      integer :: irank   ! rank of parallel process at this MSFC pt
@@ -64,16 +66,16 @@ Module mem_sfcg
      real :: ecvec_vz(7) ! factors converting V to earth cart. velocity
 
      ! The following ITAB_WSFC members are written to the GRIDFILE.  All other
-     ! members are written to the SFCGRIDFILE.  Dimension of (8) is estimate
+     ! members are written to the SFCGRIDFILE.  Dimension of (nwatm_max) is estimate
      ! of max possible number of atm cells that could overlap this sfc cell.
 
-     integer :: nwatm          ! number of atm cells coupled to this sfc cell
-     integer :: iwatm    (8)   ! local-rank atm index of atm cell coupled to this sfc cell
-     integer :: kwatm    (8)   ! vertical index of atm cell coupled to this sfc cell
-     real    :: arc      (8)   ! coupling area between this sfc cell and 1 atm cell [m^2]
-     real    :: arcoarsfc(8)   ! arc over (divided by) area of sfc cell
-     real    :: arcoariw (8)   ! arc over area of atm cell
-     real    :: arcoarkw (8)   ! arc over area of atm cell that contacts sfc at kw level
+     integer :: nwatm                 ! number of atm cells coupled to this sfc cell
+     integer :: iwatm    (nwatm_max)  ! local-rank atm index of atm cell coupled to this sfc cell
+     integer :: kwatm    (nwatm_max)  ! vertical index of atm cell coupled to this sfc cell
+     real    :: arc      (nwatm_max)  ! coupling area between this sfc cell and 1 atm cell [m^2]
+     real    :: arcoarsfc(nwatm_max)  ! arc over (divided by) area of sfc cell
+     real    :: arcoariw (nwatm_max)  ! arc over area of atm cell
+     real    :: arcoarkw (nwatm_max)  ! arc over area of atm cell that contacts sfc at kw level
   End type itab_wsfc_vars
 
   type (itab_msfc_vars), allocatable, target :: itab_msfc(:)
@@ -98,8 +100,8 @@ Module mem_sfcg
      integer :: ivn(7)
      integer :: iwn(7)
 
-     integer :: nwatm    = 0
-     integer :: iwatm(8) = 1  ! dimension is estimate of max possible
+     integer :: nwatm            = 0
+     integer :: iwatm(nwatm_max) = 1  ! dimension is estimate of max possible
 
      integer :: leaf_class = -1
   End type itab_wsfc_pd_vars
@@ -156,7 +158,7 @@ Module mem_sfcg
      real, allocatable :: glatm(:) ! latitude of sfc cell M points [deg]
      real, allocatable :: glonm(:) ! longitude of sfc cell M points [deg]
 !    real, allocatable :: topm (:) ! topographic height of sfc W points
-     real, allocatable :: arm0 (:) ! Area of IM triangle at earth surface [m^2]
+     real, allocatable :: arm0 (:) ! Area of IM triangle at sea level [m^2]
 
      real, allocatable :: xev (:) ! earth x coord of sfc V points [m]
      real, allocatable :: yev (:) ! earth y coord of sfc V points [m]
@@ -173,6 +175,7 @@ Module mem_sfcg
      real, allocatable :: vnz  (:) ! V face normal unit vector z component [m]
 
      real, allocatable :: area    (:) ! cell surface area [m^2]
+     real, allocatable :: arw0    (:) ! cell surface area at sea level [m^2]
      real, allocatable :: xew     (:) ! earth x coord of sfc W points [m]
      real, allocatable :: yew     (:) ! earth y coord of sfc W points [m]
      real, allocatable :: zew     (:) ! earth z coord of sfc W points [m]
@@ -395,6 +398,7 @@ Contains
   allocate( sfcg%vny (mvsfc0) )
   allocate( sfcg%vnz (mvsfc0) )
 
+  allocate( sfcg%arw0      (mwsfc0) )
   allocate( sfcg%area      (mwsfc0) )
   allocate( sfcg%glatw     (mwsfc0) )
   allocate( sfcg%glonw     (mwsfc0) )
@@ -452,6 +456,7 @@ Contains
 
   !$omp do
   do iwsfc = 1, mwsfc0
+     sfcg%arw0      (iwsfc) = 0.
      sfcg%area      (iwsfc) = 0.
      sfcg%glatw     (iwsfc) = rinit
      sfcg%glonw     (iwsfc) = rinit

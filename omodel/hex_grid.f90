@@ -1159,6 +1159,7 @@ subroutine ctrlvols_hex()
 
   integer, allocatable :: kworig(:)
   integer, allocatable :: jsorig(:)
+  real                 :: asclk(nza), ascl
 
   real, parameter :: afrac_min = 0.30  ! minimum area fraction (compared to fully
                                        ! open cell) below which cell face is closed
@@ -1464,13 +1465,14 @@ subroutine ctrlvols_hex()
      lpm(im) = lpm(imp)
   enddo
 
+  ! Save sfcg%area as sea-level sfcg%arw0
+  sfcg%arw0(:) = sfcg%area(:)
+
   ! Loop over all SURFACE cells
 
-  !$omp parallel
-  !$omp do private(iwsfc,j,iw,kw)
+  !$omp parallel private(asclk)
+  !$omp do private(iwsfc,j,iw,kw,ascl)
   do iwsfc = 2,nwsfc
-
-     sfcg%dzt_bot(iwsfc) = 0.
 
      ! Loop over ATM cells that couple to current SURFACE cell
 
@@ -1496,18 +1498,38 @@ subroutine ctrlvols_hex()
         itab_wsfc(iwsfc)%arcoarkw (j) = itab_wsfc(iwsfc)%arc(j) / max( arw(kw,iw) - arw(kw-1,iw), 1.)
         itab_wsfc(iwsfc)%arcoarsfc(j) = itab_wsfc(iwsfc)%arc(j) / sfcg%area(iwsfc)
 
-        ! Expand coupling area for spherical geometry, and add change to SFC cell area
+     enddo
 
-        if (mdomain < 2) then
-           itab_wsfc(iwsfc)%arc(j) = itab_wsfc(iwsfc)%arc(j) * zfacm2(kw-1)
-           sfcg%area(iwsfc) = sfcg%area(iwsfc) &
-                            + itab_wsfc(iwsfc)%arc(j) * (zfacm2(kw-1) - 1.0)
-        endif
+     ! Make sure arcoarsfc sums to unity (due to numerics or ignoring small overlaps)
 
-        ! Compute SFC grid cell dzt_bot as weighted average over ATM cells
+     ascl = sum( itab_wsfc(iwsfc)%arcoarsfc(1:itab_wsfc(iwsfc)%nwatm) )
 
+     do j = 1, itab_wsfc(iwsfc)%nwatm
+        itab_wsfc(iwsfc)%arcoarsfc(j) = itab_wsfc(iwsfc)%arcoarsfc(j) / ascl
+     enddo
+
+     ! Expand coupling area for spherical geometry, and apply change to SFC cell area
+
+     if (mdomain < 2) then
+        ascl = 0.
+
+        do j = 1,itab_wsfc(iwsfc)%nwatm
+           kw  = itab_wsfc(iwsfc)%kwatm(j)
+
+           itab_wsfc(iwsfc)%arc(j) = itab_wsfc(iwsfc)%arc(j)       * zfacm2(kw-1)
+           ascl                    = itab_wsfc(iwsfc)%arcoarsfc(j) * zfacm2(kw-1) + ascl
+        enddo
+
+        sfcg%area(iwsfc) = sfcg%area(iwsfc) * ascl
+     endif
+
+     ! Compute SFC grid cell dzt_bot as weighted average over ATM cells
+
+     sfcg%dzt_bot(iwsfc) = 0.
+
+     do j = 1,itab_wsfc(iwsfc)%nwatm
+        kw  = itab_wsfc(iwsfc)%kwatm(j)
         sfcg%dzt_bot(iwsfc) = sfcg%dzt_bot(iwsfc) + dzt_bot(kw) * itab_wsfc(iwsfc)%arcoarsfc(j)
-
      enddo
 
   enddo
@@ -1564,7 +1586,9 @@ subroutine ctrlvols_hex()
 
      ! Compute number of levels that intersect with surface
 
-     lsw(iw) = 0
+     lsw(iw)  = 0
+     ascl     = 0.
+     asclk(:) = 0.
 
      do js = 1, itab_w(iw)%jsfc2
         iwsfc = itab_w(iw)%iwsfc(js)
@@ -1572,6 +1596,22 @@ subroutine ctrlvols_hex()
 
         kw = itab_wsfc(iwsfc)%kwatm(jasfc)
         lsw(iw) = max(lsw(iw), kw - lpw(iw) + 1)
+
+        ascl      = ascl      + itab_wsfc(iwsfc)%arcoariw(jasfc)
+        asclk(kw) = asclk(kw) + itab_wsfc(iwsfc)%arcoarkw(jasfc)
+     enddo
+
+     ! Scale arcoariw and arcoarkw so they sum to unity
+     ! (due to numerics or ignoring small overlaps)
+
+     do js = 1, itab_w(iw)%jsfc2
+        iwsfc = itab_w(iw)%iwsfc(js)
+        jasfc = itab_w(iw)%jasfc(js)
+
+        kw = itab_wsfc(iwsfc)%kwatm(jasfc)
+
+        itab_wsfc(iwsfc)%arcoariw(jasfc) = itab_wsfc(iwsfc)%arcoariw(jasfc) * ascl
+        itab_wsfc(iwsfc)%arcoarkw(jasfc) = itab_wsfc(iwsfc)%arcoarkw(jasfc) * asclk(kw)
      enddo
 
   enddo

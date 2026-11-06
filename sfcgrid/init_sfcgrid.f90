@@ -808,7 +808,7 @@ subroutine serial_init_sfc()
                           itab_msfc, itabg_msfc, itab_msfc_pd, &
                           itab_vsfc, itabg_vsfc, itab_vsfc_pd, &
                           itab_wsfc, itabg_wsfc, itab_wsfc_pd, &
-                          alloc_sfcgrid1, sfcg
+                          alloc_sfcgrid1, sfcg, nwatm_max
   use mem_land,     only: mland, nland, itab_land, alloc_land1
   use mem_lake,     only: mlake, nlake, itab_lake, alloc_lake1
   use mem_sea,      only: msea, nsea, itab_sea, alloc_sea1
@@ -895,7 +895,7 @@ subroutine serial_init_sfc()
      itab_wsfc(iwsfc)%ivn(1:7) = itab_wsfc_pd(iwsfc)%ivn(1:7)
      itab_wsfc(iwsfc)%iwn(1:7) = itab_wsfc_pd(iwsfc)%iwn(1:7)
 
-     itab_wsfc(iwsfc)%iwatm(1:8) = itab_wsfc_pd(iwsfc)%iwatm(1:8)
+     itab_wsfc(iwsfc)%iwatm(1:nwatm_max) = itab_wsfc_pd(iwsfc)%iwatm(1:nwatm_max)
   enddo
 
 end subroutine serial_init_sfc
